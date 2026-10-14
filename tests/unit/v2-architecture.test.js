@@ -904,6 +904,16 @@ const NOTIONS = [
     module: 'faits.js', fonction: 'seriesComptees', lecteurs: ['app.js'],
     raison: 'SOCIAL-V1 « Étage 2 » : mes chiffres et ceux d’un ami passent par les mêmes fonctions de `social.js` ; ' +
       'les miens sortent d’ici, sur la règle de `Bilan.volumeKg` et des fonctions de la base.' },
+  // ── 90 — LA GUILDE : mes nombres (séances prévues, records sans dépasser la charge proposée) dans le module des faits ──
+  { notion: 'les records qui comptent pour la guilde (six types ; sans pari relié, ou à la charge proposée ou en dessous)', pr: '90-U1',
+    module: 'faits.js', fonction: 'recordsSansDepasser', lecteurs: [],
+    par: ['scoresDeGuilde'],
+    raison: 'SOCIAL-V1 « Guilde » : le classement Progression et le défi des records lisent la même règle, décidée le 14/10/2026 ' +
+      '(un record sans proposition compte ; avec une proposition, à sa charge ou en dessous).' },
+  { notion: 'mes nombres de guilde (séances de la semaine et prévues, records, exercices du mois)', pr: '90-U1',
+    module: 'faits.js', fonction: 'scoresDeGuilde', lecteurs: ['app.js'],
+    raison: 'SOCIAL-V1 « Guilde » : calculés sur l’appareil, publiés tels quels (`guilde_scores`) ; les séances prévues lisent ' +
+      '`habitudes` quand le profil n’en déclare pas, sans la recopier.' },
   { notion: 'le score DOTS (la force à poids de corps égal, par sexe)', pr: '89-U1',
     module: 'social.js', fonction: 'scoreDots', lecteurs: [],
     par: ['scoresAPublier'],
@@ -1506,7 +1516,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : vingt-neuf (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : trente et un (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1517,7 +1527,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(29);
+    expect(FAITS.length).toBe(31);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 
@@ -2011,11 +2021,14 @@ const REGISTRE_ECRITURES = [
   { fn: 'accepterDemande', chemin: 'liste-blanche', appelants: ['app.js:vueDuFil'], raison: RAISON_SOCIAL },
   { fn: 'bloquer', chemin: 'liste-blanche', appelants: ['app.js:vueDeLAmi'], raison: RAISON_SOCIAL },
   { fn: 'debloquer', chemin: 'liste-blanche', appelants: ['app.js:dessinerAmis'], raison: RAISON_SOCIAL },
-  { fn: 'reagir', chemin: 'liste-blanche', appelants: ['app.js:vueDuFil'], raison: RAISON_SOCIAL },
-  { fn: 'retirerReaction', chemin: 'liste-blanche', appelants: ['app.js:vueDuFil'], raison: RAISON_SOCIAL },
+  { fn: 'reagir', chemin: 'liste-blanche', appelants: ['app.js:vueDuFil', 'app.js:vueDeLaGuilde'], raison: RAISON_SOCIAL },
+  { fn: 'retirerReaction', chemin: 'liste-blanche', appelants: ['app.js:vueDuFil', 'app.js:vueDeLaGuilde'], raison: RAISON_SOCIAL },
   // ── 89 (SOCIAL-V1 « Étage 2 ») — mes scores de force (`scores_force`, v2_079) : le score et la charge, jamais le poids.
   { fn: 'publierScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_SOCIAL },
   { fn: 'retirerScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_SOCIAL },
+  // ── 90 (SOCIAL-V1 « Guilde ») — mes nombres de guilde (`guilde_scores`, v2_080), déjà calculés sur l'appareil. Les
+  // gestes de la guilde (créer, inviter, partir…) passent par les fonctions de la base (`rpc`), qui gardent les règles.
+  { fn: 'publierScoresGuilde', chemin: 'liste-blanche', appelants: ['app.js:publierScoresGuilde'], raison: RAISON_SOCIAL },
   // `executer` : une réponse du chantier 26 encore en file (une ligne, des champs) — par la file, elle aussi.
   { fn: 'majExercice', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan', 'app.js:executer'], raison: RAISON_BIBLIOTHEQUE }
 ];

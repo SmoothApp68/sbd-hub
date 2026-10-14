@@ -79,6 +79,82 @@
       return out;
     }
 
+    // ── 90 (SOCIAL-V1 « Guilde ») — LES NOMBRES DE MA GUILDE, calculés ici, publiés tels quels (`guilde_scores`) ──
+    //
+    // LE RECORD QUI COMPTE (décision du 14/10/2026) : une ligne du journal (`recordsDuJournal`) d'un des six types
+    // `TYPES_DE_LA_GUILDE` — jamais `un_rm_estime` (une estimation) ni `volume_seance` (pousserait au volume) ; une
+    // série « à fond » compte, c'est un fait. Sa série :
+    //   · sans pari de consigne relié par `set_observe` (séance importée, série sans proposition) : elle COMPTE —
+    //     sans consigne, il n'y a rien à dépasser ;
+    //   · avec un pari relié : le pari de la plus haute révision ; elle compte à la charge proposée ou en dessous
+    //     (au centième) ; une proposition sans chiffre (« le cran au-dessus », `fondement.charge` nul) : elle compte
+    //     (la règle « suivie » de MOTEUR §12 : toute charge au-dessus du palier) ; une série sans charge : elle compte.
+    // Un record se compte par SÉRIE (une médaille par série, comme le fil). `paris` : les paris connus (`predictions`).
+    var TYPES_DE_LA_GUILDE = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'duree_s', 'distance_m'];
+    function recordsSansDepasser(c, paris, de, a) {
+      var series = {}, parSerie = {};
+      seancesAvecSeries(c).forEach(function (s) { s.series.forEach(function (x) { if (x && x.id) series[x.id] = x; }); });
+      (paris || []).forEach(function (p) {
+        if (!p || !p.set_observe || !p.exercise_slug || p.module === Moteur.MODULE_ESCALIER || !p.fondement) return;
+        var d = parSerie[p.set_observe];
+        if (!d || (Number(p.fondement.revision) || 0) > (Number(d.fondement.revision) || 0)) parSerie[p.set_observe] = p;
+      });
+      var vus = {}, out = [];
+      recordsDuJournal(c).forEach(function (l) {
+        if (TYPES_DE_LA_GUILDE.indexOf(l.type) < 0 || !l.set_id || vus[l.set_id]) return;
+        var j = l.battu_le ? Moteur.jourCivil(new Date(l.battu_le)) : null;
+        if (!j || (de && j < de) || (a && j > a)) return;
+        var pari = parSerie[l.set_id], serie = series[l.set_id];
+        var propose = pari && pari.fondement.charge !== null && pari.fondement.charge !== undefined ? Number(pari.fondement.charge) : null;
+        var faite = serie && serie.charge_kg !== null && serie.charge_kg !== undefined ? Number(serie.charge_kg) : null;
+        if (pari && propose !== null && isFinite(propose) && faite !== null && isFinite(faite) &&
+          Math.round(faite * 100) > Math.round(propose * 100)) return;
+        vus[l.set_id] = true;
+        out.push({ set_id: l.set_id, session_id: l.session_id, exercise_slug: l.exercise_slug, jour: j });
+      });
+      return out;
+    }
+
+    // Mes nombres de la semaine et du mois en cours, la forme de `guilde_scores` (v2_080) :
+    //   · `seances` : mes séances de la semaine (lundi → dimanche, heure locale) qui portent une série de travail ;
+    //   · `prevues` : `profiles.seances_par_semaine` (`declarees`), sinon la médiane de l'historique — `habitudes`, la
+    //     fonction du programme déduit, jamais recopiée ; 0 sans rien ;
+    //   · `records_semaine` : mes séries médaillées sans dépasser la charge proposée, dans la semaine ;
+    //   · `exercices` : les exercices faits dans au moins 2 séances du mois (séries de travail) ; `exercices_record` :
+    //     ceux d'entre eux qui ont au moins un record sans dépasser la charge proposée dans le mois.
+    function scoresDeGuilde(c, paris, declarees, maintenant) {
+      var m = maintenant || new Date();
+      var b = Semaine.bornesSemaine(m);
+      var lundi = Moteur.jourCivil(b.lundi), dimanche = Moteur.jourCivil(b.dimanche);
+      var premier = Moteur.jourCivil(new Date(m.getFullYear(), m.getMonth(), 1));
+      var dernier = Moteur.jourCivil(new Date(m.getFullYear(), m.getMonth() + 1, 0));
+      var seances = 0, parExo = {};
+      seancesAvecSeries(c).forEach(function (s) {
+        var j = s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
+        if (!j) return;
+        var travail = s.series.filter(function (x) { return x && x.exercise_slug && Modele.estTravail(x); });
+        if (!travail.length) return;
+        if (j >= lundi && j <= dimanche) seances++;
+        if (j >= premier && j <= dernier) {
+          travail.forEach(function (x) { (parExo[x.exercise_slug] = parExo[x.exercise_slug] || {})[s.id] = true; });
+        }
+      });
+      var d = Number(declarees);
+      var prevues = Number.isInteger(d) && d >= 1 && d <= 14 ? d : null;
+      if (prevues === null) { var h = habitudes(c); prevues = h && h.seances_par_semaine ? Math.min(14, Math.round(h.seances_par_semaine)) : 0; }
+      var duMois = recordsSansDepasser(c, paris, premier, dernier);
+      var avecRecord = {};
+      duMois.forEach(function (r) { avecRecord[r.exercise_slug] = true; });
+      var exercices = Object.keys(parExo).filter(function (k) { return Object.keys(parExo[k]).length >= 2; });
+      return {
+        semaine: lundi, seances: seances, prevues: prevues,
+        records_semaine: duMois.filter(function (r) { return r.jour >= lundi && r.jour <= dimanche; }).length +
+          (lundi < premier ? recordsSansDepasser(c, paris, lundi, Moteur.jourCivil(new Date(m.getFullYear(), m.getMonth(), 0))).length : 0),
+        mois: premier, exercices: exercices.length,
+        exercices_record: exercices.filter(function (k) { return avecRecord[k]; }).length
+      };
+    }
+
     // Toutes les séances qui portent un exercice (la séance en cours n'y est
     // pas : elle n'est dans le cache qu'une fois terminée).
     var memoParSlug = { cle: null, parSlug: {} };
@@ -919,6 +995,9 @@
       parcoursDe: parcoursDe,
       seancesAvecSeries: seancesAvecSeries,
       seriesComptees: seriesComptees,
+      recordsSansDepasser: recordsSansDepasser,
+      scoresDeGuilde: scoresDeGuilde,
+      TYPES_DE_LA_GUILDE: TYPES_DE_LA_GUILDE,
       seancesDuSlug: seancesDuSlug,
       seancesDeLExercice: seancesDeLExercice,
       recordsDeLaSeance: recordsDeLaSeance,

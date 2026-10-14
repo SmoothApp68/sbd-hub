@@ -6067,8 +6067,9 @@
       carte.appendChild(pied);
       cible.appendChild(carte);
     });
-    cible.appendChild(el('div', 's-fin', cartes.length ? 'Tu es à jour · les 30 derniers jours'
-      : 'Aucune séance des personnes que tu suis ces 30 derniers jours.'));
+    // 90 — le fil de la guilde dit sa propre fin (`vue.fin`).
+    cible.appendChild(el('div', 's-fin', vue.fin || (cartes.length ? 'Tu es à jour · les 30 derniers jours'
+      : 'Aucune séance des personnes que tu suis ces 30 derniers jours.')));
   }
 
   // Le profil d'une personne.   vue = { etat, profil: {...}, calendrier, resume, cache }
@@ -6319,6 +6320,226 @@
     cible.appendChild(carte);
   }
 
+  // ══ LA GUILDE (90, SOCIAL-V1 « Guilde », maquette écran 4) ══════════════════════════════════════════════════
+  //
+  // Pas de chef affiché, pas de vainqueur, pas de rouge, pas de messagerie. Les noms et pseudos sont du texte
+  // utilisateur : `textContent` seulement.
+  function puceSocial(texte, actif, sur, attrs) {
+    var b = boutonSocial(texte, 's-periode' + (actif ? ' s-on' : ''), sur);
+    Object.keys(attrs || {}).forEach(function (k) { b.setAttribute(k, attrs[k]); });
+    if (actif) b.setAttribute('aria-pressed', 'true');
+    return b;
+  }
+  function palette(couleurs, choisie, sur, id) {
+    var p = el('div', 's-choix s-palette');
+    if (id) p.id = id;
+    couleurs.forEach(function (c) {
+      var b = boutonSocial('', 's-couleur' + (c === choisie ? ' s-on' : ''), function () { sur(c); });
+      b.style.background = c;
+      b.setAttribute('data-couleur', c);
+      b.setAttribute('aria-label', 'Couleur du blason ' + c);
+      if (c === choisie) b.setAttribute('aria-pressed', 'true');
+      p.appendChild(b);
+    });
+    return p;
+  }
+  function rangsProgression(parent, lignes) {
+    lignes.forEach(function (x) {
+      var r = el('div', 's-rang' + (x.moi ? ' s-moi' : ''));
+      r.setAttribute('data-pseudo', x.pseudo);
+      r.appendChild(el('span', 's-n', String(x.rang)));
+      r.appendChild(el('span', 's-t', x.pseudo));
+      r.appendChild(el('span', 's-sc', x.texte));
+      parent.appendChild(r);
+    });
+  }
+  function rendreGuilde(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    if (etatSocial(cible, vue)) return;
+    if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur s-guilde-message', vue.message));
+    if (!vue.guilde) {
+      (vue.invitations || []).forEach(function (i) {
+        var r = el('div', 's-demande s-invitation-guilde');
+        r.appendChild(blasonSocial(i.couleur, 34));
+        var t = el('div', 's-t');
+        t.appendChild(el('b', null, i.nom));
+        t.appendChild(el('small', null, i.invitant + ' t’invite · ' + i.membres + ' membre' + (i.membres > 1 ? 's' : '')));
+        r.appendChild(t);
+        r.appendChild(boutonSocial('Rejoindre', 's-b1 s-rejoindre', i.surRejoindre));
+        r.appendChild(boutonSocial('Refuser', 's-b3 s-refuser', i.surRefuser));
+        cible.appendChild(r);
+      });
+      var c = el('div', 's-carte s-creer-guilde');
+      c.appendChild(el('b', null, 'Créer une guilde'));
+      c.appendChild(el('p', 's-gris s-cache', 'Une guilde permanente, jusqu’à 30 membres. Tu y invites tes abonnés mutuels.'));
+      c.appendChild(blasonSocial(vue.creer.couleur, 48));
+      var champ = el('input', 's-champ');
+      champ.id = 'guilde-nom';
+      champ.maxLength = 24;
+      champ.placeholder = 'Nom de la guilde (3 à 24 caractères)';
+      champ.setAttribute('aria-label', 'Nom de la guilde');
+      c.appendChild(champ);
+      c.appendChild(palette(vue.couleurs, vue.creer.couleur, function (x) {
+        var v = champ.value;
+        vue.creer.surCouleur(x);
+        var nouveau = doc.getElementById('guilde-nom');
+        if (nouveau) nouveau.value = v;
+      }, 'guilde-couleurs'));
+      c.appendChild(boutonSocial('Créer', 's-b1 s-large', function () { vue.creer.surCreer(champ.value); }, 'guilde-creer'));
+      cible.appendChild(c);
+      return;
+    }
+    var g = vue.guilde;
+    var tete = el('div', 's-prof s-guilde-tete');
+    tete.appendChild(blasonSocial(g.couleur, 64));
+    tete.appendChild(el('b', 's-pseudo s-guilde-nom', g.nom));
+    tete.appendChild(el('small', 's-guilde-membres', g.membres));
+    cible.appendChild(tete);
+    var onglets = el('div', 's-choix s-onglets-guilde');
+    vue.onglets.forEach(function (o) { onglets.appendChild(puceSocial(o.libelle, o.actif, o.sur, { 'data-onglet': o.cle })); });
+    cible.appendChild(onglets);
+
+    if (vue.defi !== undefined || vue.cetteSemaine !== undefined) {
+      if (vue.defi) {
+        var d = el('div', 's-carte s-defi');
+        d.appendChild(el('b', null, 'Défi de la semaine'));
+        d.appendChild(el('p', 's-gris s-cache s-defi-titre', vue.defi.titre + ' · ' + vue.defi.quand));
+        var jauge = el('div', 's-jauge');
+        var plein = el('div', 's-jauge-plein');
+        plein.style.width = Math.round(vue.defi.part * 100) + '%';
+        jauge.appendChild(plein);
+        jauge.setAttribute('role', 'progressbar');
+        jauge.setAttribute('aria-valuemin', '0'); jauge.setAttribute('aria-valuemax', '100');
+        jauge.setAttribute('aria-valuenow', String(Math.round(vue.defi.part * 100)));
+        d.appendChild(jauge);
+        d.appendChild(el('p', 's-gris s-cache s-defi-phrase', vue.defi.phrase));
+        if (vue.choixDefi) {
+          var ch = el('div', 's-choix-defi');
+          ch.appendChild(el('small', 's-gris', 'Choisir le défi de la semaine'));
+          vue.choixDefi.forEach(function (x) {
+            var l = el('div', 's-defi-option');
+            l.setAttribute('data-defi', x.cle);
+            l.appendChild(el('span', 's-defi-libelle', x.libelle));
+            var p = el('div', 's-choix');
+            if (x.sur) p.appendChild(puceSocial(x.actif ? 'Choisi' : 'Choisir', x.actif, x.sur, { 'data-defi': x.cle }));
+            x.choix.forEach(function (c) { p.appendChild(puceSocial(String(c.n), c.actif, c.sur, { 'data-defi': x.cle, 'data-n': String(c.n) })); });
+            l.appendChild(p);
+            ch.appendChild(l);
+          });
+          d.appendChild(ch);
+        }
+        cible.appendChild(d);
+      }
+      if (vue.cetteSemaine) {
+        var s = el('div', 's-carte s-guilde-semaine');
+        s.appendChild(el('b', null, 'La guilde cette semaine'));
+        var chiffres = el('div', 's-chiffres');
+        [['s-g-seances', vue.cetteSemaine.seances, 'séances'], ['s-g-records', vue.cetteSemaine.records, 'records'],
+          ['s-g-tonnes', vue.cetteSemaine.tonnes, 'ensemble']].forEach(function (x) {
+          var b = el('div'); b.appendChild(el('strong', x[0], x[1])); b.appendChild(el('span', null, x[2])); chiffres.appendChild(b);
+        });
+        s.appendChild(chiffres);
+        cible.appendChild(s);
+      }
+    }
+    if (vue.progression) {
+      var pr = el('div', 's-progression-guilde');
+      pr.appendChild(el('p', 's-titre-s', vue.titreProgression));
+      if (vue.explicationProgression) pr.appendChild(el('p', 's-gris s-cache', vue.explicationProgression));
+      rangsProgression(pr, vue.progression);
+      if (!vue.progression.length) pr.appendChild(el('p', 's-gris s-cache', 'Rien de publié ce mois-ci pour l’instant.'));
+      cible.appendChild(pr);
+    }
+    if (vue.chargementFil) cible.appendChild(el('p', 's-gris s-note', 'Chargement…'));
+    if (vue.fil) {
+      var f = el('div', 's-fil-guilde');
+      rendreFil(f, vue.fil);
+      cible.appendChild(f);
+    }
+    if (vue.membres) {
+      var m = el('div', 's-membres-guilde');
+      vue.membres.forEach(function (x) {
+        var l = el('div', 's-ligne s-membre');
+        l.setAttribute('data-pseudo', x.pseudo);
+        l.appendChild(blasonSocial(x.couleur, 30));
+        var t = el('div', 's-t');
+        var nom = el('span', 's-membre-ligne' + (x.surProfil ? ' s-lien' : ''), x.moi ? x.ligne.replace(/^[^·]+/, 'toi ') : x.ligne);
+        if (x.surProfil) nom.addEventListener('click', x.surProfil);
+        t.appendChild(nom);
+        l.appendChild(t);
+        if (x.surTransmettre) {
+          var bt = boutonSocial('Transmettre', 's-b3 s-transmettre', null);
+          bt.disabled = false;
+          bt.addEventListener('click', function () {
+            if (bt.getAttribute('data-arme') !== '1') { bt.setAttribute('data-arme', '1'); bt.textContent = 'Lui transmettre ?'; return; }
+            x.surTransmettre();
+          });
+          l.appendChild(bt);
+        }
+        if (x.surRetirer) {
+          var br = boutonSocial('Retirer', 's-b3 s-retirer', null);
+          br.disabled = false;
+          br.addEventListener('click', function () {
+            if (br.getAttribute('data-arme') !== '1') { br.setAttribute('data-arme', '1'); br.textContent = 'Le retirer ?'; return; }
+            x.surRetirer();
+          });
+          l.appendChild(br);
+        }
+        m.appendChild(l);
+      });
+      cible.appendChild(m);
+      var rg = el('div', 's-carte s-rangs');
+      rg.appendChild(el('b', null, 'Ton rang'));
+      rg.appendChild(el('p', 's-gris s-cache', 'Un nom que tu choisis. Il ne donne aucun pouvoir, et tu le changes quand tu veux.'));
+      var pr2 = el('div', 's-choix');
+      vue.rangs.forEach(function (r) { pr2.appendChild(puceSocial(r.rang, r.actif, r.sur, { 'data-rang': r.rang })); });
+      rg.appendChild(pr2);
+      cible.appendChild(rg);
+      if (vue.invitables) {
+        var inv = el('div', 's-carte s-inviter-guilde');
+        inv.appendChild(el('b', null, 'Inviter'));
+        inv.appendChild(el('p', 's-gris s-cache', 'Tes abonnés mutuels (vous vous suivez l’un l’autre).'));
+        vue.invitables.forEach(function (x) {
+          inv.appendChild(lignePersonne({ pseudo: x.pseudo, couleur: x.couleur, bouton: { texte: 'Inviter', classe: 's-b2 s-inviter-membre', sur: x.sur } }));
+        });
+        if (!vue.invitables.length) inv.appendChild(el('p', 's-gris s-cache', 'Aucun abonné mutuel à inviter.'));
+        cible.appendChild(inv);
+      }
+      if (vue.edition) {
+        var ed = el('div', 's-carte s-edition-guilde');
+        if (vue.edition.surOuvrir) {
+          ed.appendChild(boutonSocial('Modifier le nom et le blason', 's-b2 s-large', vue.edition.surOuvrir, 'guilde-modifier'));
+        } else {
+          var champ2 = el('input', 's-champ');
+          champ2.id = 'guilde-nom-edition';
+          champ2.maxLength = 24;
+          champ2.value = vue.edition.nom;
+          champ2.setAttribute('aria-label', 'Nom de la guilde');
+          ed.appendChild(champ2);
+          ed.appendChild(palette(vue.couleurs, vue.edition.couleur, function (x) {
+            var v = champ2.value;
+            vue.edition.surCouleur(x);
+            var nouveau = doc.getElementById('guilde-nom-edition');
+            if (nouveau) nouveau.value = v;
+          }));
+          var a = el('div', 's-actions');
+          a.appendChild(boutonSocial('Enregistrer', 's-b1', function () { vue.edition.surEnregistrer(champ2.value); }, 'guilde-enregistrer'));
+          a.appendChild(boutonSocial('Annuler', 's-b3', vue.edition.surAnnuler));
+          ed.appendChild(a);
+        }
+        cible.appendChild(ed);
+      }
+      var q = el('div', 's-actions s-quitter-guilde');
+      if (vue.quitter.surOuvrir) q.appendChild(boutonSocial('Quitter la guilde', 's-b3', vue.quitter.surOuvrir, 'guilde-quitter'));
+      else {
+        q.appendChild(boutonSocial('Oui, quitter', 's-b2', vue.quitter.surConfirmer, 'guilde-quitter-oui'));
+        q.appendChild(boutonSocial('Rester', 's-b3', vue.quitter.surAnnuler));
+      }
+      cible.appendChild(q);
+    }
+  }
+
   // Trouver des amis, le lien d'invitation, la confidentialité.
   function lignePersonne(x) {
     var l = el('div', 's-ligne');
@@ -6472,6 +6693,7 @@
     rendreJeuAccueil: rendreJeuAccueil,
     // 87 — le social, étage 1.
     rendreEnteteSocial: rendreEnteteSocial, rendreFil: rendreFil, rendreAmi: rendreAmi, rendreAmis: rendreAmis,
+    rendreGuilde: rendreGuilde,
     rendreExerciceAmi: rendreExerciceAmi, rendreComparaison: rendreComparaison, rendreEntreAmis: rendreEntreAmis,
     rendreResultatsAmis: rendreResultatsAmis, rendreReactionsAuteur: rendreReactionsAuteur,
     JEU_TITRES: JEU_TITRES,

@@ -111,3 +111,83 @@ politique `FOR ALL` propriétaire. Fonctions (SECURITY DEFINER, `search_path` fi
 mutuels seulement) : `social_exercices_ami(user)`, `social_series_exercice(user, slug)`,
 `social_periode(user, de, a)` (≤ 366 jours ; une ligne par exercice et une ligne de total, `exercise_slug` nul),
 `social_scores_force(slug)` (les miens et ceux de mes mutuels). Aucune politique ajoutée sur sessions, sets, records.
+
+## 6. Guilde — décisions du 14/10/2026 (prompt 90)
+
+> Décisions d'Aurélien du 14/10/2026, reportées mot pour mot. Maquette : `v2-atelier/maquettes/maquette-social-etage2-guilde-v2.html`,
+> écran 4. Base : migration **proposée** `v2-atelier/migrations-proposees/v2_080_guilde.sql` (relue et lancée par Claude.ai,
+> après v2_079).
+
+- Mes amis = la liste des mutuels ; la guilde est permanente ; le groupe de séance (éphémère) est un AUTRE chantier : ne le fais pas.
+- Jusqu'à 30 membres. Tout membre invite, mais seulement un de ses abonnés mutuels. Une guilde par personne.
+- Pas de chef affiché. Le créateur administre : nom, blason, retirer un membre, choisir le défi, transmettre l'administration. S'il part, l'administration passe au membre le plus ancien ; une guilde sans membre disparaît. Chacun part quand il veut, sans que les autres soient prévenus.
+- Nom : 3 à 24 caractères, unique (comparaison sans casse ni accents, sans unaccent : translate(lower(btrim(…)), …)). Blason : un des gabarits du jeu/social, couleur au choix ; aucune image envoyée.
+- Rangs choisis par chacun, sans aucun pouvoir, plusieurs membres peuvent avoir le même, modifiables à tout moment : Squatteur · Bencheur · Terreur · Pousseur · Tireur · Chargeur · Gymbro · Motiveur · Novice (par défaut). Affichage d'un membre : « jordan · Squatteur · <titre du jeu> ». Les rangs ne se gagnent jamais (seuls les titres du jeu se gagnent).
+- Onglets de la guilde : Semaine (défi + « La guilde cette semaine » : séances, records, tonnage), Fil (séances des membres, mêmes règles et mêmes fonctions que le fil de 87), Progression (classement du mois : part des exercices avec au moins un record sans dépasser la charge proposée par le coach ; un exercice compte s'il a au moins 2 séances dans le mois ; remise à zéro le 1er ; score seul, pas de vainqueur ni de rouge), Membres.
+- Défi : un à la fois, coopératif, choisi chaque lundi par l'administrateur parmi des défis sûrs : (1) chacun fait ses séances prévues ; (2) des records battus sans dépasser la charge proposée ; (3) variété : N exercices différents à tous. Sans choix, le défi (1) part seul. Jamais sur la charge ou le tonnage. Une jauge commune.
+- Jeu éteint : on reste membre avec son rang, sans XP.
+- Pas de messagerie dans la guilde ; réactions seulement. Pas de direct.
+- Le coach et les bilans ne lisent rien de la guilde.
+
+- **Décision d'Aurélien du 14/10/2026 (après la PR #421)** : le défi de la semaine est FIGÉ une fois la semaine lancée.
+  Seule exception : l'administrateur peut encore le changer tant qu'aucun membre n'a terminé de séance cette semaine-là.
+
+### 6.1 Décisions de Claude.ai du 14/10/2026 (jugement technique délégué par Aurélien)
+
+- **1a. Record SANS proposition** (séance importée, ou série sans pari) : il COMPTE. Un record AVEC proposition ne compte que
+  s'il est à la charge proposée ou en dessous. Pourquoi : la règle de sûreté sert à ne jamais pousser à dépasser une
+  consigne ; sans consigne, il n'y a rien à dépasser. Exclure les membres sans coach viderait le social, car presque tous
+  les amis importent depuis Hevy aujourd'hui. Même règle pour le classement Progression et pour le défi (2).
+- **1b. Proposition sans chiffre** (« le cran au-dessus ») : règle « suivie » de MOTEUR §12, toute charge au-dessus du palier
+  compte.
+- **1c. Révisions** : le pari relié à la série par `set_observe`.
+- **1d. Types de record qui comptent** : `charge_a_reps`, `reps_a_charge`, `charge_max`, `cap`, `duree_s`, `distance_m`.
+  Exclus : `un_rm_estime` (une estimation, pas un fait) et `volume_seance` (pousserait au volume). Une série « à fond »
+  compte (c'est un fait).
+- **2. Séances prévues** (défi 1) : `profiles.seances_par_semaine`. S'il est vide (3 profils sur 8 aujourd'hui : alexis,
+  jordan, lea), la médiane hebdomadaire de l'historique, avec la même fonction que faits.js:618 (`habitudes`), sans la
+  recopier. Chaque membre est plafonné à ses séances prévues. Calcul sur l'appareil, puis publication du score déjà
+  calculé, comme `scores_force`.
+
+### 6.2 Ce que le code en a fait (90)
+
+- **Le record qui compte** : `faits.recordsSansDepasser` — une ligne du journal des six types, comptée **une fois par
+  série** (une médaille par série, comme le fil). Sa série sans pari de consigne relié (`set_observe`, module ≠
+  `escalier`) compte ; avec, le pari de la plus haute `fondement.revision` ; compte si la charge faite ≤ la charge
+  proposée (au centième) ; `fondement.charge` nul (le cran sans chiffre) ou série sans charge : compte.
+- **Mes nombres** : `faits.scoresDeGuilde` → `guilde_scores` (`semaine`, `seances`, `prevues`, `records_semaine`, `mois`,
+  `exercices`, `exercices_record`), publiés à l'ouverture de la guilde et à la fin d'une séance quand on me sait membre,
+  seulement s'ils ont changé. Séances de la semaine : celles qui portent une série de travail, du lundi au dimanche (heure
+  locale). Séances prévues : le profil (1 à 14), sinon `habitudes(c).seances_par_semaine`, sinon 0.
+- **La jauge** : (1) Σ min(séances, prévues) sur Σ prévues (« 11 séances sur 17 prévues, à vous quatre ») ; (2) Σ records
+  publiés sur N ; (3) exercices différents de la semaine, à tous, sur N — calculés par la base (une union ne s'additionne
+  pas d'une personne à l'autre). N au choix : 2, 3, 5, 8, 10 (records) ; 5, 8, 10, 12, 15 (variété). Le défi est modifiable
+  par l'administrateur **tant qu'aucun membre n'a terminé de séance** dans la semaine en cours (heure de Paris, toute
+  séance terminée) ; ensuite il est figé : l'écran retire le choix (`defi_modifiable` de `guilde_semaine`,
+  `Social.defiModifiable`) et la base refuse (`guilde_semaine_lancee`, exception `guilde_defi_fige`). Choisir le
+  premier défi après une séance terminée est aussi refusé : le défi (1) court alors seul.
+- **« La guilde cette semaine »** (fait brut de la base) : séances terminées non privées des membres avec une série de travail,
+  leurs séries médaillées (six types, une par série), et le tonnage de `Bilan.volumeKg`.
+- **Progression** : ordre par part décroissante, puis par nombre d'exercices ; « 5 sur 6 » ; sans exercice compté, « — »
+  en bas. Numéros de ligne comme la maquette ; ni couronne, ni rouge, ni vainqueur.
+- **Blason** : le seul gabarit du social (`bouclier`), huit couleurs. Plus de gabarits : noté pour plus tard.
+- **Membres** : « toi · Terreur », « jordan · Squatteur · Athlète » ; le titre seulement s'il est publié (nul jeu éteint).
+  L'administrateur voit « Transmettre » et « Retirer » (deux touches), et « Modifier le nom et le blason ». « Quitter la
+  guilde » demande « Oui, quitter ». Personne n'est prévenu d'un départ.
+- **Inviter** : `Social.invitables` — mes abonnés mutuels (je le suis, il me suit) qui ne sont pas membres. Les invitations
+  reçues s'affichent quand je n'ai pas de guilde (« Rejoindre » / « Refuser », en silence).
+- **Fil** : `guilde_fil` rend les colonnes de `social_fil` (les autres membres, terminées, non privées, 30 jours) ; même
+  rendu (`Rendu.rendreFil`), mêmes médailles (`faits.medaillesDuSocial` sur `guilde_records_seance`). On réagit à la
+  séance d'un membre même sans le suivre (politique `reactions_guilde`).
+- **Route** : `/jeu/guilde`, un sous-onglet « Guilde » à côté de « Fil ».
+
+### 6.3 La base (v2_080, proposée)
+
+Tables `guildes` (nom unique par `nom_cle` = `translate(lower(btrim(nom)), …)`), `guilde_membres` (**clé primaire =
+la personne** : une guilde par personne), `guilde_invitations`, `guilde_defis` (contrainte `guilde_defis_type` : `seances`,
+`records`, `variete`), `guilde_scores` (aucune colonne de poids). Déclencheurs : 30 membres au plus (ligne de la guilde
+verrouillée) ; seul le rang change ; au départ, la guilde sans membre disparaît et l'administration passe au plus ancien
+(`entre_le`, puis `user_id`) — aussi quand un compte est supprimé ; l'administrateur est toujours un membre ; une invitation
+vient d'un membre et vise un de ses **mutuels** (`social_mutuel`). Aucune écriture ni lecture directe sur guildes, membres,
+invitations, défis : des fonctions SECURITY DEFINER (`guilde_choisir_defi` refuse dès que la semaine est lancée) (`search_path` figé, `authenticated` seulement). Une politique ajoutée,
+`reactions_guilde` (insertion), via `guilde_peut_reagir` ; aucune sur sessions, sets, records.

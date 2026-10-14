@@ -57,6 +57,8 @@
   // 87 (SOCIAL-V1) — le social vit DANS l'onglet Jeu (« Jeu & amis »), mais il ne dépend pas de
   // l'interrupteur du jeu : `estVueDuJeu` ne le compte pas. `/a/<pseudo>` est le lien d'invitation.
   var FIL = 'fil', AMIS = 'amis', AMI = 'ami', COMPARER = 'comparer';
+  // 90 — la guilde : « /jeu/guilde », un sous-onglet social de plus (ouvert jeu allumé ou éteint).
+  var GUILDE = 'guilde';
   var RE_PSEUDO = /^[A-Za-z0-9_.-]{1,40}$/;
   var VOLUME = 'volume', POIDS = 'poids';
   // MOTEUR §9.23 (55-1) — le bilan d'un mois et ses records, sous Progression.
@@ -116,7 +118,7 @@
   SOUS_JEU[MUSCLES] = true; SOUS_JEU[SUCCES] = true; SOUS_JEU[DEBLOCAGES] = true;
   // 87 — les deux vues sociales sous « /jeu/ » (même onglet, hors interrupteur).
   var SOUS_SOCIAL = {};
-  SOUS_SOCIAL[FIL] = true; SOUS_SOCIAL[AMIS] = true;
+  SOUS_SOCIAL[FIL] = true; SOUS_SOCIAL[AMIS] = true; SOUS_SOCIAL[GUILDE] = true;
 
   // Vues à segment unique, sans paramètre. La racine n'y figure pas : elle est
   // le chemin « / », et c'est l'onglet Séances.
@@ -360,7 +362,7 @@
     // 64B — une vue du jeu (l'onglet ou une sous-vue) : `app.js` la refuse quand le jeu est éteint.
     estVueDuJeu: function (vue) { return vue === JEU || !!SOUS_JEU[vue]; },
     // 87 — les vues sociales : ouvertes jeu allumé ou éteint.
-    FIL: FIL, AMIS: AMIS, AMI: AMI, SOUS_SOCIAL: SOUS_SOCIAL,
+    FIL: FIL, AMIS: AMIS, AMI: AMI, GUILDE: GUILDE, SOUS_SOCIAL: SOUS_SOCIAL,
     estVueSociale: function (vue) { return !!SOUS_SOCIAL[vue] || vue === AMI; },
     versDate: versDate,
     depuisDate: depuisDate,

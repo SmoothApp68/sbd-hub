@@ -1227,7 +1227,7 @@
     var bouton = $('onglet-jeu'), barre = $('onglets'), nom = $('onglet-jeu-nom');
     if (bouton) bouton.hidden = false;
     if (nom) nom.textContent = jeuAllume() ? 'Jeu & amis' : 'Amis';
-    ['vue-jeu', 'vue-fil'].forEach(function (id) { Rendu.rendreEnteteSocial($(id), jeuAllume()); });
+    ['vue-jeu', 'vue-fil', 'vue-guilde'].forEach(function (id) { Rendu.rendreEnteteSocial($(id), jeuAllume()); });
     if (barre) barre.style.setProperty('--n-onglets', String(barre.querySelectorAll('.onglet:not([hidden])').length));
   }
 
@@ -1791,6 +1791,209 @@
     } catch (e) {
       console.warn('Entre amis :', texteErreur(e));
     }
+  }
+
+  // ══ LA GUILDE (90, SOCIAL-V1 « Guilde », maquette `maquette-social-etage2-guilde-v2.html`, écran 4) ══════════
+  //
+  // Tout passe par les fonctions de la base (v2_080), qui gardent les règles : 30 membres, une guilde par personne,
+  // inviter un abonné mutuel seulement, l'administration au plus ancien quand l'administrateur part. Mes nombres
+  // (séances prévues, records sans dépasser la charge proposée) se calculent sur l'appareil (`faits.scoresDeGuilde`) et
+  // seuls les nombres partent. Pas de messagerie : des réactions. Le coach et les bilans ne lisent rien d'ici.
+  var ONGLETS_GUILDE = [
+    { cle: 'semaine', libelle: 'Semaine' }, { cle: 'fil', libelle: 'Fil' },
+    { cle: 'progression', libelle: 'Progression' }, { cle: 'membres', libelle: 'Membres' }
+  ];
+  function messageGuilde(e) {
+    var m = String((e && (e.message || e.details)) || '');
+    if (/guildes_nom_cle_uniq/.test(m)) return 'Ce nom est déjà pris.';
+    if (/guildes_nom_longueur/.test(m)) return 'Le nom fait de 3 à 24 caractères.';
+    if (/guilde_pleine/.test(m)) return 'La guilde est complète : 30 membres.';
+    if (/guilde_invite_non_mutuel/.test(m)) return 'On n’invite qu’un abonné mutuel.';
+    if (/guilde_deja_dans_une|guilde_membres_pkey/.test(m)) return 'Tu es déjà dans une guilde.';
+    return erreurSociale(e);
+  }
+
+  // MES NOMBRES DE GUILDE, publiés seulement s'ils ont changé depuis l'ouverture de l'app (et seulement membre).
+  var scoresGuildePublies = null;
+  async function publierScoresGuilde() {
+    var moi = userId();
+    if (!moi || !profil) return false;
+    var s = faits.scoresDeGuilde(corpus(), local.predictions || [], profil.seances_par_semaine, new Date());
+    if (!Social.scoresGuildeChanges(s, scoresGuildePublies)) return false;
+    await Donnees.publierScoresGuilde(moi, s);
+    scoresGuildePublies = s;
+    return true;
+  }
+
+  async function chargerGuilde(g) {
+    var moi = await Donnees.guildeMoi();
+    if (social.guilde !== g) return;
+    g.g = moi;
+    if (!moi) {
+      g.invitations = await Donnees.guildeInvitationsRecues();
+      return;
+    }
+    await publierScoresGuilde().catch(function (err) { console.warn('Les nombres de guilde attendent le réseau :', texteErreur(err)); });
+    var r = await Promise.all([Donnees.guildeMembres(), Donnees.guildeSemaine(), Donnees.guildeProgression()]);
+    if (social.guilde !== g) return;
+    g.membres = r[0]; g.semaine = r[1]; g.progression = r[2];
+    if (g.onglet === 'fil') await chargerFilGuilde(g);
+    if (g.onglet === 'membres' && moi.admin !== undefined) await chargerLiens().catch(function () {});
+  }
+  async function chargerFilGuilde(g) {
+    var fil = Social.filRange(await Donnees.guildeFil());
+    await Promise.all(fil.map(function (l) {
+      if (social.medailles[l.session_id]) return null;
+      return Donnees.guildeRecordsSeance(l.session_id).then(function (lignes) {
+        social.medailles[l.session_id] = faits.medaillesDuSocial(corpus(), lignes);
+      }).catch(function () {});
+    }));
+    if (social.guilde === g) g.fil = fil;
+  }
+
+  async function rendreGuilde(onglet) {
+    montrer('guilde', Routeur.GUILDE);
+    var g = { etat: 'charge', onglet: onglet || (social.guilde && social.guilde.onglet) || 'semaine', couleur: Social.COULEURS_GUILDE[0] };
+    social.guilde = g;
+    dessinerGuilde();
+    try {
+      await chargerGuilde(g);
+      if (social.guilde !== g) return;
+      g.etat = 'ok';
+    } catch (e) {
+      if (social.guilde !== g) return;
+      g.etat = 'erreur'; g.message = erreurSociale(e);
+    }
+    dessinerGuilde();
+  }
+  function dessinerGuilde() { if (ecranCourant === 'guilde') Rendu.rendreGuilde($('social-guilde'), vueDeLaGuilde()); }
+
+  // Un geste de guilde : en ligne, puis tout se relit. Un refus de la base se dit à l'écran, avec ses mots.
+  async function gesteGuilde(ecrire) {
+    var g = social.guilde;
+    try {
+      await ecrire();
+      if (g) { g.message = null; g.edition = false; g.quitter = false; }
+      await rendreGuilde(g ? g.onglet : null);
+    } catch (e) {
+      if (social.guilde !== g) return;
+      g.message = messageGuilde(e);
+      dessinerGuilde();
+    }
+  }
+
+  function vueDeLaGuilde() {
+    var g = social.guilde;
+    if (!g || g.etat !== 'ok') return g || { etat: 'charge' };
+    var v = { etat: 'ok', message: g.message || null, couleurs: Social.COULEURS_GUILDE };
+    if (!g.g) {
+      // Sans guilde : les invitations reçues, puis « Créer une guilde ».
+      v.invitations = (g.invitations || []).map(function (i) {
+        return { nom: i.nom, couleur: i.couleur, invitant: i.invitant, membres: i.membres,
+          surRejoindre: function () { gesteGuilde(function () { return Donnees.guildeRepondre(i.guilde_id, true); }); },
+          surRefuser: function () { gesteGuilde(function () { return Donnees.guildeRepondre(i.guilde_id, false); }); } };
+      });
+      v.creer = { couleur: g.couleur, surCouleur: function (c) { g.couleur = c; dessinerGuilde(); },
+        surCreer: function (nom) {
+          var n = Social.nomDeGuilde(nom);
+          if (!n) { g.message = 'Le nom fait de 3 à 24 caractères.'; return dessinerGuilde(); }
+          gesteGuilde(function () { return Donnees.guildeCreer(n, g.couleur); });
+        } };
+      return v;
+    }
+    var moi = g.g, membres = g.membres || [];
+    v.guilde = { nom: moi.nom, couleur: moi.couleur, membres: moi.membres + ' membre' + (moi.membres > 1 ? 's' : '') };
+    v.onglets = ONGLETS_GUILDE.map(function (o) {
+      return { cle: o.cle, libelle: o.libelle, actif: g.onglet === o.cle, sur: function () {
+        if (g.onglet === o.cle) return;
+        g.onglet = o.cle; g.quitter = false;
+        if (o.cle === 'fil' && !g.fil) {
+          dessinerGuilde();
+          return chargerFilGuilde(g).catch(function (e) { g.message = erreurSociale(e); }).then(dessinerGuilde);
+        }
+        if (o.cle === 'membres') { dessinerGuilde(); return chargerLiens().catch(function () {}).then(dessinerGuilde); }
+        dessinerGuilde();
+      } };
+    });
+    var maintenant = new Date();
+    var progression = Social.progressionRangee(g.progression).map(function (x) {
+      return { rang: x.rang, pseudo: x.moi ? 'toi' : x.pseudo, moi: x.moi, texte: x.texte };
+    });
+    v.titreProgression = 'Progression ' + (/^[aeiouéè]/i.test(Modele.MOIS_LONGS[maintenant.getMonth()]) ? 'd’' : 'de ') +
+      Modele.MOIS_LONGS[maintenant.getMonth()];
+    if (g.onglet === 'semaine') {
+      var s = g.semaine;
+      var j = Social.jaugeDuDefi(s, moi.membres);
+      v.defi = j ? { titre: j.titre, quand: Social.joursRestants(maintenant), part: j.part, phrase: j.phrase } : null;
+      v.cetteSemaine = s ? { seances: String(s.seances), records: String(s.medailles), tonnes: tonnesSociales(s.tonnage_kg) } : null;
+      v.progression = progression;
+      // Le défi est FIGÉ une fois la semaine lancée (un membre y a terminé une séance) : la base le refuserait.
+      if (moi.admin && Social.defiModifiable(s)) {
+        v.choixDefi = Social.DEFIS.map(function (d) {
+          return { cle: d.cle, libelle: d.libelle, actif: s && s.defi === d.cle, choix: (d.choix || []).map(function (n) {
+            return { n: n, actif: s && s.defi === d.cle && Number(s.n) === n,
+              sur: function () { if (Social.defiValide(d.cle, n)) gesteGuilde(function () { return Donnees.guildeChoisirDefi(d.cle, n); }); } };
+          }), sur: d.choix ? null : function () {
+            if (Social.defiValide(d.cle, null)) gesteGuilde(function () { return Donnees.guildeChoisirDefi(d.cle, null); });
+          } };
+        });
+      }
+    } else if (g.onglet === 'fil') {
+      if (!g.fil) v.chargementFil = true;
+      else v.fil = { etat: 'ok', demandes: [], fin: (g.fil.length ? 'Tu es à jour · les 30 derniers jours'
+        : 'Aucune séance des membres ces 30 derniers jours.'), cartes: g.fil.map(function (l) {
+          return { session_id: l.session_id, pseudo: l.pseudo, couleur: Social.couleurDuBlason(l.pseudo),
+            quand: Modele.quand(l.debut, maintenant), titre: l.titre || null, tonnes: tonnesSociales(l.tonnage_kg),
+            medailles: social.medailles[l.session_id] || [], jaiReagi: !!l.j_ai_reagi,
+            surProfil: function () { allerAmi(l.pseudo); },
+            surVoir: function () { social.voirSeance = { pseudo: l.pseudo, session_id: l.session_id, debut: l.debut }; allerAmi(l.pseudo); },
+            surReagir: function () {
+              var moiId = userId();
+              (l.j_ai_reagi ? Donnees.retirerReaction(l.session_id, moiId) : Donnees.reagir(l.session_id, moiId)).then(function () {
+                l.j_ai_reagi = !l.j_ai_reagi; dessinerGuilde();
+              }, function (e) { g.message = erreurSociale(e); dessinerGuilde(); });
+            } };
+        }) };
+    } else if (g.onglet === 'progression') {
+      v.progression = progression;
+      v.explicationProgression = 'La part de tes exercices du mois avec au moins un record, sans dépasser la charge ' +
+        'proposée par le coach. Un exercice compte à partir de 2 séances dans le mois. Remise à zéro le 1er.';
+    } else {
+      var titres = Rendu.JEU_TITRES;
+      var monRang = (membres.filter(function (m) { return m.moi; })[0] || {}).rang || Social.RANG_PAR_DEFAUT;
+      v.membres = membres.map(function (m) {
+        return { pseudo: m.pseudo, couleur: Social.couleurDuBlason(m.pseudo), ligne: Social.ligneMembre(m, titres), moi: !!m.moi,
+          surProfil: m.moi ? null : function () { allerAmi(m.pseudo); },
+          surRetirer: moi.admin && !m.moi ? function () { gesteGuilde(function () { return Donnees.guildeRetirerMembre(m.user_id); }); } : null,
+          surTransmettre: moi.admin && !m.moi ? function () { gesteGuilde(function () { return Donnees.guildeTransmettre(m.user_id); }); } : null };
+      });
+      v.rangs = Social.RANGS.map(function (r) {
+        return { rang: r, actif: r === monRang, sur: function () {
+          if (r !== monRang && Social.rangValide(r)) gesteGuilde(function () { return Donnees.guildeChoisirRang(r); });
+        } };
+      });
+      if (moi.membres < Social.MEMBRES_MAX) {
+        v.invitables = social.liens ? Social.invitables(social.liens, membres).map(function (l) {
+          return { pseudo: l.pseudo, couleur: Social.couleurDuBlason(l.pseudo),
+            sur: function () { gesteGuilde(function () { return Donnees.guildeInviter(l.user_id); }); } };
+        }) : null;
+      }
+      if (moi.admin) {
+        v.edition = g.edition ? { nom: moi.nom, couleur: g.couleurEdition || moi.couleur,
+          surCouleur: function (c) { g.couleurEdition = c; dessinerGuilde(); },
+          surEnregistrer: function (nom) {
+            var n = Social.nomDeGuilde(nom);
+            if (!n) { g.message = 'Le nom fait de 3 à 24 caractères.'; return dessinerGuilde(); }
+            gesteGuilde(function () { return Donnees.guildeModifier(n, g.couleurEdition || moi.couleur); });
+          },
+          surAnnuler: function () { g.edition = false; g.couleurEdition = null; dessinerGuilde(); } }
+          : { surOuvrir: function () { g.edition = true; g.couleurEdition = moi.couleur; dessinerGuilde(); } };
+      }
+      v.quitter = g.quitter ? { surConfirmer: function () { gesteGuilde(function () { return Donnees.guildeQuitter(); }); },
+        surAnnuler: function () { g.quitter = false; dessinerGuilde(); } }
+        : { surOuvrir: function () { g.quitter = true; dessinerGuilde(); } };
+    }
+    return v;
   }
 
   // ── Trouver des amis (＋) ──
@@ -2935,6 +3138,8 @@
     publierJeu(null);
     // 89 — mes scores de force aussi (seulement s'ils ont changé) ; hors ligne, ils partiront à la prochaine ouverture.
     publierScoresForce().catch(function (err) { console.warn('Les scores de force attendent le réseau :', texteErreur(err)); });
+    // 90 — mes nombres de guilde aussi, si l'on me sait membre (sinon, ils partent à l'ouverture de la guilde).
+    if (social.guilde && social.guilde.g) publierScoresGuilde().catch(function (err) { console.warn('Les nombres de guilde attendent le réseau :', texteErreur(err)); });
     seance = null; chrono = null; arreterMinuteur();
     // La barre s'efface AVEC la séance : la laisser affichée lui ferait
     // traverser la fin, et la réserve du bas la suivrait.
@@ -12017,6 +12222,7 @@
     }
     if (cible.vue === Routeur.FIL) return rendreFil();
     if (cible.vue === Routeur.AMIS) return rendreAmis();
+    if (cible.vue === Routeur.GUILDE) return rendreGuilde();
     if (cible.vue === Routeur.AMI) return rendreAmi(cible.params.pseudo, cible.params);
     if (cible.vue === Routeur.JEU) return rendreJeu();
     if (cible.vue === Routeur.MUSCLES) return rendreJeuMuscles();
@@ -12066,6 +12272,8 @@
       jeu: $('vue-jeu'), muscles: $('vue-muscles'), succes: $('vue-succes'), deblocages: $('vue-deblocages'),
       // 87 — le social : le fil, trouver des amis, le profil d'une personne.
       fil: $('vue-fil'), amis: $('vue-amis'), ami: $('vue-ami'),
+      // 90 — la guilde.
+      guilde: $('vue-guilde'),
       // 66B — « Le coach relit ta semaine », sous Saisie.
       relecture: $('vue-relecture')
     };
@@ -12152,10 +12360,11 @@
     Array.prototype.forEach.call(doc.querySelectorAll('.s-onglet'), function (b) {
       b.addEventListener('click', function () {
         if (b.getAttribute('data-social') === 'fil') { allerA(Routeur.FIL, {}); return rendreFil(); }
+        if (b.getAttribute('data-social') === 'guilde') { allerA(Routeur.GUILDE, {}); return rendreGuilde(); }
         allerA(Routeur.JEU, {}); rendreRoute({ vue: Routeur.JEU, params: {} });
       });
     });
-    ['btn-amis-jeu', 'btn-amis-fil'].forEach(function (id) {
+    ['btn-amis-jeu', 'btn-amis-fil', 'btn-amis-guilde'].forEach(function (id) {
       $(id).addEventListener('click', function () { allerA(Routeur.AMIS, {}); rendreAmis(); });
     });
     ['btn-retour-amis', 'btn-retour-ami'].forEach(function (id) {

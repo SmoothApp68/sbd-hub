@@ -1,4 +1,4 @@
-// tests/banc/faux-social.js — le faux serveur du social (87, SOCIAL-V1, migration v2_078 ; 89, étage 2, v2_079).
+// tests/banc/faux-social.js — le faux serveur du social (87, SOCIAL-V1, migration v2_078 ; 89, étage 2, v2_079 ; 90, la guilde, v2_080).
 //
 // ⚠️ C'EST LUI QUI PROUVE LA CONFIDENTIALITÉ AU BANC : il imite les règles de la migration — les cercles
 // (`social_suit`, `social_mutuel`), le blocage (dans les deux sens, qui efface les abonnements et les
@@ -16,6 +16,20 @@
 const CHAMPS_INTERDITS = ['poids_corps_kg', 'note', 'rpe', 'ressenti', 'douleur'];
 // 89 (v2_079) — les seules colonnes de `scores_force` : pas de poids de corps.
 const COLONNES_SCORES = ['user_id', 'exercise_slug', 'score', 'charge_kg', 'maj_le'];
+// 90 (v2_080) — la guilde : les contraintes de la migration, recopiées telles quelles.
+const GUILDE = {
+  RANGS: ['Squatteur', 'Bencheur', 'Terreur', 'Pousseur', 'Tireur', 'Chargeur', 'Gymbro', 'Motiveur', 'Novice'],
+  DEFIS: ['seances', 'records', 'variete'],
+  COULEURS: ['#b39ad1', '#8fb08a', '#6fa3d8', '#d9b45a', '#d98f6f', '#7fc4c0', '#c98fb4', '#a3a9b3'],
+  MAX: 30,
+  TYPES_RECORDS: ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'duree_s', 'distance_m'],
+  COLONNES_SCORES: ['user_id', 'semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record', 'maj_le']
+};
+// La clé du nom : translate(lower(btrim(nom)), 'àâäáãåçéèêëíìîïñóòôöõúùûüýÿ', 'aaaaaaceeeeiiiinooooouuuuyy').
+function cleDuNom(nom) {
+  const de = 'àâäáãåçéèêëíìîïñóòôöõúùûüýÿ', vers = 'aaaaaaceeeeiiiinooooouuuuyy';
+  return Array.from(String(nom).trim().toLowerCase()).map((c) => { const i = de.indexOf(c); return i < 0 ? c : vers[i]; }).join('');
+}
 
 function creer(base, options) {
   const o = options || {};
@@ -23,6 +37,8 @@ function creer(base, options) {
     moi: o.moi || 'u-banc',
     profils: [], sessions: [], sets: [], records: [],
     abonnements: [], blocages: [], reactions: [], scores: [],
+    // 90 (v2_080) — la guilde.
+    guildes: [], membres: [], invitations: [], defis: [], gscores: [],
     journal: [], fuites: [], appels: [],
     maintenant: o.maintenant || (() => new Date())
   };
@@ -64,6 +80,64 @@ function creer(base, options) {
   const refus = (code, message, status) => {
     etat.journal.push({ op: 'refus', refus: code, message });
     return { status: status || 400, data: { code, message, details: message } };
+  };
+
+  // ── 90 (v2_080) — LA GUILDE : les règles de la migration ──
+  // Une RPC qui échoue lève `Refus` (le message de l'exception SQL) ; `gerer` le rend comme PostgREST.
+  function Refus(code, message) { this.code = code; this.message = message; }
+  const leve = (code, message) => { throw new Refus(code, message); };
+  const guildeDe = (u) => { const m = etat.membres.filter((x) => x.user_id === u)[0]; return m ? m.guilde_id : null; };
+  const guilde = (id) => etat.guildes.filter((g) => g.id === id)[0] || null;
+  const membresDe = (gid) => etat.membres.filter((m) => m.guilde_id === gid)
+    .sort((a, b) => (a.entre_le - b.entre_le) || String(a.user_id).localeCompare(String(b.user_id)));
+  const commune = (a, b) => !!guildeDe(a) && guildeDe(a) === guildeDe(b) && !bloque(a, b);
+  // La semaine et le mois de l'app (heure locale du banc = celle de l'appareil).
+  const jourLocal = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const lundiCourant = () => { const m = etat.maintenant(); return jourLocal(new Date(m.getFullYear(), m.getMonth(), m.getDate() - ((m.getDay() + 6) % 7))); };
+  const moisCourant = () => { const m = etat.maintenant(); return jourLocal(new Date(m.getFullYear(), m.getMonth(), 1)); };
+  let horloge = 0;
+  // `guilde_membres_avant_ajout` : 30 au plus ; rang Novice ; l'ordre d'entrée.
+  function ajouterMembre(user, gid) {
+    if (guildeDe(user)) leve('23505', 'duplicate key value violates unique constraint "guilde_membres_pkey"');
+    if (membresDe(gid).length >= GUILDE.MAX) leve('23514', 'guilde_pleine');
+    etat.membres.push({ user_id: user, guilde_id: gid, rang: 'Novice', entre_le: ++horloge });
+  }
+  // `guilde_membres_apres_depart` : sans membre, la guilde disparaît (et ce qui en dépend) ; l'administrateur parti,
+  // l'administration passe au plus ancien.
+  function retirerMembre(user) {
+    const m = etat.membres.filter((x) => x.user_id === user)[0];
+    if (!m) return;
+    etat.membres = etat.membres.filter((x) => x !== m);
+    const g = guilde(m.guilde_id);
+    if (!g) return;
+    const reste = membresDe(g.id);
+    if (!reste.length) {
+      etat.guildes = etat.guildes.filter((x) => x !== g);
+      etat.invitations = etat.invitations.filter((i) => i.guilde_id !== g.id);
+      etat.defis = etat.defis.filter((d) => d.guilde_id !== g.id);
+    } else if (g.admin === user) {
+      g.admin = reste[0].user_id;
+    }
+  }
+  function verifierGuilde(nom, couleur) {
+    const n = String(nom || '').trim();
+    if (n.length < 3 || n.length > 24) leve('23514', 'new row for relation "guildes" violates check constraint "guildes_nom_longueur"');
+    if (GUILDE.COULEURS.indexOf(couleur) < 0) leve('23514', 'new row for relation "guildes" violates check constraint "guildes_couleur"');
+    return n;
+  }
+  const nomPris = (n, sauf) => etat.guildes.some((g) => g.id !== sauf && cleDuNom(g.nom) === cleDuNom(n));
+  const semaineLancee = (gid) => {
+    const lundi = lundiCourant(), ids = membresDe(gid).map((m) => m.user_id);
+    const l = new Date(lundi + 'T12:00:00'), fin = jourLocal(new Date(l.getFullYear(), l.getMonth(), l.getDate() + 7));
+    return sessions().some((s) => ids.indexOf(s.user_id) >= 0 && (s.statut || 'terminee') === 'terminee' &&
+      jourLocal(new Date(s.debut)) >= lundi && jourLocal(new Date(s.debut)) < fin);
+  };
+  const seancesDeLaSemaine = (gid) => {
+    const lundi = lundiCourant(), ids = membresDe(gid).map((m) => m.user_id);
+    const l = new Date(lundi + 'T12:00:00');
+    const fin = jourLocal(new Date(l.getFullYear(), l.getMonth(), l.getDate() + 7));
+    return sessions().filter((s) => ids.indexOf(s.user_id) >= 0 && visible(s) && jourLocal(new Date(s.debut)) >= lundi &&
+      jourLocal(new Date(s.debut)) < fin && sets().some((t) => t.session_id === s.id && (t.type_serie || 'travail') === 'travail'));
   };
 
   // ── Les fonctions de lecture (v2_078), colonnes autorisées seulement ──
@@ -158,6 +232,147 @@ function creer(base, options) {
       return etat.scores.filter((f) => f.exercise_slug === a.p_slug && (f.user_id === moi || mutuel(moi, f.user_id)))
         .filter((f) => { const p = profil(f.user_id); return p && !p.deleted_at; })
         .map((f) => ({ user_id: f.user_id, pseudo: profil(f.user_id).username, score: f.score, charge_kg: f.charge_kg, moi: f.user_id === moi }));
+    },
+    // ── 90 (v2_080) — LA GUILDE ──
+    guilde_creer(a) {
+      const moi = etat.moi;
+      if (guildeDe(moi)) leve('23505', 'guilde_deja_dans_une');
+      const nom = verifierGuilde(a.p_nom, a.p_couleur);
+      if (nomPris(nom)) leve('23505', 'duplicate key value violates unique constraint "guildes_nom_cle_uniq"');
+      const g = { id: 'g-' + (++horloge), nom, blason: 'bouclier', couleur: a.p_couleur, admin: moi };
+      etat.guildes.push(g);
+      ajouterMembre(moi, g.id);
+      etat.invitations = etat.invitations.filter((i) => i.invite !== moi);
+      etat.journal.push({ op: 'guilde-creee', nom });
+      return g.id;
+    },
+    guilde_modifier(a) {
+      const g = etat.guildes.filter((x) => x.admin === etat.moi)[0];
+      if (!g) leve('42501', 'guilde_pas_admin');
+      const nom = verifierGuilde(a.p_nom, a.p_couleur);
+      if (nomPris(nom, g.id)) leve('23505', 'duplicate key value violates unique constraint "guildes_nom_cle_uniq"');
+      g.nom = nom; g.couleur = a.p_couleur;
+      return null;
+    },
+    // `guilde_invitations_avant_ajout` : un membre invite SEULEMENT un de ses abonnés mutuels, pas déjà membre.
+    guilde_inviter(a) {
+      const moi = etat.moi, gid = guildeDe(moi);
+      if (!gid) leve('23514', 'guilde_invitant_non_membre');
+      if (!mutuel(moi, a.p_user)) leve('23514', 'guilde_invite_non_mutuel');
+      if (guildeDe(a.p_user) === gid) leve('23514', 'guilde_deja_membre');
+      if (membresDe(gid).length >= GUILDE.MAX) leve('23514', 'guilde_pleine');
+      if (!etat.invitations.some((i) => i.guilde_id === gid && i.invite === a.p_user)) {
+        etat.invitations.push({ guilde_id: gid, invite: a.p_user, invitant: moi, cree_le: ++horloge });
+      }
+      etat.journal.push({ op: 'guilde-invitation', invite: a.p_user });
+      return null;
+    },
+    guilde_repondre(a) {
+      const moi = etat.moi;
+      if (!etat.invitations.some((i) => i.guilde_id === a.p_guilde && i.invite === moi)) leve('42501', 'guilde_sans_invitation');
+      if (a.p_rejoindre) {
+        if (guildeDe(moi)) leve('23505', 'guilde_deja_dans_une');
+        ajouterMembre(moi, a.p_guilde);
+        etat.invitations = etat.invitations.filter((i) => i.invite !== moi);
+      } else {
+        etat.invitations = etat.invitations.filter((i) => !(i.guilde_id === a.p_guilde && i.invite === moi));
+      }
+      return null;
+    },
+    guilde_quitter() { retirerMembre(etat.moi); etat.journal.push({ op: 'guilde-depart' }); return null; },
+    guilde_retirer_membre(a) {
+      const g = guilde(guildeDe(a.p_user));
+      if (a.p_user === etat.moi || !g || g.admin !== etat.moi) leve('42501', 'guilde_pas_admin');
+      retirerMembre(a.p_user);
+      return null;
+    },
+    guilde_transmettre(a) {
+      const g = guilde(guildeDe(a.p_user));
+      if (!g || g.admin !== etat.moi) leve('42501', 'guilde_pas_admin');
+      g.admin = a.p_user;
+      return null;
+    },
+    // Les défis SÛRS seulement (contrainte `guilde_defis_type`) ; `n` nul pour les séances, 1 à 100 sinon.
+    guilde_choisir_defi(a) {
+      const g = etat.guildes.filter((x) => x.admin === etat.moi)[0];
+      if (!g) leve('42501', 'guilde_pas_admin');
+      // `guilde_semaine_lancee` : figé dès qu'un membre a terminé une séance cette semaine.
+      if (semaineLancee(g.id)) leve('23514', 'guilde_defi_fige');
+      const n = a.p_n === null || a.p_n === undefined ? null : Number(a.p_n);
+      if (GUILDE.DEFIS.indexOf(a.p_type) < 0) leve('23514', 'new row for relation "guilde_defis" violates check constraint "guilde_defis_type"');
+      if (!((a.p_type === 'seances' && n === null) || (a.p_type !== 'seances' && n >= 1 && n <= 100))) {
+        leve('23514', 'new row for relation "guilde_defis" violates check constraint "guilde_defis_n"');
+      }
+      const semaine = lundiCourant();
+      etat.defis = etat.defis.filter((d) => !(d.guilde_id === g.id && d.semaine === semaine));
+      etat.defis.push({ guilde_id: g.id, semaine, type: a.p_type, n });
+      etat.journal.push({ op: 'guilde-defi', type: a.p_type, n });
+      return null;
+    },
+    guilde_choisir_rang(a) {
+      const m = etat.membres.filter((x) => x.user_id === etat.moi)[0];
+      if (!m) leve('42501', 'guilde_pas_membre');
+      if (GUILDE.RANGS.indexOf(a.p_rang) < 0) leve('23514', 'new row for relation "guilde_membres" violates check constraint "guilde_membres_rang"');
+      m.rang = a.p_rang;
+      return null;
+    },
+    guilde_moi() {
+      const g = guilde(guildeDe(etat.moi));
+      return g ? [{ id: g.id, nom: g.nom, blason: g.blason, couleur: g.couleur, admin: g.admin === etat.moi, membres: membresDe(g.id).length }] : [];
+    },
+    guilde_liste_membres() {
+      const gid = guildeDe(etat.moi);
+      if (!gid) return [];
+      return membresDe(gid).map((m) => ({ m, p: profil(m.user_id) })).filter((x) => x.p && !x.p.deleted_at).map((x) => ({
+        user_id: x.m.user_id, pseudo: x.p.username, rang: x.m.rang, titre: titre(x.p), moi: x.m.user_id === etat.moi, entre_le: x.m.entre_le }));
+    },
+    guilde_invitations_recues() {
+      const moi = etat.moi;
+      return etat.invitations.filter((i) => i.invite === moi && !bloque(moi, i.invitant)).sort((a, b) => a.cree_le - b.cree_le).map((i) => {
+        const g = guilde(i.guilde_id);
+        return { guilde_id: g.id, nom: g.nom, blason: g.blason, couleur: g.couleur, invitant: (profil(i.invitant) || {}).username,
+          membres: membresDe(g.id).length };
+      });
+    },
+    guilde_semaine() {
+      const gid = guildeDe(etat.moi);
+      if (!gid) return [];
+      const lundi = lundiCourant(), ids = membresDe(gid).map((m) => m.user_id);
+      const d = etat.defis.filter((x) => x.guilde_id === gid && x.semaine === lundi)[0];
+      const sc = etat.gscores.filter((x) => ids.indexOf(x.user_id) >= 0 && x.semaine === lundi);
+      const ss = seancesDeLaSemaine(gid), sids = ss.map((s) => s.id);
+      const travail = sets().filter((t) => sids.indexOf(t.session_id) >= 0 && (t.type_serie || 'travail') === 'travail');
+      const medailles = new Set(records().filter((r) => sids.indexOf(r.session_id) >= 0 && GUILDE.TYPES_RECORDS.indexOf(r.type) >= 0)
+        .map((r) => r.set_id));
+      return [{ semaine: lundi, defi: d ? d.type : 'seances', n: d ? d.n : null, defi_modifiable: !semaineLancee(gid),
+        seances_faites: sc.reduce((x, s) => x + Math.min(s.seances, s.prevues), 0), seances_prevues: sc.reduce((x, s) => x + s.prevues, 0),
+        records_semaine: sc.reduce((x, s) => x + s.records_semaine, 0),
+        exercices: new Set(travail.map((t) => t.exercise_slug)).size, seances: ss.length, medailles: medailles.size,
+        tonnage_kg: Math.round(travail.filter((t) => Number(t.charge_kg) > 0 && Number(t.reps) > 0)
+          .reduce((x, t) => x + Number(t.charge_kg) * Number(t.reps), 0) * 100) / 100 }];
+    },
+    guilde_progression() {
+      const gid = guildeDe(etat.moi);
+      if (!gid) return [];
+      const ids = membresDe(gid).map((m) => m.user_id), mois = moisCourant();
+      return etat.gscores.filter((x) => ids.indexOf(x.user_id) >= 0 && x.mois === mois)
+        .filter((x) => { const p = profil(x.user_id); return p && !p.deleted_at; })
+        .map((x) => ({ pseudo: profil(x.user_id).username, moi: x.user_id === etat.moi, exercices: x.exercices, exercices_record: x.exercices_record }));
+    },
+    guilde_fil() {
+      const moi = etat.moi, depuis = etat.maintenant().getTime() - 30 * 86400000;
+      return sessions().filter((s) => visible(s) && new Date(s.debut).getTime() >= depuis && s.user_id !== moi && commune(moi, s.user_id))
+        .sort((x, y) => String(y.debut).localeCompare(String(x.debut))).slice(0, 200)
+        .map((s) => ({ session_id: s.id, user_id: s.user_id, pseudo: (profil(s.user_id) || {}).username, titre: s.titre || null,
+          debut: s.debut, fin: s.fin || null, tonnage_kg: tonnage(s.id),
+          j_ai_reagi: etat.reactions.some((r) => r.session_id === s.id && r.user_id === moi) }));
+    },
+    guilde_records_seance(a) {
+      const s = session(a.p_session);
+      if (!visible(s) || !commune(etat.moi, s.user_id)) return [];
+      return records().filter((r) => r.session_id === s.id).map((r) => ({ set_id: r.set_id, battu_le: r.battu_le,
+        exercise_slug: r.exercise_slug, type: r.type, valeur: r.valeur, charge: r.charge === undefined ? null : r.charge,
+        reps: r.reps === undefined ? null : r.reps, unite: r.unite === undefined ? null : r.unite }));
     },
     social_liens() {
       const moi = etat.moi, out = [];
@@ -270,11 +485,39 @@ function creer(base, options) {
         return { status: 204, data: [] };
       }
     },
+    // 90 (v2_080) — mes nombres de guilde : écrits par leur propriétaire seul, et SEULEMENT ces colonnes (une autre est
+    // refusée ET comptée comme une fuite). Les contraintes de la table, recopiées.
+    guilde_scores: {
+      POST(corps) {
+        const lignes = Array.isArray(corps) ? corps : [corps];
+        for (const l of lignes) {
+          const autres = Object.keys(l || {}).filter((k) => GUILDE.COLONNES_SCORES.indexOf(k) < 0);
+          if (autres.length) {
+            etat.fuites.push({ table: 'guilde_scores', champs: autres });
+            return refus('PGRST204', 'guilde_scores : colonne inconnue ' + autres.join(', '));
+          }
+          if (!l || l.user_id !== etat.moi) return refus('42501', 'guilde_scores_miens', 403);
+          const entier = (v, a, b) => Number.isInteger(v) && v >= a && v <= b;
+          const lundi = /^\d{4}-\d{2}-\d{2}$/.test(l.semaine) && new Date(l.semaine + 'T12:00:00').getDay() === 1;
+          if (!lundi || !/^\d{4}-\d{2}-01$/.test(l.mois) || !entier(l.seances, 0, 100) || !entier(l.prevues, 0, 14) ||
+            !entier(l.records_semaine, 0, 1000) || !entier(l.exercices, 0, 500) || !entier(l.exercices_record, 0, 500) ||
+            l.exercices_record > l.exercices) return refus('23514', 'guilde_scores_check');
+        }
+        lignes.forEach((l) => {
+          etat.gscores = etat.gscores.filter((x) => x.user_id !== l.user_id);
+          etat.gscores.push(Object.assign({}, l, { maj_le: new Date().toISOString() }));
+        });
+        etat.journal.push({ op: 'guilde-scores', corps: JSON.parse(JSON.stringify(lignes)) });
+        return { status: 201, data: [] };
+      }
+    },
     reactions_seance: {
       POST(corps) {
         const l = Array.isArray(corps) ? corps[0] : corps;
         const s = session(l && l.session_id);
-        if (!l || l.user_id !== etat.moi || !visible(s) || !suit(etat.moi, s.user_id)) return refus('42501', 'reactions_ajout', 403);
+        // `reactions_ajout` (v2_078 : une personne que je suis) OU `reactions_guilde` (v2_080 : un membre de ma guilde).
+        if (!l || l.user_id !== etat.moi || !visible(s) || !(suit(etat.moi, s.user_id) ||
+          (s.user_id !== etat.moi && commune(etat.moi, s.user_id)))) return refus('42501', 'reactions_ajout', 403);
         if (etat.reactions.some((r) => r.session_id === l.session_id && r.user_id === l.user_id)) return refus('23505', 'reactions_pkey', 409);
         etat.reactions.push({ session_id: l.session_id, user_id: l.user_id, cree_le: new Date().toISOString() });
         etat.journal.push({ op: 'reaction', session_id: l.session_id });
@@ -293,8 +536,12 @@ function creer(base, options) {
     const morceaux = url.pathname.split('/');
     const nom = morceaux.pop();
     if (morceaux.pop() === 'rpc' && RPC[nom]) {
-      const data = RPC[nom](corps || {});
+      let data;
       etat.appels.push(nom);
+      try { data = RPC[nom](corps || {}); } catch (e) {
+        if (e instanceof Refus) return refus(e.code, e.message, e.code === '42501' ? 403 : e.code === '23505' ? 409 : 400);
+        throw e;
+      }
       const interdits = champsInterdits(data);
       if (interdits.length) etat.fuites.push({ fonction: nom, champs: interdits });
       return { status: 200, data };
@@ -320,7 +567,7 @@ function creer(base, options) {
     return comme(id, () => gerer('POST', new URL('https://banc.supabase.co/rest/v1/rpc/' + nom), args || {})).data;
   }
 
-  return { etat, gerer, comme, appeler, rpc, suit, mutuel, bloque, tonnage };
+  return { etat, gerer, comme, appeler, rpc, suit, mutuel, bloque, tonnage, guildeDe, lundiCourant, moisCourant };
 }
 
 function champsInterdits(x) {
@@ -337,4 +584,4 @@ function champsInterdits(x) {
   return trouves;
 }
 
-module.exports = { creer, champsInterdits, CHAMPS_INTERDITS };
+module.exports = { creer, champsInterdits, CHAMPS_INTERDITS, GUILDE, cleDuNom };

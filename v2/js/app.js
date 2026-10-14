@@ -2047,7 +2047,8 @@
   // UNE LECTURE : mon groupe, l'état des séances, le direct, les messages — ou, sans groupe, mes invitations. Une lecture
   // à la fois ; un échec ne dit rien (le direct est une décoration).
   async function chargerGroupe() {
-    if (!userId() || grp.enCours) return;
+    // L'outil de rejeu (développement) ne lit rien du groupe : il ne parle pas à la base.
+    if (!userId() || grp.enCours || rejeuDemande) return;
     grp.enCours = true;
     try {
       await envoyerFileGroupe();
@@ -12751,7 +12752,9 @@
     // 91 — le groupe de séance : le retour de sa vue, et le direct relu environ toutes les 20 s (en séance ou dans un
     // groupe seulement ; une lecture qui échoue ne dit rien).
     $('btn-retour-groupe').addEventListener('click', fermerVueGroupe);
-    racine.setInterval(tickGroupe, Social.RAFRAICHIR_GROUPE_MS);
+    // ⚠️ PAS UN SECOND `setInterval` : le chronomètre de repos est le seul (v2-barre-seance) ; un réveil qui se
+    // reprogramme lui-même.
+    (function boucleGroupe() { racine.setTimeout(function () { tickGroupe(); boucleGroupe(); }, Social.RAFRAICHIR_GROUPE_MS); })();
     $('btn-retour-mes-exos').addEventListener('click', function () {
       allerA(Routeur.PROFIL, {});
       rendreProfilEcran();

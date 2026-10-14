@@ -484,6 +484,8 @@ describe('51-1 ter — la séance raccourcie : la semaine allégée et la série
       uuid: () => 'id-' + (++n), sessionActive: null,
       sauverSeance: async () => {}, poserSeance: async () => {}, allerA: () => {}, rendreSeance: () => {},
       appliquerAllegee: async () => {}, ecrireReplis: async () => {}, appliquerSerieDePlus: async () => {},
+      // 91 — une séance commencée pour rejoindre un groupe : rien ici.
+      apresCreationPourLeGroupe: async () => {},
       Routeur: { SAISIE: 'saisie' },
       // 84 — la question de l'autre appareil : aucune séance ailleurs, on commence.
       avantDeCommencer: (commencer) => commencer()

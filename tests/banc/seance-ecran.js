@@ -13479,9 +13479,11 @@ const SETS_IMPORTES = [
     //    parcours » se pose juste après le mois écoulé ; les records passent en troisième.
     await onglet('progression');
     await attendre(800);
-    const som = await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
+    // 95 — le bloc « Ton année » (l'année écoulée, toute l'année suivante ; hors production, l'année en cours) a sa
+    // propre section ([A95]) : l'ordre contrôlé ici est celui des six blocs de 55-1 et 75.
+    const som = (await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
       quoi: b.querySelector('.bloc-quoi').textContent, ligne: (b.querySelector('.bloc-ligne') || {}).textContent || null,
-      neuf: b.classList.contains('neuf') })));
+      neuf: b.classList.contains('neuf') })))).filter((b) => !/^Ton année \d{4}$/.test(b.quoi));
     const MOIS_L = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
     const ici = new Date(tP);
     const ecoule = new Date(ici.getFullYear(), ici.getMonth() - 1, 1);
@@ -19523,7 +19525,7 @@ const SETS_IMPORTES = [
       n95++;
       const id = '00000000-0000-4000-8950-' + String(n95).padStart(12, '0');
       const debut = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate(), 18, 0, 0).toISOString();
-      const fin = new Date(new Date(debut).getTime() + 3600000).toISOString();
+      const fin = finDe(debut).toISOString();
       base.sessions.push({ id, user_id: 'u-banc', titre: 'Année ' + n95, debut, fin, statut: 'terminee', note: null,
         salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
       lignes.forEach(([slug, kg, reps], r) => base.sets.push({ id: id + '-s' + (r + 1), session_id: id, user_id: 'u-banc',

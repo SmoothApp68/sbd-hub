@@ -513,9 +513,15 @@
       var r = capR.texte;
       if (deChauffe.length) {
         deChauffe.forEach(function (l, k) {
-          var c = r.lignes[k] ? r.lignes[k].charge : null;
+          var rl = r.lignes[k] || {};
+          var c = rl.charge === undefined ? null : rl.charge;
           l.chauffe = { charge: c };
-          if (c !== null && !l.validee) l.fantome = { charge: c, reps: null, source: 'chauffe' };
+          // §9.15.5 (94) — une chauffe que la table ne prévoyait pas et que le
+          // coach ne peut pas distinguer de la précédente : vide, et dit.
+          if (rl.trop_leger) l.chauffe.trop_leger = true;
+          // Ses reps, quand la routine n'en porte pas : celles de la règle.
+          if (rl.reps_coach) l.chauffe.reps = rl.reps;
+          if (c !== null && !l.validee) l.fantome = { charge: c, reps: rl.reps_coach ? rl.reps : null, source: 'chauffe' };
         });
         // 49-U18 (02/10/2026) — LA PHRASE DES CHAUFFES DISPARAÎT DÈS QU'UNE
         // CHAUFFE DE L'EXERCICE EST VALIDÉE : « calées sur 52,5 kg : 20 · 45 »
@@ -524,7 +530,7 @@
         var uneFaite = deChauffe.some(function (l) { return l.validee; });
         sortie.chauffes = {
           situation: r.situation, reference: reference, phrase: uneFaite ? null : r.phrase,
-          non_remplies: r.non_remplies, prevues: M.TABLE_CHAUFFES[r.situation].length,
+          non_remplies: r.non_remplies, prevues: r.prevues, trop_legeres: r.trop_legeres || 0,
           iSerie: deChauffe[0].iSerie
         };
         if (sortie.chauffes.phrase) sortie.citations.chauffes = capR.citations;
@@ -562,7 +568,12 @@
       reps = nombre(t.vise);
       if (reps === null) reps = nombre(sr.reps_visees);
     }
-    if (charge === null && materiel.equipement !== 'barre') return sortie;
+    // §9.17 — sans charge sur la ligne, une consigne au poids du corps ou sur
+    // une aide n'a pas de dégressive du tout (I30) : ni charge, ni phrase.
+    if (charge === null && consigne && consigne.etat !== 'silence') {
+      var ct = nombre(chargeDeTravail(consigne));
+      if (ct === null || ct <= 0) return sortie;
+    }
     // §9.17 — ET PAS DE DÉGRESSIVE SOUS UN CORPS NI SOUS UNE AIDE : une baisse de
     // 22,5 % d'une charge nulle ou négative n'a pas de sens (I30). Aucun objet,
     // pas seulement aucune charge.
@@ -578,6 +589,11 @@
     if (!deg.validee) deg.fantome = { charge: d.charge, reps: null, source: 'degressive' };
     sortie.degressive = { iSerie: deg.iSerie, apres: t.iSerie, reference: charge,
                           charge: d.charge, repos: deg.degressive.repos, phrase: d.phrase };
+    // §9.15.3 (94) — à la barre, ce qu'on enlève de chaque côté ; une ligne
+    // que le coach ne peut pas remplir porte ses deux gestes (« En faire une
+    // série normale », « La retirer »), tant qu'elle n'est pas faite.
+    if (d.enleve !== undefined) sortie.degressive.enleve = d.enleve;
+    if (d.gestes && !deg.validee) sortie.degressive.gestes = d.gestes.slice();
     return sortie;
   }
 
@@ -875,6 +891,8 @@
       var p = { charge_kg: cascade.charge_kg, reps: cascade.reps, duree_s: cascade.duree_s, distance_m: cascade.distance_m };
       if (f && f.source === 'chauffe') {
         p.charge_kg = f.charge === undefined ? null : f.charge;
+        // §9.15.5 (94) — sans reps à la routine, celles de la règle.
+        if (f.reps !== null && f.reps !== undefined) p.reps = f.reps;
       } else if (f && f.source === 'degressive') {
         p.charge_kg = f.charge === undefined ? null : f.charge;
         p.reps = repsDeLaDegressive(l.degressive);
@@ -1576,6 +1594,20 @@
     };
     if (ch) {
       var avant = null;
+      // §9.15.5 (94) — UNE CHAUFFE DE LA ROUTINE NE RESTE JAMAIS VIDE EN
+      // SILENCE : vide, elle est en trop (au-delà des marches de la règle) ou
+      // trop légère, et alors la phrase le dit.
+      var vues = 0;
+      lignes.forEach(function (l) {
+        if (!l.chauffe) return;
+        vues++;
+        if (l.chauffe.charge !== null || l.validee) return;
+        if (l.chauffe.trop_leger) {
+          if (ch.phrase !== null && (ch.phrase || '').indexOf('Trop léger pour une chauffe de plus.') < 0) err('I16', 'une chauffe trop légère sans sa phrase (série ' + l.iSerie + ')');
+          return;
+        }
+        if (vues <= ch.prevues) err('I16', 'une chauffe de la routine restée vide (série ' + l.iSerie + ')');
+      });
       lignes.forEach(function (l) {
         if (!l.chauffe || l.chauffe.charge === null) return;
         var c = nombre(l.chauffe.charge);
@@ -1598,8 +1630,21 @@
     var d = x.degressive;
     if (d) {
       var l = lignes[d.iSerie] || {};
-      if (barre && d.charge !== null) err('I17', 'une dégressive remplie à la barre (' + d.charge + ')');
-      if (barre && !l.validee && l.fantome && l.fantome.charge !== null) err('I17', 'la dégressive à la barre a un fantôme de charge (' + l.fantome.charge + ')');
+      // I17 (révisé par 94, 14/10/2026) — le coach ne pose JAMAIS de
+      // dégressive : elle remplit une ligne dégressive que la routine ou
+      // l'utilisateur a mise. À la barre, la phrase dit quoi enlever ; une
+      // ligne que le coach ne remplit pas a sa phrase et ses deux gestes.
+      if (l.type !== 'degressive') err('I17', 'une dégressive sans ligne dégressive (le coach n’en pose jamais)');
+      if (barre && d.charge !== null) {
+        var enleve = d.reference !== null && d.reference !== undefined ? (d.reference - d.charge) / 2 : null;
+        if (enleve === null || !d.phrase || d.phrase.indexOf('Enlève ' + Voix().charge(enleve) + ' de chaque côté') !== 0) {
+          err('I17', 'la dégressive à la barre ne dit pas quoi enlever (' + d.phrase + ')');
+        }
+      }
+      if (d.charge === null && !l.validee) {
+        if (!d.phrase) err('I17', 'une dégressive vide en silence');
+        if (!d.gestes || d.gestes.indexOf('serie_normale') < 0 || d.gestes.indexOf('retirer') < 0) err('I17', 'une dégressive vide sans ses gestes');
+      }
       if (d.charge !== null && !(d.charge < d.reference && !memeCharge(d.charge, d.reference))) {
         err('I17', 'dégressive ' + d.charge + ' pas sous la dernière série de travail ' + d.reference);
       }
@@ -2836,6 +2881,7 @@
       'chauffe.reps': { valeurs: chauffesReps },
       reference: x.chauffes ? { charge: x.chauffes.reference } : x.proposition ? { charge: x.proposition.reference } : null,
       degressive: x.degressive ? { charge: x.degressive.charge } : null,
+      'degressive.enleve': x.degressive && x.degressive.enleve !== undefined ? { charge: x.degressive.enleve } : null,
       // Une constante du moteur écrite dans la phrase (10 %, 3 reps, 15 %) :
       // déclarée, elle n'a pas d'autre source qu'elle-même.
       constante: { libre: true },

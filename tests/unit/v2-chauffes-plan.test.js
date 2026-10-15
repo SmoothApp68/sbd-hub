@@ -284,14 +284,46 @@ describe('§9.15.3 — la dégressive', () => {
     expect(x.degressive.charge).toBe(37.5);
   });
 
-  test('à la barre : la ligne reste vide, et le coach le dit', () => {
+  test('94 — isolation à la barre (curl 40 × 12) : remplie, et la phrase dit quoi enlever', () => {
     const exos = [{ slug: 'curl_barre', travail: 2, degressives: [1], consigne: consigne(40, 12) }];
     const e = entreesDe(seanceDe(exos), exos);
     const p = T.planDeSeance(e);
     const x = p.exercices[0];
-    expect(x.degressive.charge).toBeNull();
-    expect(x.degressive.phrase).toBe('Pas de dégressive à la barre.');
-    expect(x.lignes[2].fantome).toEqual({ charge: null, reps: null, source: 'degressive' });
+    // Un disque de 5 kg de chaque côté (−25 %, le plus proche de −22,5 %).
+    expect(x.degressive.charge).toBe(30);
+    expect(x.degressive.enleve).toBe(5);
+    expect(x.degressive.phrase).toBe('Enlève 5' + NB + 'kg de chaque côté : 30' + NB + 'kg. Sans repos, jusqu\'à l\'échec. Vise 5 à 7.');
+    expect(x.lignes[2].fantome).toEqual({ charge: 30, reps: null, source: 'degressive' });
+    expect(x.degressive.gestes).toBeUndefined();
+    ok(p, e);
+  });
+
+  test('94 — squat 140 avec une dégressive posée par l\'utilisateur : remplie au cran de la barre', () => {
+    const exos = [{ slug: 'squat_barre', travail: 3, degressives: [1], consigne: consigne(140, 5) }];
+    const e = entreesDe(seanceDe(exos), exos);
+    const p = T.planDeSeance(e);
+    const x = p.exercices[0];
+    // 15/10 : un disque de 15 kg de chaque côté (le plus proche de −22,5 %).
+    expect(x.degressive.charge).toBe(110);
+    expect(x.degressive.phrase).toBe('Enlève 15' + NB + 'kg de chaque côté : 110' + NB + 'kg. Sans repos, jusqu\'à l\'échec. Vise 3 à 5.');
+    ok(p, e);
+  });
+
+  test('94 — le coach ne pose jamais de dégressive : un squat sans ligne dégressive n\'en a pas', () => {
+    const exos = [{ slug: 'squat_barre', travail: 3, consigne: consigne(140, 5) }];
+    const e = entreesDe(seanceDe(exos), exos);
+    const p = T.planDeSeance(e);
+    expect(p.exercices[0].degressive).toBeNull();
+    expect(p.exercices[0].lignes.some((l) => l.type === 'degressive')).toBe(false);
+    ok(p, e);
+  });
+
+  test('94 — une dégressive que le coach ne peut pas remplir : la phrase dit pourquoi, deux gestes', () => {
+    const exos = [{ slug: 'curl_barre', travail: 1, degressives: [1], consigne: consigne(2.5, 12) }];
+    const e = entreesDe(seanceDe(exos), exos);
+    const p = T.planDeSeance(e);
+    const x = p.exercices[0];
+    expect(x.degressive).toMatchObject({ charge: null, phrase: 'Trop léger pour une dégressive.', gestes: ['serie_normale', 'retirer'] });
     ok(p, e);
   });
 
@@ -336,7 +368,7 @@ describe('§9.15.1 — le repos des chauffes (60 s, puis 120 s avant le travail)
   });
 
   test('à la barre, la dégressive vide ne supprime pas le repos', () => {
-    const exos = [{ slug: 'curl_barre', travail: 2, degressives: [1], consigne: consigne(40, 12) }];
+    const exos = [{ slug: 'curl_barre', travail: 2, degressives: [1], consigne: consigne(2.5, 12) }];
     const x = T.planDeSeance(entreesDe(seanceDe(exos), exos)).exercices[0];
     expect(T.reposApres(x, 1, 90)).toBe(90);
   });
@@ -406,13 +438,26 @@ describe('I16, I17 — des violations forgées sont attrapées', () => {
     expect(erreurs(p).join('\n')).toMatch(/^I16 — .*reps proposées 8 après 6/m);
   });
 
-  test('I17 — une dégressive remplie à la barre', () => {
+  test('I17 (94) — à la barre, une phrase qui ne dit pas quoi enlever', () => {
     const p = clone(plan(BARRE));
-    p.exercices[0].degressive.charge = 30;
-    p.exercices[0].lignes[2].fantome.charge = 30;
+    p.exercices[0].degressive.phrase = 'Enlève 2 × 5 kg : 30 kg, sans repos, jusqu\'à l\'échec. Vise 5 à 7.';
+    expect(erreurs(p).join('\n')).toMatch(/^I17 — .*la dégressive à la barre ne dit pas quoi enlever/m);
+  });
+
+  test('I17 (94) — une dégressive posée par le coach, sans ligne dégressive', () => {
+    const p = clone(plan(BARRE));
+    p.exercices[0].degressive.iSerie = 1;
+    expect(erreurs(p).join('\n')).toMatch(/^I17 — .*une dégressive sans ligne dégressive/m);
+  });
+
+  test('I17 (94) — une dégressive vide sans phrase ni gestes', () => {
+    const p = clone(plan(BARRE));
+    p.exercices[0].degressive.charge = null;
+    p.exercices[0].degressive.phrase = null;
+    p.exercices[0].lignes[2].fantome.charge = null;
     const e = erreurs(p).join('\n');
-    expect(e).toMatch(/^I17 — .*une dégressive remplie à la barre \(30\)/m);
-    expect(e).toMatch(/^I17 — .*la dégressive à la barre a un fantôme de charge/m);
+    expect(e).toMatch(/^I17 — .*une dégressive vide en silence/m);
+    expect(e).toMatch(/^I17 — .*une dégressive vide sans ses gestes/m);
   });
 
   test('I17 — une dégressive qui ne baisse pas', () => {
@@ -426,5 +471,62 @@ describe('I16, I17 — des violations forgées sont attrapées', () => {
     const p = clone(plan(CHAUFFES));
     p.exercices[0].paris[0] = { exercise_slug: 'developpe_couche_barre', fondement: { rang: 0 } };
     expect(erreurs(p).join('\n')).toMatch(/^I1 — .*série 0 hors couverture, avec un pari/m);
+  });
+});
+
+// ── 94 (14/10/2026) — §9.15.5 : la chauffe ajoutée par l'utilisateur ────────
+describe('§9.15.5 (94) — la chauffe que la table ne prévoit pas, remplie quand même', () => {
+  // L'écarté poulie APRÈS le couché : les pectoraux sont déjà sollicités, la
+  // table n'en prévoit aucune (« aucune »).
+  const apres = (chauffes, charge, pas) => [
+    { slug: 'developpe_couche_barre', consigne: consigne(125, 5) },
+    { slug: 'ecarte_poulie', chauffes: chauffes, consigne: consigne(charge, 12), pas: pas }
+  ];
+  const ecarte = (exos) => {
+    const e = entreesDe(seanceDe(exos), exos);
+    const p = T.planDeSeance(e);
+    return { p, e, x: p.exercices[1] };
+  };
+
+  test('une chauffe → ~60 % × 8 (30 kg, cran 2,5 : 17,5)', () => {
+    const { p, e, x } = ecarte(apres([8], 30, 2.5));
+    expect(x.chauffes.situation).toBe('aucune');
+    expect(charges(x)).toEqual([17.5]);
+    expect(x.chauffes.phrase).toBe('Chauffes calées sur 30' + NB + 'kg : 17,5' + NB + 'kg.');
+    ok(p, e);
+  });
+
+  test('deux chauffes → ~50 % puis ~75 % (15 · 22,5)', () => {
+    const { p, e, x } = ecarte(apres([8, 4], 30, 2.5));
+    expect(charges(x)).toEqual([15, 22.5]);
+    ok(p, e);
+  });
+
+  test('trois chauffes → les trois dernières marches de la rampe (~50, ~70, ~88 %)', () => {
+    const { p, e, x } = ecarte(apres([6, 3, 1], 30, 2.5));
+    expect(charges(x)).toEqual([15, 20, 27.5]);
+    ok(p, e);
+  });
+
+  test('sans reps à la routine : celles de la règle (8 puis 4)', () => {
+    const { x } = ecarte(apres([null, null], 30, 2.5));
+    const ch = x.lignes.filter((l) => l.type === 'echauffement');
+    expect(ch.map((l) => l.prerempli.reps)).toEqual([8, 4]);
+  });
+
+  test('trop léger pour une marche distincte : la ligne reste vide, et la phrase le dit', () => {
+    const { p, e, x } = ecarte(apres([8, 4], 5, 2.5));
+    expect(charges(x)).toEqual([2.5, null]);
+    expect(x.lignes.filter((l) => l.type === 'echauffement')[1].chauffe.trop_leger).toBe(true);
+    expect(x.chauffes.phrase).toBe('Chauffes calées sur 5' + NB + 'kg : 2,5' + NB + 'kg. Trop léger pour une chauffe de plus.');
+    ok(p, e);
+  });
+
+  test('I16 (94) — une chauffe de la routine restée vide en silence est attrapée', () => {
+    const { p } = ecarte(apres([8], 30, 2.5));
+    const q = JSON.parse(JSON.stringify(p));
+    const l = q.exercices[1].lignes.find((y) => y.type === 'echauffement');
+    l.chauffe.charge = null; l.fantome = null;
+    expect(T.verifierPlan(q).erreurs.join('\n')).toMatch(/^I16 — .*une chauffe de la routine restée vide/m);
   });
 });

@@ -40,12 +40,22 @@ describe('§9.15.1 — les chauffes, les 30 cas', () => {
   });
 });
 
+// 94 (14/10/2026) — D003 (« à la barre : pas de dégressive ») est REMPLACÉ par
+// la décision d'Aurélien (§9.15.3 révisé) : la dégressive posée se remplit à la
+// barre aussi. Le fichier de cas vient de la référence (`cas_chauffes49.py`) et
+// ne se corrige pas ici : rapporté à Claude.ai pour régénération. En attendant,
+// D003 se joue contre ce que la décision dit.
+const REMPLACES_94 = {
+  D003: { charge: 30, vise: [5, 7], enleve: 5,
+          phrase: 'Enlève 5\u00a0kg de chaque côté : 30\u00a0kg. Sans repos, jusqu\'à l\'échec. Vise 5 à 7.' }
+};
 describe('§9.15.3 — les dégressives, les 7 cas', () => {
   FICHIER.degressives.forEach((c) => {
     test(c.id + ' — ' + c.titre, () => {
       const r = M.degressiveDe(c.entree);
-      expect(extrait(r, c.attendu)).toEqual(c.attendu);
-      expect(octets(r.phrase)).toBe(octets(c.attendu.phrase));
+      const attendu = REMPLACES_94[c.id] || c.attendu;
+      expect(extrait(r, attendu)).toEqual(attendu);
+      expect(octets(r.phrase)).toBe(octets(attendu.phrase));
     });
   });
 });

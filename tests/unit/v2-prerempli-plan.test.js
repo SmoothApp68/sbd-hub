@@ -75,10 +75,10 @@ describe('PR 3 — la dégressive : la phrase et la ligne disent le même chiffr
     });
   });
 
-  test('à la barre, pas de dégressive : la ligne reste vide (charge et reps)', () => {
+  test('à la barre, la dégressive posée se remplit (94) : 100 → 80 (un disque de 10 de chaque côté), et la phrase dit quoi enlever', () => {
     const x = plan(seance({ slug: 'developpe_couche_barre', travail: 2, degressives: [8] }), 'developpe_couche_barre', consigne(100, 5)).exercices[0];
-    expect(x.degressive.phrase).toBe('Pas de dégressive à la barre.');
-    expect(x.lignes[2].prerempli).toMatchObject({ charge_kg: null, reps: null });
+    expect(x.degressive.phrase).toBe('Enlève 10\u00a0kg de chaque côté : 80\u00a0kg. Sans repos, jusqu\'à l\'échec. Vise 3 à 5.');
+    expect(x.lignes[2].prerempli).toMatchObject({ charge_kg: 80, reps: 4 });
   });
 
   test('les chauffes, elles, gardent les reps de la routine (la structure) ; la charge est celle du coach', () => {

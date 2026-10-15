@@ -6454,7 +6454,10 @@
       return { message: { type: 'chauffe', phrase: x.chauffes.phrase }, proposee: false, fourchette: null };
     }
     if (x && x.degressive && x.degressive.phrase && x.degressive.iSerie === iSerie) {
-      return { message: { type: 'degressive', phrase: x.degressive.phrase }, proposee: false, fourchette: null };
+      var md = { type: 'degressive', phrase: x.degressive.phrase };
+      // §9.15.3 (94) — la ligne vide porte ses deux gestes (hors Édition).
+      if (x.degressive.gestes && !enEdition()) md.gestes = x.degressive.gestes.slice();
+      return { message: md, proposee: false, fourchette: null };
     }
     // §14.7 (49-U17) — la ligne de la série de plus, marquée à la couleur du
     // coach (lue sur le plan).
@@ -6658,6 +6661,19 @@
       // §9.17 — l'exercice est en Entretenir PAR SON PROPRE choix : l'étiquette
       // devient « Entretien », la porte vers le mode (le profil n'y gagne rien).
       modeEntretien: function (slug) { return modeDe(slug) === 'entretien'; },
+      // MOTEUR §9.15.3 (94) — la dégressive que le coach ne remplit pas :
+      // « En faire une série normale » (le type change, par le geste de la
+      // feuille) ou « La retirer » (la suppression d'une série).
+      surDegressiveVide: async function (i, j, geste) {
+        var x = planDeLExercice(i);
+        if (!x || !x.degressive || x.degressive.iSerie !== j || !x.degressive.gestes) return;
+        if (geste === 'serie_normale') seance = Seance.changerType(seance, i, j, 'travail');
+        else if (geste === 'retirer') {
+          await oublierObservationDe(i, j);
+          seance = Seance.retirerSerie(seance, i, j);
+        } else return;
+        await apresGeste();
+      },
       surRefuserChauffes: function (i) {
         var x = planDeLExercice(i);
         if (!x || !x.proposition) return;

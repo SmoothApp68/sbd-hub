@@ -19785,6 +19785,110 @@ const SETS_IMPORTES = [
       nb74([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ charge-obligatoire. UNE SÉRIE CHARGÉE NE SE VALIDE PAS SANS CHARGE : LE CRAN AU-DESSUS SANS CHIFFRE (100, ECRAN-SAISIE §3 bis.3 bis) ══');
+  //
+  // Le cas du prompt 99 : une machine (pas de repli de cran), une seule charge dans l'historique, la ligne en haut
+  // de zone → la consigne teste « le cran au-dessus » SANS chiffre. Un ✓ sans poids validait « charge inconnue × 3 »
+  // et le constat écrivait un fait faux (I26). Désormais : pas de série en base, la case du poids en rouge, le
+  // clavier sur elle ; le poids tapé, la série part avec lui. La base est vidée pour la section, puis rendue.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    const violationsAvant = gardeBanc.violations;
+    CATALOGUE.push({ slug: 'cran-c100', nom: 'Cran C100 (Machine)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'machine', muscles_primaires: ['adducteurs'], muscles_secondaires: [] });
+    const t100 = Date.now();
+    base.sessions = [];
+    base.sets = [];
+    [28, 21, 14, 7].forEach((j) => {
+      const id = 'c100-' + j, debut = ilYa(j * 86400000, t100).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'C100 — ' + id, debut,
+        fin: finDe(debut, t100).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((r) => base.sets.push({
+        id: id + '-s' + r, session_id: id, user_id: 'u-banc', exercise_slug: 'cran-c100',
+        charge_kg: 50, reps: 12, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: r, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    ROUTINES.push({ id: 'r-c100', nom: 'Cran C100', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-c100-e', routine_id: 'r-c100', exercise_slug: 'cran-c100', rang: 0,
+        routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const nb100 = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+    await aller('/saisie');
+    await demarrerRoutine('Cran C100');
+    await attendre(900);
+    const plan100 = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'cran-c100')[0];
+      return x ? { etat: x.consigne.etat, haut: x.consigne.haut,
+        lignes: x.lignes.map((l) => ({ charge: l.charge === undefined ? null : l.charge, vise: l.vise, role: l.role || null })) } : null;
+    });
+    // La ligne sans chiffre : la première ligne du plan dont la charge est nulle.
+    const iNul = plan100 ? plan100.lignes.findIndex((l) => l.charge === null || l.charge === undefined) : -1;
+    ok('[C100] le décor : la consigne teste le cran au-dessus SANS chiffre (machine, une seule charge connue)',
+      !!plan100 && !!plan100.haut && (plan100.haut.charge === null || plan100.haut.charge === undefined) && iNul >= 0,
+      nb100(plan100));
+    // Les lignes d'avant : faites au poids proposé, comme une vraie personne.
+    for (let i = 0; i < iNul; i++) {
+      const v = plan100.lignes[i];
+      await saisirSerie(i, v.charge, v.vise || 12);
+    }
+    const nSets = base.sets.length;
+    const chargeVide = await (await ligne(iNul)).$$eval('input', (l) => [l[0].value, l[0].placeholder]);
+    ok('[C100] la ligne du test : aucune charge dans le champ, ni tapée ni en fantôme',
+      chargeVide[0] === '' && !/\d/.test(chargeVide[1] || ''), nb100(chargeVide));
+    {
+      const champs = await (await ligne(iNul)).$$('input');
+      await champs[1].fill('3');
+      await (await ligne(iNul)).$eval('.ok-serie', (b) => b.click());
+      await attendre(700);
+    }
+    const refus100 = await page.evaluate((i) => {
+      const a = document.activeElement;
+      const ch = a && a.closest ? a.closest('.ch-serie') : null;
+      const serie = a && a.closest ? a.closest('.serie') : null;
+      const l = document.querySelectorAll('.ligne-serie')[i];
+      return { ch: !!ch, rouge: !!(ch && ch.classList.contains('sans-charge-tapee')),
+        iSerie: serie ? serie.getAttribute('data-iserie') : null,
+        cochee: !!(l && l.querySelector('.ok-serie.cochee')),
+        constat: (document.querySelector('.legende-exo .constat') || {}).textContent || null };
+    }, iNul);
+    ok('[C100] DISCRIMINANT — ✓ SANS POIDS : rien ne part en base, la ligne reste ouverte, la case du poids en rouge et le clavier sur elle',
+      base.sets.length === nSets && !refus100.cochee && refus100.ch && refus100.rouge && refus100.iSerie === String(iNul),
+      nb100({ sets: base.sets.length - nSets, refus100 }));
+    ok('[C100] aucun constat menteur : pas de « 12 kg × 5 », pas de charge inconnue', !refus100.constat ||
+      !/12.kg.×.5|null|inconnu/.test(refus100.constat), nb100(refus100.constat));
+    // Le poids tapé : la série part, avec lui.
+    {
+      const champs = await (await ligne(iNul)).$$('input');
+      await champs[0].fill('55');
+      await (await ligne(iNul)).$eval('.ok-serie', (b) => b.click());
+      await attendre(900);
+    }
+    const partie = base.sets.filter((s) => s.exercise_slug === 'cran-c100' && !/^c100-/.test(s.session_id));
+    ok('[C100] le poids tapé : la série part avec 55 kg × 3, et plus aucune ligne en rouge',
+      base.sets.length === nSets + 1 && partie.some((s) => Number(s.charge_kg) === 55 && s.reps === 3) &&
+      (await compter('.sans-charge-tapee')) === 0, nb100(partie.map((s) => [s.charge_kg, s.reps])));
+    ok('[C100] aucune série chargée sans charge en base', partie.every((s) => s.charge_kg !== null && s.charge_kg !== undefined),
+      nb100(partie.map((s) => s.charge_kg)));
+    ok('[C100] et aucune violation de la garde (I26 compris)', gardeBanc.violations === violationsAvant,
+      String(gardeBanc.violations - violationsAvant));
+    await abandonner();
+
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[C100] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nb100([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ Q78. LA QUESTION DE RÉSERVE : « IL T’EN RESTAIT COMBIEN ? », APRÈS LA DERNIÈRE SÉRIE D’UN EXERCICE QUI A UN PARI (78, MOTEUR §17.2 bis) ══');
   //
   // Une séance de trois exercices : deux ont un pari (un historique, donc une consigne), le troisième n'en a pas (jamais

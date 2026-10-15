@@ -2888,6 +2888,26 @@
     return true;
   }
 
+  // ECRAN §3 bis.3 bis (prompt 100) — la série chargée validée sans charge ni
+  // fantôme : la case du poids s'entoure de rouge, tremble (sauf mouvement
+  // réduit, en CSS), et le clavier s'ouvre sur elle.
+  function demanderCharge(racine, iExo, iSerie) {
+    if (!racine) return false;
+    var r = racine.querySelector('.serie[data-iexo="' + iExo + '"][data-iserie="' + iSerie + '"]');
+    var champ = r && r.querySelector('.ch-serie');
+    var input = champ && champ.querySelector('input');
+    if (!input) return false;
+    champ.classList.remove('sans-charge-tapee');
+    void champ.offsetWidth;
+    champ.classList.add('sans-charge-tapee');
+    input.addEventListener('input', function retirer() {
+      champ.classList.remove('sans-charge-tapee');
+      input.removeEventListener('input', retirer);
+    });
+    input.focus();
+    return true;
+  }
+
   function rangeeDeSerie(bloc, s, complets, vue, reaction) {
     var iExo = s._iExo, iSerie = s._iSerie;
     var g = gabaritDe(vue, s.exercise_slug);
@@ -6910,6 +6930,7 @@
     rendreBlocsSeance: rendreBlocsSeance,
     majConstat: majConstat,
     demanderReps: demanderReps,
+    demanderCharge: demanderCharge,
     rendreRepos: rendreRepos,
     rendreFeuilleSerie: rendreFeuilleSerie,
     rendreFeuilleNote: rendreFeuilleNote,

@@ -2395,6 +2395,20 @@
     return p.palier !== null && p.palier !== undefined && n > Number(p.palier);
   }
 
+  // ECRAN §3 bis.3 bis (prompt 100, 15/10/2026) — UNE SÉRIE CHARGÉE NE SE
+  // VALIDE PAS SANS CHARGE. Au ✓ : la charge tapée, sinon le fantôme ; ni l'une
+  // ni l'autre (« le cran au-dessus » sans chiffre), la série ne se valide pas.
+  // Concernées : les exercices à charge ordinaire (`charge_reps` sans nature),
+  // tous types de série — une chauffe ou une dégressive d'un exercice chargé
+  // attend aussi un poids. Exemptés : sans champ de charge (reps seules, durée,
+  // distance), le lest et l'aide (vide = sans lest, sans aide), et le gabarit
+  // inconnu (on ne sait pas s'il se charge).
+  function chargeManquante(g, serie, f) {
+    if (!g || g.inconnue || g.nature || g.champs.indexOf('charge_kg') < 0) return false;
+    var vide = function (v) { return v === null || v === undefined || v === '' || !isFinite(Number(v)); };
+    return vide(serie && serie.charge_kg) && vide(f && f.charge_kg);
+  }
+
   function fantome(seance, iExo, iSerie, prec, plan) {
     var exo = seance.exercices[iExo];
     var ligne = correspondant(exo.series, iSerie, prec);
@@ -2742,6 +2756,7 @@
     correspondant: correspondant,
     derniereSaisie: derniereSaisie,
     fantome: fantome,
+    chargeManquante: chargeManquante,
     planDe: planDe,
     couvertureDe: couvertureDe,
     couvertureSeance: couvertureSeance,

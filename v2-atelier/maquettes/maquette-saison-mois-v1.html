@@ -1,0 +1,48 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bilans saison et mois</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+<style>
+:root{--acier:#161a1f;--craie:#ece8df;--or:#d9b45a;--bleu:#6fa3d8;--gris:#9aa3ad;--trait:#2e363f}
+*{box-sizing:border-box}body{margin:0;background:#0f1215;color:var(--craie);font:15px/1.4 Archivo,system-ui,sans-serif;padding:16px}
+h1{font-size:20px;margin:0 0 4px;font-stretch:118%}h2{font-size:16px;margin:22px 0 10px;color:var(--or)}
+p.note{color:var(--gris);margin:0 0 12px;max-width:70ch}
+.rang{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px}
+.e{flex:none;width:230px;height:410px;border-radius:22px;background:var(--acier);border:1px solid var(--trait);padding:18px;display:flex;flex-direction:column;justify-content:space-between;position:relative}
+.barres{display:flex;gap:4px;position:absolute;top:10px;left:14px;right:14px}.barres i{flex:1;height:3px;border-radius:2px;background:#3a424c}.barres i.f{background:var(--craie)}
+.t{color:var(--gris);font-size:12px;margin-top:10px}
+.g{font-weight:900;font-stretch:125%;font-size:52px;line-height:.95}
+.m{font-weight:800;font-stretch:115%;font-size:22px;line-height:1.1}
+.s{font-size:13px;color:var(--gris)}
+.or{color:var(--or)}.bleu{color:var(--bleu)}
+.part{font-size:12px;border:1px solid var(--trait);border-radius:99px;padding:5px 10px;align-self:flex-start;color:var(--gris)}
+.sem{display:flex;align-items:flex-end;gap:5px;height:110px}.sem i{flex:1;background:#3a424c;border-radius:4px 4px 0 0}.sem i.max{background:var(--or)}
+.ligne{display:flex;justify-content:space-between;border-top:1px solid var(--trait);padding:6px 0;font-size:13px}
+.plaque{background:linear-gradient(160deg,#23292f,#161a1f);border:1px solid var(--or)}
+</style></head><body>
+<h1>Bilans de saison et de mois — maquette v1</h1>
+<p class="note">Validée par Aurélien le 15/10/2026. Ajout du prompt 98 (décision du 15/10/2026) : l’écran « À la salle » (heures et jours, jamais comparés), juste après les tonnes, comme dans l’année ; la barre de progression du haut compte donc un écran de plus.</p>
+<p class="note">Même moteur que « Ton année » (v11) : mêmes règles, même partage, défilement seul et pause au doigt ; 6 écrans au lieu de 12. Comparaison à la saison (ou au mois) précédente. Jamais l'assiduité ni le nombre de séances. Exemples fictifs.</p>
+
+<h2>Saison — « Fall Arc » (phase maintien ou recomposition ; « Bulk Season » en prise de masse, « Fall Cut » en sèche)</h2>
+<div class="rang">
+<div class="e"><div class="barres"><i class="f"></i><i></i><i></i><i></i><i></i><i></i></div><div class="t">septembre → novembre 2026</div><div><div class="m or">Fall Arc</div><div class="g">512 t</div><div class="s">soulevées cet automne · ≈ 85 éléphants</div></div><div class="s">+38 t sur l'été</div></div>
+<div class="e"><div class="barres"><i class="f"></i><i class="f"></i><i></i><i></i><i></i><i></i><i></i></div><div class="t">À la salle</div><div><div class="g">58 h</div><div class="s">sur 39 jours · ≈ 2 jours entiers sous la barre</div></div><div class="s">un fait, jamais comparé</div></div>
+<div class="e"><div class="barres"><i class="f"></i><i class="f"></i><i></i><i></i><i></i><i></i></div><div class="t">Semaine par semaine</div><div class="sem"><i style="height:55%"></i><i style="height:62%"></i><i style="height:70%"></i><i style="height:48%"></i><i style="height:75%"></i><i style="height:82%"></i><i class="max" style="height:100%"></i><i style="height:66%"></i><i style="height:71%"></i><i style="height:78%"></i><i style="height:80%"></i><i style="height:60%"></i><i style="height:74%"></i></div><div class="s">La plus lourde : semaine du 12 octobre, 52 t</div></div>
+<div class="e"><div class="barres"><i class="f"></i><i class="f"></i><i class="f"></i><i></i><i></i><i></i></div><div class="t">Ton exercice de la saison</div><div><div class="m">Développé Couché (Barre)</div><div class="g bleu">268</div><div class="s">reps · puis Squat (Barre) 214 · Rowing Penché (Barre) 190</div></div><span class="part">Partager</span></div>
+<div class="e"><div class="barres"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i></i><i></i></div><div class="t">Nouvelles charges max</div><div><div class="ligne"><span>Soulevé de Terre (Barre)</span><b>170 kg</b></div><div class="ligne"><span>Squat (Barre)</span><b>145 kg</b></div><div class="ligne"><span>Tractions</span><b>+25 kg</b></div></div><div class="s">3 records de charge cet automne</div></div>
+<div class="e"><div class="barres"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i></i></div><div class="t">Ce qui a le plus avancé</div><div><div class="m">Rowing Penché (Barre)</div><div class="g or">+10 kg</div><div class="s">à 8 reps : 80 → 90 kg</div></div><div class="s">Le coach : 41 paris tenus sur 44</div></div>
+<div class="e plaque"><div class="barres"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i></div><div class="t">aurel_br</div><div><div class="m or">Fall Arc 2026</div><div class="g">512 t</div><div class="s">3 records · soulevé, squat, tractions</div></div><span class="part">Partager</span></div>
+</div>
+
+<h2>Mois — « Ton mois d'octobre » (remplace le bilan du mois de Progression ; reprend ses records et ses paris)</h2>
+<div class="rang">
+<div class="e"><div class="barres"><i class="f"></i><i></i><i></i><i></i><i></i><i></i></div><div class="t">Octobre 2026</div><div><div class="g">178 t</div><div class="s">soulevées · ≈ 30 éléphants</div></div><div class="s">+12 t sur septembre</div></div>
+<div class="e"><div class="barres"><i class="f"></i><i class="f"></i><i></i><i></i><i></i><i></i><i></i></div><div class="t">À la salle</div><div><div class="g">20 h</div><div class="s">sur 14 jours</div></div><div class="s">un fait, jamais comparé</div></div>
+<div class="e"><div class="barres"><i class="f"></i><i class="f"></i><i></i><i></i><i></i><i></i></div><div class="t">Semaine par semaine</div><div class="sem"><i style="height:70%"></i><i class="max" style="height:100%"></i><i style="height:82%"></i><i style="height:88%"></i></div><div class="s">La plus lourde : semaine du 12, 52 t</div></div>
+<div class="e"><div class="barres"><i class="f"></i><i class="f"></i><i class="f"></i><i></i><i></i><i></i></div><div class="t">Ton muscle du mois</div><div><div class="m">Pectoraux</div><div class="g bleu">54</div><div class="s">séries · puis quadriceps 41 · dos 38</div></div></div>
+<div class="e"><div class="barres"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i></i><i></i></div><div class="t">Tes records d'octobre</div><div><div class="ligne"><span>Squat (Barre)</span><b>145 kg</b></div><div class="ligne"><span>Développé Couché (Haltère)</span><b>2 × 50 kg × 6</b></div><div class="ligne"><span>Tractions</span><b>+25 kg × 5</b></div></div><div class="s">tous les records du mois, comme l'ancien bilan</div></div>
+<div class="e"><div class="barres"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i></i></div><div class="t">Le coach</div><div><div class="g or">38/41</div><div class="s">paris tenus ce mois</div></div><div class="s">Le détail des paris s'ouvre au toucher</div></div>
+<div class="e plaque"><div class="barres"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i></div><div class="t">aurel_br</div><div><div class="m or">Octobre 2026</div><div class="g">178 t</div><div class="s">3 records</div></div><span class="part">Partager</span></div>
+</div>
+<p class="note" style="margin-top:14px">Annonce : un message dans l'app à l'ouverture, le premier jour de la saison suivante (1er déc., 1er mars, 1er juin, 1er sept.) ou le 1er du mois. Moins de 3 semaines de données dans la période : les faits seulement, sans comparaison.</p>
+</body></html>

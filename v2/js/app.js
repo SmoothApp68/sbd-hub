@@ -1150,13 +1150,19 @@
     var dernier = faits.dernierRecord(corpus());
     profilDuParcours = cleDuParcoursDuProfil(profil);
     Rendu.rendreSommaire($('sommaire'), {
+      // 98 — le mois écoulé s'ouvre sur SA STORY (BILANS-V1) ; le bloc dit ses tonnes, jamais ses séances.
       mois: {
         titre: nomDuMois(mois, false),
-        seances: b.seances,
+        kg: b.volume_kg,
         records: faits.recordsDuMois(corpus(), mois).length,
         paris: { verifies: b.paris_verifies, tenus: b.paris_tenus },
         surChoix: function () { afficherMois(mois); }
       },
+      // 98 — la saison écoulée, toute la saison suivante ; hors production, la saison en cours si l'écoulée est vide.
+      saison: (function () {
+        var cle = saisonDuSommaire();
+        return cle ? { titre: titreDeSaison(cle), surChoix: function () { ouvrirBilan(Bilans.periodeDeLaSaison(cle)); } } : null;
+      })(),
       // 75 — « Ton parcours », juste après « Le mois écoulé » : sa phrase, il s'ouvre sur la page.
       parcours: {
         phrase: faits.parcoursDe(corpus(), new Date(), profil).phrase,
@@ -1249,19 +1255,56 @@
     if (garde.active && !bilanDeLAnnee(an + 1).vide) return an + 1;
     return null;
   }
-  function ouvrirAnnee(an) {
-    var periode = Bilans.periodeDeLAnnee(an);
+  function ouvrirAnnee(an) { ouvrirBilan(Bilans.periodeDeLAnnee(an)); }
+
+  // ══ 98 — LA SAISON ET LE MOIS (BILANS-V1, maquette `maquette-saison-mois-v1.html`) ════════════════════════════
+  //
+  // LE MÊME MOTEUR ET LE MÊME LECTEUR que « Ton année » : seule la fenêtre change. La story du mois REMPLACE l'ancien
+  // bilan du mois de Progression (`/progression/mois/AAAA-MM` l'ouvre) et en reprend les records
+  // (`faits.recordsDuMois`, tous au toucher : la liste des records du mois) et les paris (`Bilan.phraseParis`, le
+  // détail au toucher). Le nom de la saison suit la phase du profil au début de la saison (`Profil.phaseAuJour`).
+  // Ce que l'app ajoute ne décide rien : QUAND le bloc et l'annonce paraissent. Rien n'est écrit en base.
+  function bilanPeriode(periode) {
+    return faits.bilanDePeriode(corpus(), periode, new Date(),
+                                { pesees: local.pesees || [], paris: parisDeConsigneConnus() });
+  }
+  function titreDeSaison(cle) {
+    var p = Bilans.periodeDeLaSaison(cle);
+    return Bilans.nomDeSaison(p.saison, Profil.phaseAuJour(profil, p.debut)) + ' ' + p.an;
+  }
+  function ouvrirBilan(periode, options) {
+    var o = options || {};
     var jeu = null;
-    if (jeuAllume()) {
+    if (periode.type === 'annee' && jeuAllume()) {
       var fj = faits.faitsDuJeuDeLaPeriode(corpus(), periode, new Date());
       jeu = { debut: Jeu.etatDuJeu(fj.debut), fin: Jeu.etatDuJeu(fj.fin) };
     }
-    Annee.ouvrir($('annee'), {
-      bilan: bilanDeLAnnee(an),
+    var vue = {
+      bilan: bilanPeriode(periode),
       qui: profil && profil.username ? profil.username : '',
       jeu: jeu,
-      surDetail: afficherParcours
-    });
+      surDetail: afficherParcours,
+      surFermer: o.surFermer || null,
+      surExercice: function (slug) { afficherExercice(slug); }
+    };
+    if (periode.type === 'saison') vue.nom = Bilans.nomDeSaison(periode.saison, Profil.phaseAuJour(profil, periode.debut));
+    if (periode.type === 'mois') {
+      var mois = periode.cle;
+      var b = bilanDuMoisDe(mois);
+      vue.records = faits.recordsDuMois(corpus(), mois);
+      vue.paris = b.paris_verifies ? { phrase: Bilan.phraseParis(b.paris_verifies, b.paris_tenus) } : null;
+      vue.surRecords = function () { afficherRecordsDuMois(mois); };
+    }
+    Annee.ouvrir($('annee'), vue);
+  }
+  // La saison du bloc de Progression : l'écoulée (non vide), toute la saison suivante ; hors production, la saison
+  // en cours quand l'écoulée n'a rien.
+  function saisonDuSommaire() {
+    var ici = Bilans.saisonDuJour(Moteur.jourCivil(new Date()));
+    var avant = Bilans.periodeDeLaSaison(ici).precedente.cle;
+    if (!bilanPeriode(Bilans.periodeDeLaSaison(avant)).vide) return avant;
+    if (garde.active && !bilanPeriode(Bilans.periodeDeLaSaison(ici)).vide) return ici;
+    return null;
   }
   // L'adresse lue AU CHARGEMENT (comme `?rejouer=`) : la navigation la réécrit avant la fin de la synchronisation.
   var rechercheAuChargement = (function () {
@@ -1271,20 +1314,66 @@
     var m = /[?&]bilan=(\d{4})(?:&|$)/.exec(rechercheAuChargement);
     return m && garde.active ? Number(m[1]) : null;
   }
+  // 98 — `?bilan=2026-10` (le mois), `?bilan=2026-automne` (la saison) : hors production, comme `?bilan=2026`.
+  function periodeDemandee() {
+    var m = /[?&]bilan=(\d{4}-(?:0[1-9]|1[0-2]|hiver|printemps|ete|automne))(?:&|$)/.exec(rechercheAuChargement);
+    if (!m || !garde.active) return null;
+    return /-\d{2}$/.test(m[1]) ? Bilans.periodeDuMois(m[1]) : Bilans.periodeDeLaSaison(m[1]);
+  }
+  // 98 — L'ANNONCE DE LA SAISON ET DU MOIS : un seul message dans l'app, à l'ouverture, à partir du premier jour de
+  // la saison suivante (1er déc., 1er mars, 1er juin, 1er sept.) ou du 1er du mois, et pendant les 7 premiers jours
+  // (le jour même seulement manquerait qui n'ouvre pas l'app ce jour-là) ; une fois par personne et par période,
+  // mémorisé SUR L'APPAREIL (comme l'année). Un même jour, un seul message : l'année, sinon la saison, sinon le mois ;
+  // les autres restent dans Progression (et sont notés vus, pour ne pas s'enchaîner les jours suivants).
+  var CLE_ANNONCE_BILAN = 'th-v2-annonce-bilan', JOURS_D_ANNONCE = 7;
+  function annoncesDuJour(maintenant) {
+    var out = [];
+    if (maintenant.getDate() > JOURS_D_ANNONCE) return out;
+    var jour = Moteur.jourCivil(maintenant), n = maintenant.getMonth() + 1;
+    if (n === 12 || n === 3 || n === 6 || n === 9) {
+      var sa = Bilans.periodeDeLaSaison(Bilans.saisonDuJour(jour)).precedente.cle;
+      out.push({ periode: Bilans.periodeDeLaSaison(sa), texte: 'Ta saison ' + titreDeSaison(sa) + ' est prête.' });
+    }
+    var mo = Bilans.periodeDuMois(Bilan.moisEcoule(maintenant));
+    out.push({ periode: mo, texte: 'Ton mois ' + (/^[aeiouéè]/i.test(mo.nom) ? 'd’' : 'de ') + mo.nom + ' est prêt.' });
+    return out;
+  }
+  function cleAnnonce(uid, p) { return CLE_ANNONCE_BILAN + ':' + uid + ':' + p.type + ':' + p.cle; }
+  function annoncerUnBilan(uid) {
+    if (!uid) return false;
+    var dejaVue = function (p) {
+      try { return !!racine.localStorage.getItem(cleAnnonce(uid, p)); } catch (e) { return true; }   // sans mémoire, rien
+    };
+    var a = annoncesDuJour(new Date()).filter(function (x) { return !dejaVue(x.periode) && !bilanPeriode(x.periode).vide; });
+    if (!a.length) return false;
+    try { a.forEach(function (x) { racine.localStorage.setItem(cleAnnonce(uid, x.periode), '1'); }); } catch (e) { return false; }
+    Annee.annonce($('annonce-annee'), { texte: a[0].texte, surVoir: function () { ouvrirBilan(a[0].periode); } });
+    return true;
+  }
   var CLE_ANNONCE_ANNEE = 'th-v2-annonce-annee';
   function annoncerLAnnee(uid) {
     var maintenant = new Date(), an = maintenant.getFullYear() - 1;
-    if (maintenant.getMonth() !== 0 || an < PREMIERE_ANNEE || !uid) return;
+    if (maintenant.getMonth() !== 0 || an < PREMIERE_ANNEE || !uid) return false;
     var cle = CLE_ANNONCE_ANNEE + ':' + uid + ':' + an;
-    try { if (racine.localStorage.getItem(cle)) return; } catch (e) { return; }   // sans mémoire, pas d'annonce répétée
-    if (bilanDeLAnnee(an).vide) return;
-    try { racine.localStorage.setItem(cle, '1'); } catch (e) { return; }
+    try { if (racine.localStorage.getItem(cle)) return false; } catch (e) { return false; }   // sans mémoire, pas d'annonce répétée
+    if (bilanDeLAnnee(an).vide) return false;
+    try { racine.localStorage.setItem(cle, '1'); } catch (e) { return false; }
     Annee.annonce($('annonce-annee'), { an: an, surVoir: function () { ouvrirAnnee(an); } });
+    return true;
   }
   function apresSynchroAnnee(uid) {
     var an = anneeDemandee();
     if (an) { ouvrirAnnee(an); return; }
-    annoncerLAnnee(uid);
+    var p = periodeDemandee();
+    if (p) { ouvrirBilan(p); return; }
+    // Un seul message : l'année d'abord ; la saison et le mois du jour sont alors notés vus.
+    if (annoncerLAnnee(uid)) {
+      annoncesDuJour(new Date()).forEach(function (x) {
+        try { racine.localStorage.setItem(cleAnnonce(uid, x.periode), '1'); } catch (e) { /* sans mémoire */ }
+      });
+      return;
+    }
+    annoncerUnBilan(uid);
   }
 
   // ══ LE JEU (64B, JEU-V1 §9, maquette `maquette-jeu-v6.html`) ═════════════
@@ -2636,41 +2725,15 @@
     rendreRecordsDuMois(mois);
   }
 
-  // LE BILAN DU MOIS (ECRAN §7 bis.14, maquette « Le mois »).
+  // 98 — LE BILAN DU MOIS EST LA STORY DU MOIS (BILANS-V1) : la route `/progression/mois/AAAA-MM` ouvre Progression,
+  // et la story par-dessus ; la fermer rend Progression (et son adresse). L'ancien bilan n'est plus rendu ; ses
+  // records (`faits.recordsDuMois`) et ses paris passent dans la story (`ouvrirBilan`).
   function rendreMois(moisDemande) {
-    montrer('mois', Routeur.MOIS);
     var mois = moisDemande || Bilan.moisEcoule(new Date());
-    var b = bilanDuMoisDe(mois);
-    var recs = faits.recordsDuMois(corpus(), mois);
-    var index = catalogueIndexe();
-    var courant = Bilan.cleMois(new Date());
-    var trois = [Bilan.moisPrecedent(Bilan.moisPrecedent(mois)), Bilan.moisPrecedent(mois), mois];
-    var precedent = Bilan.moisPrecedent(mois);
-    Rendu.rendreBilanMois($('bilan-mois'), {
-      titre: nomDuMois(mois, true).replace(/^./, function (c) { return c.toUpperCase(); }),
-      bilan: b,
-      records: recs,
-      temps: b.temps_min === null ? null : Bilan.texteTemps(b.temps_min),
-      volume: b.volume_kg,
-      barres: trois.map(function (m) {
-        return { libelle: nomDuMois(m, false).toLowerCase(), series: m === mois ? b.series : bilanDuMoisDe(m).series, courant: m === mois };
-      }),
-      premierJour: Bilan.premierJour(mois),
-      muscles: b.muscles.slice(0, 6),
-      moisAvant: nomDuMois(precedent, false).toLowerCase(),
-      exercices: b.exercices.map(function (e) {
-        var nom = index[e.slug] ? index[e.slug].nom : e.slug;
-        return { slug: e.slug, nom: nom, series: e.series };
-      }),
-      paris: b.paris_verifies ? { verifies: b.paris_verifies, tenus: b.paris_tenus,
-                                  phrase: Bilan.phraseParis(b.paris_verifies, b.paris_tenus) } : null,
-      surPrecedent: function () { afficherMois(precedent); },
-      surSuivant: mois < courant ? function () { afficherMois(Bilan.moisSuivant(mois)); } : null,
-      surRecords: function () { afficherRecordsDuMois(mois); },
-      surSeance: function (id) { afficherDetail(id); },
-      // 57-1 — un exercice « le plus fait » ouvre sa page : la porte commune.
-      surExercice: function (slug) { afficherExercice(slug); }
-    });
+    rendreProgression();
+    ouvrirBilan(Bilans.periodeDuMois(mois), { surFermer: function () {
+      if (Routeur.analyser(racine.location.pathname).vue === Routeur.MOIS) allerA(Routeur.PROGRESSION, {}, true);
+    } });
   }
 
   // LES RECORDS D'UN MOIS : chacun mène à sa séance.
@@ -12971,7 +13034,7 @@
       saisie: $('vue-saisie'), routine: $('vue-routine'), seance: $('vue-seance'),
       progression: $('vue-progression'), exercice: $('vue-exercice'),
       volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil'),
-      mois: $('vue-mois'), records: $('vue-records'),
+      records: $('vue-records'),
       // 75 — « Ton parcours », sous Progression.
       parcours: $('vue-parcours'),
       exercices: $('vue-exercices'), questionnaire: $('vue-questionnaire'),
@@ -13062,7 +13125,7 @@
       allerA(Routeur.SAISIE, {});
       rendreSaisie();
     });
-    ['btn-retour-volume', 'btn-retour-poids', 'btn-retour-mois', 'btn-retour-records', 'btn-retour-parcours'].forEach(function (id) {
+    ['btn-retour-volume', 'btn-retour-poids', 'btn-retour-records', 'btn-retour-parcours'].forEach(function (id) {
       $(id).addEventListener('click', function () {
         allerA(Routeur.PROGRESSION, {});
         rendreProgression();

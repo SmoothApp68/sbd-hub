@@ -4220,6 +4220,15 @@
       return e && e.slug === exo.exercise_slug;
     })[0]);
     var ligneDuPlan = (planDeLExercice(iExo) || { lignes: [] }).lignes[iSerie];
+    var f = fantomeDe(iExo, iSerie);
+    // ECRAN §3 bis.3 bis (prompt 100) — NI CHARGE TAPÉE NI FANTÔME : la série ne
+    // se valide pas. Le test « le cran au-dessus × 3 » sans chiffre validait
+    // « charge inconnue × 3 », et le constat inventait le fait du jour (I26).
+    // Avant les reps : la charge est le premier champ de la ligne.
+    if (Seance.chargeManquante(g, serie, f)) {
+      Rendu.demanderCharge($('blocs-seance'), iExo, iSerie);
+      return;
+    }
     // §9.14 (ECRAN §3.2, 25/09/2026) — LA LIGNE PROPOSÉE NE SE VALIDE PAS À
     // VIDE. Ses reps ne sont pas un fantôme : valider sans les taper
     // enregistrerait le bas de la zone, et le pari serait jugé exact d'office.
@@ -4231,7 +4240,6 @@
       Rendu.demanderReps($('blocs-seance'), iExo, iSerie);
       return;
     }
-    var f = fantomeDe(iExo, iSerie);
     var champs = {};
     //
     // La seule condition qui compte est « le champ est VIDE » : ce qui a été

@@ -364,6 +364,15 @@ un curseur à 360 px avec les mains moites est perdu d'avance.
 **3 bis.3 — Les valeurs fantômes.** Les champs non saisis affichent en gris ce que la routine
 ou le moteur propose. On valide sans rien taper quand c'est juste.
 
+**3 bis.3 bis — Pas de série chargée sans charge** (décision d'Aurélien, 15/10/2026, prompt 100).
+« Au ✓ d'une série de travail : si une charge est tapée, elle est validée ; sinon, si le coach en propose une (fantôme), c'est elle qui est validée, comme aujourd'hui ; sinon (ni tapée ni proposée, par exemple « le cran au-dessus » sans chiffre), la série ne se valide pas : la case du poids s'entoure de rouge avec un léger tremblement, et le clavier s'ouvre sur elle. Les exercices sans charge (poids du corps non lesté, durée, distance) ne sont pas concernés. »
+
+Précisions d'implémentation (prompt 100) : la règle vaut pour **tout type de série** (chauffe,
+dégressive comprises) d'un exercice à charge ordinaire — une charge leur est attendue. Le lest
+et l'aide en sont exemptés (vide = sans lest, sans aide), comme un exercice de mesure inconnue.
+Le tremblement ne joue pas sous `prefers-reduced-motion: reduce` ; le rouge, si. La charge se
+vérifie avant les reps de la ligne proposée. Il n'existe pas de « valider toutes ».
+
 **3 bis.4 — Le retour haptique.** Une vibration à la validation confirme « même avec les mains
 moites ». **L'optimisation la moins chère qui soit : aucun pixel.**
 ⚠️ **Spécifié mais absent** — vérifié sur device le 11/09, aucune vibration à la validation.

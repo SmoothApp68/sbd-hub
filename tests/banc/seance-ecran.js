@@ -1900,6 +1900,18 @@ const SETS_IMPORTES = [
   // Les lignes de série sont réparties dans plusieurs blocs : on les adresse par
   // leur index GLOBAL, pas par `nth-child`, qui compterait l'en-tête du bloc.
   const ligne = async (i) => (await page.$$('.ligne-serie'))[i];
+  // 100 (ECRAN §3 bis.3 bis) — une série chargée sans charge tapée ni fantôme ne se valide plus :
+  // comme une vraie personne, on tape le poids avant le ✓. Rien n'est tapé si la ligne a un chiffre.
+  const poidsSiAucun = async (l, kg) => {
+    const ch = l && await l.$('.serie.g-charge_reps .ch-serie input');
+    if (ch && !(await l.$('.ok-serie.cochee')) &&
+        (await ch.evaluate((e) => e.value === '' && !/\d/.test(e.placeholder || '')))) {
+      await ch.fill(String(kg || 40));
+      await ch.evaluate((e) => e.blur());
+      await attendre(300);
+    }
+  };
+  const ligneDuBloc = async (iBloc, k) => (await (await page.$$('.bloc-seance'))[iBloc].$$('.ligne-serie'))[k];
 
   const saisirSerie = async (i, charge, reps) => {
     const l = await ligne(i);
@@ -3519,16 +3531,7 @@ const SETS_IMPORTES = [
   // Une rangée est adressée par son INDICE D'AFFICHAGE dans le bloc — c'est
   // l'ordre entrelacé, donc exactement ce qu'un pouce touche.
   const validerRangee = async (iBloc, iRangee) => {
-    // 100 (ECRAN §3 bis.3 bis) — une série chargée sans charge ni fantôme ne se
-    // valide plus : comme une vraie personne, on tape le poids (40 kg) avant le ✓.
-    const l = (await (await page.$$('.bloc-seance'))[iBloc].$$('.ligne-serie'))[iRangee];
-    const ch = await l.$('.serie.g-charge_reps .ch-serie input');
-    if (ch && !(await l.$('.ok-serie.cochee')) &&
-        (await ch.evaluate((e) => e.value === '' && !/\d/.test(e.placeholder || '')))) {
-      await ch.fill('40');
-      await ch.evaluate((e) => e.blur());
-      await attendre(300);
-    }
+    await poidsSiAucun(await ligneDuBloc(iBloc, iRangee));
     await page.evaluate(([k, r]) => {
       document.querySelectorAll('.bloc-seance')[k]
         .querySelectorAll('.ligne-serie')[r].querySelector('.ok-serie').click();
@@ -4635,6 +4638,7 @@ const SETS_IMPORTES = [
     const n = await compter('.ligne-serie');
     for (let i = 0; i < n; i++) {
       const l = (await page.$$('.ligne-serie'))[i];
+      await poidsSiAucun(l);
       await l.$eval('.ok-serie', (b) => b.click());
       await attendre(200);   // rapprochées, comme un pouce sur l'appareil
     }
@@ -12161,6 +12165,7 @@ const SETS_IMPORTES = [
         securite: (c.querySelector('.douleur-securite') || {}).textContent || '' };
     });
     const validerD = async (iBloc, k) => {
+      await poidsSiAucun(await ligneDuBloc(iBloc, k));
       await page.evaluate(([b, j]) => document.querySelectorAll('.bloc-seance')[b]
         .querySelectorAll('.ligne-serie')[j].querySelector('.ok-serie').click(), [iBloc, k]);
       await attendre(900);
@@ -19809,6 +19814,9 @@ const SETS_IMPORTES = [
     const violationsAvant = gardeBanc.violations;
     CATALOGUE.push({ slug: 'cran-c100', nom: 'Cran C100 (Machine)', mesure: 'charge_reps', charge: 'externe',
       equipement: 'machine', muscles_primaires: ['adducteurs'], muscles_secondaires: [] });
+    // Le témoin de la mutation (b) : un exercice au poids du corps, sans charge — jamais concerné.
+    CATALOGUE.push({ slug: 'pdc-c100', nom: 'Gainage C100', mesure: 'reps', charge: 'aucune',
+      equipement: 'aucun', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [] });
     const t100 = Date.now();
     base.sessions = [];
     base.sets = [];
@@ -19826,7 +19834,9 @@ const SETS_IMPORTES = [
     ROUTINES.push({ id: 'r-c100', nom: 'Cran C100', note: null, archivee_a: null,
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
       routine_exercises: [{ id: 'r-c100-e', routine_id: 'r-c100', exercise_slug: 'cran-c100', rang: 0,
-        routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
+        routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null },
+      { id: 'r-c100-p', routine_id: 'r-c100', exercise_slug: 'pdc-c100', rang: 1,
+        routine_sets: progr(1, 15), repos_cible_s: 60, groupe_superset: null, note: null }] });
     const nb100 = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
     await aller('/saisie');
     await demarrerRoutine('Cran C100');
@@ -19885,6 +19895,18 @@ const SETS_IMPORTES = [
       (await compter('.sans-charge-tapee')) === 0, nb100(partie.map((s) => [s.charge_kg, s.reps])));
     ok('[C100] aucune série chargée sans charge en base', partie.every((s) => s.charge_kg !== null && s.charge_kg !== undefined),
       nb100(partie.map((s) => s.charge_kg)));
+    // Le poids du corps : aucune charge à taper, le ✓ valide (mutation b).
+    {
+      const iP = (await page.$$('.ligne-serie')).length - 1;
+      const champs = await (await ligne(iP)).$$('input');
+      await champs[champs.length - 1].fill('15');
+      await (await ligne(iP)).$eval('.ok-serie', (b) => b.click());
+      await attendre(900);
+    }
+    const pdc = base.sets.filter((s) => s.exercise_slug === 'pdc-c100' && !/^c100-/.test(s.session_id));
+    ok('[C100] le poids du corps n’est pas concerné : × 15 se valide sans charge',
+      pdc.length === 1 && pdc[0].reps === 15 && pdc[0].charge_kg === null && (await compter('.sans-charge-tapee')) === 0,
+      nb100(pdc.map((s) => [s.charge_kg, s.reps])));
     ok('[C100] et aucune violation de la garde (I26 compris)', gardeBanc.violations === violationsAvant,
       String(gardeBanc.violations - violationsAvant));
     await abandonner();
@@ -19956,6 +19978,7 @@ const SETS_IMPORTES = [
     });
     // Valide la série j de l'exercice i (dans le bloc i : trois exercices seuls, trois blocs).
     const valider78 = async (i, j) => {
+      await poidsSiAucun(await ligneDuBloc(i, j));
       await page.evaluate(([b, k]) => document.querySelectorAll('.bloc-seance')[b]
         .querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), [i, j]);
       await attendre(800);

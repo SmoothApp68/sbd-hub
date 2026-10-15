@@ -17632,6 +17632,13 @@ const SETS_IMPORTES = [
   //   · jordan ajoute un exercice APRÈS que j'ai copié sa liste : la ligne « Ajouter ? » ne vient que de là ;
   //   · un message tapé hors réseau attend, puis part au retour du réseau, sans que la séance ne s'arrête ;
   //   · m1..m4 entrent par jordan jusqu'à 6 : m5, invité avant, est refusé (6 au plus, en base).
+  // 106 (v2_087, décisions d'Aurélien du 15/10/2026) :
+  //   · un message tapé hors réseau, PUIS L'APP RECHARGÉE hors réseau : il est gardé sur le téléphone, et part (une fois)
+  //     au retour du réseau ;
+  //   · MA séance finie pendant que jordan s'entraîne encore : l'invitation de lea se montre, je la rejoins avec une
+  //     nouvelle séance — la séance suivante n'hérite rien du groupe d'avant ;
+  //   · jordan ne rouvre jamais l'app (sa dernière série a 50 min) : le groupe finit au geste suivant ; 24 h après la
+  //     fin, ses messages s'effacent ; le récap reste lisible depuis ma séance.
   {
     const erreursAvant = erreurs.length;
     const violationsAvant = gardeBanc.violations;
@@ -17801,6 +17808,32 @@ const SETS_IMPORTES = [
         S.gmessages.some((m) => m.texte === '🔥' && m.user_id === 'u-banc'), JSON.stringify([e0.texte, avantHL, apresHL, vivante]));
     console.log('  durée D : ' + Math.round((Date.now() - ta) / 1000) + ' s');
 
+    // ── D bis (106). LE MESSAGE GARDÉ : écrit hors réseau, l'app RECHARGÉE (toujours hors réseau), puis le réseau revient.
+    ta = Date.now();
+    const garde = () => page.evaluate(() => self.THCache.lireBrouillon('groupe-messages'));
+    base.reseau = false;
+    await page.click('#groupe-seance .g-rapide[data-texte="On y va ?"]');
+    await attendreQue(async () => /1 message partira au retour du réseau/.test((await carte()).texte));
+    const garde0 = await garde();
+    await aller('/saisie');
+    await attendreQue(async () => page.evaluate(() => !document.getElementById('vue-seance').hidden), 12000);
+    await attendre(1500);
+    const garde1 = await garde();
+    const partiHorsReseau = S.gmessages.filter((m) => m.texte === 'On y va ?').length;
+    base.reseau = true;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await attendreQue(async () => S.gmessages.some((m) => m.texte === 'On y va ?') && (await garde()) === null, 12000);
+    await relire(async () => !/partira/.test((await carte()).texte || ''));
+    const partis = S.gmessages.filter((m) => m.texte === 'On y va ?');
+    const garde2 = await garde();
+    ok('[groupe] MUTATION (a) — LE MESSAGE GARDÉ (106) : écrit hors réseau, il est dans le cache du téléphone ; l’app rechargée hors réseau ' +
+      'le garde ; le réseau revenu, il part UNE fois, pour CE groupe (son identifiant), et le cache se vide',
+      Array.isArray(garde0) && garde0.length === 1 && garde0[0].groupe_id === G && garde0[0].texte === 'On y va ?' &&
+        Array.isArray(garde1) && garde1.length === 1 && garde1[0].id === garde0[0].id && partiHorsReseau === 0 &&
+        partis.length === 1 && partis[0].id === garde0[0].id && partis[0].user_id === 'u-banc' && garde2 === null,
+      JSON.stringify([garde0, garde1, partiHorsReseau, partis, garde2]));
+    console.log('  durée D bis : ' + Math.round((Date.now() - ta) / 1000) + ' s');
+
     // ── E. 6 AU PLUS (MUTATION b) : m1..m4 entrent par jordan ; m5, invité avant, est refusé ; « Inviter » disparaît.
     ta = Date.now();
     fauxSocial.rpc('u-jordan', 'groupe_inviter', { p_user: 'u-m5' });
@@ -17888,6 +17921,79 @@ const SETS_IMPORTES = [
         (await page.evaluate(() => !document.getElementById('vue-detail').hidden)), JSON.stringify([g0, g1]));
     console.log('  durée G : ' + Math.round((Date.now() - ta) / 1000) + ' s');
 
+    // ── H (106). LA FIN DU GROUPE : un autre groupe dès que MA séance est finie ; le membre qui ne rouvre jamais l'app
+    // (45 min) ; les messages effacés 24 h après la fin ; le récap toujours lisible depuis la séance.
+    ta = Date.now();
+    const SJ2 = 'a0000000-0000-4000-9100-0000000000b2';
+    S.sessions.push({ id: SJ2, user_id: 'u-jordan', titre: 'Dos', debut: iso(ilYa(20 * 60000)), statut: 'en_cours', visibilite: 'mutuels' });
+    S.sets.push({ id: 'gj2-1', session_id: SJ2, user_id: 'u-jordan', exercise_slug: 'squat-barre', rang: 1, charge_kg: 150, reps: 5,
+      type_serie: 'travail', validee_a: iso(ilYa(60000)) });
+    const G3 = fauxSocial.rpc('u-jordan', 'groupe_creer', { p_session: SJ2, p_exercices: ['squat-barre'] });
+    fauxSocial.rpc('u-jordan', 'groupe_inviter', { p_user: 'u-banc' });
+    fauxSocial.rpc('u-jordan', 'groupe_envoyer', { p_texte: 'Dernière série !' });
+    await aller('/saisie');
+    await attendreQue(async () => (await compter('#groupe-accueil-saisie .g-invitation')) === 1);
+    await page.click('#groupe-accueil-saisie .g-voir-invitation');
+    await attendreQue(async () => (await compter('#groupe-corps .g-option')) > 0);
+    await page.click('#groupe-corps .g-option[data-choix="suivre"]');
+    await attendreQue(async () => fauxSocial.groupeDe('u-banc') === G3 && (await carte()) && (await carte()).titre === 'Groupe · 2', 12000);
+    const maSeance3 = enCours();
+    await validerToutes();
+    await garderRecap(true);
+    await terminer();
+    await attendreQue(async () => page.evaluate(() => !document.getElementById('vue-recap').hidden));
+    await page.click('#recap-corps .recap-fermer');
+    await garderRecap(false);
+    await attendreQue(async () => /jordan s’entraîne encore/.test(await texte('#groupe-accueil')));
+    // lea lance un groupe et m'invite, pendant que jordan s'entraîne encore.
+    const SL2 = 'a0000000-0000-4000-9100-0000000000c2';
+    S.sessions.push({ id: SL2, user_id: 'u-lea', titre: 'Haut', debut: iso(ilYa(5 * 60000)), statut: 'en_cours', visibilite: 'mutuels' });
+    const G4 = fauxSocial.rpc('u-lea', 'groupe_creer', { p_session: SL2, p_exercices: ['squat-barre'] });
+    fauxSocial.rpc('u-lea', 'groupe_inviter', { p_user: 'u-banc' });
+    await aller('/');
+    await attendreQue(async () => (await compter('#groupe-accueil .g-invitation')) === 1, 12000);
+    const h0 = await texte('#groupe-accueil');
+    await page.click('#groupe-accueil .g-voir-invitation');
+    await attendreQue(async () => (await compter('#groupe-corps .g-option')) > 0);
+    await page.click('#groupe-corps .g-option[data-choix="vide"]');
+    await attendreQue(async () => fauxSocial.groupeDe('u-banc') === G4 && (await carte()) && (await carte()).titre === 'Groupe · 2', 12000);
+    const maSeance4 = enCours();
+    const h1 = await carte();
+    const placeG3 = S.gmembres.filter((m) => m.groupe_id === G3 && m.user_id === 'u-banc')[0];
+    const placeG4 = S.gmembres.filter((m) => m.groupe_id === G4 && m.user_id === 'u-banc')[0];
+    ok('[groupe] MUTATION (b) — MA séance finie, jordan s’entraîne encore : l’invitation de lea se montre déjà ; je la rejoins avec une ' +
+      'NOUVELLE séance — ma place dans le groupe de jordan se ferme, le sien continue ; ma nouvelle séance ne montre que le groupe de lea',
+      /lea/.test(h0) && /t’invite à t’entraîner ensemble/.test(h0) && /jordan s’entraîne encore/.test(h0) &&
+        fauxSocial.groupeDe('u-banc') === G4 && !!placeG3 && placeG3.ferme === true && placeG3.session_id === maSeance3 &&
+        fauxSocial.groupeDe('u-jordan') === G3 && !fauxSocial.finiLe(G3) && !!placeG4 && placeG4.session_id === maSeance4 &&
+        !!maSeance4 && maSeance4 !== maSeance3 && JSON.stringify(h1.pastilles) === JSON.stringify(['lea', 'banc']),
+      JSON.stringify([h0, h1, placeG3, placeG4, maSeance3, maSeance4]));
+    // jordan NE ROUVRE JAMAIS l'app : sa dernière série a 50 min — il compte comme terminé ; le geste suivant finit G3.
+    S.sets.filter((t) => t.session_id === SJ2).forEach((t) => { t.validee_a = iso(ilYa(50 * 60000)); });
+    await relire(async () => !!(S.groupes.filter((g) => g.id === G3)[0] || {}).fini_le);
+    const finG3 = (S.groupes.filter((g) => g.id === G3)[0] || {}).fini_le;
+    const messagesG3 = S.gmessages.filter((m) => m.groupe_id === G3).length;
+    // 24 h après la fin : ses messages s'effacent, au geste suivant.
+    S.groupes.filter((g) => g.id === G3)[0].fini_le = iso(ilYa(24 * 3600000 + 60000));
+    await relire(async () => !S.gmessages.some((m) => m.groupe_id === G3));
+    const messagesG3Apres = S.gmessages.filter((m) => m.groupe_id === G3).length;
+    // Ma nouvelle séance, abandonnée, quitte le groupe de lea — pas celui de jordan (ma place y est déjà fermée).
+    await abandonner();
+    await attendreQue(async () => !fauxSocial.groupeDe('u-banc'));
+    await aller('/seance/' + maSeance3);
+    await attendreQue(async () => (await compter('#detail-groupe-voir')) === 1);
+    const h3 = await texte('#detail-groupe');
+    await page.click('#detail-groupe-voir');
+    await attendreQue(async () => (await compter('#groupe-corps .g-part')) === 2);
+    const h4 = await lireRecap();
+    await page.click('#btn-retour-groupe');
+    ok('[groupe] le membre qui ne rouvre JAMAIS l’app (50 min sans série) compte comme terminé : le groupe finit au geste suivant ; 24 h ' +
+      'après la fin, ses messages s’effacent ; ma séance garde « Faite en groupe avec jordan » et son récap',
+      !!finG3 && messagesG3 === 1 && messagesG3Apres === 0 && h3 === 'Faite en groupe avec jordan' && h4.parts.length === 2 &&
+        !S.gmembres.some((m) => m.groupe_id === G4 && m.user_id === 'u-banc') && placeG3.ferme === true,
+      JSON.stringify([finG3, messagesG3, messagesG3Apres, h3, h4.parts]));
+    console.log('  durée H : ' + Math.round((Date.now() - ta) / 1000) + ' s');
+
     ok('[groupe] DISCRIMINANT — aucune réponse ne porte poids de corps, note, RPE, ressenti ou douleur',
       S.fuites.length === 0 && S.sets.some((t) => t.rpe && t.poids_corps_kg), JSON.stringify(S.fuites));
     ok('[groupe] à 360 px, aucun défilement horizontal : rejoindre, séance en groupe, récap du groupe',
@@ -17896,8 +18002,9 @@ const SETS_IMPORTES = [
     // ── LA REMISE EN ÉTAT.
     ['profils', 'sessions', 'sets', 'records', 'abonnements', 'blocages', 'reactions', 'groupes', 'gmembres', 'ginvitations', 'gmessages',
       'grecaps'].forEach((k) => { S[k] = []; });
-    for (let k = base.sets.length - 1; k >= 0; k--) if (base.sets[k].session_id === maSeance) base.sets.splice(k, 1);
-    for (let k = base.sessions.length - 1; k >= 0; k--) if (base.sessions[k].id === maSeance) base.sessions.splice(k, 1);
+    const miennes = [maSeance, maSeance3, maSeance4];
+    for (let k = base.sets.length - 1; k >= 0; k--) if (miennes.indexOf(base.sets[k].session_id) >= 0) base.sets.splice(k, 1);
+    for (let k = base.sessions.length - 1; k >= 0; k--) if (miennes.indexOf(base.sessions[k].id) >= 0) base.sessions.splice(k, 1);
     const refusAttendus = ['groupe_plein'];
     const refusVus = S.journal.filter((j) => j.op === 'refus').map((j) => j.message);
     await aller('/saisie');

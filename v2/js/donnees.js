@@ -925,7 +925,10 @@
   function groupePublier(exercices, xp) {
     return groupeGeste('groupe_publier', { p_exercices: exercices || null, p_xp: xp === undefined ? null : xp });
   }
-  function groupeEnvoyer(texte) { return groupeGeste('groupe_envoyer', { p_texte: texte }); }
+  // 106 (v2_087) — le message part pour le groupe où il a été écrit, une seule fois (son identifiant, fabriqué par l'app).
+  function groupeEnvoyer(texte, groupe, id) {
+    return groupeGeste('groupe_envoyer', { p_texte: texte, p_groupe: groupe || null, p_id: id || null });
+  }
   function groupeFermer() { return groupeGeste('groupe_fermer', {}); }
   function groupeQuitter() { return groupeGeste('groupe_quitter', {}); }
   async function ecrire(promesse) { var r = await promesse; if (r.error) throw r.error; return true; }

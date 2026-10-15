@@ -1092,6 +1092,8 @@
     e._iExo = i;
     e.repos_cible_s = (src && src.repos_cible_s !== undefined) ? src.repos_cible_s : null;
     e.note = (src && src.note !== undefined) ? src.note : null;
+    // 99 (MOTEUR §9.24) — la mention d'un exercice ajouté pour cette semaine seulement.
+    e.ajout = (src && src.ajout) ? src.ajout : null;
     return e;
   }
 

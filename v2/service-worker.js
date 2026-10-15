@@ -70,6 +70,7 @@ const SHELL = [
   './js/attente.js',
   './js/seance.js',
   './js/reserve.js',
+  './js/deraille.js',
   './js/plan.js',
   './js/periode.js',
   './js/poids.js',

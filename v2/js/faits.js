@@ -760,6 +760,36 @@
       }).length;
     }
 
+    // ── 99 (MOTEUR §9.24) — LA SEMAINE DU PROGRAMME : ce qui a été fait ─────
+    //
+    // La semaine qui déraille lit ici ce qui a été FAIT : les séances des 14 derniers jours (le jour civil, la
+    // routine, les exercices de leurs séries de travail — la récupération et « a eu lieu ») et le volume de la
+    // semaine par muscle (la règle du volume, `Semaine.volumeParMuscle`). `enCours` : la séance en cours, si elle
+    // existe (elle a lieu). `jour` : 'AAAA-MM-JJ', passé (jamais l'horloge).
+    var JOURS_DE_RECUPERATION = 14;
+    function semaineDuProgramme(c, jour, enCours) {
+      var cc = enCours ? corpusAvecLaSeance(c, enCours) : c;
+      var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(jour || ''));
+      if (!m) return { seances: [], volume: {} };
+      var j0 = new Date(+m[1], +m[2] - 1, +m[3]);
+      var depuis = Moteur.jourCivil(new Date(j0.getFullYear(), j0.getMonth(), j0.getDate() - JOURS_DE_RECUPERATION));
+      var lundi = Moteur.jourCivil(Semaine.bornesSemaine(j0).lundi);
+      var seances = [], series = [];
+      (cc.seances || []).forEach(function (s) {
+        if (!s || !s.debut) return;
+        var js = Moteur.jourCivil(new Date(s.debut));
+        if (!js || js < depuis || js > jour) return;
+        var travail = (cc.seriesDe(s.id) || []).filter(function (x) { return x && Modele.estTravail(x); });
+        if (js >= lundi) series = series.concat(travail);
+        var slugs = {};
+        travail.forEach(function (x) { slugs[x.exercise_slug] = true; });
+        seances.push({ jour: js, routine_id: s.routine_id || null, slugs: Object.keys(slugs) });
+      });
+      var volume = {};
+      Semaine.volumeParMuscle(series, cc.exercices).forEach(function (v) { volume[v.muscle] = v.series; });
+      return { seances: seances, volume: volume };
+    }
+
     // ── Les exercices faits et leur date (`app.js` `calculerDatesExercices`) ──
     //
     // Le tri se fait sur la DERNIÈRE séance où l'exercice apparaît. Un balayage
@@ -1118,6 +1148,7 @@
       habitudes: habitudes,
       derniereSeance: derniereSeance,
       seancesDesRoutines: seancesDesRoutines,
+      semaineDuProgramme: semaineDuProgramme,
       oublierDates: oublierDates,
       faitsDuJeu: faitsDuJeu,
       BARRES_DU_JEU: BARRES_DU_JEU,

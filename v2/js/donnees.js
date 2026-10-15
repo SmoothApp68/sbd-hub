@@ -231,7 +231,9 @@
   // ⚠️ ET `dossier` DEPUIS v2_057 (ch. 52, §7 duodecies.3) : une étiquette,
   // NULL pour « Sans dossier ». Même raison que `rang` : absente d'ici, la
   // bibliothèque ne saurait jamais regrouper.
-  var COLONNES_ROUTINE = 'id, nom, note, archivee_a, rang, dossier, created_at, modifiee_a';
+  // ⚠️ ET `jours` DEPUIS v2_084 (99, MOTEUR §9.24) : les jours prévus (1 = lundi … 7 = dimanche, NULL = sans
+  // jour). Le même piège : absente d'ici, elle serait écrite et jamais relue.
+  var COLONNES_ROUTINE = 'id, nom, note, archivee_a, rang, dossier, jours, created_at, modifiee_a';
   // `note` est LUE et jamais écrite par l'éditeur de routine — c'est la fin de
   // séance qui la pose (§7 septies.1, « la note suit l'exercice quand on le
   // réutilise »). La tenir hors de `CHAMPS_EXERCICE` (routines.js) est ce qui

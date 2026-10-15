@@ -1182,7 +1182,9 @@
     lignes.forEach(function (e) { if (e && e.id) parId[e.id] = e; });
 
     var changees = [];
-    var voulues = (seance.exercices || []).map(function (exo, iVoulue) {
+    // 99 (MOTEUR §9.24) — un exercice ajouté pour la semaine qui déraille est pour cette semaine seulement : la
+    // question de fin ne propose jamais de l'écrire dans la routine.
+    var voulues = (seance.exercices || []).filter(function (exo) { return !(exo && exo.ajout); }).map(function (exo, iVoulue) {
       var ligne = (exo.routine_exercise_id && parId[exo.routine_exercise_id]) || null;
       if (o.series) {
         var deSeance = (exo.series || []).map(structureDeLigne);

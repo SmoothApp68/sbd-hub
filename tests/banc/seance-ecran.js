@@ -13482,9 +13482,11 @@ const SETS_IMPORTES = [
     //    parcours » se pose juste après le mois écoulé ; les records passent en troisième.
     await onglet('progression');
     await attendre(800);
-    const som = await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
+    // 95 — le bloc « Ton année » (l'année écoulée, toute l'année suivante ; hors production, l'année en cours) a sa
+    // propre section ([A95]) : l'ordre contrôlé ici est celui des six blocs de 55-1 et 75.
+    const som = (await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
       quoi: b.querySelector('.bloc-quoi').textContent, ligne: (b.querySelector('.bloc-ligne') || {}).textContent || null,
-      neuf: b.classList.contains('neuf') })));
+      neuf: b.classList.contains('neuf') })))).filter((b) => !/^Ton année \d{4}$/.test(b.quoi));
     const MOIS_L = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
     const ici = new Date(tP);
     const ecoule = new Date(ici.getFullYear(), ici.getMonth() - 1, 1);
@@ -19504,6 +19506,170 @@ const SETS_IMPORTES = [
     base.profiles[0].priorites = profilAvant.priorites;
     await aller('/saisie');
     ok('[P75] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ annee. « TON ANNÉE » : DÉFILEMENT, PAUSE, PARTAGE, AJUSTE() À 360 PX (95, BILANS-V1) ══');
+  //
+  // ⚠️ SES séances seulement (la méthode de [P75]) : la base est vidée pour la section, puis rendue. L'année testée
+  // est l'année en cours (l'année d'avant dans les vingt premiers jours de janvier), et l'année d'avant est pleine :
+  // la comparaison se fait contre elle. Une ligne de 900 reps par séance pousse le nombre de reps à cinq chiffres :
+  // `ajuste()` doit réduire le grand chiffre à la largeur disponible moins les marges (360 px, l'appareil).
+  // L'accès de développement `?bilan=AAAA` ouvre le bilan au démarrage (la garde du coach est active sur localhost).
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const catalogueAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets;
+    base.sessions = []; base.sets = [];
+    const fiche = (slug, nom, equipement, mouvement, prim) => ({ slug, nom, mesure: 'charge_reps', charge: 'externe',
+      equipement, mouvement, muscles_primaires: prim, muscles_secondaires: [], muscles_stabilisateurs: [] });
+    if (!CATALOGUE.some((c) => c.slug === 'squat_barre')) CATALOGUE.push(fiche('squat_barre', 'Squat (Barre)', 'barre', 'squat', ['quadriceps']));
+    if (!CATALOGUE.some((c) => c.slug === 'developpe_couche_barre')) {
+      CATALOGUE.push(fiche('developpe_couche_barre', 'Développé Couché (Barre)', 'barre', 'couche', ['pectoraux']));
+    }
+    if (!CATALOGUE.some((c) => c.slug === 'souleve_de_terre_barre')) {
+      CATALOGUE.push(fiche('souleve_de_terre_barre', 'Soulevé de Terre (Barre)', 'barre', 'souleve', ['ischio_jambiers']));
+    }
+    const maintenant = new Date();
+    const AN = maintenant.getFullYear();
+    const debutAn = new Date(AN, 0, 1);
+    const ANNEE = (maintenant - debutAn) / 86400000 >= 20 ? AN : AN - 1;
+    let n95 = 0;
+    const seance95 = (jour, lignes) => {
+      n95++;
+      const id = '00000000-0000-4000-8950-' + String(n95).padStart(12, '0');
+      const debut = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate(), 18, 0, 0).toISOString();
+      const fin = finDe(debut).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Année ' + n95, debut, fin, statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([slug, kg, reps], r) => base.sets.push({ id: id + '-s' + (r + 1), session_id: id, user_id: 'u-banc',
+        exercise_slug: slug, charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: r + 1,
+        groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app',
+        created_at: debut, modifie_a: null }));
+    };
+    const hier = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate() - 1);
+    for (let d = new Date(ANNEE - 1, 0, 3); d.getFullYear() === ANNEE - 1; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 10)) {
+      seance95(d, [['squat_barre', 120, 5], ['squat_barre', 100, 8], ['developpe_couche_barre', 100, 5],
+        ['developpe_couche_barre', 85, 8], ['souleve_de_terre_barre', 160, 3]]);
+    }
+    for (let d = new Date(ANNEE, 0, 2); d.getFullYear() === ANNEE && d <= hier; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 10)) {
+      seance95(d, [['squat_barre', 130, 5], ['squat_barre', 105, 8], ['developpe_couche_barre', 100, 5],
+        ['developpe_couche_barre', 87.5, 8], ['souleve_de_terre_barre', 170, 3], ['squat_barre', 20, 900]]);
+    }
+    const ecritures = () => base.journal.filter((j) => j.op !== 'refus').length;
+    const capturer95 = async (nom) => {
+      if (!process.env.BANC_CAPTURES) return;
+      await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'a95-' + nom + '.png') });
+    };
+    const ecran = () => page.evaluate(() => document.getElementById('annee').dataset.ecran || null);
+
+    // ── A. `?bilan=AAAA` OUVRE LE BILAN ; IL DÉFILE SEUL.
+    await aller('/progression?bilan=' + ANNEE);
+    await page.waitForFunction(() => { const h = document.getElementById('annee'); return h && !h.hidden && h.dataset.ecran; },
+      null, { timeout: 15000 }).catch(() => console.log('   (plafond de 15 s : « Ton année » ne s’est pas ouvert)'));
+    const ecritures95 = ecritures();
+    const ouvert = await page.evaluate(() => {
+      const h = document.getElementById('annee');
+      return { visible: !!h && !h.hidden, ecran: h && h.dataset.ecran, ecrans: h ? h.querySelectorAll('.s').length : 0,
+               cles: h ? Array.from(h.querySelectorAll('.s')).map((s) => s.dataset.cle) : [] };
+    });
+    await capturer95('1-ouverture');
+    ok('[A95] DISCRIMINANT — `?bilan=' + ANNEE + '` ouvre « Ton année » sur l’ouverture, les écrans dans l’ordre de la maquette',
+      ouvert.visible && ouvert.ecran === 'ouverture' &&
+        JSON.stringify(ouvert.cles) === JSON.stringify(['ouverture', 'tonnes', 'mois', 'reps', 'profil', 'muscle',
+          'exercice', 'seance', 'barres', 'avance', 'jeu', 'plaque']), JSON.stringify(ouvert));
+    await page.waitForFunction(() => document.getElementById('annee').dataset.ecran === 'tonnes', null, { timeout: 9000 })
+      .catch(() => {});
+    ok('[A95] DISCRIMINANT — il défile seul : l’ouverture laisse place aux tonnes', (await ecran()) === 'tonnes', await ecran());
+
+    // ── B. LA PAUSE AU DOIGT : un doigt posé 9 s (plus que la durée de l'écran) ne fait pas défiler ; un appui long
+    // relâché ne saute pas d'écran.
+    const tel = await page.evaluate(() => { const r = document.querySelector('#annee .tel').getBoundingClientRect();
+      return { x: r.left + r.width * 0.8, y: r.top + r.height * 0.6 }; });
+    await page.mouse.move(tel.x, tel.y);
+    await page.mouse.down();
+    await attendre(500);
+    const barreAvant = await page.evaluate(() => document.querySelectorAll('#annee .bar i b')[1].style.width);
+    await attendre(9000);
+    const pause = await page.evaluate(() => ({ ecran: document.getElementById('annee').dataset.ecran,
+      pause: document.getElementById('annee').dataset.pause, barre: document.querySelectorAll('#annee .bar i b')[1].style.width }));
+    await page.mouse.up();
+    await attendre(300);
+    ok('[A95] DISCRIMINANT — doigt posé : l’écran reste, la barre ne bouge plus ; relâché après un appui long, pas de saut',
+      pause.ecran === 'tonnes' && pause.pause === '1' && pause.barre === barreAvant && (await ecran()) === 'tonnes',
+      JSON.stringify([pause, barreAvant, await ecran()]));
+
+    // ── C. LE PARTAGE : la feuille de partage de l'appareil reçoit une image PNG de l'écran (sur l'appareil).
+    await page.evaluate(() => {
+      window.__partages95 = [];
+      navigator.canShare = () => true;
+      navigator.share = (d) => { window.__partages95.push({ nom: d.files[0].name, type: d.files[0].type, taille: d.files[0].size });
+        return Promise.resolve(); };
+    });
+    await page.click('#annee .partage');
+    await page.waitForFunction(() => document.getElementById('annee').dataset.partages === '1', null, { timeout: 8000 }).catch(() => {});
+    const partage = await page.evaluate(() => window.__partages95);
+    ok('[A95] DISCRIMINANT — « Partager » : une image PNG de l’écran part vers la feuille de partage (aucun serveur)',
+      partage.length === 1 && partage[0].nom === 'trainhub-' + ANNEE + '-tonnes.png' && partage[0].type === 'image/png' &&
+        partage[0].taille > 5000, JSON.stringify(partage));
+
+    // ── D. `ajuste()` À 360 PX : sur chaque écran, aucun grand chiffre ne déborde de la largeur moins les marges.
+    const debordements = [];
+    let reduit = false;
+    for (let k = 0; k < ouvert.ecrans; k++) {
+      await page.evaluate((k) => {
+        const h = document.getElementById('annee');
+        while (Array.from(h.querySelectorAll('.s')).findIndex((s) => s.classList.contains('on')) < k) {
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+        }
+      }, k);
+      await attendre(1700);
+      const m = await page.evaluate(() => {
+        const s = document.querySelector('#annee .s.on');
+        const cs = getComputedStyle(s), max = s.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+        return { cle: s.dataset.cle, max,
+          chiffres: Array.from(s.querySelectorAll('.chiffre')).map((c) => ({ l: c.scrollWidth, t: parseFloat(getComputedStyle(c).fontSize) })),
+          large: s.scrollWidth > s.clientWidth || document.documentElement.scrollWidth > window.innerWidth };
+      });
+      m.chiffres.forEach((c) => { if (c.l > m.max + 0.5) debordements.push([m.cle, c, m.max]); if (m.cle === 'reps' && c.t < 84) reduit = true; });
+      if (m.large) debordements.push([m.cle, 'défilement horizontal']);
+      if (m.cle === 'barres' || m.cle === 'plaque') await capturer95(k + '-' + m.cle);
+    }
+    ok('[A95] DISCRIMINANT — ajuste() : aucun grand chiffre ne déborde à 360 px, et les 5 chiffres des reps sont réduits',
+      !debordements.length && reduit, JSON.stringify([debordements, reduit]));
+
+    // ── E. LA PLAQUE FINALE : sans le coach ; « Partager mon année ».
+    const plaque = await page.evaluate(() => {
+      const s = document.querySelector('#annee .s.on');
+      return { cle: s.dataset.cle, texte: s.textContent, bouton: (s.querySelector('.btn') || {}).textContent };
+    });
+    ok('[A95] la plaque finale : « Partager mon année », sans le coach ni le nombre de séances',
+      plaque.cle === 'plaque' && plaque.bouton === 'Partager mon année' && !/pari|coach|séance/i.test(plaque.texte),
+      JSON.stringify(plaque));
+
+    // ── F. RIEN N'EST ÉCRIT ; FERMER ; LE BLOC DE PROGRESSION.
+    ok('[A95] DISCRIMINANT — rien n’est écrit pendant le bilan', ecritures() === ecritures95,
+      JSON.stringify([ecritures95, ecritures()]));
+    await page.click('#annee .fermer');
+    await attendre(400);
+    const ferme = await page.evaluate(() => document.getElementById('annee').hidden);
+    await aller('/progression');
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('#sommaire .bloc-quoi'))
+      .some((b) => /^Ton année/.test(b.textContent)), null, { timeout: 15000 }).catch(() => {});
+    const blocAn = await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-quoi')).map((b) => b.textContent)
+      .filter((t) => /^Ton année/.test(t)));
+    const attendu = 'Ton année ' + (AN - 1 >= 2026 ? AN - 1 : AN);
+    ok('[A95] fermé, et Progression porte le bloc « ' + attendu + ' »', ferme && blocAn.length === 1 && blocAn[0] === attendu,
+      JSON.stringify([ferme, blocAn]));
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[A95] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }

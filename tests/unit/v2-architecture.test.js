@@ -409,7 +409,7 @@ const NOTIONS = [
     raison: 'aucun écran ne lit le palier brut : les faits passent par `Modele`, les mots du ' +
       'coach par la consigne. La page et Progression l’appelaient chacune à part.' },
   { notion: 'la série de travail (le type, `travail` quand il manque)', pr: 'PR 6',
-    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js', 'reserve.js'],
+    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js', 'reserve.js', 'bilans.js'],
     motif: /\.\s*estTravail\s*\(/g,
     par: ['exercicesFaits', 'tableParReps', 'construireBlocs'],
     interditAilleurs: { motif: /type_serie\s*[!=]==?\s*(['"])travail\1|typeDe\([^()]*\)\s*[!=]==?\s*(['"])travail\2|\|\|\s*(['"])travail\3\s*\)\s*[!=]==?/,
@@ -418,7 +418,7 @@ const NOTIONS = [
       'pas pour les écrans ; la base dit `travail` par défaut. 78 : la question de réserve lit l’effort de la ' +
       'dernière série de TRAVAIL de chaque séance passée (`reserve.js`, `passeDeReserve`).' },
   { notion: 'le compte des séries de travail (la règle du volume)', pr: 'PR 6',
-    module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js', 'bilan.js', 'faits.js'],
+    module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js', 'bilan.js', 'faits.js', 'bilans.js'],
     parAilleurs: { 'modele.js': ['resumerSeance', 'construireBlocs'], 'seance.js': ['compter'], 'bilan.js': ['bilanDuMois'],
                    'profil.js': ['statsDe'], 'app.js': ['rendreExercice'], 'faits.js': ['recapDeLaSeance'] },
     raison: 'décision du 02/10/2026 : la carte, la barre, la page, le détail (« de travail »), le ' +
@@ -716,7 +716,7 @@ const NOTIONS = [
     raison: 'lourd → mix → hypertrophie → volume → séries longues, dans l’ordre de la table des ' +
       'zones : une définition, que la carte et la correction de zone lisent.' },
   { notion: 'les séries par muscle (un principal la série entière, un secondaire pour moitié, un stabilisateur pour un quart)', pr: '55-U1',
-    module: 'semaine.js', fonction: 'volumeParMuscle', lecteurs: ['bilan.js', 'faits.js'],
+    module: 'semaine.js', fonction: 'volumeParMuscle', lecteurs: ['bilan.js', 'faits.js', 'bilans.js'],
     par: ['semainesDeVolume', 'volumeParZone'],
     parAilleurs: { 'bilan.js': ['bilanDuMois'], 'faits.js': ['recapDeLaSeance'] },
     raison: 'REGLE-VOLUME et MOTEUR §9.23 (H2, #371) : le bloc Volume et le bilan du mois comptent les séries ' +
@@ -851,13 +851,13 @@ const NOTIONS = [
     raison: 'ECRAN-SAISIE §7 septies.4 bis : les faits du récap en un seul endroit, qui câble ce qui existe ' +
       '(séries, volume, muscles, records, paris, comparaison) sans en recopier rien ; l’écran les lit.' },
   { notion: 'le compte des paris vérifiés et tenus (tenu : observé ≥ prédit)', pr: '71-U1',
-    module: 'bilan.js', fonction: 'compterParis', lecteurs: ['faits.js'],
+    module: 'bilan.js', fonction: 'compterParis', lecteurs: ['faits.js', 'bilans.js'],
     par: ['bilanDuMois'],
     parAilleurs: { 'faits.js': ['recapDeLaSeance'] },
     raison: 'MOTEUR §9.22 : le bilan du mois et le récap de fin de séance comptent les paris par la même boucle ' +
       '(extraite de `bilanDuMois`, 71) — le bilan ne change pas d’un chiffre.' },
   { notion: 'la comparaison du volume à un objet connu (« à peu près un tricératops »)', pr: '71-U1',
-    module: 'bilan.js', fonction: 'comparaison', lecteurs: [],
+    module: 'bilan.js', fonction: 'comparaison', lecteurs: ['bilans.js'],
     par: ['phraseComparaison'],
     raison: 'ECRAN-SAISIE §7 septies.4 bis : la table des cinquante objets et le choix par l’empreinte de la ' +
       'séance vivent à un seul endroit (`comparaison71.py` est la référence).' },
@@ -1115,6 +1115,44 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['rendreProgression', 'rendreParcours'] },
     raison: 'ECRAN-SAISIE §7 bis.14 ter (75) : le bloc et la page lisent le même parcours, recalculé seulement quand le ' +
       'corpus, le jour, les priorités, le sexe ou le catalogue changent ; l’écran ne le calcule pas.' },
+  // ── 95 — LES BILANS DE PÉRIODE (BILANS-V1, « Ton année ») : un moteur pur, assemblé par les faits, lu par l'écran ──
+  { notion: 'le bilan d’une période (tonnes, mois, reps, profil, muscle, exercice, séance, barres, ce qui a avancé, le coach)', pr: '95-U1',
+    module: 'bilans.js', fonction: 'bilanDeLaPeriode', lecteurs: ['faits.js'],
+    parAilleurs: { 'faits.js': ['bilanDePeriode'] },
+    raison: 'BILANS-V1 (95) : un seul moteur, la période en paramètre (année, saison, mois) ; seul le module des faits ' +
+      'l’appelle, sur l’entrée qu’il assemble — l’écran « Ton année » met en mots, il ne recompte rien.' },
+  { notion: 'le poids du jour d’une perf (deux pesées à 60 j, sinon la plus proche à 45 j avec « ≈ »)', pr: '95-U1',
+    module: 'bilans.js', fonction: 'poidsDuJour', lecteurs: [],
+    par: ['bilanDeLaPeriode'],
+    raison: 'BILANS-V1 (95) : « rapporté à ton poids de corps ce jour-là » — une seule règle d’estimation.' },
+  { notion: 'la comparaison d’un bilan (contre la période d’avant, début contre fin, ou aucune)', pr: '95-U1',
+    module: 'bilans.js', fonction: 'comparaisonDe', lecteurs: [],
+    par: ['bilanDeLaPeriode'],
+    raison: 'BILANS-V1 (95) : moins de 2 mois de données, les faits seulement ; moins de 12, début contre fin.' },
+  { notion: 'l’entrée d’un bilan de période (séances terminées datées, catalogue, pesées, paris)', pr: '95-U1',
+    module: 'faits.js', fonction: 'entreeDuBilan', lecteurs: [],
+    par: ['bilanDePeriode'],
+    raison: 'BILANS-V1 (95) : une seule assemblée, celle que le bilan mémorisé lit.' },
+  { notion: 'le bilan d’une période, mémorisé (le bloc de Progression, l’annonce, l’écran « Ton année »)', pr: '95-U1',
+    module: 'faits.js', fonction: 'bilanDePeriode', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['bilanDeLAnnee'] },
+    raison: 'BILANS-V1 (95) : le bloc, l’annonce et l’écran lisent le même bilan, recalculé seulement quand le corpus, ' +
+      'le jour, les pesées, les paris ou le catalogue changent.' },
+  { notion: 'les faits du jeu au début et à la fin d’une période (l’écran du jeu du bilan)', pr: '95-U1',
+    module: 'faits.js', fonction: 'faitsDuJeuDeLaPeriode', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['ouvrirAnnee'] },
+    raison: 'BILANS-V1 (95) : l’écran du jeu est branché sur la fonction du jeu (`Jeu.etatDuJeu`), sur un corpus borné ' +
+      'par les faits ; rien en base.' },
+  { notion: 'la pratique d’un exercice (« moins pratiqué », « nouveau », « peu »)', pr: '95-U1',
+    module: 'parcours.js', fonction: 'pratique', lecteurs: ['bilans.js'],
+    par: ['parcours'],
+    raison: 'ECRAN-SAISIE §7 bis.14 ter et BILANS-V1 (95) : « ce qui a le plus avancé » suit la règle « moins pratiqué » ' +
+      'de « Ton parcours » — la même fonction, extraite du parcours.' },
+  { notion: 'la comparaison à reps égales (hausse au-delà de × 1,025, baisse en deçà de × 0,975)', pr: '95-U1',
+    module: 'parcours.js', fonction: 'aRepsEgales', lecteurs: ['bilans.js'],
+    par: ['parcours'],
+    raison: 'ECRAN-SAISIE §7 bis.14 ter (règle 4) et BILANS-V1 (95) : les exercices qui progressent et ce qui a le plus ' +
+      'avancé se lisent sur la même comparaison que le verdict du parcours.' },
   { notion: 'la barre en retard (Force et Les deux), dite par la relecture', pr: '66-U1',
     module: 'generateur.js', fonction: 'relireSemaine', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['relire'] },
@@ -1516,7 +1554,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : trente et un (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : trente-quatre (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1527,7 +1565,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(31);
+    expect(FAITS.length).toBe(34);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

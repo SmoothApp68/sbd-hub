@@ -55,6 +55,7 @@ const SHELL = [
   './fonts/barlow-condensed-600.woff2',
   './fonts/barlow-condensed-700.woff2',
   './fonts/barlow-condensed-800.woff2',
+  './fonts/archivo-variable.woff2',
   './vendor/supabase.js',
   './js/config.js',
   './js/client.js',
@@ -74,6 +75,7 @@ const SHELL = [
   './js/poids.js',
   './js/bilan.js',
   './js/parcours.js',
+  './js/bilans.js',
   './js/faits.js',
   './js/jeu.js',
   './js/calendrier.js',
@@ -86,6 +88,7 @@ const SHELL = [
   './js/sortie.js',
   './js/cache.js',
   './js/rendu.js',
+  './js/annee.js',
   './js/rejeu.js',
   './js/quitter.js',
   './js/app.js'

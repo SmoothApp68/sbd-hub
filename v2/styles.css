@@ -2228,3 +2228,87 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .g-ensemble small{color:var(--texte-2);overflow-wrap:anywhere}
 .g-chiffres{justify-content:space-between}
 .g-trace{width:100%;margin-top:10px}
+
+/* ══ 95 — « TON ANNÉE » (BILANS-V1, maquette `maquette-ton-annee-v11.html`) ══════════════════════════════════
+   La maquette telle quelle, sous `.annee` : Archivo (variable, axes wdth et wght, servie ici), la palette acier,
+   craie, or, bleu, rouge — le rouge est un disque de 25 kg, jamais un recul. Plein écran, au-dessus de tout. */
+@font-face{font-family:"Archivo";font-style:normal;font-weight:100 900;font-stretch:62% 125%;font-display:swap;
+  src:url("/fonts/archivo-variable.woff2") format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+.annee{--acier:#161a1f;--fonte:#232931;--rayure:#353d47;--craie:#ece8df;--cendre:#9aa3ad;--or:#d9b45a;--bleu:#5f8fbf;--rouge:#b8574a;
+  position:fixed;inset:0;z-index:70;background:var(--acier);color:var(--craie);font-family:"Archivo",system-ui,sans-serif;
+  font-variation-settings:"wdth" 100;display:flex;justify-content:center}
+.annee[hidden]{display:none}
+.annee *{box-sizing:border-box;margin:0}
+.annee .tel{position:relative;width:100%;max-width:400px;height:100%;max-height:800px;overflow:hidden;user-select:none;-webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;background:radial-gradient(140% 70% at 50% 0%,#1d232a 0%,var(--acier) 60%)}
+.annee .bar{position:absolute;top:12px;left:14px;right:14px;display:flex;gap:3px;z-index:5}
+.annee .bar i{flex:1;height:3px;border-radius:2px;background:#ffffff26;overflow:hidden}
+.annee .bar i b{display:block;height:100%;width:0;background:var(--craie)}
+.annee .partage{position:absolute;top:26px;right:14px;z-index:6;font:600 13px "Archivo",system-ui,sans-serif;color:var(--craie);background:#ffffff14;border:1px solid #ffffff2e;border-radius:18px;padding:6px 12px}
+.annee .fermer{position:absolute;top:24px;left:10px;z-index:6;width:36px;height:36px;font:400 26px/1 "Archivo",system-ui,sans-serif;color:var(--cendre);background:transparent;border:0;border-radius:18px}
+.annee .partage:focus-visible,.annee .btn:focus-visible,.annee .fermer:focus-visible{outline:2px solid var(--or);outline-offset:2px}
+.annee .s{position:absolute;inset:0;padding:76px 26px 44px;display:none;flex-direction:column;justify-content:center;gap:10px}
+.annee .s.on{display:flex}
+.annee .s.on .a{opacity:0;transform:translateY(14px);animation:annee-monte .55s cubic-bezier(.2,.8,.2,1) forwards}
+.annee .s.on .a:nth-child(2){animation-delay:.2s}.annee .s.on .a:nth-child(3){animation-delay:.5s}.annee .s.on .a:nth-child(4){animation-delay:.85s}.annee .s.on .a:nth-child(5){animation-delay:1.15s}.annee .s.on .a:nth-child(6){animation-delay:1.4s}
+@keyframes annee-monte{to{opacity:1;transform:none}}
+.annee .lab{font-size:15px;color:var(--cendre);font-weight:500}
+.annee .titre{font-size:30px;line-height:1.08;font-weight:700;font-variation-settings:"wdth" 92}
+.annee .chiffre{font-size:84px;white-space:nowrap;display:inline-block;max-width:100%;line-height:.9;font-weight:900;font-variation-settings:"wdth" 125;color:var(--or);letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.annee .chiffre small{font-size:.42em;font-weight:800;margin-left:4px}
+.annee .moyen{font-size:52px}
+.annee .txt{font-size:17px;line-height:1.4;color:var(--cendre);max-width:30ch}
+.annee .txt b{color:var(--craie);font-weight:600}
+.annee .liste{margin-top:6px}
+.annee .ligne{padding:9px 0;border-top:1px solid var(--rayure)}
+.annee .ligne:last-child{border-bottom:1px solid var(--rayure)}
+.annee .ligne .n{font-size:14px;color:var(--cendre)}
+.annee .ligne .v{font-size:18px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums}
+.annee .ligne .v em{font-style:normal;color:var(--or)}
+.annee .pdc{margin-top:4px;padding:12px 14px;border-radius:14px;background:var(--fonte)}
+.annee .pdc .n{font-size:14px;color:var(--cendre);margin-bottom:8px}
+.annee .pdcg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
+.annee .pdcg div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.annee .pdcg b{font-size:20px;font-weight:800;font-variation-settings:"wdth" 112;font-variant-numeric:tabular-nums;white-space:nowrap}
+.annee .pdcg span{font-size:12px;color:var(--cendre)}
+.annee .note{font-size:12.5px;color:#6f7884;line-height:1.4}
+.annee .pile{display:flex;align-items:center;justify-content:center;gap:3px;height:118px;margin:8px 0 4px}
+.annee .pile i{display:block;width:16px;border-radius:4px;opacity:0;transform:translateX(-40px)}
+.annee .s.on .pile i{animation:annee-glisse .32s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes annee-glisse{to{opacity:1;transform:none}}
+.annee .pile .manche{width:120px;height:10px;border-radius:3px;background:#59626d;opacity:1;transform:none;animation:none!important}
+.annee .mois{display:flex;align-items:flex-end;gap:6px;height:160px;margin:10px 0 2px}
+.annee .mois div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%;font-size:11px;color:var(--cendre)}
+.annee .mois b{display:block;width:100%;height:0;border-radius:4px 4px 1px 1px;background:var(--rayure);transition:height 1s cubic-bezier(.2,.8,.2,1)}
+.annee .mois b.haut{background:var(--or)}
+.annee .barre3{display:flex;height:26px;border-radius:6px;overflow:hidden;margin:10px 0 4px;background:var(--fonte)}
+.annee .barre3 b{height:100%;width:0;transition:width 1.1s cubic-bezier(.2,.8,.2,1) .3s}
+.annee .pastille{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:8px;vertical-align:0}
+.annee svg.courbe{width:100%;height:110px;overflow:visible}
+.annee svg.courbe path{fill:none;stroke:var(--or);stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:420;stroke-dashoffset:420}
+.annee .s.on svg.courbe path{animation:annee-trace 1.5s .35s ease-out forwards}@keyframes annee-trace{to{stroke-dashoffset:0}}
+.annee svg.courbe circle{fill:var(--or);opacity:0}.annee .s.on svg.courbe circle{animation:annee-monte .3s 1.8s forwards}
+.annee .jauge{height:12px;border-radius:6px;background:var(--fonte);overflow:hidden;margin:6px 0}
+.annee .jauge b{display:block;height:100%;width:0;background:var(--or);transition:width 1.5s cubic-bezier(.2,.8,.2,1) .3s}
+.annee .plaque{border-radius:20px;padding:20px 18px 16px;background:linear-gradient(160deg,#262d36,#1a1f25);border:1px solid #ffffff1f;box-shadow:inset 0 1px 0 #ffffff14}
+.annee .plaque .tete{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;gap:8px}
+.annee .plaque .an{font-size:40px;font-weight:900;font-variation-settings:"wdth" 125;line-height:1}
+.annee .plaque .qui{font-size:14px;color:var(--cendre);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.annee .grille{display:grid;grid-template-columns:1fr 1fr;row-gap:14px;column-gap:16px}
+.annee .grille>div{min-width:0}
+.annee .grille .k{font-size:12.5px;color:var(--cendre)}
+.annee .grille .g{font-size:30px;font-weight:850;font-variation-settings:"wdth" 118;color:var(--or);line-height:1.05;font-variant-numeric:tabular-nums;white-space:nowrap}
+.annee .grille .m{font-size:20px;font-weight:700;line-height:1.15}
+.annee .grille .p{font-size:12px;color:var(--cendre)}
+.annee .plaque .pied{margin-top:14px;padding-top:10px;border-top:1px solid #ffffff1a;display:flex;justify-content:space-between;font-size:12px;color:var(--cendre)}
+.annee .btn{width:100%;border:0;border-radius:12px;padding:14px;font:700 16px "Archivo",system-ui,sans-serif;margin-top:12px;background:var(--or);color:#1a1712}
+.annee .btn.sec{background:transparent;color:var(--craie);border:1px solid #ffffff38;margin-top:8px}
+@media (prefers-reduced-motion:reduce){.annee .s.on .a,.annee .s.on .pile i,.annee .s.on svg.courbe circle{animation:none;opacity:1;transform:none}.annee .s.on svg.courbe path{animation:none;stroke-dashoffset:0}.annee .mois b,.annee .barre3 b,.annee .jauge b{transition:none}}
+/* L'annonce du 1er janvier : un seul message dans l'app. */
+.annonce-annee{position:fixed;left:12px;right:12px;bottom:76px;z-index:65;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;
+  background:#232931;color:#ece8df;border:1px solid #ffffff1f;box-shadow:0 8px 24px #0008}
+.annonce-annee[hidden]{display:none}
+.annonce-annee p{flex:1;font-size:15px;line-height:1.3}
+.annonce-annee button{border:0;border-radius:10px;padding:9px 12px;font-weight:700;background:#d9b45a;color:#1a1712}
+.annonce-annee button.discret{background:transparent;color:#9aa3ad;padding:9px 6px}

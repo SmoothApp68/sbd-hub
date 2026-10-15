@@ -134,7 +134,7 @@ describe('la coquille mise en cache à l’installation', () => {
     const fichiers = fs.readdirSync(path.join(V2, 'fonts')).filter((f) => /\.woff2$/.test(f));
     const css = fs.readFileSync(path.join(V2, 'styles.css'), 'utf8');
     const appelees = Array.from(css.matchAll(/url\(\s*["']?([^"')]+\.woff2)["']?\s*\)/g)).map((m) => m[1]);
-    expect(fichiers.length).toBe(7);
+    expect(fichiers.length).toBe(8);   // 95 : + Archivo (variable), la police de « Ton année »
     expect(appelees.slice().sort()).toEqual(fichiers.map((f) => '/fonts/' + f).sort());
     for (const f of fichiers) expect(SW.SHELL).toContain('./fonts/' + f);
     expect(fs.existsSync(path.join(V2, 'fonts/OFL.txt'))).toBe(true);

@@ -73,7 +73,7 @@ function bac() {
     synchroniser: () => { journal.syncs++; return Promise.resolve(); },
     vidanger: () => { journal.vidanges++; },
     // L'outil de rejeu (développement) : rien demandé ici.
-    rejeuDemande: null, ouvrirRejeu: () => {}
+    rejeuDemande: null, ouvrirRejeu: () => {}, apresSynchroAnnee: () => {}
   };
   vm.createContext(ctx);
   ['idDeSession', 'entrer', 'reentrer', 'entrerVraiment', 'chargerCache',

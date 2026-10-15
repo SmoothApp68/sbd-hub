@@ -20351,7 +20351,7 @@ const SETS_IMPORTES = [
     const c3 = await carte99();
     ok('[D99] « la suite se décale » : la bande — mardi vide, Jambes mercredi, Pull jeudi, vendredi et samedi inchangés — et Jambes du jour, ses séries, « Démarrer »',
       !!c3 && nb99(c3.bande) === nb99(['Push D99', '—', 'Jambes D99', 'Pull D99', 'Push D99', 'Jambes D99', '—']) &&
-        c3.titre === 'Jambes D99 · aujourd’hui' && c3.exos.length === 3 && /Squat D99 · 4 séries/.test(c3.exos[0]) && c3.demarrer, nb99(c3));
+        c3.titre === 'Jambes D99 · aujourd’hui' && c3.exos.length === 3 && /^Squat D99 \(Barre\) · 4 séries$/.test(c3.exos[0]) && c3.demarrer, nb99(c3));
     await page.click('#carte-semaine .carte-semaine > .principal');
     await attendre(1500);
     const titre3 = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).routine_id;

@@ -13188,11 +13188,9 @@
     // Le profil ne repart que s'il y a quelque chose à envoyer : le renvoyer en entier à
     // chaque retour du réseau écraserait, avec un cache périmé, ce qu'un autre appareil
     // a répondu entre-temps (`questionnaire_fait_le`, objectif, priorités).
-    racine.addEventListener('online', function () {
-      vidanger(); if (profilAEnvoyer) envoyerProfil();
-      // 106 — les messages du groupe gardés hors ligne partent au retour du réseau.
-      if (grp.file.length) chargerGroupe();
-    });
+    racine.addEventListener('online', function () { vidanger(); if (profilAEnvoyer) envoyerProfil(); });
+    // 106 — les messages du groupe gardés hors ligne partent au retour du réseau.
+    racine.addEventListener('online', function () { if (grp.file.length) chargerGroupe(); });
     // Rotation, clavier logiciel, changement de taille : les barres changent de
     // hauteur, la réserve les suit. Mesuré une première fois au démarrage pour
     // que `--h-onglets` existe avant le premier rendu de séance.

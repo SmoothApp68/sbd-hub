@@ -231,7 +231,9 @@
   // ⚠️ ET `dossier` DEPUIS v2_057 (ch. 52, §7 duodecies.3) : une étiquette,
   // NULL pour « Sans dossier ». Même raison que `rang` : absente d'ici, la
   // bibliothèque ne saurait jamais regrouper.
-  var COLONNES_ROUTINE = 'id, nom, note, archivee_a, rang, dossier, created_at, modifiee_a';
+  // ⚠️ ET `jours` DEPUIS v2_084 (99, MOTEUR §9.24) : les jours prévus (1 = lundi … 7 = dimanche, NULL = sans
+  // jour). Le même piège : absente d'ici, elle serait écrite et jamais relue.
+  var COLONNES_ROUTINE = 'id, nom, note, archivee_a, rang, dossier, jours, created_at, modifiee_a';
   // `note` est LUE et jamais écrite par l'éditeur de routine — c'est la fin de
   // séance qui la pose (§7 septies.1, « la note suit l'exercice quand on le
   // réutilise »). La tenir hors de `CHAMPS_EXERCICE` (routines.js) est ce qui
@@ -679,6 +681,21 @@
   // `on_conflict=user_id,date` et `Prefer: resolution=merge-duplicates` ; la
   // règle d'accès est `FOR ALL` propriétaire, donc `ligne.user_id` est celui de
   // la session. L'identifiant n'est pas envoyé : la base le tire.
+  // ══ 99 (MOTEUR §9.24, v2_085) — LES CHOIX DE LA SEMAINE QUI DÉRAILLE ══════
+  // Colonnes de la migration : `user_id`, `semaine` (le lundi), `routine_id`, `choix`, `detail`, `cree_le`.
+  // Lus au démarrage (les semaines récentes suffisent : un choix ne vaut que pour sa semaine) ; écrits par la file,
+  // un `upsert` sur la clé (user_id, semaine, routine_id).
+  var COLONNES_SEMAINE_CHOIX = 'user_id, semaine, routine_id, choix, detail, cree_le';
+  async function mesChoixDeSemaine(depuis) {
+    var r = await client().from('semaine_choix').select(COLONNES_SEMAINE_CHOIX).gte('semaine', depuis);
+    if (r.error) throw r.error;
+    return r.data || [];
+  }
+  async function enregistrerChoixDeSemaine(ligne) {
+    var r = await client().from('semaine_choix').upsert(ligne, { onConflict: 'user_id,semaine,routine_id' });
+    if (r.error) throw r.error;
+  }
+
   async function enregistrerPesee(ligne) {
     var r = await client().from('body_weight_log').upsert(ligne, { onConflict: 'user_id,date' });
     if (r.error) throw r.error;
@@ -954,6 +971,8 @@
     tousLesExercices: tousLesExercices,
     toutesLesPesees: toutesLesPesees,
     enregistrerPesee: enregistrerPesee,
+    mesChoixDeSemaine: mesChoixDeSemaine,
+    enregistrerChoixDeSemaine: enregistrerChoixDeSemaine,
     aliasCommuns: aliasCommuns,
     mesAlias: mesAlias,
     enregistrerAlias: enregistrerAlias,

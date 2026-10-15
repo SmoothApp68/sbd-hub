@@ -573,6 +573,8 @@ const SETS_IMPORTES = [
     profiles: [Object.assign({}, PROFIL_BANC)],
     zones: [],
     modes: [],
+    // 99 (v2_085) — `semaine_choix` : le choix fait pour une séance manquée.
+    semaineChoix: [],
     predictions: [],
     // 53-2 (v2_058) — les blocs des programmes à cycles.
     blocs: [],
@@ -1271,6 +1273,37 @@ const SETS_IMPORTES = [
       return String(a).replace(/^ +| +$/g, '').toLowerCase().split('')
         .map((c) => (avec.indexOf(c) >= 0 ? sans[avec.indexOf(c)] : c)).join('');
     };
+    // 99 (MOTEUR §9.24, v2_085) — `semaine_choix` : clé (user_id, semaine, routine_id), `semaine` un lundi, `choix`
+    // parmi cinq, RLS propriétaire ; l'app lit par `semaine >= …` et écrit par un upsert qui fusionne.
+    if (table === 'semaine_choix') {
+      if (req.method() === 'GET') {
+        const ge = (url.searchParams.get('semaine') || '').replace('gte.', '');
+        return json(projeter(base.semaineChoix.filter((x) => !ge || x.semaine >= ge), url));
+      }
+      if (req.method() === 'POST') {
+        const prefer = req.headers()['prefer'] || '';
+        const fusionner = url.searchParams.get('on_conflict') === 'user_id,semaine,routine_id' && /resolution=merge-duplicates/.test(prefer);
+        const lignes = Array.isArray(corps) ? corps : [corps];
+        base.journal.push({ op: 'semaine_choix', lignes: lignes.map((x) => Object.assign({}, x)) });
+        for (const l of lignes) {
+          const inconnue = Object.keys(l).filter((k) => ['user_id', 'semaine', 'routine_id', 'choix', 'detail', 'cree_le'].indexOf(k) < 0)[0];
+          if (inconnue) return json(refus('PGRST204', 'semaine_choix : colonne inconnue « ' + inconnue + ' »'), 400);
+          if (l.user_id !== MOI) return json(refus('42501', 'new row violates row-level security policy for table "semaine_choix"'), 400);
+          if (['decaler', 'repartir', 'garder', 'ajouter', 'non'].indexOf(l.choix) < 0) return json(refus('23514', 'semaine_choix_choix_check'), 400);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(String(l.semaine)) || new Date(l.semaine + 'T12:00:00Z').getUTCDay() !== 1) {
+            return json(refus('23514', 'semaine_choix_semaine_check'), 400);
+          }
+          if (!ROUTINES.some((r) => r.id === l.routine_id)) return json(refus('23503', 'semaine_choix_routine_id_fkey'), 400);
+        }
+        for (const l of lignes) {
+          const i = base.semaineChoix.findIndex((x) => x.user_id === l.user_id && x.semaine === l.semaine && x.routine_id === l.routine_id);
+          if (i >= 0 && !fusionner) return json(refus('23505', 'semaine_choix_pkey'), 409);
+          if (i >= 0) base.semaineChoix[i] = Object.assign({}, base.semaineChoix[i], l);
+          else base.semaineChoix.push(Object.assign({ cree_le: new Date().toISOString() }, l));
+        }
+        return json([], 201);
+      }
+    }
     if (table === 'alias_exercice') {
       if (req.method() === 'GET') return json(projeter(base.aliasMiens, url));
       if (req.method() === 'POST') {
@@ -1445,6 +1478,11 @@ const SETS_IMPORTES = [
         const d = String(l.dossier);
         if (d !== d.trim() || d.length < 1 || d.length > 40) return 'routines_dossier_ok';
       }
+      // 99 — `routines.jours` (v2_084) : NULL, ou 1 à 7 jours parmi 1..7 (le CHECK de la base).
+      if (l.jours !== undefined && l.jours !== null) {
+        const j = l.jours;
+        if (!Array.isArray(j) || j.length < 1 || j.length > 7 || !j.every((x) => Number.isInteger(x) && x >= 1 && x <= 7)) return 'routines_jours_check';
+      }
       if (l.rang !== undefined && l.rang !== null && !(l.rang >= 0)) return 'routines_rang_positif';
       return null;
     };
@@ -1471,7 +1509,7 @@ const SETS_IMPORTES = [
       // Un UUID, comme la base : le routeur n'ouvre l'éditeur que sur lui.
       const neuve = Object.assign({ id: '00000000-0000-4000-9052-' + String(++base.graineRoutines).padStart(12, '0'),
         note: null, archivee_a: null,
-        rang: null, dossier: null, created_at: maintenant, modifiee_a: maintenant }, l, { routine_exercises: [] });
+        rang: null, dossier: null, jours: null, created_at: maintenant, modifiee_a: maintenant }, l, { routine_exercises: [] });
       ROUTINES.push(neuve);
       const c = collisionRoutines();
       if (c) { ROUTINES.pop(); return json(refus('23505', c), 409); }
@@ -20245,6 +20283,160 @@ const SETS_IMPORTES = [
       refusAvantAbandon === refusAvant && refusFin.every((x) => /sessions_une_seule_en_cours/.test(x)) &&
       erreurs.length === erreursAvant,
       nb2([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ deraille. LA SEMAINE QUI DÉRAILLE : UNE SÉANCE PRÉVUE N’A PAS EU LIEU — LA CARTE ET SES TROIS GESTES (99, MOTEUR §9.24) ══');
+  //
+  // Un programme Push / Jambes / Pull / Push / Jambes (lundi, mardi, mercredi, vendredi, samedi : `routines.jours`,
+  // v2_084). Push a eu lieu lundi ; Jambes, rien mardi. Chaque geste s'ouvre sur un appareil NEUF (son propre
+  // stockage) dont l'horloge est le MERCREDI 14 octobre 2026, 10 h : la carte dépend du jour de la semaine, et le
+  // banc ne doit pas dépendre du jour où il tourne.
+  //   · « Répartir » : le leg curl part dans Pull aujourd'hui, avec sa mention ; la carte ne revient pas ;
+  //   · « Garder Pull, comme prévu » : respecté, après rechargement aussi ;
+  //   · « Jambes aujourd'hui · la suite se décale » : la bande décalée, « Démarrer » ouvre Jambes.
+  // Témoin : sur l'appareil du banc, avec ses routines sans jour, aucune carte. Rien n'est écrit dans une routine.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length, patchsAvant = base.patchs.length;
+    const pageBanc = page;
+    const nb99 = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+    // Le témoin d'abord : aucune routine n'a de jour — pas de carte.
+    await aller('/saisie');
+    const temoin = await page.evaluate(() => { const n = document.getElementById('carte-semaine'); return !n || n.hidden; });
+    ok('[D99] témoin — sans programme à jours prévus, aucune carte', temoin);
+
+    base.sessions = []; base.sets = [];
+    const cat99 = (slug, nom, prim, sec, stab) => CATALOGUE.push({ slug, nom, mesure: 'charge_reps', charge: 'externe',
+      equipement: 'barre', muscles_primaires: prim, muscles_secondaires: sec, muscles_stabilisateurs: stab });
+    cat99('couche-d99', 'Couché D99 (Barre)', ['pectoraux'], ['triceps'], []);
+    cat99('militaire-d99', 'Militaire D99 (Barre)', ['deltoide_anterieur'], ['triceps'], ['abdominaux']);
+    cat99('squat-d99', 'Squat D99 (Barre)', ['quadriceps', 'fessiers'], ['adducteurs'], ['bas_du_dos']);
+    cat99('roumain-d99', 'Roumain D99 (Barre)', ['ischio_jambiers', 'fessiers'], [], ['bas_du_dos']);
+    cat99('legcurl-d99', 'Leg Curl D99', ['ischio_jambiers'], [], []);
+    cat99('tractions-d99', 'Tractions D99', ['grand_dorsal'], ['biceps'], []);
+    cat99('rowing-d99', 'Rowing D99 (Barre)', ['grand_dorsal', 'haut_du_dos'], ['biceps'], ['bas_du_dos']);
+    const routine99 = (id, nom, jours, exos) => ROUTINES.push({ id, nom, note: null, archivee_a: null, rang: null, dossier: 'Programme D99',
+      jours, created_at: '2026-09-01T10:00:00.000Z', modifiee_a: '2026-09-01T10:00:00.000Z',
+      routine_exercises: exos.map(([slug, n], i) => ({ id: id + '-e' + i, routine_id: id, exercise_slug: slug, rang: i,
+        routine_sets: progr(n, 8), repos_cible_s: 120, groupe_superset: null, note: null })) });
+    routine99('r-d99-push', 'Lundi — Push D99', [1, 5], [['couche-d99', 4], ['militaire-d99', 3]]);
+    routine99('r-d99-jambes', 'Mardi — Jambes D99', [2, 6], [['squat-d99', 4], ['roumain-d99', 3], ['legcurl-d99', 3]]);
+    routine99('r-d99-pull', 'Mercredi — Pull D99', [3], [['tractions-d99', 4], ['rowing-d99', 4]]);
+    // Push, lundi 12 octobre à 18 h : la seule séance de la semaine.
+    const lundi = new Date(2026, 9, 12, 18, 0, 0).toISOString();
+    base.sessions.push({ id: 'd99-lundi', user_id: 'u-banc', titre: 'Lundi — Push D99', debut: lundi,
+      fin: new Date(2026, 9, 12, 19, 0, 0).toISOString(), statut: 'terminee', note: null, salle: null, salle_norme: null,
+      routine_id: 'r-d99-push', source: 'app', created_at: lundi });
+    [1, 2].forEach((i) => base.sets.push({ id: 'd99-l-s' + i, session_id: 'd99-lundi', user_id: 'u-banc', exercise_slug: 'couche-d99',
+      charge_kg: 100, reps: 8, duree_s: null, distance_m: null, type_serie: 'travail', rang: i, groupe_superset: null,
+      validee_a: lundi, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: lundi, modifie_a: null }));
+
+    // Un appareil neuf, au mercredi 14 octobre 2026, 10 h (heure locale).
+    const vraiMaintenant = Date.now() - (Horloge.DECALAGE || 0);
+    const mercredi = new Date(2026, 9, 14, 10, 0, 0).getTime() - (Horloge.DECALAGE || 0);
+    const appareil99 = async (nom) => {
+      const c = await nav.newContext({ viewport: { width: 360, height: 760 } });
+      await c.addInitScript(SCRIPT_JETON);
+      await c.addInitScript(Horloge.scriptNavigateur(mercredi - vraiMaintenant));
+      await c.route(/supabase\.co/, gestionnaireBanc);
+      const p = await c.newPage();
+      p.on('pageerror', (e) => erreurs.push('[' + nom + '] ' + String(e).slice(0, 140)));
+      return { c, p, fermer: async () => { await p.close(); await c.close(); } };
+    };
+    const carte99 = () => page.evaluate(() => {
+      const n = document.getElementById('carte-semaine');
+      if (!n || n.hidden) return null;
+      const t = (s) => (n.querySelector(s) || {}).textContent || null;
+      return { titre: t('.semaine-titre'), pourquoi: t('.semaine-pourquoi'),
+        bande: Array.from(n.querySelectorAll('.semaine-r')).map((x) => x.textContent),
+        choix: Array.from(n.querySelectorAll('.semaine-choix button')).map((b) => (b.className.indexOf('principal') >= 0 ? '* ' : '') + b.textContent),
+        exos: Array.from(n.querySelectorAll('.semaine-exo')).map((x) => x.textContent), demarrer: !!n.querySelector('.carte-semaine > .principal') };
+    });
+    const choisir99 = async (cle) => {
+      await page.click('#carte-semaine button[data-choix="' + cle + '"]');
+      await attendre(800);
+    };
+    const ouvrir99 = async (nom) => {
+      const a = await appareil99(nom);
+      page = a.p;
+      await aller('/saisie');
+      await jusqua(async () => !!(await carte99()), 8000);
+      return a;
+    };
+
+    // ── 1. LA CARTE, PUIS « RÉPARTIR ».
+    const A = await ouvrir99('D99-répartir');
+    const c1 = await carte99();
+    ok('[D99] la carte parle du plan : « Jambes D99 n’a pas eu lieu mardi. », trois choix, le décalage mis en avant et sa raison en une ligne',
+      !!c1 && c1.titre === 'Jambes D99 n\'a pas eu lieu mardi.' &&
+        nb99(c1.choix) === nb99(['* Jambes D99 aujourd\'hui · la suite se décale', 'Répartir ses séries dans la semaine', 'Garder Pull D99, comme prévu']) &&
+        c1.pourquoi === 'Mis en avant : il garde les 10 séries de Jambes D99.' &&
+        nb99(c1.bande) === nb99(['Push D99', 'Jambes D99', 'Pull D99', '—', 'Push D99', 'Jambes D99', '—']) &&
+        !/habitude|assidu|tu n’as|tu n'as/i.test(nb99(c1)), nb99(c1));
+    await choisir99('repartir');
+    const apres1 = await carte99();
+    await demarrerRoutine('Mercredi — Pull D99');
+    await attendre(900);
+    const blocs1 = await page.evaluate(() => Array.from(document.querySelectorAll('#blocs-seance .bloc-seance')).map((b) => {
+      const m = b.querySelector('.ajout-semaine');
+      return b.textContent.slice(0, 60) + (m ? ' | ' + m.textContent : '');
+    }));
+    ok('[D99] « Répartir » : la carte se ferme ; Pull d’aujourd’hui a son leg curl en plus, « ajouté : séance manquée de mardi » (pas de squat ni de roumain après le rowing : lombaires)',
+      apres1 === null && blocs1.length === 3 && /Leg Curl D99/.test(blocs1[2]) && /ajouté : séance manquée de mardi/.test(blocs1[2]) &&
+        !blocs1.some((b) => /Squat D99|Roumain D99/.test(b)), nb99([apres1, blocs1]));
+    await abandonner();
+    await aller('/saisie');
+    ok('[D99] la question n’est posée qu’une fois : rechargé, plus de carte', (await carte99()) === null);
+    await A.fermer();
+    const ligne99 = base.semaineChoix.filter((x) => x.routine_id === 'r-d99-jambes')[0];
+    ok('[D99] le choix est en base, par la file : une ligne `semaine_choix` (lundi 12 oct., Jambes, « repartir », le leg curl dans le détail)',
+      base.semaineChoix.length === 1 && !!ligne99 && ligne99.semaine === '2026-10-12' && ligne99.choix === 'repartir' &&
+        ligne99.detail.jour === 2 && ligne99.detail.ajouts.map((x) => x.slug).join() === 'legcurl-d99', nb99(base.semaineChoix));
+    // Un autre appareil (stockage vide) : le choix le suit, la question ne revient pas.
+    const A2 = await appareil99('D99-autre-appareil');
+    page = A2.p;
+    await aller('/saisie');
+    await attendre(1500);
+    ok('[D99] sur un autre appareil, le choix suit la personne : pas de carte', (await carte99()) === null);
+    await A2.fermer();
+    base.semaineChoix = [];
+
+    // ── 2. « GARDER PULL, COMME PRÉVU ».
+    const B = await ouvrir99('D99-garder');
+    await choisir99('garder');
+    await aller('/saisie');
+    ok('[D99] « Garder Pull D99, comme prévu » est respecté : rechargé, plus de carte', (await carte99()) === null);
+    await B.fermer();
+    base.semaineChoix = [];
+
+    // ── 3. « JAMBES AUJOURD'HUI · LA SUITE SE DÉCALE ».
+    const C = await ouvrir99('D99-décaler');
+    await choisir99('decaler');
+    const c3 = await carte99();
+    ok('[D99] « la suite se décale » : la bande — mardi vide, Jambes mercredi, Pull jeudi, vendredi et samedi inchangés — et Jambes du jour, ses séries, « Démarrer »',
+      !!c3 && nb99(c3.bande) === nb99(['Push D99', '—', 'Jambes D99', 'Pull D99', 'Push D99', 'Jambes D99', '—']) &&
+        c3.titre === 'Jambes D99 · aujourd’hui' && c3.exos.length === 3 && /^Squat D99 \(Barre\) · 4 séries$/.test(c3.exos[0]) && c3.demarrer, nb99(c3));
+    await page.click('#carte-semaine .carte-semaine > .principal');
+    await attendre(1500);
+    const titre3 = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).routine_id;
+    ok('[D99] « Démarrer » ouvre Jambes D99 (la séance porte sa routine)', titre3 === 'r-d99-jambes', nb99(titre3));
+    await abandonner();
+    await C.fermer();
+
+    // LA REMISE EN ÉTAT.
+    page = pageBanc;
+    const routinesTouchees = base.patchs.slice(patchsAvant).filter((x) => /^routine/.test(x.op || ''));
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.semaineChoix = [];
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[D99] rien n’est écrit dans une routine ; aucun refus du faux serveur, aucune erreur de page',
+      routinesTouchees.length === 0 && base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nb99([routinesTouchees, base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

@@ -1,0 +1,57 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Semaine qui déraille v3</title>
+<style>
+:root{--fond:#161a1f;--panneau:#1f252c;--panneau2:#262d35;--trait:#2e363f;--texte:#ece8df;--gris:#9aa3ad;--accent:#e0a34a}
+*{box-sizing:border-box}body{margin:0;background:#0f1215;color:var(--texte);font:15px/1.45 system-ui,sans-serif;padding:16px}
+h1{font-size:19px;margin:0 0 4px}p.note{color:var(--gris);margin:0 0 16px;max-width:70ch}
+.ecrans{display:flex;gap:18px;flex-wrap:wrap}
+.tel{width:340px;max-width:100%;background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:16px;min-height:560px}
+.leg{color:var(--accent);font-size:13px;margin:0 0 12px}
+.sem{display:flex;gap:6px;margin-bottom:14px}.j{flex:1;text-align:center;font-size:11px;color:var(--gris)}
+.j b{display:block;height:34px;border-radius:9px;margin-top:4px;background:var(--panneau);display:grid;place-items:center;color:var(--texte);font-size:11px}
+.j.fait b{background:#3a4a3a}.j.manque b{border:1px dashed var(--gris);background:transparent;color:var(--gris)}.j.auj b{outline:2px solid var(--texte)}
+.carte{background:var(--panneau);border-radius:16px;padding:14px;margin-bottom:12px}
+.carte p{margin:0 0 12px}
+.btns{display:flex;gap:8px}.btn{flex:1;border:0;border-radius:12px;padding:11px;font:600 14px system-ui;background:var(--panneau2);color:var(--texte)}
+.btn.p{background:var(--texte);color:var(--fond)}
+.ex{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--trait);font-size:14px}.ex small{color:var(--gris)}
+.ajout{color:var(--accent)}
+.cache{color:var(--gris);font-size:13px}
+</style></head><body>
+<h1>La semaine qui déraille — maquette v3</h1>
+<p class="note">Seulement avec un programme à jours prévus. Le coach parle du plan, jamais de la personne ; aucune notification, aucun compteur, rien dans les bilans. Données fictives.</p>
+<div class="ecrans">
+
+<div class="tel"><p class="leg">1 · Mercredi, à l'ouverture : trois choix</p>
+<div class="sem"><div class="j fait">lun<b>Push</b></div><div class="j manque">mar<b>Jambes</b></div><div class="j auj">mer<b>Pull</b></div><div class="j">jeu<b>Repos</b></div><div class="j">ven<b>Push</b></div><div class="j">sam<b>Jambes</b></div></div>
+<div class="carte"><p>Jambes n'a pas eu lieu mardi.</p>
+<button class="btn p" style="width:100%;margin-bottom:8px">Jambes aujourd'hui · la suite se décale</button>
+<button class="btn" style="width:100%;margin-bottom:8px">Répartir ses séries dans la semaine</button>
+<button class="btn" style="width:100%">Garder Pull, comme prévu</button>
+<p class="cache" style="margin:10px 0 0">Mis en avant : il garde tout ton volume de jambes, et samedi reste à plus de 48 h.</p></div>
+<p class="cache">« Jambes aujourd'hui » n'est proposé que si les mêmes muscles ont eu au moins 48 h (72 h pour un débutant) depuis leur dernière séance, et que le décalage ne colle pas deux séances sur les mêmes muscles à moins de 48 h.</p></div>
+
+<div class="tel"><p class="leg">1 bis · « Répartir ses séries dans la semaine »</p>
+<div class="carte"><b>Jambes, réparties</b>
+<div class="ex"><span>Pull · aujourd'hui</span><small>+ Leg Curl Assis · 3 séries</small></div>
+<div class="ex"><span>Push · vendredi</span><small>+ Presse à Cuisses · 3 séries</small></div>
+<div class="ex"><span>Jambes · samedi</span><small>+ 1 série de Squat (Barre)</small></div></div>
+<p class="cache">Chaque ajout respecte les 48 h, ne recharge pas ce que la séance fatigue déjà (pas de squat ni de soulevé après le rowing penché) et reste dans ta durée habituelle. Ce qui ne rentre pas est laissé, jamais reporté à la semaine suivante.</p></div>
+<div class="tel"><p class="leg">2 · Après « Jambes » : la semaine décalée</p>
+<div class="sem"><div class="j fait">lun<b>Push</b></div><div class="j">mar<b>—</b></div><div class="j auj">mer<b>Jambes</b></div><div class="j">jeu<b>Pull</b></div><div class="j">ven<b>Push</b></div><div class="j">sam<b>Jambes</b></div></div>
+<div class="carte"><b>Jambes · aujourd'hui</b><div class="ex"><span>Squat (Barre)</span><small>4 séries</small></div><div class="ex"><span>Soulevé de Terre Roumain (Barre)</span><small>3 séries</small></div><div class="ex"><span>Leg Curl Assis</span><small>3 séries</small></div></div>
+<p class="cache">La semaine garde ses 5 séances ; le cycle avance sur les séances faites, pas sur le calendrier.</p></div>
+
+<div class="tel"><p class="leg">3 · Fin de semaine : plus la place de décaler</p>
+<div class="sem"><div class="j fait">lun<b>Push</b></div><div class="j fait">mar<b>Jambes</b></div><div class="j fait">mer<b>Pull</b></div><div class="j fait">jeu<b>Push</b></div><div class="j manque">ven<b>Jambes</b></div><div class="j auj">sam<b>Pull</b></div></div>
+<div class="carte"><p>Jambes n'a pas eu lieu vendredi. Tes quadriceps sont à 9 séries cette semaine, contre 16 d'habitude. Ajouter 3 séries de Presse à Cuisses à la fin de Pull ?</p>
+<div class="btns"><button class="btn p">Ajouter</button><button class="btn">Non merci</button></div></div>
+<div class="carte"><b>Pull · aujourd'hui</b><div class="ex"><span>Tractions</span><small>4 séries</small></div><div class="ex"><span>Rowing Penché (Barre)</span><small>4 séries</small></div><div class="ex ajout"><span>+ Presse à Cuisses</span><small>3 séries</small></div></div>
+<p class="cache">Le coach complète le muscle le plus en retard sur sa semaine habituelle, avec un exercice qui ne recharge pas ce que la séance du jour fatigue déjà (pas de squat ni de soulevé après le rowing penché : les lombaires ont déjà travaillé). Seulement si ta durée habituelle le permet ; jamais reporté à la semaine suivante.</p></div>
+
+<div class="tel"><p class="leg">4 · Un décalage qui collerait deux séances Jambes</p>
+<div class="sem"><div class="j fait">lun<b>Push</b></div><div class="j fait">mar<b>Jambes</b></div><div class="j manque">mer<b>Pull</b></div><div class="j auj">jeu<b>Jambes</b></div><div class="j">ven<b>Push</b></div><div class="j">sam<b>Repos</b></div></div>
+<div class="carte"><p>Pull n'a pas eu lieu mercredi. Aujourd'hui ?</p>
+<div class="btns"><button class="btn p">Pull</button><button class="btn">Jambes, comme prévu</button></div></div>
+<p class="cache">Le coach ne propose jamais un décalage qui remet les mêmes muscles moins de 48 h après leur dernière séance : ici Jambes (mardi) puis Jambes (jeudi) passe, mais « Jambes » mercredi après Jambes mardi ne serait pas proposé. Deux séances manquées : une seule question, la plus utile (le muscle le plus en retard).</p></div>
+</div></body></html>

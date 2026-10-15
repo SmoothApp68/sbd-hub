@@ -2606,6 +2606,8 @@
         // MOTEUR §14.7 (49-U17) — « une série de plus, jusqu'à ton prochain progrès ».
         if (lib.plus) entree.appendChild(tapable(el('div', 'consigne-dit serie-de-plus', lib.plus)));
       }
+      // 99 (MOTEUR §9.24) — un exercice ajouté pour cette semaine seulement : « ajouté : séance manquée de mardi ».
+      if (x.ajout) entree.appendChild(el('div', 'consigne-dit ajout-semaine', 'ajouté : ' + x.ajout));
       entree.appendChild(reglagesExo(x, vue));
 
       tete.appendChild(entree);
@@ -4264,6 +4266,50 @@
     b.appendChild(actions);
 
     cible.appendChild(b);
+    return cible;
+  }
+
+  // 99 (MOTEUR §9.24) — LA SEMAINE QUI DÉRAILLE. La carte lit ce que le coach a décidé (`THDeraille`) : la bande
+  // de la semaine, la phrase qui parle du plan, les choix (celui mis en avant en principal) et sa raison en une
+  // ligne. Après « la suite se décale », la bande montre la semaine décalée et « Démarrer ». Rien n'est calculé ici.
+  // `vue` : `{ bande: [{ jour, routine }], aujourdhui (0-6), titre, phrase?, choix: [{ cle, libelle, avant? }],
+  // pourquoi?, surChoix(cle) }` ou `{ bande, aujourdhui, apres: { titre, exercices: [nom], surDemarrer } }`.
+  function rendreCarteSemaine(cible, vue) {
+    vider(cible);
+    if (!vue) { cible.hidden = true; return cible; }
+    cible.hidden = false;
+    var c = el('div', 'carte-semaine');
+    var bande = el('div', 'semaine-bande');
+    (vue.bande || []).forEach(function (j, i) {
+      var b = el('div', 'semaine-jour' + (i === vue.aujourdhui ? ' aujourdhui' : '') + (j.routine ? '' : ' libre'));
+      b.appendChild(el('span', 'semaine-j', j.jour));
+      b.appendChild(el('span', 'semaine-r', j.routine || '—'));
+      bande.appendChild(b);
+    });
+    c.appendChild(bande);
+    if (vue.apres) {
+      c.appendChild(el('p', 'semaine-titre', vue.apres.titre));
+      (vue.apres.exercices || []).forEach(function (n) { c.appendChild(el('div', 'semaine-exo', n)); });
+      var d = el('button', 'principal', 'Démarrer');
+      d.type = 'button';
+      d.addEventListener('click', function () { vue.apres.surDemarrer(); });
+      c.appendChild(d);
+      cible.appendChild(c);
+      return cible;
+    }
+    c.appendChild(el('p', 'semaine-titre', vue.titre));
+    if (vue.phrase) c.appendChild(el('p', 'semaine-phrase', vue.phrase));
+    var actions = el('div', 'semaine-choix');
+    (vue.choix || []).forEach(function (x) {
+      var b = el('button', x.avant ? 'principal' : 'discret', x.libelle);
+      b.type = 'button';
+      b.setAttribute('data-choix', x.cle);
+      b.addEventListener('click', function () { vue.surChoix(x.cle); });
+      actions.appendChild(b);
+    });
+    c.appendChild(actions);
+    if (vue.pourquoi) c.appendChild(el('p', 'semaine-pourquoi', vue.pourquoi));
+    cible.appendChild(c);
     return cible;
   }
 
@@ -6988,6 +7034,7 @@
     etiquetteSerie: etiquetteSerie,
     texteEffort: texteEffort,
     rendreBandeauReprise: rendreBandeauReprise,
+    rendreCarteSemaine: rendreCarteSemaine,
     rendreEscalier: rendreEscalier,
     brancherReorganisation: brancherReorganisation,
     rendrePiedReorganisation: rendrePiedReorganisation,

@@ -1386,6 +1386,44 @@ corrigée en Édition : type, charge, reps, durée ou distance) ; l'app réécri
 **Référence** : `records55.py` ; cas `cas_records55.json`.
 
 
+### 9.24 La semaine qui déraille — décidée le 15/10/2026 (chantier 99)
+
+> **Le coach parle du plan, jamais de la personne. La référence est toujours le programme.**
+
+**Les décisions d'Aurélien (15/10/2026), mot pour mot.**
+1. Seulement avec un programme à jours prévus. Le coach s'en rend compte à l'ouverture de l'app après le jour manqué, jamais par une notification.
+2. Une carte, sans reproche, qui parle du plan, jamais de la personne (« Jambes n'a pas eu lieu mardi. »), avec trois choix : « Jambes aujourd'hui · la suite se décale » / « Répartir ses séries dans la semaine » / « Garder Pull, comme prévu ». Le coach met en avant celui qui garde le mieux le volume de la semaine et dit pourquoi en une ligne ; le choix reste à la personne.
+3. Récupération, comptée en jours du calendrier, sans l'heure : jamais les mêmes muscles primaires le lendemain ; possible le surlendemain (J+2) ; débutant (niveau du questionnaire) : J+3. Un choix qui enfreindrait cette règle n'est pas proposé (le décalage comme la répartition).
+4. Répartir : les séries de la séance manquée se répartissent sur les séances restantes de la semaine, un exercice choisi pour chaque séance qui ne recharge pas ce que cette séance fatigue déjà (muscles primaires et stabilisateurs, ex. pas de squat ni de soulevé après le rowing penché : lombaires), et dans la durée habituelle de la personne (questionnaire). Priorité au muscle le plus en retard sur son volume habituel de la semaine (relevé par muscle). Ce qui ne rentre pas est laissé.
+5. Fin de semaine, plus la place de décaler : « Ajouter à la séance du jour » (un exercice, même règle que 4) ou « Non merci ».
+6. Le bloc garde son calendrier (§9.22) ; le décalage ne fait que déplacer une routine dans la semaine ; rien n'est reporté à la semaine suivante.
+7. « Garder … comme prévu » est respecté ; la question n'est posée qu'une fois par séance manquée. Deux séances manquées : une seule question, sur le muscle le plus en retard.
+8. Jamais : un compteur de séances manquées, un mot sur l'assiduité, une mention dans les bilans.
+
+Une décision de la personne (décaler, répartir) ne s'efface jamais en silence : si elle modifie une routine ou un plan, c'est pour cette semaine seulement, et elle se lit dans la séance (« ajouté : séance manquée de mardi »).
+
+**Répartir, règle corrigée (Aurélien, 15/10/2026).** Elle remplace « ne recharge pas ce que la séance fatigue déjà » dans le cas où la séance d'accueil travaille les mêmes muscles. Dans une séance qui travaille déjà le muscle, le coach peut ajouter des séries de la routine manquée tant que ce muscle reste sous 10 séries dans la séance (séries pondérées comme le relevé), sans dépasser la durée habituelle ni la récupération en jours (J+2, J+3 pour un débutant). Il ne duplique pas un mouvement principal déjà présent : il prend d'abord les exercices de la routine manquée qui ne sont pas déjà dans la séance (exemple réel, programme Sèche d'aurel_br : Bas A manqué, vendredi Bas B reçoit Presse 3 + Extension Jambes 3 + Mollets 1, ~85 min sous 90 ; pas de squat ajouté, le squat avec pause y est déjà). Dans une séance d'un autre groupe, la règle actuelle s'applique (pas d'exercice dont les muscles primaires ou stabilisateurs chargent ce que la séance fatigue déjà). Plusieurs exercices par séance sont maintenant permis dans cette limite.
+
+**Un fil (Aurélien, 15/10/2026).** La référence de la carte et de la répartition est TOUJOURS le programme (les séries que prévoient ses routines), jamais l'historique. Le coach ne dit jamais « moins que d'habitude » et ne propose jamais plus que ce que prévoit la routine manquée. La « semaine » = les routines du programme qui ont un jour.
+
+**Les jours prévus** (`routines.jours`, `v2_084` : `smallint[]`, 1 = lundi … 7 = dimanche, NULL = sans jour). La migration les remplit seulement pour les noms qui commencent exactement par « <Jour> — » ; le générateur les écrit à la création d'un programme, par la même règle (`THDeraille.jourDuNom`), en gardant le préfixe du nom. Lus, écrits et relus comme les autres colonnes de routines ; un renommage ou un réordonnancement ne les touche pas. Une routine sans jour n'est jamais concernée. Pas d'écran pour poser les jours à la main (noté pour plus tard).
+
+**Ce que le code en a fait (99, choix tranchés).**
+- **Une séance « a eu lieu »** quand une séance de la semaine (lundi → aujourd'hui, jour civil local) porte sa routine (`sessions.routine_id`) ; une routine prévue deux fois compte ses séances dans l'ordre des jours. Une séance hors routine ne remplace pas une routine prévue, mais compte pour la récupération (ses muscles principaux).
+- **Le muscle le plus en retard** : le volume prévu par le programme pour la semaine (la règle du volume, 1, ½, ¼, sur les séries de travail des routines à jour), moins le volume fait cette semaine (`faits.semaineDuProgramme`). C'est la lecture de « volume habituel de la semaine » (décision 4) imposée par le fil : le programme, pas l'historique. La phrase de fin de semaine dit les deux chiffres : « Deltoïde antérieur : 0 série cette semaine ; ton programme en prévoit 10. »
+- **Le décalage** : la séance manquée passe aujourd'hui ; chaque séance suivante glisse au jour suivant tant qu'elle se heurte à la précédente, et s'arrête au premier jour libre. Proposé seulement si rien ne passe dimanche et si chaque séance déplacée respecte la récupération (contre les séances faites des 14 derniers jours et les autres séances prévues).
+- **La répartition** (règle corrigée du 15/10/2026) : pour chaque séance prévue d'aujourd'hui à dimanche, dans l'ordre des jours, autant d'exercices de la routine manquée que la règle le permet, chacun avec au plus les séries de travail que la routine prévoit (ni chauffe, ni série de plus ; une partie seulement si la durée l'exige). « La séance travaille déjà le muscle » : l'exercice a un muscle principal en commun avec elle ; alors chacun de ces muscles reste **strictement sous 10** séries pondérées (1, ½, ¼) dans la séance, ajouts compris. Sinon, aucun de ses muscles principaux ou stabilisateurs n'est déjà principal ou stabilisateur de la séance. « Un mouvement déjà présent » : le même exercice, ou le même `mouvement` au catalogue (le squat et le squat avec pause sont un même mouvement) ; il n'est jamais ajouté. Toujours : la récupération, et l'estimation de la séance (§9.18) sous la durée visée (`duree_seance_min` ; sans durée déclarée, pas de limite). Parmi les candidats, celui du muscle le plus en retard, puis l'ordre de la routine. La fin de semaine (décision 5) garde un exercice.
+- **Mis en avant** : celui qui garde le plus de séries de la routine manquée ; à égalité, le décalage. La ligne : « Mis en avant : il garde les 10 séries de Jambes. » ou « … il garde 3 des 10 séries de Jambes. » « Garder » n'est jamais mis en avant.
+- **La fin de semaine** : aucune séance prévue après aujourd'hui. Aussi quand ni le décalage ni la répartition ne sont possibles. Sans séance prévue aujourd'hui, ou sans exercice qui passe la règle 4 : pas de carte (une carte sans choix utile serait un reproche).
+- **Deux séances manquées** : la question porte sur la routine dont un muscle principal a le plus grand retard ; toutes les séances manquées ouvertes sont marquées comme posées.
+- **Le nom montré** est celui de la routine sans son préfixe de jour (« Mardi — Jambes » → « Jambes »).
+- **Ce que la personne décide** est en base (`semaine_choix`, v2_085 : `user_id`, `semaine` = le lundi, `routine_id`, `choix` ∈ decaler / repartir / garder / ajouter / non, `detail` jsonb, `cree_le` ; clé (`user_id`, `semaine`, `routine_id`) ; RLS propriétaire) : une ligne par séance manquée de la carte, la séance de la question portant le détail (le planning décalé, les exercices ajoutés). L'app l'écrit par la file d'envoi (un `upsert` sur la clé, jamais en direct), le relit au démarrage (les deux dernières semaines) et le garde aussi en cache local pour le hors-ligne ; la plus récente gagne par clé. Rien n'est écrit dans une routine. Un exercice ajouté porte sa mention dans la séance et n'est jamais proposé à l'écriture dans la routine par la question de fin.
+- **En « Juste un carnet »** (profil), le coach se tait : pas de carte.
+- **Le module** : `v2/js/deraille.js` (`semaineQuiDeraille`, `decider`, `ajoutsDuJour`, `bandeDeLaSemaine`), pur. La carte vit avant toute séance : elle n'est pas une décision de `planDeSeance`. Un exercice ajouté entre dans la séance comme les autres, et le plan le coache comme les autres.
+
+**Maquette** : `v2-atelier/maquettes/maquette-semaine-deraille-v3.html` (validée le 15/10/2026). **Tests** : `tests/unit/v2-deraille.test.js` ; banc : section `deraille`.
+
+
 ## 10. L'incrément
 
 ### 10.1 Règle

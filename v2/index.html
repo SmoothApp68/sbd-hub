@@ -151,6 +151,9 @@
     <div id="bandeau-phase" hidden></div>
     <!-- 60-4 (MOTEUR §9.22) — la carte « Passer en cycles » : une seule fois, 21 jours après un programme construit. -->
     <div id="carte-cycles" hidden></div>
+    <!-- 99 (MOTEUR §9.24) — la semaine qui déraille : une séance prévue n'a pas eu lieu. À l'ouverture, jamais par
+         une notification ; seulement avec un programme à jours prévus. -->
+    <div id="carte-semaine" hidden></div>
     <!-- Le bandeau de reprise (§7 octodecies.3) : il ne s'affiche que s'il y a
          quelque chose d'ouvert. Le même composant servira à la séance en cours
          (§7 nonies), qui n'est pas encore branchée. -->
@@ -524,6 +527,7 @@
 <script src="/js/attente.js"></script>
 <script src="/js/seance.js"></script>
 <script src="/js/reserve.js"></script>
+<script src="/js/deraille.js"></script>
 <script src="/js/plan.js"></script>
 <script src="/js/periode.js"></script>
 <script src="/js/poids.js"></script>

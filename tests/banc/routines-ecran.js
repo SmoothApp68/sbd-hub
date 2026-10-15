@@ -357,6 +357,11 @@ const CATALOGUE = [
         const d = String(l.dossier);
         if (d !== d.trim() || d.length < 1 || d.length > 40) return 'routines_dossier_ok';
       }
+      // 99 — `routines.jours` (v2_084) : NULL, ou 1 à 7 jours parmi 1..7 (le CHECK de la base).
+      if (l.jours !== undefined && l.jours !== null) {
+        const j = l.jours;
+        if (!Array.isArray(j) || j.length < 1 || j.length > 7 || !j.every((x) => Number.isInteger(x) && x >= 1 && x <= 7)) return 'routines_jours_check';
+      }
       if (l.nom === undefined) return null;
       const t = String(l.nom === null ? '' : l.nom).trim();
       if (!t.length || t.length > 60) return 'routines_nom_court';
@@ -406,7 +411,7 @@ const CATALOGUE = [
     if (req.method() === 'POST' && table === 'routines') {
       const mauvais = nomBorne(Array.isArray(corps) ? corps[0] : corps);
       if (mauvais) return refuserSi(corps, mauvais);
-      const l = Object.assign({ id: 'r' + (++base.graine), archivee_a: null, note: null, rang: null }, corps);
+      const l = Object.assign({ id: 'r' + (++base.graine), archivee_a: null, note: null, rang: null, jours: null }, corps);
       base.routines.push(l);
       if (collisionNom()) { base.routines.pop(); return json({ code: '23505', message: 'duplicate key value violates unique constraint "routines_user_nom_actif_uniq"' }, 409); }
       if (collisionRangRoutines()) { base.routines.pop(); return json({ code: '23505', message: 'duplicate key value violates unique constraint "routines_user_rang_uniq"' }, 409); }

@@ -61,7 +61,7 @@
   // ⚠️ LISTE BLANCHE DE `routines` (chantier 52). Une création ou une mise à
   // jour n'envoie que ces colonnes : le dossier y est entré avec v2_057, au
   // même endroit que le nom et le rang — pas par un second chemin.
-  var CHAMPS_ROUTINE = ['user_id', 'nom', 'rang', 'dossier'];
+  var CHAMPS_ROUTINE = ['user_id', 'nom', 'rang', 'dossier', 'jours'];
   var REPS_MIN = 1, REPS_MAX = 100;
   var REPOS_MIN = 5, REPOS_MAX = 1800;
 
@@ -1487,6 +1487,9 @@
         // §7 duodecies.3 (52-1) — le dossier part avec la création, s'il y en
         // a un ; « Sans dossier » est le NULL par défaut de la colonne.
         if (dossierPropre(b.dossier) !== null) neuve.dossier = dossierPropre(b.dossier);
+        // 99 (MOTEUR §9.24, v2_084) — les jours prévus, posés par le générateur à la création. Ensuite, un
+        // renommage ou un réordonnancement ne les écrit pas : ils restent attachés à la routine.
+        if (Array.isArray(b.jours) && b.jours.length) neuve.jours = b.jours.slice();
         routine = await ecrivain.creerRoutine(ligneRoutine(neuve));
         ecrit = true;
       } else {

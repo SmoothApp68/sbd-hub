@@ -33,6 +33,8 @@
   var Parcours = racine.THParcours;
   // 78 — la question de réserve : le plan la décide ; d'ici, l'entrée figée (le passé de chaque exercice).
   var Reserve = racine.THReserve;
+  // 99 — la semaine qui déraille (MOTEUR §9.24) : la règle dans `deraille.js` ; d'ici, son entrée et ses gestes.
+  var Deraille = racine.THDeraille;
   // 59-2 — « Quitter » : la fenêtre des séances pas encore envoyées, et ce qu'on efface.
   var Quitter = racine.THQuitter;
   // 58-1 — LE MODULE DES FAITS : l'assemblage des faits (séances et séries,
@@ -41,7 +43,7 @@
   var faits = racine.THFaits.creer();
 
   var vues = {};
-  var local = { seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
+  var local = { semaineChoix: [], seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
                 predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
                 blocs: [], programme: [], records: [], connues: {} };
   var etat = { code: 'vide', libelle: '', local: false };
@@ -696,6 +698,8 @@
     local.zones = await Cache.lireTout('zones');
     // §9.17 — le mode de chaque exercice, lu au démarrage pour la même raison.
     local.modes = await Cache.lireTout('modes');
+    // 99 (MOTEUR §9.24) — les choix de la semaine qui déraille, gardés sur l'appareil pour le hors-ligne.
+    try { local.semaineChoix = (await Cache.lireBrouillon(CLE_SEMAINE)) || []; } catch (e) { local.semaineChoix = []; }
     // §9.11 (48c) — ce que le moteur a DÉJÀ noté. Lu au démarrage, parce que
     // c'est ce qui l'empêche de réécrire : fermer l'app au milieu d'une séance
     // et la rouvrir rejouerait sinon toutes les consignes de cette séance.
@@ -894,6 +898,10 @@
       // qu'il avait — donc les choix faits ici tiennent.
       var zones = await essayer(Donnees.mesZones);
       var modes = await essayer(Donnees.mesModes);
+      // 99 (MOTEUR §9.24) — les choix des semaines qui déraillent (les deux dernières semaines suffisent).
+      var choixSemaine = await essayer(function () {
+        return Donnees.mesChoixDeSemaine(Deraille.lundiDe(Moteur.jourCivil(new Date(Date.now() - 7 * 864e5))));
+      });
 
       // §12.9 (49-U13) — les paris du compte, EN LECTURE SEULE, pour une seule
       // chose : savoir quelles séances ont reçu une consigne (« sous
@@ -986,6 +994,11 @@
       if (modes) {
         local.modes = fondreModes(local.modes, modes);
         await Cache.ecrireLot('modes', local.modes);
+        if (!generationValide(g)) return;
+      }
+      if (choixSemaine) {
+        local.semaineChoix = fondreChoix(local.semaineChoix, choixSemaine);
+        await Cache.ecrireBrouillon(CLE_SEMAINE, local.semaineChoix).catch(function () {});
         if (!generationValide(g)) return;
       }
       if (parisDuCompte) {
@@ -2907,6 +2920,8 @@
     // alias_norme) qui FUSIONNE. Sans cette branche, l'entrée serait vidée par
     // le dernier `return` sans rien écrire.
     if (op.table === Attente.ALIAS) return Donnees.enregistrerAlias(op.donnees);
+    // 99 (MOTEUR §9.24) — le choix fait pour une séance manquée : un `upsert` sur (user_id, semaine, routine_id).
+    if (op.table === Attente.SEMAINE_CHOIX) return Donnees.enregistrerChoixDeSemaine(op.donnees);
     // §6 — l'intention porte l'ÉTAT VOULU de la routine, pas un chemin pour y
     // aller : le plan d'écritures se calcule à la vidange, contre ce que la
     // routine est devenue entre-temps. C'est de là que vient l'idempotence.
@@ -3030,6 +3045,9 @@
         if (e && e.tr > 0 && !Object.prototype.hasOwnProperty.call(routinesHeritees, cle)) routinesHeritees[cle] = e.tr;
       });
     }
+    // 99 (MOTEUR §9.24) — les exercices ajoutés par la semaine qui déraille, à la fin, avec leur mention.
+    var ajoutes = avecLesAjoutsDeLaSemaine(depart);
+    depart = ajoutes.routine;
     seance = Seance.creer({
       id: id,
       userId: sessionActive && sessionActive.user && sessionActive.user.id,
@@ -3037,6 +3055,12 @@
       routine: depart,
       idSerie: uuid
     });
+    if (ajoutes.mentions.length) {
+      var n0 = seance.exercices.length - ajoutes.mentions.length;
+      seance = Object.assign({}, seance, { exercices: seance.exercices.map(function (x, i) {
+        return i >= n0 ? Object.assign({}, x, { ajout: ajoutes.mentions[i - n0] }) : x;
+      }) });
+    }
     // Le souvenir du raccourci, dans le brouillon de la séance seulement (la
     // session et les séries n'ont pas de colonne pour lui) : I32 le vérifie, et
     // la question de fin n'y propose jamais de retirer un exercice raccourci.
@@ -7840,6 +7864,8 @@
       rang: brute.rang === undefined ? null : brute.rang,
       // §7 duodecies.3 (52-1) — le dossier, une étiquette (`null` : Sans dossier).
       dossier: Routines.dossierPropre(brute.dossier),
+      // 99 (MOTEUR §9.24, v2_084) — les jours prévus (1 = lundi … 7 = dimanche), `null` : sans jour.
+      jours: Array.isArray(brute.jours) && brute.jours.length ? brute.jours.slice() : null,
       // §7 quindecies.4 (52-1) — « En faire une routine » prend le repos d'un
       // exercice dans la routine la plus récemment modifiée qui le contient.
       modifiee_a: brute.modifiee_a === undefined ? null : brute.modifiee_a,
@@ -7884,6 +7910,7 @@
     rendreBandeauQuestionnaire();
     rendreBandeauPhase();
     rendreCarteCycles();
+    rendreCarteSemaine();
     var cible = $('liste-routines');
     // ⚠️ « Je ne sais pas encore » n'est PAS « il n'y en a pas ». Tant qu'un
     // chargement n'a pas abouti, on ne montre pas l'état vide : hors ligne, il
@@ -9606,9 +9633,9 @@
   // vocabulaire de la saisie (`enSaisie`) — et aucune charge : la structure
   // n'en a pas. 60-3 — « En faire mes routines (N) » (la feuille « Tes séances
   // qui reviennent ») passe par ces deux mêmes fonctions : un seul chemin.
-  function brouillonDeStructure(structure, nom, dossier) {
+  function brouillonDeStructure(structure, nom, dossier, jours) {
     return {
-      id: null, nom: nom, nomChange: true, dossier: dossier, existantes: [],
+      id: null, nom: nom, nomChange: true, dossier: dossier, existantes: [], jours: jours || null,
       exercices: Routines.renumeroter(structure.exercices.map(function (e) {
         return { id: null, exercise_slug: e.exercise_slug, series: e.series.map(Routines.enSaisie),
                  repos_cible_s: e.repos_cible_s, groupe_superset: e.groupe_superset, note: null };
@@ -9732,7 +9759,9 @@
   // ⚠️ UNE ROUTINE ORPHELINE (créée, mais ses exercices ou ses séries ne sont pas partis, et l'annulation non plus : le
   // réseau était mort) est DÉFAITE avant toute reprise, puis la bibliothèque est relue — sinon la reprise bute sur son
   // propre nom (« doublon ») sans fin.
-  async function creerDansUnDossier(f, choisies, nomDuDossier, redessiner) {
+  // 99 (MOTEUR §9.24, v2_084) — `avecJours` : le programme construit écrit les jours prévus de chaque routine, lus
+  // sur le préfixe de son nom (« Lundi — Haut A » → lundi), la règle même de la migration (`Deraille.jourDuNom`).
+  async function creerDansUnDossier(f, choisies, nomDuDossier, redessiner, avecJours) {
     f.enCours = true;
     f.erreur = '';
     enregistrementEnCours = true;
@@ -9754,7 +9783,7 @@
       for (var i = 0; i < choisies.length; i++) {
         var x = choisies[i];
         var st = Routines.routineDeduite(x.deduite, { exercices: local.exercices, routines: routines, existants: noms });
-        var b = brouillonDeStructure(st, st.nom, f.dossier);
+        var b = brouillonDeStructure(st, st.nom, f.dossier, avecJours ? Deraille.jourDuNom(st.nom) : null);
         var verdict = Routines.valider(b, dejaLa);
         if (!verdict.valide) { f.erreur = messageVerdict(verdict); echec = true; break; }
         var r = await creerRoutineNeuve(b, rang);
@@ -10278,7 +10307,7 @@
       } });
     });
     if (!choisies.length) return;
-    var creees = await creerDansUnDossier(c, choisies, DOSSIER_DU_PROGRAMME, rendreApercuDuProgramme);
+    var creees = await creerDansUnDossier(c, choisies, DOSSIER_DU_PROGRAMME, rendreApercuDuProgramme, true);
     var ouverte = construit === c;
     if (!ouverte) { if (!vues.saisie.hidden && !seance) rendreSaisie(); return; }
     if (c.erreur) {
@@ -10752,7 +10781,7 @@
     // La prochaine entrée, même du même compte, repart du disque (vidé).
     entreeFaitePour = null;
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
-    local = { seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
+    local = { semaineChoix: [], seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
               predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
               records: [], connues: {} };
     journalDecide = false;
@@ -11502,6 +11531,101 @@
       libelleReprendre: 'Passer en cycles',
       surReprendre: function () { ouvrirProgramme(dossier, null); }
     });
+  }
+
+  // ── 99 (MOTEUR §9.24) — LA SEMAINE QUI DÉRAILLE ─────────────────────────
+  //
+  // À l'ouverture de Saisie (jamais par une notification), avec un programme à jours prévus : la carte de
+  // `Deraille.semaineQuiDeraille`, lue telle quelle. Ce que la personne décide vaut pour CETTE SEMAINE SEULEMENT et
+  // suit la personne d'un appareil à l'autre : une ligne `semaine_choix` (v2_085) par séance manquée, écrite par la
+  // FILE (jamais en direct), relue au démarrage, gardée aussi sur l'appareil pour le hors-ligne (`CLE_SEMAINE`).
+  // Rien ne touche une routine ; un exercice réparti se lit dans la séance (« ajouté : séance manquée de mardi »).
+  // En « Juste un carnet », le coach se tait.
+  var CLE_SEMAINE = 'semaine-choix';
+  var semaineDecalee = null;   // { jour, routine } : après « la suite se décale », la bande et « Démarrer »
+
+  function lireLaSemaine() { return Deraille.etatDepuisLignes(local.semaineChoix || [], Moteur.jourCivil(new Date())); }
+  function cleDuChoix(l) { return String(l.semaine).slice(0, 10) + '|' + l.routine_id; }
+  // Fondre les lignes : par clé (semaine, routine), la plus récente gagne — un choix fait ici, pas encore monté,
+  // n'est jamais écrasé par la relecture du serveur.
+  function fondreChoix(a, b) {
+    var par = {};
+    (a || []).concat(b || []).forEach(function (l) {
+      if (!l || !l.routine_id || !l.semaine) return;
+      var k = cleDuChoix(l);
+      if (!par[k] || String(l.cree_le || '') >= String(par[k].cree_le || '')) par[k] = l;
+    });
+    return Object.keys(par).map(function (k) { return par[k]; });
+  }
+  async function poserChoixDeSemaine(lignes) {
+    local.semaineChoix = fondreChoix(local.semaineChoix, lignes);
+    await Cache.ecrireBrouillon(CLE_SEMAINE, local.semaineChoix).catch(function () {});
+    for (var i = 0; i < lignes.length; i++) {
+      await poser({ table: Attente.SEMAINE_CHOIX, op: Attente.UPSERT, id: cleDuChoix(lignes[i]), donnees: lignes[i] });
+    }
+  }
+
+  function entreeDeLaSemaine(jour) {
+    var p = profil || {};
+    var fait = faits.semaineDuProgramme(corpus(), jour, null);
+    return {
+      jour: jour,
+      // Le niveau du questionnaire : « Moins d'un an » = débutant (la règle du générateur, 60-6).
+      debutant: p.anciennete === 'moins_1_an',
+      dureeMax_s: Number(p.duree_seance_min) > 0 ? Number(p.duree_seance_min) * 60 : null,
+      routines: Routines.visibles(routines), catalogue: catalogueIndexe(),
+      seances: fait.seances, volume: fait.volume, etat: lireLaSemaine()
+    };
+  }
+
+  function rendreCarteSemaine() {
+    var noeud = $('carte-semaine');
+    if (!noeud) return;
+    if (seance || etatRoutines.code !== 'ok' || Moteur.coachSeTait(profil && profil.intention)) {
+      Rendu.rendreCarteSemaine(noeud, null);
+      return;
+    }
+    var maintenant = new Date();
+    var jour = Moteur.jourCivil(maintenant);
+    var e = entreeDeLaSemaine(jour);
+    var vue = { bande: Deraille.bandeDeLaSemaine(e.routines, e.etat, jour), aujourdhui: (maintenant.getDay() + 6) % 7 };
+    if (semaineDecalee && semaineDecalee.jour === jour) {
+      var r = routines.filter(function (x) { return x.id === semaineDecalee.routine; })[0];
+      if (r) {
+        var index = catalogueIndexe();
+        vue.apres = { titre: Deraille.nomCourt(r.nom) + ' · aujourd\u2019hui',
+          exercices: r.exercices.map(function (x) {
+            var n = Semaine.compteSeriesTravail(x.series || [], local.exercices);
+            return ((index[x.exercise_slug] || {}).nom || x.exercise_slug) + ' · ' + n + ' série' + (n > 1 ? 's' : '');
+          }),
+          surDemarrer: function () { semaineDecalee = null; demarrerSeance(r); } };
+        Rendu.rendreCarteSemaine(noeud, vue);
+        return;
+      }
+    }
+    var carte = Deraille.semaineQuiDeraille(e);
+    if (!carte) { Rendu.rendreCarteSemaine(noeud, null); return; }
+    vue.titre = carte.titre;
+    vue.phrase = carte.phrase || null;
+    vue.pourquoi = carte.pourquoi || null;
+    vue.choix = carte.choix;
+    vue.surChoix = function (cle) {
+      poserChoixDeSemaine(Deraille.lignesDuChoix(carte, cle, jour, idUtilisateur(), new Date().toISOString()))
+        .catch(function (e) { console.warn('Choix de la semaine non posé :', texteErreur(e)); });
+      semaineDecalee = cle === 'decaler' ? { jour: jour, routine: carte.manquee.routine } : null;
+      rendreSaisie();
+    };
+    Rendu.rendreCarteSemaine(noeud, vue);
+  }
+
+  // La routine qui démarre aujourd'hui, avec les exercices que la semaine qui déraille lui a ajoutés (pour cette
+  // séance seulement). Rend `{ routine, mentions }`, `mentions` étant la mention de chaque exercice ajouté, à la fin.
+  function avecLesAjoutsDeLaSemaine(routine) {
+    if (!routine || !routine.id) return { routine: routine, mentions: [] };
+    var aj = Deraille.ajoutsDuJour(lireLaSemaine(), routine.id, Moteur.jourCivil(new Date()));
+    if (!aj.length) return { routine: routine, mentions: [] };
+    return { routine: Object.assign({}, routine, { exercices: (routine.exercices || []).concat(aj.map(function (a) { return a.exercice; })) }),
+             mentions: aj.map(function (a) { return a.mention; }) };
   }
 
   // « Pas maintenant » : la carte ne revient jamais (`carte_cycles_le`). Le bouton du dossier, lui, reste.

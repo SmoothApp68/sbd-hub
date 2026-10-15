@@ -17826,7 +17826,7 @@ const SETS_IMPORTES = [
     await relire(async () => !/partira/.test((await carte()).texte || ''));
     const partis = S.gmessages.filter((m) => m.texte === 'On y va ?');
     const garde2 = await garde();
-    ok('[groupe] MUTATION (a) — LE MESSAGE GARDÉ (106) : écrit hors réseau, il est dans le cache du téléphone ; l’app rechargée hors réseau ' +
+    ok('[groupe] MUTATION 106 (a) — LE MESSAGE GARDÉ : écrit hors réseau, il est dans le cache du téléphone ; l’app rechargée hors réseau ' +
       'le garde ; le réseau revenu, il part UNE fois, pour CE groupe (son identifiant), et le cache se vide',
       Array.isArray(garde0) && garde0.length === 1 && garde0[0].groupe_id === G && garde0[0].texte === 'On y va ?' &&
         Array.isArray(garde1) && garde1.length === 1 && garde1[0].id === garde0[0].id && partiHorsReseau === 0 &&
@@ -17961,7 +17961,7 @@ const SETS_IMPORTES = [
     const h1 = await carte();
     const placeG3 = S.gmembres.filter((m) => m.groupe_id === G3 && m.user_id === 'u-banc')[0];
     const placeG4 = S.gmembres.filter((m) => m.groupe_id === G4 && m.user_id === 'u-banc')[0];
-    ok('[groupe] MUTATION (b) — MA séance finie, jordan s’entraîne encore : l’invitation de lea se montre déjà ; je la rejoins avec une ' +
+    ok('[groupe] MUTATION 106 (b) — MA séance finie, jordan s’entraîne encore : l’invitation de lea se montre déjà ; je la rejoins avec une ' +
       'NOUVELLE séance — ma place dans le groupe de jordan se ferme, le sien continue ; ma nouvelle séance ne montre que le groupe de lea',
       /lea/.test(h0) && /t’invite à t’entraîner ensemble/.test(h0) && /jordan s’entraîne encore/.test(h0) &&
         fauxSocial.groupeDe('u-banc') === G4 && !!placeG3 && placeG3.ferme === true && placeG3.session_id === maSeance3 &&

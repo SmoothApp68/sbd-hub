@@ -12,8 +12,8 @@
 //     lisible depuis la séance.
 //
 // La mutation (b) du prompt 106 — « un membre dont la séance est finie ne peut pas rejoindre un autre groupe » — tombe
-// sur les contrôles nommés « MUTATION (b) ». La mutation (a) — le message perdu au rechargement — est au banc (section
-// `groupe`) : c'est l'app qui garde la file, pas la base.
+// sur les contrôles nommés « MUTATION 106 (b) ». La mutation (a) — le message perdu au rechargement — est au banc (section
+// `groupe`, « MUTATION 106 (a) ») : c’est l’app qui garde la file, pas la base.
 
 process.env.TZ = 'Europe/Paris';
 
@@ -165,7 +165,7 @@ describe('106 — le faux serveur imite v2_087', () => {
     expect(fiche(f, g, 'u-moi').ferme).toBe(false);
   });
 
-  test('MUTATION (b) — membre sorti : MA séance finie, je lance un nouveau groupe pendant que jordan finit ; G1 vit pour lui', () => {
+  test('MUTATION 106 (b) — membre sorti : MA séance finie, je lance un nouveau groupe pendant que jordan finit ; G1 vit pour lui', () => {
     const f = decor();
     const g = g1(f);
     terminer(f, 's-moi');
@@ -187,7 +187,7 @@ describe('106 — le faux serveur imite v2_087', () => {
     expect(Social.faiteEnGroupeAvec(r1[0].recap.membres)).toBe('Faite en groupe avec jordan, lea');
   });
 
-  test('MUTATION (b) — … et je REJOINS un autre groupe (invitation de lea) sans attendre jordan', () => {
+  test('MUTATION 106 (b) — … et je REJOINS un autre groupe (invitation de lea) sans attendre jordan', () => {
     const f = decor();
     const g = g1(f);
     f.rpc('u-lea', 'groupe_creer', { p_session: 's-lea', p_exercices: [] });

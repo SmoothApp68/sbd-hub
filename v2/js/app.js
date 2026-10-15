@@ -2219,25 +2219,26 @@
   function envoyerFileGroupe() {
     if (grp.envoi) return grp.envoi;
     var g = generation;
-    grp.envoi = (async function () {
-      try {
-        while (grp.file.length && generationValide(g)) {
-          var m = grp.file[0];
-          try {
-            await Donnees.groupeEnvoyer(m.texte, m.groupe_id, m.id);
-          } catch (e) {
-            if (!refusDuGroupe(e)) throw e;
-            grp.message = messageGroupe(e);
-          }
-          if (!generationValide(g)) return;
-          grp.file = grp.file.filter(function (x) { return x.id !== m.id; });
-          await garderFileGroupe(g);
+    var envoi = (async function () {
+      while (grp.file.length && generationValide(g)) {
+        var m = grp.file[0];
+        try {
+          await Donnees.groupeEnvoyer(m.texte, m.groupe_id, m.id);
+        } catch (e) {
+          if (!refusDuGroupe(e)) throw e;
+          grp.message = messageGroupe(e);
         }
-      } finally {
-        if (generationValide(g)) grp.envoi = null;
+        if (!generationValide(g)) return;
+        grp.file = grp.file.filter(function (x) { return x.id !== m.id; });
+        await garderFileGroupe(g);
       }
     })();
-    return grp.envoi;
+    // Le verrou se pose APRÈS le départ et se lève quand l'envoi est fini (réussi ou non) — et seulement le sien : une
+    // file vide finit tout de suite, un verrou levé AVANT d'être posé resterait posé pour toujours.
+    grp.envoi = envoi;
+    var lever = function () { if (grp.envoi === envoi) grp.envoi = null; };
+    envoi.then(lever, lever);
+    return envoi;
   }
   // Un refus de la base (une règle du groupe), pas le réseau.
   function refusDuGroupe(e) { return !!e && /groupe_/.test(String(e.message || e.details || '')); }

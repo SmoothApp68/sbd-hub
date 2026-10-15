@@ -43,7 +43,7 @@
   var faits = racine.THFaits.creer();
 
   var vues = {};
-  var local = { seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
+  var local = { semaineChoix: [], seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
                 predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
                 blocs: [], programme: [], records: [], connues: {} };
   var etat = { code: 'vide', libelle: '', local: false };
@@ -698,6 +698,8 @@
     local.zones = await Cache.lireTout('zones');
     // §9.17 — le mode de chaque exercice, lu au démarrage pour la même raison.
     local.modes = await Cache.lireTout('modes');
+    // 99 (MOTEUR §9.24) — les choix de la semaine qui déraille, gardés sur l'appareil pour le hors-ligne.
+    local.semaineChoix = (await Cache.lireBrouillon(CLE_SEMAINE).catch(function () { return null; })) || [];
     // §9.11 (48c) — ce que le moteur a DÉJÀ noté. Lu au démarrage, parce que
     // c'est ce qui l'empêche de réécrire : fermer l'app au milieu d'une séance
     // et la rouvrir rejouerait sinon toutes les consignes de cette séance.
@@ -896,6 +898,10 @@
       // qu'il avait — donc les choix faits ici tiennent.
       var zones = await essayer(Donnees.mesZones);
       var modes = await essayer(Donnees.mesModes);
+      // 99 (MOTEUR §9.24) — les choix des semaines qui déraillent (les deux dernières semaines suffisent).
+      var choixSemaine = await essayer(function () {
+        return Donnees.mesChoixDeSemaine(Deraille.lundiDe(Moteur.jourCivil(new Date(Date.now() - 7 * 864e5))));
+      });
 
       // §12.9 (49-U13) — les paris du compte, EN LECTURE SEULE, pour une seule
       // chose : savoir quelles séances ont reçu une consigne (« sous
@@ -988,6 +994,11 @@
       if (modes) {
         local.modes = fondreModes(local.modes, modes);
         await Cache.ecrireLot('modes', local.modes);
+        if (!generationValide(g)) return;
+      }
+      if (choixSemaine) {
+        local.semaineChoix = fondreChoix(local.semaineChoix, choixSemaine);
+        await Cache.ecrireBrouillon(CLE_SEMAINE, local.semaineChoix).catch(function () {});
         if (!generationValide(g)) return;
       }
       if (parisDuCompte) {
@@ -2909,6 +2920,8 @@
     // alias_norme) qui FUSIONNE. Sans cette branche, l'entrée serait vidée par
     // le dernier `return` sans rien écrire.
     if (op.table === Attente.ALIAS) return Donnees.enregistrerAlias(op.donnees);
+    // 99 (MOTEUR §9.24) — le choix fait pour une séance manquée : un `upsert` sur (user_id, semaine, routine_id).
+    if (op.table === Attente.SEMAINE_CHOIX) return Donnees.enregistrerChoixDeSemaine(op.donnees);
     // §6 — l'intention porte l'ÉTAT VOULU de la routine, pas un chemin pour y
     // aller : le plan d'écritures se calcule à la vidange, contre ce que la
     // routine est devenue entre-temps. C'est de là que vient l'idempotence.
@@ -10768,7 +10781,7 @@
     // La prochaine entrée, même du même compte, repart du disque (vidé).
     entreeFaitePour = null;
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
-    local = { seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
+    local = { semaineChoix: [], seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
               predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
               records: [], connues: {} };
     journalDecide = false;
@@ -11524,26 +11537,32 @@
   //
   // À l'ouverture de Saisie (jamais par une notification), avec un programme à jours prévus : la carte de
   // `Deraille.semaineQuiDeraille`, lue telle quelle. Ce que la personne décide vaut pour CETTE SEMAINE SEULEMENT et
-  // se garde sur cet appareil (`th-v2-semaine-<compte>`) : la question n'est posée qu'une fois par séance manquée.
-  // Rien n'est écrit en base, rien ne touche une routine ; un exercice réparti se lit dans la séance (« ajouté :
-  // séance manquée de mardi »). En « Juste un carnet », le coach se tait.
-  var CLE_SEMAINE = 'th-v2-semaine-';
+  // suit la personne d'un appareil à l'autre : une ligne `semaine_choix` (v2_085) par séance manquée, écrite par la
+  // FILE (jamais en direct), relue au démarrage, gardée aussi sur l'appareil pour le hors-ligne (`CLE_SEMAINE`).
+  // Rien ne touche une routine ; un exercice réparti se lit dans la séance (« ajouté : séance manquée de mardi »).
+  // En « Juste un carnet », le coach se tait.
+  var CLE_SEMAINE = 'semaine-choix';
   var semaineDecalee = null;   // { jour, routine } : après « la suite se décale », la bande et « Démarrer »
 
-  function cleDeLaSemaine() {
-    var u = sessionActive && sessionActive.user && sessionActive.user.id;
-    return u ? CLE_SEMAINE + u : null;
+  function lireLaSemaine() { return Deraille.etatDepuisLignes(local.semaineChoix || [], Moteur.jourCivil(new Date())); }
+  function cleDuChoix(l) { return String(l.semaine).slice(0, 10) + '|' + l.routine_id; }
+  // Fondre les lignes : par clé (semaine, routine), la plus récente gagne — un choix fait ici, pas encore monté,
+  // n'est jamais écrasé par la relecture du serveur.
+  function fondreChoix(a, b) {
+    var par = {};
+    (a || []).concat(b || []).forEach(function (l) {
+      if (!l || !l.routine_id || !l.semaine) return;
+      var k = cleDuChoix(l);
+      if (!par[k] || String(l.cree_le || '') >= String(par[k].cree_le || '')) par[k] = l;
+    });
+    return Object.keys(par).map(function (k) { return par[k]; });
   }
-  function lireLaSemaine() {
-    try {
-      var k = cleDeLaSemaine();
-      var v = k ? JSON.parse(racine.localStorage.getItem(k) || 'null') : null;
-      return v && typeof v === 'object' ? v : null;
-    } catch (e) { return null; }
-  }
-  function ecrireLaSemaine(v) {
-    try { var k = cleDeLaSemaine(); if (k) racine.localStorage.setItem(k, JSON.stringify(v)); }
-    catch (e) { /* stockage refusé : la décision vaut pour la session */ }
+  async function poserChoixDeSemaine(lignes) {
+    local.semaineChoix = fondreChoix(local.semaineChoix, lignes);
+    await Cache.ecrireBrouillon(CLE_SEMAINE, local.semaineChoix).catch(function () {});
+    for (var i = 0; i < lignes.length; i++) {
+      await poser({ table: Attente.SEMAINE_CHOIX, op: Attente.UPSERT, id: cleDuChoix(lignes[i]), donnees: lignes[i] });
+    }
   }
 
   function entreeDeLaSemaine(jour) {
@@ -11591,7 +11610,8 @@
     vue.pourquoi = carte.pourquoi || null;
     vue.choix = carte.choix;
     vue.surChoix = function (cle) {
-      ecrireLaSemaine(Deraille.decider(lireLaSemaine(), carte, cle, jour));
+      poserChoixDeSemaine(Deraille.lignesDuChoix(carte, cle, jour, idUtilisateur(), new Date().toISOString()))
+        .catch(function (e) { console.warn('Choix de la semaine non posé :', texteErreur(e)); });
       semaineDecalee = cle === 'decaler' ? { jour: jour, routine: carte.manquee.routine } : null;
       rendreSaisie();
     };

@@ -681,6 +681,21 @@
   // `on_conflict=user_id,date` et `Prefer: resolution=merge-duplicates` ; la
   // règle d'accès est `FOR ALL` propriétaire, donc `ligne.user_id` est celui de
   // la session. L'identifiant n'est pas envoyé : la base le tire.
+  // ══ 99 (MOTEUR §9.24, v2_085) — LES CHOIX DE LA SEMAINE QUI DÉRAILLE ══════
+  // Colonnes de la migration : `user_id`, `semaine` (le lundi), `routine_id`, `choix`, `detail`, `cree_le`.
+  // Lus au démarrage (les semaines récentes suffisent : un choix ne vaut que pour sa semaine) ; écrits par la file,
+  // un `upsert` sur la clé (user_id, semaine, routine_id).
+  var COLONNES_SEMAINE_CHOIX = 'user_id, semaine, routine_id, choix, detail, cree_le';
+  async function mesChoixDeSemaine(depuis) {
+    var r = await client().from('semaine_choix').select(COLONNES_SEMAINE_CHOIX).gte('semaine', depuis);
+    if (r.error) throw r.error;
+    return r.data || [];
+  }
+  async function enregistrerChoixDeSemaine(ligne) {
+    var r = await client().from('semaine_choix').upsert(ligne, { onConflict: 'user_id,semaine,routine_id' });
+    if (r.error) throw r.error;
+  }
+
   async function enregistrerPesee(ligne) {
     var r = await client().from('body_weight_log').upsert(ligne, { onConflict: 'user_id,date' });
     if (r.error) throw r.error;
@@ -956,6 +971,8 @@
     tousLesExercices: tousLesExercices,
     toutesLesPesees: toutesLesPesees,
     enregistrerPesee: enregistrerPesee,
+    mesChoixDeSemaine: mesChoixDeSemaine,
+    enregistrerChoixDeSemaine: enregistrerChoixDeSemaine,
     aliasCommuns: aliasCommuns,
     mesAlias: mesAlias,
     enregistrerAlias: enregistrerAlias,

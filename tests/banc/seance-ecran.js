@@ -573,6 +573,8 @@ const SETS_IMPORTES = [
     profiles: [Object.assign({}, PROFIL_BANC)],
     zones: [],
     modes: [],
+    // 99 (v2_085) — `semaine_choix` : le choix fait pour une séance manquée.
+    semaineChoix: [],
     predictions: [],
     // 53-2 (v2_058) — les blocs des programmes à cycles.
     blocs: [],
@@ -1271,6 +1273,37 @@ const SETS_IMPORTES = [
       return String(a).replace(/^ +| +$/g, '').toLowerCase().split('')
         .map((c) => (avec.indexOf(c) >= 0 ? sans[avec.indexOf(c)] : c)).join('');
     };
+    // 99 (MOTEUR §9.24, v2_085) — `semaine_choix` : clé (user_id, semaine, routine_id), `semaine` un lundi, `choix`
+    // parmi cinq, RLS propriétaire ; l'app lit par `semaine >= …` et écrit par un upsert qui fusionne.
+    if (table === 'semaine_choix') {
+      if (req.method() === 'GET') {
+        const ge = (url.searchParams.get('semaine') || '').replace('gte.', '');
+        return json(projeter(base.semaineChoix.filter((x) => !ge || x.semaine >= ge), url));
+      }
+      if (req.method() === 'POST') {
+        const prefer = req.headers()['prefer'] || '';
+        const fusionner = url.searchParams.get('on_conflict') === 'user_id,semaine,routine_id' && /resolution=merge-duplicates/.test(prefer);
+        const lignes = Array.isArray(corps) ? corps : [corps];
+        base.journal.push({ op: 'semaine_choix', lignes: lignes.map((x) => Object.assign({}, x)) });
+        for (const l of lignes) {
+          const inconnue = Object.keys(l).filter((k) => ['user_id', 'semaine', 'routine_id', 'choix', 'detail', 'cree_le'].indexOf(k) < 0)[0];
+          if (inconnue) return json(refus('PGRST204', 'semaine_choix : colonne inconnue « ' + inconnue + ' »'), 400);
+          if (l.user_id !== MOI) return json(refus('42501', 'new row violates row-level security policy for table "semaine_choix"'), 400);
+          if (['decaler', 'repartir', 'garder', 'ajouter', 'non'].indexOf(l.choix) < 0) return json(refus('23514', 'semaine_choix_choix_check'), 400);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(String(l.semaine)) || new Date(l.semaine + 'T12:00:00Z').getUTCDay() !== 1) {
+            return json(refus('23514', 'semaine_choix_semaine_check'), 400);
+          }
+          if (!ROUTINES.some((r) => r.id === l.routine_id)) return json(refus('23503', 'semaine_choix_routine_id_fkey'), 400);
+        }
+        for (const l of lignes) {
+          const i = base.semaineChoix.findIndex((x) => x.user_id === l.user_id && x.semaine === l.semaine && x.routine_id === l.routine_id);
+          if (i >= 0 && !fusionner) return json(refus('23505', 'semaine_choix_pkey'), 409);
+          if (i >= 0) base.semaineChoix[i] = Object.assign({}, base.semaineChoix[i], l);
+          else base.semaineChoix.push(Object.assign({ cree_le: new Date().toISOString() }, l));
+        }
+        return json([], 201);
+      }
+    }
     if (table === 'alias_exercice') {
       if (req.method() === 'GET') return json(projeter(base.aliasMiens, url));
       if (req.method() === 'POST') {
@@ -20337,6 +20370,18 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     ok('[D99] la question n’est posée qu’une fois : rechargé, plus de carte', (await carte99()) === null);
     await A.fermer();
+    const ligne99 = base.semaineChoix.filter((x) => x.routine_id === 'r-d99-jambes')[0];
+    ok('[D99] le choix est en base, par la file : une ligne `semaine_choix` (lundi 12 oct., Jambes, « repartir », le leg curl dans le détail)',
+      base.semaineChoix.length === 1 && !!ligne99 && ligne99.semaine === '2026-10-12' && ligne99.choix === 'repartir' &&
+        ligne99.detail.jour === 2 && ligne99.detail.ajouts.map((x) => x.slug).join() === 'legcurl-d99', nb99(base.semaineChoix));
+    // Un autre appareil (stockage vide) : le choix le suit, la question ne revient pas.
+    const A2 = await appareil99('D99-autre-appareil');
+    page = A2.p;
+    await aller('/saisie');
+    await attendre(1500);
+    ok('[D99] sur un autre appareil, le choix suit la personne : pas de carte', (await carte99()) === null);
+    await A2.fermer();
+    base.semaineChoix = [];
 
     // ── 2. « GARDER PULL, COMME PRÉVU ».
     const B = await ouvrir99('D99-garder');
@@ -20344,6 +20389,7 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     ok('[D99] « Garder Pull D99, comme prévu » est respecté : rechargé, plus de carte', (await carte99()) === null);
     await B.fermer();
+    base.semaineChoix = [];
 
     // ── 3. « JAMBES AUJOURD'HUI · LA SUITE SE DÉCALE ».
     const C = await ouvrir99('D99-décaler');
@@ -20364,6 +20410,7 @@ const SETS_IMPORTES = [
     const routinesTouchees = base.patchs.slice(patchsAvant).filter((x) => /^routine/.test(x.op || ''));
     ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
     CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.semaineChoix = [];
     base.sessions = sessionsAvant;
     base.sets = setsAvant;
     await aller('/saisie');

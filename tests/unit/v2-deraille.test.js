@@ -245,3 +245,69 @@ describe('un exercice ajouté pour la semaine n’est jamais proposé à la rout
     expect(S.ecartsRoutine(sans, routine).ecarts.filter((x) => x.type === 'ajoute').length).toBe(1);
   });
 });
+
+describe('règle corrigée du 15/10/2026 — le programme « Sèche » : Bas A manqué mardi, Bas B vendredi (même groupe)', () => {
+  // Reproduit le cas réel d'aurel_br : Bas B reçoit Presse 3 + Extension Jambes 3 + Mollets 1, sous 90 min ; pas de
+  // squat ajouté, le squat avec pause y est déjà (même `mouvement`). Les quadriceps restent sous 10 séries (3 + 3 + 3).
+  const C2 = {
+    squat: { nom: 'Squat (Barre)', mouvement: 'squat', muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['adducteurs'], muscles_stabilisateurs: ['bas_du_dos'] },
+    squat_pause: { nom: 'Squat avec Pause (Barre)', mouvement: 'squat', muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['adducteurs'], muscles_stabilisateurs: ['bas_du_dos'] },
+    presse: { nom: 'Presse à Cuisses', mouvement: 'presse', muscles_primaires: ['quadriceps'], muscles_secondaires: ['fessiers'], muscles_stabilisateurs: [] },
+    extension: { nom: 'Extension Jambes', mouvement: 'extension_jambes', muscles_primaires: ['quadriceps'], muscles_secondaires: [], muscles_stabilisateurs: [] },
+    mollets: { nom: 'Mollets Debout', mouvement: 'mollets', muscles_primaires: ['mollets'], muscles_secondaires: [], muscles_stabilisateurs: [] },
+    roumain: { nom: 'Soulevé de Terre Roumain (Barre)', mouvement: 'roumain', muscles_primaires: ['ischio_jambiers', 'fessiers'], muscles_secondaires: [], muscles_stabilisateurs: ['bas_du_dos'] },
+    legcurl: { nom: 'Leg Curl Assis', mouvement: 'leg_curl', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [], muscles_stabilisateurs: [] },
+    hip: { nom: 'Hip Thrust (Barre)', mouvement: 'hip_thrust', muscles_primaires: ['fessiers'], muscles_secondaires: ['ischio_jambiers'], muscles_stabilisateurs: [] },
+    couche: { nom: 'Développé Couché', mouvement: 'couche', muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps'], muscles_stabilisateurs: [] },
+    tractions: { nom: 'Tractions', mouvement: 'tractions', muscles_primaires: ['grand_dorsal'], muscles_secondaires: ['biceps'], muscles_stabilisateurs: [] },
+    ohp: { nom: 'Développé Militaire', mouvement: 'ohp', muscles_primaires: ['deltoide_anterieur'], muscles_secondaires: ['triceps'], muscles_stabilisateurs: ['abdominaux'] },
+    elev: { nom: 'Élévations Latérales', mouvement: 'elevations', muscles_primaires: ['deltoide_lateral'], muscles_secondaires: [], muscles_stabilisateurs: [] },
+    rowing: { nom: 'Rowing', mouvement: 'rowing', muscles_primaires: ['grand_dorsal'], muscles_secondaires: ['biceps'], muscles_stabilisateurs: ['bas_du_dos'] }
+  };
+  const e2 = (slug, n, ch, repos) => ({ exercise_slug: slug, repos_cible_s: repos,
+    series: Array.from({ length: ch }, () => ({ type_serie: 'echauffement' })).concat(Array.from({ length: n }, () => ({ type_serie: 'travail' }))) });
+  const SECHE = [
+    { id: 'haut-a', nom: 'Lundi — Haut A', jours: [1], exercices: [e2('couche', 4, 2, 150), e2('rowing', 4, 1, 120)] },
+    { id: 'bas-a', nom: 'Mardi — Bas A', jours: [2], exercices: [e2('squat', 4, 3, 180), e2('presse', 3, 0, 120), e2('extension', 3, 0, 90), e2('mollets', 3, 0, 180)] },
+    { id: 'haut-b', nom: 'Jeudi — Haut B', jours: [4], exercices: [e2('couche', 4, 2, 180), e2('tractions', 4, 1, 150), e2('ohp', 4, 1, 150), e2('rowing', 4, 1, 150), e2('elev', 3, 0, 180)] },
+    { id: 'bas-b', nom: 'Vendredi — Bas B', jours: [5], exercices: [e2('squat_pause', 3, 3, 240), e2('roumain', 4, 1, 180), e2('legcurl', 3, 0, 90), e2('hip', 4, 1, 150)] }
+  ];
+  const c = D.semaineQuiDeraille({ jour: '2026-10-14', catalogue: C2, debutant: false, dureeMax_s: 90 * 60, volume: {}, etat: null,
+    routines: SECHE, seances: [{ jour: '2026-10-12', routine_id: 'haut-a', slugs: ['couche', 'rowing'] }] });
+  const rep = c.choix.filter((x) => x.cle === 'repartir')[0];
+  test('Bas B reçoit Presse 3 + Extension Jambes 3 + Mollets 1, et pas de squat (le squat avec pause y est déjà)', () => {
+    expect(rep.ajouts.map((a) => [a.nomRoutine, a.slug, a.series])).toEqual([['Bas B', 'presse', 3], ['Bas B', 'extension', 3], ['Bas B', 'mollets', 1]]);
+    expect(rep.ajouts[2].exercice.series.length).toBe(1);
+  });
+  test('la séance tient sous 90 min, et les quadriceps restent sous 10 séries', () => {
+    const M = require('../../v2/js/moteur.js');
+    const tr = (e, k) => Object.assign({}, e, { series: e.series.filter((s) => s.type_serie === 'travail').slice(0, k) });
+    const bas = SECHE[3].exercices.concat(rep.ajouts.map((a) => a.exercice));
+    expect(M.dureeEstimee(M.structureDeRoutine(bas, C2))).toBeLessThanOrEqual(90 * 60);
+    const quad = bas.reduce((t, e) => t + (C2[e.exercise_slug].muscles_primaires.indexOf('quadriceps') >= 0 ? e.series.filter((s) => s.type_serie === 'travail').length : 0), 0);
+    expect(quad).toBeLessThan(10);
+    expect(tr).toBeDefined();
+  });
+  test('rien ne va dans Haut B (jeudi, la veille de Bas B : les mollets n’y tiennent pas dans la durée)', () => {
+    expect(rep.ajouts.some((a) => a.routine === 'haut-b')).toBe(false);
+  });
+});
+
+describe('le choix en base (`semaine_choix`, v2_085) : écrit puis relu', () => {
+  const e = entree({ jour: '2026-10-15', seances: [fait('2026-10-12', 'r-push', ['couche'])] });
+  const c = D.semaineQuiDeraille(e);   // deux séances manquées : Jambes mardi (la question), Pull mercredi
+  test('une ligne par séance manquée, le lundi de la semaine ; le détail sur la séance de la question', () => {
+    expect(c.choix[0].cle).toBe('decaler');
+    const l = D.lignesDuChoix(c, 'decaler', '2026-10-15', 'u', '2026-10-15T08:00:00.000Z');
+    expect(l.map((x) => [x.semaine, x.routine_id, x.choix, x.detail.jour])).toEqual([['2026-10-12', 'r-jambes', 'decaler', 2], ['2026-10-12', 'r-pull', 'decaler', 3]]);
+    expect(Array.isArray(l[0].detail.planning)).toBe(true);
+    expect(l[1].detail.planning).toBeUndefined();
+    expect(D.etatDepuisLignes(l, '2026-10-15').planning).toEqual(c.choix[0].planning);
+  });
+  test('relu : la question n’est plus posée ; une autre semaine ne lit rien', () => {
+    const l = D.lignesDuChoix(c, 'garder', '2026-10-15', 'u', '2026-10-15T08:00:00.000Z');
+    const etat = D.etatDepuisLignes(l, '2026-10-15');
+    expect(D.semaineQuiDeraille(Object.assign({}, e, { etat }))).toBeNull();
+    expect(D.etatDepuisLignes(l, '2026-10-20')).toBeNull();
+  });
+});

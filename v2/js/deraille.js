@@ -28,6 +28,8 @@
   var NOMS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
   // Récupération (décision 3) : en jours du calendrier, sans l'heure. J+2 ; débutant (questionnaire) : J+3.
   var ECART = 2, ECART_DEBUTANT = 3;
+  // Répartir dans une séance qui travaille déjà le muscle : il reste SOUS 10 séries dans la séance (15/10/2026).
+  var SOUS_SERIES = 10;
   var PREFIXE = /^(Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche) — /;
 
   // ── Les jours ────────────────────────────────────────────────────────────
@@ -78,6 +80,16 @@
     var liste = Object.keys(cat || {}).map(function (k) { return Object.assign({ slug: k }, cat[k]); });
     var v = {};
     Semaine().volumeParMuscle(series, liste).forEach(function (x) { v[x.muscle] = x.series; });
+    return v;
+  }
+
+  // Le volume d'une structure de séance, par la règle du volume (1, ½, ¼ par série de travail).
+  function volumeDeStructure(stc, cat) {
+    var series = [];
+    stc.forEach(function (e) { for (var t = 0; t < (e.tr || 0); t++) series.push({ exercise_slug: e.slug, type_serie: 'travail' }); });
+    var liste = Object.keys(cat || {}).map(function (k) { return Object.assign({ slug: k }, cat[k]); });
+    var v = {};
+    Semaine().volumeParMuscle(series, liste).forEach(function (y) { v[y.muscle] = y.series; });
     return v;
   }
 
@@ -173,33 +185,63 @@
       });
       return ev;
     };
+    // Règle corrigée du 15/10/2026 : dans une séance qui travaille DÉJÀ le muscle (un muscle principal en commun),
+    // des séries de la routine manquée tant que ce muscle reste sous 10 séries dans la séance (séries pondérées comme
+    // le relevé), sans dupliquer un mouvement déjà présent (même exercice, ou même `mouvement` au catalogue) ; dans
+    // une séance d'un autre groupe, aucun exercice dont les principaux ou stabilisateurs chargent ce que la séance
+    // fatigue déjà. Toujours : la récupération en jours, la durée habituelle. Plusieurs exercices par séance ; un
+    // exercice peut n'y mettre qu'une partie de ses séries. Rend la liste des ajouts de la séance `p`.
+    var mouvementDe = function (slug) { var c = cat[slug] || {}; return c.mouvement || null; };
     var choisirPour = function (p, pris, ajouts) {
       var stP = st[p.routine];
       var charge = fatigues(stP);
+      var primP = {};
+      primaires(stP).forEach(function (m) { primP[m] = true; });
       var n = lundi + p.jour - 1;
       var ev = autresEvenements(p).concat(ajouts.map(function (a) { return { n: lundi + a.jour - 1, prim: a.prim }; }));
-      var cands = stM.map(function (ex, i) { return { ex: ex, i: i }; }).filter(function (c) {
-        if (!(c.ex.tr > 0) || pris[c.i] || !c.ex.prim.length) return false;
-        if (c.ex.prim.concat(c.ex.stab).some(function (m) { return charge[m]; })) return false;
-        var moi = { n: n, prim: c.ex.prim };
-        if (ev.some(function (o) { return conflit(moi, o, ecart); })) return false;
-        if (x.dureeMax_s > 0 && Moteur().dureeEstimee(stP.concat([c.ex])) > x.dureeMax_s) return false;
-        return true;
-      });
-      if (!cands.length) return null;
-      cands.sort(function (a, b) { return retardDe(b.ex.prim) - retardDe(a.ex.prim) || a.i - b.i; });
-      var c = cands[0];
-      var ligne = (rM.exercices || [])[c.i];
-      return { routine: p.routine, nomRoutine: nomCourt(parId[p.routine].nom), jour: p.jour, jourNom: NOMS[p.jour - 1],
-               slug: c.ex.slug, i: c.i, series: c.ex.tr, prim: c.ex.prim,
-               nom: (cat[c.ex.slug] || {}).nom || c.ex.slug, depuis: NOMS[M.jour - 1],
-               exercice: travailSeulement(ligne) };
+      var dans = stP.slice();                       // la séance, avec ce qui y est déjà ajouté
+      var presents = function (slug) {
+        var mv = mouvementDe(slug);
+        return dans.some(function (e) { return e.tr > 0 && (e.slug === slug || (mv !== null && mouvementDe(e.slug) === mv)); });
+      };
+      var sortie = [];
+      for (;;) {
+        var cands = [];
+        stM.forEach(function (ex, i) {
+          if (!(ex.tr > 0) || pris[i] || !ex.prim.length || presents(ex.slug)) return;
+          var memeGroupe = ex.prim.some(function (m) { return primP[m]; });
+          if (!memeGroupe && ex.prim.concat(ex.stab).some(function (m) { return charge[m]; })) return;
+          if (ev.some(function (o) { return conflit({ n: n, prim: ex.prim }, o, ecart); })) return;
+          // Le plus de séries qui tiennent (jamais plus que la routine manquée n'en prévoit).
+          for (var k = ex.tr; k >= 1; k--) {
+            var essai = dans.concat([Object.assign({}, ex, { tr: k, ch: 0, deg: 0 })]);
+            if (x.dureeMax_s > 0 && Moteur().dureeEstimee(essai) > x.dureeMax_s) continue;
+            if (memeGroupe) {
+              var v = volumeDeStructure(essai, cat);
+              if (ex.prim.some(function (m) { return primP[m] && (v[m] || 0) >= SOUS_SERIES; })) continue;
+            }
+            cands.push({ ex: ex, i: i, k: k });
+            return;
+          }
+        });
+        if (!cands.length) break;
+        cands.sort(function (a, b) { return retardDe(b.ex.prim) - retardDe(a.ex.prim) || a.i - b.i; });
+        var c = cands[0];
+        pris[c.i] = true;
+        dans.push(Object.assign({}, c.ex, { tr: c.k, ch: 0, deg: 0 }));
+        var ligne = (rM.exercices || [])[c.i];
+        sortie.push({ routine: p.routine, nomRoutine: nomCourt(parId[p.routine].nom), jour: p.jour, jourNom: NOMS[p.jour - 1],
+                      slug: c.ex.slug, i: c.i, series: c.k, prim: c.ex.prim,
+                      nom: (cat[c.ex.slug] || {}).nom || c.ex.slug, depuis: NOMS[M.jour - 1],
+                      exercice: travailSeulement(ligne, c.k) });
+      }
+      return sortie;
     };
 
     // Décision 5 : fin de semaine, plus la place de décaler — la séance du jour seulement.
     if (!apres.length) {
       if (!duJour) return null;
-      var a1 = choisirPour(duJour, {}, []);
+      var a1 = choisirPour(duJour, {}, [])[0];   // décision 5 : un exercice
       if (!a1) return null;
       var mF = a1.prim.slice().sort(function (p, q) { return retard(q) - retard(p); })[0];
       var phrase = Semaine().libelleMuscle(mF) + ' : ' + seriesTexte(fait[mF] || 0) +
@@ -241,8 +283,7 @@
     // Décision 4 : « Répartir ses séries dans la semaine ».
     var pris = {}, ajouts = [];
     placements.filter(function (p) { return p.jour >= jAuj; }).forEach(function (p) {
-      var a = choisirPour(p, pris, ajouts);
-      if (a) { pris[a.i] = true; ajouts.push(a); }
+      ajouts = ajouts.concat(choisirPour(p, pris, ajouts));
     });
     if (ajouts.length) {
       choix.push({ cle: 'repartir', libelle: 'Répartir ses séries dans la semaine', ajouts: ajouts,
@@ -251,7 +292,7 @@
     if (!choix.length) {
       // Ni décalage ni répartition : la séance du jour seulement, comme en fin de semaine.
       if (!duJour) return null;
-      var a2 = choisirPour(duJour, {}, []);
+      var a2 = choisirPour(duJour, {}, [])[0];
       if (!a2) return null;
       return Object.assign(base, { sorte: 'fin', ajout: a2,
         phrase: 'Ajouter ' + a2.series + ' série' + (a2.series > 1 ? 's' : '') + ' de ' + a2.nom + ' à la fin de ' +
@@ -272,12 +313,12 @@
 
   // Une ligne de routine, réduite à ses séries de travail : la répartition reprend les séries que la routine prévoit,
   // jamais plus.
-  function travailSeulement(ligne) {
+  function travailSeulement(ligne, k) {
     if (!ligne) return null;
     return { exercise_slug: ligne.exercise_slug, repos_cible_s: ligne.repos_cible_s === undefined ? null : ligne.repos_cible_s,
              groupe_superset: null, note: null,
              series: (ligne.series || []).filter(function (s) { return Modele().estTravail(s); })
-               .map(function (s) { return Object.assign({}, s); }) };
+               .slice(0, k === undefined ? undefined : k).map(function (s) { return Object.assign({}, s); }) };
   }
 
   // ── Le geste : ce que la personne décide, pour cette semaine seulement ──────
@@ -297,6 +338,40 @@
   }
   function ajoutGarde(a) {
     return { routine: a.routine, jour: a.jour, slug: a.slug, series: a.series, depuis: a.depuis, exercice: a.exercice };
+  }
+
+  // ── Le choix en base (`semaine_choix`, v2_085) ────────────────────────────
+  // Une ligne par séance manquée de la carte : `{ user_id, semaine (lundi), routine_id, choix, detail, cree_le }`.
+  // La séance de la question porte le détail (le planning décalé, les exercices ajoutés) ; les autres, seulement leur
+  // jour (la question n'est posée qu'une fois). `maintenant` : l'instant ISO, passé.
+  function lignesDuChoix(carte, cleChoix, jour, userId, maintenant) {
+    var lundi = lundiDe(jour);
+    var c = (carte.choix || []).filter(function (x) { return x.cle === cleChoix; })[0];
+    return (carte.cles || []).map(function (k) {
+      var i = k.lastIndexOf('@'), rid = k.slice(0, i), j = Number(k.slice(i + 1));
+      var d = { jour: j };
+      if (rid === carte.manquee.routine && j === carte.manquee.jour) {
+        if (cleChoix === 'decaler' && c) d.planning = c.planning;
+        if (cleChoix === 'repartir' && c) d.ajouts = c.ajouts.map(ajoutGarde);
+        if (cleChoix === 'ajouter' && carte.ajout) d.ajouts = [ajoutGarde(carte.ajout)];
+      }
+      return { user_id: userId, semaine: lundi, routine_id: rid, choix: cleChoix, detail: d, cree_le: maintenant };
+    });
+  }
+  // L'état de la semaine de `jour`, relu de ces lignes (dans l'ordre où elles ont été faites), ou null.
+  function etatDepuisLignes(lignes, jour) {
+    var lundi = lundiDe(jour);
+    var ls = (lignes || []).filter(function (l) { return l && String(l.semaine || '').slice(0, 10) === lundi; })
+      .sort(function (a, b) { return String(a.cree_le || '').localeCompare(String(b.cree_le || '')); });
+    if (!ls.length) return null;
+    var e = { lundi: lundi, questions: {}, planning: null, ajouts: [] };
+    ls.forEach(function (l) {
+      var d = l.detail || {};
+      e.questions[l.routine_id + '@' + d.jour] = l.choix;
+      if (Array.isArray(d.planning)) e.planning = d.planning;
+      if (Array.isArray(d.ajouts)) e.ajouts = e.ajouts.concat(d.ajouts);
+    });
+    return e;
   }
 
   // Les exercices ajoutés à une routine pour aujourd'hui (la séance qui démarre), avec leur mention.
@@ -325,6 +400,7 @@
     ECART: ECART, ECART_DEBUTANT: ECART_DEBUTANT,
     jourDuNom: jourDuNom, nomCourt: nomCourt, lundiDe: lundiDe,
     semaineQuiDeraille: semaineQuiDeraille, decider: decider, ajoutsDuJour: ajoutsDuJour,
+    lignesDuChoix: lignesDuChoix, etatDepuisLignes: etatDepuisLignes,
     bandeDeLaSemaine: bandeDeLaSemaine
   };
   racine.THDeraille = api;

@@ -141,6 +141,10 @@
   // pour le même nom se compressent en un, le dernier gagne. Rien n'en dépend
   // et il ne dépend de rien.
   var ALIAS = 'alias_exercice';
+  // 99 (MOTEUR §9.24, v2_085) — LE CHOIX FAIT POUR UNE SÉANCE MANQUÉE (`semaine_choix`). Un `upsert` sur
+  // (`user_id`, `semaine`, `routine_id`) : l'identifiant d'entrée est « semaine|routine », donc deux choix pour la
+  // même séance manquée se compressent, le dernier gagne. Rien n'en dépend et il ne dépend de rien.
+  var SEMAINE_CHOIX = 'semaine_choix';
 
   function cleDe(table, id) { return String(table) + ':' + String(id); }
 
@@ -711,6 +715,7 @@
     RECORDS: RECORDS, AJOUTER: AJOUTER,
     PESEES: PESEES,
     ALIAS: ALIAS,
+    SEMAINE_CHOIX: SEMAINE_CHOIX,
     OBSERVER: OBSERVER,
     attendSaSerie: attendSaSerie,
     AUCUNE_LIGNE: AUCUNE_LIGNE,

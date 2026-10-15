@@ -699,7 +699,7 @@
     // §9.17 — le mode de chaque exercice, lu au démarrage pour la même raison.
     local.modes = await Cache.lireTout('modes');
     // 99 (MOTEUR §9.24) — les choix de la semaine qui déraille, gardés sur l'appareil pour le hors-ligne.
-    local.semaineChoix = (await Cache.lireBrouillon(CLE_SEMAINE).catch(function () { return null; })) || [];
+    try { local.semaineChoix = (await Cache.lireBrouillon(CLE_SEMAINE)) || []; } catch (e) { local.semaineChoix = []; }
     // §9.11 (48c) — ce que le moteur a DÉJÀ noté. Lu au démarrage, parce que
     // c'est ce qui l'empêche de réécrire : fermer l'app au milieu d'une séance
     // et la rouvrir rejouerait sinon toutes les consignes de cette séance.

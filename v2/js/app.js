@@ -4245,22 +4245,28 @@
     })[0]);
     var ligneDuPlan = (planDeLExercice(iExo) || { lignes: [] }).lignes[iSerie];
     var f = fantomeDe(iExo, iSerie);
-    // ECRAN §3 bis.3 bis (prompt 100) — NI CHARGE TAPÉE NI FANTÔME : la série ne
-    // se valide pas. Le test « le cran au-dessus × 3 » sans chiffre validait
-    // « charge inconnue × 3 », et le constat inventait le fait du jour (I26).
-    // Avant les reps : la charge est le premier champ de la ligne.
-    if (Seance.chargeManquante(g, serie, f)) {
-      Rendu.demanderCharge($('blocs-seance'), iExo, iSerie);
+    // ECRAN §3 bis.3 bis (prompts 100 puis 105) — AUCUNE CASE OBLIGATOIRE VIDE :
+    // une case ni tapée ni grisée par le coach, et la série ne se valide pas.
+    // Le test « le cran au-dessus × 3 » sans chiffre validait « charge inconnue
+    // × 3 », et le constat inventait le fait du jour (I26) ; des reps vides
+    // validaient une série sans reps. Toutes les cases manquantes passent au
+    // rouge, le clavier s'ouvre sur la première de la ligne.
+    //
+    // §9.14 (ECRAN §3.2, 25/09/2026) — SAUF LES REPS DE LA LIGNE PROPOSÉE. Elles
+    // ne sont pas un fantôme (valider sans les taper enregistrerait le bas de la
+    // zone, et le pari serait jugé exact d'office), mais la fourchette du coach
+    // est dans la case : on ne valide pas, on met le curseur dans les reps, et
+    // on le dit — sans alarme ni rouge. MOTEUR §9.14 bis (68A) — la ligne
+    // d'élan non plus : ses reps se tapent.
+    var aTaper = !!(ligneDuPlan && (ligneDuPlan.proposee || ligneDuPlan.role === 'elan'));
+    var manquantes = Seance.casesManquantes(g, serie, f).filter(function (nom) {
+      return !(aTaper && nom === 'reps');
+    });
+    if (manquantes.length) {
+      Rendu.demanderCases($('blocs-seance'), iExo, iSerie, manquantes);
       return;
     }
-    // §9.14 (ECRAN §3.2, 25/09/2026) — LA LIGNE PROPOSÉE NE SE VALIDE PAS À
-    // VIDE. Ses reps ne sont pas un fantôme : valider sans les taper
-    // enregistrerait le bas de la zone, et le pari serait jugé exact d'office.
-    // On ne valide pas, on met le curseur dans les reps, et on le dit — sans
-    // alarme ni rouge.
-    // MOTEUR §9.14 bis (68A) — la ligne d'élan non plus : ses reps se tapent.
-    if (ligneDuPlan && (ligneDuPlan.proposee || ligneDuPlan.role === 'elan') &&
-        (serie.reps === null || serie.reps === undefined)) {
+    if (aTaper && (serie.reps === null || serie.reps === undefined)) {
       Rendu.demanderReps($('blocs-seance'), iExo, iSerie);
       return;
     }

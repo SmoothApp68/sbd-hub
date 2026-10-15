@@ -19930,7 +19930,7 @@ const SETS_IMPORTES = [
       const ch = a && a.closest ? a.closest('.ch-serie') : null;
       const serie = a && a.closest ? a.closest('.serie') : null;
       const l = document.querySelectorAll('.ligne-serie')[i];
-      return { ch: !!ch, rouge: !!(ch && ch.classList.contains('sans-charge-tapee')),
+      return { ch: !!ch, rouge: !!(ch && ch.classList.contains('case-vide')),
         iSerie: serie ? serie.getAttribute('data-iserie') : null,
         cochee: !!(l && l.querySelector('.ok-serie.cochee')),
         constat: (document.querySelector('.legende-exo .constat') || {}).textContent || null };
@@ -19950,7 +19950,7 @@ const SETS_IMPORTES = [
     const partie = base.sets.filter((s) => s.exercise_slug === 'cran-c100' && !/^c100-/.test(s.session_id));
     ok('[C100] le poids tapé : la série part avec 55 kg × 3, et plus aucune ligne en rouge',
       base.sets.length === nSets + 1 && partie.some((s) => Number(s.charge_kg) === 55 && s.reps === 3) &&
-      (await compter('.sans-charge-tapee')) === 0, nb100(partie.map((s) => [s.charge_kg, s.reps])));
+      (await compter('.case-vide')) === 0, nb100(partie.map((s) => [s.charge_kg, s.reps])));
     ok('[C100] aucune série chargée sans charge en base', partie.every((s) => s.charge_kg !== null && s.charge_kg !== undefined),
       nb100(partie.map((s) => s.charge_kg)));
     // Le poids du corps : aucune charge à taper, le ✓ valide (mutation b).
@@ -19963,7 +19963,7 @@ const SETS_IMPORTES = [
     }
     const pdc = base.sets.filter((s) => s.exercise_slug === 'pdc-c100' && !/^c100-/.test(s.session_id));
     ok('[C100] le poids du corps n’est pas concerné : × 15 se valide sans charge',
-      pdc.length === 1 && pdc[0].reps === 15 && pdc[0].charge_kg === null && (await compter('.sans-charge-tapee')) === 0,
+      pdc.length === 1 && pdc[0].reps === 15 && pdc[0].charge_kg === null && (await compter('.case-vide')) === 0,
       nb100(pdc.map((s) => [s.charge_kg, s.reps])));
     ok('[C100] et aucune violation de la garde (I26 compris)', gardeBanc.violations === violationsAvant,
       String(gardeBanc.violations - violationsAvant));
@@ -19977,6 +19977,173 @@ const SETS_IMPORTES = [
     ok('[C100] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       nb100([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ case-vide. AUCUNE SÉRIE NE SE VALIDE AVEC UNE CASE OBLIGATOIRE VIDE : CHARGE, REPS, DURÉE, DISTANCE (105, ECRAN-SAISIE §3 bis.3 bis) ══');
+  //
+  // La règle du 100, étendue à toutes les cases (une seule règle, `THSeance.casesManquantes`) : au ✓, une case
+  // obligatoire vide et sans chiffre gris du coach passe au rouge et tremble, le clavier s'ouvre sur la première, et
+  // rien n'est validé. Le décor : quatre exercices jamais faits, sans chiffre à la routine, sauf une ligne de reps
+  // (12 visées) qui doit, elle, se valider sur son chiffre gris. La base est vidée pour la section, puis rendue.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    const violationsAvant = gardeBanc.violations;
+    const mus = (m) => ({ muscles_primaires: [m], muscles_secondaires: [] });
+    CATALOGUE.push(Object.assign({ slug: 'charge-c105', nom: 'Presse C105 (Machine)', mesure: 'charge_reps',
+      charge: 'externe', equipement: 'machine' }, mus('adducteurs')));
+    CATALOGUE.push(Object.assign({ slug: 'reps-c105', nom: 'Pompes C105', mesure: 'reps', charge: 'aucune',
+      equipement: 'aucun' }, mus('pectoraux')));
+    CATALOGUE.push(Object.assign({ slug: 'planche-c105', nom: 'Planche C105', mesure: 'temps', charge: 'aucune',
+      equipement: 'aucun' }, mus('abdominaux')));
+    CATALOGUE.push(Object.assign({ slug: 'course-c105', nom: 'Course C105', mesure: 'distance_temps', charge: 'aucune',
+      equipement: 'aucun' }, mus('quadriceps')));
+    base.sessions = [];
+    base.sets = [];
+    const lignesReps = progr(2);
+    lignesReps[1].reps_visees = 12;
+    const ex105 = (slug, rang, sets) => ({ id: 'r-c105-' + rang, routine_id: 'r-c105', exercise_slug: slug, rang,
+      routine_sets: sets, repos_cible_s: 0, groupe_superset: null, note: null });
+    ROUTINES.push({ id: 'r-c105', nom: 'Cases C105', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [ex105('charge-c105', 0, progr(1)), ex105('reps-c105', 1, lignesReps),
+        ex105('planche-c105', 2, progr(1)), ex105('course-c105', 3, progr(1))] });
+    const nb105 = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+    await aller('/saisie');
+    await demarrerRoutine('Cases C105');
+    await attendre(900);
+    // L'état d'une ligne, lu dans la page (les poignées se périment au moindre rendu).
+    const etat105 = (i) => page.evaluate((k) => {
+      const l = document.querySelectorAll('.ligne-serie')[k];
+      const a = document.activeElement;
+      const actif = a && a.closest ? a.closest('[data-champ]') : null;
+      const cases = l ? Array.from(l.querySelectorAll('[data-champ]')) : [];
+      return {
+        cases: cases.map((c) => [c.getAttribute('data-champ'), (c.querySelector('input') || {}).value || '',
+          (c.querySelector('input') || {}).placeholder || '']),
+        rouges: cases.filter((c) => c.classList.contains('case-vide')).map((c) => c.getAttribute('data-champ')),
+        clavier: actif && l && l.contains(actif) ? actif.getAttribute('data-champ') : null,
+        cochee: !!(l && l.querySelector('.ok-serie.cochee'))
+      };
+    }, i);
+    const valider105 = async (i) => {
+      await page.evaluate((k) => document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), i);
+      await attendre(700);
+    };
+    const remplir105 = async (i, champ, v) => {
+      const inp = await page.$$('.ligne-serie >> nth=' + i + ' >> [data-champ="' + champ + '"] input');
+      if (champ === 'duree') { await inp[0].click(); await inp[0].type(String(v), { delay: 30 }); }
+      else await inp[0].fill(String(v));
+      await attendre(300);
+    };
+    const sansChiffre = (e) => e.cases.every((c) => c[1] === '' && !/\d/.test(c[2]));
+    const montees = (slug) => base.sets.filter((s) => s.exercise_slug === slug);
+
+    // 1. CHARGE ET REPS VIDES ENSEMBLE : les deux en rouge, le clavier sur la charge.
+    const e0 = await etat105(0);
+    ok('[C105] le décor : la presse jamais faite n’a aucun chiffre, ni tapé ni gris',
+      e0.cases.length === 2 && sansChiffre(e0), nb105(e0));
+    await valider105(0);
+    const r0 = await etat105(0);
+    ok('[C105] DISCRIMINANT — charge et reps vides : rien en base, les deux cases en rouge, le clavier sur la CHARGE',
+      montees('charge-c105').length === 0 && !r0.cochee && nb105(r0.rouges) === nb105(['charge_kg', 'reps']) &&
+      r0.clavier === 'charge_kg', nb105(r0));
+    {
+      const st = await page.evaluate(() => {
+        const c = document.querySelector('.case-vide');
+        const cs = c && getComputedStyle(c);
+        return cs ? { bord: cs.borderTopColor, anim: cs.animationName } : null;
+      });
+      ok('[C105] le rouge (--manque) et le léger tremblement', !!st && st.bord === 'rgb(205, 113, 103)' &&
+        st.anim === 'trembler-case', nb105(st));
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      const st2 = await page.evaluate(() => {
+        const c = document.querySelector('.case-vide');
+        const cs = c && getComputedStyle(c);
+        return cs ? { bord: cs.borderTopColor, anim: cs.animationName } : null;
+      });
+      await page.emulateMedia({ reducedMotion: null });
+      ok('[C105] mouvement réduit : le rouge reste, le tremblement non', !!st2 && st2.bord === 'rgb(205, 113, 103)' &&
+        st2.anim === 'none', nb105(st2));
+    }
+    await remplir105(0, 'charge_kg', 40);
+    await valider105(0);
+    const r0b = await etat105(0);
+    ok('[C105] le poids tapé, les reps toujours vides : rien en base, les reps seules en rouge, le clavier sur elles',
+      montees('charge-c105').length === 0 && !r0b.cochee && nb105(r0b.rouges) === nb105(['reps']) &&
+      r0b.clavier === 'reps', nb105(r0b));
+    await remplir105(0, 'reps', 8);
+    await valider105(0);
+    ok('[C105] les reps tapées : la série part, 40 kg × 8, plus aucun rouge sur la ligne',
+      montees('charge-c105').length === 1 && Number(montees('charge-c105')[0].charge_kg) === 40 &&
+      montees('charge-c105')[0].reps === 8 && (await etat105(0)).rouges.length === 0,
+      nb105([montees('charge-c105').map((s) => [s.charge_kg, s.reps]), await etat105(0)]));
+
+    // 2. REPS VIDES SANS FANTÔME : rouge. AVEC FANTÔME : validé sur le chiffre gris.
+    const e1 = await etat105(1), e2 = await etat105(2);
+    ok('[C105] le décor : la 1re ligne de pompes sans chiffre, la 2e avec 12 en gris',
+      sansChiffre(e1) && e2.cases.length === 1 && e2.cases[0][1] === '' && e2.cases[0][2] === '12', nb105([e1, e2]));
+    await valider105(1);
+    const r1 = await etat105(1);
+    ok('[C105] DISCRIMINANT — reps vides sans chiffre gris : rien en base, la case des reps en rouge, le clavier sur elle',
+      montees('reps-c105').length === 0 && !r1.cochee && nb105(r1.rouges) === nb105(['reps']) && r1.clavier === 'reps',
+      nb105(r1));
+    await remplir105(1, 'reps', 10);
+    await valider105(1);
+    await valider105(2);
+    const pompes = montees('reps-c105').map((s) => s.reps).sort((a, b) => a - b);
+    ok('[C105] reps tapées (10) puis le chiffre gris validé tel quel (12) : deux séries, sans charge',
+      nb105(pompes) === nb105([10, 12]) && montees('reps-c105').every((s) => s.charge_kg === null),
+      nb105(montees('reps-c105').map((s) => [s.charge_kg, s.reps])));
+
+    // 3. UNE PLANCHE SANS DURÉE.
+    const e3 = await etat105(3);
+    ok('[C105] le décor : la planche sans durée, ni tapée ni grise', e3.cases.length === 1 && sansChiffre(e3), nb105(e3));
+    await valider105(3);
+    const r3 = await etat105(3);
+    ok('[C105] DISCRIMINANT — planche sans durée : rien en base, la durée en rouge, le clavier sur elle',
+      montees('planche-c105').length === 0 && !r3.cochee && nb105(r3.rouges) === nb105(['duree']) && r3.clavier === 'duree',
+      nb105(r3));
+    await remplir105(3, 'duree', '45');
+    const r3b = await etat105(3);
+    ok('[C105] la première frappe sur le pavé retire le rouge', r3b.rouges.length === 0, nb105(r3b));
+    await valider105(3);
+    ok('[C105] la durée tapée : la planche part, 45 s',
+      montees('planche-c105').length === 1 && montees('planche-c105')[0].duree_s === 45,
+      nb105(montees('planche-c105').map((s) => s.duree_s)));
+
+    // 4. LA DISTANCE VIDE (la durée tapée).
+    await remplir105(4, 'duree', '3000');
+    await valider105(4);
+    const r4 = await etat105(4);
+    ok('[C105] DISCRIMINANT — durée tapée, distance vide : rien en base, la distance SEULE en rouge, le clavier sur elle',
+      montees('course-c105').length === 0 && !r4.cochee && nb105(r4.rouges) === nb105(['distance_km']) &&
+      r4.clavier === 'distance_km', nb105(r4));
+    await remplir105(4, 'distance_km', '5');
+    await valider105(4);
+    ok('[C105] la distance tapée : la course part, 30:00 et 5 km',
+      montees('course-c105').length === 1 && montees('course-c105')[0].duree_s === 1800 &&
+      montees('course-c105')[0].distance_m === 5000,
+      nb105(montees('course-c105').map((s) => [s.duree_s, s.distance_m])));
+    ok('[C105] aucune case obligatoire vide en base',
+      base.sets.every((s) => (s.exercise_slug !== 'charge-c105' || (s.charge_kg !== null && s.reps !== null)) &&
+        (s.exercise_slug !== 'reps-c105' || s.reps !== null) && (s.exercise_slug !== 'planche-c105' || s.duree_s !== null) &&
+        (s.exercise_slug !== 'course-c105' || (s.duree_s !== null && s.distance_m !== null))),
+      nb105(base.sets.map((s) => [s.exercise_slug, s.charge_kg, s.reps, s.duree_s, s.distance_m])));
+    ok('[C105] et aucune violation de la garde', gardeBanc.violations === violationsAvant,
+      String(gardeBanc.violations - violationsAvant));
+    await abandonner();
+
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[C105] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nb105([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ Q78. LA QUESTION DE RÉSERVE : « IL T’EN RESTAIT COMBIEN ? », APRÈS LA DERNIÈRE SÉRIE D’UN EXERCICE QUI A UN PARI (78, MOTEUR §17.2 bis) ══');

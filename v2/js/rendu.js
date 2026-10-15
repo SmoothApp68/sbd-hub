@@ -2890,23 +2890,35 @@
     return true;
   }
 
-  // ECRAN §3 bis.3 bis (prompt 100) — la série chargée validée sans charge ni
-  // fantôme : la case du poids s'entoure de rouge, tremble (sauf mouvement
-  // réduit, en CSS), et le clavier s'ouvre sur elle.
-  function demanderCharge(racine, iExo, iSerie) {
-    if (!racine) return false;
+  // ECRAN §3 bis.3 bis (prompts 100 puis 105) — la série validée avec une case
+  // obligatoire vide et sans chiffre gris du coach : CHACUNE de ces cases
+  // s'entoure de rouge et tremble (sauf mouvement réduit, en CSS), et le clavier
+  // s'ouvre sur la première. `noms` : les cases manquantes, dans l'ordre de la
+  // ligne (`THSeance.casesManquantes`). Une case perd son rouge à la première
+  // frappe (`beforeinput` : le pavé de durée annule l'`input`).
+  function demanderCases(racine, iExo, iSerie, noms) {
+    if (!racine || !noms || !noms.length) return false;
     var r = racine.querySelector('.serie[data-iexo="' + iExo + '"][data-iserie="' + iSerie + '"]');
-    var champ = r && r.querySelector('.ch-serie');
-    var input = champ && champ.querySelector('input');
-    if (!input) return false;
-    champ.classList.remove('sans-charge-tapee');
-    void champ.offsetWidth;
-    champ.classList.add('sans-charge-tapee');
-    input.addEventListener('input', function retirer() {
-      champ.classList.remove('sans-charge-tapee');
-      input.removeEventListener('input', retirer);
+    if (!r) return false;
+    var premier = null;
+    noms.forEach(function (nom) {
+      var champ = r.querySelector('[data-champ="' + nom + '"]');
+      var input = champ && champ.querySelector('input');
+      if (!input) return;
+      champ.classList.remove('case-vide');
+      void champ.offsetWidth;
+      champ.classList.add('case-vide');
+      var retirer = function () {
+        champ.classList.remove('case-vide');
+        input.removeEventListener('beforeinput', retirer);
+        input.removeEventListener('input', retirer);
+      };
+      input.addEventListener('beforeinput', retirer);
+      input.addEventListener('input', retirer);
+      if (!premier) premier = input;
     });
-    input.focus();
+    if (!premier) return false;
+    premier.focus();
     return true;
   }
 
@@ -3012,9 +3024,12 @@
       var classe = (iChamp === 0 ? 'ch-serie' : 'rp-serie') + ' num';
       var nom = g.champs[iChamp];
       if (sansCharge && nom === 'charge_kg') return;
+      // `data-champ` : la case se retrouve par son nom (§3 bis.3 bis, `demanderCases`).
       if (c.saisie === 'chrono') {
-        rangee.appendChild(champChrono(classe, s[c.cle], f[c.cle],
-          function (v) { vue.surChamp(iExo, iSerie, nom, v); }));
+        var chrono = champChrono(classe, s[c.cle], f[c.cle],
+          function (v) { vue.surChamp(iExo, iSerie, nom, v); });
+        chrono.setAttribute('data-champ', nom);
+        rangee.appendChild(chrono);
         return;
       }
       // §9.14 — sur la ligne proposée, la charge est celle du coach, et les
@@ -3031,14 +3046,16 @@
       // tard, à la validation d'une série (`validerSerie`), par la même fonction.
       var aide = g.nature === 'aide' && c.cle === 'charge_kg';
       var versChamp = function (v) { return aide ? M().aideAffichee(v) : v; };
-      rangee.appendChild(champSerie(classe + ((proposee || elan) && c.cle === 'charge_kg' ? ' coach' : ''),
+      var caseSerie = champSerie(classe + ((proposee || elan) && c.cle === 'charge_kg' ? ' coach' : ''),
         versChamp(enUniteDeSaisie(s[c.cle], c.facteur)),
         versChamp(enUniteDeSaisie(f[c.cle], c.facteur)),
         c.unite,
         function (v) { vue.surChamp(iExo, iSerie, nom, aide && !vue.programme ? M().rangerAide(v) : v); },
         { indication: fourchette,
           surQuitte: typeof vue.surChampQuitte === 'function'
-            ? function () { vue.surChampQuitte(iExo, iSerie); } : null }));
+            ? function () { vue.surChampQuitte(iExo, iSerie); } : null });
+      caseSerie.setAttribute('data-champ', nom);
+      rangee.appendChild(caseSerie);
     });
 
     if (g.effort && !vue.programme) {
@@ -6976,7 +6993,7 @@
     rendreBlocsSeance: rendreBlocsSeance,
     majConstat: majConstat,
     demanderReps: demanderReps,
-    demanderCharge: demanderCharge,
+    demanderCases: demanderCases,
     rendreRepos: rendreRepos,
     rendreFeuilleSerie: rendreFeuilleSerie,
     rendreFeuilleNote: rendreFeuilleNote,

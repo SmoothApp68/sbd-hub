@@ -1029,12 +1029,13 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   animation:attendre-reps .9s ease-out 1}
 @keyframes attendre-reps{0%{box-shadow:0 0 0 0 rgba(242,184,75,.45)}
   100%{box-shadow:0 0 0 8px rgba(242,184,75,0)}}
-/* Prompt 100 — la série chargée validée sans charge : la case du poids en rouge,
-   un léger tremblement, sauf mouvement réduit. */
-.ch-serie.sans-charge-tapee{border-color:var(--manque);border-style:solid}
+/* Prompts 100 et 105 (§3 bis.3 bis) — la série validée avec une case obligatoire
+   vide, sans chiffre gris : la case en rouge, un léger tremblement, sauf
+   mouvement réduit. */
+.ch-serie.case-vide,.rp-serie.case-vide{border-color:var(--manque);border-style:solid}
 @media (prefers-reduced-motion: no-preference){
-  .ch-serie.sans-charge-tapee{animation:trembler-charge .32s ease-in-out 1}
-  @keyframes trembler-charge{0%,100%{transform:none}20%,60%{transform:translateX(-3px)}
+  .ch-serie.case-vide,.rp-serie.case-vide{animation:trembler-case .32s ease-in-out 1}
+  @keyframes trembler-case{0%,100%{transform:none}20%,60%{transform:translateX(-3px)}
     40%,80%{transform:translateX(3px)}}}
 
 .eff-serie{height:38px;border-radius:var(--r-petit);border:1px dashed var(--trait);

@@ -56,6 +56,14 @@
                txt: b.tonnes.elephants ? ['À peu près ', g(milliers(b.tonnes.elephants) + ' éléphant' +
                  (b.tonnes.elephants > 1 ? 's' : '') + ' d’Afrique'), '.']
                  : (b.tonnes.objet ? ['À peu près ', g(b.tonnes.objet), '.'] : null) });
+    // Les heures et les jours à la salle (97) : un fait, jamais comparé — ni écart, ni flèche, ni « comme en ».
+    if (b.salle && b.salle.jours) {
+      var sa = b.salle, js = milliers(sa.jours) + ' jour' + (sa.jours > 1 ? 's' : '');
+      out.push(sa.heures ? { cle: 'salle', d: 7000, lab: 'À la salle', chiffre: { v: sa.heures, unite: 'h' },
+                 txt: ['sur ', g(js), '.' + (sa.joursEntiers ? ' ≈ ' + milliers(sa.joursEntiers) + ' jour' +
+                   (sa.joursEntiers > 1 ? 's' : '') + ' entier' + (sa.joursEntiers > 1 ? 's' : '') + ' sous la barre.' : '')] }
+        : { cle: 'salle', d: 7000, lab: 'À la salle', chiffre: { v: sa.jours, unite: 'jour' + (sa.jours > 1 ? 's' : ''), espace: true } });
+    }
     // Mois par mois.
     if (b.mois.plusLourd) {
       out.push({ cle: 'mois', d: 7699, lab: 'Mois par mois', mois: b.mois,

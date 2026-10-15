@@ -1,7 +1,8 @@
 /** @jest-environment node */
 //
 // 95 — LES ÉCRANS DE « TON ANNÉE » (`v2/js/annee.js`, `ecrans`) : ce que l'écran et l'image disent, mis en mots
-// depuis le bilan (`THBilans`). Jamais le nombre de séances de l'année, jamais une comparaison sans données.
+// depuis le bilan (`THBilans`). Jamais le nombre de séances de l'année, jamais une comparaison sans données ; les
+// heures et les jours à la salle (97) : un écran exigé, jamais comparé.
 
 process.env.TZ = 'Europe/Paris';
 
@@ -102,5 +103,29 @@ describe('95 — le jeu, le coach, une année vide', () => {
   test('une année sans série : un seul écran après l’ouverture', () => {
     const e = Annee.ecrans({ bilan: bilan([]), jeu: null });
     expect(e.map((x) => x.cle)).toEqual(['ouverture', 'vide']);
+  });
+});
+
+describe('97 — l’écran des heures et des jours à la salle', () => {
+  const s = semaines('2025-01-02', '2025-12-25', () => [['squat_barre', 120, 5]])
+    .concat(semaines('2026-01-01', '2026-12-24', () => [['squat_barre', 130, 5]]));
+  const avec = (salle) => Annee.ecrans({ bilan: Bilans.bilanDeLaPeriode({ periode: Bilans.periodeDeLAnnee(2026),
+    aujourdhui: '2026-12-31', seances: s, exercices: CAT, pesees: [], paris: [], salle }), qui: '', jeu: null });
+  const texte = (t) => t.map((x) => (Array.isArray(x) ? x[0] : x)).join('');
+  test('⚠️ exigé, juste après les tonnes, avec l’équivalence', () => {
+    const e = avec({ jours: 180, minutes: 260 * 60 });
+    const cles = e.map((x) => x.cle);
+    expect(cles.indexOf('salle')).toBe(cles.indexOf('tonnes') + 1);
+    const sa = e.find((x) => x.cle === 'salle');
+    expect(sa.chiffre).toMatchObject({ v: 260, unite: 'h' });
+    expect(texte(sa.txt)).toBe('sur 180 jours. ≈ 11 jours entiers sous la barre.');
+  });
+  test('⚠️ jamais comparé : ni écart, ni flèche, ni l’année d’avant (même quand elle existe)', () => {
+    const sa = JSON.stringify(avec({ jours: 180, minutes: 260 * 60 }).find((x) => x.cle === 'salle'));
+    expect(sa).not.toMatch(/[+−→↑↗↘↓]|de plus|de moins|comme|2025|qu’en|avant/);
+  });
+  test('sans aucune fin : les jours seuls ; peu d’heures : pas d’équivalence', () => {
+    expect(avec({ jours: 12, minutes: 0 }).find((x) => x.cle === 'salle').chiffre).toMatchObject({ v: 12, unite: 'jours' });
+    expect(texte(avec({ jours: 20, minutes: 30 * 60 }).find((x) => x.cle === 'salle').txt)).toBe('sur 20 jours.');
   });
 });

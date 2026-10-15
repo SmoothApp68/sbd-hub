@@ -134,7 +134,24 @@ function finDe(debut, maintenant) {
   return new Date(Math.max(d, Math.min(d + HEURE, t - 1)));
 }
 
+// 96 — UNE SÉANCE `en_cours` ABANDONNÉE, PAS VIVANTE. Depuis le 84 (12/10/2026),
+// une séance ouverte ailleurs dont l'activité date de moins de 45 minutes est
+// VIVANTE (`Seance.estVivante`) : l'app ne la referme plus et DEMANDE s'il faut
+// la reprendre — une feuille ouverte par-dessus l'écran. Le décor vit dans la
+// journée en cours : avant 00 h 45, TOUS ses rangs ont moins de 45 minutes. La
+// séance « restée ouverte » du [D7] devenait vivante, la feuille restait
+// ouverte, et le clic suivant (`choisirIntention`) bloquait le groupe entier —
+// chaque nuit, sans qu'une ligne de l'app ait changé (15/10/2026).
+// Le remède : la date voulue si elle est assez ancienne, sinon DEUX HEURES
+// avant maintenant (bien au-delà des 45 minutes). L'après-midi, rien ne change.
+var ABANDON = 2 * HEURE;
+function horsDeVie(date, maintenant) {
+  var t = maintenant === undefined ? Date.now() : Number(maintenant);
+  return new Date(Math.min(new Date(date).getTime(), t - ABANDON));
+}
+
 module.exports = {
+  horsDeVie: horsDeVie,
   JOUR: JOUR,
   RANGS: RANGS,
   debutDeJournee: debutDeJournee,

@@ -207,4 +207,16 @@ describe('le décor du banc ne dépend plus du jour de la semaine', () => {
     expect(source.split('\n').filter((l) => /getDay\(\)/.test(l) && !/^\s*\/\//.test(l)))
       .toEqual([]);
   });
+
+  test('DISCRIMINANT (96) — la séance « restée ouverte » du [D7] est ABANDONNÉE (≥ 45 min), à toute heure', () => {
+    // À 00 h 01, le rang 4 du décor a quelques secondes : il était « vivant ».
+    INSTANTS.forEach(({ nom, t }) => {
+      const d = Decor.horsDeVie(Decor.datesDuDecor(t)[4], t).getTime();
+      expect([nom, t - d >= 45 * 60000, d < t]).toEqual([nom, true, true]);
+    });
+    // L'après-midi, la date du décor est gardée telle quelle.
+    const apresMidi = new Date(2026, 8, 23, 15, 0).getTime();
+    const r4 = Decor.datesDuDecor(apresMidi)[4];
+    expect(Decor.horsDeVie(r4, apresMidi).getTime()).toBe(r4.getTime());
+  });
 });

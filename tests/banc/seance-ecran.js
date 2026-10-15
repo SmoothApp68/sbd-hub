@@ -738,6 +738,26 @@ const SETS_IMPORTES = [
     });
   });
 
+  // ⚠️ 98 — L'ANNONCE D'UN BILAN (le mois, la saison, l'année) SE REFERME D'ELLE-MÊME, comme le récap : elle paraît
+  // à l'ouverture du 1er au 7 du mois (BILANS-V1), une fois par appareil, et l'horloge du banc peut tomber ces
+  // jours-là — posée en bas de l'écran, elle recouvrait « Abandonner » dans les sections écrites avant elle (trouvé
+  // par `tout.js`, 15/10/2026). On fait le geste de l'utilisateur : « Plus tard ». Une section qui la teste la garde :
+  // `sessionStorage['banc-garder-annonce'] = '1'`.
+  await ctx.addInitScript(() => {
+    document.addEventListener('DOMContentLoaded', () => {
+      const a = document.getElementById('annonce-annee');
+      if (!a) return;
+      new MutationObserver(() => {
+        if (a.hidden || sessionStorage.getItem('banc-garder-annonce') === '1') return;
+        setTimeout(() => {
+          if (a.hidden || sessionStorage.getItem('banc-garder-annonce') === '1') return;
+          const b = a.querySelector('button.discret');
+          if (b) b.click();
+        }, 0);
+      }).observe(a, { attributes: true, attributeFilter: ['hidden'] });
+    });
+  });
+
   // ── Mouchards : la vibration et le son ─────────────────────────────────
   //
   // ⚠️ On RELÈVE d'abord la présence native, AVANT de toucher à quoi que ce
@@ -13523,10 +13543,12 @@ const SETS_IMPORTES = [
     await onglet('progression');
     await attendre(800);
     // 95 — le bloc « Ton année » (l'année écoulée, toute l'année suivante ; hors production, l'année en cours) a sa
-    // propre section ([A95]) : l'ordre contrôlé ici est celui des six blocs de 55-1 et 75.
+    // propre section ([A95]) : l'ordre contrôlé ici est celui des six blocs de 55-1 et 75. 98 — de même pour le bloc de la
+    // saison ([B98]).
     const som = (await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
       quoi: b.querySelector('.bloc-quoi').textContent, ligne: (b.querySelector('.bloc-ligne') || {}).textContent || null,
-      neuf: b.classList.contains('neuf') })))).filter((b) => !/^Ton année \d{4}$/.test(b.quoi));
+      neuf: b.classList.contains('neuf'), saison: b.classList.contains('bloc-saison') })))).filter((b) => !/^Ton année \d{4}$/.test(b.quoi) && !b.saison)
+      .map((b) => ({ quoi: b.quoi, ligne: b.ligne, neuf: b.neuf }));
     const MOIS_L = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
     const ici = new Date(tP);
     const ecoule = new Date(ici.getFullYear(), ici.getMonth() - 1, 1);
@@ -13541,88 +13563,82 @@ const SETS_IMPORTES = [
         (/\.$/.test(MOIS_C[ici.getMonth()]) ? '' : '.')),
       JSON.stringify(som[2]));
 
-    // ── F. LE BILAN DU MOIS : le mois écoulé, puis le mois en cours (›).
+    // ── F. LE BILAN DU MOIS EST LA STORY DU MOIS (98, BILANS-V1) : le bloc du mois écoulé l'ouvre ; l'ancien bilan
+    // n'est plus rendu. Les records de la section sont d'aujourd'hui : le mois EN COURS les porte (son adresse).
+    const cleMois55 = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    const story55 = () => page.evaluate(() => {
+      const h = document.getElementById('annee');
+      return { ouvert: !!h && !h.hidden, periode: h ? h.dataset.periode || null : null,
+        cles: h ? Array.from(h.querySelectorAll('.s')).map((x) => x.dataset.cle) : [],
+        ancien: document.querySelectorAll('#bilan-mois, #vue-mois, .tuiles-mois').length };
+    });
     await page.evaluate(() => document.querySelectorAll('#sommaire .bloc-som')[0].click());
     await attendre(900);
     const routeMois = await page.evaluate(() => location.pathname);
-    ok('[P55] le bloc du mois s’ouvre sur le bilan du mois écoulé (/progression/mois/AAAA-MM)',
-      routeMois === '/progression/mois/' + ecoule.getFullYear() + '-' + String(ecoule.getMonth() + 1).padStart(2, '0'),
-      routeMois);
-    await page.click('#bilan-mois .mois-suivant');
-    await attendre(900);
-    const bil = await page.evaluate(() => {
-      const c = document.querySelector('#bilan-mois');
-      return { titre: c.querySelector('.titre-vue').textContent,
-        tuiles: Array.from(c.querySelectorAll('.tuile-mois')).map((t) => t.querySelector('span').textContent),
-        barres: Array.from(c.querySelectorAll('.barre-mois')).map((b) => b.classList.contains('courant')),
-        aujourdhui: Array.from(c.querySelectorAll('.cal-mois .fait')).map((x) => x.textContent),
-        records: Array.from(c.querySelectorAll('.carte-mois .ligne-mois.lien')).map((x) => x.textContent),
-        suivant: c.querySelector('.mois-suivant').disabled,
-        // Le rouge se lit sur le jeton (`--manque` a changé de valeur en 56-1) :
-        // une valeur écrite en dur ne prouverait plus rien le jour où il bouge.
-        rouge: (() => {
-          const sonde = document.createElement('i');
-          sonde.style.color = 'var(--manque)';
-          document.body.appendChild(sonde);
-          const r = getComputedStyle(sonde).color;
-          sonde.remove();
-          return Array.from(c.querySelectorAll('*')).some((x) => getComputedStyle(x).color === r);
-        })() };
-    });
+    const ouvertEcoule = await story55();
+    ok('[P55] le bloc du mois s’ouvre sur la story du mois écoulé (/progression/mois/AAAA-MM), sans l’ancien bilan (98)',
+      routeMois === '/progression/mois/' + cleMois55(ecoule) && ouvertEcoule.ouvert && ouvertEcoule.periode === cleMois55(ecoule) &&
+        ouvertEcoule.ancien === 0, JSON.stringify([routeMois, ouvertEcoule]));
+    await page.click('#annee .fermer');
+    await attendre(500);
+    ok('[P55] fermée, la story rend Progression et son adresse',
+      (await page.evaluate(() => location.pathname)) === '/progression' && !(await story55()).ouvert,
+      await page.evaluate(() => location.pathname));
+    await aller('/progression/mois/' + cleMois55(ici));
+    await page.waitForFunction(() => { const h = document.getElementById('annee'); return h && !h.hidden && h.dataset.ecran; },
+      null, { timeout: 15000 }).catch(() => {});
+    const bil = await story55();
     await capturer55('4-bilan');
-    ok('[P55] le bilan du mois en cours : séances, séries de travail, volume, records — trois barres, la dernière en couleur du coach ; pas de mois après le mois en cours',
-      /^[A-ZÉ]/.test(bil.titre) && /^séances?$/.test(bil.tuiles[0]) && bil.tuiles[1] === 'séries de travail' &&
-        bil.tuiles[2] === 'volume soulevé' && /^records?$/.test(bil.tuiles[3]) &&
-        JSON.stringify(bil.barres) === '[false,false,true]' && bil.suivant === true, JSON.stringify(bil));
-    // Les records du mois (les trois premiers, puis « et N autres ») : d'autres
-    // sections du même groupe en posent aussi ; la liste complète se lit plus
-    // bas (G).
-    ok('[P55] le calendrier marque aujourd’hui ; la carte des records est là ; aucune couleur de jugement',
-      bil.aujourdhui.indexOf(String(ici.getDate())) >= 0 && bil.records.length >= 1 && !bil.rouge, JSON.stringify(bil));
-
-    // ── F bis (57-1). UN EXERCICE « LE PLUS FAIT » OUVRE SA PAGE, PAR SON
-    // IDENTIFIANT, et le retour rend le bilan (ECRAN §7 bis.14, §7 quater).
-    const avantExo = await page.evaluate(() => location.pathname);
-    const plusFaits = await page.evaluate(() => Array.from(document.querySelectorAll('#bilan-mois .carte-mois'))
-      .filter((c) => /Les plus faits/.test(c.textContent))
-      .map((c) => Array.from(c.querySelectorAll('.ligne-mois')).map((l) => ({
-        texte: l.textContent, bouton: !!l.querySelector('button.nom-exo.lien') })))[0] || []);
-    // ⚠️ LE PREMIER DE LA LISTE, QUEL QU'IL SOIT (07/10/2026). Le contrôle
-    // touchait « Médaillé U55 » et le supposait dans les cinq « plus faits » :
-    // vrai dans son groupe parallèle, faux en séquentiel, où les séances des
-    // autres sections le font sortir du top 5 (ses séances d'il y a 13 et 20
-    // jours sont le mois d'avant). On touche le premier nom, et on attend SA
-    // page : son nom en titre, et son identifiant dans l'URL quand le catalogue
-    // du banc le connaît. Le discriminant « le deuxième, pas le premier » vit
-    // dans `tests/unit/v2-bilan-mois-exercice.test.js`.
-    const touche = await page.evaluate(() => {
-      const carte = Array.from(document.querySelectorAll('#bilan-mois .carte-mois'))
-        .filter((c) => /Les plus faits/.test(c.textContent))[0];
-      const b = carte ? carte.querySelector('.ligne-mois button.nom-exo.lien') : null;
-      if (!b) return null;
-      const nom = b.textContent;
-      b.click();
-      return nom;
+    ok('[P55] DISCRIMINANT — le mois en cours : la story, ses écrans (tonnes, à la salle, semaines, muscle, exercice, records…, plaque) ; aucun ancien bilan',
+      bil.ouvert && bil.periode === cleMois55(ici) && bil.ancien === 0 &&
+        JSON.stringify(bil.cles.slice(0, 3)) === '["tonnes","salle","semaines"]' && bil.cles.indexOf('records') > 0 &&
+        bil.cles.indexOf('exercice') > 0 && bil.cles[bil.cles.length - 1] === 'plaque', JSON.stringify(bil));
+    // Les records du mois (les trois premiers, puis « Et N autres ») : d'autres sections du même groupe en posent
+    // aussi ; la liste complète se lit plus bas (G).
+    const recStory = await page.evaluate(() => {
+      const s = document.querySelector('#annee .s[data-cle="records"]');
+      return s ? { lignes: Array.from(s.querySelectorAll('.ligne')).map((x) => x.textContent),
+                   bouton: (s.querySelector('[data-action="records"]') || {}).textContent || null } : null;
     });
-    await attendre(900);
-    const slugTouche = (CATALOGUE.filter((x) => x.nom === touche)[0] || {}).slug || null;
-    const versExo = { touche, slug: slugTouche, route: await page.evaluate(() => location.pathname), vues: await visible(),
-      titre: await page.evaluate(() => { const h = document.querySelector('#page-exercice h2'); return h ? h.textContent : null; }) };
-    ok('[57-1] DISCRIMINANT — dans le bilan, chaque exercice « le plus fait » est un nom touchable, et le premier ouvre SA page',
-      plusFaits.length >= 1 && plusFaits.every((l) => l.bouton) && touche === plusFaits[0].texte.replace(/\d+ séries?$/, '') &&
-        JSON.stringify(versExo.vues) === '["vue-exercice"]' && versExo.titre === touche &&
-        (slugTouche ? versExo.route === '/exercice/' + slugTouche : /^\/exercice\/[^/]+$/.test(versExo.route)),
-      JSON.stringify([plusFaits, versExo]));
-    // Le retour, seulement si la page s'est ouverte : sinon le clic attendrait
-    // 30 s un bouton caché, et le contrôle suivant dit déjà l'échec.
-    if (JSON.stringify(versExo.vues) === '["vue-exercice"]') await page.click('#btn-retour-exercice');
-    await attendre(900);
-    ok('[57-1] le retour rend le bilan du même mois',
-      (await page.evaluate(() => location.pathname)) === avantExo && JSON.stringify(await visible()) === '["vue-mois"]',
-      JSON.stringify([avantExo, await page.evaluate(() => location.pathname), await visible()]));
+    ok('[P55] l’écran des records du mois : les records de la séance, et « Tous les records du mois »',
+      !!recStory && recStory.lignes.length >= 1 && recStory.bouton === 'Tous les records du mois', JSON.stringify(recStory));
 
-    // ── G. LES RECORDS DU MOIS : chacun mène à sa séance.
-    await page.evaluate(() => document.querySelector('#bilan-mois .tous-records').click());
+    // ── F bis (57-1). L'EXERCICE DU MOIS OUVRE SA PAGE, PAR SON IDENTIFIANT, et le retour rend la story du même mois.
+    const avantExo = await page.evaluate(() => location.pathname);
+    const touche = await page.evaluate(() => {
+      const b = document.querySelector('#annee .s[data-cle="exercice"] .btn[data-action="exercice"]');
+      if (!b) return null;
+      const s = b.closest('.s');
+      return { slug: b.dataset.slug, nom: (s.querySelector('.titre') || {}).textContent || null };
+    });
+    if (touche) {
+      await page.evaluate(() => {
+        // Le bouton se touche comme un doigt : `pointerdown` puis `pointerup` sur lui (le lecteur écoute `pointerup`).
+        const b = document.querySelector('#annee .s[data-cle="exercice"] .btn[data-action="exercice"]');
+        const o = { bubbles: true, clientX: 10, clientY: 10 };
+        b.dispatchEvent(new PointerEvent('pointerdown', o));
+        b.dispatchEvent(new PointerEvent('pointerup', o));
+      });
+    }
+    await attendre(900);
+    const versExo = { touche, route: await page.evaluate(() => location.pathname), vues: await visible(),
+      titre: await page.evaluate(() => { const h = document.querySelector('#page-exercice h2'); return h ? h.textContent : null; }) };
+    ok('[57-1] DISCRIMINANT — dans la story du mois, l’exercice du mois ouvre SA page (son identifiant)',
+      !!touche && JSON.stringify(versExo.vues) === '["vue-exercice"]' && versExo.titre === touche.nom &&
+        versExo.route === '/exercice/' + touche.slug, JSON.stringify(versExo));
+    if (JSON.stringify(versExo.vues) === '["vue-exercice"]') await page.click('#btn-retour-exercice');
+    await attendre(1200);
+    const retour55 = await story55();
+    ok('[57-1] le retour rend la story du même mois',
+      (await page.evaluate(() => location.pathname)) === avantExo && retour55.ouvert && retour55.periode === cleMois55(ici),
+      JSON.stringify([avantExo, await page.evaluate(() => location.pathname), retour55]));
+
+    // ── G. LES RECORDS DU MOIS : « Tous les records du mois », dans la story, ouvre la liste ; chacun mène à sa séance.
+    await page.evaluate(() => {
+      const b = document.querySelector('#annee .s[data-cle="records"] [data-action="records"]');
+      const o = { bubbles: true, clientX: 10, clientY: 10 };
+      if (b) { b.dispatchEvent(new PointerEvent('pointerdown', o)); b.dispatchEvent(new PointerEvent('pointerup', o)); }
+    });
     await attendre(900);
     const rec = await page.evaluate(() => Array.from(document.querySelectorAll('#records-mois .ligne-mois')).map((x) => x.textContent));
     ok('[P55] la liste des records du mois porte les deux records de la séance',
@@ -14391,7 +14407,7 @@ const SETS_IMPORTES = [
       Object.keys(releve).length >= 2 * (ecrans.length + 5) &&
         Object.keys(releve).every((k) => releve[k].length > 0) &&
         vues.routines.join() === 'vue-saisie' && vues.profil.join() === 'vue-profil' &&
-        vues.exercice.join() === 'vue-exercice' && vues.mois.join() === 'vue-mois' &&
+        vues.exercice.join() === 'vue-exercice' && vues.mois.join() === 'vue-progression' &&   // 98 : la story du mois s'ouvre par-dessus Progression
         vues.relecture.join() === 'vue-relecture',
       JSON.stringify([Object.keys(releve).map((k) => k + ':' + releve[k].length), vues]));
 
@@ -19695,6 +19711,175 @@ const SETS_IMPORTES = [
     base.sets = setsAvant;
     await aller('/saisie');
     ok('[A95] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ saison-mois. LA SAISON ET LE MOIS : OUVRIR, DÉFILER, PARTAGER, AUCUN DÉBORDEMENT À 360 PX (98, BILANS-V1) ══');
+  //
+  // ⚠️ SES séances seulement (la méthode de [A95]) : la base est vidée pour la section, puis rendue. Une séance tous
+  // les 3 jours depuis 200 jours, la charge du squat montant toutes les dix séances : le mois écoulé a plus de 3
+  // semaines de données et un mois d'avant (la comparaison des tonnes paraît), et ses records. Le profil est mis en
+  // prise de masse depuis longtemps : la saison écoulée porte le nom « Bulk » de sa saison (l'hiver : « Winter Arc »).
+  // `?bilan=AAAA-MM` et `?bilan=AAAA-saison` ouvrent la story au démarrage (la garde du coach est active sur localhost).
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const catalogueAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets;
+    const profilAvant = { phase: base.profiles[0].phase, phase_depuis: base.profiles[0].phase_depuis };
+    base.sessions = []; base.sets = [];
+    base.profiles[0].phase = 'prise_de_masse';
+    base.profiles[0].phase_depuis = '2025-01-01T08:00:00.000Z';
+    const fiche = (slug, nom, prim) => ({ slug, nom, mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      mouvement: null, muscles_primaires: prim, muscles_secondaires: [], muscles_stabilisateurs: [] });
+    if (!CATALOGUE.some((c) => c.slug === 'squat_barre')) CATALOGUE.push(fiche('squat_barre', 'Squat (Barre)', ['quadriceps']));
+    if (!CATALOGUE.some((c) => c.slug === 'developpe_couche_barre')) CATALOGUE.push(fiche('developpe_couche_barre', 'Développé Couché (Barre)', ['pectoraux']));
+    const maintenant = new Date();
+    let n98 = 0;
+    const seance98 = (jour, lignes) => {
+      n98++;
+      const id = '00000000-0000-4000-8980-' + String(n98).padStart(12, '0');
+      const debut = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate(), 18, 0, 0).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Saison ' + n98, debut, fin: finDe(debut).toISOString(), statut: 'terminee',
+        note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([slug, kg, reps], r) => base.sets.push({ id: id + '-s' + (r + 1), session_id: id, user_id: 'u-banc',
+        exercise_slug: slug, charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: r + 1,
+        groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app',
+        created_at: debut, modifie_a: null }));
+    };
+    let k98 = 0;
+    for (let d = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate() - 200);
+      d < new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate()); d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 3)) {
+      const c = 100 + Math.floor(k98++ / 10) * 2.5;
+      seance98(d, [['squat_barre', c, 5], ['squat_barre', c - 20, 8], ['developpe_couche_barre', 80, 5], ['developpe_couche_barre', 70, 8]]);
+    }
+    const deux = (x) => String(x).padStart(2, '0');
+    const ecoule = new Date(maintenant.getFullYear(), maintenant.getMonth() - 1, 1);
+    const MOIS = ecoule.getFullYear() + '-' + deux(ecoule.getMonth() + 1);
+    const MOIS_L = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+    const avantMois = MOIS_L[new Date(ecoule.getFullYear(), ecoule.getMonth() - 1, 1).getMonth()];
+    // La saison écoulée : celle d'avant la saison d'aujourd'hui (saisons météorologiques).
+    const m = maintenant.getMonth() + 1, a = maintenant.getFullYear();
+    const ici98 = m === 12 ? [a, 'hiver'] : (m <= 2 ? [a - 1, 'hiver'] : [a, m <= 5 ? 'printemps' : (m <= 8 ? 'ete' : 'automne')]);
+    const AVANT = { hiver: 'automne', printemps: 'hiver', ete: 'printemps', automne: 'ete' };
+    const SAISON = (ici98[1] === 'printemps' ? ici98[0] - 1 : ici98[0]) + '-' + AVANT[ici98[1]];
+    const NOM = { hiver: 'Winter Arc', printemps: 'Spring Bulk', ete: 'Summer Bulk', automne: 'Bulk Season' }[SAISON.slice(5)] +
+      ' ' + SAISON.slice(0, 4);
+    const ecritures = () => base.journal.filter((j) => j.op !== 'refus').length;
+    const capturer98 = async (nom) => {
+      if (!process.env.BANC_CAPTURES) return;
+      await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'b98-' + nom + '.png') });
+    };
+    const lire = () => page.evaluate(() => {
+      const h = document.getElementById('annee');
+      return { visible: !!h && !h.hidden, ecran: h && h.dataset.ecran, periode: h && h.dataset.periode,
+               cles: h ? Array.from(h.querySelectorAll('.s')).map((x) => x.dataset.cle) : [],
+               ecrans: Array.from(h ? h.querySelectorAll('.s') : []).map((x) => ({ cle: x.dataset.cle, texte: x.textContent })) };
+    });
+    const ouvrir98 = async (cle) => {
+      await aller('/progression?bilan=' + cle);
+      await page.waitForFunction(() => { const h = document.getElementById('annee'); return h && !h.hidden && h.dataset.ecran; },
+        null, { timeout: 15000 }).catch(() => console.log('   (plafond de 15 s : le bilan ' + cle + ' ne s’est pas ouvert)'));
+      return lire();
+    };
+    // Chaque écran, l'un après l'autre (flèche droite) : aucun grand chiffre ne déborde, aucun défilement horizontal.
+    const deborde = async (n, quoi) => {
+      const out = [];
+      for (let k = 0; k < n; k++) {
+        await page.evaluate((k) => {
+          const h = document.getElementById('annee');
+          while (Array.from(h.querySelectorAll('.s')).findIndex((x) => x.classList.contains('on')) < k) {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+          }
+        }, k);
+        await attendre(1700);
+        const r = await page.evaluate(() => {
+          const x = document.querySelector('#annee .s.on');
+          const cs = getComputedStyle(x), max = x.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+          return { cle: x.dataset.cle, max,
+            chiffres: Array.from(x.querySelectorAll('.chiffre, .plaque .an')).map((c) => c.scrollWidth),
+            large: x.scrollWidth > x.clientWidth || document.documentElement.scrollWidth > window.innerWidth };
+        });
+        r.chiffres.forEach((l) => { if (l > r.max + 0.5) out.push([r.cle, l, r.max]); });
+        if (r.large) out.push([r.cle, 'défilement horizontal']);
+        await capturer98(quoi + '-' + k + '-' + r.cle);
+      }
+      return out;
+    };
+
+    // ── A. LE MOIS : `?bilan=AAAA-MM` l'ouvre ; les écrans dans l'ordre ; les tonnes comparées au mois d'avant.
+    const mo = await ouvrir98(MOIS);
+    const ecritures98 = ecritures();
+    const tonnesMois = (mo.ecrans.filter((x) => x.cle === 'tonnes')[0] || {}).texte || '';
+    ok('[B98] DISCRIMINANT — `?bilan=' + MOIS + '` ouvre la story du mois : tonnes, à la salle, semaines, muscle, exercice, records…, la plaque',
+      mo.visible && mo.periode === MOIS && mo.ecran === 'tonnes' &&
+        JSON.stringify(mo.cles.slice(0, 6)) === '["tonnes","salle","semaines","muscle","exercice","records"]' &&
+        mo.cles[mo.cles.length - 1] === 'plaque', JSON.stringify(mo.cles));
+    ok('[B98] DISCRIMINANT — la seule comparaison : les tonnes, « … t sur ' + avantMois + ' » ; « À la salle » jamais comparé',
+      new RegExp('t sur ' + avantMois).test(tonnesMois.replace(/ /g, ' ')) &&
+        !new RegExp('[+−→]|sur ' + avantMois + '|comme|qu’').test((mo.ecrans.filter((x) => x.cle === 'salle')[0] || {}).texte || '+'),
+      JSON.stringify(mo.ecrans.slice(0, 2)));
+    ok('[B98] jamais le nombre de séances ; la plaque sans le coach',
+      !mo.ecrans.some((x) => x.cle !== 'exercice' && /\d+\s*séances?/.test(x.texte)) &&
+        !/pari|coach/i.test((mo.ecrans.filter((x) => x.cle === 'plaque')[0] || {}).texte || 'pari'),
+      JSON.stringify(mo.ecrans.map((x) => x.texte.slice(0, 80))));
+    await page.waitForFunction(() => document.getElementById('annee').dataset.ecran === 'salle', null, { timeout: 11000 }).catch(() => {});
+    ok('[B98] il défile seul : les tonnes laissent place à « À la salle »', (await lire()).ecran === 'salle', (await lire()).ecran);
+
+    // ── B. LE PARTAGE : une image PNG part vers la feuille de partage de l'appareil, nommée d'après le mois.
+    await page.evaluate(() => {
+      window.__partages98 = [];
+      navigator.canShare = () => true;
+      navigator.share = (d) => { window.__partages98.push({ nom: d.files[0].name, type: d.files[0].type, titre: d.title }); return Promise.resolve(); };
+    });
+    await page.click('#annee .partage');
+    await page.waitForFunction(() => document.getElementById('annee').dataset.partages === '1', null, { timeout: 8000 }).catch(() => {});
+    const part = await page.evaluate(() => window.__partages98);
+    ok('[B98] DISCRIMINANT — « Partager » : une image PNG du mois (trainhub-' + MOIS + '-salle.png)',
+      part.length === 1 && part[0].nom === 'trainhub-' + MOIS + '-salle.png' && part[0].type === 'image/png' &&
+        /^[A-ZÉ][a-zéû]+ \d{4}$/.test(part[0].titre), JSON.stringify(part));
+
+    // ── C. 360 PX : aucun débordement, sur chaque écran du mois.
+    const debMois = await deborde(mo.cles.length, 'mois');
+    const plaqueMois = await page.evaluate(() => { const x = document.querySelector('#annee .s.on');
+      return { cle: x.dataset.cle, bouton: (x.querySelector('.btn') || {}).textContent }; });
+    ok('[B98] DISCRIMINANT — le mois : aucun débordement à 360 px ; la plaque « Partager mon mois »',
+      !debMois.length && plaqueMois.cle === 'plaque' && plaqueMois.bouton === 'Partager mon mois',
+      JSON.stringify([debMois, plaqueMois]));
+
+    // ── D. LA SAISON : `?bilan=AAAA-saison` ; son nom suit la phase du profil ; aucun débordement ; la plaque.
+    const sa = await ouvrir98(SAISON);
+    const tonnesSaison = (sa.ecrans.filter((x) => x.cle === 'tonnes')[0] || {}).texte || '';
+    ok('[B98] DISCRIMINANT — `?bilan=' + SAISON + '` ouvre « ' + NOM + ' » (prise de masse) : tonnes, à la salle, semaines, exercice…',
+      sa.visible && sa.periode === SAISON && tonnesSaison.indexOf(NOM.replace(/ \d{4}$/, '')) >= 0 &&
+        JSON.stringify(sa.cles.slice(0, 4)) === '["tonnes","salle","semaines","exercice"]' && sa.cles[sa.cles.length - 1] === 'plaque',
+      JSON.stringify([sa.cles, tonnesSaison.slice(0, 120)]));
+    const debSaison = await deborde(sa.cles.length, 'saison');
+    const plaqueSaison = await page.evaluate(() => { const x = document.querySelector('#annee .s.on');
+      return { cle: x.dataset.cle, an: (x.querySelector('.plaque .an') || {}).textContent, bouton: (x.querySelector('.btn') || {}).textContent,
+               texte: x.textContent }; });
+    ok('[B98] DISCRIMINANT — la saison : aucun débordement à 360 px ; la plaque « ' + NOM + ' », « Partager ma saison », sans le coach',
+      !debSaison.length && plaqueSaison.cle === 'plaque' && plaqueSaison.an === NOM && plaqueSaison.bouton === 'Partager ma saison' &&
+        !/pari|coach/i.test(plaqueSaison.texte), JSON.stringify([debSaison, plaqueSaison]));
+
+    // ── E. RIEN N'EST ÉCRIT ; PROGRESSION PORTE LE BLOC DE LA SAISON.
+    ok('[B98] rien n’est écrit pendant les bilans', ecritures() === ecritures98, JSON.stringify([ecritures98, ecritures()]));
+    await page.click('#annee .fermer');
+    await attendre(400);
+    await aller('/progression');
+    await page.waitForFunction(() => !!document.querySelector('#sommaire .bloc-saison'), null, { timeout: 15000 }).catch(() => {});
+    const blocSaison = await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-saison .bloc-quoi')).map((b) => b.textContent));
+    ok('[B98] Progression porte le bloc « ' + NOM + ' »', blocSaison.length === 1 && blocSaison[0] === NOM, JSON.stringify(blocSaison));
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.profiles[0].phase = profilAvant.phase;
+    base.profiles[0].phase_depuis = profilAvant.phase_depuis;
+    await aller('/saisie');
+    ok('[B98] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }

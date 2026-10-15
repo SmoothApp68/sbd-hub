@@ -277,6 +277,15 @@
     var v = profil && profil.phase;
     return PHASES_EN_BASE.indexOf(v) >= 0 ? v : PHASE_DEFAUT;
   }
+  // 98 (BILANS-V1) — LA PHASE À UN JOUR `AAAA-MM-JJ` (le nom d'une saison suit la phase au début de la saison). Le
+  // profil ne garde que la phase en cours et son début (`phase_depuis`) : si elle a commencé ce jour-là ou avant (ou
+  // sans date), c'est elle ; si elle a commencé après, la phase d'avant n'est écrite nulle part — on dit le défaut,
+  // « maintien », comme une phase vide. Jamais vide.
+  function phaseAuJour(profil, jour) {
+    var depuis = jourCalendaire(profil && profil.phase_depuis), j = jourCalendaire(jour);
+    if (depuis !== null && j !== null && depuis > j) return PHASE_DEFAUT;
+    return phaseDe(profil);
+  }
 
   // « Depuis le 29 sept. » : la date de la dernière déclaration, au format de
   // la voix (`THModele.quand` sans référence : toujours la date, jamais
@@ -1276,7 +1285,7 @@
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     PHASES: PHASES, RAPPEL_PHASE_JOURS: RAPPEL_PHASE_JOURS,
     rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, LIBELLE_PHASE_VIDE: LIBELLE_PHASE_VIDE,
-    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
+    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
     objectifDe: objectifDe, objectifGele: objectifGele,
     prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,

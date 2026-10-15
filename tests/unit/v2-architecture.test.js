@@ -473,7 +473,7 @@ const NOTIONS = [
       '`seance.js` ne relisait pas : retoucher les reps d’une série à « −25 » effaçait sa charge. ' +
       '69 : les nombres que Hevy écrit (« 31,5 kg », « 1.17 » km) se lisent ici aussi (`importhevy.js`).' },
   { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
-    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js', 'parcours.js'],
+    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js', 'parcours.js', 'deraille.js'],
     parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'],
                    'faits.js': ['barresDuBilan'], 'generateur.js': ['familleDeBarre'], 'parcours.js': ['parcours'] },
     interditAilleurs: { motif: /\.\s*mouvement\b|\[\s*(['"`])mouvement\1\s*\]/,
@@ -2034,6 +2034,7 @@ const REGISTRE_ECRITURES = [
   { fn: 'ajouterRecords', chemin: 'file' },
   { fn: 'enregistrerPesee', chemin: 'file' },
   { fn: 'enregistrerAlias', chemin: 'file' },
+  { fn: 'enregistrerChoixDeSemaine', chemin: 'file' },
   // ── En liste blanche : des appelants exacts, une raison.
   { fn: 'supprimerCompte', chemin: 'liste-blanche', appelants: ['app.js:supprimerCompte'],
     raison: 'la suppression de compte exige le serveur ; rien n’est effacé localement avant sa réponse' },

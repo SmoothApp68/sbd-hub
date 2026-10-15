@@ -191,7 +191,6 @@
     // une séance d'un autre groupe, aucun exercice dont les principaux ou stabilisateurs chargent ce que la séance
     // fatigue déjà. Toujours : la récupération en jours, la durée habituelle. Plusieurs exercices par séance ; un
     // exercice peut n'y mettre qu'une partie de ses séries. Rend la liste des ajouts de la séance `p`.
-    var mouvementDe = function (slug) { var c = cat[slug] || {}; return c.mouvement || null; };
     var choisirPour = function (p, pris, ajouts) {
       var stP = st[p.routine];
       var charge = fatigues(stP);
@@ -200,9 +199,10 @@
       var n = lundi + p.jour - 1;
       var ev = autresEvenements(p).concat(ajouts.map(function (a) { return { n: lundi + a.jour - 1, prim: a.prim }; }));
       var dans = stP.slice();                       // la séance, avec ce qui y est déjà ajouté
+      // Un mouvement déjà présent : le même exercice, ou un de ses frères (`Modele.freresDe`, même `mouvement`).
       var presents = function (slug) {
-        var mv = mouvementDe(slug);
-        return dans.some(function (e) { return e.tr > 0 && (e.slug === slug || (mv !== null && mouvementDe(e.slug) === mv)); });
+        var freres = Modele().freresDe(cat, slug);
+        return dans.some(function (e) { return e.tr > 0 && (e.slug === slug || freres.indexOf(e.slug) >= 0); });
       };
       var sortie = [];
       for (;;) {

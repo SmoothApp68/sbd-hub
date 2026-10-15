@@ -4012,6 +4012,13 @@ const SETS_IMPORTES = [
   // cas le plus ordinaire : on valide une série, puis on remet de l'ordre.
   // Sans chronomètre armé, les deux barres ne se rencontrent pas et le banc
   // applaudirait un écran que personne n'a vu.
+  // 105 (ECRAN §3 bis.3 bis) — ce qui manque à la ligne se tape d'abord : sinon le ✓ ne valide rien, et aucun
+  // repos ne court.
+  {
+    const iLibre = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+      .findIndex((x) => !x.querySelector('.ok-serie.cochee')));
+    if (iLibre >= 0) await casesSiVides(await ligne(iLibre));
+  }
   const iArmee = await page.evaluate(() => {
     const toutes = Array.from(document.querySelectorAll('.ligne-serie'));
     const l = toutes.filter((x) => !x.querySelector('.ok-serie.cochee'))[0];

@@ -486,6 +486,8 @@ describe('51-1 ter — la séance raccourcie : la semaine allégée et la série
       appliquerAllegee: async () => {}, ecrireReplis: async () => {}, appliquerSerieDePlus: async () => {},
       // 91 — une séance commencée pour rejoindre un groupe : rien ici.
       apresCreationPourLeGroupe: async () => {},
+      // 99 — la semaine qui déraille n'a rien ajouté à cette routine (MOTEUR §9.24).
+      avecLesAjoutsDeLaSemaine: (r) => ({ routine: r, mentions: [] }),
       Routeur: { SAISIE: 'saisie' },
       // 84 — la question de l'autre appareil : aucune séance ailleurs, on commence.
       avantDeCommencer: (commencer) => commencer()

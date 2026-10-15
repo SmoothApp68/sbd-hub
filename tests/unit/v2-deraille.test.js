@@ -187,3 +187,61 @@ describe('la durée habituelle', () => {
     expect(c.choix.map((x) => x.cle)).not.toContain('repartir');
   });
 });
+
+describe('ce qui a été fait cette semaine : `faits.semaineDuProgramme`', () => {
+  require('../../v2/js/seance.js');
+  require('../../v2/js/bilan.js');
+  require('../../v2/js/periode.js');
+  const F = require('../../v2/js/faits.js').creer();
+  const catalogue = Object.keys(CAT).map((slug) => Object.assign({ slug }, CAT[slug]));
+  const seances = [
+    { id: 's1', debut: new Date(2026, 9, 12, 18).toISOString(), routine_id: 'r-push' },
+    { id: 's2', debut: new Date(2026, 9, 9, 18).toISOString(), routine_id: null },      // la semaine d'avant
+    { id: 's3', debut: new Date(2026, 8, 20, 18).toISOString(), routine_id: null }      // plus de 14 jours
+  ];
+  const series = { s1: [{ exercise_slug: 'couche', type_serie: 'travail' }, { exercise_slug: 'couche', type_serie: 'echauffement' }],
+    s2: [{ exercise_slug: 'squat', type_serie: 'travail' }], s3: [{ exercise_slug: 'squat', type_serie: 'travail' }] };
+  const c = { seances, series: [].concat(series.s1, series.s2, series.s3), exercices: catalogue,
+    seriesDe: (id) => series[id] || [], catalogue: () => CAT, journal: [] };
+  test('les séances des 14 derniers jours (jour, routine, exercices de travail) ; le volume de la SEMAINE seulement', () => {
+    const r = F.semaineDuProgramme(c, '2026-10-14', null);
+    expect(r.seances).toEqual([{ jour: '2026-10-12', routine_id: 'r-push', slugs: ['couche'] },
+      { jour: '2026-10-09', routine_id: null, slugs: ['squat'] }]);
+    expect(r.volume).toEqual({ pectoraux: 1, triceps: 0.5, deltoide_anterieur: 0.5 });
+  });
+});
+
+describe('les jours d’une routine s’écrivent à la création, et seulement là', () => {
+  const R = require('../../v2/js/routines.js');
+  const ecrivain = () => {
+    const j = { creees: [], majs: [] };
+    return { j, creerRoutine: async (l) => { j.creees.push(l); return Object.assign({ id: 'n1' }, l); },
+      majRoutine: async (id, l) => { j.majs.push(l); return Object.assign({ id }, l); },
+      insererExercices: async () => [], majExercice: async () => {}, supprimerExercices: async () => {},
+      insererSeries: async () => [], supprimerSeries: async () => {}, remplacerSeries: async () => {} };
+  };
+  test('création avec `jours` : la colonne part ; un renommage ne l’écrit pas (le jour reste attaché à la routine)', async () => {
+    const e = ecrivain();
+    await R.enregistrer({ id: null, nom: 'Lundi — Push', jours: [1], exercices: [], existantes: [] }, e, { userId: 'u' });
+    expect(e.j.creees[0].jours).toEqual([1]);
+    const e2 = ecrivain();
+    await R.enregistrer({ id: 'r1', nom: 'Push lourd', nomChange: true, exercices: [], existantes: [] }, e2, { userId: 'u' });
+    expect(e2.j.majs[0]).toEqual({ nom: 'Push lourd' });
+    const e3 = ecrivain();
+    await R.enregistrer({ id: null, nom: 'Haut A', exercices: [], existantes: [] }, e3, { userId: 'u' });
+    expect('jours' in e3.j.creees[0]).toBe(false);
+  });
+});
+
+describe('un exercice ajouté pour la semaine n’est jamais proposé à la routine (question de fin)', () => {
+  const S = require('../../v2/js/seance.js');
+  test('`ecartsRoutine` ignore l’exercice qui porte `ajout`', () => {
+    const routine = { id: 'r-pull', exercices: [{ id: 'e1', exercise_slug: 'tractions', rang: 0, series: [{ type_serie: 'travail', reps: 8 }] }] };
+    const seance = { routine_id: 'r-pull', exercices: [
+      { exercise_slug: 'tractions', routine_exercise_id: 'e1', series: [{ type_serie: 'travail', reps: 8 }] },
+      { exercise_slug: 'legcurl', routine_exercise_id: null, ajout: 'séance manquée de mardi', series: [{ type_serie: 'travail' }] }] };
+    expect(S.ecartsRoutine(seance, routine).ecarts.filter((x) => x.type === 'ajoute')).toEqual([]);
+    const sans = { routine_id: 'r-pull', exercices: [seance.exercices[0], Object.assign({}, seance.exercices[1], { ajout: null })] };
+    expect(S.ecartsRoutine(sans, routine).ecarts.filter((x) => x.type === 'ajoute').length).toBe(1);
+  });
+});

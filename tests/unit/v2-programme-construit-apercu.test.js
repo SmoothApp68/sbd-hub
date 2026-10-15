@@ -24,6 +24,8 @@ require('../../v2/js/periode.js');
 const Routines = require('../../v2/js/routines.js');
 const Profil = require('../../v2/js/profil.js');
 const Generateur = require('../../v2/js/generateur.js');
+// 99 — les jours prévus d'une routine du programme, lus sur le préfixe de son nom (MOTEUR §9.24, v2_084).
+const Deraille = require('../../v2/js/deraille.js');
 require('../../v2/js/rendu.js');
 const Rendu = () => window.THRendu;
 
@@ -399,7 +401,7 @@ function bac(options) {
     priorites: null, zones_a_menager: null, exercices_ecartes: null, temps_reponse: null, duree_seance_min: null,
     intention: 'progresser' }, o.profil || {});
   const ctx = {
-    Routines, Modele, Moteur, Profil, Generateur: o.generateur || Generateur, Donnees,
+    Routines, Modele, Moteur, Profil, Generateur: o.generateur || Generateur, Donnees, Deraille,
     Seance: o.freres ? { freresProposes: () => o.freres.map((f) => Object.assign({ deja_dans_la_seance: false }, f)) } : { freresProposes: () => [] },
     Rendu: {
       rendreApercuProgramme: (c, v) => { journal.feuilles.push(v); ctx.__vue = v; },

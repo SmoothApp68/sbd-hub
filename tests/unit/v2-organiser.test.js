@@ -250,8 +250,8 @@ describe('52-1 — les dossiers (ECRAN-SAISIE §7 duodecies.3)', () => {
     expect(R.parDossier(lib.map((r) => Object.assign({}, r, { dossier: null })))).toBeNull();
   });
 
-  test('la liste blanche de `routines` : nom, rang, dossier, user_id — rien d’autre', () => {
-    expect(R.CHAMPS_ROUTINE).toEqual(['user_id', 'nom', 'rang', 'dossier']);
+  test('la liste blanche de `routines` : nom, rang, dossier, user_id, jours (99, v2_084) — rien d’autre', () => {
+    expect(R.CHAMPS_ROUTINE).toEqual(['user_id', 'nom', 'rang', 'dossier', 'jours']);
     expect(R.ligneRoutine({ nom: 'A', dossier: 'B', note: 'x', archivee_a: 'y', id: 'z' })).toEqual({ nom: 'A', dossier: 'B' });
   });
 

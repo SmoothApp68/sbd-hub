@@ -166,7 +166,9 @@ const GARDEES = [
   { fn: 'associer', module: 'generateur.js' },
   { fn: 'verifierAssociation', module: 'generateur.js' },
   { fn: 'habiller', module: 'generateur.js' },
-  { fn: 'changementsDeLApercu', module: 'generateur.js' }
+  { fn: 'changementsDeLApercu', module: 'generateur.js' },
+  // deraille.js — la semaine qui déraille (99, MOTEUR §9.24)
+  { fn: 'semaineQuiDeraille', module: 'deraille.js' }
 ];
 
 // ── LA LISTE D'AUTORISATIONS ────────────────────────────────────────────────
@@ -183,6 +185,12 @@ const LE_COACH = 'plan.js';
 // (29/09/2026) et sont RAPPORTÉES dans sa PR pour décision : elles ne sont pas
 // forcées dans le plan par ce commit.
 const AUTORISATIONS = {
+  semaineQuiDeraille: {
+    'app.js': 'MOTEUR §9.24 (99) : la carte de la semaine qui déraille vit sur Saisie, AVANT toute séance — donc sans ' +
+      'plan ; l’écran passe à la règle son entrée (le programme, les faits de `faits.semaineDuProgramme`, les décisions ' +
+      'de la semaine) et lit la carte telle quelle (app.js, `rendreCarteSemaine`). Un exercice ajouté entre ensuite ' +
+      'dans la séance et le plan le coache comme les autres.'
+  },
   periodeAllegee: {
     'app.js': 'MOTEUR §9.18 (51-1 ter) : l’écran de la ROUTINE, avant toute séance — donc sans plan — ' +
       'dit si une semaine allégée est en cours, pour taire « J’ai peu de temps » et afficher la durée ' +
@@ -409,14 +417,15 @@ const NOTIONS = [
     raison: 'aucun écran ne lit le palier brut : les faits passent par `Modele`, les mots du ' +
       'coach par la consigne. La page et Progression l’appelaient chacune à part.' },
   { notion: 'la série de travail (le type, `travail` quand il manque)', pr: 'PR 6',
-    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js', 'reserve.js', 'bilans.js'],
+    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js', 'reserve.js', 'bilans.js', 'deraille.js'],
     motif: /\.\s*estTravail\s*\(/g,
     par: ['exercicesFaits', 'tableParReps', 'construireBlocs'],
     interditAilleurs: { motif: /type_serie\s*[!=]==?\s*(['"])travail\1|typeDe\([^()]*\)\s*[!=]==?\s*(['"])travail\2|\|\|\s*(['"])travail\3\s*\)\s*[!=]==?/,
       raison: 'une comparaison à « travail » écrite en dur : passer par `Modele.estTravail` (ou `typeDe`)' },
     raison: 'cinq définitions : une série sans type était du travail pour le moteur et le plan, ' +
       'pas pour les écrans ; la base dit `travail` par défaut. 78 : la question de réserve lit l’effort de la ' +
-      'dernière série de TRAVAIL de chaque séance passée (`reserve.js`, `passeDeReserve`).' },
+      'dernière série de TRAVAIL de chaque séance passée (`reserve.js`, `passeDeReserve`). 99 : la semaine qui déraille ' +
+      'compte les séries de travail que prévoit une routine (`deraille.js`).' },
   { notion: 'le compte des séries de travail (la règle du volume)', pr: 'PR 6',
     module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js', 'bilan.js', 'faits.js', 'bilans.js'],
     parAilleurs: { 'modele.js': ['resumerSeance', 'construireBlocs'], 'seance.js': ['compter'], 'bilan.js': ['bilanDuMois'],
@@ -527,11 +536,12 @@ const NOTIONS = [
   { notion: 'la durée estimée d’une routine (MOTEUR §9.18)', pr: '51-U1',
     // generateur.js (66D) : `associer` estime chaque séance par la même fonction — le superset tant qu'elle
     // dépasse la cible (QUESTIONNAIRE-COACH-V2 §5 quater.4 bis).
-    module: 'moteur.js', fonction: 'dureeEstimee', lecteurs: ['app.js', 'generateur.js'],
+    module: 'moteur.js', fonction: 'dureeEstimee', lecteurs: ['app.js', 'generateur.js', 'deraille.js'],
     par: ['raccourcirRoutine'],
     parAilleurs: { 'app.js': ['tempsDeLaRoutine'], 'generateur.js': ['associer'] },
     raison: 'une seule fonction pour la durée affichée sur la routine, la durée allégée et la carte ; ' +
-      'ses constantes sont des valeurs par défaut, définies une fois (`DUREE_PAR_DEFAUT`).' },
+      'ses constantes sont des valeurs par défaut, définies une fois (`DUREE_PAR_DEFAUT`). 99 : la semaine qui déraille ' +
+      'n’ajoute un exercice à une séance que dans la durée visée, par cette même estimation (`deraille.js`).' },
   { notion: 'le raccourci d’une routine (« J’ai peu de temps », MOTEUR §9.18)', pr: '51-U1',
     module: 'moteur.js', fonction: 'raccourcirRoutine', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['montrerCarteRaccourci'] },
@@ -716,12 +726,13 @@ const NOTIONS = [
     raison: 'lourd → mix → hypertrophie → volume → séries longues, dans l’ordre de la table des ' +
       'zones : une définition, que la carte et la correction de zone lisent.' },
   { notion: 'les séries par muscle (un principal la série entière, un secondaire pour moitié, un stabilisateur pour un quart)', pr: '55-U1',
-    module: 'semaine.js', fonction: 'volumeParMuscle', lecteurs: ['bilan.js', 'faits.js', 'bilans.js'],
+    module: 'semaine.js', fonction: 'volumeParMuscle', lecteurs: ['bilan.js', 'faits.js', 'bilans.js', 'deraille.js'],
     par: ['semainesDeVolume', 'volumeParZone'],
     parAilleurs: { 'bilan.js': ['bilanDuMois'], 'faits.js': ['recapDeLaSeance'] },
     raison: 'REGLE-VOLUME et MOTEUR §9.23 (H2, #371) : le bloc Volume et le bilan du mois comptent les séries ' +
       'par muscle par la même fonction — deux définitions d’une même grandeur, c’est ce que UN-SEUL-FIL interdit. ' +
-      '71 : le récap de fin de séance aussi (ECRAN-SAISIE §7 septies.4 bis).' },
+      '71 : le récap de fin de séance aussi (ECRAN-SAISIE §7 septies.4 bis). 99 : le volume que PRÉVOIT le programme ' +
+      '(la semaine qui déraille, `deraille.js`) se compte par la même fonction que le volume fait (`faits.semaineDuProgramme`).' },
   // ── 65 — LE POIDS D'UN MUSCLE (REGLE-VOLUME §1 bis, v2_069) : une table, lue par le coach et le jeu ──
   { notion: 'le poids d’un muscle dans une série (principal 1, secondaire ½, stabilisateur ¼)', pr: '65-U1',
     module: 'semaine.js', fonction: 'musclesPonderes', lecteurs: ['jeu.js', 'generateur.js'],
@@ -1343,7 +1354,7 @@ describe('architecture — un seul coach, un seul câblage', () => {
     require('../../v2/js/modele.js');
     require('../../v2/js/palier.js');
     const modules = { 'moteur.js': require('../../v2/js/moteur.js'), 'seance.js': require('../../v2/js/seance.js'),
-      'generateur.js': require('../../v2/js/generateur.js') };
+      'generateur.js': require('../../v2/js/generateur.js'), 'deraille.js': require('../../v2/js/deraille.js') };
     const absentes = GARDEES.filter((g) => typeof modules[g.module][g.fn] !== 'function')
       .map((g) => g.module + ' n’exporte plus `' + g.fn + '` : mets la liste GARDEES à jour.');
     expect(absentes).toEqual([]);

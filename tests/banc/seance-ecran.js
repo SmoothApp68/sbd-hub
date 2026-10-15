@@ -3519,6 +3519,16 @@ const SETS_IMPORTES = [
   // Une rangée est adressée par son INDICE D'AFFICHAGE dans le bloc — c'est
   // l'ordre entrelacé, donc exactement ce qu'un pouce touche.
   const validerRangee = async (iBloc, iRangee) => {
+    // 100 (ECRAN §3 bis.3 bis) — une série chargée sans charge ni fantôme ne se
+    // valide plus : comme une vraie personne, on tape le poids (40 kg) avant le ✓.
+    const l = (await (await page.$$('.bloc-seance'))[iBloc].$$('.ligne-serie'))[iRangee];
+    const ch = await l.$('.serie.g-charge_reps .ch-serie input');
+    if (ch && !(await l.$('.ok-serie.cochee')) &&
+        (await ch.evaluate((e) => e.value === '' && !/\d/.test(e.placeholder || '')))) {
+      await ch.fill('40');
+      await ch.evaluate((e) => e.blur());
+      await attendre(300);
+    }
     await page.evaluate(([k, r]) => {
       document.querySelectorAll('.bloc-seance')[k]
         .querySelectorAll('.ligne-serie')[r].querySelector('.ok-serie').click();

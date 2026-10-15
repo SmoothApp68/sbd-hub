@@ -36,6 +36,23 @@ const PORT = Number(process.env.BANC_PORT || 8860);
 const BASE = 'http://127.0.0.1:' + PORT;
 
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// 96 — TOUTE ÉVALUATION EST BORNÉE. Un `page.evaluate` sans limite pend aussi
+// longtemps que la page (ou le service worker) ne répond pas : sous charge, le
+// banc entier restait suspendu sur une seule. Passé `BORNE_EVAL_MS`, l'évaluation
+// est REJETÉE — les appels qui avaient un `.catch` retombent sur leur valeur de
+// repli, les autres font échouer le scénario avec un message lisible, au lieu de
+// pendre. Ce que chaque évaluation lit ne change pas.
+const BORNE_EVAL_MS = 15000;
+// Scénario 5 : le plafond d'attente de l'activation du nouveau service worker (86 : 20 s).
+const PLAFOND_ACTIVATION_MS = 20000;
+function evaluer(cible, fn, arg) {
+  let minuteur;
+  const borne = new Promise((_, refuser) => {
+    minuteur = setTimeout(() => refuser(new Error('évaluation sans réponse en ' + BORNE_EVAL_MS / 1000 + ' s')), BORNE_EVAL_MS);
+  });
+  return Promise.race([cible.evaluate(fn, arg), borne]).finally(() => clearTimeout(minuteur));
+}
 let echecs = 0;
 
 function verifier(nom, condition, detail) {
@@ -50,14 +67,14 @@ async function ouvrir(page, chemin) {
   await page.goto(BASE + chemin, { waitUntil: 'domcontentloaded', timeout: 12000 })
     .catch((e) => { erreur = (e.message.split('\n')[0] || '').slice(0, 60); });
   await attendre(1500);
-  const vue = await page.evaluate(() => ({
+  const vue = await evaluer(page, () => ({
     titre: document.title,
     sections: document.querySelectorAll('section').length
   })).catch(() => ({ titre: null, sections: 0 }));
   return { erreur: erreur, sections: vue.sections, titre: vue.titre };
 }
 
-const etatCache = (page) => page.evaluate(async () => {
+const etatCache = (page) => evaluer(page, async () => {
   const noms = await caches.keys();
   const sortie = { noms: noms, entrees: 0, redirigees: [] };
   for (const nom of noms) {
@@ -128,7 +145,7 @@ const SCENARIOS = [
   run: () => session(async (page) => {
     await installerSW(page);
     // On interroge directement ce que le service worker servirait.
-    const verdict = await page.evaluate(async () => {
+    const verdict = await evaluer(page, async () => {
       const c = await caches.open((await caches.keys())[0]);
       const r = await c.match('/index.html');
       return r ? { existe: true, redirected: r.redirected, status: r.status, ok: r.ok } : { existe: false };
@@ -154,7 +171,7 @@ const SCENARIOS = [
     await installerSW(page);
     // On empoisonne le cache À LA MAIN avec ce que le chantier 18 y mettait :
     // une réponse 200, `ok`, `basic`, mais redirigée.
-    const pose = await page.evaluate(async () => {
+    const pose = await evaluer(page, async () => {
       const c = await caches.open((await caches.keys())[0]);
       // `/index.html` tout court serait servi PAR LE SERVICE WORKER depuis le
       // cache, donc propre. On ajoute une chaîne de requête : elle rate le
@@ -170,7 +187,7 @@ const SCENARIOS = [
     verifier('la navigation passe QUAND MÊME (réseau)', !apres.erreur && apres.sections > 0,
       apres.erreur || apres.sections + ' sections');
     // Et cache entièrement vidé : idem, le réseau prend le relais.
-    await page.evaluate(async () => { for (const n of await caches.keys()) await caches.delete(n); });
+    await evaluer(page, async () => { for (const n of await caches.keys()) await caches.delete(n); });
     const vide = await ouvrir(page, '/semaine/2026-08-24');
     verifier('cache vidé : la navigation passe aussi', !vide.erreur && vide.sections > 0,
       vide.erreur || vide.sections + ' sections');
@@ -193,12 +210,12 @@ const SCENARIOS = [
       // et c'est elle qui l'installe. Des données utilisateur sont posées au
       // passage : tout ce chantier vise à ne PAS avoir à les effacer.
       await page.goto(BASE + '/', { waitUntil: 'networkidle' });
-      await page.evaluate(() => localStorage.setItem('banc-marqueur', 'données précieuses'));
+      await evaluer(page, () => localStorage.setItem('banc-marqueur', 'données précieuses'));
       await page.waitForFunction(() => navigator.serviceWorker.controller !== null, { timeout: 15000 })
         .catch(() => {});
       await attendre(1500);
 
-      const etat = await page.evaluate(async () => {
+      const etat = await evaluer(page, async () => {
         const noms = await caches.keys();
         if (!noms.length) return { aucun: true };
         const r = await (await caches.open(noms[0])).match('/index.html');
@@ -222,7 +239,7 @@ const SCENARIOS = [
       const versionCorrigee = (CORRIGE.match(/const CACHE_V2 = '([^']+)'/) || [])[1];
       const nouveauActif = async () => {
         for (const w of page.context().serviceWorkers()) {
-          const v = await w.evaluate(() => (typeof CACHE_V2 === 'string' && self.serviceWorker
+          const v = await evaluer(w, () => (typeof CACHE_V2 === 'string' && self.serviceWorker
             && self.serviceWorker.state === 'activated') ? CACHE_V2 : null).catch(() => null);
           if (v && v === versionCorrigee) return true;
         }
@@ -233,9 +250,12 @@ const SCENARIOS = [
         const v = await ouvrir(page, '/');
         if (!v.erreur && v.sections > 0) { revenue = i; break; }
         if (actif === null) {
-          const fin = Date.now() + 20000;
+          const t0 = Date.now(), fin = t0 + PLAFOND_ACTIVATION_MS;
           actif = false;
           while (Date.now() < fin && !(actif = await nouveauActif())) await attendre(200);
+          // 96 — la mesure, dans le journal : c'est elle qui dit si le plafond est juste.
+          console.log('      (activation du nouveau service worker : ' + (actif ? (Date.now() - t0) + ' ms' : 'jamais') +
+            ', plafond ' + PLAFOND_ACTIVATION_MS / 1000 + ' s)');
           if (!actif) break;
         }
       }
@@ -245,7 +265,7 @@ const SCENARIOS = [
           : actif === false ? 'le nouveau service worker (' + versionCorrigee + ') n’est jamais devenu actif en 20 s'
             : 'toujours cassée après 4 rechargements');
 
-      const fin = await page.evaluate(async () => {
+      const fin = await evaluer(page, async () => {
         const sales = [];
         for (const n of await caches.keys()) {
           const c = await caches.open(n);
@@ -276,7 +296,7 @@ const SCENARIOS = [
     // qui empêche l'app de s'ouvrir. On ferme la connexion avant de tirer la
     // trappe : une base tenue ouverte part en `blocked`, et c'est le scénario
     // que couvre `tests/unit/v2-service-worker.test.js`.
-    const bases = await page.evaluate(() => new Promise((res) => {
+    const bases = await evaluer(page, () => new Promise((res) => {
       const r = indexedDB.open('trainhub-v2', 3);
       r.onupgradeneeded = () => {
         const db = r.result;
@@ -289,10 +309,10 @@ const SCENARIOS = [
     verifier('une base locale existe avant', bases === 'ouverte', String(bases));
 
     const trappe = await ouvrir(page, '/__sw-off');
-    const texte = await page.evaluate(() => document.body ? document.body.innerText : '').catch(() => '');
+    const texte = await evaluer(page, () => document.body ? document.body.innerText : '').catch(() => '');
     verifier('la trappe répond', !trappe.erreur, trappe.erreur || 'servie');
     verifier('elle dit ce qu’elle a fait', /service worker/i.test(texte), texte.split('\n')[0]);
-    const apres = await page.evaluate(async () => {
+    const apres = await evaluer(page, async () => {
       const noms = await caches.keys();
       const detail = {};
       for (const n of noms) detail[n] = (await (await caches.open(n)).keys()).length;
@@ -304,7 +324,7 @@ const SCENARIOS = [
       apres.caches + ' restant(s) ' + JSON.stringify(apres.detail) +
       ' · contrôlé=' + apres.controle);
     verifier('service worker désinscrit', apres.sw === 0, apres.sw + ' restant(s)');
-    const restantes = await page.evaluate(async () => {
+    const restantes = await evaluer(page, async () => {
       if (typeof indexedDB.databases !== 'function') return 'indisponible';
       return (await indexedDB.databases()).map((d) => d.name).join(',') || 'aucune';
     }).catch((e) => String(e).slice(0, 60));
@@ -336,7 +356,7 @@ const SCENARIOS = [
     // worker : chacune des sept faces se charge, serveur coupé. Une police
     // absente du cache échouerait ici (et l'app retomberait, sans bruit, sur
     // la police système).
-    const polices = await page.evaluate(async () => {
+    const polices = await evaluer(page, async () => {
       const faces = Array.from(document.fonts).filter((f) => /Barlow/.test(f.family));
       await Promise.all(faces.map((f) => f.load().catch(() => null)));
       return faces.map((f) => f.family.replace(/"/g, '') + ' ' + f.weight + ' ' + f.status);
@@ -353,23 +373,23 @@ const SCENARIOS = [
     const versionNouvelle = (NOUVEAU.match(/const CACHE_V2 = '([^']+)'/) || [])[1];
     const dossier = racineAvecSW(ACTUEL);
     await session(async (page) => {
-      const majVisible = () => page.evaluate(() => { const b = document.getElementById('bandeau-maj');
+      const majVisible = () => evaluer(page, () => { const b = document.getElementById('bandeau-maj');
         return !!b && !b.hidden && getComputedStyle(b).display !== 'none'; }).catch(() => false);
       // Première visite : le service worker s'installe et prend la main. C'est
       // une PREMIÈRE INSTALLATION — rien à annoncer.
       await installerSW(page);
-      await page.evaluate(() => localStorage.setItem('banc-marqueur', 'données précieuses'));
+      await evaluer(page, () => localStorage.setItem('banc-marqueur', 'données précieuses'));
       await attendre(1000);
       verifier('[maj-premiere-installation] à la première installation, aucun bandeau', !(await majVisible()));
       // Rechargement normal : la page démarre déjà contrôlée.
       await ouvrir(page, '/');
-      await page.evaluate(() => { window.__sansRechargement = 1; });
+      await evaluer(page, () => { window.__sansRechargement = 1; });
       verifier('l’app tourne, aucun bandeau', !(await majVisible()));
 
       deployer(dossier, NOUVEAU);   // ← la nouvelle version est mise en ligne, app ouverte
       // Ce que fait l'app quand elle revient au premier plan : chercher une mise à jour.
       // Borné : une attente sans issue ferait pendre le banc entier (vu sous `tout.js`).
-      await page.evaluate(() => Promise.race([
+      await evaluer(page, () => Promise.race([
         navigator.serviceWorker.getRegistration().then((r) => r && r.update()).catch(() => null),
         new Promise((r) => setTimeout(r, 10000))
       ])).catch(() => {});
@@ -377,15 +397,15 @@ const SCENARIOS = [
         return !!b && !b.hidden; }, null, { timeout: 20000 }).catch(() => {});
       verifier('[maj-bandeau] le bandeau « Une nouvelle version est prête. » apparaît',
         await majVisible() && /Une nouvelle version est prête\./.test(
-          await page.evaluate(() => document.getElementById('bandeau-maj').textContent)));
+          await evaluer(page, () => document.getElementById('bandeau-maj').textContent)));
       await attendre(1500);
       verifier('[maj-sans-rechargement-impose] et l’app NE se recharge PAS d’elle-même',
-        await page.evaluate(() => window.__sansRechargement === 1).catch(() => false));
+        await evaluer(page, () => window.__sansRechargement === 1).catch(() => false));
 
       await page.click('#btn-maj-recharger', { timeout: 5000 }).catch(() => {});
       await page.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {});
       await attendre(1500);
-      const apres = await page.evaluate(async () => ({
+      const apres = await evaluer(page, async () => ({
         recharge: window.__sansRechargement === undefined,
         caches: await caches.keys(),
         marqueur: localStorage.getItem('banc-marqueur'),

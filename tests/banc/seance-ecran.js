@@ -8990,6 +8990,9 @@ const SETS_IMPORTES = [
           x[0].value = v[0]; x[0].dispatchEvent(new Event('input', { bubbles: true }));
           x[1].value = v[1]; x[1].dispatchEvent(new Event('input', { bubbles: true }));
         }, [String(c), String(r)]);
+      } else {
+        // 105 — la planche du superset : sa durée se tape si rien ne la grise (ECRAN §3 bis.3 bis).
+        await casesSiVides(l);
       }
       // Une validation sur deux après un déverrouillage, l'autre normalement.
       if (i % 2 === 0) {

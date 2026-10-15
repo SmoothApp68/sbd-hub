@@ -1013,10 +1013,12 @@
       });
       seances.sort(function (a, b) { return a.jour < b.jour ? -1 : (a.jour > b.jour ? 1 : 0); });
       var index = c.catalogue() || {};
+      var auj = Moteur.jourCivil(aujourdhui);
       return {
         periode: periode,
-        aujourdhui: Moteur.jourCivil(aujourdhui),
+        aujourdhui: auj,
         seances: seances,
+        salle: tempsALaSalle(c, periode.debut, auj && auj < periode.fin ? auj : periode.fin),
         exercices: Object.keys(index).map(function (slug) { return index[slug]; }),
         pesees: (Poids ? Poids.normaliser(o.pesees || []) : []).map(function (p) {
           return { jour: Moteur.jourCivil(p.date), poids: p.poids };
@@ -1026,6 +1028,25 @@
         })
       };
     }
+    // 97 — LES HEURES ET LES JOURS À LA SALLE d'une période (BILANS-V1, décision du 15/10/2026) : un FAIT, jamais
+    // comparé à une autre période. `de`, `a` : des jours civils `AAAA-MM-JJ` inclus (heure de l'appareil, Paris).
+    // Les jours : les jours civils distincts qui ont une séance terminée (deux séances le même jour : un jour). Les
+    // heures : la somme des durées des séances terminées qui ont une fin après leur début ; une séance de plus de 5 h
+    // (une séance oubliée ouverte) n'entre pas dans les heures, mais son jour compte. Rend `{ jours, minutes }`.
+    var SALLE_DUREE_MAX_MS = 5 * 3600000;
+    function tempsALaSalle(c, de, a) {
+      var jours = {}, ms = 0;
+      (c.seances || []).forEach(function (s) {
+        if (!s || !s.id || !s.debut || s.statut === 'en_cours') return;
+        var jour = Moteur.jourCivil(s.debut);
+        if (!jour || (de && jour < de) || (a && jour > a)) return;
+        jours[jour] = true;
+        var t0 = Date.parse(s.debut), t1 = s.fin ? Date.parse(s.fin) : NaN;
+        if (isFinite(t0) && isFinite(t1) && t1 > t0 && t1 - t0 <= SALLE_DUREE_MAX_MS) ms += t1 - t0;
+      });
+      return { jours: Object.keys(jours).length, minutes: Math.round(ms / 60000) };
+    }
+
     // Une mémoire PAR PÉRIODE : le sommaire lit l'année écoulée, puis (hors production) l'année en cours.
     var memoBilans = {};
     function bilanDePeriode(c, periode, aujourdhui, autres) {
@@ -1085,6 +1106,7 @@
 
     return {
       entreeDuBilan: entreeDuBilan,
+      tempsALaSalle: tempsALaSalle,
       bilanDePeriode: bilanDePeriode,
       faitsDuJeuDeLaPeriode: faitsDuJeuDeLaPeriode,
       entreeDuParcours: entreeDuParcours,

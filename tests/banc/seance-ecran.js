@@ -19559,7 +19559,9 @@ const SETS_IMPORTES = [
       seance95(d, [['squat_barre', 120, 5], ['squat_barre', 100, 8], ['developpe_couche_barre', 100, 5],
         ['developpe_couche_barre', 85, 8], ['souleve_de_terre_barre', 160, 3]]);
     }
+    let seancesAn95 = 0;
     for (let d = new Date(ANNEE, 0, 2); d.getFullYear() === ANNEE && d <= hier; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 10)) {
+      seancesAn95++;
       seance95(d, [['squat_barre', 130, 5], ['squat_barre', 105, 8], ['developpe_couche_barre', 100, 5],
         ['developpe_couche_barre', 87.5, 8], ['souleve_de_terre_barre', 170, 3], ['squat_barre', 20, 900]]);
     }
@@ -19583,7 +19585,7 @@ const SETS_IMPORTES = [
     await capturer95('1-ouverture');
     ok('[A95] DISCRIMINANT — `?bilan=' + ANNEE + '` ouvre « Ton année » sur l’ouverture, les écrans dans l’ordre de la maquette',
       ouvert.visible && ouvert.ecran === 'ouverture' &&
-        JSON.stringify(ouvert.cles) === JSON.stringify(['ouverture', 'tonnes', 'mois', 'reps', 'profil', 'muscle',
+        JSON.stringify(ouvert.cles) === JSON.stringify(['ouverture', 'tonnes', 'salle', 'mois', 'reps', 'profil', 'muscle',
           'exercice', 'seance', 'barres', 'avance', 'jeu', 'plaque']), JSON.stringify(ouvert));
     await page.waitForFunction(() => document.getElementById('annee').dataset.ecran === 'tonnes', null, { timeout: 9000 })
       .catch(() => {});
@@ -19650,9 +19652,27 @@ const SETS_IMPORTES = [
       const s = document.querySelector('#annee .s.on');
       return { cle: s.dataset.cle, texte: s.textContent, bouton: (s.querySelector('.btn') || {}).textContent };
     });
-    ok('[A95] la plaque finale : « Partager mon année », sans le coach ni le nombre de séances',
-      plaque.cle === 'plaque' && plaque.bouton === 'Partager mon année' && !/pari|coach|séance/i.test(plaque.texte),
+    ok('[A95] la plaque finale : « Partager mon année », sans le coach',
+      plaque.cle === 'plaque' && plaque.bouton === 'Partager mon année' && !/pari|coach/i.test(plaque.texte),
       JSON.stringify(plaque));
+    // 97 (BILANS-V1, 15/10/2026) : les heures et les jours à la salle ont leur écran, juste après les tonnes, comme un
+    // fait — jamais comparés (l'année d'avant est pleine ici : une comparaison serait possible) ; le nombre de séances
+    // de l'année n'est écrit nulle part (une séance par jour ici : le nombre de jours, lui, est attendu ; l'écran de
+    // l'exercice de l'année dit SES séances, qui sont ici toutes — il est hors de ce contrôle).
+    const salle97 = await page.evaluate(() => {
+      const h = document.getElementById('annee');
+      const s = h.querySelector('.s[data-cle="salle"]');
+      return { texte: s ? s.textContent : null, heures: s ? Number((s.querySelector('.cpt') || {}).dataset.v) : null,
+               tout: Array.from(h.querySelectorAll('.s')).filter((x) => x.dataset.cle !== 'salle' && x.dataset.cle !== 'exercice')
+                 .map((x) => x.textContent).join(' | ') };
+    });
+    const heures97 = seancesAn95;   // `finDe` : une heure par séance passée
+    ok('[A95] DISCRIMINANT — 97 : l’écran « À la salle » dit les heures et les jours, sans aucune comparaison',
+      !!salle97.texte && salle97.heures === heures97 && salle97.texte.indexOf('sur ' + seancesAn95 + ' jour') >= 0 &&
+        !/[+−→↑↗↘↓]|de plus|de moins|comme|qu’en|\b(19|20)\d\d\b/.test(salle97.texte),
+      JSON.stringify([salle97.texte, salle97.heures, heures97, seancesAn95]));
+    ok('[A95] DISCRIMINANT — 97 : le nombre de séances de l’année (' + seancesAn95 + ') n’est écrit sur aucun autre écran',
+      !new RegExp('\\b' + seancesAn95 + '\\s*séances?').test(salle97.tout), salle97.tout.slice(0, 400));
 
     // ── F. RIEN N'EST ÉCRIT ; FERMER ; LE BLOC DE PROGRESSION.
     ok('[A95] DISCRIMINANT — rien n’est écrit pendant le bilan', ecritures() === ecritures95,

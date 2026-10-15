@@ -1133,6 +1133,11 @@ const NOTIONS = [
     module: 'faits.js', fonction: 'entreeDuBilan', lecteurs: [],
     par: ['bilanDePeriode'],
     raison: 'BILANS-V1 (95) : une seule assemblée, celle que le bilan mémorisé lit.' },
+  { notion: 'les heures et les jours à la salle d’une période (jours distincts, durées des séances terminées, rien au-delà de 5 h)', pr: '97-U1',
+    module: 'faits.js', fonction: 'tempsALaSalle', lecteurs: [],
+    par: ['entreeDuBilan'],
+    raison: 'BILANS-V1 (décision du 15/10/2026) : un fait de la période, jamais comparé ; une seule règle de compte, ' +
+      'celle que l’entrée de tous les bilans (année, saison, mois) passe au moteur.' },
   { notion: 'le bilan d’une période, mémorisé (le bloc de Progression, l’annonce, l’écran « Ton année »)', pr: '95-U1',
     module: 'faits.js', fonction: 'bilanDePeriode', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['bilanDeLAnnee'] },
@@ -1554,7 +1559,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : trente-quatre (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : trente-cinq (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1565,7 +1570,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(34);
+    expect(FAITS.length).toBe(35);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

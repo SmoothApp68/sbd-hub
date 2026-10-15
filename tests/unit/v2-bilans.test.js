@@ -240,3 +240,34 @@ describe('95 — l’entrée assemblée par les faits', () => {
     expect(b.barres.tete.charge).toBe(lourde.charge);
   });
 });
+
+describe('97 — les heures et les jours à la salle (BILANS-V1, 15/10/2026)', () => {
+  // Heure de Paris : 23:30 UTC le 14 octobre est le 15 octobre à Paris.
+  const seances = [
+    { id: 'a', debut: '2026-03-02T17:00:00Z', fin: '2026-03-02T18:30:00Z', statut: 'terminee' },   // 1 h 30
+    { id: 'b', debut: '2026-03-02T19:00:00Z', fin: '2026-03-02T20:00:00Z', statut: 'terminee' },   // même jour, 1 h
+    { id: 'c', debut: '2026-03-05T17:00:00Z', fin: null, statut: 'terminee' },                     // sans fin
+    { id: 'd', debut: '2026-03-07T08:00:00Z', fin: '2026-03-07T14:00:00Z', statut: 'terminee' },   // 6 h : pas d'heures
+    { id: 'e', debut: '2026-03-09T08:00:00Z', fin: '2026-03-09T13:00:00Z', statut: 'terminee' },   // 5 h pile : compte
+    { id: 'f', debut: '2026-10-14T23:30:00Z', fin: '2026-10-15T00:30:00Z', statut: 'terminee' },   // le 15 à Paris
+    { id: 'g', debut: '2026-03-10T17:00:00Z', statut: 'en_cours' },                                // en cours : rien
+    { id: 'h', debut: '2025-12-31T17:00:00Z', fin: '2025-12-31T18:00:00Z', statut: 'terminee' }    // l'année d'avant
+  ];
+  const f = Faits.creer();
+  const c = { seances };
+  test('deux séances le même jour : UN jour ; sans fin : le jour, pas d’heures ; 6 h : le jour, pas d’heures', () => {
+    expect(f.tempsALaSalle(c, '2026-01-01', '2026-12-31')).toEqual({ jours: 5, minutes: 90 + 60 + 300 + 60 });
+  });
+  test('le jour civil de Paris, et la fenêtre de la période', () => {
+    expect(f.tempsALaSalle(c, '2026-10-15', '2026-10-15')).toEqual({ jours: 1, minutes: 60 });
+    expect(f.tempsALaSalle(c, '2026-10-14', '2026-10-14')).toEqual({ jours: 0, minutes: 0 });
+    expect(f.tempsALaSalle(c, '2025-01-01', '2025-12-31')).toEqual({ jours: 1, minutes: 60 });
+  });
+  test('l’entrée du bilan le porte, borné à aujourd’hui ; le moteur le rend, sans comparaison', () => {
+    const e = f.entreeDuBilan({ seances, series: [], seriesDe: () => [], catalogue: () => ({}) }, ANNEE,
+      new Date(2026, 2, 8, 12), {});
+    expect(e.salle).toEqual({ jours: 3, minutes: 150 });
+    const b = Bilans.bilanDeLaPeriode(Object.assign({}, e, { salle: { jours: 180, minutes: 260 * 60 } }));
+    expect(b.salle).toEqual({ jours: 180, heures: 260, joursEntiers: 11 });
+  });
+});

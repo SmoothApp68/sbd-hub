@@ -11,10 +11,16 @@ qu'elle montre sont celles d'aurel_br en 2026 : elles servent d'exemple, pas de 
 - Comparaison 2026 contre 2025. Année incomplète (moins de 12 mois de données) : début contre fin de la période. Moins de 2 mois de données : les faits seulement, aucune comparaison.
 - « Ce qui a le plus avancé » suit la règle « moins pratiqué » de Ton parcours (réutilise-la). Les records = nouvelles charges maximales seulement.
 - % du poids de corps : poids du jour estimé entre les deux pesées qui encadrent la performance (au plus 60 j de chaque côté) ; sinon la pesée la plus proche à 45 j au plus, avec « ≈ » ; sinon pas de %.
-- Jamais : l'assiduité, le nombre de séances, la santé, une comparaison à une autre personne.
+- Jamais : l'assiduité, le nombre de séances, la santé, une comparaison à une autre personne. *(En partie remplacé le 15/10/2026 : voir ci-dessous.)*
 - Partage en image de chaque écran (sur l'appareil, sans serveur).
 - Annonce : un seul message dans l'app à l'ouverture, le 1er janvier (une fois par personne et par année, mémorisé sur l'appareil ET dans le profil si une colonne adaptée existe déjà ; sinon sur l'appareil seulement, et dis-le). Le bilan reste accessible depuis Progression toute l'année suivante.
 - Écartés : « Ton moment », la devinette.
+
+### Décision du 15/10/2026 (prompt 97) — les heures et les jours à la salle
+
+« Les bilans montrent le nombre d'heures et de jours à la salle de la période, comme un fait, jamais comparés à une autre période (aucun écart, aucune flèche) : une période moins assidue ne se lit jamais comme un échec. Un écran à eux, juste après les tonnes, avec une équivalence (« ≈ 11 jours entiers sous la barre »). Les jours = jours distincts avec une séance terminée (heure de Paris) ; les heures = somme des durées des séances terminées qui ont une fin, une séance de plus de 5 h n'étant pas comptée dans les heures. Le nombre de séances lui-même n'est toujours pas affiché. »
+
+Repère réel : aurel_br en 2026 au 15/10, environ 180 jours et 260 heures.
 
 ## 2. Où cela vit (implémentation du prompt 95)
 
@@ -22,6 +28,7 @@ qu'elle montre sont celles d'aurel_br en 2026 : elles servent d'exemple, pas de 
 |---|---|
 | Le moteur, pur, la période en paramètre | `v2/js/bilans.js` — `bilanDeLaPeriode`, `periodeDeLAnnee`, `periodeDuMois` (prête, sans écran), `poidsDuJour`, `comparaisonDe` |
 | L'entrée, le bilan mémorisé, les faits du jeu bornés | `v2/js/faits.js` — `entreeDuBilan`, `bilanDePeriode`, `faitsDuJeuDeLaPeriode` |
+| Les heures et les jours à la salle (97), pour toute période | `v2/js/faits.js` — `tempsALaSalle`, passé dans l'entrée (`salle`) ; le moteur le rend (`bilan.salle`) |
 | L'écran (mots, défilement, pause, `ajuste()`, partage en image, annonce) | `v2/js/annee.js` |
 | Le bloc de Progression, l'annonce, l'accès de développement | `v2/js/app.js` (« 95 — TON ANNÉE ») |
 
@@ -64,3 +71,16 @@ zones de MUSCLES ; celles du moteur, `lourd` 3-5 / `mix` 6-8 / …, rangent autr
 12. **Le partage** : l'écran redessiné sur un canevas (1080 × 1920, Archivo), la feuille de partage de l'appareil
     (`navigator.share` avec un fichier), sinon un téléchargement. Aucun serveur.
 13. **« Voir le détail par muscle »** ouvre « Ton parcours ».
+
+## 4. Les choix tranchés en route (prompt 97), à valider
+
+1. **Séance terminée** : toute séance qui n'est pas `en_cours` (la règle de `entreeDuBilan`). Son jour : le jour civil
+   de son début, à l'heure de l'appareil (Paris).
+2. **Les heures** : seule une séance avec une fin postérieure à son début compte ; exactement 5 h compte, au-delà non
+   (son jour compte quand même). Le chiffre est arrondi à l'heure.
+3. **L'équivalence** : « ≈ N jours entiers sous la barre » (jours de 24 h, arrondis) dès 36 h ; en dessous, pas
+   d'équivalence. Aucune séance avec une fin : l'écran montre les jours seuls.
+4. **L'écran** (`salle`) : « À la salle », le chiffre des heures, « sur N jours. » puis l'équivalence. Il ne figure
+   pas sur la plaque finale (elle garde ses six cases).
+5. **La période** : du premier jour de la période à aujourd'hui (ou à sa fin) ; le même calcul sert l'année, la saison
+   et le mois.

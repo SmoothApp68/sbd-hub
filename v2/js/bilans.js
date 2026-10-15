@@ -12,11 +12,13 @@
 // (`Parcours.pratique`, `Parcours.aRepsEgales`). L'entrée est assemblée par le module des faits
 // (`faits.js`, `entreeDuBilan`) ; aucun écran n'appelle ce module.
 //
-// JAMAIS (BILANS-V1) : l'assiduité, le nombre de séances, la santé, une comparaison à une autre personne. Le
-// nombre de séances d'UN exercice (« ton exercice de l'année ») est un fait de l'exercice, pas un total.
+// JAMAIS (BILANS-V1) : le nombre de séances, la santé, une comparaison à une autre personne. Le nombre de séances
+// d'UN exercice (« ton exercice de l'année ») est un fait de l'exercice, pas un total. Les heures et les jours à la
+// salle (97, décision du 15/10/2026) sont un fait de la période, comptés par `faits.tempsALaSalle` et passés dans
+// l'entrée (`salle`) : JAMAIS comparés à une autre période (aucun écart, aucune flèche).
 //
 // L'entrée : `{ periode, aujourdhui: 'AAAA-MM-JJ', seances: [{ id, jour, titre, series }], exercices: [fiche…],
-//               pesees: [{ jour, poids }], paris: [{ jour, predite, observee }] }` — toutes les séances terminées
+//               pesees: [{ jour, poids }], paris: [{ jour, predite, observee }], salle: { jours, minutes } }` — toutes les séances terminées
 // jusqu'à la fin de la période (l'avant compte : « la plus lourde de ta vie », la comparaison).
 // Pur : aucun accès au DOM, au réseau, au stockage, à l'horloge.
 
@@ -184,6 +186,13 @@
     var kg = Bi().volumeKg(seriesIci);
     sortie.tonnes = { kg: kg, elephants: kg >= 1.5 * ELEPHANT_KG ? Math.round(kg / ELEPHANT_KG) : null,
                       objet: kg >= 1.5 * ELEPHANT_KG ? null : Bi().comparaison(kg, 'bilan-' + periode.cle) };
+
+    // Les heures et les jours à la salle : le fait tel quel, sans comparaison ; l'équivalence en jours entiers
+    // (24 h) à partir d'un jour et demi.
+    var sa = e.salle || { jours: 0, minutes: 0 };
+    var heures = Math.round(sa.minutes / 60);
+    sortie.salle = { jours: sa.jours, heures: heures,
+                     joursEntiers: sa.minutes >= 1.5 * 24 * 60 ? Math.round(sa.minutes / (24 * 60)) : null };
 
     // Mois par mois (jusqu'au mois d'aujourd'hui), le plus lourd, le mois en cours.
     var parMois = [], m = moisDe(periode.debut), mFin = moisDe(fin);

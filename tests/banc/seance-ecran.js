@@ -1938,14 +1938,19 @@ const SETS_IMPORTES = [
   // Les lignes de série sont réparties dans plusieurs blocs : on les adresse par
   // leur index GLOBAL, pas par `nth-child`, qui compterait l'en-tête du bloc.
   const ligne = async (i) => (await page.$$('.ligne-serie'))[i];
-  // 100 (ECRAN §3 bis.3 bis) — une série chargée sans charge tapée ni fantôme ne se valide plus :
-  // comme une vraie personne, on tape le poids avant le ✓. Rien n'est tapé si la ligne a un chiffre.
-  const poidsSiAucun = async (l, kg) => {
-    const ch = l && await l.$('.serie.g-charge_reps .ch-serie input');
-    if (ch && !(await l.$('.ok-serie.cochee')) &&
-        (await ch.evaluate((e) => e.value === '' && !/\d/.test(e.placeholder || '')))) {
-      await ch.fill(String(kg || 40));
-      await ch.evaluate((e) => e.blur());
+  // 100 puis 105 (ECRAN §3 bis.3 bis) — une série dont une case obligatoire (charge, reps, durée, distance) est vide
+  // et sans chiffre gris ne se valide plus : comme une vraie personne, on tape ce qui manque avant le ✓. Rien n'est
+  // tapé dans une case qui a un chiffre (tapé, gris, ou la fourchette du coach).
+  const casesSiVides = async (l, kg, reps) => {
+    if (!l || (await l.$('.ok-serie.cochee'))) return;
+    const valeurs = { charge_kg: String(kg || 40), reps: String(reps || 8), duree: '30', distance_km: '1' };
+    for (const nom of Object.keys(valeurs)) {
+      const inp = await l.$('[data-champ="' + nom + '"] input');
+      if (!inp) continue;
+      if (!(await inp.evaluate((e) => e.value === '' && !/\d/.test(e.placeholder || '')))) continue;
+      if (nom === 'duree') { await inp.click(); await inp.type(valeurs[nom], { delay: 30 }); }
+      else await inp.fill(valeurs[nom]);
+      await inp.evaluate((e) => e.blur());
       await attendre(300);
     }
   };
@@ -3569,7 +3574,7 @@ const SETS_IMPORTES = [
   // Une rangée est adressée par son INDICE D'AFFICHAGE dans le bloc — c'est
   // l'ordre entrelacé, donc exactement ce qu'un pouce touche.
   const validerRangee = async (iBloc, iRangee) => {
-    await poidsSiAucun(await ligneDuBloc(iBloc, iRangee));
+    await casesSiVides(await ligneDuBloc(iBloc, iRangee));
     await page.evaluate(([k, r]) => {
       document.querySelectorAll('.bloc-seance')[k]
         .querySelectorAll('.ligne-serie')[r].querySelector('.ok-serie').click();
@@ -4676,7 +4681,7 @@ const SETS_IMPORTES = [
     const n = await compter('.ligne-serie');
     for (let i = 0; i < n; i++) {
       const l = (await page.$$('.ligne-serie'))[i];
-      await poidsSiAucun(l);
+      await casesSiVides(l);
       await l.$eval('.ok-serie', (b) => b.click());
       await attendre(200);   // rapprochées, comme un pouce sur l'appareil
     }
@@ -12203,7 +12208,7 @@ const SETS_IMPORTES = [
         securite: (c.querySelector('.douleur-securite') || {}).textContent || '' };
     });
     const validerD = async (iBloc, k) => {
-      await poidsSiAucun(await ligneDuBloc(iBloc, k));
+      await casesSiVides(await ligneDuBloc(iBloc, k));
       await page.evaluate(([b, j]) => document.querySelectorAll('.bloc-seance')[b]
         .querySelectorAll('.ligne-serie')[j].querySelector('.ok-serie').click(), [iBloc, k]);
       await attendre(900);
@@ -20203,7 +20208,7 @@ const SETS_IMPORTES = [
     });
     // Valide la série j de l'exercice i (dans le bloc i : trois exercices seuls, trois blocs).
     const valider78 = async (i, j) => {
-      await poidsSiAucun(await ligneDuBloc(i, j));
+      await casesSiVides(await ligneDuBloc(i, j));
       await page.evaluate(([b, k]) => document.querySelectorAll('.bloc-seance')[b]
         .querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), [i, j]);
       await attendre(800);

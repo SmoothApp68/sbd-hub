@@ -288,6 +288,16 @@ describe('règle corrigée du 15/10/2026 — le programme « Sèche » : Bas A m
     expect(quad).toBeLessThan(10);
     expect(tr).toBeDefined();
   });
+  test('⚠️ DISCRIMINANT — un squat qui tiendrait (volume et durée) n’est pas ajouté : le squat avec pause est son frère', () => {
+    const court = [SECHE[0],
+      { id: 'bas-a', nom: 'Mardi — Bas A', jours: [2], exercices: [e2('squat', 3, 0, 120), e2('presse', 3, 0, 120)] },
+      SECHE[2],
+      { id: 'bas-b', nom: 'Vendredi — Bas B', jours: [5], exercices: [e2('squat_pause', 3, 0, 120), e2('legcurl', 3, 0, 90)] }];
+    const c2 = D.semaineQuiDeraille({ jour: '2026-10-14', catalogue: C2, debutant: false, dureeMax_s: null, volume: {}, etat: null,
+      routines: court, seances: [{ jour: '2026-10-12', routine_id: 'haut-a', slugs: ['couche'] }] });
+    const r2 = c2.choix.filter((x) => x.cle === 'repartir')[0];
+    expect(r2.ajouts.map((a) => [a.nomRoutine, a.slug, a.series])).toEqual([['Bas B', 'presse', 3]]);
+  });
   test('rien ne va dans Haut B (jeudi, la veille de Bas B : les mollets n’y tiennent pas dans la durée)', () => {
     expect(rep.ajouts.some((a) => a.routine === 'haut-b')).toBe(false);
   });

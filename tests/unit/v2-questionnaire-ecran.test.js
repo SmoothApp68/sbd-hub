@@ -488,7 +488,7 @@ describe('60-2a — la décision se reprend quand la ligne de profil ARRIVE', ()
       // 60-2b — l'identifiant d'une écriture de profil est celui de la session du CLIENT.
       Auth: { sessionCourante: () => Promise.resolve({ user: { id: 'u1' } }) }, entrer: () => {},
       Donnees: { monProfil: () => Promise.resolve(ligneDistante), enregistrerProfil: (id, c) => Promise.resolve(Object.assign({ id }, c, { questionnaire_fait_le: null })) },
-      Profil, profil: avant === undefined ? null : avant, profilAEnvoyer: false, pseudoAInscrire: null, versionProfil: 0,
+      Profil, profil: avant === undefined ? null : avant, profilAEnvoyer: false, pseudoAInscrire: null, versionProfil: 0, ligneACreer: false,
       rendreBandeauQuestionnaire: () => { ctx.bandeaux = (ctx.bandeaux || 0) + 1; },
       rendreBandeauPhase: () => { ctx.bandeauxPhase = (ctx.bandeauxPhase || 0) + 1; },
       rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {},
@@ -550,7 +550,8 @@ describe('60-2a — l’envoi du profil : UN SEUL À LA FOIS, et une réponse n�
         departs.push(JSON.parse(JSON.stringify(champs)));
         attentes.push(() => ok(Object.assign({ id }, champs)));
       }) },
-      sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {}, envoiProfil: null, versionProfil: 0
+      sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {}, envoiProfil: null, versionProfil: 0, ligneACreer: false,
+      rendreBandeauQuestionnaire: () => {}, ouvrirQuestionnaireSiDu: () => false
     };
     vm.createContext(ctx);
     ['idDeSession', 'identifiantDuProfil', 'poserProfil', 'envoyerProfil', 'envoyerProfilMaintenant']
@@ -643,7 +644,7 @@ describe('60-2a — le routage d’entrée et la vue', () => {
 
   test('la session perdue ferme le questionnaire et oublie l’envoi en vol ; « Rafraîchir » ne recouvre pas un questionnaire qu’il vient d’ouvrir', () => {
     // 70 — la récupération en attente part avec la session (entre les deux, sans rien changer d'autre).
-    expect(APP).toMatch(/entreeFaitePour = null;\s*recuperation = null; renduPour = null;\s*fermerQuestionnaire\(\); envoiProfil = null; versionProfil = 0;\s*profil = null; faits\.oublierDates\(\);\s*allerA\(Routeur\.CONNEXION/);
+    expect(APP).toMatch(/entreeFaitePour = null;\s*recuperation = null; renduPour = null;\s*fermerQuestionnaire\(\); envoiProfil = null; versionProfil = 0; ligneACreer = false;\s*profil = null; faits\.oublierDates\(\);\s*allerA\(Routeur\.CONNEXION/);
     expect(APP).toMatch(/await chargerProfil\(\);[^}]*if \(vues\.questionnaire\.hidden\) afficherSemaine\(\);/);
   });
 

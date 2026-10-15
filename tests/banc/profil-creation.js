@@ -1103,6 +1103,51 @@ function ok(nom, cond, detail) {
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }
+    // ══ 93. LA LIGNE NAÎT D'UN GESTE DU PROFIL : LE QUESTIONNAIRE S'OUVRE QUAND MÊME ═══
+    // La création de `chargerProfil` échoue une fois (500) ; la personne va au Profil et choisit Sexe → Femme
+    // dans la même page : c'est cet envoi qui crée la ligne. Il la crée avec le pseudo tapé, et le questionnaire
+    // s'ouvre (avant 93 : la ligne naissait sans pseudo, et le questionnaire ne s'ouvrait jamais).
+    console.log('\n══ 93. création ratée, puis Sexe → Femme dans le Profil : la ligne naît du geste, le questionnaire s’ouvre ══');
+    {
+      const bd = neuveBase();
+      bd.echecsCreation = 1;
+      const ctx = await contexte(nav, bd, {});
+      const page = await ctx.newPage();
+      const erreurs = [];
+      const avertissements = [];
+      page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+      page.on('console', (m) => { if (m.type() === 'warning' && /Profil non créé/.test(m.text())) avertissements.push(m.text()); });
+      await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+      await attendreQue(page, () => page.evaluate(() => {
+        const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; }), 15000);
+      await page.click('#btn-bascule-entree');
+      await attendre(300);
+      await page.fill('#champ-pseudo', 'test_0710');
+      await page.fill('#champ-email', 'b@banc.test');
+      await page.fill('#champ-mdp', 'motdepasse123');
+      await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
+      await page.click('#btn-connexion');
+      const rate = await attendreQue(page, () => avertissements.length > 0, 15000);
+      ok('prémisse [93] — la création au chargement a échoué : pas de ligne', rate && !bd.profils[B], JSON.stringify(bd.requetes));
+      const questionnaireOuvert = () => page.evaluate(() => { const v = document.querySelector('#vue-questionnaire'); return !!v && !v.hidden; });
+      ok('prémisse [93] — sans ligne, le questionnaire n’est pas ouvert', !(await questionnaireOuvert()));
+      await page.click('#onglet-profil');
+      await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 8000);
+      await cliquerLigne(page, 'Sexe');
+      await attendre(500);
+      await page.click('#feuille-contenu .feuille-menu button[data-cle="femme"]');
+      const cree = await attendreQue(page, () => !!bd.profils[B], 12000);
+      ok('[93] la ligne naît du geste du Profil', cree && bd.profils[B].sexe === 'femme', JSON.stringify(bd.profils[B]));
+      // (`onboarding_completed` part à `false` avec la création, puis passe à `true` quand on quitte le Profil pour le
+      // questionnaire — `marquerProfilVu`, comme pour toute ligne créée par `chargerProfil` : il n'est pas contrôlé ici.)
+      ok('DISCRIMINANT [93] — elle naît avec le PSEUDO tapé à l’inscription',
+        !!bd.profils[B] && bd.profils[B].username === 'test_0710', JSON.stringify(bd.profils[B]));
+      const ouvert = await attendreQue(page, questionnaireOuvert, 8000);
+      ok('DISCRIMINANT [93] — le questionnaire s’ouvre de lui-même après la naissance de la ligne', ouvert);
+      ok('aucune écriture refusée par la base', bd.refus.length === 0, JSON.stringify(bd.refus));
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
   } finally {
     await nav.close();
     await new Promise((r) => serveur.close(r));

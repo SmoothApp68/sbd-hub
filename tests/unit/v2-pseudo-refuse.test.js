@@ -91,7 +91,7 @@ function bacEnvoi(o) {
     racine: { localStorage: { getItem: (k) => (k in stock ? stock[k] : null), setItem: (k, v) => { stock[k] = String(v); }, removeItem: (k) => { delete stock[k]; } } },
     CLE_PSEUDO_PRIS,
     texteErreur: (e) => String(e && e.message || e),
-    profil: Object.assign({ id: 'u1', username: null }, opt.profil || {}), profilAEnvoyer: true, envoiProfil: null, versionProfil: 0,
+    profil: Object.assign({ id: 'u1', username: null }, opt.profil || {}), profilAEnvoyer: true, envoiProfil: null, versionProfil: 0, ligneACreer: false,
     generation: 1, generationValide: (g) => g === ctx.generation,
     ecranCourant: 'profil', rendreProfilEcran: () => { etat.rendus = (etat.rendus || 0) + 1; },
     userId: () => 'u1',
@@ -215,6 +215,27 @@ describe('envoyerProfilMaintenant — un pseudo refusé par la base', () => {
     expect(b.etat.posts).toHaveLength(1);
     expect(b.etat.ligne.username).toBe('libre_ici');
     expect(b.signal()).toBe(false);
+  });
+
+  test('93 — la ligne naît de l’envoi (`ligneACreer`) : elle porte le pseudo de l’inscription et `onboarding_completed: false`', async () => {
+    const b = bacEnvoi({ profil: { sexe: 'femme' } });
+    delete b.ctx.profil.username; delete b.ctx.profil.id;
+    b.ctx.ligneACreer = true; b.ctx.pseudoAInscrire = 'test_0710';
+    await b.envoyer();
+    expect(b.etat.posts).toHaveLength(1);
+    expect(b.etat.posts[0]).toEqual(expect.objectContaining({ sexe: 'femme', username: 'test_0710', onboarding_completed: false }));
+    expect(b.ctx.ligneACreer).toBe(false);
+    expect(b.ctx.pseudoAInscrire).toBe(null);
+  });
+
+  test('93 — ⚠️ DISCRIMINANT : sans `ligneACreer` (ligne non lue, mais peut-être existante), l’envoi n’ajoute NI pseudo NI `onboarding_completed`', async () => {
+    const b = bacEnvoi({ profil: { sexe: 'femme' } });
+    delete b.ctx.profil.username; delete b.ctx.profil.id;
+    b.ctx.pseudoAInscrire = 'test_0710';
+    await b.envoyer();
+    expect(b.etat.posts).toHaveLength(1);
+    expect(Object.prototype.hasOwnProperty.call(b.etat.posts[0], 'username')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(b.etat.posts[0], 'onboarding_completed')).toBe(false);
   });
 
   test('⚠️ PAS DE REJEU SANS FIN : le second envoi qui échoue laisse l’attente levée, sans troisième essai', async () => {

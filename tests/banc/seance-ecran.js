@@ -15031,6 +15031,19 @@ const SETS_IMPORTES = [
     ok('[Q60] G — une séance ouverte, le questionnaire vide : on rouvre sur la séance, le questionnaire ne s’ouvre PAS par-dessus',
       enSeance.indexOf('vue-questionnaire') < 0 && enSeance.length === 1, JSON.stringify(enSeance));
     ok('[Q60] G — et il n’est PAS marqué « ouvert ici » (il pourra s’ouvrir plus tard)', (await clesVues()).length === 0, JSON.stringify(await clesVues()));
+    // 93 — la réponse d'un geste du Profil reprend aussi la décision (`envoyerProfilMaintenant`) : la séance reste
+    // ouverte, l'écran de séance est CACHÉ (on est sur le Profil) — seule la garde `seance` l'empêche de s'ouvrir.
+    await onglet('profil');
+    await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Sexe') === 0)[0].click());
+    await attendre(500);
+    await page.click('#feuille-contenu .feuille-menu button[data-cle="femme"]');
+    await attendre(1500);
+    const surProfilG = await visible();
+    ok('[93] G — DISCRIMINANT : séance ouverte, un geste du Profil répondu par la base n’ouvre PAS le questionnaire par-dessus',
+      profilBase().sexe === 'femme' && surProfilG.indexOf('vue-questionnaire') < 0 && (await clesVues()).length === 0,
+      JSON.stringify([profilBase().sexe, surProfilG]));
+    await onglet('saisie');
     await abandonner();
     await aller('/saisie');
     await attendreOuverture(40);

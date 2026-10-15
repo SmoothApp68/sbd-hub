@@ -822,7 +822,7 @@
     // faisait naître la ligne de profil sans pseudo. Il tombe ailleurs : « Quitter » (`deconnecter`),
     // l'échec d'une inscription, une connexion (`soumettreEntree`) et la création de la ligne (`chargerProfil`).
     profil = null; profilAEnvoyer = false;
-    fermerQuestionnaire(); envoiProfil = null; versionProfil = 0;
+    fermerQuestionnaire(); envoiProfil = null; versionProfil = 0; ligneACreer = false;
     faits.oublierDates();
     await Cache.ecrireMeta('proprietaire', { userId: userId });
   }
@@ -10674,7 +10674,7 @@
     // rejouer une modification de profil sur le compte suivant serait pire que
     // de la perdre.
     profil = null; profilAEnvoyer = false; pseudoAInscrire = null;
-    fermerQuestionnaire(); envoiProfil = null; versionProfil = 0;
+    fermerQuestionnaire(); envoiProfil = null; versionProfil = 0; ligneACreer = false;
     recuperation = null; renduPour = null;
     faits.oublierDates();
     remplissage = null;
@@ -10877,6 +10877,8 @@
     // Un geste posé pendant la lecture est plus récent qu'elle : elle ne le remplace pas
     // (comme la réponse d'un envoi, `envoyerProfilMaintenant`).
     if (version !== versionProfil) return;
+    // 93 — la base vient de dire s'il y a une ligne : sans elle, le premier envoi du Profil la CRÉERA.
+    ligneACreer = !distant;
 
     if (!distant) {
       var creer = function (pseudo) {
@@ -10912,6 +10914,7 @@
         return;
       }
       if (!generationValide(g)) return;
+      ligneACreer = false;
     }
     pseudoAInscrire = null;
     // Une modification locale non envoyée PRIME sur ce que le serveur rend :
@@ -10948,6 +10951,10 @@
   // (`versionProfil`) — sinon le geste plus récent a son propre envoi, derrière.
   var envoiProfil = null;
   var versionProfil = 0;
+  // 93 — vrai quand la dernière lecture a dit « pas de ligne » et que la création n'a pas abouti : le prochain
+  // envoi la crée. Seulement sur ce SAVOIR — jamais sur l'absence d'une clé dans le cache (un appareil neuf, hors
+  // ligne, n'a pas lu la ligne qui existe : y écrire le pseudo de l'inscription effacerait celui de la base).
+  var ligneACreer = false;
   function envoyerProfil() {
     envoiProfil = (envoiProfil || Promise.resolve()).then(envoyerProfilMaintenant, envoyerProfilMaintenant);
     return envoiProfil;
@@ -10961,6 +10968,15 @@
     if (!id || !generationValide(g)) return;
     try {
       var champs = Profil.champsEcrits(profil);
+      // 93 — LA LIGNE PEUT NAÎTRE ICI : `chargerProfil` ne l'a pas posée (lecture ou création ratée), et c'est le
+      // premier geste du Profil qui la crée (`ligneACreer`). La création reprend alors ce que `chargerProfil` aurait
+      // écrit — le pseudo choisi au MÊME endroit (`Profil.pseudoDeLInscription`), et `onboarding_completed: false` —
+      // sauf ce que le geste pose lui-même. Un pseudo pris entre-temps retombe dans la sortie 60-5 ci-dessous.
+      if (ligneACreer && !Object.prototype.hasOwnProperty.call(champs, 'username')) {
+        champs.username = Profil.pseudoDeLInscription(pseudoAInscrire, await metadonneesDuCompte(id));
+        if (!generationValide(g)) return;
+        if (!Object.prototype.hasOwnProperty.call(champs, 'onboarding_completed')) champs.onboarding_completed = false;
+      }
       var rendu;
       try { rendu = await Donnees.enregistrerProfil(id, champs); }
       catch (e1) {
@@ -10996,8 +11012,15 @@
       // geste suivant, qui envoie la ligne entière, l'écrirait en base (relevé à la relecture de 60-5). La version
       // bouge, `chargerProfil` jette cette lecture (`version !== versionProfil`).
       versionProfil++;
+      ligneACreer = false;
+      pseudoAInscrire = null;   // 93 — la ligne existe : le pseudo de l'inscription a fait son office
       await sauverProfilLocal();
       if (ecranCourant === 'profil') rendreProfilEcran();
+      // 93 — la ligne a pu naître de CE geste (création ratée au chargement) : la décision d'ouvrir le
+      // questionnaire se reprend ici comme dans `chargerProfil`. Ses gardes (séance, feuille, « Ranger »,
+      // récupération, déjà vu ici) l'empêchent de s'ouvrir par-dessus autre chose.
+      rendreBandeauQuestionnaire();
+      ouvrirQuestionnaireSiDu();
     } catch (e) {
       // Elle repartira : à la prochaine synchronisation, au prochain démarrage,
       // ou au retour du réseau. Rien n'est perdu — la valeur est en local et
@@ -12971,7 +12994,7 @@
       sessionActive = null;
       entreeFaitePour = null;
       recuperation = null; renduPour = null;
-      fermerQuestionnaire(); envoiProfil = null; versionProfil = 0;
+      fermerQuestionnaire(); envoiProfil = null; versionProfil = 0; ligneACreer = false;
       profil = null; faits.oublierDates();
       allerA(Routeur.CONNEXION, {}, true);
       rendreEntree('connexion');

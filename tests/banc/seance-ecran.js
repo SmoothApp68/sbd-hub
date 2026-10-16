@@ -873,6 +873,8 @@ const SETS_IMPORTES = [
     if (base.ecrituresSocialesCoupees && req.method() !== 'GET' &&
         (['abonnements', 'blocages', 'reactions_seance', 'profiles'].indexOf(table) >= 0 ||
          (/\/rpc\//.test(url.pathname) && FauxSocial.GUILDE.ECRITURES.indexOf(table) >= 0))) {
+      // `ecrituresSocialesLentes` : l'échec met du temps à revenir — le réseau peut revenir PENDANT qu'il est en vol.
+      if (base.ecrituresSocialesLentes) await pause(base.ecrituresSocialesLentes);
       return route.abort('failed');
     }
     // 87 — le social : ses tables et ses fonctions, au faux serveur du social.
@@ -17347,6 +17349,9 @@ const SETS_IMPORTES = [
     await aller('/a/nina');
     await attendreQue(async () => /Demande envoyée/.test(await etatAmi()));
     const h2a = { etat: await etatAmi(), file: await fileSociale() };
+    // L'envoi du retrait (posé ci-dessous) échouera LENTEMENT : le réseau revient pendant qu'il est en vol. La vidange
+    // demandée par le retour du réseau ne doit pas se perdre derrière celle qui tourne encore.
+    base.ecrituresSocialesLentes = 3000;
     await page.click('#social-menu');
     // (Absent si le premier geste s'est perdu au rechargement : le contrôle ci-dessous le dit, sans planter le banc.)
     if (await compter('#social-ami [data-geste="retirer-abonnement"]')) await page.click('#social-ami [data-geste="retirer-abonnement"]');
@@ -17358,8 +17363,9 @@ const SETS_IMPORTES = [
         h2b.etat === 'Compte privé · en attente du réseau' && JSON.stringify(h2b.file) === '["retirer_abonnement:nina"]' &&
         opsDepuis(journal1).length === 0, JSON.stringify([h2a, h2b]));
     const partis2 = await retour();
+    base.ecrituresSocialesLentes = 0;
     await attendreQue(async () => (await etatAmi()) === 'Compte privé');
-    ok('[social 107] H2 — DISCRIMINANT — au retour, la base ne reçoit QUE l’état final (le retrait) : jamais d’abonnement à nina, pas même un ' +
+    ok('[social 107] H2 — DISCRIMINANT — au retour (pendant qu’un envoi échouait encore), la base ne reçoit QUE l’état final (le retrait) : jamais d’abonnement à nina, pas même un ' +
       'instant ; l’écran : « S’abonner », sans « en attente »',
       partis2 && JSON.stringify(opsDepuis(journal1)) === JSON.stringify(['retrait-abonnement']) && !lien('u-banc', 'u-nina') &&
         (await texte('#social-principal')) === 'S’abonner' && (await etatAmi()) === 'Compte privé', JSON.stringify([opsDepuis(journal1), await etatAmi()]));

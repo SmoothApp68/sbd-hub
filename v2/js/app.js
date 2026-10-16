@@ -64,6 +64,7 @@
     generation++;
     syncEnCours = false;
     vidangeEnCours = false;
+    vidangeARelancer = false;
     // 107 — les gestes sociaux confirmés et le refus à dire appartiennent au compte qui part.
     social.confirmes = []; social.refus = null; social.aRafraichir = null;
   }
@@ -127,6 +128,10 @@
   var seance = null;
   var attente = [];
   var vidangeEnCours = false;
+  // 107 — une vidange DEMANDÉE pendant qu'une autre tourne (le réseau revient pendant qu'un envoi échoue encore) n'est
+  // pas perdue : elle se relance à la fin de celle en cours. Sans elle, un geste fait à cet instant attendait le
+  // déclencheur suivant (un autre geste, la prochaine ouverture de l'app).
+  var vidangeARelancer = false;
   var chrono = null;         // { depuis, cible, sonne, exo } — le repos en cours
   var minuteur = null;       // l'intervalle d'affichage du chronomètre
   var dureeTimer = null;     // le réveil de la durée de la barre de séance (62) — un SEUL, voir `armerDuree`
@@ -2945,8 +2950,10 @@
   // là plutôt que de sauter l'entrée suivante, dont la clé étrangère dépend
   // peut-être de celle qui vient d'échouer.
   async function vidanger() {
-    if (vidangeEnCours || !sessionActive) return;
+    if (vidangeEnCours) { vidangeARelancer = true; return; }
+    if (!sessionActive) return;
     vidangeEnCours = true;
+    vidangeARelancer = false;
     var g = generation;
     try {
       var garde = 200;   // une file qui ne rétrécit pas ne doit pas tourner sans fin
@@ -3016,6 +3023,7 @@
     rafraichirSocial().catch(function (e) { console.warn('Social :', texteErreur(e)); });
     // 58-2 — tous les lots du remplissage sont montés : le journal est rempli.
     constaterJournalRempli().catch(function () {});
+    if (vidangeARelancer) { vidangeARelancer = false; vidanger(); }
   }
 
   // ⚠️ 58-2 — LE JOURNAL DES RECORDS ATTEND QUE SON REMPLISSAGE SOIT DÉCIDÉ.

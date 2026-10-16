@@ -320,6 +320,13 @@ describe('119 — F1/F3 : l’exercice du mois, de la saison, de l’année se m
       { slug: 'tractions', nom: 'Tractions', seances: 5, reps: 5 }
     ]);
   });
+  // DISCRIMINANT (le banc de mutation l'a exigé : sans lui, « au moins une rep » suffisait à écarter le tapis, et le
+  // filtre de la mesure ne se voyait pas) — une planche dont la série porte des REPS (saisie quand le catalogue
+  // manquait, la « pureté des mesures » de l'audit 02) et un exercice inconnu du catalogue : ni l'une ni l'autre.
+  test('une durée saisie avec des reps, ou un exercice inconnu : jamais l’exercice du mois', () => {
+    const impur = jours.map((j) => seance119(j, [['planche', null, 60], ['inconnu_x', 50, 40], ['squat_barre', 100, 5]]));
+    expect(bilan119(impur).exercices.map((x) => x.slug)).toEqual(['squat_barre']);
+  });
   test('la saison aussi ; l’année montre les séances puis les reps, elle se classe ainsi', () => {
     expect(bilan119(oct, Bilans.periodeDeLaSaison('2026-automne')).exercices[0].slug).toBe('squat_barre');
     expect(bilan119(oct, ANNEE).exercices.map((x) => x.slug)).toEqual(['developpe_couche_barre', 'tractions', 'squat_barre']);

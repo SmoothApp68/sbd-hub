@@ -619,11 +619,10 @@
 
       (s.blocs || []).forEach(function (b) { carte.appendChild(rendreBloc(b)); });
 
-      // `repos_s` est NULL sur les 28 103 séries importées : quand il n'y a rien
-      // à dire, on ne dit rien — un « repos moyen 0 » serait un mensonge.
-      var pied = [s.reposMoyen ? 'Repos moyen ' + mmss(s.reposMoyen) : '', s.note]
-        .filter(Boolean);
-      pied.forEach(function (t) { carte.appendChild(el('div', 'exo-jour-note', t)); });
+      // 115 (audit du 16/10, E3 ; décision d'Aurélien D8) — PAS DE « REPOS MOYEN ». `repos_s` n'est pas un
+      // repos (le temps d'exécution y entre, une série de superset enchaînée y vaut 45 s) : enregistré, jamais
+      // affiché (MODIFICATEURS §4), tant qu'il n'est pas un vrai repos. Seule la note de séance reste.
+      if (s.note) carte.appendChild(el('div', 'exo-jour-note', s.note));
       cible.appendChild(carte);
     });
 

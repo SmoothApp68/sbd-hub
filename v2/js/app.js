@@ -9991,20 +9991,6 @@
     return d;
   }
 
-  // `repos_s` est NULL sur les 28 103 séries importées : l'export Hevy ne porte
-  // pas le repos. On ne moyenne donc que ce qui existe, et on ne rend rien
-  // plutôt qu'un zéro — une séance sans repos mesuré n'est pas une séance sans
-  // repos.
-  function reposMoyenDe(series) {
-    var somme = 0, n = 0;
-    series.forEach(function (s) {
-      var v = s && s.repos_s;
-      if (v === null || v === undefined) return;
-      somme += Number(v) || 0; n++;
-    });
-    return n ? Math.round(somme / n) : null;
-  }
-
   function rendreExercice(slug, onglet) {
     montrer('exercice', Routeur.EXERCICE);
     var vueOnglet = onglet === Routeur.EXO_HISTORIQUE ? Routeur.EXO_HISTORIQUE : 'resume';
@@ -10164,7 +10150,7 @@
           titre: g.seance.titre,
           debut: g.seance.debut,
           note: g.seance.note || '',
-          reposMoyen: reposMoyenDe(g.series),
+          // 115 (D8) — plus de « Repos moyen » : `repos_s` n'est pas un vrai repos (MODIFICATEURS §4).
           record: (g.seance.debut && joursRecord[g.seance.debut]) || 0,
           blocs: Modele.construireBlocs(g.series, local.exercices)
         };

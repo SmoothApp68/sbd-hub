@@ -167,6 +167,14 @@ Deux choses distinctes qui ne doivent jamais se mélanger :
 
 **Ce que ça règle définitivement.** Le modificateur « sans repos » n'existe pas : on cocherait une case précisément dans le cas où on a oublié de cocher.
 
+> **Jamais affiché — confirmé par l'audit du 16/10/2026 (E3), décision d'Aurélien du 16/10 (D8) :
+> « le repos moyen ne s'affiche plus tant qu'il n'est pas un vrai repos ».** La valeur enregistrée
+> (`repos_s`) est l'écart entre deux validations : elle contient le temps d'exécution de la série,
+> vaut 45 s sur une série de superset enchaînée sans repos, et une série ajoutée en Édition y reçoit
+> un repos qui n'a jamais eu lieu. Elle reste enregistrée telle quelle ; le « Repos moyen » de
+> l'historique d'exercice (ECRAN-SAISIE §7 quater.4) est retiré. Le temps de repos **voulu** n'est
+> pas concerné.
+
 **Piste notée pour plus tard, pas retenue en v1.** Le repos moyen d'un bloc est plus solide que les intervalles individuels : durée totale du bloc, moins le temps d'exécution estimé, divisé par le nombre d'intervalles. Même avec des horodatages chaotiques, si le bloc a duré quinze minutes pour quatre séries, l'ordre de grandeur est bon. **Limite connue :** les supersets brouillent le calcul, et ils représentent **48,7 % des séries de travail chez aurel_br** (19,8 % chez alexis, 16,2 % chez lea, 9,4 % chez melodie, 0,6 % chez jordan).
 
 > ⚠️ **Chiffre corrigé le 10/09/2026.** Ce paragraphe annonçait 38 %, chiffre qui traînait dans les notes sans avoir été mesuré. La mesure réelle donne 48,7 %, ce qui aggrave la limite au lieu de l'atténuer. Doctrine : **un chiffre qui traîne dans les notes doit être remesuré avant d'être utilisé.**

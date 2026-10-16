@@ -1706,8 +1706,13 @@ Les **20 dernières séances**, puis « voir plus ». Chacune avec **toutes ses 
 en retrait, tentative marquée `✕`, effort en RPE **ou** en répétitions restantes selon ce qui
 a été saisi.
 
-Plus le **repos moyen**, la **note de séance** s'il y en a une, et le **titre de la séance**,
+Plus ~~le **repos moyen**,~~ la **note de séance** s'il y en a une, et le **titre de la séance**,
 qui mène au détail complet pour qui veut le contexte des autres exercices.
+
+> **Le repos moyen n'est jamais affiché — audit du 16/10/2026 (E3), décision d'Aurélien du
+> 16/10 (D8) : « le repos moyen ne s'affiche plus tant qu'il n'est pas un vrai repos ».** Ce
+> paragraphe contredisait MODIFICATEURS-SERIE §4 (« enregistré, jamais affiché ») ; §4 gagne.
+> `repos_s` reste enregistré, inchangé.
 
 **Un record atteint ce jour-là est signalé** — c'est ce qui donne envie de défiler.
 

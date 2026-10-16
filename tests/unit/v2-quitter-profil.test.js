@@ -50,6 +50,8 @@ function bac(o) {
     racine: { navigator: { get onLine() { return etat.reseau; } } },
     attente: opt.attente || [],
     vidangeEnCours: false,
+    // 118 — les messages du groupe écrits hors ligne (leur propre file) : vide ici.
+    grp: { file: [] }, envoyerFileGroupe: async () => {},
     profil: { id: 'u1', temps_reponse: 'marge' }, profilAEnvoyer: false, envoiProfil: null, versionProfil: 0, ligneACreer: false,
     rendreBandeauQuestionnaire: () => {}, ouvrirQuestionnaireSiDu: () => false,
     generation: 1, generationValide: (g) => g === ctx.generation,

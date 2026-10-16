@@ -820,6 +820,24 @@
     }
   }
 
+  // ⚠️ 118 (suite de 117) — CE QUI ATTEND HORS DE LA FILE appartient aussi à son compte : la réponse de profil pas
+  // encore envoyée (`CLE_PROFIL_ENVOI`, avec la ligne en cache qu'elle complète — sans elle, l'envoi ne part pas) et
+  // les messages du groupe écrits hors ligne (`CLE_FILE_GROUPE`). Un autre compte qui entrait les effaçait ; ils sont
+  // désormais gardés sous l'identifiant du compte qui part, et rendus quand il revient. Rien n'est gardé quand rien
+  // n'attend : la ligne de profil seule n'est pas une attente.
+  function gardesDuCompte() {
+    return [{ magasin: 'meta', cle: CLE_PROFIL_ENVOI }, { magasin: 'meta', cle: CLE_PROFIL },
+            { magasin: 'brouillon', cle: CLE_FILE_GROUPE }];
+  }
+  function preparerGardesDuCompte(v) {
+    var envoi = Profil.lireEnAttente(v['meta:' + CLE_PROFIL_ENVOI]);
+    var out = {};
+    out['meta:' + CLE_PROFIL_ENVOI] = envoi || null;
+    out['meta:' + CLE_PROFIL] = envoi ? (v['meta:' + CLE_PROFIL] || null) : null;
+    out['brouillon:' + CLE_FILE_GROUPE] = Social.fileDeMessages(v['brouillon:' + CLE_FILE_GROUPE]);
+    return out;
+  }
+
   // Le cache appartient à un compte et à un seul. Un cache qui survivrait à un
   // changement de compte montrerait les séances de quelqu'un d'autre.
   async function garantirProprietaire(userId) {
@@ -831,7 +849,9 @@
     // 117 (audit du 16/10, 06 #6) — tout est vidé SAUF la file du compte qui part, gardée sous son identifiant ; et
     // la file gardée pour le compte qui entre lui est rendue (relue juste après, `chargerSeanceLocale`). Seul
     // « Quitter » explicite vide une file, après sa fenêtre.
-    var changement = await Cache.changerDeCompte(meta && meta.userId, userId);
+    // 118 — et ce qui attend HORS de la file (la réponse de profil, les messages du groupe) : gardé de même, rendu de
+    // même (relu juste après, `chargerCache` et `chargerProfilLocal`).
+    var changement = await Cache.changerDeCompte(meta && meta.userId, userId, gardesDuCompte(), preparerGardesDuCompte);
     if (changement && changement.rendue && changement.rendue.length) {
       console.warn('File d\u2019envoi rendue à ce compte : ' + changement.rendue.length + ' envoi(s) gardé(s) depuis sa dernière visite.');
     }
@@ -13468,12 +13488,17 @@
   async function quitterSansRienPerdre() {
     // 117 (audit du 16/10, 06 #6) — les files GARDÉES pour un autre compte de cet appareil partent aussi avec
     // « Quitter » : la fenêtre les compte, rien ne se perd sans qu'elle le dise.
-    var gardees = [];
+    var gardees = [], autresGardes = 0;
     try { gardees = Attente.entreesGardees(await Cache.lireFilesGardees()); } catch (e) { gardees = []; }
+    // 118 — et ce qui attend hors de la file pour un autre compte (sa réponse de profil, ses messages du groupe).
+    try { autresGardes = Attente.compterGardesAutres(await Cache.lireGardesAutres()); } catch (e) { autresGardes = 0; }
     return Quitter.quitter({
       file: function () { return attente.concat(gardees); },
       // 60-2c : une réponse de profil pas encore envoyée (hors file) compte aussi.
       profil: function () { return profilAEnvoyer; },
+      // 118 (audit 06 #3, suite de 117) — les messages du groupe écrits hors ligne (`grp.file`, leur propre file)
+      // comptent aussi : « Quitter » les effaçait sans les dire.
+      autres: function () { return grp.file.length + autresGardes; },
       enLigne: function () { return !(racine.navigator && racine.navigator.onLine === false); },
       envoyer: envoyerAvantDeQuitter,
       fenetre: montrerFenetreDeSortie,
@@ -13492,9 +13517,12 @@
     // Le profil ne dépend pas de la vidange (sa propre chaîne d'envoi) : il PART TOUT DE SUITE, pendant
     // qu'on attend la vidange en cours — sinon une vidange lente lui mangeait tout son budget de 15 s.
     var profilEnvoye = profilAEnvoyer ? envoyerProfil().catch(function () {}) : null;
+    // 118 — les messages du groupe écrits hors ligne partent aussi, dans la même course de 15 s.
+    var messagesEnvoyes = grp.file.length ? envoyerFileGroupe().catch(function () {}) : null;
     while (vidangeEnCours && Date.now() < fin) await attendre(100);
     var envois = [vidanger()];
     if (profilEnvoye) envois.push(profilEnvoye);
+    if (messagesEnvoyes) envois.push(messagesEnvoyes);
     await Promise.race([Promise.all(envois), attendre(Math.max(0, fin - Date.now()))]);
   }
 

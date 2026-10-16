@@ -41,6 +41,30 @@ describe('la règle : garder la file du compte qui part, rendre celle du compte 
   });
 });
 
+// 118 (suite de 117) — CE QUI ATTEND HORS DE LA FILE : la réponse de profil pas encore envoyée, les messages du groupe.
+describe('118 — la règle : garder ce qui attend hors de la file, le rendre au compte qui revient', () => {
+  const msg = (id) => ({ id, groupe_id: 'g1', texte: 'Allez', le: '2026-10-16T10:00:00Z' });
+  test('⚠️ DISCRIMINANT — A s’en va avec une réponse de profil et un message : gardés sous A ; B ne reçoit rien', () => {
+    const r = A.changerDeCompteAutres({}, 'A', { 'meta:profil-a-envoyer': { rythme_progression: 'franc' },
+      'meta:profil': { id: 'A' }, 'brouillon:groupe-messages': [msg('m1')] }, 'B');
+    expect(r.rendues).toEqual({});
+    expect(Object.keys(r.gardes)).toEqual(['A']);
+    expect(r.gardes.A['brouillon:groupe-messages']).toEqual([msg('m1')]);
+  });
+  test('A revient : tout lui est rendu ; une valeur vide (rien en attente) n’est jamais gardée', () => {
+    const g = { A: { 'meta:profil-a-envoyer': { phase: 'seche' } } };
+    const r = A.changerDeCompteAutres(g, 'B', { 'meta:profil-a-envoyer': null, 'meta:profil': null,
+      'brouillon:groupe-messages': [] }, 'A');
+    expect(r.rendues).toEqual({ 'meta:profil-a-envoyer': { phase: 'seche' } });
+    expect(r.gardes).toEqual({});
+    expect(g.A['meta:profil-a-envoyer']).toEqual({ phase: 'seche' });   // rien n'est muté
+  });
+  test('compterGardesAutres : une liste compte ses éléments, une valeur pour une', () => {
+    expect(A.compterGardesAutres({ A: { 'meta:profil-a-envoyer': true, 'brouillon:groupe-messages': [msg('a'), msg('b')] } })).toBe(3);
+    expect(A.compterGardesAutres({})).toBe(0);
+  });
+});
+
 // ── Une base locale de papier : des magasins, des requêtes qui répondent plus tard, une transaction qui se
 // termine quand plus aucune requête n'attend. Assez pour jouer `Cache.changerDeCompte` pour de vrai.
 function basePapier() {
@@ -106,6 +130,41 @@ describe('le cache : une transaction qui vide tout, sauf la file du compte qui p
     expect(Object.keys(await C.lireFilesGardees())).toEqual(['B']);
   });
 
+  test('⚠️ DISCRIMINANT — 118 : A → B → A, la réponse de profil et le message du groupe de A lui reviennent', async () => {
+    const C = global.THCache;
+    const AUTRES = [{ magasin: 'meta', cle: 'profil-a-envoyer' }, { magasin: 'meta', cle: 'profil' },
+                    { magasin: 'brouillon', cle: 'groupe-messages' }];
+    const msg = { id: 'm1', groupe_id: 'g1', texte: 'Allez', le: '2026-10-16T10:00:00Z' };
+    await C.ecrireMeta('profil-a-envoyer', { rythme_progression: 'franc' });
+    await C.ecrireMeta('profil', { id: 'A', rythme_progression: 'franc' });
+    await C.ecrireBrouillon('groupe-messages', [msg]);
+
+    const versB = await C.changerDeCompte('A', 'B', AUTRES);
+    expect(versB.rendues).toEqual({});
+    expect(await C.lireMeta('profil-a-envoyer')).toBeNull();     // B ne voit rien de A
+    expect(await C.lireBrouillon('groupe-messages')).toBeNull();
+    expect(Object.keys(await C.lireGardesAutres())).toEqual(['A']);
+
+    const versA = await C.changerDeCompte('B', 'A', AUTRES);
+    expect(Object.keys(versA.rendues).sort()).toEqual(['brouillon:groupe-messages', 'meta:profil', 'meta:profil-a-envoyer']);
+    expect(await C.lireMeta('profil-a-envoyer')).toEqual({ rythme_progression: 'franc' });
+    expect(await C.lireMeta('profil')).toEqual({ id: 'A', rythme_progression: 'franc' });
+    expect(await C.lireBrouillon('groupe-messages')).toEqual([msg]);
+    expect(await C.lireGardesAutres()).toEqual({});
+    // « Quitter » vide aussi ce qui est gardé.
+    await C.changerDeCompte('A', 'B', AUTRES);
+    await C.viderTout();
+    expect(await C.lireGardesAutres()).toEqual({});
+  });
+
+  test('118 — `preparer` choisit ce qui se garde (la ligne de profil seule n’est pas une attente)', async () => {
+    const C = global.THCache;
+    await C.ecrireMeta('profil', { id: 'A' });
+    const r = await C.changerDeCompte('A', 'B', [{ magasin: 'meta', cle: 'profil' }], () => ({ 'meta:profil': null }));
+    expect(r.rendues).toEqual({});
+    expect(await C.lireGardesAutres()).toEqual({});
+  });
+
   test('« Quitter » (`viderTout`) vide aussi les files gardées', async () => {
     const C = global.THCache;
     await C.ecrireAttente([entree('sessions:s1', 1)]);
@@ -125,8 +184,16 @@ describe('le branchement dans app.js', () => {
 
   test('⚠️ `garantirProprietaire` change de compte par `Cache.changerDeCompte`, jamais par `viderTout`', () => {
     const g = corps('garantirProprietaire');
-    expect(g).toMatch(/Cache\.changerDeCompte\(\s*meta && meta\.userId,\s*userId\s*\)/);
+    expect(g).toMatch(/Cache\.changerDeCompte\(\s*meta && meta\.userId,\s*userId,\s*gardesDuCompte\(\),\s*preparerGardesDuCompte\s*\)/);
     expect(g).not.toMatch(/Cache\.viderTout\(/);
+  });
+
+  test('118 — ce qui attend hors de la file : la réponse de profil (avec sa ligne), les messages du groupe', () => {
+    expect(corps('gardesDuCompte')).toMatch(/\{ magasin: 'meta', cle: CLE_PROFIL_ENVOI \}, \{ magasin: 'meta', cle: CLE_PROFIL \},\s*\{ magasin: 'brouillon', cle: CLE_FILE_GROUPE \}/);
+    const q = corps('quitterSansRienPerdre');
+    expect(q).toMatch(/Attente\.compterGardesAutres\(await Cache\.lireGardesAutres\(\)\)/);
+    expect(q).toMatch(/autres: function \(\) \{ return grp\.file\.length \+ autresGardes; \}/);
+    expect(corps('envoyerAvantDeQuitter')).toMatch(/grp\.file\.length \? envoyerFileGroupe\(\)/);
   });
 
   test('la fenêtre de « Quitter » compte les files gardées pour un autre compte', () => {

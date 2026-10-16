@@ -36,7 +36,9 @@
   // bloc, une routine, un pari, un lot du remplissage du journal — et une réponse
   // de profil pas encore envoyée, `profilEnAttente`, qui compte pour UN autre
   // changement). Le retour garde sa forme : `{ seances, autres }`.
-  function enAttente(file, profilEnAttente) {
+  // 118 — `autresEnAttente` (un nombre) : ce qui attend hors de la file et hors du profil (les messages du groupe
+  // écrits hors ligne, ce qui est gardé pour un autre compte) ; il compte avec les autres changements.
+  function enAttente(file, profilEnAttente, autresEnAttente) {
     var seances = {}, autres = 0;
     (file || []).forEach(function (e) {
       if (!e) return;
@@ -45,13 +47,14 @@
       autres++;
     });
     if (profilEnAttente) autres++;
+    if (typeof autresEnAttente === 'number' && autresEnAttente > 0) autres += autresEnAttente;
     return { seances: Object.keys(seances).length, autres: autres };
   }
 
   // Le texte de la fenêtre (la maquette du 07/10/2026, mot pour mot), ou `null`
   // quand rien n'attend : on quitte alors sans rien demander.
-  function fenetreDeSortie(file, profilEnAttente) {
-    var n = enAttente(file, profilEnAttente);
+  function fenetreDeSortie(file, profilEnAttente, autresEnAttente) {
+    var n = enAttente(file, profilEnAttente, autresEnAttente);
     if (n.seances === 1) {
       return { titre: '1 séance pas encore envoyée.', aide: 'Si tu quittes maintenant, elle est perdue.',
                rester: 'Rester', quitter: 'Quitter quand même' };
@@ -82,10 +85,12 @@
     // Le profil se relit APRÈS l'envoi : `envoyer` ne lève pas quand l'envoi du profil échoue
     // (il garde son drapeau levé) — c'est le drapeau qui dit ce qui est vraiment parti.
     var profil = function () { return typeof d.profil === 'function' && !!d.profil(); };
-    if (((d.file() || []).length || profil()) && d.enLigne()) {
+    // 118 — `autres()` (facultatif) : un nombre, ce qui attend hors de la file et du profil.
+    var autres = function () { var n = typeof d.autres === 'function' ? Number(d.autres()) : 0; return n > 0 ? n : 0; };
+    if (((d.file() || []).length || profil() || autres()) && d.enLigne()) {
       try { await d.envoyer(); } catch (e) { /* ce qui n'est pas parti reste en attente : la fenêtre le dira */ }
     }
-    var vue = fenetreDeSortie(d.file(), profil());
+    var vue = fenetreDeSortie(d.file(), profil(), autres());
     if (!vue) { await d.deconnecter(); return 'quitte'; }
     var choix = await d.fenetre(vue);
     if (choix !== 'quitter') return 'reste';

@@ -224,6 +224,38 @@ describe('60-2c — l’enchaînement de « Quitter » compte la réponse de pro
   });
 });
 
+// 118 (audit 06 #3, suite de 117) — les messages du groupe écrits hors ligne (`grp.file`) ont leur propre file :
+// « Quitter » les effaçait sans la fenêtre. `autres()` les compte avec les autres changements.
+describe('118 — « Quitter » compte ce qui attend hors de la file et du profil', () => {
+  const TITRE = 'Des changements pas encore envoyés.';
+  function scenario(o) {
+    const etat = { autres: o.autres, envois: 0, fenetres: [], deconnexions: 0 };
+    const d = {
+      file: () => [], profil: () => false, autres: () => etat.autres, enLigne: () => o.enLigne,
+      envoyer: async () => { etat.envois++; if (o.envoiPasse) etat.autres = 0; },
+      fenetre: async (vue) => { etat.fenetres.push(vue); return o.choix; },
+      deconnecter: async () => { etat.deconnexions++; }
+    };
+    return { etat, d };
+  }
+  test('⚠️ DISCRIMINANT — un message gardé, hors ligne : la fenêtre ; « Rester » ne perd rien', async () => {
+    const { etat, d } = scenario({ autres: 1, enLigne: false, choix: 'rester' });
+    expect(await Quitter.quitter(d)).toBe('reste');
+    expect(etat.fenetres.map((v) => v.titre)).toEqual([TITRE]);
+    expect([etat.envois, etat.deconnexions]).toEqual([0, 0]);
+  });
+  test('en ligne : l’envoi part d’abord ; tout parti, on quitte sans fenêtre', async () => {
+    const { etat, d } = scenario({ autres: 2, enLigne: true, envoiPasse: true });
+    expect(await Quitter.quitter(d)).toBe('quitte');
+    expect([etat.envois, etat.fenetres.length, etat.deconnexions]).toEqual([1, 0, 1]);
+  });
+  test('la fenêtre pure : un nombre d’autres changements suffit ; rien, aucune fenêtre', () => {
+    expect(Quitter.fenetreDeSortie([], false, 3).titre).toBe(TITRE);
+    expect(Quitter.fenetreDeSortie([], false, 0)).toBeNull();
+    expect(Quitter.fenetreDeSortie([], false)).toBeNull();
+  });
+});
+
 describe('59-2 — après « Quitter », rien ne reste sur l’appareil', () => {
   function stockage(init) {
     const m = new Map(Object.entries(init || {}));

@@ -276,21 +276,50 @@
   // UNE transaction : lire les files gardées et la file en cours, vider, réécrire — une fermeture au milieu ne
   // peut pas perdre la file (tout passe, ou rien). Rend `{ rendue, gardees }`. « Quitter » (`viderTout`) vide tout,
   // les files gardées comprises, après sa fenêtre qui les compte.
+  //
+  // ⚠️ 118 — ET CE QUI ATTEND HORS DE LA FILE (`autres` : `[{ magasin, cle }]`, dans `meta` ou `brouillon` — la
+  // réponse de profil, les messages du groupe), par la même transaction : lu, gardé sous l'identifiant du compte qui
+  // part (`THAttente.changerDeCompteAutres`), rendu à sa place quand il revient. `preparer(valeurs)` (facultatif)
+  // choisit ce qui se garde, `{ 'magasin:cle': valeur }`. Rend aussi `rendues`.
   var CLE_FILES_GARDEES = 'files-gardees';
-  function changerDeCompte(ancienUid, nouveauUid) {
+  var CLE_GARDES_AUTRES = 'gardes-du-compte';
+  function changerDeCompte(ancienUid, nouveauUid, autres, preparer) {
+    var liste = (autres || []).filter(function (x) { return x && MAGASINS.indexOf(x.magasin) >= 0 && x.cle; });
     return transaction(MAGASINS, 'readwrite').then(function (tx) {
-      var issue = { rendue: [], gardees: {} };
+      var issue = { rendue: [], gardees: {}, rendues: {} };
       var b = tx.objectStore('brouillon'), a = tx.objectStore('attente');
       var lu = b.get(CLE_FILES_GARDEES);
       lu.onsuccess = function () {
         var gardees = lu.result ? lu.result.valeur : null;
-        var file = a.getAll();
-        file.onsuccess = function () {
-          var calc = racine.THAttente.changerDeCompte(gardees, ancienUid, file.result || [], nouveauUid);
-          MAGASINS.forEach(function (m) { tx.objectStore(m).clear(); });
-          if (Object.keys(calc.gardees).length) b.put({ cle: CLE_FILES_GARDEES, valeur: calc.gardees });
-          calc.rendue.forEach(function (e) { a.put(e); });
-          issue = calc;
+        var luAutres = b.get(CLE_GARDES_AUTRES);
+        luAutres.onsuccess = function () {
+          var gardesAutres = luAutres.result ? luAutres.result.valeur : null;
+          var valeurs = {}, reste = liste.length;
+          var suite = function () {
+            var file = a.getAll();
+            file.onsuccess = function () {
+              var calc = racine.THAttente.changerDeCompte(gardees, ancienUid, file.result || [], nouveauUid);
+              var aGarder = typeof preparer === 'function' ? preparer(valeurs) : valeurs;
+              var calcAutres = racine.THAttente.changerDeCompteAutres(gardesAutres, ancienUid, aGarder, nouveauUid);
+              MAGASINS.forEach(function (m) { tx.objectStore(m).clear(); });
+              if (Object.keys(calc.gardees).length) b.put({ cle: CLE_FILES_GARDEES, valeur: calc.gardees });
+              if (Object.keys(calcAutres.gardes).length) b.put({ cle: CLE_GARDES_AUTRES, valeur: calcAutres.gardes });
+              calc.rendue.forEach(function (e) { a.put(e); });
+              Object.keys(calcAutres.rendues).forEach(function (k) {
+                var i = k.indexOf(':'), m = k.slice(0, i);
+                if (MAGASINS.indexOf(m) >= 0) tx.objectStore(m).put({ cle: k.slice(i + 1), valeur: calcAutres.rendues[k] });
+              });
+              issue = { rendue: calc.rendue, gardees: calc.gardees, rendues: calcAutres.rendues };
+            };
+          };
+          if (!reste) return suite();
+          liste.forEach(function (x) {
+            var r = tx.objectStore(x.magasin).get(x.cle);
+            r.onsuccess = function () {
+              valeurs[x.magasin + ':' + x.cle] = r.result ? r.result.valeur : null;
+              if (--reste === 0) suite();
+            };
+          });
         };
       };
       return finDe(tx).then(function () { return issue; });
@@ -299,6 +328,10 @@
 
   function lireFilesGardees() {
     return lireBrouillon(CLE_FILES_GARDEES).then(function (v) { return v || {}; });
+  }
+  // 118 — ce qui attend hors de la file, gardé pour d'autres comptes (`{ uid: { 'magasin:cle': valeur } }`).
+  function lireGardesAutres() {
+    return lireBrouillon(CLE_GARDES_AUTRES).then(function (v) { return v || {}; });
   }
 
   // ── Le brouillon et la file ─────────────────────────────────────────────
@@ -346,6 +379,7 @@
     viderTout: viderTout,
     changerDeCompte: changerDeCompte,
     lireFilesGardees: lireFilesGardees,
+    lireGardesAutres: lireGardesAutres,
     estBloquee: estBloquee,
     DELAI_BLOQUE_MS: DELAI_BLOQUE_MS
   };

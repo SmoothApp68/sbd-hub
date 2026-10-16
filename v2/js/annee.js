@@ -55,10 +55,10 @@
     var partout = at.partout === 'toutes' ? ' Plus lourd ' + av.qu + ' à toutes les reps.'
       : (at.partout === 'presque' ? ' Plus lourd ' + av.qu + ' à presque toutes les reps.' : '');
     return { cle: 'avance', d: 9800, lab: 'Ce qui a le plus avancé', titre: at.nom, courbe: at.courbe,
-             txt: ['À ' + at.reps + ' rep' + (at.reps > 1 ? 's' : '') + ', tu es passé de ',
+             txt: ['À ' + M().repsTexte(at.reps) + ', tu es passé de ',
                    g(M().nombreTexte(at.de, 1) + ' à ' + kg(at.a)), '.' + partout],
              lignes: av.suivants.map(function (x) {
-               return { n: x.nom + ', à ' + x.reps + ' rep' + (x.reps > 1 ? 's' : ''),
+               return { n: x.nom + ', à ' + M().repsTexte(x.reps),
                         v: M().nombreTexte(x.de, 1) + ' → ', em: kg(x.a) };
              }) };
   }
@@ -109,7 +109,8 @@
                  txt: ['La plus lourde : ', g('semaine du ' + jourTexte(pl.lundi) + ', ' + texteTonnes(pl.kg)), '.'] });
     }
     var seriesTxt = function (n) { return milliers(n) + ' série' + (n > 1 ? 's' : ''); };
-    var repsTxt = function (n) { return milliers(n) + ' rep' + (n > 1 ? 's' : ''); };
+    // 119 (F10) — l'accord de « rep », une fois (`THModele.repsTexte`).
+    var repsTxt = function (n) { return M().repsTexte(n); };
     // Le muscle du mois (et le total des séries de travail, qu'affichait l'ancien bilan).
     if (!saison && b.muscles.length) {
       var mu = b.muscles;
@@ -122,7 +123,7 @@
     if (b.exercices.length) {
       var ex = b.exercices;
       out.push({ cle: 'exercice', d: 8400, lab: saison ? 'Ton exercice de la saison' : 'Ton exercice du mois', titre: ex[0].nom,
-                 slug: ex[0].slug, chiffre: { v: ex[0].reps, unite: 'reps', moyen: true, espace: true },
+                 slug: ex[0].slug, chiffre: { v: ex[0].reps, unite: M().uniteReps(ex[0].reps), moyen: true, espace: true },
                  lignes: ex.slice(1).map(function (x, i) { return { n: i === 0 ? 'Puis' : null, v: x.nom + ' · ' + repsTxt(x.reps), slug: x.slug }; }) });
     }
     // Les records : la saison dit ses nouvelles charges max ; le mois, tous ses records (l'ancien bilan).
@@ -168,7 +169,7 @@
     }
     if (b.avance && b.avance.tete) {
       cases.push({ k: 'Plus gros progrès', m: sansParentheses(b.avance.tete.nom),
-                   p: M().nombreTexte(b.avance.tete.de, 1) + ' → ' + kg(b.avance.tete.a) + ' à ' + b.avance.tete.reps + ' rep' + (b.avance.tete.reps > 1 ? 's' : '') });
+                   p: M().nombreTexte(b.avance.tete.de, 1) + ' → ' + kg(b.avance.tete.a) + ' à ' + M().repsTexte(b.avance.tete.reps) });
     }
     if (saison && b.exercices.length) cases.push({ k: 'Exercice de la saison', m: sansParentheses(b.exercices[0].nom), p: repsTxt(b.exercices[0].reps) });
     if (!saison && b.muscles.length) cases.push({ k: 'Muscle du mois', m: b.muscles[0].libelle, p: seriesTxt(b.muscles[0].series) });
@@ -204,7 +205,7 @@
     }
     // Reps et séries.
     out.push({ cle: 'reps', d: 6300, lab: 'En', chiffre: { v: b.reps.reps },
-               txt: ['reps de travail, sur ', g(milliers(b.reps.series) + ' série' + (b.reps.series > 1 ? 's' : '')), '.'] });
+               txt: [M().uniteReps(b.reps.reps) + ' de travail, sur ', g(milliers(b.reps.series) + ' série' + (b.reps.series > 1 ? 's' : '')), '.'] });
     // Le profil.
     if (b.profil) {
       var pr = b.profil;
@@ -230,8 +231,8 @@
       var ex = b.exercices;
       var seances = function (n) { return n + ' séance' + (n > 1 ? 's' : ''); };
       out.push({ cle: 'exercice', d: 8400, lab: 'Ton exercice de l’année', titre: ex[0].nom,
-                 txt: [g(seances(ex[0].seances)), ' · ', g(milliers(ex[0].reps) + ' reps')],
-                 lignes: ex.slice(1).map(function (x) { return { n: x.nom, v: seances(x.seances) + ' · ' + milliers(x.reps) + ' reps' }; }) });
+                 txt: [g(seances(ex[0].seances)), ' · ', g(M().repsTexte(ex[0].reps))],
+                 lignes: ex.slice(1).map(function (x) { return { n: x.nom, v: seances(x.seances) + ' · ' + M().repsTexte(x.reps) }; }) });
     }
     // La séance la plus lourde.
     if (b.seance) {
@@ -294,7 +295,7 @@
     }
     if (b.avance && b.avance.tete) {
       cases.push({ k: 'Plus gros progrès', m: sansParentheses(b.avance.tete.nom),
-                   p: M().nombreTexte(b.avance.tete.de, 1) + ' → ' + kg(b.avance.tete.a) + ' à ' + b.avance.tete.reps + ' rep' + (b.avance.tete.reps > 1 ? 's' : '') });
+                   p: M().nombreTexte(b.avance.tete.de, 1) + ' → ' + kg(b.avance.tete.a) + ' à ' + M().repsTexte(b.avance.tete.reps) });
     }
     if (b.muscles.length) cases.push({ k: 'Muscle de l’année', m: b.muscles[0].libelle, p: milliers(b.muscles[0].series) + ' séries' });
     out.push({ cle: 'plaque', d: 0, plaque: { an: p.libelle, qui: vue.qui || '', cases: cases.slice(0, 6) } });

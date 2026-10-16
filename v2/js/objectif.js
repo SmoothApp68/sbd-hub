@@ -335,7 +335,7 @@
     if (!(n >= 1)) return suite.trim();
     var r = recordA(seances, n, instant(maintenant), options);
     var debut = r ? 'Ton record\u00a0: ' + Modele().chargeFois(r.charge, n) + '.'
-      : 'Pas encore de série à ' + n + ' rep' + (n > 1 ? 's' : '') + ' ou plus.';
+      : 'Pas encore de série à ' + Modele().repsTexte(n) + ' ou plus.';
     return debut + suite;
   }
 

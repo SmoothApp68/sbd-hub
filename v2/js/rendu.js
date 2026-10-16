@@ -448,7 +448,7 @@
       lignes.forEach(function (l) {
         var tr = el('tr');
         var v = l.valeurs;
-        tr.appendChild(el('td', null, l.reps === 1 ? '1 rep' : l.reps + ' reps'));
+        tr.appendChild(el('td', null, M().repsTexte(l.reps)));
         var rec = el('td');
         rec.appendChild(el('b', null, M().charge(v[0].charge)));
         tr.appendChild(rec);
@@ -610,8 +610,7 @@
       // défiler. Il porte SON nombre de reps — « record » nu ne dirait pas de
       // quoi.
       if (s.record) {
-        sous.appendChild(el('b', null, ' · record à ' + s.record +
-          ' rep' + (s.record > 1 ? 's' : '')));
+        sous.appendChild(el('b', null, ' · record à ' + M().repsTexte(s.record)));
       }
       sous.addEventListener('click', function () { vue.surSeance(s.id); });
       tete.appendChild(sous);
@@ -1286,7 +1285,7 @@
     l.appendChild(haut);
     if (o.methode === 'reps' && o.detail.length) {
       l.appendChild(el('div', 'pc-exo-detail', o.detail.map(function (d) {
-        return M().nombreTexte(d[1]) + ' → ' + M().nombreTexte(d[2]) + ' à ' + d[0] + (d[0] > 1 ? ' reps' : ' rep');
+        return M().nombreTexte(d[1]) + ' → ' + M().nombreTexte(d[2]) + ' à ' + M().repsTexte(d[0]);
       }).join(' · ')));
     }
     return l;

@@ -17460,8 +17460,10 @@ const SETS_IMPORTES = [
     ok('[social] à sens unique, l’app ne demande pas le détail, et la base le refuserait',
       S.appels.slice(appelsAvant).indexOf('social_detail_seance') < 0 &&
         fauxSocial.rpc('u-banc', 'social_detail_seance', { p_session: LEA }).length === 0, JSON.stringify(S.appels.slice(appelsAvant)));
-    ok('[social] « Inviter dans un groupe » : grisé, avec « Abonnez-vous l’un à l’autre pour l’inviter. »',
-      b0.inviter === true && b0.inviterSous === 'Abonnez-vous l’un à l’autre pour l’inviter.', JSON.stringify(b0));
+    // 121 (audit du 16/10, 05 #10) — plus de bouton figé « Inviter dans un groupe » sur le profil (le groupe se lance
+    // depuis la séance, la guilde depuis ses Membres).
+    ok('[social] 121 — le profil ne montre plus « Inviter dans un groupe » (ni « Abonnez-vous l’un à l’autre pour l’inviter »)',
+      b0.inviter === false && b0.inviterSous === null && !/Inviter dans un groupe|Abonnez-vous l’un/.test(await texte('#social-ami')), JSON.stringify(b0));
     await mesurer('profil à sens unique');
 
     // ── C. LEA DEMANDE À SON TOUR : la demande dans le fil (et le badge), « Accepter » → MUTUEL : le détail.
@@ -17483,8 +17485,8 @@ const SETS_IMPORTES = [
       lien('u-lea', 'u-banc').statut === 'accepte' && c1.etat === 'Vous vous suivez' && c1.ex === 1 && c1.detailCache === null &&
         /100 kg × 10, 10, 10/.test(await texte('#social-ami')) && !/rpe|ressenti|genou/i.test(await texte('#social-ami')),
       JSON.stringify([c1, await texte('#social-ami')]));
-    ok('[social] mutuel : « Inviter dans un groupe » reste inactif, « Bientôt »', c1.inviter === true && c1.inviterSous === 'Bientôt',
-      JSON.stringify(c1));
+    ok('[social] 121 — mutuel : plus de « Inviter dans un groupe · Bientôt »', c1.inviter === false && c1.inviterSous === null &&
+      !/Bientôt/.test(await texte('#social-ami')), JSON.stringify(c1));
     await mesurer('profil mutuel');
 
     // ── D. RÉAGIR ; le nombre de réactions : l'auteur seulement.

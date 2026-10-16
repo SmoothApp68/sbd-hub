@@ -32,9 +32,11 @@ describe('social.js — les cercles et ce qu’ils montrent', () => {
     expect(['inconnu', 'demande', 'suivi', 'mutuel'].map(Social.voitLeCalendrier)).toEqual([false, false, true, true]);
     expect(['inconnu', 'demande', 'suivi', 'mutuel'].map(Social.voitLeDetail)).toEqual([false, false, false, true]);
   });
-  test('« Inviter dans un groupe » : inactif partout (étage 3) ; « Bientôt » en mutuel, la condition sinon', () => {
-    expect(Social.invitation('mutuel')).toEqual({ actif: false, sous: 'Bientôt' });
-    expect(Social.invitation('suivi')).toEqual({ actif: false, sous: 'Abonnez-vous l’un à l’autre pour l’inviter.' });
+  test('121 (05 #10) — plus de « Inviter dans un groupe » sur le profil : le groupe se lance depuis la séance, la guilde depuis ses Membres', () => {
+    expect(Social.invitation).toBeUndefined();
+    const fs = require('fs'), path = require('path');
+    const rendu = fs.readFileSync(path.join(__dirname, '../../v2/js/rendu.js'), 'utf8');
+    expect(rendu).not.toMatch(/Inviter dans un groupe|social-inviter|s-inviter-sous/);
   });
   test('le bouton : s’abonner, suivre en retour — rien une fois abonné ou en demande', () => {
     expect(Social.boutonDe(p(null, false), 'inconnu')).toBe('S’abonner');

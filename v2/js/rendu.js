@@ -6406,7 +6406,6 @@
     cible.appendChild(tete);
     var actions = el('div', 's-actions');
     if (p.bouton) actions.appendChild(boutonSocial(p.bouton.texte, 's-b1 s-principal', p.bouton.sur, 'social-principal'));
-    actions.appendChild(boutonSocial('Inviter dans un groupe', 's-grise s-inviter', null, 'social-inviter'));
     var menu = el('div', 's-menu');
     menu.hidden = true;
     (p.menu || []).forEach(function (m) {
@@ -6425,7 +6424,6 @@
       actions.appendChild(boutonSocial('···', 's-b2 s-plus-menu', function () { menu.hidden = !menu.hidden; }, 'social-menu'));
     }
     cible.appendChild(actions);
-    cible.appendChild(el('p', 's-gris s-centre s-inviter-sous', p.invitation.sous));
     cible.appendChild(menu);
     if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message));
     if (vue.cache) { cible.appendChild(el('p', 's-gris s-note s-cache', vue.cache)); return; }

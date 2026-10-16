@@ -12,7 +12,7 @@ Abonnements façon Instagram, trois cercles :
 |---|---|
 | Inconnu | pseudo, blason, niveau du jeu |
 | Abonné accepté (un sens) | fil : titre, date, records (médailles), tonnage ; réagir ; calendrier du profil (jours, résumé au toucher) |
-| Mutuel | + détail des séances (exercices, séries, charges) ; bouton « Inviter dans un groupe » (grisé sinon, avec « Abonnez-vous l'un à l'autre pour l'inviter » — l'invitation elle-même est l'étage 3, le bouton seulement ici, inactif même en mutuel avec « Bientôt ») |
+| Mutuel | + détail des séances (exercices, séries, charges) ; bouton « Inviter dans un groupe » (grisé sinon, avec « Abonnez-vous l'un à l'autre pour l'inviter » — l'invitation elle-même est l'étage 3, le bouton seulement ici, inactif même en mutuel avec « Bientôt ») — **retiré le 16/10/2026 (audit du 16/10, 05 #10)** : l'étage 3 est livré ailleurs (le groupe se lance depuis la séance, §7.1 ; la guilde invite depuis ses Membres, §6.2), le bouton restait figé à « Bientôt » et disait sur mon propre profil de m'abonner à moi-même |
 | Jamais | poids de corps, santé, notes, RPE, ressenti, douleur |
 
 ## 2. Les règles

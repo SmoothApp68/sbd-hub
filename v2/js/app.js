@@ -1972,7 +1972,7 @@
       bouton: texteBouton ? { texte: texteBouton, sur: function () {
         poserGesteSocial(Object.assign({ geste: G.SABONNER, prive: p.compte_prive !== false, niveau: p.niveau === undefined ? null : p.niveau }, lui));
       } } : null,
-      invitation: Social.invitation(cercle), menu: cercle === Social.MOI ? [] : menu } };
+      menu: cercle === Social.MOI ? [] : menu } };
     if (!Social.voitLeCalendrier(cercle)) {
       vue.cache = cercle === Social.MOI ? null
         : cercle === Social.DEMANDE ? 'Ses séances se voient quand ' + p.pseudo + ' accepte ta demande.'

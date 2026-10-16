@@ -53,11 +53,10 @@
     return null;
   }
 
-  // « Inviter dans un groupe » (étage 3) : le bouton seulement, inactif même en mutuel.
-  function invitation(cercle) {
-    if (cercle === MUTUEL) return { actif: false, sous: 'Bientôt' };
-    return { actif: false, sous: 'Abonnez-vous l’un à l’autre pour l’inviter.' };
-  }
+  // 121 (audit du 16/10/2026, 05 #10) — PLUS DE « Inviter dans un groupe » SUR LE PROFIL. Le bouton de l'étage 1
+  // (inactif, « Bientôt ») annonçait l'étage 3 ; le groupe se lance depuis la séance en cours (« S'entraîner
+  // ensemble », SOCIAL §7.1) et la guilde invite depuis ses Membres (§6.2). Il restait figé à « Bientôt », et disait
+  // sur MON profil qu'il fallait m'abonner à moi-même.
 
   // Le niveau et le titre publiés (`jeu_niveau`, `jeu_titre`), nuls si le jeu est éteint chez la personne.
   // `titres` : la table des libellés du jeu (`rendu.js`). Sans niveau, rien.
@@ -919,7 +918,6 @@
     voitLeDetail: voitLeDetail,
     etatDe: etatDe,
     boutonDe: boutonDe,
-    invitation: invitation,
     ligneDuJeu: ligneDuJeu,
     couleurDuBlason: couleurDuBlason,
     liensRanges: liensRanges,

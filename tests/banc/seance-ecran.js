@@ -17710,9 +17710,18 @@ const SETS_IMPORTES = [
       exercise_slug: slug, charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: n, groupe_superset: null,
       validee_a: debutMoi, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debutMoi, modifie_a: null });
     base.sets.push(maSerie(1, 'squat-barre', 145, 3), maSerie(2, 'dc-barre', 140, 3));
-    // Mes meilleures charges, sur TOUT mon historique de banc (des sections précédentes peuvent en avoir posé).
+    // 114 — une vieille séance (il y a 400 jours), au couché PLUS LOURD (150 kg) : hors des 12 mois, elle ne compte ni
+    // dans mon score, ni dans mes kilos d'« Entre amis » (la meilleure charge de toute une vie la ferait compter).
+    const MA_VIEILLE = 'a0000000-0000-4000-8890-0000000000ab';
+    const debutVieille = iso(ilYa(400 * 86400000, tS));
+    base.sessions.push({ id: MA_VIEILLE, user_id: 'u-banc', titre: 'Social U114 vieille', debut: debutVieille, fin: iso(finDe(debutVieille, tS)),
+      statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debutVieille });
+    base.sets.push(Object.assign(maSerie(3, 'dc-barre', 150, 1), { session_id: MA_VIEILLE, validee_a: debutVieille, created_at: debutVieille }));
+    // Mes meilleures charges, sur les 12 derniers mois de mon historique de banc (des sections précédentes peuvent en
+    // avoir posé) — la fenêtre du score et des kilos d'« Entre amis » (114).
+    const depuis12 = Date.parse(iso(ilYa(364 * 86400000, tS)));
     const maxMoi = (slug) => base.sets.filter((t) => t.user_id === 'u-banc' && t.exercise_slug === slug && (t.type_serie || 'travail') === 'travail' &&
-      Number(t.reps) > 0 && base.sessions.some((s) => s.id === t.session_id && (s.statut || 'terminee') === 'terminee'))
+      Number(t.reps) > 0 && base.sessions.some((s) => s.id === t.session_id && (s.statut || 'terminee') === 'terminee' && Date.parse(s.debut) >= depuis12))
       .reduce((m, t) => Math.max(m, Number(t.charge_kg) || 0), 0);
     const monSquat = maxMoi('squat-barre'), monCouche = maxMoi('dc-barre');
     // Jordan (89,5 kg, homme) et alexis — leurs scores publiés depuis LEUR téléphone (le poids n'en sort pas).
@@ -17739,8 +17748,8 @@ const SETS_IMPORTES = [
     if (!/^http/.test(page.url())) await aller('/saisie');        // le banc réduit part d'une page vide
     const decalageAvant = await page.evaluate((k) => localStorage.getItem(k), CLE_DECALAGE);
     await page.evaluate((k) => localStorage.setItem(k, '0'), CLE_DECALAGE);
-    ok('[social-2] le décor : mon squat sous les 210 kg de jordan, et au couché jordan soulève EXACTEMENT ma meilleure charge',
-      monSquat > 0 && monSquat < 190 && monCouche >= 140, JSON.stringify([monSquat, monCouche]));
+    ok('[social-2] le décor : mon squat sous les 210 kg de jordan, et au couché jordan soulève EXACTEMENT ma meilleure charge (12 mois, sous les 150 kg d’il y a 400 jours)',
+      monSquat > 0 && monSquat < 190 && monCouche >= 140 && monCouche < 150, JSON.stringify([monSquat, monCouche]));
     const chemin = () => page.evaluate(() => location.pathname);
     const largeurs = [];
     const mesurer = async (ecran) => {
@@ -17910,7 +17919,8 @@ const SETS_IMPORTES = [
     // ── LA REMISE EN ÉTAT.
     ['profils', 'sessions', 'sets', 'records', 'abonnements', 'blocages', 'reactions', 'scores'].forEach((k) => { S[k] = []; });
     for (let k = base.sets.length - 1; k >= 0; k--) if (base.sets[k].session_id === MA_SEANCE) base.sets.splice(k, 1);
-    for (let k = base.sessions.length - 1; k >= 0; k--) if (base.sessions[k].id === MA_SEANCE) base.sessions.splice(k, 1);
+    for (let k = base.sessions.length - 1; k >= 0; k--) if (base.sessions[k].id === MA_SEANCE || base.sessions[k].id === MA_VIEILLE) base.sessions.splice(k, 1);
+    for (let k = base.sets.length - 1; k >= 0; k--) if (base.sets[k].session_id === MA_VIEILLE) base.sets.splice(k, 1);
     base.pesees.length = 0;
     peseesAvant.forEach((p) => base.pesees.push(p));
     base.profiles[0].sexe = sexeAvant;

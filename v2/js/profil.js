@@ -598,6 +598,10 @@
                        // 87 (v2_078) — le compte privé, et le niveau et le titre du jeu que l'app publie
                        // (`publierJeu`, app.js) : l'affichage social seulement, jamais relus par le jeu.
                        'compte_prive', 'jeu_niveau', 'jeu_titre',
+                       // 104 (v2_086, NOT NULL DEFAULT '{}', au plus 200) — les bilans déjà annoncés ('2026',
+                       // '2026-ete', '2026-09') : l'annonce ne revient pas sur un autre appareil (BILANS-V1).
+                       // Colonne FACULTATIVE (`Donnees`) : absente en base, le profil se lit et s'écrit sans elle.
+                       'bilans_annonces',
                        'onboarding_completed'];
 
   // ⚠️ `jeu_actif` EST NOT NULL (v2_068) : un `null` serait un 23502, que la file classe définitif — et le profil part
@@ -609,9 +613,33 @@
     CHAMPS_ECRITS.forEach(function (c) {
       if (!Object.prototype.hasOwnProperty.call(src, c)) return;
       if (BOOLEENS_NON_NULS.indexOf(c) >= 0 && typeof src[c] !== 'boolean') return;
+      // 104 — `bilans_annonces` est NOT NULL et borné à 200 (CHECK, 23514 définitif pour TOUTE la ligne) : seule une
+      // liste part, ramenée à ses 200 dernières périodes ; absente ou illisible, elle ne part pas (la base garde la sienne).
+      if (c === 'bilans_annonces') {
+        if (!Array.isArray(src[c])) return;
+        sortie[c] = ajouterBilansAnnonces(src[c], []);
+        return;
+      }
       sortie[c] = src[c];
     });
     return sortie;
+  }
+
+  // ── Les bilans déjà annoncés (104, BILANS-V1, v2_086) ───────────────────
+  // La liste des périodes annoncées (la `cle` de la période : '2026', '2026-ete', '2026-09'), la plus ancienne
+  // d'abord. Au plus 200 : les plus anciennes sortent (une période ancienne ne s'annonce de toute façon plus).
+  var BILANS_ANNONCES_MAX = 200;
+  function bilansAnnonces(profil) {
+    var l = profil && profil.bilans_annonces;
+    return Array.isArray(l) ? l.filter(function (x) { return typeof x === 'string' && x; }) : [];
+  }
+  // La liste, plus les clés nouvelles (sans doublon, dans l'ordre), ramenée aux 200 dernières. Rien n'est muté.
+  function ajouterBilansAnnonces(liste, cles) {
+    var out = [];
+    (Array.isArray(liste) ? liste : []).concat(Array.isArray(cles) ? cles : []).forEach(function (x) {
+      if (typeof x === 'string' && x && out.indexOf(x) < 0) out.push(x);
+    });
+    return out.length > BILANS_ANNONCES_MAX ? out.slice(out.length - BILANS_ANNONCES_MAX) : out;
   }
 
   // ── Le jeu est-il allumé ? (64B, JEU-V1 §9.1) ────────────────────────────
@@ -1291,6 +1319,7 @@
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,
     TAILLE_MIN: TAILLE_MIN, TAILLE_MAX: TAILLE_MAX,
     comptePrive: comptePrive,
+    BILANS_ANNONCES_MAX: BILANS_ANNONCES_MAX, bilansAnnonces: bilansAnnonces, ajouterBilansAnnonces: ajouterBilansAnnonces,
     PSEUDO_MIN: PSEUDO_MIN, PSEUDO_MAX: PSEUDO_MAX, MDP_MIN: MDP_MIN,
     CHAMPS_ECRITS: CHAMPS_ECRITS, A_RENSEIGNER: A_RENSEIGNER,
     EQUIPEMENTS: EQUIPEMENTS, LIBELLES_EQUIPEMENT: LIBELLES_EQUIPEMENT, libelleEquipement: libelleEquipement,

@@ -1237,12 +1237,12 @@
   //
   // ⚠️ L'ÉCRAN LIT LE BILAN, IL NE LE REFAIT PAS : `faits.bilanDePeriode` (l'entrée assemblée et le bilan mémorisé), le
   // jeu par `Jeu.etatDuJeu` sur `faits.faitsDuJeuDeLaPeriode`. Ce que l'app ajoute ne décide rien : QUAND le bloc
-  // et l'annonce paraissent. Rien n'est écrit en base.
+  // et l'annonce paraissent. Rien n'est écrit en base, sauf la période annoncée (104).
   //   · le bloc de Progression : le bilan de l'année écoulée, toute l'année suivante (à partir de 2026, la première) ;
   //     hors production (la garde du coach active), celui de l'année en cours quand l'écoulée n'en a pas ;
   //   · `?bilan=AAAA` (hors production, comme `?rejouer=`) : il s'ouvre au démarrage ;
-  //   · l'annonce : en janvier, une fois par personne et par année, mémorisée SUR L'APPAREIL — aucune colonne de
-  //     `profiles` ne s'y prête (SCHEMA-REEL, relevé du 12/10) ; une nouvelle colonne serait une migration.
+  //   · l'annonce : en janvier, une fois par personne et par année, mémorisée dans le profil (`bilans_annonces`,
+  //     v2_086, depuis 104) et sur l'appareil — elle ne revient pas sur un autre appareil.
   var Bilans = racine.THBilans, Annee = racine.THAnnee;
   var PREMIERE_ANNEE = 2026;
   function bilanDeLAnnee(an) {
@@ -1263,7 +1263,7 @@
   // bilan du mois de Progression (`/progression/mois/AAAA-MM` l'ouvre) et en reprend les records
   // (`faits.recordsDuMois`, tous au toucher : la liste des records du mois) et les paris (`Bilan.phraseParis`, le
   // détail au toucher). Le nom de la saison suit la phase du profil au début de la saison (`Profil.phaseAuJour`).
-  // Ce que l'app ajoute ne décide rien : QUAND le bloc et l'annonce paraissent. Rien n'est écrit en base.
+  // Ce que l'app ajoute ne décide rien : QUAND le bloc et l'annonce paraissent. Rien n'est écrit en base, sauf la période annoncée (104).
   function bilanPeriode(periode) {
     return faits.bilanDePeriode(corpus(), periode, new Date(),
                                 { pesees: local.pesees || [], paris: parisDeConsigneConnus() });
@@ -1323,9 +1323,15 @@
   // 98 — L'ANNONCE DE LA SAISON ET DU MOIS : un seul message dans l'app, à l'ouverture, à partir du premier jour de
   // la saison suivante (1er déc., 1er mars, 1er juin, 1er sept.) ou du 1er du mois, et pendant les 7 premiers jours
   // (le jour même seulement manquerait qui n'ouvre pas l'app ce jour-là) ; une fois par personne et par période,
-  // mémorisé SUR L'APPAREIL (comme l'année). Un même jour, un seul message : l'année, sinon la saison, sinon le mois ;
+  // mémorisé dans le profil et sur l'appareil (comme l'année, 104). Un même jour, un seul message : l'année, sinon la saison, sinon le mois ;
   // les autres restent dans Progression (et sont notés vus, pour ne pas s'enchaîner les jours suivants).
+  // 104 — L'ANNONCE NE REVIENT PAS SUR UN AUTRE APPAREIL (BILANS-V1, décision du 16/10/2026) : une période est
+  // annoncée si elle n'est ni dans le profil (`bilans_annonces`, v2_086) ni dans la mémoire de l'appareil. Annoncée,
+  // elle s'ajoute aux deux : au profil par son chemin d'écriture (`poserProfil` — local d'abord, la ligne rejouée au
+  // retour du réseau), à l'appareil pour le hors-ligne (et tant que la colonne n'existe pas en base).
   var CLE_ANNONCE_BILAN = 'th-v2-annonce-bilan', JOURS_D_ANNONCE = 7;
+  var CLE_ANNONCE_ANNEE = 'th-v2-annonce-annee';
+  var ATTENTE_PROFIL_ANNONCE_MS = 5000;
   function annoncesDuJour(maintenant) {
     var out = [];
     if (maintenant.getDate() > JOURS_D_ANNONCE) return out;
@@ -1338,42 +1344,55 @@
     out.push({ periode: mo, texte: 'Ton mois ' + (/^[aeiouéè]/i.test(mo.nom) ? 'd’' : 'de ') + mo.nom + ' est prêt.' });
     return out;
   }
-  function cleAnnonce(uid, p) { return CLE_ANNONCE_BILAN + ':' + uid + ':' + p.type + ':' + p.cle; }
+  // La clé de l'appareil (inchangée depuis 95 et 98 : ce qu'un appareil a déjà vu le reste).
+  function cleAnnonce(uid, p) {
+    return p.type === 'annee' ? CLE_ANNONCE_ANNEE + ':' + uid + ':' + p.cle : CLE_ANNONCE_BILAN + ':' + uid + ':' + p.type + ':' + p.cle;
+  }
+  // Déjà annoncée ? Le profil, puis l'appareil. Une mémoire d'appareil illisible vaut « vue » : jamais d'annonce répétée.
+  function annonceDejaVue(uid, p) {
+    if (Profil.bilansAnnonces(profil).indexOf(p.cle) >= 0) return true;
+    try { return !!racine.localStorage.getItem(cleAnnonce(uid, p)); } catch (e) { return true; }
+  }
+  // Noter des périodes annoncées : l'appareil d'abord (`false` s'il refuse : on n'annonce pas ce qu'on ne peut retenir),
+  // puis le profil — seulement s'il est connu (un profil jamais lu ne se crée pas d'une annonce).
+  function noterAnnonces(uid, periodes) {
+    try { periodes.forEach(function (p) { racine.localStorage.setItem(cleAnnonce(uid, p), '1'); }); } catch (e) { return false; }
+    var deja = Profil.bilansAnnonces(profil);
+    var cles = periodes.map(function (p) { return p.cle; }).filter(function (c) { return deja.indexOf(c) < 0; });
+    if (profil && cles.length) poserProfil({ bilans_annonces: Profil.ajouterBilansAnnonces(deja, cles) }).catch(function () {});
+    return true;
+  }
   function annoncerUnBilan(uid) {
     if (!uid) return false;
-    var dejaVue = function (p) {
-      try { return !!racine.localStorage.getItem(cleAnnonce(uid, p)); } catch (e) { return true; }   // sans mémoire, rien
-    };
-    var a = annoncesDuJour(new Date()).filter(function (x) { return !dejaVue(x.periode) && !bilanPeriode(x.periode).vide; });
+    var a = annoncesDuJour(new Date()).filter(function (x) { return !annonceDejaVue(uid, x.periode) && !bilanPeriode(x.periode).vide; });
     if (!a.length) return false;
-    try { a.forEach(function (x) { racine.localStorage.setItem(cleAnnonce(uid, x.periode), '1'); }); } catch (e) { return false; }
+    if (!noterAnnonces(uid, a.map(function (x) { return x.periode; }))) return false;
     Annee.annonce($('annonce-annee'), { texte: a[0].texte, surVoir: function () { ouvrirBilan(a[0].periode); } });
     return true;
   }
-  var CLE_ANNONCE_ANNEE = 'th-v2-annonce-annee';
   function annoncerLAnnee(uid) {
     var maintenant = new Date(), an = maintenant.getFullYear() - 1;
     if (maintenant.getMonth() !== 0 || an < PREMIERE_ANNEE || !uid) return false;
-    var cle = CLE_ANNONCE_ANNEE + ':' + uid + ':' + an;
-    try { if (racine.localStorage.getItem(cle)) return false; } catch (e) { return false; }   // sans mémoire, pas d'annonce répétée
-    if (bilanDeLAnnee(an).vide) return false;
-    try { racine.localStorage.setItem(cle, '1'); } catch (e) { return false; }
+    var p = Bilans.periodeDeLAnnee(an);
+    if (annonceDejaVue(uid, p) || bilanDeLAnnee(an).vide) return false;
+    // Un seul message : l'année d'abord ; la saison et le mois du jour sont notés vus avec elle.
+    if (!noterAnnonces(uid, [p].concat(annoncesDuJour(maintenant).map(function (x) { return x.periode; })))) return false;
     Annee.annonce($('annonce-annee'), { an: an, surVoir: function () { ouvrirAnnee(an); } });
     return true;
   }
-  function apresSynchroAnnee(uid) {
+  // `profilLu` : la lecture du profil lancée par la synchronisation. L'annonce l'attend (au plus 5 s) — décider sur le
+  // seul cache annoncerait de nouveau, sur un appareil neuf, ce qu'un autre a déjà annoncé.
+  function apresSynchroAnnee(uid, profilLu) {
     var an = anneeDemandee();
     if (an) { ouvrirAnnee(an); return; }
     var p = periodeDemandee();
     if (p) { ouvrirBilan(p); return; }
-    // Un seul message : l'année d'abord ; la saison et le mois du jour sont alors notés vus.
-    if (annoncerLAnnee(uid)) {
-      annoncesDuJour(new Date()).forEach(function (x) {
-        try { racine.localStorage.setItem(cleAnnonce(uid, x.periode), '1'); } catch (e) { /* sans mémoire */ }
-      });
-      return;
-    }
-    annoncerUnBilan(uid);
+    var g = generation;
+    var borne = new Promise(function (r) { racine.setTimeout(r, ATTENTE_PROFIL_ANNONCE_MS); });
+    return Promise.race([Promise.resolve(profilLu).catch(function () {}), borne]).then(function () {
+      if (!generationValide(g) || userId() !== uid) return;
+      if (!annoncerLAnnee(uid)) annoncerUnBilan(uid);
+    });
   }
 
   // ══ LE JEU (64B, JEU-V1 §9, maquette `maquette-jeu-v6.html`) ═════════════
@@ -10808,7 +10827,7 @@
     // l'écran DIT qu'il n'y a pas de réseau. Trouvé au banc, pas en test : la
     // mesure unitaire ne voit pas une seconde de plus, l'écran si.
     // Le profil sait se rendre tout seul quand il arrive.
-    chargerProfil();
+    var profilLu = chargerProfil();
     // La séance `en_cours` restée en base est déjà résolue (ch. 36, D7) : la
     // vérification ci-dessus a précédé la synchronisation. Et si elle a échoué,
     // le conflit se résout à la vidange elle-même.
@@ -10817,7 +10836,7 @@
     // l'historique est là.
     if (rejeuDemande) ouvrirRejeu();
     // 95 — « Ton année » : `?bilan=AAAA` hors production, sinon l'annonce de janvier (une fois).
-    apresSynchroAnnee(userId);
+    apresSynchroAnnee(userId, profilLu);
     // L'utilisateur est parti ailleurs pendant la synchro. Re-rendre écraserait
     // son écran — et, sur l'éditeur de routine, le brouillon qu'il est en train
     // de remplir. Une synchronisation de fond ne reprend jamais la main.

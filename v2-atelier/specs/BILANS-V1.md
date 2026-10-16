@@ -38,6 +38,24 @@ Maquette validée par Aurélien le 15/10/2026 : [`maquette-saison-mois-v1.html`]
 Les noms réels des phases (vérifiés dans `v2/js/profil.js`, contrainte `profiles_phase_valeurs`) : `prise_de_masse`,
 `seche`, `maintien` ; vide = `maintien`.
 
+### Décision du 16/10/2026 (prompt 104) — l'annonce mémorisée dans le profil
+
+« L'annonce d'un bilan est mémorisée dans le profil ; elle ne revient pas sur un autre appareil. »
+
+- Colonne `profiles.bilans_annonces` (`text[] NOT NULL DEFAULT '{}'`, au plus 200 — migration `v2_086`) : la liste des
+  périodes déjà annoncées, par leur clé (`'2026'`, `'2026-ete'`, `'2026-09'`). Elle remplace « sur l'appareil seulement »
+  dans les décisions ci-dessus (l'année et la saison et le mois).
+- Une période est annoncée si elle n'est **ni** dans la colonne **ni** dans la mémoire de l'appareil. À l'affichage de
+  l'annonce, elle s'ajoute aux deux : au profil par son chemin d'écriture (la liste blanche `CHAMPS_ECRITS`, l'envoi
+  rejoué au retour du réseau), à l'appareil pour le hors-ligne. Les périodes notées vues avec elle (le même jour, un
+  seul message) s'y ajoutent aussi. La liste ne garde que les 200 dernières périodes.
+- L'annonce attend la lecture du profil (au plus 5 s) : décider sur le seul cache la reposerait sur un appareil neuf.
+- Un profil jamais lu (appareil neuf, hors réseau) ne se crée pas d'une annonce : l'appareil retient seul.
+- **La colonne est facultative** pour l'app (`COLONNES_FACULTATIVES`, `v2/js/donnees.js`) : tant que `v2_086` n'est pas
+  lancée, la base la refuse (`42703` à la lecture, `PGRST204` à l'écriture) ; elle quitte alors la lecture et
+  l'écriture pour la session, et le profil se lit et s'écrit sans elle — le défaut de #418 (une colonne nommée avant
+  sa migration : plus de profil) ne se reproduit pas. L'appareil retient seul en attendant.
+
 ## 2. Où cela vit (implémentation des prompts 95, 97 et 98)
 
 | Quoi | Où |
@@ -51,6 +69,7 @@ Les noms réels des phases (vérifiés dans `v2/js/profil.js`, contrainte `profi
 | La phase au début de la saison | `v2/js/profil.js` — `phaseAuJour` |
 | Les écrans de la saison et du mois | `v2/js/annee.js` — `ecransDePeriode`, `titreDe` (le même lecteur que l'année) |
 | La story du mois à la place de l'ancien bilan, le bloc de la saison, les annonces, `?bilan=AAAA-MM` et `?bilan=AAAA-saison` | `v2/js/app.js` (« 98 — LA SAISON ET LE MOIS » : `ouvrirBilan`, `rendreMois`, `saisonDuSommaire`, `annoncerUnBilan`) |
+| Les bilans annoncés (104) : la liste, ses 200 dernières, la colonne facultative | `v2/js/profil.js` — `bilansAnnonces`, `ajouterBilansAnnonces`, `CHAMPS_ECRITS` ; `v2/js/donnees.js` — `COLONNES_FACULTATIVES` ; `v2/js/app.js` — `annonceDejaVue`, `noterAnnonces`, `apresSynchroAnnee` |
 
 Ce qui est réutilisé, jamais recopié : `Modele.estTravail`, `Bilan.volumeKg`, `Semaine.compteSeriesTravail`,
 `Semaine.volumeParMuscle`, `Bilan.compterParis`, `Bilan.comparaison`, et de « Ton parcours » la règle « moins
@@ -84,6 +103,7 @@ zones de MUSCLES ; celles du moteur, `lourd` 3-5 / `mix` 6-8 / …, rangent autr
    vérifié : pas d'écran.
 9. **L'annonce** : en janvier, à la première ouverture, une fois par personne et par année — **sur l'appareil
    seulement** (`localStorage`) : aucune colonne de `profiles` ne s'y prête. À partir de l'année 2026 (la première).
+   *(Remplacé le 16/10/2026, prompt 104 : mémorisée dans le profil et sur l'appareil — voir §1.)*
 10. **Le bloc de Progression** : « Ton année {N−1} » toute l'année N (N−1 ≥ 2026) ; hors production, celui de l'année
     en cours quand l'écoulée n'en a pas.
 11. **L'accès de développement** : `?bilan=AAAA`, là où la garde du coach est active (localhost, aperçus
@@ -131,7 +151,7 @@ zones de MUSCLES ; celles du moteur, `lourd` 3-5 / `mix` 6-8 / …, rangent autr
 6. **La semaine** : du lundi au dimanche ; seules les séances de la période comptent (la première et la dernière
    semaine peuvent être partielles). « La plus lourde : semaine du 12 octobre, 52 t. »
 7. **L'annonce** : du 1er au 7 du mois (le seul premier jour manquerait qui n'ouvre pas l'app ce jour-là), une fois par
-   personne et par période, sur l'appareil (`localStorage`). Le même jour, un seul message : l'année (en janvier),
+   personne et par période, sur l'appareil (`localStorage`) — *dans le profil aussi depuis le 16/10/2026 (104, §1)*. Le même jour, un seul message : l'année (en janvier),
    sinon la saison (1er déc., mars, juin, sept.), sinon le mois ; les autres sont notés vus et restent dans
    Progression. Une période vide n'est pas annoncée.
 8. **Progression** : le bloc du mois écoulé garde son titre (« Septembre ») et dit ses tonnes, ses records et ses paris

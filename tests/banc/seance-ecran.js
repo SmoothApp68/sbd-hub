@@ -17348,7 +17348,8 @@ const SETS_IMPORTES = [
     await attendreQue(async () => /Demande envoyée/.test(await etatAmi()));
     const h2a = { etat: await etatAmi(), file: await fileSociale() };
     await page.click('#social-menu');
-    await page.click('#social-ami [data-geste="retirer-abonnement"]');
+    // (Absent si le premier geste s'est perdu au rechargement : le contrôle ci-dessous le dit, sans planter le banc.)
+    if (await compter('#social-ami [data-geste="retirer-abonnement"]')) await page.click('#social-ami [data-geste="retirer-abonnement"]');
     await attendreQue(async () => (await texte('#social-principal')) === 'S’abonner');
     const h2b = { etat: await etatAmi(), file: await fileSociale() };
     ok('[social 107] H2 — « S’abonner », RECHARGÉE, puis « Annuler la demande » : chaque geste se voit aussitôt ; le second REMPLACE le premier ' +

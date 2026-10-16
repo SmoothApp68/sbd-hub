@@ -1476,7 +1476,9 @@
   // ══ 107 — UN GESTE SOCIAL FAIT HORS LIGNE N'EST PLUS PERDU (SOCIAL-V1 §8, décision du 15/10/2026) ═══════════════
   //
   // Un geste (s'abonner, accepter, refuser, se désabonner, bloquer, débloquer, réagir, les gestes de la guilde) est
-  // POSÉ DANS LA FILE, sur disque, comme une séance : une entrée par geste, dans l'ordre. L'écran le montre aussitôt
+  // POSÉ DANS LA FILE, sur disque, comme une séance, dans l'ordre ; un geste qui annule le précédent le remplace (seul
+  // l'état final part, `Social.cleDuGeste`). « Compte privé » part par le chemin du profil (`poserProfil`, local
+  // d'abord, rejoué au retour du réseau) : c'est un champ du profil, un état. L'écran le montre aussitôt
   // comme fait (« en attente du réseau ») ; la vidange l'envoie quand le réseau est là (`executerGesteSocial`). La base
   // le refuse au retour : l'entrée sort, l'écran le dit en une phrase (`social.refus`) et relit l'état réel.
   //
@@ -1509,7 +1511,10 @@
     var d = Object.assign({ moi: userId() }, champs);
     if (!Social.gesteValide(d)) { console.warn('Geste social incomplet, ignoré :', JSON.stringify(d)); return; }
     social.refus = null;
-    await poser({ table: Attente.SOCIAL, op: Attente.GESTE, id: uuid(), donnees: d, posee_a: new Date().toISOString() });
+    // Un geste sur un état (`Social.cleDuGeste`) remplace celui qui attend sur le même état : seul l'état final part.
+    var cle = Social.cleDuGeste(d);
+    await poser({ table: Attente.SOCIAL, op: Attente.GESTE, id: cle || uuid(), alaFin: !!cle, donnees: d,
+      posee_a: new Date().toISOString() });
     redessinerSocial();
   }
   function poserGuilde(fn, args, extra) {
@@ -1557,13 +1562,23 @@
     social.confirmes.push({ n: ++social.horloge, d: d });
     if (social.confirmes.length > 200) social.confirmes.splice(0, social.confirmes.length - 200);
     if (!estReaction(d)) t.relire = true;
+    // Un abonnement fait vers un compte public : la relecture dira s'il est devenu privé entre-temps.
+    if (d.geste === Social.GESTES.SABONNER && d.prive === false) (t.publics || (t.publics = [])).push(d);
   }
   // Après la vidange : l'écran social ouvert se redessine ; il se RELIT si un geste a changé un lien ou la guilde,
   // ou si la base en a refusé un (l'état réel).
-  function rafraichirSocial() {
+  async function rafraichirSocial() {
     var t = social.aRafraichir;
     social.aRafraichir = null;
     if (!t) return;
+    if (t.publics) {
+      // « Le compte est devenu privé » : les liens relus après la confirmation (une lecture qui échoue ne dit rien).
+      try {
+        await chargerLiens();
+        var phrase = Social.phraseDevenuPrive(t.publics, social.liensBruts);
+        if (phrase) social.refus = { phrase: phrase, vu: false };
+      } catch (e) { /* hors ligne : l'écran se relira plus tard */ }
+    }
     recalculerLiens();
     if (ecranCourant === 'fil') return t.relire ? rendreFil(true) : dessinerFil();
     if (ecranCourant === 'amis') return t.relire ? rendreAmisApresGeste() : dessinerAmis();
@@ -1670,7 +1685,7 @@
     if (!a || a.etat !== 'ok') return a || { etat: 'charge' };
     // 107 — le profil lu, et les gestes qu'il ne contient pas encore (bloqué : il n'est plus visible).
     var p = Social.profilAvecGestes(a.profil, gestesDepuis(a.n));
-    if (!p) return { etat: 'ok', profil: null };
+    if (!p) return { etat: 'ok', profil: null, message: a.message || phraseDeRefus() };
     var moi = userId(), cercle = Social.cercleDe(p, moi), G = Social.GESTES;
     var lui = { autre: p.id, pseudo: p.pseudo };
     var menu = [];
@@ -2050,8 +2065,9 @@
   async function rendreGuilde(onglet, relecture) {
     montrer('guilde', Routeur.GUILDE);
     ouvrirEcranSocial(relecture === true);
-    var g = { etat: 'charge', onglet: onglet || (social.guilde && social.guilde.onglet) || 'semaine', couleur: Social.COULEURS_GUILDE[0],
-              n: social.horloge };
+    // La couleur choisie pour « Créer » reste d'une lecture à l'autre (une création refusée se relit sans la perdre).
+    var g = { etat: 'charge', onglet: onglet || (social.guilde && social.guilde.onglet) || 'semaine',
+              couleur: (social.guilde && social.guilde.couleur) || Social.COULEURS_GUILDE[0], n: social.horloge };
     social.guilde = g;
     dessinerGuilde();
     try {
@@ -2997,7 +3013,7 @@
     }
     if (!generationValide(g)) return;
     // 107 — l'écran social ouvert montre ce que la vidange a fait des gestes (confirmés, ou refusés).
-    rafraichirSocial();
+    rafraichirSocial().catch(function (e) { console.warn('Social :', texteErreur(e)); });
     // 58-2 — tous les lots du remplissage sont montés : le journal est rempli.
     constaterJournalRempli().catch(function () {});
   }
@@ -3059,7 +3075,7 @@
     if (op.table === Attente.ALIAS) return Donnees.enregistrerAlias(op.donnees);
     // 99 (MOTEUR §9.24) — le choix fait pour une séance manquée : un `upsert` sur (user_id, semaine, routine_id).
     if (op.table === Attente.SEMAINE_CHOIX) return Donnees.enregistrerChoixDeSemaine(op.donnees);
-    // 107 (SOCIAL-V1 §8) — un geste social, un par entrée, dans l'ordre de pose.
+    // 107 (SOCIAL-V1 §8) — un geste social, dans l'ordre de pose (l'état final seul, pour un geste qui en annule un autre).
     if (op.table === Attente.SOCIAL) return executerGesteSocial(op.donnees || {});
     // §6 — l'intention porte l'ÉTAT VOULU de la routine, pas un chemin pour y
     // aller : le plan d'écritures se calcule à la vidange, contre ce que la

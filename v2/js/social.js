@@ -559,13 +559,18 @@
 
   // ══ 107 — UN GESTE SOCIAL FAIT HORS LIGNE N'EST PLUS PERDU (SOCIAL-V1 §8, décision d'Aurélien du 15/10/2026) ══════
   //
-  // « Un geste social fait hors ligne est gardé sur le téléphone et part au retour du réseau, comme une séance. L'écran
-  // le montre aussitôt comme fait, avec un discret « en attente du réseau ». Si la base le refuse au retour (bloqué
-  // entre-temps, guilde pleine…), l'écran le dit en une phrase et revient à l'état réel. »
+  // « Un geste social fait hors ligne est gardé sur le téléphone et part au retour du réseau, comme les séances ; il
+  // n'est jamais perdu en silence. Si la base le refuse au retour (le compte est devenu privé, un blocage entre-temps…),
+  // l'app le dit en une phrase. »
   //
-  // Un geste = UNE ENTRÉE DE LA FILE (`attente.js`, table `social`), avec un identifiant neuf : rien ne se compresse,
-  // les gestes partent dans l'ordre où ils ont été faits (s'abonner puis se désabonner : deux envois, dans cet ordre).
+  // Un geste = UNE ENTRÉE DE LA FILE (`attente.js`, table `social`), dans l'ordre où les gestes ont été faits.
   // `donnees` dit le geste du point de vue de celui qui le fait : `{ geste, moi, autre, pseudo, … }`.
+  //
+  // ⚠️ UN GESTE QUI ANNULE LE PRÉCÉDENT N'ENVOIE QUE L'ÉTAT FINAL (`cleDuGeste`). Les gestes qui fixent un ÉTAT — mon
+  // abonnement à lea, son abonnement à moi, ma réaction à une séance, mon rang, le défi, le nom de la guilde — portent
+  // une clé STABLE : le suivant remplace le précédent, en fin de file. S'abonner puis se désabonner hors ligne
+  // n'envoie que le retrait (idempotent : rien à retirer, rien ne change). Les autres (bloquer, qui efface les liens ;
+  // créer, inviter, répondre, retirer, transmettre, partir) ont chacun leur entrée.
   //
   // ⚠️ L'ÉCRAN = CE QUE LA BASE A RENDU + LES GESTES QUI N'Y SONT PAS ENCORE. Les fonctions `…AvecGestes` posent
   // chaque geste sur une lecture : elles fixent un ÉTAT (« abonné », « a réagi »), jamais une bascule — un geste déjà
@@ -578,6 +583,23 @@
   var GESTES_DE_GUILDE = ['guilde_creer', 'guilde_modifier', 'guilde_inviter', 'guilde_repondre', 'guilde_quitter',
     'guilde_retirer_membre', 'guilde_transmettre', 'guilde_choisir_defi', 'guilde_choisir_rang'];
   var EN_ATTENTE = 'en attente du réseau';
+
+  // La clé d'un geste dans la file : la même pour deux gestes sur le même état (le dernier gagne, en fin de file), `null`
+  // pour un geste qui a son entrée à lui (un identifiant neuf). La personne se désigne par son pseudo — la recherche
+  // ne rend que lui —, sinon par son identifiant.
+  function cleDuGeste(d) {
+    if (!d || !d.moi) return null;
+    var qui = d.pseudo || d.autre || '';
+    switch (d.geste) {
+      case GESTES.SABONNER: case GESTES.RETIRER_ABONNEMENT: return 'abonnement|' + d.moi + '|' + qui;
+      case GESTES.ACCEPTER: case GESTES.RETIRER_ABONNE: return 'abonne|' + d.moi + '|' + qui;
+      case GESTES.REAGIR: case GESTES.RETIRER_REACTION: return 'reaction|' + d.moi + '|' + d.session;
+      case GESTES.GUILDE:
+        if (d.fn === 'guilde_choisir_rang' || d.fn === 'guilde_choisir_defi' || d.fn === 'guilde_modifier') return d.fn + '|' + d.moi;
+        return null;
+      default: return null;
+    }
+  }
 
   function gesteValide(d) {
     if (!d || !d.moi) return false;
@@ -772,6 +794,19 @@
     return '« ' + libelleDuGeste(d).trim() + ' » n’a pas pu se faire.';
   }
 
+  // « Le compte est devenu privé » (la décision du 15/10/2026) : un abonnement fait hors ligne à un compte PUBLIC (l'écran
+  // a dit « tu le suis ») que la base a reçu en DEMANDE, parce que le compte est passé en privé entre-temps. Ce n'est
+  // pas un refus de la base, mais l'écran avait dit autre chose : une phrase. `gestes` : les abonnements confirmés ;
+  // `lignes` : `social_liens` relu APRÈS eux. `null` si rien n'a changé.
+  function phraseDevenuPrive(gestes, lignes) {
+    var demandes = {};
+    (lignes || []).forEach(function (l) { if (l && l.lien === 'demande_envoyee') { demandes[l.user_id] = true; demandes['@' + l.pseudo] = true; } });
+    var d = (gestes || []).filter(function (x) {
+      return x && x.geste === GESTES.SABONNER && x.prive === false && ((x.autre && demandes[x.autre]) || demandes['@' + x.pseudo]);
+    })[0];
+    return d ? 'Le compte de ' + d.pseudo + ' est devenu privé : ta demande attend son accord.' : null;
+  }
+
   var api = {
     MOI: MOI, INCONNU: INCONNU, DEMANDE: DEMANDE, SUIVI: SUIVI, MUTUEL: MUTUEL,
     CHAMPS_INTERDITS: CHAMPS_INTERDITS,
@@ -849,6 +884,7 @@
     GESTES_DE_GUILDE: GESTES_DE_GUILDE,
     EN_ATTENTE: EN_ATTENTE,
     gesteValide: gesteValide,
+    cleDuGeste: cleDuGeste,
     liensAvecGestes: liensAvecGestes,
     profilAvecGestes: profilAvecGestes,
     filAvecGestes: filAvecGestes,
@@ -857,7 +893,8 @@
     issueDuGeste: issueDuGeste,
     phraseDeGuilde: phraseDeGuilde,
     libelleDuGeste: libelleDuGeste,
-    phraseDuRefus: phraseDuRefus
+    phraseDuRefus: phraseDuRefus,
+    phraseDevenuPrive: phraseDevenuPrive
   };
 
   racine.THSocial = api;

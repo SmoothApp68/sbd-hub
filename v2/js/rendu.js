@@ -6206,7 +6206,12 @@
     vider(cible);
     if (etatSocial(cible, vue)) return;
     var p = vue.profil;
-    if (!p) { cible.appendChild(el('p', 's-gris s-note s-introuvable', 'Ce profil n’existe pas, ou n’est pas visible.')); return; }
+    if (!p) {
+      // 107 — un geste refusé au retour du réseau (bloqué entre-temps) : la phrase, puis l'état réel.
+      if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message));
+      cible.appendChild(el('p', 's-gris s-note s-introuvable', 'Ce profil n’existe pas, ou n’est pas visible.'));
+      return;
+    }
     var tete = el('div', 's-prof');
     tete.appendChild(blasonSocial(p.couleur, 64));
     tete.appendChild(el('b', 's-pseudo', p.pseudo));

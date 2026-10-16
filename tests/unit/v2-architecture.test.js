@@ -2120,7 +2120,7 @@ const REGISTRE_ECRITURES = [
   { fn: 'enregistrerPesee', chemin: 'file' },
   { fn: 'enregistrerAlias', chemin: 'file' },
   { fn: 'enregistrerChoixDeSemaine', chemin: 'file' },
-  // 107 (SOCIAL-V1 §8) — les gestes sociaux : `executer` → `executerGesteSocial`, un geste par entrée, dans l'ordre.
+  // 107 (SOCIAL-V1 §8) — les gestes sociaux : `executer` → `executerGesteSocial`, dans l'ordre ; un geste qui annule le précédent le remplace (l'état final seul part).
   { fn: 'sAbonner', chemin: 'file' },
   { fn: 'retirerAbonnement', chemin: 'file' },
   { fn: 'accepterDemande', chemin: 'file' },

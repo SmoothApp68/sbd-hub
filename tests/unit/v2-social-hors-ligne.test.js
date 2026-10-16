@@ -2,17 +2,17 @@
 //
 // 107 — UN GESTE SOCIAL FAIT HORS LIGNE N'EST PLUS PERDU (SOCIAL-V1 §8, décision d'Aurélien du 15/10/2026).
 //
-// « Un geste social fait hors ligne est gardé sur le téléphone et part au retour du réseau, comme une séance. L'écran
-// le montre aussitôt comme fait, avec un discret « en attente du réseau ». Si la base le refuse au retour (bloqué
-// entre-temps, guilde pleine…), l'écran le dit en une phrase et revient à l'état réel. »
+// « Un geste social fait hors ligne est gardé sur le téléphone et part au retour du réseau, comme les séances ; il
+// n'est jamais perdu en silence. Si la base le refuse au retour (le compte est devenu privé, un blocage entre-temps…),
+// l'app le dit en une phrase. »
 //
 // Ici : la file (`attente.js`, table `social`), ce que devient un envoi qui échoue (`Social.issueDuGeste`), ce que
 // l'écran montre d'un geste qui attend (`Social.…AvecGestes`), et la vidange rejouée contre le faux serveur du banc
 // (`faux-social.js`, qui imite v2_078 et v2_080).
 //
 // CONFIGURATIONS DISCRIMINANTES :
-//   · deux gestes CONTRAIRES (s'abonner, puis se désabonner) : avec une compression par personne, ou un ordre perdu, le
-//     serveur finirait abonné ;
+//   · deux gestes CONTRAIRES (s'abonner, puis se désabonner) : seul l'état final part (le retrait) — sans la clé
+//     d'état, les deux partiraient ; un geste d'un AUTRE état fait entre les deux reste à sa place ;
 //   · un RECHARGEMENT entre les deux (la file relue du disque, ici par un aller-retour JSON) ;
 //   · une RÉPONSE PERDUE après un envoi réussi : le geste est rejoué, et la base répond « déjà là » — sans la règle,
 //     l'écran dirait un refus pour un geste fait ;
@@ -28,8 +28,12 @@ let n = 0;
 const uuid = () => 'g-' + (++n);
 beforeEach(() => { n = 0; });
 
-// Poser un geste comme `poserGesteSocial` (app.js) : une entrée, un identifiant neuf.
-const poser = (file, d) => Attente.poser(file, { table: Attente.SOCIAL, op: Attente.GESTE, id: uuid(), donnees: Object.assign({ moi: 'u-moi' }, d) });
+// Poser un geste comme `poserGesteSocial` (app.js) : un geste sur un état prend la clé de cet état, en fin de file
+// (`Social.cleDuGeste`) ; les autres, un identifiant neuf.
+const poser = (file, d) => {
+  const donnees = Object.assign({ moi: 'u-moi' }, d), cle = Social.cleDuGeste(donnees);
+  return Attente.poser(file, { table: Attente.SOCIAL, op: Attente.GESTE, id: cle || uuid(), alaFin: !!cle, donnees });
+};
 const recharger = (file) => JSON.parse(JSON.stringify(file));   // la file relue du disque (IndexedDB)
 
 function decor() {
@@ -86,17 +90,36 @@ async function vidanger(file, executer) {
   return { file: f, issues };
 }
 
-describe('107 — la file : une entrée par geste, dans l’ordre, sur disque', () => {
-  test('chaque geste a son entrée (aucune compression) ; l’ordre de pose est gardé ; le rechargement ne change rien', () => {
+describe('107 — la file : dans l’ordre, sur disque ; un geste qui annule le précédent n’envoie que l’état final', () => {
+  test('DISCRIMINANT — s’abonner, réagir, se désabonner, rechargée, se réabonner : l’état final seul, en fin de file, derrière ce qui a été fait entre-temps', () => {
     let file = [];
     file = poser(file, { geste: G.SABONNER, autre: 'u-lea', pseudo: 'lea' });
+    file = poser(file, { geste: G.REAGIR, session: 's-1', pseudo: 'jordan' });
     file = poser(file, { geste: G.RETIRER_ABONNEMENT, autre: 'u-lea', pseudo: 'lea' });
+    expect(Attente.ordonnee(file).map((e) => e.donnees.geste)).toEqual(['reagir', 'retirer_abonnement']);
     file = recharger(file);
     file = poser(file, { geste: G.SABONNER, autre: 'u-lea', pseudo: 'lea' });
-    expect(file.map((e) => e.table + ':' + e.donnees.geste)).toEqual(['social:sabonner', 'social:retirer_abonnement', 'social:sabonner']);
-    expect(Attente.ordonnee(file).map((e) => e.seq)).toEqual([1, 2, 3]);
-    expect(new Set(file.map((e) => e.cle)).size).toBe(3);
-    expect(Attente.resume(file).libelle).toBe('3 à envoyer');
+    expect(Attente.ordonnee(file).map((e) => e.donnees.geste)).toEqual(['reagir', 'sabonner']);
+    expect(Attente.resume(file).libelle).toBe('2 à envoyer');
+  });
+
+  test('la clé d’un geste : la même pour deux gestes sur le même état ; un geste qui n’est pas un état a son entrée', () => {
+    const c = (d) => Social.cleDuGeste(Object.assign({ moi: 'u-moi' }, d));
+    // Depuis la recherche (le pseudo seul) puis depuis le profil (l'identifiant aussi) : le même état.
+    expect(c({ geste: G.SABONNER, pseudo: 'lea' })).toBe(c({ geste: G.RETIRER_ABONNEMENT, autre: 'u-lea', pseudo: 'lea' }));
+    expect(c({ geste: G.ACCEPTER, autre: 'u-lea', pseudo: 'lea' })).toBe(c({ geste: G.RETIRER_ABONNE, autre: 'u-lea', pseudo: 'lea' }));
+    expect(c({ geste: G.ACCEPTER, autre: 'u-lea', pseudo: 'lea' })).not.toBe(c({ geste: G.SABONNER, autre: 'u-lea', pseudo: 'lea' }));
+    expect(c({ geste: G.REAGIR, session: 's-1' })).toBe(c({ geste: G.RETIRER_REACTION, session: 's-1' }));
+    expect(c({ geste: G.REAGIR, session: 's-1' })).not.toBe(c({ geste: G.REAGIR, session: 's-2' }));
+    expect(c({ geste: G.GUILDE, fn: 'guilde_choisir_rang', args: { p_rang: 'Terreur' } }))
+      .toBe(c({ geste: G.GUILDE, fn: 'guilde_choisir_rang', args: { p_rang: 'Novice' } }));
+    // Bloquer efface les liens : bloquer puis débloquer n'est pas « rien », les deux partent.
+    expect(c({ geste: G.BLOQUER, autre: 'u-lea', pseudo: 'lea' })).toBeNull();
+    expect(c({ geste: G.DEBLOQUER, autre: 'u-lea', pseudo: 'lea' })).toBeNull();
+    ['guilde_creer', 'guilde_inviter', 'guilde_repondre', 'guilde_quitter', 'guilde_retirer_membre', 'guilde_transmettre']
+      .forEach((fn) => expect(c({ geste: G.GUILDE, fn, args: {} })).toBeNull());
+    // Le compte qui fait le geste fait partie de la clé.
+    expect(c({ geste: G.SABONNER, pseudo: 'lea' })).not.toBe(Social.cleDuGeste({ moi: 'u-autre', geste: G.SABONNER, pseudo: 'lea' }));
   });
 
   test('un geste incomplet ne se pose pas (`gesteValide`)', () => {
@@ -152,24 +175,35 @@ describe('107 — chaque geste fait hors ligne part au retour du réseau', () =>
     expect(f.etat.blocages).toEqual([]);
   });
 
-  test('DISCRIMINANT — deux gestes contraires (s’abonner, puis se désabonner), un rechargement entre les deux : le serveur finit SANS abonnement', async () => {
+  test('DISCRIMINANT — deux gestes contraires (s’abonner, puis se désabonner), un rechargement entre les deux : UN SEUL envoi, le retrait ; le serveur finit SANS abonnement', async () => {
     const f = decor();
     const reseau = { ok: false, envois: [] };
     let file = poser([], { geste: G.SABONNER, autre: 'u-lea', pseudo: 'lea', prive: true });
-    file = (await vidanger(file, executeur(f, reseau))).file;
+    file = (await vidanger(file, executeur(f, reseau))).file;   // tenté hors ligne : essais 1
     file = recharger(file);   // l'app rechargée, toujours hors ligne
     file = poser(file, { geste: G.RETIRER_ABONNEMENT, autre: 'u-lea', pseudo: 'lea' });
-    expect(file.map((e) => e.donnees.geste)).toEqual(['sabonner', 'retirer_abonnement']);
+    expect(file.map((e) => e.donnees.geste)).toEqual(['retirer_abonnement']);
+    expect(file[0].essais).toBe(0);
     reseau.ok = true;
     const r = await vidanger(file, executeur(f, reseau));
     expect(r.file).toEqual([]);
+    expect(reseau.envois).toEqual(['retirer_abonnement:u-lea']);
+    expect(f.etat.abonnements).toEqual([]);
+    expect(f.etat.journal.filter((j) => j.op === 'abonnement').length).toBe(0);
+  });
+
+  test('DISCRIMINANT — le premier geste EN VOL quand le second se pose : le succès du premier ne retire pas le second, qui part après', async () => {
+    const f = decor();
+    const reseau = { ok: true, envois: [] };
+    let file = poser([], { geste: G.SABONNER, autre: 'u-lea', pseudo: 'lea' });
+    const enVol = Attente.prochaine(file);
+    await executeur(f, reseau)(enVol);                         // l'abonnement est parti…
+    file = poser(file, { geste: G.RETIRER_ABONNEMENT, autre: 'u-lea', pseudo: 'lea' });   // …le retrait se pose pendant le vol
+    file = Attente.apresSucces(file, enVol);                   // la réponse revient
+    expect(file.map((e) => e.donnees.geste)).toEqual(['retirer_abonnement']);
+    await vidanger(file, executeur(f, reseau));
     expect(reseau.envois).toEqual(['sabonner:u-lea', 'retirer_abonnement:u-lea']);
     expect(f.etat.abonnements).toEqual([]);
-    // L'ordre compte : à l'envers, le serveur finirait abonné — la configuration discrimine.
-    const f2 = decor();
-    const aLEnvers = [Object.assign({}, file[1], { seq: 1 }), Object.assign({}, file[0], { seq: 2 })];
-    await vidanger(aLEnvers, executeur(f2, { ok: true, envois: [] }));
-    expect(f2.etat.abonnements.length).toBe(1);
   });
 
   test('DISCRIMINANT — un même geste rejoué ne double rien : la réponse perdue, puis « déjà là » = fait (pas un refus)', async () => {
@@ -302,6 +336,18 @@ describe('107 — les phrases d’un refus : une phrase, un fait', () => {
       .toBe(Social.PHRASE_DEFI_FIGE);
     expect(p({ geste: G.GUILDE, fn: 'guilde_inviter', pseudo: 'jordan', args: {} }, { code: 'P0001', message: 'autre' }))
       .toBe('« Inviter jordan » n’a pas pu se faire.');
+  });
+
+  test('DISCRIMINANT — « le compte est devenu privé » : un abonnement fait vers un compte PUBLIC, relu en demande, se dit ; ' +
+    'vers un compte privé (l’écran disait déjà « Demande envoyée »), ou relu suivi, rien', () => {
+    const ab = (pseudo, prive) => ({ moi: 'u-moi', geste: G.SABONNER, autre: 'u-' + pseudo, pseudo, prive });
+    const demande = [{ user_id: 'u-melodie', pseudo: 'melodie', lien: 'demande_envoyee' }];
+    expect(Social.phraseDevenuPrive([ab('melodie', false)], demande)).toBe('Le compte de melodie est devenu privé : ta demande attend son accord.');
+    // Depuis la recherche, sans identifiant : par le pseudo.
+    expect(Social.phraseDevenuPrive([{ moi: 'u-moi', geste: G.SABONNER, pseudo: 'melodie', prive: false }], demande)).not.toBeNull();
+    expect(Social.phraseDevenuPrive([ab('melodie', true)], demande)).toBeNull();
+    expect(Social.phraseDevenuPrive([ab('melodie', false)], [{ user_id: 'u-melodie', pseudo: 'melodie', lien: 'abonnement' }])).toBeNull();
+    expect(Social.phraseDevenuPrive([], demande)).toBeNull();
   });
 });
 

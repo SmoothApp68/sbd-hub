@@ -182,7 +182,13 @@ const GARDEES = [
   { fn: 'habiller', module: 'generateur.js' },
   { fn: 'changementsDeLApercu', module: 'generateur.js' },
   // deraille.js — la semaine qui déraille (99, MOTEUR §9.24)
-  { fn: 'semaineQuiDeraille', module: 'deraille.js' }
+  { fn: 'semaineQuiDeraille', module: 'deraille.js' },
+  // objectif.js — l'objectif posé par la personne, à l'essai (109, MOTEUR §9.25) : la date annoncée, ce que la page
+  // montre, l'observation du pari ; et l'identifiant du pari (moteur.js).
+  { fn: 'projection', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*projection\b/g },
+  { fn: 'vue', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*vue\b/g },
+  { fn: 'observationDe', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*observationDe\b/g },
+  { fn: 'idDObjectif', module: 'moteur.js' }
 ];
 
 // ── LA LISTE D'AUTORISATIONS ────────────────────────────────────────────────
@@ -199,6 +205,22 @@ const LE_COACH = 'plan.js';
 // (29/09/2026) et sont RAPPORTÉES dans sa PR pour décision : elles ne sont pas
 // forcées dans le plan par ce commit.
 const AUTORISATIONS = {
+  projection: {
+    'app.js': 'MOTEUR §9.25 (109) : l’objectif se pose sur la page d’exercice, hors séance — donc sans plan ; la date ' +
+      'se projette UNE fois, à la pose (app.js, `poserObjectif`), et la ligne `objectifs` la garde figée.'
+  },
+  vue: {
+    'app.js': 'MOTEUR §9.25 (109) : la carte « Mon objectif » de la page d’exercice relit l’objectif posé (sa date ' +
+      'figée) et les records de l’exercice — une lecture, hors séance (app.js, `carteObjectifDe`).'
+  },
+  observationDe: {
+    'app.js': 'MOTEUR §9.25 (109) : l’observation d’un pari d’objectif (les jours réellement mis, la série qui ' +
+      'l’atteint), au moment de l’écrire en base : de la persistance (app.js, `observerObjectifs`).'
+  },
+  idDObjectif: {
+    'app.js': 'l’identifiant déterministe du pari d’un objectif au moment de l’écrire en base : de la persistance, ' +
+      'la date vient de `THObjectif.projection` (app.js, `poserObjectif`, 109).'
+  },
   semaineQuiDeraille: {
     'app.js': 'MOTEUR §9.24 (99) : la carte de la semaine qui déraille vit sur Saisie, AVANT toute séance — donc sans ' +
       'plan ; l’écran passe à la règle son entrée (le programme, les faits de `faits.semaineDuProgramme`, les décisions ' +
@@ -436,7 +458,7 @@ const NOTIONS = [
     raison: 'aucun écran ne lit le palier brut : les faits passent par `Modele`, les mots du ' +
       'coach par la consigne. La page et Progression l’appelaient chacune à part.' },
   { notion: 'la série de travail (le type, `travail` quand il manque)', pr: 'PR 6',
-    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js', 'reserve.js', 'bilans.js', 'deraille.js', 'moteur.js'],
+    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js', 'reserve.js', 'bilans.js', 'deraille.js', 'objectif.js', 'moteur.js'],
     motif: /\.\s*estTravail\s*\(/g,
     par: ['exercicesFaits', 'tableParReps', 'construireBlocs'],
     interditAilleurs: { motif: /type_serie\s*[!=]==?\s*(['"])travail\1|typeDe\([^()]*\)\s*[!=]==?\s*(['"])travail\2|\|\|\s*(['"])travail\3\s*\)\s*[!=]==?/,
@@ -445,7 +467,8 @@ const NOTIONS = [
       'pas pour les écrans ; la base dit `travail` par défaut. 78 : la question de réserve lit l’effort de la ' +
       'dernière série de TRAVAIL de chaque séance passée (`reserve.js`, `passeDeReserve`). 99 : la semaine qui déraille ' +
       'compte les séries de travail que prévoit une routine (`deraille.js`). 113 : le pari au plafond de la salle s’observe ' +
-      'sur les séries de travail des séances de l’exercice (`moteur.js`, `observationPlafond`).' },
+      'sur les séries de travail des séances de l’exercice (`moteur.js`, `observationPlafond`). 109 : l’objectif ne lit que des séries de ' +
+      'travail (ses records, la série qui l’atteint, `objectif.js`).' },
   { notion: 'le compte des séries de travail (la règle du volume)', pr: 'PR 6',
     module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js', 'bilan.js', 'faits.js', 'bilans.js'],
     parAilleurs: { 'modele.js': ['resumerSeance', 'construireBlocs'], 'seance.js': ['compter'], 'bilan.js': ['bilanDuMois'],
@@ -484,14 +507,15 @@ const NOTIONS = [
       '66A : la jauge d’une barre de la relecture (§5 ter.3) est cet arrondi, à 2 décimales.' },
   // Après la consolidation, les notions d'un chantier portent son geste.
   { notion: 'la lecture d’un nombre tapé (l’inverse du formateur, tous les signes moins)', pr: 'correctif 03/10/2026',
-    module: 'modele.js', fonction: 'lireNombre', lecteurs: ['seance.js', 'routines.js', 'app.js', 'importhevy.js'],
+    module: 'modele.js', fonction: 'lireNombre', lecteurs: ['seance.js', 'routines.js', 'app.js', 'importhevy.js', 'objectif.js'],
     motif: /\.\s*lireNombre\s*\(/g,
     parAilleurs: { 'seance.js': ['nombreOuNul'], 'routines.js': ['decimalOuNul'] },
     interditAilleurs: { motif: /\.replace\(\s*(['"]),\1\s*,\s*(['"])\.\2\s*\)/,
                         raison: 'une virgule décimale relue hors de `lireNombre` : une seconde lecture des nombres' },
     raison: 'le champ réaffiche une assistance avec le vrai signe moins (U+2212) que la copie de ' +
       '`seance.js` ne relisait pas : retoucher les reps d’une série à « −25 » effaçait sa charge. ' +
-      '69 : les nombres que Hevy écrit (« 31,5 kg », « 1.17 » km) se lisent ici aussi (`importhevy.js`).' },
+      '69 : les nombres que Hevy écrit (« 31,5 kg », « 1.17 » km) se lisent ici aussi (`importhevy.js`). 109 : la ' +
+      'charge et les reps d’un objectif tapées dans sa feuille (`objectif.js`, `lireSaisie`).' },
   { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
     module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js', 'parcours.js', 'deraille.js'],
     parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'],
@@ -780,14 +804,15 @@ const NOTIONS = [
     raison: 'MOTEUR §9.23, ECRAN §7 bis.16 (« cumulée, jamais brute ») : la médaille, le tableau des records, ' +
       'le record de charge de la page et le chiffre d’une ligne déduite lisent la même table.' },
   { notion: 'les records d’un exercice à une date (le périmètre de la médaille)', pr: '55-U1',
-    module: 'modele.js', fonction: 'recordsDeLExercice', lecteurs: ['app.js', 'faits.js'],
+    module: 'modele.js', fonction: 'recordsDeLExercice', lecteurs: ['app.js', 'faits.js', 'objectif.js'],
     par: ['tableauDesRecords'],
-    parAilleurs: { 'app.js': ['rendreExercice'], 'faits.js': ['ceQueJeSais'] },
+    parAilleurs: { 'app.js': ['rendreExercice'], 'faits.js': ['ceQueJeSais'], 'objectif.js': ['recordA'] },
     raison: 'MOTEUR §9.23 : le record de charge de la page, son 1RM estimé et le tableau des records lisent ' +
       'la même table cumulée, sur le même périmètre que la médaille (12 mois pour un matériel de salle). ' +
-      '60-2a : « Ce que je sais » montre le maximum de chaque barre par cette même fonction — jamais une seconde.' },
+      '60-2a : « Ce que je sais » montre le maximum de chaque barre par cette même fonction — jamais une seconde. ' +
+      '109 (MOTEUR §9.25) : le rythme d’un objectif se lit sur ce record « au moins N reps », jamais sur un maximum estimé.' },
   { notion: 'le périmètre d’un record (12 mois pour un matériel de salle, toute la vie ailleurs)', pr: '55-U1',
-    module: 'modele.js', fonction: 'seancesDuPerimetre', lecteurs: ['app.js'],
+    module: 'modele.js', fonction: 'seancesDuPerimetre', lecteurs: ['app.js', 'objectif.js'],
     par: ['recordsDeLExercice'],
     parAilleurs: { 'app.js': ['rendreExercice'] },
     raison: 'MOTEUR §9.23 et ECRAN §7 quater.3 (H3, #371) : le tableau des records, le record de charge et la ' +
@@ -857,7 +882,7 @@ const NOTIONS = [
       'd’une séance par la même fonction, au même mémo.' },
   { notion: 'les records d’un mois (dans l’ordre des séances)', pr: '58-U1',
     module: 'faits.js', fonction: 'recordsDuMois', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['rendreProgression', 'rendreMois', 'rendreRecordsDuMois'] },
+    parAilleurs: { 'app.js': ['rendreProgression', 'ouvrirBilan', 'rendreRecordsDuMois'] },
     raison: 'MOTEUR §9.23 : le bloc Records, le bilan du mois et la liste des records du mois disent ' +
       'le même compte — le jeu les lira là aussi.' },
   { notion: 'le dernier record (la dernière série médaillée)', pr: '58-U1',
@@ -1179,6 +1204,15 @@ const NOTIONS = [
     par: ['entreeDuBilan'],
     raison: 'BILANS-V1 (décision du 15/10/2026) : un fait de la période, jamais comparé ; une seule règle de compte, ' +
       'celle que l’entrée de tous les bilans (année, saison, mois) passe au moteur.' },
+  // ── 98 — LA SAISON ET LE MOIS (BILANS-V1, décisions du 14-15/10/2026) ──
+  { notion: 'le nom d’une saison (Winter Arc pour tous ; les autres selon la phase au début de la saison)', pr: '98-U1',
+    module: 'bilans.js', fonction: 'nomDeSaison', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['titreDeSaison', 'ouvrirBilan'] },
+    raison: 'BILANS-V1 (98) : une seule table de noms ; le bloc de Progression, l’annonce et la story disent le même nom.' },
+  { notion: 'la phase du profil à un jour (le défaut quand la phase a commencé après)', pr: '98-U1',
+    module: 'profil.js', fonction: 'phaseAuJour', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['titreDeSaison', 'ouvrirBilan'] },
+    raison: 'BILANS-V1 (98) : le nom de la saison suit la phase au début de la saison, lue une fois.' },
   { notion: 'le bilan d’une période, mémorisé (le bloc de Progression, l’annonce, l’écran « Ton année »)', pr: '95-U1',
     module: 'faits.js', fonction: 'bilanDePeriode', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['bilanDeLAnnee'] },
@@ -1186,7 +1220,7 @@ const NOTIONS = [
       'le jour, les pesées, les paris ou le catalogue changent.' },
   { notion: 'les faits du jeu au début et à la fin d’une période (l’écran du jeu du bilan)', pr: '95-U1',
     module: 'faits.js', fonction: 'faitsDuJeuDeLaPeriode', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['ouvrirAnnee'] },
+    parAilleurs: { 'app.js': ['ouvrirBilan'] },
     raison: 'BILANS-V1 (95) : l’écran du jeu est branché sur la fonction du jeu (`Jeu.etatDuJeu`), sur un corpus borné ' +
       'par les faits ; rien en base.' },
   { notion: 'la pratique d’un exercice (« moins pratiqué », « nouveau », « peu »)', pr: '95-U1',
@@ -1389,7 +1423,8 @@ describe('architecture — un seul coach, un seul câblage', () => {
     require('../../v2/js/modele.js');
     require('../../v2/js/palier.js');
     const modules = { 'moteur.js': require('../../v2/js/moteur.js'), 'seance.js': require('../../v2/js/seance.js'),
-      'generateur.js': require('../../v2/js/generateur.js'), 'deraille.js': require('../../v2/js/deraille.js') };
+      'generateur.js': require('../../v2/js/generateur.js'), 'deraille.js': require('../../v2/js/deraille.js'),
+      'objectif.js': require('../../v2/js/objectif.js') };
     const absentes = GARDEES.filter((g) => typeof modules[g.module][g.fn] !== 'function')
       .map((g) => g.module + ' n’exporte plus `' + g.fn + '` : mets la liste GARDEES à jour.');
     expect(absentes).toEqual([]);
@@ -2046,6 +2081,83 @@ describe('architecture — la pesée : un seul écrivain (60-2a)', () => {
   });
 });
 
+// ══ 107 — LES GESTES SOCIAUX : UN SEUL CHEMIN, LA FILE (SOCIAL-V1 §8) ═══════════
+//
+// Un geste fait hors ligne part au retour du réseau, comme une séance. Il n'a donc QU'UN chemin : posé par
+// `poserGesteSocial` (une entrée `social` par geste), envoyé par la vidange (`executer` → `executerGesteSocial`),
+// écrit par l'écrivain de sa table dans `donnees.js`. Une écriture directe depuis un écran — l'ancien chemin d'avant
+// 107, qui perdait le geste hors ligne — se voit ici.
+describe('architecture — les gestes sociaux : un seul chemin, la file (107)', () => {
+  const FICHIERS = perimetre();
+  const parNom = {};
+  FICHIERS.forEach((f) => { parNom[f.nom] = f; });
+  const TABLES = {
+    abonnements: ['sAbonner', 'retirerAbonnement', 'accepterDemande'],
+    blocages: ['bloquer', 'debloquer'],
+    reactions_seance: ['reagir', 'retirerReaction']
+  };
+  const ecriture = (table) => new RegExp('from\\(\\s*([\'"])' + table + '\\1\\s*\\)[\\s\\S]{0,120}?\\.\\s*(insert|upsert|update|delete)\\s*\\(', 'g');
+  const compter = (texte, re) => (texte.match(new RegExp(re.source, 'g')) || []).length;
+
+  test('⚠️ `abonnements`, `blocages`, `reactions_seance` ne s’écrivent que dans leurs écrivains (donnees.js)', () => {
+    const fautes = [];
+    Object.keys(TABLES).forEach((table) => {
+      FICHIERS.forEach((f) => {
+        const code = nettoyer(f.src, true);
+        const n = compter(code, ecriture(table));
+        if (f.nom !== 'donnees.js') { if (n) fautes.push(f.nom + ' écrit `' + table + '`'); return; }
+        const dedans = TABLES[table].reduce((t, fn) => t + compter(corpsDe(code, fn) || '', ecriture(table)), 0);
+        if (dedans !== n || n !== TABLES[table].length) fautes.push('donnees.js : ' + n + ' écriture(s) de `' + table + '`, dont ' + dedans + ' dans ses écrivains');
+      });
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('⚠️ une fonction de guilde qui écrit ne part que par `gesteDeGuilde` — et la liste est la même des deux côtés', () => {
+    const Social = require('../../v2/js/social.js');
+    const Donnees = require('../../v2/js/donnees.js');
+    expect(Donnees.GESTES_GUILDE).toEqual(Social.GESTES_DE_GUILDE);
+    const fautes = [];
+    const appelDirect = new RegExp('rpc\\(\\s*([\'"])(' + Social.GESTES_DE_GUILDE.join('|') + ')\\1', 'g');
+    FICHIERS.forEach((f) => {
+      const n = compter(nettoyer(f.src, true), appelDirect);
+      if (n) fautes.push(f.nom + ' appelle une fonction de guilde qui écrit sans passer par la file (' + n + ')');
+    });
+    expect(fautes).toEqual([]);
+    expect(corpsDe(nettoyer(parNom['donnees.js'].src, false), 'gesteDeGuilde')).toMatch(/\.\s*rpc\s*\(\s*nom\b/);
+  });
+
+  test('⚠️ une entrée sociale de la file ne se pose que par `poserGesteSocial`, et ne part que par `executerGesteSocial`', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      if (f.nom === 'attente.js') return;
+      const code = nettoyer(f.src, false);
+      const poses = (code.match(/table:\s*Attente\.SOCIAL\b/g) || []).length;
+      if (!poses) return;
+      const corps = f.nom === 'app.js' ? corpsDe(code, 'poserGesteSocial') : null;
+      const dedans = corps ? (corps.match(/table:\s*Attente\.SOCIAL\b/g) || []).length : 0;
+      if (dedans !== poses) fautes.push(f.nom + ' pose une entrée sociale hors de poserGesteSocial');
+    });
+    expect(fautes).toEqual([]);
+    const app = nettoyer(parNom['app.js'].src, false);
+    expect(corpsDe(app, 'executer')).toMatch(/Attente\.SOCIAL\)\s*return\s+executerGesteSocial\(/);
+    // Chaque écrivain social a son appel dans `executerGesteSocial`, et nulle part ailleurs dans app.js.
+    Object.keys(TABLES).reduce((t, k) => t.concat(TABLES[k]), ['gesteDeGuilde']).forEach((fn) => {
+      const tous = (app.match(new RegExp('\\.\\s*' + fn + '\\s*\\(', 'g')) || []).length;
+      const dedans = (corpsDe(app, 'executerGesteSocial').match(new RegExp('\\.\\s*' + fn + '\\s*\\(', 'g')) || []).length;
+      if (!dedans || tous !== dedans) fautes.push(fn + ' : ' + tous + ' appel(s) dans app.js, ' + dedans + ' dans executerGesteSocial');
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('la garde se lit vraiment : une écriture directe se voit, une lecture non', () => {
+    expect(compter(nettoyer("client().from('abonnements').insert({ suiveur: a, suivi: b });", true), ecriture('abonnements'))).toBe(1);
+    expect(compter(nettoyer("client().from('abonnements').select('suivi');", true), ecriture('abonnements'))).toBe(0);
+    expect(compter(nettoyer("return client().rpc('guilde_creer', { p_nom: n });", true),
+      new RegExp('rpc\\(\\s*([\'"])(guilde_creer)\\1', 'g'))).toBe(1);
+  });
+});
+
 // ══ 73 — LA CARTE DES ÉCRITURES (fin de la passe sécurité, audit 72) ═══════════
 //
 // Toute écriture vers Supabase passe par une fonction de `donnees.js` (ou par `auth.js`, pour l'authentification),
@@ -2055,7 +2167,10 @@ describe('architecture — la pesée : un seul écrivain (60-2a)', () => {
 // l'écrivain injecté (`ecrivain.x`, `routines.js`) comptent comme des appels de `x`. Les gardes « un seul écrivain »
 // (records, pesées, `alias_exercice`) restent ; la carte les complète.
 const RAISON_BIBLIOTHEQUE = 'geste de bibliothèque, fait hors de la salle, qui échoue avec un message et garde le brouillon';
-const RAISON_SOCIAL = 'geste social, fait en ligne (SOCIAL-V1) : refusé hors réseau, il le dit à l’écran et ne se rejoue pas';
+// 107 — les GESTES sociaux passent par la file ; restent en liste blanche les PUBLICATIONS (mes scores), recalculées
+// sur l'appareil à chaque ouverture et à chaque fin de séance.
+const RAISON_PUBLICATION = 'publication recalculée sur l’appareil (seulement ce qui a changé) à chaque ouverture du social et à '
+  + 'chaque fin de séance : un envoi raté repart à la suivante, rien n’est perdu';
 const REGISTRE_ECRITURES = [
   // ── Par la file : `executer` (app.js) et ce qu'il appelle.
   { fn: 'enregistrerSeance', chemin: 'file' },
@@ -2070,6 +2185,18 @@ const REGISTRE_ECRITURES = [
   { fn: 'enregistrerPesee', chemin: 'file' },
   { fn: 'enregistrerAlias', chemin: 'file' },
   { fn: 'enregistrerChoixDeSemaine', chemin: 'file' },
+  // 107 (SOCIAL-V1 §8) — les gestes sociaux : `executer` → `executerGesteSocial`, dans l'ordre ; un geste qui annule le précédent le remplace (l'état final seul part).
+  { fn: 'sAbonner', chemin: 'file' },
+  { fn: 'retirerAbonnement', chemin: 'file' },
+  { fn: 'accepterDemande', chemin: 'file' },
+  { fn: 'bloquer', chemin: 'file' },
+  { fn: 'debloquer', chemin: 'file' },
+  { fn: 'reagir', chemin: 'file' },
+  { fn: 'retirerReaction', chemin: 'file' },
+  { fn: 'gesteDeGuilde', chemin: 'file' },
+
+  { fn: 'enregistrerObjectif', chemin: 'file' },
+  { fn: 'retirerObjectif', chemin: 'file' },
   // ── En liste blanche : des appelants exacts, une raison.
   { fn: 'supprimerCompte', chemin: 'liste-blanche', appelants: ['app.js:supprimerCompte'],
     raison: 'la suppression de compte exige le serveur ; rien n’est effacé localement avant sa réponse' },
@@ -2097,23 +2224,15 @@ const REGISTRE_ECRITURES = [
   { fn: 'insererExercices', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan'], raison: RAISON_BIBLIOTHEQUE },
   { fn: 'supprimerExercices', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan'], raison: RAISON_BIBLIOTHEQUE },
   { fn: 'remplacerSeriesRoutine', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan'], raison: RAISON_BIBLIOTHEQUE },
-  // ── 87 (SOCIAL-V1) — le social : des gestes EN LIGNE, hors file (un geste refusé hors réseau se dit à l'écran, il ne
-  // se rejoue pas plus tard). Les lectures passent par les fonctions de la base (`.rpc(`) : rien n'est écrit.
+  // ── 87 (SOCIAL-V1) — les lectures sociales passent par les fonctions de la base (`.rpc(`) : rien n'est écrit. Les
+  // GESTES (107) sont plus haut, par la file ; ceux de la guilde par `gesteDeGuilde`, seul à appeler une fonction qui écrit.
   { fn: 'rpc', chemin: 'liste-blanche', appelants: [],
     raison: 'les lectures sociales par les fonctions de la base (`social_*`, v2_078) : rien n’est écrit' },
-  { fn: 'sAbonner', chemin: 'liste-blanche', appelants: ['app.js:dessinerAmis', 'app.js:personneDeRecherche', 'app.js:vueDeLAmi'], raison: RAISON_SOCIAL },
-  { fn: 'retirerAbonnement', chemin: 'liste-blanche', appelants: ['app.js:vueDeLAmi', 'app.js:vueDuFil'], raison: RAISON_SOCIAL },
-  { fn: 'accepterDemande', chemin: 'liste-blanche', appelants: ['app.js:vueDuFil'], raison: RAISON_SOCIAL },
-  { fn: 'bloquer', chemin: 'liste-blanche', appelants: ['app.js:vueDeLAmi'], raison: RAISON_SOCIAL },
-  { fn: 'debloquer', chemin: 'liste-blanche', appelants: ['app.js:dessinerAmis'], raison: RAISON_SOCIAL },
-  { fn: 'reagir', chemin: 'liste-blanche', appelants: ['app.js:vueDuFil', 'app.js:vueDeLaGuilde'], raison: RAISON_SOCIAL },
-  { fn: 'retirerReaction', chemin: 'liste-blanche', appelants: ['app.js:vueDuFil', 'app.js:vueDeLaGuilde'], raison: RAISON_SOCIAL },
   // ── 89 (SOCIAL-V1 « Étage 2 ») — mes scores de force (`scores_force`, v2_079) : le score et la charge, jamais le poids.
-  { fn: 'publierScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_SOCIAL },
-  { fn: 'retirerScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_SOCIAL },
-  // ── 90 (SOCIAL-V1 « Guilde ») — mes nombres de guilde (`guilde_scores`, v2_080), déjà calculés sur l'appareil. Les
-  // gestes de la guilde (créer, inviter, partir…) passent par les fonctions de la base (`rpc`), qui gardent les règles.
-  { fn: 'publierScoresGuilde', chemin: 'liste-blanche', appelants: ['app.js:publierScoresGuilde'], raison: RAISON_SOCIAL },
+  { fn: 'publierScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_PUBLICATION },
+  { fn: 'retirerScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_PUBLICATION },
+  // ── 90 (SOCIAL-V1 « Guilde ») — mes nombres de guilde (`guilde_scores`, v2_080), déjà calculés sur l'appareil.
+  { fn: 'publierScoresGuilde', chemin: 'liste-blanche', appelants: ['app.js:publierScoresGuilde'], raison: RAISON_PUBLICATION },
   // `executer` : une réponse du chantier 26 encore en file (une ligne, des champs) — par la file, elle aussi.
   { fn: 'majExercice', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan', 'app.js:executer'], raison: RAISON_BIBLIOTHEQUE }
 ];

@@ -373,6 +373,20 @@ et l'aide en sont exemptés (vide = sans lest, sans aide), comme un exercice de 
 Le tremblement ne joue pas sous `prefers-reduced-motion: reduce` ; le rouge, si. La charge se
 vérifie avant les reps de la ligne proposée. Il n'existe pas de « valider toutes ».
 
+**Étendue à toutes les cases** (décision d'Aurélien, 15/10/2026, prompt 105) :
+« Au ✓, toute case obligatoire de la série (charge, reps, durée, distance, selon la mesure de l'exercice) qui est vide et sans chiffre gris du coach devient rouge avec un léger tremblement, le clavier s'ouvre sur la première d'entre elles, et rien n'est validé. Si le coach propose un chiffre gris, c'est lui qui est validé, comme aujourd'hui. »
+
+Précisions d'implémentation (prompt 105) : **une seule règle** pour toutes les cases
+(`THSeance.casesManquantes`, qui remplace `chargeManquante`) ; les cases obligatoires sont
+celles du gabarit de la mesure (`charge_reps` : charge et reps · `reps` : reps · `temps` :
+durée · `distance_temps` : durée et distance). Toutes les cases manquantes passent au rouge
+ensemble (`Rendu.demanderCases`) ; le clavier s'ouvre sur la première dans l'ordre de la
+ligne — la charge avant les reps, la durée avant la distance. Une case perd son rouge à la
+première frappe. Le lest et l'aide vides restent « sans lest / sans aide » (les reps, elles,
+restent dues). Une mesure inconnue n'empêche rien. Les reps de la ligne proposée et de la
+ligne d'élan gardent le §3.2 (§9.14) : la fourchette du coach est dans la case, le curseur
+s'y pose sans rouge.
+
 **3 bis.4 — Le retour haptique.** Une vibration à la validation confirme « même avec les mains
 moites ». **L'optimisation la moins chère qui soit : aucun pixel.**
 ⚠️ **Spécifié mais absent** — vérifié sur device le 11/09, aucune vibration à la validation.
@@ -446,6 +460,8 @@ courante + cran (§9.7 et §10 du moteur), reps tirées de la zone et du test
 > annoncée. Un « 3 séances » démenti transforme une pause normale en promesse
 > trahie, et contredit le principe « la cible est une intention, pas un
 > engagement ».
+
+*Exception, à l'essai (16/10/2026) : un objectif posé par la personne porte une date, pariée et vérifiée — MOTEUR §9.25.*
 
 **3.6** — La proximité se dit en **travail restant**, pas en temps : « il te
 manque une rep à 122,5 ». Vrai, vérifiable, et impossible à démentir par la
@@ -1164,6 +1180,8 @@ dit sa plage de validité.
 
 > **Aucune vue ne porte de ligne d'objectif, de zone colorée « bien / insuffisant », ni de
 > projection. Une courbe décrit, elle ne juge pas.**
+
+*Exception, à l'essai (16/10/2026) : la carte « Mon objectif », en tête de la vue (hors des courbes), dit la date d'un objectif posé par la personne — MOTEUR §9.25.*
 
 ### 7 bis.16 Records de série — et la correction d'un défaut de Hevy
 

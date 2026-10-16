@@ -4210,6 +4210,15 @@
     return uuidDuNom('escalier|' + String(seance) + '|' + (exercice ? String(exercice) : '') + '|' + String(marche));
   }
 
+  // 109 (MOTEUR §9.25) — L'IDENTIFIANT DU PARI D'UN OBJECTIF, dans un espace de noms à part :
+  // `objectif|exercice|instant de la pose` (l'instant ISO tel que posé, pas le jour : deux objectifs posés le même
+  // jour sur un exercice sont deux paris). Un nom de consigne commence par une séance, un nom d'escalier par
+  // `escalier|`, un import par `import|` : aucun ne peut le croiser.
+  var MODULE_OBJECTIF = 'objectif';
+  async function idDObjectif(exercice, poseLe) {
+    return uuidDuNom('objectif|' + String(exercice) + '|' + String(poseLe));
+  }
+
   // 69 (ECRAN-PROFIL §2.4 quater) — L'IDENTIFIANT D'UNE SÉANCE IMPORTÉE, et de
   // ses séries, dans un espace de noms à part : `import|personne|référence`
   // pour la séance, `…|rang` pour une série (`rang` absent : la séance). Un
@@ -7620,6 +7629,8 @@
     REPORT_FENETRE_JOURS: REPORT_FENETRE_JOURS,
     idDePrediction: idDePrediction,
     idDEscalier: idDEscalier,
+    idDObjectif: idDObjectif,
+    MODULE_OBJECTIF: MODULE_OBJECTIF,
     idDImport: idDImport,
     sha256Pur: sha256Pur,
     utf8: utf8,

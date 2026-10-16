@@ -32,6 +32,7 @@
 //   { table: 'routine_exercises', op: 'plan',                 id: <id de routine> }
 //   { table: 'records',           op: 'ajouter',              id: <séance ou lot> }  (58-2)
 //   { table: 'body_weight_log',  op: 'upsert',               id: <pesée du jour> }    (60-2a)
+//   { table: 'social',           op: 'geste',                id: <l'état visé, ou un par geste> }  (107)
 //
 // La troisième est arrivée au chantier 26, et pour une raison précise : la
 // question de fin « met-on à jour la routine ? » (§6) se pose EN SALLE, là où
@@ -145,6 +146,24 @@
   // (`user_id`, `semaine`, `routine_id`) : l'identifiant d'entrée est « semaine|routine », donc deux choix pour la
   // même séance manquée se compressent, le dernier gagne. Rien n'en dépend et il ne dépend de rien.
   var SEMAINE_CHOIX = 'semaine_choix';
+  // 107 (SOCIAL-V1 §8, décision du 15/10/2026) — UN GESTE SOCIAL : s'abonner, accepter, refuser, se désabonner,
+  // bloquer, débloquer, réagir, et les gestes de la guilde. Un geste fait hors ligne part au retour du réseau, comme
+  // les séances. L'ordre de pose est l'ordre d'envoi. ⚠️ UN GESTE QUI ANNULE LE PRÉCÉDENT N'ENVOIE QUE L'ÉTAT FINAL :
+  // un geste sur un ÉTAT (mon abonnement à lea, ma réaction à une séance…) porte un identifiant STABLE
+  // (`Social.cleDuGeste`) et se pose `alaFin` — il remplace le précédent, derrière ce qui a été fait entre-temps, avec
+  // une version neuve (un envoi en vol de l'ancien ne le retire pas). S'abonner puis se désabonner : un seul envoi, le
+  // retrait. Les autres gestes ont un identifiant neuf. Rien n'en dépend, il ne dépend de rien.
+  //
+  // ⚠️ UN REFUS DE LA BASE NE BLOQUE JAMAIS LA FILE : l'entrée en sort (l'écran le dit en une phrase et relit l'état
+  // réel), au lieu de rester « refusée » en tête — un geste social ne retient pas une séance. Ce qui est un refus, ce
+  // qui est « déjà fait » et ce qui se réessaie se décide dans `social.js` (`issueDuGeste`), passé à `apresEchec`.
+  var SOCIAL = 'social', GESTE = 'geste';
+
+  // 109 (MOTEUR §9.25, v2_089) — L'OBJECTIF D'UN EXERCICE (`objectifs`). Un `upsert` sur (`user_id`,
+  // `exercise_slug`) qui FUSIONNE, ou une suppression (le retirer) : l'identifiant d'entrée est l'exercice, donc
+  // poser puis retirer hors ligne se compressent, le dernier geste gagne. Son pari part par `predictions`, à part :
+  // un objectif retiré n'emporte jamais son ancien pari. Rien n'en dépend et il ne dépend de rien.
+  var OBJECTIFS = 'objectifs';
 
   function cleDe(table, id) { return String(table) + ':' + String(id); }
 
@@ -473,7 +492,17 @@
   //
   // Ici plutôt que dans la boucle : c'est ce qui se teste. `suite` dit à la
   // boucle quoi faire — `arret` est le seul cas qui arrête la vidange.
-  function apresEchec(file, op, erreur) {
+  //
+  // 107 — un geste social : `issueSociale(op, erreur)` rend `fait`, `refus` ou `reessayer` (`Social.issueDuGeste`).
+  // Sans elle, la règle commune décide (définitif → refus, sinon on réessaie). `fait` : l'entrée sort comme un
+  // succès (`suite: 'faite'`) ; `refus` : elle sort, sans arrêter la vidange (`suite: 'refusee'`).
+  function apresEchec(file, op, erreur, issueSociale) {
+    if (op && op.table === SOCIAL) {
+      var issue = issueSociale ? issueSociale(op, erreur) : (estDefinitive(erreur) ? 'refus' : 'reessayer');
+      if (issue === 'fait') return { file: apresSucces(file, op), suite: 'faite' };
+      if (issue === 'refus') return { file: retirer(file, op.cle, op.version || 1), suite: 'refusee' };
+      return { file: marquerEchec(file, op.cle, erreur), suite: 'arret' };
+    }
     if (orpheline(file, op, erreur)) {
       return { file: retirer(file, op.cle, op.version || 1), suite: 'abandonnee' };
     }
@@ -716,6 +745,9 @@
     PESEES: PESEES,
     ALIAS: ALIAS,
     SEMAINE_CHOIX: SEMAINE_CHOIX,
+    SOCIAL: SOCIAL, GESTE: GESTE,
+
+    OBJECTIFS: OBJECTIFS,
     OBSERVER: OBSERVER,
     attendSaSerie: attendSaSerie,
     AUCUNE_LIGNE: AUCUNE_LIGNE,

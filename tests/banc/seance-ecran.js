@@ -20325,6 +20325,10 @@ const SETS_IMPORTES = [
     const phaseAvant = base.profiles && base.profiles[0] ? base.profiles[0].phase : undefined;
     const salleAvant = base.profiles && base.profiles[0] ? base.profiles[0].ma_salle : undefined;
     const violationsAvant = gardeBanc.violations;
+    // ⚠️ LES BLOCS DES SECTIONS D'AVANT (le banc séquentiel : « cycles ») : la semaine de décharge planifiée d'un bloc
+    // n'est ni comptée ni jugée par le compteur (§9.22) — elle tomberait sur nos séances. Écartés le temps de la section.
+    const blocsAvant = base.blocs;
+    base.blocs = [];
     const EZ = 'flexion-pq-ez', EZ2 = 'flexion-pq-ez-c', DROITE = 'flexion-pq-barre', HALT = 'flexion-pq-haltere';
     CATALOGUE.push({ slug: EZ, nom: 'Flexion Pq (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
       mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
@@ -20520,6 +20524,7 @@ const SETS_IMPORTES = [
     base.sessions = sessionsAvant;
     base.sets = setsAvant;
     base.predictions = predictionsAvant;
+    base.blocs = blocsAvant;
     await aller('/saisie');
     ok('[P113] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,

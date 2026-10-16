@@ -165,6 +165,17 @@
     }, 'id'), 'id');
   }
 
+  // 117 (audit du 16/10, 06 #1) — LES SEULS IDENTIFIANTS des séries de quelques séances (`id`, `session_id`), pour
+  // rapprocher le cache du serveur quand une série a été effacée ailleurs (`Sync.rapprocherSeries`). Deux colonnes,
+  // un lot de séances : quelques dizaines de kilo-octets, jamais les 15 Mo du corpus.
+  function seriesDesSeances(idsSeances) {
+    var ids = (idsSeances || []).filter(Boolean);
+    if (!ids.length) return Promise.resolve([]);
+    return paginerParCle(trancheur(function () {
+      return client().from('sets').select('id, session_id').in('session_id', ids);
+    }, 'id'), 'id');
+  }
+
   // Catalogue partagé, 237 lignes. `mesure` et `charge` reconnaissent une sortie
   // (THModele.estExerciceSortie) ; les deux tableaux de muscles portent le
   // volume hebdomadaire, pondéré 1 en primaire et 0,5 en secondaire.
@@ -1055,6 +1066,7 @@
   var api = {
     toutesLesSeances: toutesLesSeances,
     seriesDepuis: seriesDepuis,
+    seriesDesSeances: seriesDesSeances,
     tousLesExercices: tousLesExercices,
     toutesLesPesees: toutesLesPesees,
     enregistrerPesee: enregistrerPesee,

@@ -51,6 +51,9 @@
                 objectifs: [], objectifsDispo: null, parisObjectif: [] };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
+  // 117 (audit du 16/10, 06 #1) — le nombre d'envois de séries confirmés depuis l'ouverture. Le rapprochement des
+  // séries ne conclut rien si une série est montée PENDANT la synchronisation (elle n'était pas dans ce qu'on a lu).
+  var envoisDeSeries = 0;
   // ⚠️ 59-5 — LA GÉNÉRATION DE L'APPAREIL. « Quitter » (et « Supprimer mon
   // compte », qui passe par lui) l'incrémente AVANT de vider quoi que ce soit.
   // Tout écrivain asynchrone — une synchronisation, le journal des records,
@@ -886,6 +889,8 @@
     if (syncEnCours) return;
     syncEnCours = true;
     var g = generation;
+    var envoisAuDepart = envoisDeSeries;
+    var fileAuDepart = Attente.seancesEnAttente(attente);
     try {
       var resync = await armerResynchronisation();
       var curseur = await Cache.lireMeta('curseurSeries');
@@ -993,6 +998,12 @@
       // d'avancer, « N séries manquantes » s'afficherait, et 15 Mo
       // redescendraient à chaque synchronisation, pendant toute la séance.
       local.series = Sync.purgerSeriesOrphelines(fusionnees, local.seances, listeComplete);
+      // 117 (audit du 16/10, 06 #1) — et les séries effacées AILLEURS (une correction sur un autre appareil), que
+      // l'incrémental ne voit jamais : rapprochées par séance, seulement quand le compte dit qu'il y en a.
+      if (listeComplete) {
+        local.series = await rapprocherSeriesDuServeur(local.series, seances, compteSeries, fileAuDepart, envoisAuDepart, g);
+        if (!generationValide(g)) return;
+      }
       local.exercices = Sync.remplacer(exercices);
       // Et MAINTENANT le corpus de lecture : la séance en cours sort ici, une
       // ligne avant que le cache ne soit écrit — donc elle n'y entre pas non
@@ -1096,6 +1107,44 @@
       // synchro d'aujourd'hui (`deconnecter` l'a déjà libéré).
       if (generationValide(g)) syncEnCours = false;
     }
+  }
+
+  // 117 (audit du 16/10, 06 #1) — LE RAPPROCHEMENT DES SÉRIES (`Sync.surplusDeSeries`, `Sync.rapprocherSeries`).
+  // Le surplus se calcule hors de ce qui attend dans la file — au départ de la synchronisation ET maintenant : une
+  // séance posée entre-temps est protégée aussi. Un surplus au compte lu AVANT la liste se vérifie au compte relu
+  // APRÈS (une série montée ailleurs entre les deux n'est pas un surplus). Puis les identifiants des séances, par
+  // lots, des plus récentes aux plus anciennes, jusqu'à ce que le surplus soit résorbé. Une série montée D'ICI
+  // pendant ce temps (`envoisDeSeries`) : on ne conclut rien, la synchronisation suivante reprendra. Une lecture qui
+  // échoue n'emporte pas la synchronisation : on garde ce qu'on a.
+  async function rapprocherSeriesDuServeur(series, seancesServeur, compteServeur, fileAuDepart, envoisAuDepart, g) {
+    var proteger = function () {
+      var p = Object.assign({}, fileAuDepart || {});
+      Object.keys(Attente.seancesEnAttente(attente)).forEach(function (id) { p[id] = true; });
+      return p;
+    };
+    var surplus = Sync.surplusDeSeries(series, seancesServeur, proteger(), compteServeur);
+    if (surplus <= 0) return series;
+    try {
+      var compteApres = await Donnees.compterSeries();
+      if (!generationValide(g)) return series;
+      surplus = Sync.surplusDeSeries(series, seancesServeur, proteger(), compteApres);
+      if (surplus <= 0) return series;
+      var lots = Sync.lotsDeRapprochement(seancesServeur);
+      var retirees = 0;
+      for (var i = 0; i < lots.length && surplus > 0; i++) {
+        if (envoisDeSeries !== envoisAuDepart) break;
+        var lignes = await Donnees.seriesDesSeances(lots[i]);
+        if (!generationValide(g) || envoisDeSeries !== envoisAuDepart) break;
+        var r = Sync.rapprocherSeries(series, lignes, lots[i], proteger());
+        series = r.series;
+        retirees += r.retirees.length;
+        surplus -= r.retirees.length;
+      }
+      if (retirees) console.warn('Synchronisation : ' + retirees + ' série(s) effacée(s) sur un autre appareil retirée(s) du cache.');
+    } catch (e) {
+      console.warn('Rapprochement des séries impossible :', texteErreur(e));
+    }
+    return series;
   }
 
   // Ce que la purge a retiré doit quitter le magasin : sans `clear()`, une
@@ -3259,6 +3308,7 @@
         // file au moment de la mise à jour.
         // Les observations qui attendaient repartent (`apresSucces`).
         attente = Attente.apresSucces(attente, op);
+        if (op.table === Attente.SETS) envoisDeSeries++;
         await Cache.ecrireAttente(attente).catch(function () {});
         if (op.table === Attente.OBSERVATIONS) await confirmerObservation(op);
         if (op.table === Attente.SOCIAL) noterGesteSocial(op, null);

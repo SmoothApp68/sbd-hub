@@ -212,8 +212,8 @@
   // `listeComplete` n'est pas une commodité : une liste de séances incertaine
   // ne prouve pas une absence. Si une tranche a échoué, ou si le compte annoncé
   // par le serveur ne correspond pas, on ne purge rien. Mieux vaut un cache
-  // avec du surplus — qui se corrige à la synchronisation suivante — qu'un
-  // cache amputé, qui ne se répare jamais : l'incrémental ne revient pas
+  // avec du surplus — qui se corrige à la synchronisation suivante, par le
+  // rapprochement des séries (117, `rapprocherSeries`) — qu'un cache amputé, qui ne se répare jamais : l'incrémental ne revient pas
   // chercher des séries qu'il croit déjà passées.
   // Idem pour les séries : celles d'une séance encore en attente ne sont pas
   // orphelines, elles sont juste inconnues du serveur. La réinjection de la
@@ -223,6 +223,73 @@
     if (listeComplete !== true) return (series || []).slice();
     var vivantes = new Set((seances || []).map(function (s) { return s && s.id; }));
     return (series || []).filter(function (s) { return s && vivantes.has(s.session_id); });
+  }
+
+  // ══ 117 (audit du 16/10, 06 #1) — UNE SÉRIE EFFACÉE AILLEURS QUITTE AUSSI CE CACHE ════════════════════
+  //
+  // L'incrémental ne voit que les séries créées ou retouchées (`created_at`, `modifie_a`) : une série SUPPRIMÉE
+  // sur un autre appareil — une correction de séance, qui retire une série (`remplacerSeries`) — ne redescend
+  // jamais, et `purgerSeriesOrphelines` ne retire que les séries d'une séance disparue. Le coach, les records et le
+  // volume comptaient donc à vie une série qui n'existe plus. Et le compte de contrôle ne le voyait pas : un cache
+  // plus GRAND que le serveur passait pour complet.
+  //
+  // LE DÉTECTEUR, SANS RIEN RETÉLÉCHARGER : le compte. Hors de ce qui attend dans la file, le cache est le serveur
+  // PLUS ce qui a été supprimé ailleurs — l'incrémental ramène tout le reste. Un SURPLUS (séries en cache, des
+  // séances que le serveur rend, hors file d'envoi, moins le compte du serveur) est donc exactement le nombre de
+  // séries effacées ailleurs. Zéro (le cas de tous les jours) : rien ne part sur le réseau.
+  //
+  // LE RAPPROCHEMENT, PAR SÉANCE : seulement quand il y a un surplus, on relit les seuls identifiants des séries
+  // (`id`, `session_id`) des séances, PAR LOTS, de la plus récente à la plus ancienne — une correction porte presque
+  // toujours sur une séance récente —, et on s'arrête dès que le surplus est résorbé. Un lot de 50 séances pèse
+  // ~100 Ko ; tout l'historique (≈ 29 000 séries), ~2,6 Mo au pire, une fois, et seulement après une suppression
+  // ailleurs. Jamais les 15 Mo d'une passe complète.
+  //
+  // ⚠️ CE QUI ATTEND DANS LA FILE N'EST JAMAIS RETIRÉ : une série locale pas encore envoyée n'est pas sur le
+  // serveur, par définition. `protegees` (les séances qui ont une entrée dans la file) la garde, et ses séances ne
+  // comptent pas dans le surplus.
+  function seriesComptables(series, seancesServeur, protegees) {
+    var connues = {};
+    (seancesServeur || []).forEach(function (s) { if (s && s.id) connues[s.id] = true; });
+    var p = protegees || {};
+    return (series || []).filter(function (s) {
+      return s && connues[s.session_id] && !p[s.session_id];
+    });
+  }
+
+  // Le nombre de séries en trop dans le cache, d'après le compte du serveur. Un compte inconnu ne prouve rien : 0.
+  function surplusDeSeries(series, seancesServeur, protegees, compteServeur) {
+    if (typeof compteServeur !== 'number' || !isFinite(compteServeur) || compteServeur < 0) return 0;
+    return seriesComptables(series, seancesServeur, protegees).length - compteServeur;
+  }
+
+  // Les identifiants des séances que le serveur rend, de la plus récente à la plus ancienne, par lots.
+  var LOT_RAPPROCHEMENT = 50;
+  function lotsDeRapprochement(seancesServeur, taille) {
+    var t = taille || LOT_RAPPROCHEMENT;
+    var ids = (seancesServeur || []).filter(function (s) { return s && s.id; })
+      .slice().sort(function (a, b) { return String(b.debut).localeCompare(String(a.debut)); })
+      .map(function (s) { return s.id; });
+    var lots = [];
+    for (var i = 0; i < ids.length; i += t) lots.push(ids.slice(i, i + t));
+    return lots;
+  }
+
+  // Rapproche le cache du serveur POUR LES SÉANCES DU LOT : une série d'une de ces séances, absente de ce que le
+  // serveur rend (`lignesServeur`, les séries de ces séances), et dont la séance n'attend rien dans la file, quitte
+  // le cache. Rend `{ series, retirees }`.
+  function rapprocherSeries(series, lignesServeur, lot, protegees) {
+    var dansLot = {}, presentes = {};
+    (lot || []).forEach(function (id) { dansLot[id] = true; });
+    (lignesServeur || []).forEach(function (l) { if (l && l.id) presentes[l.id] = true; });
+    var p = protegees || {};
+    var retirees = [];
+    var gardees = (series || []).filter(function (s) {
+      if (!s || !dansLot[s.session_id] || p[s.session_id]) return true;
+      if (presentes[s.id]) return true;
+      retirees.push(s.id);
+      return false;
+    });
+    return { series: gardees, retirees: retirees };
   }
 
   // État affiché à l'utilisateur. Jamais bloquant : dès qu'il y a quelque chose
@@ -345,6 +412,11 @@
     ranger: ranger,
     curseurDe: curseurDe,
     purgerSeriesOrphelines: purgerSeriesOrphelines,
+    seriesComptables: seriesComptables,
+    surplusDeSeries: surplusDeSeries,
+    LOT_RAPPROCHEMENT: LOT_RAPPROCHEMENT,
+    lotsDeRapprochement: lotsDeRapprochement,
+    rapprocherSeries: rapprocherSeries,
     deciderEtat: deciderEtat
   };
 

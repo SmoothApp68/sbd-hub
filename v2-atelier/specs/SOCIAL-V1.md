@@ -25,6 +25,11 @@ Abonnements façon Instagram, trois cercles :
 - Pas de commentaires, pas de notification push (un badge sur l'onglet pour les demandes).
 - Un seul onglet « Jeu & amis » : le fil est un sous-onglet à côté du jeu, pas un onglet de plus.
 - Coach et bilans ne lisent jamais rien du social.
+- **Des comparaisons choisies — décision d'Aurélien du 16/10/2026 (D6, audit du 16/10)** : « guilde et mutuels sont des
+  comparaisons choisies ». La guilde (sa Progression, son défi, « La guilde cette semaine ») et les mutuels (« Entre
+  amis », « Se comparer ») sont la **seule exception** à la règle de fond « aucune comparaison à une autre personne » :
+  on y entre par un geste — **entrer dans une guilde**, **devenir mutuel** (s'abonner l'un à l'autre). Hors de ces deux
+  cercles, rien ne compare une personne à une autre ; le coach et les bilans, jamais (CADRAGE, BILANS-V1).
 
 ## 3. La base (v2_078)
 

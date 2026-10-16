@@ -4395,6 +4395,12 @@
         vide.appendChild(sv);
       }
       cible.appendChild(vide);
+      // 118 — même sans aucune routine, un programme en cours garde son dossier, son badge et « Arrêter ».
+      programmesOrphelins(null, v).forEach(function (d) {
+        var pr = v.programme ? v.programme(d) : null;
+        if (pr && pr.fin) cible.appendChild(carteFinDeBloc(d, pr.fin, v));
+        cible.appendChild(ligneDeDossier({ dossier: d, routines: [] }, pr, false, v));
+      });
       return;
     }
 
@@ -4404,6 +4410,17 @@
     // plate : « Ranger » ne change pas, et il range l'ordre global. Sans aucun
     // dossier, rien ne change non plus — pas de « Sans dossier » seul en tête.
     var groupes = v.reorganiser ? null : R().parDossier(routines);
+    // ⚠️ 118 (audit du 16/10, 03 #5) — UN PROGRAMME EN COURS GARDE SON DOSSIER, même vidé de ses routines (supprimées,
+    // ou rangées ailleurs) : le bloc continuait — sa décharge, ses zones — sans badge ni « Arrêter le programme »,
+    // puisque la bibliothèque ne montrait que les dossiers qui ont une routine. Le dossier reste donc là, vide, avec
+    // son badge (et sa carte de fin) : le geste existant, rien de plus.
+    var orphelins = v.reorganiser ? [] : programmesOrphelins(groupes, v);
+    if (orphelins.length) {
+      var sansDossier = groupes ? groupes.filter(function (g) { return g.dossier === null; })
+        : [{ dossier: null, routines: liste }];
+      groupes = (groupes || []).filter(function (g) { return g.dossier !== null; })
+        .concat(orphelins.map(function (d) { return { dossier: d, routines: [] }; }), sansDossier);
+    }
     if (groupes) {
       // MOTEUR §9.22 (53-2) — le programme de chaque dossier, lu sur
       // `vue.programme`. LA CARTE DE FIN DE BLOC passe EN TÊTE de l'écran
@@ -4420,27 +4437,7 @@
         var cle = g.dossier === null ? '' : g.dossier;
         var replie = !!(v.replies && v.replies[cle]);
         var pr = programmes[i];
-        var ligne = el('div', 'dossier-ligne');
-        // 60-3 — la bibliothèque s'ouvre sur un dossier (« Mon programme ») : on le retrouve par ici.
-        ligne.setAttribute('data-dossier', cle);
-        var tete = el('button', 'dossier-tete' + (replie ? ' replie' : ''));
-        tete.type = 'button';
-        tete.setAttribute('aria-expanded', replie ? 'false' : 'true');
-        tete.appendChild(el('span', 'dossier-nom',
-          (replie ? '\u25b8 ' : '\u25be ') + (g.dossier === null ? 'Sans dossier' : g.dossier)));
-        // Le badge du bloc À LA PLACE du compte, à droite de la tête (« Bloc
-        // Mix · semaine 2 sur 4 ») : il ouvre le bloc en cours (ses
-        // exercices, « Arrêter le programme »). Aucune rangée de plus.
-        if (!(pr && pr.badge)) tete.appendChild(el('span', 'dossier-compte num', String(g.routines.length)));
-        tete.addEventListener('click', function () { if (v.surReplier) v.surReplier(cle); });
-        ligne.appendChild(tete);
-        if (pr && pr.badge) {
-          var badge = el('button', 'dossier-badge', pr.badge);
-          badge.type = 'button';
-          badge.addEventListener('click', function () { if (v.surBadgeProgramme) v.surBadgeProgramme(g.dossier); });
-          ligne.appendChild(badge);
-        }
-        cible.appendChild(ligne);
+        cible.appendChild(ligneDeDossier(g, pr, replie, v));
         if (!replie && pr && pr.creer) cible.appendChild(rangeeDeProgramme(g.dossier, v));
         // 66B (§5 ter.4 bis) — « Le coach relit ce dossier », sous l'en-tête d'un DOSSIER qui a une routine non
         // archivée (`vue.relirable`, décidé par l'app). « Sans dossier » n'est pas un dossier : pas de rangée.
@@ -4467,6 +4464,45 @@
       vide2.addEventListener('click', v.surSeanceVide);
       cible.appendChild(vide2);
     }
+  }
+
+  // L'en-tête d'un dossier de la bibliothèque : son nom (repliable), et le badge du bloc À LA PLACE du compte, à
+  // droite de la tête (« Bloc Mix · semaine 2 sur 4 ») : il ouvre le bloc en cours (ses exercices, « Arrêter le
+  // programme »). Aucune rangée de plus.
+  function ligneDeDossier(g, pr, replie, v) {
+    var cle = g.dossier === null ? '' : g.dossier;
+    var ligne = el('div', 'dossier-ligne');
+    // 60-3 — la bibliothèque s'ouvre sur un dossier (« Mon programme ») : on le retrouve par ici.
+    ligne.setAttribute('data-dossier', cle);
+    var tete = el('button', 'dossier-tete' + (replie ? ' replie' : ''));
+    tete.type = 'button';
+    tete.setAttribute('aria-expanded', replie ? 'false' : 'true');
+    tete.appendChild(el('span', 'dossier-nom',
+      (replie ? '\u25b8 ' : '\u25be ') + (g.dossier === null ? 'Sans dossier' : g.dossier)));
+    if (!(pr && pr.badge)) tete.appendChild(el('span', 'dossier-compte num', String(g.routines.length)));
+    tete.addEventListener('click', function () { if (v.surReplier) v.surReplier(cle); });
+    ligne.appendChild(tete);
+    if (pr && pr.badge) {
+      var badge = el('button', 'dossier-badge', pr.badge);
+      badge.type = 'button';
+      badge.addEventListener('click', function () { if (v.surBadgeProgramme) v.surBadgeProgramme(g.dossier); });
+      ligne.appendChild(badge);
+    }
+    return ligne;
+  }
+
+  // 118 — les dossiers d'un programme en cours que la bibliothèque ne montre pas (plus aucune routine n'y est
+  // rangée), dans l'ordre que l'app donne. `groupes` : ceux de `parDossier` (null : aucun dossier montré).
+  function programmesOrphelins(groupes, v) {
+    if (!v.dossiersDeProgramme) return [];
+    var montres = {};
+    (groupes || []).forEach(function (g) { if (g.dossier !== null) montres[g.dossier] = true; });
+    var vus = {};
+    return (v.dossiersDeProgramme() || []).filter(function (d) {
+      if (d === null || d === undefined || montres[d] || vus[d]) return false;
+      vus[d] = true;
+      return true;
+    });
   }
 
   // 60-3 (ECRAN-SAISIE §7 quindecies.7) — « Retrouver mes séances qui

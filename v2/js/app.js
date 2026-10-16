@@ -481,6 +481,15 @@
       pari ? { predite: pari.valeur_predite, observee: Moteur.progresDuBilan(bilan) } : null) };
   }
 
+  // 118 (audit du 16/10, 03 #5) — les dossiers qui portent un bloc en cours, dans l'ordre des blocs : la
+  // bibliothèque montre celui qui n'a plus de routine (sinon le programme tournait sans badge ni « Arrêter »).
+  function dossiersDeProgramme() {
+    if (Moteur.coachSeTait(profil && profil.intention)) return [];
+    return (local.blocs || []).filter(function (b) {
+      return b && b.dossier && Moteur.blocEnCours(local.blocs, b.dossier) === b;
+    }).map(function (b) { return b.dossier; });
+  }
+
   // LA FEUILLE « FAIRE DE CE DOSSIER UN PROGRAMME » — ou celle qui AJUSTE le
   // bloc suivant (`depuis` : le bloc fini). Les exercices du bloc : par
   // défaut les barres polyarticulaires des routines du dossier, plus les
@@ -8888,6 +8897,9 @@
       // MOTEUR §9.22 (53-2) — le programme d'un dossier : le badge, la carte de
       // fin de bloc, ou « Faire de ce dossier un programme ».
       programme: programmeDuDossier,
+      // 118 (audit du 16/10, 03 #5) — les dossiers d'un programme en cours : celui qui n'a plus de routine reste
+      // montré (son badge, « Arrêter le programme »). En carnet, aucun : le badge s'y tait (I13).
+      dossiersDeProgramme: dossiersDeProgramme,
       surProgramme: function (d) { ouvrirProgramme(d, null); },
       surBadgeProgramme: ouvrirBlocEnCours,
       surCommencerBloc: commencerBlocSuivant,

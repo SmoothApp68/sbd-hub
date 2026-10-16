@@ -399,6 +399,8 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
       fermerQuestionnaire: () => {}, faits: { oublierDates: () => {} },
       // 106 — le groupe et ses messages gardés hors ligne appartiennent au compte précédent.
       oublierGroupe: () => { journal.groupeOublie++; },
+      // 115 (E2) — une suppression de série en attente d'« Annuler » appartient aussi au compte précédent.
+      oublierSuppressionDifferee: () => {},
       Donnees: {
         monProfil: (id) => Promise.resolve(id === etat.client ? (base.lignes[id] || null) : null),
         enregistrerProfil: (id, champs) => {

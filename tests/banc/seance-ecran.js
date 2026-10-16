@@ -2048,6 +2048,16 @@ const SETS_IMPORTES = [
   const ligne = async (i) => (await page.$$('.ligne-serie'))[i];
   // 115 (audit du 16/10, E1) — « Abandonner et tout effacer » DEMANDE dès qu'une série est faite : la
   // confirmation porte le même rouge (`.danger`). Sans série faite, aucune feuille : l'abandon est immédiat.
+  // 115 (audit du 16/10, E4) — « Terminer » DEMANDE quand des séries remplies ne sont pas validées : les
+  // sections écrites avant gardent leur sens (terminer, ce qui n'est pas validé ne part pas) par « Terminer quand
+  // même ». Sans question, rien.
+  const terminerQuandMeme = async () => {
+    await attendre(300);
+    if (/pas validées? : (elles|elle) ne ser/.test(await texte('#feuille-contenu .feuille-t'))) {
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .filter((b) => b.textContent === 'Terminer quand même')[0].click());
+    }
+  };
   const confirmerAbandon = async () => {
     await attendre(300);
     if (/^Abandonner la séance \?/.test(await texte('#feuille-contenu .feuille-t'))) {
@@ -2935,6 +2945,7 @@ const SETS_IMPORTES = [
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(500);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2200);
   ok('le statut bascule en `terminee`',
     sessions()[0].statut === 'terminee' && !!sessions()[0].fin, sessions()[0].statut);
@@ -3322,6 +3333,7 @@ const SETS_IMPORTES = [
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(500);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2400);
   await aller('/');
   const carte = await page.evaluate(() => {
@@ -3605,6 +3617,7 @@ const SETS_IMPORTES = [
   });
   await attendre(400);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
 
   const finie = base.sessions.filter((s) => s.titre === 'Jambes du jeudi')[0];
@@ -3690,6 +3703,7 @@ const SETS_IMPORTES = [
       return !!s && /Garder/.test(s.textContent);
     }), 'défaut = garder');
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
   ok('terminer en gardant n’écrit RIEN dans la routine',
     patchsRoutine().length === patchsAvantGarder &&
@@ -3874,6 +3888,7 @@ const SETS_IMPORTES = [
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
 
   // ⚠️ LA COMPARAISON QUI COMPTE : le détail de séance rend déjà
@@ -4328,6 +4343,7 @@ const SETS_IMPORTES = [
     JSON.stringify(defaut));
 
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
   ok('« Garder » tenu parole : la routine est exactement celle d’avant',
     JSON.stringify(ROUTINE_SUPERSET.routine_exercises) === avantFin &&
@@ -4382,6 +4398,7 @@ const SETS_IMPORTES = [
   });
   await attendre(400);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(3000);
 
   const routineApres = ROUTINE.routine_exercises.slice().sort((a, b) => a.rang - b.rang);
@@ -4429,6 +4446,7 @@ const SETS_IMPORTES = [
   });
   await attendre(400);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(3000);
 
   const inserts = base.patchs.filter((p) => p.op === 'insert').slice(insertsAvant);
@@ -4516,6 +4534,7 @@ const SETS_IMPORTES = [
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
 
   // ── §7 octies.3 — REFAIRE ───────────────────────────────────────────────
@@ -4739,6 +4758,7 @@ const SETS_IMPORTES = [
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
 
   await aller('/');
@@ -4843,6 +4863,7 @@ const SETS_IMPORTES = [
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(600);
     await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
     await attendre(2600);
   };
   // ⚠️ ABANDONNER N'EST PAS TERMINER, ET C'EST TOUT L'INTÉRÊT (§7 octodecies).
@@ -5278,6 +5299,7 @@ const SETS_IMPORTES = [
   });
   await attendre(400);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
 
   ok('[D5] AUCUNE écriture n’est refusée — c’était `23514`, définitif',
@@ -5983,6 +6005,7 @@ const SETS_IMPORTES = [
     /2 séries de travail/.test(await texte('#feuille-contenu')),
     (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 60));
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
 
   // ⚠️ QUATRE LIGNES POUR DEUX SÉRIES DE TRAVAIL. C'est l'écart que les cinq
@@ -8837,6 +8860,7 @@ const SETS_IMPORTES = [
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(500);
     await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
     await attendre(3000);
     const fin = pariDC(sid, 1);
     ok('[OF] DISCRIMINANT — « Terminer » rattrape l’observation perdue (14, sur la série 1)',
@@ -13815,6 +13839,7 @@ const SETS_IMPORTES = [
     await capturer55('2-terminer');
     await garderRecap(true);
     await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
     await attendre(2600);
     const fin = await page.evaluate(() => {
       const g = Array.from(document.querySelectorAll('#recap-corps .recap-groupe.or'))[0];
@@ -14187,6 +14212,7 @@ const SETS_IMPORTES = [
     // la file soit vide.
     const ecrituresAvantB = base.ecrituresRecords.length;
     await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
     await attendreQue(async () => (base.sessions.filter((x) => x.id === enCoursJ)[0] || {}).statut === 'terminee' &&
       base.ecrituresRecords.length > ecrituresAvantB && (await fileJ()).length === 0, 15000);
     const finJ = await page.evaluate(() => Array.from(document.querySelectorAll('#recap-corps .recap-rec .l1'))
@@ -14652,6 +14678,7 @@ const SETS_IMPORTES = [
     await attendre(700);
     await relever('feuille-terminer', '6-terminer');
     await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
     await attendre(2600);
     await relever('apres-terminer');
 
@@ -17102,6 +17129,7 @@ const SETS_IMPORTES = [
     const enCoursU64 = (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
     await garderRecap(true);
     await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
     await attendreQue(async () => (base.sessions.filter((x) => x.id === enCoursU64)[0] || {}).statut === 'terminee', 15000);
     const recapJ = await page.evaluate(() => {
       const c = document.getElementById('recap-corps');
@@ -17182,6 +17210,7 @@ const SETS_IMPORTES = [
     const enCours2 = (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
     await garderRecap(true);
     await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
     await attendreQue(async () => (base.sessions.filter((x) => x.id === enCours2)[0] || {}).statut === 'terminee', 15000);
     ok('[jeu] éteint : le récap (71) n’a pas de bloc « Le jeu » (et garde ses boutons)',
       (await compter('#jeu-fin')) === 0 && (await compter('#recap-corps .recap-fermer')) === 1 &&
@@ -19965,6 +19994,7 @@ const SETS_IMPORTES = [
         jeu: document.querySelectorAll('#feuille-contenu #jeu-fin').length,
         entete: (document.querySelector('#feuille-contenu .feuille-t em') || {}).textContent || '' }));
       await page.click('#feuille-contenu .principal');
+      await terminerQuandMeme();
       await jusqua(async () => (await recapVu()).visible, 8000);
       await attendre(600);
       return feuille;

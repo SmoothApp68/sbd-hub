@@ -424,17 +424,39 @@ describe('servirRessource — servir vite, revalider derrière', () => {
 
   const souffler = () => new Promise((r) => setTimeout(r, 0));
 
-  test('entrée saine : rendue tout de suite, et la revalidation ne repollue pas le cache', async () => {
+  // ⚠️ 117 (audit du 16/10, 06 #8) — UN CACHE, UNE VERSION : un fichier de la coquille ne se met plus à jour par la
+  // bande (il versait la version suivante dans le cache de celle en place). Il était remplacé ici : c'était le défaut.
+  test('⚠️ DISCRIMINANT — un fichier de la COQUILLE : rendu tout de suite, et ni le réseau ni le cache ne bougent', async () => {
     const saine = new Response('ancien', { status: 200 });
     const cache = cacheDePapier({ 'https://t.test/js/app.js': saine });
-    installerBanc(cache, reseauDePapier());
+    const reseau = reseauDePapier();
+    installerBanc(cache, reseau);
 
     const req = { url: 'https://t.test/js/app.js' };
     const rendue = await SW.servirRessource(req);
     expect(rendue).toBe(saine); // pas d'attente du réseau
 
     await souffler();
-    const relue = cache.magasin.get('https://t.test/js/app.js');
+    expect(reseau.journal).toEqual([]);
+    expect(cache.magasin.get('https://t.test/js/app.js')).toBe(saine);
+  });
+
+  test('chaque fichier de SHELL est reconnu comme coquille ; un fichier hors coquille ne l’est pas', () => {
+    SW.SHELL.forEach((p) => expect([p, SW.estDeLaCoquille('https://t.test' + p.replace(/^\./, ''))]).toEqual([p, true]));
+    expect(SW.estDeLaCoquille('https://t.test/fonts/OFL.txt')).toBe(false);
+  });
+
+  test('hors de la coquille : rendu tout de suite, et la revalidation ne repollue pas le cache', async () => {
+    const saine = new Response('ancien', { status: 200 });
+    const cache = cacheDePapier({ 'https://t.test/fonts/OFL.txt': saine });
+    installerBanc(cache, reseauDePapier());
+
+    const req = { url: 'https://t.test/fonts/OFL.txt' };
+    const rendue = await SW.servirRessource(req);
+    expect(rendue).toBe(saine); // pas d'attente du réseau
+
+    await souffler();
+    const relue = cache.magasin.get('https://t.test/fonts/OFL.txt');
     expect(relue).not.toBe(saine);           // remplacée par la version fraîche
     expect(relue.redirected).toBe(false);    // et désempoisonnée
   });

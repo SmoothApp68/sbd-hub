@@ -396,16 +396,31 @@ async function servirCoquille(req) {
   return Response.error();
 }
 
+// ⚠️ 117 (audit du 16/10, 06 #8) — UN CACHE, UNE VERSION. La mise à jour en arrière-plan écrivait chaque fichier
+// servi, tel que le serveur le rend AUJOURD'HUI, dans le cache de la version EN PLACE. Après un déploiement, la
+// première ouverture servait l'ancienne coquille et versait les nouveaux scripts dans l'ancien cache ; si
+// l'installation de la nouvelle version échouait ensuite (un indispensable manqué, un réseau capricieux), l'ancienne
+// restait en place avec un cache MÉLANGÉ — l'ancien `index.html` et de nouveaux `js/*.js` —, et hors ligne l'app
+// pouvait ne plus démarrer. Les fichiers de la coquille (`SHELL`) ne se mettent donc JAMAIS à jour par la bande :
+// une nouvelle version n'arrive que par install/activate, dans SON cache. Ce qui n'est pas dans la coquille garde
+// la revalidation en arrière-plan.
+const CHEMINS_COQUILLE = new Set(SHELL.map((p) => p.replace(/^\./, '')));
+function estDeLaCoquille(url) {
+  try { return CHEMINS_COQUILLE.has(new URL(url).pathname); } catch (e) { return false; }
+}
+
 async function servirRessource(req) {
   const cache = await caches.open(CACHE_V2);
   const enCache = await cache.match(req);
   if (utilisable(enCache)) {
     // Volontairement PAS attendu : une mise à jour en arrière-plan ne doit
     // jamais retarder une réponse qu'on a déjà. Et elle désempoisonne, pour que
-    // le cache ne se repollue pas par la bande.
-    fetch(req)
-      .then((r) => (r && r.status === 200 ? desempoisonner(r).then((n) => cache.put(req, n)) : null))
-      .catch(() => {});
+    // le cache ne se repollue pas par la bande. Jamais pour la coquille (117).
+    if (!estDeLaCoquille(req.url)) {
+      fetch(req)
+        .then((r) => (r && r.status === 200 ? desempoisonner(r).then((n) => cache.put(req, n)) : null))
+        .catch(() => {});
+    }
     return enCache;
   }
   // Absent ou invalide : réseau. On garde une copie propre, on rend l'originale
@@ -443,7 +458,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     CACHE_V2: CACHE_V2, CHEMIN_SORTIE: CHEMIN_SORTIE, SHELL: SHELL,
     INDISPENSABLES: INDISPENSABLES,
-    utilisable: utilisable, desempoisonner: desempoisonner, PAGE_SORTIE: PAGE_SORTIE,
+    utilisable: utilisable, desempoisonner: desempoisonner, PAGE_SORTIE: PAGE_SORTIE, estDeLaCoquille: estDeLaCoquille,
     installer: installer, servirCoquille: servirCoquille, servirRessource: servirRessource,
     // La trappe est testable en CI : elle ne lit que `caches`, `indexedDB` et
     // `self.registration` dans la portée globale — tous trois remplaçables par

@@ -115,7 +115,7 @@ installé · serveur allumé**.
 **En machine, avant l'appareil** (approche les quatre, ne les remplace pas) :
 
 ```
-node tests/banc/sw-navigation.js        # 7 scénarios, navigateur réel, code de retour
+node tests/banc/sw-navigation.js        # 9 scénarios, navigateur réel, code de retour
 npx jest tests/unit/v2-service-worker.test.js
 ```
 
@@ -130,6 +130,10 @@ npx jest tests/unit/v2-service-worker.test.js
   (`CACHE_V2`)** — elle n'est pas recopiée ici. Un chiffre recopié ne peut que
   dériver : celui qui figurait à cette ligne avait dix versions de retard
   (CADRAGE §2 undecies).
+
+- **Un cache, une version** (16/10/2026, 117, audit 06 #8) : un fichier de la coquille (`SHELL`) ne se met
+  jamais à jour en arrière-plan — une nouvelle version n'arrive que par install/activate, dans SON cache. Le
+  scénario 9 du banc joue l'installation ratée d'une nouvelle version, l'ancienne en place.
 
 **Et la règle du fichier lui-même : AUCUN `await` SANS ISSUE DANS LE
 GESTIONNAIRE `fetch`.** Un service worker cassé se remplace au rechargement

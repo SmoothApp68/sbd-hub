@@ -225,6 +225,36 @@
     });
   }
 
+  // ⚠️ 117 (audit du 16/10, 06 #6) — UN AUTRE COMPTE ENTRE : tout est vidé, SAUF la file du compte qui part, gardée
+  // sous son identifiant (`THAttente.changerDeCompte`) ; et la file gardée pour le compte qui entre lui est rendue.
+  // UNE transaction : lire les files gardées et la file en cours, vider, réécrire — une fermeture au milieu ne
+  // peut pas perdre la file (tout passe, ou rien). Rend `{ rendue, gardees }`. « Quitter » (`viderTout`) vide tout,
+  // les files gardées comprises, après sa fenêtre qui les compte.
+  var CLE_FILES_GARDEES = 'files-gardees';
+  function changerDeCompte(ancienUid, nouveauUid) {
+    return transaction(MAGASINS, 'readwrite').then(function (tx) {
+      var issue = { rendue: [], gardees: {} };
+      var b = tx.objectStore('brouillon'), a = tx.objectStore('attente');
+      var lu = b.get(CLE_FILES_GARDEES);
+      lu.onsuccess = function () {
+        var gardees = lu.result ? lu.result.valeur : null;
+        var file = a.getAll();
+        file.onsuccess = function () {
+          var calc = racine.THAttente.changerDeCompte(gardees, ancienUid, file.result || [], nouveauUid);
+          MAGASINS.forEach(function (m) { tx.objectStore(m).clear(); });
+          if (Object.keys(calc.gardees).length) b.put({ cle: CLE_FILES_GARDEES, valeur: calc.gardees });
+          calc.rendue.forEach(function (e) { a.put(e); });
+          issue = calc;
+        };
+      };
+      return finDe(tx).then(function () { return issue; });
+    });
+  }
+
+  function lireFilesGardees() {
+    return lireBrouillon(CLE_FILES_GARDEES).then(function (v) { return v || {}; });
+  }
+
   // ── Le brouillon et la file ─────────────────────────────────────────────
   //
   // Deux raccourcis sur les primitives ci-dessus, pour que l'appelant n'ait pas
@@ -267,6 +297,8 @@
     compterMagasin: compterMagasin,
     lireMeta: lireMeta,
     ecrireMeta: ecrireMeta,
-    viderTout: viderTout
+    viderTout: viderTout,
+    changerDeCompte: changerDeCompte,
+    lireFilesGardees: lireFilesGardees
   };
 })(typeof self !== 'undefined' ? self : globalThis);

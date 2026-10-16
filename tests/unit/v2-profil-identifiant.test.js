@@ -392,6 +392,8 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
       Cache: {
         lireMeta: () => Promise.resolve(opt.meta === undefined ? null : opt.meta),
         viderTout: () => { journal.vide++; return Promise.resolve(); },
+        // 117 (06 #6) — le changement de compte vide le cache (la file du compte qui part, gardée à part).
+        changerDeCompte: () => { journal.vide++; return Promise.resolve({ rendue: [], gardees: {} }); },
         ecrireMeta: (cle, v) => { journal.meta.push([cle, v]); return Promise.resolve(); }
       },
       routines: ['x'], brouillon: {}, etatRoutines: {}, seance: {}, attente: [1], chrono: {},

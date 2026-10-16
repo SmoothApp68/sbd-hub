@@ -819,14 +819,20 @@
     // 59-5 — un autre compte entre : ce qui était en vol pour le précédent
     // n'écrira plus (même règle que « Quitter »).
     nouvelleGeneration();
-    await Cache.viderTout();
+    // 117 (audit du 16/10, 06 #6) — tout est vidé SAUF la file du compte qui part, gardée sous son identifiant ; et
+    // la file gardée pour le compte qui entre lui est rendue (relue juste après, `chargerSeanceLocale`). Seul
+    // « Quitter » explicite vide une file, après sa fenêtre.
+    var changement = await Cache.changerDeCompte(meta && meta.userId, userId);
+    if (changement && changement.rendue && changement.rendue.length) {
+      console.warn('File d\u2019envoi rendue à ce compte : ' + changement.rendue.length + ' envoi(s) gardé(s) depuis sa dernière visite.');
+    }
     // Les routines ne sont pas dans le cache, mais elles appartiennent au
     // compte précédent : les laisser en mémoire montrerait la bibliothèque de
     // quelqu'un d'autre le temps d'une requête.
     routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };
     // La séance en cours et la file appartiennent au compte précédent. Le
-    // `viderTout` ci-dessus a effacé leurs magasins ; on remet la mémoire
-    // d'accord avec le disque.
+    // changement de compte ci-dessus a vidé leurs magasins (la file, gardée à
+    // part pour lui) ; on remet la mémoire d'accord avec le disque.
     seance = null; attente = []; chrono = null;
     oublierSuppressionDifferee();
     // §12.9 (49-U13) — les séances sous consigne aussi (le brouillon qui les
@@ -13440,9 +13446,13 @@
   // était perdue. L'enchaînement vit dans `THQuitter.quitter` (testé) : envoyer
   // d'abord si le réseau est là, puis quitter si la file s'est vidée, sinon la
   // fenêtre. Seul « Quitter quand même » vide la file (`deconnecter`).
-  function quitterSansRienPerdre() {
+  async function quitterSansRienPerdre() {
+    // 117 (audit du 16/10, 06 #6) — les files GARDÉES pour un autre compte de cet appareil partent aussi avec
+    // « Quitter » : la fenêtre les compte, rien ne se perd sans qu'elle le dise.
+    var gardees = [];
+    try { gardees = Attente.entreesGardees(await Cache.lireFilesGardees()); } catch (e) { gardees = []; }
     return Quitter.quitter({
-      file: function () { return attente; },
+      file: function () { return attente.concat(gardees); },
       // 60-2c : une réponse de profil pas encore envoyée (hors file) compte aussi.
       profil: function () { return profilAEnvoyer; },
       enLigne: function () { return !(racine.navigator && racine.navigator.onLine === false); },

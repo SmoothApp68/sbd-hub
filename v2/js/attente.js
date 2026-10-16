@@ -746,6 +746,32 @@
     return { file: neuve, entrees: entrees };
   }
 
+  // ⚠️ 117 (audit du 16/10, 06 #6) — LA FILE APPARTIENT À SON COMPTE, ET ELLE LUI EST RENDUE.
+  //
+  // Une session qui EXPIRE ne vide rien (les données restent pour la prochaine ouverture). Mais si un AUTRE compte
+  // entrait ensuite sur l'appareil, le changement de propriétaire vidait tout — la file du premier comprise : ses
+  // séances pas encore montées, ses pesées, ses paris, sans la fenêtre de « Quitter ». Désormais la file du compte
+  // qui part est GARDÉE à part, sous son identifiant, et RENDUE quand il revient ; seul « Quitter » explicite la
+  // vide, après sa fenêtre (qui la compte). Pur : `gardees` est `{ uid: file }`, rien n'est muté.
+  function changerDeCompte(gardees, ancienUid, fileAncienne, nouveauUid) {
+    var g = {};
+    Object.keys(gardees || {}).forEach(function (k) { if ((gardees[k] || []).length) g[k] = gardees[k].slice(); });
+    if (ancienUid && (fileAncienne || []).length) {
+      var vues = {};
+      (fileAncienne || []).forEach(function (e) { if (e) vues[e.cle] = true; });
+      g[ancienUid] = (g[ancienUid] || []).filter(function (e) { return e && !vues[e.cle]; })
+        .concat((fileAncienne || []).filter(Boolean));
+    }
+    var rendue = (nouveauUid && g[nouveauUid]) || [];
+    if (nouveauUid) delete g[nouveauUid];
+    return { gardees: g, rendue: rendue };
+  }
+
+  // Toutes les entrées gardées pour d'autres comptes, à plat (la fenêtre de « Quitter » les compte).
+  function entreesGardees(gardees) {
+    return Object.keys(gardees || {}).reduce(function (t, k) { return t.concat(gardees[k] || []); }, []);
+  }
+
   // Tout ce qui attend encore, par table. La synchronisation s'en sert pour
   // NE PAS EFFACER ce qu'elle ne connaît pas encore : `Sync.remplacer` remplace
   // la liste des séances par celle du serveur, et une séance saisie hors ligne
@@ -861,6 +887,8 @@
     CODES_DEFINITIFS: CODES_DEFINITIFS,
     CODES_SCHEMA: CODES_SCHEMA,
     reparerSchema: reparerSchema,
+    changerDeCompte: changerDeCompte,
+    entreesGardees: entreesGardees,
     cleDe: cleDe,
     estDefinitive: estDefinitive,
     estConflitEnCours: estConflitEnCours,

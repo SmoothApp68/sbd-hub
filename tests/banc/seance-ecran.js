@@ -887,6 +887,16 @@ const SETS_IMPORTES = [
 
     if (url.pathname.startsWith('/auth/')) return json({ error: 'x' }, 400);
     if (!base.reseau) return route.abort('failed');
+    // 107 — LES ÉCRITURES SOCIALES COUPÉES, LES LECTURES PASSENT : la configuration qui permet un SECOND geste après un
+    // rechargement (le profil se relit), pendant que le premier attend toujours dans la file. Les fonctions de guilde qui
+    // écrivent comptent comme des écritures, et le profil (« Compte privé ») ; les lectures (`social_*`, `guilde_moi`…) passent.
+    if (base.ecrituresSocialesCoupees && req.method() !== 'GET' &&
+        (['abonnements', 'blocages', 'reactions_seance', 'profiles'].indexOf(table) >= 0 ||
+         (/\/rpc\//.test(url.pathname) && FauxSocial.GUILDE.ECRITURES.indexOf(table) >= 0))) {
+      // `ecrituresSocialesLentes` : l'échec met du temps à revenir — le réseau peut revenir PENDANT qu'il est en vol.
+      if (base.ecrituresSocialesLentes) await pause(base.ecrituresSocialesLentes);
+      return route.abort('failed');
+    }
     // 87 — le social : ses tables et ses fonctions, au faux serveur du social.
     const sociale = fauxSocial.gerer(req.method(), url, corps);
     if (sociale) {
@@ -17263,6 +17273,220 @@ const SETS_IMPORTES = [
         S.journal.filter((j) => j.op === 'refus')]));
   }
 
+  // ── 107 (SOCIAL-V1 §8, décision du 15/10/2026) — UN GESTE SOCIAL FAIT HORS LIGNE N'EST PLUS PERDU.
+  //
+  // « Un geste social fait hors ligne est gardé sur le téléphone et part au retour du réseau, comme les séances ; il
+  // n'est jamais perdu en silence. Si la base le refuse au retour (le compte est devenu privé, un blocage entre-temps…),
+  // l'app le dit en une phrase. »
+  //
+  // ⚠️ CONFIGURATIONS DISCRIMINANTES :
+  //   · H1 — chaque geste fait HORS RÉSEAU (tout coupé), puis ÉCRITURES COUPÉES (les lectures passent : c'est ce qui
+  //     permet d'ouvrir un autre écran), puis un RECHARGEMENT, puis le retour : rien ne doit être arrivé en base avant,
+  //     tout après, DANS L'ORDRE ;
+  //   · H2 — deux gestes CONTRAIRES (s'abonner, annuler), un rechargement ENTRE les deux : seul l'état final part (le
+  //     retrait) — la base n'a jamais vu l'abonnement ;
+  //   · H3 — refusé au retour : olga me bloque pendant que mon abonnement attend. L'état réel (son profil devenu
+  //     invisible) DIFFÈRE de l'écran d'avant le geste (son profil, « S'abonner ») : un écran qui ne se relirait pas
+  //     resterait dans un faux état.
+  {
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    const S = fauxSocial.etat;
+    const refusAvant = S.journal.filter((j) => j.op === 'refus').length;
+    const tS = Date.now();
+    const iso = (d) => d.toISOString();
+    const hier = ilYa(86400000, tS);
+    const prive = (id, pseudo, compte_prive) => ({ id, username: pseudo, compte_prive: compte_prive !== false, jeu_actif: true, jeu_niveau: 4,
+      jeu_titre: null, deleted_at: null });
+    S.profils.push(prive('u-lea', 'lea'), prive('u-jordan', 'jordan'), prive('u-alexis', 'alexis'), prive('u-melodie', 'melodie', false),
+      prive('u-nina', 'nina'), prive('u-olga', 'olga'));
+    const LEA = 'a0000000-0000-4000-8107-000000000001';
+    S.sessions.push({ id: LEA, user_id: 'u-lea', titre: 'Bas du corps', debut: iso(hier), fin: iso(finDe(iso(hier), tS)), statut: 'terminee',
+      visibilite: 'mutuels' });
+    S.sets.push({ id: 's107-1', session_id: LEA, exercise_slug: 'squat-barre', rang: 1, charge_kg: 100, reps: 5, type_serie: 'travail' });
+    const ab = (a, b, statut) => S.abonnements.push({ suiveur: a, suivi: b, statut: statut || 'accepte', cree_le: iso(hier), accepte_le: null });
+    ab('u-lea', 'u-banc', 'demande'); ab('u-banc', 'u-lea'); ab('u-jordan', 'u-banc');
+    S.blocages.push({ bloqueur: 'u-banc', bloque: 'u-alexis', cree_le: iso(hier) });
+    const lien = (a, b) => S.abonnements.filter((x) => x.suiveur === a && x.suivi === b)[0] || null;
+    const attendreQue = async (cond, ms) => {
+      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
+      return false;
+    };
+    const fileSociale = () => page.evaluate(() => THCache.lireAttente().then((f) => (f || []).filter((x) => x.table === 'social')
+      .sort((a, b) => a.seq - b.seq).map((x) => x.donnees.geste + ':' + (x.donnees.pseudo || ''))));
+    const sAttente = (cible) => texte(cible + ' .s-attente');
+    const etatAmi = () => texte('#social-ami .s-etat');
+    const retour = async () => {
+      base.reseau = true; base.ecrituresSocialesCoupees = false;
+      await page.evaluate(() => window.dispatchEvent(new Event('online')));
+      return attendreQue(async () => (await fileSociale()).length === 0, 10000);
+    };
+    // Les écritures des GESTES (les publications de scores, recalculées à l'ouverture du fil, n'en sont pas).
+    const GESTES_EN_BASE = ['acceptation', 'reaction', 'retrait-reaction', 'abonnement', 'retrait-abonnement', 'blocage', 'deblocage'];
+    const opsDepuis = (i) => S.journal.slice(i).filter((j) => GESTES_EN_BASE.indexOf(j.op) >= 0).map((j) => j.op +
+      (j.ligne ? ':' + (j.ligne.suivi || j.ligne.bloque || '') : ''));
+
+    // ── H1. CHAQUE GESTE HORS LIGNE, PUIS LE RETOUR DU RÉSEAU.
+    await aller('/jeu/fil');
+    await attendreQue(async () => (await compter('#social-fil .s-demande[data-pseudo="lea"]')) === 1 &&
+      (await compter('#social-fil .s-carte[data-session="' + LEA + '"]')) === 1);
+    const journal0 = S.journal.length;
+    base.reseau = false;
+    await page.click('#social-fil .s-demande[data-pseudo="lea"] .s-accepter');
+    await attendreQue(async () => (await compter('#social-fil .s-demande')) === 0);
+    await page.click('#social-fil .s-carte[data-session="' + LEA + '"] .s-reag');
+    await attendreQue(async () => /Tu as réagi/.test(await texte('#social-fil .s-carte .s-reag')));
+    const h1a = { demandes: await compter('#social-fil .s-demande'), reag: await texte('#social-fil .s-carte .s-reag'),
+      attente: await sAttente('#social-fil'), file: await fileSociale() };
+    ok('[social 107] H1 — HORS RÉSEAU, « Accepter » et « Réagir » se montrent aussitôt faits, avec « En attente du réseau » ; ' +
+      'rien n’est arrivé en base, les deux gestes attendent dans la file, dans l’ordre',
+      h1a.demandes === 0 && h1a.reag === '🔥 Tu as réagi' && h1a.attente === 'En attente du réseau' &&
+        JSON.stringify(h1a.file) === JSON.stringify(['accepter:lea', 'reagir:lea']) && lien('u-lea', 'u-banc').statut === 'demande' &&
+        S.reactions.length === 0 && opsDepuis(journal0).length === 0, JSON.stringify([h1a, S.journal.slice(journal0)]));
+    await aller('/a/jordan');
+    await attendreQue(async () => (await compter('#social-ami .s-erreur')) > 0);
+    ok('[social 107] H1 — hors réseau, les LECTURES restent en ligne : le profil dit qu’il faut le réseau pour le voir',
+      (await texte('#social-ami')) === 'Il faut le réseau pour voir ce profil.', await texte('#social-ami'));
+
+    // Les écritures coupées, les lectures rétablies : d'autres écrans s'ouvrent, les gestes attendent toujours.
+    base.reseau = true; base.ecrituresSocialesCoupees = true;
+    await aller('/a/jordan');
+    await attendreQue(async () => !!(await texte('#social-principal')));
+    const h1b0 = { etat: await etatAmi(), bouton: await texte('#social-principal') };
+    await page.click('#social-principal');
+    await attendreQue(async () => /Demande envoyée/.test(await etatAmi()));
+    const h1b1 = await etatAmi();
+    await page.click('#social-menu');
+    await page.click('#social-ami [data-geste="retirer-abonne"]');
+    await attendreQue(async () => (await compter('#social-ami [data-geste="retirer-abonne"]')) === 0);
+    const h1b2 = await etatAmi();
+    ok('[social 107] H1 — « Suivre en retour » (jordan, compte privé) : « Demande envoyée · en attente du réseau » ; ' +
+      '« Retirer cet abonné » : fait aussitôt, sans rien en base',
+      h1b0.bouton === 'Suivre en retour' && h1b1 === 'Demande envoyée · en attente du réseau' && h1b2 === 'Demande envoyée · en attente du réseau' &&
+        !lien('u-banc', 'u-jordan') && !!lien('u-jordan', 'u-banc'), JSON.stringify([h1b0, h1b1, h1b2]));
+    await aller('/jeu/amis');
+    await attendreQue(async () => /alexis/.test(await texte('.s-bloques')));
+    await page.click('.s-bloques .s-ligne[data-pseudo="alexis"] button');
+    await attendreQue(async () => !/alexis/.test(await texte('.s-bloques')));
+    await page.fill('#social-recherche', 'me');
+    await attendreQue(async () => (await compter('#social-resultats .s-ligne[data-pseudo="melodie"] button')) === 1);
+    await page.click('#social-resultats .s-ligne[data-pseudo="melodie"] button');
+    await attendreQue(async () => /tu le suis/.test(await texte('#social-resultats .s-ligne[data-pseudo="melodie"]')));
+    // « Compte privé » (un champ du profil : son chemin, local d'abord, rejoué au retour du réseau).
+    const priveAvant = base.profiles[0].compte_prive;
+    await page.click('#social-compte-prive');
+    await attendreQue(async () => (await page.getAttribute('#social-compte-prive', 'aria-checked')) === 'false');
+    const h1c = { bloques: await texte('.s-bloques'), melodie: await texte('#social-resultats .s-ligne[data-pseudo="melodie"]'),
+      attente: await sAttente('#social-amis'), file: await fileSociale(), prive: await page.getAttribute('#social-compte-prive', 'aria-checked') };
+    ok('[social 107] H1 — « Débloquer », « S’abonner » depuis la recherche (melodie, compte public : « tu le suis ») et « Compte privé » coupé : ' +
+      'faits aussitôt, « En attente du réseau » ; six gestes en file, dans l’ordre ; la base n’a rien reçu',
+      /Bloqués : aucun/.test(h1c.bloques) && /tu le suis/.test(h1c.melodie) && h1c.attente === 'En attente du réseau' &&
+        priveAvant === true && h1c.prive === 'false' && base.profiles[0].compte_prive === true &&
+        JSON.stringify(h1c.file) === JSON.stringify(['accepter:lea', 'reagir:lea', 'sabonner:jordan', 'retirer_abonne:jordan',
+          'debloquer:alexis', 'sabonner:melodie']) && S.blocages.length === 1 && !lien('u-banc', 'u-melodie') &&
+        opsDepuis(journal0).length === 0, JSON.stringify([h1c, S.journal.slice(journal0)]));
+
+    // LE RECHARGEMENT : la file est sur le disque, l'écran la relit.
+    await aller('/jeu/fil');
+    await attendreQue(async () => (await compter('#social-fil .s-carte')) > 0);
+    const h1d = { demandes: await compter('#social-fil .s-demande'), reag: await texte('#social-fil .s-carte .s-reag'),
+      attente: await sAttente('#social-fil'), file: await fileSociale() };
+    ok('[social 107] H1 — DISCRIMINANT — RECHARGÉE (écritures toujours coupées) : les six gestes sont toujours là, et l’écran les montre ' +
+      'faits (la demande de lea acceptée, « Tu as réagi », « En attente du réseau »)',
+      h1d.file.length === 6 && h1d.demandes === 0 && h1d.reag === '🔥 Tu as réagi' && h1d.attente === 'En attente du réseau' &&
+        opsDepuis(journal0).length === 0, JSON.stringify(h1d));
+    // Pendant ce temps, melodie passe son compte en privé : mon abonnement (l'écran a dit « tu le suis ») arrivera en demande.
+    S.profils.filter((x) => x.id === 'u-melodie')[0].compte_prive = true;
+    const partis = await retour();
+    await attendreQue(async () => !(await sAttente('#social-fil')));
+    await attendreQue(async () => (await compter('#social-fil .s-refus')) === 1);
+    ok('[social 107] H1 — DISCRIMINANT — le réseau revient : les six gestes partent, DANS L’ORDRE, et la base est dans l’état voulu',
+      partis && JSON.stringify(opsDepuis(journal0)) === JSON.stringify(['acceptation', 'reaction', 'abonnement:u-jordan',
+        'retrait-abonnement', 'deblocage', 'abonnement:u-melodie']) &&
+        lien('u-lea', 'u-banc').statut === 'accepte' && S.reactions.some((r) => r.session_id === LEA && r.user_id === 'u-banc') &&
+        lien('u-banc', 'u-jordan').statut === 'demande' && !lien('u-jordan', 'u-banc') && S.blocages.length === 0 &&
+        lien('u-banc', 'u-melodie').statut === 'demande', JSON.stringify([partis, opsDepuis(journal0), S.abonnements, S.blocages]));
+    ok('[social 107] H1 — DISCRIMINANT — « le compte est devenu privé » : melodie est passée en privé pendant que mon abonnement attendait ; ' +
+      'la base l’a reçu en demande, et l’app le dit en une phrase',
+      (await texte('#social-fil .s-refus')) === 'Le compte de melodie est devenu privé : ta demande attend son accord.',
+      await texte('#social-fil'));
+    ok('[social 107] H1 — DISCRIMINANT — « Compte privé » coupé hors ligne, l’app rechargée : au retour du réseau, le profil en base est public',
+      await attendreQue(async () => base.profiles[0].compte_prive === false), JSON.stringify(base.profiles[0].compte_prive));
+    ok('[social 107] H1 — après le retour : l’écran ne dit plus « en attente », et montre l’état réel (« Tu as réagi », aucune demande)',
+      !(await sAttente('#social-fil')) && (await texte('#social-fil .s-carte .s-reag')) === '🔥 Tu as réagi' &&
+        (await compter('#social-fil .s-demande')) === 0, await texte('#social-fil'));
+
+    // ── H2. DEUX GESTES CONTRAIRES, UN RECHARGEMENT ENTRE LES DEUX.
+    base.ecrituresSocialesCoupees = true;
+    await aller('/a/nina');
+    await attendreQue(async () => (await texte('#social-principal')) === 'S’abonner');
+    const journal1 = S.journal.length;
+    await page.click('#social-principal');
+    await attendreQue(async () => /Demande envoyée/.test(await etatAmi()));
+    await aller('/a/nina');
+    await attendreQue(async () => /Demande envoyée/.test(await etatAmi()));
+    const h2a = { etat: await etatAmi(), file: await fileSociale() };
+    // L'envoi du retrait (posé ci-dessous) échouera LENTEMENT : le réseau revient pendant qu'il est en vol. La vidange
+    // demandée par le retour du réseau ne doit pas se perdre derrière celle qui tourne encore.
+    base.ecrituresSocialesLentes = 3000;
+    await page.click('#social-menu');
+    // (Absent si le premier geste s'est perdu au rechargement : le contrôle ci-dessous le dit, sans planter le banc.)
+    if (await compter('#social-ami [data-geste="retirer-abonnement"]')) await page.click('#social-ami [data-geste="retirer-abonnement"]');
+    await attendreQue(async () => (await texte('#social-principal')) === 'S’abonner');
+    const h2b = { etat: await etatAmi(), file: await fileSociale() };
+    ok('[social 107] H2 — « S’abonner », RECHARGÉE, puis « Annuler la demande » : chaque geste se voit aussitôt ; le second REMPLACE le premier ' +
+      'dans la file (l’état final seul attend)',
+      h2a.etat === 'Demande envoyée · en attente du réseau' && JSON.stringify(h2a.file) === '["sabonner:nina"]' &&
+        h2b.etat === 'Compte privé · en attente du réseau' && JSON.stringify(h2b.file) === '["retirer_abonnement:nina"]' &&
+        opsDepuis(journal1).length === 0, JSON.stringify([h2a, h2b]));
+    const partis2 = await retour();
+    base.ecrituresSocialesLentes = 0;
+    await attendreQue(async () => (await etatAmi()) === 'Compte privé');
+    ok('[social 107] H2 — DISCRIMINANT — au retour (pendant qu’un envoi échouait encore), la base ne reçoit QUE l’état final (le retrait) : jamais d’abonnement à nina, pas même un ' +
+      'instant ; l’écran : « S’abonner », sans « en attente »',
+      partis2 && JSON.stringify(opsDepuis(journal1)) === JSON.stringify(['retrait-abonnement']) && !lien('u-banc', 'u-nina') &&
+        (await texte('#social-principal')) === 'S’abonner' && (await etatAmi()) === 'Compte privé', JSON.stringify([opsDepuis(journal1), await etatAmi()]));
+
+    // ── H3. REFUSÉ AU RETOUR : olga me bloque pendant que mon abonnement attend.
+    await aller('/a/olga');
+    await attendreQue(async () => (await texte('#social-principal')) === 'S’abonner');
+    base.reseau = false;
+    await page.click('#social-principal');
+    await attendreQue(async () => /Demande envoyée/.test(await etatAmi()));
+    const h3a = await etatAmi();
+    fauxSocial.appeler('u-olga', 'POST', 'blocages', { bloqueur: 'u-olga', bloque: 'u-banc' });
+    const partis3 = await retour();
+    await attendreQue(async () => (await compter('#social-ami .s-introuvable')) === 1);
+    const h3b = { texte: await texte('#social-ami'), sync: (await texte('#etat-sync')).trim() };
+    ok('[social 107] H3 — DISCRIMINANT — refusé au retour (olga m’a bloqué entre-temps) : l’écran le dit en une phrase, puis l’état RÉEL ' +
+      '(son profil n’est plus visible) — pas « Demande envoyée », pas son profil d’avant ; la file est vide, rien n’est « refusé » en attente',
+      h3a === 'Demande envoyée · en attente du réseau' && partis3 &&
+        h3b.texte === '« S’abonner à olga » n’a pas pu se faire.Ce profil n’existe pas, ou n’est pas visible.' &&
+        !lien('u-banc', 'u-olga') && !/refusé/.test(h3b.sync), JSON.stringify([h3a, h3b]));
+    // Sans recharger : « ← Fil », dans l'app.
+    await page.click('#btn-retour-ami');
+    await attendreQue(async () => !!(await texte('#social-fil .s-fin')));
+    ok('[social 107] H3 — la phrase, vue, s’oublie en ouvrant un autre écran (« ← Fil », sans recharger)',
+      (await compter('#social-fil .s-refus')) === 0 && JSON.stringify(await visible()) === '["vue-fil"]', await texte('#social-fil'));
+
+    // ── LA REMISE EN ÉTAT (« Compte privé » remis, par l'app : sa copie locale le dit aussi).
+    base.reseau = true; base.ecrituresSocialesCoupees = false;
+    await aller('/jeu/amis');
+    await attendreQue(async () => (await compter('#social-compte-prive')) === 1);
+    await page.click('#social-compte-prive');
+    await attendreQue(async () => base.profiles[0].compte_prive === true);
+    ['profils', 'sessions', 'sets', 'records', 'abonnements', 'blocages', 'reactions'].forEach((k) => { S[k] = []; });
+    await aller('/saisie');
+    const refusVus = S.journal.filter((j) => j.op === 'refus').slice(refusAvant).map((j) => j.refus + ' ' + j.message);
+    ok('[social 107] un seul refus du faux serveur (le blocage d’olga), la garde de l’app n’a rien signalé, aucune erreur de page',
+      JSON.stringify(refusVus) === '["P0001 bloque"]' && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      JSON.stringify([refusVus, erreurs.slice(erreursAvant)]));
+    // Le refus voulu, constaté, sort du journal : les sections suivantes (social-2, guilde) comptent les refus depuis le
+    // début, et ne doivent voir que les leurs.
+    let vus = 0;
+    S.journal = S.journal.filter((j) => !(j.op === 'refus' && vus++ >= refusAvant));
+  }
+
   console.log('\n══ social-2. LE SOCIAL, ÉTAGE 2 : PROFIL D’UN MUTUEL, SON EXERCICE, SE COMPARER, ENTRE AMIS (89, SOCIAL-V1) ══');
   //
   // Le faux serveur du social imite v2_079 : tout l'étage 2 est réservé aux MUTUELS, et `scores_force` n'accepte que
@@ -17549,6 +17773,8 @@ const SETS_IMPORTES = [
       largeurs.push({ ecran, doc: l.doc, fen: l.fen });
     };
     const onglet = async (cle, cond) => { await page.click('#social-guilde button[data-onglet="' + cle + '"]'); await attendreQue(cond); };
+    // 107 — un geste se montre fait AUSSITÔT (il passe par la file) : ce que la base en a fait se lit une fois la file vide.
+    const fileVide = () => page.evaluate(() => THCache.lireAttente().then((f) => !(f || []).some((x) => x.table === 'social')));
 
     // ── A. SANS GUILDE : le nom pris par lea, puis libre quand sa guilde (sans membre) a disparu.
     fauxSocial.rpc('u-lea', 'guilde_creer', { p_nom: 'Les Fers du Mardi', p_couleur: '#d9b45a' });
@@ -17569,6 +17795,7 @@ const SETS_IMPORTES = [
     await page.fill('#guilde-nom', 'LES FERS DU MARDÍ');
     await page.click('#guilde-creer');
     await attendreQue(async () => !!(await lire()).nom);
+    await attendreQue(fileVide);
     const a2 = await lire();
     const G = fauxSocial.guildeDe('u-banc');
     ok('[guilde] créée : le nom tel que tapé, la couleur choisie, « 1 membre », moi administrateur ; les quatre onglets',
@@ -17602,8 +17829,22 @@ const SETS_IMPORTES = [
       inv.length === 1 && inv[0].invitant === 'banc' && JSON.stringify(b1.lignes) === JSON.stringify(['toi · Novice',
         'jordan · Squatteur · Athlète', 'melodie · Novice']) && !/admin|chef/i.test(b1.texte) &&
         JSON.stringify(b1.invitables) === JSON.stringify(['lea']), JSON.stringify(b1));
+    // 107 — LE RANG CHOISI HORS LIGNE (les écritures coupées, les lectures passent), l'app RECHARGÉE, puis le retour.
+    base.ecrituresSocialesCoupees = true;
     await page.click('#social-guilde .s-rangs button[data-rang="Terreur"]');
     await attendreQue(async () => (await lire()).rangActif === 'Terreur');
+    const rangHors = { actif: (await lire()).rangActif, attente: await texte('#social-guilde .s-attente') };
+    await aller('/jeu/guilde');
+    await attendreQue(async () => !!(await lire()).nom);
+    await onglet('membres', async () => (await lire()).rangs.length === 9);
+    const rangRecharge = { actif: (await lire()).rangActif, attente: await texte('#social-guilde .s-attente'), base: S.membres.filter((m) => m.user_id === 'u-banc')[0].rang };
+    ok('[guilde 107] DISCRIMINANT — le rang choisi HORS LIGNE : « Terreur » aussitôt, « En attente du réseau » ; RECHARGÉE, toujours là, et la base dit encore « Novice »',
+      rangHors.actif === 'Terreur' && rangHors.attente === 'En attente du réseau' && rangRecharge.actif === 'Terreur' &&
+        rangRecharge.attente === 'En attente du réseau' && rangRecharge.base === 'Novice', JSON.stringify([rangHors, rangRecharge]));
+    base.ecrituresSocialesCoupees = false;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await attendreQue(fileVide);
+    await attendreQue(async () => !(await texte('#social-guilde .s-attente')));
     ok('[guilde] je choisis mon rang (« Terreur ») : les neuf rangs, sans aucun pouvoir',
       S.membres.filter((m) => m.user_id === 'u-banc')[0].rang === 'Terreur' && (await lire()).rangs.length === 9 &&
         (await lire()).lignes[0] === 'toi · Terreur', JSON.stringify(await lire()));
@@ -17620,6 +17861,7 @@ const SETS_IMPORTES = [
     await onglet('semaine', async () => (await lire()).choixDefi.length > 0);
     await page.click('#social-guilde .s-choix-defi button[data-defi="records"][data-n="3"]');
     await attendreQue(async () => /records? sur 3/.test((await lire()).phrase || ''));
+    await attendreQue(fileVide);
     const cAvant = await lire();
     const refusTonnage = fauxSocial.rpc('u-banc', 'guilde_choisir_defi', { p_type: 'tonnage', p_n: 5 });
     // melodie termine une séance : la semaine est lancée, le défi est figé.
@@ -17660,6 +17902,7 @@ const SETS_IMPORTES = [
     const monFil = fauxSocial.rpc('u-banc', 'social_fil').map((x) => x.session_id);
     await page.click('#social-guilde .s-fil-guilde .s-carte[data-session="' + SM + '"] .s-reag');
     await attendreQue(async () => (await lire()).reagi);
+    await attendreQue(fileVide);
     ok('[guilde] DISCRIMINANT — le fil de la guilde montre la séance de melodie (que je ne suis pas : absente de mon fil), sa médaille, ' +
       'sans note ni poids ; j’y réagis (règle de la guilde)',
       e0.cartes.indexOf(SM) >= 0 && monFil.indexOf(SM) < 0 && /1record|Rowing|rowing/i.test(e0.texte.replace(/\s/g, '')) &&
@@ -17672,6 +17915,7 @@ const SETS_IMPORTES = [
     await attendreQue(async () => !!(await compter('#guilde-quitter-oui')));
     await page.click('#guilde-quitter-oui');
     await attendreQue(async () => (await lire()).creer);
+    await attendreQue(fileVide);
     ok('[guilde] DISCRIMINANT — je pars (j’administrais) : jordan, le plus ancien, administre ; la guilde reste, à deux ; je retrouve « Créer une guilde »',
       S.guildes.length === 1 && S.guildes[0].admin === 'u-jordan' && fauxSocial.rpc('u-jordan', 'guilde_moi')[0].membres === 2 &&
         !fauxSocial.guildeDe('u-banc') && (await lire()).creer, JSON.stringify([S.guildes, S.membres]));

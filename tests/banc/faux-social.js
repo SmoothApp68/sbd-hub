@@ -24,6 +24,9 @@ const GUILDE = {
   COULEURS: ['#b39ad1', '#8fb08a', '#6fa3d8', '#d9b45a', '#d98f6f', '#7fc4c0', '#c98fb4', '#a3a9b3'],
   MAX: 30,
   TYPES_RECORDS: ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'duree_s', 'distance_m'],
+  // 107 — les fonctions de guilde qui ÉCRIVENT (les gestes, qui passent par la file de l'app).
+  ECRITURES: ['guilde_creer', 'guilde_modifier', 'guilde_inviter', 'guilde_repondre', 'guilde_quitter', 'guilde_retirer_membre',
+    'guilde_transmettre', 'guilde_choisir_defi', 'guilde_choisir_rang'],
   COLONNES_SCORES: ['user_id', 'semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record', 'maj_le']
 };
 // 91 (v2_082) — le groupe de séance : les contraintes de la migration, recopiées telles quelles.

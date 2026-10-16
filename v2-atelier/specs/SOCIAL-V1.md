@@ -316,3 +316,38 @@ groupe ni sur sessions, sets, records ; aucune colonne interdite rendue.
 - Toujours aucune politique, ni sur les tables du groupe ni sur sessions, sets, records ; les fonctions internes
   (`groupe_fin_de_seance`, `groupe_fini_le`, `groupe_recap_json`, `groupe_figer`, `groupe_entretien`, `groupe_liberer`)
   ne sont appelables par personne ; les autres, par `authenticated` seulement.
+
+## 8. Un geste social fait hors ligne — décision du 15/10/2026 (prompt 107)
+
+> Décision d'Aurélien du 15/10/2026, reportée mot pour mot.
+
+« Un geste social fait hors ligne est gardé sur le téléphone et part au retour du réseau, comme les séances ; il n'est jamais perdu en silence. Si la base le refuse au retour (le compte est devenu privé, un blocage entre-temps…), l'app le dit en une phrase. »
+
+### 8.1 Ce que le code en a fait (107)
+
+- **La file d'envoi des séances** (`attente.js`), réutilisée telle quelle, avec une table de plus, `social` (op `geste`) :
+  elle est déjà sur disque (IndexedDB), relue au démarrage, vidée au retour du réseau (`online`) et dans l'ordre de pose,
+  et l'état de synchronisation la compte déjà. Une seconde file aurait recopié tout cela. Ce qui lui est propre :
+  **un refus de la base ne la bloque jamais** — l'entrée sort, au lieu de rester « refusée » en tête (un geste social ne
+  retient pas une séance) ; ce qui est un refus, ce qui est « déjà fait » et ce qui se réessaie se décide dans
+  `Social.issueDuGeste`.
+- **Les gestes** : s'abonner (profil, recherche, « Suivre en retour »), accepter, refuser une demande, retirer un abonné,
+  retirer l'abonnement ou annuler la demande, bloquer, débloquer, réagir et retirer sa réaction (fil et fil de la
+  guilde), et les gestes de la guilde (créer, modifier, inviter, rejoindre ou refuser une invitation, retirer un membre,
+  transmettre, choisir le défi, choisir son rang, partir). **« Compte privé »** est un champ du profil : il part par le
+  chemin du profil, local d'abord et rejoué au retour du réseau, comme avant. **Le groupe de séance** n'entre pas dans la
+  file : il n'existe que pendant la séance et réseau présent (créer, inviter, rejoindre lisent l'état du groupe) ; un
+  refus s'y dit déjà en haut de la séance, et ses messages ont leur propre attente (§7.1).
+- **L'écran** montre le geste aussitôt comme fait (la lecture de la base, plus les gestes qu'elle ne contient pas
+  encore), avec une ligne discrète « En attente du réseau » (ou « · en attente du réseau » après l'état d'un profil)
+  tant qu'il n'est pas parti. Hors réseau, une lecture qui échoue dit « Il faut le réseau pour voir … ».
+- **Idempotence** : rejoué (la réponse perdue), un geste ne se double pas — un abonnement, un blocage ou une réaction
+  « déjà là » vaut « fait », pas un refus.
+- **Un geste qui annule le précédent n'envoie que l'état final** : un geste sur un état (mon abonnement à quelqu'un, son
+  abonnement à moi, ma réaction à une séance, mon rang, le défi, le nom de la guilde) remplace celui qui attend sur le
+  même état, en fin de file. S'abonner puis se désabonner hors ligne n'envoie que le retrait. Bloquer, qui efface les
+  liens, et les autres gestes de la guilde ont chacun leur envoi, dans l'ordre.
+- **Refusé au retour** (bloqué entre-temps, guilde complète, nom pris…) : l'écran social ouvert le dit en une phrase
+  (« « S'abonner à olga » n'a pas pu se faire. », ou les mots de la guilde), puis se relit et montre l'état réel. **Le
+  compte devenu privé** n'est pas un refus de la base (l'abonnement arrive en demande) ; l'écran avait dit « tu le
+  suis », il le dit : « Le compte de melodie est devenu privé : ta demande attend son accord. »

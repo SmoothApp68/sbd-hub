@@ -2097,6 +2097,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .s-blason-creux{fill:var(--fond)}
 .s-gris{color:var(--texte-2)}
 .s-note{margin:var(--e3) 0}
+/* 107 — un geste social qui attend le réseau : une ligne discrète. */
+.s-attente{font-size:13px;color:var(--texte-3)}
 .s-centre{text-align:center}
 .s-lien{cursor:pointer}
 .s-btn{border:0;border-radius:12px;padding:8px 12px;font:600 13px/1.2 var(--pile);cursor:pointer;min-height:36px}

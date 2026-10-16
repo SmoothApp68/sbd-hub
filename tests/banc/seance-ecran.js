@@ -16728,6 +16728,36 @@ const SETS_IMPORTES = [
       const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
       largeurs.push({ ecran, doc: l.doc, fen: l.fen });
     };
+    // 103 — LA BARRE TIENT À 360 PX : chaque libellé d'onglet, mesuré avec la police réelle (Barlow Condensed,
+    // chargée), à 360 et à 380 px. Un libellé coupé (points de suspension) a `scrollWidth > clientWidth`.
+    // ⚠️ Ce seul critère ne voit pas un libellé trop long : la grille (`1fr`, minimum automatique) élargit sa colonne
+    // aux dépens des voisines — les icônes se décalent — et ne coupe qu'une fois la barre saturée. D'où le second
+    // critère, celui qui discrimine : la largeur NATURELLE du texte tient dans la PART ÉGALE d'une colonne
+    // (largeur de la barre / nombre d'onglets visibles, moins le retrait de l'onglet).
+    const libellesOnglets = [];
+    const mesurerOnglets = async (etat) => {
+      for (const l of [360, 380]) {
+        await page.setViewportSize({ width: l, height: 760 });
+        await attendre(300);
+        const m = await page.evaluate(async () => {
+          await document.fonts.ready;
+          const barre = document.getElementById('onglets');
+          const noms = Array.from(barre.querySelectorAll('.onglet:not([hidden]) .onglet-nom'));
+          return noms.map((n) => {
+            const r = document.createRange();
+            r.selectNodeContents(n);
+            const cs = getComputedStyle(n.parentElement);
+            const part = barre.clientWidth / noms.length - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+            return { t: n.textContent, sw: n.scrollWidth, cw: n.clientWidth, sh: n.scrollHeight, ch: n.clientHeight,
+              texte: Math.round(r.getBoundingClientRect().width * 10) / 10, part: Math.round(part * 10) / 10,
+              police: document.fonts.check('600 11px "Barlow Condensed"') };
+          });
+        });
+        libellesOnglets.push({ etat, l, m });
+      }
+      await page.setViewportSize({ width: 360, height: 760 });
+      await attendre(300);
+    };
     const chemin = () => page.evaluate(() => location.pathname);
     const ongletJeu = () => page.evaluate(() => {
       const b = document.getElementById('onglet-jeu');
@@ -16772,6 +16802,7 @@ const SETS_IMPORTES = [
       a0.blocs.length === 4 && a0.proches === 3 && /^Niveau \d+$/.test(a0.niveau) && a0.prochain > 0 &&
         JSON.stringify(a0.portes) === '["Muscles","Succès","Déblocages"]', JSON.stringify(a0));
     await mesurerLargeur('accueil');
+    await mesurerOnglets('allumé');
     const sousVues = [['#jeu-porte-muscles', 'vue-muscles', '/jeu/muscles', '#btn-retour-muscles', '#jeu-muscles .j-metier', 7],
       ['#jeu-porte-succes', 'vue-succes', '/jeu/succes', '#btn-retour-succes', '#jeu-succes .j-cat', 8],
       ['#jeu-porte-deblocages', 'vue-deblocages', '/jeu/deblocages', '#btn-retour-deblocages', '#jeu-deblocages .j-cadres .j-ligne', 4]];
@@ -16869,6 +16900,7 @@ const SETS_IMPORTES = [
       ecritsOff.length === 1 && ecritsOff[0].op === 'profil' && ecritsOff[0].champs.jeu_actif === false &&
         base.profiles[0].jeu_actif === false, JSON.stringify(ecritsOff));
     await mesurerLargeur('eteint');
+    await mesurerOnglets('éteint');
     // 87 — jeu éteint, « /jeu » (l'onglet) ouvre le fil, sans sous-onglet « Jeu » ; une sous-vue du jeu reste une
     // route inconnue.
     await aller('/jeu');
@@ -16937,6 +16969,20 @@ const SETS_IMPORTES = [
     // ── E. 360 PX : AUCUN DÉFILEMENT HORIZONTAL sur les sept écrans de la maquette.
     ok('[jeu] à 360 px, aucun défilement horizontal : accueil, Muscles, Succès, Déblocages, Profil, fin de séance, jeu éteint',
       largeurs.length === 7 && largeurs.every((l) => l.fen === 360 && l.doc <= l.fen), JSON.stringify(largeurs));
+
+    // ── F. 103 — AUCUN LIBELLÉ D'ONGLET TRONQUÉ, à 360 comme à 380 px, jeu allumé (« Jeu & amis ») et éteint (« Amis »).
+    console.log('  libellés des onglets : ' + JSON.stringify(libellesOnglets.map((x) => x.etat + '@' + x.l + ' ' +
+      x.m.map((y) => y.t + ' ' + y.texte + '/' + y.part).join(', '))));
+    const noms = (e) => (libellesOnglets.filter((x) => x.etat === e)[0] || { m: [] }).m.map((y) => y.t);
+    ok('[jeu] prémisse : les cinq libellés mesurés, police réelle chargée — « Jeu & amis » allumé, « Amis » éteint (103)',
+      libellesOnglets.length === 4 && libellesOnglets.every((x) => x.m.length === 5 && x.m.every((y) => y.police && y.cw > 0)) &&
+        noms('allumé')[3] === 'Jeu & amis' && noms('éteint')[3] === 'Amis', JSON.stringify(libellesOnglets));
+    ok('[jeu] à 360 et 380 px, aucun libellé d’onglet tronqué : scrollWidth ≤ clientWidth, scrollHeight ≤ clientHeight (103)',
+      libellesOnglets.length === 4 && libellesOnglets.every((x) => x.m.every((y) => y.sw <= y.cw && y.sh <= y.ch)),
+      JSON.stringify(libellesOnglets.map((x) => [x.etat, x.l, x.m.filter((y) => y.sw > y.cw || y.sh > y.ch)])));
+    ok('[jeu] DISCRIMINANT — à 360 et 380 px, chaque libellé tient dans sa part égale de la barre, sans emprunter aux voisins (103)',
+      libellesOnglets.length === 4 && libellesOnglets.every((x) => x.m.every((y) => y.part > 0 && y.texte <= y.part)),
+      JSON.stringify(libellesOnglets.map((x) => [x.etat, x.l, x.m.filter((y) => !(y.texte <= y.part))])));
 
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.
     base.profiles[0].jeu_actif = true;

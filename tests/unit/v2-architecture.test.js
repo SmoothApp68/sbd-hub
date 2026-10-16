@@ -132,6 +132,15 @@ const GARDEES = [
   { fn: 'degressiveProposee', module: 'moteur.js' },
   { fn: 'degressiveActive', module: 'moteur.js' },
   { fn: 'carteDegressive', module: 'moteur.js' },
+  // moteur.js — l'escalier au plafond de la salle (§10 bis, 113)
+  { fn: 'auPlafondDeLaSalle', module: 'moteur.js' },
+  { fn: 'plafondDeLaConsigne', module: 'moteur.js' },
+  { fn: 'marcheAuPlafond', module: 'moteur.js' },
+  { fn: 'plusChargeableALaSalle', module: 'moteur.js' },
+  { fn: 'remplacantAuPlafond', module: 'moteur.js' },
+  { fn: 'cartePlafond', module: 'moteur.js' },
+  { fn: 'detailRemplacement', module: 'moteur.js' },
+  { fn: 'observationPlafond', module: 'moteur.js' },
   // seance.js — le fantôme, la couverture, les lignes figées, les paris
   { fn: 'fantome', module: 'seance.js',
     motif: /(?:\bSeance|\bS|\bSeance\(\)|\bS\(\)|racine\.THSeance)\s*\.\s*fantome\b/g },
@@ -256,6 +265,11 @@ const AUTORISATIONS = {
     'app.js': 'l’observation SANS SÉRIE du pari d’une marche isolée (schéma accepté, repli), au ' +
       'moment de l’écrire en base : de la persistance (app.js, `observerEscalier`) ; la règle ' +
       'vit dans le moteur (49-U15).'
+  },
+  observationPlafond: {
+    'app.js': 'l’observation SANS SÉRIE du pari au plafond de la salle (série de plus, dégressive : « tu tiens le ' +
+      'plafond »), au moment de l’écrire en base : de la persistance (app.js, `observerEscalier`) ; la règle vit dans ' +
+      'le moteur (113, MOTEUR §10 bis), sur les faits (`faits.seancesDeLExercice`).'
   },
   observationDe: {
     'app.js': 'l’observation d’un pari par sa série, au moment de l’écrire en base : de la ' +
@@ -422,7 +436,7 @@ const NOTIONS = [
     raison: 'aucun écran ne lit le palier brut : les faits passent par `Modele`, les mots du ' +
       'coach par la consigne. La page et Progression l’appelaient chacune à part.' },
   { notion: 'la série de travail (le type, `travail` quand il manque)', pr: 'PR 6',
-    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js', 'reserve.js', 'bilans.js', 'deraille.js'],
+    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js', 'reserve.js', 'bilans.js', 'deraille.js', 'moteur.js'],
     motif: /\.\s*estTravail\s*\(/g,
     par: ['exercicesFaits', 'tableParReps', 'construireBlocs'],
     interditAilleurs: { motif: /type_serie\s*[!=]==?\s*(['"])travail\1|typeDe\([^()]*\)\s*[!=]==?\s*(['"])travail\2|\|\|\s*(['"])travail\3\s*\)\s*[!=]==?/,
@@ -430,7 +444,8 @@ const NOTIONS = [
     raison: 'cinq définitions : une série sans type était du travail pour le moteur et le plan, ' +
       'pas pour les écrans ; la base dit `travail` par défaut. 78 : la question de réserve lit l’effort de la ' +
       'dernière série de TRAVAIL de chaque séance passée (`reserve.js`, `passeDeReserve`). 99 : la semaine qui déraille ' +
-      'compte les séries de travail que prévoit une routine (`deraille.js`).' },
+      'compte les séries de travail que prévoit une routine (`deraille.js`). 113 : le pari au plafond de la salle s’observe ' +
+      'sur les séries de travail des séances de l’exercice (`moteur.js`, `observationPlafond`).' },
   { notion: 'le compte des séries de travail (la règle du volume)', pr: 'PR 6',
     module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js', 'bilan.js', 'faits.js', 'bilans.js'],
     parAilleurs: { 'modele.js': ['resumerSeance', 'construireBlocs'], 'seance.js': ['compter'], 'bilan.js': ['bilanDuMois'],
@@ -1021,9 +1036,10 @@ const NOTIONS = [
   // ── 60-3 — « REMPLACER » DANS L'ÉDITEUR (ECRAN-SAISIE §7 quindecies.8) ───
   { notion: 'le remplaçant d’un exercice de routine (à sa place, son groupe, ses séries, sans la charge de départ)', pr: '60-U10',
     module: 'routines.js', fonction: 'exerciceRemplace', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['remplacerDansLEditeur'] },
+    parAilleurs: { 'app.js': ['remplacerDansLEditeur', 'remplacerAuPlafond'] },
     raison: 'ES §7 quindecies.8 (60-3) : le frère et le catalogue remplacent par la même fonction — même rang, même ' +
-      'superset (§7 decies), mêmes séries et repos, la charge de départ retirée (MOTEUR §9.21).' },
+      'superset (§7 decies), mêmes séries et repos, la charge de départ retirée (MOTEUR §9.21). 113 (MOTEUR §10 bis) : ' +
+      '« Changer d’exercice », au plafond de la salle, remplace dans la routine de la séance par le même geste.' },
   // ── 60-3b — LE PSEUDO TRAVERSE LA CONFIRMATION D'E-MAIL (ECRAN-PROFIL §3.1) ─
   { notion: 'le pseudo posé à la création de la ligne de profil (celui de la page, sinon celui des données du compte)', pr: '60-U11',
     module: 'profil.js', fonction: 'pseudoDeLInscription', lecteurs: ['app.js'],

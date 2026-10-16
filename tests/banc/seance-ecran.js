@@ -20302,6 +20302,218 @@ const SETS_IMPORTES = [
       nb111([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ plafond-propose. AU PLAFOND DE LA SALLE, LE COACH PROPOSE : LA DÉGRESSIVE, PUIS UN FRÈRE PLUS CHARGEABLE (113, MOTEUR §10 bis) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : le cas d'Aurélien (Basic-Fit) — une flexion à la barre EZ, la salle déclarée
+  // (barres EZ et droites de 10 à 30 kg, haltères jusqu'à 40 kg de 2 en 2), 30 kg × 15 sur toutes ses séries depuis
+  // des séances : AU PLAFOND (la plus lourde, au haut de la fourchette d'une isolation). Avant 113, l'escalier s'y
+  // taisait ; désormais il propose, une marche par déclenchement : la série de plus (proposée et refusée au 1er
+  // déclenchement, plantée), puis
+  //   A — au 2e déclenchement (compteur 8) : la carte de la dégressive, sa première phrase au plafond ; « Ajouter une
+  //       dégressive » : le pari de l'escalier (« tu tiens le plafond », `origine : salle_max`), la ligne dégressive
+  //       remplie à la barre de 20 kg ;
+  //   B — au 3e (12, la dégressive refusée) : un frère plus chargeable — la flexion aux haltères (2 × 40 kg), jamais la
+  //       barre droite de 30 ; « Non merci » : le refus s'écrit, comme les autres ;
+  //   C — « Changer d'exercice » : aucun pari d'escalier ; l'exercice change dans la séance ET dans la routine ;
+  //   D — au 4e (16, le remplacement refusé) : le coach maintient — aucune carte, la phrase reste un fait.
+  // La base est vidée pour la section, puis rendue ; la salle s'efface à la fin.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, predictionsAvant = base.predictions;
+    const catalogueAvant = CATALOGUE.length, routinesAvant = ROUTINES.length;
+    const phaseAvant = base.profiles && base.profiles[0] ? base.profiles[0].phase : undefined;
+    const salleAvant = base.profiles && base.profiles[0] ? base.profiles[0].ma_salle : undefined;
+    const violationsAvant = gardeBanc.violations;
+    const EZ = 'flexion-pq-ez', DROITE = 'flexion-pq-barre', HALT = 'flexion-pq-haltere';
+    CATALOGUE.push({ slug: EZ, nom: 'Flexion Pq (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
+    CATALOGUE.push({ slug: DROITE, nom: 'Flexion Pq (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
+    CATALOGUE.push({ slug: HALT, nom: 'Flexion Pq (Haltère)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere',
+      mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
+    if (base.profiles && base.profiles[0]) {
+      base.profiles[0].phase = 'maintien';
+      base.profiles[0].ma_salle = { barres_ez: [10, 15, 20, 25, 30], barres_droites: [10, 15, 20, 25, 30], halteres: { max: 40, pas: 2 } };
+    }
+    const tP = Date.now();
+    let graineP = 9000;
+    const idPari = () => '00000000-0000-5000-8113-' + String(++graineP).padStart(12, '0');
+    const seanceP = (id, j) => {
+      const debut = ilYa(j * 86400000, tP).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'P113 — ' + id, debut, fin: finDe(debut, tP).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      return debut;
+    };
+    const seriesP = (id, debut, kg, reps) => [1, 2, 3].forEach((r) => base.sets.push({
+      id: id + '-s' + r, session_id: id, user_id: 'u-banc', exercise_slug: EZ, charge_kg: kg, reps, duree_s: null,
+      distance_m: null, type_serie: 'travail', rang: r, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+      repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    const pariConsigne = (id, debut, kg, reps, compteur) => base.predictions.push({ id: idPari(), user_id: 'u-banc',
+      module: 'moteur.consigne', module_version: 13, emise_a: debut, exercise_slug: EZ, grandeur: 'reps', horizon_jours: null,
+      valeur_predite: reps, borne_basse: 10, borne_haute: 12,
+      fondement: { rang: 1, charge: kg, etat: 'progression', zone: 'volume', reglage: 'normal', palier: kg, niveau: reps,
+                   seance: id, role: 'ligne', phase: 'maintien', compteur },
+      valeur_observee: reps, observee_a: debut, set_observe: id + '-s1', created_at: debut });
+    const pariMarche = (seance, debut, marche, reponse, compteur) => base.predictions.push({ id: idPari(), user_id: 'u-banc',
+      module: 'escalier', module_version: 1, emise_a: debut, exercise_slug: null, grandeur: 'progres', horizon_jours: null,
+      valeur_predite: 1, borne_basse: null, borne_haute: null,
+      fondement: { seance, jour: debut.slice(0, 10), exercice: EZ, marche, reponse, compteur, n: compteur / 4, zone: 'volume',
+                   phase: 'maintien', n_routine: 3, debut, origine: 'salle_max', plafond: { charge: 30, reps: 15 } },
+      valeur_observee: null, observee_a: null, set_observe: null, created_at: debut });
+    // L'histoire : douze séances à 25 × 12 hors consigne (l'habitude), puis 30 × 12, 13, 14, 15 sous consigne (la
+    // plus lourde de la salle, les reps qui montent jusqu'au plafond), puis `arret` séances à 30 × 15, tous les 3 jours,
+    // la dernière il y a 3 jours : le compteur à l'ouverture d'aujourd'hui vaut `arret`. Les marches déjà proposées,
+    // à leur déclenchement (`marches` : `[marche, réponse, compteur]`).
+    const decorP = (arret, marches) => {
+      base.sessions = [];
+      base.sets = [];
+      base.predictions = [];
+      const total = arret + 4;
+      for (let i = 0; i < 12; i++) {
+        const id = 'p113-h' + i, j = 3 * total + 3 + 4 * (12 - i);
+        seriesP(id, seanceP(id, j), 25, 12);
+      }
+      [12, 13, 14, 15].forEach((reps, i) => {
+        const id = 'p113-m' + i, j = 3 * (total - i);
+        const debut = seanceP(id, j);
+        seriesP(id, debut, 30, reps);
+        pariConsigne(id, debut, 30, reps, 0);
+      });
+      for (let i = 0; i < arret; i++) {
+        const id = 'p113-s' + i, j = 3 * (arret - i);
+        const debut = seanceP(id, j);
+        seriesP(id, debut, 30, 15);
+        pariConsigne(id, debut, 30, 15, i);
+        (marches || []).forEach(([mk, rep, k]) => { if (k === i) pariMarche(id, debut, mk, rep, k); });
+      }
+    };
+    ROUTINES.push({ id: 'r-p113', nom: 'Plafond P113', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-p113-0', routine_id: 'r-p113', exercise_slug: EZ, rang: 0, routine_sets: progr(3, 12),
+        repos_cible_s: 90, groupe_superset: null, note: 'barre EZ, coudes serrés' }] });
+    const nbP = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+    const lireP = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices[0];
+      const carte = document.querySelector('.proposition-exercice[data-iexo="0"]');
+      const c = x && x.consigne;
+      return x ? {
+        slug: x.slug, compteur: x.compteur ? x.compteur.compteur : null, salle: !!x.salle, etat: c && c.etat,
+        maintien: !!(c && c.fondement && c.fondement.salle && c.fondement.salle.maintien),
+        marche: x.escalier ? x.escalier.marche : null, reponse: x.escalier ? x.escalier.reponse || null : null,
+        carte: carte ? { classe: carte.className, texte: carte.querySelector('.pc-texte').textContent,
+          detail: (carte.querySelector('.pc-detail') || {}).textContent || null,
+          boutons: Array.from(carte.querySelectorAll('button')).map((b) => b.textContent) } : null,
+        types: x.lignes.map((l) => l.type), repli: !!(c && c.repli),
+        degressive: x.degressive ? { charge: x.degressive.charge, phrase: x.degressive.phrase } : null,
+        compteurDit: x.entete ? x.entete.compteur : null
+      } : null;
+    });
+    const parisP = (mk) => base.predictions.filter((l) => l.module === 'escalier' && l.fondement &&
+      l.fondement.exercice === EZ && l.fondement.marche === mk);
+
+    // ── A. Le 2e déclenchement (la série de plus refusée au 1er) : la dégressive, au plafond.
+    decorP(8, [['serie_de_plus', 'refusee', 4]]);
+    await aller('/saisie');
+    await demarrerRoutine('Plafond P113');
+    await attendre(1500);
+    const a = await lireP();
+    ok('[P113] prémisse : la salle déclarée, au plafond (30 kg × 15, le maintien), 8 séances sans progrès',
+      !!a && a.slug === EZ && a.salle && a.etat === 'salle_max' && a.maintien && a.compteur === 8, nbP(a));
+    ok('[P113] A — la carte de la dégressive, sa première phrase au plafond, « Ajouter une dégressive » / « Non merci »',
+      a.marche === 'degressive' && !!a.carte && /proposition-degressive-proposee/.test(a.carte.classe) &&
+      nbP(a.carte.texte) === nbP('30 kg × 15 depuis 8 séances, et ta salle n\'a pas plus lourd. Une dégressive après ta dernière série ?') &&
+      nbP(a.carte.boutons) === nbP(['Ajouter une dégressive', 'Non merci']), nbP(a));
+    ok('[P113] A — DISCRIMINANT : jamais le repli au plafond (le 2e déclenchement de l’escalier ordinaire)',
+      !a.repli && a.marche !== 'repli', nbP(a));
+    await page.click('.proposition-degressive-proposee .pdp-oui');
+    await attendre(1500);
+    const a2 = await lireP();
+    const pD = parisP('degressive')[0];
+    ok('[P113] A — le pari : escalier, « degressive », acceptée, `origine : salle_max`, le plafond 30 × 15, 3 séries de routine',
+      parisP('degressive').length === 1 && !!pD && pD.exercise_slug === null && pD.fondement.reponse === 'acceptee' &&
+      pD.fondement.origine === 'salle_max' && nbP(pD.fondement.plafond) === nbP({ charge: 30, reps: 15 }) &&
+      pD.fondement.n_routine === 3 && pD.fondement.compteur === 8, nbP(pD && pD.fondement));
+    ok('[P113] A — la ligne dégressive, une, après les séries de travail ; plus de carte',
+      a2.carte === null && a2.types.join() === 'travail,travail,travail,degressive', nbP(a2));
+    for (let i = 0; i < 3; i++) await saisirSerie(i, 30, 15);
+    await attendre(800);
+    const a3 = await lireP();
+    ok('[P113] A — les séries faites : la dégressive à la barre de 20 kg (« Prends la barre de 20 kg. »)',
+      !!a3.degressive && a3.degressive.charge === 20 && nbP(a3.degressive.phrase).indexOf('Prends la barre de 20 kg.') === 0,
+      nbP(a3));
+    await abandonner();
+
+    // ── B. Le 3e déclenchement (la dégressive refusée au 2e) : un frère plus chargeable.
+    decorP(12, [['serie_de_plus', 'refusee', 4], ['degressive', 'refusee', 8]]);
+    await aller('/saisie');
+    await demarrerRoutine('Plafond P113');
+    await attendre(1500);
+    const b = await lireP();
+    ok('[P113] B — DISCRIMINANT : la flexion aux haltères (2 × 40 kg), jamais la barre droite de 30 ; « Changer d’exercice » / « Non merci »',
+      b.compteur === 12 && b.marche === 'remplacement' && !!b.carte && /proposition-remplacement/.test(b.carte.classe) &&
+      nbP(b.carte.texte) === nbP('30 kg × 15 depuis 12 séances, et ta salle n\'a pas plus lourd. Passer à Flexion Pq (Haltère) ?') &&
+      nbP(b.carte.detail) === nbP('Flexion Pq (Haltère) : ta salle va jusqu\'à 2 × 40 kg.') &&
+      nbP(b.carte.boutons) === nbP(['Changer d\'exercice', 'Non merci']), nbP(b));
+    await page.click('.proposition-remplacement .prp-non');
+    await attendre(1200);
+    const b2 = await lireP();
+    const pR = parisP('remplacement')[0];
+    ok('[P113] B — « Non merci » : le refus s’écrit comme les autres (escalier, « remplacement », refusée, `vers`) ; plus de carte',
+      parisP('remplacement').length === 1 && !!pR && pR.exercise_slug === null && pR.fondement.reponse === 'refusee' &&
+      pR.fondement.vers === HALT && pR.fondement.origine === 'salle_max' && b2.carte === null && b2.slug === EZ,
+      nbP([pR && pR.fondement, b2]));
+    await abandonner();
+
+    // ── C. « Changer d'exercice » : la séance et la routine ; aucun pari d'escalier.
+    base.predictions = base.predictions.filter((l) => !(l.module === 'escalier' && l.fondement && l.fondement.marche === 'remplacement'));
+    await aller('/saisie');
+    await demarrerRoutine('Plafond P113');
+    await attendre(1500);
+    const c0 = await lireP();
+    ok('[P113] C — prémisse : la carte du remplacement revient (aucun refus en base)', c0.marche === 'remplacement' && !!c0.carte,
+      nbP(c0));
+    await page.click('.proposition-remplacement .prp-oui');
+    await attendre(2500);
+    const c1 = await lireP();
+    const routineP = ROUTINES.filter((r) => r.id === 'r-p113')[0];
+    const lignesP = routineP ? routineP.routine_exercises.map((e) => [e.exercise_slug, (e.routine_sets || []).length, e.note]) : null;
+    ok('[P113] C — l’exercice de la séance devient la flexion aux haltères ; aucun pari d’escalier pour le remplacement',
+      !!c1 && c1.slug === HALT && parisP('remplacement').length === 0, nbP(c1));
+    ok('[P113] C — DISCRIMINANT : la routine aussi (même place, mêmes 3 séries, la note de l’ancien partie)',
+      !!lignesP && nbP(lignesP) === nbP([[HALT, 3, null]]), nbP(lignesP));
+    await abandonner();
+
+    // ── D. Le 4e déclenchement (le remplacement refusé au 3e) : le maintien.
+    ROUTINES.filter((r) => r.id === 'r-p113')[0].routine_exercises[0].exercise_slug = EZ;
+    decorP(16, [['serie_de_plus', 'refusee', 4], ['degressive', 'refusee', 8], ['remplacement', 'refusee', 12]]);
+    await aller('/saisie');
+    await demarrerRoutine('Plafond P113');
+    await attendre(1500);
+    const dd = await lireP();
+    ok('[P113] D — au-delà : le coach maintient — aucune marche, aucune carte, la phrase du compteur reste un fait',
+      dd.slug === EZ && dd.compteur === 16 && dd.marche === null && dd.carte === null && !dd.repli &&
+      /^30 kg × 15 reste ta meilleure charge de travail depuis 16 séances/.test(nbP(dd.compteurDit)), nbP(dd));
+    ok('[P113] aucune violation de la garde (I47, I48 compris)', gardeBanc.violations === violationsAvant,
+      String(gardeBanc.violations - violationsAvant) + ' ' + nbP(gardeBanc.liste.slice(-2)));
+    await abandonner();
+
+    if (base.profiles && base.profiles[0]) {
+      base.profiles[0].phase = phaseAvant;
+      base.profiles[0].ma_salle = salleAvant === undefined ? null : salleAvant;
+    }
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = predictionsAvant;
+    await aller('/saisie');
+    ok('[P113] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nbP([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ Q78. LA QUESTION DE RÉSERVE : « IL T’EN RESTAIT COMBIEN ? », APRÈS LA DERNIÈRE SÉRIE D’UN EXERCICE QUI A UN PARI (78, MOTEUR §17.2 bis) ══');
   //
   // Une séance de trois exercices : deux ont un pari (un historique, donc une consigne), le troisième n'en a pas (jamais

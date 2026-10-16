@@ -724,8 +724,8 @@
   // « Quand la charge demandée dépasse la plus lourde de la salle, le coach garde la plus lourde et progresse en
   // reps, jusqu'au haut de la fourchette de la zone ; sur un exercice d'isolation (non polyarticulaire), la
   // fourchette s'étend jusqu'à 15 reps. La zone est gelée au moment où l'exercice atteint la plus lourde de la salle
-  // […]. Au plafond, le coach maintient […]. Tant que l'exercice est à la plus lourde de sa salle, l'escalier ne
-  // propose rien sur cet exercice […] et ne pose aucun pari. »
+  // […]. Au plafond, le coach maintient […]. » Au plafond, l'escalier propose ses trois marches (113, 16/10/2026 :
+  // `marcheAuPlafond`, plus bas) ; la phrase « l'escalier ne propose rien » est remplacée.
   //
   // UNE définition de « à la plus lourde » (la consigne, le gel de la zone, l'escalier du plan et I47 la lisent) : une
   // charge au moins égale à la plus lourde que la salle fait. Aux haltères, une paire au-delà (une autre salle) l'est
@@ -787,7 +787,7 @@
   }
   // L'EXERCICE EST-IL À LA PLUS LOURDE DE SA SALLE ? La salle en vigueur de la consigne, son palier à la plus lourde,
   // et la charge demandée aussi : « si la charge demandée redescend sous la plus lourde, tout reprend normalement ».
-  // Le plan le lit (l'escalier se tait, I47) ; aucun écran ne le recalcule.
+  // `auPlafondDeLaSalle` (113) le lit ; aucun écran ne le recalcule.
   function aLaPlusLourdeDeLaSalle(consigne, salle) {
     var s = salleDeLaConsigne(consigne, salle);
     if (!s || !estALaPlusLourde(s, consigne.palier)) return false;
@@ -5710,6 +5710,9 @@
   var MARCHE_SERIE_DE_PLUS = 'serie_de_plus';
   // §14 (111, 16/10/2026) — la dégressive proposée : la marche qui suit la série de plus.
   var MARCHE_DEGRESSIVE = 'degressive';
+  // §10 bis (113, 16/10/2026) — au plafond de la salle, la troisième marche : un frère plus chargeable.
+  var MARCHE_REMPLACEMENT = 'remplacement';
+  var ORIGINE_SALLE_MAX = 'salle_max';
   var MARCHE_SILENCE = 'silence';
   // Lourd → Mix, Mix → Lourd : le schéma voisin, et les deux libellés.
   var SCHEMAS = {
@@ -5916,13 +5919,21 @@
     return (paris || []).filter(function (l) {
       return l && l.module === MODULE_ESCALIER && l.fondement &&
         (l.fondement.marche === MARCHE_SCHEMA || l.fondement.marche === MARCHE_REPLI ||
-         l.fondement.marche === MARCHE_SERIE_DE_PLUS || l.fondement.marche === MARCHE_DEGRESSIVE);
+         l.fondement.marche === MARCHE_SERIE_DE_PLUS || l.fondement.marche === MARCHE_DEGRESSIVE ||
+         l.fondement.marche === MARCHE_REMPLACEMENT);
     }).map(function (l) {
       var f = l.fondement;
-      return { id: l.id || null, seance: f.seance || null, jour: f.jour || null,
-               exercice: f.exercice || l.exercise_slug || null, marche: f.marche,
-               reponse: f.reponse || null, compteur: nombre(f.compteur), debut: f.debut || null,
-               n: nombre(f.n_routine) };
+      var m = { id: l.id || null, seance: f.seance || null, jour: f.jour || null,
+                exercice: f.exercice || l.exercise_slug || null, marche: f.marche,
+                reponse: f.reponse || null, compteur: nombre(f.compteur), debut: f.debut || null,
+                n: nombre(f.n_routine) };
+      // §10 bis (113) — une marche AU PLAFOND DE LA SALLE : son origine et le plafond qu'elle parie de tenir.
+      if (f.origine === ORIGINE_SALLE_MAX) {
+        m.origine = ORIGINE_SALLE_MAX;
+        m.plafond = f.plafond && typeof f.plafond === 'object'
+          ? { charge: nombre(f.plafond.charge), reps: nombre(f.plafond.reps) } : null;
+      }
+      return m;
     });
   }
 
@@ -6147,6 +6158,163 @@
       detail: DETAIL_DEGRESSIVE,
       oui: 'Ajouter une dégressive', non: 'Non merci'
     };
+  }
+
+  // ══ §10 bis (113, décidé le 16/10/2026) — AU PLAFOND DE LA SALLE, LE COACH PROPOSE ══
+  //
+  // « Au plafond de la salle (la plus lourde de la salle, au haut de la fourchette), l'escalier propose, une marche
+  // par déclenchement, dans cet ordre : 1. la série de plus (§14.7), dans la limite de la règle de volume du §14.6 ;
+  // 2. la dégressive (§14.8), aux conditions du §14.8 ; 3. un autre exercice de la même famille, qui permet de
+  // charger plus dans la salle déclarée ; 4. au-delà, le coach maintient, et la phrase reste un fait. Le changement
+  // de schéma et le repli ne sont jamais proposés au plafond : c'est la salle qui bloque, pas la personne. Une marche
+  // sans objet est sautée. »
+  //
+  // « Au plafond » : à la plus lourde de la salle (`aLaPlusLourdeDeLaSalle`) ET le niveau validé de la dernière
+  // séance au plafond des reps (`salle.maintien`, posé par la consigne) — UNE définition, que le plan, I47 et
+  // l'observation lisent. À la plus lourde SOUS le plafond, la personne peut encore gagner des reps : l'escalier
+  // ordinaire (§14.5) — c'est elle qui bloque, pas la salle.
+  var MARCHES_PLAFOND = [MARCHE_SERIE_DE_PLUS, MARCHE_DEGRESSIVE, MARCHE_REMPLACEMENT];
+  var QUESTION_SERIE_PLAFOND = ' Une série de plus ?';
+  function auPlafondDeLaSalle(consigne, salle) {
+    if (!aLaPlusLourdeDeLaSalle(consigne, salle)) return false;
+    var f = consigne.fondement;
+    return !!(f && f.salle && f.salle.maintien === true);
+  }
+  // Le plafond d'une consigne au plafond : `{ charge, reps }` — la plus lourde de la salle, et le plafond des reps
+  // (`plafondALaSalle`, figé dans le fondement). `null` hors plafond.
+  function plafondDeLaConsigne(consigne, salle) {
+    if (!auPlafondDeLaSalle(consigne, salle)) return null;
+    var s = salleDeLaConsigne(consigne, salle);
+    return { charge: maxDeLaSalle(s), reps: nombre(consigne.fondement.salle.plafond) };
+  }
+
+  // LA MARCHE DU DÉCLENCHEMENT, au plafond. `compteur` : le compteur à l'ouverture (un déclenchement : 4, 8, 12…) ;
+  // `proposees` : `{ [marche]: pari | null }`, la marche proposée (acceptée ou refusée) depuis le dernier progrès —
+  // `marcheProposee` ; `objets` : `{ [marche]: bool }`, la marche a-t-elle un objet (la place du §14.6 pour la série
+  // de plus, les conditions du §14.8 pour la dégressive, un frère plus chargeable pour le remplacement).
+  // Une marche déjà proposée AU MÊME DÉCLENCHEMENT (cette séance, ou une autre du même compteur) le reste : rendue
+  // avec son pari (`deja`), sans carte. Sinon, la première marche APRÈS la dernière proposée, qui a un objet ; les
+  // marches sautées ne reviennent pas (une marche par déclenchement, dans cet ordre). Aucune : `null`, le coach
+  // maintient. Rend `{ marche, deja }`.
+  function marcheAuPlafond(compteur, proposees, objets) {
+    var k = nombre(compteur);
+    if (k === null || k < PAS_ESCALIER) return null;
+    var p = proposees || {}, o = objets || {};
+    var iDerniere = -1;
+    MARCHES_PLAFOND.forEach(function (mk, i) { if (p[mk]) iDerniere = i; });
+    if (iDerniere >= 0) {
+      var d = p[MARCHES_PLAFOND[iDerniere]];
+      var dc = nombre(d.compteur);
+      if (dc !== null && Math.floor(dc / PAS_ESCALIER) === Math.floor(k / PAS_ESCALIER)) {
+        return { marche: MARCHES_PLAFOND[iDerniere], deja: d };
+      }
+    }
+    if (!estDeclenchement(k)) return null;
+    for (var j = iDerniere + 1; j < MARCHES_PLAFOND.length; j++) {
+      if (o[MARCHES_PLAFOND[j]] === true) return { marche: MARCHES_PLAFOND[j], deja: null };
+    }
+    return null;
+  }
+
+  // « Plus chargeable dans la salle déclarée » : un frère qui se charge (mesure charge et reps) et que la salle ne
+  // plafonne pas sous la charge d'aujourd'hui. Sa salle (`THProfil.salleDeLExercice`, comme pour l'exercice) : `null`
+  // — une machine, une poulie, une barre qu'on charge, un matériel non déclaré — il n'est pas plafonné ; déclarée,
+  // sa plus lourde (la paire pour des haltères, dans l'unité des séries, §10.1) dépasse `chargeMax`.
+  function plusChargeableALaSalle(frere, chargeMax) {
+    if (!frere || frere.mesure !== 'charge_reps') return false;
+    if (!frere.salle) return true;
+    var m = maxDeLaSalle(frere.salle), c = nombre(chargeMax);
+    return m !== null && c !== null && m > c && !memeCharge(m, c);
+  }
+  // LE REMPLAÇANT : le premier des frères, dans l'ordre de « Remplacer » (`Seance.freresProposes`, l'app le donne),
+  // qui n'est ni écarté, ni hors du matériel du profil, ni déjà dans la séance, et qui est plus chargeable. `null` :
+  // aucun — la marche est sans objet.
+  function remplacantAuPlafond(freres, chargeMax) {
+    return (freres || []).filter(function (f) {
+      return f && f.slug && !f.ecarte && !f.hors && !f.deja && plusChargeableALaSalle(f, chargeMax);
+    })[0] || null;
+  }
+
+  // « 30 kg × 15 depuis 4 séances, et ta salle n'a pas plus lourd. » — le meilleur et le compteur, aux espaces de
+  // `meilleurDepuis` (insécable avant « kg », espaces ordinaires autour de ×).
+  function phrasePlafond(meilleur, compteur) {
+    return Modele().charge(meilleur.palier, undefined, cite(FAIT, { quoi: 'meilleur' })) + ' × ' +
+      nombreFr(meilleur.niveau, cite(FAIT, { quoi: 'meilleur', champ: 'reps' })) +
+      ' depuis ' + nombreFr(compteur, regle('compteur')) + ' séances, et ta salle n\'a pas plus lourd.';
+  }
+  // LA CARTE AU PLAFOND : la carte de la marche (§14.7, §14.8), sa première phrase remplacée par celle du plafond,
+  // suivie de la question de la marche. Le remplacement : « Passer à {nom} ? », son détail (calculé hors capture par
+  // `detailRemplacement`), « Changer d'exercice » / « Non merci ».
+  function cartePlafond(marche, meilleur, compteur, o) {
+    if (!meilleur || meilleur.niveau === null || meilleur.niveau === undefined) return null;
+    var x = o || {};
+    var debut = phrasePlafond(meilleur, compteur);
+    if (marche === MARCHE_SERIE_DE_PLUS) {
+      var sp = carteSerieDePlus(meilleur, compteur, false, x.muscles, x.parPriorite);
+      return Object.assign({}, sp, { phrase: debut + QUESTION_SERIE_PLAFOND, plafond: true });
+    }
+    if (marche === MARCHE_DEGRESSIVE) {
+      return { type: MARCHE_DEGRESSIVE, phrase: debut + QUESTION_DEGRESSIVE, detail: DETAIL_DEGRESSIVE,
+               oui: 'Ajouter une dégressive', non: 'Non merci', plafond: true };
+    }
+    if (marche === MARCHE_REMPLACEMENT && x.remplacant && x.remplacant.slug) {
+      var nom = x.remplacant.nom || x.remplacant.slug;
+      return { type: MARCHE_REMPLACEMENT, phrase: debut + ' Passer à ' + nom + ' ?', detail: x.detail || null,
+               vers: x.remplacant.slug, nom: nom, oui: 'Changer d\'exercice', non: 'Non merci', plafond: true };
+    }
+    return null;
+  }
+  // « Curl Biceps (Haltère) : ta salle va jusqu'à 2 × 40 kg. » ; sans salle déclarée pour lui, « … : aucune limite
+  // déclarée dans ta salle. » Rédigée HORS de la capture de la carte : le détail ne cite rien du plan.
+  function detailRemplacement(remplacant) {
+    if (!remplacant) return null;
+    var nom = remplacant.nom || remplacant.slug;
+    var s = remplacant.salle;
+    var m = s ? maxDeLaSalle(s) : null;
+    if (m === null) return nom + DEUX_POINTS + 'aucune limite déclarée dans ta salle.';
+    var t = s.materiel === 'halteres'
+      ? '2' + INSECABLE + '×' + INSECABLE + Modele().charge(m / 2) : Modele().charge(m);
+    return nom + DEUX_POINTS + 'ta salle va jusqu\'à ' + t + '.';
+  }
+
+  // L'OBSERVATION DU PARI AU PLAFOND, SANS PARI DE SÉRIE : « tu tiens le plafond (la plus lourde × le haut de la
+  // fourchette) sur toutes les séries de travail, la nouvelle comprise, avant le prochain déclenchement ». Lue dans
+  // les faits (`groupes` : les séances de l'exercice, `faits.seancesDeLExercice`) et les compteurs figés des paris.
+  // À partir de la séance du pari, dans l'ordre : une séance dont le compteur à l'ouverture atteint le prochain
+  // déclenchement tranche 0 ; une séance qui TIENT le plafond tranche 1 — toutes ses séries de travail à la plus
+  // lourde (ou au-delà) et au plafond des reps (ou au-delà), et au moins autant que la routine en compte : n + 1 pour
+  // la série de plus (la nouvelle comprise), n pour la dégressive (elle n'est pas une série de travail). Refusée :
+  // jamais. Rend `{ valeur, seance, debut, jour }` ou `null` (pas encore tranché).
+  function observationPlafond(m, groupes, compteurs) {
+    if (!m || m.reponse !== 'acceptee' || m.origine !== ORIGINE_SALLE_MAX || !m.plafond) return null;
+    var c0 = nombre(m.compteur), P = nombre(m.plafond.charge), R = nombre(m.plafond.reps), n = nombre(m.n);
+    if (c0 === null || P === null || R === null || n === null || n < 1) return null;
+    var attendues = m.marche === MARCHE_SERIE_DE_PLUS ? n + 1 : n;
+    var prochain = c0 - (c0 % PAS_ESCALIER) + PAS_ESCALIER;
+    var t0 = instant(m.debut);
+    var parSeance = {};
+    (compteurs || []).forEach(function (x) {
+      if (x && x.exercice === m.exercice && x.seance && nombre(x.compteur) !== null) parSeance[x.seance] = nombre(x.compteur);
+    });
+    var liste = (groupes || []).filter(function (g) {
+      if (!g || !g.seance) return false;
+      if (g.seance.id === m.seance) return true;
+      var t = instant(g.seance.debut);
+      return t !== null && t0 !== null && t > t0;
+    }).sort(function (a, b) { return avantAlpha(String(a.seance.debut), String(b.seance.debut)); });
+    for (var i = 0; i < liste.length; i++) {
+      var g = liste[i];
+      var tranche = { seance: g.seance.id || null, debut: g.seance.debut || null, jour: jourCivil(g.seance.debut) };
+      if (g.seance.id !== m.seance && Object.prototype.hasOwnProperty.call(parSeance, g.seance.id) &&
+          parSeance[g.seance.id] >= prochain) return Object.assign({ valeur: 0 }, tranche);
+      var travail = (g.series || []).filter(function (s) { return Modele().estTravail(s); });
+      var tient = travail.length >= attendues && travail.every(function (s) {
+        var ch = nombre(s.charge_kg), r = nombre(s.reps);
+        return ch !== null && r !== null && (ch > P || memeCharge(ch, P)) && r >= R;
+      });
+      if (tient) return Object.assign({ valeur: 1 }, tranche);
+    }
+    return null;
   }
 
   // ══ §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : LA RÈGLE DE VOLUME ══
@@ -7343,6 +7511,18 @@
     degressiveProposee: degressiveProposee,
     degressiveActive: degressiveActive,
     carteDegressive: carteDegressive,
+    // §10 bis (113) — au plafond de la salle, le coach propose.
+    MARCHE_REMPLACEMENT: MARCHE_REMPLACEMENT,
+    ORIGINE_SALLE_MAX: ORIGINE_SALLE_MAX,
+    MARCHES_PLAFOND: MARCHES_PLAFOND,
+    auPlafondDeLaSalle: auPlafondDeLaSalle,
+    plafondDeLaConsigne: plafondDeLaConsigne,
+    marcheAuPlafond: marcheAuPlafond,
+    plusChargeableALaSalle: plusChargeableALaSalle,
+    remplacantAuPlafond: remplacantAuPlafond,
+    cartePlafond: cartePlafond,
+    detailRemplacement: detailRemplacement,
+    observationPlafond: observationPlafond,
     consigneSerieDePlus: consigneSerieDePlus,
     placePourExercice: placePourExercice,
     musclesParPriorite: musclesParPriorite,

@@ -22314,6 +22314,20 @@ const SETS_IMPORTES = [
         .map((b) => [b.textContent, b.classList.contains('danger')]) }));
     const entree115 = (libelle) => page.evaluate((t) => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
       .filter((b) => b.textContent === t)[0].click(), libelle);
+    // La section se joue seule ou derrière n'importe quelle autre : une séance laissée ouverte est abandonnée.
+    const sansSeance115 = async () => {
+      await aller('/saisie');
+      await attendre(800);
+      if (JSON.stringify(await visible()) === '["vue-seance"]') {
+        await page.click('#bandeau-seance .bandeau-fin');
+        await attendre(600);
+        await page.click('#feuille-contenu .danger');
+        await confirmerAbandon();
+        await attendre(1600);
+        await aller('/saisie');
+        await attendre(500);
+      }
+    };
     const remplir115 = async (i, charge, reps) => {
       const l = await ligne(i);
       const champs = await l.$$('input');
@@ -22322,12 +22336,103 @@ const SETS_IMPORTES = [
       await attendre(500);
     };
 
-    // ── E4. UNE SÉRIE REMPLIE, PAS VALIDÉE, AU MOMENT DE TERMINER.
-    await aller('/saisie');
+    // ── E2. LE GLISSEMENT SUR UNE SÉRIE FAITE : « SÉRIE SUPPRIMÉE · ANNULER ».
+    const glisser115 = async (i) => {
+      const l = await ligne(i);
+      // Au centre : en bas, la barre de repos (armée par la validation) recevrait le geste.
+      await l.evaluate((n) => n.scrollIntoView({ block: 'center' }));
+      await attendre(300);
+      const b = await l.boundingBox();
+      await page.mouse.move(b.x + b.width - 40, b.y + b.height / 2);
+      await page.mouse.down();
+      for (let d = 0; d <= 110; d += 14) {
+        await page.mouse.move(b.x + b.width - 40 - d, b.y + b.height / 2);
+        await attendre(30);
+      }
+      await page.mouse.up();
+    };
+    const toast115 = () => page.evaluate(() => {
+      const t = document.getElementById('toast-seance');
+      return { visible: !!t && !t.hidden && getComputedStyle(t).display !== 'none',
+               texte: t ? Array.from(t.children).map((x) => x.textContent) : null };
+    });
+    const valeurs115 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+      .map((l) => Array.from(l.querySelectorAll('input')).map((i) => i.value).join('×')));
+    await sansSeance115();
     await demarrerRoutine('Push');
     await attendre(1200);
-    await saisirSerie(0, 60, 5);
-    await remplir115(1, 62.5, 6);
+    await saisirSerie(0, 70, 5);
+    await saisirSerie(1, 72.5, 5);
+    await attendre(1800);
+    const idE2 = enCours115();
+    const setsE2 = () => base.sets.filter((x) => x.session_id === idE2);
+    const idsE2 = setsE2().map((x) => x.id).sort();
+    const id70 = (setsE2().filter((x) => Number(x.charge_kg) === 70)[0] || {}).id;
+    const parisE2 = () => base.predictions.filter((x) => x.set_observe === id70).length;
+    const parisAvant = parisE2();
+    ok('[115-E2] prémisse : deux séries faites, en base (70 × 5, 72,5 × 5)', setsE2().length === 2 && !!id70,
+      JSON.stringify(setsE2().map((x) => [x.charge_kg, x.reps])));
+    const lignesE2 = await compter('.ligne-serie');
+    const valeursAvant = await valeurs115();
+    await glisser115(0);
+    await attendre(1500);
+    const t1 = await toast115();
+    ok('[115-E2] DISCRIMINANT — glisser une série faite : la ligne quitte l’écran, « Série supprimée · Annuler », rien n’a quitté l’appareil',
+      t1.visible && JSON.stringify(t1.texte) === '["Série supprimée","Annuler"]' &&
+        (await compter('.ligne-serie')) === lignesE2 - 1 &&
+        JSON.stringify(setsE2().map((x) => x.id).sort()) === JSON.stringify(idsE2) && parisE2() === parisAvant,
+      JSON.stringify([t1, await compter('.ligne-serie'), lignesE2, setsE2().length, parisE2(), parisAvant]));
+    await page.click('#toast-seance button');
+    await attendre(1500);
+    ok('[115-E2] DISCRIMINANT — « Annuler » : la série revient entière, à sa place (70 × 5, validée), la base n’a pas bougé',
+      !(await toast115()).visible && JSON.stringify(await valeurs115()) === JSON.stringify(valeursAvant) &&
+        (await compter('.ok-serie.cochee')) === 2 &&
+        JSON.stringify(setsE2().map((x) => x.id).sort()) === JSON.stringify(idsE2) && parisE2() === parisAvant,
+      JSON.stringify([(await valeurs115()).slice(0, 3), valeursAvant.slice(0, 3), await compter('.ok-serie.cochee'), setsE2().length]));
+
+    await glisser115(0);
+    await attendre(6800);
+    ok('[115-E2] à la fin du délai, la suppression part : 70 × 5 n’est plus en base, le toast est parti, 72,5 × 5 reste',
+      !(await toast115()).visible && setsE2().length === 1 && Number(setsE2()[0].charge_kg) === 72.5 &&
+        (await compter('.ligne-serie')) === lignesE2 - 1,
+      JSON.stringify([await toast115(), setsE2().map((x) => [x.charge_kg, x.reps]), await compter('.ligne-serie')]));
+
+    // Le geste suivant qui enregistre (valider une série du développé couché) fait partir la suppression en attente.
+    const premiereDc = await page.evaluate(() => {
+      const toutes = Array.from(document.querySelectorAll('.ligne-serie'));
+      const bloc = document.querySelectorAll('.bloc-seance')[1];
+      return bloc ? toutes.indexOf(bloc.querySelector('.ligne-serie')) : -1;
+    });
+    await glisser115(0);
+    await attendre(500);
+    const t2 = await toast115();
+    await (await ligne(premiereDc - 1)).evaluate((n) => n.scrollIntoView({ block: 'center' }));
+    await saisirSerie(premiereDc - 1, 60, 8);
+    await attendre(1800);
+    ok('[115-E2] le geste suivant qui enregistre la fait partir : plus d’« Annuler », 72,5 n’est plus en base, 60 × 8 y est',
+      premiereDc > 0 && t2.visible && !(await toast115()).visible && setsE2().length === 1 && Number(setsE2()[0].charge_kg) === 60,
+      JSON.stringify([premiereDc, t2, await toast115(), setsE2().map((x) => [x.charge_kg, x.reps])]));
+
+    // Une série NON faite part tout de suite, sans toast (rien à rattraper) — comme au 4 bis.
+    const lignesN = await compter('.ligne-serie');
+    await glisser115(lignesN - 1);
+    await attendre(700);
+    ok('[115-E2] une ligne vide, non validée, part tout de suite, sans « Annuler »',
+      (await compter('.ligne-serie')) === lignesN - 1 && !(await toast115()).visible,
+      JSON.stringify([await compter('.ligne-serie'), lignesN, await toast115()]));
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(600);
+    await page.click('#feuille-contenu .principal');
+    await attendre(2600);
+    ok('[115-E2] la séance se termine avec la seule série restante (60 × 8)',
+      base.sessions.some((x) => x.id === idE2 && x.statut === 'terminee') && setsE2().length === 1,
+      JSON.stringify(setsE2().map((x) => [x.charge_kg, x.reps])));
+
+    // ── E4. UNE SÉRIE REMPLIE, PAS VALIDÉE, AU MOMENT DE TERMINER.
+    await sansSeance115();
+    await demarrerRoutine('Push');
+    await attendre(1200);
+    await remplir115(0, 62.5, 6);
     await attendre(1200);
     const idE4 = enCours115();
     await page.click('#bandeau-seance .bandeau-fin');
@@ -22343,11 +22448,11 @@ const SETS_IMPORTES = [
       !!idE4 && base.sessions.some((x) => x.id === idE4 && x.statut === 'en_cours'), JSON.stringify(idE4));
     await entree115('Les valider');
     await attendre(700);
-    const valeursE4 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).slice(0, 2)
+    const valeursE4 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).slice(0, 1)
       .map((l) => Array.from(l.querySelectorAll('input')).map((i) => i.value).join('×')));
     ok('[115-E4] « Les valider » : la feuille se ferme, la séance continue, la ligne garde 62,5 × 6',
       !(await feuille115()).ouverte && JSON.stringify(await visible()) === '["vue-seance"]' &&
-        valeursE4[1] === '62,5×6' && base.sessions.some((x) => x.id === idE4 && x.statut === 'en_cours'),
+        valeursE4[0] === '62,5×6' && base.sessions.some((x) => x.id === idE4 && x.statut === 'en_cours'),
       JSON.stringify([valeursE4, await visible()]));
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(600);
@@ -22356,17 +22461,14 @@ const SETS_IMPORTES = [
     await entree115('Terminer quand même');
     await attendre(2600);
     const setsE4 = base.sets.filter((x) => x.session_id === idE4);
-    ok('[115-E4] « Terminer quand même » : la séance est terminée avec sa seule série validée (60 × 5), rien de 62.5',
-      base.sessions.some((x) => x.id === idE4 && x.statut === 'terminee') && setsE4.length === 1 &&
-        Number(setsE4[0].charge_kg) === 60 && !setsE4.some((x) => Number(x.charge_kg) === 62.5),
+    ok('[115-E4] « Terminer quand même » : la séance est terminée, la série remplie (62,5 × 6) n’est pas gardée',
+      base.sessions.some((x) => x.id === idE4 && x.statut === 'terminee') && setsE4.length === 0,
       JSON.stringify(setsE4.map((x) => [x.charge_kg, x.reps])));
 
     // Sans série remplie, « Terminer » ne demande rien (non-régression du chemin courant).
-    await aller('/saisie');
+    await sansSeance115();
     await demarrerRoutine('Push');
-    await attendre(1200);
-    await saisirSerie(0, 60, 5);
-    await attendre(1000);
+    await attendre(2000);
     const idE4b = enCours115();
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(600);

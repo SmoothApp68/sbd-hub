@@ -574,6 +574,20 @@
     return avecExercices(seance, exos);
   }
 
+  // 115 (audit du 16/10/2026, E2 ; décision d'Aurélien D10) — L'INVERSE EXACT DE `retirerSerie`. « Annuler »,
+  // après un glissement qui a retiré une série faite, la remet ENTIÈRE à sa place : le même objet (identifiant,
+  // charge, reps, type, effort, `validee_a`, `source`), au même indice, donc au même rang de sortie. Rien n'est
+  // recalculé ; l'appelant vérifie que l'exercice n'a pas bougé entre-temps.
+  function remettreSerie(seance, iExo, iSerie, serie) {
+    var exos = seance.exercices.slice();
+    var exo = copie(exos[iExo]);
+    var series = exo.series.slice();
+    var place = Math.max(0, Math.min(iSerie, series.length));
+    exo.series = series.slice(0, place).concat([serie], series.slice(place));
+    exos[iExo] = exo;
+    return avecExercices(seance, exos);
+  }
+
   // ══ LA DÉVIATION — ÉDITION DE LISTE, PAS CALCUL (§5.1) ═══════════════════
   //
   // « Le moteur ne sait même pas qu'il y a eu déviation. » Tout ce qui suit
@@ -2791,6 +2805,7 @@
     toutesLesSeries: toutesLesSeries,
     compter: compter,
     rempliesNonValidees: rempliesNonValidees,
+    remettreSerie: remettreSerie,
     minutesEcoulees: minutesEcoulees,
     delaiProchaineMinute: delaiProchaineMinute,
     lignes: lignes,

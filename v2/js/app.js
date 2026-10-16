@@ -823,6 +823,7 @@
     // `viderTout` ci-dessus a effacé leurs magasins ; on remet la mémoire
     // d'accord avec le disque.
     seance = null; attente = []; chrono = null;
+    oublierSuppressionDifferee();
     // §12.9 (49-U13) — les séances sous consigne aussi (le brouillon qui les
     // porte vient d'être effacé avec le reste).
     local.sousConsigne = {};
@@ -3148,6 +3149,8 @@
   function semerSeance() { seance = Seance.semerIdentifiants(seance, uuid); }
 
   async function sauverSeance() {
+    // 115 (E2) — ce qui s'enregistre est la séance qu'on voit : une suppression en attente part d'abord.
+    if (suppressionDifferee) await solderSuppression();
     semerSeance();
     try {
       await Cache.ecrireBrouillon('seance', seance);
@@ -3374,6 +3377,8 @@
   // 82). L'entrée porte donc ses `connues` : ce que cet appareil a envoyé pour
   // la séance, plus ce qu'il en a chargé depuis la base (`connaitre`).
   function poserSeries() {
+    // 115 (E2) — même règle que `sauverSeance` : une suppression en attente part d'abord.
+    if (suppressionDifferee) return solderSuppression().then(poserSeries);
     semerSeance();
     var lignes = Seance.lignes(seance);
     var connues = connaitre(seance.id, lignes.map(function (l) { return l.id; }));
@@ -4174,6 +4179,9 @@
   // Abandonner SUPPRIME la séance. Sans ça, une séance `en_cours` fantôme
   // resterait en base et se rouvrirait au prochain lancement.
   async function abandonnerSeance() {
+    // 115 (E2) — une suppression en attente part d'abord, comme au glissement d'avant : son observation vidée
+    // reste dans la file (la séance qui part l'emporte en base de toute façon).
+    await solderSuppression();
     var id = seance.id;
     // L'ordre compte : on retire d'abord les intentions d'écriture des séries,
     // sinon la vidange essaierait d'écrire des séries d'une séance supprimée.
@@ -4333,7 +4341,7 @@
   // On MESURE les deux barres et on réserve exactement ce qu'elles occupent.
   // Une hauteur mesurée suit tout : l'encoche, le repli des commandes à 360 px,
   // une barre qu'on rendrait plus haute demain.
-  var barresMesurees = { onglets: null, repos: null, pied: null, seance: null };
+  var barresMesurees = { onglets: null, repos: null, pied: null, toast: null, seance: null };
 
   function mesurerBarres() {
     var style = doc.documentElement.style;
@@ -4355,6 +4363,10 @@
     // de défilement — ce qu'il couvre est perdu si la réserve ne le compte pas.
     var hRepos = (repos && !repos.hidden) ? Math.ceil(repos.getBoundingClientRect().height) : 0;
     var hPied = (pied && !pied.hidden) ? Math.ceil(pied.getBoundingClientRect().height) : 0;
+    // 115 (E2) — le toast « Série supprimée · Annuler » est fixe lui aussi, au-dessus du repos et du pied : la
+    // réserve le compte, rien d'interactif ne reste dessous (§3 bis.9).
+    var toast = $('toast-seance');
+    var hToast = (toast && !toast.hidden) ? Math.ceil(toast.getBoundingClientRect().height) : 0;
     // 62 — la barre de séance, collée EN HAUT. Elle ne couvre rien tant qu'elle est
     // dans le flux, mais un champ qui prend le focus ou un bloc amené en vue peut
     // glisser SOUS elle : `scroll-padding-top` (styles.css) se règle sur cette hauteur.
@@ -4375,6 +4387,10 @@
     if (hPied !== barresMesurees.pied) {
       barresMesurees.pied = hPied;
       style.setProperty('--h-pied', hPied + 'px');
+    }
+    if (hToast !== barresMesurees.toast) {
+      barresMesurees.toast = hToast;
+      style.setProperty('--h-toast', hToast + 'px');
     }
     if (hBarreS !== barresMesurees.seance) {
       barresMesurees.seance = hBarreS;
@@ -7011,18 +7027,121 @@
   }
 
   async function oublierObservationsDesSeries(ids) {
-    var maj = [];
+    return ecrireObservationsVidees(viderObservationsEnMemoire(ids).maj);
+  }
+
+  // La partie SYNCHRONE : la mémoire seulement (ni le disque, ni la file). Rend les lignes d'avant (`avant`) et
+  // les lignes vidées (`maj`), dans le même ordre. 115 (E2) — séparée de l'écriture pour qu'un glissement
+  // rattrapable ne touche à rien d'autre que la mémoire tant qu'« Annuler » est possible.
+  function viderObservationsEnMemoire(ids) {
+    var avant = [], maj = [];
     local.predictions = (local.predictions || []).map(function (l) {
       if (!l || !l.set_observe || !ids[l.set_observe]) return l;
       var m = Object.assign({}, l, { set_observe: null, valeur_observee: null, observee_a: null });
+      avant.push(l);
       maj.push(m);
       return m;
     });
+    return { avant: avant, maj: maj };
+  }
+
+  async function ecrireObservationsVidees(maj) {
     if (maj.length) await Cache.ecrireLot('predictions', maj).catch(function () {});
     // La base le fait déjà (le déclencheur) ; l'entrée qui partirait encore
     // avec l'ancienne observation est remplacée par la vraie, vide — sinon
     // elle attendrait pour toujours une série qui ne reviendra pas.
     for (var k = 0; k < maj.length; k++) await poserObservation(maj[k]);
+  }
+
+  // ══ 115 — LE GLISSEMENT QUI EFFACE UNE SÉRIE FAITE SE RATTRAPE (audit du 16/10, E2 ; décision D10) ══
+  //
+  // ⚠️ LA SUPPRESSION RÉELLE ATTEND LA FIN DU DÉLAI. Une série faite qui part en base emporte, par les
+  // déclencheurs, son observation (`sets_efface_observation`) et ses records (`sets_efface_records`) ; la remettre
+  // ensuite, ce serait l'écrire deux fois, et ses records ne reviendraient pas. Donc, au glissement, rien ne part :
+  // la ligne quitte l'écran et la mémoire (la séance, l'observation de son pari), le toast « Série supprimée ·
+  // Annuler » s'affiche. « Annuler » remet le MÊME objet au même indice (`Seance.remettreSerie`) et l'observation
+  // d'avant : charge, reps, type, rang, pari, record — rien n'a quitté l'appareil. À la fin du délai, ou au
+  // premier geste qui enregistre (`sauverSeance`, `poserSeries` : la séance enregistrée doit être celle qu'on
+  // voit), la suppression part par le chemin de toujours — l'observation vidée, puis les séries.
+  // Une série NON faite part tout de suite, comme avant : il n'y a rien à rattraper.
+  var DELAI_ANNULER_MS = 5000;
+  var suppressionDifferee = null;   // { sessionId, iExo, iSerie, serie, slug, reste, avant, maj, minuteur }
+
+  function idsDesSeries(exo) {
+    return ((exo && exo.series) || []).map(function (x) { return x && x.id; }).join('|');
+  }
+
+  async function differerSuppression(iExo, iSerie) {
+    // Une suppression déjà en attente part d'abord : un seul « Annuler » à la fois, le dernier geste.
+    await solderSuppression();
+    var exo = seance && (seance.exercices || [])[iExo];
+    var s = exo && (exo.series || [])[iSerie];
+    if (!s) return;
+    var ids = {};
+    if (s.id) ids[s.id] = true;
+    var videes = viderObservationsEnMemoire(ids);
+    seance = Seance.retirerSerie(seance, iExo, iSerie);
+    var p = { sessionId: seance.id, iExo: iExo, iSerie: iSerie, serie: s, slug: exo.exercise_slug,
+              reste: idsDesSeries(seance.exercices[iExo]), avant: videes.avant, maj: videes.maj, minuteur: null };
+    suppressionDifferee = p;
+    p.minuteur = setTimeout(function () {
+      if (suppressionDifferee !== p) return;
+      solderSuppression().catch(function (err) { console.warn('Suppression de série :', texteErreur(err)); });
+    }, DELAI_ANNULER_MS);
+    rendreSeance();
+    rendreToastAnnuler();
+  }
+
+  // La suppression part pour de vrai : l'observation vidée (disque, file), puis la séance et ses séries — ce
+  // que faisait le glissement d'avant, dans le même ordre. Une séance qui n'est plus celle du glissement
+  // (« Quitter », changement de compte) : rien à écrire, la mémoire est déjà partie avec elle.
+  async function solderSuppression() {
+    var p = suppressionDifferee;
+    if (!p) return;
+    suppressionDifferee = null;
+    clearTimeout(p.minuteur);
+    rendreToastAnnuler();
+    if (!seance || seance.id !== p.sessionId) return;
+    await ecrireObservationsVidees(p.maj);
+    await sauverSeance();
+    await poserSeries();
+    ecrireReplis().catch(function () {});
+  }
+
+  // « Annuler » : la série revient entière, à sa place. Si l'exercice a bougé entre-temps (aucun geste ne le
+  // devrait : tout ce qui enregistre solde d'abord), on ne devine pas une place — la suppression part.
+  function annulerSuppression() {
+    var p = suppressionDifferee;
+    if (!p) return;
+    var exo = seance && seance.id === p.sessionId ? (seance.exercices || [])[p.iExo] : null;
+    if (!exo || exo.exercise_slug !== p.slug || idsDesSeries(exo) !== p.reste) {
+      solderSuppression().catch(function (err) { console.warn('Suppression de série :', texteErreur(err)); });
+      return;
+    }
+    suppressionDifferee = null;
+    clearTimeout(p.minuteur);
+    seance = Seance.remettreSerie(seance, p.iExo, p.iSerie, p.serie);
+    var avantParId = {};
+    p.avant.forEach(function (l) { avantParId[l.id] = l; });
+    local.predictions = (local.predictions || []).map(function (l) { return (l && avantParId[l.id]) || l; });
+    rendreToastAnnuler();
+    rendreSeance();
+  }
+
+  // Changement de compte, « Quitter » : la séance part avec la mémoire, la suppression en attente aussi, sans rien
+  // écrire au nom du compte suivant.
+  function oublierSuppressionDifferee() {
+    if (suppressionDifferee) clearTimeout(suppressionDifferee.minuteur);
+    suppressionDifferee = null;
+    rendreToastAnnuler();
+  }
+
+  function rendreToastAnnuler() {
+    var noeud = $('toast-seance');
+    if (!noeud) return;
+    Rendu.rendreToastAnnuler(noeud, suppressionDifferee
+      ? { texte: 'Série supprimée', libelle: 'Annuler', surAnnuler: annulerSuppression } : null);
+    mesurerBarres();
   }
 
   // §9.11 (27/09/2026) — L'OBSERVATION PART PAR SA PROPRE ENTRÉE, EN FIN DE
@@ -7421,6 +7540,9 @@
         rendreSeance();
       },
       surSupprimerSerie: async function (i, j) {
+        // 115 (E2) — une série FAITE ne part qu'à la fin du délai d'« Annuler ».
+        var s = seance && seance.exercices[i] && seance.exercices[i].series[j];
+        if (Seance.partEnBase(s)) return differerSuppression(i, j);
         await oublierObservationDe(i, j);
         seance = Seance.retirerSerie(seance, i, j);
         await apresGeste();
@@ -11489,6 +11611,7 @@
     // appartiennent quand même au compte qui part.
     routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };
     seance = null; attente = []; chrono = null; arreterMinuteur();
+    oublierSuppressionDifferee();
     // 106 — le groupe aussi, et ses messages gardés hors ligne (leur brouillon vient d'être vidé) : les envoyer au nom du
     // compte suivant serait parler à sa place.
     oublierGroupe();

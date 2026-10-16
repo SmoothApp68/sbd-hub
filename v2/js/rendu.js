@@ -4216,6 +4216,22 @@
     return cible;
   }
 
+  // 115 (audit du 16/10, E2 ; décision D10) — LE TOAST « SÉRIE SUPPRIMÉE · ANNULER ». Fixe, au-dessus de la barre
+  // de repos et du pied (styles.css), le modèle du bandeau « Une nouvelle version est prête » (88) : un fait, un
+  // geste. `vue` nulle : il se cache. Le délai et ce qu'« Annuler » remet vivent dans `app.js`.
+  function rendreToastAnnuler(cible, vue) {
+    if (!cible) return null;
+    vider(cible);
+    if (!vue) { cible.hidden = true; return cible; }
+    cible.appendChild(el('span', 'toast-t', vue.texte));
+    var b = el('button', 'toast-b', vue.libelle || 'Annuler');
+    b.type = 'button';
+    b.addEventListener('click', vue.surAnnuler);
+    cible.appendChild(b);
+    cible.hidden = false;
+    return cible;
+  }
+
   function message(cible, texte, genre) {
     vider(cible);
     cible.appendChild(el('p', genre === 'erreur' ? 'erreur' : 'vide', texte));
@@ -7075,6 +7091,7 @@
     rendreBloc: rendreBloc,
     rendreDetail: rendreDetail,
     rendrePageExercice: rendrePageExercice,
+    rendreToastAnnuler: rendreToastAnnuler,
     message: message
   };
 
@@ -7183,6 +7200,7 @@
     rendreBloc: rendreBloc,
     rendreDetail: rendreDetail,
     rendrePageExercice: rendrePageExercice,
+    rendreToastAnnuler: rendreToastAnnuler,
     rendreProfil: rendreProfil,
     rendreQuestionnaire: rendreQuestionnaire,
     rendreFeuilleChoix: rendreFeuilleChoix,

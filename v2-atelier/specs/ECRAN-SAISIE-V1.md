@@ -423,6 +423,16 @@ CDN, rien à précacher.
 comme partout ailleurs. Il n'entre pas en conflit avec le défilement vertical.
 ⚠️ À tester tôt sur device : c'est la famille de geste qui a coûté trois chantiers.
 
+> **Sur une série faite, le glissement se rattrape — audit du 16/10/2026 (E2), décision
+> d'Aurélien du 16/10 (D10) : « toast Annuler au glissement ».** La ligne quitte l'écran et un
+> toast « Série supprimée · Annuler » reste 5 s, au-dessus de la barre de repos (la réserve du bas
+> le compte, §3 bis.9). **La suppression réelle attend la fin du délai** — ou le premier geste qui
+> enregistre la séance : en base, une série supprimée emporte son observation et ses records
+> (déclencheurs), et la remettre ensuite l'écrirait deux fois sans rendre ses records. « Annuler »
+> remet donc la série entière, rien n'ayant quitté l'appareil : charge, reps, type, rang, effort,
+> son pari observé, son record. Une série non faite part tout de suite, comme avant. « Supprimer »
+> au menu du numéro (deux gestes, déjà délibérés) n'est pas changé.
+
 **3 bis.6 — Pas d'indicateur de position.** Les cases cochées disent déjà où l'on en est.
 
 **3 bis.9 — Rien d'interactif ne reste sous une barre fixe.** Constaté sur device au chantier

@@ -332,6 +332,15 @@ describe('§10 bis — dans le plan : la grille, la dégressive à barre fixe, l
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
 
+  test('une dernière série faite au-delà de la plus lourde barre fixe (une barre chargée) : la règle de la barre, sans I46', () => {
+    let se = seanceDe('curl_biceps_barre_ez', 1, null, true);
+    se = valider(se, 0, 35, 10);
+    const e = entrees(se, 'curl_biceps_barre_ez', null);
+    const p = T.planDeSeance(e);
+    expect(p.exercices[0].degressive.phrase.indexOf('Enlève ')).toBe(0);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+
   test('DISCRIMINANT — I46 : une charge que la salle n’a pas, forgée dans le plan, est attrapée', () => {
     const se = seanceDe('curl_biceps_barre_ez', 3);
     const e = entrees(se, 'curl_biceps_barre_ez', avec());

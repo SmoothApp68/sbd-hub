@@ -3231,13 +3231,18 @@
         if (k.haut) hors(k.haut.charge, 'la ligne haute de la consigne');
         if (k.haut && k.haut.charge === null) erreurs.push(nom + 'un test sans chiffre alors que la salle est déclarée');
       }
+      // La salle vaut sur la référence de ce que le coach calcule : la charge de travail de la consigne pour ses
+      // lignes, la référence des chauffes, la dernière série de travail pour la dégressive (une barre chargée au-delà
+      // de la plus lourde barre fixe n'est pas concernée). Une ligne d'élan reprend une série faite (§9.14 bis).
+      var enVigueur = function (ref) { return nombre(ref) !== null && !!M.salleEnVigueur(salle, ref); };
       (x.lignes || []).forEach(function (l) {
         if (l.validee || !l.fantome) return;
         var src = l.fantome.source;
+        if (l.role === 'elan') return;
         if (l.role === 'hors' && src !== 'chauffe' && src !== 'degressive') return;
-        if (src === 'chauffe' || src === 'degressive' || (k && M.salleEnVigueur(salle, k.palier))) {
-          hors(l.fantome.charge, 'la série ' + l.iSerie + ' (' + (src || l.role) + ')');
-        }
+        var ref = src === 'chauffe' ? (x.chauffes && x.chauffes.reference)
+          : src === 'degressive' ? (x.degressive && x.degressive.reference) : (k && k.palier);
+        if (enVigueur(ref)) hors(l.fantome.charge, 'la série ' + l.iSerie + ' (' + (src || l.role) + ')');
       });
       var attente = x.reaction && x.reaction.attente;
       if (attente && Array.isArray(attente.charges)) {

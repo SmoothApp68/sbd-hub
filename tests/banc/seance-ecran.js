@@ -17865,19 +17865,25 @@ const SETS_IMPORTES = [
     // ── G. AVANT v2_091 (la base exige encore la charge) : l'app ne la donne pas — elle retire ses scores, une fois.
     base.pesees.push({ id: '00000000-0000-4000-8890-000000000001', user_id: 'u-banc', date: jourDe(ilYa(2 * 86400000, tS)),
       poids_kg: 96.75, source: 'manuel' });
+    // ⚠️ La pesée d'abord dans le cache de l'appareil (une ouverture qui synchronise) : sinon, à l'ouverture suivante,
+    // l'app n'a pas encore de pesée et retire mes scores par le chemin « sans pesée » — pas celui qu'on éprouve ici.
+    await aller('/saisie');
+    await attendre(1500);
     S.v2_091 = false;
     // Une ancienne ligne à moi (score sur la pesée, avec sa charge), comme en base aujourd'hui.
     S.scores.push({ user_id: 'u-banc', exercise_slug: 'dc-barre', score: SocialJs.scoreDots(monCouche, 96.75, 'homme'), charge_kg: monCouche });
-    const refusAvantG = S.journal.filter((j) => j.op === 'refus').length, envoisAvantG = S.journal.filter((j) => j.op === 'scores').length;
+    const journalAvantG = S.journal.length, envoisAvantG = S.journal.filter((j) => j.op === 'scores').length;
     await aller('/exercice/dc-barre');
     await attendreQue(async () => S.scores.filter((x) => x.user_id === 'u-banc').length === 0);
     await attendre(1500);
     const g0 = await entre();
-    const refusG = S.journal.filter((j) => j.op === 'refus').slice(refusAvantG);
-    ok('[social-2] DISCRIMINANT — 114, avant v2_091 : la base refuse le score sans charge (23502), une fois à l’ouverture ; l’app ne renvoie pas la charge, retire mon ancienne ligne, et la page marche',
-      S.scores.filter((x) => x.user_id === 'u-banc').length === 0 && refusG.length === 1 && refusG[0].refus === '23502' &&
+    const journalG = S.journal.slice(journalAvantG);
+    const refusG = journalG.filter((j) => j.op === 'refus');
+    const iRefus = journalG.findIndex((j) => j.op === 'refus' && j.refus === '23502'), iRetrait = journalG.findIndex((j) => j.op === 'retrait-scores');
+    ok('[social-2] DISCRIMINANT — 114, avant v2_091 : la base refuse le score sans charge (23502), une fois à l’ouverture ; l’app ne renvoie pas la charge, retire ALORS mon ancienne ligne, et la page marche',
+      S.scores.filter((x) => x.user_id === 'u-banc').length === 0 && refusG.length === 1 && iRefus >= 0 && iRetrait > iRefus &&
         S.journal.filter((j) => j.op === 'scores').length === envoisAvantG && g0.rangs.length === 0 && g0.texte === '' &&
-        erreurs.length === erreursAvant, JSON.stringify([refusG, S.scores, g0]));
+        erreurs.length === erreursAvant, JSON.stringify([journalG, S.scores, g0]));
     S.v2_091 = true;
     // Le refus voulu, constaté, sort du journal (le contrôle final compte les refus).
     S.journal = S.journal.filter((j) => !(j.op === 'refus' && j.refus === '23502'));

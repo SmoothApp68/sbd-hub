@@ -1065,13 +1065,18 @@
     // Les jours : les jours civils distincts qui ont une séance terminée (deux séances le même jour : un jour). Les
     // heures : la somme des durées des séances terminées qui ont une fin après leur début ; une séance de plus de 5 h
     // (une séance oubliée ouverte) n'entre pas dans les heures, mais son jour compte. Rend `{ jours, minutes }`.
+    // 119 (audit du 16/10/2026, décision du 15/10 complétée le 16/10) — SEULES LES SÉANCES DE MUSCULATION
+    // (`Semaine.estSeanceDeMusculation` : au moins une série de travail d'un exercice qui porte du volume) : une
+    // randonnée, un vélo ou un tapis seul ne comptent ni en heures ni en jours ; une séance mixte compte en entier.
     var SALLE_DUREE_MAX_MS = 5 * 3600000;
     function tempsALaSalle(c, de, a) {
       var jours = {}, ms = 0;
+      var index = (c.catalogue && c.catalogue()) || {};
       (c.seances || []).forEach(function (s) {
         if (!s || !s.id || !s.debut || s.statut === 'en_cours') return;
         var jour = Moteur.jourCivil(s.debut);
         if (!jour || (de && jour < de) || (a && jour > a)) return;
+        if (!Semaine.estSeanceDeMusculation(c.seriesDe ? c.seriesDe(s.id) : [], index)) return;
         jours[jour] = true;
         var t0 = Date.parse(s.debut), t1 = s.fin ? Date.parse(s.fin) : NaN;
         if (isFinite(t0) && isFinite(t1) && t1 > t0 && t1 - t0 <= SALLE_DUREE_MAX_MS) ms += t1 - t0;

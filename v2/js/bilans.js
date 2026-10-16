@@ -246,11 +246,16 @@
     var seriesIci = [];
     ici.forEach(function (s) { (s.series || []).forEach(function (x) { if (x) seriesIci.push(x); }); });
     var travailIci = travail.filter(function (t) { return t.jour >= periode.debut; });
+    // 119 (audit du 16/10/2026, F4) — LES SÉRIES DE MUSCULATION (`Semaine.estSerieDeMusculation`, la règle du volume) :
+    // une période de seules sorties (randonnée, vélo, tapis) est VIDE, et ses semaines ne comptent pas pour la
+    // comparaison — sinon une story « 0 t soulevées » s'annonçait pour un mois de randonnées.
+    var muscu = travail.filter(function (t) { return Se().estSerieDeMusculation(t.serie, index[t.serie.exercise_slug]); });
+    var muscuIci = muscu.filter(function (t) { return t.jour >= periode.debut; });
 
-    var cmp = comparaisonDe(periode, travail);
+    var cmp = comparaisonDe(periode, muscu);
     var sortie = { periode: periode, versus: { mode: cmp.mode, moisDeDonnees: cmp.moisDeDonnees, semainesDeDonnees: cmp.semainesDeDonnees,
                                                libelle: cmp.libelle || null },
-                   vide: !travailIci.length };
+                   vide: !muscuIci.length };
 
     // Les tonnes, et l'équivalence.
     var kg = Bi().volumeKg(seriesIci);

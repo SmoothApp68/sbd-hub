@@ -363,17 +363,30 @@
     (exercices || []).forEach(function (e) { if (e && e.slug) cat[e.slug] = e; });
     var n = 0;
     (series || []).forEach(function (s) {
-      if (!racine.THModele.estTravail(s)) return;
-      // ⚠️ ON NE RETRANCHE QUE CE QU'ON CONNAÎT. Un exercice absent du catalogue
-      // — cache pas encore chargé, slug inconnu — n'est pas un exercice sans
-      // muscle : c'est un exercice dont on ne sait rien. L'écarter ferait
-      // afficher « 0 série de travail » au premier démarrage, ce qui serait faux
-      // d'une autre manière.
-      var exo = cat[s.exercise_slug];
-      if (exo && !porteDuVolume(exo)) return;
-      n++;
+      if (estSerieDeMusculation(s, cat[s && s.exercise_slug])) n++;
     });
     return n;
+  }
+
+  // ⚠️ UNE SÉRIE DE MUSCULATION — LA RÈGLE QUE `compteSeriesTravail` COMPTE, NOMMÉE (119, audit du 16/10/2026).
+  // Une série de travail (`THModele.estTravail`) d'un exercice qui porte du volume (`porteDuVolume`). Le tapis, la
+  // randonnée, le vélo n'en sont pas ; la planche et le gainage, si (CADRAGE §2 ter). `exo` : la fiche du catalogue.
+  //
+  // ⚠️ ON NE RETRANCHE QUE CE QU'ON CONNAÎT. Un exercice absent du catalogue — cache pas encore chargé, slug inconnu —
+  // n'est pas un exercice sans muscle : c'est un exercice dont on ne sait rien. L'écarter ferait afficher « 0 série de
+  // travail » au premier démarrage, ce qui serait faux d'une autre manière.
+  function estSerieDeMusculation(serie, exo) {
+    if (!racine.THModele.estTravail(serie)) return false;
+    return !(exo && !porteDuVolume(exo));
+  }
+
+  // UNE SÉANCE DE MUSCULATION (119, audit du 16/10/2026, BILANS-V1 « à la salle ») : au moins une série de
+  // musculation (`estSerieDeMusculation`). Une randonnée, un vélo, un tapis seul n'en sont pas ; une séance mixte
+  // (« Rando avec Léa + Pull ») en est une (CADRAGE §2 ter). Une séance sans série en cache n'en est pas une : on ne
+  // dit pas ce qu'on ne sait pas. `index` : le catalogue indexé par slug (`THModele.indexerExercices`).
+  function estSeanceDeMusculation(series, index) {
+    var cat = index || {};
+    return (series || []).some(function (s) { return !!s && estSerieDeMusculation(s, cat[s.exercise_slug]); });
   }
 
   function bilanSemaine(seances, series, exercices) {
@@ -406,6 +419,8 @@
     POIDS_DES_MUSCLES: POIDS_DES_MUSCLES,
     musclesPonderes: musclesPonderes,
     compteSeriesTravail: compteSeriesTravail,
+    estSerieDeMusculation: estSerieDeMusculation,
+    estSeanceDeMusculation: estSeanceDeMusculation,
     bilanSemaine: bilanSemaine
   };
 

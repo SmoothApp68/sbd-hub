@@ -1208,7 +1208,20 @@ const NOTIONS = [
     module: 'faits.js', fonction: 'tempsALaSalle', lecteurs: [],
     par: ['entreeDuBilan'],
     raison: 'BILANS-V1 (décision du 15/10/2026) : un fait de la période, jamais comparé ; une seule règle de compte, ' +
-      'celle que l’entrée de tous les bilans (année, saison, mois) passe au moteur.' },
+      'celle que l’entrée de tous les bilans (année, saison, mois) passe au moteur. 119 : seulement les séances de ' +
+      'musculation (`Semaine.estSeanceDeMusculation`).' },
+  // ── 119 — LES MESURES EN DURÉE ET EN DISTANCE (audit du 16/10/2026) ──
+  { notion: 'la série de musculation (une série de travail d’un exercice qui porte du volume ; inconnu : comptée)', pr: '119-U1',
+    module: 'semaine.js', fonction: 'estSerieDeMusculation', lecteurs: ['bilans.js'],
+    par: ['compteSeriesTravail', 'estSeanceDeMusculation'],
+    parAilleurs: { 'bilans.js': ['bilanDeLaPeriode'] },
+    raison: 'BILANS-V1 (16/10/2026) : la règle que `compteSeriesTravail` comptait sans la nommer ; une période de seules ' +
+      'sorties est vide (F4) par la même règle que le compte des séries de travail.' },
+  { notion: 'la séance de musculation (au moins une série de musculation : ni une randonnée, ni un tapis seul)', pr: '119-U1',
+    module: 'semaine.js', fonction: 'estSeanceDeMusculation', lecteurs: ['faits.js'],
+    parAilleurs: { 'faits.js': ['tempsALaSalle'] },
+    raison: 'BILANS-V1 (décision du 15/10 complétée le 16/10/2026) : « à la salle » (heures et jours) ne compte que les ' +
+      'séances de musculation ; CADRAGE §2 ter : une séance mixte en est une.' },
   // ── 98 — LA SAISON ET LE MOIS (BILANS-V1, décisions du 14-15/10/2026) ──
   { notion: 'le nom d’une saison (Winter Arc pour tous ; les autres selon la phase au début de la saison)', pr: '98-U1',
     module: 'bilans.js', fonction: 'nomDeSaison', lecteurs: ['app.js'],

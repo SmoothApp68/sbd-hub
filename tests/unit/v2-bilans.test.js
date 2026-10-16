@@ -325,3 +325,47 @@ describe('119 — F1/F3 : l’exercice du mois, de la saison, de l’année se m
     expect(bilan119(oct, ANNEE).exercices.map((x) => x.slug)).toEqual(['developpe_couche_barre', 'tractions', 'squat_barre']);
   });
 });
+
+// Aurélien, 16/10 : « 22 h sur 22 jours ça paraît peu » — et une randonnée de 5 h comptait « à la salle ».
+describe('119 — F2 : « à la salle », seulement les séances de musculation', () => {
+  const idx = Modele.indexerExercices(CAT_119);
+  const S = (id, debut, heures, series) => ({ seance: { id, debut, fin: new Date(Date.parse(debut) + heures * 3600000).toISOString(),
+    statut: 'terminee' }, series: series.map((x, i) => Object.assign({ id: id + i, session_id: id, exercise_slug: x[0],
+    type_serie: 'travail', rang: i + 1, charge_kg: null, reps: null }, x[1])) });
+  const lot = [
+    S('muscu', '2026-10-01T17:00:00Z', 1.5, [['squat_barre', { charge_kg: 100, reps: 5 }]]),
+    S('rando', '2026-10-04T08:00:00Z', 4.5, [['randonnee', { duree_s: 16200, distance_m: 14000 }]]),     // une sortie
+    S('tapis', '2026-10-05T17:00:00Z', 0.5, [['tapis_roulant', { duree_s: 1800, distance_m: 4000 }]]),   // cardio seul
+    S('mixte', '2026-10-11T08:00:00Z', 3, [['randonnee', { duree_s: 7200 }], ['tractions', { reps: 8 }]]), // mixte
+    S('gainage', '2026-10-12T17:00:00Z', 0.5, [['planche', { duree_s: 60 }]]),                         // muscu sans charge
+    S('chauffes', '2026-10-13T17:00:00Z', 0.5, [['squat_barre', { charge_kg: 60, reps: 5, type_serie: 'echauffement' }]]),
+    S('vide', '2026-10-14T17:00:00Z', 1, [])                                                           // rien en cache
+  ];
+  const c = { seances: lot.map((x) => x.seance), seriesDe: (id) => (lot.find((x) => x.seance.id === id) || { series: [] }).series,
+              catalogue: () => idx };
+  test('ni la randonnée, ni le tapis seul, ni une séance de chauffes ou sans série ; la séance mixte et le gainage, oui', () => {
+    expect(Faits.creer().tempsALaSalle(c, '2026-10-01', '2026-10-31')).toEqual({ jours: 3, minutes: 90 + 180 + 30 });
+  });
+  test('la règle est nommée : une série de travail d’un exercice qui porte du volume (inconnu : compté)', () => {
+    const Se = global.THSemaine;
+    expect(Se.estSeanceDeMusculation(lot[1].series, idx)).toBe(false);
+    expect(Se.estSeanceDeMusculation(lot[3].series, idx)).toBe(true);
+    expect(Se.estSerieDeMusculation({ exercise_slug: 'inconnu', type_serie: 'travail' }, undefined)).toBe(true);
+    expect(Se.compteSeriesTravail(lot[3].series, CAT_119)).toBe(1);
+  });
+});
+
+describe('119 — F4 : un mois de seules sorties est vide', () => {
+  const rando = (j) => seance119(j, [['randonnee', null, null, { duree_s: 14400, distance_m: 12000 }]]);
+  test('août en randonnées : vide (pas de story « 0 t »), et ses semaines n’ouvrent aucune comparaison', () => {
+    const aout = Bilans.periodeDuMois('2026-08');
+    const b = bilan119([seance('2026-07-02', [['squat_barre', 100, 5]]), rando('2026-08-02'), rando('2026-08-09'),
+      rando('2026-08-16'), rando('2026-08-23')], aout);
+    expect(b.vide).toBe(true);
+    expect(b.versus.mode).toBe('aucune');
+  });
+  test('une séance de gainage suffit : le mois n’est pas vide', () => {
+    expect(bilan119([seance119('2026-08-05', [['planche', null, null, { duree_s: 60 }]])], Bilans.periodeDuMois('2026-08')).vide)
+      .toBe(false);
+  });
+});

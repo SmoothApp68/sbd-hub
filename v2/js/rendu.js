@@ -2755,6 +2755,16 @@
   function propositionDeSchema(carte, iExo, vue) {
     // MOTEUR §14.7 (49-U17) — la carte de la SÉRIE DE PLUS : « Ajouter une
     // série » / « Non merci », la même réponse (`vue.surSchema`).
+    // MOTEUR §14 (111) — la carte de la DÉGRESSIVE PROPOSÉE : la même carte et
+    // le même geste que la série de plus, « Ajouter une dégressive » / « Non merci ».
+    if (carte.type === 'degressive') {
+      return propositionDExercice({
+        classe: 'proposition-degressive-proposee', texte: carte.phrase, detail: carte.detail,
+        oui: carte.oui, non: carte.non, classeOui: 'pdp-oui', classeNon: 'pdp-non',
+        surOui: function () { vue.surSchema(iExo, 'acceptee'); },
+        surNon: function () { vue.surSchema(iExo, 'refusee'); }
+      }, iExo);
+    }
     if (carte.type === 'serie_de_plus') {
       return propositionDExercice({
         classe: 'proposition-serie', texte: carte.phrase, detail: carte.detail,

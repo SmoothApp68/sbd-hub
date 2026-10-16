@@ -995,7 +995,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    la carte de schéma. */
 .proposition-exercice{margin:6px 0 4px;padding:8px 10px;border:1px dashed var(--trait);border-radius:8px}
 .proposition-exercice .pc-texte{color:var(--texte-2);font-size:13.5px;line-height:1.35}
-.proposition-schema .pc-texte,.proposition-serie .pc-texte{color:var(--texte);font-weight:600}
+.proposition-schema .pc-texte,.proposition-serie .pc-texte,.proposition-degressive-proposee .pc-texte{color:var(--texte);font-weight:600}
 .proposition-exercice .pc-detail{margin-top:4px;color:var(--texte-2);font-size:13px;line-height:1.4}
 .proposition-exercice .pc-gestes{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .proposition-exercice button{min-height:36px;padding:0 12px;border-radius:var(--r-bouton);font:inherit;font-size:13.5px}

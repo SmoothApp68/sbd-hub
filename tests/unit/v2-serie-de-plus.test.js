@@ -130,7 +130,11 @@ const C = { etat: 'progression', zone: 'volume', palier: 27, niveau: 12, n: 3,
   ligne: { charge: 27, vise: 12 }, haut: { charge: 29, vise: 12, k: 1 }, fondement: {} };
 const MEILLEUR = { palier: 27, niveau: 12 };
 const PLACE = { pectoraux: { place: true, moyenne: 8, seuil: 10, fenetres: 12 } };
-const CAT = { pecs: { equipement: 'machine', muscles_primaires: ['pectoraux'] } };
+// 111 — un POLYARTICULAIRE (au moins 3 muscles) : la dégressive proposée (MOTEUR §14) ne vaut que pour une
+// isolation ; ici l'escalier reste celui de §14.5 (le repli au 2e déclenchement). L'isolation :
+// `v2-degressive-proposee.test.js`.
+const CAT = { pecs: { equipement: 'machine', muscles_primaires: ['pectoraux'],
+  muscles_secondaires: ['triceps', 'deltoide_anterieur'] } };
 function decor(o) {
   const opt = o || {};
   let n = 0;

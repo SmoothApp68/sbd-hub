@@ -3402,6 +3402,8 @@
     await ecrireReplis();
     // §14.7 (49-U17) — une série de plus en cours : la ligne en plus.
     await appliquerSerieDePlus();
+    // §14 (111) — une dégressive proposée en cours : la ligne dégressive.
+    await appliquerDegressive();
     // 91 — une séance commencée pour rejoindre un groupe : « Suivre la séance de X », puis on rejoint.
     await apresCreationPourLeGroupe();
   }
@@ -4748,7 +4750,7 @@
     if (!seance || !consignes || rejeuEnCours) return;
     consignesSauvees = { seanceId: seance.id, cle: consignes.cle, parSlug: consignes.parSlug,
                          phase: phaseDeLaSeance(), objectif: objectifDeLaSeance(),
-                         priorites: prioritesDeLaSeance() };
+                         priorites: prioritesDeLaSeance(), debutant: debutantDeLaSeance() };
     Cache.ecrireBrouillon(CLE_CONSIGNES, consignesSauvees)
       .catch(function (e) { console.warn('Consignes non sauvées :', texteErreur(e)); });
   }
@@ -4758,6 +4760,7 @@
     phaseGelee = null;
     objectifGele = null;
     prioritesGelees = null;
+    debutantGele = null;
     await Cache.ecrireBrouillon(CLE_CONSIGNES, null).catch(function () {});
   }
 
@@ -4782,6 +4785,10 @@
   // coché autre chose dans Profil en pleine séance (I12 : le mémo du plan ne voit
   // pas le profil).
   var prioritesGelees = null;   // { seanceId, priorites }
+  // MOTEUR §14 (111) — LE DÉBUTANT, gelé de la même façon, au même moment : la
+  // dégressive proposée ne lui est jamais faite ; une carte ne doit ni apparaître
+  // ni disparaître parce qu'on a changé son ancienneté en pleine séance.
+  var debutantGele = null;   // { seanceId, debutant }
 
   // MOTEUR §14.6 (49-U16) — LA RÈGLE DE VOLUME, UNE FOIS PAR SÉANCE, à côté
   // de la phase : le volume de chaque semaine par muscle sur TOUT l'historique
@@ -4852,6 +4859,16 @@
       ? consignesSauvees.priorites : undefined;
     prioritesGelees = Profil.prioritesGelees(prioritesGelees, seance.id, sauvee, profil);
     return prioritesGelees.priorites;
+  }
+
+  // `undefined` à la relecture (gelée avant 111) : le profil d'aujourd'hui.
+  function debutantDeLaSeance() {
+    if (!seance) return false;
+    if (debutantGele && debutantGele.seanceId === seance.id) return debutantGele.debutant;
+    var sauve = consignesSauvees && consignesSauvees.seanceId === seance.id &&
+      typeof consignesSauvees.debutant === 'boolean' ? consignesSauvees.debutant : null;
+    debutantGele = { seanceId: seance.id, debutant: sauve !== null ? sauve : Profil.estDebutant(profil) };
+    return debutantGele.debutant;
   }
 
   // §12.9 (49-U13) — « sous consigne », dans l'app : une séance qui porte au
@@ -4954,6 +4971,12 @@
 
   // Les séries de travail d'un exercice dans la séance ouverte : à l'ouverture,
   // celles de la routine (ou du pré-remplissage). Figées avec la consigne.
+  function aUneLigneDegressive(slug) {
+    return ((seance && seance.exercices) || []).some(function (x) {
+      return x && x.exercise_slug === slug && (x.series || []).some(function (s) { return s && s.type_serie === 'degressive'; });
+    });
+  }
+
   function nombreDeSeriesDeTravail(slug) {
     var exo = ((seance && seance.exercices) || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
     return exo ? (exo.series || []).filter(function (s) { return Modele.estTravail(s); }).length : 0;
@@ -5028,6 +5051,10 @@
       // consigne : la semaine allégée en couvre 60 %, et « + Série » ne change
       // pas ce compte en cours de séance.
       if (calculee) calculee.seriesRoutine = seriesFigees !== undefined ? seriesFigees : routineAFiger(slug);
+      // §14 (111) — la ligne dégressive de la routine (ou de la saisie), FIGÉE
+      // avec la consigne : « Ajouter une dégressive » n'en fait pas une ligne
+      // de la routine en pleine séance.
+      if (calculee) calculee.degressiveRoutine = aUneLigneDegressive(slug);
       consignes.parSlug[slug] = calculee;
       versionConsignes++;
       sauverConsignes();
@@ -5650,6 +5677,10 @@
                             // §9.20 — le nom, pour la carte de reprise.
                             nom: f.nom || slug,
                             muscles_primaires: (f.muscles_primaires || []).slice(),
+                            // §14 (111) — la classe de l'exercice (`estPolyarticulaire`,
+                            // lue par le plan) : la dégressive proposée, en isolation seulement.
+                            muscles_secondaires: (f.muscles_secondaires || []).slice(),
+                            muscles_stabilisateurs: (f.muscles_stabilisateurs || []).slice(),
                             // §9.17 — la mesure (le plan la porte, I13/I28 la lisent) et
                             // la version lestée (la carte du lest ne promet que ce qu'elle livre).
                             mesure: gc.inconnue ? null : gc.mesure,
@@ -5688,6 +5719,8 @@
       objectif: objectifDeLaSeance(),
       // MOTEUR §14.6 (60-2b) — les priorités GELÉES, avec la phase.
       priorites: prioritesDeLaSeance(),
+      // MOTEUR §14 (111) — le débutant GELÉ, avec la phase.
+      debutant: debutantDeLaSeance(),
       // MOTEUR §14.6 (49-U16) — la règle de volume, gelée pour la séance.
       volume: volumeDeDemo(volumeDeLaSeance(), catalogue),
       catalogue: catalogue,
@@ -5744,6 +5777,35 @@
   var demoReponse = null;   // la carte « répondue » de la démonstration, en mémoire
   var demoMarches = [];     // les schémas « répondus » de la démonstration, en mémoire
   var demoSerieDePlus = null;   // l'exercice de la série de plus de la démonstration
+  // MOTEUR §14 (111) — `?escalier=degressive` : LA DÉGRESSIVE PROPOSÉE SUR LA
+  // PRÉVISUALISATION. Le premier exercice d'ISOLATION de la séance qui a une
+  // consigne (zone muscle, chargé) cale depuis 8 séances — le 2e déclenchement
+  // isolé — et une série de plus « refusée » est inventée pour lui à ce
+  // déclenchement : la carte de la dégressive. Les réponses restent EN MÉMOIRE
+  // (`demoMarches`) : AUCUN pari ne s'écrit. « Ajouter une dégressive » pose la
+  // ligne, que le coach remplit. On abandonne la séance ensuite.
+  var demoDegressive = null;
+  function degressiveDeDemo(cs, copie, avecConsigne, compteurDe) {
+    demoDegressive = null;
+    var ix = catalogueIndexe();
+    var cible = avecConsigne.filter(function (s) {
+      var f = ix[s];
+      var k = cs[s].consigne;
+      var l = k.ligne || k.haut;
+      return f && l && typeof l.charge === 'number' && l.charge > 0 &&
+        !Moteur.estPolyarticulaire({ prim: f.muscles_primaires || [], sec: f.muscles_secondaires || [],
+                                     stab: f.muscles_stabilisateurs || [] });
+    })[0];
+    if (!cible) return copie;
+    var kc = cs[cible].consigne;
+    var l = kc.ligne || kc.haut;
+    var zc = kc.zone === 'lourd' || kc.zone === 'mix' || !kc.zone ? 'volume' : kc.zone;
+    copie[cible] = Object.assign({}, cs[cible], { consigne: Object.assign({}, kc, { zone: zc }),
+      compteur: compteurDe(cible, 8, (cs[cible].compteur && cs[cible].compteur.meilleur) ||
+        { palier: l.charge, niveau: typeof l.vise === 'number' ? l.vise : 10 }) });
+    demoDegressive = cible;
+    return copie;
+  }
   // La place inventée de la démonstration : les muscles primaires de cet
   // exercice ont de la place (une copie de l'entrée, jamais le gel).
   function volumeDeDemo(volume, catalogue) {
@@ -5762,7 +5824,7 @@
     if (!garde || !garde.active || rejeuEnCours) return null;
     var s = null;
     try { s = racine.sessionStorage; } catch (e) { s = null; }
-    var m = /[?&]escalier=(demo|isole|lest|0)(?:&|$)/.exec(String((racine.location && racine.location.search) || ''));
+    var m = /[?&]escalier=(demo|isole|lest|degressive|0)(?:&|$)/.exec(String((racine.location && racine.location.search) || ''));
     if (m) {
       try { if (s) s.setItem(CLE_DEMO_ESCALIER, m[1]); } catch (e) { /* fermé */ }
       return m[1] === '0' ? null : m[1];
@@ -5770,7 +5832,7 @@
     var v = null;
     try { v = s ? s.getItem(CLE_DEMO_ESCALIER) : null; } catch (e) { v = null; }
     // `1` : la valeur d'avant 49-U15, pour `demo`.
-    return v === 'demo' || v === '1' ? 'demo' : (v === 'isole' || v === 'lest' ? v : null);
+    return v === 'demo' || v === '1' ? 'demo' : (v === 'isole' || v === 'lest' || v === 'degressive' ? v : null);
   }
   function demoEscalier() { return !!demoModeEscalier(); }
   // MOTEUR §9.17 (50-1) — `?escalier=lest` : LA CARTE DU LEST SUR LA
@@ -5819,6 +5881,7 @@
       return Object.assign({ meilleur: null, derniere: null, blocages: [] }, cs[slug].compteur || {},
         { compteur: n }, meilleur ? { meilleur: meilleur } : {});
     };
+    if (demoModeEscalier() === 'degressive') return degressiveDeDemo(cs, copie, avecConsigne, compteurDe);
     if (demoModeEscalier() !== 'isole') {
       var premier = avecConsigne[0];
       if (premier) copie[premier] = Object.assign({}, cs[premier], { compteur: compteurDe(premier, 4) });
@@ -5877,7 +5940,7 @@
   }
 
   function escalierDesEntrees(cs) {
-    var noms = {}, seriesRoutine = {};
+    var noms = {}, seriesRoutine = {}, degressivesRoutine = {};
     var index = catalogueIndexe();
     Object.keys(index).forEach(function (s) { if (index[s] && index[s].nom) noms[s] = index[s].nom; });
     Object.keys(cs).forEach(function (s) {
@@ -5886,13 +5949,20 @@
       // d'aujourd'hui.
       seriesRoutine[s] = c && typeof c.seriesRoutine === 'number' && c.seriesRoutine > 0
         ? c.seriesRoutine : nombreDeSeriesDeTravail(s);
+      // §14 (111) — figée avec la consigne ; une consigne figée avant 111 : la séance d'aujourd'hui.
+      degressivesRoutine[s] = c && typeof c.degressiveRoutine === 'boolean' ? c.degressiveRoutine : aUneLigneDegressive(s);
     });
     var connus = parisEscalierConnus();
     var cartes = Moteur.cartesDesParis(connus);
     var compteurs = compteursDesParis();
     // §14.5 (49-U15) — les marches isolées déjà écrites (schéma, repli).
     var marches = Moteur.marchesDesParis(connus);
-    if (demoModeEscalier() === 'isole' && seance) marches = marches.concat(demoMarches);
+    if ((demoModeEscalier() === 'isole' || demoModeEscalier() === 'degressive') && seance) marches = marches.concat(demoMarches);
+    // §14 (111) — la série de plus « refusée » de la démonstration, au même déclenchement.
+    if (demoModeEscalier() === 'degressive' && seance && demoDegressive) {
+      marches = marches.concat([{ id: null, seance: 'demo', jour: Moteur.jourCivil(seance.debut), exercice: demoDegressive,
+        marche: Moteur.MARCHE_SERIE_DE_PLUS, reponse: 'refusee', compteur: 4, debut: seance.debut, n: null }]);
+    }
     if (demoModeEscalier() === 'demo' && seance) {
       var jour = Moteur.jourCivil(seance.debut);
       noms['demo-a'] = 'Exercice témoin A';
@@ -5903,7 +5973,8 @@
       if (demoReponse) cartes = cartes.concat([demoReponse]);
     }
     return { cartes: cartes, compteurs: compteurs, noms: noms, seriesRoutine: seriesRoutine, marches: marches,
-             carteSuspendue: demoModeEscalier() === 'isole' };
+             degressivesRoutine: degressivesRoutine,
+             carteSuspendue: demoModeEscalier() === 'isole' || demoModeEscalier() === 'degressive' };
   }
 
   function planActuel() {
@@ -6402,6 +6473,9 @@
     var acceptee = reponse === 'acceptee';
     var marche = m.marche;
     var plus = marche === Moteur.MARCHE_SERIE_DE_PLUS;
+    // §14 (111) — LA DÉGRESSIVE PROPOSÉE : la même réponse ; son pari porte le
+    // début de la séance ; acceptée, la ligne dégressive (§9.15.3 la remplit).
+    var deg = marche === Moteur.MARCHE_DEGRESSIVE;
     var nRoutine = nombreDeSeriesRoutine(x.slug);
     try {
       if (demoEscalier()) {
@@ -6413,14 +6487,16 @@
       } else {
         var id = await Moteur.idDEscalier(seance.id, x.slug, marche);
         await ecrirePariDeMarche(pariDeMarche(id, x, marche, acceptee ? 'acceptee' : 'refusee', p,
-          plus ? { n_routine: nRoutine, debut: seance.debut } : { nouvelle_zone: m.carte.nouvelle_zone }));
-        if (acceptee && !plus) await poserZone(x.slug, m.carte.nouvelle_zone);
+          plus ? { n_routine: nRoutine, debut: seance.debut }
+            : deg ? { debut: seance.debut } : { nouvelle_zone: m.carte.nouvelle_zone }));
+        if (acceptee && !plus && !deg) await poserZone(x.slug, m.carte.nouvelle_zone);
       }
     } finally {
       reponseEnCours = false;
     }
     if (seance) rendreSeance();
     if (seance && acceptee && plus) await appliquerSerieDePlus();
+    if (seance && acceptee && deg) await appliquerDegressive();
   }
 
   // ── MOTEUR §9.17 (50-1) — LA CARTE DU LEST : LA RÉPONSE ──────────────────
@@ -6512,8 +6588,14 @@
   async function ligneDePlusPourAjout(avantExos, slug) {
     if (!seance || enEdition()) return;
     var i = exerciceAjoute(avantExos, slug);
-    if (i < 0 || Plan.lignesAAjouter(planActuel()).indexOf(i) < 0) return;
-    seance = Seance.ajouterSerie(seance, i, uuid());
+    if (i < 0) return;
+    var plan = planActuel();
+    var plus = Plan.lignesAAjouter(plan).indexOf(i) >= 0;
+    // §14 (111) — sa dégressive proposée en cours, de même.
+    var deg = Plan.degressivesAAjouter(plan).indexOf(i) >= 0;
+    if (!plus && !deg) return;
+    if (plus) seance = Seance.ajouterSerie(seance, i, uuid());
+    if (deg) seance = Seance.ajouterDegressive(seance, i, uuid());
     await apresGeste();
   }
 
@@ -6545,6 +6627,17 @@
     var aAjouter = Plan.lignesAAjouter(planActuel());
     if (!aAjouter.length) return;
     aAjouter.forEach(function (iExo) { seance = Seance.ajouterSerie(seance, iExo, uuid()); });
+    await apresGeste();
+  }
+
+  // §14 (111) — LA LIGNE DÉGRESSIVE, une fois : à l'acceptation, et à la
+  // création d'une séance pendant que la dégressive proposée est en cours.
+  // Jamais au rendu : une ligne retirée par la personne ne revient pas.
+  async function appliquerDegressive() {
+    if (!seance || enEdition()) return;
+    var aAjouter = Plan.degressivesAAjouter(planActuel());
+    if (!aAjouter.length) return;
+    aAjouter.forEach(function (iExo) { seance = Seance.ajouterDegressive(seance, iExo, uuid()); });
     await apresGeste();
   }
 
@@ -11909,7 +12002,7 @@
     return {
       jour: jour,
       // Le niveau du questionnaire : « Moins d'un an » = débutant (la règle du générateur, 60-6).
-      debutant: p.anciennete === 'moins_1_an',
+      debutant: Profil.estDebutant(p),
       dureeMax_s: Number(p.duree_seance_min) > 0 ? Number(p.duree_seance_min) * 60 : null,
       routines: Routines.visibles(routines), catalogue: catalogueIndexe(),
       seances: fait.seances, volume: fait.volume, etat: lireLaSemaine()

@@ -127,6 +127,11 @@ const GARDEES = [
   { fn: 'periodesSerieDePlus', module: 'moteur.js' },
   { fn: 'carteSerieDePlus', module: 'moteur.js' },
   { fn: 'consigneSerieDePlus', module: 'moteur.js' },
+  // moteur.js — l'escalier, la dégressive proposée (§14, 111)
+  { fn: 'degressivePossible', module: 'moteur.js' },
+  { fn: 'degressiveProposee', module: 'moteur.js' },
+  { fn: 'degressiveActive', module: 'moteur.js' },
+  { fn: 'carteDegressive', module: 'moteur.js' },
   // seance.js — le fantôme, la couverture, les lignes figées, les paris
   { fn: 'fantome', module: 'seance.js',
     motif: /(?:\bSeance|\bS|\bSeance\(\)|\bS\(\)|racine\.THSeance)\s*\.\s*fantome\b/g },
@@ -608,13 +613,21 @@ const NOTIONS = [
     raison: 'une routine NEUVE que `enregistrer` crée comme les autres (rang suivant, annulation) ; ' +
       'aucun identifiant partagé : l’originale ne peut pas être touchée.' },
   { notion: 'un polyarticulaire (au moins 3 muscles) : le raccourci et les repos par défaut', pr: '52-U1',
-    module: 'moteur.js', fonction: 'estPolyarticulaire', lecteurs: ['routines.js', 'generateur.js', 'profil.js'],
+    module: 'moteur.js', fonction: 'estPolyarticulaire', lecteurs: ['routines.js', 'generateur.js', 'profil.js', 'plan.js', 'app.js'],
     par: ['raccourcirRoutine'],
-    parAilleurs: { 'routines.js': ['routineDepuisSeance'], 'generateur.js': ['relecture'], 'profil.js': ['avecIsolation'] },
+    parAilleurs: { 'routines.js': ['routineDepuisSeance'], 'generateur.js': ['relecture'], 'profil.js': ['avecIsolation'],
+                   'plan.js': ['polyarticulaireDe'], 'app.js': ['degressiveDeDemo'] },
     raison: 'les repos par défaut d’« En faire une routine » sont les classes de « J’ai peu de temps » : ' +
       'une définition, lue aux deux endroits. 66A : la relecture de la semaine (§5 ter.4) la lit aussi — l’isolation ' +
       'avant la barre, et les séries que la sèche peut retirer (jamais un polyarticulaire). 108 (MOTEUR §10 bis, ' +
-      '16/10/2026) : la salle d’un exercice d’isolation, dont la fourchette s’étend à 15 reps à la plus lourde.' },
+      '16/10/2026) : la salle d’un exercice d’isolation, dont la fourchette s’étend à 15 reps à la plus lourde. 111 : la dégressive ' +
+      'proposée (MOTEUR §14), en isolation seulement — le plan la lit (`polyarticulaireDe`), et la démonstration ' +
+      '`?escalier=degressive` de l’app y choisit son exercice (`degressiveDeDemo`).' },
+  { notion: 'le débutant (« Moins d’un an » d’ancienneté)', pr: '111-U1',
+    module: 'profil.js', fonction: 'estDebutant', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['entreeDeLaSemaine', 'debutantDeLaSeance'] },
+    raison: 'la semaine qui déraille et la dégressive proposée (MOTEUR §14, jamais pour un débutant) lisent la même ' +
+      'règle ; le générateur garde la sienne (60-6), à rapatrier.' },
   { notion: 'les écarts d’une séance avec une routine (§6.3, et « Mettre à jour » depuis une séance)', pr: '52-U1',
     module: 'seance.js', fonction: 'ecartsRoutine', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreFeuilleFin', 'apercuMiseAJour'] },

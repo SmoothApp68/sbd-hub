@@ -287,6 +287,14 @@
     return phaseDe(profil);
   }
 
+  // LE DÉBUTANT : « Moins d'un an » d'ancienneté régulière (la règle du
+  // générateur, 60-6) ; absente ou inconnue : pas débutant. Lu par la semaine
+  // qui déraille et par la dégressive proposée (MOTEUR §14, 111).
+  var ANCIENNETE_DEBUTANT = 'moins_1_an';
+  function estDebutant(profil) {
+    return !!profil && profil.anciennete === ANCIENNETE_DEBUTANT;
+  }
+
   // « Depuis le 29 sept. » : la date de la dernière déclaration, au format de
   // la voix (`THModele.quand` sans référence : toujours la date, jamais
   // « mardi » — la ligne se relit des semaines plus tard).
@@ -1496,7 +1504,7 @@
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     PHASES: PHASES, RAPPEL_PHASE_JOURS: RAPPEL_PHASE_JOURS,
     rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, LIBELLE_PHASE_VIDE: LIBELLE_PHASE_VIDE,
-    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
+    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, estDebutant: estDebutant, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
     objectifDe: objectifDe, objectifGele: objectifGele,
     prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,

@@ -181,6 +181,14 @@ Chaque gabarit est plus confortable que le précédent : une colonne de moins à
 **Le type de mesure est rappelé sous le nom de l'exercice**, en petit. Sans ça, une ligne à
 deux colonnes au milieu de lignes à trois désoriente.
 
+*Précisé le 16/10/2026 (audit du 16/10, prompt 119)* — **un fil : une fonction d'affichage par mesure**
+(`THModele.affichageDeMesure`, `formatMesure` : `charge_reps`, `reps`, `temps`, `distance_temps`, et `charge_distance`,
+`charge_temps` que les colonnes d'une série peuvent porter). Hors de la grille, tout écran la lit : la colonne du
+détail de séance et de l'historique d'un exercice dit « Durée », « Durée · distance », « Reps » ou « Charge » selon la
+mesure du bloc (« Mesure » pour un superset de mesures différentes) — jamais « Charge » au-dessus d'une durée (E8) ;
+l'aperçu « En faire une routine » écrit une durée en durée (« 20 s », jamais « 0 min », E10) ; la médaille écrit
+« 3,2 km » et « 1 min 30 », comme le journal (E9) ; « rep » s'accorde une fois (`repsTexte`).
+
 #### 3 ter.2 L'effort suit la mesure — RIR ou RPE
 
 > **La colonne d'effort n'existe que là où il y a des répétitions** — `charge_reps` et

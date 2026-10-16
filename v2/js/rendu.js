@@ -156,7 +156,8 @@
 
     var entetes = el('div', 'entetes');
     entetes.appendChild(el('span', null, 'Série'));
-    entetes.appendChild(el('span', null, 'Charge'));
+    // 119 (E8) — l'en-tête suit la mesure du bloc (`Modele.construireBlocs` le pose) : « Durée » sur une planche.
+    entetes.appendChild(el('span', null, bloc.entete || 'Charge'));
     section.appendChild(entetes);
 
     bloc.series.forEach(function (s) {
@@ -3871,7 +3872,8 @@
     if (ch) parts.push(pluriel(ch, 'chauffe'));
     if (travail.length) {
       var memes = travail[0] !== null && travail.every(function (r) { return r === travail[0]; });
-      if (duree !== null && travail.length === 1) parts.push(Math.round(duree / 60) + ' min');
+      // 119 (audit du 16/10/2026, E10) — une durée s'écrit en durée (« 20 s », « 1 min 30 »), jamais « 0 min ».
+      if (duree !== null && travail.length === 1) parts.push(M().formatDuree(duree));
       else parts.push(memes ? travail.length + ' \u00d7 ' + travail[0] : pluriel(travail.length, 'série'));
     }
     if (deg) parts.push(pluriel(deg, 'dégressive'));

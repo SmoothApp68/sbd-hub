@@ -981,6 +981,22 @@
     return !!serie.source && serie.source !== 'app';
   }
 
+  // 119 (audit du 16/10/2026, E8) — L'EN-TÊTE DE LA COLONNE D'UN BLOC SUIT SA MESURE (`AFFICHAGE_DES_MESURES`) :
+  // « Charge » au-dessus d'une durée ou d'une distance contredisait son chiffre. La mesure de chaque exercice au
+  // catalogue ; un exercice inconnu, celle que ses séries portent (`mesureDesColonnes`). Un superset de mesures
+  // différentes (le couché et les dips) : « Mesure », qui ne ment sur aucune ligne.
+  function enteteDuBloc(bloc, index) {
+    var vues = {};
+    bloc.exercices.forEach(function (e) {
+      var fiche = index[e.slug];
+      if (fiche && affichageDeMesure(fiche.mesure)) { vues[fiche.mesure] = true; return; }
+      e.series.forEach(function (x) { var m = mesureDesColonnes(x); if (m) vues[m] = true; });
+    });
+    var m = Object.keys(vues);
+    if (m.length === 1) return AFFICHAGE_DES_MESURES[m[0]].entete;
+    return m.length ? 'Mesure' : 'Charge';
+  }
+
   function construireBlocs(series, exercices, options) {
     var o = options || {};
     var index = indexerExercices(exercices);
@@ -1103,6 +1119,7 @@
       var nResume = horsVolume ? bloc.nbTravail : bloc.nbTravailVolume;
       bloc.resume = (bloc.superset ? 'Superset · ' : '') +
         nResume + ' série' + (nResume > 1 ? 's' : '') + (horsVolume ? '' : ' de travail');
+      bloc.entete = enteteDuBloc(bloc, index);
     });
 
     return blocs;

@@ -21930,10 +21930,29 @@ const SETS_IMPORTES = [
     const c5 = await carteO();
     ok('[O109] la carte garde la date du pari de 155, figée — elle ne bouge pas avec la séance du 10 mars ; « Aujourd’hui : 150 kg × 1 »',
       !!c5 && c5.ligne === ligne155 && nbO(c5.aujourdhui) === nbO('Aujourd’hui : 150 kg × 1'), nbO([c5, ligne155]));
+    // Le mois de mars est la STORY du mois (98, BILANS-V1) : son écran « Le coach » compte les paris de CONSIGNE
+    // vérifiés en mars (`parisDeConsigneConnus`), jamais le pari d'objectif tenu. Attendu : autant de paris que de
+    // paris de consigne observés sur une séance de mars dans la base du banc — aucun, ici : pas d'écran « Le coach ».
     await aller('/progression/mois/2027-03');
-    const moisO = await page.evaluate(() => (document.getElementById('bilan-mois') || {}).textContent || '');
-    ok('[O109] le bilan de mars ne compte pas le pari d’objectif tenu : pas de « Paris vérifiés »',
-      /mars/i.test(moisO) && !/Paris vérifiés|paris vérifiés/.test(moisO), nbO(moisO.slice(0, 300)));
+    await page.waitForFunction(() => { const h = document.getElementById('annee'); return h && !h.hidden && h.dataset.ecran; },
+      null, { timeout: 15000 }).catch(() => {});
+    const debutsO = {};
+    base.sessions.forEach((x) => { if (x && x.id) debutsO[x.id] = x.debut; });
+    const attendusO = base.predictions.filter((x) => x.module === 'moteur.consigne' && x.valeur_observee !== null &&
+      x.valeur_observee !== undefined && /^2027-03/.test(String(debutsO[x.session_id || (x.fondement || {}).seance] || ''))).length;
+    const moisO = await page.evaluate(() => {
+      const h = document.getElementById('annee');
+      const c = h ? h.querySelector('.s[data-cle="coach"]') : null;
+      return { ouvert: !!h && !h.hidden, periode: h ? h.dataset.periode || null : null,
+        cles: h ? Array.from(h.querySelectorAll('.s')).map((x) => x.dataset.cle) : [],
+        coach: c ? ((c.querySelector('.chiffre small') || {}).textContent || '').replace(/\s+/g, ' ').trim() : null };
+    });
+    ok('[O109] la story de mars ne compte pas le pari d’objectif tenu : l’écran « Le coach » n’a que les paris de consigne (aucun ici : pas d’écran)',
+      moisO.ouvert && moisO.periode === '2027-03' && moisO.cles.indexOf('tonnes') >= 0 &&
+        (attendusO === 0 ? moisO.coach === null && moisO.cles.indexOf('coach') < 0 : moisO.coach === '/ ' + attendusO),
+      nbO([attendusO, moisO]));
+    await page.click('#annee .fermer').catch(() => {});
+    await attendre(500);
 
     // ── 6. RETIRER : la ligne part, les deux paris restent.
     await aller('/exercice/squat-o109');

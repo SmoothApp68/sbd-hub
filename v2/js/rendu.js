@@ -5448,6 +5448,92 @@
     return cible;
   }
 
+  // 108 (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies, maquette `maquette-salle-objectif-v1.html`, écran 1) — « MA
+  // SALLE ». Les barres fixes, EZ et droite : des puces cochées, « ＋ » pour un autre poids ; les haltères : « Jusqu'à »
+  // (le plus lourd, par haltère) et « De … en … ». La feuille ne décide rien : `vue` porte le brouillon et les gestes
+  // (`surBasculer(type, kg)`, `surAjouter(type, texte)`, `surMaxHalteres(texte)` sans redessin, `surPasHalteres(kg)`,
+  // `surValider`, `surEffacer`, `surAnnuler`) ; les puces viennent de `THProfil.pucesDeBarres`.
+  function rendreFeuilleSalle(cible, vue) {
+    var P = racine.THProfil, M = racine.THModele;
+    var b = vue.brouillon || { barres_ez: [], barres_droites: [], halteres: null };
+    vider(cible);
+    teteFeuille(cible, 'Ma salle', null, P.PHRASE_SALLE);
+    cible.appendChild(el('div', 'choix-groupe salle-titre', 'Barres fixes'));
+    cible.appendChild(el('p', 'feuille-aide', P.PHRASE_BARRES_FIXES));
+    [['barres_ez', 'Barre EZ'], ['barres_droites', 'Barre droite']].forEach(function (t) {
+      var type = t[0];
+      cible.appendChild(el('div', 'choix-groupe', t[1]));
+      var g = el('div', 'q-puces salle-puces');
+      g.dataset.type = type;
+      P.pucesDeBarres(b, type).forEach(function (p) {
+        var n = el('button', 'q-puce' + (p.coche ? ' on' : ''), M.nombreSigne(p.kg));
+        n.type = 'button';
+        n.dataset.kg = String(p.kg);
+        n.setAttribute('aria-pressed', p.coche ? 'true' : 'false');
+        n.addEventListener('click', function () { vue.surBasculer(type, p.kg); });
+        g.appendChild(n);
+      });
+      var plus = el('button', 'q-puce salle-plus', '＋');
+      plus.type = 'button';
+      plus.setAttribute('aria-label', 'Ajouter un poids de ' + t[1].toLowerCase());
+      g.appendChild(plus);
+      cible.appendChild(g);
+      // « ＋ » : un champ juste dessous, et « Ajouter ». Rien ne s'ajoute avant le geste.
+      plus.addEventListener('click', function () {
+        if (g.nextSibling && g.nextSibling.className === 'salle-ajout') return;
+        var ajout = el('div', 'salle-ajout');
+        var champ = doc.createElement('input');
+        champ.type = 'number';
+        champ.inputMode = 'decimal';
+        champ.step = '0.5';
+        champ.placeholder = 'kg';
+        champ.setAttribute('aria-label', 'Poids de la barre, en kg');
+        var ok = el('button', 'discret', 'Ajouter');
+        ok.type = 'button';
+        ok.addEventListener('click', function () { vue.surAjouter(type, champ.value); });
+        ajout.appendChild(champ);
+        ajout.appendChild(ok);
+        g.parentNode.insertBefore(ajout, g.nextSibling);
+        champ.focus();
+      });
+    });
+    cible.appendChild(el('div', 'choix-groupe salle-titre', 'Haltères'));
+    var h = b.halteres;
+    var ligneMax = el('label', 'champ-texte salle-halteres');
+    ligneMax.appendChild(el('span', '', 'Jusqu’à (par haltère, en kg)'));
+    var max = doc.createElement('input');
+    max.type = 'number';
+    max.inputMode = 'decimal';
+    max.step = '0.5';
+    max.placeholder = 'Non renseigné';
+    max.value = h && h.max !== null ? String(h.max) : '';
+    // ⚠️ SANS REDESSIN : la saisie met le brouillon à jour, la feuille ne se refait pas sous le doigt (un redessin
+    // au `blur` arrachait le champ pendant qu'on touchait une puce).
+    max.addEventListener('input', function () { vue.surMaxHalteres(max.value); });
+    ligneMax.appendChild(max);
+    cible.appendChild(ligneMax);
+    cible.appendChild(el('div', 'choix-groupe', 'De … en …'));
+    var pas = el('div', 'q-puces salle-pas');
+    P.SALLE_PAS_PROPOSES.forEach(function (v) {
+      var on = !!h && h.pas === v;
+      var n = el('button', 'q-puce' + (on ? ' on' : ''), M.nombreSigne(v) + ' kg');
+      n.type = 'button';
+      n.dataset.pas = String(v);
+      n.setAttribute('aria-pressed', on ? 'true' : 'false');
+      n.addEventListener('click', function () { vue.surPasHalteres(v); });
+      pas.appendChild(n);
+    });
+    cible.appendChild(pas);
+    cible.appendChild(el('p', 'feuille-err', vue.erreur || ''));
+    // « Effacer » seulement quand une salle est déjà déclarée : il écrit le vide (non renseignée).
+    piedFeuille(cible, [
+      vue.declaree && vue.surEffacer ? { classe: 'des', texte: 'Effacer', surClic: vue.surEffacer } : null,
+      { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler },
+      { classe: 'pri', texte: 'Valider', surClic: vue.surValider }
+    ]);
+    return cible;
+  }
+
   // 60-4 (ECRAN-PROFIL §4 bis, G10) — « Exercices écartés » : la liste, « Reprendre » sur chacun. Rien n'est caché
   // ni perdu : un exercice repris revient dans les programmes et en tête du catalogue. `vue` : `{ titre, aide,
   // exercices: [{ nom, surReprendre }], surFermer }`.
@@ -6996,6 +7082,7 @@
     rendreFeuilleSeancesQuiReviennent: rendreFeuilleSeancesQuiReviennent,
     rendreApercuProgramme: rendreApercuProgramme,
     rendreFeuilleEcartes: rendreFeuilleEcartes,
+    rendreFeuilleSalle: rendreFeuilleSalle,
     rendreFeuilleBlocEnCours: rendreFeuilleBlocEnCours,
     rendreFeuilleDupliquer: rendreFeuilleDupliquer,
     champDossier: champDossier,

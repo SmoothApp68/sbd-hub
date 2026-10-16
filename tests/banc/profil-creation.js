@@ -114,8 +114,27 @@ function neuveBase() {
     metadonnees: {},     // id → user_metadata
     motsDePasse: [],     // 70 — { sub, password } : ce que `updateUser` a reçu
     pesees: [],          // 92 — ce que `body_weight_log` a reçu
-    userPend: false, userDelai: 0   // 70 — la vérification du jeton d'un lien ne répond pas / répond en retard
+    userPend: false, userDelai: 0,  // 70 — la vérification du jeton d'un lien ne répond pas / répond en retard
+    // 108 — la base AVANT v2_088 : `profiles.ma_salle` n'existe pas. Un `select` qui la nomme rend 42703, un
+    // `upsert` qui la porte rend PGRST204 — comme PostgREST. `refusColonne` compte ces refus.
+    sansMaSalle: false, refusColonne: 0
   };
+}
+
+// 108 — la contrainte `profiles_ma_salle_ok` de v2_088, imitée : NULL, ou un objet aux trois clés connues ; des barres
+// de 1 à 100 kg au demi-kilo (au plus 20 par liste) ; des haltères nuls ou `{ max, pas }` (1-100, 0,5-10, pas ≤ max).
+function salleConforme(v) {
+  if (v === null) return true;
+  if (typeof v !== 'object' || Array.isArray(v)) return false;
+  if (Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres'].indexOf(k) < 0)) return false;
+  const barres = (l) => l === undefined || (Array.isArray(l) && l.length <= 20 &&
+    l.every((x) => typeof x === 'number' && x >= 1 && x <= 100 && Math.floor(x * 2) === x * 2));
+  if (!barres(v.barres_ez) || !barres(v.barres_droites)) return false;
+  const h = v.halteres;
+  if (h === undefined || h === null) return true;
+  return typeof h === 'object' && !Array.isArray(h) && Object.keys(h).every((k) => k === 'max' || k === 'pas') &&
+    typeof h.max === 'number' && typeof h.pas === 'number' && h.max >= 1 && h.max <= 100 && h.pas >= 0.5 &&
+    h.pas <= 10 && h.pas <= h.max && Math.floor(h.max * 2) === h.max * 2 && Math.floor(h.pas * 2) === h.pas * 2;
 }
 
 async function contexte(nav, bd, o) {
@@ -178,6 +197,15 @@ async function contexte(nav, bd, o) {
 
     // ── Les profils : la « RLS » ───────────────────────────────────────────
     if (chemin === '/rest/v1/profiles') {
+      if (bd.sansMaSalle && /ma_salle/.test(url.searchParams.get('select') || '')) {
+        bd.refusColonne++;
+        return json({ code: '42703', details: null, hint: null, message: 'column profiles.ma_salle does not exist' }, 400);
+      }
+      if (bd.sansMaSalle && req.method() === 'POST' && /"ma_salle"/.test(req.postData() || '')) {
+        bd.refusColonne++;
+        return json({ code: 'PGRST204', details: null, hint: null,
+          message: "Could not find the 'ma_salle' column of 'profiles' in the schema cache" }, 400);
+      }
       if (req.method() === 'GET') {
         const demande = (/(?:^|[?&])id=eq\.([^&]+)/.exec(url.search) || [])[1];
         const lignes = Object.keys(bd.profils).map((k) => bd.profils[k])
@@ -207,6 +235,12 @@ async function contexte(nav, bd, o) {
           enregistre(409);
           return json({ code: '23505', details: 'Key (lower(username::text))=(' + String(l.username).toLowerCase() + ') already exists.',
             hint: null, message: 'duplicate key value violates unique constraint "profiles_username_uniq"' }, 409);
+        }
+        // 108 — `profiles_ma_salle_ok` (v2_088) : la contrainte, imitée (la forme et les bornes).
+        if (l.ma_salle !== undefined && !salleConforme(l.ma_salle)) {
+          enregistre(400);
+          return json({ code: '23514', details: null, hint: null,
+            message: 'new row for relation "profiles" violates check constraint "profiles_ma_salle_ok"' }, 400);
         }
         if (!bd.profils[l.id] && bd.echecsCreation > 0) {
           bd.echecsCreation--;
@@ -1145,6 +1179,80 @@ function ok(nom, cond, detail) {
       const ouvert = await attendreQue(page, questionnaireOuvert, 8000);
       ok('DISCRIMINANT [93] — le questionnaire s’ouvre de lui-même après la naissance de la ligne', ouvert);
       ok('aucune écriture refusée par la base', bd.refus.length === 0, JSON.stringify(bd.refus));
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
+    // ══ 108. « MA SALLE » : LA FEUILLE ÉCRIT LA DÉCLARATION (v2_088 lancée) ══════════════════════════════════
+    console.log('\n══ 108. « Ma salle » : cocher les barres EZ, les haltères, Valider — la déclaration part en base ══');
+    {
+      const bd = baseSansPseudo();
+      const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
+      const valeurLigne = () => page.evaluate(() => {
+        const l = Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+          .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0)[0];
+        return l ? ((l.querySelector('.p-val') || {}).textContent || '') : null;
+      });
+      ok('[108] la ligne « Ma salle » est là, sous « Matériel »', (await valeurLigne()) !== null);
+      await cliquerLigne(page, 'Ma salle');
+      await attendre(400);
+      const puces = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .salle-puces[data-type="barres_ez"] button[data-kg]'))
+        .map((b) => b.dataset.kg + (b.getAttribute('aria-pressed') === 'true' ? '+' : '')));
+      ok('[108] la feuille : la barre EZ, 10 à 40 kg, rien de coché (non renseignée)', JSON.stringify(puces) === JSON.stringify(['10', '15', '20', '25', '30', '35', '40']), JSON.stringify(puces));
+      for (const kg of ['10', '15', '20', '25', '30']) {
+        await page.click('#feuille-contenu .salle-puces[data-type="barres_ez"] button[data-kg="' + kg + '"]');
+        await attendre(80);
+      }
+      await page.fill('#feuille-contenu .salle-halteres input', '40');
+      await attendre(150);
+      await page.click('#feuille-contenu .salle-pas button[data-pas="2"]');
+      await attendre(150);
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
+      const ecrit = await attendreQue(page, () => !!bd.profils[B].ma_salle, 10000);
+      ok('DISCRIMINANT [108] — la déclaration part en base : EZ 10-30, haltères jusqu’à 40 de 2 en 2', ecrit &&
+        JSON.stringify(bd.profils[B].ma_salle) === JSON.stringify({ barres_ez: [10, 15, 20, 25, 30], barres_droites: [], halteres: { max: 40, pas: 2 } }),
+        JSON.stringify(bd.profils[B].ma_salle));
+      await attendre(300);
+      ok('[108] la ligne dit ce qui est déclaré : « EZ, haltères »', (await valeurLigne()) === 'EZ, haltères', String(await valeurLigne()));
+      // « Effacer » écrit le vide : non renseignée, rien ne change.
+      await cliquerLigne(page, 'Ma salle');
+      await attendre(400);
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Effacer')[0].click());
+      const efface = await attendreQue(page, () => bd.profils[B].ma_salle === null, 10000);
+      ok('[108] « Effacer » écrit le vide (NULL)', efface, JSON.stringify(bd.profils[B].ma_salle));
+      ok('[108] aucune écriture refusée par la contrainte imitée', bd.requetes.every((q) => q.statut !== 400), JSON.stringify(bd.requetes));
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
+    // ══ 108. LA COLONNE `ma_salle` N'EXISTE PAS ENCORE (v2_088 pas lancée) ══════════════════════════════════
+    // Le défaut de #418 : une colonne nommée avant sa migration, et le profil ne se lisait plus. Ici, la lecture et
+    // l'écriture la nomment, la base la refuse : le profil se lit quand même, et un geste du Profil s'écrit.
+    console.log('\n══ 108. colonne `ma_salle` absente en base : le profil se lit et s’écrit quand même ══');
+    {
+      const bd = neuveBase();
+      bd.sansMaSalle = true;
+      const ctx = await contexte(nav, bd, { stockage: sessionDe(A) });
+      const page = await ctx.newPage();
+      const erreurs = [];
+      page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+      await page.goto(BASE + '/profil', { waitUntil: 'domcontentloaded' });
+      const lu = await attendreQue(page, () => page.evaluate(() =>
+        /compte_a/.test((document.querySelector('#profil-corps') || {}).textContent || '')), 15000);
+      ok('prémisse [108] — la base a refusé la colonne au moins une fois (42703)', bd.refusColonne > 0, String(bd.refusColonne));
+      ok('DISCRIMINANT [108] — le profil se lit : le Profil montre le pseudo de la ligne', lu);
+      await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 8000);
+      const avant = bd.requetes.length;
+      await cliquerLigne(page, 'Sexe');
+      await attendre(500);
+      await page.click('#feuille-contenu .feuille-menu button[data-cle="femme"]');
+      const ecrit = await attendreQue(page, () => bd.profils[A].sexe === 'femme', 12000);
+      ok('DISCRIMINANT [108] — un geste du Profil s’écrit en base (Sexe → Femme)', ecrit, JSON.stringify(bd.profils[A]));
+      ok('[108] l’écriture est passée du premier coup, sans la colonne', bd.requetes.slice(avant).every((q) => q.statut === 201),
+        JSON.stringify(bd.requetes.slice(avant)));
+      ok('[108] la colonne n’est plus demandée après son refus : au plus un refus par lecture et par écriture',
+        bd.refusColonne <= 2, String(bd.refusColonne));
+      ok('aucune écriture refusée par la « RLS »', bd.refus.length === 0, JSON.stringify(bd.refus));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }

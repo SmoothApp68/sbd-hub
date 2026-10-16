@@ -4790,7 +4790,10 @@
       // moteur n'y prescrit rien, ni en-tête ni plan.
       edition: enEdition(),
       // §9.21 (52-1) — la charge de départ de la routine, la première fois.
-      depart: chargeDeDepartDe(slug)
+      depart: chargeDeDepartDe(slug),
+      // MOTEUR §10 bis (108) — la salle déclarée pour cet exercice (barre fixe,
+      // haltères), ou `null` : non renseignée, rien ne change.
+      salle: Profil.salleDeLExercice(profil, slug, index)
     };
   }
 
@@ -5323,7 +5326,10 @@
                             // §9.17 — la mesure (le plan la porte, I13/I28 la lisent) et
                             // la version lestée (la carte du lest ne promet que ce qu'elle livre).
                             mesure: gc.inconnue ? null : gc.mesure,
-                            leste: Modele.lesteDe(index, slug) };
+                            leste: Modele.lesteDe(index, slug),
+                            // MOTEUR §10 bis (108) — la salle déclarée (chauffes et
+                            // dégressive d'un exercice sans consigne), ou `null`.
+                            salle: Profil.salleDeLExercice(profil, slug, index) };
       }
     });
     var modes = {};
@@ -11883,6 +11889,53 @@
     ouvrirFeuilleProfil();
   }
 
+  // 108 (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies) — « MA SALLE » : une feuille, un brouillon ; rien ne s'écrit
+  // avant « Valider ». Les gestes sont ceux de `profil.js` (purs) ; « Effacer » écrit le vide (`NULL` : non
+  // renseignée, rien ne change). Une saisie hors bornes ne ferme pas la feuille : une phrase le dit.
+  function ouvrirSalleProfil() {
+    var brouillon = Profil.brouillonSalle(profil);
+    var erreur = null;
+    var redessiner = function () { feuilleProfil($('feuille-contenu')); };
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleSalle(cible, {
+        brouillon: brouillon, erreur: erreur, declaree: !!Profil.salleDe(profil),
+        surBasculer: function (type, kg) { brouillon = Profil.basculerBarre(brouillon, type, kg); erreur = null; redessiner(); },
+        surAjouter: function (type, texte) {
+          var v = Modele.lireNombre(texte);
+          if (!(v >= Profil.SALLE_BARRE_MIN && v <= Profil.SALLE_BARRE_MAX) || Math.round(v * 2) !== v * 2) {
+            erreur = 'Un poids de barre entre ' + Profil.SALLE_BARRE_MIN + ' et ' + Profil.SALLE_BARRE_MAX + ' kg, au demi-kilo.';
+            return redessiner();
+          }
+          if ((brouillon[type] || []).indexOf(v) < 0) brouillon = Profil.basculerBarre(brouillon, type, v);
+          erreur = null;
+          redessiner();
+        },
+        // Le plus lourd, tapé : le brouillon suit, sans redessin (la feuille ne se refait pas sous le doigt).
+        surMaxHalteres: function (texte) {
+          brouillon = Profil.poserMaxHalteres(brouillon, Modele.lireNombre(texte));
+        },
+        surPasHalteres: function (kg) {
+          brouillon = Profil.poserPasHalteres(brouillon, kg);
+          erreur = null;
+          redessiner();
+        },
+        surValider: function () {
+          var champs = Profil.champsSalle(brouillon);
+          if (!champs) {
+            erreur = 'Haltères : le plus lourd entre ' + Profil.SALLE_HALTERES_MIN + ' et ' + Profil.SALLE_HALTERES_MAX +
+              ' kg, un écart de ' + Modele.nombreSigne(Profil.SALLE_PAS_MIN) + ' à ' + Profil.SALLE_PAS_MAX + ' kg.';
+            return redessiner();
+          }
+          fermerVoile();
+          ecrireProfil(champs);
+        },
+        surEffacer: function () { fermerVoile(); ecrireProfil({ ma_salle: null }); },
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
   // « Exercices écartés » : la liste, « Reprendre » sur chacun. La feuille reste ouverte entre deux reprises ; le
   // dernier repris la ferme (la ligne du Profil s'efface, puisqu'elle ne s'affiche pas à vide).
   function ouvrirEcartesProfil() {
@@ -12133,7 +12186,9 @@
         // 60-4 (ECRAN-PROFIL §4 bis) — le programme construit : la zone à ménager, les exercices écartés (la ligne
         // s'efface quand il n'y en a plus), « Refaire mon programme ».
         { titre: 'CE QUE JE FAIS', lignes: [
-          ligneChoix('materiel', 'Matériel')
+          ligneChoix('materiel', 'Matériel'),
+          // 108 (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies) — les barres fixes et les haltères de la salle.
+          Profil.ligneSalle(p, ouvrirSalleProfil)
         ].concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil)) },
         // 60-1 — « Progresser » ou « Juste un carnet » : la section se construit
         // dans `profil.js`, comme « Ton rythme » (la phrase dépend du choix).

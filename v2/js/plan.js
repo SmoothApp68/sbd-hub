@@ -504,6 +504,8 @@
       var entree = {
         equipement: materiel.equipement, reference: reference,
         deja_sollicite: !!materiel.deja_sollicite, sol: !!materiel.sol, cran: materiel.pas,
+        // §10 bis (108) — la salle déclarée pour l'exercice, ou `null`.
+        salle: materiel.salle || null,
         routine: deChauffe.length ? deChauffe.map(function (l) {
           var v = nombre(liste[l.iSerie] && liste[l.iSerie].reps_visees);
           return v;
@@ -580,7 +582,7 @@
     if (charge !== null && charge <= 0) return sortie;
     var capD = Voix().capturer(function () {
       return M.degressiveDe({ equipement: materiel.equipement, derniere_serie: charge,
-                             reps_travail: reps, cran: materiel.pas });
+                             reps_travail: reps, cran: materiel.pas, salle: materiel.salle || null });
     });
     var d = capD.texte;
     sortie.citations.degressive = capD.citations;
@@ -593,6 +595,8 @@
     // que le coach ne peut pas remplir porte ses deux gestes (« En faire une
     // série normale », « La retirer »), tant qu'elle n'est pas faite.
     if (d.enleve !== undefined) sortie.degressive.enleve = d.enleve;
+    // §10 bis (108) — à la barre fixe, on change de barre (« Prends la barre de 20 kg. »).
+    if (d.barreFixe) sortie.degressive.barreFixe = true;
     if (d.gestes && !deg.validee) sortie.degressive.gestes = d.gestes.slice();
     return sortie;
   }
@@ -639,6 +643,10 @@
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
+    // §10 bis (108) — UNE SEULE SALLE PAR EXERCICE : celle figée avec la consigne
+    // (la salle déclarée, en vigueur sur son palier) ; sans consigne, celle du
+    // catalogue. Chauffes, dégressive et I46 lisent la même.
+    if (materiel) materiel = Object.assign({}, materiel, { salle: c ? (c.salle || null) : (materiel.salle || null) });
     var base = { iExo: iExo, slug: exo ? exo.exercise_slug : null, consigne: null,
                  occurrence: exo && exo.occurrence ? exo.occurrence : null };
     if (!c) {
@@ -649,6 +657,7 @@
       // dégressive se cale sur la dernière série de travail faite.
       var sans = chauffesEtDegressive(base.lignes, series, null, materiel || null);
       base.materiel = materiel ? materiel.equipement || null : null;
+      base.salle = materiel ? materiel.salle || null : null;
       base.chauffes = null;
       base.proposition = null;
       base.degressive = sans.degressive;
@@ -854,6 +863,8 @@
       donc: donc,
       pourquoi: pourquoi,
       materiel: materiel ? materiel.equipement || null : null,
+      // §10 bis (108) — la salle de l'exercice, ou `null` : I46 la relit.
+      salle: materiel ? materiel.salle || null : (c.salle || null),
       chauffes: autour.chauffes, proposition: autour.proposition, degressive: autour.degressive,
       phrases: phrases
     };
@@ -964,7 +975,10 @@
       sol: Moteur().SOULEVES_AU_SOL.indexOf(slug) >= 0,
       deja_sollicite: deja,
       pas: pas,
-      refus: !!(refus && refus[slug])
+      refus: !!(refus && refus[slug]),
+      // §10 bis (108) — la salle déclarée pour cet exercice (`THProfil.
+      // salleDeLExercice`, résolue par l'app au catalogue), ou `null`.
+      salle: cat.salle || null
     };
   }
 
@@ -1635,7 +1649,12 @@
       // l'utilisateur a mise. À la barre, la phrase dit quoi enlever ; une
       // ligne que le coach ne remplit pas a sa phrase et ses deux gestes.
       if (l.type !== 'degressive') err('I17', 'une dégressive sans ligne dégressive (le coach n’en pose jamais)');
-      if (barre && d.charge !== null) {
+      // §10 bis (108) — à la barre fixe de la salle, on change de barre : la phrase le dit.
+      if (d.barreFixe && d.charge !== null) {
+        if (!d.phrase || d.phrase.indexOf('Prends la barre de ' + Voix().charge(d.charge) + '.') !== 0) {
+          err('I17', 'la dégressive à la barre fixe ne dit pas quelle barre prendre (' + d.phrase + ')');
+        }
+      } else if (barre && d.charge !== null) {
         var enleve = d.reference !== null && d.reference !== undefined ? (d.reference - d.charge) / 2 : null;
         if (enleve === null || !d.phrase || d.phrase.indexOf('Enlève ' + Voix().charge(enleve) + ' de chaque côté') !== 0) {
           err('I17', 'la dégressive à la barre ne dit pas quoi enlever (' + d.phrase + ')');
@@ -3137,6 +3156,7 @@
     if (entrees && entrees.raccourci) verifierRaccourci(plan, entrees, erreurs);
     verifierDouleur(plan, entrees, erreurs);
     verifierReserve(plan, entrees, erreurs);
+    verifierSalle(plan, erreurs);
     // Prérequis d'« adapter » — LES PARIS D'UNE OCCURRENCE, et seulement d'elle
     // (I7) : la seconde occurrence d'un exercice ne doit pas se voir reprocher
     // les paris de la première.
@@ -3189,6 +3209,47 @@
       }
     });
     if (n > I45_AU_PLUS) erreurs.push('I45 — ' + n + ' questions de réserve dans le plan (au plus ' + I45_AU_PLUS + ')');
+  }
+
+  // I46 (MOTEUR §10 bis, 108) — LA SALLE : pour un exercice dont la salle déclarée est en vigueur, aucune charge que
+  // le coach propose n'en sort — ni la ligne ni la ligne haute de la consigne, ni une proposition de la réaction, ni
+  // le fantôme d'une ligne qu'il couvre, d'une chauffe ou d'une dégressive qu'il remplit. Les séries faites et le
+  // pré-remplissage d'après la dernière séance (ce que la personne a fait) ne sont pas des propositions.
+  function verifierSalle(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var salle = x && x.salle;
+      if (!salle) return;
+      var nom = 'I46 — exercice ' + i + ' (' + x.slug + ') : ';
+      var hors = function (v, ou) {
+        var c = nombre(v);
+        if (c !== null && c > 0 && !M.dansLaSalle(salle, c)) erreurs.push(nom + ou + ' à ' + c + ' kg, une charge que la salle n’a pas');
+      };
+      var k = x.consigne;
+      if (k && k.etat !== 'silence' && nombre(k.palier) !== null && M.salleEnVigueur(salle, k.palier)) {
+        if (k.ligne) hors(k.ligne.charge, 'la ligne de la consigne');
+        if (k.haut) hors(k.haut.charge, 'la ligne haute de la consigne');
+        if (k.haut && k.haut.charge === null) erreurs.push(nom + 'un test sans chiffre alors que la salle est déclarée');
+      }
+      (x.lignes || []).forEach(function (l) {
+        if (l.validee || !l.fantome) return;
+        var src = l.fantome.source;
+        if (l.role === 'hors' && src !== 'chauffe' && src !== 'degressive') return;
+        if (src === 'chauffe' || src === 'degressive' || (k && M.salleEnVigueur(salle, k.palier))) {
+          hors(l.fantome.charge, 'la série ' + l.iSerie + ' (' + (src || l.role) + ')');
+        }
+      });
+      var attente = x.reaction && x.reaction.attente;
+      if (attente && Array.isArray(attente.charges)) {
+        attente.charges.forEach(function (c) {
+          if (c === null) erreurs.push(nom + 'une proposition sans chiffre alors que la salle est déclarée');
+          else hors(c, 'la proposition de la réaction');
+        });
+      }
+      ((x.reaction && x.reaction.plan) || []).forEach(function (q, j) {
+        if (q && q.source === 'coach') hors(q.charge, 'la ligne du coach ' + j);
+      });
+    });
   }
 
   function texteI26(e) {

@@ -43,7 +43,8 @@ sur ses mérites. Les cinq utilisateurs ressaisissent — deux minutes.
 
 > **14/10/2026 (prompt 92).** Le poids se saisit aussi depuis le Profil (ligne Poids), par le même chemin que le questionnaire.
 
-**Le pas de progression n'est pas demandé.** Mesuré le 16/09 sur l'historique d'aurel_br :
+**Le pas de progression n'est pas demandé** (sauf « Ma salle », §2.4 quinquies, 15/10/2026 : les barres fixes et les
+haltères que la salle a, pour qui veut les déclarer). Mesuré le 16/09 sur l'historique d'aurel_br :
 machines 7 kg, barres 5, haltères 4, poulies 2,2. **Il dépend du matériel, pas de la
 personne**, et il se lit dans les charges. On ne demande pas ce qu'on peut observer. Quand
 l'historique ne donne pas le pas, le moteur applique le repli du MOTEUR §10.2 : barre et Smith
@@ -115,6 +116,39 @@ exercices jamais faits**, avec la dernière séance, et un tap ouvre la page de 
 **Une liste dans le profil règle ça, et elle ne coûte rien** : les 237 exercices et leurs
 dernières dates sont en base. Tri par dernière utilisation, recherche par nom.
 
+
+### 2.4 quinquies Ma salle — décidé le 15/10/2026 (prompt 108)
+
+Maquette validée par Aurélien le 15/10/2026 : `v2-atelier/maquettes/maquette-salle-objectif-v1.html`, écran 1
+(Profil → Ma salle) et écran 2 (en séance). Le moteur : MOTEUR §10 bis.
+
+**Les décisions, mot pour mot :**
+
+- Seulement pour qui le déclare ; non renseigné, rien ne change (on suppose qu'on peut ajouter des disques).
+- Profil → « Ma salle », une fois : barres fixes EZ et droites (poids cochés, ex. 10, 15, 20, 25, 30 kg), haltères (jusqu'à X kg, de Y en Y). Les machines : pas pour l'instant.
+- Le coach ne propose jamais une charge que la salle n'a pas, pour les exercices à barre fixe (barre EZ, barre droite légère : utilise la donnée du catalogue qui dit le matériel, et dis laquelle ; une barre olympique chargée de disques n'est pas concernée) et aux haltères : ses propositions sont arrondies aux charges déclarées (même logique que le repli sur les machines du §10.2).
+- Quand le programme demande plus que la salle n'a : le coach fait progresser en reps à la charge maximale, puis en séries, et le dit : « 30 kg, la plus lourde de ta salle : on monte en reps. » Jamais une charge introuvable.
+- La dégressive à barre fixe : « Prends la barre de 20 kg. » au lieu de « Enlève … de chaque côté ».
+- Cas réel d'Aurélien (Basic-Fit) : curl EZ, barres de 10 à 30 kg de 5 en 5 ; au-dessus de 30 impossible.
+
+**L'écran (108).** Une ligne **« Ma salle »** dans « CE QUE JE FAIS », sous « Matériel », avec la phrase « Non
+renseigné : le coach suppose qu'on peut ajouter des disques, comme aujourd'hui. » ; sa valeur dit ce qui est déclaré
+(« EZ, droite, haltères »), rien quand rien ne l'est. Un tap ouvre **une feuille** (le même voile que les autres) :
+
+- **Barres fixes** — « Les barres déjà chargées de ta salle. Le coach ne te proposera que ces charges-là. » ; **Barre EZ**
+  (puces 10 à 40 kg, de 5 en 5) et **Barre droite** (10 à 30 kg) : on coche ; « ＋ » ouvre un champ pour un autre poids
+  (1 à 100 kg, au demi-kilo), qui devient une puce cochée.
+- **Haltères** — « Jusqu'à » **par haltère** (le libellé le dit : « Jusqu'à (par haltère, en kg) ») et « De … en … »
+  (1, 2, 2,5 ou 5 kg). Les séries notent la paire (MOTEUR §10.1) : le moteur convertit, l'écran parle comme la salle.
+- **Valider** écrit la déclaration ; **Annuler** n'écrit rien ; **Effacer** (seulement si une salle est déclarée) écrit
+  le vide — non renseignée, rien ne change. Une valeur hors bornes ne ferme pas la feuille : une phrase le dit (les
+  bornes doublent la contrainte de la base, §5.7).
+
+**En base** : `profiles.ma_salle` (jsonb, migration `v2_088`, `NULL` = non renseignée) :
+`{ "barres_ez": [10, 15, 20, 25, 30], "barres_droites": [10, 15, 20, 25, 30], "halteres": { "max": 40, "pas": 2 } }`.
+Une colonne plutôt que quatre : une seule écriture par « Valider », une seule colonne facultative tant que la migration
+n'est pas lancée (le profil se lit et s'écrit sans elle, le mécanisme du prompt 104), et une forme imbriquée (deux
+listes et une plage) qu'une contrainte valide entière.
 
 ### 2.4 quater Importer depuis Hevy — décidé le 11/10/2026 (chantier 69)
 

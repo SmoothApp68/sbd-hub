@@ -2337,3 +2337,9 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .semaine-exo { color: var(--texte-2); padding: var(--e1) 0; }
 .carte-semaine > .principal { margin-top: var(--e3); width: 100%; }
 .consigne-dit.ajout-semaine { color: var(--texte-2); font-style: italic; }
+/* 108 — « Ma salle » (ECRAN-PROFIL §2.4 quinquies) : les puces des barres fixes et des haltères. */
+.salle-titre{margin-top:var(--e4);font-size:12px;color:var(--texte)}
+.salle-puces,.salle-pas{margin-bottom:var(--e2)}
+.salle-ajout{display:flex;gap:var(--e2);align-items:center;margin:0 0 var(--e2)}
+.salle-ajout input{width:96px;height:36px;box-sizing:border-box;background:var(--panneau);color:var(--texte);
+  border:1.5px solid var(--trait);border-radius:10px;padding:0 var(--e2);font:inherit}

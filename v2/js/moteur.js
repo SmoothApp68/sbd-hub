@@ -645,6 +645,109 @@
     return (sens > 0 ? palier >= r.bascule : palier > r.bascule) ? r.pasLourd : r.pas;
   }
 
+  // ── MOTEUR §10 bis — LE MATÉRIEL DE LA SALLE (108, décidé le 15/10/2026) ──
+  //
+  // « Le coach ne propose jamais une charge que la salle n'a pas », pour les
+  // exercices à barre fixe (EZ, droite légère) et aux haltères — et seulement
+  // pour qui l'a déclaré : sans déclaration, `salle` est `null` et RIEN ne
+  // change (on suppose qu'on peut ajouter des disques, comme avant).
+  //
+  // `salle` : `{ materiel, charges }`, résolue UNE fois par l'app pour un
+  // exercice (`THProfil.salleDeLExercice`) — `materiel` vaut `barre_ez`,
+  // `barre_droite` ou `halteres` ; `charges` les charges que la salle fait,
+  // croissantes, dans l'unité des séries (une barre : son poids ; des haltères :
+  // la PAIRE, §10.1). Le moteur ne lit pas le profil : il reçoit la liste.
+  var SALLE_BARRES = ['barre_ez', 'barre_droite'];
+  function chargesDeLaSalle(salle) {
+    var l = salle && Array.isArray(salle.charges) ? salle.charges.map(nombre)
+      .filter(function (v) { return v !== null && v > 0; }) : [];
+    l.sort(function (a, b) { return a - b; });
+    return l.filter(function (v, i) { return i === 0 || !memeCharge(v, l[i - 1]); });
+  }
+  function maxDeLaSalle(salle) {
+    var l = chargesDeLaSalle(salle);
+    return l.length ? l[l.length - 1] : null;
+  }
+  // LA SALLE EN VIGUEUR pour une charge de référence, ou `null`. ⚠️ UNE BARRE
+  // CHARGÉE DE DISQUES N'EST PAS CONCERNÉE : à la barre, une charge au-dessus de
+  // la plus lourde barre fixe déclarée ne peut venir que d'une barre qu'on
+  // charge — la salle ne dit alors rien de ses crans (un rowing à 80 kg ne se
+  // plafonne pas à la barre droite de 30). Aux haltères, la salle vaut toujours :
+  // une charge au-delà de la plus lourde paire s'arrondit à elle.
+  function salleEnVigueur(salle, reference) {
+    var l = chargesDeLaSalle(salle);
+    if (!l.length) return null;
+    var r = nombre(reference);
+    if (SALLE_BARRES.indexOf(salle.materiel) >= 0 && r !== null && r > l[l.length - 1] &&
+        !memeCharge(r, l[l.length - 1])) return null;
+    return { materiel: salle.materiel, charges: l };
+  }
+  // La charge de la salle juste au-delà (`sens` > 0) ou en deçà (< 0), ou
+  // `null` : la salle n'a rien de plus lourd (de plus léger).
+  function voisineDeLaSalle(salle, charge, sens) {
+    var l = chargesDeLaSalle(salle), c = nombre(charge);
+    if (!l.length || c === null) return null;
+    if (nombre(sens) < 0) {
+      for (var i = l.length - 1; i >= 0; i--) if (l[i] < c && !memeCharge(l[i], c)) return l[i];
+      return null;
+    }
+    for (var j = 0; j < l.length; j++) if (l[j] > c && !memeCharge(l[j], c)) return l[j];
+    return null;
+  }
+  function dansLaSalle(salle, charge) {
+    var c = nombre(charge);
+    return c !== null && chargesDeLaSalle(salle).some(function (v) { return memeCharge(v, c); });
+  }
+  // ARRONDIE À LA SALLE, vers le bas (« même logique que le repli sur les
+  // machines », §10.2 : une charge que la salle fait) ; sous la plus légère, la
+  // plus légère. Une charge déjà dans la salle reste telle quelle.
+  function arrondieALaSalle(salle, charge) {
+    var c = nombre(charge), l = chargesDeLaSalle(salle);
+    if (c === null || !l.length) return charge;
+    if (dansLaSalle(salle, c)) return c;
+    var bas = voisineDeLaSalle(salle, c, -1);
+    return bas === null ? l[0] : bas;
+  }
+  // LE CRAN, SALLE COMPRISE : déclarée, la salle décide seule (`null` = rien
+  // au-delà) ; sinon le §10.2 tel quel. Un seul câblage : la consigne, l'épisode
+  // d'étirement, la réaction, la suite et la reprise longue passent par ici.
+  function voisineSalleComprise(seances, avant, palier, equipement, sens, salle) {
+    if (salle) return instant(avant) === null ? null : voisineDeLaSalle(salle, palier, sens);
+    return chargeVoisine(seances, avant, palier, equipement, sens);
+  }
+
+  // La salle en vigueur d'une consigne : lue sur son palier (`salleEnVigueur`),
+  // `null` sans consigne chiffrée, au poids du corps ou sur une aide.
+  function salleDeLaConsigne(consigne, salle) {
+    if (!salle || !consigne || consigne.etat === 'silence') return null;
+    var P = nombre(consigne.palier);
+    if (P === null || P <= 0) return null;
+    return salleEnVigueur(salle, P);
+  }
+  // Les charges d'une consigne arrondies à la salle (`consignePour` l'a déjà
+  // fait pour les siennes ; le report d'une nouvelle zone ou un départ, non).
+  // Une ligne haute qui ne reste pas au-dessus de la ligne disparaît.
+  function consigneDansLaSalle(consigne, salle) {
+    if (!salle || !consigne || consigne.etat === 'silence') return consigne;
+    var ligne = consigne.ligne, haut = consigne.haut, change = false;
+    if (ligne && nombre(ligne.charge) !== null && !dansLaSalle(salle, ligne.charge)) {
+      ligne = Object.assign({}, ligne, { charge: arrondieALaSalle(salle, ligne.charge) });
+      change = true;
+    }
+    if (haut && nombre(haut.charge) !== null && !dansLaSalle(salle, haut.charge)) {
+      var h = arrondieALaSalle(salle, haut.charge), l = ligne ? nombre(ligne.charge) : null;
+      haut = l !== null && !(h > l && !memeCharge(h, l)) ? null : Object.assign({}, haut, { charge: h });
+      change = true;
+    }
+    return change ? Object.assign({}, consigne, { ligne: ligne, haut: haut }) : consigne;
+  }
+  // Un repli (§14.2) que la salle ne fait pas est sauté : le coach n'invente
+  // pas une charge plus basse que la donnée ne soutient (se taire, §14.2).
+  function repliDansLaSalle(repli, salle) {
+    if (!repli || !salle) return repli;
+    return dansLaSalle(salle, repli.palier) ? repli : null;
+  }
+
   // ── Les séances, lues dans l'ordre et sans lire l'avenir ─────────────────
   //
   // `avant` est obligatoire partout, comme pour `habitudeDe` : le §9.12 ne se
@@ -999,7 +1102,7 @@
   // réussi, à un changement de palier, ou dès que le cran pouvait être réduit.
   // Rendu du plus RÉCENT au plus ANCIEN : le premier sert au §9.7, le dernier
   // au gel de la zone.
-  function episodeEtirement(duCouple, P, vues, avant, equipement, correction) {
+  function episodeEtirement(duCouple, P, vues, avant, equipement, correction, salle) {
     var rates = [];
     for (var i = duCouple.length - 1; i >= 0; i--) {
       var x = duCouple[i];
@@ -1010,7 +1113,7 @@
       // zone d'aujourd'hui — elle est justement ce qu'on cherche à figer.
       var z = zoneRetenue(correction, habitudeSur(duCouple.slice(0, i + 1)));
       if (z === null || t.niveau === null || t.niveau >= z.bas) break;
-      var c1 = chargeVoisine(vues, avant, P, equipement, 1);
+      var c1 = voisineSalleComprise(vues, avant, P, equipement, 1, salle || null);
       if (c1 !== null && c1 < t.charge) break;
       rates.push({ rang: i, test: t, auPalier: x.auPalier, debut: x.seance.debut });
     }
@@ -1105,6 +1208,9 @@
     // une carte dont « J'ai du lest » ne saurait rien livrer promettrait ce
     // qu'elle ne tient pas, et les reps continuent alors comme sans réponse.
     var lestPossible = opt.lestPossible !== false;
+    // §10 bis (108) — la salle déclarée pour cet exercice, ou `null` (rien ne
+    // change). Elle se décide sur le palier, plus bas, une fois.
+    var salleDeclaree = opt.salle || null;
 
     var vues = (seances || []).map(vueDeSeance);
     // §7.6 — les séances neutres ne comptent que pour le rythme (`repriseDe`,
@@ -1131,6 +1237,10 @@
     // monter.
     var poidsDuCorps = P === 0;
     var aide = P !== null && P < 0;
+    // §10 bis (108) — LA SALLE EN VIGUEUR, lue sur le palier : à la barre, un
+    // palier au-delà de la plus lourde barre fixe déclarée vient d'une barre
+    // chargée de disques — la salle n'en dit rien (`salleEnVigueur`).
+    var salle = P !== null && P > 0 ? salleEnVigueur(salleDeclaree, P) : null;
     if (P === null || !A.length || niv === null) {
       // Les CHARGES, et elles seules : « 100, 110 puis 120 kg, aucune charge
       // répétée ». Sans palier il n'y a ni reps au palier ni test à raconter.
@@ -1143,7 +1253,7 @@
     // — gelée au premier test raté si un épisode d'étirement court.
     var lecture = lectureDuCouple(vues, avant);
     var duCouple = lecture === null ? [] : lecture.duCouple;
-    var rates = episodeEtirement(duCouple, P, vues, avant, equipement, correction);
+    var rates = episodeEtirement(duCouple, P, vues, avant, equipement, correction, salle);
     // ⚠️ DEUX HABITUDES, ET CE N'EST PAS UNE DUPLICATION (§9.7, précisé
     // 48b-6a). Le gel porte sur LA ZONE, pas sur ce que la personne fait :
     //
@@ -1253,7 +1363,47 @@
         }
         haut = null;
       }
+      // §10 bis (108) — LA SALLE N'A PAS PLUS LOURD. Le coach voudrait tester
+      // le cran au-dessus (ou monter la charge, sous 3 reps) et la salle déclarée
+      // n'a rien au-delà : `voisine` rend `null`. Pas de charge introuvable, pas
+      // de « cran au-dessus » sans chiffre : on monte en reps à la charge la plus
+      // lourde, une de plus que la dernière fois (la règle des coachs quand on ne
+      // peut pas ajouter de poids, celle du §9.17), sans ligne haute. Après la
+      // chute : un « tenir » reste un « tenir ».
+      if (salle && ((ETATS_DE_TEST[etat] === true && haut && haut.charge === null) ||
+                    (etat === 'bord' && ligne && ligne.charge === null))) {
+        etat = 'salle_max';
+        ligne = ligneDe(P, cible(niv + 1));
+        haut = null;
+        plus = null;
+      }
+      // §10 bis (108) — ET AUCUNE AUTRE CHARGE QUE LA SALLE N'A. Une ligne que la
+      // salle ne fait pas (une charge d'une autre salle, une estimation) s'arrondit
+      // à la charge déclarée juste en dessous ; une ligne haute aussi, et si elle
+      // n'est plus au-dessus de la ligne, il n'y a plus rien à tester : on monte
+      // en reps, comme ci-dessus.
+      if (salle) {
+        if (ligne && nombre(ligne.charge) !== null && !dansLaSalle(salle, ligne.charge)) {
+          ligne = ligneDe(arrondieALaSalle(salle, ligne.charge), ligne.vise);
+        }
+        if (haut && nombre(haut.charge) !== null && !dansLaSalle(salle, haut.charge)) {
+          var h = arrondieALaSalle(salle, haut.charge);
+          var sous = ligne ? nombre(ligne.charge) : null;
+          if (sous !== null && !(h > sous && !memeCharge(h, sous))) {
+            etat = 'salle_max';
+            ligne = ligneDe(sous, cible(niv + 1));
+            haut = null;
+            plus = null;
+          } else {
+            haut = hautDe(h, haut.vise, haut.k);
+          }
+        }
+      }
       var f = { date: L.debut, reps: repsSaisies(A) };
+      // §10 bis (108) — la salle en vigueur : sa charge la plus lourde et son
+      // matériel, que la phrase (« la plus lourde de ta salle ») et la feuille
+      // « Pourquoi » lisent sans rien recalculer. Absente sans déclaration.
+      if (salle) f.salle = { materiel: salle.materiel, max: maxDeLaSalle(salle) };
       if (chute !== null) f.chute = { rang: chute };
       // §9.13, enrichi le 20/09/2026 (48b-6a) : de quoi écrire la feuille
       // « Pourquoi » sans jamais rejouer une règle du moteur.
@@ -1309,7 +1459,14 @@
       // dessous, quel que soit le matériel du catalogue (l'hyperextension y est
       // une « machine », dont le pas de pile n'a rien à dire d'un corps).
       if (poidsDuCorps) return null;
-      return chargeVoisine(vues, avant, depuis, equipement, sens);
+      return voisineSalleComprise(vues, avant, depuis, equipement, sens, salle);
+    }
+    // §10 bis (108) — le cran en dessous ; avec une salle déclarée qui n'a rien
+    // de plus léger, la charge de travail elle-même (« le cran en dessous » sans
+    // chiffre serait une charge que la salle n'a pas).
+    function cranDessousOuPalier() {
+      var c = voisine(P, -1);
+      return c === null && salle ? P : c;
     }
     // §9.17 — le niveau validé des DEUX dernières séances (non neutres), de la
     // plus ancienne à la plus récente ; `null` s'il n'y en a qu'une, ou si l'une
@@ -1355,7 +1512,7 @@
     // refuse (I30).
     if (reprise === REPRISE_LONGUE) {
       return rendre('reprise_longue',
-        ligneDe(poidsDuCorps || aide ? P : repliDeReprise(P, voisine(P, -1)), viseReprise), null, borne);
+        ligneDe(poidsDuCorps || aide ? P : repliDeReprise(P, cranDessousOuPalier()), viseReprise), null, borne);
     }
 
     // 4. La règle de bord : sous 3 reps d'habitude, il n'y a plus de zone. On
@@ -1915,6 +2072,9 @@
       if (comptees === null || vise === null) continue;
       var marge = comptees - vise;
       if (marge < SEUIL_REACTION) continue;
+      // §10 bis (108) — LA SALLE N'A RIEN DE PLUS LOURD : pas de proposition.
+      // Jamais une charge introuvable, ni « le cran au-dessus » sans chiffre.
+      if (ctx.salleMax === true) continue;
       // §9.14 (49-U7) — LE CRAN SE LIT AU-DESSUS DE LA CHARGE DE TRAVAIL
       // RETENUE. Un cran connu qui n'est pas au-dessus de `P` — un contexte
       // calculé sur une consigne d'avant le repli plafonné, dont la ligne est
@@ -2105,7 +2265,11 @@
   // `seances` : les séances du contrat (`contratDe`), `{ debut, palier,
   // series }`. `programme` : la charge qu'un programme fixerait — `null`
   // aujourd'hui, la prise du chantier programmes (§9.10).
-  function contexteReaction(seances, avant, consigne, equipement, programme) {
+  // §10 bis (108) — `salle` : la salle déclarée pour l'exercice, ou `null`. En
+  // vigueur, le cran et la seconde charge sont des charges qu'elle fait ; sans
+  // rien au-delà de la charge proposée, `salleMax` : la réaction se tait (aucune
+  // charge introuvable, aucun « cran au-dessus » sans chiffre).
+  function contexteReaction(seances, avant, consigne, equipement, programme, salleDeclaree) {
     var vide = { cran: null, haut: null };
     if (!consigne || !consigne.ligne) return vide;
     var base = nombre(consigne.ligne.charge);
@@ -2114,13 +2278,18 @@
     // §9.17 — PAS DE CRAN AU POIDS DU CORPS : la réaction se tait (`reactionPour`),
     // et le contexte ne cherche pas une charge à lui proposer.
     if (base === 0) return vide;
+    var salle = base > 0 ? salleEnVigueur(salleDeclaree || null, base) : null;
     var vues = (seances || []).map(vueDeSeance);
-    var cran = chargeVoisine(vues, avant, base, equipement, 1);
-    var cranSuivant = cran === null ? null : chargeVoisine(vues, avant, cran, equipement, 1);
+    var cran = voisineSalleComprise(vues, avant, base, equipement, 1, salle);
+    if (salle && cran === null) return { cran: null, haut: null, salleMax: true };
+    var cranSuivant = cran === null ? null : voisineSalleComprise(vues, avant, cran, equipement, 1, salle);
     var ant = anterieures(vues, avant);
     var charges = [];
     ant.forEach(function (se) {
-      chargesDe(se).forEach(function (c) { if (charges.indexOf(c) < 0) charges.push(c); });
+      chargesDe(se).forEach(function (c) {
+        // §10 bis — le saut habituel se ramène à une charge que la salle fait.
+        if (charges.indexOf(c) < 0 && (!salle || dansLaSalle(salle, c))) charges.push(c);
+      });
     });
     return {
       cran: cran,
@@ -2932,8 +3101,13 @@
     var report = reportSur(seances, avant, consigne.zone, zone, equipement);
     var repli = report === null ? null
       : { source: 'report', palier: nombre(consigne.palier), ligne: [report.charge, report.visee] };
-    if (!repli && meilleur) repli = repliEscalier(seances, avant, meilleur, zone);
-    if (!repli) repli = repliDeLaRepriseLongue(seances, avant, consigne, zone, equipement);
+    var salle = (options || {}).salle || null;
+    if (!repli && meilleur) repli = repliDansLaSalle(repliEscalier(seances, avant, meilleur, zone), salle);
+    if (!repli) repli = repliDeLaRepriseLongue(seances, avant, consigne, zone, equipement, salle);
+    // §10 bis (108) — le report est une estimation : il s'arrondit à la salle.
+    if (salle && repli && repli.ligne && nombre(repli.ligne[0]) !== null && !dansLaSalle(salle, repli.ligne[0])) {
+      repli = Object.assign({}, repli, { ligne: [arrondieALaSalle(salle, repli.ligne[0]), repli.ligne[1]] });
+    }
     return { douleur: true, zone: zone, derniere: anterieuresSe[anterieuresSe.length - 1].debut, repli: repli };
   }
 
@@ -2943,11 +3117,14 @@
   // zone suivante, comme celle du repli de §14.5. Marquée `source`, pour que
   // le plan l'applique comme telle (ce n'est pas un repli d'escalier : I22 ne
   // le juge pas contre le meilleur du compteur, I35 contre lui-même).
-  function repliDeLaRepriseLongue(seances, avant, consigne, zone, equipement) {
+  function repliDeLaRepriseLongue(seances, avant, consigne, zone, equipement, salle) {
     var z = zoneParCle(zone);
     var P = nombre(consigne.palier);
     var vues = (seances || []).map(vueDeSeance);
-    var charge = repliDeReprise(P, chargeVoisine(vues, avant, P, equipement, -1));
+    var dessous = voisineSalleComprise(vues, avant, P, equipement, -1, salle || null);
+    // §10 bis (108) — la salle n'a rien de plus léger : la charge de travail.
+    if (dessous === null && salle) dessous = P;
+    var charge = repliDeReprise(P, dessous);
     var niv = nombre(consigne.niveau);
     var vise = niv === null ? z.bas : Math.min(z.haut, Math.max(z.bas, niv));
     return { source: 'reprise_longue', palier: P, ligne: [charge, vise] };
@@ -3362,6 +3539,13 @@
       case 'etirement_reps':
         return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus.';
 
+      // §10 bis (108, décidé le 15/10/2026) — « 30 kg, la plus lourde de ta
+      // salle : on monte en reps. » La charge citée est celle de la ligne : la
+      // plus lourde que la salle déclarée fait.
+      case 'salle_max':
+        return enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + ', la plus lourde de ta salle' +
+               DEUX_POINTS + 'on monte en reps.';
+
       // §8.4 / §9.17 — la version lestée démarre de l'exercice libre : le saut
       // de lest, au bas de la zone. Aucune séance à raconter : elle n'existe pas.
       case 'depart_leste':
@@ -3736,6 +3920,11 @@
       case 'etirement_reps':
         return 'Au poids du corps, il n\'y a pas de cran à monter' + DEUX_POINTS +
                'tu gagnes des reps, une de plus que la dernière fois.';
+
+      // §10 bis (108) — la salle déclarée n'a rien de plus lourd.
+      case 'salle_max':
+        return 'Ta salle n\'a pas plus lourd que ' + enKg(c.ligne.charge, cL) + DEUX_POINTS +
+               'je ne te propose jamais une charge qu\'elle n\'a pas. Tu gagnes des reps, une de plus que la dernière fois.';
 
       case 'depart_leste':
         return 'Première séance avec du lest' + DEUX_POINTS + 'on part de ' + enKg(c.ligne.charge, cL) +
@@ -6338,7 +6527,7 @@
     // reste : ce qui suit lit la consigne plafonnée.
     var consigne = consigneApresAFond(seances, avant,
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null,
-        lestReponse: o.lestReponse, lestPossible: o.lestPossible });
+        lestReponse: o.lestReponse, lestPossible: o.lestPossible, salle: o.salle || null });
     // §9.10 (53-1) — LA ZONE A CHANGÉ depuis la dernière séance : la charge se
     // reporte (la plus basse de la charge déjà tenue et de l'estimation, au bas
     // de la zone). Une seule fois, ici : tout ce qui suit lit cette consigne.
@@ -6352,6 +6541,11 @@
     // §9.21 (52-1) — la charge de départ de la routine, la toute première fois.
     var departRoutine = departDeRoutine(consigne, o);
     if (departRoutine !== null) consigne = departRoutine;
+    // §10 bis (108) — LA SALLE, EN DERNIER : ce qui a pu poser une charge après
+    // la consigne (le report d'une nouvelle zone, un départ) ne pose qu'une
+    // charge que la salle fait. La salle en vigueur se fige avec la consigne.
+    var salle = salleDeLaConsigne(consigne, o.salle);
+    consigne = consigneDansLaSalle(consigne, salle);
     var rejeu = rejeuDuCompteur(seances, groupes, avant, o);
     var marquees = rejeu.marquees;
     var compteur = compteurFige(rejeu.complet);
@@ -6371,7 +6565,10 @@
              // sur la consigne brute, n'était lue par personne.
              // §9.14 (49-R2) — le contexte de la réaction, UNE FOIS par séance
              // et par exercice, sur les séances antérieures (§9.12).
-             contexte: contexteReaction(seances, avant, consigne, o.equipement, null),
+             contexte: contexteReaction(seances, avant, consigne, o.equipement, null, salle),
+             // §10 bis (108) — la salle en vigueur pour cet exercice, figée avec la
+             // consigne : le plan vérifie qu'aucune charge proposée n'en sort (I46).
+             salle: salle,
              // §9.15 (49-U10) — le cran des chauffes et des dégressives : le pas
              // exact de la salle, sinon le repli du matériel, sinon rien (le
              // plan prend alors 2,5 kg).
@@ -6387,10 +6584,11 @@
              // zone de chaque séance candidate est celle de la consigne qu'elle
              // a reçue (la zone choisie en vigueur ce jour-là).
              repli: compteur.compteur >= PAS_ESCALIER && consigne && consigne.zone
-               ? repliEscalier(marquees, avant, compteur.meilleur, consigne.zone, { zoneAu: zoneAu }) : null,
+               ? repliDansLaSalle(repliEscalier(marquees, avant, compteur.meilleur, consigne.zone, { zoneAu: zoneAu }), salle)
+               : null,
              // §9.20 (51-3) — LA REPRISE APRÈS UNE SÉANCE DOULOUREUSE, figée avec
              // la consigne : le plan pose la carte, aucun écran ne la décide.
-             reprise: reprisePour(marquees, avant, consigne, compteur.meilleur, { equipement: o.equipement }),
+             reprise: reprisePour(marquees, avant, consigne, compteur.meilleur, { equipement: o.equipement, salle: salle }),
              // I34 — les séances marquées « douleur » (leurs débuts) : le plan
              // vérifie qu'aucune ne fonde la charge de la consigne.
              douleurs: anterieures(seances, avant).filter(function (se) { return se.douleur === true; })
@@ -6524,10 +6722,12 @@
     if (!cApres) return null;
     var P = cApres.consigne.palier;
     // §9.17 — au poids du corps (palier 0), il n'y a pas de cran suivant.
+    // §10 bis (108) — la salle : le cran suivant est une charge qu'elle fait,
+    // ou rien (« il te manque une rep pour tester… » ne se dit pas au-delà).
     var cran = P === null || P === undefined || P === 0 ? null
-      : chargeVoisine(contratDe(tous, etat, o.mesure,
+      : voisineSalleComprise(contratDe(tous, etat, o.mesure,
           { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null }),
-        apres, P, o.equipement, 1);
+        apres, P, o.equipement, 1, P > 0 ? salleEnVigueur(o.salle || null, P) : null);
     return { apres: cApres, cranSuivant: cran };
   }
 
@@ -6674,6 +6874,20 @@
 
   function chargeDeMarche(m, entree, pas) {
     var ref = nombre(entree.reference);
+    // §10 bis (108) — LA SALLE DÉCLARÉE : la charge qu'elle fait la plus proche
+    // de la marche (l'égalité vers le bas), toujours sous la référence ; la
+    // « barre vide » est sa barre la plus légère. Rien sous la référence : `null`.
+    var salle = entree.salle ? salleEnVigueur(entree.salle, ref) : null;
+    if (salle) {
+      var sous = chargesDeLaSalle(salle).filter(function (v) { return v < ref && !memeCharge(v, ref); });
+      if (!sous.length) return null;
+      if (m.barre) return sous[0];
+      var vise = ref * m.p, meilleure = sous[0];
+      sous.forEach(function (v) {
+        if (Math.abs(v - vise) < Math.abs(meilleure - vise) - 1e-9) meilleure = v;
+      });
+      return meilleure;
+    }
     var c = m.barre ? BARRE_VIDE : auPasLePlusProche(ref * m.p, pas);
     // Toujours au moins un cran sous la référence…
     var plafond = Math.floor((ref - pas) / pas + 1e-9) * pas;
@@ -6708,7 +6922,8 @@
       // de la routine, elles, se remplissent quelle que soit la charge.
       var seuil = estBarre(e.equipement) ? SEUIL_PROPOSITION_BARRE : SEUIL_PROPOSITION_AUTRE;
       var prop = ref !== null && ref >= seuil
-        ? table.map(function (m) { return [chargeDeMarche(m, e, pas), m.reps]; }) : [];
+        ? table.map(function (m) { return [chargeDeMarche(m, e, pas), m.reps]; })
+            .filter(function (x) { return x[0] !== null; }) : [];
       return {
         situation: situation, proposition: prop,
         phrase_proposition: prop.length
@@ -6728,6 +6943,9 @@
       var m = marches[i];
       if (!m) return { reps: reps, charge: null };
       var c = chargeDeMarche(m, e, pas);
+      // §10 bis (108) — la salle n'a aucune charge sous la référence : la ligne
+      // reste vide, et la phrase le dit (jamais vide en silence, I16).
+      if (c === null) { tropLegeres++; return { reps: reps, charge: null, trop_leger: true }; }
       if (!ajoutees) return { reps: reps, charge: c };
       // §9.15.5 — les reps de la routine, sinon celles de la règle ; une
       // marche qui ne se distingue pas (pas au-dessus de la précédente, pas un
@@ -6788,6 +7006,11 @@
     if (der === null || der <= 0) return degressiveVide('Pas de charge de travail pour caler la dégressive.');
     var cran = nombre(e.cran);
     if (cran === null || cran <= 0) cran = CRAN_PAR_DEFAUT;
+    // §10 bis (108) — LA SALLE DÉCLARÉE : la même baisse (−22,5 %), au cran
+    // inférieur que la salle fait — une barre fixe, une paire d'haltères. À la
+    // barre fixe, on change de barre : « Prends la barre de 20 kg. »
+    var salle = e.salle ? salleEnVigueur(e.salle, der) : null;
+    if (salle) return degressiveDeLaSalle(salle, der, nombre(e.reps_travail));
     // Au cran INFÉRIEUR : jamais au-dessus des −22,5 %.
     var charge = auCentieme(Math.floor(der * (1 - BAISSE_DEGRESSIVE) / cran + 1e-9) * cran);
     var barre = estBarre(e.equipement);
@@ -6804,9 +7027,8 @@
     // le curl EZ d'aurel_br descend à 15 kg (relevé du 14/10). Seul le zéro.
     if (!(charge > 0)) return degressiveVide('Trop léger pour une dégressive.');
     var reps = nombre(e.reps_travail);
-    var milieu = Math.max(4, Math.floor((reps === null ? 8 : reps) / 2));
-    var vise = [milieu - 1, milieu + 1];
-    var visee = 'Vise ' + nombreFr(vise[0], regle('degressive.vise')) + ' à ' + nombreFr(vise[1], regle('degressive.vise')) + '.';
+    var vise = viseeDegressive(reps);
+    var visee = phraseViseeDegressive(vise);
     if (barre) {
       var enleve = enleveBarre;
       return {
@@ -6822,7 +7044,45 @@
     };
   }
 
+  // La fourchette d'une dégressive : environ la moitié des reps de la série de
+  // travail (§9.15.3), et sa phrase. Une seule définition, pour la barre, les
+  // disques et la salle.
+  function viseeDegressive(reps) {
+    var milieu = Math.max(4, Math.floor((reps === null || reps === undefined ? 8 : reps) / 2));
+    return [milieu - 1, milieu + 1];
+  }
+  function phraseViseeDegressive(vise) {
+    return 'Vise ' + nombreFr(vise[0], regle('degressive.vise')) + ' à ' + nombreFr(vise[1], regle('degressive.vise')) + '.';
+  }
+  // §10 bis (108) — la dégressive dans la salle déclarée : la charge qu'elle
+  // fait juste sous −22,5 %, toujours sous la dernière série de travail.
+  function degressiveDeLaSalle(salle, der, reps) {
+    var cible = auCentieme(der * (1 - BAISSE_DEGRESSIVE));
+    var sous = chargesDeLaSalle(salle).filter(function (v) {
+      return (v < cible || memeCharge(v, cible)) && v < der && !memeCharge(v, der);
+    });
+    if (!sous.length) return degressiveVide('Trop léger pour une dégressive.');
+    var charge = sous[sous.length - 1];
+    var vise = viseeDegressive(reps);
+    var suite = 'Sans repos, jusqu\'à l\'échec. ' + phraseViseeDegressive(vise);
+    if (SALLE_BARRES.indexOf(salle.materiel) >= 0) {
+      return { charge: charge, vise: vise, repos: 0, barreFixe: true,
+               phrase: 'Prends la barre de ' + Modele().charge(charge, undefined, regle('degressive')) + '. ' + suite };
+    }
+    return { charge: charge, vise: vise, repos: 0,
+             phrase: 'Dégressive : ' + Modele().charge(charge, undefined, regle('degressive')) +
+               ', sans repos, jusqu\'à l\'échec. ' + phraseViseeDegressive(vise) };
+  }
+
   var api = {
+    // §10 bis (108) — le matériel de la salle.
+    SALLE_BARRES: SALLE_BARRES,
+    salleEnVigueur: salleEnVigueur,
+    chargesDeLaSalle: chargesDeLaSalle,
+    maxDeLaSalle: maxDeLaSalle,
+    voisineDeLaSalle: voisineDeLaSalle,
+    dansLaSalle: dansLaSalle,
+    arrondieALaSalle: arrondieALaSalle,
     BARRE_VIDE: BARRE_VIDE,
     SOULEVES_AU_SOL: SOULEVES_AU_SOL,
     SEUIL_PROPOSITION_BARRE: SEUIL_PROPOSITION_BARRE,

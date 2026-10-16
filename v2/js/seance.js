@@ -1513,6 +1513,23 @@
     };
   }
 
+  // 115 (audit du 16/10/2026, E4 ; décision d'Aurélien D10) — LES SÉRIES REMPLIES, PAS VALIDÉES. Une valeur
+  // tapée (charge, reps, durée, distance) sur une ligne qui ne part pas en base (`partEnBase`) : « Terminer » la
+  // laisserait derrière lui sans un mot (§5.2 : seul ce qui est validé entre dans la séance enregistrée). La
+  // feuille de fin le dit d'abord. Les INTENTIONS (`reps_visees`, `charge_cible_kg`, `duree_cible_s`…) et les
+  // fantômes du plan ne sont pas des valeurs tapées : une ligne qui ne porte qu'eux est vide. Rend les positions,
+  // dans l'ordre de la séance.
+  var CHAMPS_TAPES = ['charge_kg', 'reps', 'duree_s', 'distance_m'];
+  function rempliesNonValidees(seance) {
+    return toutesLesSeries(seance).filter(function (p) {
+      if (!p.serie || partEnBase(p.serie)) return false;
+      return CHAMPS_TAPES.some(function (c) {
+        var v = p.serie[c];
+        return v !== null && v !== undefined && v !== '';
+      });
+    }).map(function (p) { return { iExo: p.iExo, iSerie: p.iSerie }; });
+  }
+
   // ══ LA DURÉE DE LA BARRE DE SÉANCE (62, ECRAN-SAISIE §7 octies bis) ══════
   //
   // ⚠️ ELLE SE RECALCULE TOUJOURS DEPUIS `debut`, JAMAIS PAR UN COMPTEUR QU'ON
@@ -2773,6 +2790,7 @@
     semerIdentifiants: semerIdentifiants,
     toutesLesSeries: toutesLesSeries,
     compter: compter,
+    rempliesNonValidees: rempliesNonValidees,
     minutesEcoulees: minutesEcoulees,
     delaiProchaineMinute: delaiProchaineMinute,
     lignes: lignes,

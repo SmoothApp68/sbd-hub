@@ -22297,6 +22297,90 @@ const SETS_IMPORTES = [
       nbO([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ 115. RIEN NE SE PERD À LA SAISIE (audit du 16/10, E2 et E4 ; décision D10) ══');
+  //
+  // Deux pertes silencieuses de la saisie, chacune par l'écran réel. E4 : « Terminer » jetait sans un mot une
+  // série remplie mais pas validée ; une phrase d'abord, « Les valider » ou « Terminer quand même ». E2 : le
+  // glissement effaçait une série FAITE (en base, avec son observation) sur l'instant ; « Série supprimée ·
+  // Annuler » d'abord, la suppression réelle à la fin du délai (ou au geste suivant qui enregistre).
+  {
+    const erreurs115 = erreurs.length;
+    const refus115 = base.journal.filter((j) => j.op === 'refus').length;
+    const enCours115 = () => (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    const feuille115 = () => page.evaluate(() => ({
+      ouverte: !document.querySelector('#feuille-seance').hidden,
+      titre: (document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || null,
+      menu: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .map((b) => [b.textContent, b.classList.contains('danger')]) }));
+    const entree115 = (libelle) => page.evaluate((t) => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+      .filter((b) => b.textContent === t)[0].click(), libelle);
+    const remplir115 = async (i, charge, reps) => {
+      const l = await ligne(i);
+      const champs = await l.$$('input');
+      await champs[0].fill(String(charge));
+      await champs[1].fill(String(reps));
+      await attendre(500);
+    };
+
+    // ── E4. UNE SÉRIE REMPLIE, PAS VALIDÉE, AU MOMENT DE TERMINER.
+    await aller('/saisie');
+    await demarrerRoutine('Push');
+    await attendre(1200);
+    await saisirSerie(0, 60, 5);
+    await remplir115(1, 62.5, 6);
+    await attendre(1200);
+    const idE4 = enCours115();
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(600);
+    await page.click('#feuille-contenu .principal');
+    await attendre(1200);
+    const qE4 = await feuille115();
+    ok('[115-E4] DISCRIMINANT — « Terminer » avec une série remplie non validée : une phrase d’abord, [Terminer quand même] (rouge) [Les valider]',
+      qE4.ouverte && qE4.titre === '1 série remplie n’est pas validée : elle ne sera pas gardée.' &&
+        JSON.stringify(qE4.menu) === JSON.stringify([['Terminer quand même', true], ['Les valider', false]]),
+      JSON.stringify(qE4));
+    ok('[115-E4] DISCRIMINANT — la séance n’est pas terminée tant qu’on n’a pas répondu',
+      !!idE4 && base.sessions.some((x) => x.id === idE4 && x.statut === 'en_cours'), JSON.stringify(idE4));
+    await entree115('Les valider');
+    await attendre(700);
+    const valeursE4 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).slice(0, 2)
+      .map((l) => Array.from(l.querySelectorAll('input')).map((i) => i.value).join('×')));
+    ok('[115-E4] « Les valider » : la feuille se ferme, la séance continue, la ligne garde 62,5 × 6',
+      !(await feuille115()).ouverte && JSON.stringify(await visible()) === '["vue-seance"]' &&
+        valeursE4[1] === '62,5×6' && base.sessions.some((x) => x.id === idE4 && x.statut === 'en_cours'),
+      JSON.stringify([valeursE4, await visible()]));
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(600);
+    await page.click('#feuille-contenu .principal');
+    await attendre(800);
+    await entree115('Terminer quand même');
+    await attendre(2600);
+    const setsE4 = base.sets.filter((x) => x.session_id === idE4);
+    ok('[115-E4] « Terminer quand même » : la séance est terminée avec sa seule série validée (60 × 5), rien de 62.5',
+      base.sessions.some((x) => x.id === idE4 && x.statut === 'terminee') && setsE4.length === 1 &&
+        Number(setsE4[0].charge_kg) === 60 && !setsE4.some((x) => Number(x.charge_kg) === 62.5),
+      JSON.stringify(setsE4.map((x) => [x.charge_kg, x.reps])));
+
+    // Sans série remplie, « Terminer » ne demande rien (non-régression du chemin courant).
+    await aller('/saisie');
+    await demarrerRoutine('Push');
+    await attendre(1200);
+    await saisirSerie(0, 60, 5);
+    await attendre(1000);
+    const idE4b = enCours115();
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(600);
+    await page.click('#feuille-contenu .principal');
+    await attendre(2600);
+    ok('[115-E4] sans série remplie non validée, « Terminer » termine aussitôt, sans question',
+      base.sessions.some((x) => x.id === idE4b && x.statut === 'terminee'), JSON.stringify(idE4b));
+
+    await aller('/saisie');
+    ok('[115] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refus115 && erreurs.length === erreurs115,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus115), erreurs.slice(erreurs115)]));
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

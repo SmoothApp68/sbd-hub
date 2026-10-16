@@ -1468,6 +1468,16 @@ met-elle à jour la routine ?
 > comprises, chantier 39), « Abandonner et tout effacer » en rouge ; « Annuler » revient à la
 > feuille de fin. Sans série faite, rien n'est perdu : l'abandon reste immédiat.
 
+> **« Terminer » dit ce qu'il laisse — audit du 16/10/2026 (E4), décision d'Aurélien du 16/10
+> (D10) : « une phrase avant que Terminer jette des séries remplies non validées ».** Une série
+> remplie (charge, reps, durée ou distance tapées) mais pas validée n'entre pas dans la séance
+> enregistrée (§5.2) ; « Terminer » le dit d'abord, dans la même feuille (le modèle de « Supprimer
+> cette séance ? ») : « 2 séries remplies ne sont pas validées : elles ne seront pas gardées. »,
+> **Terminer quand même** (rouge : il jette ce qui a été tapé) / **Les valider** (ferme la feuille
+> et amène la première de ces lignes en vue ; la valider reste le geste de l'utilisateur). Une
+> intention de routine ou un chiffre gris du coach n'est pas une valeur tapée. Sans série remplie,
+> rien ne change.
+
 
 ### 7 septies.4 bis Le récap de fin de séance — décidé le 11/10/2026 (chantier 71)
 

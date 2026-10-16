@@ -8096,6 +8096,7 @@
     var index = Modele.indexerExercices(local.exercices);
     if (feuille.quoi === 'fin') return rendreFeuilleFin(cible, index);
     if (feuille.quoi === 'abandon') return rendreFeuilleAbandon(cible);
+    if (feuille.quoi === 'non-validees') return rendreFeuilleNonValidees(cible);
     if (feuille.quoi === 'pourquoi') {
       return Rendu.rendreFeuillePourquoi(cible, {
         nom: Modele.nommer(index, feuille.slug),
@@ -8280,7 +8281,13 @@
       surTitre: function (v) { seance = Seance.decrire(seance, { titre: v }); sauverSeance(); },
       surSalle: function (v) { seance = Seance.decrire(seance, { salle: v }); sauverSeance(); },
       surNoteSeance: function (v) { seance = Seance.decrire(seance, { note: v }); sauverSeance(); },
-      surTerminer: async function () { fermerVoile(); await terminerSeance(verdict); },
+      // 115 (audit du 16/10, E4 ; décision D10) — des séries remplies mais pas validées ne partent pas en
+      // silence : une phrase d'abord, « Les valider » ou « Terminer quand même ».
+      surTerminer: async function () {
+        if (Seance.rempliesNonValidees(seance).length) { feuille.quoi = 'non-validees'; rendreFeuille(); return; }
+        fermerVoile();
+        await terminerSeance(verdict);
+      },
       // 115 (audit du 16/10, E1) — « Abandonner et tout effacer » DEMANDE dès qu'une série est faite : la
       // confirmation de « Supprimer cette séance ? », qui compte ce qui part. Sans série faite, rien à perdre :
       // la question serait un bruit qu'on tape sans lire (§6.2), et l'abandon reste immédiat.
@@ -8288,6 +8295,37 @@
         if (aEffacerALAbandon().lignes) { feuille.quoi = 'abandon'; rendreFeuille(); return; }
         fermerVoile();
         await abandonnerSeance();
+      }
+    });
+  }
+
+  // 115 (audit du 16/10, E4 ; décision D10) — LA PHRASE AVANT DE TERMINER. Le modèle est la confirmation de
+  // « Supprimer cette séance ? » (`rendreFeuilleConfirmer`), dans la même feuille : « Terminer quand même » porte
+  // le rouge (il jette ce qui a été tapé), « Les valider » ferme la feuille et amène la première ligne en vue —
+  // la valider reste le geste de l'utilisateur, rien n'est validé à sa place.
+  function phraseNonValidees(n) {
+    return n > 1
+      ? n + ' séries remplies ne sont pas validées : elles ne seront pas gardées.'
+      : '1 série remplie n\u2019est pas validée : elle ne sera pas gardée.';
+  }
+  function rendreFeuilleNonValidees(cible) {
+    var remplies = Seance.rempliesNonValidees(seance);
+    if (!remplies.length) { feuille.quoi = 'fin'; return rendreFeuille(); }
+    Rendu.rendreFeuilleConfirmer(cible, {
+      titre: phraseNonValidees(remplies.length),
+      danger: true,
+      libelle: 'Terminer quand même',
+      libelleAnnuler: 'Les valider',
+      surConfirmer: async function () {
+        var verdict = Seance.ecartsRoutine(seance, routineDeLaSeance());
+        fermerVoile();
+        await terminerSeance(verdict);
+      },
+      surAnnuler: function () {
+        var p = remplies[0];
+        fermerVoile();
+        var l = doc.querySelector('#blocs-seance [data-iexo="' + p.iExo + '"][data-iserie="' + p.iSerie + '"]');
+        if (l && l.scrollIntoView) l.scrollIntoView({ block: 'center' });
       }
     });
   }

@@ -377,7 +377,7 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
   function bac(o) {
     const opt = o || {};
     const base = { lignes: {}, refus: [], posts: [], gets: [] };
-    const journal = { vide: 0, meta: [], generations: 0 };
+    const journal = { vide: 0, meta: [], generations: 0, groupeOublie: 0 };
     const etat = { client: 'B', memoire: 'B' };
     const ctx = {
       console: { warn: (...a) => { ctx.avertissements.push(a.join(' ')); } },
@@ -397,6 +397,8 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
       routines: ['x'], brouillon: {}, etatRoutines: {}, seance: {}, attente: [1], chrono: {},
       local: {}, journalDecide: true, remplissage: {},
       fermerQuestionnaire: () => {}, faits: { oublierDates: () => {} },
+      // 106 — le groupe et ses messages gardés hors ligne appartiennent au compte précédent.
+      oublierGroupe: () => { journal.groupeOublie++; },
       Donnees: {
         monProfil: (id) => Promise.resolve(id === etat.client ? (base.lignes[id] || null) : null),
         enregistrerProfil: (id, champs) => {
@@ -432,6 +434,7 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
     // Tout ce qui appartenait au compte précédent est parti, comme avant.
     expect([b.ctx.profil, b.ctx.profilAEnvoyer, b.ctx.attente, b.ctx.routines]).toEqual([null, false, [], []]);
     expect(b.journal.vide).toBe(1);
+    expect(b.journal.groupeOublie).toBe(1);
     expect(b.journal.meta).toEqual([['proprietaire', { userId: 'B' }]]);
   });
 

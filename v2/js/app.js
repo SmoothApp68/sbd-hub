@@ -731,6 +731,9 @@
     catch (e) { local.records = []; }
     try { journalDecide = !!(await Cache.lireMeta(CLE_JOURNAL)); }
     catch (e) { journalDecide = false; }
+    // 106 — les messages du groupe écrits hors ligne, gardés sur le téléphone : ils partiront au retour du réseau.
+    try { grp.file = Social.fileDeMessages(await Cache.lireBrouillon(CLE_FILE_GROUPE)); }
+    catch (e) { grp.file = []; }
     rangerSeances();
     indexerParSeance();
     recalculerEtats();
@@ -809,6 +812,8 @@
     local.blocs = [];
     local.programme = [];
     local.connues = {};
+    // 106 — le groupe et ses messages gardés appartiennent au compte précédent (leur brouillon vient d'être vidé).
+    oublierGroupe();
     // 58-2 — le journal des records aussi (son magasin vient d'être vidé), et
     // son remplissage : il se décidera pour le compte qui arrive.
     local.records = [];
@@ -2196,11 +2201,19 @@
   // charges ; le plan de séance n'est jamais modifié par le groupe, et le coach et les bilans n'en lisent rien.
   //
   // ⚠️ LE DIRECT EST UNE DÉCORATION, JAMAIS UNE DÉPENDANCE : il se relit environ toutes les 20 s par une lecture (pas
-  // de temps réel) ; une lecture qui échoue ne dit rien et ne bloque rien — la séance continue normalement. Les
-  // messages tapés hors réseau attendent en mémoire et partent au retour du réseau.
+  // de temps réel) ; une lecture qui échoue ne dit rien et ne bloque rien — la séance continue normalement.
+  //
+  // 106 (décisions d'Aurélien du 15/10/2026, SOCIAL-V1 §7.3, v2_087) :
+  //   · UN MESSAGE ÉCRIT HORS LIGNE EST GARDÉ SUR LE TÉLÉPHONE (`grp.file`, écrite dans le cache comme la séance, relue
+  //     au démarrage par `chargerCache`) et part au retour du réseau — pour le groupe où il a été écrit, une seule fois
+  //     (son identifiant). Un refus de la base (groupe fini, quitté) le retire et se dit ; le réseau absent, il attend.
+  //   · LE GROUPE EST TERMINÉ dès que toutes les séances sont finies ; CHACUN PEUT LANCER OU REJOINDRE UN AUTRE GROUPE
+  //     DÈS QUE SA SÉANCE EST FINIE (`Social.libreDuGroupe`). Mon groupe n'est montré DANS une séance que si c'est la
+  //     sienne (`groupeDeLaSeance`) : une séance suivante n'en hérite rien — ni carte, ni liste publiée, ni XP, ni départ.
   var grp = { moi: null, etat: [], direct: [], messages: [], invitations: [], envoyees: [], lu: 0, enCours: false,
-              muet: false, ouvert: false, ecrire: false, file: [], message: null, publie: null, vue: null,
+              muet: false, ouvert: false, ecrire: false, file: [], envoi: null, message: null, publie: null, vue: null,
               aRejoindre: null, recapAuto: false };
+  var CLE_FILE_GROUPE = 'groupe-messages';
   var gardeGroupe = null;
 
   function messageGroupe(e) {
@@ -2230,8 +2243,25 @@
     return t;
   }
 
-  // UNE LECTURE : mon groupe, l'état des séances, le direct, les messages — ou, sans groupe, mes invitations. Une lecture
-  // à la fois ; un échec ne dit rien (le direct est une décoration).
+  // 106 — ma place dans mon groupe (la ligne `moi` de l'état), et le groupe de CETTE séance.
+  function maPlace() { return (grp.etat || []).filter(function (m) { return m && m.moi; })[0] || null; }
+  function groupeDeLaSeance(s) {
+    var p = maPlace();
+    s = s === undefined ? seance : s;
+    return !!(grp.moi && s && p && p.session_id === s.id);
+  }
+  function libreDuGroupe() {
+    return !grp.moi || Social.libreDuGroupe(grp.etat, seance ? seance.id : null, new Date().toISOString());
+  }
+  // 106 — tout ce que le groupe sait du compte qui part (« Quitter », un autre compte qui entre).
+  function oublierGroupe() {
+    grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.invitations = []; grp.envoyees = [];
+    grp.file = []; grp.envoi = null; grp.message = null; grp.publie = null; grp.lu = 0; grp.recapAuto = false;
+    grp.aRejoindre = null;
+  }
+
+  // UNE LECTURE : mon groupe, l'état des séances, le direct, les messages — et, libre (sans groupe, ou ma séance du
+  // groupe finie), mes invitations. Une lecture à la fois ; un échec ne dit rien (le direct est une décoration).
   async function chargerGroupe() {
     // L'outil de rejeu (développement) ne lit rien du groupe : il ne parle pas à la base.
     if (!userId() || grp.enCours || rejeuDemande) return;
@@ -2241,13 +2271,14 @@
       var moi = await Donnees.groupeMoi();
       grp.moi = moi;
       if (moi) {
-        await publierMesExercices();
         var r = await Promise.all([Donnees.groupeEtat(), Donnees.groupeDirect(), Donnees.groupeMessages()]);
-        grp.etat = r[0]; grp.direct = r[1]; grp.messages = r[2]; grp.invitations = [];
+        grp.etat = r[0]; grp.direct = r[1]; grp.messages = r[2];
+        await publierMesExercices();
       } else {
         grp.etat = []; grp.direct = []; grp.messages = []; grp.envoyees = [];
-        grp.invitations = await Donnees.groupeInvitationsRecues();
       }
+      // 106 — libre (ma séance du groupe finie), les invitations d'un autre groupe se montrent déjà.
+      grp.invitations = libreDuGroupe() ? await Donnees.groupeInvitationsRecues() : [];
       grp.lu = Date.now();
     } catch (e) {
       console.warn('Le groupe attend le réseau :', texteErreur(e));
@@ -2258,7 +2289,7 @@
   }
   // La boucle : environ toutes les 20 s, seulement en séance ou dans un groupe, et app visible.
   function tickGroupe() {
-    if (!userId() || !(seance || grp.moi)) return;
+    if (!userId() || !(seance || grp.moi || grp.file.length)) return;
     if (doc.visibilityState === 'hidden') return;
     chargerGroupe();
   }
@@ -2273,33 +2304,67 @@
     if (ecranCourant === 'liste' || ecranCourant === 'saisie') dessinerGroupeAccueil();
   }
 
-  // Ma liste d'exercices suit ma séance (pour qui « suit » ma séance) — seulement si elle a changé.
+  // Ma liste d'exercices suit ma séance (pour qui « suit » ma séance) — seulement si elle a changé, et seulement la
+  // séance DU groupe (106 : une séance suivante n'écrit pas dans le groupe d'avant).
   async function publierMesExercices() {
-    if (!grp.moi || !seance || enEdition()) return;
+    if (!groupeDeLaSeance() || enEdition()) return;
     var l = exercicesDe(seance), cle = l.join(',');
     if (cle === grp.publie) return;
     await Donnees.groupePublier(l, null);
     grp.publie = cle;
   }
-  // Les messages partent dans l'ordre ; hors réseau, ils attendent (et partent au retour du réseau).
-  async function envoyerFileGroupe() {
-    while (grp.file.length) {
-      await Donnees.groupeEnvoyer(grp.file[0]);
-      grp.file.shift();
-    }
+  // 106 — LA FILE EST GARDÉE SUR LE TÉLÉPHONE (le brouillon du cache, comme la séance) : écrite AVANT le premier essai
+  // d'envoi, réécrite à chaque départ. Un « Quitter » en vol n'y réécrit rien (la génération).
+  function garderFileGroupe(g) {
+    if (g !== undefined && !generationValide(g)) return Promise.resolve();
+    return Cache.ecrireBrouillon(CLE_FILE_GROUPE, grp.file.length ? grp.file : null).catch(function (e) {
+      console.warn('La file des messages du groupe n’a pas pu être gardée :', texteErreur(e));
+    });
   }
-  function envoyerMessageGroupe(texte) {
+  // Les messages partent dans l'ordre, UN envoi à la fois (deux envois parallèles enverraient la tête deux fois et
+  // en retireraient deux). Un REFUS de la base (groupe fini, quitté, texte refusé) retire le message et se dit ; le
+  // réseau absent, il attend — la file s'arrête là, rien n'est perdu.
+  function envoyerFileGroupe() {
+    if (grp.envoi) return grp.envoi;
+    var g = generation;
+    var envoi = (async function () {
+      while (grp.file.length && generationValide(g)) {
+        var m = grp.file[0];
+        try {
+          await Donnees.groupeEnvoyer(m.texte, m.groupe_id, m.id);
+        } catch (e) {
+          if (!refusDuGroupe(e)) throw e;
+          grp.message = messageGroupe(e);
+        }
+        if (!generationValide(g)) return;
+        grp.file = grp.file.filter(function (x) { return x.id !== m.id; });
+        await garderFileGroupe(g);
+      }
+    })();
+    // Le verrou se pose APRÈS le départ et se lève quand l'envoi est fini (réussi ou non) — et seulement le sien : une
+    // file vide finit tout de suite, un verrou levé AVANT d'être posé resterait posé pour toujours.
+    grp.envoi = envoi;
+    var lever = function () { if (grp.envoi === envoi) grp.envoi = null; };
+    envoi.then(lever, lever);
+    return envoi;
+  }
+  // Un refus de la base (une règle du groupe), pas le réseau.
+  function refusDuGroupe(e) { return !!e && /groupe_/.test(String(e.message || e.details || '')); }
+  async function envoyerMessageGroupe(texte) {
     var t = Social.messageValide(texte);
     if (!t) { grp.message = 'Un message fait de 1 à 140 caractères.'; return dessinerGroupeSeance(); }
-    grp.file.push(t);
+    if (!grp.moi) return;
+    grp.file = grp.file.concat([{ id: uuid(), groupe_id: grp.moi.id, texte: t, le: new Date().toISOString() }]);
     grp.ecrire = false; grp.message = null;
     dessinerGroupeSeance();
-    envoyerFileGroupe().then(function () {
-      return Donnees.groupeMessages().then(function (m) { grp.messages = m; });
-    }).catch(function (e) {
-      // Un refus de la base (pas membre, texte refusé) se dit ; le réseau absent, le message attend.
-      if (e && /groupe_/.test(String(e.message || ''))) { grp.file.shift(); grp.message = messageGroupe(e); }
-    }).then(dessinerGroupeSeance);
+    await garderFileGroupe();
+    try {
+      await envoyerFileGroupe();
+      grp.messages = await Donnees.groupeMessages();
+    } catch (e) {
+      // Le réseau absent : le message attend (gardé), et partira au retour du réseau.
+    }
+    dessinerGroupeSeance();
   }
 
   // « 💬 jordan : « Dernière série ! » · 🔥 lea » — les deux derniers messages.
@@ -2320,7 +2385,8 @@
   }
   function vueDuGroupeSeance() {
     var v = { message: grp.message };
-    if (!grp.moi) {
+    // 106 — le groupe d'une AUTRE séance (la mienne y est finie) ne se montre pas ici : je suis libre d'en lancer un.
+    if (!groupeDeLaSeance()) {
       v.invitations = (grp.invitations || []).map(function (i) {
         return { invitant: i.invitant, surVoir: function () { ouvrirRejoindre(i); } };
       });
@@ -2341,7 +2407,7 @@
         : lignes.length > Social.LIGNES_DU_DIRECT ? { texte: 'Tout voir (' + lignes.length + ')', sur: function () { grp.ouvert = true; dessinerGroupeSeance(); } }
         : null,
       messages: texteDesMessages(),
-      enAttente: grp.file.length ? (grp.file.length > 1 ? grp.file.length + ' messages partiront' : '1 message partira') + ' au retour du réseau.' : null,
+      enAttente: Social.texteEnAttente(grp.file, grp.moi.id),
       rapides: Social.MESSAGES_RAPIDES.concat(Social.EMOJIS_GROUPE).map(function (t) {
         return { texte: t, sur: function () { envoyerMessageGroupe(t); } };
       }),
@@ -2484,7 +2550,7 @@
     if (!seance) return;
     ouvrirVueGroupe({ mode: 'inviter' });
     var g = grp.vue;
-    Promise.all([chargerLiens(), grp.moi ? Donnees.groupeInvitationsEnvoyees() : Promise.resolve([])]).then(function (r) {
+    Promise.all([chargerLiens(), groupeDeLaSeance() ? Donnees.groupeInvitationsEnvoyees() : Promise.resolve([])]).then(function (r) {
       grp.envoyees = r[1];
     }).catch(function (e) { g.message = messageGroupe(e); }).then(dessinerVueGroupe);
   }
@@ -2502,7 +2568,10 @@
   function inviterAuGroupe(user) {
     gesteGroupe(async function () {
       if (!seance) return;
-      if (!grp.moi) {
+      if (!groupeDeLaSeance()) {
+        // 106 — la base doit savoir ma séance précédente finie (elle ferme alors ma place dans son groupe) : la file
+        // d'envoi part d'abord.
+        await vidanger().catch(function () {});
         await Donnees.groupeCreer(seance.id, exercicesDe(seance));
         grp.publie = exercicesDe(seance).join(',');
         grp.moi = await Donnees.groupeMoi();
@@ -2537,6 +2606,8 @@
   async function rejoindre(invitation) {
     if (!seance) return;
     try {
+      // 106 — comme pour lancer : la base apprend d'abord que ma séance précédente est finie.
+      await vidanger().catch(function () {});
       await Donnees.groupeRejoindre(invitation.groupe_id, seance.id, exercicesDe(seance));
       grp.publie = exercicesDe(seance).join(',');
       grp.message = null;
@@ -2551,7 +2622,7 @@
   // LA FIN : mon XP de la séance part (nulle jeu éteint) ; mon récap d'abord, puis celui du groupe quand toutes les
   // séances sont terminées.
   function publierFinPourLeGroupe(finie, jeuDuRecap) {
-    if (!grp.moi) return;
+    if (!groupeDeLaSeance(finie)) return;
     var xp = jeuAllume() && jeuDuRecap && jeuDuRecap.apport ? Math.max(0, Math.round(Number(jeuDuRecap.apport.xp) || 0)) : null;
     grp.recapAuto = true;
     Donnees.groupePublier(exercicesDe(finie), xp).catch(function (e) {
@@ -2586,12 +2657,17 @@
       if (v) { v.message = messageGroupe(e); dessinerVueGroupe(); }
       return;
     }
-    grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.envoyees = []; grp.file = []; grp.publie = null;
+    // 106 — les messages encore gardés pour ce groupe ne partiront plus (je l'ai fermé).
+    var fini = grp.moi && grp.moi.id;
+    grp.file = grp.file.filter(function (m) { return m.groupe_id !== fini; });
+    garderFileGroupe();
+    grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.envoyees = []; grp.publie = null;
     fermerVueGroupe();
   }
-  // Une séance abandonnée sort du groupe, sans récap.
-  function quitterLeGroupeSiMembre() {
-    if (!grp.moi) return;
+  // Une séance abandonnée sort du groupe, sans récap — la séance DU groupe seulement (106 : abandonner une séance
+  // suivante ne fait pas quitter le groupe d'avant).
+  function quitterLeGroupeSiMembre(abandonnee) {
+    if (!groupeDeLaSeance(abandonnee)) return;
     Donnees.groupeQuitter().then(function () {
       grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.publie = null;
     }).catch(function (e) { console.warn('Le groupe attend le réseau :', texteErreur(e)); });
@@ -3861,7 +3937,7 @@
     await oublierConsignes();
     await poser({ table: Attente.SESSIONS, op: Attente.SUPPRIMER, id: id });
     // 91 — une séance abandonnée sort du groupe, sans récap.
-    quitterLeGroupeSiMembre();
+    quitterLeGroupeSiMembre({ id: id });
     rendreSaisie();
   }
 
@@ -10878,6 +10954,9 @@
     // appartiennent quand même au compte qui part.
     routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };
     seance = null; attente = []; chrono = null; arreterMinuteur();
+    // 106 — le groupe aussi, et ses messages gardés hors ligne (leur brouillon vient d'être vidé) : les envoyer au nom du
+    // compte suivant serait parler à sa place.
+    oublierGroupe();
     // Le profil appartient au compte qui part, et son envoi en attente avec lui :
     // rejouer une modification de profil sur le compte suivant serait pire que
     // de la perdre.
@@ -13198,6 +13277,8 @@
     // chaque retour du réseau écraserait, avec un cache périmé, ce qu'un autre appareil
     // a répondu entre-temps (`questionnaire_fait_le`, objectif, priorités).
     racine.addEventListener('online', function () { vidanger(); if (profilAEnvoyer) envoyerProfil(); });
+    // 106 — les messages du groupe gardés hors ligne partent au retour du réseau.
+    racine.addEventListener('online', function () { if (grp.file.length) chargerGroupe(); });
     // Rotation, clavier logiciel, changement de taille : les barres changent de
     // hauteur, la réserve les suit. Mesuré une première fois au démarrage pour
     // que `--h-onglets` existe avant le premier rendu de séance.

@@ -2502,7 +2502,8 @@
         if (x.degressiveRoutine) erreurs.push('I48 — ' + nom + ' : une dégressive proposée alors que la routine en a une');
         // §10 bis (113) — AU PLAFOND DE LA SALLE, la dégressive suit l'escalier du plafond (une marche par
         // déclenchement, la série de plus sautée sans place) : I47 en vérifie l'ordre.
-        if (!m.plafond) {
+        var auPlafondI48 = !!(m.plafond && x.salle && x.consigne && Moteur().auPlafondDeLaSalle(x.consigne, x.salle));
+        if (!auPlafondI48) {
           if (m.n !== 2) erreurs.push('I48 — ' + nom + ' : une dégressive proposée hors du 2e déclenchement isolé (n = ' + m.n + ')');
           if (m.serieDePlusProposee !== true) erreurs.push('I48 — ' + nom + ' : une dégressive proposée sans série de plus avant elle');
         }

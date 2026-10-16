@@ -373,6 +373,17 @@ describe('§10 bis (113) — I47 révisé', () => {
   });
 });
 
+describe('§10 bis (113) — I48 ne laisse l’ordre du plafond qu’à un exercice au plafond', () => {
+  test('DISCRIMINANT — une dégressive forgée « au plafond » sur un exercice qui n’y est pas : I48 la voit hors du 2e déclenchement', () => {
+    const c = auPlafond(4, { sansSalle: true });
+    const { p } = plan(c, { sansSalle: true, place: false, debutant: false });
+    const q = JSON.parse(JSON.stringify(p));
+    q.exercices[0].escalier = { marche: 'degressive', n: 1, compteur: 4, declenchement: true, zone: 'volume',
+      plafond: { charge: 30, reps: 15 }, carte: { type: 'degressive', phrase: 'x', plafond: true } };
+    expect(T.verifierPlan(q, undefined).erreurs.some((t) => /^I48 — .*hors du 2e déclenchement isolé/.test(t))).toBe(true);
+  });
+});
+
 // ═══ 6. LE PARI ET SON OBSERVATION ═══════════════════════════════════════
 describe('§10 bis (113) — le pari au plafond : « tu tiens le plafond sur toutes les séries de travail, la nouvelle comprise »', () => {
   const pari = (mk, extra) => M.marchesDesParis([{ id: 'p1', module: 'escalier', exercise_slug: null,

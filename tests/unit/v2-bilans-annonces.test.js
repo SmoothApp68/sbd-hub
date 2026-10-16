@@ -322,7 +322,7 @@ describe('L’annonce d’un bilan ne revient pas sur un autre appareil', () => 
     await a.demarrer();
     expect(a.annonces).toHaveLength(1);
     expect(a.ctx.profil.bilans_annonces).toEqual(['2026-10']);
-    expect(a.ctx.profilAEnvoyer).toBe(true);
+    expect(a.ctx.profilAEnvoyer).toEqual({ bilans_annonces: ['2026-10'] });   // 116 : la seule colonne du geste attend
   });
 
   test('profil jamais lu (aucun cache, hors réseau) : l’appareil retient, aucune ligne n’est créée d’une annonce', async () => {

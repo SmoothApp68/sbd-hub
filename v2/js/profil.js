@@ -642,6 +642,46 @@
     return sortie;
   }
 
+  // ── CE QUI ATTEND D'ÊTRE ENVOYÉ (audit du 16/10/2026, prompt 116) ─────────
+  //
+  // ⚠️ UN GESTE N'ENVOIE QUE SES COLONNES. Avant 116, chaque geste renvoyait TOUTE la ligne en cache, et le profil
+  // ne se relit qu'au démarrage : un réglage fait sur un autre appareil (ou une prévisualisation de PR, une autre
+  // origine) était réécrit à son ancienne valeur par le geste suivant de l'appareil resté ouvert — Ma salle, la
+  // phase, les priorités, « questionnaire rempli ». L'`upsert` de PostgREST ne touche que les colonnes reçues :
+  // n'envoyer que celles du geste suffit.
+  //
+  // L'ATTENTE : `false` (rien n'attend), un objet `{ colonne: valeur }` — les colonnes des gestes pas encore partis,
+  // FUSIONNÉES (deux gestes hors réseau partent ensemble, chacun avec ses colonnes ; le plus récent l'emporte sur une
+  // même colonne) —, ou `true` : la forme d'avant 116, un simple drapeau gardé sur l'appareil, qui ne dit pas
+  // quelles colonnes ont changé. Celle-là envoie la ligne entière, UNE fois (ne rien envoyer perdrait le geste).
+  function fusionnerEnAttente(attente, champs) {
+    if (attente === true) return true;
+    var out = Object.assign({}, attente && typeof attente === 'object' ? attente : {}, champsEcrits(champs));
+    return Object.keys(out).length ? out : false;
+  }
+  // Ce qui part : les colonnes en attente (filtrées par la liste blanche), ou la ligne entière pour `true`.
+  function champsEnAttente(attente, profil) {
+    if (attente === true) return champsEcrits(profil);
+    return champsEcrits(attente && typeof attente === 'object' ? attente : {});
+  }
+  // L'attente, moins ce qui vient de partir : une colonne n'en sort que si elle vaut TOUJOURS ce qui est parti — un
+  // geste posé pendant l'envoi, sur la même colonne, attend le sien. `true` est rendu tel quel (l'appelant décide).
+  function memeValeur(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+  function retirerEnvoyes(attente, envoyes) {
+    if (attente === true) return true;
+    if (!attente || typeof attente !== 'object') return false;
+    var e = envoyes || {}, out = {};
+    Object.keys(attente).forEach(function (c) {
+      if (Object.prototype.hasOwnProperty.call(e, c) && memeValeur(attente[c], e[c])) return;
+      out[c] = attente[c];
+    });
+    return Object.keys(out).length ? out : false;
+  }
+  // Relue sur l'appareil : un objet ou `true` (la forme d'avant 116) ; tout le reste vaut « rien n'attend ».
+  function lireEnAttente(v) {
+    return v === true || (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length) ? v : false;
+  }
+
   // ── Les bilans déjà annoncés (104, BILANS-V1, v2_086) ───────────────────
   // La liste des périodes annoncées (la `cle` de la période : '2026', '2026-ete', '2026-09'), la plus ancienne
   // d'abord. Au plus 200 : les plus anciennes sortent (une période ancienne ne s'annonce de toute façon plus).
@@ -1540,6 +1580,9 @@
     doitOuvrirQuestionnaire: doitOuvrirQuestionnaire,
     questionnaireAFaire: questionnaireAFaire,
     champsEcrits: champsEcrits,
+    // 116 — ce qui attend d'être envoyé : les colonnes des gestes, fusionnées (audit du 16/10/2026).
+    fusionnerEnAttente: fusionnerEnAttente, champsEnAttente: champsEnAttente, retirerEnvoyes: retirerEnvoyes,
+    lireEnAttente: lireEnAttente,
     jeuActif: jeuActif,
     tailleValide: tailleValide,
     naissanceValide: naissanceValide,

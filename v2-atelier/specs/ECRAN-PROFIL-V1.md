@@ -481,6 +481,13 @@ noire laisserait passer toute colonne ajoutée plus tard. `friend_code`,
 `xp_high_water_mark` et les six réglages de visibilité n'y sont pas : c'est du
 social (§2.7).
 
+**Un geste n'envoie que ses colonnes** (audit du 16/10/2026, prompt 116). Le profil ne se relit qu'au démarrage :
+renvoyer la ligne entière en cache réécrivait à son ancienne valeur tout réglage fait sur un autre appareil (ou une
+prévisualisation de PR) — Ma salle, la phase, les priorités, « questionnaire rempli ». L'`upsert` ne porte donc que les
+colonnes du geste ; les gestes qui attendent (hors réseau, ou derrière un envoi en vol) fusionnent leurs colonnes, la
+plus récente l'emportant sur une même colonne. La réponse (la ligne entière de la base) apporte en local ce qui a
+changé ailleurs.
+
 ### 5.5 La règle de routage, précisément
 
 > **Un profil dont `onboarding_completed` est `false` ouvre sur le profil, quelle

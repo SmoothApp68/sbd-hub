@@ -84,7 +84,7 @@ describe('« Quitter » et une réponse de profil donnée HORS LIGNE', () => {
   test('prémisse — hors ligne, la réponse reste locale et le drapeau levé (rien n’est parti)', async () => {
     const b = bac({ reseau: false });
     await b.repondre({ temps_reponse: 'max' });
-    expect(b.ctx.profilAEnvoyer).toBe(true);
+    expect(b.ctx.profilAEnvoyer).toEqual({ temps_reponse: 'max' });   // 116 : les colonnes du geste attendent
     expect(b.ctx.profil.temps_reponse).toBe('max');
     expect(b.etat.posts).toEqual([]);
   });
@@ -103,7 +103,7 @@ describe('« Quitter » et une réponse de profil donnée HORS LIGNE', () => {
     const b = bac({ reseau: false, choix: 'rester' });
     await b.repondre({ temps_reponse: 'max' });
     await b.quitter();
-    expect(b.ctx.profilAEnvoyer).toBe(true);
+    expect(b.ctx.profilAEnvoyer).toEqual({ temps_reponse: 'max' });   // 116 : les colonnes du geste attendent
     expect(b.ctx.profil).toMatchObject({ id: 'u1', temps_reponse: 'max' });
     expect(b.etat.deconnexions).toBe(0);
     // Le réseau revient : la réponse part (le gestionnaire `online` fait `envoyerProfil()`).
@@ -126,7 +126,7 @@ describe('« Quitter » et le réseau qui REVIENT (sans l’évènement `online`
     const b = bac({ reseau: false });
     await b.repondre({ temps_reponse: 'max' });          // hors ligne : le drapeau reste levé
     b.etat.reseau = true;                                // le réseau est revenu ; personne n'a appelé `online`
-    expect(b.ctx.profilAEnvoyer).toBe(true);
+    expect(b.ctx.profilAEnvoyer).toEqual({ temps_reponse: 'max' });   // 116 : les colonnes du geste attendent
     expect(await b.quitter()).toBe('quitte');
     expect(b.etat.posts.map((p) => p.temps_reponse)).toEqual(['max']);   // la réponse est PARTIE
     expect(b.etat.fenetres).toEqual([]);                                 // sans fenêtre
@@ -140,7 +140,7 @@ describe('« Quitter » et le réseau qui REVIENT (sans l’évènement `online`
     b.ctx.racine.navigator = { onLine: true };
     expect(await b.quitter()).toBe('reste');
     expect(b.etat.fenetres.map((v) => v.titre)).toEqual([TITRE]);
-    expect(b.ctx.profilAEnvoyer).toBe(true);
+    expect(b.ctx.profilAEnvoyer).toEqual({ temps_reponse: 'max' });   // 116 : les colonnes du geste attendent
     expect(b.etat.deconnexions).toBe(0);
   });
 

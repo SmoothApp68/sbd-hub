@@ -575,7 +575,8 @@ describe('60-2a — l’envoi du profil : UN SEUL À LA FOIS, et une réponse n�
     // …et le second part avec l'état d'ALORS, rien n'est perdu.
     expect(b.departs).toHaveLength(2);
     expect(b.departs[1]).toEqual({ objectif: 'muscle', priorites: ['dos'] });
-    expect(b.ctx.profilAEnvoyer).toBe(true);                                    // le drapeau reste levé tant que le dernier n'a pas répondu
+    // le drapeau reste levé tant que le dernier n'a pas répondu (116 : il porte les colonnes du geste qui attend)
+    expect(b.ctx.profilAEnvoyer).toEqual({ objectif: 'muscle', priorites: ['dos'] });
     b.attentes[1]();
     await deux;
     expect(b.ctx.profil).toEqual({ id: 'u1', objectif: 'muscle', priorites: ['dos'] });
@@ -596,7 +597,7 @@ describe('60-2a — l’envoi du profil : UN SEUL À LA FOIS, et une réponse n�
     const b = bacEnvoi();
     b.ctx.Donnees.enregistrerProfil = (id, champs) => { b.departs.push(champs); return Promise.reject(new Error('hors ligne')); };
     await vm.runInContext('poserProfil({ objectif: "force" })', b.ctx);
-    expect(b.ctx.profilAEnvoyer).toBe(true);
+    expect(b.ctx.profilAEnvoyer).toEqual({ objectif: 'force' });   // 116 : la colonne du geste attend
     await vm.runInContext('poserProfil({ objectif: "muscle" })', b.ctx);
     expect(b.departs).toHaveLength(2);
     expect(b.ctx.profil.objectif).toBe('muscle');

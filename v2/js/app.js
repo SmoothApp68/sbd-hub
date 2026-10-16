@@ -11713,7 +11713,10 @@
   // dont on peut sortir tout de suite.
 
   var profil = null;            // la ligne `profiles`, telle qu'on la connaît
-  var profilAEnvoyer = false;   // une modification faite hors réseau attend
+  // Ce qui attend d'être envoyé (116, audit du 16/10/2026) : `false` (rien), les COLONNES des gestes pas encore partis
+  // (`{ colonne: valeur }`, fusionnées par `Profil.fusionnerEnAttente`), ou `true` — la forme d'avant 116, relue sur
+  // un appareil qui attendait déjà : la ligne entière part, une fois. Vrai ou faux s'y lit comme avant.
+  var profilAEnvoyer = false;
   var pseudoAInscrire = null;   // le pseudo saisi à l'inscription, pas encore posé
   var CLE_PROFIL = 'profil';
   var CLE_PROFIL_ENVOI = 'profil-a-envoyer';
@@ -11725,7 +11728,7 @@
     try {
       var v = await Cache.lireMeta(CLE_PROFIL);
       if (v) profil = v;
-      profilAEnvoyer = !!(await Cache.lireMeta(CLE_PROFIL_ENVOI));
+      profilAEnvoyer = Profil.lireEnAttente(await Cache.lireMeta(CLE_PROFIL_ENVOI));
     } catch (e) { /* cache indisponible : on repartira du réseau */ }
   }
 
@@ -11894,6 +11897,8 @@
   // D'où : chaque envoi lit `profil` QUAND IL PART, derrière le précédent ; et une
   // réponse n'est adoptée que si aucune pose n'est venue depuis son départ
   // (`versionProfil`) — sinon le geste plus récent a son propre envoi, derrière.
+  // 116 (audit du 16/10/2026) — l'envoi ne porte plus la ligne entière : seulement les colonnes des gestes en
+  // attente (`profilAEnvoyer`), lues QUAND IL PART ; ce qui est parti sort de l'attente, le reste attend le suivant.
   var envoiProfil = null;
   var versionProfil = 0;
   // 93 — vrai quand la dernière lecture a dit « pas de ligne » et que la création n'a pas abouti : le prochain
@@ -11906,13 +11911,17 @@
   }
 
   async function envoyerProfilMaintenant() {
-    if (!userId() || !profil) return;
+    // 116 — rien n'attend : rien ne part (un envoi n'est jamais une ligne entière « au cas où »).
+    if (!userId() || !profil || !profilAEnvoyer) return;
     var g = generation;
     var version = versionProfil;
     var id = await identifiantDuProfil();
     if (!id || !generationValide(g)) return;
     try {
-      var champs = Profil.champsEcrits(profil);
+      // ⚠️ 116 (audit du 16/10/2026) — SEULEMENT LES COLONNES DES GESTES EN ATTENTE, jamais la ligne en cache : le
+      // profil ne se relit qu'au démarrage, et la ligne entière réécrivait à son ancienne valeur tout réglage fait
+      // ailleurs (un autre appareil, une prévisualisation de PR). L'`upsert` ne touche que les colonnes reçues.
+      var champs = Profil.champsEnAttente(profilAEnvoyer, profil);
       // 93 — LA LIGNE PEUT NAÎTRE ICI : `chargerProfil` ne l'a pas posée (lecture ou création ratée), et c'est le
       // premier geste du Profil qui la crée (`ligneACreer`). La création reprend alors ce que `chargerProfil` aurait
       // écrit — le pseudo choisi au MÊME endroit (`Profil.pseudoDeLInscription`), et `onboarding_completed: false` —
@@ -11949,9 +11958,16 @@
         }
       }
       if (!generationValide(g)) return;
-      if (version !== versionProfil) return;   // un geste plus récent attend son envoi : on ne le remplace pas
+      // 116 — ce qui est parti sort de l'attente ; un geste posé PENDANT l'envoi (une autre colonne, ou la même avec une
+      // autre valeur) y reste, pour l'envoi qui le suit. La forme d'avant 116 (`true`) n'attend plus rien si aucun
+      // geste n'est venu depuis.
+      profilAEnvoyer = profilAEnvoyer === true ? version !== versionProfil
+        : Profil.retirerEnvoyes(profilAEnvoyer, champs);
+      if (version !== versionProfil) {        // un geste plus récent attend son envoi : on ne le remplace pas
+        await sauverProfilLocal();
+        return;
+      }
       profil = rendu;
-      profilAEnvoyer = false;
       // Une adoption est un CHANGEMENT D'ÉTAT : une lecture (`chargerProfil`) partie AVANT elle, mais traitée par la
       // base avant l'écriture, rendrait une valeur plus ancienne que `rendu` et la remettrait en local — puis le
       // geste suivant, qui envoie la ligne entière, l'écrirait en base (relevé à la relecture de 60-5). La version
@@ -11973,7 +11989,7 @@
       // ou au retour du réseau. Rien n'est perdu — la valeur est en local et
       // l'intention est sur disque.
       if (!generationValide(g)) return;
-      profilAEnvoyer = true;
+      // 116 — l'attente reste telle quelle (ses colonnes, et celles posées depuis) : elle repartira entière.
       await sauverProfilLocal();
     }
   }
@@ -11987,11 +12003,14 @@
   // l'écran qu'on vient de quitter. Un écran qui se rouvre tout seul quand on
   // en sort est exactement le genre de défaut qu'aucun test unitaire ne voit.
   async function poserProfil(champs) {
-    profil = Object.assign({}, profil || {}, Profil.champsEcrits(champs));
+    var ecrits = Profil.champsEcrits(champs);
+    profil = Object.assign({}, profil || {}, ecrits);
     versionProfil++;
     // Un pseudo choisi remet l'état « pris entre-temps » à zéro : le prochain refus, s'il y en a un, le reposera.
     if (champs && Object.prototype.hasOwnProperty.call(champs, 'username')) effacerPseudoPris(userId());
-    profilAEnvoyer = true;
+    // 116 — les colonnes du geste rejoignent celles qui attendent déjà (deux gestes hors réseau partent ensemble,
+    // chacun avec les siennes) : jamais la ligne entière.
+    profilAEnvoyer = Profil.fusionnerEnAttente(profilAEnvoyer, ecrits);
     await sauverProfilLocal();
     await envoyerProfil();
   }

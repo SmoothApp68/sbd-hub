@@ -195,7 +195,12 @@ elle retire ses scores.
   proposée (au centième) ; `fondement.charge` nul (le cran sans chiffre) ou série sans charge : compte.
 - **Mes nombres** : `faits.scoresDeGuilde` → `guilde_scores` (`semaine`, `seances`, `prevues`, `records_semaine`, `mois`,
   `exercices`, `exercices_record`), publiés à l'ouverture de la guilde et à la fin d'une séance quand on me sait membre,
-  seulement s'ils ont changé. Séances de la semaine : celles qui portent une série de travail, du lundi au dimanche (heure
+  seulement s'ils ont changé. **16/10/2026 (audit du 16/10, 05 #5)** : « quand on me sait membre » ne dépend plus de
+  l'écran Guilde ouvert — à la fin d'une séance et au démarrage (s'ils sont périmés : une semaine, un mois, des séances
+  que la dernière publication ne connaissait pas), ils sont **posés dans la file** (`Social.GESTES.SCORES_GUILDE`, une
+  seule clé, le dernier calcul gagne, gardés sur le téléphone hors ligne) ; la vidange lit `guilde_moi` et ne les écrit
+  que si je suis membre. Une publication de fond : ni « en attente du réseau », ni phrase de refus. À l'ouverture de la
+  guilde, ils partent toujours en direct (la jauge lue juste après les contient). Séances de la semaine : celles qui portent une série de travail, du lundi au dimanche (heure
   locale). **16/10/2026 (audit du 16/10, suite du 119)** : une série de **musculation** (`Semaine.estSerieDeMusculation`) —
   une randonnée ou un tapis seul ne font ni une séance de la semaine ni un exercice de la Progression. Séances prévues : le profil (1 à 14), sinon `habitudes(c).seances_par_semaine`, sinon 0.
 - **La jauge** : (1) Σ min(séances, prévues) sur Σ prévues (« 11 séances sur 17 prévues, à vous quatre ») ; (2) Σ records
@@ -256,8 +261,9 @@ invitations, défis : des fonctions SECURITY DEFINER (`guilde_choisir_defi` refu
   (0 à 2 000) et `series_moyenne` (0 à 2 000, au centième) de `guilde_scores`, défaut à 0 ; `guilde_semaine` rend le
   défaut `series`, `series_faites` et `series_cible`. Avant v2_093, l'app publie sans les deux colonnes (`PGRST204`,
   retirées pour la session) et affiche le défaut que la base dit (« séances »).
-- **Limite connue (audit 05 #5, inchangée)** : comme les séances et les records, un membre ne compte que s'il a ouvert
-  l'app cette semaine (ses nombres partent à l'ouverture de la guilde et à la fin d'une séance).
+- **Limite connue (audit 05 #5)** : comme les séances et les records, un membre ne compte que s'il a ouvert l'app cette
+  semaine. *(16/10/2026, prompt 121 : il n'a plus besoin d'ouvrir l'écran Guilde — ses nombres partent par la file, à
+  la fin d'une séance et au démarrage — §6.2.)*
 
 ## 7. Groupe — décisions du 14/10/2026 (prompt 91)
 

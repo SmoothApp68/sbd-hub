@@ -690,7 +690,11 @@
   // dans la lecture, reposé, ne change rien.
   var GESTES = {
     SABONNER: 'sabonner', RETIRER_ABONNEMENT: 'retirer_abonnement', RETIRER_ABONNE: 'retirer_abonne', ACCEPTER: 'accepter',
-    BLOQUER: 'bloquer', DEBLOQUER: 'debloquer', REAGIR: 'reagir', RETIRER_REACTION: 'retirer_reaction', GUILDE: 'guilde'
+    BLOQUER: 'bloquer', DEBLOQUER: 'debloquer', REAGIR: 'reagir', RETIRER_REACTION: 'retirer_reaction', GUILDE: 'guilde',
+    // 121 (audit du 16/10/2026, 05 #5) — mes nombres de guilde, publiés PAR LA FILE (fin de séance, démarrage) : un état,
+    // le dernier calcul gagne ; la vidange ne les écrit que si je suis membre (`guilde_moi`). Pas un geste de l'écran :
+    // ni « en attente du réseau », ni phrase de refus.
+    SCORES_GUILDE: 'scores_guilde'
   };
   // Les gestes de guilde qui écrivent : les seules fonctions de la base qu'une entrée de la file peut appeler.
   var GESTES_DE_GUILDE = ['guilde_creer', 'guilde_modifier', 'guilde_inviter', 'guilde_repondre', 'guilde_quitter',
@@ -707,6 +711,7 @@
       case GESTES.SABONNER: case GESTES.RETIRER_ABONNEMENT: return 'abonnement|' + d.moi + '|' + qui;
       case GESTES.ACCEPTER: case GESTES.RETIRER_ABONNE: return 'abonne|' + d.moi + '|' + qui;
       case GESTES.REAGIR: case GESTES.RETIRER_REACTION: return 'reaction|' + d.moi + '|' + d.session;
+      case GESTES.SCORES_GUILDE: return 'scores_guilde|' + d.moi;
       case GESTES.GUILDE:
         if (d.fn === 'guilde_choisir_rang' || d.fn === 'guilde_choisir_defi' || d.fn === 'guilde_modifier') return d.fn + '|' + d.moi;
         return null;
@@ -719,6 +724,9 @@
     var connu = Object.keys(GESTES).some(function (k) { return GESTES[k] === d.geste; });
     if (!connu) return false;
     if (d.geste === GESTES.GUILDE) return GESTES_DE_GUILDE.indexOf(d.fn) >= 0;
+    if (d.geste === GESTES.SCORES_GUILDE) {
+      return !!d.scores && typeof d.scores === 'object' && COLONNES_GUILDE.every(function (k) { return d.scores[k] !== undefined; });
+    }
     if (d.geste === GESTES.REAGIR || d.geste === GESTES.RETIRER_REACTION) return !!d.session;
     if (d.geste === GESTES.SABONNER) return !!(d.autre || d.pseudo);
     return !!d.autre;

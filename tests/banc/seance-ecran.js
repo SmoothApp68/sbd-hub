@@ -18283,6 +18283,20 @@ const SETS_IMPORTES = [
         !/note privée|61 kg|dur/.test(e0.texte) && S.reactions.some((r) => r.session_id === SM && r.user_id === 'u-banc'),
       JSON.stringify([e0, monFil]));
 
+    // ── E bis (121, audit du 16/10, 05 #5). SANS OUVRIR LA GUILDE : mes nombres changent (mon profil déclare désormais
+    // 4 séances par semaine) ; l'app relancée sur la saisie — l'écran Guilde jamais ouvert — les publie, par la file.
+    base.profiles[0].seances_par_semaine = 4;
+    const prevuesAvant = (S.gscores.filter((x) => x.user_id === 'u-banc')[0] || {}).prevues;
+    await aller('/saisie');
+    await attendreQue(async () => (S.gscores.filter((x) => x.user_id === 'u-banc')[0] || {}).prevues === 4, 12000);
+    await attendreQue(fileVide);
+    const prevuesApres = (S.gscores.filter((x) => x.user_id === 'u-banc')[0] || {}).prevues;
+    const ecranGuilde = await page.evaluate(() => !document.getElementById('vue-guilde') || !document.getElementById('vue-guilde').hidden);
+    ok('[guilde] 121 — DISCRIMINANT — l’écran Guilde jamais ouvert, l’app relancée publie mes nombres périmés (5 → 4 séances prévues) par la file',
+      prevuesAvant === 5 && prevuesApres === 4 && !ecranGuilde && S.fuites.length === 0, JSON.stringify([prevuesAvant, prevuesApres, ecranGuilde]));
+    await aller('/jeu/guilde');
+    await attendreQue(async () => !!(await lire()).nom);
+
     // ── F. PARTIR : l'administrateur part, l'administration passe au plus ancien (jordan, entré avant melodie).
     await onglet('membres', async () => (await lire()).lignes.length === 3);
     await page.click('#guilde-quitter');

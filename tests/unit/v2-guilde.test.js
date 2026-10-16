@@ -466,3 +466,68 @@ describe('120 — v2_093 : le texte de la migration dit ce que l’app et le fau
     expect(MIGRATION_093).not.toMatch(/CREATE POLICY|ALTER POLICY|DROP POLICY/);
   });
 });
+
+// ── 121 (audit du 16/10/2026, 05 #5) — mes nombres de guilde partent PAR LA FILE, écran Guilde ouvert ou non ─────────
+describe('121 — `poserScoresGuilde` / `publierScoresGuildeDeLaFile` : à la fin d’une séance et au démarrage', () => {
+  const vm = require('vm');
+  const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+  const extraire = (nom) => {
+    const m = APP.match(new RegExp('^  (async )?function ' + nom + '\\b[\\s\\S]*?^  }', 'm'));
+    if (!m) throw new Error('introuvable : ' + nom);
+    return m[0];
+  };
+  const SCORES = { semaine: '2026-10-12', seances: 2, prevues: 4, records_semaine: 1, mois: '2026-10-01', exercices: 3,
+    exercices_record: 1, series_semaine: 20, series_moyenne: 18 };
+  function bac(o) {
+    const j = { poses: [], publies: [], meta: [] };
+    const ctx = {
+      Social, Attente: { SOCIAL: 'social', GESTE: 'geste' }, console: { warn: () => {} },
+      userId: () => 'u-moi', profil: { seances_par_semaine: 4 }, social: { refus: { phrase: 'garde-moi' } },
+      faits: { scoresDeGuilde: () => Object.assign({}, SCORES, o.calcul || {}) }, corpus: () => ({}), local: {},
+      uuid: () => 'x', scoresGuildeConnus: o.connus === undefined ? null : o.connus, scoresGuildePublies: null,
+      poser: (op) => { j.poses.push(op); return Promise.resolve(); }, redessinerSocial: () => { j.redessine = true; },
+      Donnees: { guildeMoi: () => Promise.resolve(o.membre ? { id: 'g-1' } : null),
+        publierScoresGuilde: (moi, s) => { j.publies.push([moi, s]); return Promise.resolve(true); } },
+      Cache: { ecrireMeta: (k, v) => { j.meta.push([k, v]); return Promise.resolve(); } }, CLE_SCORES_GUILDE: 'guilde-scores-connus'
+    };
+    vm.createContext(ctx);
+    ['mesScoresDeGuilde', 'poserGesteSocial', 'poserScoresGuilde', 'publierScoresGuildeDeLaFile'].forEach((n) => vm.runInContext(extraire(n), ctx));
+    return { ctx, j, run: (code) => vm.runInContext(code, ctx) };
+  }
+  test('⚠️ DISCRIMINANT — écran Guilde jamais ouvert (`social.guilde` absent) : mes nombres sont POSÉS dans la file, une seule clé ; rien d’autre ne change à l’écran', async () => {
+    const b = bac({});
+    expect(await b.run('poserScoresGuilde()')).toBe(true);
+    expect(b.j.poses).toHaveLength(1);
+    const op = b.j.poses[0];
+    expect([op.table, op.op, op.id, op.alaFin, op.donnees.geste]).toEqual(['social', 'geste', 'scores_guilde|u-moi', true, 'scores_guilde']);
+    expect(op.donnees.scores).toEqual(SCORES);
+    // Une publication de fond : la phrase d'un refus reste, rien n'est redessiné.
+    expect([b.ctx.social.refus.phrase, b.j.redessine]).toEqual(['garde-moi', undefined]);
+  });
+  test('au démarrage : rien n’est posé si l’appareil les a déjà fait partir ; une semaine, un mois ou une séance de plus : posés', async () => {
+    expect(await bac({ connus: SCORES }).run('poserScoresGuilde()')).toBe(false);
+    expect(await bac({ connus: SCORES, calcul: { semaine: '2026-10-19' } }).run('poserScoresGuilde()')).toBe(true);
+    expect(await bac({ connus: SCORES, calcul: { seances: 3 } }).run('poserScoresGuilde()')).toBe(true);
+  });
+  test('la vidange : membre, elle les écrit ; sinon rien ne part — et l’appareil retient ce qu’il a traité', async () => {
+    const d = { moi: 'u-moi', geste: 'scores_guilde', scores: SCORES };
+    const m = bac({ membre: true });
+    m.ctx.__d = d;
+    await m.run('publierScoresGuildeDeLaFile(__d)');
+    expect(m.j.publies).toEqual([['u-moi', SCORES]]);
+    expect([m.ctx.scoresGuildePublies, m.ctx.scoresGuildeConnus, m.j.meta]).toEqual([SCORES, SCORES, [['guilde-scores-connus', SCORES]]]);
+    const n = bac({ membre: false });
+    n.ctx.__d = d;
+    await n.run('publierScoresGuildeDeLaFile(__d)');
+    expect(n.j.publies).toEqual([]);
+    // Pas membre : rien de publié en base (l'ouverture de la guilde publiera en direct), mais l'appareil sait l'avoir traité.
+    expect([n.ctx.scoresGuildePublies, n.ctx.scoresGuildeConnus]).toEqual([null, SCORES]);
+  });
+  test('la fin d’une séance pose (plus de condition « écran Guilde ouvert ») ; le démarrage pose une fois le profil lu', () => {
+    expect(APP).not.toMatch(/if \(social\.guilde && social\.guilde\.g\) publierScoresGuilde\(\)/);
+    expect(extraire('terminerSeance').match(/poserScoresGuilde\(\)/g) || []).toHaveLength(1);
+    expect(extraire('entrerVraiment')).toMatch(/profilLu[\s\S]*poserScoresGuilde\(\)/);
+    expect(Social.gesteValide({ moi: 'u', geste: 'scores_guilde', scores: SCORES })).toBe(true);
+    expect(Social.gesteValide({ moi: 'u', geste: 'scores_guilde', scores: { semaine: 'x' } })).toBe(false);
+  });
+});

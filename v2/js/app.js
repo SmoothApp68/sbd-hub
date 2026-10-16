@@ -767,6 +767,9 @@
     // 106 — les messages du groupe écrits hors ligne, gardés sur le téléphone : ils partiront au retour du réseau.
     try { grp.file = Social.fileDeMessages(await Cache.lireBrouillon(CLE_FILE_GROUPE)); }
     catch (e) { grp.file = []; }
+    // 121 (05 #5) — ce que l'appareil a déjà fait partir de mes nombres de guilde (comparé au démarrage).
+    try { scoresGuildeConnus = (await Cache.lireMeta(CLE_SCORES_GUILDE)) || null; }
+    catch (e) { scoresGuildeConnus = null; }
     // 121 (05 #12) — les traces « Faite en groupe avec … » : le détail d'une séance les montre hors ligne.
     try { grp.traces = Social.tracesDuGroupe(await Cache.lireBrouillon(CLE_TRACES_GROUPE)); }
     catch (e) { grp.traces = {}; }
@@ -1720,7 +1723,7 @@
   function oublierSocial() {
     social = { liens: null, liensBruts: null, liensN: 0, fil: null, filN: 0, medailles: {}, ami: null, recherche: '',
                resultats: null, jeton: social.jeton + 1, confirmes: [], horloge: social.horloge, refus: null, aRafraichir: null };
-    scoresPublies = null; baseExigeLaCharge = false; scoresGuildePublies = null;
+    scoresPublies = null; baseExigeLaCharge = false; scoresGuildePublies = null; scoresGuildeConnus = null;
     jetonEntreAmis++;
     majBadgeSocial();
   }
@@ -1757,11 +1760,13 @@
       .concat(gestesEnAttente());
   }
   function horsGuilde(d) { return d.geste !== Social.GESTES.GUILDE; }
+  // 121 (05 #5) — une publication de fond (mes nombres de guilde) n'est pas un geste de l'écran.
+  function estPublication(d) { return d.geste === Social.GESTES.SCORES_GUILDE; }
   function estReaction(d) { return d.geste === Social.GESTES.REAGIR || d.geste === Social.GESTES.RETIRER_REACTION; }
   // « En attente du réseau » : une ligne discrète, quand un geste de ce genre attend.
   function ligneEnAttente(filtre) {
     var t = Social.EN_ATTENTE;
-    return gestesEnAttente().some(filtre) ? t.charAt(0).toUpperCase() + t.slice(1) : null;
+    return gestesEnAttente().some(function (d) { return !estPublication(d) && filtre(d); }) ? t.charAt(0).toUpperCase() + t.slice(1) : null;
   }
   // Le refus dit au retour du réseau : montré sur l'écran social ouvert, puis oublié au geste suivant, ou quand on
   // ouvre un écran social après l'avoir vu (pas à la relecture qu'il déclenche lui-même).
@@ -1770,15 +1775,17 @@
   function ouvrirEcranSocial(relecture) { if (!relecture && social.refus && social.refus.vu) social.refus = null; }
 
   // Poser un geste : sur disque d'abord (la file), puis l'écran le montre fait.
-  async function poserGesteSocial(champs) {
+  // `fond` (121, 05 #5) : une publication de fond (mes nombres de guilde) — elle n'efface pas la phrase d'un refus et ne
+  // redessine rien.
+  async function poserGesteSocial(champs, fond) {
     var d = Object.assign({ moi: userId() }, champs);
     if (!Social.gesteValide(d)) { console.warn('Geste social incomplet, ignoré :', JSON.stringify(d)); return; }
-    social.refus = null;
+    if (!fond) social.refus = null;
     // Un geste sur un état (`Social.cleDuGeste`) remplace celui qui attend sur le même état : seul l'état final part.
     var cle = Social.cleDuGeste(d);
     await poser({ table: Attente.SOCIAL, op: Attente.GESTE, id: cle || uuid(), alaFin: !!cle, donnees: d,
       posee_a: new Date().toISOString() });
-    redessinerSocial();
+    if (!fond) redessinerSocial();
   }
   function poserGuilde(fn, args, extra) {
     var g = social.guilde;
@@ -1808,6 +1815,7 @@
     if (d.geste === G.REAGIR) return Donnees.reagir(d.session, moi);
     if (d.geste === G.RETIRER_REACTION) return Donnees.retirerReaction(d.session, moi);
     if (d.geste === G.GUILDE) return Donnees.gesteDeGuilde(d.fn, d.args || {});
+    if (d.geste === G.SCORES_GUILDE) return publierScoresGuildeDeLaFile(d);
     console.warn('Geste social inconnu, retiré de la file :', d.geste);
     return true;
   }
@@ -1817,6 +1825,11 @@
   // Ce que la vidange a fait d'un geste : confirmé (ou déjà fait), ou refusé.
   function noterGesteSocial(op, erreur) {
     var d = op.donnees || {};
+    // 121 (05 #5) — une publication de fond : ni phrase, ni relecture (l'écran de la guilde relit ses nombres en s'ouvrant).
+    if (estPublication(d)) {
+      if (erreur) console.warn('Les nombres de guilde n’ont pas pu se publier :', texteErreur(erreur));
+      return;
+    }
     var t = social.aRafraichir || (social.aRafraichir = { relire: false });
     if (erreur) {
       social.refus = { phrase: Social.phraseDuRefus(d, erreur), vu: false };
@@ -2331,13 +2344,46 @@
   ];
   // MES NOMBRES DE GUILDE, publiés seulement s'ils ont changé depuis l'ouverture de l'app (et seulement membre).
   var scoresGuildePublies = null;
+  function mesScoresDeGuilde() {
+    return faits.scoresDeGuilde(corpus(), local.predictions || [], profil.seances_par_semaine, new Date());
+  }
+  // À l'ouverture de la guilde (en direct : la jauge lue juste après doit les contenir).
   async function publierScoresGuilde() {
     var moi = userId();
     if (!moi || !profil) return false;
-    var s = faits.scoresDeGuilde(corpus(), local.predictions || [], profil.seances_par_semaine, new Date());
+    var s = mesScoresDeGuilde();
     if (!Social.scoresGuildeChanges(s, scoresGuildePublies)) return false;
     await Donnees.publierScoresGuilde(moi, s);
     scoresGuildePublies = s;
+    return true;
+  }
+  // ⚠️ 121 (audit du 16/10/2026, 05 #5) — À LA FIN D'UNE SÉANCE ET AU DÉMARRAGE, PAR LA FILE. Ils ne partaient que si
+  // l'écran Guilde avait été ouvert depuis le lancement de l'app (`social.guilde`, en mémoire) : la jauge du défi et la
+  // Progression ignoraient les membres qui s'entraînent sans ouvrir la guilde. Désormais ils sont POSÉS dans la file
+  // (sur disque, rejoués au retour du réseau, le dernier calcul remplace le précédent) dès qu'ils diffèrent de ce que
+  // l'appareil a déjà fait partir (`scoresGuildeConnus`, gardé sur l'appareil : au démarrage, « périmés » = une
+  // semaine, un mois ou des séances que la dernière publication ne connaissait pas). La vidange lit `guilde_moi` :
+  // membre, elle les écrit ; sinon, rien ne part (« quand on me sait membre », §6.2).
+  var CLE_SCORES_GUILDE = 'guilde-scores-connus';
+  var scoresGuildeConnus = null;
+  async function poserScoresGuilde() {
+    var moi = userId();
+    if (!moi || !profil) return false;
+    var s = mesScoresDeGuilde();
+    if (!Social.scoresGuildeChanges(s, scoresGuildeConnus)) return false;
+    await poserGesteSocial({ moi: moi, geste: Social.GESTES.SCORES_GUILDE, scores: s }, true);
+    return true;
+  }
+  async function publierScoresGuildeDeLaFile(d) {
+    var g = await Donnees.guildeMoi();
+    if (g) {
+      await Donnees.publierScoresGuilde(d.moi, d.scores);
+      if (d.moi === userId()) scoresGuildePublies = d.scores;
+    }
+    if (d.moi === userId()) {
+      scoresGuildeConnus = d.scores;
+      await Cache.ecrireMeta(CLE_SCORES_GUILDE, d.scores).catch(function () {});
+    }
     return true;
   }
 
@@ -4254,8 +4300,9 @@
     publierJeu(null);
     // 89 — mes scores de force aussi (seulement s'ils ont changé) ; hors ligne, ils partiront à la prochaine ouverture.
     publierScoresForce().catch(function (err) { console.warn('Les scores de force attendent le réseau :', texteErreur(err)); });
-    // 90 — mes nombres de guilde aussi, si l'on me sait membre (sinon, ils partent à l'ouverture de la guilde).
-    if (social.guilde && social.guilde.g) publierScoresGuilde().catch(function (err) { console.warn('Les nombres de guilde attendent le réseau :', texteErreur(err)); });
+    // 90 — mes nombres de guilde aussi. 121 (05 #5) : par la file, que l'écran Guilde ait été ouvert ou non (la vidange
+    // ne les écrit que si je suis membre).
+    poserScoresGuilde().catch(function (err) { console.warn('Les nombres de guilde ne se posent pas :', texteErreur(err)); });
     // 91 — mon XP de la séance part au groupe (nulle jeu éteint) ; le récap du groupe viendra après le mien.
     publierFinPourLeGroupe(finie, jeuDuRecap);
     seance = null; chrono = null; arreterMinuteur();
@@ -11769,6 +11816,11 @@
     // mesure unitaire ne voit pas une seconde de plus, l'écran si.
     // Le profil sait se rendre tout seul quand il arrive.
     var profilLu = chargerProfil();
+    // 121 (05 #5) — mes nombres de guilde, s'ils sont périmés (une semaine, un mois, des séances que la dernière
+    // publication ne connaissait pas) : par la file, une fois le profil lu (ses séances prévues).
+    Promise.resolve(profilLu).then(function () {
+      if (sessionActive && idDeSession(sessionActive) === userId) return poserScoresGuilde();
+    }).catch(function (err) { console.warn('Les nombres de guilde ne se posent pas :', texteErreur(err)); });
     // La séance `en_cours` restée en base est déjà résolue (ch. 36, D7) : la
     // vérification ci-dessus a précédé la synchronisation. Et si elle a échoué,
     // le conflit se résout à la vidange elle-même.

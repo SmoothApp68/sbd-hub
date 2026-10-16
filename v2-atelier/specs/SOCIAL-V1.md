@@ -343,6 +343,16 @@ groupe ni sur sessions, sets, records ; aucune colonne interdite rendue.
   (`groupe_fin_de_seance`, `groupe_fini_le`, `groupe_recap_json`, `groupe_figer`, `groupe_entretien`, `groupe_liberer`)
   ne sont appelables par personne ; les autres, par `authenticated` seulement.
 
+### 7.6 Les écritures du groupe, au registre — audit du 16/10/2026 (chantier 117)
+
+Les huit fonctions du groupe qui écrivent (`groupe_creer`, `groupe_inviter`, `groupe_annuler_invitation`,
+`groupe_repondre`, `groupe_publier`, `groupe_envoyer`, `groupe_fermer`, `groupe_quitter`) passaient par la fonction
+générique `rpc`, inscrite au registre des écritures comme une lecture : la garde d'architecture ne les voyait pas.
+Elles ont désormais leur écrivain (`groupeEcrire`, liste `GESTES_GROUPE`), et chacune est au registre avec ses
+appelants et sa raison ; `rpc` refuse toute fonction qui écrit (guilde ou groupe). **Elles restent en direct, hors de
+la file** : le groupe est du temps réel, fait réseau présent, et le direct est une décoration, jamais une dépendance
+(§7) ; un message écrit hors ligne attend dans la file du groupe, sur l'appareil (§7.4).
+
 ## 8. Un geste social fait hors ligne — décision du 15/10/2026 (prompt 107)
 
 > Décision d'Aurélien du 15/10/2026, reportée mot pour mot.

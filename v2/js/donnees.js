@@ -933,7 +933,13 @@
   // ci-dessous (`sAbonner` … `retirerReaction`, `gesteDeGuilde`) ne sont
   // appelés que par la vidange (`app.js`, `executer` → `executerGesteSocial`).
   // Un geste fait hors ligne part au retour du réseau, comme une séance.
+  // ⚠️ 117 (audit du 16/10, 06 #3) — `rpc` NE FAIT QUE LIRE. Les fonctions de la base qui ÉCRIVENT ont chacune leur
+  // écrivain au registre des écritures (`v2-architecture`) : `gesteDeGuilde` (guilde, par la file), `groupeEcrire`
+  // (groupe, en direct). Les appeler par ici est refusé : la garde ne verrait pas l'écriture.
   async function rpc(nom, args) {
+    if (GESTES_GUILDE.indexOf(nom) >= 0 || GESTES_GROUPE.indexOf(nom) >= 0) {
+      throw { code: '42501', message: '« rpc » ne lit que ; « ' + nom + ' » écrit' };
+    }
     var r = await client().rpc(nom, args || {});
     if (r.error) throw r.error;
     return r.data;
@@ -1008,8 +1014,21 @@
     var d = await rpc('groupe_recap_seance', { p_session: session });
     return (Array.isArray(d) ? d[0] : d) || null;
   }
-  function groupeGeste(nom, args) { return rpc(nom, args).then(function () { return true; }); }
-  function groupeCreer(session, exercices) { return rpc('groupe_creer', { p_session: session, p_exercices: exercices || [] }); }
+  // ⚠️ 117 (audit du 16/10, 06 #3) — L'ÉCRIVAIN UNIQUE DES GESTES DU GROUPE. Ils passaient par `rpc`, inscrite au
+  // registre des écritures comme une LECTURE : la garde ne les voyait pas. Ils restent EN DIRECT, hors de la file —
+  // le groupe est du temps réel, fait réseau présent, et « le direct est une décoration, jamais une dépendance »
+  // (SOCIAL-V1 §7) ; les messages écrits hors ligne ont leur propre file (`grp.file`, app.js). Chacun est au
+  // registre, avec ses appelants et sa raison.
+  var GESTES_GROUPE = ['groupe_creer', 'groupe_inviter', 'groupe_annuler_invitation', 'groupe_repondre', 'groupe_publier',
+    'groupe_envoyer', 'groupe_fermer', 'groupe_quitter'];
+  async function groupeEcrire(nom, args) {
+    if (GESTES_GROUPE.indexOf(nom) < 0) throw { code: '42501', message: 'geste de groupe inconnu : ' + nom };
+    var r = await client().rpc(nom, args || {});
+    if (r.error) throw r.error;
+    return r.data;
+  }
+  function groupeGeste(nom, args) { return groupeEcrire(nom, args).then(function () { return true; }); }
+  function groupeCreer(session, exercices) { return groupeEcrire('groupe_creer', { p_session: session, p_exercices: exercices || [] }); }
   function groupeInviter(user) { return groupeGeste('groupe_inviter', { p_user: user }); }
   function groupeAnnulerInvitation(user) { return groupeGeste('groupe_annuler_invitation', { p_user: user }); }
   function groupeRejoindre(groupe, session, exercices) {

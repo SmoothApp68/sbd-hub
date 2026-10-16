@@ -2176,6 +2176,9 @@ const RAISON_BIBLIOTHEQUE = 'geste de bibliothèque, fait hors de la salle, qui 
 // sur l'appareil à chaque ouverture et à chaque fin de séance.
 const RAISON_PUBLICATION = 'publication recalculée sur l’appareil (seulement ce qui a changé) à chaque ouverture du social et à '
   + 'chaque fin de séance : un envoi raté repart à la suivante, rien n’est perdu';
+// 117 (audit du 16/10, 06 #3) — le groupe de séance : en direct, jamais par la file (SOCIAL-V1 §7).
+const RAISON_GROUPE = 'le groupe de séance est du temps réel, fait réseau présent (son écran se lit au serveur) ; « le direct '
+  + 'est une décoration, jamais une dépendance » (SOCIAL-V1 §7) : hors de la file, un échec se dit et se refait';
 const REGISTRE_ECRITURES = [
   // ── Par la file : `executer` (app.js) et ce qu'il appelle.
   { fn: 'enregistrerSeance', chemin: 'file' },
@@ -2232,7 +2235,23 @@ const REGISTRE_ECRITURES = [
   // ── 87 (SOCIAL-V1) — les lectures sociales passent par les fonctions de la base (`.rpc(`) : rien n'est écrit. Les
   // GESTES (107) sont plus haut, par la file ; ceux de la guilde par `gesteDeGuilde`, seul à appeler une fonction qui écrit.
   { fn: 'rpc', chemin: 'liste-blanche', appelants: [],
-    raison: 'les lectures sociales par les fonctions de la base (`social_*`, v2_078) : rien n’est écrit' },
+    raison: 'les lectures sociales par les fonctions de la base (`social_*`, v2_078) : rien n’est écrit — `rpc` refuse '
+      + 'les fonctions qui écrivent (`GESTES_GUILDE`, `GESTES_GROUPE`), garde « rpc ne fait que lire » (117)' },
+  // ── 117 (audit du 16/10, 06 #3) — LE GROUPE DE SÉANCE (v2_082) : ses huit fonctions qui écrivent passaient par `rpc`,
+  // inscrite comme une lecture. Elles ont leur écrivain (`groupeEcrire`) et sont au registre, EN DIRECT, hors file.
+  { fn: 'groupeEcrire', chemin: 'liste-blanche', appelants: [],
+    raison: 'l’écrivain unique des gestes du groupe (`GESTES_GROUPE`) ; relayé par les écrivains ci-dessous, jamais appelé d’ailleurs' },
+  { fn: 'groupeGeste', chemin: 'liste-blanche', appelants: [], raison: 'relais de `groupeEcrire` pour les gestes sans réponse' },
+  { fn: 'groupeCreer', chemin: 'liste-blanche', appelants: ['app.js:inviterAuGroupe'], raison: RAISON_GROUPE },
+  { fn: 'groupeInviter', chemin: 'liste-blanche', appelants: ['app.js:inviterAuGroupe'], raison: RAISON_GROUPE },
+  { fn: 'groupeAnnulerInvitation', chemin: 'liste-blanche', appelants: ['app.js:annulerInvitation'], raison: RAISON_GROUPE },
+  { fn: 'groupeRejoindre', chemin: 'liste-blanche', appelants: ['app.js:rejoindre'], raison: RAISON_GROUPE },
+  { fn: 'groupePublier', chemin: 'liste-blanche', appelants: ['app.js:publierMesExercices', 'app.js:publierFinPourLeGroupe'],
+    raison: RAISON_GROUPE },
+  { fn: 'groupeEnvoyer', chemin: 'liste-blanche', appelants: ['app.js:envoyerFileGroupe'],
+    raison: RAISON_GROUPE + ' ; un message écrit hors ligne attend dans la file du groupe (`grp.file`), sur l’appareil' },
+  { fn: 'groupeFermer', chemin: 'liste-blanche', appelants: ['app.js:fermerRecapGroupe'], raison: RAISON_GROUPE },
+  { fn: 'groupeQuitter', chemin: 'liste-blanche', appelants: ['app.js:quitterLeGroupeSiMembre'], raison: RAISON_GROUPE },
   // ── 89 (SOCIAL-V1 « Étage 2 ») — mes scores de force (`scores_force`, v2_079) : le score et la charge, jamais le poids.
   { fn: 'publierScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_PUBLICATION },
   { fn: 'retirerScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_PUBLICATION },
@@ -2374,9 +2393,56 @@ describe('architecture — la carte des écritures (73, audit 72)', () => {
     expect(fautes).toEqual([]);
   });
 
-  test('⚠️ toute fonction de `donnees.js` qui écrit est au registre, et le registre ne nomme que des écrivains', () => {
+  // 117 (audit du 16/10, 06 #3) — UN ÉCRIVAIN SE VOIT AUSSI PAR CE QU'IL APPELLE. Les gestes du groupe appelaient
+  // `rpc(` sans point devant : la règle `.rpc(` ne les voyait pas. Désormais, dans `donnees.js`, une fonction qui
+  // appelle (sans point) un écrivain est un écrivain, de proche en proche — sauf `rpc`, dont la garde ci-dessous
+  // prouve qu'elle ne fait que lire.
+  function ecrivainsDeDonnees() {
     const d = parNom['donnees.js'];
-    const ecrivains = FONCTIONS['donnees.js'].filter((g) => ECRITURE.test(d.code.slice(g.debut, g.fin))).map((g) => g.nom);
+    const corps = {};
+    FONCTIONS['donnees.js'].forEach((g) => { corps[g.nom] = d.code.slice(g.debut, g.fin); });
+    const ecrivains = new Set(Object.keys(corps).filter((n) => ECRITURE.test(corps[n])));
+    let change = true;
+    while (change) {
+      change = false;
+      Object.keys(corps).forEach((n) => {
+        if (ecrivains.has(n)) return;
+        const appelle = Array.from(ecrivains).some((w) => w !== 'rpc' &&
+          new RegExp('(^|[^.\\w])' + w + '\\s*\\(').test(corps[n].slice(corps[n].indexOf('{') + 1)));
+        if (appelle) { ecrivains.add(n); change = true; }
+      });
+    }
+    return Array.from(ecrivains);
+  }
+
+  test('⚠️ 117 — `rpc` ne fait que lire : elle refuse les fonctions qui écrivent, et aucun appel ne lui en passe une', () => {
+    const d = parNom['donnees.js'];
+    const liste = (nom) => {
+      const m = new RegExp('var ' + nom + ' = \\[([^\\]]*)\\]').exec(d.codeChaines);
+      return m ? m[1].split(',').map((x) => x.trim().replace(/^['"]|['"]$/g, '')) : null;
+    };
+    const guilde = liste('GESTES_GUILDE'), groupe = liste('GESTES_GROUPE');
+    expect(groupe).toEqual(['groupe_creer', 'groupe_inviter', 'groupe_annuler_invitation', 'groupe_repondre', 'groupe_publier',
+      'groupe_envoyer', 'groupe_fermer', 'groupe_quitter']);
+    expect(guilde && guilde.length).toBeGreaterThan(0);
+    const g = FONCTIONS['donnees.js'].filter((x) => x.nom === 'rpc')[0];
+    expect(d.code.slice(g.debut, g.fin)).toMatch(/GESTES_GUILDE\.indexOf\(nom\) >= 0 \|\| GESTES_GROUPE\.indexOf\(nom\) >= 0/);
+    const fautes = [];
+    const re = /(^|[^.\w])rpc\s*\(\s*(['"])(\w+)\2/g;
+    let m;
+    while ((m = re.exec(d.codeChaines)) !== null) {
+      if (guilde.indexOf(m[3]) >= 0 || groupe.indexOf(m[3]) >= 0) fautes.push(m[3] + ' passe par `rpc`');
+    }
+    // Toute fonction `groupe_*` qui écrit passe par `groupeEcrire` (ou son relais `groupeGeste`).
+    const re2 = /(\w+)\s*\(\s*(['"])(groupe_\w+)\2/g;
+    while ((m = re2.exec(d.codeChaines)) !== null) {
+      if (groupe.indexOf(m[3]) >= 0 && ['groupeEcrire', 'groupeGeste'].indexOf(m[1]) < 0) fautes.push(m[3] + ' écrit par ' + m[1]);
+    }
+    expect(fautes).toEqual([]);
+  });
+
+  test('⚠️ toute fonction de `donnees.js` qui écrit est au registre, et le registre ne nomme que des écrivains', () => {
+    const ecrivains = ecrivainsDeDonnees();
     const inscrits = REGISTRE_ECRITURES.map((e) => e.fn);
     expect(ecrivains.filter((x) => inscrits.indexOf(x) < 0).map((x) => x + ' écrit et n’est pas au registre')).toEqual([]);
     expect(inscrits.filter((x) => ecrivains.indexOf(x) < 0).map((x) => x + ' est au registre et n’écrit pas')).toEqual([]);

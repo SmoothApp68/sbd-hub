@@ -56,6 +56,17 @@ Les noms réels des phases (vérifiés dans `v2/js/profil.js`, contrainte `profi
   l'écriture pour la session, et le profil se lit et s'écrit sans elle — le défaut de #418 (une colonne nommée avant
   sa migration : plus de profil) ne se reproduit pas. L'appareil retient seul en attendant.
 
+### Décisions du 16/10/2026 (audit du 16/10, prompt 119) — les mesures en durée et en distance
+
+Aurélien, 16/10/2026 : « Pour l'exercice du mois, le tapis ne devrait pas apparaître » ; « Pour les exercices
+calculés en temps, il ne faut pas mettre les reps ».
+
+- **L'exercice du mois, de la saison, de l'année** (et les deux suivants) : seulement les exercices mesurés en reps
+  (`mesure` ∈ {`charge_reps`, `reps`}, `THModele.seMesureEnReps`), avec au moins une rep dans la période — jamais le
+  tapis, une randonnée ou une planche. **Classés par le chiffre affiché** : la saison et le mois montrent les reps, ils
+  se classent par les reps (puis les séances) ; l'année montre les séances puis les reps, elle se classe ainsi.
+- « rep » s'accorde par une seule fonction (`THModele.repsTexte`) : « 0 rep », « 1 rep », « 2 reps ».
+
 ## 2. Où cela vit (implémentation des prompts 95, 97 et 98)
 
 | Quoi | Où |

@@ -17,10 +17,10 @@ const Bilans = require('../../v2/js/bilans.js');
 const Annee = require('../../v2/js/annee.js');
 
 const CAT = [
-  { slug: 'squat_barre', nom: 'Squat (Barre)', equipement: 'barre', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
-  { slug: 'developpe_couche_barre', nom: 'Développé Couché (Barre)', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
-  { slug: 'souleve_de_terre_barre', nom: 'Soulevé de Terre (Barre)', equipement: 'barre', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [] },
-  { slug: 'developpe_couche_halteres', nom: 'Développé Couché (Haltère)', equipement: 'haltere', muscles_primaires: ['pectoraux'], muscles_secondaires: [] }
+  { slug: 'squat_barre', nom: 'Squat (Barre)', equipement: 'barre', mesure: 'charge_reps', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
+  { slug: 'developpe_couche_barre', nom: 'Développé Couché (Barre)', equipement: 'barre', mesure: 'charge_reps', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
+  { slug: 'souleve_de_terre_barre', nom: 'Soulevé de Terre (Barre)', equipement: 'barre', mesure: 'charge_reps', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [] },
+  { slug: 'developpe_couche_halteres', nom: 'Développé Couché (Haltère)', equipement: 'haltere', mesure: 'charge_reps', muscles_primaires: ['pectoraux'], muscles_secondaires: [] }
 ];
 let n = 0;
 function seance(jour, series) {
@@ -210,5 +210,36 @@ describe('98 — DISCRIMINANT : la story du mois reprend tout l’ancien bilan d
     expect(JSON.stringify(de('plaque'))).not.toMatch(/pari|coach/i);
     expect(de('plaque').plaque.an).toBe('Octobre 2026');
     expect(de('plaque').plaque.cases[1]).toEqual({ k: 'Records', g: '5', p: 'squat' });
+  });
+});
+
+// 119 (audit du 16/10/2026, F1/F3/F10) — Aurélien, 16/10 : « Pour l'exercice du mois, le tapis ne devrait pas
+// apparaître. » Le tapis à chaque séance, le squat deux fois : avant, le tapis gagnait (« 0 reps »).
+describe('119 — l’exercice du mois : en reps, classé par ses reps, « 1 rep » au singulier', () => {
+  const CAT119 = CAT.concat([
+    { slug: 'tapis_roulant', nom: 'Tapis de Course', equipement: 'machine', charge: 'aucune', mesure: 'distance_temps',
+      muscles_primaires: [], muscles_secondaires: [] },
+    { slug: 'planche', nom: 'Planche', equipement: null, charge: 'aucune', mesure: 'temps',
+      muscles_primaires: ['abdominaux'], muscles_secondaires: [] }
+  ]);
+  const p = Bilans.periodeDuMois('2026-10');
+  const s = semaines('2026-10-01', '2026-10-29', (k) => [['tapis_roulant', null, null], ['planche', null, null],
+    k < 2 ? ['squat_barre', 100, 10] : ['developpe_couche_barre', 80, k === 4 ? 1 : 2]]);
+  s.forEach((x) => { x.series[0].duree_s = 600; x.series[0].distance_m = 1000; x.series[1].duree_s = 60; });
+  const b = Bilans.bilanDeLaPeriode({ periode: p, aujourdhui: '2026-10-31', seances: s, exercices: CAT119, pesees: [],
+    paris: [], salle: { jours: 5, minutes: 300 } });
+  const e = Annee.ecrans({ bilan: b, qui: '', jeu: null, records: [], paris: null });
+  const ex = e.filter((x) => x.cle === 'exercice')[0];
+  test('le squat (20 reps en 2 séances) devant le couché (5 reps en 3 séances) ; ni tapis ni planche', () => {
+    expect(ex.titre).toBe('Squat (Barre)');
+    expect(ex.chiffre).toMatchObject({ v: 20, unite: 'reps' });
+    expect(ex.lignes.map((l) => l.v)).toEqual(['Développé Couché (Barre) · 5 reps']);
+    expect(JSON.stringify(e)).not.toMatch(/Tapis|Planche|0 reps/);
+  });
+  test('F10 : un exercice à 1 rep se dit « 1 rep »', () => {
+    const un = Bilans.bilanDeLaPeriode({ periode: p, aujourdhui: '2026-10-31', exercices: CAT119, pesees: [], paris: [],
+      salle: { jours: 1, minutes: 60 }, seances: [seance('2026-10-02', [['squat_barre', 100, 1]])] });
+    const x = Annee.ecrans({ bilan: un, qui: '', jeu: null, records: [], paris: null }).filter((y) => y.cle === 'exercice')[0];
+    expect(x.chiffre).toMatchObject({ v: 1, unite: 'rep' });
   });
 });

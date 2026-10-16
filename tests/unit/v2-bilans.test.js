@@ -254,7 +254,11 @@ describe('97 — les heures et les jours à la salle (BILANS-V1, 15/10/2026)', (
     { id: 'h', debut: '2025-12-31T17:00:00Z', fin: '2025-12-31T18:00:00Z', statut: 'terminee' }    // l'année d'avant
   ];
   const f = Faits.creer();
-  const c = { seances };
+  // 119 — chaque séance porte une série de musculation (la règle « à la salle » depuis le 16/10/2026).
+  const indexS = Modele.indexerExercices(CATALOGUE);
+  const seriesDe = (id) => [{ id: id + '-1', session_id: id, exercise_slug: 'squat_barre', charge_kg: 100, reps: 5,
+                              type_serie: 'travail', rang: 1 }];
+  const c = { seances, seriesDe, catalogue: () => indexS };
   test('deux séances le même jour : UN jour ; sans fin : le jour, pas d’heures ; 6 h : le jour, pas d’heures', () => {
     expect(f.tempsALaSalle(c, '2026-01-01', '2026-12-31')).toEqual({ jours: 5, minutes: 90 + 60 + 300 + 60 });
   });
@@ -264,10 +268,60 @@ describe('97 — les heures et les jours à la salle (BILANS-V1, 15/10/2026)', (
     expect(f.tempsALaSalle(c, '2025-01-01', '2025-12-31')).toEqual({ jours: 1, minutes: 60 });
   });
   test('l’entrée du bilan le porte, borné à aujourd’hui ; le moteur le rend, sans comparaison', () => {
-    const e = f.entreeDuBilan({ seances, series: [], seriesDe: () => [], catalogue: () => ({}) }, ANNEE,
+    const e = f.entreeDuBilan({ seances, series: [], seriesDe, catalogue: () => indexS }, ANNEE,
       new Date(2026, 2, 8, 12), {});
     expect(e.salle).toEqual({ jours: 3, minutes: 150 });
     const b = Bilans.bilanDeLaPeriode(Object.assign({}, e, { salle: { jours: 180, minutes: 260 * 60 } }));
     expect(b.salle).toEqual({ jours: 180, heures: 260, joursEntiers: 11 });
+  });
+});
+
+// ── 119 (audit du 16/10/2026) — les mesures en durée et en distance ─────────
+// Aurélien, 16/10 : « Pour l'exercice du mois, le tapis ne devrait pas apparaître. »
+const CAT_119 = CATALOGUE.concat([
+  { slug: 'tapis_roulant', nom: 'Tapis de Course', equipement: 'machine', charge: 'aucune', mesure: 'distance_temps',
+    muscles_primaires: [], muscles_secondaires: [] },
+  { slug: 'randonnee', nom: 'Randonnée', equipement: null, charge: 'aucune', mesure: 'distance_temps',
+    muscles_primaires: [], muscles_secondaires: [] },
+  { slug: 'planche', nom: 'Planche', equipement: null, charge: 'aucune', mesure: 'temps',
+    muscles_primaires: ['abdominaux'], muscles_secondaires: [] },
+  { slug: 'tractions', nom: 'Tractions', equipement: null, charge: 'corps', mesure: 'reps',
+    muscles_primaires: ['grand_dorsal'], muscles_secondaires: [] }
+]);
+// Une série en durée ou en distance : `[slug, null, null]`, puis ses colonnes.
+function seance119(jour, series) {
+  const s = seance(jour, series.map((x) => [x[0], x[1], x[2]]));
+  s.series.forEach((x, i) => { if (series[i][3]) Object.assign(x, series[i][3]); });
+  return s;
+}
+const OCTOBRE = Bilans.periodeDuMois('2026-10');
+const bilan119 = (seances, periode) => Bilans.bilanDeLaPeriode({ periode: periode || OCTOBRE, aujourdhui: '2026-12-31',
+  seances, exercices: CAT_119, pesees: [], paris: [] });
+
+describe('119 — F1/F3 : l’exercice du mois, de la saison, de l’année se mesure en reps, classé par le chiffre affiché', () => {
+  // 8 séances : le tapis (10 min, 1 km) et la planche à CHACUNE ; le squat 3 fois (30 reps), le couché 5 fois (10).
+  const jours = ['2026-10-01', '2026-10-03', '2026-10-06', '2026-10-08', '2026-10-10', '2026-10-13', '2026-10-15', '2026-10-17'];
+  const oct = jours.map((j, k) => seance119(j, [
+    ['tapis_roulant', null, null, { duree_s: 600, distance_m: 1000 }],
+    ['planche', null, null, { duree_s: 60 }],
+    k < 3 ? ['squat_barre', 100, 10] : ['developpe_couche_barre', 80, 2],
+    k < 3 ? ['squat_barre', 100, 10] : ['developpe_couche_barre', 80, 2],
+    k < 3 ? ['squat_barre', 100, 10] : ['tractions', null, 1]
+  ]));
+  test('ni le tapis ni la planche : seulement charge × reps et reps seules', () => {
+    const slugs = bilan119(oct).exercices.map((x) => x.slug);
+    expect(slugs).not.toContain('tapis_roulant');
+    expect(slugs).not.toContain('planche');
+  });
+  test('le mois se classe par ses reps (le chiffre qu’il montre), pas par ses séances', () => {
+    expect(bilan119(oct).exercices).toEqual([
+      { slug: 'squat_barre', nom: 'Squat (Barre)', seances: 3, reps: 90 },
+      { slug: 'developpe_couche_barre', nom: 'Développé Couché (Barre)', seances: 5, reps: 20 },
+      { slug: 'tractions', nom: 'Tractions', seances: 5, reps: 5 }
+    ]);
+  });
+  test('la saison aussi ; l’année montre les séances puis les reps, elle se classe ainsi', () => {
+    expect(bilan119(oct, Bilans.periodeDeLaSaison('2026-automne')).exercices[0].slug).toBe('squat_barre');
+    expect(bilan119(oct, ANNEE).exercices.map((x) => x.slug)).toEqual(['developpe_couche_barre', 'tractions', 'squat_barre']);
   });
 });

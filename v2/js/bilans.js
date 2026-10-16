@@ -317,16 +317,27 @@
     sortie.muscles = Se().volumeParMuscle(seriesIci, exercices).slice(0, 3);
 
     // L'exercice de l'année et les deux suivants : ses séances, puis ses reps.
+    // 119 (audit du 16/10/2026, F1/F3 ; Aurélien, 16/10 : « Pour l'exercice du mois, le tapis ne devrait pas
+    // apparaître ») — SEULS LES EXERCICES MESURÉS EN REPS (`Modele.seMesureEnReps` : `charge_reps`, `reps`), avec au
+    // moins une rep : ni le tapis, ni une randonnée, ni une planche. Et LE CLASSEMENT SUIT LE CHIFFRE AFFICHÉ : la
+    // saison et le mois montrent les reps, ils se classent par les reps ; l'année montre les séances puis les reps, elle
+    // se classe ainsi.
     var exo = {};
     travailIci.forEach(function (t) {
-      var slug = t.serie.exercise_slug, o = exo[slug] || (exo[slug] = { slug: slug, seances: {}, reps: 0 });
+      var slug = t.serie.exercise_slug;
+      if (!Mo().seMesureEnReps(index[slug])) return;
+      var o = exo[slug] || (exo[slug] = { slug: slug, seances: {}, reps: 0 });
       o.seances[t.seance] = true;
       var r = nombre(t.serie.reps);
       if (r !== null && r > 0) o.reps += r;
     });
-    sortie.exercices = Object.keys(exo).map(function (s) {
+    var parReps = periode.type !== 'annee';
+    sortie.exercices = Object.keys(exo).filter(function (s) { return exo[s].reps > 0; }).map(function (s) {
       return { slug: s, nom: nomDe(s), seances: Object.keys(exo[s].seances).length, reps: exo[s].reps };
-    }).sort(function (a, b) { return b.seances - a.seances || b.reps - a.reps || (a.slug < b.slug ? -1 : 1); }).slice(0, 3);
+    }).sort(function (a, b) {
+      return (parReps ? b.reps - a.reps || b.seances - a.seances : b.seances - a.seances || b.reps - a.reps) ||
+        (a.slug < b.slug ? -1 : 1);
+    }).slice(0, 3);
 
     // La séance la plus lourde (à égalité, la première).
     var lourde = null;

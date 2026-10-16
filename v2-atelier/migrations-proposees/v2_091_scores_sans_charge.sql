@@ -1,4 +1,5 @@
 -- v2_091 — Le poids ne quitte jamais le téléphone (audit du 16/10/2026, P0 #1 du domaine social, prompt 114)
+-- ⚠️ CONTIENT UN DELETE : lancée par Aurélien.
 -- PROPOSÉE par Claude Code : Claude.ai la relit et la lance.
 --
 -- LE DÉFAUT : `scores_force` gardait, par exercice, le score DOTS ET sa charge, et `social_scores_force` les rendait
@@ -15,6 +16,10 @@
 --      requête est refusée (23514), l'app l'avale sans casser.
 --   3. `social_scores_force` garde sa signature (user_id, pseudo, score, charge_kg, moi) — l'app d'avant comme celle
 --      d'après la lisent sans erreur — mais ne rend plus la charge de personne d'autre (`CASE … END`, NULL).
+--   4. `social_meilleures_charges(slug)` (option B, décidée le 16/10/2026) : les kilos d'« Entre amis » — la meilleure
+--      charge de mes MUTUELS sur 12 mois, dans leurs séances VISIBLES (ce que `social_periode` leur rend déjà), pour
+--      ceux qui ont un score publié sur l'exercice ; jamais la mienne (l'app la lit sur l'appareil). Le score se
+--      calcule sur la même fenêtre de 12 mois (social.js, bornesDouzeMois). Avant cette fonction, la carte se cache.
 --
 -- Aucune politique RLS touchée (scores_force_miens reste la seule). La colonne `charge_kg` reste (vide) : la retirer
 -- changerait la signature de la fonction ; un nettoyage ultérieur pourra le faire avec l'app prête.
@@ -48,6 +53,12 @@ DO $$ BEGIN
   IF (SELECT array_to_string(proargnames, ',') FROM pg_proc
       WHERE oid = to_regprocedure('public.social_scores_force(text)')) IS DISTINCT FROM 'p_slug,user_id,pseudo,score,charge_kg,moi' THEN
     RAISE EXCEPTION 'pré-contrôle : social_scores_force n''a pas la signature de v2_079';
+  END IF;
+  IF to_regprocedure('public.social_meilleures_charges(text)') IS NOT NULL THEN
+    RAISE EXCEPTION 'pré-contrôle : social_meilleures_charges existe déjà';
+  END IF;
+  IF to_regprocedure('public.social_mutuel(uuid,uuid)') IS NULL THEN
+    RAISE EXCEPTION 'pré-contrôle : social_mutuel(uuid, uuid) absente (v2_078)';
   END IF;
 END $$;
 -- Ce qui ne doit pas bouger : les politiques (toutes), les droits sur la fonction.
@@ -83,6 +94,23 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
   FROM scores_force f JOIN profiles p ON p.id = f.user_id
   WHERE f.exercise_slug = p_slug AND p.deleted_at IS NULL
     AND (f.user_id = auth.uid() OR social_mutuel(auth.uid(), f.user_id)) $f$;
+
+-- ── 4. Les kilos d'« Entre amis » : mutuels seulement, séances visibles, 12 mois ───────────────────────────────
+-- « Série comptée » = celle de v2_079 (travail, charge > 0, reps > 0) ; séance terminée, non privée.
+CREATE FUNCTION public.social_meilleures_charges(p_slug text)
+RETURNS TABLE(user_id uuid, charge_max numeric)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
+  SELECT s.user_id, max(t.charge_kg)
+  FROM sets t JOIN sessions s ON s.id = t.session_id JOIN profiles p ON p.id = s.user_id
+  WHERE t.exercise_slug = p_slug AND s.user_id <> auth.uid() AND p.deleted_at IS NULL
+    AND EXISTS (SELECT 1 FROM scores_force f WHERE f.user_id = s.user_id AND f.exercise_slug = p_slug)
+    AND s.statut = 'terminee' AND s.visibilite <> 'private'
+    AND s.debut >= now() - interval '12 months'
+    AND coalesce(t.type_serie,'travail') = 'travail' AND t.charge_kg > 0 AND t.reps > 0
+    AND social_mutuel(auth.uid(), s.user_id)
+  GROUP BY s.user_id $f$;
+REVOKE ALL ON FUNCTION public.social_meilleures_charges(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.social_meilleures_charges(text) TO authenticated;
 
 -- ── Post-contrôles ─────────────────────────────────────────────────────────────────────────────────────────────
 DO $$
@@ -131,6 +159,21 @@ BEGIN
   SELECT prosrc INTO src FROM pg_proc WHERE oid = to_regprocedure('public.social_scores_force(text)');
   IF position('CASE WHEN f.user_id = auth.uid() THEN f.charge_kg END' IN src) = 0 THEN
     RAISE EXCEPTION 'post-contrôle : social_scores_force rend encore la charge des autres';
+  END IF;
+  -- La nouvelle fonction : ses deux colonnes, SECURITY DEFINER, search_path figé, authenticated seulement, mutuels.
+  IF (SELECT array_to_string(proargnames, ',') FROM pg_proc
+      WHERE oid = to_regprocedure('public.social_meilleures_charges(text)')) IS DISTINCT FROM 'p_slug,user_id,charge_max' THEN
+    RAISE EXCEPTION 'post-contrôle : social_meilleures_charges absente ou d''une autre signature';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid = to_regprocedure('public.social_meilleures_charges(text)')
+             AND (NOT p.prosecdef OR p.proconfig IS NULL OR has_function_privilege('anon', p.oid, 'EXECUTE')
+                  OR NOT has_function_privilege('authenticated', p.oid, 'EXECUTE'))) THEN
+    RAISE EXCEPTION 'post-contrôle : social_meilleures_charges sans SECURITY DEFINER, sans search_path, ouverte à anon ou fermée à authenticated';
+  END IF;
+  SELECT prosrc INTO src FROM pg_proc WHERE oid = to_regprocedure('public.social_meilleures_charges(text)');
+  IF position('social_mutuel(auth.uid(), s.user_id)' IN src) = 0 OR position('s.visibilite <> ''private''' IN src) = 0
+     OR position('s.user_id <> auth.uid()' IN src) = 0 THEN
+    RAISE EXCEPTION 'post-contrôle : social_meilleures_charges sans garde mutuel, visibilité ou exclusion de soi';
   END IF;
 END $$;
 

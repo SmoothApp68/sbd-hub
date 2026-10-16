@@ -20506,7 +20506,7 @@ const SETS_IMPORTES = [
     const dd = await lireP();
     ok('[P113] D — au-delà : le coach maintient — aucune marche, aucune carte, la phrase du compteur reste un fait',
       dd.slug === EZ && dd.compteur === 16 && dd.marche === null && dd.carte === null && !dd.repli &&
-      /^30 kg × 15 reste ta meilleure charge de travail depuis 16 séances/.test(nbP(dd.compteurDit)), nbP(dd));
+      /^30 kg × 15 reste ta meilleure charge de travail depuis 16 séances/.test(espP(dd.compteurDit)), nbP(dd));
     ok('[P113] aucune violation de la garde (I47, I48 compris)', gardeBanc.violations === violationsAvant,
       String(gardeBanc.violations - violationsAvant) + ' ' + nbP(gardeBanc.liste.slice(-2)));
     await abandonner();

@@ -158,11 +158,11 @@
     // lest) vaut 10 kg, « -20 kg x 8 » (une aide) vaut −20 kg — l'aide est rangée en NÉGATIF en base (MOTEUR
     // §9.17). Sans signe, rien ne change. Le signe ne se DEVINE jamais (le type d'exercice ne le pose pas) : il est lu.
     // Avant, un seul signe faisait refuser tout le texte collé.
-    m = /^([+\-\u2212]?)\s*([\d.,]+)\s*(kg|lbs)\s*[x×]\s*(\d+)$/i.exec(d);
+    m = /^([+-]?)\s*([\d.,]+)\s*(kg|lbs)\s*[x×]\s*(\d+)$/i.exec(d);
     if (m) {
       var kg = nombreLu(m[2]);
       if (m[3].toLowerCase() === 'lbs') kg = dixieme(kg * LIVRE);
-      if (m[1] === '-' || m[1] === '\u2212') kg = -kg;
+      if (m[1] === '-') kg = -kg;
       s.charge_kg = nombre(kg);
       s.reps = Number(m[4]);
       return s;

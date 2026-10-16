@@ -97,7 +97,7 @@ describe('69 — les formes de série (K1 : la lecture du v1, règle pour règle
   test('⚠️ DISCRIMINANT — un signe devant la charge se lit tel qu’il est écrit : lest « + », aide « - » en négatif', () => {
     expect(une('Série 1: +10 kg x 8')).toEqual(Object.assign({}, vide, { charge_kg: 10, reps: 8 }));
     expect(une('Série 1: -20 kg x 8')).toEqual(Object.assign({}, vide, { charge_kg: -20, reps: 8 }));
-    expect(une('Série 1: −22,5 kg x 6 @ 9 rpe')).toEqual(Object.assign({}, vide, { charge_kg: -22.5, reps: 6, rpe: 9 }));
+    expect(une('Série 1: -22,5 kg x 6 @ 9 rpe')).toEqual(Object.assign({}, vide, { charge_kg: -22.5, reps: 6, rpe: 9 }));
     expect(une('Série 1: -45 lbs x 5')).toEqual(Object.assign({}, vide, { charge_kg: -20.4, reps: 5 }));
     // Sans signe, rien ne change ; un signe sans nombre reste illisible.
     expect(une('Série 1: 20 kg x 8').charge_kg).toBe(20);

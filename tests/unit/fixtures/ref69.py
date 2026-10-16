@@ -71,12 +71,12 @@ def serie_texte(d):
         return s
     # 118 (audit du 16/10, 03 #4) : un signe devant la charge se lit tel qu'il est écrit (« -20 kg » : une aide, en
     # négatif ; « +10 kg » : un lest) ; sans signe, rien ne change.
-    m = re.match(r'^([+\-\u2212]?)\s*([\d.,]+)\s*(kg|lbs)\s*[x×]\s*(\d+)$', d, re.I)
+    m = re.match(r'^([+-]?)\s*([\d.,]+)\s*(kg|lbs)\s*[x×]\s*(\d+)$', d, re.I)
     if m:
         kg = float(m.group(2).replace(',', '.'))
         if m.group(3).lower() == 'lbs':
             kg = round(kg * 0.45359237, 1)
-        if m.group(1) in ('-', '\u2212'):
+        if m.group(1) == '-':
             kg = -kg
         s['charge_kg'] = nombre(kg)
         s['reps'] = int(m.group(4))

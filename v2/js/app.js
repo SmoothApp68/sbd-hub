@@ -35,6 +35,8 @@
   var Reserve = racine.THReserve;
   // 99 — la semaine qui déraille (MOTEUR §9.24) : la règle dans `deraille.js` ; d'ici, son entrée et ses gestes.
   var Deraille = racine.THDeraille;
+  // 109 (MOTEUR §9.25) — l'objectif posé par la personne, à l'essai.
+  var Objectif = racine.THObjectif;
   // 59-2 — « Quitter » : la fenêtre des séances pas encore envoyées, et ce qu'on efface.
   var Quitter = racine.THQuitter;
   // 58-1 — LE MODULE DES FAITS : l'assemblage des faits (séances et séries,
@@ -45,7 +47,8 @@
   var vues = {};
   var local = { semaineChoix: [], seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
                 predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
-                blocs: [], programme: [], records: [], connues: {} };
+                blocs: [], programme: [], records: [], connues: {},
+                objectifs: [], objectifsDispo: null, parisObjectif: [] };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
   // ⚠️ 59-5 — LA GÉNÉRATION DE L'APPAREIL. « Quitter » (et « Supprimer mon
@@ -726,6 +729,15 @@
     // 83 — les séries que cet appareil connaît, par séance (`connaitre`).
     try { local.connues = (await Cache.lireBrouillon(CLE_CONNUES)) || {}; }
     catch (e) { local.connues = {}; }
+    // 109 (MOTEUR §9.25) — les objectifs (et si la table existe : sans la migration v2_089, pas de carte) et leurs
+    // paris, relus à la dernière synchronisation : la page d'exercice les montre hors ligne.
+    try {
+      var objs = (await Cache.lireBrouillon(CLE_OBJECTIFS)) || null;
+      local.objectifs = (objs && objs.lignes) || [];
+      local.objectifsDispo = objs && typeof objs.dispo === 'boolean' ? objs.dispo : null;
+    } catch (e) { local.objectifs = []; local.objectifsDispo = null; }
+    try { local.parisObjectif = (await Cache.lireBrouillon(CLE_PARIS_OBJECTIF)) || []; }
+    catch (e) { local.parisObjectif = []; }
     // 58-2 — le journal des records, et où en est son remplissage.
     try { local.records = await Cache.lireTout('records'); }
     catch (e) { local.records = []; }
@@ -809,6 +821,8 @@
     local.blocs = [];
     local.programme = [];
     local.connues = {};
+    // 109 — les objectifs et leurs paris appartiennent au compte précédent.
+    local.objectifs = []; local.objectifsDispo = null; local.parisObjectif = [];
     // 58-2 — le journal des records aussi (son magasin vient d'être vidé), et
     // son remplissage : il se décidera pour le compte qui arrive.
     local.records = [];
@@ -935,6 +949,12 @@
       var programmeDuCompte = await essayer(Donnees.parisProgramme);
       if (!generationValide(g)) return;
       if (programmeDuCompte) local.programme = fondreZones(local.programme, programmeDuCompte);
+      // 109 (MOTEUR §9.25) — les objectifs et leurs paris. Accessoires comme les autres ; une table absente
+      // (migration v2_089 pas lancée) le DIT : la carte ne s'affiche pas, et rien ne part vers elle.
+      var objectifsDuCompte = await lireObjectifs();
+      if (!generationValide(g)) return;
+      var parisObjectifDuCompte = objectifsDuCompte && objectifsDuCompte.lignes ? await essayer(Donnees.parisObjectif) : null;
+      if (!generationValide(g)) return;
 
       // ⚠️ La liste du serveur ne contient PAS ce qui n'y est pas encore monté.
       // Sans cette garde, la première synchronisation réussie effacerait une
@@ -1008,6 +1028,17 @@
       if (escalierDuCompte) {
         await Cache.ecrireBrouillon(CLE_PARIS_ESCALIER, local.escalier).catch(function () {});
       }
+      if (objectifsDuCompte) {
+        local.objectifsDispo = objectifsDuCompte.dispo;
+        local.objectifs = objectifsDuCompte.dispo ? fondreObjectifs(objectifsDuCompte.lignes) : [];
+        await Cache.ecrireBrouillon(CLE_OBJECTIFS, { dispo: local.objectifsDispo, lignes: local.objectifs }).catch(function () {});
+        if (!generationValide(g)) return;
+      }
+      if (parisObjectifDuCompte) {
+        local.parisObjectif = fondreParisObjectif(parisObjectifDuCompte);
+        await Cache.ecrireBrouillon(CLE_PARIS_OBJECTIF, local.parisObjectif).catch(function () {});
+        if (!generationValide(g)) return;
+      }
       if (blocsDuCompte) await Cache.ecrireBrouillon(CLE_BLOCS, local.blocs).catch(function () {});
       if (programmeDuCompte) await Cache.ecrireBrouillon(CLE_PARIS_PROGRAMME, local.programme).catch(function () {});
       if (!generationValide(g)) return;
@@ -1038,6 +1069,8 @@
       });
       // §14.4 (49-U14) — une semaine allégée acceptée se tranche ici aussi.
       observerEscalier().catch(function () {});
+      // 109 — un objectif atteint dans une séance importée, ou sur un autre appareil, s'observe ici aussi.
+      observerObjectifs().catch(function () {});
     } catch (e) {
       // Une synchronisation ratée n'est jamais bloquante : on garde ce qu'on a.
       etat = Sync.deciderEtat({ syncOk: false, aDesDonnees: local.seances.length > 0 });
@@ -2922,6 +2955,9 @@
     if (op.table === Attente.ALIAS) return Donnees.enregistrerAlias(op.donnees);
     // 99 (MOTEUR §9.24) — le choix fait pour une séance manquée : un `upsert` sur (user_id, semaine, routine_id).
     if (op.table === Attente.SEMAINE_CHOIX) return Donnees.enregistrerChoixDeSemaine(op.donnees);
+    // 109 (MOTEUR §9.25) — l'objectif d'un exercice : un `upsert` sur (user_id, exercise_slug), ou son retrait.
+    if (op.table === Attente.OBJECTIFS && op.op === Attente.SUPPRIMER) return Donnees.retirerObjectif(op.id);
+    if (op.table === Attente.OBJECTIFS) return Donnees.enregistrerObjectif(op.donnees);
     // §6 — l'intention porte l'ÉTAT VOULU de la routine, pas un chemin pour y
     // aller : le plan d'écritures se calcule à la vidange, contre ce que la
     // routine est devenue entre-temps. C'est de là que vient l'idempotence.
@@ -3655,6 +3691,9 @@
     // La séance rejoint la liste TOUT DE SUITE, sans attendre le réseau : hors
     // ligne, elle serait sinon invisible entre « terminée » et « montée ».
     adopterLocalement(finie);
+    // 109 (MOTEUR §9.25) — un objectif atteint dans cette séance : son pari s'observe (les jours réellement mis),
+    // derrière la séance et ses séries.
+    await observerObjectifs().catch(function (err) { console.warn('Observation des objectifs :', texteErreur(err)); });
     // 87 — le niveau publié suit la séance (seulement s'il a changé).
     publierJeu(null);
     // 89 — mes scores de force aussi (seulement s'ils ont changé) ; hors ligne, ils partiront à la prochaine ouverture.
@@ -9426,6 +9465,8 @@
     }
 
     var visibles = groupes.slice(0, exoAffiche.combien);
+    // 109 (MOTEUR §9.25) — « MON OBJECTIF » : la carte se LIT (`THObjectif.vue`), la date est celle posée.
+    var carteObjectif = carteObjectifDe(slug, exo, groupes, maintenant, vueOnglet);
     // §7 quater — L'ÉTIQUETTE DE ZONE SUR LA PAGE D'EXERCICE. La zone
     // appartient à l'exercice : la montrer seulement en séance la ferait
     // passer pour un réglage de la séance du jour.
@@ -9475,6 +9516,7 @@
       // §9.23 (H1, #371) — le record d'un matériel de salle se dit « sur 12 mois ».
       recordSurDouzeMois: mesure === 'charge_reps' && recordsExo.douzeMois,
       teteRecords: teteRecords,
+      objectif: carteObjectif,
       volume: {
         nbSeries: Semaine.compteSeriesTravail(toutes, local.exercices),
         nbSeances: groupes.length
@@ -10783,7 +10825,7 @@
     try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
     local = { semaineChoix: [], seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
               predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
-              records: [], connues: {} };
+              records: [], connues: {}, objectifs: [], objectifsDispo: null, parisObjectif: [] };
     journalDecide = false;
     notesEnCours = {};
     // Les routines vivent en mémoire, pas dans le cache — mais elles
@@ -11557,6 +11599,162 @@
     });
     return Object.keys(par).map(function (k) { return par[k]; });
   }
+  // ══ 109 (MOTEUR §9.25) — L'OBJECTIF, À L'ESSAI ════════════════════════════════════════════════════════════════
+  //
+  // La personne pose elle-même un objectif sur un exercice (charge × reps), depuis sa page ; le coach ne l'impose
+  // jamais. À la POSE, `THObjectif.projection` dit ce que le coach annonce (une date, « pas encore », « plus d'un
+  // an ») ; une date fait un PARI (`predictions`, module « objectif », grandeur « jours »). La ligne `objectifs`
+  // garde ce qui a été annoncé : la page la RELIT, la date ne bouge plus. Changer ou retirer l'objectif n'efface
+  // jamais un ancien pari ; chacun s'observe (les jours réellement mis) quand la série qui atteint SON objectif
+  // arrive — à « Terminer », et à la synchronisation (une séance importée). Sans la table (v2_089 pas lancée), pas
+  // de carte, et rien ne part vers elle.
+  var CLE_OBJECTIFS = 'objectifs';
+  var CLE_PARIS_OBJECTIF = 'paris-objectif';
+
+  // `{ dispo, lignes }` — `dispo: false` : la base ne connaît pas la table ; `null` : rien reçu (réseau).
+  async function lireObjectifs() {
+    try { return { dispo: true, lignes: await Donnees.mesObjectifs() }; }
+    catch (e) {
+      if (Donnees.tableAbsente(e)) return { dispo: false, lignes: null };
+      console.warn('Lecture indisponible :', texteErreur(e));
+      return null;
+    }
+  }
+  // FUSION, JAMAIS REMPLACEMENT : un objectif posé ou retiré hors ligne n'est pas encore chez le serveur — sa
+  // dernière intention dans la file fait foi.
+  function fondreObjectifs(serveur) {
+    var enFile = {};
+    (attente || []).forEach(function (e) { if (e && e.table === Attente.OBJECTIFS) enFile[e.id] = e; });
+    var par = {};
+    (serveur || []).forEach(function (l) { if (l && l.exercise_slug && !enFile[l.exercise_slug]) par[l.exercise_slug] = l; });
+    Object.keys(enFile).forEach(function (slug) {
+      var e = enFile[slug];
+      if (e.op !== Attente.SUPPRIMER && e.donnees) par[slug] = e.donnees;
+    });
+    return Object.keys(par).map(function (k) { return par[k]; });
+  }
+  // Les paris d'objectif : ceux du serveur ; ceux de l'appareil quand leur pari ou leur observation attend encore
+  // dans la file, ou que le serveur ne les a pas encore.
+  function fondreParisObjectif(serveur) {
+    var enFile = {};
+    (attente || []).forEach(function (e) {
+      if (e && (e.table === Attente.PREDICTIONS || e.table === Attente.OBSERVATIONS)) enFile[e.id] = true;
+    });
+    var par = {};
+    (serveur || []).forEach(function (l) { if (l && l.id && l.module === Moteur.MODULE_OBJECTIF) par[l.id] = l; });
+    (local.parisObjectif || []).forEach(function (l) { if (l && l.id && (enFile[l.id] || !par[l.id])) par[l.id] = l; });
+    return Object.keys(par).map(function (k) { return par[k]; });
+  }
+  function objectifDe(slug) {
+    return (local.objectifs || []).filter(function (l) { return l && l.exercise_slug === slug; })[0] || null;
+  }
+  // Les séances d'un exercice, sous la forme que lit `THObjectif` (`faits.seancesDeLExercice`, le module des faits).
+  function seancesPourObjectif(groupes) {
+    return (groupes || []).map(function (g) { return { id: g.seance.id, debut: g.seance.debut, series: g.series }; });
+  }
+  function coachSeTaitIci() { return Moteur.coachSeTait(profil && profil.intention); }
+
+  // La carte de la page d'exercice, LUE : `null` sans la table, ou pour un exercice qui ne se mesure pas en charge.
+  function carteObjectifDe(slug, exo, groupes, maintenant, onglet) {
+    if (local.objectifsDispo !== true || !Objectif.possible(exo)) return null;
+    var o = objectifDe(slug);
+    return {
+      vue: o ? Objectif.vue({ objectif: o, seances: seancesPourObjectif(groupes), options: Modele.optionsDeRecord(exo),
+                              maintenant: maintenant, carnet: coachSeTaitIci() }) : null,
+      surPoser: function () { ouvrirFeuilleObjectif(slug, function () { rendreExercice(slug, onglet); }); }
+    };
+  }
+
+  function ouvrirFeuilleObjectif(slug, apres) {
+    var index = Modele.indexerExercices(local.exercices), exo = index[slug];
+    var o = objectifDe(slug);
+    var seances = seancesPourObjectif(faits.seancesDeLExercice(corpus(), slug));
+    var options = Modele.optionsDeRecord(exo), carnet = coachSeTaitIci();
+    Rendu.rendreFeuilleObjectif($('feuille-contenu'), {
+      nom: Modele.nommer(index, slug), existe: !!o,
+      charge: o ? Modele.nombreTexte(o.charge_kg) : '', reps: o ? o.reps : 1,
+      phrasePour: function (reps) { return Objectif.phraseDeSaisie(seances, reps, new Date(), options, carnet); },
+      surValider: async function (c, r) {
+        var refus = await poserObjectif(slug, c, r);
+        if (!refus) fermerVoile();
+        return refus;
+      },
+      surRetirer: async function () { await retirerObjectif(slug); fermerVoile(); },
+      surAnnuler: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'), function () {
+      feuille = null;
+      if (typeof apres === 'function') apres();
+    });
+  }
+
+  // POSER (ou changer) : rend la phrase de refus, ou `null`. Le pari part avant la ligne ; aucun ne dépend de
+  // l'autre. Le même objectif reposé tel quel ne change rien : la date annoncée ne bouge pas.
+  async function poserObjectif(slug, chargeTexte, repsTexte) {
+    var lu = Objectif.lireSaisie(chargeTexte, repsTexte);
+    if (lu.refus) return lu.refus;
+    var avant = objectifDe(slug);
+    if (avant && Math.abs(Number(avant.charge_kg) - lu.charge) < 1e-9 && Number(avant.reps) === lu.reps) return null;
+    var uid = userId();
+    if (!uid) return 'Connecte-toi pour poser un objectif.';
+    var exo = Modele.indexerExercices(local.exercices)[slug];
+    var maintenant = new Date(), pose = maintenant.toISOString();
+    var pr = Objectif.projection({
+      seances: seancesPourObjectif(faits.seancesDeLExercice(corpus(), slug)), charge: lu.charge, reps: lu.reps,
+      maintenant: maintenant, anciennete: profil ? profil.anciennete : null, options: Modele.optionsDeRecord(exo),
+      carnet: coachSeTaitIci()
+    });
+    if (pr.etat === 'deja') return Objectif.phraseDejaFait(pr, maintenant);
+    var pariId = pr.etat === 'date' ? await Moteur.idDObjectif(slug, pose) : null;
+    var ligne = Objectif.ligneDe(slug, lu.charge, lu.reps, pose, pr, uid, pariId);
+    var pari = Objectif.pariDe(ligne, pr, uid, pariId);
+    local.objectifs = (local.objectifs || []).filter(function (l) { return l && l.exercise_slug !== slug; }).concat([ligne]);
+    await Cache.ecrireBrouillon(CLE_OBJECTIFS, { dispo: true, lignes: local.objectifs }).catch(function () {});
+    if (pari) {
+      local.parisObjectif = (local.parisObjectif || []).concat([pari]);
+      await Cache.ecrireBrouillon(CLE_PARIS_OBJECTIF, local.parisObjectif).catch(function () {});
+      await poser({ table: Attente.PREDICTIONS, op: Attente.UPSERT, id: pari.id, depend: pari.id, donnees: pari });
+    }
+    await poser({ table: Attente.OBJECTIFS, op: Attente.UPSERT, id: slug, donnees: ligne });
+    return null;
+  }
+
+  // RETIRER : la ligne s'efface ; son pari reste, et s'observe comme les autres.
+  async function retirerObjectif(slug) {
+    local.objectifs = (local.objectifs || []).filter(function (l) { return l && l.exercise_slug !== slug; });
+    await Cache.ecrireBrouillon(CLE_OBJECTIFS, { dispo: true, lignes: local.objectifs }).catch(function () {});
+    await poser({ table: Attente.OBJECTIFS, op: Attente.SUPPRIMER, id: slug });
+  }
+
+  // L'OBSERVATION des paris d'objectif : la première série qui atteint l'objectif DU PARI, après sa pose — les
+  // jours réellement mis, rattachés à cette série (`set_observe`), même après l'échéance. Elle part derrière la
+  // séance de la série (`depend`). Jamais retirée ici : une série effacée vide l'observation en base
+  // (`sets_efface_observation`) ; une autre série qui atteint l'objectif la reprend.
+  async function observerObjectifs() {
+    var paris = local.parisObjectif || [];
+    if (!paris.length) return;
+    var parSlug = {}, maj = {};
+    paris.forEach(function (p) {
+      var slug = p && p.module === Moteur.MODULE_OBJECTIF && p.fondement ? p.fondement.exercice : null;
+      if (!slug) return;
+      var seances = parSlug[slug] || (parSlug[slug] = seancesPourObjectif(faits.seancesDeLExercice(corpus(), slug)));
+      var obs = Objectif.observationDe(p, seances);
+      if (!obs.set_observe) return;
+      if (p.set_observe === obs.set_observe && Number(p.valeur_observee) === obs.valeur_observee) return;
+      maj[p.id] = { ligne: Object.assign({}, p, { valeur_observee: obs.valeur_observee, observee_a: new Date().toISOString(),
+                                                  set_observe: obs.set_observe }), seance: obs.session_id };
+    });
+    var ids = Object.keys(maj);
+    if (!ids.length) return;
+    local.parisObjectif = paris.map(function (l) { return l && maj[l.id] ? maj[l.id].ligne : l; });
+    await Cache.ecrireBrouillon(CLE_PARIS_OBJECTIF, local.parisObjectif).catch(function () {});
+    for (var i = 0; i < ids.length; i++) {
+      var l = maj[ids[i]].ligne;
+      await poser({ table: Attente.OBSERVATIONS, op: Attente.OBSERVER, id: l.id, depend: maj[ids[i]].seance, alaFin: true,
+                    donnees: { valeur_observee: l.valeur_observee, observee_a: l.observee_a, set_observe: l.set_observe } });
+    }
+  }
+
   async function poserChoixDeSemaine(lignes) {
     local.semaineChoix = fondreChoix(local.semaineChoix, lignes);
     await Cache.ecrireBrouillon(CLE_SEMAINE, local.semaineChoix).catch(function () {});

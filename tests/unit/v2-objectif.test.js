@@ -1,365 +1,284 @@
-/**
- * @jest-environment jsdom
- */
+/** @jest-environment node */
 //
-// 60-2b — L'OBJECTIF DU QUESTIONNAIRE A SES LECTEURS (MOTEUR §9.16 et §9.22).
-//
-//   · la zone PROPOSÉE du premier bloc d'un programme suit l'objectif (Force,
-//     Les deux → Lourd ; Muscle, Forme, vide → Mix), toujours modifiable ; le
-//     bloc suivant garde sa règle fixe ;
-//   · l'objectif est une entrée du plan, GELÉE pour la séance avec la phase, et
-//     entre dans le fondement de chaque pari (invariant I40) ;
-//   · il ne change AUCUNE consigne : même plan, objectif différent → mêmes
-//     lignes, seuls les fondements diffèrent.
-//
-// ⚠️ `ouvrirProgramme`, `objectifDeLaSeance` et `pariDeMarche` se REJOUENT dans
-// un bac `vm` (les fonctions d'`app.js`, extraites) : un test qui chercherait
-// leur texte ne verrait pas une branche morte.
+// 109 — L'OBJECTIF, À L'ESSAI (MOTEUR §9.25, décidé le 16/10/2026). Un squat à la barre, des séances datées, une
+// horloge passée en argument (le 16 octobre 2026 à midi). Chaque fixture déclenche le chemin qu'elle nomme : le
+// rythme sur un an, le plafond « hors littérature » selon l'ancienneté, moins de 3 records, moins de 8 semaines, un
+// rythme nul, plus d'un an, déjà fait, la date figée, l'objectif changé qui garde l'ancien pari, l'observation tenue
+// et non tenue, l'exclusion du total des paris, la migration absente.
 
 process.env.TZ = 'Europe/Paris';
-
-const vm = require('vm');
+global.self = global;
 require('../../v2/js/modele.js');
 require('../../v2/js/palier.js');
-require('../../v2/js/rendu.js');
-const Profil = require('../../v2/js/profil.js');
-const M = require('../../v2/js/moteur.js');
-const S = require('../../v2/js/seance.js');
-const T = require('../../v2/js/plan.js');
-const { extraire } = require('./aide-profil-ecran.js');
+require('../../v2/js/semaine.js');
+require('../../v2/js/moteur.js');
+require('../../v2/js/bilan.js');
+const O = require('../../v2/js/objectif.js');
+const M = global.THModele, Mo = global.THMoteur;
 
-describe('§9.22 — la zone PROPOSÉE du premier bloc suit l’objectif', () => {
-  test('Force et Les deux → Lourd ; Muscle, Forme, sans réponse ou inconnu → Mix', () => {
-    expect(M.zoneDuPremierBloc('force')).toBe('lourd');
-    expect(M.zoneDuPremierBloc('les_deux')).toBe('lourd');
-    ['muscle', 'forme', null, undefined, '', 'autre', 0].forEach((v) => {
-      expect([v, M.zoneDuPremierBloc(v)]).toEqual([v, 'mix']);
-    });
+const MAINTENANT = new Date(2026, 9, 16, 12, 0, 0);
+const BARRE = M.optionsDeRecord({ mesure: 'charge_reps', charge: 'externe', equipement: 'barre' });
+let n = 0;
+// Une séance du squat : `[charge, reps, type?]` par série, à 18 h le jour dit.
+const seance = (jour, series) => {
+  const id = 's' + (++n);
+  const [a, m, j] = jour.split('-').map(Number);
+  return { id, debut: new Date(a, m - 1, j, 18, 0, 0).toISOString(),
+    series: series.map(([c, r, t], i) => ({ id: id + '-' + (i + 1), session_id: id, exercise_slug: 'squat', charge_kg: c, reps: r,
+      type_serie: t || 'travail', rang: i + 1, validee_a: null })) };
+};
+// Un an de squat : 130 (sept. 2025) → 132,5 (oct. 2025, le record d'il y a un an) → 137,5 → 140 × 3 → 144 (sept. 2026).
+const HISTOIRE = () => [
+  seance('2025-09-01', [[100, 5, 'echauffement'], [130, 1]]),
+  seance('2025-10-01', [[132.5, 1]]),
+  seance('2026-02-01', [[137.5, 1], [120, 5]]),
+  seance('2026-06-01', [[140, 3]]),
+  seance('2026-09-20', [[144, 1]])
+];
+const projeter = (o) => O.projection(Object.assign({ seances: HISTOIRE(), charge: 150, reps: 1, maintenant: MAINTENANT,
+  anciennete: null, options: BARRE }, o));
+
+describe('la date, à la pose', () => {
+  test('le rythme : le record « au moins 1 rep » d\u2019aujourd\u2019hui (144) contre celui d\u2019il y a un an (132,5), en kg par mois → fin avril', () => {
+    const p = projeter({});
+    expect(p.etat).toBe('date');
+    expect(p.record.charge).toBe(144);
+    expect(p.reference).toEqual({ charge: 132.5, le: '2025-10-16' });
+    expect(p.rythme_brut).toBeCloseTo(11.5 / (365 / O.JOURS_PAR_MOIS), 3);
+    expect(p.rythme).toBe(p.rythme_brut);                       // sous le plafond : la fourchette personnelle décide
+    expect(p.echeance).toBe('2027-04-30');
+    expect(p.jours).toBe(196);                                  // du 16 octobre 2026 au 30 avril 2027
+    expect(p.hausses).toBe(5);
+    expect(p.depart).toBe(144);
   });
 
-  test('la zone proposée est toujours une zone de bloc (I37 reste vrai)', () => {
-    ['force', 'muscle', 'les_deux', 'forme', null, undefined].forEach((v) => {
-      expect(M.ZONES_DE_BLOC).toContain(M.zoneDuPremierBloc(v));
-    });
+  test('un maximum estimé ne sert jamais de record : 140 × 3 ne vaut que 140 « pour au moins 1 rep » (pas ≈ 154)', () => {
+    const p = projeter({ charge: 145, seances: [seance('2025-09-01', [[130, 1]]), seance('2025-10-01', [[132.5, 1]]),
+      seance('2026-02-01', [[137.5, 1]]), seance('2026-06-01', [[140, 3]])] });
+    expect(p.record.charge).toBe(140);
+    expect(p.etat).toBe('date');
+    expect(p.echeance).toBe('2027-06-30');                      // 5 kg à 7,5 kg par an — pas « déjà fait »
   });
 
-  test('le bloc SUIVANT garde sa règle fixe : Mix → Lourd → Mix, quel que soit l’objectif', () => {
-    const bloc = (zone) => ({ zone, semaines: 4, exercices: ['a'] });
-    expect(M.blocSuivant(bloc('mix')).zone).toBe('lourd');
-    expect(M.blocSuivant(bloc('lourd')).zone).toBe('mix');
+  test('le plafond « hors littérature » coupe l\u2019impossible : 3-5 ans, 15 % par an du record d\u2019il y a un an', () => {
+    const vite = [seance('2025-09-01', [[100, 1]]), seance('2025-10-01', [[100, 1]]), seance('2026-03-01', [[120, 1]]),
+      seance('2026-09-01', [[140, 1]])];
+    const p = projeter({ seances: vite, anciennete: '3_a_5_ans' });
+    expect(p.rythme_brut).toBeGreaterThan(3);                   // 40 kg en un an
+    expect(p.plafond).toBeCloseTo(100 * 0.15 / (365 / O.JOURS_PAR_MOIS), 3);
+    expect(p.rythme).toBe(p.plafond);
+    expect(p.echeance).toBe('2027-06-30');                      // 10 kg à 1,25 kg par mois
+    // Moins d'un an de pratique : 40 % sur 12 semaines — le plafond ne coupe plus, le rythme personnel décide.
+    const d = projeter({ seances: vite, anciennete: 'moins_1_an' });
+    expect(d.plafond).toBeGreaterThan(d.rythme_brut);
+    expect(d.echeance).toBe('2027-01-31');
+    // Non renseignée : 15 % par an, comme au-delà de 3 ans ; 1 à 3 ans : 20 %.
+    expect(projeter({ seances: vite, anciennete: null }).plafond).toBe(p.plafond);
+    expect(O.plafondDe('1_a_3_ans')).toEqual({ part: 0.20, jours: 365 });
+    expect(O.plafondDe('plus_5_ans')).toEqual({ part: 0.15, jours: 365 });
   });
 
-  describe('`ouvrirProgramme` (app.js, rejoué)', () => {
-    function bac(profil) {
-      const ctx = {
-        Moteur: M, Profil, profil,
-        exercicesDuDossier: () => ['squat_barre'],
-        catalogueIndexe: () => ({}),
-        rendreFeuilleProgramme: () => {}, ouvrirVoile: () => {}, $: () => ({}),
-        programmeEnCours: null
-      };
-      vm.createContext(ctx);
-      vm.runInContext(extraire('ouvrirProgramme'), ctx);
-      return { ctx, ouvrir: (dossier, depuis) => { vm.runInContext('ouvrirProgramme(d, depuis)', Object.assign(ctx, { d: dossier, depuis: depuis || null })); return ctx.programmeEnCours; } };
-    }
-
-    test.each([['force', 'lourd'], ['les_deux', 'lourd'], ['muscle', 'mix'], ['forme', 'mix'], [null, 'mix']])(
-      '⚠️ DISCRIMINANT — premier bloc, objectif %s → la feuille propose %s', (objectif, zone) => {
-        expect(bac({ objectif }).ouvrir('Force').zone).toBe(zone);
-      });
-
-    test('sans profil lu (null), la zone proposée reste Mix', () => {
-      expect(bac(null).ouvrir('Force').zone).toBe('mix');
-    });
-
-    test('un bloc AJUSTÉ (`depuis`) prend la règle fixe du suivant, pas l’objectif', () => {
-      const mix = { id: 'b', zone: 'mix', semaines: 4, exercices: ['squat_barre'] };
-      const lourd = { id: 'b', zone: 'lourd', semaines: 4, exercices: ['squat_barre'] };
-      expect(bac({ objectif: 'force' }).ouvrir('Force', mix).zone).toBe('lourd');   // Mix → Lourd
-      expect(bac({ objectif: 'force' }).ouvrir('Force', lourd).zone).toBe('mix');   // Lourd → Mix, malgré « Force »
-      expect(bac({ objectif: 'muscle' }).ouvrir('Force', lourd).zone).toBe('mix');
-    });
-
-    test('la proposition reste modifiable : c’est un brouillon de la feuille, pas une décision', () => {
-      const b = bac({ objectif: 'les_deux' });
-      const p = b.ouvrir('Force');
-      expect(p.zone).toBe('lourd');
-      p.zone = 'mix';
-      expect(b.ctx.programmeEnCours.zone).toBe('mix');
-    });
-  });
-});
-
-describe('§9.16 — l’objectif EFFECTIF et son gel (Profil)', () => {
-  test('`objectifDe` : une des quatre valeurs, sinon `null` — SANS défaut (un vide est une réponse)', () => {
-    ['force', 'muscle', 'les_deux', 'forme'].forEach((v) => expect(Profil.objectifDe({ objectif: v })).toBe(v));
-    [null, undefined, '', 'autre', 'Force'].forEach((v) => expect([v, Profil.objectifDe({ objectif: v })]).toEqual([v, null]));
-    expect(Profil.objectifDe(null)).toBe(null);
-    expect(Profil.objectifDe({})).toBe(null);
+  test('moins de 3 records à au moins N reps : « Pas encore de date. », et aucun pari', () => {
+    const p = projeter({ reps: 3 });                            // à 3 reps ou plus : 120 × 5 puis 140 × 3 — deux hausses
+    expect(p.hausses).toBe(2);
+    expect(p.etat).toBe('pas_encore');
+    expect(O.pariDe(O.ligneDe('squat', 150, 3, MAINTENANT.toISOString(), p, 'u'), p, 'u', 'id')).toBeNull();
   });
 
-  test('`objectifGele` : même séance, le gel reste quoi que dise le profil', () => {
-    const gel = { seanceId: 'S1', objectif: 'force' };
-    expect(Profil.objectifGele(gel, 'S1', undefined, { objectif: 'muscle' })).toBe(gel);
+  test('moins de 8 semaines d\u2019historique sur l\u2019exercice : « Pas encore de date. »', () => {
+    const p = projeter({ seances: [seance('2026-09-01', [[130, 1]]), seance('2026-09-15', [[135, 1]]),
+      seance('2026-10-01', [[140, 1]])] });
+    expect(p.hausses).toBe(3);
+    expect(p.etat).toBe('pas_encore');
   });
 
-  test('une autre séance : l’objectif sauvé, sinon celui du profil maintenant', () => {
-    expect(Profil.objectifGele(null, 'S2', 'forme', { objectif: 'force' })).toEqual({ seanceId: 'S2', objectif: 'forme' });
-    expect(Profil.objectifGele({ seanceId: 'S1', objectif: 'force' }, 'S2', undefined, { objectif: 'muscle' }))
-      .toEqual({ seanceId: 'S2', objectif: 'muscle' });
+  test('un rythme nul : « Pas encore de date. »', () => {
+    const p = projeter({ seances: [seance('2025-01-01', [[140, 1]]), seance('2025-06-01', [[142, 1]]),
+      seance('2025-09-01', [[144, 1]]), seance('2026-09-01', [[140, 1]])] });
+    expect(p.etat).toBe('pas_encore');
+    expect(p.raison).toBe('rythme_nul');
   });
 
-  test('⚠️ DISCRIMINANT — `null` sauvé est un objectif (« sans réponse ») : il n’est PAS remplacé par celui du profil ; `undefined` oui', () => {
-    expect(Profil.objectifGele(null, 'S2', null, { objectif: 'force' })).toEqual({ seanceId: 'S2', objectif: null });
-    expect(Profil.objectifGele(null, 'S2', undefined, { objectif: 'force' })).toEqual({ seanceId: 'S2', objectif: 'force' });
+  test('au-delà de 12 mois : « Au rythme actuel : plus d\u2019un an. », et aucun pari', () => {
+    const lent = [seance('2025-01-01', [[138, 1]]), seance('2025-06-01', [[140, 1]]), seance('2026-09-01', [[141, 1]])];
+    const p = projeter({ seances: lent });
+    expect(p.etat).toBe('plus_d_un_an');
+    const ligne = O.ligneDe('squat', 150, 1, MAINTENANT.toISOString(), p, 'u');
+    expect(ligne).toMatchObject({ projection: 'plus_d_un_an', echeance: null, pari_id: null });
+    expect(O.pariDe(ligne, p, 'u', 'id')).toBeNull();
+    expect(O.vue({ objectif: ligne, seances: lent, options: BARRE, maintenant: MAINTENANT }).ligne)
+      .toBe('Au rythme actuel\u00a0: plus d\u2019un an.');
   });
 
-  test('une valeur sauvée inconnue retombe sur le profil', () => {
-    expect(Profil.objectifGele(null, 'S2', 'zzz', { objectif: 'force' })).toEqual({ seanceId: 'S2', objectif: 'force' });
+  test('un objectif déjà fait est refusé, avec le fait (la série, ses vraies reps)', () => {
+    const p = projeter({ charge: 140, reps: 1 });
+    expect(p.etat).toBe('deja');
+    expect(O.phraseDejaFait(p, MAINTENANT)).toBe('Déjà fait\u00a0: 144\u00a0kg\u00a0×\u00a01, le 20 sept.');
   });
 
-  test('`phaseGelee` n’a pas bougé (son objet `{ seanceId, phase }` est figé par v2-phase)', () => {
-    expect(Profil.phaseGelee(null, 'S1', 'seche', {})).toEqual({ seanceId: 'S1', phase: 'seche' });
-  });
-
-  test('GARDE — `objectifDeLaSeance` gèle l’objectif pour la séance, le profil peut changer', () => {
-    const ctx = { Profil, seance: { id: 'S1' }, consignesSauvees: null, objectifGele: null, profil: { objectif: 'force' } };
-    vm.createContext(ctx);
-    vm.runInContext(extraire('objectifDeLaSeance'), ctx);
-    expect(vm.runInContext('objectifDeLaSeance()', ctx)).toBe('force');
-    ctx.profil = { objectif: 'muscle' };
-    expect(vm.runInContext('objectifDeLaSeance()', ctx)).toBe('force');           // gelé
-    ctx.seance = { id: 'S2' };
-    expect(vm.runInContext('objectifDeLaSeance()', ctx)).toBe('muscle');          // la séance suivante
-    ctx.seance = null;
-    expect(vm.runInContext('objectifDeLaSeance()', ctx)).toBe(null);              // hors séance
-  });
-
-  test('au rechargement, l’objectif gelé relu du disque l’emporte sur le profil — `null` compris', () => {
-    const ctx = { Profil, seance: { id: 'S1' }, consignesSauvees: { seanceId: 'S1', objectif: null }, objectifGele: null, profil: { objectif: 'force' } };
-    vm.createContext(ctx);
-    vm.runInContext(extraire('objectifDeLaSeance'), ctx);
-    expect(vm.runInContext('objectifDeLaSeance()', ctx)).toBe(null);
-    const ancien = { Profil, seance: { id: 'S1' }, consignesSauvees: { seanceId: 'S1' }, objectifGele: null, profil: { objectif: 'force' } };
-    vm.createContext(ancien);
-    vm.runInContext(extraire('objectifDeLaSeance'), ancien);
-    expect(vm.runInContext('objectifDeLaSeance()', ancien)).toBe('force');        // séance gelée avant 60-2b
+  test('« Juste un carnet » : ni date ni pari', () => {
+    const p = projeter({ carnet: true });
+    expect(p.etat).toBe('carnet');
+    const ligne = O.ligneDe('squat', 150, 1, MAINTENANT.toISOString(), p, 'u');
+    expect(O.pariDe(ligne, p, 'u', 'id')).toBeNull();
+    const v = O.vue({ objectif: ligne, seances: HISTOIRE(), options: BARRE, maintenant: MAINTENANT, carnet: true });
+    expect(v.ligne).toBeNull();
+    expect(v.pari).toBeNull();
+    expect(v.titre).toBe('150\u00a0kg\u00a0×\u00a01');
   });
 });
 
-// ── Le plan : l'objectif, entrée gelée, dans le fondement de chaque pari ─────────
-const DEBUT = '2026-10-08T10:00:00+00:00';
-const C = { etat: 'progression', zone: 'force', palier: 125, niveau: 5, n: 3,
-  ligne: { charge: 125, vise: 5 }, haut: null, fondement: {} };
-
-function seanceDe() {
-  let n = 0;
-  const id = () => 's' + (++n);
-  let se = S.creer({ id: 'S1', userId: 'u', idSerie: id });
-  se = S.ajouterExercice(se, 'couche', id, { series: 3 });
-  return se;
-}
-const entreesDe = (se, objectif, paris) => ({
-  seance: { id: 'S1', debut: DEBUT, edition: false, exercices: se.exercices },
-  consignes: { couche: { consigne: C, libelles: M.libellesConsigne(C) } },
-  reglage: 'normal', paris: paris || [], suites: {}, phase: 'maintien', objectif: objectif
-});
-const valider = (se, j, kg, reps) => S.valider(S.modifierSerie(se, 0, j, { charge_kg: kg, reps: reps }), 0, j, new Date(DEBUT));
-
-describe('§9.16 — l’objectif, entrée du plan, dans le fondement de CHAQUE pari', () => {
-  test('le plan reçoit l’objectif et l’écrit dans le fondement de CHAQUE pari', () => {
-    ['force', 'muscle', 'les_deux', 'forme'].forEach((o) => {
-      const e = entreesDe(seanceDe(), o);
-      const p = T.planDeSeance(e);
-      const paris = p.exercices[0].paris.filter(Boolean);
-      expect(p.objectif).toBe(o);
-      expect(paris.length).toBe(3);
-      paris.forEach((q) => expect(q.fondement.objectif).toBe(o));
-      expect(T.verifierPlan(p, e).erreurs).toEqual([]);
-    });
+describe('le pari', () => {
+  test('module « objectif », grandeur « jours », valeur prédite = les jours jusqu\u2019à la fin du mois ; sans séance ni exercice en colonne', () => {
+    const p = projeter({});
+    const pose = MAINTENANT.toISOString();
+    const ligne = O.ligneDe('squat', 150, 1, pose, p, 'u', 'pari-1');
+    const pari = O.pariDe(ligne, p, 'u', 'pari-1');
+    expect(pari).toMatchObject({ id: 'pari-1', module: 'objectif', grandeur: 'jours', valeur_predite: 196, horizon_jours: 196,
+      exercise_slug: null, emise_a: pose, valeur_observee: null, set_observe: null });
+    expect(pari.module).toBe(Mo.MODULE_OBJECTIF);
+    expect(pari.module).not.toBe(Mo.MODULE_CONSIGNE);
+    expect(pari.fondement).toMatchObject({ exercice: 'squat', charge: 150, reps: 1, pose_le: pose, echeance: '2027-04-30' });
+    expect('seance' in pari.fondement).toBe(false);             // ne dépend d'aucune séance (la cascade ne l'emporte pas)
+    expect(ligne).toMatchObject({ projection: 'date', echeance: '2027-04-30', pari_id: 'pari-1', depart_kg: 144 });
   });
 
-  test('⚠️ DISCRIMINANT — sans réponse, vide ou inconnu : `null`, SANS défaut, et la clé est BIEN écrite', () => {
-    [null, undefined, '', 'autre'].forEach((v) => {
-      const e = entreesDe(seanceDe(), v);
-      const p = T.planDeSeance(e);
-      expect(p.objectif).toBe(null);
-      p.exercices[0].paris.filter(Boolean).forEach((q) => {
-        expect(Object.prototype.hasOwnProperty.call(q.fondement, 'objectif')).toBe(true);
-        expect(q.fondement.objectif).toBe(null);
-      });
-      expect(T.verifierPlan(p, e).erreurs).toEqual([]);
-    });
-  });
-
-  test('⚠️ DISCRIMINANT — l’objectif ne change AUCUNE consigne : mêmes lignes, même message, même en-tête, même réaction ; seuls les fondements diffèrent', () => {
-    let se = seanceDe();
-    se = valider(se, 0, 125, 8);
-    const a = T.planDeSeance(entreesDe(se, 'force')).exercices[0];
-    const b = T.planDeSeance(entreesDe(se, 'forme')).exercices[0];
-    const c = T.planDeSeance(entreesDe(se, null)).exercices[0];
-    [b, c].forEach((x) => {
-      expect(a.lignes).toEqual(x.lignes);
-      expect(a.message).toEqual(x.message);
-      expect(a.entete).toEqual(x.entete);
-      expect(a.consigne).toEqual(x.consigne);
-      expect(a.planInitial).toEqual(x.planInitial);
-      expect(a.reaction).toEqual(x.reaction);
-      expect(a.phrases).toEqual(x.phrases);
-    });
-    const sans = (q) => (q ? Object.assign({}, q, { fondement: Object.assign({}, q.fondement, { objectif: 'x' }) }) : q);
-    expect(a.paris.map(sans)).toEqual(b.paris.map(sans));
-    expect(a.paris.filter(Boolean).map((q) => q.fondement.objectif)).toEqual(['force', 'force', 'force']);
-  });
-
-  test('tout le plan est identique à l’objectif près (aucune autre clé n’en dépend)', () => {
-    const se = valider(seanceDe(), 0, 125, 8);
-    const norm = (p) => JSON.stringify(p, (k, v) => (k === 'objectif' ? undefined : v));
-    expect(norm(T.planDeSeance(entreesDe(se, 'force')))).toBe(norm(T.planDeSeance(entreesDe(se, 'muscle'))));
-  });
-
-  test('`rejouer` ne le passe pas : le fondement des cas du simulateur reste sans clé, comme pour la phase', () => {
-    const e = entreesDe(seanceDe(), 'force');
-    const r = T.rejouer ? T.rejouer(e) : null;
-    if (r && r.exercices) {
-      r.exercices.forEach((x) => (x.paris || []).filter(Boolean).forEach((q) => {
-        expect(Object.prototype.hasOwnProperty.call(q.fondement, 'objectif')).toBe(false);
-      }));
-    }
-  });
-
-  test('un objectif qui change PENDANT la séance ne se voit pas dans les paris déjà posés : le plan suit ce qu’on lui donne (gelé par l’app)', () => {
-    let se = seanceDe();
-    const q = T.planDeSeance(entreesDe(se, 'force')).exercices[0].paris[0];
-    se = valider(se, 0, 125, 5);
-    const pose = Object.assign({}, q, { id: 'p0', set_observe: se.exercices[0].series[0].id });
-    const e = entreesDe(se, 'force', [pose]);
-    expect(T.verifierPlan(T.planDeSeance(e), e).erreurs).toEqual([]);
+  test('l\u2019identifiant : UUID v5 sur objectif|exercice|instant de la pose — deux poses, deux paris ; la même, le même', async () => {
+    const a = await Mo.idDObjectif('squat', '2026-10-16T10:00:00.000Z');
+    const b = await Mo.idDObjectif('squat', '2026-10-16T10:05:00.000Z');
+    expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(a).not.toBe(b);
+    expect(await Mo.idDObjectif('squat', '2026-10-16T10:00:00.000Z')).toBe(a);
+    expect(a).not.toBe(await Mo.idDEscalier('squat', null, '2026-10-16T10:00:00.000Z'));
   });
 });
 
-describe('I40 — les violations forgées sont attrapées', () => {
-  const clone = (o) => JSON.parse(JSON.stringify(o));
-  const base = (objectif) => {
-    const e = entreesDe(seanceDe(), objectif === undefined ? 'force' : objectif);
-    return { e, p: T.planDeSeance(e) };
+describe('la date figée, et ce que la page montre', () => {
+  test('la date affichée est celle de la pose : de nouvelles séances ne la bougent pas', () => {
+    const p = projeter({});
+    const ligne = O.ligneDe('squat', 150, 1, MAINTENANT.toISOString(), p, 'u', 'pari-1');
+    const v1 = O.vue({ objectif: ligne, seances: HISTOIRE(), options: BARRE, maintenant: MAINTENANT });
+    expect(v1.ligne).toBe('Au rythme actuel\u00a0: fin avril.');
+    expect(v1.pari).toBe('C\u2019est un pari du coach\u00a0: on verra s\u2019il tombe juste.');
+    const plusTard = new Date(2026, 10, 20, 12);
+    const avance = HISTOIRE().concat([seance('2026-11-10', [[147.5, 1]])]);
+    expect(projeter({ seances: avance, maintenant: plusTard }).echeance).not.toBe('2027-04-30');   // recalculée, elle bougerait
+    const v2 = O.vue({ objectif: ligne, seances: avance, options: BARRE, maintenant: plusTard });
+    expect(v2.ligne).toBe(v1.ligne);                            // elle ne bouge pas
+    expect(v2.aujourdhui).toBe('Aujourd\u2019hui\u00a0: 147,5\u00a0kg\u00a0×\u00a01');
+    expect(v2.jauge).toBeCloseTo(3.5 / 6, 5);                  // depuis le record de la pose (144)
+  });
+
+  test('jamais « impossible », jamais une couleur dans la ligne ; « Pas encore de date. » sans projection', () => {
+    const p = projeter({ reps: 3 });
+    const ligne = O.ligneDe('squat', 150, 3, MAINTENANT.toISOString(), p, 'u');
+    const v = O.vue({ objectif: ligne, seances: HISTOIRE(), options: BARRE, maintenant: MAINTENANT });
+    expect(v.ligne).toBe('Pas encore de date.');
+    [v.ligne, O.PLUS_D_UN_AN, O.PARI].forEach((t) => expect(t).not.toMatch(/impossible/i));
+  });
+
+  test('atteint : « Atteint le 12 février. », jauge pleine — même en « Juste un carnet » (un fait)', () => {
+    const p = projeter({});
+    const ligne = O.ligneDe('squat', 150, 1, MAINTENANT.toISOString(), p, 'u', 'pari-1');
+    const s = HISTOIRE().concat([seance('2027-02-12', [[150, 1]])]);
+    const v = O.vue({ objectif: ligne, seances: s, options: BARRE, maintenant: new Date(2027, 1, 20), carnet: true });
+    expect(v.ligne).toBe('Atteint le 12 février.');
+    expect(v.jauge).toBe(1);
+    expect(v.atteint).toBe(true);
+  });
+
+  test('la feuille : la phrase du record pour les reps tapées, et la saisie bornée', () => {
+    expect(O.phraseDeSaisie(HISTOIRE(), '1', MAINTENANT, BARRE, false))
+      .toBe('Ton record\u00a0: 144\u00a0kg\u00a0×\u00a01. Le coach projettera une date à partir de tes records.');
+    expect(O.phraseDeSaisie(HISTOIRE(), '8', MAINTENANT, BARRE, true)).toBe('Pas encore de série à 8 reps ou plus.');
+    expect(O.lireSaisie('152,5', '1')).toEqual({ charge: 152.5, reps: 1 });
+    expect(O.lireSaisie('0', '1').refus).toBeTruthy();
+    expect(O.lireSaisie('150', '1,5').refus).toBeTruthy();
+    expect(O.lireSaisie('150', '101').refus).toBeTruthy();
+  });
+
+  test('un objectif se pose en charge × reps, à charge positive seulement', () => {
+    expect(O.possible({ mesure: 'charge_reps', charge: 'externe', equipement: 'barre' })).toBe(true);
+    expect(O.possible({ mesure: 'charge_reps', charge: 'externe', equipement: 'machine' })).toBe(true);
+    expect(O.possible({ mesure: 'reps', equipement: 'aucun' })).toBe(false);
+    expect(O.possible({ mesure: 'charge_reps', charge: 'ajoutee', equipement: 'aucun' })).toBe(false);
+    expect(O.possible({ mesure: 'charge_reps', charge: 'assistance', equipement: 'machine' })).toBe(false);
+    expect(O.possible({ mesure: 'duree' })).toBe(false);
+  });
+});
+
+describe('l\u2019observation du pari', () => {
+  const pose = MAINTENANT.toISOString();
+  const pari = () => {
+    const p = projeter({});
+    return O.pariDe(O.ligneDe('squat', 150, 1, pose, p, 'u', 'pari-1'), p, 'u', 'pari-1');
   };
 
-  test('le plan d’origine est propre, avec un objectif comme sans', () => {
-    ['force', null].forEach((o) => {
-      const { e, p } = base(o);
-      expect(T.verifierPlan(p, e).erreurs).toEqual([]);
-    });
+  test('tenu : 150 × 1 le 10 mars 2027 — 145 jours mis, rattachés à la série, au plus tard fin avril', () => {
+    const s = HISTOIRE().concat([seance('2027-03-10', [[150, 1, 'echauffement'], [140, 3], [150, 1]])]);
+    const o = O.observationDe(pari(), s);
+    expect(o.valeur_observee).toBe(145);
+    expect(o.set_observe).toBe(s[s.length - 1].series[2].id);   // la série de travail, pas la chauffe à 150
+    expect(o.session_id).toBe(s[s.length - 1].id);
+    expect(O.estTenu(Object.assign(pari(), o), '2027-03-10')).toBe(true);
   });
 
-  test('un pari sans objectif (la clé manque)', () => {
-    const { p } = base();
-    const f = clone(p);
-    delete f.exercices[0].paris[1].fondement.objectif;
-    expect(T.verifierPlan(f).erreurs.join('\n')).toMatch(/^I40 — .*un pari sans objectif/m);
+  test('non tenu : atteint après l\u2019échéance (observé > prédit), ou rien passé l\u2019échéance ; en cours avant', () => {
+    const tard = HISTOIRE().concat([seance('2027-05-05', [[150, 1]])]);
+    const o = O.observationDe(pari(), tard);
+    expect(o.valeur_observee).toBe(201);
+    expect(O.estTenu(Object.assign(pari(), o), '2027-05-05')).toBe(false);
+    expect(O.estTenu(pari(), '2027-05-01')).toBe(false);
+    expect(O.estTenu(pari(), '2027-04-30')).toBeNull();
   });
 
-  test('⚠️ DISCRIMINANT — la clé manque sur un plan « sans réponse » : `undefined` ne passe pas pour `null`', () => {
-    const { p } = base(null);
-    const f = clone(p);
-    delete f.exercices[0].paris[0].fondement.objectif;
-    expect(T.verifierPlan(f).erreurs.join('\n')).toMatch(/^I40 — .*un pari sans objectif/m);
+  test('ne compte pas : une série d\u2019avant la pose, une chauffe, des reps sous N, une charge sous l\u2019objectif', () => {
+    const s = HISTOIRE().concat([seance('2026-10-16', [[150, 1]])]);   // le matin de la pose (18 h > midi : compte)
+    s[s.length - 1].debut = new Date(2026, 9, 16, 9, 0, 0).toISOString();   // 9 h : avant la pose — ne compte pas
+    const r3 = O.atteinte(s.concat([seance('2027-01-05', [[150, 2, 'echauffement'], [147.5, 3]])]),
+      { pose_le: pose, charge_kg: 150, reps: 1 });
+    expect(r3).toBeNull();
+    expect(O.atteinte([seance('2027-01-05', [[155, 2]])], { pose_le: pose, charge_kg: 150, reps: 3 })).toBeNull();
   });
 
-  test('une séance à deux objectifs (un pari à un autre objectif)', () => {
-    const { p } = base();
-    const f = clone(p);
-    f.exercices[0].paris[2].fondement.objectif = 'muscle';
-    expect(T.verifierPlan(f).erreurs.join('\n')).toMatch(/^I40 — .*à l'objectif muscle dans une séance à force/m);
-  });
-
-  test('un pari « sans réponse » dans une séance qui a un objectif', () => {
-    const { p } = base();
-    const f = clone(p);
-    f.exercices[0].paris[0].fondement.objectif = null;
-    expect(T.verifierPlan(f).erreurs.join('\n')).toMatch(/^I40 — .*à l'objectif null dans une séance à force/m);
-  });
-
-  test('un pari déjà posé à un autre objectif que celui du plan', () => {
-    let se = seanceDe();
-    const q = T.planDeSeance(entreesDe(se, 'force')).exercices[0].paris[0];
-    se = valider(se, 0, 125, 5);
-    const pose = Object.assign({}, q, { id: 'p0', set_observe: se.exercices[0].series[0].id });
-    const e = entreesDe(se, 'muscle', [pose]);
-    expect(T.verifierPlan(T.planDeSeance(e), e).erreurs.join('\n')).toMatch(/^I40 — pari posé .*force dans une séance à muscle/m);
-  });
-
-  test('⚠️ DISCRIMINANT — en ÉDITION, les paris déjà posés ne se comparent pas : une séance terminée avant 60-2b n\'en porte pas la clé', () => {
-    let se = seanceDe();
-    const q = T.planDeSeance(entreesDe(se, 'force')).exercices[0].paris[0];
-    se = valider(se, 0, 125, 5);
-    const sansCle = JSON.parse(JSON.stringify(q));
-    delete sansCle.fondement.objectif;
-    const poses = [Object.assign({}, sansCle, { id: 'p0', set_observe: se.exercices[0].series[0].id }),
-      Object.assign({}, q, { id: 'p1', set_observe: se.exercices[0].series[0].id })];
-    const verifier = (edition) => {
-      const e = entreesDe(se, 'muscle', poses);
-      e.seance.edition = edition;
-      return T.verifierPlan(T.planDeSeance(e), e).erreurs.filter((m) => /^I40/.test(m));
-    };
-    expect(verifier(true)).toEqual([]);
-    // Même état hors édition : la garde parle (sans clé, et à un autre objectif).
-    const hors = verifier(false).join('\n');
-    expect(hors).toMatch(/un pari sans objectif/);
-    expect(hors).toMatch(/force dans une séance à muscle/);
-  });
-
-  test('un objectif de plan absent ou inconnu', () => {
-    const { p } = base();
-    const f = clone(p);
-    delete f.objectif;
-    expect(T.verifierPlan(f).erreurs.join('\n')).toMatch(/^I40 — l'objectif du plan est absent ou inconnu/m);
-    f.objectif = 'zzz';
-    expect(T.verifierPlan(f).erreurs.join('\n')).toMatch(/^I40 — l'objectif du plan est absent ou inconnu \(zzz\)/m);
+  test('un objectif changé garde l\u2019ancien pari : il s\u2019observe sur SON objectif, pas sur le nouveau', () => {
+    const ancien = pari();                                      // 150 × 1
+    const s = HISTOIRE().concat([seance('2027-01-20', [[150, 1]])]);
+    const nouveau = { pose_le: new Date(2026, 10, 1).toISOString(), charge_kg: 155, reps: 1 };
+    expect(O.atteinte(s, nouveau)).toBeNull();                  // 155 n'est pas atteint
+    expect(O.observationDe(ancien, s).valeur_observee).toBe(96);   // 150 l'est : l'ancien pari s'observe
   });
 });
 
-describe('Les paris de l’escalier portent l’objectif gelé (jumeau de la phase)', () => {
-  function bac() {
-    const ctx = { Moteur: M, VERSION_ESCALIER: '1', sessionActive: { user: { id: 'u' } },
-      seance: { id: 'S1', debut: DEBUT } };
-    vm.createContext(ctx);
-    vm.runInContext(extraire('pariDeMarche'), ctx);
-    return ctx;
-  }
-
-  test('`pariDeMarche` écrit la phase ET l’objectif du plan dans le fondement', () => {
-    const ctx = bac();
-    ctx.x = { slug: 'couche', escalier: { compteur: 3, n: 5, zone: 'lourd' } };
-    ctx.plan = { phase: 'seche', objectif: 'les_deux' };
-    const pari = vm.runInContext("pariDeMarche('id', x, 'schema', 'acceptee', plan, { nouvelle_zone: 'mix' })", ctx);
-    expect(pari.fondement.phase).toBe('seche');
-    expect(pari.fondement.objectif).toBe('les_deux');
-    expect(pari.fondement.nouvelle_zone).toBe('mix');
-    ctx.plan = { phase: 'maintien', objectif: null };
-    const sans = vm.runInContext("pariDeMarche('id', x, 'schema', 'refusee', plan)", ctx);
-    expect(Object.prototype.hasOwnProperty.call(sans.fondement, 'objectif')).toBe(true);
-    expect(sans.fondement.objectif).toBe(null);
+describe('les paris d\u2019objectif ne comptent pas dans le total des bilans', () => {
+  test('« Sur N paris vérifiés » ne lit que les paris de consigne (`Bilan.compterParis` reçoit `parisDeConsigneConnus`)', () => {
+    const fs = require('fs');
+    const app = fs.readFileSync(require('path').join(__dirname, '../../v2/js/app.js'), 'utf8');
+    const corps = app.slice(app.indexOf('function parisDeConsigneConnus'), app.indexOf('function bilanDe('));
+    expect(corps).toMatch(/x\.l\.module === Moteur\.MODULE_CONSIGNE/);
+    // et les paris d'objectif ne vivent pas dans `local.predictions` (le circuit des paris de la séance) : leur liste
+    // est à part (`local.parisObjectif`), lue par l'observation et rien d'autre.
+    const pose = app.slice(app.indexOf('async function poserObjectif'), app.indexOf('async function retirerObjectif'));
+    const obs = app.slice(app.indexOf('async function observerObjectifs'), app.indexOf('async function poserChoixDeSemaine'));
+    expect(pose + obs).not.toMatch(/local\.predictions/);
   });
 
-  test('`repondreCarte` (semaine allégée) écrit l’objectif du plan, comme la phase', () => {
-    expect(extraire('repondreCarte')).toMatch(/phase: p\.phase, objectif: p\.objectif/);
+  test('le score de guilde n\u2019en tient pas compte (`faits.recordsSansDepasser`)', () => {
+    const fs = require('fs');
+    const faits = fs.readFileSync(require('path').join(__dirname, '../../v2/js/faits.js'), 'utf8');
+    const corps = faits.slice(faits.indexOf('function recordsSansDepasser'), faits.indexOf('function scoresDeGuilde'));
+    expect(corps).toMatch(/p\.module === Moteur\.MODULE_OBJECTIF/);
   });
 });
 
-describe('Le gel est branché : `entreesDuPlan` donne l’objectif gelé, `sauverConsignes` le garde sur le disque', () => {
-  test('`entreesDuPlan` passe `objectif: objectifDeLaSeance()` à côté de la phase', () => {
-    expect(extraire('entreesDuPlan')).toMatch(/phase: phaseDeLaSeance\(\),[\s\S]*objectif: objectifDeLaSeance\(\)/);
-  });
-
-  test('`sauverConsignes` écrit l’objectif gelé avec la phase ; `oublierConsignes` le lâche avec elle', () => {
-    expect(extraire('sauverConsignes')).toMatch(/phase: phaseDeLaSeance\(\), objectif: objectifDeLaSeance\(\)/);
-    expect(extraire('oublierConsignes')).toMatch(/phaseGelee = null;\s*objectifGele = null;/);
-  });
-
-  // 68A l'a montée à 11 (l'élan, MOTEUR §9.14 bis), 68B à 12 (« à fond », §9.14 ter) :
-  // ce chantier-ci ne la touchait pas.
-  test('`VERSION_CONSIGNE` ne bouge pas avec ce chantier (13 depuis 74)', () => {
-    expect(M.VERSION_CONSIGNE).toBe(13);
+describe('la migration absente', () => {
+  test('une table que la base ne connaît pas se reconnaît (PostgREST PGRST205, Postgres 42P01) ; le réseau, non', () => {
+    global.window = global;
+    require('../../v2/js/donnees.js');
+    const D = global.THDonnees;
+    expect(D.tableAbsente({ code: 'PGRST205' })).toBe(true);
+    expect(D.tableAbsente({ code: '42P01' })).toBe(true);
+    expect(D.tableAbsente({ code: '' , message: 'Failed to fetch' })).toBe(false);
+    expect(D.tableAbsente(null)).toBe(false);
   });
 });

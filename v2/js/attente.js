@@ -145,6 +145,11 @@
   // (`user_id`, `semaine`, `routine_id`) : l'identifiant d'entrée est « semaine|routine », donc deux choix pour la
   // même séance manquée se compressent, le dernier gagne. Rien n'en dépend et il ne dépend de rien.
   var SEMAINE_CHOIX = 'semaine_choix';
+  // 109 (MOTEUR §9.25, v2_089) — L'OBJECTIF D'UN EXERCICE (`objectifs`). Un `upsert` sur (`user_id`,
+  // `exercise_slug`) qui FUSIONNE, ou une suppression (le retirer) : l'identifiant d'entrée est l'exercice, donc
+  // poser puis retirer hors ligne se compressent, le dernier geste gagne. Son pari part par `predictions`, à part :
+  // un objectif retiré n'emporte jamais son ancien pari. Rien n'en dépend et il ne dépend de rien.
+  var OBJECTIFS = 'objectifs';
 
   function cleDe(table, id) { return String(table) + ':' + String(id); }
 
@@ -716,6 +721,7 @@
     PESEES: PESEES,
     ALIAS: ALIAS,
     SEMAINE_CHOIX: SEMAINE_CHOIX,
+    OBJECTIFS: OBJECTIFS,
     OBSERVER: OBSERVER,
     attendSaSerie: attendSaSerie,
     AUCUNE_LIGNE: AUCUNE_LIGNE,

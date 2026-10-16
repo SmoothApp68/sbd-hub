@@ -96,7 +96,9 @@
       var series = {}, parSerie = {};
       seancesAvecSeries(c).forEach(function (s) { s.series.forEach(function (x) { if (x && x.id) series[x.id] = x; }); });
       (paris || []).forEach(function (p) {
-        if (!p || !p.set_observe || !p.exercise_slug || p.module === Moteur.MODULE_ESCALIER || !p.fondement) return;
+        // 109 (MOTEUR §9.25) — un pari d'objectif n'est pas une proposition de charge : il ne compte pas ici.
+        if (!p || !p.set_observe || !p.exercise_slug || p.module === Moteur.MODULE_ESCALIER ||
+            p.module === Moteur.MODULE_OBJECTIF || !p.fondement) return;
         var d = parSerie[p.set_observe];
         if (!d || (Number(p.fondement.revision) || 0) > (Number(d.fondement.revision) || 0)) parSerie[p.set_observe] = p;
       });

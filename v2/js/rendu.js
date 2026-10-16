@@ -482,7 +482,84 @@
     cible.appendChild(carte);
   }
 
+  // 109 (MOTEUR §9.25) — « MON OBJECTIF », en tête de la page d'exercice (maquette salle-objectif v1, écran 3). Le
+  // rendu ne décide rien : tout vient de `THObjectif.vue` (le titre, la jauge depuis le record de la pose, le record
+  // d'aujourd'hui, UNE ligne de date, figée). Jamais de rouge : la jauge est dans la couleur du coach, la ligne en
+  // texte ordinaire. Sans objectif, un seul bouton. Absente sans la table `objectifs` (migration v2_089).
+  function rendreCarteObjectif(cible, o) {
+    var carte = el('section', 'exo-objectif');
+    carte.appendChild(el('div', 'section-t', 'MON OBJECTIF'));
+    var v = o.vue;
+    if (v) {
+      var fiche = el('div', 'exo-fiche objectif-fiche');
+      fiche.appendChild(el('div', 'objectif-titre num', v.titre));
+      var jauge = el('div', 'objectif-jauge');
+      jauge.setAttribute('role', 'progressbar');
+      jauge.setAttribute('aria-valuemin', '0');
+      jauge.setAttribute('aria-valuemax', '100');
+      jauge.setAttribute('aria-valuenow', String(Math.round(v.jauge * 100)));
+      var plein = el('i', '');
+      plein.style.width = Math.round(v.jauge * 100) + '%';
+      jauge.appendChild(plein);
+      fiche.appendChild(jauge);
+      if (v.aujourdhui) fiche.appendChild(el('div', 'objectif-aujourdhui num', v.aujourdhui));
+      if (v.ligne) {
+        var ligne = el('p', 'objectif-date', v.ligne);
+        if (v.pari) ligne.appendChild(el('span', 'objectif-pari', ' ' + v.pari));
+        fiche.appendChild(ligne);
+      }
+      carte.appendChild(fiche);
+    }
+    var b = el('button', 'discret bloc-large objectif-changer', v ? 'Changer l\u2019objectif' : 'Poser un objectif');
+    b.type = 'button';
+    b.addEventListener('click', o.surPoser);
+    carte.appendChild(b);
+    cible.appendChild(carte);
+  }
+
+  // 109 — LA FEUILLE « POSER UN OBJECTIF » (maquette, écran 4) : la charge, les reps, la phrase du record pour les
+  // reps tapées (`vue.phrasePour`). « Poser l'objectif » attend la réponse de `vue.surValider` (une promesse) : un
+  // refus (« Déjà fait : … », une saisie hors bornes) reste dans la feuille. « Retirer l'objectif » quand il existe.
+  function rendreFeuilleObjectif(cible, vue) {
+    vider(cible);
+    teteFeuille(cible, vue.existe ? 'Changer l\u2019objectif' : 'Poser un objectif', vue.nom, null);
+    var champ = function (etiquette, valeur, mode, cle) {
+      var env = el('label', 'champ-texte');
+      env.appendChild(el('span', '', etiquette));
+      var n = doc.createElement('input');
+      n.type = 'text';
+      n.inputMode = mode;
+      n.setAttribute('data-cle', cle);
+      n.value = valeur === null || valeur === undefined ? '' : String(valeur);
+      env.appendChild(n);
+      cible.appendChild(env);
+      return n;
+    };
+    var charge = champ('Charge (kg)', vue.charge, 'decimal', 'charge');
+    var reps = champ('Reps', vue.reps, 'numeric', 'reps');
+    var phrase = el('p', 'feuille-aide objectif-phrase', vue.phrasePour(reps.value));
+    reps.addEventListener('input', function () { phrase.textContent = vue.phrasePour(reps.value); });
+    cible.appendChild(phrase);
+    var err = el('p', 'feuille-err', '');
+    cible.appendChild(err);
+    piedFeuille(cible, [
+      vue.existe ? { classe: 'des', texte: 'Retirer l\u2019objectif', surClic: vue.surRetirer } : null,
+      { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler },
+      { classe: 'pri', texte: 'Poser l\u2019objectif', surClic: function (ev) {
+        var bouton = ev && ev.currentTarget;
+        if (bouton) bouton.disabled = true;
+        err.textContent = '';
+        Promise.resolve(vue.surValider(charge.value, reps.value)).then(function (refus) {
+          if (bouton) bouton.disabled = false;
+          if (refus) { err.textContent = refus; charge.focus(); }
+        }, function () { if (bouton) bouton.disabled = false; });
+      } }
+    ]);
+    return cible;
+  }
+
   function rendreResumeExo(cible, vue) {
+    if (vue.objectif) rendreCarteObjectif(cible, vue.objectif);
     if (vue.teteRecords) rendreTeteRecords(cible, vue.teteRecords);
     cible.appendChild(el('div', 'section-t', 'RECORDS'));
     var fiche = el('div', 'exo-fiche');
@@ -7080,6 +7157,7 @@
     rendreFeuilleChoixMultiple: rendreFeuilleChoixMultiple,
     rendreFeuilleSaisie: rendreFeuilleSaisie,
     rendreFeuillePesee: rendreFeuillePesee,
+    rendreFeuilleObjectif: rendreFeuilleObjectif,
     rendreMesExercices: rendreMesExercices,
     rendreImport: rendreImport,
     rendreEntree: rendreEntree,

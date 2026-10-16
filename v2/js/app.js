@@ -13648,6 +13648,9 @@
     if (!imp || imp.etape !== 'apercu' || !slug) return;
     imp.sources.miens = (imp.sources.miens || []).concat([{ alias: nom, exercise_slug: slug }]);
     delete imp.ignores[nom];
+    // 118 (audit du 16/10, 03 #2) — le nom rattaché donne un exercice à sa séance : son verdict se refait (une
+    // séance faite aussi dans l'app devient « sans doute la même », décochée — jamais importée en double).
+    imp.lignes = Import.recalculer(imp.lignes, { sources: imp.sources, base: baseDeLaPersonne() });
     rendreImportEcran();
     // `alias_exercice_alias_check` : non vide, 120 caractères au plus. Un nom
     // plus long vaut pour cet import, sans être retenu — l'écrire bloquerait la

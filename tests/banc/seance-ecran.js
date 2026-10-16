@@ -19884,6 +19884,35 @@ const SETS_IMPORTES = [
       base.records.some((x) => x.session_id === idF && x.exercise_slug === slugSDT),
       nbE(base.records.map((x) => [x.session_id === idF, x.exercise_slug, x.type])));
 
+    // ── (g) 118 (audit du 16/10, 03 #2) — RATTACHER UN NOM REFAIT LE VERDICT ─
+    // ⚠️ CONFIGURATION DISCRIMINANTE : une séance de l'app (16 h 50 → 18 h 30, heure de Paris) et la même dans Hevy
+    // (18 h 00) sous un nom que personne ne connaît. Avant le rattachement, elle ne partage aucun exercice : « nouvelle »,
+    // cochée. Rattachée au même exercice que celle de l'app, elle devient « sans doute la même », DÉCOCHÉE — sans
+    // quoi « Importer » l'écrivait en double.
+    poserE('e118-app', { source: 'app', source_ref: null, debut: '2026-10-05T14:50:00Z', fin: '2026-10-05T16:30:00Z',
+      slugs: ['e69-roumain'] });
+    const DOUBLE = 'Jambes E118\nLe lundi, oct. 5, 2026 à 6:00pm\n\nRoumain Machin E118\nSérie 1: 80 kg x 8\nSérie 2: 80 kg x 8\n' +
+      '@hevyapp\nhttps://hevy.com/workout/e118Double\n';
+    await aller('/profil/import');
+    await coller(DOUBLE);
+    const g1 = await etat();
+    ok('[E118] (g) avant le rattachement : « nouvelle », cochée, le nom inconnu à rattacher',
+      g1.lignes.length === 1 && g1.lignes[0].coche && nbE(g1.noms) === nbE(['Roumain Machin E118']), nbE(g1));
+    const ecrituresG = ecrituresDeSeances();
+    await page.click('#import-hevy .imp-lien');
+    await attendre(600);
+    await page.fill('#champ-recherche-exo', 'E69 Roumain');
+    await attendre(400);
+    await page.evaluate(() => Array.from(document.querySelectorAll('#resultats-exo .resultat'))
+      .filter((b) => b.firstChild.textContent === 'E69 Roumain (Barre)')[0].click());
+    await jusqua(async () => base.aliasMiens.some((a) => a.alias === 'Roumain Machin E118'), 5000);
+    await attendre(300);
+    const g2 = await etat();
+    ok('[E118] (g) DISCRIMINANT — rattachée : « sans doute la même », décochée, rien à importer, rien n’est écrit',
+      g2.lignes.length === 1 && !g2.lignes[0].coche && /sans doute la même\.$/.test(g2.lignes[0].sous) &&
+      !!g2.bouton && g2.bouton.actif === false && ecrituresDeSeances() === ecrituresG,
+      nbE({ g2, ecritures: ecrituresDeSeances() - ecrituresG }));
+
     // ── (d) LE CSV DU CAS : LES VERDICTS ATTENDUS ─────────────────────────
     base.sessions = [];
     base.sets = [];

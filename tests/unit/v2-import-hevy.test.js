@@ -202,6 +202,44 @@ describe('69 — l’anti-doublon : les 12 verdicts du cas', () => {
   });
 });
 
+// 118 (audit du 16/10/2026, 03 #2) — « SANS DOUTE LA MÊME » SE RECALCULE APRÈS UN RATTACHEMENT. Le cas simulé par
+// l'audit : la séance de l'app (couché barre, 17 h 00 → 18 h 30) et la même dans Hevy (17 h 12) sous un nom inconnu.
+describe('118 — le verdict se refait après chaque rattachement', () => {
+  const TEXTE = 'Pecs\nLe jeudi, oct. 1, 2026 à 5:12pm\n\nDéveloppé Machin Hevy\nSérie 1: 100 kg x 5\nSérie 2: 100 kg x 5\n' +
+    '@hevyapp\nhttps://hevy.com/workout/r118a\n\nAutre\nLe vendredi, oct. 2, 2026 à 9:00am\n\nDéveloppé Machin Hevy\n' +
+    'Série 1: 60 kg x 8\n@hevyapp\nhttps://hevy.com/workout/r118b\n';
+  const BASE = [{ source_ref: null, debut: '2026-10-01T15:00:00Z', fin: '2026-10-01T16:30:00Z', slugs: ['developpe_couche_barre'] }];
+  const sources = (miens) => ({ catalogue: [{ slug: 'developpe_couche_barre', nom: 'Développé Couché (Barre)' }], communs: [], miens });
+
+  test('⚠️ DISCRIMINANT — avant : « nouvelle », cochée ; rattachée au couché : « sans doute la même », DÉCOCHÉE', () => {
+    const avant = I.apercu(I.lireTexte(TEXTE), { sources: sources([]), base: BASE, fuseau: PARIS });
+    expect(avant.map((l) => [l.verdict, l.coche])).toEqual([['nouvelle', true], ['nouvelle', true]]);
+    const apres = I.recalculer(avant, { sources: sources([{ alias: 'Développé Machin Hevy', exercise_slug: 'developpe_couche_barre' }]), base: BASE });
+    expect(apres.map((l) => [l.verdict, l.coche])).toEqual([['meme_seance', false], ['nouvelle', true]]);
+    expect(apres[0].avec).toBe(BASE[0]);
+    expect(apres[0].seance.exercices[0].exercise_slug).toBe('developpe_couche_barre');
+    // Rien n'est muté : l'aperçu d'avant garde son verdict.
+    expect(avant[0].verdict).toBe('nouvelle');
+    // Plus rien à importer en double : seule la séance du 02/10 reste cochée.
+    expect(apres.filter((l) => l.coche && l.verdict !== 'deja_la').map((l) => l.seance.ref)).toEqual(['hevy:r118b']);
+  });
+
+  test('un verdict qui ne change pas garde la case telle que la personne l’a laissée', () => {
+    const avant = I.apercu(I.lireTexte(TEXTE), { sources: sources([]), base: BASE, fuseau: PARIS });
+    avant[1].coche = false;
+    const apres = I.recalculer(avant, { sources: sources([{ alias: 'Développé Machin Hevy', exercise_slug: 'developpe_couche_barre' }]), base: BASE });
+    expect(apres[1].verdict).toBe('nouvelle');
+    expect(apres[1].coche).toBe(false);
+  });
+
+  test('le branchement : `rattacherNom` refait l’aperçu (app.js)', () => {
+    const app = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/app.js'), 'utf8');
+    const i = app.indexOf('async function rattacherNom(');
+    const corps = app.slice(i, app.indexOf('\n  }\n', i));
+    expect(corps).toMatch(/imp\.lignes = Import\.recalculer\(imp\.lignes, \{ sources: imp\.sources, base: baseDeLaPersonne\(\) \}\)/);
+  });
+});
+
 describe('69 — les noms : trouvés à l’identique, jamais devinés', () => {
   test('sans accents ni casse, la normalisation de la colonne générée `alias_norme`', () => {
     expect(I.norme('  Développé Couché (Barre) ')).toBe('developpe couche (barre)');

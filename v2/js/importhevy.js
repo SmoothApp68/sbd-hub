@@ -461,6 +461,29 @@
     });
   }
 
+  // ⚠️ 118 (audit du 16/10, 03 #2) — L'APERÇU SE RECALCULE APRÈS CHAQUE RATTACHEMENT. Un nom pas encore rattaché
+  // n'a pas d'exercice : la séance faite dans l'app ET dans Hevy ne partageait donc aucun exercice avec celle de
+  // l'app, ressortait « nouvelle », cochée — et, une fois le nom rattaché, partait en double. Ici, chaque ligne
+  // reprend ses exercices avec l'index d'aujourd'hui et son verdict contre `base`. Un verdict qui CHANGE prend la
+  // case de son nouveau verdict (« sans doute la même » : décochée) ; un verdict qui ne change pas garde la case
+  // telle que la personne l'a laissée. Rien n'est muté.
+  function recalculer(lignes, contexte) {
+    var c = contexte || {};
+    var index = indexDesNoms(c.sources);
+    return (lignes || []).map(function (l) {
+      var s = Object.assign({}, l.seance, {
+        exercices: l.seance.exercices.map(function (e) {
+          return Object.assign({}, e, { exercise_slug: slugDuNom(index, e.nom) });
+        })
+      });
+      var v = verdictDetaille(s, c.base);
+      return Object.assign({}, l, {
+        seance: s, verdict: v.verdict, avec: v.avec,
+        coche: v.verdict === l.verdict ? l.coche : v.verdict === 'nouvelle'
+      });
+    });
+  }
+
   // Les noms à rattacher dans les séances COCHÉES, dans l'ordre où ils
   // apparaissent : `{ nom, series, seances }`. Un nom déjà rattaché (index) ou
   // laissé de côté n'y est plus ; `ignores` : `{ nom: true }`.
@@ -642,6 +665,7 @@
     verdict: verdict,
     verdictDetaille: verdictDetaille,
     apercu: apercu,
+    recalculer: recalculer,
     nomsARattacher: nomsARattacher,
     pretAImporter: pretAImporter,
     seanceAEcrire: seanceAEcrire,

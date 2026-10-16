@@ -222,6 +222,12 @@ partent pas, et ce choix-là n'est pas retenu. « Importer » attend que chaque 
 Deux activités qui se suivent (un run de 8 h à 10 h, un autre à 12 h ; deux séances enchaînées) ne se chevauchent
 pas : elles sont importées. Une séance existante n'est **jamais** modifiée ni remplacée.
 
+**Le verdict se refait à chaque rattachement** (16/10/2026, audit du 16/10, 03 #2). Un nom pas encore rattaché n'a
+pas d'exercice : la séance faite dans l'app et dans Hevy ne partageait donc rien avec celle de l'app, restait
+« nouvelle », cochée, et partait en double une fois le nom rattaché. Après chaque rattachement, chaque ligne de
+l'aperçu reprend ses exercices et son verdict ; un verdict qui change prend la case de son nouveau verdict (« sans
+doute la même » : décochée), un verdict inchangé garde la case telle que la personne l'a laissée.
+
 **L'aperçu** : « N séances trouvées », la période, une ligne par séance (titre, jour et heure, « 7 exercices · 24
 séries » ou le verdict), puis « K exercices à rattacher ». **Rien n'est écrit avant « Importer N séances ».**
 

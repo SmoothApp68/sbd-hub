@@ -20595,13 +20595,13 @@ const SETS_IMPORTES = [
     const p1 = base.predictions.filter((x) => x.module === 'objectif');
     ok('[O109] en base, par la file : la ligne `objectifs` (date figée, fin avril 2027) et SON pari (module objectif, grandeur jours, 196 jours, sans séance)',
       l1.exercise_slug === 'squat-o109' && l1.charge_kg === 150 && l1.reps === 1 && l1.projection === 'date' && l1.echeance === '2027-04-30' &&
-        l1.depart_kg === 144 && p1.length === 1 && p1[0].id === l1.pari_id && p1[0].grandeur === 'jours' && p1[0].valeur_predite === 196 &&
+        l1.depart_kg === 144 && p1.length === 1 && (p1[0] || {}).id === l1.pari_id && p1[0].grandeur === 'jours' && p1[0].valeur_predite === 196 &&
         p1[0].exercise_slug === null && !('seance' in (p1[0].fondement || {})) && p1[0].fondement.exercice === 'squat-o109', nbO([l1, p1]));
 
     // ── 2. DÉJÀ FAIT : REFUSÉ, AVEC LE FAIT.
     const f2 = await feuilleO(140, 1);
     ok('[O109] un objectif déjà fait est refusé dans la feuille, avec le fait : « Déjà fait : 144 kg × 1, le 20 sept. » ; rien d’écrit',
-      nbO(f2.refus) === nbO('Déjà fait : 144 kg × 1, le 20 sept.') && base.objectifs[0].charge_kg === 150 &&
+      nbO(f2.refus) === nbO('Déjà fait : 144 kg × 1, le 20 sept.') && (base.objectifs[0] || {}).charge_kg === 150 &&
         base.predictions.filter((x) => x.module === 'objectif').length === 1, nbO([f2, base.objectifs]));
     await page.click('#feuille-contenu .feuille-pied .sec');
     await attendre(400);
@@ -20613,21 +20613,21 @@ const SETS_IMPORTES = [
 
     // ── 4. CHANGER POUR 155 × 1 : un nouveau pari, l'ancien reste.
     await feuilleO(155, 1);
-    await jusqua(async () => base.predictions.filter((x) => x.module === 'objectif').length === 2 && base.objectifs[0].charge_kg === 155, 8000);
+    await jusqua(async () => base.predictions.filter((x) => x.module === 'objectif').length === 2 && (base.objectifs[0] || {}).charge_kg === 155, 8000);
     const p4 = base.predictions.filter((x) => x.module === 'objectif');
     ok('[O109] changer l’objectif (155 × 1) écrit un nouveau pari et garde l’ancien ; la ligne `objectifs` est réécrite (un par exercice)',
-      p4.length === 2 && base.objectifs.length === 1 && base.objectifs[0].charge_kg === 155 && base.objectifs[0].pari_id !== p1[0].id &&
-        p4.some((x) => x.id === p1[0].id), nbO([p4.map((x) => [x.id, x.fondement.charge, x.valeur_predite]), base.objectifs]));
+      p4.length === 2 && base.objectifs.length === 1 && (base.objectifs[0] || {}).charge_kg === 155 && (base.objectifs[0] || {}).pari_id !== (p1[0] || {}).id &&
+        p4.some((x) => x.id === (p1[0] || {}).id), nbO([p4.map((x) => [x.id, x.fondement.charge, x.valeur_predite]), base.objectifs]));
     const ligne155 = (await carteO() || {}).ligne;
     await A.fermer();
 
     // ── 5. LE 2 AVRIL 2027 : 150 × 1 LE 10 MARS (une séance d'un autre appareil). L'ancien pari s'observe.
     seanceO('o109-6', '2027-03-10', [[150, 1, 'echauffement'], [140, 3], [150, 1]]);
     const B = await ouvrirO('O109-atteint', new Date(2027, 3, 2, 12, 0, 0));
-    await jusqua(async () => base.predictions.some((x) => x.id === p1[0].id && x.valeur_observee !== null && x.valeur_observee !== undefined), 10000);
+    await jusqua(async () => base.predictions.some((x) => x.id === (p1[0] || {}).id && x.valeur_observee !== null && x.valeur_observee !== undefined), 10000);
     const obs = base.predictions.filter((x) => x.module === 'objectif');
-    const ancien = obs.filter((x) => x.id === p1[0].id)[0] || {};
-    const nouveau = obs.filter((x) => x.id !== p1[0].id)[0] || {};
+    const ancien = obs.filter((x) => x.id === (p1[0] || {}).id)[0] || {};
+    const nouveau = obs.filter((x) => x.id !== (p1[0] || {}).id)[0] || {};
     ok('[O109] observé : l’ancien pari (150 × 1) — 145 jours, rattaché à la série de travail qui l’atteint (pas la chauffe) ; tenu (≤ 196) ; le nouveau (155) reste sans observation',
       ancien.valeur_observee === 145 && ancien.set_observe === 'o109-6-s3' && !!ancien.observee_a && ancien.valeur_observee <= ancien.valeur_predite &&
         (nouveau.valeur_observee === null || nouveau.valeur_observee === undefined), nbO(obs.map((x) => [x.fondement.charge, x.valeur_predite, x.valeur_observee, x.set_observe])));

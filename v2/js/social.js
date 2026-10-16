@@ -258,17 +258,30 @@
     });
   }
 
-  // « Entre amis » : les lignes de `social_scores_force`, triées à poids de corps égal (le score, jamais affiché),
-  // avec les vrais kilos. Rien sous deux personnes avec un score (moi compris). ⚠️ Après v2_091, la base ne rend plus
-  // de charge (ni la mienne, plus publiée, ni celle des autres) : sans ses kilos, une ligne n'entre pas, et la carte
-  // ne s'affiche plus — l'écran attend sa décision (prompt 114, deux options rapportées).
-  function classementEntreAmis(lignes) {
-    var l = (lignes || []).filter(function (x) { return x && Number(x.score) > 0 && Number(x.charge_kg) > 0; });
+  // ── « 12 MOIS » (audit du 16/10/2026, prompt 114) : la meilleure charge du score DOTS et des kilos d'« Entre amis »
+  // — la même fenêtre que `social_meilleures_charges` (v2_091) : du lendemain du même jour il y a un an, à aujourd'hui
+  // (jours civils, inclus). Pas la meilleure charge de toute une vie, à côté d'une pesée d'aujourd'hui.
+  function bornesDouzeMois(maintenant) {
+    var m = maintenant || new Date();
+    return { de: jourIso(new Date(m.getFullYear() - 1, m.getMonth(), m.getDate() + 1)), a: jourIso(m) };
+  }
+
+  // « Entre amis » : les lignes de `social_scores_force` (le score, jamais affiché ; plus aucune charge depuis v2_091),
+  // triées à poids de corps égal, avec les vrais kilos — ceux de mes mutuels lus dans leurs séances visibles
+  // (`social_meilleures_charges`, 12 mois : `chargesDesAutres`, ses lignes `{ user_id, charge_max }`), le mien sur
+  // l'appareil (`maCharge`, la même fenêtre). `chargesDesAutres` nul (la fonction n'existe pas encore, avant v2_091) :
+  // rien. Une personne sans kilos à montrer n'entre pas. Rien sous deux personnes (moi compris).
+  function classementEntreAmis(lignes, chargesDesAutres, maCharge) {
+    if (!Array.isArray(chargesDesAutres)) return null;
+    var charges = {};
+    chargesDesAutres.forEach(function (c) { if (c && c.user_id) charges[c.user_id] = Number(c.charge_max); });
+    var l = (lignes || []).filter(function (x) { return x && Number(x.score) > 0; }).map(function (x) {
+      return { pseudo: x.pseudo, score: Number(x.score), moi: !!x.moi, charge_kg: x.moi ? Number(maCharge) : charges[x.user_id] };
+    }).filter(function (x) { return x.charge_kg > 0; });
     if (l.length < 2) return null;
-    return l.slice().sort(function (a, b) {
-      return (Number(b.score) - Number(a.score)) || (Number(b.charge_kg) - Number(a.charge_kg)) ||
-        String(a.pseudo).localeCompare(String(b.pseudo));
-    }).map(function (x, i) { return { rang: i + 1, pseudo: x.pseudo, charge_kg: Number(x.charge_kg), moi: !!x.moi }; });
+    return l.sort(function (a, b) {
+      return (b.score - a.score) || (b.charge_kg - a.charge_kg) || String(a.pseudo).localeCompare(String(b.pseudo));
+    }).map(function (x, i) { return { rang: i + 1, pseudo: x.pseudo, charge_kg: x.charge_kg, moi: x.moi }; });
   }
 
   // ── « 6 MOIS » : le mois en cours et les 5 d'avant (la même fenêtre que la base) ──
@@ -900,6 +913,7 @@
     meilleuresCharges: meilleuresCharges,
     scoresAPublier: scoresAPublier,
     scoresChanges: scoresChanges,
+    bornesDouzeMois: bornesDouzeMois,
     classementEntreAmis: classementEntreAmis,
     debutSixMois: debutSixMois,
     resumeExercice: resumeExercice,

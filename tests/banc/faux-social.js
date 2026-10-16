@@ -357,6 +357,18 @@ function creer(base, options) {
           // v2_091 : `CASE WHEN f.user_id = auth.uid() THEN f.charge_kg END` — jamais la charge d'un autre.
           charge_kg: etat.v2_091 && f.user_id !== moi ? null : f.charge_kg, moi: f.user_id === moi }));
     },
+    // 114 (v2_091) — la meilleure charge de mes MUTUELS sur 12 mois, dans leurs séances visibles, pour ceux qui ont un
+    // score publié sur l'exercice ; jamais la mienne. Avant v2_091 la fonction n'existe pas (PGRST202).
+    social_meilleures_charges(a) {
+      if (!etat.v2_091) leve('PGRST202', 'Could not find the function public.social_meilleures_charges(p_slug) in the schema cache');
+      const moi = etat.moi, m = etat.maintenant();
+      const depuis = new Date(m.getFullYear() - 1, m.getMonth(), m.getDate(), m.getHours(), m.getMinutes(), m.getSeconds()).toISOString();
+      const avecScore = Array.from(new Set(etat.scores.filter((f) => f.exercise_slug === a.p_slug).map((f) => f.user_id)));
+      return avecScore.filter((u) => u !== moi && mutuel(moi, u) && profil(u) && !profil(u).deleted_at).map((u) => {
+        const l = comptees(u).filter((x) => x.slug === a.p_slug && new Date(x.debut).toISOString() >= depuis);
+        return l.length ? { user_id: u, charge_max: Math.max.apply(null, l.map((x) => x.charge)) } : null;
+      }).filter(Boolean);
+    },
     // ── 90 (v2_080) — LA GUILDE ──
     guilde_creer(a) {
       const moi = etat.moi;

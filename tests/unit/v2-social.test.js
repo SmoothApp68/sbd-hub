@@ -391,21 +391,40 @@ describe('114 — un mutuel ne retrouve pas le poids de corps à mieux que ±5 k
   });
 });
 
-describe('89 — « Entre amis » : à poids de corps égal, les vrais kilos, à partir de deux', () => {
-  const ligne = (pseudo, charge, poids, moi) => ({ pseudo, charge_kg: charge, score: Social.scoreDots(charge, poids, 'homme'), moi: !!moi });
-  test('DISCRIMINANT — couché à 140 chacun : Jordan (plus léger) premier, les kilos affichés sont les vrais', () => {
-    const c = Social.classementEntreAmis([ligne('aurel', 140, 96.75, true), ligne('jordan', 140, 89.5)]);
+describe('89/114 — « Entre amis » : à poids de corps égal, les vrais kilos (12 mois), à partir de deux', () => {
+  // Les scores tels que publiés depuis 114 (poids flouté, décalage 0 : 96,75 → 100, 89,5 → 90, 70 → 70), sans charge ;
+  // les kilos des autres viennent de `social_meilleures_charges`, le mien de l'appareil.
+  const ligne = (id, pseudo, charge, poids, moi) => ({ user_id: id, pseudo, score: Social.scoreDots(charge, Social.poidsFloute(poids, 0), 'homme'),
+    charge_kg: null, moi: !!moi });
+  test('DISCRIMINANT — couché à 140 chacun : Jordan (90 contre 100 kg flouté) premier, les kilos affichés sont les vrais', () => {
+    const c = Social.classementEntreAmis([ligne('a', 'aurel', 140, 96.75, true), ligne('j', 'jordan', 140, 89.5)],
+      [{ user_id: 'j', charge_max: 140 }], 140);
     expect(c.map((x) => x.pseudo)).toEqual(['jordan', 'aurel']);
     expect(c.map((x) => x.charge_kg)).toEqual([140, 140]);
     expect(c[1].moi).toBe(true);
   });
   test('squat : Jordan, alexis, moi — un plus léger qui soulève moins peut passer devant', () => {
-    const c = Social.classementEntreAmis([ligne('alexis', 130, 70), ligne('aurel', 145, 96.75, true), ligne('jordan', 210, 89.5)]);
+    const c = Social.classementEntreAmis([ligne('x', 'alexis', 130, 70), ligne('a', 'aurel', 145, 96.75, true), ligne('j', 'jordan', 210, 89.5)],
+      [{ user_id: 'x', charge_max: 130 }, { user_id: 'j', charge_max: 210 }], 145);
     expect(c.map((x) => x.pseudo)).toEqual(['jordan', 'alexis', 'aurel']);
+    expect(c.map((x) => x.charge_kg)).toEqual([210, 130, 145]);
+  });
+  test('114 — avant v2_091 (la fonction des kilos manque : null) : rien ; sans kilos à montrer, une personne n’entre pas', () => {
+    const l = [ligne('a', 'aurel', 145, 96.75, true), ligne('j', 'jordan', 210, 89.5)];
+    expect(Social.classementEntreAmis(l, null, 145)).toBeNull();
+    expect(Social.classementEntreAmis(l, [], 145)).toBeNull();                       // jordan sans séance visible sur 12 mois
+    expect(Social.classementEntreAmis(l, [{ user_id: 'j', charge_max: 210 }], undefined)).toBeNull();   // moi sans charge sur 12 mois
+    // La charge d'une ligne de la base (une vieille ligne) n'est jamais lue : seuls les kilos des séances comptent.
+    const vieille = Object.assign(ligne('j', 'jordan', 210, 89.5), { charge_kg: 999 });
+    expect(Social.classementEntreAmis([l[0], vieille], [{ user_id: 'j', charge_max: 210 }], 145)[0].charge_kg).toBe(210);
   });
   test('rien sous deux personnes avec un score', () => {
-    expect(Social.classementEntreAmis([ligne('aurel', 145, 96.75, true)])).toBeNull();
-    expect(Social.classementEntreAmis([])).toBeNull();
+    expect(Social.classementEntreAmis([ligne('a', 'aurel', 145, 96.75, true)], [], 145)).toBeNull();
+    expect(Social.classementEntreAmis([], [], 145)).toBeNull();
+  });
+  test('114 — « 12 mois » : du lendemain du même jour il y a un an, à aujourd’hui (la fenêtre de la base)', () => {
+    expect(Social.bornesDouzeMois(new Date(2026, 9, 16, 12))).toEqual({ de: '2025-10-17', a: '2026-10-16' });
+    expect(Social.bornesDouzeMois(new Date(2028, 1, 29, 12))).toEqual({ de: '2027-03-02', a: '2028-02-29' });
   });
 });
 
@@ -512,6 +531,26 @@ describe('89 — faux-social (v2_079) : mutuels seulement, aucune donnée interd
     expect([sansCharge.status, sansCharge.data.code]).toEqual([400, '23502']);
     expect(f.rpc('u-moi', 'social_scores_force', { p_slug: 'squat-barre' }).filter((x) => !x.moi)[0].charge_kg).toBe(210);
     expect(f.etat.fuites).toEqual([]);
+  });
+  test('114 — DISCRIMINANT — social_meilleures_charges : mutuels avec un score seulement, séances visibles, 12 mois ; avant v2_091, absente', () => {
+    const { f, suivre } = decor2();
+    const ilYa = (j) => new Date(Date.now() - j * 86400000).toISOString();
+    // Une séance PRIVÉE plus lourde (250) et une séance d'il y a 400 jours (260) : ni l'une ni l'autre ne comptent.
+    f.etat.sessions.push({ id: 'j-p', user_id: 'u-jordan', debut: ilYa(2), fin: ilYa(2), statut: 'terminee', visibilite: 'private' },
+      { id: 'j-v', user_id: 'u-jordan', debut: ilYa(400), fin: ilYa(400), statut: 'terminee', visibilite: 'mutuels' });
+    f.etat.sets.push({ id: 'jp', session_id: 'j-p', exercise_slug: 'squat-barre', rang: 1, charge_kg: 250, reps: 1, type_serie: 'travail' },
+      { id: 'jv', session_id: 'j-v', exercise_slug: 'squat-barre', rang: 1, charge_kg: 260, reps: 1, type_serie: 'travail' });
+    suivre('u-moi', 'u-jordan');
+    expect(f.rpc('u-moi', 'social_meilleures_charges', { p_slug: 'squat-barre' })).toEqual([]);   // à sens unique : rien
+    suivre('u-jordan', 'u-moi');
+    expect(f.rpc('u-moi', 'social_meilleures_charges', { p_slug: 'squat-barre' })).toEqual([{ user_id: 'u-jordan', charge_max: 210 }]);
+    // Ma ligne n'y est jamais ; sans score publié sur l'exercice, personne.
+    f.appeler('u-moi', 'POST', 'scores_force', [{ user_id: 'u-moi', exercise_slug: 'squat-barre', score: 86.17 }]);
+    expect(f.rpc('u-moi', 'social_meilleures_charges', { p_slug: 'squat-barre' }).map((x) => x.user_id)).toEqual(['u-jordan']);
+    expect(f.rpc('u-moi', 'social_meilleures_charges', { p_slug: 'dc-barre' })).toEqual([]);
+    f.etat.v2_091 = false;
+    const r = f.appeler('u-moi', 'POST', 'rpc/social_meilleures_charges', { p_slug: 'squat-barre' });
+    expect(r.data.code).toBe('PGRST202');
   });
 });
 

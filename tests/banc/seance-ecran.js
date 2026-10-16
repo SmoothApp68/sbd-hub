@@ -17678,9 +17678,10 @@ const SETS_IMPORTES = [
   //   · les séries de jordan portent `rpe`, `note`, `poids_corps_kg` : aucune réponse ne doit les rendre ;
   //   · sans pesée, mes scores sont retirés et « Entre amis » disparaît (jordan seul : moins de deux).
   //   · 114 (audit du 16/10, v2_091) : mon score part sur le poids FLOUTÉ (mon décalage secret fixé à 0 sur l'appareil :
-  //     96,75 → 100 ; jordan 89,5 → 90), sans la charge ; la base ne rend plus la charge des autres — « Entre amis »,
-  //     qui affiche leurs kilos, ne s'affiche plus tant que son écran n'est pas décidé ; AVANT v2_091 (la charge
-  //     exigée), l'app ne la donne pas : elle retire ses scores.
+  //     96,75 → 100 ; jordan 89,5 → 90), sans la charge ; la base ne rend plus la charge à côté du score — les kilos
+  //     d'« Entre amis » viennent de `social_meilleures_charges` (mutuels, séances visibles, 12 mois) ; AVANT v2_091
+  //     (la charge exigée, la fonction absente), l'app ne donne pas la charge — elle retire ses scores — et la carte
+  //     ne s'affiche pas.
   {
     const erreursAvant = erreurs.length;
     const violationsAvant = gardeBanc.violations;
@@ -17837,9 +17838,22 @@ const SETS_IMPORTES = [
     // ── E. « ENTRE AMIS », en bas de MA page d'exercice — après v2_091 (le faux serveur par défaut).
     const refusAvantE = S.journal.filter((j) => j.op === 'refus').length;
     await aller('/exercice/dc-barre');
-    await attendreQue(async () => S.scores.some((x) => x.user_id === 'u-banc' && x.exercise_slug === 'dc-barre'));
-    await attendre(800);
+    await attendreQue(async () => (await entre()).rangs.length > 0);
     const e0 = await entre();
+    ok('[social-2] DISCRIMINANT — « Entre amis » au couché : à kilos égaux (' + monCouche + ' kg), jordan (plus léger) PREMIER ; alexis, qui n’est pas mutuel, absent',
+      e0.rangs.length === 2 && e0.rangs[0].t === 'jordan' && e0.rangs[1].t === 'toi' && e0.rangs[1].moi &&
+        e0.rangs[0].kg === monCouche + ' kg' && e0.rangs[0].kg === e0.rangs[1].kg && !/alexis/.test(e0.texte), JSON.stringify(e0));
+    if (await compter('#entre-amis-info')) await page.click('#entre-amis-info');
+    const e1 = await entre();
+    ok('[social-2] le « i » : la phrase validée le 16/10/2026, au mot près', e0.infoCache && !e1.infoCache && e1.info === 'On compare la force ' +
+      'rapportée au poids de corps (formule DOTS), arrondi à 10 kg près : un nettement plus léger qui soulève autant passe devant. ' +
+      'Tes amis ne voient jamais ton poids et ne peuvent pas le retrouver. Sans pesée, tu n’apparais pas.', JSON.stringify(e1));
+    await mesurer('entre amis');
+    await aller('/exercice/squat-barre');
+    await attendreQue(async () => (await entre()).rangs.length > 0);
+    const e2 = await entre();
+    ok('[social-2] « Entre amis » au squat : jordan (210 kg, lus dans ses séances), puis toi — les vrais kilos', e2.rangs.length === 2 &&
+      e2.rangs[0].t === 'jordan' && e2.rangs[0].kg === '210 kg' && e2.rangs[1].kg === monSquat + ' kg', JSON.stringify(e2));
     const mesScores = S.scores.filter((x) => x.user_id === 'u-banc');
     const envois = S.journal.filter((j) => j.op === 'scores');
     const vuParMoi = fauxSocial.rpc('u-banc', 'social_scores_force', { p_slug: 'dc-barre' });
@@ -17848,10 +17862,10 @@ const SETS_IMPORTES = [
         x.score !== SocialJs.scoreDots(monCouche, 96.75, 'homme') && x.charge_kg === null) && envois.length > 0 &&
         envois.every((j) => j.corps.every((l) => Object.keys(l).sort().join() === 'exercise_slug,score,user_id')) &&
         S.fuites.length === 0 && !/96[.,]75|poids|charge/.test(JSON.stringify(envois)), JSON.stringify([mesScores, envois, S.fuites]));
-    ok('[social-2] DISCRIMINANT — 114 : la base rend les scores (jordan, moi), la charge de personne — « Entre amis », qui affiche les kilos, ne s’affiche pas (écran à décider)',
+    ok('[social-2] DISCRIMINANT — 114 : la base rend les scores (jordan, moi) sans aucune charge ; les kilos ne viennent que de social_meilleures_charges',
       vuParMoi.length === 2 && vuParMoi.every((x) => x.charge_kg === null && x.score > 0) && !vuParMoi.some((x) => x.pseudo === 'alexis') &&
-        e0.rangs.length === 0 && e0.texte === '' && S.journal.filter((j) => j.op === 'refus').length === refusAvantE,
-      JSON.stringify([vuParMoi, e0]));
+        S.appels.indexOf('social_meilleures_charges') >= 0 && S.journal.filter((j) => j.op === 'refus').length === refusAvantE,
+      JSON.stringify(vuParMoi));
 
     // ── F. SANS PESÉE : je n'apparais plus (mes scores retirés).
     base.pesees.length = 0;
@@ -17859,7 +17873,7 @@ const SETS_IMPORTES = [
     await attendreQue(async () => S.scores.filter((x) => x.user_id === 'u-banc').length === 0);
     await attendre(800);
     const f0 = await entre();
-    ok('[social-2] sans pesée : mes scores sont retirés de la base, et « Entre amis » reste absent',
+    ok('[social-2] sans pesée : mes scores sont retirés de la base, et « Entre amis » disparaît (jordan seul : moins de deux)',
       S.scores.filter((x) => x.user_id === 'u-banc').length === 0 && f0.rangs.length === 0 && f0.texte === '', JSON.stringify([f0, S.scores]));
 
     // ── G. AVANT v2_091 (la base exige encore la charge) : l'app ne la donne pas — elle retire ses scores, une fois.
@@ -17878,20 +17892,20 @@ const SETS_IMPORTES = [
     await attendre(1500);
     const g0 = await entre();
     const journalG = S.journal.slice(journalAvantG);
-    const refusG = journalG.filter((j) => j.op === 'refus');
+    const refusG = journalG.filter((j) => j.op === 'refus' && j.refus !== 'PGRST202');   // la fonction des kilos manque : attendu
     const iRefus = journalG.findIndex((j) => j.op === 'refus' && j.refus === '23502'), iRetrait = journalG.findIndex((j) => j.op === 'retrait-scores');
-    ok('[social-2] DISCRIMINANT — 114, avant v2_091 : la base refuse le score sans charge (23502), une fois à l’ouverture ; l’app ne renvoie pas la charge, retire ALORS mon ancienne ligne, et la page marche',
+    ok('[social-2] DISCRIMINANT — 114, avant v2_091 : la base refuse le score sans charge (23502), une fois à l’ouverture ; l’app ne renvoie pas la charge, retire ALORS mon ancienne ligne ; la carte ne s’affiche pas (la fonction des kilos manque), et la page marche',
       S.scores.filter((x) => x.user_id === 'u-banc').length === 0 && refusG.length === 1 && iRefus >= 0 && iRetrait > iRefus &&
         S.journal.filter((j) => j.op === 'scores').length === envoisAvantG && g0.rangs.length === 0 && g0.texte === '' &&
         erreurs.length === erreursAvant, JSON.stringify([journalG, S.scores, g0]));
     S.v2_091 = true;
     // Le refus voulu, constaté, sort du journal (le contrôle final compte les refus).
-    S.journal = S.journal.filter((j) => !(j.op === 'refus' && j.refus === '23502'));
+    S.journal = S.journal.filter((j) => !(j.op === 'refus' && (j.refus === '23502' || j.refus === 'PGRST202')));
 
     ok('[social-2] DISCRIMINANT — aucune réponse sociale ne porte poids de corps, note, RPE, ressenti ou douleur',
       S.fuites.length === 0 && S.sets.some((t) => t.rpe && t.note && t.poids_corps_kg), JSON.stringify(S.fuites));
-    ok('[social-2] à 360 px, aucun défilement horizontal : profil mutuel, son exercice comparé, se comparer',
-      largeurs.length === 3 && largeurs.every((l) => l.fen === 360 && l.doc <= l.fen), JSON.stringify(largeurs));
+    ok('[social-2] à 360 px, aucun défilement horizontal : profil mutuel, son exercice comparé, se comparer, entre amis',
+      largeurs.length === 4 && largeurs.every((l) => l.fen === 360 && l.doc <= l.fen), JSON.stringify(largeurs));
 
     // ── LA REMISE EN ÉTAT.
     ['profils', 'sessions', 'sets', 'records', 'abonnements', 'blocages', 'reactions', 'scores'].forEach((k) => { S[k] = []; });

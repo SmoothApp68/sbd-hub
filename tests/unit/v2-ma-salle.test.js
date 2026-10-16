@@ -200,7 +200,7 @@ describe('§10 bis — le curl EZ à 30 kg, la plus lourde de la salle (le cas r
     const fin = M.consigneDExercice(hist, undefined, apres, Object.assign({ salle: salleEZ() }, O)).consigne;
     expect(fin.fondement.salle).toEqual({ materiel: 'barre_ez', max: 30, plafond: 15, maintien: true });
     expect(JSON.stringify(M.pourquoiConsigne(fin, 'normal', AVANT))).toContain('je ne te propose jamais une charge ' +
-      'qu\'elle n\'a pas. Tu es au haut de ta fourchette et ta salle n\'a pas plus lourd' + NB + ': on garde la charge.');
+      'qu\'elle n\'a pas. Tu es au haut de ta fourchette' + NB + ': on garde la charge.');
   });
 
   test('DISCRIMINANT — polyarticulaire à barre fixe (rowing, barre droite de 30) : la fourchette ne s’étend pas', () => {

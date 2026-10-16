@@ -4009,7 +4009,7 @@
         return 'Ta salle n\'a pas plus lourd que ' + enKg(c.ligne.charge, cL) + DEUX_POINTS +
                'je ne te propose jamais une charge qu\'elle n\'a pas. ' +
                (f.salle && f.salle.maintien === true
-                 ? 'Tu es au haut de ta fourchette et ta salle n\'a pas plus lourd' + DEUX_POINTS + 'on garde la charge.'
+                 ? 'Tu es au haut de ta fourchette' + DEUX_POINTS + 'on garde la charge.'
                  : 'Tu gagnes des reps, une de plus que la dernière fois.');
 
       case 'depart_leste':

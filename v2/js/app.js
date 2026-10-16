@@ -8095,6 +8095,7 @@
     var cible = $('feuille-contenu');
     var index = Modele.indexerExercices(local.exercices);
     if (feuille.quoi === 'fin') return rendreFeuilleFin(cible, index);
+    if (feuille.quoi === 'abandon') return rendreFeuilleAbandon(cible);
     if (feuille.quoi === 'pourquoi') {
       return Rendu.rendreFeuillePourquoi(cible, {
         nom: Modele.nommer(index, feuille.slug),
@@ -8280,7 +8281,35 @@
       surSalle: function (v) { seance = Seance.decrire(seance, { salle: v }); sauverSeance(); },
       surNoteSeance: function (v) { seance = Seance.decrire(seance, { note: v }); sauverSeance(); },
       surTerminer: async function () { fermerVoile(); await terminerSeance(verdict); },
-      surAbandonner: async function () { fermerVoile(); await abandonnerSeance(); }
+      // 115 (audit du 16/10, E1) — « Abandonner et tout effacer » DEMANDE dès qu'une série est faite : la
+      // confirmation de « Supprimer cette séance ? », qui compte ce qui part. Sans série faite, rien à perdre :
+      // la question serait un bruit qu'on tape sans lire (§6.2), et l'abandon reste immédiat.
+      surAbandonner: async function () {
+        if (aEffacerALAbandon().lignes) { feuille.quoi = 'abandon'; rendreFeuille(); return; }
+        fermerVoile();
+        await abandonnerSeance();
+      }
+    });
+  }
+
+  // Ce qui part avec la séance abandonnée : ses lignes faites (`partEnBase`), chauffes comprises — le compte de
+  // `compterAEffacer`, celui de la suppression d'un bloc et d'une séance terminée (chantier 39, C1).
+  function aEffacerALAbandon() {
+    return Seance.compterAEffacer(seance, ((seance && seance.exercices) || []).map(function (e, i) { return i; }));
+  }
+
+  // La même feuille que « Supprimer cette séance ? » (`demanderSuppressionSeance`) : le titre, le sujet, le compte
+  // de ce qui part, le rouge sur l'action. « Annuler » revient à la feuille de fin, rien n'a bougé.
+  function rendreFeuilleAbandon(cible) {
+    var n = aEffacerALAbandon();
+    Rendu.rendreFeuilleConfirmer(cible, {
+      titre: 'Abandonner la séance ?',
+      sujet: seance.titre || 'Séance',
+      danger: true,
+      libelle: 'Abandonner et tout effacer',
+      aide: Rendu.phraseEffacement(n.lignes, n.chauffes) + ' avec elle. Rien ne la remet en place.',
+      surConfirmer: async function () { fermerVoile(); await abandonnerSeance(); },
+      surAnnuler: function () { if (feuille) { feuille.quoi = 'fin'; rendreFeuille(); } }
     });
   }
 

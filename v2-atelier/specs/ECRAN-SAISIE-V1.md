@@ -1461,6 +1461,13 @@ appartient, dans quel historique elle compte, qui possède les séries. C'est du
 C'est aussi ici que se pose la question du §6 : une déviation de structure ou de repos
 met-elle à jour la routine ?
 
+> **« Abandonner et tout effacer » demande d'abord — audit du 16/10/2026 (E1), décision
+> d'Aurélien du 16/10.** Dès qu'au moins une série est faite (`partEnBase`), le tap ouvre la
+> confirmation de « Supprimer cette séance ? » (§7 octies.1) : « Abandonner la séance ? », son
+> titre, « N séries seront effacées avec elle. Rien ne la remet en place. » (les lignes, chauffes
+> comprises, chantier 39), « Abandonner et tout effacer » en rouge ; « Annuler » revient à la
+> feuille de fin. Sans série faite, rien n'est perdu : l'abandon reste immédiat.
+
 
 ### 7 septies.4 bis Le récap de fin de séance — décidé le 11/10/2026 (chantier 71)
 

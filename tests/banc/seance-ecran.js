@@ -2046,6 +2046,14 @@ const SETS_IMPORTES = [
   // Les lignes de série sont réparties dans plusieurs blocs : on les adresse par
   // leur index GLOBAL, pas par `nth-child`, qui compterait l'en-tête du bloc.
   const ligne = async (i) => (await page.$$('.ligne-serie'))[i];
+  // 115 (audit du 16/10, E1) — « Abandonner et tout effacer » DEMANDE dès qu'une série est faite : la
+  // confirmation porte le même rouge (`.danger`). Sans série faite, aucune feuille : l'abandon est immédiat.
+  const confirmerAbandon = async () => {
+    await attendre(300);
+    if (/^Abandonner la séance \?/.test(await texte('#feuille-contenu .feuille-t'))) {
+      await page.click('#feuille-contenu .danger');
+    }
+  };
   // 100 puis 105 (ECRAN §3 bis.3 bis) — une série dont une case obligatoire (charge, reps, durée, distance) est vide
   // et sans chiffre gris ne se valide plus : comme une vraie personne, on tape ce qui manque avant le ✓. Rien n'est
   // tapé dans une case qui a un chiffre (tapé, gris, ou la fourchette du coach).
@@ -2956,6 +2964,31 @@ const SETS_IMPORTES = [
   ok('une deuxième séance est bien ouverte', !!idAbandon, idAbandon || '(aucune)');
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(500);
+  await page.click('#feuille-contenu .danger');
+  // 115 (audit du 16/10, E1) — UNE SÉRIE EST FAITE : le premier tap DEMANDE, il n'efface rien.
+  await attendre(1500);
+  const confAbandon = {
+    titre: await texte('#feuille-contenu .feuille-t'),
+    aide: await texte('#feuille-contenu .feuille-aide'),
+    rouge: await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .danger')).map((b) => b.textContent))
+  };
+  ok('[115-E1] DISCRIMINANT — une série faite : « Abandonner et tout effacer » demande d’abord, et compte ce qui part',
+    /^Abandonner la séance \?/.test(confAbandon.titre) &&
+      confAbandon.aide === '1 série sera effacée avec elle. Rien ne la remet en place.' &&
+      JSON.stringify(confAbandon.rouge) === '["Abandonner et tout effacer"]',
+    JSON.stringify(confAbandon));
+  ok('[115-E1] DISCRIMINANT — le premier tap n’a rien effacé : la séance et sa série sont en base',
+    base.sessions.some((s) => s.id === idAbandon) && base.sets.some((s) => s.session_id === idAbandon),
+    sessions().length + ' séance(s), ' + base.sets.filter((s) => s.session_id === idAbandon).length + ' série(s)');
+  // « Annuler » revient à la feuille de fin, rien n'a bougé.
+  await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+    .filter((b) => b.textContent === 'Annuler')[0].click());
+  await attendre(400);
+  ok('[115-E1] « Annuler » revient à la feuille « Terminer la séance », la séance est toujours là',
+    /^Terminer la séance/.test(await texte('#feuille-contenu .feuille-t')) && base.sessions.some((s) => s.id === idAbandon),
+    await texte('#feuille-contenu .feuille-t'));
+  await page.click('#feuille-contenu .danger');
+  await attendre(400);
   await page.click('#feuille-contenu .danger');
   await attendre(2200);
   ok('la séance abandonnée est SUPPRIMÉE',
@@ -4533,6 +4566,7 @@ const SETS_IMPORTES = [
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
   await page.click('#feuille-contenu .danger');
+  await confirmerAbandon();
   await attendre(1600);
 
   // ── §7 octies.2 — MODIFIER ──────────────────────────────────────────────
@@ -4819,6 +4853,7 @@ const SETS_IMPORTES = [
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(600);
     await page.click('#feuille-contenu .danger');
+    await confirmerAbandon();
     await attendre(1600);
   };
   const onglet = async (vue) => {
@@ -11978,6 +12013,7 @@ const SETS_IMPORTES = [
       !/Poussée Haute Délai/.test(d1) && !/Cardio Délai U51 — retiré/.test(d1) && !/retiré/.test(d1),
       sp(d1).slice(0, 160));
     await page.click('#feuille-contenu .danger');
+    await confirmerAbandon();
     await attendre(1600);
     ok('[T51] DISCRIMINANT — la routine n’a pas changé : aucune écriture, aucune ligne en moins',
       instantaneR() === routinesAvant && base.patchs.length === patchsAvant,
@@ -20018,6 +20054,7 @@ const SETS_IMPORTES = [
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(600);
     await page.click('#feuille-contenu .danger');
+    await confirmerAbandon();
     await attendre(1800);
     ok('[R71] (d) abandonner : pas de récap', !(await recapVu()).visible && JSON.stringify(await visible()) !== '["vue-recap"]',
       nbR(await visible()));

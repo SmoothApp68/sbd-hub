@@ -9306,8 +9306,9 @@ const SETS_IMPORTES = [
     const esp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
     const violationsAvant = gardeBanc.violations;
     const ouvrirSalle = async () => {
-      await onglet('profil');
-      await attendre(400);
+      await aller('/profil');
+      await jusqua(() => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .some((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0)), 8000);
       await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
         .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0)[0].click());
       await attendre(500);

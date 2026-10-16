@@ -13758,14 +13758,39 @@
       if (!generationValide(g)) return;
       if (!importEnLigne()) { resultat.arret = 'connexion'; break; }
       var paquet = choisies.slice(p, p + SEANCES_PAR_PAQUET);
-      var ops = [], modeles = [];
+      var ops = [], modeles = [], prets = [];
       for (var k = 0; k < paquet.length; k++) {
         var s = paquet[k];
         var n = Import.seriesAEcrire(s, index);
         var idsSeries = [];
         for (var r = 1; r <= n; r++) idsSeries.push(await Moteur.idDImport(uid, s.ref, r));
-        var ids = { seance: await Moteur.idDImport(uid, s.ref), serie: serieParRang(idsSeries) };
-        var m = Import.seanceAEcrire(s, ids, index, uid);
+        prets.push({ s: s, ids: { seance: await Moteur.idDImport(uid, s.ref), serie: serieParRang(idsSeries) } });
+      }
+      // ⚠️ 118 (audit du 16/10, 03 #3) — UNE SÉANCE DÉJÀ EN BASE N'EST JAMAIS RÉÉCRITE. L'aperçu ne voit que le cache
+      // de l'appareil : un cache incomplet jugeait « nouvelle » une séance déjà importée ailleurs (même identifiant),
+      // et son envoi réécrivait la séance et ses séries — une charge corrigée revenait, une série supprimée
+      // réapparaissait. La base est donc lue avant d'écrire chaque paquet ; ce qu'elle a déjà est « déjà là ». Sans
+      // réponse, rien ne part (l'import s'arrête, comme hors réseau).
+      var enBase;
+      try {
+        enBase = await Donnees.seancesDejaEnBase(prets.map(function (x) { return x.ids.seance; }),
+          prets.map(function (x) { return x.s.ref; }));
+      } catch (e) {
+        if (!generationValide(g)) return;
+        resultat.arret = 'connexion';
+        break;
+      }
+      if (!generationValide(g)) return;
+      var dejaEnBase = {}, refsEnBase = {};
+      (enBase || []).forEach(function (x) {
+        if (!x) return;
+        dejaEnBase[x.id] = true;
+        if (x.source_ref) refsEnBase[x.source_ref] = true;
+      });
+      for (var q = 0; q < prets.length; q++) {
+        var lue = prets[q].s, idsLue = prets[q].ids;
+        if (dejaEnBase[idsLue.seance] || refsEnBase[lue.ref]) { resultat.dejaLa++; continue; }
+        var m = Import.seanceAEcrire(lue, idsLue, index, uid);
         // Tous ses exercices laissés de côté : une séance vide n'est pas importée.
         if (!m) { resultat.deCote++; continue; }
         ops.push({ table: Attente.SESSIONS, op: Attente.UPSERT, id: m.id, donnees: Seance.ligneSession(m), creation: true });

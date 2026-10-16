@@ -237,6 +237,10 @@ séries » ou le verdict), puis « K exercices à rattacher ». **Rien n'est éc
   de ses séries ;
 - **les identifiants sont tirés du nom** (`import|<personne>|<source_ref>`, et `…|<rang>` pour une série) : un envoi
   rejoué, une importation recommencée ou faite depuis un autre téléphone écrivent la même ligne ;
+- **la base est lue avant d'écrire** (16/10/2026, audit du 16/10, 03 #3) : l'aperçu ne voit que le cache de
+  l'appareil, et un cache incomplet laissait réécrire — séance et séries — une séance déjà importée ailleurs, puis
+  corrigée. Avant chaque paquet, les séances déjà en base (même identifiant tiré du nom, ou même `source_ref`) sont
+  « déjà là » et ne sont **jamais** réécrites ; sans réponse de la base, rien ne part (comme hors réseau) ;
 - **les records** : une séance importée **plus récente que la dernière séance déjà là** de la personne inscrit ses
   records au journal (comme une séance terminée), dans l'ordre des dates. **Plus ancienne, aucun** : le journal ne se
   réécrit pas, et un record inscrit après coup dans le passé serait faux pour tout ce qui a suivi ;

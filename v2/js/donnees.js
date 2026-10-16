@@ -176,6 +176,26 @@
     }, 'id'), 'id');
   }
 
+  // ⚠️ 118 (audit du 16/10, 03 #3) — LES SÉANCES D'UN IMPORT DÉJÀ EN BASE, lues juste avant de les écrire : par
+  // l'identifiant tiré du nom (`import|<personne>|<source_ref>`, celui qu'on s'apprête à écrire) et par la référence
+  // d'import (`source_ref` : une séance importée autrement, l'import d'août, n'a pas cet identifiant). L'anti-doublon
+  // de l'aperçu ne voit que le cache de l'appareil : un cache incomplet laissait réécrire — séance ET séries — une
+  // séance déjà importée, et peut-être corrigée. Deux colonnes, un paquet de séances (25 au plus).
+  async function seancesDejaEnBase(ids, refs) {
+    var a = (ids || []).filter(Boolean), b = (refs || []).filter(Boolean), out = [];
+    if (a.length) {
+      var r = await client().from('sessions').select('id, source_ref').in('id', a);
+      if (r.error) throw r.error;
+      out = out.concat(r.data || []);
+    }
+    if (b.length) {
+      var r2 = await client().from('sessions').select('id, source_ref').in('source_ref', b);
+      if (r2.error) throw r2.error;
+      out = out.concat(r2.data || []);
+    }
+    return out;
+  }
+
   // Catalogue partagé, 237 lignes. `mesure` et `charge` reconnaissent une sortie
   // (THModele.estExerciceSortie) ; les deux tableaux de muscles portent le
   // volume hebdomadaire, pondéré 1 en primaire et 0,5 en secondaire.
@@ -1086,6 +1106,7 @@
     toutesLesSeances: toutesLesSeances,
     seriesDepuis: seriesDepuis,
     seriesDesSeances: seriesDesSeances,
+    seancesDejaEnBase: seancesDejaEnBase,
     tousLesExercices: tousLesExercices,
     toutesLesPesees: toutesLesPesees,
     enregistrerPesee: enregistrerPesee,

@@ -17397,6 +17397,10 @@ const SETS_IMPORTES = [
     ok('[social 107] un seul refus du faux serveur (le blocage d’olga), la garde de l’app n’a rien signalé, aucune erreur de page',
       JSON.stringify(refusVus) === '["P0001 bloque"]' && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       JSON.stringify([refusVus, erreurs.slice(erreursAvant)]));
+    // Le refus voulu, constaté, sort du journal : les sections suivantes (social-2, guilde) comptent les refus depuis le
+    // début, et ne doivent voir que les leurs.
+    let vus = 0;
+    S.journal = S.journal.filter((j) => !(j.op === 'refus' && vus++ >= refusAvant));
   }
 
   console.log('\n══ social-2. LE SOCIAL, ÉTAGE 2 : PROFIL D’UN MUTUEL, SON EXERCICE, SE COMPARER, ENTRE AMIS (89, SOCIAL-V1) ══');

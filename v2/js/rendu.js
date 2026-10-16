@@ -271,11 +271,17 @@
   // 50-1 bis (§9.17) — LE POIDS DU CORPS EST COACHÉ : la page d'un exercice en
   // reps ne dit plus « pas de palier en kilos » (le coach suit ses reps, la
   // charge vaut 0) ; sa phrase vient du formateur (`THModele`), la seule voix.
+  //
+  // 119 (audit du 16/10/2026, E5) — LA VOIX DU COACH : ni « palier » (« ta charge de travail ») ni « hors du moteur »
+  // (un mot d'atelier). Une durée ou une distance : le coach ne la suit pas (CADRAGE §2 ter, I13), et la page le dit.
   var PHRASE_SANS_PALIER = {
     reps: null,   // la phrase du formateur — voir `phraseSansPalier`
-    temps: 'Cet exercice se mesure en durée : il n’a pas de charge, donc pas de palier en kilos.',
-    distance_temps: 'Cet exercice se mesure en distance et en durée : il est hors du moteur.'
+    temps: 'Cet exercice se mesure en durée : le coach ne le suit pas.',
+    distance_temps: 'Cet exercice se mesure en distance et en durée : le coach ne le suit pas.'
   };
+  // 119 (E5) — LA TABLE PAR NOMBRE DE RÉPÉTITIONS n'existe que là où il y a des répétitions : jamais sur une planche,
+  // un tapis ou une randonnée (« PAR NOMBRE DE RÉPÉTITIONS » au-dessus d'une durée, vu par Aurélien le 16/10).
+  function aDesRepetitions(mesure) { return mesure === 'charge_reps' || mesure === 'reps'; }
 
   // `undefined` pour une mesure qui n'en a pas (charge × reps). Le choix entre
   // « a une phrase » et « n'en a pas » se lit ICI, jamais sur la table.
@@ -350,11 +356,9 @@
     if (vue.tableSurDouzeMois) titre.appendChild(el('span', 'section-sous', ' \u00b7 sur 12 mois'));
     cible.appendChild(titre);
     if (!vue.table || !vue.table.length) {
-      // Deux absences distinctes, et on ne les confond pas : l'exercice n'a pas
-      // de table par nature, ou il n'a rien encore à y mettre.
-      cible.appendChild(el('p', 'vide', phraseSansPalier(vue.mesure)
-        ? 'Pas de table par répétitions pour cet exercice.'
-        : 'Aucune série de travail enregistrée.'));
+      // 119 (E5) — la table n'est rendue que pour une mesure en reps (`aDesRepetitions`) : une absence ici est
+      // toujours « rien encore à y mettre » — l'exercice sans table par nature ne passe plus par là.
+      cible.appendChild(el('p', 'vide', 'Aucune série de travail enregistrée.'));
       return;
     }
     var avecCharge = vue.mesure === 'charge_reps';
@@ -573,7 +577,10 @@
     var r = vue.record;
     // §9.23 (H1, #371) — un matériel de salle : le record se lit sur 12 mois,
     // et l'écran le dit, à côté de lui.
-    ligneFiche(fiche, vue.mesure === 'charge_reps' ? 'Record de charge' : 'Record',
+    // 119 (E5) — le libellé suit la mesure (`THModele.affichageDeMesure`) : « Plus longue durée » sur une planche ou
+    // un tapis, « Record de reps » au poids du corps ; « Record » pour une mesure inconnue.
+    var aff = M().affichageDeMesure(vue.mesure);
+    ligneFiche(fiche, aff ? aff.meilleure : 'Record',
       sousDouzeMois(r && r.date ? dateCourte(r.date) : null, vue.recordSurDouzeMois), r ? texteMeilleure(r) : '');
     var v = vue.volume || {};
     ligneFiche(fiche, 'Séries de travail',
@@ -585,7 +592,7 @@
     var sansPalier = phraseSansPalier(vue.mesure);
     if (sansPalier) cible.appendChild(el('p', 'exo-note', sansPalier));
 
-    rendreTableReps(cible, vue);
+    if (aDesRepetitions(vue.mesure)) rendreTableReps(cible, vue);
   }
 
   // §7 quater.4 — l'historique. Chaque séance avec TOUTES ses séries : chauffe

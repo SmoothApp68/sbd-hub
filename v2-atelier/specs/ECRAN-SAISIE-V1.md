@@ -1721,6 +1721,12 @@ nombre de répétitions.
 > ⚠️ **Ne vaut que pour `charge_reps` et `reps`.** Sur `temps`, la table est **par nombre de
 > séries** — la plus longue en une série, en deux, en trois. Sur `distance_temps`, il n'y a
 > pas de table : ces exercices sont hors du périmètre du moteur (§3 ter.3).
+>
+> *Précisé le 16/10/2026 (audit du 16/10, E5)* : sur `temps` et `distance_temps`, **aucune section « PAR NOMBRE DE
+> RÉPÉTITIONS »** (pas même un titre au-dessus de « pas de table ») ; la meilleure série porte le libellé de sa mesure
+> (« Plus longue durée » ; « Record de reps » au poids du corps ; « Record de charge » sur `charge_reps` —
+> `THModele.affichageDeMesure`), et la phrase dit « Cet exercice se mesure en durée : le coach ne le suit pas. » —
+> ni « palier », ni « hors du moteur ».
 
 > **Affichage brut, lignes déduites grisées.** On voit ce qu'on a réellement fait, et ce qu'on
 > pourrait revendiquer, visuellement distingué.

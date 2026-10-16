@@ -298,6 +298,23 @@ groupe ni sur sessions, sets, records ; aucune colonne interdite rendue.
 1. « Un message de groupe écrit hors ligne est gardé sur le téléphone (il survit à un rechargement de l'app) et part au retour du réseau. »
 2. « Le groupe est terminé dès que toutes les séances sont finies (règle de la séance vivante : sans série validée depuis 45 min, un membre compte comme terminé). Chacun peut lancer ou rejoindre un autre groupe dès que SA séance est finie, sans attendre les autres. Le récap du « combat » reste à vie dans chaque séance (« Faite en groupe avec … »). Les messages s'effacent quand tout le monde a fermé le récap, ou au plus tard 24 h après la fin du groupe. »
 
+### 7.3 bis Un compte supprimé — audit du 16/10/2026 (D7, prompt 118)
+
+> Décision d'Aurélien du 16/10/2026 (D7), mot pour mot : « Faite en groupe avec un ancien membre », chiffres gardés.
+> Base : migration **proposée** `v2-atelier/migrations-proposees/v2_092_comptes_supprimes.sql` (relue et lancée par
+> Claude.ai, après v2_087 et après la fusion de la PR 118).
+
+- **Le récap figé des autres** garde les chiffres d'un compte supprimé (tonnage, séries, records, XP), jamais son
+  pseudo : son entrée devient `{ pseudo: null, ancien: true, … }` au moment où la ligne de profil part (déclencheur sur
+  `profiles` : la fonction de suppression du compte comme la cascade d'`auth.users`). Le récap figé porte pour cela
+  l'identifiant de chaque membre, que la base ne rend jamais à l'app. Un récap figé avant v2_092 se rapproche par le
+  pseudo du compte supprimé (limite : un pseudo changé depuis n'y est pas retrouvé). L'app dit « Faite en groupe avec
+  un ancien membre » (« 2 anciens membres » s'ils sont plusieurs) et, dans le récap, « un ancien membre ».
+- **La guilde d'un administrateur supprimé** passe au membre le plus ancien (la règle du §6), ou disparaît si elle n'a
+  plus personne ; `guildes.admin` a désormais sa clé étrangère (ON DELETE SET NULL, la transmission suit). **Le groupe**
+  n'a pas d'administrateur : `groupes.createur` (jamais lu) prend la sienne (ON DELETE SET NULL) ; un groupe sans membre
+  se termine déjà (§7.3).
+
 ### 7.4 Ce que le code en a fait (106)
 
 - **Le message gardé** : chaque message part dans une file `{ id, groupe_id, texte, le }` écrite dans le cache de

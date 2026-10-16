@@ -104,6 +104,37 @@ describe('91 — social.js : les règles du groupe', () => {
   });
 });
 
+// 118 — D7 (décision d'Aurélien du 16/10/2026) : « Faite en groupe avec un ancien membre », chiffres gardés. v2_092
+// retire le pseudo d'un compte supprimé des récaps figés des autres (`pseudo: null, ancien: true`).
+describe('118 — un compte supprimé dans un récap figé : « un ancien membre », ses chiffres restent', () => {
+  test('⚠️ DISCRIMINANT — le pseudo vide se dit « un ancien membre », les totaux le comptent toujours', () => {
+    const r = Social.recapDuGroupe([
+      { pseudo: 'moi', moi: true, tonnage_kg: 500, series: 3, records: 0, xp: 20 },
+      { pseudo: null, ancien: true, moi: false, tonnage_kg: 1000, series: 4, records: 1, xp: 30 }
+    ]);
+    expect(r.membres.map((m) => m.pseudo)).toEqual(['moi', 'un ancien membre']);
+    expect([r.tonnage_kg, r.series, r.records, r.xp]).toEqual([1500, 7, 1, 50]);
+    expect(Social.faiteEnGroupeAvec([{ pseudo: 'moi', moi: true }, { pseudo: null, ancien: true }]))
+      .toBe('Faite en groupe avec un ancien membre');
+    expect(Social.faiteEnGroupeAvec([{ pseudo: 'moi', moi: true }, { pseudo: null }, { pseudo: 'jordan' }, { pseudo: null }]))
+      .toBe('Faite en groupe avec jordan, 2 anciens membres');
+  });
+
+  test('la migration v2_092 (texte) : clés étrangères ON DELETE SET NULL, le déclencheur sur `profiles`, aucun identifiant rendu, aucune politique', () => {
+    const m = fs.readFileSync(path.join(__dirname, '../../v2-atelier/migrations-proposees/v2_092_comptes_supprimes.sql'), 'utf8');
+    expect(m).toMatch(/ADD CONSTRAINT guildes_admin_fkey FOREIGN KEY \(admin\) REFERENCES auth\.users\(id\) ON DELETE SET NULL/);
+    expect(m).toMatch(/ADD CONSTRAINT groupes_createur_fkey FOREIGN KEY \(createur\) REFERENCES auth\.users\(id\) ON DELETE SET NULL/);
+    expect(m).toMatch(/CREATE TRIGGER profiles_apres_suppression_recaps AFTER DELETE ON public\.profiles/);
+    expect(m).toMatch(/ELSIF a IS NULL OR a = OLD\.user_id THEN/);
+    // Les deux sorties de `groupe_recap_seance` passent par `groupe_recap_public`.
+    const seance = m.slice(m.indexOf('CREATE OR REPLACE FUNCTION public.groupe_recap_seance'));
+    expect((seance.slice(0, seance.indexOf('END $f$')).match(/groupe_recap_public\(/g) || []).length).toBe(2);
+    expect(m).not.toMatch(/(CREATE|ALTER|DROP) POLICY/);
+    expect(m).toMatch(/^BEGIN;$/m);
+    expect(m).toMatch(/^COMMIT;$/m);
+  });
+});
+
 describe('91 — la migration v2_082 (texte)', () => {
   test('SECURITY DEFINER et search_path figé partout ; anon révoqué ; aucune politique ; aucune colonne interdite rendue', () => {
     const fonctions = MIGRATION.split('CREATE FUNCTION ').slice(1);

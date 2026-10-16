@@ -1,5 +1,5 @@
 // tests/banc/faux-social.js — le faux serveur du social (87, SOCIAL-V1, migration v2_078 ; 89, étage 2, v2_079 ; 90, la guilde, v2_080 ;
-// 91, le groupe de séance, v2_082).
+// 91, le groupe de séance, v2_082 ; 106, la fin du groupe et le message gardé hors ligne, v2_087).
 //
 // ⚠️ C'EST LUI QUI PROUVE LA CONFIDENTIALITÉ AU BANC : il imite les règles de la migration — les cercles
 // (`social_suit`, `social_mutuel`), le blocage (dans les deux sens, qui efface les abonnements et les
@@ -24,10 +24,16 @@ const GUILDE = {
   COULEURS: ['#b39ad1', '#8fb08a', '#6fa3d8', '#d9b45a', '#d98f6f', '#7fc4c0', '#c98fb4', '#a3a9b3'],
   MAX: 30,
   TYPES_RECORDS: ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'duree_s', 'distance_m'],
+  // 107 — les fonctions de guilde qui ÉCRIVENT (les gestes, qui passent par la file de l'app).
+  ECRITURES: ['guilde_creer', 'guilde_modifier', 'guilde_inviter', 'guilde_repondre', 'guilde_quitter', 'guilde_retirer_membre',
+    'guilde_transmettre', 'guilde_choisir_defi', 'guilde_choisir_rang'],
   COLONNES_SCORES: ['user_id', 'semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record', 'maj_le']
 };
 // 91 (v2_082) — le groupe de séance : les contraintes de la migration, recopiées telles quelles.
-const GROUPE = { MAX: 6, TEXTE_MAX: 140, EXERCICES_MAX: 60, DIRECT: 20, MESSAGES: 30 };
+// 106 (v2_087) — la fin : une séance sans série validée depuis 45 min est finie (la règle de la séance vivante,
+// `Seance.MINUTES_VIVANTE`, que la migration recopie : un test vérifie les trois) ; les messages d'un groupe fini
+// s'effacent 24 h après sa fin.
+const GROUPE = { MAX: 6, TEXTE_MAX: 140, EXERCICES_MAX: 60, DIRECT: 20, MESSAGES: 30, MINUTES_FIN: 45, HEURES_MESSAGES: 24 };
 // La clé du nom : translate(lower(btrim(nom)), 'àâäáãåçéèêëíìîïñóòôöõúùûüýÿ', 'aaaaaaceeeeiiiinooooouuuuyy').
 function cleDuNom(nom) {
   const de = 'àâäáãåçéèêëíìîïñóòôöõúùûüýÿ', vers = 'aaaaaaceeeeiiiinooooouuuuyy';
@@ -157,22 +163,77 @@ function creer(base, options) {
   // `clock_timestamp()` : l'ordre d'entrée est strict, même deux entrées dans la même milliseconde.
   let dernierInstant = 0;
   const instantStrict = () => { dernierInstant = Math.max(etat.maintenant().getTime(), dernierInstant + 1); return new Date(dernierInstant).toISOString(); };
-  // `groupe_membres_avant_ajout` : 6 au plus, jamais avec quelqu'un qu'on bloque, plus d'entrée une fois un récap fermé,
-  // jamais la séance d'un autre ; un groupe à la fois (l'index unique).
+  // 106 (v2_087) — `groupe_fin_de_seance` : la fin de LA séance d'un membre (null : vivante). `terminee` → sa fin ;
+  // sinon l'activité (dernière série validée, à défaut le début de la séance en cours, à défaut l'entrée dans le groupe)
+  // + 45 min, si elles sont passées. La règle de `Social.membreTermine`, sur les faits de `groupe_etat`.
+  function finDeSeance(m) {
+    const s = session(m.session_id), sienne = s && s.user_id === m.user_id ? s : null;
+    const v = sienne ? sets().filter((t) => t.session_id === m.session_id && t.validee_a).map((t) => Date.parse(t.validee_a)) : [];
+    const activite = v.length ? Math.max.apply(null, v)
+      : (sienne && sienne.statut === 'en_cours' ? Date.parse(sienne.debut) : Date.parse(m.entre_le));
+    if (sienne && (sienne.statut || 'terminee') === 'terminee') return sienne.fin ? Date.parse(sienne.fin) : activite;
+    return etat.maintenant().getTime() - activite >= GROUPE.MINUTES_FIN * 60000 ? activite + GROUPE.MINUTES_FIN * 60000 : null;
+  }
+  // `groupe_fini_le` : la fin posée, sinon — toutes les séances finies — la dernière d'entre elles.
+  function finiLe(gid) {
+    const g = etat.groupes.filter((x) => x.id === gid)[0];
+    if (!g) return null;
+    if (g.fini_le) return g.fini_le;
+    const fins = gmembresDe(gid).map(finDeSeance);
+    return fins.length && fins.every((f) => f !== null) ? new Date(Math.max.apply(null, fins)).toISOString() : null;
+  }
+  // `groupe_figer` : à l'extinction, le récap se fige pour chaque membre encore là (un récap déjà figé ne bouge plus).
+  function figer(gid) {
+    const g = etat.groupes.filter((x) => x.id === gid)[0];
+    if (!g) return;
+    gmembresDe(gid).forEach((m) => {
+      if (etat.grecaps.some((r) => r.user_id === m.user_id && r.groupe_id === gid)) return;
+      etat.grecaps.push({ user_id: m.user_id, groupe_id: gid, session_id: m.session_id, le: g.cree_le, recap: recapJson(gid, m.user_id) });
+    });
+  }
+  // `groupe_entretien`, au début de chaque lecture et de chaque écriture du groupe (pas de fonction programmée) : les
+  // groupes qui viennent de finir (fin posée, invitations retirées), puis les messages des groupes finis depuis 24 h.
+  function entretien() {
+    etat.groupes.filter((g) => !g.fini_le).forEach((g) => {
+      const f = finiLe(g.id);
+      if (!f) return;
+      g.fini_le = f;
+      etat.ginvitations = etat.ginvitations.filter((i) => i.groupe_id !== g.id);
+      etat.journal.push({ op: 'groupe-fini', groupe: g.id });
+    });
+    const limite = etat.maintenant().getTime() - GROUPE.HEURES_MESSAGES * 3600000;
+    const vieux = etat.groupes.filter((g) => g.fini_le && Date.parse(g.fini_le) <= limite).map((g) => g.id);
+    const avant = etat.gmessages.length;
+    etat.gmessages = etat.gmessages.filter((x) => vieux.indexOf(x.groupe_id) < 0);
+    if (etat.gmessages.length < avant) etat.journal.push({ op: 'groupe-messages-effaces', n: avant - etat.gmessages.length });
+  }
+  // `groupe_liberer` : ma place ouverte se ferme si MA séance y est finie (les autres continuent) ; vivante, refus.
+  function liberer(user) {
+    const gid = groupeDe(user);
+    if (!gid) return;
+    const m = etat.gmembres.filter((x) => x.groupe_id === gid && x.user_id === user)[0];
+    if (finDeSeance(m) === null) leve('23505', 'groupe_deja_dans_un');
+    m.ferme = true;
+    eteindreSiFini(gid);
+  }
+  // `groupe_membres_avant_ajout` : 6 au plus, jamais avec quelqu'un qu'on bloque, plus d'entrée dans un groupe FINI
+  // (v2_087), jamais la séance d'un autre ; un groupe à la fois (l'index unique).
   function ajouterAuGroupe(user, gid, session, exercices) {
     if (groupeDe(user)) leve('23505', 'duplicate key value violates unique constraint "groupe_membres_un_a_la_fois"');
     if (gmembresDe(gid).length >= GROUPE.MAX) leve('23514', 'groupe_plein');
     if (bloqueAvec(gid, user)) leve('23514', 'groupe_bloque');
-    if (gmembresDe(gid).some((m) => m.ferme)) leve('23514', 'groupe_eteint');
+    if (finiLe(gid)) leve('23514', 'groupe_eteint');
     const s = session && sessions().filter((x) => x.id === session)[0];
     if (s && s.user_id !== user) leve('42501', 'groupe_seance_d_un_autre');
     if (etat.gmembres.some((m) => m.session_id === session)) leve('23505', 'duplicate key value violates unique constraint "groupe_membres_une_seance"');
     etat.gmembres.push({ groupe_id: gid, user_id: user, session_id: session, exercices: (exercices || []).slice(0, GROUPE.EXERCICES_MAX),
       xp: null, entre_le: instantStrict(), ferme: false });
   }
-  // `groupe_membres_apres` : quand tous ont fermé le récap (ou sont partis), le groupe s'éteint — messages et invitations avec lui.
+  // `groupe_membres_apres` : quand tous ont fermé le récap (ou sont partis), le groupe s'éteint — messages et invitations avec
+  // lui ; v2_087 : le récap se fige d'abord pour ceux qui restent.
   function eteindreSiFini(gid) {
     if (gmembresDe(gid).some((m) => !m.ferme)) return;
+    figer(gid);
     etat.groupes = etat.groupes.filter((g) => g.id !== gid);
     etat.gmembres = etat.gmembres.filter((m) => m.groupe_id !== gid);
     etat.ginvitations = etat.ginvitations.filter((i) => i.groupe_id !== gid);
@@ -194,6 +255,9 @@ function creer(base, options) {
         xp: x.p.jeu_actif === false ? null : (m.xp === undefined ? null : m.xp), entre_le: m.entre_le };
     });
   }
+  // `groupe_recap_json` : le récap vu par `moi`, la forme figée.
+  const recapJson = (gid, moi) => ({ membres: recapDe(gid, moi).map((x) => ({ pseudo: x.pseudo, moi: x.moi, tonnage_kg: x.tonnage_kg,
+    series: x.series, records: x.records, xp: x.xp })) });
 
   // ── Les fonctions de lecture (v2_078), colonnes autorisées seulement ──
   const RPC = {
@@ -432,8 +496,8 @@ function creer(base, options) {
     // ── 91 (v2_082) — LE GROUPE DE SÉANCE ──
     groupe_creer(a) {
       const moi = etat.moi;
-      if (groupeDe(moi)) leve('23505', 'groupe_deja_dans_un');
-      const g = { id: 'gr-' + (++horloge), createur: moi, cree_le: instant() };
+      liberer(moi);
+      const g = { id: 'gr-' + (++horloge), createur: moi, cree_le: instant(), fini_le: null };
       etat.groupes.push(g);
       try { ajouterAuGroupe(moi, g.id, a.p_session, a.p_exercices); } catch (e) { etat.groupes = etat.groupes.filter((x) => x !== g); throw e; }
       etat.journal.push({ op: 'groupe-cree' });
@@ -462,7 +526,7 @@ function creer(base, options) {
       const moi = etat.moi;
       if (!etat.ginvitations.some((i) => i.groupe_id === a.p_groupe && i.invite === moi)) leve('42501', 'groupe_sans_invitation');
       if (a.p_rejoindre) {
-        if (groupeDe(moi)) leve('23505', 'groupe_deja_dans_un');
+        liberer(moi);
         ajouterAuGroupe(moi, a.p_groupe, a.p_session, a.p_exercices);
         etat.journal.push({ op: 'groupe-rejoint', user: moi });
       }
@@ -489,15 +553,20 @@ function creer(base, options) {
       etat.journal.push({ op: 'groupe-publie', exercices: m.exercices.slice(), xp: m.xp });
       return null;
     },
-    // Les messages : membres seulement, 1 à 140 caractères (`groupe_messages_texte`).
+    // Les messages : membres seulement, 1 à 140 caractères (`groupe_messages_texte`). v2_087 : pour le groupe où il a été
+    // écrit (`p_groupe`), une seule fois (`p_id`) ; plus rien 24 h après la fin du groupe.
     groupe_envoyer(a) {
       const gid = groupeDe(etat.moi);
-      if (!gid) leve('42501', 'groupe_pas_membre');
+      if (!gid || (a.p_groupe && a.p_groupe !== gid)) leve('42501', 'groupe_pas_membre');
+      const g = etat.groupes.filter((x) => x.id === gid)[0];
+      if (g && g.fini_le && Date.parse(g.fini_le) <= etat.maintenant().getTime() - GROUPE.HEURES_MESSAGES * 3600000) leve('23514', 'groupe_eteint');
       const texte = String(a.p_texte === null || a.p_texte === undefined ? '' : a.p_texte).trim();
       if (texte.length < 1 || Array.from(texte).length > GROUPE.TEXTE_MAX) {
         leve('23514', 'new row for relation "groupe_messages" violates check constraint "groupe_messages_texte"');
       }
-      etat.gmessages.push({ groupe_id: gid, user_id: etat.moi, texte, cree_le: instant(), n: ++horloge });
+      const id = a.p_id || 'gm-' + (++horloge);
+      if (etat.gmessages.some((x) => x.id === id)) return null;
+      etat.gmessages.push({ id, groupe_id: gid, user_id: etat.moi, texte, cree_le: instant(), n: ++horloge });
       etat.journal.push({ op: 'groupe-message', texte });
       return null;
     },
@@ -508,9 +577,7 @@ function creer(base, options) {
       const m = etat.gmembres.filter((x) => x.groupe_id === gid && x.user_id === moi)[0];
       const g = etat.groupes.filter((x) => x.id === gid)[0];
       if (!etat.grecaps.some((r) => r.user_id === moi && r.groupe_id === gid)) {
-        etat.grecaps.push({ user_id: moi, groupe_id: gid, session_id: m.session_id, le: g.cree_le,
-          recap: { membres: recapDe(gid, moi).map((x) => ({ pseudo: x.pseudo, moi: x.moi, tonnage_kg: x.tonnage_kg, series: x.series,
-            records: x.records, xp: x.xp })) } });
+        etat.grecaps.push({ user_id: moi, groupe_id: gid, session_id: m.session_id, le: g.cree_le, recap: recapJson(gid, moi) });
       }
       m.ferme = true;
       etat.journal.push({ op: 'groupe-ferme', user: moi });
@@ -557,11 +624,10 @@ function creer(base, options) {
         .sort((a, b) => b.n - a.n).slice(0, GROUPE.MESSAGES).reverse()
         .map((x) => ({ pseudo: profil(x.user_id).username, moi: x.user_id === moi, texte: x.texte, cree_le: x.cree_le }));
     },
-    // Mes invitations : qui m'invite, la liste d'exercices de sa séance, combien ils sont (pas un groupe qui s'éteint).
+    // Mes invitations : qui m'invite, la liste d'exercices de sa séance, combien ils sont (pas un groupe fini, v2_087).
     groupe_invitations_recues() {
       const moi = etat.moi;
-      return etat.ginvitations.filter((i) => i.invite === moi && !bloque(moi, i.invitant) &&
-        !gmembresDe(i.groupe_id).some((m) => m.ferme)).sort((a, b) => a.cree_le - b.cree_le).map((i) => {
+      return etat.ginvitations.filter((i) => i.invite === moi && !bloque(moi, i.invitant) && !finiLe(i.groupe_id)).sort((a, b) => a.cree_le - b.cree_le).map((i) => {
         const p = profil(i.invitant), m = gmembresDe(i.groupe_id).filter((x) => x.user_id === i.invitant)[0];
         return { groupe_id: i.groupe_id, invitant: p && !p.deleted_at ? p.username : null, exercices: m ? m.exercices.slice() : [],
           membres: gmembresDe(i.groupe_id).length };
@@ -579,9 +645,13 @@ function creer(base, options) {
       return recapDe(gid, etat.moi).map((x) => ({ pseudo: x.pseudo, moi: x.moi, tonnage_kg: x.tonnage_kg, series: x.series,
         records: x.records, xp: x.xp, le: g.cree_le }));
     },
+    // v2_087 — le récap figé d'une de MES séances ; sinon, tant que le groupe existe, celui du moment.
     groupe_recap_seance(a) {
-      return etat.grecaps.filter((r) => r.session_id === a.p_session && r.user_id === etat.moi)
-        .map((r) => ({ le: r.le, recap: JSON.parse(JSON.stringify(r.recap)) }));
+      const figes = etat.grecaps.filter((r) => r.session_id === a.p_session && r.user_id === etat.moi);
+      if (figes.length) return figes.slice(-1).map((r) => ({ le: r.le, recap: JSON.parse(JSON.stringify(r.recap)) }));
+      const m = etat.gmembres.filter((x) => x.session_id === a.p_session && x.user_id === etat.moi)[0];
+      const g = m && etat.groupes.filter((x) => x.id === m.groupe_id)[0];
+      return g ? [{ le: g.cree_le, recap: recapJson(g.id, etat.moi) }] : [];
     },
     social_liens() {
       const moi = etat.moi, out = [];
@@ -749,6 +819,7 @@ function creer(base, options) {
     }
   };
 
+  const GROUPE_ETAT = ['groupes', 'gmembres', 'ginvitations', 'gmessages', 'grecaps'];
   // Rend `{ status, data }` si la requête est sociale, `null` sinon.
   function gerer(methode, url, corps) {
     const morceaux = url.pathname.split('/');
@@ -756,8 +827,16 @@ function creer(base, options) {
     if (morceaux.pop() === 'rpc' && RPC[nom]) {
       let data;
       etat.appels.push(nom);
-      try { data = RPC[nom](corps || {}); } catch (e) {
-        if (e instanceof Refus) return refus(e.code, e.message, e.code === '42501' ? 403 : e.code === '23505' ? 409 : 400);
+      // 106 (v2_087) — chaque fonction du groupe entretient d'abord ; et, comme une transaction, un refus annule tout.
+      const avant = /^groupe_/.test(nom) ? JSON.stringify(GROUPE_ETAT.map((k) => etat[k])) : null;
+      try {
+        if (avant) entretien();
+        data = RPC[nom](corps || {});
+      } catch (e) {
+        if (e instanceof Refus) {
+          if (avant) JSON.parse(avant).forEach((v, i) => { etat[GROUPE_ETAT[i]] = v; });
+          return refus(e.code, e.message, e.code === '42501' ? 403 : e.code === '23505' ? 409 : 400);
+        }
         throw e;
       }
       const interdits = champsInterdits(data);
@@ -785,7 +864,7 @@ function creer(base, options) {
     return comme(id, () => gerer('POST', new URL('https://banc.supabase.co/rest/v1/rpc/' + nom), args || {})).data;
   }
 
-  return { etat, gerer, comme, appeler, rpc, suit, mutuel, bloque, tonnage, guildeDe, lundiCourant, moisCourant, groupeDe };
+  return { etat, gerer, comme, appeler, rpc, suit, mutuel, bloque, tonnage, guildeDe, lundiCourant, moisCourant, groupeDe, finiLe };
 }
 
 function champsInterdits(x) {

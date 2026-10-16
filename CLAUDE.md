@@ -198,10 +198,15 @@ trappe `/__sw-off` pendrait avec lui.
   est coupé et fait échouer le banc, avec son URL. `tests/unit/v2-garde-reseau.test.js`
   refuse tout fichier hors `archive/` qui lance un navigateur autrement. Les tests
   navigateur v1 sont dans `archive/v1/` : **ne pas les lancer**.
-- **Les mutations** : banc réduit et tests ciblés, jamais le banc complet,
-  chacune dans son worktree, lancées ensemble :
+- **Les mutations** : tests ciblés et le banc qui doit les tuer, jamais le banc
+  de séance complet, lancées ensemble :
   `node tests/banc/muter.js --lot mutations.json` (format dans l'en-tête du
-  fichier).
+  fichier). Chaque mutation désigne son banc — `seance` (avec ses `sections`),
+  `profil-creation`, `routines`, `sw-navigation` — et ses `unitaires` ; un témoin
+  porte `"attendu": "survit"`. Chacune joue dans sa copie de l'état commité
+  (`git archive HEAD` dans le dossier temporaire, lien vers `node_modules`, ni
+  `.git` ni `.claude/`) ; le rapport dit, par mutation, tuée ou survivante, par
+  quels contrôles, en combien de temps. **Ne plus muter à la main.**
 - **Le banc complet est superflu** pour un changement de texte seul (commentaire,
   spec, description de PR) ou de tests unitaires seuls. Il reste obligatoire
   dès qu'un fichier servi (`v2/`) ou un banc change.

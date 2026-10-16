@@ -264,8 +264,8 @@ describe('91 — le faux serveur imite v2_082', () => {
     // lea a le jeu éteint : son XP est nulle dans le récap.
     expect(fige[0].recap.membres.map((m) => m.pseudo + ':' + m.xp)).toEqual(['moi:120', 'lea:null']);
     expect(f.rpc('u-lea', 'groupe_recap_seance', { p_session: 's-moi' })).toEqual([]);
-    // Personne n'entre plus dans un groupe dont un membre a fermé le récap.
-    f.rpc('u-lea', 'groupe_inviter', { p_user: 'u-moi' });
+    // On ne réinvite pas quelqu'un qui a fermé sa place (il reste membre, le récap fermé : `groupe_deja_membre`).
+    expect(refus(f.rpc('u-lea', 'groupe_inviter', { p_user: 'u-moi' }))).toMatch(/groupe_deja_membre/);
     f.rpc('u-lea', 'groupe_fermer');
     expect(f.etat.groupes).toEqual([]);
     expect(f.etat.gmessages).toEqual([]);

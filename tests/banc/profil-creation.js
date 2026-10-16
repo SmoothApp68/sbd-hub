@@ -115,9 +115,10 @@ function neuveBase() {
     motsDePasse: [],     // 70 — { sub, password } : ce que `updateUser` a reçu
     pesees: [],          // 92 — ce que `body_weight_log` a reçu
     userPend: false, userDelai: 0,  // 70 — la vérification du jeton d'un lien ne répond pas / répond en retard
-    // 108 — la base AVANT v2_088 : `profiles.ma_salle` n'existe pas. Un `select` qui la nomme rend 42703, un
-    // `upsert` qui la porte rend PGRST204 — comme PostgREST. `refusColonne` compte ces refus.
-    sansMaSalle: false, refusColonne: 0
+    // 104 et 108 — la base AVANT v2_086 / v2_088 : `profiles.bilans_annonces` / `profiles.ma_salle` n'existent pas.
+    // Un `select` qui les nomme rend 42703, un `upsert` qui les porte rend PGRST204 — comme PostgREST.
+    // `refusColonne` compte ces refus.
+    sansBilansAnnonces: false, sansMaSalle: false, refusColonne: 0
   };
 }
 
@@ -197,6 +198,15 @@ async function contexte(nav, bd, o) {
 
     // ── Les profils : la « RLS » ───────────────────────────────────────────
     if (chemin === '/rest/v1/profiles') {
+      if (bd.sansBilansAnnonces && /bilans_annonces/.test(url.searchParams.get('select') || '')) {
+        bd.refusColonne++;
+        return json({ code: '42703', details: null, hint: null, message: 'column profiles.bilans_annonces does not exist' }, 400);
+      }
+      if (bd.sansBilansAnnonces && req.method() === 'POST' && /"bilans_annonces"/.test(req.postData() || '')) {
+        bd.refusColonne++;
+        return json({ code: 'PGRST204', details: null, hint: null,
+          message: "Could not find the 'bilans_annonces' column of 'profiles' in the schema cache" }, 400);
+      }
       if (bd.sansMaSalle && /ma_salle/.test(url.searchParams.get('select') || '')) {
         bd.refusColonne++;
         return json({ code: '42703', details: null, hint: null, message: 'column profiles.ma_salle does not exist' }, 400);
@@ -1225,13 +1235,15 @@ function ok(nom, cond, detail) {
       await ctx.close();
     }
 
-    // ══ 108. LA COLONNE `ma_salle` N'EXISTE PAS ENCORE (v2_088 pas lancée) ══════════════════════════════════
+    // ══ 104 et 108. LES COLONNES `bilans_annonces` ET `ma_salle` N'EXISTENT PAS ENCORE (v2_086, v2_088 pas lancées) ══════════════════════════════
     // Le défaut de #418 : une colonne nommée avant sa migration, et le profil ne se lisait plus. Ici, la lecture et
     // l'écriture la nomment, la base la refuse : le profil se lit quand même, et un geste du Profil s'écrit.
-    console.log('\n══ 108. colonne `ma_salle` absente en base : le profil se lit et s’écrit quand même ══');
+    console.log('\n══ 104. colonnes `bilans_annonces` et `ma_salle` absentes en base : le profil se lit et s’écrit quand même ══');
     {
       const bd = neuveBase();
+      bd.sansBilansAnnonces = true;
       bd.sansMaSalle = true;
+      bd.profils[A].bilans_annonces = undefined;
       const ctx = await contexte(nav, bd, { stockage: sessionDe(A) });
       const page = await ctx.newPage();
       const erreurs = [];
@@ -1239,19 +1251,19 @@ function ok(nom, cond, detail) {
       await page.goto(BASE + '/profil', { waitUntil: 'domcontentloaded' });
       const lu = await attendreQue(page, () => page.evaluate(() =>
         /compte_a/.test((document.querySelector('#profil-corps') || {}).textContent || '')), 15000);
-      ok('prémisse [108] — la base a refusé la colonne au moins une fois (42703)', bd.refusColonne > 0, String(bd.refusColonne));
-      ok('DISCRIMINANT [108] — le profil se lit : le Profil montre le pseudo de la ligne', lu);
+      ok('prémisse [104, 108] — la base a refusé une colonne au moins une fois (42703)', bd.refusColonne > 0, String(bd.refusColonne));
+      ok('DISCRIMINANT [104, 108] — le profil se lit : le Profil montre le pseudo de la ligne', lu);
       await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 8000);
       const avant = bd.requetes.length;
       await cliquerLigne(page, 'Sexe');
       await attendre(500);
       await page.click('#feuille-contenu .feuille-menu button[data-cle="femme"]');
       const ecrit = await attendreQue(page, () => bd.profils[A].sexe === 'femme', 12000);
-      ok('DISCRIMINANT [108] — un geste du Profil s’écrit en base (Sexe → Femme)', ecrit, JSON.stringify(bd.profils[A]));
-      ok('[108] l’écriture est passée du premier coup, sans la colonne', bd.requetes.slice(avant).every((q) => q.statut === 201),
+      ok('DISCRIMINANT [104, 108] — un geste du Profil s’écrit en base (Sexe → Femme)', ecrit, JSON.stringify(bd.profils[A]));
+      ok('[104, 108] l’écriture est passée du premier coup, sans la colonne', bd.requetes.slice(avant).every((q) => q.statut === 201),
         JSON.stringify(bd.requetes.slice(avant)));
-      ok('[108] la colonne n’est plus demandée après son refus : au plus un refus par lecture et par écriture',
-        bd.refusColonne <= 2, String(bd.refusColonne));
+      ok('[104, 108] une colonne n’est plus demandée après son refus : au plus un refus par colonne, par lecture et par écriture',
+        bd.refusColonne <= 4, String(bd.refusColonne));
       ok('aucune écriture refusée par la « RLS »', bd.refus.length === 0, JSON.stringify(bd.refus));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();

@@ -20347,6 +20347,8 @@ const SETS_IMPORTES = [
     const phaseAvant = base.profiles && base.profiles[0] ? base.profiles[0].phase : undefined;
     const salleAvant = base.profiles && base.profiles[0] ? base.profiles[0].ma_salle : undefined;
     const violationsAvant = gardeBanc.violations;
+    // Les blocs d'une section d'avant (« cycles », au banc séquentiel) : leur décharge neutraliserait nos séances.
+    const rendreBlocsP = await retirerBlocsDeLAppareil();
     const EZ = 'flexion-pq-ez', EZ2 = 'flexion-pq-ez-c', DROITE = 'flexion-pq-barre', HALT = 'flexion-pq-haltere';
     CATALOGUE.push({ slug: EZ, nom: 'Flexion Pq (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
       mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
@@ -20542,6 +20544,7 @@ const SETS_IMPORTES = [
     base.sessions = sessionsAvant;
     base.sets = setsAvant;
     base.predictions = predictionsAvant;
+    rendreBlocsP();
     await aller('/saisie');
     ok('[P113] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,

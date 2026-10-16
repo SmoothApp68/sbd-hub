@@ -12161,11 +12161,9 @@
     };
     actualiserFaitsDuQuestionnaire();
     if (refaire) {
-      // Les jours déjà dits (bornés), sinon le rythme que les séances montrent, comme à l'écran 8b.
-      if (!Questionnaire.joursValides(questionnaire.rep.seances)) {
-        var jours = Questionnaire.joursPrecoches(questionnaire.rep, questionnaire.faits);
-        if (jours !== null) questionnaire.rep.seances = jours;
-      }
+      // Les jours déjà dits (bornés), sinon le rythme que les séances montrent, comme à l'écran 8b. 116 — une valeur
+      // déclarée hors 2-6 est pré-cochée bornée, sans être réécrite (`Questionnaire.precocherJours`).
+      questionnaire.rep = Questionnaire.precocherJours(questionnaire.rep, questionnaire.faits);
     } else marquerQuestionnaireVuIci();
     // 60-3 — les routines vivent en ligne et ne sont pas dans le cache : on les
     // lit dès l'ouverture, pour savoir avant l'écran 8 s'il a lieu d'être.
@@ -12275,10 +12273,8 @@
     q.retourRecap = vers8b;
     q.ecran = suivant;
     // Les jours de l'écran 8b sont pré-cochés : ceux déjà dits (bornés), sinon le rythme de l'écran 3a.
-    if (suivant === Questionnaire.CONSTRUIT && !Questionnaire.joursValides(q.rep.seances)) {
-      var jours = Questionnaire.joursPrecoches(q.rep, q.faits);
-      if (jours !== null) q.rep.seances = jours;
-    }
+    // 116 — une valeur déclarée hors 2-6 est pré-cochée bornée, sans être réécrite (`Questionnaire.precocherJours`).
+    if (suivant === Questionnaire.CONSTRUIT) q.rep = Questionnaire.precocherJours(q.rep, q.faits);
     if (suivant === Questionnaire.SAIT || suivant === Questionnaire.TEMPS || suivant === Questionnaire.RECAP) {
       actualiserFaitsDuQuestionnaire();
     }

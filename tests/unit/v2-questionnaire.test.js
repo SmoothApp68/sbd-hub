@@ -817,6 +817,40 @@ describe('60-4 — l’écran 8b : les jours et la zone à ménager', () => {
     expect(Q.joursPrecoches({}, {})).toBeNull();
   });
 
+  // 116 (audit du 16/10/2026, 03 #10) — 7 séances déclarées au Profil (la base permet 1 à 14) arrivaient pré-cochées à 6
+  // sur 8b, et « Continuer » ÉCRIVAIT 6 : la pré-coche bornée ne réécrit plus la valeur déclarée.
+  test('⚠️ DISCRIMINANT (116) — 7 déclarées, pré-cochées à 6 : « Continuer » sans toucher les puces n’écrit pas les séances', () => {
+    const profil = { seances_par_semaine: 7 };
+    const rep = Q.precocherJours(Q.reponsesInitiales(profil, {}), null);
+    expect(rep.seances).toBe(6);                                   // l'écran montre 6 (le générateur va de 2 à 6)
+    expect(Q.ecranPret('construit', rep)).toBe(true);
+    const champs = Q.champsDeLEcran('construit', Object.assign({}, rep, { menager: [] }), profil, { maintenant: MAINTENANT }).champs;
+    expect(champs).toEqual({});                                    // avant 116 : { seances_par_semaine: 6 }
+    // « Retour » jusqu'à 3b puis « Continuer » : pas davantage.
+    expect(Q.champsDeLEcran('sans_historique', rep, profil, { maintenant: MAINTENANT }).champs).not.toHaveProperty('seances_par_semaine');
+  });
+
+  test('(116) une puce touchée est une réponse : même 6, elle s’écrit ; 1 déclarée, pré-cochée à 2, idem', () => {
+    const profil = { seances_par_semaine: 7 };
+    let rep = Q.precocherJours(Q.reponsesInitiales(profil, {}), null);
+    rep = Q.appliquerChoix(rep, 'seances', 6);
+    expect(Q.champsDeLEcran('construit', Object.assign({}, rep, { menager: [] }), profil, { maintenant: MAINTENANT }).champs)
+      .toEqual({ seances_par_semaine: 6 });
+    const un = { seances_par_semaine: 1 };
+    const r1 = Q.precocherJours(Q.reponsesInitiales(un, {}), null);
+    expect(r1.seances).toBe(2);
+    expect(Q.champsDeLEcran('construit', Object.assign({}, r1, { menager: [] }), un, { maintenant: MAINTENANT }).champs).toEqual({});
+  });
+
+  test('(116) une pré-coche venue du rythme (rien de déclaré) s’écrit comme avant ; une valeur 2-6 déjà dite ne bouge pas', () => {
+    const r = Q.precocherJours({ seances: null, menager: [] }, { rythme: 3.6 });
+    expect(r).toEqual({ seances: 4, menager: [] });
+    expect(Q.champsDeLEcran('construit', r, {}, { maintenant: MAINTENANT }).champs).toEqual({ seances_par_semaine: 4 });
+    const d = { seances: 5 };
+    expect(Q.precocherJours(d, { rythme: 2 })).toEqual({ seances: 5 });
+    expect(Q.precocherJours({ seances: null }, null)).toEqual({ seances: null });
+  });
+
   test('⚠️ l’écran écrit `seances_par_semaine` et `zones_a_menager` (vide = NULL), par preparerChamps — rien d’inchangé', () => {
     const ecrit = (rep, profil) => Q.champsDeLEcran('construit', rep, profil || {}, { maintenant: MAINTENANT }).champs;
     expect(ecrit({ seances: 4, menager: ['genou'] })).toEqual({ seances_par_semaine: 4, zones_a_menager: ['genou'] });

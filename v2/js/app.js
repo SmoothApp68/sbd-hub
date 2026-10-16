@@ -3233,7 +3233,14 @@
   // à envoyer, « à jour » serait faux.
   function rendreEtatSync() {
     var noeud = $('etat-sync');
-    if (noeud) Rendu.rendreEtat(noeud, Attente.deciderEtat(etat, attente));
+    if (!noeud) return;
+    // 117 (audit du 16/10, 06 #7) — la base de l'appareil est tenue par une autre page de l'app restée ouverte
+    // (une ancienne version) : l'app a démarré sans elle, sur le réseau ; elle le dit, au lieu d'attendre sans fin.
+    if (Cache.estBloquee && Cache.estBloquee()) {
+      Rendu.rendreEtat(noeud, { code: 'bloque', libelle: 'Données de l\u2019appareil indisponibles : ferme l\u2019autre onglet de l\u2019app' });
+      return;
+    }
+    Rendu.rendreEtat(noeud, Attente.deciderEtat(etat, attente));
   }
 
   // ── La vidange ──────────────────────────────────────────────────────────

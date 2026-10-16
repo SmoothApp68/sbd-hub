@@ -1226,11 +1226,12 @@ const NOTIONS = [
       'musculation (`Semaine.estSeanceDeMusculation`).' },
   // ── 119 — LES MESURES EN DURÉE ET EN DISTANCE (audit du 16/10/2026) ──
   { notion: 'la série de musculation (une série de travail d’un exercice qui porte du volume ; inconnu : comptée)', pr: '119-U1',
-    module: 'semaine.js', fonction: 'estSerieDeMusculation', lecteurs: ['bilans.js'],
+    module: 'semaine.js', fonction: 'estSerieDeMusculation', lecteurs: ['bilans.js', 'seance.js'],
     par: ['compteSeriesTravail', 'estSeanceDeMusculation'],
-    parAilleurs: { 'bilans.js': ['bilanDeLaPeriode'] },
+    parAilleurs: { 'bilans.js': ['bilanDeLaPeriode'], 'seance.js': ['compter'] },
     raison: 'BILANS-V1 (16/10/2026) : la règle que `compteSeriesTravail` comptait sans la nommer ; une période de seules ' +
-      'sorties est vide (F4) par la même règle que le compte des séries de travail.' },
+      'sorties est vide (F4) par la même règle que le compte des séries de travail ; la feuille « Terminer » d’une ' +
+      'séance de cardio dit ce qui part hors musculation (E12, `Seance.compter`).' },
   { notion: 'la séance de musculation (au moins une série de musculation : ni une randonnée, ni un tapis seul)', pr: '119-U1',
     module: 'semaine.js', fonction: 'estSeanceDeMusculation', lecteurs: ['faits.js'],
     parAilleurs: { 'faits.js': ['tempsALaSalle'] },

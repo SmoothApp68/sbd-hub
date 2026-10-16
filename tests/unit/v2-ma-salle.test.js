@@ -505,6 +505,36 @@ describe('§10 bis (16/10/2026, 113) — au plafond plusieurs séances : l’esc
     expect(forge((p) => { p.carte = { declencheur: SLUG }; })
       .some((x) => /^I47 — .*semaine allégée/.test(x))).toBe(true);
   });
+
+  // 120 (D11, décision d'Aurélien du 16/10/2026, audit 01 #1) — « « Plus léger » (après une douleur) passe avant la
+  // règle « pas de repli au plafond de la salle » ; I47 l'exempte. » Le cas de l'audit : au plafond de la salle, la
+  // dernière séance marquée « J'ai mal », la personne choisit « Plus léger » sur la carte de reprise ; son repli (§14.5,
+  // pas une reprise longue) pose une consigne de repli — un choix de la personne, pas une marche de l'escalier.
+  test('⚠️ DISCRIMINANT — D11 : « Plus léger » choisi au plafond de la salle : le repli est posé, I47 ne le juge pas', () => {
+    const c = auPlafond(false);
+    const DERNIERE = '2026-11-01T10:00:00+00:00';
+    // Le repli figé de §14.5 (pas une reprise longue) : 27,5 kg × 15, à moins de 10 % du meilleur (30 kg, I22).
+    const REPLI = { palier: 27.5, niveau: 15, debut: '2026-10-01T10:00:00+00:00', reps: [15, 15, 15], ligne: [27.5, 15] };
+    c.reprise = { douleur: true, zone: c.consigne.zone, derniere: DERNIERE, repli: REPLI };
+    c.douleurs = [DERNIERE];
+    // Aucun blocage en cours (une reprise après douleur, pas une marche de l'escalier) : pas de carte.
+    c.compteur = { compteur: 0, meilleur: { palier: 30, niveau: 15 }, blocages: [] };
+    const e = entreesEscalier(c);
+    // La salle a une barre de 27,5 kg (le repli y est chargeable, I46) ; 30 kg reste la plus lourde.
+    c.salle = { materiel: 'barre_ez', charges: [10, 15, 20, 25, 27.5, 30] };
+    e.catalogue[SLUG].salle = { materiel: 'barre_ez', charges: [10, 15, 20, 25, 27.5, 30], isolation: true };
+    e.seance.reprises = { [SLUG]: { choix: 'leger', repli: REPLI } };
+    const p = T.planDeSeance(e);
+    const k = p.exercices[0].consigne;
+    // La prémisse : la consigne porte bien le repli choisi (25 × 15), et l'exercice est au plafond de sa salle.
+    expect([k.ligne.charge, k.ligne.vise, !!k.repli]).toEqual([27.5, 15, true]);
+    expect(M.auPlafondDeLaSalle(Object.assign({}, k, { ligne: null }), p.exercices[0].salle)).toBe(true);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+    // Sans le choix de la personne (le même repli forgé dans le plan), I47 le voit toujours.
+    const forge = JSON.parse(JSON.stringify(p));
+    const sansChoix = Object.assign({}, e, { seance: Object.assign({}, e.seance, { reprises: null }) });
+    expect(T.verifierPlan(forge, sansChoix).erreurs.some((x) => /^I47 — .*un repli au plafond/.test(x))).toBe(true);
+  });
 });
 
 // ═══ 5. SANS DÉCLARATION, RIEN NE CHANGE ══════════════════════════════════

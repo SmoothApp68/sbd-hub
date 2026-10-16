@@ -2834,6 +2834,16 @@
     // série » / « Non merci », la même réponse (`vue.surSchema`).
     // MOTEUR §14 (111) — la carte de la DÉGRESSIVE PROPOSÉE : la même carte et
     // le même geste que la série de plus, « Ajouter une dégressive » / « Non merci ».
+    // MOTEUR §10 bis (113) — AU PLAFOND DE LA SALLE, la troisième marche : un frère plus chargeable, « Changer
+    // d'exercice » / « Non merci ». La même carte, la même réponse (`vue.surSchema`).
+    if (carte.type === 'remplacement') {
+      return propositionDExercice({
+        classe: 'proposition-remplacement', texte: carte.phrase, detail: carte.detail,
+        oui: carte.oui, non: carte.non, classeOui: 'prp-oui', classeNon: 'prp-non',
+        surOui: function () { vue.surSchema(iExo, 'acceptee'); },
+        surNon: function () { vue.surSchema(iExo, 'refusee'); }
+      }, iExo);
+    }
     if (carte.type === 'degressive') {
       return propositionDExercice({
         classe: 'proposition-degressive-proposee', texte: carte.phrase, detail: carte.detail,

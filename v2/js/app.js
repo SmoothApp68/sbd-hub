@@ -5738,6 +5738,10 @@
     });
     // §14.4 (49-U14) — la démonstration ne touche qu'aux ENTRÉES (une copie).
     if (demoEscalier()) cs = consignesDeDemo(cs);
+    // MOTEUR §10 bis (113) — la salle inventée de la démonstration du plafond (chauffes, dégressive, I46, I47).
+    if (demoModeEscalier() === 'plafond' && demoPlafond && catalogue[demoPlafond.slug]) {
+      catalogue[demoPlafond.slug] = Object.assign({}, catalogue[demoPlafond.slug], { salle: demoPlafond.salle });
+    }
     var lestPlan = lestReponseDe();
     if (demoModeEscalier() === 'lest') {
       lestPlan = demoLest;
@@ -5847,11 +5851,51 @@
     demoDegressive = cible;
     return copie;
   }
+  // MOTEUR §10 bis (113) — `?escalier=plafond` : L'ESCALIER AU PLAFOND DE LA SALLE SUR LA PRÉVISUALISATION. Le
+  // premier exercice d'ISOLATION de la séance qui a une consigne chargée est mis, DANS LES ENTRÉES DU PLAN seulement,
+  // au plafond d'une salle inventée (une barre EZ à sa charge de travail, la plus lourde ; 15 reps) ; ses muscles ont
+  // de la place. Son compteur avance d'un déclenchement à chaque réponse (4, 8, 12, 16) : la série de plus, puis la
+  // dégressive, puis un frère plus chargeable (« Changer d'exercice » remplace dans la SÉANCE seule), puis le maintien.
+  // Les réponses restent EN MÉMOIRE (`demoMarches`) : AUCUN pari ne s'écrit, la routine ne change pas. On abandonne
+  // la séance ensuite.
+  var demoPlafond = null;   // `{ slug, salle }` : l'exercice au plafond de la démonstration
+  function plafondDeDemo(cs, copie, avecConsigne, compteurDe) {
+    demoPlafond = null;
+    var ix = catalogueIndexe();
+    var cible = avecConsigne.filter(function (s) {
+      var f = ix[s];
+      var k = cs[s].consigne;
+      var l = k.ligne || k.haut;
+      return f && l && typeof l.charge === 'number' && l.charge >= 5 &&
+        !Moteur.estPolyarticulaire({ prim: f.muscles_primaires || [], sec: f.muscles_secondaires || [],
+                                     stab: f.muscles_stabilisateurs || [] });
+    })[0];
+    if (!cible) return copie;
+    var kc = cs[cible].consigne;
+    var P = (kc.ligne || kc.haut).charge;
+    var charges = [];
+    for (var v = P; v > 0 && charges.length < 12; v = Math.round((v - 2.5) * 100) / 100) charges.unshift(v);
+    var salle = { materiel: 'barre_ez', charges: charges, isolation: true };
+    var zc = kc.zone === 'lourd' || kc.zone === 'mix' || !kc.zone ? 'volume' : kc.zone;
+    var reponses = demoMarches.filter(function (x) {
+      return x && x.exercice === cible && Moteur.MARCHES_PLAFOND.indexOf(x.marche) >= 0;
+    }).length;
+    copie[cible] = Object.assign({}, cs[cible], {
+      consigne: Object.assign({}, kc, { zone: zc, etat: 'salle_max', palier: P, niveau: 15,
+        ligne: { charge: P, vise: 15 }, haut: null, repli: undefined,
+        fondement: Object.assign({}, kc.fondement || {}, { salle: { materiel: 'barre_ez', max: P, plafond: 15, maintien: true } }) }),
+      salle: salle, repli: null,
+      compteur: compteurDe(cible, 4 * (reponses + 1), { palier: P, niveau: 15 }) });
+    demoPlafond = { slug: cible, salle: salle };
+    return copie;
+  }
   // La place inventée de la démonstration : les muscles primaires de cet
   // exercice ont de la place (une copie de l'entrée, jamais le gel).
   function volumeDeDemo(volume, catalogue) {
-    if (!demoSerieDePlus || demoModeEscalier() !== 'isole') return volume;
-    var cat = catalogue && catalogue[demoSerieDePlus];
+    var mode = demoModeEscalier();
+    var cible = mode === 'isole' ? demoSerieDePlus : mode === 'plafond' && demoPlafond ? demoPlafond.slug : null;
+    if (!cible) return volume;
+    var cat = catalogue && catalogue[cible];
     var copie = Object.assign({}, volume || {});
     ((cat && cat.muscles_primaires) || []).forEach(function (m) {
       copie[m] = { place: true, moyenne: 5, seuil: 6, fenetres: 6 };
@@ -5865,7 +5909,7 @@
     if (!garde || !garde.active || rejeuEnCours) return null;
     var s = null;
     try { s = racine.sessionStorage; } catch (e) { s = null; }
-    var m = /[?&]escalier=(demo|isole|lest|degressive|0)(?:&|$)/.exec(String((racine.location && racine.location.search) || ''));
+    var m = /[?&]escalier=(demo|isole|lest|degressive|plafond|0)(?:&|$)/.exec(String((racine.location && racine.location.search) || ''));
     if (m) {
       try { if (s) s.setItem(CLE_DEMO_ESCALIER, m[1]); } catch (e) { /* fermé */ }
       return m[1] === '0' ? null : m[1];
@@ -5873,7 +5917,8 @@
     var v = null;
     try { v = s ? s.getItem(CLE_DEMO_ESCALIER) : null; } catch (e) { v = null; }
     // `1` : la valeur d'avant 49-U15, pour `demo`.
-    return v === 'demo' || v === '1' ? 'demo' : (v === 'isole' || v === 'lest' || v === 'degressive' ? v : null);
+    return v === 'demo' || v === '1' ? 'demo'
+      : (v === 'isole' || v === 'lest' || v === 'degressive' || v === 'plafond' ? v : null);
   }
   function demoEscalier() { return !!demoModeEscalier(); }
   // MOTEUR §9.17 (50-1) — `?escalier=lest` : LA CARTE DU LEST SUR LA
@@ -5923,6 +5968,7 @@
         { compteur: n }, meilleur ? { meilleur: meilleur } : {});
     };
     if (demoModeEscalier() === 'degressive') return degressiveDeDemo(cs, copie, avecConsigne, compteurDe);
+    if (demoModeEscalier() === 'plafond') return plafondDeDemo(cs, copie, avecConsigne, compteurDe);
     if (demoModeEscalier() !== 'isole') {
       var premier = avecConsigne[0];
       if (premier) copie[premier] = Object.assign({}, cs[premier], { compteur: compteurDe(premier, 4) });
@@ -5998,7 +6044,9 @@
     var compteurs = compteursDesParis();
     // §14.5 (49-U15) — les marches isolées déjà écrites (schéma, repli).
     var marches = Moteur.marchesDesParis(connus);
-    if ((demoModeEscalier() === 'isole' || demoModeEscalier() === 'degressive') && seance) marches = marches.concat(demoMarches);
+    if ((demoModeEscalier() === 'isole' || demoModeEscalier() === 'degressive' || demoModeEscalier() === 'plafond') && seance) {
+      marches = marches.concat(demoMarches);
+    }
     // §14 (111) — la série de plus « refusée » de la démonstration, au même déclenchement.
     if (demoModeEscalier() === 'degressive' && seance && demoDegressive) {
       marches = marches.concat([{ id: null, seance: 'demo', jour: Moteur.jourCivil(seance.debut), exercice: demoDegressive,
@@ -6014,8 +6062,35 @@
       if (demoReponse) cartes = cartes.concat([demoReponse]);
     }
     return { cartes: cartes, compteurs: compteurs, noms: noms, seriesRoutine: seriesRoutine, marches: marches,
-             degressivesRoutine: degressivesRoutine,
-             carteSuspendue: demoModeEscalier() === 'isole' || demoModeEscalier() === 'degressive' };
+             degressivesRoutine: degressivesRoutine, remplacants: remplacantsDesEntrees(cs, index),
+             carteSuspendue: demoModeEscalier() === 'isole' || demoModeEscalier() === 'degressive' ||
+               demoModeEscalier() === 'plafond' };
+  }
+
+  // MOTEUR §10 bis (113) — LES FRÈRES D'UN EXERCICE AU PLAFOND DE SA SALLE, pour la troisième marche : la liste de
+  // « Remplacer » (`freresDe` : l'ordre de `Seance.freresProposes`, les écartés à la fin), avec ce que le plan lit
+  // pour choisir — la mesure (`Modele.gabaritDe`), la salle déclarée du frère (`Profil.salleDeLExercice`, comme pour
+  // l'exercice), et s'il est écarté, hors du matériel du profil ou déjà dans la séance. Le plan décide
+  // (`Moteur.remplacantAuPlafond`) ; ici, aucun choix. Seulement pour un exercice dont la consigne dit le maintien au
+  // plafond (`fondement.salle.maintien`, un fait de la consigne) : les frères ne se lisent pas pour rien.
+  function remplacantsDesEntrees(cs, index) {
+    var sortie = {};
+    if (!seance) return sortie;
+    var presents = (seance.exercices || []).map(function (x) { return x && x.exercise_slug; });
+    var hors = horsDuMateriel(index);
+    Object.keys(cs || {}).forEach(function (s) {
+      var k = cs[s] && cs[s].consigne;
+      var f = k && k.fondement;
+      if (!f || !f.salle || f.salle.maintien !== true) return;
+      sortie[s] = freresDe(s, presents).map(function (fr) {
+        var fiche = index[fr.slug] || null;
+        var g = Modele.gabaritDe(fiche);
+        return { slug: fr.slug, nom: Modele.nommer(index, fr.slug), mesure: g.inconnue ? null : g.mesure,
+                 salle: Profil.salleDeLExercice(profil, fr.slug, index), ecarte: !!fr.ecarte,
+                 hors: typeof hors === 'function' ? !!hors(fr.slug) : false, deja: !!fr.deja_dans_la_seance };
+      });
+    });
+    return sortie;
   }
 
   function planActuel() {
@@ -6517,7 +6592,20 @@
     // §14 (111) — LA DÉGRESSIVE PROPOSÉE : la même réponse ; son pari porte le
     // début de la séance ; acceptée, la ligne dégressive (§9.15.3 la remplit).
     var deg = marche === Moteur.MARCHE_DEGRESSIVE;
+    // MOTEUR §10 bis (113) — AU PLAFOND DE LA SALLE : la série de plus et la dégressive parient de tenir le plafond
+    // (`origine : salle_max`, le plafond, les séries de la routine) ; le remplacement n'a aucun pari d'escalier —
+    // refusé, il s'écrit comme les autres refus ; accepté, l'exercice change dans la routine et dans la séance.
+    var rempl = marche === Moteur.MARCHE_REMPLACEMENT;
+    var auPlafond = !!m.plafond;
     var nRoutine = nombreDeSeriesRoutine(x.slug);
+    var extra = plus ? { n_routine: nRoutine, debut: seance.debut }
+      : deg ? { debut: seance.debut } : rempl ? { debut: seance.debut, vers: m.carte.vers }
+      : { nouvelle_zone: m.carte.nouvelle_zone };
+    if (auPlafond) {
+      extra.origine = Moteur.ORIGINE_SALLE_MAX;
+      extra.plafond = { charge: m.plafond.charge, reps: m.plafond.reps };
+      if (deg) extra.n_routine = nRoutine;
+    }
     try {
       if (demoEscalier()) {
         // La démonstration : la réponse reste en mémoire ; aucune zone posée,
@@ -6525,19 +6613,61 @@
         demoMarches = demoMarches.concat([{ seance: seance.id, jour: Moteur.jourCivil(seance.debut),
           exercice: x.slug, marche: marche, reponse: acceptee ? 'acceptee' : 'refusee',
           compteur: m.compteur, debut: seance.debut, n: nRoutine }]);
-      } else {
+      } else if (!(rempl && acceptee)) {
         var id = await Moteur.idDEscalier(seance.id, x.slug, marche);
-        await ecrirePariDeMarche(pariDeMarche(id, x, marche, acceptee ? 'acceptee' : 'refusee', p,
-          plus ? { n_routine: nRoutine, debut: seance.debut }
-            : deg ? { debut: seance.debut } : { nouvelle_zone: m.carte.nouvelle_zone }));
-        if (acceptee && !plus && !deg) await poserZone(x.slug, m.carte.nouvelle_zone);
+        await ecrirePariDeMarche(pariDeMarche(id, x, marche, acceptee ? 'acceptee' : 'refusee', p, extra));
+        if (acceptee && !plus && !deg && !rempl) await poserZone(x.slug, m.carte.nouvelle_zone);
       }
     } finally {
       reponseEnCours = false;
     }
+    if (seance && acceptee && rempl) return remplacerAuPlafond(iExo, x.slug, m.carte.vers);
     if (seance) rendreSeance();
     if (seance && acceptee && plus) await appliquerSerieDePlus();
     if (seance && acceptee && deg) await appliquerDegressive();
+  }
+
+  // MOTEUR §10 bis (113) — « CHANGER D'EXERCICE » : le frère prend la place de l'exercice DANS LA ROUTINE DE LA
+  // SÉANCE (le geste de « Remplacer » de l'éditeur, `Routines.exerciceRemplace` : même rang, même superset, mêmes
+  // séries et repos, sans charge de départ ; écrit par la file, `poserRoutineVoulue`, comme « Le coach relit ta
+  // semaine »), puis dans la séance ouverte (`remplacerDansLaSeance`, le geste de « Machine prise »), rattaché à sa
+  // nouvelle ligne de routine. Sans routine (une séance libre) ou dans la démonstration : la séance seule. Aucun pari
+  // d'escalier : le nouvel exercice a ses paris ordinaires.
+  async function remplacerAuPlafond(iExo, slug, vers) {
+    if (!seance || !vers) return;
+    var routine = demoEscalier() ? null : routineDeLaSeance();
+    var exo = (seance.exercices || [])[iExo];
+    var idLigne = null;
+    if (routine && exo) {
+      var lignes = routine.exercices || [];
+      var j = -1;
+      for (var k = 0; k < lignes.length && j < 0; k++) {
+        if (lignes[k] && exo.routine_exercise_id && lignes[k].id === exo.routine_exercise_id) j = k;
+      }
+      for (var k2 = 0; k2 < lignes.length && j < 0; k2++) if (lignes[k2] && lignes[k2].exercise_slug === slug) j = k2;
+      if (j >= 0) {
+        var voulues = lignes.map(function (l, i) {
+          if (i !== j) return l;
+          // La note parlait de l'ancien exercice : elle part, comme dans la séance (`Seance.remplacerExercice`).
+          return Object.assign(Routines.exerciceRemplace(l, vers), { id: uuid(), note: null });
+        });
+        idLigne = voulues[j].id;
+        await poserRoutineVoulue(routine, voulues);
+      }
+    }
+    await remplacerDansLaSeance(iExo, vers);
+    if (idLigne && seance) {
+      var exos = (seance.exercices || []).slice();
+      for (var n = 0; n < exos.length; n++) {
+        if (exos[n] && exos[n].exercise_slug === vers && !exos[n].routine_exercise_id &&
+            !(exos[n].series || []).some(function (s) { return !!s.validee_a; })) {
+          exos[n] = Object.assign({}, exos[n], { routine_exercise_id: idLigne });
+          seance = Object.assign({}, seance, { exercices: exos });
+          await apresGeste();
+          break;
+        }
+      }
+    }
   }
 
   // ── MOTEUR §9.17 (50-1) — LA CARTE DU LEST : LA RÉPONSE ──────────────────
@@ -6724,7 +6854,11 @@
       // §14.5 (49-U15) — une marche isolée (schéma accepté, repli) s'observe
       // de même, sur les compteurs de SON exercice.
       var marche = carte ? null : Moteur.marchesDesParis([l])[0];
+      // MOTEUR §10 bis (113) — un pari AU PLAFOND (série de plus, dégressive) parie de tenir le plafond : il
+      // s'observe sur les séances de l'exercice (les faits), jusqu'au prochain déclenchement.
+      var plafond = marche && marche.origine === Moteur.ORIGINE_SALLE_MAX;
       var obs = carte ? Moteur.observationSemaineAllegee(carte, compteurs)
+        : plafond ? Moteur.observationPlafond(marche, faits.seancesDeLExercice(corpus(), marche.exercice), compteurs)
         : (marche ? Moteur.observationMarche(marche, compteurs) : null);
       if (!obs) continue;
       escalierObserves[l.id] = true;

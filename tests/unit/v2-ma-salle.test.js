@@ -15,8 +15,9 @@
 //   5. sans déclaration, rien ne change ;
 //   6. la colonne absente en base (v2_088 pas lancée) : le profil se lit et s'écrit ;
 //   7. à la plus lourde de la salle (décidé le 16/10/2026) : les reps jusqu'au haut de la zone (15 sur une isolation),
-//      la zone gelée, le maintien, l'escalier muet (I47), le gel qui tombe quand une barre plus lourde est déclarée.
-// « Puis en séries » est retiré (16/10/2026) : à la plus lourde, la routine décide de la structure.
+//      la zone gelée, le maintien, le gel qui tombe quand une barre plus lourde est déclarée ; au plafond, l'escalier
+//      du plafond (113, I47 révisé : la série de plus, la dégressive, un frère plus chargeable — jamais schéma ni repli).
+// « Puis en séries » est retiré (16/10/2026) ; 113 le rend au coach : au plafond, c'est lui qui propose la série de plus.
 
 process.env.TZ = 'Europe/Paris';
 global.self = global;
@@ -413,8 +414,10 @@ describe('§10 bis — dans le plan : la grille, la dégressive à barre fixe, l
   });
 });
 
-// ═══ 4 bis. À LA PLUS LOURDE, L'ESCALIER SE TAIT (16/10/2026, I47) ═════════
-describe('§10 bis (16/10/2026) — au plafond plusieurs séances : aucune carte de l’escalier, aucun pari', () => {
+// ═══ 4 bis. AU PLAFOND, L'ESCALIER DU PLAFOND (16/10/2026, 113 ; I47 révisé) ════
+// 113 (16/10/2026) remplace « à la plus lourde, l'escalier ne propose rien » : au plafond, la série de plus, la
+// dégressive, un frère plus chargeable — jamais le schéma ni le repli (le détail : `v2-plafond-propose.test.js`).
+describe('§10 bis (16/10/2026, 113) — au plafond plusieurs séances : l’escalier du plafond, jamais le schéma ni le repli', () => {
   const SLUG = 'curl_biceps_barre_ez';
   const FIN = '2026-11-05T10:00:00+00:00';   // après les séances au plafond
   // La consigne réelle au plafond (30 kg × 15), et un compteur à 4 : un déclenchement.
@@ -452,51 +455,51 @@ describe('§10 bis (16/10/2026) — au plafond plusieurs séances : aucune carte
     expect(g.carte && g.carte.declencheur).toBe(SLUG);
   });
 
-  test('DISCRIMINANT — à la plus lourde : aucune marche, aucune carte, la phrase du compteur reste un fait ; I47 vert', () => {
+  test('DISCRIMINANT — au plafond : la série de plus, sa phrase au plafond ; jamais le schéma ni le repli ; I47 vert', () => {
     const c = auPlafond(false);
     expect(M.aLaPlusLourdeDeLaSalle(c.consigne, c.salle)).toBe(true);
+    expect(M.auPlafondDeLaSalle(c.consigne, c.salle)).toBe(true);
     const e = entreesEscalier(c);
     const p = T.planDeSeance(e);
     const x = p.exercices[0];
-    expect(x.escalier).toBeNull();
-    expect(x.consigne.serieDePlus).toBeUndefined();
+    expect(x.escalier.marche).toBe('serie_de_plus');
+    expect(x.escalier.carte.phrase).toBe('30' + NB + 'kg × 15 depuis 4 séances, et ta salle n\'a pas plus lourd. Une série de plus ?');
     expect(x.consigne.repli).toBeUndefined();
     expect(x.entete.gris).toBe('30' + NB + 'kg' + NB + '×' + NB + '15, la plus lourde de ta salle.');
-    expect(x.entete.compteur).toMatch(/^30\u00a0kg × 15 reste ta meilleure charge de travail depuis 4 séances/);
-    expect(T.lignesAAjouter(p)).toEqual([]);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
-    // En zone Lourd (schéma), en sèche, au déclenchement suivant (repli) : rien non plus.
+    // En zone Lourd (le schéma ailleurs) : ni série de plus ni dégressive en force, et aucun frère donné — rien.
     const lourd = auPlafond(false);
     lourd.consigne = Object.assign({}, lourd.consigne, { zone: 'lourd' });
     expect(T.planDeSeance(entreesEscalier(lourd)).exercices[0].escalier).toBeNull();
+    // En sèche, sans frère : rien (ni la phrase de sèche de l'escalier ordinaire).
     expect(T.planDeSeance(entreesEscalier(auPlafond(false), { phase: 'seche' })).exercices[0].escalier).toBeNull();
+    // Au 2e déclenchement avec un repli possible : jamais le repli.
     const huit = auPlafond(false);
     huit.compteur.compteur = 8;
     huit.repli = { palier: 25, niveau: 15, debut: '2026-10-01T10:00:00+00:00', reps: [15, 15, 15], ligne: [25, 15] };
-    expect(T.planDeSeance(entreesEscalier(huit)).exercices[0].escalier).toBeNull();
+    const h = T.planDeSeance(entreesEscalier(huit)).exercices[0];
+    expect(h.escalier && h.escalier.marche).not.toBe('repli');
+    expect(h.consigne.repli).toBeUndefined();
   });
 
-  test('DISCRIMINANT — elle ne déclenche pas la semaine allégée, et une série de plus acceptée avant ne revient pas', () => {
+  test('DISCRIMINANT — elle ne déclenche pas la semaine allégée ; une série de plus acceptée revient, comme ailleurs', () => {
     const g = T.planDeSeance(entreesEscalier(auPlafond(false), { compteurs: AUTRES }));
     expect(g.carte).toBeNull();
     const acceptee = { seance: 'S0', jour: '2026-11-01', exercice: SLUG, marche: 'serie_de_plus', reponse: 'acceptee',
       compteur: 4, debut: '2026-11-01T10:00:00+00:00', n: 3 };
-    // Prémisse : sans la salle, la série de plus acceptée revient.
-    expect(T.planDeSeance(entreesEscalier(auPlafond(true), { sansSalle: true, marches: [acceptee] }))
-      .exercices[0].consigne.serieDePlus).toEqual({ routine: 3 });
     const e = entreesEscalier(auPlafond(false), { marches: [acceptee] });
     const p = T.planDeSeance(e);
-    expect(p.exercices[0].consigne.serieDePlus).toBeUndefined();
+    expect(p.exercices[0].consigne.serieDePlus).toEqual({ routine: 3 });
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
 
-  test('DISCRIMINANT — I47 : une marche, un repli ou une série de plus forgés sur un exercice à la plus lourde sont vus', () => {
+  test('DISCRIMINANT — I47 : une marche de schéma ou de repli, ou un repli, forgés au plafond, sont vus', () => {
     const e = entreesEscalier(auPlafond(false));
     const forge = (f) => { const p = JSON.parse(JSON.stringify(T.planDeSeance(e))); f(p); return T.verifierPlan(p, undefined).erreurs; };
-    expect(forge((p) => { p.exercices[0].escalier = { marche: 'serie_de_plus', n: 1, compteur: 4 }; })
-      .some((x) => /^I47 — .*une marche de l’escalier \(serie_de_plus\)/.test(x))).toBe(true);
-    expect(forge((p) => { p.exercices[0].consigne.serieDePlus = { routine: 3 }; })
-      .some((x) => /^I47 — .*une série de plus/.test(x))).toBe(true);
+    expect(forge((p) => { p.exercices[0].escalier = { marche: 'repli', n: 2, compteur: 8 }; })
+      .some((x) => /^I47 — .*une marche de l’escalier \(repli\)/.test(x))).toBe(true);
+    expect(forge((p) => { p.exercices[0].escalier = { marche: 'schema', n: 1, compteur: 4 }; })
+      .some((x) => /^I47 — .*une marche de l’escalier \(schema\)/.test(x))).toBe(true);
     expect(forge((p) => { p.exercices[0].consigne.repli = { palier: 25 }; p.exercices[0].consigne.ligne = { charge: 25, vise: 15 }; })
       .some((x) => /^I47 — .*un repli/.test(x))).toBe(true);
     expect(forge((p) => { p.carte = { declencheur: SLUG }; })

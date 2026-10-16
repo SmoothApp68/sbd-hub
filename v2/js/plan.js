@@ -1341,9 +1341,10 @@
       var n = c && c.consigne && c.compteur && typeof c.compteur.compteur === 'number' ? c.compteur.compteur : null;
       if (n === null) return;
       poser(jour, slug, n);
-      // §10 bis (16/10/2026) — À LA PLUS LOURDE DE SA SALLE, l'escalier ne propose rien sur l'exercice et ne pose
-      // aucun pari : il ne déclenche pas la semaine allégée (son pari le nommerait). Son compteur reste un fait.
-      if (aLaPlusLourde(c)) return;
+      // §10 bis (113, révisé le 16/10/2026) — AU PLAFOND DE SA SALLE, l'exercice ne déclenche pas la semaine allégée :
+      // son pari (« le déclencheur progresse avant son prochain déclenchement ») parierait sur ce que la salle
+      // empêche ; l'escalier du plafond lui propose ses marches. Son compteur compte pour les autres : un fait.
+      if (auPlafond(c)) return;
       ouverts.push(slug);
     });
     return { jours: jours, ouverts: ouverts };
@@ -1373,10 +1374,11 @@
       ? CITATIONS_DES_CARTES.get(carte) : null;
   }
 
-  // §10 bis (16/10/2026) — l'exercice est-il à la plus lourde de sa salle ? La définition du moteur, sur la consigne
-  // figée et la salle déclarée (`c.salle`, figée avec elle) — une lecture, jamais une seconde règle.
-  function aLaPlusLourde(c) {
-    return !!(c && c.consigne && c.salle && Moteur().aLaPlusLourdeDeLaSalle(c.consigne, c.salle));
+  // §10 bis (113, 16/10/2026) — l'exercice est-il AU PLAFOND de sa salle (la plus lourde, au haut de la
+  // fourchette) ? La définition du moteur, sur la consigne figée et la salle déclarée (`c.salle`, figée avec elle) —
+  // une lecture, jamais une seconde règle. À la plus lourde SOUS le plafond, l'escalier ordinaire (§14.5).
+  function auPlafond(c) {
+    return !!(c && c.consigne && c.salle && Moteur().auPlafondDeLaSalle(c.consigne, c.salle));
   }
 
   function marchesIsolees(e, seance, consignes, esc, phase, intentionProfil) {
@@ -1400,11 +1402,15 @@
     Object.keys(consignes).forEach(function (slug) {
       var c = consignes[slug];
       if (pris[slug] || !c || !c.consigne || !c.compteur || typeof c.compteur.compteur !== 'number') return;
-      // §10 bis (16/10/2026) — à la plus lourde de sa salle : ni schéma, ni série de plus, ni repli, ni silence
-      // à dire — aucune marche, aucun pari. Le compteur continue, sa phrase reste un fait (l'en-tête).
-      if (aLaPlusLourde(c)) return;
       var k = c.compteur.compteur;
       var zone = c.consigne.zone;
+      // §10 bis (113, 16/10/2026) — AU PLAFOND DE SA SALLE : l'escalier du plafond (la série de plus, la dégressive,
+      // un frère plus chargeable, puis le maintien) ; jamais le schéma ni le repli — c'est la salle qui bloque.
+      if (auPlafond(c)) {
+        var mp = marcheDuPlafond(e, seance, slug, c, zone, phase, esc, intentionProfil, jour, marches, compteurs, cartes);
+        if (mp) sortie[slug] = mp;
+        return;
+      }
       var n = M.nIsole(k, M.declenchementsRepondus(slug, jour, k, cartes, compteurs));
       // §14.7 (49-U17) — la place sur chacun des muscles primaires (§14.6), et
       // une série de plus déjà proposée depuis le dernier progrès.
@@ -1464,6 +1470,67 @@
       sortie[slug] = m;
     });
     return sortie;
+  }
+
+  // §10 bis (113, décidé le 16/10/2026) — L'ESCALIER AU PLAFOND DE LA SALLE. Une marche par déclenchement, dans cet
+  // ordre : la série de plus (si la règle de volume du §14.6 laisse de la place, hors sèche, hors zone force — §14.7),
+  // la dégressive (aux conditions du §14.8), un frère plus chargeable dans la salle déclarée (le remplacement) ; une
+  // marche sans objet est sautée ; au-delà, le coach maintient (`null`). Jamais le schéma ni le repli. Les objets se
+  // lisent sur les entrées gelées ; l'ordre et la mémoire, `Moteur.marcheAuPlafond`. La marche porte ce qu'I47 relit :
+  // le plafond, les marches déjà proposées et leurs objets, le remplaçant.
+  function marcheDuPlafond(e, seance, slug, c, zone, phase, esc, intentionProfil, jour, marches, compteurs, cartes) {
+    var M = Moteur();
+    var k = c.compteur.compteur;
+    var plafond = M.plafondDeLaConsigne(c.consigne, c.salle);
+    if (!plafond || !M.estDeclenchement(k)) return null;
+    var proposees = {};
+    M.MARCHES_PLAFOND.forEach(function (mk) {
+      proposees[mk] = marches.filter(function (x) {
+        return x && x.seance === seance.id && x.exercice === slug && x.marche === mk;
+      })[0] || M.marcheProposee(slug, jour, k, marches, compteurs, mk);
+    });
+    var palier = Number(c.consigne.palier);
+    var charge = isFinite(palier) && palier > 0;
+    var remplacant = M.remplacantAuPlafond(remplacantsDe(e, slug), plafond.charge);
+    var objets = {};
+    objets[M.MARCHE_SERIE_DE_PLUS] = charge && zone !== 'lourd' && zone !== 'mix' && !!zone && phase !== 'seche' &&
+      placeDeLExercice(e, slug, phase) === true;
+    objets[M.MARCHE_DEGRESSIVE] = charge &&
+      M.degressivePossible(conditionsDegressive(e, seance, slug, zone, phase, esc, intentionProfil));
+    objets[M.MARCHE_REMPLACEMENT] = remplacant !== null;
+    var choix = M.marcheAuPlafond(k, proposees, objets);
+    if (!choix) return null;
+    var dejaVues = {};
+    M.MARCHES_PLAFOND.forEach(function (mk) { dejaVues[mk] = !!proposees[mk]; });
+    var m = { marche: choix.marche, n: M.nIsole(k, M.declenchementsRepondus(slug, jour, k, cartes, compteurs)),
+              compteur: k, declenchement: true, zone: zone === undefined ? null : zone,
+              plafond: { charge: plafond.charge, reps: plafond.reps }, objets: objets, proposees: dejaVues };
+    if (choix.deja) {
+      m.reponse = choix.deja.reponse;
+      return m;
+    }
+    if (choix.marche === M.MARCHE_REMPLACEMENT) {
+      m.remplacant = { slug: remplacant.slug, nom: remplacant.nom || remplacant.slug, mesure: remplacant.mesure,
+                       salle: remplacant.salle || null };
+    }
+    // Le détail du remplacement se rédige HORS de la capture : il ne cite rien du plan.
+    var detail = choix.marche === M.MARCHE_REMPLACEMENT ? M.detailRemplacement(m.remplacant) : null;
+    var capCarte = Voix().capturer(function () {
+      return M.cartePlafond(choix.marche, c.compteur.meilleur, k, {
+        muscles: musclesPrimaires(e, slug), parPriorite: musclesParPriorite(e, slug, phase),
+        remplacant: m.remplacant || null, detail: detail });
+    });
+    m.carte = capCarte.texte;
+    if (!m.carte) return null;
+    retenirCitationsDeCarte(m.carte, capCarte.citations);
+    return m;
+  }
+
+  // Les frères proposables de l'exercice, dans l'ordre de « Remplacer », donnés par l'app (`escalier.remplacants`) :
+  // `[{ slug, nom, mesure, salle, ecarte, hors, deja }]`. Sans l'entrée : aucun.
+  function remplacantsDe(e, slug) {
+    var r = e.escalier && e.escalier.remplacants;
+    return r && Object.prototype.hasOwnProperty.call(r, slug) && Array.isArray(r[slug]) ? r[slug] : [];
   }
 
   // §14 (111) — LA DÉGRESSIVE PROPOSÉE : les conditions de l'exercice, lues
@@ -1605,8 +1672,8 @@
       var c = consignes[slug];
       if (!c || !c.consigne || !c.compteur || typeof c.compteur.compteur !== 'number') return;
       if (c.consigne.zone === 'lourd' || c.consigne.zone === 'mix' || !c.consigne.zone) return;
-      // §10 bis (16/10/2026) — ni série de plus à la plus lourde de sa salle.
-      if (aLaPlusLourde(c)) return;
+      // §10 bis (113, 16/10/2026) — au plafond de la salle, la série de plus est la première marche : acceptée, elle
+      // revient comme ailleurs, jusqu'au prochain progrès.
       if (!M.serieDePlusActive(slug, jour, c.compteur.compteur, E.marches || [], E.compteurs || [])) return;
       var n = Object.prototype.hasOwnProperty.call(routine, slug) ? Number(routine[slug]) : NaN;
       if (isFinite(n) && n >= 1) sortie[slug] = n;
@@ -2433,8 +2500,13 @@
       }
       if (carteDeg) {
         if (x.degressiveRoutine) erreurs.push('I48 — ' + nom + ' : une dégressive proposée alors que la routine en a une');
-        if (m.n !== 2) erreurs.push('I48 — ' + nom + ' : une dégressive proposée hors du 2e déclenchement isolé (n = ' + m.n + ')');
-        if (m.serieDePlusProposee !== true) erreurs.push('I48 — ' + nom + ' : une dégressive proposée sans série de plus avant elle');
+        // §10 bis (113) — AU PLAFOND DE LA SALLE, la dégressive suit l'escalier du plafond (une marche par
+        // déclenchement, la série de plus sautée sans place) : I47 en vérifie l'ordre.
+        var auPlafondI48 = !!(m.plafond && x.salle && x.consigne && Moteur().auPlafondDeLaSalle(x.consigne, x.salle));
+        if (!auPlafondI48) {
+          if (m.n !== 2) erreurs.push('I48 — ' + nom + ' : une dégressive proposée hors du 2e déclenchement isolé (n = ' + m.n + ')');
+          if (m.serieDePlusProposee !== true) erreurs.push('I48 — ' + nom + ' : une dégressive proposée sans série de plus avant elle');
+        }
       }
       if (sp) {
         var trav = (x.lignes || []).filter(function (l) { return l.type === 'travail'; });
@@ -3391,24 +3463,47 @@
     });
   }
 
-  // I47 (MOTEUR §10 bis, 16/10/2026) — À LA PLUS LOURDE DE LA SALLE, L'ESCALIER NE PROPOSE RIEN : pour un exercice
-  // dont la charge de travail et la charge demandée sont la plus lourde de sa salle, aucune marche (schéma, série de
-  // plus, repli, ni même le silence ou la phrase de sèche), aucune ligne en plus, aucune consigne de repli, et la
-  // carte de semaine allégée ne le prend pas pour déclencheur. Un repli posé ferait descendre la charge demandée :
-  // on lit alors le palier seul.
+  // I47 (MOTEUR §10 bis, révisé le 16/10/2026, 113) — AU PLAFOND DE LA SALLE (la plus lourde, au haut de la
+  // fourchette), L'ESCALIER NE PROPOSE QUE SES TROIS MARCHES : la série de plus, la dégressive, un frère plus
+  // chargeable — jamais le changement de schéma ni le repli (ni la phrase de sèche, ni le silence de l'escalier
+  // ordinaire), aucune consigne de repli, et la carte de semaine allégée ne le prend pas pour déclencheur. Une carte
+  // proposée est la première marche APRÈS la dernière proposée qui a un objet (les marches entre les deux sont sans
+  // objet), jamais une marche déjà proposée ; un remplacement va vers un exercice plus chargeable que le plafond.
+  // Un repli posé ferait descendre la charge demandée : on lit alors le palier seul.
   function verifierEscalierSalle(plan, erreurs) {
     var M = Moteur();
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var k = x && x.consigne;
       if (!k || !x.salle) return;
       var lue = k.repli ? Object.assign({}, k, { ligne: null }) : k;
-      if (!M.aLaPlusLourdeDeLaSalle(lue, x.salle)) return;
+      if (!M.auPlafondDeLaSalle(lue, x.salle)) return;
       var nom = 'I47 — exercice ' + i + ' (' + x.slug + ') : ';
-      if (x.escalier) erreurs.push(nom + 'une marche de l’escalier (' + x.escalier.marche + ') à la plus lourde de sa salle');
-      if (k.repli) erreurs.push(nom + 'un repli à la plus lourde de sa salle');
-      if (k.serieDePlus) erreurs.push(nom + 'une série de plus à la plus lourde de sa salle');
+      var m = x.escalier;
+      if (m && M.MARCHES_PLAFOND.indexOf(m.marche) < 0) {
+        erreurs.push(nom + 'une marche de l’escalier (' + m.marche + ') au plafond de sa salle');
+      }
+      if (k.repli) erreurs.push(nom + 'un repli au plafond de sa salle');
       if (plan.carte && plan.carte.declencheur === x.slug) {
-        erreurs.push(nom + 'la carte de semaine allégée déclenchée par un exercice à la plus lourde de sa salle');
+        erreurs.push(nom + 'la carte de semaine allégée déclenchée par un exercice au plafond de sa salle');
+      }
+      if (!m || !m.carte || M.MARCHES_PLAFOND.indexOf(m.marche) < 0) return;
+      if (!m.plafond || !m.objets || !m.proposees) {
+        erreurs.push(nom + 'une carte au plafond sans son plafond, ses objets ou ses marches proposées');
+        return;
+      }
+      var iM = M.MARCHES_PLAFOND.indexOf(m.marche), iD = -1;
+      M.MARCHES_PLAFOND.forEach(function (mk, j) { if (m.proposees[mk]) iD = j; });
+      if (iM <= iD) erreurs.push(nom + 'la marche ' + m.marche + ' proposée de nouveau (déjà proposée, ou une marche d’après l’a été)');
+      for (var j = iD + 1; j < iM; j++) {
+        if (m.objets[M.MARCHES_PLAFOND[j]] === true) {
+          erreurs.push(nom + 'la marche ' + M.MARCHES_PLAFOND[j] + ' sautée alors qu’elle avait un objet');
+        }
+      }
+      if (m.objets[m.marche] !== true) erreurs.push(nom + 'la marche ' + m.marche + ' proposée sans objet');
+      if (m.marche === M.MARCHE_REMPLACEMENT &&
+          !(m.remplacant && m.carte.vers === m.remplacant.slug && M.plusChargeableALaSalle(m.remplacant, m.plafond.charge))) {
+        erreurs.push(nom + 'un remplacement vers un exercice qui ne se charge pas plus que le plafond (' +
+          (m.remplacant ? m.remplacant.slug : 'aucun') + ')');
       }
     });
   }

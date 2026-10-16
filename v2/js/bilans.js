@@ -1,9 +1,13 @@
 // v2/js/bilans.js — le moteur des bilans de période (chantier 95, BILANS-V1).
 //
 // UN SEUL MOTEUR, la période en paramètre (année, saison, mois) : mêmes règles, même partage, seule la fenêtre
-// change. Le prompt 95 code l'ANNÉE ; le moteur accepte toute période `{ type, cle, libelle, debut, fin,
-// precedente }`, mais les versions saison et mois attendent leur maquette (aucun écran ne les lit) — et le bilan du
-// mois actuel (`bilan.js`) ne bouge pas.
+// change (décision du 14-15/10/2026). Le prompt 95 a codé l'ANNÉE ; le prompt 98 la SAISON et le MOIS
+// (`periodeDeLaSaison`, `periodeDuMois`, maquette `maquette-saison-mois-v1.html`). Une période :
+// `{ type, cle, libelle, debut, fin, precedente: { debut, fin, libelle, en } }`.
+//
+// LA COMPARAISON dépend de la fenêtre (`comparaisonDe`) : l'année, contre l'année d'avant ou début contre fin ;
+// la saison et le mois, contre la saison ou le mois d'avant, et seulement avec au moins 3 semaines de données dans
+// la période — sinon les faits seuls.
 //
 // ⚠️ IL APPELLE CE QUI EXISTE, IL NE LE REFAIT PAS : la série de travail (`Modele.estTravail`), le volume soulevé
 // (`Bilan.volumeKg`), le compte des séries de travail (`Semaine.compteSeriesTravail`), les séries par muscle
@@ -42,6 +46,25 @@
   var JOURS_ENCADRE = 60, JOURS_PROCHE = 45;
   // L'équivalence : un éléphant d'Afrique pèse 6 t.
   var ELEPHANT_KG = 6000;
+  // La saison et le mois : moins de 3 semaines de données dans la période, les faits seulement (décision du 14/10).
+  var SEMAINES_MIN = 3;
+  // Les saisons MÉTÉOROLOGIQUES (décision du 14/10/2026) : l'hiver AAAA va du 1er décembre AAAA à la fin de
+  // février AAAA+1. `en` : la préposition (« plus lourd qu’en été », « comme au printemps ») ; `ce` : « cet hiver ».
+  var SAISONS = {
+    hiver: { mois: 12, libelle: 'hiver', le: 'l’hiver', en: 'en hiver', ce: 'cet hiver', avant: 'automne', decale: 0 },
+    printemps: { mois: 3, libelle: 'printemps', le: 'le printemps', en: 'au printemps', ce: 'ce printemps', avant: 'hiver', decale: -1 },
+    ete: { mois: 6, libelle: 'été', le: 'l’été', en: 'en été', ce: 'cet été', avant: 'printemps', decale: 0 },
+    automne: { mois: 9, libelle: 'automne', le: 'l’automne', en: 'en automne', ce: 'cet automne', avant: 'ete', decale: 0 }
+  };
+  // Le nom d'une saison (décision du 14/10/2026) : l'hiver est « Winter Arc » pour tout le monde ; les autres
+  // suivent la phase du profil au début de la saison (`profiles.phase` : `prise_de_masse`, `seche`, `maintien` ;
+  // vide = maintien).
+  var NOMS_DE_SAISON = {
+    hiver: { prise_de_masse: 'Winter Arc', seche: 'Winter Arc', maintien: 'Winter Arc' },
+    printemps: { prise_de_masse: 'Spring Bulk', seche: 'Summer Prep', maintien: 'Spring Arc' },
+    ete: { prise_de_masse: 'Summer Bulk', seche: 'Summer Shred', maintien: 'Summer Arc' },
+    automne: { prise_de_masse: 'Bulk Season', seche: 'Fall Cut', maintien: 'Fall Arc' }
+  };
   // Ce que dit une comparaison « début contre fin », selon la période.
   var DEBUT_DE = { annee: 'en début d’année', saison: 'en début de saison', mois: 'en début de mois' };
 
@@ -62,6 +85,13 @@
     return n === 12 ? (a + 1) + '-01' : a + '-' + (n < 9 ? '0' : '') + (n + 1);
   }
   function dans(j, f) { return !!f && j >= f.debut && j <= f.fin; }
+  // Le lundi de la semaine d'un jour (les semaines du bilan commencent le lundi, comme la semaine de l'app).
+  function lundiDe(j) {
+    var n = numero(j);
+    return deNumero(n - (new Date(n * 864e5).getUTCDay() + 6) % 7);
+  }
+  function deux(x) { return (x < 10 ? '0' : '') + x; }
+  function dernierJour(an, mo) { return new Date(Date.UTC(an, mo, 0)).getUTCDate(); }
 
   // ── Les périodes ─────────────────────────────────────────────────────────
   function periodeDeLAnnee(an) {
@@ -69,18 +99,45 @@
     return { type: 'annee', cle: String(a), libelle: String(a), debut: a + '-01-01', fin: a + '-12-31',
              precedente: { debut: (a - 1) + '-01-01', fin: (a - 1) + '-12-31', libelle: String(a - 1) } };
   }
-  // Prête pour le bilan du mois à venir (BILANS-V1) : aucun écran ne la lit encore.
+  // Le mois (98) : « octobre 2026 », comparé à septembre.
   function periodeDuMois(cle) {
     var m = /^(\d{4})-(\d{2})$/.exec(String(cle || ''));
+    if (!m || +m[2] < 1 || +m[2] > 12) return null;
+    var a = +m[1], n = +m[2];
+    var pa = n === 1 ? a - 1 : a, pn = n === 1 ? 12 : n - 1;
+    var nom = Mo().MOIS_LONGS[n - 1], nomAvant = Mo().MOIS_LONGS[pn - 1];
+    return { type: 'mois', cle: cle, libelle: nom + ' ' + a, nom: nom, ce: 'en ' + nom,
+             debut: cle + '-01', fin: cle + '-' + deux(dernierJour(a, n)),
+             precedente: { cle: pa + '-' + deux(pn), debut: pa + '-' + deux(pn) + '-01',
+                           fin: pa + '-' + deux(pn) + '-' + deux(dernierJour(pa, pn)),
+                           libelle: nomAvant, en: 'en ' + nomAvant } };
+  }
+  // La saison (98) : `AAAA-hiver|printemps|ete|automne`. L'hiver 2026 = décembre 2026 → février 2027.
+  function bornesDeLaSaison(an, cle) {
+    var m0 = SAISONS[cle].mois, a1 = m0 === 12 ? an + 1 : an, m1 = m0 === 12 ? 2 : m0 + 2;
+    return { debut: an + '-' + deux(m0) + '-01', fin: a1 + '-' + deux(m1) + '-' + deux(dernierJour(a1, m1)) };
+  }
+  function periodeDeLaSaison(cle) {
+    var m = /^(\d{4})-(hiver|printemps|ete|automne)$/.exec(String(cle || ''));
+    if (!m) return null;
+    var an = +m[1], sa = m[2], s = SAISONS[sa], b = bornesDeLaSaison(an, sa);
+    var av = s.avant, anAv = an + s.decale, ba = bornesDeLaSaison(anAv, av);
+    return { type: 'saison', cle: cle, saison: sa, an: an, libelle: s.libelle + ' ' + an, ce: s.ce,
+             debut: b.debut, fin: b.fin,
+             precedente: { cle: anAv + '-' + av, debut: ba.debut, fin: ba.fin, libelle: SAISONS[av].le, en: SAISONS[av].en } };
+  }
+  // La saison d'un jour `AAAA-MM-JJ` : janvier et février sont l'hiver de l'année d'avant.
+  function saisonDuJour(jour) {
+    var m = RE_JOUR.exec(String(jour || ''));
     if (!m) return null;
     var a = +m[1], n = +m[2];
-    var dernier = function (an, mo) { return new Date(Date.UTC(an, mo, 0)).getUTCDate(); };
-    var pa = n === 1 ? a - 1 : a, pn = n === 1 ? 12 : n - 1;
-    var deux = function (x) { return (x < 10 ? '0' : '') + x; };
-    return { type: 'mois', cle: cle, libelle: Mo().MOIS_LONGS[n - 1] + ' ' + a,
-             debut: cle + '-01', fin: cle + '-' + deux(dernier(a, n)),
-             precedente: { debut: pa + '-' + deux(pn) + '-01', fin: pa + '-' + deux(pn) + '-' + deux(dernier(pa, pn)),
-                           libelle: Mo().MOIS_LONGS[pn - 1] } };
+    if (n === 12) return a + '-hiver';
+    if (n <= 2) return (a - 1) + '-hiver';
+    return a + '-' + (n <= 5 ? 'printemps' : (n <= 8 ? 'ete' : 'automne'));
+  }
+  function nomDeSaison(saison, phase) {
+    var t = NOMS_DE_SAISON[saison];
+    return t ? (t[phase] || t.maintien) : null;
   }
 
   // ── Les nombres ──────────────────────────────────────────────────────────
@@ -131,14 +188,27 @@
   // période. Moins de 2 : aucune comparaison. 12 ou plus, et la période précédente a des séries : contre elle. Sinon,
   // si la période a au moins 2 mois de données : son début contre sa fin (la moitié des jours entre sa première et sa
   // dernière série). Sinon : aucune.
+  //
+  // LA SAISON ET LE MOIS (98) : contre la période d'avant, seulement si la période a au moins 3 semaines de données
+  // (des semaines du lundi qui ont une série de travail) et la période d'avant au moins une série ; sinon, aucune.
+  // Jamais « début contre fin » : une saison ou un mois est trop court pour se couper en deux.
   function comparaisonDe(periode, travail) {
-    var tous = {}, ici = {}, avantAussi = false;
+    var tous = {}, ici = {}, semaines = {}, avantAussi = false;
     travail.forEach(function (t) {
       tous[moisDe(t.jour)] = true;
-      if (dans(t.jour, periode)) ici[moisDe(t.jour)] = true;
+      if (dans(t.jour, periode)) { ici[moisDe(t.jour)] = true; semaines[lundiDe(t.jour)] = true; }
       if (dans(t.jour, periode.precedente)) avantAussi = true;
     });
     var moisDeDonnees = Object.keys(tous).length, moisIci = Object.keys(ici).length;
+    if (periode.type !== 'annee') {
+      var nSem = Object.keys(semaines).length;
+      if (nSem < SEMAINES_MIN || !avantAussi || !periode.precedente) {
+        return { mode: 'aucune', moisDeDonnees: moisDeDonnees, semainesDeDonnees: nSem };
+      }
+      var pr = periode.precedente;
+      return { mode: 'precedente', moisDeDonnees: moisDeDonnees, semainesDeDonnees: nSem, avant: pr, apres: periode,
+               libelle: pr.libelle, qu: 'qu’' + pr.en, comme: 'comme ' + pr.en };
+    }
     if (moisDeDonnees < MOIS_MIN) return { mode: 'aucune', moisDeDonnees: moisDeDonnees };
     if (moisDeDonnees >= MOIS_PLEIN && avantAussi && periode.precedente) {
       return { mode: 'precedente', moisDeDonnees: moisDeDonnees, avant: periode.precedente, apres: periode,
@@ -178,14 +248,22 @@
     var travailIci = travail.filter(function (t) { return t.jour >= periode.debut; });
 
     var cmp = comparaisonDe(periode, travail);
-    var sortie = { periode: periode, versus: { mode: cmp.mode, moisDeDonnees: cmp.moisDeDonnees,
+    var sortie = { periode: periode, versus: { mode: cmp.mode, moisDeDonnees: cmp.moisDeDonnees, semainesDeDonnees: cmp.semainesDeDonnees,
                                                libelle: cmp.libelle || null },
                    vide: !travailIci.length };
 
     // Les tonnes, et l'équivalence.
     var kg = Bi().volumeKg(seriesIci);
     sortie.tonnes = { kg: kg, elephants: kg >= 1.5 * ELEPHANT_KG ? Math.round(kg / ELEPHANT_KG) : null,
-                      objet: kg >= 1.5 * ELEPHANT_KG ? null : Bi().comparaison(kg, 'bilan-' + periode.cle) };
+                      objet: kg >= 1.5 * ELEPHANT_KG ? null : Bi().comparaison(kg, 'bilan-' + periode.cle),
+                      avant: null, ecart: null };
+    // Les tonnes de la période d'avant (98) : la seule comparaison que montrent la saison et le mois.
+    if (cmp.mode === 'precedente') {
+      var avantSeries = [];
+      seances.forEach(function (s) { if (dans(s.jour, cmp.avant)) (s.series || []).forEach(function (x) { if (x) avantSeries.push(x); }); });
+      sortie.tonnes.avant = Bi().volumeKg(avantSeries);
+      sortie.tonnes.ecart = kg - sortie.tonnes.avant;
+    }
 
     // Les heures et les jours à la salle : le fait tel quel, sans comparaison ; l'équivalence en jours entiers
     // (24 h) à partir d'un jour et demi.
@@ -206,6 +284,19 @@
     parMois.forEach(function (x) { if (x.kg > 0 && (!lourd || x.kg > lourd.kg)) lourd = x; });
     sortie.mois = { liste: parMois, plusLourd: lourd,
                     enCours: J && J >= periode.debut && J <= periode.fin ? moisDe(J) : null };
+
+    // Semaine par semaine (98) : les semaines du lundi qui touchent la période, jusqu'à aujourd'hui ; seules les
+    // séances de la période comptent. La plus lourde : à égalité, la première.
+    var parSemaine = [], lu = lundiDe(periode.debut), luFin = lundiDe(fin);
+    while (lu <= luFin) {
+      var finSem = deNumero(numero(lu) + 6), lesSiennesS = [];
+      ici.forEach(function (s) { if (s.jour >= lu && s.jour <= finSem) (s.series || []).forEach(function (x) { if (x) lesSiennesS.push(x); }); });
+      parSemaine.push({ lundi: lu, kg: Bi().volumeKg(lesSiennesS) });
+      lu = deNumero(numero(lu) + 7);
+    }
+    var lourdeS = null;
+    parSemaine.forEach(function (x) { if (x.kg > 0 && (!lourdeS || x.kg > lourdeS.kg)) lourdeS = x; });
+    sortie.semaines = { liste: parSemaine, plusLourde: lourdeS };
 
     // Reps et séries de travail.
     var reps = 0, zones = [0, 0, 0];
@@ -279,6 +370,21 @@
       total = { charge: t, avant: avec && tousAvant ? ta : null, ecart: avec && tousAvant ? t - ta : null };
     }
     sortie.barres = lignes.length ? { tete: tete, lignes: lignes, total: total } : null;
+
+    // Les records (98) : les NOUVELLES CHARGES MAX de la période — un exercice dont la charge la plus lourde de la
+    // période (série de travail, au moins 1 rep) dépasse tout ce qui précède la période. Sans avant, pas de record.
+    // Les plus lourdes d'abord ; haltères : la charge d'une main (l'écran l'écrit « 2 × »).
+    var recs = [], vus = {};
+    travailIci.forEach(function (t) { vus[t.serie.exercise_slug] = true; });
+    Object.keys(vus).forEach(function (slug) {
+      var ic = lourdeDe(slug, function (j) { return j >= periode.debut; });
+      var av = lourdeDe(slug, function (j) { return j < periode.debut; });
+      if (!ic || !av || ic.charge <= av.charge) return;
+      recs.push({ slug: slug, nom: nomDe(slug), charge: ic.charge, avant: av.charge, jour: ic.jour,
+                  haltere: !!(index[slug] && index[slug].equipement === 'haltere') });
+    });
+    recs.sort(function (a, b) { return b.charge - a.charge || (a.slug < b.slug ? -1 : 1); });
+    sortie.records = recs;
 
     // Ce qui a le plus avancé : à reps égales, la fenêtre d'avant contre celle d'après. La règle « moins pratiqué »
     // de « Ton parcours » écarte un exercice qu'on a délaissé ; la comparaison à reps égales décide de la hausse.
@@ -359,6 +465,11 @@
     bilanDeLaPeriode: bilanDeLaPeriode,
     periodeDeLAnnee: periodeDeLAnnee,
     periodeDuMois: periodeDuMois,
+    periodeDeLaSaison: periodeDeLaSaison,
+    saisonDuJour: saisonDuJour,
+    nomDeSaison: nomDeSaison,
+    SAISONS: SAISONS,
+    SEMAINES_MIN: SEMAINES_MIN,
     poidsDuJour: poidsDuJour,
     comparaisonDe: comparaisonDe,
     BARRES: BARRES,

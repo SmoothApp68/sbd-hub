@@ -780,6 +780,8 @@
     'compte_prive, jeu_niveau, jeu_titre, ' +
     // 104 (`v2_086`) — les bilans déjà annoncés. Écrite, donc relue (le même piège). FACULTATIVE : ci-dessous.
     'bilans_annonces, ' +
+    // 108 (`v2_088`) — ma salle (MOTEUR §10 bis). FACULTATIVE aussi : absente, la salle n'est pas déclarée.
+    'ma_salle, ' +
     'onboarding_completed';
 
   // ⚠️ 104 — UNE COLONNE FACULTATIVE NE CASSE JAMAIS LE PROFIL (le défaut de #418). Nommer une colonne que la base
@@ -788,7 +790,7 @@
   // Une colonne de cette liste n'est qu'un confort (l'appareil garde sa propre mémoire) : si la base dit qu'elle
   // n'existe pas, elle quitte la lecture et l'écriture POUR LA SESSION, et la même requête repart une fois sans elle.
   // La migration lancée, le prochain démarrage la reprend. Une colonne obligatoire n'entre JAMAIS ici.
-  var COLONNES_FACULTATIVES = ['bilans_annonces'];
+  var COLONNES_FACULTATIVES = ['bilans_annonces', 'ma_salle'];
   var facultativesAbsentes = {};
   function colonnesProfil() {
     return COLONNES_PROFIL.split(', ').filter(function (c) { return !facultativesAbsentes[c]; }).join(', ');

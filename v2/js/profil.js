@@ -602,6 +602,9 @@
                        // '2026-ete', '2026-09') : l'annonce ne revient pas sur un autre appareil (BILANS-V1).
                        // Colonne FACULTATIVE (`Donnees`) : absente en base, le profil se lit et s'écrit sans elle.
                        'bilans_annonces',
+                       // 108 (v2_088) — ma salle (MOTEUR §10 bis). FACULTATIVE en lecture et en écriture tant que
+                       // la migration n'est pas lancée (`COLONNES_FACULTATIVES`, donnees.js).
+                       'ma_salle',
                        'onboarding_completed'];
 
   // ⚠️ `jeu_actif` EST NOT NULL (v2_068) : un `null` serait un 23502, que la file classe définitif — et le profil part
@@ -618,6 +621,12 @@
       if (c === 'bilans_annonces') {
         if (!Array.isArray(src[c])) return;
         sortie[c] = ajouterBilansAnnonces(src[c], []);
+        return;
+      }
+      // 108 — une salle hors bornes ne part pas (elle serait refusée en 23514, et tout le profil avec elle).
+      if (c === 'ma_salle') {
+        var s = salleValide(src[c]);
+        if (s !== undefined) sortie[c] = s;
         return;
       }
       sortie[c] = src[c];
@@ -1112,6 +1121,180 @@
     return lignes;
   }
 
+  // ══ MA SALLE (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies — 108, décidé le 15/10/2026) ══
+  //
+  // « Seulement pour qui le déclare ; non renseigné, rien ne change (on suppose qu'on peut ajouter des disques). »
+  // Une fois, dans le Profil : les barres fixes EZ et droites (les poids cochés), et les haltères (jusqu'à X kg, de
+  // Y en Y). Les machines : pas pour l'instant. En base, UNE colonne (`profiles.ma_salle`, jsonb, v2_088) :
+  //   `{ barres_ez: [10, 15, …], barres_droites: [10, …], halteres: { max: 40, pas: 2 } | null }`, ou `NULL`.
+  // Les bornes ci-dessous DOUBLENT la contrainte `profiles_ma_salle_ok` : un 23514 bloquerait l'envoi de TOUT le
+  // profil (la file le classe définitif) — on refuse avant, on ne l'envoie pas.
+  //
+  // ⚠️ LES HALTÈRES SE DÉCLARENT PAR HALTÈRE, comme une salle les range (« jusqu'à 40 kg, de 2 en 2 ») ; les séries
+  // les notent pour la PAIRE (MOTEUR §10.1 : 92 kg = 2 × 46). La conversion est faite ici, une fois.
+  var SALLE_BARRE_MIN = 1, SALLE_BARRE_MAX = 100, SALLE_BARRES_MAX = 20;
+  var SALLE_HALTERES_MIN = 1, SALLE_HALTERES_MAX = 100, SALLE_PAS_MIN = 0.5, SALLE_PAS_MAX = 10;
+  // Les puces de la maquette validée (15/10/2026) ; « ＋ » ajoute un autre poids.
+  var SALLE_BARRES_PROPOSEES = { barres_ez: [10, 15, 20, 25, 30, 35, 40], barres_droites: [10, 15, 20, 25, 30] };
+  var SALLE_PAS_PROPOSES = [1, 2, 2.5, 5];
+  var PHRASE_SALLE = 'Non renseigné : le coach suppose qu’on peut ajouter des disques, comme aujourd’hui.';
+  var PHRASE_BARRES_FIXES = 'Les barres déjà chargées de ta salle. Le coach ne te proposera que ces charges-là.';
+
+  // Un nombre (jamais une chaîne : la contrainte refuse « "10" »), au demi-kilo.
+  function auDemi(v) {
+    if (typeof v !== 'number' || !isFinite(v)) return null;
+    return Math.abs(v * 2 - Math.round(v * 2)) < 1e-9 ? Math.round(v * 2) / 2 : null;
+  }
+  // Une liste de barres valide : des poids au demi-kilo, de 1 à 100 kg, sans doublon, croissants, au plus 20 ; ou
+  // `null` si un poids est hors bornes (on refuse, on ne corrige pas en silence).
+  function barresValides(l) {
+    if (l === null || l === undefined) return [];
+    if (!Array.isArray(l)) return null;
+    var sortie = [];
+    for (var i = 0; i < l.length; i++) {
+      var v = auDemi(l[i]);
+      if (v === null || v < SALLE_BARRE_MIN || v > SALLE_BARRE_MAX) return null;
+      if (sortie.indexOf(v) < 0) sortie.push(v);
+    }
+    sortie.sort(function (a, b) { return a - b; });
+    return sortie.length > SALLE_BARRES_MAX ? null : sortie;
+  }
+  function halteresValides(h) {
+    if (h === null || h === undefined) return null;
+    if (typeof h !== 'object') return undefined;
+    var max = auDemi(h.max), pas = auDemi(h.pas);
+    if (max === null || pas === null || max < SALLE_HALTERES_MIN || max > SALLE_HALTERES_MAX ||
+        pas < SALLE_PAS_MIN || pas > SALLE_PAS_MAX || pas > max) return undefined;
+    return { max: max, pas: pas };
+  }
+  // LA DÉCLARATION, normalisée : l'objet tel qu'il s'écrit, `null` quand rien n'est déclaré (non renseigné), ou
+  // `undefined` quand une valeur est hors bornes (refusée : rien ne s'écrit).
+  function salleValide(v) {
+    if (v === null || v === undefined) return null;
+    if (typeof v !== 'object' || Array.isArray(v)) return undefined;
+    var ez = barresValides(v.barres_ez), droites = barresValides(v.barres_droites), h = halteresValides(v.halteres);
+    if (ez === null || droites === null || h === undefined) return undefined;
+    if (!ez.length && !droites.length && h === null) return null;
+    return { barres_ez: ez, barres_droites: droites, halteres: h };
+  }
+  // La salle d'un profil, lisible, ou `null` (absente, illisible, ou une colonne pas encore là : rien ne change).
+  function salleDe(profil) {
+    var s = salleValide(profil && profil.ma_salle);
+    return s === undefined ? null : s;
+  }
+  // Les gestes de la feuille, en fonctions pures (la feuille garde un brouillon ; « Valider » l'écrit).
+  function brouillonSalle(profil) {
+    var s = salleDe(profil);
+    return s ? { barres_ez: s.barres_ez.slice(), barres_droites: s.barres_droites.slice(),
+                 halteres: s.halteres ? { max: s.halteres.max, pas: s.halteres.pas, pasChoisi: true } : null }
+             : { barres_ez: [], barres_droites: [], halteres: null };
+  }
+  function basculerBarre(brouillon, type, kg) {
+    var b = Object.assign({}, brouillon);
+    var l = (b[type] || []).slice(), v = auDemi(kg);
+    if (v === null) return b;
+    var i = l.indexOf(v);
+    if (i >= 0) l.splice(i, 1);
+    else if (v >= SALLE_BARRE_MIN && v <= SALLE_BARRE_MAX && l.length < SALLE_BARRES_MAX) l.push(v);
+    l.sort(function (x, y) { return x - y; });
+    b[type] = l;
+    return b;
+  }
+  // Les haltères du brouillon : le plus lourd tapé (`null` : effacé) et l'écart choisi (2 kg par défaut, la maquette).
+  // Sans le plus lourd ni d'écart choisi, pas d'haltères ; un écart sans le plus lourd attend sa saisie (« Valider »
+  // n'écrit alors pas d'haltères).
+  var SALLE_PAS_DEFAUT = 2;
+  function poserMaxHalteres(brouillon, max) {
+    var b = Object.assign({}, brouillon), h = b.halteres;
+    var m = max === null || max === undefined || !isFinite(Number(max)) ? null : Number(max);
+    b.halteres = m === null && !(h && h.pasChoisi) ? null
+      : { max: m, pas: h ? h.pas : SALLE_PAS_DEFAUT, pasChoisi: !!(h && h.pasChoisi) };
+    return b;
+  }
+  function poserPasHalteres(brouillon, pas) {
+    var b = Object.assign({}, brouillon), h = b.halteres;
+    b.halteres = { max: h ? h.max : null, pas: Number(pas), pasChoisi: true };
+    return b;
+  }
+  // Les puces d'un type : celles de la maquette, plus les poids ajoutés (« ＋ »), croissantes.
+  function pucesDeBarres(brouillon, type) {
+    var l = (SALLE_BARRES_PROPOSEES[type] || []).slice();
+    ((brouillon && brouillon[type]) || []).forEach(function (v) { if (l.indexOf(v) < 0) l.push(v); });
+    return l.sort(function (a, b) { return a - b; }).map(function (v) {
+      return { kg: v, coche: ((brouillon && brouillon[type]) || []).indexOf(v) >= 0 };
+    });
+  }
+  // Ce qui part en base : `{ ma_salle }` — l'objet, ou `NULL` quand rien n'est déclaré ; `null` (rien à écrire)
+  // quand le brouillon est hors bornes.
+  function champsSalle(brouillon) {
+    var b = Object.assign({}, brouillon || {});
+    // Un écart choisi sans le plus lourd : pas d'haltères (rien à déclarer encore).
+    if (b.halteres && (b.halteres.max === null || b.halteres.max === undefined)) b.halteres = null;
+    else if (b.halteres) b.halteres = { max: b.halteres.max, pas: b.halteres.pas };
+    var s = salleValide(b);
+    return s === undefined ? null : { ma_salle: s };
+  }
+  // « EZ, droite, haltères » — ce qui est déclaré ; `null` : non renseigné.
+  function resumeSalle(profil) {
+    var s = salleDe(profil);
+    if (!s) return null;
+    var t = [];
+    if (s.barres_ez.length) t.push('EZ');
+    if (s.barres_droites.length) t.push(t.length ? 'droite' : 'Barre droite');
+    if (s.halteres) t.push(t.length ? 'haltères' : 'Haltères');
+    return t.join(', ');
+  }
+  function ligneSalle(profil, ouvrir) {
+    return { libelle: 'Ma salle', sous: PHRASE_SALLE, valeur: resumeSalle(profil), surChoix: ouvrir };
+  }
+
+  // ── QUELLE SALLE POUR QUEL EXERCICE (MOTEUR §10 bis) ─────────────────────
+  //
+  // La donnée du catalogue qui dit le matériel : `exercises.equipement`. `haltere` → les haltères déclarés. `barre`
+  // → une barre FIXE, sauf la barre lourde (les quatre barres et leurs frères à la barre, la définition du générateur,
+  // `THGenerateur.estBarreLourde`) : une barre olympique chargée de disques n'est pas concernée. Laquelle : le NOM au
+  // catalogue (« Curl Biceps (Barre EZ) ») — `equipement` ne distingue pas l'EZ de la droite —, sinon la barre droite.
+  // Le moteur ajoute une garde (`salleEnVigueur`) : un palier au-delà de la plus lourde barre fixe déclarée vient
+  // d'une barre qu'on charge, et la salle n'en dit rien.
+  //
+  // Rend `{ materiel: 'barre_ez' | 'barre_droite' | 'halteres', charges: [...] }` (charges des séries : une barre, son
+  // poids ; des haltères, la paire), ou `null` : rien de déclaré pour ce matériel, ou un exercice qui n'est pas
+  // concerné — et alors rien ne change.
+  function estBarreEZ(fiche) {
+    var nom = sansAccent(String((fiche && fiche.nom) || '').toLowerCase());
+    return /\bbarre ez\b/.test(nom) || /(^|_)ez(_|$)/.test(String((fiche && fiche.slug) || ''));
+  }
+  // §10 bis (16/10/2026) — `isolation: true` pour un exercice d'isolation (non polyarticulaire, la définition du
+  // moteur, `THMoteur.estPolyarticulaire` sur les trois listes de muscles du catalogue) : à la plus lourde de la salle,
+  // sa fourchette s'étend jusqu'à 15 reps. La clé n'y figure que si elle est vraie.
+  function avecIsolation(salle, fiche) {
+    var Mo = racine.THMoteur;
+    if (!salle || !Mo || !Mo.estPolyarticulaire) return salle;
+    var muscles = { prim: fiche.muscles_primaires || [], sec: fiche.muscles_secondaires || [],
+                    stab: fiche.muscles_stabilisateurs || [] };
+    if (Mo.aDesMuscles && !Mo.aDesMuscles(muscles)) return salle;
+    return Mo.estPolyarticulaire(muscles) ? salle : Object.assign(salle, { isolation: true });
+  }
+  function salleDeLExercice(profil, slug, index) {
+    var s = salleDe(profil);
+    var fiche = index && slug && Object.prototype.hasOwnProperty.call(index, slug) ? index[slug] : null;
+    if (!s || !fiche) return null;
+    if (fiche.equipement === 'haltere') {
+      if (!s.halteres) return null;
+      var charges = [];
+      for (var k = 1; k * s.halteres.pas <= s.halteres.max + 1e-9 && charges.length < 400; k++) {
+        charges.push(Math.round(2 * k * s.halteres.pas * 100) / 100);
+      }
+      return avecIsolation({ materiel: 'halteres', charges: charges }, fiche);
+    }
+    if (fiche.equipement !== 'barre') return null;
+    var G = racine.THGenerateur;
+    if (G && G.estBarreLourde(slug, index)) return null;
+    var ez = estBarreEZ(Object.assign({ slug: slug }, fiche));
+    var liste = ez ? s.barres_ez : s.barres_droites;
+    return liste.length ? avecIsolation({ materiel: ez ? 'barre_ez' : 'barre_droite', charges: liste.slice() }, fiche) : null;
+  }
+
   // ══ LE PSEUDO ════════════════════════════════════════════════════════════
 
   var PSEUDO_MIN = 3, PSEUDO_MAX = 20;
@@ -1356,7 +1539,17 @@
     alternatives: alternatives,
     verdictPseudo: verdictPseudo,
     mdpValide: mdpValide,
-    inscriptionPrete: inscriptionPrete
+    inscriptionPrete: inscriptionPrete,
+    // 108 — ma salle (MOTEUR §10 bis).
+    SALLE_BARRES_PROPOSEES: SALLE_BARRES_PROPOSEES, SALLE_PAS_PROPOSES: SALLE_PAS_PROPOSES,
+    SALLE_BARRE_MIN: SALLE_BARRE_MIN, SALLE_BARRE_MAX: SALLE_BARRE_MAX, SALLE_BARRES_MAX: SALLE_BARRES_MAX,
+    SALLE_HALTERES_MIN: SALLE_HALTERES_MIN, SALLE_HALTERES_MAX: SALLE_HALTERES_MAX,
+    SALLE_PAS_MIN: SALLE_PAS_MIN, SALLE_PAS_MAX: SALLE_PAS_MAX,
+    PHRASE_SALLE: PHRASE_SALLE, PHRASE_BARRES_FIXES: PHRASE_BARRES_FIXES,
+    salleValide: salleValide, salleDe: salleDe, brouillonSalle: brouillonSalle, basculerBarre: basculerBarre,
+    pucesDeBarres: pucesDeBarres, champsSalle: champsSalle, poserMaxHalteres: poserMaxHalteres,
+    poserPasHalteres: poserPasHalteres, SALLE_PAS_DEFAUT: SALLE_PAS_DEFAUT, resumeSalle: resumeSalle, ligneSalle: ligneSalle,
+    estBarreEZ: estBarreEZ, salleDeLExercice: salleDeLExercice
   };
 
   racine.THProfil = api;

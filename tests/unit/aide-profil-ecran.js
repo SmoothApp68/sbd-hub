@@ -27,6 +27,7 @@ function profilEcran(profil, options) {
   const ouverts = [];
   const questionnairesOuverts = [];
   const programmesOuverts = [];
+  const sallesOuvertes = [];
   let vue = null;
   let bandeau = null;
   const element = () => ({ textContent: '' });
@@ -62,6 +63,8 @@ function profilEcran(profil, options) {
     ouvrirQuestionnaire: () => { questionnairesOuverts.push(true); },
     // 60-4 — le programme construit : « Zone à ménager », « Exercices écartés », « Refaire mon programme ».
     ouvrirProgrammeProfil: (quoi) => { programmesOuverts.push(quoi); },
+    // 108 — « Ma salle » (MOTEUR §10 bis) : la feuille qu'ouvre la ligne.
+    ouvrirSalleProfil: () => { sallesOuvertes.push(true); },
     // 60-3b — « pris entre-temps » : l'état retenu en local par compte (`pseudoPrisSignale`, app.js).
     pseudoPrisSignale: () => !!opt.pseudoPris,
     // 70 — la phrase en tête du Profil après un changement de mot de passe (aucune ici).
@@ -71,7 +74,7 @@ function profilEcran(profil, options) {
   vm.runInContext(extraire('jeuAllume'), ctx);
   vm.runInContext(extraire('rendreProfilEcran'), ctx);
   vm.runInContext('rendreProfilEcran()', ctx);
-  return { vue, bandeau, ecrits, ouverts, questionnairesOuverts, programmesOuverts, section: (titre) => (vue.sections || []).filter((s) => s && s.titre === titre)[0] || null };
+  return { vue, bandeau, ecrits, ouverts, questionnairesOuverts, programmesOuverts, sallesOuvertes, section: (titre) => (vue.sections || []).filter((s) => s && s.titre === titre)[0] || null };
 }
 
 module.exports = { profilEcran, extraire };

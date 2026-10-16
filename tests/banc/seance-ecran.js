@@ -156,6 +156,8 @@ const CATALOGUE = [
   { slug: 'quadri-u10', nom: 'Quadri U10 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
   { slug: 'biceps-u10', nom: 'Biceps U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['biceps'], muscles_secondaires: [] },
   { slug: 'militaire-u10', nom: 'Militaire U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['epaules'], muscles_secondaires: [] },
+  // 108 — réservé à la section 108 (« Ma salle », MOTEUR §10 bis) : une barre EZ, le nom le dit.
+  { slug: 'curl-ez-108', nom: 'Kz108 (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['biceps'], muscles_secondaires: [] },
   // 49-U11 — réservé à la section 7 G octies (la phase). Son nom ne répond à
   // aucune des recherches faites ailleurs.
   { slug: 'presse-u11', nom: 'Presse U11 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
@@ -1382,6 +1384,20 @@ const SETS_IMPORTES = [
         // 50-1 — la contrainte réelle de `lest_reponse` : `oui`, `non`, ou NULL.
         if (l.lest_reponse !== undefined && l.lest_reponse !== null && ['oui', 'non'].indexOf(l.lest_reponse) < 0) {
           return json(refus('23514', 'profiles_lest_reponse_ok'), 400);
+        }
+        // 108 (`v2_088`) — `profiles_ma_salle_ok` : NULL, ou un objet aux seules clés barres_ez, barres_droites,
+        // halteres ; des barres de 1 à 100 kg au demi-kilo ; des haltères nuls ou { max, pas }.
+        if (l.ma_salle !== undefined && l.ma_salle !== null) {
+          const v = l.ma_salle;
+          const barres = (x) => x === undefined || (Array.isArray(x) && x.length <= 20 &&
+            x.every((k) => typeof k === 'number' && k >= 1 && k <= 100 && Math.floor(k * 2) === k * 2));
+          const h = v.halteres;
+          const okH = h === undefined || h === null || (typeof h === 'object' && typeof h.max === 'number' &&
+            typeof h.pas === 'number' && h.max >= 1 && h.max <= 100 && h.pas >= 0.5 && h.pas <= 10 && h.pas <= h.max);
+          if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH ||
+              Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres'].indexOf(k) < 0)) {
+            return json(refus('23514', 'profiles_ma_salle_ok'), 400);
+          }
         }
         // 60-2a (`v2_065`) — les contraintes du questionnaire : une valeur hors
         // liste est un 23514, DÉFINITIF pour la file mais pas pour le profil
@@ -9304,6 +9320,104 @@ const SETS_IMPORTES = [
     ok('[U10] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
+  console.log('\n══ 108. MA SALLE : LE CURL EZ À 30 KG, LA PLUS LOURDE DE LA SALLE (MOTEUR §10 bis) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : le cas réel d'Aurélien (Basic-Fit) — curl EZ, barres de 10 à 30 kg de 5 en 5,
+  // et trois séances à 30 × 12, 12 (le haut de Volume). Sans salle déclarée, le coach testerait 32,5 kg. Déclarée
+  // dans le Profil (« Ma salle »), la grille reste à 30 kg, on monte en reps, la dégressive prend la barre de 20 kg,
+  // et 3 reps de plus en séance ne font proposer aucune charge. La salle s'efface à la fin (rien ne change ensuite).
+  {
+    const tS = Date.now();
+    const poserS = (id, jours, lignes) => {
+      const debut = ilYa(jours * 86400000, tS).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: '108 — ' + id, debut,
+        fin: finDe(debut, tS).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], i) => base.sets.push({ id: id + '-s' + (i + 1), session_id: id,
+        user_id: 'u-banc', exercise_slug: 'curl-ez-108', charge_kg: kg, reps, duree_s: null, distance_m: null,
+        type_serie: 'travail', rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null,
+        ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poserS('s108-a', 15, [[30, 11], [30, 11]]);
+    poserS('s108-b', 8, [[30, 12], [30, 12]]);
+    poserS('s108-c', 1, [[30, 12], [30, 12]]);
+    const lignes108 = [['travail', 12], ['travail', 12], ['degressive', null]].map(([t, reps], i) => ({
+      id: 's108-l' + (++grainePr), rang: i + 1, type_serie: t, reps_visees: reps, charge_cible_kg: null,
+      duree_cible_s: null, distance_cible_m: null }));
+    ROUTINES.push({ id: 'r-108', nom: 'Salle 108', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-108-e', routine_id: 'r-108', exercise_slug: 'curl-ez-108', rang: 0,
+        routine_sets: lignes108, repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const esp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
+    const violationsAvant = gardeBanc.violations;
+    const ouvrirSalle = async () => {
+      await aller('/profil');
+      await jusqua(() => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .some((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0)), 8000);
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0)[0].click());
+      await attendre(500);
+    };
+    const bouton = (t) => page.evaluate((x) => Array.from(document.querySelectorAll('#feuille-contenu button'))
+      .filter((b) => b.textContent === x)[0].click(), t);
+    const plan108 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'curl-ez-108')[0];
+      const c = x && x.consigne;
+      return x ? { etat: c && c.etat, ligne: c && c.ligne, haut: c && c.haut, salle: x.salle,
+                   degressive: x.degressive ? { charge: x.degressive.charge, phrase: x.degressive.phrase } : null,
+                   coach: ((x.reaction && x.reaction.plan) || []).filter((q) => q.source === 'coach').length } : null;
+    });
+    const fantomes108 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+      .map((l) => (l.querySelector('.ch-serie input') || {}).placeholder || ''));
+
+    // 1. La salle déclarée dans le Profil : barres EZ 10, 15, 20, 25, 30.
+    await ouvrirSalle();
+    for (const kg of ['10', '15', '20', '25', '30']) {
+      await page.click('#feuille-contenu .salle-puces[data-type="barres_ez"] button[data-kg="' + kg + '"]');
+      await attendre(80);
+    }
+    await bouton('Valider');
+    await attendre(900);
+    ok('[108] la déclaration part en base : barres EZ 10 à 30', JSON.stringify((base.profiles[0] || {}).ma_salle) ===
+      JSON.stringify({ barres_ez: [10, 15, 20, 25, 30], barres_droites: [], halteres: null }), JSON.stringify((base.profiles[0] || {}).ma_salle));
+
+    // 2. La séance : la grille à 30 kg, jamais 32,5 ; la phrase ; la dégressive.
+    await aller('/saisie');
+    await demarrerRoutine('Salle 108');
+    await attendre(900);
+    const p1 = await plan108();
+    const f1 = await fantomes108();
+    ok('[108] DISCRIMINANT — à 30 kg, la plus lourde de la salle : on monte en reps (30 kg × 13), pas de test à 32,5',
+      !!p1 && p1.etat === 'salle_max' && p1.ligne.charge === 30 && p1.ligne.vise === 13 && p1.haut === null &&
+      JSON.stringify(f1.slice(0, 2)) === JSON.stringify(['30', '30']), JSON.stringify([p1, f1]));
+    const gris = esp(await texte('.legende-exo .consigne-dit'));
+    ok('[108] la phrase grise : « 30 kg, la plus lourde de ta salle : on monte en reps. »',
+      gris === '30 kg, la plus lourde de ta salle : on monte en reps.', gris);
+    ok('[108] DISCRIMINANT — la dégressive à barre fixe : 20 kg, « Prends la barre de 20 kg. »',
+      !!p1 && p1.degressive && p1.degressive.charge === 20 && f1[2] === '20' &&
+      esp(p1.degressive.phrase).indexOf('Prends la barre de 20 kg.') === 0, JSON.stringify([p1 && p1.degressive, f1]));
+
+    // 3. 3 reps de plus que visé (16 au lieu de 13) : aucune charge proposée au-delà de la salle.
+    await saisirSerie(0, 30, 16);
+    await attendre(900);
+    const p2 = await plan108();
+    ok('[108] DISCRIMINANT — 30 kg × 16 (3 de plus) : le coach ne propose aucune charge (la salle n’a rien au-delà)',
+      !!p2 && p2.coach === 0, JSON.stringify(p2));
+    ok('[108] la garde (C6) n’a rien signalé dans cette section (I46 compris)', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    await abandonner();
+
+    // 4. Effacer : non renseignée, rien ne change pour la suite du banc.
+    await ouvrirSalle();
+    await bouton('Effacer');
+    await attendre(900);
+    ok('[108] « Effacer » : la salle n’est plus déclarée (NULL)', (base.profiles[0] || {}).ma_salle === null,
+      JSON.stringify((base.profiles[0] || {}).ma_salle));
+    await aller('/saisie');
+    ok('[108] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
   console.log('\n══ 7 G octies. LA PHASE, GELÉE POUR LA SÉANCE ET ENREGISTRÉE AVEC CHAQUE PARI (49-U11, MOTEUR §9.16) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : la phase CHANGÉE EN PLEINE SÉANCE. Une
@@ -15856,13 +15970,14 @@ const SETS_IMPORTES = [
     };
     await aller('/profil');
     let sh = await sectionH();
-    ok('[R60] H — « CE QUE JE FAIS » : Matériel, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
-      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Exercices écartés|Refaire mon programme' &&
-        sh[1].val === 'Dos' && sh[2].val === '1' && sh[3].val === null, JSON.stringify(sh));
+    // 108 — « Ma salle » (ECRAN-PROFIL §2.4 quinquies) se range sous « Matériel ».
+    ok('[R60] H — « CE QUE JE FAIS » : Matériel, Ma salle, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
+      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Exercices écartés|Refaire mon programme' &&
+        sh[2].val === 'Dos' && sh[3].val === '1' && sh[4].val === null, JSON.stringify(sh));
     ok('[R60] H — les phrases de la spec (G10), au mot près',
-      !!sh && sh[1].sous === 'Ton programme construit la garde sans série lourde. Rien ne change en séance.' &&
-        sh[2].sous === 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.' &&
-        sh[3].sous === 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.', JSON.stringify(sh));
+      !!sh && sh[2].sous === 'Ton programme construit la garde sans série lourde. Rien ne change en séance.' &&
+        sh[3].sous === 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.' &&
+        sh[4].sous === 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.', JSON.stringify(sh));
     // Zone à ménager : une feuille à puces.
     await toucherH('Zone à ménager');
     const puces = () => page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
@@ -15878,15 +15993,15 @@ const SETS_IMPORTES = [
     await attendre(900);
     sh = await sectionH();
     ok('[R60] H — « Valider » : Dos et Genou écrits (dans l’ordre de la liste), la ligne dit « Dos, Genou »',
-      JSON.stringify(profilBase().zones_a_menager) === '["dos","genou"]' && sh[1].val === 'Dos, Genou',
-      JSON.stringify([profilBase().zones_a_menager, sh[1].val]));
+      JSON.stringify(profilBase().zones_a_menager) === '["dos","genou"]' && sh[2].val === 'Dos, Genou',
+      JSON.stringify([profilBase().zones_a_menager, sh[2].val]));
     await toucherH('Zone à ménager');
     await page.click('#feuille-contenu button[data-cle="aucune"]');
     await page.click('#feuille-contenu .feuille-pied .pri');
     await attendre(900);
     sh = await sectionH();
     ok('[R60] H — « Aucune » écrit le vide (NULL) ; la ligne dit « Aucune »',
-      profilBase().zones_a_menager === null && sh[1].val === 'Aucune', JSON.stringify([profilBase().zones_a_menager, sh[1].val]));
+      profilBase().zones_a_menager === null && sh[2].val === 'Aucune', JSON.stringify([profilBase().zones_a_menager, sh[2].val]));
     // Exercices écartés : la liste, « Reprendre ».
     await toucherH('Exercices écartés');
     const liste = () => page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
@@ -15900,7 +16015,7 @@ const SETS_IMPORTES = [
     li = await liste();
     sh = await sectionH();
     ok('[R60] H — « Reprendre » : l’exercice n’est plus écarté (NULL), la feuille se ferme, la ligne « Exercices écartés » s’efface',
-      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Refaire mon programme',
+      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Refaire mon programme',
       JSON.stringify([profilBase().exercices_ecartes, li.ouverte, sh && sh.map((l) => l.lib)]));
     // Refaire mon programme : « Retour » ramène au Profil sans rien écrire.
     const avantRefaire = JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ROUTINES.length]);

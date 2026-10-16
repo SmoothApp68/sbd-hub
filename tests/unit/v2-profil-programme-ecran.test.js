@@ -69,17 +69,19 @@ describe('Profil.lignesProgramme — trois lignes, leurs phrases au mot près', 
 
 // ═══ L'ÉCRAN PROFIL ═════════════════════════════════════════════════════════
 describe('l’écran Profil : la section du matériel porte le programme construit', () => {
-  test('« CE QUE JE FAIS » : Matériel, puis les trois lignes ; chaque ligne ouvre sa feuille par `ouvrirProgrammeProfil`', () => {
+  test('« CE QUE JE FAIS » : Matériel, Ma salle (108), puis les trois lignes ; chaque ligne ouvre sa feuille par `ouvrirProgrammeProfil`', () => {
     const e = profilEcran({ id: 'u1', exercices_ecartes: ['squat_barre'] });
     const s = e.section('CE QUE JE FAIS');
-    expect(s.lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Zone à ménager', 'Exercices écartés', 'Refaire mon programme']);
-    s.lignes.slice(1).forEach((l) => l.surChoix());
+    expect(s.lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Ma salle', 'Zone à ménager', 'Exercices écartés', 'Refaire mon programme']);
+    s.lignes.slice(2).forEach((l) => l.surChoix());
     expect(e.programmesOuverts).toEqual(['zones', 'ecartes', 'refaire']);
+    s.lignes[1].surChoix();
+    expect(e.sallesOuvertes).toEqual([true]);
   });
 
-  test('sans écarté : trois lignes seulement', () => {
+  test('sans écarté : trois lignes seulement (et Ma salle)', () => {
     const e = profilEcran({ id: 'u1' });
-    expect(e.section('CE QUE JE FAIS').lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Zone à ménager', 'Refaire mon programme']);
+    expect(e.section('CE QUE JE FAIS').lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Ma salle', 'Zone à ménager', 'Refaire mon programme']);
   });
 
   test('le rendu réel : la phrase d’aide sous chaque libellé, « à renseigner » jamais pour « Refaire »', () => {

@@ -12956,6 +12956,14 @@
           redessiner();
         },
         surValider: function () {
+          // 116 (03 #8) — un « jusqu'à » vidé ou illisible n'efface pas les haltères déclarés : la feuille reste
+          // ouverte, le plus lourd déclaré revient dans le champ, une phrase dit pourquoi.
+          var garde = Profil.halteresGardees(profil, brouillon);
+          if (garde) {
+            brouillon = garde.brouillon;
+            erreur = garde.phrase;
+            return redessiner();
+          }
           var champs = Profil.champsSalle(brouillon);
           if (!champs) {
             erreur = 'Haltères : le plus lourd entre ' + Profil.SALLE_HALTERES_MIN + ' et ' + Profil.SALLE_HALTERES_MAX +

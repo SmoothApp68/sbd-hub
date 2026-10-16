@@ -1317,6 +1317,18 @@
     var s = salleValide(b);
     return s === undefined ? null : { ma_salle: s };
   }
+  // 116 (audit du 16/10/2026, 03 #8) — UN « JUSQU'À » VIDÉ OU ILLISIBLE N'EFFACE PAS LES HALTÈRES DÉCLARÉS. Le champ
+  // est numérique : une faute de frappe (« 4O ») s'y lit vide, et « Valider » écrivait la salle SANS haltères, sans
+  // un mot. Haltères déjà déclarés et plus lourd absent du brouillon : la feuille reste ouverte, le brouillon reprend
+  // le plus lourd déclaré (l'écart choisi est gardé), et une phrase dit pourquoi. `null` : rien à garder.
+  function halteresGardees(profil, brouillon) {
+    var s = salleDe(profil), h = brouillon && brouillon.halteres;
+    if (!s || !s.halteres || !h || (h.max !== null && h.max !== undefined)) return null;
+    var b = Object.assign({}, brouillon, { halteres: { max: s.halteres.max, pas: h.pas, pasChoisi: true } });
+    return { brouillon: b,
+             phrase: '« Jusqu’à » vide ou illisible : tes haltères restent à ' + s.halteres.max + ' kg.' };
+  }
+
   // « EZ, droite, haltères » — ce qui est déclaré ; `null` : non renseigné.
   function resumeSalle(profil) {
     var s = salleDe(profil);
@@ -1635,7 +1647,7 @@
     PHRASE_SALLE: PHRASE_SALLE, PHRASE_BARRES_FIXES: PHRASE_BARRES_FIXES,
     salleValide: salleValide, salleDe: salleDe, brouillonSalle: brouillonSalle, basculerBarre: basculerBarre,
     pucesDeBarres: pucesDeBarres, champsSalle: champsSalle, poserMaxHalteres: poserMaxHalteres,
-    poserPasHalteres: poserPasHalteres, SALLE_PAS_DEFAUT: SALLE_PAS_DEFAUT, resumeSalle: resumeSalle, ligneSalle: ligneSalle,
+    poserPasHalteres: poserPasHalteres, halteresGardees: halteresGardees, SALLE_PAS_DEFAUT: SALLE_PAS_DEFAUT, resumeSalle: resumeSalle, ligneSalle: ligneSalle,
     estBarreEZ: estBarreEZ, salleDeLExercice: salleDeLExercice
   };
 

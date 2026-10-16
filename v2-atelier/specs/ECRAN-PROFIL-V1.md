@@ -143,6 +143,10 @@ renseigné : le coach suppose qu'on peut ajouter des disques, comme aujourd'hui.
 - **Valider** écrit la déclaration ; **Annuler** n'écrit rien ; **Effacer** (seulement si une salle est déclarée) écrit
   le vide — non renseignée, rien ne change. Une valeur hors bornes ne ferme pas la feuille : une phrase le dit (les
   bornes doublent la contrainte de la base, §5.7).
+- **Un « Jusqu'à » vidé ou illisible n'efface pas les haltères déclarés** (audit du 16/10/2026, prompt 116) : la
+  feuille reste ouverte, le plus lourd déclaré revient dans le champ (l'écart choisi est gardé), et une phrase dit
+  pourquoi : « « Jusqu'à » vide ou illisible : tes haltères restent à 40 kg. » Le champ est numérique : une faute de
+  frappe s'y lit vide, et « Valider » écrivait la salle sans haltères, sans un mot.
 
 **En base** : `profiles.ma_salle` (jsonb, migration `v2_088`, `NULL` = non renseignée) :
 `{ "barres_ez": [10, 15, 20, 25, 30], "barres_droites": [10, 15, 20, 25, 30], "halteres": { "max": 40, "pas": 2 } }`.

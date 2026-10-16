@@ -22,13 +22,19 @@
   function Modele() { return racine.THModele; }
 
   var GRANDEUR = 'jours';
-  var VERSION = '1';
+  // 120 (D12) — '2' : le plafond « moins d'un an » en deux temps ; un pari dit la règle qui l'a posé.
+  var VERSION = '2';
 
   // LE PLAFOND DU RYTHME — le seuil « hors littérature » du REFERENTIEL-BORNES (§1.2), selon l'ancienneté déclarée
   // (`profiles.anciennete`) : il ne coupe que l'impossible ; la fourchette personnelle reste la référence. Une part
   // du record d'il y a un an, sur une durée en jours, convertie en kg par mois une fois, à la pose.
+  //
+  // 120 (D12, décision d'Aurélien du 16/10/2026, audit 01 #12) — « moins d'un an » = « +40 % sur les 12 premières
+  // semaines, puis +20 %/an » : le plafond a DEUX temps (`puis`), comptés depuis la pose. Avant, 40 % / 12 semaines
+  // s'étendait à toute l'année projetée (≈ 14,5 % par mois, +174 % par an) : il ne coupait rien. Les autres tranches
+  // n'ont qu'un temps, inchangé.
   var PLAFONDS = {
-    moins_1_an: { part: 0.40, jours: 84 },        // 40 % sur 12 semaines
+    moins_1_an: { part: 0.40, jours: 84, puis: { part: 0.20, jours: 365 } },   // 40 % sur 12 semaines, puis 20 % par an
     '1_a_3_ans': { part: 0.20, jours: 365 },      // 20 % par an
     '3_a_5_ans': { part: 0.15, jours: 365 },      // 15 % par an
     plus_5_ans: { part: 0.15, jours: 365 }
@@ -182,7 +188,20 @@
     if (!(brut > EPS)) return Object.assign(base, calcul, { etat: 'pas_encore', raison: 'rythme_nul', rythme: 0 });
     var rythme = Math.min(brut, plafond);
     calcul.rythme = arrondi(rythme, 4);
-    var tProjete = t0 + (charge - maintenant.charge) / rythme * JOURS_PAR_MOIS * JOUR_MS;
+    var reste = charge - maintenant.charge;
+    var tProjete;
+    if (p.puis) {
+      // D12 — deux temps : le premier plafond pendant `p.jours` (12 semaines) depuis la pose, le second ensuite.
+      var plafondApres = ref.charge * p.puis.part / (p.puis.jours / JOURS_PAR_MOIS);
+      var rythmeApres = Math.min(brut, plafondApres);
+      calcul.plafond_apres = arrondi(plafondApres, 4);
+      calcul.rythme_apres = arrondi(rythmeApres, 4);
+      var moisPremier = p.jours / JOURS_PAR_MOIS, gainPremier = rythme * moisPremier;
+      var moisProjetes = reste <= gainPremier + EPS ? reste / rythme : moisPremier + (reste - gainPremier) / rythmeApres;
+      tProjete = t0 + moisProjetes * JOURS_PAR_MOIS * JOUR_MS;
+    } else {
+      tProjete = t0 + reste / rythme * JOURS_PAR_MOIS * JOUR_MS;
+    }
     var limite = new Date(t0); limite.setMonth(limite.getMonth() + MOIS_MAX);
     if (tProjete > limite.getTime()) return Object.assign(base, calcul, { etat: 'plus_d_un_an' });
     var d = new Date(tProjete);
@@ -197,7 +216,7 @@
   // pour un pari de consigne. Le fondement ne porte PAS `seance` : le pari ne dépend d'aucune séance.
   function pariDe(o, pr, userId, id) {
     if (!pr || pr.etat !== 'date') return null;
-    return {
+    var pari = {
       id: id, user_id: userId || null, module: racine.THMoteur.MODULE_OBJECTIF, module_version: VERSION,
       emise_a: o.pose_le, exercise_slug: null, grandeur: GRANDEUR,
       horizon_jours: pr.jours, valeur_predite: pr.jours, borne_basse: null, borne_haute: null,
@@ -209,6 +228,13 @@
       },
       valeur_observee: null, observee_a: null, set_observe: null
     };
+    // 120 (D12) — le second temps du plafond « moins d'un an » (après 12 semaines), seulement quand il s'applique : le
+    // fondement des autres tranches ne change pas.
+    if (pr.plafond_apres !== undefined) {
+      pari.fondement.plafond_apres = pr.plafond_apres;
+      pari.fondement.rythme_apres = pr.rythme_apres;
+    }
+    return pari;
   }
 
   // La ligne `objectifs` posée : ce que la page relira, figé.

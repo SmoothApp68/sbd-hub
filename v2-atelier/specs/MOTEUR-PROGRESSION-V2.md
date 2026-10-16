@@ -1445,6 +1445,8 @@ Où : la page de l'exercice (« Mon objectif », jauge depuis le record, la lign
 
 Exception à « jamais le délai » : la règle d'ECRAN-SAISIE §3.5, §7 bis.15 et ECRAN-PROFIL §2.6 reste en vigueur partout, sauf pour un objectif posé par la personne, à l'essai. »
 
+**Le plafond « moins d'un an », révisé — décision d'Aurélien du 16/10/2026 (D12, audit du 16/10, objectif à l'essai)** : « « moins d'un an » = +40 % sur les 12 premières semaines, puis +20 %/an. » Remplace « moins d'un an : 40 % sur 12 semaines » converti en kg par mois et appliqué jusqu'à 12 mois (≈ 14,5 % par mois, +174 % par an : le plafond ne coupait rien, audit 01 #12). Le plafond a désormais deux temps, comptés depuis la pose : pendant 12 semaines, 40 % du record d'il y a un an sur 84 jours ; ensuite, 20 % par an ; le rythme de chaque temps est le plus petit du rythme personnel et de son plafond. Les autres tranches sont inchangées (1 à 3 ans : 20 % par an ; au-delà ou non renseignée : 15 % par an). Le pari porte les deux temps (`fondement.plafond_apres`, `rythme_apres`) ; le module des paris d'objectif passe en version 2.
+
 **Les trois points tranchés ensuite (Claude.ai, 16/10/2026).** Un objectif déjà atteint est refusé, avec le fait (« Déjà fait : 152,5 kg × 3, le 3 mars. »). En « Juste un carnet », l'objectif et la jauge s'affichent, mais ni la date ni le pari. La contrainte `predictions_observation_coherente` n'est pas étendue : l'observation se rattache toujours à une série.
 
 **Ce que le code en a fait (109, choix validés le 16/10/2026).**

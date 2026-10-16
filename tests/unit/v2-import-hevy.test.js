@@ -103,6 +103,47 @@ describe('69 — les formes de série (K1 : la lecture du v1, règle pour règle
     expect(une('Série 1: 20 kg x 8').charge_kg).toBe(20);
     expect(() => une('Série 1: - kg x 8')).toThrow(/illisible/);
   });
+  // 118 (audit du 16/10, 03 #12) — un Hevy réglé en anglais : « mois illisible : jun », et l'écran disait « pas un
+  // export ». Aucune fixture anglaise au dépôt : la forme relevée par l'audit (« 16 Jun 2026, 10:24 ») et celle du
+  // prompt 118 (« Oct 2, 2026, 5:54 PM »).
+  test('⚠️ DISCRIMINANT — le CSV d’un Hevy en anglais se lit (seule la date change de langue)', () => {
+    const entete = 'title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,' +
+      'weight_kg,reps,distance_km,duration_seconds,rpe\n';
+    const csv = entete +
+      '"Push","16 Jun 2026, 10:24","16 Jun 2026, 11:30",,"Bench Press (Barbell)",,,0,"warmup",60,10,,,\n' +
+      '"Legs","Oct 2, 2026, 5:54 PM","Oct 2, 2026, 7:01 PM",,"Squat (Barbell)",,,0,"normal",140,5,,,\n' +
+      '"Nuit","Jan 1, 2026, 12:05 AM","",,"Squat (Barbell)",,,0,"normal",100,5,,,\n';
+    const s = I.lireCsv(csv);
+    expect(s.map((x) => [x.debut_local, x.fin_local])).toEqual([['2026-06-16T10:24', '2026-06-16T11:30'],
+      ['2026-10-02T17:54', '2026-10-02T19:01'], ['2026-01-01T00:05', null]]);
+    expect(s[0].exercices[0].series[0].type_serie).toBe('echauffement');
+    // Le français ne change pas.
+    expect(I.lireCsv(entete + '"R","2 oct. 2026, 17:54","",,"Squat",,,0,"normal",100,5,,,\n')[0].debut_local)
+      .toBe('2026-10-02T17:54');
+  });
+  test('un texte partagé en anglais n’est pas lu, et l’erreur dit l’anglais ; une date française illisible, non', () => {
+    let e = null;
+    try { I.lireTexte('Legs\nThursday, Oct 2, 2026 at 5:54pm\n\nSquat (Barbell)\nSet 1: 100 kg x 5 [Warm-up]\n'); } catch (x) { e = x; }
+    expect(e && e.enAnglais).toBe(true);
+    e = null;
+    try { I.lireTexte('S\nLe mardi, sept 22 2026 à 5:12pm\nExo\n'); } catch (x) { e = x; }
+    expect(e).not.toBeNull();
+    expect(!!e.enAnglais).toBe(false);
+    // Un CSV dont la date anglaise n'a pas une forme connue : « enAnglais », jamais « pas un export ».
+    e = null;
+    try {
+      I.lireCsv('title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,' +
+        'weight_kg,reps,distance_km,duration_seconds,rpe\n"R","June 16th 2026 10:24","",,"Squat",,,0,"normal",100,5,,,\n');
+    } catch (x) { e = x; }
+    expect(e && e.enAnglais).toBe(true);
+    expect(!!e.pasUnExport).toBe(false);
+  });
+  test('les deux phrases, et le branchement (app.js)', () => {
+    expect(I.MESSAGES.fichierAnglais).toBe('Export en anglais : change la langue de Hevy en français et réexporte.');
+    expect(I.MESSAGES.texteAnglais).toBe('Texte en anglais : change la langue de Hevy en français et copie-le de nouveau.');
+    const app = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/app.js'), 'utf8');
+    expect(app).toMatch(/imp\.erreur = enAnglais \? \(genre === 'csv' \? M\.fichierAnglais : M\.texteAnglais\)/);
+  });
   test('une distance ou une durée à 0 est VIDE (CSV)', () => {
     const csv = 'title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,' +
       'weight_kg,reps,distance_km,duration_seconds,rpe\n' +

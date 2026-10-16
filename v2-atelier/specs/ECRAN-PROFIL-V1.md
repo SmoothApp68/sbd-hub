@@ -202,6 +202,14 @@ français) ; `set_type` normal → travail, warmup → échauffement, dropset �
 → la note de la séance ; `exercise_notes` → la note de l'exercice ; `superset_id` → `groupe_superset`, **un superset
 d'un seul exercice n'en est pas un** (ECRAN-SAISIE §5.9) ; une distance ou une durée à 0 est vide.
 
+**Un Hevy réglé en anglais** (16/10/2026, audit du 16/10, 03 #12). L'export CSV ne change de langue que par ses
+dates : elles se lisent aussi en anglais — « 16 Jun 2026, 10:24 » (la forme relevée par l'audit) et « Oct 2, 2026,
+5:54 PM ». Aucun export anglais réel n'est encore au dépôt : une autre forme reste illisible. Le **texte partagé** en
+anglais n'est pas lu (ses mots de série — échauffement, dégressive — n'ont jamais été relevés, et les deviner
+rangerait une chauffe en série de travail). Dans les deux cas, une date illisible qui porte un mot anglais ne dit plus
+« pas un export » mais « Export en anglais : change la langue de Hevy en français et réexporte. » (CSV) ou « Texte en
+anglais : change la langue de Hevy en français et copie-le de nouveau. » (texte).
+
 **L'heure.** Hevy écrit l'heure **locale, sans fuseau**. Elle se lit dans le fuseau du téléphone et part en base en
 heure universelle. *(L'import CSV d'août l'avait écrite telle quelle : 1 221 séances décalées de 1 à 2 h, corrigées
 par `v2_075` le 11/10, records compris.)*

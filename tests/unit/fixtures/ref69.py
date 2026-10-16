@@ -7,7 +7,11 @@ import csv, io, json, re, sys, hashlib
 
 MOIS = {'janv': 1, 'janvier': 1, 'fevr': 2, 'fevrier': 2, 'mars': 3, 'avr': 4, 'avril': 4, 'mai': 5, 'juin': 6,
         'juil': 7, 'juillet': 7, 'aout': 8, 'sept': 9, 'septembre': 9, 'oct': 10, 'octobre': 10, 'nov': 11,
-        'novembre': 11, 'dec': 12, 'decembre': 12}
+        'novembre': 11, 'dec': 12, 'decembre': 12,
+        # 118 (audit du 16/10, 03 #12) : les mois d'un export réglé en anglais.
+        'jan': 1, 'january': 1, 'feb': 2, 'february': 2, 'mar': 3, 'march': 3, 'apr': 4, 'april': 4, 'may': 5,
+        'jun': 6, 'june': 6, 'jul': 7, 'july': 7, 'aug': 8, 'august': 8, 'sep': 9, 'september': 9, 'october': 10,
+        'november': 11, 'december': 12}
 SANS = str.maketrans('àâäéèêëîïôöùûüçœ', 'aaaeeeeiioouuuco')
 
 
@@ -126,10 +130,20 @@ TYPES_CSV = {'normal': 'travail', 'warmup': 'echauffement', 'dropset': 'degressi
 
 
 def date_csv(s):
-    m = re.match(r'^(\d{1,2})\s+([^\s]+?)\.?\s+(\d{4}),\s+(\d{1,2}):(\d{2})$', norme(s))
-    if not m: raise ValueError('date illisible : ' + s)
-    j, mois, a, h, mi = m.groups()
-    return '%s-%02d-%02dT%02d:%s' % (a, MOIS[mois], int(j), int(h), mi)
+    # 118 (audit du 16/10, 03 #12) : aussi « 16 Jun 2026, 10:24 » et « Oct 2, 2026, 5:54 PM » (Hevy en anglais).
+    t = norme(s)
+    m = re.match(r'^(\d{1,2})\s+([^\s]+?)\.?\s+(\d{4}),\s+(\d{1,2}):(\d{2})\s*(am|pm)?$', t)
+    if m:
+        j, mois, a, h, mi, ap = m.groups()
+    else:
+        m = re.match(r'^([a-z]+)\.?\s+(\d{1,2}),\s+(\d{4}),\s+(\d{1,2}):(\d{2})\s*(am|pm)?$', t)
+        if not m: raise ValueError('date illisible : ' + s)
+        mois, j, a, h, mi, ap = m.groups()
+    if mois not in MOIS: raise ValueError('date illisible : ' + s)
+    h = int(h)
+    if ap == 'pm' and h < 12: h += 12
+    if ap == 'am' and h == 12: h = 0
+    return '%s-%02d-%02dT%02d:%s' % (a, MOIS[mois], int(j), h, mi)
 
 
 def vide(x):

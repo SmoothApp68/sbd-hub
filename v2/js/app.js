@@ -13592,14 +13592,15 @@
     if (!imp || imp.occupe) return;
     var M = Import.MESSAGES;
     imp.erreur = null;
-    var lues = null;
+    var lues = null, enAnglais = false;
     try { lues = genre === 'csv' ? Import.lireCsv(texte) : Import.lireTexte(texte); }
-    catch (e) { lues = null; }
+    catch (e) { lues = null; enAnglais = !!(e && e.enAnglais); }
     // ⚠️ UNE SÉANCE COLLÉE SANS SON LIEN n'a pas de référence (`hevy:<id>`) :
     // ni l'anti-doublon ni l'identifiant tiré du nom ne la tiendraient. Le
     // texte est refusé en entier — jamais à moitié lu.
     if (!lues || !lues.length || lues.some(function (l) { return !l.ref; })) {
-      imp.erreur = genre === 'csv' ? M.fichier : M.texte;
+      // 118 (audit du 16/10, 03 #12) — un Hevy réglé en anglais ne se dit pas « pas un export ».
+      imp.erreur = enAnglais ? (genre === 'csv' ? M.fichierAnglais : M.texteAnglais) : genre === 'csv' ? M.fichier : M.texte;
       return rendreImportEcran();
     }
     // L'aperçu lit les noms d'exercices EN BASE : il demande une connexion (et

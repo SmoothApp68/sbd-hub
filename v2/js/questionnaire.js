@@ -437,10 +437,12 @@
         { type: 'champs', champs: [
           { cle: 'annee', libelle: 'Année de naissance', unite: null, mode: 'numeric',
             valeur: texteDe(etat, 'annee', rep.annee), erreur: erreurs.annee || null,
-            aide: 'Elle servira à régler la prudence de tes charges de départ, quand je construirai ton programme.' },
+            // 116 (audit du 16/10/2026, 03 #9) — rien ne lit l'âge ni la taille (le programme construit ne pose jamais
+            // de charge, QUESTIONNAIRE §5 bis) : la phrase dit ce qui est vrai, sans promettre.
+            aide: 'Je ne m’en sers pas encore. Elle pourra régler la prudence de tes charges de départ.' },
           { cle: 'taille', libelle: 'Taille', unite: 'cm', mode: 'numeric',
             valeur: texteDe(etat, 'taille', rep.taille), erreur: erreurs.taille || null,
-            aide: 'Avec ton poids, ta corpulence : elle servira à tes charges de départ, quand je construirai ton programme.' },
+            aide: 'Je ne m’en sers pas encore. Avec ton poids, elle pourra aider à choisir tes charges de départ.' },
           { cle: 'poids', libelle: 'Poids', unite: 'kg', mode: 'decimal',
             valeur: texteDe(etat, 'poids', rep.poids, true), erreur: erreurs.poids || null,
             aide: 'Tractions, dips et pompes, et ta force rapportée à ton poids.' }

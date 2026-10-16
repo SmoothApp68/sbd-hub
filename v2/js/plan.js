@@ -504,6 +504,8 @@
       var entree = {
         equipement: materiel.equipement, reference: reference,
         deja_sollicite: !!materiel.deja_sollicite, sol: !!materiel.sol, cran: materiel.pas,
+        // §10 bis (108) — la salle déclarée pour l'exercice, ou `null`.
+        salle: materiel.salle || null,
         routine: deChauffe.length ? deChauffe.map(function (l) {
           var v = nombre(liste[l.iSerie] && liste[l.iSerie].reps_visees);
           return v;
@@ -580,7 +582,7 @@
     if (charge !== null && charge <= 0) return sortie;
     var capD = Voix().capturer(function () {
       return M.degressiveDe({ equipement: materiel.equipement, derniere_serie: charge,
-                             reps_travail: reps, cran: materiel.pas });
+                             reps_travail: reps, cran: materiel.pas, salle: materiel.salle || null });
     });
     var d = capD.texte;
     sortie.citations.degressive = capD.citations;
@@ -593,6 +595,8 @@
     // que le coach ne peut pas remplir porte ses deux gestes (« En faire une
     // série normale », « La retirer »), tant qu'elle n'est pas faite.
     if (d.enleve !== undefined) sortie.degressive.enleve = d.enleve;
+    // §10 bis (108) — à la barre fixe, on change de barre (« Prends la barre de 20 kg. »).
+    if (d.barreFixe) sortie.degressive.barreFixe = true;
     if (d.gestes && !deg.validee) sortie.degressive.gestes = d.gestes.slice();
     return sortie;
   }
@@ -639,6 +643,10 @@
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
+    // §10 bis (108) — UNE SEULE SALLE PAR EXERCICE : celle figée avec la consigne
+    // (la salle déclarée, en vigueur sur son palier) ; sans consigne, celle du
+    // catalogue. Chauffes, dégressive et I46 lisent la même.
+    if (materiel) materiel = Object.assign({}, materiel, { salle: c ? (c.salle || null) : (materiel.salle || null) });
     var base = { iExo: iExo, slug: exo ? exo.exercise_slug : null, consigne: null,
                  occurrence: exo && exo.occurrence ? exo.occurrence : null };
     if (!c) {
@@ -649,6 +657,7 @@
       // dégressive se cale sur la dernière série de travail faite.
       var sans = chauffesEtDegressive(base.lignes, series, null, materiel || null);
       base.materiel = materiel ? materiel.equipement || null : null;
+      base.salle = materiel ? materiel.salle || null : null;
       base.chauffes = null;
       base.proposition = null;
       base.degressive = sans.degressive;
@@ -854,6 +863,8 @@
       donc: donc,
       pourquoi: pourquoi,
       materiel: materiel ? materiel.equipement || null : null,
+      // §10 bis (108) — la salle de l'exercice, ou `null` : I46 la relit.
+      salle: materiel ? materiel.salle || null : (c.salle || null),
       chauffes: autour.chauffes, proposition: autour.proposition, degressive: autour.degressive,
       phrases: phrases
     };
@@ -964,7 +975,10 @@
       sol: Moteur().SOULEVES_AU_SOL.indexOf(slug) >= 0,
       deja_sollicite: deja,
       pas: pas,
-      refus: !!(refus && refus[slug])
+      refus: !!(refus && refus[slug]),
+      // §10 bis (108) — la salle déclarée pour cet exercice (`THProfil.
+      // salleDeLExercice`, résolue par l'app au catalogue), ou `null`.
+      salle: cat.salle || null
     };
   }
 
@@ -1076,11 +1090,15 @@
     // la séance reste celle que la personne a posée. I13 le garde.
     var esc = intentionProfil === 'entretien' ? { allegee: null, carte: null } : escalierDuPlan(e, seance, consignes);
     var seriesRoutine = (e.escalier && e.escalier.seriesRoutine) || {};
-    var isoles = marchesIsolees(e, seance, consignes, esc, phase);
+    // §14 (111) — le DÉBUTANT (« moins d'un an », `Profil.estDebutant`), gelé
+    // pour la séance par l'app : la dégressive proposée ne lui est jamais faite.
+    var debutant = e.debutant === true;
+    var isoles = marchesIsolees(e, seance, consignes, esc, phase, intentionProfil);
     // PR 3 (relevé du 01/10) — la dernière séance de chaque exercice, pour le
     // pré-remplissage des lignes que le plan ne couvre pas.
     var precedents = e.precedents || {};
     var plus = seriesDePlusActives(e, seance, consignes, esc, phase);
+    var degPlus = degressivesActives(e, seance, consignes, esc, phase, intentionProfil);
     // Une marche par EXERCICE (I21) : un exercice présent deux fois dans la
     // séance ne la porte que sur sa première occurrence ; le repli, lui, est la
     // consigne de l'exercice — les deux occurrences la lisent.
@@ -1094,6 +1112,7 @@
       // réponse du lest : trois faits que les invariants relisent (I13, I29).
       edition: !!seance.edition,
       intention: intentionProfil,
+      debutant: debutant,
       lestReponse: lestReponse,
       allegee: esc.allegee,
       carte: esc.carte,
@@ -1145,6 +1164,12 @@
         // `entrees.volume`. Un fait, rien d'affiché : la série de plus (PR 2c)
         // le lira. `null` sans entrée de volume.
         x.placeSerieDePlus = placeDeLExercice(e, slug, phase);
+        // §14 (111) — ce que la dégressive proposée lit, porté pour I48 : la
+        // classe de l'exercice (`null` hors catalogue), la ligne dégressive de
+        // la routine (figée à l'ouverture), la dégressive en cours.
+        x.polyarticulaire = polyarticulaireDe(e, slug);
+        x.degressiveRoutine = degressiveDeLaRoutine(e, seance, slug);
+        x.degressiveEnCours = !!(c && c.consigne && Object.prototype.hasOwnProperty.call(degPlus, slug));
         var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
         x.mesure = cat && cat.mesure !== undefined ? cat.mesure : null;
         x.mode = modeX;
@@ -1316,6 +1341,9 @@
       var n = c && c.consigne && c.compteur && typeof c.compteur.compteur === 'number' ? c.compteur.compteur : null;
       if (n === null) return;
       poser(jour, slug, n);
+      // §10 bis (16/10/2026) — À LA PLUS LOURDE DE SA SALLE, l'escalier ne propose rien sur l'exercice et ne pose
+      // aucun pari : il ne déclenche pas la semaine allégée (son pari le nommerait). Son compteur reste un fait.
+      if (aLaPlusLourde(c)) return;
       ouverts.push(slug);
     });
     return { jours: jours, ouverts: ouverts };
@@ -1345,7 +1373,13 @@
       ? CITATIONS_DES_CARTES.get(carte) : null;
   }
 
-  function marchesIsolees(e, seance, consignes, esc, phase) {
+  // §10 bis (16/10/2026) — l'exercice est-il à la plus lourde de sa salle ? La définition du moteur, sur la consigne
+  // figée et la salle déclarée (`c.salle`, figée avec elle) — une lecture, jamais une seconde règle.
+  function aLaPlusLourde(c) {
+    return !!(c && c.consigne && c.salle && Moteur().aLaPlusLourdeDeLaSalle(c.consigne, c.salle));
+  }
+
+  function marchesIsolees(e, seance, consignes, esc, phase, intentionProfil) {
     var sortie = {};
     var E = e.escalier;
     if (!E || seance.edition || esc.allegee) return sortie;
@@ -1366,6 +1400,9 @@
     Object.keys(consignes).forEach(function (slug) {
       var c = consignes[slug];
       if (pris[slug] || !c || !c.consigne || !c.compteur || typeof c.compteur.compteur !== 'number') return;
+      // §10 bis (16/10/2026) — à la plus lourde de sa salle : ni schéma, ni série de plus, ni repli, ni silence
+      // à dire — aucune marche, aucun pari. Le compteur continue, sa phrase reste un fait (l'en-tête).
+      if (aLaPlusLourde(c)) return;
       var k = c.compteur.compteur;
       var zone = c.consigne.zone;
       var n = M.nIsole(k, M.declenchementsRepondus(slug, jour, k, cartes, compteurs));
@@ -1373,7 +1410,16 @@
       // une série de plus déjà proposée depuis le dernier progrès.
       var place = placeDeLExercice(e, slug, phase);
       var proposee = M.serieDePlusProposee(slug, jour, k, marches, compteurs);
-      var marche = M.marcheIsolee(n, zone, phase, place, proposee, c.consigne.palier);
+      // §14 (111) — la dégressive proposée : ses conditions, une dégressive
+      // déjà proposée depuis le dernier progrès, et répondue dans cette séance.
+      var deg = {
+        possible: M.degressivePossible(conditionsDegressive(e, seance, slug, zone, phase, esc, intentionProfil)),
+        proposee: M.degressiveProposee(slug, jour, k, marches, compteurs),
+        ici: marches.some(function (x) {
+          return x && x.seance === seance.id && x.exercice === slug && x.marche === M.MARCHE_DEGRESSIVE;
+        })
+      };
+      var marche = M.marcheIsolee(n, zone, phase, place, proposee, c.consigne.palier, deg);
       if (!marche) return;
       // §9.22 (53-2, I39) — « CHANGER DE SCHÉMA » SE TAIT pour un exercice d'un
       // bloc en cours : le bloc fixe déjà son schéma. Le repli et la série de
@@ -1387,7 +1433,9 @@
         if (c.repli) m.repli = c.repli;
         else { m.marche = M.MARCHE_SILENCE; m.saute = true; }
       }
-      if (marche === M.MARCHE_SCHEMA || marche === M.MARCHE_SERIE_DE_PLUS) {
+      // §14 (111) — I48 relit sur la marche qu'une série de plus a précédé la dégressive.
+      if (marche === M.MARCHE_DEGRESSIVE) m.serieDePlusProposee = proposee;
+      if (marche === M.MARCHE_SCHEMA || marche === M.MARCHE_SERIE_DE_PLUS || marche === M.MARCHE_DEGRESSIVE) {
         // UNE MARCHE PROPOSÉE NE REVIENT PAS (§14.7, delta 49-35) : répondue
         // dans cette séance, ou proposée depuis le dernier progrès (une autre
         // séance du même déclenchement) — la même règle pour le schéma et la
@@ -1402,6 +1450,7 @@
           if (J === null) J = joursDesCompteurs(E, seance, consignes, jour);
           var avancent = M.autresAvancent(J.jours, jour, slug);
           var capCarte = Voix().capturer(function () {
+            if (marche === M.MARCHE_DEGRESSIVE) return M.carteDegressive(c.compteur.meilleur, k);
             return marche === M.MARCHE_SCHEMA
               ? M.carteSchema(zone, c.compteur.meilleur, k, avancent)
               : M.carteSerieDePlus(c.compteur.meilleur, k, avancent, musclesPrimaires(e, slug),
@@ -1413,6 +1462,81 @@
         }
       }
       sortie[slug] = m;
+    });
+    return sortie;
+  }
+
+  // §14 (111) — LA DÉGRESSIVE PROPOSÉE : les conditions de l'exercice, lues
+  // sur les entrées gelées de la séance. `Moteur.degressivePossible` décide.
+  function conditionsDegressive(e, seance, slug, zone, phase, esc, intentionProfil) {
+    var modes = e.modes || {};
+    var modeX = Object.prototype.hasOwnProperty.call(modes, slug) && modes[slug] ? modes[slug] : null;
+    return {
+      polyarticulaire: polyarticulaireDe(e, slug),
+      zone: zone, phase: phase,
+      allegee: !!(esc && esc.allegee),
+      entretien: Moteur().intentionDe(intentionProfil || 'progresser', modeX) === 'entretien',
+      debutant: e.debutant === true,
+      aUneDegressive: degressiveDeLaRoutine(e, seance, slug)
+    };
+  }
+
+  // La classe de l'exercice au catalogue : `Moteur.estPolyarticulaire` (au
+  // moins 3 muscles principaux, secondaires et stabilisateurs — la définition
+  // de la salle, du raccourci, du générateur). `null` hors catalogue : ni
+  // isolation ni polyarticulaire, aucune dégressive proposée.
+  function polyarticulaireDe(e, slug) {
+    var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
+    if (!cat) return null;
+    return Moteur().estPolyarticulaire({ prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [],
+                                         stab: cat.muscles_stabilisateurs || [] });
+  }
+
+  // La routine (ou la saisie) a-t-elle déjà une ligne dégressive sur
+  // l'exercice ? FIGÉ À L'OUVERTURE par l'app (`escalier.degressivesRoutine`,
+  // avec la consigne) : la ligne qu'ajoute « Ajouter une dégressive » ne
+  // change pas la marche en pleine séance. Sans l'entrée (les tests du plan),
+  // les lignes de la séance.
+  function degressiveDeLaRoutine(e, seance, slug) {
+    var d = e.escalier && e.escalier.degressivesRoutine;
+    if (d && Object.prototype.hasOwnProperty.call(d, slug)) return d[slug] === true;
+    return ((seance && seance.exercices) || []).some(function (x) {
+      return x && x.exercise_slug === slug && (x.series || []).some(function (r) { return r && r.type_serie === 'degressive'; });
+    });
+  }
+
+  // §14 (111) — LES DÉGRESSIVES EN COURS : acceptées, pas de progrès depuis, et
+  // les conditions toujours réunies (sauf la ligne : c'est elle qu'on ajoute).
+  // Rend `{ [slug]: true }`.
+  function degressivesActives(e, seance, consignes, esc, phase, intentionProfil) {
+    var sortie = {};
+    var E = e.escalier;
+    if (!E || seance.edition || esc.allegee) return sortie;
+    var M = Moteur();
+    var jour = M.jourCivil(seance.debut);
+    if (!jour) return sortie;
+    Object.keys(consignes).forEach(function (slug) {
+      var c = consignes[slug];
+      if (!c || !c.consigne || !c.compteur || typeof c.compteur.compteur !== 'number') return;
+      var cond = conditionsDegressive(e, seance, slug, c.consigne.zone, phase, esc, intentionProfil);
+      cond.aUneDegressive = false;
+      if (!M.degressivePossible(cond)) return;
+      if (!M.degressiveActive(slug, jour, c.compteur.compteur, E.marches || [], E.compteurs || [])) return;
+      sortie[slug] = true;
+    });
+    return sortie;
+  }
+
+  // §14 (111) — LA LIGNE DÉGRESSIVE À CRÉER : un exercice dont la dégressive
+  // proposée est en cours et qui n'a aucune ligne dégressive. Rend `[iExo]`.
+  // Pur ; l'app l'applique à l'acceptation et à la création d'une séance,
+  // jamais au rendu : une ligne retirée par la personne ne revient pas (§14.3).
+  function degressivesAAjouter(plan) {
+    var sortie = [];
+    ((plan && plan.exercices) || []).forEach(function (x) {
+      if (!x || !x.degressiveEnCours) return;
+      if ((x.lignes || []).some(function (l) { return l.type === 'degressive'; })) return;
+      sortie.push(x.iExo);
     });
     return sortie;
   }
@@ -1481,6 +1605,8 @@
       var c = consignes[slug];
       if (!c || !c.consigne || !c.compteur || typeof c.compteur.compteur !== 'number') return;
       if (c.consigne.zone === 'lourd' || c.consigne.zone === 'mix' || !c.consigne.zone) return;
+      // §10 bis (16/10/2026) — ni série de plus à la plus lourde de sa salle.
+      if (aLaPlusLourde(c)) return;
       if (!M.serieDePlusActive(slug, jour, c.compteur.compteur, E.marches || [], E.compteurs || [])) return;
       var n = Object.prototype.hasOwnProperty.call(routine, slug) ? Number(routine[slug]) : NaN;
       if (isFinite(n) && n >= 1) sortie[slug] = n;
@@ -1635,7 +1761,12 @@
       // l'utilisateur a mise. À la barre, la phrase dit quoi enlever ; une
       // ligne que le coach ne remplit pas a sa phrase et ses deux gestes.
       if (l.type !== 'degressive') err('I17', 'une dégressive sans ligne dégressive (le coach n’en pose jamais)');
-      if (barre && d.charge !== null) {
+      // §10 bis (108) — à la barre fixe de la salle, on change de barre : la phrase le dit.
+      if (d.barreFixe && d.charge !== null) {
+        if (!d.phrase || d.phrase.indexOf('Prends la barre de ' + Voix().charge(d.charge) + '.') !== 0) {
+          err('I17', 'la dégressive à la barre fixe ne dit pas quelle barre prendre (' + d.phrase + ')');
+        }
+      } else if (barre && d.charge !== null) {
         var enleve = d.reference !== null && d.reference !== undefined ? (d.reference - d.charge) / 2 : null;
         if (enleve === null || !d.phrase || d.phrase.indexOf('Enlève ' + Voix().charge(enleve) + ' de chaque côté') !== 0) {
           err('I17', 'la dégressive à la barre ne dit pas quoi enlever (' + d.phrase + ')');
@@ -2284,6 +2415,27 @@
         if (plan.allegee) erreurs.push('I23 — ' + nom + ' : une série de plus pendant une semaine allégée');
       }
       if (carteSp && x.placeSerieDePlus !== true) erreurs.push('I23 — ' + nom + ' : une série de plus proposée sans place');
+      // I48 (MOTEUR §14, 111) — une dégressive proposée (sa carte) ou en cours
+      // seulement sur une isolation, hors sèche, hors zone force, hors semaine
+      // allégée ou décharge, hors Entretenir, jamais pour un débutant ; la carte,
+      // au 2e déclenchement isolé, après une série de plus, sur un exercice dont
+      // la routine n'a pas de ligne dégressive.
+      var carteDeg = m && m.carte && m.carte.type === 'degressive';
+      if (carteDeg || x.degressiveEnCours) {
+        var e48 = function (t) { erreurs.push('I48 — ' + nom + ' : ' + t); };
+        var z48 = x.consigne ? x.consigne.zone : null;
+        if (x.polyarticulaire !== false) e48('une dégressive proposée sur un exercice qui n\'est pas une isolation');
+        if (plan.phase === 'seche') e48('une dégressive proposée en sèche');
+        if (z48 === 'lourd' || z48 === 'mix') e48('une dégressive proposée en zone force (' + z48 + ')');
+        if (plan.allegee) e48('une dégressive proposée pendant une semaine allégée ou une décharge');
+        if (plan.intention === 'entretien' || x.intention === 'entretien') e48('une dégressive proposée en Entretenir');
+        if (plan.debutant) e48('une dégressive proposée à un débutant');
+      }
+      if (carteDeg) {
+        if (x.degressiveRoutine) erreurs.push('I48 — ' + nom + ' : une dégressive proposée alors que la routine en a une');
+        if (m.n !== 2) erreurs.push('I48 — ' + nom + ' : une dégressive proposée hors du 2e déclenchement isolé (n = ' + m.n + ')');
+        if (m.serieDePlusProposee !== true) erreurs.push('I48 — ' + nom + ' : une dégressive proposée sans série de plus avant elle');
+      }
       if (sp) {
         var trav = (x.lignes || []).filter(function (l) { return l.type === 'travail'; });
         trav.forEach(function (l, j) {
@@ -3137,6 +3289,8 @@
     if (entrees && entrees.raccourci) verifierRaccourci(plan, entrees, erreurs);
     verifierDouleur(plan, entrees, erreurs);
     verifierReserve(plan, entrees, erreurs);
+    verifierSalle(plan, erreurs);
+    verifierEscalierSalle(plan, erreurs);
     // Prérequis d'« adapter » — LES PARIS D'UNE OCCURRENCE, et seulement d'elle
     // (I7) : la seconde occurrence d'un exercice ne doit pas se voir reprocher
     // les paris de la première.
@@ -3189,6 +3343,74 @@
       }
     });
     if (n > I45_AU_PLUS) erreurs.push('I45 — ' + n + ' questions de réserve dans le plan (au plus ' + I45_AU_PLUS + ')');
+  }
+
+  // I46 (MOTEUR §10 bis, 108) — LA SALLE : pour un exercice dont la salle déclarée est en vigueur, aucune charge que
+  // le coach propose n'en sort — ni la ligne ni la ligne haute de la consigne, ni une proposition de la réaction, ni
+  // le fantôme d'une ligne qu'il couvre, d'une chauffe ou d'une dégressive qu'il remplit. Les séries faites et le
+  // pré-remplissage d'après la dernière séance (ce que la personne a fait) ne sont pas des propositions.
+  function verifierSalle(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var salle = x && x.salle;
+      if (!salle) return;
+      var nom = 'I46 — exercice ' + i + ' (' + x.slug + ') : ';
+      var hors = function (v, ou) {
+        var c = nombre(v);
+        if (c !== null && c > 0 && !M.dansLaSalle(salle, c)) erreurs.push(nom + ou + ' à ' + c + ' kg, une charge que la salle n’a pas');
+      };
+      var k = x.consigne;
+      if (k && k.etat !== 'silence' && nombre(k.palier) !== null && M.salleEnVigueur(salle, k.palier)) {
+        if (k.ligne) hors(k.ligne.charge, 'la ligne de la consigne');
+        if (k.haut) hors(k.haut.charge, 'la ligne haute de la consigne');
+        if (k.haut && k.haut.charge === null) erreurs.push(nom + 'un test sans chiffre alors que la salle est déclarée');
+      }
+      // La salle vaut sur la référence de ce que le coach calcule : la charge de travail de la consigne pour ses
+      // lignes, la référence des chauffes, la dernière série de travail pour la dégressive (une barre chargée au-delà
+      // de la plus lourde barre fixe n'est pas concernée). Une ligne d'élan reprend une série faite (§9.14 bis).
+      var enVigueur = function (ref) { return nombre(ref) !== null && !!M.salleEnVigueur(salle, ref); };
+      (x.lignes || []).forEach(function (l) {
+        if (l.validee || !l.fantome) return;
+        var src = l.fantome.source;
+        if (l.role === 'elan') return;
+        if (l.role === 'hors' && src !== 'chauffe' && src !== 'degressive') return;
+        var ref = src === 'chauffe' ? (x.chauffes && x.chauffes.reference)
+          : src === 'degressive' ? (x.degressive && x.degressive.reference) : (k && k.palier);
+        if (enVigueur(ref)) hors(l.fantome.charge, 'la série ' + l.iSerie + ' (' + (src || l.role) + ')');
+      });
+      var attente = x.reaction && x.reaction.attente;
+      if (attente && Array.isArray(attente.charges)) {
+        attente.charges.forEach(function (c) {
+          if (c === null) erreurs.push(nom + 'une proposition sans chiffre alors que la salle est déclarée');
+          else hors(c, 'la proposition de la réaction');
+        });
+      }
+      ((x.reaction && x.reaction.plan) || []).forEach(function (q, j) {
+        if (q && q.source === 'coach') hors(q.charge, 'la ligne du coach ' + j);
+      });
+    });
+  }
+
+  // I47 (MOTEUR §10 bis, 16/10/2026) — À LA PLUS LOURDE DE LA SALLE, L'ESCALIER NE PROPOSE RIEN : pour un exercice
+  // dont la charge de travail et la charge demandée sont la plus lourde de sa salle, aucune marche (schéma, série de
+  // plus, repli, ni même le silence ou la phrase de sèche), aucune ligne en plus, aucune consigne de repli, et la
+  // carte de semaine allégée ne le prend pas pour déclencheur. Un repli posé ferait descendre la charge demandée :
+  // on lit alors le palier seul.
+  function verifierEscalierSalle(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.consigne;
+      if (!k || !x.salle) return;
+      var lue = k.repli ? Object.assign({}, k, { ligne: null }) : k;
+      if (!M.aLaPlusLourdeDeLaSalle(lue, x.salle)) return;
+      var nom = 'I47 — exercice ' + i + ' (' + x.slug + ') : ';
+      if (x.escalier) erreurs.push(nom + 'une marche de l’escalier (' + x.escalier.marche + ') à la plus lourde de sa salle');
+      if (k.repli) erreurs.push(nom + 'un repli à la plus lourde de sa salle');
+      if (k.serieDePlus) erreurs.push(nom + 'une série de plus à la plus lourde de sa salle');
+      if (plan.carte && plan.carte.declencheur === x.slug) {
+        erreurs.push(nom + 'la carte de semaine allégée déclenchée par un exercice à la plus lourde de sa salle');
+      }
+    });
   }
 
   function texteI26(e) {
@@ -3315,6 +3537,7 @@
     planDeSeance: planDeSeance,
     lignesARetirer: lignesARetirer,
     lignesAAjouter: lignesAAjouter,
+    degressivesAAjouter: degressivesAAjouter,
     planDesLignes: planDesLignes,
     rejouer: rejouer,
     verifierPlan: verifierPlan,

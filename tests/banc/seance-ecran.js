@@ -156,6 +156,8 @@ const CATALOGUE = [
   { slug: 'quadri-u10', nom: 'Quadri U10 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
   { slug: 'biceps-u10', nom: 'Biceps U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['biceps'], muscles_secondaires: [] },
   { slug: 'militaire-u10', nom: 'Militaire U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['epaules'], muscles_secondaires: [] },
+  // 108 — réservé à la section 108 (« Ma salle », MOTEUR §10 bis) : une barre EZ, le nom le dit.
+  { slug: 'curl-ez-108', nom: 'Kz108 (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['biceps'], muscles_secondaires: [] },
   // 49-U11 — réservé à la section 7 G octies (la phase). Son nom ne répond à
   // aucune des recherches faites ailleurs.
   { slug: 'presse-u11', nom: 'Presse U11 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
@@ -742,6 +744,26 @@ const SETS_IMPORTES = [
     });
   });
 
+  // ⚠️ 98 — L'ANNONCE D'UN BILAN (le mois, la saison, l'année) SE REFERME D'ELLE-MÊME, comme le récap : elle paraît
+  // à l'ouverture du 1er au 7 du mois (BILANS-V1), une fois par appareil, et l'horloge du banc peut tomber ces
+  // jours-là — posée en bas de l'écran, elle recouvrait « Abandonner » dans les sections écrites avant elle (trouvé
+  // par `tout.js`, 15/10/2026). On fait le geste de l'utilisateur : « Plus tard ». Une section qui la teste la garde :
+  // `sessionStorage['banc-garder-annonce'] = '1'`.
+  await ctx.addInitScript(() => {
+    document.addEventListener('DOMContentLoaded', () => {
+      const a = document.getElementById('annonce-annee');
+      if (!a) return;
+      new MutationObserver(() => {
+        if (a.hidden || sessionStorage.getItem('banc-garder-annonce') === '1') return;
+        setTimeout(() => {
+          if (a.hidden || sessionStorage.getItem('banc-garder-annonce') === '1') return;
+          const b = a.querySelector('button.discret');
+          if (b) b.click();
+        }, 0);
+      }).observe(a, { attributes: true, attributeFilter: ['hidden'] });
+    });
+  });
+
   // ── Mouchards : la vibration et le son ─────────────────────────────────
   //
   // ⚠️ On RELÈVE d'abord la présence native, AVANT de toucher à quoi que ce
@@ -869,6 +891,16 @@ const SETS_IMPORTES = [
 
     if (url.pathname.startsWith('/auth/')) return json({ error: 'x' }, 400);
     if (!base.reseau) return route.abort('failed');
+    // 107 — LES ÉCRITURES SOCIALES COUPÉES, LES LECTURES PASSENT : la configuration qui permet un SECOND geste après un
+    // rechargement (le profil se relit), pendant que le premier attend toujours dans la file. Les fonctions de guilde qui
+    // écrivent comptent comme des écritures, et le profil (« Compte privé ») ; les lectures (`social_*`, `guilde_moi`…) passent.
+    if (base.ecrituresSocialesCoupees && req.method() !== 'GET' &&
+        (['abonnements', 'blocages', 'reactions_seance', 'profiles'].indexOf(table) >= 0 ||
+         (/\/rpc\//.test(url.pathname) && FauxSocial.GUILDE.ECRITURES.indexOf(table) >= 0))) {
+      // `ecrituresSocialesLentes` : l'échec met du temps à revenir — le réseau peut revenir PENDANT qu'il est en vol.
+      if (base.ecrituresSocialesLentes) await pause(base.ecrituresSocialesLentes);
+      return route.abort('failed');
+    }
     // 87 — le social : ses tables et ses fonctions, au faux serveur du social.
     const sociale = fauxSocial.gerer(req.method(), url, corps);
     if (sociale) {
@@ -1395,6 +1427,20 @@ const SETS_IMPORTES = [
         // 50-1 — la contrainte réelle de `lest_reponse` : `oui`, `non`, ou NULL.
         if (l.lest_reponse !== undefined && l.lest_reponse !== null && ['oui', 'non'].indexOf(l.lest_reponse) < 0) {
           return json(refus('23514', 'profiles_lest_reponse_ok'), 400);
+        }
+        // 108 (`v2_088`) — `profiles_ma_salle_ok` : NULL, ou un objet aux seules clés barres_ez, barres_droites,
+        // halteres ; des barres de 1 à 100 kg au demi-kilo ; des haltères nuls ou { max, pas }.
+        if (l.ma_salle !== undefined && l.ma_salle !== null) {
+          const v = l.ma_salle;
+          const barres = (x) => x === undefined || (Array.isArray(x) && x.length <= 20 &&
+            x.every((k) => typeof k === 'number' && k >= 1 && k <= 100 && Math.floor(k * 2) === k * 2));
+          const h = v.halteres;
+          const okH = h === undefined || h === null || (typeof h === 'object' && typeof h.max === 'number' &&
+            typeof h.pas === 'number' && h.max >= 1 && h.max <= 100 && h.pas >= 0.5 && h.pas <= 10 && h.pas <= h.max);
+          if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH ||
+              Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres'].indexOf(k) < 0)) {
+            return json(refus('23514', 'profiles_ma_salle_ok'), 400);
+          }
         }
         // 60-2a (`v2_065`) — les contraintes du questionnaire : une valeur hors
         // liste est un 23514, DÉFINITIF pour la file mais pas pour le profil
@@ -1973,6 +2019,25 @@ const SETS_IMPORTES = [
     await page.goto(BASE + (chemin || '/'), { waitUntil: 'domcontentloaded' }).catch(() => {});
     if (retenue) { statAller.fixes++; await attendre(2600); } else await ecranPose();
   };
+  // ⚠️ LES BLOCS LAISSÉS PAR UNE AUTRE SECTION, RETIRÉS DE L'APPAREIL (16/10/2026, décidé par Claude.ai). Au banc
+  // séquentiel, les blocs de « cycles » restent sur l'appareil : la synchronisation fond ceux du serveur dans ceux de
+  // l'appareil sans jamais en retirer (`fondreBlocs`), et leur semaine de décharge planifiée (§9.22) n'est ni comptée
+  // ni jugée par le compteur — elle tombait sur les séances d'une section qui en compte 8. Ici : le serveur n'a plus
+  // ni les blocs ni leurs lignes de zone (`origine = 'bloc'`, I36 : jamais une ligne de bloc sans son bloc) ;
+  // l'appareil les efface (le brouillon `blocs`, le magasin `zones`), et l'app redémarre sur cet état. Rend la fonction
+  // qui les rend au serveur : la synchronisation suivante les reporte sur l'appareil, pour les sections d'après.
+  const retirerBlocsDeLAppareil = async () => {
+    const blocsAvant = base.blocs, zonesAvant = base.zones;
+    base.blocs = [];
+    base.zones = (base.zones || []).filter((z) => !z.bloc_id);
+    await page.evaluate(async () => {
+      await window.THCache.ecrireBrouillon('blocs', null);
+      const zones = await window.THCache.lireTout('zones');
+      await window.THCache.remplacerTout('zones', (zones || []).filter((z) => !z.bloc_id));
+    }).catch(() => {});
+    await aller('/saisie');
+    return () => { base.blocs = blocsAvant; base.zones = zonesAvant; };
+  };
   const visible = () => page.evaluate(() =>
     Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id));
   const texte = (sel) => page.evaluate((s) => (document.querySelector(s) || {}).textContent || '', sel);
@@ -1981,14 +2046,19 @@ const SETS_IMPORTES = [
   // Les lignes de série sont réparties dans plusieurs blocs : on les adresse par
   // leur index GLOBAL, pas par `nth-child`, qui compterait l'en-tête du bloc.
   const ligne = async (i) => (await page.$$('.ligne-serie'))[i];
-  // 100 (ECRAN §3 bis.3 bis) — une série chargée sans charge tapée ni fantôme ne se valide plus :
-  // comme une vraie personne, on tape le poids avant le ✓. Rien n'est tapé si la ligne a un chiffre.
-  const poidsSiAucun = async (l, kg) => {
-    const ch = l && await l.$('.serie.g-charge_reps .ch-serie input');
-    if (ch && !(await l.$('.ok-serie.cochee')) &&
-        (await ch.evaluate((e) => e.value === '' && !/\d/.test(e.placeholder || '')))) {
-      await ch.fill(String(kg || 40));
-      await ch.evaluate((e) => e.blur());
+  // 100 puis 105 (ECRAN §3 bis.3 bis) — une série dont une case obligatoire (charge, reps, durée, distance) est vide
+  // et sans chiffre gris ne se valide plus : comme une vraie personne, on tape ce qui manque avant le ✓. Rien n'est
+  // tapé dans une case qui a un chiffre (tapé, gris, ou la fourchette du coach).
+  const casesSiVides = async (l, kg, reps) => {
+    if (!l || (await l.$('.ok-serie.cochee'))) return;
+    const valeurs = { charge_kg: String(kg || 40), reps: String(reps || 8), duree: '30', distance_km: '1' };
+    for (const nom of Object.keys(valeurs)) {
+      const inp = await l.$('[data-champ="' + nom + '"] input');
+      if (!inp) continue;
+      if (!(await inp.evaluate((e) => e.value === '' && !/\d/.test(e.placeholder || '')))) continue;
+      if (nom === 'duree') { await inp.click(); await inp.type(valeurs[nom], { delay: 30 }); }
+      else await inp.fill(valeurs[nom]);
+      await inp.evaluate((e) => e.blur());
       await attendre(300);
     }
   };
@@ -3612,7 +3682,7 @@ const SETS_IMPORTES = [
   // Une rangée est adressée par son INDICE D'AFFICHAGE dans le bloc — c'est
   // l'ordre entrelacé, donc exactement ce qu'un pouce touche.
   const validerRangee = async (iBloc, iRangee) => {
-    await poidsSiAucun(await ligneDuBloc(iBloc, iRangee));
+    await casesSiVides(await ligneDuBloc(iBloc, iRangee));
     await page.evaluate(([k, r]) => {
       document.querySelectorAll('.bloc-seance')[k]
         .querySelectorAll('.ligne-serie')[r].querySelector('.ok-serie').click();
@@ -4050,6 +4120,13 @@ const SETS_IMPORTES = [
   // cas le plus ordinaire : on valide une série, puis on remet de l'ordre.
   // Sans chronomètre armé, les deux barres ne se rencontrent pas et le banc
   // applaudirait un écran que personne n'a vu.
+  // 105 (ECRAN §3 bis.3 bis) — ce qui manque à la ligne se tape d'abord : sinon le ✓ ne valide rien, et aucun
+  // repos ne court.
+  {
+    const iLibre = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+      .findIndex((x) => !x.querySelector('.ok-serie.cochee')));
+    if (iLibre >= 0) await casesSiVides(await ligne(iLibre));
+  }
   const iArmee = await page.evaluate(() => {
     const toutes = Array.from(document.querySelectorAll('.ligne-serie'));
     const l = toutes.filter((x) => !x.querySelector('.ok-serie.cochee'))[0];
@@ -4719,7 +4796,7 @@ const SETS_IMPORTES = [
     const n = await compter('.ligne-serie');
     for (let i = 0; i < n; i++) {
       const l = (await page.$$('.ligne-serie'))[i];
-      await poidsSiAucun(l);
+      await casesSiVides(l);
       await l.$eval('.ok-serie', (b) => b.click());
       await attendre(200);   // rapprochées, comme un pouce sur l'appareil
     }
@@ -9028,6 +9105,9 @@ const SETS_IMPORTES = [
           x[0].value = v[0]; x[0].dispatchEvent(new Event('input', { bubbles: true }));
           x[1].value = v[1]; x[1].dispatchEvent(new Event('input', { bubbles: true }));
         }, [String(c), String(r)]);
+      } else {
+        // 105 — la planche du superset : sa durée se tape si rien ne la grise (ECRAN §3 bis.3 bis).
+        await casesSiVides(l);
       }
       // Une validation sur deux après un déverrouillage, l'autre normalement.
       if (i % 2 === 0) {
@@ -9300,6 +9380,104 @@ const SETS_IMPORTES = [
     await abandonner();
     await aller('/saisie');
     ok('[U10] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
+  console.log('\n══ 108. MA SALLE : LE CURL EZ À 30 KG, LA PLUS LOURDE DE LA SALLE (MOTEUR §10 bis) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : le cas réel d'Aurélien (Basic-Fit) — curl EZ, barres de 10 à 30 kg de 5 en 5,
+  // et trois séances à 30 × 12, 12 (le haut de Volume). Sans salle déclarée, le coach testerait 32,5 kg. Déclarée
+  // dans le Profil (« Ma salle »), la grille reste à 30 kg, on monte en reps, la dégressive prend la barre de 20 kg,
+  // et 3 reps de plus en séance ne font proposer aucune charge. La salle s'efface à la fin (rien ne change ensuite).
+  {
+    const tS = Date.now();
+    const poserS = (id, jours, lignes) => {
+      const debut = ilYa(jours * 86400000, tS).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: '108 — ' + id, debut,
+        fin: finDe(debut, tS).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([kg, reps], i) => base.sets.push({ id: id + '-s' + (i + 1), session_id: id,
+        user_id: 'u-banc', exercise_slug: 'curl-ez-108', charge_kg: kg, reps, duree_s: null, distance_m: null,
+        type_serie: 'travail', rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null,
+        ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poserS('s108-a', 15, [[30, 11], [30, 11]]);
+    poserS('s108-b', 8, [[30, 12], [30, 12]]);
+    poserS('s108-c', 1, [[30, 12], [30, 12]]);
+    const lignes108 = [['travail', 12], ['travail', 12], ['degressive', null]].map(([t, reps], i) => ({
+      id: 's108-l' + (++grainePr), rang: i + 1, type_serie: t, reps_visees: reps, charge_cible_kg: null,
+      duree_cible_s: null, distance_cible_m: null }));
+    ROUTINES.push({ id: 'r-108', nom: 'Salle 108', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-108-e', routine_id: 'r-108', exercise_slug: 'curl-ez-108', rang: 0,
+        routine_sets: lignes108, repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const esp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
+    const violationsAvant = gardeBanc.violations;
+    const ouvrirSalle = async () => {
+      await aller('/profil');
+      await jusqua(() => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .some((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0)), 8000);
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0)[0].click());
+      await attendre(500);
+    };
+    const bouton = (t) => page.evaluate((x) => Array.from(document.querySelectorAll('#feuille-contenu button'))
+      .filter((b) => b.textContent === x)[0].click(), t);
+    const plan108 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'curl-ez-108')[0];
+      const c = x && x.consigne;
+      return x ? { etat: c && c.etat, ligne: c && c.ligne, haut: c && c.haut, salle: x.salle,
+                   degressive: x.degressive ? { charge: x.degressive.charge, phrase: x.degressive.phrase } : null,
+                   coach: ((x.reaction && x.reaction.plan) || []).filter((q) => q.source === 'coach').length } : null;
+    });
+    const fantomes108 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+      .map((l) => (l.querySelector('.ch-serie input') || {}).placeholder || ''));
+
+    // 1. La salle déclarée dans le Profil : barres EZ 10, 15, 20, 25, 30.
+    await ouvrirSalle();
+    for (const kg of ['10', '15', '20', '25', '30']) {
+      await page.click('#feuille-contenu .salle-puces[data-type="barres_ez"] button[data-kg="' + kg + '"]');
+      await attendre(80);
+    }
+    await bouton('Valider');
+    await attendre(900);
+    ok('[108] la déclaration part en base : barres EZ 10 à 30', JSON.stringify((base.profiles[0] || {}).ma_salle) ===
+      JSON.stringify({ barres_ez: [10, 15, 20, 25, 30], barres_droites: [], halteres: null }), JSON.stringify((base.profiles[0] || {}).ma_salle));
+
+    // 2. La séance : la grille à 30 kg, jamais 32,5 ; la phrase ; la dégressive.
+    await aller('/saisie');
+    await demarrerRoutine('Salle 108');
+    await attendre(900);
+    const p1 = await plan108();
+    const f1 = await fantomes108();
+    ok('[108] DISCRIMINANT — à 30 kg, la plus lourde de la salle : on monte en reps (30 kg × 13), pas de test à 32,5',
+      !!p1 && p1.etat === 'salle_max' && p1.ligne.charge === 30 && p1.ligne.vise === 13 && p1.haut === null &&
+      JSON.stringify(f1.slice(0, 2)) === JSON.stringify(['30', '30']), JSON.stringify([p1, f1]));
+    const gris = esp(await texte('.legende-exo .consigne-dit'));
+    ok('[108] la phrase grise : « 30 kg, la plus lourde de ta salle : on monte en reps. »',
+      gris === '30 kg, la plus lourde de ta salle : on monte en reps.', gris);
+    ok('[108] DISCRIMINANT — la dégressive à barre fixe : 20 kg, « Prends la barre de 20 kg. »',
+      !!p1 && p1.degressive && p1.degressive.charge === 20 && f1[2] === '20' &&
+      esp(p1.degressive.phrase).indexOf('Prends la barre de 20 kg.') === 0, JSON.stringify([p1 && p1.degressive, f1]));
+
+    // 3. 3 reps de plus que visé (16 au lieu de 13) : aucune charge proposée au-delà de la salle.
+    await saisirSerie(0, 30, 16);
+    await attendre(900);
+    const p2 = await plan108();
+    ok('[108] DISCRIMINANT — 30 kg × 16 (3 de plus) : le coach ne propose aucune charge (la salle n’a rien au-delà)',
+      !!p2 && p2.coach === 0, JSON.stringify(p2));
+    ok('[108] la garde (C6) n’a rien signalé dans cette section (I46 compris)', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    await abandonner();
+
+    // 4. Effacer : non renseignée, rien ne change pour la suite du banc.
+    await ouvrirSalle();
+    await bouton('Effacer');
+    await attendre(900);
+    ok('[108] « Effacer » : la salle n’est plus déclarée (NULL)', (base.profiles[0] || {}).ma_salle === null,
+      JSON.stringify((base.profiles[0] || {}).ma_salle));
+    await aller('/saisie');
+    ok('[108] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
   console.log('\n══ 7 G octies. LA PHASE, GELÉE POUR LA SÉANCE ET ENREGISTRÉE AVEC CHAQUE PARI (49-U11, MOTEUR §9.16) ══');
@@ -12246,7 +12424,7 @@ const SETS_IMPORTES = [
         securite: (c.querySelector('.douleur-securite') || {}).textContent || '' };
     });
     const validerD = async (iBloc, k) => {
-      await poidsSiAucun(await ligneDuBloc(iBloc, k));
+      await casesSiVides(await ligneDuBloc(iBloc, k));
       await page.evaluate(([b, j]) => document.querySelectorAll('.bloc-seance')[b]
         .querySelectorAll('.ligne-serie')[j].querySelector('.ok-serie').click(), [iBloc, k]);
       await attendre(900);
@@ -13619,10 +13797,12 @@ const SETS_IMPORTES = [
     await onglet('progression');
     await attendre(800);
     // 95 — le bloc « Ton année » (l'année écoulée, toute l'année suivante ; hors production, l'année en cours) a sa
-    // propre section ([A95]) : l'ordre contrôlé ici est celui des six blocs de 55-1 et 75.
+    // propre section ([A95]) : l'ordre contrôlé ici est celui des six blocs de 55-1 et 75. 98 — de même pour le bloc de la
+    // saison ([B98]).
     const som = (await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
       quoi: b.querySelector('.bloc-quoi').textContent, ligne: (b.querySelector('.bloc-ligne') || {}).textContent || null,
-      neuf: b.classList.contains('neuf') })))).filter((b) => !/^Ton année \d{4}$/.test(b.quoi));
+      neuf: b.classList.contains('neuf'), saison: b.classList.contains('bloc-saison') })))).filter((b) => !/^Ton année \d{4}$/.test(b.quoi) && !b.saison)
+      .map((b) => ({ quoi: b.quoi, ligne: b.ligne, neuf: b.neuf }));
     const MOIS_L = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
     const ici = new Date(tP);
     const ecoule = new Date(ici.getFullYear(), ici.getMonth() - 1, 1);
@@ -13637,88 +13817,82 @@ const SETS_IMPORTES = [
         (/\.$/.test(MOIS_C[ici.getMonth()]) ? '' : '.')),
       JSON.stringify(som[2]));
 
-    // ── F. LE BILAN DU MOIS : le mois écoulé, puis le mois en cours (›).
+    // ── F. LE BILAN DU MOIS EST LA STORY DU MOIS (98, BILANS-V1) : le bloc du mois écoulé l'ouvre ; l'ancien bilan
+    // n'est plus rendu. Les records de la section sont d'aujourd'hui : le mois EN COURS les porte (son adresse).
+    const cleMois55 = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    const story55 = () => page.evaluate(() => {
+      const h = document.getElementById('annee');
+      return { ouvert: !!h && !h.hidden, periode: h ? h.dataset.periode || null : null,
+        cles: h ? Array.from(h.querySelectorAll('.s')).map((x) => x.dataset.cle) : [],
+        ancien: document.querySelectorAll('#bilan-mois, #vue-mois, .tuiles-mois').length };
+    });
     await page.evaluate(() => document.querySelectorAll('#sommaire .bloc-som')[0].click());
     await attendre(900);
     const routeMois = await page.evaluate(() => location.pathname);
-    ok('[P55] le bloc du mois s’ouvre sur le bilan du mois écoulé (/progression/mois/AAAA-MM)',
-      routeMois === '/progression/mois/' + ecoule.getFullYear() + '-' + String(ecoule.getMonth() + 1).padStart(2, '0'),
-      routeMois);
-    await page.click('#bilan-mois .mois-suivant');
-    await attendre(900);
-    const bil = await page.evaluate(() => {
-      const c = document.querySelector('#bilan-mois');
-      return { titre: c.querySelector('.titre-vue').textContent,
-        tuiles: Array.from(c.querySelectorAll('.tuile-mois')).map((t) => t.querySelector('span').textContent),
-        barres: Array.from(c.querySelectorAll('.barre-mois')).map((b) => b.classList.contains('courant')),
-        aujourdhui: Array.from(c.querySelectorAll('.cal-mois .fait')).map((x) => x.textContent),
-        records: Array.from(c.querySelectorAll('.carte-mois .ligne-mois.lien')).map((x) => x.textContent),
-        suivant: c.querySelector('.mois-suivant').disabled,
-        // Le rouge se lit sur le jeton (`--manque` a changé de valeur en 56-1) :
-        // une valeur écrite en dur ne prouverait plus rien le jour où il bouge.
-        rouge: (() => {
-          const sonde = document.createElement('i');
-          sonde.style.color = 'var(--manque)';
-          document.body.appendChild(sonde);
-          const r = getComputedStyle(sonde).color;
-          sonde.remove();
-          return Array.from(c.querySelectorAll('*')).some((x) => getComputedStyle(x).color === r);
-        })() };
-    });
+    const ouvertEcoule = await story55();
+    ok('[P55] le bloc du mois s’ouvre sur la story du mois écoulé (/progression/mois/AAAA-MM), sans l’ancien bilan (98)',
+      routeMois === '/progression/mois/' + cleMois55(ecoule) && ouvertEcoule.ouvert && ouvertEcoule.periode === cleMois55(ecoule) &&
+        ouvertEcoule.ancien === 0, JSON.stringify([routeMois, ouvertEcoule]));
+    await page.click('#annee .fermer');
+    await attendre(500);
+    ok('[P55] fermée, la story rend Progression et son adresse',
+      (await page.evaluate(() => location.pathname)) === '/progression' && !(await story55()).ouvert,
+      await page.evaluate(() => location.pathname));
+    await aller('/progression/mois/' + cleMois55(ici));
+    await page.waitForFunction(() => { const h = document.getElementById('annee'); return h && !h.hidden && h.dataset.ecran; },
+      null, { timeout: 15000 }).catch(() => {});
+    const bil = await story55();
     await capturer55('4-bilan');
-    ok('[P55] le bilan du mois en cours : séances, séries de travail, volume, records — trois barres, la dernière en couleur du coach ; pas de mois après le mois en cours',
-      /^[A-ZÉ]/.test(bil.titre) && /^séances?$/.test(bil.tuiles[0]) && bil.tuiles[1] === 'séries de travail' &&
-        bil.tuiles[2] === 'volume soulevé' && /^records?$/.test(bil.tuiles[3]) &&
-        JSON.stringify(bil.barres) === '[false,false,true]' && bil.suivant === true, JSON.stringify(bil));
-    // Les records du mois (les trois premiers, puis « et N autres ») : d'autres
-    // sections du même groupe en posent aussi ; la liste complète se lit plus
-    // bas (G).
-    ok('[P55] le calendrier marque aujourd’hui ; la carte des records est là ; aucune couleur de jugement',
-      bil.aujourdhui.indexOf(String(ici.getDate())) >= 0 && bil.records.length >= 1 && !bil.rouge, JSON.stringify(bil));
-
-    // ── F bis (57-1). UN EXERCICE « LE PLUS FAIT » OUVRE SA PAGE, PAR SON
-    // IDENTIFIANT, et le retour rend le bilan (ECRAN §7 bis.14, §7 quater).
-    const avantExo = await page.evaluate(() => location.pathname);
-    const plusFaits = await page.evaluate(() => Array.from(document.querySelectorAll('#bilan-mois .carte-mois'))
-      .filter((c) => /Les plus faits/.test(c.textContent))
-      .map((c) => Array.from(c.querySelectorAll('.ligne-mois')).map((l) => ({
-        texte: l.textContent, bouton: !!l.querySelector('button.nom-exo.lien') })))[0] || []);
-    // ⚠️ LE PREMIER DE LA LISTE, QUEL QU'IL SOIT (07/10/2026). Le contrôle
-    // touchait « Médaillé U55 » et le supposait dans les cinq « plus faits » :
-    // vrai dans son groupe parallèle, faux en séquentiel, où les séances des
-    // autres sections le font sortir du top 5 (ses séances d'il y a 13 et 20
-    // jours sont le mois d'avant). On touche le premier nom, et on attend SA
-    // page : son nom en titre, et son identifiant dans l'URL quand le catalogue
-    // du banc le connaît. Le discriminant « le deuxième, pas le premier » vit
-    // dans `tests/unit/v2-bilan-mois-exercice.test.js`.
-    const touche = await page.evaluate(() => {
-      const carte = Array.from(document.querySelectorAll('#bilan-mois .carte-mois'))
-        .filter((c) => /Les plus faits/.test(c.textContent))[0];
-      const b = carte ? carte.querySelector('.ligne-mois button.nom-exo.lien') : null;
-      if (!b) return null;
-      const nom = b.textContent;
-      b.click();
-      return nom;
+    ok('[P55] DISCRIMINANT — le mois en cours : la story, ses écrans (tonnes, à la salle, semaines, muscle, exercice, records…, plaque) ; aucun ancien bilan',
+      bil.ouvert && bil.periode === cleMois55(ici) && bil.ancien === 0 &&
+        JSON.stringify(bil.cles.slice(0, 3)) === '["tonnes","salle","semaines"]' && bil.cles.indexOf('records') > 0 &&
+        bil.cles.indexOf('exercice') > 0 && bil.cles[bil.cles.length - 1] === 'plaque', JSON.stringify(bil));
+    // Les records du mois (les trois premiers, puis « Et N autres ») : d'autres sections du même groupe en posent
+    // aussi ; la liste complète se lit plus bas (G).
+    const recStory = await page.evaluate(() => {
+      const s = document.querySelector('#annee .s[data-cle="records"]');
+      return s ? { lignes: Array.from(s.querySelectorAll('.ligne')).map((x) => x.textContent),
+                   bouton: (s.querySelector('[data-action="records"]') || {}).textContent || null } : null;
     });
-    await attendre(900);
-    const slugTouche = (CATALOGUE.filter((x) => x.nom === touche)[0] || {}).slug || null;
-    const versExo = { touche, slug: slugTouche, route: await page.evaluate(() => location.pathname), vues: await visible(),
-      titre: await page.evaluate(() => { const h = document.querySelector('#page-exercice h2'); return h ? h.textContent : null; }) };
-    ok('[57-1] DISCRIMINANT — dans le bilan, chaque exercice « le plus fait » est un nom touchable, et le premier ouvre SA page',
-      plusFaits.length >= 1 && plusFaits.every((l) => l.bouton) && touche === plusFaits[0].texte.replace(/\d+ séries?$/, '') &&
-        JSON.stringify(versExo.vues) === '["vue-exercice"]' && versExo.titre === touche &&
-        (slugTouche ? versExo.route === '/exercice/' + slugTouche : /^\/exercice\/[^/]+$/.test(versExo.route)),
-      JSON.stringify([plusFaits, versExo]));
-    // Le retour, seulement si la page s'est ouverte : sinon le clic attendrait
-    // 30 s un bouton caché, et le contrôle suivant dit déjà l'échec.
-    if (JSON.stringify(versExo.vues) === '["vue-exercice"]') await page.click('#btn-retour-exercice');
-    await attendre(900);
-    ok('[57-1] le retour rend le bilan du même mois',
-      (await page.evaluate(() => location.pathname)) === avantExo && JSON.stringify(await visible()) === '["vue-mois"]',
-      JSON.stringify([avantExo, await page.evaluate(() => location.pathname), await visible()]));
+    ok('[P55] l’écran des records du mois : les records de la séance, et « Tous les records du mois »',
+      !!recStory && recStory.lignes.length >= 1 && recStory.bouton === 'Tous les records du mois', JSON.stringify(recStory));
 
-    // ── G. LES RECORDS DU MOIS : chacun mène à sa séance.
-    await page.evaluate(() => document.querySelector('#bilan-mois .tous-records').click());
+    // ── F bis (57-1). L'EXERCICE DU MOIS OUVRE SA PAGE, PAR SON IDENTIFIANT, et le retour rend la story du même mois.
+    const avantExo = await page.evaluate(() => location.pathname);
+    const touche = await page.evaluate(() => {
+      const b = document.querySelector('#annee .s[data-cle="exercice"] .btn[data-action="exercice"]');
+      if (!b) return null;
+      const s = b.closest('.s');
+      return { slug: b.dataset.slug, nom: (s.querySelector('.titre') || {}).textContent || null };
+    });
+    if (touche) {
+      await page.evaluate(() => {
+        // Le bouton se touche comme un doigt : `pointerdown` puis `pointerup` sur lui (le lecteur écoute `pointerup`).
+        const b = document.querySelector('#annee .s[data-cle="exercice"] .btn[data-action="exercice"]');
+        const o = { bubbles: true, clientX: 10, clientY: 10 };
+        b.dispatchEvent(new PointerEvent('pointerdown', o));
+        b.dispatchEvent(new PointerEvent('pointerup', o));
+      });
+    }
+    await attendre(900);
+    const versExo = { touche, route: await page.evaluate(() => location.pathname), vues: await visible(),
+      titre: await page.evaluate(() => { const h = document.querySelector('#page-exercice h2'); return h ? h.textContent : null; }) };
+    ok('[57-1] DISCRIMINANT — dans la story du mois, l’exercice du mois ouvre SA page (son identifiant)',
+      !!touche && JSON.stringify(versExo.vues) === '["vue-exercice"]' && versExo.titre === touche.nom &&
+        versExo.route === '/exercice/' + touche.slug, JSON.stringify(versExo));
+    if (JSON.stringify(versExo.vues) === '["vue-exercice"]') await page.click('#btn-retour-exercice');
+    await attendre(1200);
+    const retour55 = await story55();
+    ok('[57-1] le retour rend la story du même mois',
+      (await page.evaluate(() => location.pathname)) === avantExo && retour55.ouvert && retour55.periode === cleMois55(ici),
+      JSON.stringify([avantExo, await page.evaluate(() => location.pathname), retour55]));
+
+    // ── G. LES RECORDS DU MOIS : « Tous les records du mois », dans la story, ouvre la liste ; chacun mène à sa séance.
+    await page.evaluate(() => {
+      const b = document.querySelector('#annee .s[data-cle="records"] [data-action="records"]');
+      const o = { bubbles: true, clientX: 10, clientY: 10 };
+      if (b) { b.dispatchEvent(new PointerEvent('pointerdown', o)); b.dispatchEvent(new PointerEvent('pointerup', o)); }
+    });
     await attendre(900);
     const rec = await page.evaluate(() => Array.from(document.querySelectorAll('#records-mois .ligne-mois')).map((x) => x.textContent));
     ok('[P55] la liste des records du mois porte les deux records de la séance',
@@ -14487,7 +14661,7 @@ const SETS_IMPORTES = [
       Object.keys(releve).length >= 2 * (ecrans.length + 5) &&
         Object.keys(releve).every((k) => releve[k].length > 0) &&
         vues.routines.join() === 'vue-saisie' && vues.profil.join() === 'vue-profil' &&
-        vues.exercice.join() === 'vue-exercice' && vues.mois.join() === 'vue-mois' &&
+        vues.exercice.join() === 'vue-exercice' && vues.mois.join() === 'vue-progression' &&   // 98 : la story du mois s'ouvre par-dessus Progression
         vues.relecture.join() === 'vue-relecture',
       JSON.stringify([Object.keys(releve).map((k) => k + ':' + releve[k].length), vues]));
 
@@ -15858,13 +16032,14 @@ const SETS_IMPORTES = [
     };
     await aller('/profil');
     let sh = await sectionH();
-    ok('[R60] H — « CE QUE JE FAIS » : Matériel, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
-      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Exercices écartés|Refaire mon programme' &&
-        sh[1].val === 'Dos' && sh[2].val === '1' && sh[3].val === null, JSON.stringify(sh));
+    // 108 — « Ma salle » (ECRAN-PROFIL §2.4 quinquies) se range sous « Matériel ».
+    ok('[R60] H — « CE QUE JE FAIS » : Matériel, Ma salle, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
+      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Exercices écartés|Refaire mon programme' &&
+        sh[2].val === 'Dos' && sh[3].val === '1' && sh[4].val === null, JSON.stringify(sh));
     ok('[R60] H — les phrases de la spec (G10), au mot près',
-      !!sh && sh[1].sous === 'Ton programme construit la garde sans série lourde. Rien ne change en séance.' &&
-        sh[2].sous === 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.' &&
-        sh[3].sous === 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.', JSON.stringify(sh));
+      !!sh && sh[2].sous === 'Ton programme construit la garde sans série lourde. Rien ne change en séance.' &&
+        sh[3].sous === 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.' &&
+        sh[4].sous === 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.', JSON.stringify(sh));
     // Zone à ménager : une feuille à puces.
     await toucherH('Zone à ménager');
     const puces = () => page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
@@ -15880,15 +16055,15 @@ const SETS_IMPORTES = [
     await attendre(900);
     sh = await sectionH();
     ok('[R60] H — « Valider » : Dos et Genou écrits (dans l’ordre de la liste), la ligne dit « Dos, Genou »',
-      JSON.stringify(profilBase().zones_a_menager) === '["dos","genou"]' && sh[1].val === 'Dos, Genou',
-      JSON.stringify([profilBase().zones_a_menager, sh[1].val]));
+      JSON.stringify(profilBase().zones_a_menager) === '["dos","genou"]' && sh[2].val === 'Dos, Genou',
+      JSON.stringify([profilBase().zones_a_menager, sh[2].val]));
     await toucherH('Zone à ménager');
     await page.click('#feuille-contenu button[data-cle="aucune"]');
     await page.click('#feuille-contenu .feuille-pied .pri');
     await attendre(900);
     sh = await sectionH();
     ok('[R60] H — « Aucune » écrit le vide (NULL) ; la ligne dit « Aucune »',
-      profilBase().zones_a_menager === null && sh[1].val === 'Aucune', JSON.stringify([profilBase().zones_a_menager, sh[1].val]));
+      profilBase().zones_a_menager === null && sh[2].val === 'Aucune', JSON.stringify([profilBase().zones_a_menager, sh[2].val]));
     // Exercices écartés : la liste, « Reprendre ».
     await toucherH('Exercices écartés');
     const liste = () => page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
@@ -15902,7 +16077,7 @@ const SETS_IMPORTES = [
     li = await liste();
     sh = await sectionH();
     ok('[R60] H — « Reprendre » : l’exercice n’est plus écarté (NULL), la feuille se ferme, la ligne « Exercices écartés » s’efface',
-      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Refaire mon programme',
+      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Refaire mon programme',
       JSON.stringify([profilBase().exercices_ecartes, li.ouverte, sh && sh.map((l) => l.lib)]));
     // Refaire mon programme : « Retour » ramène au Profil sans rien écrire.
     const avantRefaire = JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ROUTINES.length]);
@@ -16771,6 +16946,36 @@ const SETS_IMPORTES = [
       const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
       largeurs.push({ ecran, doc: l.doc, fen: l.fen });
     };
+    // 103 — LA BARRE TIENT À 360 PX : chaque libellé d'onglet, mesuré avec la police réelle (Barlow Condensed,
+    // chargée), à 360 et à 380 px. Un libellé coupé (points de suspension) a `scrollWidth > clientWidth`.
+    // ⚠️ Ce seul critère ne voit pas un libellé trop long : la grille (`1fr`, minimum automatique) élargit sa colonne
+    // aux dépens des voisines — les icônes se décalent — et ne coupe qu'une fois la barre saturée. D'où le second
+    // critère, celui qui discrimine : la largeur NATURELLE du texte tient dans la PART ÉGALE d'une colonne
+    // (largeur de la barre / nombre d'onglets visibles, moins le retrait de l'onglet).
+    const libellesOnglets = [];
+    const mesurerOnglets = async (etat) => {
+      for (const l of [360, 380]) {
+        await page.setViewportSize({ width: l, height: 760 });
+        await attendre(300);
+        const m = await page.evaluate(async () => {
+          await document.fonts.ready;
+          const barre = document.getElementById('onglets');
+          const noms = Array.from(barre.querySelectorAll('.onglet:not([hidden]) .onglet-nom'));
+          return noms.map((n) => {
+            const r = document.createRange();
+            r.selectNodeContents(n);
+            const cs = getComputedStyle(n.parentElement);
+            const part = barre.clientWidth / noms.length - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+            return { t: n.textContent, sw: n.scrollWidth, cw: n.clientWidth, sh: n.scrollHeight, ch: n.clientHeight,
+              texte: Math.round(r.getBoundingClientRect().width * 10) / 10, part: Math.round(part * 10) / 10,
+              police: document.fonts.check('600 11px "Barlow Condensed"') };
+          });
+        });
+        libellesOnglets.push({ etat, l, m });
+      }
+      await page.setViewportSize({ width: 360, height: 760 });
+      await attendre(300);
+    };
     const chemin = () => page.evaluate(() => location.pathname);
     const ongletJeu = () => page.evaluate(() => {
       const b = document.getElementById('onglet-jeu');
@@ -16815,6 +17020,7 @@ const SETS_IMPORTES = [
       a0.blocs.length === 4 && a0.proches === 3 && /^Niveau \d+$/.test(a0.niveau) && a0.prochain > 0 &&
         JSON.stringify(a0.portes) === '["Muscles","Succès","Déblocages"]', JSON.stringify(a0));
     await mesurerLargeur('accueil');
+    await mesurerOnglets('allumé');
     const sousVues = [['#jeu-porte-muscles', 'vue-muscles', '/jeu/muscles', '#btn-retour-muscles', '#jeu-muscles .j-metier', 7],
       ['#jeu-porte-succes', 'vue-succes', '/jeu/succes', '#btn-retour-succes', '#jeu-succes .j-cat', 8],
       ['#jeu-porte-deblocages', 'vue-deblocages', '/jeu/deblocages', '#btn-retour-deblocages', '#jeu-deblocages .j-cadres .j-ligne', 4]];
@@ -16912,6 +17118,7 @@ const SETS_IMPORTES = [
       ecritsOff.length === 1 && ecritsOff[0].op === 'profil' && ecritsOff[0].champs.jeu_actif === false &&
         base.profiles[0].jeu_actif === false, JSON.stringify(ecritsOff));
     await mesurerLargeur('eteint');
+    await mesurerOnglets('éteint');
     // 87 — jeu éteint, « /jeu » (l'onglet) ouvre le fil, sans sous-onglet « Jeu » ; une sous-vue du jeu reste une
     // route inconnue.
     await aller('/jeu');
@@ -16980,6 +17187,20 @@ const SETS_IMPORTES = [
     // ── E. 360 PX : AUCUN DÉFILEMENT HORIZONTAL sur les sept écrans de la maquette.
     ok('[jeu] à 360 px, aucun défilement horizontal : accueil, Muscles, Succès, Déblocages, Profil, fin de séance, jeu éteint',
       largeurs.length === 7 && largeurs.every((l) => l.fen === 360 && l.doc <= l.fen), JSON.stringify(largeurs));
+
+    // ── F. 103 — AUCUN LIBELLÉ D'ONGLET TRONQUÉ, à 360 comme à 380 px, jeu allumé (« Jeu & amis ») et éteint (« Amis »).
+    console.log('  libellés des onglets : ' + JSON.stringify(libellesOnglets.map((x) => x.etat + '@' + x.l + ' ' +
+      x.m.map((y) => y.t + ' ' + y.texte + '/' + y.part).join(', '))));
+    const noms = (e) => (libellesOnglets.filter((x) => x.etat === e)[0] || { m: [] }).m.map((y) => y.t);
+    ok('[jeu] prémisse : les cinq libellés mesurés, police réelle chargée — « Jeu & amis » allumé, « Amis » éteint (103)',
+      libellesOnglets.length === 4 && libellesOnglets.every((x) => x.m.length === 5 && x.m.every((y) => y.police && y.cw > 0)) &&
+        noms('allumé')[3] === 'Jeu & amis' && noms('éteint')[3] === 'Amis', JSON.stringify(libellesOnglets));
+    ok('[jeu] à 360 et 380 px, aucun libellé d’onglet tronqué : scrollWidth ≤ clientWidth, scrollHeight ≤ clientHeight (103)',
+      libellesOnglets.length === 4 && libellesOnglets.every((x) => x.m.every((y) => y.sw <= y.cw && y.sh <= y.ch)),
+      JSON.stringify(libellesOnglets.map((x) => [x.etat, x.l, x.m.filter((y) => y.sw > y.cw || y.sh > y.ch)])));
+    ok('[jeu] DISCRIMINANT — à 360 et 380 px, chaque libellé tient dans sa part égale de la barre, sans emprunter aux voisins (103)',
+      libellesOnglets.length === 4 && libellesOnglets.every((x) => x.m.every((y) => y.part > 0 && y.texte <= y.part)),
+      JSON.stringify(libellesOnglets.map((x) => [x.etat, x.l, x.m.filter((y) => !(y.texte <= y.part))])));
 
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.
     base.profiles[0].jeu_actif = true;
@@ -17227,6 +17448,220 @@ const SETS_IMPORTES = [
         erreurs.length === erreursAvant && S.journal.filter((j) => j.op === 'refus').length === 0,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant),
         S.journal.filter((j) => j.op === 'refus')]));
+  }
+
+  // ── 107 (SOCIAL-V1 §8, décision du 15/10/2026) — UN GESTE SOCIAL FAIT HORS LIGNE N'EST PLUS PERDU.
+  //
+  // « Un geste social fait hors ligne est gardé sur le téléphone et part au retour du réseau, comme les séances ; il
+  // n'est jamais perdu en silence. Si la base le refuse au retour (le compte est devenu privé, un blocage entre-temps…),
+  // l'app le dit en une phrase. »
+  //
+  // ⚠️ CONFIGURATIONS DISCRIMINANTES :
+  //   · H1 — chaque geste fait HORS RÉSEAU (tout coupé), puis ÉCRITURES COUPÉES (les lectures passent : c'est ce qui
+  //     permet d'ouvrir un autre écran), puis un RECHARGEMENT, puis le retour : rien ne doit être arrivé en base avant,
+  //     tout après, DANS L'ORDRE ;
+  //   · H2 — deux gestes CONTRAIRES (s'abonner, annuler), un rechargement ENTRE les deux : seul l'état final part (le
+  //     retrait) — la base n'a jamais vu l'abonnement ;
+  //   · H3 — refusé au retour : olga me bloque pendant que mon abonnement attend. L'état réel (son profil devenu
+  //     invisible) DIFFÈRE de l'écran d'avant le geste (son profil, « S'abonner ») : un écran qui ne se relirait pas
+  //     resterait dans un faux état.
+  {
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    const S = fauxSocial.etat;
+    const refusAvant = S.journal.filter((j) => j.op === 'refus').length;
+    const tS = Date.now();
+    const iso = (d) => d.toISOString();
+    const hier = ilYa(86400000, tS);
+    const prive = (id, pseudo, compte_prive) => ({ id, username: pseudo, compte_prive: compte_prive !== false, jeu_actif: true, jeu_niveau: 4,
+      jeu_titre: null, deleted_at: null });
+    S.profils.push(prive('u-lea', 'lea'), prive('u-jordan', 'jordan'), prive('u-alexis', 'alexis'), prive('u-melodie', 'melodie', false),
+      prive('u-nina', 'nina'), prive('u-olga', 'olga'));
+    const LEA = 'a0000000-0000-4000-8107-000000000001';
+    S.sessions.push({ id: LEA, user_id: 'u-lea', titre: 'Bas du corps', debut: iso(hier), fin: iso(finDe(iso(hier), tS)), statut: 'terminee',
+      visibilite: 'mutuels' });
+    S.sets.push({ id: 's107-1', session_id: LEA, exercise_slug: 'squat-barre', rang: 1, charge_kg: 100, reps: 5, type_serie: 'travail' });
+    const ab = (a, b, statut) => S.abonnements.push({ suiveur: a, suivi: b, statut: statut || 'accepte', cree_le: iso(hier), accepte_le: null });
+    ab('u-lea', 'u-banc', 'demande'); ab('u-banc', 'u-lea'); ab('u-jordan', 'u-banc');
+    S.blocages.push({ bloqueur: 'u-banc', bloque: 'u-alexis', cree_le: iso(hier) });
+    const lien = (a, b) => S.abonnements.filter((x) => x.suiveur === a && x.suivi === b)[0] || null;
+    const attendreQue = async (cond, ms) => {
+      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
+      return false;
+    };
+    const fileSociale = () => page.evaluate(() => THCache.lireAttente().then((f) => (f || []).filter((x) => x.table === 'social')
+      .sort((a, b) => a.seq - b.seq).map((x) => x.donnees.geste + ':' + (x.donnees.pseudo || ''))));
+    const sAttente = (cible) => texte(cible + ' .s-attente');
+    const etatAmi = () => texte('#social-ami .s-etat');
+    const retour = async () => {
+      base.reseau = true; base.ecrituresSocialesCoupees = false;
+      await page.evaluate(() => window.dispatchEvent(new Event('online')));
+      return attendreQue(async () => (await fileSociale()).length === 0, 10000);
+    };
+    // Les écritures des GESTES (les publications de scores, recalculées à l'ouverture du fil, n'en sont pas).
+    const GESTES_EN_BASE = ['acceptation', 'reaction', 'retrait-reaction', 'abonnement', 'retrait-abonnement', 'blocage', 'deblocage'];
+    const opsDepuis = (i) => S.journal.slice(i).filter((j) => GESTES_EN_BASE.indexOf(j.op) >= 0).map((j) => j.op +
+      (j.ligne ? ':' + (j.ligne.suivi || j.ligne.bloque || '') : ''));
+
+    // ── H1. CHAQUE GESTE HORS LIGNE, PUIS LE RETOUR DU RÉSEAU.
+    await aller('/jeu/fil');
+    await attendreQue(async () => (await compter('#social-fil .s-demande[data-pseudo="lea"]')) === 1 &&
+      (await compter('#social-fil .s-carte[data-session="' + LEA + '"]')) === 1);
+    const journal0 = S.journal.length;
+    base.reseau = false;
+    await page.click('#social-fil .s-demande[data-pseudo="lea"] .s-accepter');
+    await attendreQue(async () => (await compter('#social-fil .s-demande')) === 0);
+    await page.click('#social-fil .s-carte[data-session="' + LEA + '"] .s-reag');
+    await attendreQue(async () => /Tu as réagi/.test(await texte('#social-fil .s-carte .s-reag')));
+    const h1a = { demandes: await compter('#social-fil .s-demande'), reag: await texte('#social-fil .s-carte .s-reag'),
+      attente: await sAttente('#social-fil'), file: await fileSociale() };
+    ok('[social 107] H1 — HORS RÉSEAU, « Accepter » et « Réagir » se montrent aussitôt faits, avec « En attente du réseau » ; ' +
+      'rien n’est arrivé en base, les deux gestes attendent dans la file, dans l’ordre',
+      h1a.demandes === 0 && h1a.reag === '🔥 Tu as réagi' && h1a.attente === 'En attente du réseau' &&
+        JSON.stringify(h1a.file) === JSON.stringify(['accepter:lea', 'reagir:lea']) && lien('u-lea', 'u-banc').statut === 'demande' &&
+        S.reactions.length === 0 && opsDepuis(journal0).length === 0, JSON.stringify([h1a, S.journal.slice(journal0)]));
+    await aller('/a/jordan');
+    await attendreQue(async () => (await compter('#social-ami .s-erreur')) > 0);
+    ok('[social 107] H1 — hors réseau, les LECTURES restent en ligne : le profil dit qu’il faut le réseau pour le voir',
+      (await texte('#social-ami')) === 'Il faut le réseau pour voir ce profil.', await texte('#social-ami'));
+
+    // Les écritures coupées, les lectures rétablies : d'autres écrans s'ouvrent, les gestes attendent toujours.
+    base.reseau = true; base.ecrituresSocialesCoupees = true;
+    await aller('/a/jordan');
+    await attendreQue(async () => !!(await texte('#social-principal')));
+    const h1b0 = { etat: await etatAmi(), bouton: await texte('#social-principal') };
+    await page.click('#social-principal');
+    await attendreQue(async () => /Demande envoyée/.test(await etatAmi()));
+    const h1b1 = await etatAmi();
+    await page.click('#social-menu');
+    await page.click('#social-ami [data-geste="retirer-abonne"]');
+    await attendreQue(async () => (await compter('#social-ami [data-geste="retirer-abonne"]')) === 0);
+    const h1b2 = await etatAmi();
+    ok('[social 107] H1 — « Suivre en retour » (jordan, compte privé) : « Demande envoyée · en attente du réseau » ; ' +
+      '« Retirer cet abonné » : fait aussitôt, sans rien en base',
+      h1b0.bouton === 'Suivre en retour' && h1b1 === 'Demande envoyée · en attente du réseau' && h1b2 === 'Demande envoyée · en attente du réseau' &&
+        !lien('u-banc', 'u-jordan') && !!lien('u-jordan', 'u-banc'), JSON.stringify([h1b0, h1b1, h1b2]));
+    await aller('/jeu/amis');
+    await attendreQue(async () => /alexis/.test(await texte('.s-bloques')));
+    await page.click('.s-bloques .s-ligne[data-pseudo="alexis"] button');
+    await attendreQue(async () => !/alexis/.test(await texte('.s-bloques')));
+    await page.fill('#social-recherche', 'me');
+    await attendreQue(async () => (await compter('#social-resultats .s-ligne[data-pseudo="melodie"] button')) === 1);
+    await page.click('#social-resultats .s-ligne[data-pseudo="melodie"] button');
+    await attendreQue(async () => /tu le suis/.test(await texte('#social-resultats .s-ligne[data-pseudo="melodie"]')));
+    // « Compte privé » (un champ du profil : son chemin, local d'abord, rejoué au retour du réseau).
+    const priveAvant = base.profiles[0].compte_prive;
+    await page.click('#social-compte-prive');
+    await attendreQue(async () => (await page.getAttribute('#social-compte-prive', 'aria-checked')) === 'false');
+    const h1c = { bloques: await texte('.s-bloques'), melodie: await texte('#social-resultats .s-ligne[data-pseudo="melodie"]'),
+      attente: await sAttente('#social-amis'), file: await fileSociale(), prive: await page.getAttribute('#social-compte-prive', 'aria-checked') };
+    ok('[social 107] H1 — « Débloquer », « S’abonner » depuis la recherche (melodie, compte public : « tu le suis ») et « Compte privé » coupé : ' +
+      'faits aussitôt, « En attente du réseau » ; six gestes en file, dans l’ordre ; la base n’a rien reçu',
+      /Bloqués : aucun/.test(h1c.bloques) && /tu le suis/.test(h1c.melodie) && h1c.attente === 'En attente du réseau' &&
+        priveAvant === true && h1c.prive === 'false' && base.profiles[0].compte_prive === true &&
+        JSON.stringify(h1c.file) === JSON.stringify(['accepter:lea', 'reagir:lea', 'sabonner:jordan', 'retirer_abonne:jordan',
+          'debloquer:alexis', 'sabonner:melodie']) && S.blocages.length === 1 && !lien('u-banc', 'u-melodie') &&
+        opsDepuis(journal0).length === 0, JSON.stringify([h1c, S.journal.slice(journal0)]));
+
+    // LE RECHARGEMENT : la file est sur le disque, l'écran la relit.
+    await aller('/jeu/fil');
+    await attendreQue(async () => (await compter('#social-fil .s-carte')) > 0);
+    const h1d = { demandes: await compter('#social-fil .s-demande'), reag: await texte('#social-fil .s-carte .s-reag'),
+      attente: await sAttente('#social-fil'), file: await fileSociale() };
+    ok('[social 107] H1 — DISCRIMINANT — RECHARGÉE (écritures toujours coupées) : les six gestes sont toujours là, et l’écran les montre ' +
+      'faits (la demande de lea acceptée, « Tu as réagi », « En attente du réseau »)',
+      h1d.file.length === 6 && h1d.demandes === 0 && h1d.reag === '🔥 Tu as réagi' && h1d.attente === 'En attente du réseau' &&
+        opsDepuis(journal0).length === 0, JSON.stringify(h1d));
+    // Pendant ce temps, melodie passe son compte en privé : mon abonnement (l'écran a dit « tu le suis ») arrivera en demande.
+    S.profils.filter((x) => x.id === 'u-melodie')[0].compte_prive = true;
+    const partis = await retour();
+    await attendreQue(async () => !(await sAttente('#social-fil')));
+    await attendreQue(async () => (await compter('#social-fil .s-refus')) === 1);
+    ok('[social 107] H1 — DISCRIMINANT — le réseau revient : les six gestes partent, DANS L’ORDRE, et la base est dans l’état voulu',
+      partis && JSON.stringify(opsDepuis(journal0)) === JSON.stringify(['acceptation', 'reaction', 'abonnement:u-jordan',
+        'retrait-abonnement', 'deblocage', 'abonnement:u-melodie']) &&
+        lien('u-lea', 'u-banc').statut === 'accepte' && S.reactions.some((r) => r.session_id === LEA && r.user_id === 'u-banc') &&
+        lien('u-banc', 'u-jordan').statut === 'demande' && !lien('u-jordan', 'u-banc') && S.blocages.length === 0 &&
+        lien('u-banc', 'u-melodie').statut === 'demande', JSON.stringify([partis, opsDepuis(journal0), S.abonnements, S.blocages]));
+    ok('[social 107] H1 — DISCRIMINANT — « le compte est devenu privé » : melodie est passée en privé pendant que mon abonnement attendait ; ' +
+      'la base l’a reçu en demande, et l’app le dit en une phrase',
+      (await texte('#social-fil .s-refus')) === 'Le compte de melodie est devenu privé : ta demande attend son accord.',
+      await texte('#social-fil'));
+    ok('[social 107] H1 — DISCRIMINANT — « Compte privé » coupé hors ligne, l’app rechargée : au retour du réseau, le profil en base est public',
+      await attendreQue(async () => base.profiles[0].compte_prive === false), JSON.stringify(base.profiles[0].compte_prive));
+    ok('[social 107] H1 — après le retour : l’écran ne dit plus « en attente », et montre l’état réel (« Tu as réagi », aucune demande)',
+      !(await sAttente('#social-fil')) && (await texte('#social-fil .s-carte .s-reag')) === '🔥 Tu as réagi' &&
+        (await compter('#social-fil .s-demande')) === 0, await texte('#social-fil'));
+
+    // ── H2. DEUX GESTES CONTRAIRES, UN RECHARGEMENT ENTRE LES DEUX.
+    base.ecrituresSocialesCoupees = true;
+    await aller('/a/nina');
+    await attendreQue(async () => (await texte('#social-principal')) === 'S’abonner');
+    const journal1 = S.journal.length;
+    await page.click('#social-principal');
+    await attendreQue(async () => /Demande envoyée/.test(await etatAmi()));
+    await aller('/a/nina');
+    await attendreQue(async () => /Demande envoyée/.test(await etatAmi()));
+    const h2a = { etat: await etatAmi(), file: await fileSociale() };
+    // L'envoi du retrait (posé ci-dessous) échouera LENTEMENT : le réseau revient pendant qu'il est en vol. La vidange
+    // demandée par le retour du réseau ne doit pas se perdre derrière celle qui tourne encore.
+    base.ecrituresSocialesLentes = 3000;
+    await page.click('#social-menu');
+    // (Absent si le premier geste s'est perdu au rechargement : le contrôle ci-dessous le dit, sans planter le banc.)
+    if (await compter('#social-ami [data-geste="retirer-abonnement"]')) await page.click('#social-ami [data-geste="retirer-abonnement"]');
+    await attendreQue(async () => (await texte('#social-principal')) === 'S’abonner');
+    const h2b = { etat: await etatAmi(), file: await fileSociale() };
+    ok('[social 107] H2 — « S’abonner », RECHARGÉE, puis « Annuler la demande » : chaque geste se voit aussitôt ; le second REMPLACE le premier ' +
+      'dans la file (l’état final seul attend)',
+      h2a.etat === 'Demande envoyée · en attente du réseau' && JSON.stringify(h2a.file) === '["sabonner:nina"]' &&
+        h2b.etat === 'Compte privé · en attente du réseau' && JSON.stringify(h2b.file) === '["retirer_abonnement:nina"]' &&
+        opsDepuis(journal1).length === 0, JSON.stringify([h2a, h2b]));
+    const partis2 = await retour();
+    base.ecrituresSocialesLentes = 0;
+    await attendreQue(async () => (await etatAmi()) === 'Compte privé');
+    ok('[social 107] H2 — DISCRIMINANT — au retour (pendant qu’un envoi échouait encore), la base ne reçoit QUE l’état final (le retrait) : jamais d’abonnement à nina, pas même un ' +
+      'instant ; l’écran : « S’abonner », sans « en attente »',
+      partis2 && JSON.stringify(opsDepuis(journal1)) === JSON.stringify(['retrait-abonnement']) && !lien('u-banc', 'u-nina') &&
+        (await texte('#social-principal')) === 'S’abonner' && (await etatAmi()) === 'Compte privé', JSON.stringify([opsDepuis(journal1), await etatAmi()]));
+
+    // ── H3. REFUSÉ AU RETOUR : olga me bloque pendant que mon abonnement attend.
+    await aller('/a/olga');
+    await attendreQue(async () => (await texte('#social-principal')) === 'S’abonner');
+    base.reseau = false;
+    await page.click('#social-principal');
+    await attendreQue(async () => /Demande envoyée/.test(await etatAmi()));
+    const h3a = await etatAmi();
+    fauxSocial.appeler('u-olga', 'POST', 'blocages', { bloqueur: 'u-olga', bloque: 'u-banc' });
+    const partis3 = await retour();
+    await attendreQue(async () => (await compter('#social-ami .s-introuvable')) === 1);
+    const h3b = { texte: await texte('#social-ami'), sync: (await texte('#etat-sync')).trim() };
+    ok('[social 107] H3 — DISCRIMINANT — refusé au retour (olga m’a bloqué entre-temps) : l’écran le dit en une phrase, puis l’état RÉEL ' +
+      '(son profil n’est plus visible) — pas « Demande envoyée », pas son profil d’avant ; la file est vide, rien n’est « refusé » en attente',
+      h3a === 'Demande envoyée · en attente du réseau' && partis3 &&
+        h3b.texte === '« S’abonner à olga » n’a pas pu se faire.Ce profil n’existe pas, ou n’est pas visible.' &&
+        !lien('u-banc', 'u-olga') && !/refusé/.test(h3b.sync), JSON.stringify([h3a, h3b]));
+    // Sans recharger : « ← Fil », dans l'app.
+    await page.click('#btn-retour-ami');
+    await attendreQue(async () => !!(await texte('#social-fil .s-fin')));
+    ok('[social 107] H3 — la phrase, vue, s’oublie en ouvrant un autre écran (« ← Fil », sans recharger)',
+      (await compter('#social-fil .s-refus')) === 0 && JSON.stringify(await visible()) === '["vue-fil"]', await texte('#social-fil'));
+
+    // ── LA REMISE EN ÉTAT (« Compte privé » remis, par l'app : sa copie locale le dit aussi).
+    base.reseau = true; base.ecrituresSocialesCoupees = false;
+    await aller('/jeu/amis');
+    await attendreQue(async () => (await compter('#social-compte-prive')) === 1);
+    await page.click('#social-compte-prive');
+    await attendreQue(async () => base.profiles[0].compte_prive === true);
+    ['profils', 'sessions', 'sets', 'records', 'abonnements', 'blocages', 'reactions'].forEach((k) => { S[k] = []; });
+    await aller('/saisie');
+    const refusVus = S.journal.filter((j) => j.op === 'refus').slice(refusAvant).map((j) => j.refus + ' ' + j.message);
+    ok('[social 107] un seul refus du faux serveur (le blocage d’olga), la garde de l’app n’a rien signalé, aucune erreur de page',
+      JSON.stringify(refusVus) === '["P0001 bloque"]' && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      JSON.stringify([refusVus, erreurs.slice(erreursAvant)]));
+    // Le refus voulu, constaté, sort du journal : les sections suivantes (social-2, guilde) comptent les refus depuis le
+    // début, et ne doivent voir que les leurs.
+    let vus = 0;
+    S.journal = S.journal.filter((j) => !(j.op === 'refus' && vus++ >= refusAvant));
   }
 
   console.log('\n══ social-2. LE SOCIAL, ÉTAGE 2 : PROFIL D’UN MUTUEL, SON EXERCICE, SE COMPARER, ENTRE AMIS (89, SOCIAL-V1) ══');
@@ -17515,6 +17950,8 @@ const SETS_IMPORTES = [
       largeurs.push({ ecran, doc: l.doc, fen: l.fen });
     };
     const onglet = async (cle, cond) => { await page.click('#social-guilde button[data-onglet="' + cle + '"]'); await attendreQue(cond); };
+    // 107 — un geste se montre fait AUSSITÔT (il passe par la file) : ce que la base en a fait se lit une fois la file vide.
+    const fileVide = () => page.evaluate(() => THCache.lireAttente().then((f) => !(f || []).some((x) => x.table === 'social')));
 
     // ── A. SANS GUILDE : le nom pris par lea, puis libre quand sa guilde (sans membre) a disparu.
     fauxSocial.rpc('u-lea', 'guilde_creer', { p_nom: 'Les Fers du Mardi', p_couleur: '#d9b45a' });
@@ -17535,6 +17972,7 @@ const SETS_IMPORTES = [
     await page.fill('#guilde-nom', 'LES FERS DU MARDÍ');
     await page.click('#guilde-creer');
     await attendreQue(async () => !!(await lire()).nom);
+    await attendreQue(fileVide);
     const a2 = await lire();
     const G = fauxSocial.guildeDe('u-banc');
     ok('[guilde] créée : le nom tel que tapé, la couleur choisie, « 1 membre », moi administrateur ; les quatre onglets',
@@ -17568,8 +18006,22 @@ const SETS_IMPORTES = [
       inv.length === 1 && inv[0].invitant === 'banc' && JSON.stringify(b1.lignes) === JSON.stringify(['toi · Novice',
         'jordan · Squatteur · Athlète', 'melodie · Novice']) && !/admin|chef/i.test(b1.texte) &&
         JSON.stringify(b1.invitables) === JSON.stringify(['lea']), JSON.stringify(b1));
+    // 107 — LE RANG CHOISI HORS LIGNE (les écritures coupées, les lectures passent), l'app RECHARGÉE, puis le retour.
+    base.ecrituresSocialesCoupees = true;
     await page.click('#social-guilde .s-rangs button[data-rang="Terreur"]');
     await attendreQue(async () => (await lire()).rangActif === 'Terreur');
+    const rangHors = { actif: (await lire()).rangActif, attente: await texte('#social-guilde .s-attente') };
+    await aller('/jeu/guilde');
+    await attendreQue(async () => !!(await lire()).nom);
+    await onglet('membres', async () => (await lire()).rangs.length === 9);
+    const rangRecharge = { actif: (await lire()).rangActif, attente: await texte('#social-guilde .s-attente'), base: S.membres.filter((m) => m.user_id === 'u-banc')[0].rang };
+    ok('[guilde 107] DISCRIMINANT — le rang choisi HORS LIGNE : « Terreur » aussitôt, « En attente du réseau » ; RECHARGÉE, toujours là, et la base dit encore « Novice »',
+      rangHors.actif === 'Terreur' && rangHors.attente === 'En attente du réseau' && rangRecharge.actif === 'Terreur' &&
+        rangRecharge.attente === 'En attente du réseau' && rangRecharge.base === 'Novice', JSON.stringify([rangHors, rangRecharge]));
+    base.ecrituresSocialesCoupees = false;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await attendreQue(fileVide);
+    await attendreQue(async () => !(await texte('#social-guilde .s-attente')));
     ok('[guilde] je choisis mon rang (« Terreur ») : les neuf rangs, sans aucun pouvoir',
       S.membres.filter((m) => m.user_id === 'u-banc')[0].rang === 'Terreur' && (await lire()).rangs.length === 9 &&
         (await lire()).lignes[0] === 'toi · Terreur', JSON.stringify(await lire()));
@@ -17586,6 +18038,7 @@ const SETS_IMPORTES = [
     await onglet('semaine', async () => (await lire()).choixDefi.length > 0);
     await page.click('#social-guilde .s-choix-defi button[data-defi="records"][data-n="3"]');
     await attendreQue(async () => /records? sur 3/.test((await lire()).phrase || ''));
+    await attendreQue(fileVide);
     const cAvant = await lire();
     const refusTonnage = fauxSocial.rpc('u-banc', 'guilde_choisir_defi', { p_type: 'tonnage', p_n: 5 });
     // melodie termine une séance : la semaine est lancée, le défi est figé.
@@ -17626,6 +18079,7 @@ const SETS_IMPORTES = [
     const monFil = fauxSocial.rpc('u-banc', 'social_fil').map((x) => x.session_id);
     await page.click('#social-guilde .s-fil-guilde .s-carte[data-session="' + SM + '"] .s-reag');
     await attendreQue(async () => (await lire()).reagi);
+    await attendreQue(fileVide);
     ok('[guilde] DISCRIMINANT — le fil de la guilde montre la séance de melodie (que je ne suis pas : absente de mon fil), sa médaille, ' +
       'sans note ni poids ; j’y réagis (règle de la guilde)',
       e0.cartes.indexOf(SM) >= 0 && monFil.indexOf(SM) < 0 && /1record|Rowing|rowing/i.test(e0.texte.replace(/\s/g, '')) &&
@@ -17638,6 +18092,7 @@ const SETS_IMPORTES = [
     await attendreQue(async () => !!(await compter('#guilde-quitter-oui')));
     await page.click('#guilde-quitter-oui');
     await attendreQue(async () => (await lire()).creer);
+    await attendreQue(fileVide);
     ok('[guilde] DISCRIMINANT — je pars (j’administrais) : jordan, le plus ancien, administre ; la guilde reste, à deux ; je retrouve « Créer une guilde »',
       S.guildes.length === 1 && S.guildes[0].admin === 'u-jordan' && fauxSocial.rpc('u-jordan', 'guilde_moi')[0].membres === 2 &&
         !fauxSocial.guildeDe('u-banc') && (await lire()).creer, JSON.stringify([S.guildes, S.membres]));
@@ -17675,6 +18130,13 @@ const SETS_IMPORTES = [
   //   · jordan ajoute un exercice APRÈS que j'ai copié sa liste : la ligne « Ajouter ? » ne vient que de là ;
   //   · un message tapé hors réseau attend, puis part au retour du réseau, sans que la séance ne s'arrête ;
   //   · m1..m4 entrent par jordan jusqu'à 6 : m5, invité avant, est refusé (6 au plus, en base).
+  // 106 (v2_087, décisions d'Aurélien du 15/10/2026) :
+  //   · un message tapé hors réseau, PUIS L'APP RECHARGÉE hors réseau : il est gardé sur le téléphone, et part (une fois)
+  //     au retour du réseau ;
+  //   · MA séance finie pendant que jordan s'entraîne encore : l'invitation de lea se montre, je la rejoins avec une
+  //     nouvelle séance — la séance suivante n'hérite rien du groupe d'avant ;
+  //   · jordan ne rouvre jamais l'app (sa dernière série a 50 min) : le groupe finit au geste suivant ; 24 h après la
+  //     fin, ses messages s'effacent ; le récap reste lisible depuis ma séance.
   {
     const erreursAvant = erreurs.length;
     const violationsAvant = gardeBanc.violations;
@@ -17844,6 +18306,32 @@ const SETS_IMPORTES = [
         S.gmessages.some((m) => m.texte === '🔥' && m.user_id === 'u-banc'), JSON.stringify([e0.texte, avantHL, apresHL, vivante]));
     console.log('  durée D : ' + Math.round((Date.now() - ta) / 1000) + ' s');
 
+    // ── D bis (106). LE MESSAGE GARDÉ : écrit hors réseau, l'app RECHARGÉE (toujours hors réseau), puis le réseau revient.
+    ta = Date.now();
+    const garde = () => page.evaluate(() => self.THCache.lireBrouillon('groupe-messages'));
+    base.reseau = false;
+    await page.click('#groupe-seance .g-rapide[data-texte="On y va ?"]');
+    await attendreQue(async () => /1 message partira au retour du réseau/.test((await carte()).texte));
+    const garde0 = await garde();
+    await aller('/saisie');
+    await attendreQue(async () => page.evaluate(() => !document.getElementById('vue-seance').hidden), 12000);
+    await attendre(1500);
+    const garde1 = await garde();
+    const partiHorsReseau = S.gmessages.filter((m) => m.texte === 'On y va ?').length;
+    base.reseau = true;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await attendreQue(async () => S.gmessages.some((m) => m.texte === 'On y va ?') && (await garde()) === null, 12000);
+    await relire(async () => !/partira/.test((await carte()).texte || ''));
+    const partis = S.gmessages.filter((m) => m.texte === 'On y va ?');
+    const garde2 = await garde();
+    ok('[groupe] MUTATION 106 (a) — LE MESSAGE GARDÉ : écrit hors réseau, il est dans le cache du téléphone ; l’app rechargée hors réseau ' +
+      'le garde ; le réseau revenu, il part UNE fois, pour CE groupe (son identifiant), et le cache se vide',
+      Array.isArray(garde0) && garde0.length === 1 && garde0[0].groupe_id === G && garde0[0].texte === 'On y va ?' &&
+        Array.isArray(garde1) && garde1.length === 1 && garde1[0].id === garde0[0].id && partiHorsReseau === 0 &&
+        partis.length === 1 && partis[0].id === garde0[0].id && partis[0].user_id === 'u-banc' && garde2 === null,
+      JSON.stringify([garde0, garde1, partiHorsReseau, partis, garde2]));
+    console.log('  durée D bis : ' + Math.round((Date.now() - ta) / 1000) + ' s');
+
     // ── E. 6 AU PLUS (MUTATION b) : m1..m4 entrent par jordan ; m5, invité avant, est refusé ; « Inviter » disparaît.
     ta = Date.now();
     fauxSocial.rpc('u-jordan', 'groupe_inviter', { p_user: 'u-m5' });
@@ -17931,6 +18419,79 @@ const SETS_IMPORTES = [
         (await page.evaluate(() => !document.getElementById('vue-detail').hidden)), JSON.stringify([g0, g1]));
     console.log('  durée G : ' + Math.round((Date.now() - ta) / 1000) + ' s');
 
+    // ── H (106). LA FIN DU GROUPE : un autre groupe dès que MA séance est finie ; le membre qui ne rouvre jamais l'app
+    // (45 min) ; les messages effacés 24 h après la fin ; le récap toujours lisible depuis la séance.
+    ta = Date.now();
+    const SJ2 = 'a0000000-0000-4000-9100-0000000000b2';
+    S.sessions.push({ id: SJ2, user_id: 'u-jordan', titre: 'Dos', debut: iso(ilYa(20 * 60000)), statut: 'en_cours', visibilite: 'mutuels' });
+    S.sets.push({ id: 'gj2-1', session_id: SJ2, user_id: 'u-jordan', exercise_slug: 'squat-barre', rang: 1, charge_kg: 150, reps: 5,
+      type_serie: 'travail', validee_a: iso(ilYa(60000)) });
+    const G3 = fauxSocial.rpc('u-jordan', 'groupe_creer', { p_session: SJ2, p_exercices: ['squat-barre'] });
+    fauxSocial.rpc('u-jordan', 'groupe_inviter', { p_user: 'u-banc' });
+    fauxSocial.rpc('u-jordan', 'groupe_envoyer', { p_texte: 'Dernière série !' });
+    await aller('/saisie');
+    await attendreQue(async () => (await compter('#groupe-accueil-saisie .g-invitation')) === 1);
+    await page.click('#groupe-accueil-saisie .g-voir-invitation');
+    await attendreQue(async () => (await compter('#groupe-corps .g-option')) > 0);
+    await page.click('#groupe-corps .g-option[data-choix="suivre"]');
+    await attendreQue(async () => fauxSocial.groupeDe('u-banc') === G3 && (await carte()) && (await carte()).titre === 'Groupe · 2', 12000);
+    const maSeance3 = enCours();
+    await validerToutes();
+    await garderRecap(true);
+    await terminer();
+    await attendreQue(async () => page.evaluate(() => !document.getElementById('vue-recap').hidden));
+    await page.click('#recap-corps .recap-fermer');
+    await garderRecap(false);
+    await attendreQue(async () => /jordan s’entraîne encore/.test(await texte('#groupe-accueil')));
+    // lea lance un groupe et m'invite, pendant que jordan s'entraîne encore.
+    const SL2 = 'a0000000-0000-4000-9100-0000000000c2';
+    S.sessions.push({ id: SL2, user_id: 'u-lea', titre: 'Haut', debut: iso(ilYa(5 * 60000)), statut: 'en_cours', visibilite: 'mutuels' });
+    const G4 = fauxSocial.rpc('u-lea', 'groupe_creer', { p_session: SL2, p_exercices: ['squat-barre'] });
+    fauxSocial.rpc('u-lea', 'groupe_inviter', { p_user: 'u-banc' });
+    await aller('/');
+    await attendreQue(async () => (await compter('#groupe-accueil .g-invitation')) === 1, 12000);
+    const h0 = await texte('#groupe-accueil');
+    await page.click('#groupe-accueil .g-voir-invitation');
+    await attendreQue(async () => (await compter('#groupe-corps .g-option')) > 0);
+    await page.click('#groupe-corps .g-option[data-choix="vide"]');
+    await attendreQue(async () => fauxSocial.groupeDe('u-banc') === G4 && (await carte()) && (await carte()).titre === 'Groupe · 2', 12000);
+    const maSeance4 = enCours();
+    const h1 = await carte();
+    const placeG3 = S.gmembres.filter((m) => m.groupe_id === G3 && m.user_id === 'u-banc')[0];
+    const placeG4 = S.gmembres.filter((m) => m.groupe_id === G4 && m.user_id === 'u-banc')[0];
+    ok('[groupe] MUTATION 106 (b) — MA séance finie, jordan s’entraîne encore : l’invitation de lea se montre déjà ; je la rejoins avec une ' +
+      'NOUVELLE séance — ma place dans le groupe de jordan se ferme, le sien continue ; ma nouvelle séance ne montre que le groupe de lea',
+      /lea/.test(h0) && /t’invite à t’entraîner ensemble/.test(h0) && /jordan s’entraîne encore/.test(h0) &&
+        fauxSocial.groupeDe('u-banc') === G4 && !!placeG3 && placeG3.ferme === true && placeG3.session_id === maSeance3 &&
+        fauxSocial.groupeDe('u-jordan') === G3 && !fauxSocial.finiLe(G3) && !!placeG4 && placeG4.session_id === maSeance4 &&
+        !!maSeance4 && maSeance4 !== maSeance3 && JSON.stringify(h1.pastilles) === JSON.stringify(['lea', 'banc']),
+      JSON.stringify([h0, h1, placeG3, placeG4, maSeance3, maSeance4]));
+    // jordan NE ROUVRE JAMAIS l'app : sa dernière série a 50 min — il compte comme terminé ; le geste suivant finit G3.
+    S.sets.filter((t) => t.session_id === SJ2).forEach((t) => { t.validee_a = iso(ilYa(50 * 60000)); });
+    await relire(async () => !!(S.groupes.filter((g) => g.id === G3)[0] || {}).fini_le);
+    const finG3 = (S.groupes.filter((g) => g.id === G3)[0] || {}).fini_le;
+    const messagesG3 = S.gmessages.filter((m) => m.groupe_id === G3).length;
+    // 24 h après la fin : ses messages s'effacent, au geste suivant.
+    S.groupes.filter((g) => g.id === G3)[0].fini_le = iso(ilYa(24 * 3600000 + 60000));
+    await relire(async () => !S.gmessages.some((m) => m.groupe_id === G3));
+    const messagesG3Apres = S.gmessages.filter((m) => m.groupe_id === G3).length;
+    // Ma nouvelle séance, abandonnée, quitte le groupe de lea — pas celui de jordan (ma place y est déjà fermée).
+    await abandonner();
+    await attendreQue(async () => !fauxSocial.groupeDe('u-banc'));
+    await aller('/seance/' + maSeance3);
+    await attendreQue(async () => (await compter('#detail-groupe-voir')) === 1);
+    const h3 = await texte('#detail-groupe');
+    await page.click('#detail-groupe-voir');
+    await attendreQue(async () => (await compter('#groupe-corps .g-part')) === 2);
+    const h4 = await lireRecap();
+    await page.click('#btn-retour-groupe');
+    ok('[groupe] le membre qui ne rouvre JAMAIS l’app (50 min sans série) compte comme terminé : le groupe finit au geste suivant ; 24 h ' +
+      'après la fin, ses messages s’effacent ; ma séance garde « Faite en groupe avec jordan » et son récap',
+      !!finG3 && messagesG3 === 1 && messagesG3Apres === 0 && h3 === 'Faite en groupe avec jordan' && h4.parts.length === 2 &&
+        !S.gmembres.some((m) => m.groupe_id === G4 && m.user_id === 'u-banc') && placeG3.ferme === true,
+      JSON.stringify([finG3, messagesG3, messagesG3Apres, h3, h4.parts]));
+    console.log('  durée H : ' + Math.round((Date.now() - ta) / 1000) + ' s');
+
     ok('[groupe] DISCRIMINANT — aucune réponse ne porte poids de corps, note, RPE, ressenti ou douleur',
       S.fuites.length === 0 && S.sets.some((t) => t.rpe && t.poids_corps_kg), JSON.stringify(S.fuites));
     ok('[groupe] à 360 px, aucun défilement horizontal : rejoindre, séance en groupe, récap du groupe',
@@ -17939,8 +18500,9 @@ const SETS_IMPORTES = [
     // ── LA REMISE EN ÉTAT.
     ['profils', 'sessions', 'sets', 'records', 'abonnements', 'blocages', 'reactions', 'groupes', 'gmembres', 'ginvitations', 'gmessages',
       'grecaps'].forEach((k) => { S[k] = []; });
-    for (let k = base.sets.length - 1; k >= 0; k--) if (base.sets[k].session_id === maSeance) base.sets.splice(k, 1);
-    for (let k = base.sessions.length - 1; k >= 0; k--) if (base.sessions[k].id === maSeance) base.sessions.splice(k, 1);
+    const miennes = [maSeance, maSeance3, maSeance4];
+    for (let k = base.sets.length - 1; k >= 0; k--) if (miennes.indexOf(base.sets[k].session_id) >= 0) base.sets.splice(k, 1);
+    for (let k = base.sessions.length - 1; k >= 0; k--) if (miennes.indexOf(base.sessions[k].id) >= 0) base.sessions.splice(k, 1);
     const refusAttendus = ['groupe_plein'];
     const refusVus = S.journal.filter((j) => j.op === 'refus').map((j) => j.message);
     await aller('/saisie');
@@ -19795,6 +20357,175 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ saison-mois. LA SAISON ET LE MOIS : OUVRIR, DÉFILER, PARTAGER, AUCUN DÉBORDEMENT À 360 PX (98, BILANS-V1) ══');
+  //
+  // ⚠️ SES séances seulement (la méthode de [A95]) : la base est vidée pour la section, puis rendue. Une séance tous
+  // les 3 jours depuis 200 jours, la charge du squat montant toutes les dix séances : le mois écoulé a plus de 3
+  // semaines de données et un mois d'avant (la comparaison des tonnes paraît), et ses records. Le profil est mis en
+  // prise de masse depuis longtemps : la saison écoulée porte le nom « Bulk » de sa saison (l'hiver : « Winter Arc »).
+  // `?bilan=AAAA-MM` et `?bilan=AAAA-saison` ouvrent la story au démarrage (la garde du coach est active sur localhost).
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const catalogueAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets;
+    const profilAvant = { phase: base.profiles[0].phase, phase_depuis: base.profiles[0].phase_depuis };
+    base.sessions = []; base.sets = [];
+    base.profiles[0].phase = 'prise_de_masse';
+    base.profiles[0].phase_depuis = '2025-01-01T08:00:00.000Z';
+    const fiche = (slug, nom, prim) => ({ slug, nom, mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      mouvement: null, muscles_primaires: prim, muscles_secondaires: [], muscles_stabilisateurs: [] });
+    if (!CATALOGUE.some((c) => c.slug === 'squat_barre')) CATALOGUE.push(fiche('squat_barre', 'Squat (Barre)', ['quadriceps']));
+    if (!CATALOGUE.some((c) => c.slug === 'developpe_couche_barre')) CATALOGUE.push(fiche('developpe_couche_barre', 'Développé Couché (Barre)', ['pectoraux']));
+    const maintenant = new Date();
+    let n98 = 0;
+    const seance98 = (jour, lignes) => {
+      n98++;
+      const id = '00000000-0000-4000-8980-' + String(n98).padStart(12, '0');
+      const debut = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate(), 18, 0, 0).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Saison ' + n98, debut, fin: finDe(debut).toISOString(), statut: 'terminee',
+        note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      lignes.forEach(([slug, kg, reps], r) => base.sets.push({ id: id + '-s' + (r + 1), session_id: id, user_id: 'u-banc',
+        exercise_slug: slug, charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: r + 1,
+        groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app',
+        created_at: debut, modifie_a: null }));
+    };
+    let k98 = 0;
+    for (let d = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate() - 200);
+      d < new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate()); d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 3)) {
+      const c = 100 + Math.floor(k98++ / 10) * 2.5;
+      seance98(d, [['squat_barre', c, 5], ['squat_barre', c - 20, 8], ['developpe_couche_barre', 80, 5], ['developpe_couche_barre', 70, 8]]);
+    }
+    const deux = (x) => String(x).padStart(2, '0');
+    const ecoule = new Date(maintenant.getFullYear(), maintenant.getMonth() - 1, 1);
+    const MOIS = ecoule.getFullYear() + '-' + deux(ecoule.getMonth() + 1);
+    const MOIS_L = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+    const avantMois = MOIS_L[new Date(ecoule.getFullYear(), ecoule.getMonth() - 1, 1).getMonth()];
+    // La saison écoulée : celle d'avant la saison d'aujourd'hui (saisons météorologiques).
+    const m = maintenant.getMonth() + 1, a = maintenant.getFullYear();
+    const ici98 = m === 12 ? [a, 'hiver'] : (m <= 2 ? [a - 1, 'hiver'] : [a, m <= 5 ? 'printemps' : (m <= 8 ? 'ete' : 'automne')]);
+    const AVANT = { hiver: 'automne', printemps: 'hiver', ete: 'printemps', automne: 'ete' };
+    const SAISON = (ici98[1] === 'printemps' ? ici98[0] - 1 : ici98[0]) + '-' + AVANT[ici98[1]];
+    const NOM = { hiver: 'Winter Arc', printemps: 'Spring Bulk', ete: 'Summer Bulk', automne: 'Bulk Season' }[SAISON.slice(5)] +
+      ' ' + SAISON.slice(0, 4);
+    const ecritures = () => base.journal.filter((j) => j.op !== 'refus').length;
+    const capturer98 = async (nom) => {
+      if (!process.env.BANC_CAPTURES) return;
+      await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'b98-' + nom + '.png') });
+    };
+    const lire = () => page.evaluate(() => {
+      const h = document.getElementById('annee');
+      return { visible: !!h && !h.hidden, ecran: h && h.dataset.ecran, periode: h && h.dataset.periode,
+               cles: h ? Array.from(h.querySelectorAll('.s')).map((x) => x.dataset.cle) : [],
+               ecrans: Array.from(h ? h.querySelectorAll('.s') : []).map((x) => ({ cle: x.dataset.cle, texte: x.textContent })) };
+    });
+    const ouvrir98 = async (cle) => {
+      await aller('/progression?bilan=' + cle);
+      await page.waitForFunction(() => { const h = document.getElementById('annee'); return h && !h.hidden && h.dataset.ecran; },
+        null, { timeout: 15000 }).catch(() => console.log('   (plafond de 15 s : le bilan ' + cle + ' ne s’est pas ouvert)'));
+      return lire();
+    };
+    // Chaque écran, l'un après l'autre (flèche droite) : aucun grand chiffre ne déborde, aucun défilement horizontal.
+    const deborde = async (n, quoi) => {
+      const out = [];
+      for (let k = 0; k < n; k++) {
+        await page.evaluate((k) => {
+          const h = document.getElementById('annee');
+          while (Array.from(h.querySelectorAll('.s')).findIndex((x) => x.classList.contains('on')) < k) {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+          }
+        }, k);
+        await attendre(1700);
+        const r = await page.evaluate(() => {
+          const x = document.querySelector('#annee .s.on');
+          const cs = getComputedStyle(x), max = x.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+          return { cle: x.dataset.cle, max,
+            chiffres: Array.from(x.querySelectorAll('.chiffre, .plaque .an')).map((c) => c.scrollWidth),
+            large: x.scrollWidth > x.clientWidth || document.documentElement.scrollWidth > window.innerWidth };
+        });
+        r.chiffres.forEach((l) => { if (l > r.max + 0.5) out.push([r.cle, l, r.max]); });
+        if (r.large) out.push([r.cle, 'défilement horizontal']);
+        await capturer98(quoi + '-' + k + '-' + r.cle);
+      }
+      return out;
+    };
+
+    // ── A. LE MOIS : `?bilan=AAAA-MM` l'ouvre ; les écrans dans l'ordre ; les tonnes comparées au mois d'avant.
+    const mo = await ouvrir98(MOIS);
+    const ecritures98 = ecritures();
+    const tonnesMois = (mo.ecrans.filter((x) => x.cle === 'tonnes')[0] || {}).texte || '';
+    ok('[B98] DISCRIMINANT — `?bilan=' + MOIS + '` ouvre la story du mois : tonnes, à la salle, semaines, muscle, exercice, records…, la plaque',
+      mo.visible && mo.periode === MOIS && mo.ecran === 'tonnes' &&
+        JSON.stringify(mo.cles.slice(0, 6)) === '["tonnes","salle","semaines","muscle","exercice","records"]' &&
+        mo.cles[mo.cles.length - 1] === 'plaque', JSON.stringify(mo.cles));
+    ok('[B98] DISCRIMINANT — la seule comparaison : les tonnes, « … t sur ' + avantMois + ' » ; « À la salle » jamais comparé',
+      new RegExp('t sur ' + avantMois).test(tonnesMois.replace(/ /g, ' ')) &&
+        !new RegExp('[+−→]|sur ' + avantMois + '|comme|qu’').test((mo.ecrans.filter((x) => x.cle === 'salle')[0] || {}).texte || '+'),
+      JSON.stringify(mo.ecrans.slice(0, 2)));
+    ok('[B98] jamais le nombre de séances ; la plaque sans le coach',
+      !mo.ecrans.some((x) => x.cle !== 'exercice' && /\d+\s*séances?/.test(x.texte)) &&
+        !/pari|coach/i.test((mo.ecrans.filter((x) => x.cle === 'plaque')[0] || {}).texte || 'pari'),
+      JSON.stringify(mo.ecrans.map((x) => x.texte.slice(0, 80))));
+    await page.waitForFunction(() => document.getElementById('annee').dataset.ecran === 'salle', null, { timeout: 11000 }).catch(() => {});
+    ok('[B98] il défile seul : les tonnes laissent place à « À la salle »', (await lire()).ecran === 'salle', (await lire()).ecran);
+
+    // ── B. LE PARTAGE : une image PNG part vers la feuille de partage de l'appareil, nommée d'après le mois.
+    await page.evaluate(() => {
+      window.__partages98 = [];
+      navigator.canShare = () => true;
+      navigator.share = (d) => { window.__partages98.push({ nom: d.files[0].name, type: d.files[0].type, titre: d.title }); return Promise.resolve(); };
+    });
+    await page.click('#annee .partage');
+    await page.waitForFunction(() => document.getElementById('annee').dataset.partages === '1', null, { timeout: 8000 }).catch(() => {});
+    const part = await page.evaluate(() => window.__partages98);
+    ok('[B98] DISCRIMINANT — « Partager » : une image PNG du mois (trainhub-' + MOIS + '-salle.png)',
+      part.length === 1 && part[0].nom === 'trainhub-' + MOIS + '-salle.png' && part[0].type === 'image/png' &&
+        /^[A-ZÉ][a-zéû]+ \d{4}$/.test(part[0].titre), JSON.stringify(part));
+
+    // ── C. 360 PX : aucun débordement, sur chaque écran du mois.
+    const debMois = await deborde(mo.cles.length, 'mois');
+    const plaqueMois = await page.evaluate(() => { const x = document.querySelector('#annee .s.on');
+      return { cle: x.dataset.cle, bouton: (x.querySelector('.btn') || {}).textContent }; });
+    ok('[B98] DISCRIMINANT — le mois : aucun débordement à 360 px ; la plaque « Partager mon mois »',
+      !debMois.length && plaqueMois.cle === 'plaque' && plaqueMois.bouton === 'Partager mon mois',
+      JSON.stringify([debMois, plaqueMois]));
+
+    // ── D. LA SAISON : `?bilan=AAAA-saison` ; son nom suit la phase du profil ; aucun débordement ; la plaque.
+    const sa = await ouvrir98(SAISON);
+    const tonnesSaison = (sa.ecrans.filter((x) => x.cle === 'tonnes')[0] || {}).texte || '';
+    ok('[B98] DISCRIMINANT — `?bilan=' + SAISON + '` ouvre « ' + NOM + ' » (prise de masse) : tonnes, à la salle, semaines, exercice…',
+      sa.visible && sa.periode === SAISON && tonnesSaison.indexOf(NOM.replace(/ \d{4}$/, '')) >= 0 &&
+        JSON.stringify(sa.cles.slice(0, 4)) === '["tonnes","salle","semaines","exercice"]' && sa.cles[sa.cles.length - 1] === 'plaque',
+      JSON.stringify([sa.cles, tonnesSaison.slice(0, 120)]));
+    const debSaison = await deborde(sa.cles.length, 'saison');
+    const plaqueSaison = await page.evaluate(() => { const x = document.querySelector('#annee .s.on');
+      return { cle: x.dataset.cle, an: (x.querySelector('.plaque .an') || {}).textContent, bouton: (x.querySelector('.btn') || {}).textContent,
+               texte: x.textContent }; });
+    ok('[B98] DISCRIMINANT — la saison : aucun débordement à 360 px ; la plaque « ' + NOM + ' », « Partager ma saison », sans le coach',
+      !debSaison.length && plaqueSaison.cle === 'plaque' && plaqueSaison.an === NOM && plaqueSaison.bouton === 'Partager ma saison' &&
+        !/pari|coach/i.test(plaqueSaison.texte), JSON.stringify([debSaison, plaqueSaison]));
+
+    // ── E. RIEN N'EST ÉCRIT ; PROGRESSION PORTE LE BLOC DE LA SAISON.
+    ok('[B98] rien n’est écrit pendant les bilans', ecritures() === ecritures98, JSON.stringify([ecritures98, ecritures()]));
+    await page.click('#annee .fermer');
+    await attendre(400);
+    await aller('/progression');
+    await page.waitForFunction(() => !!document.querySelector('#sommaire .bloc-saison'), null, { timeout: 15000 }).catch(() => {});
+    const blocSaison = await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-saison .bloc-quoi')).map((b) => b.textContent));
+    ok('[B98] Progression porte le bloc « ' + NOM + ' »', blocSaison.length === 1 && blocSaison[0] === NOM, JSON.stringify(blocSaison));
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.profiles[0].phase = profilAvant.phase;
+    base.profiles[0].phase_depuis = profilAvant.phase_depuis;
+    await aller('/saisie');
+    ok('[B98] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ sans-marge. UNE SÉRIE À FOND COMPTE SES REPS ; APRÈS ELLE, LE COACH NE MONTE PAS (74, MOTEUR §17.4) ══');
   //
   // Deux exercices, chacun ses séances (la méthode de [C68B] : la base est vidée pour la section, puis rendue) :
@@ -19973,7 +20704,7 @@ const SETS_IMPORTES = [
       const ch = a && a.closest ? a.closest('.ch-serie') : null;
       const serie = a && a.closest ? a.closest('.serie') : null;
       const l = document.querySelectorAll('.ligne-serie')[i];
-      return { ch: !!ch, rouge: !!(ch && ch.classList.contains('sans-charge-tapee')),
+      return { ch: !!ch, rouge: !!(ch && ch.classList.contains('case-vide')),
         iSerie: serie ? serie.getAttribute('data-iserie') : null,
         cochee: !!(l && l.querySelector('.ok-serie.cochee')),
         constat: (document.querySelector('.legende-exo .constat') || {}).textContent || null };
@@ -19993,7 +20724,7 @@ const SETS_IMPORTES = [
     const partie = base.sets.filter((s) => s.exercise_slug === 'cran-c100' && !/^c100-/.test(s.session_id));
     ok('[C100] le poids tapé : la série part avec 55 kg × 3, et plus aucune ligne en rouge',
       base.sets.length === nSets + 1 && partie.some((s) => Number(s.charge_kg) === 55 && s.reps === 3) &&
-      (await compter('.sans-charge-tapee')) === 0, nb100(partie.map((s) => [s.charge_kg, s.reps])));
+      (await compter('.case-vide')) === 0, nb100(partie.map((s) => [s.charge_kg, s.reps])));
     ok('[C100] aucune série chargée sans charge en base', partie.every((s) => s.charge_kg !== null && s.charge_kg !== undefined),
       nb100(partie.map((s) => s.charge_kg)));
     // Le poids du corps : aucune charge à taper, le ✓ valide (mutation b).
@@ -20006,7 +20737,7 @@ const SETS_IMPORTES = [
     }
     const pdc = base.sets.filter((s) => s.exercise_slug === 'pdc-c100' && !/^c100-/.test(s.session_id));
     ok('[C100] le poids du corps n’est pas concerné : × 15 se valide sans charge',
-      pdc.length === 1 && pdc[0].reps === 15 && pdc[0].charge_kg === null && (await compter('.sans-charge-tapee')) === 0,
+      pdc.length === 1 && pdc[0].reps === 15 && pdc[0].charge_kg === null && (await compter('.case-vide')) === 0,
       nb100(pdc.map((s) => [s.charge_kg, s.reps])));
     ok('[C100] et aucune violation de la garde (I26 compris)', gardeBanc.violations === violationsAvant,
       String(gardeBanc.violations - violationsAvant));
@@ -20020,6 +20751,384 @@ const SETS_IMPORTES = [
     ok('[C100] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       nb100([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ case-vide. AUCUNE SÉRIE NE SE VALIDE AVEC UNE CASE OBLIGATOIRE VIDE : CHARGE, REPS, DURÉE, DISTANCE (105, ECRAN-SAISIE §3 bis.3 bis) ══');
+  //
+  // La règle du 100, étendue à toutes les cases (une seule règle, `THSeance.casesManquantes`) : au ✓, une case
+  // obligatoire vide et sans chiffre gris du coach passe au rouge et tremble, le clavier s'ouvre sur la première, et
+  // rien n'est validé. Le décor : quatre exercices jamais faits, sans chiffre à la routine, sauf une ligne de reps
+  // (12 visées) qui doit, elle, se valider sur son chiffre gris. La base est vidée pour la section, puis rendue.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    const violationsAvant = gardeBanc.violations;
+    const mus = (m) => ({ muscles_primaires: [m], muscles_secondaires: [] });
+    CATALOGUE.push(Object.assign({ slug: 'charge-c105', nom: 'Presse C105 (Machine)', mesure: 'charge_reps',
+      charge: 'externe', equipement: 'machine' }, mus('adducteurs')));
+    CATALOGUE.push(Object.assign({ slug: 'reps-c105', nom: 'Pompes C105', mesure: 'reps', charge: 'aucune',
+      equipement: 'aucun' }, mus('pectoraux')));
+    CATALOGUE.push(Object.assign({ slug: 'planche-c105', nom: 'Planche C105', mesure: 'temps', charge: 'aucune',
+      equipement: 'aucun' }, mus('abdominaux')));
+    CATALOGUE.push(Object.assign({ slug: 'course-c105', nom: 'Course C105', mesure: 'distance_temps', charge: 'aucune',
+      equipement: 'aucun' }, mus('quadriceps')));
+    base.sessions = [];
+    base.sets = [];
+    const lignesReps = progr(2);
+    lignesReps[1].reps_visees = 12;
+    const ex105 = (slug, rang, sets) => ({ id: 'r-c105-' + rang, routine_id: 'r-c105', exercise_slug: slug, rang,
+      routine_sets: sets, repos_cible_s: 0, groupe_superset: null, note: null });
+    ROUTINES.push({ id: 'r-c105', nom: 'Cases C105', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [ex105('charge-c105', 0, progr(1)), ex105('reps-c105', 1, lignesReps),
+        ex105('planche-c105', 2, progr(1)), ex105('course-c105', 3, progr(1))] });
+    const nb105 = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+    await aller('/saisie');
+    await demarrerRoutine('Cases C105');
+    await attendre(900);
+    // L'état d'une ligne, lu dans la page (les poignées se périment au moindre rendu).
+    const etat105 = (i) => page.evaluate((k) => {
+      const l = document.querySelectorAll('.ligne-serie')[k];
+      const a = document.activeElement;
+      const actif = a && a.closest ? a.closest('[data-champ]') : null;
+      const cases = l ? Array.from(l.querySelectorAll('[data-champ]')) : [];
+      return {
+        cases: cases.map((c) => [c.getAttribute('data-champ'), (c.querySelector('input') || {}).value || '',
+          (c.querySelector('input') || {}).placeholder || '']),
+        rouges: cases.filter((c) => c.classList.contains('case-vide')).map((c) => c.getAttribute('data-champ')),
+        clavier: actif && l && l.contains(actif) ? actif.getAttribute('data-champ') : null,
+        cochee: !!(l && l.querySelector('.ok-serie.cochee'))
+      };
+    }, i);
+    const valider105 = async (i) => {
+      await page.evaluate((k) => document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), i);
+      await attendre(700);
+    };
+    const remplir105 = async (i, champ, v) => {
+      const inp = await page.$$('.ligne-serie >> nth=' + i + ' >> [data-champ="' + champ + '"] input');
+      if (champ === 'duree') { await inp[0].click(); await inp[0].type(String(v), { delay: 30 }); }
+      else await inp[0].fill(String(v));
+      await attendre(300);
+    };
+    const sansChiffre = (e) => e.cases.every((c) => c[1] === '' && !/\d/.test(c[2]));
+    const montees = (slug) => base.sets.filter((s) => s.exercise_slug === slug);
+
+    // 1. CHARGE ET REPS VIDES ENSEMBLE : les deux en rouge, le clavier sur la charge.
+    const e0 = await etat105(0);
+    ok('[C105] le décor : la presse jamais faite n’a aucun chiffre, ni tapé ni gris',
+      e0.cases.length === 2 && sansChiffre(e0), nb105(e0));
+    await valider105(0);
+    const r0 = await etat105(0);
+    ok('[C105] DISCRIMINANT — charge et reps vides : rien en base, les deux cases en rouge, le clavier sur la CHARGE',
+      montees('charge-c105').length === 0 && !r0.cochee && nb105(r0.rouges) === nb105(['charge_kg', 'reps']) &&
+      r0.clavier === 'charge_kg', nb105(r0));
+    {
+      const st = await page.evaluate(() => {
+        const c = document.querySelector('.case-vide');
+        const cs = c && getComputedStyle(c);
+        return cs ? { bord: cs.borderTopColor, anim: cs.animationName } : null;
+      });
+      ok('[C105] le rouge (--manque) et le léger tremblement', !!st && st.bord === 'rgb(205, 113, 103)' &&
+        st.anim === 'trembler-case', nb105(st));
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      const st2 = await page.evaluate(() => {
+        const c = document.querySelector('.case-vide');
+        const cs = c && getComputedStyle(c);
+        return cs ? { bord: cs.borderTopColor, anim: cs.animationName } : null;
+      });
+      await page.emulateMedia({ reducedMotion: null });
+      ok('[C105] mouvement réduit : le rouge reste, le tremblement non', !!st2 && st2.bord === 'rgb(205, 113, 103)' &&
+        st2.anim === 'none', nb105(st2));
+    }
+    await remplir105(0, 'charge_kg', 40);
+    await valider105(0);
+    const r0b = await etat105(0);
+    ok('[C105] le poids tapé, les reps toujours vides : rien en base, les reps seules en rouge, le clavier sur elles',
+      montees('charge-c105').length === 0 && !r0b.cochee && nb105(r0b.rouges) === nb105(['reps']) &&
+      r0b.clavier === 'reps', nb105(r0b));
+    await remplir105(0, 'reps', 8);
+    await valider105(0);
+    ok('[C105] les reps tapées : la série part, 40 kg × 8, plus aucun rouge sur la ligne',
+      montees('charge-c105').length === 1 && Number(montees('charge-c105')[0].charge_kg) === 40 &&
+      montees('charge-c105')[0].reps === 8 && (await etat105(0)).rouges.length === 0,
+      nb105([montees('charge-c105').map((s) => [s.charge_kg, s.reps]), await etat105(0)]));
+
+    // 2. REPS VIDES SANS FANTÔME : rouge. AVEC FANTÔME : validé sur le chiffre gris.
+    const e1 = await etat105(1), e2 = await etat105(2);
+    ok('[C105] le décor : la 1re ligne de pompes sans chiffre, la 2e avec 12 en gris',
+      sansChiffre(e1) && e2.cases.length === 1 && e2.cases[0][1] === '' && e2.cases[0][2] === '12', nb105([e1, e2]));
+    await valider105(1);
+    const r1 = await etat105(1);
+    ok('[C105] DISCRIMINANT — reps vides sans chiffre gris : rien en base, la case des reps en rouge, le clavier sur elle',
+      montees('reps-c105').length === 0 && !r1.cochee && nb105(r1.rouges) === nb105(['reps']) && r1.clavier === 'reps',
+      nb105(r1));
+    await remplir105(1, 'reps', 10);
+    await valider105(1);
+    await valider105(2);
+    const pompes = montees('reps-c105').map((s) => s.reps).sort((a, b) => a - b);
+    ok('[C105] reps tapées (10) puis le chiffre gris validé tel quel (12) : deux séries, sans charge',
+      nb105(pompes) === nb105([10, 12]) && montees('reps-c105').every((s) => s.charge_kg === null),
+      nb105(montees('reps-c105').map((s) => [s.charge_kg, s.reps])));
+
+    // 3. UNE PLANCHE SANS DURÉE.
+    const e3 = await etat105(3);
+    ok('[C105] le décor : la planche sans durée, ni tapée ni grise', e3.cases.length === 1 && sansChiffre(e3), nb105(e3));
+    await valider105(3);
+    const r3 = await etat105(3);
+    ok('[C105] DISCRIMINANT — planche sans durée : rien en base, la durée en rouge, le clavier sur elle',
+      montees('planche-c105').length === 0 && !r3.cochee && nb105(r3.rouges) === nb105(['duree']) && r3.clavier === 'duree',
+      nb105(r3));
+    await remplir105(3, 'duree', '45');
+    const r3b = await etat105(3);
+    ok('[C105] la première frappe sur le pavé retire le rouge', r3b.rouges.length === 0, nb105(r3b));
+    await valider105(3);
+    ok('[C105] la durée tapée : la planche part, 45 s',
+      montees('planche-c105').length === 1 && montees('planche-c105')[0].duree_s === 45,
+      nb105(montees('planche-c105').map((s) => s.duree_s)));
+
+    // 4. LA DISTANCE VIDE (la durée tapée).
+    await remplir105(4, 'duree', '3000');
+    await valider105(4);
+    const r4 = await etat105(4);
+    ok('[C105] DISCRIMINANT — durée tapée, distance vide : rien en base, la distance SEULE en rouge, le clavier sur elle',
+      montees('course-c105').length === 0 && !r4.cochee && nb105(r4.rouges) === nb105(['distance_km']) &&
+      r4.clavier === 'distance_km', nb105(r4));
+    await remplir105(4, 'distance_km', '5');
+    await valider105(4);
+    ok('[C105] la distance tapée : la course part, 30:00 et 5 km',
+      montees('course-c105').length === 1 && montees('course-c105')[0].duree_s === 1800 &&
+      montees('course-c105')[0].distance_m === 5000,
+      nb105(montees('course-c105').map((s) => [s.duree_s, s.distance_m])));
+    ok('[C105] aucune case obligatoire vide en base',
+      base.sets.every((s) => (s.exercise_slug !== 'charge-c105' || (s.charge_kg !== null && s.reps !== null)) &&
+        (s.exercise_slug !== 'reps-c105' || s.reps !== null) && (s.exercise_slug !== 'planche-c105' || s.duree_s !== null) &&
+        (s.exercise_slug !== 'course-c105' || (s.duree_s !== null && s.distance_m !== null))),
+      nb105(base.sets.map((s) => [s.exercise_slug, s.charge_kg, s.reps, s.duree_s, s.distance_m])));
+    ok('[C105] et aucune violation de la garde', gardeBanc.violations === violationsAvant,
+      String(gardeBanc.violations - violationsAvant));
+    await abandonner();
+
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[C105] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nb105([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ degressive-proposee. LA DÉGRESSIVE PROPOSÉE QUAND ÇA STAGNE : LA MARCHE QUI SUIT LA SÉRIE DE PLUS (111, MOTEUR §14.8) ══');
+  //
+  // Un curl à la poulie (isolation : un seul muscle) et une presse à la machine (polyarticulaire : trois muscles)
+  // calent depuis 8 séances sous consigne ; une série de plus a été proposée et REFUSÉE sur chacun au 1er
+  // déclenchement (compteur 4). Au 2e déclenchement (8) :
+  //   A — le curl : la carte de la dégressive (la phrase, le détail, « Ajouter une dégressive » / « Non merci ») ;
+  //       la presse : jamais (polyarticulaire — la mutation a).
+  //   B — « Ajouter une dégressive » : le pari de l'escalier (marche « degressive », acceptée), PUIS une ligne
+  //       dégressive après les séries de travail, remplie par §9.15.3 (sous 25 kg, « Dégressive : … »), sans pari.
+  //   C — une nouvelle séance, sans progrès : la ligne revient, sans carte, sans nouveau pari.
+  //   D — en sèche : le curl (dégressive acceptée en B) n'a plus ni marche ni ligne ; un mollet (isolation, la
+  //       série de plus refusée, jamais de dégressive proposée) n'a pas de carte (la mutation b).
+  // Le curl a deux charges dans son histoire (22,5 puis 25 kg) : son cran est connu, le test de la consigne a un
+  // chiffre, et la dégressive se cale sur lui.
+  // La base est vidée pour la section, puis rendue.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, predictionsAvant = base.predictions;
+    const catalogueAvant = CATALOGUE.length, routinesAvant = ROUTINES.length;
+    const phaseAvant = base.profiles && base.profiles[0] ? base.profiles[0].phase : undefined;
+    const violationsAvant = gardeBanc.violations;
+    // Les blocs d'une section d'avant (« cycles », au banc séquentiel) : leur décharge neutraliserait nos séances.
+    const rendreBlocs111 = await retirerBlocsDeLAppareil();
+    CATALOGUE.push({ slug: 'curl-d111', nom: 'Curl D111 (Poulie)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'poulie', muscles_primaires: ['biceps'], muscles_secondaires: [] });
+    CATALOGUE.push({ slug: 'presse-d111', nom: 'Presse D111 (Machine)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: ['fessiers', 'adducteurs'] });
+    const t111 = Date.now();
+    base.sessions = [];
+    base.sets = [];
+    base.predictions = [];
+    let graine111 = 9000;
+    const idPari = () => '00000000-0000-5000-8111-' + String(++graine111).padStart(12, '0');
+    const exos111 = [['curl-d111', 25, 12], ['presse-d111', 100, 10]];
+    CATALOGUE.push({ slug: 'mollet-d111', nom: 'Mollet D111 (Machine)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'machine', muscles_primaires: ['mollets'], muscles_secondaires: [] });
+    // Le cran du curl : deux séances à 22,5 kg, hors consigne (aucun pari), avant les dix sous consigne.
+    [48, 45].forEach((j) => {
+      const id = 'd111-h' + j, debut = ilYa(j * 86400000, t111).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'D111 — ' + id, debut,
+        fin: finDe(debut, t111).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((r) => base.sets.push({
+        id: id + '-s' + r, session_id: id, user_id: 'u-banc', exercise_slug: 'curl-d111',
+        charge_kg: 22.5, reps: 12, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: r, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    // Dix séances sous consigne, tous les 4 jours, sans progrès : le compteur atteint 8 aujourd'hui. Le mollet a les
+    // siennes, plus espacées et finies il y a 12 jours : hors des 7 jours de la semaine allégée (§14.4), qui citerait sinon les trois
+    // exercices et ne laisserait aucune marche isolée. En D, les paris du curl et de la presse partent de la base
+    // pour la même raison.
+    const decor111 = (exos, decalage, ecart, prefixe) => {
+      for (let i = 0; i < 10; i++) {
+        const j = decalage + ecart * (9 - i);
+        const id = prefixe + i, debut = ilYa(j * 86400000, t111).toISOString();
+        base.sessions.push({ id, user_id: 'u-banc', titre: 'D111 — ' + id, debut,
+          fin: finDe(debut, t111).toISOString(), statut: 'terminee', note: null,
+          salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+        exos.forEach(([slug, kg, reps], kx) => {
+          // Le curl : ses deux séances à 22,5 kg tiennent lieu de la première (sinon 25 kg y serait un progrès : 9).
+          if (slug === 'curl-d111' && i === 0) return;
+          // Le rang est unique dans la SÉANCE (`sets_rang_unique`), pas dans l'exercice.
+          [1, 2, 3].forEach((r) => base.sets.push({
+            id: id + '-' + slug + '-s' + r, session_id: id, user_id: 'u-banc', exercise_slug: slug,
+            charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+            rang: r + 3 * kx, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+            repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+          base.predictions.push({ id: idPari(), user_id: 'u-banc', module: 'moteur.consigne', module_version: 4,
+            emise_a: debut, exercise_slug: slug, grandeur: 'reps', horizon_jours: null, valeur_predite: reps,
+            borne_basse: 10, borne_haute: 12,
+            fondement: { rang: 1, charge: kg, etat: 'progression', zone: 'volume', reglage: 'normal', palier: kg,
+                         niveau: reps, seance: id, role: 'ligne', phase: 'maintien', compteur: Math.max(0, i - 1) },
+            valeur_observee: reps, observee_a: debut, set_observe: id + '-' + slug + '-s1', created_at: debut });
+          // Le 1er déclenchement (compteur 4) : la série de plus proposée, refusée.
+          if (i === 5) {
+            base.predictions.push({ id: idPari(), user_id: 'u-banc', module: 'escalier', module_version: 1,
+              emise_a: debut, exercise_slug: null, grandeur: 'progres', horizon_jours: null, valeur_predite: 1,
+              borne_basse: null, borne_haute: null,
+              fondement: { seance: id, jour: debut.slice(0, 10), exercice: slug, marche: 'serie_de_plus',
+                           reponse: 'refusee', compteur: 4, n: 1, zone: 'volume', phase: 'maintien', n_routine: 3, debut },
+              valeur_observee: null, observee_a: null, set_observe: null, created_at: debut });
+          }
+        });
+      }
+    };
+    decor111(exos111, 5, 4, 'd111-s');
+    // Tous les 8 jours, la dernière il y a 12 jours : pas de coupure (3 × 8 jours, §12.6).
+    decor111([['mollet-d111', 60, 12]], 12, 8, 'd111-m');
+    ROUTINES.push({ id: 'r-d111', nom: 'Dégressive D111', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: exos111.map(([slug, , reps], k) => ({ id: 'r-d111-' + k, routine_id: 'r-d111',
+        exercise_slug: slug, rang: k, routine_sets: progr(3, reps), repos_cible_s: 90, groupe_superset: null, note: null })) });
+    ROUTINES.push({ id: 'r-d111-m', nom: 'Mollet D111', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-d111-m0', routine_id: 'r-d111-m', exercise_slug: 'mollet-d111', rang: 0,
+        routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    if (base.profiles && base.profiles[0]) base.profiles[0].phase = 'maintien';
+    const nb111 = (x) => JSON.stringify(x).replace(/[\u00a0\u202f]/g, ' ');
+    const lire111 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const vue = (slug) => {
+        const x = d && d.plan.exercices.filter((e) => e.slug === slug)[0];
+        if (!x) return null;
+        const carte = document.querySelector('.proposition-degressive-proposee[data-iexo="' + x.iExo + '"]');
+        return {
+          compteur: x.compteur ? x.compteur.compteur : null, poly: x.polyarticulaire,
+          marche: x.escalier ? x.escalier.marche : null, reponse: x.escalier ? x.escalier.reponse || null : null,
+          carte: carte ? { texte: carte.querySelector('.pc-texte').textContent, detail: carte.querySelector('.pc-detail').textContent,
+            oui: carte.querySelector('.pdp-oui').textContent, non: carte.querySelector('.pdp-non').textContent } : null,
+          types: x.lignes.map((l) => l.type),
+          degressive: x.degressive ? { charge: x.degressive.charge, reference: x.degressive.reference, phrase: x.degressive.phrase } : null
+        };
+      };
+      return { phase: d ? d.plan.phase : null, curl: vue('curl-d111'), presse: vue('presse-d111'), mollet: vue('mollet-d111'),
+               cartes: document.querySelectorAll('.proposition-degressive-proposee').length };
+    });
+    const parisDeg = () => base.predictions.filter((l) => l.module === 'escalier' && l.fondement &&
+      l.fondement.marche === 'degressive');
+
+    // ── A. Le 2e déclenchement : la carte sur le curl, jamais sur la presse.
+    await aller('/saisie');
+    await demarrerRoutine('Dégressive D111');
+    await attendre(1200);
+    const a = await lire111();
+    ok('[D111] prémisse : maintien, le curl et la presse à 8 séances sans progrès, le curl isolation, la presse polyarticulaire',
+      a.phase === 'maintien' && a.curl && a.curl.compteur === 8 && a.curl.poly === false &&
+      a.presse && a.presse.compteur === 8 && a.presse.poly === true, nb111(a));
+    ok('[D111] A — la carte de la dégressive sous le curl : la phrase, le détail, « Ajouter une dégressive » / « Non merci »',
+      a.curl.marche === 'degressive' && !!a.curl.carte &&
+      nb111(a.curl.carte.texte) === nb111('25 kg × 12 reste ta meilleure charge de travail depuis 8 séances. Une dégressive après ta dernière série ?') &&
+      a.curl.carte.detail === '−20 à 25 %, sans repos, jusqu\'à l\'échec. La même croissance en moins de temps (Sødal et al. 2023).' &&
+      a.curl.carte.oui === 'Ajouter une dégressive' && a.curl.carte.non === 'Non merci', nb111(a.curl));
+    ok('[D111] A — DISCRIMINANT : la presse (polyarticulaire) n’a jamais de dégressive proposée ; une seule carte à l’écran',
+      a.presse.marche !== 'degressive' && !a.presse.carte && a.cartes === 1, nb111({ presse: a.presse, cartes: a.cartes }));
+    ok('[D111] A — avant la réponse : aucune ligne dégressive, rien n’est écrit dans une série',
+      a.curl.types.indexOf('degressive') < 0 && a.curl.degressive === null && parisDeg().length === 0, nb111(a.curl.types));
+
+    // ── B. « Ajouter une dégressive ».
+    await page.click('.proposition-degressive-proposee .pdp-oui');
+    await attendre(1500);
+    // La dernière série de travail est le test du cran au-dessus, SANS CHIFFRE (une poulie sans salle, comme C100) :
+    // tant qu'elle n'est pas faite, §9.15.3 n'a pas de référence et le dit. On fait les trois séries à 25 × 12 :
+    // la dégressive se cale sur la dernière, faite.
+    const b0 = await lire111();
+    for (let i = 0; i < 3; i++) await saisirSerie(i, 25, 12);
+    await attendre(600);
+    const b = await lire111();
+    const pari = parisDeg()[0];
+    ok('[D111] B — le pari : escalier, marche « degressive », acceptée, l’exercice dans le fondement, compteur 8',
+      parisDeg().length === 1 && !!pari && pari.exercise_slug === null && pari.fondement.exercice === 'curl-d111' &&
+      pari.fondement.reponse === 'acceptee' && pari.fondement.compteur === 8 && !!pari.fondement.debut,
+      nb111(pari && pari.fondement));
+    ok('[D111] B — à l’acceptation : une ligne dégressive, et une seule, après les séries de travail ; plus de carte',
+      b0.curl.carte === null && b0.cartes === 0 && b0.curl.types.join() === 'travail,travail,travail,degressive', nb111(b0.curl));
+    ok('[D111] B — les séries faites : la dégressive remplie sous 25 kg (« Dégressive : … »)',
+      b.curl.carte === null && b.cartes === 0 && b.curl.types[b.curl.types.length - 1] === 'degressive' &&
+      b.curl.types.filter((t) => t === 'degressive').length === 1 && !!b.curl.degressive &&
+      b.curl.degressive.charge > 0 && b.curl.degressive.charge < 25 && /^Dégressive : /.test(b.curl.degressive.phrase),
+      nb111(b.curl));
+    ok('[D111] B — la ligne dégressive ne porte aucun pari de consigne (§9.15.4)',
+      !base.predictions.some((l) => l.module === 'moteur.consigne' && l.exercise_slug === 'curl-d111' &&
+        l.fondement && l.fondement.role === 'degressive'), '');
+    await abandonner();
+
+    // ── C. La séance suivante : la ligne revient, sans carte.
+    await aller('/saisie');
+    await demarrerRoutine('Dégressive D111');
+    await attendre(1500);
+    const c = await lire111();
+    ok('[D111] C — une nouvelle séance, sans progrès : la ligne dégressive revient d’elle-même ; ni carte ni nouveau pari',
+      c.curl.types.filter((t) => t === 'degressive').length === 1 && c.cartes === 0 && parisDeg().length === 1,
+      nb111({ curl: c.curl, paris: parisDeg().length }));
+    await abandonner();
+
+    // ── D. En sèche : le curl n'a plus sa dégressive ; le mollet n'en reçoit pas.
+    if (base.profiles && base.profiles[0]) base.profiles[0].phase = 'seche';
+    await aller('/saisie');
+    await demarrerRoutine('Dégressive D111');
+    await attendre(1200);
+    const dd = await lire111();
+    ok('[D111] D — en sèche, la dégressive acceptée n’est plus en cours : ni marche, ni carte, ni ligne',
+      dd.phase === 'seche' && dd.curl.marche !== 'degressive' && dd.cartes === 0 &&
+      dd.curl.types.indexOf('degressive') < 0, nb111(dd));
+    await abandonner();
+    base.predictions = base.predictions.filter((l) => l.exercise_slug !== 'curl-d111' && l.exercise_slug !== 'presse-d111');
+    await aller('/saisie');
+    await demarrerRoutine('Mollet D111');
+    await attendre(1200);
+    const d2 = await lire111();
+    ok('[D111] D — DISCRIMINANT : en sèche, le mollet (isolation, série de plus refusée, 8 séances) n’a jamais de dégressive proposée',
+      d2.phase === 'seche' && !!d2.mollet && d2.mollet.compteur === 8 && d2.mollet.marche !== 'degressive' && d2.cartes === 0,
+      nb111(d2));
+    ok('[D111] aucune violation de la garde (I48 compris)', gardeBanc.violations === violationsAvant,
+      String(gardeBanc.violations - violationsAvant) + ' ' + nb111(gardeBanc.liste.slice(-2)));
+    await abandonner();
+
+    if (base.profiles && base.profiles[0]) base.profiles[0].phase = phaseAvant;
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = predictionsAvant;
+    rendreBlocs111();
+    await aller('/saisie');
+    ok('[D111] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nb111([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ Q78. LA QUESTION DE RÉSERVE : « IL T’EN RESTAIT COMBIEN ? », APRÈS LA DERNIÈRE SÉRIE D’UN EXERCICE QUI A UN PARI (78, MOTEUR §17.2 bis) ══');
@@ -20079,7 +21188,7 @@ const SETS_IMPORTES = [
     });
     // Valide la série j de l'exercice i (dans le bloc i : trois exercices seuls, trois blocs).
     const valider78 = async (i, j) => {
-      await poidsSiAucun(await ligneDuBloc(i, j));
+      await casesSiVides(await ligneDuBloc(i, j));
       await page.evaluate(([b, k]) => document.querySelectorAll('.bloc-seance')[b]
         .querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), [i, j]);
       await attendre(800);
@@ -20480,6 +21589,192 @@ const SETS_IMPORTES = [
     ok('[D99] rien n’est écrit dans une routine ; aucun refus du faux serveur, aucune erreur de page',
       routinesTouchees.length === 0 && base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       nb99([routinesTouchees, base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ chauffes-ajoutees. LES CHAUFFES AJOUTÉES ET LA DÉGRESSIVE VIDE, À L’ÉCRAN (112, MOTEUR §9.15.3 et §9.15.5) ══');
+  //
+  // Noté au prompt 94 : « une chauffe ajoutée sur une isolation reste vide » n'était tuée que par les tests
+  // unitaires, et aucun banc ne touchait les deux gestes de la dégressive vide. Section autonome : sa base, son
+  // catalogue et sa routine, rendus à la fin — aucune chaîne.
+  //
+  // ⚠️ CONFIGURATIONS DISCRIMINANTES.
+  //   · Une isolation (machine) APRÈS un exercice qui sollicite déjà ses muscles : la table du §9.15.1 n'y prévoit
+  //     AUCUNE chauffe (situation « aucune »). Les lignes que l'utilisateur ajoute (« + Série », puis « Échauffement »)
+  //     se remplissent quand même : 1 → ~60 % × 8 ; 2 → ~50 % × 8 puis ~75 % × 4 (§9.15.5). Avant 94 : vides.
+  //   · Une dégressive à la barre à 5 kg : aucun disque ne tombe entre −15 et −30 % — le coach ne la remplit pas.
+  //     La phrase dit pourquoi ; « En faire une série normale » change son type ; une autre, « La retirer », la supprime.
+  //   · Une dégressive à la barre à 100 kg : « Enlève 10 kg de chaque côté : 80 kg. »
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    const violationsAvant = gardeBanc.violations;
+    const exo112 = (slug, nom, equipement, muscle) => ({ slug, nom, mesure: 'charge_reps', charge: 'externe',
+      equipement, muscles_primaires: [muscle], muscles_secondaires: [] });
+    CATALOGUE.push(exo112('presse-s112', 'Presse S112 (Machine)', 'machine', 's112_quadri'),
+      exo112('extension-s112', 'Extension S112 (Machine)', 'machine', 's112_quadri'),
+      exo112('leger-s112', 'Léger S112 (Barre)', 'barre', 's112_bras'),
+      exo112('lourd-s112', 'Lourd S112 (Barre)', 'barre', 's112_dos'));
+    const t112 = Date.now();
+    base.sessions = [];
+    base.sets = [];
+    [21, 14, 7].forEach((j) => {
+      const id = 's112-' + j, debut = ilYa(j * 86400000, t112).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'S112 — ' + id, debut,
+        fin: finDe(debut, t112).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      let rang = 0;
+      [['presse-s112', 100, 10, 2], ['extension-s112', 60, 12, 2], ['leger-s112', 5, 12, 1], ['lourd-s112', 100, 8, 1]]
+        .forEach(([slug, kg, reps, n]) => {
+          for (let k = 0; k < n; k++) {
+            rang++;
+            base.sets.push({ id: id + '-s' + rang, session_id: id, user_id: 'u-banc', exercise_slug: slug,
+              charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+              rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+              repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null });
+          }
+        });
+    });
+    const lignes112 = (types) => types.map(([t, reps], i) => ({ id: 's112-l' + (++grainePr), rang: i + 1,
+      type_serie: t, reps_visees: reps, charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null }));
+    const re112 = (rang, slug, types, repos) => ({ id: 'r-s112-' + rang, routine_id: 'r-s112', exercise_slug: slug, rang,
+      routine_sets: lignes112(types), repos_cible_s: repos, groupe_superset: null, note: null });
+    ROUTINES.push({ id: 'r-s112', nom: 'Chauffes S112', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        re112(0, 'presse-s112', [['travail', 10]], 120),
+        re112(1, 'extension-s112', [['travail', 12], ['travail', 12]], 90),
+        re112(2, 'leger-s112', [['travail', 12], ['degressive', null]], 90),
+        re112(3, 'lourd-s112', [['travail', 8], ['degressive', null]], 180)] });
+    const nb112 = (x) => JSON.stringify(x).replace(/[\u00a0\u202f]/g, ' ');
+    const esp112 = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
+    // La rangée (i, j) : ses deux fantômes (charge, reps) et son étiquette.
+    const rangee112 = (i, j) => page.evaluate(([a, b]) => {
+      const r = document.querySelector('.serie[data-iexo="' + a + '"][data-iserie="' + b + '"]');
+      if (!r) return null;
+      const champs = Array.from(r.querySelectorAll('input'));
+      return { charge: champs[0] ? champs[0].placeholder : null, reps: champs[1] ? champs[1].placeholder : null,
+               no: (r.querySelector('.no-serie') || {}).textContent || null };
+    }, [i, j]);
+    const plan112 = (slug) => page.evaluate((sl) => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === sl)[0];
+      return x ? { types: x.lignes.map((l) => l.type),
+        chauffes: x.chauffes ? { situation: x.chauffes.situation, reference: x.chauffes.reference, phrase: x.chauffes.phrase } : null,
+        charges: x.lignes.filter((l) => l.type === 'echauffement').map((l) => (l.chauffe ? l.chauffe.charge : 'sans')),
+        degressive: x.degressive ? { charge: x.degressive.charge, phrase: x.degressive.phrase, gestes: x.degressive.gestes || null } : null
+      } : null;
+    }, slug);
+    const nSeries112 = (i) => page.evaluate((a) => document.querySelectorAll('.serie[data-iexo="' + a + '"]').length, i);
+    // Le geste de l'utilisateur : « + Série » sous l'exercice, puis son numéro → le type dans la feuille.
+    const typer112 = async (i, j, rangDansMenu) => {
+      await page.evaluate(([a, b]) => document.querySelector('.serie[data-iexo="' + a + '"][data-iserie="' + b + '"] .no-serie').click(), [i, j]);
+      await attendre(500);
+      await page.click('#feuille-contenu .feuille-menu button:nth-child(' + rangDansMenu + ')');
+      await attendre(800);
+    };
+    const ECHAUFFEMENT = 2, DEGRESSIVE = 3;
+    const valider112 = async (i, j, kg, reps) => {
+      const s = await page.$('.serie[data-iexo="' + i + '"][data-iserie="' + j + '"]');
+      const champs = await s.$$('input');
+      await champs[0].fill(String(kg));
+      await champs[1].fill(String(reps));
+      await s.$eval('.ok-serie', (b) => b.click());
+      await attendre(700);
+    };
+    const propDeg112 = (i) => page.evaluate((a) => {
+      const p = document.querySelector('.proposition-degressive[data-iexo="' + a + '"]');
+      return p ? { texte: (p.querySelector('.pc-texte') || {}).textContent || '',
+                   boutons: Array.from(p.querySelectorAll('button')).map((b) => b.textContent) } : null;
+    }, i);
+
+    await aller('/saisie');
+    await demarrerRoutine('Chauffes S112');
+    await attendre(900);
+
+    // ── (1) LES CHAUFFES AJOUTÉES SUR UNE ISOLATION ─────────────────────────────────────────────────────
+    const avant112 = await plan112('extension-s112');
+    ok('[S112] le décor : l’isolation n’a ni chauffe ni proposition (muscles déjà sollicités par la presse)',
+      !!avant112 && avant112.chauffes === null && JSON.stringify(avant112.types) === '["travail","travail"]' &&
+      (await compter('.proposition-chauffes[data-iexo="1"]')) === 0, nb112(avant112));
+    await plusSerie(1);
+    await typer112(1, 2, ECHAUFFEMENT);
+    const une112 = await plan112('extension-s112');
+    const r1 = await rangee112(1, 2);
+    ok('[S112] la ligne ajoutée est une chauffe, et la table n’en prévoyait aucune (situation « aucune »)',
+      !!une112 && JSON.stringify(une112.types) === '["travail","travail","echauffement"]' &&
+      !!une112.chauffes && une112.chauffes.situation === 'aucune' && une112.chauffes.reference === 60, nb112(une112));
+    ok('[S112] DISCRIMINANT (§9.15.5) — UNE chauffe ajoutée se remplit : ~60 % × 8 de 60 kg → 35 kg × 8 (avant 94 : vide)',
+      !!r1 && r1.charge === '35' && r1.reps === '8', nb112(r1));
+    ok('[S112] et sa phrase : « Chauffes calées sur 60 kg : 35 kg. »',
+      esp112(une112 && une112.chauffes.phrase) === 'Chauffes calées sur 60 kg : 35 kg.', nb112(une112 && une112.chauffes));
+    await plusSerie(1);
+    await typer112(1, 3, ECHAUFFEMENT);
+    const deux112 = await plan112('extension-s112');
+    const r2a = await rangee112(1, 2), r2b = await rangee112(1, 3);
+    ok('[S112] DISCRIMINANT (§9.15.5) — DEUX chauffes ajoutées : ~50 % × 8 puis ~75 % × 4 → 30 kg × 8 · 45 kg × 4',
+      !!r2a && !!r2b && r2a.charge === '30' && r2a.reps === '8' && r2b.charge === '45' && r2b.reps === '4',
+      nb112([r2a, r2b, deux112 && deux112.charges]));
+    const phrasesChauffe112 = await page.evaluate(() => Array.from(document.querySelectorAll('.reaction-serie.chauffe')).map((e) => e.textContent));
+    ok('[S112] la phrase suit, à l’écran : « Chauffes calées sur 60 kg : 30 · 45 kg. »',
+      phrasesChauffe112.map(esp112).indexOf('Chauffes calées sur 60 kg : 30 · 45 kg.') >= 0, nb112(phrasesChauffe112));
+
+    // ── (2) LA DÉGRESSIVE QUE LE COACH NE PEUT PAS REMPLIR ──────────────────────────────────────────────
+    await valider112(2, 0, 5, 12);
+    const leger112 = await plan112('leger-s112');
+    const prop112 = await propDeg112(2);
+    const vide112 = await rangee112(2, 1);
+    ok('[S112] DISCRIMINANT (§9.15.3) — à la barre à 5 kg, la dégressive reste vide et la phrase dit pourquoi',
+      !!leger112 && !!leger112.degressive && leger112.degressive.charge === null && !!vide112 && !/\d/.test(vide112.charge || '') &&
+      !!prop112 && esp112(prop112.texte) === 'Trop léger pour une dégressive.', nb112([leger112, prop112, vide112]));
+    ok('[S112] et ses deux gestes : « En faire une série normale » · « La retirer »',
+      !!prop112 && JSON.stringify(prop112.boutons) === '["En faire une série normale","La retirer"]', nb112(prop112));
+    await page.click('.proposition-degressive[data-iexo="2"] .pd-serie_normale');
+    await attendre(800);
+    const normale112 = await plan112('leger-s112');
+    ok('[S112] DISCRIMINANT — « En faire une série normale » : la ligne reste, son type devient travail, la phrase s’en va',
+      !!normale112 && JSON.stringify(normale112.types) === '["travail","travail"]' && normale112.degressive === null &&
+      (await nSeries112(2)) === 2 && (await propDeg112(2)) === null, nb112(normale112));
+    await valider112(2, 1, 5, 12);
+    await plusSerie(2);
+    await typer112(2, 2, DEGRESSIVE);
+    const reposee112 = await plan112('leger-s112');
+    ok('[S112] une nouvelle dégressive, ajoutée par l’utilisateur : vide à nouveau, avec ses gestes',
+      !!reposee112 && JSON.stringify(reposee112.types) === '["travail","travail","degressive"]' &&
+      (await nSeries112(2)) === 3 && !!(await propDeg112(2)), nb112(reposee112));
+    await page.click('.proposition-degressive[data-iexo="2"] .pd-retirer');
+    await attendre(800);
+    const retiree112 = await plan112('leger-s112');
+    ok('[S112] DISCRIMINANT — « La retirer » : la ligne disparaît, les deux séries faites restent',
+      !!retiree112 && JSON.stringify(retiree112.types) === '["travail","travail"]' && (await nSeries112(2)) === 2 &&
+      (await propDeg112(2)) === null, nb112([retiree112, await nSeries112(2)]));
+    const faites112 = base.sets.filter((x) => x.exercise_slug === 'leger-s112' && !/^s112-/.test(x.session_id));
+    ok('[S112] en base : deux séries de travail à 5 kg × 12, aucune dégressive',
+      faites112.length === 2 && faites112.every((x) => x.type_serie === 'travail' && Number(x.charge_kg) === 5 && x.reps === 12),
+      nb112(faites112.map((x) => [x.type_serie, x.charge_kg, x.reps])));
+
+    // ── (3) LA DÉGRESSIVE À LA BARRE, REMPLIE ───────────────────────────────────────────────────────────
+    const lourd112 = await plan112('lourd-s112');
+    const rl112 = await rangee112(3, 1);
+    const phrasesDeg112 = await page.evaluate(() => Array.from(document.querySelectorAll('.reaction-serie.degressive')).map((e) => e.textContent));
+    ok('[S112] DISCRIMINANT (§9.15.3) — à la barre à 100 kg, la dégressive se remplit : 80 kg',
+      !!lourd112 && !!lourd112.degressive && lourd112.degressive.charge === 80 && !!rl112 && rl112.charge === '80',
+      nb112([lourd112, rl112]));
+    ok('[S112] et la phrase, à l’écran, dit quoi enlever : « Enlève 10 kg de chaque côté : 80 kg. … »',
+      phrasesDeg112.map(esp112).indexOf('Enlève 10 kg de chaque côté : 80 kg. Sans repos, jusqu\'à l\'échec. Vise 3 à 5.') >= 0,
+      nb112(phrasesDeg112));
+    ok('[S112] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[S112] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nb112([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ mon-objectif. MON OBJECTIF : UNE DATE PARIÉE, FIGÉE, VÉRIFIÉE — À L’ESSAI (109, MOTEUR §9.25) ══');

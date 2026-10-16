@@ -1388,6 +1388,8 @@
     carteCycles: carteCycles,
     // 66A — la relecture de la semaine (QUESTIONNAIRE-COACH-V2 §5 ter)
     BARRES: BARRES,
+    // 108 (MOTEUR §10 bis) — la barre lourde, lue par « Ma salle » : une barre olympique n'est pas une barre fixe.
+    estBarreLourde: estBarreLourde,
     SECHE_DEPASSEMENT: SECHE_DEPASSEMENT,
     PAR_SEANCE: PAR_SEANCE,
     PEU_TRAVAILLE: PEU_TRAVAILLE,

@@ -101,7 +101,7 @@ describe('PR 2 — la suite du constat suit la zone en vigueur', () => {
       local: { exercices: [{ slug: 'couche', equipement: 'haltere' }], zones: [] },
       constats: null, etatsExercices: {}, rejeuEnCours: null,
       Modele: { gabaritDe: () => ({ mesure: 'charge_reps' }), lesteDe: () => null, parentDe: () => null },
-      Profil: { rythmeDe: () => 'normal' },
+      Profil: { rythmeDe: () => 'normal', salleDeLExercice: () => null },   // 108 — la salle (aucune ici)
       Seance: { partEnBase: () => true },
       Moteur: { suiteDExercice: (g, j, e, a, o) => { appels.push(o.correction); return { apres: { consigne: { zone: o.correction } }, cranSuivant: null }; },
                 equipementEffectif: (e) => (e ? e.equipement || null : null) },

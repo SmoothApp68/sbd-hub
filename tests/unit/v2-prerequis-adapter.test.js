@@ -376,7 +376,7 @@ describe('5 — répondre à la carte du lest ne recalcule que l’exercice qui 
     const ctx = {
       seance: { id: 'S', debut: '2026-10-04T10:00:00Z' },
       profil: { intention: 'progresser', lest_reponse: null },
-      Profil: { rythmeDe: () => 'normal' },
+      Profil: { rythmeDe: () => 'normal', salleDeLExercice: () => null },   // 108 — la salle (aucune ici)
       consignes: null, consignesSauvees: (o && o.sauvees) || null, versionConsignes: 0,
       local: { exercices: [{ slug: 'squat' }, { slug: 'tractions' }] },
       Modele: { indexerExercices: (l) => { const r = {}; (l || []).forEach((e) => { r[e.slug] = e; }); return r; } },
@@ -385,6 +385,8 @@ describe('5 — répondre à la carte du lest ne recalcule que l’exercice qui 
       faits: { seancesDeLExercice: (c, slug) => ({ slug }) }, corpus: () => ({}),
       routineAFiger: (slug) => { routines[slug] = (routines[slug] || 0) + 1; return routines[slug] === 1 ? 3 : 99; },
       sauverConsignes: () => {},
+      // 111 — la ligne dégressive de la routine, figée avec la consigne : aucune ici.
+      aUneLigneDegressive: () => false,
       freresPourLeMoteur: () => [],
       Moteur: { consigneDExercice: (g, e, d, opt) => {
         calculs.push(g.slug);

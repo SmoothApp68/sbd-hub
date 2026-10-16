@@ -1455,7 +1455,7 @@ Exception à « jamais le délai » : la règle d'ECRAN-SAISIE §3.5, §7 bis.15
 - **La table** `objectifs` (migration proposée `v2_089`) : `user_id`, `exercise_slug`, `charge_kg`, `reps`, `pose_le`, `depart_kg`, `projection` (`date` / `pas_encore` / `plus_d_un_an` / `carnet`), `echeance`, `pari_id` ; clé (`user_id`, `exercise_slug`), RLS propriétaire ; écrite par la file (un `upsert` sur la clé, ou une suppression). **Sans la migration**, la lecture répond « table absente » (PGRST205) : la carte ne s'affiche pas, rien ne part vers elle.
 - **La story du mois** : la ligne « Squat : 145 → 147,5 kg, objectif 150. » attend la story du mois (PR #433, pas encore fusionnée) — notée pour après.
 
-**Maquette** : `v2-atelier/maquettes/maquette-salle-objectif-v1.html`, écrans 3 et 4 (validée le 15/10/2026 ; l'écran 3 n'affiche qu'une ligne de date). **Tests** : `tests/unit/v2-objectif.test.js` ; banc : section `mon-objectif`.
+**Maquette** : `v2-atelier/maquettes/maquette-salle-objectif-v1.html`, écrans 3 et 4 (validée le 15/10/2026 ; l'écran 3 n'affiche qu'une ligne de date). **Tests** : `tests/unit/v2-objectif-date.test.js` ; banc : section `mon-objectif`.
 
 
 ## 10. L'incrément

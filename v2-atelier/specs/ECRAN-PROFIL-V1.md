@@ -188,6 +188,11 @@ https://hevy.com/workout/4Xt0ZOlgoUw
 - la ligne **entre guillemets** juste sous un nom d'exercice est sa **note** ;
 - une série : `<charge> kg x <reps>` · `<reps> répétitions` · une durée (`30s`, `5min 0s`, `5h 25min 5s`) ·
   `<distance> km - <durée>` ; `@ <n> rpe` ; `lbs` se convertit (× 0,45359237, au dixième) ;
+- **un signe devant la charge se lit tel qu'il est écrit** (16/10/2026, audit du 16/10, 03 #4) : `+10 kg x 8` (un
+  lest) vaut 10 kg, `-20 kg x 8` (une aide) vaut −20 kg — l'aide est rangée en négatif (MOTEUR §9.17). Il n'est
+  jamais deviné d'après l'exercice. Aucun partage réel avec un signe n'a encore été relevé (le cas du chantier 69
+  n'en contient pas) : la forme est à confirmer sur un vrai partage lesté et un vrai partage assisté ; avant, un seul
+  signe faisait refuser tout le texte ;
 - **`[Échauffement]` → échauffement ; `[Abandon]` → dégressive** (relevé : 5 fois sur 5, une série plus légère juste
   après la dernière ; l'import du 19 au 25/09 les a rangées ainsi) ; `[Échec]` → échec ; un autre crochet → travail.
 

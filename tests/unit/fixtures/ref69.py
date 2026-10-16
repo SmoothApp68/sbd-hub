@@ -65,13 +65,17 @@ def serie_texte(d):
         s['distance_m'] = nombre(float(m.group(1).replace(',', '.')) * 1000)
         s['duree_s'] = duree(m.group(2))
         return s
-    m = re.match(r'^([\d.,]+)\s*(kg|lbs)\s*[x×]\s*(\d+)$', d, re.I)
+    # 118 (audit du 16/10, 03 #4) : un signe devant la charge se lit tel qu'il est écrit (« -20 kg » : une aide, en
+    # négatif ; « +10 kg » : un lest) ; sans signe, rien ne change.
+    m = re.match(r'^([+\-\u2212]?)\s*([\d.,]+)\s*(kg|lbs)\s*[x×]\s*(\d+)$', d, re.I)
     if m:
-        kg = float(m.group(1).replace(',', '.'))
-        if m.group(2).lower() == 'lbs':
+        kg = float(m.group(2).replace(',', '.'))
+        if m.group(3).lower() == 'lbs':
             kg = round(kg * 0.45359237, 1)
+        if m.group(1) in ('-', '\u2212'):
+            kg = -kg
         s['charge_kg'] = nombre(kg)
-        s['reps'] = int(m.group(3))
+        s['reps'] = int(m.group(4))
         return s
     m = re.match(r'^(\d+)\s*r[eé]p[eé]titions?$', d, re.I)
     if m:

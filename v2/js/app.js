@@ -874,6 +874,8 @@
     local.connues = {};
     // 106 — le groupe et ses messages gardés appartiennent au compte précédent (leur brouillon vient d'être vidé).
     oublierGroupe();
+    // 121 (05 #13) — le social aussi : ses liens, son badge, sa guilde, ce qu'il a publié.
+    oublierSocial();
 
     // 109 — les objectifs et leurs paris appartiennent au compte précédent.
     local.objectifs = []; local.objectifsDispo = null; local.parisObjectif = [];
@@ -1705,6 +1707,20 @@
   // mémoire (rien du social n'entre dans le cache) ; les GESTES passent par la file (107, ci-dessous).
   var social = { liens: null, liensBruts: null, liensN: 0, fil: null, filN: 0, medailles: {}, ami: null, recherche: '',
                  resultats: null, jeton: 0, confirmes: [], horloge: 0, refus: null, aRafraichir: null };
+
+  // ⚠️ 121 (audit du 16/10/2026, 05 #13) — LE SOCIAL APPARTIENT AU COMPTE QUI PART (« Quitter », un autre compte qui
+  // entre), comme le groupe (`oublierGroupe`) : ses liens (et le badge des demandes sur l'onglet), son fil, sa guilde,
+  // ses gestes confirmés, ses refus, et ce que l'app sait avoir publié (scores de force, nombres de guilde, le refus
+  // de la charge par la base d'avant v2_091). Sans cela, le badge de A restait sur l'onglet de B, la fin d'une séance
+  // de B publiait parce que A était membre d'une guilde, et B se comparait aux chiffres publiés par A. Le jeton
+  // monte (une lecture en vol pour A ne s'affiche jamais chez B) ; l'horloge des gestes ne redescend pas.
+  function oublierSocial() {
+    social = { liens: null, liensBruts: null, liensN: 0, fil: null, filN: 0, medailles: {}, ami: null, recherche: '',
+               resultats: null, jeton: social.jeton + 1, confirmes: [], horloge: social.horloge, refus: null, aRafraichir: null };
+    scoresPublies = null; baseExigeLaCharge = false; scoresGuildePublies = null;
+    jetonEntreAmis++;
+    majBadgeSocial();
+  }
 
   // Une lecture qui échoue (hors ligne, le plus souvent) : l'écran dit qu'il faut le réseau pour voir ceci.
   function erreurSociale(e, quoi) {
@@ -11765,6 +11781,8 @@
     // 106 — le groupe aussi, et ses messages gardés hors ligne (leur brouillon vient d'être vidé) : les envoyer au nom du
     // compte suivant serait parler à sa place.
     oublierGroupe();
+    // 121 (05 #13) — et le social du compte qui part (liens, badge des demandes, guilde, ce qu'il a publié).
+    oublierSocial();
     // Le profil appartient au compte qui part, et son envoi en attente avec lui :
     // rejouer une modification de profil sur le compte suivant serait pire que
     // de la perdre.

@@ -1172,11 +1172,13 @@ Quand l'exercice a une ligne **dégressive** (routine ou saisie) **et qu'il n'es
 
 *Précisions d'implémentation (94)* : « que la table ne prévoit pas » = la situation « aucune » du §9.15.1 ; une routine qui prévoit plus de lignes qu'une table non vide garde la règle du §9.15.1 (les lignes en trop ne sont pas remplies, la feuille « Pourquoi » le dit). Hors barre, la marche « barre vide » de la rampe devient ~30 % × 10. Au-delà de quatre lignes, les suivantes restent vides, comme au §9.15.1.
 
-#### 9.15.6 La montée de chauffe comparée à la bonne pratique — décidé le 14/10/2026
+#### 9.15.6 La montée de chauffe comparée à la bonne pratique — écarté le 16/10/2026
 
 « Le coach optimise ce qu'on fait, il ne nous encourage pas dans nos erreurs. »
 
 **Plus tard** : Le coach comparera la montée habituelle de la personne (au moins 5 montées notées sur l'exercice) à la bonne pratique : charges croissantes, reps décroissantes, aucun saut de plus de ~25 % de la charge de référence entre deux marches, dernière chauffe vers 85-90 %. Conforme : il la reprend. Sinon : il propose la table et le dit en une phrase (« 60 → 140 : une marche à 110 × 2 entre les deux. »).
+
+Écarté par Aurélien le 16/10/2026 : la chauffe actuelle lui convient sur le téléphone. Le critère « ~25 % » n'était écrit que dans ce “Plus tard” ; la table du §9.15.1 fait des sauts de 30 à 38 %, courants et sans risque avec peu de reps aux dernières marches. La règle en vigueur reste celle du §9.15.1 : la routine décide combien de chauffes, le coach en calcule la charge.
 
 ### 9.16 La phase — décidé le 30/09/2026 (chantier 49)
 

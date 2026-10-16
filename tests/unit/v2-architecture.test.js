@@ -828,7 +828,7 @@ const NOTIONS = [
       'd’une séance par la même fonction, au même mémo.' },
   { notion: 'les records d’un mois (dans l’ordre des séances)', pr: '58-U1',
     module: 'faits.js', fonction: 'recordsDuMois', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['rendreProgression', 'rendreMois', 'rendreRecordsDuMois'] },
+    parAilleurs: { 'app.js': ['rendreProgression', 'ouvrirBilan', 'rendreRecordsDuMois'] },
     raison: 'MOTEUR §9.23 : le bloc Records, le bilan du mois et la liste des records du mois disent ' +
       'le même compte — le jeu les lira là aussi.' },
   { notion: 'le dernier record (la dernière série médaillée)', pr: '58-U1',
@@ -1149,6 +1149,15 @@ const NOTIONS = [
     par: ['entreeDuBilan'],
     raison: 'BILANS-V1 (décision du 15/10/2026) : un fait de la période, jamais comparé ; une seule règle de compte, ' +
       'celle que l’entrée de tous les bilans (année, saison, mois) passe au moteur.' },
+  // ── 98 — LA SAISON ET LE MOIS (BILANS-V1, décisions du 14-15/10/2026) ──
+  { notion: 'le nom d’une saison (Winter Arc pour tous ; les autres selon la phase au début de la saison)', pr: '98-U1',
+    module: 'bilans.js', fonction: 'nomDeSaison', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['titreDeSaison', 'ouvrirBilan'] },
+    raison: 'BILANS-V1 (98) : une seule table de noms ; le bloc de Progression, l’annonce et la story disent le même nom.' },
+  { notion: 'la phase du profil à un jour (le défaut quand la phase a commencé après)', pr: '98-U1',
+    module: 'profil.js', fonction: 'phaseAuJour', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['titreDeSaison', 'ouvrirBilan'] },
+    raison: 'BILANS-V1 (98) : le nom de la saison suit la phase au début de la saison, lue une fois.' },
   { notion: 'le bilan d’une période, mémorisé (le bloc de Progression, l’annonce, l’écran « Ton année »)', pr: '95-U1',
     module: 'faits.js', fonction: 'bilanDePeriode', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['bilanDeLAnnee'] },
@@ -1156,7 +1165,7 @@ const NOTIONS = [
       'le jour, les pesées, les paris ou le catalogue changent.' },
   { notion: 'les faits du jeu au début et à la fin d’une période (l’écran du jeu du bilan)', pr: '95-U1',
     module: 'faits.js', fonction: 'faitsDuJeuDeLaPeriode', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['ouvrirAnnee'] },
+    parAilleurs: { 'app.js': ['ouvrirBilan'] },
     raison: 'BILANS-V1 (95) : l’écran du jeu est branché sur la fonction du jeu (`Jeu.etatDuJeu`), sur un corpus borné ' +
       'par les faits ; rien en base.' },
   { notion: 'la pratique d’un exercice (« moins pratiqué », « nouveau », « peu »)', pr: '95-U1',

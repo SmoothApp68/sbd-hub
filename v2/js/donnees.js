@@ -849,8 +849,10 @@
   // rendent que les colonnes autorisées (jamais poids de corps, note, RPE,
   // ressenti, douleur) et appliquent les cercles et les blocages côté serveur.
   // Aucune lecture directe de `sessions`, `sets` ou `profiles` d'autrui.
-  // Les écritures sont directes, en ligne (pas de file) : un geste social
-  // refusé hors réseau se dit à l'écran, il ne se rejoue pas plus tard.
+  // ⚠️ 107 (SOCIAL-V1 §8) — LES GESTES PASSENT PAR LA FILE : les écrivains
+  // ci-dessous (`sAbonner` … `retirerReaction`, `gesteDeGuilde`) ne sont
+  // appelés que par la vidange (`app.js`, `executer` → `executerGesteSocial`).
+  // Un geste fait hors ligne part au retour du réseau, comme une séance.
   async function rpc(nom, args) {
     var r = await client().rpc(nom, args || {});
     if (r.error) throw r.error;
@@ -891,16 +893,16 @@
   async function guildeProgression() { return (await rpc('guilde_progression')) || []; }
   async function guildeFil() { return (await rpc('guilde_fil')) || []; }
   async function guildeRecordsSeance(id) { return (await rpc('guilde_records_seance', { p_session: id })) || []; }
-  function guildeGeste(nom, args) { return rpc(nom, args).then(function () { return true; }); }
-  function guildeCreer(nom, couleur) { return guildeGeste('guilde_creer', { p_nom: nom, p_couleur: couleur }); }
-  function guildeModifier(nom, couleur) { return guildeGeste('guilde_modifier', { p_nom: nom, p_couleur: couleur }); }
-  function guildeInviter(user) { return guildeGeste('guilde_inviter', { p_user: user }); }
-  function guildeRepondre(guilde, rejoindre) { return guildeGeste('guilde_repondre', { p_guilde: guilde, p_rejoindre: !!rejoindre }); }
-  function guildeQuitter() { return guildeGeste('guilde_quitter', {}); }
-  function guildeRetirerMembre(user) { return guildeGeste('guilde_retirer_membre', { p_user: user }); }
-  function guildeTransmettre(user) { return guildeGeste('guilde_transmettre', { p_user: user }); }
-  function guildeChoisirDefi(type, n) { return guildeGeste('guilde_choisir_defi', { p_type: type, p_n: n === undefined ? null : n }); }
-  function guildeChoisirRang(rang) { return guildeGeste('guilde_choisir_rang', { p_rang: rang }); }
+  // 107 — L'ÉCRIVAIN UNIQUE DES GESTES DE GUILDE, appelé par la vidange seulement (`executerGesteSocial`). Une
+  // fonction de la base qui n'est pas un geste de guilde (`GESTES_GUILDE`) ne part pas par ici : un refus définitif.
+  var GESTES_GUILDE = ['guilde_creer', 'guilde_modifier', 'guilde_inviter', 'guilde_repondre', 'guilde_quitter',
+    'guilde_retirer_membre', 'guilde_transmettre', 'guilde_choisir_defi', 'guilde_choisir_rang'];
+  async function gesteDeGuilde(nom, args) {
+    if (GESTES_GUILDE.indexOf(nom) < 0) throw { code: '42501', message: 'geste de guilde inconnu : ' + nom };
+    var r = await client().rpc(nom, args || {});
+    if (r.error) throw r.error;
+    return true;
+  }
   // 91 (SOCIAL-V1 « Groupe », v2_082) — le groupe de séance : tout passe par les fonctions de la base, qui gardent les
   // règles (6 membres, mutuels seulement, un groupe à la fois, aucun blocage entre membres, messages ≤ 140 caractères
   // réservés aux membres). Le groupe ne porte que l'identifiant de ma séance, ma liste d'exercices et mon XP.
@@ -1022,10 +1024,8 @@
     socialScoresForce: socialScoresForce, publierScores: publierScores, retirerScores: retirerScores,
     guildeMoi: guildeMoi, guildeMembres: guildeMembres, guildeInvitationsRecues: guildeInvitationsRecues,
     guildeSemaine: guildeSemaine, guildeProgression: guildeProgression, guildeFil: guildeFil,
-    guildeRecordsSeance: guildeRecordsSeance, guildeCreer: guildeCreer, guildeModifier: guildeModifier,
-    guildeInviter: guildeInviter, guildeRepondre: guildeRepondre, guildeQuitter: guildeQuitter,
-    guildeRetirerMembre: guildeRetirerMembre, guildeTransmettre: guildeTransmettre, guildeChoisirDefi: guildeChoisirDefi,
-    guildeChoisirRang: guildeChoisirRang, publierScoresGuilde: publierScoresGuilde,
+    guildeRecordsSeance: guildeRecordsSeance, gesteDeGuilde: gesteDeGuilde, GESTES_GUILDE: GESTES_GUILDE,
+    publierScoresGuilde: publierScoresGuilde,
     groupeMoi: groupeMoi, groupeEtat: groupeEtat, groupeDirect: groupeDirect, groupeMessages: groupeMessages,
     groupeInvitationsRecues: groupeInvitationsRecues, groupeInvitationsEnvoyees: groupeInvitationsEnvoyees,
     groupeRecap: groupeRecap, groupeRecapSeance: groupeRecapSeance, groupeCreer: groupeCreer, groupeInviter: groupeInviter,

@@ -1,0 +1,374 @@
+/** @jest-environment node */
+//
+// 107 — UN GESTE SOCIAL FAIT HORS LIGNE N'EST PLUS PERDU (SOCIAL-V1 §8, décision d'Aurélien du 15/10/2026).
+//
+// « Un geste social fait hors ligne est gardé sur le téléphone et part au retour du réseau, comme une séance. L'écran
+// le montre aussitôt comme fait, avec un discret « en attente du réseau ». Si la base le refuse au retour (bloqué
+// entre-temps, guilde pleine…), l'écran le dit en une phrase et revient à l'état réel. »
+//
+// Ici : la file (`attente.js`, table `social`), ce que devient un envoi qui échoue (`Social.issueDuGeste`), ce que
+// l'écran montre d'un geste qui attend (`Social.…AvecGestes`), et la vidange rejouée contre le faux serveur du banc
+// (`faux-social.js`, qui imite v2_078 et v2_080).
+//
+// CONFIGURATIONS DISCRIMINANTES :
+//   · deux gestes CONTRAIRES (s'abonner, puis se désabonner) : avec une compression par personne, ou un ordre perdu, le
+//     serveur finirait abonné ;
+//   · un RECHARGEMENT entre les deux (la file relue du disque, ici par un aller-retour JSON) ;
+//   · une RÉPONSE PERDUE après un envoi réussi : le geste est rejoué, et la base répond « déjà là » — sans la règle,
+//     l'écran dirait un refus pour un geste fait ;
+//   · un REFUS au retour (bloqué entre-temps, guilde pleine) SUIVI d'un geste sain : le refus ne retient pas la file.
+
+global.self = global;
+const Attente = require('../../v2/js/attente.js');
+const Social = require('../../v2/js/social.js');
+const FauxSocial = require('../banc/faux-social.js');
+
+const G = Social.GESTES;
+let n = 0;
+const uuid = () => 'g-' + (++n);
+beforeEach(() => { n = 0; });
+
+// Poser un geste comme `poserGesteSocial` (app.js) : une entrée, un identifiant neuf.
+const poser = (file, d) => Attente.poser(file, { table: Attente.SOCIAL, op: Attente.GESTE, id: uuid(), donnees: Object.assign({ moi: 'u-moi' }, d) });
+const recharger = (file) => JSON.parse(JSON.stringify(file));   // la file relue du disque (IndexedDB)
+
+function decor() {
+  const base = { profiles: [{ id: 'u-moi', username: 'moi', compte_prive: true }], sessions: [], sets: [], records: [] };
+  const f = FauxSocial.creer(base, { moi: 'u-moi' });
+  ['lea', 'jordan', 'alexis'].forEach((p) => f.etat.profils.push({ id: 'u-' + p, username: p, compte_prive: true, jeu_actif: true, jeu_niveau: 3 }));
+  f.etat.profils.push({ id: 'u-public', username: 'public', compte_prive: false, jeu_actif: true, jeu_niveau: 2 });
+  f.etat.sessions.push({ id: 's-lea', user_id: 'u-lea', titre: 'Bas', debut: new Date().toISOString(), statut: 'terminee', visibilite: 'mutuels' });
+  return f;
+}
+
+// L'écrivain de chaque geste, comme `executerGesteSocial` (app.js) → `donnees.js` : un refus de la base remonte comme
+// l'erreur de PostgREST (`{ code, message }`) ; hors réseau, une erreur sans code (le `fetch` qui échoue).
+function executeur(f, reseau) {
+  const ecrire = (r) => { if (r && r.status >= 400) throw r.data; return true; };
+  return async (op) => {
+    if (!reseau.ok) throw { message: 'TypeError: Failed to fetch', code: '' };
+    const d = op.donnees, moi = d.moi;
+    let r;
+    if (d.geste === G.SABONNER) r = f.appeler(moi, 'POST', 'abonnements', { suiveur: moi, suivi: d.autre });
+    else if (d.geste === G.RETIRER_ABONNEMENT) r = f.appeler(moi, 'DELETE', 'abonnements', null, 'suiveur=eq.' + moi + '&suivi=eq.' + d.autre);
+    else if (d.geste === G.RETIRER_ABONNE) r = f.appeler(moi, 'DELETE', 'abonnements', null, 'suiveur=eq.' + d.autre + '&suivi=eq.' + moi);
+    else if (d.geste === G.ACCEPTER) r = f.appeler(moi, 'PATCH', 'abonnements', { statut: 'accepte' }, 'suiveur=eq.' + d.autre + '&suivi=eq.' + moi);
+    else if (d.geste === G.BLOQUER) r = f.appeler(moi, 'POST', 'blocages', { bloqueur: moi, bloque: d.autre });
+    else if (d.geste === G.DEBLOQUER) r = f.appeler(moi, 'DELETE', 'blocages', null, 'bloqueur=eq.' + moi + '&bloque=eq.' + d.autre);
+    else if (d.geste === G.REAGIR) r = f.appeler(moi, 'POST', 'reactions_seance', { session_id: d.session, user_id: moi });
+    else if (d.geste === G.RETIRER_REACTION) r = f.appeler(moi, 'DELETE', 'reactions_seance', null, 'session_id=eq.' + d.session + '&user_id=eq.' + moi);
+    else if (d.geste === G.GUILDE) r = f.comme(moi, () => f.gerer('POST', new URL('https://banc.supabase.co/rest/v1/rpc/' + d.fn), d.args));
+    reseau.envois.push(d.geste + (d.fn ? ':' + d.fn : '') + (d.autre ? ':' + d.autre : ''));
+    // La réponse perdue (une fois par geste) : la base a écrit, le téléphone ne le sait pas.
+    if (reseau.perdreUneFois && !(reseau.perdus = reseau.perdus || {})[op.id]) {
+      reseau.perdus[op.id] = true;
+      throw { message: 'TypeError: Failed to fetch', code: '' };
+    }
+    return ecrire(r);
+  };
+}
+
+// La vidange (app.js, `vidanger`) : dans l'ordre, une entrée à la fois ; un refus sort sans arrêter ; une coupure arrête.
+async function vidanger(file, executer) {
+  const issues = [];
+  let f = file;
+  for (let garde = 0; garde < 100; garde++) {
+    const op = Attente.prochaine(f);
+    if (!op) break;
+    let e = null;
+    try { await executer(op); } catch (x) { e = x; }
+    if (!e) { f = Attente.apresSucces(f, op); issues.push({ id: op.id, suite: 'envoyee' }); continue; }
+    const r = Attente.apresEchec(f, op, e, (o, er) => Social.issueDuGeste(o.donnees, er, (o.essais || 0) > 0));
+    f = r.file;
+    issues.push({ id: op.id, suite: r.suite, erreur: e, phrase: r.suite === 'refusee' ? Social.phraseDuRefus(op.donnees, e) : null });
+    if (r.suite === 'arret') break;
+  }
+  return { file: f, issues };
+}
+
+describe('107 — la file : une entrée par geste, dans l’ordre, sur disque', () => {
+  test('chaque geste a son entrée (aucune compression) ; l’ordre de pose est gardé ; le rechargement ne change rien', () => {
+    let file = [];
+    file = poser(file, { geste: G.SABONNER, autre: 'u-lea', pseudo: 'lea' });
+    file = poser(file, { geste: G.RETIRER_ABONNEMENT, autre: 'u-lea', pseudo: 'lea' });
+    file = recharger(file);
+    file = poser(file, { geste: G.SABONNER, autre: 'u-lea', pseudo: 'lea' });
+    expect(file.map((e) => e.table + ':' + e.donnees.geste)).toEqual(['social:sabonner', 'social:retirer_abonnement', 'social:sabonner']);
+    expect(Attente.ordonnee(file).map((e) => e.seq)).toEqual([1, 2, 3]);
+    expect(new Set(file.map((e) => e.cle)).size).toBe(3);
+    expect(Attente.resume(file).libelle).toBe('3 à envoyer');
+  });
+
+  test('un geste incomplet ne se pose pas (`gesteValide`)', () => {
+    expect(Social.gesteValide({ moi: 'u-moi', geste: G.SABONNER, pseudo: 'lea' })).toBe(true);
+    expect(Social.gesteValide({ moi: 'u-moi', geste: G.BLOQUER })).toBe(false);
+    expect(Social.gesteValide({ moi: 'u-moi', geste: G.REAGIR })).toBe(false);
+    expect(Social.gesteValide({ geste: G.ACCEPTER, autre: 'x' })).toBe(false);
+    expect(Social.gesteValide({ moi: 'u-moi', geste: G.GUILDE, fn: 'guilde_moi' })).toBe(false);
+    expect(Social.gesteValide({ moi: 'u-moi', geste: G.GUILDE, fn: 'guilde_creer', args: {} })).toBe(true);
+  });
+});
+
+describe('107 — chaque geste fait hors ligne part au retour du réseau', () => {
+  test('s’abonner, accepter, refuser, retirer un abonné, réagir, bloquer, débloquer : rien ne part hors ligne, tout part au retour', async () => {
+    const f = decor();
+    // lea me demande, jordan aussi ; je suis alexis, il me suit ; je suis lea (acceptée) pour réagir à sa séance.
+    f.appeler('u-lea', 'POST', 'abonnements', { suiveur: 'u-lea', suivi: 'u-moi' });
+    f.appeler('u-jordan', 'POST', 'abonnements', { suiveur: 'u-jordan', suivi: 'u-moi' });
+    f.etat.abonnements.push({ suiveur: 'u-alexis', suivi: 'u-moi', statut: 'accepte' }, { suiveur: 'u-moi', suivi: 'u-lea', statut: 'accepte' });
+    const reseau = { ok: false, envois: [] };
+    let file = [];
+    file = poser(file, { geste: G.SABONNER, autre: 'u-public', pseudo: 'public', prive: false });
+    file = poser(file, { geste: G.ACCEPTER, autre: 'u-lea', pseudo: 'lea' });
+    file = poser(file, { geste: G.RETIRER_ABONNE, autre: 'u-jordan', pseudo: 'jordan', refuser: true });
+    file = poser(file, { geste: G.RETIRER_ABONNE, autre: 'u-alexis', pseudo: 'alexis' });
+    file = poser(file, { geste: G.REAGIR, session: 's-lea', pseudo: 'lea' });
+    const hors = await vidanger(file, executeur(f, reseau));
+    expect(hors.file.length).toBe(5);
+    expect(hors.issues.map((x) => x.suite)).toEqual(['arret']);
+    expect(Attente.resume(hors.file).enEchec).toBe(1);
+    expect(f.etat.reactions.length).toBe(0);
+    reseau.ok = true;
+    const retour = await vidanger(recharger(hors.file), executeur(f, reseau));
+    expect(retour.file).toEqual([]);
+    expect(reseau.envois).toEqual(['sabonner:u-public', 'accepter:u-lea', 'retirer_abonne:u-jordan', 'retirer_abonne:u-alexis', 'reagir']);
+    const lien = (a, b) => f.etat.abonnements.filter((x) => x.suiveur === a && x.suivi === b)[0] || null;
+    expect(lien('u-moi', 'u-public').statut).toBe('accepte');            // compte public : accepté d'office
+    expect(lien('u-lea', 'u-moi').statut).toBe('accepte');
+    expect(lien('u-jordan', 'u-moi')).toBeNull();
+    expect(lien('u-alexis', 'u-moi')).toBeNull();
+    expect(f.etat.reactions.map((r) => r.session_id)).toEqual(['s-lea']);
+
+    // Bloquer puis débloquer, hors ligne : le blocage efface les liens, le déblocage ne les rend pas.
+    reseau.ok = false;
+    let file2 = poser([], { geste: G.BLOQUER, autre: 'u-lea', pseudo: 'lea' });
+    file2 = poser(file2, { geste: G.DEBLOQUER, autre: 'u-lea', pseudo: 'lea' });
+    file2 = (await vidanger(file2, executeur(f, reseau))).file;
+    expect(f.etat.blocages.length).toBe(0);
+    reseau.ok = true;
+    expect((await vidanger(recharger(file2), executeur(f, reseau))).file).toEqual([]);
+    expect(f.etat.journal.filter((j) => j.op === 'blocage' || j.op === 'deblocage').map((j) => j.op)).toEqual(['blocage', 'deblocage']);
+    expect(lien('u-moi', 'u-lea')).toBeNull();
+    expect(f.etat.blocages).toEqual([]);
+  });
+
+  test('DISCRIMINANT — deux gestes contraires (s’abonner, puis se désabonner), un rechargement entre les deux : le serveur finit SANS abonnement', async () => {
+    const f = decor();
+    const reseau = { ok: false, envois: [] };
+    let file = poser([], { geste: G.SABONNER, autre: 'u-lea', pseudo: 'lea', prive: true });
+    file = (await vidanger(file, executeur(f, reseau))).file;
+    file = recharger(file);   // l'app rechargée, toujours hors ligne
+    file = poser(file, { geste: G.RETIRER_ABONNEMENT, autre: 'u-lea', pseudo: 'lea' });
+    expect(file.map((e) => e.donnees.geste)).toEqual(['sabonner', 'retirer_abonnement']);
+    reseau.ok = true;
+    const r = await vidanger(file, executeur(f, reseau));
+    expect(r.file).toEqual([]);
+    expect(reseau.envois).toEqual(['sabonner:u-lea', 'retirer_abonnement:u-lea']);
+    expect(f.etat.abonnements).toEqual([]);
+    // L'ordre compte : à l'envers, le serveur finirait abonné — la configuration discrimine.
+    const f2 = decor();
+    const aLEnvers = [Object.assign({}, file[1], { seq: 1 }), Object.assign({}, file[0], { seq: 2 })];
+    await vidanger(aLEnvers, executeur(f2, { ok: true, envois: [] }));
+    expect(f2.etat.abonnements.length).toBe(1);
+  });
+
+  test('DISCRIMINANT — un même geste rejoué ne double rien : la réponse perdue, puis « déjà là » = fait (pas un refus)', async () => {
+    const f = decor();
+    f.etat.abonnements.push({ suiveur: 'u-moi', suivi: 'u-lea', statut: 'accepte' });
+    const reseau = { ok: true, envois: [], perdreUneFois: true };
+    let file = poser([], { geste: G.SABONNER, autre: 'u-jordan', pseudo: 'jordan' });
+    file = poser(file, { geste: G.REAGIR, session: 's-lea', pseudo: 'lea' });
+    file = poser(file, { geste: G.BLOQUER, autre: 'u-alexis', pseudo: 'alexis' });
+    // Chaque geste : écrit en base, la réponse perdue (la vidange s'arrête), puis rejoué à la vidange suivante.
+    const issues = [];
+    for (let i = 0; i < 4 && file.length; i++) {
+      const r = await vidanger(file, executeur(f, reseau));
+      file = r.file; issues.push.apply(issues, r.issues.map((x) => x.suite + (x.erreur && x.erreur.code ? ':' + x.erreur.code : '')));
+    }
+    expect(file).toEqual([]);
+    expect(issues).toEqual(['arret', 'faite:23505', 'arret', 'faite:23505', 'arret', 'faite:23505']);
+    expect(f.etat.abonnements.filter((x) => x.suiveur === 'u-moi' && x.suivi === 'u-jordan').length).toBe(1);
+    expect(f.etat.blocages.length).toBe(1);
+    expect(f.etat.journal.filter((j) => j.op === 'reaction').length).toBe(1);
+  });
+
+  test('DISCRIMINANT — refusé au retour (bloqué entre-temps) : l’entrée sort, une phrase, et le geste suivant part quand même', async () => {
+    const f = decor();
+    const reseau = { ok: false, envois: [] };
+    let file = poser([], { geste: G.SABONNER, autre: 'u-lea', pseudo: 'lea' });
+    file = poser(file, { geste: G.SABONNER, autre: 'u-jordan', pseudo: 'jordan' });
+    file = (await vidanger(file, executeur(f, reseau))).file;
+    // Pendant ce temps, lea me bloque.
+    f.appeler('u-lea', 'POST', 'blocages', { bloqueur: 'u-lea', bloque: 'u-moi' });
+    reseau.ok = true;
+    const r = await vidanger(file, executeur(f, reseau));
+    expect(r.file).toEqual([]);
+    expect(r.issues.map((x) => x.suite)).toEqual(['refusee', 'envoyee']);
+    expect(r.issues[0].phrase).toBe('« S’abonner à lea » n’a pas pu se faire.');
+    expect(f.etat.abonnements.map((x) => x.suivi)).toEqual(['u-jordan']);
+    expect(Attente.deciderEtat({ code: 'a-jour', libelle: 'À jour' }, r.file).code).toBe('a-jour');
+  });
+
+  test('les gestes de la guilde : créer, rang, défi hors ligne ; « guilde pleine » au retour se dit avec les mots de la guilde', async () => {
+    const f = decor();
+    const reseau = { ok: false, envois: [] };
+    const guilde = (fn, args, extra) => Object.assign({ geste: G.GUILDE, fn, args }, extra || {});
+    let file = poser([], guilde('guilde_creer', { p_nom: 'Les Fers', p_couleur: '#b39ad1' }));
+    file = poser(file, guilde('guilde_choisir_rang', { p_rang: 'Terreur' }));
+    file = poser(file, guilde('guilde_choisir_defi', { p_type: 'records', p_n: 3 }));
+    file = recharger((await vidanger(file, executeur(f, reseau))).file);
+    expect(f.etat.guildes).toEqual([]);
+    reseau.ok = true;
+    expect((await vidanger(file, executeur(f, reseau))).file).toEqual([]);
+    expect(f.etat.guildes.map((g) => g.nom)).toEqual(['Les Fers']);
+    expect(f.etat.membres[0].rang).toBe('Terreur');
+    expect(f.etat.defis[0].type).toBe('records');
+
+    // jordan est invité dans la guilde d'alexis, pleine quand sa réponse arrive.
+    const g2 = f.rpc('u-alexis', 'guilde_creer', { p_nom: 'Pleine', p_couleur: '#b39ad1' });
+    f.etat.invitations.push({ guilde_id: g2, invite: 'u-jordan', invitant: 'u-alexis', cree_le: 0 });
+    for (let i = 0; i < 29; i++) f.etat.membres.push({ user_id: 'u-x' + i, guilde_id: g2, rang: 'Novice', entre_le: 100 + i });
+    const rep = Attente.poser([], { table: Attente.SOCIAL, op: Attente.GESTE, id: 'r1',
+      donnees: guilde('guilde_repondre', { p_guilde: g2, p_rejoindre: true }, { moi: 'u-jordan', nom: 'Pleine' }) });
+    const r = await vidanger(rep, executeur(f, reseau));
+    expect(r.issues.map((x) => x.suite)).toEqual(['refusee']);
+    expect(r.issues[0].phrase).toBe('La guilde est complète : 30 membres.');
+    expect(f.guildeDe('u-jordan')).toBeNull();
+  });
+
+  test('DISCRIMINANT — créer la guilde, la réponse perdue : rejoué, « déjà dans une guilde » = fait ; un premier envoi qui dit la même chose = refus', async () => {
+    const f = decor();
+    const reseau = { ok: true, envois: [], perdreUneFois: true };
+    let file = poser([], { geste: G.GUILDE, fn: 'guilde_creer', args: { p_nom: 'Les Fers', p_couleur: '#b39ad1' } });
+    file = (await vidanger(file, executeur(f, reseau))).file;
+    expect(f.etat.guildes.length).toBe(1);
+    const r = await vidanger(file, executeur(f, reseau));
+    expect(r.issues.map((x) => x.suite)).toEqual(['faite']);
+    expect(f.etat.guildes.length).toBe(1);
+    // Déjà dans une guilde AU PREMIER ENVOI : un vrai refus.
+    const r2 = await vidanger(poser([], { geste: G.GUILDE, fn: 'guilde_creer', args: { p_nom: 'Autre', p_couleur: '#b39ad1' } }),
+      executeur(f, { ok: true, envois: [] }));
+    expect(r2.issues.map((x) => x.suite)).toEqual(['refusee']);
+    expect(r2.issues[0].phrase).toBe('Tu es déjà dans une guilde.');
+  });
+});
+
+describe('107 — ce que devient un envoi qui échoue (`issueDuGeste`)', () => {
+  const d = (geste, extra) => Object.assign({ moi: 'u-moi', geste, autre: 'x', pseudo: 'lea' }, extra || {});
+  test('le réseau, une connexion, un jeton expiré : on réessaie (la file s’arrête comme pour une séance)', () => {
+    ['', '08006', '57014', 'PGRST301', 'PGRST002', '40001'].forEach((code) => {
+      expect(Social.issueDuGeste(d(G.SABONNER), { code, message: 'x' }, false)).toBe('reessayer');
+    });
+    expect(Social.issueDuGeste(d(G.SABONNER), {}, true)).toBe('reessayer');
+  });
+  test('« déjà là » (23505) pour s’abonner, bloquer, réagir : fait — pour un autre geste : refus', () => {
+    expect(Social.issueDuGeste(d(G.SABONNER), { code: '23505', message: 'abonnements_pkey' }, false)).toBe('fait');
+    expect(Social.issueDuGeste(d(G.BLOQUER), { code: '23505', message: 'blocages_pkey' }, false)).toBe('fait');
+    expect(Social.issueDuGeste(d(G.REAGIR, { session: 's' }), { code: '23505', message: 'reactions_pkey' }, false)).toBe('fait');
+    expect(Social.issueDuGeste(d(G.GUILDE, { fn: 'guilde_creer', args: {} }), { code: '23505', message: 'guildes_nom_cle_uniq' }, true)).toBe('refus');
+  });
+  test('tout autre refus de la base : refus (RLS, bloqué, profil introuvable, fonction absente)', () => {
+    ['42501', 'P0001', '23514', 'TH404', 'PGRST202', '22P02'].forEach((code) => {
+      expect(Social.issueDuGeste(d(G.SABONNER), { code, message: 'x' }, false)).toBe('refus');
+    });
+  });
+  test('refuser une invitation déjà partie : fait ; les « déjà fait » de la guilde ne valent qu’au rejeu', () => {
+    const rep = (rejoindre) => d(G.GUILDE, { fn: 'guilde_repondre', args: { p_guilde: 'g', p_rejoindre: rejoindre } });
+    expect(Social.issueDuGeste(rep(false), { code: '42501', message: 'guilde_sans_invitation' }, false)).toBe('fait');
+    expect(Social.issueDuGeste(rep(true), { code: '42501', message: 'guilde_sans_invitation' }, false)).toBe('refus');
+    expect(Social.issueDuGeste(rep(true), { code: '42501', message: 'guilde_sans_invitation' }, true)).toBe('fait');
+    const tr = d(G.GUILDE, { fn: 'guilde_transmettre', args: { p_user: 'u' } });
+    expect(Social.issueDuGeste(tr, { code: '42501', message: 'guilde_pas_admin' }, false)).toBe('refus');
+    expect(Social.issueDuGeste(tr, { code: '42501', message: 'guilde_pas_admin' }, true)).toBe('fait');
+  });
+  test('sans règle sociale (`apresEchec` sans `issueSociale`), un refus définitif sort, une coupure arrête', () => {
+    const file = poser([], { geste: G.SABONNER, autre: 'u-lea', pseudo: 'lea' });
+    const op = Attente.prochaine(file);
+    expect(Attente.apresEchec(file, op, { code: '42501' }).suite).toBe('refusee');
+    expect(Attente.apresEchec(file, op, { code: '' }).suite).toBe('arret');
+  });
+});
+
+describe('107 — les phrases d’un refus : une phrase, un fait', () => {
+  test('le geste dit ce qui n’a pas pu se faire ; la guilde parle avec ses mots', () => {
+    const p = (x, e) => Social.phraseDuRefus(Object.assign({ moi: 'u-moi' }, x), e || { code: '42501' });
+    expect(p({ geste: G.SABONNER, pseudo: 'lea' })).toBe('« S’abonner à lea » n’a pas pu se faire.');
+    expect(p({ geste: G.ACCEPTER, pseudo: 'lea' })).toBe('« Accepter lea » n’a pas pu se faire.');
+    expect(p({ geste: G.RETIRER_ABONNE, pseudo: 'lea', refuser: true })).toBe('« Refuser lea » n’a pas pu se faire.');
+    expect(p({ geste: G.REAGIR, pseudo: 'lea', session: 's' })).toBe('« Réagir à la séance de lea » n’a pas pu se faire.');
+    expect(p({ geste: G.GUILDE, fn: 'guilde_creer', args: { p_nom: 'Les Fers' } }, { code: '23505', message: 'guildes_nom_cle_uniq' }))
+      .toBe('Ce nom est déjà pris.');
+    expect(p({ geste: G.GUILDE, fn: 'guilde_choisir_defi', args: {} }, { code: '23514', message: 'guilde_defi_fige' }))
+      .toBe(Social.PHRASE_DEFI_FIGE);
+    expect(p({ geste: G.GUILDE, fn: 'guilde_inviter', pseudo: 'jordan', args: {} }, { code: 'P0001', message: 'autre' }))
+      .toBe('« Inviter jordan » n’a pas pu se faire.');
+  });
+});
+
+describe('107 — l’écran : la lecture, plus les gestes qu’elle ne contient pas encore', () => {
+  const g = (geste, extra) => Object.assign({ moi: 'u-moi', geste }, extra || {});
+  const LIENS = [
+    { user_id: 'u-lea', pseudo: 'lea', niveau: 3, lien: 'demande_recue' },
+    { user_id: 'u-jordan', pseudo: 'jordan', niveau: 3, lien: 'abonnement' },
+    { user_id: 'u-jordan', pseudo: 'jordan', niveau: 3, lien: 'abonne' },
+    { user_id: 'u-alexis', pseudo: 'alexis', niveau: null, lien: 'bloque' }
+  ];
+  test('les liens : accepter, s’abonner (demande ou suivi selon le compte), retirer, bloquer, débloquer', () => {
+    const r = Social.liensRanges(Social.liensAvecGestes(LIENS, [
+      g(G.ACCEPTER, { autre: 'u-lea', pseudo: 'lea' }),
+      g(G.SABONNER, { autre: 'u-lea', pseudo: 'lea', prive: true }),
+      g(G.SABONNER, { autre: null, pseudo: 'public', prive: false }),
+      g(G.RETIRER_ABONNEMENT, { autre: 'u-jordan', pseudo: 'jordan' }),
+      g(G.DEBLOQUER, { autre: 'u-alexis', pseudo: 'alexis' }),
+      g(G.BLOQUER, { autre: 'u-jordan', pseudo: 'jordan' })
+    ]));
+    expect(r.demandesRecues).toEqual([]);
+    expect(r.abonnes.map((l) => l.pseudo)).toEqual(['lea']);
+    expect(r.demandesEnvoyees.map((l) => l.pseudo)).toEqual(['lea']);
+    expect(r.abonnements.map((l) => l.pseudo)).toEqual(['public']);
+    expect(r.bloques.map((l) => l.pseudo)).toEqual(['jordan']);
+  });
+  test('DISCRIMINANT — un geste déjà dans la lecture, reposé, ne change rien (un état, jamais une bascule)', () => {
+    const gestes = [g(G.ACCEPTER, { autre: 'u-lea', pseudo: 'lea' }), g(G.REAGIR, { session: 's1', pseudo: 'lea' })];
+    const une = Social.liensAvecGestes(LIENS, gestes);
+    expect(Social.liensAvecGestes(une, gestes)).toEqual(une);
+    const fil = [{ session_id: 's1', user_id: 'u-lea', pseudo: 'lea', j_ai_reagi: true }];
+    expect(Social.filAvecGestes(fil, gestes)[0].j_ai_reagi).toBe(true);
+    expect(Social.filAvecGestes(fil, gestes.concat([g(G.RETIRER_REACTION, { session: 's1' })]))[0].j_ai_reagi).toBe(false);
+  });
+  test('le profil : demande vers un compte privé, suivi d’office vers un public ; bloqué, il n’est plus visible', () => {
+    const p = { id: 'u-lea', pseudo: 'lea', compte_prive: true, je_suis: null, me_suit: false };
+    expect(Social.profilAvecGestes(p, [g(G.SABONNER, { autre: 'u-lea' })]).je_suis).toBe('demande');
+    expect(Social.profilAvecGestes(Object.assign({}, p, { compte_prive: false }), [g(G.SABONNER, { autre: 'u-lea' })]).je_suis).toBe('accepte');
+    expect(Social.profilAvecGestes(p, [g(G.SABONNER, { autre: 'u-lea' }), g(G.RETIRER_ABONNEMENT, { autre: 'u-lea' })]).je_suis).toBeNull();
+    expect(Social.profilAvecGestes(p, [g(G.ACCEPTER, { autre: 'u-lea' })]).me_suit).toBe(true);
+    expect(Social.profilAvecGestes(p, [g(G.BLOQUER, { autre: 'u-lea' })])).toBeNull();
+    expect(Social.profilAvecGestes(p, [g(G.SABONNER, { autre: 'u-jordan' })])).toBe(p);
+  });
+  test('le fil : ne plus suivre retire ses séances du fil — pas du fil de la guilde ; bloquer, des deux', () => {
+    const fil = [{ session_id: 's1', user_id: 'u-lea', pseudo: 'lea' }, { session_id: 's2', user_id: 'u-jordan', pseudo: 'jordan' }];
+    const ne = [g(G.RETIRER_ABONNEMENT, { autre: 'u-lea' })];
+    expect(Social.filAvecGestes(fil, ne).map((l) => l.session_id)).toEqual(['s2']);
+    expect(Social.filAvecGestes(fil, ne, { guilde: true }).map((l) => l.session_id)).toEqual(['s1', 's2']);
+    expect(Social.filAvecGestes(fil, [g(G.BLOQUER, { autre: 'u-jordan' })], { guilde: true }).map((l) => l.session_id)).toEqual(['s1']);
+  });
+  test('la guilde : créer, rejoindre, rang, défi, inviter, retirer, transmettre, partir', () => {
+    const gu = (fn, args, extra) => g(G.GUILDE, Object.assign({ fn, args }, extra || {}));
+    const vide = { g: null, invitations: [{ guilde_id: 'g1', nom: 'Les Fers', couleur: '#b39ad1', membres: 3 }] };
+    const cree = Social.guildeAvecGestes(vide, [gu('guilde_creer', { p_nom: 'À moi', p_couleur: '#8fb08a' }, { monPseudo: 'moi' })], 'u-moi');
+    expect(cree.g).toEqual({ nom: 'À moi', couleur: '#8fb08a', blason: 'bouclier', admin: true, membres: 1 });
+    expect(cree.membres.map((m) => m.pseudo + ' · ' + m.rang)).toEqual(['moi · Novice']);
+    const rejoint = Social.guildeAvecGestes(vide, [gu('guilde_repondre', { p_guilde: 'g1', p_rejoindre: true }, { nom: 'Les Fers', couleur: '#b39ad1', membres: 3 })], 'u-moi');
+    expect([rejoint.g.nom, rejoint.g.membres, rejoint.g.admin, rejoint.invitations.length]).toEqual(['Les Fers', 4, false, 0]);
+    expect(Social.guildeAvecGestes(vide, [gu('guilde_repondre', { p_guilde: 'g1', p_rejoindre: false })], 'u-moi').invitations).toEqual([]);
+    const lue = { g: { nom: 'F', couleur: '#b39ad1', admin: true, membres: 2 }, semaine: { defi: 'seances', n: null },
+      membres: [{ user_id: 'u-moi', pseudo: 'moi', rang: 'Novice', moi: true }, { user_id: 'u-jordan', pseudo: 'jordan', rang: 'Squatteur' }] };
+    const apres = Social.guildeAvecGestes(lue, [gu('guilde_choisir_rang', { p_rang: 'Terreur' }), gu('guilde_choisir_defi', { p_type: 'records', p_n: 3 }),
+      gu('guilde_inviter', { p_user: 'u-lea' }), gu('guilde_retirer_membre', { p_user: 'u-jordan' }), gu('guilde_transmettre', { p_user: 'u-jordan' })], 'u-moi');
+    expect(apres.membres.map((m) => m.rang)).toEqual(['Terreur']);
+    expect([apres.semaine.defi, apres.semaine.n, apres.invites['u-lea'], apres.g.membres, apres.g.admin]).toEqual(['records', 3, true, 1, false]);
+    expect(Social.guildeAvecGestes(lue, [gu('guilde_quitter', {})], 'u-moi').g).toBeNull();
+    // La lecture n'est jamais modifiée sur place.
+    expect(lue.membres[0].rang).toBe('Novice');
+  });
+});

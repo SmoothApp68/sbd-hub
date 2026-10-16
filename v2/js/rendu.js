@@ -6116,7 +6116,7 @@
   function etatSocial(cible, vue) {
     if (vue.etat === 'charge') { cible.appendChild(el('p', 's-gris s-note', 'Chargement…')); return true; }
     if (vue.etat === 'erreur') {
-      cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message || 'Le social demande le réseau. Réessaie une fois connecté.'));
+      cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message || 'Il faut le réseau pour voir le social.'));
       return true;
     }
     return false;
@@ -6132,10 +6132,16 @@
     if (j) j.hidden = !jeuAllume;
   }
 
-  // Le fil.   vue = { etat, demandes: [{ pseudo, couleur, sur, surAccepter, surRefuser }], cartes: [...], fin }
+  // 107 — un geste qui attend le réseau : une ligne discrète.
+  function ligneEnAttente(cible, texte) { if (texte) cible.appendChild(el('p', 's-gris s-note s-attente', texte)); }
+
+  // Le fil.   vue = { etat, demandes: [{ pseudo, couleur, sur, surAccepter, surRefuser }], cartes: [...], fin,
+  //                   refus (107 : la phrase d'un geste refusé au retour du réseau), attente }
   function rendreFil(cible, vue) {
     if (!cible) return;
     vider(cible);
+    if (vue.refus) cible.appendChild(el('p', 's-gris s-note s-erreur s-refus', vue.refus));
+    ligneEnAttente(cible, vue.attente);
     (vue.demandes || []).forEach(function (d) {
       var r = el('div', 's-demande');
       r.setAttribute('data-pseudo', d.pseudo);
@@ -6480,6 +6486,7 @@
     vider(cible);
     if (etatSocial(cible, vue)) return;
     if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur s-guilde-message', vue.message));
+    ligneEnAttente(cible, vue.attente);
     if (!vue.guilde) {
       (vue.invitations || []).forEach(function (i) {
         var r = el('div', 's-demande s-invitation-guilde');
@@ -6624,7 +6631,8 @@
         inv.appendChild(el('b', null, 'Inviter'));
         inv.appendChild(el('p', 's-gris s-cache', 'Tes abonnés mutuels (vous vous suivez l’un l’autre).'));
         vue.invitables.forEach(function (x) {
-          inv.appendChild(lignePersonne({ pseudo: x.pseudo, couleur: x.couleur, bouton: { texte: 'Inviter', classe: 's-b2 s-inviter-membre', sur: x.sur } }));
+          inv.appendChild(lignePersonne({ pseudo: x.pseudo, couleur: x.couleur, sous: x.invite ? 'invitation envoyée' : null,
+            bouton: x.invite ? null : { texte: 'Inviter', classe: 's-b2 s-inviter-membre', sur: x.sur } }));
         });
         if (!vue.invitables.length) inv.appendChild(el('p', 's-gris s-cache', 'Aucun abonné mutuel à inviter.'));
         cible.appendChild(inv);
@@ -6700,6 +6708,7 @@
     res.id = 'social-resultats';
     cible.appendChild(res);
     if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message));
+    ligneEnAttente(cible, vue.attente);
     (vue.aSuivre || []).forEach(function (x) { cible.appendChild(lignePersonne(x)); });
     var lien = el('div', 's-lien-invit');
     lien.appendChild(el('b', null, 'Ton lien d’invitation'));

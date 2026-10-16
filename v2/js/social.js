@@ -557,6 +557,221 @@
       x.records + ' record' + (x.records > 1 ? 's' : '');
   }
 
+  // ══ 107 — UN GESTE SOCIAL FAIT HORS LIGNE N'EST PLUS PERDU (SOCIAL-V1 §8, décision d'Aurélien du 15/10/2026) ══════
+  //
+  // « Un geste social fait hors ligne est gardé sur le téléphone et part au retour du réseau, comme une séance. L'écran
+  // le montre aussitôt comme fait, avec un discret « en attente du réseau ». Si la base le refuse au retour (bloqué
+  // entre-temps, guilde pleine…), l'écran le dit en une phrase et revient à l'état réel. »
+  //
+  // Un geste = UNE ENTRÉE DE LA FILE (`attente.js`, table `social`), avec un identifiant neuf : rien ne se compresse,
+  // les gestes partent dans l'ordre où ils ont été faits (s'abonner puis se désabonner : deux envois, dans cet ordre).
+  // `donnees` dit le geste du point de vue de celui qui le fait : `{ geste, moi, autre, pseudo, … }`.
+  //
+  // ⚠️ L'ÉCRAN = CE QUE LA BASE A RENDU + LES GESTES QUI N'Y SONT PAS ENCORE. Les fonctions `…AvecGestes` posent
+  // chaque geste sur une lecture : elles fixent un ÉTAT (« abonné », « a réagi »), jamais une bascule — un geste déjà
+  // dans la lecture, reposé, ne change rien.
+  var GESTES = {
+    SABONNER: 'sabonner', RETIRER_ABONNEMENT: 'retirer_abonnement', RETIRER_ABONNE: 'retirer_abonne', ACCEPTER: 'accepter',
+    BLOQUER: 'bloquer', DEBLOQUER: 'debloquer', REAGIR: 'reagir', RETIRER_REACTION: 'retirer_reaction', GUILDE: 'guilde'
+  };
+  // Les gestes de guilde qui écrivent : les seules fonctions de la base qu'une entrée de la file peut appeler.
+  var GESTES_DE_GUILDE = ['guilde_creer', 'guilde_modifier', 'guilde_inviter', 'guilde_repondre', 'guilde_quitter',
+    'guilde_retirer_membre', 'guilde_transmettre', 'guilde_choisir_defi', 'guilde_choisir_rang'];
+  var EN_ATTENTE = 'en attente du réseau';
+
+  function gesteValide(d) {
+    if (!d || !d.moi) return false;
+    var connu = Object.keys(GESTES).some(function (k) { return GESTES[k] === d.geste; });
+    if (!connu) return false;
+    if (d.geste === GESTES.GUILDE) return GESTES_DE_GUILDE.indexOf(d.fn) >= 0;
+    if (d.geste === GESTES.REAGIR || d.geste === GESTES.RETIRER_REACTION) return !!d.session;
+    if (d.geste === GESTES.SABONNER) return !!(d.autre || d.pseudo);
+    return !!d.autre;
+  }
+  // Ce geste vise-t-il cette personne ? Par l'identifiant ; sans identifiant (un abonnement depuis la recherche, qui ne
+  // rend que le pseudo), par le pseudo.
+  function vise(d, id, pseudo) {
+    if (d.autre && id) return d.autre === id;
+    return !!d.pseudo && d.pseudo === pseudo;
+  }
+  function avec(o, champs) { return Object.assign({}, o, champs); }
+
+  // Les lignes de `social_liens` (avant `liensRanges`).
+  function liensAvecGestes(lignes, gestes) {
+    var out = (lignes || []).slice();
+    (gestes || []).forEach(function (d) {
+      if (!d) return;
+      var lui = function (l) { return vise(d, l.user_id, l.pseudo); };
+      var sans = function (liens) { out = out.filter(function (l) { return !(lui(l) && liens.indexOf(l.lien) >= 0); }); };
+      var ajouter = function (lien) {
+        out.push({ user_id: d.autre || null, pseudo: d.pseudo, niveau: d.niveau === undefined ? null : d.niveau, lien: lien });
+      };
+      if (d.geste === GESTES.SABONNER) {
+        // Un compte public accepte d'office ; privé (ou inconnu), c'est une demande.
+        sans(['abonnement', 'demande_envoyee']);
+        ajouter(d.prive === false ? 'abonnement' : 'demande_envoyee');
+      } else if (d.geste === GESTES.RETIRER_ABONNEMENT) sans(['abonnement', 'demande_envoyee']);
+      else if (d.geste === GESTES.RETIRER_ABONNE) sans(['abonne', 'demande_recue']);
+      else if (d.geste === GESTES.ACCEPTER) {
+        out = out.map(function (l) { return lui(l) && l.lien === 'demande_recue' ? avec(l, { lien: 'abonne' }) : l; });
+      } else if (d.geste === GESTES.BLOQUER) {
+        out = out.filter(function (l) { return !lui(l); });
+        ajouter('bloque');
+      } else if (d.geste === GESTES.DEBLOQUER) sans(['bloque']);
+    });
+    return out;
+  }
+
+  // Une ligne de `social_profil`. Bloquée, elle n'est plus visible (la base ne la rendrait plus) : `null`.
+  function profilAvecGestes(p, gestes) {
+    var out = p || null;
+    (gestes || []).forEach(function (d) {
+      if (!out || !d || !vise(d, out.id, out.pseudo)) return;
+      if (d.geste === GESTES.SABONNER) out = avec(out, { je_suis: out.compte_prive === false ? 'accepte' : 'demande' });
+      else if (d.geste === GESTES.RETIRER_ABONNEMENT) out = avec(out, { je_suis: null });
+      else if (d.geste === GESTES.RETIRER_ABONNE) out = avec(out, { me_suit: false });
+      else if (d.geste === GESTES.ACCEPTER) out = avec(out, { me_suit: true });
+      else if (d.geste === GESTES.BLOQUER) out = null;
+    });
+    return out;
+  }
+
+  // Les lignes d'un fil (`social_fil`, `guilde_fil`). `options.guilde` : le fil de la guilde ne dépend pas des
+  // abonnements (seul le blocage en retire quelqu'un).
+  function filAvecGestes(lignes, gestes, options) {
+    var guilde = !!(options && options.guilde);
+    var out = (lignes || []).slice();
+    (gestes || []).forEach(function (d) {
+      if (!d) return;
+      if (d.geste === GESTES.REAGIR || d.geste === GESTES.RETIRER_REACTION) {
+        out = out.map(function (l) {
+          return l.session_id === d.session ? avec(l, { j_ai_reagi: d.geste === GESTES.REAGIR }) : l;
+        });
+      } else if (d.geste === GESTES.BLOQUER || (!guilde && d.geste === GESTES.RETIRER_ABONNEMENT)) {
+        out = out.filter(function (l) { return !vise(d, l.user_id, l.pseudo); });
+      }
+    });
+    return out;
+  }
+
+  // Ce que l'écran de la guilde a lu : `{ g, membres, semaine, invitations, fil }` (`g` : `guilde_moi`). Rend la même
+  // forme, et `invites` : les personnes dont l'invitation est partie (ou attend le réseau).
+  function guildeAvecGestes(e, gestes, moiId) {
+    var x = e || {};
+    var o = { g: x.g || null, membres: (x.membres || []).slice(), semaine: x.semaine || null,
+              invitations: (x.invitations || []).slice(), fil: x.fil ? filAvecGestes(x.fil, gestes, { guilde: true }) : (x.fil || null),
+              progression: x.progression || [], invites: {} };
+    var moi = function (d) {
+      return { user_id: moiId, pseudo: d.monPseudo || '', rang: RANG_PAR_DEFAUT, titre: null, moi: true };
+    };
+    (gestes || []).forEach(function (d) {
+      if (!d || d.geste !== GESTES.GUILDE) return;
+      var a = d.args || {};
+      if (d.fn === 'guilde_creer') {
+        if (o.g) return;
+        o.g = { nom: a.p_nom, couleur: a.p_couleur, blason: 'bouclier', admin: true, membres: 1 };
+        o.membres = [moi(d)]; o.semaine = null; o.invitations = []; o.fil = []; o.progression = [];
+      } else if (d.fn === 'guilde_modifier') {
+        if (o.g) o.g = avec(o.g, { nom: a.p_nom, couleur: a.p_couleur });
+      } else if (d.fn === 'guilde_inviter') {
+        o.invites[a.p_user] = true;
+      } else if (d.fn === 'guilde_repondre') {
+        if (!a.p_rejoindre) { o.invitations = o.invitations.filter(function (i) { return i.guilde_id !== a.p_guilde; }); return; }
+        if (!o.g) {
+          o.g = { nom: d.nom, couleur: d.couleur, blason: 'bouclier', admin: false, membres: (Number(d.membres) || 0) + 1 };
+          o.membres = [moi(d)]; o.semaine = null; o.fil = []; o.progression = [];
+        }
+        o.invitations = [];
+      } else if (d.fn === 'guilde_quitter') {
+        o.g = null; o.membres = []; o.semaine = null; o.fil = null; o.progression = [];
+      } else if (d.fn === 'guilde_retirer_membre') {
+        var avant = o.membres.length;
+        o.membres = o.membres.filter(function (m) { return m.user_id !== a.p_user; });
+        if (o.g && o.membres.length < avant) o.g = avec(o.g, { membres: Math.max(1, (Number(o.g.membres) || 1) - 1) });
+      } else if (d.fn === 'guilde_transmettre') {
+        if (o.g) o.g = avec(o.g, { admin: false });
+      } else if (d.fn === 'guilde_choisir_defi') {
+        if (o.semaine) o.semaine = avec(o.semaine, { defi: a.p_type, n: a.p_n === undefined ? null : a.p_n });
+      } else if (d.fn === 'guilde_choisir_rang') {
+        o.membres = o.membres.map(function (m) { return m.moi ? avec(m, { rang: a.p_rang }) : m; });
+      }
+    });
+    return o;
+  }
+
+  // ── Au retour du réseau : ce que devient un envoi qui échoue ──
+  //
+  // `reessayer` : le réseau (aucun code), une connexion, un jeton expiré — l'entrée reste, la vidange s'arrête comme
+  // pour une séance. `fait` : la base dit que c'est DÉJÀ ainsi — un abonnement, un blocage ou une réaction déjà là
+  // (`23505`), une invitation déjà refusée ; et, quand l'envoi est REJOUÉ (un essai précédent a pu passer sans que la
+  // réponse revienne), ce que le premier envoi a déjà fait. `refus` : tout autre refus de la base — l'entrée quitte la
+  // file, l'écran le dit en une phrase et revient à l'état réel. Jamais un refus ne bloque la file.
+  var CODES_PASSAGERS = /^(08|53|57|PGRST0|PGRST3)/;
+  function erreurPassagere(e) {
+    var c = String((e && e.code) || '');
+    return !c || CODES_PASSAGERS.test(c) || c === '40001' || c === '40P01';
+  }
+  var DEJA_FAIT_AU_REJEU = {
+    guilde_creer: /guilde_deja_dans_une|guilde_membres_pkey/,
+    guilde_repondre: /guilde_sans_invitation|guilde_deja_dans_une|guilde_membres_pkey/,
+    guilde_retirer_membre: /guilde_pas_admin/,
+    guilde_transmettre: /guilde_pas_admin/
+  };
+  function issueDuGeste(d, erreur, rejoue) {
+    if (erreurPassagere(erreur)) return 'reessayer';
+    var code = String(erreur.code), texte = String(erreur.message || '') + ' ' + String(erreur.details || '');
+    var g = d && d.geste;
+    if (code === '23505' && (g === GESTES.SABONNER || g === GESTES.BLOQUER || g === GESTES.REAGIR)) return 'fait';
+    if (g === GESTES.GUILDE) {
+      var a = d.args || {};
+      if (d.fn === 'guilde_repondre' && !a.p_rejoindre && /guilde_sans_invitation/.test(texte)) return 'fait';
+      if (rejoue && DEJA_FAIT_AU_REJEU[d.fn] && DEJA_FAIT_AU_REJEU[d.fn].test(texte)) return 'fait';
+    }
+    return 'refus';
+  }
+
+  // La phrase d'un refus de guilde, avec les mots de la base ; `null` si elle n'en a pas.
+  function phraseDeGuilde(e) {
+    var m = String((e && (e.message || e.details)) || '');
+    if (/guildes_nom_cle_uniq/.test(m)) return 'Ce nom est déjà pris.';
+    if (/guildes_nom_longueur/.test(m)) return 'Le nom fait de 3 à 24 caractères.';
+    if (/guilde_pleine/.test(m)) return 'La guilde est complète : 30 membres.';
+    if (/guilde_invite_non_mutuel/.test(m)) return 'On n’invite qu’un abonné mutuel.';
+    if (/guilde_deja_dans_une|guilde_membres_pkey/.test(m)) return 'Tu es déjà dans une guilde.';
+    if (/guilde_defi_fige/.test(m)) return PHRASE_DEFI_FIGE;
+    return null;
+  }
+  function libelleDuGeste(d) {
+    var p = (d && d.pseudo) || '', a = (d && d.args) || {};
+    switch (d && d.geste) {
+      case GESTES.SABONNER: return 'S’abonner à ' + p;
+      case GESTES.RETIRER_ABONNEMENT: return 'Retirer l’abonnement à ' + p;
+      case GESTES.RETIRER_ABONNE: return (d.refuser ? 'Refuser ' : 'Retirer l’abonné ') + p;
+      case GESTES.ACCEPTER: return 'Accepter ' + p;
+      case GESTES.BLOQUER: return 'Bloquer ' + p;
+      case GESTES.DEBLOQUER: return 'Débloquer ' + p;
+      case GESTES.REAGIR: return 'Réagir à la séance de ' + p;
+      case GESTES.RETIRER_REACTION: return 'Retirer ta réaction';
+      case GESTES.GUILDE:
+        if (d.fn === 'guilde_creer') return 'Créer la guilde ' + (a.p_nom || '');
+        if (d.fn === 'guilde_modifier') return 'Modifier la guilde';
+        if (d.fn === 'guilde_inviter') return 'Inviter ' + p;
+        if (d.fn === 'guilde_repondre') return (a.p_rejoindre ? 'Rejoindre ' : 'Refuser l’invitation de ') + (d.nom || 'la guilde');
+        if (d.fn === 'guilde_quitter') return 'Quitter la guilde';
+        if (d.fn === 'guilde_retirer_membre') return 'Retirer ' + p;
+        if (d.fn === 'guilde_transmettre') return 'Transmettre à ' + p;
+        if (d.fn === 'guilde_choisir_defi') return 'Choisir le défi';
+        if (d.fn === 'guilde_choisir_rang') return 'Choisir le rang ' + (a.p_rang || '');
+        return 'Ce geste de guilde';
+      default: return 'Ce geste';
+    }
+  }
+  // Une phrase, un fait : ce qui n'a pas pu se faire.
+  function phraseDuRefus(d, erreur) {
+    if (d && d.geste === GESTES.GUILDE) { var m = phraseDeGuilde(erreur); if (m) return m; }
+    return '« ' + libelleDuGeste(d).trim() + ' » n’a pas pu se faire.';
+  }
+
   var api = {
     MOI: MOI, INCONNU: INCONNU, DEMANDE: DEMANDE, SUIVI: SUIVI, MUTUEL: MUTUEL,
     CHAMPS_INTERDITS: CHAMPS_INTERDITS,
@@ -628,7 +843,21 @@
     invitablesDuGroupe: invitablesDuGroupe,
     recapDuGroupe: recapDuGroupe,
     faiteEnGroupeAvec: faiteEnGroupeAvec,
-    partDe: partDe
+    partDe: partDe,
+    // 107 — les gestes hors ligne
+    GESTES: GESTES,
+    GESTES_DE_GUILDE: GESTES_DE_GUILDE,
+    EN_ATTENTE: EN_ATTENTE,
+    gesteValide: gesteValide,
+    liensAvecGestes: liensAvecGestes,
+    profilAvecGestes: profilAvecGestes,
+    filAvecGestes: filAvecGestes,
+    guildeAvecGestes: guildeAvecGestes,
+    erreurPassagere: erreurPassagere,
+    issueDuGeste: issueDuGeste,
+    phraseDeGuilde: phraseDeGuilde,
+    libelleDuGeste: libelleDuGeste,
+    phraseDuRefus: phraseDuRefus
   };
 
   racine.THSocial = api;

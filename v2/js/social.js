@@ -834,8 +834,10 @@
     var c = String((e && e.code) || '');
     return !c || CODES_PASSAGERS.test(c) || c === '40001' || c === '40P01';
   }
+  // 121 (05 #3) — `guilde_inviter` : rejouée après que l'invité a rejoint, l'invitation dit « déjà membre » ; c'est fait.
   var DEJA_FAIT_AU_REJEU = {
     guilde_creer: /guilde_deja_dans_une|guilde_membres_pkey/,
+    guilde_inviter: /guilde_deja_membre/,
     guilde_repondre: /guilde_sans_invitation|guilde_deja_dans_une|guilde_membres_pkey/,
     guilde_retirer_membre: /guilde_pas_admin/,
     guilde_transmettre: /guilde_pas_admin/

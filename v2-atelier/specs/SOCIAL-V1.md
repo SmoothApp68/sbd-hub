@@ -433,6 +433,10 @@ la file** : le groupe est du temps réel, fait réseau présent, et le direct es
   tant qu'il n'est pas parti. Hors réseau, une lecture qui échoue dit « Il faut le réseau pour voir … ».
 - **Idempotence** : rejoué (la réponse perdue), un geste ne se double pas — un abonnement, un blocage ou une réaction
   « déjà là » vaut « fait », pas un refus.
+  **16/10/2026 (audit du 16/10, 05 #3)** : « rejoué » se sait aussi après un rechargement — l'entrée est marquée
+  « peut-être partie » sur le téléphone AVANT l'envoi (`Attente.marquerParti`, `dejaParti`) ; avant, seul un échec
+  constaté la marquait, et une app tuée au retour de la réponse affichait un faux refus. « Inviter » rejoué après que
+  l'invité a rejoint (`guilde_deja_membre`) vaut aussi « fait ». Un PREMIER envoi refusé reste un refus.
 - **Un geste qui annule le précédent n'envoie que l'état final** : un geste sur un état (mon abonnement à quelqu'un, son
   abonnement à moi, ma réaction à une séance, mon rang, le défi, le nom de la guilde) remplace celui qui attend sur le
   même état, en fin de file. S'abonner puis se désabonner hors ligne n'envoie que le retrait. Bloquer, qui efface les

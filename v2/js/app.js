@@ -1789,7 +1789,8 @@
     console.warn('Geste social inconnu, retiré de la file :', d.geste);
     return true;
   }
-  function issueSociale(op, erreur) { return Social.issueDuGeste(op.donnees || {}, erreur, (op.essais || 0) > 0); }
+  // 121 (05 #3) — « rejoué » : un envoi PRÉCÉDENT a pu passer (`parti`, écrit avant l'appel, ou un échec déjà constaté).
+  function issueSociale(op, erreur) { return Social.issueDuGeste(op.donnees || {}, erreur, Attente.dejaParti(op)); }
 
   // Ce que la vidange a fait d'un geste : confirmé (ou déjà fait), ou refusé.
   function noterGesteSocial(op, erreur) {
@@ -3299,6 +3300,14 @@
         // séries et ses paris derrière elle dans cette même boucle. Si le
         // renvoi échoue encore, l'entrée reste EN ÉCHEC, à retenter comme une
         // coupure : jamais bloquée, jamais abandonnée en silence.
+        // 121 (audit du 16/10, 05 #3) — un geste social est marqué « peut-être parti » SUR LE DISQUE avant l'appel :
+        // relu après un rechargement, son « déjà fait » sera un succès, pas un faux refus. `op` reste la copie d'avant
+        // la marque : c'est elle que `issueSociale` lit (un PREMIER envoi n'est jamais « rejoué »).
+        if (op.table === Attente.SOCIAL && !op.parti) {
+          attente = Attente.marquerParti(attente, op.cle);
+          await Cache.ecrireAttente(attente).catch(function () {});
+          if (!generationValide(g)) return;
+        }
         var echec = await Attente.envoyer(op, executer, refermerSeancesSauf);
         // « Quitter » pendant l'aller-retour : la file de ce compte est déjà
         // vidée, on n'y réécrit rien.

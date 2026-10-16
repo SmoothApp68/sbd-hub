@@ -302,7 +302,7 @@
         depend: op.depend === undefined ? (liste[i].depend || null) : op.depend,
         creation: liste[i].creation || !!op.creation,
         version: (liste[i].version || 1) + 1,
-        bloquee: null, essais: 0, attend: null
+        bloquee: null, essais: 0, attend: null, parti: false
       });
       if (connues === undefined) delete liste[i].connues;
       else liste[i].connues = connues;
@@ -433,6 +433,20 @@
       });
     });
   }
+
+  // ⚠️ 121 (audit du 16/10/2026, 05 #3) — « PEUT-ÊTRE PARTI » SE MARQUE SUR LE DISQUE AVANT L'ENVOI.
+  //
+  // Un geste social qui a pu passer sans que la réponse revienne (l'app tuée, rechargée, le réseau coupé au retour)
+  // est REJOUÉ au démarrage suivant. Sa seconde réponse dit alors « déjà fait » (`guilde_deja_membre`,
+  // `guilde_deja_dans_une`…) — c'est un succès, pas un refus (SOCIAL-V1 §8.1). Mais `essais` n'augmente qu'après un
+  // ÉCHEC constaté : une entrée relue après un rechargement repartait à 0, donc « jamais envoyée », et le « déjà fait »
+  // devenait un faux refus à l'écran (« « Inviter jordan » n'a pas pu se faire. » alors que jordan est membre).
+  // `parti` est posé (et écrit) AVANT l'appel ; `dejaParti` dit, au moment de lire la réponse, si un envoi PRÉCÉDENT a
+  // pu passer — jamais l'envoi en cours, dont le premier « déjà dans une guilde » reste un vrai refus.
+  function marquerParti(file, cle) {
+    return (file || []).map(function (e) { return e.cle === cle && !e.parti ? Object.assign({}, e, { parti: true }) : e; });
+  }
+  function dejaParti(op) { return !!op && (!!op.parti || (op.essais || 0) > 0); }
 
   // §9.11 (27/09/2026) — UNE OBSERVATION REFUSÉE PARCE QUE SA SÉRIE N'EST PAS
   // EN BASE (23503 sur `set_observe`) N'EST PAS UN REFUS DÉFINITIF : la série
@@ -937,6 +951,8 @@
     prochaine: prochaine,
     retirer: retirer,
     marquerEchec: marquerEchec,
+    marquerParti: marquerParti,
+    dejaParti: dejaParti,
     reparerIdentifiants: reparerIdentifiants,
     reparerBornes: reparerBornes,
     CODES_BORNES: CODES_BORNES,

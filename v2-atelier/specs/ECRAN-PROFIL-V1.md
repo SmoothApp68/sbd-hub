@@ -133,7 +133,7 @@ Maquette validée par Aurélien le 15/10/2026 : `v2-atelier/maquettes/maquette-s
 
 **L'écran (108).** Une ligne **« Ma salle »** dans « CE QUE JE FAIS », sous « Matériel », avec la phrase « Non
 renseigné : le coach suppose qu'on peut ajouter des disques, comme aujourd'hui. » ; sa valeur dit ce qui est déclaré
-(« EZ, droite, haltères »), rien quand rien ne l'est. Un tap ouvre **une feuille** (le même voile que les autres) :
+(« EZ, droite, haltères ») ; non renseignée, « à renseigner », comme toute ligne vide du Profil. Un tap ouvre **une feuille** (le même voile que les autres) :
 
 - **Barres fixes** — « Les barres déjà chargées de ta salle. Le coach ne te proposera que ces charges-là. » ; **Barre EZ**
   (puces 10 à 40 kg, de 5 en 5) et **Barre droite** (10 à 30 kg) : on coche ; « ＋ » ouvre un champ pour un autre poids

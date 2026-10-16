@@ -64,6 +64,7 @@ function bac() {
     reparerIdentifiantsManquants: () => Promise.resolve(),
     reparerFileHorsBornes: () => Promise.resolve(),
     reparerFileConflitsEnCours: () => Promise.resolve(),
+    reparerFileSchema: () => Promise.resolve(),
     chargerProfilLocal: () => Promise.resolve(),
     chargerProfil: () => Promise.resolve(),
     resoudreSeanceEnCoursDistante: () => Promise.resolve(),

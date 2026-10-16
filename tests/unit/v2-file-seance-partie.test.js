@@ -122,7 +122,7 @@ describe('un refus parce que la séance n’existe plus sort de la file sans blo
     const file = poserTout([pari('pari-1', S1)]);
     const op = A.prochaine(file);
     expect(A.seanceDisparue(file, op, FK_EXERCICE)).toBe(false);
-    expect(A.apresEchec(file, op, FK_EXERCICE).suite).toBe('arret');
+    expect(A.apresEchec(file, op, FK_EXERCICE).suite).toBe('bloquee');
   });
 
   test('le journal d’une séance disparue sort ; un lot du remplissage (sans séance) reste refusé', () => {
@@ -130,7 +130,7 @@ describe('un refus parce que la séance n’existe plus sort de la file sans blo
     const fk = { code: '23503', message: 'records_session_id_fkey', details: 'records_session_id_fkey' };
     expect(A.apresEchec(j, A.prochaine(j), fk).suite).toBe('caduque');
     const lot = poserTout([{ table: A.RECORDS, op: A.AJOUTER, id: 'lot-1', depend: null, donnees: [{ session_id: S1 }] }]);
-    expect(A.apresEchec(lot, A.prochaine(lot), fk).suite).toBe('arret');
+    expect(A.apresEchec(lot, A.prochaine(lot), fk).suite).toBe('bloquee');
   });
 
   test('les séries ne sont jamais concernées : une saisie n’est pas jetée sur un 23503', () => {

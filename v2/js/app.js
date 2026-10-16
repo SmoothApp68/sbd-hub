@@ -3240,6 +3240,12 @@
             continue;
           }
           if (issue.suite === 'attend') continue;
+          // 117 (audit du 16/10, 06 #4) — refusée : marquée, dépassée par `prochaine` avec ce qui dépend d'elle ; les
+          // entrées suivantes (une autre séance) partent dans cette même vidange.
+          if (issue.suite === 'bloquee') {
+            console.warn('Envoi refusé (' + op.cle + ') :', texteErreur(echec));
+            continue;
+          }
           console.warn('Envoi différé (' + op.cle + ') :', texteErreur(echec));
           break;
         }
@@ -3346,7 +3352,11 @@
     // vidée sans rien écrire — exactement la perte silencieuse que la file
     // existe pour empêcher.
     if (op.table === Attente.ROUTINE_EXOS) return Donnees.majExercice(op.id, op.donnees);
-    return Promise.resolve();
+    // ⚠️ 117 (audit du 16/10, 06 #17) — UNE TABLE INCONNUE N'EST PAS UN SUCCÈS. Ce `return` « réussissait » sans rien
+    // écrire, et l'entrée sortait de la file : la perte silencieuse que les branches ci-dessus décrivent deux fois.
+    // Elle est REFUSÉE (`TH001`, `Attente.CODES_SCHEMA`) : elle reste, elle se voit, elle ne retient rien d'autre, et
+    // elle est retentée à l'ouverture (une version de l'app qui connaît la table l'enverra).
+    return Promise.reject({ code: 'TH001', message: 'la file ne sait pas écrire la table « ' + op.table + ' »' });
   }
 
   // ⚠️ UNE ENTRÉE `predictions` EN `observer` EST UNE ENTRÉE D'AVANT LE
@@ -3586,6 +3596,17 @@
     try { await Cache.ecrireAttente(attente); }
     catch (e) { console.warn('File réparée non persistée :', texteErreur(e)); }
     console.warn('File réparée : ' + r.entrees + ' séance(s) en conflit « une seule en cours » débloquée(s).');
+  }
+
+  // 117 (audit du 16/10, 06 #4) — les refus « la base n'a pas encore cette colonne, cette table » (ou « cette version
+  // ne connaît pas cette table ») sont retentés une fois par ouverture : la migration lancée, ils montent seuls.
+  async function reparerFileSchema() {
+    var r = Attente.reparerSchema(attente);
+    if (!r.entrees) return;
+    attente = r.file;
+    try { await Cache.ecrireAttente(attente); }
+    catch (e) { console.warn('File réparée non persistée :', texteErreur(e)); }
+    console.warn('File : ' + r.entrees + ' envoi(s) refusé(s) faute de colonne ou de table retenté(s).');
   }
 
   // ══ LA SÉANCE `en_cours` RESTÉE EN BASE (chantier 36, D7) ════════════════
@@ -11511,6 +11532,7 @@
     await reparerIdentifiantsManquants();
     await reparerFileHorsBornes();
     await reparerFileConflitsEnCours();
+    await reparerFileSchema();
     // La mémoire est chargée : désormais, pour ce compte, c'est elle qui fait
     // foi (`entrer`).
     entreeFaitePour = userId || null;

@@ -173,6 +173,23 @@
   // l'utilisateur que quelque chose ne montera pas.
   var CODES_DEFINITIFS = ['23502', '23503', '23505', '23514', '22P02', '42501', '42703'];
 
+  // ⚠️ 117 (audit du 16/10, 06 #4 et #17) — CE QUE LA BASE N'A PAS ENCORE.
+  //
+  // Une colonne ou une table absente (une PR fusionnée avant sa migration) : PostgREST répond `PGRST204` (colonne
+  // inconnue à l'écriture), `PGRST205` ou `42P01` (table inconnue), `PGRST202` ou `42883` (fonction inconnue) —
+  // pas `42703`, que Postgres seul renvoie. Ces codes passaient pour « temporaires » : l'entrée n'était pas
+  // bloquée, `prochaine` la rendait en tête à chaque tour, la vidange s'arrêtait (`break`), et TOUTES les entrées
+  // suivantes — séances comprises — restaient sur le téléphone jusqu'à la migration. Le social, lui, les classait
+  // déjà en refus (`Social.issueDuGeste`).
+  //
+  // Ils sont désormais REFUSÉS (l'entrée est marquée, elle se voit, et elle ne retient que ce qui dépend d'elle :
+  // son identifiant, et les entrées dont `depend` la désigne, de proche en proche — jamais une autre séance). Et
+  // ils sont RETENTÉS À CHAQUE OUVERTURE (`reparerSchema`) : la migration lancée, l'entrée monte sans un geste.
+  // `TH001` : une table que CETTE version de l'app ne sait pas écrire (une entrée posée par une version plus
+  // récente) — même règle : refusée, visible, retentée à l'ouverture par une version qui la connaîtra.
+  var CODES_SCHEMA = ['42703', 'PGRST204', 'PGRST205', '42P01', 'PGRST202', '42883', 'TH001'];
+  CODES_SCHEMA.forEach(function (c) { if (CODES_DEFINITIFS.indexOf(c) < 0) CODES_DEFINITIFS.push(c); });
+
   // ⚠️ SAUF UN `23505`, ET UN SEUL (26/09/2026) : `sessions_une_seule_en_cours`.
   //
   // Index unique sur `user_id` WHERE `statut = 'en_cours'`. Il refuse la
@@ -575,7 +592,10 @@
       var raison = String(erreur.code || '') === AUCUNE_LIGNE ? 'pari' : 'serie';
       return { file: marquerAttente(file, op.cle, raison), suite: 'attend' };
     }
-    return { file: marquerEchec(file, op.cle, erreur), suite: 'arret' };
+    // 117 (audit du 16/10, 06 #4) — UN REFUS N'ARRÊTE PLUS LA VIDANGE. L'entrée est marquée (`bloquee`), et
+    // `prochaine` la dépasse avec ce qui dépend d'elle : la vidange continue aussitôt avec les entrées suivantes
+    // (`suite: 'bloquee'`), au lieu d'attendre le geste suivant. Seul ce qui se réessaie (le réseau) l'arrête.
+    return { file: marquerEchec(file, op.cle, erreur), suite: estDefinitive(erreur) ? 'bloquee' : 'arret' };
   }
 
   // Retirée APRÈS confirmation, et seulement si elle est restée celle qu'on a
@@ -714,6 +734,18 @@
     return { file: neuve, entrees: entrees };
   }
 
+  // 117 (audit du 16/10, 06 #4) — À L'OUVERTURE, LES REFUS « LA BASE N'A PAS ENCORE » SONT RETENTÉS UNE FOIS.
+  // Seulement eux (`CODES_SCHEMA`) : un refus de contrainte, de RLS ou de clé étrangère échouerait à l'identique.
+  function reparerSchema(file) {
+    var entrees = 0;
+    var neuve = (file || []).map(function (e) {
+      if (!e || !e.bloquee || CODES_SCHEMA.indexOf(String(e.bloquee.code || '')) < 0) return e;
+      entrees++;
+      return Object.assign({}, e, { version: (e.version || 1) + 1, bloquee: null, essais: 0 });
+    });
+    return { file: neuve, entrees: entrees };
+  }
+
   // Tout ce qui attend encore, par table. La synchronisation s'en sert pour
   // NE PAS EFFACER ce qu'elle ne connaît pas encore : `Sync.remplacer` remplace
   // la liste des séances par celle du serveur, et une séance saisie hors ligne
@@ -827,6 +859,8 @@
     UPSERT: UPSERT, SUPPRIMER: SUPPRIMER, REMPLACER: REMPLACER, PLAN: PLAN,
     cumulerConnues: cumulerConnues,
     CODES_DEFINITIFS: CODES_DEFINITIFS,
+    CODES_SCHEMA: CODES_SCHEMA,
+    reparerSchema: reparerSchema,
     cleDe: cleDe,
     estDefinitive: estDefinitive,
     estConflitEnCours: estConflitEnCours,

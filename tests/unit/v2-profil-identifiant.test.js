@@ -79,7 +79,7 @@ describe('`entrer` : une entrée en vol n’absorbe que la session de SON compte
       rangerSeances: () => {}, indexerParSeance: () => {}, recalculerEtats: () => {},
       lireModeRPE: () => {}, lireSourdine: () => {},
       reparerIdentifiantsManquants: () => Promise.resolve(), reparerFileHorsBornes: () => Promise.resolve(),
-      reparerFileConflitsEnCours: () => Promise.resolve(), chargerProfilLocal: () => Promise.resolve(),
+      reparerFileConflitsEnCours: () => Promise.resolve(), reparerFileSchema: () => Promise.resolve(), chargerProfilLocal: () => Promise.resolve(),
       // Le profil se charge avec l'identifiant de la MÉMOIRE de l'app à cet instant.
       chargerProfil: () => { journal.profils.push(ctx.sessionActive && ctx.sessionActive.user.id); return Promise.resolve(); },
       resoudreSeanceEnCoursDistante: () => Promise.resolve(),

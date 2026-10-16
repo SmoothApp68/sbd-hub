@@ -131,6 +131,27 @@ describe('ce qui attend dans la file n’est jamais retiré', () => {
     expect(ids(tel.series)).toContain('ma-2');
   });
 
+  test('⚠️ DISCRIMINANT — le lot relu contient une séance qui attend dans la file : ses séries ne bougent pas, les autres se rapprochent', () => {
+    const srv = decor();
+    const tel = appareil();
+    synchroniser(tel, srv);
+    // Mardi attend dans la file (une série neuve, pas encore montée) ; lundi et l'ancienne ont perdu une série
+    // ailleurs : le surplus existe, et le premier lot relu — [lundi, mardi] — contient la séance qui attend.
+    tel.series.push(serie('ma-locale', 'mardi', 't9'));
+    tel.file = A.poser([], { table: A.SETS, op: A.REMPLACER, id: 'mardi', donnees: [] });
+    srv.sets = srv.sets.filter((s) => ['lu-1', 'an-1', 'ma-2'].indexOf(s.id) < 0);
+    synchroniser(tel, srv);
+    // Mardi intact ; lundi rapproché. L'ancienne attend : tant qu'une séance attend, le compte du serveur porte ses
+    // séries déjà montées et le surplus se sous-estime — jamais l'inverse (rien n'est retiré à tort).
+    expect(ids(tel.series)).toEqual(['an-1', 'ma-1', 'ma-2', 'ma-locale', 'tv-1', 'vi-1']);
+    // La file de mardi part (son `remplacerSeries` met la base à l'image de l'appareil) : la synchronisation
+    // suivante finit le travail.
+    srv.sets.push(serie('ma-2', 'mardi', 't1'), serie('ma-locale', 'mardi', 't9'));
+    tel.file = [];
+    synchroniser(tel, srv);
+    expect(ids(tel.series)).toEqual(ids(srv.sets));
+  });
+
   test('une séance saisie hors ligne (inconnue du serveur) garde ses séries', () => {
     const srv = decor();
     const tel = appareil();

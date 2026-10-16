@@ -472,10 +472,24 @@ const NOTIONS = [
   { notion: 'le compte des séries de travail (la règle du volume)', pr: 'PR 6',
     module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js', 'bilan.js', 'faits.js', 'bilans.js'],
     parAilleurs: { 'modele.js': ['resumerSeance', 'construireBlocs'], 'seance.js': ['compter'], 'bilan.js': ['bilanDuMois'],
-                   'profil.js': ['statsDe'], 'app.js': ['rendreExercice'], 'faits.js': ['recapDeLaSeance'] },
+                   'profil.js': ['statsDe'], 'app.js': ['rendreExercice'] },
     raison: 'décision du 02/10/2026 : la carte, la barre, la page, le détail (« de travail »), le ' +
       'bandeau, la feuille de fin et le profil disent le même nombre ; le tapis n’y entre pas. 71 : le récap compte ' +
-      'les exercices faits (au moins une série de travail) par la même règle.' },
+      'les exercices faits (au moins une série de travail) par la même règle — 119 : par `exercicesDeMusculation`, ' +
+      'qui la lit (`estSerieDeMusculation`).' },
+  // 119 (audit du 16/10/2026, F9) — « exercice fait » : UNE définition PAR USAGE, chacune ici. Le journal (ci-dessous,
+  // cardio compris) ; le récap (`exercicesDeMusculation`, au moins une série de musculation) ; le classement d'un
+  // bilan (`seMesureEnReps`, un exercice mesuré en reps).
+  { notion: 'l’exercice fait du récap de fin de séance (au moins une série de musculation ; le cardio se dit à part)', pr: '119-U1',
+    module: 'semaine.js', fonction: 'exercicesDeMusculation', lecteurs: ['faits.js'],
+    parAilleurs: { 'faits.js': ['recapDeLaSeance'] },
+    raison: 'audit du 16/10/2026 (F9) : le récap excluait le tapis par un filtre écrit à la main, à côté de ' +
+      '`exercicesFaits` qui le compte ; deux définitions sans nom. ECRAN §7 septies.4 bis le dit désormais.' },
+  { notion: 'l’exercice classé par un bilan (l’exercice du mois, de la saison, de l’année : mesuré en reps)', pr: '119-U1',
+    module: 'modele.js', fonction: 'seMesureEnReps', lecteurs: ['bilans.js'],
+    parAilleurs: { 'bilans.js': ['bilanDeLaPeriode'] },
+    raison: 'audit du 16/10/2026 (F1, F9) : le tapis gagnait l’exercice du mois (« 0 reps ») ; seuls `charge_reps` ' +
+      'et `reps` se classent, par le chiffre affiché (BILANS-V1, 16/10).' },
   { notion: 'l’exercice fait (au moins une série de travail, cardio compris)', pr: 'PR 6',
     module: 'modele.js', fonction: 'exercicesFaits', lecteurs: ['app.js', 'faits.js'],
     // 64A : l'APPEL, pas le champ — `entree.exercicesFaits` (JEU-V1 §8) est un nombre que le jeu lit, pas un

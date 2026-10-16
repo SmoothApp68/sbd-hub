@@ -71,3 +71,24 @@ describe('119 — E9 : la médaille écrit comme le journal', () => {
     expect(p).toEqual(['Plus longue distance : 1,3 km.', 'Avant : 850 m, le 1er sept.']);
   });
 });
+
+describe('119 — F9 : « exercice fait », une définition par usage', () => {
+  require('../../v2/js/semaine.js');
+  const Se = global.THSemaine;
+  const CAT = [
+    { slug: 'tapis', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [] },
+    { slug: 'squat', mesure: 'charge_reps', muscles_primaires: ['quadriceps'] },
+    { slug: 'planche', mesure: 'temps', charge: 'aucune', muscles_primaires: ['abdominaux'] }
+  ];
+  const S = [
+    { exercise_slug: 'tapis', type_serie: 'travail', duree_s: 600 },
+    { exercise_slug: 'squat', type_serie: 'echauffement', charge_kg: 60, reps: 5 },
+    { exercise_slug: 'planche', type_serie: 'travail', duree_s: 60 },
+    { exercise_slug: 'squat', type_serie: 'travail', charge_kg: 100, reps: 5 }
+  ];
+  test('le journal compte le tapis ; le récap, non ; le bilan ne classe que les exercices en reps', () => {
+    expect(Object.keys(Modele.exercicesFaits(S)).sort()).toEqual(['planche', 'squat', 'tapis']);
+    expect(Se.exercicesDeMusculation(S, CAT)).toEqual(['planche', 'squat']);
+    expect(CAT.filter(Modele.seMesureEnReps).map((x) => x.slug)).toEqual(['squat']);
+  });
+});

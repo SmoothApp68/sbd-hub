@@ -318,7 +318,8 @@
         if (!parSlug[x.exercise_slug]) { parSlug[x.exercise_slug] = []; ordre.push(x.exercise_slug); }
         parSlug[x.exercise_slug].push(x);
       });
-      var exosFaits = ordre.filter(function (slug) { return Semaine.compteSeriesTravail(parSlug[slug], exercices) > 0; });
+      // 119 (F9) — la tuile « exercices » : les exercices de musculation (une définition par usage, au registre).
+      var exosFaits = Semaine.exercicesDeMusculation(faites, exercices);
       var volume = Bilan.volumeKg(faites);
       var muscles = Semaine.volumeParMuscle(faites, exercices);
       var reste = muscles.slice(MUSCLES_DU_RECAP);

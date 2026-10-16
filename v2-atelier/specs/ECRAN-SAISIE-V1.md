@@ -1506,6 +1506,11 @@ qui règlent la séance suivante. **Aucun ne montre si ses prévisions étaient 
 2. **Quatre chiffres** : la durée (de `debut` à `fin`) · les séries de travail (`Seance.compter().travail`, la même
    règle que le bandeau et la feuille) · le volume en tonnes (`THBilan.volumeKg`, la fonction du bilan du mois :
    séries de travail, charges positives) · les exercices faits (au moins une série de travail).
+   *Précisé le 16/10/2026 (audit du 16/10, F9)* : la tuile compte les exercices de **musculation** — au moins une série
+   de travail d'un exercice qui porte du volume (`THSemaine.exercicesDeMusculation`, la règle de
+   `compteSeriesTravail`) : le tapis n'y entre pas, comme il n'entre pas dans les séries de travail. Le journal
+   (Progression, profil, carte de séance) garde `THModele.exercicesFaits`, cardio compris. Une définition par usage,
+   chacune au registre NOTIONS.
 3. **La comparaison** (demandée par Aurélien, cinquante objets pour qu'elle change d'une séance à l'autre) :
    « 10,1 t soulevées : à peu près un tricératops. » — le volume de la tuile, comparé à un objet de la table
    ci-dessous. **Le choix** : les objets dont la masse est à ±20 % du volume (écart des logarithmes ≤ ln 1,2), dans

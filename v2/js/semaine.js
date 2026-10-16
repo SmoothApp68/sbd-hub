@@ -380,6 +380,24 @@
     return !(exo && !porteDuVolume(exo));
   }
 
+  // ⚠️ « EXERCICE FAIT » A UNE DÉFINITION PAR USAGE (119, audit du 16/10/2026, F9), chacune nommée au registre NOTIONS :
+  //   · le JOURNAL (Progression « N exercices », le profil, Mes exercices, la carte de séance) : `THModele.exercicesFaits`,
+  //     au moins une série de travail, cardio compris — le tapis est un exercice fait ;
+  //   · le RÉCAP de fin de séance (sa tuile « exercices ») : `exercicesDeMusculation`, ci-dessous — au moins une série de
+  //     musculation ; le cardio s'y dit à part, par sa durée et sa distance ;
+  //   · le CLASSEMENT d'un bilan (l'exercice du mois) : `THModele.seMesureEnReps` — un exercice mesuré en reps.
+  // Les slugs des exercices qui ont au moins une série de musculation, dans l'ordre de leur première série.
+  function exercicesDeMusculation(series, exercices) {
+    var cat = {}, vus = {}, ordre = [];
+    (exercices || []).forEach(function (e) { if (e && e.slug) cat[e.slug] = e; });
+    (series || []).forEach(function (s) {
+      if (!s || !s.exercise_slug || vus[s.exercise_slug] || !estSerieDeMusculation(s, cat[s.exercise_slug])) return;
+      vus[s.exercise_slug] = true;
+      ordre.push(s.exercise_slug);
+    });
+    return ordre;
+  }
+
   // UNE SÉANCE DE MUSCULATION (119, audit du 16/10/2026, BILANS-V1 « à la salle ») : au moins une série de
   // musculation (`estSerieDeMusculation`). Une randonnée, un vélo, un tapis seul n'en sont pas ; une séance mixte
   // (« Rando avec Léa + Pull ») en est une (CADRAGE §2 ter). Une séance sans série en cache n'en est pas une : on ne
@@ -421,6 +439,7 @@
     compteSeriesTravail: compteSeriesTravail,
     estSerieDeMusculation: estSerieDeMusculation,
     estSeanceDeMusculation: estSeanceDeMusculation,
+    exercicesDeMusculation: exercicesDeMusculation,
     bilanSemaine: bilanSemaine
   };
 

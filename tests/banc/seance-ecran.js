@@ -1141,6 +1141,12 @@ const SETS_IMPORTES = [
         // allégée, 49-U14, ne porte aucun exercice).
         if (l.exercise_slug !== null && l.exercise_slug !== undefined &&
             !CATALOGUE.some((e) => e.slug === l.exercise_slug)) return json(refus('23503', 'predictions_exercise_slug_fkey'), 400);
+        // 117 (v2_047) — `session_id`, GÉNÉRÉE depuis `fondement->>'seance'`, référence `sessions` : un pari dont la
+        // séance n'existe pas est refusé, comme en base (`predictions_session_fk`).
+        if (l.fondement && l.fondement.seance && !base.sessions.some((x) => x.id === l.fondement.seance)) {
+          return json(refus('23503', 'insert or update on table "predictions" violates foreign key constraint '
+            + '"predictions_session_fk"'), 400);
+        }
         if (l.set_observe && !base.sets.some((x) => x.id === l.set_observe)) {
           return json(refus('23503', 'predictions_set_observe_fkey'), 400);
         }
@@ -7224,6 +7230,36 @@ const SETS_IMPORTES = [
       base.predictions.length === compteAvant,
       base.predictions.length + ' vs ' + compteAvant);
     await abandonner();
+
+    // ── 117 (audit du 16/10, 06 #2) — UNE SÉANCE ABANDONNÉE HORS LIGNE N'Y LAISSE PAS SON PARI ──────────
+    // La configuration discriminante : la séance COMMENCE hors ligne (sa création ne voyage jamais), une série
+    // validée pose son pari, puis l'abandon. Avant le correctif, le pari restait seul dans la file ; au retour du
+    // réseau, la base le refusait (23503, `predictions_session_fk`) et « 1 envoi refusé » ne partait plus jamais.
+    const fileEntiere = () => page.evaluate(() =>
+      (window.THCache ? window.THCache.lireAttente() : Promise.resolve([])).then((f) => f.map((e) => e.cle)));
+    const refusAvant117 = base.journal.filter((j) => j.op === 'refus').length;
+    // La bibliothèque se lit au réseau (elle n'est pas dans le cache) : on l'ouvre en ligne, PUIS on coupe.
+    await aller('/saisie');
+    base.reseau = false;
+    await demarrerRoutine('Terre');
+    await attendre(900);
+    await saisirSerie(0, planOuvert[0][0], planOuvert[0][1]);
+    await attendre(900);
+    const parisHorsLigne = (await enFilePred()).filter((e) => e.op !== 'observer').length;
+    await abandonner();
+    const fileApresAbandon = await fileEntiere();
+    base.reseau = true;
+    await aller('/saisie');
+    await jusqua(async () => (await fileEntiere()).length === 0, 8000);
+    const fileAuRetour = await fileEntiere();
+    const etatAuRetour = await texte('#etat-sync');
+    ok('[P] 117 — hors ligne, la série validée pose son pari ; « Abandonner » l’emporte avec la séance',
+      parisHorsLigne > 0 && fileApresAbandon.length === 0, JSON.stringify({ paris: parisHorsLigne, file: fileApresAbandon }));
+    ok('[P] 117 — au retour du réseau : file vide, aucun refus, aucun « envoi refusé »',
+      fileAuRetour.length === 0 && !/refusé/.test(etatAuRetour) &&
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant117,
+      JSON.stringify({ file: fileAuRetour, etat: etatAuRetour,
+        refus: base.journal.filter((j) => j.op === 'refus').slice(refusAvant117) }));
     // ── DEUX INSTANCES QUI NOTENT EN MÊME TEMPS (48c-2) ──────────────────
     //
     // ⚠️ LE DÉFAUT DU 21/09, dans sa configuration discriminante. Le squat a

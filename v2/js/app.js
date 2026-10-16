@@ -3228,6 +3228,12 @@
             noterGesteSocial(op, echec);
             continue;
           }
+          // 117 (audit du 16/10, 06 #2) — un pari, ou le journal d'une séance, refusé parce que sa séance n'existe
+          // plus (abandonnée, supprimée) : il sort de la file au lieu de rester « refusé » pour toujours.
+          if (issue.suite === 'caduque') {
+            console.warn('Envoi retiré (' + op.cle + ') : sa séance n\u2019existe plus en base.');
+            continue;
+          }
           if (issue.suite === 'abandonnee') {
             console.warn('Observation orpheline abandonnée (' + op.cle + ') : son pari n\u2019est pas en base, ' +
               'et sa séance n\u2019a plus rien à envoyer.');
@@ -4180,6 +4186,15 @@
 
   // Abandonner SUPPRIME la séance. Sans ça, une séance `en_cours` fantôme
   // resterait en base et se rouvrirait au prochain lancement.
+  // Les identifiants des séries d'une séance de la saisie (toutes, validées ou non).
+  function idsSeriesDe(s) {
+    var ids = [];
+    ((s && s.exercices) || []).forEach(function (x) {
+      ((x && x.series) || []).forEach(function (r) { if (r && r.id) ids.push(r.id); });
+    });
+    return ids;
+  }
+
   async function abandonnerSeance() {
     // 115 (E2) — une suppression en attente part d'abord, comme au glissement d'avant : son observation vidée
     // reste dans la file (la séance qui part l'emporte en base de toute façon).
@@ -4187,7 +4202,9 @@
     var id = seance.id;
     // L'ordre compte : on retire d'abord les intentions d'écriture des séries,
     // sinon la vidange essaierait d'écrire des séries d'une séance supprimée.
-    attente = Attente.retirer(attente, Attente.cleDe(Attente.SETS, id));
+    // 117 (audit du 16/10, 06 #2) — et TOUT ce qui dépend d'elle : ses paris, leurs observations, son journal. Un pari
+    // resté seul était refusé à vie par la base (sa séance n'existe pas) : « 1 envoi refusé » pour toujours.
+    attente = Attente.retirerSeance(attente, id, idsSeriesDe(seance));
     seance = null; chrono = null; arreterMinuteur();
     rendreChrono();
     await Cache.ecrireBrouillon('seance', null);
@@ -11236,7 +11253,9 @@
     // L'ordre compte, comme à l'abandon : on retire d'abord l'intention
     // d'écrire ses séries, sinon la vidange écrirait les séries d'une séance
     // supprimée — et les recréerait par la clé étrangère.
-    attente = Attente.retirer(attente, Attente.cleDe(Attente.SETS, id));
+    // 117 (audit du 16/10, 06 #2) — et tout ce qui dépend d'elle (paris, observations, journal) : comme à l'abandon.
+    attente = Attente.retirerSeance(attente, id, (local.series || [])
+      .filter(function (s) { return s && s.session_id === id; }).map(function (s) { return s.id; }));
     // ⚠️ ON RETIRE, ON NE FAIT PAS TABLE RASE (chantier 36).
     // `Cache.remplacerTout` VIDE le magasin puis le réécrit — `cache.js` le
     // réserve explicitement aux magasins petits et rafraîchis en entier, et dit

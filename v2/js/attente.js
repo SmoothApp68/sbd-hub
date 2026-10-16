@@ -462,6 +462,64 @@
     });
   }
 
+  // ⚠️ 117 (audit du 16/10, 06 #2) — UNE SÉANCE QUI PART EMPORTE CE QUI DÉPEND D'ELLE.
+  //
+  // Abandonner (ou supprimer) une séance retirait ses séries de la file, et posait la suppression de la séance —
+  // qui, jamais montée, ne voyage pas. Ses PARIS et leurs OBSERVATIONS restaient : au retour du réseau, la base
+  // refusait le pari (23503, `predictions_session_fk` : sa séance n'existe pas), code définitif, et « 1 envoi refusé
+  // — rien n'est perdu » ne partait plus jamais. Désormais tout ce qui dépend de la séance sort avec elle : ses
+  // séries, ses paris, son journal des records, les observations de ses paris et celles qui désignent une de ses
+  // séries (`idsSeries`). L'entrée de la séance elle-même reste à `poser(SUPPRIMER)`, qui décide si elle voyage.
+  function retirerSeance(file, seanceId, idsSeries) {
+    var liste = (file || []).slice();
+    if (!seanceId) return liste;
+    var series = {}, paris = {};
+    (idsSeries || []).forEach(function (id) { if (id) series[id] = true; });
+    liste.forEach(function (e) { if (e && e.table === PREDICTIONS && e.depend === seanceId) paris[e.id] = true; });
+    return liste.filter(function (e) {
+      if (!e) return false;
+      if (e.table === SESSIONS) return true;
+      if (e.table === SETS) return e.id !== seanceId;
+      if (e.depend === seanceId) return false;
+      if (e.table === OBSERVATIONS) {
+        if (paris[e.id]) return false;
+        var d = e.donnees || {};
+        if (d.set_observe && series[d.set_observe]) return false;
+      }
+      return true;
+    });
+  }
+
+  // ⚠️ 117 (audit du 16/10, 06 #2) — ET UN REFUS PARCE QUE LA SÉANCE N'EXISTE PLUS N'EST PAS UN BLOCAGE.
+  //
+  // Un pari, ou le journal des records d'une séance, refusé en 23503 sur la clé vers `sessions` alors que la file
+  // n'a plus rien à monter pour cette séance : elle a été abandonnée ou supprimée (ici ou sur un autre appareil),
+  // ou un envoi est parti avant l'abandon. Il ne passera jamais — un pari ne s'écrit jamais après coup (§9.11) — et
+  // le garder bloqué affichait « 1 envoi refusé » pour toujours. Il sort de la file, avec l'observation de ce pari.
+  // Une autre clé (l'exercice, la série) reste un refus ; un lot du remplissage (sans `depend`) aussi : il porte les
+  // lignes de plusieurs séances. Les SÉRIES ne sont jamais concernées : ce sont des saisies, pas des déductions.
+  function seanceDeLEntree(op) {
+    if (!op) return null;
+    if (op.table === PREDICTIONS) {
+      var f = op.donnees && op.donnees.fondement;
+      return (f && f.seance) || op.depend || null;
+    }
+    if (op.table === RECORDS) return op.depend || null;
+    return null;
+  }
+
+  function seanceDisparue(file, op, erreur) {
+    if (!op || !erreur || String(erreur.code || '') !== '23503') return false;
+    if (op.table !== PREDICTIONS && op.table !== RECORDS) return false;
+    var texte = String(erreur.message || '') + ' ' + String(erreur.details || '');
+    if (!/session/i.test(texte)) return false;
+    var seance = seanceDeLEntree(op);
+    if (!seance) return false;
+    return !(file || []).some(function (e) {
+      return e && e.table === SESSIONS && e.id === seance && e.op !== SUPPRIMER;
+    });
+  }
+
   function marquerAttente(file, cle, raison) {
     return (file || []).map(function (e) {
       if (e.cle !== cle) return e;
@@ -502,6 +560,13 @@
       if (issue === 'fait') return { file: apresSucces(file, op), suite: 'faite' };
       if (issue === 'refus') return { file: retirer(file, op.cle, op.version || 1), suite: 'refusee' };
       return { file: marquerEchec(file, op.cle, erreur), suite: 'arret' };
+    }
+    if (seanceDisparue(file, op, erreur)) {
+      var sans = retirer(file, op.cle, op.version || 1);
+      if (op.table === PREDICTIONS) {
+        sans = sans.filter(function (e) { return !(e && e.table === OBSERVATIONS && e.id === op.id); });
+      }
+      return { file: sans, suite: 'caduque' };
     }
     if (orpheline(file, op, erreur)) {
       return { file: retirer(file, op.cle, op.version || 1), suite: 'abandonnee' };
@@ -752,6 +817,8 @@
     attendSaSerie: attendSaSerie,
     AUCUNE_LIGNE: AUCUNE_LIGNE,
     orpheline: orpheline,
+    retirerSeance: retirerSeance,
+    seanceDisparue: seanceDisparue,
     apresEchec: apresEchec,
     apresSucces: apresSucces,
     seanceDe: seanceDe,

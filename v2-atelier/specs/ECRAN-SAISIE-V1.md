@@ -1640,6 +1640,11 @@ l'envoie.
 
 *(Le 26/09 : après deux 409, une séance entière est restée onze minutes sur l'appareil, partie seulement à « Terminer ». Le 27/09 : l'observation d'une série est partie avant la création de son pari — zéro ligne touchée, comptée comme faite —, puis un nouvel essai a été refusé parce que la série venait d'être dévalidée, et jeté ; revalidée, la série n'a jamais été observée.)*
 
+### 7 sexies.2 Ce qui ne reste jamais dans la file — audit du 16/10/2026 (chantier 117)
+
+- **Une séance abandonnée ou supprimée emporte tout ce qui dépend d'elle** : ses séries, ses paris, son journal des records, les observations de ses paris et celles qui désignent une de ses séries. Sa suppression ne voyage que si elle était déjà montée. *(Audit du 16/10, 06 #2 : abandonnée hors ligne, une séance laissait son pari dans la file ; la base le refusait — sa séance n'existe pas — et « 1 envoi refusé » ne partait plus jamais.)*
+- **Un pari, ou le journal d'une séance, refusé parce que sa séance n'existe plus** (`23503` sur la clé vers `sessions`, alors que la file n'a plus rien à monter pour elle) **sort de la file**, avec l'observation de ce pari : un pari ne s'écrit jamais après coup. Une autre clé (l'exercice, la série) reste un refus ; une série n'est jamais jetée sur ce motif (c'est une saisie, pas une déduction) ; un lot du remplissage du journal non plus (il porte plusieurs séances).
+
 ---
 
 ## 7 quater. La page d'exercice — une seule, atteinte de partout

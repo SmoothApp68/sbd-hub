@@ -1,0 +1,56 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ma salle et objectif</title>
+<style>
+:root{--fond:#161a1f;--panneau:#1f252c;--panneau2:#262d35;--trait:#2e363f;--texte:#ece8df;--gris:#9aa3ad;--accent:#e0a34a;--or:#d9b45a}
+*{box-sizing:border-box}body{margin:0;background:#0f1215;color:var(--texte);font:15px/1.45 system-ui,sans-serif;padding:16px}
+h1{font-size:19px;margin:0 0 4px}p.note{color:var(--gris);margin:0 0 16px;max-width:70ch}
+.ecrans{display:flex;gap:18px;flex-wrap:wrap}
+.tel{width:330px;max-width:100%;background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:16px;min-height:540px}
+.leg{color:var(--accent);font-size:13px;margin:0 0 12px}
+.carte{background:var(--panneau);border-radius:16px;padding:14px;margin-bottom:12px}
+.titre{color:var(--gris);font-size:12px;margin:14px 0 6px}
+.puces{display:flex;flex-wrap:wrap;gap:6px}.puce{padding:7px 12px;border-radius:99px;background:var(--panneau2);font-size:13px}.puce.on{background:var(--texte);color:var(--fond);font-weight:600}
+.ligne{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--trait);font-size:14px}.ligne:first-child{border-top:0}
+.gris{color:var(--gris);font-size:13px}
+.serie{display:grid;grid-template-columns:28px 1fr 1fr 34px;gap:8px;align-items:center;padding:6px 0;font-size:14px}
+.case{background:var(--panneau2);border-radius:9px;padding:8px;text-align:center}.case.f{color:var(--gris)}
+.ok{width:30px;height:30px;border-radius:9px;background:var(--panneau2);display:grid;place-items:center}
+.phrase{color:var(--gris);font-size:13px;margin:8px 0 0}
+.g{font-size:30px;font-weight:800}
+.barre{height:8px;border-radius:99px;background:var(--panneau2);margin:10px 0 6px}.barre i{display:block;height:100%;width:72%;border-radius:99px;background:var(--or)}
+.btn{border:0;border-radius:12px;padding:10px 12px;font:600 14px system-ui;background:var(--texte);color:var(--fond);width:100%}
+</style></head><body>
+<h1>Ma salle · Objectif avec une date — maquettes v1</h1>
+<p class="note">« Ma salle » ne change rien pour qui ne la déclare pas. L'objectif est posé par la personne, jamais imposé ; sa date est un pari vérifié comme les autres. Données fictives proches d'aurel_br.</p>
+<div class="ecrans">
+
+<div class="tel"><p class="leg">1 · Profil → Ma salle</p>
+<div class="carte"><b>Barres fixes</b><p class="gris" style="margin:4px 0 8px">Les barres déjà chargées de ta salle. Le coach ne te proposera que ces charges-là.</p>
+<div class="titre">Barre EZ</div><div class="puces"><span class="puce on">10</span><span class="puce on">15</span><span class="puce on">20</span><span class="puce on">25</span><span class="puce on">30</span><span class="puce">35</span><span class="puce">40</span><span class="puce">＋</span></div>
+<div class="titre">Barre droite</div><div class="puces"><span class="puce on">10</span><span class="puce on">15</span><span class="puce on">20</span><span class="puce on">25</span><span class="puce on">30</span><span class="puce">＋</span></div></div>
+<div class="carte"><b>Haltères</b><div class="ligne"><span>Jusqu'à</span><b>40 kg</b></div><div class="ligne"><span>De … en …</span><b>2 kg</b></div></div>
+<p class="gris">Non renseigné : le coach suppose qu'on peut ajouter des disques, comme aujourd'hui.</p></div>
+
+<div class="tel"><p class="leg">2 · En séance : curl EZ au maximum de la salle</p>
+<div class="carte"><b>Curl Biceps (Barre EZ)</b>
+<div class="serie"><span class="gris">1</span><span class="case f">30 kg</span><span class="case f">vise 12</span><span class="ok">✓</span></div>
+<div class="serie"><span class="gris">2</span><span class="case f">30 kg</span><span class="case f">vise 12</span><span class="ok">✓</span></div>
+<div class="serie"><span class="gris">D</span><span class="case f">20 kg</span><span class="case f">vise 10</span><span class="ok">✓</span></div>
+<p class="phrase">30 kg, la plus lourde de ta salle : on monte en reps (vise 12 au lieu de 10).</p>
+<p class="phrase">Dégressive : prends la barre de 20 kg.</p></div>
+<p class="gris">Quand les reps du haut de ta fourchette tiennent, le coach propose une série de plus, jamais une charge que ta salle n'a pas.</p></div>
+
+<div class="tel"><p class="leg">3 · Page d'exercice → Mon objectif</p>
+<div class="carte"><b>Squat (Barre)</b><div class="titre">Mon objectif</div>
+<div class="g">150 kg × 1</div><div class="barre"><i></i></div><div class="gris">Aujourd'hui : 145 kg × 1</div>
+<p class="phrase">Au rythme actuel : <b style="color:var(--texte)">fin février</b>. C'est un pari du coach : on verra s'il tombe juste.</p></div>
+<div class="carte"><div class="titre" style="margin-top:0">Si le rythme ne suffit pas</div><p class="phrase" style="margin:0">Au rythme actuel : pas avant juin.</p></div>
+<button class="btn">Changer l'objectif</button></div>
+
+<div class="tel"><p class="leg">4 · Poser un objectif</p>
+<div class="carte"><b>Squat (Barre)</b><div class="titre">Charge</div><div class="case">150 kg</div><div class="titre">Reps</div><div class="case">1</div>
+<p class="phrase">Ton record : 145 kg × 1. Le coach projettera une date à partir de tes records.</p></div>
+<button class="btn">Poser l'objectif</button>
+<p class="gris" style="margin-top:10px">Dans le bilan du mois, une ligne quand l'objectif avance : « Squat : 145 → 147,5 kg, objectif 150. » Jamais dans les phrases de la séance.</p></div>
+
+</div></body></html>

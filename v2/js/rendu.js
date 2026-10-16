@@ -1103,7 +1103,8 @@
     var bloc = coquilleBloc(v.titre, '', false);
     bloc.classList.add('neuf');
     var bouts = [];
-    bouts.push(v.seances ? pluriel(v.seances, 'séance') : 'Aucune séance');
+    // 98 (BILANS-V1) — jamais le nombre de séances : le mois dit ses tonnes ; il s'ouvre sur la story du mois.
+    bouts.push(v.kg ? tonnes(v.kg) + ' soulevées' : 'Pas encore de série');
     if (v.records) bouts.push(pluriel(v.records, 'record'));
     if (v.paris && v.paris.verifies) bouts.push(v.paris.tenus + ' pari' + (v.paris.tenus > 1 ? 's' : '') +
       ' tenu' + (v.paris.tenus > 1 ? 's' : '') + ' sur ' + v.paris.verifies);
@@ -1144,6 +1145,14 @@
     var bloc = coquilleBloc('Ton année ' + v.an, '', false);
     bloc.classList.add('neuf', 'bloc-annee');
     bloc.appendChild(el('div', 'bloc-ligne', 'Ton année sous la barre, à faire défiler.'));
+    bloc.addEventListener('click', v.surChoix);
+    return bloc;
+  }
+  // 98 — la saison écoulée (« Fall Arc 2026 ») : la saison suivante durant, elle s'ouvre plein écran.
+  function blocSaison(v) {
+    var bloc = coquilleBloc(v.titre, '', false);
+    bloc.classList.add('neuf', 'bloc-saison');
+    bloc.appendChild(el('div', 'bloc-ligne', 'Ta saison sous la barre, à faire défiler.'));
     bloc.addEventListener('click', v.surChoix);
     return bloc;
   }
@@ -1335,18 +1344,14 @@
     if (vue.mois) cible.appendChild(blocMois(vue.mois));
     if (vue.parcours) cible.appendChild(blocParcours(vue.parcours));
     if (vue.annee) cible.appendChild(blocAnnee(vue.annee));
+    if (vue.saison) cible.appendChild(blocSaison(vue.saison));
     if (vue.records) cible.appendChild(blocRecords(vue.records));
     cible.appendChild(blocVolume(vue.volume));
     cible.appendChild(blocPoids(vue.poids));
     cible.appendChild(blocExercices(vue.exercices));
   }
 
-  // ── MOTEUR §9.23 (55-1) — LE BILAN D'UN MOIS (maquette « Le mois ») ─────
-  //
-  // Les chiffres du mois, les séries mois par mois (gris, le mois affiché en
-  // couleur du coach — quelle que soit sa hauteur), le calendrier des jours
-  // faits, les records, les séries par muscle à côté du mois d'avant, les
-  // exercices les plus faits, les paris du coach. Aucune couleur de jugement.
+  // ── MOTEUR §9.23 (55-1) — LES RECORDS D'UN MOIS, et leur navigation ─────
   function navMois(vue, titre) {
     var nav = el('div', 'mois-nav');
     var av = el('button', 'discret mois-precedent', '\u2039');
@@ -1378,117 +1383,8 @@
     var t = (Number(kg) || 0) / 1000;
     return nombreFr(Math.round(t * (t < 10 ? 10 : 1)) / (t < 10 ? 10 : 1)) + '\u00a0t';
   }
-  function rendreBilanMois(cible, vue) {
-    if (!cible) return;
-    vider(cible);
-    var b = vue.bilan;
-    cible.appendChild(navMois(vue, vue.titre));
-
-    var tuiles = el('div', 'tuiles-mois');
-    var tuile = function (valeur, libelle) {
-      var t = el('div', 'tuile-mois');
-      t.appendChild(el('b', null, valeur));
-      t.appendChild(el('span', null, libelle));
-      tuiles.appendChild(t);
-    };
-    tuile(String(b.seances), b.seances > 1 ? 'séances' : 'séance');
-    tuile(String(b.series), 'séries de travail');
-    tuile(tonnes(vue.volume), 'volume soulevé');
-    tuile(String(vue.records.length), vue.records.length > 1 ? 'records' : 'record');
-    // Le temps n'apparaît que si toutes les séances ont une heure de fin.
-    if (vue.temps) tuile(vue.temps, 'd\u2019entraînement');
-    cible.appendChild(tuiles);
-
-    // Les séries, mois par mois : gris, le mois affiché en couleur du coach.
-    var g = carteMois('Séries, mois par mois');
-    var max = 0;
-    vue.barres.forEach(function (x) { if (x.series > max) max = x.series; });
-    var barres = el('div', 'barres-mois');
-    var etiq = el('div', 'etiq-mois');
-    vue.barres.forEach(function (x) {
-      var col = el('div', 'barre-mois' + (x.courant ? ' courant' : ''));
-      col.style.height = (max ? Math.max(2, Math.round(x.series / max * 100)) : 2) + '%';
-      col.appendChild(el('i', null, String(x.series)));
-      barres.appendChild(col);
-      etiq.appendChild(el('span', null, x.libelle));
-    });
-    g.appendChild(barres);
-    g.appendChild(etiq);
-    cible.appendChild(g);
-
-    // Les jours faits : rien d'autre — ni « jour manqué », ni série.
-    var c = carteMois('Tes jours');
-    var cal = el('div', 'cal-mois');
-    ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach(function (j) { cal.appendChild(el('span', 'j', j)); });
-    var premier = vue.premierJour;
-    var decalage = (premier.getDay() + 6) % 7;
-    for (var k = 0; k < decalage; k++) cal.appendChild(el('span'));
-    var nbJours = new Date(premier.getFullYear(), premier.getMonth() + 1, 0).getDate();
-    for (var d = 1; d <= nbJours; d++) {
-      cal.appendChild(el('span', b.jours.indexOf(d) >= 0 ? 'fait' : null, String(d)));
-    }
-    c.appendChild(cal);
-    cible.appendChild(c);
-
-    // Les records du mois : les trois premiers, puis « et N autres ».
-    if (vue.records.length) {
-      var r = carteMois('Tes records');
-      var t = r.querySelector('h3');
-      t.insertBefore(pastilleMedaille(), t.firstChild);
-      vue.records.slice(0, 3).forEach(function (x) {
-        var l = ligneMois(x.nom, x.mesure, 'lien');
-        l.addEventListener('click', function () { vue.surSeance(x.seanceId); });
-        r.appendChild(l);
-      });
-      var reste = vue.records.length - 3;
-      var tous = ligneMois(el('span', 'gris', reste > 0 ? 'et ' + reste + (reste > 1 ? ' autres' : ' autre') : 'Tous les records du mois'),
-        el('span', 'fleche', '\u203a'), 'lien tous-records');
-      tous.addEventListener('click', vue.surRecords);
-      r.appendChild(tous);
-      cible.appendChild(r);
-    }
-
-    // Les séries par muscle (principaux), à côté du mois d'avant.
-    if (vue.muscles.length) {
-      var m = carteMois('Séries par muscle');
-      vue.muscles.forEach(function (x) {
-        var droite = el('span');
-        // Comme le bloc Volume : un secondaire compte pour moitié (« 1,5 »).
-        droite.appendChild(doc.createTextNode(nombreFr(x.series) + ' '));
-        droite.appendChild(el('span', 'gris', '\u00b7 ' + vue.moisAvant + ' ' + nombreFr(x.avant)));
-        m.appendChild(ligneMois(x.libelle, droite));
-      });
-      cible.appendChild(m);
-    }
-
-    if (vue.exercices.length) {
-      var e = carteMois('Les plus faits');
-      vue.exercices.forEach(function (x) {
-        // 57-1 (ECRAN §7 bis.14) — LE NOM OUVRE SA PAGE, par la même porte que
-        // partout ailleurs (§7 quater) : le même bouton `nom-exo lien` que dans
-        // la séance, le même `surExercice`, par l'identifiant de l'exercice.
-        var nom = x.nom;
-        if (vue.surExercice && x.slug) {
-          nom = el('button', 'nom-exo lien', x.nom);
-          nom.type = 'button';
-          nom.addEventListener('click', function () { vue.surExercice(x.slug); });
-        }
-        e.appendChild(ligneMois(nom, x.series + (x.series > 1 ? ' séries' : ' série')));
-      });
-      cible.appendChild(e);
-    }
-
-    // Les paris du coach : vérifiés, tenus, et la phrase.
-    if (vue.paris) {
-      var p = carteMois('Le coach a fait ses paris');
-      p.appendChild(ligneMois('Paris vérifiés', String(vue.paris.verifies)));
-      var tenus = el('span');
-      tenus.appendChild(el('b', null, String(vue.paris.tenus)));
-      p.appendChild(ligneMois('Tenus', tenus));
-      if (vue.paris.phrase) p.appendChild(el('p', 'voix-paris', vue.paris.phrase));
-      cible.appendChild(p);
-    }
-  }
+  // 98 (BILANS-V1) — l'ancien bilan du mois (`rendreBilanMois`) n'existe plus : la story du mois le remplace
+  // (`annee.js`), et en reprend les records et les paris.
 
   // LES RECORDS D'UN MOIS : une ligne par série médaillée, qui mène à sa
   // séance.
@@ -2900,23 +2796,35 @@
     return true;
   }
 
-  // ECRAN §3 bis.3 bis (prompt 100) — la série chargée validée sans charge ni
-  // fantôme : la case du poids s'entoure de rouge, tremble (sauf mouvement
-  // réduit, en CSS), et le clavier s'ouvre sur elle.
-  function demanderCharge(racine, iExo, iSerie) {
-    if (!racine) return false;
+  // ECRAN §3 bis.3 bis (prompts 100 puis 105) — la série validée avec une case
+  // obligatoire vide et sans chiffre gris du coach : CHACUNE de ces cases
+  // s'entoure de rouge et tremble (sauf mouvement réduit, en CSS), et le clavier
+  // s'ouvre sur la première. `noms` : les cases manquantes, dans l'ordre de la
+  // ligne (`THSeance.casesManquantes`). Une case perd son rouge à la première
+  // frappe (`beforeinput` : le pavé de durée annule l'`input`).
+  function demanderCases(racine, iExo, iSerie, noms) {
+    if (!racine || !noms || !noms.length) return false;
     var r = racine.querySelector('.serie[data-iexo="' + iExo + '"][data-iserie="' + iSerie + '"]');
-    var champ = r && r.querySelector('.ch-serie');
-    var input = champ && champ.querySelector('input');
-    if (!input) return false;
-    champ.classList.remove('sans-charge-tapee');
-    void champ.offsetWidth;
-    champ.classList.add('sans-charge-tapee');
-    input.addEventListener('input', function retirer() {
-      champ.classList.remove('sans-charge-tapee');
-      input.removeEventListener('input', retirer);
+    if (!r) return false;
+    var premier = null;
+    noms.forEach(function (nom) {
+      var champ = r.querySelector('[data-champ="' + nom + '"]');
+      var input = champ && champ.querySelector('input');
+      if (!input) return;
+      champ.classList.remove('case-vide');
+      void champ.offsetWidth;
+      champ.classList.add('case-vide');
+      var retirer = function () {
+        champ.classList.remove('case-vide');
+        input.removeEventListener('beforeinput', retirer);
+        input.removeEventListener('input', retirer);
+      };
+      input.addEventListener('beforeinput', retirer);
+      input.addEventListener('input', retirer);
+      if (!premier) premier = input;
     });
-    input.focus();
+    if (!premier) return false;
+    premier.focus();
     return true;
   }
 
@@ -3022,9 +2930,12 @@
       var classe = (iChamp === 0 ? 'ch-serie' : 'rp-serie') + ' num';
       var nom = g.champs[iChamp];
       if (sansCharge && nom === 'charge_kg') return;
+      // `data-champ` : la case se retrouve par son nom (§3 bis.3 bis, `demanderCases`).
       if (c.saisie === 'chrono') {
-        rangee.appendChild(champChrono(classe, s[c.cle], f[c.cle],
-          function (v) { vue.surChamp(iExo, iSerie, nom, v); }));
+        var chrono = champChrono(classe, s[c.cle], f[c.cle],
+          function (v) { vue.surChamp(iExo, iSerie, nom, v); });
+        chrono.setAttribute('data-champ', nom);
+        rangee.appendChild(chrono);
         return;
       }
       // §9.14 — sur la ligne proposée, la charge est celle du coach, et les
@@ -3041,14 +2952,16 @@
       // tard, à la validation d'une série (`validerSerie`), par la même fonction.
       var aide = g.nature === 'aide' && c.cle === 'charge_kg';
       var versChamp = function (v) { return aide ? M().aideAffichee(v) : v; };
-      rangee.appendChild(champSerie(classe + ((proposee || elan) && c.cle === 'charge_kg' ? ' coach' : ''),
+      var caseSerie = champSerie(classe + ((proposee || elan) && c.cle === 'charge_kg' ? ' coach' : ''),
         versChamp(enUniteDeSaisie(s[c.cle], c.facteur)),
         versChamp(enUniteDeSaisie(f[c.cle], c.facteur)),
         c.unite,
         function (v) { vue.surChamp(iExo, iSerie, nom, aide && !vue.programme ? M().rangerAide(v) : v); },
         { indication: fourchette,
           surQuitte: typeof vue.surChampQuitte === 'function'
-            ? function () { vue.surChampQuitte(iExo, iSerie); } : null }));
+            ? function () { vue.surChampQuitte(iExo, iSerie); } : null });
+      caseSerie.setAttribute('data-champ', nom);
+      rangee.appendChild(caseSerie);
     });
 
     if (g.effort && !vue.programme) {
@@ -5458,6 +5371,92 @@
     return cible;
   }
 
+  // 108 (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies, maquette `maquette-salle-objectif-v1.html`, écran 1) — « MA
+  // SALLE ». Les barres fixes, EZ et droite : des puces cochées, « ＋ » pour un autre poids ; les haltères : « Jusqu'à »
+  // (le plus lourd, par haltère) et « De … en … ». La feuille ne décide rien : `vue` porte le brouillon et les gestes
+  // (`surBasculer(type, kg)`, `surAjouter(type, texte)`, `surMaxHalteres(texte)` sans redessin, `surPasHalteres(kg)`,
+  // `surValider`, `surEffacer`, `surAnnuler`) ; les puces viennent de `THProfil.pucesDeBarres`.
+  function rendreFeuilleSalle(cible, vue) {
+    var P = racine.THProfil, M = racine.THModele;
+    var b = vue.brouillon || { barres_ez: [], barres_droites: [], halteres: null };
+    vider(cible);
+    teteFeuille(cible, 'Ma salle', null, P.PHRASE_SALLE);
+    cible.appendChild(el('div', 'choix-groupe salle-titre', 'Barres fixes'));
+    cible.appendChild(el('p', 'feuille-aide', P.PHRASE_BARRES_FIXES));
+    [['barres_ez', 'Barre EZ'], ['barres_droites', 'Barre droite']].forEach(function (t) {
+      var type = t[0];
+      cible.appendChild(el('div', 'choix-groupe', t[1]));
+      var g = el('div', 'q-puces salle-puces');
+      g.dataset.type = type;
+      P.pucesDeBarres(b, type).forEach(function (p) {
+        var n = el('button', 'q-puce' + (p.coche ? ' on' : ''), M.nombreSigne(p.kg));
+        n.type = 'button';
+        n.dataset.kg = String(p.kg);
+        n.setAttribute('aria-pressed', p.coche ? 'true' : 'false');
+        n.addEventListener('click', function () { vue.surBasculer(type, p.kg); });
+        g.appendChild(n);
+      });
+      var plus = el('button', 'q-puce salle-plus', '＋');
+      plus.type = 'button';
+      plus.setAttribute('aria-label', 'Ajouter un poids de ' + t[1].toLowerCase());
+      g.appendChild(plus);
+      cible.appendChild(g);
+      // « ＋ » : un champ juste dessous, et « Ajouter ». Rien ne s'ajoute avant le geste.
+      plus.addEventListener('click', function () {
+        if (g.nextSibling && g.nextSibling.className === 'salle-ajout') return;
+        var ajout = el('div', 'salle-ajout');
+        var champ = doc.createElement('input');
+        champ.type = 'number';
+        champ.inputMode = 'decimal';
+        champ.step = '0.5';
+        champ.placeholder = 'kg';
+        champ.setAttribute('aria-label', 'Poids de la barre, en kg');
+        var ok = el('button', 'discret', 'Ajouter');
+        ok.type = 'button';
+        ok.addEventListener('click', function () { vue.surAjouter(type, champ.value); });
+        ajout.appendChild(champ);
+        ajout.appendChild(ok);
+        g.parentNode.insertBefore(ajout, g.nextSibling);
+        champ.focus();
+      });
+    });
+    cible.appendChild(el('div', 'choix-groupe salle-titre', 'Haltères'));
+    var h = b.halteres;
+    var ligneMax = el('label', 'champ-texte salle-halteres');
+    ligneMax.appendChild(el('span', '', 'Jusqu’à (par haltère, en kg)'));
+    var max = doc.createElement('input');
+    max.type = 'number';
+    max.inputMode = 'decimal';
+    max.step = '0.5';
+    max.placeholder = 'Non renseigné';
+    max.value = h && h.max !== null ? String(h.max) : '';
+    // ⚠️ SANS REDESSIN : la saisie met le brouillon à jour, la feuille ne se refait pas sous le doigt (un redessin
+    // au `blur` arrachait le champ pendant qu'on touchait une puce).
+    max.addEventListener('input', function () { vue.surMaxHalteres(max.value); });
+    ligneMax.appendChild(max);
+    cible.appendChild(ligneMax);
+    cible.appendChild(el('div', 'choix-groupe', 'De … en …'));
+    var pas = el('div', 'q-puces salle-pas');
+    P.SALLE_PAS_PROPOSES.forEach(function (v) {
+      var on = !!h && h.pas === v;
+      var n = el('button', 'q-puce' + (on ? ' on' : ''), M.nombreSigne(v) + ' kg');
+      n.type = 'button';
+      n.dataset.pas = String(v);
+      n.setAttribute('aria-pressed', on ? 'true' : 'false');
+      n.addEventListener('click', function () { vue.surPasHalteres(v); });
+      pas.appendChild(n);
+    });
+    cible.appendChild(pas);
+    cible.appendChild(el('p', 'feuille-err', vue.erreur || ''));
+    // « Effacer » seulement quand une salle est déjà déclarée : il écrit le vide (non renseignée).
+    piedFeuille(cible, [
+      vue.declaree && vue.surEffacer ? { classe: 'des', texte: 'Effacer', surClic: vue.surEffacer } : null,
+      { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler },
+      { classe: 'pri', texte: 'Valider', surClic: vue.surValider }
+    ]);
+    return cible;
+  }
+
   // 60-4 (ECRAN-PROFIL §4 bis, G10) — « Exercices écartés » : la liste, « Reprendre » sur chacun. Rien n'est caché
   // ni perdu : un exercice repris revient dans les programmes et en tête du catalogue. `vue` : `{ titre, aide,
   // exercices: [{ nom, surReprendre }], surFermer }`.
@@ -6126,7 +6125,7 @@
   function etatSocial(cible, vue) {
     if (vue.etat === 'charge') { cible.appendChild(el('p', 's-gris s-note', 'Chargement…')); return true; }
     if (vue.etat === 'erreur') {
-      cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message || 'Le social demande le réseau. Réessaie une fois connecté.'));
+      cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message || 'Il faut le réseau pour voir le social.'));
       return true;
     }
     return false;
@@ -6142,10 +6141,16 @@
     if (j) j.hidden = !jeuAllume;
   }
 
-  // Le fil.   vue = { etat, demandes: [{ pseudo, couleur, sur, surAccepter, surRefuser }], cartes: [...], fin }
+  // 107 — un geste qui attend le réseau : une ligne discrète.
+  function ligneEnAttente(cible, texte) { if (texte) cible.appendChild(el('p', 's-gris s-note s-attente', texte)); }
+
+  // Le fil.   vue = { etat, demandes: [{ pseudo, couleur, sur, surAccepter, surRefuser }], cartes: [...], fin,
+  //                   refus (107 : la phrase d'un geste refusé au retour du réseau), attente }
   function rendreFil(cible, vue) {
     if (!cible) return;
     vider(cible);
+    if (vue.refus) cible.appendChild(el('p', 's-gris s-note s-erreur s-refus', vue.refus));
+    ligneEnAttente(cible, vue.attente);
     (vue.demandes || []).forEach(function (d) {
       var r = el('div', 's-demande');
       r.setAttribute('data-pseudo', d.pseudo);
@@ -6210,7 +6215,12 @@
     vider(cible);
     if (etatSocial(cible, vue)) return;
     var p = vue.profil;
-    if (!p) { cible.appendChild(el('p', 's-gris s-note s-introuvable', 'Ce profil n’existe pas, ou n’est pas visible.')); return; }
+    if (!p) {
+      // 107 — un geste refusé au retour du réseau (bloqué entre-temps) : la phrase, puis l'état réel.
+      if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message));
+      cible.appendChild(el('p', 's-gris s-note s-introuvable', 'Ce profil n’existe pas, ou n’est pas visible.'));
+      return;
+    }
     var tete = el('div', 's-prof');
     tete.appendChild(blasonSocial(p.couleur, 64));
     tete.appendChild(el('b', 's-pseudo', p.pseudo));
@@ -6490,6 +6500,7 @@
     vider(cible);
     if (etatSocial(cible, vue)) return;
     if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur s-guilde-message', vue.message));
+    ligneEnAttente(cible, vue.attente);
     if (!vue.guilde) {
       (vue.invitations || []).forEach(function (i) {
         var r = el('div', 's-demande s-invitation-guilde');
@@ -6634,7 +6645,8 @@
         inv.appendChild(el('b', null, 'Inviter'));
         inv.appendChild(el('p', 's-gris s-cache', 'Tes abonnés mutuels (vous vous suivez l’un l’autre).'));
         vue.invitables.forEach(function (x) {
-          inv.appendChild(lignePersonne({ pseudo: x.pseudo, couleur: x.couleur, bouton: { texte: 'Inviter', classe: 's-b2 s-inviter-membre', sur: x.sur } }));
+          inv.appendChild(lignePersonne({ pseudo: x.pseudo, couleur: x.couleur, sous: x.invite ? 'invitation envoyée' : null,
+            bouton: x.invite ? null : { texte: 'Inviter', classe: 's-b2 s-inviter-membre', sur: x.sur } }));
         });
         if (!vue.invitables.length) inv.appendChild(el('p', 's-gris s-cache', 'Aucun abonné mutuel à inviter.'));
         cible.appendChild(inv);
@@ -6710,6 +6722,7 @@
     res.id = 'social-resultats';
     cible.appendChild(res);
     if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message));
+    ligneEnAttente(cible, vue.attente);
     (vue.aSuivre || []).forEach(function (x) { cible.appendChild(lignePersonne(x)); });
     var lien = el('div', 's-lien-invit');
     lien.appendChild(el('b', null, 'Ton lien d’invitation'));
@@ -6986,7 +6999,7 @@
     rendreBlocsSeance: rendreBlocsSeance,
     majConstat: majConstat,
     demanderReps: demanderReps,
-    demanderCharge: demanderCharge,
+    demanderCases: demanderCases,
     rendreRepos: rendreRepos,
     rendreFeuilleSerie: rendreFeuilleSerie,
     rendreFeuilleNote: rendreFeuilleNote,
@@ -7006,6 +7019,7 @@
     rendreFeuilleSeancesQuiReviennent: rendreFeuilleSeancesQuiReviennent,
     rendreApercuProgramme: rendreApercuProgramme,
     rendreFeuilleEcartes: rendreFeuilleEcartes,
+    rendreFeuilleSalle: rendreFeuilleSalle,
     rendreFeuilleBlocEnCours: rendreFeuilleBlocEnCours,
     rendreFeuilleDupliquer: rendreFeuilleDupliquer,
     champDossier: champDossier,
@@ -7068,7 +7082,6 @@
     rendreFenetreMuscle: rendreFenetreMuscle,
     rendreCalendrier: rendreCalendrier,
     rendreSommaire: rendreSommaire,
-    rendreBilanMois: rendreBilanMois,
     rendreParcours: rendreParcours,
     rendreRecordsDuMois: rendreRecordsDuMois,
     rendrePeriodes: rendrePeriodes,

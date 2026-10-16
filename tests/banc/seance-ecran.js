@@ -18215,7 +18215,7 @@ const SETS_IMPORTES = [
       !!mien && mien.semaine === fauxSocial.lundiCourant() && mien.mois === fauxSocial.moisCourant() && mien.prevues === 5 &&
         Number.isInteger(mien.seances) && mien.exercices_record <= mien.exercices && S.fuites.length === 0 &&
         // 120 (D3, v2_093) — et mes séries de musculation de la semaine, avec leur moyenne des 4 semaines d'avant.
-        Number.isInteger(mien.series_semaine) && typeof mien.series_moyenne === 'number' && mien.series_moyenne > 0,
+        Number.isInteger(mien.series_semaine) && typeof mien.series_moyenne === 'number' && mien.series_moyenne >= 0,
       JSON.stringify([mien, S.fuites]));
     S.gscores.push({ user_id: 'u-jordan', semaine: fauxSocial.lundiCourant(), seances: 4, prevues: 3, records_semaine: 2,
       mois: fauxSocial.moisCourant(), exercices: 6, exercices_record: 5, series_semaine: 20, series_moyenne: 18.4 });

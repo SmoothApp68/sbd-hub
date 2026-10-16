@@ -561,6 +561,11 @@ d'Android les ferme sans qu'on l'écrive.
   de la base — un refus serveur arrive en 23514, code que la file classe
   DÉFINITIF. On refuse **avant**, avec une phrase, plutôt qu'après, avec une
   ligne morte.
+- **Et si la base refuse quand même** (audit du 16/10/2026, prompt 116) — une borne qui diverge, un CHECK pas
+  relevé : la colonne refusée pour de bon quitte l'envoi, le reste part (l'envoi se refait colonne par colonne), la
+  ligne locale reprend la valeur de la base, et le Profil le dit une fois, en gris : « Pas enregistré : Bio. La base
+  a refusé cette valeur ; celle d'avant est gardée. » Avant, l'envoi repartait à l'identique à chaque départ, et
+  tous les gestes suivants restaient bloqués derrière lui, sans un mot.
 
 ### 5.8 Écarté pendant l'implémentation
 

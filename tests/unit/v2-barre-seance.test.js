@@ -451,7 +451,7 @@ describe('UN SEUL réveil de durée, jamais un second intervalle', () => {
   test('`montrer` coupe le réveil pour tout autre écran que la séance — et pas pour elle', () => {
     function bacMontrer() {
       const ctx = {
-        ecranCourant: 'seance', questionnaire: null, arrets: 0,
+        ecranCourant: 'seance', questionnaire: null, arrets: 0, refusProfil: null,
         fermerReorganisation: () => {}, fermerQuestionnaire: () => {}, marquerProfilVu: () => {},
         arreterDuree: () => { ctx.arrets += 1; }, mesurerBarres: () => {}, montrerBandeauMaj: () => {},
         Routeur: { ongletDe: () => null, PROFIL: 'profil', SAISIE: 'saisie' }, appliquerJeu: () => {},

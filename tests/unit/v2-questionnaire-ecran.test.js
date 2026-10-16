@@ -54,7 +54,7 @@ function bac(options) {
     seance: o.seance || null,
     voileOuvert: o.voile || null,
     // 70 — la feuille d'un lien de récupération tient le questionnaire derrière elle (`o.recuperation`).
-    recuperation: o.recuperation || null, noteProfil: null,
+    recuperation: o.recuperation || null, noteProfil: null, refusProfil: null,
     modeModifier: !!o.ranger,
     vues: { detail: Object.assign({}, vue, o.detailVisible ? { hidden: false } : {}), routine: vue, seance: vue, questionnaire: vue,
             saisie: { hidden: false } },
@@ -622,7 +622,7 @@ describe('60-2a — le routage d’entrée et la vue', () => {
     function bacMontrer(ouvert) {
       const fermes = [];
       const ctx = {
-        ecranCourant: 'questionnaire', questionnaire: ouvert ? { ecran: 'toi' } : null,
+        ecranCourant: 'questionnaire', questionnaire: ouvert ? { ecran: 'toi' } : null, refusProfil: null,
         fermerReorganisation: () => {}, fermerQuestionnaire: () => { fermes.push(true); ctx.questionnaire = null; },
         Routeur: { ongletDe: () => null, PROFIL: 'profil', SAISIE: 'saisie' }, appliquerJeu: () => {},
         vues: { liste: { hidden: true }, questionnaire: { hidden: false } },

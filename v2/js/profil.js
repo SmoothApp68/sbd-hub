@@ -677,6 +677,41 @@
     });
     return Object.keys(out).length ? out : false;
   }
+  // ── UN REFUS DÉFINITIF NE BLOQUE PLUS LE PROFIL (audit du 16/10/2026, 03 #6) ──
+  //
+  // Les bornes de l'app doublent les CHECK connus ; mais une borne qui diverge, ou un CHECK pas relevé, faisait
+  // refuser l'envoi À L'IDENTIQUE à chaque départ — et tous les gestes suivants avec lui, sans un mot. Ces codes ne
+  // passeront jamais tels quels : la colonne fautive quitte l'envoi, le reste part, et une phrase discrète le dit.
+  // `PGRST204` (une colonne que la base n'a pas, hors colonnes facultatives) en est ; `42703` n'en est PAS : il vient
+  // de la lecture qui suit l'écriture, et toutes les colonnes le recevraient — les jeter perdrait tous les gestes.
+  // Ni le refus d'un pseudo (`23505`, son propre chemin : `estRefusDePseudo`), ni le RLS (`42501`, un état de
+  // session) n'en sont : ils gardent leur traitement.
+  var REFUS_DEFINITIFS = ['23502', '23514', '22P02', '22001', '22003', '22007', '22008', '22023', 'PGRST204'];
+  function estRefusDefinitif(erreur) {
+    return !!erreur && REFUS_DEFINITIFS.indexOf(String(erreur.code || '')) >= 0;
+  }
+  // Le nom d'une colonne, comme le Profil la montre ; une colonne sans ligne au Profil : « un réglage ».
+  var LIBELLES_COLONNES = {
+    username: 'Pseudo', bio: 'Bio', sexe: 'Sexe', taille_cm: 'Taille', date_naissance: 'Date de naissance',
+    anciennete: 'Ancienneté', intention: 'Progresser ou carnet', rythme_progression: 'Ton rythme', phase: 'Ta phase',
+    phase_depuis: 'Ta phase', lest_reponse: 'Lest', materiel: 'Matériel', seances_par_semaine: 'Séances par semaine',
+    duree_seance_min: 'Durée d’une séance', objectif: 'Objectif', priorites: 'Priorités', temps_reponse: 'Ton temps',
+    historique_declare: 'Historique', programme_choix: 'Ton programme', zones_a_menager: 'Zone à ménager',
+    exercices_ecartes: 'Exercices écartés', jeu_actif: 'Le jeu', compte_prive: 'Compte privé', ma_salle: 'Ma salle'
+  };
+  // « Pas enregistré : Bio. La base a refusé cette valeur ; celle d'avant est gardée. » — `null` sans colonne.
+  function phraseRefusProfil(colonnes) {
+    var noms = [];
+    (colonnes || []).forEach(function (c) {
+      var n = LIBELLES_COLONNES[c] || 'un réglage';
+      if (noms.indexOf(n) < 0) noms.push(n);
+    });
+    if (!noms.length) return null;
+    return noms.length === 1
+      ? 'Pas enregistré : ' + noms[0] + '. La base a refusé cette valeur ; celle d’avant est gardée.'
+      : 'Pas enregistrés : ' + noms.join(', ') + '. La base a refusé ces valeurs ; celles d’avant sont gardées.';
+  }
+
   // Relue sur l'appareil : un objet ou `true` (la forme d'avant 116) ; tout le reste vaut « rien n'attend ».
   function lireEnAttente(v) {
     return v === true || (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length) ? v : false;
@@ -1583,6 +1618,7 @@
     // 116 — ce qui attend d'être envoyé : les colonnes des gestes, fusionnées (audit du 16/10/2026).
     fusionnerEnAttente: fusionnerEnAttente, champsEnAttente: champsEnAttente, retirerEnvoyes: retirerEnvoyes,
     lireEnAttente: lireEnAttente,
+    estRefusDefinitif: estRefusDefinitif, phraseRefusProfil: phraseRefusProfil,
     jeuActif: jeuActif,
     tailleValide: tailleValide,
     naissanceValide: naissanceValide,

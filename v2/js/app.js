@@ -193,6 +193,8 @@
     if (nom !== 'relecture') relecture = null;
     // 70 — « Mot de passe changé. » ne vaut que sous les yeux : quitter le profil l'efface.
     if (nom !== 'profil') noteProfil = null;
+    // 116 (03 #6) — « Pas enregistré : … » se dit une fois, sur le Profil : vue, elle s'efface en le quittant.
+    if (nom !== 'profil' && refusProfil && refusProfil.vu) refusProfil = null;
     var onglet = Routeur.ongletDe(vue || nom);
     // ⚠️ MÊME PORTE, MÊME RAISON (§2, ch. 46). Quitter le profil vaut « vu » :
     // sans ça, quelqu'un qui remplit tout puis touche un onglet retrouverait le
@@ -853,7 +855,7 @@
     // propriétaire du cache, donc cette branche s'exécute à CHAQUE inscription. Le remettre à zéro ici
     // faisait naître la ligne de profil sans pseudo. Il tombe ailleurs : « Quitter » (`deconnecter`),
     // l'échec d'une inscription, une connexion (`soumettreEntree`) et la création de la ligne (`chargerProfil`).
-    profil = null; profilAEnvoyer = false;
+    profil = null; profilAEnvoyer = false; refusProfil = null;
     fermerQuestionnaire(); envoiProfil = null; versionProfil = 0; ligneACreer = false;
     faits.oublierDates();
     await Cache.ecrireMeta('proprietaire', { userId: userId });
@@ -11618,7 +11620,7 @@
     // Le profil appartient au compte qui part, et son envoi en attente avec lui :
     // rejouer une modification de profil sur le compte suivant serait pire que
     // de la perdre.
-    profil = null; profilAEnvoyer = false; pseudoAInscrire = null;
+    profil = null; profilAEnvoyer = false; refusProfil = null; pseudoAInscrire = null;
     fermerQuestionnaire(); envoiProfil = null; versionProfil = 0; ligneACreer = false;
     recuperation = null; renduPour = null;
     faits.oublierDates();
@@ -11931,8 +11933,34 @@
         if (!generationValide(g)) return;
         if (!Object.prototype.hasOwnProperty.call(champs, 'onboarding_completed')) champs.onboarding_completed = false;
       }
-      var rendu;
-      try { rendu = await Donnees.enregistrerProfil(id, champs); }
+      var rendu, refusees = [];
+      // 116 (audit du 16/10/2026, 03 #6) — UNE COLONNE REFUSÉE POUR DE BON NE BLOQUE PLUS LE PROFIL. Un refus
+      // définitif (`Profil.estRefusDefinitif` : un CHECK, un NOT NULL, une valeur illisible pour la base) repartait à
+      // l'identique à chaque départ, et tous les gestes suivants avec lui, sans un mot. L'envoi se refait alors colonne
+      // par colonne : la fautive en sort (`refusees`, une phrase sur le Profil le dit), le reste part. Une autre erreur
+      // (le réseau) remonte pendant ce tour : toute l'attente repartira, rien n'est déclaré refusé. Rien n'est passé :
+      // la ligne telle que la base la tient (un envoi sans colonne). Le même canal, le même écrivain (la carte des
+      // écritures, `v2-architecture`).
+      var ecrire = async function (c) {
+        try { return await Donnees.enregistrerProfil(id, c); }
+        catch (e) {
+          if (!Profil.estRefusDefinitif(e)) throw e;
+          var r = null, refus = [], cles = Object.keys(c || {});
+          for (var i = 0; i < cles.length; i++) {
+            var une = {};
+            une[cles[i]] = c[cles[i]];
+            try { r = await Donnees.enregistrerProfil(id, une); }
+            catch (e2) {
+              if (!Profil.estRefusDefinitif(e2)) throw e2;
+              refus.push(cles[i]);
+            }
+          }
+          if (!r) r = await Donnees.enregistrerProfil(id, {});
+          refusees = refusees.concat(refus);
+          return r;
+        }
+      };
+      try { rendu = await ecrire(champs); }
       catch (e1) {
         // 60-5 — UN PSEUDO REFUSÉ NE BLOQUE JAMAIS LE RESTE DU PROFIL (ECRAN-PROFIL §3.1). Le pseudo est
         // pris entre la vérification de la feuille (ou son silence, hors ligne) et cet envoi : le refus est
@@ -11946,7 +11974,7 @@
         if (!Profil.estRefusDePseudo(e1, champs)) throw e1;
         if (!generationValide(g)) return;
         console.warn('Pseudo déjà pris, il quitte l’envoi du profil :', texteErreur(e1));
-        rendu = await Donnees.enregistrerProfil(id, Profil.sansPseudo(champs));
+        rendu = await ecrire(Profil.sansPseudo(champs));
         // L'état « pris entre-temps » se retient avec le pseudo que la base tient maintenant (aucun, ou l'ancien).
         retenirPseudoPris(id, rendu.username);
         // Le pseudo refusé sort de la ligne LOCALE dès que la base a répondu — même si le reste de la réponse n'est
@@ -11958,6 +11986,18 @@
         }
       }
       if (!generationValide(g)) return;
+      // 116 (03 #6) — les colonnes refusées : la ligne locale reprend la valeur de la base (comme le pseudo refusé,
+      // seulement si elle n'a pas été retouchée depuis), elles sortent de l'attente avec ce qui est parti (ci-dessous),
+      // et le Profil le dit une fois.
+      if (refusees.length) {
+        console.warn('Le profil : la base refuse, elles quittent l’envoi :', refusees.join(', '));
+        var corrige = {};
+        refusees.forEach(function (c) {
+          if (profil && JSON.stringify(profil[c]) === JSON.stringify(champs[c])) corrige[c] = rendu[c] === undefined ? null : rendu[c];
+        });
+        profil = Object.assign({}, profil, corrige);
+        refusProfil = { texte: Profil.phraseRefusProfil(refusees), vu: false };
+      }
       // 116 — ce qui est parti sort de l'attente ; un geste posé PENDANT l'envoi (une autre colonne, ou la même avec une
       // autre valeur) y reste, pour l'envoi qui le suit. La forme d'avant 116 (`true`) n'attend plus rien si aucun
       // geste n'est venu depuis.
@@ -13129,6 +13169,8 @@
   // La phrase que le Profil porte en tête après un changement de mot de passe : elle survit aux
   // re-rendus (synchronisation, ré-entrée) et s'en va quand on quitte l'écran (`montrer`).
   var noteProfil = null;
+  // 116 (03 #6) — une colonne que la base a refusée pour de bon (`envoyerProfilMaintenant`) : `{ texte, vu }`, ou `null`.
+  var refusProfil = null;
 
   // ⚠️ LA MÊME FEUILLE, LE MÊME VOILE que la séance. Le retour d'Android la
   // ferme sans qu'on l'écrive, et le mode Réorganiser ne la traverse pas.
@@ -13269,6 +13311,10 @@
       surSupprimer: demanderSuppressionCompte
     });
     if (noteProfil) $('profil-corps').insertBefore(Rendu.el('p', noteProfil.classe, noteProfil.texte), $('profil-corps').firstChild);
+    if (refusProfil && refusProfil.texte) {
+      $('profil-corps').insertBefore(Rendu.el('p', 'vide', refusProfil.texte), $('profil-corps').firstChild);
+      refusProfil.vu = true;
+    }
   }
 
   // Le profil a été VU : le bandeau d'accueil ne revient plus. C'est le seul
@@ -13384,7 +13430,7 @@
     }
     // Le local part avec le distant. `deconnecter` vide déjà tout le cache,
     // magasin `meta` compris — donc le profil, la file et le brouillon.
-    profil = null; profilAEnvoyer = false;
+    profil = null; profilAEnvoyer = false; refusProfil = null;
     await deconnecter();
   }
 

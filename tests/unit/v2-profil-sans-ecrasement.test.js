@@ -64,11 +64,15 @@ function appareil(base, o) {
     rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {}, rendreCarteCycles: () => {},
     jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {},
     ouvrirQuestionnaireSiDu: () => {},
+    refusProfil: null,
     Donnees: {
       monProfil: async () => JSON.parse(JSON.stringify(base.ligne)),
       enregistrerProfil: async (id, champs) => {
         base.posts.push(JSON.parse(JSON.stringify(champs)));
         if (!base.reseau) throw new Error('réseau');
+        // Un CHECK de la base : toute l'instruction est refusée, rien n'est écrit.
+        const refus = base.refuser && base.refuser(champs);
+        if (refus) throw refus;
         // `upsert` : seules les colonnes REÇUES changent ; la réponse est la ligne entière.
         Object.keys(champs).forEach((c) => { base.ligne[c] = JSON.parse(JSON.stringify(champs[c])); });
         return JSON.parse(JSON.stringify(base.ligne));
@@ -259,5 +263,81 @@ describe('116 — un envoi réduit à une colonne facultative absente', () => {
     expect(r).toEqual({ id: 'u1', phase: 'seche' });
     expect(etat.ecritures).toHaveLength(1);
     expect(Object.keys(etat.ecritures[0]).sort()).toEqual(['id', 'updated_at']);
+  });
+});
+
+// ═══ 5. UNE COLONNE REFUSÉE POUR DE BON (03 #6) ═════════════════════════════
+// Une bio de plus de 280 caractères, si la borne de l'app divergeait de celle de la base : `23514` sur toute ligne
+// qui la porte.
+const BIO_LONGUE = 'x'.repeat(300);
+const refuserBio = (champs) => (typeof champs.bio === 'string' && champs.bio.length > 280
+  ? Object.assign(new Error('new row for relation "profiles" violates check constraint "profiles_bio_longueur"'), { code: '23514' }) : null);
+
+describe('116 — une colonne refusée pour de bon ne bloque plus le profil (03 #6)', () => {
+  test('⚠️ DISCRIMINANT — la colonne refusée quitte l’attente, les gestes suivants passent, et une phrase le dit', async () => {
+    const base = creerBase({ bio: 'avant' });
+    base.refuser = refuserBio;
+    const B = appareil(base);
+    await B.poser({ bio: BIO_LONGUE });
+    await B.poser(Profil.preparerChamps(B.ctx.profil, { phase: 'seche' }, new Date('2026-10-16T12:00:00Z')));
+    expect(base.ligne.phase).toBe('seche');               // avant 116 : la phase attendait la bio, à vie
+    expect(base.ligne.bio).toBe('avant');
+    expect(B.ctx.profilAEnvoyer).toBe(false);              // plus rien n'attend
+    expect(B.ctx.profil.bio).toBe('avant');                 // la ligne locale reprend la valeur de la base
+    expect(B.ctx.refusProfil).toEqual({ texte: 'Pas enregistré : Bio. La base a refusé cette valeur ; celle d’avant est gardée.', vu: false });
+  });
+
+  test('refusée avec d’autres colonnes du même envoi : les autres sont écrites', async () => {
+    const base = creerBase({ bio: 'avant' });
+    base.refuser = refuserBio;
+    base.reseau = false;
+    const B = appareil(base);
+    await B.poser({ bio: BIO_LONGUE });
+    await B.poser({ temps_reponse: 'max', ma_salle: SALLE });
+    base.reseau = true;
+    await B.envoyer();
+    expect(base.ligne).toMatchObject({ bio: 'avant', temps_reponse: 'max', ma_salle: SALLE });
+    expect(B.ctx.profilAEnvoyer).toBe(false);
+  });
+
+  test('le réseau qui tombe pendant l’envoi colonne par colonne : toute l’attente reste, rien n’est déclaré refusé', async () => {
+    const base = creerBase({ bio: 'avant' });
+    let n = 0;
+    base.refuser = (champs) => { n++; if (n === 2) { base.reseau = false; } return refuserBio(champs); };
+    base.reseau = false;
+    const B = appareil(base);
+    await B.poser({ bio: BIO_LONGUE, temps_reponse: 'max' });
+    base.reseau = true;
+    await B.envoyer();
+    expect(B.ctx.profilAEnvoyer).toEqual({ bio: BIO_LONGUE, temps_reponse: 'max' });
+    expect(B.ctx.refusProfil).toBe(null);
+  });
+
+  test('un pseudo pris garde son propre chemin (`23505` n’est pas un refus définitif de colonne)', async () => {
+    expect(Profil.estRefusDefinitif({ code: '23505' })).toBe(false);
+    expect(Profil.estRefusDefinitif({ code: '42501' })).toBe(false);
+    expect(Profil.estRefusDefinitif({ code: '42703' })).toBe(false);
+    expect(Profil.estRefusDefinitif(new Error('réseau'))).toBe(false);
+    ['23514', '23502', '22P02', '22001', 'PGRST204'].forEach((c) => expect(Profil.estRefusDefinitif({ code: c })).toBe(true));
+  });
+
+  test('la phrase : une colonne, plusieurs, une colonne sans ligne au Profil', () => {
+    expect(Profil.phraseRefusProfil(['taille_cm', 'bio'])).toBe('Pas enregistrés : Taille, Bio. La base a refusé ces valeurs ; celles d’avant sont gardées.');
+    expect(Profil.phraseRefusProfil(['phase', 'phase_depuis'])).toBe('Pas enregistré : Ta phase. La base a refusé cette valeur ; celle d’avant est gardée.');
+    expect(Profil.phraseRefusProfil(['jeu_titre'])).toBe('Pas enregistré : un réglage. La base a refusé cette valeur ; celle d’avant est gardée.');
+    expect(Profil.phraseRefusProfil([])).toBe(null);
+  });
+});
+
+describe('116 — la phrase du refus, en tête du Profil (le vrai `rendreProfilEcran`)', () => {
+  const { profilEcran } = require('./aide-profil-ecran.js');
+  test('elle s’affiche en gris, une fois : vue, elle est marquée', () => {
+    const texte = Profil.phraseRefusProfil(['bio']);
+    const e = profilEcran({ username: 'aurel' }, { refusProfil: { texte, vu: false } });
+    expect(e.enTete).toEqual([{ balise: 'p', classe: 'vide', texte }]);
+    expect(e.ctx.refusProfil.vu).toBe(true);
+  });
+  test('sans refus : rien en tête', () => {
+    expect(profilEcran({ username: 'aurel' }).enTete).toEqual([]);
   });
 });

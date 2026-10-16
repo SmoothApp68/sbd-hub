@@ -608,12 +608,13 @@ const NOTIONS = [
     raison: 'une routine NEUVE que `enregistrer` crée comme les autres (rang suivant, annulation) ; ' +
       'aucun identifiant partagé : l’originale ne peut pas être touchée.' },
   { notion: 'un polyarticulaire (au moins 3 muscles) : le raccourci et les repos par défaut', pr: '52-U1',
-    module: 'moteur.js', fonction: 'estPolyarticulaire', lecteurs: ['routines.js', 'generateur.js'],
+    module: 'moteur.js', fonction: 'estPolyarticulaire', lecteurs: ['routines.js', 'generateur.js', 'profil.js'],
     par: ['raccourcirRoutine'],
-    parAilleurs: { 'routines.js': ['routineDepuisSeance'], 'generateur.js': ['relecture'] },
+    parAilleurs: { 'routines.js': ['routineDepuisSeance'], 'generateur.js': ['relecture'], 'profil.js': ['avecIsolation'] },
     raison: 'les repos par défaut d’« En faire une routine » sont les classes de « J’ai peu de temps » : ' +
       'une définition, lue aux deux endroits. 66A : la relecture de la semaine (§5 ter.4) la lit aussi — l’isolation ' +
-      'avant la barre, et les séries que la sèche peut retirer (jamais un polyarticulaire).' },
+      'avant la barre, et les séries que la sèche peut retirer (jamais un polyarticulaire). 108 (MOTEUR §10 bis, ' +
+      '16/10/2026) : la salle d’un exercice d’isolation, dont la fourchette s’étend à 15 reps à la plus lourde.' },
   { notion: 'les écarts d’une séance avec une routine (§6.3, et « Mettre à jour » depuis une séance)', pr: '52-U1',
     module: 'seance.js', fonction: 'ecartsRoutine', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreFeuilleFin', 'apercuMiseAJour'] },

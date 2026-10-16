@@ -1330,6 +1330,9 @@
       var n = c && c.consigne && c.compteur && typeof c.compteur.compteur === 'number' ? c.compteur.compteur : null;
       if (n === null) return;
       poser(jour, slug, n);
+      // §10 bis (16/10/2026) — À LA PLUS LOURDE DE SA SALLE, l'escalier ne propose rien sur l'exercice et ne pose
+      // aucun pari : il ne déclenche pas la semaine allégée (son pari le nommerait). Son compteur reste un fait.
+      if (aLaPlusLourde(c)) return;
       ouverts.push(slug);
     });
     return { jours: jours, ouverts: ouverts };
@@ -1359,6 +1362,12 @@
       ? CITATIONS_DES_CARTES.get(carte) : null;
   }
 
+  // §10 bis (16/10/2026) — l'exercice est-il à la plus lourde de sa salle ? La définition du moteur, sur la consigne
+  // figée et la salle déclarée (`c.salle`, figée avec elle) — une lecture, jamais une seconde règle.
+  function aLaPlusLourde(c) {
+    return !!(c && c.consigne && c.salle && Moteur().aLaPlusLourdeDeLaSalle(c.consigne, c.salle));
+  }
+
   function marchesIsolees(e, seance, consignes, esc, phase) {
     var sortie = {};
     var E = e.escalier;
@@ -1380,6 +1389,9 @@
     Object.keys(consignes).forEach(function (slug) {
       var c = consignes[slug];
       if (pris[slug] || !c || !c.consigne || !c.compteur || typeof c.compteur.compteur !== 'number') return;
+      // §10 bis (16/10/2026) — à la plus lourde de sa salle : ni schéma, ni série de plus, ni repli, ni silence
+      // à dire — aucune marche, aucun pari. Le compteur continue, sa phrase reste un fait (l'en-tête).
+      if (aLaPlusLourde(c)) return;
       var k = c.compteur.compteur;
       var zone = c.consigne.zone;
       var n = M.nIsole(k, M.declenchementsRepondus(slug, jour, k, cartes, compteurs));
@@ -1495,6 +1507,8 @@
       var c = consignes[slug];
       if (!c || !c.consigne || !c.compteur || typeof c.compteur.compteur !== 'number') return;
       if (c.consigne.zone === 'lourd' || c.consigne.zone === 'mix' || !c.consigne.zone) return;
+      // §10 bis (16/10/2026) — ni série de plus à la plus lourde de sa salle.
+      if (aLaPlusLourde(c)) return;
       if (!M.serieDePlusActive(slug, jour, c.compteur.compteur, E.marches || [], E.compteurs || [])) return;
       var n = Object.prototype.hasOwnProperty.call(routine, slug) ? Number(routine[slug]) : NaN;
       if (isFinite(n) && n >= 1) sortie[slug] = n;
@@ -3157,6 +3171,7 @@
     verifierDouleur(plan, entrees, erreurs);
     verifierReserve(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
+    verifierEscalierSalle(plan, erreurs);
     // Prérequis d'« adapter » — LES PARIS D'UNE OCCURRENCE, et seulement d'elle
     // (I7) : la seconde occurrence d'un exercice ne doit pas se voir reprocher
     // les paris de la première.
@@ -3254,6 +3269,28 @@
       ((x.reaction && x.reaction.plan) || []).forEach(function (q, j) {
         if (q && q.source === 'coach') hors(q.charge, 'la ligne du coach ' + j);
       });
+    });
+  }
+
+  // I47 (MOTEUR §10 bis, 16/10/2026) — À LA PLUS LOURDE DE LA SALLE, L'ESCALIER NE PROPOSE RIEN : pour un exercice
+  // dont la charge de travail et la charge demandée sont la plus lourde de sa salle, aucune marche (schéma, série de
+  // plus, repli, ni même le silence ou la phrase de sèche), aucune ligne en plus, aucune consigne de repli, et la
+  // carte de semaine allégée ne le prend pas pour déclencheur. Un repli posé ferait descendre la charge demandée :
+  // on lit alors le palier seul.
+  function verifierEscalierSalle(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.consigne;
+      if (!k || !x.salle) return;
+      var lue = k.repli ? Object.assign({}, k, { ligne: null }) : k;
+      if (!M.aLaPlusLourdeDeLaSalle(lue, x.salle)) return;
+      var nom = 'I47 — exercice ' + i + ' (' + x.slug + ') : ';
+      if (x.escalier) erreurs.push(nom + 'une marche de l’escalier (' + x.escalier.marche + ') à la plus lourde de sa salle');
+      if (k.repli) erreurs.push(nom + 'un repli à la plus lourde de sa salle');
+      if (k.serieDePlus) erreurs.push(nom + 'une série de plus à la plus lourde de sa salle');
+      if (plan.carte && plan.carte.declencheur === x.slug) {
+        erreurs.push(nom + 'la carte de semaine allégée déclenchée par un exercice à la plus lourde de sa salle');
+      }
     });
   }
 

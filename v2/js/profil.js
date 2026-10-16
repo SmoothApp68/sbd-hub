@@ -1227,6 +1227,17 @@
     var nom = sansAccent(String((fiche && fiche.nom) || '').toLowerCase());
     return /\bbarre ez\b/.test(nom) || /(^|_)ez(_|$)/.test(String((fiche && fiche.slug) || ''));
   }
+  // §10 bis (16/10/2026) — `isolation: true` pour un exercice d'isolation (non polyarticulaire, la définition du
+  // moteur, `THMoteur.estPolyarticulaire` sur les trois listes de muscles du catalogue) : à la plus lourde de la salle,
+  // sa fourchette s'étend jusqu'à 15 reps. La clé n'y figure que si elle est vraie.
+  function avecIsolation(salle, fiche) {
+    var Mo = racine.THMoteur;
+    if (!salle || !Mo || !Mo.estPolyarticulaire) return salle;
+    var muscles = { prim: fiche.muscles_primaires || [], sec: fiche.muscles_secondaires || [],
+                    stab: fiche.muscles_stabilisateurs || [] };
+    if (Mo.aDesMuscles && !Mo.aDesMuscles(muscles)) return salle;
+    return Mo.estPolyarticulaire(muscles) ? salle : Object.assign(salle, { isolation: true });
+  }
   function salleDeLExercice(profil, slug, index) {
     var s = salleDe(profil);
     var fiche = index && slug && Object.prototype.hasOwnProperty.call(index, slug) ? index[slug] : null;
@@ -1237,14 +1248,14 @@
       for (var k = 1; k * s.halteres.pas <= s.halteres.max + 1e-9 && charges.length < 400; k++) {
         charges.push(Math.round(2 * k * s.halteres.pas * 100) / 100);
       }
-      return { materiel: 'halteres', charges: charges };
+      return avecIsolation({ materiel: 'halteres', charges: charges }, fiche);
     }
     if (fiche.equipement !== 'barre') return null;
     var G = racine.THGenerateur;
     if (G && G.estBarreLourde(slug, index)) return null;
     var ez = estBarreEZ(Object.assign({ slug: slug }, fiche));
     var liste = ez ? s.barres_ez : s.barres_droites;
-    return liste.length ? { materiel: ez ? 'barre_ez' : 'barre_droite', charges: liste.slice() } : null;
+    return liste.length ? avecIsolation({ materiel: ez ? 'barre_ez' : 'barre_droite', charges: liste.slice() }, fiche) : null;
   }
 
   // ══ LE PSEUDO ════════════════════════════════════════════════════════════

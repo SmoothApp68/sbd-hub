@@ -680,7 +680,10 @@
     var r = nombre(reference);
     if (SALLE_BARRES.indexOf(salle.materiel) >= 0 && r !== null && r > l[l.length - 1] &&
         !memeCharge(r, l[l.length - 1])) return null;
-    return { materiel: salle.materiel, charges: l };
+    var s = { materiel: salle.materiel, charges: l };
+    // L'isolation (non polyarticulaire) : la fourchette à la plus lourde s'étend à 15 reps (`plafondALaSalle`).
+    if (salle.isolation === true) s.isolation = true;
+    return s;
   }
   // La charge de la salle juste au-delà (`sens` > 0) ou en deçà (< 0), ou
   // `null` : la salle n'a rien de plus lourd (de plus léger).
@@ -716,6 +719,47 @@
     return chargeVoisine(seances, avant, palier, equipement, sens);
   }
 
+  // ── §10 bis (décidé le 16/10/2026) — À LA PLUS LOURDE DE LA SALLE ─────────
+  //
+  // « Quand la charge demandée dépasse la plus lourde de la salle, le coach garde la plus lourde et progresse en
+  // reps, jusqu'au haut de la fourchette de la zone ; sur un exercice d'isolation (non polyarticulaire), la
+  // fourchette s'étend jusqu'à 15 reps. La zone est gelée au moment où l'exercice atteint la plus lourde de la salle
+  // […]. Au plafond, le coach maintient […]. Tant que l'exercice est à la plus lourde de sa salle, l'escalier ne
+  // propose rien sur cet exercice […] et ne pose aucun pari. »
+  //
+  // UNE définition de « à la plus lourde » (la consigne, le gel de la zone, l'escalier du plan et I47 la lisent) : une
+  // charge au moins égale à la plus lourde que la salle fait. Aux haltères, une paire au-delà (une autre salle) l'est
+  // aussi ; à la barre, une charge au-delà n'a pas de salle en vigueur (`salleEnVigueur`).
+  var REPS_ISOLATION_SALLE = 15;
+  function estALaPlusLourde(salle, charge) {
+    var m = maxDeLaSalle(salle), c = nombre(charge);
+    return m !== null && c !== null && (c > m || memeCharge(c, m));
+  }
+  // Le plafond des reps à la plus lourde : le haut de la zone, 15 sur une isolation dont la zone s'arrête plus bas.
+  // Sans zone (la règle de bord) : 15 sur une isolation, sinon `null` (une rep de plus, comme avant).
+  function plafondALaSalle(zone, salle) {
+    var iso = !!(salle && salle.isolation === true);
+    if (!zone) return iso ? REPS_ISOLATION_SALLE : null;
+    return iso ? Math.max(zone.haut, REPS_ISOLATION_SALLE) : zone.haut;
+  }
+  // LE GEL DE LA ZONE (« comme pendant un étirement », §9.7) : les dernières séances (non neutres, `ant`) à la plus
+  // lourde de la salle, sans interruption ; la zone d'alors est celle de l'habitude lue juste après la PREMIÈRE
+  // d'entre elles — son couple et ses 8 séances d'alors, jamais les reps prescrites au-delà depuis. `null` : la
+  // dernière séance n'est pas à la plus lourde.
+  function gelALaSalle(ant, vues, salle) {
+    var i0 = null;
+    for (var i = ant.length - 1; i >= 0; i--) {
+      if (!estALaPlusLourde(salle, ant[i].palier)) break;
+      i0 = i;
+    }
+    if (i0 === null) return null;
+    var t = instant(ant[i0].debut);
+    if (t === null) return null;
+    var lecture = lectureDuCouple(vues, new Date(t + 1).toISOString());
+    var h = lecture === null ? null : habitudeSur(lecture.duCouple);
+    return h === null ? null : { debut: ant[i0].debut, habitude: h };
+  }
+
   // La salle en vigueur d'une consigne : lue sur son palier (`salleEnVigueur`),
   // `null` sans consigne chiffrée, au poids du corps ou sur une aide.
   function salleDeLaConsigne(consigne, salle) {
@@ -740,6 +784,15 @@
       change = true;
     }
     return change ? Object.assign({}, consigne, { ligne: ligne, haut: haut }) : consigne;
+  }
+  // L'EXERCICE EST-IL À LA PLUS LOURDE DE SA SALLE ? La salle en vigueur de la consigne, son palier à la plus lourde,
+  // et la charge demandée aussi : « si la charge demandée redescend sous la plus lourde, tout reprend normalement ».
+  // Le plan le lit (l'escalier se tait, I47) ; aucun écran ne le recalcule.
+  function aLaPlusLourdeDeLaSalle(consigne, salle) {
+    var s = salleDeLaConsigne(consigne, salle);
+    if (!s || !estALaPlusLourde(s, consigne.palier)) return false;
+    var l = consigne.ligne ? nombre(consigne.ligne.charge) : null;
+    return l === null || estALaPlusLourde(s, l);
   }
   // Un repli (§14.2) que la salle ne fait pas est sauté : le coach n'invente
   // pas une charge plus basse que la donnée ne soutient (se taire, §14.2).
@@ -1274,6 +1327,13 @@
     // Le PREMIER test raté de l'épisode — `rates` va du plus récent au plus
     // ancien, donc c'est le dernier. C'est sa zone qui reste figée (§9.7).
     var figee = rates.length ? rates[rates.length - 1] : null;
+    // §10 bis (16/10/2026) — À LA PLUS LOURDE DE LA SALLE, LA ZONE EST GELÉE, comme pendant un étirement : les reps
+    // prescrites au-delà de la zone ne la font pas glisser (le curl EZ à 30 kg passait de Volume en Séries longues à
+    // la cinquième séance). Le gel le plus ancien l'emporte quand les deux courent ; la correction, toujours.
+    var gelSalle = salle ? gelALaSalle(ant, vues, salle) : null;
+    if (gelSalle !== null && (figee === null || instant(gelSalle.debut) <= instant(figee.debut))) {
+      habitude = gelSalle.habitude;
+    }
     var zone = zoneRetenue(correction, habitude);
 
     // Le palier de l'avant-dernière séance du couple : il sert à reconnaître
@@ -1370,10 +1430,13 @@
       // lourde, une de plus que la dernière fois (la règle des coachs quand on ne
       // peut pas ajouter de poids, celle du §9.17), sans ligne haute. Après la
       // chute : un « tenir » reste un « tenir ».
+      //
+      // §10 bis (16/10/2026) — JUSQU'AU HAUT DE LA FOURCHETTE DE LA ZONE (15 reps sur une isolation), puis le coach
+      // MAINTIENT : la ligne à la plus lourde, au plafond (`versLaSalleMax`).
       if (salle && ((ETATS_DE_TEST[etat] === true && haut && haut.charge === null) ||
                     (etat === 'bord' && ligne && ligne.charge === null))) {
         etat = 'salle_max';
-        ligne = ligneDe(P, cible(niv + 1));
+        ligne = versLaSalleMax(P);
         haut = null;
         plus = null;
       }
@@ -1391,7 +1454,7 @@
           var sous = ligne ? nombre(ligne.charge) : null;
           if (sous !== null && !(h > sous && !memeCharge(h, sous))) {
             etat = 'salle_max';
-            ligne = ligneDe(sous, cible(niv + 1));
+            ligne = versLaSalleMax(sous);
             haut = null;
             plus = null;
           } else {
@@ -1404,6 +1467,15 @@
       // matériel, que la phrase (« la plus lourde de ta salle ») et la feuille
       // « Pourquoi » lisent sans rien recalculer. Absente sans déclaration.
       if (salle) f.salle = { materiel: salle.materiel, max: maxDeLaSalle(salle) };
+      // §10 bis (16/10/2026) — à la plus lourde : le plafond des reps, et `maintien` quand la dernière séance l'a
+      // atteint (la phrase le dit comme un fait : « 30 kg × 15, la plus lourde de ta salle. »).
+      if (salle && etat === 'salle_max') {
+        var pl = plafondALaSalle(zone, salle);
+        if (pl !== null) {
+          f.salle.plafond = pl;
+          if (niv >= pl) f.salle.maintien = true;
+        }
+      }
       if (chute !== null) f.chute = { rang: chute };
       // §9.13, enrichi le 20/09/2026 (48b-6a) : de quoi écrire la feuille
       // « Pourquoi » sans jamais rejouer une règle du moteur.
@@ -1454,6 +1526,12 @@
     }
     function ligneDe(charge, vise) { return { charge: charge, vise: vise }; }
     function hautDe(charge, vise, k) { return { charge: charge, vise: vise, k: k }; }
+    // §10 bis (16/10/2026) — la ligne à la plus lourde de la salle : une rep de plus que la dernière fois, jusqu'au
+    // plafond (`plafondALaSalle`) ; au plafond, le plafond.
+    function versLaSalleMax(charge) {
+      var pl = plafondALaSalle(zone, salle);
+      return ligneDe(charge, cible(pl === null ? niv + 1 : Math.min(niv + 1, pl)));
+    }
     function voisine(depuis, sens) {
       // §9.17 — AU POIDS DU CORPS, IL N'Y A PAS DE CRAN : ni au-dessus, ni en
       // dessous, quel que soit le matériel du catalogue (l'hyperextension y est
@@ -3542,7 +3620,12 @@
       // §10 bis (108, décidé le 15/10/2026) — « 30 kg, la plus lourde de ta
       // salle : on monte en reps. » La charge citée est celle de la ligne : la
       // plus lourde que la salle déclarée fait.
+      // Au plafond (16/10/2026), le coach maintient, et le dit comme un fait : « 30 kg × 15, la plus lourde de ta
+      // salle. »
       case 'salle_max':
+        if (f.salle && f.salle.maintien === true) {
+          return chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })) + ', la plus lourde de ta salle.';
+        }
         return enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + ', la plus lourde de ta salle' +
                DEUX_POINTS + 'on monte en reps.';
 
@@ -3924,7 +4007,10 @@
       // §10 bis (108) — la salle déclarée n'a rien de plus lourd.
       case 'salle_max':
         return 'Ta salle n\'a pas plus lourd que ' + enKg(c.ligne.charge, cL) + DEUX_POINTS +
-               'je ne te propose jamais une charge qu\'elle n\'a pas. Tu gagnes des reps, une de plus que la dernière fois.';
+               'je ne te propose jamais une charge qu\'elle n\'a pas. ' +
+               (f.salle && f.salle.maintien === true
+                 ? 'Tu es au haut de ta fourchette et ta salle n\'a pas plus lourd' + DEUX_POINTS + 'on garde la charge.'
+                 : 'Tu gagnes des reps, une de plus que la dernière fois.');
 
       case 'depart_leste':
         return 'Première séance avec du lest' + DEUX_POINTS + 'on part de ' + enKg(c.ligne.charge, cL) +
@@ -4582,7 +4668,7 @@
   // cinq sur cent — et jamais pour les autres.
   function sansPalierRetenues(seances, options) {
     var o = options || {};
-    var opts = { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null };
+    var opts = { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null };
     var liste = seances || [];
     var ordre = liste.map(function (se, i) { return i; }).filter(function (i) {
       return instant(liste[i] && liste[i].debut) !== null;
@@ -4748,8 +4834,10 @@
     var borne = finEffective(se, suivante, avant);
     var correction = o.corrections && borne !== null
       ? correctionAu(o.corrections, new Date(borne + 1).toISOString()) : (o.correction || null);
+    // §10 bis (16/10/2026) — la salle déclarée aussi : la zone d'une séance passée à la plus lourde est la zone gelée,
+    // la même que celle d'aujourd'hui (sinon le report verrait une « nouvelle zone » que le gel a empêchée).
     return consignePour(liste.slice(0, i), se.debut,
-      { reglage: o.reglage, equipement: o.equipement, correction: correction });
+      { reglage: o.reglage, equipement: o.equipement, correction: correction, salle: o.salle || null });
   }
   function zoneDeLaSeance(liste, i, avant, o) {
     var k = consigneDeLaSeance(liste, i, avant, o);
@@ -4841,7 +4929,7 @@
     // zéro — pas de phrase. Une reprise vue sur une séance non comptée depuis
     // la dernière comptée vaut de même. Le meilleur reste ce qu'il était.
     if (!premiere) {
-      var kOuverture = consignePour(liste, avant, { reglage: o.reglage, equipement: o.equipement,
+      var kOuverture = consignePour(liste, avant, { reglage: o.reglage, equipement: o.equipement, salle: o.salle || null,
         // La zone EN VIGUEUR AUJOURD'HUI, pour la séance qui commence (§12.2 bis :
         // une autre question) : la dernière choisie, par la fonction de la zone
         // en vigueur, sinon `o.correction` — dans l'app, les deux disent la même chose.
@@ -6281,7 +6369,7 @@
   function chargesDeTravailDe(groupes, etat, options) {
     var o = options || {};
     var seances = contratDe(groupes, etat, 'charge_reps',
-      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null });
+      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null });
     return chargesDeTravail(seances.map(vueDeSeance)).filter(function (x) {
       return x.palier !== null && x.niveau !== null && instant(x.debut) !== null;
     }).map(function (x) { return { date: x.debut, palier: x.palier, niveau: x.niveau }; });
@@ -6307,7 +6395,7 @@
     for (var i = liste.length - 1; i >= 0; i--) {
       if (liste[i].neutre === true) continue;
       return zoneDeLaSeance(liste, i, avant, { reglage: o.reglage, equipement: o.equipement,
-        corrections: o.correctionsDeZone || null, correction: o.correction || null });
+        corrections: o.correctionsDeZone || null, correction: o.correction || null, salle: o.salle || null });
     }
     return null;
   }
@@ -6517,7 +6605,7 @@
     if ((o.intention || 'progresser') === 'entretien') return null;
     if (o.mesure !== 'charge_reps' && o.mesure !== 'reps') return null;
     var seances = contratDe(groupes, etat, o.mesure,
-      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null });
+      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null });
     // §9.1.1 (48b-7) — LE RANG 2 EST BRANCHÉ. Il attendait ici depuis
     // 48b-5b-2, câblé à `null` faute d'un endroit où lire la zone choisie.
     // §9.17 — `lestReponse` : la réponse à la carte du lest, une ENTRÉE du
@@ -6553,7 +6641,7 @@
     // lue À SA FIN, par la même fonction que le report et le compteur.
     var zoneAu = function (liste, i) {
       return zoneDeLaSeance(liste, i, avant, { reglage: o.reglage, equipement: o.equipement,
-        corrections: o.correctionsDeZone || null, correction: o.correction || null });
+        corrections: o.correctionsDeZone || null, correction: o.correction || null, salle: o.salle || null });
     };
     // §20.2 — la référence des dates est `avant`, le début de la séance pour
     // laquelle la consigne est calculée : « mardi » se dit contre elle.
@@ -6608,7 +6696,8 @@
       o.periodesSerieDePlus);
     return { marquees: marquees,
              complet: compteurDe(marquees, avant, { reglage: o.reglage, equipement: o.equipement,
-               correction: o.correction || null, corrections: o.correctionsDeZone || null, toutes: toutes === true }) };
+               correction: o.correction || null, corrections: o.correctionsDeZone || null, toutes: toutes === true,
+               salle: o.salle || null }) };
   }
 
   // §13.6 (49-U20) — les frères de l'exercice bloqué, rejoués. `fournir()` rend
@@ -6651,7 +6740,7 @@
     return frereQuiProgresse({ verdicts: verdicts }, candidats.map(function (f) {
       var o = f.options;
       var seances = contratDe(f.groupes, f.etat, o.mesure,
-        { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null });
+        { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null });
       return { id: f.slug, nom: f.nom, verdicts: rejeuDuCompteur(seances, f.groupes, avant, o, true).complet.verdicts };
     }), avant);
   }
@@ -6726,7 +6815,7 @@
     // ou rien (« il te manque une rep pour tester… » ne se dit pas au-delà).
     var cran = P === null || P === undefined || P === 0 ? null
       : voisineSalleComprise(contratDe(tous, etat, o.mesure,
-          { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null }),
+          { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null }),
         apres, P, o.equipement, 1, P > 0 ? salleEnVigueur(o.salle || null, P) : null);
     return { apres: cApres, cranSuivant: cran };
   }
@@ -7170,6 +7259,8 @@
     motsDesMuscles: motsDesMuscles,
     GRIS_SERIE_DE_PLUS: GRIS_SERIE_DE_PLUS,
     marcheProposee: marcheProposee,
+    aLaPlusLourdeDeLaSalle: aLaPlusLourdeDeLaSalle,
+    plafondALaSalle: plafondALaSalle,
     serieDePlusProposee: serieDePlusProposee,
     serieDePlusActive: serieDePlusActive,
     periodesSerieDePlus: periodesSerieDePlus,

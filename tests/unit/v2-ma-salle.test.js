@@ -13,8 +13,10 @@
 //      les haltères arrondis aux charges déclarées ; la barre chargée de disques n'est pas concernée ;
 //   4. le plan : la dégressive à barre fixe (« Prends la barre de 20 kg. »), les chauffes, I46 ;
 //   5. sans déclaration, rien ne change ;
-//   6. la colonne absente en base (v2_088 pas lancée) : le profil se lit et s'écrit.
-// « Puis en séries » n'est pas tranché (MOTEUR §10 bis) : un `test.todo` le dit.
+//   6. la colonne absente en base (v2_088 pas lancée) : le profil se lit et s'écrit ;
+//   7. à la plus lourde de la salle (décidé le 16/10/2026) : les reps jusqu'au haut de la zone (15 sur une isolation),
+//      la zone gelée, le maintien, l'escalier muet (I47), le gel qui tombe quand une barre plus lourde est déclarée.
+// « Puis en séries » est retiré (16/10/2026) : à la plus lourde, la routine décide de la structure.
 
 process.env.TZ = 'Europe/Paris';
 global.self = global;
@@ -31,9 +33,9 @@ const NB = ' ';
 const SALLE_AUREL = { barres_ez: [10, 15, 20, 25, 30], barres_droites: [10, 15, 20, 25, 30], halteres: { max: 40, pas: 2 } };
 // Le catalogue, tel qu'en base (`exercises` : `equipement`, `nom`, `mouvement`).
 const INDEX = {
-  curl_biceps_barre_ez: { slug: 'curl_biceps_barre_ez', nom: 'Curl Biceps (Barre EZ)', equipement: 'barre', mouvement: 'curl', muscles_primaires: ['biceps'] },
-  curl_biceps_barre: { slug: 'curl_biceps_barre', nom: 'Curl Biceps (Barre)', equipement: 'barre', mouvement: 'curl', muscles_primaires: ['biceps'] },
-  rowing_barre: { slug: 'rowing_barre', nom: 'Rowing Barre', equipement: 'barre', mouvement: 'rowing', muscles_primaires: ['grand_dorsal'] },
+  curl_biceps_barre_ez: { slug: 'curl_biceps_barre_ez', nom: 'Curl Biceps (Barre EZ)', equipement: 'barre', mouvement: 'curl', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'], muscles_stabilisateurs: [] },
+  curl_biceps_barre: { slug: 'curl_biceps_barre', nom: 'Curl Biceps (Barre)', equipement: 'barre', mouvement: 'curl', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] },
+  rowing_barre: { slug: 'rowing_barre', nom: 'Rowing Barre', equipement: 'barre', mouvement: 'rowing', muscles_primaires: ['grand_dorsal'], muscles_secondaires: ['haut_du_dos', 'biceps'], muscles_stabilisateurs: ['bas_du_dos'] },
   squat_barre: { slug: 'squat_barre', nom: 'Squat (Barre)', equipement: 'barre', mouvement: 'squat', muscles_primaires: ['quadriceps'] },
   squat_avec_pause_barre: { slug: 'squat_avec_pause_barre', nom: 'Squat avec pause (barre)', equipement: 'barre', mouvement: 'squat', muscles_primaires: ['quadriceps'] },
   developpe_couche_haltere: { slug: 'developpe_couche_haltere', nom: 'Développé Couché (Haltère)', equipement: 'haltere', mouvement: 'developpe_couche', muscles_primaires: ['pectoraux'] },
@@ -115,11 +117,16 @@ describe('Profil — la déclaration « Ma salle » (profiles.ma_salle, v2_088)'
 // ═══ 2. QUELLE SALLE POUR QUEL EXERCICE ═══════════════════════════════════
 describe('§10 bis — quelle salle pour quel exercice (la donnée du catalogue : `equipement`, et le nom pour l’EZ)', () => {
   test('le curl EZ : les barres EZ déclarées', () => {
-    expect(salleEZ()).toEqual({ materiel: 'barre_ez', charges: [10, 15, 20, 25, 30] });
+    expect(salleEZ()).toEqual({ materiel: 'barre_ez', charges: [10, 15, 20, 25, 30], isolation: true });
+  });
+  test('16/10/2026 — `isolation` : une isolation (moins de 3 muscles) seulement ; un polyarticulaire ou un exercice sans muscle connu, non', () => {
+    expect(Profil.salleDeLExercice({ ma_salle: SALLE_AUREL }, 'rowing_barre', INDEX)).not.toHaveProperty('isolation');
+    const sansMuscle = Object.assign({}, INDEX, { curl_x_barre_ez: { slug: 'curl_x_barre_ez', nom: 'Curl X (Barre EZ)', equipement: 'barre', mouvement: 'curl' } });
+    expect(Profil.salleDeLExercice({ ma_salle: SALLE_AUREL }, 'curl_x_barre_ez', sansMuscle)).not.toHaveProperty('isolation');
   });
   test('une barre légère qui n’est pas EZ : les barres droites', () => {
     expect(Profil.salleDeLExercice({ ma_salle: { barres_droites: [10, 20] } }, 'curl_biceps_barre', INDEX))
-      .toEqual({ materiel: 'barre_droite', charges: [10, 20] });
+      .toEqual({ materiel: 'barre_droite', charges: [10, 20], isolation: true });
     // Les droites déclarées ne valent pas pour l'EZ.
     expect(Profil.salleDeLExercice({ ma_salle: { barres_droites: [10, 20] } }, 'curl_biceps_barre_ez', INDEX)).toBeNull();
   });
@@ -153,10 +160,10 @@ describe('§10 bis — le curl EZ à 30 kg, la plus lourde de la salle (le cas r
     expect(c.consigne.haut).toBeNull();
     expect(c.libelles.gris).toBe('30' + NB + 'kg, la plus lourde de ta salle' + NB + ': on monte en reps.');
     expect(c.libelles.jaune).toEqual(['30' + NB + 'kg' + NB + '×' + NB + '13']);
-    expect(c.consigne.fondement.salle).toEqual({ materiel: 'barre_ez', max: 30 });
+    expect(c.consigne.fondement.salle).toEqual({ materiel: 'barre_ez', max: 30, plafond: 15 });
     // La suite : pas de cran suivant au-delà de la salle.
     expect(c.contexte).toEqual({ cran: null, haut: null, salleMax: true });
-    expect(c.salle).toEqual({ materiel: 'barre_ez', charges: [10, 15, 20, 25, 30] });
+    expect(c.salle).toEqual({ materiel: 'barre_ez', charges: [10, 15, 20, 25, 30], isolation: true });
   });
 
   test('sous le haut de la zone : les reps montent comme toujours (une de plus)', () => {
@@ -172,22 +179,75 @@ describe('§10 bis — le curl EZ à 30 kg, la plus lourde de la salle (le cas r
       ': je ne te propose jamais une charge qu\'elle n\'a pas. Tu gagnes des reps, une de plus que la dernière fois.');
   });
 
-  test('séance après séance, à 30 kg : les reps montent, jamais une charge au-delà de 30', () => {
+  test('DISCRIMINANT — séance après séance, à 30 kg : les reps jusqu’à 15 (isolation), la zone ne glisse pas, puis le maintien', () => {
     let hist = curlEZ([12, 12, 12]);
     const vues = [];
+    for (let i = 0; i < 7; i++) {
+      const avant = new Date(Date.parse(AVANT) + 4 * i * 864e5).toISOString();
+      const r = M.consigneDExercice(hist, undefined, avant, Object.assign({ salle: salleEZ() }, O));
+      const c = r.consigne;
+      vues.push([c.etat, c.zone, c.ligne.charge, c.ligne.vise, c.haut, r.libelles.gris]);
+      hist = [{ seance: { id: 'T' + i, debut: avant }, series: [1, 2, 3].map(() => brute(c.ligne.charge, c.ligne.vise)) }].concat(hist);
+    }
+    vues.forEach((v) => { expect(v.slice(0, 3)).toEqual(['salle_max', 'volume', 30]); expect(v[4]).toBeNull(); });
+    expect(vues.map((v) => v[3])).toEqual([13, 14, 15, 15, 15, 15, 15]);
+    expect(vues[2][5]).toBe('30' + NB + 'kg, la plus lourde de ta salle' + NB + ': on monte en reps.');
+    expect(vues[3][5]).toBe('30' + NB + 'kg' + NB + '×' + NB + '15, la plus lourde de ta salle.');
+    // Prémisse du gel : sans lui (la même histoire, la salle oubliée), l'habitude de 15 range en Séries longues.
+    const apres = new Date(Date.parse(AVANT) + 28 * 864e5).toISOString();
+    expect(M.consigneDExercice(hist, undefined, apres, O).consigne.zone).toBe('series_longues');
+    // Le fondement et la feuille « Pourquoi » du maintien.
+    const fin = M.consigneDExercice(hist, undefined, apres, Object.assign({ salle: salleEZ() }, O)).consigne;
+    expect(fin.fondement.salle).toEqual({ materiel: 'barre_ez', max: 30, plafond: 15, maintien: true });
+    expect(JSON.stringify(M.pourquoiConsigne(fin, 'normal', AVANT))).toContain('je ne te propose jamais une charge ' +
+      'qu\'elle n\'a pas. Tu es au haut de ta fourchette et ta salle n\'a pas plus lourd' + NB + ': on garde la charge.');
+  });
+
+  test('DISCRIMINANT — polyarticulaire à barre fixe (rowing, barre droite de 30) : la fourchette ne s’étend pas', () => {
+    const s = Profil.salleDeLExercice({ ma_salle: SALLE_AUREL }, 'rowing_barre', INDEX);
+    const hist = (r) => [
+      { seance: { id: 'S2', debut: jour('10-10') }, series: [brute(30, r), brute(30, r), brute(30, r)] },
+      { seance: { id: 'S1', debut: jour('10-06') }, series: [brute(30, 11), brute(30, 11), brute(30, 11)] }];
+    const c = M.consigneDExercice(hist(12), undefined, AVANT, Object.assign({ salle: s }, O));
+    expect([c.consigne.etat, c.consigne.zone, c.consigne.ligne]).toEqual(['salle_max', 'volume', { charge: 30, vise: 12 }]);
+    expect(c.consigne.fondement.salle).toEqual({ materiel: 'barre_droite', max: 30, plafond: 12, maintien: true });
+    expect(c.libelles.gris).toBe('30' + NB + 'kg' + NB + '×' + NB + '12, la plus lourde de ta salle.');
+    // Au-delà du haut (13 faits) : la ligne reste au haut de la zone.
+    expect(M.consigneDExercice(hist(13), undefined, AVANT, Object.assign({ salle: s }, O)).consigne.ligne).toEqual({ charge: 30, vise: 12 });
+    // Le plafond : le haut de la zone ; 15 sur une isolation ; sans zone, rien sur un polyarticulaire.
+    expect(M.plafondALaSalle({ bas: 10, haut: 12 }, s)).toBe(12);
+    expect(M.plafondALaSalle({ bas: 10, haut: 12 }, { isolation: true })).toBe(15);
+    expect(M.plafondALaSalle({ bas: 15, haut: 20 }, { isolation: true })).toBe(20);
+    expect(M.plafondALaSalle(null, s)).toBeNull();
+    expect(M.plafondALaSalle(null, { isolation: true })).toBe(15);
+  });
+
+  test('DISCRIMINANT — une barre de 35 kg déclarée : le gel tombe, la zone suit l’habitude, 35 se testera au haut de la zone', () => {
+    let hist = curlEZ([12, 12, 12]);
     for (let i = 0; i < 6; i++) {
       const avant = new Date(Date.parse(AVANT) + 4 * i * 864e5).toISOString();
       const c = M.consigneDExercice(hist, undefined, avant, Object.assign({ salle: salleEZ() }, O)).consigne;
-      vues.push([c.ligne.charge, c.ligne.vise, c.haut ? c.haut.charge : null]);
       hist = [{ seance: { id: 'T' + i, debut: avant }, series: [1, 2, 3].map(() => brute(c.ligne.charge, c.ligne.vise)) }].concat(hist);
     }
-    vues.forEach((v) => { expect(v[0]).toBe(30); expect(v[2]).toBeNull(); });
-    // À 16 reps d'habitude, la zone suit (Volume → Séries longues, « Nouvelle zone », §9.10) : la visée repart du bas
-    // de la nouvelle zone, à la même charge. C'est le point ouvert de « puis en séries » (MOTEUR §10 bis).
-    expect(vues.map((v) => v[1])).toEqual([13, 14, 15, 16, 15, 16]);
+    const avant = new Date(Date.parse(AVANT) + 24 * 864e5).toISOString();
+    const avec35 = Profil.salleDeLExercice({ ma_salle: { barres_ez: [10, 15, 20, 25, 30, 35] } }, 'curl_biceps_barre_ez', INDEX);
+    const c = M.consigneDExercice(hist, undefined, avant, Object.assign({ salle: avec35 }, O));
+    // Plus de plafond de la salle : la zone suit l'habitude (Séries longues), et la consigne est celle d'une
+    // personne sans déclaration — à cette histoire près, les mêmes charges.
+    expect(c.consigne.etat).not.toBe('salle_max');
+    expect(c.consigne.zone).toBe('series_longues');
+    expect(c.consigne.fondement.salle).toEqual({ materiel: 'barre_ez', max: 35 });
+    const sans = M.consigneDExercice(hist, undefined, avant, O).consigne;
+    expect([c.consigne.etat, c.consigne.zone, c.consigne.ligne]).toEqual([sans.etat, sans.zone, sans.ligne]);
+    // Au haut de la zone en vigueur (20), le test vise la barre de 35 kg.
+    const au20 = [{ seance: { id: 'U', debut: avant }, series: [20, 20, 20].map((r) => brute(30, r)) }].concat(hist);
+    const t = M.consigneDExercice(au20, undefined, new Date(Date.parse(avant) + 4 * 864e5).toISOString(),
+      Object.assign({ salle: avec35 }, O)).consigne;
+    expect([t.etat, t.haut && t.haut.charge]).toEqual(['test_propose', 35]);
+    // Une zone choisie par la personne fait tester plus tôt (§9.1.1).
+    const choisie = M.consigneDExercice(hist, undefined, avant, Object.assign({ salle: avec35, correction: 'volume' }, O)).consigne;
+    expect([choisie.etat, choisie.haut && choisie.haut.charge]).toEqual(['test_propose', 35]);
   });
-
-  test.todo('« puis en séries » : quand et comment la progression passe des reps aux séries — à trancher (MOTEUR §10 bis)');
 
   test('DISCRIMINANT — en séance, 3 reps de plus que visé à 30 kg : la réaction se tait (aucune charge introuvable)', () => {
     const ok = M.consigneDExercice(curlEZ([11, 11, 11]), undefined, AVANT, Object.assign({ salle: salleEZ() }, O));
@@ -295,7 +355,7 @@ describe('§10 bis — dans le plan : la grille, la dégressive à barre fixe, l
     expect(x.lignes.filter((l) => l.type === 'travail').map((l) => [l.fantome.charge, l.fantome.reps]))
       .toEqual([[30, 13], [30, 13], [30, 13]]);
     expect(x.entete.gris).toBe('30' + NB + 'kg, la plus lourde de ta salle' + NB + ': on monte en reps.');
-    expect(x.salle).toEqual({ materiel: 'barre_ez', charges: [10, 15, 20, 25, 30] });
+    expect(x.salle).toEqual({ materiel: 'barre_ez', charges: [10, 15, 20, 25, 30], isolation: true });
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
 
@@ -350,6 +410,97 @@ describe('§10 bis — dans le plan : la grille, la dégressive à barre fixe, l
     const q = JSON.parse(JSON.stringify(T.planDeSeance(e)));
     q.exercices[0].consigne.haut = { charge: null, vise: 10, k: 1 };
     expect(T.verifierPlan(q, undefined).erreurs.some((x) => /^I46 — .*test sans chiffre/.test(x))).toBe(true);
+  });
+});
+
+// ═══ 4 bis. À LA PLUS LOURDE, L'ESCALIER SE TAIT (16/10/2026, I47) ═════════
+describe('§10 bis (16/10/2026) — au plafond plusieurs séances : aucune carte de l’escalier, aucun pari', () => {
+  const SLUG = 'curl_biceps_barre_ez';
+  const FIN = '2026-11-05T10:00:00+00:00';   // après les séances au plafond
+  // La consigne réelle au plafond (30 kg × 15), et un compteur à 4 : un déclenchement.
+  function auPlafond(sansSalle) {
+    let hist = curlEZ([12, 12, 12]);
+    for (let i = 0; i < 5; i++) {
+      const avant = new Date(Date.parse(AVANT) + 4 * i * 864e5).toISOString();
+      const c = M.consigneDExercice(hist, undefined, avant, Object.assign({ salle: salleEZ() }, O)).consigne;
+      hist = [{ seance: { id: 'T' + i, debut: avant }, series: [1, 2, 3].map(() => brute(c.ligne.charge, c.ligne.vise)) }].concat(hist);
+    }
+    const c = M.consigneDExercice(hist, undefined, FIN, Object.assign({ salle: salleEZ() }, O));
+    c.compteur = { compteur: 4, meilleur: { palier: 30, niveau: 15 }, blocages: [] };
+    if (sansSalle) c.salle = null;
+    return c;
+  }
+  function entreesEscalier(c, o) {
+    const opt = o || {};
+    const e = entrees(seanceDe(SLUG, 3), SLUG, c, { [SLUG]: { equipement: 'barre', muscles_primaires: ['biceps'],
+      salle: sansSalleCat(opt) } });
+    e.seance.debut = FIN;
+    return Object.assign(e, { phase: opt.phase || 'maintien',
+      volume: { biceps: { place: true, moyenne: 8, seuil: 10, fenetres: 12 } },
+      escalier: { cartes: [], compteurs: opt.compteurs || [], noms: {}, seriesRoutine: { [SLUG]: 3 },
+                  marches: opt.marches || [] } });
+  }
+  const sansSalleCat = (opt) => (opt.sansSalle ? null : { materiel: 'barre_ez', charges: [10, 15, 20, 25, 30], isolation: true });
+  // Deux autres exercices bloqués (compteur 4) dans les 7 jours : de quoi une semaine allégée.
+  const AUTRES = [{ exercice: 'a', jour: '2026-11-03', compteur: 4, seance: 'X1' }, { exercice: 'b', jour: '2026-11-03', compteur: 4, seance: 'X1' }];
+
+  test('prémisse — sans la salle, le même compteur ouvre la série de plus (et la carte de semaine allégée)', () => {
+    const p = T.planDeSeance(entreesEscalier(auPlafond(true), { sansSalle: true }));
+    expect(p.exercices[0].escalier.marche).toBe('serie_de_plus');
+    expect(p.exercices[0].escalier.carte.oui).toBe('Ajouter une série');
+    const g = T.planDeSeance(entreesEscalier(auPlafond(true), { sansSalle: true, compteurs: AUTRES }));
+    expect(g.carte && g.carte.declencheur).toBe(SLUG);
+  });
+
+  test('DISCRIMINANT — à la plus lourde : aucune marche, aucune carte, la phrase du compteur reste un fait ; I47 vert', () => {
+    const c = auPlafond(false);
+    expect(M.aLaPlusLourdeDeLaSalle(c.consigne, c.salle)).toBe(true);
+    const e = entreesEscalier(c);
+    const p = T.planDeSeance(e);
+    const x = p.exercices[0];
+    expect(x.escalier).toBeNull();
+    expect(x.consigne.serieDePlus).toBeUndefined();
+    expect(x.consigne.repli).toBeUndefined();
+    expect(x.entete.gris).toBe('30' + NB + 'kg' + NB + '×' + NB + '15, la plus lourde de ta salle.');
+    expect(x.entete.compteur).toMatch(/^30\u00a0kg × 15 reste ta meilleure charge de travail depuis 4 séances/);
+    expect(T.lignesAAjouter(p)).toEqual([]);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+    // En zone Lourd (schéma), en sèche, au déclenchement suivant (repli) : rien non plus.
+    const lourd = auPlafond(false);
+    lourd.consigne = Object.assign({}, lourd.consigne, { zone: 'lourd' });
+    expect(T.planDeSeance(entreesEscalier(lourd)).exercices[0].escalier).toBeNull();
+    expect(T.planDeSeance(entreesEscalier(auPlafond(false), { phase: 'seche' })).exercices[0].escalier).toBeNull();
+    const huit = auPlafond(false);
+    huit.compteur.compteur = 8;
+    huit.repli = { palier: 25, niveau: 15, debut: '2026-10-01T10:00:00+00:00', reps: [15, 15, 15], ligne: [25, 15] };
+    expect(T.planDeSeance(entreesEscalier(huit)).exercices[0].escalier).toBeNull();
+  });
+
+  test('DISCRIMINANT — elle ne déclenche pas la semaine allégée, et une série de plus acceptée avant ne revient pas', () => {
+    const g = T.planDeSeance(entreesEscalier(auPlafond(false), { compteurs: AUTRES }));
+    expect(g.carte).toBeNull();
+    const acceptee = { seance: 'S0', jour: '2026-11-01', exercice: SLUG, marche: 'serie_de_plus', reponse: 'acceptee',
+      compteur: 4, debut: '2026-11-01T10:00:00+00:00', n: 3 };
+    // Prémisse : sans la salle, la série de plus acceptée revient.
+    expect(T.planDeSeance(entreesEscalier(auPlafond(true), { sansSalle: true, marches: [acceptee] }))
+      .exercices[0].consigne.serieDePlus).toEqual({ routine: 3 });
+    const e = entreesEscalier(auPlafond(false), { marches: [acceptee] });
+    const p = T.planDeSeance(e);
+    expect(p.exercices[0].consigne.serieDePlus).toBeUndefined();
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+
+  test('DISCRIMINANT — I47 : une marche, un repli ou une série de plus forgés sur un exercice à la plus lourde sont vus', () => {
+    const e = entreesEscalier(auPlafond(false));
+    const forge = (f) => { const p = JSON.parse(JSON.stringify(T.planDeSeance(e))); f(p); return T.verifierPlan(p, undefined).erreurs; };
+    expect(forge((p) => { p.exercices[0].escalier = { marche: 'serie_de_plus', n: 1, compteur: 4 }; })
+      .some((x) => /^I47 — .*une marche de l’escalier \(serie_de_plus\)/.test(x))).toBe(true);
+    expect(forge((p) => { p.exercices[0].consigne.serieDePlus = { routine: 3 }; })
+      .some((x) => /^I47 — .*une série de plus/.test(x))).toBe(true);
+    expect(forge((p) => { p.exercices[0].consigne.repli = { palier: 25 }; p.exercices[0].consigne.ligne = { charge: 25, vise: 15 }; })
+      .some((x) => /^I47 — .*un repli/.test(x))).toBe(true);
+    expect(forge((p) => { p.carte = { declencheur: SLUG }; })
+      .some((x) => /^I47 — .*semaine allégée/.test(x))).toBe(true);
   });
 });
 

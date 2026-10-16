@@ -42,6 +42,12 @@ bloqués, avec pseudo et niveau).
 Écritures directes par le client : insert/delete `abonnements`, update statut → `accepte` (le suivi seulement),
 insert/delete `blocages`, insert/delete `reactions_seance`, update `profiles.compte_prive`.
 
+**La garde « aucune donnée interdite » (audit du 16/10/2026, 05 #18)** : hors production (la garde de développement du
+coach : `localhost`, les aperçus `*.pages.dev`, `?garde=1`), chaque lecture d'un autre compte — les fonctions
+`social_*`, `guilde_*`, `groupe_*` (`Donnees.inspecterLectures`) — passe `Social.champsInterditsDans` ; un poids de
+corps, une note, un RPE, un ressenti ou une douleur rendus sont une violation S1 de la garde (console, marqueur, banc).
+En production, rien ne change : la règle est d'abord en base.
+
 Le tonnage des fonctions est celui de `Bilan.volumeKg` (`faits.js`) : séries de travail, charge > 0, reps > 0,
 arrondi au centième. Les médailles affichées se choisissent par la règle de `faits.js` sur les lignes rendues par
 `social_records_seance` (une médaille par série médaillée, `set_id`).

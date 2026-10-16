@@ -956,12 +956,23 @@
   // ⚠️ 117 (audit du 16/10, 06 #3) — `rpc` NE FAIT QUE LIRE. Les fonctions de la base qui ÉCRIVENT ont chacune leur
   // écrivain au registre des écritures (`v2-architecture`) : `gesteDeGuilde` (guilde, par la file), `groupeEcrire`
   // (groupe, en direct). Les appeler par ici est refusé : la garde ne verrait pas l'écriture.
+  // ⚠️ 121 (audit du 16/10/2026, 05 #18) — CE QUE L'APP LIT D'UN AUTRE COMPTE PASSE PAR UN INSPECTEUR, quand l'app en
+  // pose un (`inspecterLectures`) : la garde de développement (`THPlan.creerGarde`, hors production) y vérifie qu'aucune
+  // donnée interdite n'arrive (`Social.champsInterditsDans` : poids de corps, note, RPE, ressenti, douleur). Les
+  // fonctions du social, de la guilde et du groupe sont les seules lectures d'un autre compte. En production, aucun
+  // inspecteur : rien ne change. Un inspecteur qui lève ne casse jamais la lecture.
+  var inspecteurLectures = null;
+  function inspecterLectures(fn) { inspecteurLectures = typeof fn === 'function' ? fn : null; }
+  var LECTURE_D_UN_AUTRE = /^(social|guilde|groupe)_/;
   async function rpc(nom, args) {
     if (GESTES_GUILDE.indexOf(nom) >= 0 || GESTES_GROUPE.indexOf(nom) >= 0) {
       throw { code: '42501', message: '« rpc » ne lit que ; « ' + nom + ' » écrit' };
     }
     var r = await client().rpc(nom, args || {});
     if (r.error) throw r.error;
+    if (inspecteurLectures && LECTURE_D_UN_AUTRE.test(nom)) {
+      try { inspecteurLectures(nom, r.data); } catch (e) { /* la garde ne casse jamais une lecture */ }
+    }
     return r.data;
   }
   async function socialProfil(pseudo) {
@@ -1123,6 +1134,7 @@
 
   var api = {
     toutesLesSeances: toutesLesSeances,
+    inspecterLectures: inspecterLectures,
     seriesDepuis: seriesDepuis,
     seriesDesSeances: seriesDesSeances,
     seancesDejaEnBase: seancesDejaEnBase,

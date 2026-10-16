@@ -5514,6 +5514,13 @@
   // Le banc lit ce que la garde a vu (le nombre de plans vérifiés) ; rien
   // d'autre ne le relit.
   Plan.garde = garde;
+  // 121 (audit du 16/10/2026, 05 #18) — LA GARDE DU SOCIAL : hors production, chaque lecture d'un autre compte (les
+  // fonctions `social_*`, `guilde_*`, `groupe_*`) passe `Social.champsInterditsDans` ; une donnée interdite (poids de
+  // corps, note, RPE, ressenti, douleur) est une violation S1 de la garde (console, marqueur, et le banc la voit).
+  Donnees.inspecterLectures(garde.active ? function (nom, donnees) {
+    var trouves = Social.champsInterditsDans(donnees);
+    if (trouves.length) garde.signaler(['S1 — « ' + nom + ' » rend une donnée interdite : ' + trouves.join(', ')], { lecture: nom });
+  } : null);
   // §14.4 (49-U14) — `?escalier=demo` se lit AU DÉMARRAGE, avant que le
   // routeur ne réécrive l'adresse ; il est ensuite retenu pour la session.
   try { demoEscalier(); } catch (e) { /* rien à retenir */ }

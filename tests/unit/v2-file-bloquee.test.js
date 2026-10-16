@@ -164,7 +164,7 @@ describe('D6 — les colonnes `integer` de `sets`', () => {
   // Le prompt donnait `duree_s` pour protégé. Il l'est contre le NÉGATIF, pas
   // contre le dépassement : c'est aussi un `integer` sans CHECK.
   test('⚠️ `duree_s` est `integer` LUI AUSSI, et débordait pareil', () => {
-    expect(dureeDe('99999999999')).toBe(Seance.DUREE_MAX_S);
+    expect(dureeDe('99999999999')).toBe(35999);   // 9:59:59, LA borne (`THModele.MAX_DUREE_S`, 119/E18)
     expect(dureeDe('99999999999')).toBeLessThanOrEqual(2147483647);
     expect(dureeDe('3600')).toBe(3600);
     expect(dureeDe('-5')).toBeNull();

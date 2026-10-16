@@ -99,7 +99,7 @@ describe('réparer', () => {
     const e = par(r.file, 'sets:s9');
     expect(e.bloquee).toBeNull();
     expect(e.donnees[0].reps).toBe(Seance.REPS_MAX_SERIE);
-    expect(e.donnees[0].duree_s).toBe(Seance.DUREE_MAX_S);
+    expect(e.donnees[0].duree_s).toBe(35999);   // 9:59:59, LA borne (`THModele.MAX_DUREE_S`, 119/E18)
     expect(e.donnees[0].id).toBe('l1');             // le reste est intact
   });
 
@@ -126,7 +126,7 @@ describe('réparer', () => {
     const r = reparer([seule({ reps: 5, duree_s: 99999999999 })]);
     expect(r.entrees).toBe(1);
     expect(r.file[0].bloquee).toBeNull();
-    expect(r.file[0].donnees[0].duree_s).toBe(Seance.DUREE_MAX_S);
+    expect(r.file[0].donnees[0].duree_s).toBe(35999);   // 9:59:59, LA borne (`THModele.MAX_DUREE_S`, 119/E18)
     expect(r.file[0].donnees[0].reps).toBe(5);
   });
 

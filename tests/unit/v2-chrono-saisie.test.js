@@ -559,3 +559,14 @@ describe('8 — l’affichage ne peut pas diverger du tampon', () => {
     expect(e.seance().exercices[0].series[0].duree_s).toBeNull();
   });
 });
+
+// 119 (audit du 16/10/2026, E18) — UNE SEULE BORNE DE DURÉE : la saisie (`modifierSerie`) et la réparation de la file
+// (`bornerLigne`) bornent à 9:59:59, la valeur du pavé ; la réparation bornait à 24 h.
+describe('119 — E18 : une seule borne de durée', () => {
+  const S = require('../../v2/js/seance.js');
+  test('`bornerLigne` et `dureeBornee` s’arrêtent à `MAX_DUREE_S`, pas à 24 h', () => {
+    expect(S.dureeBornee(50000)).toBe(Modele.MAX_DUREE_S);
+    expect(S.bornerLigne({ duree_s: 40000 })).toEqual({ ligne: { duree_s: Modele.MAX_DUREE_S }, change: true });
+    expect(S.bornerLigne({ duree_s: 35999 }).change).toBe(false);
+  });
+});

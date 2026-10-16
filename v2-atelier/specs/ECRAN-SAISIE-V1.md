@@ -258,6 +258,8 @@ Affichage : mètres sous 1 000, kilomètres au-delà — déjà en place depuis 
 #### 3 ter.2 ter Tranché à l'implémentation — chantier 25
 
 **Une seule borne, et c'est la valeur : 9:59:59.** Au-delà, le chiffre n'entre pas.
+*Précisé le 16/10/2026 (audit du 16/10, E18)* : la même borne vaut pour la réparation d'une file bloquée
+(`THSeance.bornerLigne`), qui bornait à 24 h — une seule constante, `THModele.MAX_DUREE_S`.
 
 > **Le pavé ne doit jamais produire une durée qu'il ne sait pas reprendre.** Les groupes bruts
 > accepteraient 99 minutes et 99 secondes : « 99999 » vaudrait 10 h 40 min 39 s, dont la forme

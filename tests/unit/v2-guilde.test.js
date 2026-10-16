@@ -223,6 +223,26 @@ describe('90 — faits.scoresDeGuilde : mes nombres publiés', () => {
     neuf.catalogue = () => index;
     expect(Faits.creer().scoresDeGuilde(neuf, [], 4, MAINTENANT).series_moyenne).toBe(0);
   });
+  test('⚠️ DISCRIMINANT (121, suite du 119) — une sortie (tapis seul) n’est ni une séance de la guilde, ni un exercice de sa Progression', () => {
+    const tapis = { slug: 'tapis', nom: 'Tapis', mesure: 'duree_distance', muscles_primaires: [] };
+    const squat = { slug: 'squat', nom: 'Squat', mesure: 'charge_reps', muscles_primaires: ['quadriceps'] };
+    // Cette semaine : une séance de squat (avec du tapis) et deux sorties de tapis seul ; le tapis est fait 3 fois
+    // dans le mois, le squat 2 fois.
+    const c3 = corpus([
+      ['m0', j(12), [['q0', 'squat', 100, 5], ['q1', 'tapis', null, null]]],
+      ['m1', j(13), [['q2', 'tapis', null, null]]],
+      ['m2', j(14, 9), [['q3', 'tapis', null, null]]],
+      ['m3', j(6), [['q4', 'squat', 100, 5]]]
+    ], []);
+    // La sortie a une durée et une distance (pas de charge × reps) : c'est bien une série de travail du journal.
+    c3.series.filter((x) => x.exercise_slug === 'tapis').forEach((x) => { x.duree_s = 1800; x.distance_m = 5000; });
+    const index = Modele.indexerExercices([tapis, squat]);
+    c3.catalogue = () => index;
+    expect(c3.series.filter((x) => x.exercise_slug === 'tapis').every((x) => Modele.estTravail(x))).toBe(true);
+    const s = Faits.creer().scoresDeGuilde(c3, [], 4, MAINTENANT);
+    // Avant 121 : 3 séances (les deux sorties comptaient) et 2 exercices (le tapis, 3 séances, comptait).
+    expect([s.seances, s.exercices, s.series_semaine]).toEqual([1, 1, 1]);
+  });
   test('séances prévues : le profil d’abord ; vide, la médiane de l’historique (`habitudes`) ; sans rien, 0', () => {
     const f = Faits.creer();
     const h = f.habitudes(c);

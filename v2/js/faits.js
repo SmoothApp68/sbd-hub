@@ -119,11 +119,12 @@
     }
 
     // Mes nombres de la semaine et du mois en cours, la forme de `guilde_scores` (v2_080) :
-    //   · `seances` : mes séances de la semaine (lundi → dimanche, heure locale) qui portent une série de travail ;
+    //   · `seances` : mes séances de la semaine (lundi → dimanche, heure locale) qui portent une série de musculation
+    //     (121, suite du 119 : `Semaine.estSerieDeMusculation` — ni une randonnée, ni un tapis seul) ;
     //   · `prevues` : `profiles.seances_par_semaine` (`declarees`), sinon la médiane de l'historique — `habitudes`, la
     //     fonction du programme déduit, jamais recopiée ; 0 sans rien ;
     //   · `records_semaine` : mes séries médaillées sans dépasser la charge proposée, dans la semaine ;
-    //   · `exercices` : les exercices faits dans au moins 2 séances du mois (séries de travail) ; `exercices_record` :
+    //   · `exercices` : les exercices faits dans au moins 2 séances du mois (séries de musculation, 121) ; `exercices_record` :
     //     ceux d'entre eux qui ont au moins un record sans dépasser la charge proposée dans le mois ;
     //   · 120 (D3, décision du 16/10/2026) — `series_semaine` : mes séries de MUSCULATION de la semaine
     //     (`Semaine.estSerieDeMusculation`, la règle du compte des séries de travail, 119 : ni le tapis, ni la
@@ -149,19 +150,19 @@
       seancesAvecSeries(c).forEach(function (s) {
         var j = s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
         if (!j) return;
-        var muscu = s.series.filter(function (x) { return x && x.exercise_slug && Semaine.estSerieDeMusculation(x, index[x.exercise_slug]); }).length;
-        if (muscu) {
-          var l = lundiDe(j);
-          if (l && l <= lundi) {
-            seriesParSemaine[l] = (seriesParSemaine[l] || 0) + muscu;
-            if (premierLundi === null || l < premierLundi) premierLundi = l;
-          }
+        // 121 (suite du 119, audit du 16/10/2026) — les séances et les exercices du mois sont ceux de la
+        // MUSCULATION, comme les séries : une randonnée, un tapis seul ne font ni une séance de la guilde ni un
+        // exercice de sa Progression (`Semaine.estSerieDeMusculation`, une seule règle).
+        var muscu = s.series.filter(function (x) { return x && x.exercise_slug && Semaine.estSerieDeMusculation(x, index[x.exercise_slug]); });
+        if (!muscu.length) return;
+        var l = lundiDe(j);
+        if (l && l <= lundi) {
+          seriesParSemaine[l] = (seriesParSemaine[l] || 0) + muscu.length;
+          if (premierLundi === null || l < premierLundi) premierLundi = l;
         }
-        var travail = s.series.filter(function (x) { return x && x.exercise_slug && Modele.estTravail(x); });
-        if (!travail.length) return;
         if (j >= lundi && j <= dimanche) seances++;
         if (j >= premier && j <= dernier) {
-          travail.forEach(function (x) { (parExo[x.exercise_slug] = parExo[x.exercise_slug] || {})[s.id] = true; });
+          muscu.forEach(function (x) { (parExo[x.exercise_slug] = parExo[x.exercise_slug] || {})[s.id] = true; });
         }
       });
       var d = Number(declarees);

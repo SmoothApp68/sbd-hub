@@ -56,7 +56,8 @@ Remplace, pour la construction, `GAMIFICATION-V3.md` et sa révision du 09/10 (p
 ## 4. L'XP et le niveau global
 
 - **XP** = **20** par série médaillée (lignes du journal, **une par série** quel que soit le nombre de types battus :
-  on compte les `set_id` distincts) + **165** par semaine active + les **points de succès** (§5).
+  on compte les `set_id` distincts ; depuis le 16/10/2026, D1, jamais une ligne `un_rm_estime` — la force estimée
+  n'est plus un record, `recordsDuJournal` l'ignore) + **165** par semaine active + les **points de succès** (§5).
 - **Réserve** = Σ min(points du muscle, 7 500) sur les sept muscles + **0,5 × XP**.
 - **Niveau** = ⌊√(réserve ÷ 7,25)⌋, plafonné à **100** (le plafond est 72 500 = 7 × 7 500 + 0,5 × 40 000).
 - **Après 100** : **Ω** = ⌊(réserve − 72 500) ÷ 7 250⌋ (Ω0 = juste 100 ; un Ω de plus tous les 7 250 points), sur le

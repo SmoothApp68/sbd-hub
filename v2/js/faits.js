@@ -469,14 +469,21 @@
     // tous facultatifs (`depuis`/`jusqua` bornent `battu_le`, comparés comme
     // des instants). Rend des copies, de la plus ancienne à la plus récente ;
     // à date égale, dans l'ordre de la phrase de la médaille (§9.23).
-    var ORDRE_DES_TYPES = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'un_rm_estime',
+    //
+    // 120 (D1, audit du 16/10/2026) — « La force estimée reste, comme progression […] ; elle sort des records, des
+    // médailles, du fil et de l'XP ; les records sont les vraies barres. » Les lignes `un_rm_estime` écrites avant
+    // restent en base, immuables (`records_immuable`) : ELLES SONT IGNORÉES ICI, à la lecture — la seule, donc le jeu,
+    // le récap de fin de séance et tout lecteur à venir ne les voient plus. `medaillesDuSocial` (le fil) aussi.
+    var ORDRE_DES_TYPES = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap',
                            'volume_seance', 'duree_s', 'distance_m'];
+    var TYPES_HORS_RECORDS = ['un_rm_estime'];
+    function estUnRecord(l) { return !!l && TYPES_HORS_RECORDS.indexOf(l.type) < 0; }
     function recordsDuJournal(c, filtre) {
       var f = filtre || {};
       var instant = function (x) { var t = Date.parse(x); return isNaN(t) ? null : t; };
       var depuis = f.depuis ? instant(f.depuis) : null, jusqua = f.jusqua ? instant(f.jusqua) : null;
       return (c.journal || []).filter(function (l) {
-        if (!l) return false;
+        if (!estUnRecord(l)) return false;
         if (f.slug && l.exercise_slug !== f.slug) return false;
         if (f.seance && l.session_id !== f.seance) return false;
         if (f.type && l.type !== f.type) return false;
@@ -514,7 +521,9 @@
       var index = (c && c.catalogue && c.catalogue()) || {};
       var parSerie = {}, ordre = [];
       (lignes || []).forEach(function (l) {
-        if (!l || !l.set_id) return;
+        // 120 (D1) — une ligne `un_rm_estime` n'est pas un record : une série médaillée par elle seule n'a pas de
+        // médaille (audit 05 #2 : « 1 record » dans le fil).
+        if (!estUnRecord(l) || !l.set_id) return;
         if (!parSerie[l.set_id]) { parSerie[l.set_id] = []; ordre.push(l.set_id); }
         parSerie[l.set_id].push(l);
       });

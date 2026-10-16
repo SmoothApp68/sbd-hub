@@ -1763,6 +1763,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    exercice (maquette « Un exercice ») : le tableau à reps égales, son recul, et
    l'écart en couleur du coach quand il monte. Jamais de rouge. */
 .exo-records{margin-bottom:var(--e3)}
+.exo-force{margin-bottom:var(--e3)}
 /* 109 (MOTEUR §9.25) — « Mon objectif » : la jauge dans la couleur du coach, la ligne de date en texte ordinaire.
    Jamais de rouge (« jamais impossible, jamais en rouge »). */
 .exo-objectif{margin-bottom:var(--e3)}

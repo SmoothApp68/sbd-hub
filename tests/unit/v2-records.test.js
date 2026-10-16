@@ -27,6 +27,24 @@ require('../../v2/js/palier.js');
 require('../../v2/js/moteur.js');
 const F = require('./fixtures/cas-55-1-records.json');
 
+// 120 (D1, décision d'Aurélien du 16/10/2026, audit du 16/10) — « La force estimée reste, comme progression […] ; elle
+// sort des records, des médailles, du fil et de l'XP ; les records sont les vraies barres. » Le fichier de cas vient
+// de la référence `records55.py`, d'avant D1 : il garde ses lignes `un_rm_estime` et la phrase « 1RM estimé : ≈ … kg. »
+// de la médaille. On les retire ICI, à la lecture, explicitement — le fichier n'est pas corrigé en silence ; la
+// référence est à régénérer côté Claude.ai. Une médaille qui n'aurait eu que cette ligne n'en est plus une.
+const SANS_1RM = / ?1RM estimé : ≈\u00a0[\d\s\u00a0,]+\u00a0kg\./;
+function selonD1(records, phrase) {
+  const r = (records || []).filter((x) => x.type !== 'un_rm_estime');
+  if (!r.length) return { records: r, phrase: null };
+  return { records: r, phrase: phrase ? [phrase[0].replace(SANS_1RM, ''), phrase[1]] : phrase };
+}
+['rejeu', 'synthetiques'].forEach((k) => {
+  (k === 'rejeu' ? F.rejeu.attendus : F.synthetiques).forEach((a) => {
+    const d = selonD1(a.records, a.phrase);
+    a.records = d.records; a.phrase = d.phrase;
+  });
+});
+
 const COL = F.colonnes_serie;
 const serieDe = (t) => {
   const o = {};
@@ -210,7 +228,7 @@ describe('§9.23 — le tableau des records de la page (aujourd\'hui, il y a 6 m
     const t = Mo.tableauDesRecords(seances, ['2026-09-16T00:00', '2026-03-16T00:00', '2025-09-16T00:00'], { equipement: 'barre' });
     expect(t.every((l) => l.valeurs[0].charge >= l.valeurs[1].charge && l.valeurs[1].charge >= l.valeurs[2].charge)).toBe(true);
   });
-  test('le 1RM estimé de la page : le meilleur Epley de 3 à 10 reps (122,5 × 6 → 147), avec sa date', () => {
+  test('la force estimée de la page (D1, hors des records) : le meilleur Epley de 3 à 10 reps (122,5 × 6 → 147), avec sa série', () => {
     const r = Mo.recordsDeLExercice(seances, '2026-09-16T00:00', { equipement: 'barre', corps: false });
     expect([Math.round(r.unRM.valeur), r.unRM.charge, r.unRM.reps, r.unRM.date]).toEqual([147, 122.5, 6, '2026-09-08T17:03']);
     expect([r.lourde.charge, r.lourde.reps, r.lourde.date]).toEqual([140, 1, '2025-11-28T15:45']);
@@ -268,5 +286,31 @@ describe('ECRAN §7 quater.3 (H3, #371) — la table par reps suit le périmètr
   test('à la barre : la table de toujours, sans mention', () => {
     expect(table('barre').map((l) => [l.reps, l.charge])).toEqual([[8, 150]]);
     expect(Mo.recordsDeLExercice(se, '2026-10-06T12:00', { equipement: 'barre' }).douzeMois).toBe(false);
+  });
+});
+
+// 120 (D1, audit du 16/10/2026 : 04 F6, 05 #2, 06 #10) — LA FORCE ESTIMÉE EST UNE PROGRESSION, PAS UN RECORD.
+// « La force estimée reste, comme progression (page de l'exercice : « Force estimée ≈ 157 kg, d'après 140 × 5 », sa
+// courbe) ; elle sort des records, des médailles, du fil et de l'XP ; les records sont les vraies barres. »
+describe('120 (D1) — la force estimée n’est plus un record', () => {
+  const t = (charge_kg, reps) => ({ exercise_slug: 'presse', charge_kg, reps, type_serie: 'travail' });
+  test('⚠️ DISCRIMINANT — le faux record de l’audit (05 #2) : 100 × 10 après 100 × 12 ne bat rien', () => {
+    const hist = [{ debut: '2026-09-01T18:00', series: [t(90, 10)] }, { debut: '2026-09-08T18:00', series: [t(100, 12)] }];
+    const se = { debut: '2026-09-15T18:00', series: [t(100, 10)] };
+    // Avant D1 : `[{ type: 'un_rm_estime', valeur: 133.3 }]` — une série moins bonne que 100 × 12, médaillée.
+    expect(Mo.recordsBattus(hist, se, 0, { equipement: 'barre' })).toEqual([]);
+    expect(Mo.phraseDeRecord([], 'presse', se.debut)).toBeNull();
+  });
+  test('une vraie barre reste un record, sans « 1RM estimé » dans la médaille', () => {
+    const hist = [{ debut: '2026-09-01T18:00', series: [t(140, 5)] }];
+    const se = { debut: '2026-09-15T18:00', series: [t(142.5, 5)] };
+    const r = Mo.recordsBattus(hist, se, 0, { equipement: 'barre' });
+    expect(r.map((x) => x.type)).toEqual(['charge_a_reps', 'charge_max']);
+    expect(Mo.phraseDeRecord(r, 'presse', se.debut)[0]).not.toMatch(/1RM|estim/);
+  });
+  test('la page garde la force estimée, avec la série qui la donne (3 à 10 reps, le périmètre des records)', () => {
+    const se = [{ debut: '2026-09-01T18:00', series: [t(140, 5), t(100, 12), t(60, 2)] }];
+    const u = Mo.recordsDeLExercice(se, '2026-10-01T12:00', { equipement: 'barre' }).unRM;
+    expect([Math.round(u.valeur), u.charge, u.reps]).toEqual([163, 140, 5]);
   });
 });

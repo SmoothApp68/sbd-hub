@@ -110,12 +110,22 @@ describe('faits.medaillesDuSocial — une médaille par série médaillée', () 
   const c = { catalogue: () => ({ 'squat-barre': { nom: 'Squat (Barre)' } }) };
   test('deux records d’une même série = UNE médaille, sa mesure relue sur « charge à reps »', () => {
     const m = faits.medaillesDuSocial(c, [
-      { set_id: 's1', battu_le: '2026-10-11T10:00:00Z', exercise_slug: 'squat-barre', type: 'un_rm_estime', valeur: 93 },
+      { set_id: 's1', battu_le: '2026-10-11T10:00:00Z', exercise_slug: 'squat-barre', type: 'charge_max', valeur: 80 },
       { set_id: 's1', battu_le: '2026-10-11T10:00:00Z', exercise_slug: 'squat-barre', type: 'charge_a_reps', valeur: 80, reps: 5 },
       { set_id: 's2', battu_le: '2026-10-11T10:00:00Z', exercise_slug: 'hip-thrust', type: 'reps_a_charge', valeur: 8, charge: 100 }]);
     expect(m.map((x) => [x.serieId, x.mesure])).toEqual([['s1', '80 kg × 5'], ['s2', '100 kg × 8']]);
-    expect(m[0].types).toEqual(['charge_a_reps', 'un_rm_estime']);
+    expect(m[0].types).toEqual(['charge_a_reps', 'charge_max']);
     expect(m[0].nom).toMatch(/^Squat/);
+  });
+  // 120 (D1, audit 05 #2) — « La force estimée […] sort des records, des médailles, du fil et de l'XP. » Les lignes
+  // `un_rm_estime` écrites avant restent en base (immuables) : le fil les ignore. Une série médaillée par la seule
+  // estimation n'a plus de médaille (« 1 record » dans le fil des abonnés).
+  test('⚠️ DISCRIMINANT — une ligne `un_rm_estime` n’est pas une médaille ; seule, la série n’en a pas', () => {
+    const m = faits.medaillesDuSocial(c, [
+      { set_id: 's1', battu_le: '2026-10-11T10:00:00Z', exercise_slug: 'squat-barre', type: 'un_rm_estime', valeur: 133.3 },
+      { set_id: 's2', battu_le: '2026-10-11T10:00:00Z', exercise_slug: 'squat-barre', type: 'un_rm_estime', valeur: 93 },
+      { set_id: 's2', battu_le: '2026-10-11T10:00:00Z', exercise_slug: 'squat-barre', type: 'charge_a_reps', valeur: 80, reps: 5 }]);
+    expect(m.map((x) => [x.serieId, x.types])).toEqual([['s2', ['charge_a_reps']]]);
   });
   test('rien sans ligne', () => expect(faits.medaillesDuSocial(c, [])).toEqual([]));
 });

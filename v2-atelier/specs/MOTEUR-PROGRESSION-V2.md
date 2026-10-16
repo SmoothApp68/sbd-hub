@@ -1352,7 +1352,7 @@ propose (VOIX-DU-COACH). Le calendrier des 21 jours ne commente pas l'assiduité
 **Les records médaillés** (ceux de Hevy, plus l'ancien record) :
 - **la charge pour au moins N reps** (N = les reps de la série) : battue si aucune série passée n'a fait cette charge ou plus pour N reps ou plus. Quand la même charge a déjà été faite, le record se dit en reps (« Record à 130 kg : 5 reps. Avant : 4 reps, le 22 nov. 2025. ») ; sinon en charge (« Record à 4 reps : 130 kg. Avant : 125 kg à 4 reps, le 15 sept. »). Au poids du corps : « Record au poids du corps : 9 reps. » ; avec une aide (charge négative) : « 50 kg d'aide » ; moins d'aide est un record ;
 - **la charge la plus lourde**, toutes reps confondues ; à la barre, quand elle est un multiple de 10 kg : **le cap rond** (« Premier 150 kg au soulevé. ») ;
-- **le 1RM estimé** (Epley, la même formule que l'estimation du report §9.10), seulement depuis une série de **3 à 10 reps** et jamais au poids du corps (ECRAN-SAISIE §7 bis.15 : hors de cette plage, l'estimation n'est pas fiable) ; dit « estimé » : « 1RM estimé : ≈ 147 kg. » ;
+- ~~**le 1RM estimé**~~ — **retiré des records le 16/10/2026** (décision d'Aurélien D1, audit du 16/10) : « La force estimée reste, comme progression (page de l'exercice : « Force estimée ≈ 157 kg, d'après 140 × 5 », sa courbe) ; elle sort des records, des médailles, du fil et de l'XP ; les records sont les vraies barres. » Jusque-là, le 1RM estimé (Epley, 3 à 10 reps) était un record médaillé (`un_rm_estime`, « 1RM estimé : ≈ 147 kg. ») : une série moins bonne qu'une autre (100 kg × 10 après 100 kg × 12) pouvait le battre. Plus aucune ligne `un_rm_estime` ne s'écrit dans `records` ; celles d'avant restent (la table est immuable) et **tous les lecteurs les ignorent** (le jeu et le récap de fin de séance par `faits.recordsDuJournal`, le fil par `faits.medaillesDuSocial`, le récap du groupe par `groupe_recap_de`, migration v2_093). La force estimée se lit sur la page de l'exercice (ECRAN-SAISIE §7 bis.15, MOTEUR §16) ;
 - **le volume de l'exercice dans la séance** (charge × reps ; au poids du corps, le total de reps), sur la série qui le fait dépasser, une fois, et seulement s'il y a déjà eu une série de cet exercice dans la séance ;
 - **la plus longue durée, la plus longue distance** (cardio, gainage).
 
@@ -1364,11 +1364,11 @@ propose (VOIX-DU-COACH). Le calendrier des 21 jours ne commente pas l'assiduité
 - **Pas de médaille à la première séance d'un exercice** : il n'y a rien à battre.
 - **Machines, poulies, haltères et Smith** : comparés sur **les 12 derniers mois** — la même liste de matériels et la même fenêtre que §10.2 (un seul câblage) : d'une salle à l'autre, les piles et les haltères changent. La salle ne sert pas : elle ne se déclare qu'à la fin de la séance (relevé 55-0). À la barre et au poids du corps, toute la vie ; la durée et la distance, toute la vie.
 
-**Une médaille par série**, même si elle bat plusieurs records : la phrase les nomme tous, dans cet ordre — le cap rond ou la charge pour N reps, la charge la plus lourde (si elle n'est pas déjà dite), le 1RM estimé, le volume de la séance, la durée et la distance. La ligne grise dit le record d'avant et sa date (« le 15 sept. », l'année si elle diffère).
+**Une médaille par série**, même si elle bat plusieurs records : la phrase les nomme tous, dans cet ordre — le cap rond ou la charge pour N reps, la charge la plus lourde (si elle n'est pas déjà dite), le volume de la séance, la durée et la distance (16/10/2026, D1 : plus le 1RM estimé). La ligne grise dit le record d'avant et sa date (« le 15 sept. », l'année si elle diffère).
 
 **Le journal des records** (chantier 58, 07/10/2026 ; migrations `v2_061` et `v2_062`). Chaque record battu s'écrit **une fois**
 dans la table `records` : une ligne par série et par type (§9.23 : charge pour au moins N reps ou reps à charge, charge
-la plus lourde, cap rond, 1RM estimé, volume de la séance, durée, distance), avec sa valeur, la charge d'un record « reps à charge »,
+la plus lourde, cap rond, volume de la séance, durée, distance ; le 1RM estimé jusqu'au 16/10/2026, D1), avec sa valeur, la charge d'un record « reps à charge »,
 l'unité d'un record de volume (kg ou reps), l'ancien record et sa date, « sur 12 mois » pour un matériel de salle, et la date où il a été battu. **La règle reste celle de la médaille** : le
 journal ne calcule rien, il garde ce que la fonction des records (le module des faits) a constaté. Il s'écrit **à
 « Terminer »**, par la file d'envoi, pour les séries de la séance ; un envoi répété ne crée pas de doublon. L'historique
@@ -2152,11 +2152,26 @@ L'erreur du modèle explose avec le nombre de reps :
 
 Contrôle contre les barres réelles : couché 134,0 estimé vs 140 réel ; squat 141,1 vs 145 ; soulevé 172,5 vs 170. Erreur ~4 %, soit **le niveau du bruit irréductible du 1RM lui-même** (Grgic 2020, CV médian 4,2 %). Il n'y a plus rien à gratter.
 
+> **Révisé le 16/10/2026 (décision d'Aurélien D1, audit du 16/10)** : « La force estimée reste, comme progression (page de l'exercice : « Force estimée ≈ 157 kg, d'après 140 × 5 », sa courbe) ; elle sort des records, des médailles, du fil et de l'XP ; les records sont les vraies barres. »
+> Ce qui en suit pour les trois règles :
+> - **la règle 3 est tenue** : la force estimée n'est ni un record, ni une médaille, ni une ligne du journal `records`
+>   (§9.23), ni un record du fil, du récap de groupe ou du jeu (XP, succès) ;
+> - **la règle 2 cède à la forme décidée** : « Force estimée ≈ 157 kg, d'après 140 kg × 5 » — un nombre avec « ≈ », et
+>   **la série qui le donne** (la fourchette disait l'incertitude ; la série dit d'où vient le chiffre, et l'utilisateur
+>   voit qu'il vient de 5 reps ou de 10). Sur la page de l'exercice seulement, hors de « TES RECORDS » ;
+> - **la règle 1 cède à la plage de ECRAN-SAISIE §7 bis.15** (3 à 10 reps, une charge soulevée, jamais au poids du
+>   corps), plus récente (06/10/2026) et la seule câblée (`Modele.estimable1RM`) : la page dit la meilleure estimation
+>   des séries de travail de 3 à 10 reps, sur le périmètre des records (§9.23 : 12 mois pour un matériel de salle). À
+>   10 reps, l'erreur mesurée (§16.1 : 2 reps) reste lisible puisque la série est dite. *Si Aurélien veut revenir à
+>   8 reps, c'est `UN_RM_REPS_MAX` (`modele.js`), une constante.*
+> Pas de courbe sur la page aujourd'hui (aucune vue de courbe n'y est construite) : une courbe demanderait une maquette.
+
 ### 16.3 Le défaut de Hevy, à ne pas reproduire
 
 Hevy affiche « Meilleur 1RM : 186,67 kg » au soulevé hex. Ce nombre est calculé par Epley sur une série de **10 reps**, hors du domaine où la formule tient, sur le mouvement où toutes les équations se plantent le plus (LeSuer 1997).
 
 Formulation retenue à la place : *« Ton maximum estimé : 170 à 190 kg. Tu n'as jamais soulevé ça — ta barre la plus lourde reste 150 kg. »*
+*(Remplacée le 16/10/2026, D1 : « Force estimée ≈ 157 kg, d'après 140 kg × 5 », sur la page de l'exercice, à côté de ses records en vraies barres.)*
 
 Et quand aucune série de la séance n'est sous 8 reps, l'app affiche **un tiret**. C'est exactement là que Hevy invente 173,33 kg.
 

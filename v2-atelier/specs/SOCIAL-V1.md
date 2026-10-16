@@ -173,7 +173,10 @@ elle retire ses scores.
 - **1c. Révisions** : le pari relié à la série par `set_observe`.
 - **1d. Types de record qui comptent** : `charge_a_reps`, `reps_a_charge`, `charge_max`, `cap`, `duree_s`, `distance_m`.
   Exclus : `un_rm_estime` (une estimation, pas un fait) et `volume_seance` (pousserait au volume). Une série « à fond »
-  compte (c'est un fait).
+  compte (c'est un fait). **16/10/2026 (D1, audit du 16/10)** : la force estimée n'est plus un record nulle part
+  (MOTEUR §9.23) — plus aucune ligne `un_rm_estime` ne s'écrit, et celles d'avant sont ignorées aussi par le fil
+  (`faits.medaillesDuSocial`) et le récap du groupe (`groupe_recap_de`, v2_093) : une série que seule l'estimation
+  médaillait ne compte plus « 1 record » (audit 05 #2).
 - **2. Séances prévues** (défi 1) : `profiles.seances_par_semaine`. S'il est vide (3 profils sur 8 aujourd'hui : alexis,
   jordan, lea), la médiane hebdomadaire de l'historique, avec la même fonction que faits.js:618 (`habitudes`), sans la
   recopier. Chaque membre est plafonné à ses séances prévues. Calcul sur l'appareil, puis publication du score déjà

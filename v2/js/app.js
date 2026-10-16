@@ -10358,7 +10358,8 @@
     if (mesure !== 'charge_reps') record.date = record.cle || null;
 
     // MOTEUR §9.23 (55-1), ECRAN §7 bis.15 — LES RECORDS EN TÊTE : la charge
-    // la plus lourde et le 1RM estimé (« ≈ », 3 à 10 reps), avec leur date ;
+    // la plus lourde, avec sa date (120, D1 : la force estimée — « ≈ », 3 à 10
+    // reps — se dit À PART, hors des records : « d'après 140 kg × 5 ») ;
     // le tableau à 1, 3, 5, 8, 10 reps — aujourd'hui, il y a 6 mois, il y a
     // 1 an ; le rapport au poids (la charge de travail du coach, divisée par
     // une pesée de moins de 14 jours).

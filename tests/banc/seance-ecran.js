@@ -13844,7 +13844,8 @@ const SETS_IMPORTES = [
     const m1 = await medailles();
     ok('[P55] DISCRIMINANT — 125 × 5 bat un record : la médaille SOUS la rangée 1, avec le record d’avant et sa date',
       m1 && m1.length === 1 && m1[0].apres === 0 &&
-        sp(m1[0].gras) === 'Record à 125 kg : 5 reps. 1RM estimé : ≈ 146 kg.' &&
+        // 120 (D1) — la force estimée n'est plus dans la médaille.
+        sp(m1[0].gras) === 'Record à 125 kg : 5 reps.' &&
         sp(m1[0].gris) === sp('Avant : 4 reps, ' + dateJ13 + (/\.$/.test(dateJ13) ? '' : '.')), JSON.stringify([m1, dateJ13]));
     await capturer55('1-medaille');
     // 58-2 — le journal des records existe désormais (`records`), mais il ne
@@ -14035,12 +14036,16 @@ const SETS_IMPORTES = [
           Array.from(f.querySelectorAll('.exo-li')).map((l) => l.textContent)),
         note: (c.querySelector('.exo-note') || {}).textContent || null,
         record: Array.from(document.querySelectorAll('#page-exercice .exo-fiche .exo-li'))
-          .filter((l) => /^Record de charge/.test(l.textContent)).map((l) => l.textContent) };
+          .filter((l) => /^Record de charge/.test(l.textContent)).map((l) => l.textContent),
+        // 120 (D1) — la force estimée, HORS de « TES RECORDS ».
+        force: Array.from(document.querySelectorAll('#page-exercice .exo-force .exo-li')).map((l) => l.textContent),
+        forceDansRecords: !!c.querySelector('.exo-force') || /estim/i.test(c.textContent) };
     });
     await capturer55('5-exercice');
-    ok('[P55] DISCRIMINANT — en tête de la vue : la charge la plus lourde (125 kg × 5) et le 1RM estimé (≈ 146 kg)',
-      exoP && exoP.fiche.length === 2 && /^Charge la plus lourde/.test(exoP.fiche[0]) && /125\s*kg\s*×\s*5/.test(sp(exoP.fiche[0])) &&
-        /^1RM estimé/.test(exoP.fiche[1]) && /≈\s*146\s*kg/.test(sp(exoP.fiche[1])), JSON.stringify(exoP));
+    ok('[P55] DISCRIMINANT — en tête de la vue : la charge la plus lourde (125 kg × 5) ; la force estimée (≈ 146 kg, d’après 125 kg × 5) À PART, hors des records (120, D1)',
+      exoP && exoP.fiche.length === 1 && /^Charge la plus lourde/.test(exoP.fiche[0]) && /125\s*kg\s*×\s*5/.test(sp(exoP.fiche[0])) &&
+        exoP.force.length === 1 && /^Force estimée/.test(exoP.force[0]) && /d’après 125\s*kg\s*×\s*5/.test(sp(exoP.force[0])) &&
+        /≈\s*146\s*kg/.test(sp(exoP.force[0])) && !exoP.forceDansRecords, JSON.stringify(exoP));
     ok('[P55] le tableau à reps égales : 1, 3, 5 reps à 125 kg (8 et 10 reps jamais faits) ; rien il y a 6 mois ni 1 an, aucun écart',
       exoP && exoP.tete.join('|') === 'Au moins|Record|Le|Il y a 6 mois|Il y a 1 an' &&
         JSON.stringify(exoP.lignes.map((l) => [l[0], sp(l[1]), l[3], l[4]])) ===
@@ -14118,8 +14123,8 @@ const SETS_IMPORTES = [
   // Le journal (`records`) garde chaque record UNE fois : une ligne par série
   // et par type. Le décor : 36 séances d'une barre, une série chacune, de plus
   // en plus lourde (60 + 2,5 k kg × 5) — chaque séance après la première bat
-  // la charge pour 5 reps, la charge la plus lourde et le 1RM estimé, et un cap
-  // rond tous les 10 kg ; et 4 séances d'une machine (record « sur 12 mois »).
+  // la charge pour 5 reps, la charge la plus lourde (120, D1 : plus le 1RM
+  // estimé), et un cap rond tous les 10 kg ; et 4 séances d'une machine (record « sur 12 mois »).
   // L'ORACLE EST ÉCRIT ICI, à la main, depuis le décor — jamais relu dans l'app.
   //
   //   A. LE REMPLISSAGE : le journal du serveur vide, l'app le remplit une fois,
@@ -14200,23 +14205,22 @@ const SETS_IMPORTES = [
     ok('[J58] prémisse : le remplissage est allé au bout, la file est vide, le journal se dit « rempli »',
       fini, JSON.stringify([eA, await fileJ(), await metaJ()]));
     // L'oracle : pour chaque séance k ≥ 1 du décor, la charge pour 5 reps, la
-    // charge la plus lourde, le 1RM estimé (et le cap rond tous les 10 kg) ;
-    // aucune à la première (rien à battre).
+    // charge la plus lourde (et le cap rond tous les 10 kg) ; aucune à la
+    // première (rien à battre). 120 (D1) : plus de 1RM estimé.
     const fautesA = [];
     for (let k = 0; k < N58; k++) {
       const c = chargeDe(k), set = 'j58-' + k + '-s1';
-      const attendu = k === 0 ? '' : ['charge_a_reps', 'charge_max', 'un_rm_estime']
+      const attendu = k === 0 ? '' : ['charge_a_reps', 'charge_max']
         .concat(c % 10 === 0 ? ['cap'] : []).sort().join(',');
       if (typesDe(set) !== attendu) fautesA.push(k + ' : ' + typesDe(set) + ' ≠ ' + attendu);
       if (!k) continue;
       const l = (t) => lignesDe(set).filter((x) => x.type === t)[0] || {};
-      const car = l('charge_a_reps'), cm = l('charge_max'), um = l('un_rm_estime');
+      const car = l('charge_a_reps'), cm = l('charge_max');
       if (!(presDe(car.valeur, c) && car.reps === 5 && presDe(car.ancien, chargeDe(k - 1)) &&
             car.ancien_le === debutsJ[k - 1] && car.battu_le === debutsJ[k] && car.charge === null &&
             car.unite === null && car.sur_douze_mois === false && car.session_id === 'j58-' + k &&
             car.exercise_slug === 'journal-u58' && car.user_id === 'u-banc')) fautesA.push(k + ' charge_a_reps ' + JSON.stringify(car));
       if (!(presDe(cm.valeur, c) && presDe(cm.ancien, chargeDe(k - 1)) && cm.reps === null)) fautesA.push(k + ' charge_max ' + JSON.stringify(cm));
-      if (!(presDe(um.valeur, c * (1 + 5 / 30)) && presDe(um.ancien, chargeDe(k - 1) * (1 + 5 / 30)))) fautesA.push(k + ' 1RM ' + JSON.stringify(um));
     }
     ok('[J58] DISCRIMINANT — le remplissage écrit, pour chaque séance du décor, exactement les records de l’oracle, champ par champ',
       fautesA.length === 0, JSON.stringify(fautesA.slice(0, 4)));
@@ -14273,10 +14277,11 @@ const SETS_IMPORTES = [
     const derniere = debutsJ[N58 - 1];
     const lJ = (i, t) => lignesDe(setsJ[i]).filter((x) => x.type === t)[0] || {};
     const debutJ = (base.sessions.filter((x) => x.id === enCoursJ)[0] || {}).debut;
-    ok('[J58] DISCRIMINANT — « Terminer » écrit une ligne par série et par type : 150 × 2 (charge pour 2 reps, la plus lourde, cap rond), 100 × 5 (volume), 147,5 × 6 (reps à charge, 1RM estimé)',
+    ok('[J58] DISCRIMINANT — « Terminer » écrit une ligne par série et par type : 150 × 2 (charge pour 2 reps, la plus lourde, cap rond), 100 × 5 (volume), 147,5 × 6 (reps à charge ; 120, D1 : plus de 1RM estimé)',
       setsJ.length === 3 && typesDe(setsJ[0]) === 'cap,charge_a_reps,charge_max' &&
-        typesDe(setsJ[1]) === 'volume_seance' && typesDe(setsJ[2]) === 'reps_a_charge,un_rm_estime' &&
-        base.records.filter((x) => x.session_id === enCoursJ).length === 6,
+        typesDe(setsJ[1]) === 'volume_seance' && typesDe(setsJ[2]) === 'reps_a_charge' &&
+        base.records.filter((x) => x.session_id === enCoursJ).length === 5 &&
+        !base.records.some((x) => x.type === 'un_rm_estime'),
       JSON.stringify(base.records.filter((x) => x.session_id === enCoursJ).map((x) => [x.set_id, x.type])));
     ok('[J58] chaque ligne porte ce que la médaille a constaté : la charge d’un « reps à charge », l’unité d’un volume, l’ancien record et sa date',
       presDe(lJ(0, 'charge_a_reps').valeur, 150) && lJ(0, 'charge_a_reps').reps === 2 &&
@@ -14285,7 +14290,6 @@ const SETS_IMPORTES = [
         presDe(lJ(1, 'volume_seance').ancien, 737.5) &&
         presDe(lJ(2, 'reps_a_charge').valeur, 6) && presDe(lJ(2, 'reps_a_charge').charge, 147.5) &&
         presDe(lJ(2, 'reps_a_charge').ancien, 5) &&
-        presDe(lJ(2, 'un_rm_estime').valeur, 177) && presDe(lJ(2, 'un_rm_estime').ancien, 147.5 * (1 + 5 / 30)) &&
         base.records.filter((x) => x.session_id === enCoursJ).every((x) => x.battu_le === debutJ && x.sur_douze_mois === false),
       JSON.stringify(base.records.filter((x) => x.session_id === enCoursJ)));
     ok('[J58] le récap (71) montre ces trois séries, la feuille plus aucune — le journal garde ce qu’il affiche',
@@ -17376,9 +17380,11 @@ const SETS_IMPORTES = [
       serieAutre('sl-2', LEA, 'squat-barre', 2, 100, 10), serieAutre('sl-3', LEA, 'squat-barre', 3, 100, 10),
       serieAutre('sl-4', LEA, 'squat-barre', 4, 100, 10),
       serieAutre('sa-1', 'a0000000-0000-4000-8870-000000000004', 'dc-barre', 1, 80, 8));
-    // Deux records de la MÊME série : une médaille.
+    // Deux records de la MÊME série : une médaille. 120 (D1, audit 05 #2) — et une série médaillée par la seule
+    // estimation (une ligne `un_rm_estime` d'avant D1, immuable en base) : aucune médaille, « 1 » record au fil.
     S.records.push({ set_id: 'sl-4', session_id: LEA, battu_le: iso(hier), exercise_slug: 'squat-barre', type: 'charge_a_reps', valeur: 100, reps: 10 },
-      { set_id: 'sl-4', session_id: LEA, battu_le: iso(hier), exercise_slug: 'squat-barre', type: 'un_rm_estime', valeur: 133 });
+      { set_id: 'sl-4', session_id: LEA, battu_le: iso(hier), exercise_slug: 'squat-barre', type: 'charge_max', valeur: 100 },
+      { set_id: 'sl-3', session_id: LEA, battu_le: iso(hier), exercise_slug: 'squat-barre', type: 'un_rm_estime', valeur: 133 });
     const chemin = () => page.evaluate(() => location.pathname);
     const largeurs = [];
     const mesurer = async (ecran) => {
@@ -17432,7 +17438,7 @@ const SETS_IMPORTES = [
     ok('[social] DISCRIMINANT — acceptée : le fil montre la séance terminée de lea, et SEULEMENT elle (ni la masquée, ni l’en cours)',
       f1.cartes.length === 1 && f1.cartes[0].id === LEA && /Bas du corps/.test(f1.cartes[0].texte) &&
         !/Séance masquée|Séance en cours/.test(JSON.stringify(f1)), JSON.stringify(f1));
-    ok('[social] la carte : le tonnage (séries de travail seulement), UNE médaille pour une série à deux records, « Tu es à jour »',
+    ok('[social] la carte : le tonnage (séries de travail seulement), UNE médaille pour une série à deux records, aucune pour la série que seule l’estimation médaillait (120, D1), « Tu es à jour »',
       f1.cartes[0].tonnes === '3 t' && f1.cartes[0].records === '1' && f1.cartes[0].meds.length === 1 &&
         /100 kg × 10/.test(f1.cartes[0].meds[0]) && f1.fin === 'Tu es à jour · les 30 derniers jours', JSON.stringify(f1.cartes[0]));
     ok('[social] le sous-onglet Fil, à côté du jeu, dans « Jeu & amis »', await page.evaluate(() =>

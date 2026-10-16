@@ -1180,7 +1180,7 @@ Cinq vues de courbe, sélecteur en pastilles, trois périodes (3 mois · 1 an ·
 | Meilleure série | courbe | répond à « je progresse » quand la charge ne bouge pas |
 | Reps totales | courbe | utile en hypertrophie |
 | Tonnage | **barres** | quantité produite, pas niveau atteint |
-| 1RM estimé | courbe **pointillée** hors plage | voir ci-dessous |
+| Force estimée (le 1RM d'Epley ; « 1RM estimé » jusqu'au 16/10/2026) | courbe **pointillée** hors plage | voir ci-dessous ; une progression, jamais un record (D1, 16/10/2026) |
 
 > **Le 1RM estimé n'est pas la vue par défaut, et c'est un choix mesuré.** Il n'est fiable
 > qu'entre **3 et 10 reps à effort constant** ; la médiane d'aurel_br est à 10-12 reps et
@@ -1188,8 +1188,10 @@ Cinq vues de courbe, sélecteur en pastilles, trois périodes (3 mois · 1 an ·
 > comme la première cause d'estimation fausse. Le banc l'avait déjà écarté comme prédicteur
 > (§9.5 du moteur). Il reste offert, avec sa réserve affichée.
 
-**En tête de la vue, les records — ajoutés le 06/10/2026 (chantier 55, MOTEUR §9.23)** : la charge la plus lourde, le 1RM estimé (dit « ≈ », depuis 3 à 10 reps), chacun avec sa date ; puis **le tableau des records** à 1, 3, 5, 8 et 10 reps, aujourd'hui, il y a 6 mois et il y a 1 an ; puis **le rapport au poids** si une pesée a moins de 14 jours. Le « record de charge avec sa date » des repères ci-dessous et ces records viennent de **la même fonction** (MOTEUR §9.23).
+**En tête de la vue, les records — ajoutés le 06/10/2026 (chantier 55, MOTEUR §9.23)** : la charge la plus lourde, avec sa date ; puis **le tableau des records** à 1, 3, 5, 8 et 10 reps, aujourd'hui, il y a 6 mois et il y a 1 an ; puis **le rapport au poids** si une pesée a moins de 14 jours. Le « record de charge avec sa date » des repères ci-dessous et ces records viennent de **la même fonction** (MOTEUR §9.23).
 
+
+**La force estimée, hors des records — décision d'Aurélien du 16/10/2026 (D1, audit du 16/10)** : « La force estimée reste, comme progression (page de l'exercice : « Force estimée ≈ 157 kg, d'après 140 × 5 », sa courbe) ; elle sort des records, des médailles, du fil et de l'XP ; les records sont les vraies barres. » Sous « TES RECORDS », à part : « Force estimée ≈ 157 kg, d'après 140 kg × 5 » — la meilleure estimation (Epley) des séries de travail de 3 à 10 reps, sur le périmètre des records (12 mois pour un matériel de salle), et la série qui la donne. Jamais au poids du corps. La courbe pointillée ci-dessus n'est pas construite : la page n'a aucune vue de courbe aujourd'hui ; l'ajouter demande une maquette (MOTEUR §16.2, révisé le 16/10/2026).
 
 **Trois repères sous la courbe**, tous vérifiables sans formule : dernière séance · record de
 charge avec sa date · meilleure série au palier courant.

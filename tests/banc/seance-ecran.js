@@ -20325,9 +20325,12 @@ const SETS_IMPORTES = [
     const phaseAvant = base.profiles && base.profiles[0] ? base.profiles[0].phase : undefined;
     const salleAvant = base.profiles && base.profiles[0] ? base.profiles[0].ma_salle : undefined;
     const violationsAvant = gardeBanc.violations;
-    const EZ = 'flexion-pq-ez', DROITE = 'flexion-pq-barre', HALT = 'flexion-pq-haltere';
+    const EZ = 'flexion-pq-ez', EZ2 = 'flexion-pq-ez-c', DROITE = 'flexion-pq-barre', HALT = 'flexion-pq-haltere';
     CATALOGUE.push({ slug: EZ, nom: 'Flexion Pq (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
       mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
+    // C joue sur une seconde flexion EZ (une autre poignée) : les réponses de B restent sur l'appareil.
+    CATALOGUE.push({ slug: EZ2, nom: 'Flexion Pq Prise Large (Barre EZ)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'barre', mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
     CATALOGUE.push({ slug: DROITE, nom: 'Flexion Pq (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
       mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
     CATALOGUE.push({ slug: HALT, nom: 'Flexion Pq (Haltère)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere',
@@ -20345,12 +20348,13 @@ const SETS_IMPORTES = [
         statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
       return debut;
     };
+    let slugP = EZ;
     const seriesP = (id, debut, kg, reps) => [1, 2, 3].forEach((r) => base.sets.push({
-      id: id + '-s' + r, session_id: id, user_id: 'u-banc', exercise_slug: EZ, charge_kg: kg, reps, duree_s: null,
+      id: id + '-s' + r, session_id: id, user_id: 'u-banc', exercise_slug: slugP, charge_kg: kg, reps, duree_s: null,
       distance_m: null, type_serie: 'travail', rang: r, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
       repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
     const pariConsigne = (id, debut, kg, reps, compteur) => base.predictions.push({ id: idPari(), user_id: 'u-banc',
-      module: 'moteur.consigne', module_version: 13, emise_a: debut, exercise_slug: EZ, grandeur: 'reps', horizon_jours: null,
+      module: 'moteur.consigne', module_version: 13, emise_a: debut, exercise_slug: slugP, grandeur: 'reps', horizon_jours: null,
       valeur_predite: reps, borne_basse: 10, borne_haute: 12,
       fondement: { rang: 1, charge: kg, etat: 'progression', zone: 'volume', reglage: 'normal', palier: kg, niveau: reps,
                    seance: id, role: 'ligne', phase: 'maintien', compteur },
@@ -20358,14 +20362,15 @@ const SETS_IMPORTES = [
     const pariMarche = (seance, debut, marche, reponse, compteur) => base.predictions.push({ id: idPari(), user_id: 'u-banc',
       module: 'escalier', module_version: 1, emise_a: debut, exercise_slug: null, grandeur: 'progres', horizon_jours: null,
       valeur_predite: 1, borne_basse: null, borne_haute: null,
-      fondement: { seance, jour: debut.slice(0, 10), exercice: EZ, marche, reponse, compteur, n: compteur / 4, zone: 'volume',
+      fondement: { seance, jour: debut.slice(0, 10), exercice: slugP, marche, reponse, compteur, n: compteur / 4, zone: 'volume',
                    phase: 'maintien', n_routine: 3, debut, origine: 'salle_max', plafond: { charge: 30, reps: 15 } },
       valeur_observee: null, observee_a: null, set_observe: null, created_at: debut });
     // L'histoire : douze séances à 25 × 12 hors consigne (l'habitude), puis 30 × 12, 13, 14, 15 sous consigne (la
     // plus lourde de la salle, les reps qui montent jusqu'au plafond), puis `arret` séances à 30 × 15, tous les 3 jours,
     // la dernière il y a 3 jours : le compteur à l'ouverture d'aujourd'hui vaut `arret`. Les marches déjà proposées,
     // à leur déclenchement (`marches` : `[marche, réponse, compteur]`).
-    const decorP = (arret, marches) => {
+    const decorP = (arret, marches, slug) => {
+      slugP = slug || EZ;
       base.sessions = [];
       base.sets = [];
       base.predictions = [];
@@ -20392,6 +20397,11 @@ const SETS_IMPORTES = [
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
       routine_exercises: [{ id: 'r-p113-0', routine_id: 'r-p113', exercise_slug: EZ, rang: 0, routine_sets: progr(3, 12),
         repos_cible_s: 90, groupe_superset: null, note: 'barre EZ, coudes serrés' }] });
+    ROUTINES.push({ id: 'r-p113c', nom: 'Plafond P113 C', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-p113c-0', routine_id: 'r-p113c', exercise_slug: EZ2, rang: 0, routine_sets: progr(3, 12),
+        repos_cible_s: 90, groupe_superset: null, note: 'prise large' }] });
+    const espP = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
     const nbP = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
     const lireP = () => page.evaluate(() => {
       const d = window.THPlan && window.THPlan.dernier;
@@ -20441,7 +20451,7 @@ const SETS_IMPORTES = [
     await attendre(800);
     const a3 = await lireP();
     ok('[P113] A — les séries faites : la dégressive à la barre de 20 kg (« Prends la barre de 20 kg. »)',
-      !!a3.degressive && a3.degressive.charge === 20 && nbP(a3.degressive.phrase).indexOf('Prends la barre de 20 kg.') === 0,
+      !!a3.degressive && a3.degressive.charge === 20 && espP(a3.degressive.phrase).indexOf('Prends la barre de 20 kg.') === 0,
       nbP(a3));
     await abandonner();
 
@@ -20466,27 +20476,29 @@ const SETS_IMPORTES = [
       nbP([pR && pR.fondement, b2]));
     await abandonner();
 
-    // ── C. « Changer d'exercice » : la séance et la routine ; aucun pari d'escalier.
-    base.predictions = base.predictions.filter((l) => !(l.module === 'escalier' && l.fondement && l.fondement.marche === 'remplacement'));
+    // ── C. « Changer d'exercice » (la seconde flexion EZ, au même déclenchement) : la séance et la routine ; aucun pari
+    // d'escalier.
+    decorP(12, [['serie_de_plus', 'refusee', 4], ['degressive', 'refusee', 8]], EZ2);
     await aller('/saisie');
-    await demarrerRoutine('Plafond P113');
+    await demarrerRoutine('Plafond P113 C');
     await attendre(1500);
     const c0 = await lireP();
-    ok('[P113] C — prémisse : la carte du remplacement revient (aucun refus en base)', c0.marche === 'remplacement' && !!c0.carte,
-      nbP(c0));
+    ok('[P113] C — prémisse : la seconde flexion EZ, au plafond, 12 séances ; la carte du remplacement (les haltères)',
+      c0.slug === EZ2 && c0.compteur === 12 && c0.marche === 'remplacement' && !!c0.carte &&
+      /Passer à Flexion Pq \(Haltère\) \?$/.test(c0.carte.texte), nbP(c0));
     await page.click('.proposition-remplacement .prp-oui');
     await attendre(2500);
     const c1 = await lireP();
-    const routineP = ROUTINES.filter((r) => r.id === 'r-p113')[0];
+    const routineP = ROUTINES.filter((r) => r.id === 'r-p113c')[0];
     const lignesP = routineP ? routineP.routine_exercises.map((e) => [e.exercise_slug, (e.routine_sets || []).length, e.note]) : null;
     ok('[P113] C — l’exercice de la séance devient la flexion aux haltères ; aucun pari d’escalier pour le remplacement',
-      !!c1 && c1.slug === HALT && parisP('remplacement').length === 0, nbP(c1));
+      !!c1 && c1.slug === HALT && !base.predictions.some((l) => l.module === 'escalier' && l.fondement &&
+        l.fondement.exercice === EZ2 && l.fondement.marche === 'remplacement'), nbP(c1));
     ok('[P113] C — DISCRIMINANT : la routine aussi (même place, mêmes 3 séries, la note de l’ancien partie)',
       !!lignesP && nbP(lignesP) === nbP([[HALT, 3, null]]), nbP(lignesP));
     await abandonner();
 
     // ── D. Le 4e déclenchement (le remplacement refusé au 3e) : le maintien.
-    ROUTINES.filter((r) => r.id === 'r-p113')[0].routine_exercises[0].exercise_slug = EZ;
     decorP(16, [['serie_de_plus', 'refusee', 4], ['degressive', 'refusee', 8], ['remplacement', 'refusee', 12]]);
     await aller('/saisie');
     await demarrerRoutine('Plafond P113');

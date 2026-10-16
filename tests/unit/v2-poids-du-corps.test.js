@@ -551,6 +551,36 @@ describe('50-1 — les invariants du poids du corps, de la carte, de l\'aide, d\
     expect(dit(erreurs(f, e), 'I13')).toBe(true);
   });
 
+  // 119 (audit du 16/10/2026, E6) — une ligne dégressive sur un exercice sans charge, SANS consigne : le coach
+  // parlait (« Pas de charge de travail pour caler la dégressive. », deux gestes), et I13 ne le voyait pas.
+  test.each([
+    ['rameur', 'temps', 'machine'],
+    ['tapis', 'distance_temps', 'machine'],
+    ['dips', 'reps', 'machine']
+  ])('119 — %s (%s), une ligne dégressive, sans consigne : ni dégressive ni phrase du coach', (slug, mesure, equipement) => {
+    const e = entreesDe([{ slug, mesure, equipement, travail: 2, degressives: [1] }]);
+    const plan = T.planDeSeance(e);
+    expect(plan.exercices[0].degressive).toBeNull();
+    expect(plan.exercices[0].phrases).toEqual([]);
+    expect(erreurs(plan, e)).toEqual([]);
+  });
+
+  test('119 — sur charge × reps, la dégressive sans consigne reste (le contrat d’avant)', () => {
+    const e = entreesDe([{ slug: 'curl', mesure: 'charge_reps', equipement: 'machine', travail: 2, degressives: [1] }]);
+    expect(T.planDeSeance(e).exercices[0].degressive).not.toBeNull();
+  });
+
+  test('119 — I13 forgée : une mesure en durée avec une dégressive ; I28 forgée : une dégressive au poids du corps', () => {
+    const e = entreesDe([{ slug: 'curl', mesure: 'charge_reps', equipement: 'machine', travail: 2, degressives: [1] }]);
+    const p = T.planDeSeance(e);
+    const temps = clone(p);
+    temps.exercices[0].mesure = 'temps';
+    expect(erreurs(temps, e).filter((t) => /^I13/.test(t)).some((t) => /dégressive|phrase/.test(t))).toBe(true);
+    const corps = clone(p);
+    corps.exercices[0].mesure = 'reps';
+    expect(erreurs(corps, e)).toContain('I28 — exercice 0 (curl) : une dégressive au poids du corps');
+  });
+
   test('I31 forgée : un exercice en Entretenir qui garde une ligne du coach', () => {
     const { e, plan } = planPdc();
     const f = clone(plan);

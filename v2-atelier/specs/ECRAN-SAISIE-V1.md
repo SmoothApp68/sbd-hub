@@ -461,6 +461,8 @@ courante + cran (§9.7 et §10 du moteur), reps tirées de la zone et du test
 > trahie, et contredit le principe « la cible est une intention, pas un
 > engagement ».
 
+*Exception, à l'essai (16/10/2026) : un objectif posé par la personne porte une date, pariée et vérifiée — MOTEUR §9.25.*
+
 **3.6** — La proximité se dit en **travail restant**, pas en temps : « il te
 manque une rep à 122,5 ». Vrai, vérifiable, et impossible à démentir par la
 séance suivante.
@@ -1178,6 +1180,8 @@ dit sa plage de validité.
 
 > **Aucune vue ne porte de ligne d'objectif, de zone colorée « bien / insuffisant », ni de
 > projection. Une courbe décrit, elle ne juge pas.**
+
+*Exception, à l'essai (16/10/2026) : la carte « Mon objectif », en tête de la vue (hors des courbes), dit la date d'un objectif posé par la personne — MOTEUR §9.25.*
 
 ### 7 bis.16 Records de série — et la correction d'un défaut de Hevy
 

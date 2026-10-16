@@ -173,7 +173,13 @@ const GARDEES = [
   { fn: 'habiller', module: 'generateur.js' },
   { fn: 'changementsDeLApercu', module: 'generateur.js' },
   // deraille.js — la semaine qui déraille (99, MOTEUR §9.24)
-  { fn: 'semaineQuiDeraille', module: 'deraille.js' }
+  { fn: 'semaineQuiDeraille', module: 'deraille.js' },
+  // objectif.js — l'objectif posé par la personne, à l'essai (109, MOTEUR §9.25) : la date annoncée, ce que la page
+  // montre, l'observation du pari ; et l'identifiant du pari (moteur.js).
+  { fn: 'projection', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*projection\b/g },
+  { fn: 'vue', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*vue\b/g },
+  { fn: 'observationDe', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*observationDe\b/g },
+  { fn: 'idDObjectif', module: 'moteur.js' }
 ];
 
 // ── LA LISTE D'AUTORISATIONS ────────────────────────────────────────────────
@@ -190,6 +196,22 @@ const LE_COACH = 'plan.js';
 // (29/09/2026) et sont RAPPORTÉES dans sa PR pour décision : elles ne sont pas
 // forcées dans le plan par ce commit.
 const AUTORISATIONS = {
+  projection: {
+    'app.js': 'MOTEUR §9.25 (109) : l’objectif se pose sur la page d’exercice, hors séance — donc sans plan ; la date ' +
+      'se projette UNE fois, à la pose (app.js, `poserObjectif`), et la ligne `objectifs` la garde figée.'
+  },
+  vue: {
+    'app.js': 'MOTEUR §9.25 (109) : la carte « Mon objectif » de la page d’exercice relit l’objectif posé (sa date ' +
+      'figée) et les records de l’exercice — une lecture, hors séance (app.js, `carteObjectifDe`).'
+  },
+  observationDe: {
+    'app.js': 'MOTEUR §9.25 (109) : l’observation d’un pari d’objectif (les jours réellement mis, la série qui ' +
+      'l’atteint), au moment de l’écrire en base : de la persistance (app.js, `observerObjectifs`).'
+  },
+  idDObjectif: {
+    'app.js': 'l’identifiant déterministe du pari d’un objectif au moment de l’écrire en base : de la persistance, ' +
+      'la date vient de `THObjectif.projection` (app.js, `poserObjectif`, 109).'
+  },
   semaineQuiDeraille: {
     'app.js': 'MOTEUR §9.24 (99) : la carte de la semaine qui déraille vit sur Saisie, AVANT toute séance — donc sans ' +
       'plan ; l’écran passe à la règle son entrée (le programme, les faits de `faits.semaineDuProgramme`, les décisions ' +
@@ -422,7 +444,7 @@ const NOTIONS = [
     raison: 'aucun écran ne lit le palier brut : les faits passent par `Modele`, les mots du ' +
       'coach par la consigne. La page et Progression l’appelaient chacune à part.' },
   { notion: 'la série de travail (le type, `travail` quand il manque)', pr: 'PR 6',
-    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js', 'reserve.js', 'bilans.js', 'deraille.js'],
+    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js', 'reserve.js', 'bilans.js', 'deraille.js', 'objectif.js'],
     motif: /\.\s*estTravail\s*\(/g,
     par: ['exercicesFaits', 'tableParReps', 'construireBlocs'],
     interditAilleurs: { motif: /type_serie\s*[!=]==?\s*(['"])travail\1|typeDe\([^()]*\)\s*[!=]==?\s*(['"])travail\2|\|\|\s*(['"])travail\3\s*\)\s*[!=]==?/,
@@ -430,7 +452,8 @@ const NOTIONS = [
     raison: 'cinq définitions : une série sans type était du travail pour le moteur et le plan, ' +
       'pas pour les écrans ; la base dit `travail` par défaut. 78 : la question de réserve lit l’effort de la ' +
       'dernière série de TRAVAIL de chaque séance passée (`reserve.js`, `passeDeReserve`). 99 : la semaine qui déraille ' +
-      'compte les séries de travail que prévoit une routine (`deraille.js`).' },
+      'compte les séries de travail que prévoit une routine (`deraille.js`). 109 : l’objectif ne lit que des séries de ' +
+      'travail (ses records, la série qui l’atteint, `objectif.js`).' },
   { notion: 'le compte des séries de travail (la règle du volume)', pr: 'PR 6',
     module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js', 'bilan.js', 'faits.js', 'bilans.js'],
     parAilleurs: { 'modele.js': ['resumerSeance', 'construireBlocs'], 'seance.js': ['compter'], 'bilan.js': ['bilanDuMois'],
@@ -469,14 +492,15 @@ const NOTIONS = [
       '66A : la jauge d’une barre de la relecture (§5 ter.3) est cet arrondi, à 2 décimales.' },
   // Après la consolidation, les notions d'un chantier portent son geste.
   { notion: 'la lecture d’un nombre tapé (l’inverse du formateur, tous les signes moins)', pr: 'correctif 03/10/2026',
-    module: 'modele.js', fonction: 'lireNombre', lecteurs: ['seance.js', 'routines.js', 'app.js', 'importhevy.js'],
+    module: 'modele.js', fonction: 'lireNombre', lecteurs: ['seance.js', 'routines.js', 'app.js', 'importhevy.js', 'objectif.js'],
     motif: /\.\s*lireNombre\s*\(/g,
     parAilleurs: { 'seance.js': ['nombreOuNul'], 'routines.js': ['decimalOuNul'] },
     interditAilleurs: { motif: /\.replace\(\s*(['"]),\1\s*,\s*(['"])\.\2\s*\)/,
                         raison: 'une virgule décimale relue hors de `lireNombre` : une seconde lecture des nombres' },
     raison: 'le champ réaffiche une assistance avec le vrai signe moins (U+2212) que la copie de ' +
       '`seance.js` ne relisait pas : retoucher les reps d’une série à « −25 » effaçait sa charge. ' +
-      '69 : les nombres que Hevy écrit (« 31,5 kg », « 1.17 » km) se lisent ici aussi (`importhevy.js`).' },
+      '69 : les nombres que Hevy écrit (« 31,5 kg », « 1.17 » km) se lisent ici aussi (`importhevy.js`). 109 : la ' +
+      'charge et les reps d’un objectif tapées dans sa feuille (`objectif.js`, `lireSaisie`).' },
   { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
     module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js', 'parcours.js', 'deraille.js'],
     parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'],
@@ -765,14 +789,15 @@ const NOTIONS = [
     raison: 'MOTEUR §9.23, ECRAN §7 bis.16 (« cumulée, jamais brute ») : la médaille, le tableau des records, ' +
       'le record de charge de la page et le chiffre d’une ligne déduite lisent la même table.' },
   { notion: 'les records d’un exercice à une date (le périmètre de la médaille)', pr: '55-U1',
-    module: 'modele.js', fonction: 'recordsDeLExercice', lecteurs: ['app.js', 'faits.js'],
+    module: 'modele.js', fonction: 'recordsDeLExercice', lecteurs: ['app.js', 'faits.js', 'objectif.js'],
     par: ['tableauDesRecords'],
-    parAilleurs: { 'app.js': ['rendreExercice'], 'faits.js': ['ceQueJeSais'] },
+    parAilleurs: { 'app.js': ['rendreExercice'], 'faits.js': ['ceQueJeSais'], 'objectif.js': ['recordA'] },
     raison: 'MOTEUR §9.23 : le record de charge de la page, son 1RM estimé et le tableau des records lisent ' +
       'la même table cumulée, sur le même périmètre que la médaille (12 mois pour un matériel de salle). ' +
-      '60-2a : « Ce que je sais » montre le maximum de chaque barre par cette même fonction — jamais une seconde.' },
+      '60-2a : « Ce que je sais » montre le maximum de chaque barre par cette même fonction — jamais une seconde. ' +
+      '109 (MOTEUR §9.25) : le rythme d’un objectif se lit sur ce record « au moins N reps », jamais sur un maximum estimé.' },
   { notion: 'le périmètre d’un record (12 mois pour un matériel de salle, toute la vie ailleurs)', pr: '55-U1',
-    module: 'modele.js', fonction: 'seancesDuPerimetre', lecteurs: ['app.js'],
+    module: 'modele.js', fonction: 'seancesDuPerimetre', lecteurs: ['app.js', 'objectif.js'],
     par: ['recordsDeLExercice'],
     parAilleurs: { 'app.js': ['rendreExercice'] },
     raison: 'MOTEUR §9.23 et ECRAN §7 quater.3 (H3, #371) : le tableau des records, le record de charge et la ' +
@@ -1382,7 +1407,8 @@ describe('architecture — un seul coach, un seul câblage', () => {
     require('../../v2/js/modele.js');
     require('../../v2/js/palier.js');
     const modules = { 'moteur.js': require('../../v2/js/moteur.js'), 'seance.js': require('../../v2/js/seance.js'),
-      'generateur.js': require('../../v2/js/generateur.js'), 'deraille.js': require('../../v2/js/deraille.js') };
+      'generateur.js': require('../../v2/js/generateur.js'), 'deraille.js': require('../../v2/js/deraille.js'),
+      'objectif.js': require('../../v2/js/objectif.js') };
     const absentes = GARDEES.filter((g) => typeof modules[g.module][g.fn] !== 'function')
       .map((g) => g.module + ' n’exporte plus `' + g.fn + '` : mets la liste GARDEES à jour.');
     expect(absentes).toEqual([]);
@@ -2152,6 +2178,9 @@ const REGISTRE_ECRITURES = [
   { fn: 'reagir', chemin: 'file' },
   { fn: 'retirerReaction', chemin: 'file' },
   { fn: 'gesteDeGuilde', chemin: 'file' },
+
+  { fn: 'enregistrerObjectif', chemin: 'file' },
+  { fn: 'retirerObjectif', chemin: 'file' },
   // ── En liste blanche : des appelants exacts, une raison.
   { fn: 'supprimerCompte', chemin: 'liste-blanche', appelants: ['app.js:supprimerCompte'],
     raison: 'la suppression de compte exige le serveur ; rien n’est effacé localement avant sa réponse' },

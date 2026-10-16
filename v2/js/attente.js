@@ -159,6 +159,12 @@
   // qui est « déjà fait » et ce qui se réessaie se décide dans `social.js` (`issueDuGeste`), passé à `apresEchec`.
   var SOCIAL = 'social', GESTE = 'geste';
 
+  // 109 (MOTEUR §9.25, v2_089) — L'OBJECTIF D'UN EXERCICE (`objectifs`). Un `upsert` sur (`user_id`,
+  // `exercise_slug`) qui FUSIONNE, ou une suppression (le retirer) : l'identifiant d'entrée est l'exercice, donc
+  // poser puis retirer hors ligne se compressent, le dernier geste gagne. Son pari part par `predictions`, à part :
+  // un objectif retiré n'emporte jamais son ancien pari. Rien n'en dépend et il ne dépend de rien.
+  var OBJECTIFS = 'objectifs';
+
   function cleDe(table, id) { return String(table) + ':' + String(id); }
 
   // Les codes Postgres qui ne passeront jamais, quel que soit le nombre de
@@ -740,6 +746,8 @@
     ALIAS: ALIAS,
     SEMAINE_CHOIX: SEMAINE_CHOIX,
     SOCIAL: SOCIAL, GESTE: GESTE,
+
+    OBJECTIFS: OBJECTIFS,
     OBSERVER: OBSERVER,
     attendSaSerie: attendSaSerie,
     AUCUNE_LIGNE: AUCUNE_LIGNE,

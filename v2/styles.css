@@ -1763,6 +1763,17 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    exercice (maquette « Un exercice ») : le tableau à reps égales, son recul, et
    l'écart en couleur du coach quand il monte. Jamais de rouge. */
 .exo-records{margin-bottom:var(--e3)}
+/* 109 (MOTEUR §9.25) — « Mon objectif » : la jauge dans la couleur du coach, la ligne de date en texte ordinaire.
+   Jamais de rouge (« jamais impossible, jamais en rouge »). */
+.exo-objectif{margin-bottom:var(--e3)}
+.objectif-fiche{padding:var(--e3) var(--e4)}
+.objectif-titre{font-size:26px;font-weight:800;line-height:1.15;letter-spacing:-.01em;font-family:var(--pile-c)}
+.objectif-jauge{height:8px;border-radius:99px;background:var(--panneau-2);margin:var(--e2) 0 6px;overflow:hidden}
+.objectif-jauge i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+.objectif-aujourdhui{font-size:12px;line-height:1.4;color:var(--texte-2)}
+.objectif-date{font-size:13px;line-height:1.5;color:var(--texte);margin:var(--e2) 0 0}
+.objectif-pari{color:var(--texte-2)}
+.objectif-changer{margin-top:var(--e2)}
 .defile-records{overflow-x:auto;margin-top:var(--e2)}
 .tableau-records{width:100%;border-collapse:collapse;font-size:13.5px}
 .tableau-records th{color:var(--texte-3);font-weight:600;font-size:11px;line-height:1.2;text-align:right;

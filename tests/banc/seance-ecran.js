@@ -577,6 +577,8 @@ const SETS_IMPORTES = [
     modes: [],
     // 99 (v2_085) — `semaine_choix` : le choix fait pour une séance manquée.
     semaineChoix: [],
+    // 109 (v2_089) — `objectifs` : un objectif par exercice ; `objectifsAbsente` imite la migration pas lancée.
+    objectifs: [], objectifsAbsente: false,
     predictions: [],
     // 53-2 (v2_058) — les blocs des programmes à cycles.
     blocs: [],
@@ -1305,6 +1307,47 @@ const SETS_IMPORTES = [
       return String(a).replace(/^ +| +$/g, '').toLowerCase().split('')
         .map((c) => (avec.indexOf(c) >= 0 ? sans[avec.indexOf(c)] : c)).join('');
     };
+    // 109 (MOTEUR §9.25, v2_089) — `objectifs` : clé (user_id, exercise_slug), les CHECK de la migration, RLS
+    // propriétaire ; l'app lit tout, écrit par un upsert qui fusionne sur la clé, retire par un DELETE. Sans la
+    // migration (`objectifsAbsente`), PostgREST répond 404 PGRST205 — à la lecture comme à l'écriture.
+    if (table === 'objectifs') {
+      if (base.objectifsAbsente) {
+        base.journal.push({ op: 'objectifs-absente', methode: req.method() });
+        return json({ code: 'PGRST205', message: 'Could not find the table \'public.objectifs\' in the schema cache', details: null }, 404);
+      }
+      if (req.method() === 'GET') return json(projeter(base.objectifs, url));
+      if (req.method() === 'DELETE') {
+        const slug = (url.searchParams.get('exercise_slug') || '').replace('eq.', '');
+        base.journal.push({ op: 'objectifs-retrait', slug });
+        base.objectifs = base.objectifs.filter((x) => !(x.user_id === MOI && x.exercise_slug === slug));
+        return json([], 204);
+      }
+      if (req.method() === 'POST') {
+        const prefer = req.headers()['prefer'] || '';
+        const fusionner = url.searchParams.get('on_conflict') === 'user_id,exercise_slug' && /resolution=merge-duplicates/.test(prefer);
+        const lignes = Array.isArray(corps) ? corps : [corps];
+        base.journal.push({ op: 'objectifs', lignes: lignes.map((x) => Object.assign({}, x)) });
+        const COLONNES = ['user_id', 'exercise_slug', 'charge_kg', 'reps', 'pose_le', 'depart_kg', 'projection', 'echeance', 'pari_id'];
+        for (const l of lignes) {
+          const inconnue = Object.keys(l).filter((k) => COLONNES.indexOf(k) < 0)[0];
+          if (inconnue) return json(refus('PGRST204', 'objectifs : colonne inconnue « ' + inconnue + ' »'), 400);
+          if (l.user_id !== MOI) return json(refus('42501', 'new row violates row-level security policy for table "objectifs"'), 400);
+          if (!CATALOGUE.some((e) => e.slug === l.exercise_slug)) return json(refus('23503', 'objectifs_exercise_slug_fkey'), 400);
+          if (!(l.charge_kg > 0 && l.charge_kg <= 1000)) return json(refus('23514', 'objectifs_charge_kg_check'), 400);
+          if (!(Number.isInteger(l.reps) && l.reps >= 1 && l.reps <= 100)) return json(refus('23514', 'objectifs_reps_check'), 400);
+          if (['date', 'pas_encore', 'plus_d_un_an', 'carnet'].indexOf(l.projection) < 0) return json(refus('23514', 'objectifs_projection_check'), 400);
+          if ((l.projection === 'date') !== !!l.echeance || (l.projection === 'date') !== !!l.pari_id) return json(refus('23514', 'objectifs_date_et_pari'), 400);
+          if (!l.pose_le) return json(refus('23502', 'objectifs.pose_le NOT NULL'), 400);
+        }
+        for (const l of lignes) {
+          const i = base.objectifs.findIndex((x) => x.user_id === l.user_id && x.exercise_slug === l.exercise_slug);
+          if (i >= 0 && !fusionner) return json(refus('23505', 'objectifs_pkey'), 409);
+          if (i >= 0) base.objectifs[i] = Object.assign({}, base.objectifs[i], l);
+          else base.objectifs.push(Object.assign({}, l));
+        }
+        return json([], 201);
+      }
+    }
     // 99 (MOTEUR §9.24, v2_085) — `semaine_choix` : clé (user_id, semaine, routine_id), `semaine` un lundi, `choix`
     // parmi cinq, RLS propriétaire ; l'app lit par `semaine >= …` et écrit par un upsert qui fusionne.
     if (table === 'semaine_choix') {
@@ -21732,6 +21775,207 @@ const SETS_IMPORTES = [
     ok('[S112] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       nb112([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ mon-objectif. MON OBJECTIF : UNE DATE PARIÉE, FIGÉE, VÉRIFIÉE — À L’ESSAI (109, MOTEUR §9.25) ══');
+  //
+  // Un squat à la barre, un an d'historique (130 → 132,5 il y a un an → 137,5 → 140 × 3 → 144). Chaque appareil est
+  // NEUF (son propre stockage) avec son horloge : le vendredi 16 octobre 2026 à midi pour poser, le 2 avril 2027 pour
+  // voir l'objectif atteint. Témoin : sans la migration v2_089 (404 PGRST205), pas de carte et rien n'est écrit.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const predictionsAvant = base.predictions;
+    const pageBanc = page;
+    const nbO = (x) => JSON.stringify(x).replace(/[\u00a0\u202f]/g, ' ');
+    CATALOGUE.push({ slug: 'squat-o109', nom: 'Squat O109 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['adducteurs'], muscles_stabilisateurs: ['bas_du_dos'] });
+    base.sessions = []; base.sets = []; base.predictions = []; base.objectifs = [];
+    const seanceO = (id, jour, series) => {
+      const [a, m, j] = jour.split('-').map(Number);
+      const debut = new Date(a, m - 1, j, 18, 0, 0).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Jambes O109', debut, fin: new Date(a, m - 1, j, 19, 0, 0).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      series.forEach(([kg, reps, type], i) => base.sets.push({ id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc',
+        exercise_slug: 'squat-o109', charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: type || 'travail',
+        rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app',
+        created_at: debut, modifie_a: null }));
+    };
+    seanceO('o109-1', '2025-09-01', [[100, 5, 'echauffement'], [130, 1]]);
+    seanceO('o109-2', '2025-10-01', [[132.5, 1]]);
+    seanceO('o109-3', '2026-02-01', [[137.5, 1], [120, 5]]);
+    seanceO('o109-4', '2026-06-01', [[140, 3]]);
+    seanceO('o109-5', '2026-09-20', [[144, 1]]);
+
+    const vraiMaintenant = Date.now() - (Horloge.DECALAGE || 0);
+    const appareilO = async (nom, quand) => {
+      const c = await nav.newContext({ viewport: { width: 360, height: 760 } });
+      await c.addInitScript(SCRIPT_JETON);
+      await c.addInitScript(Horloge.scriptNavigateur(quand.getTime() - (Horloge.DECALAGE || 0) - vraiMaintenant));
+      await c.route(/supabase\.co/, gestionnaireBanc);
+      const p = await c.newPage();
+      p.on('pageerror', (e) => erreurs.push('[' + nom + '] ' + String(e).slice(0, 140)));
+      return { c, p, fermer: async () => { await p.close(); await c.close(); } };
+    };
+    const carteO = () => page.evaluate(() => {
+      const n = document.querySelector('#page-exercice .exo-objectif');
+      if (!n) return null;
+      const t = (s) => (n.querySelector(s) || {}).textContent || null;
+      const d = n.querySelector('.objectif-date');
+      const jauge = n.querySelector('.objectif-jauge');
+      return { titre: t('.objectif-titre'), aujourdhui: t('.objectif-aujourdhui'), ligne: d ? d.firstChild.textContent : null,
+        pari: t('.objectif-pari'), bouton: t('.objectif-changer'), jauge: jauge ? jauge.getAttribute('aria-valuenow') : null,
+        couleurLigne: d ? getComputedStyle(d).color : null, couleurJauge: jauge ? getComputedStyle(jauge.firstChild).backgroundColor : null,
+        manque: getComputedStyle(document.documentElement).getPropertyValue('--manque').trim() };
+    });
+    const ouvrirO = async (nom, quand) => {
+      const a = await appareilO(nom, quand);
+      page = a.p;
+      await aller('/exercice/squat-o109');
+      return a;
+    };
+    // La carte vient avec la première synchronisation (elle dit si la table existe) : on rouvre la page jusqu'à elle.
+    const carteApres = async () => {
+      for (let k = 0; k < 10; k++) {
+        const c = await carteO();
+        if (c) return c;
+        await attendre(500);
+        await aller('/exercice/squat-o109');
+      }
+      return null;
+    };
+    const feuilleO = async (charge, reps) => {
+      await page.click('#page-exercice .objectif-changer');
+      await jusqua(async () => !!(await page.$('#feuille-contenu input[data-cle="charge"]')), 4000);
+      await page.fill('#feuille-contenu input[data-cle="charge"]', String(charge));
+      await page.fill('#feuille-contenu input[data-cle="reps"]', String(reps));
+      const phrase = await texte('#feuille-contenu .objectif-phrase');
+      await page.click('#feuille-contenu .feuille-pied .pri');
+      await attendre(700);
+      return { phrase, refus: await texte('#feuille-contenu .feuille-err') };
+    };
+
+    // ── 0. TÉMOIN : LA MIGRATION N'EST PAS LANCÉE.
+    base.objectifsAbsente = true;
+    const T = await ouvrirO('O109-sans-table', new Date(2026, 9, 16, 12, 0, 0));
+    await attendre(1500);
+    await aller('/exercice/squat-o109');
+    const t0 = await carteO();
+    const ecritsSans = base.journal.filter((j) => j.op === 'objectifs' || j.op === 'objectifs-retrait').length;
+    ok('[O109] sans la migration v2_089 : la page de l’exercice s’affiche, sans carte « Mon objectif », et rien n’est écrit',
+      t0 === null && ecritsSans === 0 && (await visible())[0] === 'vue-exercice', nbO([t0, ecritsSans, await visible()]));
+    await T.fermer();
+    base.objectifsAbsente = false;
+
+    // ── 1. POSER 150 × 1, LE 16 OCTOBRE 2026.
+    const A = await ouvrirO('O109-poser', new Date(2026, 9, 16, 12, 0, 0));
+    const vide = await carteApres();
+    ok('[O109] la carte « Mon objectif » propose « Poser un objectif » (aucun objectif)', !!vide && vide.bouton === 'Poser un objectif' && !vide.titre,
+      nbO(vide));
+    const f1 = await feuilleO(150, 1);
+    ok('[O109] la feuille dit le record pour les reps tapées : « Ton record : 144 kg × 1. Le coach projettera une date à partir de tes records. »',
+      nbO(f1.phrase) === nbO('Ton record : 144 kg × 1. Le coach projettera une date à partir de tes records.'), nbO(f1));
+    await aller('/exercice/squat-o109');
+    const c1 = await carteO();
+    ok('[O109] posé : « 150 kg × 1 », la jauge depuis le record (0), « Aujourd’hui : 144 kg × 1 », UNE ligne : « Au rythme actuel : fin avril. » et le pari',
+      !!c1 && nbO(c1.titre) === nbO('150 kg × 1') && c1.jauge === '0' && nbO(c1.aujourdhui) === nbO('Aujourd’hui : 144 kg × 1') &&
+        nbO(c1.ligne) === nbO('Au rythme actuel : fin avril.') && nbO(c1.pari) === nbO(' C’est un pari du coach : on verra s’il tombe juste.') &&
+        c1.bouton === 'Changer l’objectif', nbO(c1));
+    const rgb = (h) => { const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(h); return m ? 'rgb(' + [1, 2, 3].map((k) => parseInt(m[k], 16)).join(', ') + ')' : h; };
+    ok('[O109] jamais en rouge, jamais « impossible » : ni la ligne de date ni la jauge ne prennent la couleur des manques',
+      !!c1 && c1.couleurLigne !== rgb(c1.manque) && c1.couleurJauge !== rgb(c1.manque) && !/impossible/i.test(nbO(c1)), nbO(c1));
+    await jusqua(async () => base.objectifs.length === 1 && base.predictions.some((x) => x.module === 'objectif'), 8000);
+    const l1 = base.objectifs[0] || {};
+    const p1 = base.predictions.filter((x) => x.module === 'objectif');
+    ok('[O109] en base, par la file : la ligne `objectifs` (date figée, fin avril 2027) et SON pari (module objectif, grandeur jours, 196 jours, sans séance)',
+      l1.exercise_slug === 'squat-o109' && l1.charge_kg === 150 && l1.reps === 1 && l1.projection === 'date' && l1.echeance === '2027-04-30' &&
+        l1.depart_kg === 144 && p1.length === 1 && (p1[0] || {}).id === l1.pari_id && p1[0].grandeur === 'jours' && p1[0].valeur_predite === 196 &&
+        p1[0].exercise_slug === null && !('seance' in (p1[0].fondement || {})) && p1[0].fondement.exercice === 'squat-o109', nbO([l1, p1]));
+
+    // ── 2. DÉJÀ FAIT : REFUSÉ, AVEC LE FAIT.
+    const f2 = await feuilleO(140, 1);
+    ok('[O109] un objectif déjà fait est refusé dans la feuille, avec le fait : « Déjà fait : 144 kg × 1, le 20 sept. » ; rien d’écrit',
+      nbO(f2.refus) === nbO('Déjà fait : 144 kg × 1, le 20 sept.') && (base.objectifs[0] || {}).charge_kg === 150 &&
+        base.predictions.filter((x) => x.module === 'objectif').length === 1, nbO([f2, base.objectifs]));
+    await page.click('#feuille-contenu .feuille-pied .sec');
+    await attendre(400);
+
+    // ── 3. LA DATE EST FIGÉE : rechargée, la ligne ne bouge pas.
+    await aller('/exercice/squat-o109');
+    ok('[O109] la date affichée est celle du pari, figée : rechargée, « Au rythme actuel : fin avril. »',
+      nbO((await carteO() || {}).ligne) === nbO('Au rythme actuel : fin avril.'), nbO(await carteO()));
+
+    // ── 4. CHANGER POUR 155 × 1 : un nouveau pari, l'ancien reste.
+    await feuilleO(155, 1);
+    await jusqua(async () => base.predictions.filter((x) => x.module === 'objectif').length === 2 && (base.objectifs[0] || {}).charge_kg === 155, 8000);
+    const p4 = base.predictions.filter((x) => x.module === 'objectif');
+    ok('[O109] changer l’objectif (155 × 1) écrit un nouveau pari et garde l’ancien ; la ligne `objectifs` est réécrite (un par exercice)',
+      p4.length === 2 && base.objectifs.length === 1 && (base.objectifs[0] || {}).charge_kg === 155 && (base.objectifs[0] || {}).pari_id !== (p1[0] || {}).id &&
+        p4.some((x) => x.id === (p1[0] || {}).id), nbO([p4.map((x) => [x.id, x.fondement.charge, x.valeur_predite]), base.objectifs]));
+    const ligne155 = (await carteO() || {}).ligne;
+    await A.fermer();
+
+    // ── 5. LE 2 AVRIL 2027 : 150 × 1 LE 10 MARS (une séance d'un autre appareil). L'ancien pari s'observe.
+    seanceO('o109-6', '2027-03-10', [[150, 1, 'echauffement'], [140, 3], [150, 1]]);
+    const B = await ouvrirO('O109-atteint', new Date(2027, 3, 2, 12, 0, 0));
+    await jusqua(async () => base.predictions.some((x) => x.id === (p1[0] || {}).id && x.valeur_observee !== null && x.valeur_observee !== undefined), 10000);
+    const obs = base.predictions.filter((x) => x.module === 'objectif');
+    const ancien = obs.filter((x) => x.id === (p1[0] || {}).id)[0] || {};
+    const nouveau = obs.filter((x) => x.id !== (p1[0] || {}).id)[0] || {};
+    ok('[O109] observé : l’ancien pari (150 × 1) — 145 jours, rattaché à la série de travail qui l’atteint (pas la chauffe) ; tenu (≤ 196) ; le nouveau (155) reste sans observation',
+      ancien.valeur_observee === 145 && ancien.set_observe === 'o109-6-s3' && !!ancien.observee_a && ancien.valeur_observee <= ancien.valeur_predite &&
+        (nouveau.valeur_observee === null || nouveau.valeur_observee === undefined), nbO(obs.map((x) => [x.fondement.charge, x.valeur_predite, x.valeur_observee, x.set_observe])));
+    await aller('/exercice/squat-o109');
+    const c5 = await carteO();
+    ok('[O109] la carte garde la date du pari de 155, figée — elle ne bouge pas avec la séance du 10 mars ; « Aujourd’hui : 150 kg × 1 »',
+      !!c5 && c5.ligne === ligne155 && nbO(c5.aujourdhui) === nbO('Aujourd’hui : 150 kg × 1'), nbO([c5, ligne155]));
+    // Le mois de mars est la STORY du mois (98, BILANS-V1) : son écran « Le coach » compte les paris de CONSIGNE
+    // vérifiés en mars (`parisDeConsigneConnus`), jamais le pari d'objectif tenu. Attendu : autant de paris que de
+    // paris de consigne observés sur une séance de mars dans la base du banc — aucun, ici : pas d'écran « Le coach ».
+    await aller('/progression/mois/2027-03');
+    await page.waitForFunction(() => { const h = document.getElementById('annee'); return h && !h.hidden && h.dataset.ecran; },
+      null, { timeout: 15000 }).catch(() => {});
+    const debutsO = {};
+    base.sessions.forEach((x) => { if (x && x.id) debutsO[x.id] = x.debut; });
+    const attendusO = base.predictions.filter((x) => x.module === 'moteur.consigne' && x.valeur_observee !== null &&
+      x.valeur_observee !== undefined && /^2027-03/.test(String(debutsO[x.session_id || (x.fondement || {}).seance] || ''))).length;
+    const moisO = await page.evaluate(() => {
+      const h = document.getElementById('annee');
+      const c = h ? h.querySelector('.s[data-cle="coach"]') : null;
+      return { ouvert: !!h && !h.hidden, periode: h ? h.dataset.periode || null : null,
+        cles: h ? Array.from(h.querySelectorAll('.s')).map((x) => x.dataset.cle) : [],
+        coach: c ? ((c.querySelector('.chiffre small') || {}).textContent || '').replace(/\s+/g, ' ').trim() : null };
+    });
+    ok('[O109] la story de mars ne compte pas le pari d’objectif tenu : l’écran « Le coach » n’a que les paris de consigne (aucun ici : pas d’écran)',
+      moisO.ouvert && moisO.periode === '2027-03' && moisO.cles.indexOf('tonnes') >= 0 &&
+        (attendusO === 0 ? moisO.coach === null && moisO.cles.indexOf('coach') < 0 : moisO.coach === '/ ' + attendusO),
+      nbO([attendusO, moisO]));
+    await page.click('#annee .fermer').catch(() => {});
+    await attendre(500);
+
+    // ── 6. RETIRER : la ligne part, les deux paris restent.
+    await aller('/exercice/squat-o109');
+    await page.click('#page-exercice .objectif-changer');
+    await jusqua(async () => !!(await page.$('#feuille-contenu .feuille-pied .des')), 4000);
+    await page.click('#feuille-contenu .feuille-pied .des');
+    await jusqua(async () => base.objectifs.length === 0, 8000);
+    ok('[O109] « Retirer l’objectif » : la ligne part, les deux paris restent (un pari ne s’efface jamais)',
+      base.objectifs.length === 0 && base.predictions.filter((x) => x.module === 'objectif').length === 2 &&
+        nbO((await carteO()) || {}).indexOf('Poser un objectif') >= 0, nbO([base.objectifs, await carteO()]));
+    await B.fermer();
+
+    // LA REMISE EN ÉTAT.
+    page = pageBanc;
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.objectifs = []; base.objectifsAbsente = false;
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = predictionsAvant;
+    await aller('/saisie');
+    ok('[O109] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nbO([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

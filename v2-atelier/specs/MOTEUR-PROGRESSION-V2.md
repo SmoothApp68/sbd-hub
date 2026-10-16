@@ -1426,6 +1426,40 @@ Une décision de la personne (décaler, répartir) ne s'efface jamais en silence
 **Maquette** : `v2-atelier/maquettes/maquette-semaine-deraille-v3.html` (validée le 15/10/2026). **Tests** : `tests/unit/v2-deraille.test.js` ; banc : section `deraille`.
 
 
+### 9.25 L'objectif — à l'essai, décidé le 16/10/2026
+
+> **« On essaye avec une date, on enlèvera si c'est pas bien. »** (Aurélien, 16/10/2026)
+
+**Les décisions, mot pour mot** (le plafond et la grandeur du pari précisés par Claude.ai le 16/10/2026) :
+
+« La personne pose elle-même un objectif sur un exercice, en charge × reps (« 150 kg × 1 au squat ») ; le coach ne l'impose jamais. Un objectif par exercice ; elle peut le changer ou le retirer.
+
+Le rythme : le meilleur record « charge pour au moins N reps » (N = les reps de l'objectif, à reps égales, jamais un maximum estimé) aujourd'hui, comparé à celui d'il y a un an (ou au plus ancien s'il y a moins d'un an d'historique), en kg par mois ; plafonné par le seuil « hors littérature » du REFERENTIEL-BORNES, selon l'ancienneté déclarée (moins d'un an : 40 % sur 12 semaines ; 1 à 3 ans : 20 % par an ; au-delà ou non renseignée : 15 % par an), converti en kg par mois une fois, à la pose, sur le record d'il y a un an ; ce plafond ne coupe que l'impossible. Il faut au moins 8 semaines d'historique et 3 records à au moins N reps sur l'exercice ; sinon, ou si le rythme est nul : « Pas encore de date. » et aucun pari.
+
+La date : projetée au moment où l'objectif est posé, arrondie à la fin du mois (« Au rythme actuel : fin février. »). Au-delà de 12 mois : « Au rythme actuel : plus d'un an. » et aucun pari. La date affichée est celle du pari, figée : elle ne bouge pas d'une séance à l'autre. Atteint : « Atteint le 12 février. »
+
+C'est un pari, dans `predictions` : module « objectif », grandeur « jours », valeur prédite = le nombre de jours entre la pose et la fin du mois annoncée, écrit quand l'objectif est posé ou changé ; valeur observée = le nombre de jours réellement mis, rattaché à la série qui atteint l'objectif (`set_observe`), écrite quand ça arrive, même après l'échéance. Tenu = observé ≤ prédit ; sans observation passé l'échéance, il est non tenu à la lecture. Un objectif changé ou retiré n'efface pas l'ancien pari : il reste et s'observe comme les autres. Ces paris ne comptent pas dans le total des paris des bilans (« 38/41 ») tant qu'une règle ne l'a pas décidé.
+
+Où : la page de l'exercice (« Mon objectif », jauge depuis le record, la ligne de date), et une ligne dans la story du mois quand l'objectif avance (« Squat : 145 → 147,5 kg, objectif 150. »). Jamais dans les phrases du coach pendant la séance. Jamais « impossible », jamais en rouge.
+
+Exception à « jamais le délai » : la règle d'ECRAN-SAISIE §3.5, §7 bis.15 et ECRAN-PROFIL §2.6 reste en vigueur partout, sauf pour un objectif posé par la personne, à l'essai. »
+
+**Les trois points tranchés ensuite (Claude.ai, 16/10/2026).** Un objectif déjà atteint est refusé, avec le fait (« Déjà fait : 152,5 kg × 3, le 3 mars. »). En « Juste un carnet », l'objectif et la jauge s'affichent, mais ni la date ni le pari. La contrainte `predictions_observation_coherente` n'est pas étendue : l'observation se rattache toujours à une série.
+
+**Ce que le code en a fait (109, choix validés le 16/10/2026).**
+- **Le module** : `v2/js/objectif.js` (`projection`, `pariDe`, `vue`, `observationDe`, `estTenu`), pur, déclaré à la garde d'architecture ; l'identifiant du pari, `THMoteur.idDObjectif` : UUID v5 sur `objectif|exercice|instant de la pose` (l'instant, pas le jour : deux poses le même jour sont deux paris). Le record se lit par `Modele.recordsDeLExercice`, la fonction de la médaille et du tableau des records — même périmètre (12 mois pour un matériel de salle).
+- **« 3 records à au moins N reps »** : trois hausses de la table cumulée à N reps ou plus sur la vie de l'exercice, la première série comprise. **« 8 semaines d'historique »** : depuis la première séance de l'exercice. **« Le plus ancien »** : la première hausse, quand l'exercice a moins d'un an ou rien à N reps ou plus il y a un an. Un mois = 365,25 / 12 jours. « Au-delà de 12 mois » se juge sur la date projetée ; l'échéance est le dernier jour de son mois ; les jours se comptent au calendrier, du jour de la pose.
+- **Une seule ligne de date** sur la carte, selon le cas : « Au rythme actuel : fin février. » (suivie, en gris, de « C'est un pari du coach : on verra s'il tombe juste. », maquette), « Au rythme actuel : plus d'un an. », « Pas encore de date. », ou « Atteint le 12 février. » — un fait, montré aussi en « Juste un carnet ». L'année n'est dite que si le mois annoncé est celui d'aujourd'hui, un an plus tard. Rien en « Juste un carnet » sinon.
+- **La jauge** va du record « au moins N reps » de la pose à l'objectif ; sous elle, « Aujourd'hui : 145 kg × 1 » (le record d'aujourd'hui, à au moins N reps). La jauge est dans la couleur du coach, la ligne en texte ordinaire : jamais de rouge.
+- **Atteint** : la première série de travail de l'exercice, à la charge de l'objectif ou plus, pour ses reps ou plus, faite après la pose (sa validation, sinon le début de sa séance). L'observation s'écrit à « Terminer » et à la synchronisation (une séance importée), par la file, derrière la séance de la série ; elle n'est jamais retirée par l'app : une série effacée vide l'observation en base (`sets_efface_observation`), et une autre série qui atteint l'objectif la reprend.
+- **Le pari** : `exercise_slug` vide (l'exercice dans le fondement, comme l'escalier), pas de `seance` dans le fondement ; il ne vit pas dans `local.predictions` (le circuit des paris de la séance) mais à part. Les bilans ne comptent que les paris de consigne ; le score de guilde les ignore aussi.
+- **Les objectifs exclus** : un exercice au poids du corps, avec une aide, en durée ou en distance — un objectif se pose en charge × reps, à charge positive. Le même objectif reposé tel quel ne change rien (la date ne bouge pas).
+- **La table** `objectifs` (migration proposée `v2_089`) : `user_id`, `exercise_slug`, `charge_kg`, `reps`, `pose_le`, `depart_kg`, `projection` (`date` / `pas_encore` / `plus_d_un_an` / `carnet`), `echeance`, `pari_id` ; clé (`user_id`, `exercise_slug`), RLS propriétaire ; écrite par la file (un `upsert` sur la clé, ou une suppression). **Sans la migration**, la lecture répond « table absente » (PGRST205) : la carte ne s'affiche pas, rien ne part vers elle.
+- **La story du mois** : la ligne « Squat : 145 → 147,5 kg, objectif 150. » attend la story du mois (PR #433, pas encore fusionnée) — notée pour après.
+
+**Maquette** : `v2-atelier/maquettes/maquette-salle-objectif-v1.html`, écrans 3 et 4 (validée le 15/10/2026 ; l'écran 3 n'affiche qu'une ligne de date). **Tests** : `tests/unit/v2-objectif-date.test.js` ; banc : section `mon-objectif`.
+
+
 ## 10. L'incrément
 
 ### 10.1 Règle

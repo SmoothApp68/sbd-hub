@@ -302,6 +302,8 @@ de l'écran le 07/10/2026, #382 ; la valeur reste en base.)*
 | **Mesures corporelles et photos** | **chantier à part, pas un bloc du profil.** Hevy propose 14 circonférences et une photo par jour, et c'est un vrai usage pour une recomposition. Mais **des photos de soi sont une donnée sensible** : stockage, chiffrement, et la règle qu'elles ne sortent jamais. Ça mérite sa propre conception |
 | Rapport mensuel, visuels partageables | Hevy les a ; chez nous c'est la gamification et le social |
 
+*Exception, à l'essai (16/10/2026) : un objectif posé par la personne sur un exercice, avec sa date pariée — sur la page de l'exercice, pas dans le profil (MOTEUR §9.25).*
+
 ### 2.7 En base, invisible
 
 Code ami, six réglages de visibilité, gamification (titre, ornement, palier, XP). **Tous en

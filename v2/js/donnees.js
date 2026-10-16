@@ -696,6 +696,36 @@
     if (r.error) throw r.error;
   }
 
+  // ══ 109 (MOTEUR §9.25, v2_089) — LES OBJECTIFS ════════════════════════════
+  // Un par exercice : clé (`user_id`, `exercise_slug`). Lus en entier (peu de lignes) ; écrits par la file, un
+  // `upsert` qui FUSIONNE sur la clé (le changer réécrit la ligne), ou une suppression (le retirer). Sans la
+  // migration, la lecture échoue : l'app le sait (`tableAbsente`) et ne montre pas la carte.
+  var COLONNES_OBJECTIF = 'user_id, exercise_slug, charge_kg, reps, pose_le, depart_kg, projection, echeance, pari_id';
+  async function mesObjectifs() {
+    var r = await client().from('objectifs').select(COLONNES_OBJECTIF);
+    if (r.error) throw r.error;
+    return r.data || [];
+  }
+  async function enregistrerObjectif(ligne) {
+    var r = await client().from('objectifs').upsert(ligne, { onConflict: 'user_id,exercise_slug' });
+    if (r.error) throw r.error;
+  }
+  async function retirerObjectif(slug) {
+    var r = await client().from('objectifs').delete().eq('exercise_slug', slug);
+    if (r.error) throw r.error;
+  }
+  // Une table que la base ne connaît pas (migration pas lancée) : PostgREST répond PGRST205 (ou 42P01).
+  function tableAbsente(erreur) {
+    var code = String((erreur && erreur.code) || '');
+    return code === 'PGRST205' || code === '42P01';
+  }
+  // Les paris d'objectif, en entier (un par pose : peu). `module = 'objectif'`.
+  function parisObjectif() {
+    return paginerParCle(trancheur(function () {
+      return client().from('predictions').select(COLONNES_PREDICTION).eq('module', 'objectif');
+    }, 'id'), 'id');
+  }
+
   async function enregistrerPesee(ligne) {
     var r = await client().from('body_weight_log').upsert(ligne, { onConflict: 'user_id,date' });
     if (r.error) throw r.error;
@@ -1016,6 +1046,11 @@
     toutesLesPesees: toutesLesPesees,
     enregistrerPesee: enregistrerPesee,
     mesChoixDeSemaine: mesChoixDeSemaine,
+    mesObjectifs: mesObjectifs,
+    enregistrerObjectif: enregistrerObjectif,
+    retirerObjectif: retirerObjectif,
+    tableAbsente: tableAbsente,
+    parisObjectif: parisObjectif,
     enregistrerChoixDeSemaine: enregistrerChoixDeSemaine,
     aliasCommuns: aliasCommuns,
     mesAlias: mesAlias,

@@ -16744,6 +16744,36 @@ const SETS_IMPORTES = [
       const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
       largeurs.push({ ecran, doc: l.doc, fen: l.fen });
     };
+    // 103 — LA BARRE TIENT À 360 PX : chaque libellé d'onglet, mesuré avec la police réelle (Barlow Condensed,
+    // chargée), à 360 et à 380 px. Un libellé coupé (points de suspension) a `scrollWidth > clientWidth`.
+    // ⚠️ Ce seul critère ne voit pas un libellé trop long : la grille (`1fr`, minimum automatique) élargit sa colonne
+    // aux dépens des voisines — les icônes se décalent — et ne coupe qu'une fois la barre saturée. D'où le second
+    // critère, celui qui discrimine : la largeur NATURELLE du texte tient dans la PART ÉGALE d'une colonne
+    // (largeur de la barre / nombre d'onglets visibles, moins le retrait de l'onglet).
+    const libellesOnglets = [];
+    const mesurerOnglets = async (etat) => {
+      for (const l of [360, 380]) {
+        await page.setViewportSize({ width: l, height: 760 });
+        await attendre(300);
+        const m = await page.evaluate(async () => {
+          await document.fonts.ready;
+          const barre = document.getElementById('onglets');
+          const noms = Array.from(barre.querySelectorAll('.onglet:not([hidden]) .onglet-nom'));
+          return noms.map((n) => {
+            const r = document.createRange();
+            r.selectNodeContents(n);
+            const cs = getComputedStyle(n.parentElement);
+            const part = barre.clientWidth / noms.length - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+            return { t: n.textContent, sw: n.scrollWidth, cw: n.clientWidth, sh: n.scrollHeight, ch: n.clientHeight,
+              texte: Math.round(r.getBoundingClientRect().width * 10) / 10, part: Math.round(part * 10) / 10,
+              police: document.fonts.check('600 11px "Barlow Condensed"') };
+          });
+        });
+        libellesOnglets.push({ etat, l, m });
+      }
+      await page.setViewportSize({ width: 360, height: 760 });
+      await attendre(300);
+    };
     const chemin = () => page.evaluate(() => location.pathname);
     const ongletJeu = () => page.evaluate(() => {
       const b = document.getElementById('onglet-jeu');
@@ -16788,6 +16818,7 @@ const SETS_IMPORTES = [
       a0.blocs.length === 4 && a0.proches === 3 && /^Niveau \d+$/.test(a0.niveau) && a0.prochain > 0 &&
         JSON.stringify(a0.portes) === '["Muscles","Succès","Déblocages"]', JSON.stringify(a0));
     await mesurerLargeur('accueil');
+    await mesurerOnglets('allumé');
     const sousVues = [['#jeu-porte-muscles', 'vue-muscles', '/jeu/muscles', '#btn-retour-muscles', '#jeu-muscles .j-metier', 7],
       ['#jeu-porte-succes', 'vue-succes', '/jeu/succes', '#btn-retour-succes', '#jeu-succes .j-cat', 8],
       ['#jeu-porte-deblocages', 'vue-deblocages', '/jeu/deblocages', '#btn-retour-deblocages', '#jeu-deblocages .j-cadres .j-ligne', 4]];
@@ -16885,6 +16916,7 @@ const SETS_IMPORTES = [
       ecritsOff.length === 1 && ecritsOff[0].op === 'profil' && ecritsOff[0].champs.jeu_actif === false &&
         base.profiles[0].jeu_actif === false, JSON.stringify(ecritsOff));
     await mesurerLargeur('eteint');
+    await mesurerOnglets('éteint');
     // 87 — jeu éteint, « /jeu » (l'onglet) ouvre le fil, sans sous-onglet « Jeu » ; une sous-vue du jeu reste une
     // route inconnue.
     await aller('/jeu');
@@ -16953,6 +16985,20 @@ const SETS_IMPORTES = [
     // ── E. 360 PX : AUCUN DÉFILEMENT HORIZONTAL sur les sept écrans de la maquette.
     ok('[jeu] à 360 px, aucun défilement horizontal : accueil, Muscles, Succès, Déblocages, Profil, fin de séance, jeu éteint',
       largeurs.length === 7 && largeurs.every((l) => l.fen === 360 && l.doc <= l.fen), JSON.stringify(largeurs));
+
+    // ── F. 103 — AUCUN LIBELLÉ D'ONGLET TRONQUÉ, à 360 comme à 380 px, jeu allumé (« Jeu & amis ») et éteint (« Amis »).
+    console.log('  libellés des onglets : ' + JSON.stringify(libellesOnglets.map((x) => x.etat + '@' + x.l + ' ' +
+      x.m.map((y) => y.t + ' ' + y.texte + '/' + y.part).join(', '))));
+    const noms = (e) => (libellesOnglets.filter((x) => x.etat === e)[0] || { m: [] }).m.map((y) => y.t);
+    ok('[jeu] prémisse : les cinq libellés mesurés, police réelle chargée — « Jeu & amis » allumé, « Amis » éteint (103)',
+      libellesOnglets.length === 4 && libellesOnglets.every((x) => x.m.length === 5 && x.m.every((y) => y.police && y.cw > 0)) &&
+        noms('allumé')[3] === 'Jeu & amis' && noms('éteint')[3] === 'Amis', JSON.stringify(libellesOnglets));
+    ok('[jeu] à 360 et 380 px, aucun libellé d’onglet tronqué : scrollWidth ≤ clientWidth, scrollHeight ≤ clientHeight (103)',
+      libellesOnglets.length === 4 && libellesOnglets.every((x) => x.m.every((y) => y.sw <= y.cw && y.sh <= y.ch)),
+      JSON.stringify(libellesOnglets.map((x) => [x.etat, x.l, x.m.filter((y) => y.sw > y.cw || y.sh > y.ch)])));
+    ok('[jeu] DISCRIMINANT — à 360 et 380 px, chaque libellé tient dans sa part égale de la barre, sans emprunter aux voisins (103)',
+      libellesOnglets.length === 4 && libellesOnglets.every((x) => x.m.every((y) => y.part > 0 && y.texte <= y.part)),
+      JSON.stringify(libellesOnglets.map((x) => [x.etat, x.l, x.m.filter((y) => !(y.texte <= y.part))])));
 
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.
     base.profiles[0].jeu_actif = true;
@@ -20622,6 +20668,192 @@ const SETS_IMPORTES = [
     ok('[D99] rien n’est écrit dans une routine ; aucun refus du faux serveur, aucune erreur de page',
       routinesTouchees.length === 0 && base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       nb99([routinesTouchees, base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ chauffes-ajoutees. LES CHAUFFES AJOUTÉES ET LA DÉGRESSIVE VIDE, À L’ÉCRAN (112, MOTEUR §9.15.3 et §9.15.5) ══');
+  //
+  // Noté au prompt 94 : « une chauffe ajoutée sur une isolation reste vide » n'était tuée que par les tests
+  // unitaires, et aucun banc ne touchait les deux gestes de la dégressive vide. Section autonome : sa base, son
+  // catalogue et sa routine, rendus à la fin — aucune chaîne.
+  //
+  // ⚠️ CONFIGURATIONS DISCRIMINANTES.
+  //   · Une isolation (machine) APRÈS un exercice qui sollicite déjà ses muscles : la table du §9.15.1 n'y prévoit
+  //     AUCUNE chauffe (situation « aucune »). Les lignes que l'utilisateur ajoute (« + Série », puis « Échauffement »)
+  //     se remplissent quand même : 1 → ~60 % × 8 ; 2 → ~50 % × 8 puis ~75 % × 4 (§9.15.5). Avant 94 : vides.
+  //   · Une dégressive à la barre à 5 kg : aucun disque ne tombe entre −15 et −30 % — le coach ne la remplit pas.
+  //     La phrase dit pourquoi ; « En faire une série normale » change son type ; une autre, « La retirer », la supprime.
+  //   · Une dégressive à la barre à 100 kg : « Enlève 10 kg de chaque côté : 80 kg. »
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    const violationsAvant = gardeBanc.violations;
+    const exo112 = (slug, nom, equipement, muscle) => ({ slug, nom, mesure: 'charge_reps', charge: 'externe',
+      equipement, muscles_primaires: [muscle], muscles_secondaires: [] });
+    CATALOGUE.push(exo112('presse-s112', 'Presse S112 (Machine)', 'machine', 's112_quadri'),
+      exo112('extension-s112', 'Extension S112 (Machine)', 'machine', 's112_quadri'),
+      exo112('leger-s112', 'Léger S112 (Barre)', 'barre', 's112_bras'),
+      exo112('lourd-s112', 'Lourd S112 (Barre)', 'barre', 's112_dos'));
+    const t112 = Date.now();
+    base.sessions = [];
+    base.sets = [];
+    [21, 14, 7].forEach((j) => {
+      const id = 's112-' + j, debut = ilYa(j * 86400000, t112).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'S112 — ' + id, debut,
+        fin: finDe(debut, t112).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      let rang = 0;
+      [['presse-s112', 100, 10, 2], ['extension-s112', 60, 12, 2], ['leger-s112', 5, 12, 1], ['lourd-s112', 100, 8, 1]]
+        .forEach(([slug, kg, reps, n]) => {
+          for (let k = 0; k < n; k++) {
+            rang++;
+            base.sets.push({ id: id + '-s' + rang, session_id: id, user_id: 'u-banc', exercise_slug: slug,
+              charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+              rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+              repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null });
+          }
+        });
+    });
+    const lignes112 = (types) => types.map(([t, reps], i) => ({ id: 's112-l' + (++grainePr), rang: i + 1,
+      type_serie: t, reps_visees: reps, charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null }));
+    const re112 = (rang, slug, types, repos) => ({ id: 'r-s112-' + rang, routine_id: 'r-s112', exercise_slug: slug, rang,
+      routine_sets: lignes112(types), repos_cible_s: repos, groupe_superset: null, note: null });
+    ROUTINES.push({ id: 'r-s112', nom: 'Chauffes S112', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        re112(0, 'presse-s112', [['travail', 10]], 120),
+        re112(1, 'extension-s112', [['travail', 12], ['travail', 12]], 90),
+        re112(2, 'leger-s112', [['travail', 12], ['degressive', null]], 90),
+        re112(3, 'lourd-s112', [['travail', 8], ['degressive', null]], 180)] });
+    const nb112 = (x) => JSON.stringify(x).replace(/[\u00a0\u202f]/g, ' ');
+    const esp112 = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
+    // La rangée (i, j) : ses deux fantômes (charge, reps) et son étiquette.
+    const rangee112 = (i, j) => page.evaluate(([a, b]) => {
+      const r = document.querySelector('.serie[data-iexo="' + a + '"][data-iserie="' + b + '"]');
+      if (!r) return null;
+      const champs = Array.from(r.querySelectorAll('input'));
+      return { charge: champs[0] ? champs[0].placeholder : null, reps: champs[1] ? champs[1].placeholder : null,
+               no: (r.querySelector('.no-serie') || {}).textContent || null };
+    }, [i, j]);
+    const plan112 = (slug) => page.evaluate((sl) => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === sl)[0];
+      return x ? { types: x.lignes.map((l) => l.type),
+        chauffes: x.chauffes ? { situation: x.chauffes.situation, reference: x.chauffes.reference, phrase: x.chauffes.phrase } : null,
+        charges: x.lignes.filter((l) => l.type === 'echauffement').map((l) => (l.chauffe ? l.chauffe.charge : 'sans')),
+        degressive: x.degressive ? { charge: x.degressive.charge, phrase: x.degressive.phrase, gestes: x.degressive.gestes || null } : null
+      } : null;
+    }, slug);
+    const nSeries112 = (i) => page.evaluate((a) => document.querySelectorAll('.serie[data-iexo="' + a + '"]').length, i);
+    // Le geste de l'utilisateur : « + Série » sous l'exercice, puis son numéro → le type dans la feuille.
+    const typer112 = async (i, j, rangDansMenu) => {
+      await page.evaluate(([a, b]) => document.querySelector('.serie[data-iexo="' + a + '"][data-iserie="' + b + '"] .no-serie').click(), [i, j]);
+      await attendre(500);
+      await page.click('#feuille-contenu .feuille-menu button:nth-child(' + rangDansMenu + ')');
+      await attendre(800);
+    };
+    const ECHAUFFEMENT = 2, DEGRESSIVE = 3;
+    const valider112 = async (i, j, kg, reps) => {
+      const s = await page.$('.serie[data-iexo="' + i + '"][data-iserie="' + j + '"]');
+      const champs = await s.$$('input');
+      await champs[0].fill(String(kg));
+      await champs[1].fill(String(reps));
+      await s.$eval('.ok-serie', (b) => b.click());
+      await attendre(700);
+    };
+    const propDeg112 = (i) => page.evaluate((a) => {
+      const p = document.querySelector('.proposition-degressive[data-iexo="' + a + '"]');
+      return p ? { texte: (p.querySelector('.pc-texte') || {}).textContent || '',
+                   boutons: Array.from(p.querySelectorAll('button')).map((b) => b.textContent) } : null;
+    }, i);
+
+    await aller('/saisie');
+    await demarrerRoutine('Chauffes S112');
+    await attendre(900);
+
+    // ── (1) LES CHAUFFES AJOUTÉES SUR UNE ISOLATION ─────────────────────────────────────────────────────
+    const avant112 = await plan112('extension-s112');
+    ok('[S112] le décor : l’isolation n’a ni chauffe ni proposition (muscles déjà sollicités par la presse)',
+      !!avant112 && avant112.chauffes === null && JSON.stringify(avant112.types) === '["travail","travail"]' &&
+      (await compter('.proposition-chauffes[data-iexo="1"]')) === 0, nb112(avant112));
+    await plusSerie(1);
+    await typer112(1, 2, ECHAUFFEMENT);
+    const une112 = await plan112('extension-s112');
+    const r1 = await rangee112(1, 2);
+    ok('[S112] la ligne ajoutée est une chauffe, et la table n’en prévoyait aucune (situation « aucune »)',
+      !!une112 && JSON.stringify(une112.types) === '["travail","travail","echauffement"]' &&
+      !!une112.chauffes && une112.chauffes.situation === 'aucune' && une112.chauffes.reference === 60, nb112(une112));
+    ok('[S112] DISCRIMINANT (§9.15.5) — UNE chauffe ajoutée se remplit : ~60 % × 8 de 60 kg → 35 kg × 8 (avant 94 : vide)',
+      !!r1 && r1.charge === '35' && r1.reps === '8', nb112(r1));
+    ok('[S112] et sa phrase : « Chauffes calées sur 60 kg : 35 kg. »',
+      esp112(une112 && une112.chauffes.phrase) === 'Chauffes calées sur 60 kg : 35 kg.', nb112(une112 && une112.chauffes));
+    await plusSerie(1);
+    await typer112(1, 3, ECHAUFFEMENT);
+    const deux112 = await plan112('extension-s112');
+    const r2a = await rangee112(1, 2), r2b = await rangee112(1, 3);
+    ok('[S112] DISCRIMINANT (§9.15.5) — DEUX chauffes ajoutées : ~50 % × 8 puis ~75 % × 4 → 30 kg × 8 · 45 kg × 4',
+      !!r2a && !!r2b && r2a.charge === '30' && r2a.reps === '8' && r2b.charge === '45' && r2b.reps === '4',
+      nb112([r2a, r2b, deux112 && deux112.charges]));
+    const phrasesChauffe112 = await page.evaluate(() => Array.from(document.querySelectorAll('.reaction-serie.chauffe')).map((e) => e.textContent));
+    ok('[S112] la phrase suit, à l’écran : « Chauffes calées sur 60 kg : 30 · 45 kg. »',
+      phrasesChauffe112.map(esp112).indexOf('Chauffes calées sur 60 kg : 30 · 45 kg.') >= 0, nb112(phrasesChauffe112));
+
+    // ── (2) LA DÉGRESSIVE QUE LE COACH NE PEUT PAS REMPLIR ──────────────────────────────────────────────
+    await valider112(2, 0, 5, 12);
+    const leger112 = await plan112('leger-s112');
+    const prop112 = await propDeg112(2);
+    const vide112 = await rangee112(2, 1);
+    ok('[S112] DISCRIMINANT (§9.15.3) — à la barre à 5 kg, la dégressive reste vide et la phrase dit pourquoi',
+      !!leger112 && !!leger112.degressive && leger112.degressive.charge === null && !!vide112 && !/\d/.test(vide112.charge || '') &&
+      !!prop112 && esp112(prop112.texte) === 'Trop léger pour une dégressive.', nb112([leger112, prop112, vide112]));
+    ok('[S112] et ses deux gestes : « En faire une série normale » · « La retirer »',
+      !!prop112 && JSON.stringify(prop112.boutons) === '["En faire une série normale","La retirer"]', nb112(prop112));
+    await page.click('.proposition-degressive[data-iexo="2"] .pd-serie_normale');
+    await attendre(800);
+    const normale112 = await plan112('leger-s112');
+    ok('[S112] DISCRIMINANT — « En faire une série normale » : la ligne reste, son type devient travail, la phrase s’en va',
+      !!normale112 && JSON.stringify(normale112.types) === '["travail","travail"]' && normale112.degressive === null &&
+      (await nSeries112(2)) === 2 && (await propDeg112(2)) === null, nb112(normale112));
+    await valider112(2, 1, 5, 12);
+    await plusSerie(2);
+    await typer112(2, 2, DEGRESSIVE);
+    const reposee112 = await plan112('leger-s112');
+    ok('[S112] une nouvelle dégressive, ajoutée par l’utilisateur : vide à nouveau, avec ses gestes',
+      !!reposee112 && JSON.stringify(reposee112.types) === '["travail","travail","degressive"]' &&
+      (await nSeries112(2)) === 3 && !!(await propDeg112(2)), nb112(reposee112));
+    await page.click('.proposition-degressive[data-iexo="2"] .pd-retirer');
+    await attendre(800);
+    const retiree112 = await plan112('leger-s112');
+    ok('[S112] DISCRIMINANT — « La retirer » : la ligne disparaît, les deux séries faites restent',
+      !!retiree112 && JSON.stringify(retiree112.types) === '["travail","travail"]' && (await nSeries112(2)) === 2 &&
+      (await propDeg112(2)) === null, nb112([retiree112, await nSeries112(2)]));
+    const faites112 = base.sets.filter((x) => x.exercise_slug === 'leger-s112' && !/^s112-/.test(x.session_id));
+    ok('[S112] en base : deux séries de travail à 5 kg × 12, aucune dégressive',
+      faites112.length === 2 && faites112.every((x) => x.type_serie === 'travail' && Number(x.charge_kg) === 5 && x.reps === 12),
+      nb112(faites112.map((x) => [x.type_serie, x.charge_kg, x.reps])));
+
+    // ── (3) LA DÉGRESSIVE À LA BARRE, REMPLIE ───────────────────────────────────────────────────────────
+    const lourd112 = await plan112('lourd-s112');
+    const rl112 = await rangee112(3, 1);
+    const phrasesDeg112 = await page.evaluate(() => Array.from(document.querySelectorAll('.reaction-serie.degressive')).map((e) => e.textContent));
+    ok('[S112] DISCRIMINANT (§9.15.3) — à la barre à 100 kg, la dégressive se remplit : 80 kg',
+      !!lourd112 && !!lourd112.degressive && lourd112.degressive.charge === 80 && !!rl112 && rl112.charge === '80',
+      nb112([lourd112, rl112]));
+    ok('[S112] et la phrase, à l’écran, dit quoi enlever : « Enlève 10 kg de chaque côté : 80 kg. … »',
+      phrasesDeg112.map(esp112).indexOf('Enlève 10 kg de chaque côté : 80 kg. Sans repos, jusqu\'à l\'échec. Vise 3 à 5.') >= 0,
+      nb112(phrasesDeg112));
+    ok('[S112] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[S112] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nb112([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

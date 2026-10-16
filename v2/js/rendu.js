@@ -7053,6 +7053,8 @@
     vider(cible);
     if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur g-message', vue.message));
     if (vue.mode === 'charge') { cible.appendChild(el('p', 's-gris s-note', 'Chargement…')); return; }
+    // 121 (05 #4, #12) — hors ligne : la phrase seule (« Il faut le réseau pour … »), ni zéros, ni « Chargement… ».
+    if (vue.mode === 'erreur') return;
     if (vue.mode === 'inviter') {
       if (vue.sous) cible.appendChild(el('p', 's-gris s-cache', vue.sous));
       var c = el('div', 's-carte g-inviter-carte');

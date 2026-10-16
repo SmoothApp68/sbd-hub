@@ -373,6 +373,12 @@ groupe ni sur sessions, sets, records ; aucune colonne interdite rendue.
   d'envoi part (`vidanger`), pour que la base sache ma séance précédente finie.
 - **Le récap** : il se lit depuis le détail de la séance dès que MA séance est finie (« Faite en groupe avec … »), tel
   qu'il est tant que le groupe existe — même si je suis parti vers un autre groupe sans le fermer —, et figé ensuite.
+- **Hors ligne — audit du 16/10/2026 (05 #4, #12)** : chaque écran du groupe dit ce qu'il attend du réseau, avec la
+  phrase du social (« Il faut le réseau pour voir le récap du groupe. », « Il faut le réseau pour s'entraîner
+  ensemble. ») — jamais un récap à zéro (« 0 t · 0 séries · 0 records » + « Fermer »), jamais « Chargement… » sans fin.
+  La trace « Faite en groupe avec … » et son récap sont gardés sur le téléphone (le brouillon `groupe-traces`, les 200
+  dernières séances, relu au démarrage) : le détail d'une séance les montre hors ligne ; la lecture de la base les
+  remplace dès qu'elle revient ; « Quitter » et un autre compte les effacent avec le cache.
 
 ### 7.5 La base (v2_087, proposée)
 

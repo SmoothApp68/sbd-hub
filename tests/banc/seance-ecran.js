@@ -18566,6 +18566,20 @@ const SETS_IMPORTES = [
     fauxSocial.rpc('u-lea', 'groupe_publier', { p_exercices: null, p_xp: 50 });
     await aller('/');
     await attendreQue(async () => (await compter('#groupe-accueil .g-voir-recap')) === 1);
+    // 121 (audit du 16/10, 05 #4) — HORS LIGNE, le récap du groupe ne se lit pas : la phrase seule, jamais
+    // « 0 t soulevées · 0 séries · 0 records » ni « Fermer ».
+    base.reseau = false;
+    await page.click('#groupe-accueil .g-voir-recap');
+    await attendreQue(async () => /Il faut le réseau/.test(await texte('#groupe-corps')));
+    const recapHL = await texte('#groupe-corps');
+    const fermerHL = await compter('#groupe-fermer');
+    await page.click('#btn-retour-groupe');
+    base.reseau = true;
+    ok('[groupe] 121 — DISCRIMINANT — hors ligne, le récap du groupe dit « Il faut le réseau pour voir le récap du groupe. », sans zéros ni « Fermer »',
+      recapHL === 'Il faut le réseau pour voir le récap du groupe.' && fermerHL === 0 && !/0 t|0 série|Chargement/.test(recapHL),
+      JSON.stringify([recapHL, fermerHL]));
+    await aller('/');
+    await attendreQue(async () => (await compter('#groupe-accueil .g-voir-recap')) === 1);
     await page.click('#groupe-accueil .g-voir-recap');
     await attendreQue(async () => (await compter('#groupe-corps .g-part')) === 3);
     const lireRecap = () => page.evaluate(() => {
@@ -18654,6 +18668,16 @@ const SETS_IMPORTES = [
     await attendreQue(async () => fauxSocial.groupeDe('u-banc') === G4 && (await carte()) && (await carte()).titre === 'Groupe · 2', 12000);
     const maSeance4 = enCours();
     const h1 = await carte();
+    // 121 (audit du 16/10, 05 #12) — HORS LIGNE, « Inviter » (s'entraîner ensemble) : la phrase, jamais « Chargement… » sans fin.
+    base.reseau = false;
+    await page.click('#groupe-seance #groupe-inviter');
+    await attendreQue(async () => /Il faut le réseau/.test(await texte('#groupe-corps')));
+    await attendre(600);
+    const inviterHL = await texte('#groupe-corps');
+    await page.click('#btn-retour-groupe');
+    base.reseau = true;
+    ok('[groupe] 121 — hors ligne, « Inviter » dit « Il faut le réseau pour s’entraîner ensemble. », sans « Chargement… »',
+      inviterHL === 'Il faut le réseau pour s’entraîner ensemble.', JSON.stringify(inviterHL));
     const placeG3 = S.gmembres.filter((m) => m.groupe_id === G3 && m.user_id === 'u-banc')[0];
     const placeG4 = S.gmembres.filter((m) => m.groupe_id === G4 && m.user_id === 'u-banc')[0];
     ok('[groupe] MUTATION 106 (b) — MA séance finie, jordan s’entraîne encore : l’invitation de lea se montre déjà ; je la rejoins avec une ' +
@@ -18682,6 +18706,19 @@ const SETS_IMPORTES = [
     await attendreQue(async () => (await compter('#groupe-corps .g-part')) === 2);
     const h4 = await lireRecap();
     await page.click('#btn-retour-groupe');
+    // 121 (audit du 16/10, 05 #12) — HORS LIGNE, l'app rechargée : la trace « Faite en groupe avec jordan » reste (gardée sur
+    // l'appareil), et son récap figé se rouvre.
+    base.reseau = false;
+    await aller('/seance/' + maSeance3);
+    await attendreQue(async () => (await compter('#detail-groupe-voir')) === 1, 12000);
+    const traceHL = await texte('#detail-groupe');
+    if (traceHL) await page.click('#detail-groupe-voir');
+    await attendreQue(async () => (await compter('#groupe-corps .g-part')) === 2);
+    const recapFigeHL = await lireRecap();
+    if (traceHL) await page.click('#btn-retour-groupe');
+    base.reseau = true;
+    ok('[groupe] 121 — DISCRIMINANT — hors ligne et rechargée, ma séance garde « Faite en groupe avec jordan » (gardée sur l’appareil) et son récap figé',
+      traceHL === 'Faite en groupe avec jordan' && recapFigeHL.parts.length === 2, JSON.stringify([traceHL, recapFigeHL.parts]));
     ok('[groupe] le membre qui ne rouvre JAMAIS l’app (50 min sans série) compte comme terminé : le groupe finit au geste suivant ; 24 h ' +
       'après la fin, ses messages s’effacent ; ma séance garde « Faite en groupe avec jordan » et son récap',
       !!finG3 && messagesG3 === 1 && messagesG3Apres === 0 && h3 === 'Faite en groupe avec jordan' && h4.parts.length === 2 &&

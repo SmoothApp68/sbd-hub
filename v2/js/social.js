@@ -549,6 +549,19 @@
         messageValide(m.texte) === m.texte;
     });
   }
+  // 121 (05 #12) — les traces « Faite en groupe avec … » gardées sur l'appareil : `{ <séance> : { recap: { membres }, le } }`.
+  // Un cache abîmé ne casse rien : seules les entrées bien formées restent (une liste de membres, chacun un objet).
+  function tracesDuGroupe(valeur) {
+    var out = {};
+    if (!valeur || typeof valeur !== 'object' || Array.isArray(valeur)) return out;
+    Object.keys(valeur).forEach(function (k) {
+      var t = valeur[k];
+      var membres = t && t.recap && t.recap.membres;
+      if (!k || !Array.isArray(membres) || !membres.every(function (m) { return !!m && typeof m === 'object'; })) return;
+      out[k] = { recap: { membres: membres }, le: typeof t.le === 'string' ? t.le : null };
+    });
+    return out;
+  }
   // « 1 message partira au retour du réseau. » — ceux de CE groupe seulement.
   function texteEnAttente(file, groupeId) {
     var n = (file || []).filter(function (m) { return m && m.groupe_id === groupeId; }).length;
@@ -979,6 +992,7 @@
     // 106 — la fin du groupe, et les messages gardés hors ligne
     libreDuGroupe: libreDuGroupe,
     fileDeMessages: fileDeMessages,
+    tracesDuGroupe: tracesDuGroupe,
     texteEnAttente: texteEnAttente,
     encoreEnSeance: encoreEnSeance,
     ilYA: ilYA,

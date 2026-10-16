@@ -767,6 +767,9 @@
     // 106 — les messages du groupe écrits hors ligne, gardés sur le téléphone : ils partiront au retour du réseau.
     try { grp.file = Social.fileDeMessages(await Cache.lireBrouillon(CLE_FILE_GROUPE)); }
     catch (e) { grp.file = []; }
+    // 121 (05 #12) — les traces « Faite en groupe avec … » : le détail d'une séance les montre hors ligne.
+    try { grp.traces = Social.tracesDuGroupe(await Cache.lireBrouillon(CLE_TRACES_GROUPE)); }
+    catch (e) { grp.traces = {}; }
     rangerSeances();
     indexerParSeance();
     recalculerEtats();
@@ -1723,9 +1726,12 @@
   }
 
   // Une lecture qui échoue (hors ligne, le plus souvent) : l'écran dit qu'il faut le réseau pour voir ceci.
+  // 121 (05 #4, #12) — une seule phrase, « Il faut le réseau pour … » : pour voir (une lecture), ou pour faire (un geste
+  // du groupe, `phraseDuReseau`).
+  function phraseDuReseau(action) { return 'Il faut le réseau pour ' + action + '.'; }
   function erreurSociale(e, quoi) {
     console.warn('Social :', texteErreur(e));
-    return 'Il faut le réseau pour voir ' + (quoi || 'le social') + '.';
+    return phraseDuReseau('voir ' + (quoi || 'le social'));
   }
   function tonnesSociales(kg) { return Bilan.tonnesDuRecap(Number(kg) || 0); }
   function allerAmi(pseudo) { allerA(Routeur.AMI, { pseudo: pseudo }); rendreAmi(pseudo); }
@@ -2527,11 +2533,15 @@
   //     sienne (`groupeDeLaSeance`) : une séance suivante n'en hérite rien — ni carte, ni liste publiée, ni XP, ni départ.
   var grp = { moi: null, etat: [], direct: [], messages: [], invitations: [], envoyees: [], lu: 0, enCours: false,
               muet: false, ouvert: false, ecrire: false, file: [], envoi: null, message: null, publie: null, vue: null,
-              aRejoindre: null, recapAuto: false };
+              aRejoindre: null, recapAuto: false, traces: {} };
   var CLE_FILE_GROUPE = 'groupe-messages';
+  // 121 (05 #12) — les traces « Faite en groupe avec … » de mes séances, gardées sur l'appareil (les 200 dernières).
+  var CLE_TRACES_GROUPE = 'groupe-traces', TRACES_GROUPE_MAX = 200;
   var gardeGroupe = null;
 
-  function messageGroupe(e) {
+  // `action` (121, 05 #12) : ce que l'écran demande au réseau — par défaut, s'entraîner ensemble (inviter, rejoindre :
+  // un geste, pas « voir le social »).
+  function messageGroupe(e, action) {
     var m = String((e && (e.message || e.details)) || '');
     if (/groupe_plein/.test(m)) return 'Le groupe est complet : 6 personnes.';
     if (/groupe_invite_non_mutuel/.test(m)) return 'On n’invite qu’un abonné mutuel.';
@@ -2539,7 +2549,8 @@
     if (/groupe_deja_dans_un|groupe_membres_un_a_la_fois/.test(m)) return 'Tu es déjà dans un groupe.';
     if (/groupe_eteint|groupe_sans_invitation/.test(m)) return 'Ce groupe est terminé.';
     if (/groupe_messages_texte/.test(m)) return 'Un message fait de 1 à 140 caractères.';
-    return erreurSociale(e);
+    console.warn('Groupe :', texteErreur(e));
+    return phraseDuReseau(action || 's’entraîner ensemble');
   }
   // Mes exercices, dans l'ordre de ma séance (une fois chacun) : ce que voit qui « suit » ma séance.
   function exercicesDe(s) {
@@ -2572,7 +2583,7 @@
   function oublierGroupe() {
     grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.invitations = []; grp.envoyees = [];
     grp.file = []; grp.envoi = null; grp.message = null; grp.publie = null; grp.lu = 0; grp.recapAuto = false;
-    grp.aRejoindre = null;
+    grp.aRejoindre = null; grp.traces = {};
   }
 
   // UNE LECTURE : mon groupe, l'état des séances, le direct, les messages — et, libre (sans groupe, ou ma séance du
@@ -2811,7 +2822,8 @@
     var v = grp.vue, vue = { mode: v.mode, message: v.message || null };
     if (v.mode === 'inviter') {
       vue.sous = seance ? (seance.titre || 'Séance') + ' · en cours' : null;
-      if (!social.liens) vue.mode = 'charge';
+      // 121 (05 #12) — la lecture des amis a échoué (hors ligne) : la phrase seule, jamais « Chargement… » sans fin.
+      if (!social.liens) vue.mode = v.message ? 'erreur' : 'charge';
       else {
         vue.amis = Social.invitablesDuGroupe(social.liens, grp.etat, grp.envoyees).map(function (a) {
           return { pseudo: a.pseudo, invite: a.invite, sous: a.invite ? 'invité · en attente' : null,
@@ -2839,7 +2851,8 @@
         vue.choix.push({ cle: 'vide', titre: 'Séance vide', sur: function () { rejoindreAvec(i, {}); } });
       }
     } else if (v.mode === 'recap' || v.mode === 'fige') {
-      if (!v.lignes) vue.mode = 'charge';
+      // 121 (05 #4) — le récap n'a pas pu se lire : la phrase seule, jamais « 0 t · 0 séries · 0 records ».
+      if (!v.lignes) vue.mode = v.message ? 'erreur' : 'charge';
       else {
         var r = Social.recapDuGroupe(v.lignes);
         var d = v.le ? new Date(v.le) : null;
@@ -2961,7 +2974,7 @@
     var v = grp.vue;
     Donnees.groupeRecap().then(function (l) {
       v.lignes = l; v.le = l.length ? l[0].le : null;
-    }).catch(function (e) { v.message = messageGroupe(e); v.lignes = []; }).then(dessinerVueGroupe);
+    }).catch(function (e) { v.message = messageGroupe(e, 'voir le récap du groupe'); v.lignes = null; }).then(dessinerVueGroupe);
   }
   // FERMER le récap du groupe : il se fige pour moi (lisible depuis ma séance) ; le dernier éteint le groupe.
   async function fermerRecapGroupe() {
@@ -2969,7 +2982,7 @@
     try {
       await Donnees.groupeFermer();
     } catch (e) {
-      if (v) { v.message = messageGroupe(e); dessinerVueGroupe(); }
+      if (v) { v.message = messageGroupe(e, 'fermer le récap du groupe'); dessinerVueGroupe(); }
       return;
     }
     // 106 — les messages encore gardés pour ce groupe ne partiront plus (je l'ai fermé).
@@ -2989,18 +3002,41 @@
   }
 
   // Le détail d'une séance faite en groupe : « Faite en groupe avec jordan, lea », et le récap figé.
+  //
+  // ⚠️ 121 (audit du 16/10/2026, 05 #12) — LA TRACE EST GARDÉE SUR L'APPAREIL (`grp.traces`, le brouillon
+  // `CLE_TRACES_GROUPE`) : « La séance garde la trace « Faite en groupe avec … » » (SOCIAL §7) — hors ligne aussi. Elle
+  // n'existait qu'en base : hors ligne, la ligne disparaissait du détail sans rien dire. La lecture de la base la
+  // remplace dès qu'elle revient (un compte supprimé y devient « un ancien membre ») ; « Quitter » et un autre compte
+  // l'effacent avec le reste du cache. C'est MON récap, lisible par moi seul (`groupe_recaps`).
+  function dessinerTraceDuGroupe(cible, sessionId, r) {
+    var texte = r && r.recap ? Social.faiteEnGroupeAvec(r.recap.membres) : null;
+    if (!texte) return false;
+    Rendu.rendreGroupeDuDetail(cible, { texte: texte, surVoir: function () {
+      ouvrirVueGroupe({ mode: 'fige', retourDetail: sessionId, lignes: r.recap.membres || [], le: r.le });
+    } });
+    return true;
+  }
   function rendreGroupeDuDetail(sessionId) {
     var cible = $('detail-groupe');
     Rendu.rendreGroupeDuDetail(cible, null);
     if (!sessionId || !userId()) return;
+    var garde = grp.traces[sessionId] || null;
+    if (garde) dessinerTraceDuGroupe(cible, sessionId, garde);
     Donnees.groupeRecapSeance(sessionId).then(function (r) {
+      if (r && r.recap) garderTraceDuGroupe(sessionId, { recap: { membres: r.recap.membres || [] }, le: r.le || null });
       if (ecranCourant !== 'detail' || !r || !r.recap) return;
-      var texte = Social.faiteEnGroupeAvec(r.recap.membres);
-      if (!texte) return;
-      Rendu.rendreGroupeDuDetail(cible, { texte: texte, surVoir: function () {
-        ouvrirVueGroupe({ mode: 'fige', retourDetail: sessionId, lignes: r.recap.membres || [], le: r.le });
-      } });
-    }).catch(function () { /* hors ligne : rien à dire */ });
+      dessinerTraceDuGroupe(cible, sessionId, r);
+    }).catch(function () { /* hors ligne : la trace gardée reste (ou rien, si la séance n'a jamais été vue en groupe) */ });
+  }
+  function garderTraceDuGroupe(sessionId, trace) {
+    var t = Object.assign({}, grp.traces);
+    t[sessionId] = trace;
+    var cles = Object.keys(t);
+    if (cles.length > TRACES_GROUPE_MAX) cles.slice(0, cles.length - TRACES_GROUPE_MAX).forEach(function (k) { delete t[k]; });
+    grp.traces = t;
+    return Cache.ecrireBrouillon(CLE_TRACES_GROUPE, t).catch(function (e) {
+      console.warn('La trace du groupe ne se garde pas sur l’appareil :', texteErreur(e));
+    });
   }
 
   // ── Trouver des amis (＋) ──

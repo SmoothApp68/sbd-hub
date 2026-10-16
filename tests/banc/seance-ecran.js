@@ -1933,15 +1933,21 @@ const SETS_IMPORTES = [
   // ⚠️ LES BLOCS LAISSÉS PAR UNE AUTRE SECTION, RETIRÉS DE L'APPAREIL (16/10/2026, décidé par Claude.ai). Au banc
   // séquentiel, les blocs de « cycles » restent sur l'appareil : la synchronisation fond ceux du serveur dans ceux de
   // l'appareil sans jamais en retirer (`fondreBlocs`), et leur semaine de décharge planifiée (§9.22) n'est ni comptée
-  // ni jugée par le compteur — elle tombait sur les séances d'une section qui en compte 8. Ici : le serveur n'en a plus,
-  // la copie de l'appareil (le brouillon `blocs`) s'efface, et l'app redémarre — elle relit un appareil vide. Rend la
-  // fonction qui les rend au serveur (la synchronisation suivante les reporte sur l'appareil, pour les sections d'après).
+  // ni jugée par le compteur — elle tombait sur les séances d'une section qui en compte 8. Ici : le serveur n'a plus
+  // ni les blocs ni leurs lignes de zone (`origine = 'bloc'`, I36 : jamais une ligne de bloc sans son bloc) ;
+  // l'appareil les efface (le brouillon `blocs`, le magasin `zones`), et l'app redémarre sur cet état. Rend la fonction
+  // qui les rend au serveur : la synchronisation suivante les reporte sur l'appareil, pour les sections d'après.
   const retirerBlocsDeLAppareil = async () => {
-    const blocsAvant = base.blocs;
+    const blocsAvant = base.blocs, zonesAvant = base.zones;
     base.blocs = [];
-    await page.evaluate(() => window.THCache.ecrireBrouillon('blocs', null)).catch(() => {});
+    base.zones = (base.zones || []).filter((z) => !z.bloc_id);
+    await page.evaluate(async () => {
+      await window.THCache.ecrireBrouillon('blocs', null);
+      const zones = await window.THCache.lireTout('zones');
+      await window.THCache.remplacerTout('zones', (zones || []).filter((z) => !z.bloc_id));
+    }).catch(() => {});
     await aller('/saisie');
-    return () => { base.blocs = blocsAvant; };
+    return () => { base.blocs = blocsAvant; base.zones = zonesAvant; };
   };
   const visible = () => page.evaluate(() =>
     Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id));

@@ -1930,6 +1930,19 @@ const SETS_IMPORTES = [
     await page.goto(BASE + (chemin || '/'), { waitUntil: 'domcontentloaded' }).catch(() => {});
     if (retenue) { statAller.fixes++; await attendre(2600); } else await ecranPose();
   };
+  // ⚠️ LES BLOCS LAISSÉS PAR UNE AUTRE SECTION, RETIRÉS DE L'APPAREIL (16/10/2026, décidé par Claude.ai). Au banc
+  // séquentiel, les blocs de « cycles » restent sur l'appareil : la synchronisation fond ceux du serveur dans ceux de
+  // l'appareil sans jamais en retirer (`fondreBlocs`), et leur semaine de décharge planifiée (§9.22) n'est ni comptée
+  // ni jugée par le compteur — elle tombait sur les séances d'une section qui en compte 8. Ici : le serveur n'en a plus,
+  // la copie de l'appareil (le brouillon `blocs`) s'efface, et l'app redémarre — elle relit un appareil vide. Rend la
+  // fonction qui les rend au serveur (la synchronisation suivante les reporte sur l'appareil, pour les sections d'après).
+  const retirerBlocsDeLAppareil = async () => {
+    const blocsAvant = base.blocs;
+    base.blocs = [];
+    await page.evaluate(() => window.THCache.ecrireBrouillon('blocs', null)).catch(() => {});
+    await aller('/saisie');
+    return () => { base.blocs = blocsAvant; };
+  };
   const visible = () => page.evaluate(() =>
     Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id));
   const texte = (sel) => page.evaluate((s) => (document.querySelector(s) || {}).textContent || '', sel);
@@ -20001,6 +20014,8 @@ const SETS_IMPORTES = [
     const catalogueAvant = CATALOGUE.length, routinesAvant = ROUTINES.length;
     const phaseAvant = base.profiles && base.profiles[0] ? base.profiles[0].phase : undefined;
     const violationsAvant = gardeBanc.violations;
+    // Les blocs d'une section d'avant (« cycles », au banc séquentiel) : leur décharge neutraliserait nos séances.
+    const rendreBlocs111 = await retirerBlocsDeLAppareil();
     CATALOGUE.push({ slug: 'curl-d111', nom: 'Curl D111 (Poulie)', mesure: 'charge_reps', charge: 'externe',
       equipement: 'poulie', muscles_primaires: ['biceps'], muscles_secondaires: [] });
     CATALOGUE.push({ slug: 'presse-d111', nom: 'Presse D111 (Machine)', mesure: 'charge_reps', charge: 'externe',
@@ -20181,6 +20196,7 @@ const SETS_IMPORTES = [
     base.sessions = sessionsAvant;
     base.sets = setsAvant;
     base.predictions = predictionsAvant;
+    rendreBlocs111();
     await aller('/saisie');
     ok('[D111] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,

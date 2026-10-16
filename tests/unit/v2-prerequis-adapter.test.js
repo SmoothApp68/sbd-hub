@@ -385,6 +385,8 @@ describe('5 — répondre à la carte du lest ne recalcule que l’exercice qui 
       faits: { seancesDeLExercice: (c, slug) => ({ slug }) }, corpus: () => ({}),
       routineAFiger: (slug) => { routines[slug] = (routines[slug] || 0) + 1; return routines[slug] === 1 ? 3 : 99; },
       sauverConsignes: () => {},
+      // 111 — la ligne dégressive de la routine, figée avec la consigne : aucune ici.
+      aUneLigneDegressive: () => false,
       freresPourLeMoteur: () => [],
       Moteur: { consigneDExercice: (g, e, d, opt) => {
         calculs.push(g.slug);

@@ -2290,6 +2290,9 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .annee .mois div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%;font-size:11px;color:var(--cendre)}
 .annee .mois b{display:block;width:100%;height:0;border-radius:4px 4px 1px 1px;background:var(--rayure);transition:height 1s cubic-bezier(.2,.8,.2,1)}
 .annee .mois b.haut{background:var(--or)}
+.annee .mois.semaines{gap:3px}.annee .mois.semaines div{font-size:10px}
+.annee .ligne button.v{display:block;width:100%;text-align:left;background:none;border:0;padding:0;color:var(--craie);font:inherit;font-size:18px;font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-color:#ffffff38;text-underline-offset:3px}
+.annee .detail{padding:10px 14px;border-radius:14px;background:var(--fonte)}.annee .detail[hidden]{display:none}.annee .detail .txt{font-size:15px;margin-top:8px}
 .annee .barre3{display:flex;height:26px;border-radius:6px;overflow:hidden;margin:10px 0 4px;background:var(--fonte)}
 .annee .barre3 b{height:100%;width:0;transition:width 1.1s cubic-bezier(.2,.8,.2,1) .3s}
 .annee .pastille{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:8px;vertical-align:0}
@@ -2303,6 +2306,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .annee .plaque .tete{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;gap:8px}
 .annee .plaque .an{font-size:40px;font-weight:900;font-variation-settings:"wdth" 125;line-height:1}
 .annee .plaque .qui{font-size:14px;color:var(--cendre);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.annee .plaque .an.long{font-size:26px;font-variation-settings:"wdth" 110;line-height:1.1;min-width:0}.annee .plaque .tete:has(.long){flex-direction:column;align-items:flex-start;gap:4px}
 .annee .grille{display:grid;grid-template-columns:1fr 1fr;row-gap:14px;column-gap:16px}
 .annee .grille>div{min-width:0}
 .annee .grille .k{font-size:12.5px;color:var(--cendre)}

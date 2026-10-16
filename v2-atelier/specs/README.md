@@ -46,7 +46,7 @@ Les autres fixent les bornes chiffrées.
 | `ECRAN-PROFIL-V1.md` | Profil, connexion, inscription, et pourquoi l'onboarding EST le profil |
 | `QUESTIONNAIRE-COACH-V2.md` | Le questionnaire du coach : parcours, lecteur de chaque réponse, découpage 60-1 à 60-4 (remplace la V1, jamais commitée) |
 | `JEU-V1.md` | Le jeu : série de semaines et gels, sept muscles, XP et niveau global, succès, titres, cadres, et ses écrans (onglet Jeu, Profil, fin de séance, interrupteur). Lit les faits, n'est jamais lu par le coach |
-| `BILANS-V1.md` | Les bilans de période : un seul moteur, la période en paramètre ; « Ton année » (95), la saison et le mois attendent leur maquette. Jamais l'assiduité, le nombre de séances, la santé, une comparaison à une autre personne |
+| `BILANS-V1.md` | Les bilans de période : un seul moteur, la période en paramètre ; « Ton année » (95), la saison et le mois (98, la story du mois remplace l'ancien bilan du mois). Jamais l'assiduité, le nombre de séances, la santé, une comparaison à une autre personne |
 | `SOCIAL-V1.md` | Le social, étage 1 : abonnements en trois cercles (inconnu, abonné, mutuel), compte privé par défaut, blocage, fil des 30 derniers jours, profil avec calendrier, niveau publié du jeu. Les autres ne se lisent que par les fonctions de la base (v2_078) ; coach et bilans ne lisent jamais le social |
 | `BANC-ESSAI-V1.md` | Méthode de validation et **pistes rejetées** |
 

@@ -73,3 +73,28 @@ describe('119 — E10 : l’aperçu « En faire une routine » écrit une durée
     expect(t).not.toMatch(/(^|[^\d])[01] min/);
   });
 });
+
+describe('119 — E12 : la feuille « Terminer » et le récap d’une séance de cardio', () => {
+  const feuille = (compte) => {
+    const cible = document.createElement('div');
+    Rendu().rendreFeuilleFin(cible, { compte, titre: '', salle: '', note: '', surTitre: () => {}, surSalle: () => {},
+      surNote: () => {}, surTerminer: () => {}, surAnnuler: () => {}, surAbandonner: () => {} });
+    return cible.querySelector('.feuille-t em').textContent;
+  };
+  test('« 1 série enregistrée · 20 min · 3,2 km », jamais « 0 série de travail enregistrée »', () => {
+    expect(feuille({ travail: 0, horsMusculation: { series: 1, duree_s: 1200, distance_m: 3200 } }))
+      .toBe('1 série enregistrée · 20 min · 3,2 km');
+  });
+  test('une séance de musculation garde son compte de séries de travail', () => {
+    expect(feuille({ travail: 12, horsMusculation: { series: 1, duree_s: 600, distance_m: 1000 } }))
+      .toBe('12 séries de travail enregistrées');
+  });
+  test('le récap a un groupe « Cardio », une ligne par exercice', () => {
+    const cible = document.createElement('div');
+    Rendu().rendreRecap(cible, { recap: { titre: 'Cardio', debut: '2026-10-16T17:00:00Z', fin: '2026-10-16T17:20:00Z',
+      duree_min: 20, series: 0, volume_texte: '0 t', exercices: 0, muscles: { premiers: [], autres: null },
+      cardio: [{ slug: 'tapis', nom: 'Tapis roulant', fait: '20 min · 3,2 km' }], records: [], paris: null } });
+    expect(cible.textContent).toContain('Cardio');
+    expect(cible.querySelector('.recap-cardio').textContent).toBe('Tapis roulant20 min · 3,2 km');
+  });
+});

@@ -245,6 +245,21 @@ describe('71 — les faits du récap, sur une séance d’exemple', () => {
     expect(x.volume_kg).toBe(0);
   });
 
+  // 119 (audit du 16/10/2026, E12) — une séance de cardio seul : la feuille disait « 0 série de travail enregistrée »,
+  // le récap « 0 séries · 0 exercices ». Ils disent ce qui a été fait, dans sa mesure.
+  test('119 — E12 : le cardio se dit (le compte de la feuille, la ligne du récap) ; l’échauffement au tapis, non', () => {
+    const cardio = Object.assign({}, SEANCE, { id: 's-cardio', exercices: [{ exercise_slug: 'tapis', series: [
+      serie('k1', null, null, { duree_s: 1200, distance_m: 3200 })] }] });
+    expect(Seance.compter(cardio, CATALOGUE)).toMatchObject({ travail: 0,
+      horsMusculation: { series: 1, duree_s: 1200, distance_m: 3200 } });
+    const x = faits.recapDeLaSeance(corpus(), cardio, []);
+    expect(x.cardio).toEqual([{ slug: 'tapis', nom: 'Tapis roulant', fait: '20 min · 3,2 km' }]);
+    expect(x.exercices).toBe(0);
+    // La séance d'exemple : le tapis n'y est qu'en échauffement — pas de ligne de cardio.
+    expect(r().cardio).toEqual([]);
+    expect(Seance.compter(SEANCE, CATALOGUE).horsMusculation.series).toBe(0);
+  });
+
   test('le récap ne modifie rien : la séance et le corpus sont identiques après deux calculs', () => {
     const avant = JSON.stringify([SEANCE, local.seances, local.series, PARIS]);
     r(); r();

@@ -4067,8 +4067,17 @@
     var t = el('div', 'feuille-t', 'Terminer la séance');
     // `travail`, pas `validees` — même règle que le bandeau (chantier 39, C1).
     var nF = vue.compte.travail;
-    t.appendChild(el('em', '', nF + ' série' + (nF > 1 ? 's' : '') +
-      ' de travail enregistrée' + (nF > 1 ? 's' : '')));
+    // 119 (audit du 16/10/2026, E12) — UNE SÉANCE DE CARDIO SEUL dit ce qui part : « 1 série enregistrée · 20 min ·
+    // 3,2 km », jamais « 0 série de travail enregistrée ».
+    var hm = vue.compte.horsMusculation;
+    if (!nF && hm && hm.series) {
+      var quoi = [M().formatDuree(hm.duree_s), M().formatDistance(hm.distance_m)].filter(Boolean);
+      t.appendChild(el('em', '', [hm.series + ' série' + (hm.series > 1 ? 's' : '') + ' enregistrée' +
+        (hm.series > 1 ? 's' : '')].concat(quoi).join(' \u00b7 ')));
+    } else {
+      t.appendChild(el('em', '', nF + ' série' + (nF > 1 ? 's' : '') +
+        ' de travail enregistrée' + (nF > 1 ? 's' : '')));
+    }
     cible.appendChild(t);
 
     // 71 (ECRAN-SAISIE §7 septies.4 bis) — LA FEUILLE DÉCLARE, LE RÉCAP CONSTATE. Les records du jour et le
@@ -4175,6 +4184,18 @@
         barre.style.width = (max ? Math.max(4, Math.round(l.series / max * 100)) : 0) + '%';
         ligne.appendChild(barre);
         ligne.appendChild(el('b', null, nombreFr(l.series)));
+        cible.appendChild(ligne);
+      });
+    }
+
+    // 119 (audit du 16/10/2026, E12) — LE CARDIO ET LES SORTIES : ni séries de travail ni volume, mais faits. Le récap
+    // dit ce qui a été fait, exercice par exercice, dans sa mesure (« Tapis de course · 20 min · 3,2 km »).
+    if (r.cardio && r.cardio.length) {
+      groupe('Cardio');
+      r.cardio.forEach(function (x) {
+        var ligne = el('div', 'recap-cardio');
+        ligne.appendChild(el('span', 'n', x.nom));
+        ligne.appendChild(el('span', 'v', x.fait));
         cible.appendChild(ligne);
       });
     }

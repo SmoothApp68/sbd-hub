@@ -364,6 +364,11 @@
           autres: reste.length ? { n: reste.length,
             series: Math.round(reste.reduce(function (t, m) { return t + m.series; }, 0) * 100) / 100 } : null
         },
+        // 119 (E12) — le cardio et les sorties (des séries de travail qui ne sont pas de la musculation) : ce qui a été
+        // fait, dans sa mesure (`faitDeLExercice` → `Modele.formatMesure`).
+        cardio: ordre.filter(function (slug) {
+          return exosFaits.indexOf(slug) < 0 && parSlug[slug].some(function (x) { return Modele.estTravail(x); });
+        }).map(function (slug) { return { slug: slug, nom: nomDe(slug), fait: faitDeLExercice(parSlug[slug]) }; }),
         records: recordsDuJour(c, seance, { avecPhrase: true }),
         paris: comptes.verifies ? {
           verifies: comptes.verifies, tenus: comptes.tenus,

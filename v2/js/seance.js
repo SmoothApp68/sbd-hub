@@ -1520,10 +1520,22 @@
     var plat = toutesLesSeries(seance);
     var faites = plat.filter(function (p) { return partEnBase(p.serie); })
       .map(function (p) { return Object.assign({}, p.serie, { exercise_slug: p.exo.exercise_slug }); });
+    // 119 (audit du 16/10/2026, E12) — CE QUI PART SANS ÊTRE DE LA MUSCULATION : les séries de travail du cardio et des
+    // sorties (le tapis, une randonnée), leur durée et leur distance. Une séance de cardio seul se terminait sur
+    // « 0 série de travail enregistrée » alors que ses lignes partaient bien.
+    var cat = racine.THModele.indexerExercices(exercices);
+    var autres = { series: 0, duree_s: 0, distance_m: 0 };
+    faites.forEach(function (x) {
+      if (!racine.THModele.estTravail(x) || racine.THSemaine.estSerieDeMusculation(x, cat[x.exercise_slug])) return;
+      autres.series++;
+      autres.duree_s += Number(x.duree_s) || 0;
+      autres.distance_m += Number(x.distance_m) || 0;
+    });
     return {
       series: plat.length,
       validees: plat.filter(function (p) { return !!p.serie.validee_a; }).length,
-      travail: racine.THSemaine.compteSeriesTravail(faites, exercices)
+      travail: racine.THSemaine.compteSeriesTravail(faites, exercices),
+      horsMusculation: autres
     };
   }
 

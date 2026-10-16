@@ -51,6 +51,9 @@ function creer(base, options) {
     // 91 (v2_082) — le groupe de séance.
     groupes: [], gmembres: [], ginvitations: [], gmessages: [], grecaps: [],
     journal: [], fuites: [], appels: [],
+    // 114 (v2_091) — la base ne garde ni ne rend plus la charge à côté du score. `false` : la base d'avant v2_091
+    // (la charge exigée, NOT NULL), pour prouver que l'app marche des deux côtés de la migration.
+    v2_091: o.v2_091 !== false,
     maintenant: o.maintenant || (() => new Date())
   };
 
@@ -350,7 +353,9 @@ function creer(base, options) {
       const moi = etat.moi;
       return etat.scores.filter((f) => f.exercise_slug === a.p_slug && (f.user_id === moi || mutuel(moi, f.user_id)))
         .filter((f) => { const p = profil(f.user_id); return p && !p.deleted_at; })
-        .map((f) => ({ user_id: f.user_id, pseudo: profil(f.user_id).username, score: f.score, charge_kg: f.charge_kg, moi: f.user_id === moi }));
+        .map((f) => ({ user_id: f.user_id, pseudo: profil(f.user_id).username, score: f.score,
+          // v2_091 : `CASE WHEN f.user_id = auth.uid() THEN f.charge_kg END` — jamais la charge d'un autre.
+          charge_kg: etat.v2_091 && f.user_id !== moi ? null : f.charge_kg, moi: f.user_id === moi }));
     },
     // ── 90 (v2_080) — LA GUILDE ──
     guilde_creer(a) {
@@ -745,7 +750,8 @@ function creer(base, options) {
       }
     },
     // 89 (v2_079) — mes scores de force : écrits par leur propriétaire seul, et SEULEMENT ces colonnes. ⚠️ Un corps qui
-    // porte autre chose (le poids de corps, par exemple) est refusé ET compté comme une fuite.
+    // porte autre chose (le poids de corps, par exemple) est refusé ET compté comme une fuite. 114 (v2_091) : la
+    // charge est refusée ; avant v2_091 (`etat.v2_091 = false`), elle est exigée.
     scores_force: {
       POST(corps) {
         const lignes = Array.isArray(corps) ? corps : [corps];
@@ -756,11 +762,21 @@ function creer(base, options) {
             return refus('PGRST204', 'scores_force : colonne inconnue ' + autres.join(', '));
           }
           if (!l || l.user_id !== etat.moi) return refus('42501', 'scores_force_miens', 403);
-          if (!(Number(l.score) > 0) || !(Number(l.charge_kg) > 0)) return refus('23514', 'scores_force_check');
+          if (!(Number(l.score) > 0 && Number(l.score) < 2000)) return refus('23514', 'scores_force_score_check');
+          const charge = l.charge_kg === undefined || l.charge_kg === null ? null : l.charge_kg;
+          if (etat.v2_091) {
+            // v2_091 : `scores_force_sans_charge CHECK (charge_kg IS NULL)`.
+            if (charge !== null) return refus('23514', 'scores_force_sans_charge');
+          } else {
+            // v2_079 : `charge_kg numeric NOT NULL CHECK (charge_kg > 0 AND charge_kg < 1000)`.
+            if (charge === null) return refus('23502', 'null value in column "charge_kg" of relation "scores_force" violates not-null constraint');
+            if (!(Number(charge) > 0 && Number(charge) < 1000)) return refus('23514', 'scores_force_charge_kg_check');
+          }
         }
         lignes.forEach((l) => {
           etat.scores = etat.scores.filter((f) => !(f.user_id === l.user_id && f.exercise_slug === l.exercise_slug));
-          etat.scores.push({ user_id: l.user_id, exercise_slug: l.exercise_slug, score: Number(l.score), charge_kg: Number(l.charge_kg),
+          etat.scores.push({ user_id: l.user_id, exercise_slug: l.exercise_slug, score: Number(l.score),
+            charge_kg: l.charge_kg === undefined || l.charge_kg === null ? null : Number(l.charge_kg),
             maj_le: new Date().toISOString() });
         });
         etat.journal.push({ op: 'scores', n: lignes.length, corps: JSON.parse(JSON.stringify(lignes)) });

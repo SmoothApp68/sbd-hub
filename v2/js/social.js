@@ -179,7 +179,8 @@
   //
   // « À poids de corps égal » : la charge × 500 ÷ le polynôme du poids de corps, par sexe (formule DOTS, IPF 2019).
   // Le poids est borné comme la formule le prévoit (40 à 210 kg pour un homme, 40 à 150 pour une femme). Sans sexe
-  // précisé ou sans pesée : `null` — on n'apparaît pas. ⚠️ LE POIDS NE QUITTE JAMAIS LE TÉLÉPHONE : seul le score part.
+  // précisé ou sans pesée : `null` — on n'apparaît pas. ⚠️ LE POIDS NE QUITTE JAMAIS LE TÉLÉPHONE : seul le score part,
+  // calculé sur le poids FLOUTÉ (`poidsFloute`, ci-dessous), jamais sur la pesée.
   var DOTS = {
     homme: { c: [-0.000001093, 0.0007391293, -0.1918759221, 24.0900756, -307.75076], min: 40, max: 210 },
     femme: { c: [-0.0000010706, 0.0005158568, -0.1126655495, 13.6175032, -57.96288], min: 40, max: 150 }
@@ -207,24 +208,60 @@
     return out;
   }
 
-  // Ce que je publie : un score par exercice à la barre, avec sa charge. `null` sans sexe précisé ou sans pesée
-  // (on n'apparaît pas : l'app retire alors ses scores). `estALaBarre(slug)` : lu dans le catalogue par l'app.
-  function scoresAPublier(charges, poids, sexe, estALaBarre) {
+  // ── LE POIDS FLOUTÉ (audit du 16/10/2026, prompt 114) ──
+  //
+  // Un score DOTS exact, à côté d'une charge que le mutuel voit dans mes séances, redonne mon poids au centième
+  // (`polynôme(poids) = charge × 500 ÷ score`). Décision d'Aurélien : « aucun mutuel ne peut déduire le poids de corps
+  // à mieux que ±5 kg ». Le score se calcule donc sur un poids ROND : la pesée plus un DÉCALAGE SECRET (tiré une fois
+  // sur l'appareil, entre −5 et +5 kg, jamais publié), arrondie à la dizaine. Le mutuel peut retrouver ce poids rond
+  // (90, 100…) ; il n'en tire que « la pesée est à moins de 10 kg de 90 ». Le décalage étant secret, il ne sait pas
+  // non plus où passent les bornes : voir le poids rond changer ne lui dit pas « elle vient de passer 95 kg » — la
+  // borne franchie est quelque part dans une dizaine qu'il ne connaît pas. Une borne fixe (95, 105…) le lui dirait.
+  // Le prix : à moins de 10 kg d'écart, l'ordre « à poids de corps égal » est approché (égalité, ou l'inverse).
+  var PAS_DU_FLOU = 10;
+  function decalageValide(d) {
+    if (d === null || d === undefined || d === '' || typeof d === 'boolean') return false;
+    var x = Number(d);
+    return isFinite(x) && x >= -PAS_DU_FLOU / 2 && x < PAS_DU_FLOU / 2;
+  }
+  // Un tirage uniforme dans [0, 1) → le décalage, dans [−5, +5).
+  function decalageDepuis(u) {
+    var x = Number(u);
+    if (!isFinite(x) || x < 0 || x >= 1) return null;
+    return x * PAS_DU_FLOU - PAS_DU_FLOU / 2;
+  }
+  // La pesée + le décalage, arrondie à la dizaine : le seul poids qui entre dans un score publié. `null` sans pesée ou
+  // sans décalage valide (on ne publie pas).
+  function poidsFloute(poids, decalage) {
+    var p = Number(poids);
+    if (poids === null || poids === undefined || !(p > 0) || !isFinite(p) || !decalageValide(decalage)) return null;
+    var r = PAS_DU_FLOU * Math.floor((p + Number(decalage)) / PAS_DU_FLOU + 0.5);
+    return r > 0 ? r : null;
+  }
+
+  // Ce que je publie : un score par exercice à la barre, calculé sur le poids flouté — ni le poids, ni la charge
+  // (v2_091 : la base refuse la charge). `null` sans sexe précisé, sans pesée ou sans décalage (on n'apparaît pas :
+  // l'app retire alors ses scores). `estALaBarre(slug)` : lu dans le catalogue par l'app.
+  function scoresAPublier(charges, poids, sexe, estALaBarre, decalage) {
     if (!DOTS[sexe] || !(Number(poids) > 0)) return null;
+    var rond = poidsFloute(poids, decalage);
+    if (rond === null) return null;
     return Object.keys(charges || {}).sort().filter(function (slug) { return estALaBarre(slug); }).map(function (slug) {
-      return { exercise_slug: slug, score: scoreDots(charges[slug], poids, sexe), charge_kg: charges[slug] };
+      return { exercise_slug: slug, score: scoreDots(charges[slug], rond, sexe) };
     }).filter(function (s) { return s.score !== null; });
   }
-  // Ce qui a changé depuis la dernière publication (`deja` : `{ slug: { score, charge_kg } }`).
+  // Ce qui a changé depuis la dernière publication (`deja` : `{ slug: { score } }`).
   function scoresChanges(scores, deja) {
     return (scores || []).filter(function (s) {
       var d = deja && deja[s.exercise_slug];
-      return !d || d.score !== s.score || d.charge_kg !== s.charge_kg;
+      return !d || d.score !== s.score;
     });
   }
 
   // « Entre amis » : les lignes de `social_scores_force`, triées à poids de corps égal (le score, jamais affiché),
-  // avec les vrais kilos. Rien sous deux personnes avec un score (moi compris).
+  // avec les vrais kilos. Rien sous deux personnes avec un score (moi compris). ⚠️ Après v2_091, la base ne rend plus
+  // de charge (ni la mienne, plus publiée, ni celle des autres) : sans ses kilos, une ligne n'entre pas, et la carte
+  // ne s'affiche plus — l'écran attend sa décision (prompt 114, deux options rapportées).
   function classementEntreAmis(lignes) {
     var l = (lignes || []).filter(function (x) { return x && Number(x.score) > 0 && Number(x.charge_kg) > 0; });
     if (l.length < 2) return null;
@@ -855,6 +892,10 @@
     // 89 — étage 2
     PERIODES: PERIODES,
     scoreDots: scoreDots,
+    PAS_DU_FLOU: PAS_DU_FLOU,
+    decalageValide: decalageValide,
+    decalageDepuis: decalageDepuis,
+    poidsFloute: poidsFloute,
     aLaBarre: aLaBarre,
     meilleuresCharges: meilleuresCharges,
     scoresAPublier: scoresAPublier,

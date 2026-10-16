@@ -1011,9 +1011,11 @@
   function accepterDemande(suiveur, moi) {
     return ecrire(client().from('abonnements').update({ statut: 'accepte' }).eq('suiveur', suiveur).eq('suivi', moi));
   }
-  // 89 — MES SCORES DE FORCE (`scores_force`, v2_079) : le score DOTS et la charge, par exercice. ⚠️ LE POIDS DE CORPS
-  // N'EST JAMAIS DANS CE CORPS : les lignes de `Social.scoresAPublier` (exercice, score, charge), et rien d'autre — la
-  // table n'a pas de colonne de poids (v2_079), le serveur refuserait ; le banc le vérifie (faux-social, « fuites »).
+  // 89 — MES SCORES DE FORCE (`scores_force`, v2_079) : le score DOTS par exercice. ⚠️ NI LE POIDS DE CORPS NI LA
+  // CHARGE NE SONT DANS CE CORPS (audit du 16/10/2026, prompt 114) : les lignes de `Social.scoresAPublier` (exercice,
+  // score sur le poids flouté), et rien d'autre — la table n'a pas de colonne de poids (v2_079) et refuse la charge
+  // (v2_091) ; avant v2_091 elle l'exige (23502) et l'app retire ses scores plutôt que de la donner. Le banc le
+  // vérifie (faux-social, « fuites »).
   function publierScores(moi, scores) {
     if (!scores || !scores.length) return Promise.resolve(true);
     return ecrire(client().from('scores_force').upsert(scores.map(function (s) {

@@ -984,6 +984,11 @@ const NOTIONS = [
     par: ['scoresAPublier'],
     raison: 'SOCIAL-V1 « Étage 2 » : « Entre amis » et « Se comparer » classent à poids de corps égal ; le score se ' +
       'calcule sur l’appareil (le poids n’en sort jamais), par une seule fonction.' },
+  { notion: 'le poids flouté (la pesée + un décalage secret, arrondie à la dizaine : le seul poids d’un score publié)', pr: 'correctif 16/10/2026',
+    module: 'social.js', fonction: 'poidsFloute', lecteurs: [],
+    par: ['scoresAPublier'],
+    raison: 'audit du 16/10/2026 (P0) : « aucun mutuel ne peut déduire le poids de corps à mieux que ±5 kg » — un ' +
+      'score sur la pesée, à côté d’une charge vue dans les séances, la redonnait au centième.' },
   // ── 60-2a — LE QUESTIONNAIRE DU COACH MONTRE, IL NE DEMANDE PAS ───────────
   { notion: 'ce que les séances savent de la personne (historique, rythme, durée habituelle, maximums, autres activités)', pr: '60-U1',
     module: 'faits.js', fonction: 'ceQueJeSais', lecteurs: ['app.js'],

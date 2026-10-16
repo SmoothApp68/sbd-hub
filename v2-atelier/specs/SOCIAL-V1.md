@@ -83,6 +83,19 @@ arrondi au centième. Les médailles affichées se choisissent par la règle de 
 - **Le poids de corps ne sort JAMAIS du téléphone** : le score DOTS se calcule sur l'appareil (meilleure charge des
   faits, dernière pesée datée) et seul le score est publié, avec la charge, par exercice. La fonction DOTS vit dans
   un seul module (registre NOTIONS : `social.js`, `scoreDots`).
+  - **Audit du 16/10/2026 (prompt 114)** — décision d'Aurélien : « la promesse doit être vraie » ; « aucun mutuel ne
+    peut déduire le poids de corps à mieux que ±5 kg à partir de ce que l'app ou la base lui rend ». Score exact +
+    charge redonnaient le poids au centième (`polynôme(poids) = charge × 500 ÷ score`), et la charge se lit aussi dans
+    les séances. Donc : le score se calcule sur le **poids flouté** (`social.js`, `poidsFloute`, registre NOTIONS) —
+    la pesée **plus un décalage secret** tiré une fois sur l'appareil (−5 à +5 kg, `localStorage`, jamais publié),
+    **arrondie à la dizaine** ; **seul le score part, sans la charge** (v2_091). Le décalage secret, plutôt qu'un
+    arrondi fixe : un mutuel qui voit le score changer d'une pesée à l'autre saurait sinon que la pesée vient de
+    passer 95 kg ; avec le décalage, la borne franchie est quelque part dans une dizaine qu'il ignore. Un score
+    seulement arrondi ne tient pas : ses arrondis, recoupés sur plusieurs exercices, resserrent le poids. Sans
+    stockage sur l'appareil pour garder le décalage : on n'apparaît pas. Prix : à moins de 10 kg d'écart de poids,
+    l'ordre « à poids de corps égal » est approché (égalité possible, ou l'inverse).
+  - **« Entre amis » attend sa décision d'écran** : il affiche les kilos des autres, que la base ne rend plus (v2_091) ;
+    la carte ne s'affiche pas tant que l'écran n'est pas tranché (deux options rapportées, prompt 114).
 
 ### 5.1 Ce que le code en a fait (89)
 
@@ -111,6 +124,12 @@ politique `FOR ALL` propriétaire. Fonctions (SECURITY DEFINER, `search_path` fi
 mutuels seulement) : `social_exercices_ami(user)`, `social_series_exercice(user, slug)`,
 `social_periode(user, de, a)` (≤ 366 jours ; une ligne par exercice et une ligne de total, `exercise_slug` nul),
 `social_scores_force(slug)` (les miens et ceux de mes mutuels). Aucune politique ajoutée sur sessions, sets, records.
+
+**v2_091 (audit du 16/10/2026, proposée)** : les lignes de `scores_force` calculées sur la pesée exacte sont effacées
+(l'app les republie, floutées) ; `charge_kg` n'est plus exigée et ne peut plus rien contenir
+(`scores_force_sans_charge CHECK (charge_kg IS NULL)`) ; `social_scores_force` garde sa signature et rend `charge_kg`
+nulle pour tout autre que moi. Aucune politique touchée. Avant v2_091 (charge exigée, 23502), l'app ne la donne pas :
+elle retire ses scores.
 
 ## 6. Guilde — décisions du 14/10/2026 (prompt 90)
 

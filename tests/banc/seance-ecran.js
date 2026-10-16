@@ -17745,9 +17745,22 @@ const SETS_IMPORTES = [
       inv.length === 1 && inv[0].invitant === 'banc' && JSON.stringify(b1.lignes) === JSON.stringify(['toi · Novice',
         'jordan · Squatteur · Athlète', 'melodie · Novice']) && !/admin|chef/i.test(b1.texte) &&
         JSON.stringify(b1.invitables) === JSON.stringify(['lea']), JSON.stringify(b1));
+    // 107 — LE RANG CHOISI HORS LIGNE (les écritures coupées, les lectures passent), l'app RECHARGÉE, puis le retour.
+    base.ecrituresSocialesCoupees = true;
     await page.click('#social-guilde .s-rangs button[data-rang="Terreur"]');
     await attendreQue(async () => (await lire()).rangActif === 'Terreur');
+    const rangHors = { actif: (await lire()).rangActif, attente: await texte('#social-guilde .s-attente') };
+    await aller('/jeu/guilde');
+    await attendreQue(async () => !!(await lire()).nom);
+    await onglet('membres', async () => (await lire()).rangs.length === 9);
+    const rangRecharge = { actif: (await lire()).rangActif, attente: await texte('#social-guilde .s-attente'), base: S.membres.filter((m) => m.user_id === 'u-banc')[0].rang };
+    ok('[guilde 107] DISCRIMINANT — le rang choisi HORS LIGNE : « Terreur » aussitôt, « En attente du réseau » ; RECHARGÉE, toujours là, et la base dit encore « Novice »',
+      rangHors.actif === 'Terreur' && rangHors.attente === 'En attente du réseau' && rangRecharge.actif === 'Terreur' &&
+        rangRecharge.attente === 'En attente du réseau' && rangRecharge.base === 'Novice', JSON.stringify([rangHors, rangRecharge]));
+    base.ecrituresSocialesCoupees = false;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
     await attendreQue(fileVide);
+    await attendreQue(async () => !(await texte('#social-guilde .s-attente')));
     ok('[guilde] je choisis mon rang (« Terreur ») : les neuf rangs, sans aucun pouvoir',
       S.membres.filter((m) => m.user_id === 'u-banc')[0].rang === 'Terreur' && (await lire()).rangs.length === 9 &&
         (await lire()).lignes[0] === 'toi · Terreur', JSON.stringify(await lire()));

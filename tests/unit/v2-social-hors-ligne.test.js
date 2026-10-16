@@ -270,6 +270,55 @@ describe('107 — chaque geste fait hors ligne part au retour du réseau', () =>
     expect(f.guildeDe('u-jordan')).toBeNull();
   });
 
+  test('les autres gestes, hors ligne puis rechargés : retirer sa réaction, se désabonner, bloquer ; inviter, modifier, retirer un membre, ' +
+    'transmettre, partir ; rejoindre et refuser une invitation — rien ne part hors ligne, tout part au retour, dans l’ordre', async () => {
+    const f = decor();
+    const ab = (a, b) => f.etat.abonnements.push({ suiveur: a, suivi: b, statut: 'accepte' });
+    ['u-lea', 'u-jordan', 'u-alexis'].forEach((u) => { ab('u-moi', u); ab(u, 'u-moi'); });
+    f.appeler('u-moi', 'POST', 'reactions_seance', { session_id: 's-lea', user_id: 'u-moi' });
+    const g = f.rpc('u-moi', 'guilde_creer', { p_nom: 'Les Fers', p_couleur: '#b39ad1' });
+    ['u-jordan', 'u-alexis'].forEach((u) => { f.rpc('u-moi', 'guilde_inviter', { p_user: u }); f.rpc(u, 'guilde_repondre', { p_guilde: g, p_rejoindre: true }); });
+    // Une invitation d'une autre guilde, pour moi, que je refuserai.
+    const g2 = f.rpc('u-public', 'guilde_creer', { p_nom: 'Autre', p_couleur: '#b39ad1' });
+    f.etat.invitations.push({ guilde_id: g2, invite: 'u-moi', invitant: 'u-public', cree_le: 0 });
+    const guilde = (fn, args, extra) => Object.assign({ geste: G.GUILDE, fn, args }, extra || {});
+    const reseau = { ok: false, envois: [] };
+    let file = poser([], { geste: G.RETIRER_REACTION, session: 's-lea', pseudo: 'lea' });
+    file = poser(file, guilde('guilde_repondre', { p_guilde: g2, p_rejoindre: false }, { nom: 'Autre' }));
+    file = poser(file, guilde('guilde_inviter', { p_user: 'u-lea' }, { pseudo: 'lea' }));
+    file = poser(file, guilde('guilde_modifier', { p_nom: 'Les Fers II', p_couleur: '#8fb08a' }));
+    file = poser(file, guilde('guilde_retirer_membre', { p_user: 'u-alexis' }, { pseudo: 'alexis' }));
+    file = poser(file, guilde('guilde_transmettre', { p_user: 'u-jordan' }, { pseudo: 'jordan' }));
+    file = poser(file, guilde('guilde_quitter', {}));
+    file = poser(file, { geste: G.RETIRER_ABONNEMENT, autre: 'u-alexis', pseudo: 'alexis' });
+    file = poser(file, { geste: G.BLOQUER, autre: 'u-alexis', pseudo: 'alexis' });
+    file = recharger((await vidanger(file, executeur(f, reseau))).file);
+    expect(file.length).toBe(9);
+    expect(f.etat.reactions.length).toBe(1);
+    expect(f.guildeDe('u-moi')).toBe(g);
+    reseau.ok = true;
+    const r = await vidanger(file, executeur(f, reseau));
+    expect(r.file).toEqual([]);
+    expect(r.issues.map((x) => x.suite)).toEqual(Array(9).fill('envoyee'));
+    expect(reseau.envois).toEqual(['retirer_reaction', 'guilde:guilde_repondre', 'guilde:guilde_inviter', 'guilde:guilde_modifier',
+      'guilde:guilde_retirer_membre', 'guilde:guilde_transmettre', 'guilde:guilde_quitter', 'retirer_abonnement:u-alexis', 'bloquer:u-alexis']);
+    expect(f.etat.reactions).toEqual([]);
+    expect(f.etat.invitations.map((i) => i.invite + '@' + i.guilde_id)).toEqual(['u-lea@' + g]);
+    expect(f.etat.guildes.filter((x) => x.id === g)[0]).toEqual(expect.objectContaining({ nom: 'Les Fers II', admin: 'u-jordan' }));
+    expect(f.guildeDe('u-moi')).toBeNull();
+    expect(f.guildeDe('u-alexis')).toBeNull();
+    expect(f.etat.blocages).toEqual([expect.objectContaining({ bloqueur: 'u-moi', bloque: 'u-alexis' })]);
+    expect(f.etat.abonnements.some((x) => x.suiveur === 'u-alexis' || x.suivi === 'u-alexis')).toBe(false);
+
+    // lea, de son côté, rejoint hors ligne (sa propre file), rechargée, puis le réseau.
+    let fileLea = Attente.poser([], { table: Attente.SOCIAL, op: Attente.GESTE, id: 'l1',
+      donnees: guilde('guilde_repondre', { p_guilde: g, p_rejoindre: true }, { moi: 'u-lea', nom: 'Les Fers II' }) });
+    fileLea = recharger((await vidanger(fileLea, executeur(f, { ok: false, envois: [] }))).file);
+    expect(f.guildeDe('u-lea')).toBeNull();
+    expect((await vidanger(fileLea, executeur(f, { ok: true, envois: [] }))).file).toEqual([]);
+    expect(f.guildeDe('u-lea')).toBe(g);
+  });
+
   test('DISCRIMINANT — créer la guilde, la réponse perdue : rejoué, « déjà dans une guilde » = fait ; un premier envoi qui dit la même chose = refus', async () => {
     const f = decor();
     const reseau = { ok: true, envois: [], perdreUneFois: true };

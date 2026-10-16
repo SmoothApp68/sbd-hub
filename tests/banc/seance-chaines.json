@@ -208,6 +208,7 @@
     "annee": 60.0,
     "sans-marge": 60.0,
     "charge-obligatoire": 40.0,
+    "degressive-proposee": 60.0,
     "Q78": 60.0,
     "deux-appareils": 120.0
   }

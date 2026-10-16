@@ -1158,11 +1158,11 @@ Quand l'exercice n'a **aucune** ligne de chauffe, que la table en prévoit, **et
 
 Quand l'exercice a une ligne **dégressive** (routine ou saisie) **et qu'il n'est pas en Entretenir** (profil ou exercice : la ligne reste vide, I13 ; précisé le 07/10/2026, #382), **le coach en remplit la charge** : **la charge de la dernière série de travail du jour moins 20 à 25 %** (au milieu, 22,5 %, arrondi au cran inférieur existant), et affiche **« jusqu'à l'échec »**, en indiquant environ la moitié des reps de la série de travail (par exemple 6-8 après 15). **Les reps pré-remplies de la ligne sont le milieu de cette fourchette** (7 pour « Vise 6 à 8 ») — jamais les reps de la routine ni celles de la fois d'avant : la phrase et la ligne disent le même chiffre (§20 bis). **Pas de repos** : le minuteur ne démarre pas entre la dernière série de travail et la dégressive, et le coach dit « sans repos ». **À la barre** (révisé le 14/10/2026, prompt 94 — remplace « Pas de dégressive à la barre ») : sur un mouvement polyarticulaire lourd (squat, couché, soulevé de terre, militaire et leurs variantes à la barre — les quatre barres et leurs frères à la barre, `mouvement` au catalogue, la définition de la barre lourde du générateur), **le coach ne propose jamais de dégressive de lui-même** ; en revanche, **si la routine ou l'utilisateur en a mis une, il la remplit comme hors barre**, arrondie au cran de la barre (les disques), et la phrase dit quoi enlever : « Enlève 2 × 10 kg : 120 kg. » *Précisé le 15/10/2026 (Claude.ai)* : la baisse reste −22,5 % (doctrine), mais à la barre la charge enlevée de **chaque** côté est **un seul disque standard** (25, 20, 15, 10, 5, 2,5, 1,25 kg), le plus proche de −22,5 % sans descendre sous −30 % ni rester au-dessus de −15 % ; si aucun disque seul ne tombe dans cette fenêtre, la plus petite combinaison de deux disques. La phrase devient « Enlève 15 kg de chaque côté : 110 kg. » (squat 140) ; curl EZ à 20 kg : « Enlève 2,5 kg de chaque côté : 15 kg. » Une isolation à la barre (curl EZ, barre au front…) : le coach la remplit, avec la même phrase. **Une ligne dégressive que le coach ne peut pas remplir ne reste plus vide en silence** : la phrase dit pourquoi (« Pas de charge de travail pour caler la dégressive. », « Trop léger pour une dégressive. »), et deux gestes proposent « En faire une série normale » ou « La retirer ». **Une seule baisse** : le coach ne remplit que la première ligne dégressive qui suit la dernière série de travail. **À la barre fixe d'une salle déclarée** (§10 bis, 108) : la barre déclarée au cran inférieur, « Prends la barre de 20 kg. » au lieu de « Enlève … de chaque côté ».
 
-**Plus tard** (décision d'Aurélien, 29/09) : le coach pourra **proposer de lui-même une dégressive**, comme un barreau de l'escalier (§14), et **plusieurs baisses** (2 à 3) hors sèche, selon la phase du questionnaire. Précisé le 14/10/2026 (94) : la dégressive proposée par le coach quand ça stagne vaudra pour **l'isolation seulement, hors sèche** — jamais sur une barre lourde.
+**La dégressive proposée par le coach — décidé le 16/10/2026** : le coach peut proposer de lui-même une dégressive, comme une marche de l'escalier, après la série de plus — sur une isolation seulement, hors sèche, jamais sur une barre lourde. La règle vit au §14.8 (« La dégressive proposée ») ; acceptée, elle ajoute une ligne dégressive que ce paragraphe remplit. Les « plusieurs baisses (2 à 3) » évoquées le 29/09 sont écartées : une seule baisse. *(Remplace le « Plus tard » du 29/09, précisé le 14/10/2026, 94.)*
 
 #### 9.15.4 Ce qui ne change pas
 
-**Une chauffe et une dégressive ne comptent jamais pour le coach** : ni couverture (§9.13), ni pari, ni réaction, ni stagnation. **Invariants** : **I16** les chauffes d'un exercice ont des charges croissantes et des reps décroissantes, toutes sous la charge de référence ; **I17** (réécrit le 14/10/2026, 94) une dégressive a une charge sous la dernière série de travail ; elle remplit toujours une ligne dégressive posée par la routine ou l'utilisateur — le coach n'en pose jamais, à la barre lourde comme ailleurs ; à la barre, sa phrase dit quoi enlever (« Enlève 2 × … ») ; une ligne qu'il ne remplit pas a sa phrase et ses deux gestes. **I16** vaut aussi pour les chauffes de §9.15.5 : une chauffe de la routine n'est jamais vide en silence (en trop au-delà des marches, ou « Trop léger pour une chauffe de plus. »).
+**Une chauffe et une dégressive ne comptent jamais pour le coach** : ni couverture (§9.13), ni pari, ni réaction, ni stagnation. **Invariants** : **I16** les chauffes d'un exercice ont des charges croissantes et des reps décroissantes, toutes sous la charge de référence ; **I17** (réécrit le 14/10/2026, 94) une dégressive a une charge sous la dernière série de travail ; elle remplit toujours une ligne dégressive posée par la routine ou l'utilisateur — le coach n'en pose jamais, à la barre lourde comme ailleurs (la dégressive proposée du §14.8 se pose par le geste de l'utilisateur, « Ajouter une dégressive », 16/10/2026) ; à la barre, sa phrase dit quoi enlever (« Enlève 2 × … ») ; une ligne qu'il ne remplit pas a sa phrase et ses deux gestes. **I16** vaut aussi pour les chauffes de §9.15.5 : une chauffe de la routine n'est jamais vide en silence (en trop au-delà des marches, ou « Trop léger pour une chauffe de plus. »).
 
 **Mesure et confrontation.** *Chauffes* (cinq historiques, 6 518 séance-exercices) : notées à la barre dès 80 kg, premier exercice sur ses muscles, 59 fois sur 100 ; rampes notées sur barre lourde 50 → 73 % (deux chauffes), 43 → 67 → 83 % (trois), 20 → 53 → 75 → 88 % (quatre). La littérature trouve le meilleur effet quand la dernière chauffe atteint environ 80 % de la charge de travail (Ribeiro et al. 2020 : au squat, 80 % ; au couché, 40 puis 80 %) ; une ou deux chauffes à 40-60 % seules apportent peu ; les coachs montent en 3 ou 4 marches, reps décroissantes. *Dégressives* (aurel_br, 182 dégressives sur 31 exercices) : baisse médiane 38 %, 10 reps en médiane — plutôt une série plus légère de plus ; les méta-analyses (Sødal et al. 2023 ; 2026) trouvent la même hypertrophie et la même force qu'en séries classiques, en deux à trois fois moins de temps, avec des baisses de 20 à 25 %, sans repos, jusqu'à l'échec ; les coachs la placent sur la dernière série, sur machine ou poulie. **La science et la pratique des coachs passent avant l'habitude** (décidé par Aurélien le 29/09, qui remplace « l'habitude d'abord » du 26/09).
 
@@ -1172,11 +1172,13 @@ Quand l'exercice a une ligne **dégressive** (routine ou saisie) **et qu'il n'es
 
 *Précisions d'implémentation (94)* : « que la table ne prévoit pas » = la situation « aucune » du §9.15.1 ; une routine qui prévoit plus de lignes qu'une table non vide garde la règle du §9.15.1 (les lignes en trop ne sont pas remplies, la feuille « Pourquoi » le dit). Hors barre, la marche « barre vide » de la rampe devient ~30 % × 10. Au-delà de quatre lignes, les suivantes restent vides, comme au §9.15.1.
 
-#### 9.15.6 La montée de chauffe comparée à la bonne pratique — décidé le 14/10/2026
+#### 9.15.6 La montée de chauffe comparée à la bonne pratique — écarté le 16/10/2026
 
 « Le coach optimise ce qu'on fait, il ne nous encourage pas dans nos erreurs. »
 
 **Plus tard** : Le coach comparera la montée habituelle de la personne (au moins 5 montées notées sur l'exercice) à la bonne pratique : charges croissantes, reps décroissantes, aucun saut de plus de ~25 % de la charge de référence entre deux marches, dernière chauffe vers 85-90 %. Conforme : il la reprend. Sinon : il propose la table et le dit en une phrase (« 60 → 140 : une marche à 110 × 2 entre les deux. »).
+
+Écarté par Aurélien le 16/10/2026 : la chauffe actuelle lui convient sur le téléphone. Le critère « ~25 % » n'était écrit que dans ce “Plus tard” ; la table du §9.15.1 fait des sauts de 30 à 38 %, courants et sans risque avec peu de reps aux dernières marches. La règle en vigueur reste celle du §9.15.1 : la routine décide combien de chauffes, le coach en calcule la charge.
 
 ### 9.16 La phase — décidé le 30/09/2026 (chantier 49)
 
@@ -1939,6 +1941,8 @@ Le filet existe déjà : si le retrait fait descendre le volume sous la fourchet
 
 Exception : un exercice à la plus lourde de sa salle n'a pas de marche (§10 bis).
 
+*Depuis le 16/10/2026 (§14.8)* : en zones muscle hors sèche, quand les conditions de la dégressive proposée sont réunies, n = 2 est la dégressive et le repli recule à n = 3.
+
 **Changer de schéma** — une carte **sous l'exercice** (le composant des propositions d'exercice) : « 125 kg × 5 reste ta meilleure charge de travail depuis 4 séances, et tes autres exercices avancent. » (la fin seulement si aucun autre exercice n'a eu un compteur à 4 ou plus sur 0 à 7 jours ; sinon un point) ; « En force, une série de plus aide peu. Changer de schéma quelques semaines relance souvent la barre, avant d'y revenir. » ; boutons « **Passer à 6-8 reps** » / « **Garder 3-5** » (Lourd → Mix ; Mix → Lourd : « Passer à 3-5 reps » / « Garder 6-8 »). **Oui** = le geste de la correction de zone (48b-7), comme si la personne l'avait choisie ; elle revient depuis l'étiquette ; le compteur repart de zéro (changement de zone). **Non** = rien ne change.
 
 **En sèche, zone muscle** — la phrase grise de l'en-tête devient « 27 kg × 12 reste ta meilleure charge de travail depuis 4 séances. En sèche, je ne te propose rien de plus. » ; pas de carte, pas de pari.
@@ -1984,6 +1988,42 @@ Exception : un exercice à la plus lourde de sa salle n'a pas de marche (§10 bi
 **Jamais en sèche** (§9.16) ; **jamais en zone force** (§14.5 : le schéma).
 
 **Référence** : `coach49.py` ; cas `cas_plus49.json`.
+
+
+### 14.8 La dégressive proposée — décidé le 16/10/2026 (prompt 111)
+
+> **Décision de Claude.ai, 16/10/2026 (Aurélien a délégué : « pas besoin de maquette, sors tes casquettes »), mot pour mot :**
+
+« Le coach peut proposer une dégressive comme une marche de l'escalier, après la série de plus. Conditions, toutes requises : exercice d'isolation (non polyarticulaire, `estPolyarticulaire` faux — la même définition que la salle) ; la routine (ou la saisie) n'a pas déjà de ligne dégressive sur l'exercice ; ni en sèche (phase), ni en zone force (Lourd, Mix), ni en décharge, ni en Entretenir (I13), ni pour un débutant.
+Place dans l'escalier : quand ces conditions sont réunies, la marche qui suit la série de plus (qu'elle ait été acceptée ou refusée) est la dégressive ; le repli recule d'une marche. Sans ces conditions, l'escalier est inchangé.
+Forme : une seule baisse, sur la dernière série de travail, remplie par la règle du §9.15.3 (−20 à 25 %, sans repos, jusqu'à l'échec, arrondie aux charges réelles). Les « plusieurs baisses (2 à 3) » évoquées le 29/09 sont écartées.
+À l'écran : la même carte et le même geste que la série de plus (§14.7). Première phrase : « 27 kg × 12 reste ta meilleure charge de travail depuis 8 séances. Une dégressive après ta dernière série ? » ; détail : « −20 à 25 %, sans repos, jusqu'à l'échec. La même croissance en moins de temps (Sødal et al. 2023). » Le coach la propose ; acceptée, elle ajoute une ligne dégressive que le §9.15.3 remplit ; elle n'est jamais écrite dans une série. Refusée, l'escalier continue.
+Pari : celui de l'escalier, comme la série de plus — module escalier, marche « degressive », affirmation « débloqué avant le prochain déclenchement ». La ligne dégressive elle-même ne porte toujours aucun pari (§9.15.4).
+Pourquoi : les méta-analyses ne montrent pas plus de croissance qu'en séries classiques, mais la même en deux à trois fois moins de temps ; c'est une façon de débloquer une charge sans rallonger la séance. »
+
+**La table du §14.5, zones muscle hors sèche, devient** (quand les conditions sont réunies) :
+
+| n | Zones muscle, hors sèche, conditions de la dégressive réunies |
+|---|---|
+| 1 | la série de plus si la règle de volume laisse de la place (§14.6) ; sinon le repli tout de suite — inchangé |
+| 2 | **la dégressive** si une série de plus a été proposée depuis le dernier progrès (acceptée ou refusée) ; sinon le silence (le repli a déjà eu son tour) — inchangé |
+| 3 | **le repli** si une dégressive a été proposée depuis le dernier progrès (acceptée ou refusée) ; sinon le silence |
+| 4 et plus | le silence |
+
+**Le chiffre de la phrase** est le compteur du déclenchement où tombe la marche : le deuxième déclenchement isolé, donc **8** séances dans le cas courant — plus quand un déclenchement a été répondu par une carte de semaine allégée (n se décale, §14.5) ; la phrase dit toujours le compteur réel.
+
+*Précisions d'implémentation (111, Claude Code — à relire par Claude.ai)* :
+- **Le débutant** : « Moins d'un an » d'ancienneté (`profiles.anciennete = 'moins_1_an'`, la règle du générateur, 60-6 ; `Profil.estDebutant`), gelé pour la séance avec la phase (§9.16).
+- **La décharge** : la semaine allégée acceptée et la décharge planifiée (§9.22) ; l'escalier isolé y est déjà muet (§14.5).
+- **« La routine n'a pas déjà de ligne dégressive »** se lit à l'ouverture et se fige avec la consigne : la ligne qu'ajoute « Ajouter une dégressive » ne fait pas reculer la marche en pleine séance.
+- **Comme la série de plus, acceptée, elle dure jusqu'au prochain progrès** : la ligne dégressive revient à chaque séance de l'exercice (et sur l'exercice ajouté en cours de séance) tant que l'exercice n'a pas progressé et que les conditions tiennent (sèche, zone force, décharge, Entretenir ou débutant l'arrêtent) ; elle s'ajoute à l'acceptation et à la création de la séance, jamais au rendu — retirée par la personne, elle ne revient pas dans la séance (§14.3). Lu dans « la même carte et le même geste que la série de plus (§14.7) » et dans le pari « débloqué avant le prochain déclenchement ».
+- **Les boutons** : « Ajouter une dégressive » / « Non merci » (le libellé de la série de plus, « Ajouter une série », décrirait mal la ligne).
+- **Au poids du corps ou sur une aide** (charge de travail nulle ou négative) : pas de dégressive (§9.17, I30) — le silence, comme le repli.
+- **Pari** : `module = 'escalier'`, `fondement.marche = 'degressive'`, `reponse : acceptee | refusee`, `debut` (le début de la séance), `exercise_slug` vide ; observé comme la série de plus (1 au progrès avant le prochain déclenchement, 0 à ce déclenchement ; refusé, jamais observé).
+
+**Invariant I48** : une dégressive proposée (sa carte) ou en cours ne l'est que sur une isolation (`estPolyarticulaire` faux), hors sèche, hors zone force, hors semaine allégée ou décharge, hors Entretenir, jamais pour un débutant ; la carte n'apparaît qu'au deuxième déclenchement isolé, après une série de plus proposée, sur un exercice dont la routine n'a pas de ligne dégressive. *(I47 est pris par « Ma salle », #439.)* **I17** reste vrai : la ligne dégressive est posée par le geste de l'utilisateur, jamais par le coach seul.
+
+**Démonstration** (prévisualisation, jamais en production) : `?escalier=degressive` — le premier exercice d'isolation de la séance qui a une consigne chargée cale depuis 8 séances, avec une série de plus « refusée » inventée : la carte de la dégressive ; les réponses restent en mémoire, aucun pari ne s'écrit.
 
 
 ---

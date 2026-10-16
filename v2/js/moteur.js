@@ -5708,6 +5708,8 @@
   var MARCHE_REPLI = 'repli';
   var MARCHE_SECHE = 'seche_rien';
   var MARCHE_SERIE_DE_PLUS = 'serie_de_plus';
+  // §14 (111, 16/10/2026) — la dégressive proposée : la marche qui suit la série de plus.
+  var MARCHE_DEGRESSIVE = 'degressive';
   var MARCHE_SILENCE = 'silence';
   // Lourd → Mix, Mix → Lourd : le schéma voisin, et les deux libellés.
   var SCHEMAS = {
@@ -5761,20 +5763,39 @@
   // DU CORPS (0) il n'y a ni changement de schéma ni repli — pas de charge —, et
   // sur une AIDE (négative) pas de repli : à ces marches, le silence. La série de
   // plus, elle, reste possible : elle ne touche pas à la charge.
-  function marcheIsolee(n, zone, phase, place, proposee, palier) {
-    var m = marcheIsoleeBrute(n, zone, phase, place, proposee);
+  //
+  // §14 (111, « La dégressive proposée », 16/10/2026) — `degressive`
+  // (facultatif) : `{ possible, proposee, ici }`. Quand ses conditions sont
+  // réunies (`possible`, `degressivePossible`), la marche qui suit la série de
+  // plus (acceptée ou refusée) est la dégressive, et le repli recule d'une
+  // marche : n = 2 → la dégressive, n = 3 → le repli si elle a été proposée
+  // depuis le dernier progrès (`proposee`), sinon le silence. Sans elles,
+  // l'escalier est inchangé. Une dégressive répondue DANS CETTE SÉANCE (`ici`)
+  // le reste : la ligne qu'elle a ajoutée ne la retire pas en pleine séance.
+  // Pas de dégressive au poids du corps ni sur une aide (§9.17, I30) : le
+  // silence, comme le repli.
+  function marcheIsolee(n, zone, phase, place, proposee, palier, degressive) {
+    var m = marcheIsoleeBrute(n, zone, phase, place, proposee, degressive);
     var p = nombre(palier);
+    if (p !== null && p <= 0 && m === MARCHE_DEGRESSIVE) return MARCHE_SILENCE;
     if (p === 0 && (m === MARCHE_SCHEMA || m === MARCHE_REPLI)) return MARCHE_SILENCE;
     if (p !== null && p < 0 && m === MARCHE_REPLI) return MARCHE_SILENCE;
     return m;
   }
 
-  function marcheIsoleeBrute(n, zone, phase, place, proposee) {
+  function marcheIsoleeBrute(n, zone, phase, place, proposee, degressive) {
+    var d = degressive || {};
     var k = nombre(n);
     if (k === null || k < 1) return null;
-    if (k >= 3) return MARCHE_SILENCE;
+    if (k >= 4) return MARCHE_SILENCE;
+    if (k === 3) return d.proposee === true ? MARCHE_REPLI : MARCHE_SILENCE;
     var muscle = ZONES_FORCE.indexOf(zone) < 0 && phase !== 'seche';
-    if (k === 2) return !muscle || proposee === true ? MARCHE_REPLI : MARCHE_SILENCE;
+    if (k === 2) {
+      // Les conditions (zone, phase comprises) ne se lisent QUE dans
+      // `degressivePossible` : une seule source.
+      if (proposee === true && (d.possible === true || d.ici === true)) return MARCHE_DEGRESSIVE;
+      return !muscle || proposee === true ? MARCHE_REPLI : MARCHE_SILENCE;
+    }
     if (ZONES_FORCE.indexOf(zone) >= 0) return MARCHE_SCHEMA;
     if (phase === 'seche') return MARCHE_SECHE;
     return place === true ? MARCHE_SERIE_DE_PLUS : MARCHE_REPLI;
@@ -5895,7 +5916,7 @@
     return (paris || []).filter(function (l) {
       return l && l.module === MODULE_ESCALIER && l.fondement &&
         (l.fondement.marche === MARCHE_SCHEMA || l.fondement.marche === MARCHE_REPLI ||
-         l.fondement.marche === MARCHE_SERIE_DE_PLUS);
+         l.fondement.marche === MARCHE_SERIE_DE_PLUS || l.fondement.marche === MARCHE_DEGRESSIVE);
     }).map(function (l) {
       var f = l.fondement;
       return { id: l.id || null, seance: f.seance || null, jour: f.jour || null,
@@ -6074,6 +6095,58 @@
     var k = nombre(n);
     if (!c || c.etat === 'silence' || k === null || k < 1 || !(c.ligne || c.haut)) return c;
     return Object.assign({}, c, { serieDePlus: { routine: k } });
+  }
+
+  // ══ §14 (111, 16/10/2026) — L'ESCALIER, LA DÉGRESSIVE PROPOSÉE ═══════════
+  //
+  // « Le coach peut proposer une dégressive comme une marche de l'escalier,
+  // après la série de plus. » Une seule baisse, sur la dernière série de
+  // travail, remplie par §9.15.3 ; la carte et le geste de la série de plus ;
+  // le pari de l'escalier (marche « degressive »). La ligne dégressive, elle,
+  // ne porte toujours aucun pari (§9.15.4).
+  // Le signe moins (U+2212) est celui de la phrase décidée, écrit tel quel :
+  // une phrase fixe, aucun nombre formaté ici.
+  var DETAIL_DEGRESSIVE = '−20 à 25 %, sans repos, jusqu\'à l\'échec. ' +
+    'La même croissance en moins de temps (Sødal et al. 2023).';
+  var QUESTION_DEGRESSIVE = ' Une dégressive après ta dernière série ?';
+
+  // LES CONDITIONS, toutes requises : une isolation (`polyarticulaire` faux —
+  // `estPolyarticulaire`, la définition de la salle) ; la routine (ou la
+  // saisie) n'a pas déjà de ligne dégressive sur l'exercice ; ni en sèche, ni
+  // en zone force (Lourd, Mix), ni en décharge (semaine allégée ou décharge
+  // planifiée), ni en Entretenir (I13), ni pour un débutant.
+  function degressivePossible(o) {
+    var c = o || {};
+    return c.polyarticulaire === false && ZONES_FORCE.indexOf(c.zone) < 0 && c.phase !== 'seche' &&
+      !c.allegee && !c.entretien && !c.debutant && !c.aUneDegressive;
+  }
+
+  // Une dégressive a-t-elle été proposée (acceptée ou refusée) depuis le
+  // dernier progrès ? La règle de toutes les marches (`marcheProposee`).
+  function degressiveProposee(exercice, jour, compteur, marches, compteurs) {
+    return marcheProposee(exercice, jour, compteur, marches, compteurs, MARCHE_DEGRESSIVE) !== null;
+  }
+
+  // LA DÉGRESSIVE EN COURS : acceptée, et pas de progrès depuis — comme la
+  // série de plus, elle revient à chaque séance de l'exercice jusqu'à son
+  // prochain progrès. Rend le pari (la plus récente acceptation), ou `null`.
+  function degressiveActive(exercice, jour, compteur, marches, compteurs) {
+    var a = marchesDepuisProgres(exercice, jour, compteur, marches, compteurs, MARCHE_DEGRESSIVE, ['acceptee']);
+    if (!a.length) return null;
+    return a.slice().sort(function (x, y) { return avantAlpha(String(y.jour), String(x.jour)); })[0];
+  }
+
+  // LA CARTE, sous l'exercice : « 27 kg × 12 reste ta meilleure charge de
+  // travail depuis 8 séances. Une dégressive après ta dernière série ? » ; le
+  // détail ; « Ajouter une dégressive » / « Non merci ».
+  function carteDegressive(meilleur, compteur) {
+    if (!meilleur || meilleur.niveau === null || meilleur.niveau === undefined) return null;
+    return {
+      type: MARCHE_DEGRESSIVE,
+      phrase: meilleurDepuis(meilleur, compteur) + '.' + QUESTION_DEGRESSIVE,
+      detail: DETAIL_DEGRESSIVE,
+      oui: 'Ajouter une dégressive', non: 'Non merci'
+    };
   }
 
   // ══ §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : LA RÈGLE DE VOLUME ══
@@ -7230,6 +7303,7 @@
     MARCHE_REPLI: MARCHE_REPLI,
     MARCHE_SECHE: MARCHE_SECHE,
     MARCHE_SERIE_DE_PLUS: MARCHE_SERIE_DE_PLUS,
+    MARCHE_DEGRESSIVE: MARCHE_DEGRESSIVE,
     MARCHE_SILENCE: MARCHE_SILENCE,
     FENETRE_REPLI_JOURS: FENETRE_REPLI_JOURS,
     nIsole: nIsole,
@@ -7265,6 +7339,10 @@
     serieDePlusActive: serieDePlusActive,
     periodesSerieDePlus: periodesSerieDePlus,
     carteSerieDePlus: carteSerieDePlus,
+    degressivePossible: degressivePossible,
+    degressiveProposee: degressiveProposee,
+    degressiveActive: degressiveActive,
+    carteDegressive: carteDegressive,
     consigneSerieDePlus: consigneSerieDePlus,
     placePourExercice: placePourExercice,
     musclesParPriorite: musclesParPriorite,

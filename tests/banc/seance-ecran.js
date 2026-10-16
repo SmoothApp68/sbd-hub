@@ -20094,6 +20094,214 @@ const SETS_IMPORTES = [
       nb100([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ degressive-proposee. LA DÉGRESSIVE PROPOSÉE QUAND ÇA STAGNE : LA MARCHE QUI SUIT LA SÉRIE DE PLUS (111, MOTEUR §14.8) ══');
+  //
+  // Un curl à la poulie (isolation : un seul muscle) et une presse à la machine (polyarticulaire : trois muscles)
+  // calent depuis 8 séances sous consigne ; une série de plus a été proposée et REFUSÉE sur chacun au 1er
+  // déclenchement (compteur 4). Au 2e déclenchement (8) :
+  //   A — le curl : la carte de la dégressive (la phrase, le détail, « Ajouter une dégressive » / « Non merci ») ;
+  //       la presse : jamais (polyarticulaire — la mutation a).
+  //   B — « Ajouter une dégressive » : le pari de l'escalier (marche « degressive », acceptée), PUIS une ligne
+  //       dégressive après les séries de travail, remplie par §9.15.3 (sous 25 kg, « Dégressive : … »), sans pari.
+  //   C — une nouvelle séance, sans progrès : la ligne revient, sans carte, sans nouveau pari.
+  //   D — en sèche : le curl (dégressive acceptée en B) n'a plus ni marche ni ligne ; un mollet (isolation, la
+  //       série de plus refusée, jamais de dégressive proposée) n'a pas de carte (la mutation b).
+  // Le curl a deux charges dans son histoire (22,5 puis 25 kg) : son cran est connu, le test de la consigne a un
+  // chiffre, et la dégressive se cale sur lui.
+  // La base est vidée pour la section, puis rendue.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, predictionsAvant = base.predictions;
+    const catalogueAvant = CATALOGUE.length, routinesAvant = ROUTINES.length;
+    const phaseAvant = base.profiles && base.profiles[0] ? base.profiles[0].phase : undefined;
+    const violationsAvant = gardeBanc.violations;
+    CATALOGUE.push({ slug: 'curl-d111', nom: 'Curl D111 (Poulie)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'poulie', muscles_primaires: ['biceps'], muscles_secondaires: [] });
+    CATALOGUE.push({ slug: 'presse-d111', nom: 'Presse D111 (Machine)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: ['fessiers', 'adducteurs'] });
+    const t111 = Date.now();
+    base.sessions = [];
+    base.sets = [];
+    base.predictions = [];
+    let graine111 = 9000;
+    const idPari = () => '00000000-0000-5000-8111-' + String(++graine111).padStart(12, '0');
+    const exos111 = [['curl-d111', 25, 12], ['presse-d111', 100, 10]];
+    CATALOGUE.push({ slug: 'mollet-d111', nom: 'Mollet D111 (Machine)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'machine', muscles_primaires: ['mollets'], muscles_secondaires: [] });
+    // Le cran du curl : deux séances à 22,5 kg, hors consigne (aucun pari), avant les dix sous consigne.
+    [48, 45].forEach((j) => {
+      const id = 'd111-h' + j, debut = ilYa(j * 86400000, t111).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'D111 — ' + id, debut,
+        fin: finDe(debut, t111).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((r) => base.sets.push({
+        id: id + '-s' + r, session_id: id, user_id: 'u-banc', exercise_slug: 'curl-d111',
+        charge_kg: 22.5, reps: 12, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: r, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    // Dix séances sous consigne, tous les 4 jours, sans progrès : le compteur atteint 8 aujourd'hui. Le mollet a les
+    // siennes, plus espacées et finies il y a 12 jours : hors des 7 jours de la semaine allégée (§14.4), qui citerait sinon les trois
+    // exercices et ne laisserait aucune marche isolée. En D, les paris du curl et de la presse partent de la base
+    // pour la même raison.
+    const decor111 = (exos, decalage, ecart, prefixe) => {
+      for (let i = 0; i < 10; i++) {
+        const j = decalage + ecart * (9 - i);
+        const id = prefixe + i, debut = ilYa(j * 86400000, t111).toISOString();
+        base.sessions.push({ id, user_id: 'u-banc', titre: 'D111 — ' + id, debut,
+          fin: finDe(debut, t111).toISOString(), statut: 'terminee', note: null,
+          salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+        exos.forEach(([slug, kg, reps], kx) => {
+          // Le curl : ses deux séances à 22,5 kg tiennent lieu de la première (sinon 25 kg y serait un progrès : 9).
+          if (slug === 'curl-d111' && i === 0) return;
+          // Le rang est unique dans la SÉANCE (`sets_rang_unique`), pas dans l'exercice.
+          [1, 2, 3].forEach((r) => base.sets.push({
+            id: id + '-' + slug + '-s' + r, session_id: id, user_id: 'u-banc', exercise_slug: slug,
+            charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+            rang: r + 3 * kx, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+            repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+          base.predictions.push({ id: idPari(), user_id: 'u-banc', module: 'moteur.consigne', module_version: 4,
+            emise_a: debut, exercise_slug: slug, grandeur: 'reps', horizon_jours: null, valeur_predite: reps,
+            borne_basse: 10, borne_haute: 12,
+            fondement: { rang: 1, charge: kg, etat: 'progression', zone: 'volume', reglage: 'normal', palier: kg,
+                         niveau: reps, seance: id, role: 'ligne', phase: 'maintien', compteur: Math.max(0, i - 1) },
+            valeur_observee: reps, observee_a: debut, set_observe: id + '-' + slug + '-s1', created_at: debut });
+          // Le 1er déclenchement (compteur 4) : la série de plus proposée, refusée.
+          if (i === 5) {
+            base.predictions.push({ id: idPari(), user_id: 'u-banc', module: 'escalier', module_version: 1,
+              emise_a: debut, exercise_slug: null, grandeur: 'progres', horizon_jours: null, valeur_predite: 1,
+              borne_basse: null, borne_haute: null,
+              fondement: { seance: id, jour: debut.slice(0, 10), exercice: slug, marche: 'serie_de_plus',
+                           reponse: 'refusee', compteur: 4, n: 1, zone: 'volume', phase: 'maintien', n_routine: 3, debut },
+              valeur_observee: null, observee_a: null, set_observe: null, created_at: debut });
+          }
+        });
+      }
+    };
+    decor111(exos111, 5, 4, 'd111-s');
+    // Tous les 8 jours, la dernière il y a 12 jours : pas de coupure (3 × 8 jours, §12.6).
+    decor111([['mollet-d111', 60, 12]], 12, 8, 'd111-m');
+    ROUTINES.push({ id: 'r-d111', nom: 'Dégressive D111', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: exos111.map(([slug, , reps], k) => ({ id: 'r-d111-' + k, routine_id: 'r-d111',
+        exercise_slug: slug, rang: k, routine_sets: progr(3, reps), repos_cible_s: 90, groupe_superset: null, note: null })) });
+    ROUTINES.push({ id: 'r-d111-m', nom: 'Mollet D111', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-d111-m0', routine_id: 'r-d111-m', exercise_slug: 'mollet-d111', rang: 0,
+        routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    if (base.profiles && base.profiles[0]) base.profiles[0].phase = 'maintien';
+    const nb111 = (x) => JSON.stringify(x).replace(/[\u00a0\u202f]/g, ' ');
+    const lire111 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const vue = (slug) => {
+        const x = d && d.plan.exercices.filter((e) => e.slug === slug)[0];
+        if (!x) return null;
+        const carte = document.querySelector('.proposition-degressive-proposee[data-iexo="' + x.iExo + '"]');
+        return {
+          compteur: x.compteur ? x.compteur.compteur : null, poly: x.polyarticulaire,
+          marche: x.escalier ? x.escalier.marche : null, reponse: x.escalier ? x.escalier.reponse || null : null,
+          carte: carte ? { texte: carte.querySelector('.pc-texte').textContent, detail: carte.querySelector('.pc-detail').textContent,
+            oui: carte.querySelector('.pdp-oui').textContent, non: carte.querySelector('.pdp-non').textContent } : null,
+          types: x.lignes.map((l) => l.type),
+          degressive: x.degressive ? { charge: x.degressive.charge, reference: x.degressive.reference, phrase: x.degressive.phrase } : null
+        };
+      };
+      return { phase: d ? d.plan.phase : null, curl: vue('curl-d111'), presse: vue('presse-d111'), mollet: vue('mollet-d111'),
+               cartes: document.querySelectorAll('.proposition-degressive-proposee').length };
+    });
+    const parisDeg = () => base.predictions.filter((l) => l.module === 'escalier' && l.fondement &&
+      l.fondement.marche === 'degressive');
+
+    // ── A. Le 2e déclenchement : la carte sur le curl, jamais sur la presse.
+    await aller('/saisie');
+    await demarrerRoutine('Dégressive D111');
+    await attendre(1200);
+    const a = await lire111();
+    ok('[D111] prémisse : maintien, le curl et la presse à 8 séances sans progrès, le curl isolation, la presse polyarticulaire',
+      a.phase === 'maintien' && a.curl && a.curl.compteur === 8 && a.curl.poly === false &&
+      a.presse && a.presse.compteur === 8 && a.presse.poly === true, nb111(a));
+    ok('[D111] A — la carte de la dégressive sous le curl : la phrase, le détail, « Ajouter une dégressive » / « Non merci »',
+      a.curl.marche === 'degressive' && !!a.curl.carte &&
+      nb111(a.curl.carte.texte) === nb111('25 kg × 12 reste ta meilleure charge de travail depuis 8 séances. Une dégressive après ta dernière série ?') &&
+      a.curl.carte.detail === '−20 à 25 %, sans repos, jusqu\'à l\'échec. La même croissance en moins de temps (Sødal et al. 2023).' &&
+      a.curl.carte.oui === 'Ajouter une dégressive' && a.curl.carte.non === 'Non merci', nb111(a.curl));
+    ok('[D111] A — DISCRIMINANT : la presse (polyarticulaire) n’a jamais de dégressive proposée ; une seule carte à l’écran',
+      a.presse.marche !== 'degressive' && !a.presse.carte && a.cartes === 1, nb111({ presse: a.presse, cartes: a.cartes }));
+    ok('[D111] A — avant la réponse : aucune ligne dégressive, rien n’est écrit dans une série',
+      a.curl.types.indexOf('degressive') < 0 && a.curl.degressive === null && parisDeg().length === 0, nb111(a.curl.types));
+
+    // ── B. « Ajouter une dégressive ».
+    await page.click('.proposition-degressive-proposee .pdp-oui');
+    await attendre(1500);
+    // La dernière série de travail est le test du cran au-dessus, SANS CHIFFRE (une poulie sans salle, comme C100) :
+    // tant qu'elle n'est pas faite, §9.15.3 n'a pas de référence et le dit. On fait les trois séries à 25 × 12 :
+    // la dégressive se cale sur la dernière, faite.
+    const b0 = await lire111();
+    for (let i = 0; i < 3; i++) await saisirSerie(i, 25, 12);
+    await attendre(600);
+    const b = await lire111();
+    const pari = parisDeg()[0];
+    ok('[D111] B — le pari : escalier, marche « degressive », acceptée, l’exercice dans le fondement, compteur 8',
+      parisDeg().length === 1 && !!pari && pari.exercise_slug === null && pari.fondement.exercice === 'curl-d111' &&
+      pari.fondement.reponse === 'acceptee' && pari.fondement.compteur === 8 && !!pari.fondement.debut,
+      nb111(pari && pari.fondement));
+    ok('[D111] B — à l’acceptation : une ligne dégressive, et une seule, après les séries de travail ; plus de carte',
+      b0.curl.carte === null && b0.cartes === 0 && b0.curl.types.join() === 'travail,travail,travail,degressive', nb111(b0.curl));
+    ok('[D111] B — les séries faites : la dégressive remplie sous 25 kg (« Dégressive : … »)',
+      b.curl.carte === null && b.cartes === 0 && b.curl.types[b.curl.types.length - 1] === 'degressive' &&
+      b.curl.types.filter((t) => t === 'degressive').length === 1 && !!b.curl.degressive &&
+      b.curl.degressive.charge > 0 && b.curl.degressive.charge < 25 && /^Dégressive : /.test(b.curl.degressive.phrase),
+      nb111(b.curl));
+    ok('[D111] B — la ligne dégressive ne porte aucun pari de consigne (§9.15.4)',
+      !base.predictions.some((l) => l.module === 'moteur.consigne' && l.exercise_slug === 'curl-d111' &&
+        l.fondement && l.fondement.role === 'degressive'), '');
+    await abandonner();
+
+    // ── C. La séance suivante : la ligne revient, sans carte.
+    await aller('/saisie');
+    await demarrerRoutine('Dégressive D111');
+    await attendre(1500);
+    const c = await lire111();
+    ok('[D111] C — une nouvelle séance, sans progrès : la ligne dégressive revient d’elle-même ; ni carte ni nouveau pari',
+      c.curl.types.filter((t) => t === 'degressive').length === 1 && c.cartes === 0 && parisDeg().length === 1,
+      nb111({ curl: c.curl, paris: parisDeg().length }));
+    await abandonner();
+
+    // ── D. En sèche : le curl n'a plus sa dégressive ; le mollet n'en reçoit pas.
+    if (base.profiles && base.profiles[0]) base.profiles[0].phase = 'seche';
+    await aller('/saisie');
+    await demarrerRoutine('Dégressive D111');
+    await attendre(1200);
+    const dd = await lire111();
+    ok('[D111] D — en sèche, la dégressive acceptée n’est plus en cours : ni marche, ni carte, ni ligne',
+      dd.phase === 'seche' && dd.curl.marche !== 'degressive' && dd.cartes === 0 &&
+      dd.curl.types.indexOf('degressive') < 0, nb111(dd));
+    await abandonner();
+    base.predictions = base.predictions.filter((l) => l.exercise_slug !== 'curl-d111' && l.exercise_slug !== 'presse-d111');
+    await aller('/saisie');
+    await demarrerRoutine('Mollet D111');
+    await attendre(1200);
+    const d2 = await lire111();
+    ok('[D111] D — DISCRIMINANT : en sèche, le mollet (isolation, série de plus refusée, 8 séances) n’a jamais de dégressive proposée',
+      d2.phase === 'seche' && !!d2.mollet && d2.mollet.compteur === 8 && d2.mollet.marche !== 'degressive' && d2.cartes === 0,
+      nb111(d2));
+    ok('[D111] aucune violation de la garde (I48 compris)', gardeBanc.violations === violationsAvant,
+      String(gardeBanc.violations - violationsAvant) + ' ' + nb111(gardeBanc.liste.slice(-2)));
+    await abandonner();
+
+    if (base.profiles && base.profiles[0]) base.profiles[0].phase = phaseAvant;
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = predictionsAvant;
+    await aller('/saisie');
+    ok('[D111] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      nb111([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ Q78. LA QUESTION DE RÉSERVE : « IL T’EN RESTAIT COMBIEN ? », APRÈS LA DERNIÈRE SÉRIE D’UN EXERCICE QUI A UN PARI (78, MOTEUR §17.2 bis) ══');
   //
   // Une séance de trois exercices : deux ont un pari (un historique, donc une consigne), le troisième n'en a pas (jamais

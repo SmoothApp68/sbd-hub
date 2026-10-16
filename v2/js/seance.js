@@ -528,6 +528,20 @@
     return avecExercices(seance, exos);
   }
 
+  // MOTEUR §14 (111) — « Ajouter une dégressive » : la dégressive proposée par
+  // le coach, une ligne typée dégressive APRÈS les séries de l'exercice (elle
+  // suit la dernière série de travail) ; charge et reps vides : le plan la
+  // remplit (§9.15.3). Jamais écrite dans une série existante.
+  function ajouterDegressive(seance, iExo, idSerie) {
+    var exos = seance.exercices.slice();
+    var exo = copie(exos[iExo]);
+    var s = serieVide(idSerie);
+    s.type_serie = 'degressive';
+    exo.series = exo.series.concat([s]);
+    exos[iExo] = exo;
+    return avecExercices(seance, exos);
+  }
+
   // MOTEUR §9.15.2 (49-U10) — « Ajouter » : les chauffes proposées par le
   // coach, typées échauffement, AU-DESSUS des séries de travail (avant la
   // première ; en tête s'il n'y en a pas). Une ligne par marche, avec ses reps
@@ -2692,6 +2706,7 @@
     serieVide: serieVide,
     ajouterExercice: ajouterExercice,
     ajouterSerie: ajouterSerie,
+    ajouterDegressive: ajouterDegressive,
     insererChauffes: insererChauffes,
     retirerSerie: retirerSerie,
     modifierSerie: modifierSerie,

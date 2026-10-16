@@ -32,10 +32,14 @@ const Faits = require('../../v2/js/faits.js');
 const FauxSocial = require('../banc/faux-social.js');
 
 const MIGRATION = fs.readFileSync(path.join(__dirname, '../../v2-atelier/migrations-proposees/v2_080_guilde.sql'), 'utf8');
+const MIGRATION_093 = fs.readFileSync(path.join(__dirname, '../../v2-atelier/migrations-proposees/v2_093_doctrine.sql'), 'utf8');
 
 describe('90 — social.js : les règles de la guilde', () => {
-  test('MUTATION (b) — les défis sûrs : exactement « séances », « records », « variété » ; jamais la charge ni le tonnage', () => {
-    expect(Social.DEFIS.map((d) => d.cle)).toEqual(['seances', 'records', 'variete']);
+  test('MUTATION (b) — les défis sûrs : exactement « séries », « séances », « records », « variété » ; jamais la charge ni le tonnage', () => {
+    // 120 (D3) — « séries » d'abord : le défaut sans choix.
+    expect(Social.DEFIS.map((d) => d.cle)).toEqual(['series', 'seances', 'records', 'variete']);
+    expect(Social.defiValide('series', null)).toBe(true);
+    expect(Social.defiValide('series', 3)).toBe(false);
     expect(Social.defiValide('tonnage', 5)).toBe(false);
     expect(Social.defiValide('charge', 5)).toBe(false);
     expect(Social.defiValide('seances', null)).toBe(true);
@@ -86,6 +90,22 @@ describe('90 — social.js : les règles de la guilde', () => {
     const v = Social.jaugeDuDefi({ defi: 'variete', n: 10, exercices: 1 }, 1);
     expect(v.phrase).toBe('1 exercice différent sur 10');
     expect(Social.jaugeDuDefi({ defi: 'seances', seances_faites: 0, seances_prevues: 0 }, 3).part).toBe(0);
+  });
+
+  // 120 (D3, décision du 16/10/2026) — « le défi de guilde par défaut devient les séries de travail de la guilde dans la
+  // semaine, objectif = sa moyenne des 4 dernières semaines ».
+  test('⚠️ DISCRIMINANT — le défi par défaut : les séries de travail sur la moyenne des 4 semaines ; sans défi connu, lui', () => {
+    const j = Social.jaugeDuDefi({ defi: 'series', n: null, series_faites: 37, series_cible: 42, seances_faites: 3, seances_prevues: 9 }, 4);
+    expect([j.cle, j.titre, j.phrase]).toEqual(['series', '42 séries de travail, votre moyenne', '37 séries de travail sur 42, à vous quatre']);
+    expect(j.part).toBeCloseTo(37 / 42);
+    expect(j.phrase).not.toMatch(/séance|prévue/);
+    // Un défi que l'app ne connaît pas (ou absent) : le premier de la liste, celui des séries.
+    expect(Social.jaugeDuDefi({ series_faites: 1, series_cible: 1 }, 1).cle).toBe('series');
+    // Sans historique chez personne : pas de cible inventée — le compte seul, la jauge vide.
+    const z = Social.jaugeDuDefi({ defi: 'series', series_faites: 12, series_cible: 0 }, 2);
+    expect([z.titre, z.phrase, z.part]).toEqual(['Vos séries de travail de la semaine', '12 séries de travail, à vous deux', 0]);
+    // Avant v2_093, la base rend « seances » par défaut : l'écran dit ce qu'elle dit.
+    expect(Social.jaugeDuDefi({ defi: 'seances', seances_faites: 3, seances_prevues: 9 }, 2).phrase).toBe('3 séances sur 9 prévues, à vous deux');
   });
 
   test('« encore N jours » jusqu’au dimanche', () => {
@@ -178,7 +198,30 @@ describe('90 — faits.scoresDeGuilde : mes nombres publiés', () => {
   const paris = [pari('x4', 77.5)];
   test('séances de la semaine (une série de travail), exercices à 2 séances du mois, ceux avec un record sans dépasser', () => {
     const s = Faits.creer().scoresDeGuilde(c, paris, 4, MAINTENANT);
-    expect(s).toEqual({ semaine: '2026-10-12', seances: 1, prevues: 4, records_semaine: 1, mois: '2026-10-01', exercices: 2, exercices_record: 1 });
+    expect(s).toEqual({ semaine: '2026-10-12', seances: 1, prevues: 4, records_semaine: 1, mois: '2026-10-01', exercices: 2, exercices_record: 1,
+      // 120 (D3) — 2 séries de travail cette semaine (la chauffe du 13 ne compte pas) ; la moyenne des semaines d'avant
+      // depuis la première (celle du 28/09) : (3 + 2) / 2 = 2,5 — les semaines du 14 et du 21/09 n'existent pas encore.
+      series_semaine: 2, series_moyenne: 2.5 });
+  });
+  test('⚠️ DISCRIMINANT (120, D3) — mes séries : de musculation seulement (ni le tapis), moyenne des 4 semaines pleines d’avant', () => {
+    const tapis = { slug: 'tapis', nom: 'Tapis', mesure: 'duree_distance', muscles_primaires: [] };
+    const squat = { slug: 'squat', nom: 'Squat', mesure: 'charge_reps', muscles_primaires: ['quadriceps'] };
+    const c2 = corpus([
+      ['t0', j(14, 9), [['y0', 'squat', 100, 5], ['y1', 'tapis', null, null]]],          // cette semaine : 1 (pas le tapis)
+      ['t1', j(6), [['y2', 'squat', 100, 5], ['y3', 'squat', 100, 5], ['y4', 'tapis', null, null]]], // -1 : 2
+      ['t2', j(1), [['y5', 'squat', 100, 5]]],                                           // -2 : 1
+      ['t3', new Date(2026, 8, 16, 18), [['y6', 'squat', 100, 5], ['y7', 'squat', 100, 5], ['y8', 'squat', 100, 5]]], // -4 : 3
+      ['t4', new Date(2026, 8, 1, 18), [['y9', 'squat', 100, 5]]]                         // -6 : hors fenêtre
+    ], []);
+    const index = Modele.indexerExercices([tapis, squat]);
+    c2.catalogue = () => index;
+    const s = Faits.creer().scoresDeGuilde(c2, [], 4, MAINTENANT);
+    // Les 4 semaines d'avant : 2, 1, 0 (la semaine du 21/09 sans séance compte 0), 3 → 6 / 4.
+    expect([s.series_semaine, s.series_moyenne]).toEqual([1, 1.5]);
+    // Sans aucune semaine d'avant (première séance cette semaine) : 0, rien n'est ajouté à l'objectif.
+    const neuf = corpus([['n0', j(13), [['z0', 'squat', 100, 5]]]], []);
+    neuf.catalogue = () => index;
+    expect(Faits.creer().scoresDeGuilde(neuf, [], 4, MAINTENANT).series_moyenne).toBe(0);
   });
   test('séances prévues : le profil d’abord ; vide, la médiane de l’historique (`habitudes`) ; sans rien, 0', () => {
     const f = Faits.creer();
@@ -199,7 +242,10 @@ describe('90 — v2_080 : le texte de la migration', () => {
   const liste = (re) => { const m = re.exec(MIGRATION); return m ? m[1].split(',').map((x) => x.trim().replace(/^'|'$/g, '')) : null; };
   test('les rangs, les défis et les couleurs de la base sont ceux de l’app et du faux serveur', () => {
     expect(liste(/guilde_membres_rang CHECK \(rang IN\s*\(([^)]*)\)/)).toEqual(Social.RANGS);
-    expect(liste(/guilde_defis_type CHECK \(type IN \(([^)]*)\)/)).toEqual(Social.DEFIS.map((d) => d.cle));
+    // 120 (D3) — v2_093 ajoute « series » ; v2_080 garde ses trois.
+    expect(liste(/guilde_defis_type CHECK \(type IN \(([^)]*)\)/)).toEqual(['seances', 'records', 'variete']);
+    const m093 = /guilde_defis_type CHECK \(type IN \(([^)]*)\)/.exec(MIGRATION_093);
+    expect(m093[1].split(',').map((x) => x.trim().replace(/^'|'$/g, ''))).toEqual(Social.DEFIS.map((d) => d.cle));
     expect(liste(/guildes_couleur CHECK \(couleur IN\s*\(([^)]*)\)/)).toEqual(Social.COULEURS_GUILDE);
     expect(FauxSocial.GUILDE.RANGS).toEqual(Social.RANGS);
     expect(FauxSocial.GUILDE.DEFIS).toEqual(Social.DEFIS.map((d) => d.cle));
@@ -338,5 +384,65 @@ describe('90 — le faux serveur imite v2_080', () => {
     expect(f.appeler('u-moi', 'POST', 'guilde_scores', Object.assign({}, ok, { poids_corps_kg: 98 })).status).toBe(400);
     expect(f.etat.fuites).toEqual([{ table: 'guilde_scores', champs: ['poids_corps_kg'] }]);
     expect(f.appeler('u-jordan', 'POST', 'guilde_scores', ok).status).toBe(403);
+  });
+});
+
+// ── 120 (D3, v2_093) — les séries publiées, des deux côtés de la migration ─────
+describe('120 (D3) — `Donnees.publierScoresGuilde` : les séries, et la base d’avant v2_093', () => {
+  require('../../v2/js/donnees.js');
+  const Donnees = global.THDonnees || global.self.THDonnees;
+  // Un client PostgREST minimal sur le faux serveur : `from('guilde_scores').upsert(l)` → POST.
+  const clientDe = (f) => ({ from: (table) => ({ upsert: (l) => {
+    const r = f.appeler('u-moi', 'POST', table, l);
+    return Promise.resolve(r.status >= 400 ? { data: null, error: r.data } : { data: null, error: null });
+  } }) });
+  const scores = (f) => ({ semaine: f.lundiCourant(), seances: 2, prevues: 4, records_semaine: 1, mois: f.moisCourant(),
+    exercices: 3, exercices_record: 1, series_semaine: 14, series_moyenne: 12.25 });
+  function decor(v2_093) {
+    const base = { profiles: [{ id: 'u-moi', username: 'moi', compte_prive: true }], sessions: [], sets: [], records: [] };
+    const f = FauxSocial.creer(base, { moi: 'u-moi', v2_093 });
+    global.THClient = { obtenir: () => clientDe(f) };
+    return f;
+  }
+  afterAll(() => { delete global.THClient; });
+  test('après v2_093 : les deux colonnes partent ; guilde_semaine rend le défaut « series » et sa cible', async () => {
+    const f = decor(true);
+    expect(await Donnees.publierScoresGuilde('u-moi', scores(f))).toBe(true);
+    const l = f.etat.gscores.filter((x) => x.user_id === 'u-moi')[0];
+    expect([l.series_semaine, l.series_moyenne]).toEqual([14, 12.25]);
+    expect(f.etat.fuites).toEqual([]);
+  });
+  test('⚠️ DISCRIMINANT — avant v2_093 : PGRST204, la ligne repart SANS les séries ; rien ne casse', async () => {
+    const f = decor(false);
+    expect(await Donnees.publierScoresGuilde('u-moi', scores(f))).toBe(true);
+    const l = f.etat.gscores.filter((x) => x.user_id === 'u-moi')[0];
+    expect(l && l.seances).toBe(2);
+    expect(l.series_semaine).toBeUndefined();
+    // Une fois par colonne (la base nomme la première inconnue), puis plus jamais dans la session.
+    expect(f.etat.journal.filter((j) => j.op === 'refus').map((j) => j.refus)).toEqual(['PGRST204', 'PGRST204']);
+    expect(await Donnees.publierScoresGuilde('u-moi', scores(f))).toBe(true);
+    expect(f.etat.journal.filter((j) => j.op === 'refus').length).toBe(2);
+    expect(f.etat.fuites).toEqual([]);
+    // Le défaut de la base d'avant reste « seances » : l'écran affiche ce qu'elle dit.
+    expect(f.rpc('u-moi', 'guilde_creer', { p_nom: 'Les Barres', p_couleur: '#b39ad1' })).not.toBeInstanceOf(Error);
+    const s = f.rpc('u-moi', 'guilde_semaine', {});
+    expect((Array.isArray(s) ? s[0] : s).defi).toBe('seances');
+  });
+});
+
+describe('120 — v2_093 : le texte de la migration dit ce que l’app et le faux serveur font', () => {
+  test('D3 : le défaut « series », les deux nombres, « series » sans nombre ; les défis en cours figés en « seances »', () => {
+    expect(MIGRATION_093).toMatch(/coalesce\(d\.type, 'series'\)/);
+    expect(MIGRATION_093).toMatch(/series_faites integer, series_cible integer\)/);
+    expect(MIGRATION_093).toMatch(/\(type IN \('seances','series'\) AND n IS NULL\)/);
+    expect(MIGRATION_093).toMatch(/SELECT g\.id, guilde_semaine_courante\(\), 'seances', NULL FROM public\.guildes g\s*\n\s*WHERE guilde_semaine_lancee\(g\.id\)/);
+    expect(FauxSocial.GUILDE.COLONNES_SERIES).toEqual(['series_semaine', 'series_moyenne']);
+    expect(Social.COLONNES_GUILDE.slice(-2)).toEqual(FauxSocial.GUILDE.COLONNES_SERIES);
+  });
+  test('D1 : le récap du groupe ignore `un_rm_estime` ; une transaction ; aucune politique créée', () => {
+    expect(MIGRATION_093).toMatch(/AND r\.type <> 'un_rm_estime'\)/);
+    expect(MIGRATION_093).toMatch(/^BEGIN;$/m);
+    expect(MIGRATION_093).toMatch(/^COMMIT;$/m);
+    expect(MIGRATION_093).not.toMatch(/CREATE POLICY|ALTER POLICY|DROP POLICY/);
   });
 });

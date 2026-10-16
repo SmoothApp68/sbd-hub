@@ -124,17 +124,39 @@
     //     fonction du programme déduit, jamais recopiée ; 0 sans rien ;
     //   · `records_semaine` : mes séries médaillées sans dépasser la charge proposée, dans la semaine ;
     //   · `exercices` : les exercices faits dans au moins 2 séances du mois (séries de travail) ; `exercices_record` :
-    //     ceux d'entre eux qui ont au moins un record sans dépasser la charge proposée dans le mois.
+    //     ceux d'entre eux qui ont au moins un record sans dépasser la charge proposée dans le mois ;
+    //   · 120 (D3, décision du 16/10/2026) — `series_semaine` : mes séries de MUSCULATION de la semaine
+    //     (`Semaine.estSerieDeMusculation`, la règle du compte des séries de travail, 119 : ni le tapis, ni la
+    //     randonnée) ; `series_moyenne` : leur moyenne sur les 4 semaines pleines d'AVANT (lundi → dimanche, heure
+    //     locale), au centième. « CE QUI EXISTE » : seulement les semaines depuis celle de ma première série de
+    //     musculation — une semaine sans séance après elle compte 0, une semaine d'avant mon premier pas ne compte pas
+    //     (elle n'est pas un 0, je n'étais pas là) ; sans aucune semaine d'avant, 0 (je n'ajoute rien à l'objectif).
+    //     La guilde additionne (`guilde_semaine`, v2_093) : sa cible est la somme de nos moyennes.
+    var SEMAINES_DU_DEFI = 4;
     function scoresDeGuilde(c, paris, declarees, maintenant) {
       var m = maintenant || new Date();
       var b = Semaine.bornesSemaine(m);
       var lundi = Moteur.jourCivil(b.lundi), dimanche = Moteur.jourCivil(b.dimanche);
       var premier = Moteur.jourCivil(new Date(m.getFullYear(), m.getMonth(), 1));
       var dernier = Moteur.jourCivil(new Date(m.getFullYear(), m.getMonth() + 1, 0));
-      var seances = 0, parExo = {};
+      var index = (c.catalogue && c.catalogue()) || {};
+      var lundiDe = function (j) { var x = Semaine.bornesSemaine(new Date(j + 'T12:00:00')); return x ? Moteur.jourCivil(x.lundi) : null; };
+      var avant = [];
+      for (var k = 1; k <= SEMAINES_DU_DEFI; k++) {
+        avant.push(Moteur.jourCivil(new Date(b.lundi.getFullYear(), b.lundi.getMonth(), b.lundi.getDate() - 7 * k)));
+      }
+      var seances = 0, parExo = {}, seriesParSemaine = {}, premierLundi = null;
       seancesAvecSeries(c).forEach(function (s) {
         var j = s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
         if (!j) return;
+        var muscu = s.series.filter(function (x) { return x && x.exercise_slug && Semaine.estSerieDeMusculation(x, index[x.exercise_slug]); }).length;
+        if (muscu) {
+          var l = lundiDe(j);
+          if (l && l <= lundi) {
+            seriesParSemaine[l] = (seriesParSemaine[l] || 0) + muscu;
+            if (premierLundi === null || l < premierLundi) premierLundi = l;
+          }
+        }
         var travail = s.series.filter(function (x) { return x && x.exercise_slug && Modele.estTravail(x); });
         if (!travail.length) return;
         if (j >= lundi && j <= dimanche) seances++;
@@ -149,8 +171,13 @@
       var avecRecord = {};
       duMois.forEach(function (r) { avecRecord[r.exercise_slug] = true; });
       var exercices = Object.keys(parExo).filter(function (k) { return Object.keys(parExo[k]).length >= 2; });
+      var comptees = avant.filter(function (l) { return premierLundi !== null && l >= premierLundi; });
+      var moyenne = comptees.length
+        ? Math.round(comptees.reduce(function (t, l) { return t + (seriesParSemaine[l] || 0); }, 0) / comptees.length * 100) / 100
+        : 0;
       return {
         semaine: lundi, seances: seances, prevues: prevues,
+        series_semaine: seriesParSemaine[lundi] || 0, series_moyenne: moyenne,
         records_semaine: duMois.filter(function (r) { return r.jour >= lundi && r.jour <= dimanche; }).length +
           (lundi < premier ? recordsSansDepasser(c, paris, lundi, Moteur.jourCivil(new Date(m.getFullYear(), m.getMonth(), 0))).length : 0),
         mois: premier, exercices: exercices.length,

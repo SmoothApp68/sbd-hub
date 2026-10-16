@@ -14129,7 +14129,7 @@ const SETS_IMPORTES = [
   //
   //   A. LE REMPLISSAGE : le journal du serveur vide, l'app le remplit une fois,
   //      en tranches qui rendent la main ;
-  //   B. « TERMINER » : 150 × 2, 100 × 5, 147,5 × 6 → six lignes, une par
+  //   B. « TERMINER » : 150 × 2, 100 × 5, 147,5 × 6 → cinq lignes (120, D1), une par
   //      (série, type) — rien avant « Terminer » ;
   //   C. LE RENVOI : enregistrer sans rien changer renvoie les mêmes lignes —
   //      aucun doublon, aucun refus (`records_immuable`) ;
@@ -14299,7 +14299,7 @@ const SETS_IMPORTES = [
     await fermerRecapBanc();
     await garderRecap(false);
 
-    // ── C. LE RENVOI : enregistrer sans rien changer renvoie les six lignes.
+    // ── C. LE RENVOI : enregistrer sans rien changer renvoie les cinq lignes (six avant D1, 120).
     const ecrituresAvantC = base.ecrituresRecords.length;
     await ouvrirMenuDe('Journal U58');
     await entree('Modifier');
@@ -14307,8 +14307,8 @@ const SETS_IMPORTES = [
     await attendreQue(async () => base.ecrituresRecords.length > ecrituresAvantC && (await fileJ()).length === 0, 15000);
     const renvoi = base.ecrituresRecords.slice(ecrituresAvantC);
     ok('[J58] DISCRIMINANT — le renvoi : les mêmes lignes repartent, AUCUN doublon, AUCUN refus (un ajout qui ignore, jamais un upsert qui modifie)',
-      renvoi.length >= 1 && renvoi.every((x) => x.ignorer && !x.fusionner) && renvoi.some((x) => x.n === 6) &&
-        base.records.filter((x) => x.session_id === enCoursJ).length === 6 &&
+      renvoi.length >= 1 && renvoi.every((x) => x.ignorer && !x.fusionner) && renvoi.some((x) => x.n === 5) &&
+        base.records.filter((x) => x.session_id === enCoursJ).length === 5 &&
         base.journal.filter((j) => j.op === 'refus').length === refusAvant,
       JSON.stringify([renvoi, base.journal.filter((j) => j.op === 'refus').slice(refusAvant)]));
 
@@ -18213,11 +18213,23 @@ const SETS_IMPORTES = [
     ok('[guilde] DISCRIMINANT — mes nombres partent, calculés sur l’appareil : la semaine et le mois en cours, mes 5 séances prévues ' +
       '(le profil, pas la médiane) — et RIEN d’autre (aucune fuite)',
       !!mien && mien.semaine === fauxSocial.lundiCourant() && mien.mois === fauxSocial.moisCourant() && mien.prevues === 5 &&
-        Number.isInteger(mien.seances) && mien.exercices_record <= mien.exercices && S.fuites.length === 0,
+        Number.isInteger(mien.seances) && mien.exercices_record <= mien.exercices && S.fuites.length === 0 &&
+        // 120 (D3, v2_093) — et mes séries de musculation de la semaine, avec leur moyenne des 4 semaines d'avant.
+        Number.isInteger(mien.series_semaine) && typeof mien.series_moyenne === 'number' && mien.series_moyenne > 0,
       JSON.stringify([mien, S.fuites]));
     S.gscores.push({ user_id: 'u-jordan', semaine: fauxSocial.lundiCourant(), seances: 4, prevues: 3, records_semaine: 2,
-      mois: fauxSocial.moisCourant(), exercices: 6, exercices_record: 5 });
+      mois: fauxSocial.moisCourant(), exercices: 6, exercices_record: 5, series_semaine: 20, series_moyenne: 18.4 });
     await onglet('semaine', async () => (await lire()).choixDefi.length > 0);
+    // 120 (D3) — SANS CHOIX, LE DÉFI DES SÉRIES DE TRAVAIL : la somme publiée sur la somme des moyennes (arrondie).
+    await aller('/jeu/guilde');
+    await attendreQue(async () => /séries? de travail/.test((await lire()).phrase || ''));
+    const cSeries = await lire();
+    const cibleSeries = Math.round(mien.series_moyenne + 18.4), faitesSeries = mien.series_semaine + 20;
+    ok('[guilde 120] DISCRIMINANT — sans choix, le défi par défaut est celui des séries de travail (D3) : « ' + faitesSeries +
+      ' séries de travail sur ' + cibleSeries + ', à vous trois », jamais « séances prévues »',
+      cSeries.phrase === faitesSeries + ' séries de travail sur ' + cibleSeries + ', à vous trois' &&
+        cSeries.defi.indexOf(cibleSeries + ' séries de travail, votre moyenne · ') === 0 && !/prévue/.test(cSeries.phrase) &&
+        cSeries.choixDefi.indexOf('series') === 0, JSON.stringify(cSeries));
     await page.click('#social-guilde .s-choix-defi button[data-defi="records"][data-n="3"]');
     await attendreQue(async () => /records? sur 3/.test((await lire()).phrase || ''));
     await attendreQue(fileVide);
@@ -18237,8 +18249,9 @@ const SETS_IMPORTES = [
     const fige = await page.evaluate(() => { const p = document.querySelector('#social-guilde .s-defi-fige'); return p ? p.textContent : null; });
     ok('[guilde] 92 — défi figé : l’écran dit pourquoi (« Défi figé : la semaine a commencé. Tu en choisiras un lundi. »)',
       fige === 'Défi figé : la semaine a commencé. Tu en choisiras un lundi.' && cAvant.choixDefi.length > 0, String(fige));
-    ok('[guilde] DISCRIMINANT — le défi : trois choix sûrs à l’écran (séances, records, variété) ; « 3 records » choisi ; la base refuse le tonnage',
-      cAvant.choixDefi.every((x) => /^(seances|records|variete)/.test(x)) && cAvant.choixDefi.indexOf('seances') >= 0 &&
+    ok('[guilde] DISCRIMINANT — le défi : quatre choix sûrs à l’écran (séries, séances, records, variété) ; « 3 records » choisi ; la base refuse le tonnage',
+      cAvant.choixDefi.every((x) => /^(series|seances|records|variete)/.test(x)) && cAvant.choixDefi.indexOf('seances') >= 0 &&
+        cAvant.choixDefi.indexOf('series') >= 0 &&
         S.defis.length === 1 && S.defis[0].type === 'records' && S.defis[0].n === 3 &&
         /guilde_defis_type/.test(refusTonnage && refusTonnage.message), JSON.stringify([c0.choixDefi, S.defis, refusTonnage]));
     ok('[guilde] la jauge commune : « 3 records sans dépasser la charge proposée », la somme publiée (moi + jordan) sur 3, à vous trois ; ' +

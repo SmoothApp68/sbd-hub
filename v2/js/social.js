@@ -389,7 +389,12 @@
   var RANGS = ['Squatteur', 'Bencheur', 'Terreur', 'Pousseur', 'Tireur', 'Chargeur', 'Gymbro', 'Motiveur', 'Novice'];
   var RANG_PAR_DEFAUT = 'Novice';
   // Les défis SÛRS — et eux seuls : la base refuse tout autre type (`guilde_defis_type`).
+  // 120 (D3, décision du 16/10/2026, audit 06 #9) — LE DÉFI PAR DÉFAUT devient « les séries de travail de la guilde
+  // dans la semaine, objectif = sa moyenne des 4 dernières semaines » (au lieu de « séances sur prévues », qui mesure
+  // l'assiduité). Le premier de la liste : celui qui part seul sans choix (la base le dit aussi, `guilde_semaine`,
+  // v2_093). Avant v2_093, la base rend encore « seances » par défaut : l'écran affiche ce qu'elle dit.
   var DEFIS = [
+    { cle: 'series', libelle: 'Vos séries de travail, autant que vos 4 dernières semaines', choix: null },
     { cle: 'seances', libelle: 'Chacun fait ses séances prévues', choix: null },
     { cle: 'records', libelle: 'Des records sans dépasser la charge proposée', choix: [2, 3, 5, 8, 10] },
     { cle: 'variete', libelle: 'Des exercices différents, à tous', choix: [5, 8, 10, 12, 15] }
@@ -398,7 +403,7 @@
 
   function defiDe(cle) { return DEFIS.filter(function (d) { return d.cle === cle; })[0] || null; }
   // Un défi qu'on peut choisir : un type de la liste ; un nombre pour les records et la variété (1 à 100), aucun pour
-  // les séances.
+  // les séances ni les séries (leur objectif se calcule : les prévues, la moyenne des 4 semaines).
   function defiValide(type, n) {
     var d = defiDe(type);
     if (!d) return false;
@@ -440,7 +445,12 @@
   function jaugeDuDefi(s, membres) {
     if (!s) return null;
     var d = defiDe(s.defi) || DEFIS[0], fait, cible, phrase;
-    if (d.cle === 'seances') {
+    if (d.cle === 'series') {
+      // La cible : la somme des moyennes publiées (`series_cible`). Sans historique (personne n'a de semaine d'avant),
+      // pas de cible : le compte seul, la jauge vide — on ne fixe pas un objectif inventé.
+      fait = Number(s.series_faites) || 0; cible = Number(s.series_cible) || 0;
+      phrase = fait + ' série' + (fait > 1 ? 's' : '') + ' de travail' + (cible > 0 ? ' sur ' + cible : '') + aVous(membres);
+    } else if (d.cle === 'seances') {
       fait = Number(s.seances_faites) || 0; cible = Number(s.seances_prevues) || 0;
       phrase = fait + ' séance' + (fait > 1 ? 's' : '') + ' sur ' + cible + ' prévue' + (cible > 1 ? 's' : '') + aVous(membres);
     } else if (d.cle === 'records') {
@@ -450,7 +460,9 @@
       fait = Number(s.exercices) || 0; cible = Number(s.n) || 0;
       phrase = fait + ' exercice' + (fait > 1 ? 's' : '') + ' différent' + (fait > 1 ? 's' : '') + ' sur ' + cible + aVous(membres);
     }
-    var titre = d.cle === 'seances' ? d.libelle : d.cle === 'records'
+    var titre = d.cle === 'series'
+      ? (cible > 0 ? cible + ' séries de travail, votre moyenne' : 'Vos séries de travail de la semaine')
+      : d.cle === 'seances' ? d.libelle : d.cle === 'records'
       ? cible + ' record' + (cible > 1 ? 's' : '') + ' sans dépasser la charge proposée'
       : cible + ' exercices différents, à tous';
     return { cle: d.cle, titre: titre, fait: fait, cible: cible, part: cible > 0 ? Math.min(1, fait / cible) : 0, phrase: phrase };
@@ -475,7 +487,9 @@
   }
 
   // Ce que je publie (`guilde_scores`) — seulement ce qui a changé depuis la dernière publication.
-  var COLONNES_GUILDE = ['semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record'];
+  // 120 (D3, v2_093) — `series_semaine`, `series_moyenne` : le défi des séries de travail.
+  var COLONNES_GUILDE = ['semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record',
+                         'series_semaine', 'series_moyenne'];
   function scoresGuildeChanges(s, deja) {
     if (!s) return false;
     return !deja || COLONNES_GUILDE.some(function (k) { return s[k] !== deja[k]; });

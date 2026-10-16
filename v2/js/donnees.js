@@ -1086,10 +1086,29 @@
   function retirerScores(moi) { return ecrire(client().from('scores_force').delete().eq('user_id', moi)); }
   // 90 — MES NOMBRES DE GUILDE (`guilde_scores`, v2_080), déjà calculés sur l'appareil (`faits.scoresDeGuilde`) :
   // les colonnes de la table, et rien d'autre.
-  function publierScoresGuilde(moi, s) {
-    var l = { user_id: moi };
-    ['semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record'].forEach(function (k) { l[k] = s[k]; });
-    return ecrire(client().from('guilde_scores').upsert(l, { onConflict: 'user_id' }));
+  //
+  // ⚠️ 120 (D3, `v2_093`) — `series_semaine` et `series_moyenne` (le défi des séries de travail) sont FACULTATIVES, comme
+  // les colonnes du profil (104) : tant que v2_093 n'est pas lancée, la base répond `PGRST204` ; elles quittent alors
+  // l'écriture POUR LA SESSION et la même ligne repart une fois sans elles (rien n'a été écrit). Le défi par défaut reste
+  // alors celui que la base dit (« seances »).
+  var COLONNES_SCORES_GUILDE = ['semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record'];
+  var SCORES_GUILDE_FACULTATIVES = ['series_semaine', 'series_moyenne'];
+  var scoresGuildeAbsentes = {};
+  async function publierScoresGuilde(moi, s) {
+    for (;;) {
+      var l = { user_id: moi };
+      COLONNES_SCORES_GUILDE.forEach(function (k) { l[k] = s[k]; });
+      SCORES_GUILDE_FACULTATIVES.forEach(function (k) { if (!scoresGuildeAbsentes[k] && s[k] !== undefined) l[k] = s[k]; });
+      var r = await client().from('guilde_scores').upsert(l, { onConflict: 'user_id' });
+      var absente = null;
+      if (r.error && (r.error.code === 'PGRST204' || r.error.code === '42703')) {
+        var txt = String(r.error.message || '') + ' ' + String(r.error.details || '');
+        absente = SCORES_GUILDE_FACULTATIVES.filter(function (k) { return !scoresGuildeAbsentes[k] && txt.indexOf(k) >= 0; })[0] || null;
+      }
+      if (absente) { scoresGuildeAbsentes[absente] = true; continue; }   // une fois par colonne : la boucle finit
+      if (r.error) throw r.error;
+      return true;
+    }
   }
   function bloquer(moi, autre) { return ecrire(client().from('blocages').insert({ bloqueur: moi, bloque: autre })); }
   function debloquer(moi, autre) {

@@ -466,6 +466,32 @@
   function groupeFini(membres, maintenantIso) {
     return !!(membres && membres.length) && membres.every(function (m) { return membreTermine(m, maintenantIso); });
   }
+  // 106 — LIBRE POUR UN AUTRE GROUPE (décision d'Aurélien du 15/10/2026) : chacun peut lancer ou rejoindre un autre
+  // groupe dès que SA séance est finie, sans attendre les autres. Sans place dans un groupe : libre. Ma séance du groupe
+  // est celle que j'ai en cours (`seanceId`) : pas libre — même immobile, j'y suis. Une AUTRE séance en cours : celle du
+  // groupe est finie (une seule séance à la fois). Sans séance en cours : la règle de la séance vivante (`membreTermine`).
+  // La base garde la même règle (`groupe_liberer`, v2_087) : l'app ne fait que la montrer.
+  function libreDuGroupe(membres, seanceId, maintenantIso) {
+    var moi = (membres || []).filter(function (m) { return m && m.moi; })[0];
+    if (!moi) return true;
+    if (seanceId) return moi.session_id !== seanceId;
+    return membreTermine(moi, maintenantIso);
+  }
+  // 106 — LES MESSAGES GARDÉS HORS LIGNE (décision d'Aurélien du 15/10/2026) : une entrée par message — son identifiant
+  // (fabriqué par l'app : renvoyé, il ne se double pas), le groupe où il a été écrit (il ne part jamais dans un autre),
+  // le texte. Relue du cache au démarrage : seulement des entrées complètes ; un cache abîmé ne casse rien.
+  function fileDeMessages(valeur) {
+    return (Array.isArray(valeur) ? valeur : []).filter(function (m) {
+      return !!m && typeof m.id === 'string' && !!m.id && typeof m.groupe_id === 'string' && !!m.groupe_id &&
+        messageValide(m.texte) === m.texte;
+    });
+  }
+  // « 1 message partira au retour du réseau. » — ceux de CE groupe seulement.
+  function texteEnAttente(file, groupeId) {
+    var n = (file || []).filter(function (m) { return m && m.groupe_id === groupeId; }).length;
+    if (!n) return null;
+    return (n > 1 ? n + ' messages partiront' : '1 message partira') + ' au retour du réseau.';
+  }
   // Ceux qui s'entraînent encore (les autres que moi).
   function encoreEnSeance(membres, maintenantIso) {
     return (membres || []).filter(function (m) { return !m.moi && !membreTermine(m, maintenantIso); })
@@ -870,6 +896,10 @@
     messageValide: messageValide,
     membreTermine: membreTermine,
     groupeFini: groupeFini,
+    // 106 — la fin du groupe, et les messages gardés hors ligne
+    libreDuGroupe: libreDuGroupe,
+    fileDeMessages: fileDeMessages,
+    texteEnAttente: texteEnAttente,
     encoreEnSeance: encoreEnSeance,
     ilYA: ilYA,
     pastillesDuGroupe: pastillesDuGroupe,

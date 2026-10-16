@@ -778,12 +778,45 @@
     // 87 (`v2_078`) — le social : le compte privé (NOT NULL DEFAULT true), et le niveau et le titre du jeu
     // que l'app publie (`jeu_niveau`, `jeu_titre`). Écrits, donc relus (le même piège).
     'compte_prive, jeu_niveau, jeu_titre, ' +
+    // 104 (`v2_086`) — les bilans déjà annoncés. Écrite, donc relue (le même piège). FACULTATIVE : ci-dessous.
+    'bilans_annonces, ' +
     'onboarding_completed';
 
+  // ⚠️ 104 — UNE COLONNE FACULTATIVE NE CASSE JAMAIS LE PROFIL (le défaut de #418). Nommer une colonne que la base
+  // n'a pas encore (migration pas lancée) fait échouer la lecture ENTIÈRE (`42703`, « column … does not exist ») et
+  // l'écriture ENTIÈRE (`PGRST204`, « Could not find the '…' column ») : plus de profil, et un envoi retenté sans fin.
+  // Une colonne de cette liste n'est qu'un confort (l'appareil garde sa propre mémoire) : si la base dit qu'elle
+  // n'existe pas, elle quitte la lecture et l'écriture POUR LA SESSION, et la même requête repart une fois sans elle.
+  // La migration lancée, le prochain démarrage la reprend. Une colonne obligatoire n'entre JAMAIS ici.
+  var COLONNES_FACULTATIVES = ['bilans_annonces'];
+  var facultativesAbsentes = {};
+  function colonnesProfil() {
+    return COLONNES_PROFIL.split(', ').filter(function (c) { return !facultativesAbsentes[c]; }).join(', ');
+  }
+  // La colonne facultative que l'erreur dit absente, ou `null` (toute autre erreur reste une erreur).
+  function facultativeAbsente(err) {
+    if (!err || (err.code !== '42703' && err.code !== 'PGRST204')) return null;
+    var txt = String(err.message || '') + ' ' + String(err.details || '');
+    for (var i = 0; i < COLONNES_FACULTATIVES.length; i++) {
+      var c = COLONNES_FACULTATIVES[i];
+      if (!facultativesAbsentes[c] && txt.indexOf(c) >= 0) return c;
+    }
+    return null;
+  }
+  function sansAbsentes(champs) {
+    var out = {};
+    Object.keys(champs || {}).forEach(function (c) { if (!facultativesAbsentes[c]) out[c] = champs[c]; });
+    return out;
+  }
+
   async function monProfil(id) {
-    var r = await client().from('profiles').select(COLONNES_PROFIL).eq('id', id).maybeSingle();
-    if (r.error) throw r.error;
-    return r.data || null;
+    for (;;) {
+      var r = await client().from('profiles').select(colonnesProfil()).eq('id', id).maybeSingle();
+      var absente = facultativeAbsente(r.error);
+      if (absente) { facultativesAbsentes[absente] = true; continue; }   // une fois par colonne : la boucle finit
+      if (r.error) throw r.error;
+      return r.data || null;
+    }
   }
 
   // `upsert` plutôt qu'`insert` puis `update` : c'est la même écriture dans les
@@ -793,11 +826,15 @@
   // ⚠️ `champs` EST DÉJÀ FILTRÉ PAR `THProfil.champsEcrits` chez l'appelant —
   // `is_admin`, `tier` et les visibilités ne traversent pas cette fonction.
   async function enregistrerProfil(id, champs) {
-    var ligne = Object.assign({ id: id }, champs, { updated_at: new Date().toISOString() });
-    var r = await client().from('profiles').upsert(ligne, { onConflict: 'id' })
-      .select(COLONNES_PROFIL).single();
-    if (r.error) throw r.error;
-    return r.data;
+    for (;;) {
+      var ligne = Object.assign({ id: id }, sansAbsentes(champs), { updated_at: new Date().toISOString() });
+      var r = await client().from('profiles').upsert(ligne, { onConflict: 'id' })
+        .select(colonnesProfil()).single();
+      var absente = facultativeAbsente(r.error);
+      if (absente) { facultativesAbsentes[absente] = true; continue; }   // la même ligne, sans elle (rien n'a été écrit)
+      if (r.error) throw r.error;
+      return r.data;
+    }
   }
 
   // ── « Ce pseudo est-il pris ? » ──────────────────────────────────────────
@@ -927,7 +964,10 @@
   function groupePublier(exercices, xp) {
     return groupeGeste('groupe_publier', { p_exercices: exercices || null, p_xp: xp === undefined ? null : xp });
   }
-  function groupeEnvoyer(texte) { return groupeGeste('groupe_envoyer', { p_texte: texte }); }
+  // 106 (v2_087) — le message part pour le groupe où il a été écrit, une seule fois (son identifiant, fabriqué par l'app).
+  function groupeEnvoyer(texte, groupe, id) {
+    return groupeGeste('groupe_envoyer', { p_texte: texte, p_groupe: groupe || null, p_id: id || null });
+  }
   function groupeFermer() { return groupeGeste('groupe_fermer', {}); }
   function groupeQuitter() { return groupeGeste('groupe_quitter', {}); }
   async function ecrire(promesse) { var r = await promesse; if (r.error) throw r.error; return true; }

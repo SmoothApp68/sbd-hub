@@ -738,6 +738,9 @@
     catch (e) { local.records = []; }
     try { journalDecide = !!(await Cache.lireMeta(CLE_JOURNAL)); }
     catch (e) { journalDecide = false; }
+    // 106 — les messages du groupe écrits hors ligne, gardés sur le téléphone : ils partiront au retour du réseau.
+    try { grp.file = Social.fileDeMessages(await Cache.lireBrouillon(CLE_FILE_GROUPE)); }
+    catch (e) { grp.file = []; }
     rangerSeances();
     indexerParSeance();
     recalculerEtats();
@@ -816,6 +819,8 @@
     local.blocs = [];
     local.programme = [];
     local.connues = {};
+    // 106 — le groupe et ses messages gardés appartiennent au compte précédent (leur brouillon vient d'être vidé).
+    oublierGroupe();
     // 58-2 — le journal des records aussi (son magasin vient d'être vidé), et
     // son remplissage : il se décidera pour le compte qui arrive.
     local.records = [];
@@ -1157,13 +1162,19 @@
     var dernier = faits.dernierRecord(corpus());
     profilDuParcours = cleDuParcoursDuProfil(profil);
     Rendu.rendreSommaire($('sommaire'), {
+      // 98 — le mois écoulé s'ouvre sur SA STORY (BILANS-V1) ; le bloc dit ses tonnes, jamais ses séances.
       mois: {
         titre: nomDuMois(mois, false),
-        seances: b.seances,
+        kg: b.volume_kg,
         records: faits.recordsDuMois(corpus(), mois).length,
         paris: { verifies: b.paris_verifies, tenus: b.paris_tenus },
         surChoix: function () { afficherMois(mois); }
       },
+      // 98 — la saison écoulée, toute la saison suivante ; hors production, la saison en cours si l'écoulée est vide.
+      saison: (function () {
+        var cle = saisonDuSommaire();
+        return cle ? { titre: titreDeSaison(cle), surChoix: function () { ouvrirBilan(Bilans.periodeDeLaSaison(cle)); } } : null;
+      })(),
       // 75 — « Ton parcours », juste après « Le mois écoulé » : sa phrase, il s'ouvre sur la page.
       parcours: {
         phrase: faits.parcoursDe(corpus(), new Date(), profil).phrase,
@@ -1238,12 +1249,12 @@
   //
   // ⚠️ L'ÉCRAN LIT LE BILAN, IL NE LE REFAIT PAS : `faits.bilanDePeriode` (l'entrée assemblée et le bilan mémorisé), le
   // jeu par `Jeu.etatDuJeu` sur `faits.faitsDuJeuDeLaPeriode`. Ce que l'app ajoute ne décide rien : QUAND le bloc
-  // et l'annonce paraissent. Rien n'est écrit en base.
+  // et l'annonce paraissent. Rien n'est écrit en base, sauf la période annoncée (104).
   //   · le bloc de Progression : le bilan de l'année écoulée, toute l'année suivante (à partir de 2026, la première) ;
   //     hors production (la garde du coach active), celui de l'année en cours quand l'écoulée n'en a pas ;
   //   · `?bilan=AAAA` (hors production, comme `?rejouer=`) : il s'ouvre au démarrage ;
-  //   · l'annonce : en janvier, une fois par personne et par année, mémorisée SUR L'APPAREIL — aucune colonne de
-  //     `profiles` ne s'y prête (SCHEMA-REEL, relevé du 12/10) ; une nouvelle colonne serait une migration.
+  //   · l'annonce : en janvier, une fois par personne et par année, mémorisée dans le profil (`bilans_annonces`,
+  //     v2_086, depuis 104) et sur l'appareil — elle ne revient pas sur un autre appareil.
   var Bilans = racine.THBilans, Annee = racine.THAnnee;
   var PREMIERE_ANNEE = 2026;
   function bilanDeLAnnee(an) {
@@ -1256,19 +1267,56 @@
     if (garde.active && !bilanDeLAnnee(an + 1).vide) return an + 1;
     return null;
   }
-  function ouvrirAnnee(an) {
-    var periode = Bilans.periodeDeLAnnee(an);
+  function ouvrirAnnee(an) { ouvrirBilan(Bilans.periodeDeLAnnee(an)); }
+
+  // ══ 98 — LA SAISON ET LE MOIS (BILANS-V1, maquette `maquette-saison-mois-v1.html`) ════════════════════════════
+  //
+  // LE MÊME MOTEUR ET LE MÊME LECTEUR que « Ton année » : seule la fenêtre change. La story du mois REMPLACE l'ancien
+  // bilan du mois de Progression (`/progression/mois/AAAA-MM` l'ouvre) et en reprend les records
+  // (`faits.recordsDuMois`, tous au toucher : la liste des records du mois) et les paris (`Bilan.phraseParis`, le
+  // détail au toucher). Le nom de la saison suit la phase du profil au début de la saison (`Profil.phaseAuJour`).
+  // Ce que l'app ajoute ne décide rien : QUAND le bloc et l'annonce paraissent. Rien n'est écrit en base, sauf la période annoncée (104).
+  function bilanPeriode(periode) {
+    return faits.bilanDePeriode(corpus(), periode, new Date(),
+                                { pesees: local.pesees || [], paris: parisDeConsigneConnus() });
+  }
+  function titreDeSaison(cle) {
+    var p = Bilans.periodeDeLaSaison(cle);
+    return Bilans.nomDeSaison(p.saison, Profil.phaseAuJour(profil, p.debut)) + ' ' + p.an;
+  }
+  function ouvrirBilan(periode, options) {
+    var o = options || {};
     var jeu = null;
-    if (jeuAllume()) {
+    if (periode.type === 'annee' && jeuAllume()) {
       var fj = faits.faitsDuJeuDeLaPeriode(corpus(), periode, new Date());
       jeu = { debut: Jeu.etatDuJeu(fj.debut), fin: Jeu.etatDuJeu(fj.fin) };
     }
-    Annee.ouvrir($('annee'), {
-      bilan: bilanDeLAnnee(an),
+    var vue = {
+      bilan: bilanPeriode(periode),
       qui: profil && profil.username ? profil.username : '',
       jeu: jeu,
-      surDetail: afficherParcours
-    });
+      surDetail: afficherParcours,
+      surFermer: o.surFermer || null,
+      surExercice: function (slug) { afficherExercice(slug); }
+    };
+    if (periode.type === 'saison') vue.nom = Bilans.nomDeSaison(periode.saison, Profil.phaseAuJour(profil, periode.debut));
+    if (periode.type === 'mois') {
+      var mois = periode.cle;
+      var b = bilanDuMoisDe(mois);
+      vue.records = faits.recordsDuMois(corpus(), mois);
+      vue.paris = b.paris_verifies ? { phrase: Bilan.phraseParis(b.paris_verifies, b.paris_tenus) } : null;
+      vue.surRecords = function () { afficherRecordsDuMois(mois); };
+    }
+    Annee.ouvrir($('annee'), vue);
+  }
+  // La saison du bloc de Progression : l'écoulée (non vide), toute la saison suivante ; hors production, la saison
+  // en cours quand l'écoulée n'a rien.
+  function saisonDuSommaire() {
+    var ici = Bilans.saisonDuJour(Moteur.jourCivil(new Date()));
+    var avant = Bilans.periodeDeLaSaison(ici).precedente.cle;
+    if (!bilanPeriode(Bilans.periodeDeLaSaison(avant)).vide) return avant;
+    if (garde.active && !bilanPeriode(Bilans.periodeDeLaSaison(ici)).vide) return ici;
+    return null;
   }
   // L'adresse lue AU CHARGEMENT (comme `?rejouer=`) : la navigation la réécrit avant la fin de la synchronisation.
   var rechercheAuChargement = (function () {
@@ -1278,20 +1326,85 @@
     var m = /[?&]bilan=(\d{4})(?:&|$)/.exec(rechercheAuChargement);
     return m && garde.active ? Number(m[1]) : null;
   }
+  // 98 — `?bilan=2026-10` (le mois), `?bilan=2026-automne` (la saison) : hors production, comme `?bilan=2026`.
+  function periodeDemandee() {
+    var m = /[?&]bilan=(\d{4}-(?:0[1-9]|1[0-2]|hiver|printemps|ete|automne))(?:&|$)/.exec(rechercheAuChargement);
+    if (!m || !garde.active) return null;
+    return /-\d{2}$/.test(m[1]) ? Bilans.periodeDuMois(m[1]) : Bilans.periodeDeLaSaison(m[1]);
+  }
+  // 98 — L'ANNONCE DE LA SAISON ET DU MOIS : un seul message dans l'app, à l'ouverture, à partir du premier jour de
+  // la saison suivante (1er déc., 1er mars, 1er juin, 1er sept.) ou du 1er du mois, et pendant les 7 premiers jours
+  // (le jour même seulement manquerait qui n'ouvre pas l'app ce jour-là) ; une fois par personne et par période,
+  // mémorisé dans le profil et sur l'appareil (comme l'année, 104). Un même jour, un seul message : l'année, sinon la saison, sinon le mois ;
+  // les autres restent dans Progression (et sont notés vus, pour ne pas s'enchaîner les jours suivants).
+  // 104 — L'ANNONCE NE REVIENT PAS SUR UN AUTRE APPAREIL (BILANS-V1, décision du 16/10/2026) : une période est
+  // annoncée si elle n'est ni dans le profil (`bilans_annonces`, v2_086) ni dans la mémoire de l'appareil. Annoncée,
+  // elle s'ajoute aux deux : au profil par son chemin d'écriture (`poserProfil` — local d'abord, la ligne rejouée au
+  // retour du réseau), à l'appareil pour le hors-ligne (et tant que la colonne n'existe pas en base).
+  var CLE_ANNONCE_BILAN = 'th-v2-annonce-bilan', JOURS_D_ANNONCE = 7;
   var CLE_ANNONCE_ANNEE = 'th-v2-annonce-annee';
+  var ATTENTE_PROFIL_ANNONCE_MS = 5000;
+  function annoncesDuJour(maintenant) {
+    var out = [];
+    if (maintenant.getDate() > JOURS_D_ANNONCE) return out;
+    var jour = Moteur.jourCivil(maintenant), n = maintenant.getMonth() + 1;
+    if (n === 12 || n === 3 || n === 6 || n === 9) {
+      var sa = Bilans.periodeDeLaSaison(Bilans.saisonDuJour(jour)).precedente.cle;
+      out.push({ periode: Bilans.periodeDeLaSaison(sa), texte: 'Ta saison ' + titreDeSaison(sa) + ' est prête.' });
+    }
+    var mo = Bilans.periodeDuMois(Bilan.moisEcoule(maintenant));
+    out.push({ periode: mo, texte: 'Ton mois ' + (/^[aeiouéè]/i.test(mo.nom) ? 'd’' : 'de ') + mo.nom + ' est prêt.' });
+    return out;
+  }
+  // La clé de l'appareil (inchangée depuis 95 et 98 : ce qu'un appareil a déjà vu le reste).
+  function cleAnnonce(uid, p) {
+    return p.type === 'annee' ? CLE_ANNONCE_ANNEE + ':' + uid + ':' + p.cle : CLE_ANNONCE_BILAN + ':' + uid + ':' + p.type + ':' + p.cle;
+  }
+  // Déjà annoncée ? Le profil, puis l'appareil. Une mémoire d'appareil illisible vaut « vue » : jamais d'annonce répétée.
+  function annonceDejaVue(uid, p) {
+    if (Profil.bilansAnnonces(profil).indexOf(p.cle) >= 0) return true;
+    try { return !!racine.localStorage.getItem(cleAnnonce(uid, p)); } catch (e) { return true; }
+  }
+  // Noter des périodes annoncées : l'appareil d'abord (`false` s'il refuse : on n'annonce pas ce qu'on ne peut retenir),
+  // puis le profil — seulement s'il est connu (un profil jamais lu ne se crée pas d'une annonce).
+  function noterAnnonces(uid, periodes) {
+    try { periodes.forEach(function (p) { racine.localStorage.setItem(cleAnnonce(uid, p), '1'); }); } catch (e) { return false; }
+    var deja = Profil.bilansAnnonces(profil);
+    var cles = periodes.map(function (p) { return p.cle; }).filter(function (c) { return deja.indexOf(c) < 0; });
+    if (profil && cles.length) poserProfil({ bilans_annonces: Profil.ajouterBilansAnnonces(deja, cles) }).catch(function () {});
+    return true;
+  }
+  function annoncerUnBilan(uid) {
+    if (!uid) return false;
+    var a = annoncesDuJour(new Date()).filter(function (x) { return !annonceDejaVue(uid, x.periode) && !bilanPeriode(x.periode).vide; });
+    if (!a.length) return false;
+    if (!noterAnnonces(uid, a.map(function (x) { return x.periode; }))) return false;
+    Annee.annonce($('annonce-annee'), { texte: a[0].texte, surVoir: function () { ouvrirBilan(a[0].periode); } });
+    return true;
+  }
   function annoncerLAnnee(uid) {
     var maintenant = new Date(), an = maintenant.getFullYear() - 1;
-    if (maintenant.getMonth() !== 0 || an < PREMIERE_ANNEE || !uid) return;
-    var cle = CLE_ANNONCE_ANNEE + ':' + uid + ':' + an;
-    try { if (racine.localStorage.getItem(cle)) return; } catch (e) { return; }   // sans mémoire, pas d'annonce répétée
-    if (bilanDeLAnnee(an).vide) return;
-    try { racine.localStorage.setItem(cle, '1'); } catch (e) { return; }
+    if (maintenant.getMonth() !== 0 || an < PREMIERE_ANNEE || !uid) return false;
+    var p = Bilans.periodeDeLAnnee(an);
+    if (annonceDejaVue(uid, p) || bilanDeLAnnee(an).vide) return false;
+    // Un seul message : l'année d'abord ; la saison et le mois du jour sont notés vus avec elle.
+    if (!noterAnnonces(uid, [p].concat(annoncesDuJour(maintenant).map(function (x) { return x.periode; })))) return false;
     Annee.annonce($('annonce-annee'), { an: an, surVoir: function () { ouvrirAnnee(an); } });
+    return true;
   }
-  function apresSynchroAnnee(uid) {
+  // `profilLu` : la lecture du profil lancée par la synchronisation. L'annonce l'attend (au plus 5 s) — décider sur le
+  // seul cache annoncerait de nouveau, sur un appareil neuf, ce qu'un autre a déjà annoncé.
+  function apresSynchroAnnee(uid, profilLu) {
     var an = anneeDemandee();
     if (an) { ouvrirAnnee(an); return; }
-    annoncerLAnnee(uid);
+    var p = periodeDemandee();
+    if (p) { ouvrirBilan(p); return; }
+    var g = generation;
+    var borne = new Promise(function (r) { racine.setTimeout(r, ATTENTE_PROFIL_ANNONCE_MS); });
+    return Promise.race([Promise.resolve(profilLu).catch(function () {}), borne]).then(function () {
+      if (!generationValide(g) || userId() !== uid) return;
+      if (!annoncerLAnnee(uid)) annoncerUnBilan(uid);
+    });
   }
 
   // ══ LE JEU (64B, JEU-V1 §9, maquette `maquette-jeu-v6.html`) ═════════════
@@ -2221,11 +2334,19 @@
   // charges ; le plan de séance n'est jamais modifié par le groupe, et le coach et les bilans n'en lisent rien.
   //
   // ⚠️ LE DIRECT EST UNE DÉCORATION, JAMAIS UNE DÉPENDANCE : il se relit environ toutes les 20 s par une lecture (pas
-  // de temps réel) ; une lecture qui échoue ne dit rien et ne bloque rien — la séance continue normalement. Les
-  // messages tapés hors réseau attendent en mémoire et partent au retour du réseau.
+  // de temps réel) ; une lecture qui échoue ne dit rien et ne bloque rien — la séance continue normalement.
+  //
+  // 106 (décisions d'Aurélien du 15/10/2026, SOCIAL-V1 §7.3, v2_087) :
+  //   · UN MESSAGE ÉCRIT HORS LIGNE EST GARDÉ SUR LE TÉLÉPHONE (`grp.file`, écrite dans le cache comme la séance, relue
+  //     au démarrage par `chargerCache`) et part au retour du réseau — pour le groupe où il a été écrit, une seule fois
+  //     (son identifiant). Un refus de la base (groupe fini, quitté) le retire et se dit ; le réseau absent, il attend.
+  //   · LE GROUPE EST TERMINÉ dès que toutes les séances sont finies ; CHACUN PEUT LANCER OU REJOINDRE UN AUTRE GROUPE
+  //     DÈS QUE SA SÉANCE EST FINIE (`Social.libreDuGroupe`). Mon groupe n'est montré DANS une séance que si c'est la
+  //     sienne (`groupeDeLaSeance`) : une séance suivante n'en hérite rien — ni carte, ni liste publiée, ni XP, ni départ.
   var grp = { moi: null, etat: [], direct: [], messages: [], invitations: [], envoyees: [], lu: 0, enCours: false,
-              muet: false, ouvert: false, ecrire: false, file: [], message: null, publie: null, vue: null,
+              muet: false, ouvert: false, ecrire: false, file: [], envoi: null, message: null, publie: null, vue: null,
               aRejoindre: null, recapAuto: false };
+  var CLE_FILE_GROUPE = 'groupe-messages';
   var gardeGroupe = null;
 
   function messageGroupe(e) {
@@ -2255,8 +2376,25 @@
     return t;
   }
 
-  // UNE LECTURE : mon groupe, l'état des séances, le direct, les messages — ou, sans groupe, mes invitations. Une lecture
-  // à la fois ; un échec ne dit rien (le direct est une décoration).
+  // 106 — ma place dans mon groupe (la ligne `moi` de l'état), et le groupe de CETTE séance.
+  function maPlace() { return (grp.etat || []).filter(function (m) { return m && m.moi; })[0] || null; }
+  function groupeDeLaSeance(s) {
+    var p = maPlace();
+    s = s === undefined ? seance : s;
+    return !!(grp.moi && s && p && p.session_id === s.id);
+  }
+  function libreDuGroupe() {
+    return !grp.moi || Social.libreDuGroupe(grp.etat, seance ? seance.id : null, new Date().toISOString());
+  }
+  // 106 — tout ce que le groupe sait du compte qui part (« Quitter », un autre compte qui entre).
+  function oublierGroupe() {
+    grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.invitations = []; grp.envoyees = [];
+    grp.file = []; grp.envoi = null; grp.message = null; grp.publie = null; grp.lu = 0; grp.recapAuto = false;
+    grp.aRejoindre = null;
+  }
+
+  // UNE LECTURE : mon groupe, l'état des séances, le direct, les messages — et, libre (sans groupe, ou ma séance du
+  // groupe finie), mes invitations. Une lecture à la fois ; un échec ne dit rien (le direct est une décoration).
   async function chargerGroupe() {
     // L'outil de rejeu (développement) ne lit rien du groupe : il ne parle pas à la base.
     if (!userId() || grp.enCours || rejeuDemande) return;
@@ -2266,13 +2404,14 @@
       var moi = await Donnees.groupeMoi();
       grp.moi = moi;
       if (moi) {
-        await publierMesExercices();
         var r = await Promise.all([Donnees.groupeEtat(), Donnees.groupeDirect(), Donnees.groupeMessages()]);
-        grp.etat = r[0]; grp.direct = r[1]; grp.messages = r[2]; grp.invitations = [];
+        grp.etat = r[0]; grp.direct = r[1]; grp.messages = r[2];
+        await publierMesExercices();
       } else {
         grp.etat = []; grp.direct = []; grp.messages = []; grp.envoyees = [];
-        grp.invitations = await Donnees.groupeInvitationsRecues();
       }
+      // 106 — libre (ma séance du groupe finie), les invitations d'un autre groupe se montrent déjà.
+      grp.invitations = libreDuGroupe() ? await Donnees.groupeInvitationsRecues() : [];
       grp.lu = Date.now();
     } catch (e) {
       console.warn('Le groupe attend le réseau :', texteErreur(e));
@@ -2283,7 +2422,7 @@
   }
   // La boucle : environ toutes les 20 s, seulement en séance ou dans un groupe, et app visible.
   function tickGroupe() {
-    if (!userId() || !(seance || grp.moi)) return;
+    if (!userId() || !(seance || grp.moi || grp.file.length)) return;
     if (doc.visibilityState === 'hidden') return;
     chargerGroupe();
   }
@@ -2298,33 +2437,67 @@
     if (ecranCourant === 'liste' || ecranCourant === 'saisie') dessinerGroupeAccueil();
   }
 
-  // Ma liste d'exercices suit ma séance (pour qui « suit » ma séance) — seulement si elle a changé.
+  // Ma liste d'exercices suit ma séance (pour qui « suit » ma séance) — seulement si elle a changé, et seulement la
+  // séance DU groupe (106 : une séance suivante n'écrit pas dans le groupe d'avant).
   async function publierMesExercices() {
-    if (!grp.moi || !seance || enEdition()) return;
+    if (!groupeDeLaSeance() || enEdition()) return;
     var l = exercicesDe(seance), cle = l.join(',');
     if (cle === grp.publie) return;
     await Donnees.groupePublier(l, null);
     grp.publie = cle;
   }
-  // Les messages partent dans l'ordre ; hors réseau, ils attendent (et partent au retour du réseau).
-  async function envoyerFileGroupe() {
-    while (grp.file.length) {
-      await Donnees.groupeEnvoyer(grp.file[0]);
-      grp.file.shift();
-    }
+  // 106 — LA FILE EST GARDÉE SUR LE TÉLÉPHONE (le brouillon du cache, comme la séance) : écrite AVANT le premier essai
+  // d'envoi, réécrite à chaque départ. Un « Quitter » en vol n'y réécrit rien (la génération).
+  function garderFileGroupe(g) {
+    if (g !== undefined && !generationValide(g)) return Promise.resolve();
+    return Cache.ecrireBrouillon(CLE_FILE_GROUPE, grp.file.length ? grp.file : null).catch(function (e) {
+      console.warn('La file des messages du groupe n’a pas pu être gardée :', texteErreur(e));
+    });
   }
-  function envoyerMessageGroupe(texte) {
+  // Les messages partent dans l'ordre, UN envoi à la fois (deux envois parallèles enverraient la tête deux fois et
+  // en retireraient deux). Un REFUS de la base (groupe fini, quitté, texte refusé) retire le message et se dit ; le
+  // réseau absent, il attend — la file s'arrête là, rien n'est perdu.
+  function envoyerFileGroupe() {
+    if (grp.envoi) return grp.envoi;
+    var g = generation;
+    var envoi = (async function () {
+      while (grp.file.length && generationValide(g)) {
+        var m = grp.file[0];
+        try {
+          await Donnees.groupeEnvoyer(m.texte, m.groupe_id, m.id);
+        } catch (e) {
+          if (!refusDuGroupe(e)) throw e;
+          grp.message = messageGroupe(e);
+        }
+        if (!generationValide(g)) return;
+        grp.file = grp.file.filter(function (x) { return x.id !== m.id; });
+        await garderFileGroupe(g);
+      }
+    })();
+    // Le verrou se pose APRÈS le départ et se lève quand l'envoi est fini (réussi ou non) — et seulement le sien : une
+    // file vide finit tout de suite, un verrou levé AVANT d'être posé resterait posé pour toujours.
+    grp.envoi = envoi;
+    var lever = function () { if (grp.envoi === envoi) grp.envoi = null; };
+    envoi.then(lever, lever);
+    return envoi;
+  }
+  // Un refus de la base (une règle du groupe), pas le réseau.
+  function refusDuGroupe(e) { return !!e && /groupe_/.test(String(e.message || e.details || '')); }
+  async function envoyerMessageGroupe(texte) {
     var t = Social.messageValide(texte);
     if (!t) { grp.message = 'Un message fait de 1 à 140 caractères.'; return dessinerGroupeSeance(); }
-    grp.file.push(t);
+    if (!grp.moi) return;
+    grp.file = grp.file.concat([{ id: uuid(), groupe_id: grp.moi.id, texte: t, le: new Date().toISOString() }]);
     grp.ecrire = false; grp.message = null;
     dessinerGroupeSeance();
-    envoyerFileGroupe().then(function () {
-      return Donnees.groupeMessages().then(function (m) { grp.messages = m; });
-    }).catch(function (e) {
-      // Un refus de la base (pas membre, texte refusé) se dit ; le réseau absent, le message attend.
-      if (e && /groupe_/.test(String(e.message || ''))) { grp.file.shift(); grp.message = messageGroupe(e); }
-    }).then(dessinerGroupeSeance);
+    await garderFileGroupe();
+    try {
+      await envoyerFileGroupe();
+      grp.messages = await Donnees.groupeMessages();
+    } catch (e) {
+      // Le réseau absent : le message attend (gardé), et partira au retour du réseau.
+    }
+    dessinerGroupeSeance();
   }
 
   // « 💬 jordan : « Dernière série ! » · 🔥 lea » — les deux derniers messages.
@@ -2345,7 +2518,8 @@
   }
   function vueDuGroupeSeance() {
     var v = { message: grp.message };
-    if (!grp.moi) {
+    // 106 — le groupe d'une AUTRE séance (la mienne y est finie) ne se montre pas ici : je suis libre d'en lancer un.
+    if (!groupeDeLaSeance()) {
       v.invitations = (grp.invitations || []).map(function (i) {
         return { invitant: i.invitant, surVoir: function () { ouvrirRejoindre(i); } };
       });
@@ -2366,7 +2540,7 @@
         : lignes.length > Social.LIGNES_DU_DIRECT ? { texte: 'Tout voir (' + lignes.length + ')', sur: function () { grp.ouvert = true; dessinerGroupeSeance(); } }
         : null,
       messages: texteDesMessages(),
-      enAttente: grp.file.length ? (grp.file.length > 1 ? grp.file.length + ' messages partiront' : '1 message partira') + ' au retour du réseau.' : null,
+      enAttente: Social.texteEnAttente(grp.file, grp.moi.id),
       rapides: Social.MESSAGES_RAPIDES.concat(Social.EMOJIS_GROUPE).map(function (t) {
         return { texte: t, sur: function () { envoyerMessageGroupe(t); } };
       }),
@@ -2509,7 +2683,7 @@
     if (!seance) return;
     ouvrirVueGroupe({ mode: 'inviter' });
     var g = grp.vue;
-    Promise.all([chargerLiens(), grp.moi ? Donnees.groupeInvitationsEnvoyees() : Promise.resolve([])]).then(function (r) {
+    Promise.all([chargerLiens(), groupeDeLaSeance() ? Donnees.groupeInvitationsEnvoyees() : Promise.resolve([])]).then(function (r) {
       grp.envoyees = r[1];
     }).catch(function (e) { g.message = messageGroupe(e); }).then(dessinerVueGroupe);
   }
@@ -2527,7 +2701,10 @@
   function inviterAuGroupe(user) {
     gesteGroupe(async function () {
       if (!seance) return;
-      if (!grp.moi) {
+      if (!groupeDeLaSeance()) {
+        // 106 — la base doit savoir ma séance précédente finie (elle ferme alors ma place dans son groupe) : la file
+        // d'envoi part d'abord.
+        await vidanger().catch(function () {});
         await Donnees.groupeCreer(seance.id, exercicesDe(seance));
         grp.publie = exercicesDe(seance).join(',');
         grp.moi = await Donnees.groupeMoi();
@@ -2562,6 +2739,8 @@
   async function rejoindre(invitation) {
     if (!seance) return;
     try {
+      // 106 — comme pour lancer : la base apprend d'abord que ma séance précédente est finie.
+      await vidanger().catch(function () {});
       await Donnees.groupeRejoindre(invitation.groupe_id, seance.id, exercicesDe(seance));
       grp.publie = exercicesDe(seance).join(',');
       grp.message = null;
@@ -2576,7 +2755,7 @@
   // LA FIN : mon XP de la séance part (nulle jeu éteint) ; mon récap d'abord, puis celui du groupe quand toutes les
   // séances sont terminées.
   function publierFinPourLeGroupe(finie, jeuDuRecap) {
-    if (!grp.moi) return;
+    if (!groupeDeLaSeance(finie)) return;
     var xp = jeuAllume() && jeuDuRecap && jeuDuRecap.apport ? Math.max(0, Math.round(Number(jeuDuRecap.apport.xp) || 0)) : null;
     grp.recapAuto = true;
     Donnees.groupePublier(exercicesDe(finie), xp).catch(function (e) {
@@ -2611,12 +2790,17 @@
       if (v) { v.message = messageGroupe(e); dessinerVueGroupe(); }
       return;
     }
-    grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.envoyees = []; grp.file = []; grp.publie = null;
+    // 106 — les messages encore gardés pour ce groupe ne partiront plus (je l'ai fermé).
+    var fini = grp.moi && grp.moi.id;
+    grp.file = grp.file.filter(function (m) { return m.groupe_id !== fini; });
+    garderFileGroupe();
+    grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.envoyees = []; grp.publie = null;
     fermerVueGroupe();
   }
-  // Une séance abandonnée sort du groupe, sans récap.
-  function quitterLeGroupeSiMembre() {
-    if (!grp.moi) return;
+  // Une séance abandonnée sort du groupe, sans récap — la séance DU groupe seulement (106 : abandonner une séance
+  // suivante ne fait pas quitter le groupe d'avant).
+  function quitterLeGroupeSiMembre(abandonnee) {
+    if (!groupeDeLaSeance(abandonnee)) return;
     Donnees.groupeQuitter().then(function () {
       grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.publie = null;
     }).catch(function (e) { console.warn('Le groupe attend le réseau :', texteErreur(e)); });
@@ -2783,41 +2967,15 @@
     rendreRecordsDuMois(mois);
   }
 
-  // LE BILAN DU MOIS (ECRAN §7 bis.14, maquette « Le mois »).
+  // 98 — LE BILAN DU MOIS EST LA STORY DU MOIS (BILANS-V1) : la route `/progression/mois/AAAA-MM` ouvre Progression,
+  // et la story par-dessus ; la fermer rend Progression (et son adresse). L'ancien bilan n'est plus rendu ; ses
+  // records (`faits.recordsDuMois`) et ses paris passent dans la story (`ouvrirBilan`).
   function rendreMois(moisDemande) {
-    montrer('mois', Routeur.MOIS);
     var mois = moisDemande || Bilan.moisEcoule(new Date());
-    var b = bilanDuMoisDe(mois);
-    var recs = faits.recordsDuMois(corpus(), mois);
-    var index = catalogueIndexe();
-    var courant = Bilan.cleMois(new Date());
-    var trois = [Bilan.moisPrecedent(Bilan.moisPrecedent(mois)), Bilan.moisPrecedent(mois), mois];
-    var precedent = Bilan.moisPrecedent(mois);
-    Rendu.rendreBilanMois($('bilan-mois'), {
-      titre: nomDuMois(mois, true).replace(/^./, function (c) { return c.toUpperCase(); }),
-      bilan: b,
-      records: recs,
-      temps: b.temps_min === null ? null : Bilan.texteTemps(b.temps_min),
-      volume: b.volume_kg,
-      barres: trois.map(function (m) {
-        return { libelle: nomDuMois(m, false).toLowerCase(), series: m === mois ? b.series : bilanDuMoisDe(m).series, courant: m === mois };
-      }),
-      premierJour: Bilan.premierJour(mois),
-      muscles: b.muscles.slice(0, 6),
-      moisAvant: nomDuMois(precedent, false).toLowerCase(),
-      exercices: b.exercices.map(function (e) {
-        var nom = index[e.slug] ? index[e.slug].nom : e.slug;
-        return { slug: e.slug, nom: nom, series: e.series };
-      }),
-      paris: b.paris_verifies ? { verifies: b.paris_verifies, tenus: b.paris_tenus,
-                                  phrase: Bilan.phraseParis(b.paris_verifies, b.paris_tenus) } : null,
-      surPrecedent: function () { afficherMois(precedent); },
-      surSuivant: mois < courant ? function () { afficherMois(Bilan.moisSuivant(mois)); } : null,
-      surRecords: function () { afficherRecordsDuMois(mois); },
-      surSeance: function (id) { afficherDetail(id); },
-      // 57-1 — un exercice « le plus fait » ouvre sa page : la porte commune.
-      surExercice: function (slug) { afficherExercice(slug); }
-    });
+    rendreProgression();
+    ouvrirBilan(Bilans.periodeDuMois(mois), { surFermer: function () {
+      if (Routeur.analyser(racine.location.pathname).vue === Routeur.MOIS) allerA(Routeur.PROGRESSION, {}, true);
+    } });
   }
 
   // LES RECORDS D'UN MOIS : chacun mène à sa séance.
@@ -3942,7 +4100,7 @@
     await oublierConsignes();
     await poser({ table: Attente.SESSIONS, op: Attente.SUPPRIMER, id: id });
     // 91 — une séance abandonnée sort du groupe, sans récap.
-    quitterLeGroupeSiMembre();
+    quitterLeGroupeSiMembre({ id: id });
     rendreSaisie();
   }
 
@@ -4408,22 +4566,28 @@
     })[0]);
     var ligneDuPlan = (planDeLExercice(iExo) || { lignes: [] }).lignes[iSerie];
     var f = fantomeDe(iExo, iSerie);
-    // ECRAN §3 bis.3 bis (prompt 100) — NI CHARGE TAPÉE NI FANTÔME : la série ne
-    // se valide pas. Le test « le cran au-dessus × 3 » sans chiffre validait
-    // « charge inconnue × 3 », et le constat inventait le fait du jour (I26).
-    // Avant les reps : la charge est le premier champ de la ligne.
-    if (Seance.chargeManquante(g, serie, f)) {
-      Rendu.demanderCharge($('blocs-seance'), iExo, iSerie);
+    // ECRAN §3 bis.3 bis (prompts 100 puis 105) — AUCUNE CASE OBLIGATOIRE VIDE :
+    // une case ni tapée ni grisée par le coach, et la série ne se valide pas.
+    // Le test « le cran au-dessus × 3 » sans chiffre validait « charge inconnue
+    // × 3 », et le constat inventait le fait du jour (I26) ; des reps vides
+    // validaient une série sans reps. Toutes les cases manquantes passent au
+    // rouge, le clavier s'ouvre sur la première de la ligne.
+    //
+    // §9.14 (ECRAN §3.2, 25/09/2026) — SAUF LES REPS DE LA LIGNE PROPOSÉE. Elles
+    // ne sont pas un fantôme (valider sans les taper enregistrerait le bas de la
+    // zone, et le pari serait jugé exact d'office), mais la fourchette du coach
+    // est dans la case : on ne valide pas, on met le curseur dans les reps, et
+    // on le dit — sans alarme ni rouge. MOTEUR §9.14 bis (68A) — la ligne
+    // d'élan non plus : ses reps se tapent.
+    var aTaper = !!(ligneDuPlan && (ligneDuPlan.proposee || ligneDuPlan.role === 'elan'));
+    var manquantes = Seance.casesManquantes(g, serie, f).filter(function (nom) {
+      return !(aTaper && nom === 'reps');
+    });
+    if (manquantes.length) {
+      Rendu.demanderCases($('blocs-seance'), iExo, iSerie, manquantes);
       return;
     }
-    // §9.14 (ECRAN §3.2, 25/09/2026) — LA LIGNE PROPOSÉE NE SE VALIDE PAS À
-    // VIDE. Ses reps ne sont pas un fantôme : valider sans les taper
-    // enregistrerait le bas de la zone, et le pari serait jugé exact d'office.
-    // On ne valide pas, on met le curseur dans les reps, et on le dit — sans
-    // alarme ni rouge.
-    // MOTEUR §9.14 bis (68A) — la ligne d'élan non plus : ses reps se tapent.
-    if (ligneDuPlan && (ligneDuPlan.proposee || ligneDuPlan.role === 'elan') &&
-        (serie.reps === null || serie.reps === undefined)) {
+    if (aTaper && (serie.reps === null || serie.reps === undefined)) {
       Rendu.demanderReps($('blocs-seance'), iExo, iSerie);
       return;
     }
@@ -10908,7 +11072,7 @@
     // l'écran DIT qu'il n'y a pas de réseau. Trouvé au banc, pas en test : la
     // mesure unitaire ne voit pas une seconde de plus, l'écran si.
     // Le profil sait se rendre tout seul quand il arrive.
-    chargerProfil();
+    var profilLu = chargerProfil();
     // La séance `en_cours` restée en base est déjà résolue (ch. 36, D7) : la
     // vérification ci-dessus a précédé la synchronisation. Et si elle a échoué,
     // le conflit se résout à la vidange elle-même.
@@ -10917,7 +11081,7 @@
     // l'historique est là.
     if (rejeuDemande) ouvrirRejeu();
     // 95 — « Ton année » : `?bilan=AAAA` hors production, sinon l'annonce de janvier (une fois).
-    apresSynchroAnnee(userId);
+    apresSynchroAnnee(userId, profilLu);
     // L'utilisateur est parti ailleurs pendant la synchro. Re-rendre écraserait
     // son écran — et, sur l'éditeur de routine, le brouillon qu'il est en train
     // de remplir. Une synchronisation de fond ne reprend jamais la main.
@@ -10953,6 +11117,9 @@
     // appartiennent quand même au compte qui part.
     routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };
     seance = null; attente = []; chrono = null; arreterMinuteur();
+    // 106 — le groupe aussi, et ses messages gardés hors ligne (leur brouillon vient d'être vidé) : les envoyer au nom du
+    // compte suivant serait parler à sa place.
+    oublierGroupe();
     // Le profil appartient au compte qui part, et son envoi en attente avec lui :
     // rejouer une modification de profil sur le compte suivant serait pire que
     // de la perdre.
@@ -13136,7 +13303,7 @@
       saisie: $('vue-saisie'), routine: $('vue-routine'), seance: $('vue-seance'),
       progression: $('vue-progression'), exercice: $('vue-exercice'),
       volume: $('vue-volume'), poids: $('vue-poids'), profil: $('vue-profil'),
-      mois: $('vue-mois'), records: $('vue-records'),
+      records: $('vue-records'),
       // 75 — « Ton parcours », sous Progression.
       parcours: $('vue-parcours'),
       exercices: $('vue-exercices'), questionnaire: $('vue-questionnaire'),
@@ -13227,7 +13394,7 @@
       allerA(Routeur.SAISIE, {});
       rendreSaisie();
     });
-    ['btn-retour-volume', 'btn-retour-poids', 'btn-retour-mois', 'btn-retour-records', 'btn-retour-parcours'].forEach(function (id) {
+    ['btn-retour-volume', 'btn-retour-poids', 'btn-retour-records', 'btn-retour-parcours'].forEach(function (id) {
       $(id).addEventListener('click', function () {
         allerA(Routeur.PROGRESSION, {});
         rendreProgression();
@@ -13275,6 +13442,8 @@
     // chaque retour du réseau écraserait, avec un cache périmé, ce qu'un autre appareil
     // a répondu entre-temps (`questionnaire_fait_le`, objectif, priorités).
     racine.addEventListener('online', function () { vidanger(); if (profilAEnvoyer) envoyerProfil(); });
+    // 106 — les messages du groupe gardés hors ligne partent au retour du réseau.
+    racine.addEventListener('online', function () { if (grp.file.length) chargerGroupe(); });
     // Rotation, clavier logiciel, changement de taille : les barres changent de
     // hauteur, la réserve les suit. Mesuré une première fois au démarrage pour
     // que `--h-onglets` existe avant le premier rendu de séance.

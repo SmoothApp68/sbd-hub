@@ -229,7 +229,8 @@ invitations, défis : des fonctions SECURITY DEFINER (`guilde_choisir_defi` refu
   hauteur de 2 à 6 membres. Relu toutes les 20 s en séance ou dans un groupe (app visible), et tout de suite en touchant
   l'onglet de la séance. Une lecture qui échoue ne dit rien.
 - **Hors réseau** : un message attend en mémoire (« 1 message partira au retour du réseau. ») et part à la lecture
-  suivante qui réussit. La séance n'attend jamais le groupe.
+  suivante qui réussit. La séance n'attend jamais le groupe. *(Remplacé par §7.3 : le message est gardé sur le
+  téléphone, il survit à un rechargement.)*
 - **« Terminé »** : `Social.membreTermine` appelle `Seance.estVivante` (45 min) sur les faits rendus par la base (statut,
   début, dernière série validée) ; une séance pas encore arrivée en base vaut « commencée à l'entrée dans le groupe ».
 - **La fin** : à « Terminer », mon XP de la séance part au groupe (`Jeu.apport(...).xp`, nulle jeu éteint). À la
@@ -261,6 +262,60 @@ lecture directe : des fonctions SECURITY DEFINER, `search_path` figé, `authenti
 `groupe_fermer`, `groupe_moi`, `groupe_etat`, `groupe_direct`, `groupe_messages_lire`, `groupe_invitations_recues`,
 `groupe_invitations_envoyees`, `groupe_recap`, `groupe_recap_seance`). Aucune politique ajoutée, ni sur les tables du
 groupe ni sur sessions, sets, records ; aucune colonne interdite rendue.
+
+### 7.3 Décisions du 15/10/2026 (prompt 106)
+
+> Décisions d'Aurélien du 15/10/2026, reportées mot pour mot. Base : migration **proposée**
+> `v2-atelier/migrations-proposees/v2_087_groupe_fin.sql` (relue et lancée par Claude.ai, après v2_082). Elles
+> remplacent, au §7, « effacés à l'extinction du groupe » et « Le groupe s'éteint à la fermeture du récap de groupe ».
+
+1. « Un message de groupe écrit hors ligne est gardé sur le téléphone (il survit à un rechargement de l'app) et part au retour du réseau. »
+2. « Le groupe est terminé dès que toutes les séances sont finies (règle de la séance vivante : sans série validée depuis 45 min, un membre compte comme terminé). Chacun peut lancer ou rejoindre un autre groupe dès que SA séance est finie, sans attendre les autres. Le récap du « combat » reste à vie dans chaque séance (« Faite en groupe avec … »). Les messages s'effacent quand tout le monde a fermé le récap, ou au plus tard 24 h après la fin du groupe. »
+
+### 7.4 Ce que le code en a fait (106)
+
+- **Le message gardé** : chaque message part dans une file `{ id, groupe_id, texte, le }` écrite dans le cache de
+  l'appareil (le brouillon `groupe-messages`, comme la séance) AVANT le premier essai d'envoi, relue au démarrage
+  (`chargerCache`, filtrée par `Social.fileDeMessages` : un cache abîmé ne casse rien), vidée par « Quitter » et par un
+  autre compte qui entre. Elle part au retour du réseau (l'évènement `online`, la lecture du groupe toutes les 20 s,
+  l'ouverture d'un écran du groupe), un envoi à la fois, dans l'ordre. L'identifiant est fabriqué par l'app : renvoyé
+  après un rechargement, le message ne se double pas. Il part pour le groupe où il a été écrit : si ce groupe est fini
+  depuis 24 h, ou si je l'ai quitté, la base refuse ; le message est retiré et le refus se dit (« Ce groupe est
+  terminé. »). Le réseau absent, il attend : rien n'est perdu. « 1 message partira au retour du réseau. » compte ceux
+  du groupe montré.
+- **Libre pour un autre groupe** (`Social.libreDuGroupe`) : sans place dans un groupe ; ou une AUTRE séance en cours
+  (une seule séance à la fois : celle du groupe est finie) ; ou, sans séance en cours, la règle de la séance vivante
+  sur ma ligne (`membreTermine`). Libre, les invitations d'un autre groupe se montrent (Séances, Saisie, la séance),
+  même si le récap du groupe d'avant n'est pas encore prêt (« Groupe · jordan s'entraîne encore » reste à côté).
+- **Le groupe de CETTE séance** : la carte du direct, la liste publiée, l'XP de fin et la sortie d'une séance
+  abandonnée ne concernent que la séance du groupe (ma ligne de `groupe_etat`, `session_id`). Une séance suivante n'en
+  hérite rien : elle peut lancer (« S'entraîner ensemble ») ou rejoindre. Avant de lancer ou de rejoindre, la file
+  d'envoi part (`vidanger`), pour que la base sache ma séance précédente finie.
+- **Le récap** : il se lit depuis le détail de la séance dès que MA séance est finie (« Faite en groupe avec … »), tel
+  qu'il est tant que le groupe existe — même si je suis parti vers un autre groupe sans le fermer —, et figé ensuite.
+
+### 7.5 La base (v2_087, proposée)
+
+- `groupes.fini_le` : posée une fois, par l'**entretien**, quand toutes les séances sont finies — la plus tardive des
+  fins ; une séance est finie (`groupe_fin_de_seance`) à sa fin si elle est `terminee`, sinon 45 min après son activité
+  (dernière série validée, à défaut son début, à défaut l'entrée dans le groupe) : la règle de `Social.membreTermine`,
+  au même seuil que `Seance.MINUTES_VIVANTE` (un test lit la migration). Une fois posée, elle ne bouge plus.
+- **L'entretien** (`groupe_entretien`, interne) passe au début de CHAQUE fonction du groupe, lectures comprises
+  (devenues VOLATILE), par n'importe qui : il pose les fins, retire les invitations des groupes finis et efface les
+  messages des groupes finis depuis 24 h. Ni cron, ni Edge Function. On n'entre plus dans un groupe fini
+  (`groupe_eteint`).
+- **Un groupe à la fois** : l'index `groupe_membres_un_a_la_fois` reste. Lancer et rejoindre ferment d'abord ma place
+  dans le groupe précédent si MA séance y est finie (`groupe_liberer`, interne), sinon `groupe_deja_dans_un`. Un
+  refus annule tout (ma place reste ouverte).
+- **Le récap** : figé à la fermeture du sien (v2_082) et, pour tous ceux qui restent, à l'extinction (`groupe_figer`,
+  interne) ; pas à la fin même — une XP publiée un peu après la fin d'une séance compte encore. `groupe_recap_seance`
+  rend le récap figé, sinon, tant que le groupe existe, celui du moment.
+- **Le message** : `groupe_envoyer(p_texte, p_groupe, p_id)` (les deux derniers à défaut nul : l'appel d'une app
+  d'avant reste valide) — refusé pour un autre groupe que le mien (`groupe_pas_membre`), refusé 24 h après la fin
+  (`groupe_eteint`), une seule fois par identifiant.
+- Toujours aucune politique, ni sur les tables du groupe ni sur sessions, sets, records ; les fonctions internes
+  (`groupe_fin_de_seance`, `groupe_fini_le`, `groupe_recap_json`, `groupe_figer`, `groupe_entretien`, `groupe_liberer`)
+  ne sont appelables par personne ; les autres, par `authenticated` seulement.
 
 ## 8. Un geste social fait hors ligne — décision du 15/10/2026 (prompt 107)
 

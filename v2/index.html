@@ -235,6 +235,9 @@
     <!-- Le chronomètre de repos. Il informe, il ne commande pas : aucune alarme
          au dépassement, aucun blocage de la série suivante. -->
     <div id="repos" class="repos" hidden></div>
+    <!-- 115 (audit du 16/10, E2) — « Série supprimée · Annuler » : fixe, au-dessus du repos et du pied ; la réserve
+         du bas le compte (`--h-toast`). Il vit dans la vue : quitter la séance le cache, le délai court toujours. -->
+    <div id="toast-seance" class="toast-annuler" role="status" aria-live="polite" hidden></div>
   </section>
 
   <!-- Le pied du mode Réorganiser (§7 vicies.1). FIXE et HORS des vues, comme la

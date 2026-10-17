@@ -423,6 +423,16 @@ CDN, rien à précacher.
 comme partout ailleurs. Il n'entre pas en conflit avec le défilement vertical.
 ⚠️ À tester tôt sur device : c'est la famille de geste qui a coûté trois chantiers.
 
+> **Sur une série faite, le glissement se rattrape — audit du 16/10/2026 (E2), décision
+> d'Aurélien du 16/10 (D10) : « toast Annuler au glissement ».** La ligne quitte l'écran et un
+> toast « Série supprimée · Annuler » reste 5 s, au-dessus de la barre de repos (la réserve du bas
+> le compte, §3 bis.9). **La suppression réelle attend la fin du délai** — ou le premier geste qui
+> enregistre la séance : en base, une série supprimée emporte son observation et ses records
+> (déclencheurs), et la remettre ensuite l'écrirait deux fois sans rendre ses records. « Annuler »
+> remet donc la série entière, rien n'ayant quitté l'appareil : charge, reps, type, rang, effort,
+> son pari observé, son record. Une série non faite part tout de suite, comme avant. « Supprimer »
+> au menu du numéro (deux gestes, déjà délibérés) n'est pas changé.
+
 **3 bis.6 — Pas d'indicateur de position.** Les cases cochées disent déjà où l'on en est.
 
 **3 bis.9 — Rien d'interactif ne reste sous une barre fixe.** Constaté sur device au chantier
@@ -1461,6 +1471,23 @@ appartient, dans quel historique elle compte, qui possède les séries. C'est du
 C'est aussi ici que se pose la question du §6 : une déviation de structure ou de repos
 met-elle à jour la routine ?
 
+> **« Abandonner et tout effacer » demande d'abord — audit du 16/10/2026 (E1), décision
+> d'Aurélien du 16/10.** Dès qu'au moins une série est faite (`partEnBase`), le tap ouvre la
+> confirmation de « Supprimer cette séance ? » (§7 octies.1) : « Abandonner la séance ? », son
+> titre, « N séries seront effacées avec elle. Rien ne la remet en place. » (les lignes, chauffes
+> comprises, chantier 39), « Abandonner et tout effacer » en rouge ; « Annuler » revient à la
+> feuille de fin. Sans série faite, rien n'est perdu : l'abandon reste immédiat.
+
+> **« Terminer » dit ce qu'il laisse — audit du 16/10/2026 (E4), décision d'Aurélien du 16/10
+> (D10) : « une phrase avant que Terminer jette des séries remplies non validées ».** Une série
+> remplie (charge, reps, durée ou distance tapées) mais pas validée n'entre pas dans la séance
+> enregistrée (§5.2) ; « Terminer » le dit d'abord, dans la même feuille (le modèle de « Supprimer
+> cette séance ? ») : « 2 séries remplies ne sont pas validées : elles ne seront pas gardées. »,
+> **Terminer quand même** (rouge : il jette ce qui a été tapé) / **Les valider** (ferme la feuille
+> et amène la première de ces lignes en vue ; la valider reste le geste de l'utilisateur). Une
+> intention de routine ou un chiffre gris du coach n'est pas une valeur tapée. Sans série remplie,
+> rien ne change.
+
 
 ### 7 septies.4 bis Le récap de fin de séance — décidé le 11/10/2026 (chantier 71)
 
@@ -1699,8 +1726,13 @@ Les **20 dernières séances**, puis « voir plus ». Chacune avec **toutes ses 
 en retrait, tentative marquée `✕`, effort en RPE **ou** en répétitions restantes selon ce qui
 a été saisi.
 
-Plus le **repos moyen**, la **note de séance** s'il y en a une, et le **titre de la séance**,
+Plus ~~le **repos moyen**,~~ la **note de séance** s'il y en a une, et le **titre de la séance**,
 qui mène au détail complet pour qui veut le contexte des autres exercices.
+
+> **Le repos moyen n'est jamais affiché — audit du 16/10/2026 (E3), décision d'Aurélien du
+> 16/10 (D8) : « le repos moyen ne s'affiche plus tant qu'il n'est pas un vrai repos ».** Ce
+> paragraphe contredisait MODIFICATEURS-SERIE §4 (« enregistré, jamais affiché ») ; §4 gagne.
+> `repos_s` reste enregistré, inchangé.
 
 **Un record atteint ce jour-là est signalé** — c'est ce qui donne envie de défiler.
 

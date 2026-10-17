@@ -2046,6 +2046,24 @@ const SETS_IMPORTES = [
   // Les lignes de série sont réparties dans plusieurs blocs : on les adresse par
   // leur index GLOBAL, pas par `nth-child`, qui compterait l'en-tête du bloc.
   const ligne = async (i) => (await page.$$('.ligne-serie'))[i];
+  // 115 (audit du 16/10, E1) — « Abandonner et tout effacer » DEMANDE dès qu'une série est faite : la
+  // confirmation porte le même rouge (`.danger`). Sans série faite, aucune feuille : l'abandon est immédiat.
+  // 115 (audit du 16/10, E4) — « Terminer » DEMANDE quand des séries remplies ne sont pas validées : les
+  // sections écrites avant gardent leur sens (terminer, ce qui n'est pas validé ne part pas) par « Terminer quand
+  // même ». Sans question, rien.
+  const terminerQuandMeme = async () => {
+    await attendre(300);
+    if (/pas validées? : (elles|elle) ne ser/.test(await texte('#feuille-contenu .feuille-t'))) {
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .filter((b) => b.textContent === 'Terminer quand même')[0].click());
+    }
+  };
+  const confirmerAbandon = async () => {
+    await attendre(300);
+    if (/^Abandonner la séance \?/.test(await texte('#feuille-contenu .feuille-t'))) {
+      await page.click('#feuille-contenu .danger');
+    }
+  };
   // 100 puis 105 (ECRAN §3 bis.3 bis) — une série dont une case obligatoire (charge, reps, durée, distance) est vide
   // et sans chiffre gris ne se valide plus : comme une vraie personne, on tape ce qui manque avant le ✓. Rien n'est
   // tapé dans une case qui a un chiffre (tapé, gris, ou la fourchette du coach).
@@ -2927,6 +2945,7 @@ const SETS_IMPORTES = [
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(500);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2200);
   ok('le statut bascule en `terminee`',
     sessions()[0].statut === 'terminee' && !!sessions()[0].fin, sessions()[0].statut);
@@ -2956,6 +2975,31 @@ const SETS_IMPORTES = [
   ok('une deuxième séance est bien ouverte', !!idAbandon, idAbandon || '(aucune)');
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(500);
+  await page.click('#feuille-contenu .danger');
+  // 115 (audit du 16/10, E1) — UNE SÉRIE EST FAITE : le premier tap DEMANDE, il n'efface rien.
+  await attendre(1500);
+  const confAbandon = {
+    titre: await texte('#feuille-contenu .feuille-t'),
+    aide: await texte('#feuille-contenu .feuille-aide'),
+    rouge: await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .danger')).map((b) => b.textContent))
+  };
+  ok('[115-E1] DISCRIMINANT — une série faite : « Abandonner et tout effacer » demande d’abord, et compte ce qui part',
+    /^Abandonner la séance \?/.test(confAbandon.titre) &&
+      confAbandon.aide === '1 série sera effacée avec elle. Rien ne la remet en place.' &&
+      JSON.stringify(confAbandon.rouge) === '["Abandonner et tout effacer"]',
+    JSON.stringify(confAbandon));
+  ok('[115-E1] DISCRIMINANT — le premier tap n’a rien effacé : la séance et sa série sont en base',
+    base.sessions.some((s) => s.id === idAbandon) && base.sets.some((s) => s.session_id === idAbandon),
+    sessions().length + ' séance(s), ' + base.sets.filter((s) => s.session_id === idAbandon).length + ' série(s)');
+  // « Annuler » revient à la feuille de fin, rien n'a bougé.
+  await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+    .filter((b) => b.textContent === 'Annuler')[0].click());
+  await attendre(400);
+  ok('[115-E1] « Annuler » revient à la feuille « Terminer la séance », la séance est toujours là',
+    /^Terminer la séance/.test(await texte('#feuille-contenu .feuille-t')) && base.sessions.some((s) => s.id === idAbandon),
+    await texte('#feuille-contenu .feuille-t'));
+  await page.click('#feuille-contenu .danger');
+  await attendre(400);
   await page.click('#feuille-contenu .danger');
   await attendre(2200);
   ok('la séance abandonnée est SUPPRIMÉE',
@@ -3289,6 +3333,7 @@ const SETS_IMPORTES = [
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(500);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2400);
   await aller('/');
   const carte = await page.evaluate(() => {
@@ -3572,6 +3617,7 @@ const SETS_IMPORTES = [
   });
   await attendre(400);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
 
   const finie = base.sessions.filter((s) => s.titre === 'Jambes du jeudi')[0];
@@ -3657,6 +3703,7 @@ const SETS_IMPORTES = [
       return !!s && /Garder/.test(s.textContent);
     }), 'défaut = garder');
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
   ok('terminer en gardant n’écrit RIEN dans la routine',
     patchsRoutine().length === patchsAvantGarder &&
@@ -3841,6 +3888,7 @@ const SETS_IMPORTES = [
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
 
   // ⚠️ LA COMPARAISON QUI COMPTE : le détail de séance rend déjà
@@ -4295,6 +4343,7 @@ const SETS_IMPORTES = [
     JSON.stringify(defaut));
 
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
   ok('« Garder » tenu parole : la routine est exactement celle d’avant',
     JSON.stringify(ROUTINE_SUPERSET.routine_exercises) === avantFin &&
@@ -4349,6 +4398,7 @@ const SETS_IMPORTES = [
   });
   await attendre(400);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(3000);
 
   const routineApres = ROUTINE.routine_exercises.slice().sort((a, b) => a.rang - b.rang);
@@ -4396,6 +4446,7 @@ const SETS_IMPORTES = [
   });
   await attendre(400);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(3000);
 
   const inserts = base.patchs.filter((p) => p.op === 'insert').slice(insertsAvant);
@@ -4483,6 +4534,7 @@ const SETS_IMPORTES = [
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
 
   // ── §7 octies.3 — REFAIRE ───────────────────────────────────────────────
@@ -4533,6 +4585,7 @@ const SETS_IMPORTES = [
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
   await page.click('#feuille-contenu .danger');
+  await confirmerAbandon();
   await attendre(1600);
 
   // ── §7 octies.2 — MODIFIER ──────────────────────────────────────────────
@@ -4705,6 +4758,7 @@ const SETS_IMPORTES = [
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
 
   await aller('/');
@@ -4809,6 +4863,7 @@ const SETS_IMPORTES = [
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(600);
     await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
     await attendre(2600);
   };
   // ⚠️ ABANDONNER N'EST PAS TERMINER, ET C'EST TOUT L'INTÉRÊT (§7 octodecies).
@@ -4819,6 +4874,7 @@ const SETS_IMPORTES = [
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(600);
     await page.click('#feuille-contenu .danger');
+    await confirmerAbandon();
     await attendre(1600);
   };
   const onglet = async (vue) => {
@@ -5243,6 +5299,7 @@ const SETS_IMPORTES = [
   });
   await attendre(400);
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
 
   ok('[D5] AUCUNE écriture n’est refusée — c’était `23514`, définitif',
@@ -5948,6 +6005,7 @@ const SETS_IMPORTES = [
     /2 séries de travail/.test(await texte('#feuille-contenu')),
     (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 60));
   await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
   await attendre(2600);
 
   // ⚠️ QUATRE LIGNES POUR DEUX SÉRIES DE TRAVAIL. C'est l'écart que les cinq
@@ -8802,6 +8860,7 @@ const SETS_IMPORTES = [
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(500);
     await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
     await attendre(3000);
     const fin = pariDC(sid, 1);
     ok('[OF] DISCRIMINANT — « Terminer » rattrape l’observation perdue (14, sur la série 1)',
@@ -11978,6 +12037,7 @@ const SETS_IMPORTES = [
       !/Poussée Haute Délai/.test(d1) && !/Cardio Délai U51 — retiré/.test(d1) && !/retiré/.test(d1),
       sp(d1).slice(0, 160));
     await page.click('#feuille-contenu .danger');
+    await confirmerAbandon();
     await attendre(1600);
     ok('[T51] DISCRIMINANT — la routine n’a pas changé : aucune écriture, aucune ligne en moins',
       instantaneR() === routinesAvant && base.patchs.length === patchsAvant,
@@ -13779,6 +13839,7 @@ const SETS_IMPORTES = [
     await capturer55('2-terminer');
     await garderRecap(true);
     await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
     await attendre(2600);
     const fin = await page.evaluate(() => {
       const g = Array.from(document.querySelectorAll('#recap-corps .recap-groupe.or'))[0];
@@ -14151,6 +14212,7 @@ const SETS_IMPORTES = [
     // la file soit vide.
     const ecrituresAvantB = base.ecrituresRecords.length;
     await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
     await attendreQue(async () => (base.sessions.filter((x) => x.id === enCoursJ)[0] || {}).statut === 'terminee' &&
       base.ecrituresRecords.length > ecrituresAvantB && (await fileJ()).length === 0, 15000);
     const finJ = await page.evaluate(() => Array.from(document.querySelectorAll('#recap-corps .recap-rec .l1'))
@@ -14616,6 +14678,7 @@ const SETS_IMPORTES = [
     await attendre(700);
     await relever('feuille-terminer', '6-terminer');
     await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
     await attendre(2600);
     await relever('apres-terminer');
 
@@ -17066,6 +17129,7 @@ const SETS_IMPORTES = [
     const enCoursU64 = (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
     await garderRecap(true);
     await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
     await attendreQue(async () => (base.sessions.filter((x) => x.id === enCoursU64)[0] || {}).statut === 'terminee', 15000);
     const recapJ = await page.evaluate(() => {
       const c = document.getElementById('recap-corps');
@@ -17146,6 +17210,7 @@ const SETS_IMPORTES = [
     const enCours2 = (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
     await garderRecap(true);
     await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
     await attendreQue(async () => (base.sessions.filter((x) => x.id === enCours2)[0] || {}).statut === 'terminee', 15000);
     ok('[jeu] éteint : le récap (71) n’a pas de bloc « Le jeu » (et garde ses boutons)',
       (await compter('#jeu-fin')) === 0 && (await compter('#recap-corps .recap-fermer')) === 1 &&
@@ -19929,6 +19994,7 @@ const SETS_IMPORTES = [
         jeu: document.querySelectorAll('#feuille-contenu #jeu-fin').length,
         entete: (document.querySelector('#feuille-contenu .feuille-t em') || {}).textContent || '' }));
       await page.click('#feuille-contenu .principal');
+      await terminerQuandMeme();
       await jusqua(async () => (await recapVu()).visible, 8000);
       await attendre(600);
       return feuille;
@@ -20018,6 +20084,7 @@ const SETS_IMPORTES = [
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(600);
     await page.click('#feuille-contenu .danger');
+    await confirmerAbandon();
     await attendre(1800);
     ok('[R71] (d) abandonner : pas de récap', !(await recapVu()).visible && JSON.stringify(await visible()) !== '["vue-recap"]',
       nbR(await visible()));
@@ -22258,6 +22325,192 @@ const SETS_IMPORTES = [
     ok('[O109] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
       nbO([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ 115. RIEN NE SE PERD À LA SAISIE (audit du 16/10, E2 et E4 ; décision D10) ══');
+  //
+  // Deux pertes silencieuses de la saisie, chacune par l'écran réel. E4 : « Terminer » jetait sans un mot une
+  // série remplie mais pas validée ; une phrase d'abord, « Les valider » ou « Terminer quand même ». E2 : le
+  // glissement effaçait une série FAITE (en base, avec son observation) sur l'instant ; « Série supprimée ·
+  // Annuler » d'abord, la suppression réelle à la fin du délai (ou au geste suivant qui enregistre).
+  {
+    const erreurs115 = erreurs.length;
+    const refus115 = base.journal.filter((j) => j.op === 'refus').length;
+    const enCours115 = () => (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    const feuille115 = () => page.evaluate(() => ({
+      ouverte: !document.querySelector('#feuille-seance').hidden,
+      titre: (document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || null,
+      menu: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .map((b) => [b.textContent, b.classList.contains('danger')]) }));
+    const entree115 = (libelle) => page.evaluate((t) => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+      .filter((b) => b.textContent === t)[0].click(), libelle);
+    // La section se joue seule ou derrière n'importe quelle autre : une séance laissée ouverte est abandonnée.
+    const sansSeance115 = async () => {
+      await aller('/saisie');
+      await attendre(800);
+      if (JSON.stringify(await visible()) === '["vue-seance"]') {
+        await page.click('#bandeau-seance .bandeau-fin');
+        await attendre(600);
+        await page.click('#feuille-contenu .danger');
+        await confirmerAbandon();
+        await attendre(1600);
+        await aller('/saisie');
+        await attendre(500);
+      }
+    };
+    const remplir115 = async (i, charge, reps) => {
+      const l = await ligne(i);
+      const champs = await l.$$('input');
+      await champs[0].fill(String(charge));
+      await champs[1].fill(String(reps));
+      await attendre(500);
+    };
+
+    // ── E2. LE GLISSEMENT SUR UNE SÉRIE FAITE : « SÉRIE SUPPRIMÉE · ANNULER ».
+    const glisser115 = async (i) => {
+      const l = await ligne(i);
+      // Au centre : en bas, la barre de repos (armée par la validation) recevrait le geste.
+      await l.evaluate((n) => n.scrollIntoView({ block: 'center' }));
+      await attendre(300);
+      const b = await l.boundingBox();
+      await page.mouse.move(b.x + b.width - 40, b.y + b.height / 2);
+      await page.mouse.down();
+      for (let d = 0; d <= 110; d += 14) {
+        await page.mouse.move(b.x + b.width - 40 - d, b.y + b.height / 2);
+        await attendre(30);
+      }
+      await page.mouse.up();
+    };
+    const toast115 = () => page.evaluate(() => {
+      const t = document.getElementById('toast-seance');
+      return { visible: !!t && !t.hidden && getComputedStyle(t).display !== 'none',
+               texte: t ? Array.from(t.children).map((x) => x.textContent) : null };
+    });
+    const valeurs115 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+      .map((l) => Array.from(l.querySelectorAll('input')).map((i) => i.value).join('×')));
+    await sansSeance115();
+    await demarrerRoutine('Push');
+    await attendre(1200);
+    await saisirSerie(0, 70, 5);
+    await saisirSerie(1, 72.5, 5);
+    await attendre(1800);
+    const idE2 = enCours115();
+    const setsE2 = () => base.sets.filter((x) => x.session_id === idE2);
+    const idsE2 = setsE2().map((x) => x.id).sort();
+    const id70 = (setsE2().filter((x) => Number(x.charge_kg) === 70)[0] || {}).id;
+    const parisE2 = () => base.predictions.filter((x) => x.set_observe === id70).length;
+    const parisAvant = parisE2();
+    ok('[115-E2] prémisse : deux séries faites, en base (70 × 5, 72,5 × 5)', setsE2().length === 2 && !!id70,
+      JSON.stringify(setsE2().map((x) => [x.charge_kg, x.reps])));
+    const lignesE2 = await compter('.ligne-serie');
+    const valeursAvant = await valeurs115();
+    await glisser115(0);
+    await attendre(1500);
+    const t1 = await toast115();
+    ok('[115-E2] DISCRIMINANT — glisser une série faite : la ligne quitte l’écran, « Série supprimée · Annuler », rien n’a quitté l’appareil',
+      t1.visible && JSON.stringify(t1.texte) === '["Série supprimée","Annuler"]' &&
+        (await compter('.ligne-serie')) === lignesE2 - 1 &&
+        JSON.stringify(setsE2().map((x) => x.id).sort()) === JSON.stringify(idsE2) && parisE2() === parisAvant,
+      JSON.stringify([t1, await compter('.ligne-serie'), lignesE2, setsE2().length, parisE2(), parisAvant]));
+    await page.click('#toast-seance button');
+    await attendre(1500);
+    ok('[115-E2] DISCRIMINANT — « Annuler » : la série revient entière, à sa place (70 × 5, validée), la base n’a pas bougé',
+      !(await toast115()).visible && JSON.stringify(await valeurs115()) === JSON.stringify(valeursAvant) &&
+        (await compter('.ok-serie.cochee')) === 2 &&
+        JSON.stringify(setsE2().map((x) => x.id).sort()) === JSON.stringify(idsE2) && parisE2() === parisAvant,
+      JSON.stringify([(await valeurs115()).slice(0, 3), valeursAvant.slice(0, 3), await compter('.ok-serie.cochee'), setsE2().length]));
+
+    await glisser115(0);
+    await attendre(6800);
+    ok('[115-E2] à la fin du délai, la suppression part : 70 × 5 n’est plus en base, le toast est parti, 72,5 × 5 reste',
+      !(await toast115()).visible && setsE2().length === 1 && Number(setsE2()[0].charge_kg) === 72.5 &&
+        (await compter('.ligne-serie')) === lignesE2 - 1,
+      JSON.stringify([await toast115(), setsE2().map((x) => [x.charge_kg, x.reps]), await compter('.ligne-serie')]));
+
+    // Le geste suivant qui enregistre (valider une série du développé couché) fait partir la suppression en attente.
+    const premiereDc = await page.evaluate(() => {
+      const toutes = Array.from(document.querySelectorAll('.ligne-serie'));
+      const bloc = document.querySelectorAll('.bloc-seance')[1];
+      return bloc ? toutes.indexOf(bloc.querySelector('.ligne-serie')) : -1;
+    });
+    await glisser115(0);
+    await attendre(500);
+    const t2 = await toast115();
+    await (await ligne(premiereDc - 1)).evaluate((n) => n.scrollIntoView({ block: 'center' }));
+    await saisirSerie(premiereDc - 1, 60, 8);
+    await attendre(1800);
+    ok('[115-E2] le geste suivant qui enregistre la fait partir : plus d’« Annuler », 72,5 n’est plus en base, 60 × 8 y est',
+      premiereDc > 0 && t2.visible && !(await toast115()).visible && setsE2().length === 1 && Number(setsE2()[0].charge_kg) === 60,
+      JSON.stringify([premiereDc, t2, await toast115(), setsE2().map((x) => [x.charge_kg, x.reps])]));
+
+    // Une série NON faite part tout de suite, sans toast (rien à rattraper) — comme au 4 bis.
+    const lignesN = await compter('.ligne-serie');
+    await glisser115(lignesN - 1);
+    await attendre(700);
+    ok('[115-E2] une ligne vide, non validée, part tout de suite, sans « Annuler »',
+      (await compter('.ligne-serie')) === lignesN - 1 && !(await toast115()).visible,
+      JSON.stringify([await compter('.ligne-serie'), lignesN, await toast115()]));
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(600);
+    await page.click('#feuille-contenu .principal');
+    await attendre(2600);
+    ok('[115-E2] la séance se termine avec la seule série restante (60 × 8)',
+      base.sessions.some((x) => x.id === idE2 && x.statut === 'terminee') && setsE2().length === 1,
+      JSON.stringify(setsE2().map((x) => [x.charge_kg, x.reps])));
+
+    // ── E4. UNE SÉRIE REMPLIE, PAS VALIDÉE, AU MOMENT DE TERMINER.
+    await sansSeance115();
+    await demarrerRoutine('Push');
+    await attendre(1200);
+    await remplir115(0, 62.5, 6);
+    await attendre(1200);
+    const idE4 = enCours115();
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(600);
+    await page.click('#feuille-contenu .principal');
+    await attendre(1200);
+    const qE4 = await feuille115();
+    ok('[115-E4] DISCRIMINANT — « Terminer » avec une série remplie non validée : une phrase d’abord, [Terminer quand même] (rouge) [Les valider]',
+      qE4.ouverte && qE4.titre === '1 série remplie n’est pas validée : elle ne sera pas gardée.' &&
+        JSON.stringify(qE4.menu) === JSON.stringify([['Terminer quand même', true], ['Les valider', false]]),
+      JSON.stringify(qE4));
+    ok('[115-E4] DISCRIMINANT — la séance n’est pas terminée tant qu’on n’a pas répondu',
+      !!idE4 && base.sessions.some((x) => x.id === idE4 && x.statut === 'en_cours'), JSON.stringify(idE4));
+    await entree115('Les valider');
+    await attendre(700);
+    const valeursE4 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).slice(0, 1)
+      .map((l) => Array.from(l.querySelectorAll('input')).map((i) => i.value).join('×')));
+    ok('[115-E4] « Les valider » : la feuille se ferme, la séance continue, la ligne garde 62,5 × 6',
+      !(await feuille115()).ouverte && JSON.stringify(await visible()) === '["vue-seance"]' &&
+        valeursE4[0] === '62,5×6' && base.sessions.some((x) => x.id === idE4 && x.statut === 'en_cours'),
+      JSON.stringify([valeursE4, await visible()]));
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(600);
+    await page.click('#feuille-contenu .principal');
+    await attendre(800);
+    await entree115('Terminer quand même');
+    await attendre(2600);
+    const setsE4 = base.sets.filter((x) => x.session_id === idE4);
+    ok('[115-E4] « Terminer quand même » : la séance est terminée, la série remplie (62,5 × 6) n’est pas gardée',
+      base.sessions.some((x) => x.id === idE4 && x.statut === 'terminee') && setsE4.length === 0,
+      JSON.stringify(setsE4.map((x) => [x.charge_kg, x.reps])));
+
+    // Sans série remplie, « Terminer » ne demande rien (non-régression du chemin courant).
+    await sansSeance115();
+    await demarrerRoutine('Push');
+    await attendre(2000);
+    const idE4b = enCours115();
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(600);
+    await page.click('#feuille-contenu .principal');
+    await attendre(2600);
+    ok('[115-E4] sans série remplie non validée, « Terminer » termine aussitôt, sans question',
+      base.sessions.some((x) => x.id === idE4b && x.statut === 'terminee'), JSON.stringify(idE4b));
+
+    await aller('/saisie');
+    ok('[115] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refus115 && erreurs.length === erreurs115,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus115), erreurs.slice(erreurs115)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

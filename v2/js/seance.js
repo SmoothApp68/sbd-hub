@@ -574,6 +574,20 @@
     return avecExercices(seance, exos);
   }
 
+  // 115 (audit du 16/10/2026, E2 ; décision d'Aurélien D10) — L'INVERSE EXACT DE `retirerSerie`. « Annuler »,
+  // après un glissement qui a retiré une série faite, la remet ENTIÈRE à sa place : le même objet (identifiant,
+  // charge, reps, type, effort, `validee_a`, `source`), au même indice, donc au même rang de sortie. Rien n'est
+  // recalculé ; l'appelant vérifie que l'exercice n'a pas bougé entre-temps.
+  function remettreSerie(seance, iExo, iSerie, serie) {
+    var exos = seance.exercices.slice();
+    var exo = copie(exos[iExo]);
+    var series = exo.series.slice();
+    var place = Math.max(0, Math.min(iSerie, series.length));
+    exo.series = series.slice(0, place).concat([serie], series.slice(place));
+    exos[iExo] = exo;
+    return avecExercices(seance, exos);
+  }
+
   // ══ LA DÉVIATION — ÉDITION DE LISTE, PAS CALCUL (§5.1) ═══════════════════
   //
   // « Le moteur ne sait même pas qu'il y a eu déviation. » Tout ce qui suit
@@ -1511,6 +1525,23 @@
       validees: plat.filter(function (p) { return !!p.serie.validee_a; }).length,
       travail: racine.THSemaine.compteSeriesTravail(faites, exercices)
     };
+  }
+
+  // 115 (audit du 16/10/2026, E4 ; décision d'Aurélien D10) — LES SÉRIES REMPLIES, PAS VALIDÉES. Une valeur
+  // tapée (charge, reps, durée, distance) sur une ligne qui ne part pas en base (`partEnBase`) : « Terminer » la
+  // laisserait derrière lui sans un mot (§5.2 : seul ce qui est validé entre dans la séance enregistrée). La
+  // feuille de fin le dit d'abord. Les INTENTIONS (`reps_visees`, `charge_cible_kg`, `duree_cible_s`…) et les
+  // fantômes du plan ne sont pas des valeurs tapées : une ligne qui ne porte qu'eux est vide. Rend les positions,
+  // dans l'ordre de la séance.
+  var CHAMPS_TAPES = ['charge_kg', 'reps', 'duree_s', 'distance_m'];
+  function rempliesNonValidees(seance) {
+    return toutesLesSeries(seance).filter(function (p) {
+      if (!p.serie || partEnBase(p.serie)) return false;
+      return CHAMPS_TAPES.some(function (c) {
+        var v = p.serie[c];
+        return v !== null && v !== undefined && v !== '';
+      });
+    }).map(function (p) { return { iExo: p.iExo, iSerie: p.iSerie }; });
   }
 
   // ══ LA DURÉE DE LA BARRE DE SÉANCE (62, ECRAN-SAISIE §7 octies bis) ══════
@@ -2773,6 +2804,8 @@
     semerIdentifiants: semerIdentifiants,
     toutesLesSeries: toutesLesSeries,
     compter: compter,
+    rempliesNonValidees: rempliesNonValidees,
+    remettreSerie: remettreSerie,
     minutesEcoulees: minutesEcoulees,
     delaiProchaineMinute: delaiProchaineMinute,
     lignes: lignes,

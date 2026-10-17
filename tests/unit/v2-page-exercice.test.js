@@ -394,7 +394,7 @@ describe('⚠️ l’Historique réutilise le rendu du détail de séance', () =
   const blocsDe = (series) => Modele.construireBlocs(series, EXOS);
   const JOUR = () => ({
     id: 'S1', titre: 'Pecs – Dos', debut: '2026-09-11T18:00:00Z', note: '',
-    reposMoyen: null, record: 0,
+    record: 0,
     blocs: blocsDe([kgxr(60, 10, { type_serie: 'echauffement' }), kgxr(122.5, 6)])
   });
 
@@ -423,12 +423,16 @@ describe('⚠️ l’Historique réutilise le rendu du détail de séance', () =
     expect(avec.querySelector('.exo-jour-s b').textContent).toContain('record à 6 reps');
   });
 
-  test('le repos moyen ne s’affiche QUE s’il a été mesuré', () => {
+  // 115 (audit du 16/10, E3 ; décision d'Aurélien D8) — `repos_s` n'est pas un repos : il contient le temps
+  // d'exécution, 45 s sur une série de superset enchaînée, une valeur inventée en Édition. MODIFICATEURS §4 :
+  // « enregistré, jamais affiché ». Même mesuré, même fourni par l'appelant, aucun « Repos moyen ».
+  test('le repos moyen ne s’affiche jamais, même mesuré (D8)', () => {
     const sans = rendre({ onglet: 'historique', historique: [JOUR()] });
     expect(sans.textContent).not.toContain('Repos moyen');
     const avec = rendre({ onglet: 'historique',
       historique: [Object.assign(JOUR(), { reposMoyen: 140 })] });
-    expect(avec.textContent).toContain('Repos moyen 2:20');
+    expect(avec.textContent).not.toMatch(/repos/i);
+    expect(avec.textContent).not.toContain('2:20');
   });
 
   test('la note de séance est rendue quand il y en a une', () => {
@@ -478,7 +482,7 @@ describe('⚠️ le nom d’un exercice mène à sa page (§2.8)', () => {
   test('et l’historique de la page d’exercice n’y renvoie pas non plus', () => {
     const c = rendre({ onglet: 'historique', historique: [{
       id: 'S1', titre: 'Pecs – Dos', debut: '2026-09-11T18:00:00Z', note: '',
-      reposMoyen: null, record: 0, blocs: [bloc()]
+      record: 0, blocs: [bloc()]
     }] });
     expect(c.querySelector('.exo-jour .nom').tagName).toBe('SPAN');
   });

@@ -451,7 +451,7 @@ button{font-family:inherit;cursor:pointer}
    minutes où l'on a justement le temps de s'en servir.
    `--h-onglets` et `--h-repos` sont posées par `mesurerBarres()` (app.js). Les
    valeurs de repli ne servent qu'avant la première mesure. */
-.tel{padding-bottom:calc(var(--h-onglets, 68px) + var(--e6) + var(--h-repos, 0px) + var(--h-pied, 0px))}
+.tel{padding-bottom:calc(var(--h-onglets, 68px) + var(--e6) + var(--h-repos, 0px) + var(--h-pied, 0px) + var(--h-toast, 0px))}
 
 /* ── Onglets encore sans contenu ────────────────────────────────────────
    Une phrase, au présent et à l'actif. Ni excuse, ni animation. */
@@ -2219,6 +2219,17 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   font-size:13.5px;padding:var(--e2) var(--e3)}
 .bandeau-maj[hidden]{display:none}
 .bandeau-maj button{min-height:44px;background:none;border:0;color:var(--accent);
+  font-weight:650;padding:0 var(--e2)}
+
+/* 115 (audit du 16/10, E2) — « Série supprimée · Annuler ». Le bandeau de mise à jour (88) en modèle ; il s'empile
+   au-dessus du repos et du pied, il ne les recouvre pas, et la réserve du bas le compte (`--h-toast`, §3 bis.9). */
+.toast-annuler{position:fixed;left:0;right:0;z-index:53;max-width:520px;margin:0 auto;
+  bottom:calc(var(--h-onglets, 68px) + var(--h-repos, 0px) + var(--h-pied, 0px));
+  display:flex;align-items:center;justify-content:space-between;gap:var(--e2);
+  background:var(--panneau-2);border-top:1px solid var(--trait);color:var(--texte);
+  font-size:13.5px;padding:var(--e2) var(--e3)}
+.toast-annuler[hidden]{display:none}
+.toast-annuler button{min-height:44px;background:none;border:0;color:var(--accent);
   font-weight:650;padding:0 var(--e2)}
 
 /* 91 — LE GROUPE DE SÉANCE (SOCIAL-V1 « Groupe ») : une ligne en haut de la séance, jamais un overlay. La carte garde

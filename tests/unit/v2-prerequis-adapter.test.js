@@ -304,7 +304,8 @@ describe('3 — supprimer un exercice nettoie ses observations sur l’appareil 
       Cache: { ecrireLot: async (t, l) => { ecrits.push([t, l.map((x) => x.id)]); } },
       poserObservation: async (l) => { poses.push(l.id); } };
     vm.createContext(ctx);
-    ['oublierObservationDe', 'oublierObservationsDesExercices', 'oublierObservationsDesSeries']
+    ['oublierObservationDe', 'oublierObservationsDesExercices', 'oublierObservationsDesSeries',
+      'viderObservationsEnMemoire', 'ecrireObservationsVidees']
       .forEach((n) => vm.runInContext(extraire(n), ctx));
     const vidage = vm.runInContext('oublierObservationsDesExercices([0])', ctx);
     // La copie locale est vidée DÈS l'appel, avant le redessin.
@@ -323,7 +324,7 @@ describe('3 — supprimer un exercice nettoie ses observations sur l’appareil 
     const ctx = { seance: etat.se, local: { predictions: [{ id: 'p', set_observe: s0.id, valeur_observee: 8 }] },
       Cache: { ecrireLot: async () => {} }, poserObservation: async () => {} };
     vm.createContext(ctx);
-    ['oublierObservationDe', 'oublierObservationsDesSeries'].forEach((n) => vm.runInContext(extraire(n), ctx));
+    ['oublierObservationDe', 'oublierObservationsDesSeries', 'viderObservationsEnMemoire', 'ecrireObservationsVidees'].forEach((n) => vm.runInContext(extraire(n), ctx));
     await vm.runInContext('oublierObservationDe(0, 0)', ctx);
     expect(ctx.local.predictions[0].set_observe).toBe(null);
   });

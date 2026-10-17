@@ -24,12 +24,16 @@
   function Moteur() { return racine.THMoteur; }
   function Semaine() { return racine.THSemaine; }
   function Modele() { return racine.THModele; }
+  // Les séries pondérées d'un muscle dans une séance : UNE constante, celle du générateur (`THGenerateur.PAR_SEANCE`,
+  // ~11, Remmert, Pelland et al. 2025), lue ici à l'appel (audit du 16/10/2026, 01 #4 : « sous 10 » ici et « au plus
+  // 11 » là-bas étaient deux plafonds pour le même concept).
+  function parSeance() { return racine.THGenerateur.PAR_SEANCE; }
 
   var NOMS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
   // Récupération (décision 3) : en jours du calendrier, sans l'heure. J+2 ; débutant (questionnaire) : J+3.
   var ECART = 2, ECART_DEBUTANT = 3;
-  // Répartir dans une séance qui travaille déjà le muscle : il reste SOUS 10 séries dans la séance (15/10/2026).
-  var SOUS_SERIES = 10;
+  // Répartir dans une séance qui travaille déjà le muscle : il reste au plus à `parSeance()` séries pondérées dans la
+  // séance, ajouts compris (15/10/2026, plafond unifié le 16/10/2026).
   var PREFIXE = /^(Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche) — /;
 
   // ── Les jours ────────────────────────────────────────────────────────────
@@ -186,8 +190,8 @@
       return ev;
     };
     // Règle corrigée du 15/10/2026 : dans une séance qui travaille DÉJÀ le muscle (un muscle principal en commun),
-    // des séries de la routine manquée tant que ce muscle reste sous 10 séries dans la séance (séries pondérées comme
-    // le relevé), sans dupliquer un mouvement déjà présent (même exercice, ou même `mouvement` au catalogue) ; dans
+    // des séries de la routine manquée tant que ce muscle reste au plus à `parSeance()` séries dans la séance (séries
+    // pondérées comme le relevé), sans dupliquer un mouvement déjà présent (même exercice, ou même `mouvement` au catalogue) ; dans
     // une séance d'un autre groupe, aucun exercice dont les principaux ou stabilisateurs chargent ce que la séance
     // fatigue déjà. Toujours : la récupération en jours, la durée habituelle. Plusieurs exercices par séance ; un
     // exercice peut n'y mettre qu'une partie de ses séries. Rend la liste des ajouts de la séance `p`.
@@ -206,6 +210,13 @@
       };
       var sortie = [];
       for (;;) {
+        // Le plafond de séries se compte sur la séance AVEC ce qui y est déjà ajouté (audit du 16/10/2026, 01 #2 :
+        // lu sur la séance d'origine, Presse, Hack et Extension passaient l'un après l'autre dans un Pull — 15 séries
+        // de quadriceps) : un muscle principal que la séance OU un ajout travaille déjà reste au plus à `parSeance()`.
+        // « Même groupe » et « ce que la séance fatigue » restent ceux de la séance prévue : un ajout ne lève pas la
+        // garde des lombaires (le leg curl dans un Pull n'ouvre pas la porte au soulevé roumain après le rowing).
+        var primDans = {};
+        primaires(dans).forEach(function (m) { primDans[m] = true; });
         var cands = [];
         stM.forEach(function (ex, i) {
           if (!(ex.tr > 0) || pris[i] || !ex.prim.length || presents(ex.slug)) return;
@@ -216,9 +227,9 @@
           for (var k = ex.tr; k >= 1; k--) {
             var essai = dans.concat([Object.assign({}, ex, { tr: k, ch: 0, deg: 0 })]);
             if (x.dureeMax_s > 0 && Moteur().dureeEstimee(essai) > x.dureeMax_s) continue;
-            if (memeGroupe) {
+            if (ex.prim.some(function (m) { return primDans[m]; })) {
               var v = volumeDeStructure(essai, cat);
-              if (ex.prim.some(function (m) { return primP[m] && (v[m] || 0) >= SOUS_SERIES; })) continue;
+              if (ex.prim.some(function (m) { return primDans[m] && (v[m] || 0) > parSeance() + 1e-9; })) continue;
             }
             cands.push({ ex: ex, i: i, k: k });
             return;

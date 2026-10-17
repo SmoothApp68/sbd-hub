@@ -377,7 +377,7 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
   function bac(o) {
     const opt = o || {};
     const base = { lignes: {}, refus: [], posts: [], gets: [] };
-    const journal = { vide: 0, meta: [], generations: 0, groupeOublie: 0 };
+    const journal = { vide: 0, meta: [], generations: 0, groupeOublie: 0, socialOublie: 0 };
     const etat = { client: 'B', memoire: 'B' };
     const ctx = {
       console: { warn: (...a) => { ctx.avertissements.push(a.join(' ')); } },
@@ -401,6 +401,8 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
       fermerQuestionnaire: () => {}, faits: { oublierDates: () => {} },
       // 106 — le groupe et ses messages gardés hors ligne appartiennent au compte précédent.
       oublierGroupe: () => { journal.groupeOublie++; },
+      // 121 (05 #13) — le social aussi (liens, badge, guilde, ce qu'il a publié).
+      oublierSocial: () => { journal.socialOublie++; },
       // 115 (E2) — une suppression de série en attente d'« Annuler » appartient aussi au compte précédent.
       oublierSuppressionDifferee: () => {},
       // 118 — ce qui attend hors de la file (réponse de profil, messages du groupe) se garde avec la file.
@@ -441,6 +443,7 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
     expect([b.ctx.profil, b.ctx.profilAEnvoyer, b.ctx.attente, b.ctx.routines]).toEqual([null, false, [], []]);
     expect(b.journal.vide).toBe(1);
     expect(b.journal.groupeOublie).toBe(1);
+    expect(b.journal.socialOublie).toBe(1);
     expect(b.journal.meta).toEqual([['proprietaire', { userId: 'B' }]]);
   });
 
@@ -455,7 +458,7 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
     const b = bac({ meta: { userId: 'B' }, profil: { id: 'B' } });
     await b.garantir('B');
     expect(b.ctx.pseudoAInscrire).toBe('test_0710');
-    expect([b.journal.vide, b.journal.meta, b.ctx.profil]).toEqual([0, [], { id: 'B' }]);
+    expect([b.journal.vide, b.journal.meta, b.ctx.profil, b.journal.socialOublie]).toEqual([0, [], { id: 'B' }, 0]);
   });
 
   test('⚠️ DISCRIMINANT — LA CHAÎNE : l’entrée de B (cache vidé) puis le chargement du profil créent la ligne AVEC le pseudo tapé', async () => {
@@ -772,3 +775,41 @@ describe('60-3b — le pseudo des données du compte, repris à la création de 
   });
 });
 
+
+// ── 121 (audit du 16/10/2026, 05 #13) — le social du compte précédent ne survit pas au changement de compte ──
+describe('121 — `oublierSocial` : « Quitter » et un autre compte qui entre remettent le social à zéro', () => {
+  function bacSocial() {
+    const onglet = { attrs: { 'data-demandes': '2' }, setAttribute(k, v) { this.attrs[k] = v; }, removeAttribute(k) { delete this.attrs[k]; } };
+    const ctx = {
+      $: (id) => (id === 'onglet-jeu' ? onglet : null),
+      // L'état de A : ses liens (deux demandes reçues, le badge), son fil, sa guilde, un geste confirmé, un refus, ce
+      // qu'il a publié.
+      social: { liens: { demandesRecues: [{ pseudo: 'x' }, { pseudo: 'y' }] }, liensBruts: [{ lien: 'demande_recue' }], liensN: 3,
+        fil: [{ session_id: 's' }], filN: 2, medailles: { s: [1] }, ami: { pseudo: 'lea' }, recherche: 'le', resultats: [],
+        jeton: 7, confirmes: [{ n: 4 }], horloge: 4, refus: { phrase: 'non' }, aRafraichir: { relire: true },
+        guilde: { g: { id: 'g-A' }, etat: 'ok' }, voirSeance: { session_id: 's' } },
+      scoresPublies: { squat: { score: 80 } }, baseExigeLaCharge: true, scoresGuildePublies: { semaine: '2026-10-12' },
+      jetonEntreAmis: 5
+    };
+    vm.createContext(ctx);
+    ['majBadgeSocial', 'oublierSocial'].forEach((n) => vm.runInContext(extraire(n), ctx));
+    return { ctx, onglet };
+  }
+  test('⚠️ DISCRIMINANT — le badge de A quitte l’onglet ; sa guilde, ses liens, son fil, ce qu’il a publié : oubliés', () => {
+    const b = bacSocial();
+    vm.runInContext('oublierSocial()', b.ctx);
+    const s = b.ctx.social;
+    expect(b.onglet.attrs['data-demandes']).toBeUndefined();
+    expect([s.liens, s.liensBruts, s.fil, s.ami, s.guilde, s.voirSeance, s.refus, s.aRafraichir]).toEqual([null, null, null, null, undefined, undefined, null, null]);
+    expect([s.confirmes, s.medailles]).toEqual([[], {}]);
+    expect([b.ctx.scoresPublies, b.ctx.baseExigeLaCharge, b.ctx.scoresGuildePublies]).toEqual([null, false, null]);
+    // Une lecture en vol pour A ne s'affiche jamais chez B (le jeton monte) ; l'horloge des gestes ne redescend pas.
+    expect([s.jeton, s.horloge, b.ctx.jetonEntreAmis]).toEqual([8, 4, 6]);
+  });
+  test('« Quitter » (`deconnecter`) et l’entrée d’un autre compte (`garantirProprietaire`) l’appellent, après le groupe', () => {
+    ['deconnecter', 'garantirProprietaire'].forEach((n) => {
+      const corps = extraire(n);
+      expect(corps).toMatch(/oublierGroupe\(\);[\s\S]*?oublierSocial\(\);/);
+    });
+  });
+});

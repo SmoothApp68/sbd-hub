@@ -73,16 +73,21 @@ function executeur(f, reseau) {
 }
 
 // La vidange (app.js, `vidanger`) : dans l'ordre, une entrée à la fois ; un refus sort sans arrêter ; une coupure arrête.
-async function vidanger(file, executer) {
+// 121 (05 #3) — comme l'app : l'entrée est marquée « peut-être partie » (`marquerParti`, écrite sur disque) AVANT
+// l'appel, et « rejoué » se lit sur la copie d'avant la marque (`Attente.dejaParti`). `options.tuee` : l'app est tuée
+// juste après l'appel, avant de lire la réponse — la file reste celle du disque, marquée.
+async function vidanger(file, executer, options) {
   const issues = [];
   let f = file;
   for (let garde = 0; garde < 100; garde++) {
     const op = Attente.prochaine(f);
     if (!op) break;
+    if (!op.parti) f = Attente.marquerParti(f, op.cle);
     let e = null;
     try { await executer(op); } catch (x) { e = x; }
+    if (options && options.tuee) return { file: f, issues };
     if (!e) { f = Attente.apresSucces(f, op); issues.push({ id: op.id, suite: 'envoyee' }); continue; }
-    const r = Attente.apresEchec(f, op, e, (o, er) => Social.issueDuGeste(o.donnees, er, (o.essais || 0) > 0));
+    const r = Attente.apresEchec(f, op, e, (o, er) => Social.issueDuGeste(o.donnees, er, Attente.dejaParti(o)));
     f = r.file;
     issues.push({ id: op.id, suite: r.suite, erreur: e, phrase: r.suite === 'refusee' ? Social.phraseDuRefus(op.donnees, e) : null });
     if (r.suite === 'arret') break;
@@ -333,6 +338,60 @@ describe('107 — chaque geste fait hors ligne part au retour du réseau', () =>
       executeur(f, { ok: true, envois: [] }));
     expect(r2.issues.map((x) => x.suite)).toEqual(['refusee']);
     expect(r2.issues[0].phrase).toBe('Tu es déjà dans une guilde.');
+  });
+});
+
+describe('121 (audit du 16/10, 05 #3) — un geste de guilde rejoué après une réponse perdue ET un rechargement', () => {
+  // La base a écrit ; l'app est tuée avant d'avoir lu la réponse (le banc `guilde` recharge la page juste après
+  // « Inviter ») ; au démarrage, l'entrée relue du disque repart. Avant 121, `essais` valait 0 (aucun échec constaté) :
+  // le « déjà fait » de la base devenait un refus à l'écran.
+  const decorGuilde = () => {
+    const f = decor();
+    const ab = (a, b) => f.etat.abonnements.push({ suiveur: a, suivi: b, statut: 'accepte' });
+    ab('u-moi', 'u-jordan'); ab('u-jordan', 'u-moi');
+    f.comme('u-moi', () => f.rpc('u-moi', 'guilde_creer', { p_nom: 'Les Fers', p_couleur: '#b39ad1' }));
+    return f;
+  };
+  test('⚠️ DISCRIMINANT — « Inviter jordan », l’app tuée, jordan rejoint, la file rejouée : fait, jamais « n’a pas pu se faire »', async () => {
+    const f = decorGuilde(), g = f.guildeDe('u-moi');
+    let file = poser([], { geste: G.GUILDE, fn: 'guilde_inviter', args: { p_user: 'u-jordan' }, pseudo: 'jordan' });
+    const premier = await vidanger(file, executeur(f, { ok: true, envois: [] }), { tuee: true });
+    expect(f.etat.invitations.some((i) => i.invite === 'u-jordan')).toBe(true);
+    f.rpc('u-jordan', 'guilde_repondre', { p_guilde: g, p_rejoindre: true });
+    file = recharger(premier.file);
+    expect(Attente.ordonnee(file)[0].parti).toBe(true);
+    expect(Attente.ordonnee(file)[0].essais).toBe(0);
+    const r = await vidanger(file, executeur(f, { ok: true, envois: [] }));
+    expect(r.issues.map((x) => x.suite)).toEqual(['faite']);
+    expect(r.file).toEqual([]);
+    // La même réponse, SANS la marque (l'entrée d'avant 121, `essais` à 0) : c'était le faux refus.
+    const sans = recharger(premier.file).map((e) => Object.assign({}, e, { parti: false }));
+    const op = Attente.prochaine(sans);
+    const erreur = { code: '23514', message: 'guilde_deja_membre' };
+    expect(Attente.apresEchec(sans, op, erreur, (o, er) => Social.issueDuGeste(o.donnees, er, Attente.dejaParti(o))).suite).toBe('refusee');
+  });
+  test('« Créer » tuée puis rejouée : la guilde créée par le premier envoi, « déjà dans une » = fait ; un PREMIER envoi refusé ainsi reste un refus', async () => {
+    const f = decor();
+    let file = poser([], { geste: G.GUILDE, fn: 'guilde_creer', args: { p_nom: 'Les Fers', p_couleur: '#b39ad1' } });
+    const premier = await vidanger(file, executeur(f, { ok: true, envois: [] }), { tuee: true });
+    expect(f.guildeDe('u-moi')).toBeTruthy();
+    const r = await vidanger(recharger(premier.file), executeur(f, { ok: true, envois: [] }));
+    expect(r.issues.map((x) => x.suite)).toEqual(['faite']);
+    // Déjà dans une AUTRE guilde avant tout envoi : le premier envoi dit vrai, c'est un refus.
+    const autre = poser([], { geste: G.GUILDE, fn: 'guilde_creer', args: { p_nom: 'Autre nom', p_couleur: '#b39ad1' } });
+    const r2 = await vidanger(autre, executeur(f, { ok: true, envois: [] }));
+    expect(r2.issues.map((x) => x.suite)).toEqual(['refusee']);
+  });
+  test('la marque : posée sur l’entrée seulement, gardée au rechargement ; un geste neuf sur le même état repart sans elle', () => {
+    let file = poser([], { geste: G.SABONNER, autre: 'u-lea', pseudo: 'lea' });
+    file = poser(file, { geste: G.REAGIR, session: 's-1', pseudo: 'jordan' });
+    const tete = Attente.ordonnee(file)[0];
+    expect(Attente.dejaParti(tete)).toBe(false);
+    file = recharger(Attente.marquerParti(file, tete.cle));
+    expect(Attente.ordonnee(file).map((e) => Attente.dejaParti(e))).toEqual([true, false]);
+    file = poser(file, { geste: G.RETIRER_ABONNEMENT, autre: 'u-lea', pseudo: 'lea' });
+    expect(Attente.ordonnee(file).filter((e) => e.donnees.geste === G.RETIRER_ABONNEMENT).map((e) => Attente.dejaParti(e))).toEqual([false]);
+    expect(Attente.dejaParti({ essais: 1 })).toBe(true);
   });
 });
 

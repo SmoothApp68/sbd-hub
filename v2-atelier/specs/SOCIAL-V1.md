@@ -12,7 +12,7 @@ Abonnements façon Instagram, trois cercles :
 |---|---|
 | Inconnu | pseudo, blason, niveau du jeu |
 | Abonné accepté (un sens) | fil : titre, date, records (médailles), tonnage ; réagir ; calendrier du profil (jours, résumé au toucher) |
-| Mutuel | + détail des séances (exercices, séries, charges) ; bouton « Inviter dans un groupe » (grisé sinon, avec « Abonnez-vous l'un à l'autre pour l'inviter » — l'invitation elle-même est l'étage 3, le bouton seulement ici, inactif même en mutuel avec « Bientôt ») |
+| Mutuel | + détail des séances (exercices, séries, charges) ; bouton « Inviter dans un groupe » (grisé sinon, avec « Abonnez-vous l'un à l'autre pour l'inviter » — l'invitation elle-même est l'étage 3, le bouton seulement ici, inactif même en mutuel avec « Bientôt ») — **retiré le 16/10/2026 (audit du 16/10, 05 #10)** : l'étage 3 est livré ailleurs (le groupe se lance depuis la séance, §7.1 ; la guilde invite depuis ses Membres, §6.2), le bouton restait figé à « Bientôt » et disait sur mon propre profil de m'abonner à moi-même |
 | Jamais | poids de corps, santé, notes, RPE, ressenti, douleur |
 
 ## 2. Les règles
@@ -41,6 +41,12 @@ bloqués, avec pseudo et niveau).
 
 Écritures directes par le client : insert/delete `abonnements`, update statut → `accepte` (le suivi seulement),
 insert/delete `blocages`, insert/delete `reactions_seance`, update `profiles.compte_prive`.
+
+**La garde « aucune donnée interdite » (audit du 16/10/2026, 05 #18)** : hors production (la garde de développement du
+coach : `localhost`, les aperçus `*.pages.dev`, `?garde=1`), chaque lecture d'un autre compte — les fonctions
+`social_*`, `guilde_*`, `groupe_*` (`Donnees.inspecterLectures`) — passe `Social.champsInterditsDans` ; un poids de
+corps, une note, un RPE, un ressenti ou une douleur rendus sont une violation S1 de la garde (console, marqueur, banc).
+En production, rien ne change : la règle est d'abord en base.
 
 Le tonnage des fonctions est celui de `Bilan.volumeKg` (`faits.js`) : séries de travail, charge > 0, reps > 0,
 arrondi au centième. Les médailles affichées se choisissent par la règle de `faits.js` sur les lignes rendues par
@@ -195,8 +201,14 @@ elle retire ses scores.
   proposée (au centième) ; `fondement.charge` nul (le cran sans chiffre) ou série sans charge : compte.
 - **Mes nombres** : `faits.scoresDeGuilde` → `guilde_scores` (`semaine`, `seances`, `prevues`, `records_semaine`, `mois`,
   `exercices`, `exercices_record`), publiés à l'ouverture de la guilde et à la fin d'une séance quand on me sait membre,
-  seulement s'ils ont changé. Séances de la semaine : celles qui portent une série de travail, du lundi au dimanche (heure
-  locale). Séances prévues : le profil (1 à 14), sinon `habitudes(c).seances_par_semaine`, sinon 0.
+  seulement s'ils ont changé. **16/10/2026 (audit du 16/10, 05 #5)** : « quand on me sait membre » ne dépend plus de
+  l'écran Guilde ouvert — à la fin d'une séance et au démarrage (s'ils sont périmés : une semaine, un mois, des séances
+  que la dernière publication ne connaissait pas), ils sont **posés dans la file** (`Social.GESTES.SCORES_GUILDE`, une
+  seule clé, le dernier calcul gagne, gardés sur le téléphone hors ligne) ; la vidange lit `guilde_moi` et ne les écrit
+  que si je suis membre. Une publication de fond : ni « en attente du réseau », ni phrase de refus. À l'ouverture de la
+  guilde, ils partent toujours en direct (la jauge lue juste après les contient). Séances de la semaine : celles qui portent une série de travail, du lundi au dimanche (heure
+  locale). **16/10/2026 (audit du 16/10, suite du 119)** : une série de **musculation** (`Semaine.estSerieDeMusculation`) —
+  une randonnée ou un tapis seul ne font ni une séance de la semaine ni un exercice de la Progression. Séances prévues : le profil (1 à 14), sinon `habitudes(c).seances_par_semaine`, sinon 0.
 - **La jauge** : (1) Σ min(séances, prévues) sur Σ prévues (« 11 séances sur 17 prévues, à vous quatre ») ; (2) Σ records
   publiés sur N ; (3) exercices différents de la semaine, à tous, sur N — calculés par la base (une union ne s'additionne
   pas d'une personne à l'autre). N au choix : 2, 3, 5, 8, 10 (records) ; 5, 8, 10, 12, 15 (variété). Le défi est modifiable
@@ -216,7 +228,8 @@ elle retire ses scores.
   reçues s'affichent quand je n'ai pas de guilde (« Rejoindre » / « Refuser », en silence).
 - **Fil** : `guilde_fil` rend les colonnes de `social_fil` (les autres membres, terminées, non privées, 30 jours) ; même
   rendu (`Rendu.rendreFil`), mêmes médailles (`faits.medaillesDuSocial` sur `guilde_records_seance`). On réagit à la
-  séance d'un membre même sans le suivre (politique `reactions_guilde`).
+  séance d'un membre même sans le suivre (politique `reactions_guilde`). *(16/10/2026, D5 : un compte privé ne s'y voit
+  que de ses abonnés ; « Voir la séance » seulement pour qui je suis — §6.5.)*
 - **Route** : `/jeu/guilde`, un sous-onglet « Guilde » à côté de « Fil ».
 
 ### 6.3 La base (v2_080, proposée)
@@ -255,8 +268,34 @@ invitations, défis : des fonctions SECURITY DEFINER (`guilde_choisir_defi` refu
   (0 à 2 000) et `series_moyenne` (0 à 2 000, au centième) de `guilde_scores`, défaut à 0 ; `guilde_semaine` rend le
   défaut `series`, `series_faites` et `series_cible`. Avant v2_093, l'app publie sans les deux colonnes (`PGRST204`,
   retirées pour la session) et affiche le défaut que la base dit (« séances »).
-- **Limite connue (audit 05 #5, inchangée)** : comme les séances et les records, un membre ne compte que s'il a ouvert
-  l'app cette semaine (ses nombres partent à l'ouverture de la guilde et à la fin d'une séance).
+- **Limite connue (audit 05 #5)** : comme les séances et les records, un membre ne compte que s'il a ouvert l'app cette
+  semaine. *(16/10/2026, prompt 121 : il n'a plus besoin d'ouvrir l'écran Guilde — ses nombres partent par la file, à
+  la fin d'une séance et au démarrage — §6.2.)*
+
+### 6.5 Le compte privé et le blocage dans la guilde — audit du 16/10/2026 (D5, 05 #6, #7, #11 ; prompt 121)
+
+> Décision d'Aurélien du 16/10/2026 (D5), mot pour mot : « on ne voit pas si privé (privé compte que pour les inconnus,
+> pas amis, donc guilde ne voit pas le détail) ». Base : migration **proposée**
+> `v2-atelier/migrations-proposees/v2_094_guilde_prive_bloque.sql` (relue et lancée par Claude.ai, après v2_093).
+
+- **Le compte privé** : rejoindre une guilde ouvrait toutes les séances d'un compte privé (titres, dates, tonnages,
+  médailles) aux membres qu'il n'a jamais approuvés. Désormais, au fil de la guilde, une séance se voit seulement si son
+  auteur a un compte **public**, ou si je suis son **abonné accepté** — ce que mon propre fil me montre déjà de lui ; une
+  demande en attente n'ouvre rien (`guilde_fil`, `guilde_records_seance`, `guilde_voit_seances`). Un compte public reste
+  visible comme avant. Les **chiffres de la guilde** ne changent pas : la jauge du défi, « La guilde cette semaine » et
+  la Progression comptent chacun — ce sont des nombres de la guilde, pas le détail d'une séance.
+  *(Interprétation, à confirmer : « amis » = mes abonnements acceptés — le cercle « abonné » de §1, qui voit déjà le fil
+  de la personne ; le cercle « inconnu » ne voit rien. Les mutuels seuls seraient plus strict que le fil de 87.)*
+- **« Voir la séance »** (05 #11) : au fil de la guilde, seulement pour une séance dont je suis l'auteur abonné
+  (`Social.suisAbonne`, mes liens) ; sinon pas de bouton — son profil dirait « Abonne-toi pour voir ses séances. ».
+- **Le blocage** (05 #6 ; « bloquer efface tout lien », §2) : entre deux personnes qui se bloquent (dans un sens ou dans
+  l'autre), chacune voit l'autre comme **« un membre »** dans Membres (ni pseudo, ni rang, ni titre, ni lien vers son
+  profil ; l'administrateur garde « Retirer » et « Transmettre »), plus dans la **Progression**, plus au **fil** (déjà le
+  cas, `guilde_commune`). Un tiers **ne peut pas inviter** dans ma guilde quelqu'un que j'ai bloqué ou qui m'a bloqué
+  (refus `guilde_bloque`), et une invitation d'avant le blocage est tue et refusée à l'entrée. Deux personnes déjà dans la
+  même guilde y restent (la guilde est permanente ; SOCIAL-V1 n'a pas pour elle la règle de départ du groupe, §7.1).
+  À l'écran, bloquer met à jour Membres, Progression et fil aussitôt (`Social.guildeAvecGestes`).
+- **Avant v2_094**, l'app marche telle qu'avant : la base rend encore tout ; l'écran l'affiche.
 
 ## 7. Groupe — décisions du 14/10/2026 (prompt 91)
 
@@ -372,6 +411,12 @@ groupe ni sur sessions, sets, records ; aucune colonne interdite rendue.
   d'envoi part (`vidanger`), pour que la base sache ma séance précédente finie.
 - **Le récap** : il se lit depuis le détail de la séance dès que MA séance est finie (« Faite en groupe avec … »), tel
   qu'il est tant que le groupe existe — même si je suis parti vers un autre groupe sans le fermer —, et figé ensuite.
+- **Hors ligne — audit du 16/10/2026 (05 #4, #12)** : chaque écran du groupe dit ce qu'il attend du réseau, avec la
+  phrase du social (« Il faut le réseau pour voir le récap du groupe. », « Il faut le réseau pour s'entraîner
+  ensemble. ») — jamais un récap à zéro (« 0 t · 0 séries · 0 records » + « Fermer »), jamais « Chargement… » sans fin.
+  La trace « Faite en groupe avec … » et son récap sont gardés sur le téléphone (le brouillon `groupe-traces`, les 200
+  dernières séances, relu au démarrage) : le détail d'une séance les montre hors ligne ; la lecture de la base les
+  remplace dès qu'elle revient ; « Quitter » et un autre compte les effacent avec le cache.
 
 ### 7.5 La base (v2_087, proposée)
 
@@ -432,6 +477,10 @@ la file** : le groupe est du temps réel, fait réseau présent, et le direct es
   tant qu'il n'est pas parti. Hors réseau, une lecture qui échoue dit « Il faut le réseau pour voir … ».
 - **Idempotence** : rejoué (la réponse perdue), un geste ne se double pas — un abonnement, un blocage ou une réaction
   « déjà là » vaut « fait », pas un refus.
+  **16/10/2026 (audit du 16/10, 05 #3)** : « rejoué » se sait aussi après un rechargement — l'entrée est marquée
+  « peut-être partie » sur le téléphone AVANT l'envoi (`Attente.marquerParti`, `dejaParti`) ; avant, seul un échec
+  constaté la marquait, et une app tuée au retour de la réponse affichait un faux refus. « Inviter » rejoué après que
+  l'invité a rejoint (`guilde_deja_membre`) vaut aussi « fait ». Un PREMIER envoi refusé reste un refus.
 - **Un geste qui annule le précédent n'envoie que l'état final** : un geste sur un état (mon abonnement à quelqu'un, son
   abonnement à moi, ma réaction à une séance, mon rang, le défi, le nom de la guilde) remplace celui qui attend sur le
   même état, en fin de file. S'abonner puis se désabonner hors ligne n'envoie que le retrait. Bloquer, qui efface les

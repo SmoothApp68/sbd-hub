@@ -53,11 +53,10 @@
     return null;
   }
 
-  // « Inviter dans un groupe » (étage 3) : le bouton seulement, inactif même en mutuel.
-  function invitation(cercle) {
-    if (cercle === MUTUEL) return { actif: false, sous: 'Bientôt' };
-    return { actif: false, sous: 'Abonnez-vous l’un à l’autre pour l’inviter.' };
-  }
+  // 121 (audit du 16/10/2026, 05 #10) — PLUS DE « Inviter dans un groupe » SUR LE PROFIL. Le bouton de l'étage 1
+  // (inactif, « Bientôt ») annonçait l'étage 3 ; le groupe se lance depuis la séance en cours (« S'entraîner
+  // ensemble », SOCIAL §7.1) et la guilde invite depuis ses Membres (§6.2). Il restait figé à « Bientôt », et disait
+  // sur MON profil qu'il fallait m'abonner à moi-même.
 
   // Le niveau et le titre publiés (`jeu_niveau`, `jeu_titre`), nuls si le jeu est éteint chez la personne.
   // `titres` : la table des libellés du jeu (`rendu.js`). Sans niveau, rien.
@@ -433,9 +432,19 @@
   }
 
   // « jordan · Squatteur · Forgeron » — le titre du jeu seulement s'il est publié (nul jeu éteint).
+  // ⚠️ 121 (audit du 16/10/2026, 05 #6) — UN MEMBRE BLOQUÉ (par moi, ou qui m'a bloqué) : la base ne rend ni son pseudo,
+  // ni son rang, ni son titre (`guilde_liste_membres`, v2_094). L'écran dit « un membre », sans lien vers un profil.
+  var MEMBRE_ANONYME = 'un membre';
   function ligneMembre(m, titres) {
+    if (!m || !m.pseudo) return MEMBRE_ANONYME;
     var t = m && m.titre && titres && titres[m.titre] ? ' · ' + titres[m.titre] : '';
     return String(m.pseudo) + ' · ' + (rangValide(m.rang) ? m.rang : RANG_PAR_DEFAUT) + t;
+  }
+  // ⚠️ 121 (D5, décision d'Aurélien du 16/10/2026) — « Voir la séance » d'une séance du fil de la guilde : seulement si je
+  // suis abonné (accepté) à son auteur — sinon son profil ne montre pas ses séances (« Abonne-toi pour voir ses
+  // séances. »), et un compte privé ne se voit pas du tout hors de ses abonnés (`guilde_fil`, v2_094).
+  function suisAbonne(liens, userId) {
+    return !!(liens && userId && (liens.abonnements || []).some(function (l) { return l && l.user_id === userId; }));
   }
 
   var NOMBRES = ['', '', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'];
@@ -549,6 +558,19 @@
       return !!m && typeof m.id === 'string' && !!m.id && typeof m.groupe_id === 'string' && !!m.groupe_id &&
         messageValide(m.texte) === m.texte;
     });
+  }
+  // 121 (05 #12) — les traces « Faite en groupe avec … » gardées sur l'appareil : `{ <séance> : { recap: { membres }, le } }`.
+  // Un cache abîmé ne casse rien : seules les entrées bien formées restent (une liste de membres, chacun un objet).
+  function tracesDuGroupe(valeur) {
+    var out = {};
+    if (!valeur || typeof valeur !== 'object' || Array.isArray(valeur)) return out;
+    Object.keys(valeur).forEach(function (k) {
+      var t = valeur[k];
+      var membres = t && t.recap && t.recap.membres;
+      if (!k || !Array.isArray(membres) || !membres.every(function (m) { return !!m && typeof m === 'object'; })) return;
+      out[k] = { recap: { membres: membres }, le: typeof t.le === 'string' ? t.le : null };
+    });
+    return out;
   }
   // « 1 message partira au retour du réseau. » — ceux de CE groupe seulement.
   function texteEnAttente(file, groupeId) {
@@ -678,7 +700,11 @@
   // dans la lecture, reposé, ne change rien.
   var GESTES = {
     SABONNER: 'sabonner', RETIRER_ABONNEMENT: 'retirer_abonnement', RETIRER_ABONNE: 'retirer_abonne', ACCEPTER: 'accepter',
-    BLOQUER: 'bloquer', DEBLOQUER: 'debloquer', REAGIR: 'reagir', RETIRER_REACTION: 'retirer_reaction', GUILDE: 'guilde'
+    BLOQUER: 'bloquer', DEBLOQUER: 'debloquer', REAGIR: 'reagir', RETIRER_REACTION: 'retirer_reaction', GUILDE: 'guilde',
+    // 121 (audit du 16/10/2026, 05 #5) — mes nombres de guilde, publiés PAR LA FILE (fin de séance, démarrage) : un état,
+    // le dernier calcul gagne ; la vidange ne les écrit que si je suis membre (`guilde_moi`). Pas un geste de l'écran :
+    // ni « en attente du réseau », ni phrase de refus.
+    SCORES_GUILDE: 'scores_guilde'
   };
   // Les gestes de guilde qui écrivent : les seules fonctions de la base qu'une entrée de la file peut appeler.
   var GESTES_DE_GUILDE = ['guilde_creer', 'guilde_modifier', 'guilde_inviter', 'guilde_repondre', 'guilde_quitter',
@@ -695,6 +721,7 @@
       case GESTES.SABONNER: case GESTES.RETIRER_ABONNEMENT: return 'abonnement|' + d.moi + '|' + qui;
       case GESTES.ACCEPTER: case GESTES.RETIRER_ABONNE: return 'abonne|' + d.moi + '|' + qui;
       case GESTES.REAGIR: case GESTES.RETIRER_REACTION: return 'reaction|' + d.moi + '|' + d.session;
+      case GESTES.SCORES_GUILDE: return 'scores_guilde|' + d.moi;
       case GESTES.GUILDE:
         if (d.fn === 'guilde_choisir_rang' || d.fn === 'guilde_choisir_defi' || d.fn === 'guilde_modifier') return d.fn + '|' + d.moi;
         return null;
@@ -707,6 +734,9 @@
     var connu = Object.keys(GESTES).some(function (k) { return GESTES[k] === d.geste; });
     if (!connu) return false;
     if (d.geste === GESTES.GUILDE) return GESTES_DE_GUILDE.indexOf(d.fn) >= 0;
+    if (d.geste === GESTES.SCORES_GUILDE) {
+      return !!d.scores && typeof d.scores === 'object' && COLONNES_GUILDE.every(function (k) { return d.scores[k] !== undefined; });
+    }
     if (d.geste === GESTES.REAGIR || d.geste === GESTES.RETIRER_REACTION) return !!d.session;
     if (d.geste === GESTES.SABONNER) return !!(d.autre || d.pseudo);
     return !!d.autre;
@@ -788,6 +818,15 @@
       return { user_id: moiId, pseudo: d.monPseudo || '', rang: RANG_PAR_DEFAUT, titre: null, moi: true };
     };
     (gestes || []).forEach(function (d) {
+      // 121 (05 #6) — bloquer quelqu'un : il devient « un membre » dans la liste, et sort de la Progression (comme la
+      // base le rendra à la relecture, v2_094) ; le fil l'a déjà retiré (`filAvecGestes`).
+      if (d && d.geste === GESTES.BLOQUER) {
+        o.membres = o.membres.map(function (m) {
+          return vise(d, m.user_id, m.pseudo) && !m.moi ? avec(m, { pseudo: null, rang: null, titre: null }) : m;
+        });
+        o.progression = (o.progression || []).filter(function (x) { return x.moi || !d.pseudo || x.pseudo !== d.pseudo; });
+        return;
+      }
       if (!d || d.geste !== GESTES.GUILDE) return;
       var a = d.args || {};
       if (d.fn === 'guilde_creer') {
@@ -834,8 +873,10 @@
     var c = String((e && e.code) || '');
     return !c || CODES_PASSAGERS.test(c) || c === '40001' || c === '40P01';
   }
+  // 121 (05 #3) — `guilde_inviter` : rejouée après que l'invité a rejoint, l'invitation dit « déjà membre » ; c'est fait.
   var DEJA_FAIT_AU_REJEU = {
     guilde_creer: /guilde_deja_dans_une|guilde_membres_pkey/,
+    guilde_inviter: /guilde_deja_membre/,
     guilde_repondre: /guilde_sans_invitation|guilde_deja_dans_une|guilde_membres_pkey/,
     guilde_retirer_membre: /guilde_pas_admin/,
     guilde_transmettre: /guilde_pas_admin/
@@ -917,7 +958,6 @@
     voitLeDetail: voitLeDetail,
     etatDe: etatDe,
     boutonDe: boutonDe,
-    invitation: invitation,
     ligneDuJeu: ligneDuJeu,
     couleurDuBlason: couleurDuBlason,
     liensRanges: liensRanges,
@@ -961,6 +1001,8 @@
     rangValide: rangValide,
     invitables: invitables,
     ligneMembre: ligneMembre,
+    MEMBRE_ANONYME: MEMBRE_ANONYME,
+    suisAbonne: suisAbonne,
     jaugeDuDefi: jaugeDuDefi,
     joursRestants: joursRestants,
     progressionRangee: progressionRangee,
@@ -979,6 +1021,7 @@
     // 106 — la fin du groupe, et les messages gardés hors ligne
     libreDuGroupe: libreDuGroupe,
     fileDeMessages: fileDeMessages,
+    tracesDuGroupe: tracesDuGroupe,
     texteEnAttente: texteEnAttente,
     encoreEnSeance: encoreEnSeance,
     ilYA: ilYA,

@@ -3644,11 +3644,22 @@
       }
       return { violations: graves };
     }
+    // 121 (audit du 16/10/2026, 05 #18) — une violation constatée AILLEURS que dans le coach (la garde du social : une
+    // lecture d'un autre compte qui porterait une donnée interdite) : même registre, même console, même marqueur ; en
+    // production, rien. La règle elle-même vit chez qui la constate (`Social.champsInterditsDans`), pas ici.
+    function signaler(graves, contexte) {
+      if (!active || !graves || !graves.length) return null;
+      violations = violations.concat(graves);
+      var j = e.journal || null;
+      if (j && j.error) j.error('[garde] ' + graves.length + ' violation(s)', graves, contexte || null);
+      if (e.marquer) e.marquer(violations.slice());
+      return { violations: graves };
+    }
     // Ce que la garde a vu : le banc le lit pour s'assurer que chacune de ses
     // sections a été vérifiée.
     function etat() { return { active: active, plans: plans, relectures: relectures, violations: violations.slice() }; }
     return { active: active, verifier: verifier, verifierProgramme: verifierProgramme,
-             verifierRelecture: verifierRelecture, etat: etat };
+             verifierRelecture: verifierRelecture, signaler: signaler, etat: etat };
   }
 
   var api = {

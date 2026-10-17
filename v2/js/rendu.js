@@ -6377,7 +6377,8 @@
       }
       var pied = el('div', 's-pied');
       pied.appendChild(boutonSocial(c.jaiReagi ? '🔥 Tu as réagi' : '🔥 Réagir', 's-reag' + (c.jaiReagi ? ' s-fait' : ''), c.surReagir));
-      pied.appendChild(boutonSocial('Voir la séance', 's-b3 s-voir', c.surVoir));
+      // 121 (D5, 05 #11) — sans `surVoir` (une séance que je ne peux pas ouvrir), pas de bouton.
+      if (c.surVoir) pied.appendChild(boutonSocial('Voir la séance', 's-b3 s-voir', c.surVoir));
       carte.appendChild(pied);
       cible.appendChild(carte);
     });
@@ -6406,7 +6407,6 @@
     cible.appendChild(tete);
     var actions = el('div', 's-actions');
     if (p.bouton) actions.appendChild(boutonSocial(p.bouton.texte, 's-b1 s-principal', p.bouton.sur, 'social-principal'));
-    actions.appendChild(boutonSocial('Inviter dans un groupe', 's-grise s-inviter', null, 'social-inviter'));
     var menu = el('div', 's-menu');
     menu.hidden = true;
     (p.menu || []).forEach(function (m) {
@@ -6425,7 +6425,6 @@
       actions.appendChild(boutonSocial('···', 's-b2 s-plus-menu', function () { menu.hidden = !menu.hidden; }, 'social-menu'));
     }
     cible.appendChild(actions);
-    cible.appendChild(el('p', 's-gris s-centre s-inviter-sous', p.invitation.sous));
     cible.appendChild(menu);
     if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur', vue.message));
     if (vue.cache) { cible.appendChild(el('p', 's-gris s-note s-cache', vue.cache)); return; }
@@ -6672,8 +6671,34 @@
       parent.appendChild(r);
     });
   }
+  // ⚠️ 121 (audit du 16/10/2026, 05 #19) — UN NOM EN COURS DE SAISIE SURVIT À UN NOUVEAU RENDU. L'écran se redessine quand
+  // une lecture revient (après un refus, « Ce nom est déjà pris. », il se relit) : le champ était recréé vide, et ce
+  // qu'on venait de taper partait — au banc `guilde`, sous charge, « Créer » partait sans nom (« Le nom fait de 3 à 24
+  // caractères. »). Le texte tapé et le curseur passent au nouveau champ.
+  var CHAMPS_GUILDE = ['guilde-nom', 'guilde-nom-edition'];
+  function saisieDeGuilde(cible) {
+    var s = {};
+    CHAMPS_GUILDE.forEach(function (id) {
+      var n = doc.getElementById(id);
+      if (n && cible.contains(n)) s[id] = { valeur: n.value, focus: doc.activeElement === n };
+    });
+    return s;
+  }
+  function rendreSaisieDeGuilde(s) {
+    CHAMPS_GUILDE.forEach(function (id) {
+      var n = s[id] ? doc.getElementById(id) : null;
+      if (!n) return;
+      n.value = s[id].valeur;
+      if (s[id].focus) n.focus();
+    });
+  }
   function rendreGuilde(cible, vue) {
     if (!cible) return;
+    var saisie = saisieDeGuilde(cible);
+    rendreGuildeSansSaisie(cible, vue);
+    rendreSaisieDeGuilde(saisie);
+  }
+  function rendreGuildeSansSaisie(cible, vue) {
     vider(cible);
     if (etatSocial(cible, vue)) return;
     if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur s-guilde-message', vue.message));
@@ -6782,7 +6807,7 @@
       var m = el('div', 's-membres-guilde');
       vue.membres.forEach(function (x) {
         var l = el('div', 's-ligne s-membre');
-        l.setAttribute('data-pseudo', x.pseudo);
+        l.setAttribute('data-pseudo', x.pseudo || '');
         l.appendChild(blasonSocial(x.couleur, 30));
         var t = el('div', 's-t');
         var nom = el('span', 's-membre-ligne' + (x.surProfil ? ' s-lien' : ''), x.moi ? x.ligne.replace(/^[^·]+/, 'toi ') : x.ligne);
@@ -7055,6 +7080,8 @@
     vider(cible);
     if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur g-message', vue.message));
     if (vue.mode === 'charge') { cible.appendChild(el('p', 's-gris s-note', 'Chargement…')); return; }
+    // 121 (05 #4, #12) — hors ligne : la phrase seule (« Il faut le réseau pour … »), ni zéros, ni « Chargement… ».
+    if (vue.mode === 'erreur') return;
     if (vue.mode === 'inviter') {
       if (vue.sous) cible.appendChild(el('p', 's-gris s-cache', vue.sous));
       var c = el('div', 's-carte g-inviter-carte');

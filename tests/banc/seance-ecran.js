@@ -17460,8 +17460,10 @@ const SETS_IMPORTES = [
     ok('[social] à sens unique, l’app ne demande pas le détail, et la base le refuserait',
       S.appels.slice(appelsAvant).indexOf('social_detail_seance') < 0 &&
         fauxSocial.rpc('u-banc', 'social_detail_seance', { p_session: LEA }).length === 0, JSON.stringify(S.appels.slice(appelsAvant)));
-    ok('[social] « Inviter dans un groupe » : grisé, avec « Abonnez-vous l’un à l’autre pour l’inviter. »',
-      b0.inviter === true && b0.inviterSous === 'Abonnez-vous l’un à l’autre pour l’inviter.', JSON.stringify(b0));
+    // 121 (audit du 16/10, 05 #10) — plus de bouton figé « Inviter dans un groupe » sur le profil (le groupe se lance
+    // depuis la séance, la guilde depuis ses Membres).
+    ok('[social] 121 — le profil ne montre plus « Inviter dans un groupe » (ni « Abonnez-vous l’un à l’autre pour l’inviter »)',
+      b0.inviter === false && b0.inviterSous === null && !/Inviter dans un groupe|Abonnez-vous l’un/.test(await texte('#social-ami')), JSON.stringify(b0));
     await mesurer('profil à sens unique');
 
     // ── C. LEA DEMANDE À SON TOUR : la demande dans le fil (et le badge), « Accepter » → MUTUEL : le détail.
@@ -17483,8 +17485,8 @@ const SETS_IMPORTES = [
       lien('u-lea', 'u-banc').statut === 'accepte' && c1.etat === 'Vous vous suivez' && c1.ex === 1 && c1.detailCache === null &&
         /100 kg × 10, 10, 10/.test(await texte('#social-ami')) && !/rpe|ressenti|genou/i.test(await texte('#social-ami')),
       JSON.stringify([c1, await texte('#social-ami')]));
-    ok('[social] mutuel : « Inviter dans un groupe » reste inactif, « Bientôt »', c1.inviter === true && c1.inviterSous === 'Bientôt',
-      JSON.stringify(c1));
+    ok('[social] 121 — mutuel : plus de « Inviter dans un groupe · Bientôt »', c1.inviter === false && c1.inviterSous === null &&
+      !/Bientôt/.test(await texte('#social-ami')), JSON.stringify(c1));
     await mesurer('profil mutuel');
 
     // ── D. RÉAGIR ; le nombre de réactions : l'auteur seulement.
@@ -18120,6 +18122,9 @@ const SETS_IMPORTES = [
         progression: Array.from(r.querySelectorAll('.s-progression-guilde .s-rang')).map((x) => x.querySelector('.s-t').textContent + ' ' +
           x.querySelector('.s-sc').textContent),
         cartes: Array.from(r.querySelectorAll('.s-fil-guilde .s-carte')).map((x) => x.getAttribute('data-session')),
+        // 121 (D5, 05 #11) — les cartes qui offrent « Voir la séance ».
+        voir: Array.from(r.querySelectorAll('.s-fil-guilde .s-carte')).filter((x) => !!x.querySelector('.s-voir'))
+          .map((x) => x.getAttribute('data-session')),
         reagi: !!r.querySelector('.s-fil-guilde .s-reag.s-fait') };
     });
     const attendreQue = async (cond, ms) => {
@@ -18186,7 +18191,7 @@ const SETS_IMPORTES = [
     ok('[guilde] jordan a reçu l’invitation (de moi) et l’a acceptée ; melodie est entrée par jordan ; les membres : « toi · Novice », ' +
       '« jordan · Squatteur · Athlète », « melodie · Novice » (jeu éteint : pas de titre) ; aucun chef affiché',
       inv.length === 1 && inv[0].invitant === 'banc' && JSON.stringify(b1.lignes) === JSON.stringify(['toi · Novice',
-        'jordan · Squatteur · Athlète', 'melodie · Novice']) && !/admin|chef/i.test(b1.texte) &&
+        'jordan · Squatteur · Athlète', 'melodie · Novice']) && !/admin|chef/i.test(b1.texte) && !/pas pu se faire/.test(b1.texte) &&
         JSON.stringify(b1.invitables) === JSON.stringify(['lea']), JSON.stringify(b1));
     // 107 — LE RANG CHOISI HORS LIGNE (les écritures coupées, les lectures passent), l'app RECHARGÉE, puis le retour.
     base.ecrituresSocialesCoupees = true;
@@ -18269,17 +18274,73 @@ const SETS_IMPORTES = [
       JSON.stringify(d0.progression));
 
     // ── E. FIL : les séances des membres, les règles du fil (87) ; réagir par la règle de la guilde.
+    // 121 (D5, décision d'Aurélien du 16/10/2026 : « on ne voit pas si privé (privé compte que pour les inconnus, pas
+    // amis, donc guilde ne voit pas le détail) ») — une séance de jordan (mutuel) ce matin ; celle de melodie (compte
+    // PRIVÉ, que je ne suis pas) n'est pas au fil de la guilde ; melodie passée en compte public, elle y est — sans
+    // « Voir la séance » (je ne la suis pas : son profil me dirait « Abonne-toi pour voir ses séances. », 05 #11).
+    const SJ = 'a0000000-0000-4000-8900-0000000000bb', dJ = iso(ilYa(2 * 3600000, tS));
+    S.sessions.push({ id: SJ, user_id: 'u-jordan', titre: 'Jambes', debut: dJ, fin: dJ, statut: 'terminee', visibilite: 'mutuels' });
+    S.sets.push({ id: 'sj-1', session_id: SJ, exercise_slug: 'squat-barre', rang: 1, charge_kg: 150, reps: 5, type_serie: 'travail' });
     await onglet('fil', async () => (await lire()).cartes.length > 0);
     const e0 = await lire();
     const monFil = fauxSocial.rpc('u-banc', 'social_fil').map((x) => x.session_id);
+    ok('[guilde] 121 (D5) — DISCRIMINANT — le fil de la guilde ne montre PAS la séance de melodie (compte privé, que je ne suis pas) ; ' +
+      'celle de jordan (mutuel) oui, avec « Voir la séance » ; la base ne me rend pas non plus ses médailles',
+      e0.cartes.indexOf(SM) < 0 && e0.cartes.indexOf(SJ) >= 0 && e0.voir.indexOf(SJ) >= 0 &&
+        fauxSocial.rpc('u-banc', 'guilde_records_seance', { p_session: SM }).length === 0, JSON.stringify(e0));
+    S.profils.filter((p) => p.id === 'u-melodie')[0].compte_prive = false;
+    await aller('/jeu/guilde');
+    await attendreQue(async () => !!(await lire()).nom);
+    await onglet('fil', async () => (await lire()).cartes.indexOf(SM) >= 0);
+    const e1 = await lire();
     await page.click('#social-guilde .s-fil-guilde .s-carte[data-session="' + SM + '"] .s-reag');
     await attendreQue(async () => (await lire()).reagi);
     await attendreQue(fileVide);
-    ok('[guilde] DISCRIMINANT — le fil de la guilde montre la séance de melodie (que je ne suis pas : absente de mon fil), sa médaille, ' +
-      'sans note ni poids ; j’y réagis (règle de la guilde)',
-      e0.cartes.indexOf(SM) >= 0 && monFil.indexOf(SM) < 0 && /1record|Rowing|rowing/i.test(e0.texte.replace(/\s/g, '')) &&
-        !/note privée|61 kg|dur/.test(e0.texte) && S.reactions.some((r) => r.session_id === SM && r.user_id === 'u-banc'),
-      JSON.stringify([e0, monFil]));
+    ok('[guilde] DISCRIMINANT — melodie en compte public : le fil de la guilde montre sa séance (que je ne suis pas : absente de mon fil), ' +
+      'sa médaille, sans note ni poids, SANS « Voir la séance » (121, 05 #11) ; j’y réagis (règle de la guilde)',
+      e1.cartes.indexOf(SM) >= 0 && e1.voir.indexOf(SM) < 0 && e1.voir.indexOf(SJ) >= 0 && monFil.indexOf(SM) < 0 &&
+        /1record|Rowing|rowing/i.test(e1.texte.replace(/\s/g, '')) &&
+        !/note privée|61 kg|dur/.test(e1.texte) && S.reactions.some((r) => r.session_id === SM && r.user_id === 'u-banc'),
+      JSON.stringify([e1, monFil]));
+
+    // ── E ter (121, audit du 16/10, 05 #6). LE BLOCAGE DANS LA GUILDE : je bloque melodie — « un membre » dans Membres,
+    // absente du fil et de la Progression ; lea (mutuelle de jordan) m'a bloqué : jordan ne peut pas l'inviter.
+    S.gscores.push({ user_id: 'u-melodie', semaine: fauxSocial.lundiCourant(), seances: 1, prevues: 2, records_semaine: 1,
+      mois: fauxSocial.moisCourant(), exercices: 3, exercices_record: 1, series_semaine: 6, series_moyenne: 5 });
+    S.blocages.push({ bloqueur: 'u-banc', bloque: 'u-melodie' });
+    ab('u-jordan', 'u-lea'); ab('u-lea', 'u-jordan');
+    S.blocages.push({ bloqueur: 'u-lea', bloque: 'u-banc' });
+    const refusLea = fauxSocial.rpc('u-jordan', 'guilde_inviter', { p_user: 'u-lea' });
+    await aller('/jeu/guilde');
+    await attendreQue(async () => !!(await lire()).nom);
+    await onglet('membres', async () => (await lire()).lignes.length === 3);
+    const t0 = await lire();
+    await onglet('progression', async () => (await lire()).progression.length > 0);
+    const t1 = await lire();
+    await onglet('fil', async () => (await lire()).cartes.length > 0);
+    const t2 = await lire();
+    ok('[guilde] 121 (05 #6) — DISCRIMINANT — melodie bloquée : « un membre » dans Membres (ni pseudo, ni rang, ni lien), absente de la ' +
+      'Progression et du fil ; jordan ne peut pas inviter lea, qui m’a bloqué (guilde_bloque)',
+      JSON.stringify(t0.lignes) === JSON.stringify(['toi · Terreur', 'jordan · Squatteur · Athlète', 'un membre']) &&
+        !/melodie/.test(t0.texte + t1.texte + t2.texte) && t1.progression.length === 2 && t2.cartes.indexOf(SM) < 0 &&
+        t2.cartes.indexOf(SJ) >= 0 && /guilde_bloque/.test(refusLea && refusLea.message) &&
+        !S.invitations.some((i) => i.invite === 'u-lea'), JSON.stringify([t0.lignes, t1.progression, t2.cartes, refusLea]));
+
+    // ── E bis (121, audit du 16/10, 05 #5). SANS OUVRIR LA GUILDE : mes nombres changent (mon profil déclare désormais
+    // 4 séances par semaine) ; l'app relancée sur la saisie — l'écran Guilde jamais ouvert — les publie, par la file.
+    base.profiles[0].seances_par_semaine = 4;
+    const prevuesAvant = (S.gscores.filter((x) => x.user_id === 'u-banc')[0] || {}).prevues;
+    await aller('/saisie');
+    // Sous charge, le démarrage (synchronisation, profil, puis la file) peut dépasser 12 s : 30 s, et la page finit de
+    // charger avant la navigation suivante (une navigation qui en interrompt une autre laisse des erreurs de page).
+    await attendreQue(async () => (S.gscores.filter((x) => x.user_id === 'u-banc')[0] || {}).prevues === 4, 30000);
+    await attendreQue(fileVide);
+    const prevuesApres = (S.gscores.filter((x) => x.user_id === 'u-banc')[0] || {}).prevues;
+    const ecranGuilde = await page.evaluate(() => !document.getElementById('vue-guilde') || !document.getElementById('vue-guilde').hidden);
+    ok('[guilde] 121 — DISCRIMINANT — l’écran Guilde jamais ouvert, l’app relancée publie mes nombres périmés (5 → 4 séances prévues) par la file',
+      prevuesAvant === 5 && prevuesApres === 4 && !ecranGuilde && S.fuites.length === 0, JSON.stringify([prevuesAvant, prevuesApres, ecranGuilde]));
+    await aller('/jeu/guilde');
+    await attendreQue(async () => !!(await lire()).nom);
 
     // ── F. PARTIR : l'administrateur part, l'administration passe au plus ancien (jordan, entré avant melodie).
     await onglet('membres', async () => (await lire()).lignes.length === 3);
@@ -18302,12 +18363,17 @@ const SETS_IMPORTES = [
       'defis', 'gscores'].forEach((k) => { S[k] = []; });
     base.profiles[0].seances_par_semaine = spsAvant;
     deCote.forEach((s) => base.sessions.push(s));
-    const refusAttendus = ['guildes_nom_cle_uniq', 'guilde_invite_non_mutuel', 'guilde_defis_type', 'guilde_defi_fige'];
-    const refusVus = S.journal.filter((j) => j.op === 'refus').map((j) => j.message);
+    // 121 — et le cinquième : jordan invite lea, qui m'a bloqué (05 #6).
+    const refusAttendus = ['guildes_nom_cle_uniq', 'guilde_invite_non_mutuel', 'guilde_defis_type', 'guilde_defi_fige', 'guilde_bloque'];
+    // 121 (05 #3, #19) — « Inviter jordan » est suivi d'un rechargement (`aller`) : sous charge, l'app peut être rechargée
+    // AVANT d'avoir lu la réponse, et rejouer l'invitation au démarrage ; la base répond alors « déjà membre »
+    // (jordan a rejoint entre-temps). C'est le cas de l'audit, désormais un succès (« fait ») : ce refus de la base est
+    // admis, à condition que l'écran n'ait rien dit (contrôle des Membres, plus haut : aucun « n'a pas pu se faire »).
+    const refusVus = S.journal.filter((j) => j.op === 'refus').map((j) => j.message).filter((m) => !/^guilde_deja_membre$/.test(m));
     await aller('/saisie');
-    ok('[guilde] seuls les quatre refus voulus (nom pris, non-mutuel, tonnage, défi figé) ; la garde de l’app n’a rien signalé, aucune erreur de page',
+    ok('[guilde] seuls les cinq refus voulus (nom pris, non-mutuel, tonnage, défi figé, invité bloqué) ; la garde de l’app n’a rien signalé, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&
-        erreurs.length === erreursAvant && refusVus.length === 4 && refusAttendus.every((r, i) => new RegExp(r).test(refusVus[i])),
+        erreurs.length === erreursAvant && refusVus.length === refusAttendus.length && refusAttendus.every((r, i) => new RegExp(r).test(refusVus[i])),
       JSON.stringify([refusVus, erreurs.slice(erreursAvant)]));
     S.journal = [];
   }
@@ -18564,6 +18630,20 @@ const SETS_IMPORTES = [
     fauxSocial.rpc('u-lea', 'groupe_publier', { p_exercices: null, p_xp: 50 });
     await aller('/');
     await attendreQue(async () => (await compter('#groupe-accueil .g-voir-recap')) === 1);
+    // 121 (audit du 16/10, 05 #4) — HORS LIGNE, le récap du groupe ne se lit pas : la phrase seule, jamais
+    // « 0 t soulevées · 0 séries · 0 records » ni « Fermer ».
+    base.reseau = false;
+    await page.click('#groupe-accueil .g-voir-recap');
+    await attendreQue(async () => /Il faut le réseau/.test(await texte('#groupe-corps')));
+    const recapHL = await texte('#groupe-corps');
+    const fermerHL = await compter('#groupe-fermer');
+    await page.click('#btn-retour-groupe');
+    base.reseau = true;
+    ok('[groupe] 121 — DISCRIMINANT — hors ligne, le récap du groupe dit « Il faut le réseau pour voir le récap du groupe. », sans zéros ni « Fermer »',
+      recapHL === 'Il faut le réseau pour voir le récap du groupe.' && fermerHL === 0 && !/0 t|0 série|Chargement/.test(recapHL),
+      JSON.stringify([recapHL, fermerHL]));
+    await aller('/');
+    await attendreQue(async () => (await compter('#groupe-accueil .g-voir-recap')) === 1);
     await page.click('#groupe-accueil .g-voir-recap');
     await attendreQue(async () => (await compter('#groupe-corps .g-part')) === 3);
     const lireRecap = () => page.evaluate(() => {
@@ -18652,6 +18732,16 @@ const SETS_IMPORTES = [
     await attendreQue(async () => fauxSocial.groupeDe('u-banc') === G4 && (await carte()) && (await carte()).titre === 'Groupe · 2', 12000);
     const maSeance4 = enCours();
     const h1 = await carte();
+    // 121 (audit du 16/10, 05 #12) — HORS LIGNE, « Inviter » (s'entraîner ensemble) : la phrase, jamais « Chargement… » sans fin.
+    base.reseau = false;
+    await page.click('#groupe-seance #groupe-inviter');
+    await attendreQue(async () => /Il faut le réseau/.test(await texte('#groupe-corps')));
+    await attendre(600);
+    const inviterHL = await texte('#groupe-corps');
+    await page.click('#btn-retour-groupe');
+    base.reseau = true;
+    ok('[groupe] 121 — hors ligne, « Inviter » dit « Il faut le réseau pour s’entraîner ensemble. », sans « Chargement… »',
+      inviterHL === 'Il faut le réseau pour s’entraîner ensemble.', JSON.stringify(inviterHL));
     const placeG3 = S.gmembres.filter((m) => m.groupe_id === G3 && m.user_id === 'u-banc')[0];
     const placeG4 = S.gmembres.filter((m) => m.groupe_id === G4 && m.user_id === 'u-banc')[0];
     ok('[groupe] MUTATION 106 (b) — MA séance finie, jordan s’entraîne encore : l’invitation de lea se montre déjà ; je la rejoins avec une ' +
@@ -18680,6 +18770,19 @@ const SETS_IMPORTES = [
     await attendreQue(async () => (await compter('#groupe-corps .g-part')) === 2);
     const h4 = await lireRecap();
     await page.click('#btn-retour-groupe');
+    // 121 (audit du 16/10, 05 #12) — HORS LIGNE, l'app rechargée : la trace « Faite en groupe avec jordan » reste (gardée sur
+    // l'appareil), et son récap figé se rouvre.
+    base.reseau = false;
+    await aller('/seance/' + maSeance3);
+    await attendreQue(async () => (await compter('#detail-groupe-voir')) === 1, 12000);
+    const traceHL = await texte('#detail-groupe');
+    if (traceHL) await page.click('#detail-groupe-voir');
+    await attendreQue(async () => (await compter('#groupe-corps .g-part')) === 2);
+    const recapFigeHL = await lireRecap();
+    if (traceHL) await page.click('#btn-retour-groupe');
+    base.reseau = true;
+    ok('[groupe] 121 — DISCRIMINANT — hors ligne et rechargée, ma séance garde « Faite en groupe avec jordan » (gardée sur l’appareil) et son récap figé',
+      traceHL === 'Faite en groupe avec jordan' && recapFigeHL.parts.length === 2, JSON.stringify([traceHL, recapFigeHL.parts]));
     ok('[groupe] le membre qui ne rouvre JAMAIS l’app (50 min sans série) compte comme terminé : le groupe finit au geste suivant ; 24 h ' +
       'après la fin, ses messages s’effacent ; ma séance garde « Faite en groupe avec jordan » et son récap',
       !!finG3 && messagesG3 === 1 && messagesG3Apres === 0 && h3 === 'Faite en groupe avec jordan' && h4.parts.length === 2 &&

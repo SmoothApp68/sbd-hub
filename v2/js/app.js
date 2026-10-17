@@ -767,6 +767,12 @@
     // 106 — les messages du groupe écrits hors ligne, gardés sur le téléphone : ils partiront au retour du réseau.
     try { grp.file = Social.fileDeMessages(await Cache.lireBrouillon(CLE_FILE_GROUPE)); }
     catch (e) { grp.file = []; }
+    // 121 (05 #5) — ce que l'appareil a déjà fait partir de mes nombres de guilde (comparé au démarrage).
+    try { scoresGuildeConnus = (await Cache.lireMeta(CLE_SCORES_GUILDE)) || null; }
+    catch (e) { scoresGuildeConnus = null; }
+    // 121 (05 #12) — les traces « Faite en groupe avec … » : le détail d'une séance les montre hors ligne.
+    try { grp.traces = Social.tracesDuGroupe(await Cache.lireBrouillon(CLE_TRACES_GROUPE)); }
+    catch (e) { grp.traces = {}; }
     rangerSeances();
     indexerParSeance();
     recalculerEtats();
@@ -874,6 +880,8 @@
     local.connues = {};
     // 106 — le groupe et ses messages gardés appartiennent au compte précédent (leur brouillon vient d'être vidé).
     oublierGroupe();
+    // 121 (05 #13) — le social aussi : ses liens, son badge, sa guilde, ce qu'il a publié.
+    oublierSocial();
 
     // 109 — les objectifs et leurs paris appartiennent au compte précédent.
     local.objectifs = []; local.objectifsDispo = null; local.parisObjectif = [];
@@ -1706,10 +1714,27 @@
   var social = { liens: null, liensBruts: null, liensN: 0, fil: null, filN: 0, medailles: {}, ami: null, recherche: '',
                  resultats: null, jeton: 0, confirmes: [], horloge: 0, refus: null, aRafraichir: null };
 
+  // ⚠️ 121 (audit du 16/10/2026, 05 #13) — LE SOCIAL APPARTIENT AU COMPTE QUI PART (« Quitter », un autre compte qui
+  // entre), comme le groupe (`oublierGroupe`) : ses liens (et le badge des demandes sur l'onglet), son fil, sa guilde,
+  // ses gestes confirmés, ses refus, et ce que l'app sait avoir publié (scores de force, nombres de guilde, le refus
+  // de la charge par la base d'avant v2_091). Sans cela, le badge de A restait sur l'onglet de B, la fin d'une séance
+  // de B publiait parce que A était membre d'une guilde, et B se comparait aux chiffres publiés par A. Le jeton
+  // monte (une lecture en vol pour A ne s'affiche jamais chez B) ; l'horloge des gestes ne redescend pas.
+  function oublierSocial() {
+    social = { liens: null, liensBruts: null, liensN: 0, fil: null, filN: 0, medailles: {}, ami: null, recherche: '',
+               resultats: null, jeton: social.jeton + 1, confirmes: [], horloge: social.horloge, refus: null, aRafraichir: null };
+    scoresPublies = null; baseExigeLaCharge = false; scoresGuildePublies = null; scoresGuildeConnus = null;
+    jetonEntreAmis++;
+    majBadgeSocial();
+  }
+
   // Une lecture qui échoue (hors ligne, le plus souvent) : l'écran dit qu'il faut le réseau pour voir ceci.
+  // 121 (05 #4, #12) — une seule phrase, « Il faut le réseau pour … » : pour voir (une lecture), ou pour faire (un geste
+  // du groupe, `phraseDuReseau`).
+  function phraseDuReseau(action) { return 'Il faut le réseau pour ' + action + '.'; }
   function erreurSociale(e, quoi) {
     console.warn('Social :', texteErreur(e));
-    return 'Il faut le réseau pour voir ' + (quoi || 'le social') + '.';
+    return phraseDuReseau('voir ' + (quoi || 'le social'));
   }
   function tonnesSociales(kg) { return Bilan.tonnesDuRecap(Number(kg) || 0); }
   function allerAmi(pseudo) { allerA(Routeur.AMI, { pseudo: pseudo }); rendreAmi(pseudo); }
@@ -1735,11 +1760,13 @@
       .concat(gestesEnAttente());
   }
   function horsGuilde(d) { return d.geste !== Social.GESTES.GUILDE; }
+  // 121 (05 #5) — une publication de fond (mes nombres de guilde) n'est pas un geste de l'écran.
+  function estPublication(d) { return d.geste === Social.GESTES.SCORES_GUILDE; }
   function estReaction(d) { return d.geste === Social.GESTES.REAGIR || d.geste === Social.GESTES.RETIRER_REACTION; }
   // « En attente du réseau » : une ligne discrète, quand un geste de ce genre attend.
   function ligneEnAttente(filtre) {
     var t = Social.EN_ATTENTE;
-    return gestesEnAttente().some(filtre) ? t.charAt(0).toUpperCase() + t.slice(1) : null;
+    return gestesEnAttente().some(function (d) { return !estPublication(d) && filtre(d); }) ? t.charAt(0).toUpperCase() + t.slice(1) : null;
   }
   // Le refus dit au retour du réseau : montré sur l'écran social ouvert, puis oublié au geste suivant, ou quand on
   // ouvre un écran social après l'avoir vu (pas à la relecture qu'il déclenche lui-même).
@@ -1748,15 +1775,17 @@
   function ouvrirEcranSocial(relecture) { if (!relecture && social.refus && social.refus.vu) social.refus = null; }
 
   // Poser un geste : sur disque d'abord (la file), puis l'écran le montre fait.
-  async function poserGesteSocial(champs) {
+  // `fond` (121, 05 #5) : une publication de fond (mes nombres de guilde) — elle n'efface pas la phrase d'un refus et ne
+  // redessine rien.
+  async function poserGesteSocial(champs, fond) {
     var d = Object.assign({ moi: userId() }, champs);
     if (!Social.gesteValide(d)) { console.warn('Geste social incomplet, ignoré :', JSON.stringify(d)); return; }
-    social.refus = null;
+    if (!fond) social.refus = null;
     // Un geste sur un état (`Social.cleDuGeste`) remplace celui qui attend sur le même état : seul l'état final part.
     var cle = Social.cleDuGeste(d);
     await poser({ table: Attente.SOCIAL, op: Attente.GESTE, id: cle || uuid(), alaFin: !!cle, donnees: d,
       posee_a: new Date().toISOString() });
-    redessinerSocial();
+    if (!fond) redessinerSocial();
   }
   function poserGuilde(fn, args, extra) {
     var g = social.guilde;
@@ -1786,14 +1815,21 @@
     if (d.geste === G.REAGIR) return Donnees.reagir(d.session, moi);
     if (d.geste === G.RETIRER_REACTION) return Donnees.retirerReaction(d.session, moi);
     if (d.geste === G.GUILDE) return Donnees.gesteDeGuilde(d.fn, d.args || {});
+    if (d.geste === G.SCORES_GUILDE) return publierScoresGuildeDeLaFile(d);
     console.warn('Geste social inconnu, retiré de la file :', d.geste);
     return true;
   }
-  function issueSociale(op, erreur) { return Social.issueDuGeste(op.donnees || {}, erreur, (op.essais || 0) > 0); }
+  // 121 (05 #3) — « rejoué » : un envoi PRÉCÉDENT a pu passer (`parti`, écrit avant l'appel, ou un échec déjà constaté).
+  function issueSociale(op, erreur) { return Social.issueDuGeste(op.donnees || {}, erreur, Attente.dejaParti(op)); }
 
   // Ce que la vidange a fait d'un geste : confirmé (ou déjà fait), ou refusé.
   function noterGesteSocial(op, erreur) {
     var d = op.donnees || {};
+    // 121 (05 #5) — une publication de fond : ni phrase, ni relecture (l'écran de la guilde relit ses nombres en s'ouvrant).
+    if (estPublication(d)) {
+      if (erreur) console.warn('Les nombres de guilde n’ont pas pu se publier :', texteErreur(erreur));
+      return;
+    }
     var t = social.aRafraichir || (social.aRafraichir = { relire: false });
     if (erreur) {
       social.refus = { phrase: Social.phraseDuRefus(d, erreur), vu: false };
@@ -1955,7 +1991,7 @@
       bouton: texteBouton ? { texte: texteBouton, sur: function () {
         poserGesteSocial(Object.assign({ geste: G.SABONNER, prive: p.compte_prive !== false, niveau: p.niveau === undefined ? null : p.niveau }, lui));
       } } : null,
-      invitation: Social.invitation(cercle), menu: cercle === Social.MOI ? [] : menu } };
+      menu: cercle === Social.MOI ? [] : menu } };
     if (!Social.voitLeCalendrier(cercle)) {
       vue.cache = cercle === Social.MOI ? null
         : cercle === Social.DEMANDE ? 'Ses séances se voient quand ' + p.pseudo + ' accepte ta demande.'
@@ -2308,13 +2344,46 @@
   ];
   // MES NOMBRES DE GUILDE, publiés seulement s'ils ont changé depuis l'ouverture de l'app (et seulement membre).
   var scoresGuildePublies = null;
+  function mesScoresDeGuilde() {
+    return faits.scoresDeGuilde(corpus(), local.predictions || [], profil.seances_par_semaine, new Date());
+  }
+  // À l'ouverture de la guilde (en direct : la jauge lue juste après doit les contenir).
   async function publierScoresGuilde() {
     var moi = userId();
     if (!moi || !profil) return false;
-    var s = faits.scoresDeGuilde(corpus(), local.predictions || [], profil.seances_par_semaine, new Date());
+    var s = mesScoresDeGuilde();
     if (!Social.scoresGuildeChanges(s, scoresGuildePublies)) return false;
     await Donnees.publierScoresGuilde(moi, s);
     scoresGuildePublies = s;
+    return true;
+  }
+  // ⚠️ 121 (audit du 16/10/2026, 05 #5) — À LA FIN D'UNE SÉANCE ET AU DÉMARRAGE, PAR LA FILE. Ils ne partaient que si
+  // l'écran Guilde avait été ouvert depuis le lancement de l'app (`social.guilde`, en mémoire) : la jauge du défi et la
+  // Progression ignoraient les membres qui s'entraînent sans ouvrir la guilde. Désormais ils sont POSÉS dans la file
+  // (sur disque, rejoués au retour du réseau, le dernier calcul remplace le précédent) dès qu'ils diffèrent de ce que
+  // l'appareil a déjà fait partir (`scoresGuildeConnus`, gardé sur l'appareil : au démarrage, « périmés » = une
+  // semaine, un mois ou des séances que la dernière publication ne connaissait pas). La vidange lit `guilde_moi` :
+  // membre, elle les écrit ; sinon, rien ne part (« quand on me sait membre », §6.2).
+  var CLE_SCORES_GUILDE = 'guilde-scores-connus';
+  var scoresGuildeConnus = null;
+  async function poserScoresGuilde() {
+    var moi = userId();
+    if (!moi || !profil) return false;
+    var s = mesScoresDeGuilde();
+    if (!Social.scoresGuildeChanges(s, scoresGuildeConnus)) return false;
+    await poserGesteSocial({ moi: moi, geste: Social.GESTES.SCORES_GUILDE, scores: s }, true);
+    return true;
+  }
+  async function publierScoresGuildeDeLaFile(d) {
+    var g = await Donnees.guildeMoi();
+    if (g) {
+      await Donnees.publierScoresGuilde(d.moi, d.scores);
+      if (d.moi === userId()) scoresGuildePublies = d.scores;
+    }
+    if (d.moi === userId()) {
+      scoresGuildeConnus = d.scores;
+      await Cache.ecrireMeta(CLE_SCORES_GUILDE, d.scores).catch(function () {});
+    }
     return true;
   }
 
@@ -2334,6 +2403,8 @@
     if (g.onglet === 'membres' && moi.admin !== undefined) await chargerLiens().catch(function () {});
   }
   async function chargerFilGuilde(g) {
+    // 121 (D5) — mes abonnements disent quelles séances je peux ouvrir (« Voir la séance ») ; hors ligne, aucune.
+    await chargerLiens().catch(function () {});
     var fil = Social.filRange(await Donnees.guildeFil());
     await Promise.all(fil.map(function (l) {
       if (social.medailles[l.session_id]) return null;
@@ -2349,14 +2420,25 @@
     montrer('guilde', Routeur.GUILDE);
     ouvrirEcranSocial(relecture === true);
     // La couleur choisie pour « Créer » reste d'une lecture à l'autre (une création refusée se relit sans la perdre).
-    var g = { etat: 'charge', onglet: onglet || (social.guilde && social.guilde.onglet) || 'semaine',
-              couleur: (social.guilde && social.guilde.couleur) || Social.COULEURS_GUILDE[0], n: social.horloge };
+    var avant = social.guilde, n0 = social.horloge;
+    var g = { etat: 'charge', onglet: onglet || (avant && avant.onglet) || 'semaine',
+              couleur: (avant && avant.couleur) || Social.COULEURS_GUILDE[0], n: n0 };
+    // ⚠️ 121 (audit du 16/10/2026, 05 #19) — RELUE APRÈS UN GESTE, L'ÉCRAN GARDE CE QU'IL MONTRE jusqu'à la nouvelle
+    // lecture : la lecture d'avant, et les gestes qu'elle ne contient pas (`g.n` reste le sien le temps de relire). Il
+    // passait par « Chargement… » après chaque geste confirmé (un rang, un défi, une invitation) : l'écran clignotait,
+    // et le banc `guilde` lisait parfois ce « Chargement… » sous charge (sa section instable).
+    if (relecture === true && avant && avant.etat === 'ok') {
+      ['g', 'membres', 'semaine', 'invitations', 'fil', 'progression'].forEach(function (k) { g[k] = avant[k]; });
+      g.etat = 'ok'; g.n = avant.n;
+    }
     social.guilde = g;
     dessinerGuilde();
     try {
       await chargerGuilde(g);
       if (social.guilde !== g) return;
-      g.etat = 'ok';
+      // Le fil n'est relu que sur son onglet (sinon, à l'ouverture de l'onglet, comme avant).
+      if (g.onglet !== 'fil' && avant && g.fil === avant.fil) g.fil = null;
+      g.etat = 'ok'; g.n = n0;
     } catch (e) {
       if (social.guilde !== g) return;
       g.etat = 'erreur'; g.message = erreurSociale(e, 'la guilde');
@@ -2439,7 +2521,11 @@
             quand: Modele.quand(l.debut, maintenant), titre: l.titre || null, tonnes: tonnesSociales(l.tonnage_kg),
             medailles: social.medailles[l.session_id] || [], jaiReagi: !!l.j_ai_reagi,
             surProfil: function () { allerAmi(l.pseudo); },
-            surVoir: function () { social.voirSeance = { pseudo: l.pseudo, session_id: l.session_id, debut: l.debut }; allerAmi(l.pseudo); },
+            // 121 (D5, 05 #11) — « Voir la séance » seulement quand je peux la voir : abonné à son auteur. Sinon, son profil
+            // dirait « Abonne-toi pour voir ses séances. » — une impasse.
+            surVoir: Social.suisAbonne(social.liens, l.user_id) ? function () {
+              social.voirSeance = { pseudo: l.pseudo, session_id: l.session_id, debut: l.debut }; allerAmi(l.pseudo);
+            } : null,
             surReagir: function () {
               poserGesteSocial({ geste: l.j_ai_reagi ? G.RETIRER_REACTION : G.REAGIR, session: l.session_id, pseudo: l.pseudo });
             } };
@@ -2452,10 +2538,12 @@
       var titres = Rendu.JEU_TITRES;
       var monRang = (membres.filter(function (m) { return m.moi; })[0] || {}).rang || Social.RANG_PAR_DEFAUT;
       v.membres = membres.map(function (m) {
-        return { pseudo: m.pseudo, couleur: Social.couleurDuBlason(m.pseudo), ligne: Social.ligneMembre(m, titres), moi: !!m.moi,
-          surProfil: m.moi ? null : function () { allerAmi(m.pseudo); },
-          surRetirer: moi.admin && !m.moi ? function () { poserGuilde('guilde_retirer_membre', { p_user: m.user_id }, { pseudo: m.pseudo }); } : null,
-          surTransmettre: moi.admin && !m.moi ? function () { poserGuilde('guilde_transmettre', { p_user: m.user_id }, { pseudo: m.pseudo }); } : null };
+        // 121 (05 #6) — un membre bloqué arrive sans pseudo (v2_094) : « un membre », sans lien vers un profil.
+        var nomme = m.pseudo || Social.MEMBRE_ANONYME;
+        return { pseudo: m.pseudo || null, couleur: Social.couleurDuBlason(m.pseudo), ligne: Social.ligneMembre(m, titres), moi: !!m.moi,
+          surProfil: m.moi || !m.pseudo ? null : function () { allerAmi(m.pseudo); },
+          surRetirer: moi.admin && !m.moi ? function () { poserGuilde('guilde_retirer_membre', { p_user: m.user_id }, { pseudo: nomme }); } : null,
+          surTransmettre: moi.admin && !m.moi ? function () { poserGuilde('guilde_transmettre', { p_user: m.user_id }, { pseudo: nomme }); } : null };
       });
       v.rangs = Social.RANGS.map(function (r) {
         return { rang: r, actif: r === monRang, sur: function () {
@@ -2510,11 +2598,15 @@
   //     sienne (`groupeDeLaSeance`) : une séance suivante n'en hérite rien — ni carte, ni liste publiée, ni XP, ni départ.
   var grp = { moi: null, etat: [], direct: [], messages: [], invitations: [], envoyees: [], lu: 0, enCours: false,
               muet: false, ouvert: false, ecrire: false, file: [], envoi: null, message: null, publie: null, vue: null,
-              aRejoindre: null, recapAuto: false };
+              aRejoindre: null, recapAuto: false, traces: {} };
   var CLE_FILE_GROUPE = 'groupe-messages';
+  // 121 (05 #12) — les traces « Faite en groupe avec … » de mes séances, gardées sur l'appareil (les 200 dernières).
+  var CLE_TRACES_GROUPE = 'groupe-traces', TRACES_GROUPE_MAX = 200;
   var gardeGroupe = null;
 
-  function messageGroupe(e) {
+  // `action` (121, 05 #12) : ce que l'écran demande au réseau — par défaut, s'entraîner ensemble (inviter, rejoindre :
+  // un geste, pas « voir le social »).
+  function messageGroupe(e, action) {
     var m = String((e && (e.message || e.details)) || '');
     if (/groupe_plein/.test(m)) return 'Le groupe est complet : 6 personnes.';
     if (/groupe_invite_non_mutuel/.test(m)) return 'On n’invite qu’un abonné mutuel.';
@@ -2522,7 +2614,8 @@
     if (/groupe_deja_dans_un|groupe_membres_un_a_la_fois/.test(m)) return 'Tu es déjà dans un groupe.';
     if (/groupe_eteint|groupe_sans_invitation/.test(m)) return 'Ce groupe est terminé.';
     if (/groupe_messages_texte/.test(m)) return 'Un message fait de 1 à 140 caractères.';
-    return erreurSociale(e);
+    console.warn('Groupe :', texteErreur(e));
+    return phraseDuReseau(action || 's’entraîner ensemble');
   }
   // Mes exercices, dans l'ordre de ma séance (une fois chacun) : ce que voit qui « suit » ma séance.
   function exercicesDe(s) {
@@ -2555,7 +2648,7 @@
   function oublierGroupe() {
     grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.invitations = []; grp.envoyees = [];
     grp.file = []; grp.envoi = null; grp.message = null; grp.publie = null; grp.lu = 0; grp.recapAuto = false;
-    grp.aRejoindre = null;
+    grp.aRejoindre = null; grp.traces = {};
   }
 
   // UNE LECTURE : mon groupe, l'état des séances, le direct, les messages — et, libre (sans groupe, ou ma séance du
@@ -2794,7 +2887,8 @@
     var v = grp.vue, vue = { mode: v.mode, message: v.message || null };
     if (v.mode === 'inviter') {
       vue.sous = seance ? (seance.titre || 'Séance') + ' · en cours' : null;
-      if (!social.liens) vue.mode = 'charge';
+      // 121 (05 #12) — la lecture des amis a échoué (hors ligne) : la phrase seule, jamais « Chargement… » sans fin.
+      if (!social.liens) vue.mode = v.message ? 'erreur' : 'charge';
       else {
         vue.amis = Social.invitablesDuGroupe(social.liens, grp.etat, grp.envoyees).map(function (a) {
           return { pseudo: a.pseudo, invite: a.invite, sous: a.invite ? 'invité · en attente' : null,
@@ -2822,7 +2916,8 @@
         vue.choix.push({ cle: 'vide', titre: 'Séance vide', sur: function () { rejoindreAvec(i, {}); } });
       }
     } else if (v.mode === 'recap' || v.mode === 'fige') {
-      if (!v.lignes) vue.mode = 'charge';
+      // 121 (05 #4) — le récap n'a pas pu se lire : la phrase seule, jamais « 0 t · 0 séries · 0 records ».
+      if (!v.lignes) vue.mode = v.message ? 'erreur' : 'charge';
       else {
         var r = Social.recapDuGroupe(v.lignes);
         var d = v.le ? new Date(v.le) : null;
@@ -2944,7 +3039,7 @@
     var v = grp.vue;
     Donnees.groupeRecap().then(function (l) {
       v.lignes = l; v.le = l.length ? l[0].le : null;
-    }).catch(function (e) { v.message = messageGroupe(e); v.lignes = []; }).then(dessinerVueGroupe);
+    }).catch(function (e) { v.message = messageGroupe(e, 'voir le récap du groupe'); v.lignes = null; }).then(dessinerVueGroupe);
   }
   // FERMER le récap du groupe : il se fige pour moi (lisible depuis ma séance) ; le dernier éteint le groupe.
   async function fermerRecapGroupe() {
@@ -2952,7 +3047,7 @@
     try {
       await Donnees.groupeFermer();
     } catch (e) {
-      if (v) { v.message = messageGroupe(e); dessinerVueGroupe(); }
+      if (v) { v.message = messageGroupe(e, 'fermer le récap du groupe'); dessinerVueGroupe(); }
       return;
     }
     // 106 — les messages encore gardés pour ce groupe ne partiront plus (je l'ai fermé).
@@ -2972,18 +3067,41 @@
   }
 
   // Le détail d'une séance faite en groupe : « Faite en groupe avec jordan, lea », et le récap figé.
+  //
+  // ⚠️ 121 (audit du 16/10/2026, 05 #12) — LA TRACE EST GARDÉE SUR L'APPAREIL (`grp.traces`, le brouillon
+  // `CLE_TRACES_GROUPE`) : « La séance garde la trace « Faite en groupe avec … » » (SOCIAL §7) — hors ligne aussi. Elle
+  // n'existait qu'en base : hors ligne, la ligne disparaissait du détail sans rien dire. La lecture de la base la
+  // remplace dès qu'elle revient (un compte supprimé y devient « un ancien membre ») ; « Quitter » et un autre compte
+  // l'effacent avec le reste du cache. C'est MON récap, lisible par moi seul (`groupe_recaps`).
+  function dessinerTraceDuGroupe(cible, sessionId, r) {
+    var texte = r && r.recap ? Social.faiteEnGroupeAvec(r.recap.membres) : null;
+    if (!texte) return false;
+    Rendu.rendreGroupeDuDetail(cible, { texte: texte, surVoir: function () {
+      ouvrirVueGroupe({ mode: 'fige', retourDetail: sessionId, lignes: r.recap.membres || [], le: r.le });
+    } });
+    return true;
+  }
   function rendreGroupeDuDetail(sessionId) {
     var cible = $('detail-groupe');
     Rendu.rendreGroupeDuDetail(cible, null);
     if (!sessionId || !userId()) return;
+    var garde = grp.traces[sessionId] || null;
+    if (garde) dessinerTraceDuGroupe(cible, sessionId, garde);
     Donnees.groupeRecapSeance(sessionId).then(function (r) {
+      if (r && r.recap) garderTraceDuGroupe(sessionId, { recap: { membres: r.recap.membres || [] }, le: r.le || null });
       if (ecranCourant !== 'detail' || !r || !r.recap) return;
-      var texte = Social.faiteEnGroupeAvec(r.recap.membres);
-      if (!texte) return;
-      Rendu.rendreGroupeDuDetail(cible, { texte: texte, surVoir: function () {
-        ouvrirVueGroupe({ mode: 'fige', retourDetail: sessionId, lignes: r.recap.membres || [], le: r.le });
-      } });
-    }).catch(function () { /* hors ligne : rien à dire */ });
+      dessinerTraceDuGroupe(cible, sessionId, r);
+    }).catch(function () { /* hors ligne : la trace gardée reste (ou rien, si la séance n'a jamais été vue en groupe) */ });
+  }
+  function garderTraceDuGroupe(sessionId, trace) {
+    var t = Object.assign({}, grp.traces);
+    t[sessionId] = trace;
+    var cles = Object.keys(t);
+    if (cles.length > TRACES_GROUPE_MAX) cles.slice(0, cles.length - TRACES_GROUPE_MAX).forEach(function (k) { delete t[k]; });
+    grp.traces = t;
+    return Cache.ecrireBrouillon(CLE_TRACES_GROUPE, t).catch(function (e) {
+      console.warn('La trace du groupe ne se garde pas sur l’appareil :', texteErreur(e));
+    });
   }
 
   // ── Trouver des amis (＋) ──
@@ -3299,6 +3417,14 @@
         // séries et ses paris derrière elle dans cette même boucle. Si le
         // renvoi échoue encore, l'entrée reste EN ÉCHEC, à retenter comme une
         // coupure : jamais bloquée, jamais abandonnée en silence.
+        // 121 (audit du 16/10, 05 #3) — un geste social est marqué « peut-être parti » SUR LE DISQUE avant l'appel :
+        // relu après un rechargement, son « déjà fait » sera un succès, pas un faux refus. `op` reste la copie d'avant
+        // la marque : c'est elle que `issueSociale` lit (un PREMIER envoi n'est jamais « rejoué »).
+        if (op.table === Attente.SOCIAL && !op.parti) {
+          attente = Attente.marquerParti(attente, op.cle);
+          await Cache.ecrireAttente(attente).catch(function () {});
+          if (!generationValide(g)) return;
+        }
         var echec = await Attente.envoyer(op, executer, refermerSeancesSauf);
         // « Quitter » pendant l'aller-retour : la file de ce compte est déjà
         // vidée, on n'y réécrit rien.
@@ -4193,8 +4319,9 @@
     publierJeu(null);
     // 89 — mes scores de force aussi (seulement s'ils ont changé) ; hors ligne, ils partiront à la prochaine ouverture.
     publierScoresForce().catch(function (err) { console.warn('Les scores de force attendent le réseau :', texteErreur(err)); });
-    // 90 — mes nombres de guilde aussi, si l'on me sait membre (sinon, ils partent à l'ouverture de la guilde).
-    if (social.guilde && social.guilde.g) publierScoresGuilde().catch(function (err) { console.warn('Les nombres de guilde attendent le réseau :', texteErreur(err)); });
+    // 90 — mes nombres de guilde aussi. 121 (05 #5) : par la file, que l'écran Guilde ait été ouvert ou non (la vidange
+    // ne les écrit que si je suis membre).
+    poserScoresGuilde().catch(function (err) { console.warn('Les nombres de guilde ne se posent pas :', texteErreur(err)); });
     // 91 — mon XP de la séance part au groupe (nulle jeu éteint) ; le récap du groupe viendra après le mien.
     publierFinPourLeGroupe(finie, jeuDuRecap);
     seance = null; chrono = null; arreterMinuteur();
@@ -5406,6 +5533,13 @@
   // Le banc lit ce que la garde a vu (le nombre de plans vérifiés) ; rien
   // d'autre ne le relit.
   Plan.garde = garde;
+  // 121 (audit du 16/10/2026, 05 #18) — LA GARDE DU SOCIAL : hors production, chaque lecture d'un autre compte (les
+  // fonctions `social_*`, `guilde_*`, `groupe_*`) passe `Social.champsInterditsDans` ; une donnée interdite (poids de
+  // corps, note, RPE, ressenti, douleur) est une violation S1 de la garde (console, marqueur, et le banc la voit).
+  Donnees.inspecterLectures(garde.active ? function (nom, donnees) {
+    var trouves = Social.champsInterditsDans(donnees);
+    if (trouves.length) garde.signaler(['S1 — « ' + nom + ' » rend une donnée interdite : ' + trouves.join(', ')], { lecture: nom });
+  } : null);
   // §14.4 (49-U14) — `?escalier=demo` se lit AU DÉMARRAGE, avant que le
   // routeur ne réécrive l'adresse ; il est ensuite retenu pour la session.
   try { demoEscalier(); } catch (e) { /* rien à retenir */ }
@@ -11708,6 +11842,11 @@
     // mesure unitaire ne voit pas une seconde de plus, l'écran si.
     // Le profil sait se rendre tout seul quand il arrive.
     var profilLu = chargerProfil();
+    // 121 (05 #5) — mes nombres de guilde, s'ils sont périmés (une semaine, un mois, des séances que la dernière
+    // publication ne connaissait pas) : par la file, une fois le profil lu (ses séances prévues).
+    Promise.resolve(profilLu).then(function () {
+      if (sessionActive && idDeSession(sessionActive) === userId) return poserScoresGuilde();
+    }).catch(function (err) { console.warn('Les nombres de guilde ne se posent pas :', texteErreur(err)); });
     // La séance `en_cours` restée en base est déjà résolue (ch. 36, D7) : la
     // vérification ci-dessus a précédé la synchronisation. Et si elle a échoué,
     // le conflit se résout à la vidange elle-même.
@@ -11756,6 +11895,8 @@
     // 106 — le groupe aussi, et ses messages gardés hors ligne (leur brouillon vient d'être vidé) : les envoyer au nom du
     // compte suivant serait parler à sa place.
     oublierGroupe();
+    // 121 (05 #13) — et le social du compte qui part (liens, badge des demandes, guilde, ce qu'il a publié).
+    oublierSocial();
     // Le profil appartient au compte qui part, et son envoi en attente avec lui :
     // rejouer une modification de profil sur le compte suivant serait pire que
     // de la perdre.

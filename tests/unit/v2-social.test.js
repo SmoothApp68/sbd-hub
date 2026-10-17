@@ -32,9 +32,11 @@ describe('social.js — les cercles et ce qu’ils montrent', () => {
     expect(['inconnu', 'demande', 'suivi', 'mutuel'].map(Social.voitLeCalendrier)).toEqual([false, false, true, true]);
     expect(['inconnu', 'demande', 'suivi', 'mutuel'].map(Social.voitLeDetail)).toEqual([false, false, false, true]);
   });
-  test('« Inviter dans un groupe » : inactif partout (étage 3) ; « Bientôt » en mutuel, la condition sinon', () => {
-    expect(Social.invitation('mutuel')).toEqual({ actif: false, sous: 'Bientôt' });
-    expect(Social.invitation('suivi')).toEqual({ actif: false, sous: 'Abonnez-vous l’un à l’autre pour l’inviter.' });
+  test('121 (05 #10) — plus de « Inviter dans un groupe » sur le profil : le groupe se lance depuis la séance, la guilde depuis ses Membres', () => {
+    expect(Social.invitation).toBeUndefined();
+    const fs = require('fs'), path = require('path');
+    const rendu = fs.readFileSync(path.join(__dirname, '../../v2/js/rendu.js'), 'utf8');
+    expect(rendu).not.toMatch(/Inviter dans un groupe|social-inviter|s-inviter-sous/);
   });
   test('le bouton : s’abonner, suivre en retour — rien une fois abonné ou en demande', () => {
     expect(Social.boutonDe(p(null, false), 'inconnu')).toBe('S’abonner');
@@ -572,5 +574,50 @@ describe('89 — le coach et les bilans ne lisent rien du social', () => {
         const src = fs.readFileSync(path.join(__dirname, '../../v2/js', f), 'utf8');
         expect([f, /THSocial|scores_force|social_[a-z]/.test(src)]).toEqual([f, false]);
       });
+  });
+});
+
+// ── 121 (audit du 16/10/2026, 05 #18) — la garde « aucune donnée interdite » garde enfin quelque chose ─────────────
+describe('121 — `champsInterditsDans` branchée sur les lectures d’un autre compte, hors production', () => {
+  const fs = require('fs'), path = require('path');
+  function donneesAvec(reponses) {
+    const appels = [];
+    global.THClient = { obtenir: () => ({ rpc: (nom) => { appels.push(nom); return Promise.resolve({ data: reponses[nom], error: null }); } }) };
+    let D;
+    jest.isolateModules(() => { D = require('../../v2/js/donnees.js'); });
+    return { D, appels };
+  }
+  test('⚠️ DISCRIMINANT — une lecture du social, de la guilde ou du groupe qui porterait un RPE ou un poids passe par l’inspecteur ; une autre lecture non', async () => {
+    const { D } = donneesAvec({
+      social_detail_seance: [{ exercise_slug: 'squat', charge_kg: 100, reps: 5, rpe: 9 }],
+      guilde_fil: [{ session_id: 's', pseudo: 'lea', poids_corps_kg: 61 }],
+      groupe_direct: [{ pseudo: 'jordan', charge_kg: 100 }],
+      pseudo_libre: true
+    });
+    const vus = [];
+    D.inspecterLectures((nom, d) => { const t = Social.champsInterditsDans(d); if (t.length) vus.push(nom + ':' + t.join(',')); });
+    await D.socialDetailSeance('s');
+    await D.guildeFil();
+    await D.groupeDirect();
+    await D.pseudoPris('x').catch(() => {});
+    expect(vus).toEqual(['social_detail_seance:rpe', 'guilde_fil:poids_corps_kg']);
+    // Un inspecteur qui lève ne casse pas la lecture.
+    D.inspecterLectures(() => { throw new Error('garde'); });
+    expect(await D.socialDetailSeance('s')).toHaveLength(1);
+    // Sans inspecteur (la production) : rien.
+    D.inspecterLectures(null);
+    expect(await D.guildeFil()).toHaveLength(1);
+  });
+  test('l’app pose l’inspecteur seulement quand la garde est active, et signale par la garde du coach (S1)', () => {
+    const app = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+    expect(app).toMatch(/Donnees\.inspecterLectures\(garde\.active \? function \(nom, donnees\) \{\s*var trouves = Social\.champsInterditsDans\(donnees\);\s*if \(trouves\.length\) garde\.signaler\(\['S1 — /);
+    const Plan = require('../../v2/js/plan.js');
+    const marques = [];
+    const active = Plan.creerGarde({ location: { hostname: 'localhost', search: '' }, journal: { error: () => {} }, marquer: (v) => marques.push(v.length) });
+    expect(active.active).toBe(true);
+    expect(active.signaler(['S1 — « guilde_fil » rend une donnée interdite : rpe']).violations).toHaveLength(1);
+    expect([active.etat().violations, marques]).toEqual([['S1 — « guilde_fil » rend une donnée interdite : rpe'], [1]]);
+    const prod = Plan.creerGarde({ location: { hostname: 'sbd-hub.fr', search: '' } });
+    expect([prod.active, prod.signaler(['S1 — x'])]).toEqual([false, null]);
   });
 });

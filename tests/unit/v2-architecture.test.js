@@ -2285,7 +2285,14 @@ const REGISTRE_ECRITURES = [
   { fn: 'publierScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_PUBLICATION },
   { fn: 'retirerScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_PUBLICATION },
   // ── 90 (SOCIAL-V1 « Guilde ») — mes nombres de guilde (`guilde_scores`, v2_080), déjà calculés sur l'appareil.
-  { fn: 'publierScoresGuilde', chemin: 'liste-blanche', appelants: ['app.js:publierScoresGuilde'], raison: RAISON_PUBLICATION },
+  { fn: 'publierScoresGuilde', chemin: 'liste-blanche', appelants: ['app.js:publierScoresGuilde', 'app.js:publierScoresGuildeDeLaFile'],
+    raisons: {
+      'app.js:publierScoresGuilde': RAISON_PUBLICATION + ' — à l’ouverture de la guilde, en direct (la jauge lue juste après les contient)',
+      // 121 (audit du 16/10, 05 #5) — à la fin d'une séance et au démarrage : par la file (`poserScoresGuilde` →
+      // `executerGesteSocial`), seulement membre (`guilde_moi`).
+      'app.js:publierScoresGuildeDeLaFile': RAISON_PUBLICATION + ' — à la fin d’une séance et au démarrage, PAR LA FILE ' +
+        '(`executerGesteSocial`), seulement si je suis membre'
+    } },
   // `executer` : une réponse du chantier 26 encore en file (une ligne, des champs) — par la file, elle aussi.
   { fn: 'majExercice', chemin: 'liste-blanche', appelants: ['routines.js:appliquerPlan', 'app.js:executer'], raison: RAISON_BIBLIOTHEQUE }
 ];

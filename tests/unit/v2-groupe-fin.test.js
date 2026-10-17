@@ -61,6 +61,14 @@ describe('106 — social.js : libre pour un autre groupe ; la file des messages 
     expect(Social.fileDeMessages('abîmé')).toEqual([]);
     expect(Social.fileDeMessages({ id: 'm-1' })).toEqual([]);
   });
+  test('121 (05 #12) — les traces « Faite en groupe avec … » relues du cache : seulement des entrées complètes ; un cache abîmé ne casse rien', () => {
+    const t = { recap: { membres: [{ pseudo: 'jordan', moi: false }, { pseudo: 'banc', moi: true }] }, le: iso(T0) };
+    expect(Social.tracesDuGroupe({ s1: t, s2: { recap: { membres: 'non' } }, s3: null, s4: { recap: { membres: [null] } },
+      s5: { recap: { membres: [] }, le: 3 } })).toEqual({ s1: t, s5: { recap: { membres: [] }, le: null } });
+    expect(Social.tracesDuGroupe(null)).toEqual({});
+    expect(Social.tracesDuGroupe([t])).toEqual({});
+    expect(Social.tracesDuGroupe('abîmé')).toEqual({});
+  });
   test('« N messages partiront au retour du réseau. » — ceux de CE groupe seulement', () => {
     const file = [{ id: 'a', groupe_id: 'g-1', texte: 'a' }, { id: 'b', groupe_id: 'g-2', texte: 'b' }, { id: 'c', groupe_id: 'g-1', texte: 'c' }];
     expect(Social.texteEnAttente(file, 'g-1')).toBe('2 messages partiront au retour du réseau.');

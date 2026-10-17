@@ -223,6 +223,26 @@ describe('90 — faits.scoresDeGuilde : mes nombres publiés', () => {
     neuf.catalogue = () => index;
     expect(Faits.creer().scoresDeGuilde(neuf, [], 4, MAINTENANT).series_moyenne).toBe(0);
   });
+  test('⚠️ DISCRIMINANT (121, suite du 119) — une sortie (tapis seul) n’est ni une séance de la guilde, ni un exercice de sa Progression', () => {
+    const tapis = { slug: 'tapis', nom: 'Tapis', mesure: 'duree_distance', muscles_primaires: [] };
+    const squat = { slug: 'squat', nom: 'Squat', mesure: 'charge_reps', muscles_primaires: ['quadriceps'] };
+    // Cette semaine : une séance de squat (avec du tapis) et deux sorties de tapis seul ; le tapis est fait 3 fois
+    // dans le mois, le squat 2 fois.
+    const c3 = corpus([
+      ['m0', j(12), [['q0', 'squat', 100, 5], ['q1', 'tapis', null, null]]],
+      ['m1', j(13), [['q2', 'tapis', null, null]]],
+      ['m2', j(14, 9), [['q3', 'tapis', null, null]]],
+      ['m3', j(6), [['q4', 'squat', 100, 5]]]
+    ], []);
+    // La sortie a une durée et une distance (pas de charge × reps) : c'est bien une série de travail du journal.
+    c3.series.filter((x) => x.exercise_slug === 'tapis').forEach((x) => { x.duree_s = 1800; x.distance_m = 5000; });
+    const index = Modele.indexerExercices([tapis, squat]);
+    c3.catalogue = () => index;
+    expect(c3.series.filter((x) => x.exercise_slug === 'tapis').every((x) => Modele.estTravail(x))).toBe(true);
+    const s = Faits.creer().scoresDeGuilde(c3, [], 4, MAINTENANT);
+    // Avant 121 : 3 séances (les deux sorties comptaient) et 2 exercices (le tapis, 3 séances, comptait).
+    expect([s.seances, s.exercices, s.series_semaine]).toEqual([1, 1, 1]);
+  });
   test('séances prévues : le profil d’abord ; vide, la médiane de l’historique (`habitudes`) ; sans rien, 0', () => {
     const f = Faits.creer();
     const h = f.habitudes(c);
@@ -444,5 +464,167 @@ describe('120 — v2_093 : le texte de la migration dit ce que l’app et le fau
     expect(MIGRATION_093).toMatch(/^BEGIN;$/m);
     expect(MIGRATION_093).toMatch(/^COMMIT;$/m);
     expect(MIGRATION_093).not.toMatch(/CREATE POLICY|ALTER POLICY|DROP POLICY/);
+  });
+});
+
+// ── 121 (audit du 16/10/2026, 05 #5) — mes nombres de guilde partent PAR LA FILE, écran Guilde ouvert ou non ─────────
+describe('121 — `poserScoresGuilde` / `publierScoresGuildeDeLaFile` : à la fin d’une séance et au démarrage', () => {
+  const vm = require('vm');
+  const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+  const extraire = (nom) => {
+    const m = APP.match(new RegExp('^  (async )?function ' + nom + '\\b[\\s\\S]*?^  }', 'm'));
+    if (!m) throw new Error('introuvable : ' + nom);
+    return m[0];
+  };
+  const SCORES = { semaine: '2026-10-12', seances: 2, prevues: 4, records_semaine: 1, mois: '2026-10-01', exercices: 3,
+    exercices_record: 1, series_semaine: 20, series_moyenne: 18 };
+  function bac(o) {
+    const j = { poses: [], publies: [], meta: [] };
+    const ctx = {
+      Social, Attente: { SOCIAL: 'social', GESTE: 'geste' }, console: { warn: () => {} },
+      userId: () => 'u-moi', profil: { seances_par_semaine: 4 }, social: { refus: { phrase: 'garde-moi' } },
+      faits: { scoresDeGuilde: () => Object.assign({}, SCORES, o.calcul || {}) }, corpus: () => ({}), local: {},
+      uuid: () => 'x', scoresGuildeConnus: o.connus === undefined ? null : o.connus, scoresGuildePublies: null,
+      poser: (op) => { j.poses.push(op); return Promise.resolve(); }, redessinerSocial: () => { j.redessine = true; },
+      Donnees: { guildeMoi: () => Promise.resolve(o.membre ? { id: 'g-1' } : null),
+        publierScoresGuilde: (moi, s) => { j.publies.push([moi, s]); return Promise.resolve(true); } },
+      Cache: { ecrireMeta: (k, v) => { j.meta.push([k, v]); return Promise.resolve(); } }, CLE_SCORES_GUILDE: 'guilde-scores-connus'
+    };
+    vm.createContext(ctx);
+    ['mesScoresDeGuilde', 'poserGesteSocial', 'poserScoresGuilde', 'publierScoresGuildeDeLaFile'].forEach((n) => vm.runInContext(extraire(n), ctx));
+    return { ctx, j, run: (code) => vm.runInContext(code, ctx) };
+  }
+  test('⚠️ DISCRIMINANT — écran Guilde jamais ouvert (`social.guilde` absent) : mes nombres sont POSÉS dans la file, une seule clé ; rien d’autre ne change à l’écran', async () => {
+    const b = bac({});
+    expect(await b.run('poserScoresGuilde()')).toBe(true);
+    expect(b.j.poses).toHaveLength(1);
+    const op = b.j.poses[0];
+    expect([op.table, op.op, op.id, op.alaFin, op.donnees.geste]).toEqual(['social', 'geste', 'scores_guilde|u-moi', true, 'scores_guilde']);
+    expect(op.donnees.scores).toEqual(SCORES);
+    // Une publication de fond : la phrase d'un refus reste, rien n'est redessiné.
+    expect([b.ctx.social.refus.phrase, b.j.redessine]).toEqual(['garde-moi', undefined]);
+  });
+  test('au démarrage : rien n’est posé si l’appareil les a déjà fait partir ; une semaine, un mois ou une séance de plus : posés', async () => {
+    expect(await bac({ connus: SCORES }).run('poserScoresGuilde()')).toBe(false);
+    expect(await bac({ connus: SCORES, calcul: { semaine: '2026-10-19' } }).run('poserScoresGuilde()')).toBe(true);
+    expect(await bac({ connus: SCORES, calcul: { seances: 3 } }).run('poserScoresGuilde()')).toBe(true);
+  });
+  test('la vidange : membre, elle les écrit ; sinon rien ne part — et l’appareil retient ce qu’il a traité', async () => {
+    const d = { moi: 'u-moi', geste: 'scores_guilde', scores: SCORES };
+    const m = bac({ membre: true });
+    m.ctx.__d = d;
+    await m.run('publierScoresGuildeDeLaFile(__d)');
+    expect(m.j.publies).toEqual([['u-moi', SCORES]]);
+    expect([m.ctx.scoresGuildePublies, m.ctx.scoresGuildeConnus, m.j.meta]).toEqual([SCORES, SCORES, [['guilde-scores-connus', SCORES]]]);
+    const n = bac({ membre: false });
+    n.ctx.__d = d;
+    await n.run('publierScoresGuildeDeLaFile(__d)');
+    expect(n.j.publies).toEqual([]);
+    // Pas membre : rien de publié en base (l'ouverture de la guilde publiera en direct), mais l'appareil sait l'avoir traité.
+    expect([n.ctx.scoresGuildePublies, n.ctx.scoresGuildeConnus]).toEqual([null, SCORES]);
+  });
+  test('la fin d’une séance pose (plus de condition « écran Guilde ouvert ») ; le démarrage pose une fois le profil lu', () => {
+    expect(APP).not.toMatch(/if \(social\.guilde && social\.guilde\.g\) publierScoresGuilde\(\)/);
+    expect(extraire('terminerSeance').match(/poserScoresGuilde\(\)/g) || []).toHaveLength(1);
+    expect(extraire('entrerVraiment')).toMatch(/profilLu[\s\S]*poserScoresGuilde\(\)/);
+    expect(Social.gesteValide({ moi: 'u', geste: 'scores_guilde', scores: SCORES })).toBe(true);
+    expect(Social.gesteValide({ moi: 'u', geste: 'scores_guilde', scores: { semaine: 'x' } })).toBe(false);
+  });
+});
+
+// ── 121 (D5, décision d'Aurélien du 16/10/2026 ; audit 05 #6, #7, #11) — la guilde respecte le compte privé et le blocage ──
+describe('121 — la guilde, le compte privé (D5) et le blocage (05 #6) : la base (v2_094), le faux serveur, l’écran', () => {
+  const MIGRATION_094 = fs.readFileSync(path.join(__dirname, '../../v2-atelier/migrations-proposees/v2_094_guilde_prive_bloque.sql'), 'utf8');
+  // moi (privé) ; jordan (mutuel) ; melodie (PRIVÉE, mutuelle de jordan, pas la mienne) ; pub (PUBLIC, que je ne suis pas) ;
+  // olga (mutuelle de jordan) — tous dans la guilde de jordan, sauf olga.
+  function decor(options) {
+    const base = { profiles: [{ id: 'u-moi', username: 'moi', compte_prive: true }], sessions: [], sets: [], records: [] };
+    const f = FauxSocial.creer(base, Object.assign({ moi: 'u-moi' }, options || {}));
+    [['jordan', true], ['melodie', true], ['pub', false], ['olga', true]].forEach(([p, prive]) =>
+      f.etat.profils.push({ id: 'u-' + p, username: p, compte_prive: prive, jeu_actif: true, jeu_titre: 'athlete' }));
+    const ab = (a, b) => f.etat.abonnements.push({ suiveur: a, suivi: b, statut: 'accepte' });
+    const mutuels = (a, b) => { ab(a, b); ab(b, a); };
+    mutuels('u-moi', 'u-jordan'); mutuels('u-jordan', 'u-melodie'); mutuels('u-jordan', 'u-pub'); mutuels('u-jordan', 'u-olga');
+    const g = f.rpc('u-jordan', 'guilde_creer', { p_nom: 'Les Fers', p_couleur: '#b39ad1' });
+    ['u-moi', 'u-melodie', 'u-pub'].forEach((u) => { f.rpc('u-jordan', 'guilde_inviter', { p_user: u }); f.rpc(u, 'guilde_repondre', { p_guilde: g, p_rejoindre: true }); });
+    const d = new Date().toISOString();
+    ['jordan', 'melodie', 'pub'].forEach((p) => {
+      f.etat.sessions.push({ id: 's-' + p, user_id: 'u-' + p, titre: 'Séance de ' + p, debut: d, fin: d, statut: 'terminee', visibilite: 'mutuels' });
+      f.etat.sets.push({ id: 't-' + p, session_id: 's-' + p, exercise_slug: 'squat', rang: 1, charge_kg: 100, reps: 5, type_serie: 'travail' });
+      f.etat.records.push({ set_id: 't-' + p, session_id: 's-' + p, battu_le: d, exercise_slug: 'squat', type: 'charge_max', valeur: 100 });
+      f.etat.gscores.push({ user_id: 'u-' + p, semaine: f.lundiCourant(), seances: 1, prevues: 2, records_semaine: 1, mois: f.moisCourant(),
+        exercices: 2, exercices_record: 1 });
+    });
+    return { f, g };
+  }
+  const fil = (f) => f.rpc('u-moi', 'guilde_fil').map((l) => l.pseudo).sort();
+  test('⚠️ DISCRIMINANT (D5) — un membre non abonné ne voit au fil ni les séances ni les médailles d’un compte privé ; un compte public, oui ; abonné accepté, oui', () => {
+    const { f } = decor();
+    expect(fil(f)).toEqual(['jordan', 'pub']);
+    expect(f.rpc('u-moi', 'guilde_records_seance', { p_session: 's-melodie' })).toEqual([]);
+    expect(f.rpc('u-moi', 'guilde_records_seance', { p_session: 's-pub' })).toHaveLength(1);
+    // Les chiffres de la guilde comptent toujours melodie : la Progression la nomme, « La guilde cette semaine » compte sa séance.
+    expect(f.rpc('u-moi', 'guilde_progression').map((x) => x.pseudo)).toContain('melodie');
+    expect(f.rpc('u-moi', 'guilde_semaine')[0].seances).toBe(3);
+    // Une demande ne suffit pas ; acceptée, la séance revient.
+    f.etat.abonnements.push({ suiveur: 'u-moi', suivi: 'u-melodie', statut: 'demande' });
+    expect(fil(f)).toEqual(['jordan', 'pub']);
+    f.etat.abonnements.filter((x) => x.suiveur === 'u-moi' && x.suivi === 'u-melodie')[0].statut = 'accepte';
+    expect(fil(f)).toEqual(['jordan', 'melodie', 'pub']);
+  });
+  test('avant v2_094 (la base d’aujourd’hui) : le fil de la guilde rend tout — l’app marche des deux côtés de la migration', () => {
+    const { f } = decor({ v2_094: false });
+    expect(fil(f)).toEqual(['jordan', 'melodie', 'pub']);
+  });
+  test('⚠️ DISCRIMINANT (05 #6) — je bloque melodie : « un membre » (ni pseudo, ni rang, ni titre ; l’identifiant reste), hors de la Progression et du fil ; dans les deux sens', () => {
+    const { f } = decor();
+    f.etat.blocages.push({ bloqueur: 'u-moi', bloque: 'u-melodie' });
+    const m = f.rpc('u-moi', 'guilde_liste_membres');
+    expect(m).toHaveLength(4);
+    expect(m.filter((x) => x.user_id === 'u-melodie')[0]).toMatchObject({ pseudo: null, rang: null, titre: null });
+    expect(m.map((x) => Social.ligneMembre(x, { athlete: 'Athlète' }))).toEqual(['jordan · Novice · Athlète', 'moi · Novice', 'un membre', 'pub · Novice · Athlète']);
+    expect(f.rpc('u-moi', 'guilde_progression').map((x) => x.pseudo)).not.toContain('melodie');
+    expect(f.rpc('u-melodie', 'guilde_liste_membres').filter((x) => x.user_id === 'u-moi')[0].pseudo).toBeNull();
+    expect(f.rpc('u-melodie', 'guilde_progression').map((x) => x.pseudo)).not.toContain('moi');
+    // Avant v2_094 : nommée, comme aujourd'hui.
+    const avant = decor({ v2_094: false }).f;
+    avant.etat.blocages.push({ bloqueur: 'u-moi', bloque: 'u-melodie' });
+    expect(avant.rpc('u-moi', 'guilde_liste_membres').map((x) => x.pseudo)).toContain('melodie');
+  });
+  test('⚠️ DISCRIMINANT (05 #6) — un tiers n’invite pas quelqu’un que j’ai bloqué (ou qui m’a bloqué) ; une invitation d’avant le blocage est tue et refusée à l’entrée', () => {
+    const { f, g } = decor();
+    f.etat.blocages.push({ bloqueur: 'u-olga', bloque: 'u-moi' });
+    expect(f.rpc('u-jordan', 'guilde_inviter', { p_user: 'u-olga' }).message).toBe('guilde_bloque');
+    f.etat.invitations.push({ guilde_id: g, invite: 'u-olga', invitant: 'u-jordan', cree_le: 99 });
+    expect(f.rpc('u-olga', 'guilde_invitations_recues')).toEqual([]);
+    expect(f.rpc('u-olga', 'guilde_repondre', { p_guilde: g, p_rejoindre: true }).message).toBe('guilde_bloque');
+    f.etat.blocages = [];
+    expect(f.rpc('u-olga', 'guilde_invitations_recues')).toHaveLength(1);
+    expect(f.rpc('u-olga', 'guilde_repondre', { p_guilde: g, p_rejoindre: true })).toBeNull();
+  });
+  test('l’écran : « un membre » ; bloquer met à jour aussitôt (Membres, Progression) ; « Voir la séance » seulement pour qui je suis', () => {
+    expect(Social.ligneMembre({ pseudo: null, rang: null }, {})).toBe('un membre');
+    const lu = { g: { nom: 'Les Fers', admin: false, membres: 3 }, membres: [{ user_id: 'u-moi', pseudo: 'moi', moi: true, rang: 'Novice' },
+      { user_id: 'u-melodie', pseudo: 'melodie', rang: 'Tireur', titre: 'athlete' }], semaine: null, invitations: [], fil: [
+      { session_id: 's-melodie', user_id: 'u-melodie', pseudo: 'melodie', debut: '2026-10-14T10:00:00Z' }],
+      progression: [{ pseudo: 'melodie', moi: false }, { pseudo: 'moi', moi: true }] };
+    const o = Social.guildeAvecGestes(lu, [{ moi: 'u-moi', geste: Social.GESTES.BLOQUER, autre: 'u-melodie', pseudo: 'melodie' }], 'u-moi');
+    expect(o.membres[1]).toMatchObject({ user_id: 'u-melodie', pseudo: null, rang: null, titre: null });
+    expect(o.progression.map((x) => x.pseudo)).toEqual(['moi']);
+    expect(o.fil).toEqual([]);
+    const liens = Social.liensRanges([{ user_id: 'u-jordan', pseudo: 'jordan', lien: 'abonnement' }, { user_id: 'u-pub', pseudo: 'pub', lien: 'demande_envoyee' }]);
+    expect([Social.suisAbonne(liens, 'u-jordan'), Social.suisAbonne(liens, 'u-pub'), Social.suisAbonne(null, 'u-jordan')]).toEqual([true, false, false]);
+  });
+  test('v2_094 : une transaction, la décision mot pour mot, aucune politique ; le fil, les médailles, les membres, la Progression, l’invitation et l’entrée', () => {
+    expect(MIGRATION_094).toMatch(/^BEGIN;$/m);
+    expect(MIGRATION_094).toMatch(/^COMMIT;$/m);
+    expect(MIGRATION_094).toContain('« on ne voit pas si privé (privé compte que pour les\n--    inconnus, pas amis, donc guilde ne voit pas le détail) »');
+    expect(MIGRATION_094).not.toMatch(/CREATE POLICY|ALTER POLICY|DROP POLICY/);
+    expect(MIGRATION_094).toMatch(/AND guilde_commune\(auth\.uid\(\), s\.user_id\)\s*\n\s*AND guilde_voit_seances\(auth\.uid\(\), s\.user_id\)/);
+    expect(MIGRATION_094).toMatch(/AND guilde_commune\(auth\.uid\(\), s\.user_id\) AND guilde_voit_seances\(auth\.uid\(\), s\.user_id\) \$f\$/);
+    expect(MIGRATION_094).toMatch(/OR NOT coalesce\(\(SELECT p\.compte_prive FROM profiles p WHERE p\.id = p_auteur\), true\)/);
+    expect(MIGRATION_094).toMatch(/a\.suiveur = p_lecteur AND a\.suivi = p_auteur AND a\.statut = 'accepte'/);
+    expect((MIGRATION_094.match(/RAISE EXCEPTION 'guilde_bloque'/g) || []).length).toBe(2);
+    expect(MIGRATION_094).toMatch(/AND \(x\.user_id = auth\.uid\(\) OR NOT social_bloque\(auth\.uid\(\), x\.user_id\)\)/);
   });
 });

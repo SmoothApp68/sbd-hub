@@ -708,10 +708,12 @@ const NOTIONS = [
       'proposée (MOTEUR §14), en isolation seulement — le plan la lit (`polyarticulaireDe`), et la démonstration ' +
       '`?escalier=degressive` de l’app y choisit son exercice (`degressiveDeDemo`).' },
   { notion: 'le débutant (« Moins d’un an » d’ancienneté)', pr: '111-U1',
-    module: 'profil.js', fonction: 'estDebutant', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['entreeDeLaSemaine', 'debutantDeLaSeance'] },
+    module: 'profil.js', fonction: 'estDebutant', lecteurs: ['app.js', 'generateur.js'],
+    parAilleurs: { 'app.js': ['entreeDeLaSemaine', 'debutantDeLaSeance'], 'generateur.js': ['generer', 'neVeuxPas'] },
+    interditAilleurs: { motif: /(['"])moins_1_an\1\s*[;)]|===\s*(['"])moins_1_an\2/,
+      raison: 'le débutant écrit en dur (« moins_1_an » comparé ou posé seul) : passer par `Profil.estDebutant`' },
     raison: 'la semaine qui déraille et la dégressive proposée (MOTEUR §14, jamais pour un débutant) lisent la même ' +
-      'règle ; le générateur garde la sienne (60-6), à rapatrier.' },
+      'règle ; 124 (audit du 16/10/2026, 01 #14) : le générateur (60-6) la lit aussi — sa copie est retirée.' },
   { notion: 'les écarts d’une séance avec une routine (§6.3, et « Mettre à jour » depuis une séance)', pr: '52-U1',
     module: 'seance.js', fonction: 'ecartsRoutine', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreFeuilleFin', 'apercuMiseAJour'] },

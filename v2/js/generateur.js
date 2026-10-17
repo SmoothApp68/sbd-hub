@@ -101,8 +101,8 @@
   // ne sont proposés qu'en dernier recours — quand ni le motif, ni son voisin, ni un exercice déjà pris ailleurs dans la
   // semaine ne donne autre chose (jamais retirés pour de bon : la place ne reste pas vide à cause d'eux).
   var PDC_LOURD = ['tractions', 'releve_de_genoux_suspendu', 'rowing_inverse'];
-  // Débutant = `anciennete === 'moins_1_an'` (la clé du profil) ; absente ou inconnue : pas débutant.
-  var DEBUTANT = 'moins_1_an';
+  // Débutant : la règle du profil (`THProfil.estDebutant`, « Moins d'un an ») — une définition, lue ici (124, audit du
+  // 16/10/2026, 01 #14) ; absente ou inconnue : pas débutant.
 
   // Les deux élastiques passent avant tout au poids du corps (décidé le 08/10/2026, question 3).
   var ELASTIQUES = ['rowing_elastique', 'tirage_vertical_elastique'];
@@ -287,7 +287,7 @@
     var faits = p.faits || {};
     var ecartes = liste(p.ecartes);
     var ok = faisable(catalogue, p.materiel, faits);
-    var debutant = p.anciennete === DEBUTANT;
+    var debutant = racine.THProfil.estDebutant(p);
     var gabarit = GABARITS[bornerJours(p.jours)];
     // Les principaux de la semaine d'abord (ils prennent la barre), puis les secondaires, puis le reste ; un exercice
     // n'est pris qu'une fois dans la semaine tant qu'il y a le choix.
@@ -353,7 +353,7 @@
     nouveau[r].exercices.forEach(function (x) { pris[x.exercise_slug] = true; });
     // `pris` = les exercices de CETTE séance : le repli ne les reprend jamais (60-6, S6) ; le débutant reste débutant.
     var s = choisir(vieux.motif, faisable(catalogue, p.materiel, faits), ecartes, pris, p.menager, faits, p.materiel,
-                    p.anciennete === DEBUTANT, pris);
+                    racine.THProfil.estDebutant(p), pris);
     if (s === null) {
       nouveau[r].exercices.splice(k, 1);                    // rien au catalogue : la place disparaît
     } else {

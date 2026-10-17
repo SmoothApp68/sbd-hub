@@ -12324,7 +12324,13 @@
   // en sort est exactement le genre de défaut qu'aucun test unitaire ne voit.
   async function poserProfil(champs) {
     var ecrits = Profil.champsEcrits(champs);
+    var etaitCarnet = !!profil && Moteur.coachSeTait(profil.intention);
     profil = Object.assign({}, profil || {}, ecrits);
+    // Audit du 16/10/2026, 01 #11 — revenu du carnet en Progresser : la date des objectifs posés en carnet se
+    // calcule maintenant, une fois (sans attendre l'envoi du profil).
+    if (etaitCarnet && !Moteur.coachSeTait(profil.intention)) {
+      projeterObjectifsDuCarnet().catch(function (e) { console.warn('Objectifs du carnet :', texteErreur(e)); });
+    }
     versionProfil++;
     // Un pseudo choisi remet l'état « pris entre-temps » à zéro : le prochain refus, s'il y en a un, le reposera.
     if (champs && Object.prototype.hasOwnProperty.call(champs, 'username')) effacerPseudoPris(userId());
@@ -12828,7 +12834,12 @@
     if (pr.etat === 'hors_salle') return Objectif.phraseHorsSalle(pr);
     var pariId = pr.etat === 'date' ? await Moteur.idDObjectif(slug, pose) : null;
     var ligne = Objectif.ligneDe(slug, lu.charge, lu.reps, pose, pr, uid, pariId);
-    var pari = Objectif.pariDe(ligne, pr, uid, pariId);
+    await ecrireObjectif(slug, ligne, Objectif.pariDe(ligne, pr, uid, pariId));
+    return null;
+  }
+
+  // Le pari part avant la ligne ; aucun ne dépend de l'autre. Local d'abord (le cache), puis la file.
+  async function ecrireObjectif(slug, ligne, pari) {
     local.objectifs = (local.objectifs || []).filter(function (l) { return l && l.exercise_slug !== slug; }).concat([ligne]);
     await Cache.ecrireBrouillon(CLE_OBJECTIFS, { dispo: true, lignes: local.objectifs }).catch(function () {});
     if (pari) {
@@ -12837,7 +12848,42 @@
       await poser({ table: Attente.PREDICTIONS, op: Attente.UPSERT, id: pari.id, depend: pari.id, donnees: pari });
     }
     await poser({ table: Attente.OBJECTIFS, op: Attente.UPSERT, id: slug, donnees: ligne });
-    return null;
+  }
+
+  // Audit du 16/10/2026, 01 #11 — LE RETOUR EN PROGRESSER : un objectif posé en « Juste un carnet » reçoit sa date
+  // UNE fois, au retour (`poserProfil`, quand l'intention passe du carnet à Progresser), et son pari est posé à ce
+  // moment-là (`THObjectif.ligneAuRetour`). Atteint entre-temps : rien (la carte dit « Atteint le … »). Une seule
+  // passe à la fois : deux bascules rapides ne posent pas deux paris.
+  var retourEnCours = null;
+  function projeterObjectifsDuCarnet() {
+    if (!retourEnCours) {
+      retourEnCours = projeterObjectifsDuCarnetUneFois().finally(function () { retourEnCours = null; });
+    }
+    return retourEnCours;
+  }
+  async function projeterObjectifsDuCarnetUneFois() {
+    if (local.objectifsDispo !== true || !profil || coachSeTaitIci()) return;
+    var uid = userId();
+    if (!uid) return;
+    var index = Modele.indexerExercices(local.exercices);
+    var carnet = (local.objectifs || []).filter(function (l) { return l && l.projection === 'carnet'; });
+    for (var i = 0; i < carnet.length; i++) {
+      var l = carnet[i], slug = l.exercise_slug, exo = index[slug];
+      if (!Objectif.possible(exo)) continue;
+      var seances = seancesPourObjectif(faits.seancesDeLExercice(corpus(), slug));
+      if (Objectif.atteinte(seances, l)) continue;
+      var maintenant = new Date(), pose = maintenant.toISOString();
+      var pr = Objectif.projection({
+        seances: seances, charge: Number(l.charge_kg), reps: Number(l.reps), maintenant: maintenant,
+        anciennete: profil.anciennete, options: Modele.optionsDeRecord(exo), carnet: false,
+        salle: Profil.salleDeLExercice(profil, slug, index)
+      });
+      var pariId = pr.etat === 'date' ? await Moteur.idDObjectif(slug, pose) : null;
+      var ligne = Objectif.ligneAuRetour(l, pr, pariId);
+      if (!ligne || coachSeTaitIci()) continue;
+      var pari = Objectif.pariDe({ exercise_slug: slug, charge_kg: l.charge_kg, reps: l.reps, pose_le: pose }, pr, uid, pariId);
+      await ecrireObjectif(slug, ligne, pari);
+    }
   }
 
   // RETIRER : la ligne s'efface ; son pari reste, et s'observe comme les autres.

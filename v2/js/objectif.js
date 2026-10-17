@@ -277,6 +277,22 @@
     };
   }
 
+  // ══ LE RETOUR EN PROGRESSER : LA DATE SE CALCULE UNE FOIS, ALORS ════════════════════════════════════════════
+  //
+  // Audit du 16/10/2026, 01 #11 (prompt 122). Un objectif posé en « Juste un carnet » n'a ni date ni pari
+  // (`projection = 'carnet'`) ; revenu en Progresser, la page disait « Pas encore de date. » — qui veut dire « pas
+  // assez d'historique » — alors que la date n'avait jamais été calculée. Au retour en Progresser, la date se calcule
+  // UNE fois (`pr` : `projection`, sans le carnet, à l'instant du retour) et le pari se pose à ce moment-là (l'app :
+  // `pariDe` avec `pose_le` = l'instant du retour). La ligne garde sa pose (le moment où la personne l'a posé, qui
+  // décide de la série qui l'atteint) et son départ (la jauge) ; seuls la projection, l'échéance et le pari changent.
+  // Rend la ligne réécrite, ou `null` : pas un objectif du carnet, ou rien à projeter (déjà fait).
+  function ligneAuRetour(o, pr, pariId) {
+    if (!o || o.projection !== 'carnet' || !pr || pr.etat === 'carnet' || pr.etat === 'deja') return null;
+    var etat = PROJECTIONS.indexOf(pr.etat) >= 0 ? pr.etat : 'pas_encore';
+    return Object.assign({}, o, { projection: etat, echeance: etat === 'date' ? pr.echeance : null,
+                                  pari_id: etat === 'date' ? (pariId || null) : null });
+  }
+
   // ══ ATTEINT : LA PREMIÈRE SÉRIE QUI FAIT L'OBJECTIF, APRÈS LA POSE ═══════════════════════════════════════════
   //
   // Une série de travail de l'exercice, à la charge de l'objectif ou plus, pour ses reps ou plus, faite après la
@@ -425,7 +441,8 @@
     GRANDEUR: GRANDEUR, VERSION: VERSION, PLAFONDS: PLAFONDS, PLAFOND_PAR_DEFAUT: PLAFOND_PAR_DEFAUT,
     JOURS_PAR_MOIS: JOURS_PAR_MOIS, SEMAINES_MIN: SEMAINES_MIN, RECORDS_MIN: RECORDS_MIN, MOIS_MAX: MOIS_MAX,
     PAS_ENCORE: PAS_ENCORE, PLUS_D_UN_AN: PLUS_D_UN_AN, PARI: PARI,
-    projection: projection, pariDe: pariDe, ligneDe: ligneDe, atteinte: atteinte, observationDe: observationDe,
+    projection: projection, pariDe: pariDe, ligneDe: ligneDe, ligneAuRetour: ligneAuRetour, atteinte: atteinte,
+    observationDe: observationDe,
     estTenu: estTenu, vue: vue, phraseDeSaisie: phraseDeSaisie, lireSaisie: lireSaisie, phraseDejaFait: phraseDejaFait,
     phraseHorsSalle: phraseHorsSalle,
     possible: possible, haussesDuRecord: haussesDuRecord, plafondDe: plafondDe, joursEntre: joursEntre

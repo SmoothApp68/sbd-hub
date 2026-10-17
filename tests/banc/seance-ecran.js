@@ -22578,6 +22578,37 @@ const SETS_IMPORTES = [
         nbO((await carteO()) || {}).indexOf('Poser un objectif') >= 0, nbO([base.objectifs, await carteO()]));
     await B.fermer();
 
+    // ── 7. (122, audit du 16/10/2026, 01 #11) POSÉ EN « JUSTE UN CARNET », PUIS RETOUR EN PROGRESSER : la date se
+    // calcule au retour, une fois, et le pari est posé à ce moment-là. Avant : « Pas encore de date. », sans pari.
+    base.sessions = base.sessions.filter((x) => x.id !== 'o109-6');
+    base.sets = base.sets.filter((x) => x.session_id !== 'o109-6');
+    base.objectifs = [];
+    const parisO7 = base.predictions.filter((x) => x.module === 'objectif').length;
+    const intentionAvant7 = base.profiles[0].intention;
+    base.profiles[0].intention = 'entretien';
+    const C7 = await ouvrirO('O109-carnet', new Date(2026, 9, 16, 12, 0, 0));
+    await carteApres();
+    await feuilleO(150, 1);
+    await jusqua(async () => base.objectifs.length === 1, 8000);
+    const l7 = Object.assign({}, base.objectifs[0] || {});
+    ok('[O109] posé en « Juste un carnet » : la ligne `objectifs` sans date ni pari (projection « carnet »)',
+      l7.projection === 'carnet' && !l7.echeance && !l7.pari_id && base.predictions.filter((x) => x.module === 'objectif').length === parisO7,
+      nbO([l7, base.predictions.filter((x) => x.module === 'objectif').length, parisO7]));
+    await page.click('.onglet[data-vue="profil"]');
+    await attendre(900);
+    await page.click('.p-seg button[data-cle="progresser"]');
+    await jusqua(async () => base.profiles[0].intention === 'progresser' && (base.objectifs[0] || {}).projection === 'date' &&
+      base.predictions.filter((x) => x.module === 'objectif').length === parisO7 + 1, 10000);
+    const r7 = base.objectifs[0] || {};
+    const pari7 = base.predictions.filter((x) => x.module === 'objectif' && x.id === r7.pari_id)[0] || {};
+    await aller('/exercice/squat-o109');
+    const c7 = (await carteO()) || {};
+    ok('[O109] revenu en Progresser : la date se calcule une fois (« Au rythme actuel : fin avril. »), le pari est posé alors (196 jours) ; la pose est gardée',
+      r7.projection === 'date' && r7.echeance === '2027-04-30' && r7.pose_le === l7.pose_le && pari7.valeur_predite === 196 &&
+        nbO(c7.ligne) === nbO('Au rythme actuel : fin avril.'), nbO([r7, pari7.valeur_predite, c7]));
+    await C7.fermer();
+    base.profiles[0].intention = intentionAvant7;
+
     // LA REMISE EN ÉTAT.
     page = pageBanc;
     CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);

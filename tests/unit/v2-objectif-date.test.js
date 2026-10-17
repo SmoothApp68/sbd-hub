@@ -344,3 +344,30 @@ describe('audit du 16/10/2026, 01 #3 — l’objectif lit Ma salle (MOTEUR §10 
     expect(poser({ salle: droite, seances: rowing, charge: 90, reps: 8 }).etat).not.toBe('hors_salle');
   });
 });
+
+describe('audit du 16/10/2026, 01 #11 — posé en « Juste un carnet », la date se calcule au retour en Progresser, une fois', () => {
+  const poseCarnet = '2026-09-01T10:00:00.000Z';
+  const carnet = () => O.ligneDe('squat', 150, 1, poseCarnet, projeter({ carnet: true }), 'u', null);
+  test('posé en carnet : ni date ni pari ; revenu en Progresser, la page disait « Pas encore de date. »', () => {
+    const l = carnet();
+    expect([l.projection, l.echeance, l.pari_id]).toEqual(['carnet', null, null]);
+    expect(O.vue({ objectif: l, seances: HISTOIRE(), options: BARRE, maintenant: MAINTENANT, carnet: false }).ligne).toBe(O.PAS_ENCORE);
+  });
+  test('⚠️ DISCRIMINANT — au retour : la date projetée à l’instant du retour, le pari posé alors ; la pose et le départ gardés', () => {
+    const l = carnet();
+    const pr = projeter({});
+    const r = O.ligneAuRetour(l, pr, 'pari-retour');
+    expect([r.projection, r.echeance, r.pari_id, r.pose_le, r.depart_kg]).toEqual(['date', '2027-04-30', 'pari-retour', poseCarnet, l.depart_kg]);
+    expect(O.vue({ objectif: r, seances: HISTOIRE(), options: BARRE, maintenant: MAINTENANT, carnet: false }).ligne)
+      .toBe('Au rythme actuel\u00a0: fin avril.');
+    const pari = O.pariDe({ exercise_slug: 'squat', charge_kg: 150, reps: 1, pose_le: MAINTENANT.toISOString() }, pr, 'u', 'pari-retour');
+    expect([pari.emise_a, pari.fondement.pose_le, pari.valeur_predite]).toEqual([MAINTENANT.toISOString(), MAINTENANT.toISOString(), 196]);
+  });
+  test('une fois : une ligne qui n’est plus du carnet ne se reprojette pas ; « déjà fait » ne change rien', () => {
+    const r = O.ligneAuRetour(carnet(), projeter({}), 'p');
+    expect(O.ligneAuRetour(r, projeter({}), 'p2')).toBeNull();
+    expect(O.ligneAuRetour(carnet(), projeter({ charge: 140 }), 'p')).toBeNull();
+    const pe = O.ligneAuRetour(carnet(), projeter({ seances: HISTOIRE().slice(-2) }), 'p');
+    expect([pe.projection, pe.pari_id]).toEqual(['pas_encore', null]);
+  });
+});

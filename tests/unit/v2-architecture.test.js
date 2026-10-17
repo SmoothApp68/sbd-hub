@@ -207,7 +207,9 @@ const LE_COACH = 'plan.js';
 const AUTORISATIONS = {
   projection: {
     'app.js': 'MOTEUR §9.25 (109) : l’objectif se pose sur la page d’exercice, hors séance — donc sans plan ; la date ' +
-      'se projette UNE fois, à la pose (app.js, `poserObjectif`), et la ligne `objectifs` la garde figée.'
+      'se projette UNE fois, à la pose (app.js, `poserObjectif`), et la ligne `objectifs` la garde figée — ou, pour un ' +
+      'objectif posé en « Juste un carnet », UNE fois au retour en Progresser (app.js, `projeterObjectifsDuCarnet`, ' +
+      'audit du 16/10/2026, 01 #11).'
   },
   vue: {
     'app.js': 'MOTEUR §9.25 (109) : la carte « Mon objectif » de la page d’exercice relit l’objectif posé (sa date ' +

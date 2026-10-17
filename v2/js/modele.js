@@ -378,6 +378,13 @@
   var JOURS_DEPUIS_LUNDI = Object.freeze(JOURS.slice(1).concat(JOURS[0]));
   var JOURS_COURTS = Object.freeze(JOURS_DEPUIS_LUNDI.map(function (j) { return j.charAt(0).toUpperCase() + j.slice(1, 3); }));
   var INITIALES_JOURS = Object.freeze(JOURS_DEPUIS_LUNDI.map(function (j) { return j.charAt(0).toUpperCase(); }));
+  // 124 (audit du 16/10/2026, 06 #16) — LES QUATRE BARRES, UNE FOIS : dans l'ordre de la spec (squat, couché, soulevé,
+  // militaire — les bilans, le parcours, la relecture de la semaine), et leur nom court. L'ordre de « Ce que je sais »
+  // (écran 3a du questionnaire, et le jeu qui lit les mêmes maximums) met le couché d'abord : les mêmes slugs, rangés.
+  var BARRES = Object.freeze(['squat_barre', 'developpe_couche_barre', 'souleve_de_terre_barre', 'developpe_militaire_barre']);
+  var BARRES_DE_CE_QUE_JE_SAIS = Object.freeze([BARRES[1], BARRES[0], BARRES[2], BARRES[3]]);
+  var NOM_DE_BARRE = Object.freeze({ squat_barre: 'squat', developpe_couche_barre: 'couché',
+                                     souleve_de_terre_barre: 'soulevé', developpe_militaire_barre: 'militaire' });
   var JOURS_NOMMES = 6;
 
   function jourLocal(iso) {
@@ -2080,6 +2087,9 @@
     JOURS_DEPUIS_LUNDI: JOURS_DEPUIS_LUNDI,
     JOURS_COURTS: JOURS_COURTS,
     INITIALES_JOURS: INITIALES_JOURS,
+    BARRES: BARRES,
+    BARRES_DE_CE_QUE_JE_SAIS: BARRES_DE_CE_QUE_JE_SAIS,
+    NOM_DE_BARRE: NOM_DE_BARRE,
     JOURS_NOMMES: JOURS_NOMMES,
     anciennete: anciennete,
     formatDuree: formatDuree,

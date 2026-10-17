@@ -876,13 +876,14 @@
   // slug absent du catalogue d'une personne est simplement sans effet. Les six
   // muscles sont les ZONES de `semaine.js` (par leur `cle`), dans l'ordre du
   // radar (`periode.js`) : lus là, jamais recopiés — un libellé par zone.
-  var EXERCICES_PRIORITAIRES = [
-    { cle: 'squat_barre', libelle: 'Squat' },
-    { cle: 'developpe_couche_barre', libelle: 'Couché' },
-    { cle: 'souleve_de_terre_barre', libelle: 'Soulevé' },
-    { cle: 'developpe_militaire_barre', libelle: 'Militaire' },
-    { cle: 'tractions', libelle: 'Tractions' }
-  ];
+  // 124 (audit du 16/10/2026, 06 #16) — les quatre barres et leur nom court sont écrits une fois, dans `THModele`.
+  function exercicesPrioritaires() {
+    var M = racine.THModele;
+    return M.BARRES.map(function (b) {
+      var n = M.NOM_DE_BARRE[b];
+      return { cle: b, libelle: n.charAt(0).toUpperCase() + n.slice(1) };
+    }).concat([{ cle: 'tractions', libelle: 'Tractions' }]);
+  }
   var PRIORITES_MAX = 3;
 
   function musclesPrioritaires() {
@@ -903,7 +904,7 @@
   function prioritesValides(liste) {
     if (!Array.isArray(liste)) return null;
     var connues = {};
-    EXERCICES_PRIORITAIRES.concat(musclesPrioritaires()).forEach(function (x) { connues[x.cle] = true; });
+    exercicesPrioritaires().concat(musclesPrioritaires()).forEach(function (x) { connues[x.cle] = true; });
     var vues = {}, sortie = [];
     liste.forEach(function (c) {
       if (sortie.length >= PRIORITES_MAX || !connues[c] || vues[c]) return;
@@ -949,7 +950,7 @@
   }
 
   function libelleDePriorite(cle) {
-    return libelleDe(EXERCICES_PRIORITAIRES, cle) || libelleDe(musclesPrioritaires(), cle) || cle;
+    return libelleDe(exercicesPrioritaires(), cle) || libelleDe(musclesPrioritaires(), cle) || cle;
   }
 
   // Ce que la ligne « Priorités » montre : `null` (pas répondu → « à renseigner »),
@@ -1731,7 +1732,7 @@
     ECARTES_MAX: ECARTES_MAX, ecartesValides: ecartesValides, ecartesDe: ecartesDe, ecartesALaFin: ecartesALaFin,
     DOSSIER_PROGRAMME_MAX: DOSSIER_PROGRAMME_MAX, dossierDuProgrammeValide: dossierDuProgrammeValide,
     PHRASE_PSEUDO_PRIS: PHRASE_PSEUDO_PRIS, pseudoDeLInscription: pseudoDeLInscription, lignePseudo: lignePseudo,
-    EXERCICES_PRIORITAIRES: EXERCICES_PRIORITAIRES, PRIORITES_MAX: PRIORITES_MAX,
+    get EXERCICES_PRIORITAIRES() { return exercicesPrioritaires(); }, PRIORITES_MAX: PRIORITES_MAX,
     musclesPrioritaires: musclesPrioritaires, prioritesValides: prioritesValides,
     DUREE_MIN: DUREE_MIN, DUREE_MAX: DUREE_MAX,
     preparerChamps: preparerChamps,

@@ -538,9 +538,12 @@
   // La référence est `tests/unit/fixtures/relire66.py` (Claude.ai, 10/10/2026) ; ses dix cas, `cas-66-relire.json`,
   // sont rejoués à l'identique par `tests/unit/v2-relire-semaine.test.js`. Un cas qui semble faux se rapporte.
 
-  // Les quatre barres, dans l'ordre de la spec, et leur nom court.
-  var BARRES = [['squat_barre', 'Squat'], ['developpe_couche_barre', 'Couché'], ['souleve_de_terre_barre', 'Soulevé'],
-                ['developpe_militaire_barre', 'Militaire']];
+  // Les quatre barres, dans l'ordre de la spec, et leur nom court : écrits une fois, dans `THModele` (124, audit du
+  // 16/10/2026, 06 #16) — `modele.js` se charge avant ce module.
+  var BARRES = racine.THModele.BARRES.map(function (b) {
+    var n = racine.THModele.NOM_DE_BARRE[b];
+    return [b, n.charAt(0).toUpperCase() + n.slice(1)];
+  });
   var SQUAT = BARRES[0][0], COUCHE = BARRES[1][0], MILITAIRE = BARRES[3][0];
   // Squat ÷ couché : le repère et sa lecture sont ceux de « Ton parcours » (`THParcours.repereSquatCouche`,
   // carnets de pratiquants ; 76, 12/10/2026 — plus les moyennes de compétition). Aucune table ici.

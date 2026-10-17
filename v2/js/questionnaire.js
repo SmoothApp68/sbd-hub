@@ -309,9 +309,9 @@
   // Les séances (« 164 séances · depuis mai 2025 »), le rythme, la durée
   // habituelle, les maximums aux barres, les autres activités : ce que dit
   // `faits.ceQueJeSais`, mis en mots. Une ligne dont le fait manque n'existe pas.
-  var BARRES = ['developpe_couche_barre', 'squat_barre', 'souleve_de_terre_barre', 'developpe_militaire_barre'];
-  var NOMS_DES_BARRES = { developpe_couche_barre: 'couché', squat_barre: 'squat',
-                          souleve_de_terre_barre: 'soulevé', developpe_militaire_barre: 'militaire' };
+  // Les barres et leur nom court : écrits une fois, dans `THModele` (124, audit du 16/10/2026, 06 #16).
+  var BARRES = racine.THModele.BARRES_DE_CE_QUE_JE_SAIS;
+  var NOMS_DES_BARRES = racine.THModele.NOM_DE_BARRE;
 
   function majuscule(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 

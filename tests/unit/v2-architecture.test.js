@@ -2747,3 +2747,42 @@ describe('architecture — la carte des écritures (73, audit 72)', () => {
     expect(GESTES_BIBLIOTHEQUE.filter((g) => g.geste === 'creerRoutineDepuisSeance')[0].raison).toBe('à passer par la file (noté le 11/10)');
   });
 });
+
+// ── 124 (audit du 16/10/2026, 06 #15-16, 01 #14) — LES CONSTANTES RECOPIÉES ─────────────────────────────────────
+// Une valeur partagée s'écrit une fois, dans son module (`ou`), et se lit partout ailleurs. `motif` : la trace d'une
+// recopie (une liste écrite en dur), cherchée dans le source sans les commentaires (chaînes gardées) de tous les
+// fichiers servis sauf `ou`.
+const CONSTANTES = [
+  { quoi: 'les quatre barres (squat, couché, soulevé, militaire)', ou: 'modele.js',
+    motif: /(['"])(?:squat_barre|developpe_couche_barre)\1\s*,\s*(['"])(?:developpe_couche_barre|squat_barre)\2/ }
+];
+
+describe('architecture — une constante partagée ne s’écrit qu’une fois (124)', () => {
+  const FICHIERS = perimetre();
+
+  test('⚠️ aucune recopie hors de son module', () => {
+    const fautes = [];
+    CONSTANTES.forEach((c) => {
+      FICHIERS.forEach((f) => {
+        if (f.nom === c.ou) return;
+        const code = nettoyer(f.src, true);
+        const m = new RegExp(c.motif.source, 'g');
+        let x;
+        while ((x = m.exec(code)) !== null) fautes.push(c.quoi + ' : recopiées dans ' + f.nom + ', ligne ' + ligneDe(code, x.index) + ' — lis `' + c.ou + '`');
+      });
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('chaque constante existe bien dans son module (la garde lit le vrai source)', () => {
+    const parNom = {};
+    FICHIERS.forEach((f) => { parNom[f.nom] = f; });
+    CONSTANTES.forEach((c) => expect([c.quoi, new RegExp(c.motif.source).test(nettoyer(parNom[c.ou].src, true))]).toEqual([c.quoi, true]));
+  });
+
+  test('la garde se lit vraiment : une liste recopiée se voit, la lecture non', () => {
+    const voit = (i, t) => new RegExp(CONSTANTES[i].motif.source).test(t);
+    expect(voit(0, "var BARRES = ['developpe_couche_barre', 'squat_barre', 'souleve_de_terre_barre'];")).toBe(true);
+    expect(voit(0, "var BARRES = racine.THModele.BARRES;")).toBe(false);
+  });
+});

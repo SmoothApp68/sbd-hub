@@ -1480,7 +1480,7 @@ const NOTIONS = [
   { notion: 'la zone force (Lourd, Mix)', pr: '124-U2',
     module: 'moteur.js', fonction: 'estZoneForce', lecteurs: ['plan.js', 'app.js'],
     par: ['marcheIsoleeBrute', 'degressivePossible'],
-    interditAilleurs: { motif: /(['"])lourd\1\s*,\s*(['"])mix\2|===\s*(['"])lourd\3\s*\|\|[^;]*===\s*(['"])mix\4/,
+    interditAilleurs: { motif: /(['"])lourd\1\s*,\s*(['"])mix\2|===\s*(['"])lourd\3\s*\|\|[^;]*===\s*(['"])mix\4|!==\s*(['"])lourd\5\s*&&[^;]*!==\s*(['"])mix\6/,
       raison: 'la zone force écrite en dur (« lourd », « mix ») : passer par `Moteur.estZoneForce`' },
     raison: 'audit du 16/10/2026 (06 #16, 01 #14) : `ZONES_FORCE` et `ZONES_DE_BLOC` étaient deux listes identiques dans ' +
       'le moteur, et « lourd ou mix » s’écrivait en littéral dans le plan (la série de plus, I23, I48) et la démonstration.' },
@@ -2844,5 +2844,7 @@ describe('architecture — une constante partagée ne s’écrit qu’une fois (
     expect(zf.test("var Z = ['lourd', 'mix'];")).toBe(true);
     expect(zf.test("if (Moteur.estZoneForce(c.zone)) return;")).toBe(false);
     expect(zf.test("if (k.zone === 'lourd' && elans.length > 1) {")).toBe(false);
+    expect(zf.test("o = charge && zone !== 'lourd' && zone !== 'mix' && !!zone;")).toBe(true);
+    expect(zf.test("if (reglage === 'franc' && zone.cle !== 'lourd') {")).toBe(false);
   });
 });

@@ -1510,7 +1510,7 @@
     var charge = isFinite(palier) && palier > 0;
     var remplacant = M.remplacantAuPlafond(remplacantsDe(e, slug), plafond.charge);
     var objets = {};
-    objets[M.MARCHE_SERIE_DE_PLUS] = charge && zone !== 'lourd' && zone !== 'mix' && !!zone && phase !== 'seche' &&
+    objets[M.MARCHE_SERIE_DE_PLUS] = charge && !M.estZoneForce(zone) && !!zone && phase !== 'seche' &&
       placeDeLExercice(e, slug, phase) === true;
     objets[M.MARCHE_DEGRESSIVE] = charge &&
       M.degressivePossible(conditionsDegressive(e, seance, slug, zone, phase, esc, intentionProfil));

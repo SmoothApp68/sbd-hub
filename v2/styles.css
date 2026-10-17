@@ -2374,3 +2374,6 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .salle-ajout{display:flex;gap:var(--e2);align-items:center;margin:0 0 var(--e2)}
 .salle-ajout input{width:96px;height:36px;box-sizing:border-box;background:var(--panneau);color:var(--texte);
   border:1.5px solid var(--trait);border-radius:10px;padding:0 var(--e2);font:inherit}
+/* 123 — les tranches d'haltères : « Pas d'haltères », « Retirer cette tranche », « + Une tranche ». */
+.salle-sans{margin-bottom:var(--e2)}
+.salle-retirer,.salle-tranche{display:block;margin:0 0 var(--e2)}

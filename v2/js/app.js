@@ -13285,18 +13285,23 @@
           erreur = null;
           redessiner();
         },
-        // Le plus lourd, tapé : le brouillon suit, sans redessin (la feuille ne se refait pas sous le doigt).
-        surMaxHalteres: function (texte) {
-          brouillon = Profil.poserMaxHalteres(brouillon, Modele.lireNombre(texte));
+        // Le « jusqu'à » de la ligne `i`, tapé : le brouillon suit, sans redessin (la feuille ne se refait pas sous le doigt).
+        surMaxHalteres: function (texte, i) {
+          brouillon = Profil.poserMaxHalteres(brouillon, Modele.lireNombre(texte), i);
         },
-        surPasHalteres: function (kg) {
-          brouillon = Profil.poserPasHalteres(brouillon, kg);
+        surPasHalteres: function (kg, i) {
+          brouillon = Profil.poserPasHalteres(brouillon, kg, i);
           erreur = null;
           redessiner();
         },
+        // 123 — les tranches : « + Une tranche » (au plus 3), « Retirer », et le geste explicite « Pas d'haltères ».
+        aucunHaltere: function () { return !brouillon.halteres; },
+        surAjouterTranche: function () { brouillon = Profil.ajouterTrancheHalteres(brouillon); erreur = null; redessiner(); },
+        surRetirerTranche: function (i) { brouillon = Profil.retirerTrancheHalteres(brouillon, i); erreur = null; redessiner(); },
+        surSansHalteres: function () { brouillon = Profil.sansHalteres(brouillon); erreur = null; redessiner(); },
         surValider: function () {
           // 116 (03 #8) — un « jusqu'à » vidé ou illisible n'efface pas les haltères déclarés : la feuille reste
-          // ouverte, le plus lourd déclaré revient dans le champ, une phrase dit pourquoi.
+          // ouverte, le plus lourd déclaré revient dans le champ, une phrase dit pourquoi (123 : ligne par ligne).
           var garde = Profil.halteresGardees(profil, brouillon);
           if (garde) {
             brouillon = garde.brouillon;
@@ -13305,8 +13310,7 @@
           }
           var champs = Profil.champsSalle(brouillon);
           if (!champs) {
-            erreur = 'Haltères : le plus lourd entre ' + Profil.SALLE_HALTERES_MIN + ' et ' + Profil.SALLE_HALTERES_MAX +
-              ' kg, un écart de ' + Modele.nombreSigne(Profil.SALLE_PAS_MIN) + ' à ' + Profil.SALLE_PAS_MAX + ' kg.';
+            erreur = Profil.phraseHalteresHorsBornes(brouillon);
             return redessiner();
           }
           fermerVoile();

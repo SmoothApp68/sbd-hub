@@ -1209,7 +1209,8 @@
   // « Seulement pour qui le déclare ; non renseigné, rien ne change (on suppose qu'on peut ajouter des disques). »
   // Une fois, dans le Profil : les barres fixes EZ et droites (les poids cochés), et les haltères (jusqu'à X kg, de
   // Y en Y). Les machines : pas pour l'instant. En base, UNE colonne (`profiles.ma_salle`, jsonb, v2_088) :
-  //   `{ barres_ez: [10, 15, …], barres_droites: [10, …], halteres: { max: 40, pas: 2 } | null }`, ou `NULL`.
+  //   `{ barres_ez: [10, 15, …], barres_droites: [10, …], halteres: { max: 40, pas: 2 } | [{ jusqua, pas }, …] | null }`,
+  //   ou `NULL` (les tranches : 123, v2_095 — plus bas).
   // Les bornes ci-dessous DOUBLENT la contrainte `profiles_ma_salle_ok` : un 23514 bloquerait l'envoi de TOUT le
   // profil (la file le classe définitif) — on refuse avant, on ne l'envoie pas.
   //
@@ -1242,13 +1243,61 @@
     sortie.sort(function (a, b) { return a - b; });
     return sortie.length > SALLE_BARRES_MAX ? null : sortie;
   }
+  // 123 (16/10/2026, v2_095) — LES HALTÈRES PAR TRANCHES. Demande d'Aurélien, mot pour mot : « Ok ma salle, par contre
+  // pour les petites haltères de 1 à 10 c'est de 1 en 1 » (Basic-Fit : de 1 en 1 jusqu'à 10 kg, puis de 2 en 2
+  // jusqu'à 40). Une tranche `{ jusqua, pas }` donne les multiples de son pas, de la fin de la précédente (exclue ; 0
+  // pour la première) à son « jusqu'à » (inclus) ; 1 à 3 tranches, des « jusqu'à » croissants, chaque pas au plus la
+  // longueur de sa tranche (il y a toujours une charge dedans — `pas ≤ max` d'avant). DEUX FORMES ÉCRITES :
+  //   · UNE tranche : l'ancienne, `{ max, pas }` — acceptée par v2_088 comme par v2_095, lue par toutes les apps en
+  //     circulation (un autre appareil resté sur une version d'avant ne perd pas la salle) ;
+  //   · deux ou trois : la liste `[{ jusqua, pas }, …]` (v2_095). Avant la migration, la base la refuse (23514) : la
+  //     colonne sort de l'envoi, la salle d'avant est gardée, le Profil le dit (le mécanisme de 116, `estRefusDefinitif`)
+  //     — rien n'est inventé (aucune tranche « équivalente » écrite à la place de celle déclarée).
+  // L'ancienne forme est lue comme une tranche unique, jamais réécrite sans geste. `halteresValides` rend la forme
+  // écrite ; `tranchesDe` la liste des tranches, quelle que soit la forme.
+  var SALLE_TRANCHES_MAX = 3;
+  function tranchesValides(l) {
+    if (!Array.isArray(l) || !l.length || l.length > SALLE_TRANCHES_MAX) return undefined;
+    var t = [];
+    for (var i = 0; i < l.length; i++) {
+      var x = l[i];
+      if (!x || typeof x !== 'object' || Array.isArray(x)) return undefined;
+      var j = auDemi(x.jusqua), pas = auDemi(x.pas);
+      if (j === null || pas === null || j < SALLE_HALTERES_MIN || j > SALLE_HALTERES_MAX ||
+          pas < SALLE_PAS_MIN || pas > SALLE_PAS_MAX) return undefined;
+      t.push({ jusqua: j, pas: pas });
+    }
+    t.sort(function (a, b) { return a.jusqua - b.jusqua; });
+    for (var k = 0; k < t.length; k++) {
+      var debut = k ? t[k - 1].jusqua : 0;
+      if (t[k].jusqua <= debut || t[k].pas > t[k].jusqua - debut) return undefined;
+    }
+    return t;
+  }
   function halteresValides(h) {
     if (h === null || h === undefined) return null;
     if (typeof h !== 'object') return undefined;
-    var max = auDemi(h.max), pas = auDemi(h.pas);
-    if (max === null || pas === null || max < SALLE_HALTERES_MIN || max > SALLE_HALTERES_MAX ||
-        pas < SALLE_PAS_MIN || pas > SALLE_PAS_MAX || pas > max) return undefined;
-    return { max: max, pas: pas };
+    var t = Array.isArray(h) ? tranchesValides(h) : tranchesValides([{ jusqua: h.max, pas: h.pas }]);
+    if (t === undefined) return undefined;
+    return t.length === 1 ? { max: t[0].jusqua, pas: t[0].pas } : t;
+  }
+  // Les tranches d'une forme écrite (valide), ou `[]`.
+  function tranchesDe(h) {
+    if (!h) return [];
+    return Array.isArray(h) ? h.map(function (t) { return { jusqua: t.jusqua, pas: t.pas }; })
+      : [{ jusqua: h.max, pas: h.pas }];
+  }
+  // Les charges PAR HALTÈRE que les tranches font, croissantes : Aurélien, 1 … 10, 12, 14 … 40.
+  function chargesDesTranches(tranches) {
+    var sortie = [], debut = 0;
+    (tranches || []).forEach(function (t) {
+      for (var k = Math.floor(debut / t.pas + 1e-9) + 1; k * t.pas <= t.jusqua + 1e-9 && sortie.length < 400; k++) {
+        var v = Math.round(k * t.pas * 100) / 100;
+        if (v > debut + 1e-9) sortie.push(v);
+      }
+      debut = t.jusqua;
+    });
+    return sortie;
   }
   // LA DÉCLARATION, normalisée : l'objet tel qu'il s'écrit, `null` quand rien n'est déclaré (non renseigné), ou
   // `undefined` quand une valeur est hors bornes (refusée : rien ne s'écrit).
@@ -1266,10 +1315,14 @@
     return s === undefined ? null : s;
   }
   // Les gestes de la feuille, en fonctions pures (la feuille garde un brouillon ; « Valider » l'écrit).
+  // 123 — les haltères du brouillon : `null` (« Pas d'haltères », ou rien de déclaré), ou les lignes de la feuille,
+  // une par tranche : `{ jusqua (null : vide ou illisible), pas, pasChoisi }`.
   function brouillonSalle(profil) {
     var s = salleDe(profil);
     return s ? { barres_ez: s.barres_ez.slice(), barres_droites: s.barres_droites.slice(),
-                 halteres: s.halteres ? { max: s.halteres.max, pas: s.halteres.pas, pasChoisi: true } : null }
+                 halteres: s.halteres ? tranchesDe(s.halteres).map(function (t) {
+                   return { jusqua: t.jusqua, pas: t.pas, pasChoisi: true };
+                 }) : null }
              : { barres_ez: [], barres_droites: [], halteres: null };
   }
   function basculerBarre(brouillon, type, kg) {
@@ -1283,21 +1336,57 @@
     b[type] = l;
     return b;
   }
-  // Les haltères du brouillon : le plus lourd tapé (`null` : effacé) et l'écart choisi (2 kg par défaut, la maquette).
-  // Sans le plus lourd ni d'écart choisi, pas d'haltères ; un écart sans le plus lourd attend sa saisie (« Valider »
-  // n'écrit alors pas d'haltères).
+  // Les haltères du brouillon : le « jusqu'à » tapé de la ligne `i` (`null` : effacé) et l'écart choisi (2 kg par
+  // défaut, la maquette). Une seule ligne, sans « jusqu'à » ni écart choisi : pas d'haltères ; un écart sans
+  // « jusqu'à » attend sa saisie (« Valider » n'écrit alors pas d'haltères, `halteresGardees`).
   var SALLE_PAS_DEFAUT = 2;
-  function poserMaxHalteres(brouillon, max) {
-    var b = Object.assign({}, brouillon), h = b.halteres;
-    var m = max === null || max === undefined || !isFinite(Number(max)) ? null : Number(max);
-    b.halteres = m === null && !(h && h.pasChoisi) ? null
-      : { max: m, pas: h ? h.pas : SALLE_PAS_DEFAUT, pasChoisi: !!(h && h.pasChoisi) };
+  function lignesHalteres(brouillon) {
+    var h = brouillon && brouillon.halteres;
+    return Array.isArray(h) ? h.map(function (l) { return Object.assign({}, l); }) : null;
+  }
+  function poserMaxHalteres(brouillon, max, i) {
+    var b = Object.assign({}, brouillon), l = lignesHalteres(b), n = i || 0;
+    var m = max === null || max === undefined || max === '' || !isFinite(Number(max)) ? null : Number(max);
+    if (!l) {
+      if (m !== null && n === 0) b.halteres = [{ jusqua: m, pas: SALLE_PAS_DEFAUT, pasChoisi: false }];
+      return b;
+    }
+    if (!l[n]) return b;
+    l[n] = { jusqua: m, pas: l[n].pas, pasChoisi: !!l[n].pasChoisi };
+    b.halteres = l.length === 1 && m === null && !l[0].pasChoisi ? null : l;
     return b;
   }
-  function poserPasHalteres(brouillon, pas) {
-    var b = Object.assign({}, brouillon), h = b.halteres;
-    b.halteres = { max: h ? h.max : null, pas: Number(pas), pasChoisi: true };
+  function poserPasHalteres(brouillon, pas, i) {
+    var b = Object.assign({}, brouillon), l = lignesHalteres(b), n = i || 0;
+    if (!l) { b.halteres = [{ jusqua: null, pas: Number(pas), pasChoisi: true }]; return b; }
+    if (!l[n]) return b;
+    l[n] = { jusqua: l[n].jusqua, pas: Number(pas), pasChoisi: true };
+    b.halteres = l;
     return b;
+  }
+  // « + Une tranche » (au plus 3) : une ligne de plus, vide, à l'écart de la précédente.
+  function ajouterTrancheHalteres(brouillon) {
+    var b = Object.assign({}, brouillon), l = lignesHalteres(b);
+    if (!l || l.length >= SALLE_TRANCHES_MAX) return b;
+    l.push({ jusqua: null, pas: l[l.length - 1].pas, pasChoisi: false });
+    b.halteres = l;
+    return b;
+  }
+  function retirerTrancheHalteres(brouillon, i) {
+    var b = Object.assign({}, brouillon), l = lignesHalteres(b);
+    if (!l || !l[i]) return b;
+    l.splice(i, 1);
+    b.halteres = l.length ? l : null;
+    return b;
+  }
+  // « Pas d'haltères » : le geste explicite (point resté ouvert au 116 — vider le champ ne les efface plus).
+  function sansHalteres(brouillon) {
+    return Object.assign({}, brouillon, { halteres: null });
+  }
+  // « + Une tranche » se propose : des lignes, moins de 3.
+  function peutAjouterTranche(brouillon) {
+    var l = lignesHalteres(brouillon);
+    return !!l && l.length < SALLE_TRANCHES_MAX;
   }
   // Les puces d'un type : celles de la maquette, plus les poids ajoutés (« ＋ »), croissantes.
   function pucesDeBarres(brouillon, type) {
@@ -1308,25 +1397,54 @@
     });
   }
   // Ce qui part en base : `{ ma_salle }` — l'objet, ou `NULL` quand rien n'est déclaré ; `null` (rien à écrire)
-  // quand le brouillon est hors bornes.
+  // quand le brouillon est hors bornes. Les haltères : une tranche → `{ max, pas }`, deux ou trois → la liste (123).
   function champsSalle(brouillon) {
     var b = Object.assign({}, brouillon || {});
-    // Un écart choisi sans le plus lourd : pas d'haltères (rien à déclarer encore).
-    if (b.halteres && (b.halteres.max === null || b.halteres.max === undefined)) b.halteres = null;
-    else if (b.halteres) b.halteres = { max: b.halteres.max, pas: b.halteres.pas };
+    // Une ligne sans « jusqu'à » (un écart choisi sans le plus lourd) : rien à déclarer pour elle.
+    var l = (lignesHalteres(b) || []).filter(function (x) { return x.jusqua !== null && x.jusqua !== undefined; });
+    b.halteres = l.length ? l.map(function (x) { return { jusqua: x.jusqua, pas: x.pas }; }) : null;
     var s = salleValide(b);
     return s === undefined ? null : { ma_salle: s };
   }
+  // La phrase d'un brouillon hors bornes (la feuille reste ouverte) : celle d'avant pour une tranche unique.
+  function phraseHalteresHorsBornes(brouillon) {
+    var l = lignesHalteres(brouillon) || [];
+    var pas = (racine.THModele ? racine.THModele.nombreSigne(SALLE_PAS_MIN) : String(SALLE_PAS_MIN));
+    if (l.length <= 1) {
+      return 'Haltères : le plus lourd entre ' + SALLE_HALTERES_MIN + ' et ' + SALLE_HALTERES_MAX + ' kg, un écart de ' +
+        pas + ' à ' + SALLE_PAS_MAX + ' kg.';
+    }
+    return 'Haltères : chaque « jusqu’à » entre ' + SALLE_HALTERES_MIN + ' et ' + SALLE_HALTERES_MAX +
+      ' kg, plus lourd que le précédent ; un écart de ' + pas + ' à ' + SALLE_PAS_MAX + ' kg, pas plus grand que sa tranche.';
+  }
   // 116 (audit du 16/10/2026, 03 #8) — UN « JUSQU'À » VIDÉ OU ILLISIBLE N'EFFACE PAS LES HALTÈRES DÉCLARÉS. Le champ
   // est numérique : une faute de frappe (« 4O ») s'y lit vide, et « Valider » écrivait la salle SANS haltères, sans
-  // un mot. Haltères déjà déclarés et plus lourd absent du brouillon : la feuille reste ouverte, le brouillon reprend
-  // le plus lourd déclaré (l'écart choisi est gardé), et une phrase dit pourquoi. `null` : rien à garder.
+  // un mot. Haltères déjà déclarés et un « jusqu'à » absent du brouillon : la feuille reste ouverte, la ligne reprend
+  // le « jusqu'à » déclaré (l'écart choisi est gardé), et une phrase dit pourquoi. `null` : rien à garder.
+  // 123 — par ligne : avec autant de lignes que de tranches déclarées, chaque ligne vide reprend la sienne ; sinon
+  // (une tranche ajoutée et laissée vide, rien de déclaré mais une autre ligne remplie) la feuille reste ouverte, rien
+  // n'est repris, et la phrase dit quoi faire. Toutes vides et rien de déclaré : pas d'haltères (inchangé).
   function halteresGardees(profil, brouillon) {
-    var s = salleDe(profil), h = brouillon && brouillon.halteres;
-    if (!s || !s.halteres || !h || (h.max !== null && h.max !== undefined)) return null;
-    var b = Object.assign({}, brouillon, { halteres: { max: s.halteres.max, pas: h.pas, pasChoisi: true } });
+    var l = lignesHalteres(brouillon);
+    if (!l) return null;
+    var vides = [];
+    l.forEach(function (x, i) { if (x.jusqua === null || x.jusqua === undefined) vides.push(i); });
+    if (!vides.length) return null;
+    var s = salleDe(profil), declarees = s ? tranchesDe(s.halteres) : [];
+    if (!declarees.length && vides.length === l.length) return null;
+    if (declarees.length !== l.length) {
+      return { brouillon: brouillon,
+               phrase: '« Jusqu’à » vide ou illisible : remplis-le, ou retire la tranche.' };
+    }
+    var repris = [];
+    vides.forEach(function (i) {
+      l[i] = { jusqua: declarees[i].jusqua, pas: l[i].pas, pasChoisi: true };
+      repris.push(declarees[i].jusqua + ' kg');
+    });
+    var b = Object.assign({}, brouillon, { halteres: l });
     return { brouillon: b,
-             phrase: '« Jusqu’à » vide ou illisible : tes haltères restent à ' + s.halteres.max + ' kg.' };
+             phrase: l.length === 1 ? '« Jusqu’à » vide ou illisible : tes haltères restent à ' + declarees[0].jusqua + ' kg.'
+               : '« Jusqu’à » vide ou illisible : je remets ' + repris.join(' et ') + '.' };
   }
 
   // « EZ, droite, haltères » — ce qui est déclaré ; `null` : non renseigné.
@@ -1376,10 +1494,8 @@
     if (!s || !fiche) return null;
     if (fiche.equipement === 'haltere') {
       if (!s.halteres) return null;
-      var charges = [];
-      for (var k = 1; k * s.halteres.pas <= s.halteres.max + 1e-9 && charges.length < 400; k++) {
-        charges.push(Math.round(2 * k * s.halteres.pas * 100) / 100);
-      }
+      // 123 — toutes tranches confondues (11 kg n'existe pas chez Aurélien : 10 ou 12), en PAIRE (§10.1).
+      var charges = chargesDesTranches(tranchesDe(s.halteres)).map(function (v) { return Math.round(2 * v * 100) / 100; });
       return avecIsolation({ materiel: 'halteres', charges: charges }, fiche);
     }
     if (fiche.equipement !== 'barre') return null;
@@ -1647,7 +1763,11 @@
     PHRASE_SALLE: PHRASE_SALLE, PHRASE_BARRES_FIXES: PHRASE_BARRES_FIXES,
     salleValide: salleValide, salleDe: salleDe, brouillonSalle: brouillonSalle, basculerBarre: basculerBarre,
     pucesDeBarres: pucesDeBarres, champsSalle: champsSalle, poserMaxHalteres: poserMaxHalteres,
-    poserPasHalteres: poserPasHalteres, halteresGardees: halteresGardees, SALLE_PAS_DEFAUT: SALLE_PAS_DEFAUT, resumeSalle: resumeSalle, ligneSalle: ligneSalle,
+    poserPasHalteres: poserPasHalteres, halteresGardees: halteresGardees,
+    // 123 — les haltères par tranches.
+    SALLE_TRANCHES_MAX: SALLE_TRANCHES_MAX, tranchesDe: tranchesDe, chargesDesTranches: chargesDesTranches,
+    ajouterTrancheHalteres: ajouterTrancheHalteres, retirerTrancheHalteres: retirerTrancheHalteres, sansHalteres: sansHalteres,
+    peutAjouterTranche: peutAjouterTranche, phraseHalteresHorsBornes: phraseHalteresHorsBornes, SALLE_PAS_DEFAUT: SALLE_PAS_DEFAUT, resumeSalle: resumeSalle, ligneSalle: ligneSalle,
     estBarreEZ: estBarreEZ, salleDeLExercice: salleDeLExercice
   };
 

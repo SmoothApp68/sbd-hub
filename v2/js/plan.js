@@ -3081,6 +3081,15 @@
     var couvertes = (x.lignes || []).filter(function (l) { return l.role !== 'hors'; });
     var lignes = couvertes.map(function (l) { return { charge: l.charge, vise: l.vise }; })
       .concat((x.planInitial || []).filter(Boolean).map(function (p) { return { charge: p.charge, vise: p.vise }; }));
+    // 122 (le défaut trouvé au 115) — UNE LIGNE D'ÉLAN FIGÉE TIENT LA PLACE D'UNE LIGNE DE LA CONSIGNE (§9.14 bis :
+    // l'élan remplace une ligne, jamais une ligne du coach) : l'en-tête, qui décrit la consigne sur la disposition
+    // (l'élan y compte comme une ligne, I6), garde cette cible du jour. Non figée, la ligne de la consigne est déjà
+    // dans `planInitial` ; figée, elle n'y était plus — et quand la ligne faite à la charge de la consigne était
+    // supprimée, « Aujourd'hui : 60 kg × 5 » ne trouvait plus de ligne (60 kg × 5, puis 70 en élan, la première
+    // supprimée : il restait l'élan à 70 et le test à 100).
+    if (k.ligne && (x.planInitial || []).some(function (p) { return p && p.figee && p.source === 'elan'; })) {
+      lignes.push({ charge: k.ligne.charge, vise: k.ligne.vise });
+    }
     // Un exercice sans aucune série (toutes supprimées) n'a pas de ligne : ses
     // phrases disent alors la consigne elle-même, sa ligne et sa ligne haute.
     if (!lignes.length) {

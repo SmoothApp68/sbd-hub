@@ -475,3 +475,39 @@ describe('122 — I7, I8 : supprimer les séries faites puis en valider une nouv
     expect(S.quitterRang(se, 0, null)).toBe(se);
   });
 });
+
+// ── 122 — I26 (le défaut trouvé au 115) : une ligne d'élan figée tient la place de la ligne de la consigne ───────
+describe('122 — I26 : l’en-tête garde la ligne de la consigne qu’un élan figé remplace', () => {
+  // Reproduit au banc (sections « quitter » puis « 115 ») : consigne 60 kg × 5 puis un test à 100 ; la série 1 faite à
+  // 70 × 5 (l'élan porte la série 2 à 70), la série 2 faite, puis la série 1 supprimée. Il reste l'élan à 70 (figé)
+  // et le test : « Aujourd'hui : 60 kg × 5 » ne trouvait plus de ligne (I26, cible_hors_lignes).
+  const C = { consigne: { etat: 'test_propose', zone: 'lourd', palier: 60, niveau: 5, n: 1, ligne: { charge: 60, vise: 5 },
+    haut: { charge: 100, vise: 3, k: 1 }, fondement: { date: '2026-10-17T01:43:03.841Z', reps: [5],
+      seance: [{ charge_kg: 60, reps: 5, rpe: null, ressenti: null, role: 'palier', origine: 'travail' }], habitude: { valeur: 5, seances: 3 } } },
+    contexte: { cran: 62.5, haut: null }, libelles: { jaune: [], gris: '' } };
+  test('⚠️ DISCRIMINANT — la première série supprimée : l’en-tête « 60 kg × 5 » n’est pas une cible hors des lignes', () => {
+    let n = 0;
+    const id = () => 'q' + (++n);
+    let se = S.ajouterExercice(S.creer({ id: 'S', userId: 'u', idSerie: id }), 'squat', id, { series: 3 });
+    const paris = [];
+    const entrees = () => ({ seance: { id: 'S', debut: AVANT, edition: false, exercices: se.exercices }, consignes: { squat: C },
+      paris: paris.slice(), suites: {} });
+    const valider = (i, kg, reps) => {
+      se = S.valider(S.modifierSerie(se, 0, i, { charge_kg: kg, reps }), 0, i, new Date(AVANT));
+      const q = T.planDeSeance(entrees()).exercices[0].paris[i];
+      if (q) paris.push(Object.assign({}, q, { set_observe: se.exercices[0].series[i].id }));
+    };
+    valider(0, 70, 5);
+    valider(1, 72.5, 5);
+    expect(T.planDeSeance(entrees()).exercices[0].lignes.map((l) => l.role)).toEqual(['ligne', 'elan', 'test']);
+    const rang = T.planDeSeance(entrees()).exercices[0].lignes[0].rang;
+    const sid = se.exercices[0].series[0].id;
+    paris.forEach((o) => { if (o.set_observe === sid) o.set_observe = null; });
+    se = S.quitterRang(S.retirerSerie(se, 0, 0), 0, rang);
+    const e = entrees();
+    const p = T.planDeSeance(e);
+    expect(p.exercices[0].lignes.map((l) => [l.role, l.charge])).toEqual([['elan', 70], ['test', 100]]);
+    expect(p.exercices[0].entete.jaune[0].replace(/ /g, ' ')).toBe('Aujourd\'hui : 60 kg × 5.');
+    expect(T.verifierPlan(p, e).erreurs.filter((x) => /cible_hors_lignes/.test(x))).toEqual([]);
+  });
+});

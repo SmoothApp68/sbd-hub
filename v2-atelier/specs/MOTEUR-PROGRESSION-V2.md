@@ -2492,7 +2492,7 @@ Validée par Aurélien le 29/09/2026 sur le relevé des 82 gabarits (`RELEVE-PHR
 | **règle** (« ta zone va jusqu'à 8 », « depuis 4 séances », « 60 % des séries ») | la valeur de la règle dans le plan (zone, compteur, constante) |
 
 **Trois vérifications**, sur chaque plan :
-1. **Le jaune colle aux chiffres** : l'en-tête et les phrases jaunes ne citent que des cibles du jour qui sont des lignes du plan.
+1. **Le jaune colle aux chiffres** : l'en-tête et les phrases jaunes ne citent que des cibles du jour qui sont des lignes du plan. *(Précisé le 16/10/2026, prompt 122, le défaut trouvé au 115 : une ligne d'élan figée tient la place de la ligne de la consigne qu'elle remplace — l'en-tête décrit la consigne sur la disposition, où l'élan compte comme une ligne (I6) — : cette ligne de la consigne reste une cible du jour. Sans quoi, la ligne faite à la charge de la consigne supprimée, « Aujourd'hui : 60 kg × 5 » au-dessus d'un élan à 70 et d'un test à 100 était une violation, alors que l'en-tête disait juste.)*
 2. **Le gris colle aux chiffres** : chaque chiffre d'une phrase grise a sa nature et égale sa source.
 3. **Le jaune et le gris disent la même chose** : pour un même exercice, deux citations de **même nature** et de **même objet** (la cible du jour d'une même ligne, la cible suivante, le meilleur) ont **les mêmes chiffres**, dans un sens comme dans l'autre ; un mot d'ordre (« première », « dernière ») égale le rang de la série citée.
 

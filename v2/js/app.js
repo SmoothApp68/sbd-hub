@@ -6170,7 +6170,7 @@
     if (!cible) return copie;
     var kc = cs[cible].consigne;
     var l = kc.ligne || kc.haut;
-    var zc = kc.zone === 'lourd' || kc.zone === 'mix' || !kc.zone ? 'volume' : kc.zone;
+    var zc = Moteur.estZoneForce(kc.zone) || !kc.zone ? 'volume' : kc.zone;
     copie[cible] = Object.assign({}, cs[cible], { consigne: Object.assign({}, kc, { zone: zc }),
       compteur: compteurDe(cible, 8, (cs[cible].compteur && cs[cible].compteur.meilleur) ||
         { palier: l.charge, niveau: typeof l.vise === 'number' ? l.vise : 10 }) });
@@ -6202,7 +6202,7 @@
     var charges = [];
     for (var v = P; v > 0 && charges.length < 12; v = Math.round((v - 2.5) * 100) / 100) charges.unshift(v);
     var salle = { materiel: 'barre_ez', charges: charges, isolation: true };
-    var zc = kc.zone === 'lourd' || kc.zone === 'mix' || !kc.zone ? 'volume' : kc.zone;
+    var zc = Moteur.estZoneForce(kc.zone) || !kc.zone ? 'volume' : kc.zone;
     var reponses = demoMarches.filter(function (x) {
       return x && x.exercice === cible && Moteur.MARCHES_PLAFOND.indexOf(x.marche) >= 0;
     }).length;
@@ -6313,14 +6313,14 @@
     demoSerieDePlus = null;
     if (c) {
       var kc = cs[c].consigne;
-      var zc = kc.zone === 'lourd' || kc.zone === 'mix' || !kc.zone ? 'volume' : kc.zone;
+      var zc = Moteur.estZoneForce(kc.zone) || !kc.zone ? 'volume' : kc.zone;
       copie[c] = Object.assign({}, cs[c], { consigne: Object.assign({}, kc, { zone: zc }),
         compteur: compteurDe(c, 4, (cs[c].compteur && cs[c].compteur.meilleur) || meilleurDe(kc)) });
       demoSerieDePlus = c;
     }
     if (a) {
       var ka = cs[a].consigne;
-      var za = ka.zone === 'lourd' || ka.zone === 'mix' ? ka.zone : 'lourd';
+      var za = Moteur.estZoneForce(ka.zone) ? ka.zone : 'lourd';
       copie[a] = Object.assign({}, cs[a], { consigne: Object.assign({}, ka, { zone: za }),
         compteur: compteurDe(a, 4, (cs[a].compteur && cs[a].compteur.meilleur) || meilleurDe(ka)) });
       // §13.6 (49-U20) — SON FRÈRE INVENTÉ : un frère au catalogue s'il en a un

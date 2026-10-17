@@ -115,6 +115,11 @@
     { cle: 'volume',         libelle: 'Volume',         bas: 10, haut: 12 },
     { cle: 'series_longues', libelle: 'Séries longues', bas: 15, haut: 20 }
   ];
+  // 124 (audit du 16/10/2026, 06 #16, 01 #14) — LA ZONE FORCE (Lourd, Mix), UNE FOIS : l'escalier (pas de série de plus ni
+  // de dégressive), les zones d'un bloc (§19.2 amendé : la force seulement), les invariants et la démonstration la
+  // lisent par `estZoneForce`.
+  var ZONES_FORCE = ['lourd', 'mix'];
+  function estZoneForce(zone) { return ZONES_FORCE.indexOf(zone) >= 0; }
 
   // ── LE RANGEMENT : UNE HABITUDE, UNE ZONE (§9.1.2) ───────────────────────
   //
@@ -5325,7 +5330,7 @@
   // ici ; une fonction par notion. Référence : `cycles53.py` ; cas
   // `cas-53-2-cycles.json`. Un bloc : `{ id, dossier, zone, debut, semaines,
   // decharge, exercices, statut, precedent }` (la table `blocs`, v2_058).
-  var ZONES_DE_BLOC = ['lourd', 'mix'];      // §19.2 amendé : la force seulement
+  var ZONES_DE_BLOC = ZONES_FORCE;      // §19.2 amendé : la force seulement (124 : la même liste)
   var SANS_CUMUL_JOURS = 14;                 // §14.4 : une réduction s'applique une fois
   var SEMAINES_BLOC_MIN = 3;
   var SEMAINES_BLOC_MAX = 6;
@@ -5712,7 +5717,6 @@
   // (zones muscle hors sèche) attend la règle de volume (PR 2b, 2c) : d'ici
   // là, sa marche ne propose RIEN.
   var FENETRE_REPLI_JOURS = 90;       // le repli : dans les 3 derniers mois (§14.2)
-  var ZONES_FORCE = ['lourd', 'mix'];
   var MARCHE_SCHEMA = 'schema';
   var MARCHE_REPLI = 'repli';
   var MARCHE_SECHE = 'seche_rien';
@@ -5801,14 +5805,14 @@
     if (k === null || k < 1) return null;
     if (k >= 4) return MARCHE_SILENCE;
     if (k === 3) return d.proposee === true ? MARCHE_REPLI : MARCHE_SILENCE;
-    var muscle = ZONES_FORCE.indexOf(zone) < 0 && phase !== 'seche';
+    var muscle = !estZoneForce(zone) && phase !== 'seche';
     if (k === 2) {
       // Les conditions (zone, phase comprises) ne se lisent QUE dans
       // `degressivePossible` : une seule source.
       if (proposee === true && (d.possible === true || d.ici === true)) return MARCHE_DEGRESSIVE;
       return !muscle || proposee === true ? MARCHE_REPLI : MARCHE_SILENCE;
     }
-    if (ZONES_FORCE.indexOf(zone) >= 0) return MARCHE_SCHEMA;
+    if (estZoneForce(zone)) return MARCHE_SCHEMA;
     if (phase === 'seche') return MARCHE_SECHE;
     // Audit du 16/10/2026, 01 #6 — LA SÉRIE DE PLUS DEMANDE UNE ZONE MUSCLE : une consigne sans zone (règle de
     // bord) recevait la carte, et son acceptation n'ajoutait rien (`seriesDePlusActives` exige une zone). Sans
@@ -6149,7 +6153,7 @@
   // planifiée), ni en Entretenir (I13), ni pour un débutant.
   function degressivePossible(o) {
     var c = o || {};
-    return c.polyarticulaire === false && ZONES_FORCE.indexOf(c.zone) < 0 && c.phase !== 'seche' &&
+    return c.polyarticulaire === false && !estZoneForce(c.zone) && c.phase !== 'seche' &&
       !c.allegee && !c.entretien && !c.debutant && !c.aUneDegressive;
   }
 
@@ -7633,6 +7637,7 @@
     blocsDuProgramme: blocsDuProgramme,
     correctionAu: correctionAu,
     ZONES_DE_BLOC: ZONES_DE_BLOC,
+    estZoneForce: estZoneForce,
     SANS_CUMUL_JOURS: SANS_CUMUL_JOURS,
     SEMAINES_BLOC_MIN: SEMAINES_BLOC_MIN,
     SEMAINES_BLOC_MAX: SEMAINES_BLOC_MAX,

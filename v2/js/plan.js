@@ -1684,7 +1684,7 @@
     Object.keys(consignes).forEach(function (slug) {
       var c = consignes[slug];
       if (!c || !c.consigne || !c.compteur || typeof c.compteur.compteur !== 'number') return;
-      if (c.consigne.zone === 'lourd' || c.consigne.zone === 'mix' || !c.consigne.zone) return;
+      if (M.estZoneForce(c.consigne.zone) || !c.consigne.zone) return;
       // §10 bis (113, 16/10/2026) — au plafond de la salle, la série de plus est la première marche : acceptée, elle
       // revient comme ailleurs, jusqu'au prochain progrès.
       if (!M.serieDePlusActive(slug, jour, c.compteur.compteur, E.marches || [], E.compteurs || [])) return;
@@ -2519,7 +2519,7 @@
       if (sp || carteSp) {
         var zSp = x.consigne ? x.consigne.zone : null;
         if (plan.phase === 'seche') erreurs.push('I23 — ' + nom + ' : une série de plus en sèche');
-        if (zSp === 'lourd' || zSp === 'mix') erreurs.push('I23 — ' + nom + ' : une série de plus en zone force (' + zSp + ')');
+        if (Moteur().estZoneForce(zSp)) erreurs.push('I23 — ' + nom + ' : une série de plus en zone force (' + zSp + ')');
         if (plan.allegee) erreurs.push('I23 — ' + nom + ' : une série de plus pendant une semaine allégée');
         // Audit du 16/10/2026, 01 #6 — sans zone, l'acceptation n'ajouterait rien : jamais proposée.
         if (!zSp) erreurs.push('I23 — ' + nom + ' : une série de plus sans zone');
@@ -2536,7 +2536,7 @@
         var z48 = x.consigne ? x.consigne.zone : null;
         if (x.polyarticulaire !== false) e48('une dégressive proposée sur un exercice qui n\'est pas une isolation');
         if (plan.phase === 'seche') e48('une dégressive proposée en sèche');
-        if (z48 === 'lourd' || z48 === 'mix') e48('une dégressive proposée en zone force (' + z48 + ')');
+        if (Moteur().estZoneForce(z48)) e48('une dégressive proposée en zone force (' + z48 + ')');
         if (plan.allegee) e48('une dégressive proposée pendant une semaine allégée ou une décharge');
         if (plan.intention === 'entretien' || x.intention === 'entretien') e48('une dégressive proposée en Entretenir');
         if (plan.debutant) e48('une dégressive proposée à un débutant');

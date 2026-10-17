@@ -1453,6 +1453,13 @@ const NOTIONS = [
   { notion: 'les noms des muscles, accordés (« tes pectoraux », « ton grand dorsal »)', pr: '124-U1',
     module: 'moteur.js', fonction: 'motsDesMuscles', lecteurs: ['generateur.js'],
     raison: 'un format de la voix du coach : les singuliers sont écrits une fois (`MUSCLES_SINGULIERS`).' },
+  { notion: 'la zone force (Lourd, Mix)', pr: '124-U2',
+    module: 'moteur.js', fonction: 'estZoneForce', lecteurs: ['plan.js', 'app.js'],
+    par: ['marcheIsoleeBrute', 'degressivePossible'],
+    interditAilleurs: { motif: /(['"])lourd\1\s*,\s*(['"])mix\2|===\s*(['"])lourd\3\s*\|\|[^;]*===\s*(['"])mix\4/,
+      raison: 'la zone force écrite en dur (« lourd », « mix ») : passer par `Moteur.estZoneForce`' },
+    raison: 'audit du 16/10/2026 (06 #16, 01 #14) : `ZONES_FORCE` et `ZONES_DE_BLOC` étaient deux listes identiques dans ' +
+      'le moteur, et « lourd ou mix » s’écrivait en littéral dans le plan (la série de plus, I23, I48) et la démonstration.' },
   { notion: 'la médiane d’une liste de nombres', pr: '124-U1',
     module: 'moteur.js', fonction: 'mediane', lecteurs: ['faits.js', 'routines.js'],
     raison: 'MOTEUR §8.2, §9.1.2 : la moyenne des deux du milieu pour une longueur paire ; les habitudes et le programme ' +
@@ -2754,7 +2761,9 @@ describe('architecture — la carte des écritures (73, audit 72)', () => {
 // fichiers servis sauf `ou`.
 const CONSTANTES = [
   { quoi: 'les quatre barres (squat, couché, soulevé, militaire)', ou: 'modele.js',
-    motif: /(['"])(?:squat_barre|developpe_couche_barre)\1\s*,\s*(['"])(?:developpe_couche_barre|squat_barre)\2/ }
+    motif: /(['"])(?:squat_barre|developpe_couche_barre)\1\s*,\s*(['"])(?:developpe_couche_barre|squat_barre)\2/ },
+  { quoi: 'les colonnes de `guilde_scores`', ou: 'social.js',
+    motif: /(['"])prevues\1\s*,\s*(['"])records_semaine\2/ }
 ];
 
 describe('architecture — une constante partagée ne s’écrit qu’une fois (124)', () => {
@@ -2784,5 +2793,12 @@ describe('architecture — une constante partagée ne s’écrit qu’une fois (
     const voit = (i, t) => new RegExp(CONSTANTES[i].motif.source).test(t);
     expect(voit(0, "var BARRES = ['developpe_couche_barre', 'squat_barre', 'souleve_de_terre_barre'];")).toBe(true);
     expect(voit(0, "var BARRES = racine.THModele.BARRES;")).toBe(false);
+    expect(voit(1, "var C = ['semaine', 'seances', 'prevues', 'records_semaine'];")).toBe(true);
+    expect(voit(1, "racine.THSocial.COLONNES_GUILDE.filter(f)")).toBe(false);
+    const zf = NOTIONS.filter((n) => n.fonction === 'estZoneForce')[0].interditAilleurs.motif;
+    expect(zf.test("if (c.zone === 'lourd' || c.zone === 'mix') return;")).toBe(true);
+    expect(zf.test("var Z = ['lourd', 'mix'];")).toBe(true);
+    expect(zf.test("if (Moteur.estZoneForce(c.zone)) return;")).toBe(false);
+    expect(zf.test("if (k.zone === 'lourd' && elans.length > 1) {")).toBe(false);
   });
 });

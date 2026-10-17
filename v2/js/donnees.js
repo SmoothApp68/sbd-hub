@@ -953,6 +953,17 @@
     return (await rpc('social_periode', { p_user: userIdCible, p_de: de, p_a: a })) || [];
   }
   async function socialScoresForce(slug) { return (await rpc('social_scores_force', { p_slug: slug })) || []; }
+  // 114 (v2_091) — la meilleure charge de mes mutuels sur 12 mois, lue dans leurs séances visibles (ceux qui ont un
+  // score publié pour cet exercice) : `[{ user_id, charge_max }]`. `null` tant que la fonction n'existe pas (avant
+  // v2_091 : PGRST202 ou 42883) — « Entre amis » ne s'affiche pas.
+  async function socialMeilleuresCharges(slug) {
+    try {
+      return (await rpc('social_meilleures_charges', { p_slug: slug })) || [];
+    } catch (e) {
+      if (e && (e.code === 'PGRST202' || e.code === '42883')) return null;
+      throw e;
+    }
+  }
   // 90 (SOCIAL-V1 « Guilde », v2_080) — tout passe par les fonctions de la base, qui gardent les règles (30 membres,
   // une guilde par personne, inviter un mutuel seulement, l'administration transmise au plus ancien).
   async function guildeMoi() { var d = await rpc('guilde_moi'); return (Array.isArray(d) ? d[0] : d) || null; }
@@ -1011,9 +1022,11 @@
   function accepterDemande(suiveur, moi) {
     return ecrire(client().from('abonnements').update({ statut: 'accepte' }).eq('suiveur', suiveur).eq('suivi', moi));
   }
-  // 89 — MES SCORES DE FORCE (`scores_force`, v2_079) : le score DOTS et la charge, par exercice. ⚠️ LE POIDS DE CORPS
-  // N'EST JAMAIS DANS CE CORPS : les lignes de `Social.scoresAPublier` (exercice, score, charge), et rien d'autre — la
-  // table n'a pas de colonne de poids (v2_079), le serveur refuserait ; le banc le vérifie (faux-social, « fuites »).
+  // 89 — MES SCORES DE FORCE (`scores_force`, v2_079) : le score DOTS par exercice. ⚠️ NI LE POIDS DE CORPS NI LA
+  // CHARGE NE SONT DANS CE CORPS (audit du 16/10/2026, prompt 114) : les lignes de `Social.scoresAPublier` (exercice,
+  // score sur le poids flouté), et rien d'autre — la table n'a pas de colonne de poids (v2_079) et refuse la charge
+  // (v2_091) ; avant v2_091 elle l'exige (23502) et l'app retire ses scores plutôt que de la donner. Le banc le
+  // vérifie (faux-social, « fuites »).
   function publierScores(moi, scores) {
     if (!scores || !scores.length) return Promise.resolve(true);
     return ecrire(client().from('scores_force').upsert(scores.map(function (s) {
@@ -1098,7 +1111,7 @@
     sAbonner: sAbonner, retirerAbonnement: retirerAbonnement, accepterDemande: accepterDemande,
     bloquer: bloquer, debloquer: debloquer, reagir: reagir, retirerReaction: retirerReaction,
     socialExercicesAmi: socialExercicesAmi, socialSeriesExercice: socialSeriesExercice, socialPeriode: socialPeriode,
-    socialScoresForce: socialScoresForce, publierScores: publierScores, retirerScores: retirerScores,
+    socialScoresForce: socialScoresForce, socialMeilleuresCharges: socialMeilleuresCharges, publierScores: publierScores, retirerScores: retirerScores,
     guildeMoi: guildeMoi, guildeMembres: guildeMembres, guildeInvitationsRecues: guildeInvitationsRecues,
     guildeSemaine: guildeSemaine, guildeProgression: guildeProgression, guildeFil: guildeFil,
     guildeRecordsSeance: guildeRecordsSeance, gesteDeGuilde: gesteDeGuilde, GESTES_GUILDE: GESTES_GUILDE,

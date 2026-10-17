@@ -76,13 +76,31 @@ arrondi au centième. Les médailles affichées se choisissent par la règle de 
   exercices en commun avec la meilleure charge de chacun. Pour les exercices à la barre, tri et ordre « à poids de
   corps égal », sans afficher le chiffre DOTS.
 - **« Entre amis »**, en bas de TA page d'exercice, pour les exercices à la barre seulement : tes mutuels et toi,
-  triés à poids de corps égal (DOTS par sexe), avec les vrais kilos de la meilleure charge. Un « i » donne : « On
-  compare la force rapportée au poids de corps (formule DOTS) : un plus léger qui soulève autant passe devant. Ton
-  poids ne quitte jamais ton téléphone. Sans pesée, on n'apparaît pas. » Affiché à partir de 2 personnes avec un
-  score (toi compris) ; sans sexe au profil ou sans pesée : absent de cette liste.
+  triés à poids de corps égal (DOTS par sexe), avec les vrais kilos de la meilleure charge **sur 12 mois** (audit du
+  16/10/2026). Un « i » donne (validé le 16/10/2026, mot pour mot) : « On compare la force rapportée au poids de corps
+  (formule DOTS), arrondi à 10 kg près : un nettement plus léger qui soulève autant passe devant. Tes amis ne voient
+  jamais ton poids et ne peuvent pas le retrouver. Sans pesée, tu n'apparais pas. » Affiché à partir de 2 personnes
+  avec un score et des kilos (toi compris) ; sans sexe au profil ou sans pesée : absent de cette liste.
 - **Le poids de corps ne sort JAMAIS du téléphone** : le score DOTS se calcule sur l'appareil (meilleure charge des
   faits, dernière pesée datée) et seul le score est publié, avec la charge, par exercice. La fonction DOTS vit dans
   un seul module (registre NOTIONS : `social.js`, `scoreDots`).
+  - **Audit du 16/10/2026 (prompt 114)** — décision d'Aurélien : « la promesse doit être vraie » ; « aucun mutuel ne
+    peut déduire le poids de corps à mieux que ±5 kg à partir de ce que l'app ou la base lui rend ». Score exact +
+    charge redonnaient le poids au centième (`polynôme(poids) = charge × 500 ÷ score`), et la charge se lit aussi dans
+    les séances. Donc : le score se calcule sur le **poids flouté** (`social.js`, `poidsFloute`, registre NOTIONS) —
+    la pesée **plus un décalage secret** tiré une fois sur l'appareil (−5 à +5 kg, `localStorage`, jamais publié),
+    **arrondie à la dizaine** ; **seul le score part, sans la charge** (v2_091). Le décalage secret, plutôt qu'un
+    arrondi fixe : un mutuel qui voit le score changer d'une pesée à l'autre saurait sinon que la pesée vient de
+    passer 95 kg ; avec le décalage, la borne franchie est quelque part dans une dizaine qu'il ignore. Un score
+    seulement arrondi ne tient pas : ses arrondis, recoupés sur plusieurs exercices, resserrent le poids. Sans
+    stockage sur l'appareil pour garder le décalage : on n'apparaît pas. Prix : à moins de 10 kg d'écart de poids,
+    l'ordre « à poids de corps égal » est approché (égalité possible, ou l'inverse).
+  - **Option B, décidée le 16/10/2026 (Claude.ai, par délégation d'Aurélien ; la mise en page ne change pas)** : les
+    kilos des autres viennent de leurs séances visibles, que le mutuel voit déjà — `social_meilleures_charges(slug)`
+    (v2_091 : mutuels avec un score publié, séances terminées non privées, 12 mois) ; les miens, de l'appareil. **Le
+    score se calcule sur la même meilleure charge sur 12 mois** (`social.js`, `bornesDouzeMois`), ce qui règle aussi
+    l'écart #14 de l'audit social (une charge d'une autre époque à côté d'une pesée d'aujourd'hui). Avant v2_091 (la
+    fonction manque), la carte ne s'affiche pas.
 
 ### 5.1 Ce que le code en a fait (89)
 
@@ -94,8 +112,8 @@ arrondi au centième. Les médailles affichées se choisissent par la règle de 
 - **Séances d'une période** : les séances qui ont au moins une série comptée. Périodes : du 1er du mois, d'il y a
   3 mois (jour suivant), du 1er janvier — à aujourd'hui.
 - **« Tri et ordre à poids de corps égal » dans « Se comparer »** (interprétation, à valider) : les exercices à la
-  barre en commun viennent d'abord ; dans chacun, les deux personnes sont rangées par leur score publié (lifetime,
-  `scores_force`), celui qui est devant à poids de corps égal en premier ; sans les deux scores, toi d'abord. Le
+  barre en commun viennent d'abord ; dans chacun, les deux personnes sont rangées par leur score publié (12 mois
+  depuis le 16/10/2026, `scores_force`), celui qui est devant à poids de corps égal en premier ; sans les deux scores, toi d'abord. Le
   score n'est jamais affiché.
 - **« À la barre »** : `exercises.equipement = 'barre'` (mesure charge × reps).
 - **DOTS** : coefficients IPF par sexe, poids borné 40–210 kg (homme), 40–150 kg (femme), au centième.
@@ -111,6 +129,14 @@ politique `FOR ALL` propriétaire. Fonctions (SECURITY DEFINER, `search_path` fi
 mutuels seulement) : `social_exercices_ami(user)`, `social_series_exercice(user, slug)`,
 `social_periode(user, de, a)` (≤ 366 jours ; une ligne par exercice et une ligne de total, `exercise_slug` nul),
 `social_scores_force(slug)` (les miens et ceux de mes mutuels). Aucune politique ajoutée sur sessions, sets, records.
+
+**v2_091 (audit du 16/10/2026, proposée)** : les lignes de `scores_force` calculées sur la pesée exacte sont effacées
+(l'app les republie, floutées) ; `charge_kg` n'est plus exigée et ne peut plus rien contenir
+(`scores_force_sans_charge CHECK (charge_kg IS NULL)`) ; `social_scores_force` garde sa signature et rend `charge_kg`
+nulle pour tout autre que moi ; `social_meilleures_charges(slug)` (SECURITY DEFINER, `search_path` figé,
+`authenticated` seulement) rend `(user_id, charge_max)` pour mes mutuels qui ont un score publié sur l'exercice —
+séances terminées non privées, séries comptées, 12 mois — jamais ma ligne. Aucune politique touchée. Avant v2_091 (charge exigée, 23502), l'app ne la donne pas :
+elle retire ses scores.
 
 ## 6. Guilde — décisions du 14/10/2026 (prompt 90)
 

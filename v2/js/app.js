@@ -2112,20 +2112,28 @@
 
   // ── MES SCORES DE FORCE (`scores_force`) : publiés depuis l'appareil, SEULEMENT S'ILS ONT CHANGÉ ──
   //
-  // La meilleure charge de chaque exercice à la barre (mes séries comptées) et ma dernière pesée datée donnent le
-  // score DOTS (`Social.scoreDots`) ; seuls le score et la charge partent. ⚠️ LE POIDS DE CORPS NE QUITTE JAMAIS LE
-  // TÉLÉPHONE. Sans sexe précisé ou sans pesée, je n'apparais pas : mes scores sont retirés — quand on SAIT qu'il y en
-  // a (publiés depuis l'ouverture, ou une ligne à moi dans `lignesConnues`, la réponse de `social_scores_force`).
-  // Le profil pas encore lu : on ne sait rien, on ne fait rien. Rend `true` s'il a écrit.
-  var scoresPublies = null;
+  // La meilleure charge de chaque exercice à la barre (mes séries comptées des 12 derniers mois, `Social.bornesDouzeMois`
+  // — la fenêtre des kilos d'« Entre amis ») et ma dernière pesée datée, FLOUTÉE
+  // (`Social.poidsFloute` : la pesée + mon décalage secret, arrondie à la dizaine — audit du 16/10/2026, prompt 114),
+  // donnent le score DOTS ; seul le score part. Ni la pesée, ni le décalage, ni la charge ne quittent le téléphone.
+  // Sans sexe précisé, sans pesée ou sans décalage gardé sur l'appareil, je n'apparais pas : mes scores sont retirés
+  // — quand on SAIT qu'il y en a (publiés depuis l'ouverture, ou une ligne à moi dans `lignesConnues`, la réponse de
+  // `social_scores_force`). Le profil pas encore lu : on ne sait rien, on ne fait rien. Rend `true` s'il a écrit.
+  //
+  // AVANT v2_091 la base exige encore la charge (NOT NULL, code 23502) : on ne la lui donne pas — mes scores sont
+  // retirés, et on n'insiste plus jusqu'à la prochaine ouverture de l'app. Après v2_091, le score seul passe.
+  var scoresPublies = null, baseExigeLaCharge = false;
   async function publierScoresForce(lignesConnues) {
     var moi = userId();
     if (!moi || !profil) return false;
     var index = Modele.indexerExercices(local.exercices);
     // La dernière pesée datée, telle quelle (`resume` l'arrondit au dixième, pour l'affichage).
     var pesees = Poids.normaliser(local.pesees || []), pesee = pesees.length ? pesees[pesees.length - 1] : null;
-    var scores = Social.scoresAPublier(Social.meilleuresCharges(faits.seriesComptees(corpus(), null, null, null)),
-      pesee ? pesee.poids : null, profil.sexe, function (slug) { return Social.aLaBarre(index[slug]); });
+    var douze = Social.bornesDouzeMois(new Date());
+    var scores = baseExigeLaCharge ? null :
+      Social.scoresAPublier(Social.meilleuresCharges(faits.seriesComptees(corpus(), douze.de, douze.a, null)),
+        pesee ? pesee.poids : null, profil.sexe, function (slug) { return Social.aLaBarre(index[slug]); },
+        decalageDuPoids(moi));
     if (!scores) {
       var enBase = (scoresPublies && Object.keys(scoresPublies).length) ||
         (lignesConnues || []).some(function (l) { return l && l.moi; });
@@ -2135,17 +2143,48 @@
       return true;
     }
     var changes = Social.scoresChanges(scores, scoresPublies);
-    if (changes.length) await Donnees.publierScores(moi, changes);
+    if (changes.length) {
+      try {
+        await Donnees.publierScores(moi, changes);
+      } catch (e) {
+        if (!e || e.code !== '23502') throw e;
+        baseExigeLaCharge = true;
+        await Donnees.retirerScores(moi);
+        scoresPublies = {};
+        return true;
+      }
+    }
     var publies = {};
-    scores.forEach(function (s) { publies[s.exercise_slug] = { score: s.score, charge_kg: s.charge_kg }; });
+    scores.forEach(function (s) { publies[s.exercise_slug] = { score: s.score }; });
     scoresPublies = publies;
     return changes.length > 0;
   }
+  // Mon décalage secret (−5 à +5 kg), tiré une fois sur CET appareil et gardé là (`localStorage`), jamais publié.
+  // Sans stockage qui le retienne, `null` : un décalage retiré à chaque ouverture finirait par trahir la pesée (la
+  // fréquence des deux poids ronds la situe) — on ne publie pas.
+  var CLE_DECALAGE_POIDS = 'th-v2-decalage-poids-';
+  function decalageDuPoids(moi) {
+    try {
+      var st = racine.localStorage, cle = CLE_DECALAGE_POIDS + moi, lu = st.getItem(cle);
+      if (Social.decalageValide(lu)) return Number(lu);
+      var tirage = new Uint32Array(1);
+      racine.crypto.getRandomValues(tirage);
+      var d = Social.decalageDepuis(tirage[0] / 4294967296);
+      if (d === null) return null;
+      st.setItem(cle, String(d));
+      return st.getItem(cle) === String(d) ? d : null;
+    } catch (e) {
+      return null;
+    }
+  }
 
   // « Entre amis », en bas de MA page d'exercice, pour un exercice à la barre : mes mutuels et moi, à poids de corps
-  // égal, avec les vrais kilos. Rien sous deux personnes avec un score ; rien hors ligne.
-  var TEXTE_ENTRE_AMIS = 'On compare la force rapportée au poids de corps (formule DOTS) : un plus léger qui soulève ' +
-    'autant passe devant. Ton poids ne quitte jamais ton téléphone. Sans pesée, on n’apparaît pas.';
+  // égal, avec les vrais kilos de la meilleure charge sur 12 mois — les leurs lus dans leurs séances visibles
+  // (`social_meilleures_charges`, v2_091), les miens sur l'appareil. Rien sous deux personnes ; rien hors ligne ;
+  // rien tant que v2_091 n'est pas lancée (la fonction manque). Le « i » : la phrase validée le 16/10/2026, mot pour mot.
+  var TEXTE_ENTRE_AMIS = 'On compare la force rapportée au poids de corps (formule DOTS), arrondi à 10 kg près : un ' +
+    'nettement plus léger qui soulève autant passe devant. Tes amis ne voient jamais ton poids et ne peuvent pas le ' +
+    'retrouver. Sans pesée, tu n’apparais pas.';
   var jetonEntreAmis = 0;
   async function entreAmis(slug, exo) {
     var cible = $('exercice-entre-amis'), jeton = ++jetonEntreAmis;
@@ -2154,7 +2193,10 @@
     try {
       var lignes = await Donnees.socialScoresForce(slug);
       if (await publierScoresForce(lignes)) lignes = await Donnees.socialScoresForce(slug);
-      var classement = Social.classementEntreAmis(lignes);
+      var charges = await Donnees.socialMeilleuresCharges(slug);
+      var douze = Social.bornesDouzeMois(new Date());
+      var maCharge = Social.meilleuresCharges(faits.seriesComptees(corpus(), douze.de, douze.a, slug))[slug];
+      var classement = Social.classementEntreAmis(lignes, charges, maCharge);
       if (jeton !== jetonEntreAmis || ecranCourant !== 'exercice') return;
       Rendu.rendreEntreAmis(cible, classement ? { info: TEXTE_ENTRE_AMIS, lignes: classement.map(function (x) {
         return { rang: x.rang, pseudo: x.moi ? 'toi' : x.pseudo, moi: x.moi, couleur: Social.couleurDuBlason(x.pseudo),

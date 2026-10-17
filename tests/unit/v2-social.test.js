@@ -233,15 +233,29 @@ describe('89 — le score DOTS, à poids de corps égal', () => {
     expect(Social.scoreDots(100, 60, 'femme')).toBeGreaterThan(Social.scoreDots(100, 60, 'homme'));
     expect(Social.scoreDots(100, 80, 'non_precise')).toBeNull();
     expect(Social.scoreDots(100, null, 'homme')).toBeNull();
-    expect(Social.scoresAPublier({ 'squat-barre': 100 }, null, 'homme', () => true)).toBeNull();
-    expect(Social.scoresAPublier({ 'squat-barre': 100 }, 80, 'non_precise', () => true)).toBeNull();
+    expect(Social.scoresAPublier({ 'squat-barre': 100 }, null, 'homme', () => true, 0)).toBeNull();
+    expect(Social.scoresAPublier({ 'squat-barre': 100 }, 80, 'non_precise', () => true, 0)).toBeNull();
   });
-  test('ce qui part : le score et la charge par exercice à la barre — JAMAIS le poids de corps', () => {
-    const s = Social.scoresAPublier({ 'squat-barre': 145, 'curl-haltere': 20 }, 96.75, 'homme', (k) => k === 'squat-barre');
-    expect(s).toEqual([{ exercise_slug: 'squat-barre', score: Social.scoreDots(145, 96.75, 'homme'), charge_kg: 145 }]);
-    expect(JSON.stringify(s)).not.toMatch(/96\.75|poids/);
-    expect(Social.scoresChanges(s, { 'squat-barre': { score: s[0].score, charge_kg: 145 } })).toEqual([]);
+  test('114 — ce qui part : le score sur le poids FLOUTÉ, par exercice à la barre — ni le poids, ni la charge', () => {
+    // 96,75 kg + décalage 0 → 100 ; + décalage −2 → 94,75 → 90.
+    const s = Social.scoresAPublier({ 'squat-barre': 145, 'curl-haltere': 20 }, 96.75, 'homme', (k) => k === 'squat-barre', 0);
+    expect(s).toEqual([{ exercise_slug: 'squat-barre', score: Social.scoreDots(145, 100, 'homme') }]);
+    expect(s[0].score).not.toBe(Social.scoreDots(145, 96.75, 'homme'));
+    expect(Social.scoresAPublier({ 'squat-barre': 145 }, 96.75, 'homme', () => true, -2)[0].score)
+      .toBe(Social.scoreDots(145, 90, 'homme'));
+    expect(JSON.stringify(s)).not.toMatch(/96\.75|poids|charge|145/);
+    expect(Social.scoresChanges(s, { 'squat-barre': { score: s[0].score } })).toEqual([]);
     expect(Social.scoresChanges(s, {}).length).toBe(1);
+  });
+  test('114 — sans décalage valide (pas de stockage sur l’appareil) : rien ne part', () => {
+    [undefined, null, '', 'abc', 5, -5.01, NaN, true].forEach((d) => {
+      expect(Social.scoresAPublier({ 'squat-barre': 145 }, 96.75, 'homme', () => true, d)).toBeNull();
+    });
+    expect(Social.decalageValide(-5)).toBe(true);
+    expect(Social.decalageValide('4.99')).toBe(true);
+    expect(Social.decalageDepuis(0)).toBe(-5);
+    expect(Social.decalageDepuis(0.999999)).toBeLessThan(5);
+    expect(Social.decalageDepuis(1)).toBeNull();
   });
   test('« à la barre » : l’équipement du catalogue', () => {
     expect(Social.aLaBarre({ equipement: 'barre', mesure: 'charge_reps' })).toBe(true);
@@ -250,21 +264,167 @@ describe('89 — le score DOTS, à poids de corps égal', () => {
   });
 });
 
-describe('89 — « Entre amis » : à poids de corps égal, les vrais kilos, à partir de deux', () => {
-  const ligne = (pseudo, charge, poids, moi) => ({ pseudo, charge_kg: charge, score: Social.scoreDots(charge, poids, 'homme'), moi: !!moi });
-  test('DISCRIMINANT — couché à 140 chacun : Jordan (plus léger) premier, les kilos affichés sont les vrais', () => {
-    const c = Social.classementEntreAmis([ligne('aurel', 140, 96.75, true), ligne('jordan', 140, 89.5)]);
+// ══ 114 — LE POIDS NE QUITTE JAMAIS LE TÉLÉPHONE (audit du 16/10/2026, P0) ═══════════════════════════════════════
+//
+// L'ATTAQUE, refaite ici : un mutuel lit mon score (`social_scores_force`) et voit mes charges (mes séances). Il
+// cherche tous les poids de corps compatibles avec ce qu'il voit. Décision d'Aurélien : « aucun mutuel ne peut
+// déduire le poids de corps à mieux que ±5 kg » — l'ensemble des poids compatibles doit donc couvrir au moins 10 kg.
+//
+// ⚠️ CONFIGURATIONS DISCRIMINANTES :
+//   · l'attaque marche sur l'ancien score (DOTS sur la pesée) : poids retrouvé au centième ;
+//   · plusieurs exercices à la fois (le « vernier » : chaque arrondi de score réduirait l'intervalle, leur
+//     intersection le réduirait encore — un score simplement arrondi ne tiendrait pas) ;
+//   · dans le temps : le mutuel voit le score CHANGER entre deux pesées. Avec des bornes fixes (décalage connu, 0),
+//     il sait que la pesée vient de passer 95 kg, à 0,1 kg près ; avec le décalage secret, à une dizaine près.
+describe('114 — un mutuel ne retrouve pas le poids de corps à mieux que ±5 kg', () => {
+  const PAS = 0.1, DELTAS = [];
+  for (let d = -5; d < 5 - 1e-9; d += 0.1) DELTAS.push(Math.round(d * 10) / 10);
+  const CHARGES = { 'squat-barre': 145, 'dc-barre': 102.5, 'sdt-barre': 187.5, 'dm-barre': 61 };
+  const aLaBarre = () => true;
+  // Ce que le mutuel voit : mes scores publiés (et mes charges, dans mes séances). L'attaque essaie des centaines de
+  // milliers de (poids, décalage) : pour aller vite, elle retient chaque réponse de `scoresAPublier` par son poids
+  // rond — le test « la réponse ne dépend que du poids rond », plus bas, le vérifie sur toute la grille.
+  const direct = (poids, sexe, d) => Social.scoresAPublier(CHARGES, poids, sexe, aLaBarre, d);
+  const memo = {};
+  const publie = (poids, sexe, d) => {
+    const k = sexe + '|' + Social.poidsFloute(poids, d);
+    return k in memo ? memo[k] : (memo[k] = direct(poids, sexe, d));
+  };
+  const egal = (a, b) => a && b && a.length === b.length && a.every((x, i) => x.exercise_slug === b[i].exercise_slug && x.score === b[i].score);
+  // L'attaque : tous les poids (35 à 165 kg, au dixième) et tous les décalages qui redonnent EXACTEMENT ce qu'il voit.
+  const poidsCompatibles = (vu, sexe, deltas) => {
+    const out = [];
+    for (let w = 35; w <= 165 + 1e-9; w += PAS) {
+      const p = Math.round(w * 10) / 10;
+      if (deltas.some((d) => egal(publie(p, sexe, d), vu))) out.push(p);
+    }
+    return out;
+  };
+  const etendue = (l) => Math.round((Math.max.apply(null, l) - Math.min.apply(null, l)) * 10) / 10;
+
+  test('AVANT (le score sur la pesée, tel que v2_079) : un score et sa charge redonnent le poids au centième', () => {
+    [[96.75, 'homme', 145], [98.4, 'homme', 170], [65, 'femme', 60], [58.7, 'femme', 80]].forEach(([poids, sexe, charge]) => {
+      const score = Social.scoreDots(charge, poids, sexe);
+      const trouves = [];
+      for (let w = 40; w <= 150; w += 0.01) if (Social.scoreDots(charge, Math.round(w * 100) / 100, sexe) === score) trouves.push(w);
+      expect(trouves.length).toBeGreaterThan(0);
+      expect(Math.max(...trouves.map((w) => Math.abs(w - poids)))).toBeLessThan(0.05);
+    });
+  });
+
+  test('APRÈS : de 45 à 150 kg, homme et femme, quatre exercices vus ensemble — les poids compatibles couvrent ≥ 10 kg', () => {
+    // Ce que le mutuel voit ne dépend que du poids rond : on fait l'attaque une fois par poids rond observé.
+    const parRond = {};
+    let pire = Infinity, cas = 0;
+    ['homme', 'femme'].forEach((sexe) => {
+      for (let w = 45; w <= 150 + 1e-9; w += 0.5) {
+        [-5, -2.5, 0, 2.5, 4.9].forEach((d) => {
+          const vu = publie(w, sexe, d);
+          const cle = sexe + '|' + Social.poidsFloute(w, d);
+          if (!parRond[cle]) parRond[cle] = poidsCompatibles(vu, sexe, DELTAS);
+          const l = parRond[cle];
+          expect(l).toContain(Math.round(w * 10) / 10);           // le vrai poids est bien dans l'ensemble
+          pire = Math.min(pire, etendue(l));
+          cas++;
+        });
+      }
+    });
+    expect(cas).toBe(2 * 211 * 5);
+    expect(pire).toBeGreaterThanOrEqual(10);                       // ±5 kg au mieux, partout
+  });
+
+  test('APRÈS, dans le temps : voir le score changer entre deux pesées ne situe pas la pesée à mieux que ±5 kg', () => {
+    // Une pesée qui monte de 80 à 120 kg, d'un dixième à la fois, avec le même décalage secret. À chaque changement
+    // du score, le mutuel cherche les poids compatibles avec la pesée d'avant ET celle d'après (même décalage).
+    const auChangement = (deltasPossibles, dVrai) => {
+      let pire = Infinity, changements = 0;
+      for (let w = 80.1; w <= 120 + 1e-9; w += PAS) {
+        const apres = Math.round(w * 10) / 10, avant = Math.round((apres - PAS) * 10) / 10;
+        const vuAvant = publie(avant, 'homme', dVrai), vuApres = publie(apres, 'homme', dVrai);
+        if (egal(vuAvant, vuApres)) continue;
+        changements++;
+        const l = [];
+        for (let x = 70; x <= 130 + 1e-9; x += PAS) {
+          const p = Math.round(x * 10) / 10, q = Math.round((p - PAS) * 10) / 10;
+          if (deltasPossibles.some((d) => egal(publie(q, 'homme', d), vuAvant) && egal(publie(p, 'homme', d), vuApres))) l.push(p);
+        }
+        expect(l).toContain(apres);
+        pire = Math.min(pire, etendue(l));
+      }
+      return { pire, changements };
+    };
+    // Bornes fixes (le décalage connu de tous, 0) : le changement trahit la pesée au dixième — c'est ce qu'on évite.
+    const fixe = auChangement([0], 0);
+    expect(fixe.changements).toBe(4);
+    expect(fixe.pire).toBeLessThan(0.5);
+    // Décalage secret : la borne franchie peut être n'importe où dans une dizaine.
+    [-4.3, 0, 3.7].forEach((dVrai) => {
+      const r = auChangement(DELTAS, dVrai);
+      expect(r.changements).toBeGreaterThanOrEqual(3);
+      expect(r.pire).toBeGreaterThanOrEqual(9.9);                  // une dizaine, au dixième de la grille près
+    });
+  });
+
+  test('ce qui part ne dépend que du sexe et du poids rond (pas de la pesée elle-même) — la réponse retenue par l’attaque est la vraie', () => {
+    let vus = 0;
+    ['homme', 'femme'].forEach((sexe) => {
+      for (let w = 45; w <= 150; w += 0.7) [-5, -1.3, 0, 3.3, 4.9].forEach((d) => {
+        expect(direct(w, sexe, d)).toEqual(publie(w, sexe, d));
+        expect(direct(w, sexe, d)).toEqual(direct(Social.poidsFloute(w, d), sexe, 0));
+        vus++;
+      });
+    });
+    expect(vus).toBeGreaterThan(1000);
+  });
+
+  test('le poids flouté : la pesée + le décalage, arrondie à la dizaine ; jamais à plus de 10 kg de la pesée', () => {
+    expect(Social.poidsFloute(96.75, 0)).toBe(100);
+    expect(Social.poidsFloute(94.99, 0)).toBe(90);
+    expect(Social.poidsFloute(95, 0)).toBe(100);
+    expect(Social.poidsFloute(96.75, -1.75)).toBe(100);
+    expect(Social.poidsFloute(96.75, -1.76)).toBe(90);
+    expect(Social.poidsFloute(null, 0)).toBeNull();
+    expect(Social.poidsFloute(80, 7)).toBeNull();
+    for (let w = 45; w <= 150; w += 0.25) DELTAS.forEach((d) => {
+      expect(Math.abs(Social.poidsFloute(w, d) - w)).toBeLessThan(10);
+    });
+  });
+});
+
+describe('89/114 — « Entre amis » : à poids de corps égal, les vrais kilos (12 mois), à partir de deux', () => {
+  // Les scores tels que publiés depuis 114 (poids flouté, décalage 0 : 96,75 → 100, 89,5 → 90, 70 → 70), sans charge ;
+  // les kilos des autres viennent de `social_meilleures_charges`, le mien de l'appareil.
+  const ligne = (id, pseudo, charge, poids, moi) => ({ user_id: id, pseudo, score: Social.scoreDots(charge, Social.poidsFloute(poids, 0), 'homme'),
+    charge_kg: null, moi: !!moi });
+  test('DISCRIMINANT — couché à 140 chacun : Jordan (90 contre 100 kg flouté) premier, les kilos affichés sont les vrais', () => {
+    const c = Social.classementEntreAmis([ligne('a', 'aurel', 140, 96.75, true), ligne('j', 'jordan', 140, 89.5)],
+      [{ user_id: 'j', charge_max: 140 }], 140);
     expect(c.map((x) => x.pseudo)).toEqual(['jordan', 'aurel']);
     expect(c.map((x) => x.charge_kg)).toEqual([140, 140]);
     expect(c[1].moi).toBe(true);
   });
   test('squat : Jordan, alexis, moi — un plus léger qui soulève moins peut passer devant', () => {
-    const c = Social.classementEntreAmis([ligne('alexis', 130, 70), ligne('aurel', 145, 96.75, true), ligne('jordan', 210, 89.5)]);
+    const c = Social.classementEntreAmis([ligne('x', 'alexis', 130, 70), ligne('a', 'aurel', 145, 96.75, true), ligne('j', 'jordan', 210, 89.5)],
+      [{ user_id: 'x', charge_max: 130 }, { user_id: 'j', charge_max: 210 }], 145);
     expect(c.map((x) => x.pseudo)).toEqual(['jordan', 'alexis', 'aurel']);
+    expect(c.map((x) => x.charge_kg)).toEqual([210, 130, 145]);
+  });
+  test('114 — avant v2_091 (la fonction des kilos manque : null) : rien ; sans kilos à montrer, une personne n’entre pas', () => {
+    const l = [ligne('a', 'aurel', 145, 96.75, true), ligne('j', 'jordan', 210, 89.5)];
+    expect(Social.classementEntreAmis(l, null, 145)).toBeNull();
+    expect(Social.classementEntreAmis(l, [], 145)).toBeNull();                       // jordan sans séance visible sur 12 mois
+    expect(Social.classementEntreAmis(l, [{ user_id: 'j', charge_max: 210 }], undefined)).toBeNull();   // moi sans charge sur 12 mois
+    // La charge d'une ligne de la base (une vieille ligne) n'est jamais lue : seuls les kilos des séances comptent.
+    const vieille = Object.assign(ligne('j', 'jordan', 210, 89.5), { charge_kg: 999 });
+    expect(Social.classementEntreAmis([l[0], vieille], [{ user_id: 'j', charge_max: 210 }], 145)[0].charge_kg).toBe(210);
   });
   test('rien sous deux personnes avec un score', () => {
-    expect(Social.classementEntreAmis([ligne('aurel', 145, 96.75, true)])).toBeNull();
-    expect(Social.classementEntreAmis([])).toBeNull();
+    expect(Social.classementEntreAmis([ligne('a', 'aurel', 145, 96.75, true)], [], 145)).toBeNull();
+    expect(Social.classementEntreAmis([], [], 145)).toBeNull();
+  });
+  test('114 — « 12 mois » : du lendemain du même jour il y a un an, à aujourd’hui (la fenêtre de la base)', () => {
+    expect(Social.bornesDouzeMois(new Date(2026, 9, 16, 12))).toEqual({ de: '2025-10-17', a: '2026-10-16' });
+    expect(Social.bornesDouzeMois(new Date(2028, 1, 29, 12))).toEqual({ de: '2027-03-02', a: '2028-02-29' });
   });
 });
 
@@ -321,7 +481,7 @@ describe('89 — faux-social (v2_079) : mutuels seulement, aucune donnée interd
     f.etat.sets.push({ id: 'j1', session_id: 'j-1', exercise_slug: 'squat-barre', rang: 1, charge_kg: 210, reps: 1, type_serie: 'travail', rpe: 9, poids_corps_kg: 89.5 },
       { id: 'j2', session_id: 'j-1', exercise_slug: 'squat-barre', rang: 2, charge_kg: 180, reps: 5, type_serie: 'travail', note: 'genou' },
       { id: 'j3', session_id: 'j-1', exercise_slug: 'squat-barre', rang: 0, charge_kg: 60, reps: 5, type_serie: 'echauffement' });
-    f.etat.scores.push({ user_id: 'u-jordan', exercise_slug: 'squat-barre', score: 136.17, charge_kg: 210 });
+    f.etat.scores.push({ user_id: 'u-jordan', exercise_slug: 'squat-barre', score: 136.17, charge_kg: null });
     const suivre = (a, b) => {
       f.appeler(a, 'POST', 'abonnements', { suiveur: a, suivi: b });
       f.appeler(b, 'PATCH', 'abonnements', { statut: 'accepte' }, 'suiveur=eq.' + a + '&suivi=eq.' + b);
@@ -346,13 +506,51 @@ describe('89 — faux-social (v2_079) : mutuels seulement, aucune donnée interd
   });
   test('DISCRIMINANT — scores_force : on n’écrit que le sien, et un corps qui porte le poids de corps est refusé (une fuite)', () => {
     const { f } = decor2();
-    expect(f.appeler('u-moi', 'POST', 'scores_force', [{ user_id: 'u-moi', exercise_slug: 'squat-barre', score: 90.57, charge_kg: 145 }]).status).toBe(201);
-    expect(f.appeler('u-moi', 'POST', 'scores_force', [{ user_id: 'u-jordan', exercise_slug: 'squat-barre', score: 1, charge_kg: 1 }]).status).toBe(403);
+    expect(f.appeler('u-moi', 'POST', 'scores_force', [{ user_id: 'u-moi', exercise_slug: 'squat-barre', score: 90.57 }]).status).toBe(201);
+    expect(f.appeler('u-moi', 'POST', 'scores_force', [{ user_id: 'u-jordan', exercise_slug: 'squat-barre', score: 1 }]).status).toBe(403);
     expect(f.etat.fuites).toEqual([]);
-    expect(f.appeler('u-moi', 'POST', 'scores_force', [{ user_id: 'u-moi', exercise_slug: 'squat-barre', score: 90, charge_kg: 145, poids_kg: 96.75 }]).status).toBe(400);
+    expect(f.appeler('u-moi', 'POST', 'scores_force', [{ user_id: 'u-moi', exercise_slug: 'squat-barre', score: 90, poids_kg: 96.75 }]).status).toBe(400);
     expect(f.etat.fuites).toEqual([{ table: 'scores_force', champs: ['poids_kg'] }]);
     f.appeler('u-moi', 'DELETE', 'scores_force', null, 'user_id=eq.u-moi');
     expect(f.etat.scores.map((s) => s.user_id)).toEqual(['u-jordan']);
+  });
+  test('114 — DISCRIMINANT — v2_091 : la charge est refusée, et la fonction ne rend la charge de personne d’autre ; avant v2_091, elle est exigée', () => {
+    const { f, suivre } = decor2();
+    suivre('u-moi', 'u-jordan'); suivre('u-jordan', 'u-moi');
+    // Après v2_091 (le faux serveur par défaut).
+    const avecCharge = f.appeler('u-moi', 'POST', 'scores_force', [{ user_id: 'u-moi', exercise_slug: 'squat-barre', score: 86.17, charge_kg: 145 }]);
+    expect([avecCharge.status, avecCharge.data.code]).toEqual([400, '23514']);
+    expect(f.appeler('u-moi', 'POST', 'scores_force', [{ user_id: 'u-moi', exercise_slug: 'squat-barre', score: 86.17 }]).status).toBe(201);
+    f.etat.scores.filter((x) => x.user_id === 'u-jordan')[0].charge_kg = 210;   // une vieille ligne : jamais rendue
+    const apres = f.rpc('u-moi', 'social_scores_force', { p_slug: 'squat-barre' });
+    expect(apres.filter((x) => !x.moi).map((x) => [x.pseudo, x.score, x.charge_kg])).toEqual([['jordan', 136.17, null]]);
+    expect(apres.filter((x) => x.moi).map((x) => [x.score, x.charge_kg])).toEqual([[86.17, null]]);
+    // Avant v2_091.
+    f.etat.v2_091 = false;
+    const sansCharge = f.appeler('u-moi', 'POST', 'scores_force', [{ user_id: 'u-moi', exercise_slug: 'squat-barre', score: 86.17 }]);
+    expect([sansCharge.status, sansCharge.data.code]).toEqual([400, '23502']);
+    expect(f.rpc('u-moi', 'social_scores_force', { p_slug: 'squat-barre' }).filter((x) => !x.moi)[0].charge_kg).toBe(210);
+    expect(f.etat.fuites).toEqual([]);
+  });
+  test('114 — DISCRIMINANT — social_meilleures_charges : mutuels avec un score seulement, séances visibles, 12 mois ; avant v2_091, absente', () => {
+    const { f, suivre } = decor2();
+    const ilYa = (j) => new Date(Date.now() - j * 86400000).toISOString();
+    // Une séance PRIVÉE plus lourde (250) et une séance d'il y a 400 jours (260) : ni l'une ni l'autre ne comptent.
+    f.etat.sessions.push({ id: 'j-p', user_id: 'u-jordan', debut: ilYa(2), fin: ilYa(2), statut: 'terminee', visibilite: 'private' },
+      { id: 'j-v', user_id: 'u-jordan', debut: ilYa(400), fin: ilYa(400), statut: 'terminee', visibilite: 'mutuels' });
+    f.etat.sets.push({ id: 'jp', session_id: 'j-p', exercise_slug: 'squat-barre', rang: 1, charge_kg: 250, reps: 1, type_serie: 'travail' },
+      { id: 'jv', session_id: 'j-v', exercise_slug: 'squat-barre', rang: 1, charge_kg: 260, reps: 1, type_serie: 'travail' });
+    suivre('u-moi', 'u-jordan');
+    expect(f.rpc('u-moi', 'social_meilleures_charges', { p_slug: 'squat-barre' })).toEqual([]);   // à sens unique : rien
+    suivre('u-jordan', 'u-moi');
+    expect(f.rpc('u-moi', 'social_meilleures_charges', { p_slug: 'squat-barre' })).toEqual([{ user_id: 'u-jordan', charge_max: 210 }]);
+    // Ma ligne n'y est jamais ; sans score publié sur l'exercice, personne.
+    f.appeler('u-moi', 'POST', 'scores_force', [{ user_id: 'u-moi', exercise_slug: 'squat-barre', score: 86.17 }]);
+    expect(f.rpc('u-moi', 'social_meilleures_charges', { p_slug: 'squat-barre' }).map((x) => x.user_id)).toEqual(['u-jordan']);
+    expect(f.rpc('u-moi', 'social_meilleures_charges', { p_slug: 'dc-barre' })).toEqual([]);
+    f.etat.v2_091 = false;
+    const r = f.appeler('u-moi', 'POST', 'rpc/social_meilleures_charges', { p_slug: 'squat-barre' });
+    expect(r.data.code).toBe('PGRST202');
   });
 });
 

@@ -22738,6 +22738,24 @@ const SETS_IMPORTES = [
       premiereDc > 0 && t2.visible && !(await toast115()).visible && setsE2().length === 1 && Number(setsE2()[0].charge_kg) === 60,
       JSON.stringify([premiereDc, t2, await toast115(), setsE2().map((x) => [x.charge_kg, x.reps])]));
 
+    // 122 (I8, le défaut trouvé au 115) — les deux séries faites du premier exercice sont parties ; une nouvelle série
+    // validée ne reprend pas le rang 1 (ni le 2) : avant, son pari avait le même identifiant que celui de la série
+    // supprimée, ne s'écrivait pas, et la série nouvelle observait l'ancien pari (« ligne » pour une ligne « test »).
+    const slugE2 = ((base.predictions.filter((x) => x.set_observe === null && x.fondement &&
+      x.fondement.seance === idE2)[0] || {}).exercise_slug);
+    const parisDuPremier = () => base.predictions.filter((x) => x.module === 'moteur.consigne' && x.exercise_slug === slugE2 &&
+      x.fondement && x.fondement.seance === idE2);
+    const rangsAvant8 = parisDuPremier().map((x) => x.fondement.rang).sort();
+    await (await ligne(0)).evaluate((n) => n.scrollIntoView({ block: 'center' }));
+    await saisirSerie(0, 75, 3);
+    await attendre(2200);
+    const set75 = (setsE2().filter((x) => Number(x.charge_kg) === 75)[0] || {}).id;
+    const obs8 = parisDuPremier().filter((x) => x.set_observe === set75);
+    ok('[122-I8] DISCRIMINANT — après la suppression des deux séries faites, la nouvelle série prend un rang neuf : son propre pari, observé ; les anciens restent non observés',
+      !!slugE2 && rangsAvant8.length >= 2 && !!set75 && obs8.length === 1 && rangsAvant8.indexOf(obs8[0].fondement.rang) < 0 &&
+        parisDuPremier().filter((x) => rangsAvant8.indexOf(x.fondement.rang) >= 0).every((x) => !x.set_observe),
+      JSON.stringify([slugE2, rangsAvant8, set75, parisDuPremier().map((x) => [x.fondement.rang, x.fondement.role, x.fondement.charge, x.set_observe])]));
+
     // Une série NON faite part tout de suite, sans toast (rien à rattraper) — comme au 4 bis.
     const lignesN = await compter('.ligne-serie');
     await glisser115(lignesN - 1);
@@ -22749,8 +22767,8 @@ const SETS_IMPORTES = [
     await attendre(600);
     await page.click('#feuille-contenu .principal');
     await attendre(2600);
-    ok('[115-E2] la séance se termine avec la seule série restante (60 × 8)',
-      base.sessions.some((x) => x.id === idE2 && x.statut === 'terminee') && setsE2().length === 1,
+    ok('[115-E2] la séance se termine avec les séries restantes (60 × 8, et la nouvelle de 122 : 75 × 3)',
+      base.sessions.some((x) => x.id === idE2 && x.statut === 'terminee') && setsE2().length === 2,
       JSON.stringify(setsE2().map((x) => [x.charge_kg, x.reps])));
 
     // ── E4. UNE SÉRIE REMPLIE, PAS VALIDÉE, AU MOMENT DE TERMINER.

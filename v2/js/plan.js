@@ -138,7 +138,7 @@
     var consigne = M.consigneFigee(consigneDonnee);
     var pdc = estPoidsDuCorps(consigne);
     var liste = series || [];
-    var couverture = S.couvertureSeance(liste, consigne, figees || {});
+    var couverture = S.couvertureSeance(liste, consigne, figees || {}, o.rangsReserves || null);
     var indices = [], rangs = [], roles = [], couvertes = [];
     couverture.forEach(function (x, i) {
       if (!x) return;
@@ -706,7 +706,10 @@
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,
       reglage: reglage === undefined ? null : reglage, phase: phase, objectif: objectif,
       compteur: compteurOuverture, allegee: !!consigne.allegee,
-      occurrence: base.occurrence || undefined
+      occurrence: base.occurrence || undefined,
+      // I8 (122) — les rangs que des séries faites ont quittés (supprimées, ou passées hors du travail) : leurs
+      // paris restent ; aucune autre série ne les reprend (`Seance.quitterRang`).
+      rangsReserves: exo && Array.isArray(exo.rangsQuittes) ? exo.rangsQuittes : null
     });
 
     // L'en-tête décrit la disposition de la consigne sur les lignes de la
@@ -852,6 +855,8 @@
     return {
       iExo: iExo, slug: base.slug, occurrence: base.occurrence,
       consigne: consigne, contexte: c.contexte || null,
+      // I8 (122) — les rangs quittés par des séries faites : aucune ligne non figée ne les porte.
+      rangsQuittes: exo && Array.isArray(exo.rangsQuittes) ? exo.rangsQuittes.slice() : [],
       indices: r.indices, rangs: r.rangs, roles: r.roles, figees: figees,
       planInitial: r.planInitial, faites: r.faites, reaction: r.reaction,
       lignes: r.lignes, message: r.message, paris: r.paris,
@@ -2268,12 +2273,15 @@
     }
 
     // I8 — les rangs sont uniques par exercice : aucune ligne ne reprend le
-    // rang d'une autre, figée ou non.
+    // rang d'une autre, figée ou non ; ni celui qu'une série faite a quitté
+    // (supprimée, ou passée hors du travail : son pari reste — 122).
     var vus = {};
+    var quittes = x.rangsQuittes || [];
     couvertes.forEach(function (l) {
       if (l.rang === null || l.rang === undefined) { err('I8', 'la série ' + l.iSerie + ' est couverte sans rang'); return; }
       if (vus[l.rang] !== undefined) err('I8', 'le rang ' + l.rang + ' est porté par les séries ' + vus[l.rang] + ' et ' + l.iSerie);
       vus[l.rang] = l.iSerie;
+      if (!l.figee && quittes.indexOf(Number(l.rang)) >= 0) err('I8', 'la série ' + l.iSerie + ' reprend le rang ' + l.rang + ', quitté par une série faite');
     });
 
     // I7 — chaque ligne validée et couverte a EXACTEMENT UN pari DE LA

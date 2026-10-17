@@ -7339,6 +7339,17 @@
     return ((exo && exo.series) || []).map(function (x) { return x && x.id; }).join('|');
   }
 
+  // 122 (I8) — LE RANG DU PLAN d'une série FAITE et couverte, lu AVANT le geste qui la retire de la couverture
+  // (supprimée, ou passée hors du travail) : son pari reste, son rang n'est plus donné à une autre (`Seance.quitterRang`).
+  // `null` : une série non validée (aucun pari ne la lie), hors du coach, ou en Édition.
+  function rangDuPlanQuitte(iExo, iSerie) {
+    var s = seance && seance.exercices[iExo] && seance.exercices[iExo].series[iSerie];
+    if (!s || !Seance.partEnBase(s) || enEdition()) return null;
+    var x = planDeLExercice(iExo);
+    var l = x && x.lignes ? x.lignes[iSerie] : null;
+    return l && l.role !== 'hors' && l.rang ? l.rang : null;
+  }
+
   async function differerSuppression(iExo, iSerie) {
     // Une suppression déjà en attente part d'abord : un seul « Annuler » à la fois, le dernier geste.
     await solderSuppression();
@@ -7347,9 +7358,10 @@
     if (!s) return;
     var ids = {};
     if (s.id) ids[s.id] = true;
+    var rangQuitte = rangDuPlanQuitte(iExo, iSerie);
     var videes = viderObservationsEnMemoire(ids);
-    seance = Seance.retirerSerie(seance, iExo, iSerie);
-    var p = { sessionId: seance.id, iExo: iExo, iSerie: iSerie, serie: s, slug: exo.exercise_slug,
+    seance = Seance.quitterRang(Seance.retirerSerie(seance, iExo, iSerie), iExo, rangQuitte);
+    var p = { sessionId: seance.id, iExo: iExo, iSerie: iSerie, serie: s, slug: exo.exercise_slug, rang: rangQuitte,
               reste: idsDesSeries(seance.exercices[iExo]), avant: videes.avant, maj: videes.maj, minuteur: null };
     suppressionDifferee = p;
     p.minuteur = setTimeout(function () {
@@ -7388,7 +7400,7 @@
     }
     suppressionDifferee = null;
     clearTimeout(p.minuteur);
-    seance = Seance.remettreSerie(seance, p.iExo, p.iSerie, p.serie);
+    seance = Seance.rendreRang(Seance.remettreSerie(seance, p.iExo, p.iSerie, p.serie), p.iExo, p.rang);
     var avantParId = {};
     p.avant.forEach(function (l) { avantParId[l.id] = l; });
     local.predictions = (local.predictions || []).map(function (l) { return (l && avantParId[l.id]) || l; });
@@ -8573,7 +8585,8 @@
       surType: async function (type) {
         var i = feuille.iExo, j = feuille.iSerie;
         var etait = Seance.typeDe(seance.exercices[i].series[j]);
-        seance = Seance.changerType(seance, i, j, type);
+        var rangQuitte = etait === 'travail' && type !== 'travail' ? rangDuPlanQuitte(i, j) : null;
+        seance = Seance.quitterRang(Seance.changerType(seance, i, j, type), i, rangQuitte);
         // §9.11, G3 (49-17, 28/09/2026) — UNE SÉRIE QUI CESSE D'ÊTRE UNE SÉRIE
         // DE TRAVAIL PERD SON OBSERVATION, comme une série supprimée : des reps
         // d'échauffement ne jugent pas un pari de travail. Sur l'appareil et
@@ -8594,8 +8607,9 @@
       surSupprimer: async function () {
         var i = feuille.iExo, j = feuille.iSerie;
         fermerVoile();
+        var rangQuitte = rangDuPlanQuitte(i, j);
         await oublierObservationDe(i, j);
-        seance = Seance.retirerSerie(seance, i, j);
+        seance = Seance.quitterRang(Seance.retirerSerie(seance, i, j), i, rangQuitte);
         await apresGeste();
       },
       surEffort: function (effort) {

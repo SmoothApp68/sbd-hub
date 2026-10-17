@@ -251,6 +251,8 @@ const CATALOGUE = [
       for (const [cle, val] of u.searchParams) {
         if (['select', 'order', 'limit', 'offset', 'or'].indexOf(cle) >= 0) continue;
         if (val.startsWith('eq.') && String(l[cle]) !== val.slice(3)) return false;
+        // 117 — `in.(a,b)` (le rapprochement des séries).
+        if (val.startsWith('in.') && val.slice(4, -1).split(',').map((x) => x.replace(/"/g, '')).indexOf(String(l[cle])) < 0) return false;
         if (val.startsWith('gt.') && !(String(l[cle]) > val.slice(3))) return false;
       }
       return true;

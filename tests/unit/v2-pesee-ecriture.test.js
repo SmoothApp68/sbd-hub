@@ -97,10 +97,11 @@ describe('60-2a — `executer` envoie la pesée (et ne la laisse PAS tomber en s
     expect(envoyes).toEqual([donnees]);
   });
 
-  test('DISCRIMINANT : une table que `executer` ne connaît pas n’écrit rien — c’est CE que la branche de la pesée évite', () => {
+  // 117 (audit du 16/10, 06 #17) — et elle n'est plus un SUCCÈS : refusée (`TH001`), elle reste dans la file.
+  test('DISCRIMINANT : une table que `executer` ne connaît pas n’écrit rien — c’est CE que la branche de la pesée évite', async () => {
     envoyes.length = 0;
     ctx.op = { table: 'inconnue', op: Attente.UPSERT, id: 'x', donnees: { a: 1 } };
-    vm.runInContext('executer(op)', ctx);
+    await expect(vm.runInContext('executer(op)', ctx)).rejects.toMatchObject({ code: 'TH001' });
     expect(envoyes).toEqual([]);
   });
 });

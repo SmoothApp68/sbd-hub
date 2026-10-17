@@ -1141,6 +1141,12 @@ const SETS_IMPORTES = [
         // allégée, 49-U14, ne porte aucun exercice).
         if (l.exercise_slug !== null && l.exercise_slug !== undefined &&
             !CATALOGUE.some((e) => e.slug === l.exercise_slug)) return json(refus('23503', 'predictions_exercise_slug_fkey'), 400);
+        // 117 (v2_047) — `session_id`, GÉNÉRÉE depuis `fondement->>'seance'`, référence `sessions` : un pari dont la
+        // séance n'existe pas est refusé, comme en base (`predictions_session_fk`).
+        if (l.fondement && l.fondement.seance && !base.sessions.some((x) => x.id === l.fondement.seance)) {
+          return json(refus('23503', 'insert or update on table "predictions" violates foreign key constraint '
+            + '"predictions_session_fk"'), 400);
+        }
         if (l.set_observe && !base.sets.some((x) => x.id === l.set_observe)) {
           return json(refus('23503', 'predictions_set_observe_fkey'), 400);
         }
@@ -1492,7 +1498,13 @@ const SETS_IMPORTES = [
         return json(projeter(st ? base.sessions.filter((s) => s.statut === st) : base.sessions, url));
       }
       if (table === 'sets') {
-        const sid = (url.searchParams.get('session_id') || '').replace('eq.', '');
+        // 117 — `session_id=in.(…)` aussi (le rapprochement des séries, `Donnees.seriesDesSeances`).
+        const brutSid = url.searchParams.get('session_id') || '';
+        if (brutSid.startsWith('in.')) {
+          const ids = brutSid.slice(4, -1).split(',').map((x) => x.replace(/"/g, ''));
+          return json(projeter(base.sets.filter((s) => ids.indexOf(s.session_id) >= 0), url));
+        }
+        const sid = brutSid.replace('eq.', '');
         return json(projeter(sid ? base.sets.filter((s) => s.session_id === sid) : base.sets, url));
       }
       // 55-1 — les pesées (le rapport au poids de la page d'exercice).
@@ -7224,6 +7236,36 @@ const SETS_IMPORTES = [
       base.predictions.length === compteAvant,
       base.predictions.length + ' vs ' + compteAvant);
     await abandonner();
+
+    // ── 117 (audit du 16/10, 06 #2) — UNE SÉANCE ABANDONNÉE HORS LIGNE N'Y LAISSE PAS SON PARI ──────────
+    // La configuration discriminante : la séance COMMENCE hors ligne (sa création ne voyage jamais), une série
+    // validée pose son pari, puis l'abandon. Avant le correctif, le pari restait seul dans la file ; au retour du
+    // réseau, la base le refusait (23503, `predictions_session_fk`) et « 1 envoi refusé » ne partait plus jamais.
+    const fileEntiere = () => page.evaluate(() =>
+      (window.THCache ? window.THCache.lireAttente() : Promise.resolve([])).then((f) => f.map((e) => e.cle)));
+    const refusAvant117 = base.journal.filter((j) => j.op === 'refus').length;
+    // La bibliothèque se lit au réseau (elle n'est pas dans le cache) : on l'ouvre en ligne, PUIS on coupe.
+    await aller('/saisie');
+    base.reseau = false;
+    await demarrerRoutine('Terre');
+    await attendre(900);
+    await saisirSerie(0, planOuvert[0][0], planOuvert[0][1]);
+    await attendre(900);
+    const parisHorsLigne = (await enFilePred()).filter((e) => e.op !== 'observer').length;
+    await abandonner();
+    const fileApresAbandon = await fileEntiere();
+    base.reseau = true;
+    await aller('/saisie');
+    await jusqua(async () => (await fileEntiere()).length === 0, 8000);
+    const fileAuRetour = await fileEntiere();
+    const etatAuRetour = await texte('#etat-sync');
+    ok('[P] 117 — hors ligne, la série validée pose son pari ; « Abandonner » l’emporte avec la séance',
+      parisHorsLigne > 0 && fileApresAbandon.length === 0, JSON.stringify({ paris: parisHorsLigne, file: fileApresAbandon }));
+    ok('[P] 117 — au retour du réseau : file vide, aucun refus, aucun « envoi refusé »',
+      fileAuRetour.length === 0 && !/refusé/.test(etatAuRetour) &&
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant117,
+      JSON.stringify({ file: fileAuRetour, etat: etatAuRetour,
+        refus: base.journal.filter((j) => j.op === 'refus').slice(refusAvant117) }));
     // ── DEUX INSTANCES QUI NOTENT EN MÊME TEMPS (48c-2) ──────────────────
     //
     // ⚠️ LE DÉFAUT DU 21/09, dans sa configuration discriminante. Le squat a
@@ -21773,6 +21815,32 @@ const SETS_IMPORTES = [
       !fD.visible && statutDe('d2a-vieille-2') === 'terminee' &&
       base.sessions.some((x) => x.id !== 'd2a-vieille-2' && x.statut === 'en_cours'), nb2([fD.visible, enBase()]));
     await Dd.fermer();
+
+    // ── 117 (audit du 16/10, 06 #1) — UNE SÉRIE EFFACÉE SUR UN APPAREIL QUITTE LE CACHE DE L'AUTRE ─────────────
+    // E a la séance en cache (3 séries) ; l'autre appareil la corrige et retire une série (ce que fait son
+    // `remplacerSeries` : un DELETE en base). E rouvre : l'incrémental ne voit pas une suppression — sans le
+    // rapprochement, la série restait à vie dans son cache (le coach, les records et le volume la comptaient).
+    base.sessions = []; base.sets = [];
+    const finie = '2026-10-01T08:00:00.000Z';
+    base.sessions.push({ id: 'd2a-finie', user_id: 'u-banc', titre: 'Finie D2A', debut: finie, fin: '2026-10-01T09:00:00.000Z',
+      statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: finie });
+    [1, 2, 3].forEach((r) => base.sets.push({ id: 'd2a-finie-s' + r, session_id: 'd2a-finie', user_id: 'u-banc',
+      exercise_slug: 'rowing-d2a', charge_kg: 70 + r, reps: 10, duree_s: null, distance_m: null, type_serie: 'travail', rang: r,
+      groupe_superset: null, validee_a: finie, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app',
+      created_at: finie, modifie_a: null }));
+    const E = await appareil('E');
+    const seriesEnCacheDe = (p) => p.evaluate(() => window.THCache.lireTout('series')
+      .then((l) => l.filter((x) => x.session_id === 'd2a-finie').map((x) => x.id).sort()));
+    page = E.p; await aller('/saisie');
+    await jusqua(async () => (await seriesEnCacheDe(E.p)).length === 3, 8000);
+    const avantE = await seriesEnCacheDe(E.p);
+    base.sets = base.sets.filter((x) => x.id !== 'd2a-finie-s2');   // la correction de l'autre appareil
+    page = E.p; await aller('/saisie');
+    await jusqua(async () => (await seriesEnCacheDe(E.p)).length === 2, 8000);
+    const apresE = await seriesEnCacheDe(E.p);
+    ok('[D2A] 117 — DISCRIMINANT : la série effacée sur l’autre appareil quitte le cache de celui-ci à la synchronisation',
+      avantE.length === 3 && nb2(apresE) === nb2(['d2a-finie-s1', 'd2a-finie-s3']), nb2([avantE, apresE]));
+    await E.fermer();
 
     // LA REMISE EN ÉTAT, pour les sections suivantes.
     page = pageA;

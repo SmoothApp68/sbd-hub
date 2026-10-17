@@ -173,6 +173,23 @@
   // l'utilisateur que quelque chose ne montera pas.
   var CODES_DEFINITIFS = ['23502', '23503', '23505', '23514', '22P02', '42501', '42703'];
 
+  // ⚠️ 117 (audit du 16/10, 06 #4 et #17) — CE QUE LA BASE N'A PAS ENCORE.
+  //
+  // Une colonne ou une table absente (une PR fusionnée avant sa migration) : PostgREST répond `PGRST204` (colonne
+  // inconnue à l'écriture), `PGRST205` ou `42P01` (table inconnue), `PGRST202` ou `42883` (fonction inconnue) —
+  // pas `42703`, que Postgres seul renvoie. Ces codes passaient pour « temporaires » : l'entrée n'était pas
+  // bloquée, `prochaine` la rendait en tête à chaque tour, la vidange s'arrêtait (`break`), et TOUTES les entrées
+  // suivantes — séances comprises — restaient sur le téléphone jusqu'à la migration. Le social, lui, les classait
+  // déjà en refus (`Social.issueDuGeste`).
+  //
+  // Ils sont désormais REFUSÉS (l'entrée est marquée, elle se voit, et elle ne retient que ce qui dépend d'elle :
+  // son identifiant, et les entrées dont `depend` la désigne, de proche en proche — jamais une autre séance). Et
+  // ils sont RETENTÉS À CHAQUE OUVERTURE (`reparerSchema`) : la migration lancée, l'entrée monte sans un geste.
+  // `TH001` : une table que CETTE version de l'app ne sait pas écrire (une entrée posée par une version plus
+  // récente) — même règle : refusée, visible, retentée à l'ouverture par une version qui la connaîtra.
+  var CODES_SCHEMA = ['42703', 'PGRST204', 'PGRST205', '42P01', 'PGRST202', '42883', 'TH001'];
+  CODES_SCHEMA.forEach(function (c) { if (CODES_DEFINITIFS.indexOf(c) < 0) CODES_DEFINITIFS.push(c); });
+
   // ⚠️ SAUF UN `23505`, ET UN SEUL (26/09/2026) : `sessions_une_seule_en_cours`.
   //
   // Index unique sur `user_id` WHERE `statut = 'en_cours'`. Il refuse la
@@ -462,6 +479,64 @@
     });
   }
 
+  // ⚠️ 117 (audit du 16/10, 06 #2) — UNE SÉANCE QUI PART EMPORTE CE QUI DÉPEND D'ELLE.
+  //
+  // Abandonner (ou supprimer) une séance retirait ses séries de la file, et posait la suppression de la séance —
+  // qui, jamais montée, ne voyage pas. Ses PARIS et leurs OBSERVATIONS restaient : au retour du réseau, la base
+  // refusait le pari (23503, `predictions_session_fk` : sa séance n'existe pas), code définitif, et « 1 envoi refusé
+  // — rien n'est perdu » ne partait plus jamais. Désormais tout ce qui dépend de la séance sort avec elle : ses
+  // séries, ses paris, son journal des records, les observations de ses paris et celles qui désignent une de ses
+  // séries (`idsSeries`). L'entrée de la séance elle-même reste à `poser(SUPPRIMER)`, qui décide si elle voyage.
+  function retirerSeance(file, seanceId, idsSeries) {
+    var liste = (file || []).slice();
+    if (!seanceId) return liste;
+    var series = {}, paris = {};
+    (idsSeries || []).forEach(function (id) { if (id) series[id] = true; });
+    liste.forEach(function (e) { if (e && e.table === PREDICTIONS && e.depend === seanceId) paris[e.id] = true; });
+    return liste.filter(function (e) {
+      if (!e) return false;
+      if (e.table === SESSIONS) return true;
+      if (e.table === SETS) return e.id !== seanceId;
+      if (e.depend === seanceId) return false;
+      if (e.table === OBSERVATIONS) {
+        if (paris[e.id]) return false;
+        var d = e.donnees || {};
+        if (d.set_observe && series[d.set_observe]) return false;
+      }
+      return true;
+    });
+  }
+
+  // ⚠️ 117 (audit du 16/10, 06 #2) — ET UN REFUS PARCE QUE LA SÉANCE N'EXISTE PLUS N'EST PAS UN BLOCAGE.
+  //
+  // Un pari, ou le journal des records d'une séance, refusé en 23503 sur la clé vers `sessions` alors que la file
+  // n'a plus rien à monter pour cette séance : elle a été abandonnée ou supprimée (ici ou sur un autre appareil),
+  // ou un envoi est parti avant l'abandon. Il ne passera jamais — un pari ne s'écrit jamais après coup (§9.11) — et
+  // le garder bloqué affichait « 1 envoi refusé » pour toujours. Il sort de la file, avec l'observation de ce pari.
+  // Une autre clé (l'exercice, la série) reste un refus ; un lot du remplissage (sans `depend`) aussi : il porte les
+  // lignes de plusieurs séances. Les SÉRIES ne sont jamais concernées : ce sont des saisies, pas des déductions.
+  function seanceDeLEntree(op) {
+    if (!op) return null;
+    if (op.table === PREDICTIONS) {
+      var f = op.donnees && op.donnees.fondement;
+      return (f && f.seance) || op.depend || null;
+    }
+    if (op.table === RECORDS) return op.depend || null;
+    return null;
+  }
+
+  function seanceDisparue(file, op, erreur) {
+    if (!op || !erreur || String(erreur.code || '') !== '23503') return false;
+    if (op.table !== PREDICTIONS && op.table !== RECORDS) return false;
+    var texte = String(erreur.message || '') + ' ' + String(erreur.details || '');
+    if (!/session/i.test(texte)) return false;
+    var seance = seanceDeLEntree(op);
+    if (!seance) return false;
+    return !(file || []).some(function (e) {
+      return e && e.table === SESSIONS && e.id === seance && e.op !== SUPPRIMER;
+    });
+  }
+
   function marquerAttente(file, cle, raison) {
     return (file || []).map(function (e) {
       if (e.cle !== cle) return e;
@@ -503,6 +578,13 @@
       if (issue === 'refus') return { file: retirer(file, op.cle, op.version || 1), suite: 'refusee' };
       return { file: marquerEchec(file, op.cle, erreur), suite: 'arret' };
     }
+    if (seanceDisparue(file, op, erreur)) {
+      var sans = retirer(file, op.cle, op.version || 1);
+      if (op.table === PREDICTIONS) {
+        sans = sans.filter(function (e) { return !(e && e.table === OBSERVATIONS && e.id === op.id); });
+      }
+      return { file: sans, suite: 'caduque' };
+    }
     if (orpheline(file, op, erreur)) {
       return { file: retirer(file, op.cle, op.version || 1), suite: 'abandonnee' };
     }
@@ -510,7 +592,10 @@
       var raison = String(erreur.code || '') === AUCUNE_LIGNE ? 'pari' : 'serie';
       return { file: marquerAttente(file, op.cle, raison), suite: 'attend' };
     }
-    return { file: marquerEchec(file, op.cle, erreur), suite: 'arret' };
+    // 117 (audit du 16/10, 06 #4) — UN REFUS N'ARRÊTE PLUS LA VIDANGE. L'entrée est marquée (`bloquee`), et
+    // `prochaine` la dépasse avec ce qui dépend d'elle : la vidange continue aussitôt avec les entrées suivantes
+    // (`suite: 'bloquee'`), au lieu d'attendre le geste suivant. Seul ce qui se réessaie (le réseau) l'arrête.
+    return { file: marquerEchec(file, op.cle, erreur), suite: estDefinitive(erreur) ? 'bloquee' : 'arret' };
   }
 
   // Retirée APRÈS confirmation, et seulement si elle est restée celle qu'on a
@@ -649,6 +734,44 @@
     return { file: neuve, entrees: entrees };
   }
 
+  // 117 (audit du 16/10, 06 #4) — À L'OUVERTURE, LES REFUS « LA BASE N'A PAS ENCORE » SONT RETENTÉS UNE FOIS.
+  // Seulement eux (`CODES_SCHEMA`) : un refus de contrainte, de RLS ou de clé étrangère échouerait à l'identique.
+  function reparerSchema(file) {
+    var entrees = 0;
+    var neuve = (file || []).map(function (e) {
+      if (!e || !e.bloquee || CODES_SCHEMA.indexOf(String(e.bloquee.code || '')) < 0) return e;
+      entrees++;
+      return Object.assign({}, e, { version: (e.version || 1) + 1, bloquee: null, essais: 0 });
+    });
+    return { file: neuve, entrees: entrees };
+  }
+
+  // ⚠️ 117 (audit du 16/10, 06 #6) — LA FILE APPARTIENT À SON COMPTE, ET ELLE LUI EST RENDUE.
+  //
+  // Une session qui EXPIRE ne vide rien (les données restent pour la prochaine ouverture). Mais si un AUTRE compte
+  // entrait ensuite sur l'appareil, le changement de propriétaire vidait tout — la file du premier comprise : ses
+  // séances pas encore montées, ses pesées, ses paris, sans la fenêtre de « Quitter ». Désormais la file du compte
+  // qui part est GARDÉE à part, sous son identifiant, et RENDUE quand il revient ; seul « Quitter » explicite la
+  // vide, après sa fenêtre (qui la compte). Pur : `gardees` est `{ uid: file }`, rien n'est muté.
+  function changerDeCompte(gardees, ancienUid, fileAncienne, nouveauUid) {
+    var g = {};
+    Object.keys(gardees || {}).forEach(function (k) { if ((gardees[k] || []).length) g[k] = gardees[k].slice(); });
+    if (ancienUid && (fileAncienne || []).length) {
+      var vues = {};
+      (fileAncienne || []).forEach(function (e) { if (e) vues[e.cle] = true; });
+      g[ancienUid] = (g[ancienUid] || []).filter(function (e) { return e && !vues[e.cle]; })
+        .concat((fileAncienne || []).filter(Boolean));
+    }
+    var rendue = (nouveauUid && g[nouveauUid]) || [];
+    if (nouveauUid) delete g[nouveauUid];
+    return { gardees: g, rendue: rendue };
+  }
+
+  // Toutes les entrées gardées pour d'autres comptes, à plat (la fenêtre de « Quitter » les compte).
+  function entreesGardees(gardees) {
+    return Object.keys(gardees || {}).reduce(function (t, k) { return t.concat(gardees[k] || []); }, []);
+  }
+
   // Tout ce qui attend encore, par table. La synchronisation s'en sert pour
   // NE PAS EFFACER ce qu'elle ne connaît pas encore : `Sync.remplacer` remplace
   // la liste des séances par celle du serveur, et une séance saisie hors ligne
@@ -752,6 +875,8 @@
     attendSaSerie: attendSaSerie,
     AUCUNE_LIGNE: AUCUNE_LIGNE,
     orpheline: orpheline,
+    retirerSeance: retirerSeance,
+    seanceDisparue: seanceDisparue,
     apresEchec: apresEchec,
     apresSucces: apresSucces,
     seanceDe: seanceDe,
@@ -760,6 +885,10 @@
     UPSERT: UPSERT, SUPPRIMER: SUPPRIMER, REMPLACER: REMPLACER, PLAN: PLAN,
     cumulerConnues: cumulerConnues,
     CODES_DEFINITIFS: CODES_DEFINITIFS,
+    CODES_SCHEMA: CODES_SCHEMA,
+    reparerSchema: reparerSchema,
+    changerDeCompte: changerDeCompte,
+    entreesGardees: entreesGardees,
     cleDe: cleDe,
     estDefinitive: estDefinitive,
     estConflitEnCours: estConflitEnCours,

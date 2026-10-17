@@ -51,6 +51,9 @@
                 objectifs: [], objectifsDispo: null, parisObjectif: [] };
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
+  // 117 (audit du 16/10, 06 #1) — le nombre d'envois de séries confirmés depuis l'ouverture. Le rapprochement des
+  // séries ne conclut rien si une série est montée PENDANT la synchronisation (elle n'était pas dans ce qu'on a lu).
+  var envoisDeSeries = 0;
   // ⚠️ 59-5 — LA GÉNÉRATION DE L'APPAREIL. « Quitter » (et « Supprimer mon
   // compte », qui passe par lui) l'incrémente AVANT de vider quoi que ce soit.
   // Tout écrivain asynchrone — une synchronisation, le journal des records,
@@ -816,14 +819,20 @@
     // 59-5 — un autre compte entre : ce qui était en vol pour le précédent
     // n'écrira plus (même règle que « Quitter »).
     nouvelleGeneration();
-    await Cache.viderTout();
+    // 117 (audit du 16/10, 06 #6) — tout est vidé SAUF la file du compte qui part, gardée sous son identifiant ; et
+    // la file gardée pour le compte qui entre lui est rendue (relue juste après, `chargerSeanceLocale`). Seul
+    // « Quitter » explicite vide une file, après sa fenêtre.
+    var changement = await Cache.changerDeCompte(meta && meta.userId, userId);
+    if (changement && changement.rendue && changement.rendue.length) {
+      console.warn('File d\u2019envoi rendue à ce compte : ' + changement.rendue.length + ' envoi(s) gardé(s) depuis sa dernière visite.');
+    }
     // Les routines ne sont pas dans le cache, mais elles appartiennent au
     // compte précédent : les laisser en mémoire montrerait la bibliothèque de
     // quelqu'un d'autre le temps d'une requête.
     routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };
     // La séance en cours et la file appartiennent au compte précédent. Le
-    // `viderTout` ci-dessus a effacé leurs magasins ; on remet la mémoire
-    // d'accord avec le disque.
+    // changement de compte ci-dessus a vidé leurs magasins (la file, gardée à
+    // part pour lui) ; on remet la mémoire d'accord avec le disque.
     seance = null; attente = []; chrono = null;
     oublierSuppressionDifferee();
     // §12.9 (49-U13) — les séances sous consigne aussi (le brouillon qui les
@@ -886,6 +895,8 @@
     if (syncEnCours) return;
     syncEnCours = true;
     var g = generation;
+    var envoisAuDepart = envoisDeSeries;
+    var fileAuDepart = Attente.seancesEnAttente(attente);
     try {
       var resync = await armerResynchronisation();
       var curseur = await Cache.lireMeta('curseurSeries');
@@ -993,6 +1004,12 @@
       // d'avancer, « N séries manquantes » s'afficherait, et 15 Mo
       // redescendraient à chaque synchronisation, pendant toute la séance.
       local.series = Sync.purgerSeriesOrphelines(fusionnees, local.seances, listeComplete);
+      // 117 (audit du 16/10, 06 #1) — et les séries effacées AILLEURS (une correction sur un autre appareil), que
+      // l'incrémental ne voit jamais : rapprochées par séance, seulement quand le compte dit qu'il y en a.
+      if (listeComplete) {
+        local.series = await rapprocherSeriesDuServeur(local.series, seances, compteSeries, fileAuDepart, envoisAuDepart, g);
+        if (!generationValide(g)) return;
+      }
       local.exercices = Sync.remplacer(exercices);
       // Et MAINTENANT le corpus de lecture : la séance en cours sort ici, une
       // ligne avant que le cache ne soit écrit — donc elle n'y entre pas non
@@ -1096,6 +1113,44 @@
       // synchro d'aujourd'hui (`deconnecter` l'a déjà libéré).
       if (generationValide(g)) syncEnCours = false;
     }
+  }
+
+  // 117 (audit du 16/10, 06 #1) — LE RAPPROCHEMENT DES SÉRIES (`Sync.surplusDeSeries`, `Sync.rapprocherSeries`).
+  // Le surplus se calcule hors de ce qui attend dans la file — au départ de la synchronisation ET maintenant : une
+  // séance posée entre-temps est protégée aussi. Un surplus au compte lu AVANT la liste se vérifie au compte relu
+  // APRÈS (une série montée ailleurs entre les deux n'est pas un surplus). Puis les identifiants des séances, par
+  // lots, des plus récentes aux plus anciennes, jusqu'à ce que le surplus soit résorbé. Une série montée D'ICI
+  // pendant ce temps (`envoisDeSeries`) : on ne conclut rien, la synchronisation suivante reprendra. Une lecture qui
+  // échoue n'emporte pas la synchronisation : on garde ce qu'on a.
+  async function rapprocherSeriesDuServeur(series, seancesServeur, compteServeur, fileAuDepart, envoisAuDepart, g) {
+    var proteger = function () {
+      var p = Object.assign({}, fileAuDepart || {});
+      Object.keys(Attente.seancesEnAttente(attente)).forEach(function (id) { p[id] = true; });
+      return p;
+    };
+    var surplus = Sync.surplusDeSeries(series, seancesServeur, proteger(), compteServeur);
+    if (surplus <= 0) return series;
+    try {
+      var compteApres = await Donnees.compterSeries();
+      if (!generationValide(g)) return series;
+      surplus = Sync.surplusDeSeries(series, seancesServeur, proteger(), compteApres);
+      if (surplus <= 0) return series;
+      var lots = Sync.lotsDeRapprochement(seancesServeur);
+      var retirees = 0;
+      for (var i = 0; i < lots.length && surplus > 0; i++) {
+        if (envoisDeSeries !== envoisAuDepart) break;
+        var lignes = await Donnees.seriesDesSeances(lots[i]);
+        if (!generationValide(g) || envoisDeSeries !== envoisAuDepart) break;
+        var r = Sync.rapprocherSeries(series, lignes, lots[i], proteger());
+        series = r.series;
+        retirees += r.retirees.length;
+        surplus -= r.retirees.length;
+      }
+      if (retirees) console.warn('Synchronisation : ' + retirees + ' série(s) effacée(s) sur un autre appareil retirée(s) du cache.');
+    } catch (e) {
+      console.warn('Rapprochement des séries impossible :', texteErreur(e));
+    }
+    return series;
   }
 
   // Ce que la purge a retiré doit quitter le magasin : sans `clear()`, une
@@ -3178,7 +3233,14 @@
   // à envoyer, « à jour » serait faux.
   function rendreEtatSync() {
     var noeud = $('etat-sync');
-    if (noeud) Rendu.rendreEtat(noeud, Attente.deciderEtat(etat, attente));
+    if (!noeud) return;
+    // 117 (audit du 16/10, 06 #7) — la base de l'appareil est tenue par une autre page de l'app restée ouverte
+    // (une ancienne version) : l'app a démarré sans elle, sur le réseau ; elle le dit, au lieu d'attendre sans fin.
+    if (Cache.estBloquee && Cache.estBloquee()) {
+      Rendu.rendreEtat(noeud, { code: 'bloque', libelle: 'Données de l\u2019appareil indisponibles : ferme l\u2019autre onglet de l\u2019app' });
+      return;
+    }
+    Rendu.rendreEtat(noeud, Attente.deciderEtat(etat, attente));
   }
 
   // ── La vidange ──────────────────────────────────────────────────────────
@@ -3228,12 +3290,24 @@
             noterGesteSocial(op, echec);
             continue;
           }
+          // 117 (audit du 16/10, 06 #2) — un pari, ou le journal d'une séance, refusé parce que sa séance n'existe
+          // plus (abandonnée, supprimée) : il sort de la file au lieu de rester « refusé » pour toujours.
+          if (issue.suite === 'caduque') {
+            console.warn('Envoi retiré (' + op.cle + ') : sa séance n\u2019existe plus en base.');
+            continue;
+          }
           if (issue.suite === 'abandonnee') {
             console.warn('Observation orpheline abandonnée (' + op.cle + ') : son pari n\u2019est pas en base, ' +
               'et sa séance n\u2019a plus rien à envoyer.');
             continue;
           }
           if (issue.suite === 'attend') continue;
+          // 117 (audit du 16/10, 06 #4) — refusée : marquée, dépassée par `prochaine` avec ce qui dépend d'elle ; les
+          // entrées suivantes (une autre séance) partent dans cette même vidange.
+          if (issue.suite === 'bloquee') {
+            console.warn('Envoi refusé (' + op.cle + ') :', texteErreur(echec));
+            continue;
+          }
           console.warn('Envoi différé (' + op.cle + ') :', texteErreur(echec));
           break;
         }
@@ -3247,6 +3321,7 @@
         // file au moment de la mise à jour.
         // Les observations qui attendaient repartent (`apresSucces`).
         attente = Attente.apresSucces(attente, op);
+        if (op.table === Attente.SETS) envoisDeSeries++;
         await Cache.ecrireAttente(attente).catch(function () {});
         if (op.table === Attente.OBSERVATIONS) await confirmerObservation(op);
         if (op.table === Attente.SOCIAL) noterGesteSocial(op, null);
@@ -3340,7 +3415,11 @@
     // vidée sans rien écrire — exactement la perte silencieuse que la file
     // existe pour empêcher.
     if (op.table === Attente.ROUTINE_EXOS) return Donnees.majExercice(op.id, op.donnees);
-    return Promise.resolve();
+    // ⚠️ 117 (audit du 16/10, 06 #17) — UNE TABLE INCONNUE N'EST PAS UN SUCCÈS. Ce `return` « réussissait » sans rien
+    // écrire, et l'entrée sortait de la file : la perte silencieuse que les branches ci-dessus décrivent deux fois.
+    // Elle est REFUSÉE (`TH001`, `Attente.CODES_SCHEMA`) : elle reste, elle se voit, elle ne retient rien d'autre, et
+    // elle est retentée à l'ouverture (une version de l'app qui connaît la table l'enverra).
+    return Promise.reject({ code: 'TH001', message: 'la file ne sait pas écrire la table « ' + op.table + ' »' });
   }
 
   // ⚠️ UNE ENTRÉE `predictions` EN `observer` EST UNE ENTRÉE D'AVANT LE
@@ -3580,6 +3659,17 @@
     try { await Cache.ecrireAttente(attente); }
     catch (e) { console.warn('File réparée non persistée :', texteErreur(e)); }
     console.warn('File réparée : ' + r.entrees + ' séance(s) en conflit « une seule en cours » débloquée(s).');
+  }
+
+  // 117 (audit du 16/10, 06 #4) — les refus « la base n'a pas encore cette colonne, cette table » (ou « cette version
+  // ne connaît pas cette table ») sont retentés une fois par ouverture : la migration lancée, ils montent seuls.
+  async function reparerFileSchema() {
+    var r = Attente.reparerSchema(attente);
+    if (!r.entrees) return;
+    attente = r.file;
+    try { await Cache.ecrireAttente(attente); }
+    catch (e) { console.warn('File réparée non persistée :', texteErreur(e)); }
+    console.warn('File : ' + r.entrees + ' envoi(s) refusé(s) faute de colonne ou de table retenté(s).');
   }
 
   // ══ LA SÉANCE `en_cours` RESTÉE EN BASE (chantier 36, D7) ════════════════
@@ -4180,6 +4270,15 @@
 
   // Abandonner SUPPRIME la séance. Sans ça, une séance `en_cours` fantôme
   // resterait en base et se rouvrirait au prochain lancement.
+  // Les identifiants des séries d'une séance de la saisie (toutes, validées ou non).
+  function idsSeriesDe(s) {
+    var ids = [];
+    ((s && s.exercices) || []).forEach(function (x) {
+      ((x && x.series) || []).forEach(function (r) { if (r && r.id) ids.push(r.id); });
+    });
+    return ids;
+  }
+
   async function abandonnerSeance() {
     // 115 (E2) — une suppression en attente part d'abord, comme au glissement d'avant : son observation vidée
     // reste dans la file (la séance qui part l'emporte en base de toute façon).
@@ -4187,7 +4286,9 @@
     var id = seance.id;
     // L'ordre compte : on retire d'abord les intentions d'écriture des séries,
     // sinon la vidange essaierait d'écrire des séries d'une séance supprimée.
-    attente = Attente.retirer(attente, Attente.cleDe(Attente.SETS, id));
+    // 117 (audit du 16/10, 06 #2) — et TOUT ce qui dépend d'elle : ses paris, leurs observations, son journal. Un pari
+    // resté seul était refusé à vie par la base (sa séance n'existe pas) : « 1 envoi refusé » pour toujours.
+    attente = Attente.retirerSeance(attente, id, idsSeriesDe(seance));
     seance = null; chrono = null; arreterMinuteur();
     rendreChrono();
     await Cache.ecrireBrouillon('seance', null);
@@ -11236,7 +11337,9 @@
     // L'ordre compte, comme à l'abandon : on retire d'abord l'intention
     // d'écrire ses séries, sinon la vidange écrirait les séries d'une séance
     // supprimée — et les recréerait par la clé étrangère.
-    attente = Attente.retirer(attente, Attente.cleDe(Attente.SETS, id));
+    // 117 (audit du 16/10, 06 #2) — et tout ce qui dépend d'elle (paris, observations, journal) : comme à l'abandon.
+    attente = Attente.retirerSeance(attente, id, (local.series || [])
+      .filter(function (s) { return s && s.session_id === id; }).map(function (s) { return s.id; }));
     // ⚠️ ON RETIRE, ON NE FAIT PAS TABLE RASE (chantier 36).
     // `Cache.remplacerTout` VIDE le magasin puis le réécrit — `cache.js` le
     // réserve explicitement aux magasins petits et rafraîchis en entier, et dit
@@ -11492,6 +11595,7 @@
     await reparerIdentifiantsManquants();
     await reparerFileHorsBornes();
     await reparerFileConflitsEnCours();
+    await reparerFileSchema();
     // La mémoire est chargée : désormais, pour ce compte, c'est elle qui fait
     // foi (`entrer`).
     entreeFaitePour = userId || null;
@@ -13349,9 +13453,13 @@
   // était perdue. L'enchaînement vit dans `THQuitter.quitter` (testé) : envoyer
   // d'abord si le réseau est là, puis quitter si la file s'est vidée, sinon la
   // fenêtre. Seul « Quitter quand même » vide la file (`deconnecter`).
-  function quitterSansRienPerdre() {
+  async function quitterSansRienPerdre() {
+    // 117 (audit du 16/10, 06 #6) — les files GARDÉES pour un autre compte de cet appareil partent aussi avec
+    // « Quitter » : la fenêtre les compte, rien ne se perd sans qu'elle le dise.
+    var gardees = [];
+    try { gardees = Attente.entreesGardees(await Cache.lireFilesGardees()); } catch (e) { gardees = []; }
     return Quitter.quitter({
-      file: function () { return attente; },
+      file: function () { return attente.concat(gardees); },
       // 60-2c : une réponse de profil pas encore envoyée (hors file) compte aussi.
       profil: function () { return profilAEnvoyer; },
       enLigne: function () { return !(racine.navigator && racine.navigator.onLine === false); },

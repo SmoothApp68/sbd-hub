@@ -37,12 +37,40 @@
                   'brouillon', 'attente', 'records', 'predictions'];
   var LOT = 500;
   var _db = null;
+  // ⚠️ 117 (audit du 16/10, 06 #7) — UNE AUTRE PAGE QUI GARDE L'ANCIENNE VERSION OUVERTE.
+  //
+  // Le jour où `VERSION` monte, une page restée ouverte avec l'ancienne (un second onglet, une page en arrière-plan)
+  // garde sa connexion : l'ouverture de la nouvelle passe en `blocked` et ATTEND sans fin — `entrerVraiment`
+  // attendait avec elle, et l'app ne posait aucun écran. Deux gestionnaires :
+  //   · `onversionchange` sur CHAQUE connexion ouverte ici : une autre page demande une version plus haute (ou la
+  //     trappe `/__sw-off` efface la base) → on ferme la nôtre, tout de suite. Une page à jour ne bloque donc plus
+  //     personne ; la suivante rouvrira si elle en a besoin.
+  //   · `onblocked` : passé `DELAI_BLOQUE_MS`, l'ouverture est REJETÉE (les `try/catch` de l'app prennent le
+  //     relais : elle démarre sur le réseau et le DIT, `estBloquee`), et la base locale reste HORS SERVICE pour
+  //     cette page — une connexion qui arriverait après coup est refermée : une page qui a démarré sans son cache
+  //     n'y écrit pas plus tard sans que son propriétaire ait été vérifié.
+  var DELAI_BLOQUE_MS = 3000;
+  var _ouverture = null;
+  var _horsService = null;
 
   function ouvrir() {
     if (_db) return Promise.resolve(_db);
-    return new Promise(function (resoudre, rejeter) {
-      if (!racine.indexedDB) return rejeter(new Error('IndexedDB indisponible'));
+    if (_horsService) return Promise.reject(_horsService);
+    if (_ouverture) return _ouverture;
+    _ouverture = new Promise(function (resoudre, rejeter) {
+      if (!racine.indexedDB) { _ouverture = null; return rejeter(new Error('IndexedDB indisponible')); }
       var req = racine.indexedDB.open(NOM, VERSION);
+      var minuteur = null, abandonnee = false;
+      req.onblocked = function () {
+        if (minuteur || abandonnee) return;
+        minuteur = setTimeout(function () {
+          abandonnee = true;
+          _horsService = new Error('Base locale bloquée par une autre page de l’app restée ouverte');
+          _horsService.code = 'IDB_BLOQUEE';
+          _ouverture = null;
+          rejeter(_horsService);
+        }, DELAI_BLOQUE_MS);
+      };
       req.onupgradeneeded = function (e) {
         var db = e.target.result;
         if (!db.objectStoreNames.contains('seances')) {
@@ -105,10 +133,28 @@
             .createIndex('session_id', 'session_id');
         }
       };
-      req.onsuccess = function () { _db = req.result; resoudre(_db); };
-      req.onerror = function () { rejeter(req.error); };
+      req.onsuccess = function () {
+        if (minuteur) clearTimeout(minuteur);
+        var db = req.result;
+        if (abandonnee) { try { db.close(); } catch (e) { /* déjà fermée */ } return; }
+        db.onversionchange = function () {
+          try { db.close(); } catch (e) { /* déjà fermée */ }
+          if (_db === db) _db = null;
+        };
+        _db = db;
+        _ouverture = null;
+        resoudre(db);
+      };
+      req.onerror = function () {
+        if (minuteur) clearTimeout(minuteur);
+        _ouverture = null;
+        rejeter(req.error);
+      };
     });
+    return _ouverture;
   }
+
+  function estBloquee() { return !!_horsService; }
 
   function transaction(magasins, mode) {
     return ouvrir().then(function (db) { return db.transaction(magasins, mode); });
@@ -225,6 +271,36 @@
     });
   }
 
+  // ⚠️ 117 (audit du 16/10, 06 #6) — UN AUTRE COMPTE ENTRE : tout est vidé, SAUF la file du compte qui part, gardée
+  // sous son identifiant (`THAttente.changerDeCompte`) ; et la file gardée pour le compte qui entre lui est rendue.
+  // UNE transaction : lire les files gardées et la file en cours, vider, réécrire — une fermeture au milieu ne
+  // peut pas perdre la file (tout passe, ou rien). Rend `{ rendue, gardees }`. « Quitter » (`viderTout`) vide tout,
+  // les files gardées comprises, après sa fenêtre qui les compte.
+  var CLE_FILES_GARDEES = 'files-gardees';
+  function changerDeCompte(ancienUid, nouveauUid) {
+    return transaction(MAGASINS, 'readwrite').then(function (tx) {
+      var issue = { rendue: [], gardees: {} };
+      var b = tx.objectStore('brouillon'), a = tx.objectStore('attente');
+      var lu = b.get(CLE_FILES_GARDEES);
+      lu.onsuccess = function () {
+        var gardees = lu.result ? lu.result.valeur : null;
+        var file = a.getAll();
+        file.onsuccess = function () {
+          var calc = racine.THAttente.changerDeCompte(gardees, ancienUid, file.result || [], nouveauUid);
+          MAGASINS.forEach(function (m) { tx.objectStore(m).clear(); });
+          if (Object.keys(calc.gardees).length) b.put({ cle: CLE_FILES_GARDEES, valeur: calc.gardees });
+          calc.rendue.forEach(function (e) { a.put(e); });
+          issue = calc;
+        };
+      };
+      return finDe(tx).then(function () { return issue; });
+    });
+  }
+
+  function lireFilesGardees() {
+    return lireBrouillon(CLE_FILES_GARDEES).then(function (v) { return v || {}; });
+  }
+
   // ── Le brouillon et la file ─────────────────────────────────────────────
   //
   // Deux raccourcis sur les primitives ci-dessus, pour que l'appelant n'ait pas
@@ -267,6 +343,10 @@
     compterMagasin: compterMagasin,
     lireMeta: lireMeta,
     ecrireMeta: ecrireMeta,
-    viderTout: viderTout
+    viderTout: viderTout,
+    changerDeCompte: changerDeCompte,
+    lireFilesGardees: lireFilesGardees,
+    estBloquee: estBloquee,
+    DELAI_BLOQUE_MS: DELAI_BLOQUE_MS
   };
 })(typeof self !== 'undefined' ? self : globalThis);

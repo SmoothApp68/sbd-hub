@@ -420,6 +420,60 @@ const SCENARIOS = [
       verifier('sans que rien n’ait été effacé', apres.marqueur === 'données précieuses',
         'marqueur = ' + JSON.stringify(apres.marqueur));
     }, { racine: dossier });
+  }},
+
+{ n: 9, titre: 'une nouvelle version dont l’installation ÉCHOUE : le cache en place reste d’une seule version (117, audit 06 #8)',
+  run: async () => {
+    // La configuration discriminante : une version installée ; une nouvelle déployée (un script de la coquille
+    // change) dont l'installation échoue (un indispensable absent) ; l'app rouverte, toujours sous l'ancienne.
+    // Avant le correctif, la mise à jour en arrière-plan versait le NOUVEAU script dans le cache de l'ANCIENNE
+    // version : hors ligne, l'ancien `index.html` aurait chargé des scripts d'une autre version.
+    const ACTUEL = lire(path.join(RACINE, 'service-worker.js'));
+    const versionActuelle = (ACTUEL.match(/const CACHE_V2 = '([^']+)'/) || [])[1];
+    // L'échec se FORCE : l'hébergeur répond 200 à tout (le repli de `_redirects`), un fichier absent n'y suffirait
+    // pas. La cause importe peu (un réseau qui lâche en pleine installation) : l'installation lève.
+    const RATEE = ACTUEL.replace(/const CACHE_V2 = '([^']+)'/, "const CACHE_V2 = '$1-banc-ratee'")
+      .replace('async function installer() {', "async function installer() {\n  throw new Error('banc : installation ratée');");
+    verifier('le service worker de la version ratée est bien construit (son installation lève)',
+      RATEE !== ACTUEL && /installation ratée/.test(RATEE) && /-banc-ratee/.test(RATEE));
+    const dossier = racineAvecSW(ACTUEL);
+    // `js/` devient un vrai dossier (des liens, fichier par fichier) pour pouvoir y DÉPLOYER un script modifié.
+    fs.unlinkSync(path.join(dossier, 'js'));
+    fs.mkdirSync(path.join(dossier, 'js'));
+    for (const f of fs.readdirSync(path.join(RACINE, 'js'))) {
+      if (f === 'config.js') fs.copyFileSync(path.join(RACINE, 'js', f), path.join(dossier, 'js', f));
+      else fs.symlinkSync(path.join(RACINE, 'js', f), path.join(dossier, 'js', f));
+    }
+    const MARQUE = '// banc-117 : la version suivante';
+    await session(async (page) => {
+      await installerSW(page);
+      await ouvrir(page, '/');
+      const lireConfig = () => evaluer(page, async (v) => {
+        const c = await caches.open(v);
+        const r = await c.match('/js/config.js');
+        return r ? r.text() : null;
+      }, versionActuelle).catch(() => null);
+      const avant = await lireConfig();
+      verifier('l’ancienne version est installée, son `config.js` en cache', !!avant && avant.indexOf(MARQUE) < 0);
+
+      // La nouvelle version est mise en ligne : un script de la coquille change, et son installation échouera.
+      fs.appendFileSync(path.join(dossier, 'js', 'config.js'), '\n' + MARQUE + '\n');
+      deployer(dossier, RATEE);
+      await evaluer(page, () => Promise.race([
+        navigator.serviceWorker.getRegistration().then((r) => r && r.update()).catch(() => null),
+        new Promise((r) => setTimeout(r, 8000))
+      ])).catch(() => {});
+      await attendre(2500);
+      // L'app rouverte : toujours sous l'ancienne version, qui sert ses fichiers depuis son cache.
+      const vue = await ouvrir(page, '/');
+      await attendre(2500);
+      const apres = await lireConfig();
+      const noms = await evaluer(page, () => caches.keys()).catch(() => []);
+      verifier('l’installation de la nouvelle version a échoué : l’ancienne reste en place, l’app s’affiche',
+        noms.indexOf(versionActuelle) >= 0 && vue.sections > 0, JSON.stringify({ noms: noms, sections: vue.sections }));
+      verifier('[sw-une-version] DISCRIMINANT : le cache de la version en place n’a reçu AUCUN fichier de la suivante',
+        !!apres && apres.indexOf(MARQUE) < 0, apres ? 'marque ' + (apres.indexOf(MARQUE) >= 0 ? 'PRÉSENTE' : 'absente') : 'config.js absent');
+    }, { racine: dossier });
   }}
 ];
 

@@ -140,6 +140,16 @@ renseigné : le coach suppose qu'on peut ajouter des disques, comme aujourd'hui.
   (1 à 100 kg, au demi-kilo), qui devient une puce cochée.
 - **Haltères** — « Jusqu'à » **par haltère** (le libellé le dit : « Jusqu'à (par haltère, en kg) ») et « De … en … »
   (1, 2, 2,5 ou 5 kg). Les séries notent la paire (MOTEUR §10.1) : le moteur convertit, l'écran parle comme la salle.
+  **Par tranches (16/10/2026, prompt 123, audit du 16/10)** — demande d'Aurélien, mot pour mot : « Ok ma salle, par
+  contre pour les petites haltères de 1 à 10 c'est de 1 en 1 ». **Une ligne par tranche** (la mise en page de la ligne
+  d'avant, « Jusqu'à (par haltère, en kg) » puis « De … en … ») ; **« + Une tranche »** ajoute une ligne vide, à l'écart
+  de la précédente (au plus 3) ; **« Retirer cette tranche »** sous chaque ligne dès qu'il y en a deux. Les tranches se
+  rangent par « jusqu'à » à « Valider » ; une tranche sans charge (10 puis 11 de 2 en 2) ne ferme pas la feuille :
+  « Haltères : chaque « jusqu'à » entre 1 et 100 kg, plus lourd que le précédent ; un écart de 0,5 à 10 kg, pas plus
+  grand que sa tranche. » (une seule tranche : la phrase d'avant).
+- **« Pas d'haltères »** (123, le point resté ouvert au 116 : vider le champ ne les efface plus, il fallait un geste
+  explicite) — une puce sous « Haltères », allumée quand aucun haltère n'est déclaré ; la toucher retire les haltères du
+  brouillon (« Valider » écrit la salle sans haltères) ; taper un « jusqu'à » l'éteint.
 - **Valider** écrit la déclaration ; **Annuler** n'écrit rien ; **Effacer** (seulement si une salle est déclarée) écrit
   le vide — non renseignée, rien ne change. Une valeur hors bornes ne ferme pas la feuille : une phrase le dit (les
   bornes doublent la contrainte de la base, §5.7).
@@ -147,9 +157,18 @@ renseigné : le coach suppose qu'on peut ajouter des disques, comme aujourd'hui.
   feuille reste ouverte, le plus lourd déclaré revient dans le champ (l'écart choisi est gardé), et une phrase dit
   pourquoi : « « Jusqu'à » vide ou illisible : tes haltères restent à 40 kg. » Le champ est numérique : une faute de
   frappe s'y lit vide, et « Valider » écrivait la salle sans haltères, sans un mot.
+  *Ligne par ligne (123)* : avec autant de lignes que de tranches déclarées, chaque « jusqu'à » vide reprend celui de sa
+  tranche (une tranche : la phrase ci-dessus ; plusieurs : « « Jusqu'à » vide ou illisible : je remets 10 kg. ») ; une
+  tranche ajoutée et laissée vide, ou une ligne vide à côté d'une ligne remplie sans rien de déclaré : la feuille reste
+  ouverte, rien n'est repris, « « Jusqu'à » vide ou illisible : remplis-le, ou retire la tranche. » Toutes vides et rien
+  de déclaré : pas d'haltères (inchangé).
 
 **En base** : `profiles.ma_salle` (jsonb, migration `v2_088`, `NULL` = non renseignée) :
 `{ "barres_ez": [10, 15, 20, 25, 30], "barres_droites": [10, 15, 20, 25, 30], "halteres": { "max": 40, "pas": 2 } }`.
+Depuis 123 (`v2_095`), `halteres` est aussi une liste de 1 à 3 tranches : `[{ "jusqua": 10, "pas": 1 }, { "jusqua": 40,
+"pas": 2 }]`. Une tranche unique s'écrit toujours `{ max, pas }` (lue par toutes les apps, acceptée avant `v2_095`) ;
+deux ou trois, la liste. Avant `v2_095`, la liste est refusée : la salle d'avant est gardée et le Profil le dit (MOTEUR
+§10 bis, « Ce que le code en a fait (123) »).
 Une colonne plutôt que quatre : une seule écriture par « Valider », une seule colonne facultative tant que la migration
 n'est pas lancée (le profil se lit et s'écrit sans elle, le mécanisme du prompt 104), et une forme imbriquée (deux
 listes et une plage) qu'une contrainte valide entière.

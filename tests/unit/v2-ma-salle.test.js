@@ -96,7 +96,7 @@ describe('Profil — la déclaration « Ma salle » (profiles.ma_salle, v2_088)'
     expect(Profil.pucesDeBarres(b, 'barres_ez').map((p) => p.kg + (p.coche ? '+' : ''))).toEqual(
       ['10+', '12.5+', '15', '20+', '25+', '30+', '35', '40']);
     b = Profil.poserMaxHalteres(b, 40);
-    expect(b.halteres).toMatchObject({ max: 40, pas: 2 });            // l'écart de la maquette, par défaut
+    expect(b.halteres).toMatchObject([{ jusqua: 40, pas: 2 }]);       // l'écart de la maquette, par défaut (123 : une ligne par tranche)
     b = Profil.poserPasHalteres(b, 2.5);
     expect(Profil.champsSalle(b)).toEqual({ ma_salle: { barres_ez: [10, 12.5, 20, 25, 30], barres_droites: [],
       halteres: { max: 40, pas: 2.5 } } });
@@ -671,13 +671,13 @@ describe('116 — Ma salle : un « jusqu’à » vidé ou illisible garde les ha
 
   test('⚠️ DISCRIMINANT — vidé : la feuille reste ouverte, rien n’est écrit, le champ reprend 40, une phrase dit pourquoi', () => {
     const f = feuille({ ma_salle: SALLE_AUREL });
-    expect(f.vue.brouillon.halteres.max).toBe(SALLE_AUREL.halteres.max);
+    expect(f.vue.brouillon.halteres[0].jusqua).toBe(SALLE_AUREL.halteres.max);   // 123 : une ligne par tranche
     f.vue.surMaxHalteres('');                          // « 4O » dans un champ numérique : le navigateur rend ''
     f.vue.surValider();
     expect(f.ecrits).toEqual([]);                      // avant 116 : { ma_salle: { …, halteres: null } }
     expect(f.fermes).toBe(0);
     expect(f.vue.erreur).toBe('« Jusqu’à » vide ou illisible : tes haltères restent à ' + SALLE_AUREL.halteres.max + ' kg.');
-    expect(f.vue.brouillon.halteres).toMatchObject({ max: SALLE_AUREL.halteres.max, pas: SALLE_AUREL.halteres.pas });
+    expect(f.vue.brouillon.halteres).toMatchObject([{ jusqua: SALLE_AUREL.halteres.max, pas: SALLE_AUREL.halteres.pas }]);
     f.vue.surValider();                                // « Valider » à nouveau : la salle telle qu'elle était
     expect(f.ecrits).toEqual([{ ma_salle: SALLE_AUREL }]);
     expect(f.fermes).toBe(1);

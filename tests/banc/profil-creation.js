@@ -118,22 +118,34 @@ function neuveBase() {
     // 104 et 108 — la base AVANT v2_086 / v2_088 : `profiles.bilans_annonces` / `profiles.ma_salle` n'existent pas.
     // Un `select` qui les nomme rend 42703, un `upsert` qui les porte rend PGRST204 — comme PostgREST.
     // `refusColonne` compte ces refus.
-    sansBilansAnnonces: false, sansMaSalle: false, refusColonne: 0
+    sansBilansAnnonces: false, sansMaSalle: false, refusColonne: 0,
+    // 123 — la base AVANT v2_095 : `profiles_ma_salle_ok` n'accepte que `{ max, pas }` pour les haltères (v2_088).
+    avantV2095: false
   };
 }
 
 // 108 — la contrainte `profiles_ma_salle_ok` de v2_088, imitée : NULL, ou un objet aux trois clés connues ; des barres
 // de 1 à 100 kg au demi-kilo (au plus 20 par liste) ; des haltères nuls ou `{ max, pas }` (1-100, 0,5-10, pas ≤ max).
-function salleConforme(v) {
+// 123 (v2_095) — aussi une liste de 1 à 3 tranches `{ jusqua, pas }` (des « jusqu'à » croissants, chaque pas au plus
+// la longueur de sa tranche) ; `avantV2095` : la contrainte de v2_088 seule.
+function salleConforme(v, avantV2095) {
   if (v === null) return true;
   if (typeof v !== 'object' || Array.isArray(v)) return false;
   if (Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres'].indexOf(k) < 0)) return false;
+  const demi = (x) => typeof x === 'number' && Math.floor(x * 2) === x * 2;
   const barres = (l) => l === undefined || (Array.isArray(l) && l.length <= 20 &&
     l.every((x) => typeof x === 'number' && x >= 1 && x <= 100 && Math.floor(x * 2) === x * 2));
   if (!barres(v.barres_ez) || !barres(v.barres_droites)) return false;
   const h = v.halteres;
   if (h === undefined || h === null) return true;
-  return typeof h === 'object' && !Array.isArray(h) && Object.keys(h).every((k) => k === 'max' || k === 'pas') &&
+  if (Array.isArray(h)) {
+    if (avantV2095 || !h.length || h.length > 3) return false;
+    return h.every((t, i) => t && typeof t === 'object' && !Array.isArray(t) &&
+      Object.keys(t).every((k) => k === 'jusqua' || k === 'pas') && demi(t.jusqua) && demi(t.pas) &&
+      t.jusqua >= 1 && t.jusqua <= 100 && t.pas >= 0.5 && t.pas <= 10 &&
+      t.jusqua > (i ? h[i - 1].jusqua : 0) && t.pas <= t.jusqua - (i ? h[i - 1].jusqua : 0));
+  }
+  return typeof h === 'object' && Object.keys(h).every((k) => k === 'max' || k === 'pas') &&
     typeof h.max === 'number' && typeof h.pas === 'number' && h.max >= 1 && h.max <= 100 && h.pas >= 0.5 &&
     h.pas <= 10 && h.pas <= h.max && Math.floor(h.max * 2) === h.max * 2 && Math.floor(h.pas * 2) === h.pas * 2;
 }
@@ -246,8 +258,8 @@ async function contexte(nav, bd, o) {
           return json({ code: '23505', details: 'Key (lower(username::text))=(' + String(l.username).toLowerCase() + ') already exists.',
             hint: null, message: 'duplicate key value violates unique constraint "profiles_username_uniq"' }, 409);
         }
-        // 108 — `profiles_ma_salle_ok` (v2_088) : la contrainte, imitée (la forme et les bornes).
-        if (l.ma_salle !== undefined && !salleConforme(l.ma_salle)) {
+        // 108 — `profiles_ma_salle_ok` (v2_088, v2_095 : 123) : la contrainte, imitée (la forme et les bornes).
+        if (l.ma_salle !== undefined && !salleConforme(l.ma_salle, bd.avantV2095)) {
           enregistre(400);
           return json({ code: '23514', details: null, hint: null,
             message: 'new row for relation "profiles" violates check constraint "profiles_ma_salle_ok"' }, 400);
@@ -1231,6 +1243,76 @@ function ok(nom, cond, detail) {
       const efface = await attendreQue(page, () => bd.profils[B].ma_salle === null, 10000);
       ok('[108] « Effacer » écrit le vide (NULL)', efface, JSON.stringify(bd.profils[B].ma_salle));
       ok('[108] aucune écriture refusée par la contrainte imitée', bd.requetes.every((q) => q.statut !== 400), JSON.stringify(bd.requetes));
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
+    // ══ 123. « MA SALLE » : LES HALTÈRES PAR TRANCHES, APRÈS ET AVANT v2_095 ══════════════════════════════════
+    // « Ok ma salle, par contre pour les petites haltères de 1 à 10 c'est de 1 en 1 » : de 1 en 1 jusqu'à 10, puis de 2
+    // en 2 jusqu'à 40. Après v2_095, la liste part ; « Pas d'haltères » les efface. Avant, la base refuse la liste
+    // (23514) : la colonne sort de l'envoi, la salle d'avant est gardée, le Profil le dit (le mécanisme de 116).
+    for (const avant of [false, true]) {
+      const tag = avant ? '[123, avant v2_095]' : '[123, après v2_095]';
+      console.log('\n══ 123. « Ma salle » par tranches ' + (avant ? '(base AVANT v2_095)' : '(base APRÈS v2_095)') + ' ══');
+      const bd = baseSansPseudo();
+      bd.avantV2095 = avant;
+      const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
+      await cliquerLigne(page, 'Ma salle');
+      await attendre(400);
+      const sansOn = () => page.evaluate(() => {
+        const b = document.querySelector('#feuille-contenu .salle-sans button');
+        return b ? b.getAttribute('aria-pressed') : null;
+      });
+      ok(tag + ' « Pas d’haltères » allumée sur une salle sans haltères', (await sansOn()) === 'true', String(await sansOn()));
+      await page.fill('#feuille-contenu .salle-halteres[data-i="0"] input', '10');
+      await attendre(150);
+      ok(tag + ' taper un « jusqu’à » éteint « Pas d’haltères »', (await sansOn()) === 'false', String(await sansOn()));
+      await page.click('#feuille-contenu .salle-pas[data-i="0"] button[data-pas="1"]');
+      await attendre(150);
+      await page.click('#feuille-contenu .salle-tranche');
+      await attendre(150);
+      await page.fill('#feuille-contenu .salle-halteres[data-i="1"] input', '40');
+      await attendre(150);
+      await page.click('#feuille-contenu .salle-pas[data-i="1"] button[data-pas="2"]');
+      await attendre(150);
+      const lignes = await page.evaluate(() => document.querySelectorAll('#feuille-contenu .salle-halteres').length);
+      ok(tag + ' deux lignes de tranche, « + Une tranche » toujours là (au plus 3)', lignes === 2 &&
+        !!(await page.$('#feuille-contenu .salle-tranche')), String(lignes));
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
+      const TRANCHES = [{ jusqua: 10, pas: 1 }, { jusqua: 40, pas: 2 }];
+      if (!avant) {
+        const ecrit = await attendreQue(page, () => !!bd.profils[B].ma_salle, 10000);
+        ok('DISCRIMINANT ' + tag + ' — la liste des tranches part en base', ecrit &&
+          JSON.stringify(bd.profils[B].ma_salle) === JSON.stringify({ barres_ez: [], barres_droites: [], halteres: TRANCHES }),
+          JSON.stringify(bd.profils[B].ma_salle));
+        await attendre(300);
+        // « Pas d'haltères » : le geste explicite.
+        await cliquerLigne(page, 'Ma salle');
+        await attendre(400);
+        ok(tag + ' la feuille rouverte montre les deux tranches', (await page.evaluate(() =>
+          Array.from(document.querySelectorAll('#feuille-contenu .salle-halteres input')).map((x) => x.value).join(','))) === '10,40');
+        await page.click('#feuille-contenu .salle-sans button');
+        await attendre(150);
+        await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
+        const efface = await attendreQue(page, () => bd.profils[B].ma_salle === null, 10000);
+        ok('DISCRIMINANT ' + tag + ' — « Pas d’haltères » efface les haltères (rien d’autre déclaré : NULL)', efface,
+          JSON.stringify(bd.profils[B].ma_salle));
+        ok(tag + ' aucune écriture refusée par la contrainte imitée', bd.requetes.every((q) => q.statut !== 400), JSON.stringify(bd.requetes));
+      } else {
+        const refuse = await attendreQue(page, () => bd.requetes.some((q) => q.statut === 400), 10000);
+        ok('prémisse ' + tag + ' — la base d’avant refuse la liste (23514)', refuse, JSON.stringify(bd.requetes));
+        await attendre(800);
+        ok('DISCRIMINANT ' + tag + ' — la salle d’avant est gardée en base (rien n’est inventé à la place)',
+          (bd.profils[B].ma_salle === undefined || bd.profils[B].ma_salle === null), JSON.stringify(bd.profils[B].ma_salle));
+        const texte = await page.evaluate(() => (document.querySelector('#profil-corps') || {}).textContent || '');
+        ok(tag + ' le Profil le dit : « Pas enregistré : Ma salle. »', /Pas enregistré : Ma salle\./.test(texte), texte.slice(0, 200));
+        // Le reste du profil s'écrit toujours (la colonne refusée ne bloque rien).
+        await cliquerLigne(page, 'Sexe');
+        await attendre(500);
+        await page.click('#feuille-contenu .feuille-menu button[data-cle="femme"]');
+        const sexe = await attendreQue(page, () => bd.profils[B].sexe === 'femme', 10000);
+        ok(tag + ' un geste suivant du Profil s’écrit (Sexe)', sexe, JSON.stringify(bd.profils[B].sexe));
+      }
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }

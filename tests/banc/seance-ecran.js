@@ -1435,13 +1435,17 @@ const SETS_IMPORTES = [
           return json(refus('23514', 'profiles_lest_reponse_ok'), 400);
         }
         // 108 (`v2_088`) — `profiles_ma_salle_ok` : NULL, ou un objet aux seules clés barres_ez, barres_droites,
-        // halteres ; des barres de 1 à 100 kg au demi-kilo ; des haltères nuls ou { max, pas }.
+        // halteres ; des barres de 1 à 100 kg au demi-kilo ; des haltères nuls, { max, pas } ou des tranches (v2_095).
         if (l.ma_salle !== undefined && l.ma_salle !== null) {
           const v = l.ma_salle;
           const barres = (x) => x === undefined || (Array.isArray(x) && x.length <= 20 &&
             x.every((k) => typeof k === 'number' && k >= 1 && k <= 100 && Math.floor(k * 2) === k * 2));
           const h = v.halteres;
-          const okH = h === undefined || h === null || (typeof h === 'object' && typeof h.max === 'number' &&
+          // 123 (v2_095) — ou une liste de 1 à 3 tranches { jusqua, pas }, croissantes, chaque pas au plus sa tranche.
+          const okT = Array.isArray(h) && h.length >= 1 && h.length <= 3 && h.every((t, i) => t && typeof t.jusqua === 'number' &&
+            typeof t.pas === 'number' && t.jusqua >= 1 && t.jusqua <= 100 && t.pas >= 0.5 && t.pas <= 10 &&
+            t.jusqua > (i ? h[i - 1].jusqua : 0) && t.pas <= t.jusqua - (i ? h[i - 1].jusqua : 0));
+          const okH = h === undefined || h === null || okT || (typeof h === 'object' && !Array.isArray(h) && typeof h.max === 'number' &&
             typeof h.pas === 'number' && h.max >= 1 && h.max <= 100 && h.pas >= 0.5 && h.pas <= 10 && h.pas <= h.max);
           if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH ||
               Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres'].indexOf(k) < 0)) {

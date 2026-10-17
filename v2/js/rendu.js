@@ -5551,8 +5551,9 @@
   // 108 (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies, maquette `maquette-salle-objectif-v1.html`, écran 1) — « MA
   // SALLE ». Les barres fixes, EZ et droite : des puces cochées, « ＋ » pour un autre poids ; les haltères : « Jusqu'à »
   // (le plus lourd, par haltère) et « De … en … ». La feuille ne décide rien : `vue` porte le brouillon et les gestes
-  // (`surBasculer(type, kg)`, `surAjouter(type, texte)`, `surMaxHalteres(texte)` sans redessin, `surPasHalteres(kg)`,
-  // `surValider`, `surEffacer`, `surAnnuler`) ; les puces viennent de `THProfil.pucesDeBarres`.
+  // (`surBasculer(type, kg)`, `surAjouter(type, texte)`, `surMaxHalteres(texte, i)` sans redessin, `surPasHalteres(kg, i)`,
+  // 123 : `surAjouterTranche`, `surRetirerTranche(i)`, `surSansHalteres`, `aucunHaltere()` ; `surValider`, `surEffacer`,
+  // `surAnnuler`) ; les puces viennent de `THProfil.pucesDeBarres`.
   function rendreFeuilleSalle(cible, vue) {
     var P = racine.THProfil, M = racine.THModele;
     var b = vue.brouillon || { barres_ez: [], barres_droites: [], halteres: null };
@@ -5598,32 +5599,65 @@
       });
     });
     cible.appendChild(el('div', 'choix-groupe salle-titre', 'Haltères'));
-    var h = b.halteres;
-    var ligneMax = el('label', 'champ-texte salle-halteres');
-    ligneMax.appendChild(el('span', '', 'Jusqu’à (par haltère, en kg)'));
-    var max = doc.createElement('input');
-    max.type = 'number';
-    max.inputMode = 'decimal';
-    max.step = '0.5';
-    max.placeholder = 'Non renseigné';
-    max.value = h && h.max !== null ? String(h.max) : '';
-    // ⚠️ SANS REDESSIN : la saisie met le brouillon à jour, la feuille ne se refait pas sous le doigt (un redessin
-    // au `blur` arrachait le champ pendant qu'on touchait une puce).
-    max.addEventListener('input', function () { vue.surMaxHalteres(max.value); });
-    ligneMax.appendChild(max);
-    cible.appendChild(ligneMax);
-    cible.appendChild(el('div', 'choix-groupe', 'De … en …'));
-    var pas = el('div', 'q-puces salle-pas');
-    P.SALLE_PAS_PROPOSES.forEach(function (v) {
-      var on = !!h && h.pas === v;
-      var n = el('button', 'q-puce' + (on ? ' on' : ''), M.nombreSigne(v) + ' kg');
-      n.type = 'button';
-      n.dataset.pas = String(v);
-      n.setAttribute('aria-pressed', on ? 'true' : 'false');
-      n.addEventListener('click', function () { vue.surPasHalteres(v); });
-      pas.appendChild(n);
+    // 123 — « Pas d'haltères » : le geste explicite (vider le champ ne les efface plus, 116).
+    var sans = el('div', 'q-puces salle-sans');
+    var aucun = !b.halteres;
+    var puceSans = el('button', 'q-puce' + (aucun ? ' on' : ''), 'Pas d’haltères');
+    puceSans.type = 'button';
+    puceSans.setAttribute('aria-pressed', aucun ? 'true' : 'false');
+    puceSans.addEventListener('click', function () { if (vue.surSansHalteres) vue.surSansHalteres(); });
+    sans.appendChild(puceSans);
+    cible.appendChild(sans);
+    // 123 — une ligne par tranche (« Jusqu'à … kg, de … en … ») ; sans haltères, une ligne vide à remplir.
+    var lignes = Array.isArray(b.halteres) && b.halteres.length ? b.halteres : [null];
+    lignes.forEach(function (h, i) {
+      var ligneMax = el('label', 'champ-texte salle-halteres');
+      ligneMax.dataset.i = String(i);
+      ligneMax.appendChild(el('span', '', 'Jusqu’à (par haltère, en kg)'));
+      var max = doc.createElement('input');
+      max.type = 'number';
+      max.inputMode = 'decimal';
+      max.step = '0.5';
+      max.placeholder = 'Non renseigné';
+      max.value = h && h.jusqua !== null && h.jusqua !== undefined ? String(h.jusqua) : '';
+      // ⚠️ SANS REDESSIN : la saisie met le brouillon à jour, la feuille ne se refait pas sous le doigt (un redessin
+      // au `blur` arrachait le champ pendant qu'on touchait une puce). Seule la puce « Pas d'haltères » suit.
+      max.addEventListener('input', function () {
+        vue.surMaxHalteres(max.value, i);
+        if (vue.aucunHaltere) {
+          var non = vue.aucunHaltere();
+          puceSans.className = 'q-puce' + (non ? ' on' : '');
+          puceSans.setAttribute('aria-pressed', non ? 'true' : 'false');
+        }
+      });
+      ligneMax.appendChild(max);
+      cible.appendChild(ligneMax);
+      cible.appendChild(el('div', 'choix-groupe', 'De … en …'));
+      var pas = el('div', 'q-puces salle-pas');
+      pas.dataset.i = String(i);
+      P.SALLE_PAS_PROPOSES.forEach(function (v) {
+        var on = !!h && h.pas === v;
+        var n = el('button', 'q-puce' + (on ? ' on' : ''), M.nombreSigne(v) + ' kg');
+        n.type = 'button';
+        n.dataset.pas = String(v);
+        n.setAttribute('aria-pressed', on ? 'true' : 'false');
+        n.addEventListener('click', function () { vue.surPasHalteres(v, i); });
+        pas.appendChild(n);
+      });
+      cible.appendChild(pas);
+      if (lignes.length > 1 && vue.surRetirerTranche) {
+        var retirer = el('button', 'discret salle-retirer', 'Retirer cette tranche');
+        retirer.type = 'button';
+        retirer.addEventListener('click', function () { vue.surRetirerTranche(i); });
+        cible.appendChild(retirer);
+      }
     });
-    cible.appendChild(pas);
+    if (vue.surAjouterTranche && P.peutAjouterTranche(b)) {
+      var ajout = el('button', 'discret salle-tranche', '+ Une tranche');
+      ajout.type = 'button';
+      ajout.addEventListener('click', vue.surAjouterTranche);
+      cible.appendChild(ajout);
+    }
     cible.appendChild(el('p', 'feuille-err', vue.erreur || ''));
     // « Effacer » seulement quand une salle est déjà déclarée : il écrit le vide (non renseignée).
     piedFeuille(cible, [

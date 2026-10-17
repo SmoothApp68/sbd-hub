@@ -5539,7 +5539,8 @@
       var pr = nombre(q.predite), ob = nombre(q.observee);
       if (pr === null || ob === null) return;
       sortie.paris++;
-      if (ob >= pr) sortie.tenus++;
+      // « Tenu » : la règle du bilan (`THBilan.estTenu`, observé ≥ prédit), écrite une fois (124, audit du 16/10/2026, 04 #12).
+      if (racine.THBilan.estTenu({ predite: pr, observee: ob })) sortie.tenus++;
     });
     return sortie;
   }

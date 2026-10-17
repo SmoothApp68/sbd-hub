@@ -970,10 +970,15 @@ const NOTIONS = [
       '(séries, volume, muscles, records, paris, comparaison) sans en recopier rien ; l’écran les lit.' },
   { notion: 'le compte des paris vérifiés et tenus (tenu : observé ≥ prédit)', pr: '71-U1',
     module: 'bilan.js', fonction: 'compterParis', lecteurs: ['faits.js', 'bilans.js'],
-    par: ['bilanDuMois'],
-    parAilleurs: { 'faits.js': ['recapDeLaSeance'] },
-    raison: 'MOTEUR §9.22 : le bilan du mois et le récap de fin de séance comptent les paris par la même boucle ' +
-      '(extraite de `bilanDuMois`, 71) — le bilan ne change pas d’un chiffre.' },
+    parAilleurs: { 'faits.js': ['recapDeLaSeance'], 'bilans.js': ['bilanDeLaPeriode'] },
+    raison: 'MOTEUR §9.22 : le bilan d’une période (le mois, la saison, l’année) et le récap de fin de séance comptent ' +
+      'les paris par la même boucle (extraite de `bilanDuMois`, 71). 124 (audit du 16/10/2026, 04 #14) : le bilan du mois ' +
+      'n’en compte plus — les paris du mois ont un fil, celui de la période (`bilan.coach`).' },
+  { notion: 'un pari tenu (observé ≥ prédit)', pr: '124-U4',
+    module: 'bilan.js', fonction: 'estTenu', lecteurs: ['faits.js', 'moteur.js'],
+    par: ['compterParis'],
+    parAilleurs: { 'moteur.js': ['bilanDuBloc'] },
+    raison: 'audit du 16/10/2026 (04 #12) : le bilan de bloc (§9.22) recopiait « observé ≥ prédit » ; une règle, au bilan.' },
   { notion: 'la comparaison du volume à un objet connu (« à peu près un tricératops »)', pr: '71-U1',
     module: 'bilan.js', fonction: 'comparaison', lecteurs: ['bilans.js'],
     par: ['phraseComparaison'],

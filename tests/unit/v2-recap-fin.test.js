@@ -108,10 +108,13 @@ describe('71 — les paris : un compte, deux lecteurs', () => {
     expect(Bilan.compterParis(PARIS, (q) => Bilan.cleMois(q.date) === '2026-09')).toEqual({ verifies: 5, tenus: 3 });
   });
 
-  test('⚠️ le bilan du mois ne change pas d’un chiffre', () => {
+  // 124 (audit du 16/10/2026, 04 #14) — les paris du mois n'ont plus qu'un fil, celui de la période (`bilan.coach`,
+  // `THBilans`) : le bilan du mois ne les compte plus ; la boucle commune rend toujours les chiffres d'avant.
+  test('⚠️ 124 — le bilan du mois ne compte plus les paris ; la boucle commune, les mêmes chiffres qu’avant', () => {
     const b = Bilan.bilanDuMois({ mois: '2026-09', seances: [], paris: PARIS, exercices: [] });
-    expect([b.paris_verifies, b.paris_tenus]).toEqual([5, 3]);
-    expect([b.paris_verifies, b.paris_tenus]).toEqual(Object.values(avantExtraction(PARIS, '2026-09')));
+    expect(b).not.toHaveProperty('paris_verifies');
+    expect(b).not.toHaveProperty('paris_tenus');
+    expect(Bilan.compterParis(PARIS, (q) => Bilan.cleMois(q.date) === '2026-09')).toEqual(avantExtraction(PARIS, '2026-09'));
   });
 
   test('⚠️ tenu = observé ≥ prédit (égal compte), pas observé > prédit', () => {

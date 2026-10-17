@@ -1298,7 +1298,11 @@
         // 119 (F8) — les séries de travail du mois (la règle du volume) : un mois au poids du corps en a sans tonnes.
         series: b.series,
         records: faits.recordsDuMois(corpus(), mois).length,
-        paris: { verifies: b.paris_verifies, tenus: b.paris_tenus },
+        // 124 (audit du 16/10/2026, 04 #14) — les paris du mois, un seul fil : ceux de la story (`bilan.coach`).
+        paris: (function () {
+          var co = bilanPeriode(Bilans.periodeDuMois(mois)).coach;
+          return co ? { verifies: co.faits, tenus: co.tenus } : { verifies: 0, tenus: 0 };
+        })(),
         surChoix: function () { afficherMois(mois); }
       },
       // 98 — la saison écoulée, toute la saison suivante ; hors production, la saison en cours si l'écoulée est vide.
@@ -1433,9 +1437,11 @@
     if (periode.type === 'saison') vue.nom = Bilans.nomDeSaison(periode.saison, Profil.phaseAuJour(profil, periode.debut));
     if (periode.type === 'mois') {
       var mois = periode.cle;
-      var b = bilanDuMoisDe(mois);
       vue.records = faits.recordsDuMois(corpus(), mois);
-      vue.paris = b.paris_verifies ? { phrase: Bilan.phraseParis(b.paris_verifies, b.paris_tenus) } : null;
+      // 124 (audit du 16/10/2026, 04 #7, #14) — la phrase dit les chiffres de l'écran (`bilan.coach`, la période),
+      // tels quels : « 41 vérifiés · 38 tenus » ne se lit plus suivi de « Sur 10 paris vérifiés… ».
+      var co = vue.bilan && vue.bilan.coach;
+      vue.paris = co ? { phrase: Bilan.phraseParis(co.faits, co.tenus, { telsQuels: true }) } : null;
       vue.surRecords = function () { afficherRecordsDuMois(mois); };
     }
     Annee.ouvrir($('annee'), vue);
@@ -3229,8 +3235,7 @@
   // Deux déclarations du même nom, et la seconde efface la première — la
   // carte de fin de bloc s'était vidée (banc « cycles », 55-1).
   function bilanDuMoisDe(mois) {
-    return Bilan.bilanDuMois({ mois: mois, seances: faits.seancesAvecSeries(corpus()),
-                               paris: parisDeConsigneConnus(), exercices: local.exercices });
+    return Bilan.bilanDuMois({ mois: mois, seances: faits.seancesAvecSeries(corpus()), exercices: local.exercices });
   }
 
   // « Septembre », « septembre 2026 ».

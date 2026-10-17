@@ -9,6 +9,7 @@
 const Mo = require('../../v2/js/modele.js');
 require('../../v2/js/profil.js');
 require('../../v2/js/palier.js');
+require('../../v2/js/bilan.js');   // 124 : « tenu » du bilan de bloc se lit dans `THBilan.estTenu`
 const M = require('../../v2/js/moteur.js');
 const F = require('./fixtures/cas-53-2-cycles.json');
 

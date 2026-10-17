@@ -173,6 +173,9 @@ zones de MUSCLES ; celles du moteur, `lourd` 3-5 / `mix` 6-8 / …, rangent autr
    premiers puis « Et N autres », et « Tous les records du mois » ouvre la liste (chaque record mène à sa séance).
 5. **Le coach** : « N / M paris tenus » ; « Le détail des paris » déplie au toucher les paris vérifiés, les tenus et la
    phrase de l'ancien bilan (`Bilan.phraseParis`) — l'écran ne défile plus tant que le détail est ouvert.
+   *Précisé le 16/10/2026 (audit du 16/10, 04 #7, #14)* : la phrase dit les chiffres de l'écran, tels quels (« Sur 41
+   paris vérifiés, le coach en a tenu 38. », jamais « Sur 10… » sous « 41 · 38 ») ; les paris du mois ont un seul fil,
+   ceux de la période — le bloc de Progression les lit aussi.
 6. **La semaine** : du lundi au dimanche ; seules les séances de la période comptent (la première et la dernière
    semaine peuvent être partielles). « La plus lourde : semaine du 12 octobre, 52 t. »
 7. **L'annonce** : du 1er au 7 du mois (le seul premier jour manquerait qui n'ouvre pas l'app ce jour-là), une fois par

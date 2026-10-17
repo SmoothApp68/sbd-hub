@@ -373,6 +373,11 @@
     return MOIS_LONGS[d.getMonth()] + ' ' + d.getFullYear();
   }
   var JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  // 124 (audit du 16/10/2026, 06 #15) — LES JOURS, UNE FOIS : du lundi au dimanche (la semaine de l'app), leur
+  // abréviation (« Lun ») et leur initiale (« L »). Aucun autre fichier ne recopie un nom de jour (garde du formateur).
+  var JOURS_DEPUIS_LUNDI = Object.freeze(JOURS.slice(1).concat(JOURS[0]));
+  var JOURS_COURTS = Object.freeze(JOURS_DEPUIS_LUNDI.map(function (j) { return j.charAt(0).toUpperCase() + j.slice(1, 3); }));
+  var INITIALES_JOURS = Object.freeze(JOURS_DEPUIS_LUNDI.map(function (j) { return j.charAt(0).toUpperCase(); }));
   var JOURS_NOMMES = 6;
 
   function jourLocal(iso) {
@@ -2072,6 +2077,9 @@
     heureParis: heureParis,
     dateHeureParis: dateHeureParis,
     JOURS: JOURS,
+    JOURS_DEPUIS_LUNDI: JOURS_DEPUIS_LUNDI,
+    JOURS_COURTS: JOURS_COURTS,
+    INITIALES_JOURS: INITIALES_JOURS,
     JOURS_NOMMES: JOURS_NOMMES,
     anciennete: anciennete,
     formatDuree: formatDuree,

@@ -537,9 +537,11 @@ const NOTIONS = [
     module: 'modele.js', fonction: 'nombreSigne', lecteurs: ['rendu.js', 'app.js', 'profil.js', 'questionnaire.js', 'bilan.js'],
     motif: /\.\s*nombreSigne\s*\(/g,
     interditAilleurs: {
-      motif: /\.replace\(\s*(['"])\.\1\s*,\s*(['"]),\2\s*\)|toLocale(?:Date|Time)?String\s*\(|\\u2212|(['"])janv\.?\3|(['"])janvier\4/,
-      raison: 'une virgule décimale, une date `toLocale…`, un signe moins ou une liste de mois écrits hors du formateur ' +
-        '(`modele.js`)' },
+      // 124 (audit du 16/10/2026, 06 #15) — et les jours comme les mois : une liste de jours (« lundi », « mardi » ;
+      // « dimanche », « lundi » ; « Lun », « Mar » ; « L », « M », « M ») ou leur alternative dans un motif.
+      motif: /\.replace\(\s*(['"])\.\1\s*,\s*(['"]),\2\s*\)|toLocale(?:Date|Time)?String\s*\(|\\u2212|(['"])janv\.?\3|(['"])janvier\4|['"][Ll]undi['"]\s*,\s*['"][Mm]ardi['"]|['"][Dd]imanche['"]\s*,\s*['"][Ll]undi['"]|['"]Lun\.?['"]\s*,\s*['"]Mar\.?['"]|['"]L['"]\s*,\s*['"]M['"]\s*,\s*['"]M['"]|[Ll]undi\|[Mm]ardi/,
+      raison: 'une virgule décimale, une date `toLocale…`, un signe moins, une liste de mois ou de jours écrits hors du ' +
+        'formateur (`modele.js`)' },
     raison: '`rendu.nombreFr`, `MOIS`, `mmss`, `dateCourte`, `nombreGroupe`, `poids.arrondi`, les mois du ' +
       'calendrier et l’horodatage du rejeu en étaient des copies, chacune avec sa règle.' },
   { notion: 'l’arrondi (symétrique) des nombres affichés', pr: 'PR 7',
@@ -1818,6 +1820,14 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
     expect(voit("'\\u2212' + x")).toBe(true);
     expect(voit("var MOIS = ['janv.', 'févr.'];")).toBe(true);
     expect(voit("Modele.nombreSigne(p)")).toBe(false);
+    // 124 — les jours comme les mois.
+    expect(voit("var NOMS = ['lundi', 'mardi', 'mercredi'];")).toBe(true);
+    expect(voit("var J = [\"Dimanche\", \"Lundi\"];")).toBe(true);
+    expect(voit("var C = ['Lun', 'Mar', 'Mer'];")).toBe(true);
+    expect(voit("['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach(f)")).toBe(true);
+    expect(voit("var P = /^(Lundi|Mardi|Mercredi) — /;")).toBe(true);
+    expect(voit("debut: depuis ? 'aujourdhui' : 'lundi'")).toBe(false);
+    expect(voit("Modele.JOURS_DEPUIS_LUNDI.map(f)")).toBe(false);
   });
 
   test('l’interdit du silence du coach se lit vraiment : un second test de l’intention se voit, l’appel au fait non', () => {

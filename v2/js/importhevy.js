@@ -50,7 +50,6 @@
   // Les mois AFFICHÉS sont ceux du formateur unique (`modele.js`, registre des
   // notions) ; ceux d'au-dessus ne servent qu'à LIRE la date de Hevy.
   function Mo() { return racine.THModele; }
-  var JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 
   // ⚠️ LA NORMALISATION DE LA BASE, À LA LETTRE. La colonne générée
   // `alias_exercice.alias_norme` vaut
@@ -618,7 +617,7 @@
   function jourEtHeure(local, anneeRef) {
     var d = lireLocal(local);
     if (!d) return '';
-    return JOURS[d.js] + ' ' + d.j + ' ' + Mo().MOIS_COURTS[d.mo - 1] + (d.a !== anneeRef ? ' ' + d.a : '') +
+    return Mo().JOURS[d.js] + ' ' + d.j + ' ' + Mo().MOIS_COURTS[d.mo - 1] + (d.a !== anneeRef ? ' ' + d.a : '') +
       ' · ' + heureDite(d.h, d.mi);
   }
 
@@ -627,7 +626,7 @@
     var locs = (lignes || []).map(function (l) { return l.seance.debut_local; }).filter(Boolean).sort();
     if (!locs.length) return '';
     var a = lireLocal(locs[0]), b = lireLocal(locs[locs.length - 1]);
-    var jour = function (d) { return JOURS[d.js] + ' ' + d.j; };
+    var jour = function (d) { return Mo().JOURS[d.js] + ' ' + d.j; };
     var annee = function (d) { return d.a !== anneeRef ? ' ' + d.a : ''; };
     if (locs[0].slice(0, 10) === locs[locs.length - 1].slice(0, 10)) {
       return 'Le ' + jour(a) + ' ' + Mo().MOIS_LONGS[a.mo - 1] + annee(a);

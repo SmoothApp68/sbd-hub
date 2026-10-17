@@ -2420,14 +2420,25 @@
     montrer('guilde', Routeur.GUILDE);
     ouvrirEcranSocial(relecture === true);
     // La couleur choisie pour « Créer » reste d'une lecture à l'autre (une création refusée se relit sans la perdre).
-    var g = { etat: 'charge', onglet: onglet || (social.guilde && social.guilde.onglet) || 'semaine',
-              couleur: (social.guilde && social.guilde.couleur) || Social.COULEURS_GUILDE[0], n: social.horloge };
+    var avant = social.guilde, n0 = social.horloge;
+    var g = { etat: 'charge', onglet: onglet || (avant && avant.onglet) || 'semaine',
+              couleur: (avant && avant.couleur) || Social.COULEURS_GUILDE[0], n: n0 };
+    // ⚠️ 121 (audit du 16/10/2026, 05 #19) — RELUE APRÈS UN GESTE, L'ÉCRAN GARDE CE QU'IL MONTRE jusqu'à la nouvelle
+    // lecture : la lecture d'avant, et les gestes qu'elle ne contient pas (`g.n` reste le sien le temps de relire). Il
+    // passait par « Chargement… » après chaque geste confirmé (un rang, un défi, une invitation) : l'écran clignotait,
+    // et le banc `guilde` lisait parfois ce « Chargement… » sous charge (sa section instable).
+    if (relecture === true && avant && avant.etat === 'ok') {
+      ['g', 'membres', 'semaine', 'invitations', 'fil', 'progression'].forEach(function (k) { g[k] = avant[k]; });
+      g.etat = 'ok'; g.n = avant.n;
+    }
     social.guilde = g;
     dessinerGuilde();
     try {
       await chargerGuilde(g);
       if (social.guilde !== g) return;
-      g.etat = 'ok';
+      // Le fil n'est relu que sur son onglet (sinon, à l'ouverture de l'onglet, comme avant).
+      if (g.onglet !== 'fil' && avant && g.fil === avant.fil) g.fil = null;
+      g.etat = 'ok'; g.n = n0;
     } catch (e) {
       if (social.guilde !== g) return;
       g.etat = 'erreur'; g.message = erreurSociale(e, 'la guilde');

@@ -6671,8 +6671,34 @@
       parent.appendChild(r);
     });
   }
+  // ⚠️ 121 (audit du 16/10/2026, 05 #19) — UN NOM EN COURS DE SAISIE SURVIT À UN NOUVEAU RENDU. L'écran se redessine quand
+  // une lecture revient (après un refus, « Ce nom est déjà pris. », il se relit) : le champ était recréé vide, et ce
+  // qu'on venait de taper partait — au banc `guilde`, sous charge, « Créer » partait sans nom (« Le nom fait de 3 à 24
+  // caractères. »). Le texte tapé et le curseur passent au nouveau champ.
+  var CHAMPS_GUILDE = ['guilde-nom', 'guilde-nom-edition'];
+  function saisieDeGuilde(cible) {
+    var s = {};
+    CHAMPS_GUILDE.forEach(function (id) {
+      var n = doc.getElementById(id);
+      if (n && cible.contains(n)) s[id] = { valeur: n.value, focus: doc.activeElement === n };
+    });
+    return s;
+  }
+  function rendreSaisieDeGuilde(s) {
+    CHAMPS_GUILDE.forEach(function (id) {
+      var n = s[id] ? doc.getElementById(id) : null;
+      if (!n) return;
+      n.value = s[id].valeur;
+      if (s[id].focus) n.focus();
+    });
+  }
   function rendreGuilde(cible, vue) {
     if (!cible) return;
+    var saisie = saisieDeGuilde(cible);
+    rendreGuildeSansSaisie(cible, vue);
+    rendreSaisieDeGuilde(saisie);
+  }
+  function rendreGuildeSansSaisie(cible, vue) {
     vider(cible);
     if (etatSocial(cible, vue)) return;
     if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur s-guilde-message', vue.message));

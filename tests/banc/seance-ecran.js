@@ -18191,7 +18191,7 @@ const SETS_IMPORTES = [
     ok('[guilde] jordan a reçu l’invitation (de moi) et l’a acceptée ; melodie est entrée par jordan ; les membres : « toi · Novice », ' +
       '« jordan · Squatteur · Athlète », « melodie · Novice » (jeu éteint : pas de titre) ; aucun chef affiché',
       inv.length === 1 && inv[0].invitant === 'banc' && JSON.stringify(b1.lignes) === JSON.stringify(['toi · Novice',
-        'jordan · Squatteur · Athlète', 'melodie · Novice']) && !/admin|chef/i.test(b1.texte) &&
+        'jordan · Squatteur · Athlète', 'melodie · Novice']) && !/admin|chef/i.test(b1.texte) && !/pas pu se faire/.test(b1.texte) &&
         JSON.stringify(b1.invitables) === JSON.stringify(['lea']), JSON.stringify(b1));
     // 107 — LE RANG CHOISI HORS LIGNE (les écritures coupées, les lectures passent), l'app RECHARGÉE, puis le retour.
     base.ecrituresSocialesCoupees = true;
@@ -18363,7 +18363,11 @@ const SETS_IMPORTES = [
     deCote.forEach((s) => base.sessions.push(s));
     // 121 — et le cinquième : jordan invite lea, qui m'a bloqué (05 #6).
     const refusAttendus = ['guildes_nom_cle_uniq', 'guilde_invite_non_mutuel', 'guilde_defis_type', 'guilde_defi_fige', 'guilde_bloque'];
-    const refusVus = S.journal.filter((j) => j.op === 'refus').map((j) => j.message);
+    // 121 (05 #3, #19) — « Inviter jordan » est suivi d'un rechargement (`aller`) : sous charge, l'app peut être rechargée
+    // AVANT d'avoir lu la réponse, et rejouer l'invitation au démarrage ; la base répond alors « déjà membre »
+    // (jordan a rejoint entre-temps). C'est le cas de l'audit, désormais un succès (« fait ») : ce refus de la base est
+    // admis, à condition que l'écran n'ait rien dit (contrôle des Membres, plus haut : aucun « n'a pas pu se faire »).
+    const refusVus = S.journal.filter((j) => j.op === 'refus').map((j) => j.message).filter((m) => !/^guilde_deja_membre$/.test(m));
     await aller('/saisie');
     ok('[guilde] seuls les cinq refus voulus (nom pris, non-mutuel, tonnage, défi figé, invité bloqué) ; la garde de l’app n’a rien signalé, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&

@@ -124,17 +124,39 @@
     //     fonction du programme déduit, jamais recopiée ; 0 sans rien ;
     //   · `records_semaine` : mes séries médaillées sans dépasser la charge proposée, dans la semaine ;
     //   · `exercices` : les exercices faits dans au moins 2 séances du mois (séries de travail) ; `exercices_record` :
-    //     ceux d'entre eux qui ont au moins un record sans dépasser la charge proposée dans le mois.
+    //     ceux d'entre eux qui ont au moins un record sans dépasser la charge proposée dans le mois ;
+    //   · 120 (D3, décision du 16/10/2026) — `series_semaine` : mes séries de MUSCULATION de la semaine
+    //     (`Semaine.estSerieDeMusculation`, la règle du compte des séries de travail, 119 : ni le tapis, ni la
+    //     randonnée) ; `series_moyenne` : leur moyenne sur les 4 semaines pleines d'AVANT (lundi → dimanche, heure
+    //     locale), au centième. « CE QUI EXISTE » : seulement les semaines depuis celle de ma première série de
+    //     musculation — une semaine sans séance après elle compte 0, une semaine d'avant mon premier pas ne compte pas
+    //     (elle n'est pas un 0, je n'étais pas là) ; sans aucune semaine d'avant, 0 (je n'ajoute rien à l'objectif).
+    //     La guilde additionne (`guilde_semaine`, v2_093) : sa cible est la somme de nos moyennes.
+    var SEMAINES_DU_DEFI = 4;
     function scoresDeGuilde(c, paris, declarees, maintenant) {
       var m = maintenant || new Date();
       var b = Semaine.bornesSemaine(m);
       var lundi = Moteur.jourCivil(b.lundi), dimanche = Moteur.jourCivil(b.dimanche);
       var premier = Moteur.jourCivil(new Date(m.getFullYear(), m.getMonth(), 1));
       var dernier = Moteur.jourCivil(new Date(m.getFullYear(), m.getMonth() + 1, 0));
-      var seances = 0, parExo = {};
+      var index = (c.catalogue && c.catalogue()) || {};
+      var lundiDe = function (j) { var x = Semaine.bornesSemaine(new Date(j + 'T12:00:00')); return x ? Moteur.jourCivil(x.lundi) : null; };
+      var avant = [];
+      for (var k = 1; k <= SEMAINES_DU_DEFI; k++) {
+        avant.push(Moteur.jourCivil(new Date(b.lundi.getFullYear(), b.lundi.getMonth(), b.lundi.getDate() - 7 * k)));
+      }
+      var seances = 0, parExo = {}, seriesParSemaine = {}, premierLundi = null;
       seancesAvecSeries(c).forEach(function (s) {
         var j = s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
         if (!j) return;
+        var muscu = s.series.filter(function (x) { return x && x.exercise_slug && Semaine.estSerieDeMusculation(x, index[x.exercise_slug]); }).length;
+        if (muscu) {
+          var l = lundiDe(j);
+          if (l && l <= lundi) {
+            seriesParSemaine[l] = (seriesParSemaine[l] || 0) + muscu;
+            if (premierLundi === null || l < premierLundi) premierLundi = l;
+          }
+        }
         var travail = s.series.filter(function (x) { return x && x.exercise_slug && Modele.estTravail(x); });
         if (!travail.length) return;
         if (j >= lundi && j <= dimanche) seances++;
@@ -149,8 +171,13 @@
       var avecRecord = {};
       duMois.forEach(function (r) { avecRecord[r.exercise_slug] = true; });
       var exercices = Object.keys(parExo).filter(function (k) { return Object.keys(parExo[k]).length >= 2; });
+      var comptees = avant.filter(function (l) { return premierLundi !== null && l >= premierLundi; });
+      var moyenne = comptees.length
+        ? Math.round(comptees.reduce(function (t, l) { return t + (seriesParSemaine[l] || 0); }, 0) / comptees.length * 100) / 100
+        : 0;
       return {
         semaine: lundi, seances: seances, prevues: prevues,
+        series_semaine: seriesParSemaine[lundi] || 0, series_moyenne: moyenne,
         records_semaine: duMois.filter(function (r) { return r.jour >= lundi && r.jour <= dimanche; }).length +
           (lundi < premier ? recordsSansDepasser(c, paris, lundi, Moteur.jourCivil(new Date(m.getFullYear(), m.getMonth(), 0))).length : 0),
         mois: premier, exercices: exercices.length,
@@ -469,14 +496,21 @@
     // tous facultatifs (`depuis`/`jusqua` bornent `battu_le`, comparés comme
     // des instants). Rend des copies, de la plus ancienne à la plus récente ;
     // à date égale, dans l'ordre de la phrase de la médaille (§9.23).
-    var ORDRE_DES_TYPES = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'un_rm_estime',
+    //
+    // 120 (D1, audit du 16/10/2026) — « La force estimée reste, comme progression […] ; elle sort des records, des
+    // médailles, du fil et de l'XP ; les records sont les vraies barres. » Les lignes `un_rm_estime` écrites avant
+    // restent en base, immuables (`records_immuable`) : ELLES SONT IGNORÉES ICI, à la lecture — la seule, donc le jeu,
+    // le récap de fin de séance et tout lecteur à venir ne les voient plus. `medaillesDuSocial` (le fil) aussi.
+    var ORDRE_DES_TYPES = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap',
                            'volume_seance', 'duree_s', 'distance_m'];
+    var TYPES_HORS_RECORDS = ['un_rm_estime'];
+    function estUnRecord(l) { return !!l && TYPES_HORS_RECORDS.indexOf(l.type) < 0; }
     function recordsDuJournal(c, filtre) {
       var f = filtre || {};
       var instant = function (x) { var t = Date.parse(x); return isNaN(t) ? null : t; };
       var depuis = f.depuis ? instant(f.depuis) : null, jusqua = f.jusqua ? instant(f.jusqua) : null;
       return (c.journal || []).filter(function (l) {
-        if (!l) return false;
+        if (!estUnRecord(l)) return false;
         if (f.slug && l.exercise_slug !== f.slug) return false;
         if (f.seance && l.session_id !== f.seance) return false;
         if (f.type && l.type !== f.type) return false;
@@ -514,7 +548,9 @@
       var index = (c && c.catalogue && c.catalogue()) || {};
       var parSerie = {}, ordre = [];
       (lignes || []).forEach(function (l) {
-        if (!l || !l.set_id) return;
+        // 120 (D1) — une ligne `un_rm_estime` n'est pas un record : une série médaillée par elle seule n'a pas de
+        // médaille (audit 05 #2 : « 1 record » dans le fil).
+        if (!estUnRecord(l) || !l.set_id) return;
         if (!parSerie[l.set_id]) { parSerie[l.set_id] = []; ordre.push(l.set_id); }
         parSerie[l.set_id].push(l);
       });

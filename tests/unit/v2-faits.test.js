@@ -22,6 +22,7 @@ require('../../v2/js/profil.js');
 require('../../v2/js/palier.js');
 require('../../v2/js/moteur.js');
 const Seance = require('../../v2/js/seance.js');
+require('../../v2/js/periode.js');
 const Faits = require('../../v2/js/faits.js');
 const F = require('./fixtures/cas-55-1-records.json');
 
@@ -300,7 +301,8 @@ describe('58-1 — le module des faits rend exactement ce que rendait app.js', (
 // calcule rien — ces tests le vérifient champ par champ, sur le même corpus.
 const COLONNES_RECORDS = ['user_id', 'set_id', 'session_id', 'exercise_slug', 'type', 'valeur', 'reps',
   'charge', 'unite', 'ancien', 'ancien_le', 'sur_douze_mois', 'battu_le'].sort();
-const TYPES_RECORDS = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'un_rm_estime',
+// 120 (D1, 16/10/2026) — plus de `un_rm_estime` : la force estimée n'est plus un record, rien ne l'écrit.
+const TYPES_RECORDS = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap',
   'volume_seance', 'duree_s', 'distance_m'];
 const rouvrir = (s) => {
   const exercices = [];
@@ -372,9 +374,11 @@ describe('58-2 — le journal des records : ce que la fonction des records a con
 
   test('le corpus exerce les types qui portent un champ propre (sinon les contrôles ne prouveraient rien)', () => {
     const vus = new Set(journal.map((l) => l.type));
-    ['charge_a_reps', 'reps_a_charge', 'charge_max', 'un_rm_estime', 'volume_seance'].forEach((t) => {
+    ['charge_a_reps', 'reps_a_charge', 'charge_max', 'volume_seance'].forEach((t) => {
       expect([t, vus.has(t)]).toEqual([t, true]);
     });
+    // 120 (D1) — et jamais `un_rm_estime` : le corpus en écrivait avant (le couché 122,5 × 5 puis × 6).
+    expect(vus.has('un_rm_estime')).toBe(false);
     // La fenêtre des 12 mois : vraie pour un matériel de salle, fausse à la barre.
     expect(journal.some((l) => l.sur_douze_mois)).toBe(true);
     expect(journal.some((l) => !l.sur_douze_mois)).toBe(true);
@@ -431,5 +435,17 @@ describe('58-2 — le journal des records : ce que la fonction des records a con
     tout[0].valeur = -1;
     expect(f.recordsDuJournal(c)[0].valeur).not.toBe(-1);
     expect(f.recordsDuJournal({ journal: undefined })).toEqual([]);
+  });
+
+  // 120 (D1, audit du 16/10/2026, 05 #2) — les lignes `un_rm_estime` d'avant D1 restent en base, immuables : la
+  // lecture du journal (la seule) les ignore. Le jeu ne les compte plus (ni record, ni XP), filtre `type` compris.
+  test('⚠️ DISCRIMINANT — une ligne `un_rm_estime` d’avant D1 n’est plus lue : ni record, ni XP', () => {
+    const l = (set_id, type) => ({ set_id, session_id: 'S', exercise_slug: 'presse', type, valeur: 133.3,
+      battu_le: '2026-10-06T16:00:00Z' });
+    const c = Object.assign(corpus(), { journal: [l('a', 'un_rm_estime'), l('b', 'charge_max'), l('b', 'un_rm_estime')] });
+    expect(f.recordsDuJournal(c).map((x) => [x.set_id, x.type])).toEqual([['b', 'charge_max']]);
+    expect(f.recordsDuJournal(c, { type: 'un_rm_estime' })).toEqual([]);
+    // Le jeu lit le journal par `faitsDuJeu` : une seule série médaillée (b), pas deux.
+    expect(f.faitsDuJeu(c, '2026-10-09').journal.map((x) => x.set_id)).toEqual(['b']);
   });
 });

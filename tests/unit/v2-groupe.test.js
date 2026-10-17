@@ -280,6 +280,25 @@ describe('91 — le faux serveur imite v2_082', () => {
     expect([jordan.tonnage_kg, jordan.series, jordan.records, jordan.xp]).toEqual([3220, 3, 1, 300]);
   });
 
+  // 120 (D1, v2_093, audit 05 #2) — « La force estimée […] sort des records, des médailles, du fil et de l'XP. » Une
+  // série que seule l'estimation médaillait (une ligne `un_rm_estime` d'avant D1) ne compte plus « 1 record » au récap.
+  test('⚠️ DISCRIMINANT — le récap ne compte pas une série médaillée par la seule force estimée (v2_093)', () => {
+    const f = decor();
+    f.etat.sets.push(
+      { id: 't-j1', session_id: 's-jordan', exercise_slug: 'squat-barre', charge_kg: 180, reps: 3, type_serie: 'travail', validee_a: iso(T0 - 30 * MIN) },
+      { id: 't-j2', session_id: 's-jordan', exercise_slug: 'squat-barre', charge_kg: 100, reps: 10, type_serie: 'travail', validee_a: iso(T0 - 20 * MIN) });
+    f.etat.records.push({ set_id: 't-j1', session_id: 's-jordan', type: 'charge_a_reps', valeur: 180 },
+      { set_id: 't-j2', session_id: 's-jordan', type: 'un_rm_estime', valeur: 133.3 });
+    lancer(f);
+    f.avancer(MIN);
+    entrer(f, 'jordan');
+    const jordan = () => f.rpc('u-moi', 'groupe_recap').filter((x) => x.pseudo === 'jordan')[0];
+    expect(jordan().records).toBe(1);
+    // La base d'avant v2_093 la comptait.
+    f.etat.v2_093 = false;
+    expect(jordan().records).toBe(2);
+  });
+
   test('fermer fige MON récap ; le dernier éteint le groupe, et les messages partent avec lui', () => {
     const f = decor();
     lancer(f);

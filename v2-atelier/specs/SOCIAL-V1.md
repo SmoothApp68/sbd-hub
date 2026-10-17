@@ -25,6 +25,11 @@ Abonnements façon Instagram, trois cercles :
 - Pas de commentaires, pas de notification push (un badge sur l'onglet pour les demandes).
 - Un seul onglet « Jeu & amis » : le fil est un sous-onglet à côté du jeu, pas un onglet de plus.
 - Coach et bilans ne lisent jamais rien du social.
+- **Des comparaisons choisies — décision d'Aurélien du 16/10/2026 (D6, audit du 16/10)** : « guilde et mutuels sont des
+  comparaisons choisies ». La guilde (sa Progression, son défi, « La guilde cette semaine ») et les mutuels (« Entre
+  amis », « Se comparer ») sont la **seule exception** à la règle de fond « aucune comparaison à une autre personne » :
+  on y entre par un geste — **entrer dans une guilde**, **devenir mutuel** (s'abonner l'un à l'autre). Hors de ces deux
+  cercles, rien ne compare une personne à une autre ; le coach et les bilans, jamais (CADRAGE, BILANS-V1).
 
 ## 3. La base (v2_078)
 
@@ -150,7 +155,7 @@ elle retire ses scores.
 - Nom : 3 à 24 caractères, unique (comparaison sans casse ni accents, sans unaccent : translate(lower(btrim(…)), …)). Blason : un des gabarits du jeu/social, couleur au choix ; aucune image envoyée.
 - Rangs choisis par chacun, sans aucun pouvoir, plusieurs membres peuvent avoir le même, modifiables à tout moment : Squatteur · Bencheur · Terreur · Pousseur · Tireur · Chargeur · Gymbro · Motiveur · Novice (par défaut). Affichage d'un membre : « jordan · Squatteur · <titre du jeu> ». Les rangs ne se gagnent jamais (seuls les titres du jeu se gagnent).
 - Onglets de la guilde : Semaine (défi + « La guilde cette semaine » : séances, records, tonnage), Fil (séances des membres, mêmes règles et mêmes fonctions que le fil de 87), Progression (classement du mois : part des exercices avec au moins un record sans dépasser la charge proposée par le coach ; un exercice compte s'il a au moins 2 séances dans le mois ; remise à zéro le 1er ; score seul, pas de vainqueur ni de rouge), Membres.
-- Défi : un à la fois, coopératif, choisi chaque lundi par l'administrateur parmi des défis sûrs : (1) chacun fait ses séances prévues ; (2) des records battus sans dépasser la charge proposée ; (3) variété : N exercices différents à tous. Sans choix, le défi (1) part seul. Jamais sur la charge ou le tonnage. Une jauge commune.
+- Défi : un à la fois, coopératif, choisi chaque lundi par l'administrateur parmi des défis sûrs : (1) chacun fait ses séances prévues ; (2) des records battus sans dépasser la charge proposée ; (3) variété : N exercices différents à tous. Sans choix, le défi (1) part seul. Jamais sur la charge ou le tonnage. Une jauge commune. *(16/10/2026, D3 : sans choix, c'est désormais le défi des séries de travail qui part — §6.4.)*
 - Jeu éteint : on reste membre avec son rang, sans XP.
 - Pas de messagerie dans la guilde ; réactions seulement. Pas de direct.
 - Le coach et les bilans ne lisent rien de la guilde.
@@ -173,7 +178,10 @@ elle retire ses scores.
 - **1c. Révisions** : le pari relié à la série par `set_observe`.
 - **1d. Types de record qui comptent** : `charge_a_reps`, `reps_a_charge`, `charge_max`, `cap`, `duree_s`, `distance_m`.
   Exclus : `un_rm_estime` (une estimation, pas un fait) et `volume_seance` (pousserait au volume). Une série « à fond »
-  compte (c'est un fait).
+  compte (c'est un fait). **16/10/2026 (D1, audit du 16/10)** : la force estimée n'est plus un record nulle part
+  (MOTEUR §9.23) — plus aucune ligne `un_rm_estime` ne s'écrit, et celles d'avant sont ignorées aussi par le fil
+  (`faits.medaillesDuSocial`) et le récap du groupe (`groupe_recap_de`, v2_093) : une série que seule l'estimation
+  médaillait ne compte plus « 1 record » (audit 05 #2).
 - **2. Séances prévues** (défi 1) : `profiles.seances_par_semaine`. S'il est vide (3 profils sur 8 aujourd'hui : alexis,
   jordan, lea), la médiane hebdomadaire de l'historique, avec la même fonction que faits.js:618 (`habitudes`), sans la
   recopier. Chaque membre est plafonné à ses séances prévues. Calcul sur l'appareil, puis publication du score déjà
@@ -221,6 +229,34 @@ verrouillée) ; seul le rang change ; au départ, la guilde sans membre dispara�
 vient d'un membre et vise un de ses **mutuels** (`social_mutuel`). Aucune écriture ni lecture directe sur guildes, membres,
 invitations, défis : des fonctions SECURITY DEFINER (`guilde_choisir_defi` refuse dès que la semaine est lancée) (`search_path` figé, `authenticated` seulement). Une politique ajoutée,
 `reactions_guilde` (insertion), via `guilde_peut_reagir` ; aucune sur sessions, sets, records.
+
+### 6.4 Le défi par défaut — décision du 16/10/2026 (D3, audit du 16/10 ; prompt 120)
+
+> Délégué par Aurélien, tranché par Claude.ai : « le défi de guilde par défaut devient les séries de travail de la guilde dans la semaine, objectif = sa moyenne des 4 dernières semaines » (au lieu de « séances sur prévues », qui mesure
+> l'assiduité — CADRAGE §3.1 bis, audit 06 #9).
+
+- **Le défi** : un quatrième défi sûr, `series`, sans nombre, **premier de la liste** — celui qui part sans choix. Les
+  trois autres restent au choix de l'administrateur.
+- **Les séries de travail** : la règle de comptage de 119 (`Semaine.estSerieDeMusculation` : une série de travail d'un
+  exercice qui porte du volume — ni le tapis, ni la randonnée), calculée sur l'appareil (`faits.scoresDeGuilde`) et
+  publiée comme les autres nombres : `series_semaine` (mes séries de la semaine, lundi → dimanche, heure locale) et
+  `series_moyenne` (ma moyenne sur les 4 semaines pleines d'avant, au centième).
+- **L'objectif** : la somme des moyennes des membres (`guilde_semaine.series_cible`, arrondie). **Sans 4 semaines
+  d'historique** : la moyenne de ce qui existe — les semaines depuis celle de ma première série de musculation (une
+  semaine sans séance après elle compte 0 ; une semaine d'avant mon premier pas n'en est pas une) ; sans aucune semaine
+  d'avant, 0. La guilde ne part pas de sa propre création : elle additionne l'historique de ses membres (une guilde
+  créée hier a un objectif dès lundi). Sans historique chez personne, pas d'objectif inventé : l'écran dit le compte
+  seul (« 12 séries de travail, à vous deux »), la jauge vide.
+- **L'écran** : « 42 séries de travail, votre moyenne » ; « 37 séries de travail sur 42, à vous quatre ». Jamais un
+  nombre de séances.
+- **Les défis en cours ne changent pas** (figés, décision du 14/10/2026) : à la migration, une guilde dont la semaine
+  est lancée et qui courait le défaut sans l'avoir choisi garde « séances » pour cette semaine (une ligne écrite).
+- **La base** : v2_093 (proposée) — type `series` (`guilde_defis_type`, sans nombre), colonnes `series_semaine`
+  (0 à 2 000) et `series_moyenne` (0 à 2 000, au centième) de `guilde_scores`, défaut à 0 ; `guilde_semaine` rend le
+  défaut `series`, `series_faites` et `series_cible`. Avant v2_093, l'app publie sans les deux colonnes (`PGRST204`,
+  retirées pour la session) et affiche le défaut que la base dit (« séances »).
+- **Limite connue (audit 05 #5, inchangée)** : comme les séances et les records, un membre ne compte que s'il a ouvert
+  l'app cette semaine (ses nombres partent à l'ouverture de la guilde et à la fin d'une séance).
 
 ## 7. Groupe — décisions du 14/10/2026 (prompt 91)
 

@@ -91,11 +91,10 @@ function reglesViolees(phrase, famille, dates, reference) {
   if (/le moteur/i.test(t)) v.push('« le moteur »');
   // 53-1 (MOTEUR §9.10, CLAUDE.md §7) — un maximum estimé ne se dit jamais :
   // l'estimation du report reste en coulisse.
-  // 55-1 (MOTEUR §9.23) — la seule exception : la médaille dit le 1RM
-  // ESTIMÉ, avec « ≈ », jamais un maximum nu. Toute autre famille, et toute
-  // autre forme, reste fautive.
-  const sans1RM = famille === 'record' ? t.replace(/1RM estimé : ≈[\s\u00a0]\d+[\s\u00a0]kg\./g, '') : t;
-  if (/\b1\s?RM\b|\bmax(?:imum|imale?)?\b/i.test(sans1RM)) v.push('un maximum (« 1RM », « max »)');
+  // 55-1 (MOTEUR §9.23) faisait une exception pour la médaille (« 1RM estimé :
+  // ≈ 147 kg. ») ; 120 (D1, 16/10/2026) la retire : la force estimée sort des
+  // records et des médailles. Plus aucune famille ne dit un 1RM.
+  if (/\b1\s?RM\b|\bmax(?:imum|imale?)?\b/i.test(t)) v.push('un maximum (« 1RM », « max »)');
   if (t.indexOf('?') >= 0 && !(famille === 'réaction' && SECONDE_CHARGE.test(t) &&
       t.indexOf('?') === t.length - 1)) v.push('un « ? » hors du choix entre deux charges');
   for (let i = t.indexOf('×'); i >= 0; i = t.indexOf('×', i + 1)) {
@@ -502,7 +501,8 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     // 10 reps sans précédent) + celle d'avant-hier.
     expect(parFamille.record).toBe((7 * 2 - 1) + (13 * 2 - 3) + 2);
     expect(vues.filter((v) => v.famille === 'record' && /^Avant : 5 reps, mardi\.$/.test(v.phrase)).length).toBe(1);
-    expect(vues.filter((v) => v.famille === 'record' && /1RM estimé : ≈/.test(v.phrase)).length).toBeGreaterThan(5);
+    // 120 (D1) — plus aucune médaille ne dit le 1RM estimé.
+    expect(vues.filter((v) => v.famille === 'record' && /1RM/.test(v.phrase)).length).toBe(0);
     expect(vues.filter((v) => v.famille === 'nouvelle zone' && /^Nouveau bloc : Mix\. /
       .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).map((v) => v.source)).toEqual(['début de bloc 0', 'début de bloc 1']);
     // 53-2 : 3 badges + 2 bandeaux + 3 cartes de fin de bloc (titre, « Pendant
@@ -565,8 +565,8 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(reglesViolees('130 × 2 : pas encore.', 'constat')).toContain('un « × » sans « kg » devant');
     expect(reglesViolees('130 kg × 2 : pas encore.', 'constat')).toEqual([]);
     expect(reglesViolees('Le cran au-dessus × 10', 'en-tête')).toEqual([]);
-    // 55-1 — le 1RM estimé n'est permis qu'à la médaille, et sous sa forme.
-    expect(reglesViolees('1RM estimé : ≈' + NB + '147' + NB + 'kg.', 'record')).toEqual([]);
+    // 120 (D1) — le 1RM estimé n'est plus permis nulle part, pas même à la médaille.
+    expect(reglesViolees('1RM estimé : ≈' + NB + '147' + NB + 'kg.', 'record')).toContain('un maximum (« 1RM », « max »)');
     expect(reglesViolees('1RM estimé : ≈' + NB + '147' + NB + 'kg.', 'feuille')).toContain('un maximum (« 1RM », « max »)');
     expect(reglesViolees('Ton 1RM : 147 kg.', 'record')).toContain('un maximum (« 1RM », « max »)');
     expect(reglesViolees('Le 15' + NB + 'sept.' + NB + ': 125 kg × 5.', 'en-tête',

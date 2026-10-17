@@ -821,7 +821,7 @@ const NOTIONS = [
     module: 'modele.js', fonction: 'recordsDeLExercice', lecteurs: ['app.js', 'faits.js', 'objectif.js'],
     par: ['tableauDesRecords'],
     parAilleurs: { 'app.js': ['rendreExercice'], 'faits.js': ['ceQueJeSais'], 'objectif.js': ['recordA'] },
-    raison: 'MOTEUR §9.23 : le record de charge de la page, son 1RM estimé et le tableau des records lisent ' +
+    raison: 'MOTEUR §9.23 : le record de charge de la page, sa force estimée (hors des records, D1) et le tableau des records lisent ' +
       'la même table cumulée, sur le même périmètre que la médaille (12 mois pour un matériel de salle). ' +
       '60-2a : « Ce que je sais » montre le maximum de chaque barre par cette même fonction — jamais une seconde. ' +
       '109 (MOTEUR §9.25) : le rythme d’un objectif se lit sur ce record « au moins N reps », jamais sur un maximum estimé.' },
@@ -833,9 +833,9 @@ const NOTIONS = [
       'table par reps d’une page lisent le même périmètre — une page n’en montre jamais deux.' },
   { notion: 'le 1RM estimable (3 à 10 reps, une charge soulevée, jamais au poids du corps)', pr: '55-U1',
     module: 'modele.js', fonction: 'estimable1RM', lecteurs: [],
-    par: ['recordsBattus', 'recordsDeLExercice'],
-    raison: 'ECRAN §7 bis.15 : hors de 3 à 10 reps, l’estimation n’est pas fiable ; la médaille et la page ' +
-      'disent la même plage.' },
+    par: ['recordsDeLExercice'],
+    raison: 'ECRAN §7 bis.15 : hors de 3 à 10 reps, l’estimation n’est pas fiable. 120 (D1, 16/10/2026) : la force ' +
+      'estimée n’est plus un record — la médaille ne la lit plus ; la page seule la dit.' },
   { notion: 'les records battus par une série (et l’ancien record, avec sa date)', pr: '55-U1',
     module: 'modele.js', fonction: 'recordsBattus', lecteurs: ['faits.js'],
     parAilleurs: { 'faits.js': ['recordsDeLaSerie', 'recordsDeLaSeance'] },
@@ -844,14 +844,14 @@ const NOTIONS = [
   { notion: 'la phrase de la médaille ([gras, gris])', pr: '55-U1',
     module: 'modele.js', fonction: 'phraseDeRecord', lecteurs: ['app.js', 'faits.js'],
     parAilleurs: { 'app.js': ['medailleSurLigne'], 'faits.js': ['recordsDuJour'] },
-    raison: 'MOTEUR §9.23 : les mots de la médaille, une fois — le cap rond, la charge pour N reps, le 1RM ' +
-      'estimé, le volume, la durée, et le record d’avant avec sa date.' },
+    raison: 'MOTEUR §9.23 : les mots de la médaille, une fois — le cap rond, la charge pour N reps, le volume, ' +
+      'la durée, et le record d’avant avec sa date (120, D1 : plus le 1RM estimé).' },
   { notion: 'le 1RM estimé (Epley)', pr: '55-U1',
     module: 'moteur.js', fonction: 'unRMEpley', lecteurs: ['modele.js'],
     par: ['reportDeZone'],
-    parAilleurs: { 'modele.js': ['recordsBattus', 'recordsDeLExercice'] },
-    raison: 'MOTEUR §9.10 et §9.23 : l’estimation du report et le record « 1RM estimé » lisent la même ' +
-      'formule — jamais recopiée.' },
+    parAilleurs: { 'modele.js': ['recordsDeLExercice'] },
+    raison: 'MOTEUR §9.10 et §9.23 : l’estimation du report et la force estimée de la page (120, D1 : une ' +
+      'progression, plus un record) lisent la même formule — jamais recopiée.' },
   { notion: 'la fenêtre des 12 mois d’un matériel (machines, poulies, haltères, Smith)', pr: '55-U1',
     module: 'moteur.js', fonction: 'plancherDuMateriel', lecteurs: ['modele.js'],
     par: ['chargeVoisine'],
@@ -1226,12 +1226,13 @@ const NOTIONS = [
       'musculation (`Semaine.estSeanceDeMusculation`).' },
   // ── 119 — LES MESURES EN DURÉE ET EN DISTANCE (audit du 16/10/2026) ──
   { notion: 'la série de musculation (une série de travail d’un exercice qui porte du volume ; inconnu : comptée)', pr: '119-U1',
-    module: 'semaine.js', fonction: 'estSerieDeMusculation', lecteurs: ['bilans.js', 'seance.js'],
+    module: 'semaine.js', fonction: 'estSerieDeMusculation', lecteurs: ['bilans.js', 'seance.js', 'faits.js'],
     par: ['compteSeriesTravail', 'estSeanceDeMusculation'],
-    parAilleurs: { 'bilans.js': ['bilanDeLaPeriode'], 'seance.js': ['compter'] },
+    parAilleurs: { 'bilans.js': ['bilanDeLaPeriode'], 'seance.js': ['compter'], 'faits.js': ['scoresDeGuilde'] },
     raison: 'BILANS-V1 (16/10/2026) : la règle que `compteSeriesTravail` comptait sans la nommer ; une période de seules ' +
       'sorties est vide (F4) par la même règle que le compte des séries de travail ; la feuille « Terminer » d’une ' +
-      'séance de cardio dit ce qui part hors musculation (E12, `Seance.compter`).' },
+      'séance de cardio dit ce qui part hors musculation (E12, `Seance.compter`). 120 (D3) : le défi de guilde par ' +
+      'défaut compte les séries de travail par cette même règle (`faits.scoresDeGuilde`, `series_semaine`).' },
   { notion: 'la séance de musculation (au moins une série de musculation : ni une randonnée, ni un tapis seul)', pr: '119-U1',
     module: 'semaine.js', fonction: 'estSeanceDeMusculation', lecteurs: ['faits.js'],
     parAilleurs: { 'faits.js': ['tempsALaSalle'] },

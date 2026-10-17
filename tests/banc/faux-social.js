@@ -20,14 +20,18 @@ const COLONNES_SCORES = ['user_id', 'exercise_slug', 'score', 'charge_kg', 'maj_
 // 90 (v2_080) — la guilde : les contraintes de la migration, recopiées telles quelles.
 const GUILDE = {
   RANGS: ['Squatteur', 'Bencheur', 'Terreur', 'Pousseur', 'Tireur', 'Chargeur', 'Gymbro', 'Motiveur', 'Novice'],
-  DEFIS: ['seances', 'records', 'variete'],
+  // 120 (v2_093, D3) — `series` : les séries de travail de la semaine, sans nombre ; le défaut sans choix.
+  DEFIS: ['series', 'seances', 'records', 'variete'],
+  SANS_NOMBRE: ['seances', 'series'],
   COULEURS: ['#b39ad1', '#8fb08a', '#6fa3d8', '#d9b45a', '#d98f6f', '#7fc4c0', '#c98fb4', '#a3a9b3'],
   MAX: 30,
   TYPES_RECORDS: ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'duree_s', 'distance_m'],
   // 107 — les fonctions de guilde qui ÉCRIVENT (les gestes, qui passent par la file de l'app).
   ECRITURES: ['guilde_creer', 'guilde_modifier', 'guilde_inviter', 'guilde_repondre', 'guilde_quitter', 'guilde_retirer_membre',
     'guilde_transmettre', 'guilde_choisir_defi', 'guilde_choisir_rang'],
-  COLONNES_SCORES: ['user_id', 'semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record', 'maj_le']
+  COLONNES_SCORES: ['user_id', 'semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record', 'maj_le'],
+  // 120 (v2_093) — les séries de la semaine et leur moyenne des 4 semaines d'avant.
+  COLONNES_SERIES: ['series_semaine', 'series_moyenne']
 };
 // 91 (v2_082) — le groupe de séance : les contraintes de la migration, recopiées telles quelles.
 // 106 (v2_087) — la fin : une séance sans série validée depuis 45 min est finie (la règle de la séance vivante,
@@ -54,6 +58,9 @@ function creer(base, options) {
     // 114 (v2_091) — la base ne garde ni ne rend plus la charge à côté du score. `false` : la base d'avant v2_091
     // (la charge exigée, NOT NULL), pour prouver que l'app marche des deux côtés de la migration.
     v2_091: o.v2_091 !== false,
+    // 120 (v2_093) — le défi des séries de travail. `false` : la base d'avant v2_093 (colonnes inconnues, PGRST204 ;
+    // défaut « seances »), pour prouver que l'app marche des deux côtés de la migration.
+    v2_093: o.v2_093 !== false,
     maintenant: o.maintenant || (() => new Date())
   };
 
@@ -254,7 +261,9 @@ function creer(base, options) {
         tonnage_kg: Math.round(travail.filter((t) => Number(t.charge_kg) > 0 && Number(t.reps) > 0)
           .reduce((a, t) => a + Number(t.charge_kg) * Number(t.reps), 0) * 100) / 100,
         series: travail.length,
-        records: sienne ? new Set(records().filter((r) => r.session_id === m.session_id).map((r) => r.set_id)).size : 0,
+        // 120 (v2_093, D1) — la force estimée n'est pas un record : ses lignes d'avant ne comptent plus.
+        records: sienne ? new Set(records().filter((r) => r.session_id === m.session_id &&
+          !(etat.v2_093 && r.type === 'un_rm_estime')).map((r) => r.set_id)).size : 0,
         xp: x.p.jeu_actif === false ? null : (m.xp === undefined ? null : m.xp), entre_le: m.entre_le };
     });
   }
@@ -435,8 +444,11 @@ function creer(base, options) {
       // `guilde_semaine_lancee` : figé dès qu'un membre a terminé une séance cette semaine.
       if (semaineLancee(g.id)) leve('23514', 'guilde_defi_fige');
       const n = a.p_n === null || a.p_n === undefined ? null : Number(a.p_n);
-      if (GUILDE.DEFIS.indexOf(a.p_type) < 0) leve('23514', 'new row for relation "guilde_defis" violates check constraint "guilde_defis_type"');
-      if (!((a.p_type === 'seances' && n === null) || (a.p_type !== 'seances' && n >= 1 && n <= 100))) {
+      if (GUILDE.DEFIS.indexOf(a.p_type) < 0 || (!etat.v2_093 && a.p_type === 'series')) {
+        leve('23514', 'new row for relation "guilde_defis" violates check constraint "guilde_defis_type"');
+      }
+      const sans = GUILDE.SANS_NOMBRE.indexOf(a.p_type) >= 0;
+      if (!((sans && n === null) || (!sans && n >= 1 && n <= 100))) {
         leve('23514', 'new row for relation "guilde_defis" violates check constraint "guilde_defis_n"');
       }
       const semaine = lundiCourant();
@@ -480,12 +492,14 @@ function creer(base, options) {
       const travail = sets().filter((t) => sids.indexOf(t.session_id) >= 0 && (t.type_serie || 'travail') === 'travail');
       const medailles = new Set(records().filter((r) => sids.indexOf(r.session_id) >= 0 && GUILDE.TYPES_RECORDS.indexOf(r.type) >= 0)
         .map((r) => r.set_id));
-      return [{ semaine: lundi, defi: d ? d.type : 'seances', n: d ? d.n : null, defi_modifiable: !semaineLancee(gid),
+      const series = etat.v2_093 ? { series_faites: sc.reduce((x, s) => x + (s.series_semaine || 0), 0),
+        series_cible: Math.round(sc.reduce((x, s) => x + Number(s.series_moyenne || 0), 0)) } : {};
+      return [Object.assign({ semaine: lundi, defi: d ? d.type : (etat.v2_093 ? 'series' : 'seances'), n: d ? d.n : null, defi_modifiable: !semaineLancee(gid),
         seances_faites: sc.reduce((x, s) => x + Math.min(s.seances, s.prevues), 0), seances_prevues: sc.reduce((x, s) => x + s.prevues, 0),
         records_semaine: sc.reduce((x, s) => x + s.records_semaine, 0),
         exercices: new Set(travail.map((t) => t.exercise_slug)).size, seances: ss.length, medailles: medailles.size,
         tonnage_kg: Math.round(travail.filter((t) => Number(t.charge_kg) > 0 && Number(t.reps) > 0)
-          .reduce((x, t) => x + Number(t.charge_kg) * Number(t.reps), 0) * 100) / 100 }];
+          .reduce((x, t) => x + Number(t.charge_kg) * Number(t.reps), 0) * 100) / 100 }, series)];
     },
     guilde_progression() {
       const gid = guildeDe(etat.moi);
@@ -807,7 +821,14 @@ function creer(base, options) {
       POST(corps) {
         const lignes = Array.isArray(corps) ? corps : [corps];
         for (const l of lignes) {
-          const autres = Object.keys(l || {}).filter((k) => GUILDE.COLONNES_SCORES.indexOf(k) < 0);
+          // 120 — avant v2_093, les colonnes des séries sont inconnues de la base : PGRST204, sans être une fuite (elles
+          // ne disent rien de privé ; l'app les retire et renvoie la ligne).
+          if (!etat.v2_093) {
+            const series = Object.keys(l || {}).filter((k) => GUILDE.COLONNES_SERIES.indexOf(k) >= 0);
+            if (series.length) return refus('PGRST204', "Could not find the '" + series[0] + "' column of 'guilde_scores' in the schema cache");
+          }
+          const autres = Object.keys(l || {}).filter((k) => GUILDE.COLONNES_SCORES.indexOf(k) < 0 &&
+            !(etat.v2_093 && GUILDE.COLONNES_SERIES.indexOf(k) >= 0));
           if (autres.length) {
             etat.fuites.push({ table: 'guilde_scores', champs: autres });
             return refus('PGRST204', 'guilde_scores : colonne inconnue ' + autres.join(', '));
@@ -818,6 +839,9 @@ function creer(base, options) {
           if (!lundi || !/^\d{4}-\d{2}-01$/.test(l.mois) || !entier(l.seances, 0, 100) || !entier(l.prevues, 0, 14) ||
             !entier(l.records_semaine, 0, 1000) || !entier(l.exercices, 0, 500) || !entier(l.exercices_record, 0, 500) ||
             l.exercices_record > l.exercices) return refus('23514', 'guilde_scores_check');
+          if (etat.v2_093 && ((l.series_semaine !== undefined && !entier(l.series_semaine, 0, 2000)) ||
+            (l.series_moyenne !== undefined && !(typeof l.series_moyenne === 'number' && l.series_moyenne >= 0 && l.series_moyenne <= 2000 &&
+              Math.round(l.series_moyenne * 100) === l.series_moyenne * 100)))) return refus('23514', 'guilde_scores_series');
         }
         lignes.forEach((l) => {
           etat.gscores = etat.gscores.filter((x) => x.user_id !== l.user_id);

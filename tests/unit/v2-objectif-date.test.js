@@ -78,6 +78,35 @@ describe('la date, à la pose', () => {
     expect(O.plafondDe('plus_5_ans')).toEqual({ part: 0.15, jours: 365 });
   });
 
+  // 120 (D12, décision d'Aurélien du 16/10/2026, audit 01 #12) — « moins d'un an » = « +40 % sur les 12 premières
+  // semaines, puis +20 %/an » (au lieu de 40 % / 12 semaines extrapolé à l'année : ≈ 14,5 % par mois, +174 % par an).
+  test('⚠️ DISCRIMINANT — moins d’un an : 40 % sur les 12 semaines qui suivent la pose, puis 20 % par an', () => {
+    const vite = [seance('2025-09-01', [[100, 1]]), seance('2025-10-01', [[100, 1]]), seance('2026-03-01', [[120, 1]]),
+      seance('2026-09-01', [[140, 1]])];
+    expect(O.plafondDe('moins_1_an')).toEqual({ part: 0.40, jours: 84, puis: { part: 0.20, jours: 365 } });
+    // 140 → 170 (30 kg) au rythme personnel (≈ 3,3 kg par mois) : avant D12, ≈ 9 mois (une date en juillet 2027).
+    // Avec D12 : ≈ 9,2 kg pendant les 12 semaines, puis 20 % par an de 100 kg (≈ 1,67 kg par mois) : plus d'un an.
+    const d = projeter({ seances: vite, anciennete: 'moins_1_an', charge: 170 });
+    expect(d.plafond).toBeCloseTo(100 * 0.40 / (84 / O.JOURS_PAR_MOIS), 3);
+    expect(d.plafond_apres).toBeCloseTo(100 * 0.20 / (365 / O.JOURS_PAR_MOIS), 3);
+    expect(d.rythme).toBe(d.rythme_brut);                      // les 12 semaines : le rythme personnel, sous 40 %
+    expect(d.rythme_apres).toBe(d.plafond_apres);              // ensuite : 20 % par an coupe
+    expect(d.etat).toBe('plus_d_un_an');
+    // Un objectif atteint dans les 12 semaines ne voit que le premier temps (150 : fin janvier, comme avant D12).
+    const court = projeter({ seances: vite, anciennete: 'moins_1_an', charge: 149 });
+    expect(court.echeance).toBe('2027-01-31');
+    // Au-delà des 12 semaines : le second temps ralentit (155 → fin avril ; avant D12, fin mars).
+    const juste = projeter({ seances: vite, anciennete: 'moins_1_an', charge: 155 });
+    expect(juste.echeance).toBe('2027-04-30');
+    // Le pari porte les deux temps ; les autres tranches gardent leur fondement d'avant.
+    const pari = O.pariDe({ exercise_slug: 'squat', charge_kg: 155, reps: 1, pose_le: MAINTENANT.toISOString() }, juste, 'u', 'p1');
+    expect([pari.fondement.plafond_apres, pari.fondement.rythme_apres, pari.module_version])
+      .toEqual([juste.plafond_apres, juste.rythme_apres, '2']);
+    const autre = O.pariDe({ exercise_slug: 'squat', charge_kg: 150, reps: 1, pose_le: MAINTENANT.toISOString() },
+      projeter({ seances: vite, anciennete: '1_a_3_ans' }), 'u', 'p2');
+    expect(Object.prototype.hasOwnProperty.call(autre.fondement, 'plafond_apres')).toBe(false);
+  });
+
   test('moins de 3 records à au moins N reps : « Pas encore de date. », et aucun pari', () => {
     const p = projeter({ reps: 3 });                            // à 3 reps ou plus : 120 × 5 puis 140 × 3 — deux hausses
     expect(p.hausses).toBe(2);

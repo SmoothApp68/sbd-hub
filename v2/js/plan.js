@@ -3376,7 +3376,7 @@
     verifierDouleur(plan, entrees, erreurs);
     verifierReserve(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
-    verifierEscalierSalle(plan, erreurs);
+    verifierEscalierSalle(plan, entrees, erreurs);
     // Prérequis d'« adapter » — LES PARIS D'UNE OCCURRENCE, et seulement d'elle
     // (I7) : la seconde occurrence d'un exercice ne doit pas se voir reprocher
     // les paris de la première.
@@ -3484,8 +3484,14 @@
   // proposée est la première marche APRÈS la dernière proposée qui a un objet (les marches entre les deux sont sans
   // objet), jamais une marche déjà proposée ; un remplacement va vers un exercice plus chargeable que le plafond.
   // Un repli posé ferait descendre la charge demandée : on lit alors le palier seul.
-  function verifierEscalierSalle(plan, erreurs) {
+  //
+  // 120 (D11, décision d'Aurélien du 16/10/2026, audit 01 #1) — « « Plus léger » (après une douleur) passe avant la
+  // règle « pas de repli au plafond de la salle » ; I47 l'exempte. » Le repli que la PERSONNE a choisi sur la carte de
+  // reprise (§9.20, `seance.reprises[slug]` : `leger`, à la charge de son repli — I35 la vérifie) n'est pas une marche
+  // de l'escalier : I47 ne le juge pas. Les autres règles du plafond (les marches, la semaine allégée) restent.
+  function verifierEscalierSalle(plan, entrees, erreurs) {
     var M = Moteur();
+    var reprises = (entrees && entrees.seance && entrees.seance.reprises) || {};
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var k = x && x.consigne;
       if (!k || !x.salle) return;
@@ -3496,7 +3502,10 @@
       if (m && M.MARCHES_PLAFOND.indexOf(m.marche) < 0) {
         erreurs.push(nom + 'une marche de l’escalier (' + m.marche + ') au plafond de sa salle');
       }
-      if (k.repli) erreurs.push(nom + 'un repli au plafond de sa salle');
+      var r = x.slug && Object.prototype.hasOwnProperty.call(reprises, x.slug) ? reprises[x.slug] : null;
+      var choisi = !!(r && r.choix === 'leger' && r.repli && r.repli.ligne && k.ligne &&
+        memeCharge(k.ligne.charge, r.repli.ligne[0]));
+      if (k.repli && !choisi) erreurs.push(nom + 'un repli au plafond de sa salle');
       if (plan.carte && plan.carte.declencheur === x.slug) {
         erreurs.push(nom + 'la carte de semaine allégée déclenchée par un exercice au plafond de sa salle');
       }

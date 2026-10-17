@@ -413,8 +413,7 @@
   }
 
   // MOTEUR §9.23 (55-1), ECRAN §7 bis.15 — LES RECORDS EN TÊTE DE LA VUE
-  // (maquette « Un exercice ») : la charge la plus lourde, le 1RM estimé
-  // (« ≈ »), le tableau à reps égales avec son recul (6 mois, 1 an — l'écart
+  // (maquette « Un exercice ») : la charge la plus lourde, le tableau à reps égales avec son recul (6 mois, 1 an — l'écart
   // en couleur du coach quand il monte, rien sinon : un record ne baisse
   // jamais, pas de rouge), puis le rapport au poids.
   function ecartRecord(maintenant, avant) {
@@ -436,10 +435,6 @@
     if (t.lourde) {
       ligneFiche(fiche, 'Charge la plus lourde', sousDouzeMois(t.lourde.date ? dateCourte(t.lourde.date) : null, t.douzeMois),
         M().chargeFois(t.lourde.charge, t.lourde.reps));
-    }
-    if (t.unRM) {
-      ligneFiche(fiche, '1RM estimé', t.unRM.date ? dateCourte(t.unRM.date) : null,
-        '\u2248\u00a0' + nombreFr(Math.round(t.unRM.valeur)) + '\u00a0kg');
     }
     carte.appendChild(fiche);
 
@@ -485,6 +480,17 @@
       }
     }
     cible.appendChild(carte);
+    // 120 (D1, audit du 16/10/2026) — LA FORCE ESTIMÉE, HORS DES RECORDS : « La force estimée reste, comme progression
+    // (page de l'exercice : « Force estimée ≈ 157 kg, d'après 140 × 5 », sa courbe) ; elle sort des records, des
+    // médailles, du fil et de l'XP ; les records sont les vraies barres. » La meilleure estimation du périmètre des
+    // records (12 mois pour un matériel de salle), de 3 à 10 reps (`Modele.recordsDeLExercice(...).unRM`), avec la série
+    // qui la donne. Pas de courbe : la page n'en a pas (une courbe demanderait une maquette).
+    if (t.unRM) {
+      var force = el('div', 'exo-fiche exo-force');
+      ligneFiche(force, 'Force estimée', 'd\u2019après ' + M().chargeFois(t.unRM.charge, t.unRM.reps),
+        '\u2248\u00a0' + nombreFr(Math.round(t.unRM.valeur)) + '\u00a0kg');
+      cible.appendChild(force);
+    }
   }
 
   // 109 (MOTEUR §9.25) — « MON OBJECTIF », en tête de la page d'exercice (maquette salle-objectif v1, écran 3). Le

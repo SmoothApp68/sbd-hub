@@ -160,6 +160,10 @@ const CATALOGUE = [
   { slug: 'curl-ez-108', nom: 'Kz108 (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['biceps'], muscles_secondaires: [] },
   // 49-U11 — réservé à la section 7 G octies (la phase). Son nom ne répond à
   // aucune des recherches faites ailleurs.
+  // 115 — réservés à la section 115 (« Rien ne se perd à la saisie ») : son décor propre, pour qu'elle se joue seule
+  // ou derrière n'importe quelle autre (le banc séquentiel du 17/10/2026 la cassait sur la routine « Push » partagée).
+  { slug: 'squat-115', nom: 'Sq115 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['adducteurs'] },
+  { slug: 'dc-115', nom: 'Dc115 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps'] },
   { slug: 'presse-u11', nom: 'Presse U11 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
   // 49-U12 — réservé à la section 7 G nonies (la chute). Son nom ne répond à
   // aucune des recherches faites ailleurs.
@@ -22687,8 +22691,31 @@ const SETS_IMPORTES = [
     });
     const valeurs115 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
       .map((l) => Array.from(l.querySelectorAll('input')).map((i) => i.value).join('×')));
+    // ⚠️ SON DÉCOR PROPRE (124, 17/10/2026) : sa routine et ses deux exercices, réservés (`squat-115`, `dc-115`), et
+    // trois séances passées du squat à 70 × 5 (la consigne, donc les paris du 122-I8). Rien d'une autre section n'y
+    // touche : la section se joue seule, en parallèle ou au séquentiel. La routine est rendue à la fin.
+    const t115 = Date.now();
+    [12, 8, 4].forEach((jours, k) => {
+      const id = 's115-h' + k;
+      const debut = ilYa(jours * 86400000, t115).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: '115 — ' + id, debut,
+        fin: finDe(debut, t115).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((rang) => base.sets.push({ id: id + '-s' + rang, session_id: id,
+        user_id: 'u-banc', exercise_slug: 'squat-115', charge_kg: 70, reps: 5, duree_s: null, distance_m: null,
+        type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null,
+        ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    const ROUTINE_115 = { id: 'r-115', nom: 'Rien ne se perd 115', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-115-e1', routine_id: 'r-115', exercise_slug: 'squat-115', rang: 0, routine_sets: progr(3, 5),
+          repos_cible_s: 180, groupe_superset: null, note: null },
+        { id: 'r-115-e2', routine_id: 'r-115', exercise_slug: 'dc-115', rang: 1, routine_sets: progr(2, 8),
+          repos_cible_s: null, groupe_superset: null, note: null }] };
+    ROUTINES.push(ROUTINE_115);
     await sansSeance115();
-    await demarrerRoutine('Push');
+    await demarrerRoutine(ROUTINE_115.nom);
     await attendre(1200);
     await saisirSerie(0, 70, 5);
     await saisirSerie(1, 72.5, 5);
@@ -22777,7 +22804,7 @@ const SETS_IMPORTES = [
 
     // ── E4. UNE SÉRIE REMPLIE, PAS VALIDÉE, AU MOMENT DE TERMINER.
     await sansSeance115();
-    await demarrerRoutine('Push');
+    await demarrerRoutine(ROUTINE_115.nom);
     await attendre(1200);
     await remplir115(0, 62.5, 6);
     await attendre(1200);
@@ -22814,7 +22841,7 @@ const SETS_IMPORTES = [
 
     // Sans série remplie, « Terminer » ne demande rien (non-régression du chemin courant).
     await sansSeance115();
-    await demarrerRoutine('Push');
+    await demarrerRoutine(ROUTINE_115.nom);
     await attendre(2000);
     const idE4b = enCours115();
     await page.click('#bandeau-seance .bandeau-fin');
@@ -22824,6 +22851,9 @@ const SETS_IMPORTES = [
     ok('[115-E4] sans série remplie non validée, « Terminer » termine aussitôt, sans question',
       base.sessions.some((x) => x.id === idE4b && x.statut === 'terminee'), JSON.stringify(idE4b));
 
+    // Le décor rendu : la routine quitte la bibliothèque (ses séances restent, comme celles des autres sections).
+    const i115 = ROUTINES.indexOf(ROUTINE_115);
+    if (i115 >= 0) ROUTINES.splice(i115, 1);
     await aller('/saisie');
     ok('[115] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refus115 && erreurs.length === erreurs115,

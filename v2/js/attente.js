@@ -22,10 +22,18 @@
 // modifications de la même série ne font qu'une entrée.
 //
 // L'ordre de pose est conservé (`seq`) et il porte les dépendances : la séance
-// est posée avant ses séries, donc elle monte avant. La vidange s'arrête à la
-// première erreur, ce qui préserve cet ordre plutôt que de le contourner.
+// est posée avant ses séries, donc elle monte avant. Une erreur PASSAGÈRE
+// arrête la vidange (on réessaie plus tard, dans le même ordre) ; une entrée
+// REFUSÉE pour de bon est dépassée sans être jetée, et ne retient que ce qui
+// dépend d'elle — la même entité, ou une dépendance déclarée (chantier 37,
+// `prochaine`). (124, audit du 16/10/2026, 06 #18 : ce paragraphe disait encore
+// « la vidange s'arrête à la première erreur », vrai avant le chantier 37.)
 //
-// ══ DEUX OPÉRATIONS, ET C'EST TOUT ═════════════════════════════════════════
+// ══ UNE OPÉRATION PAR TABLE ═════════════════════════════════════════════════
+//
+// Les premières, pour l'exemple — la liste complète est celle des constantes
+// ci-dessous (quatorze tables au 17/10/2026 : zones, modes, blocs, paris,
+// observations, alias, choix de la semaine, objectifs… chacune avec la sienne).
 //
 //   { table: 'sessions',          op: 'upsert' | 'supprimer', id }
 //   { table: 'sets',              op: 'remplacer',            id: <id de séance> }
@@ -629,8 +637,9 @@
   //
   // L'APPAREIL NE SE RÉPARE PAS TOUT SEUL. Une file posée avant le correctif
   // porte des lignes sans identifiant ; le serveur les a refusées en 23502 —
-  // code DÉFINITIF — donc l'entrée est `bloquee`, et `prochaine` s'arrêtant sur
-  // une tête bloquée, TOUT ce qui attend derrière est arrêté avec elle : les
+  // code DÉFINITIF — donc l'entrée est `bloquee`, et (avant le chantier 37,
+  // quand `prochaine` s'arrêtait sur une tête bloquée) TOUT ce qui attendait
+  // derrière était arrêté avec elle ; aujourd'hui, ce qui dépend d'elle : les
   // séries, et l'upsert `terminee` de la séance. Corriger le modèle n'y change
   // rien, ces entrées sont déjà sur le disque et rien ne les reposerait.
   //

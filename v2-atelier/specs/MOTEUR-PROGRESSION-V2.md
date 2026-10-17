@@ -1462,7 +1462,7 @@ Exception à « jamais le délai » : la règle d'ECRAN-SAISIE §3.5, §7 bis.15
 - **Le pari** : `exercise_slug` vide (l'exercice dans le fondement, comme l'escalier), pas de `seance` dans le fondement ; il ne vit pas dans `local.predictions` (le circuit des paris de la séance) mais à part. Les bilans ne comptent que les paris de consigne ; le score de guilde les ignore aussi.
 - **Les objectifs exclus** : un exercice au poids du corps, avec une aide, en durée ou en distance — un objectif se pose en charge × reps, à charge positive. Le même objectif reposé tel quel ne change rien (la date ne bouge pas).
 - **La table** `objectifs` (migration proposée `v2_089`) : `user_id`, `exercise_slug`, `charge_kg`, `reps`, `pose_le`, `depart_kg`, `projection` (`date` / `pas_encore` / `plus_d_un_an` / `carnet`), `echeance`, `pari_id` ; clé (`user_id`, `exercise_slug`), RLS propriétaire ; écrite par la file (un `upsert` sur la clé, ou une suppression). **Sans la migration**, la lecture répond « table absente » (PGRST205) : la carte ne s'affiche pas, rien ne part vers elle.
-- **La story du mois** : la ligne « Squat : 145 → 147,5 kg, objectif 150. » attend la story du mois (PR #433, pas encore fusionnée) — notée pour après.
+- **La story du mois** : la ligne « Squat : 145 → 147,5 kg, objectif 150. » attend la story du mois — la story est fusionnée (PR #433), la ligne de l'objectif n'y est pas encore (`annee.js` et `bilans.js` ne lisent aucun objectif ; relevé par l'audit du 16/10, 06 #18) — notée pour après.
 
 **Maquette** : `v2-atelier/maquettes/maquette-salle-objectif-v1.html`, écrans 3 et 4 (validée le 15/10/2026 ; l'écran 3 n'affiche qu'une ligne de date). **Tests** : `tests/unit/v2-objectif-date.test.js` ; banc : section `mon-objectif`.
 

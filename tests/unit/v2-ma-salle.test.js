@@ -613,3 +613,68 @@ describe('Donnees — `ma_salle` est facultative : absente en base, le profil se
     expect(f.etat.ecritures).toHaveLength(1);
   });
 });
+
+// ═══ 116 (audit du 16/10/2026, 03 #8) — un « jusqu'à » vidé ou illisible n'efface pas les haltères ═══
+// Le champ est numérique : « 4O » s'y lit vide. Avant 116, « Valider » fermait la feuille et écrivait la salle SANS
+// haltères, sans un mot. La feuille (le vrai `ouvrirSalleProfil`) se rejoue dans un bac `vm`.
+describe('116 — Ma salle : un « jusqu’à » vidé ou illisible garde les haltères déclarés', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const vm = require('vm');
+  const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+  const fn = APP.match(/^  function ouvrirSalleProfil\b[\s\S]*?^  }/m)[0];
+  function feuille(profil) {
+    const etat = { vue: null, fermes: 0, ecrits: [] };
+    const ctx = {
+      Profil, Modele: global.THModele, profil, feuilleProfil: null,
+      $: () => ({}),
+      Rendu: { rendreFeuilleSalle: (cible, vue) => { etat.vue = vue; } },
+      ouvrirFeuilleProfil: () => ctx.feuilleProfil({}),
+      fermerVoile: () => { etat.fermes++; },
+      ecrireProfil: (c) => { etat.ecrits.push(c); }
+    };
+    vm.createContext(ctx);
+    vm.runInContext(fn, ctx);
+    vm.runInContext('ouvrirSalleProfil()', ctx);
+    return etat;
+  }
+
+  test('⚠️ DISCRIMINANT — vidé : la feuille reste ouverte, rien n’est écrit, le champ reprend 40, une phrase dit pourquoi', () => {
+    const f = feuille({ ma_salle: SALLE_AUREL });
+    expect(f.vue.brouillon.halteres.max).toBe(SALLE_AUREL.halteres.max);
+    f.vue.surMaxHalteres('');                          // « 4O » dans un champ numérique : le navigateur rend ''
+    f.vue.surValider();
+    expect(f.ecrits).toEqual([]);                      // avant 116 : { ma_salle: { …, halteres: null } }
+    expect(f.fermes).toBe(0);
+    expect(f.vue.erreur).toBe('« Jusqu’à » vide ou illisible : tes haltères restent à ' + SALLE_AUREL.halteres.max + ' kg.');
+    expect(f.vue.brouillon.halteres).toMatchObject({ max: SALLE_AUREL.halteres.max, pas: SALLE_AUREL.halteres.pas });
+    f.vue.surValider();                                // « Valider » à nouveau : la salle telle qu'elle était
+    expect(f.ecrits).toEqual([{ ma_salle: SALLE_AUREL }]);
+    expect(f.fermes).toBe(1);
+  });
+
+  test('illisible avec un autre écart choisi : le plus lourd revient, l’écart choisi reste', () => {
+    const f = feuille({ ma_salle: SALLE_AUREL });
+    f.vue.surPasHalteres(5);
+    f.vue.surMaxHalteres('4O');
+    f.vue.surValider();
+    expect(f.ecrits).toEqual([]);
+    f.vue.surValider();
+    expect(f.ecrits[0].ma_salle.halteres).toEqual({ max: SALLE_AUREL.halteres.max, pas: 5 });
+  });
+
+  test('sans haltères déclarés : un écart sans le plus lourd n’écrit toujours pas d’haltères (inchangé)', () => {
+    expect(Profil.halteresGardees({}, Profil.poserPasHalteres(Profil.brouillonSalle({}), 2))).toBeNull();
+    const f = feuille({ ma_salle: { barres_ez: [10, 20], barres_droites: [], halteres: null } });
+    f.vue.surPasHalteres(2);
+    f.vue.surValider();
+    expect(f.ecrits).toEqual([{ ma_salle: { barres_ez: [10, 20], barres_droites: [], halteres: null } }]);
+  });
+
+  test('un plus lourd tapé et lisible : écrit tel quel (aucune garde)', () => {
+    const f = feuille({ ma_salle: SALLE_AUREL });
+    f.vue.surMaxHalteres('30');
+    f.vue.surValider();
+    expect(f.ecrits[0].ma_salle.halteres).toEqual({ max: 30, pas: SALLE_AUREL.halteres.pas });
+  });
+});

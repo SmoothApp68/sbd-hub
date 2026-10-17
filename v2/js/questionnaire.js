@@ -159,6 +159,25 @@
     return rythme >= 1 ? borne(rythme) : null;
   }
 
+  // 116 (audit du 16/10/2026, 03 #10) — UNE VALEUR DÉCLARÉE N'EST PAS RÉÉCRITE PAR SA PRÉ-COCHE. Le Profil permet 1 à
+  // 14 séances par semaine (`profiles_rythme_borne`), l'écran 8b 2 à 6 (le générateur) : 7 déclarées arrivaient
+  // pré-cochées à 6, et « Continuer » (ou « Voir mon programme », « Refaire ») ÉCRIVAIT 6 à la place du 7. Le brouillon
+  // garde donc la marque de la pré-coche bornée (`joursBornes`) : tant que la personne ne touche pas les puces, la
+  // colonne n'est pas écrite (le programme se construit sur la valeur bornée, `Generateur.bornerJours`). Une copie.
+  function precocherJours(rep, faits) {
+    var r = Object.assign({}, rep);
+    if (joursValides(r.seances)) return r;
+    var jours = joursPrecoches(r, faits);
+    if (jours === null) return r;
+    if (Number(r.seances) >= 1) r.joursBornes = jours;
+    r.seances = jours;
+    return r;
+  }
+  // Le nombre de séances à écrire : `undefined` (rien) quand c'est la pré-coche bornée d'une valeur déclarée.
+  function seancesAEcrire(r) {
+    return r.joursBornes !== undefined && r.joursBornes === r.seances ? undefined : r.seances;
+  }
+
   // « Continuer » : actif partout, SAUF aux écrans qui ont une réponse
   // obligatoire — 2 (l'historique), 5 (l'objectif ET la phase), 8 (le chemin du
   // programme, §1.3 : « tout est facultatif sauf le chemin du programme »), 8b (les jours de
@@ -199,7 +218,7 @@
     var entrees = null, pesee = null;
     if (id === DONNEES) entrees = { historique_declare: r.historique };
     else if (id === SANS_HISTORIQUE) {
-      entrees = { anciennete: r.anciennete, seances_par_semaine: r.seances, duree_seance_min: r.duree };
+      entrees = { anciennete: r.anciennete, seances_par_semaine: seancesAEcrire(r), duree_seance_min: r.duree };
     } else if (id === TOI) {
       entrees = { sexe: r.sexe, annee_naissance: r.annee, taille_cm: r.taille };
       pesee = Poids().peseeAEcrire(c.pesees, r.poids, c.jour);
@@ -213,7 +232,7 @@
       entrees = { temps_reponse: r.temps, materiel: r.materiel,
                   duree_seance_min: r.temps === 'moins' && r.dureeMoins ? r.dureeMoins : r.duree };
     } else if (id === PROGRAMME) entrees = { programme_choix: r.programme };
-    else if (id === CONSTRUIT) entrees = { seances_par_semaine: r.seances, zones_a_menager: r.menager };
+    else if (id === CONSTRUIT) entrees = { seances_par_semaine: seancesAEcrire(r), zones_a_menager: r.menager };
     else if (id === COACH) entrees = coachEnChamps(r.coach);
     else if (id === RECAP) entrees = { fait: true };
     return {
@@ -249,7 +268,10 @@
     if (cle === 'priorite') r.priorites = basculerPriorite(r.priorites, valeur);
     else if (cle === 'aucune') r.priorites = [];
     else if (cle === 'zone') r.menager = Profil().basculerZone(r.menager, valeur);
-    else if (CHOIX.indexOf(cle) >= 0) r[cle] = valeur;
+    else if (CHOIX.indexOf(cle) >= 0) {
+      r[cle] = valeur;
+      if (cle === 'seances') delete r.joursBornes;   // 116 — une puce touchée : la valeur est une réponse
+    }
     return r;
   }
 
@@ -437,10 +459,12 @@
         { type: 'champs', champs: [
           { cle: 'annee', libelle: 'Année de naissance', unite: null, mode: 'numeric',
             valeur: texteDe(etat, 'annee', rep.annee), erreur: erreurs.annee || null,
-            aide: 'Elle servira à régler la prudence de tes charges de départ, quand je construirai ton programme.' },
+            // 116 (audit du 16/10/2026, 03 #9) — rien ne lit l'âge ni la taille (le programme construit ne pose jamais
+            // de charge, QUESTIONNAIRE §5 bis) : la phrase dit ce qui est vrai, sans promettre.
+            aide: 'Je ne m’en sers pas encore. Elle pourra régler la prudence de tes charges de départ.' },
           { cle: 'taille', libelle: 'Taille', unite: 'cm', mode: 'numeric',
             valeur: texteDe(etat, 'taille', rep.taille), erreur: erreurs.taille || null,
-            aide: 'Avec ton poids, ta corpulence : elle servira à tes charges de départ, quand je construirai ton programme.' },
+            aide: 'Je ne m’en sers pas encore. Avec ton poids, elle pourra aider à choisir tes charges de départ.' },
           { cle: 'poids', libelle: 'Poids', unite: 'kg', mode: 'decimal',
             valeur: texteDe(etat, 'poids', rep.poids, true), erreur: erreurs.poids || null,
             aide: 'Tractions, dips et pompes, et ta force rapportée à ton poids.' }
@@ -666,7 +690,7 @@
     COACH: COACH, RECAP: RECAP,
     BARRES: BARRES, PUCES_SEANCES: PUCES_SEANCES, PUCES_DUREES: PUCES_DUREES,
     aUnHistorique: aUnHistorique,
-    joursValides: joursValides, joursPrecoches: joursPrecoches,
+    joursValides: joursValides, joursPrecoches: joursPrecoches, precocherJours: precocherJours,
     ecransVisibles: ecransVisibles,
     progression: progression,
     ecranSuivant: ecranSuivant,

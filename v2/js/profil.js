@@ -642,6 +642,81 @@
     return sortie;
   }
 
+  // ── CE QUI ATTEND D'ÊTRE ENVOYÉ (audit du 16/10/2026, prompt 116) ─────────
+  //
+  // ⚠️ UN GESTE N'ENVOIE QUE SES COLONNES. Avant 116, chaque geste renvoyait TOUTE la ligne en cache, et le profil
+  // ne se relit qu'au démarrage : un réglage fait sur un autre appareil (ou une prévisualisation de PR, une autre
+  // origine) était réécrit à son ancienne valeur par le geste suivant de l'appareil resté ouvert — Ma salle, la
+  // phase, les priorités, « questionnaire rempli ». L'`upsert` de PostgREST ne touche que les colonnes reçues :
+  // n'envoyer que celles du geste suffit.
+  //
+  // L'ATTENTE : `false` (rien n'attend), un objet `{ colonne: valeur }` — les colonnes des gestes pas encore partis,
+  // FUSIONNÉES (deux gestes hors réseau partent ensemble, chacun avec ses colonnes ; le plus récent l'emporte sur une
+  // même colonne) —, ou `true` : la forme d'avant 116, un simple drapeau gardé sur l'appareil, qui ne dit pas
+  // quelles colonnes ont changé. Celle-là envoie la ligne entière, UNE fois (ne rien envoyer perdrait le geste).
+  function fusionnerEnAttente(attente, champs) {
+    if (attente === true) return true;
+    var out = Object.assign({}, attente && typeof attente === 'object' ? attente : {}, champsEcrits(champs));
+    return Object.keys(out).length ? out : false;
+  }
+  // Ce qui part : les colonnes en attente (filtrées par la liste blanche), ou la ligne entière pour `true`.
+  function champsEnAttente(attente, profil) {
+    if (attente === true) return champsEcrits(profil);
+    return champsEcrits(attente && typeof attente === 'object' ? attente : {});
+  }
+  // L'attente, moins ce qui vient de partir : une colonne n'en sort que si elle vaut TOUJOURS ce qui est parti — un
+  // geste posé pendant l'envoi, sur la même colonne, attend le sien. `true` est rendu tel quel (l'appelant décide).
+  function memeValeur(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+  function retirerEnvoyes(attente, envoyes) {
+    if (attente === true) return true;
+    if (!attente || typeof attente !== 'object') return false;
+    var e = envoyes || {}, out = {};
+    Object.keys(attente).forEach(function (c) {
+      if (Object.prototype.hasOwnProperty.call(e, c) && memeValeur(attente[c], e[c])) return;
+      out[c] = attente[c];
+    });
+    return Object.keys(out).length ? out : false;
+  }
+  // ── UN REFUS DÉFINITIF NE BLOQUE PLUS LE PROFIL (audit du 16/10/2026, 03 #6) ──
+  //
+  // Les bornes de l'app doublent les CHECK connus ; mais une borne qui diverge, ou un CHECK pas relevé, faisait
+  // refuser l'envoi À L'IDENTIQUE à chaque départ — et tous les gestes suivants avec lui, sans un mot. Ces codes ne
+  // passeront jamais tels quels : la colonne fautive quitte l'envoi, le reste part, et une phrase discrète le dit.
+  // `PGRST204` (une colonne que la base n'a pas, hors colonnes facultatives) en est ; `42703` n'en est PAS : il vient
+  // de la lecture qui suit l'écriture, et toutes les colonnes le recevraient — les jeter perdrait tous les gestes.
+  // Ni le refus d'un pseudo (`23505`, son propre chemin : `estRefusDePseudo`), ni le RLS (`42501`, un état de
+  // session) n'en sont : ils gardent leur traitement.
+  var REFUS_DEFINITIFS = ['23502', '23514', '22P02', '22001', '22003', '22007', '22008', '22023', 'PGRST204'];
+  function estRefusDefinitif(erreur) {
+    return !!erreur && REFUS_DEFINITIFS.indexOf(String(erreur.code || '')) >= 0;
+  }
+  // Le nom d'une colonne, comme le Profil la montre ; une colonne sans ligne au Profil : « un réglage ».
+  var LIBELLES_COLONNES = {
+    username: 'Pseudo', bio: 'Bio', sexe: 'Sexe', taille_cm: 'Taille', date_naissance: 'Date de naissance',
+    anciennete: 'Ancienneté', intention: 'Progresser ou carnet', rythme_progression: 'Ton rythme', phase: 'Ta phase',
+    phase_depuis: 'Ta phase', lest_reponse: 'Lest', materiel: 'Matériel', seances_par_semaine: 'Séances par semaine',
+    duree_seance_min: 'Durée d’une séance', objectif: 'Objectif', priorites: 'Priorités', temps_reponse: 'Ton temps',
+    historique_declare: 'Historique', programme_choix: 'Ton programme', zones_a_menager: 'Zone à ménager',
+    exercices_ecartes: 'Exercices écartés', jeu_actif: 'Le jeu', compte_prive: 'Compte privé', ma_salle: 'Ma salle'
+  };
+  // « Pas enregistré : Bio. La base a refusé cette valeur ; celle d'avant est gardée. » — `null` sans colonne.
+  function phraseRefusProfil(colonnes) {
+    var noms = [];
+    (colonnes || []).forEach(function (c) {
+      var n = LIBELLES_COLONNES[c] || 'un réglage';
+      if (noms.indexOf(n) < 0) noms.push(n);
+    });
+    if (!noms.length) return null;
+    return noms.length === 1
+      ? 'Pas enregistré : ' + noms[0] + '. La base a refusé cette valeur ; celle d’avant est gardée.'
+      : 'Pas enregistrés : ' + noms.join(', ') + '. La base a refusé ces valeurs ; celles d’avant sont gardées.';
+  }
+
+  // Relue sur l'appareil : un objet ou `true` (la forme d'avant 116) ; tout le reste vaut « rien n'attend ».
+  function lireEnAttente(v) {
+    return v === true || (v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length) ? v : false;
+  }
+
   // ── Les bilans déjà annoncés (104, BILANS-V1, v2_086) ───────────────────
   // La liste des périodes annoncées (la `cle` de la période : '2026', '2026-ete', '2026-09'), la plus ancienne
   // d'abord. Au plus 200 : les plus anciennes sortent (une période ancienne ne s'annonce de toute façon plus).
@@ -1242,6 +1317,18 @@
     var s = salleValide(b);
     return s === undefined ? null : { ma_salle: s };
   }
+  // 116 (audit du 16/10/2026, 03 #8) — UN « JUSQU'À » VIDÉ OU ILLISIBLE N'EFFACE PAS LES HALTÈRES DÉCLARÉS. Le champ
+  // est numérique : une faute de frappe (« 4O ») s'y lit vide, et « Valider » écrivait la salle SANS haltères, sans
+  // un mot. Haltères déjà déclarés et plus lourd absent du brouillon : la feuille reste ouverte, le brouillon reprend
+  // le plus lourd déclaré (l'écart choisi est gardé), et une phrase dit pourquoi. `null` : rien à garder.
+  function halteresGardees(profil, brouillon) {
+    var s = salleDe(profil), h = brouillon && brouillon.halteres;
+    if (!s || !s.halteres || !h || (h.max !== null && h.max !== undefined)) return null;
+    var b = Object.assign({}, brouillon, { halteres: { max: s.halteres.max, pas: h.pas, pasChoisi: true } });
+    return { brouillon: b,
+             phrase: '« Jusqu’à » vide ou illisible : tes haltères restent à ' + s.halteres.max + ' kg.' };
+  }
+
   // « EZ, droite, haltères » — ce qui est déclaré ; `null` : non renseigné.
   function resumeSalle(profil) {
     var s = salleDe(profil);
@@ -1540,6 +1627,10 @@
     doitOuvrirQuestionnaire: doitOuvrirQuestionnaire,
     questionnaireAFaire: questionnaireAFaire,
     champsEcrits: champsEcrits,
+    // 116 — ce qui attend d'être envoyé : les colonnes des gestes, fusionnées (audit du 16/10/2026).
+    fusionnerEnAttente: fusionnerEnAttente, champsEnAttente: champsEnAttente, retirerEnvoyes: retirerEnvoyes,
+    lireEnAttente: lireEnAttente,
+    estRefusDefinitif: estRefusDefinitif, phraseRefusProfil: phraseRefusProfil,
     jeuActif: jeuActif,
     tailleValide: tailleValide,
     naissanceValide: naissanceValide,
@@ -1556,7 +1647,7 @@
     PHRASE_SALLE: PHRASE_SALLE, PHRASE_BARRES_FIXES: PHRASE_BARRES_FIXES,
     salleValide: salleValide, salleDe: salleDe, brouillonSalle: brouillonSalle, basculerBarre: basculerBarre,
     pucesDeBarres: pucesDeBarres, champsSalle: champsSalle, poserMaxHalteres: poserMaxHalteres,
-    poserPasHalteres: poserPasHalteres, SALLE_PAS_DEFAUT: SALLE_PAS_DEFAUT, resumeSalle: resumeSalle, ligneSalle: ligneSalle,
+    poserPasHalteres: poserPasHalteres, halteresGardees: halteresGardees, SALLE_PAS_DEFAUT: SALLE_PAS_DEFAUT, resumeSalle: resumeSalle, ligneSalle: ligneSalle,
     estBarreEZ: estBarreEZ, salleDeLExercice: salleDeLExercice
   };
 

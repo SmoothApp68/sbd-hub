@@ -15358,7 +15358,10 @@ const SETS_IMPORTES = [
     const aEnvoyerK = await page.evaluate(() => THCache.lireMeta('profil-a-envoyer'));
     ok('[Q60] K — hors ligne : rien n’est arrivé en base ; la pesée attend dans la file (un identifiant par jour), le profil est marqué « à envoyer »',
       profilBase().historique_declare === null && profilBase().sexe !== 'femme' && base.ecrituresPesees.length === ecrituresK0 &&
-        JSON.stringify(base.pesees) === peseesK0 && fileK.indexOf('body_weight_log:pesee-' + (await aujourdhuiLocal())) >= 0 && aEnvoyerK === true,
+        JSON.stringify(base.pesees) === peseesK0 && fileK.indexOf('body_weight_log:pesee-' + (await aujourdhuiLocal())) >= 0 &&
+        // 116 (audit du 16/10/2026) — ce qui attend, ce sont les COLONNES des gestes (jamais la ligne entière).
+        !!aEnvoyerK && JSON.stringify(Object.keys(aEnvoyerK).sort()) === '["historique_declare","sexe"]' &&
+        aEnvoyerK.historique_declare === 'import' && aEnvoyerK.sexe === 'femme',
       JSON.stringify([fileK, aEnvoyerK, profilBase().historique_declare]));
     base.reseau = true;
     await page.evaluate(() => window.dispatchEvent(new Event('online')));

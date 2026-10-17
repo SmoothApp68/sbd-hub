@@ -143,6 +143,10 @@ renseigné : le coach suppose qu'on peut ajouter des disques, comme aujourd'hui.
 - **Valider** écrit la déclaration ; **Annuler** n'écrit rien ; **Effacer** (seulement si une salle est déclarée) écrit
   le vide — non renseignée, rien ne change. Une valeur hors bornes ne ferme pas la feuille : une phrase le dit (les
   bornes doublent la contrainte de la base, §5.7).
+- **Un « Jusqu'à » vidé ou illisible n'efface pas les haltères déclarés** (audit du 16/10/2026, prompt 116) : la
+  feuille reste ouverte, le plus lourd déclaré revient dans le champ (l'écart choisi est gardé), et une phrase dit
+  pourquoi : « « Jusqu'à » vide ou illisible : tes haltères restent à 40 kg. » Le champ est numérique : une faute de
+  frappe s'y lit vide, et « Valider » écrivait la salle sans haltères, sans un mot.
 
 **En base** : `profiles.ma_salle` (jsonb, migration `v2_088`, `NULL` = non renseignée) :
 `{ "barres_ez": [10, 15, 20, 25, 30], "barres_droites": [10, 15, 20, 25, 30], "halteres": { "max": 40, "pas": 2 } }`.
@@ -481,6 +485,13 @@ noire laisserait passer toute colonne ajoutée plus tard. `friend_code`,
 `xp_high_water_mark` et les six réglages de visibilité n'y sont pas : c'est du
 social (§2.7).
 
+**Un geste n'envoie que ses colonnes** (audit du 16/10/2026, prompt 116). Le profil ne se relit qu'au démarrage :
+renvoyer la ligne entière en cache réécrivait à son ancienne valeur tout réglage fait sur un autre appareil (ou une
+prévisualisation de PR) — Ma salle, la phase, les priorités, « questionnaire rempli ». L'`upsert` ne porte donc que les
+colonnes du geste ; les gestes qui attendent (hors réseau, ou derrière un envoi en vol) fusionnent leurs colonnes, la
+plus récente l'emportant sur une même colonne. La réponse (la ligne entière de la base) apporte en local ce qui a
+changé ailleurs.
+
 ### 5.5 La règle de routage, précisément
 
 > **Un profil dont `onboarding_completed` est `false` ouvre sur le profil, quelle
@@ -554,6 +565,11 @@ d'Android les ferme sans qu'on l'écrive.
   de la base — un refus serveur arrive en 23514, code que la file classe
   DÉFINITIF. On refuse **avant**, avec une phrase, plutôt qu'après, avec une
   ligne morte.
+- **Et si la base refuse quand même** (audit du 16/10/2026, prompt 116) — une borne qui diverge, un CHECK pas
+  relevé : la colonne refusée pour de bon quitte l'envoi, le reste part (l'envoi se refait colonne par colonne), la
+  ligne locale reprend la valeur de la base, et le Profil le dit une fois, en gris : « Pas enregistré : Bio. La base
+  a refusé cette valeur ; celle d'avant est gardée. » Avant, l'envoi repartait à l'identique à chaque départ, et
+  tous les gestes suivants restaient bloqués derrière lui, sans un mot.
 
 ### 5.8 Écarté pendant l'implémentation
 

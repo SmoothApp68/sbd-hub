@@ -30,7 +30,9 @@ function profilEcran(profil, options) {
   const sallesOuvertes = [];
   let vue = null;
   let bandeau = null;
-  const element = () => ({ textContent: '' });
+  // 116 — ce que l'écran pose EN TÊTE du Profil (`noteProfil`, `refusProfil`) : relevé dans `enTete`.
+  const enTete = [];
+  const element = () => ({ textContent: '', firstChild: null, insertBefore: (n) => { enTete.push(n); } });
   const ctx = {
     Profil, Date,
     profil: profil || {},
@@ -40,6 +42,7 @@ function profilEcran(profil, options) {
     Poids: { resume: () => null },
     Modele: { nombreSigne: (n) => String(n), nombreGroupe: (n) => String(n), quand: (d) => String(d) },
     Rendu: { rendreProfil: (cible, v) => { vue = v; }, dateCourte: (d) => String(d),
+             el: (balise, classe, texte) => ({ balise, classe, texte }),
              // 64B — le bandeau du jeu : ce que l'écran lui passe (l'état, ou `null` jeu éteint).
              rendreBandeauJeu: (rond, ligne, etat, initiale) => { bandeau = { etat, initiale }; } },
     // 64B — le jeu (JEU-V1 §9.3) : `jeuAllume` est le VRAI (extrait), l'état est de papier (`options.etatJeu`).
@@ -68,13 +71,15 @@ function profilEcran(profil, options) {
     // 60-3b — « pris entre-temps » : l'état retenu en local par compte (`pseudoPrisSignale`, app.js).
     pseudoPrisSignale: () => !!opt.pseudoPris,
     // 70 — la phrase en tête du Profil après un changement de mot de passe (aucune ici).
-    noteProfil: null
+    noteProfil: null,
+    // 116 (03 #6) — une colonne refusée pour de bon : la phrase en tête du Profil.
+    refusProfil: opt.refusProfil || null
   };
   vm.createContext(ctx);
   vm.runInContext(extraire('jeuAllume'), ctx);
   vm.runInContext(extraire('rendreProfilEcran'), ctx);
   vm.runInContext('rendreProfilEcran()', ctx);
-  return { vue, bandeau, ecrits, ouverts, questionnairesOuverts, programmesOuverts, sallesOuvertes, section: (titre) => (vue.sections || []).filter((s) => s && s.titre === titre)[0] || null };
+  return { vue, bandeau, ecrits, enTete, ctx, ouverts, questionnairesOuverts, programmesOuverts, sallesOuvertes, section: (titre) => (vue.sections || []).filter((s) => s && s.titre === titre)[0] || null };
 }
 
 module.exports = { profilEcran, extraire };

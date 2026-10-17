@@ -18331,7 +18331,9 @@ const SETS_IMPORTES = [
     base.profiles[0].seances_par_semaine = 4;
     const prevuesAvant = (S.gscores.filter((x) => x.user_id === 'u-banc')[0] || {}).prevues;
     await aller('/saisie');
-    await attendreQue(async () => (S.gscores.filter((x) => x.user_id === 'u-banc')[0] || {}).prevues === 4, 12000);
+    // Sous charge, le démarrage (synchronisation, profil, puis la file) peut dépasser 12 s : 30 s, et la page finit de
+    // charger avant la navigation suivante (une navigation qui en interrompt une autre laisse des erreurs de page).
+    await attendreQue(async () => (S.gscores.filter((x) => x.user_id === 'u-banc')[0] || {}).prevues === 4, 30000);
     await attendreQue(fileVide);
     const prevuesApres = (S.gscores.filter((x) => x.user_id === 'u-banc')[0] || {}).prevues;
     const ecranGuilde = await page.evaluate(() => !document.getElementById('vue-guilde') || !document.getElementById('vue-guilde').hidden);

@@ -107,8 +107,16 @@ describe('60-2a — `ceQueJeSais` : ce que les séances savent', () => {
     expect(faits.ceQueJeSais(corpus(n(5)), AUJ, []).rythme).toBeNull();
   });
 
-  test('la durée habituelle : la MÉDIANE des séances de la fenêtre qui ont une fin, à 5 min (80)', () => {
-    expect(f.dureeMin).toBe(80);
+  // 122 (suite du 119, audit du 16/10/2026) — INVERSÉ : la médiane était 80 (60, 70, 80, 90, 100), la randonnée de
+  // 70 min et l'escalade de 80 comprises. Elle ne lit que les séances de musculation : 60, 90, 100 → 90.
+  test('⚠️ DISCRIMINANT — la durée habituelle : la MÉDIANE des séances DE MUSCULATION de la fenêtre qui ont une fin, à 5 min (90, sans la randonnée ni l’escalade)', () => {
+    expect(f.dureeMin).toBe(90);
+  });
+  test('une séance mixte (musculation et sortie) compte ; une séance de seule sortie, non', () => {
+    const rando = { exercise_slug: 'randonnee', duree_s: 7200, distance_m: 9000 };
+    expect(faits.ceQueJeSais(corpus([{ debut: jourDe(2), minutes: 60, series: [sq(60, 5)] },
+      { debut: jourDe(3), minutes: 240, series: [rando] }, { debut: jourDe(4), minutes: 90, series: [sq(60, 5), rando] }]), AUJ, []).dureeMin)
+      .toBe(75);
   });
 
   test('la durée ignore une séance sans fin, une fin avant le début et une séance hors fenêtre', () => {
@@ -116,12 +124,14 @@ describe('60-2a — `ceQueJeSais` : ce que les séances savent', () => {
       { debut: jourDe(2), minutes: 60 }, { debut: jourDe(3), minutes: 70 }, { debut: jourDe(4), minutes: 80 },
       { debut: jourDe(5), minutes: null },                              // sans heure de fin
       { debut: jourDe(6), minutes: -30 },                               // fin avant le début
-      { debut: jourDe(200), minutes: 500 }];                            // hors fenêtre
+      { debut: jourDe(200), minutes: 500 }]                             // hors fenêtre
+      .map((x) => Object.assign({ series: [sq(60, 5)] }, x));          // des séances de musculation (122)
     expect(faits.ceQueJeSais(corpus(specs), AUJ, []).dureeMin).toBe(70);
   });
 
   test('la durée est arrondie à 5 min (une médiane de 72 → 70, de 73 → 75) et absente sans aucune durée', () => {
-    const deux = (a, b) => faits.ceQueJeSais(corpus([{ debut: jourDe(2), minutes: a }, { debut: jourDe(3), minutes: b }]), AUJ, []).dureeMin;
+    const deux = (a, b) => faits.ceQueJeSais(corpus([{ debut: jourDe(2), minutes: a, series: [sq(60, 5)] },
+      { debut: jourDe(3), minutes: b, series: [sq(60, 5)] }]), AUJ, []).dureeMin;
     expect(deux(72, 72)).toBe(70);
     expect(deux(73, 73)).toBe(75);
     expect(faits.ceQueJeSais(corpus([{ debut: jourDe(2), minutes: null }]), AUJ, []).dureeMin).toBeNull();

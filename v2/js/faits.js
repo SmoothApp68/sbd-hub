@@ -598,8 +598,9 @@
     //     une séance) et la date de la première ;
     //   · `rythme` : les séances des 84 derniers jours ÷ 12 semaines, arrondi au
     //     plus proche — `null` sous 1 par semaine ;
-    //   · `dureeMin` : la MÉDIANE des durées (fin − début) des séances des 84
-    //     derniers jours qui ONT une heure de fin, arrondie à 5 min — `null`
+    //   · `dureeMin` : la MÉDIANE des durées (fin − début) des séances DE
+    //     MUSCULATION (122, la règle du 119) des 84 derniers jours qui ONT une
+    //     heure de fin, arrondie à 5 min — `null`
     //     sans durée. Les séances importées n'en ont pas toujours : on ne leur
     //     en invente pas (`Moteur.finEffective` est une borne de zone, pas une
     //     durée) ;
@@ -633,6 +634,10 @@
       var durees = [];
       recentes.forEach(function (s) {
         if (!s.fin) return;
+        // 122 (suite du 119, audit du 16/10/2026) — LA DURÉE HABITUELLE EST CELLE DES SÉANCES DE MUSCULATION
+        // (`Semaine.estSeanceDeMusculation`, la règle de « à la salle ») : une randonnée de 2 h ou une séance
+        // d'escalade ne la tirent plus. Le nombre de séances et le rythme, eux, comptent toujours les sorties.
+        if (!Semaine.estSeanceDeMusculation(c.seriesDe ? c.seriesDe(s.id) : [], index)) return;
         var minutes = (new Date(s.fin) - new Date(s.debut)) / MS_PAR_MINUTE;
         if (isFinite(minutes) && minutes > 0) durees.push(minutes);
       });

@@ -237,6 +237,27 @@ describe('§10 bis (113) — le curl EZ au plafond : la série de plus, puis la 
       marche('remplacement', 'refusee', 12)] }).x.escalier).toBeNull();
   });
 
+  test('audit du 16/10/2026, 01 #8 — acceptées toutes deux, la série de plus et la dégressive reviennent sans s’additionner : une ligne en plus et une dégressive, au 4e déclenchement comme au 6e', () => {
+    const marches = [marche('serie_de_plus', 'acceptee', 4), marche('degressive', 'acceptee', 8), marche('remplacement', 'refusee', 12)];
+    [16, 17, 24].forEach((k) => {
+      const { e, p, x } = plan(auPlafond(k), { marches });
+      expect([k, x.escalier]).toEqual([k, null]);                         // plus aucune marche : le maintien
+      expect([k, x.consigne.serieDePlus]).toEqual([k, { routine: 3 }]);    // UNE ligne en plus (routine + 1)
+      expect([k, x.degressiveEnCours]).toEqual([k, true]);
+      expect([k, T.lignesAAjouter(p)]).toEqual([k, [0]]);
+      expect([k, T.degressivesAAjouter(p)]).toEqual([k, [0]]);
+      expect([k, T.verifierPlan(p, e).erreurs]).toEqual([k, []]);
+    });
+    // Le moteur : au plafond, une marche par déclenchement, jamais deux fois la même — au-delà de la troisième, rien.
+    const o = { serie_de_plus: true, degressive: true, remplacement: true }, prop = {};
+    const suite = [4, 8, 12, 16, 20, 24].map((k) => {
+      const c = M.marcheAuPlafond(k, prop, o);
+      if (c && !c.deja) prop[c.marche] = { compteur: k, reponse: 'acceptee' };
+      return c && c.marche;
+    });
+    expect(suite).toEqual(['serie_de_plus', 'degressive', 'remplacement', null, null, null]);
+  });
+
   test('DISCRIMINANT — jamais le repli au plafond, même avec un repli possible et aucune autre marche qui ait un objet', () => {
     // Sans place, sans frère, débutant (pas de dégressive) : aucune marche n'a d'objet — le maintien, pas le repli.
     const o = { place: false, sansFreres: true, debutant: true };

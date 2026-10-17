@@ -1287,6 +1287,8 @@
       mois: {
         titre: nomDuMois(mois, false),
         kg: b.volume_kg,
+        // 119 (F8) — les séries de travail du mois (la règle du volume) : un mois au poids du corps en a sans tonnes.
+        series: b.series,
         records: faits.recordsDuMois(corpus(), mois).length,
         paris: { verifies: b.paris_verifies, tenus: b.paris_tenus },
         surChoix: function () { afficherMois(mois); }

@@ -22,6 +22,14 @@ qu'elle montre sont celles d'aurel_br en 2026 : elles servent d'exemple, pas de 
 
 Repère réel : aurel_br en 2026 au 15/10, environ 180 jours et 260 heures.
 
+*Complétée le 16/10/2026 (audit du 16/10, prompt 119)* : **seules les séances de musculation comptent**, en heures
+comme en jours. Une séance de musculation porte au moins une série de travail d'un exercice qui porte du volume
+(au moins un muscle principal au catalogue, la règle de `compteSeriesTravail` ; un exercice inconnu du catalogue
+compte) — `THSemaine.estSeanceDeMusculation`. Une randonnée, un vélo, une natation ou un tapis seul ne comptent ni en
+heures ni en jours ; une séance de gainage en est une ; une séance mixte (« Rando avec Léa + Pull », CADRAGE §2 ter)
+compte en entier ; une séance sans aucune série en cache ne compte pas (on ne dit pas ce qu'on ne sait pas). Le repère
+ci-dessus contient des sorties : il baisse.
+
 ### Décisions du 14-15/10/2026 (prompt 98) — la saison et le mois
 
 Maquette validée par Aurélien le 15/10/2026 : [`maquette-saison-mois-v1.html`](../maquettes/maquette-saison-mois-v1.html),
@@ -55,6 +63,23 @@ Les noms réels des phases (vérifiés dans `v2/js/profil.js`, contrainte `profi
   lancée, la base la refuse (`42703` à la lecture, `PGRST204` à l'écriture) ; elle quitte alors la lecture et
   l'écriture pour la session, et le profil se lit et s'écrit sans elle — le défaut de #418 (une colonne nommée avant
   sa migration : plus de profil) ne se reproduit pas. L'appareil retient seul en attendant.
+
+### Décisions du 16/10/2026 (audit du 16/10, prompt 119) — les mesures en durée et en distance
+
+Aurélien, 16/10/2026 : « Pour l'exercice du mois, le tapis ne devrait pas apparaître » ; « Pour les exercices
+calculés en temps, il ne faut pas mettre les reps ».
+
+- **L'exercice du mois, de la saison, de l'année** (et les deux suivants) : seulement les exercices mesurés en reps
+  (`mesure` ∈ {`charge_reps`, `reps`}, `THModele.seMesureEnReps`), avec au moins une rep dans la période — jamais le
+  tapis, une randonnée ou une planche. **Classés par le chiffre affiché** : la saison et le mois montrent les reps, ils
+  se classent par les reps (puis les séances) ; l'année montre les séances puis les reps, elle se classe ainsi.
+- « rep » s'accorde par une seule fonction (`THModele.repsTexte`) : « 0 rep », « 1 rep », « 2 reps ».
+- **À la salle** : seulement les séances de musculation (décision du 15/10 complétée, ci-dessus).
+- **Une période de seules sorties est vide** : `vide`, et les semaines ou les mois de données de la comparaison, se
+  lisent sur les séries de musculation (`THSemaine.estSerieDeMusculation`) — un mois de randonnées n'a pas de story
+  (« 0 t soulevées ») et ne s'annonce pas ; trois semaines de sorties n'ouvrent pas de comparaison.
+- **Le bloc du mois écoulé** (Progression) : sans tonnes, il dit ses séries de travail (« 24 séries de travail », un
+  mois au poids du corps), et « Pas encore de série de travail » seulement quand il n'en a aucune.
 
 ## 2. Où cela vit (implémentation des prompts 95, 97 et 98)
 

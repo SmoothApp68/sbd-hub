@@ -15,10 +15,10 @@ const Bilans = require('../../v2/js/bilans.js');
 const Annee = require('../../v2/js/annee.js');
 
 const CAT = [
-  { slug: 'squat_barre', nom: 'Squat (Barre)', equipement: 'barre', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
-  { slug: 'developpe_couche_barre', nom: 'Développé Couché (Barre)', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
-  { slug: 'souleve_de_terre_barre', nom: 'Soulevé de Terre (Barre)', equipement: 'barre', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [] },
-  { slug: 'curl_halteres', nom: 'Curl (Haltère)', equipement: 'haltere', muscles_primaires: ['biceps'], muscles_secondaires: [] }
+  { slug: 'squat_barre', nom: 'Squat (Barre)', equipement: 'barre', mesure: 'charge_reps', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
+  { slug: 'developpe_couche_barre', nom: 'Développé Couché (Barre)', equipement: 'barre', mesure: 'charge_reps', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
+  { slug: 'souleve_de_terre_barre', nom: 'Soulevé de Terre (Barre)', equipement: 'barre', mesure: 'charge_reps', muscles_primaires: ['ischio_jambiers'], muscles_secondaires: [] },
+  { slug: 'curl_halteres', nom: 'Curl (Haltère)', equipement: 'haltere', mesure: 'charge_reps', muscles_primaires: ['biceps'], muscles_secondaires: [] }
 ];
 let n = 0;
 function seance(jour, series) {

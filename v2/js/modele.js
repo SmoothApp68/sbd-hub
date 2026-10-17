@@ -306,7 +306,7 @@
   // au-dessus ») : il dit une cible, pas ce que tu as fait.
   function serieFaite(kg, reps, cite) {
     if (chargeOuNul(kg) !== null) return chargeFois(kg, reps, undefined, cite);
-    var t = nombreTexte(reps) + (Number(reps) > 1 ? ' reps' : ' rep');
+    var t = repsTexte(reps);
     declarer(cite, { valeur: reps === undefined ? null : reps }, t);
     return t;
   }
@@ -436,20 +436,83 @@
     return nombreTexte(m / 1000, 1) + ' km';
   }
 
-  // « 52 kg × 12 » · « 6 h 35 · 22,7 km » · « 12 reps »
+  // ══ UN FIL : CE QU'UNE MESURE AFFICHE (119, audit du 16/10/2026) ══════════
+  //
+  // Aurélien, 16/10 : « Pour les exercices calculés en temps, il ne faut pas mettre les reps. » Une durée s'affiche
+  // en durée, une distance en distance, des reps en reps — et UNE SEULE TABLE le dit, par mesure : l'en-tête de la
+  // colonne au détail (« Charge » au-dessus d'une durée, E8), le libellé de la meilleure série sur la page de
+  // l'exercice (E5), et la valeur, par `formatMesure`. Les écrans la lisent ; aucun n'écrit « reps » ou « Charge »
+  // sur une mesure sans le demander ici.
+  //
+  // Les QUATRE mesures du catalogue (`charge_reps`, `reps`, `temps`, `distance_temps`), plus les deux que les
+  // colonnes d'une série peuvent porter sans que le catalogue les connaisse (`charge_distance` : un portage chargé
+  // sur une distance ; `charge_temps` : un gainage lesté) — aucune n'existe en base au 16/10/2026, la table les
+  // affiche sans les inventer ailleurs.
+  //
+  // `seMesureEnReps` : ce qu'un bilan peut classer « en reps » (l'exercice du mois, de la saison, de l'année, F1).
+  var MESURES_EN_REPS = ['charge_reps', 'reps'];
+  function seMesureEnReps(exo) { return !!exo && MESURES_EN_REPS.indexOf(exo.mesure) >= 0; }
+
+  // L'ACCORD DE « REP », UNE FOIS (F10) : « 0 rep », « 1 rep », « 2 reps », « 1 234 reps ». Le français met le
+  // singulier sous 2. Partout ailleurs, on appelle.
+  function uniteReps(n) { return Number(n) >= 2 ? 'reps' : 'rep'; }
+  function repsTexte(n) { return nombreGroupe(nombreTexte(n, 0)) + ' ' + uniteReps(n); }
+
+  function aValeur(v) { return v !== null && v !== undefined && v !== ''; }
+  // §9.17 — une charge négative est une aide : « Aide 22,5 kg × 8 », jamais « −22,5 kg × 8 » (le journal dit la même
+  // chose que le coach).
+  function chargeDuJournal(kg) { return Number(kg) < 0 ? chargeTexte(kg) : nombreTexte(kg) + ' kg'; }
+  function partiesDe(s, champs) {
+    return champs.map(function (f) { return f(s); }).filter(Boolean).join(' · ') || '—';
+  }
+  var PART = {
+    charge: function (s) { return aValeur(s.charge_kg) ? chargeDuJournal(s.charge_kg) : ''; },
+    duree: function (s) { return s.duree_s ? formatDuree(s.duree_s) : ''; },
+    distance: function (s) { return s.distance_m ? formatDistance(s.distance_m) : ''; }
+  };
+  var AFFICHAGE_DES_MESURES = {
+    charge_reps: { entete: 'Charge', meilleure: 'Record de charge', valeur: function (s) {
+      if (!aValeur(s.reps)) return PART.charge(s) || '—';
+      return aValeur(s.charge_kg) ? chargeDuJournal(s.charge_kg) + ' × ' + s.reps : repsTexte(s.reps);
+    } },
+    reps: { entete: 'Reps', meilleure: 'Record de reps', valeur: function (s) {
+      return aValeur(s.reps) ? repsTexte(s.reps) : '—';
+    } },
+    temps: { entete: 'Durée', meilleure: 'Plus longue durée', valeur: function (s) {
+      return partiesDe(s, [PART.duree]);
+    } },
+    distance_temps: { entete: 'Durée · distance', meilleure: 'Plus longue durée', valeur: function (s) {
+      return partiesDe(s, [PART.duree, PART.distance]);
+    } },
+    charge_distance: { entete: 'Charge · distance', meilleure: 'Plus longue distance', valeur: function (s) {
+      return partiesDe(s, [PART.charge, PART.distance]);
+    } },
+    charge_temps: { entete: 'Charge · durée', meilleure: 'Plus longue durée', valeur: function (s) {
+      return partiesDe(s, [PART.charge, PART.duree]);
+    } }
+  };
+  // La mesure qu'une série porte, lue sur ses COLONNES (« chaque mesure ne remplit que ses colonnes », mesuré sur
+  // 28 103 séries) : ce qu'on affiche est ce qui a été fait, même sans catalogue.
+  function mesureDesColonnes(s) {
+    var c = aValeur(s.charge_kg), r = aValeur(s.reps), d = !!s.duree_s, m = !!s.distance_m;
+    if (r) return c ? 'charge_reps' : 'reps';
+    if (c && m) return 'charge_distance';
+    if (c && d) return 'charge_temps';
+    if (m) return 'distance_temps';
+    if (d) return 'temps';
+    return c ? 'charge_reps' : null;
+  }
+  // L'affichage d'une mesure (`{ entete, meilleure }`), ou `null` pour une mesure inconnue : on ne nomme pas ce qu'on
+  // ne connaît pas.
+  function affichageDeMesure(mesure) {
+    return Object.prototype.hasOwnProperty.call(AFFICHAGE_DES_MESURES, mesure) ? AFFICHAGE_DES_MESURES[mesure] : null;
+  }
+
+  // « 52 kg × 12 » · « 6 h 35 · 22,7 km » · « 12 reps » · « 1 rep » — la valeur d'une série dans le journal.
   function formatMesure(serie) {
     if (!serie) return '';
-    var bouts = [];
-    var aCharge = serie.charge_kg !== null && serie.charge_kg !== undefined;
-    var aReps = serie.reps !== null && serie.reps !== undefined;
-    // §9.17 — une charge négative est une aide : « Aide 22,5 kg × 8 », jamais
-    // « −22,5 kg × 8 » (le journal dit la même chose que le coach).
-    if (aCharge) bouts.push(Number(serie.charge_kg) < 0 ? chargeTexte(serie.charge_kg)
-      : nombreTexte(serie.charge_kg) + ' kg');
-    if (aReps) bouts.push(aCharge ? '× ' + serie.reps : serie.reps + ' reps');
-    if (serie.duree_s) bouts.push(formatDuree(serie.duree_s));
-    if (serie.distance_m) bouts.push(formatDistance(serie.distance_m));
-    return bouts.length ? bouts.join(bouts.length > 1 && !aCharge ? ' · ' : ' ') : '—';
+    var m = mesureDesColonnes(serie);
+    return m ? AFFICHAGE_DES_MESURES[m].valeur(serie) : '—';
   }
 
   // ══ LES QUATRE MESURES ═══════════════════════════════════════════════════
@@ -918,6 +981,22 @@
     return !!serie.source && serie.source !== 'app';
   }
 
+  // 119 (audit du 16/10/2026, E8) — L'EN-TÊTE DE LA COLONNE D'UN BLOC SUIT SA MESURE (`AFFICHAGE_DES_MESURES`) :
+  // « Charge » au-dessus d'une durée ou d'une distance contredisait son chiffre. La mesure de chaque exercice au
+  // catalogue ; un exercice inconnu, celle que ses séries portent (`mesureDesColonnes`). Un superset de mesures
+  // différentes (le couché et les dips) : « Mesure », qui ne ment sur aucune ligne.
+  function enteteDuBloc(bloc, index) {
+    var vues = {};
+    bloc.exercices.forEach(function (e) {
+      var fiche = index[e.slug];
+      if (fiche && affichageDeMesure(fiche.mesure)) { vues[fiche.mesure] = true; return; }
+      e.series.forEach(function (x) { var m = mesureDesColonnes(x); if (m) vues[m] = true; });
+    });
+    var m = Object.keys(vues);
+    if (m.length === 1) return AFFICHAGE_DES_MESURES[m[0]].entete;
+    return m.length ? 'Mesure' : 'Charge';
+  }
+
   function construireBlocs(series, exercices, options) {
     var o = options || {};
     var index = indexerExercices(exercices);
@@ -1040,6 +1119,7 @@
       var nResume = horsVolume ? bloc.nbTravail : bloc.nbTravailVolume;
       bloc.resume = (bloc.superset ? 'Superset · ' : '') +
         nResume + ' série' + (nResume > 1 ? 's' : '') + (horsVolume ? '' : ' de travail');
+      bloc.entete = enteteDuBloc(bloc, index);
     });
 
     return blocs;
@@ -1753,7 +1833,8 @@
     if (n < 0) return nombreTexte(-n) + INSECABLE + 'kg d\'aide';
     return nombreTexte(n) + INSECABLE + 'kg';
   }
-  function repsDeLaMedaille(n) { return nombreTexte(n) + (Number(n) > 1 ? ' reps' : ' rep'); }
+  // 119 (F10) — l'accord unique (`repsTexte`).
+  function repsDeLaMedaille(n) { return repsTexte(n); }
   // « le 1er sept. », « le 6 août 2025 » ; de 0 à 6 jours de la référence,
   // le jour relatif (§20.2 : « mardi », « aujourd'hui »).
   function dateDeLaMedaille(iso, reference) {
@@ -1787,8 +1868,10 @@
     }
     if (rm) gras.push('1RM estimé : \u2248' + INSECABLE + nombreTexte(rm.valeur, 0) + INSECABLE + 'kg.');
     if (vol) gras.push('Volume de la séance : ' + nombreTexte(vol.valeur, 0) + INSECABLE + (vol.unite === 'reps' ? 'reps' : 'kg') + '.');
-    if (duree) gras.push('Plus longue durée : ' + formatChrono(duree.valeur) + '.');
-    if (distance) gras.push('Plus longue distance : ' + nombreTexte(distance.valeur, 0) + INSECABLE + 'm.');
+    // 119 (audit du 16/10/2026, E9) — LA PROSE DE LA MÉDAILLE ÉCRIT COMME LE JOURNAL : « 1 min 30 », « 3,2 km » (la
+    // ligne d'au-dessus dit « Tapis : 20 min · 3,2 km ») ; l'horloge (« 01:30 ») reste sous la rangée de la grille.
+    if (duree) gras.push('Plus longue durée : ' + formatDuree(duree.valeur) + '.');
+    if (distance) gras.push('Plus longue distance : ' + formatDistance(distance.valeur) + '.');
     var quandAvant = function (x) { return dateDeLaMedaille(x.ancien_le, aujourdhui); };
     // Le point final, une fois : « le 1er sept. », jamais « sept.. ».
     var fin = function (t) { return /\.$/.test(t) ? t : t + '.'; };
@@ -1800,9 +1883,9 @@
     } else if (rac) {
       gris = 'Avant : ' + repsDeLaMedaille(rac.ancien) + ', ' + fin(quandAvant(rac));
     } else if (duree) {
-      if (duree.ancien !== null) gris = 'Avant : ' + formatChrono(duree.ancien) + ', ' + fin(quandAvant(duree));
+      if (duree.ancien !== null) gris = 'Avant : ' + formatDuree(duree.ancien) + ', ' + fin(quandAvant(duree));
     } else if (distance) {
-      if (distance.ancien !== null) gris = 'Avant : ' + nombreTexte(distance.ancien, 0) + INSECABLE + 'm, ' + fin(quandAvant(distance));
+      if (distance.ancien !== null) gris = 'Avant : ' + formatDistance(distance.ancien) + ', ' + fin(quandAvant(distance));
     }
     return [gras.join(' '), gris];
   }
@@ -2000,6 +2083,11 @@
     formatDuree: formatDuree,
     formatDistance: formatDistance,
     formatMesure: formatMesure,
+    affichageDeMesure: affichageDeMesure,
+    mesureDesColonnes: mesureDesColonnes,
+    seMesureEnReps: seMesureEnReps,
+    uniteReps: uniteReps,
+    repsTexte: repsTexte,
     estExerciceSortie: estExerciceSortie,
     memeBloc: memeBloc,
     trierParRang: trierParRang,

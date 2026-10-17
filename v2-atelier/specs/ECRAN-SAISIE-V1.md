@@ -181,6 +181,14 @@ Chaque gabarit est plus confortable que le précédent : une colonne de moins à
 **Le type de mesure est rappelé sous le nom de l'exercice**, en petit. Sans ça, une ligne à
 deux colonnes au milieu de lignes à trois désoriente.
 
+*Précisé le 16/10/2026 (audit du 16/10, prompt 119)* — **un fil : une fonction d'affichage par mesure**
+(`THModele.affichageDeMesure`, `formatMesure` : `charge_reps`, `reps`, `temps`, `distance_temps`, et `charge_distance`,
+`charge_temps` que les colonnes d'une série peuvent porter). Hors de la grille, tout écran la lit : la colonne du
+détail de séance et de l'historique d'un exercice dit « Durée », « Durée · distance », « Reps » ou « Charge » selon la
+mesure du bloc (« Mesure » pour un superset de mesures différentes) — jamais « Charge » au-dessus d'une durée (E8) ;
+l'aperçu « En faire une routine » écrit une durée en durée (« 20 s », jamais « 0 min », E10) ; la médaille écrit
+« 3,2 km » et « 1 min 30 », comme le journal (E9) ; « rep » s'accorde une fois (`repsTexte`).
+
 #### 3 ter.2 L'effort suit la mesure — RIR ou RPE
 
 > **La colonne d'effort n'existe que là où il y a des répétitions** — `charge_reps` et
@@ -250,6 +258,8 @@ Affichage : mètres sous 1 000, kilomètres au-delà — déjà en place depuis 
 #### 3 ter.2 ter Tranché à l'implémentation — chantier 25
 
 **Une seule borne, et c'est la valeur : 9:59:59.** Au-delà, le chiffre n'entre pas.
+*Précisé le 16/10/2026 (audit du 16/10, E18)* : la même borne vaut pour la réparation d'une file bloquée
+(`THSeance.bornerLigne`), qui bornait à 24 h — une seule constante, `THModele.MAX_DUREE_S`.
 
 > **Le pavé ne doit jamais produire une durée qu'il ne sait pas reprendre.** Les groupes bruts
 > accepteraient 99 minutes et 99 secondes : « 99999 » vaudrait 10 h 40 min 39 s, dont la forme
@@ -1506,6 +1516,16 @@ qui règlent la séance suivante. **Aucun ne montre si ses prévisions étaient 
 2. **Quatre chiffres** : la durée (de `debut` à `fin`) · les séries de travail (`Seance.compter().travail`, la même
    règle que le bandeau et la feuille) · le volume en tonnes (`THBilan.volumeKg`, la fonction du bilan du mois :
    séries de travail, charges positives) · les exercices faits (au moins une série de travail).
+   *Précisé le 16/10/2026 (audit du 16/10, F9)* : la tuile compte les exercices de **musculation** — au moins une série
+   de travail d'un exercice qui porte du volume (`THSemaine.exercicesDeMusculation`, la règle de
+   `compteSeriesTravail`) : le tapis n'y entre pas, comme il n'entre pas dans les séries de travail. Le journal
+   (Progression, profil, carte de séance) garde `THModele.exercicesFaits`, cardio compris. Une définition par usage,
+   chacune au registre NOTIONS.
+   *Précisé le 16/10/2026 (audit du 16/10, E12)* : **le cardio et les sorties se disent** — un groupe « Cardio » après
+   les séries par muscle, une ligne par exercice dont les séries de travail ne sont pas de la musculation, dans sa
+   mesure (« Tapis roulant · 20 min · 3,2 km ») ; et la feuille « Terminer » d'une séance sans série de musculation
+   dit « 1 série enregistrée · 20 min · 3,2 km » au lieu de « 0 série de travail enregistrée »
+   (`Seance.compter().horsMusculation`).
 3. **La comparaison** (demandée par Aurélien, cinquante objets pour qu'elle change d'une séance à l'autre) :
    « 10,1 t soulevées : à peu près un tricératops. » — le volume de la tuile, comparé à un objet de la table
    ci-dessous. **Le choix** : les objets dont la masse est à ±20 % du volume (écart des logarithmes ≤ ln 1,2), dans
@@ -1716,6 +1736,12 @@ nombre de répétitions.
 > ⚠️ **Ne vaut que pour `charge_reps` et `reps`.** Sur `temps`, la table est **par nombre de
 > séries** — la plus longue en une série, en deux, en trois. Sur `distance_temps`, il n'y a
 > pas de table : ces exercices sont hors du périmètre du moteur (§3 ter.3).
+>
+> *Précisé le 16/10/2026 (audit du 16/10, E5)* : sur `temps` et `distance_temps`, **aucune section « PAR NOMBRE DE
+> RÉPÉTITIONS »** (pas même un titre au-dessus de « pas de table ») ; la meilleure série porte le libellé de sa mesure
+> (« Plus longue durée » ; « Record de reps » au poids du corps ; « Record de charge » sur `charge_reps` —
+> `THModele.affichageDeMesure`), et la phrase dit « Cet exercice se mesure en durée : le coach ne le suit pas. » —
+> ni « palier », ni « hors du moteur ».
 
 > **Affichage brut, lignes déduites grisées.** On voit ce qu'on a réellement fait, et ce qu'on
 > pourrait revendiquer, visuellement distingué.

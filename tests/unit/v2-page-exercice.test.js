@@ -291,7 +291,32 @@ describe('⚠️ un exercice sans charge n’affiche jamais 0 kg', () => {
       derniere: { valeur: '2 h 10', complement: '· 8,4 km', date: '2026-09-11' } });
     expect(c.querySelector('.exo-li-v').textContent).toBe('2 h 10 · 8,4 km');
     expect(c.textContent).not.toMatch(/hors-moteur/);
-    expect(c.textContent).toContain('hors du moteur');
+    // 119 (E5) — la voix du coach : « le coach ne le suit pas », jamais « hors du moteur ».
+    expect(c.textContent).toContain('le coach ne le suit pas');
+    expect(c.textContent).not.toMatch(/hors du moteur|palier/);
+  });
+
+  // 119 (audit du 16/10/2026, E5) — Aurélien, 16/10 : « Pour les exercices calculés en temps, il ne faut pas mettre
+  // les reps. » La page d'une planche ou d'un tapis annonçait « PAR NOMBRE DE RÉPÉTITIONS ».
+  test.each([
+    ['temps', 'Planche', 'Plus longue durée'],
+    ['distance_temps', 'Tapis de course', 'Plus longue durée']
+  ])('119 — %s : ni table par répétitions, ni « palier », ni « hors du moteur » ; « %s » dit sa meilleure durée',
+    (mesure, nom, libelle) => {
+      const c = rendre({ nom: nom, mesure: mesure, record: { valeur: '1 min 30', date: null } });
+      expect(c.textContent).not.toMatch(/RÉPÉTITIONS|répétitions|palier|hors du moteur/);
+      expect(c.querySelector('.table-reps')).toBeNull();
+      const k = [...c.querySelectorAll('.exo-li-k')].map((x) => x.firstChild.textContent);
+      expect(k).toContain(libelle);
+      expect(k).not.toContain('Record');
+    });
+
+  test('119 — au poids du corps : « Record de reps », et la table par répétitions reste', () => {
+    const c = rendre({ nom: 'Tractions', mesure: 'reps', record: { valeur: '15', date: null } });
+    expect([...c.querySelectorAll('.exo-li-k')].map((x) => x.firstChild.textContent)).toContain('Record de reps');
+    expect(c.textContent).toMatch(/PAR NOMBRE DE RÉPÉTITIONS/);
+    // Sans série : « Aucune série de travail », jamais « Pas de table par répétitions » (l'état des lieux du 18/09).
+    expect(c.textContent).toContain('Aucune série de travail enregistrée.');
   });
 
   test('sur `charge_reps`, aucune phrase d’exercice sans charge', () => {

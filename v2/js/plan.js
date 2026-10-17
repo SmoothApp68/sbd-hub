@@ -483,6 +483,12 @@
   function chauffesEtDegressive(lignes, series, consigne, materiel) {
     var sortie = { chauffes: null, proposition: null, degressive: null, citations: {} };
     if (!materiel) return sortie;
+    // 119 (audit du 16/10/2026, E6) — UNE MESURE SANS CHARGE N'A NI CHAUFFES NI DÉGRESSIVE DU COACH : une planche, un
+    // tapis (une durée, une distance : hors du coach, I13) ou un exercice au poids du corps (I28, §9.17 : pas de
+    // dégressive sous un corps). Sans consigne, la ligne dégressive d'une planche faisait dire « Pas de charge de
+    // travail pour caler la dégressive. » et proposait deux gestes. Seule `charge_reps` a une charge à baisser ; une
+    // mesure inconnue (`null`, hors catalogue) garde le contrat d'avant.
+    if (materiel.mesure && materiel.mesure !== 'charge_reps') return sortie;
     var M = Moteur(), S = Seance();
     var liste = series || [];
     // §9.17 — LE LEST N'A NI CHAUFFES NI DÉGRESSIVE : 2,5 kg de lest, 22,5 % de
@@ -972,6 +978,8 @@
     var pas = consigneDuSlug ? nombre(consigneDuSlug.pas) : null;
     return {
       equipement: cat.equipement || null,
+      // 119 (E6) — la mesure, pour que `chauffesEtDegressive` se taise sur une mesure sans charge.
+      mesure: cat.mesure || null,
       sol: Moteur().SOULEVES_AU_SOL.indexOf(slug) >= 0,
       deja_sollicite: deja,
       pas: pas,
@@ -2722,9 +2730,15 @@
       if (plan.intention === 'entretien') causes.push('Entretenir (profil)');
       if (plan.edition === true) causes.push('Édition');
       if (horsMesure) causes.push('une mesure en ' + (x.mesure === 'temps' ? 'durée' : 'distance'));
+      // 119 (audit du 16/10/2026, E6) — sur une mesure en durée ou en distance, le coach ne dit RIEN, comme en
+      // Entretenir : ni dégressive, ni chauffe, ni phrase (« Pas de charge de travail pour caler la dégressive. »
+      // passait sous I13, qui ne regardait pas la dégressive).
       if (causes.length) {
-        sansCoach(x, plan.intention === 'entretien').forEach(function (r) { err('I13', causes.join(', ') + ' : ' + r); });
+        sansCoach(x, plan.intention === 'entretien' || horsMesure).forEach(function (r) { err('I13', causes.join(', ') + ' : ' + r); });
       }
+      // I28 (119, E6) — au poids du corps (mesure en reps), jamais de dégressive : §9.17, « pas de dégressive sous un
+      // corps », avec ou sans consigne.
+      if (x.mesure === 'reps' && x.degressive) err('I28', 'une dégressive au poids du corps');
       if (x.mode === 'entretien') {
         sansCoach(x, true).forEach(function (r) { err('I31', 'Entretenir (cet exercice) : ' + r); });
       }

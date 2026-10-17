@@ -2052,6 +2052,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .recap-rec .l2{color:var(--texte-3);font-size:12.5px}
 .recap-voix{color:var(--accent);font-weight:600;margin:4px 0 8px}
 .recap-pari{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--trait);padding:8px 2px;font-size:14px}
+.recap-cardio{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--trait);padding:8px 2px;font-size:14px}
+.recap-cardio .v{color:var(--texte-2);text-align:right}
 .recap-pari .v{color:var(--texte-2);text-align:right}
 .recap-pari .v.pe{color:var(--texte)}
 .recap-note{background:var(--panneau);border-radius:12px;padding:10px 12px;color:var(--texte-2);font-style:italic;font-size:14px;margin:0}

@@ -988,7 +988,11 @@
   // `REPS_MAX` de routine (100) ou à `sets_repos_borne` (3600) effacerait des
   // données réelles. On borne pour que la base accepte, rien de plus.
   var REPS_MAX_SERIE = 9999;
-  var DUREE_MAX_S = 86400;          // 24 h
+  // 119 (audit du 16/10/2026, E18) — LA DURÉE N'A QU'UNE BORNE, ET C'EST LA VALEUR : 9:59:59 (ECRAN §3 ter.2 ter),
+  // celle du pavé (`THModele.MAX_DUREE_S`). La réparation de la file bornait à 24 h : une entrée réparée pouvait
+  // repartir avec une durée que la saisie n'aurait jamais produite. Lue à l'appel : `modele.js` se charge avant
+  // `seance.js`.
+  function dureeMax() { return racine.THModele.MAX_DUREE_S; }
 
   // La lecture d'un nombre tapé est celle du formateur (`THModele.lireNombre`,
   // correctif du 03/10/2026) : elle relit tout ce qu'il affiche, le vrai signe
@@ -1034,7 +1038,7 @@
     var r = nombreOuNul(v);
     return r === null ? null : plafonne(Math.round(r), REPS_MAX_SERIE);
   }
-  function dureeBornee(v) { return entierOuNul(v, 1, DUREE_MAX_S); }
+  function dureeBornee(v) { return entierOuNul(v, 1, dureeMax()); }
 
   // ⚠️ BORNER UNE LIGNE DÉJÀ CALCULÉE, ET DIRE SI ÇA A CHANGÉ QUELQUE CHOSE.
   //
@@ -1520,10 +1524,22 @@
     var plat = toutesLesSeries(seance);
     var faites = plat.filter(function (p) { return partEnBase(p.serie); })
       .map(function (p) { return Object.assign({}, p.serie, { exercise_slug: p.exo.exercise_slug }); });
+    // 119 (audit du 16/10/2026, E12) — CE QUI PART SANS ÊTRE DE LA MUSCULATION : les séries de travail du cardio et des
+    // sorties (le tapis, une randonnée), leur durée et leur distance. Une séance de cardio seul se terminait sur
+    // « 0 série de travail enregistrée » alors que ses lignes partaient bien.
+    var cat = racine.THModele.indexerExercices(exercices);
+    var autres = { series: 0, duree_s: 0, distance_m: 0 };
+    faites.forEach(function (x) {
+      if (!racine.THModele.estTravail(x) || racine.THSemaine.estSerieDeMusculation(x, cat[x.exercise_slug])) return;
+      autres.series++;
+      autres.duree_s += Number(x.duree_s) || 0;
+      autres.distance_m += Number(x.distance_m) || 0;
+    });
     return {
       series: plat.length,
       validees: plat.filter(function (p) { return !!p.serie.validee_a; }).length,
-      travail: racine.THSemaine.compteSeriesTravail(faites, exercices)
+      travail: racine.THSemaine.compteSeriesTravail(faites, exercices),
+      horsMusculation: autres
     };
   }
 
@@ -2794,7 +2810,6 @@
     blocFini: blocFini,
     slugsDuBloc: slugsDuBloc,
     REPS_MAX_SERIE: REPS_MAX_SERIE,
-    DUREE_MAX_S: DUREE_MAX_S,
     plafonne: plafonne,
     repsBornees: repsBornees,
     dureeBornee: dureeBornee,

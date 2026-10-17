@@ -472,10 +472,24 @@ const NOTIONS = [
   { notion: 'le compte des séries de travail (la règle du volume)', pr: 'PR 6',
     module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js', 'bilan.js', 'faits.js', 'bilans.js'],
     parAilleurs: { 'modele.js': ['resumerSeance', 'construireBlocs'], 'seance.js': ['compter'], 'bilan.js': ['bilanDuMois'],
-                   'profil.js': ['statsDe'], 'app.js': ['rendreExercice'], 'faits.js': ['recapDeLaSeance'] },
+                   'profil.js': ['statsDe'], 'app.js': ['rendreExercice'] },
     raison: 'décision du 02/10/2026 : la carte, la barre, la page, le détail (« de travail »), le ' +
       'bandeau, la feuille de fin et le profil disent le même nombre ; le tapis n’y entre pas. 71 : le récap compte ' +
-      'les exercices faits (au moins une série de travail) par la même règle.' },
+      'les exercices faits (au moins une série de travail) par la même règle — 119 : par `exercicesDeMusculation`, ' +
+      'qui la lit (`estSerieDeMusculation`).' },
+  // 119 (audit du 16/10/2026, F9) — « exercice fait » : UNE définition PAR USAGE, chacune ici. Le journal (ci-dessous,
+  // cardio compris) ; le récap (`exercicesDeMusculation`, au moins une série de musculation) ; le classement d'un
+  // bilan (`seMesureEnReps`, un exercice mesuré en reps).
+  { notion: 'l’exercice fait du récap de fin de séance (au moins une série de musculation ; le cardio se dit à part)', pr: '119-U1',
+    module: 'semaine.js', fonction: 'exercicesDeMusculation', lecteurs: ['faits.js'],
+    parAilleurs: { 'faits.js': ['recapDeLaSeance'] },
+    raison: 'audit du 16/10/2026 (F9) : le récap excluait le tapis par un filtre écrit à la main, à côté de ' +
+      '`exercicesFaits` qui le compte ; deux définitions sans nom. ECRAN §7 septies.4 bis le dit désormais.' },
+  { notion: 'l’exercice classé par un bilan (l’exercice du mois, de la saison, de l’année : mesuré en reps)', pr: '119-U1',
+    module: 'modele.js', fonction: 'seMesureEnReps', lecteurs: ['bilans.js'],
+    parAilleurs: { 'bilans.js': ['bilanDeLaPeriode'] },
+    raison: 'audit du 16/10/2026 (F1, F9) : le tapis gagnait l’exercice du mois (« 0 reps ») ; seuls `charge_reps` ' +
+      'et `reps` se classent, par le chiffre affiché (BILANS-V1, 16/10).' },
   { notion: 'l’exercice fait (au moins une série de travail, cardio compris)', pr: 'PR 6',
     module: 'modele.js', fonction: 'exercicesFaits', lecteurs: ['app.js', 'faits.js'],
     // 64A : l'APPEL, pas le champ — `entree.exercicesFaits` (JEU-V1 §8) est un nombre que le jeu lit, pas un
@@ -1208,7 +1222,21 @@ const NOTIONS = [
     module: 'faits.js', fonction: 'tempsALaSalle', lecteurs: [],
     par: ['entreeDuBilan'],
     raison: 'BILANS-V1 (décision du 15/10/2026) : un fait de la période, jamais comparé ; une seule règle de compte, ' +
-      'celle que l’entrée de tous les bilans (année, saison, mois) passe au moteur.' },
+      'celle que l’entrée de tous les bilans (année, saison, mois) passe au moteur. 119 : seulement les séances de ' +
+      'musculation (`Semaine.estSeanceDeMusculation`).' },
+  // ── 119 — LES MESURES EN DURÉE ET EN DISTANCE (audit du 16/10/2026) ──
+  { notion: 'la série de musculation (une série de travail d’un exercice qui porte du volume ; inconnu : comptée)', pr: '119-U1',
+    module: 'semaine.js', fonction: 'estSerieDeMusculation', lecteurs: ['bilans.js', 'seance.js'],
+    par: ['compteSeriesTravail', 'estSeanceDeMusculation'],
+    parAilleurs: { 'bilans.js': ['bilanDeLaPeriode'], 'seance.js': ['compter'] },
+    raison: 'BILANS-V1 (16/10/2026) : la règle que `compteSeriesTravail` comptait sans la nommer ; une période de seules ' +
+      'sorties est vide (F4) par la même règle que le compte des séries de travail ; la feuille « Terminer » d’une ' +
+      'séance de cardio dit ce qui part hors musculation (E12, `Seance.compter`).' },
+  { notion: 'la séance de musculation (au moins une série de musculation : ni une randonnée, ni un tapis seul)', pr: '119-U1',
+    module: 'semaine.js', fonction: 'estSeanceDeMusculation', lecteurs: ['faits.js'],
+    parAilleurs: { 'faits.js': ['tempsALaSalle'] },
+    raison: 'BILANS-V1 (décision du 15/10 complétée le 16/10/2026) : « à la salle » (heures et jours) ne compte que les ' +
+      'séances de musculation ; CADRAGE §2 ter : une séance mixte en est une.' },
   // ── 98 — LA SAISON ET LE MOIS (BILANS-V1, décisions du 14-15/10/2026) ──
   { notion: 'le nom d’une saison (Winter Arc pour tous ; les autres selon la phase au début de la saison)', pr: '98-U1',
     module: 'bilans.js', fonction: 'nomDeSaison', lecteurs: ['app.js'],

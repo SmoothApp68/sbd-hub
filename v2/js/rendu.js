@@ -156,7 +156,8 @@
 
     var entetes = el('div', 'entetes');
     entetes.appendChild(el('span', null, 'Série'));
-    entetes.appendChild(el('span', null, 'Charge'));
+    // 119 (E8) — l'en-tête suit la mesure du bloc (`Modele.construireBlocs` le pose) : « Durée » sur une planche.
+    entetes.appendChild(el('span', null, bloc.entete || 'Charge'));
     section.appendChild(entetes);
 
     bloc.series.forEach(function (s) {
@@ -271,11 +272,17 @@
   // 50-1 bis (§9.17) — LE POIDS DU CORPS EST COACHÉ : la page d'un exercice en
   // reps ne dit plus « pas de palier en kilos » (le coach suit ses reps, la
   // charge vaut 0) ; sa phrase vient du formateur (`THModele`), la seule voix.
+  //
+  // 119 (audit du 16/10/2026, E5) — LA VOIX DU COACH : ni « palier » (« ta charge de travail ») ni « hors du moteur »
+  // (un mot d'atelier). Une durée ou une distance : le coach ne la suit pas (CADRAGE §2 ter, I13), et la page le dit.
   var PHRASE_SANS_PALIER = {
     reps: null,   // la phrase du formateur — voir `phraseSansPalier`
-    temps: 'Cet exercice se mesure en durée : il n’a pas de charge, donc pas de palier en kilos.',
-    distance_temps: 'Cet exercice se mesure en distance et en durée : il est hors du moteur.'
+    temps: 'Cet exercice se mesure en durée : le coach ne le suit pas.',
+    distance_temps: 'Cet exercice se mesure en distance et en durée : le coach ne le suit pas.'
   };
+  // 119 (E5) — LA TABLE PAR NOMBRE DE RÉPÉTITIONS n'existe que là où il y a des répétitions : jamais sur une planche,
+  // un tapis ou une randonnée (« PAR NOMBRE DE RÉPÉTITIONS » au-dessus d'une durée, vu par Aurélien le 16/10).
+  function aDesRepetitions(mesure) { return mesure === 'charge_reps' || mesure === 'reps'; }
 
   // `undefined` pour une mesure qui n'en a pas (charge × reps). Le choix entre
   // « a une phrase » et « n'en a pas » se lit ICI, jamais sur la table.
@@ -350,11 +357,9 @@
     if (vue.tableSurDouzeMois) titre.appendChild(el('span', 'section-sous', ' \u00b7 sur 12 mois'));
     cible.appendChild(titre);
     if (!vue.table || !vue.table.length) {
-      // Deux absences distinctes, et on ne les confond pas : l'exercice n'a pas
-      // de table par nature, ou il n'a rien encore à y mettre.
-      cible.appendChild(el('p', 'vide', phraseSansPalier(vue.mesure)
-        ? 'Pas de table par répétitions pour cet exercice.'
-        : 'Aucune série de travail enregistrée.'));
+      // 119 (E5) — la table n'est rendue que pour une mesure en reps (`aDesRepetitions`) : une absence ici est
+      // toujours « rien encore à y mettre » — l'exercice sans table par nature ne passe plus par là.
+      cible.appendChild(el('p', 'vide', 'Aucune série de travail enregistrée.'));
       return;
     }
     var avecCharge = vue.mesure === 'charge_reps';
@@ -448,7 +453,7 @@
       lignes.forEach(function (l) {
         var tr = el('tr');
         var v = l.valeurs;
-        tr.appendChild(el('td', null, l.reps === 1 ? '1 rep' : l.reps + ' reps'));
+        tr.appendChild(el('td', null, M().repsTexte(l.reps)));
         var rec = el('td');
         rec.appendChild(el('b', null, M().charge(v[0].charge)));
         tr.appendChild(rec);
@@ -573,7 +578,10 @@
     var r = vue.record;
     // §9.23 (H1, #371) — un matériel de salle : le record se lit sur 12 mois,
     // et l'écran le dit, à côté de lui.
-    ligneFiche(fiche, vue.mesure === 'charge_reps' ? 'Record de charge' : 'Record',
+    // 119 (E5) — le libellé suit la mesure (`THModele.affichageDeMesure`) : « Plus longue durée » sur une planche ou
+    // un tapis, « Record de reps » au poids du corps ; « Record » pour une mesure inconnue.
+    var aff = M().affichageDeMesure(vue.mesure);
+    ligneFiche(fiche, aff ? aff.meilleure : 'Record',
       sousDouzeMois(r && r.date ? dateCourte(r.date) : null, vue.recordSurDouzeMois), r ? texteMeilleure(r) : '');
     var v = vue.volume || {};
     ligneFiche(fiche, 'Séries de travail',
@@ -585,7 +593,7 @@
     var sansPalier = phraseSansPalier(vue.mesure);
     if (sansPalier) cible.appendChild(el('p', 'exo-note', sansPalier));
 
-    rendreTableReps(cible, vue);
+    if (aDesRepetitions(vue.mesure)) rendreTableReps(cible, vue);
   }
 
   // §7 quater.4 — l'historique. Chaque séance avec TOUTES ses séries : chauffe
@@ -610,8 +618,7 @@
       // défiler. Il porte SON nombre de reps — « record » nu ne dirait pas de
       // quoi.
       if (s.record) {
-        sous.appendChild(el('b', null, ' · record à ' + s.record +
-          ' rep' + (s.record > 1 ? 's' : '')));
+        sous.appendChild(el('b', null, ' · record à ' + M().repsTexte(s.record)));
       }
       sous.addEventListener('click', function () { vue.surSeance(s.id); });
       tete.appendChild(sous);
@@ -1180,7 +1187,11 @@
     bloc.classList.add('neuf');
     var bouts = [];
     // 98 (BILANS-V1) — jamais le nombre de séances : le mois dit ses tonnes ; il s'ouvre sur la story du mois.
-    bouts.push(v.kg ? tonnes(v.kg) + ' soulevées' : 'Pas encore de série');
+    // 119 (audit du 16/10/2026, F8) — UN MOIS SANS TONNES N'EST PAS UN MOIS SANS SÉRIE : au poids du corps (tractions,
+    // pompes, dips), le mois dit ses séries de travail ; « Pas encore » seulement quand il n'en a aucune (les sorties
+    // seules n'en sont pas, comme la story du mois).
+    bouts.push(v.kg ? tonnes(v.kg) + ' soulevées'
+      : (v.series ? v.series + ' série' + (v.series > 1 ? 's' : '') + ' de travail' : 'Pas encore de série de travail'));
     if (v.records) bouts.push(pluriel(v.records, 'record'));
     if (v.paris && v.paris.verifies) bouts.push(v.paris.tenus + ' pari' + (v.paris.tenus > 1 ? 's' : '') +
       ' tenu' + (v.paris.tenus > 1 ? 's' : '') + ' sur ' + v.paris.verifies);
@@ -1286,7 +1297,7 @@
     l.appendChild(haut);
     if (o.methode === 'reps' && o.detail.length) {
       l.appendChild(el('div', 'pc-exo-detail', o.detail.map(function (d) {
-        return M().nombreTexte(d[1]) + ' → ' + M().nombreTexte(d[2]) + ' à ' + d[0] + (d[0] > 1 ? ' reps' : ' rep');
+        return M().nombreTexte(d[1]) + ' → ' + M().nombreTexte(d[2]) + ' à ' + M().repsTexte(d[0]);
       }).join(' · ')));
     }
     return l;
@@ -3861,7 +3872,8 @@
     if (ch) parts.push(pluriel(ch, 'chauffe'));
     if (travail.length) {
       var memes = travail[0] !== null && travail.every(function (r) { return r === travail[0]; });
-      if (duree !== null && travail.length === 1) parts.push(Math.round(duree / 60) + ' min');
+      // 119 (audit du 16/10/2026, E10) — une durée s'écrit en durée (« 20 s », « 1 min 30 »), jamais « 0 min ».
+      if (duree !== null && travail.length === 1) parts.push(M().formatDuree(duree));
       else parts.push(memes ? travail.length + ' \u00d7 ' + travail[0] : pluriel(travail.length, 'série'));
     }
     if (deg) parts.push(pluriel(deg, 'dégressive'));
@@ -4055,8 +4067,17 @@
     var t = el('div', 'feuille-t', 'Terminer la séance');
     // `travail`, pas `validees` — même règle que le bandeau (chantier 39, C1).
     var nF = vue.compte.travail;
-    t.appendChild(el('em', '', nF + ' série' + (nF > 1 ? 's' : '') +
-      ' de travail enregistrée' + (nF > 1 ? 's' : '')));
+    // 119 (audit du 16/10/2026, E12) — UNE SÉANCE DE CARDIO SEUL dit ce qui part : « 1 série enregistrée · 20 min ·
+    // 3,2 km », jamais « 0 série de travail enregistrée ».
+    var hm = vue.compte.horsMusculation;
+    if (!nF && hm && hm.series) {
+      var quoi = [M().formatDuree(hm.duree_s), M().formatDistance(hm.distance_m)].filter(Boolean);
+      t.appendChild(el('em', '', [hm.series + ' série' + (hm.series > 1 ? 's' : '') + ' enregistrée' +
+        (hm.series > 1 ? 's' : '')].concat(quoi).join(' \u00b7 ')));
+    } else {
+      t.appendChild(el('em', '', nF + ' série' + (nF > 1 ? 's' : '') +
+        ' de travail enregistrée' + (nF > 1 ? 's' : '')));
+    }
     cible.appendChild(t);
 
     // 71 (ECRAN-SAISIE §7 septies.4 bis) — LA FEUILLE DÉCLARE, LE RÉCAP CONSTATE. Les records du jour et le
@@ -4163,6 +4184,18 @@
         barre.style.width = (max ? Math.max(4, Math.round(l.series / max * 100)) : 0) + '%';
         ligne.appendChild(barre);
         ligne.appendChild(el('b', null, nombreFr(l.series)));
+        cible.appendChild(ligne);
+      });
+    }
+
+    // 119 (audit du 16/10/2026, E12) — LE CARDIO ET LES SORTIES : ni séries de travail ni volume, mais faits. Le récap
+    // dit ce qui a été fait, exercice par exercice, dans sa mesure (« Tapis de course · 20 min · 3,2 km »).
+    if (r.cardio && r.cardio.length) {
+      groupe('Cardio');
+      r.cardio.forEach(function (x) {
+        var ligne = el('div', 'recap-cardio');
+        ligne.appendChild(el('span', 'n', x.nom));
+        ligne.appendChild(el('span', 'v', x.fait));
         cible.appendChild(ligne);
       });
     }

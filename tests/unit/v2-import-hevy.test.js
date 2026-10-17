@@ -93,6 +93,57 @@ describe('69 — les formes de série (K1 : la lecture du v1, règle pour règle
     expect(une('Série 1: 60 kg x 10 [Échauffement]').type_serie).toBe('echauffement');
     expect(une('Série 1: 100 kg x 5 [Superset]').type_serie).toBe('travail');
   });
+  // 118 (audit du 16/10, 03 #4) — un seul signe faisait refuser tout le texte collé.
+  test('⚠️ DISCRIMINANT — un signe devant la charge se lit tel qu’il est écrit : lest « + », aide « - » en négatif', () => {
+    expect(une('Série 1: +10 kg x 8')).toEqual(Object.assign({}, vide, { charge_kg: 10, reps: 8 }));
+    expect(une('Série 1: -20 kg x 8')).toEqual(Object.assign({}, vide, { charge_kg: -20, reps: 8 }));
+    expect(une('Série 1: -22,5 kg x 6 @ 9 rpe')).toEqual(Object.assign({}, vide, { charge_kg: -22.5, reps: 6, rpe: 9 }));
+    expect(une('Série 1: -45 lbs x 5')).toEqual(Object.assign({}, vide, { charge_kg: -20.4, reps: 5 }));
+    // Sans signe, rien ne change ; un signe sans nombre reste illisible.
+    expect(une('Série 1: 20 kg x 8').charge_kg).toBe(20);
+    expect(() => une('Série 1: - kg x 8')).toThrow(/illisible/);
+  });
+  // 118 (audit du 16/10, 03 #12) — un Hevy réglé en anglais : « mois illisible : jun », et l'écran disait « pas un
+  // export ». Aucune fixture anglaise au dépôt : la forme relevée par l'audit (« 16 Jun 2026, 10:24 ») et celle du
+  // prompt 118 (« Oct 2, 2026, 5:54 PM »).
+  test('⚠️ DISCRIMINANT — le CSV d’un Hevy en anglais se lit (seule la date change de langue)', () => {
+    const entete = 'title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,' +
+      'weight_kg,reps,distance_km,duration_seconds,rpe\n';
+    const csv = entete +
+      '"Push","16 Jun 2026, 10:24","16 Jun 2026, 11:30",,"Bench Press (Barbell)",,,0,"warmup",60,10,,,\n' +
+      '"Legs","Oct 2, 2026, 5:54 PM","Oct 2, 2026, 7:01 PM",,"Squat (Barbell)",,,0,"normal",140,5,,,\n' +
+      '"Nuit","Jan 1, 2026, 12:05 AM","",,"Squat (Barbell)",,,0,"normal",100,5,,,\n';
+    const s = I.lireCsv(csv);
+    expect(s.map((x) => [x.debut_local, x.fin_local])).toEqual([['2026-06-16T10:24', '2026-06-16T11:30'],
+      ['2026-10-02T17:54', '2026-10-02T19:01'], ['2026-01-01T00:05', null]]);
+    expect(s[0].exercices[0].series[0].type_serie).toBe('echauffement');
+    // Le français ne change pas.
+    expect(I.lireCsv(entete + '"R","2 oct. 2026, 17:54","",,"Squat",,,0,"normal",100,5,,,\n')[0].debut_local)
+      .toBe('2026-10-02T17:54');
+  });
+  test('un texte partagé en anglais n’est pas lu, et l’erreur dit l’anglais ; une date française illisible, non', () => {
+    let e = null;
+    try { I.lireTexte('Legs\nThursday, Oct 2, 2026 at 5:54pm\n\nSquat (Barbell)\nSet 1: 100 kg x 5 [Warm-up]\n'); } catch (x) { e = x; }
+    expect(e && e.enAnglais).toBe(true);
+    e = null;
+    try { I.lireTexte('S\nLe mardi, sept 22 2026 à 5:12pm\nExo\n'); } catch (x) { e = x; }
+    expect(e).not.toBeNull();
+    expect(!!e.enAnglais).toBe(false);
+    // Un CSV dont la date anglaise n'a pas une forme connue : « enAnglais », jamais « pas un export ».
+    e = null;
+    try {
+      I.lireCsv('title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,' +
+        'weight_kg,reps,distance_km,duration_seconds,rpe\n"R","June 16th 2026 10:24","",,"Squat",,,0,"normal",100,5,,,\n');
+    } catch (x) { e = x; }
+    expect(e && e.enAnglais).toBe(true);
+    expect(!!e.pasUnExport).toBe(false);
+  });
+  test('les deux phrases, et le branchement (app.js)', () => {
+    expect(I.MESSAGES.fichierAnglais).toBe('Export en anglais : change la langue de Hevy en français et réexporte.');
+    expect(I.MESSAGES.texteAnglais).toBe('Texte en anglais : change la langue de Hevy en français et copie-le de nouveau.');
+    const app = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/app.js'), 'utf8');
+    expect(app).toMatch(/imp\.erreur = enAnglais \? \(genre === 'csv' \? M\.fichierAnglais : M\.texteAnglais\)/);
+  });
   test('une distance ou une durée à 0 est VIDE (CSV)', () => {
     const csv = 'title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,' +
       'weight_kg,reps,distance_km,duration_seconds,rpe\n' +
@@ -199,6 +250,44 @@ describe('69 — l’anti-doublon : les 12 verdicts du cas', () => {
       .toBe('Une séance de l’app commence à 11 h 01 ce jour-là : sans doute la même.');
     expect(I.sousLigne(par['hevy:2026-09-15T17:46:00'], PARIS)).toBe('Déjà dans l’app — laissée telle quelle');
     expect(I.sousLigne(par['hevy:2025-02-25T19:11:00'], PARIS)).toBe('16 exercices · 44 séries');
+  });
+});
+
+// 118 (audit du 16/10/2026, 03 #2) — « SANS DOUTE LA MÊME » SE RECALCULE APRÈS UN RATTACHEMENT. Le cas simulé par
+// l'audit : la séance de l'app (couché barre, 17 h 00 → 18 h 30) et la même dans Hevy (17 h 12) sous un nom inconnu.
+describe('118 — le verdict se refait après chaque rattachement', () => {
+  const TEXTE = 'Pecs\nLe jeudi, oct. 1, 2026 à 5:12pm\n\nDéveloppé Machin Hevy\nSérie 1: 100 kg x 5\nSérie 2: 100 kg x 5\n' +
+    '@hevyapp\nhttps://hevy.com/workout/r118a\n\nAutre\nLe vendredi, oct. 2, 2026 à 9:00am\n\nDéveloppé Machin Hevy\n' +
+    'Série 1: 60 kg x 8\n@hevyapp\nhttps://hevy.com/workout/r118b\n';
+  const BASE = [{ source_ref: null, debut: '2026-10-01T15:00:00Z', fin: '2026-10-01T16:30:00Z', slugs: ['developpe_couche_barre'] }];
+  const sources = (miens) => ({ catalogue: [{ slug: 'developpe_couche_barre', nom: 'Développé Couché (Barre)' }], communs: [], miens });
+
+  test('⚠️ DISCRIMINANT — avant : « nouvelle », cochée ; rattachée au couché : « sans doute la même », DÉCOCHÉE', () => {
+    const avant = I.apercu(I.lireTexte(TEXTE), { sources: sources([]), base: BASE, fuseau: PARIS });
+    expect(avant.map((l) => [l.verdict, l.coche])).toEqual([['nouvelle', true], ['nouvelle', true]]);
+    const apres = I.recalculer(avant, { sources: sources([{ alias: 'Développé Machin Hevy', exercise_slug: 'developpe_couche_barre' }]), base: BASE });
+    expect(apres.map((l) => [l.verdict, l.coche])).toEqual([['meme_seance', false], ['nouvelle', true]]);
+    expect(apres[0].avec).toBe(BASE[0]);
+    expect(apres[0].seance.exercices[0].exercise_slug).toBe('developpe_couche_barre');
+    // Rien n'est muté : l'aperçu d'avant garde son verdict.
+    expect(avant[0].verdict).toBe('nouvelle');
+    // Plus rien à importer en double : seule la séance du 02/10 reste cochée.
+    expect(apres.filter((l) => l.coche && l.verdict !== 'deja_la').map((l) => l.seance.ref)).toEqual(['hevy:r118b']);
+  });
+
+  test('un verdict qui ne change pas garde la case telle que la personne l’a laissée', () => {
+    const avant = I.apercu(I.lireTexte(TEXTE), { sources: sources([]), base: BASE, fuseau: PARIS });
+    avant[1].coche = false;
+    const apres = I.recalculer(avant, { sources: sources([{ alias: 'Développé Machin Hevy', exercise_slug: 'developpe_couche_barre' }]), base: BASE });
+    expect(apres[1].verdict).toBe('nouvelle');
+    expect(apres[1].coche).toBe(false);
+  });
+
+  test('le branchement : `rattacherNom` refait l’aperçu (app.js)', () => {
+    const app = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/app.js'), 'utf8');
+    const i = app.indexOf('async function rattacherNom(');
+    const corps = app.slice(i, app.indexOf('\n  }\n', i));
+    expect(corps).toMatch(/imp\.lignes = Import\.recalculer\(imp\.lignes, \{ sources: imp\.sources, base: baseDeLaPersonne\(\) \}\)/);
   });
 });
 

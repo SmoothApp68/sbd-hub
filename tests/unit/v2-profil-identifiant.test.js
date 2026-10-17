@@ -403,6 +403,8 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
       oublierGroupe: () => { journal.groupeOublie++; },
       // 115 (E2) — une suppression de série en attente d'« Annuler » appartient aussi au compte précédent.
       oublierSuppressionDifferee: () => {},
+      // 118 — ce qui attend hors de la file (réponse de profil, messages du groupe) se garde avec la file.
+      gardesDuCompte: () => [], preparerGardesDuCompte: (v) => v,
       Donnees: {
         monProfil: (id) => Promise.resolve(id === etat.client ? (base.lignes[id] || null) : null),
         enregistrerProfil: (id, champs) => {

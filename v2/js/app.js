@@ -481,6 +481,15 @@
       pari ? { predite: pari.valeur_predite, observee: Moteur.progresDuBilan(bilan) } : null) };
   }
 
+  // 118 (audit du 16/10, 03 #5) — les dossiers qui portent un bloc en cours, dans l'ordre des blocs : la
+  // bibliothèque montre celui qui n'a plus de routine (sinon le programme tournait sans badge ni « Arrêter »).
+  function dossiersDeProgramme() {
+    if (Moteur.coachSeTait(profil && profil.intention)) return [];
+    return (local.blocs || []).filter(function (b) {
+      return b && b.dossier && Moteur.blocEnCours(local.blocs, b.dossier) === b;
+    }).map(function (b) { return b.dossier; });
+  }
+
   // LA FEUILLE « FAIRE DE CE DOSSIER UN PROGRAMME » — ou celle qui AJUSTE le
   // bloc suivant (`depuis` : le bloc fini). Les exercices du bloc : par
   // défaut les barres polyarticulaires des routines du dossier, plus les
@@ -811,6 +820,24 @@
     }
   }
 
+  // ⚠️ 118 (suite de 117) — CE QUI ATTEND HORS DE LA FILE appartient aussi à son compte : la réponse de profil pas
+  // encore envoyée (`CLE_PROFIL_ENVOI`, avec la ligne en cache qu'elle complète — sans elle, l'envoi ne part pas) et
+  // les messages du groupe écrits hors ligne (`CLE_FILE_GROUPE`). Un autre compte qui entrait les effaçait ; ils sont
+  // désormais gardés sous l'identifiant du compte qui part, et rendus quand il revient. Rien n'est gardé quand rien
+  // n'attend : la ligne de profil seule n'est pas une attente.
+  function gardesDuCompte() {
+    return [{ magasin: 'meta', cle: CLE_PROFIL_ENVOI }, { magasin: 'meta', cle: CLE_PROFIL },
+            { magasin: 'brouillon', cle: CLE_FILE_GROUPE }];
+  }
+  function preparerGardesDuCompte(v) {
+    var envoi = Profil.lireEnAttente(v['meta:' + CLE_PROFIL_ENVOI]);
+    var out = {};
+    out['meta:' + CLE_PROFIL_ENVOI] = envoi || null;
+    out['meta:' + CLE_PROFIL] = envoi ? (v['meta:' + CLE_PROFIL] || null) : null;
+    out['brouillon:' + CLE_FILE_GROUPE] = Social.fileDeMessages(v['brouillon:' + CLE_FILE_GROUPE]);
+    return out;
+  }
+
   // Le cache appartient à un compte et à un seul. Un cache qui survivrait à un
   // changement de compte montrerait les séances de quelqu'un d'autre.
   async function garantirProprietaire(userId) {
@@ -822,7 +849,9 @@
     // 117 (audit du 16/10, 06 #6) — tout est vidé SAUF la file du compte qui part, gardée sous son identifiant ; et
     // la file gardée pour le compte qui entre lui est rendue (relue juste après, `chargerSeanceLocale`). Seul
     // « Quitter » explicite vide une file, après sa fenêtre.
-    var changement = await Cache.changerDeCompte(meta && meta.userId, userId);
+    // 118 — et ce qui attend HORS de la file (la réponse de profil, les messages du groupe) : gardé de même, rendu de
+    // même (relu juste après, `chargerCache` et `chargerProfilLocal`).
+    var changement = await Cache.changerDeCompte(meta && meta.userId, userId, gardesDuCompte(), preparerGardesDuCompte);
     if (changement && changement.rendue && changement.rendue.length) {
       console.warn('File d\u2019envoi rendue à ce compte : ' + changement.rendue.length + ' envoi(s) gardé(s) depuis sa dernière visite.');
     }
@@ -8888,6 +8917,9 @@
       // MOTEUR §9.22 (53-2) — le programme d'un dossier : le badge, la carte de
       // fin de bloc, ou « Faire de ce dossier un programme ».
       programme: programmeDuDossier,
+      // 118 (audit du 16/10, 03 #5) — les dossiers d'un programme en cours : celui qui n'a plus de routine reste
+      // montré (son badge, « Arrêter le programme »). En carnet, aucun : le badge s'y tait (I13).
+      dossiersDeProgramme: dossiersDeProgramme,
       surProgramme: function (d) { ouvrirProgramme(d, null); },
       surBadgeProgramme: ouvrirBlocEnCours,
       surCommencerBloc: commencerBlocSuivant,
@@ -13456,12 +13488,17 @@
   async function quitterSansRienPerdre() {
     // 117 (audit du 16/10, 06 #6) — les files GARDÉES pour un autre compte de cet appareil partent aussi avec
     // « Quitter » : la fenêtre les compte, rien ne se perd sans qu'elle le dise.
-    var gardees = [];
+    var gardees = [], autresGardes = 0;
     try { gardees = Attente.entreesGardees(await Cache.lireFilesGardees()); } catch (e) { gardees = []; }
+    // 118 — et ce qui attend hors de la file pour un autre compte (sa réponse de profil, ses messages du groupe).
+    try { autresGardes = Attente.compterGardesAutres(await Cache.lireGardesAutres()); } catch (e) { autresGardes = 0; }
     return Quitter.quitter({
       file: function () { return attente.concat(gardees); },
       // 60-2c : une réponse de profil pas encore envoyée (hors file) compte aussi.
       profil: function () { return profilAEnvoyer; },
+      // 118 (audit 06 #3, suite de 117) — les messages du groupe écrits hors ligne (`grp.file`, leur propre file)
+      // comptent aussi : « Quitter » les effaçait sans les dire.
+      autres: function () { return grp.file.length + autresGardes; },
       enLigne: function () { return !(racine.navigator && racine.navigator.onLine === false); },
       envoyer: envoyerAvantDeQuitter,
       fenetre: montrerFenetreDeSortie,
@@ -13480,9 +13517,12 @@
     // Le profil ne dépend pas de la vidange (sa propre chaîne d'envoi) : il PART TOUT DE SUITE, pendant
     // qu'on attend la vidange en cours — sinon une vidange lente lui mangeait tout son budget de 15 s.
     var profilEnvoye = profilAEnvoyer ? envoyerProfil().catch(function () {}) : null;
+    // 118 — les messages du groupe écrits hors ligne partent aussi, dans la même course de 15 s.
+    var messagesEnvoyes = grp.file.length ? envoyerFileGroupe().catch(function () {}) : null;
     while (vidangeEnCours && Date.now() < fin) await attendre(100);
     var envois = [vidanger()];
     if (profilEnvoye) envois.push(profilEnvoye);
+    if (messagesEnvoyes) envois.push(messagesEnvoyes);
     await Promise.race([Promise.all(envois), attendre(Math.max(0, fin - Date.now()))]);
   }
 
@@ -13592,14 +13632,15 @@
     if (!imp || imp.occupe) return;
     var M = Import.MESSAGES;
     imp.erreur = null;
-    var lues = null;
+    var lues = null, enAnglais = false;
     try { lues = genre === 'csv' ? Import.lireCsv(texte) : Import.lireTexte(texte); }
-    catch (e) { lues = null; }
+    catch (e) { lues = null; enAnglais = !!(e && e.enAnglais); }
     // ⚠️ UNE SÉANCE COLLÉE SANS SON LIEN n'a pas de référence (`hevy:<id>`) :
     // ni l'anti-doublon ni l'identifiant tiré du nom ne la tiendraient. Le
     // texte est refusé en entier — jamais à moitié lu.
     if (!lues || !lues.length || lues.some(function (l) { return !l.ref; })) {
-      imp.erreur = genre === 'csv' ? M.fichier : M.texte;
+      // 118 (audit du 16/10, 03 #12) — un Hevy réglé en anglais ne se dit pas « pas un export ».
+      imp.erreur = enAnglais ? (genre === 'csv' ? M.fichierAnglais : M.texteAnglais) : genre === 'csv' ? M.fichier : M.texte;
       return rendreImportEcran();
     }
     // L'aperçu lit les noms d'exercices EN BASE : il demande une connexion (et
@@ -13648,6 +13689,9 @@
     if (!imp || imp.etape !== 'apercu' || !slug) return;
     imp.sources.miens = (imp.sources.miens || []).concat([{ alias: nom, exercise_slug: slug }]);
     delete imp.ignores[nom];
+    // 118 (audit du 16/10, 03 #2) — le nom rattaché donne un exercice à sa séance : son verdict se refait (une
+    // séance faite aussi dans l'app devient « sans doute la même », décochée — jamais importée en double).
+    imp.lignes = Import.recalculer(imp.lignes, { sources: imp.sources, base: baseDeLaPersonne() });
     rendreImportEcran();
     // `alias_exercice_alias_check` : non vide, 120 caractères au plus. Un nom
     // plus long vaut pour cet import, sans être retenu — l'écrire bloquerait la
@@ -13755,14 +13799,39 @@
       if (!generationValide(g)) return;
       if (!importEnLigne()) { resultat.arret = 'connexion'; break; }
       var paquet = choisies.slice(p, p + SEANCES_PAR_PAQUET);
-      var ops = [], modeles = [];
+      var ops = [], modeles = [], prets = [];
       for (var k = 0; k < paquet.length; k++) {
         var s = paquet[k];
         var n = Import.seriesAEcrire(s, index);
         var idsSeries = [];
         for (var r = 1; r <= n; r++) idsSeries.push(await Moteur.idDImport(uid, s.ref, r));
-        var ids = { seance: await Moteur.idDImport(uid, s.ref), serie: serieParRang(idsSeries) };
-        var m = Import.seanceAEcrire(s, ids, index, uid);
+        prets.push({ s: s, ids: { seance: await Moteur.idDImport(uid, s.ref), serie: serieParRang(idsSeries) } });
+      }
+      // ⚠️ 118 (audit du 16/10, 03 #3) — UNE SÉANCE DÉJÀ EN BASE N'EST JAMAIS RÉÉCRITE. L'aperçu ne voit que le cache
+      // de l'appareil : un cache incomplet jugeait « nouvelle » une séance déjà importée ailleurs (même identifiant),
+      // et son envoi réécrivait la séance et ses séries — une charge corrigée revenait, une série supprimée
+      // réapparaissait. La base est donc lue avant d'écrire chaque paquet ; ce qu'elle a déjà est « déjà là ». Sans
+      // réponse, rien ne part (l'import s'arrête, comme hors réseau).
+      var enBase;
+      try {
+        enBase = await Donnees.seancesDejaEnBase(prets.map(function (x) { return x.ids.seance; }),
+          prets.map(function (x) { return x.s.ref; }));
+      } catch (e) {
+        if (!generationValide(g)) return;
+        resultat.arret = 'connexion';
+        break;
+      }
+      if (!generationValide(g)) return;
+      var dejaEnBase = {}, refsEnBase = {};
+      (enBase || []).forEach(function (x) {
+        if (!x) return;
+        dejaEnBase[x.id] = true;
+        if (x.source_ref) refsEnBase[x.source_ref] = true;
+      });
+      for (var q = 0; q < prets.length; q++) {
+        var lue = prets[q].s, idsLue = prets[q].ids;
+        if (dejaEnBase[idsLue.seance] || refsEnBase[lue.ref]) { resultat.dejaLa++; continue; }
+        var m = Import.seanceAEcrire(lue, idsLue, index, uid);
         // Tous ses exercices laissés de côté : une séance vide n'est pas importée.
         if (!m) { resultat.deCote++; continue; }
         ops.push({ table: Attente.SESSIONS, op: Attente.UPSERT, id: m.id, donnees: Seance.ligneSession(m), creation: true });

@@ -1494,6 +1494,17 @@ const SETS_IMPORTES = [
       if (table === 'exercises') return json(projeter(CATALOGUE, url));
       if (table === 'routines') return json(projeter(ROUTINES, url));
       if (table === 'sessions') {
+        // 118 — `id=in.(…)` et `source_ref=in.(…)` : les séances d'un import déjà en base (`Donnees.seancesDejaEnBase`).
+        const dansListe = (brut) => brut.slice(4, -1).split(',').map((x) => x.replace(/^"|"$/g, ''));
+        const brutId = url.searchParams.get('id') || '', brutRef = url.searchParams.get('source_ref') || '';
+        if (brutId.startsWith('in.')) {
+          const ids = dansListe(brutId);
+          return json(projeter(base.sessions.filter((s) => ids.indexOf(s.id) >= 0), url));
+        }
+        if (brutRef.startsWith('in.')) {
+          const refs = dansListe(brutRef);
+          return json(projeter(base.sessions.filter((s) => s.source_ref && refs.indexOf(s.source_ref) >= 0), url));
+        }
         const st = (url.searchParams.get('statut') || '').replace('eq.', '');
         return json(projeter(st ? base.sessions.filter((s) => s.statut === st) : base.sessions, url));
       }
@@ -19883,6 +19894,66 @@ const SETS_IMPORTES = [
     ok('[E69] (f) DISCRIMINANT — plus récente que tout : ses records partent au journal (les 200 kg du soulevé de terre)',
       base.records.some((x) => x.session_id === idF && x.exercise_slug === slugSDT),
       nbE(base.records.map((x) => [x.session_id === idF, x.exercise_slug, x.type])));
+
+    // ── (g) 118 (audit du 16/10, 03 #2) — RATTACHER UN NOM REFAIT LE VERDICT ─
+    // ⚠️ CONFIGURATION DISCRIMINANTE : une séance de l'app (16 h 50 → 18 h 30, heure de Paris) et la même dans Hevy
+    // (18 h 00) sous un nom que personne ne connaît. Avant le rattachement, elle ne partage aucun exercice : « nouvelle »,
+    // cochée. Rattachée au même exercice que celle de l'app, elle devient « sans doute la même », DÉCOCHÉE — sans
+    // quoi « Importer » l'écrivait en double.
+    poserE('e118-app', { source: 'app', source_ref: null, debut: '2026-10-05T14:50:00Z', fin: '2026-10-05T16:30:00Z',
+      slugs: ['e69-roumain'] });
+    const DOUBLE = 'Jambes E118\nLe lundi, oct. 5, 2026 à 6:00pm\n\nRoumain Machin E118\nSérie 1: 80 kg x 8\nSérie 2: 80 kg x 8\n' +
+      '@hevyapp\nhttps://hevy.com/workout/e118Double\n';
+    await aller('/profil/import');
+    await coller(DOUBLE);
+    const g1 = await etat();
+    ok('[E118] (g) avant le rattachement : « nouvelle », cochée, le nom inconnu à rattacher',
+      g1.lignes.length === 1 && g1.lignes[0].coche && nbE(g1.noms) === nbE(['Roumain Machin E118']), nbE(g1));
+    const ecrituresG = ecrituresDeSeances();
+    await page.click('#import-hevy .imp-lien');
+    await attendre(600);
+    await page.fill('#champ-recherche-exo', 'E69 Roumain');
+    await attendre(400);
+    await page.evaluate(() => Array.from(document.querySelectorAll('#resultats-exo .resultat'))
+      .filter((b) => b.firstChild.textContent === 'E69 Roumain (Barre)')[0].click());
+    await jusqua(async () => base.aliasMiens.some((a) => a.alias === 'Roumain Machin E118'), 5000);
+    await attendre(300);
+    const g2 = await etat();
+    ok('[E118] (g) DISCRIMINANT — rattachée : « sans doute la même », décochée, rien à importer, rien n’est écrit',
+      g2.lignes.length === 1 && !g2.lignes[0].coche && /sans doute la même\.$/.test(g2.lignes[0].sous) &&
+      !!g2.bouton && g2.bouton.actif === false && ecrituresDeSeances() === ecrituresG,
+      nbE({ g2, ecritures: ecrituresDeSeances() - ecrituresG }));
+
+    // ── (h) 118 (audit du 16/10, 03 #3) — UN CACHE INCOMPLET NE RÉÉCRIT JAMAIS UNE SÉANCE DÉJÀ EN BASE ─
+    // ⚠️ CONFIGURATION DISCRIMINANTE : la séance a été importée ailleurs puis CORRIGÉE (titre, charge 77 kg) ; elle
+    // est en base, PAS dans le cache de cet appareil (posée en base après l'aperçu). L'aperçu la dit donc
+    // « nouvelle » ; « Importer » doit la lire en base et la laisser telle quelle — sans quoi l'upsert de la séance
+    // et le remplacement de ses séries remettaient le titre et les 80 kg de Hevy.
+    const REF_H = 'hevy:e118Corrigee';
+    const CORRIGEE = 'Séance E118\nLe mardi, oct. 6, 2026 à 6:00pm\n\nE69 Roumain (Barre)\nSérie 1: 80 kg x 8\n' +
+      '@hevyapp\nhttps://hevy.com/workout/e118Corrigee\n';
+    await aller('/profil/import');
+    await coller(CORRIGEE);
+    const h1 = await etat();
+    const idH = await idDImport(REF_H), idH1 = await idDImport(REF_H, 1);
+    base.sessions.push({ id: idH, user_id: 'u-banc', titre: 'Corrigée à la main', debut: '2026-10-06T16:00:00Z', fin: null,
+      statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'hevy', source_ref: REF_H,
+      created_at: '2026-10-06T16:00:00Z' });
+    base.sets.push({ id: idH1, session_id: idH, user_id: 'u-banc', exercise_slug: 'e69-roumain', charge_kg: 77, reps: 8,
+      duree_s: null, distance_m: null, type_serie: 'travail', rang: 1, groupe_superset: null, validee_a: null, rpe: null,
+      ressenti: null, repos_s: null, note: null, source: 'hevy', created_at: '2026-10-06T16:00:00Z', modifie_a: null });
+    const ecrituresH = ecrituresDeSeances();
+    await page.click('#import-hevy .imp-importer');
+    await jusqua(async () => /importée/.test((await etat()).titre), 12000);
+    await attendre(600);
+    const h2 = await etat();
+    const sessH = base.sessions.filter((x) => x.id === idH), setsH = base.sets.filter((x) => x.session_id === idH);
+    ok('[E118] (h) DISCRIMINANT — « nouvelle » à l’aperçu (absente du cache), mais déjà en base : rien n’est réécrit, « 1 était déjà dans l’app. »',
+      h1.lignes.length === 1 && h1.lignes[0].coche && !h1.lignes[0].grise &&
+      sessH.length === 1 && sessH[0].titre === 'Corrigée à la main' && setsH.length === 1 && setsH[0].charge_kg === 77 &&
+      ecrituresDeSeances() === ecrituresH && h2.titre === '0 séance importée.' &&
+      nbE(h2.ok) === nbE(['1 était déjà dans l’app.']),
+      nbE({ h1: h1.lignes, sessH, setsH: setsH.map((x) => x.charge_kg), ecritures: ecrituresDeSeances() - ecrituresH, h2 }));
 
     // ── (d) LE CSV DU CAS : LES VERDICTS ATTENDUS ─────────────────────────
     base.sessions = [];

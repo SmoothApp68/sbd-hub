@@ -608,9 +608,14 @@
 
   // Le récap du « combat » : le score collectif (tonnage, séries, records ; XP si publiée) et la part de chacun EN FAITS,
   // dans l'ordre d'arrivée — sans classement ni vainqueur.
+  // ⚠️ 118 (D7, décision d'Aurélien du 16/10/2026 : « Faite en groupe avec un ancien membre », chiffres gardés) — un
+  // compte supprimé sort des récaps figés des autres par son pseudo (v2_092 : `pseudo` vide, `ancien`), ses chiffres
+  // restent : il se dit « un ancien membre ».
+  var ANCIEN_MEMBRE = 'un ancien membre';
+  function pseudoDuRecap(x) { return x && typeof x.pseudo === 'string' && x.pseudo ? x.pseudo : ANCIEN_MEMBRE; }
   function recapDuGroupe(membres) {
     var l = (membres || []).filter(Boolean).map(function (x) {
-      return { pseudo: x.pseudo, moi: !!x.moi, tonnage_kg: Number(x.tonnage_kg) || 0, series: Number(x.series) || 0,
+      return { pseudo: pseudoDuRecap(x), moi: !!x.moi, tonnage_kg: Number(x.tonnage_kg) || 0, series: Number(x.series) || 0,
                records: Number(x.records) || 0, xp: x.xp === null || x.xp === undefined ? null : Number(x.xp) };
     });
     var avecXp = l.filter(function (x) { return x.xp !== null; });
@@ -623,9 +628,15 @@
     };
   }
   // « Faite en groupe avec jordan, lea » — les autres, dans l'ordre d'arrivée.
+  // 118 (D7) — les anciens membres, après les pseudos : « Faite en groupe avec jordan, un ancien membre » ;
+  // « 2 anciens membres » s'ils sont plusieurs.
   function faiteEnGroupeAvec(membres) {
-    var autres = (membres || []).filter(function (x) { return x && !x.moi; }).map(function (x) { return x.pseudo; });
-    return autres.length ? 'Faite en groupe avec ' + autres.join(', ') : null;
+    var noms = [], anciens = 0;
+    (membres || []).filter(function (x) { return x && !x.moi; }).forEach(function (x) {
+      if (typeof x.pseudo === 'string' && x.pseudo) noms.push(x.pseudo); else anciens++;
+    });
+    if (anciens) noms.push(anciens > 1 ? anciens + ' anciens membres' : ANCIEN_MEMBRE);
+    return noms.length ? 'Faite en groupe avec ' + noms.join(', ') : null;
   }
   // « 14,2 t · 41 séries · 2 records » — `tonnes(kg)` : `Bilan.tonnesDuRecap`.
   function partDe(x, tonnes) {

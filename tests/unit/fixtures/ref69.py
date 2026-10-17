@@ -7,7 +7,11 @@ import csv, io, json, re, sys, hashlib
 
 MOIS = {'janv': 1, 'janvier': 1, 'fevr': 2, 'fevrier': 2, 'mars': 3, 'avr': 4, 'avril': 4, 'mai': 5, 'juin': 6,
         'juil': 7, 'juillet': 7, 'aout': 8, 'sept': 9, 'septembre': 9, 'oct': 10, 'octobre': 10, 'nov': 11,
-        'novembre': 11, 'dec': 12, 'decembre': 12}
+        'novembre': 11, 'dec': 12, 'decembre': 12,
+        # 118 (audit du 16/10, 03 #12) : les mois d'un export réglé en anglais.
+        'jan': 1, 'january': 1, 'feb': 2, 'february': 2, 'mar': 3, 'march': 3, 'apr': 4, 'april': 4, 'may': 5,
+        'jun': 6, 'june': 6, 'jul': 7, 'july': 7, 'aug': 8, 'august': 8, 'sep': 9, 'september': 9, 'october': 10,
+        'november': 11, 'december': 12}
 SANS = str.maketrans('àâäéèêëîïôöùûüçœ', 'aaaeeeeiioouuuco')
 
 
@@ -65,13 +69,17 @@ def serie_texte(d):
         s['distance_m'] = nombre(float(m.group(1).replace(',', '.')) * 1000)
         s['duree_s'] = duree(m.group(2))
         return s
-    m = re.match(r'^([\d.,]+)\s*(kg|lbs)\s*[x×]\s*(\d+)$', d, re.I)
+    # 118 (audit du 16/10, 03 #4) : un signe devant la charge se lit tel qu'il est écrit (« -20 kg » : une aide, en
+    # négatif ; « +10 kg » : un lest) ; sans signe, rien ne change.
+    m = re.match(r'^([+-]?)\s*([\d.,]+)\s*(kg|lbs)\s*[x×]\s*(\d+)$', d, re.I)
     if m:
-        kg = float(m.group(1).replace(',', '.'))
-        if m.group(2).lower() == 'lbs':
+        kg = float(m.group(2).replace(',', '.'))
+        if m.group(3).lower() == 'lbs':
             kg = round(kg * 0.45359237, 1)
+        if m.group(1) == '-':
+            kg = -kg
         s['charge_kg'] = nombre(kg)
-        s['reps'] = int(m.group(3))
+        s['reps'] = int(m.group(4))
         return s
     m = re.match(r'^(\d+)\s*r[eé]p[eé]titions?$', d, re.I)
     if m:
@@ -122,10 +130,20 @@ TYPES_CSV = {'normal': 'travail', 'warmup': 'echauffement', 'dropset': 'degressi
 
 
 def date_csv(s):
-    m = re.match(r'^(\d{1,2})\s+([^\s]+?)\.?\s+(\d{4}),\s+(\d{1,2}):(\d{2})$', norme(s))
-    if not m: raise ValueError('date illisible : ' + s)
-    j, mois, a, h, mi = m.groups()
-    return '%s-%02d-%02dT%02d:%s' % (a, MOIS[mois], int(j), int(h), mi)
+    # 118 (audit du 16/10, 03 #12) : aussi « 16 Jun 2026, 10:24 » et « Oct 2, 2026, 5:54 PM » (Hevy en anglais).
+    t = norme(s)
+    m = re.match(r'^(\d{1,2})\s+([^\s]+?)\.?\s+(\d{4}),\s+(\d{1,2}):(\d{2})\s*(am|pm)?$', t)
+    if m:
+        j, mois, a, h, mi, ap = m.groups()
+    else:
+        m = re.match(r'^([a-z]+)\.?\s+(\d{1,2}),\s+(\d{4}),\s+(\d{1,2}):(\d{2})\s*(am|pm)?$', t)
+        if not m: raise ValueError('date illisible : ' + s)
+        mois, j, a, h, mi, ap = m.groups()
+    if mois not in MOIS: raise ValueError('date illisible : ' + s)
+    h = int(h)
+    if ap == 'pm' and h < 12: h += 12
+    if ap == 'am' and h == 12: h = 0
+    return '%s-%02d-%02dT%02d:%s' % (a, MOIS[mois], int(j), h, mi)
 
 
 def vide(x):

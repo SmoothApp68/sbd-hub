@@ -32,8 +32,21 @@
   var MOIS = {
     janv: 1, janvier: 1, fevr: 2, fevrier: 2, mars: 3, avr: 4, avril: 4, mai: 5, juin: 6,
     juil: 7, juillet: 7, aout: 8, sept: 9, septembre: 9, oct: 10, octobre: 10, nov: 11,
-    novembre: 11, dec: 12, decembre: 12
+    novembre: 11, dec: 12, decembre: 12,
+    // 118 (audit du 16/10, 03 #12) — les mois d'un export réglé en ANGLAIS (« 16 Jun 2026, 10:24 »,
+    // « Oct 2, 2026, 5:54 PM ») : seule la date du CSV change de langue, ses colonnes et ses types de série non.
+    jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4, may: 5, jun: 6, june: 6,
+    jul: 7, july: 7, aug: 8, august: 8, sep: 9, september: 9, october: 10, november: 11, december: 12
   };
+  // Les mots qui ne sont QUE de l'anglais (« oct », « nov », « dec », « sept » valent dans les deux langues ; « am »
+  // et « pm » aussi : le Hevy français les écrit) : une date illisible qui en porte un vient d'un Hevy réglé en
+  // anglais, et l'écran le dit (`enAnglais`).
+  var MOTS_ANGLAIS = /(^|[^a-z])(jan|january|feb|february|march|apr|april|may|jun|june|jul|july|aug|august|sep|september|october|november|december|at)([^a-z]|$)/;
+  function erreurDate(texte) {
+    var e = new Error('date illisible : ' + texte);
+    if (MOTS_ANGLAIS.test(norme(texte))) e.enAnglais = true;
+    return e;
+  }
   // Les mois AFFICHÉS sont ceux du formateur unique (`modele.js`, registre des
   // notions) ; ceux d'au-dessus ne servent qu'à LIRE la date de Hevy.
   function Mo() { return racine.THModele; }
@@ -94,6 +107,13 @@
     if (!Object.prototype.hasOwnProperty.call(MOIS, mot)) throw new Error('mois illisible : ' + mot);
     return MOIS[mot];
   }
+  // L'heure sur 24 h : « 5:54 pm » → 17 ; « 12:10 am » → 0 ; sans am/pm, telle quelle.
+  function heure24(h, ap) {
+    var n = Number(h);
+    if (ap === 'pm' && n < 12) n += 12;
+    if (ap === 'am' && n === 12) n = 0;
+    return n;
+  }
 
   // « Le mardi, sept. 22, 2026 à 5:12pm » → « 2026-09-22T17:12 » ; null sinon.
   function dateTexte(ligne) {
@@ -134,12 +154,17 @@
       s.duree_s = duree(m[2]);
       return s;
     }
-    m = /^([\d.,]+)\s*(kg|lbs)\s*[x×]\s*(\d+)$/i.exec(d);
+    // ⚠️ 118 (audit du 16/10, 03 #4) — UN SIGNE DEVANT LA CHARGE se lit tel qu'il est écrit : « +10 kg x 8 » (un
+    // lest) vaut 10 kg, « -20 kg x 8 » (une aide) vaut −20 kg — l'aide est rangée en NÉGATIF en base (MOTEUR
+    // §9.17). Sans signe, rien ne change. Le signe ne se DEVINE jamais (le type d'exercice ne le pose pas) : il est lu.
+    // Avant, un seul signe faisait refuser tout le texte collé.
+    m = /^([+-]?)\s*([\d.,]+)\s*(kg|lbs)\s*[x×]\s*(\d+)$/i.exec(d);
     if (m) {
-      var kg = nombreLu(m[1]);
-      if (m[2].toLowerCase() === 'lbs') kg = dixieme(kg * LIVRE);
+      var kg = nombreLu(m[2]);
+      if (m[3].toLowerCase() === 'lbs') kg = dixieme(kg * LIVRE);
+      if (m[1] === '-') kg = -kg;
       s.charge_kg = nombre(kg);
-      s.reps = Number(m[3]);
+      s.reps = Number(m[4]);
       return s;
     }
     m = /^(\d+)\s*r[eé]p[eé]titions?$/i.exec(d);
@@ -170,7 +195,10 @@
       }
       if (attendDate) {
         cur.debut_local = dateTexte(l);
-        if (!cur.debut_local) throw new Error('date illisible : ' + l);
+        // 118 — un texte partagé depuis un Hevy en ANGLAIS (« Thursday, Oct 2, 2026 at 5:54pm », « Set 1: … ») n'est
+        // pas lu : ses mots de série (échauffement, dégressive…) n'ont jamais été relevés, et les deviner rangerait
+        // une chauffe en série de travail. L'erreur le dit (`enAnglais`), l'écran demande un Hevy en français.
+        if (!cur.debut_local) throw erreurDate(l);
         attendDate = false;
         return;
       }
@@ -227,11 +255,18 @@
     return lignes;
   }
 
-  // « 16 juin 2026, 10:24 » → « 2026-06-16T10:24 ».
+  // « 16 juin 2026, 10:24 » → « 2026-06-16T10:24 ». 118 (audit du 16/10, 03 #12) — et l'export d'un Hevy en
+  // anglais : « 16 Jun 2026, 10:24 » (la forme relevée par l'audit) ou « Oct 2, 2026, 5:54 PM ». Une date que rien
+  // ne lit, ou un mois inconnu, est une erreur — `enAnglais` si elle porte un mot anglais.
+  var RE_CSV_JMA = /^(\d{1,2})\s+([^\s]+?)\.?\s+(\d{4}),\s+(\d{1,2}):(\d{2})\s*(am|pm)?$/;
+  var RE_CSV_MJA = /^([a-z]+)\.?\s+(\d{1,2}),\s+(\d{4}),\s+(\d{1,2}):(\d{2})\s*(am|pm)?$/;
   function dateCsv(s) {
-    var m = /^(\d{1,2})\s+([^\s]+?)\.?\s+(\d{4}),\s+(\d{1,2}):(\d{2})$/.exec(norme(s));
-    if (!m) throw new Error('date illisible : ' + s);
-    return m[3] + '-' + deux(moisDe(m[2])) + '-' + deux(Number(m[1])) + 'T' + deux(Number(m[4])) + ':' + m[5];
+    var t = norme(s), m = RE_CSV_JMA.exec(t), j, mo, a, h, mi, ap;
+    if (m) { j = m[1]; mo = m[2]; a = m[3]; h = m[4]; mi = m[5]; ap = m[6]; }
+    else if ((m = RE_CSV_MJA.exec(t))) { mo = m[1]; j = m[2]; a = m[3]; h = m[4]; mi = m[5]; ap = m[6]; }
+    else throw erreurDate(s);
+    if (!Object.prototype.hasOwnProperty.call(MOIS, mo)) throw erreurDate(s);
+    return a + '-' + deux(MOIS[mo]) + '-' + deux(Number(j)) + 'T' + deux(heure24(h, ap)) + ':' + mi;
   }
 
   function vide(x) {
@@ -461,6 +496,29 @@
     });
   }
 
+  // ⚠️ 118 (audit du 16/10, 03 #2) — L'APERÇU SE RECALCULE APRÈS CHAQUE RATTACHEMENT. Un nom pas encore rattaché
+  // n'a pas d'exercice : la séance faite dans l'app ET dans Hevy ne partageait donc aucun exercice avec celle de
+  // l'app, ressortait « nouvelle », cochée — et, une fois le nom rattaché, partait en double. Ici, chaque ligne
+  // reprend ses exercices avec l'index d'aujourd'hui et son verdict contre `base`. Un verdict qui CHANGE prend la
+  // case de son nouveau verdict (« sans doute la même » : décochée) ; un verdict qui ne change pas garde la case
+  // telle que la personne l'a laissée. Rien n'est muté.
+  function recalculer(lignes, contexte) {
+    var c = contexte || {};
+    var index = indexDesNoms(c.sources);
+    return (lignes || []).map(function (l) {
+      var s = Object.assign({}, l.seance, {
+        exercices: l.seance.exercices.map(function (e) {
+          return Object.assign({}, e, { exercise_slug: slugDuNom(index, e.nom) });
+        })
+      });
+      var v = verdictDetaille(s, c.base);
+      return Object.assign({}, l, {
+        seance: s, verdict: v.verdict, avec: v.avec,
+        coche: v.verdict === l.verdict ? l.coche : v.verdict === 'nouvelle'
+      });
+    });
+  }
+
   // Les noms à rattacher dans les séances COCHÉES, dans l'ordre où ils
   // apparaissent : `{ nom, series, seances }`. Un nom déjà rattaché (index) ou
   // laissé de côté n'y est plus ; `ignores` : `{ nom: true }`.
@@ -618,6 +676,9 @@
   var MESSAGES = {
     texte: 'Je ne reconnais pas ce texte. Copie-le depuis Hevy : une séance → Partager → Copier.',
     fichier: 'Ce fichier n’est pas un export de séances Hevy.',
+    // 118 (audit du 16/10, 03 #12) — un Hevy réglé en anglais : ce n'est pas « pas un export ».
+    fichierAnglais: 'Export en anglais : change la langue de Hevy en français et réexporte.',
+    texteAnglais: 'Texte en anglais : change la langue de Hevy en français et copie-le de nouveau.',
     connexion: 'L’import demande une connexion.',
     attend: 'Le bouton attend que chaque exercice soit rattaché ou laissé de côté.',
     souvenir: 'Je m’en souviendrai pour tes prochains imports.',
@@ -642,6 +703,7 @@
     verdict: verdict,
     verdictDetaille: verdictDetaille,
     apercu: apercu,
+    recalculer: recalculer,
     nomsARattacher: nomsARattacher,
     pretAImporter: pretAImporter,
     seanceAEcrire: seanceAEcrire,

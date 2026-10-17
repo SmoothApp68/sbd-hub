@@ -772,6 +772,41 @@
     return Object.keys(gardees || {}).reduce(function (t, k) { return t.concat(gardees[k] || []); }, []);
   }
 
+  // ⚠️ 118 (suite de 117) — LA MÊME RÈGLE POUR CE QUI ATTEND HORS DE LA FILE : la réponse de profil pas encore
+  // envoyée et les messages du groupe écrits hors ligne. Un autre compte qui entrait les effaçait encore, sans la
+  // fenêtre de « Quitter ». Ils sont gardés sous l'identifiant du compte qui part, rendus quand il revient.
+  //   `gardes` : `{ uid: { 'magasin:cle': valeur } }` ; `valeurs` : celles du compte qui part (une valeur vide —
+  //   null, faux, liste vide — n'est pas gardée). Rend `{ gardes, rendues }` ; rien n'est muté.
+  function valeurAGarder(v) {
+    return v !== null && v !== undefined && v !== false && !(Array.isArray(v) && !v.length);
+  }
+  function changerDeCompteAutres(gardes, ancienUid, valeurs, nouveauUid) {
+    var g = {};
+    Object.keys(gardes || {}).forEach(function (u) {
+      var x = gardes[u] || {}, propre = {};
+      Object.keys(x).forEach(function (c) { if (valeurAGarder(x[c])) propre[c] = x[c]; });
+      if (Object.keys(propre).length) g[u] = propre;
+    });
+    if (ancienUid) {
+      var pleines = {};
+      Object.keys(valeurs || {}).forEach(function (c) { if (valeurAGarder(valeurs[c])) pleines[c] = valeurs[c]; });
+      if (Object.keys(pleines).length) g[ancienUid] = Object.assign({}, g[ancienUid] || {}, pleines);
+    }
+    var rendues = (nouveauUid && g[nouveauUid]) || {};
+    if (nouveauUid) delete g[nouveauUid];
+    return { gardes: g, rendues: rendues };
+  }
+  // Combien de choses attendent, gardées pour d'autres comptes (une liste compte ses éléments, une réponse de profil
+  // compte pour une) : la fenêtre de « Quitter » les compte.
+  function compterGardesAutres(gardes) {
+    return Object.keys(gardes || {}).reduce(function (n, u) {
+      var x = gardes[u] || {};
+      return n + Object.keys(x).reduce(function (k, c) {
+        return k + (Array.isArray(x[c]) ? x[c].length : valeurAGarder(x[c]) ? 1 : 0);
+      }, 0);
+    }, 0);
+  }
+
   // Tout ce qui attend encore, par table. La synchronisation s'en sert pour
   // NE PAS EFFACER ce qu'elle ne connaît pas encore : `Sync.remplacer` remplace
   // la liste des séances par celle du serveur, et une séance saisie hors ligne
@@ -889,6 +924,8 @@
     reparerSchema: reparerSchema,
     changerDeCompte: changerDeCompte,
     entreesGardees: entreesGardees,
+    changerDeCompteAutres: changerDeCompteAutres,
+    compterGardesAutres: compterGardesAutres,
     cleDe: cleDe,
     estDefinitive: estDefinitive,
     estConflitEnCours: estConflitEnCours,

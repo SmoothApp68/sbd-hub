@@ -188,6 +188,11 @@ https://hevy.com/workout/4Xt0ZOlgoUw
 - la ligne **entre guillemets** juste sous un nom d'exercice est sa **note** ;
 - une série : `<charge> kg x <reps>` · `<reps> répétitions` · une durée (`30s`, `5min 0s`, `5h 25min 5s`) ·
   `<distance> km - <durée>` ; `@ <n> rpe` ; `lbs` se convertit (× 0,45359237, au dixième) ;
+- **un signe devant la charge se lit tel qu'il est écrit** (16/10/2026, audit du 16/10, 03 #4) : `+10 kg x 8` (un
+  lest) vaut 10 kg, `-20 kg x 8` (une aide) vaut −20 kg — l'aide est rangée en négatif (MOTEUR §9.17). Il n'est
+  jamais deviné d'après l'exercice. Aucun partage réel avec un signe n'a encore été relevé (le cas du chantier 69
+  n'en contient pas) : la forme est à confirmer sur un vrai partage lesté et un vrai partage assisté ; avant, un seul
+  signe faisait refuser tout le texte ;
 - **`[Échauffement]` → échauffement ; `[Abandon]` → dégressive** (relevé : 5 fois sur 5, une série plus légère juste
   après la dernière ; l'import du 19 au 25/09 les a rangées ainsi) ; `[Échec]` → échec ; un autre crochet → travail.
 
@@ -196,6 +201,14 @@ set_type, weight_kg, reps, distance_km, duration_seconds, rpe` ; dates « 16 jui
 français) ; `set_type` normal → travail, warmup → échauffement, dropset → dégressive, failure → échec ; `description`
 → la note de la séance ; `exercise_notes` → la note de l'exercice ; `superset_id` → `groupe_superset`, **un superset
 d'un seul exercice n'en est pas un** (ECRAN-SAISIE §5.9) ; une distance ou une durée à 0 est vide.
+
+**Un Hevy réglé en anglais** (16/10/2026, audit du 16/10, 03 #12). L'export CSV ne change de langue que par ses
+dates : elles se lisent aussi en anglais — « 16 Jun 2026, 10:24 » (la forme relevée par l'audit) et « Oct 2, 2026,
+5:54 PM ». Aucun export anglais réel n'est encore au dépôt : une autre forme reste illisible. Le **texte partagé** en
+anglais n'est pas lu (ses mots de série — échauffement, dégressive — n'ont jamais été relevés, et les deviner
+rangerait une chauffe en série de travail). Dans les deux cas, une date illisible qui porte un mot anglais ne dit plus
+« pas un export » mais « Export en anglais : change la langue de Hevy en français et réexporte. » (CSV) ou « Texte en
+anglais : change la langue de Hevy en français et copie-le de nouveau. » (texte).
 
 **L'heure.** Hevy écrit l'heure **locale, sans fuseau**. Elle se lit dans le fuseau du téléphone et part en base en
 heure universelle. *(L'import CSV d'août l'avait écrite telle quelle : 1 221 séances décalées de 1 à 2 h, corrigées
@@ -222,6 +235,12 @@ partent pas, et ce choix-là n'est pas retenu. « Importer » attend que chaque 
 Deux activités qui se suivent (un run de 8 h à 10 h, un autre à 12 h ; deux séances enchaînées) ne se chevauchent
 pas : elles sont importées. Une séance existante n'est **jamais** modifiée ni remplacée.
 
+**Le verdict se refait à chaque rattachement** (16/10/2026, audit du 16/10, 03 #2). Un nom pas encore rattaché n'a
+pas d'exercice : la séance faite dans l'app et dans Hevy ne partageait donc rien avec celle de l'app, restait
+« nouvelle », cochée, et partait en double une fois le nom rattaché. Après chaque rattachement, chaque ligne de
+l'aperçu reprend ses exercices et son verdict ; un verdict qui change prend la case de son nouveau verdict (« sans
+doute la même » : décochée), un verdict inchangé garde la case telle que la personne l'a laissée.
+
 **L'aperçu** : « N séances trouvées », la période, une ligne par séance (titre, jour et heure, « 7 exercices · 24
 séries » ou le verdict), puis « K exercices à rattacher ». **Rien n'est écrit avant « Importer N séances ».**
 
@@ -231,6 +250,10 @@ séries » ou le verdict), puis « K exercices à rattacher ». **Rien n'est éc
   de ses séries ;
 - **les identifiants sont tirés du nom** (`import|<personne>|<source_ref>`, et `…|<rang>` pour une série) : un envoi
   rejoué, une importation recommencée ou faite depuis un autre téléphone écrivent la même ligne ;
+- **la base est lue avant d'écrire** (16/10/2026, audit du 16/10, 03 #3) : l'aperçu ne voit que le cache de
+  l'appareil, et un cache incomplet laissait réécrire — séance et séries — une séance déjà importée ailleurs, puis
+  corrigée. Avant chaque paquet, les séances déjà en base (même identifiant tiré du nom, ou même `source_ref`) sont
+  « déjà là » et ne sont **jamais** réécrites ; sans réponse de la base, rien ne part (comme hors réseau) ;
 - **les records** : une séance importée **plus récente que la dernière séance déjà là** de la personne inscrit ses
   records au journal (comme une séance terminée), dans l'ordre des dates. **Plus ancienne, aucun** : le journal ne se
   réécrit pas, et un record inscrit après coup dans le passé serait faux pour tout ce qui a suivi ;

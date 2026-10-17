@@ -1877,6 +1877,8 @@
     });
   }
 
+  // Deux charges CONNUES égales, au centième ; une charge qui manque n'est égale à rien. La seule arithmétique de
+  // « même charge » (124, audit du 16/10/2026, 01 #14) : le plan la lit (`memeChargeOuVides`, deux vides y sont égaux).
   function memeCharge(a, b) {
     return a !== null && b !== null && auCentieme(a) === auCentieme(b);
   }
@@ -5082,7 +5084,9 @@
   // séance qui s'ouvre vient de l'appelant. Référence : `coach49.py`
   // (`blocage_generalise`, `phrase_carte`, `consigne_allegee`,
   // `series_allegees`, `fin_allegee`) ; cas `cas-49u14-semaine-allegee.json`.
-  var PAS_ESCALIER = 4;               // un déclenchement : 4, 8, 12…
+  // Un déclenchement : 4, 8, 12… — le seuil de la phrase du compteur (§12.9), une valeur pour deux usages (124, audit
+  // du 16/10/2026, 01 #14 : `SEUIL_COMPTEUR` et `PAS_ESCALIER` étaient deux « 4 » couplés par la spec).
+  var PAS_ESCALIER = SEUIL_COMPTEUR;
   var FENETRE_BLOCAGE_JOURS = 7;      // de 0 à 7 jours avant, le jour même compris
   var AUTRES_EXERCICES_MIN = 2;       // au moins deux AUTRES exercices à 4 ou plus
   var NOMS_MAX_CARTE = 4;             // au-delà, les 3 premiers puis « et N autres exercices »
@@ -5107,26 +5111,33 @@
     return n !== null && n >= PAS_ESCALIER && n % PAS_ESCALIER === 0;
   }
 
-  // Le JOUR CIVIL local d'un instant, « AAAA-MM-JJ » ; une date déjà au jour
-  // passe telle quelle.
+  // ── LES JOURS CIVILS, UNE FOIS (124, audit du 16/10/2026, 01 #14 : l'arithmétique était écrite trois fois — ici,
+  // dans `objectif.js` et dans `deraille.js` ; les deux autres la lisent) ──
+  // Le JOUR CIVIL local d'un instant (une date, un horodatage, un nombre de millisecondes), « AAAA-MM-JJ » ; une
+  // date déjà au jour passe telle quelle.
   function jourCivil(v) {
     if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
-    var t = instant(v);
+    var t = typeof v === 'number' ? (isFinite(v) ? v : null) : instant(v);
     if (t === null) return null;
     var d = new Date(t);
     var deux = function (x) { return (x < 10 ? '0' : '') + x; };
     return d.getFullYear() + '-' + deux(d.getMonth() + 1) + '-' + deux(d.getDate());
   }
+  // Le NUMÉRO d'un jour civil « AAAA-MM-JJ » : la différence de deux numéros compte les jours du calendrier.
   function numeroDuJour(jour) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(jour || ''));
     return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3]) / JOUR) : null;
   }
-  function ajouterJours(jour, n) {
-    var k = numeroDuJour(jour);
-    if (k === null) return null;
-    var d = new Date((k + n) * JOUR);
+  // Le jour civil d'un numéro (l'inverse de `numeroDuJour`).
+  function jourDuNumero(k) {
+    if (typeof k !== 'number' || !isFinite(k)) return null;
+    var d = new Date(k * JOUR);
     var deux = function (x) { return (x < 10 ? '0' : '') + x; };
     return d.getUTCFullYear() + '-' + deux(d.getUTCMonth() + 1) + '-' + deux(d.getUTCDate());
+  }
+  function ajouterJours(jour, n) {
+    var k = numeroDuJour(jour);
+    return k === null ? null : jourDuNumero(k + n);
   }
   // L'ordre alphabétique de `coach49.py` : par points de code, sans locale
   // (« Écarté » vient après « Rowing », comme dans les cas).
@@ -7638,6 +7649,9 @@
     correctionAu: correctionAu,
     ZONES_DE_BLOC: ZONES_DE_BLOC,
     estZoneForce: estZoneForce,
+    memeCharge: memeCharge,
+    numeroDuJour: numeroDuJour,
+    jourDuNumero: jourDuNumero,
     SANS_CUMUL_JOURS: SANS_CUMUL_JOURS,
     SEMAINES_BLOC_MIN: SEMAINES_BLOC_MIN,
     SEMAINES_BLOC_MAX: SEMAINES_BLOC_MAX,

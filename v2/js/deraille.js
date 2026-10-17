@@ -40,12 +40,10 @@
   }
 
   // ── Les jours ────────────────────────────────────────────────────────────
-  function numero(j) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(j || ''));
-    return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5) : null;
-  }
+  // Le numéro d'un jour civil et son inverse : l'arithmétique du moteur, écrite une fois (124, audit du 16/10/2026, 01 #14).
+  function numero(j) { return Moteur().numeroDuJour(j); }
   function jourDeSemaine(n) { return ((new Date(n * 864e5).getUTCDay() + 6) % 7) + 1; }   // 1 = lundi
-  function civil(n) { return new Date(n * 864e5).toISOString().slice(0, 10); }
+  function civil(n) { return Moteur().jourDuNumero(n); }
   function lundiDe(j) { var n = numero(j); return n === null ? null : civil(n - jourDeSemaine(n) + 1); }
 
   // Le jour d'une routine écrite par le générateur : le préfixe exact « <Jour> — » (la règle de v2_084).

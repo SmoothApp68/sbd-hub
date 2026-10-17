@@ -37,11 +37,13 @@
     var n = Number(v);
     return isFinite(n) ? n : null;
   }
-  function auCentieme(v) { return Math.round(v * 100) / 100; }
-  function memeCharge(a, b) {
+  // 124 (audit du 16/10/2026, 01 #14) — « MÊME CHARGE » : l'arithmétique (au centième) est celle du moteur
+  // (`THMoteur.memeCharge`, deux charges connues). Le plan compare aussi des lignes SANS charge : deux vides y sont
+  // « la même », et le nom le dit — `memeCharge` du moteur rend faux dès qu'une charge manque.
+  function memeChargeOuVides(a, b) {
     var x = nombre(a), y = nombre(b);
     if (x === null || y === null) return x === null && y === null;
-    return auCentieme(x) === auCentieme(y);
+    return Moteur().memeCharge(x, y);
   }
 
   // ══ §9.17 (50-1) — LA NATURE DE LA CHARGE, LUE SUR LA CONSIGNE ═══════════════
@@ -109,10 +111,10 @@
     var prevue = nombre(l.charge);
     if (prevue === null) {
       var travail = chargeDeTravail(consigne);
-      return travail !== null && fait > travail && !memeCharge(fait, travail);
+      return travail !== null && fait > travail && !memeChargeOuVides(fait, travail);
     }
-    if (l.role === 'coach' || l.role === 'elan') return fait >= prevue || memeCharge(fait, prevue);
-    return memeCharge(fait, prevue);
+    if (l.role === 'coach' || l.role === 'elan') return fait >= prevue || memeChargeOuVides(fait, prevue);
+    return memeChargeOuVides(fait, prevue);
   }
 
   function poserFantomes(lignes) {
@@ -419,9 +421,9 @@
         var porteuse = null;
         for (var b = k - 1; b >= 0; b--) {
           var v = couvertes[b];
-          if (!v.validee || !v.faite || !memeCharge(nombre(v.faite.charge), nombre(l.charge))) continue;
+          if (!v.validee || !v.faite || !memeChargeOuVides(nombre(v.faite.charge), nombre(l.charge))) continue;
           if (!porteuse) porteuse = v;
-          if (!(v.role === 'elan' && memeCharge(nombre(v.charge), nombre(l.charge)))) { porteuse = v; break; }
+          if (!(v.role === 'elan' && memeChargeOuVides(nombre(v.charge), nombre(l.charge)))) { porteuse = v; break; }
         }
         raison = 'on garde ' + kg(l.charge, cL) +
           (porteuse ? ' après ' + kgFois(porteuse.faite.charge, porteuse.faite.reps, DU_JOUR) : '');
@@ -1798,7 +1800,7 @@
     var barre = x.materiel === 'barre';
     var ch = x.chauffes;
     var sousRef = function (c, ref) {
-      return (c < ref && !memeCharge(c, ref)) || (barre && memeCharge(c, 20));
+      return (c < ref && !memeChargeOuVides(c, ref)) || (barre && memeChargeOuVides(c, 20));
     };
     if (ch) {
       var avant = null;
@@ -1820,8 +1822,8 @@
         if (!l.chauffe || l.chauffe.charge === null) return;
         var c = nombre(l.chauffe.charge);
         if (!sousRef(c, ch.reference)) err('I16', 'chauffe ' + c + ' pas sous la référence ' + ch.reference + ' (série ' + l.iSerie + ')');
-        if (avant !== null && c < avant && !memeCharge(c, avant)) err('I16', 'chauffe ' + c + ' après ' + avant + ' : la montée redescend (série ' + l.iSerie + ')');
-        if (!l.validee && (!l.fantome || !memeCharge(l.fantome.charge, c))) err('I16', 'la chauffe de la série ' + l.iSerie + ' n’est pas dans son fantôme');
+        if (avant !== null && c < avant && !memeChargeOuVides(c, avant)) err('I16', 'chauffe ' + c + ' après ' + avant + ' : la montée redescend (série ' + l.iSerie + ')');
+        if (!l.validee && (!l.fantome || !memeChargeOuVides(l.fantome.charge, c))) err('I16', 'la chauffe de la série ' + l.iSerie + ' n’est pas dans son fantôme');
         avant = c;
       });
     }
@@ -1858,10 +1860,10 @@
         if (!d.phrase) err('I17', 'une dégressive vide en silence');
         if (!d.gestes || d.gestes.indexOf('serie_normale') < 0 || d.gestes.indexOf('retirer') < 0) err('I17', 'une dégressive vide sans ses gestes');
       }
-      if (d.charge !== null && !(d.charge < d.reference && !memeCharge(d.charge, d.reference))) {
+      if (d.charge !== null && !(d.charge < d.reference && !memeChargeOuVides(d.charge, d.reference))) {
         err('I17', 'dégressive ' + d.charge + ' pas sous la dernière série de travail ' + d.reference);
       }
-      if (!l.validee && (!l.fantome || !memeCharge(l.fantome.charge, d.charge))) err('I17', 'la dégressive n’est pas dans son fantôme');
+      if (!l.validee && (!l.fantome || !memeChargeOuVides(l.fantome.charge, d.charge))) err('I17', 'la dégressive n’est pas dans son fantôme');
     }
   }
 
@@ -1885,7 +1887,7 @@
     var H = k.haut ? nombre(k.haut.charge) : null;
     var plusLegere = function (a, b) {
       var u = nombre(a), v = nombre(b);
-      return u !== null && v !== null && u < v && !memeCharge(u, v);
+      return u !== null && v !== null && u < v && !memeChargeOuVides(u, v);
     };
     var faite = function (l) { return l && l.validee && l.faite ? nombre(l.faite.charge) : null; };
     // Plus légère que sa ligne, au sens de la phrase : jamais le test remis à
@@ -1893,7 +1895,7 @@
     var legereSurSaLigne = function (l) {
       var f = faite(l);
       if (f === null || !plusLegere(f, l.charge)) return false;
-      if ((l.role === 'test' || l.role === 'elan') && memeCharge(f, P)) return false;
+      if ((l.role === 'test' || l.role === 'elan') && memeChargeOuVides(f, P)) return false;
       // Sous un élan, seulement ce qui le dit à coup sûr : plus légère que la
       // charge de travail (la ligne remplacée est la charge de travail ou le test).
       if (l.role === 'elan') return plusLegere(f, P);
@@ -1904,7 +1906,7 @@
       var f41 = faite(d);
       if (!d || f41 === null || !plusLegere(f41, d.charge)) {
         err('I41', '« plus léger » sans série plus légère que sa ligne (position ' + (msg.rang - 1) + ')');
-      } else if ((d.role === 'test' || d.role === 'elan') && memeCharge(f41, P)) {
+      } else if ((d.role === 'test' || d.role === 'elan') && memeChargeOuVides(f41, P)) {
         err('I41', '« plus léger » pour une série à la charge de travail sur une ligne ' + d.role + ' (le test remis à plus tard)');
       } else if (d.role === 'elan' && !(plusLegere(f41, P) || (H !== null && plusLegere(f41, H)))) {
         err('I41', '« plus léger » sous un élan, pour une série qui n\'est pas plus légère que la ligne qu\'il remplaçait');
@@ -1942,14 +1944,14 @@
       }
       if (arret < 0) return;
       var repose = false;
-      for (var u = arret; u < j; u++) if (memeCharge(faite(couvertes[u]), l.charge)) repose = true;
+      for (var u = arret; u < j; u++) if (memeChargeOuVides(faite(couvertes[u]), l.charge)) repose = true;
       if (!repose) {
         err('I43', 'la ligne d\'élan ' + j + ' (' + l.charge + ') survit à la série plus légère de la position ' + arret);
       }
     });
     if (msg && (msg.type === 'elan' || msg.type === 'effort_suggere')) {
       var porte = couvertes.some(function (l, j) {
-        return j >= msg.rang && !l.validee && l.role === 'elan' && memeCharge(l.charge, msg.charge);
+        return j >= msg.rang && !l.validee && l.role === 'elan' && memeChargeOuVides(l.charge, msg.charge);
       });
       if (!porte) err('I43', '« ' + msg.type + ' » sans ligne d\'élan à ' + msg.charge);
     }
@@ -1962,7 +1964,7 @@
       var f44 = d && d.validee && d.faite ? d.faite : null;
       if (!f44) { err('I44', 'la ligne « à fond » ' + j + ' sans série validée juste avant elle'); return; }
       var aFond = racine.THPalier.cranDeSerie({ rpe: f44.rpe, ressenti: f44.ressenti }) === 'max';
-      if (!aFond || !memeCharge(l.charge, f44.charge) || nombre(l.vise) !== nombre(f44.reps) - 1) {
+      if (!aFond || !memeChargeOuVides(l.charge, f44.charge) || nombre(l.vise) !== nombre(f44.reps) - 1) {
         err('I44', 'la ligne « à fond » ' + j + ' (' + l.charge + ' × ' + l.vise + ') après ' + f44.charge + ' × ' + f44.reps +
           (aFond ? '' : ', une série qui n\'est pas à fond'));
       }
@@ -2059,13 +2061,13 @@
       }
       var prevue = init[i] ? nombre(init[i].charge) : null;
       var ch = nombre(p.charge);
-      if (ch !== null && prevue !== null && ch < prevue && !memeCharge(ch, prevue)) {
+      if (ch !== null && prevue !== null && ch < prevue && !memeChargeOuVides(ch, prevue)) {
         err('I3', 'proposition ' + ch + ' plus basse que la ligne prévue ' + prevue + ' (ligne ' + i + ')');
       }
       // Sans exception (49-U7) : la tolérance de 49-U5 pour une reprise longue
       // « au palier » (P008, F028) est partie avec les cas corrigés — le cran
       // se lit au-dessus de la charge retenue (`reactionPour`).
-      if (ch !== null && P !== null && !(ch > P && !memeCharge(ch, P))) {
+      if (ch !== null && P !== null && !(ch > P && !memeChargeOuVides(ch, P))) {
         err('I3', 'proposition ' + ch + ' pas au-dessus de la charge de travail ' + P + ' (ligne ' + i + ')');
       }
     });
@@ -2086,7 +2088,7 @@
       for (var t = i + 1; t < init.length; t++) {
         if (init[t] && init[t].role === 'haut') { suivi = true; break; }
       }
-      if (suivi && !memeCharge(p.charge, testI14)) {
+      if (suivi && !memeChargeOuVides(p.charge, testI14)) {
         err('I14', 'la proposition du coach (ligne ' + i + ', ' + p.charge + ') précède un test prévu à ' +
           testI14 + ', à une autre charge');
       }
@@ -2126,7 +2128,7 @@
       } else {
         fl.forEach(function (f, k) {
           var g = couvertes[k];
-          if (f.rang !== g.rang || f.role !== g.role || !memeCharge(f.charge, g.charge) || nombre(f.vise) !== nombre(g.vise)) {
+          if (f.rang !== g.rang || f.role !== g.role || !memeChargeOuVides(f.charge, g.charge) || nombre(f.vise) !== nombre(g.vise)) {
             err('I6', 'la feuille décrit la ligne ' + k + ' (rang ' + f.rang + ', ' + f.role + ') à ' + f.charge + '×' + f.vise +
               ', la grille (rang ' + g.rang + ', ' + g.role + ') à ' + g.charge + '×' + g.vise);
           }
@@ -2150,7 +2152,7 @@
       deplie.forEach(function (s, i) {
         if (dispo[i] !== s.role) err('I6', 'segment ' + s.role + ' sur une ligne ' + dispo[i] + ' (position ' + i + ')');
         var src = s.role === 'haut' ? x.consigne.haut : x.consigne.ligne;
-        if (src && (!memeCharge(s.charge, src.charge) || nombre(s.vise) !== nombre(src.vise))) {
+        if (src && (!memeChargeOuVides(s.charge, src.charge) || nombre(s.vise) !== nombre(src.vise))) {
           err('I6', 'segment ' + s.role + ' à ' + s.charge + '×' + s.vise + ' pour une consigne à ' + src.charge + '×' + src.vise);
         }
       });
@@ -2197,7 +2199,7 @@
           var t = cour[q], i0 = init[q];
           if (!t || !i0 || i0.figee || i0.role !== 'haut' || t.source !== 'consigne') continue;
           if (couvertes[q] && couvertes[q].validee) continue;
-          if (tenue && memeCharge(t.charge, tenue.charge)) avant = true;
+          if (tenue && memeChargeOuVides(t.charge, tenue.charge)) avant = true;
         }
         if (!avant) err('I9', '« ton test a avancé » alors qu\'aucun test à venir n\'est à la charge proposée');
       }
@@ -2215,7 +2217,7 @@
       if (!f) { err('I11', 'la série ' + l.iSerie + ' n\'a pas de fantôme'); return; }
       if (f.source !== 'plan') { err('I11', 'fantôme de source « ' + f.source + ' » (série ' + l.iSerie + ') : le fantôme est la ligne'); return; }
       var repsPlan = l.role === 'coach' || l.role === 'elan' ? null : nombre(l.vise);
-      if (!memeCharge(f.charge, l.charge) || nombre(f.reps) !== repsPlan) {
+      if (!memeChargeOuVides(f.charge, l.charge) || nombre(f.reps) !== repsPlan) {
         err('I11', 'fantôme ' + f.charge + '×' + f.reps + ' pour une ligne ' + l.charge + '×' + repsPlan + ' (série ' + l.iSerie + ')');
       }
     });
@@ -2243,9 +2245,9 @@
         var fait = l.faite ? nombre(l.faite.charge) : null;
         var prevue = nombre(l.charge);
         if (fait === null) return false;
-        if (prevue === null) return tI10 !== null && fait > tI10 && !memeCharge(fait, tI10);
-        if (l.role === 'coach' || l.role === 'elan') return fait > prevue || memeCharge(fait, prevue);
-        return memeCharge(fait, prevue);
+        if (prevue === null) return tI10 !== null && fait > tI10 && !memeChargeOuVides(fait, tI10);
+        if (l.role === 'coach' || l.role === 'elan') return fait > prevue || memeChargeOuVides(fait, prevue);
+        return memeChargeOuVides(fait, prevue);
       };
       var tenue = null;
       couvertes.forEach(function (l) {
@@ -2258,13 +2260,13 @@
       });
       var verdict = String(k10.verdict || '');
       if (tenue !== null) {
-        if (!k10.montee || !memeCharge(k10.montee.charge, tenue) ||
+        if (!k10.montee || !memeChargeOuVides(k10.montee.charge, tenue) ||
             /^Pas de palier/.test(verdict) || /^Pas encore/.test(verdict)) {
           err('I10', 'une montée du coach a tenu à ' + tenue + ', le constat ne la dit pas : « ' + verdict + ' »');
         }
         var proposees = (k10.suiteCharges || []).map(nombre).filter(function (v) { return v !== null; });
         var max = proposees.length ? Math.max.apply(null, proposees) : null;
-        if (max === null || (max < tenue && !memeCharge(max, tenue))) {
+        if (max === null || (max < tenue && !memeChargeOuVides(max, tenue))) {
           err('I10 suite', 'la montée a tenu à ' + tenue + ', la prochaine séance propose ' +
             (max === null ? 'aucune charge' : max) + ' (état ' + k10.suiteEtat + ')');
         }
@@ -2344,7 +2346,7 @@
         if (q.fondement.role !== ROLE_DU_PARI[l.role]) {
           err('I7', 'le pari du rang ' + l.rang + ' dit « ' + q.fondement.role + ' » pour une ligne « ' + l.role + ' »');
         }
-        if (!memeCharge(q.fondement.charge, l.charge)) {
+        if (!memeChargeOuVides(q.fondement.charge, l.charge)) {
           err('I7', 'le pari du rang ' + l.rang + ' porte ' + q.fondement.charge + ' pour une ligne à ' + l.charge);
         }
         if (nombre(q.valeur_predite) !== nombre(l.vise)) {
@@ -2409,7 +2411,7 @@
         if (!lp.figee) { erreurs.push(nom + 'figée avant, plus maintenant'); return; }
         if (lp.rang !== la.rang) erreurs.push(nom + 'rang ' + la.rang + ' → ' + lp.rang);
         if (lp.role !== la.role) erreurs.push(nom + 'rôle ' + la.role + ' → ' + lp.role);
-        if (!memeCharge(lp.charge, la.charge)) erreurs.push(nom + 'charge ' + la.charge + ' → ' + lp.charge);
+        if (!memeChargeOuVides(lp.charge, la.charge)) erreurs.push(nom + 'charge ' + la.charge + ' → ' + lp.charge);
         if (nombre(lp.vise) !== nombre(la.vise)) erreurs.push(nom + 'visée ' + la.vise + ' → ' + lp.vise);
       });
     });
@@ -2676,7 +2678,7 @@
         if (textes.some(function (t) { return /\?/.test(String(t)); })) err('I35', 'la carte de reprise pose une question');
       }
       var r = Object.prototype.hasOwnProperty.call(reprises, x.slug) ? reprises[x.slug] : null;
-      if (k && r && r.choix === 'leger' && r.repli && !memeCharge(k.ligne && k.ligne.charge, r.repli.ligne[0])) {
+      if (k && r && r.choix === 'leger' && r.repli && !memeChargeOuVides(k.ligne && k.ligne.charge, r.repli.ligne[0])) {
         err('I35', '« Plus léger » pose ' + (k.ligne && k.ligne.charge) + ', le repli est à ' + r.repli.ligne[0]);
       }
     });
@@ -2749,7 +2751,7 @@
       if (!x.consigne.repli && c && c.consigne) {
         var ref = M.consigneFigee(c.consigne);
         var chargeDe = function (k) { var l = k && (k.ligne || k.haut); return l ? l.charge : null; };
-        if (!memeCharge(chargeDe(x.consigne), chargeDe(ref))) {
+        if (!memeChargeOuVides(chargeDe(x.consigne), chargeDe(ref))) {
           erreurs.push(nom + 'la charge ' + chargeDe(x.consigne) + ' diffère de la consigne de la séance complète (' + chargeDe(ref) + ')');
         }
       }
@@ -2833,7 +2835,7 @@
         if (x.chauffes || x.proposition) err('I30', 'des chauffes sur une aide');
         if (x.degressive) err('I30', 'une dégressive sur une aide');
         if (k.repli || (x.escalier && x.escalier.marche === M.MARCHE_REPLI)) err('I30', 'un repli sur une aide');
-        if (k.etat === 'reprise_longue' && k.ligne && !memeCharge(k.ligne.charge, k.palier)) {
+        if (k.etat === 'reprise_longue' && k.ligne && !memeChargeOuVides(k.ligne.charge, k.palier)) {
           err('I30', 'un repli de reprise longue sur une aide (' + k.ligne.charge + ' pour ' + k.palier + ')');
         }
         if (x.contexte && x.contexte.haut) err('I30', 'une seconde charge sur une aide');
@@ -3054,7 +3056,7 @@
       return v !== null && v === nombre(src.valeur) ? null : 'valeur';
     }
     if (q.charge !== undefined && src.charge !== undefined) {
-      if (q.charge === null ? nombre(src.charge) !== null : !memeCharge(q.charge, src.charge)) return 'charge';
+      if (q.charge === null ? nombre(src.charge) !== null : !memeChargeOuVides(q.charge, src.charge)) return 'charge';
     }
     if (q.reps !== undefined && Array.isArray(src.reps) && !memesReps(q.reps, src.reps)) return 'reps';
     if (q.date !== undefined && src.date && !memeJour(q.date, src.date)) return 'date';
@@ -3064,8 +3066,8 @@
   // Une citation du jour contre les séries faites à une charge : la charge, et
   // des reps qui sont TOUTES parmi celles de cette charge (un multi-ensemble).
   function dansLeJour(q, g) {
-    if (q.objet && q.objet.champ === 'charge') return q.valeur !== undefined && memeCharge(q.valeur, g.charge);
-    if (q.charge !== undefined && !(q.charge !== null && memeCharge(q.charge, g.charge))) return false;
+    if (q.objet && q.objet.champ === 'charge') return q.valeur !== undefined && memeChargeOuVides(q.valeur, g.charge);
+    if (q.charge !== undefined && !(q.charge !== null && memeChargeOuVides(q.charge, g.charge))) return false;
     var reste = g.reps.map(nombre);
     var dites = Array.isArray(q.reps) ? q.reps : (q.valeur !== undefined ? [q.valeur] : []);
     return dites.every(function (r) {
@@ -3101,7 +3103,7 @@
     // en prend une partie (une série, ou celles d'une même charge).
     var parCharge = [];
     couvertes.filter(function (l) { return l.validee && l.faite; }).forEach(function (l) {
-      var g = parCharge.filter(function (x) { return memeCharge(x.charge, l.faite.charge); })[0];
+      var g = parCharge.filter(function (x) { return memeChargeOuVides(x.charge, l.faite.charge); })[0];
       if (!g) parCharge.push(g = { charge: l.faite.charge, reps: [] });
       g.reps.push(l.faite.reps);
     });
@@ -3122,7 +3124,7 @@
     (f.seance || []).forEach(function (sr) {
       var c = nombre(sr && sr.charge_kg);
       if (c === null) return;
-      var g = seanceParCharge.filter(function (x) { return memeCharge(x.charge, c); })[0];
+      var g = seanceParCharge.filter(function (x) { return memeChargeOuVides(x.charge, c); })[0];
       if (!g) seanceParCharge.push(g = { charge: c, reps: [] });
       g.reps.push(sr.reps);
     });
@@ -3218,7 +3220,7 @@
   function rangDuResteLu(f) {
     var echelle = (f.seance || []).filter(function (s) { return s && ROLES_ECHELLE[s.role] === true; });
     var ou = [];
-    echelle.forEach(function (s, i) { if (memeCharge(nombre(s.charge_kg), nombre(f.palierPrecedent))) ou.push(i); });
+    echelle.forEach(function (s, i) { if (memeChargeOuVides(nombre(s.charge_kg), nombre(f.palierPrecedent))) ou.push(i); });
     return ou.length === 1 ? { rang: ou[0], sur: echelle.length } : null;
   }
 
@@ -3236,7 +3238,7 @@
       return a.valeur === undefined || b.valeur === undefined || nombre(a.valeur) === nombre(b.valeur);
     }
     if (a.charge !== undefined && b.charge !== undefined && a.charge !== null && b.charge !== null &&
-        !memeCharge(a.charge, b.charge)) return false;
+        !memeChargeOuVides(a.charge, b.charge)) return false;
     if (a.reps !== undefined && b.reps !== undefined && !memesReps(a.reps, b.reps)) return false;
     if (a.date !== undefined && b.date !== undefined && !memeJour(a.date, b.date)) return false;
     return true;
@@ -3554,7 +3556,7 @@
       }
       var r = x.slug && Object.prototype.hasOwnProperty.call(reprises, x.slug) ? reprises[x.slug] : null;
       var choisi = !!(r && r.choix === 'leger' && r.repli && r.repli.ligne && k.ligne &&
-        memeCharge(k.ligne.charge, r.repli.ligne[0]));
+        memeChargeOuVides(k.ligne.charge, r.repli.ligne[0]));
       if (k.repli && !choisi) erreurs.push(nom + 'un repli au plafond de sa salle');
       if (plan.carte && plan.carte.declencheur === x.slug) {
         erreurs.push(nom + 'la carte de semaine allégée déclenchée par un exercice au plafond de sa salle');

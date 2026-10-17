@@ -1393,9 +1393,19 @@ const NOTIONS = [
     raison: 'les trois listes du catalogue comptées une fois (`nombreDeMuscles`) : le raccourci, Ma salle, le générateur ' +
       'et « En faire une routine » disent la même chose d’un exercice sans muscles.' },
   { notion: 'le jour civil d’un instant ou d’une date (AAAA-MM-JJ, heure locale)', pr: '124-U1',
-    module: 'moteur.js', fonction: 'jourCivil', lecteurs: ['app.js', 'faits.js', 'generateur.js', 'plan.js', 'reserve.js'],
+    module: 'moteur.js', fonction: 'jourCivil', lecteurs: ['app.js', 'faits.js', 'generateur.js', 'plan.js', 'reserve.js', 'objectif.js'],
     raison: 'un seul passage d’un instant au jour du calendrier de la personne : les faits, le plan, la réserve, le ' +
-      'générateur et l’app comptent les mêmes jours.' },
+      'générateur, l’objectif (124 : sa copie retirée, 01 #14) et l’app comptent les mêmes jours.' },
+  { notion: 'le numéro d’un jour civil (la différence de deux numéros compte les jours du calendrier)', pr: '124-U2',
+    module: 'moteur.js', fonction: 'numeroDuJour', lecteurs: ['objectif.js', 'deraille.js'],
+    parAilleurs: { 'objectif.js': ['numeroDuJour'], 'deraille.js': ['numero'] },
+    raison: 'audit du 16/10/2026 (01 #14) : l’arithmétique des jours civils était écrite trois fois (moteur, objectif, ' +
+      'semaine qui déraille) ; une fois, au moteur.' },
+  { notion: 'le jour civil d’un numéro (l’inverse)', pr: '124-U2',
+    module: 'moteur.js', fonction: 'jourDuNumero', lecteurs: ['deraille.js'],
+    par: ['ajouterJours'],
+    parAilleurs: { 'deraille.js': ['civil'] },
+    raison: 'audit du 16/10/2026 (01 #14) : le jour d’un numéro, une fois ; `ajouterJours` et la semaine qui déraille le lisent.' },
   { notion: 'la fin d’une semaine allégée acceptée', pr: '124-U1',
     module: 'moteur.js', fonction: 'finAllegee', lecteurs: ['app.js'],
     raison: 'MOTEUR §14.4 : la durée de la semaine allégée (`DUREE_ALLEGEE_JOURS`) est écrite une fois ; l’app la lit ' +
@@ -1462,6 +1472,11 @@ const NOTIONS = [
       raison: 'la liste des phases écrite en dur : lire `Profil.PHASES_EN_BASE` ou `Profil.phaseDe`' },
     raison: 'audit du 16/10/2026 (01 #14) : le plan (`PHASES_DU_PLAN`) et le questionnaire (`phaseSaisie`) recopiaient la ' +
       'liste du profil, et le plan son défaut (« maintien ») ; une liste, un défaut, au profil.' },
+  { notion: 'deux charges égales (au centième)', pr: '124-U2',
+    module: 'moteur.js', fonction: 'memeCharge', lecteurs: ['plan.js'],
+    parAilleurs: { 'plan.js': ['memeChargeOuVides'] },
+    raison: 'audit du 16/10/2026 (01 #14) : deux `memeCharge`, deux sémantiques (le plan rendait vrai pour deux vides, le ' +
+      'moteur faux) ; une arithmétique, au moteur, et la règle des vides nommée dans le plan (`memeChargeOuVides`).' },
   { notion: 'la zone force (Lourd, Mix)', pr: '124-U2',
     module: 'moteur.js', fonction: 'estZoneForce', lecteurs: ['plan.js', 'app.js'],
     par: ['marcheIsoleeBrute', 'degressivePossible'],
@@ -2796,6 +2811,26 @@ describe('architecture — une constante partagée ne s’écrit qu’une fois (
     const parNom = {};
     FICHIERS.forEach((f) => { parNom[f.nom] = f; });
     CONSTANTES.forEach((c) => expect([c.quoi, new RegExp(c.motif.source).test(nettoyer(parNom[c.ou].src, true))]).toEqual([c.quoi, true]));
+  });
+
+  test('01 #14 — un seuil, une valeur : le pas de l’escalier EST le seuil du compteur ; les jours civils, au moteur', () => {
+    const moteur = FICHIERS.filter((f) => f.nom === 'moteur.js')[0].src;
+    expect(/var PAS_ESCALIER = SEUIL_COMPTEUR;/.test(nettoyer(moteur, true))).toBe(true);
+    global.self = global;
+    require('../../v2/js/modele.js');
+    require('../../v2/js/palier.js');
+    const M = require('../../v2/js/moteur.js');
+    expect(M.PAS_ESCALIER).toBe(M.SEUIL_COMPTEUR);
+    const midi = new Date(2026, 9, 17, 12, 0, 0);
+    expect(M.jourCivil(midi.getTime())).toBe('2026-10-17');            // un nombre de millisecondes (l'objectif en passe)
+    expect(M.jourDuNumero(M.numeroDuJour('2026-10-17') + 15)).toBe('2026-11-01');
+    expect(M.memeCharge(null, null)).toBe(false);                     // le moteur : une charge qui manque n'égale rien
+    expect(M.memeCharge(12.2 - 10, 16.6 - 14.4)).toBe(true);
+    // Les trois copies sont parties : ni `objectif.js` ni `deraille.js` ne refont `Date.UTC(+m[1]…`.
+    ['objectif.js', 'deraille.js'].forEach((nom) => {
+      const src = nettoyer(FICHIERS.filter((f) => f.nom === nom)[0].src, false);
+      expect([nom, /Date\.UTC\(\s*\+m\[1\]/.test(src)]).toEqual([nom, false]);
+    });
   });
 
   test('la garde se lit vraiment : une liste recopiée se voit, la lecture non', () => {

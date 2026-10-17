@@ -432,9 +432,19 @@
   }
 
   // « jordan · Squatteur · Forgeron » — le titre du jeu seulement s'il est publié (nul jeu éteint).
+  // ⚠️ 121 (audit du 16/10/2026, 05 #6) — UN MEMBRE BLOQUÉ (par moi, ou qui m'a bloqué) : la base ne rend ni son pseudo,
+  // ni son rang, ni son titre (`guilde_liste_membres`, v2_094). L'écran dit « un membre », sans lien vers un profil.
+  var MEMBRE_ANONYME = 'un membre';
   function ligneMembre(m, titres) {
+    if (!m || !m.pseudo) return MEMBRE_ANONYME;
     var t = m && m.titre && titres && titres[m.titre] ? ' · ' + titres[m.titre] : '';
     return String(m.pseudo) + ' · ' + (rangValide(m.rang) ? m.rang : RANG_PAR_DEFAUT) + t;
+  }
+  // ⚠️ 121 (D5, décision d'Aurélien du 16/10/2026) — « Voir la séance » d'une séance du fil de la guilde : seulement si je
+  // suis abonné (accepté) à son auteur — sinon son profil ne montre pas ses séances (« Abonne-toi pour voir ses
+  // séances. »), et un compte privé ne se voit pas du tout hors de ses abonnés (`guilde_fil`, v2_094).
+  function suisAbonne(liens, userId) {
+    return !!(liens && userId && (liens.abonnements || []).some(function (l) { return l && l.user_id === userId; }));
   }
 
   var NOMBRES = ['', '', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'];
@@ -808,6 +818,15 @@
       return { user_id: moiId, pseudo: d.monPseudo || '', rang: RANG_PAR_DEFAUT, titre: null, moi: true };
     };
     (gestes || []).forEach(function (d) {
+      // 121 (05 #6) — bloquer quelqu'un : il devient « un membre » dans la liste, et sort de la Progression (comme la
+      // base le rendra à la relecture, v2_094) ; le fil l'a déjà retiré (`filAvecGestes`).
+      if (d && d.geste === GESTES.BLOQUER) {
+        o.membres = o.membres.map(function (m) {
+          return vise(d, m.user_id, m.pseudo) && !m.moi ? avec(m, { pseudo: null, rang: null, titre: null }) : m;
+        });
+        o.progression = (o.progression || []).filter(function (x) { return x.moi || !d.pseudo || x.pseudo !== d.pseudo; });
+        return;
+      }
       if (!d || d.geste !== GESTES.GUILDE) return;
       var a = d.args || {};
       if (d.fn === 'guilde_creer') {
@@ -982,6 +1001,8 @@
     rangValide: rangValide,
     invitables: invitables,
     ligneMembre: ligneMembre,
+    MEMBRE_ANONYME: MEMBRE_ANONYME,
+    suisAbonne: suisAbonne,
     jaugeDuDefi: jaugeDuDefi,
     joursRestants: joursRestants,
     progressionRangee: progressionRangee,

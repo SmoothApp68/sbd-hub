@@ -2403,6 +2403,8 @@
     if (g.onglet === 'membres' && moi.admin !== undefined) await chargerLiens().catch(function () {});
   }
   async function chargerFilGuilde(g) {
+    // 121 (D5) — mes abonnements disent quelles séances je peux ouvrir (« Voir la séance ») ; hors ligne, aucune.
+    await chargerLiens().catch(function () {});
     var fil = Social.filRange(await Donnees.guildeFil());
     await Promise.all(fil.map(function (l) {
       if (social.medailles[l.session_id]) return null;
@@ -2508,7 +2510,11 @@
             quand: Modele.quand(l.debut, maintenant), titre: l.titre || null, tonnes: tonnesSociales(l.tonnage_kg),
             medailles: social.medailles[l.session_id] || [], jaiReagi: !!l.j_ai_reagi,
             surProfil: function () { allerAmi(l.pseudo); },
-            surVoir: function () { social.voirSeance = { pseudo: l.pseudo, session_id: l.session_id, debut: l.debut }; allerAmi(l.pseudo); },
+            // 121 (D5, 05 #11) — « Voir la séance » seulement quand je peux la voir : abonné à son auteur. Sinon, son profil
+            // dirait « Abonne-toi pour voir ses séances. » — une impasse.
+            surVoir: Social.suisAbonne(social.liens, l.user_id) ? function () {
+              social.voirSeance = { pseudo: l.pseudo, session_id: l.session_id, debut: l.debut }; allerAmi(l.pseudo);
+            } : null,
             surReagir: function () {
               poserGesteSocial({ geste: l.j_ai_reagi ? G.RETIRER_REACTION : G.REAGIR, session: l.session_id, pseudo: l.pseudo });
             } };
@@ -2521,10 +2527,12 @@
       var titres = Rendu.JEU_TITRES;
       var monRang = (membres.filter(function (m) { return m.moi; })[0] || {}).rang || Social.RANG_PAR_DEFAUT;
       v.membres = membres.map(function (m) {
-        return { pseudo: m.pseudo, couleur: Social.couleurDuBlason(m.pseudo), ligne: Social.ligneMembre(m, titres), moi: !!m.moi,
-          surProfil: m.moi ? null : function () { allerAmi(m.pseudo); },
-          surRetirer: moi.admin && !m.moi ? function () { poserGuilde('guilde_retirer_membre', { p_user: m.user_id }, { pseudo: m.pseudo }); } : null,
-          surTransmettre: moi.admin && !m.moi ? function () { poserGuilde('guilde_transmettre', { p_user: m.user_id }, { pseudo: m.pseudo }); } : null };
+        // 121 (05 #6) — un membre bloqué arrive sans pseudo (v2_094) : « un membre », sans lien vers un profil.
+        var nomme = m.pseudo || Social.MEMBRE_ANONYME;
+        return { pseudo: m.pseudo || null, couleur: Social.couleurDuBlason(m.pseudo), ligne: Social.ligneMembre(m, titres), moi: !!m.moi,
+          surProfil: m.moi || !m.pseudo ? null : function () { allerAmi(m.pseudo); },
+          surRetirer: moi.admin && !m.moi ? function () { poserGuilde('guilde_retirer_membre', { p_user: m.user_id }, { pseudo: nomme }); } : null,
+          surTransmettre: moi.admin && !m.moi ? function () { poserGuilde('guilde_transmettre', { p_user: m.user_id }, { pseudo: nomme }); } : null };
       });
       v.rangs = Social.RANGS.map(function (r) {
         return { rang: r, actif: r === monRang, sur: function () {

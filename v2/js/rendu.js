@@ -6377,7 +6377,8 @@
       }
       var pied = el('div', 's-pied');
       pied.appendChild(boutonSocial(c.jaiReagi ? '🔥 Tu as réagi' : '🔥 Réagir', 's-reag' + (c.jaiReagi ? ' s-fait' : ''), c.surReagir));
-      pied.appendChild(boutonSocial('Voir la séance', 's-b3 s-voir', c.surVoir));
+      // 121 (D5, 05 #11) — sans `surVoir` (une séance que je ne peux pas ouvrir), pas de bouton.
+      if (c.surVoir) pied.appendChild(boutonSocial('Voir la séance', 's-b3 s-voir', c.surVoir));
       carte.appendChild(pied);
       cible.appendChild(carte);
     });
@@ -6780,7 +6781,7 @@
       var m = el('div', 's-membres-guilde');
       vue.membres.forEach(function (x) {
         var l = el('div', 's-ligne s-membre');
-        l.setAttribute('data-pseudo', x.pseudo);
+        l.setAttribute('data-pseudo', x.pseudo || '');
         l.appendChild(blasonSocial(x.couleur, 30));
         var t = el('div', 's-t');
         var nom = el('span', 's-membre-ligne' + (x.surProfil ? ' s-lien' : ''), x.moi ? x.ligne.replace(/^[^·]+/, 'toi ') : x.ligne);

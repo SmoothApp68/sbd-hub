@@ -18122,6 +18122,9 @@ const SETS_IMPORTES = [
         progression: Array.from(r.querySelectorAll('.s-progression-guilde .s-rang')).map((x) => x.querySelector('.s-t').textContent + ' ' +
           x.querySelector('.s-sc').textContent),
         cartes: Array.from(r.querySelectorAll('.s-fil-guilde .s-carte')).map((x) => x.getAttribute('data-session')),
+        // 121 (D5, 05 #11) — les cartes qui offrent « Voir la séance ».
+        voir: Array.from(r.querySelectorAll('.s-fil-guilde .s-carte')).filter((x) => !!x.querySelector('.s-voir'))
+          .map((x) => x.getAttribute('data-session')),
         reagi: !!r.querySelector('.s-fil-guilde .s-reag.s-fait') };
     });
     const attendreQue = async (cond, ms) => {
@@ -18271,17 +18274,57 @@ const SETS_IMPORTES = [
       JSON.stringify(d0.progression));
 
     // ── E. FIL : les séances des membres, les règles du fil (87) ; réagir par la règle de la guilde.
+    // 121 (D5, décision d'Aurélien du 16/10/2026 : « on ne voit pas si privé (privé compte que pour les inconnus, pas
+    // amis, donc guilde ne voit pas le détail) ») — une séance de jordan (mutuel) ce matin ; celle de melodie (compte
+    // PRIVÉ, que je ne suis pas) n'est pas au fil de la guilde ; melodie passée en compte public, elle y est — sans
+    // « Voir la séance » (je ne la suis pas : son profil me dirait « Abonne-toi pour voir ses séances. », 05 #11).
+    const SJ = 'a0000000-0000-4000-8900-0000000000bb', dJ = iso(ilYa(2 * 3600000, tS));
+    S.sessions.push({ id: SJ, user_id: 'u-jordan', titre: 'Jambes', debut: dJ, fin: dJ, statut: 'terminee', visibilite: 'mutuels' });
+    S.sets.push({ id: 'sj-1', session_id: SJ, exercise_slug: 'squat-barre', rang: 1, charge_kg: 150, reps: 5, type_serie: 'travail' });
     await onglet('fil', async () => (await lire()).cartes.length > 0);
     const e0 = await lire();
     const monFil = fauxSocial.rpc('u-banc', 'social_fil').map((x) => x.session_id);
+    ok('[guilde] 121 (D5) — DISCRIMINANT — le fil de la guilde ne montre PAS la séance de melodie (compte privé, que je ne suis pas) ; ' +
+      'celle de jordan (mutuel) oui, avec « Voir la séance » ; la base ne me rend pas non plus ses médailles',
+      e0.cartes.indexOf(SM) < 0 && e0.cartes.indexOf(SJ) >= 0 && e0.voir.indexOf(SJ) >= 0 &&
+        fauxSocial.rpc('u-banc', 'guilde_records_seance', { p_session: SM }).length === 0, JSON.stringify(e0));
+    S.profils.filter((p) => p.id === 'u-melodie')[0].compte_prive = false;
+    await aller('/jeu/guilde');
+    await attendreQue(async () => !!(await lire()).nom);
+    await onglet('fil', async () => (await lire()).cartes.indexOf(SM) >= 0);
+    const e1 = await lire();
     await page.click('#social-guilde .s-fil-guilde .s-carte[data-session="' + SM + '"] .s-reag');
     await attendreQue(async () => (await lire()).reagi);
     await attendreQue(fileVide);
-    ok('[guilde] DISCRIMINANT — le fil de la guilde montre la séance de melodie (que je ne suis pas : absente de mon fil), sa médaille, ' +
-      'sans note ni poids ; j’y réagis (règle de la guilde)',
-      e0.cartes.indexOf(SM) >= 0 && monFil.indexOf(SM) < 0 && /1record|Rowing|rowing/i.test(e0.texte.replace(/\s/g, '')) &&
-        !/note privée|61 kg|dur/.test(e0.texte) && S.reactions.some((r) => r.session_id === SM && r.user_id === 'u-banc'),
-      JSON.stringify([e0, monFil]));
+    ok('[guilde] DISCRIMINANT — melodie en compte public : le fil de la guilde montre sa séance (que je ne suis pas : absente de mon fil), ' +
+      'sa médaille, sans note ni poids, SANS « Voir la séance » (121, 05 #11) ; j’y réagis (règle de la guilde)',
+      e1.cartes.indexOf(SM) >= 0 && e1.voir.indexOf(SM) < 0 && e1.voir.indexOf(SJ) >= 0 && monFil.indexOf(SM) < 0 &&
+        /1record|Rowing|rowing/i.test(e1.texte.replace(/\s/g, '')) &&
+        !/note privée|61 kg|dur/.test(e1.texte) && S.reactions.some((r) => r.session_id === SM && r.user_id === 'u-banc'),
+      JSON.stringify([e1, monFil]));
+
+    // ── E ter (121, audit du 16/10, 05 #6). LE BLOCAGE DANS LA GUILDE : je bloque melodie — « un membre » dans Membres,
+    // absente du fil et de la Progression ; lea (mutuelle de jordan) m'a bloqué : jordan ne peut pas l'inviter.
+    S.gscores.push({ user_id: 'u-melodie', semaine: fauxSocial.lundiCourant(), seances: 1, prevues: 2, records_semaine: 1,
+      mois: fauxSocial.moisCourant(), exercices: 3, exercices_record: 1, series_semaine: 6, series_moyenne: 5 });
+    S.blocages.push({ bloqueur: 'u-banc', bloque: 'u-melodie' });
+    ab('u-jordan', 'u-lea'); ab('u-lea', 'u-jordan');
+    S.blocages.push({ bloqueur: 'u-lea', bloque: 'u-banc' });
+    const refusLea = fauxSocial.rpc('u-jordan', 'guilde_inviter', { p_user: 'u-lea' });
+    await aller('/jeu/guilde');
+    await attendreQue(async () => !!(await lire()).nom);
+    await onglet('membres', async () => (await lire()).lignes.length === 3);
+    const t0 = await lire();
+    await onglet('progression', async () => (await lire()).progression.length > 0);
+    const t1 = await lire();
+    await onglet('fil', async () => (await lire()).cartes.length > 0);
+    const t2 = await lire();
+    ok('[guilde] 121 (05 #6) — DISCRIMINANT — melodie bloquée : « un membre » dans Membres (ni pseudo, ni rang, ni lien), absente de la ' +
+      'Progression et du fil ; jordan ne peut pas inviter lea, qui m’a bloqué (guilde_bloque)',
+      JSON.stringify(t0.lignes) === JSON.stringify(['toi · Terreur', 'jordan · Squatteur · Athlète', 'un membre']) &&
+        !/melodie/.test(t0.texte + t1.texte + t2.texte) && t1.progression.length === 2 && t2.cartes.indexOf(SM) < 0 &&
+        t2.cartes.indexOf(SJ) >= 0 && /guilde_bloque/.test(refusLea && refusLea.message) &&
+        !S.invitations.some((i) => i.invite === 'u-lea'), JSON.stringify([t0.lignes, t1.progression, t2.cartes, refusLea]));
 
     // ── E bis (121, audit du 16/10, 05 #5). SANS OUVRIR LA GUILDE : mes nombres changent (mon profil déclare désormais
     // 4 séances par semaine) ; l'app relancée sur la saisie — l'écran Guilde jamais ouvert — les publie, par la file.
@@ -18318,12 +18361,13 @@ const SETS_IMPORTES = [
       'defis', 'gscores'].forEach((k) => { S[k] = []; });
     base.profiles[0].seances_par_semaine = spsAvant;
     deCote.forEach((s) => base.sessions.push(s));
-    const refusAttendus = ['guildes_nom_cle_uniq', 'guilde_invite_non_mutuel', 'guilde_defis_type', 'guilde_defi_fige'];
+    // 121 — et le cinquième : jordan invite lea, qui m'a bloqué (05 #6).
+    const refusAttendus = ['guildes_nom_cle_uniq', 'guilde_invite_non_mutuel', 'guilde_defis_type', 'guilde_defi_fige', 'guilde_bloque'];
     const refusVus = S.journal.filter((j) => j.op === 'refus').map((j) => j.message);
     await aller('/saisie');
-    ok('[guilde] seuls les quatre refus voulus (nom pris, non-mutuel, tonnage, défi figé) ; la garde de l’app n’a rien signalé, aucune erreur de page',
+    ok('[guilde] seuls les cinq refus voulus (nom pris, non-mutuel, tonnage, défi figé, invité bloqué) ; la garde de l’app n’a rien signalé, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant &&
-        erreurs.length === erreursAvant && refusVus.length === 4 && refusAttendus.every((r, i) => new RegExp(r).test(refusVus[i])),
+        erreurs.length === erreursAvant && refusVus.length === refusAttendus.length && refusAttendus.every((r, i) => new RegExp(r).test(refusVus[i])),
       JSON.stringify([refusVus, erreurs.slice(erreursAvant)]));
     S.journal = [];
   }

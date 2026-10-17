@@ -228,7 +228,8 @@ elle retire ses scores.
   reçues s'affichent quand je n'ai pas de guilde (« Rejoindre » / « Refuser », en silence).
 - **Fil** : `guilde_fil` rend les colonnes de `social_fil` (les autres membres, terminées, non privées, 30 jours) ; même
   rendu (`Rendu.rendreFil`), mêmes médailles (`faits.medaillesDuSocial` sur `guilde_records_seance`). On réagit à la
-  séance d'un membre même sans le suivre (politique `reactions_guilde`).
+  séance d'un membre même sans le suivre (politique `reactions_guilde`). *(16/10/2026, D5 : un compte privé ne s'y voit
+  que de ses abonnés ; « Voir la séance » seulement pour qui je suis — §6.5.)*
 - **Route** : `/jeu/guilde`, un sous-onglet « Guilde » à côté de « Fil ».
 
 ### 6.3 La base (v2_080, proposée)
@@ -270,6 +271,31 @@ invitations, défis : des fonctions SECURITY DEFINER (`guilde_choisir_defi` refu
 - **Limite connue (audit 05 #5)** : comme les séances et les records, un membre ne compte que s'il a ouvert l'app cette
   semaine. *(16/10/2026, prompt 121 : il n'a plus besoin d'ouvrir l'écran Guilde — ses nombres partent par la file, à
   la fin d'une séance et au démarrage — §6.2.)*
+
+### 6.5 Le compte privé et le blocage dans la guilde — audit du 16/10/2026 (D5, 05 #6, #7, #11 ; prompt 121)
+
+> Décision d'Aurélien du 16/10/2026 (D5), mot pour mot : « on ne voit pas si privé (privé compte que pour les inconnus,
+> pas amis, donc guilde ne voit pas le détail) ». Base : migration **proposée**
+> `v2-atelier/migrations-proposees/v2_094_guilde_prive_bloque.sql` (relue et lancée par Claude.ai, après v2_093).
+
+- **Le compte privé** : rejoindre une guilde ouvrait toutes les séances d'un compte privé (titres, dates, tonnages,
+  médailles) aux membres qu'il n'a jamais approuvés. Désormais, au fil de la guilde, une séance se voit seulement si son
+  auteur a un compte **public**, ou si je suis son **abonné accepté** — ce que mon propre fil me montre déjà de lui ; une
+  demande en attente n'ouvre rien (`guilde_fil`, `guilde_records_seance`, `guilde_voit_seances`). Un compte public reste
+  visible comme avant. Les **chiffres de la guilde** ne changent pas : la jauge du défi, « La guilde cette semaine » et
+  la Progression comptent chacun — ce sont des nombres de la guilde, pas le détail d'une séance.
+  *(Interprétation, à confirmer : « amis » = mes abonnements acceptés — le cercle « abonné » de §1, qui voit déjà le fil
+  de la personne ; le cercle « inconnu » ne voit rien. Les mutuels seuls seraient plus strict que le fil de 87.)*
+- **« Voir la séance »** (05 #11) : au fil de la guilde, seulement pour une séance dont je suis l'auteur abonné
+  (`Social.suisAbonne`, mes liens) ; sinon pas de bouton — son profil dirait « Abonne-toi pour voir ses séances. ».
+- **Le blocage** (05 #6 ; « bloquer efface tout lien », §2) : entre deux personnes qui se bloquent (dans un sens ou dans
+  l'autre), chacune voit l'autre comme **« un membre »** dans Membres (ni pseudo, ni rang, ni titre, ni lien vers son
+  profil ; l'administrateur garde « Retirer » et « Transmettre »), plus dans la **Progression**, plus au **fil** (déjà le
+  cas, `guilde_commune`). Un tiers **ne peut pas inviter** dans ma guilde quelqu'un que j'ai bloqué ou qui m'a bloqué
+  (refus `guilde_bloque`), et une invitation d'avant le blocage est tue et refusée à l'entrée. Deux personnes déjà dans la
+  même guilde y restent (la guilde est permanente ; SOCIAL-V1 n'a pas pour elle la règle de départ du groupe, §7.1).
+  À l'écran, bloquer met à jour Membres, Progression et fil aussitôt (`Social.guildeAvecGestes`).
+- **Avant v2_094**, l'app marche telle qu'avant : la base rend encore tout ; l'écran l'affiche.
 
 ## 7. Groupe — décisions du 14/10/2026 (prompt 91)
 

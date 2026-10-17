@@ -61,6 +61,8 @@ function creer(base, options) {
     // 120 (v2_093) — le défi des séries de travail. `false` : la base d'avant v2_093 (colonnes inconnues, PGRST204 ;
     // défaut « seances »), pour prouver que l'app marche des deux côtés de la migration.
     v2_093: o.v2_093 !== false,
+    // 121 (v2_094, D5 et 05 #6) — la guilde respecte le compte privé et le blocage. `false` : la base d'avant v2_094.
+    v2_094: o.v2_094 !== false,
     maintenant: o.maintenant || (() => new Date())
   };
 
@@ -112,6 +114,11 @@ function creer(base, options) {
   const membresDe = (gid) => etat.membres.filter((m) => m.guilde_id === gid)
     .sort((a, b) => (a.entre_le - b.entre_le) || String(a.user_id).localeCompare(String(b.user_id)));
   const commune = (a, b) => !!guildeDe(a) && guildeDe(a) === guildeDe(b) && !bloque(a, b);
+  // 121 (v2_094) — `guilde_voit_seances` : moi, un compte public, ou mon abonnement accepté (D5) ;
+  // `guilde_bloque_avec` : quelqu'un de la guilde a un blocage avec cette personne (05 #6).
+  const voitSeances = (lecteur, auteur) => !etat.v2_094 || lecteur === auteur ||
+    (profil(auteur) || { compte_prive: true }).compte_prive === false || suit(lecteur, auteur);
+  const bloqueAvecGuilde = (gid, user) => etat.v2_094 && membresDe(gid).some((m) => m.user_id !== user && bloque(m.user_id, user));
   // La semaine et le mois de l'app (heure locale du banc = celle de l'appareil).
   const jourLocal = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const lundiCourant = () => { const m = etat.maintenant(); return jourLocal(new Date(m.getFullYear(), m.getMonth(), m.getDate() - ((m.getDay() + 6) % 7))); };
@@ -121,6 +128,7 @@ function creer(base, options) {
   function ajouterMembre(user, gid) {
     if (guildeDe(user)) leve('23505', 'duplicate key value violates unique constraint "guilde_membres_pkey"');
     if (membresDe(gid).length >= GUILDE.MAX) leve('23514', 'guilde_pleine');
+    if (bloqueAvecGuilde(gid, user)) leve('23514', 'guilde_bloque');
     etat.membres.push({ user_id: user, guilde_id: gid, rang: 'Novice', entre_le: ++horloge });
   }
   // `guilde_membres_apres_depart` : sans membre, la guilde disparaît (et ce qui en dépend) ; l'administrateur parti,
@@ -405,6 +413,7 @@ function creer(base, options) {
       if (!gid) leve('23514', 'guilde_invitant_non_membre');
       if (!mutuel(moi, a.p_user)) leve('23514', 'guilde_invite_non_mutuel');
       if (guildeDe(a.p_user) === gid) leve('23514', 'guilde_deja_membre');
+      if (bloqueAvecGuilde(gid, a.p_user)) leve('23514', 'guilde_bloque');
       if (membresDe(gid).length >= GUILDE.MAX) leve('23514', 'guilde_pleine');
       if (!etat.invitations.some((i) => i.guilde_id === gid && i.invite === a.p_user)) {
         etat.invitations.push({ guilde_id: gid, invite: a.p_user, invitant: moi, cree_le: ++horloge });
@@ -471,12 +480,16 @@ function creer(base, options) {
     guilde_liste_membres() {
       const gid = guildeDe(etat.moi);
       if (!gid) return [];
+      // 121 (v2_094) — quelqu'un qui me bloque ou que je bloque : sans pseudo, sans rang, sans titre.
+      const cache = (u) => etat.v2_094 && u !== etat.moi && bloque(etat.moi, u);
       return membresDe(gid).map((m) => ({ m, p: profil(m.user_id) })).filter((x) => x.p && !x.p.deleted_at).map((x) => ({
-        user_id: x.m.user_id, pseudo: x.p.username, rang: x.m.rang, titre: titre(x.p), moi: x.m.user_id === etat.moi, entre_le: x.m.entre_le }));
+        user_id: x.m.user_id, pseudo: cache(x.m.user_id) ? null : x.p.username, rang: cache(x.m.user_id) ? null : x.m.rang,
+        titre: cache(x.m.user_id) ? null : titre(x.p), moi: x.m.user_id === etat.moi, entre_le: x.m.entre_le }));
     },
     guilde_invitations_recues() {
       const moi = etat.moi;
-      return etat.invitations.filter((i) => i.invite === moi && !bloque(moi, i.invitant)).sort((a, b) => a.cree_le - b.cree_le).map((i) => {
+      return etat.invitations.filter((i) => i.invite === moi && !bloque(moi, i.invitant) && !bloqueAvecGuilde(i.guilde_id, moi))
+        .sort((a, b) => a.cree_le - b.cree_le).map((i) => {
         const g = guilde(i.guilde_id);
         return { guilde_id: g.id, nom: g.nom, blason: g.blason, couleur: g.couleur, invitant: (profil(i.invitant) || {}).username,
           membres: membresDe(g.id).length };
@@ -507,11 +520,14 @@ function creer(base, options) {
       const ids = membresDe(gid).map((m) => m.user_id), mois = moisCourant();
       return etat.gscores.filter((x) => ids.indexOf(x.user_id) >= 0 && x.mois === mois)
         .filter((x) => { const p = profil(x.user_id); return p && !p.deleted_at; })
+        // 121 (v2_094) — sans la ligne de quelqu'un qui me bloque ou que je bloque.
+        .filter((x) => !etat.v2_094 || x.user_id === etat.moi || !bloque(etat.moi, x.user_id))
         .map((x) => ({ pseudo: profil(x.user_id).username, moi: x.user_id === etat.moi, exercices: x.exercices, exercices_record: x.exercices_record }));
     },
     guilde_fil() {
       const moi = etat.moi, depuis = etat.maintenant().getTime() - 30 * 86400000;
-      return sessions().filter((s) => visible(s) && new Date(s.debut).getTime() >= depuis && s.user_id !== moi && commune(moi, s.user_id))
+      return sessions().filter((s) => visible(s) && new Date(s.debut).getTime() >= depuis && s.user_id !== moi && commune(moi, s.user_id) &&
+        voitSeances(moi, s.user_id))
         .sort((x, y) => String(y.debut).localeCompare(String(x.debut))).slice(0, 200)
         .map((s) => ({ session_id: s.id, user_id: s.user_id, pseudo: (profil(s.user_id) || {}).username, titre: s.titre || null,
           debut: s.debut, fin: s.fin || null, tonnage_kg: tonnage(s.id),
@@ -519,7 +535,7 @@ function creer(base, options) {
     },
     guilde_records_seance(a) {
       const s = session(a.p_session);
-      if (!visible(s) || !commune(etat.moi, s.user_id)) return [];
+      if (!visible(s) || !commune(etat.moi, s.user_id) || !voitSeances(etat.moi, s.user_id)) return [];
       return records().filter((r) => r.session_id === s.id).map((r) => ({ set_id: r.set_id, battu_le: r.battu_le,
         exercise_slug: r.exercise_slug, type: r.type, valeur: r.valeur, charge: r.charge === undefined ? null : r.charge,
         reps: r.reps === undefined ? null : r.reps, unite: r.unite === undefined ? null : r.unite }));

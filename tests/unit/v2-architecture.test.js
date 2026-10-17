@@ -188,7 +188,15 @@ const GARDEES = [
   { fn: 'projection', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*projection\b/g },
   { fn: 'vue', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*vue\b/g },
   { fn: 'observationDe', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*observationDe\b/g },
-  { fn: 'idDObjectif', module: 'moteur.js' }
+  { fn: 'idDObjectif', module: 'moteur.js' },
+  // 124 (audit du 16/10/2026, 06 #5) — ce que le coach PROPOSE ou RÉDIGE hors de la séance : la carte de fin de bloc
+  // (§9.22), les cibles et la carte de « J'ai peu de temps » (§9.18), la feuille « J'ai mal » (§9.20). Appelées par
+  // l'écran, elles n'étaient inscrites nulle part : la garde ne les voyait pas. Le reste de ce que les écrans lisent du
+  // moteur (faits, formats, lectures des lignes en base) est au registre des notions, bloc « 124 ».
+  { fn: 'carteFinDeBloc', module: 'moteur.js' },
+  { fn: 'ciblesDeTemps', module: 'moteur.js' },
+  { fn: 'carteRaccourcir', module: 'moteur.js' },
+  { fn: 'feuilleDouleur', module: 'moteur.js' }
 ];
 
 // ── LA LISTE D'AUTORISATIONS ────────────────────────────────────────────────
@@ -358,6 +366,25 @@ const AUTORISATIONS = {
     'app.js': 'MOTEUR §9.22 (60-4) : la carte « Passer en cycles » de Saisie lit la règle du générateur ' +
       '(`carteCyclesDuProfil`) : l’objectif, les jours depuis la création, les séances du dossier, un dossier déjà ' +
       'programme, « Juste un carnet », « Pas maintenant » — l’écran ne compte et ne compare rien lui-même.'
+  },
+  // ── 124 (audit du 16/10/2026, 06 #5) — les décisions du coach hors séance, enfin inscrites ──
+  carteFinDeBloc: {
+    'app.js': 'MOTEUR §9.22 (53-2) : la carte de fin de bloc vit dans la bibliothèque, HORS séance — donc sans plan ; ' +
+      'l’écran lui passe le bloc, son bilan (`Moteur.bilanDuBloc`) et le pari de programme, et la montre telle quelle ' +
+      '(app.js, `programmeDuDossierCalcule`) ; « Juste un carnet » la tait avant (`coachSeTait`, I13).'
+  },
+  ciblesDeTemps: {
+    'app.js': 'MOTEUR §9.18 (60-1) : « J’ai peu de temps » vit sur l’écran de la ROUTINE, avant toute séance — donc sans ' +
+      'plan ; l’écran passe l’estimation et la durée déclarée, la règle rend les cibles (app.js, `ciblesPlusCourtes`).'
+  },
+  carteRaccourcir: {
+    'app.js': 'MOTEUR §9.18 (51-1) : la carte de « J’ai peu de temps », sur l’écran de la routine, avant toute séance — ' +
+      'donc sans plan ; elle met en mots le résultat de `raccourcirRoutine` (app.js, `montrerCarteRaccourci`).'
+  },
+  feuilleDouleur: {
+    'app.js': 'MOTEUR §9.20 (51-3) : la feuille « J’ai mal » est un geste de la personne en séance ; ses phrases sont ' +
+      'fixes (`TEXTES_DOULEUR`, le nom de l’exercice), elle ne décide rien — la séance marquée devient neutre ensuite ' +
+      'par le plan (`sansPalierRetenues`) (app.js, `rendreFeuilleDeviation`).'
   }
 };
 
@@ -1328,7 +1355,106 @@ const NOTIONS = [
     module: 'reserve.js', fonction: 'passeDeReserve', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['reserveDeLaSeance'] },
     raison: 'MOTEUR §17.2 bis (78) : l’entrée de la règle, lue par `Modele.estTravail` et `Moteur.jourCivil` (jamais ' +
-      'recopiés) ; l’app la fige une fois par exercice et par séance, et la passe au plan.' }
+      'recopiés) ; l’app la fige une fois par exercice et par séance, et la passe au plan.' },
+  // ── 124 (audit du 16/10/2026, 06 #5) — LE RESTE DU MOTEUR QUE LES AUTRES FICHIERS LISENT ──────────────────
+  // Des faits, des formats, des lectures des lignes en base : aucune ne décide ce que le coach propose (celles qui le
+  // font sont dans GARDEES). Inscrites ici, chacune a désormais ses lecteurs ; le contrôle « 124 » (plus bas) refuse
+  // toute fonction de `moteur.js` lue ailleurs sans être inscrite.
+  { notion: 'la structure d’une routine (ses séries par type, ses repos, ses muscles), pour l’estimer', pr: '124-U1',
+    module: 'moteur.js', fonction: 'structureDeRoutine', lecteurs: ['app.js', 'deraille.js'],
+    raison: 'MOTEUR §9.18 : la durée de la routine, la durée allégée, la carte de « J’ai peu de temps », la durée d’une ' +
+      'carte du programme construit et la semaine qui déraille (99) lisent la même structure, jamais refaite à l’écran.' },
+  { notion: 'la structure d’une semaine allégée (pour la seule estimation de sa durée)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'structureAllegee', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.18 (51-1 ter) : la durée allégée de la routine se lit par la même part allégée que la séance ' +
+      '(`seriesAllegees`, §14.4) ; l’écran n’enlève aucune série lui-même.' },
+  { notion: 'la routine raccourcie (le résultat accepté de « J’ai peu de temps » appliqué à ses lignes)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'appliquerRaccourci', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.18 : la séance démarre sur une COPIE de la routine, moins les lignes que `raccourcirRoutine` a ' +
+      'retirées et que la personne a acceptées ; l’écran ne choisit aucune ligne.' },
+  { notion: 'la durée estimée, mise en mots (« Environ 62 min (estimation) »)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'texteDureeEstimee', lecteurs: ['app.js'],
+    raison: 'un format : la minute arrondie une fois (`minutesDe`), par le formateur unique.' },
+  { notion: 'la durée allégée, mise en mots (« Semaine allégée : environ … »)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'texteDureeAllegee', lecteurs: ['app.js'],
+    raison: 'un format : la même minute que la durée estimée, jamais arrondie à part.' },
+  { notion: 'la durée courte d’une carte du programme construit (« ≈ 69 min »)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'texteDureeCourte', lecteurs: ['app.js'],
+    raison: 'un format (60-4) : la même minute que les phrases de la routine (`minutesDe`).' },
+  { notion: 'le libellé d’une cible de « J’ai peu de temps » (« 45 min », « Tenir en 60 min »)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'libelleCibleTemps', lecteurs: ['app.js'],
+    raison: 'un format : la cible vient de `ciblesDeTemps` (gardée), le libellé dit si c’est la durée de la personne.' },
+  { notion: 'un exercice qui a des muscles au catalogue', pr: '124-U1',
+    module: 'moteur.js', fonction: 'aDesMuscles', lecteurs: ['generateur.js', 'profil.js', 'routines.js'],
+    raison: 'les trois listes du catalogue comptées une fois (`nombreDeMuscles`) : le raccourci, Ma salle, le générateur ' +
+      'et « En faire une routine » disent la même chose d’un exercice sans muscles.' },
+  { notion: 'le jour civil d’un instant ou d’une date (AAAA-MM-JJ, heure locale)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'jourCivil', lecteurs: ['app.js', 'faits.js', 'generateur.js', 'plan.js', 'reserve.js'],
+    raison: 'un seul passage d’un instant au jour du calendrier de la personne : les faits, le plan, la réserve, le ' +
+      'générateur et l’app comptent les mêmes jours.' },
+  { notion: 'la fin d’une semaine allégée acceptée', pr: '124-U1',
+    module: 'moteur.js', fonction: 'finAllegee', lecteurs: ['app.js'],
+    raison: 'MOTEUR §14.4 : la durée de la semaine allégée (`DUREE_ALLEGEE_JOURS`) est écrite une fois ; l’app la lit ' +
+      'au moment d’écrire la réponse (app.js, `repondreCarte`).' },
+  { notion: 'les cartes de l’escalier, lues dans les paris (jour, réponse, période, exercices cités)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'cartesDesParis', lecteurs: ['app.js'],
+    raison: 'une lecture des lignes `predictions` (module escalier) : la mémoire de la carte, les fins allégées, ' +
+      'l’observation et la démonstration lisent les mêmes cartes.' },
+  { notion: 'les marches isolées, lues dans les paris (schéma, repli, série de plus, dégressive, remplacement)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'marchesDesParis', lecteurs: ['app.js'],
+    raison: 'une lecture des lignes `predictions` (module escalier) : les périodes de la série de plus, l’observation et ' +
+      'la démonstration lisent les mêmes marches.' },
+  { notion: 'une zone par sa clé (bornes, libellé)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'zoneParCle', lecteurs: ['app.js', 'plan.js'],
+    raison: 'les bornes d’une zone sont écrites une fois (`ZONES`) ; le plan et la démonstration les lisent par la clé.' },
+  { notion: 'les charges de travail d’un exercice, séance par séance', pr: '124-U1',
+    module: 'moteur.js', fonction: 'chargesDeTravailDe', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.22 : le bilan du bloc et la tête des records de la page d’exercice lisent les charges de travail ' +
+      'comme la consigne les lit (`contratDe`), jamais recalculées à l’écran.' },
+  { notion: 'les périodes des décharges planifiées (que le compteur saute)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'periodesDecharge', lecteurs: ['app.js'],
+    raison: 'une ENTRÉE du compteur, préparée par l’app : la décharge part du même jour que la carte qui se tait ' +
+      '(`debutDecharge`).' },
+  { notion: 'les exercices qui ont progressé sur un bloc (l’observation du pari de programme)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'progresDuBilan', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.22 : la carte de fin de bloc et l’observation écrite en base lisent le même nombre.' },
+  { notion: 'le bloc en cours d’un dossier (un seul)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'blocEnCours', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.22 : la bibliothèque, « Arrêter », « Commencer » et la feuille du bloc lisent le même bloc ' +
+      '(l’index `blocs_un_en_cours`).' },
+  { notion: 'le badge du bloc (« Bloc Mix · semaine 2 sur 4 », « terminé »)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'badgeDuBloc', lecteurs: ['app.js'],
+    raison: 'un format, sur la semaine du bloc (`semaineDuBloc`) : le coach ne commente pas l’assiduité.' },
+  { notion: 'le libellé d’une zone de bloc (« Mix », « Mix (6-8) »)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'libelleZoneDeBloc', lecteurs: ['app.js'],
+    raison: 'un format : la feuille du programme et la carte de fin de bloc nomment la zone de la même façon.' },
+  { notion: 'le bloc terminé (sa fin passée, jusqu’au choix de la personne)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'blocTermine', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.22 : la carte de fin de bloc et l’arrêt (fini ou arrêté) lisent la même fin.' },
+  { notion: 'les lignes de zone qui comptent (celles d’un bloc arrêté avant son début sont ignorées)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'lignesDeZoneValides', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.22 (53-2 ter) : LA seule lecture des zones de l’app (`zonesLues`) — le plan, le compteur, le ' +
+      'report, l’étiquette et le rejeu lisent les mêmes lignes.' },
+  { notion: 'les lignes de zone posées à l’arrêt d’un programme (la zone d’avant le programme)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'lignesDArret', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.22 (53-2 ter) : la règle de l’arrêt (sauf un exercice corrigé pendant le programme) vit dans ' +
+      'le moteur ; l’app pose ce qu’elle rend.' },
+  { notion: 'la ligne de zone qui commence un bloc', pr: '124-U1',
+    module: 'moteur.js', fonction: 'ligneDeDebutDeBloc', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.10 (53-2 bis) : « Nouveau bloc » et « · bloc » se disent sur la même ligne.' },
+  { notion: 'la salle en vigueur pour une charge (ses crans, l’isolation)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'salleEnVigueur', lecteurs: ['objectif.js', 'plan.js'],
+    raison: 'MOTEUR §10 bis (108) : le plan et l’objectif lisent la même salle (une barre chargée n’est pas concernée).' },
+  { notion: 'la charge la plus lourde de la salle déclarée', pr: '124-U1',
+    module: 'moteur.js', fonction: 'maxDeLaSalle', lecteurs: ['objectif.js'],
+    raison: 'MOTEUR §10 bis (108) : la plus lourde se lit sur les crans de la salle (`chargesDeLaSalle`), une fois.' },
+  { notion: 'les noms des muscles, accordés (« tes pectoraux », « ton grand dorsal »)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'motsDesMuscles', lecteurs: ['generateur.js'],
+    raison: 'un format de la voix du coach : les singuliers sont écrits une fois (`MUSCLES_SINGULIERS`).' },
+  { notion: 'la médiane d’une liste de nombres', pr: '124-U1',
+    module: 'moteur.js', fonction: 'mediane', lecteurs: ['faits.js', 'routines.js'],
+    raison: 'MOTEUR §8.2, §9.1.2 : la moyenne des deux du milieu pour une longueur paire ; les habitudes et le programme ' +
+      'déduit la lisent, puis arrondissent par `Routines.arrondiDeduit`.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -1491,7 +1617,63 @@ describe('architecture — un seul coach, un seul câblage', () => {
     ['reactionPour', 'planDeCouverture', 'lignesDePari', 'constatDuJour', 'consigneFigee']
       .forEach((fn) => expect([fn, !!REL[fn][LE_COACH]]).toEqual([fn, true]));
   });
+
+  // 124 (audit du 16/10/2026, 06 #5) — LA GARDE NE PROTÈGE QUE CE QU'ON Y INSCRIT. Ce contrôle ferme le trou : toute
+  // fonction exportée par `moteur.js` et lue hors du moteur et du plan est inscrite, dans GARDEES (une décision du
+  // coach, avec ses autorisations) ou au registre des notions (un fait, un format, avec ses lecteurs). Une fonction
+  // nouvelle du moteur, appelée par un écran sans inscription, fait échouer la garde.
+  test('⚠️ 124 — une fonction de `moteur.js` lue hors du moteur et du plan est inscrite (GARDEES ou NOTIONS)', () => {
+    global.self = global;
+    require('../../v2/js/modele.js');
+    require('../../v2/js/palier.js');
+    const M = require('../../v2/js/moteur.js');
+    expect(nonInscritesDuMoteur(FICHIERS, M)).toEqual([]);
+  });
+
+  test('le contrôle 124 se lit vraiment : un appel nu se voit, par chaque alias ; un champ du même nom non', () => {
+    const M = { jourCivil: function () {}, fonctionNeuve: function () {}, CONSTANTE: 4 };
+    const f = (nom, src) => ({ nom, src });
+    const fautes = nonInscritesDuMoteur([
+      f('a.js', 'var Moteur = racine.THMoteur;\nMoteur.fonctionNeuve(1);'),
+      f('b.js', 'function Moteur() { return racine.THMoteur; }\nvar x = Moteur().fonctionNeuve;'),
+      f('c.js', 'var y = racine.THMoteur.fonctionNeuve(2);'),
+      f('d.js', 'var Mo = racine.THMoteur;\nvar z = ligne.fonctionNeuve + Mo.jourCivil(1) + Mo.CONSTANTE;'),
+      f('plan.js', 'Moteur().fonctionNeuve();'),
+      f('moteur.js', 'fonctionNeuve();')
+    ], M);
+    expect(fautes.map((x) => x.split(' :')[0])).toEqual(['a.js:2 `fonctionNeuve`', 'b.js:2 `fonctionNeuve`',
+      'c.js:1 `fonctionNeuve`']);
+  });
 });
+
+// 124 — les fonctions de `moteur.js` lues par un fichier (hors moteur et plan) par un alias du module (`var Mo =
+// racine.THMoteur`, `function Moteur() { return racine.THMoteur; }`, ou `racine.THMoteur.x`), qui ne sont ni dans
+// GARDEES ni source d'une notion. `M` : le module chargé (seules ses FONCTIONS comptent — les constantes sont des valeurs).
+function nonInscritesDuMoteur(fichiers, M) {
+  const inscrites = new Set(GARDEES.filter((g) => g.module === 'moteur.js').map((g) => g.fn)
+    .concat(NOTIONS.filter((n) => n.module === 'moteur.js').map((n) => n.fonction)));
+  const fautes = [];
+  fichiers.forEach((f) => {
+    if (f.nom === 'moteur.js' || f.nom === LE_COACH) return;
+    const code = nettoyer(f.src, false);
+    const vars = [], fns = [];
+    let m;
+    const reVar = /([A-Za-z_$][\w$]*)\s*=\s*racine\s*\.\s*THMoteur\b(?!\s*\.)/g;
+    while ((m = reVar.exec(code)) !== null) vars.push(m[1]);
+    const reFn = /function\s+([A-Za-z_$][\w$]*)\s*\(\s*\)\s*\{\s*return\s+racine\s*\.\s*THMoteur\s*;?\s*\}/g;
+    while ((m = reFn.exec(code)) !== null) fns.push(m[1]);
+    const tetes = ['racine\\s*\\.\\s*THMoteur'].concat(vars.map((v) => '\\b' + echapper(v)))
+      .concat(fns.map((v) => '\\b' + echapper(v) + '\\s*\\(\\s*\\)'));
+    const re = new RegExp('(?:' + tetes.join('|') + ')\\s*\\.\\s*([A-Za-z_$][\\w$]*)', 'g');
+    while ((m = re.exec(code)) !== null) {
+      if (typeof M[m[1]] === 'function' && !inscrites.has(m[1])) {
+        fautes.push(f.nom + ':' + ligneDe(code, m.index) + ' `' + m[1] + '` : ni dans GARDEES (une décision du coach, ' +
+          'avec ses autorisations) ni au registre NOTIONS (un fait, un format, avec ses lecteurs) — inscris-la.');
+      }
+    }
+  });
+  return fautes;
+}
 
 // Le corps d'une fonction déclarée `function nom(...) { … }` dans un source
 // nettoyé : de son accolade ouvrante à l'accolade qui la ferme.

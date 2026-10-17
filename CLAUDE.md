@@ -155,7 +155,9 @@ trappe `/__sw-off` pendrait avec lui.
   s'appelle que depuis son module, `plan.js`, ou un fichier inscrit pour elle dans
   `AUTORISATIONS` **avec sa raison**. L'élargir est un geste conscient, dans une PR
   qui le justifie — jamais un contournement silencieux. Une entrée sans appel fait
-  aussi échouer le test : la liste dit ce qui est.
+  aussi échouer le test : la liste dit ce qui est. **Depuis le 17/10/2026 (124, audit 06 #5)**, toute
+  fonction de `moteur.js` lue hors du moteur et du plan doit être inscrite — dans `GARDEES` (une décision
+  du coach) ou au registre `NOTIONS` (un fait, un format, avec ses lecteurs) : sinon la garde échoue.
 - **Le module des faits** (58-1) : l'assemblage des faits (séances et séries, records d'une séance,
   d'un mois, du jour, le dernier record, la semaine affichée, les exercices faits) vit dans
   `v2/js/faits.js`, avec ses mémos ; les écrans — et le jeu — le **lisent**, aucun autre fichier ne

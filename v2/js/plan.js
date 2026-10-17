@@ -1029,8 +1029,10 @@
 
   // MOTEUR §9.16 (49-U11) — les phases qu'un pari peut porter. Vide, ou
   // inconnue : `maintien` (« je ne sais pas »). Jamais vide dans un fondement.
-  var PHASES_DU_PLAN = ['prise_de_masse', 'maintien', 'seche'];
-  function phaseDuPlan(v) { return PHASES_DU_PLAN.indexOf(v) >= 0 ? v : 'maintien'; }
+  // 124 (audit du 16/10/2026, 01 #14) — les phases et leur défaut sont ceux du profil (`THProfil.phaseDe`,
+  // `PHASES_EN_BASE`), lus à l'appel : une liste, pas trois.
+  function phasesDuPlan() { return racine.THProfil.PHASES_EN_BASE; }
+  function phaseDuPlan(v) { return racine.THProfil.phaseDe({ phase: v }); }
 
   // MOTEUR §9.16 (60-2b) — les objectifs qu'un pari peut porter. Vide ou inconnu :
   // `null`, SANS défaut — contrairement à la phase, « sans réponse » est une réponse.
@@ -2453,11 +2455,11 @@
   function verifierPhase(plan, parisSeance, erreurs) {
     if (!plan) return;
     var phase = plan.phase;
-    if (PHASES_DU_PLAN.indexOf(phase) < 0) erreurs.push('I18 — la phase du plan est vide ou inconnue (' + phase + ')');
+    if (phasesDuPlan().indexOf(phase) < 0) erreurs.push('I18 — la phase du plan est vide ou inconnue (' + phase + ')');
     var voir = function (q, ou) {
       var f = q && q.fondement;
       if (!f) return;
-      if (PHASES_DU_PLAN.indexOf(f.phase) < 0) {
+      if (phasesDuPlan().indexOf(f.phase) < 0) {
         erreurs.push('I18 — ' + ou + ' : un pari sans phase (' + f.phase + ')');
       } else if (f.phase !== phase) {
         erreurs.push('I18 — ' + ou + ' : un pari à la phase ' + f.phase + ' dans une séance à ' + phase);

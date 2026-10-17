@@ -115,7 +115,7 @@
   // questionnaire la ferait passer pour « jamais répondu » et « Continuer » resterait éteint.
   function phaseSaisie(profil) {
     var v = profil && profil.phase;
-    if (v === 'prise_de_masse' || v === 'maintien' || v === 'seche') return v;
+    if (Profil().PHASES_EN_BASE.indexOf(v) >= 0) return v;   // les phases du profil, une liste (124)
     return profil && profil.phase_confirmee_le ? 'inconnue' : null;
   }
 

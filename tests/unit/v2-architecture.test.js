@@ -1455,6 +1455,13 @@ const NOTIONS = [
   { notion: 'les noms des muscles, accordés (« tes pectoraux », « ton grand dorsal »)', pr: '124-U1',
     module: 'moteur.js', fonction: 'motsDesMuscles', lecteurs: ['generateur.js'],
     raison: 'un format de la voix du coach : les singuliers sont écrits une fois (`MUSCLES_SINGULIERS`).' },
+  { notion: 'la phase effective (vide ou inconnue : maintien)', pr: '124-U2',
+    module: 'profil.js', fonction: 'phaseDe', lecteurs: ['app.js', 'plan.js'],
+    parAilleurs: { 'plan.js': ['phaseDuPlan'] },
+    interditAilleurs: { motif: /(['"])prise_de_masse\1\s*,\s*(['"])maintien\2|===\s*(['"])prise_de_masse\3\s*\|\|/,
+      raison: 'la liste des phases écrite en dur : lire `Profil.PHASES_EN_BASE` ou `Profil.phaseDe`' },
+    raison: 'audit du 16/10/2026 (01 #14) : le plan (`PHASES_DU_PLAN`) et le questionnaire (`phaseSaisie`) recopiaient la ' +
+      'liste du profil, et le plan son défaut (« maintien ») ; une liste, un défaut, au profil.' },
   { notion: 'la zone force (Lourd, Mix)', pr: '124-U2',
     module: 'moteur.js', fonction: 'estZoneForce', lecteurs: ['plan.js', 'app.js'],
     par: ['marcheIsoleeBrute', 'degressivePossible'],

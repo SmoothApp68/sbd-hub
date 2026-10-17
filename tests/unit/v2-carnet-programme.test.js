@@ -24,6 +24,7 @@ const vm = require('vm');
 require('../../v2/js/modele.js');
 require('../../v2/js/profil.js');
 require('../../v2/js/palier.js');
+require('../../v2/js/bilan.js');   // 124 : « tenu » du bilan de bloc se lit dans `THBilan.estTenu`
 const M = require('../../v2/js/moteur.js');
 require('../../v2/js/seance.js');
 const Plan = require('../../v2/js/plan.js');

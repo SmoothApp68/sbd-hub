@@ -30,9 +30,12 @@ describe('§9.23 — le bilan du mois, sur les cas du fichier', () => {
         seances: c.seances.map(seanceDe),
         paris: c.paris.map((p) => ({ date: p.seance_debut, predite: p.predite, observee: p.observee }))
       });
-      expect({ seances: b.seances, series: b.series, volume_kg: b.volume_kg, jours: b.jours,
-               paris_verifies: b.paris_verifies, paris_tenus: b.paris_tenus, temps_min: b.temps_min })
-        .toEqual(c.attendu);
+      // 124 (audit du 16/10/2026, 04 #13, #14) — le bilan du mois ne rend plus `jours`, `temps_min` ni les paris (le
+      // code mort de l'ancien bilan ; les paris du mois ont un fil, la période) : les autres chiffres du fichier de cas,
+      // qui reste tel quel, tiennent toujours.
+      expect({ seances: b.seances, series: b.series, volume_kg: b.volume_kg })
+        .toEqual({ seances: c.attendu.seances, series: c.attendu.series, volume_kg: c.attendu.volume_kg });
+      ['jours', 'temps_min', 'paris_verifies', 'paris_tenus', 'exercices'].forEach((k) => expect(b).not.toHaveProperty(k));
     });
   });
 });
@@ -45,15 +48,12 @@ describe('§9.23 — la phrase des paris', () => {
   });
 });
 
-describe('§9.23 — le temps du mois : toutes les séances ont une fin, sinon rien', () => {
-  test('la somme de fin − début, en minutes', () => {
-    expect(B.tempsDuMois([{ debut: '2026-09-01T18:00', fin: '2026-09-01T19:00' },
-      { debut: '2026-09-15T18:00', fin: '2026-09-15T19:10' }])).toBe(130);
-  });
-  test('⚠️ une seule séance sans fin, et le temps disparaît', () => {
-    expect(B.tempsDuMois([{ debut: '2026-09-01T18:00', fin: '2026-09-01T19:00' },
-      { debut: '2026-09-15T18:00', fin: null }])).toBeNull();
-    expect(B.tempsDuMois([])).toBeNull();
+describe('§9.23 — le temps du mois', () => {
+  // 124 (audit du 16/10/2026, 04 #13) — la règle « tout ou rien » de l'ancien bilan (`tempsDuMois`) contredisait celle
+  // des heures à la salle (97) et n'était plus lue : retirée, avec `exercicesLesPlusFaits`. Le format reste.
+  test('124 — l’ancienne règle du temps et les exercices les plus faits sont retirés ; le format du temps reste', () => {
+    expect(B.tempsDuMois).toBeUndefined();
+    expect(B.exercicesLesPlusFaits).toBeUndefined();
     expect(B.texteTemps(130)).toBe('2 h 10');
     expect(B.texteTemps(45)).toBe('45 min');
   });
@@ -71,7 +71,7 @@ describe('§9.23 (H2, #371) — les séries par muscle, comptées comme le bloc 
     const b = B.bilanDuMois({ mois: '2026-09', seances, paris: [], exercices: cat });
     expect(b.muscles.map((m) => [m.muscle, m.series, m.avant])).toEqual(
       [['pectoraux', 3, 2], ['triceps', 1.5, 1], ['grand_dorsal', 1, 0], ['biceps', 0.5, 0]]);
-    expect(b.exercices).toEqual([{ slug: 'couche', series: 3 }, { slug: 'tirage', series: 1 }]);
+    expect(b).not.toHaveProperty('exercices');   // 124 : l'ancien « plus faits » (par séries), retiré
   });
   test('la même fonction que le bloc Volume : les chiffres sont identiques', () => {
     const S = require('../../v2/js/semaine.js');

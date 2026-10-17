@@ -1298,7 +1298,11 @@
         // 119 (F8) — les séries de travail du mois (la règle du volume) : un mois au poids du corps en a sans tonnes.
         series: b.series,
         records: faits.recordsDuMois(corpus(), mois).length,
-        paris: { verifies: b.paris_verifies, tenus: b.paris_tenus },
+        // 124 (audit du 16/10/2026, 04 #14) — les paris du mois, un seul fil : ceux de la story (`bilan.coach`).
+        paris: (function () {
+          var co = bilanPeriode(Bilans.periodeDuMois(mois)).coach;
+          return co ? { verifies: co.faits, tenus: co.tenus } : { verifies: 0, tenus: 0 };
+        })(),
         surChoix: function () { afficherMois(mois); }
       },
       // 98 — la saison écoulée, toute la saison suivante ; hors production, la saison en cours si l'écoulée est vide.
@@ -1433,9 +1437,11 @@
     if (periode.type === 'saison') vue.nom = Bilans.nomDeSaison(periode.saison, Profil.phaseAuJour(profil, periode.debut));
     if (periode.type === 'mois') {
       var mois = periode.cle;
-      var b = bilanDuMoisDe(mois);
       vue.records = faits.recordsDuMois(corpus(), mois);
-      vue.paris = b.paris_verifies ? { phrase: Bilan.phraseParis(b.paris_verifies, b.paris_tenus) } : null;
+      // 124 (audit du 16/10/2026, 04 #7, #14) — la phrase dit les chiffres de l'écran (`bilan.coach`, la période),
+      // tels quels : « 41 vérifiés · 38 tenus » ne se lit plus suivi de « Sur 10 paris vérifiés… ».
+      var co = vue.bilan && vue.bilan.coach;
+      vue.paris = co ? { phrase: Bilan.phraseParis(co.faits, co.tenus, { telsQuels: true }) } : null;
       vue.surRecords = function () { afficherRecordsDuMois(mois); };
     }
     Annee.ouvrir($('annee'), vue);
@@ -3229,8 +3235,7 @@
   // Deux déclarations du même nom, et la seconde efface la première — la
   // carte de fin de bloc s'était vidée (banc « cycles », 55-1).
   function bilanDuMoisDe(mois) {
-    return Bilan.bilanDuMois({ mois: mois, seances: faits.seancesAvecSeries(corpus()),
-                               paris: parisDeConsigneConnus(), exercices: local.exercices });
+    return Bilan.bilanDuMois({ mois: mois, seances: faits.seancesAvecSeries(corpus()), exercices: local.exercices });
   }
 
   // « Septembre », « septembre 2026 ».
@@ -6170,7 +6175,7 @@
     if (!cible) return copie;
     var kc = cs[cible].consigne;
     var l = kc.ligne || kc.haut;
-    var zc = kc.zone === 'lourd' || kc.zone === 'mix' || !kc.zone ? 'volume' : kc.zone;
+    var zc = Moteur.estZoneForce(kc.zone) || !kc.zone ? 'volume' : kc.zone;
     copie[cible] = Object.assign({}, cs[cible], { consigne: Object.assign({}, kc, { zone: zc }),
       compteur: compteurDe(cible, 8, (cs[cible].compteur && cs[cible].compteur.meilleur) ||
         { palier: l.charge, niveau: typeof l.vise === 'number' ? l.vise : 10 }) });
@@ -6202,7 +6207,7 @@
     var charges = [];
     for (var v = P; v > 0 && charges.length < 12; v = Math.round((v - 2.5) * 100) / 100) charges.unshift(v);
     var salle = { materiel: 'barre_ez', charges: charges, isolation: true };
-    var zc = kc.zone === 'lourd' || kc.zone === 'mix' || !kc.zone ? 'volume' : kc.zone;
+    var zc = Moteur.estZoneForce(kc.zone) || !kc.zone ? 'volume' : kc.zone;
     var reponses = demoMarches.filter(function (x) {
       return x && x.exercice === cible && Moteur.MARCHES_PLAFOND.indexOf(x.marche) >= 0;
     }).length;
@@ -6313,14 +6318,14 @@
     demoSerieDePlus = null;
     if (c) {
       var kc = cs[c].consigne;
-      var zc = kc.zone === 'lourd' || kc.zone === 'mix' || !kc.zone ? 'volume' : kc.zone;
+      var zc = Moteur.estZoneForce(kc.zone) || !kc.zone ? 'volume' : kc.zone;
       copie[c] = Object.assign({}, cs[c], { consigne: Object.assign({}, kc, { zone: zc }),
         compteur: compteurDe(c, 4, (cs[c].compteur && cs[c].compteur.meilleur) || meilleurDe(kc)) });
       demoSerieDePlus = c;
     }
     if (a) {
       var ka = cs[a].consigne;
-      var za = ka.zone === 'lourd' || ka.zone === 'mix' ? ka.zone : 'lourd';
+      var za = Moteur.estZoneForce(ka.zone) ? ka.zone : 'lourd';
       copie[a] = Object.assign({}, cs[a], { consigne: Object.assign({}, ka, { zone: za }),
         compteur: compteurDe(a, 4, (cs[a].compteur && cs[a].compteur.meilleur) || meilleurDe(ka)) });
       // §13.6 (49-U20) — SON FRÈRE INVENTÉ : un frère au catalogue s'il en a un

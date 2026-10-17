@@ -143,6 +143,8 @@ describe('§10 bis (113) — le moteur : au plafond, la marche du déclenchement
     expect(d.marche).toBe('serie_de_plus');
     expect(d.deja).toEqual(p('serie_de_plus', 4));
     expect(M.marcheAuPlafond(5, {}, tout)).toBeNull();
+    // 124 (01 #15) — entre deux déclenchements, même une marche déjà proposée ne se rend pas : la branche morte est partie.
+    expect(M.marcheAuPlafond(5, { serie_de_plus: p('serie_de_plus', 4) }, tout)).toBeNull();
     expect(M.marcheAuPlafond(3, {}, tout)).toBeNull();
   });
 

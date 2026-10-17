@@ -35,9 +35,10 @@
   function Pa() { return racine.THParcours; }
 
   // ── Les constantes, une fois ─────────────────────────────────────────────
-  // Les quatre barres de l'année, dans l'ordre de l'écran ; les trois grandes du total.
-  var BARRES = ['squat_barre', 'developpe_couche_barre', 'souleve_de_terre_barre', 'developpe_militaire_barre'];
-  var TROIS = ['squat_barre', 'developpe_couche_barre', 'souleve_de_terre_barre'];
+  // Les quatre barres de l'année, dans l'ordre de l'écran ; les trois grandes du total (les trois premières). Écrites
+  // une fois, dans `THModele` (124, audit du 16/10/2026, 06 #16).
+  function barres() { return Mo().BARRES; }
+  function trois() { return Mo().BARRES.slice(0, 3); }
   // Le profil de l'année : la part des séries de travail par zone de reps (décidé le 12/10/2026).
   var ZONES_DE_REPS = [{ cle: 'force', jusqua: 5 }, { cle: 'mix', jusqua: 8 }, { cle: 'muscle', jusqua: Infinity }];
   // La comparaison : moins de 2 mois de données, aucune ; moins de 12, début contre fin de la période.
@@ -365,7 +366,7 @@
     };
     var avec = cmp.mode !== 'aucune';
     var lignes = [];
-    BARRES.forEach(function (slug) {
+    barres().forEach(function (slug) {
       var an = lourdeDe(slug, function (j) { return j >= periode.debut; });
       if (!an) return;
       var vie = lourdeDe(slug, function (j) { return j < periode.debut; });
@@ -380,9 +381,9 @@
     lignes.forEach(function (l) { if (!tete || l.charge > tete.charge) tete = l; });
     var total = null;
     var des = function (slug) { return lignes.filter(function (l) { return l.slug === slug; })[0] || null; };
-    if (TROIS.every(des)) {
+    if (trois().every(des)) {
       var t = 0, ta = 0, tousAvant = true;
-      TROIS.forEach(function (s) { t += des(s).charge; if (des(s).avant === null) tousAvant = false; else ta += des(s).avant; });
+      trois().forEach(function (s) { t += des(s).charge; if (des(s).avant === null) tousAvant = false; else ta += des(s).avant; });
       total = { charge: t, avant: avec && tousAvant ? ta : null, ecart: avec && tousAvant ? t - ta : null };
     }
     sortie.barres = lignes.length ? { tete: tete, lignes: lignes, total: total } : null;
@@ -488,7 +489,7 @@
     SEMAINES_MIN: SEMAINES_MIN,
     poidsDuJour: poidsDuJour,
     comparaisonDe: comparaisonDe,
-    BARRES: BARRES,
+    get BARRES() { return barres(); },
     ZONES_DE_REPS: ZONES_DE_REPS,
     JOURS_ENCADRE: JOURS_ENCADRE,
     JOURS_PROCHE: JOURS_PROCHE

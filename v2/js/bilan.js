@@ -62,22 +62,6 @@
     return (seances || []).filter(function (s) { return s && cleMois(s.debut) === mois; });
   }
 
-  // LE TEMPS DU MOIS, en minutes : la somme de `fin − début`. ⚠️ SEULEMENT
-  // SI TOUTES les séances du mois ont une heure de fin — un total faux serait
-  // pire qu'aucun (6 des 22 séances de septembre, importées de Hevy, n'en
-  // ont pas). `null` sinon, et sur un mois sans séance.
-  function tempsDuMois(seances) {
-    var liste = seances || [];
-    if (!liste.length) return null;
-    var total = 0;
-    for (var i = 0; i < liste.length; i++) {
-      var a = dateDe(liste[i].debut), b = dateDe(liste[i].fin);
-      if (a === null || b === null || b <= a) return null;
-      total += (b - a) / 60000;
-    }
-    return Math.round(total);
-  }
-
   // Le volume soulevé : charge × reps des séries de travail, charges
   // POSITIVES seulement (ni le corps, ni une aide).
   function volumeKg(series) {
@@ -90,19 +74,6 @@
       v += c * r;
     });
     return Math.round(v * 100) / 100;
-  }
-
-  // Les exercices les plus faits du mois : par séries de travail, puis par
-  // nom. `{ slug, series }`.
-  function exercicesLesPlusFaits(series, combien) {
-    var n = {};
-    (series || []).forEach(function (s) {
-      if (!Mo().estTravail(s) || !s.exercise_slug) return;
-      n[s.exercise_slug] = (n[s.exercise_slug] || 0) + 1;
-    });
-    return Object.keys(n).map(function (slug) { return { slug: slug, series: n[slug] }; })
-      .sort(function (a, b) { return b.series - a.series || (a.slug < b.slug ? -1 : 1); })
-      .slice(0, combien || 5);
   }
 
   // ⚠️ LE COMPTE DES PARIS VÉRIFIÉS ET TENUS, UNE FOIS (71) : le bilan du mois
@@ -127,21 +98,17 @@
   // LE BILAN D'UN MOIS.
   //   `o.mois`      : « AAAA-MM » ;
   //   `o.seances`   : `[{ debut, fin, series }]` — toutes, le mois les trie ;
-  //   `o.paris`     : `[{ date, predite, observee }]` — la date est le début de
-  //                   la séance du pari ; un pari sans observation n'est pas
-  //                   vérifié ;
   //   `o.exercices` : le catalogue (le compte des séries de travail, les
   //                   muscles) ; sans lui, toute série de travail compte.
-  // Rend `{ mois, seances, series, volume_kg, jours, paris_verifies,
-  // paris_tenus, temps_min, muscles, exercices }`.
+  // Rend `{ mois, seances, series, volume_kg, muscles }`. 124 (audit du 16/10/2026, 04 #13, #14) — les jours, le
+  // temps (la règle « tout ou rien », contraire à celle des heures à la salle, 97) et les exercices les plus faits
+  // (par séries) de l'ancien bilan sont retirés : rien ne les lisait depuis la story du mois (98), qui a les siens
+  // (`THBilans`) ; et les paris du mois ont UN fil, celui de la période (`bilan.coach`, `THBilans`).
   function bilanDuMois(o) {
     var p = o || {};
     var du = seancesDuMois(p.seances, p.mois);
     var series = [];
     du.forEach(function (s) { (s.series || []).forEach(function (x) { series.push(x); }); });
-    var jours = {};
-    du.forEach(function (s) { jours[dateDe(s.debut).getDate()] = true; });
-    var comptes = compterParis(p.paris, function (q) { return cleMois(q.date) === p.mois; });
     var avant = [];
     seancesDuMois(p.seances, moisPrecedent(p.mois)).forEach(function (s) {
       (s.series || []).forEach(function (x) { avant.push(x); });
@@ -154,14 +121,9 @@
       seances: du.length,
       series: Se().compteSeriesTravail(series, p.exercices),
       volume_kg: volumeKg(series),
-      jours: Object.keys(jours).map(Number).sort(function (a, b) { return a - b; }),
-      paris_verifies: comptes.verifies,
-      paris_tenus: comptes.tenus,
-      temps_min: tempsDuMois(du),
       muscles: ici.map(function (m) {
         return { muscle: m.muscle, libelle: m.libelle, series: m.series, avant: la[m.muscle] || 0 };
-      }),
-      exercices: exercicesLesPlusFaits(series, 5)
+      })
     };
   }
 
@@ -284,9 +246,7 @@
     premierJour: premierJour,
     moisEcoule: moisEcoule,
     seancesDuMois: seancesDuMois,
-    tempsDuMois: tempsDuMois,
     volumeKg: volumeKg,
-    exercicesLesPlusFaits: exercicesLesPlusFaits,
     bilanDuMois: bilanDuMois,
     compterParis: compterParis,
     estTenu: estTenu,

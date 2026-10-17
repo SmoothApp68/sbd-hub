@@ -18,6 +18,7 @@ process.env.TZ = 'Europe/Paris';
 
 require('../../v2/js/modele.js');
 require('../../v2/js/palier.js');
+require('../../v2/js/bilan.js');   // 124 : « tenu » du bilan de bloc se lit dans `THBilan.estTenu`
 require('../../v2/js/profil.js');
 const Modele = require('../../v2/js/modele.js');
 const M = require('../../v2/js/moteur.js');

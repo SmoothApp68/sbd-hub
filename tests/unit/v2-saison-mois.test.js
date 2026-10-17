@@ -173,9 +173,8 @@ describe('98 — DISCRIMINANT : la story du mois reprend tout l’ancien bilan d
     paris: [{ jour: '2026-10-01', predite: 5, observee: 5 }, { jour: '2026-10-08', predite: 5, observee: 4 },
             { jour: '2026-09-20', predite: 5, observee: 5 }] });
   const RECORDS = [1, 2, 3, 4, 5].map((k) => ({ nom: 'Squat (Barre)', mesure: (125 + k) + ' kg × 5', seanceId: 's' + k, debut: '2026-10-0' + k }));
-  const ancien = Bilan.bilanDuMois({ mois: '2026-10', paris: [{ date: '2026-10-01T18:00:00', predite: 5, observee: 5 },
-    { date: '2026-10-08T18:00:00', predite: 5, observee: 4 }] });
-  const phrase = Bilan.phraseParis(ancien.paris_verifies, ancien.paris_tenus);
+  // 124 (audit du 16/10/2026, 04 #7, #14) — la phrase de la story dit les chiffres de l'écran (`bilan.coach`), tels quels.
+  const phrase = Bilan.phraseParis(b.coach.faits, b.coach.tenus, { telsQuels: true });
   const e = Annee.ecrans({ bilan: b, qui: 'aurel_br', jeu: null, records: RECORDS, paris: { phrase } });
   const de = (cle) => e.filter((x) => x.cle === cle)[0];
   test('les écrans, dans l’ordre', () => {
@@ -193,11 +192,12 @@ describe('98 — DISCRIMINANT : la story du mois reprend tout l’ancien bilan d
     expect(JSON.stringify(r.txt)).toContain('2 autres');
     expect(r.bouton).toEqual({ action: 'records', texte: 'Tous les records du mois' });
   });
-  test('les paris du coach : vérifiés, tenus, et la phrase de l’ancien bilan, au toucher', () => {
+  test('les paris du coach : vérifiés, tenus, et la phrase — les mêmes chiffres —, au toucher', () => {
     const c = de('coach');
     expect([c.chiffre.v, c.chiffre.unite]).toEqual([1, '/ 2']);
     expect(c.detail.lignes).toEqual([{ n: 'Paris vérifiés', v: '2' }, { n: 'Tenus', v: '1' }]);
     expect(c.detail.phrase).toBe(phrase);
+    expect(phrase).toBe('Sur 2 paris vérifiés, le coach en a tenu 1.');
     expect(c.bouton.action).toBe('paris');
   });
   test('les exercices les plus faits : chacun ouvre sa page (son identifiant)', () => {
@@ -241,5 +241,16 @@ describe('119 — l’exercice du mois : en reps, classé par ses reps, « 1 rep
       salle: { jours: 1, minutes: 60 }, seances: [seance('2026-10-02', [['squat_barre', 100, 1]])] });
     const x = Annee.ecrans({ bilan: un, qui: '', jeu: null, records: [], paris: null }).filter((y) => y.cle === 'exercice')[0];
     expect(x.chiffre).toMatchObject({ v: 1, unite: 'rep' });
+  });
+});
+
+// 124 (audit du 16/10/2026, 04 #7, #14) — l'app compose la story et le bloc de Progression sur UN fil : les paris de la
+// période (`bilan.coach`). Plus aucune lecture des paris du bilan du mois, et la phrase dit les chiffres tels quels.
+describe('124 — les paris du mois : un fil (app.js)', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/app.js'), 'utf8');
+  test('ni `paris_verifies` ni `paris_tenus` dans l’app ; la phrase de la story lit `bilan.coach`, tels quels', () => {
+    expect(src).not.toMatch(/paris_verifies|paris_tenus/);
+    expect(src).toMatch(/var co = vue\.bilan && vue\.bilan\.coach;\s*vue\.paris = co \? \{ phrase: Bilan\.phraseParis\(co\.faits, co\.tenus, \{ telsQuels: true \}\) \}/);
+    expect(src).toMatch(/bilanPeriode\(Bilans\.periodeDuMois\(mois\)\)\.coach/);
   });
 });

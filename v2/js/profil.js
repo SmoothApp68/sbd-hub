@@ -876,13 +876,14 @@
   // slug absent du catalogue d'une personne est simplement sans effet. Les six
   // muscles sont les ZONES de `semaine.js` (par leur `cle`), dans l'ordre du
   // radar (`periode.js`) : lus là, jamais recopiés — un libellé par zone.
-  var EXERCICES_PRIORITAIRES = [
-    { cle: 'squat_barre', libelle: 'Squat' },
-    { cle: 'developpe_couche_barre', libelle: 'Couché' },
-    { cle: 'souleve_de_terre_barre', libelle: 'Soulevé' },
-    { cle: 'developpe_militaire_barre', libelle: 'Militaire' },
-    { cle: 'tractions', libelle: 'Tractions' }
-  ];
+  // 124 (audit du 16/10/2026, 06 #16) — les quatre barres et leur nom court sont écrits une fois, dans `THModele`.
+  function exercicesPrioritaires() {
+    var M = racine.THModele;
+    return M.BARRES.map(function (b) {
+      var n = M.NOM_DE_BARRE[b];
+      return { cle: b, libelle: n.charAt(0).toUpperCase() + n.slice(1) };
+    }).concat([{ cle: 'tractions', libelle: 'Tractions' }]);
+  }
   var PRIORITES_MAX = 3;
 
   function musclesPrioritaires() {
@@ -903,7 +904,7 @@
   function prioritesValides(liste) {
     if (!Array.isArray(liste)) return null;
     var connues = {};
-    EXERCICES_PRIORITAIRES.concat(musclesPrioritaires()).forEach(function (x) { connues[x.cle] = true; });
+    exercicesPrioritaires().concat(musclesPrioritaires()).forEach(function (x) { connues[x.cle] = true; });
     var vues = {}, sortie = [];
     liste.forEach(function (c) {
       if (sortie.length >= PRIORITES_MAX || !connues[c] || vues[c]) return;
@@ -949,7 +950,7 @@
   }
 
   function libelleDePriorite(cle) {
-    return libelleDe(EXERCICES_PRIORITAIRES, cle) || libelleDe(musclesPrioritaires(), cle) || cle;
+    return libelleDe(exercicesPrioritaires(), cle) || libelleDe(musclesPrioritaires(), cle) || cle;
   }
 
   // Ce que la ligne « Priorités » montre : `null` (pas répondu → « à renseigner »),
@@ -1477,16 +1478,16 @@
     var nom = sansAccent(String((fiche && fiche.nom) || '').toLowerCase());
     return /\bbarre ez\b/.test(nom) || /(^|_)ez(_|$)/.test(String((fiche && fiche.slug) || ''));
   }
-  // §10 bis (16/10/2026) — `isolation: true` pour un exercice d'isolation (non polyarticulaire, la définition du
-  // moteur, `THMoteur.estPolyarticulaire` sur les trois listes de muscles du catalogue) : à la plus lourde de la salle,
-  // sa fourchette s'étend jusqu'à 15 reps. La clé n'y figure que si elle est vraie.
+  // §10 bis (16/10/2026) — `isolation: true` pour un exercice d'isolation (la définition du moteur,
+  // `THMoteur.estIsolation` sur les trois listes de muscles du catalogue : des muscles, moins de trois ; un exercice
+  // sans muscle connu n'en est pas une — 124, la même que le plan) : à la plus lourde de la salle, sa fourchette
+  // s'étend jusqu'à 15 reps. La clé n'y figure que si elle est vraie.
   function avecIsolation(salle, fiche) {
     var Mo = racine.THMoteur;
-    if (!salle || !Mo || !Mo.estPolyarticulaire) return salle;
+    if (!salle || !Mo || !Mo.estIsolation) return salle;
     var muscles = { prim: fiche.muscles_primaires || [], sec: fiche.muscles_secondaires || [],
                     stab: fiche.muscles_stabilisateurs || [] };
-    if (Mo.aDesMuscles && !Mo.aDesMuscles(muscles)) return salle;
-    return Mo.estPolyarticulaire(muscles) ? salle : Object.assign(salle, { isolation: true });
+    return Mo.estIsolation(muscles) ? Object.assign(salle, { isolation: true }) : salle;
   }
   function salleDeLExercice(profil, slug, index) {
     var s = salleDe(profil);
@@ -1706,7 +1707,7 @@
     RYTHMES: RYTHMES, RYTHME_DEFAUT: RYTHME_DEFAUT,
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     PHASES: PHASES, RAPPEL_PHASE_JOURS: RAPPEL_PHASE_JOURS,
-    rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, LIBELLE_PHASE_VIDE: LIBELLE_PHASE_VIDE,
+    rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, PHASES_EN_BASE: PHASES_EN_BASE, LIBELLE_PHASE_VIDE: LIBELLE_PHASE_VIDE,
     DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, estDebutant: estDebutant, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
     objectifDe: objectifDe, objectifGele: objectifGele,
     prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
@@ -1731,7 +1732,7 @@
     ECARTES_MAX: ECARTES_MAX, ecartesValides: ecartesValides, ecartesDe: ecartesDe, ecartesALaFin: ecartesALaFin,
     DOSSIER_PROGRAMME_MAX: DOSSIER_PROGRAMME_MAX, dossierDuProgrammeValide: dossierDuProgrammeValide,
     PHRASE_PSEUDO_PRIS: PHRASE_PSEUDO_PRIS, pseudoDeLInscription: pseudoDeLInscription, lignePseudo: lignePseudo,
-    EXERCICES_PRIORITAIRES: EXERCICES_PRIORITAIRES, PRIORITES_MAX: PRIORITES_MAX,
+    get EXERCICES_PRIORITAIRES() { return exercicesPrioritaires(); }, PRIORITES_MAX: PRIORITES_MAX,
     musclesPrioritaires: musclesPrioritaires, prioritesValides: prioritesValides,
     DUREE_MIN: DUREE_MIN, DUREE_MAX: DUREE_MAX,
     preparerChamps: preparerChamps,

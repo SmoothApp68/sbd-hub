@@ -31,12 +31,11 @@
   // Hausse au-delà de × 1,025, baisse en deçà de × 0,975 : en millièmes.
   var HAUSSE = 1025, BAISSE = 975, MILLE = 1000;
   // Les quatre grands mouvements : ils comptent double dans un groupe, ils ont leur courbe.
-  var GRANDS = ['squat_barre', 'developpe_couche_barre', 'souleve_de_terre_barre', 'developpe_militaire_barre'];
-  var NOM_COURT = { squat_barre: 'squat', developpe_couche_barre: 'couché',
-                    souleve_de_terre_barre: 'soulevé', developpe_militaire_barre: 'militaire' };
-  var RAPPORTS = [['squat_barre', 'developpe_couche_barre'],
-                  ['developpe_militaire_barre', 'developpe_couche_barre'],
-                  ['souleve_de_terre_barre', 'squat_barre']];
+  // Écrits une fois, dans `THModele` (124, audit du 16/10/2026, 06 #16).
+  var GRANDS = racine.THModele.BARRES;
+  var NOM_COURT = racine.THModele.NOM_DE_BARRE;
+  // Squat ÷ couché, militaire ÷ couché, soulevé ÷ squat.
+  var RAPPORTS = [[GRANDS[0], GRANDS[1]], [GRANDS[3], GRANDS[1]], [GRANDS[2], GRANDS[0]]];
   // Repères StrengthLog (carnets d'entraînement), en centièmes : la moyenne des niveaux intermédiaire et avancé de
   // leurs standards d'ensemble (REFERENTIEL §8, décidé le 11/10/2026). Sexe non précisé : pas de repère.
   var REPERES = { homme: [121, 57, 125], femme: [152, 63, 125] };

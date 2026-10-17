@@ -188,7 +188,15 @@ const GARDEES = [
   { fn: 'projection', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*projection\b/g },
   { fn: 'vue', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*vue\b/g },
   { fn: 'observationDe', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*observationDe\b/g },
-  { fn: 'idDObjectif', module: 'moteur.js' }
+  { fn: 'idDObjectif', module: 'moteur.js' },
+  // 124 (audit du 16/10/2026, 06 #5) — ce que le coach PROPOSE ou RÉDIGE hors de la séance : la carte de fin de bloc
+  // (§9.22), les cibles et la carte de « J'ai peu de temps » (§9.18), la feuille « J'ai mal » (§9.20). Appelées par
+  // l'écran, elles n'étaient inscrites nulle part : la garde ne les voyait pas. Le reste de ce que les écrans lisent du
+  // moteur (faits, formats, lectures des lignes en base) est au registre des notions, bloc « 124 ».
+  { fn: 'carteFinDeBloc', module: 'moteur.js' },
+  { fn: 'ciblesDeTemps', module: 'moteur.js' },
+  { fn: 'carteRaccourcir', module: 'moteur.js' },
+  { fn: 'feuilleDouleur', module: 'moteur.js' }
 ];
 
 // ── LA LISTE D'AUTORISATIONS ────────────────────────────────────────────────
@@ -358,6 +366,25 @@ const AUTORISATIONS = {
     'app.js': 'MOTEUR §9.22 (60-4) : la carte « Passer en cycles » de Saisie lit la règle du générateur ' +
       '(`carteCyclesDuProfil`) : l’objectif, les jours depuis la création, les séances du dossier, un dossier déjà ' +
       'programme, « Juste un carnet », « Pas maintenant » — l’écran ne compte et ne compare rien lui-même.'
+  },
+  // ── 124 (audit du 16/10/2026, 06 #5) — les décisions du coach hors séance, enfin inscrites ──
+  carteFinDeBloc: {
+    'app.js': 'MOTEUR §9.22 (53-2) : la carte de fin de bloc vit dans la bibliothèque, HORS séance — donc sans plan ; ' +
+      'l’écran lui passe le bloc, son bilan (`Moteur.bilanDuBloc`) et le pari de programme, et la montre telle quelle ' +
+      '(app.js, `programmeDuDossierCalcule`) ; « Juste un carnet » la tait avant (`coachSeTait`, I13).'
+  },
+  ciblesDeTemps: {
+    'app.js': 'MOTEUR §9.18 (60-1) : « J’ai peu de temps » vit sur l’écran de la ROUTINE, avant toute séance — donc sans ' +
+      'plan ; l’écran passe l’estimation et la durée déclarée, la règle rend les cibles (app.js, `ciblesPlusCourtes`).'
+  },
+  carteRaccourcir: {
+    'app.js': 'MOTEUR §9.18 (51-1) : la carte de « J’ai peu de temps », sur l’écran de la routine, avant toute séance — ' +
+      'donc sans plan ; elle met en mots le résultat de `raccourcirRoutine` (app.js, `montrerCarteRaccourci`).'
+  },
+  feuilleDouleur: {
+    'app.js': 'MOTEUR §9.20 (51-3) : la feuille « J’ai mal » est un geste de la personne en séance ; ses phrases sont ' +
+      'fixes (`TEXTES_DOULEUR`, le nom de l’exercice), elle ne décide rien — la séance marquée devient neutre ensuite ' +
+      'par le plan (`sansPalierRetenues`) (app.js, `rendreFeuilleDeviation`).'
   }
 };
 
@@ -510,9 +537,11 @@ const NOTIONS = [
     module: 'modele.js', fonction: 'nombreSigne', lecteurs: ['rendu.js', 'app.js', 'profil.js', 'questionnaire.js', 'bilan.js'],
     motif: /\.\s*nombreSigne\s*\(/g,
     interditAilleurs: {
-      motif: /\.replace\(\s*(['"])\.\1\s*,\s*(['"]),\2\s*\)|toLocale(?:Date|Time)?String\s*\(|\\u2212|(['"])janv\.?\3|(['"])janvier\4/,
-      raison: 'une virgule décimale, une date `toLocale…`, un signe moins ou une liste de mois écrits hors du formateur ' +
-        '(`modele.js`)' },
+      // 124 (audit du 16/10/2026, 06 #15) — et les jours comme les mois : une liste de jours (« lundi », « mardi » ;
+      // « dimanche », « lundi » ; « Lun », « Mar » ; « L », « M », « M ») ou leur alternative dans un motif.
+      motif: /\.replace\(\s*(['"])\.\1\s*,\s*(['"]),\2\s*\)|toLocale(?:Date|Time)?String\s*\(|\\u2212|(['"])janv\.?\3|(['"])janvier\4|['"][Ll]undi['"]\s*,\s*['"][Mm]ardi['"]|['"][Dd]imanche['"]\s*,\s*['"][Ll]undi['"]|['"]Lun\.?['"]\s*,\s*['"]Mar\.?['"]|['"]L['"]\s*,\s*['"]M['"]\s*,\s*['"]M['"]|[Ll]undi\|[Mm]ardi/,
+      raison: 'une virgule décimale, une date `toLocale…`, un signe moins, une liste de mois ou de jours écrits hors du ' +
+        'formateur (`modele.js`)' },
     raison: '`rendu.nombreFr`, `MOIS`, `mmss`, `dateCourte`, `nombreGroupe`, `poids.arrondi`, les mois du ' +
       'calendrier et l’horodatage du rejeu en étaient des copies, chacune avec sa règle.' },
   { notion: 'l’arrondi (symétrique) des nombres affichés', pr: 'PR 7',
@@ -668,9 +697,9 @@ const NOTIONS = [
     raison: 'une routine NEUVE que `enregistrer` crée comme les autres (rang suivant, annulation) ; ' +
       'aucun identifiant partagé : l’originale ne peut pas être touchée.' },
   { notion: 'un polyarticulaire (au moins 3 muscles) : le raccourci et les repos par défaut', pr: '52-U1',
-    module: 'moteur.js', fonction: 'estPolyarticulaire', lecteurs: ['routines.js', 'generateur.js', 'profil.js', 'plan.js', 'app.js'],
-    par: ['raccourcirRoutine'],
-    parAilleurs: { 'routines.js': ['routineDepuisSeance'], 'generateur.js': ['relecture'], 'profil.js': ['avecIsolation'],
+    module: 'moteur.js', fonction: 'estPolyarticulaire', lecteurs: ['routines.js', 'generateur.js', 'plan.js', 'app.js'],
+    par: ['raccourcirRoutine', 'estIsolation'],
+    parAilleurs: { 'routines.js': ['routineDepuisSeance'], 'generateur.js': ['relecture'],
                    'plan.js': ['polyarticulaireDe'], 'app.js': ['degressiveDeDemo'] },
     raison: 'les repos par défaut d’« En faire une routine » sont les classes de « J’ai peu de temps » : ' +
       'une définition, lue aux deux endroits. 66A : la relecture de la semaine (§5 ter.4) la lit aussi — l’isolation ' +
@@ -678,11 +707,19 @@ const NOTIONS = [
       '16/10/2026) : la salle d’un exercice d’isolation, dont la fourchette s’étend à 15 reps à la plus lourde. 111 : la dégressive ' +
       'proposée (MOTEUR §14), en isolation seulement — le plan la lit (`polyarticulaireDe`), et la démonstration ' +
       '`?escalier=degressive` de l’app y choisit son exercice (`degressiveDeDemo`).' },
+  { notion: 'l’isolation (des muscles au catalogue, moins de trois ; sans muscle connu : ni l’un ni l’autre)', pr: '124-U3',
+    module: 'moteur.js', fonction: 'estIsolation', lecteurs: ['profil.js', 'plan.js'],
+    parAilleurs: { 'profil.js': ['avecIsolation'], 'plan.js': ['polyarticulaireDe'] },
+    raison: 'audit du 16/10/2026 (01 #15) : pour un exercice sans muscle connu, la salle (`avecIsolation`) n’en faisait pas ' +
+      'une isolation, la dégressive du plan si ; une définition, lue aux deux endroits (MOTEUR §10 bis et §14 : « la ' +
+      'même définition que la salle »).' },
   { notion: 'le débutant (« Moins d’un an » d’ancienneté)', pr: '111-U1',
-    module: 'profil.js', fonction: 'estDebutant', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['entreeDeLaSemaine', 'debutantDeLaSeance'] },
+    module: 'profil.js', fonction: 'estDebutant', lecteurs: ['app.js', 'generateur.js'],
+    parAilleurs: { 'app.js': ['entreeDeLaSemaine', 'debutantDeLaSeance'], 'generateur.js': ['generer', 'neVeuxPas'] },
+    interditAilleurs: { motif: /(['"])moins_1_an\1\s*[;)]|===\s*(['"])moins_1_an\2/,
+      raison: 'le débutant écrit en dur (« moins_1_an » comparé ou posé seul) : passer par `Profil.estDebutant`' },
     raison: 'la semaine qui déraille et la dégressive proposée (MOTEUR §14, jamais pour un débutant) lisent la même ' +
-      'règle ; le générateur garde la sienne (60-6), à rapatrier.' },
+      'règle ; 124 (audit du 16/10/2026, 01 #14) : le générateur (60-6) la lit aussi — sa copie est retirée.' },
   { notion: 'les écarts d’une séance avec une routine (§6.3, et « Mettre à jour » depuis une séance)', pr: '52-U1',
     module: 'seance.js', fonction: 'ecartsRoutine', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreFeuilleFin', 'apercuMiseAJour'] },
@@ -933,10 +970,15 @@ const NOTIONS = [
       '(séries, volume, muscles, records, paris, comparaison) sans en recopier rien ; l’écran les lit.' },
   { notion: 'le compte des paris vérifiés et tenus (tenu : observé ≥ prédit)', pr: '71-U1',
     module: 'bilan.js', fonction: 'compterParis', lecteurs: ['faits.js', 'bilans.js'],
-    par: ['bilanDuMois'],
-    parAilleurs: { 'faits.js': ['recapDeLaSeance'] },
-    raison: 'MOTEUR §9.22 : le bilan du mois et le récap de fin de séance comptent les paris par la même boucle ' +
-      '(extraite de `bilanDuMois`, 71) — le bilan ne change pas d’un chiffre.' },
+    parAilleurs: { 'faits.js': ['recapDeLaSeance'], 'bilans.js': ['bilanDeLaPeriode'] },
+    raison: 'MOTEUR §9.22 : le bilan d’une période (le mois, la saison, l’année) et le récap de fin de séance comptent ' +
+      'les paris par la même boucle (extraite de `bilanDuMois`, 71). 124 (audit du 16/10/2026, 04 #14) : le bilan du mois ' +
+      'n’en compte plus — les paris du mois ont un fil, celui de la période (`bilan.coach`).' },
+  { notion: 'un pari tenu (observé ≥ prédit)', pr: '124-U4',
+    module: 'bilan.js', fonction: 'estTenu', lecteurs: ['faits.js', 'moteur.js'],
+    par: ['compterParis'],
+    parAilleurs: { 'moteur.js': ['bilanDuBloc'] },
+    raison: 'audit du 16/10/2026 (04 #12) : le bilan de bloc (§9.22) recopiait « observé ≥ prédit » ; une règle, au bilan.' },
   { notion: 'la comparaison du volume à un objet connu (« à peu près un tricératops »)', pr: '71-U1',
     module: 'bilan.js', fonction: 'comparaison', lecteurs: ['bilans.js'],
     par: ['phraseComparaison'],
@@ -1328,7 +1370,136 @@ const NOTIONS = [
     module: 'reserve.js', fonction: 'passeDeReserve', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['reserveDeLaSeance'] },
     raison: 'MOTEUR §17.2 bis (78) : l’entrée de la règle, lue par `Modele.estTravail` et `Moteur.jourCivil` (jamais ' +
-      'recopiés) ; l’app la fige une fois par exercice et par séance, et la passe au plan.' }
+      'recopiés) ; l’app la fige une fois par exercice et par séance, et la passe au plan.' },
+  // ── 124 (audit du 16/10/2026, 06 #5) — LE RESTE DU MOTEUR QUE LES AUTRES FICHIERS LISENT ──────────────────
+  // Des faits, des formats, des lectures des lignes en base : aucune ne décide ce que le coach propose (celles qui le
+  // font sont dans GARDEES). Inscrites ici, chacune a désormais ses lecteurs ; le contrôle « 124 » (plus bas) refuse
+  // toute fonction de `moteur.js` lue ailleurs sans être inscrite.
+  { notion: 'la structure d’une routine (ses séries par type, ses repos, ses muscles), pour l’estimer', pr: '124-U1',
+    module: 'moteur.js', fonction: 'structureDeRoutine', lecteurs: ['app.js', 'deraille.js'],
+    raison: 'MOTEUR §9.18 : la durée de la routine, la durée allégée, la carte de « J’ai peu de temps », la durée d’une ' +
+      'carte du programme construit et la semaine qui déraille (99) lisent la même structure, jamais refaite à l’écran.' },
+  { notion: 'la structure d’une semaine allégée (pour la seule estimation de sa durée)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'structureAllegee', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.18 (51-1 ter) : la durée allégée de la routine se lit par la même part allégée que la séance ' +
+      '(`seriesAllegees`, §14.4) ; l’écran n’enlève aucune série lui-même.' },
+  { notion: 'la routine raccourcie (le résultat accepté de « J’ai peu de temps » appliqué à ses lignes)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'appliquerRaccourci', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.18 : la séance démarre sur une COPIE de la routine, moins les lignes que `raccourcirRoutine` a ' +
+      'retirées et que la personne a acceptées ; l’écran ne choisit aucune ligne.' },
+  { notion: 'la durée estimée, mise en mots (« Environ 62 min (estimation) »)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'texteDureeEstimee', lecteurs: ['app.js'],
+    raison: 'un format : la minute arrondie une fois (`minutesDe`), par le formateur unique.' },
+  { notion: 'la durée allégée, mise en mots (« Semaine allégée : environ … »)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'texteDureeAllegee', lecteurs: ['app.js'],
+    raison: 'un format : la même minute que la durée estimée, jamais arrondie à part.' },
+  { notion: 'la durée courte d’une carte du programme construit (« ≈ 69 min »)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'texteDureeCourte', lecteurs: ['app.js'],
+    raison: 'un format (60-4) : la même minute que les phrases de la routine (`minutesDe`).' },
+  { notion: 'le libellé d’une cible de « J’ai peu de temps » (« 45 min », « Tenir en 60 min »)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'libelleCibleTemps', lecteurs: ['app.js'],
+    raison: 'un format : la cible vient de `ciblesDeTemps` (gardée), le libellé dit si c’est la durée de la personne.' },
+  { notion: 'un exercice qui a des muscles au catalogue', pr: '124-U1',
+    module: 'moteur.js', fonction: 'aDesMuscles', lecteurs: ['generateur.js', 'routines.js'],
+    par: ['estIsolation'],
+    raison: 'les trois listes du catalogue comptées une fois (`nombreDeMuscles`) : le raccourci, Ma salle, le générateur ' +
+      'et « En faire une routine » disent la même chose d’un exercice sans muscles.' },
+  { notion: 'le jour civil d’un instant ou d’une date (AAAA-MM-JJ, heure locale)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'jourCivil', lecteurs: ['app.js', 'faits.js', 'generateur.js', 'plan.js', 'reserve.js', 'objectif.js'],
+    raison: 'un seul passage d’un instant au jour du calendrier de la personne : les faits, le plan, la réserve, le ' +
+      'générateur, l’objectif (124 : sa copie retirée, 01 #14) et l’app comptent les mêmes jours.' },
+  { notion: 'le numéro d’un jour civil (la différence de deux numéros compte les jours du calendrier)', pr: '124-U2',
+    module: 'moteur.js', fonction: 'numeroDuJour', lecteurs: ['objectif.js', 'deraille.js'],
+    parAilleurs: { 'objectif.js': ['numeroDuJour'], 'deraille.js': ['numero'] },
+    raison: 'audit du 16/10/2026 (01 #14) : l’arithmétique des jours civils était écrite trois fois (moteur, objectif, ' +
+      'semaine qui déraille) ; une fois, au moteur.' },
+  { notion: 'le jour civil d’un numéro (l’inverse)', pr: '124-U2',
+    module: 'moteur.js', fonction: 'jourDuNumero', lecteurs: ['deraille.js'],
+    par: ['ajouterJours'],
+    parAilleurs: { 'deraille.js': ['civil'] },
+    raison: 'audit du 16/10/2026 (01 #14) : le jour d’un numéro, une fois ; `ajouterJours` et la semaine qui déraille le lisent.' },
+  { notion: 'la fin d’une semaine allégée acceptée', pr: '124-U1',
+    module: 'moteur.js', fonction: 'finAllegee', lecteurs: ['app.js'],
+    raison: 'MOTEUR §14.4 : la durée de la semaine allégée (`DUREE_ALLEGEE_JOURS`) est écrite une fois ; l’app la lit ' +
+      'au moment d’écrire la réponse (app.js, `repondreCarte`).' },
+  { notion: 'les cartes de l’escalier, lues dans les paris (jour, réponse, période, exercices cités)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'cartesDesParis', lecteurs: ['app.js'],
+    raison: 'une lecture des lignes `predictions` (module escalier) : la mémoire de la carte, les fins allégées, ' +
+      'l’observation et la démonstration lisent les mêmes cartes.' },
+  { notion: 'les marches isolées, lues dans les paris (schéma, repli, série de plus, dégressive, remplacement)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'marchesDesParis', lecteurs: ['app.js'],
+    raison: 'une lecture des lignes `predictions` (module escalier) : les périodes de la série de plus, l’observation et ' +
+      'la démonstration lisent les mêmes marches.' },
+  { notion: 'une zone par sa clé (bornes, libellé)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'zoneParCle', lecteurs: ['app.js', 'plan.js'],
+    raison: 'les bornes d’une zone sont écrites une fois (`ZONES`) ; le plan et la démonstration les lisent par la clé.' },
+  { notion: 'les charges de travail d’un exercice, séance par séance', pr: '124-U1',
+    module: 'moteur.js', fonction: 'chargesDeTravailDe', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.22 : le bilan du bloc et la tête des records de la page d’exercice lisent les charges de travail ' +
+      'comme la consigne les lit (`contratDe`), jamais recalculées à l’écran.' },
+  { notion: 'les périodes des décharges planifiées (que le compteur saute)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'periodesDecharge', lecteurs: ['app.js'],
+    raison: 'une ENTRÉE du compteur, préparée par l’app : la décharge part du même jour que la carte qui se tait ' +
+      '(`debutDecharge`).' },
+  { notion: 'les exercices qui ont progressé sur un bloc (l’observation du pari de programme)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'progresDuBilan', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.22 : la carte de fin de bloc et l’observation écrite en base lisent le même nombre.' },
+  { notion: 'le bloc en cours d’un dossier (un seul)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'blocEnCours', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.22 : la bibliothèque, « Arrêter », « Commencer » et la feuille du bloc lisent le même bloc ' +
+      '(l’index `blocs_un_en_cours`).' },
+  { notion: 'le badge du bloc (« Bloc Mix · semaine 2 sur 4 », « terminé »)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'badgeDuBloc', lecteurs: ['app.js'],
+    raison: 'un format, sur la semaine du bloc (`semaineDuBloc`) : le coach ne commente pas l’assiduité.' },
+  { notion: 'le libellé d’une zone de bloc (« Mix », « Mix (6-8) »)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'libelleZoneDeBloc', lecteurs: ['app.js'],
+    raison: 'un format : la feuille du programme et la carte de fin de bloc nomment la zone de la même façon.' },
+  { notion: 'le bloc terminé (sa fin passée, jusqu’au choix de la personne)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'blocTermine', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.22 : la carte de fin de bloc et l’arrêt (fini ou arrêté) lisent la même fin.' },
+  { notion: 'les lignes de zone qui comptent (celles d’un bloc arrêté avant son début sont ignorées)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'lignesDeZoneValides', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.22 (53-2 ter) : LA seule lecture des zones de l’app (`zonesLues`) — le plan, le compteur, le ' +
+      'report, l’étiquette et le rejeu lisent les mêmes lignes.' },
+  { notion: 'les lignes de zone posées à l’arrêt d’un programme (la zone d’avant le programme)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'lignesDArret', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.22 (53-2 ter) : la règle de l’arrêt (sauf un exercice corrigé pendant le programme) vit dans ' +
+      'le moteur ; l’app pose ce qu’elle rend.' },
+  { notion: 'la ligne de zone qui commence un bloc', pr: '124-U1',
+    module: 'moteur.js', fonction: 'ligneDeDebutDeBloc', lecteurs: ['app.js'],
+    raison: 'MOTEUR §9.10 (53-2 bis) : « Nouveau bloc » et « · bloc » se disent sur la même ligne.' },
+  { notion: 'la salle en vigueur pour une charge (ses crans, l’isolation)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'salleEnVigueur', lecteurs: ['objectif.js', 'plan.js'],
+    raison: 'MOTEUR §10 bis (108) : le plan et l’objectif lisent la même salle (une barre chargée n’est pas concernée).' },
+  { notion: 'la charge la plus lourde de la salle déclarée', pr: '124-U1',
+    module: 'moteur.js', fonction: 'maxDeLaSalle', lecteurs: ['objectif.js'],
+    raison: 'MOTEUR §10 bis (108) : la plus lourde se lit sur les crans de la salle (`chargesDeLaSalle`), une fois.' },
+  { notion: 'les noms des muscles, accordés (« tes pectoraux », « ton grand dorsal »)', pr: '124-U1',
+    module: 'moteur.js', fonction: 'motsDesMuscles', lecteurs: ['generateur.js'],
+    raison: 'un format de la voix du coach : les singuliers sont écrits une fois (`MUSCLES_SINGULIERS`).' },
+  { notion: 'la phase effective (vide ou inconnue : maintien)', pr: '124-U2',
+    module: 'profil.js', fonction: 'phaseDe', lecteurs: ['app.js', 'plan.js'],
+    parAilleurs: { 'plan.js': ['phaseDuPlan'] },
+    interditAilleurs: { motif: /(['"])prise_de_masse\1\s*,\s*(['"])maintien\2|===\s*(['"])prise_de_masse\3\s*\|\|/,
+      raison: 'la liste des phases écrite en dur : lire `Profil.PHASES_EN_BASE` ou `Profil.phaseDe`' },
+    raison: 'audit du 16/10/2026 (01 #14) : le plan (`PHASES_DU_PLAN`) et le questionnaire (`phaseSaisie`) recopiaient la ' +
+      'liste du profil, et le plan son défaut (« maintien ») ; une liste, un défaut, au profil.' },
+  { notion: 'deux charges égales (au centième)', pr: '124-U2',
+    module: 'moteur.js', fonction: 'memeCharge', lecteurs: ['plan.js'],
+    parAilleurs: { 'plan.js': ['memeChargeOuVides'] },
+    raison: 'audit du 16/10/2026 (01 #14) : deux `memeCharge`, deux sémantiques (le plan rendait vrai pour deux vides, le ' +
+      'moteur faux) ; une arithmétique, au moteur, et la règle des vides nommée dans le plan (`memeChargeOuVides`).' },
+  { notion: 'la zone force (Lourd, Mix)', pr: '124-U2',
+    module: 'moteur.js', fonction: 'estZoneForce', lecteurs: ['plan.js', 'app.js'],
+    par: ['marcheIsoleeBrute', 'degressivePossible'],
+    interditAilleurs: { motif: /(['"])lourd\1\s*,\s*(['"])mix\2|===\s*(['"])lourd\3\s*\|\|[^;]*===\s*(['"])mix\4|!==\s*(['"])lourd\5\s*&&[^;]*!==\s*(['"])mix\6/,
+      raison: 'la zone force écrite en dur (« lourd », « mix ») : passer par `Moteur.estZoneForce`' },
+    raison: 'audit du 16/10/2026 (06 #16, 01 #14) : `ZONES_FORCE` et `ZONES_DE_BLOC` étaient deux listes identiques dans ' +
+      'le moteur, et « lourd ou mix » s’écrivait en littéral dans le plan (la série de plus, I23, I48) et la démonstration.' },
+  { notion: 'la médiane d’une liste de nombres', pr: '124-U1',
+    module: 'moteur.js', fonction: 'mediane', lecteurs: ['faits.js', 'routines.js'],
+    raison: 'MOTEUR §8.2, §9.1.2 : la moyenne des deux du milieu pour une longueur paire ; les habitudes et le programme ' +
+      'déduit la lisent, puis arrondissent par `Routines.arrondiDeduit`.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -1491,7 +1662,63 @@ describe('architecture — un seul coach, un seul câblage', () => {
     ['reactionPour', 'planDeCouverture', 'lignesDePari', 'constatDuJour', 'consigneFigee']
       .forEach((fn) => expect([fn, !!REL[fn][LE_COACH]]).toEqual([fn, true]));
   });
+
+  // 124 (audit du 16/10/2026, 06 #5) — LA GARDE NE PROTÈGE QUE CE QU'ON Y INSCRIT. Ce contrôle ferme le trou : toute
+  // fonction exportée par `moteur.js` et lue hors du moteur et du plan est inscrite, dans GARDEES (une décision du
+  // coach, avec ses autorisations) ou au registre des notions (un fait, un format, avec ses lecteurs). Une fonction
+  // nouvelle du moteur, appelée par un écran sans inscription, fait échouer la garde.
+  test('⚠️ 124 — une fonction de `moteur.js` lue hors du moteur et du plan est inscrite (GARDEES ou NOTIONS)', () => {
+    global.self = global;
+    require('../../v2/js/modele.js');
+    require('../../v2/js/palier.js');
+    const M = require('../../v2/js/moteur.js');
+    expect(nonInscritesDuMoteur(FICHIERS, M)).toEqual([]);
+  });
+
+  test('le contrôle 124 se lit vraiment : un appel nu se voit, par chaque alias ; un champ du même nom non', () => {
+    const M = { jourCivil: function () {}, fonctionNeuve: function () {}, CONSTANTE: 4 };
+    const f = (nom, src) => ({ nom, src });
+    const fautes = nonInscritesDuMoteur([
+      f('a.js', 'var Moteur = racine.THMoteur;\nMoteur.fonctionNeuve(1);'),
+      f('b.js', 'function Moteur() { return racine.THMoteur; }\nvar x = Moteur().fonctionNeuve;'),
+      f('c.js', 'var y = racine.THMoteur.fonctionNeuve(2);'),
+      f('d.js', 'var Mo = racine.THMoteur;\nvar z = ligne.fonctionNeuve + Mo.jourCivil(1) + Mo.CONSTANTE;'),
+      f('plan.js', 'Moteur().fonctionNeuve();'),
+      f('moteur.js', 'fonctionNeuve();')
+    ], M);
+    expect(fautes.map((x) => x.split(' :')[0])).toEqual(['a.js:2 `fonctionNeuve`', 'b.js:2 `fonctionNeuve`',
+      'c.js:1 `fonctionNeuve`']);
+  });
 });
+
+// 124 — les fonctions de `moteur.js` lues par un fichier (hors moteur et plan) par un alias du module (`var Mo =
+// racine.THMoteur`, `function Moteur() { return racine.THMoteur; }`, ou `racine.THMoteur.x`), qui ne sont ni dans
+// GARDEES ni source d'une notion. `M` : le module chargé (seules ses FONCTIONS comptent — les constantes sont des valeurs).
+function nonInscritesDuMoteur(fichiers, M) {
+  const inscrites = new Set(GARDEES.filter((g) => g.module === 'moteur.js').map((g) => g.fn)
+    .concat(NOTIONS.filter((n) => n.module === 'moteur.js').map((n) => n.fonction)));
+  const fautes = [];
+  fichiers.forEach((f) => {
+    if (f.nom === 'moteur.js' || f.nom === LE_COACH) return;
+    const code = nettoyer(f.src, false);
+    const vars = [], fns = [];
+    let m;
+    const reVar = /([A-Za-z_$][\w$]*)\s*=\s*racine\s*\.\s*THMoteur\b(?!\s*\.)/g;
+    while ((m = reVar.exec(code)) !== null) vars.push(m[1]);
+    const reFn = /function\s+([A-Za-z_$][\w$]*)\s*\(\s*\)\s*\{\s*return\s+racine\s*\.\s*THMoteur\s*;?\s*\}/g;
+    while ((m = reFn.exec(code)) !== null) fns.push(m[1]);
+    const tetes = ['racine\\s*\\.\\s*THMoteur'].concat(vars.map((v) => '\\b' + echapper(v)))
+      .concat(fns.map((v) => '\\b' + echapper(v) + '\\s*\\(\\s*\\)'));
+    const re = new RegExp('(?:' + tetes.join('|') + ')\\s*\\.\\s*([A-Za-z_$][\\w$]*)', 'g');
+    while ((m = re.exec(code)) !== null) {
+      if (typeof M[m[1]] === 'function' && !inscrites.has(m[1])) {
+        fautes.push(f.nom + ':' + ligneDe(code, m.index) + ' `' + m[1] + '` : ni dans GARDEES (une décision du coach, ' +
+          'avec ses autorisations) ni au registre NOTIONS (un fait, un format, avec ses lecteurs) — inscris-la.');
+      }
+    }
+  });
+  return fautes;
+}
 
 // Le corps d'une fonction déclarée `function nom(...) { … }` dans un source
 // nettoyé : de son accolade ouvrante à l'accolade qui la ferme.
@@ -1636,6 +1863,14 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
     expect(voit("'\\u2212' + x")).toBe(true);
     expect(voit("var MOIS = ['janv.', 'févr.'];")).toBe(true);
     expect(voit("Modele.nombreSigne(p)")).toBe(false);
+    // 124 — les jours comme les mois.
+    expect(voit("var NOMS = ['lundi', 'mardi', 'mercredi'];")).toBe(true);
+    expect(voit("var J = [\"Dimanche\", \"Lundi\"];")).toBe(true);
+    expect(voit("var C = ['Lun', 'Mar', 'Mer'];")).toBe(true);
+    expect(voit("['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach(f)")).toBe(true);
+    expect(voit("var P = /^(Lundi|Mardi|Mercredi) — /;")).toBe(true);
+    expect(voit("debut: depuis ? 'aujourdhui' : 'lundi'")).toBe(false);
+    expect(voit("Modele.JOURS_DEPUIS_LUNDI.map(f)")).toBe(false);
   });
 
   test('l’interdit du silence du coach se lit vraiment : un second test de l’intention se voit, l’appel au fait non', () => {
@@ -2553,5 +2788,153 @@ describe('architecture — la carte des écritures (73, audit 72)', () => {
       + 'ouverte en base, autre que celle qu’on envoie ; si elle échoue, l’envoi suivant la retente');
     expect(RAISON_BIBLIOTHEQUE).toBe('geste de bibliothèque, fait hors de la salle, qui échoue avec un message et garde le brouillon');
     expect(GESTES_BIBLIOTHEQUE.filter((g) => g.geste === 'creerRoutineDepuisSeance')[0].raison).toBe('à passer par la file (noté le 11/10)');
+  });
+});
+
+// ── 124 (audit du 16/10/2026, 06 #15-16, 01 #14) — LES CONSTANTES RECOPIÉES ─────────────────────────────────────
+// Une valeur partagée s'écrit une fois, dans son module (`ou`), et se lit partout ailleurs. `motif` : la trace d'une
+// recopie (une liste écrite en dur), cherchée dans le source sans les commentaires (chaînes gardées) de tous les
+// fichiers servis sauf `ou`.
+const CONSTANTES = [
+  { quoi: 'les quatre barres (squat, couché, soulevé, militaire)', ou: 'modele.js',
+    motif: /(['"])(?:squat_barre|developpe_couche_barre)\1\s*,\s*(['"])(?:developpe_couche_barre|squat_barre)\2/ },
+  { quoi: 'les colonnes de `guilde_scores`', ou: 'social.js',
+    motif: /(['"])prevues\1\s*,\s*(['"])records_semaine\2/ }
+];
+
+describe('architecture — une constante partagée ne s’écrit qu’une fois (124)', () => {
+  const FICHIERS = perimetre();
+
+  test('⚠️ aucune recopie hors de son module', () => {
+    const fautes = [];
+    CONSTANTES.forEach((c) => {
+      FICHIERS.forEach((f) => {
+        if (f.nom === c.ou) return;
+        const code = nettoyer(f.src, true);
+        const m = new RegExp(c.motif.source, 'g');
+        let x;
+        while ((x = m.exec(code)) !== null) fautes.push(c.quoi + ' : recopiées dans ' + f.nom + ', ligne ' + ligneDe(code, x.index) + ' — lis `' + c.ou + '`');
+      });
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('chaque constante existe bien dans son module (la garde lit le vrai source)', () => {
+    const parNom = {};
+    FICHIERS.forEach((f) => { parNom[f.nom] = f; });
+    CONSTANTES.forEach((c) => expect([c.quoi, new RegExp(c.motif.source).test(nettoyer(parNom[c.ou].src, true))]).toEqual([c.quoi, true]));
+  });
+
+  test('01 #14 — un seuil, une valeur : le pas de l’escalier EST le seuil du compteur ; les jours civils, au moteur', () => {
+    const moteur = FICHIERS.filter((f) => f.nom === 'moteur.js')[0].src;
+    expect(/var PAS_ESCALIER = SEUIL_COMPTEUR;/.test(nettoyer(moteur, true))).toBe(true);
+    global.self = global;
+    require('../../v2/js/modele.js');
+    require('../../v2/js/palier.js');
+    const M = require('../../v2/js/moteur.js');
+    expect(M.PAS_ESCALIER).toBe(M.SEUIL_COMPTEUR);
+    const midi = new Date(2026, 9, 17, 12, 0, 0);
+    expect(M.jourCivil(midi.getTime())).toBe('2026-10-17');            // un nombre de millisecondes (l'objectif en passe)
+    expect(M.jourDuNumero(M.numeroDuJour('2026-10-17') + 15)).toBe('2026-11-01');
+    expect(M.memeCharge(null, null)).toBe(false);                     // le moteur : une charge qui manque n'égale rien
+    expect(M.memeCharge(12.2 - 10, 16.6 - 14.4)).toBe(true);
+    // Les trois copies sont parties : ni `objectif.js` ni `deraille.js` ne refont `Date.UTC(+m[1]…`.
+    ['objectif.js', 'deraille.js'].forEach((nom) => {
+      const src = nettoyer(FICHIERS.filter((f) => f.nom === nom)[0].src, false);
+      expect([nom, /Date\.UTC\(\s*\+m\[1\]/.test(src)]).toEqual([nom, false]);
+    });
+  });
+
+  test('la garde se lit vraiment : une liste recopiée se voit, la lecture non', () => {
+    const voit = (i, t) => new RegExp(CONSTANTES[i].motif.source).test(t);
+    expect(voit(0, "var BARRES = ['developpe_couche_barre', 'squat_barre', 'souleve_de_terre_barre'];")).toBe(true);
+    expect(voit(0, "var BARRES = racine.THModele.BARRES;")).toBe(false);
+    expect(voit(1, "var C = ['semaine', 'seances', 'prevues', 'records_semaine'];")).toBe(true);
+    expect(voit(1, "racine.THSocial.COLONNES_GUILDE.filter(f)")).toBe(false);
+    const zf = NOTIONS.filter((n) => n.fonction === 'estZoneForce')[0].interditAilleurs.motif;
+    expect(zf.test("if (c.zone === 'lourd' || c.zone === 'mix') return;")).toBe(true);
+    expect(zf.test("var Z = ['lourd', 'mix'];")).toBe(true);
+    expect(zf.test("if (Moteur.estZoneForce(c.zone)) return;")).toBe(false);
+    expect(zf.test("if (k.zone === 'lourd' && elans.length > 1) {")).toBe(false);
+    expect(zf.test("o = charge && zone !== 'lourd' && zone !== 'mix' && !!zone;")).toBe(true);
+    expect(zf.test("if (reglage === 'franc' && zone.cle !== 'lourd') {")).toBe(false);
+  });
+});
+
+// ── 124 (audit du 16/10/2026, 06 #12) — LA VOIX DES ÉCRANS ─────────────────────────────────────────────────────
+// La garde de la voix (`v2-voix.test.js`, MOTEUR §20.2) lit chaque phrase que le COACH produit. Celle-ci lit les
+// phrases que les ÉCRANS écrivent eux-mêmes : les chaînes du source qui ressemblent à une phrase (une espace, ou une
+// majuscule en tête) et le texte de `index.html`. Mots interdits : « palier » (« ta charge de travail »), « bravo »
+// (un fait, jamais un « bravo »), « moteur » (sans jargon), « échec » (« pas encore ») — sauf « l'échec » au sens de
+// la série (« jusqu'à l'échec », « loin de l'échec ») et « en échec » d'un envoi (un état technique).
+// Hors du relevé : les modules du coach (`moteur.js`, `plan.js`, `palier.js` — leurs phrases passent par la garde de
+// la voix ; leurs autres chaînes sont des invariants et des raisons internes, jamais montrés) et l'outil de rejeu
+// (`rejeu.js`, développement seulement).
+const VOIX_HORS_RELEVE = ['moteur.js', 'plan.js', 'palier.js', 'rejeu.js'];
+const VOIX_INTERDITS = [
+  { mot: '« palier »', motif: /palier/i },
+  { mot: '« bravo »', motif: /\bbravo\b/i },
+  { mot: '« moteur »', motif: /moteur/i },
+  { mot: '« échec »', motif: /(?<![lL]['’])(?<!en )échec/i }
+];
+// Une exception : son fichier, la chaîne exacte qui la porte, et sa raison. Elle doit encore servir.
+const VOIX_EXCEPTIONS = [
+  { fichier: 'app.js', chaine: ' · palier ', raison: 'le journal de la garde de développement (« contrôle consigne »), ' +
+    'jamais en production' },
+];
+function phrasesDesEcrans(f) {
+  const sortie = [];
+  const code = nettoyer(f.src, true);
+  const re = /(['"`])((?:\\.|(?!\1)[^\\\n])*)\1/g;
+  let m;
+  while ((m = re.exec(code)) !== null) {
+    if (/\s/.test(m[2]) || /^[A-ZÀ-Ý]/.test(m[2])) sortie.push({ texte: m[2], ligne: ligneDe(code, m.index) });
+  }
+  if (f.nom === 'index.html') {
+    const html = code.replace(/<script[\s\S]*?<\/script>/g, (x) => x.replace(/[^\n]/g, ' '))
+      .replace(/<[^>]*>/g, (x) => x.replace(/[^\n]/g, ' '));
+    html.split('\n').forEach((l, i) => { if (l.trim()) sortie.push({ texte: l.trim(), ligne: i + 1 }); });
+  }
+  return sortie;
+}
+function fautesDeVoix(fichiers) {
+  const fautes = [];
+  fichiers.forEach((f) => {
+    if (VOIX_HORS_RELEVE.indexOf(f.nom) >= 0) return;
+    phrasesDesEcrans(f).forEach((p) => {
+      VOIX_INTERDITS.forEach((i) => {
+        if (!i.motif.test(p.texte)) return;
+        if (VOIX_EXCEPTIONS.some((e) => e.fichier === f.nom && p.texte.indexOf(e.chaine) >= 0)) return;
+        fautes.push(i.mot + ' dans ' + f.nom + ', ligne ' + p.ligne + ' : « ' + p.texte.slice(0, 80) + ' »');
+      });
+    });
+  });
+  return fautes;
+}
+
+describe('architecture — la voix des écrans : ni « palier », ni « bravo », ni « moteur », ni « échec » (124)', () => {
+  const FICHIERS = perimetre();
+
+  test('⚠️ aucune phrase d’un écran ne dit un mot interdit', () => {
+    expect(fautesDeVoix(FICHIERS)).toEqual([]);
+  });
+
+  test('chaque exception a sa raison, et sert encore', () => {
+    VOIX_EXCEPTIONS.forEach((e) => {
+      expect([e.chaine, typeof e.raison === 'string' && e.raison.length > 20]).toEqual([e.chaine, true]);
+      const f = FICHIERS.filter((x) => x.nom === e.fichier)[0];
+      expect([e.chaine, phrasesDesEcrans(f).some((p) => p.texte.indexOf(e.chaine) >= 0)]).toEqual([e.chaine, true]);
+    });
+  });
+
+  test('la garde se lit vraiment : les phrases d’avant le 119 se voient ; « jusqu’à l’échec » et « Envoi en échec » non', () => {
+    const f = (src) => fautesDeVoix([{ nom: 'rendu.js', src }]);
+    expect(f("var t = 'Cet exercice se mesure en durée : il n’a pas de charge, donc pas de palier en kilos.';")).toHaveLength(1);
+    expect(f("var t = 'Cet exercice se mesure en distance et en durée : il est hors du moteur.';")).toHaveLength(1);
+    expect(f("var t = 'Bravo !';")).toHaveLength(1);
+    expect(f("var t = 'Ta séance est un échec.';")).toHaveLength(1);
+    expect(f("var t = '−20 à 25 %, sans repos, jusqu’à l’échec.'; var u = 'Envoi en échec — ';")).toEqual([]);
+    expect(f("['zone', 'palier', 'etat'].forEach(f);")).toEqual([]);   // des clés, pas une phrase
+    expect(fautesDeVoix([{ nom: 'index.html', src: '<p class="note">Bravo, tu as fini.</p>' }])).toHaveLength(1);
   });
 });

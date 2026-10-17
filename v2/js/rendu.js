@@ -766,7 +766,6 @@
 
   // ── Vue hebdomadaire ────────────────────────────────────────────────────
 
-  var JOURS_COURTS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
   function MOIS() { return M().MOIS_COURTS; }
 
@@ -931,7 +930,7 @@
       if (a.stabilisateur) stabilisateur = true;
       var ligne = el('div', 'fen-exo');
       var nom = el('span', 'fen-nom', a.nom);
-      var ou = a.jour ? JOURS_COURTS[(a.jour.getDay() + 6) % 7] + ' ' + a.jour.getDate() + ' \u00b7 ' : '';
+      var ou = a.jour ? M().JOURS_COURTS[(a.jour.getDay() + 6) % 7] + ' ' + a.jour.getDate() + ' \u00b7 ' : '';
       nom.appendChild(el('em', null, ou + a.seriesReelles + ' série' +
         (a.seriesReelles > 1 ? 's' : '') +
         (a.secondaire ? ', muscle secondaire' : a.stabilisateur ? ', muscle stabilisateur' : '')));
@@ -954,7 +953,7 @@
   function rendreCalendrier(cible, grille, lundiChoisi, surSemaine) {
     if (!cible) return;
     vider(cible);
-    ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach(function (d) {
+    M().INITIALES_JOURS.forEach(function (d) {
       cible.appendChild(el('span', 'cal-entete', d));
     });
     var courant = lundiChoisi ? lundiChoisi.getTime() : null;
@@ -6482,7 +6481,7 @@
     mois.appendChild(av); mois.appendChild(el('span', 's-mois-nom', g.libelle)); mois.appendChild(ap);
     cible.appendChild(mois);
     var cal = el('div', 's-cal');
-    ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach(function (j) { cal.appendChild(el('span', 's-j', j)); });
+    M().INITIALES_JOURS.forEach(function (j) { cal.appendChild(el('span', 's-j', j)); });
     g.lignes.forEach(function (l) {
       l.jours.forEach(function (j) {
         if (j.horsMois) { cal.appendChild(el('span', 's-hors')); return; }

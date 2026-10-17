@@ -893,7 +893,8 @@
     // PART (`creer()`) : les mémos de celle-ci (clé « séances | séries »,
     // `datesExercices` à oubli explicite) ne voient jamais ce corpus-là. Rien
     // n'est écrit. Sans `enCours`, rien ne change.
-    var BARRES_DU_JEU = ['developpe_couche_barre', 'squat_barre', 'souleve_de_terre_barre', 'developpe_militaire_barre'];
+    // Les barres de « Ce que je sais » (le couché d'abord), écrites une fois dans `THModele` (124).
+    var BARRES_DU_JEU = Modele.BARRES_DE_CE_QUE_JE_SAIS;
     function corpusAvecLaSeance(c, enCours) {
       var id = enCours.seance.id;
       return {
@@ -963,7 +964,7 @@
     // fenêtre de 182 jours en touchait 27, sauf un dimanche. `semaines`,
     // `lourdes` et `variantes` la lisent toutes les trois.
     // `aujourdhui` : passé (jamais l'horloge).
-    var BARRES_DU_BILAN = ['squat_barre', 'developpe_couche_barre', 'souleve_de_terre_barre', 'developpe_militaire_barre'];
+    var BARRES_DU_BILAN = Modele.BARRES;   // les quatre barres, dans l'ordre de la spec (`THModele`, 124)
     var JOURS_RECENTS = 28, SEMAINES_DU_BILAN = 26, REPS_LOURDES_MAX = 6;
     function barresDuBilan(c, aujourdhui) {
       var index = c.catalogue() || {};

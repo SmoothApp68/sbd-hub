@@ -15,7 +15,8 @@
 (function (racine) {
   'use strict';
 
-  var JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  // Le nom d'un jour de la semaine (0 = lundi), en tête : les jours sont écrits une fois, dans `THModele` (124).
+  function nomDuJour(i) { var j = racine.THModele.JOURS_DEPUIS_LUNDI[i]; return j.charAt(0).toUpperCase() + j.slice(1); }
 
   // Les 18 muscles réellement présents au catalogue (REGLES-DE-COMPTAGE §3).
   // `cou` existe dans la nomenclature et reste vide — c'est voulu.
@@ -76,7 +77,7 @@
     var jours = [];
     for (var i = 0; i < 7; i++) {
       var d = new Date(bornes.lundi.getFullYear(), bornes.lundi.getMonth(), bornes.lundi.getDate() + i);
-      jours.push({ date: d, nom: JOURS[i], seances: [] });
+      jours.push({ date: d, nom: nomDuJour(i), seances: [] });
     }
     (seances || []).forEach(function (s) {
       if (!s || !s.debut) return;
@@ -419,7 +420,6 @@
   }
 
   var api = {
-    JOURS: JOURS,
     LIBELLES_MUSCLE: LIBELLES_MUSCLE,
     libelleMuscle: libelleMuscle,
     ZONES: ZONES,

@@ -464,7 +464,7 @@ describe('60-4 — le module lit la table du matériel et les zones du radar, il
     ['Poitrine', 'Épaules', 'Jambes', 'Tronc'].forEach((l) => expect(src).not.toContain("'" + l + "'"));
     // 66A : les tables de la relecture (QUESTIONNAIRE §5 ter) nomment des muscles — `MUSCLES` (l'ordre de la sèche),
     // `MUSCLES_SUIVIS`, `TIRAGE`. Hors d'elles, aucun nom de muscle : la table des zones reste celle du radar.
-    const debut = src.indexOf('var BARRES = ['), fin = src.indexOf('var EPS_RELECTURE');
+    const debut = src.indexOf('var BARRES = '), fin = src.indexOf('var EPS_RELECTURE');
     expect(debut > 0 && fin > debut).toBe(true);
     expect(src.slice(0, debut) + src.slice(fin)).not.toContain("'deltoide_lateral'");
     expect(src.slice(debut, fin)).toContain("'deltoide_lateral'");

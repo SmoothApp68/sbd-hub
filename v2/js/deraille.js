@@ -29,29 +29,30 @@
   // 11 » là-bas étaient deux plafonds pour le même concept).
   function parSeance() { return racine.THGenerateur.PAR_SEANCE; }
 
-  var NOMS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+  // Les jours, du lundi au dimanche : écrits une fois, dans `THModele` (124, audit du 16/10/2026, 06 #15).
+  function noms() { return Modele().JOURS_DEPUIS_LUNDI; }
   // Récupération (décision 3) : en jours du calendrier, sans l'heure. J+2 ; débutant (questionnaire) : J+3.
   var ECART = 2, ECART_DEBUTANT = 3;
   // Répartir dans une séance qui travaille déjà le muscle : il reste au plus à `parSeance()` séries pondérées dans la
   // séance, ajouts compris (15/10/2026, plafond unifié le 16/10/2026).
-  var PREFIXE = /^(Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche) — /;
+  function prefixe() {
+    return new RegExp('^(' + noms().map(function (j) { return j.charAt(0).toUpperCase() + j.slice(1); }).join('|') + ') — ');
+  }
 
   // ── Les jours ────────────────────────────────────────────────────────────
-  function numero(j) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(j || ''));
-    return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5) : null;
-  }
+  // Le numéro d'un jour civil et son inverse : l'arithmétique du moteur, écrite une fois (124, audit du 16/10/2026, 01 #14).
+  function numero(j) { return Moteur().numeroDuJour(j); }
   function jourDeSemaine(n) { return ((new Date(n * 864e5).getUTCDay() + 6) % 7) + 1; }   // 1 = lundi
-  function civil(n) { return new Date(n * 864e5).toISOString().slice(0, 10); }
+  function civil(n) { return Moteur().jourDuNumero(n); }
   function lundiDe(j) { var n = numero(j); return n === null ? null : civil(n - jourDeSemaine(n) + 1); }
 
   // Le jour d'une routine écrite par le générateur : le préfixe exact « <Jour> — » (la règle de v2_084).
   function jourDuNom(nom) {
-    var m = PREFIXE.exec(String(nom || ''));
-    return m ? [NOMS.indexOf(m[1].toLowerCase()) + 1] : null;
+    var m = prefixe().exec(String(nom || ''));
+    return m ? [noms().indexOf(m[1].toLowerCase()) + 1] : null;
   }
   // Le nom montré : sans le préfixe du jour (« Lundi — Jambes » → « Jambes »).
-  function nomCourt(nom) { return String(nom || '').replace(PREFIXE, '') || String(nom || ''); }
+  function nomCourt(nom) { return String(nom || '').replace(prefixe(), '') || String(nom || ''); }
   function joursValides(j) {
     if (!Array.isArray(j) || !j.length) return null;
     var ok = j.map(Number).filter(function (x) { return x >= 1 && x <= 7 && Math.floor(x) === x; });
@@ -175,8 +176,8 @@
     var apres = placements.filter(function (p) { return p.jour > jAuj; });
     var evenement = function (p, n) { return { n: n, prim: primaires(st[p.routine]) }; };
     var base = {
-      cles: ouvertes.map(cle), manquee: { routine: rM.id, nom: nomCourt(rM.nom), jour: M.jour, jourNom: NOMS[M.jour - 1] },
-      titre: nomCourt(rM.nom) + ' n\'a pas eu lieu ' + NOMS[M.jour - 1] + '.'
+      cles: ouvertes.map(cle), manquee: { routine: rM.id, nom: nomCourt(rM.nom), jour: M.jour, jourNom: noms()[M.jour - 1] },
+      titre: nomCourt(rM.nom) + ' n\'a pas eu lieu ' + noms()[M.jour - 1] + '.'
     };
 
     // Décision 4 : un exercice de la routine manquée pour une séance — il ne recharge pas ce que la séance fatigue
@@ -241,9 +242,9 @@
         pris[c.i] = true;
         dans.push(Object.assign({}, c.ex, { tr: c.k, ch: 0, deg: 0 }));
         var ligne = (rM.exercices || [])[c.i];
-        sortie.push({ routine: p.routine, nomRoutine: nomCourt(parId[p.routine].nom), jour: p.jour, jourNom: NOMS[p.jour - 1],
+        sortie.push({ routine: p.routine, nomRoutine: nomCourt(parId[p.routine].nom), jour: p.jour, jourNom: noms()[p.jour - 1],
                       slug: c.ex.slug, i: c.i, series: c.k, prim: c.ex.prim,
-                      nom: (cat[c.ex.slug] || {}).nom || c.ex.slug, depuis: NOMS[M.jour - 1],
+                      nom: (cat[c.ex.slug] || {}).nom || c.ex.slug, depuis: noms()[M.jour - 1],
                       exercice: travailSeulement(ligne, c.k) });
       }
       return sortie;
@@ -399,7 +400,7 @@
     var p = placementsDe(rs, etat && etat.lundi === lundi ? etat : null);
     var nom = {};
     rs.forEach(function (r) { nom[r.id] = nomCourt(r.nom); });
-    return NOMS.map(function (n, i) {
+    return noms().map(function (n, i) {
       var ici = p.filter(function (x) { return x.jour === i + 1; }).map(function (x) { return nom[x.routine]; });
       return { jour: n.slice(0, 3), routine: ici.join(' · ') || null };
     });

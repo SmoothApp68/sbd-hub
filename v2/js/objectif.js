@@ -62,18 +62,10 @@
     var t = new Date(v).getTime();
     return isNaN(t) ? null : t;
   }
-  function deux(x) { return (x < 10 ? '0' : '') + x; }
-  function jourCivil(v) {
-    var t = instant(v);
-    if (t === null) return null;
-    var d = new Date(t);
-    return d.getFullYear() + '-' + deux(d.getMonth() + 1) + '-' + deux(d.getDate());
-  }
-  // Le numéro d'un jour civil « AAAA-MM-JJ » : la différence de deux numéros compte les jours du calendrier.
-  function numeroDuJour(jour) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(jour || ''));
-    return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3]) / JOUR_MS) : null;
-  }
+  // Le jour civil et son numéro : l'arithmétique du moteur (`THMoteur.jourCivil`, `numeroDuJour`), écrite une fois
+  // (124, audit du 16/10/2026, 01 #14).
+  function jourCivil(v) { return racine.THMoteur.jourCivil(v); }
+  function numeroDuJour(jour) { return racine.THMoteur.numeroDuJour(jour); }
   function joursEntre(de, a) {
     var x = numeroDuJour(jourCivil(de)), y = numeroDuJour(jourCivil(a));
     return x === null || y === null ? null : y - x;

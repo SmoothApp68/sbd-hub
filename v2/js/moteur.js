@@ -115,6 +115,11 @@
     { cle: 'volume',         libelle: 'Volume',         bas: 10, haut: 12 },
     { cle: 'series_longues', libelle: 'Séries longues', bas: 15, haut: 20 }
   ];
+  // 124 (audit du 16/10/2026, 06 #16, 01 #14) — LA ZONE FORCE (Lourd, Mix), UNE FOIS : l'escalier (pas de série de plus ni
+  // de dégressive), les zones d'un bloc (§19.2 amendé : la force seulement), les invariants et la démonstration la
+  // lisent par `estZoneForce`.
+  var ZONES_FORCE = ['lourd', 'mix'];
+  function estZoneForce(zone) { return ZONES_FORCE.indexOf(zone) >= 0; }
 
   // ── LE RANGEMENT : UNE HABITUDE, UNE ZONE (§9.1.2) ───────────────────────
   //
@@ -1872,6 +1877,8 @@
     });
   }
 
+  // Deux charges CONNUES égales, au centième ; une charge qui manque n'est égale à rien. La seule arithmétique de
+  // « même charge » (124, audit du 16/10/2026, 01 #14) : le plan la lit (`memeChargeOuVides`, deux vides y sont égaux).
   function memeCharge(a, b) {
     return a !== null && b !== null && auCentieme(a) === auCentieme(b);
   }
@@ -2801,6 +2808,13 @@
   // chaînes « a/b » ; `stab` absent vaut vide).
   function estPolyarticulaire(e) {
     return !!e && nombreDeMuscles(e) >= MUSCLES_POLYARTICULAIRE;
+  }
+  // UNE ISOLATION (124, audit du 16/10/2026, 01 #15) : un exercice qui a des muscles au catalogue, moins de trois. Un
+  // exercice SANS muscle connu (un trou du catalogue) n'est ni l'un ni l'autre : ni la dégressive proposée (§14), ni
+  // la fourchette étendue à 15 reps à la plus lourde de la salle (§10 bis) — la même définition aux deux endroits
+  // (la salle l'excluait déjà, le plan le traitait en isolation).
+  function estIsolation(e) {
+    return !!e && aDesMuscles(e) && !estPolyarticulaire(e);
   }
   // Le premier critère qui diffère départage (priorité, puis séries, puis rang).
   function avantDans(a, b) {
@@ -5077,7 +5091,9 @@
   // séance qui s'ouvre vient de l'appelant. Référence : `coach49.py`
   // (`blocage_generalise`, `phrase_carte`, `consigne_allegee`,
   // `series_allegees`, `fin_allegee`) ; cas `cas-49u14-semaine-allegee.json`.
-  var PAS_ESCALIER = 4;               // un déclenchement : 4, 8, 12…
+  // Un déclenchement : 4, 8, 12… — le seuil de la phrase du compteur (§12.9), une valeur pour deux usages (124, audit
+  // du 16/10/2026, 01 #14 : `SEUIL_COMPTEUR` et `PAS_ESCALIER` étaient deux « 4 » couplés par la spec).
+  var PAS_ESCALIER = SEUIL_COMPTEUR;
   var FENETRE_BLOCAGE_JOURS = 7;      // de 0 à 7 jours avant, le jour même compris
   var AUTRES_EXERCICES_MIN = 2;       // au moins deux AUTRES exercices à 4 ou plus
   var NOMS_MAX_CARTE = 4;             // au-delà, les 3 premiers puis « et N autres exercices »
@@ -5102,26 +5118,33 @@
     return n !== null && n >= PAS_ESCALIER && n % PAS_ESCALIER === 0;
   }
 
-  // Le JOUR CIVIL local d'un instant, « AAAA-MM-JJ » ; une date déjà au jour
-  // passe telle quelle.
+  // ── LES JOURS CIVILS, UNE FOIS (124, audit du 16/10/2026, 01 #14 : l'arithmétique était écrite trois fois — ici,
+  // dans `objectif.js` et dans `deraille.js` ; les deux autres la lisent) ──
+  // Le JOUR CIVIL local d'un instant (une date, un horodatage, un nombre de millisecondes), « AAAA-MM-JJ » ; une
+  // date déjà au jour passe telle quelle.
   function jourCivil(v) {
     if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
-    var t = instant(v);
+    var t = typeof v === 'number' ? (isFinite(v) ? v : null) : instant(v);
     if (t === null) return null;
     var d = new Date(t);
     var deux = function (x) { return (x < 10 ? '0' : '') + x; };
     return d.getFullYear() + '-' + deux(d.getMonth() + 1) + '-' + deux(d.getDate());
   }
+  // Le NUMÉRO d'un jour civil « AAAA-MM-JJ » : la différence de deux numéros compte les jours du calendrier.
   function numeroDuJour(jour) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(jour || ''));
     return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3]) / JOUR) : null;
   }
-  function ajouterJours(jour, n) {
-    var k = numeroDuJour(jour);
-    if (k === null) return null;
-    var d = new Date((k + n) * JOUR);
+  // Le jour civil d'un numéro (l'inverse de `numeroDuJour`).
+  function jourDuNumero(k) {
+    if (typeof k !== 'number' || !isFinite(k)) return null;
+    var d = new Date(k * JOUR);
     var deux = function (x) { return (x < 10 ? '0' : '') + x; };
     return d.getUTCFullYear() + '-' + deux(d.getUTCMonth() + 1) + '-' + deux(d.getUTCDate());
+  }
+  function ajouterJours(jour, n) {
+    var k = numeroDuJour(jour);
+    return k === null ? null : jourDuNumero(k + n);
   }
   // L'ordre alphabétique de `coach49.py` : par points de code, sans locale
   // (« Écarté » vient après « Rowing », comme dans les cas).
@@ -5325,7 +5348,7 @@
   // ici ; une fonction par notion. Référence : `cycles53.py` ; cas
   // `cas-53-2-cycles.json`. Un bloc : `{ id, dossier, zone, debut, semaines,
   // decharge, exercices, statut, precedent }` (la table `blocs`, v2_058).
-  var ZONES_DE_BLOC = ['lourd', 'mix'];      // §19.2 amendé : la force seulement
+  var ZONES_DE_BLOC = ZONES_FORCE;      // §19.2 amendé : la force seulement (124 : la même liste)
   var SANS_CUMUL_JOURS = 14;                 // §14.4 : une réduction s'applique une fois
   var SEMAINES_BLOC_MIN = 3;
   var SEMAINES_BLOC_MAX = 6;
@@ -5516,7 +5539,8 @@
       var pr = nombre(q.predite), ob = nombre(q.observee);
       if (pr === null || ob === null) return;
       sortie.paris++;
-      if (ob >= pr) sortie.tenus++;
+      // « Tenu » : la règle du bilan (`THBilan.estTenu`, observé ≥ prédit), écrite une fois (124, audit du 16/10/2026, 04 #12).
+      if (racine.THBilan.estTenu({ predite: pr, observee: ob })) sortie.tenus++;
     });
     return sortie;
   }
@@ -5712,7 +5736,6 @@
   // (zones muscle hors sèche) attend la règle de volume (PR 2b, 2c) : d'ici
   // là, sa marche ne propose RIEN.
   var FENETRE_REPLI_JOURS = 90;       // le repli : dans les 3 derniers mois (§14.2)
-  var ZONES_FORCE = ['lourd', 'mix'];
   var MARCHE_SCHEMA = 'schema';
   var MARCHE_REPLI = 'repli';
   var MARCHE_SECHE = 'seche_rien';
@@ -5801,14 +5824,14 @@
     if (k === null || k < 1) return null;
     if (k >= 4) return MARCHE_SILENCE;
     if (k === 3) return d.proposee === true ? MARCHE_REPLI : MARCHE_SILENCE;
-    var muscle = ZONES_FORCE.indexOf(zone) < 0 && phase !== 'seche';
+    var muscle = !estZoneForce(zone) && phase !== 'seche';
     if (k === 2) {
       // Les conditions (zone, phase comprises) ne se lisent QUE dans
       // `degressivePossible` : une seule source.
       if (proposee === true && (d.possible === true || d.ici === true)) return MARCHE_DEGRESSIVE;
       return !muscle || proposee === true ? MARCHE_REPLI : MARCHE_SILENCE;
     }
-    if (ZONES_FORCE.indexOf(zone) >= 0) return MARCHE_SCHEMA;
+    if (estZoneForce(zone)) return MARCHE_SCHEMA;
     if (phase === 'seche') return MARCHE_SECHE;
     // Audit du 16/10/2026, 01 #6 — LA SÉRIE DE PLUS DEMANDE UNE ZONE MUSCLE : une consigne sans zone (règle de
     // bord) recevait la carte, et son acceptation n'ajoutait rien (`seriesDePlusActives` exige une zone). Sans
@@ -6149,7 +6172,7 @@
   // planifiée), ni en Entretenir (I13), ni pour un débutant.
   function degressivePossible(o) {
     var c = o || {};
-    return c.polyarticulaire === false && ZONES_FORCE.indexOf(c.zone) < 0 && c.phase !== 'seche' &&
+    return c.polyarticulaire === false && !estZoneForce(c.zone) && c.phase !== 'seche' &&
       !c.allegee && !c.entretien && !c.debutant && !c.aUneDegressive;
   }
 
@@ -6213,13 +6236,15 @@
   // `proposees` : `{ [marche]: pari | null }`, la marche proposée (acceptée ou refusée) depuis le dernier progrès —
   // `marcheProposee` ; `objets` : `{ [marche]: bool }`, la marche a-t-elle un objet (la place du §14.6 pour la série
   // de plus, les conditions du §14.8 pour la dégressive, un frère plus chargeable pour le remplacement).
+  // Hors d'un déclenchement : `null` (124, audit du 16/10/2026, 01 #15 — la marche ne se demande qu'à un
+  // déclenchement, `marcheDuPlafond` ; la branche qui rendait `deja` entre deux déclenchements n'était jamais lue).
   // Une marche déjà proposée AU MÊME DÉCLENCHEMENT (cette séance, ou une autre du même compteur) le reste : rendue
   // avec son pari (`deja`), sans carte. Sinon, la première marche APRÈS la dernière proposée, qui a un objet ; les
   // marches sautées ne reviennent pas (une marche par déclenchement, dans cet ordre). Aucune : `null`, le coach
   // maintient. Rend `{ marche, deja }`.
   function marcheAuPlafond(compteur, proposees, objets) {
     var k = nombre(compteur);
-    if (k === null || k < PAS_ESCALIER) return null;
+    if (k === null || !estDeclenchement(k)) return null;
     var p = proposees || {}, o = objets || {};
     var iDerniere = -1;
     MARCHES_PLAFOND.forEach(function (mk, i) { if (p[mk]) iDerniere = i; });
@@ -6230,7 +6255,6 @@
         return { marche: MARCHES_PLAFOND[iDerniere], deja: d };
       }
     }
-    if (!estDeclenchement(k)) return null;
     for (var j = iDerniere + 1; j < MARCHES_PLAFOND.length; j++) {
       if (o[MARCHES_PLAFOND[j]] === true) return { marche: MARCHES_PLAFOND[j], deja: null };
     }
@@ -7633,6 +7657,11 @@
     blocsDuProgramme: blocsDuProgramme,
     correctionAu: correctionAu,
     ZONES_DE_BLOC: ZONES_DE_BLOC,
+    estZoneForce: estZoneForce,
+    memeCharge: memeCharge,
+    estIsolation: estIsolation,
+    numeroDuJour: numeroDuJour,
+    jourDuNumero: jourDuNumero,
     SANS_CUMUL_JOURS: SANS_CUMUL_JOURS,
     SEMAINES_BLOC_MIN: SEMAINES_BLOC_MIN,
     SEMAINES_BLOC_MAX: SEMAINES_BLOC_MAX,

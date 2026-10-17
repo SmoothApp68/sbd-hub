@@ -119,6 +119,10 @@ describe('un jour manqué en fin de semaine (Push vendredi, ouverture samedi)', 
   });
   test('« Non merci » : plus rien cette semaine ; « Ajouter » : l’exercice part dans Jambes aujourd’hui', () => {
     expect(D.semaineQuiDeraille(Object.assign({}, e, { etat: D.decider(null, c, 'non', '2026-10-17') }))).toBeNull();
+    // Audit du 16/10/2026, 01 #10 — UNE carte de fin, que la vraie fin de semaine et le repli (ni décalage ni
+    // répartition) lisent : la phrase aux deux chiffres n'est écrite qu'une fois.
+    const src = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/deraille.js'), 'utf8');
+    expect([src.split(' à la fin de ').length - 1, src.split('ton programme en prévoit').length - 1]).toEqual([1, 1]);
     const etat = D.decider(null, c, 'ajouter', '2026-10-17');
     expect(D.ajoutsDuJour(etat, 'r-jambes', '2026-10-17').map((a) => a.mention)).toEqual(['séance manquée de vendredi']);
   });

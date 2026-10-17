@@ -249,8 +249,10 @@
       return sortie;
     };
 
-    // Décision 5 : fin de semaine, plus la place de décaler — la séance du jour seulement.
-    if (!apres.length) {
+    // Décision 5 : fin de semaine, plus la place de décaler — la séance du jour seulement. UNE carte, que la vraie
+    // fin de semaine et le repli (ni décalage ni répartition) lisent toutes deux : la phrase dit les deux chiffres
+    // (§9.24 ; audit du 16/10/2026, 01 #10 : le repli les omettait).
+    var carteFin = function () {
       if (!duJour) return null;
       var a1 = choisirPour(duJour, {}, [])[0];   // décision 5 : un exercice
       if (!a1) return null;
@@ -260,7 +262,8 @@
         a1.series + ' série' + (a1.series > 1 ? 's' : '') + ' de ' + a1.nom + ' à la fin de ' + a1.nomRoutine + ' ?';
       return Object.assign(base, { sorte: 'fin', phrase: phrase, ajout: a1,
         choix: [{ cle: 'ajouter', libelle: 'Ajouter' }, { cle: 'non', libelle: 'Non merci' }] });
-    }
+    };
+    if (!apres.length) return carteFin();
 
     var choix = [];
     // Décision 2-3 : « {M} aujourd'hui · la suite se décale ». Chaque séance glisse au jour libre suivant ; rien ne
@@ -300,16 +303,11 @@
       choix.push({ cle: 'repartir', libelle: 'Répartir ses séries dans la semaine', ajouts: ajouts,
         garde: ajouts.reduce(function (t, a) { return t + a.series; }, 0) });
     }
-    if (!choix.length) {
-      // Ni décalage ni répartition : la séance du jour seulement, comme en fin de semaine.
-      if (!duJour) return null;
-      var a2 = choisirPour(duJour, {}, [])[0];
-      if (!a2) return null;
-      return Object.assign(base, { sorte: 'fin', ajout: a2,
-        phrase: 'Ajouter ' + a2.series + ' série' + (a2.series > 1 ? 's' : '') + ' de ' + a2.nom + ' à la fin de ' +
-          a2.nomRoutine + ' ?',
-        choix: [{ cle: 'ajouter', libelle: 'Ajouter' }, { cle: 'non', libelle: 'Non merci' }] });
-    }
+    // Ni décalage ni répartition : la séance du jour seulement, comme en fin de semaine — la même carte. (Avec les
+    // règles d'aujourd'hui, elle ne trouve rien : la répartition essaie déjà la séance du jour en premier, avec les
+    // mêmes entrées. Elle reste câblée sur la même fonction, pour qu'une règle de répartition future ne la fasse
+    // pas parler autrement.)
+    if (!choix.length) return carteFin();
     choix.push({ cle: 'garder', garde: 0,
       libelle: duJour ? 'Garder ' + nomCourt(parId[duJour.routine].nom) + ', comme prévu' : 'Garder la semaine, comme prévue' });
     // Le coach met en avant celui qui garde le plus de séries de la routine manquée (à égalité, le décalage).

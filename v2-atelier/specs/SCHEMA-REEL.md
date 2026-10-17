@@ -1,7 +1,39 @@
-# Schéma réel — état au 12 octobre 2026
+# Schéma réel — état au 17 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_077_provenance_seances_hevy_retouchees`**. Prochain numéro libre : **`v2_078`**.
+Dernière migration appliquée : **`v2_090_fin_seances_hevy`**. Prochain numéro libre : **`v2_096`**.
+
+## Depuis le 12/10 — migrations `v2_078` à `v2_090` (régénéré depuis la base par Claude.ai le 17/10/2026)
+
+> Lancées dans l'éditeur SQL de Supabase (par Aurélien ou Claude.ai après essai à blanc) : elles **n'apparaissent pas**
+> dans `list_migrations`, qui s'arrête à `v2_077`. La base fait foi. Dernière appliquée : **`v2_090`**. Proposées et
+> **pas encore lancées** au 17/10 : `v2_091` à `v2_095` (PR #444 à #453). Prochain numéro libre : **`v2_096`**.
+
+| Migration | Ce qu'elle fait |
+|---|---|
+| `v2_078_social_abonnements` | Tables `abonnements` (suiveur, suivi, statut, cree_le, accepte_le ; 4 règles), `blocages` (bloqueur, bloque, cree_le ; 1 règle), `reactions_seance` (session_id, user_id, cree_le ; 4 règles) ; `profiles.compte_prive` (boolean NOT NULL, défaut true), `jeu_niveau` (int), `jeu_titre` (text), `bio` (text, défaut '') ; `sessions.visibilite` (text NOT NULL, défaut 'mutuels') ; fonctions `social_*` (SECURITY DEFINER) |
+| `v2_079_social_etage2` | Table `scores_force` (user_id, exercise_slug, score, charge_kg NOT NULL, maj_le ; 1 règle) ; `social_scores_force`, `social_periode`, `social_calendrier`, `social_series_exercice`, `social_exercices_ami` |
+| `v2_080_guilde` | Tables `guildes` (id, nom, nom_cle, blason, couleur, admin, cree_le), `guilde_membres` (user_id, guilde_id, rang, entre_le), `guilde_invitations`, `guilde_defis` (guilde_id, semaine, type, n, choisi_le), `guilde_scores` (user_id, semaine, seances, prevues, records_semaine, mois, exercices, exercices_record, maj_le ; 1 règle) ; fonctions `guilde_*` |
+| `v2_081_guilde_defi_fige` | Le défi de la semaine est figé dès la première séance de la semaine (`guilde_semaine_lancee`) |
+| `v2_082_groupe` | Tables `groupes` (id, createur, cree_le), `groupe_membres` (groupe_id, user_id, session_id, exercices text[], xp, entre_le, ferme), `groupe_invitations`, `groupe_messages` (id, groupe_id, user_id, texte, cree_le), `groupe_recaps` (user_id, groupe_id, session_id, le, recap jsonb, fige_le) ; fonctions `groupe_*` |
+| `v2_083_guilde_defi_nouvelle_guilde` | Une guilde créée en cours de semaine peut choisir son défi |
+| `v2_084_routines_jours` | `routines.jours` (smallint[], 1 = lundi … 7), rempli pour les noms « <Jour> — … » |
+| `v2_085_semaine_choix` | Table `semaine_choix` (user_id, semaine, routine_id, choix in decaler/repartir/garder/ajouter/non, detail jsonb, cree_le ; clé user_id+semaine+routine_id ; règle propriétaire) |
+| `v2_086_bilans_annonces` | `profiles.bilans_annonces` (text[] NOT NULL, défaut '{}', au plus 200) |
+| `v2_087_groupe_fin` | `groupes.fini_le` ; `groupe_fin_de_seance`, `groupe_fini_le`, `groupe_recap_json`, `groupe_figer`, `groupe_entretien`, `groupe_liberer`, `groupe_envoyer(p_texte, p_groupe, p_id)` |
+| `v2_088_ma_salle` | `profiles.ma_salle` (jsonb, NULL = non déclarée ; contrainte `profiles_ma_salle_ok`) |
+| `v2_089_objectifs` | Table `objectifs` (user_id, exercise_slug, charge_kg, reps, pose_le, depart_kg, projection, echeance, pari_id ; clé user_id+exercise_slug ; règle propriétaire `objectifs_miens`) |
+| `v2_090_fin_seances_hevy` | **Données** : heure de fin de 7 séances Hevy d'aurel_br (19/09 → 02/10), perdues par les rattrapages manuels d'avant l'import de l'app |
+
+**Règles d'accès.** Les tables de la guilde et du groupe n'ont **aucune règle** : elles ne se lisent et ne s'écrivent
+que par des fonctions SECURITY DEFINER (`search_path` figé, fermées à anon). `abonnements`, `blocages`,
+`reactions_seance`, `scores_force`, `guilde_scores`, `semaine_choix`, `objectifs` ont leurs règles propriétaire.
+
+**Suppression de compte.** Toutes ces tables cascadent depuis `auth.users` ou `profiles`, **sauf** `guildes.admin` et
+`groupes.createur` (aucune clé étrangère au 17/10 ; corrigé par `v2_092`, proposée).
+
+**Volumétrie (17/10)** : `scores_force` 27 lignes (un seul compte) ; les autres tables sociales se comptent en
+dizaines au plus.
 
 > ⚠️ **Ce document remplace `SCHEMA-V2_2.md`**, qui décrivait un état antérieur aux
 > routines et n'a plus valeur de référence. En cas de doute, la base fait foi — pas ce
@@ -396,7 +428,7 @@ collision, plutôt que de les renuméroter en place.
 | `source` | text NOT NULL | `'app'` ou `'hevy'` |
 | `source_ref` | text | référence d'import |
 | `statut` | text NOT NULL | `'terminee'` par défaut, ou `'en_cours'` |
-| `visibilite` | text NOT NULL | défaut `'private'` ; **l'import a écrit `'mutuels'`** sur les séances Hevy. Inerte — aucune règle ne lit cette colonne |
+| `visibilite` | text NOT NULL | défaut `'mutuels'` depuis `v2_078` (le bloc « Depuis le 12/10 » fait foi) ; lue par les fonctions sociales (`visibilite <> 'private'`) |
 | `routine_id` | uuid | → `routines(id)`, `ON DELETE SET NULL` ; remplie quand la séance part d'une routine |
 | `fc_moyenne`, `fc_max`, `calories` | integer | **0 renseignée** — aucune source |
 | `salle` | text | 1–60 caractères, non vide ; rare |

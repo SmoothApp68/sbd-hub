@@ -497,8 +497,11 @@
 
   // Ce que je publie (`guilde_scores`) — seulement ce qui a changé depuis la dernière publication.
   // 120 (D3, v2_093) — `series_semaine`, `series_moyenne` : le défi des séries de travail.
-  var COLONNES_GUILDE = ['semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record',
-                         'series_semaine', 'series_moyenne'];
+  // 124 (audit du 16/10/2026, 06 #16) — LES COLONNES DE `guilde_scores`, UNE FOIS : la publication (`donnees.js`,
+  // `publierScoresGuilde`) et la détection de changement les lisent ici. Les facultatives : celles de v2_093.
+  var COLONNES_GUILDE_FACULTATIVES = ['series_semaine', 'series_moyenne'];
+  var COLONNES_GUILDE = ['semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record']
+    .concat(COLONNES_GUILDE_FACULTATIVES);
   function scoresGuildeChanges(s, deja) {
     if (!s) return false;
     return !deja || COLONNES_GUILDE.some(function (k) { return s[k] !== deja[k]; });
@@ -993,6 +996,7 @@
     DEFIS: DEFIS,
     COULEURS_GUILDE: COULEURS_GUILDE,
     COLONNES_GUILDE: COLONNES_GUILDE,
+    COLONNES_GUILDE_FACULTATIVES: COLONNES_GUILDE_FACULTATIVES,
     defiDe: defiDe,
     defiValide: defiValide,
     defiModifiable: defiModifiable,

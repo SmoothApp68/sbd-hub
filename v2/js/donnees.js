@@ -1102,19 +1102,23 @@
   // les colonnes du profil (104) : tant que v2_093 n'est pas lancée, la base répond `PGRST204` ; elles quittent alors
   // l'écriture POUR LA SESSION et la même ligne repart une fois sans elles (rien n'a été écrit). Le défi par défaut reste
   // alors celui que la base dit (« seances »).
-  var COLONNES_SCORES_GUILDE = ['semaine', 'seances', 'prevues', 'records_semaine', 'mois', 'exercices', 'exercices_record'];
-  var SCORES_GUILDE_FACULTATIVES = ['series_semaine', 'series_moyenne'];
+  // Les colonnes sont écrites une fois, dans `THSocial` (124, audit du 16/10/2026, 06 #16) : celle qui publie et celle
+  // qui voit un changement disent les mêmes.
+  function facultativesGuilde() { return racine.THSocial.COLONNES_GUILDE_FACULTATIVES; }
+  function obligatoiresGuilde() {
+    return racine.THSocial.COLONNES_GUILDE.filter(function (k) { return facultativesGuilde().indexOf(k) < 0; });
+  }
   var scoresGuildeAbsentes = {};
   async function publierScoresGuilde(moi, s) {
     for (;;) {
       var l = { user_id: moi };
-      COLONNES_SCORES_GUILDE.forEach(function (k) { l[k] = s[k]; });
-      SCORES_GUILDE_FACULTATIVES.forEach(function (k) { if (!scoresGuildeAbsentes[k] && s[k] !== undefined) l[k] = s[k]; });
+      obligatoiresGuilde().forEach(function (k) { l[k] = s[k]; });
+      facultativesGuilde().forEach(function (k) { if (!scoresGuildeAbsentes[k] && s[k] !== undefined) l[k] = s[k]; });
       var r = await client().from('guilde_scores').upsert(l, { onConflict: 'user_id' });
       var absente = null;
       if (r.error && (r.error.code === 'PGRST204' || r.error.code === '42703')) {
         var txt = String(r.error.message || '') + ' ' + String(r.error.details || '');
-        absente = SCORES_GUILDE_FACULTATIVES.filter(function (k) { return !scoresGuildeAbsentes[k] && txt.indexOf(k) >= 0; })[0] || null;
+        absente = facultativesGuilde().filter(function (k) { return !scoresGuildeAbsentes[k] && txt.indexOf(k) >= 0; })[0] || null;
       }
       if (absente) { scoresGuildeAbsentes[absente] = true; continue; }   // une fois par colonne : la boucle finit
       if (r.error) throw r.error;

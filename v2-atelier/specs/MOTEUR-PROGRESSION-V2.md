@@ -1943,6 +1943,8 @@ Le « −10 % » est une convention de coach. Le repli utilise **le dernier pali
 >
 > **Si aucun palier ne remplit les quatre conditions, le repli est sauté : le coach se tait sur cet exercice** (§14, marche 3 ; précisé le 25/09/2026, #319).
 
+**La condition (1) dans le code — corrigé le 16/10/2026 (audit du 16/10, 01 #5).** Le palier actuel est celui de la consigne (`consigne.palier`). Le code ne bornait le repli que par le meilleur du compteur : or le meilleur peut être au-dessus du palier actuel (des séances suivies à une charge plus basse, après une chute, comptent sans progrès), et un repli entre les deux faisait **monter** la charge. Le repli est désormais strictement sous le plus bas des deux ; la limite de 10 % reste lue sous le meilleur (condition 5). Même borne pour le repli que prend « Plus léger » (§9.20). I22 le vérifie (« un repli ne monte jamais »).
+
 Sauter plutôt que retomber sur un pourcentage : quand l'historique récent ne contient pas de palier plus bas déjà tenu, l'app n'a aucune base pour en inventer un. Se taire est la bonne réponse à une absence de donnée.
 
 La fenêtre de 3 mois est un **choix produit**. Elle vient du même raisonnement que le reset du compteur (§12.4) : au-delà, ce n'est plus le même athlète sur ce mouvement.

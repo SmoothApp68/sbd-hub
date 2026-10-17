@@ -3180,7 +3180,7 @@
     var repli = report === null ? null
       : { source: 'report', palier: nombre(consigne.palier), ligne: [report.charge, report.visee] };
     var salle = (options || {}).salle || null;
-    if (!repli && meilleur) repli = repliDansLaSalle(repliEscalier(seances, avant, meilleur, zone), salle);
+    if (!repli && meilleur) repli = repliDansLaSalle(repliEscalier(seances, avant, meilleur, zone, { actuel: consigne.palier }), salle);
     if (!repli) repli = repliDeLaRepriseLongue(seances, avant, consigne, zone, equipement, salle);
     // §10 bis (108) — le report est une estimation : il s'arrondit à la salle.
     if (salle && repli && repli.ligne && nombre(repli.ligne[0]) !== null && !dansLaSalle(salle, repli.ligne[0])) {
@@ -5869,6 +5869,13 @@
   // la séance est de la zone (les cas du simulateur : un exercice, une zone).
   // Rend `{ palier, niveau, debut, reps: [saisies au palier], ligne: [charge,
   // visée] }` — la visée : le niveau borné à la zone.
+  //
+  // Audit du 16/10/2026, 01 #5 — CONDITION (1), « STRICTEMENT INFÉRIEUR AU
+  // PALIER ACTUEL » : `o.actuel`, le palier de la consigne. Le meilleur du
+  // compteur peut être au-dessus (une séance suivie à une charge plus basse,
+  // après une chute, compte sans progrès) : borné par le seul meilleur, un
+  // repli entre les deux faisait MONTER la charge. Le plafond est le plus bas
+  // des deux ; la limite de 10 % reste lue sous le meilleur (condition 5).
   function repliEscalier(seances, avant, meilleur, zone, options) {
     var o = options || {};
     var z = zoneParCle(zone);
@@ -5876,6 +5883,8 @@
     var t0 = instant(avant);
     if (!z || M === null || t0 === null) return null;
     var plancher = M * (1 - REPLI_MAX_REPRISE) - 1e-9;
+    var actuel = nombre(o.actuel);
+    var haut = actuel !== null && actuel < M ? actuel : M;
     var liste = anterieures(seances || [], avant);
     for (var i = liste.length - 1; i >= 0; i--) {
       var se = liste[i];
@@ -5883,7 +5892,7 @@
       if (se.neutre === true || se.decharge === true) continue;
       var v = vueDeSeance(se);
       var P = nombre(v.palier);
-      if (P === null || P > M || memeCharge(P, M) || P < plancher) continue;
+      if (P === null || P > haut || memeCharge(P, haut) || P < plancher) continue;
       var A = seriesAuPalier(v);
       var niv = A.length ? niveauValide(A) : null;
       if (niv === null || niv < z.bas) continue;
@@ -6922,7 +6931,8 @@
              // zone de chaque séance candidate est celle de la consigne qu'elle
              // a reçue (la zone choisie en vigueur ce jour-là).
              repli: compteur.compteur >= PAS_ESCALIER && consigne && consigne.zone
-               ? repliDansLaSalle(repliEscalier(marquees, avant, compteur.meilleur, consigne.zone, { zoneAu: zoneAu }), salle)
+               ? repliDansLaSalle(repliEscalier(marquees, avant, compteur.meilleur, consigne.zone,
+                                                { zoneAu: zoneAu, actuel: consigne.palier }), salle)
                : null,
              // §9.20 (51-3) — LA REPRISE APRÈS UNE SÉANCE DOULOUREUSE, figée avec
              // la consigne : le plan pose la carte, aucun écran ne la décide.

@@ -2460,8 +2460,10 @@
   // semaine allégée.
   // I22 : une consigne de repli n'a pas de ligne haute, aucune ligne de test ni
   // proposition du coach dès le départ, et sa charge est strictement sous le
-  // meilleur, à 10 % au plus sous lui. La règle n'est pas relue : I22 confronte
-  // la charge au meilleur du compteur que le plan porte.
+  // meilleur, à 10 % au plus sous lui, et strictement sous le palier actuel (la
+  // consigne : un repli ne monte jamais, §14.2 (1), audit du 16/10/2026, 01 #5).
+  // La règle n'est pas relue : I22 confronte la charge au meilleur du compteur et
+  // au palier de la consigne que le plan porte.
   function verifierMarches(plan, erreurs) {
     if (!plan) return;
     var cites = plan.carte && Array.isArray(plan.carte.cites) ? plan.carte.cites : [];
@@ -2550,6 +2552,10 @@
         err(ch + ' kg n\'est pas sous le meilleur (' + meilleur + ' kg)');
       } else if (meilleur - ch > meilleur * Moteur().REPLI_MAX_REPRISE + 1e-9) {
         err(ch + ' kg est à plus de 10 % sous le meilleur (' + meilleur + ' kg)');
+      }
+      var actuel22 = x.consigne.palier === null || x.consigne.palier === undefined ? NaN : Number(x.consigne.palier);
+      if (isFinite(actuel22) && isFinite(ch) && ch >= actuel22 - 1e-9) {
+        err(ch + ' kg n\'est pas sous le palier actuel (' + actuel22 + ' kg) : un repli ne monte jamais');
       }
     });
   }

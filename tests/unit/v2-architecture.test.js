@@ -2881,9 +2881,6 @@ const VOIX_INTERDITS = [
 const VOIX_EXCEPTIONS = [
   { fichier: 'app.js', chaine: ' · palier ', raison: 'le journal de la garde de développement (« contrôle consigne »), ' +
     'jamais en production' },
-  { fichier: 'index.html', chaine: 'une période plus courte n\'est pas un échec',
-    raison: 'la note du radar, mot pour mot celle de la maquette validée (`maquette-records-radar.html`) : une négation ' +
-      '— rapportée à Aurélien le 17/10/2026 (124), à reformuler s’il le décide' }
 ];
 function phrasesDesEcrans(f) {
   const sortie = [];

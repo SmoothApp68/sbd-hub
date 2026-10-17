@@ -1,0 +1,184 @@
+<title>Onglet Comment faire</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap">
+<style>
+/* Maquette fidèle à v2/styles.css (la forge) : l'app est sombre seulement, la maquette aussi.
+   Mise en page : quatre écrans de téléphone côte à côte, qui passent en colonne sur un téléphone. */
+:root{
+  --fond:#0f1114; --panneau:#181b20; --panneau-2:#21252c; --trait:#2c3139;
+  --texte:#eceef2; --texte-2:#9aa1ac; --texte-3:#888e98;
+  --accent:#f2b84b; --page:#0a0b0d;
+  --e1:4px; --e2:8px; --e3:12px; --e4:16px; --e5:24px;
+  --r-grand:14px; --r-etiquette:6px;
+  --pile:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --pile-c:"Barlow Condensed","Barlow",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--page);color:var(--texte);font-family:var(--pile);-webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:24px 40px}
+.intro{max-width:1180px;margin:0 auto 24px}
+.intro h1{font:700 26px/1.15 var(--pile-c);letter-spacing:.01em;text-wrap:balance}
+.intro p{color:var(--texte-2);font-size:14px;line-height:1.55;max-width:68ch;margin-top:8px}
+.ecrans{display:flex;flex-wrap:wrap;gap:28px;justify-content:center;max-width:1180px;margin:0 auto}
+.cadre{display:flex;flex-direction:column;gap:10px;width:360px;max-width:100%}
+.legende{font-size:12.5px;line-height:1.5;color:var(--texte-2);min-height:3.2em}
+.legende b{color:var(--texte);font-weight:600}
+.tel{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:16px 12px 28px;min-height:640px}
+
+/* — l'existant, recopié — */
+.entete{display:flex;align-items:center;padding:0 2px 14px}
+.discret{border:1px solid var(--trait);background:transparent;color:var(--texte-2);font:inherit;font-size:13.33px;
+  padding:7px 12px;border-radius:10px}
+.exo-bandeau{display:flex;align-items:center;gap:var(--e2);background:var(--panneau-2);border-radius:var(--r-grand);
+  padding:9px var(--e3);margin-bottom:var(--e3)}
+.exo-point{width:6px;height:6px;flex:none;border-radius:50%;background:var(--accent)}
+.exo-bandeau-t{flex:1;min-width:0;font-size:16px;color:var(--texte-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exo-bandeau-t em{font-style:normal;color:var(--texte-3)}
+.exo-reprendre{border:none;background:transparent;color:var(--accent);font:inherit;font-size:13.33px}
+.exo-tete{padding:var(--e1) 0 var(--e2)}
+.exo-tete h2{font:700 17px/1.25 var(--pile-c);letter-spacing:-.01em;font-size:19px}
+.exo-meta{font-size:11px;line-height:1.45;color:var(--texte-3);margin-top:5px}
+.puce{display:inline-flex;margin-top:var(--e1);font-size:11px;padding:3px 8px;border-radius:var(--r-etiquette);
+  border:1px solid var(--trait);color:var(--texte-2)}
+.sous-onglets{display:flex;gap:var(--e4);border-bottom:1px solid var(--trait);margin-bottom:var(--e3)}
+.sous-onglet{border:none;background:transparent;color:var(--texte-3);font:inherit;font-size:13.33px;
+  padding:11px 0;margin-bottom:-1px;border-bottom:2px solid transparent}
+.sous-onglet.actif{color:var(--texte);border-bottom-color:var(--accent)}
+.exo-fiche{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e1) var(--e4)}
+.exo-li{display:flex;align-items:baseline;gap:var(--e3);padding:9px 0}
+.exo-li + .exo-li{border-top:1px solid var(--trait)}
+.exo-li-k{font-size:12px;line-height:1.4;color:var(--texte-3);flex:none;width:62px}
+.exo-li-v{margin-left:auto;text-align:right;font-size:13.5px;line-height:1.4;color:var(--texte);min-width:0}
+.exo-note{font-size:11px;line-height:1.5;color:var(--texte-3);padding:var(--e2) var(--e1) 0}
+
+/* — le neuf : les étapes — */
+.etapes{list-style:none;margin-top:var(--e3);background:var(--panneau);border-radius:var(--r-grand);padding:var(--e1) var(--e4)}
+.etape{display:grid;grid-template-columns:22px 1fr;gap:var(--e2);padding:11px 0;align-items:baseline}
+.etape + .etape{border-top:1px solid var(--trait)}
+.etape-n{font:700 15px/1 var(--pile-c);color:var(--texte-3);font-variant-numeric:tabular-nums}
+.etape-t{font-size:14px;line-height:1.5;color:var(--texte);min-width:0}
+.titre-bloc{font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--texte-2);margin:var(--e4) 0 0}
+
+.decisions{max-width:1180px;margin:36px auto 0;border-top:1px solid var(--trait);padding-top:20px;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+.decisions div{min-width:0}
+.decisions h3{font:700 15px var(--pile-c);letter-spacing:.02em;margin-bottom:6px}
+.decisions p{font-size:13px;line-height:1.55;color:var(--texte-2)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<header class="intro">
+  <h1>Page d'exercice — l'onglet « Comment faire »</h1>
+  <p>Maquette à valider avant le prompt. Le troisième sous-onglet que la spec avait écarté faute de textes (§7 quater.2) : les 480 descriptions sont en base depuis v2_092. Les étapes sont les textes réels de la base ; les chiffres des en-têtes sont des exemples. Seul ce qui est sous les onglets est neuf ; le reste de la page ne bouge pas.</p>
+</header>
+
+<main class="ecrans">
+
+  <section class="cadre">
+    <p class="legende"><b>1. Un exercice que tu fais.</b> Ouvert depuis Progression. La page s'ouvre sur Résumé comme aujourd'hui ; ici, on a touché « Comment faire ».</p>
+    <div class="tel">
+      <div class="entete"><button class="discret" type="button">← Retour</button></div>
+      <div class="exo-tete">
+        <h2>Squat (Barre)</h2>
+        <span class="puce">Force</span>
+        <div class="exo-meta">142 séances · la dernière mardi</div>
+      </div>
+      <nav class="sous-onglets">
+        <button class="sous-onglet" type="button">Résumé</button>
+        <button class="sous-onglet" type="button">Historique</button>
+        <button class="sous-onglet actif" type="button" aria-current="page">Comment faire</button>
+      </nav>
+      <div class="exo-fiche">
+        <div class="exo-li"><span class="exo-li-k">Matériel</span><span class="exo-li-v">Barre</span></div>
+        <div class="exo-li"><span class="exo-li-k">Travaille</span><span class="exo-li-v">Quadriceps · Adducteurs · Fessiers</span></div>
+      </div>
+      <ol class="etapes">
+        <li class="etape"><span class="etape-n">1</span><span class="etape-t">Place la barre sur le haut du dos, sous la nuque, les mains un peu plus larges que les épaules.</span></li>
+        <li class="etape"><span class="etape-n">2</span><span class="etape-t">Sors du rack en deux pas, pieds largeur d'épaules, pointes légèrement vers l'extérieur.</span></li>
+        <li class="etape"><span class="etape-n">3</span><span class="etape-t">Inspire, gaine le ventre, puis descends en poussant les hanches en arrière, genoux dans l'axe des pieds.</span></li>
+        <li class="etape"><span class="etape-n">4</span><span class="etape-t">Descends jusqu'aux cuisses au moins à l'horizontale, le dos neutre.</span></li>
+        <li class="etape"><span class="etape-n">5</span><span class="etape-t">Remonte en poussant le sol et expire en haut.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="cadre">
+    <p class="legende"><b>2. Un exercice jamais fait.</b> Ajouté à la séance en cours, puis touché par son nom. Rien à résumer : la page s'ouvre directement sur « Comment faire ».</p>
+    <div class="tel">
+      <div class="entete"><button class="discret" type="button">← Retour</button></div>
+      <div class="exo-bandeau"><span class="exo-point"></span><span class="exo-bandeau-t">Dos – Biceps <em>· en cours</em></span><button class="exo-reprendre" type="button">Reprendre</button></div>
+      <div class="exo-tete">
+        <h2>Muscle Up</h2>
+      </div>
+      <nav class="sous-onglets">
+        <button class="sous-onglet" type="button">Résumé</button>
+        <button class="sous-onglet" type="button">Historique</button>
+        <button class="sous-onglet actif" type="button" aria-current="page">Comment faire</button>
+      </nav>
+      <div class="exo-fiche">
+        <div class="exo-li"><span class="exo-li-k">Matériel</span><span class="exo-li-v">Sans matériel</span></div>
+        <div class="exo-li"><span class="exo-li-k">Travaille</span><span class="exo-li-v">Grand dorsal · Pectoraux · Triceps</span></div>
+        <div class="exo-li"><span class="exo-li-k">Aussi</span><span class="exo-li-v">Biceps · Deltoïde antérieur</span></div>
+      </div>
+      <ol class="etapes">
+        <li class="etape"><span class="etape-n">1</span><span class="etape-t">Suspends-toi à la barre, mains un peu plus larges que les épaules, paumes vers l'avant, bras tendus.</span></li>
+        <li class="etape"><span class="etape-n">2</span><span class="etape-t">Tire fort et haut, la barre vers le bas de la poitrine, en gardant le corps près de la barre.</span></li>
+        <li class="etape"><span class="etape-n">3</span><span class="etape-t">Au sommet du tirage, bascule le buste vers l'avant au-dessus de la barre en ramenant les coudes devant.</span></li>
+        <li class="etape"><span class="etape-n">4</span><span class="etape-t">Pousse sur la barre jusqu'aux bras tendus, puis redescends contrôlé jusqu'à la suspension.</span></li>
+        <li class="etape"><span class="etape-n">5</span><span class="etape-t">La transition s'apprend : tire plus haut plutôt que de chercher l'élan des jambes.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="cadre">
+    <p class="legende"><b>3. Une mobilité.</b> Aucun muscle compté pour le volume : la ligne « Travaille » n'apparaît pas, il ne reste que le matériel.</p>
+    <div class="tel">
+      <div class="entete"><button class="discret" type="button">← Retour</button></div>
+      <div class="exo-tete">
+        <h2>Pigeon</h2>
+        <div class="exo-meta">3 séances · la dernière le 4 oct.</div>
+      </div>
+      <nav class="sous-onglets">
+        <button class="sous-onglet" type="button">Résumé</button>
+        <button class="sous-onglet" type="button">Historique</button>
+        <button class="sous-onglet actif" type="button" aria-current="page">Comment faire</button>
+      </nav>
+      <div class="exo-fiche">
+        <div class="exo-li"><span class="exo-li-k">Matériel</span><span class="exo-li-v">Sans matériel</span></div>
+      </div>
+      <ol class="etapes">
+        <li class="etape"><span class="etape-n">1</span><span class="etape-t">Pose une jambe pliée devant toi au sol, le tibia en travers, l'autre jambe tendue derrière.</span></li>
+        <li class="etape"><span class="etape-n">2</span><span class="etape-t">Garde le bassin droit, face à l'avant, les mains au sol de chaque côté.</span></li>
+        <li class="etape"><span class="etape-n">3</span><span class="etape-t">Penche doucement le buste vers l'avant au-dessus de la jambe pliée.</span></li>
+        <li class="etape"><span class="etape-n">4</span><span class="etape-t">Tiens en respirant : l'étirement se sent dans la fesse de la jambe avant, puis change de côté.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="cadre">
+    <p class="legende"><b>4. Un exercice personnel, sans description.</b> Pas d'onglet vide : la page garde ses deux onglets, comme aujourd'hui.</p>
+    <div class="tel">
+      <div class="entete"><button class="discret" type="button">← Retour</button></div>
+      <div class="exo-tete">
+        <h2>Mon tirage maison</h2>
+        <div class="exo-meta">6 séances · la dernière jeudi</div>
+      </div>
+      <nav class="sous-onglets">
+        <button class="sous-onglet actif" type="button" aria-current="page">Résumé</button>
+        <button class="sous-onglet" type="button">Historique</button>
+      </nav>
+      <p class="exo-note">Le Résumé reste celui d'aujourd'hui (records, table par reps).</p>
+    </div>
+  </section>
+
+</main>
+
+<section class="decisions">
+  <div><h3>Ce que je recommande</h3><p>Un troisième onglet, comme le « How to » de Hevy, plutôt qu'un bloc sous le Résumé : la page reste courte, et l'onglet a son adresse (/exercice/&lt;slug&gt;/comment), comme les deux autres.</p></div>
+  <div><h3>L'onglet qui s'ouvre</h3><p>Résumé, comme aujourd'hui. Une seule exception : un exercice sans aucune séance s'ouvre sur « Comment faire », parce que son Résumé n'a rien à montrer.</p></div>
+  <div><h3>Ce que la fiche montre</h3><p>Matériel, muscles principaux (« Travaille »), muscles secondaires (« Aussi ») : des libellés qui existent déjà dans l'app. Les muscles stabilisateurs restent hors de l'écran. Pas d'image : aucune n'est licenciée.</p></div>
+  <div><h3>Ce qui ne change pas</h3><p>Le coach, le Résumé, l'Historique, la page d'exercice d'un ami. L'étiquette de zone (« Force ») reste dans l'en-tête. Le texte de chaque étape vient de la base, mot pour mot ; l'app ne fait que numéroter.</p></div>
+</section>

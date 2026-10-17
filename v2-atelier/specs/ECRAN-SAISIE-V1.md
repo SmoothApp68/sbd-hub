@@ -1720,10 +1720,35 @@ d'avoir quitté.
 |---|---|
 | **Résumé** | courbe et ses cinq vues · records · table par nombre de répétitions |
 | **Historique** | les 20 dernières séances, puis « voir plus » |
-| ~~Instructions~~ | **pas de matière** : `exercises` porte nom, famille, muscles, équipement — aucun texte, aucune image. 237 fiches à écrire, images à licencier |
+| **Comment faire** | *Ajouté le 17/10/2026 (prompt 125)* : la matière existe depuis `v2_097` (lancée sous le nom v2_092) — chaque exercice du catalogue a sa description en étapes (§7 quater.5). Toujours aucune image : aucune n'est licenciée |
 | ~~Classement~~ | c'est le social, explicitement en dernier (`CADRAGE-V2` §2 quinquies) |
 
 > **Ajouter un onglet plus tard ne coûte rien ; un onglet vide coûte la confiance.**
+
+### 7 quater.5 Comment faire — décidé le 17/10/2026 (prompt 125)
+
+Le troisième sous-onglet, après Résumé et Historique, comme le « How to » de Hevy. Maquette validée :
+`maquette-comment-faire-v1.html`.
+
+- **Ce qu'il montre** : une fiche (Matériel ; « Travaille » : les muscles principaux ; « Aussi » : les muscles
+  secondaires — les libellés existants, `Profil.libelleEquipement` et `Semaine.libelleMuscle`), puis **les étapes
+  numérotées**. Une ligne absente ne s'affiche pas : une mobilité, sans muscle, n'a que son matériel. Les muscles
+  stabilisateurs restent hors de l'écran.
+- **Le texte vient de la base, mot pour mot** (`exercises.description`, une étape par ligne, 3 à 6 lignes — contrainte
+  `exercises_description_ok`) ; l'app ne fait que **numéroter**. Aucune phrase de cet onglet n'est écrite par l'app.
+- **Pas d'onglet vide** : un exercice sans description (un exercice personnel) garde ses deux onglets.
+- **L'onglet ouvert** : Résumé, comme avant. **Une exception** : un exercice **sans aucune séance** s'ouvre sur
+  « Comment faire », s'il a une description — son Résumé n'aurait rien à montrer.
+- **Son adresse** : `/exercice/<slug>/comment`, comme `/exercice/<slug>/historique`. Une adresse « comment » sur un
+  exercice sans description ouvre le Résumé.
+- **Hors de portée** : la page d'exercice d'un ami (`/a/<pseudo>/exercice/<slug>`) ne change pas.
+
+**Le catalogue lu par l'app** (même prompt). `Donnees.tousLesExercices` lit aussi `nature`, `description` et `actif`.
+**Un exercice désactivé (`actif = false`) n'entre pas dans le catalogue de l'appareil** : il n'est donc proposé nulle
+part (recherche, « Remplacer », frères, générateur). C'est sûr tant qu'**on ne désactive jamais un exercice déjà
+utilisé** : toute migration qui désactive un exercice vérifie d'abord qu'aucune série, routine, zone, mode, record,
+pari, objectif ni alias ne le cite (cinq doublons désactivés au 17/10/2026, zéro référence). `nature` est lue pour le
+chantier du coach au poids du corps et en durée ; aucun écran ne la lit encore.
 
 ### 7 quater.3 La table par nombre de répétitions
 

@@ -1,13 +1,39 @@
 # Schéma réel — état au 17 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_090_fin_seances_hevy`**. Prochain numéro libre : **`v2_096`**.
+Dernière migration appliquée : **`v2_097`** (descriptions du catalogue). Prochain numéro libre : **`v2_098`**.
+
+**Volumétrie (17/10, 13 h)** : 1 284 séances · 29 568 séries · 480 exercices (475 actifs) · 328 alias (`exercise_alias`)
+· 275 prédictions · 3 630 records · 9 profils · `scores_force` vide (republiée floutée par l'app, v2_091).
+
+## Depuis le 17/10 — migrations `v2_091` à `v2_097` (régénéré depuis la base par Claude.ai le 17/10/2026, 13 h)
+
+> Toutes lancées dans l'éditeur SQL (absentes de `list_migrations`) et vérifiées en lecture par Claude.ai.
+> ⚠️ Numérotation : le catalogue (v2_096, v2_097) avait d'abord été lancé sous les noms v2_091 et v2_092 ; renuméroté
+> le 17/10 (seuls les commentaires des colonnes changent). Les v2_091 à v2_095 ci-dessous sont celles de l'audit.
+
+| Migration | Ce qu'elle fait |
+|---|---|
+| `v2_091_scores_sans_charge` | `scores_force` vidée ; `charge_kg` facultative et contrainte `scores_force_sans_charge CHECK (charge_kg IS NULL)` ; `social_scores_force` (même signature) ne rend plus la charge d'autrui ; nouvelle `social_meilleures_charges(p_slug)` → `(user_id, charge_max)` (mutuels, séances non privées, 12 mois) |
+| `v2_092_comptes_supprimes` | `guildes.admin` et `groupes.createur` nullables, clés étrangères `guildes_admin_fkey` / `groupes_createur_fkey` vers `auth.users` ON DELETE SET NULL ; transmission de la guilde au plus ancien membre ; déclencheur `profiles_apres_suppression_recaps` (le récap figé garde les chiffres, `{ pseudo: null, ancien: true }`) ; `groupe_recap_de` rend `user_id` (jamais rendu à l'app : `groupe_recap_public`) |
+| `v2_093_doctrine` | D1 : `groupe_recap_de` ignore `un_rm_estime` ; D3 : `guilde_defis` accepte `series` (défaut, sans nombre), `guilde_scores.series_semaine` (int) et `series_moyenne` (numeric(7,2)), `guilde_semaine` rend `series_faites` et `series_cible` |
+| `v2_094_guilde_prive_bloque` | D5 : `guilde_voit_seances(a, b)` ; le fil et les records de guilde ne montrent une séance que d'un compte public ou suivi ; blocage dans la guilde (« un membre », invitation refusée `guilde_bloque`) |
+| `v2_095_ma_salle_tranches` | `profiles_ma_salle_ok` réécrite : haltères en `{max, pas}` ou en liste de 1 à 3 tranches `[{jusqua, pas}]` |
+| `v2_096` (catalogue) | 338 → **480 exercices**, 328 alias ; colonnes `exercises.nature` (text NOT NULL : `force` 377 · `habilete` 47 · `mobilite` 30 · `cardio` 26 ; `exercises_nature_ok`, `exercises_nature_habilete : habilete = (nature = 'habilete')`), `description` (text), `description_source` (`claude` à relire · `manuel` ; `exercises_description_tracable` : les deux vides ensemble) ; 5 doublons `actif = false`, cités nulle part |
+| `v2_097` (descriptions) | une description par exercice, 3 à 6 étapes, une par ligne, au tu, sans numéro ; `exercises_description_ok` : 20 à 1 500 caractères, 3 à 6 lignes, aucune ligne vide |
+
+**Règles d'accès** : aucune modifiée par v2_091 à v2_097 (37 règles au 17/10). Toutes les fonctions ajoutées sont
+SECURITY DEFINER, `search_path` figé, fermées à `anon`.
+
+**Noté (non corrigé)** : `EXECUTE` ouvert à `anon` sur `abonnements_avant_ajout`, `blocages_apres_ajout`,
+`abonnements_avant_modif` ; règles de `abonnements`, `blocages`, `reactions_seance` sur le rôle `public` ; deux règles
+d'ajout permissives sur `reactions_seance` ; pas de clé étrangère `groupe_recaps.groupe_id` ni `objectifs.pari_id` ; pas
+d'index sur `sets.exercise_slug`. Une migration de sécurité est décidée (17/10).
 
 ## Depuis le 12/10 — migrations `v2_078` à `v2_090` (régénéré depuis la base par Claude.ai le 17/10/2026)
 
 > Lancées dans l'éditeur SQL de Supabase (par Aurélien ou Claude.ai après essai à blanc) : elles **n'apparaissent pas**
-> dans `list_migrations`, qui s'arrête à `v2_077`. La base fait foi. Dernière appliquée : **`v2_090`**. Proposées et
-> **pas encore lancées** au 17/10 : `v2_091` à `v2_095` (PR #444 à #453). Prochain numéro libre : **`v2_096`**.
+> dans `list_migrations`, qui s'arrête à `v2_077`. La base fait foi. Dernière appliquée : **`v2_090`**. Les suivantes : voir le bloc du 17/10 ci-dessus.
 
 | Migration | Ce qu'elle fait |
 |---|---|
@@ -531,4 +557,4 @@ par l'outil de Claude.ai sont annulées d'office depuis le 06/10. Une migration 
 des noms non vérifiés. **Écriture, migration et RLS : jamais.** Aucun test du dépôt ne parle à la vraie base (garde
 réseau des bancs, #380).
 
-Toujours `list_migrations` avant de nommer une migration. Prochain numéro libre au 12/10/2026 : **`v2_078`**.
+Avant de nommer une migration : lire `claude/ETAT-DU-PROJET.md` et la liste des PR ouvertes (`list_migrations` ne voit pas les migrations lancées dans l’éditeur depuis v2_078). Prochain numéro libre au 17/10/2026 : **`v2_098`**.

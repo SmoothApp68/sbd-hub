@@ -11,6 +11,7 @@ require('../../v2/js/palier.js');
 require('../../v2/js/profil.js');
 require('../../v2/js/semaine.js');
 require('../../v2/js/moteur.js');
+const G = require('../../v2/js/generateur.js');
 const D = require('../../v2/js/deraille.js');
 
 const CAT = {
@@ -118,6 +119,10 @@ describe('un jour manqué en fin de semaine (Push vendredi, ouverture samedi)', 
   });
   test('« Non merci » : plus rien cette semaine ; « Ajouter » : l’exercice part dans Jambes aujourd’hui', () => {
     expect(D.semaineQuiDeraille(Object.assign({}, e, { etat: D.decider(null, c, 'non', '2026-10-17') }))).toBeNull();
+    // Audit du 16/10/2026, 01 #10 — UNE carte de fin, que la vraie fin de semaine et le repli (ni décalage ni
+    // répartition) lisent : la phrase aux deux chiffres n'est écrite qu'une fois.
+    const src = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/deraille.js'), 'utf8');
+    expect([src.split(' à la fin de ').length - 1, src.split('ton programme en prévoit').length - 1]).toEqual([1, 1]);
     const etat = D.decider(null, c, 'ajouter', '2026-10-17');
     expect(D.ajoutsDuJour(etat, 'r-jambes', '2026-10-17').map((a) => a.mention)).toEqual(['séance manquée de vendredi']);
   });
@@ -319,5 +324,37 @@ describe('le choix en base (`semaine_choix`, v2_085) : écrit puis relu', () => 
     const etat = D.etatDepuisLignes(l, '2026-10-15');
     expect(D.semaineQuiDeraille(Object.assign({}, e, { etat }))).toBeNull();
     expect(D.etatDepuisLignes(l, '2026-10-20')).toBeNull();
+  });
+});
+
+describe('audit du 16/10/2026, 01 #2 et #4 — répartir compte ce qui est déjà ajouté ; un seul plafond par séance', () => {
+  // L'exemple de l'audit : Jambes (Presse 5, Hack 5, Extension 5, toutes en quadriceps principaux) manquée mardi ;
+  // on ouvre mercredi, la séance Pull, sans durée déclarée. Avant : les trois passaient dans le Pull (15 séries de
+  // quadriceps), la séance d'accueil étant lue sans ses ajouts.
+  const C3 = Object.assign({}, CAT, {
+    presse: { nom: 'Presse à Cuisses', muscles_primaires: ['quadriceps'], muscles_secondaires: [], muscles_stabilisateurs: [] },
+    hack: { nom: 'Hack Squat', muscles_primaires: ['quadriceps'], muscles_secondaires: [], muscles_stabilisateurs: [] },
+    extension: { nom: 'Extension Jambes', muscles_primaires: ['quadriceps'], muscles_secondaires: [], muscles_stabilisateurs: [] }
+  });
+  const tr = (slug, n) => ({ exercise_slug: slug, repos_cible_s: 120, series: Array.from({ length: n }, () => ({ type_serie: 'travail', reps: 8 })) });
+  const routines = [
+    { id: 'r-push', nom: 'Lundi — Push', jours: [1, 5], exercices: [tr('couche', 4)] },
+    { id: 'r-jambes', nom: 'Mardi — Jambes', jours: [2], exercices: [tr('presse', 5), tr('hack', 5), tr('extension', 5)] },
+    { id: 'r-pull', nom: 'Mercredi — Pull', jours: [3], exercices: [tr('tractions', 4), tr('rowing', 4), tr('curl', 3)] }];
+  const carte = () => D.semaineQuiDeraille({ jour: '2026-10-14', catalogue: C3, debutant: false, dureeMax_s: null, volume: {},
+    etat: null, routines, seances: [fait('2026-10-12', 'r-push', ['couche'])] });
+  const quadsDansLePull = (c) => c.choix.filter((x) => x.cle === 'repartir')[0].ajouts
+    .filter((a) => a.routine === 'r-pull').reduce((t, a) => t + a.series, 0);
+  test('⚠️ DISCRIMINANT — le Pull reçoit Presse 5, puis Hack et Extension sous la règle du même groupe : 11, pas 15', () => {
+    const rep = carte().choix.filter((x) => x.cle === 'repartir')[0];
+    expect(rep.ajouts.map((a) => [a.nomRoutine, a.slug, a.series])).toEqual([['Pull', 'presse', 5], ['Pull', 'hack', 5], ['Pull', 'extension', 1]]);
+    expect(quadsDansLePull(carte())).toBe(G.PAR_SEANCE);
+  });
+  test('le plafond est la constante du générateur, lue à l’appel (aucune copie dans deraille.js)', () => {
+    expect(G.PAR_SEANCE).toBe(11);
+    const src = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/deraille.js'), 'utf8');
+    expect(/SOUS_SERIES|var PAR_SEANCE/.test(src)).toBe(false);
+    const avant = G.PAR_SEANCE;
+    try { G.PAR_SEANCE = 9; expect(quadsDansLePull(carte())).toBe(9); } finally { G.PAR_SEANCE = avant; }
   });
 });

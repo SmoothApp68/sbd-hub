@@ -55,7 +55,7 @@ function bac(o) {
     profil: { id: 'u1', temps_reponse: 'marge' }, profilAEnvoyer: false, envoiProfil: null, versionProfil: 0, ligneACreer: false,
     rendreBandeauQuestionnaire: () => {}, ouvrirQuestionnaireSiDu: () => false,
     generation: 1, generationValide: (g) => g === ctx.generation,
-    ecranCourant: 'saisie', rendreProfilEcran: () => {},
+    ecranCourant: 'saisie', rendreProfilEcran: () => {}, objectifsSuiventLeProfil: () => {},
     userId: () => 'u1',
     identifiantDuProfil: async () => 'u1',
     sauverProfilLocal: async () => {},

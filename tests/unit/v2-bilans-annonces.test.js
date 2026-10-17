@@ -215,7 +215,7 @@ function appareil(base, o) {
     pseudoAInscrire: null,
     sauverProfilLocal: async () => {}, effacerPseudoPris: () => {}, retenirPseudoPris: () => {},
     texteErreur: (e) => String(e && e.message || e),
-    ecranCourant: 'saisie', rendreProfilEcran: () => {}, rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {},
+    ecranCourant: 'saisie', rendreProfilEcran: () => {}, objectifsSuiventLeProfil: () => {}, rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {},
     rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {}, ouvrirQuestionnaireSiDu: () => {},
     Donnees: {
       monProfil: async () => {

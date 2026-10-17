@@ -133,6 +133,27 @@
     return best;
   }
 
+  // `{ materiel, max }` quand la salle déclarée, en vigueur, n'a pas la charge de l'objectif (au-delà de sa plus
+  // lourde, dans l'unité des séries : la paire pour des haltères), sinon `null`. Une charge intermédiaire (27,5 kg
+  // entre les barres de 25 et 30) n'est pas refusée : elle s'atteint à 30.
+  function horsDeLaSalle(salle, charge, record) {
+    var Mo = racine.THMoteur;
+    if (!salle || !Mo) return null;
+    var vigueur = Mo.salleEnVigueur(salle, record ? record.charge : null);
+    var max = vigueur ? Mo.maxDeLaSalle(vigueur) : null;
+    if (max === null || !(charge > max + EPS)) return null;
+    return { materiel: vigueur.materiel, max: max };
+  }
+  var NOM_DU_MATERIEL = { barre_ez: 'en barre EZ', barre_droite: 'en barre droite', halteres: 'en haltères' };
+  // Le refus d'un objectif au-delà de la salle, avec le fait : « Ta salle va jusqu'à 30 kg en barre EZ. »,
+  // « Ta salle va jusqu'à 2 × 40 kg en haltères. » (les haltères se déclarent par haltère, §10 bis).
+  function phraseHorsSalle(pr) {
+    if (!pr || pr.etat !== 'hors_salle') return null;
+    var M = Modele();
+    var t = pr.salle === 'halteres' ? '2\u00a0×\u00a0' + M.charge(pr.max / 2) : M.charge(pr.max);
+    return 'Ta salle va jusqu\u2019à ' + t + ' ' + (NOM_DU_MATERIEL[pr.salle] || '') + '.';
+  }
+
   function plafondDe(anciennete) {
     return Object.prototype.hasOwnProperty.call(PLAFONDS, anciennete) ? PLAFONDS[anciennete] : PLAFOND_PAR_DEFAUT;
   }
@@ -141,9 +162,12 @@
   // ══ LA PROJECTION, À LA POSE ═════════════════════════════════════════════════════════════════════════════════
   //
   // `e` : { seances: [{ debut, series }] de l'exercice (toute la vie), charge, reps, maintenant, anciennete,
-  //         options (le périmètre des records : `Modele.optionsDeRecord(exo)`), carnet (« Juste un carnet ») }.
+  //         options (le périmètre des records : `Modele.optionsDeRecord(exo)`), carnet (« Juste un carnet »),
+  //         salle (la salle de l'exercice, `THProfil.salleDeLExercice`, ou null : rien de déclaré) }.
   // Rend `{ etat, … }` :
   //   · `deja`         : l'objectif est déjà fait — refusé, avec le fait (`serie`) ;
+  //   · `hors_salle`   : une charge au-delà de la plus lourde de la salle déclarée (barre fixe, haltères, MOTEUR
+  //                      §10 bis) — refusé, avec le fait (`salle`, `max`) : le coach ne proposera jamais cette charge ;
   //   · `carnet`       : « Juste un carnet » — ni date ni pari ;
   //   · `pas_encore`   : moins de 8 semaines d'historique, moins de 3 records à N reps ou plus, ou rythme nul ;
   //   · `plus_d_un_an` : la date tomberait au-delà de 12 mois — aucun pari ;
@@ -159,6 +183,12 @@
     if (maintenant && maintenant.charge >= charge - EPS) {
       return Object.assign(base, { etat: 'deja', serie: serieDuRecord(seances, n, t0, options) });
     }
+    // Audit du 16/10/2026, 01 #3 — L'OBJECTIF LIT MA SALLE (§10 bis) : « le coach ne propose jamais une charge que
+    // la salle n'a pas » ; un objectif au-delà de la plus lourde serait un pari sur une charge que le moteur s'interdit
+    // de proposer. Refusé à la pose, avec le fait. La salle « en vigueur » se juge sur la plus lourde série faite :
+    // à la barre, au-delà de la plus lourde barre fixe, c'est une barre qu'on charge, et la salle n'en dit rien.
+    var hors = horsDeLaSalle(e.salle, charge, recordA(seances, 1, t0, options));
+    if (hors) return Object.assign(base, { etat: 'hors_salle', salle: hors.materiel, max: hors.max });
     if (e.carnet) return Object.assign(base, { etat: 'carnet' });
 
     var premiere = null;
@@ -245,6 +275,22 @@
       pose_le: poseLe, depart_kg: pr && pr.depart !== null && pr.depart !== undefined ? pr.depart : null,
       projection: etat, echeance: etat === 'date' ? pr.echeance : null, pari_id: etat === 'date' ? (pariId || null) : null
     };
+  }
+
+  // ══ LE RETOUR EN PROGRESSER : LA DATE SE CALCULE UNE FOIS, ALORS ════════════════════════════════════════════
+  //
+  // Audit du 16/10/2026, 01 #11 (prompt 122). Un objectif posé en « Juste un carnet » n'a ni date ni pari
+  // (`projection = 'carnet'`) ; revenu en Progresser, la page disait « Pas encore de date. » — qui veut dire « pas
+  // assez d'historique » — alors que la date n'avait jamais été calculée. Au retour en Progresser, la date se calcule
+  // UNE fois (`pr` : `projection`, sans le carnet, à l'instant du retour) et le pari se pose à ce moment-là (l'app :
+  // `pariDe` avec `pose_le` = l'instant du retour). La ligne garde sa pose (le moment où la personne l'a posé, qui
+  // décide de la série qui l'atteint) et son départ (la jauge) ; seuls la projection, l'échéance et le pari changent.
+  // Rend la ligne réécrite, ou `null` : pas un objectif du carnet, ou rien à projeter (déjà fait).
+  function ligneAuRetour(o, pr, pariId) {
+    if (!o || o.projection !== 'carnet' || !pr || pr.etat === 'carnet' || pr.etat === 'deja') return null;
+    var etat = PROJECTIONS.indexOf(pr.etat) >= 0 ? pr.etat : 'pas_encore';
+    return Object.assign({}, o, { projection: etat, echeance: etat === 'date' ? pr.echeance : null,
+                                  pari_id: etat === 'date' ? (pariId || null) : null });
   }
 
   // ══ ATTEINT : LA PREMIÈRE SÉRIE QUI FAIT L'OBJECTIF, APRÈS LA POSE ═══════════════════════════════════════════
@@ -395,8 +441,10 @@
     GRANDEUR: GRANDEUR, VERSION: VERSION, PLAFONDS: PLAFONDS, PLAFOND_PAR_DEFAUT: PLAFOND_PAR_DEFAUT,
     JOURS_PAR_MOIS: JOURS_PAR_MOIS, SEMAINES_MIN: SEMAINES_MIN, RECORDS_MIN: RECORDS_MIN, MOIS_MAX: MOIS_MAX,
     PAS_ENCORE: PAS_ENCORE, PLUS_D_UN_AN: PLUS_D_UN_AN, PARI: PARI,
-    projection: projection, pariDe: pariDe, ligneDe: ligneDe, atteinte: atteinte, observationDe: observationDe,
+    projection: projection, pariDe: pariDe, ligneDe: ligneDe, ligneAuRetour: ligneAuRetour, atteinte: atteinte,
+    observationDe: observationDe,
     estTenu: estTenu, vue: vue, phraseDeSaisie: phraseDeSaisie, lireSaisie: lireSaisie, phraseDejaFait: phraseDejaFait,
+    phraseHorsSalle: phraseHorsSalle,
     possible: possible, haussesDuRecord: haussesDuRecord, plafondDe: plafondDe, joursEntre: joursEntre
   };
   racine.THObjectif = api;

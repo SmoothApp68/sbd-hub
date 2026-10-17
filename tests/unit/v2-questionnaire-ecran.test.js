@@ -492,7 +492,7 @@ describe('60-2a — la décision se reprend quand la ligne de profil ARRIVE', ()
       rendreBandeauQuestionnaire: () => { ctx.bandeaux = (ctx.bandeaux || 0) + 1; },
       rendreBandeauPhase: () => { ctx.bandeauxPhase = (ctx.bandeauxPhase || 0) + 1; },
       rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {},
-      sauverProfilLocal: () => Promise.resolve(), ecranCourant: 'semaine', rendreProfilEcran: () => {},
+      sauverProfilLocal: () => Promise.resolve(), ecranCourant: 'semaine', rendreProfilEcran: () => {}, objectifsSuiventLeProfil: () => {},
       envoyerProfil: () => Promise.resolve(),
       ouvrirQuestionnaireSiDu: () => { ouvertures.push(ctx.profil); return false; },
       // 60-3b — la création de la ligne lit les données du compte (`metadonneesDuCompte`) ; « pris entre-temps » est retenu en local.
@@ -550,7 +550,7 @@ describe('60-2a — l’envoi du profil : UN SEUL À LA FOIS, et une réponse n�
         departs.push(JSON.parse(JSON.stringify(champs)));
         attentes.push(() => ok(Object.assign({ id }, champs)));
       }) },
-      sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {}, envoiProfil: null, versionProfil: 0, ligneACreer: false,
+      sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {}, objectifsSuiventLeProfil: () => {}, envoiProfil: null, versionProfil: 0, ligneACreer: false,
       rendreBandeauQuestionnaire: () => {}, ouvrirQuestionnaireSiDu: () => false
     };
     vm.createContext(ctx);

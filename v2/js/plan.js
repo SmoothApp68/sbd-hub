@@ -138,7 +138,7 @@
     var consigne = M.consigneFigee(consigneDonnee);
     var pdc = estPoidsDuCorps(consigne);
     var liste = series || [];
-    var couverture = S.couvertureSeance(liste, consigne, figees || {});
+    var couverture = S.couvertureSeance(liste, consigne, figees || {}, o.rangsReserves || null);
     var indices = [], rangs = [], roles = [], couvertes = [];
     couverture.forEach(function (x, i) {
       if (!x) return;
@@ -706,7 +706,10 @@
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,
       reglage: reglage === undefined ? null : reglage, phase: phase, objectif: objectif,
       compteur: compteurOuverture, allegee: !!consigne.allegee,
-      occurrence: base.occurrence || undefined
+      occurrence: base.occurrence || undefined,
+      // I8 (122) — les rangs que des séries faites ont quittés (supprimées, ou passées hors du travail) : leurs
+      // paris restent ; aucune autre série ne les reprend (`Seance.quitterRang`).
+      rangsReserves: exo && Array.isArray(exo.rangsQuittes) ? exo.rangsQuittes : null
     });
 
     // L'en-tête décrit la disposition de la consigne sur les lignes de la
@@ -852,6 +855,8 @@
     return {
       iExo: iExo, slug: base.slug, occurrence: base.occurrence,
       consigne: consigne, contexte: c.contexte || null,
+      // I8 (122) — les rangs quittés par des séries faites : aucune ligne non figée ne les porte.
+      rangsQuittes: exo && Array.isArray(exo.rangsQuittes) ? exo.rangsQuittes.slice() : [],
       indices: r.indices, rangs: r.rangs, roles: r.roles, figees: figees,
       planInitial: r.planInitial, faites: r.faites, reaction: r.reaction,
       lignes: r.lignes, message: r.message, paris: r.paris,
@@ -2019,6 +2024,29 @@
     var cour = (x.reaction && x.reaction.plan) || [];
     var P = x.consigne.ligne ? nombre(x.consigne.ligne.charge) : null;
 
+    // I5 (§9.13 bis ; audit du 16/10/2026, 01 #7 : spécifié, jamais vérifié) — LES TESTS RESTANTS VALENT `k`
+    // MOINS LES TESTS FIGÉS, SUR LES DERNIÈRES LIGNES NON FIGÉES. I6 compare l'en-tête aux lignes, mais l'en-tête est
+    // rédigé sur la disposition du plan lui-même : un test perdu ou ajouté par la couverture passait. Lu sur
+    // `planInitial` (le rôle de la couverture) : `k` celui de la ligne haute ; les lignes de la série de plus
+    // (`ajoutee`, jamais un test, I24) sont hors du compte ; la semaine allégée (`couvre`, I19) n'a pas de test.
+    if (typeof x.consigne.couvre !== 'number') {
+      var k5 = x.consigne.haut ? (nombre(x.consigne.haut.k) || 0) : 0;
+      var figes5 = init.filter(function (q) { return q && q.figee && q.role === 'haut'; }).length;
+      var libres5 = couvertes.filter(function (l) { return init[l.position] && !init[l.position].figee && !l.ajoutee; });
+      var attendus5 = Math.min(Math.max(0, k5 - figes5), libres5.length);
+      var restants5 = libres5.filter(function (l) { return init[l.position].role === 'haut'; }).length;
+      if (restants5 !== attendus5) {
+        err('I5', restants5 + ' test(s) restant(s), ' + attendus5 + ' attendu(s) (k = ' + k5 + ', ' + figes5 + ' figé(s))');
+      } else {
+        libres5.forEach(function (l, j) {
+          var doit = j >= libres5.length - attendus5;
+          if ((init[l.position].role === 'haut') !== doit) {
+            err('I5', 'la ligne ' + l.position + (doit ? ' devrait être un test' : ' est un test') + ' : les tests vont sur les dernières lignes');
+          }
+        });
+      }
+    }
+
     // I2 — aucune ligne du coach ne remplace une ligne de test non figée.
     // I3 — une proposition n'est jamais plus basse que la ligne prévue, et
     // toujours au-dessus de la charge de travail.
@@ -2245,12 +2273,15 @@
     }
 
     // I8 — les rangs sont uniques par exercice : aucune ligne ne reprend le
-    // rang d'une autre, figée ou non.
+    // rang d'une autre, figée ou non ; ni celui qu'une série faite a quitté
+    // (supprimée, ou passée hors du travail : son pari reste — 122).
     var vus = {};
+    var quittes = x.rangsQuittes || [];
     couvertes.forEach(function (l) {
       if (l.rang === null || l.rang === undefined) { err('I8', 'la série ' + l.iSerie + ' est couverte sans rang'); return; }
       if (vus[l.rang] !== undefined) err('I8', 'le rang ' + l.rang + ' est porté par les séries ' + vus[l.rang] + ' et ' + l.iSerie);
       vus[l.rang] = l.iSerie;
+      if (!l.figee && quittes.indexOf(Number(l.rang)) >= 0) err('I8', 'la série ' + l.iSerie + ' reprend le rang ' + l.rang + ', quitté par une série faite');
     });
 
     // I7 — chaque ligne validée et couverte a EXACTEMENT UN pari DE LA
@@ -2460,8 +2491,10 @@
   // semaine allégée.
   // I22 : une consigne de repli n'a pas de ligne haute, aucune ligne de test ni
   // proposition du coach dès le départ, et sa charge est strictement sous le
-  // meilleur, à 10 % au plus sous lui. La règle n'est pas relue : I22 confronte
-  // la charge au meilleur du compteur que le plan porte.
+  // meilleur, à 10 % au plus sous lui, et strictement sous le palier actuel (la
+  // consigne : un repli ne monte jamais, §14.2 (1), audit du 16/10/2026, 01 #5).
+  // La règle n'est pas relue : I22 confronte la charge au meilleur du compteur et
+  // au palier de la consigne que le plan porte.
   function verifierMarches(plan, erreurs) {
     if (!plan) return;
     var cites = plan.carte && Array.isArray(plan.carte.cites) ? plan.carte.cites : [];
@@ -2488,6 +2521,8 @@
         if (plan.phase === 'seche') erreurs.push('I23 — ' + nom + ' : une série de plus en sèche');
         if (zSp === 'lourd' || zSp === 'mix') erreurs.push('I23 — ' + nom + ' : une série de plus en zone force (' + zSp + ')');
         if (plan.allegee) erreurs.push('I23 — ' + nom + ' : une série de plus pendant une semaine allégée');
+        // Audit du 16/10/2026, 01 #6 — sans zone, l'acceptation n'ajouterait rien : jamais proposée.
+        if (!zSp) erreurs.push('I23 — ' + nom + ' : une série de plus sans zone');
       }
       if (carteSp && x.placeSerieDePlus !== true) erreurs.push('I23 — ' + nom + ' : une série de plus proposée sans place');
       // I48 (MOTEUR §14, 111) — une dégressive proposée (sa carte) ou en cours
@@ -2550,6 +2585,10 @@
         err(ch + ' kg n\'est pas sous le meilleur (' + meilleur + ' kg)');
       } else if (meilleur - ch > meilleur * Moteur().REPLI_MAX_REPRISE + 1e-9) {
         err(ch + ' kg est à plus de 10 % sous le meilleur (' + meilleur + ' kg)');
+      }
+      var actuel22 = x.consigne.palier === null || x.consigne.palier === undefined ? NaN : Number(x.consigne.palier);
+      if (isFinite(actuel22) && isFinite(ch) && ch >= actuel22 - 1e-9) {
+        err(ch + ' kg n\'est pas sous le palier actuel (' + actuel22 + ' kg) : un repli ne monte jamais');
       }
     });
   }
@@ -3042,6 +3081,15 @@
     var couvertes = (x.lignes || []).filter(function (l) { return l.role !== 'hors'; });
     var lignes = couvertes.map(function (l) { return { charge: l.charge, vise: l.vise }; })
       .concat((x.planInitial || []).filter(Boolean).map(function (p) { return { charge: p.charge, vise: p.vise }; }));
+    // 122 (le défaut trouvé au 115) — UNE LIGNE D'ÉLAN FIGÉE TIENT LA PLACE D'UNE LIGNE DE LA CONSIGNE (§9.14 bis :
+    // l'élan remplace une ligne, jamais une ligne du coach) : l'en-tête, qui décrit la consigne sur la disposition
+    // (l'élan y compte comme une ligne, I6), garde cette cible du jour. Non figée, la ligne de la consigne est déjà
+    // dans `planInitial` ; figée, elle n'y était plus — et quand la ligne faite à la charge de la consigne était
+    // supprimée, « Aujourd'hui : 60 kg × 5 » ne trouvait plus de ligne (60 kg × 5, puis 70 en élan, la première
+    // supprimée : il restait l'élan à 70 et le test à 100).
+    if (k.ligne && (x.planInitial || []).some(function (p) { return p && p.figee && p.source === 'elan'; })) {
+      lignes.push({ charge: k.ligne.charge, vise: k.ligne.vise });
+    }
     // Un exercice sans aucune série (toutes supprimées) n'a pas de ligne : ses
     // phrases disent alors la consigne elle-même, sa ligne et sa ligne haute.
     if (!lignes.length) {

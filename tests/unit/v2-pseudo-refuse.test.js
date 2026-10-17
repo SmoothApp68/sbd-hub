@@ -93,7 +93,7 @@ function bacEnvoi(o) {
     texteErreur: (e) => String(e && e.message || e),
     profil: Object.assign({ id: 'u1', username: null }, opt.profil || {}), profilAEnvoyer: true, envoiProfil: null, versionProfil: 0, ligneACreer: false,
     generation: 1, generationValide: (g) => g === ctx.generation,
-    ecranCourant: 'profil', rendreProfilEcran: () => { etat.rendus = (etat.rendus || 0) + 1; },
+    ecranCourant: 'profil', rendreProfilEcran: () => { etat.rendus = (etat.rendus || 0) + 1; }, objectifsSuiventLeProfil: () => {},
     userId: () => 'u1',
     identifiantDuProfil: async () => 'u1',
     sauverProfilLocal: async () => {},

@@ -241,6 +241,20 @@ describe('§14.7 — la série de plus, dans le plan', () => {
   });
 });
 
+describe('audit du 16/10/2026, 01 #6 — une consigne sans zone (règle de bord) ne reçoit pas la carte de série de plus', () => {
+  test('la marche : sans zone, pas de série de plus, même avec de la place', () => {
+    expect(M.marcheIsolee(1, null, 'maintien', true, false, 140, {})).toBe('repli');
+    expect(M.marcheIsolee(1, 'muscle', 'maintien', true, false, 140, {})).toBe('serie_de_plus');
+  });
+  test('⚠️ DISCRIMINANT — dans le plan : aucune carte « Une série de plus », le silence (repli sauté), I23 sans erreur', () => {
+    const { e, p } = decor({ consigne: { zone: null } });
+    const x = p.exercices[0];
+    expect(x.escalier && x.escalier.marche).not.toBe('serie_de_plus');
+    expect(x.escalier && x.escalier.carte).toBeFalsy();
+    expect(T.verifierPlan(p, e).erreurs.filter((y) => /^I23/.test(y))).toEqual([]);
+  });
+});
+
 describe('§14.7 — I23, I24 : des violations forgées sont vues', () => {
   const base = () => JSON.parse(JSON.stringify(decor({ marches: [acceptee('2026-10-01', 4, 'S1')],
     geste: (se, id) => S.ajouterSerie(se, 0, id()) }).p));
@@ -252,6 +266,11 @@ describe('§14.7 — I23, I24 : des violations forgées sont vues', () => {
     const carte = JSON.parse(JSON.stringify(decor().p));
     carte.exercices[0].placeSerieDePlus = false;
     expect(T.verifierPlan(carte).erreurs.some((x) => /^I23 .*sans place/.test(x))).toBe(true);
+  });
+  test('I23 — audit du 16/10/2026, 01 #6 : une série de plus sans zone', () => {
+    const sansZone = JSON.parse(JSON.stringify(decor().p));
+    sansZone.exercices[0].consigne.zone = null;
+    expect(T.verifierPlan(sansZone).erreurs.some((x) => /^I23 .*sans zone/.test(x))).toBe(true);
   });
   test('I24 — la ligne en plus en test, ou avant les lignes de la routine', () => {
     const test = base(); test.exercices[0].lignes[3].role = 'test';

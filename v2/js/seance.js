@@ -574,6 +574,35 @@
     return avecExercices(seance, exos);
   }
 
+  // 122 (le défaut trouvé au 115 ; MOTEUR §9.13 bis, I8 : « un rang figé n'est jamais repris ») — LE RANG QU'UNE
+  // SÉRIE FAITE QUITTE. Supprimée, ou passée de travail à un autre type, une série validée laisse son pari, non
+  // observé (§9.11) ; son rang, lui, n'appartient plus à aucune série — et la couverture le redonnait à la suivante :
+  // un nouveau pari du même rang et de la même révision a le MÊME identifiant (`Moteur.idDePrediction`), il ne
+  // s'écrivait pas, et la série nouvelle observait l'ancien pari (une ligne « test » jugée par un pari « ligne »).
+  // L'exercice retient ces rangs (`rangsQuittes`, sur l'appareil seulement : une série de la séance en cours) ; la
+  // couverture ne les redonne plus. `rendreRang` : « Annuler » remet la série, son rang lui revient.
+  function quitterRang(seance, iExo, rang) {
+    var r = Number(rang);
+    if (!isFinite(r) || r < 1 || Math.floor(r) !== r || !seance.exercices[iExo]) return seance;
+    var exos = seance.exercices.slice();
+    var exo = copie(exos[iExo]);
+    var l = (exo.rangsQuittes || []).slice();
+    if (l.indexOf(r) < 0) l.push(r);
+    exo.rangsQuittes = l.sort(function (a, b) { return a - b; });
+    exos[iExo] = exo;
+    return avecExercices(seance, exos);
+  }
+  function rendreRang(seance, iExo, rang) {
+    var r = Number(rang);
+    var exo0 = seance.exercices[iExo];
+    if (!exo0 || !exo0.rangsQuittes || exo0.rangsQuittes.indexOf(r) < 0) return seance;
+    var exos = seance.exercices.slice();
+    var exo = copie(exo0);
+    exo.rangsQuittes = exo.rangsQuittes.filter(function (x) { return x !== r; });
+    exos[iExo] = exo;
+    return avecExercices(seance, exos);
+  }
+
   // 115 (audit du 16/10/2026, E2 ; décision d'Aurélien D10) — L'INVERSE EXACT DE `retirerSerie`. « Annuler »,
   // après un glissement qui a retiré une série faite, la remet ENTIÈRE à sa place : le même objet (identifiant,
   // charge, reps, type, effort, `validee_a`, `source`), au même indice, donc au même rang de sortie. Rien n'est
@@ -2135,7 +2164,8 @@
   // (les séries couvertes, dans l'ordre), `figee` la ligne figée ou `null`.
   var ROLES_FIGES = { ligne: true, haut: true, coach: true, retour: true, elan: true };
 
-  function couvertureSeance(series, consigne, figees) {
+  // `reserves` (122) : les rangs qu'aucune série libre ne prend (`rangsQuittes` de l'exercice, I8).
+  function couvertureSeance(series, consigne, figees, reserves) {
     var liste = series || [];
     var sortie = liste.map(function () { return null; });
     if (!consigne || !consigne.n) return sortie;
@@ -2169,6 +2199,7 @@
     // Les rangs figés d'abord : aucun rang libre ne peut les reprendre.
     var pris = {};
     travail.forEach(function (i) { var f = figeeDe(i); if (f) pris[f.rang] = true; });
+    (reserves || []).forEach(function (r) { pris[r] = true; });
     var position = 0;
     travail.forEach(function (i) {
       var f = figeeDe(i);
@@ -2821,6 +2852,8 @@
     compter: compter,
     rempliesNonValidees: rempliesNonValidees,
     remettreSerie: remettreSerie,
+    quitterRang: quitterRang,
+    rendreRang: rendreRang,
     minutesEcoulees: minutesEcoulees,
     delaiProchaineMinute: delaiProchaineMinute,
     lignes: lignes,

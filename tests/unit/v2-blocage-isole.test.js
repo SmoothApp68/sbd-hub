@@ -138,6 +138,19 @@ describe('§14.2 — le repli, condition par condition', () => {
     // Strictement sous le meilleur : 130 n'est pas un repli.
     expect(repli(une(130))).toBeNull();
   });
+  test('(1) audit du 16/10/2026, 01 #5 — strictement sous le PALIER ACTUEL, pas seulement sous le meilleur', () => {
+    // Le meilleur du compteur (130) peut être au-dessus du palier de la consigne (125 : des séances suivies plus
+    // bas, sans progrès, comptent). Borné par le seul meilleur, 127,5 tenu le 10 févr. était un « repli » qui MONTE.
+    const une = (P) => [{ debut: '2026-02-10T10:00:00+00:00', palier: P, neutre: false, decharge: false,
+      series: [1, 2, 3].map(() => ({ charge_kg: P, reps: 4, rpe: null, role: 'palier', origine: 'palier' })) }];
+    expect(R2.meilleur[0]).toBe(130);
+    expect(repli(une(127.5)).palier).toBe(127.5);                         // sans palier actuel : sous le meilleur
+    expect(repli(une(127.5), { actuel: 125 })).toBeNull();                // ⚠️ DISCRIMINANT : il monterait
+    expect(repli(une(125), { actuel: 125 })).toBeNull();                  // strictement sous
+    expect(repli(une(122.5), { actuel: 125 }).palier).toBe(122.5);
+    expect(repli(une(115), { actuel: 125 })).toBeNull();                  // la limite de 10 % reste sous le meilleur
+    expect(repli(une(127.5), { actuel: 135 }).palier).toBe(127.5);        // un palier actuel au-dessus : le meilleur borne
+  });
   test('(4) tenu : un niveau sous le bas de la zone (2 en Lourd) ne compte pas', () => {
     const s = [{ debut: '2026-02-10T10:00:00+00:00', palier: 125, neutre: false, decharge: false,
       series: [1, 2].map(() => ({ charge_kg: 125, reps: 2, rpe: null, role: 'palier', origine: 'palier' })) }];
@@ -409,6 +422,13 @@ describe('§14.5 — I22 : la consigne de repli, sans ligne haute, à 10 % au pl
     const egal = base();
     egal.exercices[0].consigne.ligne.charge = 125;
     expect(T.verifierPlan(egal).erreurs.some((x) => /^I22 .*pas sous le meilleur/.test(x))).toBe(true);
+  });
+  test('audit du 16/10/2026, 01 #5 — pas sous le palier actuel : le repli monterait', () => {
+    const ok = base();
+    expect(T.verifierPlan(ok).erreurs.filter((x) => /^I22/.test(x))).toEqual([]);
+    const monte = base();
+    monte.exercices[0].consigne.palier = monte.exercices[0].consigne.ligne.charge;
+    expect(T.verifierPlan(monte).erreurs.some((x) => /^I22 .*pas sous le palier actuel/.test(x))).toBe(true);
   });
 });
 

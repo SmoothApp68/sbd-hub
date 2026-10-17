@@ -56,7 +56,7 @@ function appareil(base, o) {
     profilAEnvoyer: opt.attente === undefined ? false : opt.attente,
     envoiProfil: null, versionProfil: 0, ligneACreer: false,
     generation: 1, generationValide: (g) => g === ctx.generation,
-    ecranCourant: 'saisie', rendreProfilEcran: () => {}, dessinerAmis: () => {},
+    ecranCourant: 'saisie', rendreProfilEcran: () => {}, objectifsSuiventLeProfil: () => {}, dessinerAmis: () => {},
     userId: () => 'u1',
     identifiantDuProfil: async () => 'u1',
     sauverProfilLocal: async () => {},

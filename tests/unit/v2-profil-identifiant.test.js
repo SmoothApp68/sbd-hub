@@ -226,7 +226,7 @@ describe('l’identifiant d’une écriture de profil est celui de la session du
       Profil, profil: opt.profil === undefined ? null : opt.profil, profilAEnvoyer: !!opt.aEnvoyer, pseudoAInscrire: opt.pseudo || null,
       versionProfil: 0, ligneACreer: false, envoiProfil: null, ecranCourant: 'saisie',
       rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {}, rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {}, ouvrirQuestionnaireSiDu: () => false,
-      sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {},
+      sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {}, objectifsSuiventLeProfil: () => {},
       envoyerProfil: () => vm.runInContext('envoyerProfil()', ctx), texteErreur: (e) => String(e && e.message || e)
     };
     vm.createContext(ctx);
@@ -421,7 +421,7 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
       pseudoAInscrire: opt.pseudo === undefined ? 'test_0710' : opt.pseudo,
       versionProfil: 0, ligneACreer: false, envoiProfil: null, ecranCourant: 'saisie',
       rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {}, rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {}, ouvrirQuestionnaireSiDu: () => false,
-      sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {},
+      sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {}, objectifsSuiventLeProfil: () => {},
       texteErreur: (e) => String(e && e.message || e)
     };
     vm.createContext(ctx);
@@ -653,7 +653,7 @@ describe('60-3b — le pseudo des données du compte, repris à la création de 
       pseudoAInscrire: opt.pseudo === undefined ? null : opt.pseudo,
       versionProfil: 0, ligneACreer: false, envoiProfil: null, ecranCourant: 'saisie',
       rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {}, rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {}, ouvrirQuestionnaireSiDu: () => false,
-      sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {},
+      sauverProfilLocal: () => Promise.resolve(), rendreProfilEcran: () => {}, objectifsSuiventLeProfil: () => {},
       texteErreur: (e) => String(e && e.message || e)
     };
     vm.createContext(ctx);

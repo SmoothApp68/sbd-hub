@@ -12324,13 +12324,9 @@
   // en sort est exactement le genre de défaut qu'aucun test unitaire ne voit.
   async function poserProfil(champs) {
     var ecrits = Profil.champsEcrits(champs);
-    var etaitCarnet = !!profil && Moteur.coachSeTait(profil.intention);
+    var avant = profil;
     profil = Object.assign({}, profil || {}, ecrits);
-    // Audit du 16/10/2026, 01 #11 — revenu du carnet en Progresser : la date des objectifs posés en carnet se
-    // calcule maintenant, une fois (sans attendre l'envoi du profil).
-    if (etaitCarnet && !Moteur.coachSeTait(profil.intention)) {
-      projeterObjectifsDuCarnet().catch(function (e) { console.warn('Objectifs du carnet :', texteErreur(e)); });
-    }
+    objectifsSuiventLeProfil(avant);
     versionProfil++;
     // Un pseudo choisi remet l'état « pris entre-temps » à zéro : le prochain refus, s'il y en a un, le reposera.
     if (champs && Object.prototype.hasOwnProperty.call(champs, 'username')) effacerPseudoPris(userId());
@@ -12854,6 +12850,12 @@
   // UNE fois, au retour (`poserProfil`, quand l'intention passe du carnet à Progresser), et son pari est posé à ce
   // moment-là (`THObjectif.ligneAuRetour`). Atteint entre-temps : rien (la carte dit « Atteint le … »). Une seule
   // passe à la fois : deux bascules rapides ne posent pas deux paris.
+  // Le geste qui ramène en Progresser (le Profil, le questionnaire) : `avant`, la ligne d'avant le geste. Seulement
+  // un geste de CET appareil — un changement venu d'un autre appareil y a déjà posé le pari.
+  function objectifsSuiventLeProfil(avant) {
+    if (!avant || !Moteur.coachSeTait(avant.intention) || !profil || Moteur.coachSeTait(profil.intention)) return;
+    projeterObjectifsDuCarnet().catch(function (e) { console.warn('Objectifs du carnet :', texteErreur(e)); });
+  }
   var retourEnCours = null;
   function projeterObjectifsDuCarnet() {
     if (!retourEnCours) {

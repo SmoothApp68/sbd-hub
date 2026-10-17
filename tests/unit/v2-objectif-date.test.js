@@ -311,3 +311,36 @@ describe('la migration absente', () => {
     expect(D.tableAbsente(null)).toBe(false);
   });
 });
+
+describe('audit du 16/10/2026, 01 #3 — l’objectif lit Ma salle (MOTEUR §10 bis) : refusé au-delà de la plus lourde', () => {
+  // Le cas réel d'Aurélien : curl EZ, barres de 10 à 30 kg ; record 25 × 10. Avant : 35 × 10 recevait une date et un
+  // pari, sur une charge que le coach ne proposera jamais dans cette salle.
+  const EZ = { materiel: 'barre_ez', charges: [10, 15, 20, 25, 30] };
+  const curl = () => [seance('2026-06-01', [[20, 10]]), seance('2026-08-01', [[22.5, 10]]), seance('2026-10-01', [[25, 10]])];
+  const poser = (o) => O.projection(Object.assign({ seances: curl(), charge: 35, reps: 10, maintenant: MAINTENANT,
+    anciennete: null, options: BARRE, salle: EZ }, o));
+  test('⚠️ DISCRIMINANT — 35 × 10 au curl EZ : refusé, avec le fait « Ta salle va jusqu’à 30 kg en barre EZ. »', () => {
+    const p = poser({});
+    expect([p.etat, p.salle, p.max]).toEqual(['hors_salle', 'barre_ez', 30]);
+    expect(O.phraseHorsSalle(p)).toBe('Ta salle va jusqu’à ' + M.charge(30) + ' en barre EZ.');
+    expect(O.pariDe({ exercise_slug: 'curl', charge_kg: 35, reps: 10, pose_le: MAINTENANT.toISOString() }, p, 'u', 'id')).toBeNull();
+    expect(poser({ carnet: true }).etat).toBe('hors_salle');           // en carnet aussi : l'objectif est hors d'atteinte
+  });
+  test('à la plus lourde, ou entre deux barres (27,5 s’atteint à 30) : posé normalement ; sans salle déclarée : rien ne change', () => {
+    expect(poser({ charge: 30 }).etat).not.toBe('hors_salle');
+    expect(poser({ charge: 27.5 }).etat).not.toBe('hors_salle');
+    expect(poser({ salle: null }).etat).not.toBe('hors_salle');
+  });
+  test('aux haltères, dans l’unité des séries (la paire) : « Ta salle va jusqu’à 2 × 40 kg en haltères. »', () => {
+    const H = { materiel: 'halteres', charges: Array.from({ length: 20 }, (_, i) => 4 * (i + 1)) };
+    const p = poser({ salle: H, charge: 84 });
+    expect(p.etat).toBe('hors_salle');
+    expect(O.phraseHorsSalle(p)).toBe('Ta salle va jusqu’à 2 × ' + M.charge(40) + ' en haltères.');
+    expect(poser({ salle: H, charge: 80 }).etat).not.toBe('hors_salle');
+  });
+  test('une barre qu’on charge (record au-delà de la plus lourde barre fixe) : la salle n’en dit rien', () => {
+    const droite = { materiel: 'barre_droite', charges: [10, 20, 30] };
+    const rowing = [seance('2026-06-01', [[70, 8]]), seance('2026-08-01', [[75, 8]]), seance('2026-10-01', [[80, 8]])];
+    expect(poser({ salle: droite, seances: rowing, charge: 90, reps: 8 }).etat).not.toBe('hors_salle');
+  });
+});

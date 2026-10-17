@@ -133,6 +133,27 @@
     return best;
   }
 
+  // `{ materiel, max }` quand la salle déclarée, en vigueur, n'a pas la charge de l'objectif (au-delà de sa plus
+  // lourde, dans l'unité des séries : la paire pour des haltères), sinon `null`. Une charge intermédiaire (27,5 kg
+  // entre les barres de 25 et 30) n'est pas refusée : elle s'atteint à 30.
+  function horsDeLaSalle(salle, charge, record) {
+    var Mo = racine.THMoteur;
+    if (!salle || !Mo) return null;
+    var vigueur = Mo.salleEnVigueur(salle, record ? record.charge : null);
+    var max = vigueur ? Mo.maxDeLaSalle(vigueur) : null;
+    if (max === null || !(charge > max + EPS)) return null;
+    return { materiel: vigueur.materiel, max: max };
+  }
+  var NOM_DU_MATERIEL = { barre_ez: 'en barre EZ', barre_droite: 'en barre droite', halteres: 'en haltères' };
+  // Le refus d'un objectif au-delà de la salle, avec le fait : « Ta salle va jusqu'à 30 kg en barre EZ. »,
+  // « Ta salle va jusqu'à 2 × 40 kg en haltères. » (les haltères se déclarent par haltère, §10 bis).
+  function phraseHorsSalle(pr) {
+    if (!pr || pr.etat !== 'hors_salle') return null;
+    var M = Modele();
+    var t = pr.salle === 'halteres' ? '2\u00a0×\u00a0' + M.charge(pr.max / 2) : M.charge(pr.max);
+    return 'Ta salle va jusqu\u2019à ' + t + ' ' + (NOM_DU_MATERIEL[pr.salle] || '') + '.';
+  }
+
   function plafondDe(anciennete) {
     return Object.prototype.hasOwnProperty.call(PLAFONDS, anciennete) ? PLAFONDS[anciennete] : PLAFOND_PAR_DEFAUT;
   }
@@ -141,9 +162,12 @@
   // ══ LA PROJECTION, À LA POSE ═════════════════════════════════════════════════════════════════════════════════
   //
   // `e` : { seances: [{ debut, series }] de l'exercice (toute la vie), charge, reps, maintenant, anciennete,
-  //         options (le périmètre des records : `Modele.optionsDeRecord(exo)`), carnet (« Juste un carnet ») }.
+  //         options (le périmètre des records : `Modele.optionsDeRecord(exo)`), carnet (« Juste un carnet »),
+  //         salle (la salle de l'exercice, `THProfil.salleDeLExercice`, ou null : rien de déclaré) }.
   // Rend `{ etat, … }` :
   //   · `deja`         : l'objectif est déjà fait — refusé, avec le fait (`serie`) ;
+  //   · `hors_salle`   : une charge au-delà de la plus lourde de la salle déclarée (barre fixe, haltères, MOTEUR
+  //                      §10 bis) — refusé, avec le fait (`salle`, `max`) : le coach ne proposera jamais cette charge ;
   //   · `carnet`       : « Juste un carnet » — ni date ni pari ;
   //   · `pas_encore`   : moins de 8 semaines d'historique, moins de 3 records à N reps ou plus, ou rythme nul ;
   //   · `plus_d_un_an` : la date tomberait au-delà de 12 mois — aucun pari ;
@@ -159,6 +183,12 @@
     if (maintenant && maintenant.charge >= charge - EPS) {
       return Object.assign(base, { etat: 'deja', serie: serieDuRecord(seances, n, t0, options) });
     }
+    // Audit du 16/10/2026, 01 #3 — L'OBJECTIF LIT MA SALLE (§10 bis) : « le coach ne propose jamais une charge que
+    // la salle n'a pas » ; un objectif au-delà de la plus lourde serait un pari sur une charge que le moteur s'interdit
+    // de proposer. Refusé à la pose, avec le fait. La salle « en vigueur » se juge sur la plus lourde série faite :
+    // à la barre, au-delà de la plus lourde barre fixe, c'est une barre qu'on charge, et la salle n'en dit rien.
+    var hors = horsDeLaSalle(e.salle, charge, recordA(seances, 1, t0, options));
+    if (hors) return Object.assign(base, { etat: 'hors_salle', salle: hors.materiel, max: hors.max });
     if (e.carnet) return Object.assign(base, { etat: 'carnet' });
 
     var premiere = null;
@@ -397,6 +427,7 @@
     PAS_ENCORE: PAS_ENCORE, PLUS_D_UN_AN: PLUS_D_UN_AN, PARI: PARI,
     projection: projection, pariDe: pariDe, ligneDe: ligneDe, atteinte: atteinte, observationDe: observationDe,
     estTenu: estTenu, vue: vue, phraseDeSaisie: phraseDeSaisie, lireSaisie: lireSaisie, phraseDejaFait: phraseDejaFait,
+    phraseHorsSalle: phraseHorsSalle,
     possible: possible, haussesDuRecord: haussesDuRecord, plafondDe: plafondDe, joursEntre: joursEntre
   };
   racine.THObjectif = api;

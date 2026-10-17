@@ -12822,9 +12822,10 @@
     var pr = Objectif.projection({
       seances: seancesPourObjectif(faits.seancesDeLExercice(corpus(), slug)), charge: lu.charge, reps: lu.reps,
       maintenant: maintenant, anciennete: profil ? profil.anciennete : null, options: Modele.optionsDeRecord(exo),
-      carnet: coachSeTaitIci()
+      carnet: coachSeTaitIci(), salle: Profil.salleDeLExercice(profil, slug, Modele.indexerExercices(local.exercices))
     });
     if (pr.etat === 'deja') return Objectif.phraseDejaFait(pr, maintenant);
+    if (pr.etat === 'hors_salle') return Objectif.phraseHorsSalle(pr);
     var pariId = pr.etat === 'date' ? await Moteur.idDObjectif(slug, pose) : null;
     var ligne = Objectif.ligneDe(slug, lu.charge, lu.reps, pose, pr, uid, pariId);
     var pari = Objectif.pariDe(ligne, pr, uid, pariId);

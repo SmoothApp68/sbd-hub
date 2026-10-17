@@ -2860,3 +2860,84 @@ describe('architecture — une constante partagée ne s’écrit qu’une fois (
     expect(zf.test("if (reglage === 'franc' && zone.cle !== 'lourd') {")).toBe(false);
   });
 });
+
+// ── 124 (audit du 16/10/2026, 06 #12) — LA VOIX DES ÉCRANS ─────────────────────────────────────────────────────
+// La garde de la voix (`v2-voix.test.js`, MOTEUR §20.2) lit chaque phrase que le COACH produit. Celle-ci lit les
+// phrases que les ÉCRANS écrivent eux-mêmes : les chaînes du source qui ressemblent à une phrase (une espace, ou une
+// majuscule en tête) et le texte de `index.html`. Mots interdits : « palier » (« ta charge de travail »), « bravo »
+// (un fait, jamais un « bravo »), « moteur » (sans jargon), « échec » (« pas encore ») — sauf « l'échec » au sens de
+// la série (« jusqu'à l'échec », « loin de l'échec ») et « en échec » d'un envoi (un état technique).
+// Hors du relevé : les modules du coach (`moteur.js`, `plan.js`, `palier.js` — leurs phrases passent par la garde de
+// la voix ; leurs autres chaînes sont des invariants et des raisons internes, jamais montrés) et l'outil de rejeu
+// (`rejeu.js`, développement seulement).
+const VOIX_HORS_RELEVE = ['moteur.js', 'plan.js', 'palier.js', 'rejeu.js'];
+const VOIX_INTERDITS = [
+  { mot: '« palier »', motif: /palier/i },
+  { mot: '« bravo »', motif: /\bbravo\b/i },
+  { mot: '« moteur »', motif: /moteur/i },
+  { mot: '« échec »', motif: /(?<![lL]['’])(?<!en )échec/i }
+];
+// Une exception : son fichier, la chaîne exacte qui la porte, et sa raison. Elle doit encore servir.
+const VOIX_EXCEPTIONS = [
+  { fichier: 'app.js', chaine: ' · palier ', raison: 'le journal de la garde de développement (« contrôle consigne »), ' +
+    'jamais en production' },
+  { fichier: 'index.html', chaine: 'une période plus courte n\'est pas un échec',
+    raison: 'la note du radar, mot pour mot celle de la maquette validée (`maquette-records-radar.html`) : une négation ' +
+      '— rapportée à Aurélien le 17/10/2026 (124), à reformuler s’il le décide' }
+];
+function phrasesDesEcrans(f) {
+  const sortie = [];
+  const code = nettoyer(f.src, true);
+  const re = /(['"`])((?:\\.|(?!\1)[^\\\n])*)\1/g;
+  let m;
+  while ((m = re.exec(code)) !== null) {
+    if (/\s/.test(m[2]) || /^[A-ZÀ-Ý]/.test(m[2])) sortie.push({ texte: m[2], ligne: ligneDe(code, m.index) });
+  }
+  if (f.nom === 'index.html') {
+    const html = code.replace(/<script[\s\S]*?<\/script>/g, (x) => x.replace(/[^\n]/g, ' '))
+      .replace(/<[^>]*>/g, (x) => x.replace(/[^\n]/g, ' '));
+    html.split('\n').forEach((l, i) => { if (l.trim()) sortie.push({ texte: l.trim(), ligne: i + 1 }); });
+  }
+  return sortie;
+}
+function fautesDeVoix(fichiers) {
+  const fautes = [];
+  fichiers.forEach((f) => {
+    if (VOIX_HORS_RELEVE.indexOf(f.nom) >= 0) return;
+    phrasesDesEcrans(f).forEach((p) => {
+      VOIX_INTERDITS.forEach((i) => {
+        if (!i.motif.test(p.texte)) return;
+        if (VOIX_EXCEPTIONS.some((e) => e.fichier === f.nom && p.texte.indexOf(e.chaine) >= 0)) return;
+        fautes.push(i.mot + ' dans ' + f.nom + ', ligne ' + p.ligne + ' : « ' + p.texte.slice(0, 80) + ' »');
+      });
+    });
+  });
+  return fautes;
+}
+
+describe('architecture — la voix des écrans : ni « palier », ni « bravo », ni « moteur », ni « échec » (124)', () => {
+  const FICHIERS = perimetre();
+
+  test('⚠️ aucune phrase d’un écran ne dit un mot interdit', () => {
+    expect(fautesDeVoix(FICHIERS)).toEqual([]);
+  });
+
+  test('chaque exception a sa raison, et sert encore', () => {
+    VOIX_EXCEPTIONS.forEach((e) => {
+      expect([e.chaine, typeof e.raison === 'string' && e.raison.length > 20]).toEqual([e.chaine, true]);
+      const f = FICHIERS.filter((x) => x.nom === e.fichier)[0];
+      expect([e.chaine, phrasesDesEcrans(f).some((p) => p.texte.indexOf(e.chaine) >= 0)]).toEqual([e.chaine, true]);
+    });
+  });
+
+  test('la garde se lit vraiment : les phrases d’avant le 119 se voient ; « jusqu’à l’échec » et « Envoi en échec » non', () => {
+    const f = (src) => fautesDeVoix([{ nom: 'rendu.js', src }]);
+    expect(f("var t = 'Cet exercice se mesure en durée : il n’a pas de charge, donc pas de palier en kilos.';")).toHaveLength(1);
+    expect(f("var t = 'Cet exercice se mesure en distance et en durée : il est hors du moteur.';")).toHaveLength(1);
+    expect(f("var t = 'Bravo !';")).toHaveLength(1);
+    expect(f("var t = 'Ta séance est un échec.';")).toHaveLength(1);
+    expect(f("var t = '−20 à 25 %, sans repos, jusqu’à l’échec.'; var u = 'Envoi en échec — ';")).toEqual([]);
+    expect(f("['zone', 'palier', 'etat'].forEach(f);")).toEqual([]);   // des clés, pas une phrase
+    expect(fautesDeVoix([{ nom: 'index.html', src: '<p class="note">Bravo, tu as fini.</p>' }])).toHaveLength(1);
+  });
+});

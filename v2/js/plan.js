@@ -2019,6 +2019,29 @@
     var cour = (x.reaction && x.reaction.plan) || [];
     var P = x.consigne.ligne ? nombre(x.consigne.ligne.charge) : null;
 
+    // I5 (§9.13 bis ; audit du 16/10/2026, 01 #7 : spécifié, jamais vérifié) — LES TESTS RESTANTS VALENT `k`
+    // MOINS LES TESTS FIGÉS, SUR LES DERNIÈRES LIGNES NON FIGÉES. I6 compare l'en-tête aux lignes, mais l'en-tête est
+    // rédigé sur la disposition du plan lui-même : un test perdu ou ajouté par la couverture passait. Lu sur
+    // `planInitial` (le rôle de la couverture) : `k` celui de la ligne haute ; les lignes de la série de plus
+    // (`ajoutee`, jamais un test, I24) sont hors du compte ; la semaine allégée (`couvre`, I19) n'a pas de test.
+    if (typeof x.consigne.couvre !== 'number') {
+      var k5 = x.consigne.haut ? (nombre(x.consigne.haut.k) || 0) : 0;
+      var figes5 = init.filter(function (q) { return q && q.figee && q.role === 'haut'; }).length;
+      var libres5 = couvertes.filter(function (l) { return init[l.position] && !init[l.position].figee && !l.ajoutee; });
+      var attendus5 = Math.min(Math.max(0, k5 - figes5), libres5.length);
+      var restants5 = libres5.filter(function (l) { return init[l.position].role === 'haut'; }).length;
+      if (restants5 !== attendus5) {
+        err('I5', restants5 + ' test(s) restant(s), ' + attendus5 + ' attendu(s) (k = ' + k5 + ', ' + figes5 + ' figé(s))');
+      } else {
+        libres5.forEach(function (l, j) {
+          var doit = j >= libres5.length - attendus5;
+          if ((init[l.position].role === 'haut') !== doit) {
+            err('I5', 'la ligne ' + l.position + (doit ? ' devrait être un test' : ' est un test') + ' : les tests vont sur les dernières lignes');
+          }
+        });
+      }
+    }
+
     // I2 — aucune ligne du coach ne remplace une ligne de test non figée.
     // I3 — une proposition n'est jamais plus basse que la ligne prévue, et
     // toujours au-dessus de la charge de travail.

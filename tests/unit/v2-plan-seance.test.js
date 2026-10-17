@@ -192,7 +192,7 @@ describe('49-U1 — sans test à suivre, la proposition de R2 marche toujours', 
 });
 
 // ── verifierPlan VOIT CHAQUE VIOLATION ──────────────────────────────────────
-describe('49-U1 — verifierPlan voit chaque violation (I1, I2, I3, I6, I9, I12)', () => {
+describe('49-U1 — verifierPlan voit chaque violation (I1, I2, I3, I5, I6, I9, I12)', () => {
   // Une consigne « garde » porte son test : la feuille « Pourquoi », que le
   // plan rédige, le lit (PR 1, relevé du 01/10).
   const C = { consigne: { etat: 'garde', zone: 'lourd', palier: 125, niveau: 5, n: 3,
@@ -247,6 +247,26 @@ describe('49-U1 — verifierPlan voit chaque violation (I1, I2, I3, I6, I9, I12)
     c.exercices[0].reaction.message = { type: 'tenue', rang: 2, charge: 127.5, reps: 4, avance: true };
     c.exercices[0].lignes[1].validee = true;
     expect(erreurs(c)).toContain('I9');
+  });
+
+  test('I5 (audit du 16/10/2026, 01 #7) — un test perdu, un test de trop, un test qui n’est pas sur la dernière ligne', () => {
+    expect(base().plan.exercices[0].planInitial.map((q) => q.role)).toEqual(['ligne', 'ligne', 'haut']);
+    const perdu = base().plan;
+    perdu.exercices[0].planInitial[2].role = 'ligne';
+    expect(erreurs(perdu)).toContain('I5');
+    const trop = base().plan;
+    trop.exercices[0].planInitial[1].role = 'haut';
+    expect(erreurs(trop)).toContain('I5');
+    const ailleurs = base().plan;
+    ailleurs.exercices[0].planInitial[0].role = 'haut';
+    ailleurs.exercices[0].planInitial[2].role = 'ligne';
+    expect(erreurs(ailleurs)).toContain('I5');
+    // Un test figé (validé avec son pari) : il ne reste plus de test à poser.
+    const fige = base().plan;
+    fige.exercices[0].planInitial[2].figee = true;
+    expect(erreurs(fige)).not.toContain('I5');
+    fige.exercices[0].planInitial[1].role = 'haut';
+    expect(erreurs(fige)).toContain('I5');
   });
 
   test('I12 — même entrée, plan différent', () => {

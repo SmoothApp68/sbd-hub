@@ -106,7 +106,9 @@ const MEILLEUR = { palier: 27, niveau: 12 };
 const CAT = {
   curl: { equipement: 'poulie', muscles_primaires: ['biceps'] },
   squat: { equipement: 'barre', muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['adducteurs'],
-    muscles_stabilisateurs: ['bas_du_dos'] }
+    muscles_stabilisateurs: ['bas_du_dos'] },
+  // 124 (audit du 16/10/2026, 01 #15) — un trou du catalogue : aucun muscle connu.
+  machine_inconnue: { equipement: 'poulie', muscles_primaires: [], muscles_secondaires: [], muscles_stabilisateurs: [] }
 };
 const PLACE = { biceps: { place: true, moyenne: 8, seuil: 10, fenetres: 12 },
   quadriceps: { place: true, moyenne: 8, seuil: 10, fenetres: 12 }, fessiers: { place: true, moyenne: 8, seuil: 10, fenetres: 12 } };
@@ -222,6 +224,15 @@ describe('§14 (111) — le curl à la poulie qui stagne', () => {
 });
 
 describe('§14 (111) — jamais hors des conditions', () => {
+  test('124 (01 #15) — un exercice sans muscle connu n’est pas une isolation : pas de dégressive (la définition de la salle)', () => {
+    const d = decor({ slug: 'machine_inconnue', marches: [marche('serie_de_plus', 'refusee', '2026-10-01', 4, 'S0', 'machine_inconnue')] });
+    expect(d.p.exercices[0].polyarticulaire).toBeNull();
+    expect(d.p.exercices[0].escalier && d.p.exercices[0].escalier.marche).not.toBe('degressive');
+    expect(M.estIsolation({ prim: [], sec: [], stab: [] })).toBe(false);
+    expect(M.estIsolation({ prim: ['biceps'] })).toBe(true);
+    expect(M.estIsolation({ prim: ['quadriceps', 'fessiers'], sec: ['adducteurs'] })).toBe(false);
+    sansErreur(d);
+  });
   test('squat (polyarticulaire) : jamais, le repli au 2e déclenchement', () => {
     const d = decor({ slug: 'squat', marches: [marche('serie_de_plus', 'refusee', '2026-10-01', 4, 'S0', 'squat')] });
     expect(d.p.exercices[0].polyarticulaire).toBe(true);

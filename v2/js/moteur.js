@@ -2809,6 +2809,13 @@
   function estPolyarticulaire(e) {
     return !!e && nombreDeMuscles(e) >= MUSCLES_POLYARTICULAIRE;
   }
+  // UNE ISOLATION (124, audit du 16/10/2026, 01 #15) : un exercice qui a des muscles au catalogue, moins de trois. Un
+  // exercice SANS muscle connu (un trou du catalogue) n'est ni l'un ni l'autre : ni la dégressive proposée (§14), ni
+  // la fourchette étendue à 15 reps à la plus lourde de la salle (§10 bis) — la même définition aux deux endroits
+  // (la salle l'excluait déjà, le plan le traitait en isolation).
+  function estIsolation(e) {
+    return !!e && aDesMuscles(e) && !estPolyarticulaire(e);
+  }
   // Le premier critère qui diffère départage (priorité, puis séries, puis rang).
   function avantDans(a, b) {
     if (!b) return true;
@@ -6228,13 +6235,15 @@
   // `proposees` : `{ [marche]: pari | null }`, la marche proposée (acceptée ou refusée) depuis le dernier progrès —
   // `marcheProposee` ; `objets` : `{ [marche]: bool }`, la marche a-t-elle un objet (la place du §14.6 pour la série
   // de plus, les conditions du §14.8 pour la dégressive, un frère plus chargeable pour le remplacement).
+  // Hors d'un déclenchement : `null` (124, audit du 16/10/2026, 01 #15 — la marche ne se demande qu'à un
+  // déclenchement, `marcheDuPlafond` ; la branche qui rendait `deja` entre deux déclenchements n'était jamais lue).
   // Une marche déjà proposée AU MÊME DÉCLENCHEMENT (cette séance, ou une autre du même compteur) le reste : rendue
   // avec son pari (`deja`), sans carte. Sinon, la première marche APRÈS la dernière proposée, qui a un objet ; les
   // marches sautées ne reviennent pas (une marche par déclenchement, dans cet ordre). Aucune : `null`, le coach
   // maintient. Rend `{ marche, deja }`.
   function marcheAuPlafond(compteur, proposees, objets) {
     var k = nombre(compteur);
-    if (k === null || k < PAS_ESCALIER) return null;
+    if (k === null || !estDeclenchement(k)) return null;
     var p = proposees || {}, o = objets || {};
     var iDerniere = -1;
     MARCHES_PLAFOND.forEach(function (mk, i) { if (p[mk]) iDerniere = i; });
@@ -6245,7 +6254,6 @@
         return { marche: MARCHES_PLAFOND[iDerniere], deja: d };
       }
     }
-    if (!estDeclenchement(k)) return null;
     for (var j = iDerniere + 1; j < MARCHES_PLAFOND.length; j++) {
       if (o[MARCHES_PLAFOND[j]] === true) return { marche: MARCHES_PLAFOND[j], deja: null };
     }
@@ -7650,6 +7658,7 @@
     ZONES_DE_BLOC: ZONES_DE_BLOC,
     estZoneForce: estZoneForce,
     memeCharge: memeCharge,
+    estIsolation: estIsolation,
     numeroDuJour: numeroDuJour,
     jourDuNumero: jourDuNumero,
     SANS_CUMUL_JOURS: SANS_CUMUL_JOURS,

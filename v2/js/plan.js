@@ -1569,11 +1569,15 @@
   // moins 3 muscles principaux, secondaires et stabilisateurs — la définition
   // de la salle, du raccourci, du générateur). `null` hors catalogue : ni
   // isolation ni polyarticulaire, aucune dégressive proposée.
+  // `true` (polyarticulaire), `false` (une isolation, `THMoteur.estIsolation`), `null` : inconnu — hors du catalogue, ou
+  // sans muscle connu (124, audit du 16/10/2026, 01 #15 : ni l'un ni l'autre, comme pour la salle).
   function polyarticulaireDe(e, slug) {
     var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
     if (!cat) return null;
-    return Moteur().estPolyarticulaire({ prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [],
-                                         stab: cat.muscles_stabilisateurs || [] });
+    var muscles = { prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [],
+                    stab: cat.muscles_stabilisateurs || [] };
+    if (Moteur().estPolyarticulaire(muscles)) return true;
+    return Moteur().estIsolation(muscles) ? false : null;
   }
 
   // La routine (ou la saisie) a-t-elle déjà une ligne dégressive sur

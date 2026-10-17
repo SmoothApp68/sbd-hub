@@ -697,9 +697,9 @@ const NOTIONS = [
     raison: 'une routine NEUVE que `enregistrer` crée comme les autres (rang suivant, annulation) ; ' +
       'aucun identifiant partagé : l’originale ne peut pas être touchée.' },
   { notion: 'un polyarticulaire (au moins 3 muscles) : le raccourci et les repos par défaut', pr: '52-U1',
-    module: 'moteur.js', fonction: 'estPolyarticulaire', lecteurs: ['routines.js', 'generateur.js', 'profil.js', 'plan.js', 'app.js'],
-    par: ['raccourcirRoutine'],
-    parAilleurs: { 'routines.js': ['routineDepuisSeance'], 'generateur.js': ['relecture'], 'profil.js': ['avecIsolation'],
+    module: 'moteur.js', fonction: 'estPolyarticulaire', lecteurs: ['routines.js', 'generateur.js', 'plan.js', 'app.js'],
+    par: ['raccourcirRoutine', 'estIsolation'],
+    parAilleurs: { 'routines.js': ['routineDepuisSeance'], 'generateur.js': ['relecture'],
                    'plan.js': ['polyarticulaireDe'], 'app.js': ['degressiveDeDemo'] },
     raison: 'les repos par défaut d’« En faire une routine » sont les classes de « J’ai peu de temps » : ' +
       'une définition, lue aux deux endroits. 66A : la relecture de la semaine (§5 ter.4) la lit aussi — l’isolation ' +
@@ -707,6 +707,12 @@ const NOTIONS = [
       '16/10/2026) : la salle d’un exercice d’isolation, dont la fourchette s’étend à 15 reps à la plus lourde. 111 : la dégressive ' +
       'proposée (MOTEUR §14), en isolation seulement — le plan la lit (`polyarticulaireDe`), et la démonstration ' +
       '`?escalier=degressive` de l’app y choisit son exercice (`degressiveDeDemo`).' },
+  { notion: 'l’isolation (des muscles au catalogue, moins de trois ; sans muscle connu : ni l’un ni l’autre)', pr: '124-U3',
+    module: 'moteur.js', fonction: 'estIsolation', lecteurs: ['profil.js', 'plan.js'],
+    parAilleurs: { 'profil.js': ['avecIsolation'], 'plan.js': ['polyarticulaireDe'] },
+    raison: 'audit du 16/10/2026 (01 #15) : pour un exercice sans muscle connu, la salle (`avecIsolation`) n’en faisait pas ' +
+      'une isolation, la dégressive du plan si ; une définition, lue aux deux endroits (MOTEUR §10 bis et §14 : « la ' +
+      'même définition que la salle »).' },
   { notion: 'le débutant (« Moins d’un an » d’ancienneté)', pr: '111-U1',
     module: 'profil.js', fonction: 'estDebutant', lecteurs: ['app.js', 'generateur.js'],
     parAilleurs: { 'app.js': ['entreeDeLaSemaine', 'debutantDeLaSeance'], 'generateur.js': ['generer', 'neVeuxPas'] },
@@ -1389,7 +1395,8 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'libelleCibleTemps', lecteurs: ['app.js'],
     raison: 'un format : la cible vient de `ciblesDeTemps` (gardée), le libellé dit si c’est la durée de la personne.' },
   { notion: 'un exercice qui a des muscles au catalogue', pr: '124-U1',
-    module: 'moteur.js', fonction: 'aDesMuscles', lecteurs: ['generateur.js', 'profil.js', 'routines.js'],
+    module: 'moteur.js', fonction: 'aDesMuscles', lecteurs: ['generateur.js', 'routines.js'],
+    par: ['estIsolation'],
     raison: 'les trois listes du catalogue comptées une fois (`nombreDeMuscles`) : le raccourci, Ma salle, le générateur ' +
       'et « En faire une routine » disent la même chose d’un exercice sans muscles.' },
   { notion: 'le jour civil d’un instant ou d’une date (AAAA-MM-JJ, heure locale)', pr: '124-U1',

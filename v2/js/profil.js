@@ -1478,16 +1478,16 @@
     var nom = sansAccent(String((fiche && fiche.nom) || '').toLowerCase());
     return /\bbarre ez\b/.test(nom) || /(^|_)ez(_|$)/.test(String((fiche && fiche.slug) || ''));
   }
-  // §10 bis (16/10/2026) — `isolation: true` pour un exercice d'isolation (non polyarticulaire, la définition du
-  // moteur, `THMoteur.estPolyarticulaire` sur les trois listes de muscles du catalogue) : à la plus lourde de la salle,
-  // sa fourchette s'étend jusqu'à 15 reps. La clé n'y figure que si elle est vraie.
+  // §10 bis (16/10/2026) — `isolation: true` pour un exercice d'isolation (la définition du moteur,
+  // `THMoteur.estIsolation` sur les trois listes de muscles du catalogue : des muscles, moins de trois ; un exercice
+  // sans muscle connu n'en est pas une — 124, la même que le plan) : à la plus lourde de la salle, sa fourchette
+  // s'étend jusqu'à 15 reps. La clé n'y figure que si elle est vraie.
   function avecIsolation(salle, fiche) {
     var Mo = racine.THMoteur;
-    if (!salle || !Mo || !Mo.estPolyarticulaire) return salle;
+    if (!salle || !Mo || !Mo.estIsolation) return salle;
     var muscles = { prim: fiche.muscles_primaires || [], sec: fiche.muscles_secondaires || [],
                     stab: fiche.muscles_stabilisateurs || [] };
-    if (Mo.aDesMuscles && !Mo.aDesMuscles(muscles)) return salle;
-    return Mo.estPolyarticulaire(muscles) ? salle : Object.assign(salle, { isolation: true });
+    return Mo.estIsolation(muscles) ? Object.assign(salle, { isolation: true }) : salle;
   }
   function salleDeLExercice(profil, slug, index) {
     var s = salleDe(profil);

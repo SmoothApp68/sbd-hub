@@ -2490,6 +2490,8 @@
         if (plan.phase === 'seche') erreurs.push('I23 — ' + nom + ' : une série de plus en sèche');
         if (zSp === 'lourd' || zSp === 'mix') erreurs.push('I23 — ' + nom + ' : une série de plus en zone force (' + zSp + ')');
         if (plan.allegee) erreurs.push('I23 — ' + nom + ' : une série de plus pendant une semaine allégée');
+        // Audit du 16/10/2026, 01 #6 — sans zone, l'acceptation n'ajouterait rien : jamais proposée.
+        if (!zSp) erreurs.push('I23 — ' + nom + ' : une série de plus sans zone');
       }
       if (carteSp && x.placeSerieDePlus !== true) erreurs.push('I23 — ' + nom + ' : une série de plus proposée sans place');
       // I48 (MOTEUR §14, 111) — une dégressive proposée (sa carte) ou en cours

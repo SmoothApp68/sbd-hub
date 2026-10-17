@@ -5810,7 +5810,10 @@
     }
     if (ZONES_FORCE.indexOf(zone) >= 0) return MARCHE_SCHEMA;
     if (phase === 'seche') return MARCHE_SECHE;
-    return place === true ? MARCHE_SERIE_DE_PLUS : MARCHE_REPLI;
+    // Audit du 16/10/2026, 01 #6 — LA SÉRIE DE PLUS DEMANDE UNE ZONE MUSCLE : une consigne sans zone (règle de
+    // bord) recevait la carte, et son acceptation n'ajoutait rien (`seriesDePlusActives` exige une zone). Sans
+    // zone, comme sans place : le repli, s'il y en a un (sans zone, il n'y en a pas : le silence).
+    return place === true && zone !== null && zone !== undefined ? MARCHE_SERIE_DE_PLUS : MARCHE_REPLI;
   }
 
   // « Et tes autres exercices avancent » : aucun AUTRE exercice n'a eu un

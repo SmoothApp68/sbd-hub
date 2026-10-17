@@ -2051,7 +2051,7 @@ Exception : ~~un exercice à la plus lourde de sa salle n'a pas de marche (§10 
 
 **Le pari** (`module = 'escalier'`, `marche : serie_de_plus`, colonne `exercise_slug` vide, l'exercice dans le fondement) : écrit à la réponse (`acceptee` / `refusee`) ; accepté, observé sans série : 1 si l'exercice progresse avant son prochain déclenchement, 0 à ce déclenchement ; refusé, jamais observé. **C'est ce pari qui dit, au déclenchement suivant, qu'une série de plus a été proposée** (deuxième marche : le repli).
 
-**Jamais en sèche** (§9.16) ; **jamais en zone force** (§14.5 : le schéma).
+**Jamais en sèche** (§9.16) ; **jamais en zone force** (§14.5 : le schéma) ; **jamais sans zone** (précisé le 16/10/2026, audit du 16/10, 01 #6 : une consigne de règle de bord, sans zone, recevait la carte, et son acceptation n'ajoutait aucune ligne ; sans zone, la marche est celle d'un exercice sans place — le repli, s'il y en a un, sinon le silence ; I23 le vérifie).
 
 **Référence** : `coach49.py` ; cas `cas_plus49.json`.
 

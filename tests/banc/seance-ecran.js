@@ -23473,7 +23473,26 @@ const SETS_IMPORTES = [
     ok('[131] D — le vélo d’appartement part en distance : 30:00 · 12,6 km',
       v131.duree_s === 1800 && v131.distance_m === 12600, JSON.stringify(v131));
     const id131 = enCoursId();
-    await terminer();
+    // F. LA FEUILLE « TERMINER » (écran 6) : UNE case, le D+ de la randonnée (la première donnée facultative
+    // restée vide) ; 920 tapés partent avec la séance.
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(600);
+    const feuille131 = await page.evaluate(() => ({
+      phrase: (document.querySelector('#feuille-contenu .manque-fin-t') || {}).textContent || null,
+      serie: (document.querySelector('#feuille-contenu .manque-fin-s') || {}).textContent || null,
+      cases: Array.from(document.querySelectorAll('#feuille-contenu .manque-fin [data-champ]')).map((x) => x.getAttribute('data-champ')) }));
+    ok('[131] F — la feuille « Terminer » : « Il manque le D+. », la randonnée, UNE case',
+      feuille131.phrase === 'Il manque le D+.' && /^Randonnée U131 · 3 h 10/.test(sp131(feuille131.serie)) &&
+        JSON.stringify(feuille131.cases) === '["denivele_m"]', JSON.stringify(feuille131));
+    await page.fill('#feuille-contenu .manque-fin input', '920');
+    await attendre(300);
+    await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
+    await attendre(2600);
+    await jusqua(async () => (sets131('rando-u131')[0] || {}).denivele_m === 920, 6000);
+    ok('[131] F — DISCRIMINANT : le D+ tapé sur la feuille part avec la séance (920 m), la durée et la distance inchangées',
+      (sets131('rando-u131')[0] || {}).denivele_m === 920 && sets131('rando-u131')[0].duree_s === 11400 &&
+        sets131('rando-u131')[0].distance_m === null, JSON.stringify(sets131('rando-u131')));
 
     // E. LE RECHARGEMENT RETROUVE TOUT : la base, puis le détail, lu sur l'appareil après un rechargement.
     await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
@@ -23481,9 +23500,9 @@ const SETS_IMPORTES = [
     await aller('/seance/' + id131);
     await jusqua(async () => /Escaliers U131/.test(await texte('#vue-detail')), 6000);
     const detail131 = sp131(await texte('#vue-detail'));
-    ok('[131] E — après rechargement, le détail dit « 20 min · 72 étages », « 12,6 km · 30 min » et la randonnée en durée seule',
-      /20 min · 72 étages/.test(detail131) && /12,6 km · 30 min/.test(detail131) && /3 h 10/.test(detail131) &&
-        !/D\+ 0/.test(detail131), detail131.slice(0, 400));
+    ok('[131] E — après rechargement, le détail dit « 3 h 10 · D+ 920 m », « 20 min · 72 étages », « 12,6 km · 30 min »',
+      /3 h 10 · D\+ 920 m/.test(detail131) && /20 min · 72 étages/.test(detail131) && /12,6 km · 30 min/.test(detail131),
+      detail131.slice(0, 400));
 
     // LA REMISE EN ÉTAT, pour les sections suivantes.
     CATALOGUE.splice(catalogueAvant131, CATALOGUE.length - catalogueAvant131);

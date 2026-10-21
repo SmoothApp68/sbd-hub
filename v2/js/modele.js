@@ -583,16 +583,17 @@
     // Taper `8,76` en kilomètres est aussi rapide que `8760` en mètres et plus
     // lisible. Le décalage n'apporte rien là où il n'y a ni trois groupes ni
     // base de soixante.
-    distance_km: { cle: 'distance_m', entete: 'DISTANCE', unite: 'km',  facteur: 1000, saisie: 'nombre' },
+    distance_km: { cle: 'distance_m', entete: 'DISTANCE', unite: 'km',  facteur: 1000, saisie: 'nombre',
+                   manque: 'la distance' },
     // ECRAN §3 ter.5 (prompt 131, v2_101) — LES CHAMPS EN PLUS, exercice par exercice : jamais
     // obligatoires, jamais de chiffre gris. `place` dit où la grille les pose : les étages
     // prennent la colonne de la distance (Escaliers = durée · étages) ; le D+ a sa propre
     // ligne, sous la série (une troisième colonne ne tient pas à 360 px à côté d'une durée
     // en horloge). `libelle` : ce que la légende ajoute sous le nom de l'exercice.
     denivele_m:  { cle: 'denivele_m', entete: 'D+',       unite: 'm',   facteur: 1,    saisie: 'nombre',
-                   facultatif: true, place: 'dessous', libelle: 'D+', texte: 'Dénivelé +' },
+                   facultatif: true, place: 'dessous', libelle: 'D+', texte: 'Dénivelé +', manque: 'le D+' },
     etages:      { cle: 'etages',     entete: 'ÉTAGES',   unite: null,  facteur: 1,    saisie: 'nombre',
-                   facultatif: true, place: 'colonne', libelle: 'ÉTAGES' }
+                   facultatif: true, place: 'colonne', libelle: 'ÉTAGES', manque: 'les étages' }
   };
 
   // ── Le pavé de chronométrage, en fonctions pures ────────────────────────

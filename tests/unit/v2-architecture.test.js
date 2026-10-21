@@ -1469,7 +1469,7 @@ const NOTIONS = [
       'la démonstration lisent les mêmes marches.' },
   // 127 (MOTEUR §9.17 bis, ECRAN-SAISIE §7 quater.6) — l'échelle des variantes.
   { notion: 'les champs d’une série (ceux de la mesure, puis ceux du catalogue : `champs_series`)', pr: '131-U1',
-    module: 'modele.js', fonction: 'champsDeSerie', lecteurs: [],
+    module: 'modele.js', fonction: 'champsDeSerie', lecteurs: ['seance.js'],
     par: ['colonnesDeSerie', 'grilleDe'],
     raison: 'ECRAN-SAISIE §3 ter.5 (prompt 131, v2_101) : le D+ et les étages, exercice par exercice. Une seule fonction ' +
       'dit les champs d’une série ; la grille (`grilleDe`) et les colonnes (`colonnesDeSerie`) passent par elle.' },
@@ -1486,7 +1486,7 @@ const NOTIONS = [
     raison: 'ECRAN-SAISIE §3 ter.5 (bornes du 21/10/2026, audit 130 n°8 et n°9) : la saisie et la réparation de la file ' +
       'bornent par la même table (`BORNES_DES_COLONNES`).' },
   { notion: 'la borne d’un champ de saisie (le chiffre de trop n’entre pas)', pr: '131-U1',
-    module: 'modele.js', fonction: 'maxDeSaisie', lecteurs: ['rendu.js'],
+    module: 'modele.js', fonction: 'maxDeSaisie', lecteurs: ['rendu.js', 'app.js'],
     raison: 'ECRAN-SAISIE §3 ter.5 (audit 130 n°8) : le champ refuse au-delà de la borne, comme le pavé de la durée.' },
   { notion: 'le seuil d’une marche au poids du corps (le haut de la zone et 8 reps : le lest comme la marche suivante)', pr: '127-U1',
     module: 'moteur.js', fonction: 'seuilDeMarche', lecteurs: ['plan.js'],

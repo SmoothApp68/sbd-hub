@@ -89,3 +89,24 @@ test('l’éditeur de routine : aucun champ en plus', () => {
   expect(c.querySelectorAll('.serie-plus').length).toBe(0);
   expect(c.querySelectorAll('[data-champ="etages"]').length).toBe(0);
 });
+
+// ── Point 4 — la feuille « Terminer » montre UNE case (écran 6) ─────────────────────────────
+test('la feuille de fin : la phrase, la série, la case ; taper l’écrit ; sans manque, rien', () => {
+  const recu = [];
+  const vue = (manque) => ({ compte: { travail: 0, horsMusculation: { series: 1, duree_s: 11400, distance_m: 0 } },
+    manque: manque, titre: null, note: null, salle: null, salleMax: 40, routine: '', ecarts: [],
+    surTitre: () => {}, surSalle: () => {}, surNoteSeance: () => {}, surMajRoutine: () => {},
+    surTerminer: () => {}, surAbandonner: () => {} });
+  const cible = document.createElement('div');
+  Rendu().rendreFeuilleFin(cible, vue({ phrase: 'Il manque le D+.', serie: 'Randonnée · 3 h 10', champ: 'denivele_m',
+    unite: 'm', max: 10000, valeur: null, surSaisie: (v) => recu.push(v) }));
+  expect(cible.querySelector('.manque-fin-t').textContent).toBe('Il manque le D+.');
+  expect(cible.querySelector('.manque-fin-s').textContent).toBe('Randonnée · 3 h 10');
+  const i = cible.querySelectorAll('.manque-fin [data-champ="denivele_m"] input');
+  expect(i.length).toBe(1);
+  i[0].value = '920'; i[0].dispatchEvent(new Event('input'));
+  expect(recu).toEqual(['920']);
+  const sans = document.createElement('div');
+  Rendu().rendreFeuilleFin(sans, vue(null));
+  expect(sans.querySelector('.manque-fin')).toBeNull();
+});

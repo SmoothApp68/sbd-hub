@@ -1608,6 +1608,34 @@
     };
   }
 
+  // ECRAN §7 septies.4 et §3 ter.5 (prompt 131, écran 6) — LA DONNÉE FACULTATIVE RESTÉE VIDE, une seule : la
+  // PREMIÈRE, dans l'ordre de la séance, sur une série de travail validée — un champ en plus du catalogue (D+,
+  // étages, dans l'ordre de `THModele.champsDeSerie`), sinon la distance d'un `distance_temps` dont la durée est
+  // remplie. Une donnée obligatoire bloque déjà la série et n'arrive jamais ici. Rend `{ iExo, iSerie, slug, nom }`
+  // (`nom` : le champ, `CHAMPS_MESURE`), ou `null`. `exercices` : le catalogue.
+  function donneeFacultativeVide(seance, exercices) {
+    var M = racine.THModele;
+    var cat = M.indexerExercices(exercices || []);
+    var vide = function (v) { return v === null || v === undefined || v === ''; };
+    var plat = toutesLesSeries(seance || {});
+    for (var k = 0; k < plat.length; k++) {
+      var p = plat[k];
+      if (!p.serie || !p.serie.validee_a || !M.estTravail(p.serie)) continue;
+      var exo = cat[p.exo.exercise_slug];
+      var noms = M.champsDeSerie(exo);
+      var g = M.gabaritDe(exo);
+      var candidats = noms.slice(g.champs.length);
+      if (g.mesure === 'distance_temps' && !vide(p.serie.duree_s)) candidats.push('distance_km');
+      for (var j = 0; j < candidats.length; j++) {
+        var c = M.champDeMesure(candidats[j]);
+        if (c && vide(p.serie[c.cle])) {
+          return { iExo: p.iExo, iSerie: p.iSerie, slug: p.exo.exercise_slug, nom: candidats[j] };
+        }
+      }
+    }
+    return null;
+  }
+
   // 115 (audit du 16/10/2026, E4 ; décision d'Aurélien D10) — LES SÉRIES REMPLIES, PAS VALIDÉES. Une valeur
   // tapée (charge, reps, durée, distance) sur une ligne qui ne part pas en base (`partEnBase`) : « Terminer » la
   // laisserait derrière lui sans un mot (§5.2 : seul ce qui est validé entre dans la séance enregistrée). La
@@ -2940,6 +2968,7 @@
     fantome: fantome,
     casesManquantes: casesManquantes,
     grisValide: grisValide,
+    donneeFacultativeVide: donneeFacultativeVide,
     planDe: planDe,
     couvertureDe: couvertureDe,
     couvertureSeance: couvertureSeance,

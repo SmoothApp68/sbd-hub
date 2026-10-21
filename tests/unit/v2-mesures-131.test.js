@@ -171,3 +171,32 @@ describe('audit 130 n°4 — une distance Hevy sur le vélo d’appartement se v
     expect(Modele.formatMesure(hevy)).toBe('12,6 km · 30 min');
   });
 });
+
+// ── Point 4 — la fin de séance : une donnée facultative restée vide (ECRAN §7 septies.4, écran 6) ─────────
+describe('131 — la feuille « Terminer » : la première donnée facultative restée vide', () => {
+  const CAT = [RANDO, ESCALIERS, VELO, SQUAT];
+  const S = (slug, o) => Object.assign({ id: slug + Math.random(), type_serie: 'travail', validee_a: '2026-10-21T10:00:00Z',
+    charge_kg: null, reps: null, duree_s: null, distance_m: null, denivele_m: null, etages: null }, o);
+  const seance = (exos) => ({ exercices: exos.map(([slug, series]) => ({ exercise_slug: slug, series })) });
+  test('la randonnée en durée seule : le D+ d’abord (le champ en plus), pas la distance', () => {
+    const s = seance([['squat', [S('squat', { charge_kg: 100, reps: 5 })]], ['randonnee', [S('randonnee', { duree_s: 11400 })]]]);
+    expect(Seance.donneeFacultativeVide(s, CAT)).toEqual({ iExo: 1, iSerie: 0, slug: 'randonnee', nom: 'denivele_m' });
+  });
+  test('le D+ tapé : la distance de cette randonnée (durée remplie) ; puis les étages de l’escalier', () => {
+    const s = seance([['randonnee', [S('randonnee', { duree_s: 11400, denivele_m: 920 })]],
+      ['escaliers', [S('escaliers', { duree_s: 1200 })]]]);
+    expect(Seance.donneeFacultativeVide(s, CAT).nom).toBe('distance_km');
+    s.exercices[0].series[0].distance_m = 13200;
+    expect(Seance.donneeFacultativeVide(s, CAT)).toEqual({ iExo: 1, iSerie: 0, slug: 'escaliers', nom: 'etages' });
+  });
+  test('le vélo en distance seule (pas de durée) : rien à demander ; une série non validée, une chauffe : non plus', () => {
+    expect(Seance.donneeFacultativeVide(seance([['velo_machine', [S('velo_machine', { distance_m: 12600 })]]]), CAT)).toBeNull();
+    expect(Seance.donneeFacultativeVide(seance([['randonnee', [S('randonnee', { duree_s: 600, validee_a: null })]]]), CAT)).toBeNull();
+    expect(Seance.donneeFacultativeVide(seance([['randonnee', [S('randonnee', { duree_s: 600, type_serie: 'echauffement' })]]]), CAT)).toBeNull();
+  });
+  test('tout est rempli : rien', () => {
+    const s = seance([['randonnee', [S('randonnee', { duree_s: 11400, distance_m: 13200, denivele_m: 920 })]],
+      ['escaliers', [S('escaliers', { duree_s: 1200, etages: 72 })]]]);
+    expect(Seance.donneeFacultativeVide(s, CAT)).toBeNull();
+  });
+});

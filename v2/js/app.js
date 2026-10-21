@@ -8767,9 +8767,37 @@
     return routines.filter(function (r) { return r.id === seance.routine_id; })[0] || null;
   }
 
+  // ECRAN §7 septies.4 (prompt 131, écran 6) — LA DONNÉE FACULTATIVE RESTÉE VIDE, choisie UNE FOIS à l'ouverture de
+  // la feuille (`Seance.donneeFacultativeVide`) : un rendu suivant (« Reporter sur la routine ») ne passe pas à la
+  // suivante. Tapée, elle s'écrit sur la série, donc avec la séance ; laissée vide, rien ne se passe — la carte
+  // « Ce qui manque à tes séances » la reprendra. Jamais en Édition (« Enregistrer » ne passe pas par cette feuille).
+  var manqueFin = null;
+
   function confirmerFin() {
     majRoutineVoulue = false;
+    manqueFin = seance ? Seance.donneeFacultativeVide(seance, local.exercices) : null;
     ouvrirFeuille('fin', null, null);
+  }
+
+  // La vue de la donnée manquante : la phrase, la série telle qu'elle part, la case (sa valeur, son unité, sa borne).
+  function vueManqueFin(index) {
+    var m = manqueFin;
+    var serie = m && seance && seance.exercices[m.iExo] && seance.exercices[m.iExo].series[m.iSerie];
+    if (!m || !serie) return null;
+    var c = Modele.champDeMesure(m.nom);
+    var v = serie[c.cle];
+    return {
+      phrase: 'Il manque ' + c.manque + '.',
+      serie: Modele.nommer(index, m.slug) + ' \u00b7 ' + Modele.formatMesure(serie),
+      champ: m.nom, unite: c.unite, max: Modele.maxDeSaisie(m.nom),
+      valeur: v === null || v === undefined ? null : v / (c.facteur || 1),
+      surSaisie: function (texte) {
+        var o = {};
+        o[m.nom] = texte;
+        seance = Seance.modifierSerie(seance, m.iExo, m.iSerie, o);
+        sauverSeance();
+      }
+    };
   }
 
   function rendreFeuilleFin(cible, index) {
@@ -8782,6 +8810,7 @@
       // 71 (ECRAN-SAISIE §7 septies.4 bis) — LA FEUILLE DÉCLARE, LE RÉCAP CONSTATE : les records du jour et le
       // bloc « Le jeu » sont passés au récap, qui s'ouvre juste après « Terminer ».
       compte: Seance.compter(seance, local.exercices),
+      manque: vueManqueFin(index),
       titre: seance.titre,
       note: seance.note,
       salle: seance.salle,

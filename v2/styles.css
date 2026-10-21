@@ -895,6 +895,11 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .serie-plus-k{grid-column:2;font-size:13px;color:var(--texte-2)}
 .serie-plus-k small{color:var(--texte-3);font-size:12px}
 .serie-plus .rp-serie{grid-column:3}
+/* La feuille « Terminer » (prompt 131, écran 6) : la donnée facultative restée vide. */
+.manque-fin{margin:var(--e3) 0;padding:var(--e3);border-radius:var(--r-petit);background:var(--panneau)}
+.manque-fin-t{margin:0 0 6px;color:var(--texte)}
+.manque-fin-l{display:grid;grid-template-columns:1fr 110px;gap:8px;align-items:center}
+.manque-fin-s{color:var(--texte-2);font-size:13px;min-width:0}
 
 /* ── LE MÊME GABARIT, MOINS DEUX COLONNES (§7 quindecies.2) ────────────────
    L'éditeur de routine EST l'écran de séance : il rend les MÊMES rangées, par

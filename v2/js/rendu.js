@@ -4224,6 +4224,21 @@
     }
     cible.appendChild(t);
 
+    // ECRAN §7 septies.4 (prompt 131, maquette mesures-cardio écran 6) — UNE donnée facultative restée vide : sa
+    // phrase, la série, la case. Rien d'obligatoire : laissée vide, « Terminer » ne demande rien de plus.
+    if (vue.manque) {
+      var mq = el('div', 'manque-fin');
+      mq.appendChild(el('p', 'manque-fin-t', vue.manque.phrase));
+      var rang = el('div', 'manque-fin-l');
+      rang.appendChild(el('span', 'manque-fin-s', vue.manque.serie));
+      var caseFin = champSerie('rp-serie num', vue.manque.valeur, null, vue.manque.unite, vue.manque.surSaisie,
+        { max: vue.manque.max });
+      caseFin.setAttribute('data-champ', vue.manque.champ);
+      rang.appendChild(caseFin);
+      mq.appendChild(rang);
+      cible.appendChild(mq);
+    }
+
     // 71 (ECRAN-SAISIE §7 septies.4 bis) — LA FEUILLE DÉCLARE, LE RÉCAP CONSTATE. Les records du jour et le
     // bloc « Le jeu » ont quitté cette feuille : ils passent au récap (`rendreRecap`), juste après « Terminer ».
 

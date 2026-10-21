@@ -1733,7 +1733,25 @@
     }).filter(Boolean);
   }
 
-  // L'élastique au cran au-dessus (`sens` = +1, plus dur) ou en dessous (−1) ; `null` au bout de la liste.  // L'élastique au cran au-dessus (`sens` = +1, plus dur) ou en dessous (−1) ; `null` au bout de la liste.
+  // ECRAN-SAISIE §3 ter.6 (écran 4) — L'ÉLASTIQUE RETIRÉ OU RENOMMÉ : le nom d'un élastique de la DERNIÈRE séance de
+  // l'exercice qui n'est plus dans la liste (« Gris »), ou `null`. La consigne le dit quand il ne reste rien pour
+  // proposer (« Ton élastique Gris n'est plus dans Ma salle : je note sans proposer. ») ; on ne devine jamais lequel
+  // c'était.
+  function elastiqueRetireDe(salleExo, groupes) {
+    if (!salleExo || salleExo.materiel !== 'elastique') return null;
+    var derniere = null;
+    (groupes || []).forEach(function (g) {
+      var d = g && g.seance ? Date.parse(g.seance.debut) : NaN;
+      if (isFinite(d) && (derniere === null || d > derniere.d)) derniere = { d: d, g: g };
+    });
+    var liste = listeDe(salleExo.fiche, salleExo.ma), nom = null;
+    ((derniere && derniere.g.series) || []).forEach(function (s) {
+      if (nom === null && s && typeof s.elastique === 'string' && s.elastique && liste.indexOf(s.elastique) < 0) nom = s.elastique;
+    });
+    return nom;
+  }
+
+  // L'élastique au cran au-dessus (`sens` = +1, plus dur) ou en dessous (−1) ; `null` au bout de la liste.
   function cranElastique(fiche, salle, nom, sens) {
     var cv = chargesVirtuelles(fiche, listeDe(fiche, salle));
     if (!Object.prototype.hasOwnProperty.call(cv, nom)) return null;
@@ -2063,7 +2081,7 @@
     listeDe: listeDe, parNom: parNom, chargesVirtuelles: chargesVirtuelles, rattacherElastique: rattacherElastique,
     elastiqueDeSerie: elastiqueDeSerie, chargePourLeMoteur: chargePourLeMoteur, salleElastique: salleElastique,
     cranElastique: cranElastique, ecrireSerie: ecrireSerie, meilleurElastique: meilleurElastique,
-    seriesPourLeMoteur: seriesPourLeMoteur, seancesPourLeMoteur: seancesPourLeMoteur
+    seriesPourLeMoteur: seriesPourLeMoteur, seancesPourLeMoteur: seancesPourLeMoteur, elastiqueRetireDe: elastiqueRetireDe
   };
 
   racine.THProfil = api;

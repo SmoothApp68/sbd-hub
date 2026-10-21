@@ -2476,3 +2476,19 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .el-saisie .el-champ-kg{width:72px}
 .el-choix{display:flex;gap:6px;margin-top:var(--e2)}
 .el-choix .q-puce{flex:1;text-align:center}
+
+/* 132 (ECRAN-SAISIE §3 ter.6, maquette-elastiques-v2, écrans 2 à 4) — la colonne « ÉLASTIQUE » : la grille de la charge
+   (la case de l'élastique à la place de la charge, puis les reps) ; la case porte la pastille et le nom, en gris quand
+   c'est le coach qui le propose (validé tel quel), « choisir » quand rien n'est proposé. La feuille de choix reprend les
+   rangées de Ma salle ; le choisi en ambre, coché. */
+.g-elastique{grid-template-columns:30px 62px 1fr 44px 40px 40px}
+.el-case{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 6px;
+  border:1.5px solid var(--trait);background:var(--panneau-2);color:var(--texte);font:inherit;font-size:14.5px}
+.el-case .el-case-nom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.el-case.vide{border-style:dashed;background:transparent;color:var(--texte-3)}
+.el-case.gris{color:var(--texte-3)}
+.el-case.coach.gris{color:var(--accent);font-weight:600}
+.el-feuille{margin:var(--e2) 0}
+.el-choisir{width:100%;text-align:left;background:transparent;border:0;border-top:1px solid var(--trait);color:var(--texte);
+  font:inherit;grid-template-columns:8px 14px 1fr auto 8px}
+.el-choisir.sel{color:var(--accent);font-weight:600}

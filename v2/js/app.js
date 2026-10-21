@@ -4963,6 +4963,10 @@
     var g = Modele.gabaritDe((local.exercices || []).filter(function (e) {
       return e && e.slug === exo.exercise_slug;
     })[0]);
+    // 132 (ECRAN-SAISIE §3 ter.6) — un exercice noté par nom : la grille « ÉLASTIQUE × REPS » ; la case de l'élastique
+    // est obligatoire (le gris du coach se valide) ; la série s'écrit par `Profil.ecrireSerie`.
+    var elg = elastiqueDeLaGrille(exo.exercise_slug);
+    if (elg) g = Modele.grilleElastique(g);
     var ligneDuPlan = (planDeLExercice(iExo) || { lignes: [] }).lignes[iSerie];
     // ECRAN §3 ter.5 (prompt 131, audit 130 n°3) — en cardio, le gris n'est validé
     // que si TOUTES les cases de la série sont vides : une case tapée laisse les
@@ -4995,13 +4999,21 @@
       return;
     }
     var champs = {};
+    if (elg) {
+      // Le nom tapé, sinon le gris ; les reps tapées, sinon le gris. Puis ce qui part en base : le nom, et le kg déclaré
+      // d'une aide (sinon NULL) — jamais la charge virtuelle.
+      var nomEl = serie.elastique || f.elastique;
+      var repsEl = serie.reps === null || serie.reps === undefined ? f.reps : serie.reps;
+      var ecrit = Profil.ecrireSerie(elg.fiche, elg.ma, nomEl, repsEl);
+      champs = { elastique: ecrit.elastique, charge_kg: ecrit.charge_kg, reps: ecrit.reps };
+    }
     //
     // La seule condition qui compte est « le champ est VIDE » : ce qui a été
     // tapé n'est jamais écrasé. Un fantôme absent se normalise en `null` dans
     // `modifierSerie`, donc le tester ici ne changerait rien — un garde-fou
     // qu'aucune mutation ne peut tuer est un garde-fou mort (leçon de
     // `palier.js`, chantier 17).
-    g.champs.forEach(function (nom) {
+    if (!elg) g.champs.forEach(function (nom) {
       var c = Modele.champDeMesure(nom);
       // §9.17 — UNE AIDE SE RANGE EN NÉGATIF, par `rangerAide` et nulle part ailleurs,
       // aussi pour ce que la validation recopie : le fantôme d'une aide est
@@ -5509,6 +5521,25 @@
     var g = faits.seancesDeLExercice(corpus(), slug);
     return estSalleElastique(salle) ? Profil.seancesPourLeMoteur(salle, g) : g;
   }
+  // 132 (ECRAN-SAISIE §3 ter.6) — LA GRILLE D'UN EXERCICE NOTÉ PAR NOM : sa salle d'élastiques (la liste, le sens, et de
+  // quoi écrire une série), ou `null` — la grille de sa mesure, comme avant.
+  function elastiqueDeLaGrille(slug) {
+    var s = Profil.salleDeLExercice(profil, slug, catalogueIndexe());
+    return estSalleElastique(s) ? s : null;
+  }
+  // Le nom choisi dans la feuille, écrit dans la série par `Profil.ecrireSerie` : `elastique`, et `charge_kg` (−kg
+  // déclaré d'une aide, sinon NULL). Une série déjà validée suit (la file la renvoie, la réaction se refait).
+  async function poserElastique(iExo, iSerie, nom) {
+    if (!seance) return;
+    var exo = seance.exercices[iExo], s0 = exo && exo.series[iSerie];
+    var elg = exo ? elastiqueDeLaGrille(exo.exercise_slug) : null;
+    if (!s0 || !elg || elg.liste.indexOf(nom) < 0) return;
+    var e = Profil.ecrireSerie(elg.fiche, elg.ma, nom, s0.reps);
+    seance = Seance.modifierSerie(seance, iExo, iSerie, { elastique: e.elastique, charge_kg: e.charge_kg });
+    if (Seance.partEnBase(s0)) reactionPerimee = true;
+    await apresGeste();
+    if (Seance.partEnBase(s0)) await observerSerie(iExo, iSerie);
+  }
   function etatDuMoteur(slug, salle, groupes) {
     if (!estSalleElastique(salle)) return etatsExercices[slug];
     return Palier.etatsExercices((groupes || []).map(function (x) { return { slug: slug, series: x.series }; }))[slug];
@@ -5575,7 +5606,9 @@
       depart: estSalleElastique(salleX) ? null : chargeDeDepartDe(slug),
       // MOTEUR §10 bis (108) — la salle déclarée pour cet exercice (barre fixe,
       // haltères), ou `null` : non renseignée, rien ne change. 132 — ou la liste de ses élastiques (§10 ter).
-      salle: salleX
+      salle: salleX,
+      // 132 (ECRAN-SAISIE §3 ter.6, écran 4) — l'élastique de la dernière séance qui n'est plus dans la liste, ou `null`.
+      elastiqueRetire: estSalleElastique(salleX) ? Profil.elastiqueRetireDe(salleX, faits.seancesDeLExercice(corpus(), slug)) : null
     };
   }
 
@@ -7852,6 +7885,9 @@
       // ligne. `undefined` si le catalogue n'est pas encore là : `gabaritDe`
       // retombe alors sur `charge_reps` sans rien affirmer.
       exercice: function (slug) { return index[slug]; },
+      // 132 (ECRAN-SAISIE §3 ter.6) — un exercice noté par nom : la colonne « ÉLASTIQUE », et sa feuille de choix.
+      elastique: elastiqueDeLaGrille,
+      surElastique: function (i, j) { ouvrirFeuille('elastique', i, j); },
       precedent: precedentDe,
       fantome: function (i, j) {
         return fantomeDe(i, j);
@@ -8666,6 +8702,25 @@
     var exo = seance.exercices[feuille.iExo];
     if (!exo) return;
     var nom = Modele.nommer(index, exo.exercise_slug);
+
+    // 132 (ECRAN-SAISIE §3 ter.6, écran 3) — LA FEUILLE DE CHOIX DE L'ÉLASTIQUE : la liste qui va avec l'exercice ; le
+    // choix s'écrit dans la série (`poserElastique`), validée ou non.
+    if (feuille.quoi === 'elastique') {
+      var elg = elastiqueDeLaGrille(exo.exercise_slug);
+      var se0 = exo.series[feuille.iSerie];
+      if (!elg || !se0) return;
+      var fg = fantomeDe(feuille.iExo, feuille.iSerie);
+      return Rendu.rendreFeuilleElastique(cible, {
+        exercice: nom, numero: feuille.iSerie + 1, liste: elg.liste, mini: elg.fiche.type_elastique === 'mini',
+        choisi: se0.elastique || (fg && fg.elastique) || null,
+        surChoix: function (n) {
+          var i = feuille.iExo, j = feuille.iSerie;
+          fermerVoile();
+          poserElastique(i, j, n);
+        },
+        surAnnuler: fermerVoile
+      });
+    }
 
     // La note d'EXERCICE (§7 septies.1). Elle ne touche pas à la structure mais
     // elle change ce que `lignes()` produit — toutes les séries de cet exercice

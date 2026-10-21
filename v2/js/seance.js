@@ -87,7 +87,10 @@
     // ECRAN §3 ter.5 (prompt 131, v2_101) — les champs en plus : le D+ et les étages, lus
     // ET écrits, comme la durée et la distance. Ils viennent de `THModele.colonnesDeSerie()`
     // (`lignes()` les envoie par elle) ; `verifierColonnes()` vérifie l'accord au démarrage.
-    'denivele_m', 'etages'
+    'denivele_m', 'etages',
+    // 132 (MOTEUR §10 ter, ECRAN-SAISIE §3 ter.6, v2_034) — le NOM de l'élastique d'une série notée par nom, lu ET écrit
+    // (audit 130 #12 : `sets.elastique` n'était ni écrit ni relu). Il part toujours, à null compris, comme la note.
+    'elastique'
   ];
   // Lues, jamais écrites : le serveur les pose lui-même.
   var COLONNES_SET_EN_PLUS = ['created_at', 'modifie_a'];
@@ -392,6 +395,8 @@
       type_serie: 'travail'
     }, mesuresDe(null), {
       rpe: null, ressenti: null, note: null,
+      // 132 — le nom de l'élastique (une série notée par nom) : vide à la naissance.
+      elastique: null,
       validee_a: null, repos_s: null, reps_visees: null, charge_cible_kg: null,
       // ECRAN-SAISIE §7 septendecies.3 (54-1) — la durée et la distance d'un
       // cardio de routine : des INTENTIONS, comme `reps_visees`, lues par le
@@ -1140,6 +1145,8 @@
     if ('distance_km' in champs) c.distance_m = distanceBornee(champs.distance_km, 1000);
     if ('denivele_m' in champs) c.denivele_m = enPlusBorne('denivele_m', champs.denivele_m);
     if ('etages' in champs) c.etages = enPlusBorne('etages', champs.etages);
+    // 132 — le nom de l'élastique : un texte non vide (une liste de Ma salle le donne), sinon rien.
+    if ('elastique' in champs) c.elastique = typeof champs.elastique === 'string' && champs.elastique ? champs.elastique : null;
     return avecSerie(seance, iExo, iSerie, c);
   }
 
@@ -1812,6 +1819,8 @@
           // Prompt 131 — le D+ et les étages, toujours envoyés, à null compris (même raison).
           denivele_m: p.serie.denivele_m === undefined ? null : p.serie.denivele_m,
           etages: p.serie.etages === undefined ? null : p.serie.etages,
+          // 132 — le nom de l'élastique (une série notée par nom), toujours envoyé, à null compris.
+          elastique: p.serie.elastique === undefined ? null : p.serie.elastique,
           rpe: p.serie.rpe,
           ressenti: p.serie.ressenti,
           // La note de l'EXERCICE, projetée sur chaque série — c'est la forme
@@ -1983,9 +1992,10 @@
         return {
           seance: s,
           series: series.map(function (x) {
+            // 132 — et le nom de l'élastique : « préc. » le dit (« Noir × 12 »), le plan le lit (MOTEUR §10 ter).
             return { charge_kg: x.charge_kg, reps: x.reps,
                      duree_s: x.duree_s, distance_m: x.distance_m,
-                     type_serie: x.type_serie };
+                     type_serie: x.type_serie, elastique: x.elastique === undefined ? null : x.elastique };
           })
         };
       }
@@ -2604,6 +2614,11 @@
       if (nom === 'charge_kg' && g.nature) return false;
       var c = racine.THModele.champDeMesure(nom);
       var cle = c ? c.cle : nom;
+      // 132 (ECRAN-SAISIE §3 ter.6) — la case « ÉLASTIQUE » porte un NOM : elle est vide sans nom.
+      if (c && c.saisie === 'elastique') {
+        var sansNom = function (v) { return typeof v !== 'string' || v === ''; };
+        return sansNom(serie && serie[cle]) && sansNom(f && f[cle]);
+      }
       // Audit 130 n°9 — une durée ou une distance à 0 (ou hors borne) est une case vide.
       var absente = function (v) { return vide(v) || racine.THModele.borneDeColonne(cle, v) === null; };
       return absente(serie && serie[cle]) && absente(f && f[cle]);

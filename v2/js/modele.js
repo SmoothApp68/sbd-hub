@@ -877,8 +877,25 @@
   }
 
   function champDeMesure(nom) {
+    if (nom === CHAMP_ELASTIQUE.cle) return CHAMP_ELASTIQUE;
     return Object.prototype.hasOwnProperty.call(CHAMPS_MESURE, nom)
       ? CHAMPS_MESURE[nom] : null;
+  }
+
+  // 132 (ECRAN-SAISIE §3 ter.6, MOTEUR §10 ter) — LA COLONNE « ÉLASTIQUE » d'un exercice noté par son nom : une case qui
+  // ouvre la liste qui va avec l'exercice (grands élastiques ou mini-bandes). En résistance, le gabarit `reps` la reçoit
+  // devant les reps ; sur une aide, elle remplace « AIDE (KG) ». Elle n'est PAS une colonne de mesure
+  // (`CHAMPS_MESURE`) : elle n'existe que pour qui note par nom, et sa valeur est un nom, jamais un nombre — `sets.elastique`
+  // s'écrit par `THProfil.ecrireSerie` (le nom, et le kg déclaré d'une aide). Obligatoire (§3 bis.3 bis) : une série
+  // sans élastique passe au rouge, sauf si le coach en propose un (le gris), qui est alors validé.
+  var CHAMP_ELASTIQUE = { cle: 'elastique', entete: 'ÉLASTIQUE', unite: null, facteur: 1, saisie: 'elastique',
+                          manque: 'l’élastique' };
+  // La grille d'un exercice noté par nom : `grilleDe` (sa mesure), où la colonne de charge — ou, en `reps`, une colonne
+  // devant les reps — devient « ÉLASTIQUE ». `programme` (l'éditeur de routine) : jamais (comme la charge de départ).
+  function grilleElastique(g) {
+    var colonnes = ['elastique', 'reps'];
+    return Object.assign({}, g, { champs: colonnes, colonnes: colonnes, dessous: [], elastique: true, nature: 'elastique',
+      entetes: { elastique: CHAMP_ELASTIQUE.entete }, libelle: 'ÉLASTIQUE × REPS' });
   }
 
   // La colonne « précédent » : 62 px. `formatMesure` y déborderait — on donne
@@ -887,6 +904,9 @@
   //   distance_temps → « 6 h 35 » (la distance ne tient pas, la durée gagne)
   function formatPrecedent(serie, mesure, nature) {
     if (!serie) return '—';
+    // 132 (ECRAN-SAISIE §3 ter.6) — une série notée par nom : « Noir × 12 », le formateur unique, quelle que soit la
+    // grille d'aujourd'hui (un élastique retiré garde son nom ; revenu « en kg », la série d'avant dit encore son nom).
+    if (serie.elastique !== null && serie.elastique !== undefined) return affichageElastique(serie);
     if (mesure === 'reps') {
       return serie.reps === null || serie.reps === undefined ? '—' : String(serie.reps);
     }
@@ -2385,6 +2405,7 @@
     nombreSigne: nombreSigne,
     pastilleElastique: pastilleElastique,
     affichageElastique: affichageElastique,
+    grilleElastique: grilleElastique,
     avecNoms: avecNoms,
     nomDeLaCharge: nomDeLaCharge,
     lireNombre: lireNombre,

@@ -3552,6 +3552,10 @@
         if (c.raison === 'premiere_fois') {
           return 'Première fois ici' + DEUX_POINTS + 'ce que tu notes aujourd\'hui servira de départ.';
         }
+        // 132 (ECRAN-SAISIE §3 ter.6, écran 4).
+        if (c.raison === 'elastique_retire') {
+          return 'Ton élastique ' + f.elastique + ' n\'est plus dans Ma salle' + DEUX_POINTS + 'je note sans proposer.';
+        }
         return '';
 
       case 'progression':
@@ -7053,6 +7057,13 @@
     // §9.21 (52-1) — la charge de départ de la routine, la toute première fois.
     var departRoutine = departDeRoutine(consigne, o);
     if (departRoutine !== null) consigne = departRoutine;
+    // 132 (ECRAN-SAISIE §3 ter.6, écran 4) — UN ÉLASTIQUE RETIRÉ OU RENOMMÉ, et rien d'autre pour proposer : la
+    // consigne se tait et le dit (« Ton élastique Gris n'est plus dans Ma salle : je note sans proposer. »), au lieu de
+    // « Première fois ici » (`o.elastiqueRetire`, le nom lu par l'app dans la dernière séance ; on ne devine pas).
+    if (consigne && consigne.etat === 'silence' && consigne.raison === 'premiere_fois' &&
+        typeof o.elastiqueRetire === 'string' && o.elastiqueRetire) {
+      consigne = { etat: 'silence', raison: 'elastique_retire', fondement: { elastique: o.elastiqueRetire } };
+    }
     // §10 bis (108) — LA SALLE, EN DERNIER : ce qui a pu poser une charge après
     // la consigne (le report d'une nouvelle zone, un départ) ne pose qu'une
     // charge que la salle fait. La salle en vigueur se fige avec la consigne.

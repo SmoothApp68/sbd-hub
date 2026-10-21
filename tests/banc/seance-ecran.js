@@ -23608,6 +23608,199 @@ const SETS_IMPORTES = [
       JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus131), erreurs.slice(erreurs131)]));
   }
 
+  console.log('\n══ elastiques. LES ÉLASTIQUES PAR LEUR NOM : LA COLONNE « ÉLASTIQUE », LE ROUGE EN DERNIÈRE SÉRIE, LES MINI-BANDES, L’ÉLASTIQUE RETIRÉ (132, MOTEUR §10 ter, ECRAN-SAISIE §3 ter.6) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un profil avec DEUX listes (Noir 35 kg, Rouge 25 kg, Vert ; les mini-bandes Bleue
+  // et Jaune) et « par son nom » ; trois exercices servis avec `type_elastique` (v2_102) — un face pull en résistance
+  // (grand), des tractions en aide (grand), un clamshell (mini). Le passé : le face pull au Vert au HAUT de sa zone
+  // (20 reps) deux séances de suite ; les tractions au Noir (aide de 35 kg, son nom écrit) au haut de leur zone (12).
+  // Le coach teste le cran au-dessus EN DERNIÈRE SÉRIE, par son nom : le Rouge (plus fort) sur le face pull, le Rouge
+  // (plus léger) sur les tractions. Le clamshell ouvre les mini-bandes. Puis le Vert est retiré de Ma salle : sa
+  // séance devient neutre. Tout est retiré à la fin.
+  {
+    const erreurs132 = erreurs.length;
+    const refus132 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations132 = gardeBanc.violations;
+    const catalogueAvant132 = CATALOGUE.length;
+    const sessionsAvant132 = base.sessions.map((x) => x.id);
+    const salleAvant132 = base.profiles[0].ma_salle;
+    const sp132 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const FP = 'fp-u132-elastique', TR = 'tr-u132-elastique', CS = 'cs-u132-elastique';
+    CATALOGUE.push({ slug: FP, nom: 'Face Pull U132 (Élastique)', mesure: 'reps', charge: 'elastique', type_elastique: 'grand',
+      equipement: 'elastique', muscles_primaires: ['u132_delt'], muscles_secondaires: [] });
+    CATALOGUE.push({ slug: TR, nom: 'Tractions U132 (Élastique)', mesure: 'charge_reps', charge: 'assistance', type_elastique: 'grand',
+      equipement: 'elastique', muscles_primaires: ['u132_dos', 'u132_bi', 'u132_trap'], muscles_secondaires: [] });
+    CATALOGUE.push({ slug: CS, nom: 'Clamshell U132 (Élastique)', mesure: 'reps', charge: 'elastique', type_elastique: 'mini',
+      equipement: 'elastique', muscles_primaires: ['u132_fess'], muscles_secondaires: [] });
+    const SALLE_132 = { barres_ez: [], barres_droites: [], halteres: null,
+      elastiques: [{ nom: 'Noir', kg: 35 }, { nom: 'Rouge', kg: 25 }, { nom: 'Vert' }],
+      mini_bandes: [{ nom: 'Bleue' }, { nom: 'Jaune' }], elastiques_par_nom: true };
+    base.profiles[0].ma_salle = JSON.parse(JSON.stringify(SALLE_132));
+    const t132 = Date.now();
+    const passe132 = [];
+    const poser132 = (id, jours, slug, nom, kg, reps) => {
+      const debut = ilYa(jours * 86400000, t132).toISOString();
+      if (passe132.indexOf(id) < 0) {
+        passe132.push(id);
+        base.sessions.push({ id, user_id: 'u-banc', titre: 'Élastiques — ' + id, debut, fin: finDe(debut, t132).toISOString(),
+          statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      }
+      // Les rangs suivent dans la séance (`sets_rang_unique`) : deux exercices d'une même séance ne partagent pas un rang.
+      const deja = base.sets.filter((x) => x.session_id === id).length;
+      [1, 2, 3].forEach((k) => base.sets.push({ id: id + '-' + slug + '-s' + k, session_id: id, user_id: 'u-banc', exercise_slug: slug,
+        charge_kg: kg, reps, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: nom, type_serie: 'travail',
+        rang: deja + k, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app',
+        created_at: debut, modifie_a: null }));
+    };
+    poser132('e132-1', 21, FP, 'Vert', null, 18);
+    poser132('e132-2', 14, FP, 'Vert', null, 20);
+    poser132('e132-3', 7, FP, 'Vert', null, 20);
+    poser132('e132-2', 14, TR, 'Noir', -35, 12);
+    poser132('e132-3', 7, TR, 'Noir', -35, 12);
+    const ex132 = (slug, rang) => ({ id: 'r-u132-' + rang, routine_id: 'r-u132', exercise_slug: slug, rang,
+      routine_sets: progr(3, 12), repos_cible_s: 0, groupe_superset: null, note: null });
+    const ROUTINE_132 = { id: 'r-u132', nom: 'Élastiques U132', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [ex132(FP, 0), ex132(TR, 1), ex132(CS, 2)] };
+    ROUTINES.push(ROUTINE_132);
+    const neufs132 = (slug) => base.sets.filter((x) => x.exercise_slug === slug && passe132.indexOf(x.session_id) < 0);
+    const grille132 = () => page.evaluate(() => Array.from(document.querySelectorAll('#vue-seance .bloc-seance')).map((b) => ({
+      nom: (b.querySelector('.nom-exo, .bloc-nom') || {}).textContent,
+      entetes: Array.from(b.querySelectorAll('.cols-seance span')).map((x) => x.textContent),
+      champs: Array.from((b.querySelector('.ligne-serie') || document.createElement('i')).querySelectorAll('[data-champ]')).map((x) => x.getAttribute('data-champ')),
+      prec: Array.from(b.querySelectorAll('.ligne-serie .prec')).map((x) => x.textContent),
+      cases: Array.from(b.querySelectorAll('.ligne-serie .el-case')).map((x) => x.textContent + (x.classList.contains('gris') ? '°' : '')),
+      jaune: (b.querySelector('.consigne-dit, .bloc-consigne, .consigne') || {}).textContent || '',
+      deborde: document.documentElement.scrollWidth > window.innerWidth })));
+    const plan132 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? d.plan.exercices.map((x) => ({ slug: x.slug, etat: x.consigne ? x.consigne.etat : null,
+        raison: x.consigne ? x.consigne.raison || null : null, gris: x.entete ? x.entete.gris : null,
+        jaune: x.entete ? x.entete.jaune : null, paris: (x.paris || []).filter(Boolean).length,
+        chauffes: !!x.chauffes || !!x.proposition, elastique: x.elastique || null })) : null;
+    });
+    const valider132 = async (iExo, iSerie) => {
+      await page.evaluate(([i, j]) => {
+        const r = document.querySelector('.serie[data-iexo="' + i + '"][data-iserie="' + j + '"]');
+        if (r) r.querySelector('.ok-serie').click();
+      }, [iExo, iSerie]);
+      await attendre(800);
+    };
+    const caseVide132 = (iExo, iSerie) => page.evaluate(([i, j]) => {
+      const r = document.querySelector('.serie[data-iexo="' + i + '"][data-iserie="' + j + '"] [data-champ="elastique"]');
+      return !!r && r.classList.contains('case-vide');
+    }, [iExo, iSerie]);
+
+    // A. LA GRILLE : la colonne « ÉLASTIQUE » ; « préc. » par son nom ; le test en DERNIÈRE série, par son nom.
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(1500);
+    await aller('/saisie');
+    await demarrerRoutine('Élastiques U132');
+    await attendre(1200);
+    const g132 = await grille132();
+    const p132 = await plan132();
+    ok('[132] A — la colonne « ÉLASTIQUE » devant les reps (face pull, clamshell), à la place de « AIDE (KG) » (tractions) ; rien ne déborde à 360 px',
+      g132.length === 3 && g132.every((g) => JSON.stringify(g.champs) === '["elastique","reps"]' &&
+        g.entetes.indexOf('ÉLASTIQUE') === 2 && g.entetes.indexOf('AIDE (KG)') < 0 && !g.deborde), JSON.stringify(g132));
+    ok('[132] A — « préc. » dit le nom : « Vert × 20 », « Noir × 12 »',
+      !!g132[0] && sp132(g132[0].prec[0]) === 'Vert × 20' && !!g132[1] && sp132(g132[1].prec[0]) === 'Noir × 12', JSON.stringify(g132));
+    ok('[132] A — DISCRIMINANT : le face pull au Vert au haut de sa zone, deux séances de suite : le Rouge en DERNIÈRE série (plus fort)',
+      !!g132[0] && JSON.stringify(g132[0].cases.map(sp132)) === '["Vert°","Vert°","Rouge°"]', JSON.stringify(g132[0]));
+    ok('[132] A — DISCRIMINANT : les tractions au Noir : le plus léger, le Rouge, en dernière série',
+      !!g132[1] && JSON.stringify(g132[1].cases.map(sp132)) === '["Noir°","Noir°","Rouge°"]', JSON.stringify(g132[1]));
+    const xfp = p132 && p132.filter((x) => x.slug === FP)[0];
+    ok('[132] A — l’en-tête par les noms (« Vert × 20 », « Rouge × 15 »), sans kg ; aucun pari, aucune chauffe',
+      !!xfp && /Vert × 20/.test(sp132((xfp.jaune || []).join(' '))) && /Rouge × 15/.test(sp132((xfp.jaune || []).join(' '))) &&
+        !/kg/.test((xfp.jaune || []).join(' ') + (xfp.gris || '')) && p132.every((x) => x.paris === 0 && !x.chauffes), JSON.stringify(p132));
+    ok('[132] A — le clamshell : rien à proposer (première fois), la case dit « choisir »',
+      !!g132[2] && JSON.stringify(g132[2].cases.map(sp132)) === '["choisir","choisir","choisir"]', JSON.stringify(g132[2]));
+
+    // B. VALIDER LE GRIS : la série part avec son NOM ; la charge, le kg déclaré d'une aide (−35), sinon rien.
+    await valider132(0, 0);
+    await valider132(1, 0);
+    await jusqua(async () => neufs132(FP).length === 1 && neufs132(TR).length === 1, 6000);
+    const sfp = neufs132(FP)[0] || {}, str = neufs132(TR)[0] || {};
+    ok('[132] B — DISCRIMINANT : le face pull part « Vert × 20 », sans charge ; les tractions « Noir × 12 » avec l’aide déclarée (−35)',
+      sfp.elastique === 'Vert' && sfp.charge_kg === null && sfp.reps === 20 &&
+        str.elastique === 'Noir' && str.charge_kg === -35 && str.reps === 12,
+      JSON.stringify([sfp, str, base.journal.filter((j) => j.op === 'refus').slice(refus132)]));
+
+    // C. LA CASE EST OBLIGATOIRE : le clamshell sans élastique passe au rouge ; la feuille ouvre les MINI-BANDES.
+    await page.evaluate(() => {
+      const r = document.querySelector('.serie[data-iexo="2"][data-iserie="0"] [data-champ="reps"] input');
+      if (r) { r.value = '15'; r.dispatchEvent(new Event('input', { bubbles: true })); r.blur(); }
+    });
+    await attendre(300);
+    await valider132(2, 0);
+    ok('[132] C — sans élastique, la série ne part pas, la case passe au rouge',
+      neufs132(CS).length === 0 && (await caseVide132(2, 0)), JSON.stringify(neufs132(CS)));
+    await page.evaluate(() => {
+      const c = document.querySelector('.serie[data-iexo="2"][data-iserie="0"] [data-champ="elastique"]');
+      if (c) c.click();
+    });
+    await attendre(600);
+    const feuille132 = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .el-choisir'))
+      .map((b) => b.getAttribute('data-nom') + '|' + (b.querySelector('.el-kg') || {}).textContent));
+    ok('[132] C — DISCRIMINANT : le clamshell ouvre les mini-bandes, dans leur ordre (« la plus forte » d’abord)',
+      JSON.stringify(feuille132) === '["Bleue|la plus forte","Jaune|"]', JSON.stringify(feuille132));
+    await page.evaluate(() => { const b = document.querySelector('#feuille-contenu .el-choisir[data-nom="Jaune"]'); if (b) b.click(); });
+    await attendre(700);
+    await valider132(2, 0);
+    await jusqua(async () => neufs132(CS).length === 1, 6000);
+    const scs = neufs132(CS)[0] || {};
+    ok('[132] C — le clamshell part « Jaune × 15 », sans charge', scs.elastique === 'Jaune' && scs.charge_kg === null && scs.reps === 15,
+      JSON.stringify(scs));
+
+    // D. LE RECHARGEMENT RETROUVE LES NOMS (la séance en cours).
+    const id132 = enCoursId();
+    await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(1800);
+    await aller('/saisie');
+    await attendre(900);
+    const r132 = await grille132();
+    ok('[132] D — après rechargement, les séries validées gardent leur nom (Vert, Noir, Jaune) ; les autres, le gris du coach',
+      r132.length === 3 && sp132(r132[0].cases[0]) === 'Vert' && sp132(r132[1].cases[0]) === 'Noir' &&
+        sp132(r132[2].cases[0]) === 'Jaune' && sp132(r132[0].cases[2]) === 'Rouge°', JSON.stringify(r132));
+    await terminer();
+    await jusqua(async () => sessions().filter((x) => x.id === id132 && x.statut === 'terminee').length === 1, 6000);
+
+    // E. L'ÉLASTIQUE RETIRÉ : le Vert quitte Ma salle. Le face pull n'a plus que des séances au Vert : elles sont neutres ;
+    // la consigne le dit, sans rien proposer ; « préc. » garde le nom ; la case dit « choisir ».
+    base.profiles[0].ma_salle = Object.assign(JSON.parse(JSON.stringify(SALLE_132)),
+      { elastiques: [{ nom: 'Noir', kg: 35 }, { nom: 'Rouge', kg: 25 }] });
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(1500);
+    await aller('/saisie');
+    await demarrerRoutine('Élastiques U132');
+    await attendre(1200);
+    const e132 = await grille132(), pe132 = await plan132();
+    const xe = pe132 && pe132.filter((x) => x.slug === FP)[0];
+    ok('[132] E — DISCRIMINANT : un élastique retiré donne une séance neutre — « Ton élastique Vert n’est plus dans Ma salle : je note sans proposer. »',
+      !!xe && xe.etat === 'silence' && xe.raison === 'elastique_retire' &&
+        sp132(xe.gris).replace(/'/g, '’') === 'Ton élastique Vert n’est plus dans Ma salle : je note sans proposer.', JSON.stringify(pe132));
+    ok('[132] E — « préc. » garde le nom (« Vert × 20 »), la case dit « choisir »',
+      !!e132[0] && sp132(e132[0].prec[0]) === 'Vert × 20' && sp132(e132[0].cases[0]) === 'choisir', JSON.stringify(e132[0]));
+    await abandonner();
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    base.profiles[0].ma_salle = salleAvant132 === undefined ? null : salleAvant132;
+    base.sets = base.sets.filter((x) => passe132.indexOf(x.session_id) < 0);
+    base.sessions = base.sessions.filter((x) => passe132.indexOf(x.id) < 0);
+    CATALOGUE.splice(catalogueAvant132, CATALOGUE.length - catalogueAvant132);
+    const iR132 = ROUTINES.indexOf(ROUTINE_132);
+    if (iR132 >= 0) ROUTINES.splice(iR132, 1);
+    const neuves132 = base.sessions.filter((x) => sessionsAvant132.indexOf(x.id) < 0).map((x) => x.id);
+    base.sets = base.sets.filter((x) => neuves132.indexOf(x.session_id) < 0);
+    base.sessions = base.sessions.filter((x) => neuves132.indexOf(x.id) < 0);
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(1500);
+    await aller('/saisie');
+    ok('[132] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations132 && base.journal.filter((j) => j.op === 'refus').length === refus132 &&
+        erreurs.length === erreurs132,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus132), erreurs.slice(erreurs132)]));
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

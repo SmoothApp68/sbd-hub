@@ -2419,13 +2419,17 @@
   // Prompt 131 (ECRAN §3 ter.5) — LA GRILLE d'un exercice : le gabarit de sa mesure, plus les
   // champs en plus du catalogue (`THModele.grilleDe` : `colonnes`, `dessous`). Dans l'éditeur
   // de routine, aucun champ en plus.
+  // 132 (ECRAN-SAISIE §3 ter.6) — un exercice noté par nom (`vue.elastique(slug)`, hors éditeur de routine) : la
+  // colonne « ÉLASTIQUE » (`THModele.grilleElastique`).
   function gabaritDe(vue, slug) {
-    return M().grilleDe(vue.exercice(slug), !!vue.programme);
+    var g = M().grilleDe(vue.exercice(slug), !!vue.programme);
+    return !vue.programme && typeof vue.elastique === 'function' && vue.elastique(slug) ? M().grilleElastique(g) : g;
   }
   function colonnesDe(g) { return g.colonnes || g.champs; }
   // La classe de la grille : celle de la mesure, et `g-plus` quand un champ en plus prend une
-  // colonne (Escaliers : durée · étages, la grille à deux cases de la distance).
+  // colonne (Escaliers : durée · étages, la grille à deux cases de la distance). 132 : `g-elastique`.
   function classeDeGrille(g) {
+    if (g.elastique) return ' grille g-elastique';
     return ' grille g-' + g.mesure + (colonnesDe(g).length > g.champs.length ? ' g-plus' : '');
   }
 
@@ -3058,8 +3062,18 @@
     var r = racine.querySelector('.serie[data-iexo="' + iExo + '"][data-iserie="' + iSerie + '"]');
     if (!r) return false;
     var premier = null;
+    var rouge = false;
     noms.forEach(function (nom) {
       var champ = r.querySelector('[data-champ="' + nom + '"]');
+      // 132 (ECRAN-SAISIE §3 ter.6) — la case « ÉLASTIQUE » est un bouton (elle ouvre la liste) : elle passe au rouge,
+      // et le rouge part au choix (le redessin).
+      if (champ && champ.classList.contains('el-case')) {
+        champ.classList.remove('case-vide');
+        void champ.offsetWidth;
+        champ.classList.add('case-vide');
+        rouge = true;
+        return;
+      }
       var input = champ && champ.querySelector('input');
       if (!input) return;
       champ.classList.remove('case-vide');
@@ -3074,7 +3088,7 @@
       input.addEventListener('input', retirer);
       if (!premier) premier = input;
     });
-    if (!premier) return false;
+    if (!premier) return rouge;
     premier.focus();
     return true;
   }
@@ -3182,6 +3196,22 @@
       var classe = (iChamp === 0 ? 'ch-serie' : 'rp-serie') + ' num';
       var nom = noms[iChamp];
       if (sansCharge && nom === 'charge_kg') return;
+      // 132 (ECRAN-SAISIE §3 ter.6, maquette `maquette-elastiques-v2.html`, écran 3) — LA CASE « ÉLASTIQUE » : le nom
+      // tapé (choisi) de la série, sinon le gris du coach (`f.elastique`, le pré-remplissage du plan), sinon « choisir ».
+      // Elle ouvre la feuille de choix (`vue.surElastique`). Jamais une charge : le nom, et sa pastille.
+      if (c.saisie === 'elastique') {
+        var choisi = s.elastique || null, gris = choisi ? null : (f && f.elastique) || null;
+        var caseEl = el('button', classe + ' el-case' + (choisi ? '' : ' vide') + (gris ? ' gris' : '') +
+          (proposee || elan ? ' coach' : ''));
+        caseEl.type = 'button';
+        if (choisi || gris) caseEl.appendChild(pastille(choisi || gris));
+        caseEl.appendChild(el('span', 'el-case-nom', choisi || gris || 'choisir'));
+        caseEl.setAttribute('aria-label', 'Élastique : ' + (choisi || gris || 'à choisir'));
+        caseEl.setAttribute('data-champ', nom);
+        caseEl.addEventListener('click', function () { if (vue.surElastique) vue.surElastique(iExo, iSerie); });
+        rangee.appendChild(caseEl);
+        return;
+      }
       // `data-champ` : la case se retrouve par son nom (§3 bis.3 bis, `demanderCases`).
       if (c.saisie === 'chrono') {
         var chrono = champChrono(classe, s[c.cle], f[c.cle],
@@ -6020,6 +6050,32 @@
     cible.appendChild(carteChoix);
   }
 
+  // 132 (ECRAN-SAISIE §3 ter.6, maquette `maquette-elastiques-v2.html`, écran 3) — LA FEUILLE DE CHOIX DE L'ÉLASTIQUE :
+  // la liste qui va avec l'exercice, dans son ordre (du plus fort au plus léger), avec la pastille, « le plus fort » sur
+  // le premier, la coche sur le choisi. `vue` : `{ exercice, numero, liste: [noms], mini, choisi, surChoix(nom),
+  // surAnnuler }`. Elle ne décide rien.
+  function rendreFeuilleElastique(cible, vue) {
+    vider(cible);
+    teteFeuille(cible, vue.exercice, 'Série ' + vue.numero, null);
+    var l = el('div', 'el-feuille');
+    (vue.liste || []).forEach(function (nom, i) {
+      var sel = nom === vue.choisi;
+      var b = el('button', 'el-rang el-choisir' + (sel ? ' sel' : ''));
+      b.type = 'button';
+      b.dataset.nom = nom;
+      b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+      b.appendChild(el('span', '', ''));
+      b.appendChild(pastille(nom));
+      b.appendChild(el('span', 'el-nom', nom));
+      b.appendChild(el('span', 'el-kg', sel ? '\u2713' : (i === 0 && vue.liste.length > 1 ? (vue.mini ? 'la plus forte' : 'le plus fort') : '')));
+      b.addEventListener('click', function () { vue.surChoix(nom); });
+      l.appendChild(b);
+    });
+    cible.appendChild(l);
+    piedFeuille(cible, [{ classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler }]);
+    return cible;
+  }
+
   // Glisser une rangée par sa poignée : la rangée suit le doigt, et au lâcher la place se lit sur la hauteur des autres
   // rangées (le milieu de chacune). Rien ne change sans déplacement réel.
   function glisserPourRanger(poignee, rang, conteneur, i, surLacher) {
@@ -7649,6 +7705,7 @@
     rendreApercuProgramme: rendreApercuProgramme,
     rendreFeuilleEcartes: rendreFeuilleEcartes,
     rendreFeuilleSalle: rendreFeuilleSalle,
+    rendreFeuilleElastique: rendreFeuilleElastique,
     rendreFeuilleBlocEnCours: rendreFeuilleBlocEnCours,
     rendreFeuilleDupliquer: rendreFeuilleDupliquer,
     champDossier: champDossier,

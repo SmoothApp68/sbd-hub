@@ -533,3 +533,61 @@ describe('132 — concordance sur pratiquante_a (mode kg / mode nom)', () => {
     });
   });
 });
+
+// ═══ 7. LA GRILLE (ECRAN-SAISIE §3 ter.6) : LA COLONNE, LA CASE OBLIGATOIRE, L'ÉCRITURE, « PRÉC. », L'ÉLASTIQUE RETIRÉ ═
+describe('132 — la colonne « ÉLASTIQUE » et l’écriture de `sets.elastique`', () => {
+  test('la grille d’un exercice noté par nom : ÉLASTIQUE puis REPS (en résistance comme sur une aide)', () => {
+    const r = Mo.grilleElastique(Mo.grilleDe(FICHES.face_pull_elastique));
+    const a = Mo.grilleElastique(Mo.grilleDe(FICHES.tractions_elastique));
+    [r, a].forEach((g) => {
+      expect(g.colonnes).toEqual(['elastique', 'reps']);
+      expect(g.champs).toEqual(['elastique', 'reps']);
+      expect(g.elastique).toBe(true);
+      expect(Mo.champDeMesure('elastique').entete).toBe('ÉLASTIQUE');
+    });
+    expect(r.effort).toBe(true);
+    // Elle n'est pas une colonne de mesure : rien ne change pour les autres exercices.
+    expect(Mo.colonnesDeSerie()).not.toContain('elastique');
+  });
+  test('la case est obligatoire : sans nom ni gris, elle manque ; le gris du coach la remplit', () => {
+    const g = Mo.grilleElastique(Mo.grilleDe(FICHES.face_pull_elastique));
+    expect(S.casesManquantes(g, { elastique: null, reps: 15 }, {})).toEqual(['elastique']);
+    expect(S.casesManquantes(g, { elastique: null, reps: 15 }, { elastique: 'Vert', reps: 20 })).toEqual([]);
+    expect(S.casesManquantes(g, { elastique: 'Jaune', reps: null }, {})).toEqual(['reps']);
+  });
+  test('`sets.elastique` est écrit (la liste blanche, `lignes()`) et relu (`COLONNES_SET`, la dernière séance)', () => {
+    expect(S.COLONNES_SET).toContain('elastique');
+    let k = 0;
+    const id = () => 'x' + (++k);
+    let se = S.creer({ id: 'S1', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, 'face_pull_elastique', id, { series: 1 });
+    expect(se.exercices[0].series[0].elastique).toBeNull();
+    se = S.modifierSerie(se, 0, 0, { elastique: 'Vert', charge_kg: null, reps: 20 });
+    se = S.valider(se, 0, 0, new Date(AVANT));
+    const l = S.lignes(se)[0];
+    expect([l.elastique, l.charge_kg, l.reps]).toEqual(['Vert', null, 20]);
+    expect(S.modifierSerie(se, 0, 0, { elastique: '' }).exercices[0].series[0].elastique).toBeNull();
+    expect(S.verifierColonnes()).toBe(true);
+    const prec = S.precedent('face_pull_elastique', [{ id: 'A' }], () => [{ exercise_slug: 'face_pull_elastique', rang: 1,
+      elastique: 'Vert', charge_kg: null, reps: 20, type_serie: 'travail' }], null);
+    expect(prec.series[0].elastique).toBe('Vert');
+  });
+  test('« préc. » : « Noir × 12 », le formateur unique, quelle que soit la grille', () => {
+    expect(Mo.formatPrecedent({ elastique: 'Noir', charge_kg: -35, reps: 12 }, 'charge_reps', 'aide')).toBe('Noir × 12');
+    expect(Mo.formatPrecedent({ elastique: 'Vert', charge_kg: null, reps: 20 }, 'reps', null)).toBe('Vert × 20');
+    expect(Mo.formatPrecedent({ elastique: null, charge_kg: -35, reps: 12 }, 'charge_reps', 'aide')).toBe('35×12');
+  });
+  test('l’élastique retiré : la dernière séance l’a, la liste non — la consigne se tait et le dit', () => {
+    const salle = Profil.salleDeLExercice({ ma_salle: GRANDS }, 'tractions_elastique', FICHES);
+    const h = historique('tractions_elastique', [fois(3, { elastique: 'Noir', reps: 8 }), fois(3, { elastique: 'Gris', reps: 8 })], [14, 7]);
+    expect(Profil.elastiqueRetireDe(salle, h)).toBe('Gris');
+    expect(Profil.elastiqueRetireDe(salle, h.slice(0, 1))).toBeNull();
+    // Une séance d'avant au Noir : on repart d'elle (le Gris est neutre), sans la phrase.
+    const { c } = consigneDe('tractions_elastique', GRANDS, h, { elastiqueRetire: 'Gris' });
+    expect(c.consigne.etat).not.toBe('silence');
+    // Rien d'autre que le Gris : la phrase.
+    const { c: c2 } = consigneDe('tractions_elastique', GRANDS, h.slice(1), { elastiqueRetire: 'Gris' });
+    expect([c2.consigne.etat, c2.consigne.raison]).toEqual(['silence', 'elastique_retire']);
+    expect(c2.libelles.gris).toBe('Ton élastique Gris n\'est plus dans Ma salle : je note sans proposer.');
+  });
+});

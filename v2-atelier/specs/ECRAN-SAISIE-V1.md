@@ -1750,6 +1750,33 @@ utilisé** : toute migration qui désactive un exercice vérifie d'abord qu'aucu
 pari, objectif ni alias ne le cite (cinq doublons désactivés au 17/10/2026, zéro référence). `nature` est lue pour le
 chantier du coach au poids du corps et en durée ; aucun écran ne la lit encore.
 
+### 7 quater.6 Ton échelle — décidée le 21/10/2026 (chantier B, prompt 127)
+
+Demandé par une pratiquante de street : « voir où j'en suis et quel est le prochain palier ». Maquette validée :
+`maquette-echelle-page-v1.html`. La carte ne calcule rien : elle montre l'échelle du catalogue (MOTEUR §9.17 bis),
+les faits et la marche suivante.
+
+- **Où** : sur la page de chaque exercice qui a une échelle, onglet Résumé, **en tête**. Un exercice sans échelle : rien
+  ne change.
+- **Les marches** : du plus difficile (en haut) au plus facile (en bas), avec leur rang ; plusieurs exercices d'un rang
+  sur une ligne, séparés par « · » ; une habileté porte la mention « habileté ». La marche de la page est soulignée ;
+  **chaque marche se touche et ouvre sa page**.
+- **Ta marche** : le plus haut rang où tu as au moins une série de travail (les faits de `faits.js`), en ambre, mention
+  « ta marche ». Aucune : pas de « ta marche », ni de suivante, ni de phrase.
+- **Ton meilleur** sur chaque exercice fait : le meilleur que l'app affiche déjà pour lui (reps, lest × reps, aide ×
+  reps), par le formateur unique, avec sa date (« mardi » sur 7 jours, sinon le mois).
+- **La suivante** : la marche suivante de ta marche (l'exercice de ta marche fait le plus récemment, si le rang en a
+  plusieurs), mention « la suivante ». **Sa phrase** reprend la condition de la carte, sans calcul nouveau :
+  - le lest : « La suivante : Tractions Lestées. Je te la propose quand tu tiens 8 reps sur toutes tes séries, deux
+    séances de suite. Ton meilleur : 7 reps. » (le seuil : le haut de la zone et 8 reps) ;
+  - une marche qui s'ajoute : « La suivante : Pompes Négatives. Je te la propose quand tu tiens le haut de ta zone
+    (15 reps) sur toutes tes séries, deux séances de suite. Elle s'ajoute : tu gardes Pompes à Genoux. » (zone
+    inconnue : « le haut de ta zone », sans chiffre) ;
+  - une habileté : « La suivante : Tractions Archer. Une habileté : je ne te la propose pas, c'est toi qui choisis
+    quand l'essayer. Tu peux l'ajouter à une séance comme n'importe quel exercice. »
+- **En « Juste un carnet »** (ou l'exercice en Entretenir) : les marches et les meilleurs, **sans phrase**.
+- Jamais de date prédite, de comparaison à une autre personne, ni de « bravo ».
+
 ### 7 quater.3 La table par nombre de répétitions
 
 **Même périmètre que le record** (MOTEUR §9.23) : pour une machine, une poulie, des haltères ou la Smith, la table se

@@ -230,12 +230,24 @@
   // ⚠️ `schema_mouvement` DEPUIS 67A (v2_074, MOTEUR §13.6 bis) — MÊME PIÈGE : omise, elle vaudrait `undefined`, et
   // « Même famille » disparaîtrait de « Remplacer » sans une erreur. Une ligne sans la colonne (cache d'avant v2_074,
   // faux serveur) se lit sans famille : `Modele.cousinsDe` rend `[]`.
+  // ⚠️ `nature`, `description`, `actif` DEPUIS 125 (v2_096, v2_097, ECRAN-SAISIE §7 quater.5) — MÊME PIÈGE : omises,
+  // elles vaudraient `undefined` sur tout le catalogue, sans une erreur. `description` nourrit l'onglet « Comment
+  // faire » (absente : pas d'onglet). `nature` (force, habilete, mobilite, cardio) est gardée sur la fiche, lue par
+  // aucun écran ni aucune règle encore. ⚠️ COLLISION DE NOM : `nature` existe déjà sur des objets qui NE SONT PAS des
+  // fiches du catalogue — le gabarit de saisie (`Modele.gabaritDe` : `aide` / `lest`), le pas de salle
+  // (`pas.nature === 'exact'`), les citations du coach (`q.nature`, I26). Aucun de ces chemins ne reçoit une fiche.
+  // ⚠️ `actif` : UN EXERCICE DÉSACTIVÉ N'ENTRE PAS DANS LE CATALOGUE DE L'APPAREIL, et le filtre vit ICI, seulement
+  // ici : c'est le seul passage de tout le catalogue, et le faux serveur des bancs ne filtre pas. `actif === false`
+  // seulement : une ligne SANS la colonne (cache d'avant, faux serveur) est gardée. Sûr parce qu'on ne désactive
+  // jamais un exercice déjà utilisé (§7 quater.5).
   function tousLesExercices() {
     return paginerParCle(trancheur(function () {
       return client().from('exercises')
         .select('slug, nom, mesure, charge, parent, equipement, muscles_primaires, muscles_secondaires, ' +
-                'muscles_stabilisateurs, mouvement, habilete, schema_mouvement');
-    }, 'slug'), 'slug');
+                'muscles_stabilisateurs, mouvement, habilete, schema_mouvement, nature, description, actif');
+    }, 'slug'), 'slug').then(function (lignes) {
+      return lignes.filter(function (e) { return !e || e.actif !== false; });
+    });
   }
 
   // ══ ROUTINES — la première écriture du projet v2 ═════════════════════════

@@ -10443,7 +10443,6 @@
 
   function rendreExercice(slug, onglet) {
     montrer('exercice', Routeur.EXERCICE);
-    var vueOnglet = onglet === Routeur.EXO_HISTORIQUE ? Routeur.EXO_HISTORIQUE : 'resume';
     // Le « voir plus » ne survit pas à un changement d'exercice : on repart des
     // 20 dernières, sinon une page ouverte sur 60 séances en afficherait 60
     // pour l'exercice suivant sans que personne ne l'ait demandé.
@@ -10456,6 +10455,11 @@
     var mesure = exo ? exo.mesure : null;
     var groupes = faits.seancesDeLExercice(corpus(), slug);
     var toutes = [].concat.apply([], groupes.map(function (g) { return g.series; }));
+    // 125 (ECRAN-SAISIE §7 quater.5) — « COMMENT FAIRE » : la description de la base, mot pour mot, et les
+    // libellés de la fiche, faits ICI (le rendu ne les fabrique pas, comme `descriptionExo`). Sans description,
+    // pas d'onglet. L'onglet ouvert se lit sur l'adresse, les séances et la description (`Routeur.ongletExercice`).
+    var comment = exo && exo.description && String(exo.description).trim() ? vueCommentFaire(exo) : null;
+    var vueOnglet = Routeur.ongletExercice(onglet, groupes.length > 0, !!comment);
 
     // La date d'un record est celle de la SÉANCE, pas `validee_a` : les séries
     // importées ont `validee_a` à NULL (chantier 35, D3).
@@ -10573,6 +10577,7 @@
       } : null,
       mesure: mesure,
       onglet: vueOnglet,
+      comment: comment,
       sousTitre: sousTitreExercice(groupes),
       surOnglet: function (o) { afficherExercice(slug, o); },
       // §7 quater.1 — la séance en cours reste visible, et « Reprendre » y
@@ -10617,6 +10622,20 @@
     entreAmis(slug, exo);
   }
 
+  // 125 — la vue de « Comment faire » : Matériel (`Profil.libelleEquipement`), Travaille (muscles primaires), Aussi
+  // (secondaires), `Semaine.libelleMuscle`, séparés par « · ». Les stabilisateurs restent hors de l'écran (§7 quater.5).
+  function vueCommentFaire(exo) {
+    var muscles = function (l) {
+      return (l || []).map(function (m) { return Semaine.libelleMuscle(m); }).filter(Boolean).join(' \u00b7 ');
+    };
+    return {
+      description: String(exo.description),
+      materiel: exo.equipement ? Profil.libelleEquipement(exo.equipement) : '',
+      travaille: muscles(exo.muscles_primaires),
+      aussi: muscles(exo.muscles_secondaires)
+    };
+  }
+
   // « 123 séances depuis janvier 2024 · dernière le 11 sept. » — trois faits
   // lus sur la liste déjà rangée, aucun jugement. Rien du tout quand il n'y a
   // rien : un exercice jamais fait n'a pas d'histoire à résumer.
@@ -10637,7 +10656,8 @@
 
   function afficherExercice(slug, onglet) {
     var params = { slug: slug };
-    if (onglet === Routeur.EXO_HISTORIQUE) params.onglet = Routeur.EXO_HISTORIQUE;
+    // 125 — `comment` s'adresse comme `historique` (ECRAN-SAISIE §7 quater.5).
+    if (onglet === Routeur.EXO_HISTORIQUE || onglet === Routeur.EXO_COMMENT) params.onglet = onglet;
     allerA(Routeur.EXERCICE, params);
     rendreExercice(slug, onglet);
   }

@@ -1354,6 +1354,20 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    lignes grisées : du texte, pas un code de moteur. */
 .exo-note{font-size:11px;line-height:1.5;color:var(--texte-3);padding:var(--e2) var(--e1) 0}
 
+/* ── §7 quater.5 (125) — « Comment faire » : la fiche, puis les étapes ──────
+   Transcription de maquette-comment-faire-v1.html. La fiche lit du texte (des
+   muscles), pas un chiffre : la valeur passe à la ligne, à droite, en Barlow. */
+.exo-comment-fiche .exo-li{gap:var(--e3)}
+.exo-comment-fiche .exo-li-k{flex:none;width:62px}
+.exo-comment-fiche .exo-li-v{text-align:right;font:400 13.5px/1.4 var(--pile);
+  letter-spacing:normal;white-space:normal;color:var(--texte);min-width:0}
+.etapes{list-style:none;margin:var(--e3) 0 0;background:var(--panneau);
+  border-radius:var(--r-grand);padding:var(--e1) var(--e4)}
+.etape{display:grid;grid-template-columns:22px 1fr;gap:var(--e2);padding:11px 0;align-items:baseline}
+.etape + .etape{border-top:1px solid var(--trait)}
+.etape-n{font:700 15px/1 var(--pile-c);color:var(--texte-3);font-variant-numeric:tabular-nums}
+.etape-t{font-size:14px;line-height:1.5;color:var(--texte);min-width:0}
+
 /* ── §7 quater.3 — la table par nombre de répétitions ────────────────────── */
 .table-reps{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e1) 0}
 .tr-ligne{display:grid;grid-template-columns:52px 1fr 66px 58px;gap:var(--e2);

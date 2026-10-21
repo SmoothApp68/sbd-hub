@@ -22860,6 +22860,135 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus115), erreurs.slice(erreurs115)]));
   }
 
+  console.log('\n══ comment. « COMMENT FAIRE » : LA FICHE ET LES ÉTAPES DE LA BASE, MOT POUR MOT ; UN EXERCICE DÉSACTIVÉ N’EST PROPOSÉ NULLE PART (125, ECRAN-SAISIE §7 quater.5) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice de la séance du banc (`squat-barre`, des séances) reçoit une
+  // description — il s'ouvre sur Résumé et montre trois onglets ; un exercice JAMAIS fait, avec description, s'ouvre sur
+  // « Comment faire » ; une mobilité sans muscle n'a que la ligne Matériel ; un exercice SANS description garde ses deux
+  // onglets, et son adresse « comment » retombe sur le Résumé ; un doublon `actif: false` dont le nom répond à la même
+  // recherche que l'actif n'apparaît ni dans le catalogue ni dans « Mes exercices ». Tout est retiré à la fin.
+  {
+    const erreurs125 = erreurs.length;
+    const refus125 = base.journal.filter((j) => j.op === 'refus').length;
+    const catalogueAvant125 = CATALOGUE.length;
+    const squat125 = CATALOGUE.filter((e) => e.slug === 'squat-barre')[0];
+    const squatAvant125 = Object.assign({}, squat125);
+    const ETAPES_SQUAT = ['Place la barre sur le haut du dos, sous la nuque, les mains un peu plus larges que les épaules.',
+      'Sors du rack en deux pas, pieds largeur d’épaules, pointes légèrement vers l’extérieur.',
+      'Inspire, gaine le ventre, puis descends en poussant les hanches en arrière, genoux dans l’axe des pieds.',
+      'Remonte en poussant le sol et expire en haut.'];
+    const ETAPES_MU = ['Suspends-toi à la barre, mains un peu plus larges que les épaules, paumes vers l’avant, bras tendus.',
+      'Tire fort et haut, la barre vers le bas de la poitrine.',
+      'Bascule le buste au-dessus de la barre, puis pousse jusqu’aux bras tendus.'];
+    const ETAPES_PIGEON = ['Pose une jambe pliée devant toi au sol, le tibia en travers, l’autre jambe tendue derrière.',
+      'Penche doucement le buste vers l’avant au-dessus de la jambe pliée.',
+      'Tiens en respirant, puis change de côté.'];
+    Object.assign(squat125, { equipement: 'barre', muscles_secondaires: ['fessiers'], nature: 'force', actif: true,
+      description: ETAPES_SQUAT.join('\n') });
+    CATALOGUE.push({ slug: 'muscle-up-u125', nom: 'Muscle Up U125', mesure: 'reps', charge: 'aucune', equipement: 'aucun',
+      muscles_primaires: ['grand_dorsal', 'pectoraux'], muscles_secondaires: ['biceps'], nature: 'habilete', habilete: true,
+      actif: true, description: ETAPES_MU.join('\n') });
+    CATALOGUE.push({ slug: 'pigeon-u125', nom: 'Pigeon U125', mesure: 'temps', charge: 'aucune', equipement: 'aucun',
+      muscles_primaires: [], muscles_secondaires: [], nature: 'mobilite', actif: true, description: ETAPES_PIGEON.join('\n') });
+    CATALOGUE.push({ slug: 'tapis-u125', nom: 'Tapis U125', mesure: 'distance_temps', charge: 'aucune', equipement: 'machine',
+      muscles_primaires: [], muscles_secondaires: [], nature: 'cardio', actif: true, description: null });
+    CATALOGUE.push({ slug: 'tapis-doublon-u125', nom: 'Tapis U125 — doublon désactivé', mesure: 'distance_temps',
+      charge: 'aucune', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [], nature: 'cardio',
+      actif: false, description: null });
+    const squatASeances125 = base.sets.some((x) => x.exercise_slug === 'squat-barre');
+
+    const chemin125 = () => page.evaluate(() => location.pathname);
+    const pageExo = () => page.evaluate(() => {
+      const t = (n) => (n ? n.textContent : null);
+      const p = document.getElementById('page-exercice');
+      return { onglets: Array.from(p.querySelectorAll('.sous-onglet')).map((b) => b.textContent),
+        actif: t(p.querySelector('.sous-onglet.actif')),
+        fiche: Array.from(p.querySelectorAll('.exo-comment-fiche .exo-li')).map((l) =>
+          [t(l.querySelector('.exo-li-k')), t(l.querySelector('.exo-li-v'))]),
+        etapes: Array.from(p.querySelectorAll('ol.etapes li.etape')).map((l) =>
+          [t(l.querySelector('.etape-n')), t(l.querySelector('.etape-t'))]),
+        resume: !!p.querySelector('.section-t') };
+    });
+
+    // ── A. L'exercice de la séance : la page s'ouvre sur Résumé (il a des séances), trois onglets.
+    await aller('/saisie');
+    await aller('/exercice/squat-barre');
+    let p = await pageExo();
+    for (let n = 0; n < 60 && p.onglets.length < 3; n++) { await attendre(250); await aller('/exercice/squat-barre'); p = await pageExo(); }
+    ok('[125] A — l’exercice de la séance : trois onglets, ouvert sur ' + (squatASeances125 ? 'Résumé (il a des séances)' : '« Comment faire » (aucune séance)'),
+      JSON.stringify(p.onglets) === JSON.stringify(['Résumé', 'Historique', 'Comment faire']) &&
+        p.actif === (squatASeances125 ? 'Résumé' : 'Comment faire'), JSON.stringify(p));
+
+    // ── B. On touche « Comment faire » : la fiche, les étapes numérotées, le texte de la base au caractère près.
+    await page.evaluate(() => Array.from(document.querySelectorAll('#page-exercice .sous-onglet'))
+      .filter((b) => b.textContent === 'Comment faire')[0].click());
+    await attendre(600);
+    p = await pageExo();
+    ok('[125] B — « Comment faire » : son adresse /exercice/squat-barre/comment, la fiche (Matériel, Travaille, Aussi), les étapes 1 à 4 mot pour mot',
+      (await chemin125()) === '/exercice/squat-barre/comment' && p.actif === 'Comment faire' &&
+        JSON.stringify(p.fiche) === JSON.stringify([['Matériel', 'Barre'], ['Travaille', 'Quadriceps'], ['Aussi', 'Fessiers']]) &&
+        JSON.stringify(p.etapes) === JSON.stringify(ETAPES_SQUAT.map((t, i) => [String(i + 1), t])) && !p.resume,
+      JSON.stringify([await chemin125(), p]));
+
+    // ── C. Le rechargement direct rouvre l'onglet.
+    await aller('/exercice/squat-barre/comment');
+    p = await pageExo();
+    ok('[125] C — le rechargement direct de /exercice/squat-barre/comment rouvre « Comment faire »',
+      p.actif === 'Comment faire' && p.etapes.length === ETAPES_SQUAT.length, JSON.stringify(p));
+
+    // ── D. Un exercice jamais fait, avec description : il s'ouvre sur « Comment faire ».
+    await aller('/exercice/muscle-up-u125');
+    p = await pageExo();
+    ok('[125] D — un exercice jamais fait s’ouvre sur « Comment faire » : Sans matériel, Travaille, Aussi, ses trois étapes',
+      p.actif === 'Comment faire' && JSON.stringify(p.fiche) === JSON.stringify([['Matériel', 'Sans matériel'],
+        ['Travaille', 'Grand dorsal · Pectoraux'], ['Aussi', 'Biceps']]) &&
+        JSON.stringify(p.etapes.map((e) => e[1])) === JSON.stringify(ETAPES_MU), JSON.stringify(p));
+
+    // ── E. Une mobilité sans muscle : seulement la ligne Matériel.
+    await aller('/exercice/pigeon-u125');
+    p = await pageExo();
+    ok('[125] E — la mobilité sans muscle : seulement « Matériel », au-dessus de ses étapes',
+      JSON.stringify(p.fiche) === JSON.stringify([['Matériel', 'Sans matériel']]) && p.etapes.length === ETAPES_PIGEON.length,
+      JSON.stringify(p));
+
+    // ── F. Sans description : deux onglets, et « comment » retombe sur le Résumé.
+    await aller('/exercice/tapis-u125/comment');
+    p = await pageExo();
+    ok('[125] F — sans description : deux onglets (pas d’onglet vide), et l’adresse « comment » ouvre le Résumé',
+      JSON.stringify(p.onglets) === JSON.stringify(['Résumé', 'Historique']) && p.actif === 'Résumé' && !p.etapes.length,
+      JSON.stringify(p));
+
+    // ── G. Le doublon désactivé n'est proposé nulle part : ni dans le catalogue, ni dans « Mes exercices ».
+    await aller('/routine/nouvelle');
+    await page.click('#btn-ajouter-exo');
+    await attendre(500);
+    await page.fill('#champ-recherche-exo', 'tapis u125');
+    await attendre(400);
+    const cat125 = await page.evaluate(() => Array.from(document.querySelectorAll('#resultats-exo .resultat'))
+      .map((b) => b.firstChild.textContent));
+    await page.click('#btn-fermer-catalogue');
+    await attendre(300);
+    await aller('/profil/exercices');
+    await page.fill('#champ-recherche-mes-exos', 'tapis u125');
+    await attendre(500);
+    const mes125 = await page.evaluate(() => Array.from(document.querySelectorAll('#liste-mes-exos .exo-nom'))
+      .map((n) => n.textContent));
+    await aller('/exercice/tapis-doublon-u125');
+    const doublon125 = await page.evaluate(() => (document.querySelector('#page-exercice h2') || {}).textContent || '');
+    ok('[125] G — DISCRIMINANT : le doublon `actif: false` n’apparaît pas dans la recherche du catalogue ni dans « Mes exercices » ; « Tapis U125 », une seule fois',
+      JSON.stringify(cat125) === JSON.stringify(['Tapis U125']) && JSON.stringify(mes125) === JSON.stringify(['Tapis U125']) &&
+        !/doublon/.test(doublon125), JSON.stringify([cat125, mes125, doublon125]));
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    CATALOGUE.splice(catalogueAvant125, CATALOGUE.length - catalogueAvant125);
+    Object.keys(squat125).forEach((k) => { delete squat125[k]; });
+    Object.assign(squat125, squatAvant125);
+    await aller('/saisie');
+    ok('[125] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refus125 && erreurs.length === erreurs125,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus125), erreurs.slice(erreurs125)]));
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

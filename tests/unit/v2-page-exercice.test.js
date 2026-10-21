@@ -609,3 +609,73 @@ describe('⚠️ tableParReps — les deux bords de la règle', () => {
       'distance_temps', () => '2026-01-01')).toEqual([]);
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// 125 (ECRAN-SAISIE §7 quater.5) — « COMMENT FAIRE »
+// ════════════════════════════════════════════════════════════════════════════
+describe('125. « Comment faire » est adressable', () => {
+  test('/exercice/<slug>/comment s’analyse et se reconstruit — aller-retour sans perte', () => {
+    const r = R.analyser('/exercice/dc-barre/comment');
+    expect(r.vue).toBe(R.EXERCICE);
+    expect(r.params).toEqual({ slug: 'dc-barre', onglet: R.EXO_COMMENT });
+    expect(r.repli).toBeUndefined();
+    expect(R.construire(R.EXERCICE, { slug: 'dc-barre', onglet: R.EXO_COMMENT })).toBe('/exercice/dc-barre/comment');
+    expect(R.analyser(R.construire(R.EXERCICE, { slug: 'dc-barre', onglet: R.EXO_COMMENT })).params)
+      .toEqual({ slug: 'dc-barre', onglet: R.EXO_COMMENT });
+  });
+});
+
+// CONFIGURATION DISCRIMINANTE : les quatre combinaisons (séances oui/non × description oui/non), sans onglet demandé,
+// puis chaque onglet demandé. Une règle « toujours Résumé » ou « Comment faire dès qu'il y a une description »
+// échoue sur au moins une ligne.
+describe('125. l’onglet ouvert — Résumé, sauf un exercice jamais fait qui a une description', () => {
+  test.each([
+    [undefined, false, true, 'comment'],
+    [undefined, true, true, 'resume'],
+    [undefined, false, false, 'resume'],
+    [undefined, true, false, 'resume'],
+    ['comment', true, true, 'comment'],
+    ['comment', false, false, 'resume'],
+    ['historique', false, true, 'historique'],
+    ['n-importe', false, true, 'resume']
+  ])('demande %s, séances %s, description %s → %s', (demande, seances, desc, attendu) => {
+    expect(R.ongletExercice(demande, seances, desc)).toBe(attendu);
+  });
+});
+
+describe('125. le rendu de « Comment faire »', () => {
+  const ETAPES = ['Place la barre sur le haut du dos.', 'Descends en poussant les hanches en arrière.',
+    'Remonte en poussant le sol : « 2 × 5 », mot pour mot.'];
+  const COMMENT = { description: ETAPES.join('\n'), materiel: 'Barre', travaille: 'Quadriceps · Fessiers', aussi: 'Adducteurs' };
+
+  test('trois onglets avec une description, deux sans', () => {
+    const avec = rendre({ comment: COMMENT });
+    expect([...avec.querySelectorAll('.sous-onglet')].map((x) => x.textContent))
+      .toEqual(['Résumé', 'Historique', 'Comment faire']);
+    const sans = rendre({ comment: null });
+    expect([...sans.querySelectorAll('.sous-onglet')].map((x) => x.textContent)).toEqual(['Résumé', 'Historique']);
+  });
+
+  test('les étapes : numérotées dans l’ordre, le texte au caractère près, la fiche avant', () => {
+    const c = rendre({ onglet: 'comment', comment: COMMENT });
+    const etapes = [...c.querySelectorAll('ol.etapes li.etape')];
+    expect(etapes.map((li) => li.querySelector('.etape-n').textContent)).toEqual(['1', '2', '3']);
+    expect(etapes.map((li) => li.querySelector('.etape-t').textContent)).toEqual(ETAPES);
+    expect([...c.querySelectorAll('.exo-comment-fiche .exo-li')].map((l) =>
+      [l.querySelector('.exo-li-k').textContent, l.querySelector('.exo-li-v').textContent]))
+      .toEqual([['Matériel', 'Barre'], ['Travaille', 'Quadriceps · Fessiers'], ['Aussi', 'Adducteurs']]);
+    expect(c.querySelector('.sous-onglet.actif').textContent).toBe('Comment faire');
+  });
+
+  test('une fiche sans muscles : seule la ligne Matériel ; une ligne vide de la description ne fait pas d’étape', () => {
+    const c = rendre({ onglet: 'comment', comment: { description: 'Une.\n\nDeux.\nTrois.', materiel: 'Sans matériel', travaille: '', aussi: '' } });
+    expect([...c.querySelectorAll('.exo-comment-fiche .exo-li-k')].map((x) => x.textContent)).toEqual(['Matériel']);
+    expect([...c.querySelectorAll('.etape-n')].map((x) => x.textContent)).toEqual(['1', '2', '3']);
+  });
+
+  test('un onglet « comment » sans description rend le Résumé, jamais une page vide', () => {
+    const c = rendre({ onglet: 'comment', comment: null });
+    expect(c.querySelector('ol.etapes')).toBeNull();
+    expect(c.querySelector('.sous-onglet.actif')).toBeNull();
+  });
+});

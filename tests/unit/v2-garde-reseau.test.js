@@ -76,10 +76,9 @@ describe('59-4 — personne n’appelle signInAnonymously', () => {
   // Hors archive/, le mot n'apparaît que là où il DOIT apparaître. Chaque
   // exception a sa raison, et chacune doit encore être vraie.
   const EXCEPTIONS = {
-    'v2/vendor/supabase.js': 'le SDK embarqué lui-même : il DÉFINIT la méthode ; l’app v2 ne l’appelle pas',
-    'js/supabase-cdn.min.js': 'la même copie du SDK, côté v1',
-    'js/supabase.js': 'le code v1 (archive en place, non servi) : `cloudSignIn`, le coupable de 59-3 — plus rien ne le charge dans un navigateur de test',
-    'js/supabase.min.js': 'sa version minifiée v1'
+    'v2/vendor/supabase.js': 'le SDK embarqué lui-même : il DÉFINIT la méthode ; l’app v2 ne l’appelle pas'
+    // Le code v1 (`js/supabase.js`, `cloudSignIn`, le coupable de 59-3, et ses copies du SDK) est sous
+    // `archive/v1/app/` depuis le chantier d'hygiène du 21/10/2026 : `archive/` est hors de cette garde.
   };
 
   test('⚠️ aucun fichier de code hors archive/ ne contient signInAnonymously, hors la liste', () => {

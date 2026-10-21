@@ -16598,10 +16598,13 @@ const SETS_IMPORTES = [
     await attendre(500);
     const resultats = await page.evaluate(() => Array.from(document.querySelectorAll('#resultats-exo .resultat')).map((b) => ({
       nom: b.firstChild.textContent, mention: b.querySelector('.resultat-mention') ? b.querySelector('.resultat-mention').textContent : null })));
-    ok('[RP60] D — le catalogue range les écartés EN FIN DE LISTE, avec la mention « écarté » ; rien n’est caché',
-      resultats.length >= 5 && resultats.slice(-2).every((r) => r.mention === 'écarté') &&
-        resultats.slice(0, -2).every((r) => r.mention === null) &&
-        resultats.slice(-2).map((r) => r.nom).join('|') === 'Remp A U603 (Barre)|Remp Frère U603 (Haltères)',
+    // 126 (ES §7 quindecies.11) — l'exercice REMPLACÉ (Remp A, écarté lui aussi) n'apparaît jamais dans le catalogue ouvert
+    // depuis « Remplacer » : il n'y a plus qu'un écarté en fin de liste (avant : « Remp A » puis « Remp Frère »).
+    ok('[RP60] D — le catalogue range les écartés EN FIN DE LISTE, avec la mention « écarté » ; rien n’est caché, sauf le remplacé (126)',
+      resultats.length >= 4 && resultats.slice(-1).every((r) => r.mention === 'écarté') &&
+        resultats.slice(0, -1).every((r) => r.mention === null) &&
+        resultats.slice(-1).map((r) => r.nom).join('|') === 'Remp Frère U603 (Haltères)' &&
+        !resultats.some((r) => r.nom === 'Remp A U603 (Barre)'),
       JSON.stringify(resultats));
     await page.click('#btn-fermer-catalogue');
     await attendre(500);
@@ -19461,12 +19464,21 @@ const SETS_IMPORTES = [
     const avant = JSON.stringify(routineC());
     await versCatalogue();
     let c = await catalogue();
+    // 126 (ES §7 quindecies.11) — le champ vide montre les suggestions de « Remplacer » (plus les premiers du catalogue par
+    // ordre alphabétique) : la sous-ligne se lit sur elles, puis sur « squat » tapé (avec et sans matériel).
+    const c67Suggestions = c;
+    await page.fill('#champ-recherche-exo', 'squat');
+    await attendre(400);
+    c = await catalogue();
     ok('[C67] A — le catalogue s’ouvre avec deux filtres à zéro, au doigt (44 px), sans compte ; chaque résultat dit « Matériel · Muscle »',
-      c.ouvert && JSON.stringify(c.filtres.map((f) => f.slice(0, 3))) === JSON.stringify([['Tout le matériel▾', false, false],
-        ['Tous les muscles▾', false, false]]) && c.filtres.every((f) => f[3] >= 44) && c.compte === null &&
-        // Les premiers du catalogue du banc : avec matériel « Barre · Quadriceps » ; sans matériel, le muscle seul.
+      c67Suggestions.ouvert && JSON.stringify(c67Suggestions.filtres.map((f) => f.slice(0, 3))) === JSON.stringify([['Tout le matériel▾', false, false],
+        ['Tous les muscles▾', false, false]]) && c67Suggestions.filtres.every((f) => f[3] >= 44) && c67Suggestions.compte === null &&
+        c67Suggestions.resultats.length > 0 && c67Suggestions.resultats.every((r) => / · /.test(r[1] || '')) &&
+        // Avec matériel « Barre · Quadriceps » ; sans matériel, le muscle seul.
         c.resultats.some((r) => r[0] === 'Front Squat (Barre)' && r[1] === 'Barre · Quadriceps') &&
-        c.resultats.some((r) => r[0] === 'Squat (Barre)' && r[1] === 'Quadriceps'), JSON.stringify(c));
+        c.resultats.some((r) => r[0] === 'Squat (Barre)' && r[1] === 'Quadriceps'), JSON.stringify([c67Suggestions, c]));
+    await page.fill('#champ-recherche-exo', '');
+    await attendre(400);
 
     // ── B. Machine + Grand dorsal : seulement des machines à grand dorsal PRINCIPAL ; le compte juste.
     await page.click('#filtres-exo .filtre-exo[data-cle="equipement"] .filtre-ouvrir');
@@ -19496,10 +19508,17 @@ const SETS_IMPORTES = [
     // ── D. « ✕ » : le filtre tombe d'un geste.
     await page.click('#filtres-exo .filtre-exo[data-cle="equipement"] .filtre-retirer');
     await attendre(400);
+    // 126 (ES §7 quindecies.11) — la poulie (« Tirage Poitrine U67B (Poulie) ») est l'exercice REMPLACÉ : elle n'apparaît
+    // plus. Le matériel retiré se lit, champ vide, sur ce qui n'est pas une machine (la barre, la poulie d'un autre).
+    await page.fill('#champ-recherche-exo', '');
+    await attendre(400);
     c = await catalogue();
-    ok('[C67] D — le « ✕ » retire le matériel : la poulie revient, le muscle reste',
+    const dorsaux67 = CATALOGUE.filter((e) => (e.muscles_primaires || []).indexOf('grand_dorsal') >= 0 && e.slug !== 'tirage-poulie-u67b');
+    ok('[C67] D — le « ✕ » retire le matériel : ce qui n’est pas une machine revient, le muscle reste, le remplacé n’y est pas (126)',
       JSON.stringify(c.filtres.map((f) => f.slice(0, 2))) === JSON.stringify([['Tout le matériel▾', false], ['Grand dorsal', true]]) &&
-        c.compte === '3 exercices' && c.resultats.some((r) => r[0] === 'Tirage Poitrine U67B (Poulie)'), JSON.stringify(c));
+        c.compte === dorsaux67.length + (dorsaux67.length > 1 ? ' exercices' : ' exercice') &&
+        c.resultats.some((r) => !/ \(Machine\)$/.test(r[0])) && !c.resultats.some((r) => r[0] === 'Tirage Poitrine U67B (Poulie)'),
+      JSON.stringify([dorsaux67.length, c]));
 
     // ── E. Fermer, rouvrir : les filtres à zéro.
     await page.click('#btn-fermer-catalogue');

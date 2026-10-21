@@ -2186,7 +2186,7 @@ const SETS_IMPORTES = [
     process.exit(echecs ? 1 : 0);
   };
 
-  console.log('\n══ 0. LA MONTÉE D’INDEXEDDB, VERSION 4 → 7 ══');
+  console.log('\n══ 0. LA MONTÉE D’INDEXEDDB, VERSION 4 → 8 ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE (§2 quater) : UNE BASE QUI EXISTE DÉJÀ, en
   // version 4, AVEC DES DONNÉES DEDANS. Une base neuve ne distingue rien —
@@ -2289,10 +2289,12 @@ const SETS_IMPORTES = [
       tx.onerror = () => rejeter(tx.error);
     };
   })).catch((e) => ({ erreur: String(e) }));
-  // 58-2 — la version 7 ajoute `records` (le journal des records), sans perte.
-  ok('[V] la base est montée en version 7, et `predictions`, `modes` et `records` existent',
-    apresMontee.version === 7 && apresMontee.magasins.indexOf('predictions') >= 0 &&
-      apresMontee.magasins.indexOf('modes') >= 0 && apresMontee.magasins.indexOf('records') >= 0,
+  // 58-2 — la version 7 ajoute `records` (le journal des records), sans perte. 126 — la version 8 ajoute `alias` (les
+  // noms alternatifs communs, la recherche hors ligne), sans perte.
+  ok('[V] la base est montée en version 8, et `predictions`, `modes`, `records` et `alias` existent',
+    apresMontee.version === 8 && apresMontee.magasins.indexOf('predictions') >= 0 &&
+      apresMontee.magasins.indexOf('modes') >= 0 && apresMontee.magasins.indexOf('records') >= 0 &&
+      apresMontee.magasins.indexOf('alias') >= 0,
     'version ' + apresMontee.version + ' · ' + JSON.stringify(apresMontee.magasins));
   ok('[V] les huit magasins d’avant sont TOUS encore là',
     ['seances', 'series', 'exercices', 'pesees', 'meta', 'brouillon', 'attente', 'zones']

@@ -3641,14 +3641,22 @@
   // liste » emportait les séries que l'autre venait de valider (prouvé au banc,
   // 82). L'entrée porte donc ses `connues` : ce que cet appareil a envoyé pour
   // la séance, plus ce qu'il en a chargé depuis la base (`connaitre`).
-  function poserSeries() {
-    // 115 (E2) — même règle que `sauverSeance` : une suppression en attente part d'abord.
-    if (suppressionDifferee) return solderSuppression().then(poserSeries);
-    semerSeance();
-    var lignes = Seance.lignes(seance);
-    var connues = connaitre(seance.id, lignes.map(function (l) { return l.id; }));
+  //
+  // 131 — `s` (facultatif) : une séance PASSÉE corrigée sans être ouverte (« Ce qui manque à tes séances »,
+  // `enregistrerCorrection`). Le même envoi, la même file ; la séance ouverte (`seance`) n'est pas touchée. Sans `s`,
+  // rien ne change : la séance ouverte, ses identifiants semés, la suppression différée soldée d'abord.
+  function poserSeries(s) {
+    var x = s || null;
+    if (!x) {
+      // 115 (E2) — même règle que `sauverSeance` : une suppression en attente part d'abord.
+      if (suppressionDifferee) return solderSuppression().then(function () { return poserSeries(); });
+      semerSeance();
+      x = seance;
+    }
+    var lignes = Seance.lignes(x);
+    var connues = connaitre(x.id, lignes.map(function (l) { return l.id; }));
     return poser({
-      table: Attente.SETS, op: Attente.REMPLACER, id: seance.id,
+      table: Attente.SETS, op: Attente.REMPLACER, id: x.id,
       donnees: lignes, connues: connues
     });
   }
@@ -3683,10 +3691,12 @@
     await Cache.ecrireBrouillon(CLE_CONNUES, local.connues).catch(function () {});
   }
 
-  function poserSeance(creation) {
+  // 131 — `s` (facultatif) : la séance passée d'une correction faite sans l'ouvrir (`enregistrerCorrection`).
+  function poserSeance(creation, s) {
+    var x = s || seance;
     return poser({
-      table: Attente.SESSIONS, op: Attente.UPSERT, id: seance.id,
-      donnees: Seance.ligneSession(seance), creation: !!creation
+      table: Attente.SESSIONS, op: Attente.UPSERT, id: x.id,
+      donnees: Seance.ligneSession(x), creation: !!creation
     });
   }
 
@@ -11923,15 +11933,24 @@
   // Enregistrer une modification : les mêmes écritures qu'une fin de séance,
   // sans la fin. Pas de question de routine — une séance passée a pu diverger
   // depuis longtemps, et la routine d'aujourd'hui n'est plus celle du jour-là.
-  async function enregistrerEdition() {
-    var id = seance.id;
+  //
+  // ⚠️ 131 — LES ÉCRITURES D'UNE CORRECTION, UNE FOIS (`enregistrerCorrection`), PARAMÉTRÉES PAR LA SÉANCE. « Ce qui
+  // manque à tes séances » corrige une séance passée SANS l'ouvrir : il appelle la même fonction, avec la séance
+  // reprise (`Seance.reprendre`) — la même file (`poserSeries` → `remplacerSeries`), le même journal des records, la
+  // même adoption locale. Aucun second chemin d'écriture d'une série ; aucune navigation ici.
+  async function enregistrerCorrection(s) {
     // 58-2 — les séries telles qu'elles étaient, AVANT que le cache n'adopte la
     // correction : celles qui changent perdent leurs records.
-    var seriesAvant = seriesDe(id).slice();
-    await poserSeries();
-    await poserSeance(false);
-    await ecrireJournalDeSeance(seance, seriesAvant);
-    adopterLocalement(seance);
+    var seriesAvant = seriesDe(s.id).slice();
+    await poserSeries(s === seance ? undefined : s);
+    await poserSeance(false, s);
+    await ecrireJournalDeSeance(s, seriesAvant);
+    adopterLocalement(s);
+  }
+
+  async function enregistrerEdition() {
+    var id = seance.id;
+    await enregistrerCorrection(seance);
     seance = null; chrono = null;
     arreterMinuteur();
     rendreChrono();

@@ -89,7 +89,9 @@
   var ROUTINE = 'routine';
   // §7 quater — une seule page d'exercice, atteinte de partout, et chacun de ses
   // deux sous-onglets est adressable : la règle du routeur vaut pour elle aussi.
-  var EXERCICE = 'exercice', EXO_HISTORIQUE = 'historique';
+  // 125 (ECRAN-SAISIE §7 quater.5) — le troisième, « Comment faire » : « /exercice/<slug>/comment ».
+  // Le routeur ne sait pas si l'exercice a une description : `app.js` le lui dit (`ongletExercice`).
+  var EXERCICE = 'exercice', EXO_HISTORIQUE = 'historique', EXO_COMMENT = 'comment';
   var RE_SLUG = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
   var ROUTINE_NEUVE = 'nouvelle';
   // 66B (QUESTIONNAIRE §5 ter.4 bis) — « Le coach relit ta semaine », une vue SOUS Saisie : « /saisie/relecture »
@@ -229,11 +231,11 @@
       if (!RE_SLUG.test(bouts[1])) return { vue: RACINE, params: {}, repli: 'slug-invalide' };
       // Un sous-onglet inconnu retombe sur le Résumé, pas sur la racine : un lien
       // qui a vieilli reste dans la page qu'il visait (même règle que Progression).
-      if (bouts.length === 3 && bouts[2] !== EXO_HISTORIQUE) {
+      if (bouts.length === 3 && bouts[2] !== EXO_HISTORIQUE && bouts[2] !== EXO_COMMENT) {
         return { vue: EXERCICE, params: { slug: bouts[1] }, repli: 'sous-vue-inconnue' };
       }
       return { vue: EXERCICE, params: bouts.length === 3
-        ? { slug: bouts[1], onglet: EXO_HISTORIQUE } : { slug: bouts[1] } };
+        ? { slug: bouts[1], onglet: bouts[2] } : { slug: bouts[1] } };
     }
 
     if (bouts[0] === SEANCE && bouts.length === 2) {
@@ -242,6 +244,19 @@
     }
 
     return { vue: RACINE, params: {}, repli: 'inconnu' };
+  }
+
+  // 125 (ECRAN-SAISIE §7 quater.5) — L'ONGLET OUVERT de la page d'exercice, d'après l'adresse et deux faits que
+  // `app.js` lit : l'exercice a-t-il des séances, a-t-il une description ? Résumé par défaut ; « Comment faire »
+  // quand l'adresse le demande ET qu'il y a une description, ou quand l'adresse ne dit rien, qu'il n'y a AUCUNE
+  // séance (son Résumé n'aurait rien à montrer) et qu'il y a une description. Jamais un onglet vide.
+  function ongletExercice(demande, aDesSeances, aUneDescription) {
+    if (demande === EXO_HISTORIQUE) return EXO_HISTORIQUE;
+    if (demande === EXO_COMMENT) return aUneDescription ? EXO_COMMENT : 'resume';
+    if (demande === undefined || demande === null) {
+      return !aDesSeances && aUneDescription ? EXO_COMMENT : 'resume';
+    }
+    return 'resume';
   }
 
   // { vue, params } -> chemin. L'aller-retour avec analyser est idempotent.
@@ -255,7 +270,7 @@
     if (vue === EXERCICE) {
       if (!p.slug || !RE_SLUG.test(p.slug)) return '/';
       return '/' + EXERCICE + '/' + p.slug +
-        (p.onglet === EXO_HISTORIQUE ? '/' + EXO_HISTORIQUE : '');
+        (p.onglet === EXO_HISTORIQUE || p.onglet === EXO_COMMENT ? '/' + p.onglet : '');
     }
     if (vue === ROUTINE) {
       if (p.neuve) return '/' + ROUTINE + '/' + ROUTINE_NEUVE;
@@ -354,7 +369,7 @@
     ROUTINE: ROUTINE,
     RELECTURE: RELECTURE,
     EXERCICE: EXERCICE,
-    EXO_HISTORIQUE: EXO_HISTORIQUE, ROUTINE_NEUVE: ROUTINE_NEUVE,
+    EXO_HISTORIQUE: EXO_HISTORIQUE, EXO_COMMENT: EXO_COMMENT, ongletExercice: ongletExercice, ROUTINE_NEUVE: ROUTINE_NEUVE,
     VOLUME: VOLUME, POIDS: POIDS, MOIS: MOIS, RECORDS: RECORDS, PARCOURS: PARCOURS,
     SOUS_PROGRESSION: SOUS_PROGRESSION,
     SOUS_PROFIL: SOUS_PROFIL,

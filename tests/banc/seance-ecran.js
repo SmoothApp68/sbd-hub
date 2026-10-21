@@ -103,7 +103,8 @@ const CATALOGUE = [
   // laissé passer le défaut pendant trois chantiers de saisie.
   { slug: 'tractions', nom: 'Tractions', mesure: 'reps', charge: 'aucune', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
   { slug: 'planche', nom: 'Planche', mesure: 'temps', charge: 'aucune', muscles_primaires: ['abdominaux'], muscles_secondaires: [] },
-  { slug: 'marche', nom: 'Marche', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [], muscles_secondaires: [] },
+  // 126 — `hors_salle` (v2_098) : un cardio qui ne se fait pas à la salle ; la recherche le range après la musculation.
+  { slug: 'marche', nom: 'Marche', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [], muscles_secondaires: [], hors_salle: true },
   // ⚠️ RÉSERVÉ AU CHANTIER 38. `Seance.precedent` rend la séance la PLUS
   // RÉCENTE portant l'exercice : un slug déjà utilisé par les sections
   // précédentes ferait pointer l'antécédent sur une séance du banc, et le test
@@ -158,6 +159,8 @@ const CATALOGUE = [
   { slug: 'militaire-u10', nom: 'Militaire U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['epaules'], muscles_secondaires: [] },
   // 108 — réservé à la section 108 (« Ma salle », MOTEUR §10 bis) : une barre EZ, le nom le dit.
   { slug: 'curl-ez-108', nom: 'Kz108 (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['biceps'], muscles_secondaires: [] },
+  // 128 — un exercice à barre CHARGÉE (`barre_charge_fixe: false`) dans la séance de la section 108 : la salle n'en dit rien.
+  { slug: 'rowing-108', nom: 'Rz108 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: ['biceps'] },
   // 49-U11 — réservé à la section 7 G octies (la phase). Son nom ne répond à
   // aucune des recherches faites ailleurs.
   // 115 — réservés à la section 115 (« Rien ne se perd à la saisie ») : son décor propre, pour qu'elle se joue seule
@@ -328,6 +331,13 @@ const CATALOGUE = [
   { slug: 'cyc-curl-u53', nom: 'Gamma Cycle U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u53_bi'], muscles_secondaires: [] },
   { slug: 'cyc-terre-u53', nom: 'Delta Cycle U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u53_isch2'], muscles_secondaires: ['u53_fess2', 'u53_lomb2'] }
 ];
+// 128 (v2_099, MOTEUR §10 bis) — `barre_charge_fixe` sur les exercices à la barre du catalogue, comme en base : `true`
+// pour un curl (à la barre droite ou EZ), `false` pour tout le reste (une barre qu'on charge). Les fiches ajoutées plus
+// loin par une section la portent quand la section déclare Ma salle (`plafond-propose`) ; les autres restent sans la
+// colonne — l'ancienne règle, celle d'un cache d'avant v2_099.
+CATALOGUE.forEach((e) => {
+  if (e.equipement === 'barre') e.barre_charge_fixe = /curl|biceps/i.test(e.slug) || /\(Barre EZ\)/.test(e.nom);
+});
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
 // remplace les deux entiers `series` / `reps_visees` : c'est de là que
@@ -485,6 +495,8 @@ const PROFIL_BANC = {
   compte_prive: true, jeu_niveau: null, jeu_titre: null,
   // 50-1 — la réponse à la carte du lest : `oui`, `non`, ou NULL (pas encore).
   lest_reponse: null, lest_reponse_le: null,
+  // 127 (`v2_099`) — la réponse à la carte « marche suivante », par exercice de départ.
+  marche_reponses: null,
   // 60-2a (`v2_065`) — le questionnaire du coach.
   objectif: null, objectif_depuis: null, priorites: null, temps_reponse: null,
   historique_declare: null, phase_confirmee_le: null,
@@ -1438,6 +1450,14 @@ const SETS_IMPORTES = [
         if (l.lest_reponse !== undefined && l.lest_reponse !== null && ['oui', 'non'].indexOf(l.lest_reponse) < 0) {
           return json(refus('23514', 'profiles_lest_reponse_ok'), 400);
         }
+        // 127 (`v2_099`) — `marche_reponses` : un objet jsonb (`{ slug: { r, le, aide } }`, `r` oui ou non), ou NULL.
+        if (l.marche_reponses !== undefined && l.marche_reponses !== null) {
+          const mr = l.marche_reponses;
+          if (typeof mr !== 'object' || Array.isArray(mr) ||
+              Object.keys(mr).some((k) => !mr[k] || ['oui', 'non'].indexOf(mr[k].r) < 0)) {
+            return json(refus('23514', 'profiles_marche_reponses_ok'), 400);
+          }
+        }
         // 108 (`v2_088`) — `profiles_ma_salle_ok` : NULL, ou un objet aux seules clés barres_ez, barres_droites,
         // halteres ; des barres de 1 à 100 kg au demi-kilo ; des haltères nuls, { max, pas } ou des tranches (v2_095).
         if (l.ma_salle !== undefined && l.ma_salle !== null) {
@@ -2185,7 +2205,7 @@ const SETS_IMPORTES = [
     process.exit(echecs ? 1 : 0);
   };
 
-  console.log('\n══ 0. LA MONTÉE D’INDEXEDDB, VERSION 4 → 7 ══');
+  console.log('\n══ 0. LA MONTÉE D’INDEXEDDB, VERSION 4 → 8 ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE (§2 quater) : UNE BASE QUI EXISTE DÉJÀ, en
   // version 4, AVEC DES DONNÉES DEDANS. Une base neuve ne distingue rien —
@@ -2288,10 +2308,12 @@ const SETS_IMPORTES = [
       tx.onerror = () => rejeter(tx.error);
     };
   })).catch((e) => ({ erreur: String(e) }));
-  // 58-2 — la version 7 ajoute `records` (le journal des records), sans perte.
-  ok('[V] la base est montée en version 7, et `predictions`, `modes` et `records` existent',
-    apresMontee.version === 7 && apresMontee.magasins.indexOf('predictions') >= 0 &&
-      apresMontee.magasins.indexOf('modes') >= 0 && apresMontee.magasins.indexOf('records') >= 0,
+  // 58-2 — la version 7 ajoute `records` (le journal des records), sans perte. 126 — la version 8 ajoute `alias` (les
+  // noms alternatifs communs, la recherche hors ligne), sans perte.
+  ok('[V] la base est montée en version 8, et `predictions`, `modes`, `records` et `alias` existent',
+    apresMontee.version === 8 && apresMontee.magasins.indexOf('predictions') >= 0 &&
+      apresMontee.magasins.indexOf('modes') >= 0 && apresMontee.magasins.indexOf('records') >= 0 &&
+      apresMontee.magasins.indexOf('alias') >= 0,
     'version ' + apresMontee.version + ' · ' + JSON.stringify(apresMontee.magasins));
   ok('[V] les huit magasins d’avant sont TOUS encore là',
     ['seances', 'series', 'exercices', 'pesees', 'meta', 'brouillon', 'attente', 'zones']
@@ -9523,13 +9545,24 @@ const SETS_IMPORTES = [
     poserS('s108-a', 15, [[30, 11], [30, 11]]);
     poserS('s108-b', 8, [[30, 12], [30, 12]]);
     poserS('s108-c', 1, [[30, 12], [30, 12]]);
+    // 128 — le rowing à barre chargée (`barre_charge_fixe: false`), dans les mêmes séances : 27,5 kg × 8. L'ancienne
+    // règle l'arrondissait à la barre droite de 25 kg déclarée.
+    ['s108-b', 's108-c'].forEach((id) => {
+      const debut = base.sessions.filter((x) => x.id === id)[0].debut;
+      [1, 2].forEach((r) => base.sets.push({ id: id + '-r' + r, session_id: id, user_id: 'u-banc',
+        exercise_slug: 'rowing-108', charge_kg: 27.5, reps: 8, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: 10 + r, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null }));
+    });
     const lignes108 = [['travail', 12], ['travail', 12], ['degressive', null]].map(([t, reps], i) => ({
       id: 's108-l' + (++grainePr), rang: i + 1, type_serie: t, reps_visees: reps, charge_cible_kg: null,
       duree_cible_s: null, distance_cible_m: null }));
     ROUTINES.push({ id: 'r-108', nom: 'Salle 108', note: null, archivee_a: null,
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
       routine_exercises: [{ id: 'r-108-e', routine_id: 'r-108', exercise_slug: 'curl-ez-108', rang: 0,
-        routine_sets: lignes108, repos_cible_s: 90, groupe_superset: null, note: null }] });
+        routine_sets: lignes108, repos_cible_s: 90, groupe_superset: null, note: null },
+      { id: 'r-108-r', routine_id: 'r-108', exercise_slug: 'rowing-108', rang: 1,
+        routine_sets: progr(2, 10), repos_cible_s: 90, groupe_superset: null, note: null }] });
     const esp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
     const violationsAvant = gardeBanc.violations;
     const ouvrirSalle = async () => {
@@ -9559,10 +9592,15 @@ const SETS_IMPORTES = [
       await page.click('#feuille-contenu .salle-puces[data-type="barres_ez"] button[data-kg="' + kg + '"]');
       await attendre(80);
     }
+    // 128 — et des barres droites (20, 25, 30) : celles que l'ancienne règle prêtait au rowing.
+    for (const kg of ['20', '25', '30']) {
+      await page.click('#feuille-contenu .salle-puces[data-type="barres_droites"] button[data-kg="' + kg + '"]');
+      await attendre(80);
+    }
     await bouton('Valider');
     await attendre(900);
-    ok('[108] la déclaration part en base : barres EZ 10 à 30', JSON.stringify((base.profiles[0] || {}).ma_salle) ===
-      JSON.stringify({ barres_ez: [10, 15, 20, 25, 30], barres_droites: [], halteres: null }), JSON.stringify((base.profiles[0] || {}).ma_salle));
+    ok('[108] la déclaration part en base : barres EZ 10 à 30, droites 20 à 30', JSON.stringify((base.profiles[0] || {}).ma_salle) ===
+      JSON.stringify({ barres_ez: [10, 15, 20, 25, 30], barres_droites: [20, 25, 30], halteres: null }), JSON.stringify((base.profiles[0] || {}).ma_salle));
 
     // 2. La séance : la grille à 30 kg, jamais 32,5 ; la phrase ; la dégressive.
     await aller('/saisie');
@@ -9579,6 +9617,15 @@ const SETS_IMPORTES = [
     ok('[108] DISCRIMINANT — la dégressive à barre fixe : 20 kg, « Prends la barre de 20 kg. »',
       !!p1 && p1.degressive && p1.degressive.charge === 20 && f1[2] === '20' &&
       esp(p1.degressive.phrase).indexOf('Prends la barre de 20 kg.') === 0, JSON.stringify([p1 && p1.degressive, f1]));
+    // 128 (MOTEUR §10 bis, `barre_charge_fixe`) — le rowing à barre chargée, même salle déclarée : la charge du coach.
+    const r1 = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'rowing-108')[0];
+      return x ? { salle: x.salle || null, ligne: x.consigne && x.consigne.ligne } : null;
+    });
+    ok('[128] DISCRIMINANT — un exercice à barre chargée n’est plus arrondi à une barre fixe : rowing à 27,5 kg (pas 25), aucune salle',
+      !!r1 && r1.salle === null && !!r1.ligne && r1.ligne.charge === 27.5 && f1[3] === '27,5' && f1[4] === '27,5',
+      JSON.stringify([r1, f1]));
 
     // 3. 3 reps de plus que visé (16 au lieu de 13) : aucune charge proposée au-delà de la salle.
     await saisirSerie(0, 30, 16);
@@ -16597,10 +16644,13 @@ const SETS_IMPORTES = [
     await attendre(500);
     const resultats = await page.evaluate(() => Array.from(document.querySelectorAll('#resultats-exo .resultat')).map((b) => ({
       nom: b.firstChild.textContent, mention: b.querySelector('.resultat-mention') ? b.querySelector('.resultat-mention').textContent : null })));
-    ok('[RP60] D — le catalogue range les écartés EN FIN DE LISTE, avec la mention « écarté » ; rien n’est caché',
-      resultats.length >= 5 && resultats.slice(-2).every((r) => r.mention === 'écarté') &&
-        resultats.slice(0, -2).every((r) => r.mention === null) &&
-        resultats.slice(-2).map((r) => r.nom).join('|') === 'Remp A U603 (Barre)|Remp Frère U603 (Haltères)',
+    // 126 (ES §7 quindecies.11) — l'exercice REMPLACÉ (Remp A, écarté lui aussi) n'apparaît jamais dans le catalogue ouvert
+    // depuis « Remplacer » : il n'y a plus qu'un écarté en fin de liste (avant : « Remp A » puis « Remp Frère »).
+    ok('[RP60] D — le catalogue range les écartés EN FIN DE LISTE, avec la mention « écarté » ; rien n’est caché, sauf le remplacé (126)',
+      resultats.length >= 4 && resultats.slice(-1).every((r) => r.mention === 'écarté') &&
+        resultats.slice(0, -1).every((r) => r.mention === null) &&
+        resultats.slice(-1).map((r) => r.nom).join('|') === 'Remp Frère U603 (Haltères)' &&
+        !resultats.some((r) => r.nom === 'Remp A U603 (Barre)'),
       JSON.stringify(resultats));
     await page.click('#btn-fermer-catalogue');
     await attendre(500);
@@ -19460,12 +19510,21 @@ const SETS_IMPORTES = [
     const avant = JSON.stringify(routineC());
     await versCatalogue();
     let c = await catalogue();
+    // 126 (ES §7 quindecies.11) — le champ vide montre les suggestions de « Remplacer » (plus les premiers du catalogue par
+    // ordre alphabétique) : la sous-ligne se lit sur elles, puis sur « squat » tapé (avec et sans matériel).
+    const c67Suggestions = c;
+    await page.fill('#champ-recherche-exo', 'squat');
+    await attendre(400);
+    c = await catalogue();
     ok('[C67] A — le catalogue s’ouvre avec deux filtres à zéro, au doigt (44 px), sans compte ; chaque résultat dit « Matériel · Muscle »',
-      c.ouvert && JSON.stringify(c.filtres.map((f) => f.slice(0, 3))) === JSON.stringify([['Tout le matériel▾', false, false],
-        ['Tous les muscles▾', false, false]]) && c.filtres.every((f) => f[3] >= 44) && c.compte === null &&
-        // Les premiers du catalogue du banc : avec matériel « Barre · Quadriceps » ; sans matériel, le muscle seul.
+      c67Suggestions.ouvert && JSON.stringify(c67Suggestions.filtres.map((f) => f.slice(0, 3))) === JSON.stringify([['Tout le matériel▾', false, false],
+        ['Tous les muscles▾', false, false]]) && c67Suggestions.filtres.every((f) => f[3] >= 44) && c67Suggestions.compte === null &&
+        c67Suggestions.resultats.length > 0 && c67Suggestions.resultats.every((r) => / · /.test(r[1] || '')) &&
+        // Avec matériel « Barre · Quadriceps » ; sans matériel, le muscle seul.
         c.resultats.some((r) => r[0] === 'Front Squat (Barre)' && r[1] === 'Barre · Quadriceps') &&
-        c.resultats.some((r) => r[0] === 'Squat (Barre)' && r[1] === 'Quadriceps'), JSON.stringify(c));
+        c.resultats.some((r) => r[0] === 'Squat (Barre)' && r[1] === 'Quadriceps'), JSON.stringify([c67Suggestions, c]));
+    await page.fill('#champ-recherche-exo', '');
+    await attendre(400);
 
     // ── B. Machine + Grand dorsal : seulement des machines à grand dorsal PRINCIPAL ; le compte juste.
     await page.click('#filtres-exo .filtre-exo[data-cle="equipement"] .filtre-ouvrir');
@@ -19495,10 +19554,17 @@ const SETS_IMPORTES = [
     // ── D. « ✕ » : le filtre tombe d'un geste.
     await page.click('#filtres-exo .filtre-exo[data-cle="equipement"] .filtre-retirer');
     await attendre(400);
+    // 126 (ES §7 quindecies.11) — la poulie (« Tirage Poitrine U67B (Poulie) ») est l'exercice REMPLACÉ : elle n'apparaît
+    // plus. Le matériel retiré se lit, champ vide, sur ce qui n'est pas une machine (la barre, la poulie d'un autre).
+    await page.fill('#champ-recherche-exo', '');
+    await attendre(400);
     c = await catalogue();
-    ok('[C67] D — le « ✕ » retire le matériel : la poulie revient, le muscle reste',
+    const dorsaux67 = CATALOGUE.filter((e) => (e.muscles_primaires || []).indexOf('grand_dorsal') >= 0 && e.slug !== 'tirage-poulie-u67b');
+    ok('[C67] D — le « ✕ » retire le matériel : ce qui n’est pas une machine revient, le muscle reste, le remplacé n’y est pas (126)',
       JSON.stringify(c.filtres.map((f) => f.slice(0, 2))) === JSON.stringify([['Tout le matériel▾', false], ['Grand dorsal', true]]) &&
-        c.compte === '3 exercices' && c.resultats.some((r) => r[0] === 'Tirage Poitrine U67B (Poulie)'), JSON.stringify(c));
+        c.compte === dorsaux67.length + (dorsaux67.length > 1 ? ' exercices' : ' exercice') &&
+        c.resultats.some((r) => !/ \(Machine\)$/.test(r[0])) && !c.resultats.some((r) => r[0] === 'Tirage Poitrine U67B (Poulie)'),
+      JSON.stringify([dorsaux67.length, c]));
 
     // ── E. Fermer, rouvrir : les filtres à zéro.
     await page.click('#btn-fermer-catalogue');
@@ -19989,9 +20055,11 @@ const SETS_IMPORTES = [
       recherche: document.querySelector('#champ-recherche-exo').value, pied: !document.querySelector('#pied-rattacher').hidden,
       aide: document.querySelector('#pied-rattacher .aide-rattacher').textContent,
       ne: document.querySelector('#btn-ne-pas-importer').textContent }));
-    ok('[E69] (c) le catalogue en mode « rattacher » : son titre, la recherche pré-remplie, « Ne pas importer cet exercice », « Je m’en souviendrai… »',
+    // 126 (ES §7 quindecies.11) — le champ de Rattacher s'ouvre VIDE (il était pré-rempli : « good morning ») ; « Les plus
+    // proches » disent pourquoi.
+    ok('[E69] (c) le catalogue en mode « rattacher » : son titre, la recherche VIDE (126), « Ne pas importer cet exercice », « Je m’en souviendrai… »',
       feuille.ouvert && feuille.titreVu && feuille.titre === '« Good Morning (Barre) » chez Hevy, c’est…' &&
-      feuille.recherche === 'good morning' && feuille.pied && feuille.ne === 'Ne pas importer cet exercice' &&
+      feuille.recherche === '' && feuille.pied && feuille.ne === 'Ne pas importer cet exercice' &&
       feuille.aide === 'Je m’en souviendrai pour tes prochains imports.', nbE(feuille));
     await page.fill('#champ-recherche-exo', 'E69 Roumain');
     await attendre(400);
@@ -21526,12 +21594,13 @@ const SETS_IMPORTES = [
     const rendreBlocsP = await retirerBlocsDeLAppareil();
     const EZ = 'flexion-pq-ez', EZ2 = 'flexion-pq-ez-c', DROITE = 'flexion-pq-barre', HALT = 'flexion-pq-haltere';
     CATALOGUE.push({ slug: EZ, nom: 'Flexion Pq (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
-      mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
+      mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'], barre_charge_fixe: true });
     // C joue sur une seconde flexion EZ (une autre poignée) : les réponses de B restent sur l'appareil.
     CATALOGUE.push({ slug: EZ2, nom: 'Flexion Pq Prise Large (Barre EZ)', mesure: 'charge_reps', charge: 'externe',
-      equipement: 'barre', mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
+      equipement: 'barre', mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'],
+      barre_charge_fixe: true });
     CATALOGUE.push({ slug: DROITE, nom: 'Flexion Pq (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
-      mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
+      mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'], barre_charge_fixe: true });
     CATALOGUE.push({ slug: HALT, nom: 'Flexion Pq (Haltère)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere',
       mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
     if (base.profiles && base.profiles[0]) {
@@ -22858,6 +22927,462 @@ const SETS_IMPORTES = [
     ok('[115] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refus115 && erreurs.length === erreurs115,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus115), erreurs.slice(erreurs115)]));
+  }
+
+  console.log('\n══ comment. « COMMENT FAIRE » : LA FICHE ET LES ÉTAPES DE LA BASE, MOT POUR MOT ; UN EXERCICE DÉSACTIVÉ N’EST PROPOSÉ NULLE PART (125, ECRAN-SAISIE §7 quater.5) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice de la séance du banc (`squat-barre`, des séances) reçoit une
+  // description — il s'ouvre sur Résumé et montre trois onglets ; un exercice JAMAIS fait, avec description, s'ouvre sur
+  // « Comment faire » ; une mobilité sans muscle n'a que la ligne Matériel ; un exercice SANS description garde ses deux
+  // onglets, et son adresse « comment » retombe sur le Résumé ; un doublon `actif: false` dont le nom répond à la même
+  // recherche que l'actif n'apparaît ni dans le catalogue ni dans « Mes exercices ». Tout est retiré à la fin.
+  {
+    const erreurs125 = erreurs.length;
+    const refus125 = base.journal.filter((j) => j.op === 'refus').length;
+    const catalogueAvant125 = CATALOGUE.length;
+    const squat125 = CATALOGUE.filter((e) => e.slug === 'squat-barre')[0];
+    const squatAvant125 = Object.assign({}, squat125);
+    const ETAPES_SQUAT = ['Place la barre sur le haut du dos, sous la nuque, les mains un peu plus larges que les épaules.',
+      'Sors du rack en deux pas, pieds largeur d’épaules, pointes légèrement vers l’extérieur.',
+      'Inspire, gaine le ventre, puis descends en poussant les hanches en arrière, genoux dans l’axe des pieds.',
+      'Remonte en poussant le sol et expire en haut.'];
+    const ETAPES_MU = ['Suspends-toi à la barre, mains un peu plus larges que les épaules, paumes vers l’avant, bras tendus.',
+      'Tire fort et haut, la barre vers le bas de la poitrine.',
+      'Bascule le buste au-dessus de la barre, puis pousse jusqu’aux bras tendus.'];
+    const ETAPES_PIGEON = ['Pose une jambe pliée devant toi au sol, le tibia en travers, l’autre jambe tendue derrière.',
+      'Penche doucement le buste vers l’avant au-dessus de la jambe pliée.',
+      'Tiens en respirant, puis change de côté.'];
+    Object.assign(squat125, { equipement: 'barre', muscles_secondaires: ['fessiers'], nature: 'force', actif: true,
+      description: ETAPES_SQUAT.join('\n') });
+    CATALOGUE.push({ slug: 'muscle-up-u125', nom: 'Muscle Up U125', mesure: 'reps', charge: 'aucune', equipement: 'aucun',
+      muscles_primaires: ['grand_dorsal', 'pectoraux'], muscles_secondaires: ['biceps'], nature: 'habilete', habilete: true,
+      actif: true, description: ETAPES_MU.join('\n') });
+    CATALOGUE.push({ slug: 'pigeon-u125', nom: 'Pigeon U125', mesure: 'temps', charge: 'aucune', equipement: 'aucun',
+      muscles_primaires: [], muscles_secondaires: [], nature: 'mobilite', actif: true, description: ETAPES_PIGEON.join('\n') });
+    CATALOGUE.push({ slug: 'tapis-u125', nom: 'Tapis U125', mesure: 'distance_temps', charge: 'aucune', equipement: 'machine',
+      muscles_primaires: [], muscles_secondaires: [], nature: 'cardio', actif: true, description: null });
+    CATALOGUE.push({ slug: 'tapis-doublon-u125', nom: 'Tapis U125 — doublon désactivé', mesure: 'distance_temps',
+      charge: 'aucune', equipement: 'machine', muscles_primaires: [], muscles_secondaires: [], nature: 'cardio',
+      actif: false, description: null });
+    const squatASeances125 = base.sets.some((x) => x.exercise_slug === 'squat-barre');
+
+    const chemin125 = () => page.evaluate(() => location.pathname);
+    const pageExo = () => page.evaluate(() => {
+      const t = (n) => (n ? n.textContent : null);
+      const p = document.getElementById('page-exercice');
+      return { onglets: Array.from(p.querySelectorAll('.sous-onglet')).map((b) => b.textContent),
+        actif: t(p.querySelector('.sous-onglet.actif')),
+        fiche: Array.from(p.querySelectorAll('.exo-comment-fiche .exo-li')).map((l) =>
+          [t(l.querySelector('.exo-li-k')), t(l.querySelector('.exo-li-v'))]),
+        etapes: Array.from(p.querySelectorAll('ol.etapes li.etape')).map((l) =>
+          [t(l.querySelector('.etape-n')), t(l.querySelector('.etape-t'))]),
+        resume: !!p.querySelector('.section-t') };
+    });
+
+    // ── A. L'exercice de la séance : la page s'ouvre sur Résumé (il a des séances), trois onglets.
+    await aller('/saisie');
+    await aller('/exercice/squat-barre');
+    let p = await pageExo();
+    for (let n = 0; n < 60 && p.onglets.length < 3; n++) { await attendre(250); await aller('/exercice/squat-barre'); p = await pageExo(); }
+    ok('[125] A — l’exercice de la séance : trois onglets, ouvert sur ' + (squatASeances125 ? 'Résumé (il a des séances)' : '« Comment faire » (aucune séance)'),
+      JSON.stringify(p.onglets) === JSON.stringify(['Résumé', 'Historique', 'Comment faire']) &&
+        p.actif === (squatASeances125 ? 'Résumé' : 'Comment faire'), JSON.stringify(p));
+
+    // ── B. On touche « Comment faire » : la fiche, les étapes numérotées, le texte de la base au caractère près.
+    await page.evaluate(() => Array.from(document.querySelectorAll('#page-exercice .sous-onglet'))
+      .filter((b) => b.textContent === 'Comment faire')[0].click());
+    await attendre(600);
+    p = await pageExo();
+    ok('[125] B — « Comment faire » : son adresse /exercice/squat-barre/comment, la fiche (Matériel, Travaille, Aussi), les étapes 1 à 4 mot pour mot',
+      (await chemin125()) === '/exercice/squat-barre/comment' && p.actif === 'Comment faire' &&
+        JSON.stringify(p.fiche) === JSON.stringify([['Matériel', 'Barre'], ['Travaille', 'Quadriceps'], ['Aussi', 'Fessiers']]) &&
+        JSON.stringify(p.etapes) === JSON.stringify(ETAPES_SQUAT.map((t, i) => [String(i + 1), t])) && !p.resume,
+      JSON.stringify([await chemin125(), p]));
+
+    // ── C. Le rechargement direct rouvre l'onglet.
+    await aller('/exercice/squat-barre/comment');
+    p = await pageExo();
+    ok('[125] C — le rechargement direct de /exercice/squat-barre/comment rouvre « Comment faire »',
+      p.actif === 'Comment faire' && p.etapes.length === ETAPES_SQUAT.length, JSON.stringify(p));
+
+    // ── D. Un exercice jamais fait, avec description : il s'ouvre sur « Comment faire ».
+    await aller('/exercice/muscle-up-u125');
+    p = await pageExo();
+    ok('[125] D — un exercice jamais fait s’ouvre sur « Comment faire » : Sans matériel, Travaille, Aussi, ses trois étapes',
+      p.actif === 'Comment faire' && JSON.stringify(p.fiche) === JSON.stringify([['Matériel', 'Sans matériel'],
+        ['Travaille', 'Grand dorsal · Pectoraux'], ['Aussi', 'Biceps']]) &&
+        JSON.stringify(p.etapes.map((e) => e[1])) === JSON.stringify(ETAPES_MU), JSON.stringify(p));
+
+    // ── E. Une mobilité sans muscle : seulement la ligne Matériel.
+    await aller('/exercice/pigeon-u125');
+    p = await pageExo();
+    ok('[125] E — la mobilité sans muscle : seulement « Matériel », au-dessus de ses étapes',
+      JSON.stringify(p.fiche) === JSON.stringify([['Matériel', 'Sans matériel']]) && p.etapes.length === ETAPES_PIGEON.length,
+      JSON.stringify(p));
+
+    // ── F. Sans description : deux onglets, et « comment » retombe sur le Résumé.
+    await aller('/exercice/tapis-u125/comment');
+    p = await pageExo();
+    ok('[125] F — sans description : deux onglets (pas d’onglet vide), et l’adresse « comment » ouvre le Résumé',
+      JSON.stringify(p.onglets) === JSON.stringify(['Résumé', 'Historique']) && p.actif === 'Résumé' && !p.etapes.length,
+      JSON.stringify(p));
+
+    // ── G. Le doublon désactivé n'est proposé nulle part : ni dans le catalogue, ni dans « Mes exercices ».
+    await aller('/routine/nouvelle');
+    await page.click('#btn-ajouter-exo');
+    await attendre(500);
+    await page.fill('#champ-recherche-exo', 'tapis u125');
+    await attendre(400);
+    const cat125 = await page.evaluate(() => Array.from(document.querySelectorAll('#resultats-exo .resultat'))
+      .map((b) => b.firstChild.textContent));
+    await page.click('#btn-fermer-catalogue');
+    await attendre(300);
+    await aller('/profil/exercices');
+    await page.fill('#champ-recherche-mes-exos', 'tapis u125');
+    await attendre(500);
+    const mes125 = await page.evaluate(() => Array.from(document.querySelectorAll('#liste-mes-exos .exo-nom'))
+      .map((n) => n.textContent));
+    await aller('/exercice/tapis-doublon-u125');
+    const doublon125 = await page.evaluate(() => (document.querySelector('#page-exercice h2') || {}).textContent || '');
+    ok('[125] G — DISCRIMINANT : le doublon `actif: false` n’apparaît pas dans la recherche du catalogue ni dans « Mes exercices », et son adresse ne retrouve pas son nom ; « Tapis U125 », une seule fois',
+      JSON.stringify(cat125) === JSON.stringify(['Tapis U125']) && JSON.stringify(mes125) === JSON.stringify(['Tapis U125']) &&
+        doublon125 !== 'Tapis U125 — doublon désactivé', JSON.stringify([cat125, mes125, doublon125]));
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    CATALOGUE.splice(catalogueAvant125, CATALOGUE.length - catalogueAvant125);
+    Object.keys(squat125).forEach((k) => { delete squat125[k]; });
+    Object.assign(squat125, squatAvant125);
+    await aller('/saisie');
+    ok('[125] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refus125 && erreurs.length === erreurs125,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus125), erreurs.slice(erreurs125)]));
+  }
+
+  console.log('\n══ recherche. LA RECHERCHE D’EXERCICE : LE CHAMP VIDE SELON LE CONTEXTE, LES NOMS ALTERNATIFS, UNE FAUTE, « REMPLACER » SANS LE REMPLACÉ, HORS LIGNE (126, ECRAN-SAISIE §7 quindecies.11) ══');
+  //
+  // ⚠️ SON DÉCOR PROPRE : une routine « Recherche 126 » (un développé couché réservé), trois séances passées de cette
+  // routine où l'on a aussi fait un curl (« Souvent avec cette séance »), un frère haltère (même `mouvement`), un écarté,
+  // une nage hors salle, et deux noms alternatifs. La section se joue seule, en parallèle ou au séquentiel ; elle
+  // rend le catalogue, les noms alternatifs et la routine à la fin.
+  {
+    const erreurs126 = erreurs.length;
+    const refus126 = base.journal.filter((j) => j.op === 'refus').length;
+    const catalogueAvant126 = CATALOGUE.length;
+    const aliasAvant126 = base.aliasCommuns.slice();
+    CATALOGUE.push(
+      { slug: 'dc-u126', nom: 'Développé Couché U126 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+        muscles_primaires: ['pectoraux'], muscles_secondaires: [], mouvement: 'dc_u126', nature: 'force', hors_salle: false },
+      { slug: 'dc-halt-u126', nom: 'Développé Couché U126 (Haltère)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere',
+        muscles_primaires: ['pectoraux'], muscles_secondaires: [], mouvement: 'dc_u126', nature: 'force', hors_salle: false },
+      { slug: 'ecarte-u126', nom: 'Écarté U126 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine',
+        muscles_primaires: ['pectoraux'], muscles_secondaires: [], mouvement: 'ecarte_u126', nature: 'force', hors_salle: false },
+      { slug: 'curl-u126', nom: 'Curl U126 (Haltère)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere',
+        muscles_primaires: ['biceps'], muscles_secondaires: [], mouvement: 'curl_u126', nature: 'force', hors_salle: false },
+      { slug: 'nage-u126', nom: 'Nage U126', mesure: 'distance_temps', charge: 'aucune', equipement: 'aucun',
+        muscles_primaires: [], muscles_secondaires: [], mouvement: null, nature: 'cardio', hors_salle: true });
+    base.aliasCommuns.push({ alias: 'Bench Press U126 (Barbell)', slug: 'dc-u126', source: 'hevy', created_at: '2026-10-21T00:00:00Z' },
+      { alias: 'DCU126', slug: 'dc-u126', source: 'app', created_at: '2026-10-21T00:00:00Z' });
+    const t126 = Date.now();
+    [15, 10, 5].forEach((jours, k) => {
+      const id = 's126-h' + k;
+      const debut = ilYa(jours * 86400000, t126).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Recherche 126', debut, fin: finDe(debut, t126).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-126', source: 'app', created_at: debut });
+      [['dc-u126', 60, 8], ['curl-u126', 14, 10]].forEach(([slug, charge, reps], r) => base.sets.push({ id: id + '-s' + r,
+        session_id: id, user_id: 'u-banc', exercise_slug: slug, charge_kg: charge, reps, duree_s: null, distance_m: null,
+        type_serie: 'travail', rang: r + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null,
+        note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    const ROUTINE_126 = { id: 'r-126', nom: 'Recherche 126', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-126-e1', routine_id: 'r-126', exercise_slug: 'dc-u126', rang: 0, routine_sets: progr(2, 8),
+        repos_cible_s: null, groupe_superset: null, note: null }] };
+    ROUTINES.push(ROUTINE_126);
+
+    // Le catalogue tel qu'on le voit : les titres des sections, les noms (le premier nœud de chaque résultat), leurs
+    // mentions, et la phrase du pied.
+    const catalogue126 = () => page.evaluate(() => {
+      const r = document.getElementById('resultats-exo');
+      const out = { sections: [], noms: [], pied: null };
+      Array.from(r.children).forEach((n) => {
+        if (n.classList.contains('resultats-groupe')) out.sections.push([n.textContent, []]);
+        else if (n.classList.contains('resultat')) {
+          const nom = n.firstChild.textContent;
+          out.noms.push(nom);
+          if (out.sections.length) out.sections[out.sections.length - 1][1].push(nom);
+        } else if (n.classList.contains('resultats-plus')) out.pied = n.textContent;
+      });
+      return out;
+    });
+    const taper126 = async (q) => { await page.fill('#champ-recherche-exo', q); await attendre(400); return catalogue126(); };
+    const sansSeance126 = async () => {
+      await aller('/saisie');
+      await attendre(800);
+      if (JSON.stringify(await visible()) === '["vue-seance"]') {
+        await page.click('#bandeau-seance .bandeau-fin');
+        await attendre(600);
+        await page.click('#feuille-contenu .danger');
+        await confirmerAbandon();
+        await attendre(1600);
+        await aller('/saisie');
+        await attendre(500);
+      }
+    };
+
+    // ── A. En séance partie d'une routine, « + Exercice », champ vide : « Souvent avec cette séance » (le curl des
+    // séances passées de la routine), puis « Pour les mêmes muscles » ; jamais ce qui est déjà dans la séance.
+    await sansSeance126();
+    await demarrerRoutine(ROUTINE_126.nom);
+    await attendre(1200);
+    await page.click('#btn-ajouter-exo-seance');
+    await attendre(600);
+    let c126 = await catalogue126();
+    ok('[126] A — séance d’une routine, champ vide : « Souvent avec cette séance » (le curl de ses séances passées), puis « Pour les mêmes muscles » ; le développé de la séance n’est proposé nulle part ; la phrase du pied',
+      c126.sections.length >= 2 && c126.sections[0][0] === 'Souvent avec cette séance' &&
+        c126.sections[0][1][0] === 'Curl U126 (Haltère)' && c126.sections[1][0] === 'Pour les mêmes muscles' &&
+        c126.noms.indexOf('Développé Couché U126 (Barre)') < 0 && c126.noms.indexOf('Nage U126') < 0 &&
+        /^Tape pour chercher dans les \d+ exercices\.$/.test(c126.pied || ''),
+      JSON.stringify(c126));
+
+    // ── B. Un nom alternatif (anglais, du cache) trouve l'exercice.
+    c126 = await taper126('bench press u126');
+    ok('[126] B — « bench press u126 » (un nom alternatif) trouve « Développé Couché U126 (Barre) », sans sections',
+      c126.noms[0] === 'Développé Couché U126 (Barre)' && !c126.sections.length, JSON.stringify(c126));
+    c126 = await taper126('dcu126');
+    ok('[126] B — « dcu126 » (une abréviation) le trouve aussi', c126.noms[0] === 'Développé Couché U126 (Barre)', JSON.stringify(c126));
+
+    // ── C. Une faute à 5 lettres et plus est tolérée ; en dessous, non.
+    c126 = await taper126('ecrate u126');
+    ok('[126] C — « ecrate u126 » (deux lettres inversées) trouve « Écarté U126 (Machine) »',
+      c126.noms.indexOf('Écarté U126 (Machine)') >= 0, JSON.stringify(c126));
+    c126 = await taper126('nage');
+    ok('[126] C — « nage » : la nage hors salle se trouve par son nom', c126.noms[0] === 'Nage U126', JSON.stringify(c126));
+    await page.click('#btn-fermer-catalogue');
+    await attendre(400);
+
+    // ── D. « Remplacer » le développé : le catalogue s'ouvre sur « Le même mouvement » (son frère haltère), puis « Les
+    // mêmes muscles » ; le remplacé n'apparaît ni dans les suggestions ni dans la recherche.
+    await menuBloc(0);
+    await entree('Remplacer');
+    await attendre(500);
+    c126 = await catalogue126();
+    ok('[126] D — « Remplacer » → le catalogue : « Le même mouvement » (le frère haltère), « Les mêmes muscles », sans l’exercice remplacé ; « Tape pour chercher dans tout le catalogue. »',
+      c126.sections.length >= 1 && c126.sections[0][0] === 'Le même mouvement' &&
+        c126.sections[0][1][0] === 'Développé Couché U126 (Haltère)' &&
+        (c126.sections.length < 2 || c126.sections[1][0] === 'Les mêmes muscles') &&
+        c126.noms.indexOf('Développé Couché U126 (Barre)') < 0 && c126.pied === 'Tape pour chercher dans tout le catalogue.',
+      JSON.stringify(c126));
+    c126 = await taper126('developpe couche u126');
+    ok('[126] D — en tapant : le frère, jamais le remplacé', JSON.stringify(c126.noms) === JSON.stringify(['Développé Couché U126 (Haltère)']),
+      JSON.stringify(c126));
+    await page.click('#btn-fermer-catalogue');
+    await attendre(400);
+
+    // ── E. Hors ligne : les noms alternatifs sont dans le cache, la recherche les trouve toujours.
+    await sansSeance126();
+    base.reseau = false;
+    await aller('/routine/nouvelle');
+    await attendre(800);
+    await page.click('#btn-ajouter-exo');
+    await attendre(500);
+    c126 = await taper126('bench press u126');
+    base.reseau = true;
+    ok('[126] E — hors ligne, l’éditeur de routine : « bench press u126 » trouve toujours « Développé Couché U126 (Barre) » (le cache)',
+      c126.noms[0] === 'Développé Couché U126 (Barre)', JSON.stringify(c126));
+    await page.click('#btn-fermer-catalogue').catch(() => {});
+    await attendre(300);
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    CATALOGUE.splice(catalogueAvant126, CATALOGUE.length - catalogueAvant126);
+    base.aliasCommuns = aliasAvant126;
+    const i126 = ROUTINES.indexOf(ROUTINE_126);
+    if (i126 >= 0) ROUTINES.splice(i126, 1);
+    await aller('/saisie');
+    ok('[126] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refus126 && erreurs.length === erreurs126,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus126), erreurs.slice(erreurs126)]));
+  }
+
+  console.log('\n══ echelle. L’ÉCHELLE DES VARIANTES : LA CARTE « MARCHE SUIVANTE », « AJOUTER » AVANT, « PAS MAINTENANT » À LA MÊME AIDE, « TON ÉCHELLE » (127, MOTEUR §9.17 bis, ECRAN-SAISIE §7 quater.6) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une échelle de quatre marches (une aide, la stricte, la lestée, une habileté),
+  // servie par le faux serveur avec ses colonnes (`echelle`, `echelle_rang`, `nature`) ; quatre séances de tractions
+  // élastiques, les deux dernières au HAUT de la zone (12) À LA MÊME AIDE (−25), les deux premières à une autre (−30).
+  // Le banc lit le PLAN que l'app calcule et l'écran. « Ajouter » insère la stricte JUSTE AVANT et garde l'élastique ;
+  // « Pas maintenant » vaut pour CETTE aide : une séance de plus à la même aide n'a pas de carte, deux à une aide plus
+  // légère la reposent. Tout est retiré à la fin.
+  {
+    const t127 = Date.now();
+    const erreurs127 = erreurs.length;
+    const refus127 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations127 = gardeBanc.violations;
+    const catalogueAvant127 = CATALOGUE.length;
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const E127 = 'tr-u127';
+    [['tr-u127-elastique', 'Tractions U127 (Élastique)', 'charge_reps', 'assistance', 'elastique', 'force', 1],
+     ['tr-u127', 'Tractions U127', 'reps', 'aucune', 'aucun', 'force', 2],
+     ['tr-u127-leste', 'Tractions U127 Lestées', 'charge_reps', 'ajoutee', 'aucun', 'force', 3],
+     ['tr-u127-archer', 'Tractions U127 Archer', 'reps', 'aucune', 'aucun', 'habilete', 4]
+    ].forEach(([slug, nom, mesure, charge, equipement, nature, rang]) => CATALOGUE.push({ slug, nom, mesure, charge, equipement,
+      parent: charge === 'ajoutee' ? E127 : null, nature, habilete: nature === 'habilete', actif: true,
+      muscles_primaires: ['dorsaux'], muscles_secondaires: [], echelle: E127, echelle_rang: rang }));
+    const sessions127 = [];
+    const poser127 = (id, jours, aide, reps) => {
+      const debut = ilYa(jours * 86400000, t127).toISOString();
+      sessions127.push(id);
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Échelle — ' + id, debut, fin: finDe(debut, t127).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((k) => base.sets.push({ id: id + '-s' + k, session_id: id, user_id: 'u-banc',
+        exercise_slug: 'tr-u127-elastique', charge_kg: aide, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: k, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poser127('e127-1', 28, -30, 12);
+    poser127('e127-2', 21, -30, 12);
+    poser127('e127-3', 14, -25, 12);
+    poser127('e127-4', 7, -25, 12);
+    const ROUTINE_127 = { id: 'r-u127', nom: 'Échelle U127', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-u127-a', routine_id: 'r-u127', exercise_slug: 'tr-u127-elastique', rang: 0,
+        routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] };
+    ROUTINES.push(ROUTINE_127);
+    const profil127 = () => base.profiles[0];
+    const marcheAvant127 = profil127().marche_reponses;
+
+    const plan127 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? d.plan.exercices.map((x) => ({ slug: x.slug, etat: x.consigne ? x.consigne.etat : null,
+        raison: x.consigne ? x.consigne.raison || null : null, carte: x.carteMarche,
+        lest: !!x.carteLest, lignes: (x.lignes || []).length })) : null;
+    });
+    const cartes127 = () => page.evaluate(() => Array.from(document.querySelectorAll('.proposition-marche')).map((c) => ({
+      lest: c.classList.contains('proposition-lest'),
+      texte: (c.querySelector('.pc-texte') || {}).textContent, detail: (c.querySelector('.pc-detail') || {}).textContent,
+      boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) })));
+    const exos127 = () => page.evaluate(() => Array.from(document.querySelectorAll('#vue-seance .nom-exo, #vue-seance .bloc-nom'))
+      .map((n) => n.textContent));
+    const seance127 = () => page.evaluate(() => (document.querySelector('#vue-seance') || {}).textContent || '');
+    const TITRE_127 = 'Aide 25 kg × 12 sur toutes tes séries, deux séances de suite.';
+    const DETAIL_127 = 'La marche au-dessus : Tractions U127. Je te propose d’en faire 2 séries avant, autant de reps que tu peux.';
+
+    // ── A. LA CARTE : une, en tête de l'élastique, le composant de la carte du lest, sans point d'interrogation.
+    await aller('/saisie');
+    await demarrerRoutine('Échelle U127');
+    await attendre(900);
+    const a127 = await plan127();
+    const xa = a127 && a127.filter((x) => x.slug === 'tr-u127-elastique')[0];
+    ok('[127] A — DISCRIMINANT : deux séances au haut de la zone (12) à la même aide : le plan pose la carte « marche suivante », la consigne tient sa ligne',
+      !!xa && !!xa.carte && xa.carte.cible === E127 && !xa.lest && sp(xa.carte.titre) === TITRE_127, JSON.stringify(a127));
+    const ca = await cartes127();
+    ok('[127] A — UNE carte à l’écran, le rendu de la carte du lest (mêmes classes), le texte du plan et ses deux boutons',
+      ca.length === 1 && ca[0].lest && sp(ca[0].texte) === TITRE_127 && sp(ca[0].detail).replace(/'/g, '’') === DETAIL_127 &&
+        JSON.stringify(ca[0].boutons.map(sp)) === JSON.stringify(['Ajouter Tractions U127', 'Pas maintenant']) &&
+        !/\?/.test(ca[0].texte + ca[0].detail), JSON.stringify(ca));
+
+    // ── B. « AJOUTER » : la réponse au profil, la stricte JUSTE AVANT, l'élastique reste.
+    await page.evaluate(() => document.querySelector('.proposition-marche .pc-ajouter').click());
+    await jusqua(async () => !!(profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique']), 8000);
+    await attendre(900);
+    const rb = profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique'];
+    ok('[127] B — « Ajouter » s’écrit au profil : `marche_reponses[tr-u127-elastique] = { r: oui, le }`',
+      !!rb && rb.r === 'oui' && !!rb.le && rb.aide === undefined, JSON.stringify(profil127().marche_reponses));
+    const b127 = await plan127();
+    ok('[127] B — DISCRIMINANT : les Tractions U127 JUSTE AVANT l’élastique, qui reste ; 2 séries ; « Première fois ici » ; plus de carte',
+      !!b127 && JSON.stringify(b127.map((x) => x.slug)) === JSON.stringify([E127, 'tr-u127-elastique']) &&
+        b127[0].lignes === 2 && b127[0].etat === 'silence' && b127[0].raison === 'premiere_fois' &&
+        (await cartes127()).length === 0 && /Tractions U127 \(Élastique\)/.test(await seance127()),
+      JSON.stringify([b127, await exos127()]));
+    await abandonner();
+    await aller('/saisie');
+    await demarrerRoutine('Échelle U127');
+    await attendre(900);
+    ok('[127] B — après « Ajouter », la carte ne revient jamais', (await cartes127()).length === 0, JSON.stringify(await cartes127()));
+    await abandonner();
+
+    // ── C. « TON ÉCHELLE » sur la page des Tractions U127 : ta marche (l'élastique), la suivante (la stricte), sa phrase.
+    const echelleDom = () => page.evaluate(() => {
+      const c = document.querySelector('#page-exercice .ton-echelle');
+      if (!c) return null;
+      return { premier: c.parentNode.querySelector('.ton-echelle, .section-t, .carte-objectif') === c,
+        marches: Array.from(c.querySelectorAll('.te-marche')).map((m) => ({ rang: m.querySelector('.te-rond').textContent,
+          classes: m.className, exos: Array.from(m.querySelectorAll('.te-exo')).map((b) => ({ slug: b.getAttribute('data-slug'),
+            texte: b.textContent, haut: b.getBoundingClientRect().height })) })),
+        phrase: (c.querySelector('.te-phrase') || {}).textContent || null };
+    });
+    await aller('/exercice/tr-u127');
+    let ec = await echelleDom();
+    for (let n = 0; n < 20 && !ec; n++) { await attendre(250); await aller('/exercice/tr-u127'); ec = await echelleDom(); }
+    const m127 = (r) => ec && ec.marches.filter((m) => m.rang === String(r))[0];
+    ok('[127] C — « Ton échelle » en tête du Résumé : quatre marches, du plus difficile au plus facile',
+      !!ec && ec.premier && JSON.stringify(ec.marches.map((m) => m.rang)) === '["4","3","2","1"]', JSON.stringify(ec));
+    ok('[127] C — DISCRIMINANT : ta marche (ambre) est l’élastique, avec son meilleur ; la suivante est la stricte, la marche de la page soulignée ; l’archer porte « habileté »',
+      !!ec && /\btienne\b/.test(m127(1).classes) && /Ton meilleur : Aide 25 kg × 12/.test(sp(m127(1).exos[0].texte)) &&
+        /\bsuivante\b/.test(m127(2).classes) && /\bvue\b/.test(m127(2).classes) && !/\btienne\b/.test(m127(2).classes) &&
+        /habileté/.test(m127(4).exos[0].texte), JSON.stringify(ec));
+    ok('[127] C — la phrase de la suivante : la condition de la carte (12 reps), « Elle s’ajoute : tu gardes … »',
+      !!ec && sp(ec.phrase).replace(/'/g, '’') === 'La suivante : Tractions U127. Je te la propose quand tu tiens 12 reps sur toutes tes séries, deux séances de suite. Elle s’ajoute : tu gardes Tractions U127 (Élastique).',
+      JSON.stringify(ec && ec.phrase));
+    ok('[127] C — chaque marche est une cible tactile de 44 px au moins',
+      !!ec && ec.marches.every((m) => m.exos.every((x) => x.haut >= 44)), JSON.stringify(ec && ec.marches.map((m) => m.exos.map((x) => x.haut))));
+    await page.evaluate(() => document.querySelector('#page-exercice .te-exo[data-slug="tr-u127-archer"]').click());
+    await attendre(700);
+    ok('[127] C — toucher une marche ouvre sa page',
+      (await page.evaluate(() => location.pathname)) === '/exercice/tr-u127-archer' &&
+        /Tractions U127 Archer/.test(await texte('#page-exercice h2')), JSON.stringify(await page.evaluate(() => location.pathname)));
+    await aller('/exercice/squat-barre');
+    ok('[127] C — un exercice sans échelle : pas de « Ton échelle »',
+      (await page.evaluate(() => !!document.querySelector('#page-exercice .ton-echelle'))) === false, '');
+
+    // ── D. « PAS MAINTENANT » : `{ r: non, le, aide: −25 }` ; la séance ne change pas ; à la même aide, plus de carte.
+    profil127().marche_reponses = marcheAvant127 === undefined ? null : marcheAvant127;
+    await aller('/saisie');
+    await demarrerRoutine('Échelle U127');
+    await attendre(900);
+    ok('[127] D — sans réponse, la carte est là', (await cartes127()).length === 1, JSON.stringify(await cartes127()));
+    const avantD = JSON.stringify((await plan127()).map((x) => x.slug));
+    await page.evaluate(() => document.querySelector('.proposition-marche .pc-refuser').click());
+    await jusqua(async () => !!(profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique']), 8000);
+    await attendre(900);
+    const rd = profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique'];
+    ok('[127] D — « Pas maintenant » s’écrit au profil avec l’aide du jour : `{ r: non, le, aide: −25 }`, et la séance ne change pas',
+      !!rd && rd.r === 'non' && rd.aide === -25 && !!rd.le && (await cartes127()).length === 0 &&
+        JSON.stringify((await plan127()).map((x) => x.slug)) === avantD, JSON.stringify([rd, await plan127()]));
+    await abandonner();
+    poser127('e127-5', 5, -25, 12);
+    await aller('/saisie');
+    await demarrerRoutine('Échelle U127');
+    await attendre(900);
+    ok('[127] D — DISCRIMINANT : une séance de plus à la MÊME aide (−25) au haut de la zone : pas de carte',
+      (await cartes127()).length === 0 && !((await plan127()).filter((x) => x.carte)[0]), JSON.stringify(await plan127()));
+    await abandonner();
+    poser127('e127-6', 4, -20, 12);
+    await aller('/saisie');
+    await demarrerRoutine('Échelle U127');
+    await attendre(900);
+    ok('[127] D — DISCRIMINANT : une seule séance à l’aide plus légère (−25 puis −20) : deux aides différentes, pas de carte',
+      (await cartes127()).length === 0, JSON.stringify(await cartes127()));
+    await abandonner();
+    poser127('e127-7', 3, -20, 12);
+    await aller('/saisie');
+    await demarrerRoutine('Échelle U127');
+    await attendre(900);
+    const cd = await cartes127();
+    ok('[127] D — DISCRIMINANT : deux séances à une aide PLUS LÉGÈRE (−20) au haut de la zone : la carte revient',
+      cd.length === 1 && /^Aide 20 kg × 12/.test(sp(cd[0].texte)), JSON.stringify(cd));
+    await abandonner();
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    CATALOGUE.splice(catalogueAvant127, CATALOGUE.length - catalogueAvant127);
+    const iR127 = ROUTINES.indexOf(ROUTINE_127);
+    if (iR127 >= 0) ROUTINES.splice(iR127, 1);
+    base.sets = base.sets.filter((x) => sessions127.indexOf(x.session_id) < 0);
+    base.sessions = base.sessions.filter((x) => sessions127.indexOf(x.id) < 0);
+    profil127().marche_reponses = marcheAvant127 === undefined ? null : marcheAvant127;
+    await aller('/saisie');
+    ok('[127] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations127 && base.journal.filter((j) => j.op === 'refus').length === refus127 &&
+        erreurs.length === erreurs127,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus127), erreurs.slice(erreurs127)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

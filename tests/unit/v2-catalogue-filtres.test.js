@@ -28,49 +28,55 @@ const CAT = [
 ];
 const slugs = (l) => l.map((e) => e.slug);
 
+// 126 (ES §7 quindecies.11) — `Routines.chercher(exercices, requete, options)` : les filtres sont `options.filtres`, le
+// matériel du profil `options.equipements`. L'ORDRE a changé par la règle : champ vide, la liste filtrée suit l'ordre de
+// la recherche, dont le dernier critère est l'alphabet du nom replié (avant, le champ vide gardait l'ordre du catalogue).
+const chercherAvec = (cat, q, filtres, autres) => Routines.chercher(cat, q, Object.assign({ filtres }, autres || {}));
 describe('67B — Routines.chercher : les filtres, avant l’ordre et la limite', () => {
-  test('sans filtre : à l’identique (le 5ᵉ argument absent, nul ou vide)', () => {
+  test('sans filtre : à l’identique (le filtre absent, nul ou vide)', () => {
     ['', 'tirage', 'squat barre'].forEach((q) => {
       const avant = slugs(Routines.chercher(CAT, q));
-      expect(slugs(Routines.chercher(CAT, q, undefined, undefined, null))).toEqual(avant);
-      expect(slugs(Routines.chercher(CAT, q, undefined, undefined, { equipement: null, muscle: null }))).toEqual(avant);
+      expect(slugs(chercherAvec(CAT, q, null))).toEqual(avant);
+      expect(slugs(chercherAvec(CAT, q, { equipement: null, muscle: null }))).toEqual(avant);
     });
   });
 
   test('le matériel seul, le muscle seul, les deux, et avec un nom : nom ET matériel ET muscle', () => {
-    expect(slugs(Routines.chercher(CAT, '', 30, null, { equipement: 'machine' })))
-      .toEqual(['tirage_machine', 'tirage_convergent', 'rowing_machine', 'velo']);
-    expect(slugs(Routines.chercher(CAT, '', 30, null, { muscle: 'grand_dorsal' })))
-      .toEqual(['tirage_machine', 'tirage_convergent', 'tirage_poulie']);
-    expect(slugs(Routines.chercher(CAT, '', 30, null, { equipement: 'machine', muscle: 'grand_dorsal' })))
-      .toEqual(['tirage_machine', 'tirage_convergent']);
-    expect(slugs(Routines.chercher(CAT, 'convergent', 30, null, { equipement: 'machine', muscle: 'grand_dorsal' })))
+    // 126 — champ vide : l'alphabet du nom replié (« rowing divergent… » < « tirage poitrine convergent… » <
+    // « tirage poitrine machine » < « velo »), et non plus l'ordre du catalogue.
+    expect(slugs(chercherAvec(CAT, '', { equipement: 'machine' })))
+      .toEqual(['rowing_machine', 'tirage_convergent', 'tirage_machine', 'velo']);
+    expect(slugs(chercherAvec(CAT, '', { muscle: 'grand_dorsal' })))
+      .toEqual(['tirage_convergent', 'tirage_machine', 'tirage_poulie']);
+    expect(slugs(chercherAvec(CAT, '', { equipement: 'machine', muscle: 'grand_dorsal' })))
+      .toEqual(['tirage_convergent', 'tirage_machine']);
+    expect(slugs(chercherAvec(CAT, 'convergent', { equipement: 'machine', muscle: 'grand_dorsal' })))
       .toEqual(['tirage_convergent']);
-    expect(slugs(Routines.chercher(CAT, 'rowing', 30, null, { muscle: 'grand_dorsal' }))).toEqual([]);
+    expect(slugs(chercherAvec(CAT, 'rowing', { muscle: 'grand_dorsal' }))).toEqual([]);
   });
 
   test('⚠️ un muscle SECONDAIRE ne fait pas sortir l’exercice (le squat n’est pas dans « Fessiers »)', () => {
-    expect(slugs(Routines.chercher(CAT, '', 30, null, { muscle: 'fessiers' }))).toEqual(['hip_thrust']);
-    expect(slugs(Routines.chercher(CAT, '', 30, null, { muscle: 'biceps' }))).toEqual([]);
+    expect(slugs(chercherAvec(CAT, '', { muscle: 'fessiers' }))).toEqual(['hip_thrust']);
+    expect(slugs(chercherAvec(CAT, '', { muscle: 'biceps' }))).toEqual([]);
   });
 
   test('le cardio (sans muscle) sort sans filtre de muscle, jamais avec', () => {
-    expect(slugs(Routines.chercher(CAT, 'velo', 30, null, { equipement: 'machine' }))).toEqual(['velo']);
-    expect(slugs(Routines.chercher(CAT, 'velo', 30, null, { equipement: 'machine', muscle: 'quadriceps' }))).toEqual([]);
+    expect(slugs(chercherAvec(CAT, 'velo', { equipement: 'machine' }))).toEqual(['velo']);
+    expect(slugs(chercherAvec(CAT, 'velo', { equipement: 'machine', muscle: 'quadriceps' }))).toEqual([]);
   });
 
   test('⚠️ la limite après les filtres : un 31ᵉ exercice filtré n’est jamais perdu derrière 30 non filtrés', () => {
     const grand = [];
     for (let i = 1; i <= 30; i++) grand.push(ex('a' + i, 'Aaa ' + String(i).padStart(2, '0'), 'barre', ['pectoraux']));
     grand.push(ex('zz', 'Zzz Machine', 'machine', ['pectoraux']));
-    expect(slugs(Routines.chercher(grand, '', undefined, null, { equipement: 'machine' }))).toEqual(['zz']);
-    expect(Routines.chercher(grand, '', undefined, null, null).length).toBe(30);
+    expect(slugs(chercherAvec(grand, '', { equipement: 'machine' }))).toEqual(['zz']);
+    expect(chercherAvec(grand, '', null).length).toBe(30);
   });
 
-  test('l’ordre du profil (4ᵉ argument) s’applique au résultat filtré, sans le recouper', () => {
-    const inverse = (l) => l.slice().reverse();
-    expect(slugs(Routines.chercher(CAT, '', 30, inverse, { equipement: 'machine', muscle: 'grand_dorsal' })))
-      .toEqual(['tirage_convergent', 'tirage_machine']);
+  test('le matériel du profil (`equipements`) range le résultat filtré, sans le recouper', () => {
+    // 126 — le rangement du matériel est le critère 6 de la recherche (il remplace l'ancien 4ᵉ argument `ordre`).
+    expect(slugs(chercherAvec(CAT, '', { muscle: 'grand_dorsal' }, { equipements: ['aucun', 'poulie'] })))
+      .toEqual(['tirage_poulie', 'tirage_convergent', 'tirage_machine']);
   });
 });
 
@@ -163,21 +169,27 @@ function bac() {
   const $ = (id) => noeuds[id] || (noeuds[id] = { id, value: '', hidden: false, focus: () => {} });
   const vues = [];
   const ctx = {
-    Routines, Profil, Semaine, profil: {}, local: { exercices: CAT }, seance: null, vues: { seance: { hidden: true } },
-    faits: { datesDesExercices: () => ({}) }, corpus: () => ({}), $,
+    Routines, Profil, Semaine, Modele: global.THModele, profil: {}, local: { exercices: CAT, alias: [] }, seance: null,
+    vues: { seance: { hidden: true } }, brouillon: null, construit: null,
+    // 126 — les faits de la recherche (le nombre de séances, l'historique d'une routine, les récents).
+    faits: { seancesParExercice: () => ({}), exercicesDeLaRoutine: () => [], exercicesRecents: () => ({ recents: [], plusFaits: [] }) },
+    corpus: () => ({}), $, freresDe: () => [],
     Rendu: {
       rendreFiltresExo: (c, compte, v) => { ctx.__filtres = v; },
-      rendreResultatsExo: (c, liste, choisir, ecartes, decrire) => { ctx.__liste = liste.map((e) => e.slug); ctx.__decrire = decrire; },
+      rendreResultatsExo: (c, liste, choisir, ecartes, decrire) => { ctx.__liste = liste.map((e) => e.slug); ctx.__decrire = decrire; ctx.__vide = null; },
+      // 126 — le champ vide, sans filtre : les suggestions et la phrase du pied, plus la liste.
+      rendreSuggestionsExo: (c, v) => { ctx.__liste = null; ctx.__vide = v; ctx.__decrire = v.decrire; },
       rendreFeuilleChoix: (c, v) => { ctx.__choix = v; },
       message: () => {}
     },
-    ouvrirVoile: () => {}, fermerVoile: () => {}, intentionCatalogue: null, faitsDuCatalogue: null,
+    ouvrirVoile: () => {}, fermerVoile: () => {}, intentionCatalogue: null, faitsDuCatalogue: null, contexteDuCatalogue: null,
     indiceOuNul: (v) => (v === undefined || v === null ? null : v), vues2: vues
   };
   vm.createContext(ctx);
   vm.runInContext(varDe('FILTRES_CATALOGUE'), ctx);
   vm.runInContext('var filtresCatalogue = { equipement: null, muscle: null };', ctx);
-  ['ordreDuCatalogue', 'rendreCatalogue', 'ouvrirCatalogue', 'ouvrirChoixFiltre', 'retirerFiltre', 'descriptionExo']
+  ['optionsDuCatalogue', 'contexteCatalogue', 'slugsDesLignes', 'mentionsExo', 'rendreCatalogue', 'ouvrirCatalogue',
+    'ouvrirChoixFiltre', 'retirerFiltre', 'descriptionExo']
     .forEach((n) => vm.runInContext(extraire(n), ctx));
   ctx.noeuds = noeuds;
   return ctx;
@@ -199,13 +211,14 @@ describe('67B — le câblage du catalogue (app.js)', () => {
     expect(c.__choix.titre).toBe('Muscle principal');
     expect(c.__choix.options[0]).toEqual({ cle: '', libelle: 'Tous les muscles' });
     c.__choix.surChoix('grand_dorsal');
-    expect(c.__liste).toEqual(['tirage_machine', 'tirage_convergent']);
+    // 126 — l'ordre de la recherche, champ vide : l'alphabet du nom replié (avant : l'ordre du catalogue).
+    expect(c.__liste).toEqual(['tirage_convergent', 'tirage_machine']);
     expect(c.__filtres.compte).toBe('2 exercices');
     expect(c.__filtres.filtres.map((f) => [f.libelle, f.actif])).toEqual([['Machine', true], ['Grand dorsal', true]]);
     lancer(c, 'ouvrirChoixFiltre("muscle")');
     expect(c.__choix.valeur).toBe('grand_dorsal');
     c.__choix.surChoix('');                                          // « Tous les muscles » : remis à zéro
-    expect(c.__liste).toEqual(['tirage_machine', 'tirage_convergent', 'rowing_machine', 'velo']);
+    expect(c.__liste).toEqual(['rowing_machine', 'tirage_convergent', 'tirage_machine', 'velo']);
     expect(c.__filtres.compte).toBe('4 exercices');
   });
 
@@ -219,10 +232,10 @@ describe('67B — le câblage du catalogue (app.js)', () => {
     c.__filtres.surRetirer('equipement');
     c.noeuds['champ-recherche-exo'].value = '';
     lancer(c, 'rendreCatalogue()');
-    expect(c.__liste).toEqual(['tirage_machine', 'tirage_convergent', 'tirage_poulie']);
+    expect(c.__liste).toEqual(['tirage_convergent', 'tirage_machine', 'tirage_poulie']);
   });
 
-  test('⚠️ DISCRIMINANT — fermer puis rouvrir : les filtres reviennent à zéro (pas de compte, toute la liste)', () => {
+  test('⚠️ DISCRIMINANT — fermer puis rouvrir : les filtres reviennent à zéro (pas de compte, le champ vide sans filtre)', () => {
     const c = bac();
     lancer(c, 'ouvrirCatalogue(null, null)');
     lancer(c, 'filtresCatalogue.equipement = "barre"; filtresCatalogue.muscle = "fessiers"; rendreCatalogue();');
@@ -231,7 +244,10 @@ describe('67B — le câblage du catalogue (app.js)', () => {
     lancer(c, 'ouvrirCatalogue(null, null)');
     expect(c.__filtres.compte).toBe(null);
     expect(c.__filtres.filtres.map((f) => f.actif)).toEqual([false, false]);
-    expect(c.__liste.length).toBe(CAT.length);
+    // 126 (ES §7 quindecies.11) — le champ vide sans filtre montre les suggestions du contexte (ici l'éditeur d'une
+    // routine vide : aucune section) et la phrase, plus toute la liste.
+    expect(c.__liste).toBe(null);
+    expect([c.__vide.sections, c.__vide.pied]).toEqual([[], 'Tape pour chercher dans les 7 exercices.']);
     expect([c.noeuds['choix-filtre-exo'].hidden, c.noeuds['resultats-exo'].hidden]).toEqual([true, false]);
   });
 

@@ -1269,6 +1269,10 @@
     // §10 bis (108) — la salle déclarée pour cet exercice, ou `null` (rien ne
     // change). Elle se décide sur le palier, plus bas, une fois.
     var salleDeclaree = opt.salle || null;
+    // §9.17 bis (127) — l'exercice est sur une ÉCHELLE (l'app le dit, le moteur ne lit pas le catalogue) : le
+    // fondement porte alors les deux dernières séances, niveau et charge (`deuxSeances`), que la carte « marche
+    // suivante » du plan lit sans rien recalculer. Absent ailleurs : une clé n'y figure que si elle a un sens.
+    var surEchelle = opt.echelle === true;
 
     var vues = (seances || []).map(vueDeSeance);
     // §7.6 — les séances neutres ne comptent que pour le rythme (`repriseDe`,
@@ -1414,10 +1418,13 @@
       //     haut) : la ligne au niveau de la dernière séance + 1, AU-DELÀ de la
       //     zone, sans ligne haute — les reps continuent, la règle des coachs
       //     quand on ne peut pas ajouter de poids.
+      //   §9.17 (précisé le 21/10/2026, 127) — le seuil est le haut de la zone ET 8 reps (`seuilDeMarche`) : en
+      //   zone Lourd, à 5 tractions, le coach gratte des reps jusqu'à 8 avant la carte (l'étirement).
       if (poidsDuCorps && ETATS_DE_TEST[etat] === true && haut && haut.charge === null && zone !== null) {
         var niveaux = niveauxDesDeuxDernieres();
+        var seuilLest = seuilDeMarche(zone.haut);
         if (lestReponse === null && lestPossible && niveaux !== null &&
-            niveaux[0] >= zone.haut && niveaux[1] >= zone.haut) {
+            niveaux[0] >= seuilLest && niveaux[1] >= seuilLest) {
           etat = 'carte_lest';
           ligne = ligneDe(P, cible(Math.min(niv + 1, zone.haut)));
           plus = { carteLest: { niveaux: niveaux, bas: zone.bas, haut: zone.haut } };
@@ -1510,6 +1517,12 @@
         f.correction = { zoneDeduite: deduite === null ? null : deduite.cle };
       }
       if (aFond !== null) f.serieAFond = aFond;
+      // §9.17 bis (127) — sur une échelle, les deux dernières séances (niveau et charge), pour la carte « marche
+      // suivante » du plan.
+      if (surEchelle) {
+        var deux = deuxDernieresSeances();
+        if (deux !== null) f.deuxSeances = deux;
+      }
       // ⚠️ `testUnCran` NE SE POSE QUE SUR LE TEST DE LA DERNIÈRE SÉANCE. Le
       // test d'un épisode d'étirement (§9.7) arrive par `plus`, sans lui : on
       // ne juge plus la taille d'un cran qu'on a déjà renoncé à réduire.
@@ -1559,6 +1572,15 @@
       var a = niveauValide(seriesAuPalier(ant[ant.length - 2]));
       var b = niveauValide(seriesAuPalier(ant[ant.length - 1]));
       return a === null || b === null ? null : [a, b];
+    }
+    // §9.17 bis (127) — les MÊMES deux séances, avec leur charge (le palier : 0 au poids du corps, négatif pour une
+    // aide) : « deux séances à la même aide » se lit dessus. `null` comme `niveauxDesDeuxDernieres`.
+    function deuxDernieresSeances() {
+      var niveaux = niveauxDesDeuxDernieres();
+      if (niveaux === null) return null;
+      return [ant[ant.length - 2], ant[ant.length - 1]].map(function (se, i) {
+        return { niveau: niveaux[i], charge: nombre(se.palier) };
+      });
     }
     function comptees(s) {
       var r = compter(s);
@@ -6482,6 +6504,99 @@
     return { titre: carteLestTitre(e), detail: carteLestDetail(e), oui: OUI_LEST, non: NON_LEST };
   }
 
+  // ══ §9.17 bis (127) — L'ÉCHELLE DES VARIANTES : LE SEUIL, LA CARTE « MARCHE SUIVANTE », LA PHRASE DE LA PAGE ════
+  //
+  // ⚠️ LE SEUIL DE 8 REPS N'EST ÉCRIT QU'ICI (21/10/2026, maquette du 17/10, écran 5 ; vérifié auprès des coachs :
+  // 3 × 8 à l'élastique léger avant les strictes, 8 à 10 strictes avant le lest). Au poids du corps, la marche
+  // au-dessus — le lest ou une autre — n'arrive qu'à partir de 8 reps : le niveau à tenir deux séances de suite est
+  // le haut de la zone ET 8 (`seuilDeMarche`). La carte du lest (`consignePour`), la carte « marche suivante »
+  // (`carteMarche`), la phrase de la page (`phraseDeLaSuivante`) et les invariants (I49, I50) le lisent ici.
+  var SEUIL_MARCHE = 8;
+  function seuilDeMarche(haut) {
+    var h = nombre(haut);
+    return Math.max(h === null ? 0 : h, SEUIL_MARCHE);
+  }
+  // « Je te propose d'en faire 2 séries avant » : les séries de travail de la marche ajoutée (maquette du 17/10).
+  var SERIES_MARCHE = 2;
+  // La marche proposée déjà pratiquée dans les 28 derniers jours : pas de carte (Léa faisait déjà ses strictes).
+  var JOURS_MARCHE_FAITE = 28;
+  var NON_MARCHE = 'Pas maintenant';
+  function ouiMarche(nom) { return 'Ajouter ' + nom; }
+
+  // LA CARTE « MARCHE SUIVANTE » (§9.17 bis ; hors lest, qui garde sa carte) : `{ titre, detail, oui, non, cible }`,
+  // ou `null`. Une donnée, comme la carte du lest : l'écran la dessine avec le même composant. Pure — `e` :
+  //   · `marche` : la marche suivante (`THModele.marcheSuivante`), `nomCible` : le nom de sa première cible ;
+  //   · `aide` : l'exercice est une aide (`charge = assistance`) ;
+  //   · `haut` : le haut de la zone ; `seances` : les deux dernières séances non neutres, la plus récente en
+  //     dernier, `{ niveau, charge }` (le fondement de la consigne, `deuxSeances`) ;
+  //   · `reponse` : `profiles.marche_reponses[slug]` (`{ r, le, aide }`), ou `null` ;
+  //   · `cibleFaiteLe` : la date de la dernière séance de la marche proposée (un fait), ou `null` ;
+  //   · `aujourdHui` : le jour de la séance (jamais l'horloge) ; `coachActif` : ni carnet, ni Entretenir.
+  // Mêmes refus que `carte_marche` de la référence, dans le même ordre.
+  function carteMarcheDecidee(e) {
+    var x = e || {};
+    var m = x.marche;
+    if (x.coachActif === false || !m || !m.proposable || !Array.isArray(m.cible) || !m.cible.length) return null;
+    var sc = Array.isArray(x.seances) ? x.seances : [];
+    if (sc.length < 2) return null;
+    var a = sc[sc.length - 2], b = sc[sc.length - 1];
+    var seuil = seuilDeMarche(x.haut);
+    if (!a || !b || !(nombre(a.niveau) >= seuil) || !(nombre(b.niveau) >= seuil)) return null;
+    var aide = x.aide === true;
+    if (aide && !(Math.abs(nombre(a.charge) - nombre(b.charge)) <= 1e-9)) return null;   // deux séances à la même aide
+    var r = x.reponse;
+    if (r) {
+      if (r.r === 'oui') return null;
+      if (!aide) return null;                                        // « Pas maintenant » : une fois, hors aide
+      if (!(nombre(b.charge) > nombre(r.aide) + 1e-9)) return null;  // reposée à une aide plus légère (21/10)
+    }
+    if (x.cibleFaiteLe) {
+      var j = numeroDuJour(jourCivil(x.aujourdHui)), f = numeroDuJour(jourCivil(x.cibleFaiteLe));
+      if (j !== null && f !== null && j - f <= JOURS_MARCHE_FAITE) return null;
+    }
+    return { cible: m.cible[0], nom: x.nomCible || m.cible[0], aide: aide, niveau: nombre(b.niveau), charge: nombre(b.charge) };
+  }
+  // Le titre et le détail s'écrivent chacun par sa fonction : le plan les rédige sous deux captures (§20 bis).
+  // `d` : la décision (`carteMarcheDecidee`).
+  function carteMarcheTitre(d) {
+    var x = d || {};
+    var tenue = x.aide
+      ? enKg(x.charge, regle('marche.aide')) + ' \u00d7 ' + nombreFr(x.niveau, regle('marche.niveau'))
+      : nombreFr(x.niveau, regle('marche.niveau')) + ' reps';
+    return tenue + ' sur toutes tes séries, deux séances de suite.';
+  }
+  function carteMarcheDetail(d) {
+    var x = d || {};
+    return 'La marche au-dessus : ' + x.nom + '. Je te propose d\'en faire ' + nombreFr(SERIES_MARCHE, regle('constante')) +
+           ' séries avant, autant de reps que tu peux.';
+  }
+  function carteMarche(e) {
+    var d = carteMarcheDecidee(e);
+    if (d === null) return null;
+    return { titre: carteMarcheTitre(d), detail: carteMarcheDetail(d), oui: ouiMarche(d.nom), non: NON_MARCHE,
+             cible: d.cible };
+  }
+
+  // LA PHRASE DE « LA SUIVANTE » sur la page d'exercice (ECRAN-SAISIE §7 quater.6) : la condition de la carte, sans
+  // calcul nouveau. `e` : `{ type, nomCible, nomDepart, haut, meilleur }` (`THModele.vueEchelle` la compose).
+  function phraseDeLaSuivante(e) {
+    var x = e || {};
+    var tete = 'La suivante : ' + x.nomCible + '. ';
+    if (x.type === 'habilete') {
+      return tete + 'Une habileté : je ne te la propose pas, c\'est toi qui choisis quand l\'essayer. ' +
+             'Tu peux l\'ajouter à une séance comme n\'importe quel exercice.';
+    }
+    var deux = ' sur toutes tes séries, deux séances de suite.';
+    if (x.type === 'lest') {
+      return tete + 'Je te la propose quand tu tiens ' + nombreFr(seuilDeMarche(x.haut)) + ' reps' + deux +
+             (x.meilleur ? ' Ton meilleur : ' + x.meilleur + '.' : '');
+    }
+    var quand = typeof x.haut === 'number' && x.haut
+      ? nombreFr(seuilDeMarche(x.haut)) + ' reps'
+      : 'le haut de ta zone, et au moins ' + nombreFr(SEUIL_MARCHE) + ' reps,';
+    return tete + 'Je te la propose quand tu tiens ' + quand + deux + ' Elle s\'ajoute : tu gardes ' + x.nomDepart + '.';
+  }
+
   // §8.4 (exception étroite, 03/10/2026) — LE DÉPART DE LA VERSION LESTÉE : sa
   // première ligne vient de la dernière séance de l'exercice libre — le saut de
   // lest, au BAS de la zone — au lieu de « Première fois ici ». Elle n'en hérite
@@ -6712,7 +6827,8 @@
     var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement);
     if (r === null) return null;
     var f = consigne.fondement || {};
-    var garde = { date: f.date, reps: f.reps, seance: f.seance, habitude: f.habitude, correction: f.correction };
+    var garde = { date: f.date, reps: f.reps, seance: f.seance, habitude: f.habitude, correction: f.correction,
+                  deuxSeances: f.deuxSeances };
     var fondement = {};
     Object.keys(garde).forEach(function (cle) { if (garde[cle] !== undefined) fondement[cle] = garde[cle]; });
     fondement.report = { origine: r.origine, zoneAvant: zoneAvant,
@@ -6901,7 +7017,7 @@
     // reste : ce qui suit lit la consigne plafonnée.
     var consigne = consigneApresAFond(seances, avant,
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null,
-        lestReponse: o.lestReponse, lestPossible: o.lestPossible, salle: o.salle || null });
+        lestReponse: o.lestReponse, lestPossible: o.lestPossible, salle: o.salle || null, echelle: o.echelle === true });
     // §9.10 (53-1) — LA ZONE A CHANGÉ depuis la dernière séance : la charge se
     // reporte (la plus basse de la charge déjà tenue et de l'estimation, au bas
     // de la zone). Une seule fois, ici : tout ce qui suit lit cette consigne.
@@ -7697,6 +7813,17 @@
     carteLestDetail: carteLestDetail,
     OUI_LEST: OUI_LEST,
     NON_LEST: NON_LEST,
+    // §9.17 bis (127) — l'échelle des variantes : le seuil de 8 reps, la carte « marche suivante », la phrase de la page.
+    SEUIL_MARCHE: SEUIL_MARCHE,
+    SERIES_MARCHE: SERIES_MARCHE,
+    seuilDeMarche: seuilDeMarche,
+    carteMarche: carteMarche,
+    carteMarcheDecidee: carteMarcheDecidee,
+    carteMarcheTitre: carteMarcheTitre,
+    carteMarcheDetail: carteMarcheDetail,
+    ouiMarche: ouiMarche,
+    NON_MARCHE: NON_MARCHE,
+    phraseDeLaSuivante: phraseDeLaSuivante,
     consigneDepartLeste: consigneDepartLeste,
     seanceDuContrat: seanceDuContrat,
     consigneDExercice: consigneDExercice,

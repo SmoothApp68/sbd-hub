@@ -116,6 +116,8 @@ describe('PR 2 — la suite du constat suit la zone en vigueur', () => {
       periodesAllegees: () => etat.periodes, periodesSerieDePlusDe: () => [], enEdition: () => false,
       // 52-1 : la charge de départ de la routine (MOTEUR §9.21), lue par `optionsDeConsigne`.
       chargeDeDepartDe: () => null,
+      // 127 : la marche à proposer (MOTEUR §9.17 bis), lue par `optionsDeConsigne` — aucune ici.
+      marcheAProposer: () => null,
       // 53-2 bis : la ligne de zone en vigueur (son origine, « Nouveau bloc »).
       ligneDeZoneDe: () => null,
       // 53-2 bis : les zones lues (`local.zones` sans les lignes rendues sans objet par un arrêt).

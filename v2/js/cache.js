@@ -27,14 +27,18 @@
   //   ou Entretenir ; `modes_exercice` en base). Sans perte, comme les autres.
   // VERSION 7 : ajout de `records` (le journal des records, 58-2 ; MOTEUR
   //   §9.23, `v2_061`). Sans perte, comme les autres.
-  var VERSION = 7;
+  // VERSION 8 : ajout de `alias` (les noms alternatifs communs, `exercise_alias`,
+  //   126 — la recherche d'exercice les cherche hors ligne). Sans perte : un
+  //   cache d'avant s'ouvre, le magasin naît vide et se remplit à la
+  //   synchronisation suivante.
+  var VERSION = 8;
   // ⚠️ C'EST CETTE LISTE QUE « QUITTER » VIDE (`viderTout`) : un magasin qui
   // n'y est pas survit à la déconnexion et se relit sous le compte suivant.
   // `records` (58-2) y est ; `predictions` y manquait (relevé de sécurité 59-0)
   // et y est depuis 59-2. Tout magasin créé plus bas doit y figurer — le test
   // `v2-cache-integrite` le vérifie, magasin par magasin.
   var MAGASINS = ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones', 'modes',
-                  'brouillon', 'attente', 'records', 'predictions'];
+                  'brouillon', 'attente', 'records', 'predictions', 'alias'];
   var LOT = 500;
   var _db = null;
   // ⚠️ 117 (audit du 16/10, 06 #7) — UNE AUTRE PAGE QUI GARDE L'ANCIENNE VERSION OUVERTE.
@@ -132,6 +136,9 @@
           db.createObjectStore('records', { keyPath: ['set_id', 'type'] })
             .createIndex('session_id', 'session_id');
         }
+        // 126 — LES NOMS ALTERNATIFS COMMUNS (`exercise_alias`), la clé de la base (`alias`, le nom tel quel). Partagés
+        // comme le catalogue, rafraîchis en entier comme lui (`remplacerTout`).
+        if (!db.objectStoreNames.contains('alias')) db.createObjectStore('alias', { keyPath: 'alias' });
       };
       req.onsuccess = function () {
         if (minuteur) clearTimeout(minuteur);

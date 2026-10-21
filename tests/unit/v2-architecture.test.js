@@ -196,7 +196,16 @@ const GARDEES = [
   { fn: 'carteFinDeBloc', module: 'moteur.js' },
   { fn: 'ciblesDeTemps', module: 'moteur.js' },
   { fn: 'carteRaccourcir', module: 'moteur.js' },
-  { fn: 'feuilleDouleur', module: 'moteur.js' }
+  { fn: 'feuilleDouleur', module: 'moteur.js' },
+  // 127 (MOTEUR §9.17 bis) — l'échelle des variantes : la carte « marche suivante » (le plan la décide et la rédige)
+  // et la phrase de « la suivante » sur la page d'exercice (la condition de la carte, dite hors séance).
+  // `motif` : `x.carteMarche` est aussi le champ du plan que l'écran lit ; seul l'appel qualifié par le moteur compte.
+  { fn: 'carteMarche', module: 'moteur.js',
+    motif: /(?:\bMoteur|\bMoteur\(\)|racine\.THMoteur)\s*\.\s*carteMarche\b/g },
+  { fn: 'carteMarcheDecidee', module: 'moteur.js' },
+  { fn: 'carteMarcheTitre', module: 'moteur.js' },
+  { fn: 'carteMarcheDetail', module: 'moteur.js' },
+  { fn: 'phraseDeLaSuivante', module: 'moteur.js' }
 ];
 
 // ── LA LISTE D'AUTORISATIONS ────────────────────────────────────────────────
@@ -213,6 +222,12 @@ const LE_COACH = 'plan.js';
 // (29/09/2026) et sont RAPPORTÉES dans sa PR pour décision : elles ne sont pas
 // forcées dans le plan par ce commit.
 const AUTORISATIONS = {
+  phraseDeLaSuivante: {
+    'app.js': 'ECRAN-SAISIE §7 quater.6 (127) : « Ton échelle » vit sur la page d’exercice, hors séance — donc sans plan ; ' +
+      'l’app passe la fonction à `Modele.vueEchelle`, qui lui donne la marche suivante (`Modele.marcheSuivante`), le ' +
+      'haut de la zone en vigueur et le meilleur déjà formaté ; la phrase redit la condition de la carte, sans rien ' +
+      'décider (app.js, `vueEchelleDe`).'
+  },
   projection: {
     'app.js': 'MOTEUR §9.25 (109) : l’objectif se pose sur la page d’exercice, hors séance — donc sans plan ; la date ' +
       'se projette UNE fois, à la pose (app.js, `poserObjectif`), et la ligne `objectifs` la garde figée — ou, pour un ' +
@@ -473,7 +488,7 @@ const NOTIONS = [
       'meilleure série — deux nombres pour le même exercice et la même date, à un tap.' },
   { notion: 'le record de charge (la ligne la plus lourde de la table)', pr: 'PR 5',
     module: 'modele.js', fonction: 'recordDeLaTable', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['rendreExercice'] },
+    parAilleurs: { 'app.js': ['recordDeLaPage'] },
     raison: 'décision du 02/10/2026 : un record est un fait, exploration comprise ; la fiche ' +
       'l’écartait et pouvait s’afficher sous la ligne « 1 rep » de la table.' },
   { notion: 'la consigne d’un exercice hors de l’en-tête (étiquette, zone déduite, cible)', pr: 'PR 5',
@@ -525,9 +540,10 @@ const NOTIONS = [
     // second calcul (même forme que `estTravail`).
     motif: /\.\s*exercicesFaits\s*\(/g,
     par: ['resumerSeance'],
-    parAilleurs: { 'app.js': ['sommaireExercices'], 'faits.js': ['datesDesExercices'] },
+    parAilleurs: { 'app.js': ['sommaireExercices'], 'faits.js': ['datesDesExercices', 'exercicesFaitsParSeance'] },
     raison: 'décision du 02/10/2026 : Progression, le profil et la carte comptaient les exercices ' +
-      'de trois façons (une ligne de chauffe suffisait au profil).' },
+      'de trois façons (une ligne de chauffe suffisait au profil). 126 : la recherche d’exercice compte les séances ' +
+      'où chaque exercice est fait par la même définition, séance par séance (`exercicesFaitsParSeance`).' },
   { notion: 'les séries hors chauffe (« monte en charge », §5.1) — PAS la série de travail', pr: 'PR 7',
     module: 'palier.js', fonction: 'seriesHorsChauffe', lecteurs: [],
     par: ['etatsExercices'],
@@ -562,7 +578,7 @@ const NOTIONS = [
       '69 : les nombres que Hevy écrit (« 31,5 kg », « 1.17 » km) se lisent ici aussi (`importhevy.js`). 109 : la ' +
       'charge et les reps d’un objectif tapées dans sa feuille (`objectif.js`, `lireSaisie`).' },
   { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
-    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js', 'parcours.js', 'deraille.js'],
+    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js', 'parcours.js', 'deraille.js', 'routines.js'],
     parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'],
                    'faits.js': ['barresDuBilan'], 'generateur.js': ['familleDeBarre'], 'parcours.js': ['parcours'] },
     interditAilleurs: { motif: /\.\s*mouvement\b|\[\s*(['"`])mouvement\1\s*\]/,
@@ -572,7 +588,8 @@ const NOTIONS = [
       'barre du bilan (QUESTIONNAIRE §5 ter.2) sont ses frères à la barre — `faits.js` (le fait) et `generateur.js` ' +
       '(la relecture : le lourd en premier, la poussée, le squat à déplacer) les lisent ici, sans relire `mouvement`. ' +
       '75 : le relais d’un exercice moins pratiqué (« Ton parcours », ECRAN-SAISIE §7 bis.14 ter) est un frère ou ' +
-      'un exercice de la même famille (`parcours.js`).' },
+      'un exercice de la même famille (`parcours.js`). 126 : « Les mêmes muscles » de « Remplacer » (ECRAN-SAISIE ' +
+      '§7 quindecies.11) sont d’un AUTRE mouvement — `routines.js` retire les frères, sans relire `mouvement`.' },
   // 67B — les libellés des équipements : une table, à côté de la liste du profil.
   { notion: 'le libellé d’un équipement (« Machine », « Haltère »… ; ECRAN-SAISIE §7 quindecies.10)', pr: '67-U2',
     module: 'profil.js', fonction: 'libelleEquipement', lecteurs: ['app.js'],
@@ -859,7 +876,7 @@ const NOTIONS = [
   { notion: 'les records d’un exercice à une date (le périmètre de la médaille)', pr: '55-U1',
     module: 'modele.js', fonction: 'recordsDeLExercice', lecteurs: ['app.js', 'faits.js', 'objectif.js'],
     par: ['tableauDesRecords'],
-    parAilleurs: { 'app.js': ['rendreExercice'], 'faits.js': ['ceQueJeSais'], 'objectif.js': ['recordA'] },
+    parAilleurs: { 'app.js': ['recordDeLaPage'], 'faits.js': ['ceQueJeSais'], 'objectif.js': ['recordA'] },
     raison: 'MOTEUR §9.23 : le record de charge de la page, sa force estimée (hors des records, D1) et le tableau des records lisent ' +
       'la même table cumulée, sur le même périmètre que la médaille (12 mois pour un matériel de salle). ' +
       '60-2a : « Ce que je sais » montre le maximum de chaque barre par cette même fonction — jamais une seconde. ' +
@@ -995,6 +1012,25 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['rendreMesExercices'] },
     raison: 'PR 6 : « fait » a une définition (`exercicesFaits`) ; sa date et son compte s’assemblent ' +
       'une fois, avec leur oubli explicite.' },
+  // ── 126 — LA RECHERCHE D'EXERCICE (ECRAN-SAISIE §7 quindecies.11) : ses faits dans le module des faits ──
+  { notion: 'les exercices faits de chaque séance (la base des faits de la recherche d’exercice)', pr: '126-U1',
+    module: 'faits.js', fonction: 'exercicesFaitsParSeance', lecteurs: [],
+    par: ['seancesParExercice', 'exercicesDeLaRoutine', 'exercicesRecents'],
+    raison: 'ECRAN-SAISIE §7 quindecies.11 : « déjà fait », sa fréquence dans une routine, les récents et les plus faits ' +
+      'lisent un seul balayage, gardé par la clé « séances | séries », sur la définition unique (`exercicesFaits`).' },
+  { notion: 'le nombre de séances où chaque exercice est fait (« le plus fait d’abord » de la recherche)', pr: '126-U1',
+    module: 'faits.js', fonction: 'seancesParExercice', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['optionsDuCatalogue'] },
+    raison: 'ECRAN-SAISIE §7 quindecies.11 (critère 4) : un nombre de séances, toute l’histoire, pas une date ; ' +
+      'la recherche, ses suggestions et « Les plus proches » le lisent ici.' },
+  { notion: 'les exercices faits dans les séances passées d’une routine, le plus fréquent d’abord (« Souvent avec cette séance »)', pr: '126-U1',
+    module: 'faits.js', fonction: 'exercicesDeLaRoutine', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['contexteCatalogue'] },
+    raison: 'ECRAN-SAISIE §7 quindecies.11 : le champ vide d’une séance partie d’une routine (`sessions.routine_id`).' },
+  { notion: 'les derniers exercices faits et les plus faits sur 3 mois (« Récents », « Les plus faits »)', pr: '126-U1',
+    module: 'faits.js', fonction: 'exercicesRecents', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['contexteCatalogue'] },
+    raison: 'ECRAN-SAISIE §7 quindecies.11 : le champ vide d’une séance libre.' },
   { notion: 'le compte des exercices faits (le profil)', pr: '58-U1',
     module: 'faits.js', fonction: 'compterExercices', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreProfilEcran'] },
@@ -1430,6 +1466,40 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'marchesDesParis', lecteurs: ['app.js'],
     raison: 'une lecture des lignes `predictions` (module escalier) : les périodes de la série de plus, l’observation et ' +
       'la démonstration lisent les mêmes marches.' },
+  // 127 (MOTEUR §9.17 bis, ECRAN-SAISIE §7 quater.6) — l'échelle des variantes.
+  { notion: 'le seuil d’une marche au poids du corps (le haut de la zone et 8 reps : le lest comme la marche suivante)', pr: '127-U1',
+    module: 'moteur.js', fonction: 'seuilDeMarche', lecteurs: ['plan.js'],
+    par: ['consignePour', 'carteMarcheDecidee', 'phraseDeLaSuivante'],
+    raison: 'MOTEUR §9.17 et §9.17 bis (21/10/2026) : la carte du lest, la carte « marche suivante », la phrase de la page ' +
+      'et les invariants I49 et I50 lisent le même seuil, écrit une fois (`SEUIL_MARCHE`).' },
+  { notion: 'la marche suivante d’un exercice d’échelle (`echelle`, `echelle_rang` au catalogue)', pr: '127-U1',
+    module: 'modele.js', fonction: 'marcheSuivante', lecteurs: ['app.js'],
+    par: ['vueEchelle'],
+    parAilleurs: { 'app.js': ['marcheAProposer'] },
+    interditAilleurs: { motif: /\.\s*echelle_rang\b|\[\s*(['"`])echelle_rang\1\s*\]/,
+      sauf: { 'donnees.js': 'la seconde lecture du catalogue (`accessoiresDuCatalogue`) recopie les deux colonnes telles quelles, sans les interpréter' },
+      raison: '`echelle_rang` lu ailleurs que dans `modele.js` : une seconde définition de l’échelle' },
+    raison: 'MOTEUR §9.17 bis : une seule fonction, lue par la carte du plan (l’app la lui passe, `entreesDuPlan`) ' +
+      'et par la page d’exercice (« Ton échelle ») — aucun écran ne recalcule une marche.' },
+  { notion: 'l’échelle d’un exercice (la clé, ou `null` sans les colonnes)', pr: '127-U1',
+    module: 'modele.js', fonction: 'echelleDe', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['vueEchelleDe'] },
+    raison: 'ECRAN-SAISIE §7 quater.6 : la page dit « Ton échelle » sur les exercices de la même échelle, lue par la ' +
+      'même fonction que la marche suivante.' },
+  { notion: 'la vue de « Ton échelle » (les marches, ta marche, la suivante, sa phrase)', pr: '127-U1',
+    module: 'modele.js', fonction: 'vueEchelle', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['vueEchelleDe'] },
+    raison: 'ECRAN-SAISIE §7 quater.6 (maquette du 21/10) : la carte ne calcule rien — l’échelle du catalogue, les faits ' +
+      'et la marche suivante ; la vue se rejoue contre la référence (`cas-127.json`).' },
+  { notion: 'le meilleur d’un exercice tel que sa page l’écrit', pr: '127-U1',
+    module: 'modele.js', fonction: 'texteMeilleure', lecteurs: ['rendu.js', 'app.js'],
+    parAilleurs: { 'app.js': ['vueEchelleDe'] },
+    raison: 'ECRAN-SAISIE §7 quater.6 : « Ton meilleur » sur chaque marche est le chiffre de la fiche de sa page, par ' +
+      'le même formateur (venu de `rendu.js`).' },
+  { notion: 'la date d’un meilleur sur « Ton échelle » (« mardi » sur 7 jours, sinon le mois)', pr: '127-U1',
+    module: 'modele.js', fonction: 'quandDeLEchelle', lecteurs: ['app.js'],
+    raison: 'ECRAN-SAISIE §7 quater.6 : la date d’un meilleur, par le formateur des dates (les jours et les mois ne ' +
+      's’écrivent que dans `modele.js`).' },
   { notion: 'une zone par sa clé (bornes, libellé)', pr: '124-U1',
     module: 'moteur.js', fonction: 'zoneParCle', lecteurs: ['app.js', 'plan.js'],
     raison: 'les bornes d’une zone sont écrites une fois (`ZONES`) ; le plan et la démonstration les lisent par la clé.' },
@@ -1906,7 +1976,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : trente-cinq (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : trente-neuf (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1917,7 +1987,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(35);
+    expect(FAITS.length).toBe(39);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

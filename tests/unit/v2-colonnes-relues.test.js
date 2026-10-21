@@ -449,6 +449,18 @@ describe('12. la liste de lecture est DÉRIVÉE, jamais recopiée', () => {
       'muscles_stabilisateurs'].forEach((c) => expect(demandees).toContain(c));
   });
 
+  // ⚠️ `nature`, `description`, `actif` (125, v2_096/v2_097, ECRAN-SAISIE §7 quater.5) — MÊME PIÈGE : omise du `select`,
+  // `description` vaudrait `undefined` et l'onglet « Comment faire » n'existerait jamais ; `actif` omise, les doublons
+  // désactivés seraient proposés partout. Sans une erreur.
+  test('le `select` du catalogue demande `nature`, `description` et `actif` — « Comment faire » et le filtre en dépendent', async () => {
+    const Donnees = charger();
+    await Donnees.tousLesExercices();
+    const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
+    expect(demandees).toEqual(expect.arrayContaining(['nature', 'description', 'actif']));
+    ['slug', 'nom', 'mesure', 'charge', 'parent', 'equipement', 'mouvement', 'muscles_primaires', 'muscles_secondaires',
+      'muscles_stabilisateurs', 'habilete', 'schema_mouvement'].forEach((c) => expect(demandees).toContain(c));
+  });
+
   // 50-1 — la réponse à la carte du lest vit au profil : omises du `select`,
   // `lest_reponse` serait lue vide à chaque rechargement, et la carte reviendrait
   // après chaque réponse.
@@ -495,5 +507,43 @@ describe('12. la liste de lecture est DÉRIVÉE, jamais recopiée', () => {
     expect(requetes[0].table).toBe('modes_exercice');
     const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
     ['id', 'user_id', 'exercise_slug', 'mode', 'choisi_a'].forEach((c) => expect(demandees).toContain(c));
+  });
+});
+
+// 125 (ECRAN-SAISIE §7 quater.5) — UN EXERCICE DÉSACTIVÉ N'ENTRE PAS DANS LE CATALOGUE DE L'APPAREIL. Le filtre vit dans
+// `tousLesExercices`, et seulement là. CONFIGURATION DISCRIMINANTE : trois lignes — `actif: true`, `actif: false`, et
+// une ligne SANS la colonne (cache d'avant, faux serveur). Un filtre sur « vrai » écarterait la troisième ; aucun
+// filtre garderait la deuxième. Seul « écarter `false` et rien d'autre » rend les deux bonnes.
+describe('125. tousLesExercices écarte `actif: false`, et seulement lui', () => {
+  const LIGNES_CAT = [
+    { slug: 'a-actif', nom: 'Actif', actif: true },
+    { slug: 'b-desactive', nom: 'Doublon — désactivé', actif: false },
+    { slug: 'c-sans-colonne', nom: 'Sans colonne' }
+  ];
+  let appels;
+  const clientCatalogue = () => ({
+    from() {
+      const c = {
+        select() { return c; }, eq() { return c; }, gt() { return c; }, or() { return c; },
+        order() { return c; }, limit() { return c; }, range() { return c; },
+        then(res, rej) {
+          appels++;
+          return Promise.resolve({ data: appels === 1 ? LIGNES_CAT.map((l) => Object.assign({}, l)) : [], error: null })
+            .then(res, rej);
+        }
+      };
+      return c;
+    }
+  });
+  beforeEach(() => { appels = 0; });
+  afterEach(() => { delete globalThis.THClient; });
+
+  test('la ligne `actif: false` est écartée ; la ligne active et la ligne sans colonne sont gardées', async () => {
+    globalThis.THSeance = Seance;
+    globalThis.THClient = { obtenir: clientCatalogue };
+    delete require.cache[require.resolve('../../v2/js/donnees.js')];
+    const Donnees = require('../../v2/js/donnees.js');
+    const cat = await Donnees.tousLesExercices();
+    expect(cat.map((e) => e.slug).sort()).toEqual(['a-actif', 'c-sans-colonne']);
   });
 });

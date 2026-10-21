@@ -45,7 +45,7 @@
   var faits = racine.THFaits.creer();
 
   var vues = {};
-  var local = { semaineChoix: [], seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
+  var local = { semaineChoix: [], seances: [], series: [], exercices: [], alias: [], pesees: [], zones: [], modes: [],
                 predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
                 blocs: [], programme: [], records: [], connues: {},
                 objectifs: [], objectifsDispo: null, parisObjectif: [] };
@@ -666,6 +666,16 @@
     return v === 'oui' || v === 'non' ? v : null;
   }
 
+  // MOTEUR §9.17 bis (127) — les réponses à la carte « marche suivante », lues au profil (`marche_reponses`, v2_099) :
+  // `{ [slug de départ]: { r, le, aide } }`, ou `{}` (pas de réponse, colonne absente). La démonstration (`demoMarche`)
+  // garde les siennes EN MÉMOIRE, par-dessus.
+  var demoMarche = null;
+  function marcheReponsesDe() {
+    var v = profil && profil.marche_reponses;
+    var lues = v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+    return demoEscalier() && demoMarche ? Object.assign({}, lues, demoMarche) : lues;
+  }
+
   // 60-2a — LA PESÉE du questionnaire (écran « Toi »). Sur l'appareil d'abord :
   // la courbe, le profil et le rapport au poids la voient tout de suite ; puis
   // par la file. UN identifiant par jour — deux pesées le même jour se
@@ -714,6 +724,9 @@
     local.seances = await Cache.lireTout('seances');
     local.series = await Cache.lireTout('series');
     local.exercices = await Cache.lireTout('exercices');
+    // 126 (ES §7 quindecies.11) — les noms alternatifs communs, avec le catalogue : la recherche les cherche hors
+    // ligne. Un magasin vide (cache d'avant, première ouverture) : la recherche cherche le nom seul, en attendant.
+    try { local.alias = await Cache.lireTout('alias'); } catch (e) { local.alias = []; }
     local.pesees = await Cache.lireTout('pesees');
     // §9.1.1 — les corrections de zone. Elles sont LUES AU DÉMARRAGE comme le
     // reste : une zone choisie hier doit tenir avant même que le réseau
@@ -965,6 +978,10 @@
       var seances = await Donnees.toutesLesSeances();
       var nouvellesSeries = await Donnees.seriesDepuis(curseur);
       var exercices = await Donnees.tousLesExercices();
+      // 126 (ES §7 quindecies.11) — LES NOMS ALTERNATIFS COMMUNS (`exercise_alias`), au même moment que le catalogue
+      // et rangés comme lui (vider-puis-écrire, plus bas). ACCESSOIRES comme les pesées : une lecture qui échoue
+      // n'emporte pas la synchronisation, et le cache garde ce qu'il avait (la recherche trouve toujours par nom).
+      var alias = await essayer(Donnees.aliasCommuns);
       // Les pesées sont ACCESSOIRES : 116 lignes, une page, aucun curseur. Une
       // lecture qui échoue ne doit pas emporter la synchronisation des séries —
       // c'est le gros du travail et le cœur de l'app. `null` veut dire « on
@@ -1048,6 +1065,7 @@
         if (!generationValide(g)) return;
       }
       local.exercices = Sync.remplacer(exercices);
+      if (alias) local.alias = Sync.remplacer(alias);
       // Et MAINTENANT le corpus de lecture : la séance en cours sort ici, une
       // ligne avant que le cache ne soit écrit — donc elle n'y entre pas non
       // plus.
@@ -1063,6 +1081,10 @@
       if (!generationValide(g)) return;
       await Cache.remplacerTout('exercices', local.exercices);
       if (!generationValide(g)) return;
+      if (alias) {
+        await Cache.remplacerTout('alias', local.alias);
+        if (!generationValide(g)) return;
+      }
       if (pesees) {
         // 60-2a — une pesée posée hors ligne n'est pas encore chez le serveur :
         // la liste qu'il envoie ne la contient pas. On la garde, par-dessus
@@ -5440,6 +5462,13 @@
     return consignes.parSlug[slug];
   }
 
+  // §9.17 bis (127) — la marche suivante d'un exercice, quand le coach peut la proposer (`Modele.marcheSuivante`,
+  // la seule définition), sinon `null`.
+  function marcheAProposer(index, slug) {
+    var m = Modele.marcheSuivante(index, slug);
+    return m && m.proposable ? m : null;
+  }
+
   // §13.6 (49-U20) — les frères d'un exercice (`Modele.freresDe`, le même
   // `mouvement`), avec ce que le moteur demande pour rejouer leur compteur :
   // les MÊMES entrées que leur propre consigne (`optionsDeConsigne`).
@@ -5472,6 +5501,9 @@
       // sait livrer : sans version lestée, la carte ne se pose pas.
       lestReponse: lestReponseDe(),
       lestPossible: exo ? Modele.lesteDe(index, slug) !== null : false,
+      // §9.17 bis (127) — l'exercice est sur une échelle avec une marche à proposer : le fondement porte alors ses
+      // deux dernières séances (`deuxSeances`), que lit la carte « marche suivante ».
+      echelle: exo ? marcheAProposer(index, slug) !== null : false,
       // §8.4 — la version lestée part de l'exercice libre : le parent, à la
       // demande (le moteur ne le rejoue que pour une première fois lestée).
       libre: libreDuLeste ? function () {
@@ -6073,6 +6105,21 @@
     if (demoModeEscalier() === 'plafond' && demoPlafond && catalogue[demoPlafond.slug]) {
       catalogue[demoPlafond.slug] = Object.assign({}, catalogue[demoPlafond.slug], { salle: demoPlafond.salle });
     }
+    // §9.17 bis (127) — L'ÉCHELLE : pour chaque exercice qui a une marche à proposer, la marche (catalogue), le nom
+    // et la nature de sa cible, l'aide, et la date de la dernière séance de la cible (`faits.datesDesExercices`).
+    var echelles = {};
+    var datesFaites = null;
+    exos.forEach(function (x) {
+      var slug = x && x.exercise_slug;
+      if (!slug || Object.prototype.hasOwnProperty.call(echelles, slug) || !index[slug]) return;
+      var m = marcheAProposer(index, slug);
+      if (!m) return;
+      if (datesFaites === null) datesFaites = faits.datesDesExercices(corpus());
+      var c = index[m.cible[0]] || {};
+      echelles[slug] = { marche: m, nomCible: c.nom || m.cible[0], aide: index[slug].charge === 'assistance',
+                         cibleHabilete: c.nature ? c.nature === 'habilete' : c.habilete === true,
+                         cibleFaiteLe: datesFaites[m.cible[0]] || null };
+    });
     var lestPlan = lestReponseDe();
     if (demoModeEscalier() === 'lest') {
       lestPlan = demoLest;
@@ -6109,6 +6156,9 @@
       intention: profil ? profil.intention : null,
       modes: modes,
       lestReponse: lestPlan,
+      // MOTEUR §9.17 bis (127) — l'échelle : les marches à proposer et les réponses du profil.
+      echelles: echelles,
+      marcheReponses: marcheReponsesDe(),
       // MOTEUR §17.2 bis (78) — le passé de chaque exercice, figé : le plan décide de la question de réserve.
       reserve: reserveDeLaSeance(),
       // MOTEUR §9.22 (53-2) — les blocs des programmes (la décharge planifiée,
@@ -6437,13 +6487,15 @@
         planMemo.legers === local.parisLegers && planMemo.seances === local.seances &&
         planMemo.demo === demoReponse && planMemo.demoMarches === demoMarches &&
         planMemo.modes === local.modes && planMemo.lest === lestReponseDe() && planMemo.demoLest === demoLest &&
+        planMemo.marches === (profil && profil.marche_reponses) && planMemo.demoMarche === demoMarche &&
         planMemo.blocs === local.blocs) return planMemo.plan;
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
                  edition: edition, constats: constats, catalogue: local.exercices,
                  refus: refusChauffes, escalier: local.escalier, legers: local.parisLegers,
                  seances: local.seances, demo: demoReponse, demoMarches: demoMarches,
-                 modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, blocs: local.blocs, plan: plan };
+                 modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, blocs: local.blocs, plan: plan,
+                 marches: profil && profil.marche_reponses, demoMarche: demoMarche };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit. Un plan du
     // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.
@@ -7037,6 +7089,52 @@
       heriterRoutine(iExo, leste);
       seance = Seance.remplacerExercice(seance, iExo, leste, uuid);
       await apresStructure();
+      return;
+    }
+    if (seance) rendreSeance();
+  }
+
+  // ── MOTEUR §9.17 bis (127) — LA CARTE « MARCHE SUIVANTE » : LA RÉPONSE ─────────
+  //
+  // Sur le modèle de `repondreLest` : la réponse s'écrit AU PROFIL (`marche_reponses[slug de départ]`), par le même
+  // chemin (`poserProfil`, sur l'appareil d'abord, puis la file du profil). Aucun pari : une réponse n'est pas une
+  // consigne.
+  //   · « Ajouter … » : `{ r: 'oui', le }`, et la marche proposée entre dans la séance JUSTE AVANT l'exercice, avec
+  //     2 séries de travail vides ; l'exercice de départ RESTE. Comme tout ajout, il passe par `apresStructure` (puis
+  //     la semaine allégée et la ligne de plus de l'exercice ajouté). Sans historique : « Première fois ici ».
+  //   · « Pas maintenant » : `{ r: 'non', le, aide }` — `aide`, la charge de la dernière séance quand l'exercice est
+  //     une aide (la carte revient à une aide plus légère). La séance ne change pas.
+  // La démonstration (`demoEscalier`) garde la réponse EN MÉMOIRE (`demoMarche`) : rien ne s'écrit.
+  async function repondreMarche(iExo, reponse) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var x = planDeLExercice(iExo);
+    var carte = x && x.carteMarche;
+    if (!carte) return;
+    var oui = reponse === 'oui';
+    var slug = x.slug;
+    var r = oui ? { r: 'oui', le: new Date().toISOString() } : { r: 'non', le: new Date().toISOString() };
+    if (!oui && carte.aide) r.aide = carte.charge;
+    reponseEnCours = true;
+    try {
+      if (demoEscalier()) {
+        var d = Object.assign({}, demoMarche || {});
+        d[slug] = r;
+        demoMarche = d;
+      } else {
+        var toutes = Object.assign({}, (profil && profil.marche_reponses && typeof profil.marche_reponses === 'object' &&
+          !Array.isArray(profil.marche_reponses)) ? profil.marche_reponses : {});
+        toutes[slug] = r;
+        await poserProfil({ marche_reponses: toutes });
+      }
+    } finally {
+      reponseEnCours = false;
+    }
+    if (seance && oui && !demoEscalier()) {
+      var avantAjout = seance.exercices;
+      seance = Seance.insererExercice(seance, iExo, carte.cible, uuid, { series: Moteur.SERIES_MARCHE });
+      await apresStructure();
+      await allegeePourAjout(avantAjout, carte.cible);
+      await ligneDePlusPourAjout(avantAjout, carte.cible);
       return;
     }
     if (seance) rendreSeance();
@@ -7794,6 +7892,13 @@
         return x && x.carteLest ? x.carteLest : null;
       },
       surLest: function (i, reponse) { return repondreLest(i, reponse); },
+      // MOTEUR §9.17 bis (127) — la carte « marche suivante » : le composant de la carte du lest, à la même place.
+      propositionMarche: function (i) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.carteMarche ? x.carteMarche : null;
+      },
+      surMarche: function (i, reponse) { return repondreMarche(i, reponse); },
       // MOTEUR §9.20 (51-3) — la carte de reprise : lue sur le plan ; ses trois
       // gestes passent par les mécanismes existants.
       propositionReprise: function (i) {
@@ -10083,9 +10188,11 @@
     $('pied-rattacher').hidden = !rattacher;
     // 60-1 — les exercices déjà faits, relevés UNE FOIS à l'ouverture : la
     // recherche se relance à chaque frappe, et le balayage des séries est le
-    // coût que `faits` garde déjà hors de la saisie.
+    // coût que `faits` garde déjà hors de la saisie. 126 — et le contexte d'ouverture, avec lui.
     faitsDuCatalogue = null;
-    $('champ-recherche-exo').value = rattacher ? Import.rechercheDe(rattacher) : '';
+    contexteDuCatalogue = null;
+    // 126 (ES §7 quindecies.11) — LE CHAMP S'OUVRE VIDE, Rattacher compris : « Les plus proches » disent pourquoi.
+    $('champ-recherche-exo').value = '';
     // 67B (ES §7 quindecies.10) — les filtres reviennent à zéro à chaque ouverture : un filtre oublié cacherait des
     // exercices la fois suivante.
     filtresCatalogue = { equipement: null, muscle: null };
@@ -10096,8 +10203,11 @@
     $('champ-recherche-exo').focus();
   }
 
+  // 126 — `faitsDuCatalogue` : le nombre de séances de chaque exercice fait (`faits.seancesParExercice`), relevé à
+  // l'ouverture ; `contexteDuCatalogue` : d'où le catalogue s'ouvre (`contexteCatalogue`), relevé avec lui.
   var faitsDuCatalogue = null;
-  // 67B — les deux filtres du catalogue (`Routines.chercher`, 5ᵉ argument), remis à zéro par `ouvrirCatalogue`.
+  var contexteDuCatalogue = null;
+  // 67B — les deux filtres du catalogue (`Routines.chercher`, `filtres`), remis à zéro par `ouvrirCatalogue`.
   var filtresCatalogue = { equipement: null, muscle: null };
   var FILTRES_CATALOGUE = {
     equipement: { titre: 'Matériel', tous: 'Tout le matériel', libelle: function (c) { return Profil.libelleEquipement(c); } },
@@ -10132,21 +10242,75 @@
   function descriptionExo(e) {
     var mats = e.equipement ? Profil.libelleEquipement(e.equipement) : '';
     var m = (e.muscles_primaires || [])[0];
-    return [mats, m ? Semaine.libelleMuscle(m) : ''].filter(Boolean).join(' \u00b7 ');
+    return [mats, m ? Semaine.libelleMuscle(m) : ''].filter(Boolean).join(' · ');
   }
 
-  // 60-1 — LE MATÉRIEL RANGE, IL NE CACHE JAMAIS : les exercices que le
-  // matériel du profil n'a pas passent après, tous les autres gardent l'ordre
-  // de la recherche ; un exercice déjà fait n'est jamais rétrogradé. Appliqué
-  // AVANT la limite de la liste (`Routines.chercher`, 4ᵉ argument), sinon un
-  // exercice du matériel au-delà de la trentième place resterait invisible.
-  function ordreDuCatalogue() {
-    var materiel = profil && profil.materiel;
-    // 60-4 — les ÉCARTÉS passent en fin de liste (ES §7 quindecies.9), même sans matériel renseigné.
-    var ecartes = Profil.ecartesDe(profil);
-    if (!Profil.equipementsDe(materiel) && !ecartes.length) return null;
-    if (faitsDuCatalogue === null) faitsDuCatalogue = faits.datesDesExercices(corpus());
-    return function (liste) { return Profil.rangerParMateriel(liste, materiel, faitsDuCatalogue, ecartes); };
+  // 126 (ES §7 quindecies.11) — LE CONTEXTE D'OUVERTURE, déduit de l'intention (`apres`, `remplace`, `apercu`,
+  // `rattacher`) et de la séance ouverte. Rend la forme de `Routines.suggestions` (`type`, `dans`, et ce que chaque
+  // type lit), plus `va` : « va avec le contexte » pour `Routines.chercher` (les frères, les muscles principaux).
+  //   · Rattacher → `rattacher` ; « Remplacer » (séance, éditeur, aperçu du programme) → `remplacer`, ses frères dans
+  //     l'ordre de la feuille « Remplacer » (`freresDe` : `Seance.freresProposes`), ses muscles ;
+  //   · en séance partie d'une routine → `seance_routine` (l'historique de la routine, `faits.exercicesDeLaRoutine`) ;
+  //     séance libre → `seance_libre` (`faits.exercicesRecents`) ; l'éditeur → `routine`. Les muscles de ce qui est là.
+  function slugsDesLignes(l) {
+    return (l || []).map(function (x) { return x && x.exercise_slug; }).filter(Boolean);
+  }
+  function contexteCatalogue(pourSeance) {
+    var i = intentionCatalogue;
+    var index = Modele.indexerExercices(local.exercices);
+    var musclesDe = function (slugs) {
+      var m = [];
+      slugs.forEach(function (s) {
+        ((index[s] && index[s].muscles_primaires) || []).forEach(function (x) { if (m.indexOf(x) < 0) m.push(x); });
+      });
+      return m;
+    };
+    var pourRemplacer = function (slug, dans) {
+      var freres = slug ? freresDe(slug, dans).map(function (f) { return f.slug; }) : [];
+      return { type: 'remplacer', remplace: slug, dans: dans, freres: freres,
+               va: { freres: freres, muscles: slug ? musclesDe([slug]) : [] } };
+    };
+    if (i.rattacher) return { type: 'rattacher', dans: [], va: {} };
+    if (i.apercu) {
+      var rt = construit && construit.routines && construit.routines[i.apercu.i];
+      var ligne = rt && rt.exercices[i.apercu.k];
+      return pourRemplacer(ligne ? ligne.exercise_slug : null, slugsDesLignes(rt && rt.exercices));
+    }
+    var lignes = pourSeance ? seance.exercices : (brouillon && brouillon.exercices);
+    var dans = slugsDesLignes(lignes);
+    if (i.remplace !== null && lignes && lignes[i.remplace]) return pourRemplacer(lignes[i.remplace].exercise_slug, dans);
+    var va = { muscles: musclesDe(dans) };
+    if (pourSeance && seance.routine_id) {
+      return { type: 'seance_routine', dans: dans, va: va,
+               souvent: faits.exercicesDeLaRoutine(corpus(), seance.routine_id, seance.id) };
+    }
+    if (pourSeance) {
+      var r = faits.exercicesRecents(corpus(), new Date(), seance.id);
+      return { type: 'seance_libre', dans: dans, va: va, recents: r.recents, plus_faits_3_mois: r.plusFaits };
+    }
+    return { type: 'routine', dans: dans, va: va };
+  }
+
+  // 126 — LES OPTIONS DE LA RECHERCHE (`Routines.chercher`, `Routines.suggestions`) : les noms alternatifs du cache, le
+  // nombre de séances de chaque exercice, le matériel déclaré (60-1 : `Profil.equipementsDe`, la règle du matériel
+  // reste `Profil.estHorsMateriel`, appelée par la recherche), les écartés (60-4, à la fin), et le contexte : « va
+  // avec », et l'exercice remplacé, qui n'apparaît jamais.
+  function optionsDuCatalogue(ctx) {
+    if (faitsDuCatalogue === null) faitsDuCatalogue = faits.seancesParExercice(corpus());
+    var c = ctx || {};
+    return { alias: local.alias, faits: faitsDuCatalogue, equipements: Profil.equipementsDe(profil && profil.materiel),
+             ecartes: Profil.ecartesDe(profil), contexte: c.va || {}, exclu: c.type === 'remplacer' ? c.remplace : null };
+  }
+
+  // 126 — LES MENTIONS d'un résultat : « Pas dans Ma salle » (hors du matériel déclaré, jamais fait — la règle de
+  // `Profil.estHorsMateriel`) ; « Déjà dans la routine », dans l'éditeur seulement. « écarté » : le rendu le pose.
+  function mentionsExo(o, ctx) {
+    return function (e) {
+      var m = [];
+      if (!(o.faits[e.slug] > 0) && o.equipements && Profil.estHorsMateriel(e.equipement, o.equipements)) m.push('Pas dans Ma salle');
+      if (ctx.type === 'routine' && ctx.dans.indexOf(e.slug) >= 0) m.push('Déjà dans la routine');
+      return m;
+    };
   }
 
   function rendreCatalogue() {
@@ -10154,15 +10318,19 @@
     // pas arrivé — il dirait que la recherche a échoué alors que c'est la
     // synchronisation qui n'a pas fini. Trouvé au banc d'écran, pas en test.
     if (!local.exercices.length) {
-      return Rendu.message($('resultats-exo'), 'Le catalogue arrive… Il est enregistré sur l\u2019appareil à la première synchronisation.');
+      return Rendu.message($('resultats-exo'), 'Le catalogue arrive… Il est enregistré sur l’appareil à la première synchronisation.');
     }
     // Le même catalogue sert deux écrans : l'éditeur de routine et la séance en
     // cours. C'est la séance qui gagne quand elle est ouverte — on y est.
     var pourSeance = !!seance && !vues.seance.hidden;
+    if (contexteDuCatalogue === null) contexteDuCatalogue = contexteCatalogue(pourSeance);
+    var ctx = contexteDuCatalogue;
+    var o = optionsDuCatalogue(ctx);
     // 67B — les deux filtres, combinés au nom (ET), avant l'ordre et la limite ; le compte quand l'un est actif.
     var requete = $('champ-recherche-exo').value;
     var actif = filtresCatalogue.equipement !== null || filtresCatalogue.muscle !== null;
-    var n = actif ? Routines.chercher(local.exercices, requete, Infinity, null, filtresCatalogue).length : 0;
+    var n = actif ? Routines.chercher(local.exercices, requete,
+      Object.assign({}, o, { filtres: filtresCatalogue, limite: Infinity })).length : 0;
     Rendu.rendreFiltresExo($('filtres-exo'), $('compte-exo'), {
       filtres: ['equipement', 'muscle'].map(function (cle) {
         var v = filtresCatalogue[cle];
@@ -10172,67 +10340,95 @@
       surOuvrir: ouvrirChoixFiltre,
       surRetirer: retirerFiltre
     });
-    Rendu.rendreResultatsExo($('resultats-exo'),
-      Routines.chercher(local.exercices, requete, undefined, ordreDuCatalogue(), filtresCatalogue),
-      function (exo) {
-        // `fermerVoile` rouvre l'aperçu du programme construit (son `retour`) ; le choix prend alors la place.
-        var versApercu = intentionCatalogue.apercu;
-        // 69 — le nom Hevy rattaché : le choix retourne à l'aperçu de l'import.
-        var nomHevy = intentionCatalogue.rattacher;
-        fermerVoile();
-        if (nomHevy) return rattacherNom(nomHevy, exo.slug);
-        if (versApercu) return poserDansLeProgramme(versApercu.i, versApercu.k, exo.slug);
-        if (pourSeance) {
-          // §14.7 (49-U17, delta 49-35) — l'exercice ajouté dont la série de
-          // plus est active reçoit sa ligne de plus, comme à l'ouverture.
-          var avantAjout = seance.exercices;
-          var puisLigneDePlus = function () { return ligneDePlusPourAjout(avantAjout, exo.slug); };
-          // §14.4 (consolidation 4/7) — et, en semaine allégée, ses seules
-          // lignes allégées. Pas au remplacement : la place reprend les lignes
-          // de l'exercice remplacé, déjà allégées à l'ouverture — les réduire
-          // encore les allégerait deux fois. Le remplaçant hérite de sa
-          // routine (`heriterRoutine`).
-          var puisAllegeeEtLigneDePlus = function () {
-            return allegeePourAjout(avantAjout, exo.slug).then(puisLigneDePlus);
-          };
-          if (intentionCatalogue.remplace !== null) {
-            return remplacerDansLaSeance(intentionCatalogue.remplace, exo.slug);
-          }
-          // §9.13 (49-C) — HORS ROUTINE, les séries de travail sont posées
-          // d'emblée : l'habitude de l'exercice, sinon l'intention. Un
-          // pré-remplissage, pas une prescription : « + Série » et le retrait
-          // restent libres.
-          var depart = { series: seriesDeDepartPour(exo.slug) };
-          if (intentionCatalogue.apres !== null) {
-            seance = Seance.insererExercice(seance, intentionCatalogue.apres, exo.slug, uuid, depart);
-            return apresStructure().then(puisAllegeeEtLigneDePlus);
-          }
-          seance = Seance.ajouterExercice(seance, exo.slug, uuid, depart);
-          return apresGeste({ structure: false }).then(puisAllegeeEtLigneDePlus);
+    var choisir = function (exo) {
+      // `fermerVoile` rouvre l'aperçu du programme construit (son `retour`) ; le choix prend alors la place.
+      var versApercu = intentionCatalogue.apercu;
+      // 69 — le nom Hevy rattaché : le choix retourne à l'aperçu de l'import.
+      var nomHevy = intentionCatalogue.rattacher;
+      fermerVoile();
+      if (nomHevy) return rattacherNom(nomHevy, exo.slug);
+      if (versApercu) return poserDansLeProgramme(versApercu.i, versApercu.k, exo.slug);
+      if (pourSeance) {
+        // §14.7 (49-U17, delta 49-35) — l'exercice ajouté dont la série de
+        // plus est active reçoit sa ligne de plus, comme à l'ouverture.
+        var avantAjout = seance.exercices;
+        var puisLigneDePlus = function () { return ligneDePlusPourAjout(avantAjout, exo.slug); };
+        // §14.4 (consolidation 4/7) — et, en semaine allégée, ses seules
+        // lignes allégées. Pas au remplacement : la place reprend les lignes
+        // de l'exercice remplacé, déjà allégées à l'ouverture — les réduire
+        // encore les allégerait deux fois. Le remplaçant hérite de sa
+        // routine (`heriterRoutine`).
+        var puisAllegeeEtLigneDePlus = function () {
+          return allegeePourAjout(avantAjout, exo.slug).then(puisLigneDePlus);
+        };
+        if (intentionCatalogue.remplace !== null) {
+          return remplacerDansLaSeance(intentionCatalogue.remplace, exo.slug);
         }
-        // ⚠️ UNE SEULE LIGNE, VIDE (chantier 43). L'ancien modèle posait
-        // `series: 3` — un défaut hérité de la colonne, qui prescrivait trois
-        // séries à la place de l'utilisateur. Avec une ligne par série, en
-        // poser trois serait le même geste en pire : trois lignes à effacer.
-        // On en pose UNE, parce qu'un exercice à zéro série ne se saisit pas,
-        // et « + Série » recopie la précédente — trois taps pour trois séries.
-        //
-        // Ni reps ni repos par défaut : une valeur inventée se lirait comme une
-        // prescription, et serait pire qu'une absence.
-        //
-        // 60-3 (ES §7 quindecies.8) — « Chercher dans le catalogue » depuis
-        // « Remplacer » : le choix prend la place, il ne s'ajoute pas.
-        if (intentionCatalogue.remplace !== null && brouillon.exercices[intentionCatalogue.remplace]) {
-          return remplacerDansLEditeur(intentionCatalogue.remplace, exo.slug);
+        // §9.13 (49-C) — HORS ROUTINE, les séries de travail sont posées
+        // d'emblée : l'habitude de l'exercice, sinon l'intention. Un
+        // pré-remplissage, pas une prescription : « + Série » et le retrait
+        // restent libres.
+        var depart = { series: seriesDeDepartPour(exo.slug) };
+        if (intentionCatalogue.apres !== null) {
+          seance = Seance.insererExercice(seance, intentionCatalogue.apres, exo.slug, uuid, depart);
+          return apresStructure().then(puisAllegeeEtLigneDePlus);
         }
-        brouillon.exercices.push({
-          id: null, exercise_slug: exo.slug,
-          series: [Routines.enSaisie(null)],
-          repos_cible_s: null, groupe_superset: null, note: null
+        seance = Seance.ajouterExercice(seance, exo.slug, uuid, depart);
+        return apresGeste({ structure: false }).then(puisAllegeeEtLigneDePlus);
+      }
+      // ⚠️ UNE SEULE LIGNE, VIDE (chantier 43). L'ancien modèle posait
+      // `series: 3` — un défaut hérité de la colonne, qui prescrivait trois
+      // séries à la place de l'utilisateur. Avec une ligne par série, en
+      // poser trois serait le même geste en pire : trois lignes à effacer.
+      // On en pose UNE, parce qu'un exercice à zéro série ne se saisit pas,
+      // et « + Série » recopie la précédente — trois taps pour trois séries.
+      //
+      // Ni reps ni repos par défaut : une valeur inventée se lirait comme une
+      // prescription, et serait pire qu'une absence.
+      //
+      // 60-3 (ES §7 quindecies.8) — « Chercher dans le catalogue » depuis
+      // « Remplacer » : le choix prend la place, il ne s'ajoute pas.
+      if (intentionCatalogue.remplace !== null && brouillon.exercices[intentionCatalogue.remplace]) {
+        return remplacerDansLEditeur(intentionCatalogue.remplace, exo.slug);
+      }
+      brouillon.exercices.push({
+        id: null, exercise_slug: exo.slug,
+        series: [Routines.enSaisie(null)],
+        repos_cible_s: null, groupe_superset: null, note: null
+      });
+      apresEditeur();
+    };
+    var mentions = mentionsExo(o, ctx);
+    // 126 (ES §7 quindecies.11) — LE CHAMP VIDE, SANS FILTRE : les suggestions du contexte, puis la phrase. Un filtre
+    // actif : pas de sections, la liste filtrée dans l'ordre de la recherche.
+    if (!Routines.replier(requete) && !actif) {
+      var index = Modele.indexerExercices(local.exercices);
+      var ligne = function (s, m) {
+        var e = index[s];
+        return e ? { exo: e, mentions: mentions(e).concat(m ? [m] : []) } : null;
+      };
+      var sections;
+      if (ctx.type === 'rattacher') {
+        sections = [{ titre: Routines.TITRES_SUGGESTIONS.proches,
+          lignes: Routines.plusProches(local.exercices, intentionCatalogue.rattacher, o).map(function (p) {
+            return ligne(p.slug, p.comme ? 'comme « ' + p.comme + ' »' : null);
+          }).filter(Boolean) }];
+      } else {
+        sections = Routines.suggestions(local.exercices, ctx, o).map(function (sec) {
+          return { titre: sec.titre, lignes: sec.slugs.map(function (s) { return ligne(s, null); }).filter(Boolean) };
         });
-        apresEditeur();
-      },
-      Profil.ecartesDe(profil), descriptionExo);
+      }
+      var pied = ctx.type === 'rattacher' ? 'Ou tape le nom de l’exercice.'
+        : ctx.type === 'remplacer' ? 'Tape pour chercher dans tout le catalogue.'
+        : 'Tape pour chercher dans les ' + local.exercices.length + ' exercices.';
+      return Rendu.rendreSuggestionsExo($('resultats-exo'), {
+        sections: sections.filter(function (sec) { return sec.lignes.length; }),
+        pied: pied, surChoix: choisir, ecartes: o.ecartes, decrire: descriptionExo
+      });
+    }
+    Rendu.rendreResultatsExo($('resultats-exo'),
+      Routines.chercher(local.exercices, requete, Object.assign({}, o, { filtres: filtresCatalogue })),
+      choisir, o.ecartes, descriptionExo, mentions);
   }
 
   // ── Vue Volume : la semaine, le relevé, puis le radar ────────────────────
@@ -10443,7 +10639,6 @@
 
   function rendreExercice(slug, onglet) {
     montrer('exercice', Routeur.EXERCICE);
-    var vueOnglet = onglet === Routeur.EXO_HISTORIQUE ? Routeur.EXO_HISTORIQUE : 'resume';
     // Le « voir plus » ne survit pas à un changement d'exercice : on repart des
     // 20 dernières, sinon une page ouverte sur 60 séances en afficherait 60
     // pour l'exercice suivant sans que personne ne l'ait demandé.
@@ -10456,6 +10651,11 @@
     var mesure = exo ? exo.mesure : null;
     var groupes = faits.seancesDeLExercice(corpus(), slug);
     var toutes = [].concat.apply([], groupes.map(function (g) { return g.series; }));
+    // 125 (ECRAN-SAISIE §7 quater.5) — « COMMENT FAIRE » : la description de la base, mot pour mot, et les
+    // libellés de la fiche, faits ICI (le rendu ne les fabrique pas, comme `descriptionExo`). Sans description,
+    // pas d'onglet. L'onglet ouvert se lit sur l'adresse, les séances et la description (`Routeur.ongletExercice`).
+    var comment = exo && exo.description && String(exo.description).trim() ? vueCommentFaire(exo) : null;
+    var vueOnglet = Routeur.ongletExercice(onglet, groupes.length > 0, !!comment);
 
     // La date d'un record est celle de la SÉANCE, pas `validee_a` : les séries
     // importées ont `validee_a` à NULL (chantier 35, D3).
@@ -10463,11 +10663,10 @@
     groupes.forEach(function (g) {
       g.series.forEach(function (x) { debutDe[x.id] = g.seance.debut; });
     });
-    // §9.23 (55-1) — LE PÉRIMÈTRE D'UN RECORD, une fois pour la page : celui de
-    // la médaille (12 mois pour un matériel de salle, toute la vie ailleurs).
-    var optionsRecords = Modele.optionsDeRecord(exo);
-    var pourRecords = groupes.map(function (g) { return { debut: g.seance.debut, series: g.series }; });
     var maintenant = new Date();
+    var rp = recordDeLaPage(slug, exo, groupes, maintenant);
+    var optionsRecords = rp.optionsRecords;
+    var pourRecords = rp.pourRecords;
     // ECRAN §7 quater.3 (H3, #371) — LA TABLE PAR REPS SUIT CE PÉRIMÈTRE : une
     // page ne montre jamais deux périmètres pour un même record (un 150 kg de
     // février 2025 sous « Record sur 12 mois : 120 kg »). Les séances plus
@@ -10502,13 +10701,8 @@
     // record (la médaille, le tableau des records, le bloc de Progression),
     // AVEC LE PÉRIMÈTRE DE LA MÉDAILLE : un matériel de salle (machines,
     // poulies, haltères, Smith) sur ses 12 derniers mois.
-    var recordsExo = Modele.recordsDeLExercice(pourRecords, maintenant, optionsRecords);
-    var record = mesure === 'charge_reps'
-      ? Modele.recordDeLaTable(recordsExo.table)
-      : Modele.meilleureSerieDeTout(slug, groupes.map(function (g) {
-        return { cle: g.seance.debut, series: g.series };
-      }), local.exercices, Palier, etatsExercices);
-    if (mesure !== 'charge_reps') record.date = record.cle || null;
+    var recordsExo = rp.recordsExo;
+    var record = rp.record;
 
     // MOTEUR §9.23 (55-1), ECRAN §7 bis.15 — LES RECORDS EN TÊTE : la charge
     // la plus lourde, avec sa date (120, D1 : la force estimée — « ≈ », 3 à 10
@@ -10535,6 +10729,8 @@
     }
 
     var visibles = groupes.slice(0, exoAffiche.combien);
+    // 127 (ECRAN-SAISIE §7 quater.6) — « TON ÉCHELLE », en tête du Résumé d'un exercice d'échelle (`null` sinon).
+    var echelle = vueEchelleDe(slug, maintenant);
     // 109 (MOTEUR §9.25) — « MON OBJECTIF » : la carte se LIT (`THObjectif.vue`), la date est celle posée.
     var carteObjectif = carteObjectifDe(slug, exo, groupes, maintenant, vueOnglet);
     // §7 quater — L'ÉTIQUETTE DE ZONE SUR LA PAGE D'EXERCICE. La zone
@@ -10573,6 +10769,7 @@
       } : null,
       mesure: mesure,
       onglet: vueOnglet,
+      comment: comment,
       sousTitre: sousTitreExercice(groupes),
       surOnglet: function (o) { afficherExercice(slug, o); },
       // §7 quater.1 — la séance en cours reste visible, et « Reprendre » y
@@ -10587,6 +10784,8 @@
       recordSurDouzeMois: mesure === 'charge_reps' && recordsExo.douzeMois,
       teteRecords: teteRecords,
       objectif: carteObjectif,
+      tonEchelle: echelle,
+      surMarche: function (s) { afficherExercice(s); },
       volume: {
         nbSeries: Semaine.compteSeriesTravail(toutes, local.exercices),
         nbSeances: groupes.length
@@ -10617,6 +10816,73 @@
     entreAmis(slug, exo);
   }
 
+  // LE RECORD QUE LA PAGE D'UN EXERCICE AFFICHE, une fonction pour deux lecteurs : la fiche (« Record de charge »,
+  // « Record de reps »…) et « Ton échelle » (127), qui montre le même meilleur sur chaque marche faite.
+  //   record de charge → `Modele.recordDeLaTable`, la ligne la plus lourde de la table cumulée (PR 5, §9.23), sur
+  //                      le périmètre de la médaille (12 mois pour un matériel de salle) ;
+  //   autres mesures   → la meilleure série de tout l'historique, datée de sa séance.
+  function recordDeLaPage(slug, exo, groupes, maintenant) {
+    var mesure = exo ? exo.mesure : null;
+    // §9.23 (55-1) — LE PÉRIMÈTRE D'UN RECORD : celui de la médaille (12 mois pour un matériel de salle, toute la
+    // vie ailleurs).
+    var optionsRecords = Modele.optionsDeRecord(exo);
+    var pourRecords = groupes.map(function (g) { return { debut: g.seance.debut, series: g.series }; });
+    var recordsExo = Modele.recordsDeLExercice(pourRecords, maintenant, optionsRecords);
+    var record = mesure === 'charge_reps'
+      ? Modele.recordDeLaTable(recordsExo.table)
+      : Modele.meilleureSerieDeTout(slug, groupes.map(function (g) {
+        return { cle: g.seance.debut, series: g.series };
+      }), local.exercices, Palier, etatsExercices);
+    if (record && mesure !== 'charge_reps') record.date = record.cle || null;
+    return { record: record, recordsExo: recordsExo, optionsRecords: optionsRecords, pourRecords: pourRecords };
+  }
+
+  // 127 (ECRAN-SAISIE §7 quater.6, maquette validée le 21/10/2026) — LA VUE DE « TON ÉCHELLE ». Un câblage, sans
+  // calcul : l'échelle du catalogue et la marche suivante (`Modele.vueEchelle`, qui lit `Modele.marcheSuivante`), les
+  // exercices faits et leur dernière date (`faits.datesDesExercices`), le meilleur de chacun tel que SA page l'affiche
+  // (`recordDeLaPage`, `Modele.texteMeilleure`) et sa date (`Modele.quandDeLEchelle`), le haut de la zone en vigueur
+  // de l'exercice de départ (sa consigne), et la phrase du coach (`Moteur.phraseDeLaSuivante`) — sans phrase en
+  // « Juste un carnet » ou quand l'exercice de départ est en Entretenir. `null` pour un exercice sans échelle.
+  function vueEchelleDe(slug, maintenant) {
+    var index = catalogueIndexe();
+    var E = Modele.echelleDe(index[slug]);
+    if (E === null) return null;
+    var dates = faits.datesDesExercices(corpus());
+    var faites = {};
+    Object.keys(index).forEach(function (s) {
+      var x = index[s];
+      if (Modele.echelleDe(x) !== E || !dates[s]) return;
+      var r = recordDeLaPage(s, x, faits.seancesDeLExercice(corpus(), s), maintenant).record;
+      faites[s] = { meilleur: Modele.texteMeilleure(r) || null,
+                    quand: r && r.date ? Modele.quandDeLEchelle(r.date, maintenant) : null, derniere: dates[s] };
+    });
+    var zonesHaut = {};
+    var actifs = {};
+    Object.keys(faites).forEach(function (s) {
+      var k = consigneDeLExercice(s);
+      var z = k && k.consigne ? Moteur.zoneParCle(k.consigne.zone) : null;
+      if (z) zonesHaut[s] = z.haut;
+      actifs[s] = intentionDeLExercice(s) !== 'entretien';
+    });
+    // La phrase se tait en carnet (le profil) ; en Entretenir (l'exercice de départ), `phraseDe` le sait.
+    var phraseDe = function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(e); };
+    return Modele.vueEchelle(index, slug, faites, zonesHaut, !Moteur.coachSeTait(profil && profil.intention), phraseDe);
+  }
+
+  // 125 — la vue de « Comment faire » : Matériel (`Profil.libelleEquipement`), Travaille (muscles primaires), Aussi
+  // (secondaires), `Semaine.libelleMuscle`, séparés par « · ». Les stabilisateurs restent hors de l'écran (§7 quater.5).
+  function vueCommentFaire(exo) {
+    var muscles = function (l) {
+      return (l || []).map(function (m) { return Semaine.libelleMuscle(m); }).filter(Boolean).join(' \u00b7 ');
+    };
+    return {
+      description: String(exo.description),
+      materiel: exo.equipement ? Profil.libelleEquipement(exo.equipement) : '',
+      travaille: muscles(exo.muscles_primaires),
+      aussi: muscles(exo.muscles_secondaires)
+    };
+  }
+
   // « 123 séances depuis janvier 2024 · dernière le 11 sept. » — trois faits
   // lus sur la liste déjà rangée, aucun jugement. Rien du tout quand il n'y a
   // rien : un exercice jamais fait n'a pas d'histoire à résumer.
@@ -10637,7 +10903,8 @@
 
   function afficherExercice(slug, onglet) {
     var params = { slug: slug };
-    if (onglet === Routeur.EXO_HISTORIQUE) params.onglet = Routeur.EXO_HISTORIQUE;
+    // 125 — `comment` s'adresse comme `historique` (ECRAN-SAISIE §7 quater.5).
+    if (onglet === Routeur.EXO_HISTORIQUE || onglet === Routeur.EXO_COMMENT) params.onglet = onglet;
     allerA(Routeur.EXERCICE, params);
     rendreExercice(slug, onglet);
   }
@@ -14162,11 +14429,12 @@
     // trouve « Développé Couché Haltères ». En réécrire une ici, c'était deux
     // recherches à tenir d'accord (CADRAGE-V2 §2 undecies).
     //
-    // Sa limite par défaut est de 30, et son tri est alphabétique : les deux
-    // sont bons pour un champ de saisie qui cherche UN exercice, faux pour une
-    // liste qui les montre TOUS. On lui demande donc tout, et on trie ici.
+    // Sa limite par défaut est de 30, et son ordre est celui d'un champ de
+    // saisie qui cherche UN exercice (§7 quindecies.11) : faux pour une liste
+    // qui les montre TOUS. On lui demande donc tout, et on trie ici. 126 — elle
+    // cherche aussi les noms alternatifs (le cache `alias`).
     var SANS_LIMITE = 100000;
-    var lignes = Routines.chercher(local.exercices, recherche, SANS_LIMITE)
+    var lignes = Routines.chercher(local.exercices, recherche, { limite: SANS_LIMITE, alias: local.alias })
       .map(function (x) {
         return { slug: x.slug, nom: x.nom || x.slug, quandISO: dates[x.slug] || null };
       });

@@ -140,13 +140,15 @@ describe('60-1 — rangerParMateriel : après, jamais retiré', () => {
   });
 });
 
+// 126 (ES §7 quindecies.11) — le rangement du matériel est un critère de `Routines.chercher` (`options.equipements`,
+// la règle `Profil.estHorsMateriel`), il remplace l'ancien 4ᵉ argument `ordre`. Il range toujours AVANT la limite.
 describe('60-1 — la recherche du catalogue : le rangement passe AVANT la limite', () => {
   // 40 machines qui précèdent, par le nom, 5 haltères : sans rangement, la
   // limite de 30 ne montre que des machines.
   const CAT = [];
   for (let i = 1; i <= 40; i++) CAT.push({ slug: 'a' + i, nom: 'Aaa ' + (i < 10 ? '0' : '') + i, equipement: 'machine' });
   for (let i = 1; i <= 5; i++) CAT.push({ slug: 'z' + i, nom: 'Zzz ' + i, equipement: 'haltere' });
-  const ordre = (liste) => Profil.rangerParMateriel(liste, 'maison_minimal', null);
+  const avecMateriel = (o) => Object.assign({ equipements: Profil.equipementsDe('maison_minimal') }, o || {});
 
   test('témoin : sans rangement, la limite de 30 ne montre aucun haltère', () => {
     const r = Routines.chercher(CAT, '');
@@ -155,27 +157,29 @@ describe('60-1 — la recherche du catalogue : le rangement passe AVANT la limit
   });
 
   test('⚠️ DISCRIMINANT — avec le matériel, les cinq haltères sont en tête, et les machines suivent (jusqu’à la limite)', () => {
-    const r = Routines.chercher(CAT, '', undefined, ordre);
+    const r = Routines.chercher(CAT, '', avecMateriel());
     expect(r).toHaveLength(30);
     expect(r.slice(0, 5).map((x) => x.slug)).toEqual(['z1', 'z2', 'z3', 'z4', 'z5']);
     expect(r[5].equipement).toBe('machine');
   });
 
   test('NE CACHE JAMAIS : sans limite, les 45 exercices sont là', () => {
-    const r = Routines.chercher(CAT, '', 100000, ordre);
+    const r = Routines.chercher(CAT, '', avecMateriel({ limite: 100000 }));
     expect(r).toHaveLength(45);
   });
 
-  test('une requête garde sa pertinence dans chaque groupe, et le matériel passe devant', () => {
+  test('une requête garde sa pertinence : « commence par » passe avant le matériel (126), le matériel range à rang égal', () => {
     const cat = [{ slug: 'pc', nom: 'Presse à cuisses', equipement: 'machine' },
       { slug: 'pb', nom: 'Presse bulgare haltères', equipement: 'haltere' },
       { slug: 'pm', nom: 'Développé presse militaire', equipement: 'haltere' }];
     expect(Routines.chercher(cat, 'presse').map((x) => x.slug)).toEqual(['pc', 'pb', 'pm']);
-    expect(Routines.chercher(cat, 'presse', undefined, ordre).map((x) => x.slug)).toEqual(['pb', 'pm', 'pc']);
+    // 126 — avant : ['pb', 'pm', 'pc'] (le matériel passait devant la pertinence). ES §7 quindecies.11 : le critère 1
+    // (le nom commence par le mot tapé) précède le matériel (critère 6) — « pm » ne commence pas par « presse ».
+    expect(Routines.chercher(cat, 'presse', avecMateriel()).map((x) => x.slug)).toEqual(['pb', 'pc', 'pm']);
   });
 
-  test('sans « ordre », la recherche est celle d’avant (la liste « Tous mes exercices » ne change pas)', () => {
-    expect(Routines.chercher(CAT, '', 100000).map((x) => x.slug)).toEqual(CAT.map((x) => x.slug));
+  test('sans matériel, champ vide : l’alphabet (la liste « Tous mes exercices » ne change pas)', () => {
+    expect(Routines.chercher(CAT, '', { limite: 100000 }).map((x) => x.slug)).toEqual(CAT.map((x) => x.slug));
   });
 });
 
@@ -210,23 +214,27 @@ describe('60-1 — « Machine prise » : les frères que le matériel n’a pas 
 });
 
 describe('60-1 — le branchement dans app.js', () => {
+  // 126 — le champ vide montre les suggestions (ES §7 quindecies.11) : on tape « exo », que tous les noms portent.
   const CAT = [];
-  for (let i = 1; i <= 40; i++) CAT.push({ slug: 'a' + i, nom: 'Aaa ' + (i < 10 ? '0' : '') + i, equipement: 'machine' });
-  for (let i = 1; i <= 5; i++) CAT.push({ slug: 'z' + i, nom: 'Zzz ' + i, equipement: 'haltere' });
+  for (let i = 1; i <= 40; i++) CAT.push({ slug: 'a' + i, nom: 'Exo Aaa ' + (i < 10 ? '0' : '') + i, equipement: 'machine' });
+  for (let i = 1; i <= 5; i++) CAT.push({ slug: 'z' + i, nom: 'Exo Zzz ' + i, equipement: 'haltere' });
 
-  function bacCatalogue(profil, dates) {
+  function bacCatalogue(profil, comptes) {
     const sorties = [];
     const ctx = {
-      Profil, Routines, profil, local: { exercices: CAT }, seance: null, vues: { seance: { hidden: true } },
-      faits: { datesDesExercices: () => dates || {} }, corpus: () => ({}),
-      $: () => ({ value: '' }), Rendu: { rendreResultatsExo: (c, liste) => sorties.push(liste.map((x) => x.slug)), message: () => {},
-                                         rendreFiltresExo: () => {} },
+      Profil, Routines, Modele, profil, local: { exercices: CAT, alias: [] }, seance: null, vues: { seance: { hidden: true } },
+      brouillon: null, construit: null, intentionCatalogue: { apres: null, remplace: null, apercu: null, rattacher: null },
+      // 126 — le nombre de séances de chaque exercice fait (`faits.seancesParExercice`), plus sa date.
+      faits: { seancesParExercice: () => comptes || {} }, corpus: () => ({}),
+      $: () => ({ value: 'exo' }), Rendu: { rendreResultatsExo: (c, liste) => sorties.push(liste.map((x) => x.slug)), message: () => {},
+                                           rendreFiltresExo: () => {} },
       // 67B — les filtres du catalogue (leurs tests : `v2-catalogue-filtres`).
       filtresCatalogue: { equipement: null, muscle: null }, FILTRES_CATALOGUE: { equipement: { tous: 'Tout le matériel', libelle: (c) => c }, muscle: { tous: 'Tous les muscles', libelle: (c) => c } }, descriptionExo: () => '', ouvrirChoixFiltre: () => {}, retirerFiltre: () => {},
-      fermerVoile: () => {}, faitsDuCatalogue: null, sorties
+      fermerVoile: () => {}, faitsDuCatalogue: null, contexteDuCatalogue: null, sorties
     };
     vm.createContext(ctx);
-    ['ordreDuCatalogue', 'rendreCatalogue'].forEach((n) => vm.runInContext(extraire(n), ctx));
+    ['optionsDuCatalogue', 'contexteCatalogue', 'slugsDesLignes', 'mentionsExo', 'rendreCatalogue']
+      .forEach((n) => vm.runInContext(extraire(n), ctx));
     return ctx;
   }
 
@@ -245,7 +253,7 @@ describe('60-1 — le branchement dans app.js', () => {
   });
 
   test('un exercice déjà fait (même une machine) garde son rang', () => {
-    const c = bacCatalogue({ materiel: 'maison_minimal' }, { a1: '2026-09-30T10:00:00Z' });
+    const c = bacCatalogue({ materiel: 'maison_minimal' }, { a1: 3 });
     vm.runInContext('rendreCatalogue()', c);
     expect(c.sorties[0].slice(0, 6)).toEqual(['a1', 'z1', 'z2', 'z3', 'z4', 'z5']);
   });

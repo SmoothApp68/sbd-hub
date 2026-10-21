@@ -230,12 +230,70 @@
   // ⚠️ `schema_mouvement` DEPUIS 67A (v2_074, MOTEUR §13.6 bis) — MÊME PIÈGE : omise, elle vaudrait `undefined`, et
   // « Même famille » disparaîtrait de « Remplacer » sans une erreur. Une ligne sans la colonne (cache d'avant v2_074,
   // faux serveur) se lit sans famille : `Modele.cousinsDe` rend `[]`.
+  // ⚠️ `nature`, `description`, `actif` DEPUIS 125 (v2_096, v2_097, ECRAN-SAISIE §7 quater.5) — MÊME PIÈGE : omises,
+  // elles vaudraient `undefined` sur tout le catalogue, sans une erreur. `description` nourrit l'onglet « Comment
+  // faire » (absente : pas d'onglet). `nature` (force, habilete, mobilite, cardio) est gardée sur la fiche, lue par
+  // aucun écran ni aucune règle encore. ⚠️ COLLISION DE NOM : `nature` existe déjà sur des objets qui NE SONT PAS des
+  // fiches du catalogue — le gabarit de saisie (`Modele.gabaritDe` : `aide` / `lest`), le pas de salle
+  // (`pas.nature === 'exact'`), les citations du coach (`q.nature`, I26). Aucun de ces chemins ne reçoit une fiche.
+  // ⚠️ `actif` : UN EXERCICE DÉSACTIVÉ N'ENTRE PAS DANS LE CATALOGUE DE L'APPAREIL, et le filtre vit ICI, seulement
+  // ici : c'est le seul passage de tout le catalogue, et le faux serveur des bancs ne filtre pas. `actif === false`
+  // seulement : une ligne SANS la colonne (cache d'avant, faux serveur) est gardée. Sûr parce qu'on ne désactive
+  // jamais un exercice déjà utilisé (§7 quater.5).
+  // ⚠️ `hors_salle` DEPUIS 126 (v2_098, ECRAN-SAISIE §7 quindecies.11) — MÊME PIÈGE : omise, elle vaudrait `undefined`
+  // sur tout le catalogue, et la recherche mettrait la natation au rang de la musculation, sans une erreur. Une ligne
+  // SANS la colonne (cache d'avant v2_098, faux serveur) se lit `false` : la recherche lit `e.hors_salle` comme un
+  // booléen. Le catalogue en cache est réécrit en entier à la synchronisation suivante (`remplacerTout`).
+  //
+  // ⚠️ `echelle` ET `echelle_rang` DEPUIS 127 (v2_099, MOTEUR §9.17 bis), `barre_charge_fixe` DEPUIS 128 (v2_099,
+  // MOTEUR §10 bis) — PAS DANS CE `select`. Nommer une colonne que la base n'a pas encore fait refuser TOUTE la requête
+  // (`42703`) : le catalogue ne se synchroniserait plus (le piège vu en #457). Elles se lisent par une SECONDE lecture,
+  // accessoire (`accessoiresDuCatalogue`) : son échec, quel qu'il soit, laisse le catalogue intact — ses lignes sans
+  // échelle ni `barre_charge_fixe` (`undefined` : la salle garde l'ancienne règle), comme avant v2_099. Les trois
+  // colonnes viennent de la même migration : une seule lecture. Une fois v2_099 lancée partout, elles pourront
+  // rejoindre ce `select` (noté pour plus tard).
   function tousLesExercices() {
     return paginerParCle(trancheur(function () {
       return client().from('exercises')
         .select('slug, nom, mesure, charge, parent, equipement, muscles_primaires, muscles_secondaires, ' +
-                'muscles_stabilisateurs, mouvement, habilete, schema_mouvement');
-    }, 'slug'), 'slug');
+                'muscles_stabilisateurs, mouvement, habilete, schema_mouvement, nature, description, actif, hors_salle');
+    }, 'slug'), 'slug').then(function (lignes) {
+      return lignes.filter(function (e) { return !e || e.actif !== false; });
+    }).then(function (lignes) {
+      return accessoiresDuCatalogue().then(function (accessoires) {
+        return poserAccessoires(lignes, accessoires);
+      }, function () { return lignes; });
+    });
+  }
+
+  // La seconde lecture : `{ slug: { echelle?, echelle_rang?, barre_charge_fixe? } }` — les colonnes d'échelle des
+  // seuls exercices d'une échelle, `barre_charge_fixe` quand c'est un booléen (`null` : laissée absente). Elle REJETTE
+  // quand la base refuse (colonne absente, réseau) : `tousLesExercices` garde alors son catalogue tel quel.
+  function accessoiresDuCatalogue() {
+    return paginerParCle(trancheur(function () {
+      return client().from('exercises').select('slug, echelle, echelle_rang, barre_charge_fixe');
+    }, 'slug'), 'slug').then(function (lignes) {
+      var parSlug = {};
+      lignes.forEach(function (l) {
+        if (!l || !l.slug) return;
+        var a = {};
+        if (typeof l.echelle === 'string' && l.echelle && typeof l.echelle_rang === 'number') {
+          a.echelle = l.echelle;
+          a.echelle_rang = l.echelle_rang;
+        }
+        if (typeof l.barre_charge_fixe === 'boolean') a.barre_charge_fixe = l.barre_charge_fixe;
+        if (Object.keys(a).length) parSlug[l.slug] = a;
+      });
+      return parSlug;
+    });
+  }
+  // Les colonnes accessoires posées sur les lignes du catalogue (une copie de chaque ligne qui en a) ; les autres
+  // lignes ne changent pas.
+  function poserAccessoires(lignes, accessoires) {
+    return (lignes || []).map(function (e) {
+      return e && accessoires && Object.prototype.hasOwnProperty.call(accessoires, e.slug)
+        ? Object.assign({}, e, accessoires[e.slug]) : e;
+    });
   }
 
   // ══ ROUTINES — la première écriture du projet v2 ═════════════════════════
@@ -776,6 +834,9 @@
   //     (`alias_exercice_owner`), unicité (`user_id`, `alias_norme`).
   // L'import demande une connexion : ces deux lectures sont faites à l'aperçu,
   // jamais mises en cache.
+  // 126 (ECRAN-SAISIE §7 quindecies.11) — les noms alternatifs communs, LUS PAR LA SYNCHRONISATION avec le catalogue
+  // et gardés dans le cache local (magasin `alias`) : la recherche d'exercice les cherche, hors ligne comprise.
+  // L'import les relit ici, en ligne, comme avant.
   function aliasCommuns() {
     return paginerParCle(trancheur(function () {
       return client().from('exercise_alias').select('alias, slug, source');
@@ -825,6 +886,8 @@
     'id, username, bio, sexe, taille_cm, date_naissance, ' +
     'anciennete, intention, rythme_progression, phase, phase_depuis, materiel, ' +
     'lest_reponse, lest_reponse_le, ' +
+    // 127 (`v2_099`, MOTEUR §9.17 bis) — la réponse à la carte « marche suivante ». FACULTATIVE : ci-dessous.
+    'marche_reponses, ' +
     'seances_par_semaine, duree_seance_min, ' +
     // 60-2a (`v2_065`) — le questionnaire du coach. Omises ici, elles seraient
     // écrites mais jamais relues, et `profil = rendu` les effacerait de l'état
@@ -851,7 +914,7 @@
   // Une colonne de cette liste n'est qu'un confort (l'appareil garde sa propre mémoire) : si la base dit qu'elle
   // n'existe pas, elle quitte la lecture et l'écriture POUR LA SESSION, et la même requête repart une fois sans elle.
   // La migration lancée, le prochain démarrage la reprend. Une colonne obligatoire n'entre JAMAIS ici.
-  var COLONNES_FACULTATIVES = ['bilans_annonces', 'ma_salle'];
+  var COLONNES_FACULTATIVES = ['bilans_annonces', 'ma_salle', 'marche_reponses'];
   var facultativesAbsentes = {};
   function colonnesProfil() {
     return COLONNES_PROFIL.split(', ').filter(function (c) { return !facultativesAbsentes[c]; }).join(', ');

@@ -310,33 +310,34 @@ describe('les gestes : « Je n’en veux pas » dans l’éditeur', () => {
 });
 
 describe('les gestes : le catalogue et « Machine prise » rangent les écartés en fin de liste', () => {
+  // 126 (ES §7 quindecies.11) — le rangement (matériel, écartés) est un critère de `Routines.chercher` : l'app lui passe
+  // ses options (`optionsDuCatalogue` : le matériel déclaré, les écartés), elle ne range plus après coup.
   function bacCatalogue(profil) {
-    const ctx = { Profil, profil, faitsDuCatalogue: null, faits: { datesDesExercices: () => ({}) }, corpus: () => ({}) };
+    const ctx = { Profil, profil, faitsDuCatalogue: null, faits: { seancesParExercice: () => ({}) }, corpus: () => ({}),
+                  local: { alias: [] } };
     vm.createContext(ctx);
-    vm.runInContext(extraire('ordreDuCatalogue'), ctx);
+    vm.runInContext(extraire('optionsDuCatalogue'), ctx);
     return ctx;
   }
-  const liste = [{ slug: 'a', equipement: 'machine' }, { slug: 'b', equipement: 'haltere' }, { slug: 'c', equipement: 'machine' }];
+  const liste = [{ slug: 'a', nom: 'Aaa', equipement: 'machine' }, { slug: 'b', nom: 'Bbb', equipement: 'haltere' },
+    { slug: 'c', nom: 'Ccc', equipement: 'machine' }];
+  const rangee = (c) => slugs(Routines.chercher(liste, '', vm.runInContext('optionsDuCatalogue()', c)));
 
   test('sans matériel ni écarté : aucun rangement (comme avant)', () => {
-    expect(vm.runInContext('ordreDuCatalogue()', bacCatalogue({ materiel: null }))).toBeNull();
-    expect(vm.runInContext('ordreDuCatalogue()', bacCatalogue(null))).toBeNull();
+    const o = vm.runInContext('optionsDuCatalogue()', bacCatalogue({ materiel: null }));
+    expect([o.equipements, o.ecartes]).toEqual([null, []]);
+    expect(rangee(bacCatalogue({ materiel: null }))).toEqual(['a', 'b', 'c']);
+    expect(rangee(bacCatalogue(null))).toEqual(['a', 'b', 'c']);
   });
 
   test('⚠️ DISCRIMINANT — sans matériel mais avec un écarté : il passe en fin de liste (la sortie anticipée ne le saute pas)', () => {
-    const c = bacCatalogue({ materiel: null, exercices_ecartes: ['a'] });
-    const ordre = vm.runInContext('ordreDuCatalogue()', c);
-    expect(typeof ordre).toBe('function');
-    expect(slugs(ordre(liste))).toEqual(['b', 'c', 'a']);
+    expect(rangee(bacCatalogue({ materiel: null, exercices_ecartes: ['a'] }))).toEqual(['b', 'c', 'a']);
   });
 
   test('avec matériel et écartés : ce qu’il a, ce qu’il n’a pas, puis les écartés', () => {
-    const c = bacCatalogue({ materiel: 'maison_minimal', exercices_ecartes: ['b'] });
-    const ordre = vm.runInContext('ordreDuCatalogue()', c);
     // Maison, minimum : pas de machine ('a', 'c' passent après 'b') ; 'b' est écarté : il passe tout à la fin.
-    expect(slugs(ordre(liste))).toEqual(['a', 'c', 'b']);
-    const sansEcarte = vm.runInContext('ordreDuCatalogue()', bacCatalogue({ materiel: 'maison_minimal' }));
-    expect(slugs(sansEcarte(liste))).toEqual(['b', 'a', 'c']);
+    expect(rangee(bacCatalogue({ materiel: 'maison_minimal', exercices_ecartes: ['b'] }))).toEqual(['a', 'c', 'b']);
+    expect(rangee(bacCatalogue({ materiel: 'maison_minimal' }))).toEqual(['b', 'a', 'c']);
   });
 
   test('« Machine prise » en séance : l’écarté est le dernier frère, avec sa mention', () => {
@@ -409,21 +410,25 @@ describe('revue adverse — le catalogue : la mention, la limite de 30, la remis
   const CAT = [];
   for (let i = 1; i <= 35; i++) CAT.push({ slug: 'curl' + i, nom: 'Curl ' + (i < 10 ? '0' : '') + i, equipement: 'haltere' });
 
+  // 126 — le champ vide montre les suggestions (ES §7 quindecies.11) : la liste se lit en tapant « curl ».
   function bacCat(profil) {
     const rendus = [];
     const ctx = {
-      Profil, Routines, profil, local: { exercices: CAT }, seance: null, vues: { seance: { hidden: true } },
-      faits: { datesDesExercices: () => ({ frais: true }) }, corpus: () => ({}),
-      $: () => ({ value: '', focus: () => {} }),
+      Profil, Routines, Modele, profil, local: { exercices: CAT, alias: [] }, seance: null, vues: { seance: { hidden: true } },
+      brouillon: null, construit: null,
+      faits: { seancesParExercice: () => ({ frais: 1 }) }, corpus: () => ({}),
+      $: () => ({ value: 'curl', focus: () => {} }),
       Rendu: { rendreResultatsExo: (c, liste, choisir, ecartes) => rendus.push({ slugs: liste.map((x) => x.slug), ecartes }), message: () => {},
                rendreFiltresExo: () => {} },
       // 67B — les filtres du catalogue (leurs tests : `v2-catalogue-filtres`).
       filtresCatalogue: { equipement: null, muscle: null }, FILTRES_CATALOGUE: { equipement: { tous: 'Tout le matériel', libelle: (c) => c }, muscle: { tous: 'Tous les muscles', libelle: (c) => c } }, descriptionExo: () => '', ouvrirChoixFiltre: () => {}, retirerFiltre: () => {},
-      fermerVoile: () => {}, ouvrirVoile: () => {}, faitsDuCatalogue: { vieux: 1 }, intentionCatalogue: null, rendus,
+      fermerVoile: () => {}, ouvrirVoile: () => {}, faitsDuCatalogue: { vieux: 1 }, contexteDuCatalogue: null,
+      intentionCatalogue: { apres: null, remplace: null, apercu: null, rattacher: null }, rendus,
       indiceOuNul: (v) => (v === undefined || v === null ? null : v)
     };
     vm.createContext(ctx);
-    ['ordreDuCatalogue', 'rendreCatalogue', 'ouvrirCatalogue'].forEach((n) => vm.runInContext(extraire(n), ctx));
+    ['optionsDuCatalogue', 'contexteCatalogue', 'slugsDesLignes', 'mentionsExo', 'rendreCatalogue', 'ouvrirCatalogue']
+      .forEach((n) => vm.runInContext(extraire(n), ctx));
     return ctx;
   }
 
@@ -431,25 +436,24 @@ describe('revue adverse — le catalogue : la mention, la limite de 30, la remis
     const c = bacCat({ exercices_ecartes: ['curl3', 'curl9'] });
     vm.runInContext('rendreCatalogue()', c);
     expect(c.rendus[0].ecartes).toEqual(['curl3', 'curl9']);
-    expect(c.rendus[0].slugs.slice(-0)).toBeDefined();
     expect(c.rendus[0].slugs.indexOf('curl3')).toBe(-1);                   // rangé en fin de liste, donc hors des 30 premiers…
     expect(c.rendus[0].slugs.length).toBe(30);
   });
 
   test('⚠️ DISCRIMINANT — la limite de 30 s’applique APRÈS le rangement : un écarté reste TROUVABLE en tapant son nom, et sans écarté la liste d’avant', () => {
-    expect(slugs(Routines.chercher(CAT, 'curl', undefined, (l) => l.slice().reverse()))[0]).toBe('curl35');   // l'ordre précède la limite
-    const ordre = (l) => Profil.ecartesALaFin(l, ['curl3']);
-    const trente = Routines.chercher(CAT, 'curl', undefined, ordre);
+    // 126 — l'écarté est le premier critère de l'ordre de `Routines.chercher` (`options.ecartes`), avant la limite.
+    const trente = Routines.chercher(CAT, 'curl', { ecartes: ['curl3'] });
     expect(trente.length).toBe(30);
     expect(slugs(trente)).not.toContain('curl3');                              // en fin de liste : hors des 30
-    expect(slugs(Routines.chercher(CAT, 'Curl 03', undefined, ordre))).toContain('curl3');   // …mais trouvable par son nom
-    expect(slugs(Routines.chercher(CAT, 'curl', undefined, null)).slice(0, 3)).toEqual(['curl1', 'curl2', 'curl3']);
+    expect(slugs(Routines.chercher(CAT, 'Curl 03', { ecartes: ['curl3'] }))).toContain('curl3');   // …mais trouvable par son nom
+    expect(slugs(Routines.chercher(CAT, 'curl', { ecartes: ['curl3'], limite: 100 })).slice(-1)).toEqual(['curl3']);
+    expect(slugs(Routines.chercher(CAT, 'curl')).slice(0, 3)).toEqual(['curl1', 'curl2', 'curl3']);
   });
 
   test('l’ouverture du catalogue remet à zéro les exercices faits relevés (un balayage UNE FOIS par ouverture)', () => {
     const c = bacCat({ exercices_ecartes: ['curl3'] });
     vm.runInContext('ouvrirCatalogue(null, null)', c);
     // Remis à zéro puis relevé de nouveau (ici par la liste de l'ouverture) : jamais le relevé de la fois d'avant.
-    expect(c.faitsDuCatalogue).toEqual({ frais: true });
+    expect(c.faitsDuCatalogue).toEqual({ frais: 1 });
   });
 });

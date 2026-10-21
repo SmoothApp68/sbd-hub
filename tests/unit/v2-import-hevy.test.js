@@ -433,7 +433,8 @@ describe('69 — les mots de l’écran (K1 et la maquette, au mot près)', () =
     expect(I.MESSAGES.connexion).toBe('L’import demande une connexion.');
     expect(I.MESSAGES.souvenir).toBe('Je m’en souviendrai pour tes prochains imports.');
     expect(I.titreRattacher('Good Morning (Barre)')).toBe('« Good Morning (Barre) » chez Hevy, c’est…');
-    expect(I.rechercheDe('Good Morning (Barre)')).toBe('good morning');
+    // 126 (ES §7 quindecies.11) — le champ de Rattacher s'ouvre vide : `rechercheDe` est retirée.
+    expect(I.rechercheDe).toBeUndefined();
   });
   test('la fin', () => {
     expect(I.phrasesDeFin({ importees: 3, dejaLa: 1, deCote: 1 })).toEqual({ titre: '3 séances importées.',

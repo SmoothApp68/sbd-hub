@@ -1720,10 +1720,62 @@ d'avoir quitté.
 |---|---|
 | **Résumé** | courbe et ses cinq vues · records · table par nombre de répétitions |
 | **Historique** | les 20 dernières séances, puis « voir plus » |
-| ~~Instructions~~ | **pas de matière** : `exercises` porte nom, famille, muscles, équipement — aucun texte, aucune image. 237 fiches à écrire, images à licencier |
+| **Comment faire** | *Ajouté le 17/10/2026 (prompt 125)* : la matière existe depuis `v2_097` (lancée sous le nom v2_092) — chaque exercice du catalogue a sa description en étapes (§7 quater.5). Toujours aucune image : aucune n'est licenciée |
 | ~~Classement~~ | c'est le social, explicitement en dernier (`CADRAGE-V2` §2 quinquies) |
 
 > **Ajouter un onglet plus tard ne coûte rien ; un onglet vide coûte la confiance.**
+
+### 7 quater.5 Comment faire — décidé le 17/10/2026 (prompt 125)
+
+Le troisième sous-onglet, après Résumé et Historique, comme le « How to » de Hevy. Maquette validée :
+`maquette-comment-faire-v1.html`.
+
+- **Ce qu'il montre** : une fiche (Matériel ; « Travaille » : les muscles principaux ; « Aussi » : les muscles
+  secondaires — les libellés existants, `Profil.libelleEquipement` et `Semaine.libelleMuscle`), puis **les étapes
+  numérotées**. Une ligne absente ne s'affiche pas : une mobilité, sans muscle, n'a que son matériel. Les muscles
+  stabilisateurs restent hors de l'écran.
+- **Le texte vient de la base, mot pour mot** (`exercises.description`, une étape par ligne, 3 à 6 lignes — contrainte
+  `exercises_description_ok`) ; l'app ne fait que **numéroter**. Aucune phrase de cet onglet n'est écrite par l'app.
+- **Pas d'onglet vide** : un exercice sans description (un exercice personnel) garde ses deux onglets.
+- **L'onglet ouvert** : Résumé, comme avant. **Une exception** : un exercice **sans aucune séance** s'ouvre sur
+  « Comment faire », s'il a une description — son Résumé n'aurait rien à montrer.
+- **Son adresse** : `/exercice/<slug>/comment`, comme `/exercice/<slug>/historique`. Une adresse « comment » sur un
+  exercice sans description ouvre le Résumé.
+- **Hors de portée** : la page d'exercice d'un ami (`/a/<pseudo>/exercice/<slug>`) ne change pas.
+
+**Le catalogue lu par l'app** (même prompt). `Donnees.tousLesExercices` lit aussi `nature`, `description` et `actif`.
+**Un exercice désactivé (`actif = false`) n'entre pas dans le catalogue de l'appareil** : il n'est donc proposé nulle
+part (recherche, « Remplacer », frères, générateur). C'est sûr tant qu'**on ne désactive jamais un exercice déjà
+utilisé** : toute migration qui désactive un exercice vérifie d'abord qu'aucune série, routine, zone, mode, record,
+pari, objectif ni alias ne le cite (cinq doublons désactivés au 17/10/2026, zéro référence). `nature` est lue pour le
+chantier du coach au poids du corps et en durée ; aucun écran ne la lit encore.
+
+### 7 quater.6 Ton échelle — décidée le 21/10/2026 (chantier B, prompt 127)
+
+Demandé par une pratiquante de street : « voir où j'en suis et quel est le prochain palier ». Maquette validée :
+`maquette-echelle-page-v1.html`. La carte ne calcule rien : elle montre l'échelle du catalogue (MOTEUR §9.17 bis),
+les faits et la marche suivante.
+
+- **Où** : sur la page de chaque exercice qui a une échelle, onglet Résumé, **en tête**. Un exercice sans échelle : rien
+  ne change.
+- **Les marches** : du plus difficile (en haut) au plus facile (en bas), avec leur rang ; plusieurs exercices d'un rang
+  sur une ligne, séparés par « · » ; une habileté porte la mention « habileté ». La marche de la page est soulignée ;
+  **chaque marche se touche et ouvre sa page**.
+- **Ta marche** : le plus haut rang où tu as au moins une série de travail (les faits de `faits.js`), en ambre, mention
+  « ta marche ». Aucune : pas de « ta marche », ni de suivante, ni de phrase.
+- **Ton meilleur** sur chaque exercice fait : le meilleur que l'app affiche déjà pour lui (reps, lest × reps, aide ×
+  reps), par le formateur unique, avec sa date (« mardi » sur 7 jours, sinon le mois).
+- **La suivante** : la marche suivante de ta marche (l'exercice de ta marche fait le plus récemment, si le rang en a
+  plusieurs), mention « la suivante ». **Sa phrase** reprend la condition de la carte, sans calcul nouveau :
+  - le lest : « La suivante : Tractions Lestées. Je te la propose quand tu tiens 8 reps sur toutes tes séries, deux
+    séances de suite. Ton meilleur : 7 reps. » (le seuil : le haut de la zone et 8 reps) ;
+  - une marche qui s'ajoute : « La suivante : Pompes Négatives. Je te la propose quand tu tiens 15 reps sur toutes
+    tes séries, deux séances de suite. Elle s'ajoute : tu gardes Pompes à Genoux. » (le seuil : le haut de la zone et
+    8 reps ; zone inconnue : « le haut de ta zone, et au moins 8 reps, ») ;
+  - une habileté : « La suivante : Tractions Archer. Une habileté : je ne te la propose pas, c'est toi qui choisis
+    quand l'essayer. Tu peux l'ajouter à une séance comme n'importe quel exercice. »
+- **En « Juste un carnet »** (ou l'exercice en Entretenir) : les marches et les meilleurs, **sans phrase**.
+- Jamais de date prédite, de comparaison à une autre personne, ni de « bravo ».
 
 ### 7 quater.3 La table par nombre de répétitions
 
@@ -2756,13 +2808,86 @@ le contient déjà le garde : écarter ne touche à rien d'existant.
   (le squat ne sort pas dans « Fessiers » par un secondaire ; Hevy filtre aussi au principal). Libellés : ceux de
   l'app (`THSemaine.libelleMuscle`). Seuls les muscles présents au catalogue sont proposés. Un exercice sans muscle
   (le cardio) ne sort qu'avec « Tous les muscles ».
-- **La combinaison** : nom ET matériel ET muscle. L'ordre ne change pas (la recherche, puis le matériel du profil qui
+- **La combinaison** : nom ET matériel ET muscle. L'ordre est celui de la recherche (§7 quindecies.11, depuis le
+  21/10/2026 : commence par, musculation d'abord, nom avant nom alternatif, déjà fait, contexte, matériel du profil qui
   range sans cacher, puis les écartés à la fin, §7 quindecies.9) ; la limite de la liste s'applique **après** les
   filtres. Un filtre actif affiche le nombre d'exercices trouvés (« 2 exercices »).
 - **Chaque résultat** dit son matériel et son premier muscle principal : « Machine · Grand dorsal » (sans muscle : le
   matériel seul).
 - **La mémoire** : les filtres se remettent à zéro à chaque ouverture du catalogue (une recherche est un geste court ;
   un filtre oublié cacherait des exercices la fois suivante).
+
+## 7 quindecies.11 La recherche d'exercice — décidée le 17/10/2026, précisée le 21/10/2026 (chantier 126)
+
+> **Une seule recherche** (`Routines.chercher`), pour tous les écrans qui ouvrent le catalogue : ajouter en séance,
+> la séance libre, l'éditeur de routine, « Chercher dans le catalogue » depuis « Remplacer » (séance, éditeur, aperçu
+> du programme) et « Rattacher » de l'import Hevy. Le champ, les deux filtres (§7 quindecies.10) et la sous-ligne
+> « Matériel · Muscle » ne changent pas : **seuls l'ordre des résultats, et ce qu'on voit avant de taper, dépendent du
+> contexte.** Maquette : `maquette-recherche-v1.html`. Référence : `recherche126.py` ; cas : `cas-126.json`.
+
+**Le texte.** La requête et chaque texte cherché sont repliés de la même façon : minuscules, sans accents, et tout ce
+qui n'est ni lettre ni chiffre (tiret, apostrophe, parenthèse, point, barre) devient un espace — « Développé
+Couché - (Haltère) » et « developpe couche haltere » sont le même texte.
+
+**Ce qui est cherché.** Le nom de l'exercice **et ses noms alternatifs** (`exercise_alias` : les noms anglais, les
+abréviations comme « DC », les anciens noms d'avant v2_098). Les noms alternatifs vivent dans le cache local avec le
+catalogue : la recherche marche **hors ligne**. Les rattachements personnels (`alias_exercice`) ne sont pas cherchés
+(noté pour plus tard).
+
+**Ce qui est trouvé.** Un exercice est trouvé si **tous les mots tapés**, dans n'importe quel ordre, se trouvent dans
+**un même texte** (le nom, ou un seul de ses noms alternatifs). Un mot tapé se trouve s'il est **le début d'un mot** du
+texte (« halt » trouve « haltère », « lat » ne trouve pas « plateau »). **À 5 lettres et plus, une faute est
+tolérée** : une lettre en trop, en moins, changée, ou deux voisines inversées, **la première lettre juste** — comparé au
+début du mot de même longueur, d'une lettre de plus ou de moins (« squart » trouve « squat », « crunsh » trouve
+« crunch », « couhce » trouve « couché » ; « bench » ne trouve pas « penché »). En dessous de 5 lettres, aucune faute.
+
+**L'ordre, une fois la recherche tapée** — du premier critère au dernier :
+1. **Le nom ou un nom alternatif commence par le premier mot tapé** (sans faute) ; les autres après.
+2. **La musculation d'abord** : la force, puis le street, la mobilité, les étirements et le cardio de salle, puis **ce
+   qui ne se fait pas à la salle** (`exercises.hors_salle`, v2_098 : natation, course dehors, randonnée, vélo, ski,
+   sports collectifs, escalade…). **Un exercice déjà fait est toujours au premier rang de ce critère** : on ne
+   rétrograde jamais ce que la personne fait.
+3. **Le nom avant le nom alternatif** : à rang égal, celui dont le NOM commence par le mot tapé passe devant celui qui
+   n'y entre que par un nom alternatif (« tirage » : Tirage Poitrine avant Rowing Assis, dont un nom alternatif est
+   « Tirage horizontal »).
+4. **Déjà fait**, le plus fait d'abord (le nombre de séances, toute l'histoire).
+5. **Va avec le contexte** (ci-dessous) : 0 si l'exercice y va le plus, puis 1, puis 2.
+6. **Ton matériel** (Ma salle) : la règle du matériel ne change pas (chantier 60-1, `Profil.estHorsMateriel`) — elle
+   range sans cacher, et un exercice déjà fait n'est jamais rétrogradé. **Nouveau** : un exercice hors du matériel
+   déclaré, jamais fait, porte la mention **« Pas dans Ma salle »** (la maquette l'a validée ; elle n'existait pas).
+7. L'ordre alphabétique du nom replié.
+**Les écartés** passent après tout le reste, avec leur mention (§7 quindecies.9) ; **l'exercice remplacé** n'apparaît
+jamais (ni dans les suggestions ni dans la recherche). La limite de la liste (30) s'applique après l'ordre et les
+filtres.
+
+**Le contexte**, selon d'où le catalogue s'ouvre :
+
+| Ouvert depuis | « Va avec le contexte » (critère 5) | Le champ vide montre |
+|---|---|---|
+| Ajouter, en séance partie d'une routine | 1 : un muscle principal en commun avec les exercices de la séance | **« Souvent avec cette séance »** : les exercices faits dans les séances passées de cette routine (`sessions.routine_id`) et absents de la séance du jour, le plus fréquent d'abord (au plus 5) ; puis **« Pour les mêmes muscles »** (au plus 5) |
+| Ajouter, séance libre (sans routine) | 1 : un muscle principal en commun avec la séance, s'il y a déjà des exercices | **« Récents »** : les 5 derniers exercices faits, le plus récent d'abord ; puis **« Les plus faits »** sur les 3 derniers mois (au plus 5, sans les récents) |
+| Éditeur de routine (ajouter) | 1 : un muscle principal en commun avec la routine | **« Pour les mêmes muscles »** (au plus 5), si la routine a déjà des exercices |
+| « Chercher dans le catalogue » depuis « Remplacer » (séance, éditeur, aperçu du programme) | 0 : un frère (même `mouvement`) ; 1 : un muscle principal en commun | **« Le même mouvement »** : les frères, dans l'ordre de la feuille « Remplacer » (`Seance.freresProposes`, au plus 5) ; puis **« Les mêmes muscles »** (autre mouvement, au plus 5) |
+| « Rattacher » (import Hevy) | — | **« Les plus proches »** (ci-dessous), puis « Ou tape le nom de l'exercice. » |
+
+- **« Pour les mêmes muscles » / « Les mêmes muscles »** : de la force seulement, un muscle principal en commun ; ni
+  déjà dans la séance ou la routine, ni déjà proposé plus haut, ni écarté, ni hors salle (sauf déjà fait) ; rangés
+  déjà fait d'abord (le plus fait), puis le matériel, puis l'alphabet.
+- **Dans toutes les suggestions** : jamais un écarté (« je ne te le proposerai plus »), jamais un hors salle jamais
+  fait, jamais l'exercice remplacé. Une section vide ne s'affiche pas.
+- Sous les suggestions : **« Tape pour chercher dans les N exercices. »** (N : les exercices actifs du catalogue
+  local) ; depuis « Remplacer » : « Tape pour chercher dans tout le catalogue. ».
+- **Un filtre actif, champ vide** : pas de sections ; la liste filtrée, dans l'ordre ci-dessus (sans le critère 1).
+- **Dans l'éditeur de routine**, un exercice déjà dans la routine reste trouvable, avec la mention **« Déjà dans la
+  routine »** (on peut le vouloir deux fois).
+
+**« Les plus proches » (Rattacher, import Hevy).** Le champ s'ouvre **vide** (il n'est plus pré-rempli avec le nom
+Hevy). Pour chaque exercice, on compte les **mots de 3 lettres et plus en commun** entre le nom Hevy et le meilleur de
+ses textes (le nom, ou un seul nom alternatif) ; il en faut au moins 2 (1 si le nom Hevy n'a qu'un mot). Rangés : le
+plus de mots en commun ; à égalité, le texte le plus proche (mots en commun sur mots en tout, des deux côtés) ; puis le
+déjà fait ; puis l'alphabet ; **au plus 5**. Quand c'est un nom alternatif qui rapproche, la sous-ligne le dit, tel
+quel : « comme « Lat Pulldown » ». **Rien n'est jamais rattaché tout seul** : c'est la personne qui choisit (un nom
+inconnu n'est jamais deviné).
 
 ## 7 decies. Un groupe de superset a toujours au moins deux exercices
 

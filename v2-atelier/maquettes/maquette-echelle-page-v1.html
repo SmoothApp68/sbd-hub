@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ton échelle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap">
+<style>
+/* Maquette fidèle aux jetons de v2/styles.css (la forge), comme maquette-echelle-v1. L'app est sombre seulement. */
+:root{
+  --fond:#0f1114; --panneau:#181b20; --panneau-2:#21252c; --trait:#2c3139;
+  --texte:#eceef2; --texte-2:#9aa1ac; --texte-3:#888e98;
+  --accent:#f2b84b; --sur-accent:#1a1305; --page:#0a0b0d;
+  --r-grand:14px;
+  --pile:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --pile-c:"Barlow Condensed","Barlow",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--page);color:var(--texte);font-family:var(--pile);-webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 40px}
+.intro{max-width:1180px;margin:0 auto 24px}
+.intro h1{font:700 26px/1.15 var(--pile-c);text-wrap:balance}
+.intro p{color:var(--texte-2);font-size:14px;line-height:1.55;max-width:70ch;margin-top:8px}
+.ecrans{display:flex;flex-wrap:wrap;gap:28px;justify-content:center;max-width:1180px;margin:0 auto}
+.cadre{display:flex;flex-direction:column;gap:10px;width:360px;max-width:100%}
+.legende{font-size:12.5px;line-height:1.5;color:var(--texte-2);min-height:5.6em}
+.legende b{color:var(--texte);font-weight:600}
+.tel{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:16px 12px 24px;min-height:600px}
+
+.entete{display:flex;align-items:center;gap:10px;margin:2px 2px 10px}
+.retour{color:var(--texte-2);font-size:20px}
+.titre-vue{font:700 21px var(--pile-c)}
+.onglets{display:flex;gap:18px;border-bottom:1px solid var(--trait);margin:0 2px 14px}
+.onglets span{padding:8px 0;font-size:14px;color:var(--texte-2)}
+.onglets span.on{color:var(--texte);box-shadow:inset 0 -2px 0 var(--accent);font-weight:600}
+
+.carte{background:var(--panneau);border-radius:var(--r-grand);padding:12px 14px;margin-bottom:12px}
+.carte h2{font:700 16px var(--pile-c);letter-spacing:.2px}
+.carte .sous{color:var(--texte-3);font-size:12.5px;margin-top:2px}
+.chiffre{font:700 24px var(--pile-c);margin-top:6px}
+.chiffre small{font:500 13px var(--pile);color:var(--texte-2);margin-left:6px}
+
+/* L'échelle : de la plus difficile (en haut) à la plus facile (en bas), comme une échelle qu'on monte. */
+.echelle{list-style:none;margin-top:10px;position:relative}
+.echelle::before{content:"";position:absolute;left:11px;top:12px;bottom:12px;width:2px;background:var(--trait)}
+.marche{display:grid;grid-template-columns:24px 1fr;gap:10px;padding:7px 0;position:relative}
+.rond{width:24px;height:24px;border-radius:50%;background:var(--panneau-2);border:2px solid var(--trait);
+  display:grid;place-items:center;font:700 12px var(--pile-c);color:var(--texte-3);z-index:1}
+.marche.faite .rond{background:#26302b;border-color:#3d5c48;color:#8cc2a0}
+.marche.tienne .rond{background:var(--accent);border-color:var(--accent);color:var(--sur-accent)}
+.m-nom{font-size:14.5px;line-height:1.3}
+.marche.tienne .m-nom{font-weight:600}
+.marche.vue .m-nom{text-decoration:underline;text-decoration-color:var(--texte-3);text-underline-offset:3px}
+.m-det{color:var(--texte-2);font-size:12.5px;line-height:1.4;margin-top:1px}
+.m-det b{color:var(--texte);font-weight:600;font-family:var(--pile-c);font-size:13.5px}
+.marche.suivante{background:transparent}
+.etiq{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;margin-left:6px;vertical-align:1px}
+.etiq.ici{background:var(--accent);color:var(--sur-accent);font-weight:600}
+.etiq.next{border:1px solid var(--trait);color:var(--texte-2)}
+.etiq.hab{border:1px dashed var(--trait);color:var(--texte-3)}
+.prochaine{margin-top:10px;padding:9px 10px;border:1px dashed var(--trait);border-radius:8px;font-size:13px;line-height:1.45;color:var(--texte-2)}
+.prochaine b{color:var(--texte)}
+.lien{color:var(--texte-2);font-size:13px;margin-top:10px}
+
+.regles{max-width:1180px;margin:36px auto 0;border-top:1px solid var(--trait);padding-top:20px;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:20px}
+.regles h3{font:700 15px var(--pile-c);margin-bottom:6px}
+.regles p,.regles li{font-size:13px;line-height:1.55;color:var(--texte-2)}
+.regles ul{padding-left:18px}
+</style>
+</head>
+<body>
+<header class="intro">
+  <h1>Ton échelle, sur la page d'exercice — maquette v1</h1>
+  <p>Chantier B, ajout du 21/10 : « voir où j'en suis et quel est le prochain palier ». Une carte « Ton échelle » sur la page de chaque exercice d'une échelle, dans l'onglet Résumé. Elle ne calcule rien de neuf : elle montre les marches, ce que tu as fait sur chacune, la tienne, et la suivante avec la condition de la carte « marche suivante ». Les chiffres sont des exemples.</p>
+</header>
+
+<main class="ecrans">
+
+  <section class="cadre">
+    <p class="legende"><b>1. Tractions, un parcours comme celui de Léa.</b> Ta marche = la plus haute que tu as faite. Chaque marche faite montre ton meilleur. La suivante dit ce qui la déclenche, avec la règle déjà validée : le lest à partir de 8 reps, deux séances de suite.</p>
+    <div class="tel">
+      <div class="entete"><span class="retour">‹</span><span class="titre-vue">Tractions</span></div>
+      <div class="onglets"><span class="on">Résumé</span><span>Historique</span><span>Comment faire</span></div>
+      <div class="carte">
+        <h2>Ton échelle</h2>
+        <p class="sous">Des tractions assistées jusqu'à une main</p>
+        <ol class="echelle">
+          <li class="marche"><span class="rond">7</span><div><div class="m-nom">Tractions Un Bras <span class="etiq hab">habileté</span></div></div></li>
+          <li class="marche"><span class="rond">6</span><div><div class="m-nom">Tractions Un Bras Négatives <span class="etiq hab">habileté</span></div></div></li>
+          <li class="marche"><span class="rond">5</span><div><div class="m-nom">Tractions Archer <span class="etiq hab">habileté</span></div></div></li>
+          <li class="marche suivante"><span class="rond">4</span><div><div class="m-nom">Tractions Lestées <span class="etiq next">la suivante</span></div></div></li>
+          <li class="marche tienne vue"><span class="rond">3</span><div><div class="m-nom">Tractions <span class="etiq ici">ta marche</span></div><div class="m-det">Ton meilleur : <b>7 reps</b> · mardi</div></div></li>
+          <li class="marche faite"><span class="rond">2</span><div><div class="m-nom">Tractions Négatives</div><div class="m-det">Ton meilleur : <b>5 reps</b> · mars</div></div></li>
+          <li class="marche faite"><span class="rond">1</span><div><div class="m-nom">Tractions (Élastique) · Assistées (Machine)</div><div class="m-det">Ton meilleur : <b>Rouge × 10</b> · avril</div></div></li>
+        </ol>
+        <p class="prochaine"><b>La suivante : les tractions lestées.</b> Je te la propose quand tu tiens 8 reps sur toutes tes séries, deux séances de suite. Ton meilleur : 7.</p>
+      </div>
+      <div class="carte">
+        <h2>Ta charge de travail</h2>
+        <p class="chiffre">7 reps<small>au poids du corps</small></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cadre">
+    <p class="legende"><b>2. Au sommet de ce que le coach propose.</b> Depuis les lestées, la marche au-dessus est une habileté. Le coach ne la propose jamais : il dit seulement ce que c'est. Chaque marche se touche et ouvre sa page.</p>
+    <div class="tel">
+      <div class="entete"><span class="retour">‹</span><span class="titre-vue">Tractions Lestées</span></div>
+      <div class="onglets"><span class="on">Résumé</span><span>Historique</span><span>Comment faire</span></div>
+      <div class="carte">
+        <h2>Ton échelle</h2>
+        <p class="sous">Des tractions assistées jusqu'à une main</p>
+        <ol class="echelle">
+          <li class="marche"><span class="rond">7</span><div><div class="m-nom">Tractions Un Bras <span class="etiq hab">habileté</span></div></div></li>
+          <li class="marche"><span class="rond">6</span><div><div class="m-nom">Tractions Un Bras Négatives <span class="etiq hab">habileté</span></div></div></li>
+          <li class="marche suivante"><span class="rond">5</span><div><div class="m-nom">Tractions Archer <span class="etiq hab">habileté</span> <span class="etiq next">la suivante</span></div></div></li>
+          <li class="marche tienne vue"><span class="rond">4</span><div><div class="m-nom">Tractions Lestées <span class="etiq ici">ta marche</span></div><div class="m-det">Ton meilleur : <b>10 kg × 4</b> · jeudi</div></div></li>
+          <li class="marche faite"><span class="rond">3</span><div><div class="m-nom">Tractions</div><div class="m-det">Ton meilleur : <b>9 reps</b> · juin</div></div></li>
+          <li class="marche faite"><span class="rond">2</span><div><div class="m-nom">Tractions Négatives</div><div class="m-det">Ton meilleur : <b>5 reps</b> · mars</div></div></li>
+          <li class="marche faite"><span class="rond">1</span><div><div class="m-nom">Tractions (Élastique) · Assistées (Machine)</div><div class="m-det">Ton meilleur : <b>Rouge × 10</b> · avril</div></div></li>
+        </ol>
+        <p class="prochaine"><b>La suivante : les tractions archer.</b> Une habileté : je ne te la propose pas, c'est toi qui choisis quand l'essayer. Tu peux l'ajouter à une séance comme n'importe quel exercice.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cadre">
+    <p class="legende"><b>3. Pompes, au début.</b> Rien de fait plus haut que les genoux : les marches au-dessus restent grises, sans chiffre. La condition de la suivante est celle de la carte (le haut de ta zone, deux séances de suite).</p>
+    <div class="tel">
+      <div class="entete"><span class="retour">‹</span><span class="titre-vue">Pompes à Genoux</span></div>
+      <div class="onglets"><span class="on">Résumé</span><span>Historique</span><span>Comment faire</span></div>
+      <div class="carte">
+        <h2>Ton échelle</h2>
+        <p class="sous">Des pompes à genoux jusqu'à une main</p>
+        <ol class="echelle">
+          <li class="marche"><span class="rond">6</span><div><div class="m-nom">Pompes à Une Main <span class="etiq hab">habileté</span></div></div></li>
+          <li class="marche"><span class="rond">5</span><div><div class="m-nom">Pompes Archer <span class="etiq hab">habileté</span></div></div></li>
+          <li class="marche"><span class="rond">4</span><div><div class="m-nom">Pompes Déclinées · Lestées (Disque)</div></div></li>
+          <li class="marche"><span class="rond">3</span><div><div class="m-nom">Pompes</div></div></li>
+          <li class="marche suivante"><span class="rond">2</span><div><div class="m-nom">Pompes Négatives <span class="etiq next">la suivante</span></div></div></li>
+          <li class="marche tienne vue"><span class="rond">1</span><div><div class="m-nom">Pompes à Genoux · Inclinées <span class="etiq ici">ta marche</span></div><div class="m-det">Ton meilleur : <b>14 reps</b> · hier</div></div></li>
+        </ol>
+        <p class="prochaine"><b>La suivante : les pompes négatives.</b> Je te les propose quand tu tiens le haut de ta zone (15 reps) sur toutes tes séries, deux séances de suite. Elles s'ajoutent : tu gardes tes pompes à genoux.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<section class="regles">
+  <div><h3>Où et quand</h3><ul>
+    <li>Sur la page de chaque exercice qui a une échelle, onglet Résumé, en tête.</li>
+    <li>Les marches de haut (la plus difficile) en bas (la plus facile). Plusieurs exercices sur un rang : sur une ligne, séparés par « · ».</li>
+    <li>La marche de la page est soulignée ; chaque marche se touche et ouvre sa page.</li>
+  </ul></div>
+  <div><h3>Ta marche et la suivante</h3><ul>
+    <li><b>Ta marche</b> : le plus haut rang où tu as au moins une série de travail (les faits de faits.js). Aucune : pas de « ta marche », seulement les marches.</li>
+    <li><b>Ton meilleur</b> sur chaque marche faite : le meilleur déjà affiché par l'app (reps, lest × reps, élastique × reps), au format du formateur unique, avec sa date (« mardi » sur 7 jours, sinon le mois).</li>
+    <li><b>La suivante</b> : le rang au-dessus de ta marche. Sa phrase reprend la condition de la carte « marche suivante » (chantier B), sans calcul nouveau. Habileté : jamais proposée, le coach le dit.</li>
+  </ul></div>
+  <div><h3>Ce que la carte ne fait jamais</h3><p>Elle ne prédit pas de date, ne compare à personne, ne dit pas « bravo ». En « Juste un carnet », elle reste, mais sans la phrase « Je te la propose… » : seulement les marches et tes meilleurs.</p></div>
+</section>
+</body>
+</html>

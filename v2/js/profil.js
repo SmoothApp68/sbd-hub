@@ -585,6 +585,10 @@
   var CHAMPS_ECRITS = ['username', 'bio', 'sexe', 'taille_cm', 'date_naissance',
                        'anciennete', 'intention',
                        'rythme_progression', 'phase', 'phase_depuis', 'lest_reponse', 'lest_reponse_le',
+                       // 127 (v2_099, MOTEUR §9.17 bis) — la réponse à la carte « marche suivante », par exercice de
+                       // départ (`{ slug: { r, le, aide } }`). FACULTATIVE en lecture et en écriture tant que la migration
+                       // n'est pas lancée (`COLONNES_FACULTATIVES`, donnees.js).
+                       'marche_reponses',
                        'materiel',
                        'seances_par_semaine', 'duree_seance_min',
                        // 60-2a (v2_065) — le questionnaire du coach. `zone_force_reponse*` n'y
@@ -629,6 +633,12 @@
       if (c === 'bilans_annonces') {
         if (!Array.isArray(src[c])) return;
         sortie[c] = ajouterBilansAnnonces(src[c], []);
+        return;
+      }
+      // 127 — les réponses à la carte « marche suivante » : un objet, jamais une liste ni un scalaire.
+      if (c === 'marche_reponses') {
+        var mr = src[c];
+        if (mr === null || (mr && typeof mr === 'object' && !Array.isArray(mr))) sortie[c] = mr;
         return;
       }
       // 108 — une salle hors bornes ne part pas (elle serait refusée en 23514, et tout le profil avec elle).
@@ -697,7 +707,8 @@
     phase_depuis: 'Ta phase', lest_reponse: 'Lest', materiel: 'Matériel', seances_par_semaine: 'Séances par semaine',
     duree_seance_min: 'Durée d’une séance', objectif: 'Objectif', priorites: 'Priorités', temps_reponse: 'Ton temps',
     historique_declare: 'Historique', programme_choix: 'Ton programme', zones_a_menager: 'Zone à ménager',
-    exercices_ecartes: 'Exercices écartés', jeu_actif: 'Le jeu', compte_prive: 'Compte privé', ma_salle: 'Ma salle'
+    exercices_ecartes: 'Exercices écartés', jeu_actif: 'Le jeu', compte_prive: 'Compte privé', ma_salle: 'Ma salle',
+    marche_reponses: 'Marche suivante'
   };
   // « Pas enregistré : Bio. La base a refusé cette valeur ; celle d'avant est gardée. » — `null` sans colonne.
   function phraseRefusProfil(colonnes) {
@@ -1465,9 +1476,15 @@
   // ── QUELLE SALLE POUR QUEL EXERCICE (MOTEUR §10 bis) ─────────────────────
   //
   // La donnée du catalogue qui dit le matériel : `exercises.equipement`. `haltere` → les haltères déclarés. `barre`
-  // → une barre FIXE, sauf la barre lourde (les quatre barres et leurs frères à la barre, la définition du générateur,
-  // `THGenerateur.estBarreLourde`) : une barre olympique chargée de disques n'est pas concernée. Laquelle : le NOM au
-  // catalogue (« Curl Biceps (Barre EZ) ») — `equipement` ne distingue pas l'EZ de la droite —, sinon la barre droite.
+  // → une barre FIXE seulement si le catalogue le dit (`exercises.barre_charge_fixe`, v2_099, 128 — audit du 16/10,
+  // 03 #14) : `true` (les curls à la barre, les poignets, la barre au front, l'extension EZ, l'élévation frontale, le
+  // rowing debout, le pull-over) → les barres fixes déclarées ; `false` (un rowing, une fente, un hip thrust, un good
+  // morning, un shrug…) → une barre qu'on charge, la salle n'en dit rien (`null`). Une fiche SANS la colonne (cache
+  // d'avant v2_099, faux serveur : `undefined`) garde l'ancienne règle — une barre fixe sauf la barre lourde (les
+  // quatre barres et leurs frères à la barre, la définition du générateur, `THGenerateur.estBarreLourde`). Ne pas
+  // confondre avec `barre_fixe` du générateur (R3, 60-5) : la barre de TRACTION d'une ligne de programme.
+  // Laquelle : le NOM au catalogue (« Curl Biceps (Barre EZ) ») — `equipement` ne distingue pas l'EZ de la droite —,
+  // sinon la barre droite.
   // Le moteur ajoute une garde (`salleEnVigueur`) : un palier au-delà de la plus lourde barre fixe déclarée vient
   // d'une barre qu'on charge, et la salle n'en dit rien.
   //
@@ -1500,8 +1517,11 @@
       return avecIsolation({ materiel: 'halteres', charges: charges }, fiche);
     }
     if (fiche.equipement !== 'barre') return null;
-    var G = racine.THGenerateur;
-    if (G && G.estBarreLourde(slug, index)) return null;
+    if (fiche.barre_charge_fixe === false) return null;
+    if (fiche.barre_charge_fixe !== true) {
+      var G = racine.THGenerateur;
+      if (G && G.estBarreLourde(slug, index)) return null;
+    }
     var ez = estBarreEZ(Object.assign({ slug: slug }, fiche));
     var liste = ez ? s.barres_ez : s.barres_droites;
     return liste.length ? avecIsolation({ materiel: ez ? 'barre_ez' : 'barre_droite', charges: liste.slice() }, fiche) : null;

@@ -1101,6 +1101,14 @@
     var modes = e.modes || {};
     var lestReponse = e.lestReponse === 'oui' || e.lestReponse === 'non' ? e.lestReponse : null;
     var carteLestPosee = false;
+    // §9.17 bis (127) — L'ÉCHELLE DES VARIANTES : la réponse à la carte « marche suivante » (`profiles.marche_reponses`,
+    // par exercice de départ) et, par exercice d'échelle, ce que l'app a lu au catalogue et dans les faits
+    // (`echelles[slug]` : `{ marche, nomCible, aide, cibleHabilete, cibleFaiteLe }`). Le plan décide de la carte ;
+    // il recopie la réponse, et le dit (I49).
+    var marcheReponses = e.marcheReponses && typeof e.marcheReponses === 'object' && !Array.isArray(e.marcheReponses)
+      ? e.marcheReponses : {};
+    var echelles = e.echelles || {};
+    var marchesPosees = {};
     // 60-1 (QUESTIONNAIRE-COACH-V2 §4) — « JUSTE UN CARNET » : en Entretenir
     // (le profil), aucun bandeau de décharge planifiée, aucune fenêtre de
     // semaine allégée, aucune carte. Le coach ne dit rien, il ne propose rien ;
@@ -1131,6 +1139,7 @@
       intention: intentionProfil,
       debutant: debutant,
       lestReponse: lestReponse,
+      marcheReponses: marcheReponses,
       allegee: esc.allegee,
       carte: esc.carte,
       // §9.22 (53-2) — les exercices d'un bloc en cours ce jour-là (I39).
@@ -1231,6 +1240,33 @@
           // §20 bis — le titre et le détail se vérifient comme toute phrase du coach.
           x.phrases.push({ ou: 'lest.titre', texte: capLT.texte, citations: capLT.citations });
           x.phrases.push({ ou: 'lest.detail', texte: capLD.texte, citations: capLD.citations });
+        }
+        // §9.17 bis (127) — LA CARTE « MARCHE SUIVANTE », comme la carte du lest : en tête de l'exercice, une par
+        // exercice et par séance, jamais en semaine allégée, jamais en Entretenir, jamais avec la carte du lest. La
+        // consigne n'est pas touchée : on tient la ligne. Ses entrées : la marche suivante et la date de la marche
+        // proposée (l'app), les deux dernières séances (`deuxSeances`, le fondement de la consigne), la zone, la
+        // réponse au profil, le jour de la séance. `Moteur.carteMarcheDecidee` décide ; le plan rédige.
+        x.carteMarche = null;
+        var ech = slug && Object.prototype.hasOwnProperty.call(echelles, slug) ? echelles[slug] : null;
+        var zm = kl ? Moteur().zoneParCle(kl.zone) : null;
+        if (ech && kl && zm && !kl.allegee && !x.carteLest && !marchesPosees[slug] && intentionX !== 'entretien' &&
+            !seance.edition) {
+          var M4 = Moteur(), V4 = Voix();
+          var ds = kl.fondement && Array.isArray(kl.fondement.deuxSeances) ? kl.fondement.deuxSeances : [];
+          var reponseM = Object.prototype.hasOwnProperty.call(marcheReponses, slug) ? marcheReponses[slug] : null;
+          var dM = M4.carteMarcheDecidee({ marche: ech.marche, nomCible: ech.nomCible, aide: ech.aide === true,
+            haut: zm.haut, seances: ds, reponse: reponseM, cibleFaiteLe: ech.cibleFaiteLe || null,
+            aujourdHui: seance.debut, coachActif: true });
+          if (dM) {
+            marchesPosees[slug] = true;
+            var capMT = V4.capturer(function () { return M4.carteMarcheTitre(dM); });
+            var capMD = V4.capturer(function () { return M4.carteMarcheDetail(dM); });
+            x.carteMarche = { titre: capMT.texte, detail: capMD.texte, oui: M4.ouiMarche(dM.nom), non: M4.NON_MARCHE,
+                              cible: dM.cible, nom: dM.nom, type: ech.marche.type, proposable: ech.marche.proposable === true,
+                              cibleHabilete: ech.cibleHabilete === true, aide: dM.aide, niveau: dM.niveau, charge: dM.charge };
+            x.phrases.push({ ou: 'marche.titre', texte: capMT.texte, citations: capMT.citations });
+            x.phrases.push({ ou: 'marche.detail', texte: capMD.texte, citations: capMD.citations });
+          }
         }
         return x;
       }), e.reserve, seance)
@@ -2642,6 +2678,7 @@
       if (x.proposition) raisons.push('une proposition de chauffes');
       if (x.escalier) raisons.push('une marche de l’escalier');
       if (x.carteLest) raisons.push('la carte du lest');
+      if (x.carteMarche) raisons.push('la carte « marche suivante »');
       if (x.carteReprise) raisons.push('la carte de reprise');
       if ((x.phrases || []).length) raisons.push('une phrase du coach');
     }
@@ -2766,6 +2803,7 @@
     if (!plan) return;
     var M = Moteur();
     var cartes = 0;
+    var marches = {};
     (plan.exercices || []).forEach(function (x) {
       var nom = 'exercice ' + x.iExo + ' (' + x.slug + ')';
       var err = function (inv, texte) { erreurs.push(inv + ' — ' + nom + ' : ' + texte); };
@@ -2831,6 +2869,45 @@
         if (!x.carteLest.leste) err('I29', 'une carte du lest sans version lestée à poser');
         if (/\?/.test(String(x.carteLest.titre) + String(x.carteLest.detail))) err('I29', 'un point d’interrogation dans la carte du lest (§20.2)');
         if (k && k.allegee) err('I29', 'la carte du lest pendant une semaine allégée');
+        // I50 (§9.17 bis, 127) — la carte du lest jamais sous 8 reps sur les deux séances : le seuil est le haut de
+        // la zone ET 8 (`seuilDeMarche`), lu au moteur.
+        var seuil50 = M.seuilDeMarche(x.carteLest.haut);
+        if (!Array.isArray(nv) || !nv.every(function (n) { return typeof n === 'number' && n >= seuil50; })) {
+          err('I50', 'une carte du lest sous ' + seuil50 + ' reps (' + JSON.stringify(nv) + ')');
+        }
+      }
+
+      // I49 (§9.17 bis, 127) — la carte « marche suivante ». Relue sur ce que le plan porte : la consigne (ses deux
+      // séances, sa zone), la réponse du profil, l'intention, la carte elle-même.
+      var cm = x.carteMarche;
+      if (cm) {
+        var e49 = function (t) { err('I49', t); };
+        marches[x.slug] = (marches[x.slug] || 0) + 1;
+        if (cm.cibleHabilete || cm.type === 'habilete' || cm.proposable !== true || cm.type === 'lest') {
+          e49('une marche qui ne se propose pas (' + cm.type + (cm.cibleHabilete ? ', une habileté' : '') + ')');
+        }
+        if (plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien') e49('une carte en Entretenir');
+        if (x.carteLest) e49('avec la carte du lest');
+        if (k && k.allegee) e49('pendant une semaine allégée');
+        var zk = k ? M.zoneParCle(k.zone) : null;
+        var ds = k && k.fondement && Array.isArray(k.fondement.deuxSeances) ? k.fondement.deuxSeances : null;
+        var seuil49 = zk ? M.seuilDeMarche(zk.haut) : null;
+        if (!ds || ds.length !== 2 || seuil49 === null ||
+            !ds.every(function (q) { return q && typeof q.niveau === 'number' && q.niveau >= seuil49; })) {
+          e49('sans deux séances au haut de la zone et à ' + M.SEUIL_MARCHE + ' reps (' + JSON.stringify(ds) + ')');
+        } else if (cm.aide && !memeChargeOuVides(ds[0].charge, ds[1].charge)) {
+          e49('deux séances à des aides différentes (' + ds[0].charge + ', ' + ds[1].charge + ')');
+        }
+        var rep = plan.marcheReponses && Object.prototype.hasOwnProperty.call(plan.marcheReponses, x.slug)
+          ? plan.marcheReponses[x.slug] : null;
+        if (rep && rep.r === 'oui') e49('la carte revient après « Ajouter »');
+        if (rep && rep.r === 'non') {
+          if (!cm.aide) e49('la carte revient après « Pas maintenant » (hors aide : une fois)');
+          else if (!ds || !ds[1] || !(nombre(ds[1].charge) > nombre(rep.aide) + 1e-9)) {
+            e49('la carte revient à une aide qui n’est pas plus légère que celle du « Pas maintenant » (' + rep.aide + ')');
+          }
+        }
+        if (/\?/.test(String(cm.titre) + String(cm.detail))) e49('un point d’interrogation dans la carte (§20.2)');
       }
 
       // I30 — sur une aide : ni chauffes, ni dégressive, ni repli, ni seconde
@@ -2849,6 +2926,9 @@
       }
     });
     if (cartes > 1) erreurs.push('I29 — ' + cartes + ' cartes du lest dans la même séance : au plus une');
+    Object.keys(marches).forEach(function (s) {
+      if (marches[s] > 1) erreurs.push('I49 — ' + marches[s] + ' cartes « marche suivante » pour ' + s + ' dans la même séance : au plus une');
+    });
     // I13, le plan lui-même (60-1, « Juste un carnet ») : en Entretenir, ni
     // bandeau de décharge planifiée, ni fenêtre de semaine allégée, ni carte.
     if (plan.intention === 'entretien') {
@@ -3210,7 +3290,10 @@
       // et le saut de lest que le moteur seul écrit.
       'lest.niveau': f.carteLest && Array.isArray(f.carteLest.niveaux)
         ? { valeur: Math.min.apply(null, f.carteLest.niveaux) } : null,
-      'lest.saut': { charge: M.SAUT_LEST }
+      'lest.saut': { charge: M.SAUT_LEST },
+      // §9.17 bis (127) — la carte « marche suivante » : le niveau et l'aide de la dernière des deux séances.
+      'marche.niveau': x.carteMarche ? { valeur: x.carteMarche.niveau } : null,
+      'marche.aide': x.carteMarche ? { charge: x.carteMarche.charge } : null
     };
     var msg = x.reaction && x.reaction.message;
     return { lignes: lignes, jour: jour, fait: fait, regle: regle, suite: suite,

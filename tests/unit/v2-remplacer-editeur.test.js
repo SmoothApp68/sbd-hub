@@ -139,7 +139,9 @@ function extraire(nom) {
   return m[0];
 }
 const FONCTIONS = ['ouvrirFeuilleExoRoutine', 'ouvrirRemplacerDansLEditeur', 'remplacerDansLEditeur', 'renumeroterBrouillon',
-  'freresDe', 'cousinsDe', 'neVeutPasDansLEditeur', 'annoncerDansLEditeur', 'faitsDesFreres', 'horsDuMateriel', 'nomExoBrouillon', 'rendreCatalogue', 'ouvrirCatalogue', 'indiceOuNul'];
+  'freresDe', 'cousinsDe', 'neVeutPasDansLEditeur', 'annoncerDansLEditeur', 'faitsDesFreres', 'horsDuMateriel', 'nomExoBrouillon', 'rendreCatalogue', 'ouvrirCatalogue', 'indiceOuNul',
+  // 126 (ES §7 quindecies.11) — le contexte d'ouverture, les options de la recherche, les mentions.
+  'contexteCatalogue', 'optionsDuCatalogue', 'slugsDesLignes', 'mentionsExo'];
 
 const CATALOGUE = [
   { slug: 'dc-barre', nom: 'Développé couché (barre)', mesure: 'charge_reps', mouvement: 'developpe_couche', equipement: 'barre' },
@@ -155,7 +157,7 @@ function bac(options) {
   const journal = { ecritures: 0, voile: 0, ferme: 0, rendus: 0, sauves: 0, catalogue: 0 };
   const ctx = {
     Routines, Seance, Modele,
-    local: { exercices: o.catalogue || CATALOGUE },
+    local: { exercices: o.catalogue || CATALOGUE, alias: [] },
     profil: { materiel: o.equipements ? 'banc' : null },
     // 60-1 — le matériel du profil RANGE les frères (`horsDuMateriel`) : `o.equipements` le pose.
     Profil: { equipementsDe: () => o.equipements || null,
@@ -174,6 +176,8 @@ function bac(options) {
       rendreFeuilleExoRoutine: (c, v) => { ctx.__menu = v; },
       rendreFeuilleMachinePrise: (c, v) => { ctx.__feuille = v; },
       rendreResultatsExo: (c, liste, choisir) => { ctx.__choisir = choisir; },
+      // 126 — le champ vide : les suggestions (« Le même mouvement »…) ; le choix y passe par le même `surChoix`.
+      rendreSuggestionsExo: (c, v) => { ctx.__choisir = v.surChoix; ctx.__suggestions = v; },
       rendreFiltresExo: () => {},
       message: () => {}
     },
@@ -185,10 +189,9 @@ function bac(options) {
     apresEditeur: () => { journal.rendus++; journal.sauves++; return Promise.resolve(); },
     ouvrirReorganisation: () => {},
     intentionCatalogue: { apres: null, remplace: null },
-    faitsDuCatalogue: null,
-    ordreDuCatalogue: () => null,
+    faitsDuCatalogue: null, contexteDuCatalogue: null, construit: null,
     seance: null, vues: { seance: { hidden: true } },
-    faits: { datesDesExercices: () => ({}) }, corpus: () => ({})
+    faits: { seancesParExercice: () => ({}) }, corpus: () => ({})
   };
   vm.createContext(ctx);
   FONCTIONS.forEach((f) => vm.runInContext(extraire(f), ctx));

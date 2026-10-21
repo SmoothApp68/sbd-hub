@@ -262,7 +262,9 @@
   //   · table par reps  → `Modele.tableParReps`.
   // Écrire ici un second calcul de meilleure série ou de palier serait
   // exactement la maladie que ce chantier soigne.
-  var SOUS_ONGLETS = [['resume', 'Résumé'], ['historique', 'Historique']];
+  // 125 (ECRAN-SAISIE §7 quater.5) — « Comment faire » n'est montré QUE si la vue porte une description
+  // (`vue.comment`) : pas d'onglet vide. Un exercice personnel garde ses deux onglets.
+  var SOUS_ONGLETS = [['resume', 'Résumé'], ['historique', 'Historique'], ['comment', 'Comment faire']];
 
   // ⚠️ CE QU'ON DIT D'UN EXERCICE SANS PALIER SE LIT SUR SA MESURE, JAMAIS SUR
   // UN CODE D'ERREUR (nuance posée au chantier 24, moteur au chantier 31). Une
@@ -294,16 +296,8 @@
   // La barre d'une aide la plus forte : visible, jamais à zéro.
   var JAUGE_MIN = 8;
 
-  function texteMeilleure(m) {
-    if (!m) return '';
-    // Les mêmes clés que la carte de séance, dans le même ordre : `charge` et
-    // `reps` d'abord, les autres grandeurs ensuite.
-    if (m.charge !== null && m.charge !== undefined) {
-      return M().formatMesure({ charge_kg: m.charge, reps: m.reps });
-    }
-    if (!m.valeur) return '';
-    return m.valeur + (m.complement ? ' ' + m.complement : '');
-  }
+  // 127 — le formateur vit dans `modele.js` (`texteMeilleure`) : « Ton échelle » écrit le même meilleur que la fiche.
+  function texteMeilleure(m) { return M().texteMeilleure(m); }
 
   function ligneFiche(fiche, libelle, sous, valeur) {
     var li = el('div', 'exo-li');
@@ -317,6 +311,7 @@
   function sousOngletsExo(vue) {
     var barre = el('div', 'sous-onglets');
     SOUS_ONGLETS.forEach(function (o) {
+      if (o[0] === 'comment' && !vue.comment) return;
       var actif = vue.onglet === o[0];
       var b = el('button', 'sous-onglet' + (actif ? ' actif' : ''), o[1]);
       b.type = 'button';
@@ -569,7 +564,51 @@
     return cible;
   }
 
+  // 127 (ECRAN-SAISIE §7 quater.6, maquette `maquette-echelle-page-v1.html`, validée le 21/10/2026) — « TON ÉCHELLE »,
+  // en tête du Résumé. Le dessin seulement : les marches (du plus difficile au plus facile), ta marche en ambre, la
+  // suivante en contour, l'habileté en pointillé, la marche de la page soulignée ; chaque exercice est un bouton qui
+  // ouvre sa page (44 px au moins). Les textes et les chiffres arrivent faits (`Modele.vueEchelle`, l'app) : ici, rien
+  // ne se calcule.
+  function rendreTonEchelle(cible, v, surMarche) {
+    var carte = el('section', 'ton-echelle');
+    carte.appendChild(el('h3', 'te-titre', 'Ton échelle'));
+    var ol = el('ol', 'te-marches');
+    (v.marches || []).forEach(function (m) {
+      var faite = (m.exercices || []).some(function (x) { return x.fait; });
+      var li = el('li', 'te-marche' + (m.tienne ? ' tienne' : faite ? ' faite' : '') + (m.suivante ? ' suivante' : '') +
+        (m.vue ? ' vue' : ''));
+      li.appendChild(el('span', 'te-rond num', String(m.rang)));
+      var corps = el('div', 'te-corps');
+      var ligne = el('div', 'te-exos');
+      (m.exercices || []).forEach(function (x, i) {
+        if (i) ligne.appendChild(el('span', 'te-sep', '\u00b7'));
+        var b = el('button', 'te-exo');
+        b.type = 'button';
+        b.setAttribute('data-slug', x.slug);
+        b.appendChild(el('span', 'te-nom', x.nom));
+        if (x.habilete) b.appendChild(el('span', 'te-etiq hab', 'habileté'));
+        if (x.fait && x.meilleur) {
+          var det = el('span', 'te-det', 'Ton meilleur : ');
+          det.appendChild(el('b', 'num', x.meilleur));
+          if (x.quand) det.appendChild(doc.createTextNode(' \u00b7 ' + x.quand));
+          b.appendChild(det);
+        }
+        b.addEventListener('click', function () { if (surMarche) surMarche(x.slug); });
+        ligne.appendChild(b);
+      });
+      if (m.tienne) ligne.appendChild(el('span', 'te-etiq ici', 'ta marche'));
+      if (m.suivante) ligne.appendChild(el('span', 'te-etiq next', 'la suivante'));
+      corps.appendChild(ligne);
+      li.appendChild(corps);
+      ol.appendChild(li);
+    });
+    carte.appendChild(ol);
+    if (v.phrase) carte.appendChild(el('p', 'te-phrase', v.phrase));
+    cible.appendChild(carte);
+  }
+
   function rendreResumeExo(cible, vue) {
+    if (vue.tonEchelle) rendreTonEchelle(cible, vue.tonEchelle, vue.surMarche);
     if (vue.objectif) rendreCarteObjectif(cible, vue.objectif);
     if (vue.teteRecords) rendreTeteRecords(cible, vue.teteRecords);
     cible.appendChild(el('div', 'section-t', 'RECORDS'));
@@ -650,6 +689,35 @@
     }
   }
 
+  // 125 (ECRAN-SAISIE §7 quater.5, maquette « comment faire ») — L'ONGLET « COMMENT FAIRE ». Une fiche (Matériel,
+  // Travaille, Aussi), puis les étapes numérotées. ⚠️ AUCUN TEXTE ÉCRIT ICI : les libellés arrivent faits
+  // (`app.js` appelle `Profil.libelleEquipement` et `Semaine.libelleMuscle`), et chaque étape est une ligne de
+  // `exercises.description`, MOT POUR MOT — l'écran ne fait que numéroter. Une ligne sans valeur ne s'affiche pas ;
+  // une fiche sans ligne non plus (une mobilité n'a que son matériel).
+  function rendreCommentExo(cible, vue) {
+    var c = vue.comment || {};
+    var fiche = el('div', 'exo-fiche exo-comment-fiche');
+    [['Matériel', c.materiel], ['Travaille', c.travaille], ['Aussi', c.aussi]].forEach(function (l) {
+      if (!l[1]) return;
+      var li = el('div', 'exo-li');
+      li.appendChild(el('span', 'exo-li-k', l[0]));
+      li.appendChild(el('span', 'exo-li-v', l[1]));
+      fiche.appendChild(li);
+    });
+    if (fiche.childNodes.length) cible.appendChild(fiche);
+    var etapes = el('ol', 'etapes');
+    var n = 0;
+    String(c.description || '').split('\n').forEach(function (ligne) {
+      if (!ligne.trim()) return;
+      n++;
+      var li = el('li', 'etape');
+      li.appendChild(el('span', 'etape-n', String(n)));
+      li.appendChild(el('span', 'etape-t', ligne));
+      etapes.appendChild(li);
+    });
+    if (n) cible.appendChild(etapes);
+  }
+
   function rendrePageExercice(cible, vue) {
     vider(cible);
     if (vue.seanceEnCours) cible.appendChild(bandeauExoSeance(vue));
@@ -674,6 +742,7 @@
     cible.appendChild(sousOngletsExo(vue));
 
     if (vue.onglet === 'historique') rendreHistoriqueExo(cible, vue);
+    else if (vue.onglet === 'comment' && vue.comment) rendreCommentExo(cible, vue);
     else rendreResumeExo(cible, vue);
     return cible;
   }
@@ -2382,6 +2451,10 @@
         if (pr) noeud.appendChild(propositionDeReprise(pr, s._iExo, vue));
         var pl = typeof vue.propositionLest === 'function' ? vue.propositionLest(s._iExo) : null;
         if (pl) noeud.appendChild(propositionDeLest(pl, s._iExo, vue));
+        // MOTEUR §9.17 bis (127) — la carte « marche suivante » : la place et le composant de la carte du lest (le
+        // plan ne pose jamais les deux sur un exercice).
+        var pm = typeof vue.propositionMarche === 'function' ? vue.propositionMarche(s._iExo) : null;
+        if (pm) noeud.appendChild(propositionDeMarche(pm, s._iExo, vue));
         var ps = typeof vue.propositionSchema === 'function' ? vue.propositionSchema(s._iExo) : null;
         if (ps) noeud.appendChild(propositionDeSchema(ps, s._iExo, vue));
         var pc = typeof vue.propositionChauffes === 'function' ? vue.propositionChauffes(s._iExo) : null;
@@ -2839,6 +2912,18 @@
       oui: carte.oui, non: carte.non, classeOui: 'pl-oui', classeNon: 'pl-non',
       surOui: function () { vue.surLest(iExo, 'oui'); },
       surNon: function () { vue.surLest(iExo, 'non'); }
+    }, iExo);
+  }
+
+  // MOTEUR §9.17 bis (127) — la carte « marche suivante » : LE RENDU DE LA CARTE DU LEST (même composant, mêmes
+  // classes, même place) ; `proposition-marche` ne fait que la nommer. Le titre, le détail et les deux libellés
+  // viennent du plan.
+  function propositionDeMarche(carte, iExo, vue) {
+    return propositionDExercice({
+      classe: 'proposition-lest proposition-marche', texte: carte.titre, detail: carte.detail,
+      oui: carte.oui, non: carte.non, classeOui: 'pl-oui', classeNon: 'pl-non',
+      surOui: function () { vue.surMarche(iExo, 'oui'); },
+      surNon: function () { vue.surMarche(iExo, 'non'); }
     }, iExo);
   }
 
@@ -5072,7 +5157,18 @@
   // déjà rangé en fin de liste.
   // 67B — `decrire(e)` : la sous-ligne « Machine · Grand dorsal » de chaque résultat (ES §7 quindecies.10), écrite par
   // l'app ; absente ou vide, rien.
-  function rendreResultatsExo(cible, exercices, surChoix, ecartes, decrire) {
+  // 126 (ES §7 quindecies.11) — `mentions(e)` : les autres mentions (« Pas dans Ma salle », « Déjà dans la routine »),
+  // décidées par l'app ; chacune sa ligne `resultat-mention`, sous « écarté ».
+  function boutonResultat(e, surChoix, ecarte, sous, autres) {
+    var b = el('button', 'resultat', e.nom || e.slug);
+    if (sous) b.appendChild(el('small', 'resultat-sous', sous));
+    if (ecarte.indexOf(e.slug) >= 0) b.appendChild(el('small', 'resultat-mention', 'écarté'));
+    (autres || []).forEach(function (m) { if (m) b.appendChild(el('small', 'resultat-mention', m)); });
+    b.type = 'button';
+    b.addEventListener('click', function () { surChoix(e); });
+    return b;
+  }
+  function rendreResultatsExo(cible, exercices, surChoix, ecartes, decrire, mentions) {
     vider(cible);
     var liste = exercices || [];
     var ecarte = ecartes || [];
@@ -5081,14 +5177,28 @@
       return;
     }
     liste.forEach(function (e) {
-      var b = el('button', 'resultat', e.nom || e.slug);
-      var sous = typeof decrire === 'function' ? decrire(e) : '';
-      if (sous) b.appendChild(el('small', 'resultat-sous', sous));
-      if (ecarte.indexOf(e.slug) >= 0) b.appendChild(el('small', 'resultat-mention', 'écarté'));
-      b.type = 'button';
-      b.addEventListener('click', function () { surChoix(e); });
-      cible.appendChild(b);
+      cible.appendChild(boutonResultat(e, surChoix, ecarte, typeof decrire === 'function' ? decrire(e) : '',
+        typeof mentions === 'function' ? mentions(e) : []));
     });
+  }
+
+  // 126 (ES §7 quindecies.11, maquette `maquette-recherche-v1.html`) — LE CHAMP VIDE : les sections titrées que l'app a
+  // décidées (« Souvent avec cette séance », « Les plus proches »…), puis la phrase du pied (« Tape pour chercher dans
+  // les N exercices. »). Rien n'est calculé ici ; une section vide ne s'affiche pas.
+  //   vue : { sections: [{ titre, lignes: [{ exo, mentions: [texte] }] }], pied, surChoix(exo), ecartes, decrire(exo) }
+  function rendreSuggestionsExo(cible, vue) {
+    vider(cible);
+    var v = vue || {};
+    var ecarte = v.ecartes || [];
+    (v.sections || []).forEach(function (sec) {
+      if (!sec || !(sec.lignes || []).length) return;
+      cible.appendChild(el('p', 'resultats-groupe', sec.titre));
+      sec.lignes.forEach(function (l) {
+        cible.appendChild(boutonResultat(l.exo, v.surChoix, ecarte,
+          typeof v.decrire === 'function' ? v.decrire(l.exo) : '', l.mentions));
+      });
+    });
+    if (v.pied) cible.appendChild(el('p', 'resultats-plus', v.pied));
   }
 
   // 67B (ES §7 quindecies.10, maquette `maquette-catalogue-filtres-v2.html`) — LES DEUX FILTRES DU CATALOGUE, sous le
@@ -7305,6 +7415,7 @@
     rendreFeuilleExoRoutine: rendreFeuilleExoRoutine,
     champChrono: champChrono,
     rendreResultatsExo: rendreResultatsExo,
+    rendreSuggestionsExo: rendreSuggestionsExo,
     rendreFiltresExo: rendreFiltresExo,
     el: el,
     vider: vider,

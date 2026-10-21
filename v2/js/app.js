@@ -9645,7 +9645,10 @@
       surChamp: function (i, j, champ, valeur) {
         var l = ligneBrouillon(i, j);
         if (!l) return;
-        l[champ] = valeur;
+        // Audit 130 n°1 — le nom de saisie (`duree`, `distance_km`) se traduit en
+        // colonne du brouillon par la table de la séance, sinon la cible se perd.
+        var t = Routines.champDeLEditeur(champ, valeur);
+        l[t.cle] = t.valeur;
         apresEditeur({ rendre: false });
       },
       surNumero: ouvrirTypeSerieRoutine,

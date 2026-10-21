@@ -2507,9 +2507,31 @@
   // vides, les deux passent au rouge (la durée d'abord : le clavier va sur elle).
   // Exiger les deux bloquait en rouge toute série de vélo sans distance passée, dès
   // que le vélo passe en `distance_temps` (v2_101).
+  function videDeSaisie(v) { return v === null || v === undefined || v === '' || !isFinite(Number(v)); }
+
+  // ⚠️ LE CHIFFRE GRIS EN CARDIO (ECRAN §3 ter.5, décidé le 21/10/2026 — audit 130 n°3).
+  // Sur `temps` et `distance_temps`, le gris de la fois d'avant n'est validé que si
+  // TOUTES les cases de la série sont vides : « ✓ sans rien taper » = comme la
+  // dernière fois. Dès qu'une case est tapée, une case vide reste vide (« durée ou
+  // distance ») : on n'écrit jamais la distance de la randonnée d'avant sur celle du
+  // jour — un record possible, une médaille, pour une distance jamais faite. Le gris
+  // reste affiché : il n'est plus qu'un souvenir.
+  //
+  // `charge_reps` et `reps` ne changent pas : leur gris est une consigne du coach,
+  // validée case par case (§3 bis.3). Rend le fantôme à valider : `f`, ou `{}`.
+  function grisValide(g, serie, f) {
+    if (!g || (g.mesure !== 'temps' && g.mesure !== 'distance_temps')) return f || {};
+    var tapee = (g.champs || []).some(function (nom) {
+      var c = racine.THModele.champDeMesure(nom);
+      return !videDeSaisie(serie && serie[c ? c.cle : nom]);
+    });
+    return tapee ? {} : (f || {});
+  }
+
   function casesManquantes(g, serie, f) {
     if (!g || g.inconnue || !g.champs) return [];
-    var vide = function (v) { return v === null || v === undefined || v === '' || !isFinite(Number(v)); };
+    f = grisValide(g, serie, f);
+    var vide = videDeSaisie;
     var manquent = g.champs.filter(function (nom) {
       if (nom === 'charge_kg' && g.nature) return false;
       var c = racine.THModele.champDeMesure(nom);
@@ -2875,6 +2897,7 @@
     derniereSaisie: derniereSaisie,
     fantome: fantome,
     casesManquantes: casesManquantes,
+    grisValide: grisValide,
     planDe: planDe,
     couvertureDe: couvertureDe,
     couvertureSeance: couvertureSeance,

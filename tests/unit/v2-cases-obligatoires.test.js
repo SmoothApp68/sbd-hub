@@ -81,3 +81,33 @@ describe('105 — les cases obligatoires : une seule règle', () => {
     expect(manque(charge, { charge_kg: '', reps: 5 }, {})).toEqual(['charge_kg']);
   });
 });
+
+// ECRAN §3 ter.5 (prompt 131, audit 130 n°3) — LE CHIFFRE GRIS EN CARDIO. Sur `temps` et
+// `distance_temps`, le gris n'est validé que si TOUTES les cases de la série sont vides.
+// ⚠️ DISCRIMINANT : la durée tapée et la distance grise. Avant, la distance de la fois
+// d'avant était recopiée sur la série du jour (une distance jamais faite).
+describe('131 — le chiffre gris en cardio : tout vide, ou rien', () => {
+  const course = g({ mesure: 'distance_temps' });
+  const gris = { duree_s: 3600, distance_m: 12000 };
+  test('tout vide : le gris de la fois d’avant est validé, en entier', () => {
+    expect(Seance.grisValide(course, de({}), de(gris))).toEqual(de(gris));
+    expect(manque(course, {}, gris)).toEqual([]);
+  });
+  test('une case tapée : le gris ne vaut plus rien, la case vide reste vide', () => {
+    expect(Seance.grisValide(course, de({ duree_s: 1800 }), de(gris))).toEqual({});
+    expect(Seance.grisValide(course, de({ distance_m: 5000 }), de(gris))).toEqual({});
+    expect(manque(course, { duree_s: 1800 }, gris)).toEqual([]);   // durée OU distance
+  });
+  test('la planche aussi (`temps`) ; un 0 tapé n’est pas une case vide', () => {
+    const planche = g({ mesure: 'temps' });
+    expect(Seance.grisValide(planche, de({}), de({ duree_s: 60 }))).toEqual(de({ duree_s: 60 }));
+    expect(Seance.grisValide(planche, de({ duree_s: 45 }), de({ duree_s: 60 }))).toEqual({});
+  });
+  test('charge × reps et reps : rien ne change, le gris du coach se valide case par case', () => {
+    const f = de({ charge_kg: 80, reps: 5 });
+    expect(Seance.grisValide(charge, de({ charge_kg: 82.5 }), f)).toBe(f);
+    expect(manque(charge, { charge_kg: 82.5 }, { reps: 5 })).toEqual([]);
+    const pompes = g({ mesure: 'reps' });
+    expect(Seance.grisValide(pompes, de({ reps: 10 }), de({ reps: 12 }))).toEqual(de({ reps: 12 }));
+  });
+});

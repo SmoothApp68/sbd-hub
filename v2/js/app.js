@@ -4954,7 +4954,11 @@
       return e && e.slug === exo.exercise_slug;
     })[0]);
     var ligneDuPlan = (planDeLExercice(iExo) || { lignes: [] }).lignes[iSerie];
-    var f = fantomeDe(iExo, iSerie);
+    // ECRAN §3 ter.5 (prompt 131, audit 130 n°3) — en cardio, le gris n'est validé
+    // que si TOUTES les cases de la série sont vides : une case tapée laisse les
+    // autres vides. La règle vit dans `Seance.grisValide`, lue aussi par
+    // `casesManquantes` : la recopie ci-dessous ne peut pas la contredire.
+    var f = Seance.grisValide(g, serie, fantomeDe(iExo, iSerie));
     // ECRAN §3 bis.3 bis (prompts 100 puis 105) — AUCUNE CASE OBLIGATOIRE VIDE :
     // une case ni tapée ni grisée par le coach, et la série ne se valide pas.
     // Le test « le cran au-dessus × 3 » sans chiffre validait « charge inconnue

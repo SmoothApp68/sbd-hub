@@ -22975,9 +22975,9 @@ const SETS_IMPORTES = [
       .map((n) => n.textContent));
     await aller('/exercice/tapis-doublon-u125');
     const doublon125 = await page.evaluate(() => (document.querySelector('#page-exercice h2') || {}).textContent || '');
-    ok('[125] G — DISCRIMINANT : le doublon `actif: false` n’apparaît pas dans la recherche du catalogue ni dans « Mes exercices » ; « Tapis U125 », une seule fois',
+    ok('[125] G — DISCRIMINANT : le doublon `actif: false` n’apparaît pas dans la recherche du catalogue ni dans « Mes exercices », et son adresse ne retrouve pas son nom ; « Tapis U125 », une seule fois',
       JSON.stringify(cat125) === JSON.stringify(['Tapis U125']) && JSON.stringify(mes125) === JSON.stringify(['Tapis U125']) &&
-        !/doublon/.test(doublon125), JSON.stringify([cat125, mes125, doublon125]));
+        doublon125 !== 'Tapis U125 — doublon désactivé', JSON.stringify([cat125, mes125, doublon125]));
 
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.
     CATALOGUE.splice(catalogueAvant125, CATALOGUE.length - catalogueAvant125);

@@ -457,7 +457,9 @@ describe('126 — le rendu du champ vide (`rendreSuggestionsExo`)', () => {
 describe('126 — les données : `hors_salle` lu, les noms alternatifs dans le cache, hors ligne', () => {
   const src = (f) => fs.readFileSync(path.join(__dirname, '../../v2/js/' + f), 'utf8');
   test('le catalogue lit `hors_salle`', () => {
-    expect(src('donnees.js')).toMatch(/from\('exercises'\)[\s\S]{0,400}hors_salle'\)/);
+    // 129 — `hors_salle` n'est plus la dernière colonne du `select` (les colonnes de v2_099 l'ont rejointe) : on cherche
+    // la colonne nommée dans le `select` du catalogue, plus sa place.
+    expect(src('donnees.js')).toMatch(/from\('exercises'\)\s*\.select\('[^)]{0,400}\bhors_salle\b[^)]*'\)/);
   });
 
   test('la synchronisation lit `Donnees.aliasCommuns` (une seule fonction), les range dans le magasin `alias` ; le démarrage les relit', () => {

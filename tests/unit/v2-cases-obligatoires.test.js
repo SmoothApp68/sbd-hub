@@ -45,11 +45,16 @@ describe('105 — les cases obligatoires : une seule règle', () => {
     expect(manque(planche, { duree_s: 45 }, {})).toEqual([]);
     expect(manque(planche, {}, { duree_s: 60 })).toEqual([]);
   });
-  test('distance et durée : chacune est due ; la distance vide manque seule', () => {
+  // ⚠️ INVERSÉ AU PROMPT 131 (audit 130 n°2). Ce test affirmait « chacune est due » :
+  // la décision du 17/10/2026 (D1, ECRAN §3 bis.3 bis) dit « durée OU distance ».
+  // Une série de cardio se valide avec l'une des deux ; les deux vides, les deux
+  // passent au rouge.
+  test('durée OU distance : l’une suffit ; les deux vides, les deux manquent', () => {
     const course = g({ mesure: 'distance_temps' });
-    expect(manque(course, { duree_s: 1800 }, {})).toEqual(['distance_km']);
-    expect(manque(course, {}, { distance_m: 5000 })).toEqual(['duree']);
-    expect(manque(course, {}, {})).toEqual(['duree', 'distance_km']);
+    expect(manque(course, { duree_s: 1800 }, {})).toEqual([]);          // durée seule
+    expect(manque(course, { distance_m: 5000 }, {})).toEqual([]);       // distance seule
+    expect(manque(course, {}, { distance_m: 5000 })).toEqual([]);
+    expect(manque(course, {}, {})).toEqual(['duree', 'distance_km']);   // ni l'une ni l'autre
     expect(manque(course, { duree_s: 1800 }, { distance_m: 5000 })).toEqual([]);
   });
   test('chauffe et dégressive : même règle', () => {

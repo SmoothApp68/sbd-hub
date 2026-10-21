@@ -2500,15 +2500,27 @@
   // chiffres). Exemptés : le lest et l'aide (vide = sans lest, sans aide — la
   // case de charge seule ; les reps restent dues), et le gabarit inconnu (on ne
   // sait pas ce que l'exercice mesure : on n'empêche rien).
+  //
+  // ⚠️ DURÉE OU DISTANCE (ECRAN §3 bis.3 bis, décision du 17/10/2026, codée au prompt
+  // 131 — audit 130 n°2). Sur `distance_temps`, une série se valide avec L'UNE des
+  // deux : une natation en durée seule, une course en distance seule. Les deux
+  // vides, les deux passent au rouge (la durée d'abord : le clavier va sur elle).
+  // Exiger les deux bloquait en rouge toute série de vélo sans distance passée, dès
+  // que le vélo passe en `distance_temps` (v2_101).
   function casesManquantes(g, serie, f) {
     if (!g || g.inconnue || !g.champs) return [];
     var vide = function (v) { return v === null || v === undefined || v === '' || !isFinite(Number(v)); };
-    return g.champs.filter(function (nom) {
+    var manquent = g.champs.filter(function (nom) {
       if (nom === 'charge_kg' && g.nature) return false;
       var c = racine.THModele.champDeMesure(nom);
       var cle = c ? c.cle : nom;
       return vide(serie && serie[cle]) && vide(f && f[cle]);
     });
+    if (g.mesure === 'distance_temps' &&
+        !(manquent.indexOf('duree') >= 0 && manquent.indexOf('distance_km') >= 0)) {
+      return manquent.filter(function (nom) { return nom !== 'duree' && nom !== 'distance_km'; });
+    }
+    return manquent;
   }
 
   function fantome(seance, iExo, iSerie, prec, plan) {

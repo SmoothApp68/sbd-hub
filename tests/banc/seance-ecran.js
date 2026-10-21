@@ -21324,23 +21324,23 @@ const SETS_IMPORTES = [
       montees('planche-c105').length === 1 && montees('planche-c105')[0].duree_s === 45,
       nb105(montees('planche-c105').map((s) => s.duree_s)));
 
-    // 4. LA DISTANCE VIDE (la durée tapée).
-    await remplir105(4, 'duree', '3000');
+    // 4. DURÉE OU DISTANCE (D1, décision du 17/10/2026, prompt 131 — audit 130 n°2). Les deux vides : les deux en
+    // rouge, le clavier sur la durée. La durée tapée seule : la course part, sans distance.
     await valider105(4);
     const r4 = await etat105(4);
-    ok('[C105] DISCRIMINANT — durée tapée, distance vide : rien en base, la distance SEULE en rouge, le clavier sur elle',
-      montees('course-c105').length === 0 && !r4.cochee && nb105(r4.rouges) === nb105(['distance_km']) &&
-      r4.clavier === 'distance_km', nb105(r4));
-    await remplir105(4, 'distance_km', '5');
+    ok('[C105] DISCRIMINANT — durée et distance vides : rien en base, les DEUX en rouge, le clavier sur la durée',
+      montees('course-c105').length === 0 && !r4.cochee && nb105(r4.rouges) === nb105(['duree', 'distance_km']) &&
+      r4.clavier === 'duree', nb105(r4));
+    await remplir105(4, 'duree', '3000');
     await valider105(4);
-    ok('[C105] la distance tapée : la course part, 30:00 et 5 km',
+    ok('[C105] DISCRIMINANT — la durée seule suffit : la course part, 30:00, sans distance',
       montees('course-c105').length === 1 && montees('course-c105')[0].duree_s === 1800 &&
-      montees('course-c105')[0].distance_m === 5000,
+      montees('course-c105')[0].distance_m === null && (await etat105(4)).rouges.length === 0,
       nb105(montees('course-c105').map((s) => [s.duree_s, s.distance_m])));
     ok('[C105] aucune case obligatoire vide en base',
       base.sets.every((s) => (s.exercise_slug !== 'charge-c105' || (s.charge_kg !== null && s.reps !== null)) &&
         (s.exercise_slug !== 'reps-c105' || s.reps !== null) && (s.exercise_slug !== 'planche-c105' || s.duree_s !== null) &&
-        (s.exercise_slug !== 'course-c105' || (s.duree_s !== null && s.distance_m !== null))),
+        (s.exercise_slug !== 'course-c105' || (s.duree_s !== null || s.distance_m !== null))),
       nb105(base.sets.map((s) => [s.exercise_slug, s.charge_kg, s.reps, s.duree_s, s.distance_m])));
     ok('[C105] et aucune violation de la garde', gardeBanc.violations === violationsAvant,
       String(gardeBanc.violations - violationsAvant));

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recherche par contexte</title>
+<style>
+/* Maquette fidèle au catalogue de v2/styles.css (« Le catalogue », filtres 67B). L'app est sombre seulement. */
+:root{
+  --fond:#0f1114; --panneau:#181b20; --panneau-2:#21252c; --trait:#2c3139;
+  --texte:#eceef2; --texte-2:#9aa1ac; --texte-3:#888e98; --accent:#f2b84b; --page:#0a0b0d;
+  --note:#c9d4ff; --note-fond:#1a1f33;
+  --e1:4px; --e2:8px; --e3:12px; --e4:16px; --r-petit:10px; --r-grand:14px;
+  --pile:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--page);color:var(--texte);font-family:var(--pile);-webkit-font-smoothing:antialiased;padding:24px 16px 48px}
+.intro{max-width:1180px;margin:0 auto 22px}
+.intro h1{font-size:24px;line-height:1.2}
+.intro p{color:var(--texte-2);font-size:14px;line-height:1.55;max-width:70ch;margin-top:8px}
+.ordre{max-width:1180px;margin:0 auto 26px;background:var(--panneau);border:1px solid var(--trait);border-radius:var(--r-grand);padding:14px 16px}
+.ordre h2{font-size:15px;margin-bottom:8px}
+.ordre ol{padding-left:20px;font-size:13.5px;line-height:1.6;color:var(--texte-2)}
+.ordre ol b{color:var(--texte)}
+.ordre p{font-size:13px;color:var(--texte-2);margin-top:8px;line-height:1.5}
+.ecrans{display:flex;flex-wrap:wrap;gap:30px;justify-content:center;max-width:1180px;margin:0 auto}
+.cadre{display:flex;flex-direction:column;gap:10px;width:360px;max-width:100%}
+.legende{font-size:13px;line-height:1.5;color:var(--texte-2)}
+.legende b{color:var(--texte)}
+.tel{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:14px 12px 20px}
+.fen-tete{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--e2)}
+.titre-catalogue{font-weight:600;font-size:14px;line-height:1.35}
+.fermer{border:1px solid var(--trait);background:transparent;color:var(--texte-2);font:inherit;font-size:13px;padding:6px 11px;border-radius:10px;flex:none}
+.champ{width:100%;height:40px;padding:0 var(--e3);background:var(--panneau-2);border:1px solid var(--trait);border-radius:var(--r-petit);
+  color:var(--texte);font:inherit;font-size:15px;display:flex;align-items:center}
+.champ.vide{color:var(--texte-3)}
+.champ .curseur{display:inline-block;width:1px;height:18px;background:var(--texte);margin-left:1px}
+.filtres-exo{display:flex;gap:var(--e2);margin:var(--e2) 0 var(--e1)}
+.filtre-exo{flex:1;min-height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;background:var(--panneau);
+  border:1px solid var(--trait);border-radius:999px;font-weight:600;font-size:13.5px}
+.filtre-exo span{color:var(--texte-3)}
+.compte-exo{margin:var(--e1) 2px 0;font-size:12px;color:var(--texte-3)}
+.resultats{margin-top:var(--e2)}
+.groupe{font-size:12px;color:var(--texte-3);padding:12px var(--e1) 4px;border-bottom:1px solid var(--trait)}
+.resultat{display:flex;gap:10px;align-items:flex-start;border-bottom:1px solid var(--trait);padding:10px var(--e1);font-size:14px;line-height:1.4}
+.resultat .t{flex:1;min-width:0}
+.resultat-sous{display:block;font-size:12px;color:var(--texte-2);margin-top:2px}
+.resultat-mention{display:block;font-size:12px;color:var(--texte-3);margin-top:2px}
+.resultat.estompe{opacity:.55}
+.rang{flex:none;width:20px;height:20px;border-radius:50%;background:var(--note-fond);color:var(--note);font-size:11px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;margin-top:1px}
+.notes{list-style:none;font-size:12.5px;line-height:1.5;color:var(--texte-2);display:flex;flex-direction:column;gap:5px}
+.notes li{display:flex;gap:8px}
+.notes .rang{margin-top:0}
+.plus{font-size:12px;color:var(--texte-3);padding:10px var(--e1) 0}
+mark{background:none;color:var(--texte);font-weight:700}
+@media (max-width:420px){.cadre{width:100%}}
+</style>
+</head>
+<body>
+<header class="intro">
+  <h1>La recherche d'exercice, selon d'où on la lance</h1>
+  <p>Cinq écrans, un par contexte d'ouverture du catalogue. L'aperçu du programme, quand on y change un exercice, se comporte comme « Remplacer ». Le champ, les deux filtres et la sous-ligne « Matériel · Muscle » ne changent pas : seul l'ordre des résultats, et ce qu'on voit avant de taper, dépendent du contexte. Les pastilles bleues numérotées n'existent pas dans l'app — elles renvoient à l'explication sous chaque écran. Noms écrits selon la nouvelle règle.</p>
+</header>
+
+<section class="ordre">
+  <h2>Le même classement partout, une fois la recherche tapée</h2>
+  <ol>
+    <li><b>Le nom commence par ce qu'on tape</b> (ou un nom alternatif : « DC », « Lat Pulldown »).</li>
+    <li><b>Déjà fait par toi</b>, le plus fait d'abord.</li>
+    <li><b>Va avec le contexte</b> : mêmes muscles que la séance, même mouvement que l'exercice remplacé.</li>
+    <li><b>Ton matériel</b> (Ma salle), puis le reste.</li>
+  </ol>
+  <p>Les mots se tapent dans n'importe quel ordre, sans accents ni tirets ; une faute de frappe est tolérée sur les mots de 5 lettres et plus. Street, mobilité, étirements et cardio passent après la musculation — sauf si la recherche ne trouve qu'eux, ou si on les cherche par leur nom.</p>
+  <p><b>Ce qui ne se fait pas à la salle</b> (natation, course dehors, randonnée, vélo, ski, sports collectifs, escalade…) n'est <b>jamais mis en avant</b> : ni dans les suggestions du champ vide, ni en tête d'une recherche — sauf si tu l'as déjà fait, ou si tu le cherches par son nom (décision du 17/10).</p>
+</section>
+
+<div class="ecrans">
+
+<!-- 1 · Ajouter, champ vide -->
+<div class="cadre">
+  <div class="tel">
+    <div class="fen-tete"><p class="titre-catalogue">Ajouter à « Dos — Biceps »</p><span class="fermer">Fermer</span></div>
+    <div class="champ vide">Chercher un exercice</div>
+    <div class="filtres-exo"><div class="filtre-exo">Matériel <span>▾</span></div><div class="filtre-exo">Muscle <span>▾</span></div></div>
+    <div class="resultats">
+      <div class="groupe">Souvent avec cette séance</div>
+      <div class="resultat"><span class="rang">1</span><span class="t">Tirage Poitrine Un Bras (Poulie)<span class="resultat-sous">Poulie · Grand dorsal</span></span></div>
+      <div class="resultat"><span class="rang">1</span><span class="t">Curl Biceps (Barre EZ)<span class="resultat-sous">Barre · Biceps</span></span></div>
+      <div class="resultat"><span class="rang">1</span><span class="t">Curl Marteau (Haltère)<span class="resultat-sous">Haltère · Biceps</span></span></div>
+      <div class="resultat"><span class="rang">1</span><span class="t">Face Pull (Poulie)<span class="resultat-sous">Poulie · Épaules (arrière)</span></span></div>
+      <div class="groupe">Pour les mêmes muscles</div>
+      <div class="resultat"><span class="rang">2</span><span class="t">Rowing Un Bras (Haltère)<span class="resultat-sous">Haltère · Haut du dos</span></span></div>
+      <div class="resultat"><span class="rang">2</span><span class="t">Tirage Poitrine (Machine)<span class="resultat-sous">Machine · Grand dorsal</span></span></div>
+      <div class="resultat"><span class="rang">2</span><span class="t">Tirage Poitrine Bras Tendus (Poulie)<span class="resultat-sous">Poulie · Grand dorsal</span></span></div>
+      <div class="plus">Tape pour chercher dans les 475 exercices.</div>
+    </div>
+  </div>
+  <ul class="notes">
+    <li><span class="rang">1</span><span><b>Souvent avec cette séance</b> : les exercices que tu as faits dans les séances de cette routine sans qu'ils y soient aujourd'hui, le plus fréquent d'abord (au plus 5).</span></li>
+    <li><span class="rang">2</span><span><b>Pour les mêmes muscles</b> : les muscles principaux de la séance, ce que tu as déjà fait d'abord, ton matériel ensuite (au plus 5). Ce qui est déjà dans la séance n'apparaît pas ici.</span></li>
+    <li><span class="rang">·</span><span><b>Séance libre, sans routine</b> : « Récents » (les 5 derniers exercices faits) puis « Les plus faits » sur 3 mois. Aujourd'hui, le champ vide montre 480 noms par ordre alphabétique.</span></li>
+  </ul>
+</div>
+
+<!-- 2 · Ajouter, on tape -->
+<div class="cadre">
+  <div class="tel">
+    <div class="fen-tete"><p class="titre-catalogue">Ajouter à « Dos — Biceps »</p><span class="fermer">Fermer</span></div>
+    <div class="champ">curl<span class="curseur"></span></div>
+    <div class="filtres-exo"><div class="filtre-exo">Matériel <span>▾</span></div><div class="filtre-exo">Muscle <span>▾</span></div></div>
+    <p class="compte-exo">22 exercices</p>
+    <div class="resultats">
+      <div class="resultat"><span class="rang">1</span><span class="t"><mark>Curl</mark> Biceps (Barre EZ)<span class="resultat-sous">Barre · Biceps</span></span></div>
+      <div class="resultat"><span class="rang">1</span><span class="t"><mark>Curl</mark> Marteau (Haltère)<span class="resultat-sous">Haltère · Biceps</span></span></div>
+      <div class="resultat"><span class="rang">1</span><span class="t"><mark>Curl</mark> Biceps (Poulie)<span class="resultat-sous">Poulie · Biceps</span></span></div>
+      <div class="resultat"><span class="rang">2</span><span class="t"><mark>Curl</mark> Bayésien (Poulie)<span class="resultat-sous">Poulie · Biceps</span></span></div>
+      <div class="resultat"><span class="rang">2</span><span class="t"><mark>Curl</mark> Concentré (Haltère)<span class="resultat-sous">Haltère · Biceps</span></span></div>
+      <div class="resultat"><span class="rang">3</span><span class="t"><mark>Curl</mark> Pupitre (Machine)<span class="resultat-sous">Machine · Biceps</span><span class="resultat-mention">Pas dans Ma salle</span></span></div>
+      <div class="resultat"><span class="rang">4</span><span class="t">Leg <mark>Curl</mark> Assis (Machine)<span class="resultat-sous">Machine · Ischio-jambiers</span></span></div>
+      <div class="resultat"><span class="rang">4</span><span class="t">Leg <mark>Curl</mark> Allongé (Machine)<span class="resultat-sous">Machine · Ischio-jambiers</span></span></div>
+    </div>
+  </div>
+  <ul class="notes">
+    <li><span class="rang">1</span><span>Commence par « curl » et déjà fait, le plus fait d'abord.</span></li>
+    <li><span class="rang">2</span><span>Commence par « curl », jamais fait, mais biceps = un muscle de la séance, avec ton matériel.</span></li>
+    <li><span class="rang">3</span><span>Matériel absent de Ma salle : plus bas, avec la mention qui existe déjà.</span></li>
+    <li><span class="rang">4</span><span>« Curl » au milieu du nom : après tous ceux qui commencent par « curl », même s'il est souvent fait.</span></li>
+  </ul>
+</div>
+
+<!-- 3 · Remplacer -->
+<div class="cadre">
+  <div class="tel">
+    <div class="fen-tete"><p class="titre-catalogue">Remplacer Développé Couché (Barre)</p><span class="fermer">Fermer</span></div>
+    <div class="champ vide">Chercher un exercice</div>
+    <div class="filtres-exo"><div class="filtre-exo">Matériel <span>▾</span></div><div class="filtre-exo">Muscle <span>▾</span></div></div>
+    <div class="resultats">
+      <div class="groupe">Le même mouvement</div>
+      <div class="resultat"><span class="rang">1</span><span class="t">Développé Couché (Haltère)<span class="resultat-sous">Haltère · Pectoraux</span></span></div>
+      <div class="resultat"><span class="rang">1</span><span class="t">Pompes<span class="resultat-sous">Poids du corps · Pectoraux</span></span></div>
+      <div class="resultat"><span class="rang">1</span><span class="t">Chest Press (Machine)<span class="resultat-sous">Machine · Pectoraux</span></span></div>
+      <div class="resultat"><span class="rang">1</span><span class="t">Développé Couché (Machine Smith)<span class="resultat-sous">Machine Smith · Pectoraux</span></span></div>
+      <div class="groupe">Les mêmes muscles</div>
+      <div class="resultat"><span class="rang">2</span><span class="t">Développé Couché Incliné (Haltère)<span class="resultat-sous">Haltère · Pectoraux</span></span></div>
+      <div class="resultat"><span class="rang">2</span><span class="t">Écarté (Machine)<span class="resultat-sous">Machine · Pectoraux</span></span></div>
+      <div class="resultat"><span class="rang">2</span><span class="t">Dips Torse<span class="resultat-sous">Poids du corps · Pectoraux</span></span></div>
+      <div class="plus">Tape pour chercher dans tout le catalogue.</div>
+    </div>
+  </div>
+  <ul class="notes">
+    <li><span class="rang">1</span><span><b>Même mouvement</b> (la colonne <code>mouvement</code>) : ce que tu as déjà fait d'abord, puis ton matériel. C'est le remplacement qui garde le plus la séance intacte.</span></li>
+    <li><span class="rang">2</span><span><b>Mêmes muscles principaux</b>, autre mouvement. L'exercice remplacé n'apparaît jamais, ni dans les suggestions ni dans la recherche.</span></li>
+  </ul>
+</div>
+
+<!-- 4 · Routine -->
+<div class="cadre">
+  <div class="tel">
+    <div class="fen-tete"><p class="titre-catalogue">Ajouter à la routine « Jambes »</p><span class="fermer">Fermer</span></div>
+    <div class="champ">squat<span class="curseur"></span></div>
+    <div class="filtres-exo"><div class="filtre-exo">Matériel <span>▾</span></div><div class="filtre-exo">Muscle <span>▾</span></div></div>
+    <p class="compte-exo">19 exercices</p>
+    <div class="resultats">
+      <div class="resultat"><span class="rang">1</span><span class="t"><mark>Squat</mark> (Barre)<span class="resultat-sous">Barre · Quadriceps</span><span class="resultat-mention">Déjà dans la routine</span></span></div>
+      <div class="resultat"><span class="rang">1</span><span class="t"><mark>Squat</mark> avec Pause (Barre)<span class="resultat-sous">Barre · Quadriceps</span></span></div>
+      <div class="resultat"><span class="rang">2</span><span class="t"><mark>Squat</mark> Avant (Barre)<span class="resultat-sous">Barre · Quadriceps</span></span></div>
+      <div class="resultat"><span class="rang">2</span><span class="t"><mark>Squat</mark> Goblet (Haltère)<span class="resultat-sous">Haltère · Quadriceps</span></span></div>
+      <div class="resultat"><span class="rang">3</span><span class="t">Hack <mark>Squat</mark> (Machine)<span class="resultat-sous">Machine · Quadriceps</span></span></div>
+      <div class="resultat"><span class="rang">3</span><span class="t">Split <mark>Squat</mark> Bulgare (Haltère)<span class="resultat-sous">Haltère · Quadriceps</span></span></div>
+      <div class="resultat estompe"><span class="rang">4</span><span class="t">Pistol <mark>Squat</mark> (Poids du Corps)<span class="resultat-sous">Poids du corps · Quadriceps</span></span></div>
+    </div>
+  </div>
+  <ul class="notes">
+    <li><span class="rang">1</span><span>Commence par « squat », déjà fait. Un exercice déjà dans la routine reste trouvable, avec sa mention (on peut vouloir le mettre deux fois).</span></li>
+    <li><span class="rang">2</span><span>Commence par « squat », jamais fait, muscles de la routine, ton matériel.</span></li>
+    <li><span class="rang">3</span><span>« Squat » au milieu du nom.</span></li>
+    <li><span class="rang">4</span><span>Une figure de street : après la musculation. (Estompée ici pour la lecture, pas dans l'app.)</span></li>
+  </ul>
+</div>
+
+<!-- 5 · Rattacher un nom Hevy -->
+<div class="cadre">
+  <div class="tel">
+    <div class="fen-tete"><p class="titre-catalogue">« Lat Pulldown - Close Grip (Cable) » chez Hevy, c'est…</p><span class="fermer">Fermer</span></div>
+    <div class="champ vide">Chercher un exercice</div>
+    <div class="filtres-exo"><div class="filtre-exo">Matériel <span>▾</span></div><div class="filtre-exo">Muscle <span>▾</span></div></div>
+    <div class="resultats">
+      <div class="groupe">Les plus proches</div>
+      <div class="resultat"><span class="rang">1</span><span class="t">Tirage Poitrine Prise Serrée (Poulie)<span class="resultat-sous">Poulie · Grand dorsal</span><span class="resultat-mention">Lat Pulldown · Prise Serrée · Poulie</span></span></div>
+      <div class="resultat"><span class="rang">2</span><span class="t">Tirage Poitrine (Poulie)<span class="resultat-sous">Poulie · Grand dorsal</span><span class="resultat-mention">Lat Pulldown · Poulie</span></span></div>
+      <div class="resultat"><span class="rang">2</span><span class="t">Tirage Poitrine Prise Neutre (Poulie)<span class="resultat-sous">Poulie · Grand dorsal</span><span class="resultat-mention">Poulie</span></span></div>
+      <div class="plus">Ou tape le nom de l'exercice.</div>
+    </div>
+  </div>
+  <ul class="notes">
+    <li><span class="rang">1</span><span>Le plus de mots en commun avec le nom Hevy, traduits par les noms alternatifs (« Lat Pulldown » → Tirage Poitrine, « Close Grip » → Prise Serrée, « Cable » → Poulie). La mention dit pourquoi.</span></li>
+    <li><span class="rang">2</span><span>Moins de mots en commun. Rien n'est jamais rattaché tout seul : un nom inconnu n'est pas deviné, c'est toi qui choisis.</span></li>
+  </ul>
+</div>
+
+</div>
+</body>
+</html>

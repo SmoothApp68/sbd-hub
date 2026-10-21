@@ -389,6 +389,14 @@ describe('132 — le moteur lit l’ordre de la liste (§10 bis tel quel, sur le
     const se = { debut: AVANT, series: [{ exercise_slug: 'x', type_serie: 'travail', elastique: 'Noir', charge_kg: -35, reps: 12 }] };
     const veille = { debut: jourAvant(1), series: [{ exercise_slug: 'x', type_serie: 'travail', elastique: 'Noir', charge_kg: -35, reps: 10 }] };
     expect(Mo.recordsBattus([veille], se, 0, {})).toEqual([]);
+    // La veille, la même aide notée en kg, deux reps de moins : la série du jour, notée par nom, ne la bat pas.
+    const veilleKg = { debut: jourAvant(1), series: [{ exercise_slug: 'x', type_serie: 'travail', elastique: null, charge_kg: -35, reps: 10 }] };
+    expect(Mo.recordsBattus([veilleKg], se, 0, {})).toEqual([]);
+    // … et une série notée par nom ne sert pas de base à battre : la série en kg du jour bat la veille en kg seule.
+    const avecNommee = { debut: jourAvant(1), series: veilleKg.series.concat([{ exercise_slug: 'x', type_serie: 'travail',
+      elastique: 'Noir', charge_kg: -35, reps: 15 }]) };
+    const enKgDuJour = { debut: AVANT, series: [{ exercise_slug: 'x', type_serie: 'travail', elastique: null, charge_kg: -35, reps: 12 }] };
+    expect(Mo.recordsBattus([avecNommee], enKgDuJour, 0, {}).map((r) => r.type)).toContain('reps_a_charge');
     const enKg = (s) => Object.assign({}, s, { elastique: null });
     expect(Mo.recordsBattus([{ debut: veille.debut, series: veille.series.map(enKg) }], { debut: AVANT, series: se.series.map(enKg) }, 0, {}).length)
       .toBeGreaterThan(0);
@@ -623,5 +631,20 @@ describe('132 — le formateur unique : « Noir × 12 »', () => {
     expect(Mo.meilleureSerieDeTout('tractions_elastique', [{ cle: AVANT, series }], Object.values(FICHES), Pa, {}, nomme).valeur)
       .toBe('Rouge × 8');
     expect(Mo.texteMeilleure({ charge: null, reps: null, valeur: 'Rouge × 8' })).toBe('Rouge × 8');
+  });
+});
+
+describe('132 — ni chauffe ni dégressive sur un élastique noté par nom (une ligne dégressive de la routine reste vide)', () => {
+  test('la ligne dégressive de la routine : le coach ne la remplit pas (−22,5 % d’une charge virtuelle n’a pas de sens)', () => {
+    const DIX = { elastiques: Array.from({ length: 10 }, (_, k) => ({ nom: 'E' + k })), elastiques_par_nom: true };
+    const h = historique('face_pull_elastique', [fois(3, { elastique: 'E0', reps: 8 }), fois(3, { elastique: 'E0', reps: 8 })], [14, 7]);
+    const { e } = entreesDe('face_pull_elastique', DIX, h, 4);
+    e.seance.exercices = S.changerType({ exercices: e.seance.exercices }, 0, 3, 'degressive').exercices;
+    const plan = T.planDeSeance(e), x = plan.exercices[0];
+    expect(x.degressive).toBeNull();
+    expect(x.chauffes).toBeNull();
+    expect(x.proposition).toBeNull();
+    expect(x.lignes[3].prerempli.elastique).toBeNull();
+    expect(erreursDe(plan, e)).toEqual([]);
   });
 });

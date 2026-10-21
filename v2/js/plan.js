@@ -3813,7 +3813,8 @@
       ((exo && exo.series) || []).forEach(function (s, k2) {
         if (!s || !Seance().partEnBase(s)) return;
         if (s.elastique !== null && s.elastique !== undefined) {
-          var faible = Object.assign({}, s, { reps: Math.max(1, (Number(s.reps) || 1) - 1) });
+          // La veille, la MÊME série notée en kg, une rep de moins : sans la règle, celle du jour la battrait.
+          var faible = Object.assign({}, s, { elastique: null, reps: Math.max(1, (Number(s.reps) || 1) - 1) });
           var veille = { debut: new Date(Date.parse((entrees.seance && entrees.seance.debut) || 0) - 864e5).toISOString(),
                          series: [faible] };
           var r = Mo.recordsBattus([veille], { debut: entrees.seance.debut, series: [s] }, 0, {});

@@ -159,6 +159,8 @@ const CATALOGUE = [
   { slug: 'militaire-u10', nom: 'Militaire U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['epaules'], muscles_secondaires: [] },
   // 108 — réservé à la section 108 (« Ma salle », MOTEUR §10 bis) : une barre EZ, le nom le dit.
   { slug: 'curl-ez-108', nom: 'Kz108 (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['biceps'], muscles_secondaires: [] },
+  // 128 — un exercice à barre CHARGÉE (`barre_charge_fixe: false`) dans la séance de la section 108 : la salle n'en dit rien.
+  { slug: 'rowing-108', nom: 'Rz108 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: ['biceps'] },
   // 49-U11 — réservé à la section 7 G octies (la phase). Son nom ne répond à
   // aucune des recherches faites ailleurs.
   // 115 — réservés à la section 115 (« Rien ne se perd à la saisie ») : son décor propre, pour qu'elle se joue seule
@@ -329,6 +331,13 @@ const CATALOGUE = [
   { slug: 'cyc-curl-u53', nom: 'Gamma Cycle U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u53_bi'], muscles_secondaires: [] },
   { slug: 'cyc-terre-u53', nom: 'Delta Cycle U53 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u53_isch2'], muscles_secondaires: ['u53_fess2', 'u53_lomb2'] }
 ];
+// 128 (v2_099, MOTEUR §10 bis) — `barre_charge_fixe` sur les exercices à la barre du catalogue, comme en base : `true`
+// pour un curl (à la barre droite ou EZ), `false` pour tout le reste (une barre qu'on charge). Les fiches ajoutées plus
+// loin par une section la portent quand la section déclare Ma salle (`plafond-propose`) ; les autres restent sans la
+// colonne — l'ancienne règle, celle d'un cache d'avant v2_099.
+CATALOGUE.forEach((e) => {
+  if (e.equipement === 'barre') e.barre_charge_fixe = /curl|biceps/i.test(e.slug) || /\(Barre EZ\)/.test(e.nom);
+});
 
 // ⚠️ UNE ROUTINE PORTE MAINTENANT SES LIGNES (chantier 43). `routine_sets`
 // remplace les deux entiers `series` / `reps_visees` : c'est de là que
@@ -9536,13 +9545,24 @@ const SETS_IMPORTES = [
     poserS('s108-a', 15, [[30, 11], [30, 11]]);
     poserS('s108-b', 8, [[30, 12], [30, 12]]);
     poserS('s108-c', 1, [[30, 12], [30, 12]]);
+    // 128 — le rowing à barre chargée (`barre_charge_fixe: false`), dans les mêmes séances : 27,5 kg × 8. L'ancienne
+    // règle l'arrondissait à la barre droite de 25 kg déclarée.
+    ['s108-b', 's108-c'].forEach((id) => {
+      const debut = base.sessions.filter((x) => x.id === id)[0].debut;
+      [1, 2].forEach((r) => base.sets.push({ id: id + '-r' + r, session_id: id, user_id: 'u-banc',
+        exercise_slug: 'rowing-108', charge_kg: 27.5, reps: 8, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: 10 + r, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null }));
+    });
     const lignes108 = [['travail', 12], ['travail', 12], ['degressive', null]].map(([t, reps], i) => ({
       id: 's108-l' + (++grainePr), rang: i + 1, type_serie: t, reps_visees: reps, charge_cible_kg: null,
       duree_cible_s: null, distance_cible_m: null }));
     ROUTINES.push({ id: 'r-108', nom: 'Salle 108', note: null, archivee_a: null,
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
       routine_exercises: [{ id: 'r-108-e', routine_id: 'r-108', exercise_slug: 'curl-ez-108', rang: 0,
-        routine_sets: lignes108, repos_cible_s: 90, groupe_superset: null, note: null }] });
+        routine_sets: lignes108, repos_cible_s: 90, groupe_superset: null, note: null },
+      { id: 'r-108-r', routine_id: 'r-108', exercise_slug: 'rowing-108', rang: 1,
+        routine_sets: progr(2, 10), repos_cible_s: 90, groupe_superset: null, note: null }] });
     const esp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
     const violationsAvant = gardeBanc.violations;
     const ouvrirSalle = async () => {
@@ -9572,10 +9592,15 @@ const SETS_IMPORTES = [
       await page.click('#feuille-contenu .salle-puces[data-type="barres_ez"] button[data-kg="' + kg + '"]');
       await attendre(80);
     }
+    // 128 — et des barres droites (20, 25, 30) : celles que l'ancienne règle prêtait au rowing.
+    for (const kg of ['20', '25', '30']) {
+      await page.click('#feuille-contenu .salle-puces[data-type="barres_droites"] button[data-kg="' + kg + '"]');
+      await attendre(80);
+    }
     await bouton('Valider');
     await attendre(900);
-    ok('[108] la déclaration part en base : barres EZ 10 à 30', JSON.stringify((base.profiles[0] || {}).ma_salle) ===
-      JSON.stringify({ barres_ez: [10, 15, 20, 25, 30], barres_droites: [], halteres: null }), JSON.stringify((base.profiles[0] || {}).ma_salle));
+    ok('[108] la déclaration part en base : barres EZ 10 à 30, droites 20 à 30', JSON.stringify((base.profiles[0] || {}).ma_salle) ===
+      JSON.stringify({ barres_ez: [10, 15, 20, 25, 30], barres_droites: [20, 25, 30], halteres: null }), JSON.stringify((base.profiles[0] || {}).ma_salle));
 
     // 2. La séance : la grille à 30 kg, jamais 32,5 ; la phrase ; la dégressive.
     await aller('/saisie');
@@ -9592,6 +9617,15 @@ const SETS_IMPORTES = [
     ok('[108] DISCRIMINANT — la dégressive à barre fixe : 20 kg, « Prends la barre de 20 kg. »',
       !!p1 && p1.degressive && p1.degressive.charge === 20 && f1[2] === '20' &&
       esp(p1.degressive.phrase).indexOf('Prends la barre de 20 kg.') === 0, JSON.stringify([p1 && p1.degressive, f1]));
+    // 128 (MOTEUR §10 bis, `barre_charge_fixe`) — le rowing à barre chargée, même salle déclarée : la charge du coach.
+    const r1 = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'rowing-108')[0];
+      return x ? { salle: x.salle || null, ligne: x.consigne && x.consigne.ligne } : null;
+    });
+    ok('[128] DISCRIMINANT — un exercice à barre chargée n’est plus arrondi à une barre fixe : rowing à 27,5 kg (pas 25), aucune salle',
+      !!r1 && r1.salle === null && !!r1.ligne && r1.ligne.charge === 27.5 && f1[3] === '27,5' && f1[4] === '27,5',
+      JSON.stringify([r1, f1]));
 
     // 3. 3 reps de plus que visé (16 au lieu de 13) : aucune charge proposée au-delà de la salle.
     await saisirSerie(0, 30, 16);
@@ -21560,12 +21594,13 @@ const SETS_IMPORTES = [
     const rendreBlocsP = await retirerBlocsDeLAppareil();
     const EZ = 'flexion-pq-ez', EZ2 = 'flexion-pq-ez-c', DROITE = 'flexion-pq-barre', HALT = 'flexion-pq-haltere';
     CATALOGUE.push({ slug: EZ, nom: 'Flexion Pq (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
-      mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
+      mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'], barre_charge_fixe: true });
     // C joue sur une seconde flexion EZ (une autre poignée) : les réponses de B restent sur l'appareil.
     CATALOGUE.push({ slug: EZ2, nom: 'Flexion Pq Prise Large (Barre EZ)', mesure: 'charge_reps', charge: 'externe',
-      equipement: 'barre', mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
+      equipement: 'barre', mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'],
+      barre_charge_fixe: true });
     CATALOGUE.push({ slug: DROITE, nom: 'Flexion Pq (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
-      mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
+      mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'], barre_charge_fixe: true });
     CATALOGUE.push({ slug: HALT, nom: 'Flexion Pq (Haltère)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere',
       mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
     if (base.profiles && base.profiles[0]) {

@@ -1477,7 +1477,7 @@ const NOTIONS = [
     par: ['vueEchelle'],
     parAilleurs: { 'app.js': ['marcheAProposer'] },
     interditAilleurs: { motif: /\.\s*echelle_rang\b|\[\s*(['"`])echelle_rang\1\s*\]/,
-      sauf: { 'donnees.js': 'la seconde lecture du catalogue (`echellesDuCatalogue`) recopie les deux colonnes telles quelles, sans les interpréter' },
+      sauf: { 'donnees.js': 'la seconde lecture du catalogue (`accessoiresDuCatalogue`) recopie les deux colonnes telles quelles, sans les interpréter' },
       raison: '`echelle_rang` lu ailleurs que dans `modele.js` : une seconde définition de l’échelle' },
     raison: 'MOTEUR §9.17 bis : une seule fonction, lue par la carte du plan (l’app la lui passe, `entreesDuPlan`) ' +
       'et par la page d’exercice (« Ton échelle ») — aucun écran ne recalcule une marche.' },

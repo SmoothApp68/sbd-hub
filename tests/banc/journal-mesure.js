@@ -56,6 +56,8 @@ function catalogue(nExos) {
     out.push({ slug: 'exo-' + i, nom: 'Exercice ' + i, mesure: eq === 'aucun' ? 'reps' : 'charge_reps',
       charge: eq === 'aucun' ? 'corps' : 'externe', parent: null, equipement: eq,
       muscles_primaires: ['m' + (i % 12)], muscles_secondaires: [], mouvement: null });
+    // 128 (v2_099) — `barre_charge_fixe` sur les exercices à la barre, comme en base : une barre qu'on charge.
+    if (eq === 'barre') out[out.length - 1].barre_charge_fixe = false;
   }
   return out;
 }

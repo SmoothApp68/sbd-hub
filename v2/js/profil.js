@@ -1476,9 +1476,15 @@
   // ── QUELLE SALLE POUR QUEL EXERCICE (MOTEUR §10 bis) ─────────────────────
   //
   // La donnée du catalogue qui dit le matériel : `exercises.equipement`. `haltere` → les haltères déclarés. `barre`
-  // → une barre FIXE, sauf la barre lourde (les quatre barres et leurs frères à la barre, la définition du générateur,
-  // `THGenerateur.estBarreLourde`) : une barre olympique chargée de disques n'est pas concernée. Laquelle : le NOM au
-  // catalogue (« Curl Biceps (Barre EZ) ») — `equipement` ne distingue pas l'EZ de la droite —, sinon la barre droite.
+  // → une barre FIXE seulement si le catalogue le dit (`exercises.barre_charge_fixe`, v2_099, 128 — audit du 16/10,
+  // 03 #14) : `true` (les curls à la barre, les poignets, la barre au front, l'extension EZ, l'élévation frontale, le
+  // rowing debout, le pull-over) → les barres fixes déclarées ; `false` (un rowing, une fente, un hip thrust, un good
+  // morning, un shrug…) → une barre qu'on charge, la salle n'en dit rien (`null`). Une fiche SANS la colonne (cache
+  // d'avant v2_099, faux serveur : `undefined`) garde l'ancienne règle — une barre fixe sauf la barre lourde (les
+  // quatre barres et leurs frères à la barre, la définition du générateur, `THGenerateur.estBarreLourde`). Ne pas
+  // confondre avec `barre_fixe` du générateur (R3, 60-5) : la barre de TRACTION d'une ligne de programme.
+  // Laquelle : le NOM au catalogue (« Curl Biceps (Barre EZ) ») — `equipement` ne distingue pas l'EZ de la droite —,
+  // sinon la barre droite.
   // Le moteur ajoute une garde (`salleEnVigueur`) : un palier au-delà de la plus lourde barre fixe déclarée vient
   // d'une barre qu'on charge, et la salle n'en dit rien.
   //
@@ -1511,8 +1517,11 @@
       return avecIsolation({ materiel: 'halteres', charges: charges }, fiche);
     }
     if (fiche.equipement !== 'barre') return null;
-    var G = racine.THGenerateur;
-    if (G && G.estBarreLourde(slug, index)) return null;
+    if (fiche.barre_charge_fixe === false) return null;
+    if (fiche.barre_charge_fixe !== true) {
+      var G = racine.THGenerateur;
+      if (G && G.estBarreLourde(slug, index)) return null;
+    }
     var ez = estBarreEZ(Object.assign({ slug: slug }, fiche));
     var liste = ez ? s.barres_ez : s.barres_droites;
     return liste.length ? avecIsolation({ materiel: ez ? 'barre_ez' : 'barre_droite', charges: liste.slice() }, fiche) : null;

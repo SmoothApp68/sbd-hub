@@ -1,0 +1,2812 @@
+{
+ "salles": {
+  "vide": {},
+  "kg": {
+   "elastiques": [
+    {
+     "nom": "Noir",
+     "kg": 35
+    },
+    {
+     "nom": "Rouge",
+     "kg": 25
+    },
+    {
+     "nom": "Vert"
+    }
+   ]
+  },
+  "nom": {
+   "elastiques": [
+    {
+     "nom": "Noir",
+     "kg": 35
+    },
+    {
+     "nom": "Rouge",
+     "kg": 25
+    },
+    {
+     "nom": "Vert"
+    }
+   ],
+   "elastiques_par_nom": true
+  },
+  "nom_mini": {
+   "elastiques": [
+    {
+     "nom": "Noir",
+     "kg": 35
+    },
+    {
+     "nom": "Rouge",
+     "kg": 25
+    },
+    {
+     "nom": "Vert"
+    }
+   ],
+   "elastiques_par_nom": true,
+   "mini_bandes": [
+    {
+     "nom": "Bleue"
+    },
+    {
+     "nom": "Jaune"
+    }
+   ]
+  },
+  "mini_seul": {
+   "mini_bandes": [
+    {
+     "nom": "Bleue"
+    },
+    {
+     "nom": "Jaune"
+    }
+   ]
+  },
+  "un_seul": {
+   "elastiques": [
+    {
+     "nom": "Noir",
+     "kg": 35
+    }
+   ],
+   "elastiques_par_nom": true
+  }
+ },
+ "exercices": {
+  "aide": {
+   "slug": "tractions_elastique",
+   "charge": "assistance",
+   "type_elastique": "grand",
+   "mesure": "charge_reps"
+  },
+  "nordique": {
+   "slug": "leg_curl_nordique_assiste_elastique",
+   "charge": "assistance",
+   "type_elastique": "grand",
+   "mesure": "charge_reps"
+  },
+  "machine": {
+   "slug": "traction_assistee",
+   "charge": "assistance",
+   "type_elastique": null,
+   "mesure": "charge_reps"
+  },
+  "resistance": {
+   "slug": "face_pull_elastique",
+   "charge": "elastique",
+   "type_elastique": "grand",
+   "mesure": "reps"
+  },
+  "mini": {
+   "slug": "clamshell_elastique",
+   "charge": "elastique",
+   "type_elastique": "mini",
+   "mesure": "reps"
+  }
+ },
+ "series": [
+  {
+   "elastique": "Noir",
+   "charge_kg": -35,
+   "reps": 12
+  },
+  {
+   "elastique": "Rouge",
+   "charge_kg": -25,
+   "reps": 10
+  },
+  {
+   "elastique": "Vert",
+   "charge_kg": null,
+   "reps": 8
+  },
+  {
+   "elastique": "Gris",
+   "charge_kg": null,
+   "reps": 8
+  },
+  {
+   "elastique": null,
+   "charge_kg": -35,
+   "reps": 12
+  },
+  {
+   "elastique": null,
+   "charge_kg": -25,
+   "reps": 9
+  },
+  {
+   "elastique": null,
+   "charge_kg": -20,
+   "reps": 7
+  },
+  {
+   "elastique": null,
+   "charge_kg": null,
+   "reps": 15
+  },
+  {
+   "elastique": "Bleue",
+   "charge_kg": null,
+   "reps": 20
+  },
+  {
+   "elastique": "Jaune",
+   "charge_kg": null,
+   "reps": 15
+  }
+ ],
+ "par_nom": [
+  {
+   "salle": "vide",
+   "exercice": "aide",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "vide",
+   "exercice": "nordique",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "vide",
+   "exercice": "machine",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "vide",
+   "exercice": "resistance",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "vide",
+   "exercice": "mini",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "kg",
+   "exercice": "aide",
+   "liste": [
+    "Noir",
+    "Rouge",
+    "Vert"
+   ],
+   "par_nom": false
+  },
+  {
+   "salle": "kg",
+   "exercice": "nordique",
+   "liste": [
+    "Noir",
+    "Rouge",
+    "Vert"
+   ],
+   "par_nom": false
+  },
+  {
+   "salle": "kg",
+   "exercice": "machine",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "liste": [
+    "Noir",
+    "Rouge",
+    "Vert"
+   ],
+   "par_nom": true
+  },
+  {
+   "salle": "kg",
+   "exercice": "mini",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "liste": [
+    "Noir",
+    "Rouge",
+    "Vert"
+   ],
+   "par_nom": true
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "liste": [
+    "Noir",
+    "Rouge",
+    "Vert"
+   ],
+   "par_nom": true
+  },
+  {
+   "salle": "nom",
+   "exercice": "machine",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "liste": [
+    "Noir",
+    "Rouge",
+    "Vert"
+   ],
+   "par_nom": true
+  },
+  {
+   "salle": "nom",
+   "exercice": "mini",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "liste": [
+    "Noir",
+    "Rouge",
+    "Vert"
+   ],
+   "par_nom": true
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "liste": [
+    "Noir",
+    "Rouge",
+    "Vert"
+   ],
+   "par_nom": true
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "machine",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "liste": [
+    "Noir",
+    "Rouge",
+    "Vert"
+   ],
+   "par_nom": true
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "liste": [
+    "Bleue",
+    "Jaune"
+   ],
+   "par_nom": true
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "aide",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "nordique",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "machine",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "resistance",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "liste": [
+    "Bleue",
+    "Jaune"
+   ],
+   "par_nom": true
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "liste": [
+    "Noir"
+   ],
+   "par_nom": true
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "liste": [
+    "Noir"
+   ],
+   "par_nom": true
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "machine",
+   "liste": [],
+   "par_nom": false
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "liste": [
+    "Noir"
+   ],
+   "par_nom": true
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "mini",
+   "liste": [],
+   "par_nom": false
+  }
+ ],
+ "salle": [
+  {
+   "salle": "vide",
+   "exercice": "aide",
+   "attendu": null
+  },
+  {
+   "salle": "vide",
+   "exercice": "nordique",
+   "attendu": null
+  },
+  {
+   "salle": "vide",
+   "exercice": "machine",
+   "attendu": null
+  },
+  {
+   "salle": "vide",
+   "exercice": "resistance",
+   "attendu": null
+  },
+  {
+   "salle": "vide",
+   "exercice": "mini",
+   "attendu": null
+  },
+  {
+   "salle": "kg",
+   "exercice": "aide",
+   "attendu": null
+  },
+  {
+   "salle": "kg",
+   "exercice": "nordique",
+   "attendu": null
+  },
+  {
+   "salle": "kg",
+   "exercice": "machine",
+   "attendu": null
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "attendu": {
+    "charges": [
+     1,
+     2,
+     3
+    ],
+    "noms": {
+     "3": "Noir",
+     "2": "Rouge",
+     "1": "Vert"
+    }
+   }
+  },
+  {
+   "salle": "kg",
+   "exercice": "mini",
+   "attendu": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "attendu": {
+    "charges": [
+     -3,
+     -2,
+     -1
+    ],
+    "noms": {
+     "-3": "Noir",
+     "-2": "Rouge",
+     "-1": "Vert"
+    }
+   }
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "attendu": {
+    "charges": [
+     -3,
+     -2,
+     -1
+    ],
+    "noms": {
+     "-3": "Noir",
+     "-2": "Rouge",
+     "-1": "Vert"
+    }
+   }
+  },
+  {
+   "salle": "nom",
+   "exercice": "machine",
+   "attendu": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "attendu": {
+    "charges": [
+     1,
+     2,
+     3
+    ],
+    "noms": {
+     "3": "Noir",
+     "2": "Rouge",
+     "1": "Vert"
+    }
+   }
+  },
+  {
+   "salle": "nom",
+   "exercice": "mini",
+   "attendu": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "attendu": {
+    "charges": [
+     -3,
+     -2,
+     -1
+    ],
+    "noms": {
+     "-3": "Noir",
+     "-2": "Rouge",
+     "-1": "Vert"
+    }
+   }
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "attendu": {
+    "charges": [
+     -3,
+     -2,
+     -1
+    ],
+    "noms": {
+     "-3": "Noir",
+     "-2": "Rouge",
+     "-1": "Vert"
+    }
+   }
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "machine",
+   "attendu": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "attendu": {
+    "charges": [
+     1,
+     2,
+     3
+    ],
+    "noms": {
+     "3": "Noir",
+     "2": "Rouge",
+     "1": "Vert"
+    }
+   }
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "attendu": {
+    "charges": [
+     1,
+     2
+    ],
+    "noms": {
+     "2": "Bleue",
+     "1": "Jaune"
+    }
+   }
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "aide",
+   "attendu": null
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "nordique",
+   "attendu": null
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "machine",
+   "attendu": null
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "resistance",
+   "attendu": null
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "attendu": {
+    "charges": [
+     1,
+     2
+    ],
+    "noms": {
+     "2": "Bleue",
+     "1": "Jaune"
+    }
+   }
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "attendu": {
+    "charges": [
+     -1
+    ],
+    "noms": {
+     "-1": "Noir"
+    }
+   }
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "attendu": {
+    "charges": [
+     -1
+    ],
+    "noms": {
+     "-1": "Noir"
+    }
+   }
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "machine",
+   "attendu": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "attendu": {
+    "charges": [
+     1
+    ],
+    "noms": {
+     "1": "Noir"
+    }
+   }
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "mini",
+   "attendu": null
+  }
+ ],
+ "serie": [
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "serie": 0,
+   "nom": "Noir",
+   "charge_moteur": 3,
+   "affichage": "Noir × 12"
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "serie": 1,
+   "nom": "Rouge",
+   "charge_moteur": 2,
+   "affichage": "Rouge × 10"
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "serie": 2,
+   "nom": "Vert",
+   "charge_moteur": 1,
+   "affichage": "Vert × 8"
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "serie": 3,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Gris × 8"
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "serie": 4,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "serie": 5,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "serie": 6,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "serie": 7,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "serie": 8,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Bleue × 20"
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "serie": 9,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Jaune × 15"
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "serie": 0,
+   "nom": "Noir",
+   "charge_moteur": -3,
+   "affichage": "Noir × 12"
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "serie": 1,
+   "nom": "Rouge",
+   "charge_moteur": -2,
+   "affichage": "Rouge × 10"
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "serie": 2,
+   "nom": "Vert",
+   "charge_moteur": -1,
+   "affichage": "Vert × 8"
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "serie": 3,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Gris × 8"
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "serie": 4,
+   "nom": "Noir",
+   "charge_moteur": -3,
+   "affichage": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "serie": 5,
+   "nom": "Rouge",
+   "charge_moteur": -2,
+   "affichage": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "serie": 6,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "serie": 7,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "serie": 8,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Bleue × 20"
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "serie": 9,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Jaune × 15"
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "serie": 0,
+   "nom": "Noir",
+   "charge_moteur": -3,
+   "affichage": "Noir × 12"
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "serie": 1,
+   "nom": "Rouge",
+   "charge_moteur": -2,
+   "affichage": "Rouge × 10"
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "serie": 2,
+   "nom": "Vert",
+   "charge_moteur": -1,
+   "affichage": "Vert × 8"
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "serie": 3,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Gris × 8"
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "serie": 4,
+   "nom": "Noir",
+   "charge_moteur": -3,
+   "affichage": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "serie": 5,
+   "nom": "Rouge",
+   "charge_moteur": -2,
+   "affichage": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "serie": 6,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "serie": 7,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "serie": 8,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Bleue × 20"
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "serie": 9,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Jaune × 15"
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "serie": 0,
+   "nom": "Noir",
+   "charge_moteur": 3,
+   "affichage": "Noir × 12"
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "serie": 1,
+   "nom": "Rouge",
+   "charge_moteur": 2,
+   "affichage": "Rouge × 10"
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "serie": 2,
+   "nom": "Vert",
+   "charge_moteur": 1,
+   "affichage": "Vert × 8"
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "serie": 3,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Gris × 8"
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "serie": 4,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "serie": 5,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "serie": 6,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "serie": 7,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "serie": 8,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Bleue × 20"
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "serie": 9,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Jaune × 15"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "serie": 0,
+   "nom": "Noir",
+   "charge_moteur": -3,
+   "affichage": "Noir × 12"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "serie": 1,
+   "nom": "Rouge",
+   "charge_moteur": -2,
+   "affichage": "Rouge × 10"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "serie": 2,
+   "nom": "Vert",
+   "charge_moteur": -1,
+   "affichage": "Vert × 8"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "serie": 3,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Gris × 8"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "serie": 4,
+   "nom": "Noir",
+   "charge_moteur": -3,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "serie": 5,
+   "nom": "Rouge",
+   "charge_moteur": -2,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "serie": 6,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "serie": 7,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "serie": 8,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Bleue × 20"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "serie": 9,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Jaune × 15"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "serie": 0,
+   "nom": "Noir",
+   "charge_moteur": -3,
+   "affichage": "Noir × 12"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "serie": 1,
+   "nom": "Rouge",
+   "charge_moteur": -2,
+   "affichage": "Rouge × 10"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "serie": 2,
+   "nom": "Vert",
+   "charge_moteur": -1,
+   "affichage": "Vert × 8"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "serie": 3,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Gris × 8"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "serie": 4,
+   "nom": "Noir",
+   "charge_moteur": -3,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "serie": 5,
+   "nom": "Rouge",
+   "charge_moteur": -2,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "serie": 6,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "serie": 7,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "serie": 8,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Bleue × 20"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "serie": 9,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Jaune × 15"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "serie": 0,
+   "nom": "Noir",
+   "charge_moteur": 3,
+   "affichage": "Noir × 12"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "serie": 1,
+   "nom": "Rouge",
+   "charge_moteur": 2,
+   "affichage": "Rouge × 10"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "serie": 2,
+   "nom": "Vert",
+   "charge_moteur": 1,
+   "affichage": "Vert × 8"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "serie": 3,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Gris × 8"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "serie": 4,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "serie": 5,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "serie": 6,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "serie": 7,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "serie": 8,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Bleue × 20"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "serie": 9,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Jaune × 15"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "serie": 0,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Noir × 12"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "serie": 1,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Rouge × 10"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "serie": 2,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Vert × 8"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "serie": 3,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Gris × 8"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "serie": 4,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "serie": 5,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "serie": 6,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "serie": 7,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "serie": 8,
+   "nom": "Bleue",
+   "charge_moteur": 2,
+   "affichage": "Bleue × 20"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "serie": 9,
+   "nom": "Jaune",
+   "charge_moteur": 1,
+   "affichage": "Jaune × 15"
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "serie": 0,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Noir × 12"
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "serie": 1,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Rouge × 10"
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "serie": 2,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Vert × 8"
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "serie": 3,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Gris × 8"
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "serie": 4,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "serie": 5,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "serie": 6,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "serie": 7,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "serie": 8,
+   "nom": "Bleue",
+   "charge_moteur": 2,
+   "affichage": "Bleue × 20"
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "serie": 9,
+   "nom": "Jaune",
+   "charge_moteur": 1,
+   "affichage": "Jaune × 15"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "serie": 0,
+   "nom": "Noir",
+   "charge_moteur": -1,
+   "affichage": "Noir × 12"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "serie": 1,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Rouge × 10"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "serie": 2,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Vert × 8"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "serie": 3,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Gris × 8"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "serie": 4,
+   "nom": "Noir",
+   "charge_moteur": -1,
+   "affichage": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "serie": 5,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "serie": 6,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "serie": 7,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "serie": 8,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Bleue × 20"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "serie": 9,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Jaune × 15"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "serie": 0,
+   "nom": "Noir",
+   "charge_moteur": -1,
+   "affichage": "Noir × 12"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "serie": 1,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Rouge × 10"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "serie": 2,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Vert × 8"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "serie": 3,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Gris × 8"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "serie": 4,
+   "nom": "Noir",
+   "charge_moteur": -1,
+   "affichage": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "serie": 5,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "serie": 6,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "serie": 7,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "serie": 8,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Bleue × 20"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "serie": 9,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Jaune × 15"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "serie": 0,
+   "nom": "Noir",
+   "charge_moteur": 1,
+   "affichage": "Noir × 12"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "serie": 1,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Rouge × 10"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "serie": 2,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Vert × 8"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "serie": 3,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Gris × 8"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "serie": 4,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "serie": 5,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "serie": 6,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "serie": 7,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "serie": 8,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Bleue × 20"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "serie": 9,
+   "nom": null,
+   "charge_moteur": null,
+   "affichage": "Jaune × 15"
+  }
+ ],
+ "cran": [
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "nom": "Noir",
+   "au_dessus": null,
+   "en_dessous": "Rouge"
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "nom": "Rouge",
+   "au_dessus": "Noir",
+   "en_dessous": "Vert"
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "nom": "Vert",
+   "au_dessus": "Rouge",
+   "en_dessous": null
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "nom": "Gris",
+   "au_dessus": null,
+   "en_dessous": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "nom": "Noir",
+   "au_dessus": "Rouge",
+   "en_dessous": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "nom": "Rouge",
+   "au_dessus": "Vert",
+   "en_dessous": "Noir"
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "nom": "Vert",
+   "au_dessus": null,
+   "en_dessous": "Rouge"
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "nom": "Gris",
+   "au_dessus": null,
+   "en_dessous": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "nom": "Noir",
+   "au_dessus": "Rouge",
+   "en_dessous": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "nom": "Rouge",
+   "au_dessus": "Vert",
+   "en_dessous": "Noir"
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "nom": "Vert",
+   "au_dessus": null,
+   "en_dessous": "Rouge"
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "nom": "Gris",
+   "au_dessus": null,
+   "en_dessous": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "nom": "Noir",
+   "au_dessus": null,
+   "en_dessous": "Rouge"
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "nom": "Rouge",
+   "au_dessus": "Noir",
+   "en_dessous": "Vert"
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "nom": "Vert",
+   "au_dessus": "Rouge",
+   "en_dessous": null
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "nom": "Gris",
+   "au_dessus": null,
+   "en_dessous": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "nom": "Noir",
+   "au_dessus": "Rouge",
+   "en_dessous": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "nom": "Rouge",
+   "au_dessus": "Vert",
+   "en_dessous": "Noir"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "nom": "Vert",
+   "au_dessus": null,
+   "en_dessous": "Rouge"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "nom": "Gris",
+   "au_dessus": null,
+   "en_dessous": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "nom": "Noir",
+   "au_dessus": "Rouge",
+   "en_dessous": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "nom": "Rouge",
+   "au_dessus": "Vert",
+   "en_dessous": "Noir"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "nom": "Vert",
+   "au_dessus": null,
+   "en_dessous": "Rouge"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "nom": "Gris",
+   "au_dessus": null,
+   "en_dessous": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "nom": "Noir",
+   "au_dessus": null,
+   "en_dessous": "Rouge"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "nom": "Rouge",
+   "au_dessus": "Noir",
+   "en_dessous": "Vert"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "nom": "Vert",
+   "au_dessus": "Rouge",
+   "en_dessous": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "nom": "Gris",
+   "au_dessus": null,
+   "en_dessous": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "nom": "Bleue",
+   "au_dessus": null,
+   "en_dessous": "Jaune"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "nom": "Jaune",
+   "au_dessus": "Bleue",
+   "en_dessous": null
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "nom": "Gris",
+   "au_dessus": null,
+   "en_dessous": null
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "nom": "Bleue",
+   "au_dessus": null,
+   "en_dessous": "Jaune"
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "nom": "Jaune",
+   "au_dessus": "Bleue",
+   "en_dessous": null
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "nom": "Gris",
+   "au_dessus": null,
+   "en_dessous": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "nom": "Noir",
+   "au_dessus": null,
+   "en_dessous": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "nom": "Gris",
+   "au_dessus": null,
+   "en_dessous": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "nom": "Noir",
+   "au_dessus": null,
+   "en_dessous": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "nom": "Gris",
+   "au_dessus": null,
+   "en_dessous": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "nom": "Noir",
+   "au_dessus": null,
+   "en_dessous": null
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "nom": "Gris",
+   "au_dessus": null,
+   "en_dessous": null
+  }
+ ],
+ "ecrire": [
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "nom": "Noir",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Noir",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "nom": "Rouge",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Rouge",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "nom": "Vert",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Vert",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "nom": "Noir",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Noir",
+    "charge_kg": -35,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "nom": "Rouge",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Rouge",
+    "charge_kg": -25,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "nom": "Vert",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Vert",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "nom": "Noir",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Noir",
+    "charge_kg": -35,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "nom": "Rouge",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Rouge",
+    "charge_kg": -25,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "nom": "Vert",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Vert",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "nom": "Noir",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Noir",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "nom": "Rouge",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Rouge",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "nom": "Vert",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Vert",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "nom": "Noir",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Noir",
+    "charge_kg": -35,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "nom": "Rouge",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Rouge",
+    "charge_kg": -25,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "nom": "Vert",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Vert",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "nom": "Noir",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Noir",
+    "charge_kg": -35,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "nom": "Rouge",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Rouge",
+    "charge_kg": -25,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "nom": "Vert",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Vert",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "nom": "Noir",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Noir",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "nom": "Rouge",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Rouge",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "nom": "Vert",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Vert",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "nom": "Bleue",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Bleue",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "nom": "Jaune",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Jaune",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "nom": "Bleue",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Bleue",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "nom": "Jaune",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Jaune",
+    "charge_kg": null,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "nom": "Noir",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Noir",
+    "charge_kg": -35,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "nom": "Noir",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Noir",
+    "charge_kg": -35,
+    "reps": 10
+   }
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "nom": "Noir",
+   "reps": 10,
+   "attendu": {
+    "elastique": "Noir",
+    "charge_kg": null,
+    "reps": 10
+   }
+  }
+ ],
+ "meilleur": [
+  {
+   "salle": "kg",
+   "exercice": "resistance",
+   "attendu": "Noir × 12"
+  },
+  {
+   "salle": "nom",
+   "exercice": "aide",
+   "attendu": "Vert × 8"
+  },
+  {
+   "salle": "nom",
+   "exercice": "nordique",
+   "attendu": "Vert × 8"
+  },
+  {
+   "salle": "nom",
+   "exercice": "resistance",
+   "attendu": "Noir × 12"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "aide",
+   "attendu": "Vert × 8"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "nordique",
+   "attendu": "Vert × 8"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "resistance",
+   "attendu": "Noir × 12"
+  },
+  {
+   "salle": "nom_mini",
+   "exercice": "mini",
+   "attendu": "Bleue × 20"
+  },
+  {
+   "salle": "mini_seul",
+   "exercice": "mini",
+   "attendu": "Bleue × 20"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "aide",
+   "attendu": "Noir × 12"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "nordique",
+   "attendu": "Noir × 12"
+  },
+  {
+   "salle": "un_seul",
+   "exercice": "resistance",
+   "attendu": "Noir × 12"
+  }
+ ],
+ "pratiquante_a": {
+  "note": "Tractions (Élastique), séries de travail réelles d'une pratiquante (anonymisées : jours depuis une date de référence). Ses élastiques : Noir = aide 35 kg, Rouge = aide 25 kg ; l'aide de 20 kg (jour 357) ne correspond à aucun élastique déclaré.",
+  "salle": {
+   "elastiques": [
+    {
+     "nom": "Noir",
+     "kg": 35
+    },
+    {
+     "nom": "Rouge",
+     "kg": 25
+    },
+    {
+     "nom": "Vert"
+    }
+   ],
+   "elastiques_par_nom": true
+  },
+  "seances": [
+   {
+    "jour": 15,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 8
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 8
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 8
+     }
+    ]
+   },
+   {
+    "jour": 34,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 8
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 8
+     }
+    ]
+   },
+   {
+    "jour": 39,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 8
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 8
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 8
+     }
+    ]
+   },
+   {
+    "jour": 52,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 6
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 6
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 6
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 6
+     }
+    ]
+   },
+   {
+    "jour": 86,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 98,
+    "series": [
+     {
+      "charge_kg": null,
+      "reps": 5
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 124,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 129,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 151,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 8
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 8
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 8
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 8
+     }
+    ]
+   },
+   {
+    "jour": 182,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 194,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 216,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 313,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 325,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 337,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 357,
+    "series": [
+     {
+      "charge_kg": -20.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -20.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 382,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 386,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 394,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 400,
+    "series": [
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 407,
+    "series": [
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 415,
+    "series": [
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 420,
+    "series": [
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 428,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 438,
+    "series": [
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 449,
+    "series": [
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 454,
+    "series": [
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -25.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 463,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 471,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   },
+   {
+    "jour": 475,
+    "series": [
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     },
+     {
+      "charge_kg": -35.0,
+      "reps": 10
+     }
+    ]
+   }
+  ]
+ }
+}

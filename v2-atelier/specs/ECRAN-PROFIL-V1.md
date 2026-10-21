@@ -173,6 +173,23 @@ Une colonne plutôt que quatre : une seule écriture par « Valider », une seul
 n'est pas lancée (le profil se lit et s'écrit sans elle, le mécanisme du prompt 104), et une forme imbriquée (deux
 listes et une plage) qu'une contrainte valide entière.
 
+### 2.4 sexies Mes élastiques — décidé le 17/10/2026, précisé le 21/10/2026 (chantier B3, prompt 132)
+
+Dans Ma salle (§2.4 quinquies), **deux listes**, chacune rangée **de la plus forte à la plus légère** en les glissant
+(maquette `maquette-elastiques-v2.html`, écran 1) :
+- **Grands élastiques** (`ma_salle.elastiques`, v2_099) : `{nom, kg?}` — le kg est **facultatif**, et ne sert qu'à
+  rattacher un ancien historique noté en kg (MOTEUR §10 ter) ;
+- **Mini-bandes** (`ma_salle.mini_bandes`, v2_102) : `{nom}` seulement — la tension d'une mini-bande n'a pas de chiffre
+  fiable.
+10 au plus chacune ; un nom de 1 à 30 caractères, sans espace au bord ; deux élastiques d'une même liste n'ont jamais
+le même nom.
+
+**« J'ai noté une aide à l'élastique : en kg / par son nom »** (`ma_salle.elastiques_par_nom`) : un choix, comme RPE
+ou reps restantes, réglable à tout moment. Il ne vaut **que pour l'élastique qui aide** (tractions, dips, muscle-up,
+nordique). Un élastique qui fait **résistance** se note **toujours** par son nom ; une machine d'aide, toujours en kg.
+
+Sans élastique déclaré, rien ne change : l'aide se tape en kg, et un exercice en résistance se note en reps seules.
+
 ### 2.4 quater Importer depuis Hevy — décidé le 11/10/2026 (chantier 69)
 
 > **Chacun apporte ses séances Hevy lui-même** : en collant le texte que Hevy partage (une séance ou plusieurs à la

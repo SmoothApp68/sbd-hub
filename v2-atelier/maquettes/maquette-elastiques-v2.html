@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maquette : les élastiques</title>
+<style>
+:root{--fond:#0f1114;--panneau:#181b20;--panneau-2:#21252c;--trait:#2c3139;--texte:#eceef2;--texte-2:#9aa1ac;--texte-3:#888e98;--accent:#f2b84b;--sur-accent:#1a1305;--reussi:#5FA97A}
+*{box-sizing:border-box}
+body{margin:0;background:#08090b;color:var(--texte);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:24px 16px}
+h1{font-size:18px;margin:0 0 6px}
+.intro{color:var(--texte-2);max-width:760px;margin:0 0 24px}
+.ecrans{display:flex;flex-wrap:wrap;gap:28px}
+.bloc{width:360px;max-width:100%}
+.bloc>h2{font-size:13px;color:var(--accent);margin:0 0 4px;font-weight:600}
+.bloc>p.note{font-size:12.5px;color:var(--texte-2);margin:8px 0 0}
+.tel{background:var(--fond);border:1px solid var(--trait);border-radius:18px;padding:14px 12px;width:360px;max-width:100%}
+.carte{background:var(--panneau);border-radius:12px;padding:12px 12px 10px;margin-bottom:10px}
+.carte>b{font-size:14px}
+.aide{color:var(--texte-3);font-size:12px;margin:3px 0 0}
+.el{display:grid;grid-template-columns:18px 14px 1fr auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--trait)}
+.el:first-of-type{border-top:0}
+.poi{color:var(--texte-3);letter-spacing:-2px;font-size:13px}
+.pa{width:12px;height:12px;border-radius:50%;display:inline-block}
+.kg{color:var(--texte-2);font-weight:600}
+.ordre{color:var(--texte-3);font-size:11.5px;display:flex;justify-content:space-between;margin-top:4px}
+.ajout{color:var(--texte-2);font-size:13px;padding-top:6px}
+.choix{display:flex;gap:6px;margin-top:8px}
+.choix span{flex:1;text-align:center;padding:8px 6px;border-radius:9px;background:var(--panneau-2);color:var(--texte-2);font-size:13px}
+.choix span.on{background:var(--texte);color:var(--fond);font-weight:600}
+.exo{font-weight:700;font-size:16px}
+.consigne{color:var(--accent);font-weight:600;font-size:14px;margin-top:2px}
+.lib{font-size:9px;font-weight:600;color:var(--texte-3);letter-spacing:.02em;margin:2px 0 6px}
+.cols,.ligne{display:grid;grid-template-columns:30px 62px 1fr 64px 40px;gap:5px;align-items:center}
+.cols{font-size:9px;font-weight:600;color:var(--texte-3);padding:6px 0 3px}
+.cols .c{text-align:center}
+.ligne{padding:5px 0;border-top:1px solid var(--trait)}
+.num{color:var(--texte-3);text-align:center}
+.prec{font-size:12.5px;color:var(--texte-3);text-align:right}
+.champ{background:var(--panneau-2);border-radius:8px;height:40px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14.5px}
+.champ.f{color:var(--texte-3)}
+.coche{width:40px;height:40px;border-radius:8px;border:1.5px solid var(--trait)}
+.coche.ok{background:var(--reussi);border-color:var(--reussi)}
+.nouveau{box-shadow:inset 3px 0 0 var(--accent)}
+.phrase{color:var(--texte-2);font-size:13px;margin:8px 0 0}
+.feuille{background:var(--panneau-2);border-radius:12px;padding:6px 10px;margin-top:8px}
+.feuille .el{border-top-color:#30353d}
+.feuille .el.sel{color:var(--accent);font-weight:600}
+.decisions{max-width:760px;margin-top:32px;background:var(--panneau);border-radius:12px;padding:16px 18px}
+.decisions h2{font-size:15px;margin:0 0 8px}
+.decisions li{margin:4px 0;color:var(--texte-2)}
+.decisions li b{color:var(--texte)}
+</style>
+</head>
+<body>
+<h1>Maquette : les élastiques par leur nom (B3, v2)</h1>
+<p class="intro">Elle prolonge la maquette du 17/10 (écrans 1 et 2, déjà validés) avec les décisions de ce soir : deux listes, et la résistance incluse. Le coach ne lit que l'ordre de tes élastiques, jamais un chiffre.</p>
+
+<div class="ecrans">
+
+  <div class="bloc">
+    <h2>1. Ma salle : deux listes</h2>
+    <div class="tel">
+      <div class="carte">
+        <b>Grands élastiques</b>
+        <p class="aide">Du plus fort au plus léger. Pour les tractions, les dips, et les exercices à l'élastique (curl, face pull…).</p>
+        <div style="margin-top:6px">
+          <div class="el"><span class="poi">⋮⋮</span><span class="pa" style="background:#2b2b2b;border:1px solid #555"></span><span>Noir</span><span class="kg">35 kg</span></div>
+          <div class="el"><span class="poi">⋮⋮</span><span class="pa" style="background:#b8433b"></span><span>Rouge</span><span class="kg">25 kg</span></div>
+          <div class="el"><span class="poi">⋮⋮</span><span class="pa" style="background:#3f8f5a"></span><span>Vert</span><span class="kg">—</span></div>
+        </div>
+        <div class="ordre"><span>le plus fort</span><span>le plus léger</span></div>
+        <p class="ajout">＋ Ajouter un élastique</p>
+      </div>
+      <div class="carte">
+        <b>Mini-bandes</b>
+        <p class="aide">Les bandes en boucle autour des jambes : clamshell, marche latérale, abductions…</p>
+        <div style="margin-top:6px">
+          <div class="el"><span class="poi">⋮⋮</span><span class="pa" style="background:#2f5f9e"></span><span>Bleue</span><span class="kg"></span></div>
+          <div class="el"><span class="poi">⋮⋮</span><span class="pa" style="background:#d9b13b"></span><span>Jaune</span><span class="kg"></span></div>
+        </div>
+        <p class="ajout">＋ Ajouter une mini-bande</p>
+      </div>
+      <div class="carte">
+        <b>J'ai noté une aide à l'élastique</b>
+        <div class="choix"><span>en kg</span><span class="on">par son nom</span></div>
+        <p class="aide">Seulement pour l'élastique qui t'aide (tractions, dips, nordique). Un élastique qui fait résistance se note toujours par son nom.</p>
+      </div>
+    </div>
+    <p class="note">Les mini-bandes n'ont pas de kg : leur tension n'a pas de chiffre fiable. Un grand élastique peut en avoir un, toujours facultatif.</p>
+  </div>
+
+  <div class="bloc">
+    <h2>2. Un exercice en résistance : le Face Pull</h2>
+    <div class="tel">
+      <div class="carte">
+        <div class="exo">Face Pull (Élastique)</div>
+        <div class="consigne">Vert, vise 20, puis Rouge en dernière série, vise 15</div>
+        <div class="cols"><span class="c">SÉRIE</span><span class="c">PRÉC.</span><span class="c">ÉLASTIQUE</span><span class="c">REPS</span><span></span></div>
+        <div class="ligne"><span class="num">1</span><span class="prec">Vert × 20</span><span class="champ"><span class="pa" style="background:#3f8f5a"></span>Vert</span><span class="champ">20</span><span class="coche ok"></span></div>
+        <div class="ligne"><span class="num">2</span><span class="prec">Vert × 20</span><span class="champ"><span class="pa" style="background:#3f8f5a"></span>Vert</span><span class="champ f">20</span><span class="coche"></span></div>
+        <div class="ligne nouveau"><span class="num">3</span><span class="prec">Vert × 20</span><span class="champ"><span class="pa" style="background:#b8433b"></span>Rouge</span><span class="champ f">15</span><span class="coche"></span></div>
+        <p class="phrase">Vert × 20 sur toutes tes séries, deux séances de suite : le Rouge en dernière série.</p>
+      </div>
+    </div>
+    <p class="note">En résistance, monter, c'est prendre l'élastique <b>plus fort</b> (vers le haut de ta liste). Sur une aide, c'est l'inverse : un élastique plus léger, comme sur l'écran 2 de la maquette du 17/10.</p>
+  </div>
+
+  <div class="bloc">
+    <h2>3. Choisir son élastique en séance</h2>
+    <div class="tel">
+      <div class="carte">
+        <div class="exo">Clamshell (Élastique)</div>
+        <div class="cols"><span class="c">SÉRIE</span><span class="c">PRÉC.</span><span class="c">ÉLASTIQUE</span><span class="c">REPS</span><span></span></div>
+        <div class="ligne"><span class="num">1</span><span class="prec">Jaune × 15</span><span class="champ" style="outline:2px solid var(--accent)">Jaune ▾</span><span class="champ f">15</span><span class="coche"></span></div>
+        <div class="feuille">
+          <div class="el"><span></span><span class="pa" style="background:#2f5f9e"></span><span>Bleue</span><span class="kg">la plus forte</span></div>
+          <div class="el sel"><span></span><span class="pa" style="background:#d9b13b"></span><span>Jaune</span><span class="kg">✓</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="note">La case ouvre la liste qui va avec l'exercice : ici les mini-bandes, parce que le catalogue range le clamshell avec elles. Sans aucune mini-bande déclarée, on note les reps seules, comme aujourd'hui.</p>
+  </div>
+
+  <div class="bloc">
+    <h2>4. Une séance où l'élastique n'est plus dans ta liste</h2>
+    <div class="tel">
+      <div class="carte">
+        <div class="exo">Tractions (Élastique)</div>
+        <div class="consigne" style="color:var(--texte-2)">Ton élastique Gris n'est plus dans Ma salle : je note sans proposer.</div>
+        <div class="cols"><span class="c">SÉRIE</span><span class="c">PRÉC.</span><span class="c">ÉLASTIQUE</span><span class="c">REPS</span><span></span></div>
+        <div class="ligne"><span class="num">1</span><span class="prec">Gris × 8</span><span class="champ f">choisir</span><span class="champ f"></span><span class="coche"></span></div>
+      </div>
+    </div>
+    <p class="note">Un élastique renommé ou retiré : on ne devine jamais lequel c'était. La séance reste dans l'historique, avec son nom, mais elle ne compte pas pour la consigne.</p>
+  </div>
+
+</div>
+
+<div class="decisions">
+  <h2>Ce que la maquette fixe</h2>
+  <ul>
+    <li><b>Deux listes</b> dans Ma salle, chacune rangée de la plus forte à la plus légère. Le catalogue dit laquelle va avec quel exercice.</li>
+    <li><b>Aide</b> (tractions, dips, nordique) : en kg ou par son nom, au choix. Monter, c'est un élastique plus léger.</li>
+    <li><b>Résistance</b> (curl, face pull, clamshell…) : toujours par son nom. Monter, c'est un élastique plus fort.</li>
+    <li><b>Le coach</b> teste l'élastique suivant en dernière série quand tu tiens le haut de ta zone deux séances de suite, comme un cran de charge.</li>
+    <li><b>L'ancien historique en kg</b> se rattache à un élastique seulement si son kg déclaré est exactement le même. Sinon, il reste en kg.</li>
+    <li><b>Jamais</b> de pourcentage, ni de chiffre inventé sur un élastique.</li>
+  </ul>
+</div>
+</body>
+</html>

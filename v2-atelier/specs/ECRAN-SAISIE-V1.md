@@ -391,6 +391,22 @@ l'accueil ; rien d'autre ne la redemande.
 **Le social** : le détail d'une séance d'ami et le direct du groupe montrent le D+ et les étages (`social_detail_seance`
 et `groupe_direct` les rendent depuis v2_101), par le même formateur.
 
+#### 3 ter.6 La colonne « Élastique » — décidée le 17/10/2026, précisée le 21/10/2026 (chantier B3, prompt 132)
+
+Sur un exercice noté par son nom (MOTEUR §10 ter), la colonne de la charge devient **« ÉLASTIQUE »** : une case qui
+ouvre la liste qui va avec l'exercice (grands élastiques ou mini-bandes), avec leur pastille et la coche sur le choisi
+(maquette `maquette-elastiques-v2.html`, écran 3). En résistance, le gabarit `reps` reçoit cette colonne devant les
+reps ; sur une aide, elle remplace « AIDE (KG) ».
+- **La case est obligatoire** (§3 bis.3 bis) : une série notée par nom sans élastique passe au rouge, sauf si le coach
+  en propose un (fantôme), qui est alors validé.
+- **La colonne « préc. »** : « Noir × 12 ».
+- **Un élastique retiré ou renommé** (écran 4) : la série d'avant garde son nom en « préc. » ; la case est vide
+  (« choisir ») ; la consigne dit « Ton élastique Gris n'est plus dans Ma salle : je note sans proposer. ».
+- **Le formateur unique** écrit « Noir × 12 » partout : journal, détail, page d'exercice, récap, fil, détail d'une
+  séance d'ami (les RPC rendent `elastique` depuis v2_101), direct du groupe.
+- **L'éditeur de routine** n'a pas de colonne d'élastique (comme il n'a pas de charge de départ).
+- **L'import Hevy** ne change pas : il écrit l'aide en kg ; elle se rattache par le kg exact.
+
 ### 3 bis — La grille de saisie, arrêtée le 11/09/2026
 
 > ⚠️ **Ce qui suit décrit le gabarit `charge_reps`.** Les trois autres mesures ont leur propre

@@ -442,7 +442,7 @@ describe('126 — le rendu du champ vide (`rendreSuggestionsExo`)', () => {
 describe('126 — les données : `hors_salle` lu, les noms alternatifs dans le cache, hors ligne', () => {
   const src = (f) => fs.readFileSync(path.join(__dirname, '../../v2/js/' + f), 'utf8');
   test('le catalogue lit `hors_salle`', () => {
-    expect(src('donnees.js')).toMatch(/from\('exercises'\)[\s\S]{0,400}hors_salle'\)/);
+    expect(src('donnees.js')).toMatch(/from\('exercises'\)[\s\S]{0,400}hors_salle\b/);
   });
 
   test('la synchronisation lit `Donnees.aliasCommuns` (une seule fonction), les range dans le magasin `alias` ; le démarrage les relit', () => {

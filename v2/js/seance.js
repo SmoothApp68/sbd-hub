@@ -83,7 +83,11 @@
     // §9.20 (51-3, migration `v2_056`) — la marque « douleur » de la série, et
     // l'occurrence de son exercice dans la séance (uuid ; NULL pour une ligne
     // importée ou d'avant la colonne).
-    'douleur', 'occurrence'
+    'douleur', 'occurrence',
+    // ECRAN §3 ter.5 (prompt 131, v2_101) — les champs en plus : le D+ et les étages, lus
+    // ET écrits, comme la durée et la distance. Ils viennent de `THModele.colonnesDeSerie()`
+    // (`lignes()` les envoie par elle) ; `verifierColonnes()` vérifie l'accord au démarrage.
+    'denivele_m', 'etages'
   ];
   // Lues, jamais écrites : le serveur les pose lui-même.
   var COLONNES_SET_EN_PLUS = ['created_at', 'modifie_a'];
@@ -99,6 +103,20 @@
   var COLONNES_SESSION_EN_PLUS = ['created_at', 'salle_norme'];
 
   function copie(o) { return Object.assign({}, o); }
+
+  // ECRAN §3 ter.5 (prompt 131) — LES COLONNES DE MESURE D'UNE SÉRIE, toutes celles que la
+  // table des champs connaît (charge, reps, durée, distance, D+, étages) : `THModele.
+  // colonnesDeSerie()`, la seule fonction qui dit les champs d'une série. Lue à l'appel
+  // (`modele.js` se charge avant).
+  function colonnesDeMesure() { return racine.THModele.colonnesDeSerie(); }
+  // Les colonnes de mesure d'une ligne, recopiées ; une absente vaut `null`.
+  function mesuresDe(ligne) {
+    var o = {};
+    colonnesDeMesure().forEach(function (c) {
+      o[c] = !ligne || ligne[c] === undefined ? null : ligne[c];
+    });
+    return o;
+  }
 
   // Recopie la séance en ne clonant QUE la branche touchée. Une séance fait
   // quelques dizaines de séries : le coût est nul, et l'immuabilité vaut mieux
@@ -272,7 +290,7 @@
               vide.type_serie = ligne.type_serie || 'travail';
               return vide;
             }
-            return {
+            return Object.assign({
               id: ligne.id,
               // ⚠️ DEUX CHAMPS QUI NE S'AFFICHENT PAS ET QUI COMPTENT (ch. 34).
               // `source` dit d'où vient la ligne — c'est lui qui décide si elle
@@ -282,17 +300,16 @@
               // modèle affiché : `lignes()` les traduit, `rendu.js` les ignore.
               source: ligne.source === undefined ? null : ligne.source,
               rang_origine: typeof ligne.rang === 'number' ? ligne.rang : null,
-              type_serie: ligne.type_serie || 'travail',
-              charge_kg: ligne.charge_kg === undefined ? null : ligne.charge_kg,
-              reps: ligne.reps === undefined ? null : ligne.reps,
-              duree_s: ligne.duree_s === undefined ? null : ligne.duree_s,
-              distance_m: ligne.distance_m === undefined ? null : ligne.distance_m,
+              type_serie: ligne.type_serie || 'travail'
+            }, mesuresDe(ligne), {
+              // Prompt 131 — les colonnes de mesure (D+ et étages compris) viennent de
+              // `mesuresDe` : sans elles, « Modifier » remettrait le D+ à null.
               rpe: ligne.rpe === undefined ? null : ligne.rpe,
               ressenti: ligne.ressenti === undefined ? null : ligne.ressenti,
               note: commune === null ? texteOuNul(ligne.note) : null,
               validee_a: ligne.validee_a || null,
               repos_s: ligne.repos_s === undefined ? null : ligne.repos_s
-            };
+            });
           })
         }, occ ? { occurrence: 'o-' + occ } : {}, marque ? { douleur: true } : {}));
       });
@@ -370,17 +387,17 @@
   // `COLONNES_SET` ne les laisse donc pas partir. Elles sont LUES — c'est
   // l'inverse exact du champ écrit que personne ne relit.
   function serieVide(idSerie) {
-    return {
+    return Object.assign({
       id: typeof idSerie === 'function' ? idSerie() : (idSerie || null),
-      type_serie: 'travail',
-      charge_kg: null, reps: null, duree_s: null, distance_m: null,
+      type_serie: 'travail'
+    }, mesuresDe(null), {
       rpe: null, ressenti: null, note: null,
       validee_a: null, repos_s: null, reps_visees: null, charge_cible_kg: null,
       // ECRAN-SAISIE §7 septendecies.3 (54-1) — la durée et la distance d'un
       // cardio de routine : des INTENTIONS, comme `reps_visees`, lues par le
       // fantôme et jamais écrites (`COLONNES_SET` ne les connaît pas).
       duree_cible_s: null, distance_cible_m: null
-    };
+    });
   }
 
   function sansIdentifiant(serie) { return !serie || !serie.id; }
@@ -1073,6 +1090,9 @@
   // (le pavé ne produit jamais plus de 9:59:59) ; son 0 devient `null`.
   function dureeBornee(v) { return racine.THModele.borneDeColonne('duree_s', entierOuNul(v, 1, dureeMax())); }
   function distanceBornee(v, facteur) { return racine.THModele.borneDeColonne('distance_m', entierOuNul(v, facteur)); }
+  // Les champs en plus (§3 ter.5) : des entiers, bornés par la même table (D+ ≤ 10 000 m,
+  // étages ≤ 2 000, jamais 0).
+  function enPlusBorne(cle, v) { return racine.THModele.borneDeColonne(cle, entierOuNul(v, 1)); }
 
   // ⚠️ BORNER UNE LIGNE DÉJÀ CALCULÉE, ET DIRE SI ÇA A CHANGÉ QUELQUE CHOSE.
   //
@@ -1101,6 +1121,11 @@
       c.distance_m = distanceBornee(ligne.distance_m, 1);
       if (c.distance_m !== ligne.distance_m) change = true;
     }
+    ['denivele_m', 'etages'].forEach(function (cle) {
+      if (!(cle in ligne)) return;
+      c[cle] = enPlusBorne(cle, ligne[cle]);
+      if (c[cle] !== ligne[cle]) change = true;
+    });
     return change ? { ligne: Object.assign({}, ligne, c), change: true }
                   : { ligne: ligne, change: false };
   }
@@ -1113,6 +1138,8 @@
     if ('duree_s' in champs) c.duree_s = dureeBornee(champs.duree_s);
     if ('distance_m' in champs) c.distance_m = distanceBornee(champs.distance_m, 1);
     if ('distance_km' in champs) c.distance_m = distanceBornee(champs.distance_km, 1000);
+    if ('denivele_m' in champs) c.denivele_m = enPlusBorne('denivele_m', champs.denivele_m);
+    if ('etages' in champs) c.etages = enPlusBorne('etages', champs.etages);
     return avecSerie(seance, iExo, iSerie, c);
   }
 
@@ -1587,11 +1614,13 @@
   // feuille de fin le dit d'abord. Les INTENTIONS (`reps_visees`, `charge_cible_kg`, `duree_cible_s`…) et les
   // fantômes du plan ne sont pas des valeurs tapées : une ligne qui ne porte qu'eux est vide. Rend les positions,
   // dans l'ordre de la séance.
-  var CHAMPS_TAPES = ['charge_kg', 'reps', 'duree_s', 'distance_m'];
+  // Prompt 131 — les colonnes tapées sont celles de `THModele.colonnesDeSerie()` (D+ et étages
+  // compris) : la table des champs, pas une liste recopiée.
   function rempliesNonValidees(seance) {
+    var tapes = colonnesDeMesure();
     return toutesLesSeries(seance).filter(function (p) {
       if (!p.serie || partEnBase(p.serie)) return false;
-      return CHAMPS_TAPES.some(function (c) {
+      return tapes.some(function (c) {
         var v = p.serie[c];
         return v !== null && v !== undefined && v !== '';
       });
@@ -1752,6 +1781,9 @@
           // une valeur périmée en base après un changement d'exercice.
           duree_s: p.serie.duree_s === undefined ? null : p.serie.duree_s,
           distance_m: p.serie.distance_m === undefined ? null : p.serie.distance_m,
+          // Prompt 131 — le D+ et les étages, toujours envoyés, à null compris (même raison).
+          denivele_m: p.serie.denivele_m === undefined ? null : p.serie.denivele_m,
+          etages: p.serie.etages === undefined ? null : p.serie.etages,
           rpe: p.serie.rpe,
           ressenti: p.serie.ressenti,
           // La note de l'EXERCICE, projetée sur chaque série — c'est la forme
@@ -2530,10 +2562,9 @@
   // validée case par case (§3 bis.3). Rend le fantôme à valider : `f`, ou `{}`.
   function grisValide(g, serie, f) {
     if (!g || (g.mesure !== 'temps' && g.mesure !== 'distance_temps')) return f || {};
-    var tapee = (g.champs || []).some(function (nom) {
-      var c = racine.THModele.champDeMesure(nom);
-      return !videDeSaisie(serie && serie[c ? c.cle : nom]);
-    });
+    // Toutes les cases : celles de la mesure ET les champs en plus (un D+ tapé compte) —
+    // les colonnes de mesure de la série (`THModele.colonnesDeSerie()`).
+    var tapee = colonnesDeMesure().some(function (cle) { return !videDeSaisie(serie && serie[cle]); });
     return tapee ? {} : (f || {});
   }
 

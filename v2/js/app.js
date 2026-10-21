@@ -5781,8 +5781,9 @@
           var b = Object.assign({}, s, { reps_visees: p.reps_visees === undefined ? null : p.reps_visees,
                                          charge_cible_kg: p.charge_cible_kg === undefined ? null : p.charge_cible_kg });
           if (validees[s.id]) return b;
-          return Object.assign(b, { charge_kg: null, reps: null, duree_s: null, distance_m: null, rpe: null,
-                                    ressenti: null, validee_a: null, repos_s: null, source: null });
+          // Prompt 131 — toutes les colonnes de mesure (D+ et étages compris), par la table des champs.
+          Modele.colonnesDeSerie().forEach(function (c) { b[c] = null; });
+          return Object.assign(b, { rpe: null, ressenti: null, validee_a: null, repos_s: null, source: null });
         });
         return Object.assign({}, exo, { series: siennes });
       }).filter(function (exo) { return exo.series.length; });

@@ -885,6 +885,16 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .g-reps{grid-template-columns:30px 62px 1fr 40px 40px}              /* 128 px */
 .g-temps{grid-template-columns:30px 62px 1fr 40px}                  /* 173 px, pas d'effort */
 .g-distance_temps{grid-template-columns:30px 66px 1fr 1fr 40px}     /* 82 px chacune */
+/* ECRAN §3 ter.5 (prompt 131) — un champ en plus prend une colonne (Escaliers : durée ·
+   étages) : la grille à deux cases de la distance, vérifiée à 360 px (82 px chacune). */
+.g-temps.g-plus{grid-template-columns:30px 66px 1fr 1fr 40px}
+/* Le D+, sur sa propre ligne, sous la série (maquette mesures-cardio, écran 1) : la case
+   sous les champs, à la place de la colonne de la coche. */
+.serie-plus{display:grid;grid-template-columns:30px 1fr 110px 40px;gap:5px;align-items:center;
+  padding:0 var(--e3) 6px;background:var(--panneau)}
+.serie-plus-k{grid-column:2;font-size:13px;color:var(--texte-2)}
+.serie-plus-k small{color:var(--texte-3);font-size:12px}
+.serie-plus .rp-serie{grid-column:3}
 
 /* ── LE MÊME GABARIT, MOINS DEUX COLONNES (§7 quindecies.2) ────────────────
    L'éditeur de routine EST l'écran de séance : il rend les MÊMES rangées, par

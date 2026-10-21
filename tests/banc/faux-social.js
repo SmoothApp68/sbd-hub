@@ -325,6 +325,9 @@ function creer(base, options) {
       return sets().filter((t) => t.session_id === s.id).sort((x, y) => (x.rang || 0) - (y.rang || 0))
         .map((t) => ({ exercise_slug: t.exercise_slug, rang: t.rang, charge_kg: t.charge_kg, reps: t.reps,
           duree_s: t.duree_s === undefined ? null : t.duree_s, distance_m: t.distance_m === undefined ? null : t.distance_m,
+          // 131 (v2_101) — le D+, les étages et l'élastique rendus par la RPC.
+          denivele_m: t.denivele_m === undefined ? null : t.denivele_m, etages: t.etages === undefined ? null : t.etages,
+          elastique: t.elastique === undefined ? null : t.elastique,
           type_serie: t.type_serie || 'travail' }));
     },
     social_mes_reactions(a) {
@@ -659,6 +662,9 @@ function creer(base, options) {
         sets().filter((t) => t.session_id === m.session_id && t.validee_a).forEach((t) => out.push({ pseudo: p.username,
           exercise_slug: t.exercise_slug, charge_kg: t.charge_kg === undefined ? null : t.charge_kg, reps: t.reps === undefined ? null : t.reps,
           duree_s: t.duree_s === undefined ? null : t.duree_s, distance_m: t.distance_m === undefined ? null : t.distance_m,
+          // 131 (v2_101) — le D+, les étages et l'élastique rendus par la RPC.
+          denivele_m: t.denivele_m === undefined ? null : t.denivele_m, etages: t.etages === undefined ? null : t.etages,
+          elastique: t.elastique === undefined ? null : t.elastique,
           type_serie: t.type_serie || 'travail', validee_a: t.validee_a }));
       });
       return out.sort((x, y) => String(y.validee_a).localeCompare(String(x.validee_a))).slice(0, GROUPE.DIRECT);

@@ -33,3 +33,59 @@ test('taper 4001 km : le dernier chiffre n’entre pas, la série garde 400', ()
   input.value = '39,5'; input.dispatchEvent(new Event('input'));
   expect(ecrits[ecrits.length - 1]).toEqual(['distance_km', '39,5']);
 });
+
+// ── Point 2 — la grille : les étages en colonne, le D+ sous la série (maquette, écrans 1 et 2) ──
+const CAT2 = [
+  { slug: 'randonnee', nom: 'Randonnée', mesure: 'distance_temps', charge: 'aucune', champs_series: ['denivele_m'], muscles_primaires: [] },
+  { slug: 'escaliers', nom: 'Escaliers', mesure: 'temps', charge: 'aucune', champs_series: ['etages'], muscles_primaires: [] }
+];
+const serie = (o) => Object.assign({ id: 'x', type_serie: 'travail', charge_kg: null, reps: null, duree_s: null,
+  distance_m: null, denivele_m: null, etages: null }, o);
+function rendre131(programme, ecrits) {
+  const s = { exercices: [
+    { exercise_slug: 'randonnee', series: [serie({ id: 'r1', duree_s: 12300, distance_m: 13200 })] },
+    { exercise_slug: 'escaliers', series: [serie({ id: 'e1', duree_s: 1200, etages: 72 })] }] };
+  const cible = document.createElement('div');
+  Rendu().rendreBlocsSeance(cible, programme ? null : s, Object.assign({
+    programme: !!programme,
+    blocs: Modele.blocsDeSeance(s, CAT2), exercice: (slug) => CAT2.filter((e) => e.slug === slug)[0],
+    precedent: () => null, fantome: () => ({ duree_s: 600, distance_m: 4000 }), tourAtteint: () => 0,
+    surValider: () => {}, surEffort: () => {},
+    surChamp: (i, j, champ, v) => ecrits.push([i, j, champ, v]),
+    surNumero: () => {}, surNote: () => {}, surRepos: () => {},
+    surAjoutSerie: () => {}, surSupprimerSerie: () => {}, surMenuBloc: () => {}, surMenuExercice: () => {}
+  }));
+  return cible;
+}
+
+test('Escaliers : ÉTAGES prend la colonne de la distance (grille à deux cases) ; la légende le dit', () => {
+  const c = rendre131(false, []);
+  const blocs = c.querySelectorAll('.bloc-seance');
+  const esc = blocs[1];
+  expect([...esc.querySelectorAll('.cols-seance span')].map((x) => x.textContent)).toEqual(['', 'PRÉC.', 'DURÉE', 'ÉTAGES', '']);
+  expect(esc.querySelector('.serie').className).toContain('g-temps g-plus');
+  expect(esc.querySelector('[data-champ="etages"] input').value).toBe('72');
+  expect(esc.textContent).toContain('DURÉE · ÉTAGES');
+});
+
+test('Randonnée : le D+ sur sa propre ligne, sous la série, facultatif, sans chiffre gris ; taper l’écrit', () => {
+  const ecrits = [];
+  const c = rendre131(false, ecrits);
+  const rando = c.querySelectorAll('.bloc-seance')[0];
+  expect(rando.querySelectorAll('.serie [data-champ]').length).toBe(2);   // durée et distance, rien de plus
+  const plus = rando.querySelector('.serie-plus');
+  expect(plus).not.toBeNull();
+  expect(plus.textContent).toContain('Dénivelé + (facultatif)');
+  const i = plus.querySelector('[data-champ="denivele_m"] input');
+  expect([i.value, i.placeholder]).toEqual(['', '']);
+  i.value = '920'; i.dispatchEvent(new Event('input'));
+  expect(ecrits).toEqual([[0, 0, 'denivele_m', '920']]);
+  i.value = '10001'; i.dispatchEvent(new Event('input'));            // au-delà de 10 000 m : n'entre pas
+  expect(i.value).toBe('920');
+});
+
+test('l’éditeur de routine : aucun champ en plus', () => {
+  const c = rendre131(true, []);
+  expect(c.querySelectorAll('.serie-plus').length).toBe(0);
+  expect(c.querySelectorAll('[data-champ="etages"]').length).toBe(0);
+});

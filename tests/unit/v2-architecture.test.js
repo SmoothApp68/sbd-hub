@@ -1468,6 +1468,26 @@ const NOTIONS = [
     raison: 'une lecture des lignes `predictions` (module escalier) : les périodes de la série de plus, l’observation et ' +
       'la démonstration lisent les mêmes marches.' },
   // 127 (MOTEUR §9.17 bis, ECRAN-SAISIE §7 quater.6) — l'échelle des variantes.
+  { notion: 'les champs d’une série (ceux de la mesure, puis ceux du catalogue : `champs_series`)', pr: '131-U1',
+    module: 'modele.js', fonction: 'champsDeSerie', lecteurs: [],
+    par: ['colonnesDeSerie', 'grilleDe'],
+    raison: 'ECRAN-SAISIE §3 ter.5 (prompt 131, v2_101) : le D+ et les étages, exercice par exercice. Une seule fonction ' +
+      'dit les champs d’une série ; la grille (`grilleDe`) et les colonnes (`colonnesDeSerie`) passent par elle.' },
+  { notion: 'les colonnes de mesure d’une série (`sets` : charge, reps, durée, distance, D+, étages)', pr: '131-U1',
+    module: 'modele.js', fonction: 'colonnesDeSerie', lecteurs: ['seance.js', 'app.js', 'importhevy.js'],
+    raison: 'ECRAN-SAISIE §3 ter.5 (prompt 131) : la série vide, la reprise, les cases remplies non validées, la fin de ' +
+      'séance, l’import et le fait « ce qui manque » lisent la même liste ; aucune n’est recopiée.' },
+  { notion: 'la grille d’un exercice (ses colonnes, ses champs sous la série, sa légende)', pr: '131-U1',
+    module: 'modele.js', fonction: 'grilleDe', lecteurs: ['rendu.js'],
+    raison: 'ECRAN-SAISIE §3 ter.5 (maquette mesures-cardio, écrans 1 et 2) : les étages en colonne, le D+ sous la série ; ' +
+      'rien dans l’éditeur de routine.' },
+  { notion: 'les bornes des mesures (jamais 0 ; distance 400 km, D+ 10 000 m, étages 2 000)', pr: '131-U1',
+    module: 'modele.js', fonction: 'borneDeColonne', lecteurs: ['seance.js'],
+    raison: 'ECRAN-SAISIE §3 ter.5 (bornes du 21/10/2026, audit 130 n°8 et n°9) : la saisie et la réparation de la file ' +
+      'bornent par la même table (`BORNES_DES_COLONNES`).' },
+  { notion: 'la borne d’un champ de saisie (le chiffre de trop n’entre pas)', pr: '131-U1',
+    module: 'modele.js', fonction: 'maxDeSaisie', lecteurs: ['rendu.js'],
+    raison: 'ECRAN-SAISIE §3 ter.5 (audit 130 n°8) : le champ refuse au-delà de la borne, comme le pavé de la durée.' },
   { notion: 'le seuil d’une marche au poids du corps (le haut de la zone et 8 reps : le lest comme la marche suivante)', pr: '127-U1',
     module: 'moteur.js', fonction: 'seuilDeMarche', lecteurs: ['plan.js'],
     par: ['consignePour', 'carteMarcheDecidee', 'phraseDeLaSuivante'],

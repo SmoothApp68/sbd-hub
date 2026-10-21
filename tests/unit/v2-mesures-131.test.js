@@ -68,3 +68,106 @@ describe('audit 130 n°8 et n°9 — les bornes : jamais 0, la distance au plus 
     expect(Modele.maxDeSaisie('charge_kg')).toBeNull();
   });
 });
+
+// ── Point 2 — les champs en plus (ECRAN §3 ter.5, v2_101) ────────────────────
+const RANDO = { slug: 'randonnee', nom: 'Randonnée', mesure: 'distance_temps', charge: 'aucune', champs_series: ['denivele_m'] };
+const ESCALIERS = { slug: 'escaliers', nom: 'Escaliers', mesure: 'temps', charge: 'aucune', champs_series: ['etages'] };
+const SQUAT = { slug: 'squat', nom: 'Squat (Barre)', mesure: 'charge_reps', charge: 'absolue', champs_series: [] };
+const VELO = { slug: 'velo_machine', nom: 'Vélo d’Appartement', mesure: 'distance_temps', charge: 'aucune' };
+
+describe('131 — la fonction des champs d’une série : la mesure, puis le catalogue', () => {
+  test('Randonnée : durée, distance, puis le D+ ; Escaliers : durée, puis les étages', () => {
+    expect(Modele.champsDeSerie(RANDO)).toEqual(['duree', 'distance_km', 'denivele_m']);
+    expect(Modele.colonnesDeSerie(RANDO)).toEqual(['duree_s', 'distance_m', 'denivele_m']);
+    expect(Modele.champsDeSerie(ESCALIERS)).toEqual(['duree', 'etages']);
+  });
+  test('Squat : charge et reps ; un exercice sans `champs_series` : ceux de sa mesure seulement', () => {
+    expect(Modele.champsDeSerie(SQUAT)).toEqual(['charge_kg', 'reps']);
+    expect(Modele.champsDeSerie(VELO)).toEqual(['duree', 'distance_km']);
+    expect(Modele.champsDeSerie({ mesure: 'temps', champs_series: null })).toEqual(['duree']);
+  });
+  test('une valeur inconnue du catalogue est ignorée ; la mesure inconnue n’en reçoit aucun', () => {
+    expect(Modele.champsDeSerie({ mesure: 'temps', champs_series: ['inclinaison', 'etages', 'etages'] }))
+      .toEqual(['duree', 'etages']);
+    expect(Modele.champsDeSerie({ mesure: 'zzz', champs_series: ['etages'] })).toEqual(['charge_kg', 'reps']);
+  });
+  test('sans argument, toutes les colonnes de mesure d’une série', () => {
+    expect(Modele.colonnesDeSerie()).toEqual(['charge_kg', 'reps', 'duree_s', 'distance_m', 'denivele_m', 'etages']);
+  });
+  test('la grille : les étages en colonne, le D+ dessous, la légende complétée ; rien dans l’éditeur', () => {
+    const e = Modele.grilleDe(ESCALIERS);
+    expect([e.colonnes, e.dessous, e.libelle]).toEqual([['duree', 'etages'], [], 'DURÉE · ÉTAGES']);
+    const r = Modele.grilleDe(RANDO);
+    expect([r.colonnes, r.dessous]).toEqual([['duree', 'distance_km'], ['denivele_m']]);
+    expect(r.champs).toEqual(['duree', 'distance_km']);           // les cases obligatoires ne changent pas
+    expect(Modele.grilleDe(RANDO, true).dessous).toEqual([]);
+    expect(Modele.grilleDe(ESCALIERS, true).colonnes).toEqual(['duree']);
+  });
+  test('les champs en plus ne sont jamais obligatoires', () => {
+    const g = Modele.gabaritDe(ESCALIERS);
+    expect(Seance.casesManquantes(g, { duree_s: 1200, etages: null, denivele_m: null }, {})).toEqual([]);
+  });
+});
+
+describe('131 — les bornes du D+ et des étages', () => {
+  const seance = () => ({ exercices: [{ exercise_slug: 'randonnee', series: [SERIE({})] }] });
+  const apres = (champs) => Seance.modifierSerie(seance(), 0, 0, champs).exercices[0].series[0];
+  test('D+ : 10 000 m passent, 10 001 m non, 0 jamais', () => {
+    expect(apres({ denivele_m: '10000' }).denivele_m).toBe(10000);
+    expect(apres({ denivele_m: '10001' }).denivele_m).toBeNull();
+    expect(apres({ denivele_m: '0' }).denivele_m).toBeNull();
+    expect(apres({ denivele_m: '920' }).denivele_m).toBe(920);
+  });
+  test('étages : 2 000 passent, 2 001 non, 0 jamais', () => {
+    expect(apres({ etages: '2000' }).etages).toBe(2000);
+    expect(apres({ etages: '2001' }).etages).toBeNull();
+    expect(apres({ etages: 0 }).etages).toBeNull();
+  });
+  test('la réparation de la file, et la borne du champ', () => {
+    const r = Seance.bornerLigne({ duree_s: 600, etages: 2500, denivele_m: 920 });
+    expect([r.change, r.ligne.etages, r.ligne.denivele_m]).toEqual([true, null, 920]);
+    expect([Modele.maxDeSaisie('denivele_m'), Modele.maxDeSaisie('etages')]).toEqual([10000, 2000]);
+  });
+});
+
+describe('131 — le formateur unique : distance, puis durée, puis D+ ou étages', () => {
+  test('« 13,2 km · 3 h 25 · D+ 920 m » et « 20 min · 72 étages »', () => {
+    expect(Modele.formatMesure({ duree_s: 12300, distance_m: 13200, denivele_m: 920 })).toBe('13,2 km · 3 h 25 · D+ 920 m');
+    expect(Modele.formatMesure({ duree_s: 1200, etages: 72 })).toBe('20 min · 72 étages');
+  });
+  test('rien quand c’est vide : jamais « D+ 0 m », jamais « 0 étage »', () => {
+    expect(Modele.formatMesure({ duree_s: 11100, distance_m: 11800, denivele_m: null })).toBe('11,8 km · 3 h 05');
+    expect(Modele.formatMesure({ duree_s: 1200, etages: 0, denivele_m: 0 })).toBe('20 min');
+    expect(Modele.formatMesure({ duree_s: 1200, etages: 1 })).toBe('20 min · 1 étage');
+  });
+});
+
+describe('131 — l’écriture : la série vide, la reprise, l’envoi', () => {
+  test('la série vide porte le D+ et les étages, à null', () => {
+    const v = Seance.serieVide('s1');
+    expect([v.denivele_m, v.etages]).toEqual([null, null]);
+  });
+  test('« Modifier » une séance passée garde le D+ et les étages', () => {
+    const s = Seance.reprendre({ id: 'x', debut: '2026-10-12T08:00:00Z', fin: '2026-10-12T11:30:00Z', statut: 'terminee' },
+      [{ exercices: [{ slug: 'randonnee', series: [{ id: 'a', rang: 1, source: 'app', type_serie: 'travail',
+        duree_s: 12300, distance_m: 13200, denivele_m: 920, etages: null, validee_a: '2026-10-12T11:00:00Z' }] }] }]);
+    const serie = s.exercices[0].series[0];
+    expect([serie.denivele_m, serie.etages, serie.distance_m]).toEqual([920, null, 13200]);
+    const ligne = Seance.lignes(Object.assign({}, s, { user_id: 'u' }))[0];
+    expect([ligne.denivele_m, ligne.etages]).toEqual([920, null]);
+  });
+  test('l’envoi et la lecture s’accordent (`verifierColonnes`)', () => {
+    expect(Seance.COLONNES_SET).toEqual(expect.arrayContaining(['denivele_m', 'etages']));
+    expect(Seance.verifierColonnes()).toBe(true);
+  });
+});
+
+describe('audit 130 n°4 — une distance Hevy sur le vélo d’appartement se voit (le vélo en `distance_temps`, v2_101)', () => {
+  const hevy = { exercise_slug: 'velo_machine', type_serie: 'travail', source: 'hevy', duree_s: 1800, distance_m: 12600 };
+  test('la colonne « préc. », la page d’exercice et le journal', () => {
+    expect(Modele.formatPrecedent(hevy, Modele.gabaritDe(VELO).mesure)).toBe('30:00');
+    const m = Modele.meilleureSerieDe('velo_machine', [hevy], [VELO], null, {});
+    expect(Modele.texteMeilleure(m)).toBe('30 min · 12,6 km');
+    expect(Modele.formatMesure(hevy)).toBe('12,6 km · 30 min');
+  });
+});

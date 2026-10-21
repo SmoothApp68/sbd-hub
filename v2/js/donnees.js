@@ -256,9 +256,15 @@
     return paginerParCle(trancheur(function () {
       return client().from('exercises')
         .select('slug, nom, mesure, charge, parent, equipement, muscles_primaires, muscles_secondaires, ' +
-                'muscles_stabilisateurs, mouvement, habilete, schema_mouvement, nature, description, actif, hors_salle');
+                'muscles_stabilisateurs, mouvement, habilete, schema_mouvement, nature, description, actif, hors_salle, ' +
+                'champs_series');
     }, 'slug'), 'slug').then(function (lignes) {
-      return lignes.filter(function (e) { return !e || e.actif !== false; });
+      // ⚠️ `champs_series` DEPUIS 131 (v2_101, ECRAN §3 ter.5) — DANS LE `select` PRINCIPAL : la migration passe
+      // avant la fusion (décision du prompt 131). Un tableau, `[]` par défaut : une ligne sans la colonne (cache
+      // d'avant, faux serveur) ou à `null` n'a aucun champ en plus.
+      return lignes.filter(function (e) { return !e || e.actif !== false; }).map(function (e) {
+        return e && !Array.isArray(e.champs_series) ? Object.assign({}, e, { champs_series: [] }) : e;
+      });
     }).then(function (lignes) {
       return accessoiresDuCatalogue().then(function (accessoires) {
         return poserAccessoires(lignes, accessoires);

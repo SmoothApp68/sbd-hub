@@ -480,7 +480,13 @@
   var PART = {
     charge: function (s) { return aValeur(s.charge_kg) ? chargeDuJournal(s.charge_kg) : ''; },
     duree: function (s) { return s.duree_s ? formatDuree(s.duree_s) : ''; },
-    distance: function (s) { return s.distance_m ? formatDistance(s.distance_m) : ''; }
+    distance: function (s) { return s.distance_m ? formatDistance(s.distance_m) : ''; },
+    // ECRAN §3 ter.5 (prompt 131) — les champs en plus. Une valeur absente ne s'affiche
+    // jamais, ni à zéro (jamais « D+ 0 m »).
+    denivele: function (s) { return s.denivele_m ? 'D+ ' + nombreGroupe(nombreTexte(s.denivele_m, 0)) + ' m' : ''; },
+    etages: function (s) {
+      return s.etages ? nombreGroupe(nombreTexte(s.etages, 0)) + ' ' + (Number(s.etages) >= 2 ? 'étages' : 'étage') : '';
+    }
   };
   var AFFICHAGE_DES_MESURES = {
     charge_reps: { entete: 'Charge', meilleure: 'Record de charge', valeur: function (s) {
@@ -490,11 +496,13 @@
     reps: { entete: 'Reps', meilleure: 'Record de reps', valeur: function (s) {
       return aValeur(s.reps) ? repsTexte(s.reps) : '—';
     } },
+    // ECRAN §3 ter.5 (prompt 131, maquette mesures-cardio écran 4) — distance, puis durée,
+    // puis D+ ou étages : « 13,2 km · 3 h 25 · D+ 920 m », « 20 min · 72 étages ».
     temps: { entete: 'Durée', meilleure: 'Plus longue durée', valeur: function (s) {
-      return partiesDe(s, [PART.duree]);
+      return partiesDe(s, [PART.duree, PART.denivele, PART.etages]);
     } },
     distance_temps: { entete: 'Durée · distance', meilleure: 'Plus longue durée', valeur: function (s) {
-      return partiesDe(s, [PART.duree, PART.distance]);
+      return partiesDe(s, [PART.distance, PART.duree, PART.denivele, PART.etages]);
     } },
     charge_distance: { entete: 'Charge · distance', meilleure: 'Plus longue distance', valeur: function (s) {
       return partiesDe(s, [PART.charge, PART.distance]);
@@ -507,11 +515,13 @@
   // 28 103 séries) : ce qu'on affiche est ce qui a été fait, même sans catalogue.
   function mesureDesColonnes(s) {
     var c = aValeur(s.charge_kg), r = aValeur(s.reps), d = !!s.duree_s, m = !!s.distance_m;
+    // Prompt 131 — un D+ ou des étages seuls se disent avec la durée (`temps`).
+    var plus = !!s.denivele_m || !!s.etages;
     if (r) return c ? 'charge_reps' : 'reps';
     if (c && m) return 'charge_distance';
     if (c && d) return 'charge_temps';
     if (m) return 'distance_temps';
-    if (d) return 'temps';
+    if (d || plus) return 'temps';
     return c ? 'charge_reps' : null;
   }
   // L'affichage d'une mesure (`{ entete, meilleure }`), ou `null` pour une mesure inconnue : on ne nomme pas ce qu'on
@@ -520,7 +530,7 @@
     return Object.prototype.hasOwnProperty.call(AFFICHAGE_DES_MESURES, mesure) ? AFFICHAGE_DES_MESURES[mesure] : null;
   }
 
-  // « 52 kg × 12 » · « 6 h 35 · 22,7 km » · « 12 reps » · « 1 rep » — la valeur d'une série dans le journal.
+  // « 52 kg × 12 » · « 22,7 km · 6 h 35 » · « 12 reps » · « 1 rep » — la valeur d'une série dans le journal.
   function formatMesure(serie) {
     if (!serie) return '';
     var m = mesureDesColonnes(serie);
@@ -573,7 +583,16 @@
     // Taper `8,76` en kilomètres est aussi rapide que `8760` en mètres et plus
     // lisible. Le décalage n'apporte rien là où il n'y a ni trois groupes ni
     // base de soixante.
-    distance_km: { cle: 'distance_m', entete: 'DISTANCE', unite: 'km',  facteur: 1000, saisie: 'nombre' }
+    distance_km: { cle: 'distance_m', entete: 'DISTANCE', unite: 'km',  facteur: 1000, saisie: 'nombre' },
+    // ECRAN §3 ter.5 (prompt 131, v2_101) — LES CHAMPS EN PLUS, exercice par exercice : jamais
+    // obligatoires, jamais de chiffre gris. `place` dit où la grille les pose : les étages
+    // prennent la colonne de la distance (Escaliers = durée · étages) ; le D+ a sa propre
+    // ligne, sous la série (une troisième colonne ne tient pas à 360 px à côté d'une durée
+    // en horloge). `libelle` : ce que la légende ajoute sous le nom de l'exercice.
+    denivele_m:  { cle: 'denivele_m', entete: 'D+',       unite: 'm',   facteur: 1,    saisie: 'nombre',
+                   facultatif: true, place: 'dessous', libelle: 'D+', texte: 'Dénivelé +' },
+    etages:      { cle: 'etages',     entete: 'ÉTAGES',   unite: null,  facteur: 1,    saisie: 'nombre',
+                   facultatif: true, place: 'colonne', libelle: 'ÉTAGES' }
   };
 
   // ── Le pavé de chronométrage, en fonctions pures ────────────────────────
@@ -601,7 +620,9 @@
   var MAX_DISTANCE_M = 400000;                 // 400 km
   var BORNES_DES_COLONNES = {
     duree_s:    { min: 1, max: MAX_DUREE_S },
-    distance_m: { min: 1, max: MAX_DISTANCE_M }
+    distance_m: { min: 1, max: MAX_DISTANCE_M },
+    denivele_m: { min: 1, max: 10000 },        // D+ : 10 000 m
+    etages:     { min: 1, max: 2000 }          // les étages tels que la machine les affiche
   };
   // La valeur bornée d'une colonne : la valeur, ou `null` (hors borne, ou pas un nombre).
   // Une colonne sans borne passe telle quelle.
@@ -758,6 +779,53 @@
     }
     return { mesure: 'charge_reps', champs: GABARITS.charge_reps.champs,
              effort: true, libelle: null, inconnue: true };
+  }
+
+  // ══ LES CHAMPS D'UNE SÉRIE (ECRAN §3 ter.5, prompt 131) ═══════════════════════
+  //
+  // ⚠️ UNE SEULE FONCTION DIT LES CHAMPS D'UNE SÉRIE : ceux de la MESURE (`gabaritDe`),
+  // puis ceux du CATALOGUE (`exercises.champs_series`, v2_101 : « au cas par cas, jamais
+  // un champ pour tout »). La mesure ne change pas — une Randonnée reste `distance_temps`,
+  // donc le coach, les bilans, le jeu et les records ne voient rien de neuf. Tout le reste
+  // la lit : la grille (`grilleDe`), la série vide, la reprise, l'envoi, les cases
+  // remplies non validées, le compte de fin, la carte « Ce qui manque », le formateur.
+  //
+  // `champsDeSerie(exo)` rend des NOMS de champ (`CHAMPS_MESURE`) : Randonnée →
+  // `['duree', 'distance_km', 'denivele_m']`, Escaliers → `['duree', 'etages']`. Une valeur
+  // du catalogue que la table ne connaît pas est ignorée (on ne saisit pas ce qu'on ne sait
+  // pas ranger). Sans fiche, la mesure inconnue : ses champs, et aucun en plus.
+  // `colonnesDeSerie(exo)` : les COLONNES de `sets` de ces champs ; sans argument, TOUTES
+  // celles que la table connaît — ce que porte toute série, quel que soit son exercice.
+  function champsEnPlusDe(exo) {
+    var l = exo && Array.isArray(exo.champs_series) ? exo.champs_series : [];
+    var g = gabaritDe(exo);
+    if (g.inconnue) return [];
+    return l.filter(function (nom, i) {
+      var c = Object.prototype.hasOwnProperty.call(CHAMPS_MESURE, nom) ? CHAMPS_MESURE[nom] : null;
+      return !!c && c.facultatif === true && l.indexOf(nom) === i;
+    });
+  }
+  function champsDeSerie(exo) {
+    return gabaritDe(exo).champs.concat(champsEnPlusDe(exo));
+  }
+  function colonnesDeSerie(exo) {
+    var noms = arguments.length ? champsDeSerie(exo) : Object.keys(CHAMPS_MESURE);
+    return noms.map(function (n) { return CHAMPS_MESURE[n].cle; });
+  }
+  // La grille d'un exercice : le gabarit de sa mesure, plus `colonnes` (les champs en
+  // colonne), `dessous` (les champs sous la série) et la légende complétée (« DURÉE ·
+  // ÉTAGES »). `programme` (l'éditeur de routine) : aucun champ en plus — `routine_sets`
+  // n'a pas de colonne pour eux.
+  function grilleDe(exo, programme) {
+    var g = gabaritDe(exo);
+    var plus = programme ? [] : champsDeSerie(exo).slice(g.champs.length);
+    var colonnes = g.champs.concat(plus.filter(function (n) { return CHAMPS_MESURE[n].place === 'colonne'; }));
+    var dessous = plus.filter(function (n) { return CHAMPS_MESURE[n].place === 'dessous'; });
+    if (!plus.length) return Object.assign({}, g, { colonnes: g.champs, dessous: [] });
+    return Object.assign({}, g, {
+      colonnes: colonnes, dessous: dessous,
+      libelle: g.libelle ? [g.libelle].concat(plus.map(function (n) { return CHAMPS_MESURE[n].libelle; })).join(' \u00b7 ') : g.libelle
+    });
   }
 
   function champDeMesure(nom) {
@@ -2227,6 +2295,10 @@
     PHRASE_POIDS_DU_CORPS: PHRASE_POIDS_DU_CORPS,
     ENTETES_DE_CHARGE: ENTETES_DE_CHARGE,
     champDeMesure: champDeMesure,
+    champsEnPlusDe: champsEnPlusDe,
+    champsDeSerie: champsDeSerie,
+    colonnesDeSerie: colonnesDeSerie,
+    grilleDe: grilleDe,
     MAX_CHIFFRES_DUREE: MAX_CHIFFRES_DUREE,
     MAX_DUREE_S: MAX_DUREE_S,
     MAX_DISTANCE_M: MAX_DISTANCE_M,

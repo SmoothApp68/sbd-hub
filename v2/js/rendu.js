@@ -2405,8 +2405,17 @@
 
   // Le gabarit d'un exercice du bloc. ⚠️ Un superset peut MÉLANGER les mesures
   // (un exercice en `charge_reps`, un en `temps`) : chaque ligne garde le sien.
+  // Prompt 131 (ECRAN §3 ter.5) — LA GRILLE d'un exercice : le gabarit de sa mesure, plus les
+  // champs en plus du catalogue (`THModele.grilleDe` : `colonnes`, `dessous`). Dans l'éditeur
+  // de routine, aucun champ en plus.
   function gabaritDe(vue, slug) {
-    return M().gabaritDe(vue.exercice(slug));
+    return M().grilleDe(vue.exercice(slug), !!vue.programme);
+  }
+  function colonnesDe(g) { return g.colonnes || g.champs; }
+  // La classe de la grille : celle de la mesure, et `g-plus` quand un champ en plus prend une
+  // colonne (Escaliers : durée · étages, la grille à deux cases de la distance).
+  function classeDeGrille(g) {
+    return ' grille g-' + g.mesure + (colonnesDe(g).length > g.champs.length ? ' g-plus' : '');
   }
 
   function rendreBlocSaisie(bloc, iBloc, vue) {
@@ -2427,7 +2436,8 @@
     // des rangées. On la tait plutôt que de nommer KG au-dessus d'une durée ; le
     // type de mesure reste écrit sous chaque nom, dans la légende.
     var memeGabarit = gabarits.every(function (g) {
-      return g.mesure === gabarits[0].mesure && (g.nature || null) === (gabarits[0].nature || null);
+      return g.mesure === gabarits[0].mesure && (g.nature || null) === (gabarits[0].nature || null) &&
+        colonnesDe(g).join() === colonnesDe(gabarits[0]).join();
     });
     // §7 quindecies.3 (52-1) — dans l'éditeur, la colonne de charge dit ce
     // qu'elle est : « DÉPART » sur un exercice jamais fait, absente sinon. Des
@@ -2485,6 +2495,14 @@
         noeud.appendChild(propositionDeDegressiveVide(info.message, s._iExo, s._iSerie, vue));
       } else if (info && info.message) noeud.appendChild(phraseDeReaction(info.message, s.debutTour));
       noeud.appendChild(rangeeDeSerie(bloc, s, complets, vue, info));
+      // ECRAN §3 ter.5 (prompt 131, maquette mesures-cardio écran 1) — LE D+, SUR SA PROPRE LIGNE,
+      // SOUS LA SÉRIE : une troisième colonne ne tient pas à 360 px à côté d'une durée en horloge.
+      // Facultatif, sans chiffre gris ; jamais dans l'éditeur de routine.
+      if (!vue.programme) {
+        (gabaritDe(vue, s.exercise_slug).dessous || []).forEach(function (nom) {
+          noeud.appendChild(ligneEnPlus(s, nom, vue));
+        });
+      }
       // MOTEUR §9.23 (55-1) — LA MÉDAILLE, SOUS LA RANGÉE de la série qui bat
       // un record. Une sœur de la ligne, comme la réaction (qui reste
       // au-dessus de la ligne suivante : elle parle de la suite, la médaille
@@ -2741,19 +2759,20 @@
   // n'observe rien. `EFFORT` tombe avec elles pour la même raison, et parce
   // que `routine_sets` n'a pas de colonne où le mettre.
   function enTetesColonnes(g, programme, chargeProgramme) {
-    var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
+    var noms = colonnesDe(g);
+    var champs = noms.map(function (n) { return M().champDeMesure(n); });
     var cp = programme ? chargeProgramme : null;
     var sansCharge = !!cp && !cp.depart;
-    var entetes = el('div', 'cols-seance grille g-' + g.mesure +
+    var entetes = el('div', 'cols-seance' + classeDeGrille(g) +
       (programme ? ' programme' : '') + (sansCharge ? ' sans-charge' : ''));
     entetes.appendChild(el('span', '', ''));
     if (!programme) entetes.appendChild(el('span', 'droite', 'PRÉC.'));
     champs.forEach(function (c, i) {
-      if (sansCharge && g.champs[i] === 'charge_kg') return;
+      if (sansCharge && noms[i] === 'charge_kg') return;
       // §9.17 — la nature de la charge nomme la colonne (« LEST (KG) », « AIDE (KG) »).
-      var surcharge = g.entetes && g.entetes[g.champs[i]];
+      var surcharge = g.entetes && g.entetes[noms[i]];
       // §7 quindecies.3 (52-1) — la charge de départ, sur un exercice jamais fait.
-      if (!surcharge && cp && cp.depart && g.champs[i] === 'charge_kg') surcharge = 'DÉPART (KG)';
+      if (!surcharge && cp && cp.depart && noms[i] === 'charge_kg') surcharge = 'DÉPART (KG)';
       entetes.appendChild(el('span', 'centre', surcharge || c.entete));
     });
     if (g.effort && !programme) entetes.appendChild(el('span', 'centre', 'EFFORT'));
@@ -2780,6 +2799,27 @@
       if (ser.length && ser[0]._iExo === s._iExo) return ser;
     }
     return null;
+  }
+
+  // Un champ en plus, sous la série (ECRAN §3 ter.5) : « Dénivelé + (facultatif) », la case et
+  // son unité. Le même champ que la grille (`champSerie`, sa borne comprise), sans fantôme.
+  function ligneEnPlus(s, nom, vue) {
+    var c = M().champDeMesure(nom);
+    var iExo = s._iExo, iSerie = s._iSerie;
+    var n = el('div', 'serie-plus');
+    n.setAttribute('data-iexo', iExo);
+    n.setAttribute('data-iserie', iSerie);
+    var k = el('span', 'serie-plus-k', (c.texte || c.entete) + ' ');
+    k.appendChild(el('small', null, '(facultatif)'));
+    n.appendChild(k);
+    var caseSerie = champSerie('rp-serie num', s[c.cle], null, c.unite,
+      function (v) { vue.surChamp(iExo, iSerie, nom, v); },
+      { max: M().maxDeSaisie(nom),
+        surQuitte: typeof vue.surChampQuitte === 'function'
+          ? function () { vue.surChampQuitte(iExo, iSerie); } : null });
+    caseSerie.setAttribute('data-champ', nom);
+    n.appendChild(caseSerie);
+    return n;
   }
 
   // MOTEUR §9.23 (55-1) — la médaille : le rond, le gras, le gris (maquette
@@ -3031,13 +3071,14 @@
   function rangeeDeSerie(bloc, s, complets, vue, reaction) {
     var iExo = s._iExo, iSerie = s._iSerie;
     var g = gabaritDe(vue, s.exercise_slug);
-    var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
+    var noms = colonnesDe(g);
+    var champs = noms.map(function (n) { return M().champDeMesure(n); });
     // §7 quindecies.3 (52-1) — dans l'éditeur, un exercice DÉJÀ FAIT n'a plus
     // de champ de charge : le coach décide d'après les séances, et la légende
     // le dit. Rien n'est ignoré sans être dit.
     var cp = vue.programme && vue.chargeProgramme ? vue.chargeProgramme(s.exercise_slug) : null;
     var sansCharge = !!cp && !cp.depart;
-    var classeGrille = ' grille g-' + g.mesure + (vue.programme ? ' programme' : '') +
+    var classeGrille = classeDeGrille(g) + (vue.programme ? ' programme' : '') +
       (sansCharge ? ' sans-charge' : '');
 
     // §2.6 — l'éclairage porte sur le TOUR, jamais sur la ligne isolée.
@@ -3128,7 +3169,7 @@
     // entre une seconde et un kilomètre.
     champs.forEach(function (c, iChamp) {
       var classe = (iChamp === 0 ? 'ch-serie' : 'rp-serie') + ' num';
-      var nom = g.champs[iChamp];
+      var nom = noms[iChamp];
       if (sansCharge && nom === 'charge_kg') return;
       // `data-champ` : la case se retrouve par son nom (§3 bis.3 bis, `demanderCases`).
       if (c.saisie === 'chrono') {

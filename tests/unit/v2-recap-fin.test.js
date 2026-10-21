@@ -256,7 +256,7 @@ describe('71 — les faits du récap, sur une séance d’exemple', () => {
     expect(Seance.compter(cardio, CATALOGUE)).toMatchObject({ travail: 0,
       horsMusculation: { series: 1, duree_s: 1200, distance_m: 3200 } });
     const x = faits.recapDeLaSeance(corpus(), cardio, []);
-    expect(x.cardio).toEqual([{ slug: 'tapis', nom: 'Tapis roulant', fait: '20 min · 3,2 km' }]);
+    expect(x.cardio).toEqual([{ slug: 'tapis', nom: 'Tapis roulant', fait: '3,2 km · 20 min' }]);  // 131 : distance, puis durée
     expect(x.exercices).toBe(0);
     // La séance d'exemple : le tapis n'y est qu'en échauffement — pas de ligne de cardio.
     expect(r().cardio).toEqual([]);

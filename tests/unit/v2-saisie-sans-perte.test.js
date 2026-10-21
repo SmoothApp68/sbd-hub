@@ -5,6 +5,9 @@
 // et la série qu'« Annuler » remet entière à sa place après un glissement (E2). Le branchement dans l'app réelle
 // (feuilles, toast, file d'envoi) est éprouvé au banc d'écran, section 115.
 
+// 131 — les colonnes tapées viennent de `THModele.colonnesDeSerie()` : `modele.js` se charge avant, comme dans
+// index.html.
+require('../../v2/js/modele.js');
 const Seance = require('../../v2/js/seance.js');
 
 const serie = (o) => Object.assign({

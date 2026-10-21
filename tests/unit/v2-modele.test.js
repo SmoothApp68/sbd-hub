@@ -308,7 +308,8 @@ describe('formatMesure', () => {
   test('une sortie : plus jamais « 23715 s 22660 m »', () => {
     const rendu = Modele.formatMesure(serie({
       charge_kg: null, reps: null, duree_s: 23715, distance_m: 22660 }));
-    expect(rendu).toBe('6 h 35 · 22,7 km');
+    // 131 (ECRAN §3 ter.5) : distance, puis durée.
+    expect(rendu).toBe('22,7 km · 6 h 35');
     expect(rendu).not.toMatch(/\d+ s\b/);
     expect(rendu).not.toMatch(/\d+ m\b/);
   });

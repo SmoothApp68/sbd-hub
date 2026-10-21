@@ -48,12 +48,12 @@ describe('119 — E8 : la colonne du détail suit la mesure', () => {
   test('« Durée » sur une planche, « Durée · distance » sur un tapis, « Charge » sur le couché', () => {
     expect(blocs.map((b) => b.entete)).toEqual(['Durée', 'Durée · distance', 'Charge', 'Mesure', 'Durée']);
   });
-  test('l’écran l’affiche : jamais « Charge » au-dessus de « 1 min 30 » ni de « 20 min · 3,2 km »', () => {
+  test('l’écran l’affiche : jamais « Charge » au-dessus de « 1 min 30 » ni de « 3,2 km · 20 min »', () => {
     const cible = document.createElement('div');
     Rendu().rendreDetail(cible, { titre: 'Gainage', debut: '2026-10-16T17:00:00Z' }, blocs, {});
     const tetes = [...cible.querySelectorAll('.entetes')].map((x) => x.textContent);
     expect(tetes).toEqual(['SérieDurée', 'SérieDurée · distance', 'SérieCharge', 'SérieMesure', 'SérieDurée']);
-    expect(cible.textContent).toContain('20 min · 3,2 km');
+    expect(cible.textContent).toContain('3,2 km · 20 min');  // 131 : distance, puis durée
   });
 });
 

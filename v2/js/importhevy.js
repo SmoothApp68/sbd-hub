@@ -563,7 +563,11 @@
         exercise_slug: slug, note: e.note, groupe_superset: e.groupe_superset,
         series: e.series.map(function (x) {
           rang++;
-          return {
+          // Prompt 131 — Hevy n'exporte ni D+ ni étages : toutes les colonnes de mesure partent à
+          // `null` (la table des champs, `colonnesDeSerie`), puis celles que Hevy porte.
+          var vides = {};
+          Mo().colonnesDeSerie().forEach(function (c) { vides[c] = null; });
+          return Object.assign(vides, {
             id: ids.serie(rang), source: 'hevy', type_serie: x.type_serie,
             charge_kg: x.charge_kg, reps: x.reps, duree_s: x.duree_s, distance_m: x.distance_m,
             // `sets_rpe_ok` : 0 < rpe ≤ 10. Hors de là, la ligne serait refusée
@@ -571,7 +575,7 @@
             rpe: typeof x.rpe === 'number' && x.rpe > 0 && x.rpe <= 10 ? x.rpe : null,
             ressenti: null, note: null, validee_a: null, repos_s: null,
             rang_origine: rang
-          };
+          });
         })
       });
     });

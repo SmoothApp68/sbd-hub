@@ -706,7 +706,13 @@ const SETS_IMPORTES = [
     // répond `22003` ; au-delà de 1e21 le nombre part en notation exponentielle
     // dans le JSON et devient `22P02`, code DÉFINITIF. Un banc qui accepte
     // n'importe quel entier ne peut pas voir ce défaut-là.
-    for (const col of ['reps', 'duree_s']) {
+    // 131 (v2_101) — le D+ et les étages : des entiers, bornés comme dans l'app (jamais 0 ; D+ ≤ 10 000 m,
+    // étages ≤ 2 000 ; la distance ≤ 400 km). Une app plus permissive bloquerait la file (23514, définitif).
+    if (l.denivele_m !== null && l.denivele_m !== undefined && !(l.denivele_m >= 1 && l.denivele_m <= 10000)) {
+      return refus('23514', 'sets_denivele_borne');
+    }
+    if (l.etages !== null && l.etages !== undefined && !(l.etages >= 1 && l.etages <= 2000)) return refus('23514', 'sets_etages_borne');
+    for (const col of ['reps', 'duree_s', 'denivele_m', 'etages']) {
       const v = l[col];
       if (v === null || v === undefined) continue;
       if (typeof v !== 'number' || !isFinite(v)) return refus('22P02', col + ' : entier invalide');
@@ -23383,6 +23389,114 @@ const SETS_IMPORTES = [
       gardeBanc.violations === violations127 && base.journal.filter((j) => j.op === 'refus').length === refus127 &&
         erreurs.length === erreurs127,
       JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus127), erreurs.slice(erreurs127)]));
+  }
+
+  console.log('\n══ mesures. LES MESURES EXERCICE PAR EXERCICE : LE D+, LES ÉTAGES, LA DISTANCE AU VÉLO (131, ECRAN-SAISIE §3 ter.5) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : trois exercices du catalogue servis AVEC `champs_series` (v2_101) — une randonnée
+  // (`distance_temps`, D+ sous la série), un escalier (`temps`, les étages en colonne) et un vélo d'appartement
+  // (`distance_temps`, sans champ en plus). La randonnée se valide en DURÉE SEULE (« durée OU distance ») ; l'escalier
+  // porte ses étages ; le vélo sa distance. Après « Terminer » et un rechargement, la base et le détail retrouvent tout.
+  // Tout est retiré à la fin.
+  {
+    const erreurs131 = erreurs.length;
+    const refus131 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations131 = gardeBanc.violations;
+    const catalogueAvant131 = CATALOGUE.length;
+    const sessionsAvant131 = base.sessions.map((x) => x.id);
+    const sp131 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    CATALOGUE.push({ slug: 'rando-u131', nom: 'Randonnée U131', mesure: 'distance_temps', charge: 'aucune', equipement: 'aucun',
+      muscles_primaires: [], muscles_secondaires: [], hors_salle: true, champs_series: ['denivele_m'] });
+    CATALOGUE.push({ slug: 'escaliers-u131', nom: 'Escaliers U131', mesure: 'temps', charge: 'aucune', equipement: 'machine',
+      muscles_primaires: [], muscles_secondaires: [], champs_series: ['etages'] });
+    CATALOGUE.push({ slug: 'velo-u131', nom: 'Vélo d’Appartement U131', mesure: 'distance_temps', charge: 'aucune',
+      equipement: 'machine', muscles_primaires: [], muscles_secondaires: [], champs_series: [] });
+    const ex131 = (slug, rang) => ({ id: 'r-u131-' + rang, routine_id: 'r-u131', exercise_slug: slug, rang,
+      routine_sets: progr(1), repos_cible_s: 0, groupe_superset: null, note: null });
+    const ROUTINE_131 = { id: 'r-u131', nom: 'Mesures U131', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [ex131('rando-u131', 0), ex131('escaliers-u131', 1), ex131('velo-u131', 2)] };
+    ROUTINES.push(ROUTINE_131);
+    const sets131 = (slug) => base.sets.filter((x) => x.exercise_slug === slug);
+    const taper131 = async (i, champ, v) => {
+      const inp = (await page.$$('.ligne-serie >> nth=' + i + ' >> [data-champ="' + champ + '"] input'))[0];
+      if (champ === 'duree') { await inp.click(); await inp.type(String(v), { delay: 30 }); }
+      else await inp.fill(String(v));
+      await inp.evaluate((e) => e.blur());
+      await attendre(300);
+    };
+    const valider131 = async (i) => {
+      await page.evaluate((k) => document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), i);
+      await attendre(700);
+    };
+
+    await aller('/saisie');
+    await demarrerRoutine('Mesures U131');
+    await attendre(900);
+    const grille131 = await page.evaluate(() => Array.from(document.querySelectorAll('#vue-seance .bloc-seance')).map((b) => ({
+      entetes: Array.from(b.querySelectorAll('.cols-seance span')).map((x) => x.textContent),
+      champs: Array.from(b.querySelectorAll('.ligne-serie [data-champ]')).map((x) => x.getAttribute('data-champ')),
+      plus: Array.from(b.querySelectorAll('.serie-plus')).map((x) => x.textContent),
+      large: b.querySelector('.serie') ? b.querySelector('.serie').getBoundingClientRect().width : 0,
+      deborde: document.documentElement.scrollWidth > window.innerWidth })));
+    ok('[131] A — la randonnée : durée et distance en colonnes, le D+ sur sa propre ligne, « (facultatif) »',
+      grille131.length === 3 && JSON.stringify(grille131[0].champs) === '["duree","distance_km"]' &&
+        grille131[0].plus.length === 1 && /Dénivelé \+ \(facultatif\)/.test(sp131(grille131[0].plus[0])), JSON.stringify(grille131));
+    ok('[131] A — l’escalier : ÉTAGES prend la colonne de la distance ; le vélo : durée et distance ; rien ne déborde à 360 px',
+      JSON.stringify(grille131[1].entetes) === '["","PRÉC.","DURÉE","ÉTAGES",""]' &&
+        JSON.stringify(grille131[1].champs) === '["duree","etages"]' && grille131[1].plus.length === 0 &&
+        JSON.stringify(grille131[2].champs) === '["duree","distance_km"]' && grille131.every((g) => !g.deborde),
+      JSON.stringify(grille131));
+
+    // B. LA RANDONNÉE EN DURÉE SEULE : « durée OU distance », la série part, sans distance ni D+.
+    await taper131(0, 'duree', '31000');
+    await valider131(0);
+    await jusqua(async () => sets131('rando-u131').length === 1, 6000);
+    const r131 = sets131('rando-u131')[0] || {};
+    ok('[131] B — DISCRIMINANT : la randonnée en durée seule passe (3:10:00), sans distance ni D+ en base',
+      r131.duree_s === 11400 && r131.distance_m === null && r131.denivele_m === null && r131.etages === null,
+      JSON.stringify(r131));
+    // C. L'ESCALIER : durée et étages.
+    await taper131(1, 'duree', '2000');
+    await taper131(1, 'etages', '72');
+    await valider131(1);
+    await jusqua(async () => sets131('escaliers-u131').length === 1, 6000);
+    const e131 = sets131('escaliers-u131')[0] || {};
+    ok('[131] C — l’escalier part avec ses étages : 20:00 · 72 étages, sans distance',
+      e131.duree_s === 1200 && e131.etages === 72 && e131.distance_m === null, JSON.stringify(e131));
+    // D. LE VÉLO : durée et kilomètres.
+    await taper131(2, 'duree', '3000');
+    await taper131(2, 'distance_km', '12,6');
+    await valider131(2);
+    await jusqua(async () => sets131('velo-u131').length === 1, 6000);
+    const v131 = sets131('velo-u131')[0] || {};
+    ok('[131] D — le vélo d’appartement part en distance : 30:00 · 12,6 km',
+      v131.duree_s === 1800 && v131.distance_m === 12600, JSON.stringify(v131));
+    const id131 = enCoursId();
+    await terminer();
+
+    // E. LE RECHARGEMENT RETROUVE TOUT : la base, puis le détail, lu sur l'appareil après un rechargement.
+    await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(1500);
+    await aller('/seance/' + id131);
+    await jusqua(async () => /Escaliers U131/.test(await texte('#vue-detail')), 6000);
+    const detail131 = sp131(await texte('#vue-detail'));
+    ok('[131] E — après rechargement, le détail dit « 20 min · 72 étages », « 12,6 km · 30 min » et la randonnée en durée seule',
+      /20 min · 72 étages/.test(detail131) && /12,6 km · 30 min/.test(detail131) && /3 h 10/.test(detail131) &&
+        !/D\+ 0/.test(detail131), detail131.slice(0, 400));
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    CATALOGUE.splice(catalogueAvant131, CATALOGUE.length - catalogueAvant131);
+    const iR131 = ROUTINES.indexOf(ROUTINE_131);
+    if (iR131 >= 0) ROUTINES.splice(iR131, 1);
+    const neuves131 = base.sessions.filter((x) => sessionsAvant131.indexOf(x.id) < 0).map((x) => x.id);
+    base.sets = base.sets.filter((x) => neuves131.indexOf(x.session_id) < 0);
+    base.sessions = base.sessions.filter((x) => neuves131.indexOf(x.id) < 0);
+    await aller('/saisie');
+    ok('[131] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations131 && base.journal.filter((j) => j.op === 'refus').length === refus131 &&
+        erreurs.length === erreurs131,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus131), erreurs.slice(erreurs131)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maquette : D+, étages, distance</title>
+<style>
+:root{--fond:#0f1114;--panneau:#181b20;--panneau-2:#21252c;--trait:#2c3139;--texte:#eceef2;--texte-2:#9aa1ac;--texte-3:#888e98;--accent:#f2b84b;--reussi:#5FA97A}
+*{box-sizing:border-box}
+body{margin:0;background:#08090b;color:var(--texte);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:24px 16px}
+h1{font-size:18px;margin:0 0 6px}
+.intro{color:var(--texte-2);max-width:760px;margin:0 0 24px}
+.ecrans{display:flex;flex-wrap:wrap;gap:28px}
+.bloc{width:360px;max-width:100%}
+.bloc>h2{font-size:13px;color:var(--accent);margin:0 0 4px;font-weight:600}
+.bloc>p.note{font-size:12.5px;color:var(--texte-2);margin:8px 0 0}
+.tel{background:var(--fond);border:1px solid var(--trait);border-radius:18px;padding:14px 12px;width:360px;max-width:100%}
+.exo{background:var(--panneau);border-radius:12px;padding:12px 10px 8px;margin-bottom:10px}
+.nom{font-weight:600;font-size:15px}
+.lib{font-size:9px;font-weight:600;color:var(--texte-3);letter-spacing:.02em;margin:2px 0 8px}
+.cols,.ligne{display:grid;gap:5px;align-items:center}
+.g2{grid-template-columns:30px 66px 1fr 1fr 40px}
+.cols{font-size:9px;font-weight:600;color:var(--texte-3);padding:0 0 3px}
+.cols .c{text-align:center}
+.ligne{padding:5px 0;border-top:1px solid var(--trait)}
+.num{color:var(--texte-3);text-align:center}
+.prec{font-size:13px;color:var(--texte-3);text-align:right}
+.champ{background:var(--panneau-2);border-radius:8px;height:40px;display:flex;align-items:center;justify-content:center;font-size:15px;font-variant-numeric:tabular-nums}
+.champ.vide{color:var(--texte-3);font-size:13px}
+.coche{width:40px;height:40px;border-radius:8px;border:1.5px solid var(--trait);display:flex;align-items:center;justify-content:center;color:var(--texte-3)}
+.coche.ok{background:var(--reussi);border-color:var(--reussi);color:#0b1a10}
+.plus{display:grid;grid-template-columns:30px 1fr 110px 40px;gap:5px;align-items:center;padding:4px 0 6px}
+.plus .k{grid-column:2;font-size:13px;color:var(--texte-2)}
+.plus .k small{color:var(--texte-3)}
+.plus .champ{grid-column:3}
+.journal{background:var(--panneau);border-radius:12px;padding:12px}
+.journal .titre{font-size:12px;color:var(--texte-3);margin-bottom:8px}
+.jl{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--trait)}
+.jl:first-of-type{border-top:0}
+.jl .n{font-weight:600}
+.jl .v{color:var(--texte-2);text-align:right;font-variant-numeric:tabular-nums}
+.ajout{display:inline-block;margin-top:4px;font-size:13px;color:var(--accent);border-bottom:1px dashed var(--accent)}
+.decisions{max-width:760px;margin-top:32px;background:var(--panneau);border-radius:12px;padding:16px 18px}
+.decisions h2{font-size:15px;margin:0 0 8px}
+.decisions li{margin:4px 0;color:var(--texte-2)}
+.decisions li b{color:var(--texte)}
+</style>
+</head>
+<body>
+<h1>Maquette : le D+, les étages, la distance au vélo</h1>
+<p class="intro">Décisions du 21/10, appliquées exercice par exercice. Tous les écrans sont dessinés à 360 px, avec les mêmes rangées que la séance d'aujourd'hui. Aucun nouveau champ n'est obligatoire.</p>
+
+<div class="ecrans">
+
+  <div class="bloc">
+    <h2>1. Randonnée en séance : le D+ sous la ligne</h2>
+    <div class="tel">
+      <div class="exo">
+        <div class="nom">Randonnée</div>
+        <div class="lib">DURÉE · DISTANCE · D+</div>
+        <div class="cols g2"><span class="c">SÉRIE</span><span class="c">PRÉC.</span><span class="c">DURÉE</span><span class="c">KM</span><span></span></div>
+        <div class="ligne g2"><span class="num">1</span><span class="prec">3 h 10</span><span class="champ">03:25:00</span><span class="champ">13,2</span><span class="coche ok">✓</span></div>
+        <div class="plus"><span class="k">Dénivelé + <small>(facultatif)</small></span><span class="champ">920 m</span></div>
+      </div>
+    </div>
+    <p class="note">Une troisième colonne ne tient pas à 360 px : la durée en horloge a besoin de ses 82 px. Le D+ passe donc sur sa propre ligne, juste sous la série, et uniquement pour Randonnée, Trail, Ski de Randonnée, VTT et Cyclisme.</p>
+  </div>
+
+  <div class="bloc">
+    <h2>2. Escaliers : les étages à la place de la distance</h2>
+    <div class="tel">
+      <div class="exo">
+        <div class="nom">Escaliers</div>
+        <div class="lib">DURÉE · ÉTAGES</div>
+        <div class="cols g2"><span class="c">SÉRIE</span><span class="c">PRÉC.</span><span class="c">DURÉE</span><span class="c">ÉTAGES</span><span></span></div>
+        <div class="ligne g2"><span class="num">1</span><span class="prec">20:00</span><span class="champ">20:00</span><span class="champ">72</span><span class="coche ok">✓</span></div>
+      </div>
+    </div>
+    <p class="note">Les étages s'affichent tels que la machine les montre. On ne les convertit pas en mètres. Tes 31 séries passées, en durée seule, restent valides.</p>
+  </div>
+
+  <div class="bloc">
+    <h2>3. Vélo d'appartement, Spinning, Rameur</h2>
+    <div class="tel">
+      <div class="exo">
+        <div class="nom">Vélo d'Appartement</div>
+        <div class="lib">DURÉE · DISTANCE</div>
+        <div class="cols g2"><span class="c">SÉRIE</span><span class="c">PRÉC.</span><span class="c">DURÉE</span><span class="c">KM</span><span></span></div>
+        <div class="ligne g2"><span class="num">1</span><span class="prec">30:00</span><span class="champ">30:00</span><span class="champ">12,6</span><span class="coche ok">✓</span></div>
+        <div class="ligne g2"><span class="num">2</span><span class="prec">—</span><span class="champ">10:00</span><span class="champ vide">km</span><span class="coche ok">✓</span></div>
+      </div>
+    </div>
+    <p class="note">Même gabarit que le tapis de course. La série 2 se valide sans distance, parce que la durée suffit (décision du 17/10). Au rameur, la distance se tape en km, comme ailleurs (2 000 m = 2).</p>
+  </div>
+
+  <div class="bloc">
+    <h2>4. Le détail d'une séance passée</h2>
+    <div class="tel">
+      <div class="journal">
+        <div class="titre">Dimanche 12 octobre</div>
+        <div class="jl"><span class="n">Randonnée</span><span class="v">13,2 km · 3 h 25<br>D+ 920 m</span></div>
+        <div class="jl"><span class="n">Escaliers</span><span class="v">20 min · 72 étages</span></div>
+        <div class="jl"><span class="n">Randonnée<br><span class="ajout">Ajouter le D+</span></span><span class="v">11,8 km · 3 h 05</span></div>
+      </div>
+    </div>
+    <p class="note">Sur une randonnée sans D+ (tes 29 venues de Hevy), c'est l'app qui le demande : « Ajouter le D+ » ouvre la séance en correction (le « Modifier » des séances passées, qui existe déjà), avec le champ D+ prêt à remplir. Quand le D+ manque, rien ne s'affiche : jamais de « D+ 0 m ».</p>
+  </div>
+
+  <div class="bloc">
+    <h2>5. À l'ouverture : « Ce qui manque à tes séances »</h2>
+    <div class="tel">
+      <div class="exo">
+        <div class="nom">Ce qui manque à tes séances</div>
+        <p style="margin:4px 0 10px;color:var(--texte-2);font-size:13px">L'app note maintenant le D+, les étages et la distance au vélo. Complète ce dont tu te souviens.</p>
+        <div class="lib">RANDONNÉE · D+ · 29 SÉANCES</div>
+        <div class="plus" style="grid-template-columns:1fr 110px"><span class="k" style="grid-column:1">Dim. 12 oct. · 11,8 km · 3 h 05</span><span class="champ vide" style="grid-column:2">m</span></div>
+        <div class="plus" style="grid-template-columns:1fr 110px"><span class="k" style="grid-column:1">Sam. 27 sept. · 14,1 km · 3 h 40</span><span class="champ vide" style="grid-column:2">m</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin:4px 0 12px"><span class="ajout">Voir les 27 autres</span><span style="color:var(--texte-3)">Je ne sais plus</span></div>
+        <div class="lib">ESCALIERS · ÉTAGES · 31 SÉRIES</div>
+        <div class="plus" style="grid-template-columns:1fr 110px"><span class="k" style="grid-column:1">Mar. 14 oct. · 20 min</span><span class="champ vide" style="grid-column:2">étages</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin:4px 0 12px"><span class="ajout">Voir les 30 autres</span><span style="color:var(--texte-3)">Je ne sais plus</span></div>
+        <div style="display:flex;gap:8px;margin-top:6px"><span class="champ" style="flex:1;background:var(--accent);color:#1a1305;font-weight:600">Enregistrer</span><span class="champ" style="flex:1;color:var(--texte-2)">Plus tard</span></div>
+      </div>
+    </div>
+    <p class="note">La carte s'affiche à l'Accueil tant qu'il reste quelque chose à compléter. « Je ne sais plus » ferme ce groupe pour de bon. « Plus tard » la replie jusqu'à la prochaine ouverture de l'app. Elle ne liste que ce qui est devenu possible : le D+ des 5 activités, les étages, la distance au vélo, au spinning et au rameur.</p>
+  </div>
+
+  <div class="bloc">
+    <h2>6. En fin de séance, si le champ est resté vide</h2>
+    <div class="tel">
+      <div class="exo">
+        <div class="nom">Séance terminée</div>
+        <p style="margin:4px 0 10px;color:var(--texte-2);font-size:13px">Il manque le D+ de ta randonnée.</p>
+        <div class="plus" style="grid-template-columns:1fr 110px"><span class="k" style="grid-column:1">Randonnée · 13,2 km · 3 h 25</span><span class="champ vide" style="grid-column:2">m</span></div>
+      </div>
+    </div>
+    <p class="note">Uniquement pour une donnée facultative (décidé le 21/10) : le D+, les étages, ou la distance quand la durée est remplie. Une donnée obligatoire bloque déjà la série, elle n'arrive jamais ici. Une seule demande, sur l'écran de fin qui existe déjà. Laissée vide, elle rejoint la carte de l'écran 5, et rien d'autre ne te la redemande.</p>
+  </div>
+
+</div>
+
+<div class="decisions">
+  <h2>Ce que la maquette fixe</h2>
+  <ul>
+    <li><b>D+</b> : en mètres, sous la série, facultatif. Seulement sur les 5 activités décidées.</li>
+    <li><b>Étages</b> : une colonne, à la place de la distance, pour les Escaliers seulement. Facultatif.</li>
+    <li><b>Vélo d'appartement, Spinning, Rameur</b> : le gabarit durée + distance du tapis ; la durée seule suffit pour valider.</li>
+    <li><b>Affichage</b> : distance, puis durée, puis D+ ou étages. Un champ vide ne s'affiche jamais à zéro.</li>
+    <li><b>Records</b> : on garde ceux qui existent (la plus longue durée). Pas de record de D+ ni d'étages dans ce chantier : noté pour plus tard.</li>
+    <li><b>Le coach</b> : il ne suit toujours pas le cardio (CADRAGE §2 ter). Rien ne change de son côté.</li>
+  </ul>
+</div>
+</body>
+</html>

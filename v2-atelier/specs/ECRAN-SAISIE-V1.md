@@ -334,6 +334,63 @@ sorties — à trancher avec la page d'exercice, pas ici.
 nullité. Une série à 0 s existe en base et devient muette au détail. Même famille que « 0 comme
 null », à traiter d'un coup pour les quatre mesures.
 
+#### 3 ter.5 Les champs en plus, exercice par exercice — décidé le 21/10/2026 (prompt 131)
+
+> **Au cas par cas, jamais un champ pour tout** (Aurélien, 21/10/2026). Un exercice reçoit un champ en plus seulement
+> quand ce champ dit quelque chose de lui. Le catalogue le porte : `exercises.champs_series` (v2_101), une liste de
+> colonnes de `sets` en plus de celles de la mesure. La mesure ne change pas : une Randonnée reste `distance_temps`.
+> Maquette : `maquette-mesures-cardio-v1.html`.
+
+| Exercice | Mesure | Champs en plus |
+|---|---|---|
+| Randonnée, Trail, Ski de Randonnée, VTT, Cyclisme | `distance_temps` | **D+** (`sets.denivele_m`, mètres) |
+| Escaliers | `temps` | **étages** (`sets.etages`) |
+| Vélo d'Appartement, Spinning, Rameur | `distance_temps` (passés de `temps` par v2_101) | — |
+| Course à pied, Marche, Marche Nordique, Ski de Fond, Roller | `distance_temps` | — (avec du relief, on note Trail ou Randonnée) |
+
+Aussi par v2_101 : Squat Sauté Lesté (Haltère) et Squat Cosaque (Kettlebell) en `charge_reps` / `absolue` ; Woodchop
+(Médecine-Ball) en `absolue`. **Notés pour plus tard** : l'inclinaison du tapis, Pincé de Disques en charge × durée,
+un record de D+ ou d'étages.
+
+**La saisie** (écrans 1 à 3) :
+- **le D+** se tape sur sa propre ligne, sous la série (« Dénivelé + (facultatif) », en mètres) : une troisième
+  colonne ne tient pas à 360 px à côté d'une durée en horloge ;
+- **les étages** prennent la colonne de la distance : Escaliers = durée · étages ; les étages tels que la machine les
+  affiche, jamais convertis en mètres ;
+- **jamais obligatoires** ; jamais recopiés d'une séance à l'autre (pas de chiffre gris) ;
+- **les bornes** (décidées le 21/10/2026) : la distance au plus 400 km, le D+ au plus 10 000 m, les étages au plus
+  2 000 ; **jamais 0** — une durée, une distance, un D+ ou des étages à 0 ne se valident pas (un 0 s'affichait « — »,
+  audit 130).
+
+**Le chiffre gris en cardio** (décidé le 21/10/2026, audit 130 n°3). Sur `temps` et `distance_temps`, le chiffre gris
+de la séance d'avant n'est validé que si **toutes** les cases de la série sont vides : « ✓ sans rien taper » = comme
+la dernière fois. Dès qu'une case est tapée, une case vide reste vide (« durée ou distance ») — on n'écrit jamais la
+distance de la randonnée d'avant sur celle du jour.
+
+**L'affichage** : distance, puis durée, puis D+ ou étages (« 13,2 km · 3 h 25 · D+ 920 m », « 20 min · 72
+étages »), par le formateur unique (§3 ter). Une valeur absente ne s'affiche jamais, ni à zéro. Les records ne
+changent pas (la plus longue durée, la plus longue distance).
+
+**Ce qui manque à tes séances** (écran 5). Une carte à l'accueil de Saisie, hors séance ouverte, tant qu'il reste
+quelque chose à compléter :
+- **ce qu'elle liste** : seulement ce qui est devenu possible à noter — les séries de travail des exercices qui ont
+  un champ en plus dont la case est vide, et les séries de Vélo d'Appartement, Spinning et Rameur sans distance ; par
+  exercice et par champ, de la plus récente à la plus ancienne (2 visibles, « Voir les N autres ») ;
+- **« Enregistrer »** écrit ce qui est tapé, comme une correction de séance passée (la même file, les mêmes bornes) ;
+- **« Je ne sais plus »** ferme un groupe (exercice et champ) pour de bon : `profiles.completer_refus` (v2_101,
+  « slug:colonne ») ;
+- **« Plus tard »** replie la carte jusqu'à la prochaine ouverture de l'app (en mémoire, rien en base) ;
+- **en « Juste un carnet » aussi** : la carte ne parle pas du coach, elle complète le carnet ;
+- la liste est un fait de `faits.js` (registre NOTIONS) ; la carte le lit.
+
+**En fin de séance** (écran 6). La feuille « Terminer » (§7 septies.4) montre, une fois, la case d'**une donnée
+facultative restée vide** sur une série validée de la séance : le D+, les étages, ou la distance quand la durée est
+remplie. Une donnée obligatoire bloque déjà la série et n'arrive jamais ici. Laissée vide, elle rejoint la carte de
+l'accueil ; rien d'autre ne la redemande.
+
+**Le social** : le détail d'une séance d'ami et le direct du groupe montrent le D+ et les étages (`social_detail_seance`
+et `groupe_direct` les rendent depuis v2_101), par le même formateur.
+
 ### 3 bis — La grille de saisie, arrêtée le 11/09/2026
 
 > ⚠️ **Ce qui suit décrit le gabarit `charge_reps`.** Les trois autres mesures ont leur propre
@@ -389,7 +446,7 @@ vérifie avant les reps de la ligne proposée. Il n'existe pas de « valider tou
 Précisions d'implémentation (prompt 105) : **une seule règle** pour toutes les cases
 (`THSeance.casesManquantes`, qui remplace `chargeManquante`) ; les cases obligatoires sont
 celles du gabarit de la mesure (`charge_reps` : charge et reps · `reps` : reps · `temps` :
-durée · `distance_temps` : durée et distance). Toutes les cases manquantes passent au rouge
+durée · `distance_temps` : **la durée ou la distance** — décidé le 17/10/2026, codé au prompt 131 : une série de cardio se valide avec l'une des deux ; les deux vides, les deux passent au rouge ; les champs en plus du §3 ter.5, D+ et étages, ne sont jamais obligatoires). Toutes les cases manquantes passent au rouge
 ensemble (`Rendu.demanderCases`) ; le clavier s'ouvre sur la première dans l'ordre de la
 ligne — la charge avant les reps, la durée avant la distance. Une case perd son rouge à la
 première frappe. Le lest et l'aide vides restent « sans lest / sans aide » (les reps, elles,
@@ -1499,6 +1556,9 @@ met-elle à jour la routine ?
 > et amène la première de ces lignes en vue ; la valider reste le geste de l'utilisateur). Une
 > intention de routine ou un chiffre gris du coach n'est pas une valeur tapée. Sans série remplie,
 > rien ne change.
+
+> **Une donnée facultative restée vide — décidé le 21/10/2026 (prompt 131).** La feuille montre une fois la case d'un
+> D+, d'étages ou d'une distance (durée remplie) restés vides sur une série validée de la séance (§3 ter.5, écran 6).
 
 
 ### 7 septies.4 bis Le récap de fin de séance — décidé le 11/10/2026 (chantier 71)

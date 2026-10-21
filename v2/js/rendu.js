@@ -626,7 +626,8 @@
     // 119 (E5) — le libellé suit la mesure (`THModele.affichageDeMesure`) : « Plus longue durée » sur une planche ou
     // un tapis, « Record de reps » au poids du corps ; « Record » pour une mesure inconnue.
     var aff = M().affichageDeMesure(vue.mesure);
-    ligneFiche(fiche, aff ? aff.meilleure : 'Record',
+    // Prompt 131 (audit 130 n°5) — une meilleure série en distance seule porte son libellé.
+    ligneFiche(fiche, r && r.libelle ? r.libelle : (aff ? aff.meilleure : 'Record'),
       sousDouzeMois(r && r.date ? dateCourte(r.date) : null, vue.recordSurDouzeMois), r ? texteMeilleure(r) : '');
     var v = vue.volume || {};
     ligneFiche(fiche, 'Séries de travail',

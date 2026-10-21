@@ -747,8 +747,12 @@
     // a cataloguée. La grille de saisie est une horloge ; le journal — cartes,
     // détail, résumés — reste en prose et garde `formatDuree`. Les deux ne se
     // rencontrent jamais.
+    // Audit 130 n°5 (prompt 131) — « durée OU distance » : une série en distance seule
+    // montre sa distance (le même formateur que le journal), jamais « — ».
     if (mesure === 'temps' || mesure === 'distance_temps') {
-      return formatChrono(serie.duree_s) || '—';
+      var chrono = formatChrono(serie.duree_s);
+      if (chrono) return chrono;
+      return mesure === 'distance_temps' && serie.distance_m ? formatDistance(serie.distance_m) : '—';
     }
     if (serie.charge_kg === null || serie.charge_kg === undefined) return '—';
     // §9.17 — sous « AIDE (KG) », l'aide se lit comme elle se tape : sans signe.
@@ -1514,7 +1518,22 @@
       if (d === null) return;
       if (longue === null || d > plusLongue) { longue = x; plusLongue = d; }
     });
-    if (longue === null) return e;
+    if (longue === null) {
+      // Audit 130 n°5 (prompt 131) — « durée OU distance » : sans aucune durée, la page
+      // montre la plus longue DISTANCE, et le libellé le dit (« un libellé ne contredit
+      // jamais son chiffre ») : `libelle` remplace « Plus longue durée ».
+      if (g.mesure !== 'distance_temps') return e;
+      var loin = null, plusLoin = null;
+      siennes.forEach(function (x) {
+        var m = valeurNumerique(x, 'distance_m');
+        if (m === null || m <= 0) return;
+        if (loin === null || m > plusLoin) { loin = x; plusLoin = m; }
+      });
+      if (loin === null) return e;
+      e.valeur = formatDistance(loin.distance_m);
+      e.libelle = 'Plus longue distance';
+      return e;
+    }
     e.valeur = formatDuree(longue.duree_s);
     if (g.mesure === 'distance_temps' && longue.distance_m) {
       e.complement = '\u00b7 ' + formatDistance(longue.distance_m);

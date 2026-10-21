@@ -5904,6 +5904,8 @@
       ajout.addEventListener('click', vue.surAjouterTranche);
       cible.appendChild(ajout);
     }
+    // 132 (ECRAN-PROFIL §2.4 sexies, maquette `maquette-elastiques-v2.html`, écran 1) — LES DEUX LISTES et le choix.
+    if (vue.surAjouterElastique) elastiquesDeLaSalle(cible, b, vue);
     cible.appendChild(el('p', 'feuille-err', vue.erreur || ''));
     // « Effacer » seulement quand une salle est déjà déclarée : il écrit le vide (non renseignée).
     piedFeuille(cible, [
@@ -5914,7 +5916,149 @@
     return cible;
   }
 
-  // 60-4 (ECRAN-PROFIL §4 bis, G10) — « Exercices écartés » : la liste, « Reprendre » sur chacun. Rien n'est caché
+  // 132 — UNE PASTILLE : la couleur que le nom dit (`THModele.pastilleElastique`), ou neutre.
+  function pastille(nom) {
+    var p = el('span', 'el-pastille');
+    var c = racine.THModele.pastilleElastique(nom);
+    if (c) p.style.background = c;
+    else p.className += ' neutre';
+    return p;
+  }
+
+  // 132 — MES ÉLASTIQUES, dans Ma salle : « Grands élastiques » (nom, kg facultatif) et « Mini-bandes » (nom seul),
+  // chacune rangée du plus fort au plus léger EN GLISSANT par la poignée ; puis « J'ai noté une aide à l'élastique :
+  // en kg / par son nom ». La feuille ne décide rien : `vue.surAjouterElastique(liste, nom, kg)`,
+  // `vue.surRetirerElastique(liste, i)`, `vue.surDeplacerElastique(liste, de, vers)`, `vue.surParNom(bool)` ; les
+  // phrases et la borne viennent de `THProfil`.
+  function elastiquesDeLaSalle(cible, b, vue) {
+    var P = racine.THProfil, M = racine.THModele;
+    [['elastiques', 'Grands élastiques', P.PHRASE_GRANDS_ELASTIQUES, 'Ajouter un élastique'],
+     ['mini_bandes', 'Mini-bandes', P.PHRASE_MINI_BANDES, 'Ajouter une mini-bande']].forEach(function (t) {
+      var liste = t[0], avecKg = liste === 'elastiques';
+      var carte = el('div', 'el-carte');
+      carte.dataset.liste = liste;
+      carte.appendChild(el('div', 'choix-groupe salle-titre', t[1]));
+      carte.appendChild(el('p', 'feuille-aide', t[2]));
+      var rangs = el('div', 'el-rangs');
+      var elements = (b[liste] || []);
+      elements.forEach(function (e, i) {
+        var r = el('div', 'el-rang');
+        r.dataset.i = String(i);
+        var poignee = el('span', 'el-poignee', '\u22ee\u22ee');
+        poignee.setAttribute('aria-label', 'Glisser pour ranger ' + e.nom);
+        poignee.setAttribute('role', 'button');
+        r.appendChild(poignee);
+        r.appendChild(pastille(e.nom));
+        r.appendChild(el('span', 'el-nom', e.nom));
+        r.appendChild(el('span', 'el-kg num', avecKg ? (e.kg !== undefined && e.kg !== null ? M.nombreSigne(e.kg) + '\u00a0kg' : '\u2014') : ''));
+        var x = el('button', 'el-retirer', '\u00d7');
+        x.type = 'button';
+        x.setAttribute('aria-label', 'Retirer ' + e.nom);
+        x.addEventListener('click', function () { vue.surRetirerElastique(liste, i); });
+        r.appendChild(x);
+        glisserPourRanger(poignee, r, rangs, i, function (vers) { vue.surDeplacerElastique(liste, i, vers); });
+        rangs.appendChild(r);
+      });
+      carte.appendChild(rangs);
+      if (elements.length > 1) {
+        var ordre = el('div', 'el-ordre');
+        ordre.appendChild(el('span', '', 'le plus fort'));
+        ordre.appendChild(el('span', '', 'le plus léger'));
+        carte.appendChild(ordre);
+      }
+      if (P.peutAjouterElastique(b, liste)) {
+        var ajout = el('button', 'discret el-ajout', '\uff0b ' + t[3]);
+        ajout.type = 'button';
+        carte.appendChild(ajout);
+        // « ＋ » : le nom (et le kg d'un grand élastique, facultatif), puis « Ajouter ». Rien ne s'ajoute avant.
+        ajout.addEventListener('click', function () {
+          if (carte.querySelector('.el-saisie')) return;
+          var saisie = el('div', 'salle-ajout el-saisie');
+          var nom = doc.createElement('input');
+          nom.type = 'text';
+          nom.maxLength = 30;
+          nom.placeholder = 'Nom';
+          nom.setAttribute('aria-label', 'Nom de l’élastique');
+          nom.className = 'el-champ-nom';
+          saisie.appendChild(nom);
+          var kg = null;
+          if (avecKg) {
+            kg = doc.createElement('input');
+            kg.type = 'number';
+            kg.inputMode = 'decimal';
+            kg.step = '0.5';
+            kg.placeholder = 'kg';
+            kg.setAttribute('aria-label', 'Son aide en kg, facultative');
+            kg.className = 'el-champ-kg';
+            saisie.appendChild(kg);
+          }
+          var ok = el('button', 'discret', 'Ajouter');
+          ok.type = 'button';
+          ok.addEventListener('click', function () { vue.surAjouterElastique(liste, nom.value, kg ? kg.value : null); });
+          saisie.appendChild(ok);
+          carte.insertBefore(saisie, ajout);
+          nom.focus();
+        });
+      }
+      cible.appendChild(carte);
+    });
+    var parNom = b.elastiques_par_nom === true;
+    var carteChoix = el('div', 'el-carte el-choix-carte');
+    carteChoix.appendChild(el('div', 'choix-groupe salle-titre', 'J’ai noté une aide à l’élastique'));
+    var choix = el('div', 'el-choix');
+    [[false, 'en kg'], [true, 'par son nom']].forEach(function (c) {
+      var on = parNom === c[0];
+      var bt = el('button', 'q-puce' + (on ? ' on' : ''), c[1]);
+      bt.type = 'button';
+      bt.dataset.parNom = String(c[0]);
+      bt.setAttribute('aria-pressed', on ? 'true' : 'false');
+      bt.addEventListener('click', function () { vue.surParNom(c[0]); });
+      choix.appendChild(bt);
+    });
+    carteChoix.appendChild(choix);
+    carteChoix.appendChild(el('p', 'feuille-aide', P.PHRASE_PAR_NOM));
+    cible.appendChild(carteChoix);
+  }
+
+  // Glisser une rangée par sa poignée : la rangée suit le doigt, et au lâcher la place se lit sur la hauteur des autres
+  // rangées (le milieu de chacune). Rien ne change sans déplacement réel.
+  function glisserPourRanger(poignee, rang, conteneur, i, surLacher) {
+    var depart = null;
+    poignee.addEventListener('pointerdown', function (e) {
+      depart = e.clientY;
+      if (poignee.setPointerCapture && e.pointerId !== undefined) {
+        try { poignee.setPointerCapture(e.pointerId); } catch (x) { /* rien */ }
+      }
+      rang.classList.add('glisse');
+      e.preventDefault();
+    });
+    poignee.addEventListener('pointermove', function (e) {
+      if (depart === null) return;
+      rang.style.transform = 'translateY(' + (e.clientY - depart) + 'px)';
+    });
+    var lacher = function (e) {
+      if (depart === null) return;
+      var y = e.clientY;
+      depart = null;
+      rang.style.transform = '';
+      rang.classList.remove('glisse');
+      var autres = Array.prototype.slice.call(conteneur.children);
+      var vers = 0;
+      autres.forEach(function (a, k) {
+        if (k === i) return;
+        var bx = a.getBoundingClientRect();
+        if (y > bx.top + bx.height / 2) vers = k < i ? k + 1 : k;
+      });
+      // Au-dessus de tout : la première place ; sinon, la dernière rangée dépassée (décalée de la rangée qui part).
+      if (vers !== i) surLacher(Math.max(0, Math.min(autres.length - 1, vers)));
+    };
+    poignee.addEventListener('pointerup', lacher);
+    poignee.addEventListener('pointercancel', function () {
+      depart = null; rang.style.transform = ''; rang.classList.remove('glisse');
+    });
+  }
+
+  // 60-4 (ECRAN-PROFIL §4 bis, G10) — « Exercices écartés » : la liste, « Reprendre » sur chacun.  // 60-4 (ECRAN-PROFIL §4 bis, G10) — « Exercices écartés » : la liste, « Reprendre » sur chacun. Rien n'est caché
   // ni perdu : un exercice repris revient dans les programmes et en tête du catalogue. `vue` : `{ titre, aide,
   // exercices: [{ nom, surReprendre }], surFermer }`.
   function rendreFeuilleEcartes(cible, vue) {

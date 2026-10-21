@@ -136,3 +136,48 @@ describe('132 — Ma salle lit et écrit les élastiques (ECRAN-PROFIL §2.4 sex
   });
 });
 
+
+// ═══ 2. MA SALLE : LES GESTES DES DEUX LISTES (D1, écran 1) ═════════════════
+describe('132 — Ma salle : ajouter, retirer, ranger, « par son nom »', () => {
+  const vide = () => Profil.brouillonSalle({});
+  test('ajouter : un nom (espaces au bord retirés), un kg facultatif sur un grand élastique seulement', () => {
+    let r = Profil.ajouterElastique(vide(), 'elastiques', '  Noir ', 35);
+    expect(r.erreur).toBeNull();
+    r = Profil.ajouterElastique(r.brouillon, 'elastiques', 'Vert', null);
+    r = Profil.ajouterElastique(r.brouillon, 'mini_bandes', 'Bleue', 12);
+    expect(r.brouillon.elastiques).toEqual([{ nom: 'Noir', kg: 35 }, { nom: 'Vert' }]);
+    expect(r.brouillon.mini_bandes).toEqual([{ nom: 'Bleue' }]);
+  });
+  test('refusés, avec leur phrase : un nom vide ou trop long, un doublon, un kg hors bornes, la onzième', () => {
+    const b = Profil.ajouterElastique(vide(), 'elastiques', 'Noir', null).brouillon;
+    expect(Profil.ajouterElastique(b, 'elastiques', '   ', null).erreur).toMatch(/Un nom de 1 à 30/);
+    expect(Profil.ajouterElastique(b, 'elastiques', 'x'.repeat(31), null).erreur).toMatch(/Un nom de 1 à 30/);
+    expect(Profil.ajouterElastique(b, 'elastiques', 'NOIR', null).erreur).toBe('« NOIR » est déjà dans la liste.');
+    expect(Profil.ajouterElastique(b, 'elastiques', 'Rouge', 0.2).erreur).toMatch(/Un kg entre 0,5 et 100/);
+    expect(Profil.ajouterElastique(b, 'elastiques', 'Rouge', 22.3).erreur).toMatch(/au demi-kilo/);
+    expect(Profil.ajouterElastique(b, 'elastiques', 'Rouge', NaN).erreur).toMatch(/au demi-kilo/);
+    expect(Profil.ajouterElastique(b, 'elastiques', 'Rouge', 22.5).brouillon.elastiques[1]).toEqual({ nom: 'Rouge', kg: 22.5 });
+    let d = vide();
+    for (let i = 0; i < 10; i++) d = Profil.ajouterElastique(d, 'mini_bandes', 'B' + i).brouillon;
+    expect(Profil.peutAjouterElastique(d, 'mini_bandes')).toBe(false);
+    expect(Profil.ajouterElastique(d, 'mini_bandes', 'B10').erreur).toBe('Dix au plus dans une liste.');
+  });
+  test('ranger (glisser) et retirer : l’ordre est la donnée', () => {
+    let b = vide();
+    ['Rouge', 'Vert', 'Noir'].forEach((n) => { b = Profil.ajouterElastique(b, 'elastiques', n).brouillon; });
+    b = Profil.deplacerElastique(b, 'elastiques', 2, 0);
+    expect(b.elastiques.map((e) => e.nom)).toEqual(['Noir', 'Rouge', 'Vert']);
+    expect(Profil.deplacerElastique(b, 'elastiques', 0, 5)).toBe(b);
+    b = Profil.retirerElastique(b, 'elastiques', 1);
+    expect(b.elastiques.map((e) => e.nom)).toEqual(['Noir', 'Vert']);
+  });
+  test('« par son nom » : réglable, écrit seulement vrai', () => {
+    let b = Profil.ajouterElastique(vide(), 'elastiques', 'Noir', 35).brouillon;
+    expect(Profil.champsSalle(Profil.poserParNom(b, true)).ma_salle.elastiques_par_nom).toBe(true);
+    expect(Profil.champsSalle(Profil.poserParNom(b, false)).ma_salle.elastiques_par_nom).toBeUndefined();
+  });
+  test('la pastille : la couleur que le nom dit, neutre sinon', () => {
+    expect(['Noir', 'Rouge', 'Verte', 'Bleue', 'Jaune', 'Super fort'].map(Mo.pastilleElastique))
+      .toEqual(['#2b2b2b', '#b8433b', '#3f8f5a', '#2f5f9e', '#d9b13b', null]);
+  });
+});

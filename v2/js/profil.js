@@ -1522,6 +1522,69 @@
                : '« Jusqu’à » vide ou illisible : je remets ' + repris.join(' et ') + '.' };
   }
 
+  // 132 (ECRAN-PROFIL §2.4 sexies, maquette `maquette-elastiques-v2.html`, écran 1) — LES GESTES DES DEUX LISTES, purs.
+  // `liste` : `elastiques` (les grands, un kg facultatif) ou `mini_bandes` (un nom seul). Chaque geste rend
+  // `{ brouillon, erreur }` : `erreur` est la phrase qui dit pourquoi rien n'a changé (la feuille reste ouverte), ou
+  // `null`. Le nom tapé perd ses espaces au bord (un nom ne commence ni ne finit par une espace).
+  var LISTES_ELASTIQUES = ['elastiques', 'mini_bandes'];
+  function listeDuBrouillon(brouillon, liste) {
+    return ((brouillon && brouillon[liste]) || []).map(function (e) { return Object.assign({}, e); });
+  }
+  function avecListe(brouillon, liste, l) {
+    var b = Object.assign({}, brouillon || {});
+    b[liste] = l;
+    return b;
+  }
+  function peutAjouterElastique(brouillon, liste) {
+    return LISTES_ELASTIQUES.indexOf(liste) >= 0 && listeDuBrouillon(brouillon, liste).length < ELASTIQUES_MAX;
+  }
+  function ajouterElastique(brouillon, liste, nom, kg) {
+    var l = listeDuBrouillon(brouillon, liste);
+    var refus = function (phrase) { return { brouillon: brouillon, erreur: phrase }; };
+    if (LISTES_ELASTIQUES.indexOf(liste) < 0) return refus(null);
+    if (l.length >= ELASTIQUES_MAX) return refus('Dix au plus dans une liste.');
+    var n = nomElastiqueValide(String(nom === null || nom === undefined ? '' : nom).trim());
+    if (n === null) return refus('Un nom de 1 à ' + ELASTIQUE_NOM_MAX + ' caractères.');
+    if (l.some(function (e) { return cleDeNom(e.nom) === cleDeNom(n); })) return refus('« ' + n + ' » est déjà dans la liste.');
+    var e = { nom: n };
+    // `kg` : le nombre que l'écran a lu (`THModele.lireNombre`), `null` pour un champ vide, `NaN` pour un champ
+    // illisible (refusé : on ne garde pas un élastique sans le kg qu'on a voulu lui donner).
+    var M = racine.THModele;
+    var vide = kg === null || kg === undefined;
+    if (liste === 'elastiques' && !vide) {
+      var v = auDemi(kg);
+      if (v === null || v < ELASTIQUE_KG_MIN || v > ELASTIQUE_KG_MAX) {
+        return refus('Un kg entre ' + (M ? M.nombreSigne(ELASTIQUE_KG_MIN) : '0,5') + ' et ' + ELASTIQUE_KG_MAX +
+          ', au demi-kilo — ou rien.');
+      }
+      e.kg = v;
+    }
+    l.push(e);
+    return { brouillon: avecListe(brouillon, liste, l), erreur: null };
+  }
+  function retirerElastique(brouillon, liste, i) {
+    var l = listeDuBrouillon(brouillon, liste);
+    if (!l[i]) return brouillon;
+    l.splice(i, 1);
+    return avecListe(brouillon, liste, l);
+  }
+  // Glisser : l'élastique `de` prend la place `vers` (les autres se décalent). L'ordre est la donnée.
+  function deplacerElastique(brouillon, liste, de, vers) {
+    var l = listeDuBrouillon(brouillon, liste);
+    if (!l[de] || vers < 0 || vers >= l.length || vers === de) return brouillon;
+    var e = l.splice(de, 1)[0];
+    l.splice(vers, 0, e);
+    return avecListe(brouillon, liste, l);
+  }
+  function poserParNom(brouillon, parNom) {
+    return Object.assign({}, brouillon || {}, { elastiques_par_nom: parNom === true });
+  }
+  var PHRASE_GRANDS_ELASTIQUES = 'Du plus fort au plus léger. Pour les tractions, les dips, et les exercices à ' +
+    'l’élastique (curl, face pull…).';
+  var PHRASE_MINI_BANDES = 'Les bandes en boucle autour des jambes : clamshell, marche latérale, abductions…';
+  var PHRASE_PAR_NOM = 'Seulement pour l’élastique qui t’aide (tractions, dips, nordique). Un élastique qui fait ' +
+    'résistance se note toujours par son nom.';
+
   // « EZ, droite, haltères » — ce qui est déclaré ; `null` : non renseigné.
   function resumeSalle(profil) {
     var s = salleDe(profil);
@@ -1849,6 +1912,10 @@
     SALLE_PAS_MIN: SALLE_PAS_MIN, SALLE_PAS_MAX: SALLE_PAS_MAX,
     PHRASE_SALLE: PHRASE_SALLE, PHRASE_BARRES_FIXES: PHRASE_BARRES_FIXES,
     salleValide: salleValide, salleDe: salleDe, brouillonSalle: brouillonSalle, basculerBarre: basculerBarre,
+    // 132 (ECRAN-PROFIL §2.4 sexies) — les deux listes d'élastiques.
+    ELASTIQUES_MAX: ELASTIQUES_MAX, peutAjouterElastique: peutAjouterElastique, ajouterElastique: ajouterElastique,
+    retirerElastique: retirerElastique, deplacerElastique: deplacerElastique, poserParNom: poserParNom,
+    PHRASE_GRANDS_ELASTIQUES: PHRASE_GRANDS_ELASTIQUES, PHRASE_MINI_BANDES: PHRASE_MINI_BANDES, PHRASE_PAR_NOM: PHRASE_PAR_NOM,
     pucesDeBarres: pucesDeBarres, champsSalle: champsSalle, poserMaxHalteres: poserMaxHalteres,
     poserPasHalteres: poserPasHalteres, halteresGardees: halteresGardees,
     // 123 — les haltères par tranches.

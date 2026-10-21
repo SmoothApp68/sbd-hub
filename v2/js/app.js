@@ -13776,6 +13776,23 @@
         surAjouterTranche: function () { brouillon = Profil.ajouterTrancheHalteres(brouillon); erreur = null; redessiner(); },
         surRetirerTranche: function (i) { brouillon = Profil.retirerTrancheHalteres(brouillon, i); erreur = null; redessiner(); },
         surSansHalteres: function () { brouillon = Profil.sansHalteres(brouillon); erreur = null; redessiner(); },
+        // 132 (ECRAN-PROFIL §2.4 sexies) — les deux listes d'élastiques et « en kg / par son nom » : les gestes de
+        // `profil.js`, purs ; une saisie refusée laisse la feuille ouverte, sa phrase dit pourquoi.
+        surAjouterElastique: function (liste, nom, kg) {
+          var texteKg = kg === null || kg === undefined ? '' : String(kg).trim();
+          var lu = texteKg === '' ? null : Modele.lireNombre(texteKg);
+          var r = Profil.ajouterElastique(brouillon, liste, nom, texteKg !== '' && lu === null ? NaN : lu);
+          brouillon = r.brouillon;
+          erreur = r.erreur;
+          redessiner();
+        },
+        surRetirerElastique: function (liste, i) { brouillon = Profil.retirerElastique(brouillon, liste, i); erreur = null; redessiner(); },
+        surDeplacerElastique: function (liste, de, vers) {
+          brouillon = Profil.deplacerElastique(brouillon, liste, de, vers);
+          erreur = null;
+          redessiner();
+        },
+        surParNom: function (parNom) { brouillon = Profil.poserParNom(brouillon, parNom); erreur = null; redessiner(); },
         surValider: function () {
           // 116 (03 #8) — un « jusqu'à » vidé ou illisible n'efface pas les haltères déclarés : la feuille reste
           // ouverte, le plus lourd déclaré revient dans le champ, une phrase dit pourquoi (123 : ligne par ligne).

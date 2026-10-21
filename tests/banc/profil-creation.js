@@ -1325,6 +1325,93 @@ function ok(nom, cond, detail) {
       await ctx.close();
     }
 
+    // ══ 132. « MA SALLE » : LES DEUX LISTES D'ÉLASTIQUES, L'ORDRE EN GLISSANT, « PAR SON NOM » ══════════════════════
+    // ECRAN-PROFIL §2.4 sexies (maquette `maquette-elastiques-v2.html`, écran 1). Les grands élastiques Noir (35 kg),
+    // Rouge (25 kg) et Vert, tapés dans le désordre et rangés EN GLISSANT ; les mini-bandes Bleue et Jaune ; « par son
+    // nom ». L'ordre est la donnée : il part en base tel quel. Un nom déjà dans la liste est refusé, avec sa phrase.
+    console.log('\n══ 132. « Ma salle » : deux listes d’élastiques, l’ordre en glissant, « par son nom » ══');
+    {
+      const bd = baseSansPseudo();
+      const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
+      await page.setViewportSize({ width: 360, height: 760 });
+      await cliquerLigne(page, 'Ma salle');
+      await attendre(400);
+      const ajouter = async (liste, nom, kg) => {
+        await page.click('#feuille-contenu .el-carte[data-liste="' + liste + '"] .el-ajout');
+        await attendre(120);
+        await page.fill('#feuille-contenu .el-carte[data-liste="' + liste + '"] .el-champ-nom', nom);
+        if (kg !== undefined) await page.fill('#feuille-contenu .el-carte[data-liste="' + liste + '"] .el-champ-kg', kg);
+        await page.evaluate((l) => Array.from(document.querySelectorAll('#feuille-contenu .el-carte[data-liste="' + l + '"] .el-saisie button'))
+          .filter((b) => b.textContent === 'Ajouter')[0].click(), liste);
+        await attendre(150);
+      };
+      const noms = (liste) => page.evaluate((l) => Array.from(document.querySelectorAll('#feuille-contenu .el-carte[data-liste="' + l + '"] .el-rang'))
+        .map((r) => r.querySelector('.el-nom').textContent + '|' + r.querySelector('.el-kg').textContent), liste);
+      ok('[132] la feuille montre « Grands élastiques », « Mini-bandes » et le choix « en kg / par son nom »',
+        (await page.evaluate(() => document.querySelectorAll('#feuille-contenu .el-carte').length)) === 3);
+      await ajouter('elastiques', 'Vert', '');
+      await ajouter('elastiques', 'Rouge', '25');
+      await ajouter('elastiques', 'Noir', '35');
+      ok('[132] trois grands élastiques, dans l’ordre tapé, le kg facultatif (« — »)',
+        JSON.stringify(await noms('elastiques')) === JSON.stringify(['Vert|\u2014', 'Rouge|25\u00a0kg', 'Noir|35\u00a0kg']),
+        JSON.stringify(await noms('elastiques')));
+      await ajouter('elastiques', 'noir', '');
+      const err = await page.evaluate(() => (document.querySelector('#feuille-contenu .feuille-err') || {}).textContent || '');
+      ok('[132] un nom déjà dans la liste est refusé, et la phrase le dit', /déjà dans la liste/.test(err) &&
+        (await noms('elastiques')).length === 3, err);
+      // Glisser : Noir (3e) tout en haut (vers le haut), puis Vert (2e) tout en bas (vers le bas).
+      const glisser = async (de, vers) => {
+        const rangs = await page.$$('#feuille-contenu .el-carte[data-liste="elastiques"] .el-rang');
+        const p = await (await rangs[de].$('.el-poignee')).boundingBox();
+        const cible = await rangs[vers].boundingBox();
+        await page.mouse.move(p.x + p.width / 2, p.y + p.height / 2);
+        await page.mouse.down();
+        const y = vers < de ? cible.y + 4 : cible.y + cible.height - 4;
+        for (let k = 1; k <= 6; k++) await page.mouse.move(p.x + p.width / 2, p.y + (y - p.y) * k / 6);
+        await page.mouse.up();
+        await attendre(200);
+      };
+      await glisser(2, 0);
+      await glisser(1, 2);
+      ok('DISCRIMINANT [132] — glisser range la liste : Noir, Rouge, Vert',
+        JSON.stringify((await noms('elastiques')).map((x) => x.split('|')[0])) === JSON.stringify(['Noir', 'Rouge', 'Vert']),
+        JSON.stringify(await noms('elastiques')));
+      await ajouter('mini_bandes', 'Bleue');
+      await ajouter('mini_bandes', 'Jaune');
+      ok('[132] les mini-bandes : un nom seul (pas de champ kg)',
+        JSON.stringify(await noms('mini_bandes')) === JSON.stringify(['Bleue|', 'Jaune|']) &&
+        !(await page.$('#feuille-contenu .el-carte[data-liste="mini_bandes"] .el-champ-kg')), JSON.stringify(await noms('mini_bandes')));
+      await page.click('#feuille-contenu .el-choix button[data-par-nom="true"]');
+      await attendre(150);
+      const large = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+      ok('[132] à 360 px, rien ne déborde', large);
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
+      const ATTENDU = { barres_ez: [], barres_droites: [], halteres: null,
+        elastiques: [{ nom: 'Noir', kg: 35 }, { nom: 'Rouge', kg: 25 }, { nom: 'Vert' }],
+        mini_bandes: [{ nom: 'Bleue' }, { nom: 'Jaune' }], elastiques_par_nom: true };
+      const ecrit = await attendreQue(page, () => !!bd.profils[B].ma_salle, 10000);
+      ok('DISCRIMINANT [132] — les deux listes, dans leur ordre, et « par son nom » partent en base', ecrit &&
+        JSON.stringify(bd.profils[B].ma_salle) === JSON.stringify(ATTENDU), JSON.stringify(bd.profils[B].ma_salle));
+      await attendre(300);
+      await cliquerLigne(page, 'Ma salle');
+      await attendre(400);
+      ok('[132] la feuille rouverte : l’ordre et le choix relus',
+        JSON.stringify((await noms('elastiques')).map((x) => x.split('|')[0])) === JSON.stringify(['Noir', 'Rouge', 'Vert']) &&
+        (await page.evaluate(() => (document.querySelector('#feuille-contenu .el-choix button[data-par-nom="true"]') || {}).getAttribute('aria-pressed'))) === 'true');
+      // Retirer Vert, revenir « en kg » : la base suit.
+      await page.click('#feuille-contenu .el-carte[data-liste="elastiques"] .el-rang[data-i="2"] .el-retirer');
+      await attendre(150);
+      await page.click('#feuille-contenu .el-choix button[data-par-nom="false"]');
+      await attendre(150);
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
+      const suivi = await attendreQue(page, () => !!bd.profils[B].ma_salle && !bd.profils[B].ma_salle.elastiques_par_nom &&
+        (bd.profils[B].ma_salle.elastiques || []).length === 2, 10000);
+      ok('[132] retirer un élastique et revenir « en kg » : la base suit', suivi, JSON.stringify(bd.profils[B].ma_salle));
+      ok('[132] aucune écriture refusée par la contrainte imitée', bd.requetes.every((q) => q.statut !== 400), JSON.stringify(bd.requetes));
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
     // ══ 104 et 108. LES COLONNES `bilans_annonces` ET `ma_salle` N'EXISTENT PAS ENCORE (v2_086, v2_088 pas lancées) ══════════════════════════════
     // Le défaut de #418 : une colonne nommée avant sa migration, et le profil ne se lisait plus. Ici, la lecture et
     // l'écriture la nomment, la base la refuse : le profil se lit quand même, et un geste du Profil s'écrit.

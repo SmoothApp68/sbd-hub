@@ -97,6 +97,25 @@
     return String(n).replace('.', ',').replace(/^-/, '\u2212');
   }
 
+  // 132 (maquette `maquette-elastiques-v2.html`) — LA PASTILLE D'UN ÉLASTIQUE : la couleur que son nom dit (« Noir »,
+  // « Rouge », « Bleue »…), lue sur le premier mot, sans accent ni « e » final ; `null` pour un nom qui n'est pas une
+  // couleur (la pastille reste neutre). Un repère pour l'œil, jamais une donnée : le coach ne lit que l'ordre.
+  var COULEURS_ELASTIQUES = {
+    noir: '#2b2b2b', rouge: '#b8433b', vert: '#3f8f5a', bleu: '#2f5f9e', jaune: '#d9b13b', orange: '#d9813b',
+    violet: '#7d5bb5', mauve: '#9b7cc4', gris: '#8a8f96', rose: '#d27a9b', marron: '#7a5537', brun: '#7a5537',
+    blanc: '#e6e6e6', argent: '#b9bec4', or: '#c9a23b', turquoise: '#3fa3a0', beige: '#cbb89a'
+  };
+  function pastilleElastique(nom) {
+    var m = String(nom || '').trim().split(/\s+/)[0].toLowerCase()
+      .replace(/[éèêë]/g, 'e').replace(/[àâ]/g, 'a').replace(/[îï]/g, 'i').replace(/[ôö]/g, 'o').replace(/[ûü]/g, 'u');
+    if (Object.prototype.hasOwnProperty.call(COULEURS_ELASTIQUES, m)) return COULEURS_ELASTIQUES[m];
+    var essais = [m.replace(/s$/, ''), m.replace(/s$/, '').replace(/e$/, ''), m.replace(/s$/, '').replace(/tte$/, 't')];
+    for (var i = 0; i < essais.length; i++) {
+      if (Object.prototype.hasOwnProperty.call(COULEURS_ELASTIQUES, essais[i])) return COULEURS_ELASTIQUES[essais[i]];
+    }
+    return null;
+  }
+
   // \u26a0\ufe0f LA LECTURE D'UN NOMBRE TAP\u00c9 \u2014 L'INVERSE DU FORMATEUR (correctif du
   // 03/10/2026). Le champ de charge r\u00e9affiche une assistance avec le vrai
   // signe moins (`nombreSigne`, U+2212), que la relecture d'alors (`Number`
@@ -2331,6 +2350,7 @@
     nombreFixe: nombreFixe,
     nombreTexte: nombreTexte,
     nombreSigne: nombreSigne,
+    pastilleElastique: pastilleElastique,
     lireNombre: lireNombre,
     // §9.17 — l'aide : tapée en positif, rangée en négatif, lue sans signe.
     rangerAide: rangerAide,

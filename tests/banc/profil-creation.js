@@ -131,8 +131,16 @@ function neuveBase() {
 function salleConforme(v, avantV2095) {
   if (v === null) return true;
   if (typeof v !== 'object' || Array.isArray(v)) return false;
-  if (Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres'].indexOf(k) < 0)) return false;
+  // 132 (`v2_099`, `v2_102`) — les élastiques : `elastiques` [{nom, kg?}], `mini_bandes` [{nom}], `elastiques_par_nom`.
+  if (Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres', 'elastiques', 'elastiques_par_nom',
+    'mini_bandes'].indexOf(k) < 0)) return false;
   const demi = (x) => typeof x === 'number' && Math.floor(x * 2) === x * 2;
+  const liste = (x, cles) => x === undefined || (Array.isArray(x) && x.length <= 10 && x.every((e) => e &&
+    typeof e === 'object' && !Array.isArray(e) && Object.keys(e).every((k) => cles.indexOf(k) >= 0) &&
+    typeof e.nom === 'string' && /^[^ ](.{0,28}[^ ])?$/.test(e.nom) &&
+    (e.kg === undefined || e.kg === null || (demi(e.kg) && e.kg >= 0.5 && e.kg <= 100))));
+  if (!liste(v.elastiques, ['nom', 'kg']) || !liste(v.mini_bandes, ['nom'])) return false;
+  if (v.elastiques_par_nom !== undefined && typeof v.elastiques_par_nom !== 'boolean') return false;
   const barres = (l) => l === undefined || (Array.isArray(l) && l.length <= 20 &&
     l.every((x) => typeof x === 'number' && x >= 1 && x <= 100 && Math.floor(x * 2) === x * 2));
   if (!barres(v.barres_ez) || !barres(v.barres_droites)) return false;

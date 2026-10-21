@@ -1484,8 +1484,18 @@ const SETS_IMPORTES = [
             t.jusqua > (i ? h[i - 1].jusqua : 0) && t.pas <= t.jusqua - (i ? h[i - 1].jusqua : 0));
           const okH = h === undefined || h === null || okT || (typeof h === 'object' && !Array.isArray(h) && typeof h.max === 'number' &&
             typeof h.pas === 'number' && h.max >= 1 && h.max <= 100 && h.pas >= 0.5 && h.pas <= 10 && h.pas <= h.max);
-          if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH ||
-              Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres'].indexOf(k) < 0)) {
+          // 132 (`v2_099`, `v2_102`) — les élastiques : `elastiques` [{nom, kg?}], `mini_bandes` [{nom}] (10 au plus,
+          // un nom de 1 à 30 caractères sans espace au bord, un kg de 0,5 à 100 au demi-kilo), `elastiques_par_nom`
+          // booléen (`profiles_ma_salle_elastiques_ok`, `profiles_ma_salle_mini_bandes_ok`).
+          const liste = (x, cles) => x === undefined || (Array.isArray(x) && x.length <= 10 && x.every((e) => e &&
+            typeof e === 'object' && !Array.isArray(e) && Object.keys(e).every((k) => cles.indexOf(k) >= 0) &&
+            typeof e.nom === 'string' && /^[^ ](.{0,28}[^ ])?$/.test(e.nom) &&
+            (e.kg === undefined || e.kg === null || (typeof e.kg === 'number' && e.kg >= 0.5 && e.kg <= 100 && Math.floor(e.kg * 2) === e.kg * 2))));
+          const okE = liste(v.elastiques, ['nom', 'kg']) && liste(v.mini_bandes, ['nom']) &&
+            (v.elastiques_par_nom === undefined || typeof v.elastiques_par_nom === 'boolean');
+          if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH || !okE ||
+              Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres', 'elastiques', 'elastiques_par_nom',
+                'mini_bandes'].indexOf(k) < 0)) {
             return json(refus('23514', 'profiles_ma_salle_ok'), 400);
           }
         }

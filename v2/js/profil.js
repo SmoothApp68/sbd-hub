@@ -1320,15 +1320,65 @@
     });
     return sortie;
   }
+  // 132 (B3, ECRAN-PROFIL §2.4 sexies, MOTEUR §10 ter) — MES ÉLASTIQUES : deux listes, chacune rangée de la plus
+  // forte à la plus légère (l'ORDRE est la donnée : le coach ne lit que lui). `elastiques` (v2_099) : `[{ nom, kg? }]`,
+  // le kg facultatif (il ne sert qu'à rattacher un ancien historique noté en kg) ; `mini_bandes` (v2_102) : `[{ nom }]`.
+  // `elastiques_par_nom` (v2_099) : un booléen, « J'ai noté une aide à l'élastique : en kg / par son nom ».
+  // Les bornes DOUBLENT `profiles_ma_salle_elastiques_ok` et `profiles_ma_salle_mini_bandes_ok` : 10 au plus par
+  // liste, un nom de 1 à 30 caractères sans espace au bord, un kg de 0,5 à 100 au demi-kilo. Et une de plus que la
+  // base, décidée au prompt 132 : deux élastiques d'une même liste n'ont jamais le même nom (sans compter la casse —
+  // « Noir » et « noir » se confondraient dans la feuille de choix).
+  var ELASTIQUES_MAX = 10, ELASTIQUE_NOM_MAX = 30, ELASTIQUE_KG_MIN = 0.5, ELASTIQUE_KG_MAX = 100;
+  var NOM_ELASTIQUE = /^[^ ](.{0,28}[^ ])?$/;
+  function nomElastiqueValide(n) {
+    return typeof n === 'string' && n.length <= ELASTIQUE_NOM_MAX && NOM_ELASTIQUE.test(n) ? n : null;
+  }
+  function cleDeNom(n) { return String(n).toLowerCase(); }
+  // Une liste valide, dans son ordre (jamais triée : l'ordre est la déclaration), ou `null` (refusée).
+  function elastiquesValides(l, avecKg) {
+    if (l === null || l === undefined) return [];
+    if (!Array.isArray(l) || l.length > ELASTIQUES_MAX) return null;
+    var vus = {}, sortie = [];
+    for (var i = 0; i < l.length; i++) {
+      var x = l[i];
+      if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+      var cles = Object.keys(x);
+      for (var k = 0; k < cles.length; k++) {
+        if (cles[k] !== 'nom' && !(avecKg && cles[k] === 'kg')) return null;
+      }
+      var nom = nomElastiqueValide(x.nom);
+      if (nom === null || vus[cleDeNom(nom)]) return null;
+      vus[cleDeNom(nom)] = true;
+      var e = { nom: nom };
+      if (avecKg && x.kg !== undefined && x.kg !== null) {
+        var kg = auDemi(x.kg);
+        if (kg === null || kg < ELASTIQUE_KG_MIN || kg > ELASTIQUE_KG_MAX) return null;
+        e.kg = kg;
+      }
+      sortie.push(e);
+    }
+    return sortie;
+  }
+
   // LA DÉCLARATION, normalisée : l'objet tel qu'il s'écrit, `null` quand rien n'est déclaré (non renseigné), ou
   // `undefined` quand une valeur est hors bornes (refusée : rien ne s'écrit).
+  // 132 — les élastiques n'y figurent que déclarés : une salle sans élastique s'écrit exactement comme avant
+  // (`{ barres_ez, barres_droites, halteres }`), lisible par une app d'avant 132.
   function salleValide(v) {
     if (v === null || v === undefined) return null;
     if (typeof v !== 'object' || Array.isArray(v)) return undefined;
     var ez = barresValides(v.barres_ez), droites = barresValides(v.barres_droites), h = halteresValides(v.halteres);
     if (ez === null || droites === null || h === undefined) return undefined;
-    if (!ez.length && !droites.length && h === null) return null;
-    return { barres_ez: ez, barres_droites: droites, halteres: h };
+    var el = elastiquesValides(v.elastiques, true), mini = elastiquesValides(v.mini_bandes, false);
+    var parNom = v.elastiques_par_nom;
+    if (el === null || mini === null) return undefined;
+    if (parNom !== undefined && parNom !== null && typeof parNom !== 'boolean') return undefined;
+    if (!ez.length && !droites.length && h === null && !el.length && !mini.length && parNom !== true) return null;
+    var s = { barres_ez: ez, barres_droites: droites, halteres: h };
+    if (el.length) s.elastiques = el;
+    if (mini.length) s.mini_bandes = mini;
+    if (parNom === true) s.elastiques_par_nom = true;
+    return s;
   }
   // La salle d'un profil, lisible, ou `null` (absente, illisible, ou une colonne pas encore là : rien ne change).
   function salleDe(profil) {
@@ -1340,11 +1390,15 @@
   // une par tranche : `{ jusqua (null : vide ou illisible), pas, pasChoisi }`.
   function brouillonSalle(profil) {
     var s = salleDe(profil);
+    // 132 — les élastiques suivent le brouillon : « Valider » les barres ne les efface pas.
     return s ? { barres_ez: s.barres_ez.slice(), barres_droites: s.barres_droites.slice(),
                  halteres: s.halteres ? tranchesDe(s.halteres).map(function (t) {
                    return { jusqua: t.jusqua, pas: t.pas, pasChoisi: true };
-                 }) : null }
-             : { barres_ez: [], barres_droites: [], halteres: null };
+                 }) : null,
+                 elastiques: (s.elastiques || []).map(function (e) { return Object.assign({}, e); }),
+                 mini_bandes: (s.mini_bandes || []).map(function (e) { return Object.assign({}, e); }),
+                 elastiques_par_nom: s.elastiques_par_nom === true }
+             : { barres_ez: [], barres_droites: [], halteres: null, elastiques: [], mini_bandes: [], elastiques_par_nom: false };
   }
   function basculerBarre(brouillon, type, kg) {
     var b = Object.assign({}, brouillon);
@@ -1476,7 +1530,10 @@
     if (s.barres_ez.length) t.push('EZ');
     if (s.barres_droites.length) t.push(t.length ? 'droite' : 'Barre droite');
     if (s.halteres) t.push(t.length ? 'haltères' : 'Haltères');
-    return t.join(', ');
+    // 132 — les élastiques.
+    if (s.elastiques) t.push(t.length ? 'élastiques' : 'Élastiques');
+    if (s.mini_bandes) t.push(t.length ? 'mini-bandes' : 'Mini-bandes');
+    return t.length ? t.join(', ') : null;
   }
   function ligneSalle(profil, ouvrir) {
     return { libelle: 'Ma salle', sous: PHRASE_SALLE, valeur: resumeSalle(profil), surChoix: ouvrir };

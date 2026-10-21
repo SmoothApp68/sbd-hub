@@ -1267,8 +1267,10 @@ partagé). Six au 21/10/2026 :
 Plusieurs exercices sur le rang au-dessus : le premier par l'ordre du slug, parmi ceux de nature force.
 
 **La carte « marche suivante »** (hors lest, qui garde sa carte) :
-- **Quand** : les deux dernières séances non neutres de l'exercice ont un niveau au moins égal **au haut de la zone**,
-  et, sur une aide, **à la même aide** ; la marche est proposable ; le coach est actif (ni « Juste un carnet », ni
+- **Quand** : les deux dernières séances non neutres de l'exercice ont un niveau au moins égal **au haut de la zone et
+  à 8 reps** (comme le lest, §9.17 : au poids du corps, la marche au-dessus n'arrive qu'à partir de 8 reps — maquette du
+  17/10, écran 5 ; vérifié le 21/10 auprès des coachs : 3 × 8 à l'élastique léger avant les strictes), et, sur une aide,
+  **à la même aide** ; la marche est proposable ; le coach est actif (ni « Juste un carnet », ni
   l'exercice en Entretenir — I13, I31) ; **la marche proposée n'a pas été faite dans les 28 derniers jours** (Léa
   faisait déjà ses strictes : la carte n'avait rien à proposer).
 - **Une réponse, au profil** (`profiles.marche_reponses`, v2_099 : par exercice de départ, `{r, le, aide}`) :
@@ -1287,8 +1289,8 @@ Plusieurs exercices sur le rang au-dessus : le premier par l'ordre du slug, parm
   septies.4, l'écran de fin de séance) ; le coach n'écrit jamais dans une routine.
 
 **Invariants.** **I49** une carte « marche suivante » au plus une par exercice et par séance, jamais sur une habileté
-proposée, jamais en Entretenir (profil ou exercice), jamais sans deux séances au haut de la zone (à la même aide sur une
-aide), jamais avec une réponse `oui`, ni avec une réponse `non` hors aide ou à une aide qui n'est pas plus légère ;
+proposée, jamais en Entretenir (profil ou exercice), jamais sans deux séances au haut de la zone et à 8 reps au moins (à
+la même aide sur une aide), jamais avec une réponse `oui`, ni avec une réponse `non` hors aide ou à une aide qui n'est pas plus légère ;
 **I50** la carte du lest jamais sous 8 reps sur les deux séances.
 
 ### 9.18 « J'ai peu de temps » — décidé le 04/10/2026 (chantier 51)

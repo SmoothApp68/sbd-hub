@@ -45,8 +45,10 @@ def marche_suivante(index, slug):
     return {'type': t, 'cible': [x['slug'] for x in force], 'proposable': t != 'lest'}
 
 def seuil_carte(type_, haut):
-    """Le niveau à tenir deux séances de suite : le haut de la zone ; pour le lest, au moins 8 reps."""
-    return max(haut, SEUIL_LEST) if type_ == 'lest' else haut
+    """Le niveau à tenir deux séances de suite : le haut de la zone, et au moins 8 reps — au poids du corps, la marche
+    au-dessus (lest ou autre) n'arrive qu'à partir de 8 reps (maquette du 17/10, écran 5 ; coachs : 3 × 8 à l'élastique
+    léger avant les strictes, 8 à 10 strictes avant le lest)."""
+    return max(haut, SEUIL_LEST)
 
 def carte_marche(index, slug, zone_haut, seances, reponse, cible_faite_le, aujourd_hui, coach_actif=True):
     """La carte « marche suivante » (hors lest : la carte du lest garde son chemin, avec le seuil de 8).
@@ -120,5 +122,5 @@ def phrase_suivante(index, depart, m, haut, faites):
         n = seuil_carte('lest', haut or 0)
         meilleur = faites.get(depart['slug'], {}).get('meilleur')
         return f"La suivante : {c['nom']}. Je te la propose quand tu tiens {n} reps sur toutes tes séries, deux séances de suite." + (f" Ton meilleur : {meilleur}." if meilleur else "")
-    quand = f"le haut de ta zone ({haut} reps)" if haut else "le haut de ta zone"
+    quand = f"{seuil_carte(m['type'], haut)} reps" if haut else "le haut de ta zone, et au moins 8 reps,"
     return f"La suivante : {c['nom']}. Je te la propose quand tu tiens {quand} sur toutes tes séries, deux séances de suite. Elle s'ajoute : tu gardes {depart['nom']}."

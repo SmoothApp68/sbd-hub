@@ -1769,9 +1769,9 @@ les faits et la marche suivante.
   plusieurs), mention « la suivante ». **Sa phrase** reprend la condition de la carte, sans calcul nouveau :
   - le lest : « La suivante : Tractions Lestées. Je te la propose quand tu tiens 8 reps sur toutes tes séries, deux
     séances de suite. Ton meilleur : 7 reps. » (le seuil : le haut de la zone et 8 reps) ;
-  - une marche qui s'ajoute : « La suivante : Pompes Négatives. Je te la propose quand tu tiens le haut de ta zone
-    (15 reps) sur toutes tes séries, deux séances de suite. Elle s'ajoute : tu gardes Pompes à Genoux. » (zone
-    inconnue : « le haut de ta zone », sans chiffre) ;
+  - une marche qui s'ajoute : « La suivante : Pompes Négatives. Je te la propose quand tu tiens 15 reps sur toutes
+    tes séries, deux séances de suite. Elle s'ajoute : tu gardes Pompes à Genoux. » (le seuil : le haut de la zone et
+    8 reps ; zone inconnue : « le haut de ta zone, et au moins 8 reps, ») ;
   - une habileté : « La suivante : Tractions Archer. Une habileté : je ne te la propose pas, c'est toi qui choisis
     quand l'essayer. Tu peux l'ajouter à une séance comme n'importe quel exercice. »
 - **En « Juste un carnet »** (ou l'exercice en Entretenir) : les marches et les meilleurs, **sans phrase**.

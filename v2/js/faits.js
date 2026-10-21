@@ -418,13 +418,16 @@
       travail.forEach(function (x) {
         var aCharge = x.charge_kg !== null && x.charge_kg !== undefined && Number(x.charge_kg) !== 0;
         var aReps = x.reps !== null && x.reps !== undefined;
-        var cle = aCharge && aReps ? 'c' + Number(x.charge_kg) : aReps ? 'r' : null;
+        // 132 (ECRAN-SAISIE §3 ter.6) — une série notée par nom se groupe par son élastique : « Noir × 12, 12 · Rouge × 10 ».
+        var nom = x.elastique !== null && x.elastique !== undefined ? x.elastique : null;
+        var cle = nom !== null && aReps ? 'e' + nom : aCharge && aReps ? 'c' + Number(x.charge_kg) : aReps ? 'r' : null;
         var dernier = paquets[paquets.length - 1];
         if (cle && dernier && dernier.cle === cle) { dernier.reps.push(x.reps); return; }
         paquets.push({ cle: cle, serie: x, reps: aReps ? [x.reps] : [] });
       });
       return paquets.map(function (p) {
         if (p.cle === 'r') return p.reps.join(', ');
+        if (p.cle && p.cle.charAt(0) === 'e') return Modele.affichageElastique({ elastique: p.serie.elastique, reps: p.reps.join(', ') });
         if (p.cle) return Modele.formatMesure({ charge_kg: p.serie.charge_kg }) + ' \u00d7 ' + p.reps.join(', ');
         return Modele.formatMesure(p.serie);
       }).join(' \u00b7 ');

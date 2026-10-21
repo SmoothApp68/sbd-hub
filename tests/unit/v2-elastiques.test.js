@@ -591,3 +591,37 @@ describe('132 — la colonne « ÉLASTIQUE » et l’écriture de `sets.elastiqu
     expect(c2.libelles.gris).toBe('Ton élastique Gris n\'est plus dans Ma salle : je note sans proposer.');
   });
 });
+
+// ═══ 8. L'AFFICHAGE : LE FORMATEUR UNIQUE ÉCRIT « Noir × 12 » PARTOUT ═══════
+describe('132 — le formateur unique : « Noir × 12 »', () => {
+  const Fa = require('../../v2/js/faits.js');
+  const Soc = require('../../v2/js/social.js');
+  const serie = (slug, nom, kg, reps) => ({ exercise_slug: slug, type_serie: 'travail', elastique: nom, charge_kg: kg, reps });
+  test('`formatMesure` (le journal, le détail, une séance d’ami, le direct du groupe) : le nom, jamais la charge', () => {
+    expect(Mo.formatMesure(serie('t', 'Noir', -35, 12))).toBe('Noir × 12');
+    expect(Mo.formatMesure(serie('f', 'Vert', null, 20))).toBe('Vert × 20');
+    expect(Mo.formatMesure(serie('t', null, -35, 12))).toMatch(/^Aide 35\s?kg\s?×\s?12$/);
+  });
+  test('ce qui a été fait (le détail d’une séance d’ami, le récap) : groupé par élastique', () => {
+    const fait = Fa.creer().faitDeLExercice;
+    expect(fait([serie('f', 'Vert', null, 20), serie('f', 'Vert', null, 20), serie('f', 'Rouge', null, 15)]))
+      .toBe('Vert × 20, 20 · Rouge × 15');
+  });
+  test('le direct du groupe : la mesure par le formateur', () => {
+    const l = Soc.lignesDuDirect([{ pseudo: 'lea', exercise_slug: 'f', validee_a: AVANT, elastique: 'Noir', charge_kg: -35, reps: 12 }],
+      AVANT, (s) => 'Tractions', Mo.formatMesure);
+    expect(l[0].texte).toBe('lea · Tractions Noir × 12');
+  });
+  test('la meilleure série d’une séance notée par nom : par l’ordre de Ma salle (`nomme`), sinon la série telle quelle', () => {
+    const series = [serie('tractions_elastique', 'Noir', -35, 12), serie('tractions_elastique', 'Rouge', -25, 8)];
+    const nomme = (slug, l) => Profil.meilleurElastique(FICHES[slug], GRANDS, l);
+    expect(Mo.meilleureSerieDe('tractions_elastique', series, Object.values(FICHES), Pa, {}, nomme))
+      .toEqual({ charge: null, reps: null, valeur: 'Rouge × 8' });
+    expect(Mo.meilleureSerieDe('tractions_elastique', series, Object.values(FICHES), Pa, {}).valeur).toBe('Rouge × 8');
+    const ap = Mo.apercuExercices(series, Object.values(FICHES), Pa, {}, nomme);
+    expect(ap.tete[0].valeur).toBe('Rouge × 8');
+    expect(Mo.meilleureSerieDeTout('tractions_elastique', [{ cle: AVANT, series }], Object.values(FICHES), Pa, {}, nomme).valeur)
+      .toBe('Rouge × 8');
+    expect(Mo.texteMeilleure({ charge: null, reps: null, valeur: 'Rouge × 8' })).toBe('Rouge × 8');
+  });
+});

@@ -580,6 +580,9 @@
   // « 52 kg × 12 » · « 22,7 km · 6 h 35 » · « 12 reps » · « 1 rep » — la valeur d'une série dans le journal.
   function formatMesure(serie) {
     if (!serie) return '';
+    // 132 (ECRAN-SAISIE §3 ter.6) — LE FORMATEUR UNIQUE écrit « Noir × 12 » pour une série notée par nom : le journal,
+    // le détail, une séance d'ami, le direct du groupe — jamais sa charge (le kg d'une aide, ni rien de virtuel).
+    if (notee(serie)) return affichageElastique(serie);
     var m = mesureDesColonnes(serie);
     return m ? AFFICHAGE_DES_MESURES[m].valeur(serie) : '—';
   }
@@ -1640,10 +1643,22 @@
   // Elle rend les mêmes clés qu'avant : `charge`/`reps` sur `charge_reps`,
   // `valeur` (+ `complement`) sur les trois autres mesures. Une absence reste
   // une absence — aucune clé plutôt qu'un zéro.
-  function meilleureSerieDe(slug, series, exercices, palier, etats) {
+  // 132 (MOTEUR §10 ter, ECRAN-SAISIE §3 ter.6) — `nomme` (facultatif) : `nomme(slug, series)` rend le meilleur d'un
+  // exercice noté par nom (« Rouge × 10 », `THProfil.meilleurElastique` : l'ordre de Ma salle, que ce module ne lit
+  // pas), ou `null`. Des séries notées par nom : la meilleure série se dit par lui (`valeur`), jamais par une charge —
+  // la carte de séance, « Dernière séance », la page d'exercice et le sommaire lisent la même.
+  function meilleureNommee(slug, series, nomme) {
+    var siennes = (series || []).filter(function (x) { return x && x.exercise_slug === slug && estTravail(x) && notee(x); });
+    if (!siennes.length) return null;
+    var t = typeof nomme === 'function' ? nomme(slug, siennes) : null;
+    return { charge: null, reps: null, valeur: t || affichageElastique(siennes[siennes.length - 1]) };
+  }
+  function meilleureSerieDe(slug, series, exercices, palier, etats, nomme) {
     var index = indexerExercices(exercices || []);
     var g = gabaritDe(index[slug]);
     var e = {};
+    var n = meilleureNommee(slug, series, nomme);
+    if (n) return n;
 
     // ⚠️ L'ORDRE ET LES CLÉS SONT CEUX D'AVANT L'EXTRACTION. `charge` et `reps`
     // sont posées — à `null` s'il n'y a rien — pour TOUTES les mesures dès qu'un
@@ -1732,9 +1747,14 @@
   // meilleure série SEULEMENT quand on a comparé séance par séance, c'est-à-dire
   // sur `charge_reps`. Ailleurs, un maximum n'a pas de séance gagnante à
   // désigner sans la rechercher, et on ne prétend pas la connaître.
-  function meilleureSerieDeTout(slug, parSeance, exercices, palier, etats) {
+  function meilleureSerieDeTout(slug, parSeance, exercices, palier, etats, nomme) {
     var groupes = parSeance || [];
     var g = gabaritDe(indexerExercices(exercices || [])[slug]);
+    // 132 — des séries notées par nom, toutes séances confondues : le meilleur se lit sur l'ordre de la liste.
+    var tout = [];
+    groupes.forEach(function (gr) { tout = tout.concat((gr && gr.series) || []); });
+    var n = meilleureNommee(slug, tout, nomme);
+    if (n) return n;
     if (g.mesure !== 'charge_reps') {
       var toutes = [];
       groupes.forEach(function (gr) { toutes = toutes.concat((gr && gr.series) || []); });
@@ -2241,7 +2261,7 @@
       : { charge: null, reps: null, date: null };
   }
 
-  function apercuExercices(series, exercices, palier, etats) {
+  function apercuExercices(series, exercices, palier, etats, nomme) {
     var index = indexerExercices(exercices || []);
     var vus = {}, ordre = [];
     trierParRang(series || []).forEach(function (s) {
@@ -2253,7 +2273,7 @@
     var tete = ordre.slice(0, APERCU_MAX);
     // Un seul calcul, partagé avec la page d'exercice : voir `meilleureSerieDe`.
     tete.forEach(function (e) {
-      var m = meilleureSerieDe(e.slug, series, exercices, palier, etats);
+      var m = meilleureSerieDe(e.slug, series, exercices, palier, etats, nomme);
       Object.keys(m).forEach(function (k) { e[k] = m[k]; });
     });
 
@@ -2265,7 +2285,7 @@
     };
   }
 
-  function resumerSeance(seance, series, exercices, palier, etats) {
+  function resumerSeance(seance, series, exercices, palier, etats, nomme) {
     var index = indexerExercices(exercices);
     var listeSeries = series || [];
     // ⚠️ LA CARTE LIT LE MÊME COMPTE QUE LA BARRE (chantier 40).
@@ -2321,7 +2341,7 @@
       estSortie: sortie,
       // Une sortie n'a pas d'aperçu d'exercices : elle se dit en durée et en
       // distance. On ne construit donc rien qu'on n'affichera pas.
-      apercu: sortie ? null : apercuExercices(listeSeries, exercices, palier, etats),
+      apercu: sortie ? null : apercuExercices(listeSeries, exercices, palier, etats, nomme),
       dureeTotale: dureeTotale || null,
       distanceTotale: distanceTotale || null
     };

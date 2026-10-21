@@ -23763,6 +23763,19 @@ const SETS_IMPORTES = [
         sp132(r132[2].cases[0]) === 'Jaune' && sp132(r132[0].cases[2]) === 'Rouge°', JSON.stringify(r132));
     await terminer();
     await jusqua(async () => sessions().filter((x) => x.id === id132 && x.statut === 'terminee').length === 1, 6000);
+    // D'. LE FORMATEUR UNIQUE (132, point 6) : le détail de la séance et la page d'exercice disent « Vert × 20 »,
+    // « Noir × 12 », « Jaune × 15 » — jamais une charge.
+    await aller('/seance/' + id132);
+    await jusqua(async () => /Face Pull U132/.test(await texte('#vue-detail')), 6000);
+    const detail132 = sp132(await texte('#vue-detail'));
+    ok('[132] D — le détail de la séance : « Vert × 20 », « Noir × 12 », « Jaune × 15 », sans « Aide » ni kg',
+      /Vert × 20/.test(detail132) && /Noir × 12/.test(detail132) && /Jaune × 15/.test(detail132) &&
+        !/Aide 35|35 kg/.test(detail132), detail132.slice(0, 500));
+    await aller('/exercice/' + TR);
+    await jusqua(async () => /Tractions U132/.test(await texte('#page-exercice')), 6000);
+    const page132 = sp132(await texte('#page-exercice'));
+    ok('[132] D — la page des tractions : « Ton meilleur : Noir × 12 », aucun record en kg (ni la table par reps)',
+      /Ton meilleur\s*Noir × 12/.test(page132) && !/Aide 35/.test(page132) && !/Record de charge/.test(page132), page132.slice(0, 500));
 
     // E. L'ÉLASTIQUE RETIRÉ : le Vert quitte Ma salle. Le face pull n'a plus que des séances au Vert : elles sont neutres ;
     // la consigne le dit, sans rien proposer ; « préc. » garde le nom ; la case dit « choisir ».

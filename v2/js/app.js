@@ -1292,7 +1292,7 @@
       rendreVolume();
     });
     Rendu.rendreJours($('liste-seances'), Semaine.joursAvecSeances(sem.jours), function (s) {
-      return Modele.resumerSeance(s, seriesDe(s.id), local.exercices, Palier, etatsExercices);
+      return Modele.resumerSeance(s, seriesDe(s.id), local.exercices, Palier, etatsExercices, meilleurNomme);
     }, afficherDetail, ouvrirMenuSeance);
     // 91 — mes invitations à un groupe, et le groupe qui finit.
     dessinerGroupeAccueil();
@@ -3329,14 +3329,15 @@
         // et que « Dernière séance » sur la page d'exercice
         // (`Modele.meilleureSerieDe`) : elle appelait le moteur de palier à
         // part. Seule la charge s'affiche ici, comme avant.
-        var m = Modele.meilleureSerieDe(serie.exercise_slug, duJour, local.exercices, Palier, etatsExercices);
+        var m = Modele.meilleureSerieDe(serie.exercise_slug, duJour, local.exercices, Palier, etatsExercices, meilleurNomme);
         var r = { meilleure: m.charge === null || m.charge === undefined ? null : { charge: m.charge, reps: m.reps } };
         lignes.push({
           // Le slug voyage avec la ligne : c'est lui qui ouvre la page
           // d'exercice (§7 quater), et le nom ne sert qu'à l'affichage.
           slug: serie.exercise_slug,
           nom: (index[serie.exercise_slug] && index[serie.exercise_slug].nom) || serie.exercise_slug,
-          mesure: r.meilleure === null ? ''
+          // 132 — une série notée par nom : « Rouge × 10 » (`valeur`).
+          mesure: r.meilleure === null ? (m.valeur && m.charge === null ? m.valeur : '')
             : Modele.formatMesure({ charge_kg: r.meilleure.charge, reps: r.meilleure.reps }),
           jour: d && !isNaN(d.getTime()) ? d : null
         });
@@ -5523,6 +5524,13 @@
   }
   // 132 (ECRAN-SAISIE §3 ter.6) — LA GRILLE D'UN EXERCICE NOTÉ PAR NOM : sa salle d'élastiques (la liste, le sens, et de
   // quoi écrire une série), ou `null` — la grille de sa mesure, comme avant.
+  // 132 (MOTEUR §10 ter) — LE MEILLEUR D'UN EXERCICE NOTÉ PAR NOM, à l'affichage : `Profil.meilleurElastique` sur l'ordre
+  // de Ma salle (le plus dur, puis le plus de reps ; les neutres exclues), ou `null`. Passé au modèle (`nomme`) : la
+  // carte de séance, « Dernière séance », la page d'exercice et le sommaire disent le même.
+  function meilleurNomme(slug, series) {
+    var fiche = catalogueIndexe()[slug];
+    return fiche ? Profil.meilleurElastique(fiche, Profil.salleDe(profil), series) : null;
+  }
   function elastiqueDeLaGrille(slug) {
     var s = Profil.salleDeLExercice(profil, slug, catalogueIndexe());
     return estSalleElastique(s) ? s : null;
@@ -10758,7 +10766,7 @@
   function derniereSeanceDe(slug, groupes) {
     var g = groupes || faits.seancesDeLExercice(corpus(), slug);
     if (!g.length) return null;
-    var d = Modele.meilleureSerieDe(slug, g[0].series, local.exercices, Palier, etatsExercices);
+    var d = Modele.meilleureSerieDe(slug, g[0].series, local.exercices, Palier, etatsExercices, meilleurNomme);
     d.date = g[0].seance.debut;
     return d;
   }
@@ -10799,7 +10807,8 @@
     // anciennes restent dans l'historique.
     var dansLePerimetre = [];
     Modele.seancesDuPerimetre(pourRecords, maintenant, optionsRecords).forEach(function (h) {
-      h.series.forEach(function (x) { dansLePerimetre.push(x); });
+      // 132 — une série notée par nom n'entre dans aucun record, ni dans la table par reps (MOTEUR §10 ter).
+      h.series.forEach(function (x) { if (!(x && x.elastique)) dansLePerimetre.push(x); });
     });
     var table = Modele.tableParReps(dansLePerimetre, mesure, function (x) { return debutDe[x.id] || null; });
     // Un jour de record se DÉDUIT de la table, il ne se recalcule pas : ce sont
@@ -10837,7 +10846,8 @@
     // 1 an ; le rapport au poids (la charge de travail du coach, divisée par
     // une pesée de moins de 14 jours).
     var teteRecords = null;
-    if (mesure === 'charge_reps' && groupes.length) {
+    // 132 — pas de records en kg pour un exercice noté par nom (MOTEUR §10 ter) : son meilleur, par son nom, suffit.
+    if (mesure === 'charge_reps' && groupes.length && !rp.nommes) {
       var il6 = new Date(maintenant.getTime()); il6.setMonth(il6.getMonth() - 6);
       var il12 = new Date(maintenant.getTime()); il12.setFullYear(il12.getFullYear() - 1);
       var travail = null;
@@ -10954,13 +10964,18 @@
     var optionsRecords = Modele.optionsDeRecord(exo);
     var pourRecords = groupes.map(function (g) { return { debut: g.seance.debut, series: g.series }; });
     var recordsExo = Modele.recordsDeLExercice(pourRecords, maintenant, optionsRecords);
-    var record = mesure === 'charge_reps'
-      ? Modele.recordDeLaTable(recordsExo.table)
-      : Modele.meilleureSerieDeTout(slug, groupes.map(function (g) {
+    // 132 (MOTEUR §10 ter) — un exercice noté par nom : son meilleur se calcule à l'affichage, sur l'ordre de Ma salle
+    // (« Rouge × 10 », `Profil.meilleurElastique`) — jamais un record en kg (un record est immuable, l'ordre change).
+    var nommes = groupes.some(function (g) { return (g.series || []).some(function (x) { return x && x.elastique; }); });
+    var record = nommes || mesure !== 'charge_reps'
+      ? Modele.meilleureSerieDeTout(slug, groupes.map(function (g) {
         return { cle: g.seance.debut, series: g.series };
-      }), local.exercices, Palier, etatsExercices);
-    if (record && mesure !== 'charge_reps') record.date = record.cle || null;
-    return { record: record, recordsExo: recordsExo, optionsRecords: optionsRecords, pourRecords: pourRecords };
+      }), local.exercices, Palier, etatsExercices, meilleurNomme)
+      : Modele.recordDeLaTable(recordsExo.table);
+    if (record && (nommes || mesure !== 'charge_reps')) record.date = record.cle || null;
+    // Le libellé dit ce que c'est : un meilleur, pas un record (« Ton meilleur », comme « Ton échelle »).
+    if (record && nommes) record.libelle = 'Ton meilleur';
+    return { record: record, recordsExo: recordsExo, optionsRecords: optionsRecords, pourRecords: pourRecords, nommes: nommes };
   }
 
   // 127 (ECRAN-SAISIE §7 quater.6, maquette validée le 21/10/2026) — LA VUE DE « TON ÉCHELLE ». Un câblage, sans

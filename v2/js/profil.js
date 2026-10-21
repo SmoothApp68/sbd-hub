@@ -585,6 +585,10 @@
   var CHAMPS_ECRITS = ['username', 'bio', 'sexe', 'taille_cm', 'date_naissance',
                        'anciennete', 'intention',
                        'rythme_progression', 'phase', 'phase_depuis', 'lest_reponse', 'lest_reponse_le',
+                       // 127 (v2_099, MOTEUR §9.17 bis) — la réponse à la carte « marche suivante », par exercice de
+                       // départ (`{ slug: { r, le, aide } }`). FACULTATIVE en lecture et en écriture tant que la migration
+                       // n'est pas lancée (`COLONNES_FACULTATIVES`, donnees.js).
+                       'marche_reponses',
                        'materiel',
                        'seances_par_semaine', 'duree_seance_min',
                        // 60-2a (v2_065) — le questionnaire du coach. `zone_force_reponse*` n'y
@@ -629,6 +633,12 @@
       if (c === 'bilans_annonces') {
         if (!Array.isArray(src[c])) return;
         sortie[c] = ajouterBilansAnnonces(src[c], []);
+        return;
+      }
+      // 127 — les réponses à la carte « marche suivante » : un objet, jamais une liste ni un scalaire.
+      if (c === 'marche_reponses') {
+        var mr = src[c];
+        if (mr === null || (mr && typeof mr === 'object' && !Array.isArray(mr))) sortie[c] = mr;
         return;
       }
       // 108 — une salle hors bornes ne part pas (elle serait refusée en 23514, et tout le profil avec elle).
@@ -697,7 +707,8 @@
     phase_depuis: 'Ta phase', lest_reponse: 'Lest', materiel: 'Matériel', seances_par_semaine: 'Séances par semaine',
     duree_seance_min: 'Durée d’une séance', objectif: 'Objectif', priorites: 'Priorités', temps_reponse: 'Ton temps',
     historique_declare: 'Historique', programme_choix: 'Ton programme', zones_a_menager: 'Zone à ménager',
-    exercices_ecartes: 'Exercices écartés', jeu_actif: 'Le jeu', compte_prive: 'Compte privé', ma_salle: 'Ma salle'
+    exercices_ecartes: 'Exercices écartés', jeu_actif: 'Le jeu', compte_prive: 'Compte privé', ma_salle: 'Ma salle',
+    marche_reponses: 'Marche suivante'
   };
   // « Pas enregistré : Bio. La base a refusé cette valeur ; celle d'avant est gardée. » — `null` sans colonne.
   function phraseRefusProfil(colonnes) {

@@ -486,6 +486,8 @@ const PROFIL_BANC = {
   compte_prive: true, jeu_niveau: null, jeu_titre: null,
   // 50-1 — la réponse à la carte du lest : `oui`, `non`, ou NULL (pas encore).
   lest_reponse: null, lest_reponse_le: null,
+  // 127 (`v2_099`) — la réponse à la carte « marche suivante », par exercice de départ.
+  marche_reponses: null,
   // 60-2a (`v2_065`) — le questionnaire du coach.
   objectif: null, objectif_depuis: null, priorites: null, temps_reponse: null,
   historique_declare: null, phase_confirmee_le: null,
@@ -1438,6 +1440,14 @@ const SETS_IMPORTES = [
         // 50-1 — la contrainte réelle de `lest_reponse` : `oui`, `non`, ou NULL.
         if (l.lest_reponse !== undefined && l.lest_reponse !== null && ['oui', 'non'].indexOf(l.lest_reponse) < 0) {
           return json(refus('23514', 'profiles_lest_reponse_ok'), 400);
+        }
+        // 127 (`v2_099`) — `marche_reponses` : un objet jsonb (`{ slug: { r, le, aide } }`, `r` oui ou non), ou NULL.
+        if (l.marche_reponses !== undefined && l.marche_reponses !== null) {
+          const mr = l.marche_reponses;
+          if (typeof mr !== 'object' || Array.isArray(mr) ||
+              Object.keys(mr).some((k) => !mr[k] || ['oui', 'non'].indexOf(mr[k].r) < 0)) {
+            return json(refus('23514', 'profiles_marche_reponses_ok'), 400);
+          }
         }
         // 108 (`v2_088`) — `profiles_ma_salle_ok` : NULL, ou un objet aux seules clés barres_ez, barres_droites,
         // halteres ; des barres de 1 à 100 kg au demi-kilo ; des haltères nuls, { max, pas } ou des tranches (v2_095).
@@ -23156,6 +23166,182 @@ const SETS_IMPORTES = [
     ok('[126] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refus126 && erreurs.length === erreurs126,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus126), erreurs.slice(erreurs126)]));
+  }
+
+  console.log('\n══ echelle. L’ÉCHELLE DES VARIANTES : LA CARTE « MARCHE SUIVANTE », « AJOUTER » AVANT, « PAS MAINTENANT » À LA MÊME AIDE, « TON ÉCHELLE » (127, MOTEUR §9.17 bis, ECRAN-SAISIE §7 quater.6) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une échelle de quatre marches (une aide, la stricte, la lestée, une habileté),
+  // servie par le faux serveur avec ses colonnes (`echelle`, `echelle_rang`, `nature`) ; quatre séances de tractions
+  // élastiques, les deux dernières au HAUT de la zone (12) À LA MÊME AIDE (−25), les deux premières à une autre (−30).
+  // Le banc lit le PLAN que l'app calcule et l'écran. « Ajouter » insère la stricte JUSTE AVANT et garde l'élastique ;
+  // « Pas maintenant » vaut pour CETTE aide : une séance de plus à la même aide n'a pas de carte, deux à une aide plus
+  // légère la reposent. Tout est retiré à la fin.
+  {
+    const t127 = Date.now();
+    const erreurs127 = erreurs.length;
+    const refus127 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations127 = gardeBanc.violations;
+    const catalogueAvant127 = CATALOGUE.length;
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const E127 = 'tr-u127';
+    [['tr-u127-elastique', 'Tractions U127 (Élastique)', 'charge_reps', 'assistance', 'elastique', 'force', 1],
+     ['tr-u127', 'Tractions U127', 'reps', 'aucune', 'aucun', 'force', 2],
+     ['tr-u127-leste', 'Tractions U127 Lestées', 'charge_reps', 'ajoutee', 'aucun', 'force', 3],
+     ['tr-u127-archer', 'Tractions U127 Archer', 'reps', 'aucune', 'aucun', 'habilete', 4]
+    ].forEach(([slug, nom, mesure, charge, equipement, nature, rang]) => CATALOGUE.push({ slug, nom, mesure, charge, equipement,
+      parent: charge === 'ajoutee' ? E127 : null, nature, habilete: nature === 'habilete', actif: true,
+      muscles_primaires: ['dorsaux'], muscles_secondaires: [], echelle: E127, echelle_rang: rang }));
+    const sessions127 = [];
+    const poser127 = (id, jours, aide, reps) => {
+      const debut = ilYa(jours * 86400000, t127).toISOString();
+      sessions127.push(id);
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Échelle — ' + id, debut, fin: finDe(debut, t127).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((k) => base.sets.push({ id: id + '-s' + k, session_id: id, user_id: 'u-banc',
+        exercise_slug: 'tr-u127-elastique', charge_kg: aide, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: k, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poser127('e127-1', 28, -30, 12);
+    poser127('e127-2', 21, -30, 12);
+    poser127('e127-3', 14, -25, 12);
+    poser127('e127-4', 7, -25, 12);
+    const ROUTINE_127 = { id: 'r-u127', nom: 'Échelle U127', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-u127-a', routine_id: 'r-u127', exercise_slug: 'tr-u127-elastique', rang: 0,
+        routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] };
+    ROUTINES.push(ROUTINE_127);
+    const profil127 = () => base.profiles[0];
+    const marcheAvant127 = profil127().marche_reponses;
+
+    const plan127 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? d.plan.exercices.map((x) => ({ slug: x.slug, etat: x.consigne ? x.consigne.etat : null,
+        raison: x.consigne ? x.consigne.raison || null : null, carte: x.carteMarche,
+        lest: !!x.carteLest, lignes: (x.lignes || []).length })) : null;
+    });
+    const cartes127 = () => page.evaluate(() => Array.from(document.querySelectorAll('.proposition-marche')).map((c) => ({
+      lest: c.classList.contains('proposition-lest'),
+      texte: (c.querySelector('.pc-texte') || {}).textContent, detail: (c.querySelector('.pc-detail') || {}).textContent,
+      boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) })));
+    const exos127 = () => page.evaluate(() => Array.from(document.querySelectorAll('#vue-seance .nom-exo, #vue-seance .bloc-nom'))
+      .map((n) => n.textContent));
+    const seance127 = () => page.evaluate(() => (document.querySelector('#vue-seance') || {}).textContent || '');
+    const TITRE_127 = 'Aide 25 kg × 12 sur toutes tes séries, deux séances de suite.';
+    const DETAIL_127 = 'La marche au-dessus : Tractions U127. Je te propose d’en faire 2 séries avant, autant de reps que tu peux.';
+
+    // ── A. LA CARTE : une, en tête de l'élastique, le composant de la carte du lest, sans point d'interrogation.
+    await aller('/saisie');
+    await demarrerRoutine('Échelle U127');
+    await attendre(900);
+    const a127 = await plan127();
+    const xa = a127 && a127.filter((x) => x.slug === 'tr-u127-elastique')[0];
+    ok('[127] A — DISCRIMINANT : deux séances au haut de la zone (12) à la même aide : le plan pose la carte « marche suivante », la consigne tient sa ligne',
+      !!xa && !!xa.carte && xa.carte.cible === E127 && !xa.lest && sp(xa.carte.titre) === TITRE_127, JSON.stringify(a127));
+    const ca = await cartes127();
+    ok('[127] A — UNE carte à l’écran, le rendu de la carte du lest (mêmes classes), le texte du plan et ses deux boutons',
+      ca.length === 1 && ca[0].lest && sp(ca[0].texte) === TITRE_127 && sp(ca[0].detail).replace(/'/g, '’') === DETAIL_127 &&
+        JSON.stringify(ca[0].boutons.map(sp)) === JSON.stringify(['Ajouter Tractions U127', 'Pas maintenant']) &&
+        !/\?/.test(ca[0].texte + ca[0].detail), JSON.stringify(ca));
+
+    // ── B. « AJOUTER » : la réponse au profil, la stricte JUSTE AVANT, l'élastique reste.
+    await page.evaluate(() => document.querySelector('.proposition-marche .pc-ajouter').click());
+    await jusqua(async () => !!(profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique']), 8000);
+    await attendre(900);
+    const rb = profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique'];
+    ok('[127] B — « Ajouter » s’écrit au profil : `marche_reponses[tr-u127-elastique] = { r: oui, le }`',
+      !!rb && rb.r === 'oui' && !!rb.le && rb.aide === undefined, JSON.stringify(profil127().marche_reponses));
+    const b127 = await plan127();
+    ok('[127] B — DISCRIMINANT : les Tractions U127 JUSTE AVANT l’élastique, qui reste ; 2 séries ; « Première fois ici » ; plus de carte',
+      !!b127 && JSON.stringify(b127.map((x) => x.slug)) === JSON.stringify([E127, 'tr-u127-elastique']) &&
+        b127[0].lignes === 2 && b127[0].etat === 'silence' && b127[0].raison === 'premiere_fois' &&
+        (await cartes127()).length === 0 && /Tractions U127 \(Élastique\)/.test(await seance127()),
+      JSON.stringify([b127, await exos127()]));
+    await abandonner();
+    await aller('/saisie');
+    await demarrerRoutine('Échelle U127');
+    await attendre(900);
+    ok('[127] B — après « Ajouter », la carte ne revient jamais', (await cartes127()).length === 0, JSON.stringify(await cartes127()));
+    await abandonner();
+
+    // ── C. « TON ÉCHELLE » sur la page des Tractions U127 : ta marche (l'élastique), la suivante (la stricte), sa phrase.
+    const echelleDom = () => page.evaluate(() => {
+      const c = document.querySelector('#page-exercice .ton-echelle');
+      if (!c) return null;
+      return { premier: c.parentNode.querySelector('.ton-echelle, .section-t, .carte-objectif') === c,
+        marches: Array.from(c.querySelectorAll('.te-marche')).map((m) => ({ rang: m.querySelector('.te-rond').textContent,
+          classes: m.className, exos: Array.from(m.querySelectorAll('.te-exo')).map((b) => ({ slug: b.getAttribute('data-slug'),
+            texte: b.textContent, haut: b.getBoundingClientRect().height })) })),
+        phrase: (c.querySelector('.te-phrase') || {}).textContent || null };
+    });
+    await aller('/exercice/tr-u127');
+    let ec = await echelleDom();
+    for (let n = 0; n < 20 && !ec; n++) { await attendre(250); await aller('/exercice/tr-u127'); ec = await echelleDom(); }
+    const m127 = (r) => ec && ec.marches.filter((m) => m.rang === String(r))[0];
+    ok('[127] C — « Ton échelle » en tête du Résumé : quatre marches, du plus difficile au plus facile',
+      !!ec && ec.premier && JSON.stringify(ec.marches.map((m) => m.rang)) === '["4","3","2","1"]', JSON.stringify(ec));
+    ok('[127] C — DISCRIMINANT : ta marche (ambre) est l’élastique, avec son meilleur ; la suivante est la stricte, la marche de la page soulignée ; l’archer porte « habileté »',
+      !!ec && /\btienne\b/.test(m127(1).classes) && /Ton meilleur : Aide 25 kg × 12/.test(sp(m127(1).exos[0].texte)) &&
+        /\bsuivante\b/.test(m127(2).classes) && /\bvue\b/.test(m127(2).classes) && !/\btienne\b/.test(m127(2).classes) &&
+        /habileté/.test(m127(4).exos[0].texte), JSON.stringify(ec));
+    ok('[127] C — la phrase de la suivante : la condition de la carte (12 reps), « Elle s’ajoute : tu gardes … »',
+      !!ec && sp(ec.phrase).replace(/'/g, '’') === 'La suivante : Tractions U127. Je te la propose quand tu tiens 12 reps sur toutes tes séries, deux séances de suite. Elle s’ajoute : tu gardes Tractions U127 (Élastique).',
+      JSON.stringify(ec && ec.phrase));
+    ok('[127] C — chaque marche est une cible tactile de 44 px au moins',
+      !!ec && ec.marches.every((m) => m.exos.every((x) => x.haut >= 44)), JSON.stringify(ec && ec.marches.map((m) => m.exos.map((x) => x.haut))));
+    await page.evaluate(() => document.querySelector('#page-exercice .te-exo[data-slug="tr-u127-archer"]').click());
+    await attendre(700);
+    ok('[127] C — toucher une marche ouvre sa page',
+      (await page.evaluate(() => location.pathname)) === '/exercice/tr-u127-archer' &&
+        /Tractions U127 Archer/.test(await texte('#page-exercice h2')), JSON.stringify(await page.evaluate(() => location.pathname)));
+    await aller('/exercice/squat-barre');
+    ok('[127] C — un exercice sans échelle : pas de « Ton échelle »',
+      (await page.evaluate(() => !!document.querySelector('#page-exercice .ton-echelle'))) === false, '');
+
+    // ── D. « PAS MAINTENANT » : `{ r: non, le, aide: −25 }` ; la séance ne change pas ; à la même aide, plus de carte.
+    profil127().marche_reponses = marcheAvant127 === undefined ? null : marcheAvant127;
+    await aller('/saisie');
+    await demarrerRoutine('Échelle U127');
+    await attendre(900);
+    ok('[127] D — sans réponse, la carte est là', (await cartes127()).length === 1, JSON.stringify(await cartes127()));
+    const avantD = JSON.stringify((await plan127()).map((x) => x.slug));
+    await page.evaluate(() => document.querySelector('.proposition-marche .pc-refuser').click());
+    await jusqua(async () => !!(profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique']), 8000);
+    await attendre(900);
+    const rd = profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique'];
+    ok('[127] D — « Pas maintenant » s’écrit au profil avec l’aide du jour : `{ r: non, le, aide: −25 }`, et la séance ne change pas',
+      !!rd && rd.r === 'non' && rd.aide === -25 && !!rd.le && (await cartes127()).length === 0 &&
+        JSON.stringify((await plan127()).map((x) => x.slug)) === avantD, JSON.stringify([rd, await plan127()]));
+    await abandonner();
+    poser127('e127-5', 5, -25, 12);
+    await aller('/saisie');
+    await demarrerRoutine('Échelle U127');
+    await attendre(900);
+    ok('[127] D — DISCRIMINANT : une séance de plus à la MÊME aide (−25) au haut de la zone : pas de carte',
+      (await cartes127()).length === 0 && !((await plan127()).filter((x) => x.carte)[0]), JSON.stringify(await plan127()));
+    await abandonner();
+    poser127('e127-6', 4, -20, 12);
+    poser127('e127-7', 3, -20, 12);
+    await aller('/saisie');
+    await demarrerRoutine('Échelle U127');
+    await attendre(900);
+    const cd = await cartes127();
+    ok('[127] D — DISCRIMINANT : deux séances à une aide PLUS LÉGÈRE (−20) au haut de la zone : la carte revient',
+      cd.length === 1 && /^Aide 20 kg × 12/.test(sp(cd[0].texte)), JSON.stringify(cd));
+    await abandonner();
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    CATALOGUE.splice(catalogueAvant127, CATALOGUE.length - catalogueAvant127);
+    const iR127 = ROUTINES.indexOf(ROUTINE_127);
+    if (iR127 >= 0) ROUTINES.splice(iR127, 1);
+    base.sets = base.sets.filter((x) => sessions127.indexOf(x.session_id) < 0);
+    base.sessions = base.sessions.filter((x) => sessions127.indexOf(x.id) < 0);
+    profil127().marche_reponses = marcheAvant127 === undefined ? null : marcheAvant127;
+    await aller('/saisie');
+    ok('[127] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations127 && base.journal.filter((j) => j.op === 'refus').length === refus127 &&
+        erreurs.length === erreurs127,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus127), erreurs.slice(erreurs127)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

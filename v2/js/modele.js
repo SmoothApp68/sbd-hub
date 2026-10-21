@@ -859,6 +859,140 @@
     return x && x.charge === 'ajoutee' && x.parent && index[x.parent] ? x.parent : null;
   }
 
+  // LE MEILLEUR d'un exercice, tel que la page d'exercice l'écrit (« Dernière séance », le record) — et, depuis 127,
+  // « Ton échelle » (ECRAN-SAISIE §7 quater.6), qui montre le même chiffre. Les mêmes clés que la carte de séance,
+  // dans le même ordre : `charge` et `reps` d'abord, les autres grandeurs ensuite. (Venu de `rendu.js`, inchangé.)
+  function texteMeilleure(m) {
+    if (!m) return '';
+    if (m.charge !== null && m.charge !== undefined) {
+      return formatMesure({ charge_kg: m.charge, reps: m.reps });
+    }
+    if (!m.valeur) return '';
+    return m.valeur + (m.complement ? ' ' + m.complement : '');
+  }
+
+  // ══ MOTEUR §9.17 bis (127) — L'ÉCHELLE DES VARIANTES ═════════════════════════
+  //
+  // Le catalogue range les variantes d'un mouvement au poids du corps en ÉCHELLE (`exercises.echelle`,
+  // `exercises.echelle_rang`, v2_099 ; 1 = la plus facile, un rang peut être partagé). La seule lecture des deux
+  // colonnes de l'app (registre NOTIONS) : la marche suivante (`marcheSuivante`) et la carte « Ton échelle » de la
+  // page d'exercice (`vueEchelle`). Une ligne SANS les colonnes (v2_099 pas lancée, cache d'avant) n'est sur aucune
+  // échelle : rien ne change pour elle. Référence : `echelle127.py`.
+  function echelleDe(x) {
+    return x && typeof x.echelle === 'string' && x.echelle && typeof x.echelle_rang === 'number' ? x.echelle : null;
+  }
+  // Une habileté (`nature = habilete` : archer, un bras, anneaux, le muscle-up) n'est jamais proposée par le coach.
+  // `habilete` (v2_071) dit la même chose (`exercises_nature_habilete`) : une ligne sans `nature` la lit.
+  function estDeForce(x) {
+    return x.nature ? x.nature === 'force' : x.habilete !== true;
+  }
+  function parSlug(a, b) { return a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0; }
+  function marchesDe(index, echelle) {
+    return Object.keys(index || {}).map(function (s) { return index[s]; })
+      .filter(function (x) { return echelleDe(x) === echelle; });
+  }
+
+  // LA MARCHE SUIVANTE d'un exercice d'échelle : `{ type, cible: [slugs], proposable }`, ou `null` (pas d'échelle, ou
+  // rien au-dessus). Une seule fonction, lue par la carte du plan et par la page d'exercice :
+  //   · depuis une AIDE (`charge = assistance`) : la marche stricte (« sans aide »), qui s'AJOUTE ;
+  //   · depuis la STRICTE (le slug porte le nom de l'échelle) : sa version lestée au rang au-dessus — la carte du
+  //     lest (§9.17), qui REMPLACE, et que cette fonction ne propose donc pas (`proposable: false`) ;
+  //   · sinon : le rang au-dessus, qui s'AJOUTE ; plusieurs exercices sur ce rang : par slug, ceux de force ;
+  //   · un rang au-dessus fait seulement d'habiletés : `habilete`, visible, jamais proposé (21/10/2026).
+  function marcheSuivante(index, slug) {
+    var e = index && slug ? index[slug] : null;
+    var E = echelleDe(e);
+    if (E === null) return null;
+    var marches = marchesDe(index, E);
+    var stricte = echelleDe(index[E]) === E ? index[E] : null;
+    var cible, type;
+    if (e.charge === 'assistance' && stricte && stricte.echelle_rang > e.echelle_rang) {
+      cible = [stricte]; type = 'sans_aide';
+    } else {
+      var plus = marches.filter(function (x) { return x.echelle_rang > e.echelle_rang; })
+        .map(function (x) { return x.echelle_rang; });
+      if (!plus.length) return null;
+      var r = Math.min.apply(null, plus);
+      cible = marches.filter(function (x) { return x.echelle_rang === r; }).sort(parSlug);
+      var lest = cible.filter(function (x) { return x.charge === 'ajoutee'; });
+      if (stricte && e.slug === stricte.slug && lest.length) { cible = lest; type = 'lest'; }
+      else type = 'marche';
+    }
+    var force = cible.filter(estDeForce);
+    if (!force.length) return { type: 'habilete', cible: cible.map(function (x) { return x.slug; }), proposable: false };
+    return { type: type, cible: force.map(function (x) { return x.slug; }), proposable: type !== 'lest' };
+  }
+
+  // « TON ÉCHELLE » (ECRAN-SAISIE §7 quater.6, maquette validée le 21/10/2026) — la vue de la carte de la page d'un
+  // exercice d'échelle, ou `null` sans échelle. Elle ne calcule rien de neuf : l'échelle du catalogue, les faits
+  // (`faites` : `{ [slug]: { meilleur, quand, derniere } }`, les exercices qui ont au moins une série de travail, leur
+  // meilleur et sa date DÉJÀ FORMATÉS par l'app, et la date ISO de leur dernière séance) et la marche suivante.
+  // `zonesHaut` : `{ [slug]: haut de la zone }` quand l'app la connaît. `phraseDe` : la phrase de la suivante, que le
+  // coach rédige (`THMoteur.phraseDeLaSuivante`, donnée par l'appelant : ce module ne lit pas le moteur) ; elle
+  // n'est pas appelée sans coach (`coachActif` faux : « Juste un carnet », ou l'exercice en Entretenir).
+  // Rend `{ echelle, marches: [{ rang, tienne, suivante, vue, exercices: [{ slug, nom, habilete, fait, meilleur,
+  // quand }] }], phrase }`, du plus difficile au plus facile.
+  function vueEchelle(index, slug, faites, zonesHaut, coachActif, phraseDe) {
+    var e = index && slug ? index[slug] : null;
+    var E = echelleDe(e);
+    if (E === null) return null;
+    var F = faites || {};
+    var fait = function (s) { return Object.prototype.hasOwnProperty.call(F, s) && !!F[s]; };
+    var marches = marchesDe(index, E);
+    var faits = marches.filter(function (x) { return fait(x.slug); });
+    var tienne = faits.length ? Math.max.apply(null, faits.map(function (x) { return x.echelle_rang; })) : null;
+    var suivante = null, phrase = null;
+    if (tienne !== null) {
+      // Le départ : l'exercice de ta marche fait le plus récemment (puis le slug, comme la référence).
+      var depart = faits.filter(function (x) { return x.echelle_rang === tienne; }).sort(function (a, b) {
+        var da = String(F[a.slug].derniere || ''), db = String(F[b.slug].derniere || '');
+        return da < db ? 1 : da > db ? -1 : (a.slug < b.slug ? 1 : a.slug > b.slug ? -1 : 0);
+      })[0];
+      var m = marcheSuivante(index, depart.slug);
+      if (m) {
+        var c = index[m.cible[0]];
+        suivante = c.echelle_rang;
+        var zh = zonesHaut && Object.prototype.hasOwnProperty.call(zonesHaut, depart.slug) ? zonesHaut[depart.slug] : null;
+        if (coachActif && typeof phraseDe === 'function') {
+          phrase = phraseDe({ type: m.type, nomCible: c.nom || c.slug, nomDepart: depart.nom || depart.slug, depart: depart.slug,
+                              haut: typeof zh === 'number' ? zh : null, meilleur: F[depart.slug].meilleur || null });
+        }
+      }
+    }
+    var rangs = [];
+    marches.forEach(function (x) { if (rangs.indexOf(x.echelle_rang) < 0) rangs.push(x.echelle_rang); });
+    rangs.sort(function (a, b) { return b - a; });
+    return {
+      echelle: E,
+      marches: rangs.map(function (r) {
+        return {
+          rang: r, tienne: r === tienne, suivante: r === suivante, vue: r === e.echelle_rang,
+          exercices: marches.filter(function (x) { return x.echelle_rang === r; }).sort(parSlug).map(function (x) {
+            var f = fait(x.slug) ? F[x.slug] : null;
+            return { slug: x.slug, nom: x.nom, habilete: !estDeForce(x), fait: !!f,
+                     meilleur: f && f.meilleur !== undefined ? f.meilleur : null,
+                     quand: f && f.quand !== undefined ? f.quand : null };
+          })
+        };
+      }),
+      phrase: phrase
+    };
+  }
+
+  // « mardi » (sur les 7 derniers jours, `quandTexte`), sinon le mois (« mars » ; « mars 2025 » une autre année) :
+  // la date d'un meilleur sur « Ton échelle » (§7 quater.6). `reference` : l'instant de la page.
+  function quandDeLEchelle(iso, reference) {
+    var d = jourLocal(iso), r = jourLocal(reference);
+    if (d === null) return '';
+    if (r !== null) {
+      var ecart = Math.round((Date.UTC(r.getFullYear(), r.getMonth(), r.getDate()) -
+                              Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+      if (ecart >= 0 && ecart <= JOURS_NOMMES) return quandTexte(iso, reference);
+      if (r.getFullYear() === d.getFullYear()) return MOIS_LONGS[d.getMonth()];
+    }
+    return moisAnnee(d);
+  }
+
   // Une « sortie » n'est pas une séance de musculation : l'exercice ne porte
   // aucune charge et se mesure en temps et/ou en distance. Établi par lecture
   // du catalogue : charge='aucune' + mesure ∈ {temps, distance_temps} couvre
@@ -2110,6 +2244,12 @@
     cousinsDe: cousinsDe,
     lesteDe: lesteDe,
     parentDe: parentDe,
+    // MOTEUR §9.17 bis (127) — l'échelle des variantes.
+    echelleDe: echelleDe,
+    marcheSuivante: marcheSuivante,
+    vueEchelle: vueEchelle,
+    texteMeilleure: texteMeilleure,
+    quandDeLEchelle: quandDeLEchelle,
     construireBlocs: construireBlocs,
     faiteEnBase: faiteEnBase,
     blocsDeSeance: blocsDeSeance,

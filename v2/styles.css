@@ -2395,3 +2395,31 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 /* 123 — les tranches d'haltères : « Pas d'haltères », « Retirer cette tranche », « + Une tranche ». */
 .salle-sans{margin-bottom:var(--e2)}
 .salle-retirer,.salle-tranche{display:block;margin:0 0 var(--e2)}
+
+/* 127 (ECRAN-SAISIE §7 quater.6, maquette-echelle-page-v1) — « Ton échelle », en tête du Résumé. Les jetons de la
+   forge seulement : ta marche en ambre, la suivante en contour, l'habileté en pointillé, la marche de la page
+   soulignée ; une marche faite garde le vert du sens (`--reussi`). Chaque exercice se touche (44 px au moins). */
+.ton-echelle{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3) 14px;margin-bottom:var(--e3)}
+.te-titre{font:700 16px var(--pile-c);letter-spacing:.2px;margin:0}
+.te-marches{list-style:none;margin:10px 0 0;padding:0;position:relative}
+.te-marches::before{content:"";position:absolute;left:11px;top:12px;bottom:12px;width:2px;background:var(--trait)}
+.te-marche{display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:start;position:relative}
+.te-rond{width:24px;height:24px;margin-top:10px;border-radius:50%;background:var(--panneau-2);border:2px solid var(--trait);
+  display:grid;place-items:center;font:700 12px var(--pile-c);color:var(--texte-3);z-index:1;box-sizing:border-box}
+.te-marche.faite .te-rond{border-color:var(--reussi);color:var(--reussi)}
+.te-marche.tienne .te-rond{background:var(--accent);border-color:var(--accent);color:var(--sur-accent)}
+.te-exos{display:flex;flex-wrap:wrap;align-items:center;gap:0 6px}
+.te-sep{color:var(--texte-3)}
+.te-exo{min-height:44px;background:none;border:0;padding:6px 0;margin:0;text-align:left;color:var(--texte);
+  font:inherit;font-size:14.5px;line-height:1.3;display:inline-flex;flex-direction:column;justify-content:center;cursor:pointer}
+.te-marche.tienne .te-nom{font-weight:600}
+.te-marche.vue .te-nom{text-decoration:underline;text-decoration-color:var(--texte-3);text-underline-offset:3px}
+.te-det{color:var(--texte-2);font-size:12.5px;line-height:1.4;margin-top:1px}
+.te-det b{color:var(--texte);font-weight:600;font-family:var(--pile-c);font-size:13.5px}
+.te-etiq{display:inline-block;font-size:11px;padding:1px 7px;border-radius:var(--r-etiquette);align-self:center}
+.te-exo .te-etiq{align-self:flex-start;margin-top:2px}
+.te-etiq.ici{background:var(--accent);color:var(--sur-accent);font-weight:600}
+.te-etiq.next{border:1px solid var(--trait);color:var(--texte-2)}
+.te-etiq.hab{border:1px dashed var(--trait);color:var(--texte-3)}
+.te-phrase{margin:10px 0 0;padding:9px 10px;border:1px dashed var(--trait);border-radius:var(--r-petit);font-size:13px;
+  line-height:1.45;color:var(--texte-2)}

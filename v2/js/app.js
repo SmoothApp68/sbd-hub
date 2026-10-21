@@ -666,6 +666,16 @@
     return v === 'oui' || v === 'non' ? v : null;
   }
 
+  // MOTEUR §9.17 bis (127) — les réponses à la carte « marche suivante », lues au profil (`marche_reponses`, v2_099) :
+  // `{ [slug de départ]: { r, le, aide } }`, ou `{}` (pas de réponse, colonne absente). La démonstration (`demoMarche`)
+  // garde les siennes EN MÉMOIRE, par-dessus.
+  var demoMarche = null;
+  function marcheReponsesDe() {
+    var v = profil && profil.marche_reponses;
+    var lues = v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+    return demoEscalier() && demoMarche ? Object.assign({}, lues, demoMarche) : lues;
+  }
+
   // 60-2a — LA PESÉE du questionnaire (écran « Toi »). Sur l'appareil d'abord :
   // la courbe, le profil et le rapport au poids la voient tout de suite ; puis
   // par la file. UN identifiant par jour — deux pesées le même jour se
@@ -5452,6 +5462,13 @@
     return consignes.parSlug[slug];
   }
 
+  // §9.17 bis (127) — la marche suivante d'un exercice, quand le coach peut la proposer (`Modele.marcheSuivante`,
+  // la seule définition), sinon `null`.
+  function marcheAProposer(index, slug) {
+    var m = Modele.marcheSuivante(index, slug);
+    return m && m.proposable ? m : null;
+  }
+
   // §13.6 (49-U20) — les frères d'un exercice (`Modele.freresDe`, le même
   // `mouvement`), avec ce que le moteur demande pour rejouer leur compteur :
   // les MÊMES entrées que leur propre consigne (`optionsDeConsigne`).
@@ -5484,6 +5501,9 @@
       // sait livrer : sans version lestée, la carte ne se pose pas.
       lestReponse: lestReponseDe(),
       lestPossible: exo ? Modele.lesteDe(index, slug) !== null : false,
+      // §9.17 bis (127) — l'exercice est sur une échelle avec une marche à proposer : le fondement porte alors ses
+      // deux dernières séances (`deuxSeances`), que lit la carte « marche suivante ».
+      echelle: exo ? marcheAProposer(index, slug) !== null : false,
       // §8.4 — la version lestée part de l'exercice libre : le parent, à la
       // demande (le moteur ne le rejoue que pour une première fois lestée).
       libre: libreDuLeste ? function () {
@@ -6085,6 +6105,21 @@
     if (demoModeEscalier() === 'plafond' && demoPlafond && catalogue[demoPlafond.slug]) {
       catalogue[demoPlafond.slug] = Object.assign({}, catalogue[demoPlafond.slug], { salle: demoPlafond.salle });
     }
+    // §9.17 bis (127) — L'ÉCHELLE : pour chaque exercice qui a une marche à proposer, la marche (catalogue), le nom
+    // et la nature de sa cible, l'aide, et la date de la dernière séance de la cible (`faits.datesDesExercices`).
+    var echelles = {};
+    var datesFaites = null;
+    exos.forEach(function (x) {
+      var slug = x && x.exercise_slug;
+      if (!slug || Object.prototype.hasOwnProperty.call(echelles, slug) || !index[slug]) return;
+      var m = marcheAProposer(index, slug);
+      if (!m) return;
+      if (datesFaites === null) datesFaites = faits.datesDesExercices(corpus());
+      var c = index[m.cible[0]] || {};
+      echelles[slug] = { marche: m, nomCible: c.nom || m.cible[0], aide: index[slug].charge === 'assistance',
+                         cibleHabilete: c.nature ? c.nature === 'habilete' : c.habilete === true,
+                         cibleFaiteLe: datesFaites[m.cible[0]] || null };
+    });
     var lestPlan = lestReponseDe();
     if (demoModeEscalier() === 'lest') {
       lestPlan = demoLest;
@@ -6121,6 +6156,9 @@
       intention: profil ? profil.intention : null,
       modes: modes,
       lestReponse: lestPlan,
+      // MOTEUR §9.17 bis (127) — l'échelle : les marches à proposer et les réponses du profil.
+      echelles: echelles,
+      marcheReponses: marcheReponsesDe(),
       // MOTEUR §17.2 bis (78) — le passé de chaque exercice, figé : le plan décide de la question de réserve.
       reserve: reserveDeLaSeance(),
       // MOTEUR §9.22 (53-2) — les blocs des programmes (la décharge planifiée,
@@ -6449,13 +6487,15 @@
         planMemo.legers === local.parisLegers && planMemo.seances === local.seances &&
         planMemo.demo === demoReponse && planMemo.demoMarches === demoMarches &&
         planMemo.modes === local.modes && planMemo.lest === lestReponseDe() && planMemo.demoLest === demoLest &&
+        planMemo.marches === (profil && profil.marche_reponses) && planMemo.demoMarche === demoMarche &&
         planMemo.blocs === local.blocs) return planMemo.plan;
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
                  edition: edition, constats: constats, catalogue: local.exercices,
                  refus: refusChauffes, escalier: local.escalier, legers: local.parisLegers,
                  seances: local.seances, demo: demoReponse, demoMarches: demoMarches,
-                 modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, blocs: local.blocs, plan: plan };
+                 modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, blocs: local.blocs, plan: plan,
+                 marches: profil && profil.marche_reponses, demoMarche: demoMarche };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit. Un plan du
     // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.
@@ -7049,6 +7089,52 @@
       heriterRoutine(iExo, leste);
       seance = Seance.remplacerExercice(seance, iExo, leste, uuid);
       await apresStructure();
+      return;
+    }
+    if (seance) rendreSeance();
+  }
+
+  // ── MOTEUR §9.17 bis (127) — LA CARTE « MARCHE SUIVANTE » : LA RÉPONSE ─────────
+  //
+  // Sur le modèle de `repondreLest` : la réponse s'écrit AU PROFIL (`marche_reponses[slug de départ]`), par le même
+  // chemin (`poserProfil`, sur l'appareil d'abord, puis la file du profil). Aucun pari : une réponse n'est pas une
+  // consigne.
+  //   · « Ajouter … » : `{ r: 'oui', le }`, et la marche proposée entre dans la séance JUSTE AVANT l'exercice, avec
+  //     2 séries de travail vides ; l'exercice de départ RESTE. Comme tout ajout, il passe par `apresStructure` (puis
+  //     la semaine allégée et la ligne de plus de l'exercice ajouté). Sans historique : « Première fois ici ».
+  //   · « Pas maintenant » : `{ r: 'non', le, aide }` — `aide`, la charge de la dernière séance quand l'exercice est
+  //     une aide (la carte revient à une aide plus légère). La séance ne change pas.
+  // La démonstration (`demoEscalier`) garde la réponse EN MÉMOIRE (`demoMarche`) : rien ne s'écrit.
+  async function repondreMarche(iExo, reponse) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var x = planDeLExercice(iExo);
+    var carte = x && x.carteMarche;
+    if (!carte) return;
+    var oui = reponse === 'oui';
+    var slug = x.slug;
+    var r = oui ? { r: 'oui', le: new Date().toISOString() } : { r: 'non', le: new Date().toISOString() };
+    if (!oui && carte.aide) r.aide = carte.charge;
+    reponseEnCours = true;
+    try {
+      if (demoEscalier()) {
+        var d = Object.assign({}, demoMarche || {});
+        d[slug] = r;
+        demoMarche = d;
+      } else {
+        var toutes = Object.assign({}, (profil && profil.marche_reponses && typeof profil.marche_reponses === 'object' &&
+          !Array.isArray(profil.marche_reponses)) ? profil.marche_reponses : {});
+        toutes[slug] = r;
+        await poserProfil({ marche_reponses: toutes });
+      }
+    } finally {
+      reponseEnCours = false;
+    }
+    if (seance && oui && !demoEscalier()) {
+      var avantAjout = seance.exercices;
+      seance = Seance.insererExercice(seance, iExo, carte.cible, uuid, { series: Moteur.SERIES_MARCHE });
+      await apresStructure();
+      await allegeePourAjout(avantAjout, carte.cible);
+      await ligneDePlusPourAjout(avantAjout, carte.cible);
       return;
     }
     if (seance) rendreSeance();
@@ -7806,6 +7892,13 @@
         return x && x.carteLest ? x.carteLest : null;
       },
       surLest: function (i, reponse) { return repondreLest(i, reponse); },
+      // MOTEUR §9.17 bis (127) — la carte « marche suivante » : le composant de la carte du lest, à la même place.
+      propositionMarche: function (i) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.carteMarche ? x.carteMarche : null;
+      },
+      surMarche: function (i, reponse) { return repondreMarche(i, reponse); },
       // MOTEUR §9.20 (51-3) — la carte de reprise : lue sur le plan ; ses trois
       // gestes passent par les mécanismes existants.
       propositionReprise: function (i) {
@@ -10570,11 +10663,10 @@
     groupes.forEach(function (g) {
       g.series.forEach(function (x) { debutDe[x.id] = g.seance.debut; });
     });
-    // §9.23 (55-1) — LE PÉRIMÈTRE D'UN RECORD, une fois pour la page : celui de
-    // la médaille (12 mois pour un matériel de salle, toute la vie ailleurs).
-    var optionsRecords = Modele.optionsDeRecord(exo);
-    var pourRecords = groupes.map(function (g) { return { debut: g.seance.debut, series: g.series }; });
     var maintenant = new Date();
+    var rp = recordDeLaPage(slug, exo, groupes, maintenant);
+    var optionsRecords = rp.optionsRecords;
+    var pourRecords = rp.pourRecords;
     // ECRAN §7 quater.3 (H3, #371) — LA TABLE PAR REPS SUIT CE PÉRIMÈTRE : une
     // page ne montre jamais deux périmètres pour un même record (un 150 kg de
     // février 2025 sous « Record sur 12 mois : 120 kg »). Les séances plus
@@ -10609,13 +10701,8 @@
     // record (la médaille, le tableau des records, le bloc de Progression),
     // AVEC LE PÉRIMÈTRE DE LA MÉDAILLE : un matériel de salle (machines,
     // poulies, haltères, Smith) sur ses 12 derniers mois.
-    var recordsExo = Modele.recordsDeLExercice(pourRecords, maintenant, optionsRecords);
-    var record = mesure === 'charge_reps'
-      ? Modele.recordDeLaTable(recordsExo.table)
-      : Modele.meilleureSerieDeTout(slug, groupes.map(function (g) {
-        return { cle: g.seance.debut, series: g.series };
-      }), local.exercices, Palier, etatsExercices);
-    if (mesure !== 'charge_reps') record.date = record.cle || null;
+    var recordsExo = rp.recordsExo;
+    var record = rp.record;
 
     // MOTEUR §9.23 (55-1), ECRAN §7 bis.15 — LES RECORDS EN TÊTE : la charge
     // la plus lourde, avec sa date (120, D1 : la force estimée — « ≈ », 3 à 10
@@ -10642,6 +10729,8 @@
     }
 
     var visibles = groupes.slice(0, exoAffiche.combien);
+    // 127 (ECRAN-SAISIE §7 quater.6) — « TON ÉCHELLE », en tête du Résumé d'un exercice d'échelle (`null` sinon).
+    var echelle = vueEchelleDe(slug, maintenant);
     // 109 (MOTEUR §9.25) — « MON OBJECTIF » : la carte se LIT (`THObjectif.vue`), la date est celle posée.
     var carteObjectif = carteObjectifDe(slug, exo, groupes, maintenant, vueOnglet);
     // §7 quater — L'ÉTIQUETTE DE ZONE SUR LA PAGE D'EXERCICE. La zone
@@ -10695,6 +10784,8 @@
       recordSurDouzeMois: mesure === 'charge_reps' && recordsExo.douzeMois,
       teteRecords: teteRecords,
       objectif: carteObjectif,
+      tonEchelle: echelle,
+      surMarche: function (s) { afficherExercice(s); },
       volume: {
         nbSeries: Semaine.compteSeriesTravail(toutes, local.exercices),
         nbSeances: groupes.length
@@ -10723,6 +10814,59 @@
     });
     // 89 — « Entre amis », en bas de la page, pour un exercice à la barre (mutuels, à poids de corps égal).
     entreAmis(slug, exo);
+  }
+
+  // LE RECORD QUE LA PAGE D'UN EXERCICE AFFICHE, une fonction pour deux lecteurs : la fiche (« Record de charge »,
+  // « Record de reps »…) et « Ton échelle » (127), qui montre le même meilleur sur chaque marche faite.
+  //   record de charge → `Modele.recordDeLaTable`, la ligne la plus lourde de la table cumulée (PR 5, §9.23), sur
+  //                      le périmètre de la médaille (12 mois pour un matériel de salle) ;
+  //   autres mesures   → la meilleure série de tout l'historique, datée de sa séance.
+  function recordDeLaPage(slug, exo, groupes, maintenant) {
+    var mesure = exo ? exo.mesure : null;
+    // §9.23 (55-1) — LE PÉRIMÈTRE D'UN RECORD : celui de la médaille (12 mois pour un matériel de salle, toute la
+    // vie ailleurs).
+    var optionsRecords = Modele.optionsDeRecord(exo);
+    var pourRecords = groupes.map(function (g) { return { debut: g.seance.debut, series: g.series }; });
+    var recordsExo = Modele.recordsDeLExercice(pourRecords, maintenant, optionsRecords);
+    var record = mesure === 'charge_reps'
+      ? Modele.recordDeLaTable(recordsExo.table)
+      : Modele.meilleureSerieDeTout(slug, groupes.map(function (g) {
+        return { cle: g.seance.debut, series: g.series };
+      }), local.exercices, Palier, etatsExercices);
+    if (record && mesure !== 'charge_reps') record.date = record.cle || null;
+    return { record: record, recordsExo: recordsExo, optionsRecords: optionsRecords, pourRecords: pourRecords };
+  }
+
+  // 127 (ECRAN-SAISIE §7 quater.6, maquette validée le 21/10/2026) — LA VUE DE « TON ÉCHELLE ». Un câblage, sans
+  // calcul : l'échelle du catalogue et la marche suivante (`Modele.vueEchelle`, qui lit `Modele.marcheSuivante`), les
+  // exercices faits et leur dernière date (`faits.datesDesExercices`), le meilleur de chacun tel que SA page l'affiche
+  // (`recordDeLaPage`, `Modele.texteMeilleure`) et sa date (`Modele.quandDeLEchelle`), le haut de la zone en vigueur
+  // de l'exercice de départ (sa consigne), et la phrase du coach (`Moteur.phraseDeLaSuivante`) — sans phrase en
+  // « Juste un carnet » ou quand l'exercice de départ est en Entretenir. `null` pour un exercice sans échelle.
+  function vueEchelleDe(slug, maintenant) {
+    var index = catalogueIndexe();
+    var E = Modele.echelleDe(index[slug]);
+    if (E === null) return null;
+    var dates = faits.datesDesExercices(corpus());
+    var faites = {};
+    Object.keys(index).forEach(function (s) {
+      var x = index[s];
+      if (Modele.echelleDe(x) !== E || !dates[s]) return;
+      var r = recordDeLaPage(s, x, faits.seancesDeLExercice(corpus(), s), maintenant).record;
+      faites[s] = { meilleur: Modele.texteMeilleure(r) || null,
+                    quand: r && r.date ? Modele.quandDeLEchelle(r.date, maintenant) : null, derniere: dates[s] };
+    });
+    var zonesHaut = {};
+    var actifs = {};
+    Object.keys(faites).forEach(function (s) {
+      var k = consigneDeLExercice(s);
+      var z = k && k.consigne ? Moteur.zoneParCle(k.consigne.zone) : null;
+      if (z) zonesHaut[s] = z.haut;
+      actifs[s] = intentionDeLExercice(s) !== 'entretien';
+    });
+    // La phrase se tait en carnet (le profil) ; en Entretenir (l'exercice de départ), `phraseDe` le sait.
+    var phraseDe = function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(e); };
+    return Modele.vueEchelle(index, slug, faites, zonesHaut, !Moteur.coachSeTait(profil && profil.intention), phraseDe);
   }
 
   // 125 — la vue de « Comment faire » : Matériel (`Profil.libelleEquipement`), Travaille (muscles primaires), Aussi

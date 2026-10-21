@@ -196,7 +196,16 @@ const GARDEES = [
   { fn: 'carteFinDeBloc', module: 'moteur.js' },
   { fn: 'ciblesDeTemps', module: 'moteur.js' },
   { fn: 'carteRaccourcir', module: 'moteur.js' },
-  { fn: 'feuilleDouleur', module: 'moteur.js' }
+  { fn: 'feuilleDouleur', module: 'moteur.js' },
+  // 127 (MOTEUR §9.17 bis) — l'échelle des variantes : la carte « marche suivante » (le plan la décide et la rédige)
+  // et la phrase de « la suivante » sur la page d'exercice (la condition de la carte, dite hors séance).
+  // `motif` : `x.carteMarche` est aussi le champ du plan que l'écran lit ; seul l'appel qualifié par le moteur compte.
+  { fn: 'carteMarche', module: 'moteur.js',
+    motif: /(?:\bMoteur|\bMoteur\(\)|racine\.THMoteur)\s*\.\s*carteMarche\b/g },
+  { fn: 'carteMarcheDecidee', module: 'moteur.js' },
+  { fn: 'carteMarcheTitre', module: 'moteur.js' },
+  { fn: 'carteMarcheDetail', module: 'moteur.js' },
+  { fn: 'phraseDeLaSuivante', module: 'moteur.js' }
 ];
 
 // ── LA LISTE D'AUTORISATIONS ────────────────────────────────────────────────
@@ -213,6 +222,12 @@ const LE_COACH = 'plan.js';
 // (29/09/2026) et sont RAPPORTÉES dans sa PR pour décision : elles ne sont pas
 // forcées dans le plan par ce commit.
 const AUTORISATIONS = {
+  phraseDeLaSuivante: {
+    'app.js': 'ECRAN-SAISIE §7 quater.6 (127) : « Ton échelle » vit sur la page d’exercice, hors séance — donc sans plan ; ' +
+      'l’app passe la fonction à `Modele.vueEchelle`, qui lui donne la marche suivante (`Modele.marcheSuivante`), le ' +
+      'haut de la zone en vigueur et le meilleur déjà formaté ; la phrase redit la condition de la carte, sans rien ' +
+      'décider (app.js, `vueEchelleDe`).'
+  },
   projection: {
     'app.js': 'MOTEUR §9.25 (109) : l’objectif se pose sur la page d’exercice, hors séance — donc sans plan ; la date ' +
       'se projette UNE fois, à la pose (app.js, `poserObjectif`), et la ligne `objectifs` la garde figée — ou, pour un ' +
@@ -473,7 +488,7 @@ const NOTIONS = [
       'meilleure série — deux nombres pour le même exercice et la même date, à un tap.' },
   { notion: 'le record de charge (la ligne la plus lourde de la table)', pr: 'PR 5',
     module: 'modele.js', fonction: 'recordDeLaTable', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['rendreExercice'] },
+    parAilleurs: { 'app.js': ['recordDeLaPage'] },
     raison: 'décision du 02/10/2026 : un record est un fait, exploration comprise ; la fiche ' +
       'l’écartait et pouvait s’afficher sous la ligne « 1 rep » de la table.' },
   { notion: 'la consigne d’un exercice hors de l’en-tête (étiquette, zone déduite, cible)', pr: 'PR 5',
@@ -861,7 +876,7 @@ const NOTIONS = [
   { notion: 'les records d’un exercice à une date (le périmètre de la médaille)', pr: '55-U1',
     module: 'modele.js', fonction: 'recordsDeLExercice', lecteurs: ['app.js', 'faits.js', 'objectif.js'],
     par: ['tableauDesRecords'],
-    parAilleurs: { 'app.js': ['rendreExercice'], 'faits.js': ['ceQueJeSais'], 'objectif.js': ['recordA'] },
+    parAilleurs: { 'app.js': ['recordDeLaPage'], 'faits.js': ['ceQueJeSais'], 'objectif.js': ['recordA'] },
     raison: 'MOTEUR §9.23 : le record de charge de la page, sa force estimée (hors des records, D1) et le tableau des records lisent ' +
       'la même table cumulée, sur le même périmètre que la médaille (12 mois pour un matériel de salle). ' +
       '60-2a : « Ce que je sais » montre le maximum de chaque barre par cette même fonction — jamais une seconde. ' +
@@ -1451,6 +1466,40 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'marchesDesParis', lecteurs: ['app.js'],
     raison: 'une lecture des lignes `predictions` (module escalier) : les périodes de la série de plus, l’observation et ' +
       'la démonstration lisent les mêmes marches.' },
+  // 127 (MOTEUR §9.17 bis, ECRAN-SAISIE §7 quater.6) — l'échelle des variantes.
+  { notion: 'le seuil d’une marche au poids du corps (le haut de la zone et 8 reps : le lest comme la marche suivante)', pr: '127-U1',
+    module: 'moteur.js', fonction: 'seuilDeMarche', lecteurs: ['plan.js'],
+    par: ['consignePour', 'carteMarcheDecidee', 'phraseDeLaSuivante'],
+    raison: 'MOTEUR §9.17 et §9.17 bis (21/10/2026) : la carte du lest, la carte « marche suivante », la phrase de la page ' +
+      'et les invariants I49 et I50 lisent le même seuil, écrit une fois (`SEUIL_MARCHE`).' },
+  { notion: 'la marche suivante d’un exercice d’échelle (`echelle`, `echelle_rang` au catalogue)', pr: '127-U1',
+    module: 'modele.js', fonction: 'marcheSuivante', lecteurs: ['app.js'],
+    par: ['vueEchelle'],
+    parAilleurs: { 'app.js': ['marcheAProposer'] },
+    interditAilleurs: { motif: /\.\s*echelle_rang\b|\[\s*(['"`])echelle_rang\1\s*\]/,
+      sauf: { 'donnees.js': 'la seconde lecture du catalogue (`echellesDuCatalogue`) recopie les deux colonnes telles quelles, sans les interpréter' },
+      raison: '`echelle_rang` lu ailleurs que dans `modele.js` : une seconde définition de l’échelle' },
+    raison: 'MOTEUR §9.17 bis : une seule fonction, lue par la carte du plan (l’app la lui passe, `entreesDuPlan`) ' +
+      'et par la page d’exercice (« Ton échelle ») — aucun écran ne recalcule une marche.' },
+  { notion: 'l’échelle d’un exercice (la clé, ou `null` sans les colonnes)', pr: '127-U1',
+    module: 'modele.js', fonction: 'echelleDe', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['vueEchelleDe'] },
+    raison: 'ECRAN-SAISIE §7 quater.6 : la page dit « Ton échelle » sur les exercices de la même échelle, lue par la ' +
+      'même fonction que la marche suivante.' },
+  { notion: 'la vue de « Ton échelle » (les marches, ta marche, la suivante, sa phrase)', pr: '127-U1',
+    module: 'modele.js', fonction: 'vueEchelle', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['vueEchelleDe'] },
+    raison: 'ECRAN-SAISIE §7 quater.6 (maquette du 21/10) : la carte ne calcule rien — l’échelle du catalogue, les faits ' +
+      'et la marche suivante ; la vue se rejoue contre la référence (`cas-127.json`).' },
+  { notion: 'le meilleur d’un exercice tel que sa page l’écrit', pr: '127-U1',
+    module: 'modele.js', fonction: 'texteMeilleure', lecteurs: ['rendu.js', 'app.js'],
+    parAilleurs: { 'app.js': ['vueEchelleDe'] },
+    raison: 'ECRAN-SAISIE §7 quater.6 : « Ton meilleur » sur chaque marche est le chiffre de la fiche de sa page, par ' +
+      'le même formateur (venu de `rendu.js`).' },
+  { notion: 'la date d’un meilleur sur « Ton échelle » (« mardi » sur 7 jours, sinon le mois)', pr: '127-U1',
+    module: 'modele.js', fonction: 'quandDeLEchelle', lecteurs: ['app.js'],
+    raison: 'ECRAN-SAISIE §7 quater.6 : la date d’un meilleur, par le formateur des dates (les jours et les mois ne ' +
+      's’écrivent que dans `modele.js`).' },
   { notion: 'une zone par sa clé (bornes, libellé)', pr: '124-U1',
     module: 'moteur.js', fonction: 'zoneParCle', lecteurs: ['app.js', 'plan.js'],
     raison: 'les bornes d’une zone sont écrites une fois (`ZONES`) ; le plan et la démonstration les lisent par la clé.' },

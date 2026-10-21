@@ -296,16 +296,8 @@
   // La barre d'une aide la plus forte : visible, jamais à zéro.
   var JAUGE_MIN = 8;
 
-  function texteMeilleure(m) {
-    if (!m) return '';
-    // Les mêmes clés que la carte de séance, dans le même ordre : `charge` et
-    // `reps` d'abord, les autres grandeurs ensuite.
-    if (m.charge !== null && m.charge !== undefined) {
-      return M().formatMesure({ charge_kg: m.charge, reps: m.reps });
-    }
-    if (!m.valeur) return '';
-    return m.valeur + (m.complement ? ' ' + m.complement : '');
-  }
+  // 127 — le formateur vit dans `modele.js` (`texteMeilleure`) : « Ton échelle » écrit le même meilleur que la fiche.
+  function texteMeilleure(m) { return M().texteMeilleure(m); }
 
   function ligneFiche(fiche, libelle, sous, valeur) {
     var li = el('div', 'exo-li');
@@ -572,7 +564,51 @@
     return cible;
   }
 
+  // 127 (ECRAN-SAISIE §7 quater.6, maquette `maquette-echelle-page-v1.html`, validée le 21/10/2026) — « TON ÉCHELLE »,
+  // en tête du Résumé. Le dessin seulement : les marches (du plus difficile au plus facile), ta marche en ambre, la
+  // suivante en contour, l'habileté en pointillé, la marche de la page soulignée ; chaque exercice est un bouton qui
+  // ouvre sa page (44 px au moins). Les textes et les chiffres arrivent faits (`Modele.vueEchelle`, l'app) : ici, rien
+  // ne se calcule.
+  function rendreTonEchelle(cible, v, surMarche) {
+    var carte = el('section', 'ton-echelle');
+    carte.appendChild(el('h3', 'te-titre', 'Ton échelle'));
+    var ol = el('ol', 'te-marches');
+    (v.marches || []).forEach(function (m) {
+      var faite = (m.exercices || []).some(function (x) { return x.fait; });
+      var li = el('li', 'te-marche' + (m.tienne ? ' tienne' : faite ? ' faite' : '') + (m.suivante ? ' suivante' : '') +
+        (m.vue ? ' vue' : ''));
+      li.appendChild(el('span', 'te-rond num', String(m.rang)));
+      var corps = el('div', 'te-corps');
+      var ligne = el('div', 'te-exos');
+      (m.exercices || []).forEach(function (x, i) {
+        if (i) ligne.appendChild(el('span', 'te-sep', '\u00b7'));
+        var b = el('button', 'te-exo');
+        b.type = 'button';
+        b.setAttribute('data-slug', x.slug);
+        b.appendChild(el('span', 'te-nom', x.nom));
+        if (x.habilete) b.appendChild(el('span', 'te-etiq hab', 'habileté'));
+        if (x.fait && x.meilleur) {
+          var det = el('span', 'te-det', 'Ton meilleur : ');
+          det.appendChild(el('b', 'num', x.meilleur));
+          if (x.quand) det.appendChild(doc.createTextNode(' \u00b7 ' + x.quand));
+          b.appendChild(det);
+        }
+        b.addEventListener('click', function () { if (surMarche) surMarche(x.slug); });
+        ligne.appendChild(b);
+      });
+      if (m.tienne) ligne.appendChild(el('span', 'te-etiq ici', 'ta marche'));
+      if (m.suivante) ligne.appendChild(el('span', 'te-etiq next', 'la suivante'));
+      corps.appendChild(ligne);
+      li.appendChild(corps);
+      ol.appendChild(li);
+    });
+    carte.appendChild(ol);
+    if (v.phrase) carte.appendChild(el('p', 'te-phrase', v.phrase));
+    cible.appendChild(carte);
+  }
+
   function rendreResumeExo(cible, vue) {
+    if (vue.tonEchelle) rendreTonEchelle(cible, vue.tonEchelle, vue.surMarche);
     if (vue.objectif) rendreCarteObjectif(cible, vue.objectif);
     if (vue.teteRecords) rendreTeteRecords(cible, vue.teteRecords);
     cible.appendChild(el('div', 'section-t', 'RECORDS'));
@@ -2415,6 +2451,10 @@
         if (pr) noeud.appendChild(propositionDeReprise(pr, s._iExo, vue));
         var pl = typeof vue.propositionLest === 'function' ? vue.propositionLest(s._iExo) : null;
         if (pl) noeud.appendChild(propositionDeLest(pl, s._iExo, vue));
+        // MOTEUR §9.17 bis (127) — la carte « marche suivante » : la place et le composant de la carte du lest (le
+        // plan ne pose jamais les deux sur un exercice).
+        var pm = typeof vue.propositionMarche === 'function' ? vue.propositionMarche(s._iExo) : null;
+        if (pm) noeud.appendChild(propositionDeMarche(pm, s._iExo, vue));
         var ps = typeof vue.propositionSchema === 'function' ? vue.propositionSchema(s._iExo) : null;
         if (ps) noeud.appendChild(propositionDeSchema(ps, s._iExo, vue));
         var pc = typeof vue.propositionChauffes === 'function' ? vue.propositionChauffes(s._iExo) : null;
@@ -2872,6 +2912,18 @@
       oui: carte.oui, non: carte.non, classeOui: 'pl-oui', classeNon: 'pl-non',
       surOui: function () { vue.surLest(iExo, 'oui'); },
       surNon: function () { vue.surLest(iExo, 'non'); }
+    }, iExo);
+  }
+
+  // MOTEUR §9.17 bis (127) — la carte « marche suivante » : LE RENDU DE LA CARTE DU LEST (même composant, mêmes
+  // classes, même place) ; `proposition-marche` ne fait que la nommer. Le titre, le détail et les deux libellés
+  // viennent du plan.
+  function propositionDeMarche(carte, iExo, vue) {
+    return propositionDExercice({
+      classe: 'proposition-lest proposition-marche', texte: carte.titre, detail: carte.detail,
+      oui: carte.oui, non: carte.non, classeOui: 'pl-oui', classeNon: 'pl-non',
+      surOui: function () { vue.surMarche(iExo, 'oui'); },
+      surNon: function () { vue.surMarche(iExo, 'non'); }
     }, iExo);
   }
 

@@ -23321,6 +23321,12 @@ const SETS_IMPORTES = [
       (await cartes127()).length === 0 && !((await plan127()).filter((x) => x.carte)[0]), JSON.stringify(await plan127()));
     await abandonner();
     poser127('e127-6', 4, -20, 12);
+    await aller('/saisie');
+    await demarrerRoutine('Échelle U127');
+    await attendre(900);
+    ok('[127] D — DISCRIMINANT : une seule séance à l’aide plus légère (−25 puis −20) : deux aides différentes, pas de carte',
+      (await cartes127()).length === 0, JSON.stringify(await cartes127()));
+    await abandonner();
     poser127('e127-7', 3, -20, 12);
     await aller('/saisie');
     await demarrerRoutine('Échelle U127');

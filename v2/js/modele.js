@@ -97,6 +97,15 @@
     return String(n).replace('.', ',').replace(/^-/, '\u2212');
   }
 
+  // 132 (MOTEUR §10 ter, ECRAN-SAISIE §3 ter.6) — LE FORMATEUR D'UNE SÉRIE NOTÉE PAR NOM : « Noir × 12 », « Noir »
+  // sans reps ; `null` pour une série sans nom (elle garde l'affichage d'avant). Le seul endroit qui l'écrit : le
+  // journal, le détail, la page d'exercice et son meilleur, le récap, le fil, une séance d'ami, le direct du groupe,
+  // la colonne « préc. » le lisent ici. La charge virtuelle n'y paraît jamais.
+  function affichageElastique(serie) {
+    if (!serie || serie.elastique === null || serie.elastique === undefined) return null;
+    return serie.elastique + (serie.reps !== null && serie.reps !== undefined ? ' \u00d7 ' + serie.reps : '');
+  }
+
   // 132 (maquette `maquette-elastiques-v2.html`) — LA PASTILLE D'UN ÉLASTIQUE : la couleur que son nom dit (« Noir »,
   // « Rouge », « Bleue »…), lue sur le premier mot, sans accent ni « e » final ; `null` pour un nom qui n'est pas une
   // couleur (la pastille reste neutre). Un repère pour l'œil, jamais une donnée : le coach ne lit que l'ordre.
@@ -2351,6 +2360,7 @@
     nombreTexte: nombreTexte,
     nombreSigne: nombreSigne,
     pastilleElastique: pastilleElastique,
+    affichageElastique: affichageElastique,
     lireNombre: lireNombre,
     // §9.17 — l'aide : tapée en positif, rangée en négatif, lue sans signe.
     rangerAide: rangerAide,

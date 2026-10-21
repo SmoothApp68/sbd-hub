@@ -1381,7 +1381,7 @@ function ok(nom, cond, detail) {
       ok('[132] les mini-bandes : un nom seul (pas de champ kg)',
         JSON.stringify(await noms('mini_bandes')) === JSON.stringify(['Bleue|', 'Jaune|']) &&
         !(await page.$('#feuille-contenu .el-carte[data-liste="mini_bandes"] .el-champ-kg')), JSON.stringify(await noms('mini_bandes')));
-      await page.click('#feuille-contenu .el-choix button[data-par-nom="true"]');
+      await page.click('#feuille-contenu .el-choix button[data-choix="nom"]');
       await attendre(150);
       const large = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
       ok('[132] à 360 px, rien ne déborde', large);
@@ -1397,11 +1397,11 @@ function ok(nom, cond, detail) {
       await attendre(400);
       ok('[132] la feuille rouverte : l’ordre et le choix relus',
         JSON.stringify((await noms('elastiques')).map((x) => x.split('|')[0])) === JSON.stringify(['Noir', 'Rouge', 'Vert']) &&
-        (await page.evaluate(() => (document.querySelector('#feuille-contenu .el-choix button[data-par-nom="true"]') || {}).getAttribute('aria-pressed'))) === 'true');
+        (await page.evaluate(() => (document.querySelector('#feuille-contenu .el-choix button[data-choix="nom"]') || {}).getAttribute('aria-pressed'))) === 'true');
       // Retirer Vert, revenir « en kg » : la base suit.
       await page.click('#feuille-contenu .el-carte[data-liste="elastiques"] .el-rang[data-i="2"] .el-retirer');
       await attendre(150);
-      await page.click('#feuille-contenu .el-choix button[data-par-nom="false"]');
+      await page.click('#feuille-contenu .el-choix button[data-choix="kg"]');
       await attendre(150);
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
       const suivi = await attendreQue(page, () => !!bd.profils[B].ma_salle && !bd.profils[B].ma_salle.elastiques_par_nom &&

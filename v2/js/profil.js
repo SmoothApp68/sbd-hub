@@ -1635,10 +1635,121 @@
                     stab: fiche.muscles_stabilisateurs || [] };
     return Mo.estIsolation(muscles) ? Object.assign(salle, { isolation: true }) : salle;
   }
+  // ══ 132 (B3, MOTEUR §10 ter) — LES ÉLASTIQUES PAR LEUR NOM : LA SALLE DONT LES CRANS SONT DES NOMS ══════════════
+  //
+  // ⚠️ UNE SEULE SOURCE : la référence `elastiques132.py`, portée fonction par fonction (le fichier de cas
+  // `cas-132.json` les rejoue à 0 écart). « Une liste d'élastiques de Ma salle est une salle (§10 bis) dont les crans
+  // sont des noms. Le coach ne lit que l'ordre de la liste, jamais un chiffre : jamais de pourcentage, jamais de kg
+  // inventé. » Chaque élastique reçoit une charge VIRTUELLE, ordonnée dans le sens où monter est plus dur : sur une
+  // AIDE (`charge = assistance`), [Noir, Rouge, Vert] donne −3, −2, −1 (monter = un élastique plus léger) ; en
+  // RÉSISTANCE (`charge = elastique`), 3, 2, 1 (monter = un élastique plus fort). LA CHARGE VIRTUELLE N'EST JAMAIS
+  // AFFICHÉE, NI ÉCRITE : le moteur la lit, l'affichage la traduit en nom (`nomDeLaCharge`), une série écrit son nom
+  // (`ecrireSerie`).
+  //
+  // `fiche` : la fiche du catalogue (`charge`, `type_elastique`) ; `salle` : `ma_salle` (brute ou `salleDe`).
+  function listeDe(fiche, salle) {
+    var s = salle || {}, t = fiche && fiche.type_elastique;
+    var l = t === 'grand' ? s.elastiques : t === 'mini' ? s.mini_bandes : null;
+    return Array.isArray(l) ? l.map(function (e) { return e && e.nom; }) : [];
+  }
+  // L'exercice se note-t-il par le nom de l'élastique ? Sa liste a au moins un élastique, et : en résistance, toujours ;
+  // sur une aide à l'élastique, si « par son nom » est choisi ; jamais ailleurs (une machine d'aide se note en kg).
+  function parNom(fiche, salle) {
+    if (!listeDe(fiche, salle).length) return false;
+    if (fiche.charge === 'elastique') return true;
+    if (fiche.charge === 'assistance' && fiche.type_elastique) return !!(salle || {}).elastiques_par_nom;
+    return false;
+  }
+  function chargesVirtuelles(fiche, liste) {
+    var n = (liste || []).length, cv = {};
+    (liste || []).forEach(function (nom, i) { cv[nom] = fiche && fiche.charge === 'assistance' ? i - n : n - i; });
+    return cv;
+  }
+  function kgDeLElastique(salle, nom) {
+    var l = (salle || {}).elastiques || [];
+    for (var i = 0; i < l.length; i++) {
+      if (l[i] && l[i].nom === nom) return l[i].kg === undefined ? null : l[i].kg;
+    }
+    return null;
+  }
+  // Une aide notée en kg (sans nom) se rattache à l'élastique dont le kg déclaré est EXACTEMENT celui de l'aide ; sinon
+  // `null` (la série reste en kg, neutre pour la consigne par nom). Jamais en résistance. Un 20 kg sans élastique de
+  // 20 kg ne devient pas « Rouge ».
+  function rattacherElastique(fiche, salle, chargeKg) {
+    if (!fiche || fiche.charge !== 'assistance' || chargeKg === null || chargeKg === undefined) return null;
+    var c = Number(chargeKg);
+    if (!isFinite(c)) return null;
+    var l = (salle || {}).elastiques || [];
+    for (var i = 0; i < l.length; i++) {
+      var e = l[i];
+      if (e && e.kg !== null && e.kg !== undefined && Math.abs(-c - Number(e.kg)) < 1e-9) return e.nom;
+    }
+    return null;
+  }
+  // Le nom de l'élastique d'une série, au sens du coach : son nom s'il est dans la liste ; le rattachement d'une aide
+  // en kg ; sinon `null` — NEUTRE : un nom absent de la liste (retiré, renommé) n'est jamais deviné.
+  function elastiqueDeSerie(fiche, salle, serie) {
+    var liste = listeDe(fiche, salle);
+    var nom = serie ? serie.elastique : null;
+    if (nom !== null && nom !== undefined) return liste.indexOf(nom) >= 0 ? nom : null;
+    return rattacherElastique(fiche, salle, serie ? serie.charge_kg : null);
+  }
+  // La charge virtuelle que le moteur lit pour une série d'un exercice noté par nom ; `null` = série neutre.
+  function chargePourLeMoteur(fiche, salle, serie) {
+    var nom = elastiqueDeSerie(fiche, salle, serie);
+    return nom === null ? null : chargesVirtuelles(fiche, listeDe(fiche, salle))[nom];
+  }
+  // La salle au sens du §10 bis : les charges proposables (virtuelles, croissantes) et leurs noms ; `null` quand
+  // l'exercice ne se note pas par nom.
+  function salleElastique(fiche, salle) {
+    if (!parNom(fiche, salle)) return null;
+    var cv = chargesVirtuelles(fiche, listeDe(fiche, salle)), noms = {};
+    var charges = Object.keys(cv).map(function (n) { noms[String(cv[n])] = n; return cv[n]; })
+      .sort(function (a, b) { return a - b; });
+    return { charges: charges, noms: noms };
+  }
+  // L'élastique au cran au-dessus (`sens` = +1, plus dur) ou en dessous (−1) ; `null` au bout de la liste.
+  function cranElastique(fiche, salle, nom, sens) {
+    var cv = chargesVirtuelles(fiche, listeDe(fiche, salle));
+    if (!Object.prototype.hasOwnProperty.call(cv, nom)) return null;
+    var cible = cv[nom] + sens;
+    var noms = Object.keys(cv);
+    for (var i = 0; i < noms.length; i++) if (cv[noms[i]] === cible) return noms[i];
+    return null;
+  }
+  // Ce qui part en base pour une série notée par nom : `elastique` = le nom ; `charge_kg` = −kg déclaré d'une aide
+  // (un grand élastique), sinon `NULL` — toujours `NULL` en résistance.
+  function ecrireSerie(fiche, salle, nom, reps) {
+    var kg = fiche && fiche.charge === 'assistance' && fiche.type_elastique === 'grand' ? kgDeLElastique(salle, nom) : null;
+    return { elastique: nom, charge_kg: kg !== null ? -kg : null, reps: reps };
+  }
+  // Le meilleur d'un exercice noté par nom : l'élastique le plus dur, puis le plus de reps ; séries neutres exclues.
+  // « Rouge × 10 », ou `null`. Il se calcule à l'affichage (un record est immuable, l'ordre d'une liste peut changer).
+  function meilleurElastique(fiche, salle, series) {
+    var best = null;
+    (series || []).forEach(function (s) {
+      var v = chargePourLeMoteur(fiche, salle, s);
+      if (v === null || v === undefined || !s || s.reps === null || s.reps === undefined) return;
+      if (best === null || v > best.v || (v === best.v && s.reps > best.reps)) {
+        best = { v: v, nom: elastiqueDeSerie(fiche, salle, s), reps: s.reps };
+      }
+    });
+    return best === null ? null : racine.THModele.affichageElastique({ elastique: best.nom, reps: best.reps });
+  }
+
   function salleDeLExercice(profil, slug, index) {
     var s = salleDe(profil);
     var fiche = index && slug && Object.prototype.hasOwnProperty.call(index, slug) ? index[slug] : null;
     if (!s || !fiche) return null;
+    // 132 (MOTEUR §10 ter) — UN EXERCICE NOTÉ PAR NOM : sa liste est sa salle. Le moteur reçoit les charges virtuelles
+    // (§10 bis tel quel) ; `noms` les traduit à l'affichage, `fiche` et `ma` disent comment lire une série
+    // (`chargePourLeMoteur`), `aide` le sens. Jamais rien d'autre : une barre, des haltères ne sont pas concernés.
+    var el = salleElastique(fiche, s);
+    if (el) {
+      return avecIsolation({ materiel: 'elastique', charges: el.charges, noms: el.noms,
+                             aide: fiche.charge === 'assistance', liste: listeDe(fiche, s),
+                             fiche: { charge: fiche.charge, type_elastique: fiche.type_elastique }, ma: s }, fiche);
+    }
     if (fiche.equipement === 'haltere') {
       if (!s.halteres) return null;
       // 123 — toutes tranches confondues (11 kg n'existe pas chez Aurélien : 10 ou 12), en PAIRE (§10.1).
@@ -1922,7 +2033,11 @@
     SALLE_TRANCHES_MAX: SALLE_TRANCHES_MAX, tranchesDe: tranchesDe, chargesDesTranches: chargesDesTranches,
     ajouterTrancheHalteres: ajouterTrancheHalteres, retirerTrancheHalteres: retirerTrancheHalteres, sansHalteres: sansHalteres,
     peutAjouterTranche: peutAjouterTranche, phraseHalteresHorsBornes: phraseHalteresHorsBornes, SALLE_PAS_DEFAUT: SALLE_PAS_DEFAUT, resumeSalle: resumeSalle, ligneSalle: ligneSalle,
-    estBarreEZ: estBarreEZ, salleDeLExercice: salleDeLExercice
+    estBarreEZ: estBarreEZ, salleDeLExercice: salleDeLExercice,
+    // 132 (MOTEUR §10 ter) — les élastiques par leur nom (la référence `elastiques132.py`).
+    listeDe: listeDe, parNom: parNom, chargesVirtuelles: chargesVirtuelles, rattacherElastique: rattacherElastique,
+    elastiqueDeSerie: elastiqueDeSerie, chargePourLeMoteur: chargePourLeMoteur, salleElastique: salleElastique,
+    cranElastique: cranElastique, ecrireSerie: ecrireSerie, meilleurElastique: meilleurElastique
   };
 
   racine.THProfil = api;

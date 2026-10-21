@@ -181,3 +181,72 @@ describe('132 — Ma salle : ajouter, retirer, ranger, « par son nom »', () =>
       .toEqual(['#2b2b2b', '#b8433b', '#3f8f5a', '#2f5f9e', '#d9b13b', null]);
   });
 });
+
+// ═══ 3. LE MODÈLE : UNE SEULE SOURCE — CONCORDANCE AVEC elastiques132.py (0 écart) ══
+describe('132 — concordance avec elastiques132.py', () => {
+  const salleDe = (c) => F.salles[c.salle];
+  const exoDe = (c) => F.exercices[c.exercice];
+  F.par_nom.forEach((c) => {
+    test('par_nom — ' + c.salle + ' × ' + c.exercice, () => {
+      expect(Profil.listeDe(exoDe(c), salleDe(c))).toEqual(c.liste);
+      expect(Profil.parNom(exoDe(c), salleDe(c))).toBe(c.par_nom);
+    });
+  });
+  F.salle.forEach((c) => {
+    test('salle — ' + c.salle + ' × ' + c.exercice, () => {
+      expect(Profil.salleElastique(exoDe(c), salleDe(c))).toEqual(c.attendu);
+    });
+  });
+  F.serie.forEach((c) => {
+    test('serie — ' + c.salle + ' × ' + c.exercice + ', série ' + c.serie, () => {
+      const se = F.series[c.serie];
+      expect(Profil.elastiqueDeSerie(exoDe(c), salleDe(c), se)).toBe(c.nom);
+      expect(Profil.chargePourLeMoteur(exoDe(c), salleDe(c), se)).toBe(c.charge_moteur);
+      expect(Mo.affichageElastique(se)).toBe(c.affichage);
+    });
+  });
+  F.cran.forEach((c) => {
+    test('cran — ' + c.salle + ' × ' + c.exercice + ', ' + c.nom, () => {
+      expect(Profil.cranElastique(exoDe(c), salleDe(c), c.nom, 1)).toBe(c.au_dessus);
+      expect(Profil.cranElastique(exoDe(c), salleDe(c), c.nom, -1)).toBe(c.en_dessous);
+    });
+  });
+  F.ecrire.forEach((c) => {
+    test('ecrire — ' + c.salle + ' × ' + c.exercice + ', ' + c.nom, () => {
+      expect(Profil.ecrireSerie(exoDe(c), salleDe(c), c.nom, c.reps)).toEqual(c.attendu);
+    });
+  });
+  F.meilleur.forEach((c) => {
+    test('meilleur — ' + c.salle + ' × ' + c.exercice, () => {
+      expect(Profil.meilleurElastique(exoDe(c), salleDe(c), F.series)).toBe(c.attendu);
+    });
+  });
+  test('les charges virtuelles : sur une aide −3, −2, −1 ; en résistance 3, 2, 1 (l’ordre, jamais un chiffre)', () => {
+    const l = ['Noir', 'Rouge', 'Vert'];
+    expect(Profil.chargesVirtuelles(F.exercices.aide, l)).toEqual({ Noir: -3, Rouge: -2, Vert: -1 });
+    expect(Profil.chargesVirtuelles(F.exercices.resistance, l)).toEqual({ Noir: 3, Rouge: 2, Vert: 1 });
+  });
+  test('le rattachement : le kg EXACT d’un élastique déclaré, jamais le plus proche ; jamais en résistance', () => {
+    const s = F.salles.kg;
+    expect(Profil.rattacherElastique(F.exercices.aide, s, -35)).toBe('Noir');
+    expect(Profil.rattacherElastique(F.exercices.aide, s, -25)).toBe('Rouge');
+    expect(Profil.rattacherElastique(F.exercices.aide, s, -20)).toBeNull();
+    expect(Profil.rattacherElastique(F.exercices.aide, s, -24.5)).toBeNull();
+    expect(Profil.rattacherElastique(F.exercices.resistance, s, -35)).toBeNull();
+  });
+});
+
+describe('132 — la salle de l’exercice (`salleDeLExercice`, étendue)', () => {
+  const INDEX = Mo.indexerExercices(Object.keys(F.exercices).map((k) => Object.assign({ nom: k, muscles_primaires: ['dos'] },
+    F.exercices[k])));
+  test('noté par nom : la liste devient la salle (charges virtuelles, noms, sens) ; sinon rien de nouveau', () => {
+    const p = { ma_salle: F.salles.nom_mini };
+    const a = Profil.salleDeLExercice(p, 'tractions_elastique', INDEX);
+    expect(a).toMatchObject({ materiel: 'elastique', charges: [-3, -2, -1], noms: { '-3': 'Noir', '-2': 'Rouge', '-1': 'Vert' },
+                              aide: true, liste: ['Noir', 'Rouge', 'Vert'] });
+    expect(Profil.salleDeLExercice(p, 'clamshell_elastique', INDEX)).toMatchObject({ charges: [1, 2], aide: false,
+      noms: { '2': 'Bleue', '1': 'Jaune' } });
+    expect(Profil.salleDeLExercice({ ma_salle: F.salles.kg }, 'tractions_elastique', INDEX)).toBeNull();
+    expect(Profil.salleDeLExercice(p, 'traction_assistee', INDEX)).toBeNull();
+  });
+});

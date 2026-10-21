@@ -6010,7 +6010,7 @@
       var on = parNom === c[0];
       var bt = el('button', 'q-puce' + (on ? ' on' : ''), c[1]);
       bt.type = 'button';
-      bt.dataset.parNom = String(c[0]);
+      bt.dataset.choix = c[0] ? 'nom' : 'kg';
       bt.setAttribute('aria-pressed', on ? 'true' : 'false');
       bt.addEventListener('click', function () { vue.surParNom(c[0]); });
       choix.appendChild(bt);

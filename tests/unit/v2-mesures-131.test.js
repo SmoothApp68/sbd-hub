@@ -34,3 +34,37 @@ describe('audit 130 n°5 — une série en distance seule se montre', () => {
     expect(m.libelle).toBeUndefined();
   });
 });
+
+// ── #8 et #9 — les bornes (ECRAN §3 ter.5, décidées le 21/10/2026) ─────────────
+describe('audit 130 n°8 et n°9 — les bornes : jamais 0, la distance au plus 400 km', () => {
+  const seance = () => ({ exercices: [{ exercise_slug: 'course', series: [SERIE({})] }] });
+  const apres = (champs) => Seance.modifierSerie(seance(), 0, 0, champs).exercices[0].series[0];
+  test('400 km passent ; 400,1 km ne s’écrivent pas', () => {
+    expect(apres({ distance_km: '400' }).distance_m).toBe(400000);
+    expect(apres({ distance_km: '400,1' }).distance_m).toBeNull();
+    expect(apres({ distance_m: 400001 }).distance_m).toBeNull();
+  });
+  test('⚠️ 0 ne s’écrit jamais : ni une durée, ni une distance', () => {
+    expect(apres({ distance_km: '0' }).distance_m).toBeNull();
+    expect(apres({ duree: 0 }).duree_s).toBeNull();
+    expect(apres({ duree_s: 0 }).duree_s).toBeNull();
+    expect(apres({ duree: 1 }).duree_s).toBe(1);
+    expect(apres({ distance_km: '0,5' }).distance_m).toBe(500);
+  });
+  test('une durée ou une distance à 0 déjà en base est une case vide au ✓', () => {
+    const planche = Modele.gabaritDe({ mesure: 'temps' });
+    expect(Seance.casesManquantes(planche, { duree_s: 0 }, {})).toEqual(['duree']);
+    const course = Modele.gabaritDe({ mesure: 'distance_temps' });
+    expect(Seance.casesManquantes(course, { duree_s: 0, distance_m: 0 }, {})).toEqual(['duree', 'distance_km']);
+  });
+  test('la réparation de la file borne pareil (une seule table)', () => {
+    const r = Seance.bornerLigne({ duree_s: 1800, distance_m: 650000 });
+    expect(r.change).toBe(true);
+    expect(r.ligne.distance_m).toBeNull();
+    expect(Seance.bornerLigne({ duree_s: 1800, distance_m: 5000 }).change).toBe(false);
+  });
+  test('le champ de saisie : la borne en kilomètres, rien pour la charge', () => {
+    expect(Modele.maxDeSaisie('distance_km')).toBe(400);
+    expect(Modele.maxDeSaisie('charge_kg')).toBeNull();
+  });
+});

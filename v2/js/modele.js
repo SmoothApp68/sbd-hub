@@ -587,6 +587,39 @@
   var MAX_DUREE_S = 9 * 3600 + 59 * 60 + 59;   // 9:59:59 — 35 999 s, LA borne
   var MAX_CHIFFRES_DUREE = 5;                  // sa conséquence, pas une règle
 
+  // ══ LES BORNES DES MESURES (ECRAN §3 ter.5, décidées le 21/10/2026 — audit 130 n°8 et n°9) ══
+  //
+  // UNE TABLE, en unités de COLONNE, lue par la saisie (`THSeance.modifierSerie`), la
+  // réparation de la file (`THSeance.bornerLigne`) et le champ lui-même (`maxDeSaisie`,
+  // le chiffre de trop n'entre pas, comme au pavé). Une borne recopiée ailleurs
+  // dériverait, et une contrainte en base sans la même borne dans l'app bloquerait la
+  // file (23514, définitif).
+  //
+  // ⚠️ JAMAIS 0 : une durée, une distance à 0 ne se valident pas — le 0 s'affichait
+  // « — » (audit 130 n°9). Hors borne, la valeur n'est PAS écrite (`null`) : la case
+  // obligatoire reste vide, donc rouge au ✓.
+  var MAX_DISTANCE_M = 400000;                 // 400 km
+  var BORNES_DES_COLONNES = {
+    duree_s:    { min: 1, max: MAX_DUREE_S },
+    distance_m: { min: 1, max: MAX_DISTANCE_M }
+  };
+  // La valeur bornée d'une colonne : la valeur, ou `null` (hors borne, ou pas un nombre).
+  // Une colonne sans borne passe telle quelle.
+  function borneDeColonne(cle, v) {
+    var b = Object.prototype.hasOwnProperty.call(BORNES_DES_COLONNES, cle) ? BORNES_DES_COLONNES[cle] : null;
+    if (!b || v === null || v === undefined) return v === undefined ? null : v;
+    var n = Number(v);
+    if (!isFinite(n) || n < b.min || n > b.max) return null;
+    return v;
+  }
+  // Le plus grand nombre que le CHAMP de saisie accepte (unité de saisie : km pour la
+  // distance), ou `null` : au-delà, le chiffre tapé n'entre pas.
+  function maxDeSaisie(nom) {
+    var c = Object.prototype.hasOwnProperty.call(CHAMPS_MESURE, nom) ? CHAMPS_MESURE[nom] : null;
+    var b = c && Object.prototype.hasOwnProperty.call(BORNES_DES_COLONNES, c.cle) ? BORNES_DES_COLONNES[c.cle] : null;
+    return b ? b.max / (c.facteur || 1) : null;
+  }
+
   function deux(n) { return (n < 10 ? '0' : '') + n; }
 
   function sansZerosDeTete(s) { return String(s).replace(/^0+(?=\d)/, ''); }
@@ -2196,6 +2229,10 @@
     champDeMesure: champDeMesure,
     MAX_CHIFFRES_DUREE: MAX_CHIFFRES_DUREE,
     MAX_DUREE_S: MAX_DUREE_S,
+    MAX_DISTANCE_M: MAX_DISTANCE_M,
+    BORNES_DES_COLONNES: BORNES_DES_COLONNES,
+    borneDeColonne: borneDeColonne,
+    maxDeSaisie: maxDeSaisie,
     poserChiffreDuree: poserChiffreDuree,
     retirerChiffreDuree: retirerChiffreDuree,
     dureeDeChiffres: dureeDeChiffres,

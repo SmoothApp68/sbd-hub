@@ -1067,7 +1067,12 @@
     var r = nombreOuNul(v);
     return r === null ? null : plafonne(Math.round(r), REPS_MAX_SERIE);
   }
-  function dureeBornee(v) { return entierOuNul(v, 1, dureeMax()); }
+  // Prompt 131 (audit 130 n°8, n°9) — les bornes des mesures vivent dans UNE table
+  // (`THModele.BORNES_DES_COLONNES`) : jamais 0 ; la distance au plus 400 km. Hors
+  // borne, la valeur n'est pas écrite (`null`). La durée garde son plafond d'avant
+  // (le pavé ne produit jamais plus de 9:59:59) ; son 0 devient `null`.
+  function dureeBornee(v) { return racine.THModele.borneDeColonne('duree_s', entierOuNul(v, 1, dureeMax())); }
+  function distanceBornee(v, facteur) { return racine.THModele.borneDeColonne('distance_m', entierOuNul(v, facteur)); }
 
   // ⚠️ BORNER UNE LIGNE DÉJÀ CALCULÉE, ET DIRE SI ÇA A CHANGÉ QUELQUE CHOSE.
   //
@@ -1092,6 +1097,10 @@
       c.duree_s = dureeBornee(ligne.duree_s);
       if (c.duree_s !== ligne.duree_s) change = true;
     }
+    if ('distance_m' in ligne) {
+      c.distance_m = distanceBornee(ligne.distance_m, 1);
+      if (c.distance_m !== ligne.distance_m) change = true;
+    }
     return change ? { ligne: Object.assign({}, ligne, c), change: true }
                   : { ligne: ligne, change: false };
   }
@@ -1102,8 +1111,8 @@
     if ('reps' in champs) c.reps = repsBornees(champs.reps);
     if ('duree' in champs) c.duree_s = dureeBornee(champs.duree);
     if ('duree_s' in champs) c.duree_s = dureeBornee(champs.duree_s);
-    if ('distance_m' in champs) c.distance_m = entierOuNul(champs.distance_m, 1);
-    if ('distance_km' in champs) c.distance_m = entierOuNul(champs.distance_km, 1000);
+    if ('distance_m' in champs) c.distance_m = distanceBornee(champs.distance_m, 1);
+    if ('distance_km' in champs) c.distance_m = distanceBornee(champs.distance_km, 1000);
     return avecSerie(seance, iExo, iSerie, c);
   }
 
@@ -2536,7 +2545,9 @@
       if (nom === 'charge_kg' && g.nature) return false;
       var c = racine.THModele.champDeMesure(nom);
       var cle = c ? c.cle : nom;
-      return vide(serie && serie[cle]) && vide(f && f[cle]);
+      // Audit 130 n°9 — une durée ou une distance à 0 (ou hors borne) est une case vide.
+      var absente = function (v) { return vide(v) || racine.THModele.borneDeColonne(cle, v) === null; };
+      return absente(serie && serie[cle]) && absente(f && f[cle]);
     });
     if (g.mesure === 'distance_temps' &&
         !(manquent.indexOf('duree') >= 0 && manquent.indexOf('distance_km') >= 0)) {

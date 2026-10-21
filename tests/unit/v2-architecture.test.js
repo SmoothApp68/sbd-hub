@@ -568,7 +568,7 @@ const NOTIONS = [
       '66A : la jauge d’une barre de la relecture (§5 ter.3) est cet arrondi, à 2 décimales.' },
   // Après la consolidation, les notions d'un chantier portent son geste.
   { notion: 'la lecture d’un nombre tapé (l’inverse du formateur, tous les signes moins)', pr: 'correctif 03/10/2026',
-    module: 'modele.js', fonction: 'lireNombre', lecteurs: ['seance.js', 'routines.js', 'app.js', 'importhevy.js', 'objectif.js'],
+    module: 'modele.js', fonction: 'lireNombre', lecteurs: ['seance.js', 'routines.js', 'app.js', 'importhevy.js', 'objectif.js', 'rendu.js'],
     motif: /\.\s*lireNombre\s*\(/g,
     parAilleurs: { 'seance.js': ['nombreOuNul'], 'routines.js': ['decimalOuNul'] },
     interditAilleurs: { motif: /\.replace\(\s*(['"]),\1\s*,\s*(['"])\.\2\s*\)/,
@@ -576,7 +576,8 @@ const NOTIONS = [
     raison: 'le champ réaffiche une assistance avec le vrai signe moins (U+2212) que la copie de ' +
       '`seance.js` ne relisait pas : retoucher les reps d’une série à « −25 » effaçait sa charge. ' +
       '69 : les nombres que Hevy écrit (« 31,5 kg », « 1.17 » km) se lisent ici aussi (`importhevy.js`). 109 : la ' +
-      'charge et les reps d’un objectif tapées dans sa feuille (`objectif.js`, `lireSaisie`).' },
+      'charge et les reps d’un objectif tapées dans sa feuille (`objectif.js`, `lireSaisie`). 131 : la borne d’un champ ' +
+      'de série (`rendu.js`, `champSerie` : au-delà de 400 km, le chiffre n’entre pas).' },
   { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
     module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js', 'parcours.js', 'deraille.js', 'routines.js'],
     parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'],

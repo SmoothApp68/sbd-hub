@@ -2003,7 +2003,19 @@
     } else if (indication) {
       input.placeholder = indication;
     }
-    input.addEventListener('input', function () { surSaisie(input.value); });
+    // Prompt 131 (audit 130 n°8) — `options.max`, la borne du champ en unité de saisie
+    // (`THModele.maxDeSaisie`) : au-delà, le chiffre tapé n'entre pas — comme au pavé de
+    // la durée (§3 ter.2 ter). Le champ revient au dernier texte accepté, et rien n'est
+    // écrit.
+    var accepte = input.value;
+    input.addEventListener('input', function () {
+      if (o.max !== null && o.max !== undefined) {
+        var n = M().lireNombre(input.value);
+        if (n !== null && n > o.max) { input.value = accepte; return; }
+      }
+      accepte = input.value;
+      surSaisie(input.value);
+    });
     if (typeof o.surQuitte === 'function') {
       input.addEventListener('change', function () { o.surQuitte(); });
     }
@@ -3145,7 +3157,7 @@
         versChamp(enUniteDeSaisie(f[c.cle], c.facteur)),
         c.unite,
         function (v) { vue.surChamp(iExo, iSerie, nom, aide && !vue.programme ? M().rangerAide(v) : v); },
-        { indication: fourchette,
+        { indication: fourchette, max: M().maxDeSaisie(nom),
           surQuitte: typeof vue.surChampQuitte === 'function'
             ? function () { vue.surChampQuitte(iExo, iSerie); } : null });
       caseSerie.setAttribute('data-champ', nom);

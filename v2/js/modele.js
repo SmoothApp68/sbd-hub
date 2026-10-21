@@ -501,7 +501,7 @@
     temps: { entete: 'Durée', meilleure: 'Plus longue durée', valeur: function (s) {
       return partiesDe(s, [PART.duree, PART.denivele, PART.etages]);
     } },
-    distance_temps: { entete: 'Durée · distance', meilleure: 'Plus longue durée', valeur: function (s) {
+    distance_temps: { entete: 'Distance · durée', meilleure: 'Plus longue durée', valeur: function (s) {
       return partiesDe(s, [PART.distance, PART.duree, PART.denivele, PART.etages]);
     } },
     charge_distance: { entete: 'Charge · distance', meilleure: 'Plus longue distance', valeur: function (s) {
@@ -746,7 +746,7 @@
     temps:          { mesure: 'temps',          champs: ['duree'],
                       effort: false, libelle: 'DURÉE' },
     distance_temps: { mesure: 'distance_temps', champs: ['duree', 'distance_km'],
-                      effort: false, libelle: 'DISTANCE ET DURÉE' }
+                      effort: false, libelle: 'DURÉE · DISTANCE' }
   };
 
   var MESURES = Object.keys(GABARITS);

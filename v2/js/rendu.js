@@ -66,9 +66,10 @@
     return '0';
   }
 
-  // « 6 h 35 · 22,7 km » — ce qui résume une sortie, au lieu d'un compte de séries.
+  // « 22,7 km · 6 h 35 » — ce qui résume une sortie, au lieu d'un compte de séries. 131b : la distance d'abord,
+  // dans l'ordre de la prose (ECRAN §3 ter.5).
   function resumeSortie(r) {
-    return [M().formatDuree(r.dureeTotale), M().formatDistance(r.distanceTotale)]
+    return [M().formatDistance(r.distanceTotale), M().formatDuree(r.dureeTotale)]
       .filter(Boolean).join(' · ');
   }
 
@@ -4215,7 +4216,7 @@
     // 3,2 km », jamais « 0 série de travail enregistrée ».
     var hm = vue.compte.horsMusculation;
     if (!nF && hm && hm.series) {
-      var quoi = [M().formatDuree(hm.duree_s), M().formatDistance(hm.distance_m)].filter(Boolean);
+      var quoi = [M().formatDistance(hm.distance_m), M().formatDuree(hm.duree_s)].filter(Boolean);  // 131b
       t.appendChild(el('em', '', [hm.series + ' série' + (hm.series > 1 ? 's' : '') + ' enregistrée' +
         (hm.series > 1 ? 's' : '')].concat(quoi).join(' \u00b7 ')));
     } else {

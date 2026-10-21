@@ -31,7 +31,7 @@ describe('119 — une fonction d’affichage par mesure', () => {
     expect(e('charge_reps')).toBe('Charge');
     expect(e('reps')).toBe('Reps');
     expect(e('temps')).toBe('Durée');
-    expect(e('distance_temps')).toBe('Durée · distance');
+    expect(e('distance_temps')).toBe('Distance · durée');  // 131b : l'ordre de la prose
     expect(e('charge_distance')).toBe('Charge · distance');
     expect(e('charge_temps')).toBe('Charge · durée');
     expect(Modele.affichageDeMesure('inconnue')).toBeNull();

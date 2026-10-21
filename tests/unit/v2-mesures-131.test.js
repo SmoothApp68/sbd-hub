@@ -99,6 +99,7 @@ describe('131 — la fonction des champs d’une série : la mesure, puis le cat
     expect([e.colonnes, e.dessous, e.libelle]).toEqual([['duree', 'etages'], [], 'DURÉE · ÉTAGES']);
     const r = Modele.grilleDe(RANDO);
     expect([r.colonnes, r.dessous]).toEqual([['duree', 'distance_km'], ['denivele_m']]);
+    expect(r.libelle).toBe('DURÉE · DISTANCE · D+');   // 131b : la légende suit les colonnes (maquette)
     expect(r.champs).toEqual(['duree', 'distance_km']);           // les cases obligatoires ne changent pas
     expect(Modele.grilleDe(RANDO, true).dessous).toEqual([]);
     expect(Modele.grilleDe(ESCALIERS, true).colonnes).toEqual(['duree']);

@@ -3117,7 +3117,7 @@ const SETS_IMPORTES = [
     JSON.stringify(g4.map((x) => x.champs)));
   ok('le type de mesure est rappelé sous le nom',
     JSON.stringify(g4.map((x) => x.type)) ===
-      '["CHARGE × REPS","REPS SEULES","DURÉE","DISTANCE ET DURÉE"]',
+      '["CHARGE × REPS","REPS SEULES","DURÉE","DURÉE · DISTANCE"]',
     JSON.stringify(g4.map((x) => x.type)));
 
   // §3 — la colonne d'effort n'existe que là où il y a des répétitions.

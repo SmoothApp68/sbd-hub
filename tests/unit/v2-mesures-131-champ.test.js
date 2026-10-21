@@ -110,3 +110,51 @@ test('la feuille de fin : la phrase, la série, la case ; taper l’écrit ; san
   Rendu().rendreFeuilleFin(sans, vue(null));
   expect(sans.querySelector('.manque-fin')).toBeNull();
 });
+
+// ── Point 3 — la carte « Ce qui manque à tes séances » (écran 5) ─────────────────────────────
+test('la carte : le titre, les groupes, 2 lignes et « Voir les N autres », « Je ne sais plus », « Enregistrer », « Plus tard »', () => {
+  const appels = [];
+  const cible = document.createElement('div');
+  Rendu().rendreCarteManque(cible, {
+    phrase: 'Complète ce dont tu te souviens.',
+    groupes: [{ cle: 'randonnee:denivele_m', champ: 'denivele_m', titre: 'RANDONNÉE · D+ · 29 SÉANCES', autres: 27,
+      lignes: [{ serieId: 'x1', seanceId: 's1', texte: '12 oct. 2026 · 11,8 km · 3 h 05', unite: 'm', max: 10000, valeur: null },
+               { serieId: 'x2', seanceId: 's2', texte: '27 sept. 2026 · 14,1 km · 3 h 40', unite: 'm', max: 10000, valeur: null }] }],
+    surSaisie: (...a) => appels.push(['saisie'].concat(a)), surVoir: (c) => appels.push(['voir', c]),
+    surRefus: (c) => appels.push(['refus', c]), surEnregistrer: () => appels.push(['enregistrer']),
+    surPlusTard: () => appels.push(['tard'])
+  });
+  expect(cible.hidden).toBe(false);
+  expect(cible.querySelector('.manque-titre').textContent).toBe('Ce qui manque à tes séances');
+  expect(cible.querySelector('.manque-tete').textContent).toBe('RANDONNÉE · D+ · 29 SÉANCES');
+  expect(cible.querySelectorAll('.manque-ligne').length).toBe(2);
+  expect(cible.querySelector('.manque-voir').textContent).toBe('Voir les 27 autres');
+  const i = cible.querySelector('.manque-ligne [data-champ="denivele_m"] input');
+  i.value = '850'; i.dispatchEvent(new Event('input'));
+  cible.querySelector('.manque-voir').click();
+  cible.querySelector('.manque-refus').click();
+  cible.querySelector('.manque-enregistrer').click();
+  cible.querySelector('.manque-tard').click();
+  expect(appels).toEqual([['saisie', 'x1', 's1', 'denivele_m', '850'], ['voir', 'randonnee:denivele_m'],
+    ['refus', 'randonnee:denivele_m'], ['enregistrer'], ['tard']]);
+  Rendu().rendreCarteManque(cible, null);
+  expect(cible.hidden).toBe(true);
+});
+
+test('le détail : « Ajouter le D+ » sous une série qui ne l’a pas, et seulement là', () => {
+  const s1 = { id: 'a', session_id: 's', exercise_slug: 'randonnee', type_serie: 'travail', rang: 1, duree_s: 11100,
+    distance_m: 11800, denivele_m: null };
+  const s2 = Object.assign({}, s1, { id: 'b', rang: 2, denivele_m: 920 });
+  const blocs = Modele.blocsDeSeance ? Modele.construireBlocs([s1, s2], CAT2) : [];
+  const cible = document.createElement('div');
+  const cliques = [];
+  Rendu().rendreDetail(cible, { id: 's', titre: 'Rando', debut: '2026-10-12T08:00:00Z' }, blocs, {
+    ajout: (s) => (s.denivele_m ? null : { texte: 'Ajouter le D+', sur: () => cliques.push(s.id) }) });
+  const liens = cible.querySelectorAll('.ajouter-manque');
+  expect(liens.length).toBe(1);
+  expect(liens[0].textContent).toBe('Ajouter le D+');
+  liens[0].click();
+  expect(cliques).toEqual(['a']);
+  expect(cible.textContent).toContain('11,8 km · 3 h 05');
+  expect(cible.textContent).toContain('D+ 920 m');
+});

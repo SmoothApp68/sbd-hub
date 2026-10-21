@@ -894,6 +894,9 @@
     'lest_reponse, lest_reponse_le, ' +
     // 127 (`v2_099`, MOTEUR §9.17 bis) — la réponse à la carte « marche suivante ». FACULTATIVE : ci-dessous.
     'marche_reponses, ' +
+    // 131 (`v2_101`, ECRAN §3 ter.5) — « Je ne sais plus » : les groupes refusés de « Ce qui manque à tes séances »
+    // (« slug:colonne »). Dans la lecture principale : la migration passe avant la fusion.
+    'completer_refus, ' +
     'seances_par_semaine, duree_seance_min, ' +
     // 60-2a (`v2_065`) — le questionnaire du coach. Omises ici, elles seraient
     // écrites mais jamais relues, et `profil = rendu` les effacerait de l'état

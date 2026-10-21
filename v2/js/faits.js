@@ -1272,6 +1272,59 @@
       };
     }
 
+    // ── 131 (ECRAN-SAISIE §3 ter.5, écran 5) — « CE QUI MANQUE À TES SÉANCES » ──────────────────────────────
+    //
+    // Ce qui est devenu possible à noter : les séries de travail des séances terminées dont un champ en plus du
+    // catalogue est vide (le D+ d'une randonnée, les étages d'un escalier : `Modele.champsDeSerie`, au-delà des champs
+    // de la mesure), et les séries de Vélo d'Appartement, Spinning et Rameur sans distance (passés en
+    // `distance_temps` par v2_101). Groupé par (exercice, colonne) — la clé « slug:colonne » de
+    // `profiles.completer_refus` : un groupe refusé (« Je ne sais plus ») n'y est plus, pour de bon. Dans chaque
+    // groupe, de la plus récente à la plus ancienne ; les groupes, par leur série la plus récente. ⚠️ SANS MÉMO : une
+    // correction change la VALEUR d'une série sans changer le nombre de séries, la clé des autres mémos ; un balayage
+    // du corpus coûte moins qu'une carte qui garderait une ligne déjà complétée.
+    var A_DISTANCE = ['velo_machine', 'spinning', 'rameur'];
+    function ceQuiManque(c, refus) {
+      var refuses = {};
+      (Array.isArray(refus) ? refus : []).forEach(function (r) { if (typeof r === 'string') refuses[r] = true; });
+      var index = c.catalogue() || {};
+      var parCle = {}, liste = [];
+      var vide = function (v) { return v === null || v === undefined || v === ''; };
+      (c.seances || []).forEach(function (s) {
+        if (!s || !s.id || !s.debut || s.statut === 'en_cours') return;
+        c.seriesDe(s.id).forEach(function (x) {
+          if (!x || !Modele.estTravail(x)) return;
+          var exo = index[x.exercise_slug];
+          if (!exo) return;
+          var g = Modele.gabaritDe(exo);
+          var noms = Modele.champsDeSerie(exo).slice(g.champs.length);
+          if (A_DISTANCE.indexOf(x.exercise_slug) >= 0 && g.mesure === 'distance_temps') noms = noms.concat(['distance_km']);
+          noms.forEach(function (nom) {
+            var champ = Modele.champDeMesure(nom);
+            if (!champ || !vide(x[champ.cle])) return;
+            var k = x.exercise_slug + ':' + champ.cle;
+            if (refuses[k]) return;
+            if (!parCle[k]) {
+              parCle[k] = { cle: k, slug: x.exercise_slug, colonne: champ.cle, champ: nom, nom: exo.nom || x.exercise_slug,
+                            lignes: [] };
+              liste.push(parCle[k]);
+            }
+            parCle[k].lignes.push({ serieId: x.id, seanceId: s.id, debut: s.debut, rang: x.rang || 0, serie: x });
+          });
+        });
+      });
+      var recent = function (a, b) {
+        return String(b.debut).localeCompare(String(a.debut)) || (a.rang - b.rang);
+      };
+      liste.forEach(function (gr) {
+        gr.lignes.sort(recent);
+        var seances = {};
+        gr.lignes.forEach(function (l) { seances[l.seanceId] = true; });
+        gr.seances = Object.keys(seances).length;
+      });
+      liste.sort(function (a, b) { return recent(a.lignes[0], b.lignes[0]); });
+      return liste;
+    }
+
     return {
       entreeDuBilan: entreeDuBilan,
       tempsALaSalle: tempsALaSalle,
@@ -1295,6 +1348,7 @@
       recordsDuJour: recordsDuJour,
       recapDeLaSeance: recapDeLaSeance,
       faitDeLExercice: faitDeLExercice,
+      ceQuiManque: ceQuiManque,
       journalDuJour: journalDuJour,
       journalDeLaSeance: journalDeLaSeance,
       recordsDuJournal: recordsDuJournal,

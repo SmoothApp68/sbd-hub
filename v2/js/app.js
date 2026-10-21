@@ -9179,6 +9179,7 @@
     rendreBandeauPhase();
     rendreCarteCycles();
     rendreCarteSemaine();
+    rendreCarteManque();
     var cible = $('liste-routines');
     // ⚠️ « Je ne sais pas encore » n'est PAS « il n'y en a pas ». Tant qu'un
     // chargement n'a pas abouti, on ne montre pas l'état vide : hors ligne, il
@@ -10640,7 +10641,9 @@
       surSupprimer: ligne ? function () { demanderSuppressionSeance(ligne); } : null,
       surModifier: ligne ? function () { modifierSeance(ligne, blocs); } : null,
       surRefaire: ligne ? function () { refaireSeance(ligne, blocs); } : null,
-      surEnFaireUneRoutine: ligne ? function () { enFaireUneRoutine(ligne); } : null
+      surEnFaireUneRoutine: ligne ? function () { enFaireUneRoutine(ligne); } : null,
+      // 131 (écran 4) — « Ajouter le D+ » sous une série qui ne l'a pas.
+      ajout: ajoutDuDetail(ligne, blocs)
     });
     rendreReactionsDeLaSeance(sessionId);
     // 91 — « Faite en groupe avec … » et le récap figé.
@@ -11898,6 +11901,152 @@
   // Cette garde reste : c'est la dernière avant l'écriture, et une troisième
   // surface qui oublierait de demander ne doit pas pouvoir effacer.
   function seriesIncompletes(id) { return Seance.seriesIncompletes(seriesDe(id)); }
+
+  // ══ 131 (ECRAN-SAISIE §3 ter.5, maquette mesures-cardio écrans 4 et 5) — « CE QUI MANQUE À TES SÉANCES » ══
+  //
+  // La carte lit le fait (`faits.ceQuiManque`, moins les refus du profil) ; elle ne s'affiche qu'à l'accueil de Saisie,
+  // hors séance ouverte (en cours ou en Édition : `rendreSaisie` rend la séance avant), en carnet comme en coach.
+  //   · ce qui est tapé reste EN MÉMOIRE (`manque.saisies`) jusqu'à « Enregistrer » ;
+  //   · « Enregistrer » corrige chaque séance touchée par `enregistrerCorrection` — la séance reprise depuis le cache
+  //     (`Seance.reprendre`), la valeur posée par `Seance.modifierSerie` (ses bornes), la même file. La séance ouverte
+  //     (`seance`) n'est jamais touchée, rien ne navigue ;
+  //   · « Je ne sais plus » ferme un groupe pour de bon : `completer_refus` au profil, par `poserProfil` ;
+  //   · « Plus tard » replie la carte jusqu'à la prochaine ouverture de l'app (en mémoire seulement).
+  var manque = { saisies: {}, ouverts: {}, plusTard: false, message: null, enCours: false };
+  var LIGNES_MANQUE = 2;
+
+  function refusDuProfil() {
+    var r = profil && profil.completer_refus;
+    return Array.isArray(r) ? r : [];
+  }
+
+  function vueCarteManque() {
+    if (seance || manque.plusTard) return null;
+    var groupes = faits.ceQuiManque(corpus(), refusDuProfil());
+    if (!groupes.length) return null;
+    return {
+      phrase: 'L’app note maintenant le D+, les étages et la distance au vélo. Complète ce dont tu te souviens.',
+      message: manque.message,
+      groupes: groupes.map(function (g) {
+        var c = Modele.champDeMesure(g.champ);
+        var visibles = manque.ouverts[g.cle] ? g.lignes : g.lignes.slice(0, LIGNES_MANQUE);
+        return {
+          cle: g.cle, champ: g.champ,
+          titre: [Modele.nomCourt(g.nom).toUpperCase(), c.libelle || c.entete,
+            g.seances + ' SÉANCE' + (g.seances > 1 ? 'S' : '')].join(' · '),
+          autres: g.lignes.length - visibles.length,
+          lignes: visibles.map(function (l) {
+            var tape = manque.saisies[l.serieId];
+            return { serieId: l.serieId, seanceId: l.seanceId, unite: c.unite, max: Modele.maxDeSaisie(g.champ),
+              texte: Modele.dateCourte(l.debut) + ' · ' + Modele.formatMesure(l.serie),
+              valeur: tape ? Modele.lireNombre(tape.valeur) : null };
+          })
+        };
+      }),
+      surSaisie: function (serieId, seanceId, champ, v) {
+        manque.saisies[serieId] = { seanceId: seanceId, champ: champ, valeur: v };
+      },
+      surVoir: function (cle) { manque.ouverts[cle] = true; rendreCarteManque(); },
+      surRefus: refuserManque,
+      surEnregistrer: enregistrerManque,
+      surPlusTard: function () { manque.plusTard = true; rendreCarteManque(); }
+    };
+  }
+
+  function rendreCarteManque() {
+    Rendu.rendreCarteManque($('carte-manque'), vueCarteManque());
+  }
+
+  // « Je ne sais plus » : le groupe quitte la carte pour de bon (`completer_refus`, « slug:colonne »). Ses saisies
+  // en attente partent avec lui.
+  async function refuserManque(cle) {
+    var liste = refusDuProfil().slice();
+    if (liste.indexOf(cle) < 0) liste.push(cle);
+    var slug = cle.split(':')[0];
+    Object.keys(manque.saisies).forEach(function (id) {
+      var x = (local.series || []).filter(function (s) { return s && s.id === id; })[0];
+      if (x && x.exercise_slug === slug) delete manque.saisies[id];
+    });
+    await poserProfil({ completer_refus: liste });
+    rendreCarteManque();
+  }
+
+  // « Enregistrer » : une correction par séance touchée, par le chemin de l'Édition (`enregistrerCorrection`).
+  async function enregistrerManque() {
+    if (seance || manque.enCours) return;
+    var parSeance = {};
+    Object.keys(manque.saisies).forEach(function (id) {
+      var t = manque.saisies[id];
+      if (!t || Modele.lireNombre(t.valeur) === null) return;
+      (parSeance[t.seanceId] = parSeance[t.seanceId] || []).push({ id: id, champ: t.champ, valeur: t.valeur });
+    });
+    var ids = Object.keys(parSeance);
+    if (!ids.length) { manque.message = null; return rendreCarteManque(); }
+    manque.enCours = true;
+    var nonFaites = 0;
+    try {
+      for (var k = 0; k < ids.length; k++) {
+        var sid = ids[k];
+        var ligne = local.seances.filter(function (s) { return s.id === sid; })[0] || null;
+        var series = seriesDe(sid);
+        // La garde de l'Édition (chantier 47) : une séance dont les séries n'ont pas fini d'arriver ne se corrige pas.
+        if (!ligne || Seance.seriesIncompletes(series)) { nonFaites++; continue; }
+        connaitre(sid, series.map(function (x) { return x.id; }));
+        var s = Seance.reprendre(ligne, Modele.construireBlocs(series, local.exercices));
+        parSeance[sid].forEach(function (t) {
+          s.exercices.forEach(function (e, iExo) {
+            (e.series || []).forEach(function (x, iSerie) {
+              if (x && x.id === t.id) {
+                var o = {};
+                o[t.champ] = t.valeur;
+                s = Seance.modifierSerie(s, iExo, iSerie, o);
+              }
+            });
+          });
+          delete manque.saisies[t.id];
+        });
+        await enregistrerCorrection(s);
+        await oublierConnues(sid);
+      }
+    } finally {
+      manque.enCours = false;
+    }
+    manque.message = nonFaites ? 'Une séance finit d’arriver : réessaie dans un instant.' : null;
+    rendreCarteManque();
+  }
+
+  // Écran 4 — « Ajouter le D+ » sous une série passée qui n'a pas son champ en plus : la séance s'ouvre en correction
+  // (`modifierSeance`, le « Modifier » qui existe), la case du champ en vue.
+  function ajoutDuDetail(ligne, blocs) {
+    if (!ligne) return null;
+    var index = catalogueIndexe();
+    return function (s) {
+      if (!s || !s.estTravail) return null;
+      var exo = index[s.exercise_slug];
+      if (!exo) return null;
+      var plus = Modele.champsDeSerie(exo).slice(Modele.gabaritDe(exo).champs.length);
+      for (var i = 0; i < plus.length; i++) {
+        var c = Modele.champDeMesure(plus[i]);
+        if (s[c.cle] === null || s[c.cle] === undefined || s[c.cle] === '') {
+          return { texte: 'Ajouter ' + c.manque, sur: (function (nom) {
+            return function () { ouvrirPourAjouter(ligne, blocs, s.id, nom); };
+          })(plus[i]) };
+        }
+      }
+      return null;
+    };
+  }
+  function ouvrirPourAjouter(ligne, blocs, serieId, nom) {
+    modifierSeance(ligne, blocs);
+    if (!seance || seance.id !== ligne.id) return;
+    seance.exercices.forEach(function (e, iExo) {
+      (e.series || []).forEach(function (x, iSerie) {
+        if (!x || x.id !== serieId) return;
+        var n = doc.querySelector('#blocs-seance [data-iexo="' + iExo + '"][data-iserie="' + iSerie + '"] [data-champ="' + nom + '"] input');
+        if (n) { if (n.scrollIntoView) n.scrollIntoView({ block: 'center' }); n.focus(); }
+      });
+    });
+  }
 
   function modifierSeance(ligne, blocs) {
     if (seanceEnCoursBloque()) return;

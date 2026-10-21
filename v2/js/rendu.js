@@ -130,7 +130,9 @@
   // ⚠️ `surExercice` EST FACULTATIF. Sans lui le bloc est exactement ce qu'il
   // était — et c'est ce qui permet à la page d'exercice de réutiliser
   // `rendreBloc` pour son historique sans s'y rappeler elle-même.
-  function rendreBloc(bloc, surExercice) {
+  // 131 (écran 4) — `ajout` (facultatif) : pour une série, `{ texte, sur }` (« Ajouter le D+ ») ou `null` ; l'app
+  // le décide, le rendu le pose sous la valeur.
+  function rendreBloc(bloc, surExercice, ajout) {
     var section = el('section', 'bloc' + (bloc.superset ? ' superset' : ''));
 
     // Légende A/B/C en tête de bloc : le nom de l'exercice n'apparaît qu'une
@@ -173,7 +175,15 @@
       // libellé de type — `W` pour une chauffe — plutôt que sur un badge nu.
       ligne.appendChild(el('span', 'tag' + (t ? ' ' + t.classe : ''),
         s.etiquette || (t ? t.texte : '')));
-      ligne.appendChild(el('span', 'mesure', M().formatMesure(s)));
+      var mesure = el('span', 'mesure', M().formatMesure(s));
+      var a = typeof ajout === 'function' ? ajout(s) : null;
+      if (a) {
+        var lien = el('button', 'lien ajouter-manque', a.texte);
+        lien.type = 'button';
+        lien.addEventListener('click', a.sur);
+        mesure.appendChild(lien);
+      }
+      ligne.appendChild(mesure);
       section.appendChild(ligne);
     });
 
@@ -205,7 +215,7 @@
         : 'Aucune série sur cette séance.'));
     } else {
       blocs.forEach(function (b) {
-        cible.appendChild(rendreBloc(b, vue && vue.surExercice));
+        cible.appendChild(rendreBloc(b, vue && vue.surExercice, vue && !vue.incomplet ? vue.ajout : null));
       });
     }
 
@@ -4492,6 +4502,63 @@
   // ligne. Après « la suite se décale », la bande montre la semaine décalée et « Démarrer ». Rien n'est calculé ici.
   // `vue` : `{ bande: [{ jour, routine }], aujourdhui (0-6), titre, phrase?, choix: [{ cle, libelle, avant? }],
   // pourquoi?, surChoix(cle) }` ou `{ bande, aujourdhui, apres: { titre, exercices: [nom], surDemarrer } }`.
+  // ══ 131 (ECRAN-SAISIE §3 ter.5, maquette mesures-cardio écran 5) — « CE QUI MANQUE À TES SÉANCES » ══
+  //
+  // Le rendu ne calcule rien : `vue.groupes` vient du fait (`faits.ceQuiManque`), mis en mots par l'app. Par groupe :
+  // l'en-tête (« RANDONNÉE · D+ · 29 SÉANCES »), 2 lignes (ou toutes, ouvert), « Voir les N autres », « Je ne sais
+  // plus » ; puis « Enregistrer » et « Plus tard ». Chaque ligne : la séance et la série, et une case (sa borne).
+  // `null` : la carte est cachée.
+  function rendreCarteManque(cible, vue) {
+    if (!cible) return cible;
+    vider(cible);
+    if (!vue || !vue.groupes || !vue.groupes.length) { cible.hidden = true; return cible; }
+    cible.hidden = false;
+    var c = el('div', 'carte-manque');
+    c.appendChild(el('p', 'manque-titre', 'Ce qui manque à tes séances'));
+    c.appendChild(el('p', 'manque-phrase', vue.phrase || ''));
+    vue.groupes.forEach(function (g) {
+      var bloc = el('div', 'manque-groupe');
+      bloc.setAttribute('data-cle', g.cle);
+      bloc.appendChild(el('div', 'manque-tete', g.titre));
+      g.lignes.forEach(function (l) {
+        var r = el('div', 'manque-ligne');
+        r.setAttribute('data-serie', l.serieId);
+        r.appendChild(el('span', 'manque-quoi', l.texte));
+        var caseM = champSerie('rp-serie num', l.valeur, null, l.unite,
+          function (v) { vue.surSaisie(l.serieId, l.seanceId, g.champ, v); }, { max: l.max });
+        caseM.setAttribute('data-champ', g.champ);
+        r.appendChild(caseM);
+        bloc.appendChild(r);
+      });
+      var bas = el('div', 'manque-gestes');
+      if (g.autres > 0) {
+        var voir = el('button', 'discret manque-voir', 'Voir les ' + g.autres + ' autres');
+        voir.type = 'button';
+        voir.addEventListener('click', function () { vue.surVoir(g.cle); });
+        bas.appendChild(voir);
+      }
+      var non = el('button', 'discret manque-refus', 'Je ne sais plus');
+      non.type = 'button';
+      non.addEventListener('click', function () { vue.surRefus(g.cle); });
+      bas.appendChild(non);
+      bloc.appendChild(bas);
+      c.appendChild(bloc);
+    });
+    if (vue.message) c.appendChild(el('p', 'manque-message', vue.message));
+    var actions = el('div', 'manque-actions');
+    var ok = el('button', 'principal manque-enregistrer', 'Enregistrer');
+    ok.type = 'button';
+    ok.addEventListener('click', function () { vue.surEnregistrer(); });
+    actions.appendChild(ok);
+    var tard = el('button', 'discret manque-tard', 'Plus tard');
+    tard.type = 'button';
+    tard.addEventListener('click', function () { vue.surPlusTard(); });
+    actions.appendChild(tard);
+    c.appendChild(actions);
+    cible.appendChild(c);
+    return cible;
+  }
+
   function rendreCarteSemaine(cible, vue) {
     vider(cible);
     if (!vue) { cible.hidden = true; return cible; }
@@ -7477,6 +7544,7 @@
     texteEffort: texteEffort,
     rendreBandeauReprise: rendreBandeauReprise,
     rendreCarteSemaine: rendreCarteSemaine,
+    rendreCarteManque: rendreCarteManque,
     rendreEscalier: rendreEscalier,
     brancherReorganisation: brancherReorganisation,
     rendrePiedReorganisation: rendrePiedReorganisation,

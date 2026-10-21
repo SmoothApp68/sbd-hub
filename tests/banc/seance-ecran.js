@@ -495,6 +495,8 @@ const PROFIL_BANC = {
   compte_prive: true, jeu_niveau: null, jeu_titre: null,
   // 50-1 — la réponse à la carte du lest : `oui`, `non`, ou NULL (pas encore).
   lest_reponse: null, lest_reponse_le: null,
+  // 131 (`v2_101`) — « Je ne sais plus » : les groupes refusés de « Ce qui manque à tes séances ».
+  completer_refus: [],
   // 127 (`v2_099`) — la réponse à la carte « marche suivante », par exercice de départ.
   marche_reponses: null,
   // 60-2a (`v2_065`) — le questionnaire du coach.
@@ -1463,6 +1465,11 @@ const SETS_IMPORTES = [
               Object.keys(mr).some((k) => !mr[k] || ['oui', 'non'].indexOf(mr[k].r) < 0)) {
             return json(refus('23514', 'profiles_marche_reponses_ok'), 400);
           }
+        }
+        // 131 (`v2_101`) — `completer_refus` : une liste de « slug:colonne ».
+        if (l.completer_refus !== undefined && (!Array.isArray(l.completer_refus) ||
+            l.completer_refus.some((x) => typeof x !== 'string' || !/^[a-z0-9_-]+:[a-z_]+$/.test(x)))) {
+          return json(refus('23514', 'profiles_completer_refus_ok'), 400);
         }
         // 108 (`v2_088`) — `profiles_ma_salle_ok` : NULL, ou un objet aux seules clés barres_ez, barres_droites,
         // halteres ; des barres de 1 à 100 kg au demi-kilo ; des haltères nuls, { max, pas } ou des tranches (v2_095).
@@ -23417,7 +23424,24 @@ const SETS_IMPORTES = [
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
       routine_exercises: [ex131('rando-u131', 0), ex131('escaliers-u131', 1), ex131('velo-u131', 2)] };
     ROUTINES.push(ROUTINE_131);
-    const sets131 = (slug) => base.sets.filter((x) => x.exercise_slug === slug);
+    // Le passé (écran 5) : deux randonnées sans D+, un escalier sans étages — ce que la carte doit lister.
+    const t131 = Date.now();
+    const passe131 = [];
+    const poser131 = (id, jours, slug, champs) => {
+      const debut = ilYa(jours * 86400000, t131).toISOString();
+      passe131.push(id);
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Passé — ' + id, debut, fin: finDe(debut, t131).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'hevy', created_at: debut });
+      base.sets.push(Object.assign({ id: id + '-s1', session_id: id, user_id: 'u-banc', exercise_slug: slug, charge_kg: null,
+        reps: null, duree_s: null, distance_m: null, denivele_m: null, etages: null, type_serie: 'travail', rang: 1,
+        groupe_superset: null, validee_a: null, rpe: null, ressenti: null, repos_s: null, note: null, source: 'hevy',
+        created_at: debut, modifie_a: null }, champs));
+    };
+    poser131('m131-1', 9, 'rando-u131', { duree_s: 11100, distance_m: 11800 });
+    poser131('m131-2', 24, 'rando-u131', { duree_s: 13200, distance_m: 14100 });
+    poser131('m131-3', 7, 'escaliers-u131', { duree_s: 1200 });
+    const refusAvant131 = base.profiles[0].completer_refus;
+    const sets131 = (slug) => base.sets.filter((x) => x.exercise_slug === slug && passe131.indexOf(x.session_id) < 0);
     const taper131 = async (i, champ, v) => {
       const inp = (await page.$$('.ligne-serie >> nth=' + i + ' >> [data-champ="' + champ + '"] input'))[0];
       if (!inp) return;   // une grille sans la case (une régression) : le contrôle qui suit échoue, la section continue
@@ -23506,7 +23530,61 @@ const SETS_IMPORTES = [
       /3 h 10 · D\+ 920 m/.test(detail131) && /20 min · 72 étages/.test(detail131) && /12,6 km · 30 min/.test(detail131),
       detail131.slice(0, 400));
 
+    // G. « CE QUI MANQUE À TES SÉANCES » (écran 5), à l'accueil de Saisie, hors séance ouverte.
+    const carte131 = () => page.evaluate(() => {
+      const c = document.querySelector('#carte-manque');
+      if (!c || c.hidden) return null;
+      return Array.from(c.querySelectorAll('.manque-groupe')).map((g) => ({ cle: g.getAttribute('data-cle'),
+        tete: g.querySelector('.manque-tete').textContent,
+        lignes: Array.from(g.querySelectorAll('.manque-ligne')).map((l) => l.getAttribute('data-serie')) }));
+    });
+    await aller('/saisie');
+    await jusqua(async () => !!(await carte131()), 6000);
+    const g131 = await carte131();
+    ok('[131] G — la carte liste les randonnées sans D+ (la plus récente d’abord) et l’escalier sans étages ; pas la randonnée du jour (D+ 920)',
+      !!g131 && JSON.stringify(g131.map((x) => x.cle)) === '["escaliers-u131:etages","rando-u131:denivele_m"]' &&
+        JSON.stringify(g131[1].lignes) === '["m131-1-s1","m131-2-s1"]' && /RANDONNÉE U131 · D\+ · 2 SÉANCES/.test(sp131(g131[1].tete)),
+      JSON.stringify(g131));
+    // « Enregistrer » : 850 m sur la randonnée la plus récente, par la correction d'une séance passée.
+    const caseG = await page.$('#carte-manque .manque-ligne[data-serie="m131-1-s1"] input');
+    if (caseG) await caseG.fill('850');
+    await attendre(200);
+    if (await page.$('#carte-manque .manque-enregistrer')) await page.click('#carte-manque .manque-enregistrer');
+    await jusqua(async () => (base.sets.filter((x) => x.id === 'm131-1-s1')[0] || {}).denivele_m === 850, 8000);
+    await attendre(600);
+    const apresG = await carte131();
+    const corr131 = base.sets.filter((x) => x.id === 'm131-1-s1')[0] || {};
+    ok('[131] G — DISCRIMINANT : « Enregistrer » écrit le D+ (850 m) sur la série passée, sans toucher au reste ; la ligne quitte la carte',
+      corr131.denivele_m === 850 && corr131.duree_s === 11100 && corr131.distance_m === 11800 && corr131.source === 'hevy' &&
+        !!apresG && JSON.stringify((apresG.filter((x) => x.cle === 'rando-u131:denivele_m')[0] || {}).lignes) === '["m131-2-s1"]' &&
+        (await page.evaluate(() => location.pathname)) === '/saisie', JSON.stringify([corr131, apresG, await visible()]));
+    // H. « JE NE SAIS PLUS » sur l'escalier : le groupe part pour de bon, au profil, et ne revient pas au rechargement.
+    await page.evaluate(() => {
+      const g = document.querySelector('#carte-manque .manque-groupe[data-cle="escaliers-u131:etages"]');
+      if (g) g.querySelector('.manque-refus').click();
+    });
+    await jusqua(async () => (base.profiles[0].completer_refus || []).indexOf('escaliers-u131:etages') >= 0, 8000);
+    await attendre(600);
+    const apresH = await carte131();
+    ok('[131] H — « Je ne sais plus » : `completer_refus` = ["escaliers-u131:etages"] au profil, et le groupe quitte la carte',
+      JSON.stringify(base.profiles[0].completer_refus) === '["escaliers-u131:etages"]' && !!apresH &&
+        JSON.stringify(apresH.map((x) => x.cle)) === '["rando-u131:denivele_m"]', JSON.stringify([base.profiles[0].completer_refus, apresH]));
+    await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(1500);
+    await aller('/saisie');
+    await jusqua(async () => !!(await carte131()), 6000);
+    const apresR = await carte131();
+    ok('[131] H — après rechargement, l’escalier ne revient pas ; la randonnée restante est toujours là',
+      !!apresR && JSON.stringify(apresR.map((x) => x.cle)) === '["rando-u131:denivele_m"]', JSON.stringify(apresR));
+    // « Plus tard » : la carte se replie (en mémoire seulement).
+    if (await page.$('#carte-manque .manque-tard')) await page.click('#carte-manque .manque-tard');
+    await attendre(300);
+    ok('[131] « Plus tard » replie la carte', (await carte131()) === null, '');
+
     // LA REMISE EN ÉTAT, pour les sections suivantes.
+    base.profiles[0].completer_refus = refusAvant131 === undefined ? [] : refusAvant131;
+    base.sets = base.sets.filter((x) => passe131.indexOf(x.session_id) < 0);
+    base.sessions = base.sessions.filter((x) => passe131.indexOf(x.id) < 0);
     CATALOGUE.splice(catalogueAvant131, CATALOGUE.length - catalogueAvant131);
     const iR131 = ROUTINES.indexOf(ROUTINE_131);
     if (iR131 >= 0) ROUTINES.splice(iR131, 1);

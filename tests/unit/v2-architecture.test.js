@@ -1468,8 +1468,11 @@ const NOTIONS = [
     raison: 'une lecture des lignes `predictions` (module escalier) : les périodes de la série de plus, l’observation et ' +
       'la démonstration lisent les mêmes marches.' },
   // 127 (MOTEUR §9.17 bis, ECRAN-SAISIE §7 quater.6) — l'échelle des variantes.
+  { notion: 'ce qui manque aux séances (les champs en plus vides, la distance au vélo ; moins les refus)', pr: '131-U1',
+    module: 'faits.js', fonction: 'ceQuiManque', lecteurs: ['app.js'],
+    raison: 'ECRAN-SAISIE §3 ter.5 (écran 5) : la carte « Ce qui manque à tes séances » lit le fait ; elle ne calcule rien.' },
   { notion: 'les champs d’une série (ceux de la mesure, puis ceux du catalogue : `champs_series`)', pr: '131-U1',
-    module: 'modele.js', fonction: 'champsDeSerie', lecteurs: ['seance.js'],
+    module: 'modele.js', fonction: 'champsDeSerie', lecteurs: ['seance.js', 'faits.js', 'app.js'],
     par: ['colonnesDeSerie', 'grilleDe'],
     raison: 'ECRAN-SAISIE §3 ter.5 (prompt 131, v2_101) : le D+ et les étages, exercice par exercice. Une seule fonction ' +
       'dit les champs d’une série ; la grille (`grilleDe`) et les colonnes (`colonnesDeSerie`) passent par elle.' },
@@ -1997,7 +2000,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : trente-neuf (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : quarante (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126, ce qui manque aux séances en 131), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -2008,7 +2011,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(39);
+    expect(FAITS.length).toBe(40);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

@@ -303,10 +303,29 @@
   // formateur est le seul endroit où le coach (et ses pages) ont une voix.
   // Sans « palier », sans point d'interrogation (§20.2).
   var PHRASE_POIDS_DU_CORPS = 'Ta charge, c\u2019est ton poids du corps' + INSECABLE + ': le coach suit tes reps.';
+  // 132 (MOTEUR §10 ter) — UN EXERCICE NOTÉ PAR NOM : ses charges sont VIRTUELLES (l'ordre de la liste), et le
+  // formateur les dit par leur NOM (« Noir », « Noir × 12 »). C'est ici, au seul endroit de l'affichage, que la charge
+  // virtuelle se traduit : une phrase rédigée sous `avecNoms(noms, fn)` — le plan pour un exercice, la consigne pour
+  // ses libellés — écrit le nom à la place du chiffre ; la citation garde la charge (le coach la compare). Hors de
+  // cette portée, rien ne change. Synchrone, rendue dans `finally`, comme la capture.
+  var portees = [];
+  function avecNoms(noms, fn) {
+    if (!noms) return fn();
+    portees.push(noms);
+    try { return fn(); } finally { portees.pop(); }
+  }
+  // Le nom d'une charge virtuelle dans la portée en cours, ou `null`.
+  function nomDeLaCharge(kg) {
+    if (!portees.length || kg === null || kg === undefined || kg === '' || !isFinite(Number(kg))) return null;
+    var noms = portees[portees.length - 1], k = String(Number(kg));
+    return Object.prototype.hasOwnProperty.call(noms, k) ? noms[k] : null;
+  }
   function chargeTexte(kg, repli) {
     if (kg === null || kg === undefined || kg === '' || !isFinite(Number(kg))) {
       return repli === undefined ? CRAN_INCONNU : repli;
     }
+    var nomme = nomDeLaCharge(kg);
+    if (nomme !== null) return nomme;
     var n = Number(kg);
     if (n === 0) return POIDS_DU_CORPS;
     if (n < 0) return AIDE + ' ' + nombreTexte(-n) + INSECABLE + 'kg';
@@ -1977,19 +1996,24 @@
   // porte `valeur`, l'ancien record `ancien` et sa date `ancien_le` (le début
   // de sa séance), et `douzeMois` (lu dans la fenêtre des 12 mois d'un matériel
   // de salle) ; `[]` sans record.
+  function notee(s) { return !!s && s.elastique !== null && s.elastique !== undefined; }
   function recordsBattus(historique, seance, indice, options) {
     var o = options || {};
     var se = seance || {};
     var series = se.series || [];
     var s = series[indice];
     if (!s || !estTravail(s)) return [];
+    // 132 (MOTEUR §10 ter, I51) — UNE SÉRIE NOTÉE PAR NOM NE FAIT AUCUN RECORD (ni médaille, ni ligne du journal) :
+    // un record est immuable, et l'ordre d'une liste d'élastiques peut changer. Elle ne sert pas non plus de base à
+    // battre (ci-dessous, `siennes`). Le meilleur d'un tel exercice se lit à l'affichage (`THProfil.meilleurElastique`).
+    if (notee(s)) return [];
     var slug = s.exercise_slug;
     var t0 = instantRecord(se.debut);
     if (t0 === null) return [];
     var corps = !!o.corps;
     var M = racine.THMoteur;
     var siennes = function (liste) {
-      return (liste || []).filter(function (x) { return x && x.exercise_slug === slug && estTravail(x); });
+      return (liste || []).filter(function (x) { return x && x.exercise_slug === slug && estTravail(x) && !notee(x); });
     };
     // Les séances antérieures qui ont fait cet exercice — toute la vie (la
     // durée, la distance) et dans la fenêtre du matériel (les charges).
@@ -2361,6 +2385,8 @@
     nombreSigne: nombreSigne,
     pastilleElastique: pastilleElastique,
     affichageElastique: affichageElastique,
+    avecNoms: avecNoms,
+    nomDeLaCharge: nomDeLaCharge,
     lireNombre: lireNombre,
     // §9.17 — l'aide : tapée en positif, rangée en négatif, lue sans signe.
     rangerAide: rangerAide,

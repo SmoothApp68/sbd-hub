@@ -124,7 +124,8 @@ describe('PR 2 — la suite du constat suit la zone en vigueur', () => {
       zonesLues: () => []
     };
     vm.createContext(ctx);
-    ['optionsDeConsigne', 'suiteDe'].forEach((n) => vm.runInContext(extraire(n), ctx));
+    // 132 : l'historique et l'état que le moteur lit (`groupesDuMoteur`, `etatDuMoteur` : tels quels sans élastiques).
+    ['estSalleElastique', 'groupesDuMoteur', 'etatDuMoteur', 'optionsDeConsigne', 'suiteDe'].forEach((n) => vm.runInContext(extraire(n), ctx));
     return { ctx, appels, etat, suite: () => vm.runInContext('suiteDe("couche")', ctx), constats: () => vm.runInContext('constats', ctx) };
   }
 

@@ -165,7 +165,12 @@
   //   · `plus_d_un_an` : la date tomberait au-delà de 12 mois — aucun pari ;
   //   · `date`         : `echeance` (la fin du mois, « AAAA-MM-JJ »), `jours` (de la pose à l'échéance) — le pari.
   // Toujours : `depart` (le record « au moins N reps » à la pose, ou null), et ce qui a servi au calcul.
+  // 132 (MOTEUR §10 ter) — « Pas d'objectif chiffré non plus : l'objectif (§9.25) se refuse sur un exercice noté par
+  // nom, avec la phrase « Un objectif se pose en kg : cet exercice se note par élastique. » » Sa salle (`salleDeLExercice`)
+  // le dit : `materiel: 'elastique'`. Refusé avant tout calcul — une projection en kg n'a pas de sens sur un nom.
+  var PHRASE_ELASTIQUE = 'Un objectif se pose en kg\u00a0: cet exercice se note par élastique.';
   function projection(e) {
+    if (e && e.salle && e.salle.materiel === 'elastique') return { etat: 'elastique', depart: null, record: null };
     var n = Math.round(Number(e.reps)), charge = Number(e.charge);
     var t0 = instant(e.maintenant);
     var seances = e.seances || [];
@@ -437,6 +442,7 @@
     observationDe: observationDe,
     estTenu: estTenu, vue: vue, phraseDeSaisie: phraseDeSaisie, lireSaisie: lireSaisie, phraseDejaFait: phraseDejaFait,
     phraseHorsSalle: phraseHorsSalle,
+    PHRASE_ELASTIQUE: PHRASE_ELASTIQUE,
     possible: possible, haussesDuRecord: haussesDuRecord, plafondDe: plafondDe, joursEntre: joursEntre
   };
   racine.THObjectif = api;

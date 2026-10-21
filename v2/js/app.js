@@ -5445,8 +5445,8 @@
       // ou plus. Seule la consigne de la séance les reçoit, figés avec elle —
       // ni la suite du constat, ni la page d'exercice.
       if (exo) options.freres = function () { return freresPourLeMoteur(slug, consignes.index); };
-      var calculee = Moteur.consigneDExercice(
-        faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug], seance.debut, options);
+      var groupesM = groupesDuMoteur(slug, options.salle);
+      var calculee = Moteur.consigneDExercice(groupesM, etatDuMoteur(slug, options.salle, groupesM), seance.debut, options);
       if (!exo) return calculee;
       // §14.4 (49-U14) — les séries de travail de la routine, FIGÉES avec la
       // consigne : la semaine allégée en couvre 60 %, et « + Série » ne change
@@ -5488,8 +5488,8 @@
   // les MÊMES entrées que leur propre consigne (`optionsDeConsigne`).
   function freresPourLeMoteur(slug, index) {
     return Modele.freresDe(index, slug).map(function (f) {
-      return { slug: f, nom: Modele.nommer(index, f), groupes: faits.seancesDeLExercice(corpus(), f),
-               etat: etatsExercices[f], options: optionsDeConsigne(f, index[f]) };
+      var o = optionsDeConsigne(f, index[f]), g = groupesDuMoteur(f, o.salle);
+      return { slug: f, nom: Modele.nommer(index, f), groupes: g, etat: etatDuMoteur(f, o.salle, g), options: o };
     });
   }
 
@@ -5500,12 +5500,28 @@
   // en recevait moins (ni les séances sous consigne, ni les zones par date, ni
   // les périodes) — sa « cible de la prochaine fois » pouvait ne pas être la
   // consigne de la fois d'après (« le coach ne fait qu'un »).
+  // 132 (MOTEUR §10 ter) — CE QUE LE MOTEUR LIT D'UN EXERCICE NOTÉ PAR NOM : sa salle est la liste de ses élastiques
+  // (`Profil.salleDeLExercice`, `materiel: 'elastique'`) ; son historique entre avec les charges VIRTUELLES, les séries
+  // neutres en sortent (`Profil.seancesPourLeMoteur`) ; son état d'exercice (« monte » ou non, `Palier`) se lit sur ces
+  // mêmes séries. Tout le reste ne change pas. Sans salle d'élastiques : l'historique et l'état tels quels.
+  function estSalleElastique(salle) { return !!salle && salle.materiel === 'elastique'; }
+  function groupesDuMoteur(slug, salle) {
+    var g = faits.seancesDeLExercice(corpus(), slug);
+    return estSalleElastique(salle) ? Profil.seancesPourLeMoteur(salle, g) : g;
+  }
+  function etatDuMoteur(slug, salle, groupes) {
+    if (!estSalleElastique(salle)) return etatsExercices[slug];
+    return Palier.etatsExercices((groupes || []).map(function (x) { return { slug: slug, series: x.series }; }))[slug];
+  }
   function optionsDeConsigne(slug, exo) {
     var g = Modele.gabaritDe(exo);
     var index = catalogueIndexe();
     var libreDuLeste = Modele.parentDe(index, slug);
+    var salleX = Profil.salleDeLExercice(profil, slug, index);
     return {
-      mesure: g.inconnue ? null : g.mesure,
+      // 132 — un exercice noté par nom se charge (charges virtuelles) : le moteur le lit en charge × reps, même en
+      // résistance (`reps` au catalogue).
+      mesure: g.inconnue ? null : (estSalleElastique(salleX) ? 'charge_reps' : g.mesure),
       // §9.17 — le matériel EFFECTIF : une charge ajoutée est du lest (cran 2,5).
       equipement: Moteur.equipementEffectif(exo),
       // §9.17 — l'intention de l'EXERCICE : celle du profil, puis son mode
@@ -5554,11 +5570,12 @@
       // §7 octies — une séance terminée rouverte est une séance FAITE : le
       // moteur n'y prescrit rien, ni en-tête ni plan.
       edition: enEdition(),
-      // §9.21 (52-1) — la charge de départ de la routine, la première fois.
-      depart: chargeDeDepartDe(slug),
+      // §9.21 (52-1) — la charge de départ de la routine, la première fois. 132 : jamais sur un exercice noté par nom
+      // (l'éditeur de routine n'a pas de colonne d'élastique ; une aide de départ en kg n'est pas un nom).
+      depart: estSalleElastique(salleX) ? null : chargeDeDepartDe(slug),
       // MOTEUR §10 bis (108) — la salle déclarée pour cet exercice (barre fixe,
-      // haltères), ou `null` : non renseignée, rien ne change.
-      salle: Profil.salleDeLExercice(profil, slug, index)
+      // haltères), ou `null` : non renseignée, rien ne change. 132 — ou la liste de ses élastiques (§10 ter).
+      salle: salleX
     };
   }
 
@@ -6102,7 +6119,8 @@
                             muscles_stabilisateurs: (f.muscles_stabilisateurs || []).slice(),
                             // §9.17 — la mesure (le plan la porte, I13/I28 la lisent) et
                             // la version lestée (la carte du lest ne promet que ce qu'elle livre).
-                            mesure: gc.inconnue ? null : gc.mesure,
+                            mesure: gc.inconnue ? null : (estSalleElastique(Profil.salleDeLExercice(profil, slug, index))
+                              ? 'charge_reps' : gc.mesure),
                             leste: Modele.lesteDe(index, slug),
                             // MOTEUR §10 bis (108) — la salle déclarée (chauffes et
                             // dégressive d'un exercice sans consigne), ou `null`.
@@ -6549,9 +6567,8 @@
   function consigneDeLExercice(slug) {
     if (seance && !enEdition()) return consigneDe(slug);
     var exo = Modele.indexerExercices(local.exercices)[slug] || null;
-    return Moteur.consigneDExercice(faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug],
-      seance ? seance.debut : new Date().toISOString(),
-      Object.assign(optionsDeConsigne(slug, exo), { edition: false }));
+    var o = Object.assign(optionsDeConsigne(slug, exo), { edition: false }), g = groupesDuMoteur(slug, o.salle);
+    return Moteur.consigneDExercice(g, etatDuMoteur(slug, o.salle, g), seance ? seance.debut : new Date().toISOString(), o);
   }
 
   // §3.12 (49-U1) — l'en-tête LU SUR LE PLAN : il décrit les lignes de la
@@ -6674,6 +6691,8 @@
     var vu = constats.parSlug[slug];
     if (!vu || vu.options !== cleOptions) {
       var faites = seriesDeTravailDe(slug).filter(function (s) { return Seance.partEnBase(s); });
+      // 132 — un exercice noté par nom : la séance du jour et l'historique en charges virtuelles (§10 ter).
+      if (estSalleElastique(options.salle)) faites = Profil.seriesPourLeMoteur(options.salle, faites, false);
       // ⚠️ LA COUPURE D'APRÈS EST L'INSTANT PRÉSENT. Le moteur ne lit jamais
       // l'avenir : une coupure au début de la séance en exclurait la séance du
       // jour, et la suite raconterait la fois d'avant.
@@ -6681,13 +6700,13 @@
       // reprise des jours plus tard : les séances faites entre-temps ne sont
       // pas « aujourd'hui » (le constat racontait l'une d'elles).
       var debutDuJour = Date.parse(seance.debut);
-      var anterieures = faits.seancesDeLExercice(corpus(), slug).filter(function (g) {
+      var anterieures = groupesDuMoteur(slug, options.salle).filter(function (g) {
         return g.seance.id === seance.id || !(Date.parse(g.seance.debut) > debutDuJour);
       });
       var r = Moteur.suiteDExercice(
         anterieures,
         { seance: { debut: seance.debut }, series: faites },
-        etatsExercices[slug], rejeuEnCours ? rejeuEnCours.instant : new Date().toISOString(),
+        etatDuMoteur(slug, options.salle, anterieures), rejeuEnCours ? rejeuEnCours.instant : new Date().toISOString(),
         options);
       var parSlug = Object.assign({}, constats.parSlug);
       parSlug[slug] = { options: cleOptions,
@@ -7128,7 +7147,9 @@
     var oui = reponse === 'oui';
     var slug = x.slug;
     var r = oui ? { r: 'oui', le: new Date().toISOString() } : { r: 'non', le: new Date().toISOString() };
-    if (!oui && carte.aide) r.aide = carte.charge;
+    // 132 (MOTEUR §10 ter) — sur un exercice noté par nom, la réponse garde le NOM de l'élastique, jamais sa charge
+    // virtuelle (`marche_reponses.*.aide` accepte un nombre ou un texte, v2_099).
+    if (!oui && carte.aide) r.aide = carte.elastique !== undefined && carte.elastique !== null ? carte.elastique : carte.charge;
     reponseEnCours = true;
     try {
       if (demoEscalier()) {
@@ -13319,6 +13340,7 @@
     });
     if (pr.etat === 'deja') return Objectif.phraseDejaFait(pr, maintenant);
     if (pr.etat === 'hors_salle') return Objectif.phraseHorsSalle(pr);
+    if (pr.etat === 'elastique') return Objectif.PHRASE_ELASTIQUE;
     var pariId = pr.etat === 'date' ? await Moteur.idDObjectif(slug, pose) : null;
     var ligne = Objectif.ligneDe(slug, lu.charge, lu.reps, pose, pr, uid, pariId);
     await ecrireObjectif(slug, ligne, Objectif.pariDe(ligne, pr, uid, pariId));

@@ -1708,7 +1708,32 @@
       .sort(function (a, b) { return a - b; });
     return { charges: charges, noms: noms };
   }
-  // L'élastique au cran au-dessus (`sens` = +1, plus dur) ou en dessous (−1) ; `null` au bout de la liste.
+  // CE QUE LE MOTEUR LIT d'un exercice noté par nom (`salleExo` : sa salle, `salleDeLExercice`) : chaque série avec sa
+  // charge virtuelle (`chargePourLeMoteur`). L'HISTORIQUE (`seancesPourLeMoteur`) : les séries NEUTRES en sortent — un
+  // élastique retiré ou renommé, une aide en kg qui ne se rattache à aucun élastique — et une séance qui n'en garde
+  // aucune aussi (elle reste dans l'historique, avec son nom ; elle ne compte pas pour la consigne). LA SÉANCE DU JOUR
+  // (`seriesPourLeMoteur(…, true)`) garde toutes ses lignes : une ligne pas encore remplie se lit sans charge. Sans
+  // salle d'élastiques, rien ne change : les séries telles quelles.
+  function seriesPourLeMoteur(salleExo, series, garderNeutres) {
+    if (!salleExo || salleExo.materiel !== 'elastique') return series;
+    var out = [];
+    (series || []).forEach(function (s) {
+      if (!s) return;
+      var v = chargePourLeMoteur(salleExo.fiche, salleExo.ma, s);
+      if ((v === null || v === undefined) && !garderNeutres) return;
+      out.push(Object.assign({}, s, { charge_kg: v === undefined ? null : v }));
+    });
+    return out;
+  }
+  function seancesPourLeMoteur(salleExo, groupes) {
+    if (!salleExo || salleExo.materiel !== 'elastique') return groupes;
+    return (groupes || []).map(function (g) {
+      var l = seriesPourLeMoteur(salleExo, (g && g.series) || [], false);
+      return l.length ? Object.assign({}, g, { series: l }) : null;
+    }).filter(Boolean);
+  }
+
+  // L'élastique au cran au-dessus (`sens` = +1, plus dur) ou en dessous (−1) ; `null` au bout de la liste.  // L'élastique au cran au-dessus (`sens` = +1, plus dur) ou en dessous (−1) ; `null` au bout de la liste.
   function cranElastique(fiche, salle, nom, sens) {
     var cv = chargesVirtuelles(fiche, listeDe(fiche, salle));
     if (!Object.prototype.hasOwnProperty.call(cv, nom)) return null;
@@ -2037,7 +2062,8 @@
     // 132 (MOTEUR §10 ter) — les élastiques par leur nom (la référence `elastiques132.py`).
     listeDe: listeDe, parNom: parNom, chargesVirtuelles: chargesVirtuelles, rattacherElastique: rattacherElastique,
     elastiqueDeSerie: elastiqueDeSerie, chargePourLeMoteur: chargePourLeMoteur, salleElastique: salleElastique,
-    cranElastique: cranElastique, ecrireSerie: ecrireSerie, meilleurElastique: meilleurElastique
+    cranElastique: cranElastique, ecrireSerie: ecrireSerie, meilleurElastique: meilleurElastique,
+    seriesPourLeMoteur: seriesPourLeMoteur, seancesPourLeMoteur: seancesPourLeMoteur
   };
 
   racine.THProfil = api;

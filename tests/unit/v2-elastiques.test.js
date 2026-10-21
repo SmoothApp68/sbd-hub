@@ -250,3 +250,286 @@ describe('132 — la salle de l’exercice (`salleDeLExercice`, étendue)', () =
     expect(Profil.salleDeLExercice(p, 'traction_assistee', INDEX)).toBeNull();
   });
 });
+
+// ═══ 4. LE MOTEUR ET LE PLAN (MOTEUR §10 ter) — SANS NOUVELLE RÈGLE ═════════
+const Pa = require('../../v2/js/palier.js');
+const M = require('../../v2/js/moteur.js');
+const T = require('../../v2/js/plan.js');
+
+const AVANT = '2026-10-21T10:00:00Z';
+const GRANDS = { elastiques: [{ nom: 'Noir', kg: 35 }, { nom: 'Rouge', kg: 25 }, { nom: 'Vert' }], elastiques_par_nom: true };
+const FICHES = {
+  face_pull_elastique: { slug: 'face_pull_elastique', nom: 'Face Pull (Élastique)', charge: 'elastique', type_elastique: 'grand',
+    mesure: 'reps', equipement: 'elastique', muscles_primaires: ['deltoide_post'] },
+  tractions_elastique: { slug: 'tractions_elastique', nom: 'Tractions (Élastique)', charge: 'assistance', type_elastique: 'grand',
+    mesure: 'charge_reps', equipement: 'elastique', muscles_primaires: ['dorsaux', 'biceps', 'trapezes'] },
+  clamshell_elastique: { slug: 'clamshell_elastique', nom: 'Clamshell (Élastique)', charge: 'elastique', type_elastique: 'mini',
+    mesure: 'reps', equipement: 'elastique', muscles_primaires: ['fessiers'] }
+};
+const jourAvant = (d) => new Date(Date.parse(AVANT) - d * 864e5).toISOString();
+// Des séances d'un exercice : `series[i]` = [{ elastique, charge_kg, reps }…] ; une série par entrée.
+function historique(slug, seances, jours) {
+  let r = 0;
+  return seances.map((ss, i) => ({
+    seance: { id: 'H' + i, debut: jourAvant(jours[i]) },
+    series: ss.map((x) => ({ id: 'h' + (++r), rang: r, exercise_slug: slug, type_serie: 'travail', rpe: null, ressenti: null,
+      elastique: x.elastique === undefined ? null : x.elastique, charge_kg: x.charge_kg === undefined ? null : x.charge_kg,
+      reps: x.reps }))
+  }));
+}
+const fois = (n, x) => Array.from({ length: n }, () => Object.assign({}, x));
+function consigneDe(slug, ma, groupes, extra) {
+  const salle = Profil.salleDeLExercice({ ma_salle: ma }, slug, FICHES);
+  const g = salle ? Profil.seancesPourLeMoteur(salle, groupes) : groupes;
+  const etat = Pa.etatsExercices(g.map((x) => ({ slug, series: x.series })))[slug];
+  return { salle, c: M.consigneDExercice(g, etat, AVANT, Object.assign({ mesure: salle ? 'charge_reps' : FICHES[slug].mesure,
+    equipement: 'elastique', intention: 'progresser', reglage: 'normal', salle, seancesSousConsigne: [] }, extra || {})) };
+}
+function entreesDe(slug, ma, groupes, n, extra) {
+  const { salle, c } = consigneDe(slug, ma, groupes, extra);
+  let k = 0;
+  const id = () => 's' + (++k);
+  let se = S.creer({ id: 'S1', userId: 'u', idSerie: id });
+  se = S.ajouterExercice(se, slug, id, { series: n || 3 });
+  return { salle, e: { seance: { id: 'S1', debut: AVANT, edition: false, exercices: se.exercices }, consignes: { [slug]: c },
+    reglage: (extra && extra.reglage) || 'normal', paris: [], suites: {}, intention: 'progresser', modes: {}, lestReponse: null,
+    echelles: {}, marcheReponses: {},
+    catalogue: { [slug]: { equipement: 'elastique', muscles_primaires: FICHES[slug].muscles_primaires, mesure: 'charge_reps',
+      leste: null, salle } } } };
+}
+const erreursDe = (plan, e) => T.verifierPlan(plan, e).erreurs;
+
+describe('132 — le moteur lit l’ordre de la liste (§10 bis tel quel, sur les charges virtuelles)', () => {
+  test('Face Pull : Vert au haut de la zone deux séances de suite — Rouge en dernière série, par son nom', () => {
+    const h = historique('face_pull_elastique', [fois(3, { elastique: 'Vert', reps: 18 }), fois(3, { elastique: 'Vert', reps: 20 }),
+      fois(3, { elastique: 'Vert', reps: 20 })], [21, 14, 7]);
+    const { e } = entreesDe('face_pull_elastique', GRANDS, h, 3, { reglage: 'prudent' });
+    const plan = T.planDeSeance(e), x = plan.exercices[0];
+    expect(x.consigne.etat).toBe('test_propose');
+    expect([x.consigne.ligne, x.consigne.haut]).toEqual([{ charge: 1, vise: 20 }, { charge: 2, vise: 15, k: 1 }]);
+    expect(x.lignes.map((l) => l.prerempli.elastique)).toEqual(['Vert', 'Vert', 'Rouge']);
+    expect(x.lignes.every((l) => l.prerempli.charge_kg === null)).toBe(true);
+    expect(x.entete.jaune).toEqual(['Aujourd’hui : Vert × 20.'.replace('’', '\''), 'Si ça passe, Rouge × 15, à la série que tu veux.']
+      .map((t) => t.replace(/ × /g, ' × ')));
+    expect(x.donc).toBe('Donc Vert × 20, puis Rouge × 15 sur la dernière série.');
+    expect(x.phrases.map((p) => p.texte).join(' ')).not.toMatch(/kg|−|-\d/);
+    expect(x.elastique).toEqual({ liste: ['Noir', 'Rouge', 'Vert'], aide: false, noms: { 1: 'Vert', 2: 'Rouge', 3: 'Noir' } });
+    expect(erreursDe(plan, e)).toEqual([]);
+  });
+  test('Tractions : sur une aide, monter c’est l’élastique plus léger (Noir → Rouge)', () => {
+    const h = historique('tractions_elastique', [fois(3, { elastique: 'Noir', charge_kg: -35, reps: 12 }),
+      fois(3, { elastique: 'Noir', charge_kg: -35, reps: 12 })], [14, 7]);
+    const { e } = entreesDe('tractions_elastique', GRANDS, h, 3);
+    const plan = T.planDeSeance(e), x = plan.exercices[0];
+    expect(x.lignes.map((l) => l.prerempli.elastique)).toEqual(['Noir', 'Noir', 'Rouge']);
+    expect(x.donc).toBe('Donc Noir × 12, puis Rouge × 10 sur la dernière série.');
+    expect(erreursDe(plan, e)).toEqual([]);
+  });
+  test('au bout de la liste, l’état `salle_max` : on monte en reps, puis le plafond (§10 bis)', () => {
+    const h = historique('face_pull_elastique', [fois(3, { elastique: 'Noir', reps: 16 }), fois(3, { elastique: 'Noir', reps: 17 })], [14, 7]);
+    const { c } = consigneDe('face_pull_elastique', GRANDS, h);
+    expect(c.consigne.etat).toBe('progression');
+    const h2 = historique('face_pull_elastique', [fois(3, { elastique: 'Noir', reps: 20 }), fois(3, { elastique: 'Noir', reps: 20 })], [14, 7]);
+    const { c: c2 } = consigneDe('face_pull_elastique', GRANDS, h2);
+    expect(c2.consigne.etat).toBe('salle_max');
+    expect(c2.consigne.ligne).toEqual({ charge: 3, vise: 20 });
+    expect(c2.libelles.gris).toBe('Noir × 20, la plus lourde de ta salle.');
+  });
+  test('le clamshell lit les mini-bandes ; sans mini-bande déclarée, il reste en reps seules', () => {
+    const h = historique('clamshell_elastique', [fois(3, { elastique: 'Jaune', reps: 15 })], [7]);
+    const ma = Object.assign({}, GRANDS, { mini_bandes: [{ nom: 'Bleue' }, { nom: 'Jaune' }] });
+    const { salle, c } = consigneDe('clamshell_elastique', ma, h);
+    expect(salle.liste).toEqual(['Bleue', 'Jaune']);
+    expect(c.consigne.ligne.charge).toBe(1);
+    expect(consigneDe('clamshell_elastique', GRANDS, h).salle).toBeNull();
+  });
+  test('une série neutre (élastique retiré, aide en kg sans élastique de ce kg) sort du moteur ; une séance vide aussi', () => {
+    const salle = Profil.salleDeLExercice({ ma_salle: GRANDS }, 'tractions_elastique', FICHES);
+    const h = historique('tractions_elastique', [[{ elastique: 'Gris', reps: 8 }, { charge_kg: -20, reps: 9 }],
+      [{ charge_kg: -35, reps: 10 }, { elastique: 'Gris', reps: 8 }]], [14, 7]);
+    const g = Profil.seancesPourLeMoteur(salle, h);
+    expect(g).toHaveLength(1);
+    expect(g[0].series.map((s) => [s.charge_kg, s.reps])).toEqual([[-3, 10]]);
+    // L'historique, lui, ne change pas : la séance reste avec son nom.
+    expect(h[0].series[0].elastique).toBe('Gris');
+  });
+  test('hors de la règle, rien de chiffré sur une charge virtuelle : ni seconde charge, ni repli de reprise, ni report', () => {
+    const DIX = { elastiques: Array.from({ length: 10 }, (_, k) => ({ nom: 'E' + k })), elastiques_par_nom: true };
+    const de = (jours, noms) => jours.map((d) => [d, noms]);
+    const h = (lignes, reps) => {
+      let r = 0;
+      return lignes.map(([d, noms]) => ({ seance: { id: 'H' + d, debut: jourAvant(d) }, series: noms.map((nom) => ({
+        id: 'h' + (++r), rang: r, exercise_slug: 'face_pull_elastique', type_serie: 'travail', elastique: nom, charge_kg: null,
+        reps, rpe: null, ressenti: null })) }));
+    };
+    // La seconde charge : la montée habituelle de deux crans (E9, E9 puis E7, sept fois) — en proportion, elle
+    // proposerait E7 ; sur un élastique, le cran seul.
+    const montees = h(de([56, 49, 42, 35, 28, 21, 14], ['E9', 'E9', 'E7']).concat([[7, ['E9', 'E9', 'E9']]]), 15);
+    const { c } = consigneDe('face_pull_elastique', DIX, montees);
+    expect(c.contexte).toEqual({ cran: 2, haut: null });
+    // La reprise longue, au plus fort de dix : la charge de travail (10), jamais le cran en dessous (9, −10 %).
+    const { c: cl } = consigneDe('face_pull_elastique', DIX, h(de([130, 123, 116], ['E0', 'E0', 'E0']), 15));
+    expect(cl.consigne.etat).toBe('reprise_longue');
+    expect(cl.consigne.ligne.charge).toBe(10);
+    // Une zone choisie depuis la dernière séance : pas de report (une estimation du 1RM), la charge de travail.
+    const { c: cz } = consigneDe('face_pull_elastique', DIX, h(de([21, 14, 7], ['E3', 'E3', 'E3']), 15),
+      { correction: 'lourd', correctionsDeZone: [{ exercise_slug: 'face_pull_elastique', zone: 'lourd', corrigee_a: jourAvant(3) }] });
+    expect(cz.consigne.etat).not.toBe('nouvelle_zone');
+    expect(cz.consigne.ligne.charge).toBe(7);
+    expect(cz.consigne.fondement.report).toBeUndefined();
+  });
+  test('l’objectif se refuse, avec sa phrase', () => {
+    const O = require('../../v2/js/objectif.js');
+    const salle = Profil.salleDeLExercice({ ma_salle: GRANDS }, 'tractions_elastique', FICHES);
+    const pr = O.projection({ seances: [], charge: -25, reps: 10, maintenant: new Date(AVANT), salle });
+    expect(pr.etat).toBe('elastique');
+    expect(O.PHRASE_ELASTIQUE).toBe('Un objectif se pose en kg : cet exercice se note par élastique.');
+  });
+  test('aucun record d’une série notée par nom (ni médaille, ni journal) ; la même série en kg, oui', () => {
+    const se = { debut: AVANT, series: [{ exercise_slug: 'x', type_serie: 'travail', elastique: 'Noir', charge_kg: -35, reps: 12 }] };
+    const veille = { debut: jourAvant(1), series: [{ exercise_slug: 'x', type_serie: 'travail', elastique: 'Noir', charge_kg: -35, reps: 10 }] };
+    expect(Mo.recordsBattus([veille], se, 0, {})).toEqual([]);
+    const enKg = (s) => Object.assign({}, s, { elastique: null });
+    expect(Mo.recordsBattus([{ debut: veille.debut, series: veille.series.map(enKg) }], { debut: AVANT, series: se.series.map(enKg) }, 0, {}).length)
+      .toBeGreaterThan(0);
+  });
+});
+
+// ═══ 5. I51, CASSÉ EXPRÈS, CONDITION PAR CONDITION ═══════════════════════════
+describe('132 — I51 : sur un exercice noté par nom', () => {
+  const base = () => {
+    const h = historique('face_pull_elastique', [fois(3, { elastique: 'Vert', reps: 18 }), fois(3, { elastique: 'Vert', reps: 20 }),
+      fois(3, { elastique: 'Vert', reps: 20 })], [21, 14, 7]);
+    const { e } = entreesDe('face_pull_elastique', GRANDS, h, 3, { reglage: 'prudent' });
+    return { e, plan: T.planDeSeance(e) };
+  };
+  const I51 = (plan, e) => erreursDe(plan, e).filter((t) => t.indexOf('I51 ') === 0);
+  test('le plan réel les tient toutes', () => {
+    const { e, plan } = base();
+    expect(I51(plan, e)).toEqual([]);
+  });
+  test('a) une ligne (ou une ligne haute) de consigne hors de la liste', () => {
+    const { e, plan } = base();
+    plan.exercices[0].consigne = Object.assign({}, plan.exercices[0].consigne, { haut: { charge: 4, vise: 15, k: 1 } });
+    expect(I51(plan, e).join()).toMatch(/la ligne haute de la consigne à une charge hors de la liste \(4\)/);
+    const b = base();
+    b.plan.exercices[0].consigne = Object.assign({}, b.plan.exercices[0].consigne, { haut: { charge: null, vise: 15, k: 1 } });
+    expect(I51(b.plan, b.e).join()).toMatch(/la ligne haute de la consigne sans élastique/);
+  });
+  test('b) un fantôme, une proposition du coach hors de la liste ; un pré-remplissage qui dit une charge ou un nom inconnu', () => {
+    let { e, plan } = base();
+    plan.exercices[0].lignes[2].fantome = Object.assign({}, plan.exercices[0].lignes[2].fantome, { charge: 2.5 });
+    expect(I51(plan, e).join()).toMatch(/le fantôme de la série 2 à une charge hors de la liste/);
+    ({ e, plan } = base());
+    plan.exercices[0].reaction.plan[1] = Object.assign({}, plan.exercices[0].reaction.plan[1], { source: 'coach', charge: 7 });
+    expect(I51(plan, e).join()).toMatch(/la proposition du coach \(ligne 1\) à une charge hors de la liste/);
+    ({ e, plan } = base());
+    plan.exercices[0].lignes[0].prerempli = Object.assign({}, plan.exercices[0].lignes[0].prerempli, { charge_kg: 1 });
+    expect(I51(plan, e).join()).toMatch(/pré-remplie d’une charge/);
+    ({ e, plan } = base());
+    plan.exercices[0].lignes[0].prerempli = Object.assign({}, plan.exercices[0].lignes[0].prerempli, { elastique: 'Gris' });
+    expect(I51(plan, e).join()).toMatch(/pré-remplie d’un élastique hors de la liste \(Gris\)/);
+  });
+  test('c) une chauffe', () => {
+    const { e, plan } = base();
+    plan.exercices[0].chauffes = { phrase: 'x', reference: 1 };
+    expect(I51(plan, e).join()).toMatch(/des chauffes sur un élastique/);
+  });
+  test('d) une dégressive', () => {
+    const { e, plan } = base();
+    plan.exercices[0].degressive = { phrase: 'x' };
+    expect(I51(plan, e).join()).toMatch(/une dégressive sur un élastique/);
+  });
+  test('e) un record : la règle des records rejouée sur une série validée par nom (le garde-fou retiré, elle le dit)', () => {
+    const { e, plan } = base();
+    const se = e.seance.exercices[0].series[0];
+    Object.assign(se, { elastique: 'Vert', reps: 20, validee_a: AVANT, source: 'app' });
+    const plan2 = T.planDeSeance(e);
+    expect(I51(plan2, e)).toEqual([]);
+    const garde = Mo.recordsBattus;
+    Mo.recordsBattus = () => [{ type: 'reps_a_charge' }];
+    try { expect(I51(plan2, e).join()).toMatch(/ferait un record \(reps_a_charge\)/); } finally { Mo.recordsBattus = garde; }
+  });
+  test('f) une série neutre comptée, un pari sur l’exercice', () => {
+    const { e } = base();
+    Object.assign(e.seance.exercices[0].series[0], { elastique: 'Gris', reps: 20, validee_a: AVANT, source: 'app' });
+    const plan = T.planDeSeance(e);
+    expect(I51(plan, e)).toEqual([]);
+    plan.exercices[0].lignes[0].faite = Object.assign({}, plan.exercices[0].lignes[0].faite, { charge: 1 });
+    expect(I51(plan, e).join()).toMatch(/la série neutre 0 \(Gris\) compte dans les séries faites/);
+    const b = base();
+    b.plan.exercices[0].paris[0] = { module: 'consigne' };
+    expect(I51(b.plan, b.e).join()).toMatch(/un pari \(il écrirait une charge virtuelle\)/);
+  });
+});
+
+// ═══ 6. LA CONCORDANCE SUR UNE PRATIQUANTE RÉELLE (`pratiquante_a`) ═══════════
+// Trente séances de tractions à l'élastique, anonymisées ; Noir = 35 kg, Rouge = 25 kg, Vert sans kg. Le plan, séance
+// par séance (l'historique d'avant elle), une fois en mode kg et une fois en mode nom. Attendus (prompt 132) : en mode
+// nom, toute charge proposée est un élastique de la liste ; quand le mode kg propose une aide qui correspond à un
+// élastique, le mode nom propose cet élastique ; les écarts restants viennent tous de l'aide de 20 kg du jour 357.
+describe('132 — concordance sur pratiquante_a (mode kg / mode nom)', () => {
+  const PA = F.pratiquante_a;
+  const slug = 'tractions_elastique';
+  const REF = Date.parse('2025-01-01T09:00:00Z');
+  const dateDe = (j) => new Date(REF + j * 864e5).toISOString();
+  let rid = 0;
+  const groupes = PA.seances.map((s, k) => ({ seance: { id: 'P' + k, debut: dateDe(s.jour) },
+    series: s.series.map((x, i) => ({ id: 'p' + (++rid), rang: i + 1, exercise_slug: slug, type_serie: 'travail',
+      charge_kg: x.charge_kg, reps: x.reps, rpe: null, ressenti: null, elastique: null })) }));
+  const NOM_DU_KG = { '-35': 'Noir', '-25': 'Rouge' };
+  function planDe(j, mode, reglage) {
+    const ma = mode === 'nom' ? PA.salle : Object.assign({}, PA.salle, { elastiques_par_nom: false });
+    const salle = Profil.salleDeLExercice({ ma_salle: ma }, slug, FICHES);
+    const g = salle ? Profil.seancesPourLeMoteur(salle, groupes.slice(0, j)) : groupes.slice(0, j);
+    const etat = Pa.etatsExercices(g.map((x) => ({ slug, series: x.series })))[slug];
+    const avant = dateDe(PA.seances[j].jour);
+    const c = M.consigneDExercice(g, etat, avant, { mesure: 'charge_reps', equipement: 'elastique', intention: 'progresser',
+      reglage, salle, seancesSousConsigne: [] });
+    let k = 0;
+    const id = () => 's' + (++k);
+    let se = S.creer({ id: 'S' + j, userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, slug, id, { series: PA.seances[j].series.length });
+    const e = { seance: { id: 'S' + j, debut: avant, edition: false, exercices: se.exercices }, consignes: { [slug]: c },
+      reglage, paris: [], suites: {}, intention: 'progresser', modes: {}, lestReponse: null, echelles: {}, marcheReponses: {},
+      catalogue: { [slug]: { equipement: 'elastique', muscles_primaires: FICHES[slug].muscles_primaires, mesure: 'charge_reps',
+        leste: null, salle } } };
+    const plan = T.planDeSeance(e);
+    return { salle, x: plan.exercices[0], erreurs: erreursDe(plan, e) };
+  }
+  ['prudent', 'normal', 'franc'].forEach((reglage) => {
+    test('réglage ' + reglage + ' : chaque écart, avec sa cause', () => {
+      const ecarts = [];
+      const i357 = PA.seances.findIndex((s) => s.jour === 357);
+      PA.seances.forEach((s, j) => {
+        const a = planDe(j, 'kg', reglage), b = planDe(j, 'nom', reglage);
+        expect([s.jour, a.erreurs, b.erreurs]).toEqual([s.jour, [], []]);
+        const proposees = (x) => x.lignes.map((l) => (l.role === 'hors' ? null : l.charge));
+        const kg = proposees(a.x), nom = proposees(b.x).map((c) => (c === null ? null : b.salle.noms[String(c)]));
+        // En mode nom, toute charge proposée est un élastique de la liste.
+        b.x.lignes.forEach((l) => { if (l.role !== 'hors' && l.charge !== null) expect(PA.salle.elastiques.map((x) => x.nom)).toContain(b.salle.noms[String(l.charge)]); });
+        kg.forEach((c, i) => {
+          if (c === null && nom[i] === null) return;
+          if (c !== null && NOM_DU_KG[String(c)] !== undefined) {
+            // Une aide qui correspond à un élastique : le mode nom propose cet élastique.
+            expect([s.jour, i, nom[i]]).toEqual([s.jour, i, NOM_DU_KG[String(c)]]);
+            return;
+          }
+          ecarts.push({ jour: s.jour, serie: i, kg: c, nom: nom[i] });
+        });
+      });
+      // Les écarts restants, chacun avec sa cause :
+      //   · « 357 » : la séance qui suit le jour 357 — son palier de 20 kg en mode kg ; neutre en mode nom (20 kg ne se
+      //     rattache à aucun élastique), qui repart de la séance d'avant, au Noir ;
+      //   · « liste » (Franc seulement) : le test en mode kg n'a pas de chiffre (« le cran au-dessus » : aucune aide
+      //     plus légère dans l'historique d'alors) ; en mode nom, la liste le donne — l'élastique suivant, le Rouge.
+      const cause = (x) => (x.kg === -20 && x.nom === 'Noir' && x.jour === PA.seances[i357 + 1].jour ? '357'
+        : x.kg === null && x.nom === 'Rouge' ? 'liste' : 'inexpliqué');
+      const parCause = {};
+      ecarts.forEach((x) => { (parCause[cause(x)] = parCause[cause(x)] || []).push(x.jour + ':' + x.serie); });
+      expect(Object.keys(parCause).sort()).toEqual(reglage === 'franc' ? ['357', 'liste'] : ['357']);
+      expect(parCause['357']).toEqual([0, 1, 2].map((i) => PA.seances[i357 + 1].jour + ':' + i));
+      if (reglage === 'franc') expect(parCause.liste).toEqual(['39:3', '52:3']);
+    });
+  });
+});

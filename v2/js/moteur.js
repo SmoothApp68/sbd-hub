@@ -663,9 +663,18 @@
   // croissantes, dans l'unité des séries (une barre : son poids ; des haltères :
   // la PAIRE, §10.1). Le moteur ne lit pas le profil : il reçoit la liste.
   var SALLE_BARRES = ['barre_ez', 'barre_droite'];
+  // 132 (MOTEUR §10 ter) — UNE LISTE D'ÉLASTIQUES EST UNE SALLE dont les crans sont des noms : ses charges sont
+  // VIRTUELLES (`THProfil.salleDeLExercice` : aide −3, −2, −1 ; résistance 3, 2, 1), ordonnées dans le sens où monter
+  // est plus dur. Tout le §10 bis s'applique tel quel ; seules les gardes « une charge positive » (le poids du corps
+  // vaut 0, une aide est négative) s'ouvrent aux charges virtuelles d'une aide, qui sont négatives par construction.
+  // Ce qui lirait un CHIFFRE sur ces charges en est tenu à l'écart, exercice noté par nom hors de la règle : la
+  // seconde charge de la réaction (10 %, le saut habituel en proportion), le repli de la reprise longue (10 %), le
+  // report d'une nouvelle zone (une estimation du 1RM). Le double saut de Franc, borné à 10 %, n'y passe jamais.
+  function salleDElastiques(salle) { return !!salle && salle.materiel === 'elastique'; }
   function chargesDeLaSalle(salle) {
+    var el = salleDElastiques(salle);
     var l = salle && Array.isArray(salle.charges) ? salle.charges.map(nombre)
-      .filter(function (v) { return v !== null && v > 0; }) : [];
+      .filter(function (v) { return v !== null && (v > 0 || (el && v < 0)); }) : [];
     l.sort(function (a, b) { return a - b; });
     return l.filter(function (v, i) { return i === 0 || !memeCharge(v, l[i - 1]); });
   }
@@ -688,6 +697,8 @@
     var s = { materiel: salle.materiel, charges: l };
     // L'isolation (non polyarticulaire) : la fourchette à la plus lourde s'étend à 15 reps (`plafondALaSalle`).
     if (salle.isolation === true) s.isolation = true;
+    // 132 — les noms des crans d'une liste d'élastiques suivent la salle en vigueur : l'affichage les lit.
+    if (salleDElastiques(salle) && salle.noms) s.noms = salle.noms;
     return s;
   }
   // La charge de la salle juste au-delà (`sens` > 0) ou en deçà (< 0), ou
@@ -770,7 +781,7 @@
   function salleDeLaConsigne(consigne, salle) {
     if (!salle || !consigne || consigne.etat === 'silence') return null;
     var P = nombre(consigne.palier);
-    if (P === null || P <= 0) return null;
+    if (P === null || P === 0 || (P < 0 && !salleDElastiques(salle))) return null;
     return salleEnVigueur(salle, P);
   }
   // Les charges d'une consigne arrondies à la salle (`consignePour` l'a déjà
@@ -1302,7 +1313,9 @@
     // §10 bis (108) — LA SALLE EN VIGUEUR, lue sur le palier : à la barre, un
     // palier au-delà de la plus lourde barre fixe déclarée vient d'une barre
     // chargée de disques — la salle n'en dit rien (`salleEnVigueur`).
-    var salle = P !== null && P > 0 ? salleEnVigueur(salleDeclaree, P) : null;
+    var salle = P !== null && (P > 0 || (P < 0 && salleDElastiques(salleDeclaree))) ? salleEnVigueur(salleDeclaree, P) : null;
+    // 132 (MOTEUR §10 ter) — un exercice noté par nom : aucun chiffre lu sur ses charges virtuelles.
+    var elastique = salleDElastiques(salleDeclaree);
     if (P === null || !A.length || niv === null) {
       // Les CHARGES, et elles seules : « 100, 110 puis 120 kg, aucune charge
       // répétée ». Sans palier il n'y a ni reps au palier ni test à raconter.
@@ -1617,7 +1630,7 @@
     // refuse (I30).
     if (reprise === REPRISE_LONGUE) {
       return rendre('reprise_longue',
-        ligneDe(poidsDuCorps || aide ? P : repliDeReprise(P, cranDessousOuPalier()), viseReprise), null, borne);
+        ligneDe(poidsDuCorps || aide || elastique ? P : repliDeReprise(P, cranDessousOuPalier()), viseReprise), null, borne);
     }
 
     // 4. La règle de bord : sous 3 reps d'habitude, il n'y a plus de zone. On
@@ -1749,6 +1762,9 @@
     // §9.17 — ET PAS DE DOUBLE SAUT SUR UNE AIDE : deux crans d'aide en moins
     // d'un coup ne sont pas « 10 % de la charge » (une aide n'est pas une
     // charge qu'on pèse en pourcentage, I30).
+    // 132 (§10 ter) — sur un élastique noté par nom, la borne des 10 % ne laisse jamais passer deux crans : au plus 10
+    // élastiques, des charges virtuelles de 1 à 10, et deux crans font toujours plus de 10 % (rapporté, prompt 132 —
+    // aucune garde à ajouter : elle ne pourrait rien changer).
     if (reglage === 'franc' && c1 !== null && !aide) {
       // La preuve du double saut : le haut dépassé de 3 reps, ou un effort dit
       // « facile » (§17.3, logique APRE).
@@ -2385,7 +2401,8 @@
     // §9.17 — PAS DE CRAN AU POIDS DU CORPS : la réaction se tait (`reactionPour`),
     // et le contexte ne cherche pas une charge à lui proposer.
     if (base === 0) return vide;
-    var salle = base > 0 ? salleEnVigueur(salleDeclaree || null, base) : null;
+    var el = salleDElastiques(salleDeclaree);
+    var salle = base > 0 || (base < 0 && el) ? salleEnVigueur(salleDeclaree || null, base) : null;
     var vues = (seances || []).map(vueDeSeance);
     var cran = voisineSalleComprise(vues, avant, base, equipement, 1, salle);
     if (salle && cran === null) return { cran: null, haut: null, salleMax: true };
@@ -2403,7 +2420,8 @@
       // §9.17 — ET PAS DE SECONDE CHARGE SUR UNE AIDE : « ou 130 kg, si tu te
       // sens bien ? » compare à 10 % de la charge, et une aide n'en est pas une
       // (I30). Le cran seul reste proposé : moins d'aide, c'est monter.
-      haut: base < 0 ? null : secondeCharge({ palier: base, cran: cran, cranSuivant: cranSuivant,
+      // 132 — ni sur un élastique noté par nom (§10 ter) : la seconde charge se lit en proportion de la charge.
+      haut: base < 0 || el ? null : secondeCharge({ palier: base, cran: cran, cranSuivant: cranSuivant,
         sauts: sautsDeMontee(ant), charges: charges,
         programme: programme === undefined ? null : programme })
     };
@@ -6778,6 +6796,10 @@
 
   function reportSur(seances, avant, zoneAvant, zone, equipement) {
     if (equipement === EQUIPEMENT_LEST) return null;
+    // 132 (MOTEUR §10 ter) — PAS DE REPORT À L'ÉLASTIQUE : une estimation du 1RM sur une charge virtuelle (ou sur une
+    // aide) ne veut rien dire. L'aide était déjà écartée (charge ≤ 0, `reportDeZone`) ; la résistance notée par nom
+    // l'est ici. La nouvelle zone part alors de la charge de travail, comme un corps.
+    if (equipement === 'elastique') return null;
     var vues = (seances || []).map(vueDeSeance);
     var lues = chargesDeTravail(anterieures(vues, avant));
     return reportDeZone({
@@ -7047,7 +7069,11 @@
     };
     // §20.2 — la référence des dates est `avant`, le début de la séance pour
     // laquelle la consigne est calculée : « mardi » se dit contre elle.
-    return { consigne: consigne, libelles: libellesConsigne(consigne, avant),
+    // 132 (MOTEUR §10 ter) — les libellés d'un exercice noté par nom disent ses élastiques par leur nom : le formateur
+    // traduit la charge virtuelle (`THModele.avecNoms`), au seul endroit de l'affichage.
+    var nomsDesCrans = salleDElastiques(o.salle) ? o.salle.noms || null : null;
+    return { consigne: consigne,
+             libelles: Modele().avecNoms(nomsDesCrans, function () { return libellesConsigne(consigne, avant); }),
              etiquette: etiquetteZone(consigne, o.ligneDeZone),
              // La feuille « Pourquoi » n'est PLUS ici (relevé du 01/10, PR 1) :
              // elle décrit la consigne que le plan applique (figée, allégée,

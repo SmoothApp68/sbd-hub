@@ -894,10 +894,11 @@ const NOTIONS = [
     raison: 'ECRAN §7 bis.15 : hors de 3 à 10 reps, l’estimation n’est pas fiable. 120 (D1, 16/10/2026) : la force ' +
       'estimée n’est plus un record — la médaille ne la lit plus ; la page seule la dit.' },
   { notion: 'les records battus par une série (et l’ancien record, avec sa date)', pr: '55-U1',
-    module: 'modele.js', fonction: 'recordsBattus', lecteurs: ['faits.js'],
-    parAilleurs: { 'faits.js': ['recordsDeLaSerie', 'recordsDeLaSeance'] },
+    module: 'modele.js', fonction: 'recordsBattus', lecteurs: ['faits.js', 'plan.js'],
+    parAilleurs: { 'faits.js': ['recordsDeLaSerie', 'recordsDeLaSeance'], 'plan.js': ['verifierElastiques'] },
     raison: 'MOTEUR §9.23 : un record est un fait ; une seule fonction décide ce qu’une série bat, ' +
-      'la médaille en séance, la feuille « Terminer » et Progression la lisent.' },
+      'la médaille en séance, la feuille « Terminer » et Progression la lisent. 132 (I51) : la garde du plan la ' +
+      'rejoue sur chaque série notée par nom — aucune ne doit rien battre.' },
   { notion: 'la phrase de la médaille ([gras, gris])', pr: '55-U1',
     module: 'modele.js', fonction: 'phraseDeRecord', lecteurs: ['app.js', 'faits.js'],
     parAilleurs: { 'app.js': ['medailleSurLigne'], 'faits.js': ['recordsDuJour'] },
@@ -943,9 +944,10 @@ const NOTIONS = [
       'par état du cache ; seul le module des faits les assemble.' },
   { notion: 'les séances d’un exercice, pour le coach et sa page (`{ seance, series }`)', pr: '58-U1',
     module: 'faits.js', fonction: 'seancesDeLExercice', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['derniereSeanceDe', 'consigneDe', 'suiteDe', 'rendreExercice'] },
+    parAilleurs: { 'app.js': ['derniereSeanceDe', 'groupesDuMoteur', 'rendreExercice'] },
     raison: 'la consigne, la suite, « Dernière séance » et la page d’exercice lisent le même historique ' +
-      'd’un exercice ; un second assemblage dans l’écran pourrait en oublier une séance.' },
+      'd’un exercice ; un second assemblage dans l’écran pourrait en oublier une séance. 132 : la consigne et la ' +
+      'suite le lisent par `groupesDuMoteur` (en charges virtuelles pour un exercice noté par nom, MOTEUR §10 ter).' },
   { notion: 'les records d’une séance passée (ses séries médaillées)', pr: '58-U1',
     module: 'faits.js', fonction: 'recordsDeLaSeance', lecteurs: [],
     par: ['recordsDuMois', 'dernierRecord', 'journalDeLaSeance'],

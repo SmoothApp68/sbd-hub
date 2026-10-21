@@ -23420,6 +23420,7 @@ const SETS_IMPORTES = [
     const sets131 = (slug) => base.sets.filter((x) => x.exercise_slug === slug);
     const taper131 = async (i, champ, v) => {
       const inp = (await page.$$('.ligne-serie >> nth=' + i + ' >> [data-champ="' + champ + '"] input'))[0];
+      if (!inp) return;   // une grille sans la case (une régression) : le contrôle qui suit échoue, la section continue
       if (champ === 'duree') { await inp.click(); await inp.type(String(v), { delay: 30 }); }
       else await inp.fill(String(v));
       await inp.evaluate((e) => e.blur());
@@ -23484,9 +23485,10 @@ const SETS_IMPORTES = [
     ok('[131] F — la feuille « Terminer » : « Il manque le D+. », la randonnée, UNE case',
       feuille131.phrase === 'Il manque le D+.' && /^Randonnée U131 · 3 h 10/.test(sp131(feuille131.serie)) &&
         JSON.stringify(feuille131.cases) === '["denivele_m"]', JSON.stringify(feuille131));
-    await page.fill('#feuille-contenu .manque-fin input', '920');
+    // Une feuille sans la case (une régression) ne fait pas planter la section : le contrôle F suivant échoue.
+    if (await page.$('#feuille-contenu .manque-fin input')) await page.fill('#feuille-contenu .manque-fin input', '920');
     await attendre(300);
-    await page.click('#feuille-contenu .principal');
+    if (await page.$('#feuille-contenu .principal')) await page.click('#feuille-contenu .principal');
     await terminerQuandMeme();
     await attendre(2600);
     await jusqua(async () => (sets131('rando-u131')[0] || {}).denivele_m === 920, 6000);

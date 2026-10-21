@@ -51,6 +51,12 @@ const CATALOGUE = [
   { slug: 'souleve-terre', nom: 'Soulevé de Terre (Barre)', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['bas du dos'], muscles_secondaires: [] },
   { slug: 'curl', nom: 'Curl Biceps Haltères', mesure: 'charge_reps', charge: 'externe', muscles_primaires: ['biceps'], muscles_secondaires: [] }
 ];
+// 126 — les noms alternatifs communs (`exercise_alias` : clé `alias`, le nom tel quel).
+const ALIAS_COMMUNS = [
+  { alias: 'DC', slug: 'dc-barre', source: 'app' },
+  { alias: 'Bench Press (Barbell)', slug: 'dc-barre', source: 'hevy' },
+  { alias: 'Deadlift (Barbell)', slug: 'souleve-terre', source: 'hevy' }
+];
 
 (async () => {
   // ── Le Supabase de papier, avec les DEUX index uniques de la vraie base ──
@@ -270,6 +276,9 @@ const CATALOGUE = [
     if (url.pathname.startsWith('/auth/')) return json({ error: 'x' }, 400);
     if (req.method() === 'GET') {
       if (table === 'exercises') return json(projeter(CATALOGUE, url));
+      // 126 (ES §7 quindecies.11) — les noms alternatifs communs (`exercise_alias`, lecture seule), lus par la
+      // synchronisation avec le catalogue : la recherche les cherche.
+      if (table === 'exercise_alias') return json(projeter(ALIAS_COMMUNS, url));
       // `maybeSingle` sur zéro ligne : PostgREST rend un TABLEAU VIDE, et c'est
       // supabase-js qui en fait `data: null`. Rendre `null` directement ferait
       // croire à une ligne nulle là où il n'y a pas de ligne du tout.

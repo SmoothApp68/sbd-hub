@@ -103,7 +103,8 @@ const CATALOGUE = [
   // laissé passer le défaut pendant trois chantiers de saisie.
   { slug: 'tractions', nom: 'Tractions', mesure: 'reps', charge: 'aucune', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
   { slug: 'planche', nom: 'Planche', mesure: 'temps', charge: 'aucune', muscles_primaires: ['abdominaux'], muscles_secondaires: [] },
-  { slug: 'marche', nom: 'Marche', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [], muscles_secondaires: [] },
+  // 126 — `hors_salle` (v2_098) : un cardio qui ne se fait pas à la salle ; la recherche le range après la musculation.
+  { slug: 'marche', nom: 'Marche', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [], muscles_secondaires: [], hors_salle: true },
   // ⚠️ RÉSERVÉ AU CHANTIER 38. `Seance.precedent` rend la séance la PLUS
   // RÉCENTE portant l'exercice : un slug déjà utilisé par les sections
   // précédentes ferait pointer l'antécédent sur une séance du banc, et le test
@@ -19989,9 +19990,11 @@ const SETS_IMPORTES = [
       recherche: document.querySelector('#champ-recherche-exo').value, pied: !document.querySelector('#pied-rattacher').hidden,
       aide: document.querySelector('#pied-rattacher .aide-rattacher').textContent,
       ne: document.querySelector('#btn-ne-pas-importer').textContent }));
-    ok('[E69] (c) le catalogue en mode « rattacher » : son titre, la recherche pré-remplie, « Ne pas importer cet exercice », « Je m’en souviendrai… »',
+    // 126 (ES §7 quindecies.11) — le champ de Rattacher s'ouvre VIDE (il était pré-rempli : « good morning ») ; « Les plus
+    // proches » disent pourquoi.
+    ok('[E69] (c) le catalogue en mode « rattacher » : son titre, la recherche VIDE (126), « Ne pas importer cet exercice », « Je m’en souviendrai… »',
       feuille.ouvert && feuille.titreVu && feuille.titre === '« Good Morning (Barre) » chez Hevy, c’est…' &&
-      feuille.recherche === 'good morning' && feuille.pied && feuille.ne === 'Ne pas importer cet exercice' &&
+      feuille.recherche === '' && feuille.pied && feuille.ne === 'Ne pas importer cet exercice' &&
       feuille.aide === 'Je m’en souviendrai pour tes prochains imports.', nbE(feuille));
     await page.fill('#champ-recherche-exo', 'E69 Roumain');
     await attendre(400);
@@ -22987,6 +22990,151 @@ const SETS_IMPORTES = [
     ok('[125] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refus125 && erreurs.length === erreurs125,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus125), erreurs.slice(erreurs125)]));
+  }
+
+  console.log('\n══ recherche. LA RECHERCHE D’EXERCICE : LE CHAMP VIDE SELON LE CONTEXTE, LES NOMS ALTERNATIFS, UNE FAUTE, « REMPLACER » SANS LE REMPLACÉ, HORS LIGNE (126, ECRAN-SAISIE §7 quindecies.11) ══');
+  //
+  // ⚠️ SON DÉCOR PROPRE : une routine « Recherche 126 » (un développé couché réservé), trois séances passées de cette
+  // routine où l'on a aussi fait un curl (« Souvent avec cette séance »), un frère haltère (même `mouvement`), un écarté,
+  // une nage hors salle, et deux noms alternatifs. La section se joue seule, en parallèle ou au séquentiel ; elle
+  // rend le catalogue, les noms alternatifs et la routine à la fin.
+  {
+    const erreurs126 = erreurs.length;
+    const refus126 = base.journal.filter((j) => j.op === 'refus').length;
+    const catalogueAvant126 = CATALOGUE.length;
+    const aliasAvant126 = base.aliasCommuns.slice();
+    CATALOGUE.push(
+      { slug: 'dc-u126', nom: 'Développé Couché U126 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+        muscles_primaires: ['pectoraux'], muscles_secondaires: [], mouvement: 'dc_u126', nature: 'force', hors_salle: false },
+      { slug: 'dc-halt-u126', nom: 'Développé Couché U126 (Haltère)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere',
+        muscles_primaires: ['pectoraux'], muscles_secondaires: [], mouvement: 'dc_u126', nature: 'force', hors_salle: false },
+      { slug: 'ecarte-u126', nom: 'Écarté U126 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine',
+        muscles_primaires: ['pectoraux'], muscles_secondaires: [], mouvement: 'ecarte_u126', nature: 'force', hors_salle: false },
+      { slug: 'curl-u126', nom: 'Curl U126 (Haltère)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere',
+        muscles_primaires: ['biceps'], muscles_secondaires: [], mouvement: 'curl_u126', nature: 'force', hors_salle: false },
+      { slug: 'nage-u126', nom: 'Nage U126', mesure: 'distance_temps', charge: 'aucune', equipement: 'aucun',
+        muscles_primaires: [], muscles_secondaires: [], mouvement: null, nature: 'cardio', hors_salle: true });
+    base.aliasCommuns.push({ alias: 'Bench Press U126 (Barbell)', slug: 'dc-u126', source: 'hevy', created_at: '2026-10-21T00:00:00Z' },
+      { alias: 'DCU126', slug: 'dc-u126', source: 'app', created_at: '2026-10-21T00:00:00Z' });
+    const t126 = Date.now();
+    [15, 10, 5].forEach((jours, k) => {
+      const id = 's126-h' + k;
+      const debut = ilYa(jours * 86400000, t126).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Recherche 126', debut, fin: finDe(debut, t126).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-126', source: 'app', created_at: debut });
+      [['dc-u126', 60, 8], ['curl-u126', 14, 10]].forEach(([slug, charge, reps], r) => base.sets.push({ id: id + '-s' + r,
+        session_id: id, user_id: 'u-banc', exercise_slug: slug, charge_kg: charge, reps, duree_s: null, distance_m: null,
+        type_serie: 'travail', rang: r + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null,
+        note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    const ROUTINE_126 = { id: 'r-126', nom: 'Recherche 126', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-126-e1', routine_id: 'r-126', exercise_slug: 'dc-u126', rang: 0, routine_sets: progr(2, 8),
+        repos_cible_s: null, groupe_superset: null, note: null }] };
+    ROUTINES.push(ROUTINE_126);
+
+    // Le catalogue tel qu'on le voit : les titres des sections, les noms (le premier nœud de chaque résultat), leurs
+    // mentions, et la phrase du pied.
+    const catalogue126 = () => page.evaluate(() => {
+      const r = document.getElementById('resultats-exo');
+      const out = { sections: [], noms: [], pied: null };
+      Array.from(r.children).forEach((n) => {
+        if (n.classList.contains('resultats-groupe')) out.sections.push([n.textContent, []]);
+        else if (n.classList.contains('resultat')) {
+          const nom = n.firstChild.textContent;
+          out.noms.push(nom);
+          if (out.sections.length) out.sections[out.sections.length - 1][1].push(nom);
+        } else if (n.classList.contains('resultats-plus')) out.pied = n.textContent;
+      });
+      return out;
+    });
+    const taper126 = async (q) => { await page.fill('#champ-recherche-exo', q); await attendre(400); return catalogue126(); };
+    const sansSeance126 = async () => {
+      await aller('/saisie');
+      await attendre(800);
+      if (JSON.stringify(await visible()) === '["vue-seance"]') {
+        await page.click('#bandeau-seance .bandeau-fin');
+        await attendre(600);
+        await page.click('#feuille-contenu .danger');
+        await confirmerAbandon();
+        await attendre(1600);
+        await aller('/saisie');
+        await attendre(500);
+      }
+    };
+
+    // ── A. En séance partie d'une routine, « + Exercice », champ vide : « Souvent avec cette séance » (le curl des
+    // séances passées de la routine), puis « Pour les mêmes muscles » ; jamais ce qui est déjà dans la séance.
+    await sansSeance126();
+    await demarrerRoutine(ROUTINE_126.nom);
+    await attendre(1200);
+    await page.click('#btn-ajouter-exo-seance');
+    await attendre(600);
+    let c126 = await catalogue126();
+    ok('[126] A — séance d’une routine, champ vide : « Souvent avec cette séance » (le curl de ses séances passées), puis « Pour les mêmes muscles » ; le développé de la séance n’est proposé nulle part ; la phrase du pied',
+      c126.sections.length >= 2 && c126.sections[0][0] === 'Souvent avec cette séance' &&
+        c126.sections[0][1][0] === 'Curl U126 (Haltère)' && c126.sections[1][0] === 'Pour les mêmes muscles' &&
+        c126.noms.indexOf('Développé Couché U126 (Barre)') < 0 && c126.noms.indexOf('Nage U126') < 0 &&
+        /^Tape pour chercher dans les \d+ exercices\.$/.test(c126.pied || ''),
+      JSON.stringify(c126));
+
+    // ── B. Un nom alternatif (anglais, du cache) trouve l'exercice.
+    c126 = await taper126('bench press u126');
+    ok('[126] B — « bench press u126 » (un nom alternatif) trouve « Développé Couché U126 (Barre) », sans sections',
+      c126.noms[0] === 'Développé Couché U126 (Barre)' && !c126.sections.length, JSON.stringify(c126));
+    c126 = await taper126('dcu126');
+    ok('[126] B — « dcu126 » (une abréviation) le trouve aussi', c126.noms[0] === 'Développé Couché U126 (Barre)', JSON.stringify(c126));
+
+    // ── C. Une faute à 5 lettres et plus est tolérée ; en dessous, non.
+    c126 = await taper126('ecrate u126');
+    ok('[126] C — « ecrate u126 » (deux lettres inversées) trouve « Écarté U126 (Machine) »',
+      c126.noms.indexOf('Écarté U126 (Machine)') >= 0, JSON.stringify(c126));
+    c126 = await taper126('nage');
+    ok('[126] C — « nage » : la nage hors salle se trouve par son nom', c126.noms[0] === 'Nage U126', JSON.stringify(c126));
+    await page.click('#btn-fermer-catalogue');
+    await attendre(400);
+
+    // ── D. « Remplacer » le développé : le catalogue s'ouvre sur « Le même mouvement » (son frère haltère), puis « Les
+    // mêmes muscles » ; le remplacé n'apparaît ni dans les suggestions ni dans la recherche.
+    await menuBloc(0);
+    await entree('Remplacer');
+    await attendre(500);
+    c126 = await catalogue126();
+    ok('[126] D — « Remplacer » → le catalogue : « Le même mouvement » (le frère haltère), « Les mêmes muscles », sans l’exercice remplacé ; « Tape pour chercher dans tout le catalogue. »',
+      c126.sections.length >= 1 && c126.sections[0][0] === 'Le même mouvement' &&
+        c126.sections[0][1][0] === 'Développé Couché U126 (Haltère)' &&
+        (c126.sections.length < 2 || c126.sections[1][0] === 'Les mêmes muscles') &&
+        c126.noms.indexOf('Développé Couché U126 (Barre)') < 0 && c126.pied === 'Tape pour chercher dans tout le catalogue.',
+      JSON.stringify(c126));
+    c126 = await taper126('developpe couche u126');
+    ok('[126] D — en tapant : le frère, jamais le remplacé', JSON.stringify(c126.noms) === JSON.stringify(['Développé Couché U126 (Haltère)']),
+      JSON.stringify(c126));
+    await page.click('#btn-fermer-catalogue');
+    await attendre(400);
+
+    // ── E. Hors ligne : les noms alternatifs sont dans le cache, la recherche les trouve toujours.
+    await sansSeance126();
+    base.reseau = false;
+    await aller('/routine/nouvelle');
+    await attendre(800);
+    await page.click('#btn-ajouter-exo');
+    await attendre(500);
+    c126 = await taper126('bench press u126');
+    base.reseau = true;
+    ok('[126] E — hors ligne, l’éditeur de routine : « bench press u126 » trouve toujours « Développé Couché U126 (Barre) » (le cache)',
+      c126.noms[0] === 'Développé Couché U126 (Barre)', JSON.stringify(c126));
+    await page.click('#btn-fermer-catalogue').catch(() => {});
+    await attendre(300);
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes.
+    CATALOGUE.splice(catalogueAvant126, CATALOGUE.length - catalogueAvant126);
+    base.aliasCommuns = aliasAvant126;
+    const i126 = ROUTINES.indexOf(ROUTINE_126);
+    if (i126 >= 0) ROUTINES.splice(i126, 1);
+    await aller('/saisie');
+    ok('[126] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refus126 && erreurs.length === erreurs126,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus126), erreurs.slice(erreurs126)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

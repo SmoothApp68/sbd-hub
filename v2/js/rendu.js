@@ -5105,7 +5105,18 @@
   // déjà rangé en fin de liste.
   // 67B — `decrire(e)` : la sous-ligne « Machine · Grand dorsal » de chaque résultat (ES §7 quindecies.10), écrite par
   // l'app ; absente ou vide, rien.
-  function rendreResultatsExo(cible, exercices, surChoix, ecartes, decrire) {
+  // 126 (ES §7 quindecies.11) — `mentions(e)` : les autres mentions (« Pas dans Ma salle », « Déjà dans la routine »),
+  // décidées par l'app ; chacune sa ligne `resultat-mention`, sous « écarté ».
+  function boutonResultat(e, surChoix, ecarte, sous, autres) {
+    var b = el('button', 'resultat', e.nom || e.slug);
+    if (sous) b.appendChild(el('small', 'resultat-sous', sous));
+    if (ecarte.indexOf(e.slug) >= 0) b.appendChild(el('small', 'resultat-mention', 'écarté'));
+    (autres || []).forEach(function (m) { if (m) b.appendChild(el('small', 'resultat-mention', m)); });
+    b.type = 'button';
+    b.addEventListener('click', function () { surChoix(e); });
+    return b;
+  }
+  function rendreResultatsExo(cible, exercices, surChoix, ecartes, decrire, mentions) {
     vider(cible);
     var liste = exercices || [];
     var ecarte = ecartes || [];
@@ -5114,14 +5125,28 @@
       return;
     }
     liste.forEach(function (e) {
-      var b = el('button', 'resultat', e.nom || e.slug);
-      var sous = typeof decrire === 'function' ? decrire(e) : '';
-      if (sous) b.appendChild(el('small', 'resultat-sous', sous));
-      if (ecarte.indexOf(e.slug) >= 0) b.appendChild(el('small', 'resultat-mention', 'écarté'));
-      b.type = 'button';
-      b.addEventListener('click', function () { surChoix(e); });
-      cible.appendChild(b);
+      cible.appendChild(boutonResultat(e, surChoix, ecarte, typeof decrire === 'function' ? decrire(e) : '',
+        typeof mentions === 'function' ? mentions(e) : []));
     });
+  }
+
+  // 126 (ES §7 quindecies.11, maquette `maquette-recherche-v1.html`) — LE CHAMP VIDE : les sections titrées que l'app a
+  // décidées (« Souvent avec cette séance », « Les plus proches »…), puis la phrase du pied (« Tape pour chercher dans
+  // les N exercices. »). Rien n'est calculé ici ; une section vide ne s'affiche pas.
+  //   vue : { sections: [{ titre, lignes: [{ exo, mentions: [texte] }] }], pied, surChoix(exo), ecartes, decrire(exo) }
+  function rendreSuggestionsExo(cible, vue) {
+    vider(cible);
+    var v = vue || {};
+    var ecarte = v.ecartes || [];
+    (v.sections || []).forEach(function (sec) {
+      if (!sec || !(sec.lignes || []).length) return;
+      cible.appendChild(el('p', 'resultats-groupe', sec.titre));
+      sec.lignes.forEach(function (l) {
+        cible.appendChild(boutonResultat(l.exo, v.surChoix, ecarte,
+          typeof v.decrire === 'function' ? v.decrire(l.exo) : '', l.mentions));
+      });
+    });
+    if (v.pied) cible.appendChild(el('p', 'resultats-plus', v.pied));
   }
 
   // 67B (ES §7 quindecies.10, maquette `maquette-catalogue-filtres-v2.html`) — LES DEUX FILTRES DU CATALOGUE, sous le
@@ -7338,6 +7363,7 @@
     rendreFeuilleExoRoutine: rendreFeuilleExoRoutine,
     champChrono: champChrono,
     rendreResultatsExo: rendreResultatsExo,
+    rendreSuggestionsExo: rendreSuggestionsExo,
     rendreFiltresExo: rendreFiltresExo,
     el: el,
     vider: vider,

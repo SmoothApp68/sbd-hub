@@ -240,11 +240,15 @@
   // ici : c'est le seul passage de tout le catalogue, et le faux serveur des bancs ne filtre pas. `actif === false`
   // seulement : une ligne SANS la colonne (cache d'avant, faux serveur) est gardée. Sûr parce qu'on ne désactive
   // jamais un exercice déjà utilisé (§7 quater.5).
+  // ⚠️ `hors_salle` DEPUIS 126 (v2_098, ECRAN-SAISIE §7 quindecies.11) — MÊME PIÈGE : omise, elle vaudrait `undefined`
+  // sur tout le catalogue, et la recherche mettrait la natation au rang de la musculation, sans une erreur. Une ligne
+  // SANS la colonne (cache d'avant v2_098, faux serveur) se lit `false` : la recherche lit `e.hors_salle` comme un
+  // booléen. Le catalogue en cache est réécrit en entier à la synchronisation suivante (`remplacerTout`).
   function tousLesExercices() {
     return paginerParCle(trancheur(function () {
       return client().from('exercises')
         .select('slug, nom, mesure, charge, parent, equipement, muscles_primaires, muscles_secondaires, ' +
-                'muscles_stabilisateurs, mouvement, habilete, schema_mouvement, nature, description, actif');
+                'muscles_stabilisateurs, mouvement, habilete, schema_mouvement, nature, description, actif, hors_salle');
     }, 'slug'), 'slug').then(function (lignes) {
       return lignes.filter(function (e) { return !e || e.actif !== false; });
     });
@@ -788,6 +792,9 @@
   //     (`alias_exercice_owner`), unicité (`user_id`, `alias_norme`).
   // L'import demande une connexion : ces deux lectures sont faites à l'aperçu,
   // jamais mises en cache.
+  // 126 (ECRAN-SAISIE §7 quindecies.11) — les noms alternatifs communs, LUS PAR LA SYNCHRONISATION avec le catalogue
+  // et gardés dans le cache local (magasin `alias`) : la recherche d'exercice les cherche, hors ligne comprise.
+  // L'import les relit ici, en ligne, comme avant.
   function aliasCommuns() {
     return paginerParCle(trancheur(function () {
       return client().from('exercise_alias').select('alias, slug, source');

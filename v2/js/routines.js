@@ -1384,18 +1384,142 @@
     return visibles(routines).filter(function (r) { return !r.archivee_a; });
   }
 
-  // Recherche dans le catalogue : 237 entrées, des noms longs, des accents.
-  // On replie les accents des deux côtés — « developpe » doit trouver
-  // « Développé ». Sans ça la recherche ne sert à rien sur un clavier pressé.
+  // ══ LA RECHERCHE D'EXERCICE (ECRAN-SAISIE §7 quindecies.11, chantier 126) ══════════════════════════════════════
+  //
+  // UNE SEULE RECHERCHE pour tous les écrans qui ouvrent le catalogue (ajouter en séance, la séance libre, l'éditeur
+  // de routine, « Chercher dans le catalogue » depuis « Remplacer », « Rattacher » de l'import) et pour « Mes
+  // exercices » du Profil. La référence est `tests/unit/fixtures/recherche126.py`, fonction pour fonction ; ses cas
+  // (`cas-126.json`) se rejouent à 0 écart (`tests/unit/v2-recherche.test.js`).
+
+  // LE REPLI : minuscules, sans accents, et tout ce qui n'est ni lettre ni chiffre devient un espace — « Développé
+  // Couché - (Haltère) » et « developpe couche haltere » sont le même texte.
+  // ⚠️ ÉCART À LA RÉFÉRENCE, RAPPORTÉ (PR 126) : `recherche126.py` replie par `encode('ascii', 'ignore')`, qui EFFACE
+  // tout caractère non ASCII sans lettre de base — l'apostrophe typographique (’) comprise : « Haussement d’Épaules »
+  // y devient « haussement depaules », et « épaules » ne le trouve plus. La spec (§7 quindecies.11) dit que
+  // l'apostrophe devient un espace : on retire les seuls accents (les marques combinantes après NFD), et tout le
+  // reste qui n'est ni lettre ni chiffre ASCII devient un espace. Aucun nom ni alias du fichier de cas n'en porte :
+  // la concordance reste à 0 écart.
   function replier(txt) {
     return String(txt === null || txt === undefined ? '' : txt)
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+  function motsDe(t) { return t ? t.split(' ') : []; }
+
+  // UNE FAUTE AU PLUS : une lettre en plus, en moins, changée, ou deux voisines inversées.
+  function aUneFaute(a, b) {
+    if (a === b) return true;
+    var la = a.length, lb = b.length;
+    if (Math.abs(la - lb) > 1) return false;
+    if (la === lb) {
+      var d = [];
+      for (var k = 0; k < la; k++) if (a[k] !== b[k]) d.push(k);
+      if (d.length === 1) return true;
+      return d.length === 2 && d[1] === d[0] + 1 && a[d[0]] === b[d[1]] && a[d[1]] === b[d[0]];
+    }
+    if (la > lb) { var t = a; a = b; b = t; }
+    var i = 0;
+    while (i < a.length && a[i] === b[i]) i++;
+    return a.slice(i) === b.slice(i + 1);
   }
 
-  // `ordre` (facultatif, 60-1) : une fonction qui RÉORDONNE la liste trouvée
-  // AVANT la limite — le matériel range (`Profil.rangerParMateriel`), il ne
-  // coupe pas : rangé après la limite, un exercice du matériel au-delà de la
-  // trentième place resterait invisible derrière ce qui n'en est pas.
+  // UN MOT TAPÉ SE TROUVE s'il est le DÉBUT d'un mot du texte (« halt » trouve « haltère », « lat » ne trouve pas
+  // « plateau »). À `MIN_FAUTE` lettres et plus, une faute est tolérée, la première lettre juste : comparé au début du
+  // mot de même longueur, d'une lettre de moins, d'une lettre de plus. En dessous, aucune faute.
+  var MIN_FAUTE = 5;
+  function motTrouve(m, mots) {
+    var k;
+    for (k = 0; k < mots.length; k++) if (mots[k].indexOf(m) === 0) return true;
+    if (m.length < MIN_FAUTE) return false;
+    for (k = 0; k < mots.length; k++) {
+      var w = mots[k];
+      if (w.length < MIN_FAUTE - 1 || w[0] !== m[0]) continue;
+      for (var d = -1; d <= 1; d++) if (aUneFaute(m, w.slice(0, m.length + d))) return true;
+    }
+    return false;
+  }
+
+  // L'INDEX DES TEXTES d'un exercice : son nom, puis ses noms alternatifs (`exercise_alias`), dans l'ordre
+  // alphabétique de l'alias BRUT (celui que « comme … » de Rattacher cite), sans doublon de texte replié. Construit
+  // UNE FOIS par catalogue et par liste d'alias (les mêmes tableaux, le même index) : la recherche se relance à
+  // chaque frappe, l'index non. `index.ordre` : les slugs dans l'ordre du catalogue.
+  var memoIndex = { exercices: null, alias: null, index: null };
+  function indexDeRecherche(exercices, alias) {
+    if (memoIndex.index && memoIndex.exercices === exercices && memoIndex.alias === alias) return memoIndex.index;
+    var ix = { ex: {}, ordre: [], textes: {}, mots: {}, bruts: {}, replie: {} };
+    (exercices || []).forEach(function (e) {
+      if (!e || !e.slug || Object.prototype.hasOwnProperty.call(ix.ex, e.slug)) return;
+      var nom = replier(e.nom || e.slug);
+      ix.ex[e.slug] = e; ix.ordre.push(e.slug);
+      ix.textes[e.slug] = [nom]; ix.mots[e.slug] = [motsDe(nom)]; ix.bruts[e.slug] = [e.nom || e.slug];
+      ix.replie[e.slug] = nom;
+    });
+    (alias || []).filter(function (a) { return a && typeof a.alias === 'string'; }).slice()
+      .sort(function (a, b) { return a.alias < b.alias ? -1 : a.alias > b.alias ? 1 : 0; })
+      .forEach(function (a) {
+        var t = ix.textes[a.slug];
+        if (!t) return;
+        var r = replier(a.alias);
+        if (!r || t.indexOf(r) >= 0) return;
+        t.push(r); ix.mots[a.slug].push(motsDe(r)); ix.bruts[a.slug].push(a.alias);
+      });
+    memoIndex = { exercices: exercices, alias: alias, index: ix };
+    return ix;
+  }
+
+  // Tous les mots tapés, dans un MÊME texte (le nom, ou un seul de ses noms alternatifs).
+  function trouve(ix, slug, mots) {
+    return ix.mots[slug].some(function (tm) { return mots.every(function (m) { return motTrouve(m, tm); }); });
+  }
+  // 0 : le nom commence par le premier mot tapé ; 1 : un nom alternatif ; 2 : aucun.
+  function commence(ix, slug, mots) {
+    var t = ix.textes[slug];
+    if (t[0].indexOf(mots[0]) === 0) return 0;
+    for (var k = 1; k < t.length; k++) if (t[k].indexOf(mots[0]) === 0) return 1;
+    return 2;
+  }
+
+  // LE MATÉRIEL : la règle de « Ma salle » (60-1), `Profil.estHorsMateriel` — appelée, jamais recopiée.
+  // `equipements` : les équipements du matériel déclaré (`Profil.equipementsDe`), `null` sans matériel à ranger.
+  function horsMateriel(e, equipements) {
+    return !!equipements && racine.THProfil.estHorsMateriel(e && e.equipement, equipements);
+  }
+  // La force (la musculation) ; une fiche SANS `nature` (cache d'avant 125, faux serveur) compte comme la force :
+  // on ne rétrograde pas ce qu'on ne sait pas.
+  function estForce(e) { return (e.nature || 'force') === 'force'; }
+  function aEnCommun(a, b) {
+    var l = b || [];
+    return (a || []).some(function (m) { return l.indexOf(m) >= 0; });
+  }
+  function nombre(faits, s) { var n = faits && faits[s]; return n > 0 ? n : 0; }
+
+  // « Va avec le contexte » : 0 un frère (le même mouvement que l'exercice remplacé), 1 un muscle principal en commun
+  // avec la séance ou la routine, 2 sinon.
+  function vaAvec(e, s, ctx) {
+    if ((ctx.freres || []).indexOf(s) >= 0) return 0;
+    return aEnCommun(e.muscles_primaires, ctx.muscles) ? 1 : 2;
+  }
+
+  // LA CLÉ D'ORDRE (`cle()` de la référence), critère pour critère : les écartés à la fin ; commence / ne commence pas ;
+  // le groupe (la musculation ou déjà fait, puis street/mobilité/cardio de salle, puis hors salle) ; le nom avant
+  // l'alias ; le plus fait d'abord ; le contexte ; le matériel ; l'alphabet du nom replié.
+  function cle(ix, s, mots, o) {
+    var e = ix.ex[s], n = nombre(o.faits, s);
+    var c = mots.length ? commence(ix, s, mots) : 0;
+    var g = (n || estForce(e)) && !(!n && e.hors_salle) ? 0 : (e.hors_salle ? 2 : 1);
+    return [o.ecartes.indexOf(s) >= 0 ? 1 : 0, c < 2 ? 0 : 1, g, c, -n, vaAvec(e, s, o.contexte),
+            !n && horsMateriel(e, o.equipements) ? 1 : 0, ix.replie[s]];
+  }
+  // Les noms repliés se comparent PAR CODES DE CARACTÈRES (`a < b`), comme la référence — pas `localeCompare`, qui
+  // rangerait autrement les espaces et les chiffres.
+  function comparerCles(a, b) {
+    for (var k = 0; k < a.length; k++) {
+      if (a[k] < b[k]) return -1;
+      if (a[k] > b[k]) return 1;
+    }
+    return 0;
+  }
+
   // 67B (ES §7 quindecies.10) — `filtres` : `{ equipement, muscle }`, l'un, l'autre ou aucun, appliqués AVANT l'ordre
   // et la limite (un exercice filtré au-delà de la trentième place n'est jamais perdu). Le matériel : la valeur exacte
   // d'`equipement` ; le muscle : un des muscles PRINCIPAUX seulement — un exercice sans muscle (le cardio) ne sort
@@ -1407,27 +1531,151 @@
     return true;
   }
 
-  function chercher(exercices, requete, limite, ordre, filtres) {
-    var q = replier(requete);
-    var max = limite || 30;
-    var liste = (exercices || []).filter(function (e) { return e && e.slug && retenu(e, filtres); });
-    var rangee = function (l) { return typeof ordre === 'function' ? ordre(l) : l; };
-    if (!q) return rangee(liste).slice(0, max);
-    var mots = q.split(/\s+/).filter(Boolean);
-    var trouves = liste
-      .map(function (e) {
-        var nom = replier(e.nom || e.slug);
-        // Tous les mots doivent apparaître : « couche halt » trouve
-        // « Développé Couché Haltères » sans ramener tous les développés.
-        if (!mots.every(function (m) { return nom.indexOf(m) >= 0; })) return null;
-        // Un nom qui COMMENCE par la requête passe devant : c'est presque
-        // toujours celui qu'on visait.
-        return { exo: e, score: nom.indexOf(mots[0]) === 0 ? 0 : 1, nom: nom };
-      })
-      .filter(Boolean)
-      .sort(function (a, b) { return a.score - b.score || a.nom.localeCompare(b.nom, 'fr'); })
-      .map(function (r) { return r.exo; });
-    return rangee(trouves).slice(0, max);
+  function optionsDe(options) {
+    var o = options || {};
+    return {
+      alias: o.alias || [],
+      limite: o.limite || 30,
+      filtres: o.filtres || null,
+      faits: o.faits || {},
+      contexte: o.contexte || {},
+      equipements: o.equipements || null,
+      ecartes: Array.isArray(o.ecartes) ? o.ecartes : [],
+      exclu: o.exclu || null
+    };
+  }
+
+  // LA RECHERCHE. `options` :
+  //   · `alias` — les noms alternatifs communs (`[{ alias, slug }]`, le cache local) ;
+  //   · `limite` (30), `filtres` (67B) ;
+  //   · `faits` — `{ slug: nombre de séances }` (`faits.seancesParExercice`) ;
+  //   · `contexte` — `{ freres: [slugs], muscles: [muscles] }`, « va avec le contexte » ;
+  //   · `equipements` — le matériel déclaré (`Profil.equipementsDe`), `null` sans matériel ;
+  //   · `ecartes` — les exercices écartés (§7 quindecies.9) ; `exclu` — l'exercice remplacé, qui n'apparaît jamais.
+  // Rend les fiches du catalogue, rangées, puis coupées à la limite.
+  function chercher(exercices, requete, options) {
+    var o = optionsDe(options);
+    var ix = indexDeRecherche(exercices, o.alias);
+    var mots = motsDe(replier(requete));
+    var liste = ix.ordre.filter(function (s) {
+      return s !== o.exclu && retenu(ix.ex[s], o.filtres) && (!mots.length || trouve(ix, s, mots));
+    });
+    var cles = {};
+    liste.forEach(function (s) { cles[s] = cle(ix, s, mots, o); });
+    return liste.sort(function (a, b) { return comparerCles(cles[a], cles[b]); })
+      .slice(0, o.limite).map(function (s) { return ix.ex[s]; });
+  }
+
+  // ── Le champ vide : les suggestions selon le contexte (`suggestions()` de la référence) ──
+  //
+  // « Pour les mêmes muscles » / « Les mêmes muscles » : de la force, un muscle principal en commun ; ni déjà là, ni
+  // l'exclu, ni écarté, ni hors salle jamais fait ; le plus fait d'abord, puis le matériel, puis l'alphabet.
+  function memesMuscles(ix, muscles, o, deja, exclu, n) {
+    var l = ix.ordre.filter(function (s) {
+      var e = ix.ex[s];
+      return estForce(e) && aEnCommun(e.muscles_primaires, muscles) && !deja[s] && s !== exclu &&
+        o.ecartes.indexOf(s) < 0 && !(e.hors_salle && !nombre(o.faits, s));
+    });
+    var cles = {};
+    l.forEach(function (s) {
+      var f = nombre(o.faits, s);
+      cles[s] = [-f, !f && horsMateriel(ix.ex[s], o.equipements) ? 1 : 0, ix.replie[s]];
+    });
+    return l.sort(function (a, b) { return comparerCles(cles[a], cles[b]); }).slice(0, n);
+  }
+  // Une liste déjà rangée (l'historique, les frères), nettoyée : au catalogue, ni écarté, ni l'exclu, ni hors salle
+  // jamais fait.
+  function propre(ix, l, o, exclu) {
+    return (l || []).filter(function (s) {
+      return Object.prototype.hasOwnProperty.call(ix.ex, s) && o.ecartes.indexOf(s) < 0 && s !== exclu &&
+        !(ix.ex[s].hors_salle && !nombre(o.faits, s));
+    });
+  }
+  function musclesDe(ix, slugs) {
+    var m = [];
+    (slugs || []).forEach(function (s) {
+      ((ix.ex[s] && ix.ex[s].muscles_primaires) || []).forEach(function (x) { if (m.indexOf(x) < 0) m.push(x); });
+    });
+    return m;
+  }
+  function ensemble(l) { var o = {}; (l || []).forEach(function (s) { o[s] = true; }); return o; }
+  function sauf(l, a, b) {
+    return (l || []).filter(function (s) { return (a || []).indexOf(s) < 0 && (b || []).indexOf(s) < 0; });
+  }
+
+  var SUGGESTIONS = 5;
+  var TITRES_SUGGESTIONS = {
+    souvent: 'Souvent avec cette séance', muscles: 'Pour les mêmes muscles', recents: 'Récents',
+    plusFaits: 'Les plus faits', leMemeMouvement: 'Le même mouvement', memesMuscles: 'Les mêmes muscles',
+    proches: 'Les plus proches'
+  };
+
+  // `contexte` : `{ type: 'seance_routine' | 'seance_libre' | 'routine' | 'remplacer', dans: [slugs], … }` —
+  // `souvent` (seance_routine, déjà rangé : le plus fréquent d'abord), `recents` et `plus_faits_3_mois`
+  // (seance_libre), `remplace` et `freres` (remplacer, les frères dans l'ordre de `Seance.freresProposes`).
+  // `options` : `alias`, `faits`, `equipements`, `ecartes`, comme `chercher`. Rend `[{ titre, slugs }]`, sans section
+  // vide.
+  function suggestions(exercices, contexte, options) {
+    var o = optionsDe(options);
+    var ix = indexDeRecherche(exercices, o.alias);
+    var c = contexte || {}, t = c.type, out = [];
+    var dans = (c.dans || []).slice();
+    if (t === 'seance_routine') {
+      var souvent = propre(ix, sauf(c.souvent, dans), o).slice(0, SUGGESTIONS);
+      out = [{ titre: TITRES_SUGGESTIONS.souvent, slugs: souvent },
+             { titre: TITRES_SUGGESTIONS.muscles,
+               slugs: memesMuscles(ix, musclesDe(ix, dans), o, ensemble(dans.concat(souvent)), null, SUGGESTIONS) }];
+    } else if (t === 'seance_libre') {
+      var rec = propre(ix, sauf(c.recents, dans), o).slice(0, SUGGESTIONS);
+      var plus = propre(ix, sauf(c.plus_faits_3_mois, dans, rec), o).slice(0, SUGGESTIONS);
+      out = [{ titre: TITRES_SUGGESTIONS.recents, slugs: rec }, { titre: TITRES_SUGGESTIONS.plusFaits, slugs: plus }];
+    } else if (t === 'routine') {
+      out = dans.length ? [{ titre: TITRES_SUGGESTIONS.muscles,
+        slugs: memesMuscles(ix, musclesDe(ix, dans), o, ensemble(dans), null, SUGGESTIONS) }] : [];
+    } else if (t === 'remplacer' && c.remplace && ix.ex[c.remplace]) {
+      var x = c.remplace;
+      var fr = propre(ix, c.freres, o, x).slice(0, SUGGESTIONS);
+      // « Autre mouvement » : pas un frère de l'exercice remplacé — les frères ont UNE définition
+      // (`Modele.freresDe`, la seule lecture de `mouvement`) ; sans mouvement, aucun frère, rien n'est retiré.
+      var memeMouvement = ensemble(racine.THModele.freresDe(ix.ex, x));
+      var mus = memesMuscles(ix, ix.ex[x].muscles_primaires || [], o, ensemble(fr.concat(dans)), x, 50)
+        .filter(function (s) { return !memeMouvement[s]; }).slice(0, SUGGESTIONS);
+      out = [{ titre: TITRES_SUGGESTIONS.leMemeMouvement, slugs: fr }, { titre: TITRES_SUGGESTIONS.memesMuscles, slugs: mus }];
+    }
+    return out.filter(function (s) { return s.slugs.length; });
+  }
+
+  // « LES PLUS PROCHES » (Rattacher, import Hevy) : les mots de 3 lettres et plus en commun entre le nom Hevy et le
+  // meilleur texte de chaque exercice (le nom, ou un seul nom alternatif) ; au moins 2 (1 si le nom Hevy n'a qu'un
+  // mot). Le plus de mots en commun ; puis le texte le plus proche (en commun sur le tout, des deux côtés) ; puis le
+  // déjà fait ; puis l'alphabet ; au plus 5. `comme` : l'alias BRUT qui rapproche (null : le nom). Rien n'est jamais
+  // rattaché tout seul : c'est la personne qui choisit.
+  function grandsMots(t) {
+    var o = {};
+    motsDe(t).forEach(function (w) { if (w.length >= 3) o[w] = true; });
+    return o;
+  }
+  function plusProches(exercices, nomHevy, options) {
+    var o = optionsDe(options);
+    var limite = (options && options.limite) || SUGGESTIONS;
+    var ix = indexDeRecherche(exercices, o.alias);
+    var cible = grandsMots(replier(nomHevy)), nc = Object.keys(cible).length;
+    var seuil = nc <= 1 ? 1 : 2;
+    var r = [];
+    ix.ordre.forEach(function (s) {
+      var best = null, bi = 0;
+      ix.textes[s].forEach(function (t, i) {
+        var mots = grandsMots(t), nm = Object.keys(mots).length;
+        var k = Object.keys(mots).filter(function (w) { return cible[w]; }).length;
+        var note = [k, nm ? k / (nc + nm - k) : 0, -i];
+        if (best === null || comparerCles(note, best) > 0) { best = note; bi = i; }
+      });
+      if (best && best[0] >= seuil) r.push({ slug: s, comme: bi > 0 ? ix.bruts[s][bi] : null, communs: best[0], prox: best[1] });
+    });
+    var cles = {};
+    r.forEach(function (x) { cles[x.slug] = [-x.communs, -x.prox, -nombre(o.faits, x.slug), ix.replie[x.slug]]; });
+    return r.sort(function (a, b) { return comparerCles(cles[a.slug], cles[b.slug]); }).slice(0, limite)
+      .map(function (x) { return { slug: x.slug, comme: x.comme, communs: x.communs }; });
   }
 
   // 67B — LES CHOIX DES DEUX FILTRES : seulement ce que le catalogue local contient. Le matériel dans l'ordre de la
@@ -1665,7 +1913,14 @@
     planRangs: planRangs,
     reordonnables: reordonnables,
     replier: replier,
+    aUneFaute: aUneFaute,
+    motTrouve: motTrouve,
+    MIN_FAUTE: MIN_FAUTE,
+    indexDeRecherche: indexDeRecherche,
     chercher: chercher,
+    suggestions: suggestions,
+    TITRES_SUGGESTIONS: TITRES_SUGGESTIONS,
+    plusProches: plusProches,
     filtresDuCatalogue: filtresDuCatalogue
   };
 

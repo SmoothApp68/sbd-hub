@@ -310,12 +310,36 @@ describe('le magasin `records` (58-2)', () => {
   test('la montée crée le magasin, clé (set_id, type) — celle de l’unicité en base —, sans toucher aux autres', async () => {
     jest.resetModules();
     const journal = [];
+    // 126 — le magasin `alias` (version 8) existe déjà ici : seul `records` manque.
     global.indexedDB = fausseBase(journal, ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones',
-      'modes', 'brouillon', 'attente', 'predictions']);
+      'modes', 'brouillon', 'attente', 'predictions', 'alias']);
     require('../../v2/js/cache.js');
     await global.THCache.lireTout('records').catch(() => {});
     const crees = journal.filter((j) => j.op === 'creer');
     expect(crees.map((c) => c.magasin)).toEqual(['records']);
     expect(crees[0].opts).toEqual({ keyPath: ['set_id', 'type'] });
+  });
+
+  // 126 (ES §7 quindecies.11) — les noms alternatifs communs dans le cache : un cache d'avant (version 7, tous ses
+  // magasins) s'ouvre sans erreur, le magasin `alias` naît (clé `alias`, celle de la base) sans toucher aux autres,
+  // et « Quitter » le vide avec le reste.
+  test('126 — la montée vers la version 8 crée `alias` (clé `alias`) et rien d’autre ; « Quitter » le vide', async () => {
+    jest.resetModules();
+    const journal = [];
+    const v7 = ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones', 'modes', 'brouillon', 'attente',
+      'predictions', 'records'];
+    global.indexedDB = fausseBase(journal, v7);
+    require('../../v2/js/cache.js');
+    await global.THCache.lireTout('alias').catch(() => {});
+    const crees = journal.filter((j) => j.op === 'creer');
+    expect(crees.map((c) => c.magasin)).toEqual(['alias']);
+    expect(crees[0].opts).toEqual({ keyPath: 'alias' });
+    await global.THCache.viderTout();
+    expect(journal.filter((j) => j.op === 'clear').map((j) => j.magasin)).toContain('alias');
+  });
+
+  test('126 — la version de la base locale est 8', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/cache.js'), 'utf8');
+    expect(Number(/var VERSION = (\d+);/.exec(src)[1])).toBe(8);
   });
 });

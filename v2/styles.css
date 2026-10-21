@@ -685,6 +685,10 @@ button.bloc-exo:active{background:var(--panneau-2)}
   padding:11px var(--e1)}
 .resultat:active{background:var(--panneau-2)}
 .resultat .resultat-mention{display:block;font-size:12px;color:var(--texte-3);margin-top:2px}
+/* 126 (ES §7 quindecies.11, maquette `maquette-recherche-v1.html`) — le champ vide : les titres des sections
+   (« Souvent avec cette séance »…) et la phrase du pied (« Tape pour chercher dans les N exercices. »). */
+.resultats-groupe{font-size:12px;color:var(--texte-3);padding:12px var(--e1) 4px;border-bottom:1px solid var(--trait)}
+.resultats-plus{font-size:12px;color:var(--texte-3);padding:10px var(--e1) 0}
 /* 67B (ES §7 quindecies.10, maquette `maquette-catalogue-filtres-v2.html`) — les deux filtres sous le champ : chacun
    une pastille au doigt (44 px), son choix en ambre quand il est actif, et son « ✕ » ; « N exercices » ; la sous-ligne
    « Matériel · Muscle » de chaque résultat. Le choix d'un filtre prend la place des résultats (la feuille de choix de

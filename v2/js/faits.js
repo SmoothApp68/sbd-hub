@@ -11,7 +11,8 @@
 // barres du bilan (`barresDuBilan`), que « Le coach relit ta semaine » lit ; depuis 66C, les habitudes (`habitudes`),
 // que le générateur v2 complète ; depuis 75, « Ton parcours » (`entreeDuParcours`, `parcoursDe`),
 // que Progression lit ; depuis 95, les bilans de période (`entreeDuBilan`, `bilanDePeriode`, `faitsDuJeuDeLaPeriode`),
-// que « Ton année » lit. Ils vivaient dans
+// que « Ton année » lit ; depuis 126, les faits de la recherche d'exercice (`seancesParExercice`,
+// `exercicesDeLaRoutine`, `exercicesRecents`), que le catalogue lit. Ils vivaient dans
 // `app.js`, au milieu de l'état de l'écran : le jeu n'aurait pu les lire qu'en
 // les recopiant.
 //
@@ -868,6 +869,87 @@
     }
     function oublierDates() { datesExercices = null; }
 
+    // ── 126 (ECRAN-SAISIE §7 quindecies.11) — les faits de la recherche d'exercice ──
+    //
+    // « Déjà fait, le plus fait d'abord » demande un NOMBRE DE SÉANCES, pas une date. La même définition de « fait »
+    // que partout (`Modele.exercicesFaits` : au moins une série de travail, cardio compris), appliquée séance par
+    // séance, sur les séances qui ont un début (celles que `datesDesExercices` compte : un exercice a un nombre si et
+    // seulement s'il a une date). Chaque séance : `{ id, debut, routine_id, slugs }`, ses exercices faits dans l'ordre
+    // des séries. Un balayage, gardé par la clé « séances | séries » (la même que `seancesAvecSeries`).
+    var memoFaitesParSeance = { cle: null, liste: [] };
+    function exercicesFaitsParSeance(c) {
+      var cle = (c.seances || []).length + '|' + (c.series || []).length;
+      if (memoFaitesParSeance.cle !== cle) {
+        var liste = [], routineDe = {};
+        (c.seances || []).forEach(function (x) { if (x && x.id) routineDe[x.id] = x.routine_id || null; });
+        seancesAvecSeries(c).forEach(function (s) {
+          if (!s.id || !s.debut) return;
+          liste.push({ id: s.id, debut: s.debut, routine_id: routineDe[s.id] || null,
+                       slugs: Object.keys(Modele.exercicesFaits(s.series)) });
+        });
+        memoFaitesParSeance = { cle: cle, liste: liste };
+      }
+      return memoFaitesParSeance.liste;
+    }
+
+    // `{ slug: nombre de séances où il est fait }`, toute l'histoire.
+    var memoSeancesParExercice = { cle: null, compte: {} };
+    function seancesParExercice(c) {
+      var cle = (c.seances || []).length + '|' + (c.series || []).length;
+      if (memoSeancesParExercice.cle !== cle) {
+        var compte = {};
+        exercicesFaitsParSeance(c).forEach(function (s) {
+          s.slugs.forEach(function (x) { compte[x] = (compte[x] || 0) + 1; });
+        });
+        memoSeancesParExercice = { cle: cle, compte: compte };
+      }
+      return memoSeancesParExercice.compte;
+    }
+
+    // Les exercices faits dans les séances passées d'UNE routine (`sessions.routine_id`), le plus fréquent d'abord ;
+    // à égalité, le plus récent, puis le slug. `sauf` : l'identifiant de la séance en cours (jamais comptée).
+    function exercicesDeLaRoutine(c, routineId, sauf) {
+      if (!routineId) return [];
+      var compte = {}, dernier = {};
+      exercicesFaitsParSeance(c).forEach(function (s) {
+        if (s.routine_id !== routineId || (sauf && s.id === sauf)) return;
+        s.slugs.forEach(function (x) {
+          compte[x] = (compte[x] || 0) + 1;
+          if (!dernier[x] || s.debut > dernier[x]) dernier[x] = s.debut;
+        });
+      });
+      return Object.keys(compte).sort(function (a, b) {
+        return compte[b] - compte[a] || (dernier[a] < dernier[b] ? 1 : dernier[a] > dernier[b] ? -1 : 0) ||
+          (a < b ? -1 : a > b ? 1 : 0);
+      });
+    }
+
+    // La séance libre : `recents`, les derniers exercices faits, le plus récent d'abord (dans une même séance, le
+    // dernier fait d'abord) ; `plusFaits`, les plus faits sur les 3 derniers mois (le nombre de séances), à égalité le
+    // plus récent, puis le slug. Les listes entières : l'écran retire ce qui est déjà là, puis en garde 5.
+    var MOIS_DES_PLUS_FAITS = 3;
+    function exercicesRecents(c, maintenant, sauf) {
+      var m = new Date(maintenant || Date.now());
+      var depuis = new Date(m.getTime()); depuis.setMonth(depuis.getMonth() - MOIS_DES_PLUS_FAITS);
+      var seances = exercicesFaitsParSeance(c).filter(function (s) { return !(sauf && s.id === sauf); })
+        .slice().sort(function (a, b) { return a.debut < b.debut ? 1 : a.debut > b.debut ? -1 : 0; });
+      var recents = [], vu = {}, compte = {}, dernier = {};
+      seances.forEach(function (s) {
+        s.slugs.slice().reverse().forEach(function (x) { if (!vu[x]) { vu[x] = true; recents.push(x); } });
+        var t = new Date(s.debut).getTime();
+        if (isNaN(t) || t < depuis.getTime() || t > m.getTime()) return;
+        s.slugs.forEach(function (x) {
+          compte[x] = (compte[x] || 0) + 1;
+          if (!dernier[x] || s.debut > dernier[x]) dernier[x] = s.debut;
+        });
+      });
+      var plusFaits = Object.keys(compte).sort(function (a, b) {
+        return compte[b] - compte[a] || (dernier[a] < dernier[b] ? 1 : dernier[a] > dernier[b] ? -1 : 0) ||
+          (a < b ? -1 : a > b ? 1 : 0);
+      });
+      return { recents: recents, plusFaits: plusFaits };
+    }
+
     // ── Les faits du jeu (64A, JEU-V1 §8) ───────────────────────────────────
     //
     // L'entrée de `THJeu.etatDuJeu`, assemblée avec ce que ce module sait déjà :
@@ -1219,6 +1301,10 @@
       medaillesDuSocial: medaillesDuSocial,
       semaineDe: semaineDe,
       datesDesExercices: datesDesExercices,
+      exercicesFaitsParSeance: exercicesFaitsParSeance,
+      seancesParExercice: seancesParExercice,
+      exercicesDeLaRoutine: exercicesDeLaRoutine,
+      exercicesRecents: exercicesRecents,
       compterExercices: compterExercices,
       ceQueJeSais: ceQueJeSais,
       programmeDeduit: programmeDeduit,

@@ -686,8 +686,8 @@
 
   // Le titre de la feuille de rattachement : « « Good Morning (Barre) » chez Hevy, c'est… ».
   function titreRattacher(nom) { return '« ' + nom + ' » chez Hevy, c’est…'; }
-  // La recherche pré-remplie : le nom sans son matériel entre parenthèses, en minuscules.
-  function rechercheDe(nom) { return String(nom || '').replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase(); }
+  // 126 (ECRAN-SAISIE §7 quindecies.11) — la recherche n'est plus pré-remplie avec le nom Hevy : le champ s'ouvre vide,
+  // et « Les plus proches » (`Routines.plusProches`) disent pourquoi.
 
   var api = {
     norme: norme,
@@ -714,7 +714,6 @@
     heureDansFuseau: heureDansFuseau,
     phrasesDeFin: phrasesDeFin,
     titreRattacher: titreRattacher,
-    rechercheDe: rechercheDe,
     MESSAGES: MESSAGES
   };
 

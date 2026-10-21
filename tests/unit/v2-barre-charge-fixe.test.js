@@ -117,7 +117,10 @@ describe('128 — l’objectif lit Ma salle par `salleDeLExercice` : un rowing �
   const poser = (seances, charge, salle) => Obj.projection({ seances, charge, reps: 8, maintenant: MAINTENANT,
     anciennete: null, options: BARRE, salle });
 
-  test('⚠️ DISCRIMINANT — rowing (`false`) : 80 kg, salle à 30 kg, n’est pas refusé', () => {
+  // ⚠️ 80 kg au-delà d'une salle à 30 kg passait déjà avant 128 : la garde de la salle en vigueur (`salleEnVigueur`,
+  // record de 70 kg au-delà de la plus lourde barre fixe) y voyait déjà une barre qu'on charge. Ce test garde le cas
+  // demandé ; celui qui discrimine est le rowing LÉGER, plus bas (record 25 kg, sous la plus lourde).
+  test('rowing (`false`) : 80 kg, salle à 30 kg, n’est pas refusé', () => {
     const rowing = [seance('2026-06-01', [[60, 8]]), seance('2026-08-01', [[65, 8]]), seance('2026-10-01', [[70, 8]])];
     expect(poser(rowing, 80, Profil.salleDeLExercice(P, 'rowing_barre', APRES)).etat).not.toBe('hors_salle');
   });
@@ -126,7 +129,7 @@ describe('128 — l’objectif lit Ma salle par `salleDeLExercice` : un rowing �
     const p = poser(curl, 35, Profil.salleDeLExercice(P, 'curl_biceps_barre_ez', APRES));
     expect([p.etat, p.salle, p.max]).toEqual(['hors_salle', 'barre_ez', 30]);
   });
-  test('prémisse — sans la colonne, un rowing léger à 35 kg (record 25) était refusé (barre droite de 30)', () => {
+  test('⚠️ DISCRIMINANT — rowing léger (record 25) : 35 kg était refusé sans la colonne (barre droite de 30), ne l’est plus', () => {
     const leger = [seance('2026-06-01', [[20, 8]]), seance('2026-08-01', [[22.5, 8]]), seance('2026-10-01', [[25, 8]])];
     expect(poser(leger, 35, Profil.salleDeLExercice(P, 'rowing_barre', AVANT)).etat).toBe('hors_salle');
     expect(poser(leger, 35, Profil.salleDeLExercice(P, 'rowing_barre', APRES)).etat).not.toBe('hors_salle');

@@ -3,7 +3,10 @@ Une seule fonction de classement ; les cas de test du JS (cas-126.json) sortent 
 import json, re, unicodedata
 
 def replier(t):
-    t = unicodedata.normalize('NFD', str(t or '')).encode('ascii', 'ignore').decode().lower()
+    """Minuscules, sans accents (les marques combinantes seules partent), et tout ce qui n'est ni lettre ni chiffre
+    devient un espace — l'apostrophe typographique comprise (corrigé le 21/10 : `encode('ascii', 'ignore')` l'effaçait,
+    « Haussement d’Épaules » donnait « haussement depaules »)."""
+    t = ''.join(c for c in unicodedata.normalize('NFD', str(t or '')) if not unicodedata.combining(c)).lower()
     return re.sub(r'[^a-z0-9]+', ' ', t).strip()
 
 def a_une_faute(a, b):

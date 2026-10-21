@@ -75,13 +75,28 @@ describe('126 — le texte : le repli, la faute, les mots', () => {
     expect(Routines.replier('Développé Couché - (Haltère)')).toBe('developpe couche haltere');
     expect(Routines.replier('developpe couche haltere')).toBe('developpe couche haltere');
     expect(Routines.replier('Soulevé-de-Terre')).toBe('souleve de terre');
-    // ⚠️ L'apostrophe typographique devient un espace, comme le dit la spec (la référence l'effaçait : écart rapporté).
+    // L'apostrophe typographique devient un espace, comme le dit la spec (la référence l'effaçait jusqu'au 21/10 : 129).
     expect(Routines.replier('Haussement d’Épaules (Barre)')).toBe('haussement d epaules barre');
     expect(Routines.replier("Haussement d'Épaules")).toBe('haussement d epaules');
     expect(Routines.replier("Pull-up / Chin-up 2.0")).toBe('pull up chin up 2 0');
     expect(Routines.replier('  ÉLÉVATIONS  ')).toBe('elevations');
     expect(Routines.replier(null)).toBe('');
     expect(Routines.replier(undefined)).toBe('');
+  });
+
+  // 129 — CONCORDANCE DU REPLI AVEC LA RÉFÉRENCE CORRIGÉE (21/10/2026). `recherche126.py` effaçait l'apostrophe
+  // typographique (`encode('ascii', 'ignore')`) : « Haussement d’Épaules » y donnait « haussement depaules » — l'écart
+  // rapporté par #457. Elle ne retire plus que les marques combinantes, et donne « haussement d epaules » (lancée sur
+  // ces trois textes le 21/10) : le JS, la même chose. Aucun cas de `cas-126.json` ne porte d'apostrophe : ce test est
+  // la seule concordance sur ce point.
+  test('129 — concordance du repli avec la référence corrigée : « Haussement d’Épaules » → « haussement d epaules »', () => {
+    const REFERENCE = [
+      ['Haussement d’Épaules', 'haussement d epaules'],
+      ['Haussement d’Épaules (Barre)', 'haussement d epaules barre'],
+      ["Haussement d'Épaules", 'haussement d epaules']
+    ];
+    REFERENCE.forEach(([texte, attendu]) => expect(Routines.replier(texte)).toBe(attendu));
+    expect(Routines.replier('Haussement d’Épaules')).not.toBe('haussement depaules');   // l'ancienne référence
   });
 
   test('« Soulevé-de-Terre » et « souleve de terre » trouvent la même chose', () => {

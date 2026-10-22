@@ -615,9 +615,9 @@
     //     (`barres` : des slugs, dans l'ordre voulu), par la fonction des records
     //     (MOTEUR §9.23) — celle de la page d'exercice ; seulement les barres
     //     faites ;
-    //   · `autres` : les noms (catalogue, en minuscules) des SORTIES — sans
-    //     charge, mesurées en durée ou en distance, hors gainage et planches, qui
-    //     portent un muscle — faites dans ces 84 jours, trois au plus, les plus
+    //   · `autres` : les noms (catalogue, en minuscules) des SORTIES — le cardio
+    //     (`Modele.estExerciceSortie`, 133 : jamais un étirement), hors ce qui
+    //     porte un muscle — faites dans ces 84 jours, trois au plus, les plus
     //     fréquentes d'abord.
     //
     // `aujourdhui` : le jour de l'ouverture, passé (jamais l'horloge).
@@ -748,7 +748,8 @@
     // Sur la fenêtre du programme déduit (`Routines.fenetreDeLaPersonne` : les 84 jours qui finissent à la DERNIÈRE
     // séance, jamais « aujourd'hui »). Une séance COMPTE si elle a la signature du programme déduit
     // (`Routines.signatureDeSeance`, lue au même endroit, jamais recopiée). Les séries comptées ensuite : la série de
-    // travail (`Modele.estTravail`) ; les sorties (le cardio du jeu) jamais.
+    // travail (`Modele.estTravail`) ; jamais une série qui ne porte pas de volume (`Semaine.porteDuVolume` : le cardio,
+    // un étirement — 133b).
     //   · `seances_par_semaine` : la médiane, sur les semaines (lundi → dimanche, heure locale) qui ont au moins une
     //     séance comptée, du nombre de séances comptées ;
     //   · `taille_de_seance` : la médiane du nombre de séries de travail par séance comptée ;
@@ -776,7 +777,9 @@
         (s.series || []).forEach(function (x) {
           if (!x || !x.exercise_slug || !Modele.estTravail(x)) return;
           var f = index[x.exercise_slug];
-          if (Modele.estExerciceSortie(f) && !Semaine.porteDuVolume(f)) return;
+          // 133b (22/10/2026) — une série qui ne porte pas de volume (le cardio, un étirement) n'est pas une habitude
+          // de musculation : la règle du volume, pas celle de la sortie (un étirement n'est plus une sortie).
+          if (f && !Semaine.porteDuVolume(f)) return;
           n++;
           parExo[x.exercise_slug] = (parExo[x.exercise_slug] || 0) + 1;
           var r = x.reps === null || x.reps === undefined || x.reps === '' ? NaN : Number(x.reps);

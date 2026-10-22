@@ -73,6 +73,17 @@
       .filter(Boolean).join(' · ');
   }
 
+  // LA LIGNE SOUS LE TITRE D'UNE CARTE DE SÉANCE, UNE FOIS (les deux listes la lisent). Une sortie : sa distance et sa
+  // durée. Une séance de musculation : « 3 exercices · 12 séries de travail ».
+  // 133 (ECRAN-SAISIE §3 ter.4, 133b) — une séance sans série de musculation qui n'est pas une sortie (des étirements
+  // seuls, depuis qu'un étirement n'est plus une sortie) se résume par ses exercices et sa durée, jamais « 0 série ».
+  function metaDeSeance(r) {
+    if (r.estSortie) return resumeSortie(r);
+    var exos = r.nbExercices + ' exercice' + (r.nbExercices > 1 ? 's' : '');
+    if (!r.nbSeriesTravail) return [exos, M().formatDuree(r.dureeTotale)].filter(Boolean).join(' · ');
+    return exos + ' · ' + r.nbSeriesTravail + ' série' + (r.nbSeriesTravail > 1 ? 's' : '') + ' de travail';
+  }
+
   function rendreListeSeances(cible, resumes, surChoix) {
     vider(cible);
     if (!resumes.length) {
@@ -90,15 +101,9 @@
       haut.appendChild(el('span', 'seance-date', dateCourte(r.debut)));
       carte.appendChild(haut);
 
-      if (r.estSortie) {
-        var res = resumeSortie(r);
-        if (res) carte.appendChild(el('div', 'seance-meta', res));
-      } else {
-        carte.appendChild(el('div', 'seance-meta',
-          r.nbExercices + ' exercice' + (r.nbExercices > 1 ? 's' : '') +
-          ' · ' + r.nbSeriesTravail + ' série' + (r.nbSeriesTravail > 1 ? 's' : '') + ' de travail'));
-        if (r.salle) carte.appendChild(el('div', 'seance-salle', r.salle));
-      }
+      var res = metaDeSeance(r);
+      if (res) carte.appendChild(el('div', 'seance-meta', res));
+      if (!r.estSortie && r.salle) carte.appendChild(el('div', 'seance-salle', r.salle));
 
       carte.addEventListener('click', function () { surChoix(r.id); });
       cible.appendChild(carte);
@@ -1139,13 +1144,10 @@
         var haut = el('div', 'seance-haut');
         haut.appendChild(el('span', 'seance-titre', r.titre));
         carte.appendChild(haut);
-        var meta = r.incomplet ? 'séries pas encore reçues'
-          : r.estSortie ? resumeSortie(r)
-          // `de travail` — le qualificatif que le jumeau `rendreListeSeances`
-          // porte encore et que celui-ci avait perdu (audit, C1).
-          : r.nbExercices + ' exercice' + (r.nbExercices > 1 ? 's' : '') +
-            ' · ' + r.nbSeriesTravail + ' série' + (r.nbSeriesTravail > 1 ? 's' : '') +
-            ' de travail';
+        // `de travail` — le qualificatif que le jumeau `rendreListeSeances`
+        // porte encore et que celui-ci avait perdu (audit, C1) : une fonction
+        // pour les deux depuis 133 (`metaDeSeance`).
+        var meta = r.incomplet ? 'séries pas encore reçues' : metaDeSeance(r);
         if (meta) carte.appendChild(el('div', 'seance-meta', meta));
         // Une sortie garde sa carte évidée : durée et distance, pas d'aperçu.
         if (!r.estSortie) rendreApercu(carte, r.apercu);

@@ -1177,13 +1177,20 @@
     return moisAnnee(d);
   }
 
-  // Une « sortie » n'est pas une séance de musculation : l'exercice ne porte
-  // aucune charge et se mesure en temps et/ou en distance. Établi par lecture
-  // du catalogue : charge='aucune' + mesure ∈ {temps, distance_temps} couvre
-  // Randonnée, Course à pieds, Cyclisme, Marche, Natation, Pilates, Escalade…
+  // Une « sortie » n'est pas une séance de musculation : c'est le CARDIO du catalogue.
+  //
+  // 133 (audit 130 #11, décidé le 21/10/2026, ECRAN-SAISIE §3 ter.4, JEU §… « Cardio ») — UNE SORTIE, ET LE CARDIO
+  // DU JEU, CE SONT SEULEMENT LES EXERCICES DE NATURE `cardio` (course, vélo, randonnée, sports, corde à sauter…).
+  // Les étirements et la mobilité, le gainage et les figures tenues restent des séances ordinaires, avec leurs
+  // exercices. Sans `nature` connue (un catalogue en cache d'avant v2_096), l'ancienne règle : aucune charge, et une
+  // mesure en temps et/ou en distance.
+  //
+  // Ses lecteurs (133b, 22/10/2026) : le jeu (minutes de cardio), le résumé d'une séance, « les autres activités »
+  // des faits. Le générateur et les habitudes NE la lisent PAS : ils lisent `THSemaine.porteDuVolume`.
   function estExerciceSortie(exo) {
-    return !!exo && exo.charge === 'aucune' &&
-      (exo.mesure === 'temps' || exo.mesure === 'distance_temps');
+    if (!exo) return false;
+    if (exo.nature) return exo.nature === 'cardio';
+    return exo.charge === 'aucune' && (exo.mesure === 'temps' || exo.mesure === 'distance_temps');
   }
 
   // ── Découpage en blocs ──────────────────────────────────────────────────

@@ -3406,8 +3406,19 @@
       // Le disque local est la dernière ligne. S'il refuse, l'utilisateur doit
       // le savoir tout de suite — c'est le seul cas où la saisie doit crier.
       console.error('Séance non sauvegardée :', texteErreur(e));
-      Rendu.message($('erreur-seance'), 'Sauvegarde impossible sur cet appareil. Ne ferme pas l\u2019app.', 'erreur');
+      direSauvegardeImpossible();
     }
+  }
+
+  // 136 (audit du 16/10, E15 ; ECRAN-SAISIE §7 sexies : « la file ne perd rien en silence ») — LE DISQUE QUI REFUSE SE
+  // DIT, une phrase et une place : celles de la séance. La séance (`sauverSeance`) et la file (`poser`, `poserPaquet`)
+  // la disent toutes deux : une file qui ne s'écrit pas sur disque est une promesse d'envoi qu'un rechargement perdrait.
+  // Elle ne vient qu'APRÈS le nouvel essai de `Cache` (134, I-02 : une connexion perdue se rouvre une fois) — c'est le
+  // second échec, et lui seul, qui remonte ici.
+  var PHRASE_SAUVEGARDE_IMPOSSIBLE = 'Sauvegarde impossible sur cet appareil. Ne ferme pas l\u2019app.';
+  function direSauvegardeImpossible() {
+    var cible = $('erreur-seance');
+    if (cible) Rendu.message(cible, PHRASE_SAUVEGARDE_IMPOSSIBLE, 'erreur');
   }
 
   // Pose une intention dans la file ET l'écrit sur disque. La file EST la
@@ -3415,7 +3426,7 @@
   async function poser(operation) {
     attente = Attente.poser(attente, operation);
     try { await Cache.ecrireAttente(attente); }
-    catch (e) { console.warn('File non persistée :', texteErreur(e)); }
+    catch (e) { console.warn('File non persistée :', texteErreur(e)); direSauvegardeImpossible(); }
     rendreEtatSync();
     vidanger();   // volontairement PAS attendu : la saisie ne dépend pas du réseau
   }
@@ -14564,7 +14575,7 @@
   async function poserPaquet(ops) {
     ops.forEach(function (op) { attente = Attente.poser(attente, op); });
     try { await Cache.ecrireAttente(attente); }
-    catch (e) { console.warn('File non persistée :', texteErreur(e)); }
+    catch (e) { console.warn('File non persistée :', texteErreur(e)); direSauvegardeImpossible(); }
     rendreEtatSync();
     vidanger();
   }

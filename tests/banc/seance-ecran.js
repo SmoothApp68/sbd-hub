@@ -9358,7 +9358,10 @@ const SETS_IMPORTES = [
       const l1 = await ligne(1);
       const ph1 = await l1.$$eval('input', (x) => x.map((y) => y.placeholder));
       await saisirSerie(1, Number(String(ph1[0]).replace(',', '.')) || 20, Number(ph1[1]) || 8);
-      await attendre(1500);
+      // ⚠️ La vidange lancée par la série est encore EN VOL : le SDK rejoue une lecture qui échoue (1 s, 2 s,
+      // 4 s). Si le réseau revenait pendant ce temps, c'est elle qui rattraperait la série, et le banc ne
+      // prouverait rien (vu par la mutation « visibilité non branchée »). On attend qu'elle ait abandonné.
+      await attendre(10000);
       const avant = base.sets.filter((x) => x.session_id === sid2).length;
       const enFile = (await page.evaluate(() => window.THCache.lireAttente())).length;
       ok('[I-13] prémisse : hors réseau, la série attend dans la file', enFile > 0 && avant === 1,
@@ -9371,7 +9374,7 @@ const SETS_IMPORTES = [
       });
       ok('[I-13] prémisse : l’écoute de la visibilité du SDK est retirée', sdkCoupe);
       base.reseau = true;
-      await attendre(500);
+      await attendre(3000);
       ok('[I-13] prémisse : sans geste, la file attend toujours',
         base.sets.filter((x) => x.session_id === sid2).length === 1);
       await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange', { bubbles: true })));

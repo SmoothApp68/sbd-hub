@@ -724,12 +724,12 @@
       fiche.appendChild(li);
     });
     if (fiche.childNodes.length) cible.appendChild(fiche);
-    var etapes = el('ol', 'installer-etapes');
+    var etapes = el('ol', 'etapes');
     var n = 0;
     String(c.description || '').split('\n').forEach(function (ligne) {
       if (!ligne.trim()) return;
       n++;
-      var li = el('li', 'installer-etape');
+      var li = el('li', 'etape');
       li.appendChild(el('span', 'etape-n', String(n)));
       li.appendChild(el('span', 'etape-t', ligne));
       etapes.appendChild(li);

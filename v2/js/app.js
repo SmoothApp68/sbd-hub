@@ -9337,10 +9337,12 @@
     // pas terminé » ne dépend pas du chargement des routines.
     rendreBandeauQuestionnaire();
     rendreBandeauPhase();
-    rendreBandeauInstaller();                  // 138 : iPhone, hors de l'app
     rendreCarteCycles();
     rendreCarteSemaine();
     rendreCarteManque();
+    // 138 — iPhone, hors de l'app : sous le questionnaire et la phrase (l'ordre du DOM). Il ne lit pas le profil : seulement
+    // la session, la séance et l'appareil, donc la ligne qui arrive n'a rien à y redessiner.
+    rendreBandeauInstaller();
     var cible = $('liste-routines');
     // ⚠️ « Je ne sais pas encore » n'est PAS « il n'y en a pas ». Tant qu'un
     // chargement n'a pas abouti, on ne montre pas l'état vide : hors ligne, il
@@ -12820,7 +12822,6 @@
     // séance, feuille ou « Ranger » en cours).
     rendreBandeauQuestionnaire();
     rendreBandeauPhase();
-    rendreBandeauInstaller();
     rendreCarteCycles();                       // 60-4 : la carte « Passer en cycles » lit le même profil
     jeuSuitLeProfil();                         // 64B : l'interrupteur a pu changer sur un autre appareil
     parcoursSuitLeProfil();                    // 75 : « Ton parcours » lit le sexe et les priorités

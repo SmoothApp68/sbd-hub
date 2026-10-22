@@ -72,6 +72,10 @@ function profilEcran(profil, options) {
     pseudoPrisSignale: () => !!opt.pseudoPris,
     // 70 — la phrase en tête du Profil après un changement de mot de passe (aucune ici).
     noteProfil: null,
+    // 138 — iPhone, hors de l'app : la ligne « Installer sur l'écran d'accueil » (`options.iphone`), le bandeau du mot de passe.
+    surIphone: () => !!opt.iphone, bandeauMotDePasse: false,
+    Auth: { PHRASES_IPHONE: { ligne: 'Installer sur l’écran d’accueil', motDePasse: { quoi: 'q', sujet: 's' } } },
+    ouvrirFeuilleInstaller: () => {},
     // 116 (03 #6) — une colonne refusée pour de bon : la phrase en tête du Profil.
     refusProfil: opt.refusProfil || null
   };

@@ -2750,10 +2750,12 @@
       while (grp.file.length && generationValide(g)) {
         var m = grp.file[0];
         try {
-          await Donnees.groupeEnvoyer(m.texte, m.groupe_id, m.id);
+          if (m.geste) await envoyerGesteDuGroupe(m);
+          else await Donnees.groupeEnvoyer(m.texte, m.groupe_id, m.id);
         } catch (e) {
           if (!refusDuGroupe(e)) throw e;
-          grp.message = messageGroupe(e);
+          if (m.geste) console.warn('Geste du groupe refusé (' + m.geste + ') :', texteErreur(e));
+          else grp.message = messageGroupe(e);
         }
         if (!generationValide(g)) return;
         grp.file = grp.file.filter(function (x) { return x.id !== m.id; });
@@ -2766,6 +2768,28 @@
     var lever = function () { if (grp.envoi === envoi) grp.envoi = null; };
     envoi.then(lever, lever);
     return envoi;
+  }
+  // 136 (audit du 16/10, 06 #14) — UN GESTE DE FIN DU GROUPE, PAR LA FILE DU GROUPE (`grp.file`). La base l'applique au
+  // groupe où je suis À L'ENVOI (`groupe_publier`, `groupe_quitter` ne prennent pas de groupe) : parti en retard, il
+  // ne doit jamais toucher un AUTRE groupe. On relit donc mon groupe d'abord ; s'il a changé (ou si je n'y suis plus),
+  // le geste n'a plus d'objet et sort de la file, sans rien écrire.
+  async function envoyerGesteDuGroupe(m) {
+    var moi = await Donnees.groupeMoi();
+    if (!moi || moi.id !== m.groupe_id) return;
+    if (m.geste === 'publier') { await Donnees.groupePublier(m.exercices, m.xp); return; }
+    await Donnees.groupeQuitter();
+    if (grp.moi && grp.moi.id === m.groupe_id) {
+      grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.publie = null;
+    }
+  }
+  // Poser un geste de fin dans la file du groupe : gardé sur l'appareil AVANT le premier essai (comme un message),
+  // puis envoyé ; le réseau absent, il attend — la boucle du groupe et le retour du réseau le renvoient.
+  function poserGesteDuGroupe(geste) {
+    if (!grp.moi) return Promise.resolve();
+    grp.file = grp.file.concat([Object.assign({ id: uuid(), groupe_id: grp.moi.id, le: new Date().toISOString() }, geste)]);
+    return garderFileGroupe().then(function () { return envoyerFileGroupe(); }).catch(function (e) {
+      console.warn('Le groupe attend le réseau :', texteErreur(e));
+    });
   }
   // Un refus de la base (une règle du groupe), pas le réseau.
   function refusDuGroupe(e) { return !!e && /groupe_/.test(String(e.message || e.details || '')); }
@@ -3046,9 +3070,8 @@
     if (!groupeDeLaSeance(finie)) return;
     var xp = jeuAllume() && jeuDuRecap && jeuDuRecap.apport ? Math.max(0, Math.round(Number(jeuDuRecap.apport.xp) || 0)) : null;
     grp.recapAuto = true;
-    Donnees.groupePublier(exercicesDe(finie), xp).catch(function (e) {
-      console.warn('L’XP du groupe attend le réseau :', texteErreur(e));
-    });
+    // 136 (06 #14) — par la file du groupe : hors ligne, l'XP attend et repart (plus d'envoi unique sans retour).
+    poserGesteDuGroupe({ geste: 'publier', exercices: exercicesDe(finie), xp: xp });
   }
   // Après « Fermer » de mon récap : si toutes les séances du groupe sont terminées, le récap du groupe s'ouvre.
   function apresRecapDeSeance() {
@@ -3073,6 +3096,9 @@
   async function fermerRecapGroupe() {
     var v = grp.vue;
     try {
+      // 136 (06 #14) — ce qui attend pour ce groupe (mon XP de fin, un message) part AVANT que je le ferme : fermé, il ne
+      // le prendrait plus, et la file ci-dessous l'oublierait.
+      await envoyerFileGroupe();
       await Donnees.groupeFermer();
     } catch (e) {
       if (v) { v.message = messageGroupe(e, 'fermer le récap du groupe'); dessinerVueGroupe(); }
@@ -3087,11 +3113,10 @@
   }
   // Une séance abandonnée sort du groupe, sans récap — la séance DU groupe seulement (106 : abandonner une séance
   // suivante ne fait pas quitter le groupe d'avant).
+  // 136 (06 #14) — par la file du groupe, comme l'XP : hors ligne, le départ attend et repart.
   function quitterLeGroupeSiMembre(abandonnee) {
     if (!groupeDeLaSeance(abandonnee)) return;
-    Donnees.groupeQuitter().then(function () {
-      grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.publie = null;
-    }).catch(function (e) { console.warn('Le groupe attend le réseau :', texteErreur(e)); });
+    poserGesteDuGroupe({ geste: 'quitter' });
   }
 
   // Le détail d'une séance faite en groupe : « Faite en groupe avec jordan, lea », et le récap figé.

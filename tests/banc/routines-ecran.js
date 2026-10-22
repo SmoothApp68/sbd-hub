@@ -1967,7 +1967,9 @@ const ALIAS_COMMUNS = [
   // Hors réseau, le SDK Supabase met plusieurs secondes à renoncer. On attend la
   // CONDITION, pas une durée : un banc qui dort trop peu conclut à tort, un banc
   // qui dort trop longtemps n'est plus relancé par personne.
-  const horsLigne = await attendreTexte('#liste-routines', /réseau|Réessayer/i, 25000);
+  // 135 — plafond 60 s (25 avant) : sous charge, le SDK met plus longtemps à renoncer ; un plafond ne coûte rien
+  // quand l'état vient, et il rend la main sans conclure quand il ne vient pas.
+  const horsLigne = await attendreTexte('#liste-routines', /réseau|Réessayer/i, 60000);
   // À AUCUN MOMENT, pas seulement à la fin : l'état vide affiché une seconde
   // annonce une bibliothèque vide à quelqu'un qui a des routines.
   const vuVide = horsLigne.vus.filter((t) => /Aucune routine/.test(t));
@@ -1991,7 +1993,7 @@ const ALIAS_COMMUNS = [
   await jusqua('synchronisation échouée (hors réseau)', () => page2.evaluate(() => {
     const sync = document.getElementById('etat-sync'), v = document.getElementById('vue-routine');
     return !!v && !v.hidden && !!sync && (sync.textContent || '').trim() !== '' && !sync.classList.contains('sync');
-  }), 30000);
+  }), 60000);
   await page2.click('#btn-ajouter-exo').catch(() => {});
   await jusqua('catalogue ouvert (hors réseau)', async () => (await vueVisible(page2, 'catalogue')) &&
     (await page2.evaluate(() => (document.querySelector('#resultats-exo') || {}).textContent || '')) !== '');

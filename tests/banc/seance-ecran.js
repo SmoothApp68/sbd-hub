@@ -23110,11 +23110,13 @@ const SETS_IMPORTES = [
       base.sessions.some((x) => x.id === idE2 && x.statut === 'terminee') && setsE2().length === 2,
       JSON.stringify(setsE2().map((x) => [x.charge_kg, x.reps])));
 
-    // ── E4. UNE SÉRIE REMPLIE, PAS VALIDÉE, AU MOMENT DE TERMINER.
+    // ── E4. UNE SÉRIE REMPLIE, PAS VALIDÉE, AU MOMENT DE TERMINER. 137 (E12) : la séance a UNE série validée (70 × 5) —
+    // sans elle, la feuille de fin propose d'abandonner, pas de terminer (voir plus bas).
     await sansSeance115();
     await demarrerRoutine(ROUTINE_115.nom);
     await attendre(1200);
-    await remplir115(0, 62.5, 6);
+    await saisirSerie(0, 70, 5);
+    await remplir115(1, 62.5, 6);
     await attendre(1200);
     const idE4 = enCours115();
     await page.click('#bandeau-seance .bandeau-fin');
@@ -23130,7 +23132,7 @@ const SETS_IMPORTES = [
       !!idE4 && base.sessions.some((x) => x.id === idE4 && x.statut === 'en_cours'), JSON.stringify(idE4));
     await entree115('Les valider');
     await attendre(700);
-    const valeursE4 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).slice(0, 1)
+    const valeursE4 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).slice(1, 2)
       .map((l) => Array.from(l.querySelectorAll('input')).map((i) => i.value).join('×')));
     ok('[115-E4] « Les valider » : la feuille se ferme, la séance continue, la ligne garde 62,5 × 6',
       !(await feuille115()).ouverte && JSON.stringify(await visible()) === '["vue-seance"]' &&
@@ -23143,8 +23145,9 @@ const SETS_IMPORTES = [
     await entree115('Terminer quand même');
     await attendre(2600);
     const setsE4 = base.sets.filter((x) => x.session_id === idE4);
-    ok('[115-E4] « Terminer quand même » : la séance est terminée, la série remplie (62,5 × 6) n’est pas gardée',
-      base.sessions.some((x) => x.id === idE4 && x.statut === 'terminee') && setsE4.length === 0,
+    ok('[115-E4] « Terminer quand même » : la séance est terminée, la série validée (70 × 5) est gardée, la série remplie (62,5 × 6) ne l’est pas',
+      base.sessions.some((x) => x.id === idE4 && x.statut === 'terminee') && setsE4.length === 1 &&
+        Number(setsE4[0].charge_kg) === 70 && setsE4[0].reps === 5,
       JSON.stringify(setsE4.map((x) => [x.charge_kg, x.reps])));
 
     // ── E12 (137). UNE SÉANCE SANS SÉRIE VALIDÉE NE SE TERMINE PAS : ELLE S'ABANDONNE.

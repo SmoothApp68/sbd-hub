@@ -1026,6 +1026,7 @@
       // 109 (MOTEUR §9.25) — les objectifs et leurs paris. Accessoires comme les autres ; une table absente
       // (migration v2_089 pas lancée) le DIT : la carte ne s'affiche pas, et rien ne part vers elle.
       var versionObjectifsALaLecture = versionObjectifs;   // 139 — voir la garde à l'application
+      var objectifsEnFileALaLecture = objectifsEnFile();
       var objectifsDuCompte = await lireObjectifs();
       if (!generationValide(g)) return;
       var parisObjectifDuCompte = objectifsDuCompte && objectifsDuCompte.lignes ? await essayer(Donnees.parisObjectif) : null;
@@ -1118,9 +1119,13 @@
       // retiré pendant la lecture a pu monter et sortir de la file entre-temps : `fondreObjectifs` ne protège que
       // ce qui y est encore, et la lecture périmée écrasait le geste (150 revenait à la place de 155), en mémoire et
       // dans le brouillon. La version a bougé : on n'adopte rien ; la synchronisation suivante relira la base.
+      // …et un geste déjà dans la file À LA LECTURE, dont l'envoi est arrivé en base APRÈS elle puis a vidé la file
+      // avant l'application : `fondreObjectifs` ne le voit plus, la lecture ne l'a jamais eu — on garde la ligne de
+      // l'appareil (relevé au banc, pages ralenties ×4 : 155 × 1 reparti en 150 × 1, version inchangée).
       if (objectifsDuCompte && versionObjectifsALaLecture === versionObjectifs) {
         local.objectifsDispo = objectifsDuCompte.dispo;
-        local.objectifs = objectifsDuCompte.dispo ? fondreObjectifs(objectifsDuCompte.lignes) : [];
+        local.objectifs = objectifsDuCompte.dispo
+          ? gardeLesGestesEnVol(fondreObjectifs(objectifsDuCompte.lignes), objectifsEnFileALaLecture) : [];
         await Cache.ecrireBrouillon(CLE_OBJECTIFS, { dispo: local.objectifsDispo, lignes: local.objectifs }).catch(function () {});
         if (!generationValide(g)) return;
       }
@@ -13426,6 +13431,24 @@
       if (e.op !== Attente.SUPPRIMER && e.donnees) par[slug] = e.donnees;
     });
     return Object.keys(par).map(function (k) { return par[k]; });
+  }
+  // 139 — les objectifs (leur `exercise_slug`) qui attendent dans la file à cet instant.
+  function objectifsEnFile() {
+    var ids = {};
+    (attente || []).forEach(function (e) { if (e && e.table === Attente.OBJECTIFS) ids[e.id] = true; });
+    return ids;
+  }
+  // 139 — `fondus` : la lecture du serveur fondue avec la file d'aujourd'hui ; `enFileALaLecture` : ce qui attendait
+  // quand la lecture est partie. Un objectif qui attendait alors et n'attend plus est parti PENDANT la lecture : le
+  // serveur qui a répondu ne l'avait pas encore, l'appareil le sait — sa ligne (ou son absence, s'il a été retiré)
+  // remplace celle de la lecture. Un objectif encore dans la file est déjà gardé par `fondreObjectifs`.
+  function gardeLesGestesEnVol(fondus, enFileALaLecture) {
+    var maintenant = objectifsEnFile();
+    var partis = Object.keys(enFileALaLecture || {}).filter(function (slug) { return !maintenant[slug]; });
+    if (!partis.length) return fondus;
+    var reste = (fondus || []).filter(function (l) { return l && partis.indexOf(l.exercise_slug) < 0; });
+    var locales = (local.objectifs || []).filter(function (l) { return l && partis.indexOf(l.exercise_slug) >= 0; });
+    return reste.concat(locales);
   }
   // Les paris d'objectif : ceux du serveur ; ceux de l'appareil quand leur pari ou leur observation attend encore
   // dans la file, ou que le serveur ne les a pas encore.

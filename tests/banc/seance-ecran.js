@@ -1359,6 +1359,11 @@ const SETS_IMPORTES = [
         }
         return json(reponse);
       }
+      // 139 — `ecritureApresLecture` : l'écriture (upsert ou retrait) attend que la lecture retenue soit ARRIVÉE (sa réponse
+      // est alors construite sans le geste) : le geste est dans la file quand la lecture part, et arrive en base après elle.
+      if (req.method() !== 'GET' && base.ecritureApresLecture) {
+        for (let k = 0; k < 400 && !base.objectifsRetenue; k++) await pause(50);
+      }
       if (req.method() === 'DELETE') {
         const slug = (url.searchParams.get('exercise_slug') || '').replace('eq.', '');
         base.journal.push({ op: 'objectifs-retrait', slug });
@@ -22959,6 +22964,12 @@ const SETS_IMPORTES = [
       }).catch(() => false);
       // Lance la synchronisation et attend que SA lecture des objectifs soit en vol (retenue).
       const lectureRetenue = async () => {
+        // Aucune synchronisation en vol avant le clic : `synchroniser()` rend la main aussitôt s'il y en a une (le clic
+        // ne ferait alors que changer d'écran), et la lecture retenue serait celle d'une AUTRE — le geste partirait
+        // d'une page qui n'est plus celle de l'exercice (relevé : pages ralenties ×4).
+        await jusqua(dernierSync, 60000);
+        await attendre(600);
+        await jusqua(dernierSync, 60000);
         base.objectifsRetenue = false; base.lenteurObjectifs = RETENUE;
         await page.evaluate(() => document.getElementById('btn-rafraichir').click());
         return jusqua(async () => base.objectifsRetenue === true, 60000);
@@ -23025,6 +23036,31 @@ const SETS_IMPORTES = [
       ok('[O139] b — DISCRIMINANT : la lecture périmée rendue, l’objectif retiré ne revient pas : la carte propose « Poser un objectif », le brouillon est vide, la base n’a plus la ligne',
         !!cB && nbO(cB).indexOf('Poser un objectif') >= 0 && !cB.titre && !!bB && (bB.lignes || []).length === 0 && base.objectifs.length === 0,
         nbO([cB, bB, base.objectifs]));
+
+      // d — LE GESTE EST DANS LA FILE QUAND LA LECTURE PART, ET SON ENVOI ARRIVE EN BASE APRÈS ELLE : la version n'a pas bougé
+      // depuis la capture, et la file est vide à l'application — la lecture (sans le geste) ne le remplace pas non plus.
+      await aller('/exercice/squat-o109');   // le « Rafraîchir » précédent a ramené la semaine à l'écran
+      await jusqua(syncTerminee, 60000);
+      await jusqua(async () => !!(await carteO()), 10000);
+      await feuilleO(150, 1);
+      await jusqua(async () => base.objectifs.length === 1 && (base.objectifs[0] || {}).charge_kg === 150 && await fileVide(), 8000);
+      await jusqua(dernierSync, 60000);
+      await attendre(600);
+      base.objectifsRetenue = false; base.lenteurObjectifs = RETENUE; base.ecritureApresLecture = true;
+      await feuilleO(155, 1);
+      const dansLaFileD = !(await fileVide());
+      await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+      const enVolD = await jusqua(async () => base.objectifsRetenue === true, 60000);
+      await jusqua(async () => (base.objectifs[0] || {}).charge_kg === 155 && await fileVide(), 8000);
+      base.ecritureApresLecture = false;
+      ok('[O139] d — prémisse : le geste 155 × 1 attendait dans la file quand la lecture (150) est partie ; il arrive en base après elle, avant qu’elle rende',
+        dansLaFileD && enVolD && Date.now() < base.objectifsLibereA && (base.objectifs[0] || {}).charge_kg === 155,
+        nbO([dansLaFileD, enVolD, base.objectifs]));
+      await lectureRendue();
+      const cD = await carteO(), bD = await brouillonO();
+      ok('[O139] d — DISCRIMINANT : la lecture rendue (150, sans le geste), la carte garde « 155 kg × 1 », le brouillon local est à 155',
+        !!cD && nbO(cD.titre) === nbO('155 kg × 1') && !!bD && (bD.lignes || []).length === 1 && bD.lignes[0].charge_kg === 155,
+        nbO([cD, bD, base.objectifs]));
       await D.fermer();
     }
 

@@ -13144,6 +13144,8 @@
   function choisirDansQuestionnaire(cle, valeur) {
     if (!questionnaire) return;
     questionnaire.rep = Questionnaire.appliquerChoix(questionnaire.rep, cle, valeur);
+    // 137 — une puce de durée touchée : les minutes tapées pour « Plus » ne sont plus la réponse.
+    if (cle === 'duree') { delete questionnaire.textes.duree; delete questionnaire.erreurs.duree; }
     rendreQuestionnaire();
   }
 

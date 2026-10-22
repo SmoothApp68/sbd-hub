@@ -505,7 +505,7 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     expect(blocs(v, 'puces')[0].options.map((o) => [o.cle, o.libelle])).toEqual(
       [[2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6+']]);
     expect(blocs(v, 'puces')[1].options.map((o) => [o.cle, o.libelle])).toEqual(
-      [[45, '45 min'], [60, '60 min'], [75, '75 min'], [90, '90 min'], [120, 'Plus']]);
+      [[45, '45 min'], [60, '60 min'], [75, '75 min'], [90, '90 min'], ['plus', 'Plus']]);
   });
 
   test('toi : les libellés du profil, l’ANNÉE (pas l’âge), les phrases au futur', () => {
@@ -878,5 +878,70 @@ describe('60-4 — l’écran 8b : les jours et la zone à ménager', () => {
   test('« Construis-le-moi » s’écrit dans `programme_choix`', () => {
     expect(Q.champsDeLEcran('programme', { programme: 'construis' }, {}, { maintenant: MAINTENANT }).champs)
       .toEqual({ programme_choix: 'construis' });
+  });
+});
+
+describe('137 — 03 #11 : « Plus » demande les minutes (QUESTIONNAIRE §2, écran 3b)', () => {
+  const rep0 = () => Q.reponsesInitiales({}, {});
+  const vue = (rep, textes, erreurs) => Q.vueDe('sans_historique', { rep, aDesSeances: false, faits: null,
+    textes: textes || {}, erreurs: erreurs || {} });
+  const champsDuree = (v) => v.blocs.filter((b) => b.type === 'champs');
+  const plus = (rep) => Q.appliquerChoix(rep, 'duree', 'plus');
+  const tape = (rep, texte) => {
+    const r = Q.lireChamp('duree', texte, require('../../v2/js/modele.js').lireNombre || ((t) => Number(String(t).replace(',', '.'))), MAINTENANT);
+    return { rep: Object.assign({}, rep, { duree: r.valeur }), erreur: r.erreur };
+  };
+
+  test('sans « Plus » choisie : pas de champ ; « Plus » choisie : « Combien de minutes ? » juste sous les puces', () => {
+    expect(champsDuree(vue(rep0()))).toHaveLength(0);
+    const v = vue(plus(rep0()));
+    expect(champsDuree(v)).toHaveLength(1);
+    const i = v.blocs.findIndex((b) => b.type === 'puces' && b.cle === 'duree');
+    expect(v.blocs[i + 1].type).toBe('champs');
+    expect(v.blocs[i + 1].champs[0].libelle).toBe('Combien de minutes ?');
+    expect(v.blocs[i].valeur).toBe('plus');
+  });
+  test('une puce de durée reprise : le champ disparaît, la puce vaut ses minutes', () => {
+    const r = Q.appliquerChoix(plus(rep0()), 'duree', 75);
+    expect(r.duree).toBe(75);
+    expect(champsDuree(vue(r))).toHaveLength(0);
+  });
+  test('240 s’écrit dans duree_seance_min ; la durée ne vaut jamais 120 d’office', () => {
+    const { rep, erreur } = tape(plus(rep0()), '240');
+    expect(erreur).toBeNull();
+    expect(Q.champsDeLEcran('sans_historique', rep, {}, { maintenant: MAINTENANT }).champs.duree_seance_min).toBe(240);
+    expect(plus(rep0()).duree).not.toBe(120);
+  });
+  test('94 et 301 sont refusés : la phrase, et rien n’est écrit', () => {
+    [['94', 94], ['301', 301], ['abc', null]].forEach(([t]) => {
+      const { rep, erreur } = tape(plus(rep0()), t);
+      expect(erreur).toBe('Une durée entre 95 et 300 min.');
+      expect(Q.champsDeLEcran('sans_historique', rep, {}, { maintenant: MAINTENANT }).champs.duree_seance_min).toBeUndefined();
+    });
+  });
+  test('95 et 300 sont les bornes, comprises', () => {
+    expect(tape(plus(rep0()), '95').erreur).toBeNull();
+    expect(tape(plus(rep0()), '300').erreur).toBeNull();
+  });
+  test('« Plus » sans minutes : rien n’est écrit pour la durée, « Continuer » reste actif', () => {
+    const rep = plus(Q.appliquerChoix(rep0(), 'duree', 60));
+    expect(rep.duree).toBeNull();
+    expect(Q.champsDeLEcran('sans_historique', rep, {}, { maintenant: MAINTENANT }).champs.duree_seance_min).toBeUndefined();
+    expect(Q.ecranPret('sans_historique', rep)).toBe(true);
+  });
+  test('une durée déjà au-delà des puces (240 en base) : « Plus » est cochée et le champ la montre', () => {
+    const rep = Object.assign(rep0(), { duree: 240 });
+    const v = vue(rep);
+    expect(v.blocs.find((b) => b.type === 'puces' && b.cle === 'duree').valeur).toBe('plus');
+    expect(champsDuree(v)[0].champs[0].valeur).toBe('240');
+  });
+  test('l’écran 7 sans durée connue : même comportement', () => {
+    const v = Q.vueDe('temps', { rep: plus(rep0()), aDesSeances: false, faits: null, textes: {}, erreurs: {} });
+    expect(v.blocs.filter((b) => b.type === 'champs')[0].champs[0].libelle).toBe('Combien de minutes ?');
+  });
+  test('le texte tapé et l’erreur sont ceux du champ', () => {
+    const v = vue(plus(rep0()), { duree: '94' }, { duree: 'Une durée entre 95 et 300 min.' });
+    expect(champsDuree(v)[0].champs[0].valeur).toBe('94');
+    expect(champsDuree(v)[0].champs[0].erreur).toBe('Une durée entre 95 et 300 min.');
   });
 });

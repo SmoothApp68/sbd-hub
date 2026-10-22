@@ -7153,7 +7153,10 @@ const SETS_IMPORTES = [
     await saisirSerie(0, planOuvert[0][0], planOuvert[0][1]);
     await saisirSerie(1, planOuvert[1][0], planOuvert[1][1]);
     await saisirSerie(2, planOuvert[2][0], planOuvert[2][1]);
-    await attendre(900);
+    // 135 — les trois paris passent par la file : on attend qu'ils soient en base (l'état que lit le contrôle),
+    // puis que le réseau se taise (un quatrième, fautif, aurait eu le temps de partir).
+    await jusqua(async () => predictions().length >= 3, 10000);
+    await reseauCalme();
     const notees = predictions();
     ok('[P] une ligne PAR SÉRIE VALIDÉE, écrite à sa validation, avec ce que la ligne affichait',
       notees.length === 3 && notees.map((l) => l.fondement.rang).join() === '1,2,3' &&
@@ -7197,10 +7200,17 @@ const SETS_IMPORTES = [
     // validation de chacune (49-C : le pari naît à la même validation).
     await aller('/saisie');
     await demarrerRoutine('Terre');
+    // 135 — `parRang` rend `{}` tant que le pari n'est pas en base : un contrôle lu trop tôt échoue proprement au
+    // lieu de faire planter la section (« parRang(1) indéfini », groupe 4 en parallèle, PR 463 et 464).
     const parRang = (r) => predictions().filter((l) => l.fondement.rang === r &&
-      l.fondement.seance === base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0])[0];
+      l.fondement.seance === base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0])[0] || {};
     const c1 = planOuvert[0][0];
     await saisirSerie(0, c1, 5);
+    // 135 — LA CAUSE DU PLANTAGE : `saisirSerie` rend la main 450 ms après la validation ; le pari, sa séance et
+    // son observation montent par la file (vidange, puis un aller-retour par ligne). Sous charge, rien n'était
+    // encore en base : `parRang(1)` était indéfini. On attend l'état que lit le contrôle : le pari en base,
+    // observé, rattaché à sa série.
+    await jusqua(async () => !!parRang(1).observee_a && !!parRang(1).set_observe, 10000);
     ok('[P] la série faite à la charge proposée est OBSERVÉE',
       parRang(1).valeur_observee === 5 && !!parRang(1).observee_a && !!parRang(1).set_observe,
       JSON.stringify({ v: parRang(1).valeur_observee, set: !!parRang(1).set_observe }));
@@ -7212,6 +7222,8 @@ const SETS_IMPORTES = [
     // la même charge, apparier sur le rang seul et apparier sur les deux
     // donnent le même résultat — c'est la déviation qui les sépare.
     await saisirSerie(1, planOuvert[1][0] + 5, 5);
+    await jusqua(async () => !!parRang(2).set_observe && base.sets.some((x) => x.id === parRang(2).set_observe), 10000);
+    await reseauCalme();
     // ⚠️ CORRIGÉ LE 21/09 (48c-2) : la série est RELIÉE, ses reps ne comptent
     // pas. Une exploration dit quelque chose ; elle ne doit pas disparaître de
     // la table. Mais comparer « vise 4 à 130 » à « 3 à 135 » ne dirait rien de
@@ -7227,24 +7239,29 @@ const SETS_IMPORTES = [
     const taper = async (i, champ, v) => {
       const champs = await (await ligne(i)).$$('input');
       await champs[champ].fill(String(v));
-      await attendre(600);
     };
+    // 135 — une correction monte par la file : on attend qu'elle soit en base (l'état que lit le contrôle).
     await taper(0, 1, 4);
+    await jusqua(async () => parRang(1).valeur_observee === 4, 10000);
     ok('[P] les reps corrigées sur une série validée : l’observation SUIT',
       parRang(1).valeur_observee === 4, JSON.stringify(parRang(1).valeur_observee));
     await taper(0, 0, c1 + 10);
+    await jusqua(async () => parRang(1).valeur_observee === null && parRang(1).observee_a === null, 10000);
     ok('[P] la CHARGE corrigée hors de la proposition : les reps se retirent, la série reste',
       parRang(1).valeur_observee === null && parRang(1).observee_a === null &&
       !!parRang(1).set_observe,
       JSON.stringify({ v: parRang(1).valeur_observee, a: parRang(1).observee_a,
         set: !!parRang(1).set_observe }));
     await taper(0, 0, c1);
+    await jusqua(async () => parRang(1).valeur_observee === 4, 10000);
     ok('[P] revenue à la charge proposée : l’observation revient',
       parRang(1).valeur_observee === 4, JSON.stringify(parRang(1).valeur_observee));
 
     // ── L'ORDRE DANS LA FILE, ET HORS LIGNE ───────────────────────────────
     base.reseau = false;
     await taper(0, 1, 3);
+    // 135 — hors ligne, la correction ATTEND dans la file : on attend qu'elle y soit, avec ses séries.
+    await jusqua(async () => (await enFilePred()).length > 0 && (await enFileSets()).length > 0, 10000);
     const fileP = await enFilePred();
     const fileS = await enFileSets();
     ok('[P] hors ligne, la prédiction ATTEND dans la file, avec sa dépendance',
@@ -18067,10 +18084,11 @@ const SETS_IMPORTES = [
     let n0 = S.appels.length;
     await aller('/a/jordan');
     await attendreQue(async () => (await page.evaluate(() => document.querySelectorAll('#social-ami button.s-jour').length)) > 0);
-    await attendre(500);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const a0 = await lire();
     await aller('/a/jordan/exercice/squat-barre');
     await attendreQue(async () => !!(await lire()).cache);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const a1 = await lire();
     ok('[social-2] DISCRIMINANT — à sens unique : ni son mois, ni ses exercices, ni la page de son exercice — l’app ne demande rien, et la base refuserait',
       a0.mois === null && a0.exos.length === 0 && !a0.comparer && a1.cache === 'Ses exercices se voient quand vous vous suivez l’un l’autre.' &&
@@ -18083,6 +18101,7 @@ const SETS_IMPORTES = [
     S.abonnements.push({ suiveur: 'u-jordan', suivi: 'u-banc', statut: 'accepte', cree_le: iso(new Date(tS)), accepte_le: iso(new Date(tS)) });
     await aller('/a/jordan');
     await attendreQue(async () => (await lire()).exos.length > 0);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const b0 = await lire();
     const sq = b0.exos.filter((x) => x.slug === 'squat-barre')[0];
     ok('[social-2] mutuel : son mois en deux chiffres (2 séances, ses tonnes), « Ses exercices » (squat 210 kg · 2 séances, en tête), « Se comparer sur la période »',
@@ -18094,6 +18113,7 @@ const SETS_IMPORTES = [
     n0 = S.appels.length;
     await page.click('#social-ami .s-exo-ami[data-slug="squat-barre"]');
     await attendreQue(async () => !!(await lire()).charge);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const c0 = await lire();
     ok('[social-2] son exercice : meilleure charge 210 kg, meilleure série 180 × 5 (le plus gros charge × reps), sa courbe sur 6 mois ; l’adresse /a/jordan/exercice/squat-barre',
       (await chemin()) === '/a/jordan/exercice/squat-barre' && c0.charge === '210 kg' && c0.serie === '180 × 5' && c0.lui === 1 &&
@@ -18101,6 +18121,7 @@ const SETS_IMPORTES = [
       JSON.stringify(c0));
     await page.click('#social-comparer-exo');
     await attendreQue(async () => (await lire()).moiCourbe > 0);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const c1 = await lire();
     ok('[social-2] « Se comparer » : ma courbe en pointillés or par-dessus la sienne, et côte à côte meilleure charge, meilleure série, séances (6 mois)',
       c1.moiCourbe === 1 && c1.lui === 1 && c1.duoMoi[0] === monSquat + ' kg' && c1.duoLui[0] === '210 kg' && c1.duoLui[1] === '180 × 5' &&
@@ -18108,12 +18129,14 @@ const SETS_IMPORTES = [
     await mesurer('son exercice, comparé');
     await page.click('#btn-retour-ami');
     await attendreQue(async () => (await lire()).exos.length > 0);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     ok('[social-2] le retour d’une sous-page ramène à son profil (« ← jordan » → /a/jordan, « ← Fil »)',
       (await chemin()) === '/a/jordan' && (await lire()).retour === '← Fil', await chemin());
 
     // ── D. SE COMPARER SUR LA PÉRIODE.
     await page.click('#social-comparer');
     await attendreQue(async () => (await lire()).communs.length > 0);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const d0 = await lire();
     const dc = d0.communs.filter((x) => x.slug === 'dc-barre')[0];
     ok('[social-2] DISCRIMINANT — « Se comparer » (ce mois) : séances, tonnage, séries, reps côte à côte ; au couché (à la barre, en tête), à kilos égaux, jordan devant — sans chiffre DOTS',
@@ -18123,12 +18146,14 @@ const SETS_IMPORTES = [
     await mesurer('se comparer');
     await page.click('#social-ami .s-periode[data-periode="3mois"]');
     await attendreQue(async () => (await lire()).duoLui[0] === '3');
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     ok('[social-2] « 3 mois » : sa séance d’il y a deux mois entre dans la période', (await lire()).duoLui[0] === '3', JSON.stringify(await lire()));
 
     // ── E. « ENTRE AMIS », en bas de MA page d'exercice — après v2_091 (le faux serveur par défaut).
     const refusAvantE = S.journal.filter((j) => j.op === 'refus').length;
     await aller('/exercice/dc-barre');
     await attendreQue(async () => (await entre()).rangs.length > 0);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const e0 = await entre();
     ok('[social-2] DISCRIMINANT — « Entre amis » au couché : à kilos égaux (' + monCouche + ' kg), jordan (plus léger) PREMIER ; alexis, qui n’est pas mutuel, absent',
       e0.rangs.length === 2 && e0.rangs[0].t === 'jordan' && e0.rangs[1].t === 'toi' && e0.rangs[1].moi &&
@@ -18141,6 +18166,7 @@ const SETS_IMPORTES = [
     await mesurer('entre amis');
     await aller('/exercice/squat-barre');
     await attendreQue(async () => (await entre()).rangs.length > 0);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const e2 = await entre();
     ok('[social-2] « Entre amis » au squat : jordan (210 kg, lus dans ses séances), puis toi — les vrais kilos', e2.rangs.length === 2 &&
       e2.rangs[0].t === 'jordan' && e2.rangs[0].kg === '210 kg' && e2.rangs[1].kg === monSquat + ' kg', JSON.stringify(e2));
@@ -18161,7 +18187,7 @@ const SETS_IMPORTES = [
     base.pesees.length = 0;
     await aller('/exercice/dc-barre');
     await attendreQue(async () => S.scores.filter((x) => x.user_id === 'u-banc').length === 0);
-    await attendre(800);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const f0 = await entre();
     ok('[social-2] sans pesée : mes scores sont retirés de la base, et « Entre amis » disparaît (jordan seul : moins de deux)',
       S.scores.filter((x) => x.user_id === 'u-banc').length === 0 && f0.rangs.length === 0 && f0.texte === '', JSON.stringify([f0, S.scores]));
@@ -18172,14 +18198,17 @@ const SETS_IMPORTES = [
     // ⚠️ La pesée d'abord dans le cache de l'appareil (une ouverture qui synchronise) : sinon, à l'ouverture suivante,
     // l'app n'a pas encore de pesée et retire mes scores par le chemin « sans pesée » — pas celui qu'on éprouve ici.
     await aller('/saisie');
-    await attendre(1500);
+    // 135 — l'état que ce pas prépare : la pesée dans le cache de l'appareil, puis le réseau calme.
+    await jusqua(() => page.evaluate(() => window.THCache.lireTout('pesees')
+      .then((l) => (l || []).some((x) => x.id === '00000000-0000-4000-8890-000000000001'))).catch(() => false), 10000);
+    await reseauCalme();
     S.v2_091 = false;
     // Une ancienne ligne à moi (score sur la pesée, avec sa charge), comme en base aujourd'hui.
     S.scores.push({ user_id: 'u-banc', exercise_slug: 'dc-barre', score: SocialJs.scoreDots(monCouche, 96.75, 'homme'), charge_kg: monCouche });
     const journalAvantG = S.journal.length, envoisAvantG = S.journal.filter((j) => j.op === 'scores').length;
     await aller('/exercice/dc-barre');
     await attendreQue(async () => S.scores.filter((x) => x.user_id === 'u-banc').length === 0);
-    await attendre(1500);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const g0 = await entre();
     const journalG = S.journal.slice(journalAvantG);
     const refusG = journalG.filter((j) => j.op === 'refus' && j.refus !== 'PGRST202');   // la fonction des kilos manque : attendu
@@ -22619,15 +22648,30 @@ const SETS_IMPORTES = [
       await aller('/exercice/squat-o109');
       return a;
     };
-    // La carte vient avec la première synchronisation (elle dit si la table existe) : on rouvre la page jusqu'à elle.
+    // La carte vient avec la première synchronisation (elle dit si la table existe).
+    //
+    // ⚠️ 135 — ON ATTEND QUE CETTE SYNCHRONISATION SOIT FINIE, ON NE RECHARGE PLUS POUR LA VOIR VENIR. Chaque
+    // appareil d'O109 est NEUF : sa première synchronisation lit tout l'historique du banc (au séquentiel, des
+    // centaines de séances accumulées par les sections d'avant), puis l'écrit sur l'appareil — de longues
+    // secondes sans un mot au réseau. `aller()` rend la main au plafond de silence (`CALME_LONG_MS`) avant la fin,
+    // et l'ancienne boucle RECHARGEAIT alors la page : le rechargement tue la synchronisation en cours (son
+    // curseur ne s'écrit qu'à la fin), la suivante repart de zéro… dix fois, 5 s au total, carte toujours `null`
+    // (l'échec du séquentiel du 129). L'état attendu est celui que l'app pose À LA FIN de `synchroniser` :
+    // `#etat-sync` porte un libellé (il est vide au démarrage) et n'est pas « Synchronisation… ». Puis UNE
+    // ouverture lit la page depuis l'appareil synchronisé.
+    // La ligne de profil se lit APRÈS la synchronisation (`chargerProfil`) : l'intention du serveur (« Juste un
+    // carnet » au cas 7) doit être sur l'appareil avant qu'on y pose un objectif — sinon l'app pose avec
+    // l'intention par défaut, et le banc mesurerait la course, pas la règle.
+    const syncTerminee = () => page.evaluate((intention) => {
+      const s = document.getElementById('etat-sync');
+      if (!s || (s.textContent || '').trim() === '' || s.classList.contains('sync')) return false;
+      return window.THCache.lireMeta('profil').then((p) => !!p && p.intention === intention);
+    }, base.profiles[0].intention).catch(() => false);
     const carteApres = async () => {
-      for (let k = 0; k < 10; k++) {
-        const c = await carteO();
-        if (c) return c;
-        await attendre(500);
-        await aller('/exercice/squat-o109');
-      }
-      return null;
+      await jusqua(syncTerminee, 60000);
+      await aller('/exercice/squat-o109');
+      await jusqua(async () => !!(await carteO()), 10000);
+      return carteO();
     };
     const feuilleO = async (charge, reps) => {
       await page.click('#page-exercice .objectif-changer');
@@ -22643,7 +22687,8 @@ const SETS_IMPORTES = [
     // ── 0. TÉMOIN : LA MIGRATION N'EST PAS LANCÉE.
     base.objectifsAbsente = true;
     const T = await ouvrirO('O109-sans-table', new Date(2026, 9, 16, 12, 0, 0));
-    await attendre(1500);
+    // 135 — le témoin aussi : la première synchronisation finie (elle dit que la table manque), puis la page.
+    await jusqua(syncTerminee, 60000);
     await aller('/exercice/squat-o109');
     const t0 = await carteO();
     const ecritsSans = base.journal.filter((j) => j.op === 'objectifs' || j.op === 'objectifs-retrait').length;

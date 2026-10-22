@@ -70,7 +70,7 @@ const jusqua = async (nom, cond, max) => {
   return d;
 };
 // Le faux serveur, compté : les requêtes en vol et l'instant de la dernière réponse.
-const reseau = { enVol: 0, dernier: 0, total: 0 };
+const reseau = { enVol: 0, dernier: 0, total: 0, lecturesRoutines: 0 };
 const CALME_MS = 300;
 // Le réseau du banc se tait : aucune requête en vol, aucune depuis `CALME_MS`. C'est l'état qui prouve
 // qu'une écriture qui ne DOIT PAS partir n'est pas partie (avec l'effet attendu à l'écran, lu avant).
@@ -367,6 +367,7 @@ const ALIAS_COMMUNS = [
       // ⚠️ DEUX NIVEAUX D'IMBRICATION DEPUIS LE CHANTIER 43 :
       // `routines → routine_exercises → routine_sets`. `projeterUne` descend
       // déjà récursivement ; il fallait seulement que la donnée soit là.
+      if (table === 'routines') reseau.lecturesRoutines++;
       if (table === 'routines') return json(projeter(base.routines.map((r) =>
         Object.assign({}, r, {
           routine_exercises: base.exos.filter((e) => e.routine_id === r.id).map((e) =>
@@ -591,10 +592,26 @@ const ALIAS_COMMUNS = [
   // la synchro rend la main. Sur un cache vide — le cas du banc — il faut donc
   // lui laisser finir : 1,2 s ne suffisait pas, et le banc mesurait l'écran
   // intermédiaire. 135 — on attend l'écran posé (`ecranPose`), plus 2,5 s fixes.
+  // 135 — et la VUE de l'adresse demandée est celle affichée (l'app honore l'URL quand la synchro rend la main) ;
+  // pour Saisie, la bibliothèque est rendue (elle se lit APRÈS la synchronisation : sous charge, un silence de
+  // 500 ms tombait entre les deux et le banc lisait une bibliothèque vide — relevé au 1er des 10 passages).
+  const VUE_DE = { '/': 'vue-liste', '/saisie': 'vue-saisie', '/progression': 'vue-progression', '/profil': 'vue-profil',
+                   '/routine/nouvelle': 'vue-routine' };
   const aller = async (chemin) => {
-    const depuis = reseau.total;
+    const depuis = reseau.total, lectures = reseau.lecturesRoutines;
     await page.goto(BASE + chemin, { waitUntil: 'networkidle' }).catch(() => {});
     await ecranPose(page, 'aller ' + chemin, depuis);
+    if (VUE_DE[chemin]) await jusqua('vue de ' + chemin, () => vueVisible(page, VUE_DE[chemin]));
+    if (chemin === '/saisie') {
+      // La bibliothèque relue du serveur DEPUIS ce chargement (pas la copie de l'appareil), puis rendue.
+      await jusqua('bibliothèque relue', () => reseau.lecturesRoutines > lectures && reseau.enVol === 0);
+      await jusqua('bibliothèque rendue', () => page.evaluate(() => {
+        const l = document.getElementById('liste-routines');
+        return !!l && l.children.length > 0 && !/Chargement…/.test(l.textContent || '');
+      }));
+      await calme('bibliothèque lue');
+      await rendu(page);
+    }
   };
   const visible = () => page.evaluate(() =>
     Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id));

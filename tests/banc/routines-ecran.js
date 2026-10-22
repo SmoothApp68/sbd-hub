@@ -37,7 +37,68 @@ const Garde = require(path.join(R, 'tests/banc/garde-reseau.js'));
 const { creer } = require(path.join(R, 'v2-atelier/banc/serveur-pages.js'));
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const PORT = Number(process.env.BANC_PORT || 8872), BASE = 'http://127.0.0.1:' + PORT;
+// ⚠️ UN DÉLAI FIXE N'EST GARDÉ QUE S'IL EST UNE MESURE DU TEMPS (135). Il n'en reste qu'un usage ici : le
+// rythme d'un doigt qui glisse (les pas d'un glissement à la souris). Tout le reste attend un ÉTAT — voir
+// `jusqua`, `calme` et `rendu` plus bas.
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ── ATTENDRE UN ÉTAT, PAS UNE DURÉE (135) ─────────────────────────────────────
+//
+// Ce banc dormait 110 s de délais fixes, calibrés sur une machine calme. Sous charge (deux ou trois agents,
+// six navigateurs pour deux cœurs), « Enregistrer » fait plusieurs allers-retours au faux serveur
+// (`routines`, `routine_exercises`, `routine_sets`, puis la relecture de la bibliothèque) avant de rendre la
+// bibliothèque : les 900 ms fixes ne suffisaient plus, le contrôle lisait l'éditeur encore ouvert et la
+// base à moitié écrite, et toute la suite partait du mauvais écran (12 échecs d'un coup, relevé à la PR 455).
+//
+// `jusqua(nom, cond)` interroge l'état que le contrôle suivant lit, toutes les 50 ms, jusqu'au plafond. Au
+// plafond, il rend la main SANS rien conclure : le contrôle qui suit dit ce qu'il voit, et l'attente est
+// comptée (le total s'affiche en fin de banc). Un plafond n'est jamais un succès.
+const PLAFOND_MS = 20000;
+const statAttente = { n: 0, plafond: 0, pire: 0, pireNom: '', plafonds: [] };
+const jusqua = async (nom, cond, max) => {
+  const t0 = Date.now();
+  for (;;) {
+    let v = false;
+    try { v = await cond(); } catch (e) { v = false; }
+    if (v) break;
+    if (Date.now() - t0 >= (max || PLAFOND_MS)) { statAttente.plafond++; statAttente.plafonds.push(nom); break; }
+    await attendre(50);
+  }
+  const d = Date.now() - t0;
+  statAttente.n++;
+  if (d > statAttente.pire) { statAttente.pire = d; statAttente.pireNom = nom; }
+  return d;
+};
+// Le faux serveur, compté : les requêtes en vol et l'instant de la dernière réponse.
+const reseau = { enVol: 0, dernier: 0, total: 0 };
+const CALME_MS = 300;
+// Le réseau du banc se tait : aucune requête en vol, aucune depuis `CALME_MS`. C'est l'état qui prouve
+// qu'une écriture qui ne DOIT PAS partir n'est pas partie (avec l'effet attendu à l'écran, lu avant).
+const calme = (nom) => jusqua(nom || 'réseau calme', () => reseau.enVol === 0 && Date.now() - reseau.dernier >= CALME_MS);
+// Deux images peintes : un rendu synchrone déclenché par le geste est à l'écran.
+const rendu = (p) => p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))).catch(() => {});
+// L'écran posé après un chargement. C'est l'état que l'ancien délai fixe de 2,5 s visait (« le boot affiche
+// ce qu'il a AVANT de synchroniser, puis honore l'URL quand la synchro rend la main ») :
+//   · le faux serveur a servi au moins une requête depuis le chargement (`depuis`), et il est calme ;
+//   · la page est chargée, une vue de `main` est affichée ;
+//   · l'état de synchronisation a un libellé — l'app le laisse VIDE au démarrage et ne le pose qu'à la fin de
+//     sa synchronisation (`synchroniser` → `etat`) — et ce n'est pas « Synchronisation… » ;
+//   · la vue affichée ne dit plus « Chargement… » (la bibliothèque se lit APRÈS la synchronisation).
+// Sous un processeur très lent, un silence de 500 ms peut tomber ENTRE deux lectures : c'est pourquoi le
+// réseau calme seul ne suffit pas, et pourquoi chaque fait ci-dessus est lu dans la page.
+const ecranPose = (p, nom, depuis) => jusqua(nom || 'écran posé', async () => {
+  if (depuis !== undefined && reseau.total <= depuis) return false;
+  if (reseau.enVol !== 0 || Date.now() - reseau.dernier < 500) return false;
+  return p.evaluate(() => {
+    const sync = document.getElementById('etat-sync');
+    const vues = Array.from(document.querySelectorAll('main > section')).filter((x) => !x.hidden);
+    return document.readyState === 'complete' && vues.length > 0 &&
+      !vues.some((v) => /Chargement…/.test(v.textContent || '')) &&
+      (!sync || ((sync.textContent || '').trim() !== '' && !sync.classList.contains('sync')));
+  });
+});
+const vueVisible = (p, id) => p.evaluate((x) => { const n = document.getElementById(x); return !!n && !n.hidden; }, id);
+const feuilleFermee = (p) => p.evaluate(() => { const f = document.getElementById('feuille-seance'); return !f || f.hidden; });
 
 let echecs = 0;
 const ok = (nom, cond, detail) => {
@@ -210,7 +271,12 @@ const ALIAS_COMMUNS = [
   const erreurs = [];
   page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 140)));
 
+  // 135 — chaque requête au faux serveur est comptée en vol jusqu'à sa réponse (`calme`, `ecranPose`).
   const gererSupabase = async (route) => {
+    reseau.enVol++; reseau.total++; reseau.dernier = Date.now();
+    try { return await traiterSupabase(route); } finally { reseau.enVol--; reseau.dernier = Date.now(); }
+  };
+  const traiterSupabase = async (route) => {
     const req = route.request();
     const url = new URL(req.url());
     const table = url.pathname.split('/').pop();
@@ -524,10 +590,11 @@ const ALIAS_COMMUNS = [
   // Le boot affiche ce qu'il a AVANT de synchroniser, puis honore l'URL quand
   // la synchro rend la main. Sur un cache vide — le cas du banc — il faut donc
   // lui laisser finir : 1,2 s ne suffisait pas, et le banc mesurait l'écran
-  // intermédiaire.
+  // intermédiaire. 135 — on attend l'écran posé (`ecranPose`), plus 2,5 s fixes.
   const aller = async (chemin) => {
+    const depuis = reseau.total;
     await page.goto(BASE + chemin, { waitUntil: 'networkidle' }).catch(() => {});
-    await attendre(2500);
+    await ecranPose(page, 'aller ' + chemin, depuis);
   };
   const visible = () => page.evaluate(() =>
     Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id));
@@ -545,9 +612,68 @@ const ALIAS_COMMUNS = [
       vu = await contenu(sel);
       vus.push(vu);
       if (motif.test(vu)) return { fin: vu, vus: vus };
-      await attendre(300);
+      await attendre(300);   // le pas d'une boucle d'attente d'état (pas un délai fixe)
     }
     return { fin: vu, vus: vus };
+  };
+
+  // ── 135 — LES GESTES COMMUNS, CHACUN SUIVI DE L'ÉTAT QU'IL PRODUIT ──────────
+  //
+  // « Enregistrer » (`enregistrerBrouillon`) : le bouton passe à « Enregistrement… » dans le même tour que le
+  // clic, puis — écritures faites ET bibliothèque relue — l'app rend Saisie et le bouton redevient
+  // « Enregistrer ». Refusé localement (un doublon), le message s'affiche dans le même tour. On attend donc :
+  // le bouton rendu, ET (Saisie affichée OU un message d'erreur), puis le réseau calme.
+  const enregistrer = async () => {
+    await page.click('#btn-enregistrer-routine');
+    await jusqua('enregistrer la routine', () => page.evaluate(() => {
+      const b = document.getElementById('btn-enregistrer-routine');
+      const fini = !!b && !b.disabled && b.textContent === 'Enregistrer';
+      const saisie = !document.getElementById('vue-saisie').hidden;
+      const erreur = (document.getElementById('erreur-routine').textContent || '').trim() !== '';
+      return fini && (saisie || erreur);
+    }));
+    await calme('après enregistrer');
+    await rendu(page);
+  };
+  // Ouvrir l'éditeur sur une routine existante : la vue `vue-routine`, avec son nom posé dans le champ.
+  const editeurOuvert = () => page.evaluate(() => !document.getElementById('vue-routine').hidden &&
+    (document.getElementById('champ-nom-routine').value || '') !== '');
+  const ouvrirRoutine = async (filtre) => {
+    if (filtre) {
+      await page.evaluate((f) => {
+        Array.from(document.querySelectorAll('#liste-routines .routine'))
+          .filter((c) => new RegExp(f).test(c.textContent))[0].click();
+      }, filtre);
+    } else await page.click('#liste-routines .routine');
+    await jusqua('ouvrir la routine', editeurOuvert);
+    await rendu(page);
+  };
+  // Une routine NEUVE : l'éditeur vide, à l'adresse /routine/nouvelle.
+  const nouvelleRoutine = async (sel) => {
+    await page.click(sel);
+    await jusqua('nouvelle routine', async () => (await vueVisible(page, 'vue-routine')) && /\/routine\/nouvelle$/.test(page.url()));
+    await rendu(page);
+  };
+  // Le catalogue : la feuille de recherche ouverte, la requête tapée, et les résultats de CETTE requête —
+  // la recherche attend la frappe (`minuterieRecherche`) : sans attendre le bon premier résultat, on lirait
+  // la liste d'avant.
+  const premierResultat = () => page.evaluate(() => { const b = document.querySelector('#resultats-exo .resultat');
+    return b && b.firstChild ? b.firstChild.textContent : ''; });
+  const chercherExo = async (q, motifPremier) => {
+    await page.click('#btn-ajouter-exo');
+    await jusqua('catalogue ouvert', () => vueVisible(page, 'catalogue'));
+    await page.fill('#champ-recherche-exo', q);
+    await jusqua('résultats de « ' + q + ' »', async () => {
+      const t = await premierResultat();
+      return typeof motifPremier === 'function' ? motifPremier(t) : motifPremier.test(t);
+    });
+  };
+  const nbExosEditeur = () => page.evaluate(() => document.querySelectorAll('.legende-exo').length);
+  const prendreResultat = async () => {
+    const avant = await nbExosEditeur();
+    await page.click('#resultats-exo .resultat');
+    await jusqua('exercice ajouté', async () => (await nbExosEditeur()) === avant + 1 && !(await vueVisible(page, 'catalogue')));
+    await rendu(page);
   };
 
   console.log('\n══ 1. L’ÉTAT VIDE ══');
@@ -575,27 +701,23 @@ const ALIAS_COMMUNS = [
       'Retrouver mes séances qui reviennent', 'En faire une depuis une séance passée', 'Ou commencer une séance vide']),
     JSON.stringify(etatVide && etatVide.boutons));
   await page.click('#liste-routines .depuis-seance');
-  await attendre(500);
+  await jusqua('vue des séances', () => vueVisible(page, 'vue-liste'));
   ok('[54-1] « En faire une depuis une séance passée » ouvre l’historique des séances',
     JSON.stringify(await visible()) === '["vue-liste"]', JSON.stringify(await visible()));
   await aller('/saisie');
 
   console.log('\n══ 2. CRÉER UNE ROUTINE DE TROIS EXERCICES ══');
-  await page.click('#liste-routines .principal');
-  await attendre(400);
+  await nouvelleRoutine('#liste-routines .principal');
   ok('l’éditeur s’ouvre, et l’URL le dit', page.url().endsWith('/routine/nouvelle'), page.url().replace(BASE, ''));
   await page.fill('#champ-nom-routine', 'Push');
   for (const [q, attendu] of [['squat', 'Squat (Barre)'], ['developpe couche', 'Développé Couché (Barre)'], ['souleve', 'Soulevé de Terre (Barre)']]) {
-    await page.click('#btn-ajouter-exo');
-    await attendre(250);
-    await page.fill('#champ-recherche-exo', q);
-    await attendre(250);
+    // 135 — on attend que la liste réponde à CETTE requête (son premier résultat), au plafond le contrôle dit
+    // ce qu'il voit.
+    await chercherExo(q, (t) => t === attendu);
     // 67B — le résultat porte une sous-ligne (« Barre · Quadriceps ») : son NOM est le premier nœud.
-    const premier = await page.evaluate(() => { const b = document.querySelector('#resultats-exo .resultat');
-      return b && b.firstChild ? b.firstChild.textContent : ''; });
+    const premier = await premierResultat();
     ok('« ' + q +' » trouve « ' + attendu + ' »', premier === attendu, premier);
-    await page.click('#resultats-exo .resultat');
-    await attendre(250);
+    await prendreResultat();
   }
   // ══ L'ÉDITEUR EST L'ÉCRAN DE SÉANCE (§7 quindecies) ══════════════════════
   //
@@ -624,20 +746,29 @@ const ALIAS_COMMUNS = [
   // superset, la tête n'en porte aucun et chaque branche a le sien. Les deux
   // règles sont complémentaires, donc l'ordre du DOM suit l'ordre des
   // exercices — exactement ce que le banc a besoin d'adresser.
+  // 135 — le menu est ouvert quand la feuille porte ses entrées.
+  const menuOuvert = () => page.evaluate(() => !document.getElementById('feuille-seance').hidden &&
+    document.querySelectorAll('#feuille-contenu .feuille-menu button').length > 0);
   const menuCarte = async (i) => {
     await page.evaluate((k) => { document.querySelectorAll('.menu-pts')[k].click(); }, i);
-    await attendre(300);
+    await jusqua('menu de la carte ' + i, menuOuvert);
   };
   const entreesMenu = () => page.evaluate(() =>
     Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
       .map((b) => b.textContent + (b.disabled ? ' (inerte)' : '')));
+  // 135 — une entrée touchée a fait son effet quand son bouton a quitté l'écran (la feuille s'est refermée, ou
+  // une autre a pris sa place) ; puis le réseau se tait (l'entrée a pu écrire) et l'écran est peint.
   const entree = async (motif) => {
     await page.evaluate((m) => {
       const b = Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .filter((x) => new RegExp(m).test(x.textContent))[0];
+      window.__entreeTouchee = b;
       b.click();
     }, motif);
-    await attendre(350);
+    await jusqua('entrée « ' + motif + ' »', () => page.evaluate(() =>
+      !window.__entreeTouchee.isConnected || document.getElementById('feuille-seance').hidden));
+    await calme('après « ' + motif + ' »');
+    await rendu(page);
   };
   // Un geste = ouvrir le menu de la carte i, puis toucher son entrée.
   const gesteCarte = async (i, motif) => { await menuCarte(i); await entree(motif); };
@@ -649,19 +780,23 @@ const ALIAS_COMMUNS = [
   // Les flèches plutôt que le glissement, ICI : ce qu'on mesure dans ces
   // sections-là est l'ORDRE et les rangs en base, pas le geste. Le glissement a
   // sa propre section, où il est le sujet.
+  // 135 — le mode s'ouvre (les blocs repliés sont là), la flèche agit (l'écran est peint), « Enregistrer »
+  // le referme (plus aucun bloc replié).
+  const replies = () => page.evaluate(() => document.querySelectorAll('#exos-routine .bloc-seance.replie').length);
   const deplacerCarte = async (i, sens) => {
     await page.click('#btn-ranger-routine');
-    await attendre(500);
+    await jusqua('mode réorganiser ouvert', async () => (await replies()) > 0);
     await page.evaluate(([k, d]) => {
       const b = document.querySelectorAll('#exos-routine .bloc-seance.replie')[k];
       b.querySelectorAll('.replie-gestes .geste')[d === 'haut' ? 0 : 1].click();
     }, [i, sens]);
-    await attendre(400);
+    await rendu(page);
     await page.evaluate(() => {
       Array.from(document.querySelectorAll('#pied-reorg button'))
         .filter((b) => /Enregistrer/.test(b.textContent))[0].click();
     });
-    await attendre(500);
+    await jusqua('mode réorganiser refermé', async () => (await replies()) === 0);
+    await rendu(page);
   };
   ok('trois exercices dans l’ordre d’ajout', JSON.stringify(await noms()) ===
     JSON.stringify(['Squat (Barre)', 'Développé Couché (Barre)', 'Soulevé de Terre (Barre)']), JSON.stringify(await noms()));
@@ -688,8 +823,7 @@ const ALIAS_COMMUNS = [
     JSON.stringify(colsCreation) + ' · toutes vides = ' + kgVides);
 
   console.log('\n══ 4. ENREGISTRER ══');
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await enregistrer();
   ok('retour à la bibliothèque', page.url().endsWith('/saisie'), page.url().replace(BASE, ''));
   ok('la routine est en base avec 3 exercices, rangs 0/1/2',
     base.exos.length === 3 && JSON.stringify(base.exos.map((e) => e.rang)) === '[0,1,2]',
@@ -710,29 +844,23 @@ const ALIAS_COMMUNS = [
     JSON.stringify(base.series.map((x) => x.rang + ':' + x.type_serie)));
 
   console.log('\n══ 5. RÉORDONNER ET RETIRER AU MILIEU ══');
-  await page.click('#liste-routines .routine');
-  await attendre(700);
+  await ouvrirRoutine();
   // ⚠️ ADRESSÉ PAR INDICE DE CARTE, PAS PAR POSITION DANS LE DOM. Le chantier
   // 28 intercale un lien de superset entre deux cartes : `nth-child(3)` ne
   // désigne plus la troisième carte mais le deuxième lien.
   await deplacerCarte(2, 'haut');
-  await attendre(250);
   ok('à l’écran : le 3e est remonté', JSON.stringify(await noms()) ===
     JSON.stringify(['Squat (Barre)', 'Soulevé de Terre (Barre)', 'Développé Couché (Barre)']), JSON.stringify(await noms()));
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await enregistrer();
   const apres = base.exos.slice().sort((a, b) => a.rang - b.rang);
   ok('en base : l’ordre a suivi, rangs 0/1/2 sans trou',
     JSON.stringify(apres.map((e) => e.exercise_slug)) === '["squat-barre","souleve-terre","dc-barre"]' &&
     JSON.stringify(apres.map((e) => e.rang)) === '[0,1,2]',
     JSON.stringify(apres.map((e) => e.exercise_slug + '@' + e.rang)));
 
-  await page.click('#liste-routines .routine');
-  await attendre(700);
+  await ouvrirRoutine();
   await gesteCarte(1, 'Supprimer l');
-  await attendre(250);
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await enregistrer();
   const apres2 = base.exos.slice().sort((a, b) => a.rang - b.rang);
   ok('retrait du MILIEU : les rangs se resserrent',
     JSON.stringify(apres2.map((e) => e.rang)) === '[0,1]',
@@ -743,8 +871,7 @@ const ALIAS_COMMUNS = [
   // Vérification demandée au chantier 26 : le repos se change EN SÉANCE
   // (§7 septies.2) sans que la routine cesse d'être l'endroit où il se
   // prescrit. Les deux chemins doivent coexister.
-  await page.click('#liste-routines .routine');
-  await attendre(700);
+  await ouvrirRoutine();
   // ⚠️ LE REPOS SE CHOISIT À LA MOLETTE (§7 sexdecies), plus au pavé.
   //
   // Le chantier 44 a retiré la duplication que le 42 avait laissée : un pavé de
@@ -763,7 +890,11 @@ const ALIAS_COMMUNS = [
       p.scrollTop = i * 48;
       p.dispatchEvent(new Event('scroll'));
     }, secondes);
-    await attendre(250);
+    // 135 — la molette a pris la valeur quand l'entrée centrée (`.sel`) la porte.
+    await jusqua('molette sur ' + secondes + ' s', () => page.evaluate((v) => {
+      const o = document.querySelector('#feuille-contenu .molette .opt.sel');
+      return !!o && Number(o.dataset.v) === v;
+    }, secondes));
   };
   const lireCentre = () => page.evaluate(() =>
     (document.querySelector('#feuille-contenu .molette .opt.sel') || {}).textContent || '');
@@ -771,7 +902,9 @@ const ALIAS_COMMUNS = [
     document.querySelectorAll('#feuille-contenu .molette ' + s).length, sel);
   const sortie = async (classe) => {
     await page.click('#feuille-contenu .feuille-pied .' + classe);
-    await attendre(350);
+    // 135 — la feuille s'est refermée, et la carte est peinte.
+    await jusqua('feuille refermée (' + classe + ')', () => feuilleFermee(page));
+    await rendu(page);
   };
   // ⚠️ LE REPOS S'OUVRE PAR SON BOUTON, PLUS PAR LE MENU (chantier 43). C'est
   // celui de la séance, sous le nom de l'exercice : la même chose se touche au
@@ -779,7 +912,9 @@ const ALIAS_COMMUNS = [
   // été un second chemin, plus long, vers le même réglage.
   const ouvrirRepos = async (i) => {
     await page.evaluate((k) => { document.querySelectorAll('.repos-cible')[k].click(); }, i);
-    await attendre(300);
+    // 135 — la feuille du repos est ouverte quand sa molette porte ses valeurs.
+    await jusqua('molette ouverte', () => page.evaluate(() => !document.getElementById('feuille-seance').hidden &&
+      document.querySelectorAll('#feuille-contenu .molette .opt').length > 0));
   };
   const remplirRepos = async (secondes) => {
     await ouvrirRepos(0);
@@ -815,8 +950,7 @@ const ALIAS_COMMUNS = [
   // ne sont pas la même chose, et c'est ce qui a laissé passer la régression du
   // chantier 42.
   await remplirRepos(210);
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await enregistrer();
   const premierExo = base.exos.slice().sort((a, b) => a.rang - b.rang)[0];
   ok('[42] « 3 3 0 » part en base à 210 secondes, pas à 330',
     premierExo.repos_cible_s === 210,
@@ -833,11 +967,9 @@ const ALIAS_COMMUNS = [
   // perdue.
   premierExo.note = 'Ceinture, barre basse';
   await aller('/saisie');
-  await page.click('#liste-routines .routine');
-  await attendre(700);
+  await ouvrirRoutine();
   await remplirRepos(195);        // 3:15
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await enregistrer();
   const apresEditeur = base.exos.filter((e) => e.id === premierExo.id)[0];
   ok('la note de la ligne de routine n’est PAS écrasée par l’éditeur',
     apresEditeur.note === 'Ceinture, barre basse' && apresEditeur.repos_cible_s === 195,
@@ -850,8 +982,7 @@ const ALIAS_COMMUNS = [
   // remplir un champ qu'on remplit toujours, et le repos se demandait en
   // secondes brutes alors que le pavé de décalage existe depuis le chantier 25.
 
-  await page.click('#liste-routines .routine');
-  await attendre(700);
+  await ouvrirRoutine();
   // ⚠️ LES COLONNES DE L'ÉCRAN DE SÉANCE, MOINS DEUX (§7 quindecies.2).
   const colonnes = () => page.evaluate(() =>
     Array.from(document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.cols-seance span'))
@@ -886,13 +1017,20 @@ const ALIAS_COMMUNS = [
       champ.value = v;
       champ.dispatchEvent(new Event('input', { bubbles: true }));
     }, [b, j, champ, valeur]);
-    await attendre(200);
+    // 135 — le gestionnaire d'`input` est synchrone : l'écran peint suffit (ce qui part sur le disque ou en
+    // base s'attend là où un contrôle le lit).
+    await rendu(page);
   };
   const ajouterSerie = async (b) => {
+    const avant = await page.evaluate((k) =>
+      document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.ligne-serie').length, b);
     await page.evaluate((k) => {
       document.querySelectorAll('.bloc-seance')[k].querySelector('.ajout-serie button').click();
     }, b);
-    await attendre(300);
+    // 135 — une ligne de plus dans CE bloc.
+    await jusqua('série ajoutée', async () => (await page.evaluate((k) =>
+      document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.ligne-serie').length, b)) === avant + 1);
+    await rendu(page);
   };
 
   // ⚠️ IL N'Y A PLUS DE CHAMP « NOMBRE DE SÉRIES ». On n'écrit plus « 3 », on
@@ -925,8 +1063,7 @@ const ALIAS_COMMUNS = [
   await saisirLigne(0, 1, 'reps', '10');
   await saisirLigne(0, 2, 'reps', '8');
   await saisirLigne(0, 2, 'kg', '');
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await enregistrer();
   const exo0 = () => base.exos.slice().sort((a, b) => a.rang - b.rang)[0];
   const series0 = () => base.series.filter((x) => x.routine_exercise_id === exo0().id)
     .slice().sort((a, b) => a.rang - b.rang);
@@ -949,8 +1086,7 @@ const ALIAS_COMMUNS = [
   // rampe s'afficherait 8-10-12 et la routine dirait le contraire de ce qu'elle
   // fait. C'est le genre d'écart qu'on ne voit qu'au rechargement.
   await aller('/saisie');
-  await page.click('#liste-routines .routine');
-  await attendre(700);
+  await ouvrirRoutine();
   ok('[43] rouvertes, les lignes sont dans l’ordre des RANGS, pas du serveur',
     JSON.stringify((await lignes(0)).map((l) => l.reps)) === '["12","10","8"]',
     JSON.stringify((await lignes(0)).map((l) => l.reps)));
@@ -983,15 +1119,13 @@ const ALIAS_COMMUNS = [
   await sortie('pri');
   ok('[44] Valider pose la valeur centrée, et la carte suit',
     (await reposCarte(0)) === 'repos 1:30', '« ' + (await reposCarte(0)) + ' »');
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await enregistrer();
   ok('[44] 90 secondes en base', exo0().repos_cible_s === 90,
     'repos_cible_s = ' + exo0().repos_cible_s);
 
   // Rechargement : ce qui est stocké se recentre sous la fenêtre.
   await aller('/saisie');
-  await page.click('#liste-routines .routine');
-  await attendre(700);
+  await ouvrirRoutine();
   await ouvrirRepos(0);
   ok('[44] rouverte, la molette repart de 1:30 — jamais d’un « 90 » brut',
     (await lireCentre()) === '1:30', '« ' + (await lireCentre()) + ' »');
@@ -1000,15 +1134,13 @@ const ALIAS_COMMUNS = [
   await sortie('des');
   ok('[44] Désactiver met la carte au tiret, tout de suite',
     (await reposCarte(0)) === 'repos —', '« ' + (await reposCarte(0)) + ' »');
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await enregistrer();
   ok('[44] et la base reçoit NULL, pas zéro',
     exo0().repos_cible_s === null, 'repos_cible_s = ' + JSON.stringify(exo0().repos_cible_s));
 
   // Sans repos programmé, la molette se pose sur 1:30 — visiblement, et rien
   // n'est écrit tant qu'on n'a pas validé.
-  await page.click('#liste-routines .routine');
-  await attendre(700);
+  await ouvrirRoutine();
   await ouvrirRepos(0);
   ok('[44] sans repos, elle se pose sur 1:30 et n’écrit rien avant Valider',
     (await lireCentre()) === '1:30', '« ' + (await lireCentre()) + ' »');
@@ -1016,8 +1148,7 @@ const ALIAS_COMMUNS = [
   ok('[44] …et Annuler la laisse désactivée', (await reposCarte(0)) === 'repos —',
     '« ' + (await reposCarte(0)) + ' »');
   await remplirRepos(90);
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await enregistrer();
 
   // On rend l'écran à la bibliothèque : la section suivante y entre par la carte.
   await aller('/saisie');
@@ -1035,14 +1166,9 @@ const ALIAS_COMMUNS = [
   // faut un troisième, laissé DEHORS, pour que la différence existe. Et c'est
   // le lien du MILIEU qu'on pose : poser celui du bord ne distinguerait pas
   // « le lien relie deux voisins » de « le lien relie le premier au reste ».
-  await page.click('#liste-routines .routine');
-  await attendre(700);
-  await page.click('#btn-ajouter-exo');
-  await attendre(250);
-  await page.fill('#champ-recherche-exo', 'curl');
-  await attendre(250);
-  await page.click('#resultats-exo .resultat');
-  await attendre(300);
+  await ouvrirRoutine();
+  await chercherExo('curl', /^Curl/);
+  await prendreResultat();
 
   const lettresEditeur = async () => (await exos()).map((x) => x.lettre);
   // ⚠️ LE LIEN N'A PLUS DE BOUTON À LUI (§7 duodecies.2) : il se lit sur le
@@ -1085,7 +1211,7 @@ const ALIAS_COMMUNS = [
     (await entreesMenu())[4] === 'Réorganiser…',
     (await entreesMenu()).join(' | '));
   await page.click('#btn-fermer-feuille');
-  await attendre(300);
+  await jusqua('feuille fermée', () => feuilleFermee(page));
 
   // Le lien du MILIEU : les deux DERNIERS se groupent, le premier reste dehors.
   await cliquerLien(1);
@@ -1099,18 +1225,16 @@ const ALIAS_COMMUNS = [
     (await entreesMenu())[3] === 'Dégrouper',
     (await entreesMenu()).join(' | '));
   await page.click('#btn-fermer-feuille');
-  await attendre(300);
+  await jusqua('feuille fermée', () => feuilleFermee(page));
 
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await enregistrer();
   ok('`groupe_superset` part en base — un numéro pour la paire, rien pour l’autre',
     JSON.stringify(enBase()) === '[null,1,1]', JSON.stringify(enBase()));
 
   // ⚠️ LA RELECTURE. Écrire le groupe et le RELIRE sont deux choses : jusqu'au
   // chantier 28 l'éditeur ne transportait pas `groupe_superset`, et un simple
   // aller-retour l'effaçait sans rien dire.
-  await page.click('#liste-routines .routine');
-  await attendre(700);
+  await ouvrirRoutine();
   ok('rouvert, l’éditeur RETROUVE le superset',
     JSON.stringify(await groupesEditeur()) === '[false,true,true]' &&
     JSON.stringify(await lettresEditeur()) === '["","A","B"]',
@@ -1158,8 +1282,7 @@ const ALIAS_COMMUNS = [
   ok('les deux liens posés : un seul bloc de trois, A/B/C',
     JSON.stringify(await lettresEditeur()) === '["A","B","C"]',
     JSON.stringify(await lettresEditeur()));
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await enregistrer();
   ok('en base : UN numéro pour les trois, et les rangs tiennent',
     JSON.stringify(enBase()) === '[1,1,1]' &&
     JSON.stringify(base.exos.slice().sort((a, b) => a.rang - b.rang).map((e) => e.rang)) === '[0,1,2]',
@@ -1176,34 +1299,28 @@ const ALIAS_COMMUNS = [
     e.groupe_superset = i === 0 ? 9 : null;      // le premier, seul dans le groupe 9
   });
   await aller('/saisie');
-  await page.click('#liste-routines .routine');
-  await attendre(700);
+  await ouvrirRoutine();
   ok('un groupe à UN seul exercice ne s’affiche pas comme un superset',
     JSON.stringify(await groupesEditeur()) === '[false,false,false]' &&
     JSON.stringify(await lettresEditeur()) === '["","",""]',
     JSON.stringify(await lettresEditeur()));
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await enregistrer();
   ok('et il est DISSOUS en base au premier enregistrement, pas réécrit',
     JSON.stringify(enBase()) === '[null,null,null]', JSON.stringify(enBase()));
 
   // On rend la routine à l'état où la suite du banc l'attend : deux exercices,
   // sans superset. Le §6 compte les lignes, pas les groupes.
-  await page.click('#liste-routines .routine');
-  await attendre(700);
+  await ouvrirRoutine();
   await gesteCarte(2, 'Supprimer l');
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await enregistrer();
   ok('remis à plat : deux exercices, aucun groupe',
     base.exos.length === 2 && JSON.stringify(enBase()) === '[null,null]',
     base.exos.length + ' exercice(s) · ' + JSON.stringify(enBase()));
 
   console.log('\n══ 6. NOM EN DOUBLON, PUIS SUPPRESSION ══');
-  await page.click('#btn-nouvelle-routine');
-  await attendre(400);
+  await nouvelleRoutine('#btn-nouvelle-routine');
   await page.fill('#champ-nom-routine', 'push  ');
-  await page.click('#btn-enregistrer-routine');
-  await attendre(600);
+  await enregistrer();
   ok('le doublon est refusé avec un message clair', /déjà une routine de ce nom/.test(await texte('#erreur-routine')), await texte('#erreur-routine'));
   ok('et on est resté sur l’éditeur, rien n’est perdu', page.url().includes('/routine/'), page.url().replace(BASE, ''));
 
@@ -1238,15 +1355,14 @@ const ALIAS_COMMUNS = [
     exosAvant > 0 && base.sessions.filter((x) => x.routine_id === routineQuiAServi.id).length === 1,
     exosAvant + ' exercice(s) · ' + base.sessions.length + ' séance(s)');
 
-  await page.click('#liste-routines .routine');
-  await attendre(700);
+  await ouvrirRoutine();
   ok('[41] le bouton dit « Supprimer », plus « Archiver »',
     (await texte('#btn-supprimer-routine')).trim() === 'Supprimer' &&
     (await page.evaluate(() => !!document.getElementById('btn-archiver-routine'))) === false,
     '« ' + (await texte('#btn-supprimer-routine')).trim() + ' »');
 
   await page.click('#btn-supprimer-routine');
-  await attendre(500);
+  await jusqua('confirmation de suppression', menuOuvert);
   const conf = (await texte('#feuille-contenu')).replace(/\s+/g, ' ');
   ok('[41] il DEMANDE avant, et dit que les séances passées restent intactes',
     /Supprimer cette routine/.test(conf) && /restent intactes/.test(conf),
@@ -1262,9 +1378,11 @@ const ALIAS_COMMUNS = [
     base.routines.length + ' routine(s)');
 
   await page.click('#btn-supprimer-routine');
-  await attendre(500);
+  await jusqua('confirmation de suppression', menuOuvert);
   await entree('^Supprimer$');
-  await attendre(900);
+  // 135 — la suppression a fini quand la bibliothèque est revenue, et le réseau s'est tu.
+  await jusqua('suppression faite', () => vueVisible(page, 'vue-saisie'));
+  await calme('après la suppression');
   ok('[41] confirmée, la routine quitte la base — pas d’archivage',
     base.routines.filter((r) => r.id === routineQuiAServi.id).length === 0,
     JSON.stringify(base.routines.map((r) => r.nom)));
@@ -1290,17 +1408,11 @@ const ALIAS_COMMUNS = [
     (await texte('#liste-routines')).replace(/\n+/g, ' | ').slice(0, 80));
 
   console.log('\n══ 7. LE NOM REDEVIENT LIBRE ══');
-  await page.click('#liste-routines .principal');
-  await attendre(400);
+  await nouvelleRoutine('#liste-routines .principal');
   await page.fill('#champ-nom-routine', 'Push');
-  await page.click('#btn-ajouter-exo');
-  await attendre(250);
-  await page.fill('#champ-recherche-exo', 'curl');
-  await attendre(250);
-  await page.click('#resultats-exo .resultat');
-  await attendre(250);
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await chercherExo('curl', /^Curl/);
+  await prendreResultat();
+  await enregistrer();
   ok('« Push » est réutilisable après suppression',
     /Push/.test(await texte('#liste-routines')) && base.routines.length === 1,
     JSON.stringify(base.routines.map((r) => r.nom)));
@@ -1320,17 +1432,11 @@ const ALIAS_COMMUNS = [
   // ⚠️ MAIS ELLE NE RÉSERVE TOUJOURS PAS SON NOM : `routines_user_nom_actif_uniq`
   // est un index PARTIEL. Refuser localement ce que la base accepte bloquerait
   // un enregistrement pour rien.
-  await page.click('#btn-nouvelle-routine');
-  await attendre(400);
+  await nouvelleRoutine('#btn-nouvelle-routine');
   await page.fill('#champ-nom-routine', 'Ancienne');
-  await page.click('#btn-ajouter-exo');
-  await attendre(250);
-  await page.fill('#champ-recherche-exo', 'curl');
-  await attendre(250);
-  await page.click('#resultats-exo .resultat');
-  await attendre(250);
-  await page.click('#btn-enregistrer-routine');
-  await attendre(900);
+  await chercherExo('curl', /^Curl/);
+  await prendreResultat();
+  await enregistrer();
   ok('[41] et son nom reste libre — l’index d’unicité est PARTIEL',
     !(await texte('#erreur-routine')).trim() &&
     base.routines.filter((r) => replie(r.nom) === 'ancienne').length === 2,
@@ -1372,21 +1478,25 @@ const ALIAS_COMMUNS = [
     'brouillon = ' + JSON.stringify(await brouillonEnBase()));
 
   // ── On commence une routine NEUVE et on la quitte sans enregistrer ──────
-  await page.click('#btn-nouvelle-routine');
-  await attendre(400);
+  // 135 — le repère se pose AVANT les gestes : posé après (comme avant), il ne voyait que ce qui partait
+  // entre deux lignes du banc.
+  const envoisAvant = base.envois.length;
+  await nouvelleRoutine('#btn-nouvelle-routine');
   await page.fill('#champ-nom-routine', 'Brouillon du mardi');
   await page.evaluate(() => {
     document.getElementById('champ-nom-routine')
       .dispatchEvent(new Event('input', { bubbles: true }));
   });
-  await attendre(300);
-  await page.click('#btn-ajouter-exo');
-  await attendre(250);
-  await page.fill('#champ-recherche-exo', 'curl');
-  await attendre(250);
-  await page.click('#resultats-exo .resultat');
-  await attendre(400);
-  const envoisAvant = base.envois.length;
+  await rendu(page);
+  await chercherExo('curl', /^Curl/);
+  await prendreResultat();
+  // 135 — l'état que lisent les deux contrôles : le brouillon posé sur le disque (avec son exercice), puis le
+  // réseau qui se tait — ce qui aurait dû partir est parti.
+  await jusqua('brouillon sur le disque', async () => {
+    const b = await brouillonEnBase();
+    return !!b && b !== 'ERREUR' && b.nom === 'Brouillon du mardi' && b.brouillon.exercices.length === 1;
+  });
+  await calme('brouillon : rien ne part');
 
   // 5. ⚠️ RIEN N'EST PARTI EN BASE. Une routine en cours d'édition n'a rien à
   // faire sur le serveur, et `routines_nom_court` refuserait un nom vide le
@@ -1420,7 +1530,9 @@ const ALIAS_COMMUNS = [
     Array.from(document.querySelectorAll('#bandeau-reprise button'))
       .filter((b) => /Reprendre/.test(b.textContent))[0].click();
   });
-  await attendre(800);
+  // 135 — l'éditeur rouvert, son nom posé (c'est ce que lit le contrôle, avec le nombre d'exercices).
+  await jusqua('brouillon repris', editeurOuvert);
+  await rendu(page);
   const repris = await page.evaluate(() => ({
     vue: Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id),
     nom: document.getElementById('champ-nom-routine').value,
@@ -1437,12 +1549,15 @@ const ALIAS_COMMUNS = [
   // construit une routine est le moment où l'on décide combien de séries y
   // mettre.
   await page.evaluate(() => { document.querySelector('.legende-exo .nom-exo').click(); });
-  await attendre(900);
+  await jusqua('page de l’exercice', () => vueVisible(page, 'vue-exercice'));
+  await rendu(page);
   ok('[45] taper le nom d’un exercice ouvre SA page',
     JSON.stringify(await visible()) === '["vue-exercice"]' && /exercice\//.test(page.url()),
     JSON.stringify(await visible()) + ' · ' + page.url().replace(BASE, ''));
   await page.goBack({ waitUntil: 'networkidle' }).catch(() => {});
-  await attendre(1200);
+  // 135 — le retour a restitué l'éditeur quand sa vue est revenue avec le nom du brouillon.
+  await jusqua('retour à l’éditeur', editeurOuvert);
+  await rendu(page);
   const apresRetour = await page.evaluate(() => ({
     vue: Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id),
     nom: (document.getElementById('champ-nom-routine') || {}).value,
@@ -1456,8 +1571,7 @@ const ALIAS_COMMUNS = [
   // 6. ⚠️ ENREGISTRER CONSOMME LE BROUILLON. Un bandeau qui proposerait de
   // « reprendre » ce qui vient d'être enregistré ferait douter de
   // l'enregistrement lui-même.
-  await page.click('#btn-enregistrer-routine');
-  await attendre(1200);
+  await enregistrer();
   ok('[45] enregistrer CONSOMME le brouillon — plus rien sur le disque',
     (await brouillonEnBase()) === null, JSON.stringify(await brouillonEnBase()));
   ok('[45] …et plus de bandeau, la routine est dans la bibliothèque',
@@ -1473,13 +1587,14 @@ const ALIAS_COMMUNS = [
     Array.from(document.querySelectorAll('#liste-routines .routine'))
       .filter((c) => /Brouillon du mardi/.test(c.textContent))[0].click();
   });
-  await attendre(800);
-  await page.evaluate(() => {
-    document.querySelectorAll('.repos-cible')[0].click();
+  await jusqua('ouvrir « Brouillon du mardi »', editeurOuvert);
+  await ouvrirRepos(0);
+  await sortie('pri');
+  // 135 — la modification est sur le disque (le brouillon de CETTE routine) avant le rechargement qui la teste.
+  await jusqua('brouillon de la routine existante sur le disque', async () => {
+    const b = await brouillonEnBase();
+    return !!b && b !== 'ERREUR' && b.nom === 'Brouillon du mardi';
   });
-  await attendre(400);
-  await page.click('#feuille-contenu .feuille-pied .pri');
-  await attendre(500);
   await aller('/saisie');
   // ⚠️ LE REPÈRE SE POSE APRÈS LE RECHARGEMENT, PAS AVANT. Un `goto` relance
   // l'app, et la vidange de file au démarrage peut légitimement envoyer ce qui
@@ -1493,7 +1608,7 @@ const ALIAS_COMMUNS = [
     Array.from(document.querySelectorAll('#bandeau-reprise button'))
       .filter((b) => /Abandonner/.test(b.textContent))[0].click();
   });
-  await attendre(500);
+  await jusqua('confirmation d’abandon', menuOuvert);
   // ⚠️ IL DEMANDE D'ABORD. Un brouillon de trois jours ne s'efface pas au
   // premier tap : c'est la même confirmation que la suppression d'une routine.
   const confAbandon = (await texte('#feuille-contenu')).replace(/\s+/g, ' ');
@@ -1501,7 +1616,8 @@ const ALIAS_COMMUNS = [
     /Abandonner ce brouillon/.test(confAbandon) && /n’a été enregistré/.test(confAbandon),
     confAbandon.slice(0, 110));
   await entree('^Abandonner$');
-  await attendre(800);
+  // 135 — l'abandon a fini quand le bandeau est parti ; `entree` a déjà attendu le réseau calme.
+  await jusqua('bandeau et brouillon partis', async () => (await bandeauVisible()) === false && (await brouillonEnBase()) === null);
   ok('[45] confirmé, le brouillon part — et RIEN n’est parti au serveur',
     (await brouillonEnBase()) === null && (await bandeauVisible()) === false &&
     base.envois.length === envoisAvantAbandon,
@@ -1580,7 +1696,7 @@ const ALIAS_COMMUNS = [
       return !!b && !b.hidden;
     }), 'bouton présent');
   await page.click('#btn-ranger-routines');
-  await attendre(600);
+  await jusqua('mode ranger ouvert', modeOuvert);
   ok('[46] le mode s’ouvre : un pied Annuler / Enregistrer',
     (await modeOuvert()) === true &&
     /Annuler/.test(await contenu('#pied-reorg')) &&
@@ -1597,7 +1713,7 @@ const ALIAS_COMMUNS = [
   // `touch-action: pan-y` hors poignée garantit, et c'est la chose que trois
   // chantiers sur le bouton retour ont appris à vérifier.
   await page.evaluate(() => window.scrollTo(0, 0));
-  await attendre(200);
+  await jusqua('défilement en haut', () => page.evaluate(() => window.scrollY === 0));
   const ordreAvantDefil = await nomsBiblio();
   const boiteCarte = await page.evaluate(() => {
     const c = document.querySelectorAll('#liste-routines .routine')[3];
@@ -1608,10 +1724,11 @@ const ALIAS_COMMUNS = [
   await page.mouse.down();
   for (let d = 0; d <= 160; d += 20) {
     await page.mouse.move(boiteCarte.x, boiteCarte.y - d);
-    await attendre(25);
+    await attendre(25);   // VOULU (135) : le rythme d'un doigt qui glisse — un temps d'horloge, pas une attente d'état
   }
   await page.mouse.up();
-  await attendre(400);
+  // 135 — le relâché est traité (une image peinte) : un déplacement fautif serait à l'écran.
+  await rendu(page);
   ok('[46] un glissement vertical HORS poignée ne déplace RIEN',
     JSON.stringify(await nomsBiblio()) === JSON.stringify(ordreAvantDefil),
     JSON.stringify(await nomsBiblio()));
@@ -1628,7 +1745,7 @@ const ALIAS_COMMUNS = [
     await page.evaluate((k) => {
       document.querySelectorAll('#liste-routines .poignee')[k].scrollIntoView({ block: 'center' });
     }, i);
-    await attendre(150);
+    await rendu(page);   // 135 — le défilement posé avant de lire la position de la poignée
     const b = await page.evaluate((k) => {
       const p = document.querySelectorAll('#liste-routines .poignee')[k];
       const r = p.getBoundingClientRect();
@@ -1639,15 +1756,15 @@ const ALIAS_COMMUNS = [
     const pas = dy > 0 ? 8 : -8;
     for (let d = 0; Math.abs(d) < Math.abs(dy); d += pas) {
       await page.mouse.move(b.x, b.y + d);
-      await attendre(18);
+      await attendre(18);   // VOULU (135) : le rythme d'un doigt qui glisse
     }
     await page.mouse.move(b.x, b.y + dy);
-    await attendre(60);
+    await attendre(60);     // VOULU (135) : le doigt marque un temps avant de se lever
     await page.mouse.up();
-    await attendre(300);
+    await rendu(page);      // 135 — le relâché traité, l'ordre peint
   };
   await page.evaluate(() => window.scrollTo(0, 0));
-  await attendre(200);
+  await jusqua('défilement en haut', () => page.evaluate(() => window.scrollY === 0));
   // ⚠️ LE PAS EST EXACTEMENT LA HAUTEUR + LA MARGE, ET LA COMPARAISON EST
   // STRICTE : à deux pas PILE, la seconde permutation ne se déclenche pas —
   // le milieu de la rangée arrive sur celui du voisin, pas au-delà. Un vrai
@@ -1673,7 +1790,8 @@ const ALIAS_COMMUNS = [
     Array.from(document.querySelectorAll('#pied-reorg button'))
       .filter((b) => /Annuler/.test(b.textContent))[0].click();
   });
-  await attendre(700);
+  await jusqua('mode ranger refermé (Annuler)', async () => (await modeOuvert()) === false);
+  await rendu(page);
   ok('[46] « Annuler » referme le mode et rend l’ordre d’avant',
     (await modeOuvert()) === false &&
     JSON.stringify(await nomsBiblio()) === JSON.stringify(
@@ -1685,7 +1803,7 @@ const ALIAS_COMMUNS = [
 
   // ⑦ ET ENREGISTRER ÉCRIT — SANS JAMAIS HEURTER `routines_user_rang_uniq`.
   await page.click('#btn-ranger-routines');
-  await attendre(600);
+  await jusqua('mode ranger ouvert', modeOuvert);
   const envoisAvantRang = base.envois.length;
   await glisserPoignee(3, -deuxCrans);
   await glisserPoignee(5, deuxCrans);
@@ -1694,7 +1812,9 @@ const ALIAS_COMMUNS = [
     Array.from(document.querySelectorAll('#pied-reorg button'))
       .filter((b) => /Enregistrer/.test(b.textContent))[0].click();
   });
-  await attendre(2000);
+  // 135 — le plan d'écritures est fini quand le mode s'est refermé tout seul, et le réseau s'est tu.
+  await jusqua('mode ranger refermé (Enregistrer)', async () => (await modeOuvert()) === false);
+  await calme('après le rangement');
   ok('[46] enregistré : la base porte l’ordre de l’écran, rangs sans collision',
     JSON.stringify(rangsEnBase()) === JSON.stringify(voulu),
     'base : ' + JSON.stringify(rangsEnBase()) + ' · voulu : ' + JSON.stringify(voulu));
@@ -1726,7 +1846,7 @@ const ALIAS_COMMUNS = [
   // envoie DEUX crans en UN SEUL mouvement — la rangée doit suivre le doigt,
   // pas traîner d'un cran derrière.
   await page.click('#btn-ranger-routines');
-  await attendre(600);
+  await jusqua('mode ranger ouvert', modeOuvert);
   const avantLance = await nomsBiblio();
   const bLance = await page.evaluate(() => {
     const p = document.querySelectorAll('#liste-routines .poignee')[2];
@@ -1736,9 +1856,9 @@ const ALIAS_COMMUNS = [
   await page.mouse.move(bLance.x, bLance.y);
   await page.mouse.down();
   await page.mouse.move(bLance.x, bLance.y + deuxCrans);   // UN seul mouvement
-  await attendre(120);
+  await attendre(120);   // VOULU (135) : le doigt marque un temps avant de se lever
   await page.mouse.up();
-  await attendre(400);
+  await rendu(page);
   ok('[46] un geste RAPIDE franchit ses deux crans d’un coup',
     (await nomsBiblio()).indexOf(avantLance[2]) === 4,
     JSON.stringify(avantLance) + ' → ' + JSON.stringify(await nomsBiblio()));
@@ -1753,11 +1873,13 @@ const ALIAS_COMMUNS = [
   await page.evaluate(() => {
     document.getElementById("onglet-seances").click();
   });
-  await attendre(900);
+  await jusqua('onglet Séances', () => vueVisible(page, 'vue-liste'));
   await page.evaluate(() => {
     document.getElementById("onglet-saisie").click();
   });
-  await attendre(900);
+  await jusqua('onglet Saisie', () => vueVisible(page, 'vue-saisie'));
+  await calme('changement d’onglet : rien ne part');
+  await rendu(page);
   ok('[46] changer d’onglet referme le mode — il ne traverse pas les écrans',
     (await modeOuvert()) === false &&
     (await compter('#liste-routines .poignee')) === 0,
@@ -1786,14 +1908,15 @@ const ALIAS_COMMUNS = [
     Array.from(document.querySelectorAll('#liste-routines .routine'))
       .filter((c) => /Alpha/.test(c.textContent))[0].click();
   });
-  await attendre(900);
+  await jusqua('ouvrir « Alpha »', editeurOuvert);
+  await rendu(page);
   const exosEcran = () => page.evaluate(() =>
     Array.from(document.querySelectorAll('#exos-routine .nom-exo, #exos-routine .replie-nom'))
       .map((n) => n.textContent.trim()));
   ok('[46] l’éditeur montre ses trois exercices',
     (await exosEcran()).length === 3, JSON.stringify(await exosEcran()));
   await page.click('#btn-ranger-routine');
-  await attendre(600);
+  await jusqua('éditeur replié', async () => (await replies()) > 0);
   ok('[46] l’éditeur REPLIE ses blocs — le même `blocReplie` que la séance',
     (await compter('#exos-routine .bloc-seance.replie')) === 3 &&
     (await compter('#exos-routine .poignee')) === 3,
@@ -1818,10 +1941,10 @@ const ALIAS_COMMUNS = [
   await page.mouse.down();
   for (let d = 0; d <= 2 * hBloc; d += 10) {
     await page.mouse.move(pg.x, pg.y - d);
-    await attendre(18);
+    await attendre(18);   // VOULU (135) : le rythme d'un doigt qui glisse
   }
   await page.mouse.up();
-  await attendre(400);
+  await rendu(page);
   ok('[46] dans l’éditeur aussi, la poignée déplace le bloc',
     JSON.stringify(await exosEcran()) !== JSON.stringify(avantEdit) &&
     (await exosEcran())[0] === avantEdit[2],
@@ -1838,7 +1961,9 @@ const ALIAS_COMMUNS = [
 
   console.log('\n══ 9. SANS RÉSEAU ══');
   await ctx.route(/supabase\.co/, (route) => route.abort('failed'));
-  await aller('/saisie');
+  // 135 — pas `aller` : hors réseau, l'écran ne se « pose » pas au sens d'`ecranPose` (aucune réponse du
+  // faux serveur) ; l'attente de la condition, juste en dessous, est l'attente d'état de cette section.
+  await page.goto(BASE + '/saisie', { waitUntil: 'networkidle' }).catch(() => {});
   // Hors réseau, le SDK Supabase met plusieurs secondes à renoncer. On attend la
   // CONDITION, pas une durée : un banc qui dort trop peu conclut à tort, un banc
   // qui dort trop longtemps n'est plus relancé par personne.
@@ -1861,9 +1986,15 @@ const ALIAS_COMMUNS = [
   await ctx2.route(/supabase\.co/, (route) => route.abort('failed'));
   const page2 = await ctx2.newPage();
   await page2.goto(BASE + '/routine/nouvelle', { waitUntil: 'domcontentloaded' }).catch(() => {});
-  await attendre(6000);
+  // 135 — la configuration discriminante est « la synchronisation a ÉCHOUÉ » (pas « pas encore partie ») :
+  // on attend que l'état de synchronisation l'ait constaté (sorti de « Synchronisation… »), l'éditeur affiché.
+  await jusqua('synchronisation échouée (hors réseau)', () => page2.evaluate(() => {
+    const sync = document.getElementById('etat-sync'), v = document.getElementById('vue-routine');
+    return !!v && !v.hidden && !!sync && (sync.textContent || '').trim() !== '' && !sync.classList.contains('sync');
+  }), 30000);
   await page2.click('#btn-ajouter-exo').catch(() => {});
-  await attendre(600);
+  await jusqua('catalogue ouvert (hors réseau)', async () => (await vueVisible(page2, 'catalogue')) &&
+    (await page2.evaluate(() => (document.querySelector('#resultats-exo') || {}).textContent || '')) !== '');
   const msgCat = await page2.evaluate(() => (document.querySelector('#resultats-exo') || {}).textContent || '');
   ok('il dit que le catalogue arrive, pas que la recherche n’a rien trouvé',
     /catalogue/i.test(msgCat) && !/correspond/i.test(msgCat), msgCat.slice(0, 90) || '(vide)');
@@ -1920,6 +2051,14 @@ const ALIAS_COMMUNS = [
   const page3 = await ctx3.newPage();
   const erreurs3 = [];
   page3.on('pageerror', (e) => erreurs3.push(String(e).slice(0, 140)));
+  // 135 — le profil posé : l'écran posé, puis ses lignes rendues.
+  const allerProfil3 = async () => {
+    const d = reseau.total;
+    await page3.goto(BASE + '/profil', { waitUntil: 'networkidle' }).catch(() => {});
+    await ecranPose(page3, 'compte neuf : /profil', d);
+    await jusqua('profil rendu', () => page3.evaluate(() => !document.getElementById('vue-profil').hidden &&
+      document.querySelectorAll('#profil-corps .p-ligne').length > 0));
+  };
   const vue3 = () => page3.evaluate(() =>
     Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id));
   const txt3 = (sel) => page3.evaluate((x) => (document.querySelector(x) || {}).textContent || '', sel);
@@ -1929,8 +2068,13 @@ const ALIAS_COMMUNS = [
   // voir le questionnaire DÈS LE PREMIER démarrage, quand la ligne de profil
   // arrive : relevé 60-0, la décision ne se prenait que sur le CACHE, et un
   // compte neuf n'était routé qu'au second démarrage.
+  let depuis3 = reseau.total;
   await page3.goto(BASE + '/', { waitUntil: 'networkidle' }).catch(() => {});
-  await attendre(3500);
+  await ecranPose(page3, 'compte neuf : /', depuis3);
+  // 135 — le questionnaire s'ouvre quand la ligne de profil arrive (lue APRÈS la synchronisation, puis créée) :
+  // c'est l'état que lit le contrôle ; au plafond, il dit ce qu'il voit.
+  await jusqua('questionnaire ouvert', () => vueVisible(page3, 'vue-questionnaire'));
+  await calme('après l’ouverture du questionnaire');
   ok('[60-2a] un compte neuf voit le questionnaire dès le PREMIER démarrage, quand la ligne de profil arrive',
     JSON.stringify(await vue3()) === '["vue-questionnaire"]', JSON.stringify(await vue3()));
   ok('[60-2a] …sur la bienvenue, sans barre d’onglets, avec ses deux sorties (« Plus tard », la barre)',
@@ -1942,7 +2086,9 @@ const ALIAS_COMMUNS = [
   ok('[60-2a] la ligne a été créée avec `questionnaire_fait_le` à NULL — « jamais rempli » est un état de la ligne',
     !!base.profil && base.profil.questionnaire_fait_le === null, JSON.stringify(base.profil && base.profil.questionnaire_fait_le));
   await page3.click('#questionnaire-corps .q-plus-tard');
-  await attendre(1500);
+  await jusqua('« Plus tard » → Saisie', () => vueVisible(page3, 'vue-saisie'));
+  await calme('après « Plus tard »');
+  await rendu(page3);
   ok('[60-2a] « Plus tard » mène à Saisie, et Saisie propose de le terminer — sans « Abandonner »',
     JSON.stringify(await vue3()) === '["vue-saisie"]' &&
     /Ton questionnaire n’est pas terminé\./.test(await txt3('#bandeau-questionnaire')) &&
@@ -1952,12 +2098,15 @@ const ALIAS_COMMUNS = [
   // ⚠️ UNE FOIS PAR APPAREIL. Au démarrage suivant, le questionnaire ne se rouvre
   // PAS de lui-même (le bandeau et la ligne du Profil restent) — un questionnaire
   // qui reviendrait à chaque ouverture recréerait l'obstacle qu'on vient d'enlever.
+  depuis3 = reseau.total;
   await page3.goto(BASE + '/', { waitUntil: 'networkidle' }).catch(() => {});
-  await attendre(3500);
+  await ecranPose(page3, 'compte neuf : / (second démarrage)', depuis3);
+  // 135 — la ligne de profil relue (l'état qui déciderait d'ouvrir le questionnaire) : la vue des séances.
+  await jusqua('second démarrage sur les séances', () => vueVisible(page3, 'vue-liste'));
+  await calme('second démarrage : rien ne s’ouvre');
   ok('[60-2a] …et il ne se rouvre pas de lui-même : l’app rouvre sur les séances',
     JSON.stringify(await vue3()) === '["vue-liste"]', JSON.stringify(await vue3()));
-  await page3.goto(BASE + '/profil', { waitUntil: 'networkidle' }).catch(() => {});
-  await attendre(3000);
+  await allerProfil3();
 
   // ── TEST 6 — tous les champs « à renseigner » ────────────────────────────
   const videsProfil = await page3.evaluate(() =>
@@ -1987,21 +2136,23 @@ const ALIAS_COMMUNS = [
   // ⚠️ `onboarding_completed` reste ÉCRIT (quitter le profil vaut « vu »), mais il
   // ne route plus rien : seul `questionnaire_fait_le` décide.
   await page3.evaluate(() => document.querySelector('.onglet[data-vue="saisie"]').click());
-  await attendre(1500);
+  // 135 — quitter le profil écrit par la file : on attend l'écriture reçue (ce que lit le contrôle), puis le calme.
+  await jusqua('onboarding_completed reçu', () => !!base.profil && base.profil.onboarding_completed === true);
+  await calme('après avoir quitté le profil');
   ok('[60-2a · test 7] quitter le profil pose toujours `onboarding_completed` (il ne route plus)',
     !!base.profil && base.profil.onboarding_completed === true, JSON.stringify(base.profil && base.profil.onboarding_completed));
-  await page3.goto(BASE + '/profil', { waitUntil: 'networkidle' }).catch(() => {});
-  await attendre(3000);
+  await allerProfil3();
 
   // ── TEST 9 — l’intention, et la CLÉ qui part en base ─────────────────────
-  await page3.goto(BASE + '/profil', { waitUntil: 'networkidle' }).catch(() => {});
-  await attendre(3000);
+  await allerProfil3();
   ok('[46 §2] le profil rouvre sans bandeau une fois vu',
     await page3.evaluate(() => !document.querySelector('#profil-corps .p-accueil')), 'plus de bandeau');
   await page3.evaluate(() =>
     Array.from(document.querySelectorAll('#profil-corps .p-seg button'))
       .find((b) => b.textContent === 'Juste un carnet').click());
-  await attendre(1500);
+  await jusqua('intention reçue en base', () => !!base.profil && base.profil.intention === 'entretien');
+  await calme('après « Juste un carnet »');
+  await rendu(page3);
   ok('[46 §2 · test 9 · 60-1] « Juste un carnet » est enregistré — et c’est la CLÉ de la base, « entretien »',
     base.profil && base.profil.intention === 'entretien',
     'base.intention = ' + (base.profil && base.profil.intention));
@@ -2024,7 +2175,8 @@ const ALIAS_COMMUNS = [
   await page3.evaluate(() =>
     Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
       .find((l) => /^Matériel/.test(l.textContent)).click());
-  await attendre(500);
+  await jusqua('feuille du matériel', () => page3.evaluate(() => !document.getElementById('feuille-seance').hidden &&
+    document.querySelectorAll('#feuille-contenu .feuille-menu button').length > 0));
   ok('[46 §2] la feuille de choix montre les cinq matériels, et son aide',
     await page3.evaluate(() =>
       document.querySelectorAll('#feuille-contenu .feuille-menu button').length === 5),
@@ -2034,7 +2186,10 @@ const ALIAS_COMMUNS = [
     await txt3('#feuille-contenu .feuille-aide'));
   await page3.evaluate(() =>
     document.querySelector('#feuille-contenu .feuille-menu button[data-cle="salle_complete"]').click());
-  await attendre(1500);
+  await jusqua('matériel reçu en base', () => !!base.profil && base.profil.materiel === 'salle_complete');
+  await jusqua('feuille du matériel refermée', () => feuilleFermee(page3));
+  await calme('après le matériel');
+  await rendu(page3);
   ok('[46 §2] le choix part en base sous sa clé, et la ligne n’est plus vide',
     base.profil && base.profil.materiel === 'salle_complete' &&
     await page3.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
@@ -2045,14 +2200,17 @@ const ALIAS_COMMUNS = [
   await page3.evaluate(() =>
     Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
       .find((l) => /^Durée d’une séance/.test(l.textContent)).click());
-  await attendre(500);
+  await jusqua('feuille de la durée', () => page3.evaluate(() => !document.getElementById('feuille-seance').hidden &&
+    (document.querySelector('#feuille-contenu .feuille-aide') || {}).textContent));
   ok('[60-1] l’aide de la durée : « Quand ta routine dépasse ce temps, je te propose de la raccourcir. » — plus de générateur',
     (await txt3('#feuille-contenu .feuille-aide')) === 'Quand ta routine dépasse ce temps, je te propose de la raccourcir.',
     await txt3('#feuille-contenu .feuille-aide'));
   await page3.evaluate(() =>
     Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
       .find((b) => b.textContent === '60 min').click());
-  await attendre(1500);
+  await jusqua('durée reçue en base', () => !!base.profil && base.profil.duree_seance_min === 60);
+  await jusqua('feuille de la durée refermée', () => feuilleFermee(page3));
+  await calme('après la durée');
   ok('[60-1] 60 min part en base sous `duree_seance_min`',
     base.profil && base.profil.duree_seance_min === 60, 'base.duree_seance_min = ' + (base.profil && base.profil.duree_seance_min));
 
@@ -2062,17 +2220,23 @@ const ALIAS_COMMUNS = [
   await page3.evaluate(() =>
     Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
       .find((l) => /^Taille/.test(l.textContent)).click());
-  await attendre(500);
+  await jusqua('feuille de la taille', () => page3.evaluate(() => !!document.querySelector('#feuille-contenu .champ-texte input')));
   await page3.fill('#feuille-contenu .champ-texte input', '3');
   await page3.click('#feuille-contenu .feuille-pied .pri');
-  await attendre(500);
+  // 135 — le refus est local et synchrone : la phrase est là, ou la feuille s'est refermée (le défaut).
+  await jusqua('taille refusée', () => page3.evaluate(() =>
+    !!(document.querySelector('#feuille-contenu .feuille-err') || {}).textContent || document.getElementById('feuille-seance').hidden));
+  await calme('taille refusée : rien ne part');
   ok('[46 §2] une taille impossible est refusée DANS la feuille, avec une phrase',
     /entre 100 et 250/.test(await txt3('#feuille-contenu .feuille-err')) &&
     await page3.evaluate(() => !document.querySelector('#feuille-seance').hidden),
     await txt3('#feuille-contenu .feuille-err'));
   await page3.fill('#feuille-contenu .champ-texte input', '182');
   await page3.click('#feuille-contenu .feuille-pied .pri');
-  await attendre(1500);
+  await jusqua('taille reçue en base', () => !!base.profil && base.profil.taille_cm === 182);
+  await jusqua('feuille de la taille refermée', () => feuilleFermee(page3));
+  await calme('après la taille');
+  await rendu(page3);
   ok('[46 §2] …et une taille valide ferme la feuille et remonte au bandeau',
     base.profil && base.profil.taille_cm === 182 &&
     /182 cm/.test(await txt3('#profil-sous')),
@@ -2093,7 +2257,9 @@ const ALIAS_COMMUNS = [
   await page3.evaluate(() =>
     Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
       .find((l) => /^Tous mes exercices/.test(l.textContent)).click());
-  await attendre(1200);
+  await jusqua('« Tous mes exercices »', async () => (await vueVisible(page3, 'vue-exercices')) &&
+    (await page3.evaluate(() => document.querySelectorAll('#liste-mes-exos .exo-ligne').length)) > 0);
+  await rendu(page3);
   ok('[46 §2.4 bis] « Tous mes exercices » s’ouvre, et c’est une vue avec son URL',
     JSON.stringify(await vue3()) === '["vue-exercices"]' &&
     (await page3.evaluate(() => location.pathname)) === '/profil/exercices',
@@ -2125,7 +2291,9 @@ const ALIAS_COMMUNS = [
       ' rendu(s) pour ' + CATALOGUE.length + ' au catalogue');
   // La recherche est celle du catalogue : elle replie les accents des deux côtés.
   await page3.fill('#champ-recherche-mes-exos', 'developpe');
-  await attendre(500);
+  // 135 — la liste a répondu à la requête quand elle a rétréci (le catalogue entier en compte bien plus).
+  await jusqua('recherche « developpe »', () => page3.evaluate((n) =>
+    document.querySelectorAll('#liste-mes-exos .exo-ligne').length < n, CATALOGUE.length));
   ok('[46 §2.4 bis] la recherche replie les accents — « developpe » trouve « Développé »',
     await page3.evaluate(() =>
       Array.from(document.querySelectorAll('#liste-mes-exos .exo-nom'))
@@ -2135,20 +2303,21 @@ const ALIAS_COMMUNS = [
   // ⚠️ LE VRAI MANQUE QUE CE BLOC COMBLE : la page d'exercice ne s'atteignait
   // que depuis une séance EN COURS et depuis Progression.
   await page3.click('#liste-mes-exos .exo-ligne');
-  await attendre(1200);
+  await jusqua('page de l’exercice (profil)', () => vueVisible(page3, 'vue-exercice'));
+  await rendu(page3);
   ok('[46 §2.4 bis] un tap ouvre la page de l’exercice — sans démarrer de séance',
     JSON.stringify(await vue3()) === '["vue-exercice"]', JSON.stringify(await vue3()));
 
   // ── TEST 11 — supprimer son compte ───────────────────────────────────────
-  await page3.goto(BASE + '/profil', { waitUntil: 'networkidle' }).catch(() => {});
-  await attendre(3000);
+  await allerProfil3();
   ok('[46 §2] « Quitter » et « Supprimer » sont là, dans cet ordre',
     await page3.evaluate(() => {
       const q = document.querySelector('#btn-deconnexion'), s = document.querySelector('#btn-supprimer-compte');
       return !!q && !!s && !!(q.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING);
     }), 'Quitter puis Supprimer');
   await page3.click('#btn-supprimer-compte');
-  await attendre(600);
+  await jusqua('confirmation de suppression du compte', () => page3.evaluate(() => !document.getElementById('feuille-seance').hidden &&
+    document.querySelectorAll('#feuille-contenu .feuille-menu button').length > 0));
   const phraseSuppr = await txt3('#feuille-contenu .feuille-aide');
   ok('[46 §2 · test 11] la confirmation DIT CE QUI PART, en chiffres réels',
     /2 séances/.test(phraseSuppr) && /3 séries/.test(phraseSuppr) && /rien ne se récupère/.test(phraseSuppr),
@@ -2157,7 +2326,8 @@ const ALIAS_COMMUNS = [
   // jamais, et c'est celle qui compte le jour où le doigt dérape.
   await page3.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
     .find((b) => b.textContent === 'Annuler').click());
-  await attendre(800);
+  await jusqua('« Annuler » referme la confirmation', () => feuilleFermee(page3));
+  await calme('« Annuler » : rien ne part');
   ok('[46 §2 · test 11] « Annuler » ne supprime rien',
     base.compteSupprime === false && base.corpusSeances.length === 2, 'rien n’est parti');
 
@@ -2186,10 +2356,14 @@ const ALIAS_COMMUNS = [
   const avantEchec = await etatAppareil();
   base.refuserSuppression = true;
   await page3.click('#btn-supprimer-compte');
-  await attendre(600);
+  await jusqua('confirmation de suppression du compte', () => page3.evaluate(() => !document.getElementById('feuille-seance').hidden &&
+    document.querySelectorAll('#feuille-contenu .feuille-menu button').length > 0));
   await page3.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
     .find((b) => b.textContent === 'Supprimer définitivement').click());
-  await attendre(2000);
+  // 135 — la base a refusé quand le message d'échec est à l'écran (ce que lit le contrôle) ; puis le calme.
+  await jusqua('refus de suppression affiché', () => page3.evaluate(() =>
+    !!((document.querySelector('#profil-corps .feuille-err') || {}).textContent || '')));
+  await calme('après le refus de suppression');
   const apresEchec = await etatAppareil();
   const messageEchec = await page3.evaluate(() =>
     ((document.querySelector('#profil-corps .feuille-err') || {}).textContent || ''));
@@ -2205,10 +2379,13 @@ const ALIAS_COMMUNS = [
 
   const avantSuppression = base.envois.length;
   await page3.click('#btn-supprimer-compte');
-  await attendre(600);
+  await jusqua('confirmation de suppression du compte', () => page3.evaluate(() => !document.getElementById('feuille-seance').hidden &&
+    document.querySelectorAll('#feuille-contenu .feuille-menu button').length > 0));
   await page3.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
     .find((b) => b.textContent === 'Supprimer définitivement').click());
-  await attendre(2500);
+  // 135 — supprimé : l'appareil revient à l'écran de connexion (le dernier geste de la suppression).
+  await jusqua('écran de connexion après suppression', () => vueVisible(page3, 'vue-connexion'));
+  await calme('après la suppression du compte');
   // ⚠️ UN SEUL APPEL, ET AUCUN DELETE. La fonction de base sait ce qui part ;
   // réécrire la suppression en plusieurs DELETE côté client, c'est ainsi qu'on
   // en oublie un — et c'est le défaut RGPD que la v1 a payé (CLAUDE.md §11).
@@ -2238,7 +2415,9 @@ const ALIAS_COMMUNS = [
   const page4 = await ctx4.newPage();
   page4.on('pageerror', (e) => erreurs3.push(String(e).slice(0, 140)));
   await page4.goto(BASE + '/', { waitUntil: 'networkidle' }).catch(() => {});
-  await attendre(2500);
+  // 135 — sans jeton, l'app ne synchronise rien : l'état posé est l'écran d'entrée lui-même.
+  await jusqua('écran d’entrée', () => vueVisible(page4, 'vue-connexion'));
+  await rendu(page4);
   ok('[46 §2 ter] sans jeton, l’app ouvre sur la connexion',
     JSON.stringify(await page4.evaluate(() =>
       Array.from(document.querySelectorAll('main > section')).filter((s) => !s.hidden).map((s) => s.id)))
@@ -2254,7 +2433,8 @@ const ALIAS_COMMUNS = [
       !document.querySelector('#btn-oubli').hidden), 'deux champs');
 
   await page4.click('#btn-bascule-entree');
-  await attendre(600);
+  await jusqua('bascule vers l’inscription', () => page4.evaluate(() => location.pathname === '/inscription'));
+  await rendu(page4);
   ok('[46 §2 ter] « Créer un compte » bascule le MÊME écran — trois champs, pas un de plus',
     await page4.evaluate(() => !document.querySelector('#env-pseudo').hidden &&
       document.querySelector('#btn-oubli').hidden &&
@@ -2270,8 +2450,13 @@ const ALIAS_COMMUNS = [
   // disponibilité, et surtout ne pas retenir l'inscription.
   await page4.fill('#champ-pseudo', 'melodie');
   await page4.fill('#champ-email', 'melodie.dupont@exemple.fr');
+  const sondesAvant = base.envois.filter((e) => e.table === 'pseudo_libre').length;
   await page4.fill('#champ-mdp', 'motdepasse1');
-  await attendre(1500);
+  // 135 — la sonde du pseudo est partie (après sa temporisation) et la base a répondu « je ne sais pas »
+  // (PGRST202) : c'est après cette réponse que l'écran doit se taire.
+  await jusqua('sonde du pseudo répondue', () => base.envois.filter((e) => e.table === 'pseudo_libre').length > sondesAvant);
+  await calme('après la sonde du pseudo');
+  await rendu(page4);
   ok('[46 §2 ter] sans réponse de la base, l’écran ne dit RIEN sur la disponibilité',
     (await page4.evaluate(() =>
       (document.querySelector('#aide-pseudo') || {}).textContent || '')) === '',
@@ -2285,13 +2470,16 @@ const ALIAS_COMMUNS = [
   const inscriptions = [];
   page4.on('request', (r) => { if (/\/auth\/v1\/signup/.test(r.url())) inscriptions.push(r.url()); });
   await page4.click('#btn-connexion');
-  await attendre(1500);
+  await jusqua('inscription partie', () => inscriptions.length > 0);
+  await calme('après l’inscription');
   const retourInscription = inscriptions.length ? new URL(inscriptions[0]).searchParams.get('redirect_to') : null;
   ok('[59-4] l’inscription demande au lien de confirmation de revenir sur l’origine de l’app',
     inscriptions.length === 1 && retourInscription === BASE + '/',
     inscriptions.length + ' inscription(s) · redirect_to = ' + retourInscription);
   await page4.fill('#champ-pseudo', 'me');
-  await attendre(700);
+  // 135 — le refus est local : l'aide le dit (ce que lit le contrôle, avec le bouton éteint).
+  await jusqua('pseudo trop court', () => page4.evaluate(() => /3 caractères/.test((document.querySelector('#aide-pseudo') || {}).textContent || '')));
+  await rendu(page4);
   ok('[46 §2 ter] un pseudo trop court, lui, est refusé tout de suite — et localement',
     /3 caractères/.test(await page4.evaluate(() =>
       (document.querySelector('#aide-pseudo') || {}).textContent || '')) &&
@@ -2299,7 +2487,8 @@ const ALIAS_COMMUNS = [
     await page4.evaluate(() => (document.querySelector('#aide-pseudo') || {}).textContent || ''));
 
   await page4.click('#btn-bascule-entree');
-  await attendre(600);
+  await jusqua('retour à la connexion', () => page4.evaluate(() => location.pathname !== '/inscription'));
+  await rendu(page4);
   ok('[46 §2 ter] revenir à la connexion remet le formulaire à zéro',
     await page4.evaluate(() => document.querySelector('#champ-mdp').value === '' &&
       (document.querySelector('#erreur-connexion').textContent || '') === '' &&
@@ -2308,6 +2497,9 @@ const ALIAS_COMMUNS = [
   await ctx4.close();
   if (erreurs3.length) { console.log('erreurs de page (profil) : ' + erreurs3.join(' | ')); echecs++; }
 
+  console.log('\nattentes d’état : ' + statAttente.n + ', la plus longue ' + statAttente.pire + ' ms (' + statAttente.pireNom +
+    '), ' + statAttente.plafond + ' au plafond (' + PLAFOND_MS / 1000 + ' s)' +
+    (statAttente.plafonds.length ? ' : ' + statAttente.plafonds.join(' · ') : ''));
   console.log('\nerreurs de page : ' + (erreurs.length ? erreurs.join(' | ') : 'aucune'));
   if (erreurs.length) echecs++;
   console.log('\n' + (echecs ? '❌ ' + echecs + ' vérification(s) en échec' : '✅ tout passe'));

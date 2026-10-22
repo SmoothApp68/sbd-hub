@@ -9381,6 +9381,35 @@ const SETS_IMPORTES = [
         base.sets.filter((x) => x.session_id === sid2).length + ' série(s) en base');
     }
     await abandonner();
+
+    // 134 (I-12, audit iPhone) — LA PERSISTANCE DU STOCKAGE SE DEMANDE UNE FOIS, au premier enregistrement local
+    // d'une séance. Une page neuve (la demande est par page), `persist` compté puis rendu à l'original.
+    {
+      await page.addInitScript(() => {
+        window.__persist = 0;
+        const S = window.StorageManager && window.StorageManager.prototype;
+        if (S && typeof S.persist === 'function') {
+          const vrai = S.persist;
+          S.persist = function () { window.__persist++; return vrai.apply(this, arguments); };
+        }
+      });
+      await page.reload();
+      await page.waitForLoadState('domcontentloaded').catch(() => {});
+      await attendre(1500);
+      await aller('/saisie');
+      await attendre(400);
+      ok('[I-12] prémisse : sans séance enregistrée, rien n’est demandé',
+        await page.evaluate(() => window.__persist === 0), String(await page.evaluate(() => window.__persist)));
+      await demarrerRoutine('Superset');
+      await attendre(800);
+      const lp = await ligne(0);
+      const php = await lp.$$eval('input', (x) => x.map((y) => y.placeholder));
+      await saisirSerie(0, Number(String(php[0]).replace(',', '.')) || 20, Number(php[1]) || 8);
+      await attendre(1200);
+      ok('[I-12] DISCRIMINANT — une séance enregistrée en local : `navigator.storage.persist()` demandé, une seule fois',
+        await page.evaluate(() => window.__persist === 1), String(await page.evaluate(() => window.__persist)));
+      await abandonner();
+    }
     page.off('console', ecouter);
     ok('[RE] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }

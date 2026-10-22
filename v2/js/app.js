@@ -3382,12 +3382,26 @@
   // rien, et l'appel est sûr à répéter.
   function semerSeance() { seance = Seance.semerIdentifiants(seance, uuid); }
 
+  // 134 (I-12, audit iPhone) — DEMANDER QUE LE STOCKAGE NE S'EFFACE PAS. Dans un onglet Safari, WebKit efface ce
+  // qu'un site a écrit après 7 jours d'usage sans visite : une séance finie hors ligne et jamais renvoyée, le
+  // brouillon. Une fois, au premier enregistrement local d'une séance, si l'API existe. La réponse ne change rien à
+  // l'app et ne s'affiche pas : on ne l'attend pas.
+  var persistanceDemandee = false;
+  function demanderPersistance() {
+    if (persistanceDemandee) return;
+    persistanceDemandee = true;
+    var st = racine.navigator && racine.navigator.storage;
+    if (!st || typeof st.persist !== 'function') return;
+    try { Promise.resolve(st.persist()).catch(function () {}); } catch (e) { /* refusé : rien à faire */ }
+  }
+
   async function sauverSeance() {
     // 115 (E2) — ce qui s'enregistre est la séance qu'on voit : une suppression en attente part d'abord.
     if (suppressionDifferee) await solderSuppression();
     semerSeance();
     try {
       await Cache.ecrireBrouillon('seance', seance);
+      demanderPersistance();
     } catch (e) {
       // Le disque local est la dernière ligne. S'il refuse, l'utilisateur doit
       // le savoir tout de suite — c'est le seul cas où la saisie doit crier.

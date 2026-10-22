@@ -4531,6 +4531,9 @@ const SETS_IMPORTES = [
   await entree('Ajouter un exercice après');
   await choisirCatalogue('planche');
 
+  // 137 (E12) — une série validée : sans elle, la feuille de fin propose d'abandonner, pas de terminer.
+  await saisirSerie(0, 60, 5);
+  await attendre(800);
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(700);
   ok('un exercice ajouté en séance se rapporte comme ajouté',

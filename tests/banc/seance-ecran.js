@@ -22764,6 +22764,10 @@ const SETS_IMPORTES = [
     ok('[O109] changer l’objectif (155 × 1) écrit un nouveau pari et garde l’ancien ; la ligne `objectifs` est réécrite (un par exercice)',
       p4.length === 2 && base.objectifs.length === 1 && (base.objectifs[0] || {}).charge_kg === 155 && (base.objectifs[0] || {}).pari_id !== (p1[0] || {}).id &&
         p4.some((x) => x.id === (p1[0] || {}).id), nbO([p4.map((x) => [x.id, x.fondement.charge, x.valeur_predite]), base.objectifs]));
+    // 135 — la carte RE-DESSINÉE pour 155 × 1 (la feuille se ferme, puis la page se redessine) : lue avant, elle
+    // donnait encore la ligne de 150 × 1, et le contrôle du cas 5 comparait le pari de 155 à celui de 150
+    // (relevé : « fin septembre » contre « fin avril », un passage sur dix de la section seule, pages ×4).
+    await jusqua(async () => nbO((await carteO() || {}).titre) === nbO('155 kg × 1'), 10000);
     const ligne155 = (await carteO() || {}).ligne;
     await A.fermer();
 
@@ -22833,10 +22837,13 @@ const SETS_IMPORTES = [
       l7.projection === 'carnet' && !l7.echeance && !l7.pari_id && base.predictions.filter((x) => x.module === 'objectif').length === parisO7,
       nbO([l7, base.predictions.filter((x) => x.module === 'objectif').length, parisO7]));
     await page.click('.onglet[data-vue="profil"]');
-    await attendre(900);
+    // 135 — le Profil rendu, son choix « Progresser » à l'écran, avant de le toucher (900 ms fixes avant : un clic
+    // tombé avant le rendu ne faisait rien, relevé un passage sur dix de la section seule, pages ×4).
+    await jusqua(() => page.evaluate(() => { const b = document.querySelector('.p-seg button[data-cle="progresser"]');
+      return !!b && b.offsetParent !== null; }).catch(() => false), 10000);
     await page.click('.p-seg button[data-cle="progresser"]');
     await jusqua(async () => base.profiles[0].intention === 'progresser' && (base.objectifs[0] || {}).projection === 'date' &&
-      base.predictions.filter((x) => x.module === 'objectif').length === parisO7 + 1, 10000);
+      base.predictions.filter((x) => x.module === 'objectif').length === parisO7 + 1, 20000);
     const r7 = base.objectifs[0] || {};
     const pari7 = base.predictions.filter((x) => x.module === 'objectif' && x.id === r7.pari_id)[0] || {};
     await aller('/exercice/squat-o109');

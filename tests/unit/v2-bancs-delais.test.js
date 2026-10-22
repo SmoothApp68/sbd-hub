@@ -38,8 +38,8 @@ describe('135 — les délais fixes des bancs', () => {
       expect(delaisNus(f)).toEqual([]);
     });
 
-  // Le banc de séance : 1 016 délais fixes avant le 135, 1 001 après (`attendre(N)`, `pause(N)` non marqués).
-  const PLAFOND_SEANCE = 1001;
+  // Le banc de séance : 1 016 délais fixes avant le 135, 1 000 après (`attendre(N)`, `pause(N)` non marqués).
+  const PLAFOND_SEANCE = 1000;
   test('⚠️ seance-ecran.js : le nombre de délais fixes ne monte pas (il ne peut que baisser)', () => {
     expect(delaisNus('seance-ecran.js').length).toBeLessThanOrEqual(PLAFOND_SEANCE);
   });

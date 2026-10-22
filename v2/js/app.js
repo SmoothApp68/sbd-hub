@@ -4012,6 +4012,8 @@
         Modele.toursFaitsParGroupe(Modele.blocsDeSeance(seance, local.exercices)));
       chrono = null;
       await sauverSeance();
+      // 136 (E13) — la même reprise du repos que celle de la page rechargée : depuis la dernière série validée.
+      reprendreChrono();
       rendreChrono();
     } catch (e) { console.warn('Séance distante non reprise :', texteErreur(e)); }
   }
@@ -4555,6 +4557,23 @@
     // et seulement s'il y a une échéance à annoncer.
     if (chrono) reveillerAudio();
     rendreChrono();
+  }
+
+  // 136 (audit du 16/10, E13 ; audit iPhone I-06) — À LA REPRISE D'UNE SÉANCE EN COURS (la page rechargée, l'app
+  // rouverte après qu'iOS l'a fermée), le repos se RÉARME depuis `validee_a` de la dernière série validée et la cible
+  // du plan (`Seance.reposAReprendre`) : `depuis` est cet instant, donc le décompte affiché est le même calcul que
+  // pendant le repos — jamais un compteur repris de zéro. Un repos déjà échu ne revient pas. La question de réserve
+  // (MOTEUR §17.2 bis) revient avec lui si elle était due (`questionDuRepos`, la règle de l'armement). Le son de
+  // l'échéance dépend ici de la plateforme : le contexte audio ne naît que d'un geste, et une reprise n'en est pas un.
+  function reprendreChrono() {
+    var r = Seance.reposAReprendre(seance, function (iExo, iSerie) {
+      var exo = seance.exercices[iExo];
+      return Plan.reposApres(planDeLExercice(iExo), iSerie, exo && exo.repos_cible_s);
+    }, Date.now());
+    if (!r) return;
+    var exo = seance.exercices[r.iExo];
+    chrono = { depuis: r.depuis, cible: r.cible, sonne: false, exo: { i: r.iExo, slug: exo.exercise_slug },
+               question: questionDuRepos(r.iExo, r.iSerie) };
   }
 
   // MOTEUR §17.2 bis (78) — « Il t'en restait combien ? ». L'écran ne décide rien : le plan dit sur quelle série
@@ -12373,6 +12392,9 @@
     // On honore l'URL d'entrée : un rechargement direct sur /semaine/… ou
     // /seance/… rouvre la bonne vue, pas systématiquement la semaine courante.
     await chargerProfilLocal();
+    // 136 (E13) — le repos en cours, relu de la séance (jamais du disque) : avant le premier rendu.
+    try { if (seance && !chrono) reprendreChrono(); }
+    catch (e) { console.warn('Repos non repris :', texteErreur(e)); }
 
     var routeInitiale = Routeur.analyser(racine.location.pathname);
     // 64B — jeu éteint (le profil en cache le dit), `/jeu…` est une route inconnue dès le démarrage.

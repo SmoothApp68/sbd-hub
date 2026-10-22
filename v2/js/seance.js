@@ -2843,6 +2843,39 @@
     return s >= c ? 0 : c - s;
   }
 
+  // ══ 136 (audit du 16/10, E13 ; audit iPhone I-06) — LE REPOS SURVIT AU RECHARGEMENT ══
+  //
+  // Le chronomètre vivait en mémoire seulement : une page rechargée pendant un repos (ou une app qu'iOS ferme en
+  // arrière-plan) rouvrait la séance SANS son repos. Il ne s'écrit pourtant nulle part, et il n'a pas à l'être : le
+  // repos en cours est celui qui suit la DERNIÈRE série validée, et son départ EST son `validee_a`. On le relit donc,
+  // par le même calcul « depuis » que l'affichage (`secondesDeRepos` : maintenant − départ) — jamais un compteur
+  // gardé, qui dériverait du temps réel dès que la page dort.
+  //
+  //   · `cibleDe(iExo, iSerie)` : la cible du repos APRÈS cette série, la règle de la validation (`Plan.reposApres`) —
+  //     passée par `cibleArmable`, comme à la validation : un repos jamais prescrit ne revient pas ;
+  //   · un repos DÉJÀ ÉCHU ne revient pas (`secondesRestantes` à zéro) : rien à décompter, et l'échéance ne se
+  //     rejoue pas ;
+  //   · rend `{ depuis, cible, iExo, iSerie }` (`depuis` en ms : l'instant de la validation), ou `null`.
+  //
+  // À égalité d'instant, la première série dans l'ordre de la séance (celle de `derniereValidation`).
+  function reposAReprendre(seance, cibleDe, maintenant) {
+    if (!seance || seance.statut !== EN_COURS || typeof cibleDe !== 'function') return null;
+    var derniere = null;
+    toutesLesSeries(seance).forEach(function (x) {
+      var t = x.serie && x.serie.validee_a ? Date.parse(x.serie.validee_a) : NaN;
+      if (isNaN(t)) return;
+      if (!derniere || t > derniere.t) derniere = { t: t, iExo: x.iExo, iSerie: x.iSerie };
+    });
+    if (!derniere) return null;
+    var c = cibleArmable(cibleDe(derniere.iExo, derniere.iSerie));
+    if (c === null) return null;
+    var m = maintenant instanceof Date ? maintenant.getTime() : Number(maintenant);
+    if (!isFinite(m)) return null;
+    var ecoule = Math.max(0, Math.round((m - derniere.t) / 1000));
+    if (secondesRestantes(c, ecoule) === 0) return null;
+    return { depuis: derniere.t, cible: c, iExo: derniere.iExo, iSerie: derniere.iSerie };
+  }
+
   // ══ 84 (12/10/2026) — UNE SÉANCE VIVANTE D'UN AUTRE APPAREIL ═══════════
   //
   // ECRAN-SAISIE §7 duovicies.1 ter. Une séance `en_cours` d'un autre appareil
@@ -2908,6 +2941,7 @@
     echeanceAtteinte: echeanceAtteinte,
     reposTermine: reposTermine,
     secondesRestantes: secondesRestantes,
+    reposAReprendre: reposAReprendre,
     EN_COURS: EN_COURS, TERMINEE: TERMINEE, REPOS_MAX: REPOS_MAX,
     REPOS_CIBLE_MIN: REPOS_CIBLE_MIN, REPOS_CIBLE_MAX: REPOS_CIBLE_MAX,
     SALLE_MAX: SALLE_MAX,

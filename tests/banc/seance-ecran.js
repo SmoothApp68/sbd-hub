@@ -22031,6 +22031,34 @@ const SETS_IMPORTES = [
         boutons: ['0', '1', '2', '3 ou +'], choisi: [] }), nb78([fA, q2]));
 
     const idA2 = p0[0].ids[1], idA1 = p0[0].ids[0];
+    // 136 (audit du 16/10, E13 ; audit iPhone I-06) — LA PAGE RECHARGÉE PENDANT LE REPOS : le décompte reprend où il en
+    // était (le même calcul « depuis » que l'affichage, depuis `validee_a`), jamais de la cible entière ; la question
+    // revient avec lui, avant toute réponse (une question répondue n'est plus due :
+    // `questionDuRepos`, la règle de l'armement). Le repos de A2 vaut 120 s ; on recharge quelques secondes après la
+    // validation : un décompte repris de zéro afficherait 2:00.
+    {
+      const grand136 = () => page.evaluate(() => {
+        const r = document.getElementById('repos');
+        const t = r && !r.hidden ? ((r.querySelector('.repos-g') || {}).textContent || '').trim() : '';
+        const m = /^(\d+):(\d\d)$/.exec(t);
+        return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+      });
+      const valideeA2 = Date.parse((base.sets.filter((x) => x.id === idA2)[0] || {}).validee_a);
+      // Le décompte a bougé d'au moins 3 s : un état, pas un délai fixe (garde 135).
+      await jusqua(async () => { const g = await grand136(); return g !== null && g <= 116; }, 8000);
+      const avant136 = await grand136();
+      await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+      await jusqua(async () => (await grand136()) !== null, 10000);
+      const apres136 = await grand136();
+      const attendu136 = 120 - Math.round((Date.now() - valideeA2) / 1000);
+      ok('[136-E13] DISCRIMINANT — la page rechargée pendant le repos : le décompte REPREND où il en était, pas à 2:00',
+        avant136 !== null && apres136 !== null && apres136 <= avant136 && apres136 <= 116 && Math.abs(apres136 - attendu136) <= 3,
+        nb78({ avant: avant136, apres: apres136, attendu: attendu136 }));
+      const q136 = await question78();
+      ok('[136-E13] …et la question de réserve, due, revient avec lui (la même phrase, aucun bouton choisi)',
+        nb78(q136) === nb78(q2), nb78([q136, q2]));
+    }
+
     await page.click('#repos .repos-q button[data-ressenti="reste_1"]');
     await attendre(2200);
     const q3 = await question78();

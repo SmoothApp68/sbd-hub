@@ -423,6 +423,38 @@ première séance. À confirmer plus tard, depuis le profil.
 « Le carnet qui ne raconte pas d'histoires » — le positionnement révisé (`CADRAGE-V2`
 §2 decies). À changer si mieux.
 
+### 3.5 Sur iPhone : installer, et les retours de lien — décidé le 22/10/2026 (prompt 138)
+
+> Sur Android, Chrome propose lui-même l'installation : l'app n'en dit rien. Sur iPhone, Safari ne propose rien, et
+> il **efface les données d'un site non installé qu'on n'ouvre pas pendant 7 jours** (audit iPhone I-03, I-12). Un
+> lien d'e-mail n'ouvre jamais l'app installée : il ouvre Safari, dont le stockage est séparé (I-05). L'app le dit,
+> avec le composant de ses bandeaux (le bandeau de reprise). Maquette : `maquette-iphone-installation-v1.html`.
+
+**Quand.** Seulement sur un appareil Apple tactile (iPhone, iPad — un iPad récent se présente comme un Mac : il se
+reconnaît à l'écran tactile), dans un navigateur, **hors de l'app installée** (ni `navigator.standalone`, ni
+`display-mode: standalone`). Jamais sur Android, jamais dans l'app installée. Une seule fonction pure le décide.
+
+| Écran | Quand | Ce qu'il dit | Revient ? |
+|---|---|---|---|
+| Encart de la connexion | non connectée | « Sur iPhone, installe TrainHub d'abord. » / « Puis ouvre-le depuis ton écran d'accueil et connecte-toi là. » ; **Comment faire** | tant qu'on n'est pas connectée ; pas de « Plus tard » |
+| Feuille « Comment faire » | à la demande | « Installer TrainHub sur ton iPhone » ; 1. Touche le bouton Partager, en bas de Safari. 2. Fais défiler et touche « Sur l'écran d'accueil ». 3. Touche « Ajouter », puis ouvre TrainHub depuis son icône et connecte-toi. ; « Dans Safari, l'iPhone efface les données d'un site qu'on n'ouvre pas pendant 7 jours. Installé, TrainHub garde tes séances. » ; **Fermer** | — |
+| Bandeau de Saisie | connectée, hors séance | « Tu utilises TrainHub dans Safari. » / « Installé, il garde tes séances : Safari efface un site qu'on n'ouvre pas pendant 7 jours. » ; **Plus tard** · **Comment faire** | « Plus tard » le cache **7 jours**, sur cet appareil |
+| Retour du lien de confirmation | après un lien réussi qui n'est pas une récupération | « C'est fait : ton adresse est confirmée. » / « Ouvre TrainHub depuis ton écran d'accueil et connecte-toi là. Pas encore installé ? Fais-le d'abord. » ; **Continuer ici** · **Comment installer** | une fois par lien |
+| Après le nouveau mot de passe (récupération) | le mot de passe changé par un lien | « Ton mot de passe est changé. » / « Ouvre TrainHub depuis ton écran d'accueil et connecte-toi avec le nouveau. » ; **Compris** | une fois |
+| Ligne du Profil, « L'app » | toujours, dans ces conditions | « Installer sur l'écran d'accueil » → la feuille | toujours |
+
+**Le retour de lien ne fait plus entrer en silence.** Sur iPhone hors de l'app, un lien de confirmation réussi
+s'arrête sur son écran : l'entrée attend « Continuer ici » (la personne décide ; l'app ne la déconnecte jamais de
+Safari). La récupération ne change pas : la feuille du mot de passe s'ouvre comme au §5.6, et la phrase vient après.
+Partout ailleurs (Android, ordinateur, app installée), rien ne change.
+
+**Le risque connu demeure** : deux copies connectées (Safari et l'app). Une séance démarrée dans l'une refermerait
+celle de l'autre au premier envoi ; la règle des 45 minutes (ECRAN-SAISIE §7 duovicies.1 ter) protège une séance
+vivante.
+
+**Hors de ce chantier** : l'écran verrouillé pendant le repos et le bip en mode silencieux (I-04) se décideront après
+les vérifications sur un vrai iPhone ; le repos qui survit au rechargement est le prompt 136 (I-06).
+
 ---
 
 ## 4. L'onboarding, c'est le profil
@@ -608,6 +640,8 @@ qu'à poser le nouveau mot de passe. **Pas d'écran de plus pour une étape qu'u
   l'adresse nettoyée. La même phrase quand le SDK répond sans session à un lien qui portait un jeton. Si le SDK
   répond **après** le délai, l'app entre d'elle-même — et ouvre la feuille du mot de passe si c'était un lien de
   récupération. Une session déjà enregistrée sur l'appareil n'est jamais quittée pour autant : on entre avec elle.
+  *Sur iPhone, hors de l'app installée, un lien de confirmation réussi s'arrête d'abord sur sa phrase, et la
+  récupération finit par la sienne (§3.5, 22/10/2026).*
 
 L'e-mail, lui, se **lit** et ne se change pas d'ici : le changer demande une
 confirmation sur les deux adresses, et c'est un geste à part entière.

@@ -1,0 +1,223 @@
+<title>TrainHub sur iPhone</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&display=swap">
+<style>
+/* Maquette dans la peau de l'app : un téléphone par écran, empilés ; les décisions en bas. Tokens de v2/styles.css. */
+:root{
+  --fond:#0f1114; --panneau:#181b20; --panneau-2:#21252c; --trait:#2c3139;
+  --texte:#eceef2; --texte-2:#9aa1ac; --texte-3:#888e98;
+  --accent:#f2b84b; --sur-accent:#1a1305; --chauffe:#5B8AC4; --nouveau:#4fb3a0;
+  --safari:#2a2d33; --safari-t:#c9ced6; --bleu-ios:#3d8bfd;
+  --pile:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --pile-c:"Barlow Condensed","Barlow",system-ui,sans-serif;
+  color-scheme:dark;
+}
+body{background:var(--fond);color:var(--texte);font:15px/1.45 var(--pile);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.page{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1{font:700 30px/1.1 var(--pile-c);margin:0;text-wrap:balance}
+.intro{color:var(--texte-2);max-width:64ch;margin:6px 0 0}
+.legende{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--texte-2);margin-top:10px}
+.legende i{width:22px;height:12px;outline:1.5px dashed var(--nouveau);border-radius:3px}
+.grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px}
+.cas{display:flex;flex-direction:column;gap:8px;min-width:0}
+.cas h2{font:700 18px/1.2 var(--pile-c);margin:0}
+.cas p.leg{margin:0;color:var(--texte-2);font-size:13px}
+.tel{background:var(--fond);border:1px solid var(--trait);border-radius:26px;overflow:hidden;min-height:440px;display:flex;flex-direction:column}
+.ecran{padding:14px;flex:1;display:flex;flex-direction:column}
+/* la barre de Safari, en bas, comme sur iPhone */
+.safari{background:var(--safari);color:var(--safari-t);font-size:12px;padding:8px 12px 10px;display:flex;flex-direction:column;gap:6px}
+.safari .url{background:#3a3e46;border-radius:9px;padding:6px 10px;text-align:center}
+.safari .outils{display:flex;justify-content:space-around;align-items:center}
+.safari svg{width:18px;height:18px;stroke:var(--bleu-ios);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nouv{outline:1.5px dashed var(--nouveau);outline-offset:4px;border-radius:6px}
+/* l'entrée */
+.logo{text-align:center;margin-top:26px}
+.marque{font-size:28px;font-weight:800;letter-spacing:-.02em}.marque b{color:var(--accent)}
+.phrase{font-size:13px;color:var(--texte-3);margin-top:6px}
+.form{margin-top:22px;display:flex;flex-direction:column;gap:10px}
+.champ span{display:block;font-size:11px;font-weight:600;color:var(--texte-3);margin-bottom:5px}
+.champ div{height:42px;border-radius:8px;border:1px solid var(--trait);background:var(--panneau-2)}
+.btn{border:0;border-radius:10px;height:44px;font:600 14px var(--pile);width:100%}
+.pri{background:var(--accent);color:var(--sur-accent)} .sec{background:transparent;border:1px solid var(--trait);color:var(--texte-2)}
+.discret{background:transparent;color:var(--texte-2);border:0;font:500 13px var(--pile)}
+/* l'encart et le bandeau : le composant du bandeau de reprise */
+.bandeau{background:var(--panneau);border-radius:14px;border-left:3px solid var(--accent);padding:12px}
+.bandeau .t{font-size:13.5px;font-weight:600;line-height:1.35}
+.bandeau .s{display:block;font-weight:400;color:var(--texte-2);margin-top:2px}
+.bandeau .act{display:flex;gap:8px;margin-top:12px}
+.bandeau .act button{flex:1;height:38px;border-radius:10px;font:600 13px var(--pile);border:0}
+.ico-part{display:inline-block;width:15px;height:15px;vertical-align:-2px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+/* la feuille */
+.voile{background:#000a;flex:1;display:flex;flex-direction:column;justify-content:flex-end}
+.feuille{background:var(--panneau);border-radius:18px 18px 0 0;padding:16px 14px}
+.feuille-t{font-weight:600;font-size:15px;margin-bottom:12px}
+.etapes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.etapes li{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;font-size:14px}
+.etapes b.n{font:700 18px/1.2 var(--pile-c);color:var(--accent)}
+.puce-ios{display:inline-flex;align-items:center;gap:6px;background:var(--panneau-2);border-radius:8px;padding:4px 8px;font-size:13px;margin-top:4px}
+.aide{font-size:12px;color:var(--texte-2);margin-top:12px;line-height:1.45}
+/* Saisie */
+.titre-ecran{font:700 22px/1.1 var(--pile-c);margin:4px 0 12px}
+.carte-routine{background:var(--panneau);border:1px solid var(--trait);border-radius:14px;padding:12px;margin-top:10px}
+.carte-routine b{display:block}.carte-routine small{color:var(--texte-2)}
+/* Profil */
+.sect{font-size:11px;font-weight:600;color:var(--texte-3);letter-spacing:.06em;margin:14px 0 6px}
+.ligne{display:flex;justify-content:space-between;align-items:center;padding:12px 2px;border-top:1px solid var(--trait);font-size:14px}
+.ligne em{font-style:normal;color:var(--texte-2);font-size:13px}
+/* décisions */
+.decis{background:var(--panneau);border:1px solid var(--trait);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.decis h2{font:700 22px/1.1 var(--pile-c);margin:0}
+.d{display:grid;grid-template-columns:28px 1fr;gap:10px}
+.d b.n{font:700 18px/1 var(--pile-c);color:var(--accent);padding-top:2px}
+.d p{margin:0;max-width:70ch}.d p+p{margin-top:4px;color:var(--texte-2);font-size:14px}
+.tab{overflow-x:auto}
+table{border-collapse:collapse;font-size:13px;min-width:480px;width:100%}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--trait);vertical-align:top}th{color:var(--texte-2);font-weight:600}
+.q{border-top:1px solid var(--trait);padding-top:14px}.q strong{color:var(--accent)}
+</style>
+
+<div class="page">
+<header>
+  <h1>TrainHub sur iPhone</h1>
+  <p class="intro">Sur Android, Chrome propose lui-même l'installation et l'app n'en dit rien. Sur iPhone, Safari ne propose rien : l'app le dit, avec le composant de nos bandeaux. Six écrans, dans l'app telle qu'elle est ; seuls les éléments entourés sont nouveaux. Rien de tout cela ne s'affiche sur Android ni dans l'app installée.</p>
+  <div class="legende"><i></i> ce qui est nouveau</div>
+</header>
+
+<div class="grille">
+
+<section class="cas">
+  <h2>1. La connexion, dans Safari</h2>
+  <p class="leg">Le premier écran de Léa. L'encart vient sous « Se connecter » : installer d'abord, se connecter ensuite dans l'app, pour n'avoir qu'une copie connectée.</p>
+  <div class="tel"><div class="ecran">
+    <div class="logo"><div class="marque">Train<b>Hub</b></div><div class="phrase">Ton carnet de musculation.</div></div>
+    <div class="form">
+      <div class="champ"><span>E-MAIL</span><div></div></div>
+      <div class="champ"><span>MOT DE PASSE</span><div></div></div>
+      <button class="btn pri" type="button">Se connecter</button>
+    </div>
+    <div class="bandeau nouv" style="margin-top:16px">
+      <div class="t">Sur iPhone, installe TrainHub d'abord.<span class="s">Puis ouvre-le depuis ton écran d'accueil et connecte-toi là.</span></div>
+      <div class="act"><button class="pri" type="button">Comment faire</button></div>
+    </div>
+  </div>
+  <div class="safari"><div class="url">sbd-hub.pages.dev</div><div class="outils">
+    <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+    <svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M6 11v9h12v-9"/></svg>
+    <svg viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h14"/></svg><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></svg></div></div>
+  </div>
+</section>
+
+<section class="cas">
+  <h2>2. « Comment faire »</h2>
+  <p class="leg">Une feuille, trois gestes, les mots exacts de Safari. Le pictogramme du bouton Partager est dessiné, la barre de Safari est en bas de l'écran.</p>
+  <div class="tel"><div class="voile">
+    <div class="feuille nouv">
+      <div class="feuille-t">Installer TrainHub sur ton iPhone</div>
+      <ol class="etapes">
+        <li><b class="n">1</b><div>Touche le bouton Partager, en bas de Safari.<br><span class="puce-ios"><svg class="ico-part" viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M6 11v9h12v-9"/></svg> Partager</span></div></li>
+        <li><b class="n">2</b><div>Fais défiler et touche « Sur l'écran d'accueil ».<br><span class="puce-ios">＋ Sur l'écran d'accueil</span></div></li>
+        <li><b class="n">3</b><div>Touche « Ajouter », puis ouvre TrainHub depuis son icône et connecte-toi.</div></li>
+      </ol>
+      <p class="aide">Dans Safari, l'iPhone efface les données d'un site qu'on n'ouvre pas pendant 7 jours. Installé, TrainHub garde tes séances.</p>
+      <div style="margin-top:14px"><button class="btn sec" type="button">Fermer</button></div>
+    </div>
+  </div></div>
+</section>
+
+<section class="cas">
+  <h2>3. Connectée dans Safari</h2>
+  <p class="leg">Si elle s'est connectée dans Safari quand même : le bandeau en tête de Saisie. « Plus tard » le cache 7 jours, le rythme même où Safari pourrait tout effacer.</p>
+  <div class="tel"><div class="ecran">
+    <div class="titre-ecran">Séances</div>
+    <div class="bandeau nouv">
+      <div class="t">Tu utilises TrainHub dans Safari.<span class="s">Installé, il garde tes séances : Safari efface un site qu'on n'ouvre pas pendant 7 jours.</span></div>
+      <div class="act"><button class="discret" type="button">Plus tard</button><button class="pri" type="button">Comment faire</button></div>
+    </div>
+    <div class="carte-routine"><b>Haut A</b><small>6 exercices · environ 75 min</small></div>
+    <div class="carte-routine"><b>Bas A</b><small>5 exercices · environ 70 min</small></div>
+  </div>
+  <div class="safari"><div class="url">sbd-hub.pages.dev</div></div>
+  </div>
+</section>
+
+<section class="cas">
+  <h2>4. Le lien de confirmation</h2>
+  <p class="leg">Le lien de l'e-mail ouvre Safari, jamais l'app installée. Au lieu d'entrer en silence dans une copie Safari, l'écran dit où aller.</p>
+  <div class="tel"><div class="ecran">
+    <div class="logo"><div class="marque">Train<b>Hub</b></div></div>
+    <div class="bandeau nouv" style="margin-top:28px">
+      <div class="t">C'est fait : ton adresse est confirmée.<span class="s">Ouvre TrainHub depuis ton écran d'accueil et connecte-toi là. Pas encore installé ? Fais-le d'abord.</span></div>
+      <div class="act"><button class="discret" type="button">Continuer ici</button><button class="pri" type="button">Comment installer</button></div>
+    </div>
+  </div>
+  <div class="safari"><div class="url">sbd-hub.pages.dev</div></div>
+  </div>
+</section>
+
+<section class="cas">
+  <h2>5. Le lien du mot de passe</h2>
+  <p class="leg">Après « Choisis ton nouveau mot de passe », dans Safari. Le nouveau mot de passe vaut aussi dans l'app installée.</p>
+  <div class="tel"><div class="ecran">
+    <div class="logo"><div class="marque">Train<b>Hub</b></div></div>
+    <div class="bandeau nouv" style="margin-top:28px">
+      <div class="t">Ton mot de passe est changé.<span class="s">Ouvre TrainHub depuis ton écran d'accueil et connecte-toi avec le nouveau.</span></div>
+      <div class="act"><button class="discret" type="button">Continuer ici</button><button class="pri" type="button">Compris</button></div>
+    </div>
+  </div>
+  <div class="safari"><div class="url">sbd-hub.pages.dev/profil</div></div>
+  </div>
+</section>
+
+<section class="cas">
+  <h2>6. Profil, dans Safari</h2>
+  <p class="leg">Une ligne permanente dans « L'app », pour retrouver la feuille après « Plus tard ». Elle disparaît une fois TrainHub installé.</p>
+  <div class="tel"><div class="ecran">
+    <div class="titre-ecran">Profil</div>
+    <div class="sect">L'APP</div>
+    <div class="ligne nouv"><span>Installer sur l'écran d'accueil</span><em>Comment faire ›</em></div>
+    <div class="ligne"><span>Bio</span><em>Le créateur ›</em></div>
+    <div class="ligne"><span>E-mail de connexion</span><em>›</em></div>
+    <div class="ligne"><span>Quitter</span><em></em></div>
+  </div>
+  <div class="safari"><div class="url">sbd-hub.pages.dev/profil</div></div>
+  </div>
+</section>
+
+</div>
+
+<section class="decis">
+  <h2>Ce qu'il faut valider</h2>
+
+  <div class="d"><b class="n">1</b><div>
+    <p><strong>Quand ça s'affiche :</strong> seulement sur iPhone ou iPad, dans un navigateur, hors de l'app installée. Jamais sur Android : Chrome propose déjà l'installation. Jamais dans l'app installée.</p>
+    <p>La détection est celle de l'audit : appareil Apple tactile, et ni <code>navigator.standalone</code> ni <code>display-mode: standalone</code>. Un iPad récent se présente comme un Mac : il se reconnaît à l'écran tactile.</p>
+  </div></div>
+
+  <div class="tab"><table>
+    <tr><th>Écran</th><th>Quand</th><th>Revient ?</th></tr>
+    <tr><td>Encart de la connexion (1)</td><td>non connectée, dans Safari</td><td>toujours, tant qu'elle n'est pas connectée (pas de « Plus tard » : il ne gêne pas le formulaire)</td></tr>
+    <tr><td>Feuille « Comment faire » (2)</td><td>ouverte par un bouton</td><td>à la demande</td></tr>
+    <tr><td>Bandeau de Saisie (3)</td><td>connectée dans Safari, hors séance</td><td>« Plus tard » le cache 7 jours, sur cet appareil</td></tr>
+    <tr><td>Retours de lien (4, 5)</td><td>après un lien réussi, dans Safari</td><td>une fois par lien</td></tr>
+    <tr><td>Ligne du Profil (6)</td><td>dans Safari</td><td>toujours</td></tr>
+  </table></div>
+
+  <div class="d"><b class="n">2</b><div>
+    <p><strong>La raison dite est un fait :</strong> Safari efface les données d'un site non installé qu'on n'ouvre pas pendant 7 jours. Pas de « recommandé », pas de pression. La phrase dit ce que l'installation change.</p>
+  </div></div>
+
+  <div class="d"><b class="n">3</b><div>
+    <p><strong>« Continuer ici » reste possible</strong> après un lien : la personne décide. L'app ne la déconnecte pas de Safari en silence.</p>
+    <p>Le risque connu demeure : deux copies connectées, et une séance démarrée dans Safari refermerait celle de l'app. Il est rare, et la règle des 45 minutes (ECRAN §7 duovicies.1 ter) protège une séance vivante.</p>
+  </div></div>
+
+  <div class="d"><b class="n">4</b><div>
+    <p><strong>Hors de cette maquette :</strong> le repos à l'écran verrouillé (I-04) et le bip en mode silencieux. Le 136 couvre déjà le repos qui survit au rechargement (I-06). Le reste se décidera après les vérifications sur un vrai iPhone (rapport, gestes 6 à 8).</p>
+  </div></div>
+
+  <div class="q">
+    <p><strong>Une question, avec ma recommandation.</strong> Faut-il le même encart sur Android, dans Chrome, pour quelqu'un qui n'a pas vu l'invite de Chrome ? Je recommande <strong>non</strong> pour l'instant : Chrome la propose déjà, et Android ne vide pas le stockage au bout de 7 jours. On le reverra si un ami Android reste dans l'onglet.</p>
+  </div>
+</section>
+</div>

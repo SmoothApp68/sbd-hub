@@ -1025,6 +1025,7 @@
       if (programmeDuCompte) local.programme = fondreZones(local.programme, programmeDuCompte);
       // 109 (MOTEUR §9.25) — les objectifs et leurs paris. Accessoires comme les autres ; une table absente
       // (migration v2_089 pas lancée) le DIT : la carte ne s'affiche pas, et rien ne part vers elle.
+      var versionObjectifsALaLecture = versionObjectifs;   // 139 — voir la garde à l'application
       var objectifsDuCompte = await lireObjectifs();
       if (!generationValide(g)) return;
       var parisObjectifDuCompte = objectifsDuCompte && objectifsDuCompte.lignes ? await essayer(Donnees.parisObjectif) : null;
@@ -1113,7 +1114,11 @@
       if (escalierDuCompte) {
         await Cache.ecrireBrouillon(CLE_PARIS_ESCALIER, local.escalier).catch(function () {});
       }
-      if (objectifsDuCompte) {
+      // 139 — une lecture partie AVANT un geste ne le remplace pas (comme `versionProfil`). L'objectif changé ou
+      // retiré pendant la lecture a pu monter et sortir de la file entre-temps : `fondreObjectifs` ne protège que
+      // ce qui y est encore, et la lecture périmée écrasait le geste (150 revenait à la place de 155), en mémoire et
+      // dans le brouillon. La version a bougé : on n'adopte rien ; la synchronisation suivante relira la base.
+      if (objectifsDuCompte && versionObjectifsALaLecture === versionObjectifs) {
         local.objectifsDispo = objectifsDuCompte.dispo;
         local.objectifs = objectifsDuCompte.dispo ? fondreObjectifs(objectifsDuCompte.lignes) : [];
         await Cache.ecrireBrouillon(CLE_OBJECTIFS, { dispo: local.objectifsDispo, lignes: local.objectifs }).catch(function () {});
@@ -13397,6 +13402,8 @@
   // de carte, et rien ne part vers elle.
   var CLE_OBJECTIFS = 'objectifs';
   var CLE_PARIS_OBJECTIF = 'paris-objectif';
+  // 139 — la version des gestes sur les objectifs (`ecrireObjectif`, `retirerObjectif`) ; lue par `synchroniser`.
+  var versionObjectifs = 0;
 
   // `{ dispo, lignes }` — `dispo: false` : la base ne connaît pas la table ; `null` : rien reçu (réseau).
   async function lireObjectifs() {
@@ -13502,6 +13509,7 @@
 
   // Le pari part avant la ligne ; aucun ne dépend de l'autre. Local d'abord (le cache), puis la file.
   async function ecrireObjectif(slug, ligne, pari) {
+    versionObjectifs++;
     local.objectifs = (local.objectifs || []).filter(function (l) { return l && l.exercise_slug !== slug; }).concat([ligne]);
     await Cache.ecrireBrouillon(CLE_OBJECTIFS, { dispo: true, lignes: local.objectifs }).catch(function () {});
     if (pari) {
@@ -13556,6 +13564,7 @@
 
   // RETIRER : la ligne s'efface ; son pari reste, et s'observe comme les autres.
   async function retirerObjectif(slug) {
+    versionObjectifs++;
     local.objectifs = (local.objectifs || []).filter(function (l) { return l && l.exercise_slug !== slug; });
     await Cache.ecrireBrouillon(CLE_OBJECTIFS, { dispo: true, lignes: local.objectifs }).catch(function () {});
     await poser({ table: Attente.OBJECTIFS, op: Attente.SUPPRIMER, id: slug });

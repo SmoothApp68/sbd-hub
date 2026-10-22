@@ -1345,7 +1345,20 @@ const SETS_IMPORTES = [
         base.journal.push({ op: 'objectifs-absente', methode: req.method() });
         return json({ code: 'PGRST205', message: 'Could not find the table \'public.objectifs\' in the schema cache', details: null }, 404);
       }
-      if (req.method() === 'GET') return json(projeter(base.objectifs, url));
+      if (req.method() === 'GET') {
+        // 139 — `lenteurObjectifs` : UNE lecture de la table retenue. ⚠️ La réponse est CONSTRUITE À L'ARRIVÉE de la
+        // requête, puis retenue : construite après l'attente, elle contiendrait déjà le geste fait pendant la lecture,
+        // et le test ne discriminerait rien (c'est la lecture PÉRIMÉE que l'app reçoit, comme d'un serveur lent).
+        const reponse = JSON.parse(JSON.stringify(projeter(base.objectifs, url)));
+        if (base.lenteurObjectifs) {
+          const retenue = base.lenteurObjectifs;
+          base.lenteurObjectifs = 0;
+          base.objectifsLibereA = Date.now() + retenue;
+          base.objectifsRetenue = true;
+          await pause(retenue);
+        }
+        return json(reponse);
+      }
       if (req.method() === 'DELETE') {
         const slug = (url.searchParams.get('exercise_slug') || '').replace('eq.', '');
         base.journal.push({ op: 'objectifs-retrait', slug });
@@ -2087,7 +2100,7 @@ const SETS_IMPORTES = [
   // en vol pendant Quitter »). Attendre que le réseau se taise traverserait la fenêtre qu'il observe :
   // on garde le délai fixe d'avant, qui est ici une mesure, pas une attente.
   const retenueEnCours = () => !!(base.lenteur || base.lenteurPredictions || base.lenteurRecords ||
-    base.lenteurProfil || (base.courseSync && !(base.courseSync.envoye && base.courseSync.lectures >= 2)));
+    base.lenteurProfil || base.lenteurObjectifs || (base.courseSync && !(base.courseSync.envoye && base.courseSync.lectures >= 2)));
   const aller = async (chemin) => {
     const retenue = retenueEnCours();
     await page.goto(BASE + (chemin || '/'), { waitUntil: 'domcontentloaded' }).catch(() => {});
@@ -22931,6 +22944,89 @@ const SETS_IMPORTES = [
         nbO(c7.ligne) === nbO('Au rythme actuel : fin avril.'), nbO([r7, pari7.valeur_predite, c7]));
     await C7.fermer();
     base.profiles[0].intention = intentionAvant7;
+
+    // ── 8. (139) UN GESTE FAIT PENDANT LA LECTURE DES OBJECTIFS NE REVIENT PAS EN ARRIÈRE. La synchronisation lit les
+    // objectifs au début (la base a 150) ; l'objectif change pendant que cette lecture est retenue, la ligne monte et
+    // sort de la file ; la lecture périmée arrive : elle ne remplace pas le geste (`versionObjectifs`, comme
+    // `versionProfil`). Le déclencheur : « Rafraîchir », comme D7 ; la lecture retenue est UNE seule (`lenteurObjectifs`).
+    {
+      const RETENUE = 9000;
+      const brouillonO = () => page.evaluate(() => window.THCache.lireBrouillon('objectifs')).catch(() => null);
+      const fileVide = () => page.evaluate(() => window.THCache.lireAttente().then((f) => (f || []).filter((x) => x.table === 'objectifs').length === 0)).catch(() => false);
+      const dernierSync = () => page.evaluate(() => {
+        const e = document.getElementById('etat-sync');
+        return !!e && /À jour/.test(e.textContent || '') && !e.classList.contains('sync');
+      }).catch(() => false);
+      // Lance la synchronisation et attend que SA lecture des objectifs soit en vol (retenue).
+      const lectureRetenue = async () => {
+        base.objectifsRetenue = false; base.lenteurObjectifs = RETENUE;
+        await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+        return jusqua(async () => base.objectifsRetenue === true, 60000);
+      };
+      // La lecture est rendue (l'heure de sa libération passée) et la synchronisation est finie.
+      const lectureRendue = async () => {
+        await jusqua(async () => Date.now() > (base.objectifsLibereA || 0) + 300, RETENUE + 5000);
+        return jusqua(dernierSync, 60000);
+      };
+      base.objectifs = [];
+      const D = await ouvrirO('O139', new Date(2026, 9, 16, 12, 0, 0));
+      await carteApres();
+      await feuilleO(150, 1);
+      await jusqua(async () => base.objectifs.length === 1 && base.objectifs[0].charge_kg === 150 && await fileVide(), 8000);
+
+      // a — CHANGER PENDANT LA LECTURE : 155 × 1.
+      const enVolA = await lectureRetenue();
+      await feuilleO(155, 1);
+      await jusqua(async () => (base.objectifs[0] || {}).charge_kg === 155 && await fileVide(), 8000);
+      const avantLiberationA = Date.now() < base.objectifsLibereA;
+      await jusqua(async () => nbO((await carteO() || {}).titre) === nbO('155 kg × 1'), 10000);
+      const ligneA = (await carteO() || {}).ligne;
+      ok('[O139] a — prémisse : la lecture des objectifs est en vol (150 en main), le geste 155 × 1 est en base et sa ligne est sortie de la file, AVANT que la lecture rende',
+        enVolA && avantLiberationA && (base.objectifs[0] || {}).charge_kg === 155, nbO([enVolA, avantLiberationA, base.objectifs]));
+      await lectureRendue();
+      const cA = await carteO(), bA = await brouillonO();
+      ok('[O139] a — DISCRIMINANT : la lecture périmée (150) rendue, la carte garde « 155 kg × 1 » et la date du pari de 155 ; le brouillon local `objectifs` est à 155 ; la base aussi',
+        !!cA && nbO(cA.titre) === nbO('155 kg × 1') && cA.ligne === ligneA && !!bA && (bA.lignes || []).length === 1 &&
+          bA.lignes[0].charge_kg === 155 && (base.objectifs[0] || {}).charge_kg === 155, nbO([cA, ligneA, bA, base.objectifs]));
+      base.reseau = false;
+      await aller('/exercice/squat-o109');
+      await jusqua(async () => !!(await carteO()), 10000);
+      const cAhl = await carteO();
+      base.reseau = true;
+      ok('[O139] a — rechargée hors ligne (le seul cache), la carte dit toujours « 155 kg × 1 »',
+        !!cAhl && nbO(cAhl.titre) === nbO('155 kg × 1'), nbO(cAhl));
+      await jusqua(syncTerminee, 60000);
+
+      // c — SANS GESTE, LA BASE FAIT FOI (garde-fou : la garde ne bloque pas une vraie mise à jour). Un autre appareil
+      // a mis 160 × 1 en base ; une synchronisation sans aucun geste la ramène.
+      base.objectifs[0] = Object.assign({}, base.objectifs[0], { charge_kg: 160 });
+      base.lenteurObjectifs = 0;
+      await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+      await jusqua(async () => { const b = await brouillonO(); return !!b && (b.lignes || []).some((l) => l.charge_kg === 160); }, 30000);
+      await jusqua(dernierSync, 60000);
+      await aller('/exercice/squat-o109');
+      await jusqua(async () => nbO((await carteO() || {}).titre) === nbO('160 kg × 1'), 10000);
+      const cC = await carteO();
+      ok('[O139] c — sans geste, la base fait foi : l’objectif changé directement en base (160 × 1, comme un autre appareil) arrive à la synchronisation — la carte dit « 160 kg × 1 »',
+        !!cC && nbO(cC.titre) === nbO('160 kg × 1'), nbO([cC, base.objectifs]));
+      await jusqua(syncTerminee, 60000);
+
+      // b — RETIRER PENDANT LA LECTURE.
+      const enVolB = await lectureRetenue();
+      await page.click('#page-exercice .objectif-changer');
+      await jusqua(async () => !!(await page.$('#feuille-contenu .feuille-pied .des')), 4000);
+      await page.click('#feuille-contenu .feuille-pied .des');
+      await jusqua(async () => base.objectifs.length === 0 && await fileVide(), 8000);
+      const avantLiberationB = Date.now() < base.objectifsLibereA;
+      ok('[O139] b — prémisse : la lecture (160 en main) est en vol, la suppression est en base et sortie de la file, AVANT que la lecture rende',
+        enVolB && avantLiberationB && base.objectifs.length === 0, nbO([enVolB, avantLiberationB, base.objectifs]));
+      await lectureRendue();
+      const cB = await carteO(), bB = await brouillonO();
+      ok('[O139] b — DISCRIMINANT : la lecture périmée rendue, l’objectif retiré ne revient pas : la carte propose « Poser un objectif », le brouillon est vide, la base n’a plus la ligne',
+        !!cB && nbO(cB).indexOf('Poser un objectif') >= 0 && !cB.titre && !!bB && (bB.lignes || []).length === 0 && base.objectifs.length === 0,
+        nbO([cB, bB, base.objectifs]));
+      await D.fermer();
+    }
 
     // LA REMISE EN ÉTAT.
     page = pageBanc;

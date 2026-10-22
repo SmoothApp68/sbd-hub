@@ -2140,6 +2140,15 @@ const SETS_IMPORTES = [
         .filter((b) => b.textContent === 'Terminer quand même')[0].click());
     }
   };
+  // 137 (E12) — « Abandonner » depuis la feuille de fin : en rouge (« Abandonner et tout effacer ») quand une série est
+  // validée ; sur une séance sans série validée, c'est le geste principal de la feuille (« Abandonner », immédiat).
+  const cliquerAbandon = async () => {
+    await jusqua(() => page.evaluate(() => !document.getElementById('feuille-seance').hidden &&
+      !!(document.querySelector('#feuille-contenu .danger') ||
+        Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Abandonner')[0])).catch(() => false), 6000);
+    await page.evaluate(() => (document.querySelector('#feuille-contenu .danger') ||
+      Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Abandonner')[0]).click());
+  };
   const confirmerAbandon = async () => {
     await issueDuGeste('^Abandonner la séance \\?');
     if (/^Abandonner la séance \?/.test(await texte('#feuille-contenu .feuille-t'))) {
@@ -4668,7 +4677,7 @@ const SETS_IMPORTES = [
   await aller('/saisie');
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
-  await page.click('#feuille-contenu .danger');
+  await cliquerAbandon();
   await confirmerAbandon();
   await attendre(1600);
 
@@ -4970,8 +4979,7 @@ const SETS_IMPORTES = [
   // de poser. « Abandonner » la supprime — l'antécédent reste l'antécédent.
   const abandonner = async () => {
     await page.click('#bandeau-seance .bandeau-fin');
-    await feuilleAvec('.danger');
-    await page.click('#feuille-contenu .danger');
+    await cliquerAbandon();
     await confirmerAbandon();
     await seanceSortie();   // 135 — l'état, plus 1 600 ms fixes
   };
@@ -12277,7 +12285,7 @@ const SETS_IMPORTES = [
     ok('[T51] DISCRIMINANT — la question de fin ne propose jamais de retirer un exercice raccourci',
       !/Poussée Haute Délai/.test(d1) && !/Cardio Délai U51 — retiré/.test(d1) && !/retiré/.test(d1),
       sp(d1).slice(0, 160));
-    await page.click('#feuille-contenu .danger');
+    await cliquerAbandon();
     await confirmerAbandon();
     await attendre(1600);
     ok('[T51] DISCRIMINANT — la routine n’a pas changé : aucune écriture, aucune ligne en moins',
@@ -20577,7 +20585,7 @@ const SETS_IMPORTES = [
     await attendre(600);
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(600);
-    await page.click('#feuille-contenu .danger');
+    await cliquerAbandon();
     await confirmerAbandon();
     await attendre(1800);
     ok('[R71] (d) abandonner : pas de récap', !(await recapVu()).visible && JSON.stringify(await visible()) !== '["vue-recap"]',
@@ -22954,7 +22962,7 @@ const SETS_IMPORTES = [
       if (JSON.stringify(await visible()) === '["vue-seance"]') {
         await page.click('#bandeau-seance .bandeau-fin');
         await attendre(600);
-        await page.click('#feuille-contenu .danger');
+        await cliquerAbandon();
         await confirmerAbandon();
         await attendre(1600);
         await aller('/saisie');
@@ -23402,7 +23410,7 @@ const SETS_IMPORTES = [
       if (JSON.stringify(await visible()) === '["vue-seance"]') {
         await page.click('#bandeau-seance .bandeau-fin');
         await attendre(600);
-        await page.click('#feuille-contenu .danger');
+        await cliquerAbandon();
         await confirmerAbandon();
         await attendre(1600);
         await aller('/saisie');

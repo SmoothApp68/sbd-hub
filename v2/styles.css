@@ -54,6 +54,11 @@
   unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 
 :root{
+  /* 134 (I-07, audit iPhone) — LA TAILLE D'UN CHAMP DE SAISIE. Safari iOS zoome sur tout champ en dessous de
+     16 px, et ne dézoome pas à la sortie. Tous les champs hors de la grille (connexion, pesée, profil, recherche,
+     cartes, social, import) la lisent ICI ; la grille (17 px) et le questionnaire (20 px) sont au-dessus.
+     Ne JAMAIS ajouter `maximum-scale=1` à la place : cela retire le zoom d'accessibilité. */
+  --police-champ:16px;
   /* 56-1 (la forge) : les valeurs changent, les rôles restent. */
   --fond:#0f1114;        /* fond de page. Graphite, PAS noir — le noir pur vibre sur OLED */
   --panneau:#181b20;     /* surface : une carte */
@@ -109,6 +114,8 @@
 .semaine-libelle{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 
 *{box-sizing:border-box;margin:0;padding:0}
+/* 134 (I-07) — un champ sans règle propre prendrait la taille du navigateur (13,3 px) : jamais sous 16 px. */
+input,textarea,select{font-size:var(--police-champ)}
 
 body{
   background:var(--fond);
@@ -179,7 +186,7 @@ button{font-family:inherit;cursor:pointer}
 .carte input{
   width:100%;height:38px;padding:0 10px;
   background:var(--panneau-2);border:1px solid var(--trait);border-radius:var(--r-petit);
-  color:var(--texte);font-family:inherit;font-size:15px;
+  color:var(--texte);font-family:inherit;font-size:var(--police-champ);
 }
 .carte input:focus{outline:none;border-color:var(--texte-2)}
 
@@ -675,7 +682,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
 #champ-recherche-exo{
   width:100%;height:40px;padding:0 var(--e3);
   background:var(--panneau-2);border:1px solid var(--trait);border-radius:var(--r-petit);
-  color:var(--texte);font-family:inherit;font-size:15px;
+  color:var(--texte);font-family:inherit;font-size:var(--police-champ);
 }
 #champ-recherche-exo:focus{outline:none;border-color:var(--texte-2)}
 .resultats{max-height:52vh;overflow-y:auto;margin-top:var(--e3)}
@@ -1275,7 +1282,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .champ-texte input,.champ-texte textarea{width:100%;box-sizing:border-box;
   border-radius:var(--r-petit);border:1px solid var(--trait);
   background:var(--panneau-2);color:var(--texte);
-  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;padding:9px 10px;resize:none}
+  font-size:var(--police-champ);font-weight:400;line-height:normal;font-family:inherit;padding:9px 10px;resize:none}
 .champ-texte input{height:40px;padding-top:0;padding-bottom:0}
 /* La forge (56-1) : l'indication d'un champ libre était au gris du navigateur
    (3,3:1) ; elle prend le troisième niveau de texte (4,6:1). */
@@ -1471,7 +1478,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .entree-champ>span{font-size:11px;font-weight:600;line-height:1;color:var(--texte-3)}
 .entree-champ input{height:48px;border-radius:var(--r-petit);border:1px solid var(--trait);
   background:var(--panneau);color:var(--texte);padding:0 var(--e3);
-  font-family:inherit;font-size:15px}
+  font-family:inherit;font-size:var(--police-champ)}
 .entree-champ input::placeholder{color:var(--texte-3)}
 .entree-champ input:focus{outline:none;border-color:#4A5058}
 .entree-champ input.ko{border-color:#4A3330}
@@ -1584,7 +1591,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 /* ── Tous mes exercices (§2.4 bis) ───────────────────────────────────────── */
 .recherche-plein{width:100%;height:42px;padding:0 var(--e3);background:var(--panneau-2);
   border:1px solid var(--trait);border-radius:var(--r-petit);color:var(--texte);
-  font-family:inherit;font-size:14px;margin-bottom:var(--e2)}
+  font-family:inherit;font-size:var(--police-champ);margin-bottom:var(--e2)}
 .recherche-plein:focus{outline:none;border-color:var(--texte-2)}
 .p-compte{font-size:11px;line-height:1.4;color:var(--texte-3);padding:0 0 var(--e2)}
 .exo-liste{background:var(--panneau);border-radius:var(--r-grand);overflow:hidden}
@@ -2049,7 +2056,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .imp-aide{color:var(--texte-3);font-size:12.5px;line-height:1.35}
 .imp-zone{display:block;width:100%;box-sizing:border-box;min-height:118px;margin:var(--e2) 0;padding:10px;
   background:var(--panneau-2);color:var(--texte);border:1px solid var(--trait);border-radius:var(--r-petit);
-  font:12.5px/1.35 ui-monospace,monospace;resize:vertical}
+  font:var(--police-champ)/1.35 ui-monospace,monospace;resize:vertical}
 .imp-bouton{display:block;width:100%;margin-top:10px}
 .imp-ok{color:var(--texte-2);font-size:14px;margin-top:10px;line-height:1.4}
 .imp-erreur{color:var(--texte)}
@@ -2205,7 +2212,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .s-detail h3{margin:0 0 8px;font-size:15px;overflow-wrap:anywhere}
 .s-ex{display:flex;flex-direction:column;padding:6px 0;border-top:1px solid var(--trait)}
 .s-ex small{color:var(--texte-2)}
-.s-champ{width:100%;box-sizing:border-box;background:var(--panneau);border:1px solid var(--trait);border-radius:14px;padding:12px 14px;color:var(--texte);font:inherit;margin-bottom:12px}
+.s-champ{width:100%;box-sizing:border-box;background:var(--panneau);border:1px solid var(--trait);border-radius:14px;padding:12px 14px;color:var(--texte);font:inherit;font-size:var(--police-champ);margin-bottom:12px}
 .s-lien-invit{background:var(--panneau-2);border-radius:18px;padding:14px;margin:16px 0}
 .s-lien-invit code{display:block;background:var(--fond);border-radius:10px;padding:8px 10px;margin:8px 0;color:var(--medaille);font-size:13px;overflow-wrap:anywhere}
 .s-titre-s{color:var(--texte-2);font-size:12px;margin:16px 0 4px}
@@ -2419,7 +2426,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .salle-puces,.salle-pas{margin-bottom:var(--e2)}
 .salle-ajout{display:flex;gap:var(--e2);align-items:center;margin:0 0 var(--e2)}
 .salle-ajout input{width:96px;height:36px;box-sizing:border-box;background:var(--panneau);color:var(--texte);
-  border:1.5px solid var(--trait);border-radius:10px;padding:0 var(--e2);font:inherit}
+  border:1.5px solid var(--trait);border-radius:10px;padding:0 var(--e2);font:inherit;font-size:var(--police-champ)}
 /* 123 — les tranches d'haltères : « Pas d'haltères », « Retirer cette tranche », « + Une tranche ». */
 .salle-sans{margin-bottom:var(--e2)}
 .salle-retirer,.salle-tranche{display:block;margin:0 0 var(--e2)}
@@ -2472,7 +2479,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .el-ajout{display:block;margin:var(--e2) 0 0;color:var(--texte-2)}
 .el-saisie{margin:var(--e2) 0 0}
 .el-saisie .el-champ-nom{width:140px;height:36px;box-sizing:border-box;background:var(--panneau-2);color:var(--texte);
-  border:1.5px solid var(--trait);border-radius:10px;padding:0 var(--e2);font:inherit}
+  border:1.5px solid var(--trait);border-radius:10px;padding:0 var(--e2);font:inherit;font-size:var(--police-champ)}
 .el-saisie .el-champ-kg{width:72px}
 .el-choix{display:flex;gap:6px;margin-top:var(--e2)}
 .el-choix .q-puce{flex:1;text-align:center}

@@ -22968,8 +22968,6 @@ const SETS_IMPORTES = [
         // ne ferait alors que changer d'écran), et la lecture retenue serait celle d'une AUTRE — le geste partirait
         // d'une page qui n'est plus celle de l'exercice (relevé : pages ralenties ×4).
         await jusqua(dernierSync, 60000);
-        await attendre(600);
-        await jusqua(dernierSync, 60000);
         base.objectifsRetenue = false; base.lenteurObjectifs = RETENUE;
         await page.evaluate(() => document.getElementById('btn-rafraichir').click());
         return jusqua(async () => base.objectifsRetenue === true, 60000);
@@ -23045,7 +23043,6 @@ const SETS_IMPORTES = [
       await feuilleO(150, 1);
       await jusqua(async () => base.objectifs.length === 1 && (base.objectifs[0] || {}).charge_kg === 150 && await fileVide(), 8000);
       await jusqua(dernierSync, 60000);
-      await attendre(600);
       base.objectifsRetenue = false; base.lenteurObjectifs = RETENUE; base.ecritureApresLecture = true;
       await feuilleO(155, 1);
       const dansLaFileD = !(await fileVide());

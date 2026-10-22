@@ -650,7 +650,9 @@ describe('60-2a — le routage d’entrée et la vue', () => {
   });
 
   test('le retour du réseau ne renvoie le profil que s’il y a quelque chose à envoyer (un cache périmé n’écrase pas un autre appareil)', () => {
-    expect(APP).toMatch(/addEventListener\('online', function \(\) \{ vidanger\(\); if \(profilAEnvoyer\) envoyerProfil\(\); \}\)/);
+    // 134 (I-13) — le gestionnaire porte un nom, `renvoyerCeQuiAttend`, que le retour au premier plan appelle aussi.
+    expect(APP).toMatch(/function renvoyerCeQuiAttend\(\) \{ vidanger\(\); if \(profilAEnvoyer\) envoyerProfil\(\); \}/);
+    expect(APP).toMatch(/addEventListener\('online', renvoyerCeQuiAttend\)/);
   });
 
   test('la déconnexion ferme le questionnaire et oublie l’envoi en vol', () => {

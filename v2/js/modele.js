@@ -297,6 +297,9 @@
   // même sens qu'une barre. Le « kg » reste collé au nombre par l'espace
   // insécable ; « Aide » et son nombre se séparent d'un espace ordinaire.
   var POIDS_DU_CORPS = 'Poids du corps';
+  // 133 (audit 130 #10, décidé le 21/10/2026) — en cours de phrase (le journal, le détail, la médaille, le récap) :
+  // « poids du corps × 12 », jamais « 0 kg × 12 ». Un seul mot, lu par `chargeDuJournal` et `chargeDeLaMedaille`.
+  var POIDS_DU_CORPS_EN_LIGNE = 'poids du corps';
   var AIDE = 'Aide';
   // 50-1 bis — ce que la page d'un exercice en reps dit de sa charge : le coach
   // suit les reps, la charge est le corps (§9.17). Une phrase, ici : le
@@ -520,7 +523,12 @@
   function aValeur(v) { return v !== null && v !== undefined && v !== ''; }
   // §9.17 — une charge négative est une aide : « Aide 22,5 kg × 8 », jamais « −22,5 kg × 8 » (le journal dit la même
   // chose que le coach).
-  function chargeDuJournal(kg) { return Number(kg) < 0 ? chargeTexte(kg) : nombreTexte(kg) + ' kg'; }
+  // 133 (audit 130 #10) — une charge de 0 kg est le poids du corps : « poids du corps × 12 », comme la médaille.
+  function chargeDuJournal(kg) {
+    var n = Number(kg);
+    if (n === 0) return POIDS_DU_CORPS_EN_LIGNE;
+    return n < 0 ? chargeTexte(kg) : nombreTexte(kg) + ' kg';
+  }
   function partiesDe(s, champs) {
     return champs.map(function (f) { return f(s); }).filter(Boolean).join(' · ') || '—';
   }
@@ -2183,7 +2191,7 @@
   // plus un record — elle ne figure plus dans la médaille.)
   function chargeDeLaMedaille(kg) {
     var n = Number(kg);
-    if (n === 0) return 'poids du corps';
+    if (n === 0) return POIDS_DU_CORPS_EN_LIGNE;
     if (n < 0) return nombreTexte(-n) + INSECABLE + 'kg d\'aide';
     return nombreTexte(n) + INSECABLE + 'kg';
   }

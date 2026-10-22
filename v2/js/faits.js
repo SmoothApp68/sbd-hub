@@ -412,11 +412,14 @@
     // « 90 kg × 10, 10, 10 » ; une charge qui change, « 32 kg × 12 · 36 kg × 10 » ;
     // sans charge, les reps (« 9, 9, 8, 7 ») ; une durée ou une distance, la
     // mesure de chaque série (`Modele.formatMesure`).
+    // 133 (audit 130 #10, décidé le 21/10/2026) — une charge de 0 kg EST une charge, le poids du corps :
+    // « poids du corps × 12, 12 », écrit par le formateur unique, comme le journal et la médaille (elle se disait
+    // « 12, 12 » ici, « 0 kg × 12 » au journal).
     function faitDeLExercice(series) {
       var travail = (series || []).filter(function (x) { return Modele.estTravail(x); });
       var paquets = [];
       travail.forEach(function (x) {
-        var aCharge = x.charge_kg !== null && x.charge_kg !== undefined && Number(x.charge_kg) !== 0;
+        var aCharge = x.charge_kg !== null && x.charge_kg !== undefined && x.charge_kg !== '' && isFinite(Number(x.charge_kg));
         var aReps = x.reps !== null && x.reps !== undefined;
         // 132 (ECRAN-SAISIE §3 ter.6) — une série notée par nom se groupe par son élastique : « Noir × 12, 12 · Rouge × 10 ».
         var nom = x.elastique !== null && x.elastique !== undefined ? x.elastique : null;

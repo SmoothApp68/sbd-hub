@@ -132,10 +132,14 @@
   // de `seance.exercices` porte donc son identifiant d'occurrence,
   // `occurrence`, posé UNE FOIS — à la première construction qui la voit, sur
   // l'identifiant de sa première série (`o-<id>`) — puis gardé tel quel, quoi
-  // qu'on fasse de ses séries ou de sa place. Il vit dans le brouillon de
-  // l'appareil, jamais en base (`sets` n'a pas de colonne pour lui) : une
-  // séance reprise depuis la base en reçoit un neuf, et ses paris s'y
-  // rattachent par la série qu'ils observent (`parisDeLOccurrence`).
+  // qu'on fasse de ses séries ou de sa place. Depuis v2_056 (§9.20, 51-3), il
+  // est aussi ÉCRIT en base : la colonne `sets.occurrence` (`COLONNES_SET`)
+  // reçoit son uuid, sans le préfixe `o-` (`uuidDOccurrence`), ou NULL pour une
+  // occurrence posée sans série ; une séance reprise depuis la base le relit
+  // (`o-<uuid>`), et une ligne importée ou d'avant la colonne (NULL) en reçoit
+  // un neuf, ici. Ses paris s'y rattachent par la série qu'ils observent
+  // (`parisDeLOccurrence`). (133, audit 130 #13 : ce commentaire disait que
+  // `sets` n'avait pas de colonne pour lui.)
   function avecOccurrences(exercices) {
     var vu = false;
     var sortie = (exercices || []).map(function (e, i) {

@@ -409,7 +409,9 @@
         ligne.appendChild(jauge);
         // §9.17 — une aide se lit « Aide 22,5 kg », jamais « −22,5 » : la même
         // phrase que la séance et le journal (`chargeTexte`, le formateur).
-        ligne.appendChild(el('span', 'tr-charge num', kg < 0 ? M().formatMesure({ charge_kg: kg }) : nombreFr(kg)));
+        // 133 — 0 kg : « PDC » (la colonne fait 66 px), jamais « 0 » (`chargeEnColonne`).
+        ligne.appendChild(el('span', 'tr-charge num', kg < 0 ? M().formatMesure({ charge_kg: kg })
+          : Number(kg) === 0 ? M().chargeEnColonne(kg) : nombreFr(kg)));
       }
       ligne.appendChild(el('span', 'tr-quand' + (l.deduit ? '' : ' num'),
         l.deduit ? 'déduit' : dateCourte(l.date)));

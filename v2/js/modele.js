@@ -300,6 +300,11 @@
   // 133 (audit 130 #10, décidé le 21/10/2026) — en cours de phrase (le journal, le détail, la médaille, le récap) :
   // « poids du corps × 12 », jamais « 0 kg × 12 ». Un seul mot, lu par `chargeDuJournal` et `chargeDeLaMedaille`.
   var POIDS_DU_CORPS_EN_LIGNE = 'poids du corps';
+  // 133 — dans une colonne étroite (« préc. », 62 px ; la colonne des kilos de la table par reps, 66 px), « poids du
+  // corps » ne tient pas : « PDC », l'abréviation du carnet (« PDC×12 »). Jamais « 0 ».
+  var POIDS_DU_CORPS_COURT = 'PDC';
+  // La charge d'une colonne étroite : « PDC » pour 0 kg, le nombre sinon (l'en-tête dit l'unité).
+  function chargeEnColonne(kg) { return Number(kg) === 0 ? POIDS_DU_CORPS_COURT : nombreTexte(kg); }
   var AIDE = 'Aide';
   // 50-1 bis — ce que la page d'un exercice en reps dit de sa charge : le coach
   // suit les reps, la charge est le corps (§9.17). Une phrase, ici : le
@@ -939,7 +944,8 @@
     // La colonne est de 62 px : « Aide 22,5 kg » n'y tient pas, et l'en-tête de
     // la colonne d'à côté dit déjà ce que c'est.
     var kg = nature === 'aide' ? aideAffichee(serie.charge_kg) : serie.charge_kg;
-    return nombreTexte(kg) +
+    // 133 — 0 kg : « PDC×12 », jamais « 0×12 » (`chargeEnColonne`).
+    return chargeEnColonne(kg) +
       (serie.reps === null || serie.reps === undefined ? '' : '\u00d7' + serie.reps);
   }
 
@@ -2470,6 +2476,7 @@
     formatDuree: formatDuree,
     formatDistance: formatDistance,
     formatMesure: formatMesure,
+    chargeEnColonne: chargeEnColonne,
     affichageDeMesure: affichageDeMesure,
     mesureDesColonnes: mesureDesColonnes,
     seMesureEnReps: seMesureEnReps,

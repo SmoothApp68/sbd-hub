@@ -78,3 +78,23 @@ describe('133 — #10 : une charge de 0 kg est le poids du corps, partout', () =
     expect(faits.faitDeLExercice([serie('t', { reps: 9 }), serie('t', { reps: 8 })])).toBe('9, 8');
   });
 });
+
+describe('133 — #10, les colonnes étroites : « PDC », l’abréviation du carnet, jamais « 0 »', () => {
+  test('la colonne « préc. » (62 px) : « PDC×12 », jamais « 0×12 » ; une charge et une aide, comme avant', () => {
+    expect(Modele.formatPrecedent({ charge_kg: 0, reps: 12 }, 'charge_reps', 'lest')).toBe('PDC×12');
+    expect(Modele.formatPrecedent({ charge_kg: 0, reps: 12 }, 'charge_reps', null)).toBe('PDC×12');
+    expect(Modele.formatPrecedent({ charge_kg: 0, reps: null }, 'charge_reps', null)).toBe('PDC');
+    expect(Modele.formatPrecedent({ charge_kg: 122.5, reps: 5 }, 'charge_reps', null)).toBe('122,5×5');
+    expect(Modele.formatPrecedent({ charge_kg: -22.5, reps: 8 }, 'charge_reps', 'aide')).toBe('22,5×8');
+  });
+
+  test('la table par reps de la page d’exercice (66 px) : « PDC » pour 0 kg, le nombre sinon', () => {
+    const cible = document.createElement('div');
+    window.THRendu.rendrePageExercice(cible, {
+      nom: 'Tractions lestées', mesure: 'charge_reps', onglet: 'resume', sousTitre: '', surOnglet: () => {},
+      seanceEnCours: null, derniere: null, record: null, volume: { nbSeries: 3, nbSeances: 2 },
+      table: [{ reps: 12, charge: 0, date: '2026-10-07', deduit: false }, { reps: 8, charge: 7.5, date: '2026-10-14', deduit: false }],
+      cibleReps: null, historique: [], surSeance: () => {}, reste: 0, surVoirPlus: () => {} });
+    expect([...cible.querySelectorAll('.tr-charge')].map((x) => x.textContent)).toEqual(['PDC', '7,5']);
+  });
+});

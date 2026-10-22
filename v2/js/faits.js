@@ -84,15 +84,16 @@
     // ── 90 (SOCIAL-V1 « Guilde ») — LES NOMBRES DE MA GUILDE, calculés ici, publiés tels quels (`guilde_scores`) ──
     //
     // LE RECORD QUI COMPTE (décision du 14/10/2026) : une ligne du journal (`recordsDuJournal`) d'un des six types
-    // `TYPES_DE_LA_GUILDE` — jamais `un_rm_estime` (une estimation) ni `volume_seance` (pousserait au volume) ; une
-    // série « à fond » compte, c'est un fait. Sa série :
+    // `TYPES_DE_LA_GUILDE` — jamais `un_rm_estime` (une estimation). 22/10/2026 : `volume_seance` COMPTE, comme les autres
+    // (décision d'Aurélien, revient sur l'exclusion du 14/10 : rare, un fait, sans jugement) ; une
+    // série « à fond » compte, c'est un fait. Sa série (celle qui porte la médaille de volume) :
     //   · sans pari de consigne relié par `set_observe` (séance importée, série sans proposition) : elle COMPTE —
     //     sans consigne, il n'y a rien à dépasser ;
     //   · avec un pari relié : le pari de la plus haute révision ; elle compte à la charge proposée ou en dessous
     //     (au centième) ; une proposition sans chiffre (« le cran au-dessus », `fondement.charge` nul) : elle compte
     //     (la règle « suivie » de MOTEUR §12 : toute charge au-dessus du palier) ; une série sans charge : elle compte.
     // Un record se compte par SÉRIE (une médaille par série, comme le fil). `paris` : les paris connus (`predictions`).
-    var TYPES_DE_LA_GUILDE = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'duree_s', 'distance_m'];
+    var TYPES_DE_LA_GUILDE = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'volume_seance', 'duree_s', 'distance_m'];
     function recordsSansDepasser(c, paris, de, a) {
       var series = {}, parSerie = {};
       seancesAvecSeries(c).forEach(function (s) { s.series.forEach(function (x) { if (x && x.id) series[x.id] = x; }); });
@@ -509,12 +510,9 @@
     // médailles, du fil et de l'XP ; les records sont les vraies barres. » Les lignes `un_rm_estime` écrites avant
     // restent en base, immuables (`records_immuable`) : ELLES SONT IGNORÉES ICI, à la lecture — la seule, donc le jeu,
     // le récap de fin de séance et tout lecteur à venir ne les voient plus. `medaillesDuSocial` (le fil) aussi.
-    //
-    // 137 (D9, audit 05 #2) — DE MÊME POUR `volume_seance` : le volume de la séance n'est plus un record (il poussait
-    // au volume ; son tonnage reste un fait des bilans). Les 686 lignes déjà en base (immuables) sont ignorées ici, à
-    // la lecture — le jeu, le récap de fin de séance, le fil. Plus rien ne l'écrit (`recordsBattus`).
-    var ORDRE_DES_TYPES = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'duree_s', 'distance_m'];
-    var TYPES_HORS_RECORDS = ['un_rm_estime', 'volume_seance'];
+    var ORDRE_DES_TYPES = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap',
+                           'volume_seance', 'duree_s', 'distance_m'];
+    var TYPES_HORS_RECORDS = ['un_rm_estime'];
     function estUnRecord(l) { return !!l && TYPES_HORS_RECORDS.indexOf(l.type) < 0; }
     function recordsDuJournal(c, filtre) {
       var f = filtre || {};

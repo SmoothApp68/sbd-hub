@@ -186,15 +186,23 @@ describe('90 — faits.recordsSansDepasser : la règle du 14/10/2026', () => {
   ];
   const ids = (l) => l.map((x) => x.set_id).sort();
   test('sans pari relié : compte ; à la charge proposée : compte ; au-dessus : non ; sans chiffre : compte ; la dernière révision fait foi', () => {
-    expect(ids(Faits.creer().recordsSansDepasser(c, paris, '2026-10-12', '2026-10-18'))).toEqual(['a1', 'a3', 'a4', 'b1']);
+    expect(ids(Faits.creer().recordsSansDepasser(c, paris, '2026-10-12', '2026-10-18'))).toEqual(['a1', 'a3', 'a4', 'b1', 'b3']);
   });
-  test('un_rm_estime et volume_seance ne comptent jamais ; une série à deux records = un', () => {
+  test('un_rm_estime ne compte jamais ; volume_seance compte (140) ; une série à deux records = un', () => {
     const l = Faits.creer().recordsSansDepasser(c, [], '2026-10-12', '2026-10-18');
-    expect(ids(l)).toEqual(['a1', 'a2', 'a3', 'a4', 'b1', 'b2']);
-    expect(Faits.creer().TYPES_DE_LA_GUILDE).toEqual(['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'duree_s', 'distance_m']);
+    // 140 : b3 (volume_seance + un_rm_estime) compte par son volume.
+    expect(ids(l)).toEqual(['a1', 'a2', 'a3', 'a4', 'b1', 'b2', 'b3']);
+    expect(Faits.creer().TYPES_DE_LA_GUILDE).toEqual(['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'volume_seance', 'duree_s', 'distance_m']);
+  });
+  test('⚠️ DISCRIMINANT (140) — même séance : un volume seul compte dans la guilde, sauf pari relié dépassé', () => {
+    const d = new Date(2026, 9, 14, 18);
+    const cc = corpus([['V', d, [['v1', 'presse', 200, 10]]]], [rec('v1', 'V', 'presse', 'volume_seance', d)]);
+    expect(ids(Faits.creer().recordsSansDepasser(cc, [], '2026-10-12', '2026-10-18'))).toEqual(['v1']);
+    expect(ids(Faits.creer().recordsSansDepasser(cc, [pari('v1', 150)], '2026-10-12', '2026-10-18'))).toEqual([]);
+    expect(ids(Faits.creer().recordsSansDepasser(cc, [pari('v1', 200)], '2026-10-12', '2026-10-18'))).toEqual(['v1']);
   });
   test('les bornes : un jour civil, inclus', () => {
-    expect(ids(Faits.creer().recordsSansDepasser(c, paris, '2026-10-13', '2026-10-13'))).toEqual(['b1']);
+    expect(ids(Faits.creer().recordsSansDepasser(c, paris, '2026-10-13', '2026-10-13'))).toEqual(['b1', 'b3']);
   });
 });
 
@@ -284,7 +292,9 @@ describe('90 — v2_080 : le texte de la migration', () => {
     expect(FauxSocial.GUILDE.RANGS).toEqual(Social.RANGS);
     expect(FauxSocial.GUILDE.DEFIS).toEqual(Social.DEFIS.map((d) => d.cle));
     expect(FauxSocial.GUILDE.COULEURS).toEqual(Social.COULEURS_GUILDE);
-    expect(liste(/r\.type IN \(([^)]*)\)/)).toEqual(Faits.creer().TYPES_DE_LA_GUILDE);
+    // 140 : l'app compte aussi `volume_seance`; la colonne `records` du défi lue en base (v2_080, v2_081, v2_093) garde
+    // les six types — écart connu, à router vers Claude.ai (migration), non touché ici.
+    expect(liste(/r\.type IN \(([^)]*)\)/)).toEqual(Faits.creer().TYPES_DE_LA_GUILDE.filter((t) => t !== 'volume_seance'));
   });
   test('les règles en base : une guilde par personne (clé primaire), 30 au plus, inviter un mutuel, l’administration au plus ancien', () => {
     expect(MIGRATION).toMatch(/user_id\s+uuid PRIMARY KEY REFERENCES auth\.users\(id\) ON DELETE CASCADE,\s*\n\s*guilde_id/);

@@ -33,14 +33,10 @@ const F = require('./fixtures/cas-55-1-records.json');
 // de la médaille. On les retire ICI, à la lecture, explicitement — le fichier n'est pas corrigé en silence ; la
 // référence est à régénérer côté Claude.ai. Une médaille qui n'aurait eu que cette ligne n'en est plus une.
 const SANS_1RM = / ?1RM estimé : ≈\u00a0[\d\s\u00a0,]+\u00a0kg\./;
-// 137 (D9, audit du 16/10, 05 #2) — DE MÊME POUR `volume_seance` : le volume de la séance n'est plus un record. Le
-// fichier de cas (d'avant D1 et D9) garde ses lignes ; on les retire ICI, à la lecture, avec leur phrase « Volume de
-// la séance : 603 kg. ». La référence est à régénérer côté Claude.ai (dette notée).
-const SANS_VOLUME = / ?Volume de la séance : [\d\s\u00a0,]+\u00a0(?:kg|reps)\./;
 function selonD1(records, phrase) {
-  const r = (records || []).filter((x) => x.type !== 'un_rm_estime' && x.type !== 'volume_seance');
+  const r = (records || []).filter((x) => x.type !== 'un_rm_estime');
   if (!r.length) return { records: r, phrase: null };
-  return { records: r, phrase: phrase ? [phrase[0].replace(SANS_1RM, '').replace(SANS_VOLUME, ''), phrase[1]] : phrase };
+  return { records: r, phrase: phrase ? [phrase[0].replace(SANS_1RM, ''), phrase[1]] : phrase };
 }
 ['rejeu', 'synthetiques'].forEach((k) => {
   (k === 'rejeu' ? F.rejeu.attendus : F.synthetiques).forEach((a) => {
@@ -95,9 +91,9 @@ describe('§9.23 — le rejeu sur l\'historique réel (chaque série de travail 
   const parDebut = {};
   seances.forEach((s) => { parDebut[s.debut] = s; });
 
-  test('le fichier est bien lu : 109 séries attendues, 6 médailles (137, D9 : la 7e ne battait que le volume)', () => {
+  test('le fichier est bien lu : 109 séries attendues, 7 médailles', () => {
     expect(F.rejeu.attendus.length).toBe(109);
-    expect(F.rejeu.attendus.filter((a) => a.records.length).length).toBe(6);
+    expect(F.rejeu.attendus.filter((a) => a.records.length).length).toBe(7);
   });
 
   test('chaque série : ses records, l\'ancien record et sa date', () => {
@@ -137,31 +133,6 @@ describe('§9.23 — les cas d\'une règle chacun', () => {
       expect(comparer(r, c.records)).toEqual([]);
       expect(Mo.phraseDeRecord(r, NOM_COURT[s.exercise_slug], se.debut)).toEqual(c.phrase);
     });
-  });
-});
-
-// 137 (D9, audit du 16/10, 05 #2) — le pendant du D1 pour le volume : la série qui ne bat QUE le volume de la séance
-// n'a plus de médaille, plus de ligne du journal, plus de phrase. Le cas vient de la référence d'avant D9, relu tel quel.
-describe('137 — le volume de la séance n\'est plus un record', () => {
-  const brut = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, 'fixtures/cas-55-1-records.json'), 'utf8'));
-  test('DISCRIMINANT — la série qui ne bat que le volume : aucun record, aucune phrase (la référence d\'avant D9 en gardait un)', () => {
-    const cas = brut.synthetiques.filter((c) => c.records.length === 1 && c.records[0].type === 'volume_seance');
-    expect(cas.length).toBeGreaterThan(0);                      // sinon le test ne prouverait rien
-    cas.forEach((c) => {
-      const se = seanceDe(c.seance);
-      const s = se.series[c.indice];
-      const r = Mo.recordsBattus(c.historique.map(seanceDe), se, c.indice, optionsDe(s));
-      expect(r).toEqual([]);
-      expect(Mo.phraseDeRecord(r, NOM_COURT[s.exercise_slug], se.debut)).toBeNull();
-    });
-  });
-  test('jamais de type `volume_seance` dans le rejeu de l\'historique réel', () => {
-    const types = new Set();
-    F.rejeu.seances.map(seanceDe).forEach((se) => se.series.forEach((s, i) => {
-      Mo.recordsBattus(F.rejeu.seances.map(seanceDe), se, i, optionsDe(s)).forEach((r) => types.add(r.type));
-    }));
-    expect(types.has('volume_seance')).toBe(false);
-    expect(types.size).toBeGreaterThan(0);
   });
 });
 

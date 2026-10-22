@@ -62,11 +62,21 @@ function verifier(nom, condition, detail) {
   return ok;
 }
 
+// 135 — L'ÉTAT, PAS LA DURÉE. `swPose` : le service worker de la page est actif ET activé, plus rien en
+// installation ni en attente, et il contrôle la page — l'installation (la coquille mise en cache) est finie.
+// C'est l'état que les 1,5 s fixes d'après `controller !== null` laissaient le temps de venir.
+const swPose = (page, ms) => page.waitForFunction(async () => {
+  const r = await navigator.serviceWorker.getRegistration();
+  return !!r && !!r.active && r.active.state === 'activated' && !r.installing && !r.waiting && !!navigator.serviceWorker.controller;
+}, null, { timeout: ms || 20000, polling: 100 }).catch(() => {});
+
 async function ouvrir(page, chemin) {
   let erreur = null;
   await page.goto(BASE + chemin, { waitUntil: 'domcontentloaded', timeout: 12000 })
     .catch((e) => { erreur = (e.message.split('\n')[0] || '').slice(0, 60); });
-  await attendre(1500);
+  // 135 — la page chargée (`load` : la coquille et ses scripts, servis par le réseau ou le service worker),
+  // plus 1,5 s fixes. Une navigation ratée (page d'erreur) n'a rien à attendre : la mesure qui suit le dit.
+  if (!erreur) await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
   const vue = await evaluer(page, () => ({
     titre: document.title,
     sections: document.querySelectorAll('section').length
@@ -107,7 +117,7 @@ async function installerSW(page) {
   await page.goto(BASE + '/', { waitUntil: 'networkidle' }).catch(() => {});
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null, { timeout: 15000 })
     .catch(() => {});
-  await attendre(1500);
+  await swPose(page);   // 135 — l'installation finie, plus 1,5 s
 }
 
 // Un dossier servi qui EST `v2/`, à un fichier près : le service worker. Des
@@ -213,7 +223,7 @@ const SCENARIOS = [
       await evaluer(page, () => localStorage.setItem('banc-marqueur', 'données précieuses'));
       await page.waitForFunction(() => navigator.serviceWorker.controller !== null, { timeout: 15000 })
         .catch(() => {});
-      await attendre(1500);
+      await swPose(page);   // 135 — l'installation du chantier 18 finie (sa coquille en cache), plus 1,5 s
 
       const etat = await evaluer(page, async () => {
         const noms = await caches.keys();
@@ -252,7 +262,7 @@ const SCENARIOS = [
         if (actif === null) {
           const t0 = Date.now(), fin = t0 + PLAFOND_ACTIVATION_MS;
           actif = false;
-          while (Date.now() < fin && !(actif = await nouveauActif())) await attendre(200);
+          while (Date.now() < fin && !(actif = await nouveauActif())) await attendre(200);   // le pas d'une attente d'état
           // 96 — la mesure, dans le journal : c'est elle qui dit si le plafond est juste.
           console.log('      (activation du nouveau service worker : ' + (actif ? (Date.now() - t0) + ' ms' : 'jamais') +
             ', plafond ' + PLAFOND_ACTIVATION_MS / 1000 + ' s)');
@@ -342,7 +352,7 @@ const SCENARIOS = [
   run: () => session(async (page, ctx, serveur) => {
     await installerSW(page);
     await new Promise((r) => serveur.close(r));      // le serveur meurt pour de bon
-    await attendre(600);
+    // 135 — plus de 600 ms ici : `close` ne rend la main qu'une fois toutes les connexions fermées — l'état voulu.
     // `/saisie` et `/routine/nouvelle` sont des URL de NAVIGATION comme les
     // autres : le service worker doit leur servir la coquille. Ajoutées au
     // chantier 21, avec les vues qui les portent.
@@ -379,6 +389,8 @@ const SCENARIOS = [
       // une PREMIÈRE INSTALLATION — rien à annoncer.
       await installerSW(page);
       await evaluer(page, () => localStorage.setItem('banc-marqueur', 'données précieuses'));
+      // VOULU (135) : on constate qu'un bandeau N'APPARAÎT PAS après une première installation (`installerSW` a
+      // attendu l'installation finie) ; seul un temps laissé au bandeau fautif pour venir le constate.
       await attendre(1000);
       verifier('[maj-premiere-installation] à la première installation, aucun bandeau', !(await majVisible()));
       // Rechargement normal : la page démarre déjà contrôlée.
@@ -391,20 +403,27 @@ const SCENARIOS = [
       // Borné : une attente sans issue ferait pendre le banc entier (vu sous `tout.js`).
       await evaluer(page, () => Promise.race([
         navigator.serviceWorker.getRegistration().then((r) => r && r.update()).catch(() => null),
-        new Promise((r) => setTimeout(r, 10000))
+        new Promise((r) => setTimeout(r, 10000))   // un plafond de la course, pas un délai : `update()` gagne dès qu'il répond
       ])).catch(() => {});
+      // 135 — plafond 60 s (20 avant) : le nouveau service worker doit mettre TOUTE la coquille en cache avant
+      // d'annoncer la version ; sous charge, c'était l'échec isolé « maj-bandeau » de la nuit du 22/10. Une
+      // attente d'état : elle rend la main dès que le bandeau est là.
       await page.waitForFunction(() => { const b = document.getElementById('bandeau-maj');
-        return !!b && !b.hidden; }, null, { timeout: 20000 }).catch(() => {});
+        return !!b && !b.hidden; }, null, { timeout: 60000 }).catch(() => {});
       verifier('[maj-bandeau] le bandeau « Une nouvelle version est prête. » apparaît',
         await majVisible() && /Une nouvelle version est prête\./.test(
           await evaluer(page, () => document.getElementById('bandeau-maj').textContent)));
+      // VOULU (135) : on constate que l'app NE se recharge PAS d'elle-même — seul un temps laissé au rechargement
+      // fautif le constate.
       await attendre(1500);
       verifier('[maj-sans-rechargement-impose] et l’app NE se recharge PAS d’elle-même',
         await evaluer(page, () => window.__sansRechargement === 1).catch(() => false));
 
       await page.click('#btn-maj-recharger', { timeout: 5000 }).catch(() => {});
       await page.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {});
-      await attendre(1500);
+      // 135 — la page rechargée sous la nouvelle version : chargée, contrôlée par un service worker activé.
+      await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
+      await swPose(page);
       const apres = await evaluer(page, async () => ({
         recharge: window.__sansRechargement === undefined,
         caches: await caches.keys(),
@@ -461,11 +480,16 @@ const SCENARIOS = [
       deployer(dossier, RATEE);
       await evaluer(page, () => Promise.race([
         navigator.serviceWorker.getRegistration().then((r) => r && r.update()).catch(() => null),
-        new Promise((r) => setTimeout(r, 8000))
+        new Promise((r) => setTimeout(r, 8000))   // un plafond de la course, pas un délai : `update()` gagne dès qu'il répond
       ])).catch(() => {});
-      await attendre(2500);
+      // 135 — l'installation de la nouvelle version est FINIE (ratée) : plus rien en installation, plus 2,5 s.
+      await page.waitForFunction(async () => { const r = await navigator.serviceWorker.getRegistration();
+        return !!r && !r.installing; }, null, { timeout: 30000, polling: 100 }).catch(() => {});
       // L'app rouverte : toujours sous l'ancienne version, qui sert ses fichiers depuis son cache.
       const vue = await ouvrir(page, '/');
+      // VOULU (135) : le défaut cherché est une écriture EN ARRIÈRE-PLAN du service worker dans le cache de la
+      // version en place, après les requêtes de la page ; aucun état ne dit « il n'écrira plus » — seul un temps
+      // laissé à l'écriture fautive pour venir la constate.
       await attendre(2500);
       const apres = await lireConfig();
       const noms = await evaluer(page, () => caches.keys()).catch(() => []);

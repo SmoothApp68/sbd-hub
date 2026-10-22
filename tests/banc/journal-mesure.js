@@ -186,14 +186,14 @@ async function passe(h, ralenti) {
     for (let t = 0; t < 600000; t += 500) {
       etat = await page.evaluate(() => window.THApp && THApp.journal ? THApp.journal() : null).catch(() => null);
       if (etat && etat.remplissage && etat.remplissage.fin) break;
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 500));   // le pas d'une attente d'état (la boucle lit l'état)
     }
     const tFin = Date.now();
     // La file se vide : tout est monté.
     for (let t = 0; t < 120000; t += 500) {
       const reste = await page.evaluate(() => THCache.lireAttente().then((f) => (f || []).length));
       if (!reste) break;
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 500));   // le pas d'une attente d'état (la boucle lit l'état)
     }
     const tMonte = Date.now();
     const sonde = await page.evaluate((r) => {

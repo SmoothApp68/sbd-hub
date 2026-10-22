@@ -62,7 +62,7 @@ const jusqua = async (nom, cond, max) => {
     try { v = await cond(); } catch (e) { v = false; }
     if (v) break;
     if (Date.now() - t0 >= (max || PLAFOND_MS)) { statAttente.plafond++; statAttente.plafonds.push(nom); break; }
-    await attendre(50);
+    await attendre(50);   // le pas d'une attente d'état
   }
   const d = Date.now() - t0;
   statAttente.n++;

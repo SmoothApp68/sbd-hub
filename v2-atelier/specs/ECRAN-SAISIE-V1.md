@@ -3,7 +3,8 @@
 Spec de l'écran de séance de TrainHub v2. Consigne les décisions des sessions
 des 7 et 8 septembre 2026. En cas de contradiction, `CADRAGE-V2.md` prime.
 
-Statut : conception validée sur maquette. Aucune implémentation.
+Statut : conception validée sur maquette, **implémentée** dans `v2/` et tenue à jour chantier par chantier ; les
+sections disent ce que le code fait et quand (précisé le 22/10/2026, audit du 16/10, E19).
 
 ---
 
@@ -127,7 +128,10 @@ Tranché le 19/09/2026 avec la maquette v2 (`maquette-moteur-parle-v2.html`).
 **3.2** — Les séries de rampe et d'échauffement ne reçoivent aucune suggestion.
 Elles dépendent du jour, de la fatigue, du matériel disponible. Elles ne se
 prédisent pas, et le §7.3 du moteur dit déjà qu'elles ne votent pas pour le
-palier. Les suggérer serait inventer.
+palier. Les suggérer serait inventer. *(Précisé le 22/10/2026, audit du 16/10, E19 : cela vaut pour les **charges
+suggérées** sur une série d'échauffement que la personne a écrite. Depuis le chantier 49, le coach **propose** des
+chauffes quand aucune n'est prévue, et les rampes ont leur règle : MOTEUR §9.15.1 et §9.15.2 ; une chauffe ajoutée par
+l'utilisateur : §9.15.5.)*
 
 **Exception, la série test — 19/09/2026.** Quand le moteur propose ou garde un
 test (MOTEUR §9.7), la dernière série reçoit la consigne du test dans le fantôme.
@@ -323,6 +327,11 @@ exercices.
 corps daté. Or tractions, dips barres et muscle-up sont en `reps` — **sans charge saisie, mais
 avec un tonnage réel**.
 
+*Tranché le 22/10/2026 (audit du 16/10, E11) : **le tonnage du récap et des chiffres partagés reste « charge saisie ×
+reps »**, sans le poids du corps. Le récap de groupe et la guilde sont partagés : le poids s'y recalculerait, alors que
+l'app promet qu'il ne quitte jamais le téléphone (SOCIAL §1, « Jamais »). Hevy ne compte, lui aussi, que la charge
+ajoutée. Le tonnage n'est pas un indicateur de progression. Rien ne change dans le code.*
+
 **Une séance de gainage seul est classée « sortie »** *(trouvé au chantier 24 ; **tranché le 21/10/2026**, audit 130 #11, décision d'Aurélien : **une sortie, et le cardio du jeu, ce sont seulement les exercices de nature `cardio` du catalogue** — course, vélo, randonnée, sports, corde à sauter… ; les étirements et la mobilité, le gainage et les figures tenues restent des séances ordinaires, avec leurs exercices. Sans `nature` connue, l'ancienne règle s'applique. *Précisé le 22/10/2026 (133)* : la sortie se lit au jeu (minutes de cardio), au résumé d'une séance et dans « les autres activités » des faits ; **le générateur et les habitudes ne la lisent pas** — ils lisent `Semaine.porteDuVolume`, ce qui ne change rien pour eux (un étirement n'y est ni une isolation ni une série de musculation). Une séance d'étirements seuls se résume par ses exercices et sa durée, jamais « 0 série ».)*.
 `estExerciceSortie` retient `charge = 'aucune'` **et** `mesure ∈ {temps, distance_temps}` : une
 séance qui ne contiendrait que des planches est résumée en durée, comme une randonnée, et perd
@@ -466,7 +475,10 @@ durée · `distance_temps` : **la durée ou la distance** — décidé le 17/10/
 ensemble (`Rendu.demanderCases`) ; le clavier s'ouvre sur la première dans l'ordre de la
 ligne — la charge avant les reps, la durée avant la distance. Une case perd son rouge à la
 première frappe. Le lest et l'aide vides restent « sans lest / sans aide » (les reps, elles,
-restent dues). Une mesure inconnue n'empêche rien. Les reps de la ligne proposée et de la
+restent dues). Une mesure inconnue n'empêche rien *(tranché le 22/10/2026, audit du 16/10, E16 : un exercice absent
+du catalogue local garde la grille ouverte, sans case obligatoire, et **sa mesure ne se déduit pas** des colonnes
+déjà remplies — « un nom inconnu n'est jamais deviné », sa mesure non plus ; le chemin est étroit depuis le catalogue
+complet du 125)*. Les reps de la ligne proposée et de la
 ligne d'élan gardent le §3.2 (§9.14) : la fourchette du coach est dans la case, le curseur
 s'y pose sans rouge.
 
@@ -1396,8 +1408,10 @@ au squat et une de 20 aux mollets n'ont pas la même durée. Et les supersets br
 calcul sur **48,7 %** des séries de travail d'aurel_br.
 
 > **Le chronomètre part à la VALIDATION d'une série** et mesure jusqu'à la validation
-> suivante. Le temps d'exécution n'entre pas dans la valeur : elle est juste **par
-> construction**.
+> suivante. ~~Le temps d'exécution n'entre pas dans la valeur : elle est juste **par
+> construction**.~~ *Faux, corrigé le 22/10/2026 (audit du 16/10, E19) : l'écart entre deux validations contient le
+> temps d'exécution de la série suivante. La valeur enregistrée (`repos_s`) n'est donc pas un repos ; elle ne s'affiche
+> plus (MODIFICATEURS §4, décision D8 du 16/10).*
 
 ### 7 ter.2 Deux valeurs distinctes
 
@@ -1572,6 +1586,15 @@ met-elle à jour la routine ?
 > et amène la première de ces lignes en vue ; la valider reste le geste de l'utilisateur). Une
 > intention de routine ou un chiffre gris du coach n'est pas une valeur tapée. Sans série remplie,
 > rien ne change.
+
+> **Une séance sans série validée ne se termine pas : elle s'abandonne — décidé le 22/10/2026 (audit du 16/10,
+> E12).** Il n'y a rien à enregistrer ; Strong et Hevy demandent eux aussi de jeter une séance vide. « Vide » se lit
+> par la règle de l'abandon : rien à effacer (`compterAEffacer` : aucune ligne, aucune chauffe validée). La feuille de
+> fin dit alors « Aucune série validée : rien à enregistrer. », sans titre, salle, note, question de routine ni case
+> facultative, et propose **Abandonner** (le geste principal, immédiat : rien n'est perdu) et **Continuer la séance**
+> (ferme la feuille). Avec des séries remplies mais pas validées, elle le dit d'abord (« 2 séries remplies ne sont pas
+> validées. ») et propose **Les valider** (le geste du §7 septies.4 E4) ou **Abandonner** (rouge : il jette ce qui a
+> été tapé). L'Édition d'une séance terminée ne change pas.
 
 > **Une donnée facultative restée vide — décidé le 21/10/2026 (prompt 131).** La feuille montre une fois la case d'un
 > D+, d'étages ou d'une distance (durée remplie) restés vides sur une série validée de la séance (§3 ter.5, écran 6).
@@ -3062,7 +3085,9 @@ Les cas d'un seul appareil ne changent pas : dévalider, retirer une série du m
 terminée suppriment comme avant, parce que ces séries sont connues.
 
 **Hors de cette règle** (chantier 84) : la fermeture et la reprise silencieuses d'une séance vivante d'un autre
-appareil, et deux appareils qui écrivent le même rang.
+appareil, et deux appareils qui écrivent le même rang. *Le rang en conflit reste une **limite assumée** (tranché le
+22/10/2026, audit du 16/10, E17) : le cas est rare (une personne, une séance ouverte sur deux appareils) ; une
+correction coûterait une resynchronisation lourde. L'écran dit déjà « 1 envoi refusé ».*
 
 ### 7 duovicies.1 ter Une séance vivante d'un autre appareil — décidé le 12/10/2026 (chantier 84)
 
@@ -3088,6 +3113,11 @@ qu'à l'envoi, qui referme l'autre séance comme avant. Rare, et sans perte depu
 et « Terminer » sur l'autre appareil le répare. Noté pour plus tard : une file qui attend une décision.
 
 ### 7 duovicies.2 « −15 » sous la borne fabriquait une cible que rien ne fige
+
+> ⚠️ **Remplacé par §7 tervicies** (barré le 22/10/2026, audit du 16/10, E19). « `−15` refuse de descendre » ne vaut
+> plus : `ajusterCible` est une arithmétique bornée dans `[0, REPOS_MAX]` (`seance.js`), un repos en cours peut arriver
+> à zéro, et c'est `cibleArmable` qui décide de l'armement, jamais de l'extinction. Le texte ci-dessous reste comme
+> trace.
 
 Le §7 novodecies a fermé la porte de l'**armement**. Celle de l'**ajustement** est restée
 ouverte :

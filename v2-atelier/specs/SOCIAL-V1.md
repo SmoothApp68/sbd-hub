@@ -15,6 +15,16 @@ Abonnements façon Instagram, trois cercles :
 | Mutuel | + détail des séances (exercices, séries, charges) ; bouton « Inviter dans un groupe » (grisé sinon, avec « Abonnez-vous l'un à l'autre pour l'inviter » — l'invitation elle-même est l'étage 3, le bouton seulement ici, inactif même en mutuel avec « Bientôt ») — **retiré le 16/10/2026 (audit du 16/10, 05 #10)** : l'étage 3 est livré ailleurs (le groupe se lance depuis la séance, §7.1 ; la guilde invite depuis ses Membres, §6.2), le bouton restait figé à « Bientôt » et disait sur mon propre profil de m'abonner à moi-même |
 | Jamais | poids de corps, santé, notes, RPE, ressenti, douleur |
 
+**La bio — décidée par Aurélien le 22/10/2026** (audit du 16/10, 03 #15 ; maquette `maquette-bio-profil-social-v1.html`).
+Elle se lit sur le profil social, **sous l'état** (« Abonné », « Compte privé », « C'est toi »), avant les boutons, en
+entier (280 caractères au plus, retours à la ligne gardés, sans « voir plus »), en blanc : ce sont les mots de la
+personne. **La voient** : la personne elle-même, ses abonnés acceptés (mutuels compris) et les membres d'une même guilde.
+**Ne la voient pas** : l'inconnu, même si le compte est public, et une demande en attente. Un blocage cache déjà tout le
+profil. Une bio vide ne laisse ni trou ni texte de remplacement. **La base décide** : `social_profil` rend `bio`, nulle
+hors de ces cercles (v2_105). `profiles.visibility_bio`, réglage du v1 jamais montré par le v2, **n'est pas lue** — un
+réglage invisible qui cache ou montre la bio contredirait « une décision de l'utilisateur ne s'efface jamais en
+silence ». La feuille Bio du Profil dit : « Tes abonnés et les membres de ta guilde la voient sur ton profil. »
+
 ## 2. Les règles
 
 - Compte privé par défaut (chaque abonnement s'approuve ; public = acceptation d'office).
@@ -217,7 +227,10 @@ elle retire ses scores.
   `Social.defiModifiable`) et la base refuse (`guilde_semaine_lancee`, exception `guilde_defi_fige`). Choisir le
   premier défi après une séance terminée est aussi refusé : le défi (1) court alors seul.
 - **« La guilde cette semaine »** (fait brut de la base) : séances terminées non privées des membres avec une série de travail,
-  leurs séries médaillées (six types, une par série), et le tonnage de `Bilan.volumeKg`.
+  leurs **records comptés comme la jauge du défi** (`records_semaine` : sans dépasser la charge proposée, la règle de
+  §6.1), et le tonnage de `Bilan.volumeKg`. *Décidé le 22/10/2026 (audit du 16/10, 05 #15) : la carte comptait toutes
+  les séries médaillées (`medailles`) sous le mot « records », pendant que la jauge disait « 1 record sur 3 » ; deux
+  chiffres pour le même fait se contredisent. Un seul chiffre, un seul mot : « records ».*
 - **Progression** : ordre par part décroissante, puis par nombre d'exercices ; « 5 sur 6 » ; sans exercice compté, « — »
   en bas. Numéros de ligne comme la maquette ; ni couronne, ni rouge, ni vainqueur.
 - **Blason** : le seul gabarit du social (`bouclier`), huit couleurs. Plus de gabarits : noté pour plus tard.

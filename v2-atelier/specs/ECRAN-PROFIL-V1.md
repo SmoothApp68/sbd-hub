@@ -253,8 +253,10 @@ par `v2_075` le 11/10, records compris.)*
 **La référence d'import** : `sessions.source = 'hevy'` ; `source_ref` = `hevy:<id du lien>` pour le texte,
 `hevy:<début local AAAA-MM-JJTHH:MM:SS>` pour le CSV (la forme de l'import d'août).
 
-**Les noms.** Un nom se cherche, sans accents ni casse, dans le catalogue (`exercises.nom`), dans les noms communs
-(`exercise_alias`), puis dans **les rattachements de la personne** (`alias_exercice`, `v2_076`). Introuvable : il
+**Les noms.** Un nom se cherche, sans accents ni casse, dans le catalogue (`exercises.nom`), puis dans **les rattachements de la personne** (`alias_exercice`, `v2_076`), puis dans les noms communs
+(`exercise_alias`) *(ordre décidé le 22/10/2026, audit du 16/10, 03 #13 : un rattachement fait par la personne passe
+avant un nom commun ajouté plus tard — « Je m'en souviendrai » est une promesse, et une décision de l'utilisateur ne
+s'efface jamais en silence)*. Introuvable : il
 est **« à rattacher »** — la personne choisit l'exercice dans le catalogue (avec ses filtres, §7 quindecies.10 de
 ECRAN-SAISIE), la recherche pré-remplie ; le choix s'écrit dans `alias_exercice` et vaut pour les imports suivants
 (« Je m'en souviendrai pour tes prochains imports. »). Ou **« Ne pas importer cet exercice »** : ses séries ne
@@ -270,6 +272,10 @@ partent pas, et ce choix-là n'est pas retenu. « Importer » attend que chaque 
 
 Deux activités qui se suivent (un run de 8 h à 10 h, un autre à 12 h ; deux séances enchaînées) ne se chevauchent
 pas : elles sont importées. Une séance existante n'est **jamais** modifiée ni remplacée.
+
+*Une séance importée puis supprimée revient si on la réimporte (tranché le 22/10/2026, audit du 16/10, 03 #16 : **tel
+quel, noté**). Sans trace de la suppression, rien ne distingue « supprimée » de « jamais importée » ; réimporter est un
+geste explicite, et l'aperçu montre chaque séance avant « Importer ».*
 
 **Le verdict se refait à chaque rattachement** (16/10/2026, audit du 16/10, 03 #2). Un nom pas encore rattaché n'a
 pas d'exercice : la séance faite dans l'app et dans Hevy ne partageait donc rien avec celle de l'app, restait

@@ -1492,6 +1492,9 @@
       // matériel, que la phrase (« la plus lourde de ta salle ») et la feuille
       // « Pourquoi » lisent sans rien recalculer. Absente sans déclaration.
       if (salle) f.salle = { materiel: salle.materiel, max: maxDeLaSalle(salle) };
+      // 132 (MOTEUR §10 ter, décision du 22/10/2026) — au bout d'une liste d'élastiques, le sens dit la phrase : sur une
+      // aide, le plus léger ; en résistance, le plus fort.
+      if (salle && elastique) f.salle.sens = salleDeclaree.aide === true ? 'aide' : 'resistance';
       // §10 bis (16/10/2026) — à la plus lourde : le plafond des reps, et `maintien` quand la dernière séance l'a
       // atteint (la phrase le dit comme un fait : « 30 kg × 15, la plus lourde de ta salle. »).
       if (salle && etat === 'salle_max') {
@@ -3681,11 +3684,15 @@
       // Au plafond (16/10/2026), le coach maintient, et le dit comme un fait : « 30 kg × 15, la plus lourde de ta
       // salle. »
       case 'salle_max':
+        // 132 (décision du 22/10/2026) — au bout d'une liste d'élastiques : « Vert, ton élastique le plus léger : on monte
+        // en reps. » (une aide), « Noir, ton élastique le plus fort : on monte en reps. » (en résistance). Le nom vient
+        // de la liste, par le formateur (`avecNoms`).
+        var bout = f.salle && f.salle.sens === 'aide' ? ', ton élastique le plus léger'
+          : f.salle && f.salle.sens === 'resistance' ? ', ton élastique le plus fort' : ', la plus lourde de ta salle';
         if (f.salle && f.salle.maintien === true) {
-          return chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })) + ', la plus lourde de ta salle.';
+          return chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })) + bout + '.';
         }
-        return enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + ', la plus lourde de ta salle' +
-               DEUX_POINTS + 'on monte en reps.';
+        return enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + bout + DEUX_POINTS + 'on monte en reps.';
 
       // §8.4 / §9.17 — la version lestée démarre de l'exercice libre : le saut
       // de lest, au bas de la zone. Aucune séance à raconter : elle n'existe pas.

@@ -333,7 +333,20 @@ describe('132 — le moteur lit l’ordre de la liste (§10 bis tel quel, sur le
     const { c: c2 } = consigneDe('face_pull_elastique', GRANDS, h2);
     expect(c2.consigne.etat).toBe('salle_max');
     expect(c2.consigne.ligne).toEqual({ charge: 3, vise: 20 });
-    expect(c2.libelles.gris).toBe('Noir × 20, la plus lourde de ta salle.');
+    expect(c2.libelles.gris).toBe('Noir × 20, ton élastique le plus fort.');
+  });
+  test('au bout de la liste, la phrase dit le sens (décision du 22/10/2026) : le plus fort en résistance, le plus léger sur une aide', () => {
+    // Une isolation (un muscle) au haut de sa zone (12) : le plafond est 15, on monte en reps.
+    const h = historique('face_pull_elastique', [fois(3, { elastique: 'Noir', reps: 12 }), fois(3, { elastique: 'Noir', reps: 12 })], [14, 7]);
+    const { c } = consigneDe('face_pull_elastique', GRANDS, h);
+    expect(c.consigne.etat).toBe('salle_max');
+    expect(c.libelles.gris).toBe('Noir, ton élastique le plus fort : on monte en reps.');
+    FICHES.nordique_u132 = Object.assign({}, FICHES.tractions_elastique, { slug: 'nordique_u132', muscles_primaires: ['ischios'] });
+    const ha = historique('nordique_u132', [fois(3, { elastique: 'Vert', reps: 12 }), fois(3, { elastique: 'Vert', reps: 12 })], [14, 7]);
+    const { c: ca } = consigneDe('nordique_u132', GRANDS, ha);
+    expect(ca.consigne.etat).toBe('salle_max');
+    expect(ca.libelles.gris).toBe('Vert, ton élastique le plus léger : on monte en reps.');
+    expect(ca.libelles.gris + c.libelles.gris).not.toMatch(/\?|bravo/i);
   });
   test('le clamshell lit les mini-bandes ; sans mini-bande déclarée, il reste en reps seules', () => {
     const h = historique('clamshell_elastique', [fois(3, { elastique: 'Jaune', reps: 15 })], [7]);

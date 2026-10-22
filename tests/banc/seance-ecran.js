@@ -18463,7 +18463,8 @@ const SETS_IMPORTES = [
       '« La guilde cette semaine » : séances, records (la médaille de melodie au moins), tonnage',
       c0.defi.indexOf('3 records sans dépasser la charge proposée · ') === 0 &&
         c0.phrase === (mien.records_semaine + 2) + ' record' + (mien.records_semaine + 2 > 1 ? 's' : '') + ' sur 3, à vous trois' &&
-        Number(c0.semaine[0]) >= 1 && Number(c0.semaine[1]) >= 1 && !!c0.semaine[2], JSON.stringify(c0));
+        // 137 (05 #15) — la carte dit le MÊME nombre de records que la jauge (`records_semaine`), pas `medailles`.
+        Number(c0.semaine[0]) >= 1 && Number(c0.semaine[1]) === mien.records_semaine + 2 && !!c0.semaine[2], JSON.stringify(c0));
     await mesurer('semaine');
 
     // ── D. PROGRESSION : la part, sans vainqueur ni rouge.

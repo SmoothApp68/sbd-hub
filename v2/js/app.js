@@ -2521,7 +2521,7 @@
       var s = o.semaine;
       var j = Social.jaugeDuDefi(s, moi.membres);
       v.defi = j ? { titre: j.titre, quand: Social.joursRestants(maintenant), part: j.part, phrase: j.phrase } : null;
-      v.cetteSemaine = s ? { seances: String(s.seances), records: String(s.medailles), tonnes: tonnesSociales(s.tonnage_kg) } : null;
+      v.cetteSemaine = s ? { seances: String(s.seances), records: String(Social.recordsDeLaSemaine(s)), tonnes: tonnesSociales(s.tonnage_kg) } : null;
       v.progression = progression;
       // Le défi est FIGÉ une fois la semaine lancée (un membre y a terminé une séance) : la base le refuserait.
       if (moi.admin && Social.defiModifiable(s)) {

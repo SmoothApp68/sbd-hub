@@ -78,6 +78,20 @@ describe('90 — social.js : les règles de la guilde', () => {
     expect(Social.ligneMembre({ pseudo: 'lea', rang: 'Chef', titre: null }, T)).toBe('lea · Novice');
   });
 
+  test('137 (05 #15) — DISCRIMINANT : « La guilde cette semaine » compte comme la jauge : records_semaine, jamais medailles', () => {
+    // Une semaine à 4 séries médaillées, dont une seule sans dépasser la charge proposée.
+    const semaine = { defi: 'records', n: 3, medailles: 4, records_semaine: 1 };
+    expect(Social.recordsDeLaSemaine(semaine)).toBe(1);
+    expect(Social.jaugeDuDefi(semaine, 2).phrase).toBe('1 record sur 3, à vous deux');   // le même chiffre que la carte
+    expect(String(Social.recordsDeLaSemaine(semaine))).not.toBe(String(semaine.medailles));
+    expect(Social.recordsDeLaSemaine({ records_semaine: null, medailles: 4 })).toBe(0);
+    expect(Social.recordsDeLaSemaine(null)).toBe(0);
+    // Le câblage : la carte lit cette fonction, plus `s.medailles`.
+    const app = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/app.js'), 'utf8');
+    expect(app).toMatch(/records: String\(Social\.recordsDeLaSemaine\(s\)\)/);
+    expect(app).not.toMatch(/records: String\(s\.medailles\)/);
+  });
+
   test('la jauge : « 11 séances sur 17 prévues, à vous quatre » ; les records sur N ; la variété sur N ; jamais au-delà de 100 %', () => {
     const j = Social.jaugeDuDefi({ defi: 'seances', n: null, seances_faites: 11, seances_prevues: 17 }, 4);
     expect(j.titre).toBe('Chacun fait ses séances prévues');

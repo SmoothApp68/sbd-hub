@@ -450,6 +450,11 @@
   var NOMBRES = ['', '', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'];
   function aVous(n) { return n <= 1 ? '' : ', à vous ' + (NOMBRES[n] || String(n)); }
 
+  // 137 (audit du 16/10, 05 #15 ; SOCIAL §6.2, D10) — UN SEUL NOMBRE DE RECORDS POUR LA SEMAINE DE LA GUILDE : la
+  // colonne `records_semaine` de `guilde_semaine` (les séries médaillées sans dépasser la charge proposée), celle de la
+  // jauge du défi ET de la carte « La guilde cette semaine ». `medailles` (toutes les séries médaillées) n'est plus lu.
+  function recordsDeLaSemaine(s) { return Number(s && s.records_semaine) || 0; }
+
   // La jauge commune du défi, depuis une ligne de `guilde_semaine`. `membres` : combien ils sont.
   function jaugeDuDefi(s, membres) {
     if (!s) return null;
@@ -463,7 +468,7 @@
       fait = Number(s.seances_faites) || 0; cible = Number(s.seances_prevues) || 0;
       phrase = fait + ' séance' + (fait > 1 ? 's' : '') + ' sur ' + cible + ' prévue' + (cible > 1 ? 's' : '') + aVous(membres);
     } else if (d.cle === 'records') {
-      fait = Number(s.records_semaine) || 0; cible = Number(s.n) || 0;
+      fait = recordsDeLaSemaine(s); cible = Number(s.n) || 0;
       phrase = fait + ' record' + (fait > 1 ? 's' : '') + ' sur ' + cible + aVous(membres);
     } else {
       fait = Number(s.exercices) || 0; cible = Number(s.n) || 0;
@@ -1022,7 +1027,7 @@
     ligneMembre: ligneMembre,
     MEMBRE_ANONYME: MEMBRE_ANONYME,
     suisAbonne: suisAbonne,
-    jaugeDuDefi: jaugeDuDefi,
+    jaugeDuDefi: jaugeDuDefi, recordsDeLaSemaine: recordsDeLaSemaine,
     joursRestants: joursRestants,
     progressionRangee: progressionRangee,
     scoresGuildeChanges: scoresGuildeChanges,

@@ -51,14 +51,36 @@ const attendre = async (ms) => {
 // écriture par chiffre : taper « 21000 » enchaîne cinq vidanges de file, et la
 // dernière montée arrive après un délai qui dépend de la machine. Un `sleep`
 // calibré sur un portable devient une intermittence sur un runner chargé.
-const jusqua = async (cond, ms) => {
-  const fin = Date.now() + (ms || 6000);
+//
+// 143 — LE PLAFOND D'UNE ATTENTE EST EN TEMPS MUR, ET IL SE COMPTE. Sous charge (`charge.js` pose `BANC_RALENTI`), la
+// page tourne `RALENTI` fois moins vite : un plafond de 6 s écrit pour une machine libre devient une intermittence.
+// `plafond(ms)` le multiplie. Et une attente qui arrive à son plafond n'est JAMAIS une réussite silencieuse : elle est
+// comptée (`statAttentes`, imprimé en fin de banc) et fait ÉCHOUER le banc — sauf si l'appelant la déclare attendue
+// (`{ attendu: 'motif' }` : un état qui peut ne jamais venir, et dont le contrôle suivant le dit).
+const RALENTI = Math.max(1, Number(process.env.BANC_RALENTI) || 1);
+const plafond = (ms) => Math.round(ms * RALENTI);
+const statAttentes = { appels: 0, plafond: 0, attendues: 0, liste: [] };
+const noterPlafond = (opts) => {
+  const o = typeof opts === 'string' ? { nom: opts } : (opts || {});
+  const nom = (o.nom || 'attente') + ' · ' + sectionRapport;
+  if (o.attendu) { statAttentes.attendues++; return; }
+  statAttentes.plafond++;
+  if (statAttentes.liste.length < 40) statAttentes.liste.push(nom);
+  console.log('   ⏱ plafond atteint : ' + nom);
+};
+const jusqua = async (cond, ms, opts) => {
+  statAttentes.appels++;
+  const fin = Date.now() + plafond(ms || 6000);
   while (Date.now() < fin) {
     if (await cond()) return true;
-    await attendre(120);
+    await attendre(120);   // le pas d'une boucle qui lit l'état à chaque tour
   }
+  noterPlafond(opts);
   return false;
 };
+// 143 — UNE SEULE FOIS (il était déclaré huit fois, avec des pas de 200 ou 250 ms et des budgets en ITÉRATIONS :
+// le temps mur s'allongeait tout seul avec la charge, et un plafond atteint rendait la main sans rien dire).
+const attendreQue = (cond, ms, opts) => jusqua(cond, ms || 15000, opts || 'attendreQue');
 
 let echecs = 0;
 // Le dernier contrôle écrit : la garde du banc s'en sert pour situer le geste
@@ -1945,9 +1967,11 @@ const SETS_IMPORTES = [
   };
   // 96 — LE FAUX SERVEUR EST SUIVI : combien de requêtes sont en vol, et quand la dernière a
   // bougé. C'est l'état qu'attend `aller()` (« le réseau s'est tu »), au lieu d'un délai fixe.
-  const reseauBanc = { enVol: 0, dernier: Date.now() };
+  // 143 — `compte` : le nombre de requêtes PARTIES depuis le début. Une aide qui attend « le geste est monté » le lit
+  // avant le geste, puis exige qu'il ait augmenté : sans cela, un réseau déjà calme rendrait l'attente vraie d'avance.
+  const reseauBanc = { enVol: 0, dernier: Date.now(), compte: 0 };
   const gestionnaireSuivi = async (route) => {
-    reseauBanc.enVol++; reseauBanc.dernier = Date.now();
+    reseauBanc.enVol++; reseauBanc.compte++; reseauBanc.dernier = Date.now();
     try { return await gestionnaireBanc(route); }
     finally { reseauBanc.enVol--; reseauBanc.dernier = Date.now(); }
   };
@@ -2191,6 +2215,87 @@ const SETS_IMPORTES = [
   };
   const ligneDuBloc = async (iBloc, k) => (await (await page.$$('.bloc-seance'))[iBloc].$$('.ligne-serie'))[k];
 
+  // ── 143 — LES AIDES D'ÉTAT ──────────────────────────────────────────────
+  // Chaque délai fixe d'une aide devient l'attente de l'ÉTAT que lit le contrôle qui suit — jamais un état déjà vrai
+  // avant le geste : on lit l'avant (`departGeste`), on exige un CHANGEMENT. Un état qui ne vient pas rend la main au
+  // plafond (en temps mur, × `BANC_RALENTI`), est compté (`statAttentes`) et fait échouer le banc.
+  //   · `jusqua`, `attendreQue` : l'attente d'une condition (plus haut, une seule fois) ;
+  //   · `serieMontee`  : la ligne est cochée ET l'écriture est partie et revenue (ou, hors ligne, posée dans la file) ;
+  //   · `enBase`, `fileVide` : la base de papier a la valeur ; la file de l'appareil n'a plus la ligne ;
+  //   · `feuilleOuverte`, `feuilleFermee`, `vueAffichee`, `texteVaut` : ce que l'écran montre.
+  const lireFile = (table) => page.evaluate((t) => window.THCache.lireAttente()
+    .then((f) => (f || []).filter((e) => !t || e.table === t).length), table || null).catch(() => 0);
+  const horsLigne = () => page.evaluate(() => navigator.onLine === false).catch(() => false);
+  const departGeste = async () => ({ c0: reseauBanc.compte, f0: await lireFile('sets'), t0: Date.now() });
+  const enBase = (pred, ms, opts) => jusqua(async () => { try { return !!(await pred()); } catch (e) { return false; } },
+    ms || 6000, opts || 'enBase');
+  const fileVide = (table, ms, opts) => jusqua(async () => (await lireFile(table)) === 0, ms || 6000, opts || 'fileVide');
+  const feuilleOuverte = (sel, ms, opts) => jusqua(() => page.evaluate((x) => {
+    const f = document.getElementById('feuille-seance');
+    return !!f && !f.hidden && (!x || !!document.querySelector('#feuille-contenu ' + x));
+  }, sel || null).catch(() => false), ms || 6000, opts || ('feuilleOuverte ' + (sel || '')));
+  const feuilleFermee = (ms, opts) => jusqua(() => page.evaluate(() => {
+    const f = document.getElementById('feuille-seance');
+    return !f || f.hidden;
+  }).catch(() => false), ms || 6000, opts || 'feuilleFermee');
+  const vueAffichee = (id, ms, opts) => jusqua(async () => (await visible()).indexOf(id) >= 0, ms || 6000, opts || ('vueAffichee ' + id));
+  const texteVaut = (sel, attendu, ms, opts) => jusqua(async () => {
+    const t = (await texte(sel)).trim();
+    return attendu instanceof RegExp ? attendu.test(t) : t === attendu;
+  }, ms || 6000, opts || ('texteVaut ' + sel));
+  // La séance écrite sur le disque de l'appareil : une lecture du magasin, derrière l'écriture déjà demandée (les
+  // transactions d'un même magasin passent dans l'ordre). Une page tuée juste après un geste ne perd rien de ce que
+  // le geste vient d'écrire — c'est ce que le délai fixe d'avant garantissait sans le dire.
+  const brouillonPose = () => page.evaluate(() => window.THCache.lireBrouillon('seance')).catch(() => null);
+  // Le réseau du faux serveur est calme, SANS plancher d'une seconde : au moins `plancher` ms (× ralenti) depuis le
+  // geste, plus rien en vol, et plus rien de parti depuis 150 ms. Pour un geste qui n'écrit QUE SOUVENT (changer le
+  // type d'une série ne part en base que si elle est validée) : l'absence d'écriture n'a pas d'état à attendre.
+  const calmeApres = (depart, plancher) => jusqua(() => Date.now() - depart.t0 >= (plancher === undefined ? 150 : plancher) * RALENTI &&
+    (retenueEnCours() || (reseauBanc.enVol === 0 && Date.now() - reseauBanc.dernier >= 150)), 8000, 'calmeApres');
+  // La feuille de la séance : fermée, ou son contenu. Un geste de menu fait CHANGER cette signature (ou ferme la feuille).
+  const signatureFeuille = () => page.evaluate(() => {
+    const f = document.getElementById('feuille-seance');
+    return (!f || f.hidden) ? '(fermée)' : document.getElementById('feuille-contenu').innerHTML;
+  }).catch(() => null);
+  // Un clic dans une zone (le questionnaire, la feuille) : sans `pause`, on attend que la zone CHANGE ; avec `pause`,
+  // le délai du site d'appel reste (il s'écrit au site, il ne se cache plus dans l'aide).
+  const cliquer = async (clic, zone, pause) => {
+    const signature = () => (zone ? page.evaluate((z) => { const n = document.querySelector(z); return n ? n.innerHTML : null; }, zone).catch(() => null)
+      : signatureFeuille());
+    const avant = await signature();
+    await page.click(clic);
+    if (pause) { await attendre(pause); return; }
+    await jusqua(async () => (await signature()) !== avant, 6000, 'cliquer ' + clic);
+  };
+  // ⚠️ La ligne `i` (indice GLOBAL) est cochée — ou, avec `cochee === false`, dévalidée — et l'écriture est montée :
+  // au moins une requête partie DEPUIS le geste, plus rien en vol, la file des séries revenue à ce qu'elle était
+  // (ou, si une entrée reste, le réseau muet depuis 700 ms : un refus n'est pas une file qui se vide). Hors ligne :
+  // l'entrée est dans la file. Une réponse RETENUE exprès (`lenteur…`) : le délai d'avant est ici la mesure.
+  const serieMontee = async (i, depart, cochee) => {
+    if (retenueEnCours()) { statAller.fixes++; await attendre(450); return true; }   // VOULU : une réponse retenue exprès
+    const voulue = cochee !== false;
+    const d = depart || { c0: -1, f0: Infinity };
+    // `i` : l'indice GLOBAL d'une ligne, ou une fonction qui rend « cochée ? » (true / false / null si la ligne n'est pas là).
+    const lireCochee = typeof i === 'function' ? i : () => page.evaluate((k) => {
+      const l = document.querySelectorAll('.ligne-serie')[k];
+      return l ? !!l.querySelector('.ok-serie.cochee') : null;
+    }, i);
+    return jusqua(async () => {
+      const etat = await lireCochee().catch(() => null);
+      if (etat !== voulue) return false;
+      if (await horsLigne()) return (await lireFile('sets')) > d.f0 || !depart;
+      if (reseauBanc.compte <= d.c0 || reseauBanc.enVol !== 0 || Date.now() - reseauBanc.dernier < 150) return false;
+      return (await lireFile('sets')) <= d.f0 || Date.now() - reseauBanc.dernier >= 700;
+    }, 3000, 'serieMontee ' + (typeof i === 'function' ? 'rangée' : i));
+  };
+  // 135 — chaque pas attend son état : la feuille de fin ouverte (son bouton là), puis la séance sortie de l'écran et
+  // le réseau calme (la séance, ses séries, ses records sont partis par la file).
+  // 143 — au préambule (il était déclaré après les premières sections qui s'en servent).
+  const seanceSortie = async () => {
+    await jusqua(() => page.evaluate(() => document.getElementById('vue-seance').hidden).catch(() => false), 10000, 'seanceSortie');
+    await reseauCalme();
+  };
+
   const saisirSerie = async (i, charge, reps) => {
     const l = await ligne(i);
     const champs = await l.$$('input');
@@ -2247,6 +2352,15 @@ const SETS_IMPORTES = [
     console.log('\naller() : ' + statAller.appels + ' navigation(s), ' + Math.round(statAller.total / Math.max(1, statAller.appels)) +
       ' ms en moyenne, ' + statAller.plafond + ' au plafond (' + ALLER_MAX_MS / 1000 + ' s), ' +
       statAller.fixes + ' à délai fixe (réponse retenue)');
+    // 143 — UN PLAFOND N'EST JAMAIS UNE RÉUSSITE SILENCIEUSE : une attente d'état arrivée à son plafond (hors celles
+    // que l'appelant déclare attendues) fait échouer le banc, avec son nom et sa section.
+    console.log('\nattentes d\u2019état : ' + statAttentes.appels + ' attente(s), ' + statAttentes.plafond + ' au plafond' +
+      (statAttentes.liste.length ? ' (' + statAttentes.liste.join(' | ') + ')' : '') + ', ' + statAttentes.attendues +
+      ' déclarée(s) attendue(s)');
+    if (statAttentes.plafond > 0) {
+      echecs++;
+      console.log('   ❌ ' + statAttentes.plafond + ' attente(s) d\u2019état arrivée(s) au plafond : le contrôle qui suivait lisait un état qui n\u2019est pas venu');
+    }
     console.log('\nerreurs de page : ' + (erreurs.length ? erreurs.join(' | ') : 'aucune'));
     if (erreurs.length) echecs++;
     if (process.env.BANC_RAPPORT) {
@@ -3988,12 +4102,12 @@ const SETS_IMPORTES = [
   // passer un débordement des lettres sur le bloc d'à côté.
   await validerRangee(1, 0);
   await validerRangee(1, 1);
-  const enBase = sets().filter((s) => s.session_id === seanceCourante());
+  const enBaseSeance = sets().filter((s) => s.session_id === seanceCourante());
   ok('`groupe_superset` part en base — sinon le superset disparaîtrait au détail',
-    enBase.length === 10 &&
-    enBase.filter((s) => s.groupe_superset === 1).length === 8 &&
-    enBase.filter((s) => s.groupe_superset === null).length === 2,
-    JSON.stringify(enBase.map((s) => s.exercise_slug + '@' + s.groupe_superset)));
+    enBaseSeance.length === 10 &&
+    enBaseSeance.filter((s) => s.groupe_superset === 1).length === 8 &&
+    enBaseSeance.filter((s) => s.groupe_superset === null).length === 2,
+    JSON.stringify(enBaseSeance.map((s) => s.exercise_slug + '@' + s.groupe_superset)));
 
   const idSuper = seanceCourante();
   await page.click('#bandeau-seance .bandeau-fin');
@@ -4984,15 +5098,9 @@ const SETS_IMPORTES = [
   // 135 — chaque pas attend son état : la feuille de fin ouverte (son bouton là), puis la séance sortie de
   // l'écran et le réseau calme (la séance, ses séries, ses records sont partis par la file). Avant : 600 ms,
   // puis 2 600 ms fixes.
-  const feuilleAvec = (sel) => jusqua(() => page.evaluate((x) => !document.getElementById('feuille-seance').hidden &&
-    !!document.querySelector('#feuille-contenu ' + x)).catch(() => false), 6000);
-  const seanceSortie = async () => {
-    await jusqua(() => page.evaluate(() => document.getElementById('vue-seance').hidden).catch(() => false), 10000);
-    await reseauCalme();
-  };
   const terminer = async () => {
     await page.click('#bandeau-seance .bandeau-fin');
-    await feuilleAvec('.principal');
+    await feuilleOuverte('.principal');
     await page.click('#feuille-contenu .principal');
     await terminerQuandMeme();
     await seanceSortie();
@@ -8650,17 +8758,17 @@ const SETS_IMPORTES = [
     const fin = await planP();
     const role = { ligne: 'ligne', test: 'haut', coach: 'coach', retour: 'retour' };
     const lignes = fin.plan.exercices[0].lignes;
-    const enBase = base.predictions.filter((l) => l.exercise_slug === 'leg-extension' &&
+    const parisEnBase = base.predictions.filter((l) => l.exercise_slug === 'leg-extension' &&
       l.fondement && l.fondement.seance === idS);
     const concordent = lignes.every((l) => {
-      const q = enBase.filter((x) => x.fondement.rang === l.rang);
+      const q = parisEnBase.filter((x) => x.fondement.rang === l.rang);
       return l.validee && q.length === 1 && q[0].fondement.role === role[l.role] &&
         Number(q[0].fondement.charge) === Number(l.charge) && Number(q[0].valeur_predite) === Number(l.vise) &&
         q[0].set_observe === l.id;
     });
     ok('[P3] séance complète : UN pari en base par série validée, identique à sa ligne (rang, rôle, charge, visée, série)',
-      enBase.length === lignes.length && concordent,
-      nbP({ base: enBase.map((q) => q.fondement.rang + ':' + q.fondement.role + ':' + q.fondement.charge + '×' + q.valeur_predite),
+      parisEnBase.length === lignes.length && concordent,
+      nbP({ base: parisEnBase.map((q) => q.fondement.rang + ':' + q.fondement.role + ':' + q.fondement.charge + '×' + q.valeur_predite),
             plan: lignes.map((l) => l.rang + ':' + l.role + ':' + l.charge + '×' + l.vise) }));
 
     await terminer();
@@ -9146,16 +9254,16 @@ const SETS_IMPORTES = [
     });
     await attendre(2500);
     const locaux = (await parisLocaux()).filter((l) => l.fondement && l.fondement.seance === sid);
-    const enBase = base.predictions.filter((l) => l.fondement && l.fondement.seance === sid &&
+    const parisEnBase = base.predictions.filter((l) => l.fondement && l.fondement.seance === sid &&
       l.exercise_slug === 'souleve-terre');
     const serie0 = base.sets.filter((x) => x.session_id === sid && x.rang === 1)[0];
     ok('[FV] DISCRIMINANT — la frappe croise la validation : UN pari au rang 1 sur l’appareil, avec son identifiant',
       locaux.filter((l) => l.fondement.rang === 1).length === 1 && locaux.every((l) => !!l.id),
       JSON.stringify(locaux.map((l) => [l.fondement.rang, l.fondement.revision || 0, l.id ? 'id' : 'SANS id', l.set_observe ? 'obs' : '—'])));
     ok('[FV] …et en base : le pari du rang 1, observé sur la série 1',
-      enBase.filter((l) => l.fondement.rang === 1).length === 1 && !!serie0 &&
-      enBase.filter((l) => l.fondement.rang === 1)[0].set_observe === serie0.id,
-      JSON.stringify(enBase.map((l) => [l.fondement.rang, l.set_observe === (serie0 && serie0.id) ? 'obs s1' : l.set_observe])));
+      parisEnBase.filter((l) => l.fondement.rang === 1).length === 1 && !!serie0 &&
+      parisEnBase.filter((l) => l.fondement.rang === 1)[0].set_observe === serie0.id,
+      JSON.stringify(parisEnBase.map((l) => [l.fondement.rang, l.set_observe === (serie0 && serie0.id) ? 'obs s1' : l.set_observe])));
     const fileF = await page.evaluate(() => window.THCache.lireAttente());
     ok('[FV] …et la file est vide : rien de bloqué', fileF.length === 0,
       JSON.stringify(fileF.map((e) => e.cle + (e.bloquee ? ' BLOQUÉE' : ''))));
@@ -11554,7 +11662,7 @@ const SETS_IMPORTES = [
       routine_exercises: [
         { id: 'r-0310-a', routine_id: 'r-0310', exercise_slug: 'assist-0310', rang: 0,
           routine_sets: progr(2, 8), repos_cible_s: 90, groupe_superset: null, note: null }] });
-    const enBase = () => {
+    const valeurEnBase = () => {
       const id = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
       const l = base.sets.filter((x) => x.session_id === id && x.exercise_slug === 'assist-0310' && x.rang === 1)[0];
       return l ? { charge: l.charge_kg, reps: l.reps } : null;
@@ -11571,7 +11679,7 @@ const SETS_IMPORTES = [
     await saisirSerie(0, '25', 8);
     await attendre(1500);
     ok('[0310] DISCRIMINANT — « 25 » tapé en POSITIF part en base à −25 × 8 (rangé par `rangerAide`)',
-      JSON.stringify(enBase()) === '{"charge":-25,"reps":8}', JSON.stringify(enBase()));
+      JSON.stringify(valeurEnBase()) === '{"charge":-25,"reps":8}', JSON.stringify(valeurEnBase()));
     const affichee = await valeurAffichee();
     ok('[0310] le champ réaffiche la valeur absolue « 25 » : ni signe, ni « Aide » — l’en-tête le dit',
       affichee === '25', JSON.stringify(affichee));
@@ -11579,8 +11687,8 @@ const SETS_IMPORTES = [
     await reps.fill('10');
     await reps.evaluate((e) => e.blur());
     await attendre(900);
-    ok('[0310] les reps retouchées : la charge reste −25', JSON.stringify(enBase()) === '{"charge":-25,"reps":10}',
-      JSON.stringify(enBase()));
+    ok('[0310] les reps retouchées : la charge reste −25', JSON.stringify(valeurEnBase()) === '{"charge":-25,"reps":10}',
+      JSON.stringify(valeurEnBase()));
     const c = await champCharge();
     await c.click();
     await page.keyboard.press('End');
@@ -11589,14 +11697,14 @@ const SETS_IMPORTES = [
     await c.evaluate((e) => e.blur());
     await attendre(900);
     ok('[0310] DISCRIMINANT — la charge retouchée au clavier dans le champ affiché (« 25 » → « 20 ») : −20 en base, pas rien, pas +20',
-      JSON.stringify(enBase()) === '{"charge":-20,"reps":10}', JSON.stringify([enBase(), await valeurAffichee()]));
+      JSON.stringify(valeurEnBase()) === '{"charge":-20,"reps":10}', JSON.stringify([valeurEnBase(), await valeurAffichee()]));
     // Taper un moins reste toléré : `rangerAide` est idempotente, tous les signes moins.
     const c2 = await champCharge();   // le champ a été redessiné à la sortie du précédent
     await c2.fill('-22,5');
     await c2.evaluate((e) => e.blur());
     await attendre(900);
     ok('[0310] un moins tapé quand même (« -22,5 ») donne −22,5, jamais +22,5',
-      JSON.stringify(enBase()) === '{"charge":-22.5,"reps":10}', JSON.stringify(enBase()));
+      JSON.stringify(valeurEnBase()) === '{"charge":-22.5,"reps":10}', JSON.stringify(valeurEnBase()));
     const prec = await page.evaluate(() => {
       const p = document.querySelector('.serie .prec');
       return p ? p.textContent : null;
@@ -11619,7 +11727,7 @@ const SETS_IMPORTES = [
     await page.evaluate(() => document.querySelector('.ok-serie').click());
     await attendre(1500);
     ok('[0310] DISCRIMINANT — la cible positive de la routine (25) est rangée −25 à la validation, jamais +25',
-      JSON.stringify(enBase()) === '{"charge":-25,"reps":8}', JSON.stringify(enBase()));
+      JSON.stringify(valeurEnBase()) === '{"charge":-25,"reps":8}', JSON.stringify(valeurEnBase()));
     await abandonner();
     await aller('/saisie');
     ok('[0310] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
@@ -14397,10 +14505,6 @@ const SETS_IMPORTES = [
     const fileJ = () => page.evaluate(() => THCache.lireAttente().then((f) => (f || []).map((e) => e.table + ':' + e.id)));
     const etatJ = () => page.evaluate(() => window.THApp && THApp.journal ? THApp.journal() : null);
     const metaJ = () => page.evaluate(() => THCache.lireMeta('journalRecords'));
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); }
-      return false;
-    };
 
     // ── A. LE REMPLISSAGE : le journal du serveur VIDE, et l'appareil n'a
     // rien décidé — l'état d'un compte au premier démarrage de cette version.
@@ -17143,10 +17247,10 @@ const SETS_IMPORTES = [
     const avantFeuille = await barre();
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(600);
-    const feuilleOuverte = /Terminer la séance/.test(await texte('#feuille-contenu'));
+    const feuilleVue = /Terminer la séance/.test(await texte('#feuille-contenu'));
     await fermerFeuille();
     const apresFeuille = await barre();
-    ok('[barre] un tap sur « Terminer » ouvre la feuille de confirmation (comme avant)', feuilleOuverte === true,
+    ok('[barre] un tap sur « Terminer » ouvre la feuille de confirmation (comme avant)', feuilleVue === true,
       (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 50));
     ok('[barre] refermée, la barre est intacte : mêmes titre, durée, séries, boutons, et toujours collée',
       apresFeuille.texte === avantFeuille.texte && apresFeuille.position === 'sticky' &&
@@ -17340,10 +17444,6 @@ const SETS_IMPORTES = [
         succes: t('#jeu-porte-succes .j-d') };
     });
     const ecrituresDepuis = (n) => base.journal.slice(n).filter((j) => j.op !== 'refus');
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); }
-      return false;
-    };
     const texteCoach = () => page.evaluate(() => ['#escalier-seance', '#blocs-seance']
       .map((s) => { const n = document.querySelector(s); return n && !n.hidden ? n.innerText.replace(/\s+/g, ' ').trim() : ''; }).join(' ¦ '));
     const basculer = async () => {
@@ -17629,10 +17729,6 @@ const SETS_IMPORTES = [
         meds: Array.from(c.querySelectorAll('.s-med')).map((x) => x.textContent), reag: (c.querySelector('.s-reag') || {}).textContent })),
       demandes: Array.from(document.querySelectorAll('#social-fil .s-demande')).map((d) => d.getAttribute('data-pseudo')),
       fin: (document.querySelector('#social-fil .s-fin') || {}).textContent }));
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
-      return false;
-    };
     const lien = (a, b) => S.abonnements.filter((x) => x.suiveur === a && x.suivi === b)[0] || null;
 
     // ── A. INCONNU → DEMANDE → ACCEPTATION → FIL.
@@ -17874,10 +17970,6 @@ const SETS_IMPORTES = [
     ab('u-lea', 'u-banc', 'demande'); ab('u-banc', 'u-lea'); ab('u-jordan', 'u-banc');
     S.blocages.push({ bloqueur: 'u-banc', bloque: 'u-alexis', cree_le: iso(hier) });
     const lien = (a, b) => S.abonnements.filter((x) => x.suiveur === a && x.suivi === b)[0] || null;
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
-      return false;
-    };
     const fileSociale = () => page.evaluate(() => THCache.lireAttente().then((f) => (f || []).filter((x) => x.table === 'social')
       .sort((a, b) => a.seq - b.seq).map((x) => x.donnees.geste + ':' + (x.donnees.pseudo || ''))));
     const sAttente = (cible) => texte(cible + ' .s-attente');
@@ -18145,10 +18237,6 @@ const SETS_IMPORTES = [
       const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
       largeurs.push({ ecran, doc: l.doc, fen: l.fen });
     };
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
-      return false;
-    };
     const lire = () => page.evaluate(() => {
       const t = (s) => { const n = document.querySelector('#social-ami ' + s); return n ? n.textContent : null; };
       const tous = (s) => Array.from(document.querySelectorAll('#social-ami ' + s)).map((x) => x.textContent);
@@ -18399,10 +18487,6 @@ const SETS_IMPORTES = [
           .map((x) => x.getAttribute('data-session')),
         reagi: !!r.querySelector('.s-fil-guilde .s-reag.s-fait') };
     });
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
-      return false;
-    };
     const largeurs = [];
     const mesurer = async (ecran) => {
       const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
@@ -18410,7 +18494,6 @@ const SETS_IMPORTES = [
     };
     const onglet = async (cle, cond) => { await page.click('#social-guilde button[data-onglet="' + cle + '"]'); await attendreQue(cond); };
     // 107 — un geste se montre fait AUSSITÔT (il passe par la file) : ce que la base en a fait se lit une fois la file vide.
-    const fileVide = () => page.evaluate(() => THCache.lireAttente().then((f) => !(f || []).some((x) => x.table === 'social')));
 
     // ── A. SANS GUILDE : le nom pris par lea, puis libre quand sa guilde (sans membre) a disparu.
     fauxSocial.rpc('u-lea', 'guilde_creer', { p_nom: 'Les Fers du Mardi', p_couleur: '#d9b45a' });
@@ -18431,7 +18514,7 @@ const SETS_IMPORTES = [
     await page.fill('#guilde-nom', 'LES FERS DU MARDÍ');
     await page.click('#guilde-creer');
     await attendreQue(async () => !!(await lire()).nom);
-    await attendreQue(fileVide);
+    await fileVide('social');
     const a2 = await lire();
     const G = fauxSocial.guildeDe('u-banc');
     ok('[guilde] créée : le nom tel que tapé, la couleur choisie, « 1 membre », moi administrateur ; les quatre onglets',
@@ -18479,7 +18562,7 @@ const SETS_IMPORTES = [
         rangRecharge.attente === 'En attente du réseau' && rangRecharge.base === 'Novice', JSON.stringify([rangHors, rangRecharge]));
     base.ecrituresSocialesCoupees = false;
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    await attendreQue(fileVide);
+    await fileVide('social');
     await attendreQue(async () => !(await texte('#social-guilde .s-attente')));
     ok('[guilde] je choisis mon rang (« Terreur ») : les neuf rangs, sans aucun pouvoir',
       S.membres.filter((m) => m.user_id === 'u-banc')[0].rang === 'Terreur' && (await lire()).rangs.length === 9 &&
@@ -18509,7 +18592,7 @@ const SETS_IMPORTES = [
         cSeries.choixDefi.indexOf('series') === 0, JSON.stringify(cSeries));
     await page.click('#social-guilde .s-choix-defi button[data-defi="records"][data-n="3"]');
     await attendreQue(async () => /records? sur 3/.test((await lire()).phrase || ''));
-    await attendreQue(fileVide);
+    await fileVide('social');
     const cAvant = await lire();
     const refusTonnage = fauxSocial.rpc('u-banc', 'guilde_choisir_defi', { p_type: 'tonnage', p_n: 5 });
     // melodie termine une séance : la semaine est lancée, le défi est figé.
@@ -18568,7 +18651,7 @@ const SETS_IMPORTES = [
     const e1 = await lire();
     await page.click('#social-guilde .s-fil-guilde .s-carte[data-session="' + SM + '"] .s-reag');
     await attendreQue(async () => (await lire()).reagi);
-    await attendreQue(fileVide);
+    await fileVide('social');
     ok('[guilde] DISCRIMINANT — melodie en compte public : le fil de la guilde montre sa séance (que je ne suis pas : absente de mon fil), ' +
       'sa médaille, sans note ni poids, SANS « Voir la séance » (121, 05 #11) ; j’y réagis (règle de la guilde)',
       e1.cartes.indexOf(SM) >= 0 && e1.voir.indexOf(SM) < 0 && e1.voir.indexOf(SJ) >= 0 && monFil.indexOf(SM) < 0 &&
@@ -18607,7 +18690,7 @@ const SETS_IMPORTES = [
     // Sous charge, le démarrage (synchronisation, profil, puis la file) peut dépasser 12 s : 30 s, et la page finit de
     // charger avant la navigation suivante (une navigation qui en interrompt une autre laisse des erreurs de page).
     await attendreQue(async () => (S.gscores.filter((x) => x.user_id === 'u-banc')[0] || {}).prevues === 4, 30000);
-    await attendreQue(fileVide);
+    await fileVide('social');
     const prevuesApres = (S.gscores.filter((x) => x.user_id === 'u-banc')[0] || {}).prevues;
     const ecranGuilde = await page.evaluate(() => !document.getElementById('vue-guilde') || !document.getElementById('vue-guilde').hidden);
     ok('[guilde] 121 — DISCRIMINANT — l’écran Guilde jamais ouvert, l’app relancée publie mes nombres périmés (5 → 4 séances prévues) par la file',
@@ -18621,7 +18704,7 @@ const SETS_IMPORTES = [
     await attendreQue(async () => !!(await compter('#guilde-quitter-oui')));
     await page.click('#guilde-quitter-oui');
     await attendreQue(async () => (await lire()).creer);
-    await attendreQue(fileVide);
+    await fileVide('social');
     ok('[guilde] DISCRIMINANT — je pars (j’administrais) : jordan, le plus ancien, administre ; la guilde reste, à deux ; je retrouve « Créer une guilde »',
       S.guildes.length === 1 && S.guildes[0].admin === 'u-jordan' && fauxSocial.rpc('u-jordan', 'guilde_moi')[0].membres === 2 &&
         !fauxSocial.guildeDe('u-banc') && (await lire()).creer, JSON.stringify([S.guildes, S.membres]));
@@ -18702,10 +18785,6 @@ const SETS_IMPORTES = [
     const G = fauxSocial.rpc('u-jordan', 'groupe_creer', { p_session: SJ, p_exercices: ['squat-barre', 'dc-barre'] });
     fauxSocial.rpc('u-jordan', 'groupe_inviter', { p_user: 'u-banc' });
     const enCours = () => (sessions().filter((x) => x.statut === 'en_cours' && x.user_id !== 'u-jordan')[0] || {}).id;
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
-      return false;
-    };
     const largeurs = [];
     const mesurer = async (ecran) => {
       const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
@@ -19181,10 +19260,6 @@ const SETS_IMPORTES = [
       phase_depuis: new Date(tR - 12 * JOUR).toISOString().slice(0, 10), priorites: ['dos', 'jambes'] });
 
     const chemin = () => page.evaluate(() => location.pathname);
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); }
-      return false;
-    };
     const ecran = () => page.evaluate(() => {
       const t = (n) => (n ? n.textContent : '');
       const r = document.getElementById('relecture');
@@ -22116,7 +22191,7 @@ const SETS_IMPORTES = [
         .querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), [i, j]);
       await attendre(800);
     };
-    const enBase = (id) => (base.sets.filter((x) => x.id === id)[0] || {}).ressenti;
+    const ressentiEnBase = (id) => (base.sets.filter((x) => x.id === id)[0] || {}).ressenti;
     // Ce que la série porte à l'écran, au format du formateur (« 60 kg × 9 ») : la phrase cite la série faite.
     const faite78 = (i, j) => page.evaluate(([a, b]) => {
       const sr = window.THPlan.dernier.entrees.seance.exercices[a].series[b];
@@ -22179,14 +22254,14 @@ const SETS_IMPORTES = [
     ok('[Q78] un tap : le bouton s’allume, la question reste tant que le repos dure',
       nb78(q3 && q3.choisi) === nb78(['reste_1']), nb78(q3));
     ok('[Q78] DISCRIMINANT — la file écrit `reste_1` sur la DERNIÈRE série de A, et sur elle seule',
-      enBase(idA2) === 'reste_1' && enBase(idA1) === null,
-      nb78({ A1: enBase(idA1), A2: enBase(idA2) }));
+      ressentiEnBase(idA2) === 'reste_1' && ressentiEnBase(idA1) === null,
+      nb78({ A1: ressentiEnBase(idA1), A2: ressentiEnBase(idA2) }));
 
     await page.click('#repos .repos-q button[data-ressenti="reste_2"]');
     await attendre(2200);
     const q4 = await question78();
     ok('[Q78] un deuxième tap change d’avis : `reste_2`, en base comme à l’écran',
-      enBase(idA2) === 'reste_2' && nb78(q4 && q4.choisi) === nb78(['reste_2']), nb78({ base: enBase(idA2), q4 }));
+      ressentiEnBase(idA2) === 'reste_2' && nb78(q4 && q4.choisi) === nb78(['reste_2']), nb78({ base: ressentiEnBase(idA2), q4 }));
 
     await valider78(1, 0);
     await valider78(1, 1);
@@ -22255,7 +22330,7 @@ const SETS_IMPORTES = [
     const seriesDe = (sid) => base.sets.filter((x) => x.session_id === sid).sort((x, y) => x.rang - y.rang)
       .map((x) => x.charge_kg + '×' + x.reps);
     const statutDe = (sid) => (base.sessions.filter((x) => x.id === sid)[0] || {}).statut || null;
-    const enBase = () => base.sessions.map((x) => x.id.slice(0, 8) + ':' + x.statut + ' [' + seriesDe(x.id).join(', ') + ']').join(' | ');
+    const seancesEnBase = () => base.sessions.map((x) => x.id.slice(0, 8) + ':' + x.statut + ' [' + seriesDe(x.id).join(', ') + ']').join(' | ');
     const feuille = (p) => p.evaluate(() => {
       const f = document.getElementById('feuille-seance'), c = document.getElementById('feuille-contenu');
       return { visible: !!f && !f.hidden, texte: c ? c.textContent : '',
@@ -22288,7 +22363,7 @@ const SETS_IMPORTES = [
       nb2(f0.boutons) === nb2(['La continuer ici', 'Pas maintenant']), nb2(f0));
     await repondre(Bv.p, 'Pas maintenant');
     ok('[D2A] S1 — « Pas maintenant » : B n’a pas de séance, celle de A reste en_cours avec ses 2 séries',
-      (await lignesDe(Bv.p)) === 0 && statutDe(idA0) === 'en_cours' && seriesDe(idA0).length === 2, enBase());
+      (await lignesDe(Bv.p)) === 0 && statutDe(idA0) === 'en_cours' && seriesDe(idA0).length === 2, seancesEnBase());
     await Bv.fermer();
 
     // ── S1 : « La continuer ici », puis la suite du 83 (B ne supprime que ce qu'il connaît).
@@ -22301,7 +22376,7 @@ const SETS_IMPORTES = [
     page = pageA; await saisirSerie(2, 80, 9); await attendre(1500);  // la 3ᵉ série de A, que B n'a jamais vue
     page = B.p; await toucher(0, '.ok-serie'); await attendre(1800); // B dévalide SA première série (connue de lui)
     const apresB = seriesDe(idA0);
-    console.log('   S1 — après le geste de B (il dévalide 80 × 10) : ' + enBase());
+    console.log('   S1 — après le geste de B (il dévalide 80 × 10) : ' + seancesEnBase());
     ok('[D2A] S1 — DISCRIMINANT : après le geste de B, la 3ᵉ série de A (80 × 9) est encore en base',
       apresB.indexOf('80×9') >= 0, nb2(apresB));
     ok('[D2A] S1 — la série que B connaît et a dévalidée (80 × 10) est bien retirée par lui',
@@ -22326,18 +22401,18 @@ const SETS_IMPORTES = [
       nb2(f2.boutons) === nb2(['La terminer et commencer', 'Annuler']), nb2(f2));
     await repondre(B2.p, 'Annuler');
     ok('[D2A] S2a — « Annuler » : la séance de A reste en_cours, rien n’est créé',
-      statutDe(idA2) === 'en_cours' && base.sessions.length === nSeances && (await lignesDe(B2.p)) === 0, enBase());
+      statutDe(idA2) === 'en_cours' && base.sessions.length === nSeances && (await lignesDe(B2.p)) === 0, seancesEnBase());
     page = B2.p; await demarrerRoutine('Rowing D2A ×4'); await attendre(1500);
     await repondre(B2.p, 'La terminer et commencer');
     await attendre(1500);
     const idB2 = base.sessions.filter((x) => x.id !== idA2 && x.statut === 'en_cours').map((x) => x.id)[0] || null;
     ok('[D2A] S2b — « La terminer et commencer » : A terminee, B en_cours',
-      statutDe(idA2) === 'terminee' && idB2 !== null, enBase());
+      statutDe(idA2) === 'terminee' && idB2 !== null, seancesEnBase());
     page = B2.p; await saisirSerie(0, 60, 12); await attendre(1500);
 
     // ── S3 : A recharge pendant que la séance de B est vivante → elle reste en_cours.
     page = pageA; await aller('/saisie'); await attendre(1500);
-    ok('[D2A] S3 — A recharge (une séance ici) : la séance vivante de B reste en_cours', statutDe(idB2) === 'en_cours', enBase());
+    ok('[D2A] S3 — A recharge (une séance ici) : la séance vivante de B reste en_cours', statutDe(idB2) === 'en_cours', seancesEnBase());
     await B2.fermer();
     page = pageA; await abandonner().catch(() => {});
     const refusAvantAbandon = base.journal.filter((j) => j.op === 'refus').length;
@@ -22370,7 +22445,7 @@ const SETS_IMPORTES = [
     await saisirSerie(0, 60, 12); await attendre(2000);
     ok('[D2A] abandonnée — D commence : pas de feuille, la vieille séance est refermée, la nouvelle est en_cours',
       !fD.visible && statutDe('d2a-vieille-2') === 'terminee' &&
-      base.sessions.some((x) => x.id !== 'd2a-vieille-2' && x.statut === 'en_cours'), nb2([fD.visible, enBase()]));
+      base.sessions.some((x) => x.id !== 'd2a-vieille-2' && x.statut === 'en_cours'), nb2([fD.visible, seancesEnBase()]));
     await Dd.fermer();
 
     // ── 117 (audit du 16/10, 06 #1) — UNE SÉRIE EFFACÉE SUR UN APPAREIL QUITTE LE CACHE DE L'AUTRE ─────────────
@@ -23003,7 +23078,7 @@ const SETS_IMPORTES = [
     {
       const RETENUE = 9000;
       const brouillonO = () => page.evaluate(() => window.THCache.lireBrouillon('objectifs')).catch(() => null);
-      const fileVide = () => page.evaluate(() => window.THCache.lireAttente().then((f) => (f || []).filter((x) => x.table === 'objectifs').length === 0)).catch(() => false);
+      const fileObjectifsVide = () => page.evaluate(() => window.THCache.lireAttente().then((f) => (f || []).filter((x) => x.table === 'objectifs').length === 0)).catch(() => false);
       const dernierSync = () => page.evaluate(() => {
         const e = document.getElementById('etat-sync');
         return !!e && /À jour/.test(e.textContent || '') && !e.classList.contains('sync');
@@ -23027,12 +23102,12 @@ const SETS_IMPORTES = [
       const D = await ouvrirO('O139', new Date(2026, 9, 16, 12, 0, 0));
       await carteApres();
       await feuilleO(150, 1);
-      await jusqua(async () => base.objectifs.length === 1 && base.objectifs[0].charge_kg === 150 && await fileVide(), 8000);
+      await jusqua(async () => base.objectifs.length === 1 && base.objectifs[0].charge_kg === 150 && await fileObjectifsVide(), 8000);
 
       // a — CHANGER PENDANT LA LECTURE : 155 × 1.
       const enVolA = await lectureRetenue();
       await feuilleO(155, 1);
-      await jusqua(async () => (base.objectifs[0] || {}).charge_kg === 155 && await fileVide(), 8000);
+      await jusqua(async () => (base.objectifs[0] || {}).charge_kg === 155 && await fileObjectifsVide(), 8000);
       const avantLiberationA = Date.now() < base.objectifsLibereA;
       await jusqua(async () => nbO((await carteO() || {}).titre) === nbO('155 kg × 1'), 10000);
       const ligneA = (await carteO() || {}).ligne;
@@ -23071,7 +23146,7 @@ const SETS_IMPORTES = [
       await page.click('#page-exercice .objectif-changer');
       await jusqua(async () => !!(await page.$('#feuille-contenu .feuille-pied .des')), 4000);
       await page.click('#feuille-contenu .feuille-pied .des');
-      await jusqua(async () => base.objectifs.length === 0 && await fileVide(), 8000);
+      await jusqua(async () => base.objectifs.length === 0 && await fileObjectifsVide(), 8000);
       const avantLiberationB = Date.now() < base.objectifsLibereA;
       ok('[O139] b — prémisse : la lecture (160 en main) est en vol, la suppression est en base et sortie de la file, AVANT que la lecture rende',
         enVolB && avantLiberationB && base.objectifs.length === 0, nbO([enVolB, avantLiberationB, base.objectifs]));
@@ -23087,14 +23162,14 @@ const SETS_IMPORTES = [
       await jusqua(syncTerminee, 60000);
       await jusqua(async () => !!(await carteO()), 10000);
       await feuilleO(150, 1);
-      await jusqua(async () => base.objectifs.length === 1 && (base.objectifs[0] || {}).charge_kg === 150 && await fileVide(), 8000);
+      await jusqua(async () => base.objectifs.length === 1 && (base.objectifs[0] || {}).charge_kg === 150 && await fileObjectifsVide(), 8000);
       await jusqua(dernierSync, 60000);
       base.objectifsRetenue = false; base.lenteurObjectifs = RETENUE; base.ecritureApresLecture = true;
       await feuilleO(155, 1);
-      const dansLaFileD = !(await fileVide());
+      const dansLaFileD = !(await fileObjectifsVide());
       await page.evaluate(() => document.getElementById('btn-rafraichir').click());
       const enVolD = await jusqua(async () => base.objectifsRetenue === true, 60000);
-      await jusqua(async () => (base.objectifs[0] || {}).charge_kg === 155 && await fileVide(), 8000);
+      await jusqua(async () => (base.objectifs[0] || {}).charge_kg === 155 && await fileObjectifsVide(), 8000);
       base.ecritureApresLecture = false;
       ok('[O139] d — prémisse : le geste 155 × 1 attendait dans la file quand la lecture (150) est partie ; il arrive en base après elle, avant qu’elle rende',
         dansLaFileD && enVolD && Date.now() < base.objectifsLibereA && (base.objectifs[0] || {}).charge_kg === 155,

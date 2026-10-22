@@ -160,7 +160,11 @@ function salleConforme(v, avantV2095) {
 
 async function contexte(nav, bd, o) {
   const opt = o || {};
-  const ctx = await nav.newContext({ viewport: { width: 380, height: 760 }, serviceWorkers: 'block' });
+  // 138 — `agent` : l'agent du navigateur (l'iPhone se simule par l'agent et `maxTouchPoints`, jamais autrement) ;
+  // `script` : un script posé avant la page (`navigator.standalone`, la plateforme d'un iPad qui se dit Mac).
+  const ctx = await nav.newContext(Object.assign({ viewport: { width: 380, height: 760 }, serviceWorkers: 'block' },
+    opt.agent ? { userAgent: opt.agent } : {}));
+  if (opt.script) await ctx.addInitScript(opt.script);
   // Le stockage de départ — posé UNE fois par onglet (le rechargement ne le repose pas).
   await ctx.addInitScript((s) => {
     if (sessionStorage.getItem('__graine')) return;
@@ -1142,6 +1146,302 @@ function ok(nom, cond, detail) {
             'Si tu as déjà un compte avec cette adresse, aucun mail ne part : utilise « Mot de passe oublié ? ».', JSON.stringify(p.message));
         ok('DISCRIMINANT [E70] — « Mot de passe oublié ? » est visible, juste sous la phrase', p.oubli.visible && p.oubli.sous, JSON.stringify(p.oubli));
         ok('aucune erreur de page', p.erreurs.length === 0, JSON.stringify(p.erreurs));
+      }
+    }
+
+
+    // ══ [138] IPHONE, L'ÉCRAN : INSTALLER TRAINHUB, ET LES RETOURS DE LIEN DANS SAFARI (ECRAN-PROFIL §3.5) ═══
+    console.log('\n══ [138] iPhone : l’encart de la connexion, la feuille, le bandeau de Saisie, la ligne du Profil, les retours de lien ══');
+    {
+      const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+      const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
+      const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
+      const tactile = (n) => 'Object.defineProperty(navigator,"platform",{get:()=>"MacIntel"});' +
+        'Object.defineProperty(navigator,"maxTouchPoints",{get:()=>' + n + '});';
+      const installee = 'Object.defineProperty(navigator,"standalone",{get:()=>true});';
+      const PH = {
+        connexion: ['Sur iPhone, installe TrainHub d’abord.', 'Puis ouvre-le depuis ton écran d’accueil et connecte-toi là.'],
+        saisie: ['Tu utilises TrainHub dans Safari.', 'Installé, il garde tes séances : Safari efface un site qu’on n’ouvre pas pendant 7 jours.'],
+        lien: ['C’est fait : ton adresse est confirmée.', 'Ouvre TrainHub depuis ton écran d’accueil et connecte-toi là. Pas encore installé ? Fais-le d’abord.'],
+        mdp: ['Ton mot de passe est changé.', 'Ouvre TrainHub depuis ton écran d’accueil et connecte-toi avec le nouveau.']
+      };
+      const bandeau = (page, id) => page.evaluate((i) => {
+        const n = document.querySelector('#' + i);
+        if (!n || n.hidden || !n.querySelector('.bandeau-reprise')) return null;
+        return { quoi: (n.querySelector('.reprise-quoi') || {}).textContent || '', sujet: (n.querySelector('.reprise-sujet') || {}).textContent || '',
+          boutons: Array.from(n.querySelectorAll('.reprise-actions button')).map((b) => b.textContent) };
+      }, id);
+      const toucher = (page, id, libelle) => page.evaluate((a) => Array.from(document.querySelectorAll('#' + a[0] + ' .reprise-actions button'))
+        .filter((b) => b.textContent === a[1])[0].click(), [id, libelle]);
+      const feuille = (page) => page.evaluate(() => {
+        const f = document.querySelector('#feuille-seance'), c = document.querySelector('#feuille-contenu');
+        if (!f || f.hidden) return null;
+        return { titre: (c.querySelector('.feuille-t') || {}).textContent || '',
+          etapes: Array.from(c.querySelectorAll('.installer-etape')).map((l) => ({ n: l.querySelector('.installer-n').textContent,
+            texte: l.querySelector('div').firstChild.textContent })),
+          sept: (c.querySelector('.aide-sept') || {}).textContent || '',
+          svg: !!c.querySelector('li svg.ico-part path'), image: !!c.querySelector('img'),
+          fermer: !!document.querySelector('#btn-fermer-feuille') && document.querySelector('#btn-fermer-feuille').textContent };
+      });
+      const lignesProfil = (page) => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .map((x) => [((x.querySelector('.p-lib') || {}).textContent || ''), ((x.querySelector('.p-val') || {}).textContent || '')]));
+      const dansLaPage = async (nav, bd, o, chemin, attente) => {
+        const ctx = await contexte(nav, bd, o);
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        await page.goto(BASE + chemin, { waitUntil: 'domcontentloaded' });
+        await attendreQue(page, () => page.evaluate(attente), 15000);
+        await calme(page, bd);
+        return { ctx, page, erreurs };
+      };
+      const connexionVue = () => { const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; };
+      const saisieVue = () => { const v = document.querySelector('#vue-saisie'); return !!v && !v.hidden; };
+      const profilVue = () => !!document.querySelector('#profil-corps .p-ligne');
+
+      // (1) l'encart de la connexion : iPhone oui (les deux modes), Android non, app installée non, iPad « Mac » oui, Mac non
+      console.log('   — (1) l’encart de la connexion');
+      {
+        const cas = [['iPhone', IPHONE, null, true], ['Android', ANDROID, null, false], ['iPhone installé (navigator.standalone)', IPHONE, installee, false],
+          ['iPad qui se dit Mac, tactile', MAC, tactile(5), true], ['Mac sans écran tactile', MAC, tactile(0), false]];
+        for (const [nom, agent, script, attendu] of cas) {
+          const bd = neuveBase();
+          const { ctx, page, erreurs } = await dansLaPage(nav, bd, { agent, script }, '/', connexionVue);
+          const b = await bandeau(page, 'encart-installer');
+          if (attendu) {
+            ok('DISCRIMINANT [138 1] — ' + nom + ' : l’encart dit les deux phrases au mot près, et « Comment faire » seul (pas de « Plus tard »)',
+              !!b && b.quoi === PH.connexion[0] && b.sujet === PH.connexion[1] && JSON.stringify(b.boutons) === '["Comment faire"]', JSON.stringify(b));
+            const place = await page.evaluate(() => { const f = document.querySelector('#form-connexion'), e = document.querySelector('#encart-installer');
+              return f.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING ? 'sous' : 'dessus'; });
+            ok('[138 1] — ' + nom + ' : l’encart est sous le formulaire', place === 'sous', place);
+          } else {
+            ok('DISCRIMINANT [138 1] — ' + nom + ' : AUCUN encart', b === null, JSON.stringify(b));
+          }
+          ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+          if (nom === 'iPhone') {
+            // les deux modes de l'entrée
+            await page.click('#btn-bascule-entree');
+            await versInscription(page);
+            const ins = await bandeau(page, 'encart-installer');
+            ok('[138 1] — iPhone, inscription : le même encart', !!ins && ins.quoi === PH.connexion[0], JSON.stringify(ins));
+            // (2) la feuille « Comment faire », depuis la connexion
+            await toucher(page, 'encart-installer', 'Comment faire');
+            await feuilleOuverte(page);
+            const f = await feuille(page);
+            ok('DISCRIMINANT [138 2] — la feuille : titre, trois étapes numérotées, la phrase des 7 jours, « Fermer » — au mot près',
+              !!f && f.titre === 'Installer TrainHub sur ton iPhone' && JSON.stringify(f.etapes.map((e) => e.n)) === '["1","2","3"]' &&
+              JSON.stringify(f.etapes.map((e) => e.texte)) === JSON.stringify(['Touche le bouton Partager, en bas de Safari.',
+                'Fais défiler et touche « Sur l’écran d’accueil ».', 'Touche « Ajouter », puis ouvre TrainHub depuis son icône et connecte-toi.']) &&
+              f.sept === 'Dans Safari, l’iPhone efface les données d’un site qu’on n’ouvre pas pendant 7 jours. Installé, TrainHub garde tes séances.' &&
+              f.fermer === 'Fermer', JSON.stringify(f));
+            ok('[138 2] — le pictogramme Partager est un SVG en ligne, pas une image', !!f && f.svg && !f.image, JSON.stringify(f));
+            await page.click('#btn-fermer-feuille');
+            ok('[138 2] — « Fermer » ferme la feuille', await feuilleFermee(page));
+          }
+          await ctx.close();
+        }
+      }
+
+      // (3) le bandeau de Saisie : iPhone connectée ; « Plus tard » 7 jours ; Android et app installée non
+      console.log('   — (3) le bandeau de Saisie');
+      {
+        const bd = neuveBase();
+        const { ctx, page, erreurs } = await dansLaPage(nav, bd, { agent: IPHONE, stockage: sessionDe(A) }, '/saisie', saisieVue);
+        await attendreQue(page, async () => !!(await bandeau(page, 'bandeau-installer')), 8000);
+        const b = await bandeau(page, 'bandeau-installer');
+        ok('DISCRIMINANT [138 4] — iPhone connectée : « Tu utilises TrainHub dans Safari. », Plus tard · Comment faire',
+          !!b && b.quoi === PH.saisie[0] && b.sujet === PH.saisie[1] && JSON.stringify(b.boutons) === '["Plus tard","Comment faire"]', JSON.stringify(b));
+        const ordre = await page.evaluate(() => {
+          const ids = ['bandeau-questionnaire', 'bandeau-phase', 'bandeau-installer'].map((i) => document.getElementById(i));
+          return ids.every((n) => !!n) && !!(ids[1].compareDocumentPosition(ids[2]) & Node.DOCUMENT_POSITION_FOLLOWING) &&
+            !!(ids[0].compareDocumentPosition(ids[2]) & Node.DOCUMENT_POSITION_FOLLOWING) &&
+            ids[2].parentNode.id === 'vue-saisie';
+        });
+        ok('[138 4] — dans la pile des bandeaux de Saisie, SOUS le questionnaire et la phase', ordre);
+        await toucher(page, 'bandeau-installer', 'Comment faire');
+        await feuilleOuverte(page);
+        ok('[138 4] — « Comment faire » ouvre la feuille', !!(await feuille(page)));
+        await page.click('#btn-fermer-feuille');
+        await feuilleFermee(page);
+        const avant = bd.requetes.length;
+        await toucher(page, 'bandeau-installer', 'Plus tard');
+        const cache = await attendreQue(page, async () => (await bandeau(page, 'bandeau-installer')) === null, 5000);
+        const cle = await page.evaluate(() => localStorage.getItem('th-v2-installer-plus-tard'));
+        ok('DISCRIMINANT [138 4] — « Plus tard » cache le bandeau et écrit l’instant sur l’appareil (localStorage), rien en base',
+          cache && Number(cle) > Date.now() - 60000 && bd.requetes.length === avant, String(cle));
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await attendreQue(page, () => page.evaluate(saisieVue), 15000);
+        await calme(page, bd);
+        ok('[138 4] — rechargé : il reste caché', (await bandeau(page, 'bandeau-installer')) === null);
+        // 6 jours 23 h : caché ; 7 jours et plus : il revient
+        for (const [jours, revient] of [[6.9, false], [7.1, true]]) {
+          await page.evaluate((j) => localStorage.setItem('th-v2-installer-plus-tard', String(Date.now() - j * 86400000)), jours);
+          await page.reload({ waitUntil: 'domcontentloaded' });
+          await attendreQue(page, () => page.evaluate(saisieVue), 15000);
+          await calme(page, bd);
+          const r = (await bandeau(page, 'bandeau-installer')) !== null;
+          ok('DISCRIMINANT [138 4] — « Plus tard » il y a ' + jours + ' jours : le bandeau ' + (revient ? 'REVIENT (7 jours écoulés)' : 'reste caché'), r === revient);
+        }
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+      {
+        // un stockage fermé (lecture qui lève) ne casse rien : on ne sait pas, le bandeau se montre
+        const bd = neuveBase();
+        const ferme = 'var g=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==="th-v2-installer-plus-tard")throw new Error("stockage fermé");return g.call(this,k);};';
+        const { ctx, page, erreurs } = await dansLaPage(nav, bd, { agent: IPHONE, stockage: sessionDe(A), script: ferme }, '/saisie', saisieVue);
+        await attendreQue(page, async () => !!(await bandeau(page, 'bandeau-installer')), 8000);
+        ok('[138 4] — un stockage fermé (lecture qui lève) : le bandeau se montre, aucune erreur de page', !!(await bandeau(page, 'bandeau-installer')) && erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+      for (const [nom, agent, script] of [['Android', ANDROID, null], ['iPhone installé', IPHONE, installee]]) {
+        const bd = neuveBase();
+        const { ctx, page, erreurs } = await dansLaPage(nav, bd, { agent, script, stockage: sessionDe(A) }, '/saisie', saisieVue);
+        ok('DISCRIMINANT [138 4] — ' + nom + ' : Saisie ne change pas, aucun bandeau', (await bandeau(page, 'bandeau-installer')) === null);
+        await page.goto(BASE + '/profil', { waitUntil: 'domcontentloaded' });
+        await attendreQue(page, () => page.evaluate(profilVue), 15000);
+        const l = await lignesProfil(page);
+        ok('DISCRIMINANT [138 7] — ' + nom + ' : le Profil ne change pas, aucune ligne « Installer »', l.length > 3 && !l.some((x) => /Installer/.test(x[0])), JSON.stringify(l.slice(0, 3)));
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // (4) la ligne du Profil
+      console.log('   — (4) la ligne du Profil');
+      {
+        const bd = neuveBase();
+        const { ctx, page, erreurs } = await dansLaPage(nav, bd, { agent: IPHONE, stockage: sessionDe(A) }, '/profil', profilVue);
+        const l = await lignesProfil(page);
+        const i = l.findIndex((x) => x[0] === 'Installer sur l’écran d’accueil');
+        ok('DISCRIMINANT [138 7] — iPhone : « Installer sur l’écran d’accueil », valeur « Comment faire », en tête de « L’APP » (avant le pseudo)',
+          i >= 0 && l[i][1] === 'Comment faire' && i + 1 < l.length && /Pseudo/.test(l[i + 1][0]), JSON.stringify(l.slice(Math.max(0, i - 1), i + 2)));
+        await cliquerLigne(page, 'Installer sur');
+        await feuilleOuverte(page);
+        const f = await feuille(page);
+        ok('[138 7] — elle ouvre la feuille « Comment faire »', !!f && f.titre === 'Installer TrainHub sur ton iPhone', JSON.stringify(f && f.titre));
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // (5) le retour d'un lien de confirmation, sur iPhone hors de l'app : l'écran du lien, et l'entrée attend
+      console.log('   — (5) le retour d’un lien de confirmation sur iPhone');
+      {
+        const lienSignup = BASE + '/#access_token=' + jwt(B) + '&expires_at=' + (Math.floor(Date.now() / 1000) + 3600) +
+          '&expires_in=3600&refresh_token=r-' + B + '&token_type=bearer&type=signup';
+        const bd = neuveBase();
+        // L'ORDRE RÉEL DES ÉVÉNEMENTS DU SDK : posé avant la page, relevé dans `window.__ordre`.
+        const releve = 'window.__ordre=[];var _t=0;Object.defineProperty(window,"THAuth",{configurable:true,get:function(){return _t;},set:function(v){' +
+          'if(v&&v.surChangement&&!v.__espion){var sc=v.surChangement,sk=v.sessionCourante;' +
+          'v.surChangement=function(r){return sc(function(s,e){window.__ordre.push("evt:"+e+":"+(s?"session":"null"));return r(s,e);});};' +
+          'v.sessionCourante=function(){return sk().then(function(x){window.__ordre.push("getSession:"+(x?"session":"null"));return x;});};v.__espion=1;}_t=v;}});';
+        const ctx = await contexte(nav, bd, { agent: IPHONE, script: releve });
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        await page.goto(lienSignup, { waitUntil: 'domcontentloaded' });
+        const vu = await attendreQue(page, async () => !!(await bandeau(page, 'bandeau-lien')), 15000);
+        await attendreQue(page, () => page.evaluate(() => window.__ordre.some((x) => x.indexOf('evt:') === 0)), 8000);
+        await calme(page, bd);
+        const b = await bandeau(page, 'bandeau-lien');
+        const ordre = await page.evaluate(() => window.__ordre);
+        console.log('   ℹ︎ l’ordre des événements du SDK sur ce lien : ' + JSON.stringify(ordre));
+        ok('DISCRIMINANT [138 5] — le lien s’arrête sur son écran : « C’est fait : ton adresse est confirmée. », Continuer ici · Comment installer',
+          vu && !!b && b.quoi === PH.lien[0] && b.sujet === PH.lien[1] && JSON.stringify(b.boutons) === '["Continuer ici","Comment installer"]', JSON.stringify(b));
+        ok('prémisse [138 5] — le SDK a bien émis `SIGNED_IN` avec la session du lien (et pas `PASSWORD_RECOVERY`), pendant l’attente',
+          ordre.indexOf('evt:SIGNED_IN:session') >= 0 && !ordre.some((x) => /PASSWORD_RECOVERY/.test(x)), JSON.stringify(ordre));
+        const e1 = await page.evaluate(() => ({ lien: !document.querySelector('#vue-lien').hidden,
+          autre: Array.from(document.querySelectorAll('section[id^="vue-"]')).some((v) => v.id !== 'vue-lien' && !v.hidden),
+          jeton: !!localStorage.getItem('th-v2-auth'), adresse: location.href }));
+        ok('DISCRIMINANT [138 5] — l’app n’est PAS entrée (aucun autre écran), la session du lien n’est pas perdue (jeton enregistré)',
+          e1.lien && !e1.autre && e1.jeton && bd.requetes.length === 0 && !bd.profils[B], JSON.stringify([e1, bd.requetes]));
+        ok('[138 5] — l’adresse ne garde aucun fragment', e1.adresse.indexOf('access_token') < 0 && e1.adresse.indexOf('#') < 0, e1.adresse);
+        await toucher(page, 'bandeau-lien', 'Comment installer');
+        await feuilleOuverte(page);
+        const f = await feuille(page);
+        ok('[138 5] — « Comment installer » ouvre la feuille, l’écran du lien reste là', !!f && f.titre === 'Installer TrainHub sur ton iPhone' && !!(await bandeau(page, 'bandeau-lien')));
+        await page.click('#btn-fermer-feuille');
+        await feuilleFermee(page);
+        await toucher(page, 'bandeau-lien', 'Continuer ici');
+        const entre = await attendreQue(page, () => page.evaluate(() => Array.from(document.querySelectorAll('section[id^="vue-"]'))
+          .some((v) => v.id !== 'vue-lien' && v.id !== 'vue-connexion' && !v.hidden)), 15000);
+        await attendreQue(page, () => !!bd.profils[B], 12000);
+        const e2 = await page.evaluate(() => ({ lien: !document.querySelector('#vue-lien').hidden, connexion: !document.querySelector('#vue-connexion').hidden }));
+        ok('DISCRIMINANT [138 5] — « Continuer ici » : l’app ENTRE, sur le compte du lien (sa ligne de profil se crée)',
+          entre && !e2.lien && !e2.connexion && !!bd.profils[B] && bd.refus.length === 0, JSON.stringify([e2, bd.requetes]));
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // (5 bis) lien expiré, et réponse tardive du SDK : sur iPhone, RIEN ne change (§5.6)
+      console.log('   — (5 bis) lien expiré, SDK en retard : rien ne change');
+      {
+        const bd = neuveBase();
+        const { ctx, page, erreurs } = await dansLaPage(nav, bd, { agent: IPHONE }, '/profil#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired',
+          () => { const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden && !!document.querySelector('#erreur-connexion').textContent; });
+        const m = await page.evaluate(() => document.querySelector('#erreur-connexion').textContent);
+        ok('DISCRIMINANT [138 5] — iPhone, lien expiré : l’écran de connexion et sa phrase, comme avant (et l’encart)',
+          m === 'Ce lien a expiré ou a déjà servi. Redemande-en un avec « Mot de passe oublié ? ».' && !!(await bandeau(page, 'encart-installer')), m);
+        ok('[138 5] — pas de bandeau de lien', (await bandeau(page, 'bandeau-lien')) === null);
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+      {
+        const lienTard = BASE + '/#access_token=' + jwt(B) + '&expires_at=' + (Math.floor(Date.now() / 1000) + 3600) +
+          '&expires_in=3600&refresh_token=r-' + B + '&token_type=bearer&type=signup';
+        const bd = neuveBase();
+        bd.userDelai = 7000;
+        const ctx = await contexte(nav, bd, { agent: IPHONE });
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        await page.goto(lienTard, { waitUntil: 'domcontentloaded' });
+        const dit = await attendreQue(page, () => page.evaluate(() => { const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden &&
+          !!document.querySelector('#erreur-connexion').textContent; }), 12000);
+        ok('[138 5] — iPhone, SDK à 7 s : à 5 s l’écran de connexion et sa phrase (aucun bandeau de lien)', dit && (await bandeau(page, 'bandeau-lien')) === null);
+        const entre = await attendreQue(page, () => page.evaluate(() => { const v = document.querySelector('#vue-connexion'); return !!v && v.hidden &&
+          document.querySelector('#vue-lien').hidden; }), 15000);
+        await attendreQue(page, () => !!bd.profils[B], 12000);
+        ok('DISCRIMINANT [138 5] — la réponse tardive du SDK fait ENTRER, comme avant (le délai a relâché l’attente)', entre && !!bd.profils[B]);
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // (6) la récupération sur iPhone : la feuille du mot de passe comme avant, puis la phrase en tête du Profil
+      console.log('   — (6) la récupération sur iPhone');
+      {
+        const lienRecup = BASE + '/profil#access_token=' + jwt(B) + '&expires_at=' + (Math.floor(Date.now() / 1000) + 3600) +
+          '&expires_in=3600&refresh_token=r-' + B + '&token_type=bearer&type=recovery';
+        const bd = neuveBase();
+        const ctx = await contexte(nav, bd, { agent: IPHONE });
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        await page.goto(lienRecup, { waitUntil: 'domcontentloaded' });
+        const ouverte = await attendreQue(page, async () => /Choisis ton nouveau mot de passe/.test(((await feuille(page)) || {}).titre || '') ||
+          /Choisis ton nouveau mot de passe/.test(await page.evaluate(() => document.querySelector('#feuille-contenu').textContent)), 15000);
+        await attendreQue(page, () => !!bd.profils[B], 12000);
+        await calme(page, bd);
+        ok('DISCRIMINANT [138 5] — la récupération ne s’arrête pas : la feuille « Choisis ton nouveau mot de passe » s’ouvre, sans bandeau de lien',
+          ouverte && (await bandeau(page, 'bandeau-lien')) === null);
+        await page.fill('#feuille-contenu input', 'nouveau-mdp-138');
+        await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
+        await attendreQue(page, () => bd.motsDePasse.length > 0, 8000);
+        const dit = await attendreQue(page, async () => !!(await page.evaluate(() => document.querySelector('#profil-corps .bandeau-reprise'))), 8000);
+        await calme(page, bd);
+        const t = await page.evaluate(() => {
+          const c = document.querySelector('#profil-corps'), b = c.querySelector('.bandeau-reprise');
+          return { quoi: b ? b.querySelector('.reprise-quoi').textContent : null, sujet: b ? b.querySelector('.reprise-sujet').textContent : null,
+            boutons: b ? Array.from(b.querySelectorAll('button')).map((x) => x.textContent) : null,
+            enTete: !!b && c.firstChild.contains(b), note: /Mot de passe changé\./.test(c.textContent) };
+        });
+        ok('DISCRIMINANT [138 6] — après le nouveau mot de passe : « Ton mot de passe est changé. » en tête du Profil, « Compris » seul, à la place de la note',
+          dit && t.quoi === PH.mdp[0] && t.sujet === PH.mdp[1] && JSON.stringify(t.boutons) === '["Compris"]' && t.enTete && !t.note, JSON.stringify(t));
+        await calme(page, bd);     // `USER_UPDATED` re-rend le Profil : le bandeau reste
+        ok('[138 6] — il survit au re-rendu qui suit le changement', !!(await page.evaluate(() => document.querySelector('#profil-corps .bandeau-reprise'))));
+        await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .bandeau-reprise button')).filter((b) => b.textContent === 'Compris')[0].click());
+        ok('[138 6] — « Compris » le ferme', await attendreQue(page, async () => !(await page.evaluate(() => document.querySelector('#profil-corps .bandeau-reprise'))), 4000));
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
       }
     }
 

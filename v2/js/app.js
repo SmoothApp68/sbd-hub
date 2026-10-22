@@ -195,7 +195,7 @@
     // 66B — LA RELECTURE NE SURVIT PAS À SA VUE : les cartes repliées valent pour CETTE ouverture.
     if (nom !== 'relecture') relecture = null;
     // 70 — « Mot de passe changé. » ne vaut que sous les yeux : quitter le profil l'efface.
-    if (nom !== 'profil') noteProfil = null;
+    if (nom !== 'profil') { noteProfil = null; bandeauMotDePasse = false; }
     // 116 (03 #6) — « Pas enregistré : … » se dit une fois, sur le Profil : vue, elle s'efface en le quittant.
     if (nom !== 'profil' && refusProfil && refusProfil.vu) refusProfil = null;
     var onglet = Routeur.ongletDe(vue || nom);
@@ -9337,6 +9337,7 @@
     // pas terminé » ne dépend pas du chargement des routines.
     rendreBandeauQuestionnaire();
     rendreBandeauPhase();
+    rendreBandeauInstaller();                  // 138 : iPhone, hors de l'app
     rendreCarteCycles();
     rendreCarteSemaine();
     rendreCarteManque();
@@ -12819,6 +12820,7 @@
     // séance, feuille ou « Ranger » en cours).
     rendreBandeauQuestionnaire();
     rendreBandeauPhase();
+    rendreBandeauInstaller();
     rendreCarteCycles();                       // 60-4 : la carte « Passer en cycles » lit le même profil
     jeuSuitLeProfil();                         // 64B : l'interrupteur a pu changer sur un autre appareil
     parcoursSuitLeProfil();                    // 75 : « Ton parcours » lit le sexe et les priorités
@@ -13691,6 +13693,66 @@
     });
   }
 
+  // ══ 138 (ECRAN-PROFIL §3.5) — IPHONE : INSTALLER, ET LES RETOURS DE LIEN ══════════════════════════════
+  //
+  // Sur Android, Chrome propose l'installation : l'app n'en dit rien. Sur iPhone, Safari ne propose rien et efface les
+  // données d'un site non installé qu'on n'ouvre pas pendant 7 jours (audit I-03, I-12) ; un lien d'e-mail ouvre
+  // Safari, jamais l'app installée (I-05). UNE SEULE fonction décide « iPhone, hors de l'app » (`Auth.iphoneHorsApp`),
+  // et les phrases viennent d'un seul endroit (`Auth.PHRASES_IPHONE`). Tout ce qui suit la LIT : rien n'est écrit en base.
+  function surIphone() {
+    return Auth.iphoneHorsApp(racine.navigator, typeof racine.matchMedia === 'function' ? racine.matchMedia.bind(racine) : null);
+  }
+
+  // La feuille « Comment faire » : le voile et la feuille de l'app (son « Fermer » est celui du voile).
+  function ouvrirFeuilleInstaller() {
+    var f = Auth.PHRASES_IPHONE.feuille;
+    Rendu.rendreFeuilleInstaller($('feuille-contenu'), { titre: f.titre, etapes: f.etapes, sept: f.sept });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  // L'encart de la connexion : sous le formulaire, les deux modes (connexion, inscription), pas de « Plus tard ».
+  function rendreEncartInstaller() {
+    var noeud = $('encart-installer');
+    if (!noeud) return;
+    if (!surIphone()) { Rendu.rendreBandeauReprise(noeud, null); return; }
+    var p = Auth.PHRASES_IPHONE.connexion;
+    Rendu.rendreBandeauReprise(noeud, { quoi: p.quoi, sujet: p.sujet,
+      libelleReprendre: 'Comment faire', surReprendre: ouvrirFeuilleInstaller });
+  }
+
+  // « Plus tard » : un fait de CET APPAREIL (le Safari qu'on a ouvert), pas du compte — `localStorage`, une clé,
+  // l'instant en millisecondes, lecture et écriture sous `try` (comme `th-v2-sourdine`). Aucune colonne en base.
+  var CLE_INSTALLER_PLUS_TARD = 'th-v2-installer-plus-tard';
+  var SEPT_JOURS_MS = 7 * 24 * 60 * 60 * 1000;
+
+  function installerRepousse(maintenant) {
+    try {
+      var t = Number(racine.localStorage.getItem(CLE_INSTALLER_PLUS_TARD));
+      return t > 0 && maintenant - t >= 0 && maintenant - t < SEPT_JOURS_MS;
+    } catch (e) { return false; }
+  }
+
+  // Le bandeau de Saisie : connectée, hors séance, SOUS le questionnaire et la phase (ils passent d'abord : l'ordre du DOM).
+  function rendreBandeauInstaller() {
+    var noeud = $('bandeau-installer');
+    if (!noeud) return;
+    if (seance || !sessionActive || !surIphone() || installerRepousse(Date.now())) {
+      Rendu.rendreBandeauReprise(noeud, null);
+      return;
+    }
+    var p = Auth.PHRASES_IPHONE.saisie;
+    Rendu.rendreBandeauReprise(noeud, {
+      quoi: p.quoi, sujet: p.sujet,
+      libelleQuitter: 'Plus tard',
+      surQuitter: function () {
+        try { racine.localStorage.setItem(CLE_INSTALLER_PLUS_TARD, String(Date.now())); } catch (e) { /* stockage fermé : il reviendra */ }
+        rendreBandeauInstaller();
+      },
+      libelleReprendre: 'Comment faire',
+      surReprendre: ouvrirFeuilleInstaller
+    });
+  }
+
   // La réponse au rappel, par la MÊME préparation des champs que le questionnaire et
   // le Profil (`Profil.preparerChamps`) : la phase inchangée n'écrit que sa date de
   // confirmation, une autre phase écrit aussi la phase et son « depuis ». `poserProfil`
@@ -14165,7 +14227,10 @@
           // changement émet `USER_UPDATED`, l'app ré-entre et re-rend le Profil, ce qui l'effaçait.
           Auth.changerMotDePasse(v).then(function () {
             finRecuperation();
-            noteProfil = { classe: 'vide', texte: 'Mot de passe changé.' };
+            // 138 (§3.5) — après une RÉCUPÉRATION, sur iPhone hors de l'app : la phrase qui dit où se connecter, à la place
+            // de la seule note. Ailleurs (Android, ordinateur, app installée, ligne « Mot de passe »), la note d'avant.
+            if (pourRecuperation && surIphone()) { noteProfil = null; bandeauMotDePasse = true; }
+            else noteProfil = { classe: 'vide', texte: 'Mot de passe changé.' };
             rendreProfilEcran();
           }).catch(function (e) {
             finRecuperation();
@@ -14187,6 +14252,8 @@
   // La phrase que le Profil porte en tête après un changement de mot de passe : elle survit aux
   // re-rendus (synchronisation, ré-entrée) et s'en va quand on quitte l'écran (`montrer`).
   var noteProfil = null;
+  // 138 — « Ton mot de passe est changé. » (iPhone, hors de l'app) : un état du Profil, comme la note ; « Compris » le ferme.
+  var bandeauMotDePasse = false;
   // 116 (03 #6) — une colonne que la base a refusée pour de bon (`envoyerProfilMaintenant`) : `{ texte, vu }`, ou `null`.
   var refusProfil = null;
 
@@ -14308,7 +14375,10 @@
           // 60-2a — les quatre réponses de l'écran « Temps » (leurs phrases sont dans la feuille).
           Profil.ligneTemps(p, ouvrirReponseProfil)
         ] },
-        { titre: 'L’APP', lignes: [
+        { titre: 'L’APP', lignes: (surIphone() ? [
+          // 138 (§3.5) — en tête, seulement sur iPhone hors de l'app : la feuille « Comment faire ».
+          { libelle: Auth.PHRASES_IPHONE.ligne, valeur: 'Comment faire', surChoix: ouvrirFeuilleInstaller }
+        ] : []).concat([
           // 60-3b — et, « pris entre-temps », la phrase qui le dit tant qu'aucun pseudo n'est posé.
           Profil.lignePseudo(p, pseudoPrisSignale(), function () { ouvrirSaisieProfil('username'); }),
           { libelle: 'Bio', valeur: p.bio || null,
@@ -14319,7 +14389,7 @@
             valeur: (sessionActive && sessionActive.user && sessionActive.user.email) || null },
           // 70 — appelée SANS argument : le rendu passe l'événement du clic, qui n'est pas une récupération.
           { libelle: 'Mot de passe', valeur: '••••••••', surChoix: function () { ouvrirMotDePasseProfil(false); } }
-        ] }
+        ]) }
       ],
       // 64B — la vitrine (les trois succès les plus rares, décidés par le jeu), et en bas l'interrupteur, qui
       // écrit par le chemin du profil : local d'abord, l'écran suit tout de suite, hors ligne compris.
@@ -14329,6 +14399,13 @@
       surSupprimer: demanderSuppressionCompte
     });
     if (noteProfil) $('profil-corps').insertBefore(Rendu.el('p', noteProfil.classe, noteProfil.texte), $('profil-corps').firstChild);
+    if (bandeauMotDePasse) {
+      var pm = Auth.PHRASES_IPHONE.motDePasse;
+      $('profil-corps').insertBefore(Rendu.rendreBandeauReprise(Rendu.el('div', 'bandeau-profil'), {
+        quoi: pm.quoi, sujet: pm.sujet, libelleReprendre: 'Compris',
+        surReprendre: function () { bandeauMotDePasse = false; rendreProfilEcran(); }
+      }), $('profil-corps').firstChild);
+    }
     if (refusProfil && refusProfil.texte) {
       $('profil-corps').insertBefore(Rendu.el('p', 'vide', refusProfil.texte), $('profil-corps').firstChild);
       refusProfil.vu = true;
@@ -14884,6 +14961,7 @@
     var c = champsEntree();
     c.mode = modeEntree;
     Rendu.rendreEntree(c);
+    rendreEncartInstaller();   // 138 : iPhone, hors de l'app
     majBoutonEntree();
   }
 
@@ -15002,6 +15080,31 @@
   // 70 — l'attente d'un retour de lien est bornée (ECRAN-PROFIL §5.6), et ses deux phrases.
   var DELAI_LIEN_MS = 5000;
   var DELAI_DEPASSE = {};
+
+  // 138 — le lien de confirmation en attente de « Continuer ici » : `{ session }` (la dernière reçue du SDK), ou `null`.
+  var lienTenu = null;
+
+  // L'écran du lien montre le bandeau du §3.5 au lieu d'entrer. « Continuer ici » appelle l'entrée qui aurait eu lieu ;
+  // « Comment installer » ouvre la feuille (l'écran reste là).
+  function proposerRetourIphone(sessionDuLien) {
+    var noeud = $('bandeau-lien');
+    var phrase = doc.querySelector('#vue-lien .entree-phrase');
+    var p = Auth.PHRASES_IPHONE.lien;
+    if (phrase) phrase.textContent = '';
+    Rendu.rendreBandeauReprise(noeud, {
+      quoi: p.quoi, sujet: p.sujet,
+      libelleQuitter: 'Continuer ici',
+      surQuitter: function () {
+        var tenu = lienTenu;
+        lienTenu = null;
+        Rendu.rendreBandeauReprise(noeud, null);
+        if (phrase) phrase.textContent = 'Ouverture du lien…';
+        entrer((tenu && tenu.session) || sessionDuLien).catch(function (e) { console.warn('Entrée :', texteErreur(e)); });
+      },
+      libelleReprendre: 'Comment installer',
+      surReprendre: ouvrirFeuilleInstaller
+    });
+  }
   var PHRASE_LIEN_EXPIRE = 'Ce lien a expiré ou a déjà servi. Redemande-en un avec « Mot de passe oublié ? ».';
   var PHRASE_LIEN_NON_VERIFIE = 'Le lien n\'a pas pu être vérifié. Réessaie, ou redemande-en un avec « Mot de passe oublié ? ».';
 
@@ -15356,6 +15459,12 @@
     // jeton a VRAIMENT disparu du stockage — ce que fait `Auth.deconnecter`, et
     // ce que fait le SDK quand le compte est réellement révoqué.
     Auth.surChangement(function (session, evenement) {
+      // 138 — iPhone, hors de l'app, lien de confirmation : l'entrée attend « Continuer ici » (voir plus bas). La session
+      // reçue est GARDÉE (la plus récente : le jeton peut être rafraîchi pendant l'attente), jamais perdue ni jetée.
+      if (lienTenu && session) {
+        if (evenement === 'PASSWORD_RECOVERY') lienTenu = null;   // une récupération n'attend personne (§5.6)
+        else { lienTenu.session = session; return; }
+      }
       // 70 — arrivé par un lien de récupération : la feuille du mot de passe
       // s'ouvre d'elle-même, dès que l'entrée a posé son premier écran.
       if (session && evenement === 'PASSWORD_RECOVERY') {
@@ -15397,6 +15506,21 @@
     // répond plus tard, le rappel de `surChangement` fait entrer (et ouvre la
     // feuille d'une récupération) — rien d'autre à écrire pour l'entrée tardive.
     var persistee = Auth.sessionPersistee();
+    // ⚠️ 138 (ECRAN-PROFIL §3.5) — UN LIEN DE CONFIRMATION, SUR IPHONE HORS DE L'APP, S'ARRÊTE SUR SA PHRASE.
+    // Le lien ouvre Safari, pas l'app installée, et le stockage de Safari est à part : y entrer en silence
+    // connectait la personne dans une copie qu'elle ne cherchait pas (I-05). La personne décide (« Continuer ici »).
+    //
+    // L'ORDRE DES ÉVÉNEMENTS DU SDK (supabase-js 2.105.1, `GoTrueClient._initialize`, lu dans le dépôt ET relevé au banc
+    // [138], vrai SDK, faux serveur) : le SDK lit le fragment, demande `GET /auth/v1/user`, ENREGISTRE la session
+    // (`_saveSession`), puis émet `PASSWORD_RECOVERY` si le fragment porte `type=recovery`, et `SIGNED_IN` pour TOUT AUTRE
+    // type (signup, magiclink, invite, email_change…), suivi de `INITIAL_SESSION` (la souscription l'attend). Relevé sur un
+    // lien de confirmation : `SIGNED_IN`, `INITIAL_SESSION`, PUIS la lecture de `getSession()` rend la main — les événements
+    // passent AVANT elle. Tous passent par `Auth.surChangement`, qui fait entrer : l'attente est donc POSÉE ICI, de façon
+    // synchrone, avant le premier `await`, sans rien supposer de l'ordre entre l'événement et la lecture de la session ;
+    // `surChangement` GARDE la session reçue au lieu d'entrer. La récupération se distingue AVANT toute décision, sur
+    // l'adresse seule (`retour.recup`, le `type` du fragment) : elle n'attend jamais. Le flux PKCE (`?code=`) ne porte pas
+    // son type : rien n'est arrêté (`retour.implicite` absent).
+    lienTenu = retour && retour.implicite && surIphone() ? { session: null } : null;
     if (retour) {
       montrer('lien');
       var minuteur = null;
@@ -15414,8 +15538,19 @@
       } else if (!lue) {
         phraseLien = retour.erreur ? PHRASE_LIEN_EXPIRE : PHRASE_LIEN_NON_VERIFIE;
       }
+      // 138 — la session QUE LE LIEN A DONNÉE (ni le délai, ni une session déjà enregistrée), et qui n'est pas une récupération.
+      var duLien = lue;
+      if (lienTenu && duLien && recuperation !== 'due') {
+        proposerRetourIphone(duLien);
+        enregistrerSW();
+        Auth.sessionCourante().catch(function () {});
+        return;
+      }
+      // Sans session du lien (expiré, délai) : rien ne change. Un événement gardé en attendant n'est pas perdu.
+      var tenu = lienTenu;
+      lienTenu = null;
+      lue = lue || (tenu && tenu.session) || Auth.sessionPersistee();
       // Une entrée a pu partir de l'événement du SDK pendant l'attente : elle décide, pas le délai.
-      lue = lue || Auth.sessionPersistee();
       if (lue) await entrer(lue);
       else if (!entreeEnCours && !sessionActive) {
         allerA(Routeur.CONNEXION, {}, true);

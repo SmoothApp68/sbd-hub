@@ -630,6 +630,18 @@ button.bloc-exo:active{background:var(--panneau-2)}
   font-variant-numeric:tabular-nums}
 .reprise-actions{display:flex;gap:var(--e2);margin-top:var(--e3)}
 .reprise-actions button{flex:1;margin:0}
+/* 138 — iPhone, installer (ECRAN-PROFIL §3.5) : le bandeau de la connexion et du lien garde le composant de reprise ;
+   la feuille « Comment faire » : trois étapes numérotées, le pictogramme Partager dessiné en SVG. */
+.entree .bandeau-reprise{margin:var(--e3) 0 0}
+.installer-etapes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--e3)}
+.installer-etape{display:grid;grid-template-columns:28px 1fr;gap:var(--e2);align-items:start;
+  font-size:14px;line-height:1.4;color:var(--texte)}
+.installer-etape .installer-n{font-family:var(--pile-c);font-size:18px;font-weight:700;line-height:1.2;color:var(--accent)}
+.puce-ios{display:inline-flex;align-items:center;gap:6px;background:var(--panneau-2);
+  border-radius:var(--r-petit);padding:4px 8px;font-size:13px;margin-top:4px;color:var(--texte-2)}
+.ico-part{display:inline-block;width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.aide-sept{margin-top:var(--e3);padding-bottom:0;font-size:12px;line-height:1.45;color:var(--texte-2)}
 .vide-aide{font-size:12.5px;color:var(--texte-3);line-height:1.55;
   padding:0 4px var(--e4)}
 

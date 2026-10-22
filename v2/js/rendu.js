@@ -724,12 +724,12 @@
       fiche.appendChild(li);
     });
     if (fiche.childNodes.length) cible.appendChild(fiche);
-    var etapes = el('ol', 'etapes');
+    var etapes = el('ol', 'installer-etapes');
     var n = 0;
     String(c.description || '').split('\n').forEach(function (ligne) {
       if (!ligne.trim()) return;
       n++;
-      var li = el('li', 'etape');
+      var li = el('li', 'installer-etape');
       li.appendChild(el('span', 'etape-n', String(n)));
       li.appendChild(el('span', 'etape-t', ligne));
       etapes.appendChild(li);
@@ -4563,6 +4563,35 @@
     return cible;
   }
 
+  // 138 (ECRAN-PROFIL §3.5) — LA FEUILLE « COMMENT FAIRE » : installer TrainHub sur l'écran d'accueil de l'iPhone.
+  // Le titre, les trois étapes et la phrase des 7 jours viennent de l'appelant (`Auth.PHRASES_IPHONE`, un seul
+  // endroit) ; le « Fermer » est celui de la feuille de l'app (le voile). Le pictogramme Partager est dessiné en
+  // SVG (un carré ouvert, une flèche vers le haut), jamais une image.
+  function rendreFeuilleInstaller(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', vue.titre));
+    var liste = el('ol', 'installer-etapes');
+    (vue.etapes || []).forEach(function (texte, i) {
+      var li = el('li', 'installer-etape');
+      li.appendChild(el('b', 'installer-n', String(i + 1)));
+      var d = el('div', '', texte);
+      if (i < 2) {
+        var puce = el('span', 'puce-ios');
+        var ico = svg('svg', 'ico-part', { viewBox: '0 0 24 24', 'aria-hidden': 'true' });
+        ico.appendChild(svg('path', '', { d: i === 0 ? 'M12 3v12M8 7l4-4 4 4M6 11v9h12v-9' : 'M12 5v14M5 12h14' }));
+        puce.appendChild(ico);
+        puce.appendChild(doc.createTextNode(i === 0 ? ' Partager' : ' Sur l\u2019\u00e9cran d\u2019accueil'));
+        d.appendChild(doc.createElement('br'));
+        d.appendChild(puce);
+      }
+      li.appendChild(d);
+      liste.appendChild(li);
+    });
+    cible.appendChild(liste);
+    cible.appendChild(el('p', 'feuille-aide aide-sept', vue.sept));
+    return cible;
+  }
+
   // 99 (MOTEUR §9.24) — LA SEMAINE QUI DÉRAILLE. La carte lit ce que le coach a décidé (`THDeraille`) : la bande
   // de la semaine, la phrase qui parle du plan, les choix (celui mis en avant en principal) et sa raison en une
   // ligne. Après « la suite se décale », la bande montre la semaine décalée et « Démarrer ». Rien n'est calculé ici.
@@ -7783,6 +7812,7 @@
     etiquetteSerie: etiquetteSerie,
     texteEffort: texteEffort,
     rendreBandeauReprise: rendreBandeauReprise,
+    rendreFeuilleInstaller: rendreFeuilleInstaller,
     rendreCarteSemaine: rendreCarteSemaine,
     rendreCarteManque: rendreCarteManque,
     rendreEscalier: rendreEscalier,

@@ -62,6 +62,9 @@
         <button id="btn-connexion" type="submit" class="principal">Se connecter</button>
         <p id="erreur-connexion" class="erreur" role="alert" aria-live="polite"></p>
       </form>
+      <!-- 138 (ECRAN-PROFIL §3.5) — sur iPhone, hors de l'app installée : « installe TrainHub d'abord ». Le composant du
+           bandeau de reprise, rempli par l'app ; vide et caché partout ailleurs (Android compris). -->
+      <div id="encart-installer" hidden></div>
       <!-- Le bandeau RASSURE, il ne bloque pas : la connexion demande le réseau,
            mais une session déjà ouverte n'en demande aucun (chantier 22). -->
       <div class="entree-hors">
@@ -80,6 +83,8 @@
         <div class="entree-marque">Train<b>Hub</b></div>
         <div class="entree-phrase" role="status" aria-live="polite">Ouverture du lien…</div>
       </div>
+      <!-- 138 — iPhone, hors de l'app : un lien de confirmation s'arrête ici (« Continuer ici » / « Comment installer »). -->
+      <div id="bandeau-lien" hidden></div>
     </div>
   </section>
 
@@ -157,6 +162,9 @@
          questionnaire (le questionnaire passe d'abord). Jamais pendant une séance,
          jamais en « Juste un carnet ». -->
     <div id="bandeau-phase" hidden></div>
+    <!-- 138 (ECRAN-PROFIL §3.5) — « Tu utilises TrainHub dans Safari. » : iPhone hors de l'app, connectée, hors séance. SOUS le
+         questionnaire et la phase (ils passent d'abord) ; « Plus tard » le cache 7 jours sur cet appareil. -->
+    <div id="bandeau-installer" hidden></div>
     <!-- 60-4 (MOTEUR §9.22) — la carte « Passer en cycles » : une seule fois, 21 jours après un programme construit. -->
     <div id="carte-cycles" hidden></div>
     <!-- 99 (MOTEUR §9.24) — la semaine qui déraille : une séance prévue n'a pas eu lieu. À l'ouverture, jamais par

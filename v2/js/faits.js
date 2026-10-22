@@ -509,9 +509,12 @@
     // médailles, du fil et de l'XP ; les records sont les vraies barres. » Les lignes `un_rm_estime` écrites avant
     // restent en base, immuables (`records_immuable`) : ELLES SONT IGNORÉES ICI, à la lecture — la seule, donc le jeu,
     // le récap de fin de séance et tout lecteur à venir ne les voient plus. `medaillesDuSocial` (le fil) aussi.
-    var ORDRE_DES_TYPES = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap',
-                           'volume_seance', 'duree_s', 'distance_m'];
-    var TYPES_HORS_RECORDS = ['un_rm_estime'];
+    //
+    // 137 (D9, audit 05 #2) — DE MÊME POUR `volume_seance` : le volume de la séance n'est plus un record (il poussait
+    // au volume ; son tonnage reste un fait des bilans). Les 686 lignes déjà en base (immuables) sont ignorées ici, à
+    // la lecture — le jeu, le récap de fin de séance, le fil. Plus rien ne l'écrit (`recordsBattus`).
+    var ORDRE_DES_TYPES = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'duree_s', 'distance_m'];
+    var TYPES_HORS_RECORDS = ['un_rm_estime', 'volume_seance'];
     function estUnRecord(l) { return !!l && TYPES_HORS_RECORDS.indexOf(l.type) < 0; }
     function recordsDuJournal(c, filtre) {
       var f = filtre || {};

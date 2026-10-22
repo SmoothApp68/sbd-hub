@@ -13969,8 +13969,8 @@ const SETS_IMPORTES = [
   // La série 1 à 125 × 5 bat un record — la médaille sous la rangée, avec le
   // record d'avant et sa date ; dévalider la retire. La série 2 (100 × 5) ne bat
   // rien ; la série 3 (100 × 5) fait dépasser le volume de la séance (1 625 kg
-  // contre 1 200). La feuille « Terminer » liste les deux ; Progression les
-  // porte en tête (le mois écoulé, le dernier record), le bilan du mois les
+  // contre 1 200), qui n'est plus un record (137, D9) : pas de médaille. Le récap liste le seul record ; Progression
+  // le porte en tête (le mois écoulé, le dernier record), le bilan du mois le
   // compte, et chaque record mène à sa séance.
   {
     const tP = Date.now();
@@ -14069,9 +14069,8 @@ const SETS_IMPORTES = [
       m2 && m2.length === 1 && m2[0].apres === 0, JSON.stringify(m2));
     await valider55(2, 100, 5);
     const m3 = await medailles();
-    ok('[P55] DISCRIMINANT — la série 3 fait dépasser le volume de la séance (1 625 kg contre 1 200) : une médaille, une fois, sans « Avant »',
-      m3 && m3.length === 2 && m3[1].apres === 2 && sp(m3[1].gras) === 'Volume de la séance : 1625 kg.' && m3[1].gris === null,
-      JSON.stringify(m3));
+    ok('[P55] DISCRIMINANT — la série 3 fait dépasser le volume de la séance (1 625 kg contre 1 200) : plus de médaille (137, D9 : le volume n’est plus un record)',
+      m3 && m3.length === 1 && m3[0].apres === 0, JSON.stringify(m3));
 
     // ── D. LES RECORDS DU JOUR : 71 (ECRAN-SAISIE §7 septies.4 bis) — la feuille « Terminer » ne les montre plus,
     // le récap qui s'ouvre juste après les liste.
@@ -14089,8 +14088,8 @@ const SETS_IMPORTES = [
         lignes: Array.from(document.querySelectorAll('#recap-corps .recap-rec .l1')).map((x) => x.textContent) };
     });
     ok('[P55] DISCRIMINANT — les records du jour : plus dans la feuille « Terminer », dans le récap (71)',
-      feuille55 === 0 && sp(fin.tete) === '2 records' &&
-        JSON.stringify(fin.lignes.map(sp)) === JSON.stringify(['Médaillé u55 : 125 kg × 5', 'Médaillé u55 : 100 kg × 5']),
+      feuille55 === 0 && sp(fin.tete) === '1 record' &&
+        JSON.stringify(fin.lignes.map(sp)) === JSON.stringify(['Médaillé u55 : 125 kg × 5']),
       JSON.stringify([feuille55, fin]));
     await fermerRecapBanc();
     await garderRecap(false);
@@ -14115,8 +14114,8 @@ const SETS_IMPORTES = [
         som[1].quoi === 'Ton parcours' && som[2].neuf &&
         /Records$/.test(som[2].quoi) && /^Volume par muscle/.test(som[3].quoi) && /^Poids de corps/.test(som[4].quoi) &&
         /^Par exercice/.test(som[5].quoi), JSON.stringify(som));
-    ok('[P55] le bloc Records dit le dernier, « Médaillé u55 100 kg × 5 », daté d’aujourd’hui',
-      som[2] && sp(som[2].ligne) === sp('Le dernier : Médaillé u55 100 kg × 5, le ' + ici.getDate() + ' ' + MOIS_C[ici.getMonth()] +
+    ok('[P55] le bloc Records dit le dernier, « Médaillé u55 125 kg × 5 », daté d’aujourd’hui',
+      som[2] && sp(som[2].ligne) === sp('Le dernier : Médaillé u55 125 kg × 5, le ' + ici.getDate() + ' ' + MOIS_C[ici.getMonth()] +
         (/\.$/.test(MOIS_C[ici.getMonth()]) ? '' : '.')),
       JSON.stringify(som[2]));
 
@@ -14198,9 +14197,9 @@ const SETS_IMPORTES = [
     });
     await attendre(900);
     const rec = await page.evaluate(() => Array.from(document.querySelectorAll('#records-mois .ligne-mois')).map((x) => x.textContent));
-    ok('[P55] la liste des records du mois porte les deux records de la séance',
+    ok('[P55] la liste des records du mois porte le seul record de la séance (125 × 5) ; la série qui ne bat que le volume n’y est plus (137, D9)',
       rec.filter((x) => /Médaillé u55 125\s*kg\s*×\s*5/.test(sp(x))).length === 1 &&
-        rec.filter((x) => /Médaillé u55 100\s*kg\s*×\s*5/.test(sp(x))).length === 1, JSON.stringify(rec));
+        rec.filter((x) => /Médaillé u55 100\s*kg\s*×\s*5/.test(sp(x))).length === 0, JSON.stringify(rec));
     await page.evaluate(() => Array.from(document.querySelectorAll('#records-mois .ligne-mois'))
       .filter((x) => /Médaillé u55 125/.test(x.textContent.replace(/\u00a0/g, ' ')))[0].click());
     await attendre(1200);
@@ -14465,29 +14464,27 @@ const SETS_IMPORTES = [
     const derniere = debutsJ[N58 - 1];
     const lJ = (i, t) => lignesDe(setsJ[i]).filter((x) => x.type === t)[0] || {};
     const debutJ = (base.sessions.filter((x) => x.id === enCoursJ)[0] || {}).debut;
-    ok('[J58] DISCRIMINANT — « Terminer » écrit une ligne par série et par type : 150 × 2 (charge pour 2 reps, la plus lourde, cap rond), 100 × 5 (volume), 147,5 × 6 (reps à charge ; 120, D1 : plus de 1RM estimé)',
+    ok('[J58] DISCRIMINANT — « Terminer » écrit une ligne par série et par type : 150 × 2 (charge pour 2 reps, la plus lourde, cap rond), 147,5 × 6 (reps à charge) ; 100 × 5 ne bat que le volume : aucune ligne (120, D1 : plus de 1RM estimé ; 137, D9 : plus de volume)',
       setsJ.length === 3 && typesDe(setsJ[0]) === 'cap,charge_a_reps,charge_max' &&
-        typesDe(setsJ[1]) === 'volume_seance' && typesDe(setsJ[2]) === 'reps_a_charge' &&
-        base.records.filter((x) => x.session_id === enCoursJ).length === 5 &&
-        !base.records.some((x) => x.type === 'un_rm_estime'),
+        typesDe(setsJ[1]) === '' && typesDe(setsJ[2]) === 'reps_a_charge' &&
+        base.records.filter((x) => x.session_id === enCoursJ).length === 4 &&
+        !base.records.some((x) => x.type === 'un_rm_estime' || x.type === 'volume_seance'),
       JSON.stringify(base.records.filter((x) => x.session_id === enCoursJ).map((x) => [x.set_id, x.type])));
-    ok('[J58] chaque ligne porte ce que la médaille a constaté : la charge d’un « reps à charge », l’unité d’un volume, l’ancien record et sa date',
+    ok('[J58] chaque ligne porte ce que la médaille a constaté : la charge d’un « reps à charge », l’ancien record et sa date',
       presDe(lJ(0, 'charge_a_reps').valeur, 150) && lJ(0, 'charge_a_reps').reps === 2 &&
         presDe(lJ(0, 'charge_a_reps').ancien, 147.5) && lJ(0, 'charge_a_reps').ancien_le === derniere &&
-        presDe(lJ(1, 'volume_seance').valeur, 800) && lJ(1, 'volume_seance').unite === 'kg' &&
-        presDe(lJ(1, 'volume_seance').ancien, 737.5) &&
         presDe(lJ(2, 'reps_a_charge').valeur, 6) && presDe(lJ(2, 'reps_a_charge').charge, 147.5) &&
         presDe(lJ(2, 'reps_a_charge').ancien, 5) &&
         base.records.filter((x) => x.session_id === enCoursJ).every((x) => x.battu_le === debutJ && x.sur_douze_mois === false),
       JSON.stringify(base.records.filter((x) => x.session_id === enCoursJ)));
-    ok('[J58] le récap (71) montre ces trois séries, la feuille plus aucune — le journal garde ce qu’il affiche',
+    ok('[J58] le récap (71) montre ces deux séries, la feuille plus aucune — le journal garde ce qu’il affiche (la série qui ne bat que le volume n’a plus de médaille, 137)',
       feuilleJ === 0 &&
-      JSON.stringify(finJ) === JSON.stringify(['Journal u58 : 150 kg × 2', 'Journal u58 : 100 kg × 5', 'Journal u58 : 147,5 kg × 6']),
+      JSON.stringify(finJ) === JSON.stringify(['Journal u58 : 150 kg × 2', 'Journal u58 : 147,5 kg × 6']),
       JSON.stringify([feuilleJ, finJ]));
     await fermerRecapBanc();
     await garderRecap(false);
 
-    // ── C. LE RENVOI : enregistrer sans rien changer renvoie les cinq lignes (six avant D1, 120).
+    // ── C. LE RENVOI : enregistrer sans rien changer renvoie les quatre lignes (six avant D1, 120 ; cinq avant D9, 137).
     const ecrituresAvantC = base.ecrituresRecords.length;
     await ouvrirMenuDe('Journal U58');
     await entree('Modifier');
@@ -14495,14 +14492,14 @@ const SETS_IMPORTES = [
     await attendreQue(async () => base.ecrituresRecords.length > ecrituresAvantC && (await fileJ()).length === 0, 15000);
     const renvoi = base.ecrituresRecords.slice(ecrituresAvantC);
     ok('[J58] DISCRIMINANT — le renvoi : les mêmes lignes repartent, AUCUN doublon, AUCUN refus (un ajout qui ignore, jamais un upsert qui modifie)',
-      renvoi.length >= 1 && renvoi.every((x) => x.ignorer && !x.fusionner) && renvoi.some((x) => x.n === 5) &&
-        base.records.filter((x) => x.session_id === enCoursJ).length === 5 &&
+      renvoi.length >= 1 && renvoi.every((x) => x.ignorer && !x.fusionner) && renvoi.some((x) => x.n === 4) &&
+        base.records.filter((x) => x.session_id === enCoursJ).length === 4 &&
         base.journal.filter((j) => j.op === 'refus').length === refusAvant,
       JSON.stringify([renvoi, base.journal.filter((j) => j.op === 'refus').slice(refusAvant)]));
 
     // ── D. L'ÉDITION : 150 → 152,5 sur la série 1. La base efface ses lignes
-    // (`sets_efface_records`), l'app les réécrit ; la série 2 garde son
-    // volume de 800 kg — un record est un record à sa date.
+    // (`sets_efface_records`), l'app les réécrit ; les séries 2 et 3 gardent leurs lignes
+    // — un record est un record à sa date.
     const avantD = JSON.stringify(lignesDe(setsJ[1]).concat(lignesDe(setsJ[2])));
     await ouvrirMenuDe('Journal U58');
     await entree('Modifier');

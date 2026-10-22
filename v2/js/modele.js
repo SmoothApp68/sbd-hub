@@ -2053,7 +2053,7 @@
   //
   // Rend la liste des records battus, dans l'ordre du §9.23 : `charge_a_reps`
   // (ou `reps_a_charge` quand la même charge a déjà été faite), `charge_max`,
-  // `cap`, `volume_seance`, `duree_s`, `distance_m` (120, D1 : plus de `un_rm_estime`). Chacun
+  // `cap`, `duree_s`, `distance_m` (120, D1 : plus de `un_rm_estime` ; 137, D9 : plus de `volume_seance`). Chacun
   // porte `valeur`, l'ancien record `ancien` et sa date `ancien_le` (le début
   // de sa séance), et `douzeMois` (lu dans la fenêtre des 12 mois d'un matériel
   // de salle) ; `[]` sans record.
@@ -2129,29 +2129,9 @@
       // progression […] ; elle sort des records, des médailles, du fil et de l'XP ; les records sont les vraies
       // barres. » Plus de type `un_rm_estime` ici : ni médaille, ni ligne du journal. Elle se lit sur la page de
       // l'exercice (`recordsDeLExercice(...).unRM`, « Force estimée ≈ 157 kg, d'après 140 kg × 5 »).
-      // Le volume de l'exercice dans la séance : sur la série qui fait
-      // dépasser, une fois, et seulement après une première série. En kg
-      // (charge × reps) ; au poids du corps ou avec une aide, en reps.
-      if (avant.length) {
-        var unite = c > 0 ? 'kg' : 'reps';
-        var volumeDe = function (liste) {
-          var v = 0;
-          liste.forEach(function (x) {
-            var rx = valeurNumerique(x, 'reps');
-            if (rx === null || rx <= 0) return;
-            if (unite === 'reps') { v += rx; return; }
-            var cx = chargeDeRecord(x, corps);
-            if (cx !== null && cx > 0) v += cx * rx;
-          });
-          return v;
-        };
-        var cumulAvant = volumeDe(avant);
-        var cumul = cumulAvant + volumeDe([s]);
-        var plusGros = plusGrand(fenetre.map(function (h) { return { v: volumeDe(siennes(h.series)), date: h.debut }; }));
-        if (plusGros !== null && cumul > plusGros.v + EPS_RECORD && cumulAvant <= plusGros.v + EPS_RECORD) {
-          out.push({ type: 'volume_seance', valeur: cumul, ancien: plusGros.v, ancien_le: plusGros.date, unite: unite });
-        }
-      }
+      // 137 (audit du 16/10, 05 #2 ; MOTEUR §9.23, D9) — LE VOLUME DE LA SÉANCE N'EST PLUS UN RECORD (comme le 1RM
+      // estimé, D1) : il poussait à faire du volume, et le tonnage d'une séance reste un FAIT (le récap, les bilans).
+      // Plus de type `volume_seance` ici : ni médaille, ni ligne du journal.
     }
 
     // ── La durée et la distance : toute la vie.
@@ -2229,7 +2209,7 @@
     if (!liste.length) return null;
     var de = function (type) { return liste.filter(function (x) { return x.type === type; })[0] || null; };
     var cap = de('cap'), car = de('charge_a_reps'), rac = de('reps_a_charge'), lourde = de('charge_max');
-    var vol = de('volume_seance'), duree = de('duree_s'), distance = de('distance_m');
+    var duree = de('duree_s'), distance = de('distance_m');
     var gras = [];
     if (cap) gras.push('Premier ' + chargeDeLaMedaille(cap.valeur) + ' au ' + exercice + '.');
     else if (car) gras.push('Record à ' + repsDeLaMedaille(car.reps) + ' : ' + chargeDeLaMedaille(car.valeur) + '.');
@@ -2241,7 +2221,6 @@
     if (lourde && !cap && !(car && Math.abs(car.valeur - lourde.valeur) <= EPS_RECORD)) {
       gras.push('Charge la plus lourde : ' + chargeDeLaMedaille(lourde.valeur) + '.');
     }
-    if (vol) gras.push('Volume de la séance : ' + nombreTexte(vol.valeur, 0) + INSECABLE + (vol.unite === 'reps' ? 'reps' : 'kg') + '.');
     // 119 (audit du 16/10/2026, E9) — LA PROSE DE LA MÉDAILLE ÉCRIT COMME LE JOURNAL : « 1 min 30 », « 3,2 km » (la
     // ligne d'au-dessus dit « Tapis : 20 min · 3,2 km ») ; l'horloge (« 01:30 ») reste sous la rangée de la grille.
     if (duree) gras.push('Plus longue durée : ' + formatDuree(duree.valeur) + '.');

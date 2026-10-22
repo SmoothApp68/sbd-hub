@@ -302,8 +302,8 @@ describe('58-1 — le module des faits rend exactement ce que rendait app.js', (
 const COLONNES_RECORDS = ['user_id', 'set_id', 'session_id', 'exercise_slug', 'type', 'valeur', 'reps',
   'charge', 'unite', 'ancien', 'ancien_le', 'sur_douze_mois', 'battu_le'].sort();
 // 120 (D1, 16/10/2026) — plus de `un_rm_estime` : la force estimée n'est plus un record, rien ne l'écrit.
-const TYPES_RECORDS = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap',
-  'volume_seance', 'duree_s', 'distance_m'];
+// 137 (D9) — plus de `volume_seance` non plus : le volume de la séance n'est plus un record.
+const TYPES_RECORDS = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'duree_s', 'distance_m'];
 const rouvrir = (s) => {
   const exercices = [];
   seriesDe(s.id).forEach((x) => {
@@ -338,8 +338,7 @@ describe('58-2 — le journal des records : ce que la fonction des records a con
       if (typeof l.valeur !== 'number' || !isFinite(l.valeur)) fautes.push('valeur ' + l.valeur);
       if ((l.reps !== null) !== (l.type === 'charge_a_reps')) fautes.push('reps sur ' + l.type);
       if ((l.charge !== null) !== (l.type === 'reps_a_charge')) fautes.push('charge sur ' + l.type);
-      if ((l.unite !== null) !== (l.type === 'volume_seance')) fautes.push('unite sur ' + l.type);
-      if (l.unite !== null && ['kg', 'reps'].indexOf(l.unite) < 0) fautes.push('unite ' + l.unite);
+      if (l.unite !== null) fautes.push('unite sur ' + l.type);   // 137 : seule `volume_seance` en portait une
       if (l.reps !== null && !Number.isInteger(l.reps)) fautes.push('reps non entier ' + l.reps);
       if (typeof l.sur_douze_mois !== 'boolean') fautes.push('sur_douze_mois');
       if (l.user_id !== 'u1') fautes.push('user_id');
@@ -362,7 +361,6 @@ describe('58-2 — le journal des records : ce que la fonction des records a con
           if (l.ancien_le !== (r.ancien_le === undefined ? null : r.ancien_le)) fautes.push('ancien_le');
           if (r.type === 'charge_a_reps' && l.reps !== r.reps) fautes.push('reps');
           if (r.type === 'reps_a_charge' && l.charge !== r.charge) fautes.push('charge');
-          if (r.type === 'volume_seance' && l.unite !== r.unite) fautes.push('unite');
           if (l.sur_douze_mois !== r.douzeMois) fautes.push('douze mois');
           if (l.battu_le !== se.debut || l.exercise_slug !== m.slug) fautes.push('séance');
         });
@@ -374,9 +372,11 @@ describe('58-2 — le journal des records : ce que la fonction des records a con
 
   test('le corpus exerce les types qui portent un champ propre (sinon les contrôles ne prouveraient rien)', () => {
     const vus = new Set(journal.map((l) => l.type));
-    ['charge_a_reps', 'reps_a_charge', 'charge_max', 'volume_seance'].forEach((t) => {
+    ['charge_a_reps', 'reps_a_charge', 'charge_max'].forEach((t) => {
       expect([t, vus.has(t)]).toEqual([t, true]);
     });
+    // 137 (D9) — et jamais `volume_seance` : ni médaille, ni ligne du journal.
+    expect(vus.has('volume_seance')).toBe(false);
     // 120 (D1) — et jamais `un_rm_estime` : le corpus en écrivait avant (le couché 122,5 × 5 puis × 6).
     expect(vus.has('un_rm_estime')).toBe(false);
     // La fenêtre des 12 mois : vraie pour un matériel de salle, fausse à la barre.
@@ -447,5 +447,19 @@ describe('58-2 — le journal des records : ce que la fonction des records a con
     expect(f.recordsDuJournal(c, { type: 'un_rm_estime' })).toEqual([]);
     // Le jeu lit le journal par `faitsDuJeu` : une seule série médaillée (b), pas deux.
     expect(f.faitsDuJeu(c, '2026-10-09').journal.map((x) => x.set_id)).toEqual(['b']);
+  });
+
+  // 137 (D9, audit du 16/10, 05 #2) — le pendant pour `volume_seance` : les 686 lignes déjà en base restent, immuables,
+  // et la lecture (la seule) les ignore — le jeu, le récap de fin de séance, et le fil (`medaillesDuSocial`).
+  test('⚠️ DISCRIMINANT — une ligne `volume_seance` d’avant D9 n’est plus lue : ni record, ni XP, ni médaille du fil', () => {
+    const l = (set_id, type) => ({ set_id, session_id: 'S', exercise_slug: 'presse', type, valeur: 603,
+      battu_le: '2026-10-06T16:00:00Z', unite: type === 'volume_seance' ? 'kg' : null });
+    const c = Object.assign(corpus(), { journal: [l('a', 'volume_seance'), l('b', 'charge_max'), l('b', 'volume_seance')] });
+    expect(f.recordsDuJournal(c).map((x) => [x.set_id, x.type])).toEqual([['b', 'charge_max']]);
+    expect(f.recordsDuJournal(c, { type: 'volume_seance' })).toEqual([]);
+    expect(f.faitsDuJeu(c, '2026-10-09').journal.map((x) => x.set_id)).toEqual(['b']);
+    // Le fil d'un ami : une série médaillée par le seul volume n'a plus de médaille.
+    const m = f.medaillesDuSocial(c, c.journal);
+    expect(m.map((x) => [x.serieId, x.types])).toEqual([['b', ['charge_max']]]);
   });
 });

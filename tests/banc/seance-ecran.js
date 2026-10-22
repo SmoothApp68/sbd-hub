@@ -20295,6 +20295,21 @@ const SETS_IMPORTES = [
     ok('[E69] (c) un second import du même nom : résolu sans question',
       !c3.noms.length && !c3.groupe && nbE(c3.bouton) === nbE({ libelle: 'Importer 1 séance', actif: true }), nbE(c3));
 
+    // 141 — LA PONCTUATION NE COMPTE PLUS : le même nom, écrit « good  morning - barre » (autre ponctuation, doubles
+    // espaces), trouve l'exercice rattaché ; un nom d'un mot de plus reste à rattacher (rien n'est deviné).
+    await aller('/profil/import');
+    await coller(FUTUR.replace('Good Morning (Barre)', 'good  morning - barre'));
+    const c4 = await etat();
+    ok('[E141] (c) DISCRIMINANT — « good  morning - barre » trouve l’exercice rattaché sous « Good Morning (Barre) » : rien à rattacher',
+      !c4.noms.length && !c4.groupe && nbE(c4.bouton) === nbE({ libelle: 'Importer 1 séance', actif: true }), nbE(c4));
+    await aller('/profil/import');
+    await coller(FUTUR.replace('Good Morning (Barre)', 'Good Morning (Barre) Large'));
+    const c5 = await etat();
+    ok('[E141] (c) un mot de plus n’est pas deviné : « Good Morning (Barre) Large » reste à rattacher',
+      c5.groupe === '1 exercice à rattacher' && nbE(c5.noms) === nbE(['Good Morning (Barre) Large']), nbE(c5));
+    await aller('/profil/import');
+    await coller(FUTUR);
+
     // ── (f) UNE SÉANCE PLUS RÉCENTE QUE TOUT : SES RECORDS PARTENT ────────
     await page.click('#import-hevy .imp-importer');
     await jusqua(async () => /importée/.test((await etat()).titre), 12000);

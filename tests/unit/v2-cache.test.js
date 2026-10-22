@@ -14,7 +14,7 @@
 
 function fauxIndexedDB() {
   const disque = {};
-  const journal = { ouvertures: 0, fermetures: 0 };
+  const journal = { ouvertures: 0, fermetures: 0, refus: 0 };
   let refusRestants = 0;          // les prochaines ouvertures de transaction qui échouent (connexion morte)
   let perteEnCours = 0;           // les prochaines transactions qui s'interrompent en cours
   const connexions = [];
@@ -36,6 +36,7 @@ function fauxIndexedDB() {
         if (noms.indexOf('inconnu') >= 0) { const e = new Error('No objectStore named inconnu'); e.name = 'NotFoundError'; throw e; }
         if (db.morte || refusRestants > 0) {
           if (refusRestants > 0) refusRestants--;
+          journal.refus++;
           const e = new Error('The database connection is closing.');
           e.name = 'InvalidStateError';
           throw e;
@@ -130,6 +131,9 @@ describe('cache.js — la base locale se rouvre après une coupure (I-02)', () =
     await C.ecrireAttente([{ cle: 'a1', op: 'seance' }, { cle: 'a2', op: 'series' }]);
     await C.ecrireBrouillon('seance', { id: 's1', series: 2 });
     expect(f.journal.ouvertures).toBe(2);
+    // `close` a suffi : aucune transaction n'a été tentée sur la connexion morte (sans `onclose`, le nouvel essai
+    // rattraperait l'écriture, mais après un refus).
+    expect(f.journal.refus).toBe(0);
     expect(Array.from(f.disque.attente.keys())).toEqual(['a1', 'a2']);
     expect(surDisque(f, 'brouillon', 'seance')).toEqual({ id: 's1', series: 2 });
     expect(await C.lireBrouillon('seance')).toEqual({ id: 's1', series: 2 });

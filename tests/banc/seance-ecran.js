@@ -2125,15 +2125,23 @@ const SETS_IMPORTES = [
   // 115 (audit du 16/10, E4) — « Terminer » DEMANDE quand des séries remplies ne sont pas validées : les
   // sections écrites avant gardent leur sens (terminer, ce qui n'est pas validé ne part pas) par « Terminer quand
   // même ». Sans question, rien.
+  // 135 — L'ISSUE DU GESTE, PLUS 300 MS FIXES : après « Terminer » (ou « Abandonner »), soit la question s'affiche
+  // dans la feuille, soit la feuille se ferme, soit la séance quitte l'écran. On attend l'un des trois (plafond
+  // 6 s : au plafond, la lecture qui suit dit ce qu'elle voit, comme avant).
+  const issueDuGeste = (motif) => jusqua(() => page.evaluate((m) => {
+    const sv = document.getElementById('vue-seance'), f = document.getElementById('feuille-seance');
+    const t = (document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || '';
+    return !sv || sv.hidden || !f || f.hidden || new RegExp(m).test(t);
+  }, motif).catch(() => true), 6000);
   const terminerQuandMeme = async () => {
-    await attendre(300);
+    await issueDuGeste('pas validées? : (elles|elle) ne ser');
     if (/pas validées? : (elles|elle) ne ser/.test(await texte('#feuille-contenu .feuille-t'))) {
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .filter((b) => b.textContent === 'Terminer quand même')[0].click());
     }
   };
   const confirmerAbandon = async () => {
-    await attendre(300);
+    await issueDuGeste('^Abandonner la séance \\?');
     if (/^Abandonner la séance \?/.test(await texte('#feuille-contenu .feuille-t'))) {
       await page.click('#feuille-contenu .danger');
     }
@@ -4883,14 +4891,19 @@ const SETS_IMPORTES = [
   // applaudit une séance amputée. Il faut les deux — c'est ce qui a laissé le
   // défaut traverser onze chantiers.
 
+  // 135 — le bouton « séance vide » est là (la bibliothèque rendue, aucune séance en cours) avant de le toucher ;
+  // puis la séance est à l'écran. Avant : un clic à l'aveugle (« Cannot read properties of undefined (reading
+  // 'click') » sous charge, 7 quinvicies, la séance d'avant pas encore partie) et 900 ms fixes.
   const seanceVide = async () => {
     await aller('/saisie');
+    await jusqua(() => page.evaluate(() => Array.from(document.querySelectorAll('button'))
+      .some((x) => /séance vide/i.test(x.textContent) && x.offsetParent !== null)).catch(() => false), 10000);
     await page.evaluate(() => {
       const b = Array.from(document.querySelectorAll('button'))
-        .filter((x) => /séance vide/i.test(x.textContent))[0];
+        .filter((x) => /séance vide/i.test(x.textContent) && x.offsetParent !== null)[0];
       b.click();
     });
-    await attendre(900);
+    await jusqua(() => page.evaluate(() => !document.getElementById('vue-seance').hidden).catch(() => false), 10000);
   };
   const ajouterExoSeance = async (q) => {
     await page.click('#btn-ajouter-exo-seance');
@@ -4935,12 +4948,21 @@ const SETS_IMPORTES = [
   };
   const seriesDe = (id) => base.sets.filter((x) => x.session_id === id).length;
   const enCoursId = () => (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
+  // 135 — chaque pas attend son état : la feuille de fin ouverte (son bouton là), puis la séance sortie de
+  // l'écran et le réseau calme (la séance, ses séries, ses records sont partis par la file). Avant : 600 ms,
+  // puis 2 600 ms fixes.
+  const feuilleAvec = (sel) => jusqua(() => page.evaluate((x) => !document.getElementById('feuille-seance').hidden &&
+    !!document.querySelector('#feuille-contenu ' + x)).catch(() => false), 6000);
+  const seanceSortie = async () => {
+    await jusqua(() => page.evaluate(() => document.getElementById('vue-seance').hidden).catch(() => false), 10000);
+    await reseauCalme();
+  };
   const terminer = async () => {
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(600);
+    await feuilleAvec('.principal');
     await page.click('#feuille-contenu .principal');
     await terminerQuandMeme();
-    await attendre(2600);
+    await seanceSortie();
   };
   // ⚠️ ABANDONNER N'EST PAS TERMINER, ET C'EST TOUT L'INTÉRÊT (§7 octodecies).
   // « Terminer » fait entrer la séance dans l'historique : elle devient alors
@@ -4948,10 +4970,10 @@ const SETS_IMPORTES = [
   // de poser. « Abandonner » la supprime — l'antécédent reste l'antécédent.
   const abandonner = async () => {
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(600);
+    await feuilleAvec('.danger');
     await page.click('#feuille-contenu .danger');
     await confirmerAbandon();
-    await attendre(1600);
+    await seanceSortie();   // 135 — l'état, plus 1 600 ms fixes
   };
   const onglet = async (vue) => {
     await page.click('.onglet[data-vue="' + vue + '"]');

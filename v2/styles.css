@@ -2199,6 +2199,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .s-pseudo{font:700 22px/1.2 var(--pile);overflow-wrap:anywhere}
 .s-niveau{color:var(--texte-2)}
 .s-etat{display:inline-block;font-size:12px;padding:4px 10px;border-radius:99px;background:var(--panneau);color:var(--texte-2)}
+/* 137 (SOCIAL §1, la bio) : les mots de la personne — en blanc, en entier, ses retours à la ligne gardés. */
+.s-bio{font-size:14px;line-height:1.45;color:var(--texte);max-width:32ch;white-space:pre-line;overflow-wrap:anywhere;margin:6px 0 0;text-align:center}
 .s-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0 18px}
 .s-menu{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}
 .s-menu[hidden]{display:none}

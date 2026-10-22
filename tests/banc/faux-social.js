@@ -285,8 +285,13 @@ function creer(base, options) {
       const moi = etat.moi;
       return profils().filter((p) => p.username === a.p_pseudo && !p.deleted_at && !bloque(moi, p.id)).map((p) => {
         const ab = etat.abonnements.filter((x) => x.suiveur === moi && x.suivi === p.id)[0];
+        // 137 (v2_105, SOCIAL §1) — `bio`, EN DERNIER : le texte sans espaces de bord, ou null hors des cercles (soi, abonné
+        // accepté, même guilde) et quand elle est vide. La base décide ; `visibility_bio` n'est pas lue.
+        const g = guildeDe(moi);
+        const dansLesCercles = p.id === moi || (!!ab && ab.statut === 'accepte') || (!!g && guildeDe(p.id) === g);
+        const bio = dansLesCercles ? String(p.bio === undefined || p.bio === null ? '' : p.bio).trim() : '';
         return { id: p.id, pseudo: p.username, niveau: niveau(p), titre: titre(p), compte_prive: p.compte_prive !== false,
-                 je_suis: ab ? ab.statut : null, me_suit: suit(p.id, moi) };
+                 je_suis: ab ? ab.statut : null, me_suit: suit(p.id, moi), bio: bio === '' ? null : bio };
       });
     },
     social_rechercher(a) {

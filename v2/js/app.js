@@ -2009,6 +2009,7 @@
       pseudo: p.pseudo, couleur: Social.couleurDuBlason(p.pseudo),
       ligneJeu: Social.ligneDuJeu(p.niveau, p.titre, Rendu.JEU_TITRES),
       etatTexte: etatTexte,
+      bio: p.bio,   // 137 : la base décide (null hors des cercles) ; aucun réglage de visibilité du v1 n'est lu
       bouton: texteBouton ? { texte: texteBouton, sur: function () {
         poserGesteSocial(Object.assign({ geste: G.SABONNER, prive: p.compte_prive !== false, niveau: p.niveau === undefined ? null : p.niveau }, lui));
       } } : null,
@@ -14051,7 +14052,7 @@
     bio: {
       titre: 'Bio', lignes: 3, max: 280, etiquette: 'Deux lignes sur toi',
       placeholder: 'Powerbuilding, 3 ans',
-      aide: 'Elle ne sera visible que le jour où le social existera, et seulement si tu l’ouvres.',
+      aide: 'Tes abonnés et les membres de ta guilde la voient sur ton profil.',
       lire: function (p) { return p.bio; },
       valider: function (v) { return { champs: { bio: String(v).trim() } }; }
     },

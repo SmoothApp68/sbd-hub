@@ -6920,6 +6920,9 @@
     tete.appendChild(el('b', 's-pseudo', p.pseudo));
     if (p.ligneJeu) tete.appendChild(el('small', 's-niveau', p.ligneJeu));
     if (p.etatTexte) tete.appendChild(el('span', 's-etat', p.etatTexte));
+    // 137 (SOCIAL §1, la bio) — sous l'état, avant les boutons, en entier : la base décide qui la voit (`social_profil`
+    // la rend nulle hors des cercles) ; ici on montre `bio` si elle est non vide, rien sinon. Ni trou, ni texte de remplacement.
+    if (typeof p.bio === 'string' && p.bio.trim()) tete.appendChild(el('p', 's-bio', p.bio));
     cible.appendChild(tete);
     var actions = el('div', 's-actions');
     if (p.bouton) actions.appendChild(boutonSocial(p.bouton.texte, 's-b1 s-principal', p.bouton.sur, 'social-principal'));

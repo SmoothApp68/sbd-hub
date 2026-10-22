@@ -17654,6 +17654,43 @@ const SETS_IMPORTES = [
       b0.inviter === false && b0.inviterSous === null && !/Inviter dans un groupe|Abonnez-vous l’un/.test(await texte('#social-ami')), JSON.stringify(b0));
     await mesurer('profil à sens unique');
 
+    // ── B bis (137, SOCIAL §1, v2_105). LA BIO SUR LE PROFIL SOCIAL : la base la rend dans les cercles (soi, abonné
+    // accepté, même guilde), nulle ailleurs ; l'app l'affiche sous l'état, en entier, retours à la ligne gardés.
+    const BIO_LEA = 'Powerbuilding, 3 ans\nSquat d’abord';
+    const profilLea = S.profils.filter((x) => x.id === 'u-lea')[0], profilAlexis = S.profils.filter((x) => x.id === 'u-alexis')[0];
+    const profilBanc = base.profiles.filter((x) => x.id === 'u-banc')[0], bioBancAvant = profilBanc.bio;
+    profilLea.bio = BIO_LEA; profilAlexis.bio = 'Visible des seuls abonnés'; profilBanc.bio = '  Ma bio, à moi  ';
+    const bio = () => page.evaluate(() => {
+      const n = document.querySelector('#social-ami .s-prof .s-bio');
+      return n ? { texte: n.textContent, apresEtat: !!n.previousElementSibling && n.previousElementSibling.classList.contains('s-etat'),
+        couleur: getComputedStyle(n).color, blancs: getComputedStyle(n).whiteSpace, taille: getComputedStyle(n).fontSize,
+        avantActions: !!n.parentElement.nextElementSibling && n.parentElement.nextElementSibling.classList.contains('s-actions') } : null;
+    });
+    await aller('/a/alexis');
+    await attendreQue(async () => (await ami()).pseudo === 'alexis');
+    const bioInconnu = await bio();
+    ok('[137-bio] DISCRIMINANT — un inconnu (même profil existant) : pas de bio, ni trou ni texte de remplacement',
+      bioInconnu === null && (await ami()).pseudo === 'alexis' && (await ami()).etat !== null, JSON.stringify([bioInconnu, await ami()]));
+    await aller('/a/lea');
+    await attendreQue(async () => (await bio()) !== null);
+    const bioAbonne = await bio();
+    ok('[137-bio] DISCRIMINANT — un abonné accepté voit la bio de lea : sous l’état, avant les boutons, 14 px, en blanc, retours à la ligne gardés',
+      !!bioAbonne && bioAbonne.texte === BIO_LEA && bioAbonne.apresEtat && bioAbonne.avantActions &&
+        bioAbonne.blancs === 'pre-line' && bioAbonne.taille === '14px' && bioAbonne.couleur === 'rgb(236, 238, 242)', JSON.stringify(bioAbonne));
+    await aller('/a/banc');
+    await attendreQue(async () => (await bio()) !== null);
+    const bioMoi = await bio();
+    ok('[137-bio] son propre profil : la bio (sans espaces de bord), sous « C’est toi »',
+      !!bioMoi && bioMoi.texte === 'Ma bio, à moi' && bioMoi.apresEtat && (await ami()).etat === 'C’est toi', JSON.stringify([bioMoi, await ami()]));
+    profilBanc.bio = '   ';
+    await aller('/a/banc');
+    await attendreQue(async () => (await ami()).etat === 'C’est toi');
+    await attendre(300);
+    ok('[137-bio] une bio vide : rien (pas de paragraphe)', (await bio()) === null, JSON.stringify(await bio()));
+    if (bioBancAvant === undefined) delete profilBanc.bio; else profilBanc.bio = bioBancAvant;
+    delete profilLea.bio; delete profilAlexis.bio;
+    await aller('/a/lea');
+
     // ── C. LEA DEMANDE À SON TOUR : la demande dans le fil (et le badge), « Accepter » → MUTUEL : le détail.
     fauxSocial.appeler('u-lea', 'POST', 'abonnements', { suiveur: 'u-lea', suivi: 'u-banc' });
     await aller('/jeu/fil');

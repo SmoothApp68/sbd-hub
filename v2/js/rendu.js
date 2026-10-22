@@ -4267,6 +4267,38 @@
       t.appendChild(el('em', '', nF + ' série' + (nF > 1 ? 's' : '') +
         ' de travail enregistrée' + (nF > 1 ? 's' : '')));
     }
+    // 137 (audit du 16/10, E12 ; ECRAN-SAISIE §7 septies.4) — UNE SÉANCE SANS SÉRIE VALIDÉE NE SE TERMINE PAS : elle
+    // s'abandonne. « Vide » est décidé par l'appelant (la règle de l'abandon) ; ici on le dit, sans titre, salle,
+    // note, question de routine ni case facultative. Rien n'est perdu : l'abandon est immédiat.
+    if (vue.vide) {
+      var tv = el('div', 'feuille-t', 'Terminer la séance');
+      cible.appendChild(tv);
+      cible.appendChild(el('p', 'feuille-aide', 'Aucune série validée : rien à enregistrer.'));
+      var nR = vue.remplies || 0;
+      if (nR) {
+        cible.appendChild(el('p', 'feuille-aide', nR > 1
+          ? nR + ' séries remplies ne sont pas validées.'
+          : '1 série remplie n\u2019est pas validée.'));
+        var bv = el('button', 'principal', 'Les valider');
+        bv.type = 'button';
+        bv.addEventListener('click', vue.surValider);
+        cible.appendChild(bv);
+        var av = el('button', 'discret bloc-large danger', 'Abandonner');
+        av.type = 'button';
+        av.addEventListener('click', vue.surAbandonner);
+        cible.appendChild(av);
+      } else {
+        var ab = el('button', 'principal', 'Abandonner');
+        ab.type = 'button';
+        ab.addEventListener('click', vue.surAbandonner);
+        cible.appendChild(ab);
+        var co = el('button', 'discret bloc-large', 'Continuer la séance');
+        co.type = 'button';
+        co.addEventListener('click', vue.surContinuer);
+        cible.appendChild(co);
+      }
+      return cible;
+    }
     cible.appendChild(t);
 
     // ECRAN §7 septies.4 (prompt 131, maquette mesures-cardio écran 6) — UNE donnée facultative restée vide : sa

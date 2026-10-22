@@ -8966,7 +8966,14 @@
     // conforme n'ouvre aucune question, sinon la question devient un bruit
     // qu'on tape sans lire.
     var verdict = Seance.ecartsRoutine(seance, routine);
+    // 137 (E12) — « vide » se lit par la règle de l'abandon (`aEffacerALAbandon`), pas par un compte de plus.
+    var remplies = Seance.rempliesNonValidees(seance);
+    var vide = !aEffacerALAbandon().lignes;
     Rendu.rendreFeuilleFin(cible, {
+      vide: vide,
+      remplies: remplies.length,
+      surValider: function () { fermerVoile(); amenerEnVue(remplies[0]); },
+      surContinuer: function () { fermerVoile(); },
       // 71 (ECRAN-SAISIE §7 septies.4 bis) — LA FEUILLE DÉCLARE, LE RÉCAP CONSTATE : les records du jour et le
       // bloc « Le jeu » sont passés au récap, qui s'ouvre juste après « Terminer ».
       compte: Seance.compter(seance, local.exercices),
@@ -9029,13 +9036,15 @@
         fermerVoile();
         await terminerSeance(verdict);
       },
-      surAnnuler: function () {
-        var p = remplies[0];
-        fermerVoile();
-        var l = doc.querySelector('#blocs-seance [data-iexo="' + p.iExo + '"][data-iserie="' + p.iSerie + '"]');
-        if (l && l.scrollIntoView) l.scrollIntoView({ block: 'center' });
-      }
+      surAnnuler: function () { fermerVoile(); amenerEnVue(remplies[0]); }
     });
+  }
+
+  // « Les valider » : la feuille se ferme, la première série remplie vient en vue ; la valider reste le geste de
+  // l'utilisateur (115 E4). Partagé entre la feuille « non-validees » et la feuille de fin d'une séance vide (137).
+  function amenerEnVue(p) {
+    var l = p && doc.querySelector('#blocs-seance [data-iexo="' + p.iExo + '"][data-iserie="' + p.iSerie + '"]');
+    if (l && l.scrollIntoView) l.scrollIntoView({ block: 'center' });
   }
 
   // Ce qui part avec la séance abandonnée : ses lignes faites (`partEnBase`), chauffes comprises — le compte de

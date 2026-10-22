@@ -4473,6 +4473,9 @@ const SETS_IMPORTES = [
     JSON.stringify([['Développé Couché (Barre)', 'Squat (Barre)']]),
     JSON.stringify(await formeEcran()));
 
+  // 137 (E12) — une séance sans série validée ne se termine plus (elle s'abandonne) : une série est validée.
+  await saisirSerie(0, 60, 5);
+  await attendre(800);
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(700);
   const q2 = await texte('#feuille-contenu');
@@ -20527,10 +20530,11 @@ const SETS_IMPORTES = [
       nbR(a.tuiles));
     ok('[R71] (a) la comparaison : « 3,8 t soulevées : à peu près … »',
       /^3,8 t soulevées : à peu près .+\.$/.test((a.comp || '').replace(/[\u00a0\u202f]/g, ' ')), nbR(a.comp));
-    // Deux records : la série 1 (80 kg à 12, contre 79) et la série 4 (le volume de la séance passe 3 792 kg).
+    // Un record : la série 1 (80 kg à 12, contre 79). 137 (D9) : le volume de la séance (3 792 kg à la série 4) n'est
+    // plus un record.
     ok('[R71] (a) les séries par muscle (la fonction du bloc Volume), les records (or), ce que le coach avait visé (ambre)',
-      a.groupes.map((g) => g.trim()).slice(0, 3).join(' | ') === 'Séries par muscle | 2 records | Ce que le coach avait visé' &&
-      nbR(a.muscles) === nbR(['Grand dorsal', 'Biceps']) && nbR(a.records) === nbR(['Rowing r71 : 80 kg × 12', 'Rowing r71 : 80 kg × 12']),
+      a.groupes.map((g) => g.trim()).slice(0, 3).join(' | ') === 'Séries par muscle | 1 record | Ce que le coach avait visé' &&
+      nbR(a.muscles) === nbR(['Grand dorsal', 'Biceps']) && nbR(a.records) === nbR(['Rowing r71 : 80 kg × 12']),
       nbR([a.groupes, a.muscles, a.records]));
     ok('[R71] (a) la phrase des paris aux chiffres tels quels, et la ligne de l’exercice : « 80 kg × 12, 12, 12, 12 »',
       /^Sur \d+ paris? vérifiés?, le coach en a tenu \d+\.$/.test(a.voix || '') &&

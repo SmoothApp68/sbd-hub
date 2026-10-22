@@ -192,8 +192,10 @@ elle retire ses scores.
 - **1b. Proposition sans chiffre** (« le cran au-dessus ») : règle « suivie » de MOTEUR §12, toute charge au-dessus du palier
   compte.
 - **1c. Révisions** : le pari relié à la série par `set_observe`.
-- **1d. Types de record qui comptent** : `charge_a_reps`, `reps_a_charge`, `charge_max`, `cap`, `duree_s`, `distance_m`.
-  Exclus : `un_rm_estime` (une estimation, pas un fait) et `volume_seance` (pousserait au volume). Une série « à fond »
+- **1d. Types de record qui comptent** : `charge_a_reps`, `reps_a_charge`, `charge_max`, `cap`, `volume_seance`, `duree_s`, `distance_m`.
+  Exclu : `un_rm_estime` (une estimation, pas un fait). **22/10/2026 : le volume de la séance reste un record, partout, la guilde
+  comprise** (décision d'Aurélien, revient sur 05 #2 et sur l'exclusion du 14/10) ; la série qui porte sa médaille
+  suit la règle « sans dépasser la charge proposée » comme les autres. Une série « à fond »
   compte (c'est un fait). **16/10/2026 (D1, audit du 16/10)** : la force estimée n'est plus un record nulle part
   (MOTEUR §9.23) — plus aucune ligne `un_rm_estime` ne s'écrit, et celles d'avant sont ignorées aussi par le fil
   (`faits.medaillesDuSocial`) et le récap du groupe (`groupe_recap_de`, v2_093) : une série que seule l'estimation
@@ -205,7 +207,7 @@ elle retire ses scores.
 
 ### 6.2 Ce que le code en a fait (90)
 
-- **Le record qui compte** : `faits.recordsSansDepasser` — une ligne du journal des six types, comptée **une fois par
+- **Le record qui compte** : `faits.recordsSansDepasser` — une ligne du journal des sept types (volume_seance compris, 22/10/2026), comptée **une fois par
   série** (une médaille par série, comme le fil). Sa série sans pari de consigne relié (`set_observe`, module ≠
   `escalier`) compte ; avec, le pari de la plus haute `fondement.revision` ; compte si la charge faite ≤ la charge
   proposée (au centième) ; `fondement.charge` nul (le cran sans chiffre) ou série sans charge : compte.

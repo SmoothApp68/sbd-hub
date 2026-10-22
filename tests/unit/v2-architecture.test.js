@@ -875,13 +875,14 @@ const NOTIONS = [
     raison: 'MOTEUR §9.23, ECRAN §7 bis.16 (« cumulée, jamais brute ») : la médaille, le tableau des records, ' +
       'le record de charge de la page et le chiffre d’une ligne déduite lisent la même table.' },
   { notion: 'les records d’un exercice à une date (le périmètre de la médaille)', pr: '55-U1',
-    module: 'modele.js', fonction: 'recordsDeLExercice', lecteurs: ['app.js', 'faits.js', 'objectif.js'],
+    module: 'modele.js', fonction: 'recordsDeLExercice', lecteurs: ['app.js', 'faits.js', 'objectif.js', 'bilans.js'],
     par: ['tableauDesRecords'],
-    parAilleurs: { 'app.js': ['recordDeLaPage'], 'faits.js': ['ceQueJeSais'], 'objectif.js': ['recordA'] },
+    parAilleurs: { 'app.js': ['recordDeLaPage'], 'faits.js': ['ceQueJeSais'], 'objectif.js': ['recordA'], 'bilans.js': ['bilanDeLaPeriode'] },
     raison: 'MOTEUR §9.23 : le record de charge de la page, sa force estimée (hors des records, D1) et le tableau des records lisent ' +
       'la même table cumulée, sur le même périmètre que la médaille (12 mois pour un matériel de salle). ' +
       '60-2a : « Ce que je sais » montre le maximum de chaque barre par cette même fonction — jamais une seconde. ' +
-      '109 (MOTEUR §9.25) : le rythme d’un objectif se lit sur ce record « au moins N reps », jamais sur un maximum estimé.' },
+      '109 (MOTEUR §9.25) : le rythme d’un objectif se lit sur ce record « au moins N reps », jamais sur un maximum estimé. ' +
+      '136 (F5) : les nouvelles charges max d’une saison ou d’un mois comparent à ce qui précède dans la même fenêtre.' },
   { notion: 'le périmètre d’un record (12 mois pour un matériel de salle, toute la vie ailleurs)', pr: '55-U1',
     module: 'modele.js', fonction: 'seancesDuPerimetre', lecteurs: ['app.js', 'objectif.js'],
     par: ['recordsDeLExercice'],

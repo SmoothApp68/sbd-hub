@@ -9,6 +9,8 @@ process.env.TZ = 'Europe/Paris';
 global.self = global;
 require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
+require('../../v2/js/palier.js');
+require('../../v2/js/moteur.js');   // 136 (F5) — la fenêtre de la médaille (`plancherDuMateriel`), comme dans index.html
 require('../../v2/js/bilan.js');
 require('../../v2/js/parcours.js');
 const Bilans = require('../../v2/js/bilans.js');

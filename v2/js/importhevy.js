@@ -397,9 +397,11 @@
   // ── Les noms ────────────────────────────────────────────────────────────
   //
   // Un nom se cherche, sans accents ni casse, dans le catalogue
-  // (`exercises.nom`), puis dans les noms communs (`exercise_alias`), puis
-  // dans les rattachements de la personne (`alias_exercice`). Le premier
-  // trouvé fait foi.
+  // (`exercises.nom`), puis dans les rattachements de la personne
+  // (`alias_exercice`), puis dans les noms communs (`exercise_alias`). Le
+  // premier trouvé fait foi. 137 (audit du 16/10, 03 #13) : ce que la personne
+  // a rattachée elle-même passe avant un nom commun — un nom commun ne défait
+  // jamais un choix de la personne.
   //   `sources` : { catalogue: [{ slug, nom }], communs: [{ alias, slug }],
   //                 miens: [{ alias, exercise_slug }] }
   function indexDesNoms(sources) {
@@ -410,8 +412,8 @@
       index[k] = slug;
     };
     (s.catalogue || []).forEach(function (e) { if (e) poser(e.nom, e.slug); });
-    (s.communs || []).forEach(function (a) { if (a) poser(a.alias, a.slug); });
     (s.miens || []).forEach(function (a) { if (a) poser(a.alias, a.exercise_slug); });
+    (s.communs || []).forEach(function (a) { if (a) poser(a.alias, a.slug); });
     return index;
   }
 

@@ -321,10 +321,19 @@ describe('69 — les noms : trouvés à l’identique, jamais devinés', () => {
     expect(I.pretAImporter(lignes, index2, {})).toBe(true);
   });
 
-  test('le catalogue passe avant les noms communs, qui passent avant les rattachements', () => {
+  test('le catalogue passe avant les rattachements de la personne, qui passent avant les noms communs', () => {
     const index = I.indexDesNoms({ catalogue: [{ slug: 'a', nom: 'X' }], communs: [{ alias: 'x', slug: 'b' }],
       miens: [{ alias: 'X', exercise_slug: 'c' }] });
     expect(I.slugDuNom(index, 'x')).toBe('a');
+  });
+
+  test('137 (03 #13) — DISCRIMINANT : un nom à la fois dans `communs` (slug A) et `miens` (slug B) → B', () => {
+    const index = I.indexDesNoms({ catalogue: [],
+      communs: [{ alias: 'good morning (barre)', slug: 'A' }],
+      miens: [{ alias: 'Good Morning (Barre)', exercise_slug: 'B' }] });
+    expect(I.slugDuNom(index, 'Good Morning (Barre)')).toBe('B');
+    // Témoin : sans rattachement de la personne, le nom commun répond.
+    expect(I.slugDuNom(I.indexDesNoms({ communs: [{ alias: 'good morning (barre)', slug: 'A' }] }), 'Good Morning (Barre)')).toBe('A');
   });
 });
 

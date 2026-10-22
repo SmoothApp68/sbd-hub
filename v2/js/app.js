@@ -13540,6 +13540,7 @@
       await Cache.ecrireBrouillon(CLE_PARIS_OBJECTIF, local.parisObjectif).catch(function () {});
       await poser({ table: Attente.PREDICTIONS, op: Attente.UPSERT, id: pari.id, depend: pari.id, donnees: pari });
     }
+    versionObjectifs++;   // 139 — l'entrée entre dans la file ICI, derrière le pari : une lecture partie entre-temps est périmée aussi
     await poser({ table: Attente.OBJECTIFS, op: Attente.UPSERT, id: slug, donnees: ligne });
   }
 
@@ -13590,6 +13591,7 @@
     versionObjectifs++;
     local.objectifs = (local.objectifs || []).filter(function (l) { return l && l.exercise_slug !== slug; });
     await Cache.ecrireBrouillon(CLE_OBJECTIFS, { dispo: true, lignes: local.objectifs }).catch(function () {});
+    versionObjectifs++;
     await poser({ table: Attente.OBJECTIFS, op: Attente.SUPPRIMER, id: slug });
   }
 

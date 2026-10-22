@@ -373,9 +373,12 @@
   // juste dessous (un champ de 95 à `Profil.DUREE_MAX`, la borne de la base). 120 min aurait été inventé. Sans
   // minutes tapées, « Plus » n'écrit rien pour la durée.
   var DUREE_PLUS_MIN = 95;
-  var PUCES_DUREES = [45, 60, 75, 90].map(function (n) {
-    return { cle: n, libelle: n + ' min' };
-  }).concat([{ cle: 'plus', libelle: 'Plus' }]);
+  // Les quatre durées sont celles de « Moins en ce moment » (`Profil.DUREES_DE_MOINS`) : une liste, un endroit.
+  function pucesDeDuree() {
+    return Profil().DUREES_DE_MOINS.map(function (n) {
+      return { cle: n, libelle: n + ' min' };
+    }).concat([{ cle: 'plus', libelle: 'Plus' }]);
+  }
 
   // « Plus » est choisie quand la personne l'a touchée, ou quand la durée en réponse est déjà au-delà des puces.
   function plusChoisie(rep) {
@@ -386,7 +389,7 @@
   function blocsDeLaDuree(etat, titre) {
     var rep = etat.rep, erreurs = etat.erreurs || {};
     var plus = plusChoisie(rep);
-    var blocs = [{ type: 'puces', cle: 'duree', titre: titre, valeur: plus ? 'plus' : rep.duree, options: PUCES_DUREES }];
+    var blocs = [{ type: 'puces', cle: 'duree', titre: titre, valeur: plus ? 'plus' : rep.duree, options: pucesDeDuree() }];
     if (plus) {
       blocs.push({ type: 'champs', champs: [
         { cle: 'duree', libelle: 'Combien de minutes ?', unite: 'min', mode: 'numeric',
@@ -723,7 +726,7 @@
     ECRANS: ECRANS, BIENVENUE: BIENVENUE, DONNEES: DONNEES, SAIT: SAIT, SANS_HISTORIQUE: SANS_HISTORIQUE,
     TOI: TOI, BUT: BUT, PRIORITES: PRIORITES, TEMPS: TEMPS, PROGRAMME: PROGRAMME, CONSTRUIT: CONSTRUIT,
     COACH: COACH, RECAP: RECAP,
-    BARRES: BARRES, PUCES_SEANCES: PUCES_SEANCES, PUCES_DUREES: PUCES_DUREES, DUREE_PLUS_MIN: DUREE_PLUS_MIN, plusChoisie: plusChoisie,
+    BARRES: BARRES, PUCES_SEANCES: PUCES_SEANCES, get PUCES_DUREES() { return pucesDeDuree(); }, DUREE_PLUS_MIN: DUREE_PLUS_MIN, plusChoisie: plusChoisie,
     aUnHistorique: aUnHistorique,
     joursValides: joursValides, joursPrecoches: joursPrecoches, precocherJours: precocherJours,
     ecransVisibles: ecransVisibles,

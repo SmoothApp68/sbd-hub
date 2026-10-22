@@ -17685,7 +17685,7 @@ const SETS_IMPORTES = [
     profilBanc.bio = '   ';
     await aller('/a/banc');
     await attendreQue(async () => (await ami()).etat === 'C’est toi');
-    await attendre(300);
+    await attendre(300);   // VOULU : l'absence d'un évènement (une bio qui ne vient pas) ne se prouve par aucun état
     ok('[137-bio] une bio vide : rien (pas de paragraphe)', (await bio()) === null, JSON.stringify(await bio()));
     if (bioBancAvant === undefined) delete profilBanc.bio; else profilBanc.bio = bioBancAvant;
     delete profilLea.bio; delete profilAlexis.bio;
@@ -23140,62 +23140,62 @@ const SETS_IMPORTES = [
       JSON.stringify(setsE4.map((x) => [x.charge_kg, x.reps])));
 
     // ── E12 (137). UNE SÉANCE SANS SÉRIE VALIDÉE NE SE TERMINE PAS : ELLE S'ABANDONNE.
+    // « Terminer » (le bandeau) ouvre la feuille ; sans série validée, elle ne propose plus de terminer. Chaque
+    // attente porte sur l'ÉTAT que lit le contrôle suivant (135), jamais sur un délai.
+    const feuilleAvec115 = (motif) => jusqua(() => page.evaluate((m) => {
+      const f = document.getElementById('feuille-seance');
+      return !!f && !f.hidden && new RegExp(m).test((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || '');
+    }, motif).catch(() => false), 6000);
+    const seanceMontee115 = () => jusqua(async () => !!enCours115() && (await compter('.ligne-serie')) > 0, 8000);
+    const feuilleFermee115 = () => jusqua(async () => !(await feuille115()).ouverte, 6000);
+    const bouton115 = (libelle) => page.evaluate((t) => Array.from(document.querySelectorAll('#feuille-contenu button'))
+      .filter((b) => b.textContent === t)[0].click(), libelle);
+    const lireFeuille115 = () => page.evaluate(() => ({
+      textes: Array.from(document.querySelectorAll('#feuille-contenu .feuille-aide')).map((n) => n.textContent),
+      boutons: Array.from(document.querySelectorAll('#feuille-contenu button')).map((b) => [b.textContent, b.className]),
+      champs: document.querySelectorAll('#feuille-contenu .champs-fin, #feuille-contenu .question-routine, #feuille-contenu .manque-fin').length }));
     // Avec une série remplie mais pas validée : la phrase, « Les valider » (principal) et « Abandonner » (rouge).
     await sansSeance115();
     await demarrerRoutine(ROUTINE_115.nom);
-    await attendre(1200);
+    await seanceMontee115();
     await remplir115(0, 62.5, 6);
-    await attendre(1200);
+    await jusqua(async () => (await valeurs115())[0] === '62,5×6', 6000);
     const idE12a = enCours115();
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(600);
-    await page.click('#feuille-contenu .principal');
-    await attendre(1200);
-    const fE12a = await page.evaluate(() => ({
-      textes: Array.from(document.querySelectorAll('#feuille-contenu .feuille-aide')).map((n) => n.textContent),
-      boutons: Array.from(document.querySelectorAll('#feuille-contenu button')).map((b) => [b.textContent, b.className]),
-      champs: document.querySelectorAll('#feuille-contenu .champs-fin, #feuille-contenu .manque-fin').length }));
+    await feuilleAvec115('^Terminer la séance');
+    const fE12a = await lireFeuille115();
     ok('[137-E12] DISCRIMINANT — séance sans série validée mais avec une série remplie : « Aucune série validée », la phrase, [Les valider] puis [Abandonner] (rouge), ni titre ni salle ni note',
       JSON.stringify(fE12a.textes) === JSON.stringify(['Aucune série validée : rien à enregistrer.', '1 série remplie n’est pas validée.']) &&
         fE12a.boutons.length === 2 && fE12a.boutons[0][0] === 'Les valider' && /principal/.test(fE12a.boutons[0][1]) &&
         fE12a.boutons[1][0] === 'Abandonner' && /danger/.test(fE12a.boutons[1][1]) && fE12a.champs === 0,
       JSON.stringify(fE12a));
-    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
-      .filter((b) => b.textContent === 'Les valider')[0].click());
-    await attendre(700);
+    await bouton115('Les valider');
+    await feuilleFermee115();
+    const valeursE12a = await valeurs115();
     ok('[137-E12] « Les valider » : la feuille se ferme, la séance continue, la ligne garde 62,5 × 6',
-      !(await feuille115()).ouverte && base.sessions.some((x) => x.id === idE12a && x.statut === 'en_cours'),
-      JSON.stringify(await feuille115()));
+      !(await feuille115()).ouverte && valeursE12a[0] === '62,5×6' && base.sessions.some((x) => x.id === idE12a && x.statut === 'en_cours'),
+      JSON.stringify([await feuille115(), valeursE12a]));
     // Séance neuve, rien tapé : « Aucune série validée », [Abandonner] (principal), [Continuer la séance].
     await sansSeance115();
     await demarrerRoutine(ROUTINE_115.nom);
-    await attendre(2000);
+    await seanceMontee115();
     const idE12 = enCours115();
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(600);
-    await page.click('#feuille-contenu .principal');
-    await attendre(1200);
-    const fE12 = await page.evaluate(() => ({
-      textes: Array.from(document.querySelectorAll('#feuille-contenu .feuille-aide')).map((n) => n.textContent),
-      boutons: Array.from(document.querySelectorAll('#feuille-contenu button')).map((b) => [b.textContent, b.className]),
-      champs: document.querySelectorAll('#feuille-contenu .champs-fin, #feuille-contenu .question-routine, #feuille-contenu .manque-fin').length }));
+    await feuilleAvec115('^Terminer la séance');
+    const fE12 = await lireFeuille115();
     ok('[137-E12] DISCRIMINANT — « Terminer » sur une séance neuve : « Aucune série validée : rien à enregistrer. », [Abandonner] en principal, [Continuer la séance] ; ni titre, ni salle, ni note, ni question de routine',
       JSON.stringify(fE12.textes) === JSON.stringify(['Aucune série validée : rien à enregistrer.']) &&
         fE12.boutons.length === 2 && fE12.boutons[0][0] === 'Abandonner' && /principal/.test(fE12.boutons[0][1]) &&
         fE12.boutons[1][0] === 'Continuer la séance' && fE12.champs === 0, JSON.stringify(fE12));
-    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
-      .filter((b) => b.textContent === 'Continuer la séance')[0].click());
-    await attendre(600);
+    await bouton115('Continuer la séance');
+    await feuilleFermee115();
     ok('[137-E12] « Continuer la séance » : la feuille se ferme, la séance reste en cours',
       !(await feuille115()).ouverte && base.sessions.some((x) => x.id === idE12 && x.statut === 'en_cours'),
       JSON.stringify(await feuille115()));
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(600);
-    await page.click('#feuille-contenu .principal');
-    await attendre(1000);
-    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
-      .filter((b) => b.textContent === 'Abandonner')[0].click());
-    await attendre(2600);
+    await feuilleAvec115('^Terminer la séance');
+    await bouton115('Abandonner');
+    await jusqua(async () => !base.sessions.some((x) => x.id === idE12), 8000);
     ok('[137-E12] « Abandonner » : immédiat (rien à perdre, pas de confirmation), plus de séance en cours, aucune séance terminée, aucune série en base',
       !base.sessions.some((x) => x.id === idE12) && !enCours115() &&
         !base.sets.some((x) => x.session_id === idE12) && !(await feuille115()).ouverte,

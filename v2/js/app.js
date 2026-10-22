@@ -2640,6 +2640,9 @@
   // un geste, pas « voir le social »).
   function messageGroupe(e, action) {
     var m = String((e && (e.message || e.details)) || '');
+    // 142 — « pas membre » : je ne suis plus dans ce groupe (parti, ou parti en silence après un blocage, SOCIAL-V1 §7.1).
+    // Aucune phrase : le réseau est là, et rien n'est à dire. L'opération sort de la file (`refusDuGroupe`).
+    if (/groupe_pas_membre/.test(m)) return null;
     if (/groupe_plein/.test(m)) return 'Le groupe est complet : 6 personnes.';
     if (/groupe_invite_non_mutuel/.test(m)) return 'On n’invite qu’un abonné mutuel.';
     if (/groupe_bloque/.test(m)) return 'Ce groupe n’est pas possible.';

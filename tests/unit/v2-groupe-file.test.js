@@ -26,7 +26,7 @@ function extraire(nom) {
 
 function bac(o) {
   const j = { publies: [], quittes: [], messages: [], gardes: [], moiLus: 0 };
-  const etat = { reseau: o.reseau !== false, groupeServeur: o.groupeServeur === undefined ? 'g-1' : o.groupeServeur };
+  const etat = { refus: o.refus, reseau: o.reseau !== false, groupeServeur: o.groupeServeur === undefined ? 'g-1' : o.groupeServeur };
   const panne = () => { const e = new Error('Failed to fetch'); throw e; };
   const ctx = {
     Social, console: { warn: () => {} }, texteErreur: (e) => String(e && e.message),
@@ -41,13 +41,13 @@ function bac(o) {
       groupeMoi: async () => { j.moiLus++; if (!etat.reseau) panne(); return etat.groupeServeur ? { id: etat.groupeServeur } : null; },
       groupePublier: async (ex, xp) => { if (!etat.reseau) panne(); j.publies.push([ex, xp]); },
       groupeQuitter: async () => { if (!etat.reseau) panne(); j.quittes.push(true); },
-      groupeEnvoyer: async (t) => { if (!etat.reseau) panne(); j.messages.push(t); }
+      groupeEnvoyer: async (t) => { if (etat.refus) throw new Error(etat.refus); if (!etat.reseau) panne(); j.messages.push(t); }
     }
   };
   vm.createContext(ctx);
   vm.runInContext(['messageGroupe', 'maPlace', 'groupeDeLaSeance', 'exercicesDe', 'garderFileGroupe', 'envoyerFileGroupe',
     'refusDuGroupe', 'envoyerGesteDuGroupe', 'poserGesteDuGroupe', 'publierFinPourLeGroupe', 'quitterLeGroupeSiMembre']
-    .map(extraire).join('\n') + '\nthis.f = { envoyerFileGroupe, publierFinPourLeGroupe, quitterLeGroupeSiMembre };', ctx);
+    .map(extraire).join('\n') + '\nthis.f = { messageGroupe, envoyerFileGroupe, publierFinPourLeGroupe, quitterLeGroupeSiMembre };', ctx);
   return { ctx, j, etat };
 }
 const fin = { id: 's1', exercices: [{ exercise_slug: 'squat' }, { exercise_slug: 'dc' }] };
@@ -79,6 +79,20 @@ describe('136 — 06 #14 : l’XP de fin et le départ passent par la file du gr
     expect(j.quittes).toEqual([true]);
     expect(ctx.grp.moi).toBeNull();
     expect(ctx.grp.file).toEqual([]);
+  });
+
+  test('142 — `groupe_pas_membre` : aucune phrase (ni « Il faut le réseau »), le message sort de la file ; un autre refus garde sa phrase', async () => {
+    const a = bac({ refus: 'groupe_pas_membre' });
+    a.ctx.grp.file = [{ id: 'm1', groupe_id: 'g-1', texte: 'Encore là ?' }];
+    await a.ctx.f.envoyerFileGroupe();
+    expect(a.ctx.grp.message).toBeNull();
+    expect(a.ctx.grp.file).toEqual([]);
+    expect(a.ctx.f.messageGroupe(new Error('groupe_pas_membre'))).toBeNull();
+    const b = bac({ refus: 'groupe_eteint' });
+    b.ctx.grp.file = [{ id: 'm2', groupe_id: 'g-1', texte: 'Trop tard' }];
+    await b.ctx.f.envoyerFileGroupe();
+    expect(b.ctx.grp.message).toBe('Ce groupe est terminé.');
+    expect(b.ctx.grp.file).toEqual([]);
   });
 
   test('« Quitter » les compte : la fenêtre dit qu’il reste des changements', () => {

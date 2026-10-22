@@ -19063,6 +19063,34 @@ const SETS_IMPORTES = [
       JSON.stringify([finG3, messagesG3, messagesG3Apres, h3, h4.parts]));
     console.log('  durée H : ' + Math.round((Date.now() - ta) / 1000) + ' s');
 
+    // ── 142 (v2_107) — LE BLOCAGE DANS LE GROUPE : on ne se voit plus (membre à la place fermée ; invitation d'un tiers).
+    {
+      ['x1', 'x2', 'x3', 'x4'].forEach((p) => S.profils.push({ id: 'u-' + p, username: p, compte_prive: true, jeu_actif: true, deleted_at: null }));
+      S.groupes.push({ id: 'gr-142', createur: 'u-x1', cree_le: iso(new Date(tG)), fini_le: null });
+      [['u-x1', false], ['u-x2', true], ['u-x3', false]].forEach(([u, ferme], k) => S.gmembres.push({ groupe_id: 'gr-142', user_id: u, session_id: null,
+        exercices: [], xp: null, entre_le: iso(new Date(tG + k)), ferme }));
+      const pseudos = (u) => fauxSocial.rpc(u, 'groupe_etat').map((x) => x.pseudo).sort().join(',');
+      const avant142 = pseudos('u-x1');
+      fauxSocial.bloquer('u-x2', 'u-x1');   // x2, place déjà fermée, bloque x1 : le déclencheur ne la retire pas
+      const x1Apres = pseudos('u-x1'), x3Apres = pseudos('u-x3'), x2Apres = pseudos('u-x2');
+      const ligneX2 = S.gmembres.filter((m) => m.user_id === 'u-x2').length;
+      ok('[groupe] 142 (v2_107) — DISCRIMINANT — membre à la place fermée, puis blocage : l’autre ne le voit plus dans le groupe (sa ligne reste en base) ; ' +
+        'un tiers, lui, voit tout le monde',
+        avant142 === 'x1,x2,x3' && x1Apres === 'x1,x3' && x3Apres === 'x1,x2,x3' && ligneX2 === 1 && x2Apres === '',
+        JSON.stringify([avant142, x1Apres, x3Apres, x2Apres, ligneX2]));
+      S.ginvitations.push({ groupe_id: 'gr-142', invite: 'u-x4', invitant: 'u-x3', cree_le: 1 });
+      const vue1 = fauxSocial.rpc('u-x4', 'groupe_invitations_recues').length;
+      fauxSocial.bloquer('u-x4', 'u-x1');   // x4 bloque x1, membre du groupe : le déclencheur retire l'invitation de x3
+      const retiree = S.ginvitations.filter((i) => i.invite === 'u-x4').length;
+      S.ginvitations.push({ groupe_id: 'gr-142', invite: 'u-x4', invitant: 'u-x3', cree_le: 4 });
+      const vue2 = fauxSocial.rpc('u-x4', 'groupe_invitations_recues').length;
+      ok('[groupe] 142 (v2_107) — DISCRIMINANT — invitation d’un tiers, puis blocage avec un membre : l’invitation disparaît (déclencheur), ' +
+        'et une invitation posée après ne s’affiche pas',
+        vue1 === 1 && retiree === 0 && vue2 === 0, JSON.stringify([vue1, retiree, vue2]));
+      S.ginvitations = []; S.blocages = []; S.gmembres = S.gmembres.filter((m) => m.groupe_id !== 'gr-142');
+      S.groupes = S.groupes.filter((g) => g.id !== 'gr-142');
+    }
+
     ok('[groupe] DISCRIMINANT — aucune réponse ne porte poids de corps, note, RPE, ressenti ou douleur',
       S.fuites.length === 0 && S.sets.some((t) => t.rpe && t.poids_corps_kg), JSON.stringify(S.fuites));
     ok('[groupe] à 360 px, aucun défilement horizontal : rejoindre, séance en groupe, récap du groupe',

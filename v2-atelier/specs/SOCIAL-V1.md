@@ -28,7 +28,7 @@ silence ». La feuille Bio du Profil dit : « Tes abonnés et les membres de ta 
 ## 2. Les règles
 
 - Compte privé par défaut (chaque abonnement s'approuve ; public = acceptation d'office).
-- Bloquer et retirer un abonné en silence ; bloquer efface tout lien.
+- Bloquer et retirer un abonné en silence ; bloquer efface tout lien, sauf la guilde, où l'autre devient « un membre » (§6.5).
 - Le nombre de réactions n'est visible que par l'auteur.
 - Fil : séances terminées des 30 derniers jours, liste chronologique, puis « Tu es à jour » ; jamais une séance en
   cours ; jamais une séance `visibilite = 'private'`.
@@ -361,6 +361,12 @@ invitations, défis : des fonctions SECURITY DEFINER (`guilde_choisir_defi` refu
 - **Le détail de la séance** : « Faite en groupe avec jordan, lea » (en ligne), qui rouvre le récap figé.
 - **Bloquer en plein groupe** fait partir celui qui bloque, en silence (sa séance continue) — interprétation de « deux
   personnes qui se bloquent ne peuvent être dans le même groupe ».
+  **v2_107 (22/10/2026, décision « personne ne part de la guilde »)** : (1) un membre dont la place est déjà fermée n'est pas
+  retiré par le blocage, mais `groupe_etat` ne le rend plus à l'autre (la ligne reste : « Faite en groupe avec … ») ;
+  (2) une invitation d'un tiers vers un groupe où se trouve la personne bloquée ne s'affiche plus
+  (`groupe_invitations_recues`), et le déclencheur retire celles qui existaient ; (3) **un message de groupe encore dans la
+  file après ce départ revient avec `groupe_pas_membre` : aucune phrase** (ni « Il faut le réseau »), l'opération sort de la
+  file en silence. `guilde_bloque` n'a pas de phrase propre : la phrase générique ne révèle pas le blocage.
 - **Le coach et les bilans** ne lisent rien du groupe : `plan.js` n'est pas touché ; le groupe n'écrit jamais dans une
   série ni dans un plan.
 

@@ -334,6 +334,19 @@
     return d === null || a === null ? null : a - d;
   }
 
+  // 137 (MOTEUR §9.22, décision du 22/10/2026) — « PAS MAINTENANT » VAUT POUR CE PROGRAMME-LÀ. La carte « Passer en
+  // cycles » est déjà vue quand `carte_cycles_le` existe ET n'est pas antérieure à `programme_construit_le`
+  // (comparées comme des instants) : un programme reconstruit réécrit `programme_construit_le`, et le refus d'avant
+  // ne vaut plus. Sans refus : jamais vue. Un refus sans date de programme lisible : vue (la règle d'avant).
+  function carteCyclesDejaVue(profil) {
+    var p = profil || {};
+    if (!p.carte_cycles_le) return false;
+    var refus = new Date(p.carte_cycles_le).getTime();
+    var construit = p.programme_construit_le ? new Date(p.programme_construit_le).getTime() : NaN;
+    if (isNaN(refus) || isNaN(construit)) return true;
+    return refus >= construit;
+  }
+
   // Vrai quand une phase est DÉCLARÉE et que sa dernière confirmation date de
   // 42 jours calendaires ou plus. Faux sans date lisible, avec une date dans le
   // futur, ou sans phase déclarée. `aujourdhui` : l'horloge, passée pour les tests.
@@ -2043,7 +2056,7 @@
     basculerPriorite: basculerPriorite, libelleDePriorite: libelleDePriorite, resumeDesPriorites: resumeDesPriorites,
     AIDE_OBJECTIF: AIDE_OBJECTIF, AIDE_PRIORITES: AIDE_PRIORITES, optionsTemps: optionsTemps,
     sectionBut: sectionBut, ligneTemps: ligneTemps, ligneQuestionnaire: ligneQuestionnaire,
-    lignesProgramme: lignesProgramme, libelleDesZones: libelleDesZones, joursDepuis: joursDepuis,
+    lignesProgramme: lignesProgramme, libelleDesZones: libelleDesZones, joursDepuis: joursDepuis, carteCyclesDejaVue: carteCyclesDejaVue,
     PHRASE_ZONES: PHRASE_ZONES, PHRASE_ECARTES: PHRASE_ECARTES, PHRASE_REFAIRE: PHRASE_REFAIRE,
     doitOuvrirQuestionnaire: doitOuvrirQuestionnaire,
     questionnaireAFaire: questionnaireAFaire,

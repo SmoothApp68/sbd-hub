@@ -13336,7 +13336,7 @@
       seancesDuDossier: seances,
       estProgramme: (local.blocs || []).some(function (b) { return b && b.dossier === dossier; }),
       carnet: Moteur.coachSeTait(p.intention),
-      dejaVue: !!p.carte_cycles_le
+      dejaVue: Profil.carteCyclesDejaVue(p)   // 137 : le refus vaut pour CE programme (MOTEUR §9.22)
     });
     return affichee ? { dossier: dossier, seances: seances } : null;
   }
@@ -13657,7 +13657,8 @@
              mentions: aj.map(function (a) { return a.mention; }) };
   }
 
-  // « Pas maintenant » : la carte ne revient jamais (`carte_cycles_le`). Le bouton du dossier, lui, reste.
+  // « Pas maintenant » : la carte ne revient pas pour CE programme (`carte_cycles_le`, 137 : un programme reconstruit la
+  // remontrait). Le bouton du dossier, lui, reste.
   function reporterLaCarteCycles() {
     var champs = Profil.preparerChamps(profil, { carte_cycles_le: new Date() }, new Date());
     if (Object.keys(champs).length) poserProfil(champs).catch(function () {});

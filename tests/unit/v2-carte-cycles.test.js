@@ -311,3 +311,37 @@ describe('le branchement dans app.js', () => {
     expect(html).toMatch(/<div id="bandeau-phase" hidden><\/div>[\s\S]*?<div id="carte-cycles" hidden><\/div>[\s\S]*?<div id="bandeau-reprise" hidden><\/div>/);
   });
 });
+
+// ═══ 137 (MOTEUR §9.22, delta D8) — « PAS MAINTENANT » VAUT POUR CE PROGRAMME-LÀ ═══════════════════════════════════
+describe('137 — le refus de la carte ne survit pas à un programme reconstruit', () => {
+  const carte = (m) => { const b = bac(m); b.appel('rendreCarteCycles()'); return !!b.vue(); };
+
+  test('refus APRÈS la création du programme : la carte reste cachée', () => {
+    const m = monde({ dejaVue: true });          // refus il y a 2 jours, programme créé il y a 21 jours
+    expect(carte(m)).toBe(false);
+  });
+  test('DISCRIMINANT — refus AVANT une reconstruction : la carte est de nouveau visible', () => {
+    const m = monde({ jours: 21, dejaVue: false });
+    m.profil.carte_cycles_le = il_y_a(40).toISOString();        // refusée sur l’ancien programme
+    expect(carte(m)).toBe(true);
+    // Témoin : le même profil, refus daté d’après la création → cachée.
+    m.profil.carte_cycles_le = il_y_a(2).toISOString();
+    expect(carte(m)).toBe(false);
+  });
+  test('jamais refusée : la règle d’avant (les 21 jours et les 6 séances)', () => {
+    expect(carte(monde({ jours: 21, seances: 6 }))).toBe(true);
+    expect(carte(monde({ jours: 20, seances: 6 }))).toBe(false);
+  });
+  test('la fonction pure : instants comparés, égalité = déjà vue, sans refus = jamais vue', () => {
+    const f = Profil.carteCyclesDejaVue;
+    expect(f({ programme_construit_le: '2026-10-01T10:00:00Z', carte_cycles_le: '2026-10-05T10:00:00Z' })).toBe(true);
+    expect(f({ programme_construit_le: '2026-10-10T10:00:00Z', carte_cycles_le: '2026-10-05T10:00:00Z' })).toBe(false);
+    expect(f({ programme_construit_le: '2026-10-05T10:00:00Z', carte_cycles_le: '2026-10-05T10:00:00Z' })).toBe(true);
+    // Deux écritures du même instant sous deux fuseaux : comparées comme des instants, pas comme des textes.
+    expect(f({ programme_construit_le: '2026-10-05T12:00:00+02:00', carte_cycles_le: '2026-10-05T10:00:00Z' })).toBe(true);
+    expect(f({ programme_construit_le: '2026-10-05T10:00:01Z', carte_cycles_le: '2026-10-05T12:00:00+02:00' })).toBe(false);
+    expect(f({ programme_construit_le: '2026-10-05T10:00:00Z', carte_cycles_le: null })).toBe(false);
+    expect(f({ carte_cycles_le: '2026-10-05T10:00:00Z' })).toBe(true);
+    expect(f(null)).toBe(false);
+  });
+});

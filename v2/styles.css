@@ -336,7 +336,10 @@ button{font-family:inherit;cursor:pointer}
 
 /* ── Voiles : fenêtre de muscle et calendrier ───────────────────────────── */
 .voile{position:fixed;inset:0;z-index:60;background:rgba(6,7,9,.68);
-  display:grid;place-items:center;padding:var(--e4)}
+  display:grid;place-items:center;padding:var(--e4);
+  /* 134 (I-09, audit iPhone) — la barre d'accueil de l'iPhone (≈ 34 px) : « Fermer » et les boutons du pied d'une
+     feuille ne se posent plus dans sa zone, où un toucher se lit comme le geste « retour à l'accueil ». */
+  padding-bottom:max(var(--e4), env(safe-area-inset-bottom, 0px))}
 .voile[hidden]{display:none}
 .fen,.cal{width:100%;max-width:360px;max-height:100%;overflow-y:auto;
   background:var(--panneau);border:1px solid var(--trait);border-radius:14px;

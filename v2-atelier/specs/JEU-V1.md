@@ -169,7 +169,7 @@ dans le fichier de cas).
   4. trois lignes qui ouvrent **Muscles** (« 7 »), **Succès** (« N · P points »), **Déblocages** (« cadres, gels »).
 - **Muscles** : les sept dans l'ordre du jeu (§3, jamais trié) ; hexagone du niveau (gris < 10, bleu 10–29, violet
   30–49, or 50), jauge, « niveau n+1 dans R points » (« min » pour Cardio ; à 50 : « niveau maximal ») ; une phrase :
-  « Une série de travail donne 1 point au muscle qu'elle travaille, ½ à celui qui aide, ¼ à celui qui stabilise. Cardio : 1 point par minute. »
+  « Une série de travail donne 1 point au muscle qu'elle travaille, ½ à celui qui aide, ¼ à celui qui stabilise. Cardio : 1 point par minute. » *(Précisé le 21/10/2026, audit 130 #11 : seulement les exercices de nature `cardio` du catalogue ; une minute d'étirement, de gainage ou de L-sit n'est pas du cardio.)*
 - **Libellés** : un succès se nomme par sa catégorie et son palier (« 1 000 séances », « 104 semaines », « Épaules
   niveau 40 », « Tous les muscles à 30 », « Grande sortie : 20 km ») ; un cap rond par le nom court de l'exercice, comme
   la médaille (« Cap rond : développé couché 140 kg »). **Singulier** quand le nombre vaut 1 (« dans 1 point »,

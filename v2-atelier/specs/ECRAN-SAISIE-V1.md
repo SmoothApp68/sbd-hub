@@ -187,7 +187,7 @@ deux colonnes au milieu de lignes à trois désoriente.
 détail de séance et de l'historique d'un exercice dit « Durée », « Distance · durée » (dans l'ordre de la prose, précisé le 22/10/2026), « Reps » ou « Charge » selon la
 mesure du bloc (« Mesure » pour un superset de mesures différentes) — jamais « Charge » au-dessus d'une durée (E8) ;
 l'aperçu « En faire une routine » écrit une durée en durée (« 20 s », jamais « 0 min », E10) ; la médaille écrit
-« 3,2 km » et « 1 min 30 », comme le journal (E9) ; « rep » s'accorde une fois (`repsTexte`).
+« 3,2 km » et « 1 min 30 », comme le journal (E9) ; « rep » s'accorde une fois (`repsTexte`). *Décidé le 21/10/2026 (audit 130 #10)* : une charge de 0 kg s'écrit « poids du corps × 12 » partout (journal, détail, médaille, récap), jamais « 0 kg × 12 ».
 
 #### 3 ter.2 L'effort suit la mesure — RIR ou RPE
 
@@ -323,7 +323,7 @@ exercices.
 corps daté. Or tractions, dips barres et muscle-up sont en `reps` — **sans charge saisie, mais
 avec un tonnage réel**.
 
-**Une séance de gainage seul est classée « sortie »** *(trouvé au chantier 24, non corrigé)*.
+**Une séance de gainage seul est classée « sortie »** *(trouvé au chantier 24 ; **tranché le 21/10/2026**, audit 130 #11, décision d'Aurélien : **une sortie, et le cardio du jeu, ce sont seulement les exercices de nature `cardio` du catalogue** — course, vélo, randonnée, sports, corde à sauter… ; les étirements et la mobilité, le gainage et les figures tenues restent des séances ordinaires, avec leurs exercices. Sans `nature` connue, l'ancienne règle s'applique.)*.
 `estExerciceSortie` retient `charge = 'aucune'` **et** `mesure ∈ {temps, distance_temps}` : une
 séance qui ne contiendrait que des planches est résumée en durée, comme une randonnée, et perd
 son aperçu d'exercices. Le correctif toucherait aussi Pilates et Escalade, qui sont bien des

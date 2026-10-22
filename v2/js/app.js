@@ -3427,6 +3427,10 @@
   // constate pas. En cas d'échec, l'entrée reste, marquée — et la file s'arrête
   // là plutôt que de sauter l'entrée suivante, dont la clé étrangère dépend
   // peut-être de celle qui vient d'échouer.
+  // Le réseau revient, ou l'app revient au premier plan (134, I-13) : la file part, et le profil modifié hors ligne
+  // avec elle. Sûr à répéter : une vidange en cours se relance après elle (`vidangeARelancer`).
+  function renvoyerCeQuiAttend() { vidanger(); if (profilAEnvoyer) envoyerProfil(); }
+
   async function vidanger() {
     if (vidangeEnCours) { vidangeARelancer = true; return; }
     if (!sessionActive) return;
@@ -15185,7 +15189,15 @@
     // Le profil ne repart que s'il y a quelque chose à envoyer : le renvoyer en entier à
     // chaque retour du réseau écraserait, avec un cache périmé, ce qu'un autre appareil
     // a répondu entre-temps (`questionnaire_fait_le`, objectif, priorités).
-    racine.addEventListener('online', function () { vidanger(); if (profilAEnvoyer) envoyerProfil(); });
+    racine.addEventListener('online', renvoyerCeQuiAttend);
+    // 134 (I-13, audit iPhone) — LE RETOUR AU PREMIER PLAN, PAR LE MÊME CHEMIN. iOS n'a pas de Background Sync, et ne
+    // délivre pas toujours `online` à la reprise : une séance finie hors ligne, l'app rouverte plus tard avec du
+    // réseau, n'attendait plus que le prochain geste. Hors ligne, rien : `online` s'en chargera.
+    doc.addEventListener('visibilitychange', function () {
+      if (doc.visibilityState !== 'visible') return;
+      if (racine.navigator && racine.navigator.onLine === false) return;
+      renvoyerCeQuiAttend();
+    });
     // 106 — les messages du groupe gardés hors ligne partent au retour du réseau.
     racine.addEventListener('online', function () { if (grp.file.length) chargerGroupe(); });
     // Rotation, clavier logiciel, changement de taille : les barres changent de

@@ -9348,6 +9348,38 @@ const SETS_IMPORTES = [
     ok('[RE] la séance suivante arrive en base, avec sa série',
       !!sid2 && sid2 !== sid && base.sets.some((x) => x.session_id === sid2),
       JSON.stringify({ sid2: sid2, series: base.sets.filter((x) => x.session_id === sid2).length }));
+
+    // 134 (I-13, audit iPhone) — LE RETOUR AU PREMIER PLAN VIDE LA FILE, sans `online` ni `SIGNED_IN`.
+    // ⚠️ Configuration discriminante : iOS ne délivre pas toujours `online` à la reprise, et le SDK n'est pas
+    // garanti de ré-entrer. On retire donc son écoute de la visibilité (sinon `SIGNED_IN` → `reentrer` →
+    // `vidanger` passerait pour l'app), on ne dispatche PAS `online`, et seule la visibilité reste.
+    {
+      base.reseau = false;
+      const l1 = await ligne(1);
+      const ph1 = await l1.$$eval('input', (x) => x.map((y) => y.placeholder));
+      await saisirSerie(1, Number(String(ph1[0]).replace(',', '.')) || 20, Number(ph1[1]) || 8);
+      await attendre(1500);
+      const avant = base.sets.filter((x) => x.session_id === sid2).length;
+      const enFile = (await page.evaluate(() => window.THCache.lireAttente())).length;
+      ok('[I-13] prémisse : hors réseau, la série attend dans la file', enFile > 0 && avant === 1,
+        enFile + ' entrée(s) en file, ' + avant + ' série(s) en base');
+      const sdkCoupe = await page.evaluate(() => {
+        const a = window.THClient.obtenir().auth;
+        if (typeof a.visibilityChangedCallback !== 'function') return false;
+        window.removeEventListener('visibilitychange', a.visibilityChangedCallback);
+        return true;
+      });
+      ok('[I-13] prémisse : l’écoute de la visibilité du SDK est retirée', sdkCoupe);
+      base.reseau = true;
+      await attendre(500);
+      ok('[I-13] prémisse : sans geste, la file attend toujours',
+        base.sets.filter((x) => x.session_id === sid2).length === 1);
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange', { bubbles: true })));
+      await jusqua(async () => base.sets.filter((x) => x.session_id === sid2).length === 2, 6000);
+      ok('[I-13] DISCRIMINANT — au retour au premier plan, la série en attente monte (sans `online`)',
+        base.sets.filter((x) => x.session_id === sid2).length === 2,
+        base.sets.filter((x) => x.session_id === sid2).length + ' série(s) en base');
+    }
     await abandonner();
     page.off('console', ecouter);
     ok('[RE] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));

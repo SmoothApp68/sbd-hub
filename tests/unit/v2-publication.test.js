@@ -22,7 +22,8 @@ const DOSSIERS = {
   js: /^[a-z0-9-]+\.js$/,                         // l'app
   fonts: /^([a-z0-9-]+\.woff2|OFL\.txt)$/,        // les polices servies et leur licence
   vendor: /^supabase\.js$/,                       // le SDK, versé localement (aucun CDN)
-  icons: /^icon-\d+\.png$/                        // les icônes du manifeste
+  // les icônes du manifeste ; et celle de l'écran d'accueil de l'iPhone (134, I-15 : opaque, 180 × 180)
+  icons: /^(icon-\d+|apple-touch-icon)\.png$/
 };
 
 function publiables(chemin) {

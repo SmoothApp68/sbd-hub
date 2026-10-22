@@ -16,6 +16,14 @@
 <title>TrainHub v2</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icons/icon-192.png">
+<!-- 134 (I-15, I-16, I-19, audit iPhone) — l'écran d'accueil de l'iPhone : une icône OPAQUE sur le fond de l'app
+     (iOS noircit la transparence ; générée par v2-atelier/outils/apple-touch-icon.py), une barre d'état opaque et
+     sombre (`black`, JAMAIS `black-translucent` : le contenu monterait sous l'heure, aucune marge haute n'est
+     prévue), et le nom sous l'icône. -->
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="TrainHub">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>

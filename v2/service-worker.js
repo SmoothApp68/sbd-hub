@@ -46,6 +46,8 @@ const SHELL = [
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  // 134 (I-15) — l'icône de l'écran d'accueil de l'iPhone, opaque.
+  './icons/apple-touch-icon.png',
   // 56-1 (la forge) — les polices, servies par l'app : sans elles en cache,
   // l'app hors ligne retomberait sur la police système.
   './fonts/barlow-400.woff2',

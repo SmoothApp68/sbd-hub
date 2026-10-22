@@ -1248,8 +1248,9 @@ function ok(nom, cond, detail) {
       await page.click('#feuille-contenu .feuille-menu button[data-cle="femme"]');
       const cree = await attendreQue(page, () => !!bd.profils[B], 12000);
       ok('[93] la ligne naît du geste du Profil', cree && bd.profils[B].sexe === 'femme', JSON.stringify(bd.profils[B]));
-      // (`onboarding_completed` part à `false` avec la création, puis passe à `true` quand on quitte le Profil pour le
-      // questionnaire — `marquerProfilVu`, comme pour toute ligne créée par `chargerProfil` : il n'est pas contrôlé ici.)
+      // (136, audit du 16/10, 03 #18 : `onboarding_completed` ne s'écrit plus — ni à la création, ni en quittant le Profil.)
+      ok('[136 · 03 #18] la ligne naît sans `onboarding_completed`',
+        !!bd.profils[B] && !Object.prototype.hasOwnProperty.call(bd.profils[B], 'onboarding_completed'), JSON.stringify(bd.profils[B]));
       ok('DISCRIMINANT [93] — elle naît avec le PSEUDO tapé à l’inscription',
         !!bd.profils[B] && bd.profils[B].username === 'test_0710', JSON.stringify(bd.profils[B]));
       const ouvert = await attendreQue(page, questionnaireOuvert, 8000);

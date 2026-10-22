@@ -619,8 +619,9 @@
                        'bilans_annonces',
                        // 108 (v2_088) — ma salle (MOTEUR §10 bis). FACULTATIVE en lecture et en écriture tant que
                        // la migration n'est pas lancée (`COLONNES_FACULTATIVES`, donnees.js).
-                       'ma_salle',
-                       'onboarding_completed'];
+                       'ma_salle'];
+  // 136 (audit du 16/10, 03 #18) — `onboarding_completed` n'est plus écrite (ni lue) : plus rien ne la décide depuis
+  // 60-2a (`questionnaire_fait_le`). La colonne reste en base.
 
   // ⚠️ `jeu_actif` EST NOT NULL (v2_068) : un `null` serait un 23502, que la file classe définitif — et le profil part
   // en ligne ENTIÈRE à chaque envoi, il bloquerait tout. Seul un booléen part ; absent ou nul, il n'est pas envoyé (la

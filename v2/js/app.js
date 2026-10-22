@@ -199,15 +199,8 @@
     // 116 (03 #6) — « Pas enregistré : … » se dit une fois, sur le Profil : vue, elle s'efface en le quittant.
     if (nom !== 'profil' && refusProfil && refusProfil.vu) refusProfil = null;
     var onglet = Routeur.ongletDe(vue || nom);
-    // ⚠️ MÊME PORTE, MÊME RAISON (§2, ch. 46). Quitter le profil vaut « vu » :
-    // sans ça, quelqu'un qui remplit tout puis touche un onglet retrouverait le
-    // bandeau de bienvenue à chaque ouverture.
-    //
-    // ⚠️ ET ON DEMANDE AU ROUTEUR, ON NE LISTE PAS LES ÉCRANS. « Tous mes
-    // exercices » est une sous-vue DU profil : en sortir n'est pas quitter le
-    // profil. Lister les exceptions à la main, c'était garantir qu'une sous-vue
-    // de plus soit oubliée le jour où on l'ajoute — `ongletDe` le sait déjà.
-    if (ecranCourant === 'profil' && onglet !== Routeur.PROFIL) marquerProfilVu();
+    // 136 (audit du 16/10, 03 #18) — quitter le profil n'écrit plus rien (`onboarding_completed`, « vu », retiré : le
+    // bandeau de bienvenue n'existe plus depuis 60-2a, et plus rien ne lisait la colonne).
     ecranCourant = nom;
     // ⚠️ LA DURÉE DE LA BARRE N'A DE SENS QUE SOUS LES YEUX (62). Une seule porte,
     // comme pour le mode Réorganiser : quitter l'écran de séance — par un onglet,
@@ -12770,7 +12763,7 @@
 
     if (!distant) {
       var creer = function (pseudo) {
-        return Donnees.enregistrerProfil(id, Profil.champsEcrits({ username: pseudo || null, onboarding_completed: false }));
+        return Donnees.enregistrerProfil(id, Profil.champsEcrits({ username: pseudo || null }));
       };
       // 60-3b — LE PSEUDO DE LA LIGNE : UN SEUL ENDROIT CHOISIT (`Profil.pseudoDeLInscription`). Celui de la
       // page d'abord ; sinon celui que l'inscription a déposé dans les données du compte — le lien de
@@ -12864,12 +12857,10 @@
       var champs = Profil.champsEnAttente(profilAEnvoyer, profil);
       // 93 — LA LIGNE PEUT NAÎTRE ICI : `chargerProfil` ne l'a pas posée (lecture ou création ratée), et c'est le
       // premier geste du Profil qui la crée (`ligneACreer`). La création reprend alors ce que `chargerProfil` aurait
-      // écrit — le pseudo choisi au MÊME endroit (`Profil.pseudoDeLInscription`), et `onboarding_completed: false` —
-      // sauf ce que le geste pose lui-même. Un pseudo pris entre-temps retombe dans la sortie 60-5 ci-dessous.
+      // écrit — le pseudo choisi au MÊME endroit (`Profil.pseudoDeLInscription`) — sauf ce que le geste pose lui-même. Un pseudo pris entre-temps retombe dans la sortie 60-5 ci-dessous.
       if (ligneACreer && !Object.prototype.hasOwnProperty.call(champs, 'username')) {
         champs.username = Profil.pseudoDeLInscription(pseudoAInscrire, await metadonneesDuCompte(id));
         if (!generationValide(g)) return;
-        if (!Object.prototype.hasOwnProperty.call(champs, 'onboarding_completed')) champs.onboarding_completed = false;
       }
       var rendu, refusees = [];
       // 116 (audit du 16/10/2026, 03 #6) — UNE COLONNE REFUSÉE POUR DE BON NE BLOQUE PLUS LE PROFIL. Un refus
@@ -12975,11 +12966,12 @@
   // Le seul chemin d'écriture. Local d'abord — l'écran dit la vérité tout de
   // suite et hors ligne — puis le réseau.
   //
-  // ⚠️ POSER ET RENDRE SONT SÉPARÉS, et ce n'est pas du zèle. `marquerProfilVu`
-  // écrit depuis `montrer`, AU MOMENT OÙ L'ON QUITTE LE PROFIL : s'il passait
-  // par `rendreProfilEcran`, il rappellerait `montrer('profil')` et ramènerait
-  // l'écran qu'on vient de quitter. Un écran qui se rouvre tout seul quand on
-  // en sort est exactement le genre de défaut qu'aucun test unitaire ne voit.
+  // ⚠️ POSER ET RENDRE SONT SÉPARÉS, et ce n'est pas du zèle. Une écriture faite
+  // depuis `montrer` (au moment où l'on quitte un écran) qui passerait par
+  // `rendreProfilEcran` rappellerait `montrer('profil')` et ramènerait l'écran
+  // qu'on vient de quitter (le défaut de l'ancien `marquerProfilVu`, retiré au 136).
+  // Un écran qui se rouvre tout seul quand on en sort est exactement le genre de
+  // défaut qu'aucun test unitaire ne voit.
   async function poserProfil(champs) {
     var ecrits = Profil.champsEcrits(champs);
     var avant = profil;
@@ -14328,13 +14320,6 @@
       $('profil-corps').insertBefore(Rendu.el('p', 'vide', refusProfil.texte), $('profil-corps').firstChild);
       refusProfil.vu = true;
     }
-  }
-
-  // Le profil a été VU : le bandeau d'accueil ne revient plus. C'est le seul
-  // effet de « première connexion » — pas un drapeau qui gouvernerait un tunnel.
-  function marquerProfilVu() {
-    if (!profil || profil.onboarding_completed !== false) return;
-    poserProfil({ onboarding_completed: true });
   }
 
   // ── Quitter, et supprimer ────────────────────────────────────────────────

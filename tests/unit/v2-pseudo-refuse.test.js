@@ -217,13 +217,15 @@ describe('envoyerProfilMaintenant — un pseudo refusé par la base', () => {
     expect(b.signal()).toBe(false);
   });
 
-  test('93 — la ligne naît de l’envoi (`ligneACreer`) : elle porte le pseudo de l’inscription et `onboarding_completed: false`', async () => {
+  // 136 (03 #18) — `onboarding_completed` ne s'écrit plus : la ligne naît avec le pseudo seulement.
+  test('93 — la ligne naît de l’envoi (`ligneACreer`) : elle porte le pseudo de l’inscription, et plus `onboarding_completed` (136)', async () => {
     const b = bacEnvoi({ profil: { sexe: 'femme' } });
     delete b.ctx.profil.username; delete b.ctx.profil.id;
     b.ctx.ligneACreer = true; b.ctx.pseudoAInscrire = 'test_0710';
     await b.envoyer();
     expect(b.etat.posts).toHaveLength(1);
-    expect(b.etat.posts[0]).toEqual(expect.objectContaining({ sexe: 'femme', username: 'test_0710', onboarding_completed: false }));
+    expect(b.etat.posts[0]).toEqual(expect.objectContaining({ sexe: 'femme', username: 'test_0710' }));
+    expect(Object.prototype.hasOwnProperty.call(b.etat.posts[0], 'onboarding_completed')).toBe(false);
     expect(b.ctx.ligneACreer).toBe(false);
     expect(b.ctx.pseudoAInscrire).toBe(null);
   });

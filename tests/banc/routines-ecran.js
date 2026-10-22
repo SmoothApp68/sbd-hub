@@ -2152,14 +2152,14 @@ const ALIAS_COMMUNS = [
       !document.querySelector('#profil-corps .p-plus-tard') &&
       !/Rien n’est obligatoire/.test(document.getElementById('profil-corps').textContent)),
     'ni bandeau ni sortie');
-  // ⚠️ `onboarding_completed` reste ÉCRIT (quitter le profil vaut « vu »), mais il
-  // ne route plus rien : seul `questionnaire_fait_le` décide.
+  // ⚠️ 136 (audit du 16/10, 03 #18) — `onboarding_completed` NE S'ÉCRIT PLUS : quitter le profil n'envoie rien. La
+  // ligne du faux serveur l'a à `false` (un compte neuf) ; elle doit le garder. (Avant le 136 : `true`, « vu ».)
+  const onboardingAvant = base.profil ? base.profil.onboarding_completed : undefined;
   await page3.evaluate(() => document.querySelector('.onglet[data-vue="saisie"]').click());
-  // 135 — quitter le profil écrit par la file : on attend l'écriture reçue (ce que lit le contrôle), puis le calme.
-  await jusqua('onboarding_completed reçu', () => !!base.profil && base.profil.onboarding_completed === true);
   await calme('après avoir quitté le profil');
-  ok('[60-2a · test 7] quitter le profil pose toujours `onboarding_completed` (il ne route plus)',
-    !!base.profil && base.profil.onboarding_completed === true, JSON.stringify(base.profil && base.profil.onboarding_completed));
+  ok('[136 · 03 #18] DISCRIMINANT — quitter le profil n’écrit plus `onboarding_completed`',
+    !!base.profil && base.profil.onboarding_completed === onboardingAvant && onboardingAvant === false,
+    JSON.stringify({ avant: onboardingAvant, apres: base.profil && base.profil.onboarding_completed }));
   await allerProfil3();
 
   // ── TEST 9 — l’intention, et la CLÉ qui part en base ─────────────────────

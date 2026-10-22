@@ -921,8 +921,8 @@
     // 104 (`v2_086`) — les bilans déjà annoncés. Écrite, donc relue (le même piège). FACULTATIVE : ci-dessous.
     'bilans_annonces, ' +
     // 108 (`v2_088`) — ma salle (MOTEUR §10 bis). FACULTATIVE aussi : absente, la salle n'est pas déclarée.
-    'ma_salle, ' +
-    'onboarding_completed';
+    // 136 (audit du 16/10, 03 #18) — `onboarding_completed` n'est plus lue ni écrite : la colonne reste en base.
+    'ma_salle';
 
   // ⚠️ 104 — UNE COLONNE FACULTATIVE NE CASSE JAMAIS LE PROFIL (le défaut de #418). Nommer une colonne que la base
   // n'a pas encore (migration pas lancée) fait échouer la lecture ENTIÈRE (`42703`, « column … does not exist ») et

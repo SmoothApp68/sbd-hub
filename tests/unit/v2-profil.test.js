@@ -443,3 +443,23 @@ describe('le réglage de rythme — une seule table, et la garde d’écriture',
     expect(Profil.rythmeDe({ rythme_progression: '' })).toBe('normal');
   });
 });
+
+// 136 (audit du 16/10/2026, 03 #18) — `onboarding_completed` NE S'ÉCRIT PLUS. Claude.ai a vérifié en base qu'aucune
+// fonction ne la lit ; l'app ne la lisait plus depuis 60-2a (`questionnaire_fait_le` décide). Retirée des écritures
+// (`Profil.CHAMPS_ECRITS`, la création de la ligne, « quitter le profil »), et de la lecture (`donnees.js`). La colonne
+// reste en base.
+describe('136 — 03 #18 : `onboarding_completed` ne s’écrit plus', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const lire = (f) => fs.readFileSync(path.join(__dirname, '../../v2/js/', f), 'utf8');
+  test('DISCRIMINANT — `champsEcrits` ne la laisse plus partir', () => {
+    expect(Profil.CHAMPS_ECRITS).not.toContain('onboarding_completed');
+    expect(Profil.champsEcrits({ onboarding_completed: true, username: 'x' })).toEqual({ username: 'x' });
+  });
+  test('aucun fichier de l’app ne l’écrit ni ne la lit (hors commentaires)', () => {
+    const sansCommentaires = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+    const fautes = fs.readdirSync(path.join(__dirname, '../../v2/js')).filter((f) => /\.js$/.test(f))
+      .filter((f) => /onboarding_completed/.test(sansCommentaires(lire(f))));
+    expect(fautes).toEqual([]);
+  });
+});

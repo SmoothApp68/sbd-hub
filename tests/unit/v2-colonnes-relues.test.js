@@ -390,8 +390,10 @@ describe('12. la liste de lecture est DÉRIVÉE, jamais recopiée', () => {
     const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
     expect(demandees).toContain('rythme_progression');
     // Et les colonnes déjà lues n'ont pas bougé au passage.
-    ['id', 'username', 'intention', 'seances_par_semaine', 'onboarding_completed']
+    ['id', 'username', 'intention', 'seances_par_semaine']
       .forEach((c) => expect(demandees).toContain(c));
+    // 136 (audit du 16/10, 03 #18) — plus lue ni écrite : la colonne reste en base, l'app ne la nomme plus.
+    expect(demandees).not.toContain('onboarding_completed');
   });
 
   test('le `select` du catalogue demande `equipement` — le repli du §10.2 en dépend', async () => {

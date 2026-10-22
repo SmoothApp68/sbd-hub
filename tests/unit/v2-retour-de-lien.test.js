@@ -26,12 +26,12 @@ const JETON = 'access_token=eyJ.a.b&expires_at=4102444800&expires_in=3600&refres
 describe('70 — la sonde du retour de lien : lue sur l’adresse seule, avant tout routage', () => {
   test('DISCRIMINANT — le lien de récupération (`#access_token=…&type=recovery`) : il faut attendre le SDK', () => {
     const Auth = charger();
-    expect(Auth.retourDeLien({ hash: '#' + JETON + '&type=recovery', search: '' })).toEqual({ jeton: true, erreur: false });
+    expect(Auth.retourDeLien({ hash: '#' + JETON + '&type=recovery', search: '' })).toEqual({ jeton: true, erreur: false, recup: true });
   });
 
   test('le lien de confirmation d’inscription (`type=signup`) : pareil', () => {
     const Auth = charger();
-    expect(Auth.retourDeLien({ hash: '#' + JETON + '&type=signup', search: '' })).toEqual({ jeton: true, erreur: false });
+    expect(Auth.retourDeLien({ hash: '#' + JETON + '&type=signup', search: '' })).toEqual({ jeton: true, erreur: false, implicite: true });
   });
 
   test('DISCRIMINANT — le lien expiré (`#error=…&error_code=otp_expired`) : une erreur, à dire', () => {

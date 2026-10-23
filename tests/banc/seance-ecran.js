@@ -1595,7 +1595,7 @@ const SETS_IMPORTES = [
         const reponse = JSON.parse(JSON.stringify(projeter(base.pesees, url)));
         if (base.peseesRetenir) {
           base.peseesRetenir = false; base.peseesLibere = false; base.peseesRetenue = true;
-          for (let k = 0; k < 1200 && !base.peseesLibere; k++) await pause(50);
+          for (let k = 0; k < 1200 && !base.peseesLibere; k++) await pause(50);   // le pas d'une attente d'état : le verrou
           base.peseesRetenue = false;
         }
         return json(reponse);

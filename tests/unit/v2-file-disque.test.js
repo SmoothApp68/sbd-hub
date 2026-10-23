@@ -29,7 +29,7 @@ function bac(ecrireAttente) {
   const journal = { messages: [], avertis: [], vidanges: 0, etats: 0 };
   const noeud = { id: 'erreur-seance' };
   const ctx = {
-    attente: [],
+    attente: [], gestesEnVol: {},   // 148 — la garde commune que `poser` renseigne
     Attente: { poser: (f, op) => f.concat([op]) },
     Cache: { ecrireAttente, ecrireBrouillon: () => Promise.reject(new Error('quota')) },
     Rendu: { message: (c, t, g) => journal.messages.push([c && c.id, t, g]) },
@@ -43,7 +43,7 @@ function bac(ecrireAttente) {
   };
   vm.createContext(ctx);
   vm.runInContext([extraireVar('PHRASE_SAUVEGARDE_IMPOSSIBLE'), extraire('direSauvegardeImpossible'),
-    extraire('poser'), extraire('poserPaquet'), extraire('sauverSeance'),
+    extraire('noterGesteEnVol'), extraire('poser'), extraire('poserPaquet'), extraire('sauverSeance'),
     'this.poser = poser; this.poserPaquet = poserPaquet; this.sauverSeance = sauverSeance;'].join('\n'), ctx);
   return { ctx, journal };
 }

@@ -4315,6 +4315,32 @@
     return cible;
   }
 
+  // 147 (23/10/2026) — UNE SÉANCE TROP LONGUE : un fait, pas un reproche. Deux phrases au plus (la seconde seulement
+  // si « Terminer à <heure> » est proposable), deux choix, et « Revenir à la séance » qui n'écrit rien.
+  function rendreFeuilleDuree(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', 'Ta séance dure ' + vue.duree + '.'));
+    if (vue.derniere) cible.appendChild(el('p', 'feuille-aide', 'Ta dernière série date de ' + vue.derniere + '.'));
+    var b1 = el('button', 'principal', vue.surTerminerA ? 'Terminer à ' + vue.derniere : 'Garder ' + vue.duree);
+    b1.type = 'button';
+    b1.setAttribute('data-choix', vue.surTerminerA ? 'terminer-a' : 'garder');
+    b1.addEventListener('click', vue.surTerminerA || vue.surGarder);
+    cible.appendChild(b1);
+    if (vue.surTerminerA) {
+      var b2 = el('button', 'discret bloc-large', 'Garder ' + vue.duree);
+      b2.type = 'button';
+      b2.setAttribute('data-choix', 'garder');
+      b2.addEventListener('click', vue.surGarder);
+      cible.appendChild(b2);
+    }
+    var b3 = el('button', 'discret bloc-large', 'Revenir à la séance');
+    b3.type = 'button';
+    b3.setAttribute('data-choix', 'revenir');
+    b3.addEventListener('click', vue.surRevenir);
+    cible.appendChild(b3);
+    return cible;
+  }
+
   function rendreFeuilleFin(cible, vue) {
     vider(cible);
     var t = el('div', 'feuille-t', 'Terminer la séance');
@@ -6401,6 +6427,22 @@
         g.appendChild(el('span', 'imp-e', l.sous));
         b.appendChild(g);
         liste.appendChild(b);
+        // 147 — une séance de plus de 5 h : « Dure 9 h 42 », et deux choix (« Sans heure de fin » par défaut).
+        if (l.duree && !l.grise) {
+          var d = el('div', 'imp-duree');
+          d.setAttribute('role', 'radiogroup');
+          d.appendChild(el('span', 'imp-duree-t', 'Dure ' + l.duree));
+          [[true, 'Sans heure de fin'], [false, 'Garder ' + l.duree]].forEach(function (c) {
+            var bc = el('button', 'imp-duree-c' + (!!l.sansFin === c[0] ? ' sel' : ''), c[1]);
+            bc.type = 'button';
+            bc.setAttribute('role', 'radio');
+            bc.setAttribute('data-choix', c[0] ? 'sans-fin' : 'garder');
+            bc.setAttribute('aria-checked', !!l.sansFin === c[0] ? 'true' : 'false');
+            bc.addEventListener('click', function () { vue.surChoisirFin(i, c[0]); });
+            d.appendChild(bc);
+          });
+          liste.appendChild(d);
+        }
       });
       cible.appendChild(liste);
       if (vue.noms.length) {
@@ -7867,6 +7909,7 @@
     rendreFeuilleSupprimer: rendreFeuilleSupprimer,
     phraseEffacement: phraseEffacement,
     rendreFeuilleFin: rendreFeuilleFin,
+    rendreFeuilleDuree: rendreFeuilleDuree,
     rendreRecap: rendreRecap,
     // 64B — le jeu (JEU-V1 §9).
     rendreJeuAccueil: rendreJeuAccueil,

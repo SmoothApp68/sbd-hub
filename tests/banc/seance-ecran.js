@@ -24372,6 +24372,107 @@ const SETS_IMPORTES = [
       JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus145), erreurs.slice(erreurs145)]));
   }
 
+  console.log('\n══ seance-longue. UNE SÉANCE TROP LONGUE : À « TERMINER », L\u2019APP LE DIT ET DEMANDE (147, ECRAN-SAISIE §7 septies.4) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une séance de musculation dont la dernière série validée est vieille de 2 h au moment
+  // de « Terminer » (l'horloge de la page avance de 2 h, `Horloge.scriptNavigateur`, sans aucun délai fixe). « Terminer à
+  // <heure de la série> » écrit pour fin cette heure-là ; « Garder » écrit l'instant du geste ; « Revenir » n'écrit rien.
+  // Une séance qui vient d'être validée ne demande rien (témoin).
+  {
+    const erreurs147 = erreurs.length;
+    const refus147 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations147 = gardeBanc.violations;
+    const sessions147 = base.sessions, sets147 = base.sets, catalogue147 = CATALOGUE.length, routines147 = ROUTINES.length;
+    base.sessions = []; base.sets = [];
+    CATALOGUE.push({ slug: 'rowing-l147', nom: 'Rowing L147 (Barre)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [], actif: true });
+    ROUTINES.push({ id: 'r-l147', nom: 'Rowing L147 ×2', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-l147-e', routine_id: 'r-l147', exercise_slug: 'rowing-l147', rang: 0,
+        routine_sets: progr(2, 10), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const sp147 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const feuille147 = () => page.evaluate(() => {
+      const f = document.getElementById('feuille-seance'), c = document.getElementById('feuille-contenu');
+      return { visible: !!f && !f.hidden, texte: c ? c.textContent : '',
+               choix: c ? Array.from(c.querySelectorAll('button[data-choix]')).map((b) => b.getAttribute('data-choix') + ':' + b.textContent) : [] };
+    });
+    const heure147 = (iso) => { const d = new Date(iso); return d.getHours() + ' h ' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); };
+    const cliquer147 = (choix) => page.evaluate((c) => document.querySelector('#feuille-contenu button[data-choix="' + c + '"]').click(), choix);
+    const demarrer147 = async () => {
+      await aller('/saisie'); await demarrerRoutine('Rowing L147 ×2'); await attendre(900);
+      await saisirSerie(0, 90, 10);
+      await jusqua(() => base.sets.length >= 1, 8000);
+    };
+    const ouvrirFin147 = async () => {
+      await page.click('#bandeau-seance .bandeau-fin');
+      await feuilleAvec('.principal');
+      await page.click('#feuille-contenu .principal');
+    };
+    const dernierSet = () => base.sets.map((x) => Date.parse(x.validee_a)).sort((a, b) => b - a)[0];
+
+    // 1. Témoin : la série vient d'être validée, « Terminer » ne demande rien.
+    await demarrer147();
+    await ouvrirFin147();
+    await jusqua(async () => base.sessions.some((x) => x.statut === 'terminee') || (await feuille147()).choix.length > 0, 10000);
+    const f0 = await feuille147();
+    ok('[L147] témoin — série validée à l\u2019instant : « Terminer » termine sans alerte', f0.choix.length === 0 &&
+      base.sessions.filter((x) => x.statut === 'terminee').length === 1, JSON.stringify([f0, base.sessions.map((x) => x.statut)]));
+    await seanceSortie();
+    base.sessions = []; base.sets = [];
+
+    // 2. La dernière série date de 2 h : la feuille, « Revenir », puis « Terminer à ».
+    await demarrer147();
+    const t0 = dernierSet();
+    await page.evaluate(Horloge.scriptNavigateur(2 * 3600000));
+    await ouvrirFin147();
+    await jusqua(async () => (await feuille147()).choix.length > 0, 6000);
+    const f1 = await feuille147();
+    ok('[L147] DISCRIMINANT — dernière série vieille de 2 h : « Ta séance dure 2 h 0x. Ta dernière série date de <heure>. », trois choix',
+      f1.visible && /^Ta séance dure 2 h 0\d\./.test(sp147(f1.texte)) && sp147(f1.texte).indexOf('Ta dernière série date de ' + heure147(t0) + '.') > 0 &&
+        f1.choix.length === 3 && f1.choix[0] === 'terminer-a:Terminer à ' + heure147(t0) && /^garder:Garder 2 h 0\d$/.test(f1.choix[1]) &&
+        f1.choix[2] === 'revenir:Revenir à la séance', JSON.stringify(f1));
+    await cliquer147('revenir');
+    await attendre(600);
+    const f2 = await feuille147();
+    ok('[L147] « Revenir » : la feuille se ferme, rien n\u2019est écrit (séance toujours en cours, sans fin)',
+      !f2.visible && base.sessions.every((x) => x.statut === 'en_cours' && !x.fin), JSON.stringify([f2, base.sessions.map((x) => [x.statut, x.fin])]));
+    await ouvrirFin147();
+    await jusqua(async () => (await feuille147()).choix.length > 0, 6000);
+    await cliquer147('terminer-a');
+    await jusqua(() => base.sessions.some((x) => x.statut === 'terminee'), 10000);
+    const fin1 = base.sessions.filter((x) => x.statut === 'terminee')[0];
+    ok('[L147] « Terminer à <heure> » : la fin en base est exactement la `validee_a` de la dernière série',
+      !!fin1 && Date.parse(fin1.fin) === t0, JSON.stringify([fin1 && fin1.fin, new Date(t0).toISOString()]));
+    await seanceSortie();
+    base.sessions = []; base.sets = [];
+
+    // 3. « Garder » : la fin est l'instant du geste (2 h après la dernière série).
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await demarrer147();
+    const t1 = dernierSet();
+    await page.evaluate(Horloge.scriptNavigateur(2 * 3600000));
+    await ouvrirFin147();
+    await jusqua(async () => (await feuille147()).choix.length > 0, 6000);
+    await cliquer147('garder');
+    await jusqua(() => base.sessions.some((x) => x.statut === 'terminee'), 10000);
+    const fin2 = base.sessions.filter((x) => x.statut === 'terminee')[0];
+    const ecart = fin2 ? Date.parse(fin2.fin) - t1 : -1;
+    ok('[L147] « Garder 2 h 0x » : la fin en base est l\u2019instant de « Terminer », deux heures après la dernière série',
+      !!fin2 && ecart >= 2 * 3600000 && ecart < 2 * 3600000 + 120000, JSON.stringify([fin2 && fin2.fin, ecart]));
+    await seanceSortie();
+
+    // LA REMISE EN ÉTAT (la page repart d'une horloge neuve).
+    ROUTINES.splice(routines147, ROUTINES.length - routines147);
+    CATALOGUE.splice(catalogue147, CATALOGUE.length - catalogue147);
+    base.sessions = sessions147; base.sets = sets147;
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    ok('[L147] la garde (C6) n\u2019a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations147 && base.journal.filter((j) => j.op === 'refus').length === refus147 &&
+        erreurs.length === erreurs147,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus147), erreurs.slice(erreurs147)]));
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

@@ -1596,6 +1596,19 @@ met-elle à jour la routine ?
 > validées. ») et propose **Les valider** (le geste du §7 septies.4 E4) ou **Abandonner** (rouge : il jette ce qui a
 > été tapé). L'Édition d'une séance terminée ne change pas.
 
+> **Une séance trop longue : l'app le dit et demande — 23/10/2026, décision d'Aurélien (prompt 147).** À « Terminer »
+> (et à l'enregistrement d'une fin choisie au-delà de 5 h en Édition), si la séance compte au moins un exercice **fait**
+> qui n'est pas une sortie (`estExerciceSortie`) **et** qu'elle dure plus de **5 h** (début → l'instant de « Terminer »),
+> **ou** que sa dernière série validée date de plus d'**1 h** (seuils stricts, « Terminer » seulement), la feuille dit un
+> fait : « Ta séance dure 6 h 12. » puis, si elle apporte quelque chose, « Ta dernière série date de 12 h 40. ». Deux
+> choix : **« Terminer à 12 h 40 »** (principal ; la fin = la `validee_a` de la dernière série) et **« Garder 6 h 12 »**
+> (la fin = l'instant de « Terminer », comme avant) ; **« Revenir à la séance »** (ou fermer la feuille) n'écrit rien.
+> Séance longue dont la dernière série est récente : « Garder » seul, pas de « Terminer à ». Une séance faite
+> uniquement de sorties (randonnée, trail, vélo, ski…) : **jamais** d'alerte, sa durée est réelle. La séance vide (137)
+> garde sa feuille. En Édition, la même feuille avec « Garder » et « Revenir » (l'Édition fixe déjà `validee_a`) :
+> la décision est `Seance.alerteDeDuree(…, 'edition')` ; aucun écran de l'Édition ne change encore la fin, elle n'est
+> donc pas câblée. Décision pure (`seance.js`), l'écran ne calcule rien.
+
 > **Une donnée facultative restée vide — décidé le 21/10/2026 (prompt 131).** La feuille montre une fois la case d'un
 > D+, d'étages ou d'une distance (durée remplie) restés vides sur une série validée de la séance (§3 ter.5, écran 6).
 

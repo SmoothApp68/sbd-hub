@@ -246,6 +246,15 @@ rangerait une chauffe en série de travail). Dans les deux cas, une date illisib
 « pas un export » mais « Export en anglais : change la langue de Hevy en français et réexporte. » (CSV) ou « Texte en
 anglais : change la langue de Hevy en français et copie-le de nouveau. » (texte).
 
+**Une séance de plus de 5 h — 23/10/2026, décision d'Aurélien (prompt 147).** Une séance du fichier qui dure plus de
+5 h (`fin_local − debut_local`, strict) et contient au moins un exercice qui n'est pas une sortie est signalée sur sa
+ligne de l'aperçu : « Dure 9 h 42 ». Deux choix, par séance : **« Sans heure de fin »** (par défaut : la séance et ses
+séries entrent, `fin` vide ; rien n'est deviné, elle ne compte pas dans les heures, records, volume et paris ne
+changent pas) ou **« Garder 9 h 42 »** (elle entre telle quelle). Une séance de sorties seules (une rando de 7 h) :
+aucun signal. Un nom pas encore rattaché compte comme un exercice de musculation. `sessions.fin` est nullable (aucune
+contrainte) ; les lecteurs (faits, récap, détail, moteur) lisent une fin absente sans planter. La règle « un import ne
+remplace jamais une séance » ne change pas.
+
 **L'heure.** Hevy écrit l'heure **locale, sans fuseau**. Elle se lit dans le fuseau du téléphone et part en base en
 heure universelle. *(L'import CSV d'août l'avait écrite telle quelle : 1 221 séances décalées de 1 à 2 h, corrigées
 par `v2_075` le 11/10, records compris.)*

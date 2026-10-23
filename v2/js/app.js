@@ -4411,12 +4411,12 @@
              remplissage: remplissage ? Object.assign({}, remplissage) : null };
   }
 
-  async function terminerSeance(verdict) {
+  async function terminerSeance(verdict, fin) {
     // 71 — LE BLOC « LE JEU » DU RÉCAP, calculé ICI, comme la feuille le calculait : l'état du jeu AVANT la
     // séance (elle n'est pas encore dans le cache) contre l'état avec elle. Après l'adoption, « avant »
     // la contiendrait déjà, et l'apport serait nul.
     var jeuDuRecap = jeuDeLaFeuille();
-    seance = Seance.terminer(seance, new Date());
+    seance = Seance.terminer(seance, fin || new Date());
     await sauverSeance();
     await poserSeries();
     await poserSeance(false);
@@ -8793,6 +8793,7 @@
     if (feuille.quoi === 'fin') return rendreFeuilleFin(cible, index);
     if (feuille.quoi === 'abandon') return rendreFeuilleAbandon(cible);
     if (feuille.quoi === 'non-validees') return rendreFeuilleNonValidees(cible);
+    if (feuille.quoi === 'duree') return rendreFeuilleDuree(cible, index);
     if (feuille.quoi === 'pourquoi') {
       return Rendu.rendreFeuillePourquoi(cible, {
         nom: Modele.nommer(index, feuille.slug),
@@ -9038,8 +9039,7 @@
       // silence : une phrase d'abord, « Les valider » ou « Terminer quand même ».
       surTerminer: async function () {
         if (Seance.rempliesNonValidees(seance).length) { feuille.quoi = 'non-validees'; rendreFeuille(); return; }
-        fermerVoile();
-        await terminerSeance(verdict);
+        await terminerOuDemander(verdict);
       },
       // 115 (audit du 16/10, E1) — « Abandonner et tout effacer » DEMANDE dès qu'une série est faite : la
       // confirmation de « Supprimer cette séance ? », qui compte ce qui part. Sans série faite, rien à perdre :
@@ -9049,6 +9049,35 @@
         fermerVoile();
         await abandonnerSeance();
       }
+    });
+  }
+
+  // 147 (23/10/2026) — UNE SÉANCE TROP LONGUE : l'app le dit et demande, AVANT d'écrire. `Seance.alerteDeDuree` décide
+  // (pure) ; ici on lit sa réponse. Pas d'alerte : la séance se termine comme avant. Une alerte : la feuille « duree »,
+  // avec l'instant du geste (« Garder » écrit CET instant) ; fermer la feuille ne tape rien.
+  async function terminerOuDemander(verdict) {
+    var maintenant = new Date();
+    var alerte = Seance.alerteDeDuree(seance, Modele.indexerExercices(local.exercices), maintenant, 'terminer');
+    if (!alerte) { fermerVoile(); return terminerSeance(verdict); }
+    feuille.quoi = 'duree';
+    feuille.instant = maintenant;
+    rendreFeuille();
+  }
+
+  function rendreFeuilleDuree(cible, index) {
+    var instant = feuille.instant || new Date();
+    var alerte = Seance.alerteDeDuree(seance, index, instant, 'terminer');
+    if (!alerte) { feuille.quoi = 'fin'; return rendreFeuille(); }
+    var verdict = Seance.ecartsRoutine(seance, routineDeLaSeance());
+    Rendu.rendreFeuilleDuree(cible, {
+      duree: alerte.duree,
+      derniere: alerte.derniere ? Modele.heureMinute(alerte.derniere) : '',
+      surTerminerA: alerte.derniere ? async function () {
+        fermerVoile();
+        await terminerSeance(verdict, new Date(alerte.derniere));
+      } : null,
+      surGarder: async function () { fermerVoile(); await terminerSeance(verdict, instant); },
+      surRevenir: function () { fermerVoile(); }
     });
   }
 
@@ -9070,9 +9099,7 @@
       libelle: 'Terminer quand même',
       libelleAnnuler: 'Les valider',
       surConfirmer: async function () {
-        var verdict = Seance.ecartsRoutine(seance, routineDeLaSeance());
-        fermerVoile();
-        await terminerSeance(verdict);
+        await terminerOuDemander(Seance.ecartsRoutine(seance, routineDeLaSeance()));
       },
       surAnnuler: function () { fermerVoile(); amenerEnVue(remplies[0]); }
     });
@@ -14804,6 +14831,14 @@
     rendreImportEcran();
   }
 
+  // 147 — « Sans heure de fin » (défaut) ou « Garder <durée> », pour une séance de plus de 5 h.
+  function choisirFinImport(i, sansFin) {
+    var l = importHevy && importHevy.lignes && importHevy.lignes[i];
+    if (!l || !l.duree_longue || l.verdict === 'deja_la') return;
+    l.sans_fin = !!sansFin;
+    rendreImportEcran();
+  }
+
   function cocherImport(i) {
     var l = importHevy && importHevy.lignes && importHevy.lignes[i];
     if (!l || l.verdict === 'deja_la') return;
@@ -14873,7 +14908,7 @@
     // d'écrire quoi que ce soit : les séances déjà là, telles qu'elles sont.
     var dejaLa = (local.seances || []).slice();
     var choisies = imp.lignes.filter(function (l) { return l.coche && l.verdict !== 'deja_la'; })
-      .map(function (l) { return l.seance; })
+      .map(function (l) { return Object.assign({}, l.seance, { sans_fin: !!l.sans_fin }); })   // 147
       .sort(function (a, b) { return Date.parse(a.debut) - Date.parse(b.debut); });
     var resultat = {
       importees: 0,
@@ -14993,9 +15028,10 @@
       v.lignes = imp.lignes.map(function (l) {
         return { titre: l.seance.titre || 'Séance', quand: Import.jourEtHeure(l.seance.debut_local, annee),
                  sous: Import.sousLigne(l, imp.fuseau), coche: l.coche && l.verdict !== 'deja_la',
-                 grise: l.verdict === 'deja_la' };
+                 grise: l.verdict === 'deja_la', duree: l.duree_longue || null, sansFin: !!l.sans_fin };
       });
       v.surCocher = cocherImport;
+      v.surChoisirFin = choisirFinImport;
       var noms = Import.nomsARattacher(imp.lignes, index, imp.ignores);
       v.noms = noms.map(function (x) {
         return { nom: x.nom, aide: x.series + (x.series > 1 ? ' séries, ' : ' série, ') + x.seances +

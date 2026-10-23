@@ -217,6 +217,7 @@
     "chauffes-ajoutees": 20.0,
     "echelles-semaine": 10.0,
     "seance-longue": 40.0,
+    "hors-barres": 60.0,
     "pesee-gardee": 30.0
   }
 }

@@ -77,6 +77,7 @@ Rareté → points : **commun** 10 · **rare** 25 · **exceptionnel** 50 · **ma
 | Records | `records-N` | 10 c · 50 c · 100 r · 250 r · 500 e · 1 000 e · 2 500 m | séries médaillées (§4) |
 | Randonnée | `rando-N` | 50 c · 100 r · 250 e · 500 m (km) | Σ `distance_m` des séries de travail de `randonnee` ÷ 1 000 |
 | Grande sortie | `rando-sortie-20` | rare | une série de travail de `randonnee` de plus de 20 000 m |
+| Caps de distance (153, 23/10/2026) | `course-5` c · `course-10` r · `course-semi` e (21 097 m) · `course-marathon` m (42 195 m) · `nage-1` c · `nage-2` r · `velo-50` c · `velo-100` r | une série de travail d'**au moins** cette distance : course (course à pied **et** tapis), natation, vélo (dehors). Libellés « Premier 10 km de course », « Premier 2 km de nage », « Première sortie de 100 km à vélo ». Le jeu reçoit la plus grande distance par sport de `faits.js` (`faitsDuJeu().distances`, sports de `SPORTS`) ; il ne lit pas les séries |
 | Découverte | `decouverte-N` | 10 c · 25 c · 50 r · 100 e | exercices faits (`compterExercices().faits`) |
 | Muscle | `muscle-<clé>-N` | 10 c · 20 c · 30 r · 40 e · 50 m | niveau du muscle (7 × 5 = 35) |
 | Tous les muscles | `tous-N` | 10 c · 20 r · 30 e · 40 e · 50 m | le plus petit des sept niveaux |
@@ -87,7 +88,7 @@ Rareté → points : **commun** 10 · **rare** 25 · **exceptionnel** 50 · **ma
 module du jeu ne la recopie pas : il traite les maximums qu'il reçoit.
 
 **L'ordre de `succes.ids`** : les catégories séances, série, records, randonnée, découverte (chacune en paliers
-croissants), puis `rando-sortie-20`, puis les muscles (dans l'ordre de §3, paliers croissants), puis `tous-N`, puis les
+croissants), puis `rando-sortie-20`, puis les caps de distance (153 : dans l'ordre du tableau), puis les muscles (dans l'ordre de §3, paliers croissants), puis `tous-N`, puis les
 caps ronds.
 
 **Plus tard (hors V1)** : force au poids de corps (seuils par sexe à fixer), insolite, secrets, objectifs (Parcours et

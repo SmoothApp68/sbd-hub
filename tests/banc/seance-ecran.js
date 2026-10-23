@@ -1230,9 +1230,10 @@ const SETS_IMPORTES = [
     // l'envoi tombait dans le `json([])` final et « réussissait » sans rien
     // écrire — le banc plus permissif que la base.
     const COLONNES_RECORDS = ['id', 'user_id', 'set_id', 'session_id', 'exercise_slug', 'type', 'valeur', 'reps',
-      'charge', 'unite', 'ancien', 'ancien_le', 'sur_douze_mois', 'battu_le', 'created_at'];
+      'charge', 'unite', 'palier_m', 'ancien', 'ancien_le', 'sur_douze_mois', 'battu_le', 'created_at'];
+    // v2_109 (153) : l'allure, la première fois sur une marche, le D+, les étages ; `palier_m` (allure seulement) ; les unités s_*.
     const TYPES_RECORDS = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'un_rm_estime',
-      'volume_seance', 'duree_s', 'distance_m'];
+      'volume_seance', 'duree_s', 'distance_m', 'allure', 'marche', 'denivele_m', 'etages'];
     if (table === 'records') {
       if (req.method() === 'GET') {
         let l = base.records.slice();
@@ -1267,8 +1268,14 @@ const SETS_IMPORTES = [
           if (l.valeur === null || l.valeur === undefined) return json(refus('23502', 'records.valeur NOT NULL'), 400);
           if (!l.battu_le) return json(refus('23502', 'records.battu_le NOT NULL'), 400);
           if (l.sur_douze_mois === null) return json(refus('23502', 'records.sur_douze_mois NOT NULL'), 400);
-          if (l.unite !== null && l.unite !== undefined && ['kg', 'reps'].indexOf(l.unite) < 0) {
+          if (l.unite !== null && l.unite !== undefined && ['kg', 'reps', 's_km', 's_100m', 's_500m'].indexOf(l.unite) < 0) {
             return json(refus('23514', 'records_unite_check'), 400);
+          }
+          // records_allure_ok (v2_109) : `palier_m` exactement pour une allure, entier > 0, unité s_*, valeur > 0.
+          const aPalier = l.palier_m !== null && l.palier_m !== undefined;
+          if ((l.type === 'allure') !== aPalier ||
+              (l.type === 'allure' && !(l.palier_m > 0 && ['s_km', 's_100m', 's_500m'].indexOf(l.unite) >= 0 && l.valeur > 0))) {
+            return json(refus('23514', 'records_allure_ok'), 400);
           }
           if (l.reps !== null && l.reps !== undefined && !Number.isInteger(l.reps)) return json(refus('22P02', 'records.reps : entier'), 400);
           if (base.records.some((x) => meme(x, l)) || ajouts.some((x) => meme(x, l))) {
@@ -24851,6 +24858,122 @@ const SETS_IMPORTES = [
     ok('[P148] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
       gardeBanc.violations === violations148 && base.journal.filter((j) => j.op === 'refus').length === refus148 && erreurs.length === erreurs148,
       JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus148), erreurs.slice(erreurs148)]));
+  }
+
+  console.log('\n══ hors-barres. LES RECORDS HORS DES BARRES : L’ALLURE, LA PREMIÈRE FOIS SUR UNE MARCHE, LE RÉCAP ET LES CAPS DU JEU (153, MOTEUR §9.23) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un tapis fait il y a 20 jours (1 000 m en 7:13). Ce soir, deux séries de tapis —
+  // 1 000 m en 7:00 (plus vite que toute série d'au moins 1 km : la médaille « Record d'allure sur 1 km ou plus : 7:00 /km. »,
+  // « Avant : 7:13 /km, le … ») puis 5 km en 30:00 (rien à battre à ce palier : pas d'allure, mais la plus longue distance et le
+  // cap de 5 km du jeu) — puis un Muscle-Up, première fois (une habileté, même sans marche d'avant : « Première fois :
+  // Muscle-Up. » / « Une habileté. »). Le récap liste les trois médailles et le bloc « Le jeu » porte le succès
+  // « Premier 5 km de course ». Aucun délai fixe : chaque attente est une condition. Tout est retiré à la fin.
+  {
+    const erreurs153 = erreurs.length;
+    const refus153 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations153 = gardeBanc.violations;
+    const catalogueAvant153 = CATALOGUE.length, routinesAvant153 = ROUTINES.length;
+    const sessionsAvant153 = base.sessions, setsAvant153 = base.sets, recordsAvant153 = base.records.slice();
+    const sp153 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    CATALOGUE.push({ slug: 'tapis_roulant', nom: 'Tapis de Course', mesure: 'distance_temps', charge: 'aucune', equipement: 'machine',
+        nature: 'cardio', hors_salle: false, actif: true, muscles_primaires: [], muscles_secondaires: [] },
+      { slug: 'muscle_up', nom: 'Muscle-Up', mesure: 'reps', charge: 'aucune', equipement: 'aucun', nature: 'habilete', habilete: true,
+        actif: true, muscles_primaires: ['dorsaux'], muscles_secondaires: [], echelle: 'muscle_up', echelle_rang: 1 });
+    base.sessions = []; base.sets = [];
+    const t153 = Date.now();
+    const debutAvant153 = ilYa(20 * 86400000, t153).toISOString();
+    base.sessions.push({ id: 'h153-0', user_id: 'u-banc', titre: 'Tapis — h153-0', debut: debutAvant153,
+      fin: finDe(debutAvant153, t153).toISOString(), statut: 'terminee', note: null, salle: null, salle_norme: null,
+      routine_id: null, source: 'app', created_at: debutAvant153 });
+    base.sets.push({ id: 'h153-0-s1', session_id: 'h153-0', user_id: 'u-banc', exercise_slug: 'tapis_roulant', charge_kg: null,
+      reps: null, duree_s: 433, distance_m: 1000, type_serie: 'travail', rang: 1, groupe_superset: null, validee_a: debutAvant153,
+      rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debutAvant153, modifie_a: null });
+    const ex153 = (slug, rang, sets) => ({ id: 'r-h153-' + rang, routine_id: 'r-h153', exercise_slug: slug, rang,
+      routine_sets: sets, repos_cible_s: 0, groupe_superset: null, note: null });
+    ROUTINES.push({ id: 'r-h153', nom: 'Hors barres U153', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [ex153('tapis_roulant', 0, progr(2)), ex153('muscle_up', 1, progr(1, 1))] });
+    const remplir153 = async (i, champ, v) => {
+      const inp = await page.$$('.ligne-serie >> nth=' + i + ' >> [data-champ="' + champ + '"] input');
+      if (champ === 'duree') { await inp[0].click(); await inp[0].type(String(v), { delay: 30 }); }
+      else await inp[0].fill(String(v));
+      await inp[0].evaluate((e) => e.blur());
+    };
+    const valider153 = async (i) => {
+      await page.evaluate((k) => document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), i);
+      await jusqua(() => page.evaluate((k) => !!document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie.cochee'), i), 6000);
+    };
+    // La médaille qui suit la rangée i : `[gras, gris]`, ou null.
+    const medaille153 = (i) => page.evaluate((k) => {
+      const l = document.querySelectorAll('.ligne-serie')[k];
+      const m = l && l.nextElementSibling && l.nextElementSibling.classList.contains('record-serie') ? l.nextElementSibling : null;
+      return m ? [m.querySelector('b').textContent, m.querySelector('.record-avant') ? m.querySelector('.record-avant').textContent : null] : null;
+    }, i);
+    const dAvant = new Date(debutAvant153);
+    const MOIS153 = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    const dateAvant153 = 'le ' + (dAvant.getDate() === 1 ? '1er' : dAvant.getDate()) + ' ' + MOIS153[dAvant.getMonth()] +
+      (dAvant.getFullYear() !== new Date(t153).getFullYear() ? ' ' + dAvant.getFullYear() : '');
+
+    await aller('/saisie');
+    await demarrerRoutine('Hors barres U153');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.ligne-serie').length >= 3), 8000);
+    // A. L'ALLURE : 1 000 m en 7:00 contre 7:13 il y a 20 jours.
+    await remplir153(0, 'duree', 700);
+    await remplir153(0, 'distance_km', 1);
+    await valider153(0);
+    await jusqua(async () => !!(await medaille153(0)), 6000);
+    const mA = await medaille153(0);
+    ok('[H153] DISCRIMINANT — 1 000 m en 7:00 contre 7:13 : « Record d’allure sur 1 km ou plus : 7:00 /km. », « Avant : 7:13 /km, … »',
+      !!mA && sp153(mA[0]) === 'Record d’allure sur 1 km ou plus : 7:00 /km.' &&
+        sp153(mA[1]) === sp153('Avant : 7:13 /km, ' + dateAvant153 + (/\.$/.test(dateAvant153) ? '' : '.')), JSON.stringify([mA, dateAvant153]));
+    // B. 5 km en 30:00 : rien à battre à ce palier (pas d'allure), mais la plus longue distance.
+    await remplir153(1, 'duree', 3000);
+    await remplir153(1, 'distance_km', 5);
+    await valider153(1);
+    await jusqua(async () => !!(await medaille153(1)), 6000);
+    const mB = await medaille153(1);
+    ok('[H153] DISCRIMINANT — 5 km en 30:00 : la plus longue distance, et PAS d’allure (aucune série passée d’au moins 5 km)',
+      !!mB && /Plus longue distance : 5 km/.test(sp153(mB[0])) && !/allure/.test(mB[0]), JSON.stringify(mB));
+    // C. LE MUSCLE-UP : une habileté, première fois — même sans marche d'avant.
+    await remplir153(2, 'reps', 1);
+    await valider153(2);
+    await jusqua(async () => !!(await medaille153(2)), 6000);
+    const mC = await medaille153(2);
+    ok('[H153] DISCRIMINANT — Muscle-Up, première fois : « Première fois : Muscle-Up. », gris « Une habileté. »',
+      !!mC && sp153(mC[0]) === 'Première fois : Muscle-Up.' && sp153(mC[1]) === 'Une habileté.', JSON.stringify(mC));
+    // D. LE RÉCAP : les trois médailles, et le bloc « Le jeu » avec le cap de 5 km.
+    await garderRecap(true);
+    await page.click('#bandeau-seance .bandeau-fin');
+    await feuilleAvec('.principal');
+    await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('#recap-corps .recap-rec .l1').length >= 3), 8000);
+    const recap153 = await page.evaluate(() => ({
+      lignes: Array.from(document.querySelectorAll('#recap-corps .recap-rec')).map((x) => x.textContent),
+      jeu: Array.from(document.querySelectorAll('#jeu-fin .j-ligne')).map((x) => x.textContent) }));
+    ok('[H153] le récap : les trois médailles (allure, distance, première fois)',
+      recap153.lignes.length === 3 && /Record d.allure sur 1 km ou plus/.test(sp153(recap153.lignes.join(' '))) &&
+        /Première fois : Muscle-Up/.test(sp153(recap153.lignes.join(' '))), JSON.stringify(recap153.lignes.map(sp153)));
+    ok('[H153] le bloc « Le jeu » porte le succès « Premier 5 km de course »',
+      recap153.jeu.some((t) => /Premier 5 km de course/.test(sp153(t))), JSON.stringify(recap153.jeu.map(sp153)));
+    await fermerRecapBanc();
+    await garderRecap(false);
+    // E. LE JOURNAL : l'allure porte son palier et son unité (v2_109), la première fois sa valeur (le rang).
+    await jusqua(() => base.records.some((r) => r.type === 'marche'), 8000);
+    const al153 = base.records.filter((r) => r.type === 'allure')[0];
+    const ma153 = base.records.filter((r) => r.type === 'marche')[0];
+    ok('[H153] le journal : l’allure à 420 s/km, palier 1 000 m, unité s_km ; la première fois sur Muscle-Up (rang 1, sans ancien)',
+      !!al153 && al153.valeur === 420 && al153.palier_m === 1000 && al153.unite === 's_km' && al153.ancien === 433 &&
+        !!ma153 && ma153.valeur === 1 && ma153.ancien === null && ma153.exercise_slug === 'muscle_up',
+      JSON.stringify([al153, ma153]));
+    // LA REMISE EN ÉTAT.
+    base.sessions = sessionsAvant153; base.sets = setsAvant153; base.records = recordsAvant153;
+    CATALOGUE.splice(catalogueAvant153, CATALOGUE.length - catalogueAvant153);
+    ROUTINES.splice(routinesAvant153, ROUTINES.length - routinesAvant153);
+    await aller('/saisie');
+    ok('[H153] aucun refus du faux serveur (les quatre types et `palier_m` passent), la garde (C6) n’a rien signalé, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refus153 && gardeBanc.violations === violations153 && erreurs.length === erreurs153,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus153), gardeBanc.liste.slice(-2), erreurs.slice(erreurs153)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

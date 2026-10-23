@@ -191,7 +191,7 @@ deux colonnes au milieu de lignes à trois désoriente.
 détail de séance et de l'historique d'un exercice dit « Durée », « Distance · durée » (dans l'ordre de la prose, précisé le 22/10/2026), « Reps » ou « Charge » selon la
 mesure du bloc (« Mesure » pour un superset de mesures différentes) — jamais « Charge » au-dessus d'une durée (E8) ;
 l'aperçu « En faire une routine » écrit une durée en durée (« 20 s », jamais « 0 min », E10) ; la médaille écrit
-« 3,2 km » et « 1 min 30 », comme le journal (E9) ; « rep » s'accorde une fois (`repsTexte`). *Décidé le 21/10/2026 (audit 130 #10)* : une charge de 0 kg s'écrit « poids du corps × 12 » partout (journal, détail, médaille, récap), jamais « 0 kg × 12 ».
+« 3,2 km » et « 1 min 30 », comme le journal (E9) ; « rep » s'accorde une fois (`repsTexte`). *23/10/2026, décision d'Aurélien (153)* : la médaille nomme aussi, dans l'ordre de la phrase, « Record d'allure sur 1 km ou plus : 7:00 /km. », « Record de D+ : 920 m. », « Record d'étages : 72. » et « Première fois : Muscle-Up. » (gris « Une habileté. » ou « Avant : Tractions, depuis le 5 févr. ») — MOTEUR §9.23. *Décidé le 21/10/2026 (audit 130 #10)* : une charge de 0 kg s'écrit « poids du corps × 12 » partout (journal, détail, médaille, récap), jamais « 0 kg × 12 ».
 
 #### 3 ter.2 L'effort suit la mesure — RIR ou RPE
 

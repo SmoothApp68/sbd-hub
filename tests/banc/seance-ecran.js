@@ -7679,7 +7679,8 @@ const SETS_IMPORTES = [
     }));
     await Promise.all([p1, p2].map((p) => p.evaluate(() =>
       document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click())));
-    await attendre(3200);
+    await attendreQue(() => base.predictions.length > depart3, 20000, '143 · [P] le pari des deux instances est monté');
+    await attendre(1500 * RALENTI);   // un doublon, s'il devait exister, a eu le temps de paraître
     const duo = base.predictions.slice(depart3);
     ok('[P] DEUX INSTANCES QUI VALIDENT LA MÊME SÉRIE : UN SEUL pari en base',
       duo.length === 1 && new Set(duo.map((l) => l.id)).size === 1,

@@ -24265,6 +24265,118 @@ const SETS_IMPORTES = [
       JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus132), erreurs.slice(erreurs132)]));
   }
 
+  console.log('\n══ echelles-semaine. « TES ÉCHELLES CETTE SEMAINE » : LA CARTE EN TÊTE DE SAISIE, LA SEMAINE ÉCOULÉE, LE TOUCHER, SON ABSENCE (145, ECRAN-SAISIE §7 quater.7) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une échelle de quatre marches (une aide, la stricte, la lestée, une habileté), et des
+  // séances de la stricte sur TROIS semaines — la semaine écoulée (9, 9, 9, 6), celle d'avant (9, 8, 8) et une plus
+  // ancienne (9, 9, 9). Les dates sont les mercredis à midi de ces semaines (lundi → dimanche, jamais dans l'avenir, quel
+  // que soit le jour où le banc tourne). La carte lit la semaine ÉCOULÉE : la séance d'avant ne s'y confond pas avec
+  // elle. Sans exercice d'échelle (une barre seule), pas de carte. En « Juste un carnet », ni phrase ni ronds.
+  {
+    const erreurs145 = erreurs.length;
+    const refus145 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations145 = gardeBanc.violations;
+    const catalogueAvant145 = CATALOGUE.length;
+    const intentionAvant145 = base.profiles[0].intention;
+    const sp145 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const E145 = 'tr-u145';
+    [['tr-u145-elastique', 'Tractions U145 (Élastique)', 'charge_reps', 'assistance', 'elastique', 'force', 1],
+     ['tr-u145', 'Tractions U145', 'reps', 'aucune', 'aucun', 'force', 2],
+     ['tr-u145-leste', 'Tractions U145 Lestées', 'charge_reps', 'ajoutee', 'aucun', 'force', 3],
+     ['tr-u145-archer', 'Tractions U145 Archer', 'reps', 'aucune', 'aucun', 'habilete', 4]
+    ].forEach(([slug, nom, mesure, charge, equipement, nature, rang]) => CATALOGUE.push({ slug, nom, mesure, charge, equipement,
+      parent: charge === 'ajoutee' ? E145 : null, nature, habilete: nature === 'habilete', actif: true,
+      muscles_primaires: ['dorsaux'], muscles_secondaires: [], echelle: E145, echelle_rang: rang }));
+    // Le lundi de la semaine écoulée, à minuit ; `mercredi(n)` : le mercredi à midi de la semaine écoulée − n.
+    const lundiEcoule145 = (() => {
+      const d = new Date(); d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - ((d.getDay() + 6) % 7) - 7);
+      return d;
+    })();
+    const mercredi145 = (n) => { const d = new Date(lundiEcoule145); d.setDate(d.getDate() - 7 * n + 2); d.setHours(12, 0, 0, 0); return d.toISOString(); };
+    const poser145 = (id, debut, reps) => {
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Échelles — ' + id, debut,
+        fin: new Date(new Date(debut).getTime() + 3600000).toISOString(), statut: 'terminee', note: null, salle: null,
+        salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      reps.forEach((r, k) => base.sets.push({ id: id + '-s' + k, session_id: id, user_id: 'u-banc', exercise_slug: 'tr-u145',
+        charge_kg: null, reps: r, duree_s: null, distance_m: null, type_serie: 'travail', rang: k + 1, groupe_superset: null,
+        validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    const sessions145 = ['e145-3', 'e145-2', 'e145-1'];
+    poser145('e145-3', mercredi145(2), [9, 9, 9]);
+    poser145('e145-2', mercredi145(1), [9, 8, 8]);
+    poser145('e145-1', mercredi145(0), [9, 9, 9, 6]);
+    const carte145 = () => page.evaluate(() => {
+      const c = document.querySelector('#carte-echelles');
+      if (!c || c.hidden || !c.querySelector('.carte-echelles')) return null;
+      const q = (s) => (c.querySelector(s) || {}).textContent || null;
+      return { etiquette: q('.ce-etiquette'), nom: q('.ce-nom'), marche: q('.ce-marche'), fait: q('.ce-fait'),
+        suite: q('.ce-suite'), ronds: c.querySelectorAll('.ce-pas i').length, pleins: c.querySelectorAll('.ce-pas i.ok').length,
+        lien: q('.ce-lien'), haut: c.getBoundingClientRect().top };
+    });
+
+    // A. LA CARTE : la semaine écoulée, ta marche, le meilleur de la semaine et celui d'avant, la suivante, les ronds.
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await jusqua(async () => !!(await carte145()), 8000);
+    const a145 = await carte145();
+    ok('[145] A — DISCRIMINANT : la carte est en tête de Saisie, l\'étiquette dit « Tes échelles · semaine du … » et la marche est la stricte',
+      !!a145 && /^Tes échelles · semaine du \d{1,2}( \p{L}+\.?)? au \d{1,2} \p{L}+\.?$/u.test(sp145(a145.etiquette)) &&
+        sp145(a145.nom) === 'Tractions U145' && /ta marche : Tractions U145/.test(sp145(a145.marche)), JSON.stringify(a145));
+    ok('[145] A — la meilleure série de la semaine ÉCOULÉE (× 9) et, en gris, celle de la semaine d\'avant (« la semaine d\'avant : … × 9 ») ; pas de « nouvelle »',
+      !!a145 && /^9 · la semaine d.avant : 9$/.test(sp145(a145.fait)) && !/nouvelle/.test(a145.marche), JSON.stringify(a145));
+    ok('[145] A — la suivante en phrase courte (sans « Je te la propose »), deux ronds, et les reps de la semaine « Cette semaine : 9, 9, 9, 6. »',
+      !!a145 && /^La suivante : Tractions U145 Lestées, quand tu tiens/.test(sp145(a145.suite)) &&
+        !/Je te la propose|Ton meilleur/.test(a145.suite) && a145.ronds === 2 && /Cette semaine : 9, 9, 9, 6\./.test(sp145(a145.suite)),
+      JSON.stringify(a145));
+    ok('[145] A — ni nombre de séances, ni heure, ni flèche, ni date prévue dans la carte',
+      !!a145 && !/séance|\d ?h\b|[↑↓→]|prévu/i.test(sp145(a145.fait + ' ' + a145.marche)), JSON.stringify(a145));
+
+    // B. LE TOUCHER : la carte ouvre « Ton échelle » de l'exercice de ta marche.
+    await page.click('#carte-echelles .carte-echelles');
+    await jusqua(async () => (await page.evaluate(() => location.pathname)) === '/exercice/tr-u145', 8000);
+    await jusqua(async () => !!(await page.$('.ton-echelle')), 6000);
+    ok('[145] B — DISCRIMINANT : toucher la carte ouvre la page de la stricte, avec « Ton échelle »',
+      (await page.evaluate(() => location.pathname)) === '/exercice/tr-u145' && !!(await page.$('.ton-echelle')),
+      await page.evaluate(() => location.pathname));
+
+    // C. « JUSTE UN CARNET » : les marches et les séries, sans la phrase de la suivante ni les ronds.
+    base.profiles[0].intention = 'entretien';
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await jusqua(async () => !!(await carte145()), 8000);
+    // Le profil arrive APRÈS le premier rendu : un second passage montre l'intention posée côté serveur.
+    await aller('/saisie');
+    await jusqua(async () => { const x = await carte145(); return !!x && x.suite === null; }, 6000);
+    const c145 = await carte145();
+    ok('[145] C — DISCRIMINANT : en « Juste un carnet », la carte garde la marche et le meilleur, sans phrase de la suivante ni ronds',
+      !!c145 && /^9 · la semaine d.avant : 9$/.test(sp145(c145.fait)) && c145.suite === null && c145.ronds === 0, JSON.stringify(c145));
+    base.profiles[0].intention = intentionAvant145;
+
+    // D. SANS EXERCICE D'ÉCHELLE CETTE SEMAINE-LÀ : pas de carte (la semaine écoulée vidée, celle d'avant reste).
+    const ecoulee145 = base.sets.filter((x) => x.session_id === 'e145-1').map((x) => x.id);
+    base.sets = base.sets.filter((x) => ecoulee145.indexOf(x.id) < 0);
+    base.sessions = base.sessions.filter((x) => x.id !== 'e145-1');
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await attendre(1200);
+    await jusqua(async () => (await page.evaluate(() => !!document.querySelector('#liste-routines'))), 6000);
+    ok('[145] D — DISCRIMINANT : seule la semaine d\'avant a une série d\'échelle : pas de carte',
+      (await carte145()) === null, JSON.stringify(await carte145()));
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    base.profiles[0].intention = intentionAvant145;
+    base.sets = base.sets.filter((x) => sessions145.indexOf(x.session_id) < 0);
+    base.sessions = base.sessions.filter((x) => sessions145.indexOf(x.id) < 0);
+    CATALOGUE.splice(catalogueAvant145, CATALOGUE.length - catalogueAvant145);
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    ok('[145] la garde (C6) n\'a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations145 && base.journal.filter((j) => j.op === 'refus').length === refus145 &&
+        erreurs.length === erreurs145,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus145), erreurs.slice(erreurs145)]));
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

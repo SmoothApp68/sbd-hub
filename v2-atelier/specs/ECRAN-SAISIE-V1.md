@@ -1875,6 +1875,33 @@ les faits et la marche suivante.
     quand l'essayer. Tu peux l'ajouter à une séance comme n'importe quel exercice. »
 - **En « Juste un carnet »** (ou l'exercice en Entretenir) : les marches et les meilleurs, **sans phrase**.
 - Jamais de date prédite, de comparaison à une autre personne, ni de « bravo ».
+- *Ajouté le 23/10/2026 (145)* : la semaine écoulée des exercices d'échelle se lit aussi en tête de Saisie (§7 quater.7).
+
+### 7 quater.7 Tes échelles cette semaine — décidée le 23/10/2026 (prompt 145)
+
+Demandé par une pratiquante de street (21/10) : « un bilan simple de la semaine comparé à la précédente, avec une
+suggestion ». Décidé le 23/10 : **pas de bilan de semaine pour la muscu** (une semaine contre l'autre est surtout du bruit
+et pousse à lire de l'assiduité) ; pour les exercices **à marches**, la semaine a du sens. Une carte, **seulement pour les
+échelles**, qui ne calcule rien de neuf : elle lit « Ton échelle » (§7 quater.6). Maquette validée le 23/10/2026 :
+`v2-atelier/maquettes/maquette-semaine-echelles-v1.html`.
+
+- **Où, quand** : en tête de Saisie, au-dessus des cartes. Elle dit la semaine **écoulée** (lundi → dimanche qui précède celle
+  d'aujourd'hui, heure locale), tous les jours de la semaine. **Seulement** s'il y a au moins une série de travail d'un
+  exercice d'échelle cette semaine-là ; jamais pour les barres ; sinon, pas de carte. Jamais pendant une séance.
+- **Par échelle travaillée** (celle travaillée le plus récemment d'abord) : son nom et « ta marche : <exercice> »
+  (`Modele.vueEchelle`) ; la meilleure série de travail de la semaine sur cet exercice et, en gris, celle de la semaine d'avant
+  (absente si rien), par le formateur unique ; **« nouvelle »** quand la première série de travail de la vie sur un rang plus
+  haut que tout ce qui précédait la semaine a été faite (« Première fois : … · avant : <ancienne marche>, … ») ; **la suivante**
+  (`Moteur.phraseDeLaSuivante`, option `court` : la même condition, sans « Je te la propose » ni « Ton meilleur ») ;
+  **deux ronds** (`Moteur.rondsDeLaSuivante`, la plus ancienne des deux dernières séances d'abord), pleins pour chaque séance qui
+  a tenu la condition de la carte « marche suivante » ; **quand la condition n'est pas tenue**, les reps des séries de la
+  semaine sur l'exercice de départ (« Cette semaine : 9, 9, 9, 6. ») ; au-dessus d'une habileté, la phrase « habileté », sans
+  ronds.
+- **Le toucher** : la carte ouvre « Ton échelle » de l'exercice de ta marche (avec plusieurs échelles : celle de la première).
+- **Jamais** : le nombre de séances, les heures, une date prévue, une flèche, du rouge, une comparaison à quelqu'un. En « Juste
+  un carnet » (ou l'exercice en Entretenir) : les marches et les séries, **sans** phrase ni ronds ni reps de la condition.
+- **Câblage** : le fait `faits.echellesDeLaSemaine` ; la vue `Modele.vueEchellesDeLaSemaine` ; l'app (`vueCarteEchelles`) ;
+  `Rendu.rendreCarteEchelles` ne calcule rien.
 
 ### 7 quater.3 La table par nombre de répétitions
 

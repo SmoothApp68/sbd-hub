@@ -117,12 +117,16 @@ describe('128 — l’objectif lit Ma salle par `salleDeLExercice` : un rowing �
   const poser = (seances, charge, salle) => Obj.projection({ seances, charge, reps: 8, maintenant: MAINTENANT,
     anciennete: null, options: BARRE, salle });
 
-  // ⚠️ 80 kg au-delà d'une salle à 30 kg passait déjà avant 128 : la garde de la salle en vigueur (`salleEnVigueur`,
-  // record de 70 kg au-delà de la plus lourde barre fixe) y voyait déjà une barre qu'on charge. Ce test garde le cas
-  // demandé ; celui qui discrimine est le rowing LÉGER, plus bas (record 25 kg, sous la plus lourde).
+  // ⚠️ 144-7 — 80 kg avec un record de 70 passait AUSSI sur l'ancienne règle (colonne absente) : la garde de la salle
+  // en vigueur (`salleEnVigueur`, record au-delà de la plus lourde barre fixe) y voyait déjà une barre qu'on charge.
+  // Le test ne discriminait rien. Le cas demandé (80 kg, salle à 30 kg) se garde donc avec un record SOUS la plus lourde
+  // barre fixe (25 kg) : c'est là que l'ancienne règle refusait, et que la colonne `false` ne refuse plus.
+  const LEGER = () => [seance('2026-06-01', [[20, 8]]), seance('2026-08-01', [[22.5, 8]]), seance('2026-10-01', [[25, 8]])];
   test('rowing (`false`) : 80 kg, salle à 30 kg, n’est pas refusé', () => {
-    const rowing = [seance('2026-06-01', [[60, 8]]), seance('2026-08-01', [[65, 8]]), seance('2026-10-01', [[70, 8]])];
-    expect(poser(rowing, 80, Profil.salleDeLExercice(P, 'rowing_barre', APRES)).etat).not.toBe('hors_salle');
+    expect(poser(LEGER(), 80, Profil.salleDeLExercice(P, 'rowing_barre', APRES)).etat).not.toBe('hors_salle');
+  });
+  test('⚠️ DISCRIMINANT — le même 80 kg était refusé sans la colonne (l’ancienne règle) : le test échoue sur le code fautif', () => {
+    expect(poser(LEGER(), 80, Profil.salleDeLExercice(P, 'rowing_barre', AVANT)).etat).toBe('hors_salle');
   });
   test('curl EZ (`true`) : 35 kg, salle à 30 kg, toujours refusé', () => {
     const curl = [seance('2026-06-01', [[20, 8]]), seance('2026-08-01', [[22.5, 8]]), seance('2026-10-01', [[25, 8]])];

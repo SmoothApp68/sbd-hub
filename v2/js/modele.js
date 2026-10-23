@@ -349,6 +349,15 @@
     return t;
   }
 
+  // 149 (MOTEUR §9.17 ter) — UNE DURÉE QUE LE COACH DIT : « 22 s », « 1 min 30 » — le formateur unique des durées
+  // (`formatDuree`, comme « Ton meilleur : 10 s »), déclaré au registre de la capture (§20 bis) avec sa valeur en
+  // secondes. Aucune phrase du coach n'écrit « s » à la main.
+  function secondes(v, cite) {
+    var t = formatDuree(v);
+    declarer(cite, { valeur: v === undefined ? null : v }, t);
+    return t;
+  }
+
   // « 125 kg × 5 » — la charge d'abord, puis les reps.
   function chargeFois(kg, reps, repli, cite) {
     var t = chargeTexte(kg, repli) + INSECABLE + '\u00d7' + INSECABLE + nombreTexte(reps);
@@ -1082,6 +1091,38 @@
       .filter(function (x) { return echelleDe(x) === echelle; });
   }
 
+  // 149 (v2_108, MOTEUR §9.17 ter) — UNE ÉCHELLE DE FIGURES : une échelle dont TOUTES les marches sont en secondes
+  // (`mesure = 'temps'` : front lever, back lever, planche, L-sit, équilibre, drapeau). Elle se lit sur le catalogue,
+  // jamais sur une liste de slugs. Vraie aussi pour l'échelle d'un exercice (`echelleDe(x)`), pas seulement pour sa clé.
+  function estEchelleDeFigures(index, echelle) {
+    if (typeof echelle !== 'string' || !echelle) return false;
+    var m = marchesDe(index, echelle);
+    return m.length > 0 && m.every(function (x) { return x.mesure === 'temps'; });
+  }
+  // L'exercice est une marche d'une échelle de figures.
+  function estUneFigure(index, slug) {
+    var x = index && slug ? index[slug] : null;
+    var E = echelleDe(x);
+    return E !== null && estEchelleDeFigures(index, E);
+  }
+  // 149 — LA MARCHE D'EN DESSOUS d'une figure : une marche du rang juste en dessous dans la même échelle (à rang égal :
+  // par slug), ou `null` au rang 1. « Sous 5 s, les coachs travaillent la marche d'en dessous : <nom>. »
+  function marcheDEnDessous(index, slug) {
+    var e = index && slug ? index[slug] : null;
+    var E = echelleDe(e);
+    if (E === null) return null;
+    var moins = marchesDe(index, E).filter(function (x) { return x.echelle_rang < e.echelle_rang; });
+    if (!moins.length) return null;
+    var r = Math.max.apply(null, moins.map(function (x) { return x.echelle_rang; }));
+    return moins.filter(function (x) { return x.echelle_rang === r; }).sort(parSlug)[0] || null;
+  }
+  // 149 — LE SEUIL DE LA MARCHE, en secondes (`exercises.echelle_seuil_s`) : la tenue de travail qui ouvre la marche
+  // suivante. La seule lecture de la colonne. `null` : vide (le sommet d'une échelle, les échelles en reps) ou absente.
+  function seuilDeLaMarche(x) {
+    var v = x ? x.echelle_seuil_s : null;
+    return typeof v === 'number' && isFinite(v) && v > 0 && Math.floor(v) === v ? v : null;
+  }
+
   // 145 — le rang d'une marche, pour les faits (`faits.echellesDeLaSemaine`) : la marche la plus haute d'une liste
   // d'exercices d'une même échelle (à rang égal : la plus récente selon `quand(slug)`, puis le slug), et « plus haut que ».
   // La seule lecture de `echelle_rang` : le fait ne lit pas la colonne.
@@ -1121,7 +1162,10 @@
       if (stricte && e.slug === stricte.slug && lest.length) { cible = lest; type = 'lest'; }
       else type = 'marche';
     }
-    var force = cible.filter(estDeForce);
+    // 149 — DANS UNE ÉCHELLE DE FIGURES, une habileté est proposable : la règle « une habileté n'est jamais proposée »
+    // vise le saut d'une échelle de force vers une habileté (les tractions vers l'archer), pas l'intérieur d'une figure
+    // (déjà dit le 17/10 pour le muscle-up, qui reste inchangé).
+    var force = estEchelleDeFigures(index, E) ? cible : cible.filter(estDeForce);
     if (!force.length) return { type: 'habilete', cible: cible.map(function (x) { return x.slug; }), proposable: false };
     return { type: type, cible: force.map(function (x) { return x.slug; }), proposable: type !== 'lest' };
   }
@@ -1164,8 +1208,10 @@
         suivante = c.echelle_rang;
         var zh = zonesHaut && Object.prototype.hasOwnProperty.call(zonesHaut, depart.slug) ? zonesHaut[depart.slug] : null;
         if (coachActif && typeof phraseDe === 'function') {
+          // 149 — une FIGURE se dit en secondes : le seuil du catalogue (`echelle_seuil_s` de l'exercice de départ).
           phrase = phraseDe({ type: m.type, nomCible: c.nom || c.slug, nomDepart: depart.nom || depart.slug, depart: depart.slug,
-                              haut: typeof zh === 'number' ? zh : null, meilleur: F[depart.slug].meilleur || null });
+                              haut: typeof zh === 'number' ? zh : null, meilleur: F[depart.slug].meilleur || null,
+                              seuil: estEchelleDeFigures(index, E) ? seuilDeLaMarche(depart) : null });
         }
       }
     }
@@ -1230,9 +1276,10 @@
         var haut = opt.zonesHaut && Object.prototype.hasOwnProperty.call(opt.zonesHaut, depart.slug) ? opt.zonesHaut[depart.slug] : null;
         var habilete = m.type === 'habilete';
         var ronds = !habilete && typeof opt.rondsDe === 'function'
-          ? opt.rondsDe(depart.slug, { haut: typeof haut === 'number' ? haut : null, aide: index[depart.slug].charge === 'assistance' }) : null;
+          ? opt.rondsDe(depart.slug, { haut: typeof haut === 'number' ? haut : null, aide: index[depart.slug].charge === 'assistance',
+                                       seuil: estEchelleDeFigures(index, it.echelle) ? seuilDeLaMarche(depart) : null }) : null;
         var reps = ex[depart.slug] && ex[depart.slug].reps && ex[depart.slug].reps.length ? ex[depart.slug].reps : null;
-        var tenue = !!ronds && ronds[0] === true && ronds[1] === true;
+        var tenue = !!ronds && ronds.length > 0 && ronds.every(function (r) { return r === true; });
         suite = { phrase: v.phrase, ronds: ronds || null, serie: !habilete && !tenue && reps ? reps.join(', ') : null };
         if (!suite.phrase) suite = null;
       }
@@ -2518,6 +2565,7 @@
     exercicesFaits: exercicesFaits,
     nombre: nombre,
     charge: charge,
+    secondes: secondes,
     capturer: capturer,
     reporter: reporter,
     NATURES: NATURES,
@@ -2583,6 +2631,10 @@
     // MOTEUR §9.17 bis (127) — l'échelle des variantes.
     echelleDe: echelleDe,
     marcheSuivante: marcheSuivante,
+    estEchelleDeFigures: estEchelleDeFigures,
+    estUneFigure: estUneFigure,
+    marcheDEnDessous: marcheDEnDessous,
+    seuilDeLaMarche: seuilDeLaMarche,
     vueEchelle: vueEchelle,
     vueEchellesDeLaSemaine: vueEchellesDeLaSemaine,
     marcheLaPlusHaute: marcheLaPlusHaute,

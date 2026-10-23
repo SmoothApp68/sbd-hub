@@ -215,6 +215,25 @@
       }).filter(Boolean);
     }
 
+    // 149 (MOTEUR §9.17 ter) — LES TENUES MAX D'UNE FIGURE : pour chaque séance faite qui porte l'exercice, sa meilleure
+    // tenue de TRAVAIL (la plus longue `duree_s` d'une série de travail) — « le max de la dernière fois » du coach et la
+    // matière de la carte « marche suivante » en secondes. Rend `[{ seance, debut, max }]`, de la plus ancienne à la plus
+    // récente ; une séance sans tenue de travail chiffrée n'y est pas. La séance en cours n'y est pas (le cache ne la
+    // porte qu'une fois terminée). Un fait : rien n'est formaté ni jugé ici.
+    function tenuesDeLExercice(c, slug) {
+      var out = [];
+      seancesDeLExercice(c, slug).forEach(function (g) {
+        var max = null;
+        g.series.forEach(function (x) {
+          if (!x || !Modele.estTravail(x)) return;
+          var d = Number(x.duree_s);
+          if (x.duree_s !== null && x.duree_s !== undefined && isFinite(d) && d > 0 && (max === null || d > max)) max = d;
+        });
+        if (max !== null) out.push({ seance: g.seance.id, debut: g.seance.debut, max: max });
+      });
+      return out.reverse();
+    }
+
     // ── Les records (MOTEUR §9.23, 55-1) ────────────────────────────────────
     //
     // Les séries médaillées d'une séance PASSÉE : chacune comparée aux séances
@@ -1422,6 +1441,7 @@
       TYPES_DE_LA_GUILDE: TYPES_DE_LA_GUILDE,
       seancesDuSlug: seancesDuSlug,
       seancesDeLExercice: seancesDeLExercice,
+      tenuesDeLExercice: tenuesDeLExercice,
       recordsDeLaSeance: recordsDeLaSeance,
       recordsDuMois: recordsDuMois,
       dernierRecord: dernierRecord,

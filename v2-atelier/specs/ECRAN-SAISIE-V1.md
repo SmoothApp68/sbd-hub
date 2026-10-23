@@ -3528,3 +3528,12 @@ que « Basic-Fit » et « Basic Fit » donnent la même pastille.
 - **Le moteur n'a pas besoin de prévoir, il a besoin de ne pas contredire.**
 - **Une intention datée bat une observation antérieure à sa date.**
 - **La destination se calcule, le délai se prédit** — on affiche le prochain palier, jamais le nombre de séances pour l'atteindre
+
+
+### 7 quater.8 Les figures en secondes — décidé le 23/10/2026 (prompt 149)
+
+Une figure s'affiche en secondes : la première ligne porte l'étiquette « max » (fantôme : le max de la dernière fois), la
+suivante « après ton max », les tenues suivantes visent 50/60/70 % du max du jour. Messages au-dessus de la ligne : « Ton max
+la dernière fois : 20 s. Essaie de faire mieux, proprement. », puis « 22 s : 2 s de plus que la dernière fois. Tes tenues : 13 s. ».
+Carte : « 22 s tenues, deux séances de suite. » (Franc : « … aujourd'hui. »). « Ton échelle » et « Tes échelles » lisent le seuil en secondes.
+L'écran lit le plan ; il ne calcule rien. Voir MOTEUR §9.17 ter.

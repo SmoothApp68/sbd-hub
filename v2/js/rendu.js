@@ -2578,6 +2578,10 @@
         noeud.appendChild(propositionDeDegressiveVide(info.message, s._iExo, s._iSerie, vue));
       } else if (info && info.message) noeud.appendChild(phraseDeReaction(info.message, s.debutTour));
       noeud.appendChild(rangeeDeSerie(bloc, s, complets, vue, info));
+      // 149 (MOTEUR §9.17 ter) — UNE FIGURE EN SECONDES : l'étiquette de la ligne (« max », « après ton max ») et, la tenue
+      // max validée, la phrase du coach sous elle. Lues sur le plan (`info`), jamais recomposées.
+      if (info && info.etiquette) noeud.appendChild(el('div', 'fig-eti', info.etiquette));
+      if (info && info.apres) noeud.appendChild(phraseDeReaction({ type: 'figure', phrase: info.apres }, false));
       // ECRAN §3 ter.5 (prompt 131, maquette mesures-cardio écran 1) — LE D+, SUR SA PROPRE LIGNE,
       // SOUS LA SÉRIE : une troisième colonne ne tient pas à 360 px à côté d'une durée en horloge.
       // Facultatif, sans chiffre gris ; jamais dans l'éditeur de routine.

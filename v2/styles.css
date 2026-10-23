@@ -1020,6 +1020,10 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 /* MOTEUR §9.14 bis (68A) — « pas encore » de son propre chef, en gris comme « pas encore ». */
 .reaction-serie.pas_encore,.reaction-serie.pas_encore_soi{color:var(--texte-2);font-weight:500}
 .reaction-serie.debut-tour{margin-top:11px}
+/* 149 (MOTEUR §9.17 ter) — LES FIGURES EN SECONDES : la phrase du coach, en gris (un fait, pas un bravo), et
+   l'étiquette « max » / « après ton max » sous la rangée de la tenue. */
+.reaction-serie.figure{color:var(--texte-2);font-weight:500}
+.fig-eti{color:var(--accent);font-size:12px;font-weight:620;line-height:1.2;padding:0 2px 2px 35px}
 /* MOTEUR §9.23 (55-1) — LA MÉDAILLE (maquette-progression-v1, « La médaille »).
    Un fait, pas la voix du coach : l'or de la médaille, jamais l'accent. Sous la
    rangée de la série, la phrase en gras, le record d'avant en gris. */

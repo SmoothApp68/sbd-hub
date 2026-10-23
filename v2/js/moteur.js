@@ -1583,10 +1583,16 @@
     // §9.17 — le niveau validé des DEUX dernières séances (non neutres), de la
     // plus ancienne à la plus récente ; `null` s'il n'y en a qu'une, ou si l'une
     // n'a pas de niveau. Le niveau se calcule sans la chute (§9.2 bis).
+    //
+    // 149 (23/10/2026, décision d'Aurélien, 13 h 10) — EN FRANC, UNE SÉANCE SUFFIT (la carte du lest comme la carte
+    // « marche suivante ») : « deux séances de suite » devient « la dernière séance ». Les deux entrées valent alors
+    // la dernière séance (`[b, b]`) : la carte, ses invariants (I29, I49, I50) et les deux ronds lisent une forme
+    // inchangée. `prudent` et `normal` : inchangés.
     function niveauxDesDeuxDernieres() {
-      if (ant.length < 2) return null;
-      var a = niveauValide(seriesAuPalier(ant[ant.length - 2]));
+      if (ant.length < (reglage === 'franc' ? 1 : 2)) return null;
       var b = niveauValide(seriesAuPalier(ant[ant.length - 1]));
+      if (reglage === 'franc') return b === null ? null : [b, b];
+      var a = niveauValide(seriesAuPalier(ant[ant.length - 2]));
       return a === null || b === null ? null : [a, b];
     }
     // §9.17 bis (127) — les MÊMES deux séances, avec leur charge (le palier : 0 au poids du corps, négatif pour une
@@ -1594,7 +1600,8 @@
     function deuxDernieresSeances() {
       var niveaux = niveauxDesDeuxDernieres();
       if (niveaux === null) return null;
-      return [ant[ant.length - 2], ant[ant.length - 1]].map(function (se, i) {
+      var deux = reglage === 'franc' ? [ant[ant.length - 1], ant[ant.length - 1]] : [ant[ant.length - 2], ant[ant.length - 1]];
+      return deux.map(function (se, i) {
         return { niveau: niveaux[i], charge: nombre(se.palier) };
       });
     }
@@ -4062,7 +4069,7 @@
 
       // §9.17 — au poids du corps, sans cran : la carte du lest, ou les reps.
       case 'carte_lest':
-        return 'Ta charge de travail est au haut de ta zone depuis deux séances. ' +
+        return 'Ta charge de travail est au haut de ta zone ' + (reglage === 'franc' ? 'à ta dernière séance' : 'depuis deux séances') + '. ' +
                'Un lest te ferait continuer en force : je te le propose, et on tient la ligne en attendant.';
 
       case 'etirement_reps':
@@ -6521,7 +6528,9 @@
   // sous deux captures (§20 bis), pour que chaque phrase porte SES citations.
   function carteLestTitre(e) {
     var x = e || {};
-    return nombreFr(x.niveau, regle('lest.niveau')) + ' reps sur toutes tes séries, deux séances de suite.';
+    // 149 — en Franc, une séance suffit : la phrase dit la règle (§20 bis).
+    return nombreFr(x.niveau, regle('lest.niveau')) + ' reps sur toutes tes séries' +
+      (x.reglage === 'franc' ? ' aujourd\u2019hui.' : ', deux séances de suite.');
   }
   function carteLestDetail(e) {
     var x = e || {};
@@ -6567,12 +6576,14 @@
     var m = x.marche;
     if (x.coachActif === false || !m || !m.proposable || !Array.isArray(m.cible) || !m.cible.length) return null;
     var sc = Array.isArray(x.seances) ? x.seances : [];
-    if (sc.length < 2) return null;
-    var a = sc[sc.length - 2], b = sc[sc.length - 1];
+    // 149 — EN FRANC, UNE SÉANCE SUFFIT : la dernière. La garde « à la même aide » n'a plus d'objet (une seule séance).
+    var franc = x.reglage === 'franc';
+    if (sc.length < (franc ? 1 : 2)) return null;
+    var b = sc[sc.length - 1], a = franc ? b : sc[sc.length - 2];
     var seuil = seuilDeMarche(x.haut);
     if (!a || !b || !(nombre(a.niveau) >= seuil) || !(nombre(b.niveau) >= seuil)) return null;
     var aide = x.aide === true;
-    if (aide && !(Math.abs(nombre(a.charge) - nombre(b.charge)) <= 1e-9)) return null;   // deux séances à la même aide
+    if (aide && !franc && !(Math.abs(nombre(a.charge) - nombre(b.charge)) <= 1e-9)) return null;   // deux séances à la même aide
     var r = x.reponse;
     if (r) {
       if (r.r === 'oui') return null;
@@ -6583,7 +6594,8 @@
       var j = numeroDuJour(jourCivil(x.aujourdHui)), f = numeroDuJour(jourCivil(x.cibleFaiteLe));
       if (j !== null && f !== null && j - f <= JOURS_MARCHE_FAITE) return null;
     }
-    return { cible: m.cible[0], nom: x.nomCible || m.cible[0], aide: aide, niveau: nombre(b.niveau), charge: nombre(b.charge) };
+    return { cible: m.cible[0], nom: x.nomCible || m.cible[0], aide: aide, niveau: nombre(b.niveau), charge: nombre(b.charge),
+             reglage: franc ? 'franc' : null };
   }
   // Le titre et le détail s'écrivent chacun par sa fonction : le plan les rédige sous deux captures (§20 bis).
   // `d` : la décision (`carteMarcheDecidee`).
@@ -6592,7 +6604,7 @@
     var tenue = x.aide
       ? enKg(x.charge, regle('marche.aide')) + ' \u00d7 ' + nombreFr(x.niveau, regle('marche.niveau'))
       : nombreFr(x.niveau, regle('marche.niveau')) + ' reps';
-    return tenue + ' sur toutes tes séries, deux séances de suite.';
+    return tenue + ' sur toutes tes séries' + (x.reglage === 'franc' ? ' aujourd\u2019hui.' : ', deux séances de suite.');
   }
   function carteMarcheDetail(d) {
     var x = d || {};
@@ -6624,7 +6636,8 @@
       return tete + 'Une habileté : je ne te la propose pas, c\'est toi qui choisis quand l\'essayer. ' +
              'Tu peux l\'ajouter à une séance comme n\'importe quel exercice.';
     }
-    var deux = ' sur toutes tes séries, deux séances de suite.';
+    // 149 — en Franc, une séance suffit : la phrase dit la règle (§20 bis).
+    var deux = x.reglage === 'franc' ? ' sur toutes tes séries, sur une séance.' : ' sur toutes tes séries, deux séances de suite.';
     if (x.type === 'lest') {
       if (court) return tete + 'quand tu tiens ' + nombreFr(seuilDeMarche(x.haut)) + ' reps' + deux;
       return tete + 'Je te la propose quand tu tiens ' + nombreFr(seuilDeMarche(x.haut)) + ' reps' + deux +
@@ -6648,6 +6661,8 @@
     if (!sc.length) return null;
     var seuil = seuilDeMarche(x.haut);
     var tenu = function (s) { return nombre(s.niveau) !== null && nombre(s.niveau) >= seuil; };
+    // 149 — en Franc, UN SEUL ROND : la dernière séance.
+    if (x.reglage === 'franc') return [tenu(sc[sc.length - 1])];
     var out = sc.slice(-2).map(tenu);
     if (x.aide === true && sc.length >= 2 && out[1] &&
         !(Math.abs(nombre(sc[sc.length - 2].charge) - nombre(sc[sc.length - 1].charge)) <= 1e-9)) out[1] = false;

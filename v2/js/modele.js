@@ -1256,7 +1256,7 @@
         var ronds = !habilete && typeof opt.rondsDe === 'function'
           ? opt.rondsDe(depart.slug, { haut: typeof haut === 'number' ? haut : null, aide: index[depart.slug].charge === 'assistance' }) : null;
         var reps = ex[depart.slug] && ex[depart.slug].reps && ex[depart.slug].reps.length ? ex[depart.slug].reps : null;
-        var tenue = !!ronds && ronds[0] === true && ronds[1] === true;
+        var tenue = !!ronds && ronds.length > 0 && ronds.every(function (r) { return r === true; });
         suite = { phrase: v.phrase, ronds: ronds || null, serie: !habilete && !tenue && reps ? reps.join(', ') : null };
         if (!suite.phrase) suite = null;
       }

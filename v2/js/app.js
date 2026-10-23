@@ -11173,7 +11173,7 @@
       actifs[s] = intentionDeLExercice(s) !== 'entretien';
     });
     // La phrase se tait en carnet (le profil) ; en Entretenir (l'exercice de départ), `phraseDe` le sait.
-    var phraseDe = function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(e); };
+    var phraseDe = function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { reglage: Profil.rythmeDe(profil) })); };
     return Modele.vueEchelle(index, slug, faites, zonesHaut, !Moteur.coachSeTait(profil && profil.intention), phraseDe);
   }
 
@@ -11236,10 +11236,10 @@
     });
     var cartes = Modele.vueEchellesDeLaSemaine(index, items, {
       faites: faites, zonesHaut: zonesHaut, coachActif: !Moteur.coachSeTait(profil && profil.intention),
-      phraseDe: function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { court: true })); },
+      phraseDe: function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { court: true, reglage: Profil.rythmeDe(profil) })); },
       rondsDe: function (slug, e) {
         var ds = deuxSeancesDeLExercice(slug, index[slug]);
-        return ds ? Moteur.rondsDeLaSuivante({ haut: e.haut, aide: e.aide, seances: ds }) : null;
+        return ds ? Moteur.rondsDeLaSuivante({ haut: e.haut, aide: e.aide, seances: ds, reglage: Profil.rythmeDe(profil) }) : null;
       }
     });
     if (!cartes.length) return null;

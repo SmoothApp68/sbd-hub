@@ -1109,6 +1109,9 @@
       !Array.isArray(e.marcheReponses) ? e.marcheReponses : {});
     var echelles = e.echelles || {};
     var marchesPosees = {};
+    // 149 — le réglage de rythme (`prudent`, `normal`, `franc`), normalisé : il décide du nombre de séances que lit la
+    // carte « marche suivante » et la carte du lest (Franc : une), et de la part de la tenue max (figures).
+    var reglagePlan = e.reglage === 'franc' || e.reglage === 'prudent' ? e.reglage : 'normal';
     // 60-1 (QUESTIONNAIRE-COACH-V2 §4) — « JUSTE UN CARNET » : en Entretenir
     // (le profil), aucun bandeau de décharge planifiée, aucune fenêtre de
     // semaine allégée, aucune carte. Le coach ne dit rien, il ne propose rien ;
@@ -1140,6 +1143,8 @@
       debutant: debutant,
       lestReponse: lestReponse,
       marcheReponses: marcheReponses,
+      // 149 — le réglage de rythme, pour que les invariants (I29, I49, I50, I52 à I55) le relisent.
+      reglage: reglagePlan,
       allegee: esc.allegee,
       carte: esc.carte,
       // §9.22 (53-2) — les exercices d'un bloc en cours ce jour-là (I39).
@@ -1245,7 +1250,7 @@
         if (!carteLestPosee && fl && kl.etat === 'carte_lest' && !kl.allegee) {
           carteLestPosee = true;
           var M2 = Moteur(), V2 = Voix();
-          var entreeLest = { niveau: Math.min.apply(null, fl.niveaux), bas: fl.bas };
+          var entreeLest = { niveau: Math.min.apply(null, fl.niveaux), bas: fl.bas, reglage: reglagePlan === 'franc' ? 'franc' : null };
           var capLT = V2.capturer(function () { return M2.carteLestTitre(entreeLest); });
           var capLD = V2.capturer(function () { return M2.carteLestDetail(entreeLest); });
           x.carteLest = { titre: capLT.texte, detail: capLD.texte, oui: M2.OUI_LEST, non: M2.NON_LEST,
@@ -1270,7 +1275,7 @@
           var reponseM = Object.prototype.hasOwnProperty.call(marcheReponses, slug) ? marcheReponses[slug] : null;
           var dM = M4.carteMarcheDecidee({ marche: ech.marche, nomCible: ech.nomCible, aide: ech.aide === true,
             haut: zm.haut, seances: ds, reponse: reponseM, cibleFaiteLe: ech.cibleFaiteLe || null,
-            aujourdHui: seance.debut, coachActif: true });
+            aujourdHui: seance.debut, coachActif: true, reglage: reglagePlan });
           if (dM) {
             marchesPosees[slug] = true;
             var capMT = V4.capturer(function () { return M4.carteMarcheTitre(dM); });
@@ -2954,8 +2959,14 @@
         // I50 (§9.17 bis, 127) — la carte du lest jamais sous 8 reps sur les deux séances : le seuil est le haut de
         // la zone ET 8 (`seuilDeMarche`), lu au moteur.
         var seuil50 = M.seuilDeMarche(x.carteLest.haut);
-        if (!Array.isArray(nv) || !nv.every(function (n) { return typeof n === 'number' && n >= seuil50; })) {
+        // 149 — en Franc, la dernière séance suffit (les deux entrées la valent) ; la phrase dit la règle (§20 bis).
+        var franc50 = plan.reglage === 'franc';
+        var enTete = !Array.isArray(nv) ? [] : franc50 ? nv.slice(-1) : nv;
+        if (!Array.isArray(nv) || !enTete.length || !enTete.every(function (n) { return typeof n === 'number' && n >= seuil50; })) {
           err('I50', 'une carte du lest sous ' + seuil50 + ' reps (' + JSON.stringify(nv) + ')');
+        }
+        if (franc50 ? /deux séances/.test(String(x.carteLest.titre)) : !/deux séances de suite/.test(String(x.carteLest.titre))) {
+          err('I50', 'la carte du lest ne dit pas la règle du réglage « ' + plan.reglage + ' » (' + x.carteLest.titre + ')');
         }
       }
 
@@ -2974,11 +2985,18 @@
         var zk = k ? M.zoneParCle(k.zone) : null;
         var ds = k && k.fondement && Array.isArray(k.fondement.deuxSeances) ? k.fondement.deuxSeances : null;
         var seuil49 = zk ? M.seuilDeMarche(zk.haut) : null;
-        if (!ds || ds.length !== 2 || seuil49 === null ||
-            !ds.every(function (q) { return q && typeof q.niveau === 'number' && q.niveau >= seuil49; })) {
-          e49('sans deux séances au haut de la zone et à ' + M.SEUIL_MARCHE + ' reps (' + JSON.stringify(ds) + ')');
-        } else if (cm.aide && !memeChargeOuVides(ds[0].charge, ds[1].charge)) {
+        // 149 — en Franc, UNE séance suffit : la dernière (les deux entrées la valent) ; la garde « à la même aide »
+        // n'a plus d'objet.
+        var franc49 = plan.reglage === 'franc';
+        var requises = !ds ? [] : franc49 ? ds.slice(-1) : ds;
+        if (!ds || ds.length !== 2 || seuil49 === null || !requises.length ||
+            !requises.every(function (q) { return q && typeof q.niveau === 'number' && q.niveau >= seuil49; })) {
+          e49((franc49 ? 'sans la dernière séance' : 'sans deux séances') + ' au haut de la zone et à ' + M.SEUIL_MARCHE + ' reps (' + JSON.stringify(ds) + ')');
+        } else if (cm.aide && !franc49 && !memeChargeOuVides(ds[0].charge, ds[1].charge)) {
           e49('deux séances à des aides différentes (' + ds[0].charge + ', ' + ds[1].charge + ')');
+        }
+        if (franc49 ? /deux séances/.test(String(cm.titre)) : !/deux séances de suite/.test(String(cm.titre))) {
+          e49('la carte ne dit pas la règle du réglage « ' + plan.reglage + ' » (' + cm.titre + ')');
         }
         var rep = plan.marcheReponses && Object.prototype.hasOwnProperty.call(plan.marcheReponses, x.slug)
           ? plan.marcheReponses[x.slug] : null;

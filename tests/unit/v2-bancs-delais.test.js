@@ -78,26 +78,26 @@ describe('135 — les délais fixes des bancs', () => {
 
   // 143 — LE POINT DE DÉPART RÉEL, SECTION PAR SECTION. Le total est la somme : 1 028 sites au 142 (1 000 littéraux que
   // la garde du 135 comptait, plus 28 qu'elle ne voyait pas : trois aides à délai par défaut, 25 `cliquerX(sel, N)`),
-  // 1 020 une fois les huit `attendreQue` locaux rendus à l'unique du préambule (lot 0). La section est lue sur la ligne
+  // 1 020 une fois les huit `attendreQue` locaux rendus à l'unique du préambule (lot 0), 942 après les aides communes (lot 1). La section est lue sur la ligne
   // `══` qui précède. Une section absente de cette table n'a droit à AUCUN délai fixe.
   const PLAFONDS_PAR_SECTION = {
-  'questionnaire': 40, 'retrouver': 40, 'cycles': 37, '7-nonies': 32, '115': 26, 'objectif': 25, 'recap': 23,
-  '7-septies': 22, 'barre': 22, '(préambule)': 21, '7-G-octodecies': 20, '7-octovicies': 17, '7-G-sexies': 17,
-  'organiser': 16, 'jeu': 16, 'filtres': 16, 'deux-appareils': 16, '7-septvicies': 14, '7-G-duovicies': 14,
-  'remplacer': 14, '5-ter': 13, '7-undecies': 13, '7-novovicies': 13, '7-G-novodecies': 13, '7-G-vicies': 13,
-  'progression': 13, 'recherche': 13, 'quitter': 12, 'forge': 12, 'mesures': 12, '7-quatervicies': 11,
-  '7-sexvicies': 11, '7-tertricies': 11, '7-G-septies': 11, '7-G-quindecies': 11, 'rappel': 11, 'a-fond': 11,
-  'elastiques': 11, '7-terdecies': 10, '7-sexdecies': 10, '7-duotricies': 10, 'import-hevy': 10, 'echelle': 10,
-  '7-tricies': 9, '7-quinquatricies': 9, '7-G-octies': 9, '7-G-undecies': 9, '7-untricies': 8, '7-G-unvicies': 8,
-  'relecture': 8, 'construis': 8, 'plafond-propose': 8, '49': 7, '108': 7, '7-octodecies': 7, '47-bis': 7,
-  '7-quinvicies': 7, '7-G-septdecies': 7, 'ecarts': 7, '7': 6, '7-novodecies': 6, '7-vicies': 6, '7-G-terdecies': 6,
-  '7-G-duodecies': 6, 'report': 6, 'famille': 6, 'degressive-proposee': 6, 'chauffes-ajoutees': 6, 'comment': 6,
-  '7-G-quater': 5, 'annee': 5, '3': 4, '4-bis': 4, '4-ter': 4, '7-ter': 4, '7-quinquies': 4, '7-duodecies': 4,
-  '7-quindecies': 4, '7-tervicies': 4, '7-G': 4, '7-G-quinquies': 4, '7-G-quaterdecies': 4, 'journal': 4,
-  'parcours': 4, 'charge-obligatoire': 4, 'Q78': 4, 'deraille': 4, '5': 3, '7-octies': 3, '7-unvicies': 3,
-  '7-quatertricies': 3, '7-G-decies': 3, 'groupe': 3, 'case-vide': 3, 'mon-objectif': 3, '4': 2, '6': 2,
-  '5-quater': 2, '7-sexies': 2, '7-quater': 2, '7-quaterdecies': 2, '7-G-ter': 2, '7-G-nonies': 2, 'social': 2,
-  'saison-mois': 2, '2': 1, '5-bis': 1, '7-G-sexdecies': 1, 'sans-marge': 1,
+  'retrouver': 39, 'questionnaire': 38, 'cycles': 37, '7-nonies': 26, '115': 22, '7-septies': 20,
+  '7-G-octodecies': 20, 'barre': 20, 'recap': 20, 'objectif': 18, '(préambule)': 17, '7-G-sexies': 17,
+  '7-octovicies': 16, 'organiser': 16, 'jeu': 16, 'filtres': 16, 'deux-appareils': 16, '7-G-duovicies': 14,
+  'remplacer': 14, '7-septvicies': 13, '7-G-novodecies': 13, '7-G-vicies': 13, 'progression': 12, 'recherche': 12,
+  '5-ter': 11, '7-tertricies': 11, 'quitter': 11, 'rappel': 11, 'mesures': 11, 'elastiques': 11,
+  '7-quatervicies': 10, '7-novovicies': 10, '7-duotricies': 10, '7-G-septies': 10, '7-G-quindecies': 10, 'forge': 10,
+  'import-hevy': 10, 'echelle': 10, '7-sexdecies': 9, '7-quinquatricies': 9, 'a-fond': 9, '7-undecies': 8,
+  '7-tricies': 8, '7-untricies': 8, '7-G-undecies': 8, '7-G-unvicies': 8, 'relecture': 8, 'construis': 8,
+  'plafond-propose': 8, '49': 7, '108': 7, '7-octodecies': 7, '47-bis': 7, '7-sexvicies': 7, '7-G-octies': 7,
+  '7-G-septdecies': 7, '7': 6, '7-vicies': 6, '7-quinvicies': 6, '7-G-terdecies': 6, '7-G-duodecies': 6, 'report': 6,
+  'famille': 6, 'ecarts': 6, 'degressive-proposee': 6, 'chauffes-ajoutees': 6, 'comment': 6, '7-terdecies': 5,
+  '7-novodecies': 5, '7-G-quater': 5, 'annee': 5, '3': 4, '4-bis': 4, '4-ter': 4, '7-ter': 4, '7-quinquies': 4,
+  '7-tervicies': 4, '7-G': 4, '7-G-quinquies': 4, '7-G-quaterdecies': 4, 'parcours': 4, 'charge-obligatoire': 4,
+  'Q78': 4, 'deraille': 4, '5': 3, '7-quindecies': 3, '7-unvicies': 3, '7-quatertricies': 3, '7-G-decies': 3,
+  'journal': 3, 'groupe': 3, 'case-vide': 3, 'mon-objectif': 3, '4': 2, '6': 2, '5-quater': 2, '7-sexies': 2,
+  '7-quater': 2, '7-duodecies': 2, '7-G-ter': 2, '7-G-nonies': 2, 'social': 2, 'saison-mois': 2, '2': 1, '5-bis': 1,
+  '7-octies': 1, '7-quaterdecies': 1, '7-G-sexdecies': 1, 'sans-marge': 1,
   };
   const PLAFOND_SEANCE = Object.keys(PLAFONDS_PAR_SECTION).reduce((n, k) => n + PLAFONDS_PAR_SECTION[k], 0);
 

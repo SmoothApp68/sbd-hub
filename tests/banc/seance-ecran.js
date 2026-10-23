@@ -7668,7 +7668,9 @@ const SETS_IMPORTES = [
       p1.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {}),
       p2.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {})
     ]);
-    await attendre(3200);
+    await attendreQue(async () => (await Promise.all([p1, p2].map((p) => p.$$('.ligne-serie')))).every((ls) => ls.length > 0),
+      20000, '143 · [P] les deux instances ont dessiné la séance');
+    await attendre(300);
     await Promise.all([p1, p2].map(async (p) => {
       const l = (await p.$$('.ligne-serie'))[0];
       const champs = await l.$$('input');

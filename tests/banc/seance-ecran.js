@@ -24541,9 +24541,13 @@ const SETS_IMPORTES = [
       enVol && encoreRetenue && base.pesees.some((x) => x.date === jour148 && x.poids_kg === 81.5), nb148([enVol, encoreRetenue, base.pesees]));
     base.peseesLibere = true;
     await jusqua(async () => base.peseesRetenue === false && await synchroLibre(), 60000);
-    await aller('/profil');
+    // ⚠️ Sans recharger la page : un rechargement relance une synchronisation qui ramène la pesée (la synchro suivante
+    // du diagnostic) et cache le défaut. On lit l'état laissé par la lecture périmée, puis on rouvre le profil EN L'APP.
+    const cacheA = await cachePesees();
+    await page.click('.onglet[data-vue="saisie"]');
+    await page.click('.onglet[data-vue="profil"]');
     await jusqua(async () => (await ligneP148()) !== null, 10000);
-    const cacheA = await cachePesees(), ecranA = nb148(await ligneP148());
+    const ecranA = nb148(await ligneP148());
     ok('[P148] a — DISCRIMINANT : la lecture périmée rendue, la pesée 81,5 reste sur l’appareil (cache), à l’écran (ligne « Poids ») et en base',
       (cacheA || []).indexOf(jour148 + '=81.5') >= 0 && /^81,5 kg/.test(ecranA) && base.pesees.some((x) => x.date === jour148 && x.poids_kg === 81.5),
       nb148([cacheA, ecranA, base.pesees]));
@@ -24561,9 +24565,11 @@ const SETS_IMPORTES = [
     base.pesees.push({ id: '00000000-0000-4000-8148-000000000002', user_id: 'u-banc', date: '2025-12-05', poids_kg: 83, source: 'manuel' });
     await rafraichir();
     await jusqua(async () => (await cachePesees() || []).indexOf('2025-12-05=83') >= 0 && await synchroLibre(), 60000);
-    await aller('/profil');
+    const cacheC = await cachePesees();
+    await page.click('.onglet[data-vue="saisie"]');
+    await page.click('.onglet[data-vue="profil"]');
     await jusqua(async () => (await ligneP148()) !== null, 10000);
-    const cacheC = await cachePesees(), ecranC = nb148(await ligneP148());
+    const ecranC = nb148(await ligneP148());
     ok('[P148] c — sans geste, la base fait foi : la pesée d’un autre appareil (79 kg le même jour, 83 kg le 5 déc.) arrive, l’ancienne 81,5 est remplacée',
       (cacheC || []).indexOf(jour148 + '=79') >= 0 && (cacheC || []).indexOf('2025-12-05=83') >= 0 && (cacheC || []).indexOf(jour148 + '=81.5') < 0 &&
         /^79 kg/.test(ecranC), nb148([cacheC, ecranC]));

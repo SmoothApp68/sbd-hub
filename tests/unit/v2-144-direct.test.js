@@ -8,14 +8,14 @@ const Social = require('../../v2/js/social.js');
 
 const T0 = Date.parse('2026-10-23T10:00:00Z');
 const iso = (t) => new Date(t).toISOString();
-const ligne = (type, n) => ({ pseudo: 'jordan', exercise_slug: 'squat', charge_kg: 60, reps: 5, type_serie: type, validee_a: iso(T0 - n * 1000) });
+const ligne = (type, n, reps) => ({ pseudo: 'jordan', exercise_slug: 'squat', charge_kg: 60, reps: reps === undefined ? 5 : reps, type_serie: type, validee_a: iso(T0 - n * 1000) });
 const mesure = (d) => d.charge_kg + ' kg × ' + d.reps;
 
 describe('144-4 — le direct étiqueté', () => {
   test('tout est montré ; chauffe, dégressive et échec portent leur étiquette, le travail aucune', () => {
-    const l = Social.lignesDuDirect([ligne('travail', 1), ligne('echauffement', 2), ligne('degressive', 3), ligne('echec', 4), ligne(null, 5)],
+    const l = Social.lignesDuDirect([ligne('travail', 1), ligne('echauffement', 2), ligne('degressive', 3), ligne('echec', 4, 0), ligne(null, 5)],
       iso(T0), (s) => s, mesure);
-    expect(l.map((x) => x.etiquette)).toEqual([null, 'Chauffe', 'Dégressive', 'Tentative manquée', null]);
+    expect(l.map((x) => x.etiquette)).toEqual([null, 'Chauffe', 'Dégressive', 'manquée', null]);
   });
   test('la ligne rendue porte l\'étiquette dans un .g-etiq, et pas pour le travail', () => {
     const l = Social.lignesDuDirect([ligne('travail', 1), ligne('echauffement', 2)], iso(T0), (s) => s, mesure);

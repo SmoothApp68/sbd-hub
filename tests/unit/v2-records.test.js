@@ -172,8 +172,15 @@ describe('§9.23 — la table cumulée est la source (ECRAN §7 bis.16 : « cumu
 
   test('à charge égale, la date est la PREMIÈRE fois ; ni chauffe, ni dégressive, ni échec', () => {
     const t = Mo.tableCumulee([s(100, 5, '2026-03-01'), s(100, 6, '2026-02-01'), s(140, 5, '2026-04-01', 'echauffement'),
-      s(140, 5, '2026-04-01', 'echec'), s(140, 5, '2026-04-01', 'degressive')], dateDe);
+      s(140, 0, '2026-04-01', 'echec'), s(140, 5, '2026-04-01', 'degressive')], dateDe);
     expect(Mo.auMoinsDe(t, 5)).toEqual({ reps: 5, charge: 100, date: '2026-02-01' });
+  });
+
+  test('152 : une série à l’échec (1 rep et +) est un record à sa date ; à 0 rep, non', () => {
+    const t = Mo.tableCumulee([s(100, 5, '2026-03-01'), s(140, 3, '2026-04-01', 'echec')], dateDe);
+    expect(Mo.auMoinsDe(t, 3)).toEqual({ reps: 3, charge: 140, date: '2026-04-01' });
+    const m = Mo.tableCumulee([s(100, 5, '2026-03-01'), s(140, 0, '2026-04-01', 'echec')], dateDe);
+    expect(Mo.auMoinsDe(m, 3).charge).toBe(100);
   });
 
   test('`recordDeLaTable` lit la cumulée : la charge la plus lourde, avec le plus de reps à cette charge', () => {

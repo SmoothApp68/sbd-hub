@@ -222,7 +222,7 @@ describe('échauffement — lettre de son exercice, tour de chauffe avant le tra
       saisie({ rang: 1, exercise_slug: 'el', groupe_superset: 1 }),
       saisie({ rang: 2, exercise_slug: 'el', groupe_superset: 1, type_serie: 'degressive' }),
       saisie({ rang: 3, exercise_slug: 'ec', groupe_superset: 1 }),
-      saisie({ rang: 4, exercise_slug: 'ec', groupe_superset: 1, type_serie: 'echec' })
+      saisie({ rang: 4, exercise_slug: 'ec', groupe_superset: 1, type_serie: 'echec', reps: 0 })
     ], CATALOGUE);
     // Aucune ne porte de libellé de type : la lettre seule, le style fera le reste.
     expect(etiquettes(blocs[0])).toEqual(['A1', 'A', 'B1', 'B']);

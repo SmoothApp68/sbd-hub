@@ -2152,10 +2152,17 @@ const SETS_IMPORTES = [
     return !sv || sv.hidden || !f || f.hidden || new RegExp(m).test(t);
   }, motif).catch(() => true), 6000);
   const terminerQuandMeme = async () => {
-    await issueDuGeste('pas validées? : (elles|elle) ne ser');
+    await issueDuGeste('pas validées? : (elles|elle) ne ser|^Ta séance dure');
     if (/pas validées? : (elles|elle) ne ser/.test(await texte('#feuille-contenu .feuille-t'))) {
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .filter((b) => b.textContent === 'Terminer quand même')[0].click());
+      await issueDuGeste('^Ta séance dure');
+    }
+    // 147 — une séance dont la dernière série date de plus d'1 h (ou de plus de 5 h) DEMANDE : les sections écrites avant
+    // gardent leur sens (« Terminer » comme avant) par « Garder », qui écrit l'instant du geste. La section `seance-longue`
+    // joue les trois choix à part.
+    if (/^Ta séance dure/.test(await texte('#feuille-contenu .feuille-t'))) {
+      await page.evaluate(() => document.querySelector('#feuille-contenu button[data-choix="garder"]').click());
     }
   };
   // 137 (E12) — « Abandonner » depuis la feuille de fin : en rouge (« Abandonner et tout effacer ») quand une série est

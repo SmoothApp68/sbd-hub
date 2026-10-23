@@ -24372,7 +24372,7 @@ const SETS_IMPORTES = [
       JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus145), erreurs.slice(erreurs145)]));
   }
 
-  console.log('\n══ seance-longue. UNE SÉANCE TROP LONGUE : À « TERMINER », L\u2019APP LE DIT ET DEMANDE (147, ECRAN-SAISIE §7 septies.4) ══');
+  console.log('\n══ seance-longue. UNE SÉANCE TROP LONGUE : À « TERMINER », L’APP LE DIT ET DEMANDE (147, ECRAN-SAISIE §7 septies.4) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : une séance de musculation dont la dernière série validée est vieille de 2 h au moment
   // de « Terminer » (l'horloge de la page avance de 2 h, `Horloge.scriptNavigateur`, sans aucun délai fixe). « Terminer à
@@ -24399,7 +24399,7 @@ const SETS_IMPORTES = [
     const heure147 = (iso) => { const d = new Date(iso); return d.getHours() + ' h ' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); };
     const cliquer147 = (choix) => page.evaluate((c) => document.querySelector('#feuille-contenu button[data-choix="' + c + '"]').click(), choix);
     const demarrer147 = async () => {
-      await aller('/saisie'); await demarrerRoutine('Rowing L147 ×2'); await attendre(900);
+      await aller('/saisie'); await demarrerRoutine('Rowing L147 ×2');
       await saisirSerie(0, 90, 10);
       await jusqua(() => base.sets.length >= 1, 8000);
     };
@@ -24432,7 +24432,7 @@ const SETS_IMPORTES = [
         f1.choix.length === 3 && f1.choix[0] === 'terminer-a:Terminer à ' + heure147(t0) && /^garder:Garder 2 h 0\d$/.test(f1.choix[1]) &&
         f1.choix[2] === 'revenir:Revenir à la séance', JSON.stringify(f1));
     await cliquer147('revenir');
-    await attendre(600);
+    await jusqua(async () => !(await feuille147()).visible, 6000);
     const f2 = await feuille147();
     ok('[L147] « Revenir » : la feuille se ferme, rien n\u2019est écrit (séance toujours en cours, sans fin)',
       !f2.visible && base.sessions.every((x) => x.statut === 'en_cours' && !x.fin), JSON.stringify([f2, base.sessions.map((x) => [x.statut, x.fin])]));

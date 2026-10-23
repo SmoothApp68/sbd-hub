@@ -9218,7 +9218,7 @@ const SETS_IMPORTES = [
     ok('[TY] 152 — le quatrième choix de la feuille dit « À l’échec » et sa règle',
       /^À l’échec/.test(menu152 || '') && /À 0 rep : une tentative manquée\./.test(menu152 || ''), JSON.stringify(menu152));
     await page.click('#feuille-contenu .feuille-menu button:nth-child(4)');
-    await attendre(700);
+    await jusqua(async () => (await lignes152()).some((x) => x.etq === 'manquée'), 6000);
     const l152b = await lignes152();
     ok('[TY] 152 DISCRIMINANT — une série sans rep passée en « À l’échec » : « manquée », pas en ambre, badge ✕',
       !!l152b[2] && l152b[2].etq === 'manquée' && l152b[2].ambre === false && l152b[2].no === '✕', JSON.stringify(l152b));

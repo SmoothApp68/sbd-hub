@@ -7112,6 +7112,7 @@ const SETS_IMPORTES = [
     // ── LE RÉSEAU REVIENT : la ligne monte, et UNE SEULE FOIS ────────────
     base.reseau = true;
     await aller('/saisie');
+    await attendreQue(() => base.zones.length >= 3, 15000, '143 · [Z] la vidange a monté la ligne');
     ok('[Z] le réseau revenu, la ligne monte',
       base.zones.length === 3 && base.zones[2].zone === 'mix',
       JSON.stringify(zonesEnBase()));
@@ -7387,6 +7388,8 @@ const SETS_IMPORTES = [
         !!document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie.cochee'), i);
       if (!deja) await saisirSerie(i, 20, 10);
     }
+    await attendreQue(async () => { const t = await parExo(); return t.length === 2 && !!t[0].constat && !!t[1].constat; },
+      15000, '143 · [C6] les deux constats sont dessinés');
     const tout = await parExo();
     ok('[C6] le bloc fini : LES DEUX constats paraissent, chacun le sien',
       tout.length === 2 && !!tout[0].constat && !!tout[1].constat &&
@@ -8208,6 +8211,8 @@ const SETS_IMPORTES = [
     await saisirSerie(1, ref[0][0], ref[0][1] + 3);
     await attendre(900);
     const phL = await phrasesC();
+    await attendreQue(() => { const p = parisDe(sid).filter((l) => l.fondement.rang === 1)[0]; return !!p && rangDuSet(p.set_observe) === 1; },
+      15000, '143 · [C] le pari du rang 1 est relié');
     const p1L = parisDe(sid).filter((l) => l.fondement.rang === 1)[0];
     ok('[C] une série PLUS LÉGÈRE en travail : pas un refus — la suivante propose encore',
       phL.length === 1 && /ta série 3 /.test(phL[0]), JSON.stringify(phL));

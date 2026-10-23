@@ -75,13 +75,28 @@ describe('126 — le texte : le repli, la faute, les mots', () => {
     expect(Routines.replier('Développé Couché - (Haltère)')).toBe('developpe couche haltere');
     expect(Routines.replier('developpe couche haltere')).toBe('developpe couche haltere');
     expect(Routines.replier('Soulevé-de-Terre')).toBe('souleve de terre');
-    // ⚠️ L'apostrophe typographique devient un espace, comme le dit la spec (la référence l'effaçait : écart rapporté).
+    // L'apostrophe typographique devient un espace, comme le dit la spec (la référence l'effaçait jusqu'au 21/10 : 129).
     expect(Routines.replier('Haussement d’Épaules (Barre)')).toBe('haussement d epaules barre');
     expect(Routines.replier("Haussement d'Épaules")).toBe('haussement d epaules');
     expect(Routines.replier("Pull-up / Chin-up 2.0")).toBe('pull up chin up 2 0');
     expect(Routines.replier('  ÉLÉVATIONS  ')).toBe('elevations');
     expect(Routines.replier(null)).toBe('');
     expect(Routines.replier(undefined)).toBe('');
+  });
+
+  // 129 — CONCORDANCE DU REPLI AVEC LA RÉFÉRENCE CORRIGÉE (21/10/2026). `recherche126.py` effaçait l'apostrophe
+  // typographique (`encode('ascii', 'ignore')`) : « Haussement d’Épaules » y donnait « haussement depaules » — l'écart
+  // rapporté par #457. Elle ne retire plus que les marques combinantes, et donne « haussement d epaules » (lancée sur
+  // ces trois textes le 21/10) : le JS, la même chose. Aucun cas de `cas-126.json` ne porte d'apostrophe : ce test est
+  // la seule concordance sur ce point.
+  test('129 — concordance du repli avec la référence corrigée : « Haussement d’Épaules » → « haussement d epaules »', () => {
+    const REFERENCE = [
+      ['Haussement d’Épaules', 'haussement d epaules'],
+      ['Haussement d’Épaules (Barre)', 'haussement d epaules barre'],
+      ["Haussement d'Épaules", 'haussement d epaules']
+    ];
+    REFERENCE.forEach(([texte, attendu]) => expect(Routines.replier(texte)).toBe(attendu));
+    expect(Routines.replier('Haussement d’Épaules')).not.toBe('haussement depaules');   // l'ancienne référence
   });
 
   test('« Soulevé-de-Terre » et « souleve de terre » trouvent la même chose', () => {
@@ -442,7 +457,9 @@ describe('126 — le rendu du champ vide (`rendreSuggestionsExo`)', () => {
 describe('126 — les données : `hors_salle` lu, les noms alternatifs dans le cache, hors ligne', () => {
   const src = (f) => fs.readFileSync(path.join(__dirname, '../../v2/js/' + f), 'utf8');
   test('le catalogue lit `hors_salle`', () => {
-    expect(src('donnees.js')).toMatch(/from\('exercises'\)[\s\S]{0,400}hors_salle\b/);
+    // 129 — `hors_salle` n'est plus la dernière colonne du `select` (les colonnes de v2_099 l'ont rejointe) : on cherche
+    // la colonne nommée dans le `select` du catalogue, plus sa place.
+    expect(src('donnees.js')).toMatch(/from\('exercises'\)\s*\.select\('[^)]{0,400}\bhors_salle\b[^)]*'\)/);
   });
 
   test('la synchronisation lit `Donnees.aliasCommuns` (une seule fonction), les range dans le magasin `alias` ; le démarrage les relit', () => {

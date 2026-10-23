@@ -1412,12 +1412,10 @@
 
   // LE REPLI : minuscules, sans accents, et tout ce qui n'est ni lettre ni chiffre devient un espace — « Développé
   // Couché - (Haltère) » et « developpe couche haltere » sont le même texte.
-  // ⚠️ ÉCART À LA RÉFÉRENCE, RAPPORTÉ (PR 126) : `recherche126.py` replie par `encode('ascii', 'ignore')`, qui EFFACE
-  // tout caractère non ASCII sans lettre de base — l'apostrophe typographique (’) comprise : « Haussement d’Épaules »
-  // y devient « haussement depaules », et « épaules » ne le trouve plus. La spec (§7 quindecies.11) dit que
-  // l'apostrophe devient un espace : on retire les seuls accents (les marques combinantes après NFD), et tout le
-  // reste qui n'est ni lettre ni chiffre ASCII devient un espace. Aucun nom ni alias du fichier de cas n'en porte :
-  // la concordance reste à 0 écart.
+  // L'apostrophe typographique (’) comprise, comme le dit la spec (§7 quindecies.11) : on retire les seuls accents (les
+  // marques combinantes après NFD), et tout le reste qui n'est ni lettre ni chiffre ASCII devient un espace —
+  // « Haussement d’Épaules » donne « haussement d epaules ». La référence fait de même depuis le 21/10 (129 ; elle
+  // l'effaçait par `encode('ascii', 'ignore')`, écart rapporté en 126) : test de concordance dans `v2-recherche.test.js`.
   function replier(txt) {
     return String(txt === null || txt === undefined ? '' : txt)
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()

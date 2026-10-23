@@ -246,18 +246,20 @@
   // booléen. Le catalogue en cache est réécrit en entier à la synchronisation suivante (`remplacerTout`).
   //
   // ⚠️ `echelle` ET `echelle_rang` DEPUIS 127 (v2_099, MOTEUR §9.17 bis), `barre_charge_fixe` DEPUIS 128 (v2_099,
-  // MOTEUR §10 bis) — PAS DANS CE `select`. Nommer une colonne que la base n'a pas encore fait refuser TOUTE la requête
-  // (`42703`) : le catalogue ne se synchroniserait plus (le piège vu en #457). Elles se lisent par une SECONDE lecture,
-  // accessoire (`accessoiresDuCatalogue`) : son échec, quel qu'il soit, laisse le catalogue intact — ses lignes sans
-  // échelle ni `barre_charge_fixe` (`undefined` : la salle garde l'ancienne règle), comme avant v2_099. Les trois
-  // colonnes viennent de la même migration : une seule lecture. Une fois v2_099 lancée partout, elles pourront
-  // rejoindre ce `select` (noté pour plus tard).
+  // MOTEUR §10 bis) — MÊME PIÈGE : omises, elles vaudraient `undefined` sur tout le catalogue, sans une erreur ; la
+  // page d'exercice perdrait « Ton échelle » et un curl EZ ne saurait plus qu'il se fait avec une barre de la salle.
+  // Lues par une seconde lecture en 127-128, le temps que v2_099 soit lancée (nommer une colonne que la base n'a pas
+  // fait refuser TOUTE la requête, `42703` : le piège vu en #457) ; elles rejoignent ce `select` en 129, v2_099 lancée.
+  // Le résultat pour l'app n'a pas changé (`sansColonnesVides`) : l'échelle n'est posée que sur un exercice d'une
+  // échelle (une clé ET un rang), `barre_charge_fixe` que si c'est un booléen — une colonne vide (`null`) reste
+  // ABSENTE de la fiche (`undefined`), comme une ligne sans la colonne (cache d'avant v2_099, faux serveur), et les
+  // replis d'avant restent : pas d'échelle, l'ancienne règle de Ma salle (`Profil.salleDeLExercice`).
   function tousLesExercices() {
     return paginerParCle(trancheur(function () {
       return client().from('exercises')
         .select('slug, nom, mesure, charge, parent, equipement, muscles_primaires, muscles_secondaires, ' +
                 'muscles_stabilisateurs, mouvement, habilete, schema_mouvement, nature, description, actif, hors_salle, ' +
-                'champs_series, type_elastique');
+                'echelle, echelle_rang, barre_charge_fixe, champs_series, type_elastique');
     }, 'slug'), 'slug').then(function (lignes) {
       // ⚠️ `champs_series` DEPUIS 131 (v2_101, ECRAN §3 ter.5) — DANS LE `select` PRINCIPAL : la migration passe
       // avant la fusion (décision du prompt 131). Un tableau, `[]` par défaut : une ligne sans la colonne (cache
@@ -266,47 +268,28 @@
       // (décision du prompt 132 : la migration passe avant la fusion). `grand` (ma_salle.elastiques) ou `mini`
       // (ma_salle.mini_bandes) ; toute autre valeur, ou une ligne sans la colonne (cache d'avant, faux serveur), se lit
       // `null` : l'exercice n'a pas de liste, rien ne change.
-      return lignes.filter(function (e) { return !e || e.actif !== false; }).map(function (e) {
+      return lignes.filter(function (e) { return !e || e.actif !== false; }).map(sansColonnesVides).map(function (e) {
         if (!e) return e;
         var x = !Array.isArray(e.champs_series) ? Object.assign({}, e, { champs_series: [] }) : e;
         var t = x.type_elastique === 'grand' || x.type_elastique === 'mini' ? x.type_elastique : null;
         return x.type_elastique === t ? x : Object.assign(x === e ? Object.assign({}, e) : x, { type_elastique: t });
       });
-    }).then(function (lignes) {
-      return accessoiresDuCatalogue().then(function (accessoires) {
-        return poserAccessoires(lignes, accessoires);
-      }, function () { return lignes; });
     });
   }
 
-  // La seconde lecture : `{ slug: { echelle?, echelle_rang?, barre_charge_fixe? } }` — les colonnes d'échelle des
-  // seuls exercices d'une échelle, `barre_charge_fixe` quand c'est un booléen (`null` : laissée absente). Elle REJETTE
-  // quand la base refuse (colonne absente, réseau) : `tousLesExercices` garde alors son catalogue tel quel.
-  function accessoiresDuCatalogue() {
-    return paginerParCle(trancheur(function () {
-      return client().from('exercises').select('slug, echelle, echelle_rang, barre_charge_fixe');
-    }, 'slug'), 'slug').then(function (lignes) {
-      var parSlug = {};
-      lignes.forEach(function (l) {
-        if (!l || !l.slug) return;
-        var a = {};
-        if (typeof l.echelle === 'string' && l.echelle && typeof l.echelle_rang === 'number') {
-          a.echelle = l.echelle;
-          a.echelle_rang = l.echelle_rang;
-        }
-        if (typeof l.barre_charge_fixe === 'boolean') a.barre_charge_fixe = l.barre_charge_fixe;
-        if (Object.keys(a).length) parSlug[l.slug] = a;
-      });
-      return parSlug;
-    });
-  }
-  // Les colonnes accessoires posées sur les lignes du catalogue (une copie de chaque ligne qui en a) ; les autres
-  // lignes ne changent pas.
-  function poserAccessoires(lignes, accessoires) {
-    return (lignes || []).map(function (e) {
-      return e && accessoires && Object.prototype.hasOwnProperty.call(accessoires, e.slug)
-        ? Object.assign({}, e, accessoires[e.slug]) : e;
-    });
+  // Une fiche sans ses colonnes d'échelle ni `barre_charge_fixe` quand elles sont vides (une copie de la ligne, et
+  // seulement si elle en porte une) : les deux colonnes d'échelle ensemble ou aucune, `barre_charge_fixe` booléen ou
+  // absent. Elle recopie les colonnes telles quelles, sans les interpréter (l'échelle se lit dans `modele.js`).
+  function sansColonnesVides(e) {
+    if (!e) return e;
+    var aEchelle = 'echelle' in e || 'echelle_rang' in e, aBarre = 'barre_charge_fixe' in e;
+    var echelleOk = typeof e.echelle === 'string' && !!e.echelle && typeof e.echelle_rang === 'number';
+    var barreOk = typeof e.barre_charge_fixe === 'boolean';
+    if ((!aEchelle || echelleOk) && (!aBarre || barreOk)) return e;
+    var c = Object.assign({}, e);
+    if (!echelleOk) { delete c.echelle; delete c.echelle_rang; }
+    if (!barreOk) delete c.barre_charge_fixe;
+    return c;
   }
 
   // ══ ROUTINES — la première écriture du projet v2 ═════════════════════════

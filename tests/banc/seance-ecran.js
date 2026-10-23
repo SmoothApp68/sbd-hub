@@ -1588,7 +1588,18 @@ const SETS_IMPORTES = [
         return json(projeter(sid ? base.sets.filter((s) => s.session_id === sid) : base.sets, url));
       }
       // 55-1 — les pesées (le rapport au poids de la page d'exercice).
-      if (table === 'body_weight_log') return json(projeter(base.pesees, url));
+      if (table === 'body_weight_log') {
+        // 148 — `peseesRetenir` : UNE lecture des pesées retenue jusqu'à `peseesLibere` (un verrou, aucun délai). ⚠️ La
+        // réponse est CONSTRUITE À L'ARRIVÉE de la requête, puis retenue : construite après l'attente, elle contiendrait
+        // déjà le geste fait pendant la lecture, et le test ne discriminerait rien (la lecture PÉRIMÉE, d'un serveur lent).
+        const reponse = JSON.parse(JSON.stringify(projeter(base.pesees, url)));
+        if (base.peseesRetenir) {
+          base.peseesRetenir = false; base.peseesLibere = false; base.peseesRetenue = true;
+          for (let k = 0; k < 1200 && !base.peseesLibere; k++) await pause(50);
+          base.peseesRetenue = false;
+        }
+        return json(reponse);
+      }
       return json([]);
     }
 
@@ -24478,6 +24489,93 @@ const SETS_IMPORTES = [
       gardeBanc.violations === violations147 && base.journal.filter((j) => j.op === 'refus').length === refus147 &&
         erreurs.length === erreurs147,
       JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus147), erreurs.slice(erreurs147)]));
+  }
+
+  console.log('\n══ pesee-gardee. UNE PESÉE POSÉE PENDANT UNE SYNCHRONISATION NE REVIENT PAS EN ARRIÈRE (148, diagnostic 146) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : la lecture GET de `body_weight_log` est retenue (réponse construite à l'arrivée, donc
+  // SANS la pesée) ; pendant la retenue, la pesée est posée depuis le profil, part, et sort de la file ; la lecture
+  // périmée est alors libérée. Sans la garde commune de `poser`, elle remplaçait la pesée (appareil, écran, cache).
+  {
+    const erreurs148 = erreurs.length;
+    const refus148 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations148 = gardeBanc.violations;
+    const peseesAvant148 = base.pesees;
+    const jour148 = await page.evaluate(() => { const d = new Date(), p = (n) => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); });
+    const nb148 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    base.pesees = [{ id: '00000000-0000-4000-8148-000000000001', user_id: 'u-banc', date: '2025-12-01', poids_kg: 80, source: 'manuel' }];
+    base.peseesRetenir = false; base.peseesRetenue = false; base.peseesLibere = true;
+    const synchroLibre = () => page.evaluate(() => { const e = document.getElementById('etat-sync');
+      return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
+    const rafraichir = () => page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    const cachePesees = () => page.evaluate(() => window.THCache.lireTout('pesees')
+      .then((l) => (l || []).map((x) => x.date + '=' + x.poids_kg).sort())).catch(() => null);
+    const filePesees = () => page.evaluate(() => window.THCache.lireAttente()
+      .then((f) => (f || []).filter((x) => x.table === 'body_weight_log').length)).catch(() => -1);
+    const ligneP148 = () => page.evaluate(() => {
+      const n = Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Poids') === 0)[0];
+      return n ? ((n.querySelector('.p-val') || {}).textContent || null) : null;
+    }).catch(() => null);
+    const pleine = async () => { await jusqua(synchroLibre, 60000); await rafraichir(); await jusqua(synchroLibre, 60000); };
+
+    // Départ : l'appareil a la pesée du 1er déc. (80 kg), la file est vide.
+    await aller('/profil');
+    await jusqua(synchroLibre, 60000);
+    await rafraichir();
+    await jusqua(async () => (await cachePesees() || []).join('|') === '2025-12-01=80' && await synchroLibre(), 60000);
+
+    // a — LA PESÉE POSÉE PENDANT LA LECTURE RETENUE.
+    base.peseesRetenir = true;
+    await rafraichir();
+    const enVol = await jusqua(async () => base.peseesRetenue === true, 60000);
+    await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Poids') === 0)[0].click());
+    await jusqua(async () => !!(await page.$('#feuille-contenu input[data-cle="poids"]')), 6000);
+    await page.fill('#feuille-contenu input[data-cle="poids"]', '81,5');
+    await page.click('#feuille-contenu .feuille-pied .pri');
+    await jusqua(async () => base.pesees.some((x) => x.date === jour148 && x.poids_kg === 81.5) && await filePesees() === 0, 10000);
+    const encoreRetenue = base.peseesRetenue === true;
+    ok('[P148] a — prémisse : la lecture des pesées est en vol (sans la pesée), la pesée 81,5 est en base et sortie de la file, AVANT que la lecture rende',
+      enVol && encoreRetenue && base.pesees.some((x) => x.date === jour148 && x.poids_kg === 81.5), nb148([enVol, encoreRetenue, base.pesees]));
+    base.peseesLibere = true;
+    await jusqua(async () => base.peseesRetenue === false && await synchroLibre(), 60000);
+    await aller('/profil');
+    await jusqua(async () => (await ligneP148()) !== null, 10000);
+    const cacheA = await cachePesees(), ecranA = nb148(await ligneP148());
+    ok('[P148] a — DISCRIMINANT : la lecture périmée rendue, la pesée 81,5 reste sur l’appareil (cache), à l’écran (ligne « Poids ») et en base',
+      (cacheA || []).indexOf(jour148 + '=81.5') >= 0 && /^81,5 kg/.test(ecranA) && base.pesees.some((x) => x.date === jour148 && x.poids_kg === 81.5),
+      nb148([cacheA, ecranA, base.pesees]));
+    base.reseau = false;
+    await aller('/profil');
+    await jusqua(async () => (await ligneP148()) !== null, 10000);
+    const ecranHl = nb148(await ligneP148());
+    base.reseau = true;
+    ok('[P148] a — rechargée hors ligne (le seul cache), la ligne « Poids » dit toujours 81,5 kg', /^81,5 kg/.test(ecranHl), ecranHl);
+    await jusqua(synchroLibre, 60000);
+
+    // c — SANS GESTE, LA BASE FAIT FOI (garde-fou : la note ne survit pas à la synchronisation). Un autre appareil a
+    // pesé 79 kg le même jour et 83 kg un autre jour : une synchronisation sans geste les ramène l'un et l'autre.
+    base.pesees.filter((x) => x.date === jour148).forEach((x) => { x.poids_kg = 79; });
+    base.pesees.push({ id: '00000000-0000-4000-8148-000000000002', user_id: 'u-banc', date: '2025-12-05', poids_kg: 83, source: 'manuel' });
+    await rafraichir();
+    await jusqua(async () => (await cachePesees() || []).indexOf('2025-12-05=83') >= 0 && await synchroLibre(), 60000);
+    await aller('/profil');
+    await jusqua(async () => (await ligneP148()) !== null, 10000);
+    const cacheC = await cachePesees(), ecranC = nb148(await ligneP148());
+    ok('[P148] c — sans geste, la base fait foi : la pesée d’un autre appareil (79 kg le même jour, 83 kg le 5 déc.) arrive, l’ancienne 81,5 est remplacée',
+      (cacheC || []).indexOf(jour148 + '=79') >= 0 && (cacheC || []).indexOf('2025-12-05=83') >= 0 && (cacheC || []).indexOf(jour148 + '=81.5') < 0 &&
+        /^79 kg/.test(ecranC), nb148([cacheC, ecranC]));
+
+    // LA REMISE EN ÉTAT.
+    base.pesees = peseesAvant148;
+    base.peseesRetenir = false; base.peseesLibere = true;
+    await aller('/saisie');
+    await pleine();
+    ok('[P148] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations148 && base.journal.filter((j) => j.op === 'refus').length === refus148 && erreurs.length === erreurs148,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus148), erreurs.slice(erreurs148)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

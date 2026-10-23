@@ -937,6 +937,7 @@
   async function synchroniser() {
     if (syncEnCours) return;
     syncEnCours = true;
+    gestesEnVol = {};   // 148 — avant toute lecture : seuls les gestes posés PENDANT cette synchronisation comptent
     var g = generation;
     var envoisAuDepart = envoisDeSeries;
     var fileAuDepart = Attente.seancesEnAttente(attente);
@@ -1084,7 +1085,7 @@
         // 60-2a — une pesée posée hors ligne n'est pas encore chez le serveur :
         // la liste qu'il envoie ne la contient pas. On la garde, par-dessus
         // celle du serveur pour le même jour.
-        local.pesees = Poids.fondreEnAttente(pesees, local.pesees, Attente.protegees(attente, Attente.PESEES));
+        local.pesees = Poids.fondreEnAttente(pesees, local.pesees, protegeesEtEnVol(Attente.PESEES));
         await Cache.remplacerTout('pesees', local.pesees);
         if (!generationValide(g)) return;
       }
@@ -3479,7 +3480,28 @@
 
   // Pose une intention dans la file ET l'écrit sur disque. La file EST la
   // promesse d'envoi : tant qu'une entrée y est, rien n'est perdu.
+  //
+  // 148 (diagnostic 146) — LA GARDE COMMUNE DES GESTES EN VOL. `synchroniser()` lit les pesées au début et les fond
+  // longtemps après ; `Attente.protegees` ne garde que ce qui est ENCORE dans la file à ce moment-là. Une pesée posée
+  // PUIS ENVOYÉE pendant la synchronisation n'est plus protégée : la lecture périmée la remplaçait (courbe, ligne
+  // « Poids », cache) jusqu'à la synchronisation suivante — aucune perte en base. `poser` est l'unique entrée de la
+  // file : elle note ici `table / id` AVANT toute écriture asynchrone (sinon la fenêtre se rouvre) ; la synchronisation
+  // remet la note à zéro à son début. À l'application, la pesée se FOND avec `protegees ∪ gestesEnVol` : les pesées
+  // des autres jours ou d'un autre appareil arrivent toujours. Les objectifs gardent leur garde du 139
+  // (`versionObjectifs`, `gardeLesGestesEnVol`) ; elle pourrait rejoindre celle-ci plus tard.
+  var gestesEnVol = {};
+  function noterGesteEnVol(operation) {
+    if (!operation || !operation.table || operation.id === undefined || operation.id === null) return;
+    (gestesEnVol[operation.table] = gestesEnVol[operation.table] || {})[operation.id] = true;
+  }
+  function protegeesEtEnVol(table) {
+    var res = Object.assign({}, Attente.protegees(attente, table));
+    Object.keys(gestesEnVol[table] || {}).forEach(function (id) { res[id] = true; });
+    return res;
+  }
+
   async function poser(operation) {
+    noterGesteEnVol(operation);
     attente = Attente.poser(attente, operation);
     try { await Cache.ecrireAttente(attente); }
     catch (e) { console.warn('File non persistée :', texteErreur(e)); direSauvegardeImpossible(); }

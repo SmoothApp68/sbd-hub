@@ -2269,8 +2269,32 @@ const SETS_IMPORTES = [
   // Le réseau du faux serveur est calme, SANS plancher d'une seconde : au moins `plancher` ms (× ralenti) depuis le
   // geste, plus rien en vol, et plus rien de parti depuis 150 ms. Pour un geste qui n'écrit QUE SOUVENT (changer le
   // type d'une série ne part en base que si elle est validée) : l'absence d'écriture n'a pas d'état à attendre.
-  const calmeApres = (depart, plancher) => jusqua(() => Date.now() - depart.t0 >= (plancher === undefined ? 150 : plancher) * RALENTI &&
-    (retenueEnCours() || (reseauBanc.enVol === 0 && Date.now() - reseauBanc.dernier >= 150 * RALENTI)), 8000, 'calmeApres');
+  // L'écran des séries ne bouge plus depuis `150 × RALENTI` ms : la réponse du serveur a été traitée PAR LA PAGE, qui a
+  // redessiné ce qu'elle devait redessiner (le gris d'une ligne qui suit une validation, par exemple). Le réseau calme
+  // ne le dit pas : sous charge la page traite sa réponse bien après qu'elle est arrivée.
+  const suivreEcran = () => {
+    let derniere = null, depuis = Date.now();
+    return async () => {
+      const sg = await page.evaluate(() => {
+        const n = document.getElementById('blocs-seance');
+        if (!n) return 'aucun';
+        const t = n.innerHTML;
+        let h = 0;
+        for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0;
+        return h + ':' + t.length;
+      }).catch(() => 'illisible');
+      if (sg !== derniere) { derniere = sg; depuis = Date.now(); }
+      return Date.now() - depuis >= 150 * RALENTI;
+    };
+  };
+  const calmeApres = (depart, plancher) => {
+    const stable = suivreEcran();
+    return jusqua(async () => {
+      const ecran = await stable();   // lu à chaque tour, pour voir ses changements
+      return ecran && Date.now() - depart.t0 >= (plancher === undefined ? 150 : plancher) * RALENTI &&
+        (retenueEnCours() || (reseauBanc.enVol === 0 && Date.now() - reseauBanc.dernier >= 150 * RALENTI));
+    }, 8000, 'calmeApres');
+  };
   // La feuille de la séance : fermée, ou son contenu. Un geste de menu fait CHANGER cette signature (ou ferme la feuille).
   const signatureFeuille = () => page.evaluate(() => {
     const f = document.getElementById('feuille-seance');
@@ -2307,17 +2331,17 @@ const SETS_IMPORTES = [
       return l ? !!l.querySelector('.ok-serie.cochee') : null;
     }, i);
     let vu = '';
+    const stable = suivreEcran();
     return jusqua(async () => {
+      const ecran = await stable();   // lu à chaque tour, pour voir ses changements
       const etat = await lireCochee().catch(() => null);
-      vu = 'cochée=' + etat + ' voulue=' + voulue + ' requêtes=' + (reseauBanc.compte - d.c0) + ' en vol=' + reseauBanc.enVol +
-        (typeof i === 'number' ? ' cases=' + JSON.stringify(await page.evaluate((k) => Array.from((document.querySelectorAll('.ligne-serie')[k] || document.body)
-          .querySelectorAll('[data-champ] input')).map((x) => x.value + '|' + x.placeholder), i).catch(() => null)) : '');
+      vu = 'cochée=' + etat + ' voulue=' + voulue + ' requêtes=' + (reseauBanc.compte - d.c0) + ' en vol=' + reseauBanc.enVol + ' écran stable=' + ecran;
       if (etat !== voulue) return voulue && !!depart && typeof i === 'number' && !depart.refus0 && await refusVisible(i);
       if (await horsLigne()) return (await lireFile('sets')) > d.f0 || !depart;
       // Le faux serveur REFUSE tout (`base.reseau = false`) : l'envoi a été tenté, il a échoué, la ligne reste dans la file.
       if (!base.reseau) return reseauBanc.compte > d.c0 && reseauBanc.enVol === 0 && (await lireFile('sets')) > 0;
       if (reseauBanc.compte <= d.c0 || reseauBanc.enVol !== 0 || Date.now() - reseauBanc.dernier < 150 * RALENTI) return false;
-      return (await lireFile('sets')) <= d.f0 || Date.now() - reseauBanc.dernier >= 700 * RALENTI;
+      return ecran && ((await lireFile('sets')) <= d.f0 || Date.now() - reseauBanc.dernier >= 700 * RALENTI);
     }, 3000, { nom: 'serieMontee ' + (typeof i === 'function' ? 'rangée' : i), detail: () => vu });
   };
   // 135 — chaque pas attend son état : la feuille de fin ouverte (son bouton là), puis la séance sortie de l'écran et

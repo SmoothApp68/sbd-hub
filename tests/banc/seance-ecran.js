@@ -7236,6 +7236,24 @@ const SETS_IMPORTES = [
       (await enTete()).length > 0 && (await constat()).verdict === null,
       JSON.stringify(await enTete()));
 
+    // 143-bis — LA SÉRIE VALIDÉE PART AU SERVEUR. Sans ce contrôle, une file qui avale les séries (`return true`)
+    // laissait tout le banc vert : rien ne regardait la table `sets` du faux serveur. L'état, pas un délai : on
+    // attend le retour au calme du réseau, puis on lit la table.
+    {
+      await reseauCalme();
+      const affichees = await page.evaluate(() => [0, 1].map((k) => {
+        const champs = document.querySelectorAll('.ligne-serie')[k].querySelectorAll('input');
+        return { charge: Number(String(champs[0].value).replace(',', '.')), reps: Number(champs[1].value) };
+      }));
+      const arrivees = base.sets.filter((x) => x.exercise_slug === 'souleve-terre' && x.validee_a);
+      ok('[143-bis] les DEUX séries validées sont dans la table `sets` du faux serveur',
+        arrivees.length === 2, JSON.stringify({ arrivees: arrivees.length, sets: base.sets.length }));
+      ok('[143-bis] avec leur charge et leurs reps',
+        arrivees.length === 2 && affichees.every((a, k) => a.reps > 0 &&
+          arrivees.some((x) => Number(x.charge_kg) === a.charge && Number(x.reps) === a.reps)),
+        JSON.stringify({ affichees, arrivees: arrivees.map((x) => [x.charge_kg, x.reps]) }));
+    }
+
     await valider(2);
     const fini = await constat();
     ok('[C6] LA TROISIÈME VALIDÉE : le constat paraît, et la consigne s’efface',

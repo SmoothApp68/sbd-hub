@@ -3,7 +3,7 @@
 // 145 — « TES ÉCHELLES CETTE SEMAINE » (ECRAN-SAISIE §7 quater.7, maquette du 23/10/2026).
 //
 // Trois étages, chacun testé là où il vit :
-//   · le FAIT (`faits.echellesDeLaSemaine`) : les exercices d'échelle de la semaine, leurs séries de la semaine et de la
+//   · le FAIT (`Faits.creer().echellesDeLaSemaine`) : les exercices d'échelle de la semaine, leurs séries de la semaine et de la
 //     semaine d'avant, la marche franchie ; rien sans exercice d'échelle (une barre seule n'en est pas un) ;
 //   · la VUE (`Modele.vueEchellesDeLaSemaine`) : ta marche, le meilleur, la suivante, les ronds, les reps de la semaine ;
 //   · la PHRASE COURTE (`Moteur.phraseDeLaSuivante`, option `court`) et les RONDS (`Moteur.rondsDeLaSuivante`).
@@ -46,7 +46,6 @@ function corpus(specs) {
 const reps = (slug, liste, charge) => liste.map((r) => ({ exercise_slug: slug, reps: r, charge_kg: charge === undefined ? 0 : charge }));
 
 describe('145 — le fait `echellesDeLaSemaine`', () => {
-  const faits = Faits.creer();
 
   test('les séries de la semaine et de la semaine d’avant, sur l’exercice travaillé', () => {
     const c = corpus([
@@ -54,7 +53,7 @@ describe('145 — le fait `echellesDeLaSemaine`', () => {
       { debut: le(7), series: reps('tractions', [9, 8, 8]) },
       { debut: le(1), series: reps('tractions', [7, 7]) }
     ]);
-    const r = faits.echellesDeLaSemaine(c, LUNDI);
+    const r = Faits.creer().echellesDeLaSemaine(c, LUNDI);
     expect(r).toHaveLength(1);
     expect(r[0].echelle).toBe('tractions');
     expect(r[0].exercices.tractions.semaine.map((x) => x.reps)).toEqual([9, 9, 9, 6]);
@@ -64,12 +63,12 @@ describe('145 — le fait `echellesDeLaSemaine`', () => {
 
   test('rien cette semaine-là : pas de carte (l’échelle de la semaine d’avant seule ne compte pas)', () => {
     const c = corpus([{ debut: le(7), series: reps('tractions', [9, 8, 8]) }]);
-    expect(faits.echellesDeLaSemaine(c, LUNDI)).toEqual([]);
+    expect(Faits.creer().echellesDeLaSemaine(c, LUNDI)).toEqual([]);
   });
 
   test('une barre seule : pas de carte', () => {
     const c = corpus([{ debut: le(14), series: reps('squat_barre', [5, 5, 5], 120) }]);
-    expect(faits.echellesDeLaSemaine(c, LUNDI)).toEqual([]);
+    expect(Faits.creer().echellesDeLaSemaine(c, LUNDI)).toEqual([]);
   });
 
   test('une chauffe, une séance en cours et une séance de la semaine suivante ne comptent pas', () => {
@@ -78,7 +77,7 @@ describe('145 — le fait `echellesDeLaSemaine`', () => {
       { debut: le(15), statut: 'en_cours', series: reps('tractions', [8]) },
       { debut: le(20), series: reps('tractions', [9]) }
     ]);
-    expect(faits.echellesDeLaSemaine(c, LUNDI)).toEqual([]);
+    expect(Faits.creer().echellesDeLaSemaine(c, LUNDI)).toEqual([]);
   });
 
   test('la marche franchie : un rang plus haut que tout ce qui précédait, et son ancienne marche', () => {
@@ -87,7 +86,7 @@ describe('145 — le fait `echellesDeLaSemaine`', () => {
       { debut: le(8), series: reps('pompes_negatives', [8, 8]) },
       { debut: le(1), series: reps('pompes_negatives', [7]) }
     ]);
-    const r = faits.echellesDeLaSemaine(c, LUNDI)[0];
+    const r = Faits.creer().echellesDeLaSemaine(c, LUNDI)[0];
     expect(r.nouvelle.slug).toBe('pompes');
     expect(r.nouvelle.ancienne.slug).toBe('pompes_negatives');
     expect(r.nouvelle.ancienne.series.map((x) => x.reps)).toEqual([8, 8]);
@@ -98,9 +97,9 @@ describe('145 — le fait `echellesDeLaSemaine`', () => {
       { debut: le(14), series: reps('pompes', [6]) },
       { debut: le(1), series: reps('pompes', [7]) }
     ]);
-    expect(faits.echellesDeLaSemaine(deja, LUNDI)[0].nouvelle).toBeNull();
+    expect(Faits.creer().echellesDeLaSemaine(deja, LUNDI)[0].nouvelle).toBeNull();
     const premiere = corpus([{ debut: le(14), series: reps('pompes', [6]) }]);
-    expect(faits.echellesDeLaSemaine(premiere, LUNDI)[0].nouvelle).toBeNull();
+    expect(Faits.creer().echellesDeLaSemaine(premiere, LUNDI)[0].nouvelle).toBeNull();
   });
 
   test('deux échelles : la travaillée le plus récemment d’abord', () => {
@@ -109,7 +108,7 @@ describe('145 — le fait `echellesDeLaSemaine`', () => {
       { debut: le(16), series: reps('tractions', [8]) },
       { debut: le(15), series: reps('pompes', [20]) }
     ]);
-    expect(faits.echellesDeLaSemaine(c, LUNDI).map((x) => x.echelle)).toEqual(['tractions', 'pompes', 'dips_torse']);
+    expect(Faits.creer().echellesDeLaSemaine(c, LUNDI).map((x) => x.echelle)).toEqual(['tractions', 'pompes', 'dips_torse']);
   });
 });
 

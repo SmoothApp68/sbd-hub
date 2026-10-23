@@ -159,7 +159,56 @@ describe('60-2a — `poserPesee` : sur l’appareil d’abord, puis par la file'
 describe('60-2a — la synchronisation garde la pesée qui attend', () => {
   test('la lecture du serveur passe par `Poids.fondreEnAttente`, avec ce que la file n’a pas encore envoyé', () => {
     const src = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
-    expect(src).toMatch(/Poids\.fondreEnAttente\(\s*pesees\s*,\s*local\.pesees\s*,\s*Attente\.protegees\(\s*attente\s*,\s*Attente\.PESEES\s*\)\s*\)/);
+    // 148 — ce que la file n'a pas encore envoyé, ET ce qui a été posé pendant la synchronisation (`gestesEnVol`).
+    expect(src).toMatch(/Poids\.fondreEnAttente\(\s*pesees\s*,\s*local\.pesees\s*,\s*protegeesEtEnVol\(\s*Attente\.PESEES\s*\)\s*\)/);
     expect(src).not.toMatch(/local\.pesees\s*=\s*Sync\.remplacer\(\s*pesees\s*\)/);
+  });
+});
+
+describe('148 — la garde commune des gestes en vol (diagnostic 146)', () => {
+  const Poids = require('../../v2/js/poids.js');
+  const serveur = [{ id: 'u1', date: '2026-10-01', poids_kg: 80 }, { id: 'u3', date: '2026-10-05', poids_kg: 83 }];
+  const locales = [{ id: 'u1', date: '2026-10-01', poids_kg: 80 }, { id: 'pesee-2026-10-16', date: '2026-10-16', poids_kg: 81.5, source: 'app' }];
+
+  test('DISCRIMINANT : une pesée ABSENTE de la file mais « en vol » est gardée ; celles des autres jours arrivent (fusion, pas saut)', () => {
+    const enVol = { 'pesee-2026-10-16': true };
+    const r = Poids.fondreEnAttente(serveur, locales, enVol);
+    expect(r.map((x) => x.id).sort()).toEqual(['pesee-2026-10-16', 'u1', 'u3']);
+    expect(Poids.fondreEnAttente(serveur, locales, {}).map((x) => x.id).sort()).toEqual(['u1', 'u3']);   // témoin : sans la note, elle disparaît
+  });
+
+  function bac() {
+    const vus = [];
+    const ctx = { Attente, attente: [], gestesEnVol: {}, vus,
+      Cache: { ecrireAttente: () => { vus.push(JSON.stringify(ctx.gestesEnVol)); return Promise.resolve(); } },
+      rendreEtatSync: () => {}, vidanger: () => {}, direSauvegardeImpossible: () => {}, texteErreur: String };
+    vm.createContext(ctx);
+    ['noterGesteEnVol', 'protegeesEtEnVol', 'poser'].forEach((n) => vm.runInContext(extraire(n), ctx));
+    return ctx;
+  }
+
+  test('`poser` note table / id AVANT toute écriture asynchrone de la file', async () => {
+    const ctx = bac();
+    ctx.op = { table: Attente.PESEES, op: Attente.UPSERT, id: 'pesee-2026-10-16', donnees: {} };
+    await vm.runInContext('poser(op)', ctx);
+    expect(ctx.vus).toEqual(['{"body_weight_log":{"pesee-2026-10-16":true}}']);   // déjà noté quand la file s'écrit
+  });
+
+  test('la protection est l’UNION de la file et des gestes en vol', async () => {
+    const ctx = bac();
+    ctx.op = { table: Attente.PESEES, op: Attente.UPSERT, id: 'pesee-2026-10-16', donnees: {} };
+    await vm.runInContext('poser(op)', ctx);
+    ctx.attente = [];   // la file a envoyé : plus rien n'attend
+    expect(vm.runInContext('protegeesEtEnVol("body_weight_log")', ctx)).toEqual({ 'pesee-2026-10-16': true });
+    expect(vm.runInContext('protegeesEtEnVol("autre")', ctx)).toEqual({});
+  });
+
+  test('le début de `synchroniser` remet la note à zéro, AVANT ses lectures', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+    const debut = src.slice(src.indexOf('async function synchroniser()'));
+    const iZero = debut.indexOf('gestesEnVol = {}');
+    expect(iZero).toBeGreaterThan(0);
+    expect(iZero).toBeLessThan(debut.indexOf('armerResynchronisation'));
+    expect(iZero).toBeLessThan(debut.indexOf('Donnees.toutesLesPesees'));
   });
 });

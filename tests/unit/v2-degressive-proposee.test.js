@@ -186,6 +186,9 @@ describe('§14 (111) — le curl à la poulie qui stagne', () => {
     expect(x2.degressive.phrase).toMatch(/^Dégressive : /);
     expect(l.role === undefined || l.role === 'hors').toBe(true);
     expect(T.degressivesAAjouter(d2.p)).toEqual([]);
+    // 151 (23/10/2026) — la dégressive que le coach propose de lui-même reste à UNE baisse : jamais de seconde ligne.
+    expect(x2.degressivesPlus || null).toBeNull();
+    expect(x2.lignes.filter((q) => q.type === 'degressive')).toHaveLength(1);
     expect(x2.escalier.marche).toBe('degressive');
     sansErreur(d2);
   });

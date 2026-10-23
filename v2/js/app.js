@@ -7910,11 +7910,14 @@
     if (x && x.chauffes && x.chauffes.phrase && x.chauffes.iSerie === iSerie) {
       return { message: { type: 'chauffe', phrase: x.chauffes.phrase }, proposee: false, fourchette: null };
     }
-    if (x && x.degressive && x.degressive.phrase && x.degressive.iSerie === iSerie) {
-      var md = { type: 'degressive', phrase: x.degressive.phrase };
+    // 151 (MOTEUR §9.15.3) — la chaîne des baisses : la première, puis la seconde (« 2ᵉ baisse »), puis les lignes en trop.
+    var chaineDeg = x ? (x.degressive ? [x.degressive] : []).concat(x.degressivesPlus || []) : [];
+    var dg = chaineDeg.filter(function (q) { return q.phrase && q.iSerie === iSerie; })[0];
+    if (dg) {
+      var md = { type: 'degressive', phrase: dg.phrase };
       // §9.15.3 (94) — la ligne vide porte ses deux gestes (hors Édition).
-      if (x.degressive.gestes && !enEdition()) md.gestes = x.degressive.gestes.slice();
-      return { message: md, proposee: false, fourchette: null };
+      if (dg.gestes && !enEdition()) md.gestes = dg.gestes.slice();
+      return { message: md, proposee: false, fourchette: null, baisse: dg.rang || 1 };
     }
     // 149 (MOTEUR §9.17 ter) — UNE FIGURE EN SECONDES : la phrase du coach au-dessus de la tenue max tant qu'elle n'est
     // pas validée, sous elle ensuite, l'étiquette « max » / « après ton max » — lues sur le plan, jamais recomposées.
@@ -8140,7 +8143,9 @@
       // feuille) ou « La retirer » (la suppression d'une série).
       surDegressiveVide: async function (i, j, geste) {
         var x = planDeLExercice(i);
-        if (!x || !x.degressive || x.degressive.iSerie !== j || !x.degressive.gestes) return;
+        var dgv = x ? (x.degressive ? [x.degressive] : []).concat(x.degressivesPlus || [])
+          .filter(function (q) { return q.iSerie === j; })[0] : null;
+        if (!dgv || !dgv.gestes) return;
         if (geste === 'serie_normale') seance = Seance.changerType(seance, i, j, 'travail');
         else if (geste === 'retirer') {
           await oublierObservationDe(i, j);

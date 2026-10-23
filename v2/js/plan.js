@@ -561,9 +561,10 @@
     var derniere = -1;
     lignes.forEach(function (l, i) { if (l.type === 'travail') derniere = i; });
     if (derniere < 0) return sortie;
-    var deg = null;
+    var deg = null, suivantes = [];
     for (var i = derniere + 1; i < lignes.length; i++) {
-      if (lignes[i].type === 'degressive') { deg = lignes[i]; break; }
+      if (lignes[i].type !== 'degressive') continue;
+      if (!deg) deg = lignes[i]; else suivantes.push(lignes[i]);
     }
     if (!deg) return sortie;
     var t = lignes[derniere];
@@ -606,6 +607,52 @@
     // §10 bis (108) — à la barre fixe, on change de barre (« Prends la barre de 20 kg. »).
     if (d.barreFixe) sortie.degressive.barreFixe = true;
     if (d.gestes && !deg.validee) sortie.degressive.gestes = d.gestes.slice();
+    if (materiel.lourde) sortie.degressive.lourde = true;
+
+    // 151 (MOTEUR §9.15.3, 23/10/2026, décision d'Aurélien) — LA SECONDE BAISSE : la ligne dégressive qui suit la
+    // première (posée par la routine ou l'utilisateur ; le coach n'en ajoute jamais), −20 % de la charge de la
+    // première (faite, ou à faire), « Vise 4 à 6 ». La chaîne s'arrête si la première est validée sous 4 reps ; à la
+    // barre lourde, une seule baisse ; une troisième ligne n'est jamais remplie. Une ligne vide dit pourquoi et porte
+    // ses deux gestes.
+    var plus = [];
+    var precedente = deg, refPrec = sortie.degressive.charge;
+    if (deg.validee) {
+      var faite = nombre((liste[deg.iSerie] || {}).charge_kg);
+      refPrec = faite;
+    }
+    var repsPremiere = deg.validee ? nombre((liste[deg.iSerie] || {}).reps) : null;
+    suivantes.forEach(function (ligne, k) {
+      var rang = k + 2;
+      var dk, citK = [];
+      if ((refPrec === null || refPrec === undefined) && rang === 2 && !materiel.lourde) {
+        // La première n'a pas de charge (« Trop léger… ») : la suivante le dit aussi, avec les mêmes gestes.
+        dk = { charge: null, vise: null, repos: null, phrase: d.phrase, gestes: ['serie_normale', 'retirer'] };
+      } else {
+        var capK = Voix().capturer(function () {
+          return M.degressiveDe({ equipement: materiel.equipement, derniere_serie: refPrec, reps_travail: reps,
+                                  cran: materiel.pas, salle: materiel.salle || null, rang: rang,
+                                  lourde: !!materiel.lourde, reps_premiere: repsPremiere });
+        });
+        dk = capK.texte;
+        citK = capK.citations;
+      }
+      ligne.degressive = { charge: dk.charge, vise: dk.vise || null,
+                           repos: dk.repos === undefined ? null : dk.repos, phrase: dk.phrase };
+      if (!ligne.validee) ligne.fantome = { charge: dk.charge, reps: null, source: 'degressive' };
+      var item = { iSerie: ligne.iSerie, apres: precedente.iSerie, rang: rang, reference: refPrec,
+                   charge: dk.charge, repos: ligne.degressive.repos, phrase: dk.phrase,
+                   premiereReps: repsPremiere, lourde: !!materiel.lourde };
+      if (dk.enleve !== undefined) item.enleve = dk.enleve;
+      if (dk.barreFixe) item.barreFixe = true;
+      if (dk.gestes && !ligne.validee) item.gestes = dk.gestes.slice();
+      item.citations = citK;
+      plus.push(item);
+      // La suivante se cale sur celle-ci, faite (sa charge) ou à faire (sa ligne).
+      precedente = ligne;
+      refPrec = ligne.validee ? nombre((liste[ligne.iSerie] || {}).charge_kg) : dk.charge;
+      repsPremiere = null;
+    });
+    if (plus.length) sortie.degressivesPlus = plus;
     return sortie;
   }
 
@@ -623,9 +670,12 @@
   // la lit, et le minuteur ne calcule rien.
   function reposApres(x, iSerie, reposExo) {
     var lignes = (x && x.lignes) || [];
-    var d = x && x.degressive;
-    if (d && d.apres === iSerie && d.repos === 0 && d.charge !== null &&
-        lignes[d.iSerie] && !lignes[d.iSerie].validee) return null;
+    var chaine = (x && x.degressive ? [x.degressive] : []).concat((x && x.degressivesPlus) || []);
+    for (var c = 0; c < chaine.length; c++) {
+      var d = chaine[c];
+      if (d.apres === iSerie && d.repos === 0 && d.charge !== null &&
+          lignes[d.iSerie] && !lignes[d.iSerie].validee) return null;
+    }
     var l = lignes[iSerie];
     if (l && l.type === 'echauffement') {
       var derniere = -1;
@@ -633,6 +683,13 @@
       return iSerie === derniere ? Moteur().REPOS_APRES_CHAUFFES : Moteur().REPOS_ENTRE_CHAUFFES;
     }
     return reposExo === undefined ? null : reposExo;
+  }
+
+  // 151 — la référence d'une ligne dégressive : la dernière série de travail pour la première baisse, la baisse
+  // d'avant pour la suivante.
+  function refDeLaDegressive(x, iSerie) {
+    var q = ((x && x.degressivesPlus) || []).filter(function (p) { return p.iSerie === iSerie; })[0];
+    return q ? q.reference : (x && x.degressive ? x.degressive.reference : null);
   }
 
   // La feuille « Pourquoi » (§9.15.1) : une routine qui prévoit plus de
@@ -669,11 +726,15 @@
       base.chauffes = null;
       base.proposition = null;
       base.degressive = sans.degressive;
+      if (sans.degressivesPlus) base.degressivesPlus = sans.degressivesPlus;
       preremplir(exo, base.lignes, null, null, precedent);
       base.phrases = [];
       if (sans.degressive && sans.degressive.phrase) {
         base.phrases.push({ ou: 'degressive', texte: sans.degressive.phrase, citations: sans.citations.degressive || [] });
       }
+      (sans.degressivesPlus || []).forEach(function (q) {
+        if (q.phrase) base.phrases.push({ ou: 'degressive', texte: q.phrase, citations: q.citations || [] });
+      });
       return base;
     }
     // La consigne figée (§9.9, delta 49-13) : c'est elle que lisent les lignes
@@ -850,6 +911,7 @@
     if (autour.chauffes) dire('chauffes', autour.chauffes.phrase, autour.citations.chauffes || []);
     if (autour.proposition) dire('proposition', autour.proposition.phrase, autour.citations.proposition || []);
     if (autour.degressive) dire('degressive', autour.degressive.phrase, autour.citations.degressive || []);
+    (autour.degressivesPlus || []).forEach(function (q) { if (q.phrase) dire('degressive', q.phrase, q.citations || []); });
     if (marche && marche.carte) dire('escalier.carte', marche.carte.phrase, citationsDeCarte(marche.carte));
 
     preremplir(exo, r.lignes, consigne, { reaction: r.reaction, figees: figees }, precedent);
@@ -879,6 +941,7 @@
       // §10 bis (108) — la salle de l'exercice, ou `null` : I46 la relit.
       salle: materiel ? materiel.salle || null : (c.salle || null),
       chauffes: autour.chauffes, proposition: autour.proposition, degressive: autour.degressive,
+      degressivesPlus: autour.degressivesPlus || null,
       phrases: phrases
     };
   }
@@ -993,7 +1056,10 @@
       refus: !!(refus && refus[slug]),
       // §10 bis (108) — la salle déclarée pour cet exercice (`THProfil.
       // salleDeLExercice`, résolue par l'app au catalogue), ou `null`.
-      salle: cat.salle || null
+      salle: cat.salle || null,
+      // 151 — la barre lourde (les quatre barres et leurs frères à la barre, la définition du générateur) : une
+      // seule baisse. Lue à l'appel ; sans générateur chargé, jamais lourde.
+      lourde: !!(racine.THGenerateur && racine.THGenerateur.estBarreLourde && racine.THGenerateur.estBarreLourde(slug, catalogue))
     };
   }
 
@@ -2059,9 +2125,16 @@
       });
       if (lignes.some(function (l) { return l.type === 'echauffement'; })) err('I16', 'une proposition de chauffes alors que l’exercice en a');
     }
-    var d = x.degressive;
-    if (d) {
+    // 151 — I17 étendu : la chaîne des baisses (la première, puis la seconde, puis les lignes en trop).
+    [x.degressive].concat(x.degressivesPlus || []).filter(Boolean).forEach(function (d, rangD) {
       var l = lignes[d.iSerie] || {};
+      if (rangD >= 1 && d.charge !== null) {
+        if (rangD >= 2) err('I17', 'une troisième ligne dégressive remplie (' + d.charge + ' kg)');
+        if (d.lourde) err('I17', 'une seconde baisse remplie à la barre lourde (' + d.charge + ' kg)');
+        if (d.premiereReps !== null && d.premiereReps !== undefined && d.premiereReps < 4) {
+          err('I17', 'une seconde baisse remplie après une première à ' + d.premiereReps + ' reps');
+        }
+      }
       // I17 (révisé par 94, 14/10/2026) — le coach ne pose JAMAIS de
       // dégressive : elle remplit une ligne dégressive que la routine ou
       // l'utilisateur a mise. À la barre, la phrase dit quoi enlever ; une
@@ -2086,7 +2159,7 @@
         err('I17', 'dégressive ' + d.charge + ' pas sous la dernière série de travail ' + d.reference);
       }
       if (!l.validee && (!l.fantome || !memeChargeOuVides(l.fantome.charge, d.charge))) err('I17', 'la dégressive n’est pas dans son fantôme');
-    }
+    });
   }
 
   // I41, I42, I43 (MOTEUR §9.14 bis, 68A) — QUAND LA SÉRIE S'ÉCARTE DE SA
@@ -3424,7 +3497,7 @@
   // Des citations de même clé qui disent des choses DIFFÉRENTES par nature :
   // chaque série du jour, chaque chauffe, les deux bornes d'une visée.
   var SANS_CROISEMENT = { 'fait_passe|du_jour': true, 'regle|chauffe': true, 'regle|chauffe.reps': true,
-                          'regle|degressive.vise': true, 'fait_passe|seance': true, 'regle|constante': true,
+                          'regle|degressive.vise': true, 'regle|degressive': true, 'regle|degressive.enleve': true, 'fait_passe|seance': true, 'regle|constante': true,
                           // Les nombres de séries de chaque segment (PR 7) : « sur les 2
                           // dernières » et « sur les 3 d'avant » disent deux segments.
                           'regle|series': true };
@@ -3583,8 +3656,12 @@
       chauffe: { charge: undefined, valeurs: chauffes },
       'chauffe.reps': { valeurs: chauffesReps },
       reference: x.chauffes ? { charge: x.chauffes.reference } : x.proposition ? { charge: x.proposition.reference } : null,
-      degressive: x.degressive ? { charge: x.degressive.charge } : null,
-      'degressive.enleve': x.degressive && x.degressive.enleve !== undefined ? { charge: x.degressive.enleve } : null,
+      degressive: x.degressive ? (x.degressivesPlus
+        ? { charge: undefined, valeurs: [x.degressive].concat(x.degressivesPlus).map(function (q) { return q.charge; }).filter(function (v) { return v !== null && v !== undefined; }) }
+        : { charge: x.degressive.charge }) : null,
+      'degressive.enleve': x.degressive && x.degressive.enleve !== undefined && !x.degressivesPlus ? { charge: x.degressive.enleve }
+        : x.degressivesPlus ? { charge: undefined, valeurs: [x.degressive].concat(x.degressivesPlus).map(function (q) { return q.enleve; }).filter(function (v) { return v !== null && v !== undefined; }) } : null,
+      'degressive.arret': { valeurs: (x.degressivesPlus || []).map(function (q) { return q.premiereReps; }).filter(function (v) { return v !== null && v !== undefined; }) },
       // Une constante du moteur écrite dans la phrase (10 %, 3 reps, 15 %) :
       // déclarée, elle n'a pas d'autre source qu'elle-même.
       constante: { libre: true },
@@ -3930,7 +4007,7 @@
         if (l.role === 'elan') return;
         if (l.role === 'hors' && src !== 'chauffe' && src !== 'degressive') return;
         var ref = src === 'chauffe' ? (x.chauffes && x.chauffes.reference)
-          : src === 'degressive' ? (x.degressive && x.degressive.reference) : (k && k.palier);
+          : src === 'degressive' ? refDeLaDegressive(x, l.iSerie) : (k && k.palier);
         if (enVigueur(ref)) hors(l.fantome.charge, 'la série ' + l.iSerie + ' (' + (src || l.role) + ')');
       });
       var attente = x.reaction && x.reaction.attente;

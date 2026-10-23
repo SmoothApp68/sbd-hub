@@ -282,6 +282,25 @@
       borner: function (v) { return decimalOuNul(v, DISTANCE_MIN, DISTANCE_MAX); } }
   ];
 
+  // ⚠️ LA GRILLE PASSE LE NOM DU CHAMP DE SAISIE, PAS CELUI DE LA COLONNE (audit 130
+  // n°1, P0). `rangeeDeSerie` rappelle `surChamp` avec `duree` ou `distance_km` — les
+  // noms de `THModele.CHAMPS_MESURE` —, alors que la ligne du brouillon porte `duree_s`
+  // et `distance_m`, ceux que `CIBLES` lit. Sans traduction, une durée ou une distance
+  // cible tapée se posait sous un nom que personne ne relisait, et disparaissait à
+  // l'enregistrement, sans un mot. La séance traduit par la même table
+  // (`THSeance.modifierSerie`) : on ne la réécrit pas, on la lit.
+  //
+  // La distance se tape en kilomètres et se range en mètres (le facteur de la table) ;
+  // la durée arrive déjà en secondes (le pavé). La charge et les reps gardent le texte
+  // tapé : leur nom de saisie EST leur nom de colonne, et `CIBLES` les borne.
+  function champDeLEditeur(nom, valeur) {
+    var c = racine.THModele.champDeMesure(nom);
+    if (!c || c.cle === nom) return { cle: nom, valeur: valeur };
+    if (c.facteur === 1) return { cle: c.cle, valeur: valeur };
+    var n = racine.THModele.lireNombre(valeur);
+    return { cle: c.cle, valeur: n === null ? null : Math.round(n * c.facteur) };
+  }
+
   function typePropre(t) { return TYPES_SERIE.indexOf(t) >= 0 ? t : 'travail'; }
 
   // La base vers l'écran. La ligne rendue est une ligne de SAISIE : c'est
@@ -1887,6 +1906,7 @@
     normaliserExercice: normaliserExercice,
     normaliserSerie: normaliserSerie,
     enSaisie: enSaisie,
+    champDeLEditeur: champDeLEditeur,
     seriesEcrites: seriesEcrites,
     TYPES_SERIE: TYPES_SERIE,
     CHAMPS_SERIE: CHAMPS_SERIE,

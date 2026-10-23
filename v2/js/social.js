@@ -450,6 +450,11 @@
   var NOMBRES = ['', '', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'];
   function aVous(n) { return n <= 1 ? '' : ', à vous ' + (NOMBRES[n] || String(n)); }
 
+  // 137 (audit du 16/10, 05 #15 ; SOCIAL §6.2, D10) — UN SEUL NOMBRE DE RECORDS POUR LA SEMAINE DE LA GUILDE : la
+  // colonne `records_semaine` de `guilde_semaine` (les séries médaillées sans dépasser la charge proposée), celle de la
+  // jauge du défi ET de la carte « La guilde cette semaine ». `medailles` (toutes les séries médaillées) n'est plus lu.
+  function recordsDeLaSemaine(s) { return Number(s && s.records_semaine) || 0; }
+
   // La jauge commune du défi, depuis une ligne de `guilde_semaine`. `membres` : combien ils sont.
   function jaugeDuDefi(s, membres) {
     if (!s) return null;
@@ -463,7 +468,7 @@
       fait = Number(s.seances_faites) || 0; cible = Number(s.seances_prevues) || 0;
       phrase = fait + ' séance' + (fait > 1 ? 's' : '') + ' sur ' + cible + ' prévue' + (cible > 1 ? 's' : '') + aVous(membres);
     } else if (d.cle === 'records') {
-      fait = Number(s.records_semaine) || 0; cible = Number(s.n) || 0;
+      fait = recordsDeLaSemaine(s); cible = Number(s.n) || 0;
       phrase = fait + ' record' + (fait > 1 ? 's' : '') + ' sur ' + cible + aVous(membres);
     } else {
       fait = Number(s.exercices) || 0; cible = Number(s.n) || 0;
@@ -556,10 +561,24 @@
   // 106 — LES MESSAGES GARDÉS HORS LIGNE (décision d'Aurélien du 15/10/2026) : une entrée par message — son identifiant
   // (fabriqué par l'app : renvoyé, il ne se double pas), le groupe où il a été écrit (il ne part jamais dans un autre),
   // le texte. Relue du cache au démarrage : seulement des entrées complètes ; un cache abîmé ne casse rien.
+  //
+  // 136 (audit du 16/10/2026, 06 #14) — LA MÊME FILE PORTE LES DEUX GESTES DE FIN DU GROUPE (`geste`) : mon XP de fin
+  // de séance (`publier`, ses exercices et son XP, nul jeu éteint) et mon départ à l'abandon (`quitter`). Ils partaient
+  // une fois, sans retour : hors ligne, l'XP manquait au récap du groupe, et le départ n'arrivait jamais. Ils
+  // attendent désormais ici, comme un message — gardés sur l'appareil, relus au démarrage, comptés par « Quitter ».
+  var GESTES_DU_GROUPE = ['publier', 'quitter'];
+  function gesteDuGroupeValide(m) {
+    if (GESTES_DU_GROUPE.indexOf(m.geste) < 0) return false;
+    if (m.geste === 'quitter') return true;
+    var exOk = m.exercices === null || (Array.isArray(m.exercices) && m.exercices.every(function (x) { return typeof x === 'string' && !!x; }));
+    var xpOk = m.xp === null || (typeof m.xp === 'number' && isFinite(m.xp) && m.xp >= 0 && Math.round(m.xp) === m.xp);
+    return exOk && xpOk;
+  }
   function fileDeMessages(valeur) {
     return (Array.isArray(valeur) ? valeur : []).filter(function (m) {
-      return !!m && typeof m.id === 'string' && !!m.id && typeof m.groupe_id === 'string' && !!m.groupe_id &&
-        messageValide(m.texte) === m.texte;
+      if (!m || typeof m.id !== 'string' || !m.id || typeof m.groupe_id !== 'string' || !m.groupe_id) return false;
+      if (m.geste !== undefined) return gesteDuGroupeValide(m);
+      return messageValide(m.texte) === m.texte;
     });
   }
   // 121 (05 #12) — les traces « Faite en groupe avec … » gardées sur l'appareil : `{ <séance> : { recap: { membres }, le } }`.
@@ -577,7 +596,8 @@
   }
   // « 1 message partira au retour du réseau. » — ceux de CE groupe seulement.
   function texteEnAttente(file, groupeId) {
-    var n = (file || []).filter(function (m) { return m && m.groupe_id === groupeId; }).length;
+    // 136 — les messages seulement : un geste de fin (l'XP, le départ) n'est pas un message qu'on a écrit.
+    var n = (file || []).filter(function (m) { return m && m.groupe_id === groupeId && m.geste === undefined; }).length;
     if (!n) return null;
     return (n > 1 ? n + ' messages partiront' : '1 message partira') + ' au retour du réseau.';
   }
@@ -1007,7 +1027,7 @@
     ligneMembre: ligneMembre,
     MEMBRE_ANONYME: MEMBRE_ANONYME,
     suisAbonne: suisAbonne,
-    jaugeDuDefi: jaugeDuDefi,
+    jaugeDuDefi: jaugeDuDefi, recordsDeLaSemaine: recordsDeLaSemaine,
     joursRestants: joursRestants,
     progressionRangee: progressionRangee,
     scoresGuildeChanges: scoresGuildeChanges,
@@ -1025,6 +1045,7 @@
     // 106 — la fin du groupe, et les messages gardés hors ligne
     libreDuGroupe: libreDuGroupe,
     fileDeMessages: fileDeMessages,
+    GESTES_DU_GROUPE: GESTES_DU_GROUPE,
     tracesDuGroupe: tracesDuGroupe,
     texteEnAttente: texteEnAttente,
     encoreEnSeance: encoreEnSeance,

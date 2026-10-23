@@ -500,6 +500,7 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     // 55-1 : 7 médailles du rejeu (dont 1 sans ligne grise : le volume) + 13
     // synthétiques (dont 3 sans ligne grise : deux volumes, et un record à
     // 10 reps sans précédent) + celle d'avant-hier.
+    // 140 — le volume de la séance reste un record (revient sur 137, D9).
     expect(parFamille.record).toBe((7 * 2 - 1) + (13 * 2 - 3) + 2);
     expect(vues.filter((v) => v.famille === 'record' && /^Avant : 5 reps, mardi\.$/.test(v.phrase)).length).toBe(1);
     // 120 (D1) — plus aucune médaille ne dit le 1RM estimé.

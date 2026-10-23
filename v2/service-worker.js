@@ -33,7 +33,7 @@
 // Parce que servir la coquille en cache sans la vérifier a rendu l'app
 // INACCESSIBLE EN LIGNE (chantier 19). Voir `utilisable` et `desempoisonner`.
 
-const CACHE_V2 = 'trainhub-v2-265';
+const CACHE_V2 = 'trainhub-v2-276';
 
 // Le chemin de la trappe de sortie. Tapé à la main dans la barre d'adresse
 // quand tout le reste est cassé : il doit rester court et mémorisable.
@@ -46,6 +46,8 @@ const SHELL = [
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  // 134 (I-15) — l'icône de l'écran d'accueil de l'iPhone, opaque.
+  './icons/apple-touch-icon.png',
   // 56-1 (la forge) — les polices, servies par l'app : sans elles en cache,
   // l'app hors ligne retomberait sur la police système.
   './fonts/barlow-400.woff2',

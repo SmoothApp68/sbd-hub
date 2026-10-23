@@ -73,9 +73,13 @@ Tu **n'as pas** accès à la base — elle contient de **vrais utilisateurs**. T
 ## Conventions du repo (vérifiées)
 
 - Fixtures de test : **`tests/fixtures/profiles/`** (avec un **s** à `tests`). Les profils synthétiques de l'agent 09 y vivent, sur la branche `claude/agent09-profils-fixtures`.
-- Clé localStorage canonique : `SBD_HUB_V29` (`STORAGE_KEY`, engine.js:11).
-- `CACHE_NAME` actuel : `trainhub-v349` (service-worker.js:1).
-- `js/stats.js`, `js/social.js`, `js/ui.js` **n'existent pas** (tout vit dans app.js).
+- **L'app auditée est la v2** : `v2/` (le dossier publié), ses specs dans **`v2-atelier/specs/`** (elles font foi pour
+  l'implémentation ; `CADRAGE-V2.md` prime). Le v1 (`archive/v1/`) est une archive : un défaut qui n'y vit que n'est pas
+  un finding.
+- Le cache local de la v2 : la base IndexedDB que nomme `NOM` dans `v2/js/cache.js` (sa version : `VERSION`, au même
+  endroit).
+- La version du service worker : `CACHE_V2`, **à lire dans `v2/service-worker.js`**. Aucun numéro n'est recopié ici :
+  un chiffre recopié dérive (celui qui figurait à cette ligne était celui du v1).
 
 ## Format de rapport (strict)
 

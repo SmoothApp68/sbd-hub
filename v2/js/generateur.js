@@ -530,8 +530,8 @@
   //                  que seul `Modele.freresDe` lit) ; `profil` (`sexe`, `objectif`, `phase`) ; `priorites` ;
   //                  `aujourdhui` (le jour civil `AAAA-MM-JJ`, ou une date : jamais l'horloge).
   // Elle lit les définitions existantes, elle ne les recopie pas : la série de travail (`Modele.estTravail`), les
-  // poids 1 / ½ / ¼ (`Semaine.musclesPonderes`), le polyarticulaire (`Moteur.estPolyarticulaire`), la sortie (celle du
-  // jeu), l'accord des muscles (`Moteur.motsDesMuscles`), les nombres (`Modele.nombre`, la face exportée de
+  // poids 1 / ½ / ¼ (`Semaine.musclesPonderes`), le polyarticulaire (`Moteur.estPolyarticulaire`), ce qui ne porte pas
+  // de volume (`Semaine.porteDuVolume`, 133b — plus la sortie), l'accord des muscles (`Moteur.motsDesMuscles`), les nombres (`Modele.nombre`, la face exportée de
   // `nombreTexte`) et les dates (`Modele`), l'écart en jours (`Profil.joursDepuis`), les variantes à la barre (les
   // frères à la barre, `Modele.freresDe` : la seule lecture de `mouvement`).
   //
@@ -595,8 +595,10 @@
       return Moteur.estPolyarticulaire({ prim: liste(f && f.muscles_primaires), sec: liste(f && f.muscles_secondaires),
                                          stab: liste(f && f.muscles_stabilisateurs) });
     };
-    // Une sortie (le cardio) : la définition du jeu.
-    var estSortie = function (f) { return Modele.estExerciceSortie(f) && !Semaine.porteDuVolume(f); };
+    // Ce qui ne porte pas de volume (le cardio, un étirement) : hors des comptes et de l'ordre des routines.
+    // 133b (22/10/2026) — la règle du volume (`Semaine.porteDuVolume`), pas la sortie : depuis 133 un étirement n'est
+    // plus une sortie, et il ne devient pas pour autant une isolation ni une série de musculation.
+    var sansVolume = function (f) { return !!f && !Semaine.porteDuVolume(f); };
     // Le tronc : un exercice dont le seul principal est abdominaux.
     var estTronc = function (f) { var p = primaires(f); return p.length === 1 && p[0] === TRONC; };
     var pl = function (n) { return n >= 2 ? 's' : ''; };
@@ -612,7 +614,7 @@
     function propositionPriorite(e) {
       var cat = e.catalogue, deplacements = [];
       liste(e.routines).forEach(function (r) {
-        var ex = liste(r.exercices).filter(function (x) { return !estSortie(ficheDe(cat, x.exercise_slug)); });
+        var ex = liste(r.exercices).filter(function (x) { return !sansVolume(ficheDe(cat, x.exercise_slug)); });
         var k = -1;
         for (var i = 0; i < ex.length; i++) if (familleDe(ex[i].exercise_slug, cat) === SQUAT) { k = i; break; }
         if (k > 0) deplacements.push({ routine_id: r.id, exercise_slug: ex[k].exercise_slug, avant: ex[0].exercise_slug });
@@ -702,7 +704,7 @@
       };
       var total = 0;
       routines.forEach(function (r) {
-        r.exercices.forEach(function (x) { if (!estSortie(ficheDe(cat, x.exercise_slug))) total += x.n; });
+        r.exercices.forEach(function (x) { if (!sansVolume(ficheDe(cat, x.exercise_slug))) total += x.n; });
       });
       var verifs = [], constats = [];
       // Le lourd en premier : dans chaque routine, la première barre (ou variante à la barre) avant toute isolation.
@@ -710,7 +712,7 @@
       routines.forEach(function (r) {
         var ex = r.exercices.filter(function (x) {
           var f = ficheDe(cat, x.exercise_slug);
-          return !estSortie(f) && !estTronc(f);
+          return !sansVolume(f) && !estTronc(f);
         });
         var k = -1;
         for (var i = 0; i < ex.length; i++) if (familleDe(ex[i].exercise_slug, cat)) { k = i; break; }
@@ -725,7 +727,7 @@
       // Le tronc à la fin.
       var troncPresent = false, troncOk = true;
       routines.forEach(function (r) {
-        var ex = r.exercices.filter(function (x) { return !estSortie(ficheDe(cat, x.exercise_slug)); });
+        var ex = r.exercices.filter(function (x) { return !sansVolume(ficheDe(cat, x.exercise_slug)); });
         var ks = [];
         ex.forEach(function (x, i) { if (estTronc(ficheDe(cat, x.exercise_slug))) ks.push(i); });
         if (!ks.length) return;

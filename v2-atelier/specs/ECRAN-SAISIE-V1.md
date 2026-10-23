@@ -3,7 +3,8 @@
 Spec de l'écran de séance de TrainHub v2. Consigne les décisions des sessions
 des 7 et 8 septembre 2026. En cas de contradiction, `CADRAGE-V2.md` prime.
 
-Statut : conception validée sur maquette. Aucune implémentation.
+Statut : conception validée sur maquette, **implémentée** dans `v2/` et tenue à jour chantier par chantier ; les
+sections disent ce que le code fait et quand (précisé le 22/10/2026, audit du 16/10, E19).
 
 ---
 
@@ -127,7 +128,10 @@ Tranché le 19/09/2026 avec la maquette v2 (`maquette-moteur-parle-v2.html`).
 **3.2** — Les séries de rampe et d'échauffement ne reçoivent aucune suggestion.
 Elles dépendent du jour, de la fatigue, du matériel disponible. Elles ne se
 prédisent pas, et le §7.3 du moteur dit déjà qu'elles ne votent pas pour le
-palier. Les suggérer serait inventer.
+palier. Les suggérer serait inventer. *(Précisé le 22/10/2026, audit du 16/10, E19 : cela vaut pour les **charges
+suggérées** sur une série d'échauffement que la personne a écrite. Depuis le chantier 49, le coach **propose** des
+chauffes quand aucune n'est prévue, et les rampes ont leur règle : MOTEUR §9.15.1 et §9.15.2 ; une chauffe ajoutée par
+l'utilisateur : §9.15.5.)*
 
 **Exception, la série test — 19/09/2026.** Quand le moteur propose ou garde un
 test (MOTEUR §9.7), la dernière série reçoit la consigne du test dans le fantôme.
@@ -184,10 +188,10 @@ deux colonnes au milieu de lignes à trois désoriente.
 *Précisé le 16/10/2026 (audit du 16/10, prompt 119)* — **un fil : une fonction d'affichage par mesure**
 (`THModele.affichageDeMesure`, `formatMesure` : `charge_reps`, `reps`, `temps`, `distance_temps`, et `charge_distance`,
 `charge_temps` que les colonnes d'une série peuvent porter). Hors de la grille, tout écran la lit : la colonne du
-détail de séance et de l'historique d'un exercice dit « Durée », « Durée · distance », « Reps » ou « Charge » selon la
+détail de séance et de l'historique d'un exercice dit « Durée », « Distance · durée » (dans l'ordre de la prose, précisé le 22/10/2026), « Reps » ou « Charge » selon la
 mesure du bloc (« Mesure » pour un superset de mesures différentes) — jamais « Charge » au-dessus d'une durée (E8) ;
 l'aperçu « En faire une routine » écrit une durée en durée (« 20 s », jamais « 0 min », E10) ; la médaille écrit
-« 3,2 km » et « 1 min 30 », comme le journal (E9) ; « rep » s'accorde une fois (`repsTexte`).
+« 3,2 km » et « 1 min 30 », comme le journal (E9) ; « rep » s'accorde une fois (`repsTexte`). *Décidé le 21/10/2026 (audit 130 #10)* : une charge de 0 kg s'écrit « poids du corps × 12 » partout (journal, détail, médaille, récap), jamais « 0 kg × 12 ».
 
 #### 3 ter.2 L'effort suit la mesure — RIR ou RPE
 
@@ -323,7 +327,12 @@ exercices.
 corps daté. Or tractions, dips barres et muscle-up sont en `reps` — **sans charge saisie, mais
 avec un tonnage réel**.
 
-**Une séance de gainage seul est classée « sortie »** *(trouvé au chantier 24, non corrigé)*.
+*Tranché le 22/10/2026 (audit du 16/10, E11) : **le tonnage du récap et des chiffres partagés reste « charge saisie ×
+reps »**, sans le poids du corps. Le récap de groupe et la guilde sont partagés : le poids s'y recalculerait, alors que
+l'app promet qu'il ne quitte jamais le téléphone (SOCIAL §1, « Jamais »). Hevy ne compte, lui aussi, que la charge
+ajoutée. Le tonnage n'est pas un indicateur de progression. Rien ne change dans le code.*
+
+**Une séance de gainage seul est classée « sortie »** *(trouvé au chantier 24 ; **tranché le 21/10/2026**, audit 130 #11, décision d'Aurélien : **une sortie, et le cardio du jeu, ce sont seulement les exercices de nature `cardio` du catalogue** — course, vélo, randonnée, sports, corde à sauter… ; les étirements et la mobilité, le gainage et les figures tenues restent des séances ordinaires, avec leurs exercices. Sans `nature` connue, l'ancienne règle s'applique. *Précisé le 22/10/2026 (133)* : la sortie se lit au jeu (minutes de cardio), au résumé d'une séance et dans « les autres activités » des faits ; **le générateur et les habitudes ne la lisent pas** — ils lisent `Semaine.porteDuVolume`, ce qui ne change rien pour eux (un étirement n'y est ni une isolation ni une série de musculation). Une séance d'étirements seuls se résume par ses exercices et sa durée, jamais « 0 série ».)*.
 `estExerciceSortie` retient `charge = 'aucune'` **et** `mesure ∈ {temps, distance_temps}` : une
 séance qui ne contiendrait que des planches est résumée en durée, comme une randonnée, et perd
 son aperçu d'exercices. Le correctif toucherait aussi Pilates et Escalade, qui sont bien des
@@ -333,6 +342,79 @@ sorties — à trancher avec la page d'exercice, pas ici.
 `formatMesure` et `resumerSeance` testent `if (serie.duree_s)` — un test de vérité, pas de
 nullité. Une série à 0 s existe en base et devient muette au détail. Même famille que « 0 comme
 null », à traiter d'un coup pour les quatre mesures.
+
+#### 3 ter.5 Les champs en plus, exercice par exercice — décidé le 21/10/2026 (prompt 131)
+
+> **Au cas par cas, jamais un champ pour tout** (Aurélien, 21/10/2026). Un exercice reçoit un champ en plus seulement
+> quand ce champ dit quelque chose de lui. Le catalogue le porte : `exercises.champs_series` (v2_101), une liste de
+> colonnes de `sets` en plus de celles de la mesure. La mesure ne change pas : une Randonnée reste `distance_temps`.
+> Maquette : `maquette-mesures-cardio-v1.html`.
+
+| Exercice | Mesure | Champs en plus |
+|---|---|---|
+| Randonnée, Trail, Ski de Randonnée, VTT, Cyclisme | `distance_temps` | **D+** (`sets.denivele_m`, mètres) |
+| Escaliers | `temps` | **étages** (`sets.etages`) |
+| Vélo d'Appartement, Spinning, Rameur | `distance_temps` (passés de `temps` par v2_101) | — |
+| Course à pied, Marche, Marche Nordique, Ski de Fond, Roller | `distance_temps` | — (avec du relief, on note Trail ou Randonnée) |
+
+Aussi par v2_101 : Squat Sauté Lesté (Haltère) et Squat Cosaque (Kettlebell) en `charge_reps` / `absolue` ; Woodchop
+(Médecine-Ball) en `absolue`. **Notés pour plus tard** : l'inclinaison du tapis, Pincé de Disques en charge × durée,
+un record de D+ ou d'étages.
+
+**La saisie** (écrans 1 à 3) :
+- **le D+** se tape sur sa propre ligne, sous la série (« Dénivelé + (facultatif) », en mètres) : une troisième
+  colonne ne tient pas à 360 px à côté d'une durée en horloge ;
+- **les étages** prennent la colonne de la distance : Escaliers = durée · étages ; les étages tels que la machine les
+  affiche, jamais convertis en mètres ;
+- **jamais obligatoires** ; jamais recopiés d'une séance à l'autre (pas de chiffre gris) ;
+- **les bornes** (décidées le 21/10/2026) : la distance au plus 400 km, le D+ au plus 10 000 m, les étages au plus
+  2 000 ; **jamais 0** — une durée, une distance, un D+ ou des étages à 0 ne se valident pas (un 0 s'affichait « — »,
+  audit 130).
+
+**Le chiffre gris en cardio** (décidé le 21/10/2026, audit 130 n°3). Sur `temps` et `distance_temps`, le chiffre gris
+de la séance d'avant n'est validé que si **toutes** les cases de la série sont vides : « ✓ sans rien taper » = comme
+la dernière fois. Dès qu'une case est tapée, une case vide reste vide (« durée ou distance ») — on n'écrit jamais la
+distance de la randonnée d'avant sur celle du jour.
+
+**L'affichage** : distance, puis durée, puis D+ ou étages (« 13,2 km · 3 h 25 · D+ 920 m », « 20 min · 72
+étages »), par le formateur unique (§3 ter). Une valeur absente ne s'affiche jamais, ni à zéro. Les records ne
+changent pas (la plus longue durée, la plus longue distance).
+
+**Ce qui manque à tes séances** (écran 5). Une carte à l'accueil de Saisie, hors séance ouverte, tant qu'il reste
+quelque chose à compléter :
+- **ce qu'elle liste** : seulement ce qui est devenu possible à noter — les séries de travail des exercices qui ont
+  un champ en plus dont la case est vide, et les séries de Vélo d'Appartement, Spinning et Rameur sans distance ; par
+  exercice et par champ, de la plus récente à la plus ancienne (2 visibles, « Voir les N autres ») ;
+- **« Enregistrer »** écrit ce qui est tapé, comme une correction de séance passée (la même file, les mêmes bornes) ;
+- **« Je ne sais plus »** ferme un groupe (exercice et champ) pour de bon : `profiles.completer_refus` (v2_101,
+  « slug:colonne ») ;
+- **« Plus tard »** replie la carte jusqu'à la prochaine ouverture de l'app (en mémoire, rien en base) ;
+- **en « Juste un carnet » aussi** : la carte ne parle pas du coach, elle complète le carnet ;
+- la liste est un fait de `faits.js` (registre NOTIONS) ; la carte le lit.
+
+**En fin de séance** (écran 6). La feuille « Terminer » (§7 septies.4) montre, une fois, la case d'**une donnée
+facultative restée vide** sur une série validée de la séance : le D+, les étages, ou la distance quand la durée est
+remplie. Une donnée obligatoire bloque déjà la série et n'arrive jamais ici. Laissée vide, elle rejoint la carte de
+l'accueil ; rien d'autre ne la redemande.
+
+**Le social** : le détail d'une séance d'ami et le direct du groupe montrent le D+ et les étages (`social_detail_seance`
+et `groupe_direct` les rendent depuis v2_101), par le même formateur.
+
+#### 3 ter.6 La colonne « Élastique » — décidée le 17/10/2026, précisée le 21/10/2026 (chantier B3, prompt 132)
+
+Sur un exercice noté par son nom (MOTEUR §10 ter), la colonne de la charge devient **« ÉLASTIQUE »** : une case qui
+ouvre la liste qui va avec l'exercice (grands élastiques ou mini-bandes), avec leur pastille et la coche sur le choisi
+(maquette `maquette-elastiques-v2.html`, écran 3). En résistance, le gabarit `reps` reçoit cette colonne devant les
+reps ; sur une aide, elle remplace « AIDE (KG) ».
+- **La case est obligatoire** (§3 bis.3 bis) : une série notée par nom sans élastique passe au rouge, sauf si le coach
+  en propose un (fantôme), qui est alors validé.
+- **La colonne « préc. »** : « Noir × 12 ».
+- **Un élastique retiré ou renommé** (écran 4) : la série d'avant garde son nom en « préc. » ; la case est vide
+  (« choisir ») ; la consigne dit « Ton élastique Gris n'est plus dans Ma salle : je note sans proposer. ».
+- **Le formateur unique** écrit « Noir × 12 » partout : journal, détail, page d'exercice, récap, fil, détail d'une
+  séance d'ami (les RPC rendent `elastique` depuis v2_101), direct du groupe.
+- **L'éditeur de routine** n'a pas de colonne d'élastique (comme il n'a pas de charge de départ).
+- **L'import Hevy** ne change pas : il écrit l'aide en kg ; elle se rattache par le kg exact.
 
 ### 3 bis — La grille de saisie, arrêtée le 11/09/2026
 
@@ -389,11 +471,14 @@ vérifie avant les reps de la ligne proposée. Il n'existe pas de « valider tou
 Précisions d'implémentation (prompt 105) : **une seule règle** pour toutes les cases
 (`THSeance.casesManquantes`, qui remplace `chargeManquante`) ; les cases obligatoires sont
 celles du gabarit de la mesure (`charge_reps` : charge et reps · `reps` : reps · `temps` :
-durée · `distance_temps` : durée et distance). Toutes les cases manquantes passent au rouge
+durée · `distance_temps` : **la durée ou la distance** — décidé le 17/10/2026, codé au prompt 131 : une série de cardio se valide avec l'une des deux ; les deux vides, les deux passent au rouge ; les champs en plus du §3 ter.5, D+ et étages, ne sont jamais obligatoires). Toutes les cases manquantes passent au rouge
 ensemble (`Rendu.demanderCases`) ; le clavier s'ouvre sur la première dans l'ordre de la
 ligne — la charge avant les reps, la durée avant la distance. Une case perd son rouge à la
 première frappe. Le lest et l'aide vides restent « sans lest / sans aide » (les reps, elles,
-restent dues). Une mesure inconnue n'empêche rien. Les reps de la ligne proposée et de la
+restent dues). Une mesure inconnue n'empêche rien *(tranché le 22/10/2026, audit du 16/10, E16 : un exercice absent
+du catalogue local garde la grille ouverte, sans case obligatoire, et **sa mesure ne se déduit pas** des colonnes
+déjà remplies — « un nom inconnu n'est jamais deviné », sa mesure non plus ; le chemin est étroit depuis le catalogue
+complet du 125)*. Les reps de la ligne proposée et de la
 ligne d'élan gardent le §3.2 (§9.14) : la fourchette du coach est dans la case, le curseur
 s'y pose sans rouge.
 
@@ -1323,8 +1408,10 @@ au squat et une de 20 aux mollets n'ont pas la même durée. Et les supersets br
 calcul sur **48,7 %** des séries de travail d'aurel_br.
 
 > **Le chronomètre part à la VALIDATION d'une série** et mesure jusqu'à la validation
-> suivante. Le temps d'exécution n'entre pas dans la valeur : elle est juste **par
-> construction**.
+> suivante. ~~Le temps d'exécution n'entre pas dans la valeur : elle est juste **par
+> construction**.~~ *Faux, corrigé le 22/10/2026 (audit du 16/10, E19) : l'écart entre deux validations contient le
+> temps d'exécution de la série suivante. La valeur enregistrée (`repos_s`) n'est donc pas un repos ; elle ne s'affiche
+> plus (MODIFICATEURS §4, décision D8 du 16/10).*
 
 ### 7 ter.2 Deux valeurs distinctes
 
@@ -1499,6 +1586,18 @@ met-elle à jour la routine ?
 > et amène la première de ces lignes en vue ; la valider reste le geste de l'utilisateur). Une
 > intention de routine ou un chiffre gris du coach n'est pas une valeur tapée. Sans série remplie,
 > rien ne change.
+
+> **Une séance sans série validée ne se termine pas : elle s'abandonne — décidé le 22/10/2026 (audit du 16/10,
+> E12).** Il n'y a rien à enregistrer ; Strong et Hevy demandent eux aussi de jeter une séance vide. « Vide » se lit
+> par la règle de l'abandon : rien à effacer (`compterAEffacer` : aucune ligne, aucune chauffe validée). La feuille de
+> fin dit alors « Aucune série validée : rien à enregistrer. », sans titre, salle, note, question de routine ni case
+> facultative, et propose **Abandonner** (le geste principal, immédiat : rien n'est perdu) et **Continuer la séance**
+> (ferme la feuille). Avec des séries remplies mais pas validées, elle le dit d'abord (« 2 séries remplies ne sont pas
+> validées. ») et propose **Les valider** (le geste du §7 septies.4 E4) ou **Abandonner** (rouge : il jette ce qui a
+> été tapé). L'Édition d'une séance terminée ne change pas.
+
+> **Une donnée facultative restée vide — décidé le 21/10/2026 (prompt 131).** La feuille montre une fois la case d'un
+> D+, d'étages ou d'une distance (durée remplie) restés vides sur une série validée de la séance (§3 ter.5, écran 6).
 
 
 ### 7 septies.4 bis Le récap de fin de séance — décidé le 11/10/2026 (chantier 71)
@@ -2986,7 +3085,9 @@ Les cas d'un seul appareil ne changent pas : dévalider, retirer une série du m
 terminée suppriment comme avant, parce que ces séries sont connues.
 
 **Hors de cette règle** (chantier 84) : la fermeture et la reprise silencieuses d'une séance vivante d'un autre
-appareil, et deux appareils qui écrivent le même rang.
+appareil, et deux appareils qui écrivent le même rang. *Le rang en conflit reste une **limite assumée** (tranché le
+22/10/2026, audit du 16/10, E17) : le cas est rare (une personne, une séance ouverte sur deux appareils) ; une
+correction coûterait une resynchronisation lourde. L'écran dit déjà « 1 envoi refusé ».*
 
 ### 7 duovicies.1 ter Une séance vivante d'un autre appareil — décidé le 12/10/2026 (chantier 84)
 
@@ -3012,6 +3113,11 @@ qu'à l'envoi, qui referme l'autre séance comme avant. Rare, et sans perte depu
 et « Terminer » sur l'autre appareil le répare. Noté pour plus tard : une file qui attend une décision.
 
 ### 7 duovicies.2 « −15 » sous la borne fabriquait une cible que rien ne fige
+
+> ⚠️ **Remplacé par §7 tervicies** (barré le 22/10/2026, audit du 16/10, E19). « `−15` refuse de descendre » ne vaut
+> plus : `ajusterCible` est une arithmétique bornée dans `[0, REPOS_MAX]` (`seance.js`), un repos en cours peut arriver
+> à zéro, et c'est `cibleArmable` qui décide de l'armement, jamais de l'extinction. Le texte ci-dessous reste comme
+> trace.
 
 Le §7 novodecies a fermé la porte de l'**armement**. Celle de l'**ajustement** est restée
 ouverte :

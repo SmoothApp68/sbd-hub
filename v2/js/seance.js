@@ -83,7 +83,14 @@
     // §9.20 (51-3, migration `v2_056`) — la marque « douleur » de la série, et
     // l'occurrence de son exercice dans la séance (uuid ; NULL pour une ligne
     // importée ou d'avant la colonne).
-    'douleur', 'occurrence'
+    'douleur', 'occurrence',
+    // ECRAN §3 ter.5 (prompt 131, v2_101) — les champs en plus : le D+ et les étages, lus
+    // ET écrits, comme la durée et la distance. Ils viennent de `THModele.colonnesDeSerie()`
+    // (`lignes()` les envoie par elle) ; `verifierColonnes()` vérifie l'accord au démarrage.
+    'denivele_m', 'etages',
+    // 132 (MOTEUR §10 ter, ECRAN-SAISIE §3 ter.6, v2_034) — le NOM de l'élastique d'une série notée par nom, lu ET écrit
+    // (audit 130 #12 : `sets.elastique` n'était ni écrit ni relu). Il part toujours, à null compris, comme la note.
+    'elastique'
   ];
   // Lues, jamais écrites : le serveur les pose lui-même.
   var COLONNES_SET_EN_PLUS = ['created_at', 'modifie_a'];
@@ -100,6 +107,20 @@
 
   function copie(o) { return Object.assign({}, o); }
 
+  // ECRAN §3 ter.5 (prompt 131) — LES COLONNES DE MESURE D'UNE SÉRIE, toutes celles que la
+  // table des champs connaît (charge, reps, durée, distance, D+, étages) : `THModele.
+  // colonnesDeSerie()`, la seule fonction qui dit les champs d'une série. Lue à l'appel
+  // (`modele.js` se charge avant).
+  function colonnesDeMesure() { return racine.THModele.colonnesDeSerie(); }
+  // Les colonnes de mesure d'une ligne, recopiées ; une absente vaut `null`.
+  function mesuresDe(ligne) {
+    var o = {};
+    colonnesDeMesure().forEach(function (c) {
+      o[c] = !ligne || ligne[c] === undefined ? null : ligne[c];
+    });
+    return o;
+  }
+
   // Recopie la séance en ne clonant QUE la branche touchée. Une séance fait
   // quelques dizaines de séries : le coût est nul, et l'immuabilité vaut mieux
   // qu'une micro-économie sur un écran qu'on écrit sur disque à chaque geste.
@@ -111,10 +132,14 @@
   // de `seance.exercices` porte donc son identifiant d'occurrence,
   // `occurrence`, posé UNE FOIS — à la première construction qui la voit, sur
   // l'identifiant de sa première série (`o-<id>`) — puis gardé tel quel, quoi
-  // qu'on fasse de ses séries ou de sa place. Il vit dans le brouillon de
-  // l'appareil, jamais en base (`sets` n'a pas de colonne pour lui) : une
-  // séance reprise depuis la base en reçoit un neuf, et ses paris s'y
-  // rattachent par la série qu'ils observent (`parisDeLOccurrence`).
+  // qu'on fasse de ses séries ou de sa place. Depuis v2_056 (§9.20, 51-3), il
+  // est aussi ÉCRIT en base : la colonne `sets.occurrence` (`COLONNES_SET`)
+  // reçoit son uuid, sans le préfixe `o-` (`uuidDOccurrence`), ou NULL pour une
+  // occurrence posée sans série ; une séance reprise depuis la base le relit
+  // (`o-<uuid>`), et une ligne importée ou d'avant la colonne (NULL) en reçoit
+  // un neuf, ici. Ses paris s'y rattachent par la série qu'ils observent
+  // (`parisDeLOccurrence`). (133, audit 130 #13 : ce commentaire disait que
+  // `sets` n'avait pas de colonne pour lui.)
   function avecOccurrences(exercices) {
     var vu = false;
     var sortie = (exercices || []).map(function (e, i) {
@@ -272,7 +297,7 @@
               vide.type_serie = ligne.type_serie || 'travail';
               return vide;
             }
-            return {
+            return Object.assign({
               id: ligne.id,
               // ⚠️ DEUX CHAMPS QUI NE S'AFFICHENT PAS ET QUI COMPTENT (ch. 34).
               // `source` dit d'où vient la ligne — c'est lui qui décide si elle
@@ -282,17 +307,16 @@
               // modèle affiché : `lignes()` les traduit, `rendu.js` les ignore.
               source: ligne.source === undefined ? null : ligne.source,
               rang_origine: typeof ligne.rang === 'number' ? ligne.rang : null,
-              type_serie: ligne.type_serie || 'travail',
-              charge_kg: ligne.charge_kg === undefined ? null : ligne.charge_kg,
-              reps: ligne.reps === undefined ? null : ligne.reps,
-              duree_s: ligne.duree_s === undefined ? null : ligne.duree_s,
-              distance_m: ligne.distance_m === undefined ? null : ligne.distance_m,
+              type_serie: ligne.type_serie || 'travail'
+            }, mesuresDe(ligne), {
+              // Prompt 131 — les colonnes de mesure (D+ et étages compris) viennent de
+              // `mesuresDe` : sans elles, « Modifier » remettrait le D+ à null.
               rpe: ligne.rpe === undefined ? null : ligne.rpe,
               ressenti: ligne.ressenti === undefined ? null : ligne.ressenti,
               note: commune === null ? texteOuNul(ligne.note) : null,
               validee_a: ligne.validee_a || null,
               repos_s: ligne.repos_s === undefined ? null : ligne.repos_s
-            };
+            });
           })
         }, occ ? { occurrence: 'o-' + occ } : {}, marque ? { douleur: true } : {}));
       });
@@ -370,17 +394,19 @@
   // `COLONNES_SET` ne les laisse donc pas partir. Elles sont LUES — c'est
   // l'inverse exact du champ écrit que personne ne relit.
   function serieVide(idSerie) {
-    return {
+    return Object.assign({
       id: typeof idSerie === 'function' ? idSerie() : (idSerie || null),
-      type_serie: 'travail',
-      charge_kg: null, reps: null, duree_s: null, distance_m: null,
+      type_serie: 'travail'
+    }, mesuresDe(null), {
       rpe: null, ressenti: null, note: null,
+      // 132 — le nom de l'élastique (une série notée par nom) : vide à la naissance.
+      elastique: null,
       validee_a: null, repos_s: null, reps_visees: null, charge_cible_kg: null,
       // ECRAN-SAISIE §7 septendecies.3 (54-1) — la durée et la distance d'un
       // cardio de routine : des INTENTIONS, comme `reps_visees`, lues par le
       // fantôme et jamais écrites (`COLONNES_SET` ne les connaît pas).
       duree_cible_s: null, distance_cible_m: null
-    };
+    });
   }
 
   function sansIdentifiant(serie) { return !serie || !serie.id; }
@@ -1067,7 +1093,15 @@
     var r = nombreOuNul(v);
     return r === null ? null : plafonne(Math.round(r), REPS_MAX_SERIE);
   }
-  function dureeBornee(v) { return entierOuNul(v, 1, dureeMax()); }
+  // Prompt 131 (audit 130 n°8, n°9) — les bornes des mesures vivent dans UNE table
+  // (`THModele.BORNES_DES_COLONNES`) : jamais 0 ; la distance au plus 400 km. Hors
+  // borne, la valeur n'est pas écrite (`null`). La durée garde son plafond d'avant
+  // (le pavé ne produit jamais plus de 9:59:59) ; son 0 devient `null`.
+  function dureeBornee(v) { return racine.THModele.borneDeColonne('duree_s', entierOuNul(v, 1, dureeMax())); }
+  function distanceBornee(v, facteur) { return racine.THModele.borneDeColonne('distance_m', entierOuNul(v, facteur)); }
+  // Les champs en plus (§3 ter.5) : des entiers, bornés par la même table (D+ ≤ 10 000 m,
+  // étages ≤ 2 000, jamais 0).
+  function enPlusBorne(cle, v) { return racine.THModele.borneDeColonne(cle, entierOuNul(v, 1)); }
 
   // ⚠️ BORNER UNE LIGNE DÉJÀ CALCULÉE, ET DIRE SI ÇA A CHANGÉ QUELQUE CHOSE.
   //
@@ -1092,6 +1126,15 @@
       c.duree_s = dureeBornee(ligne.duree_s);
       if (c.duree_s !== ligne.duree_s) change = true;
     }
+    if ('distance_m' in ligne) {
+      c.distance_m = distanceBornee(ligne.distance_m, 1);
+      if (c.distance_m !== ligne.distance_m) change = true;
+    }
+    ['denivele_m', 'etages'].forEach(function (cle) {
+      if (!(cle in ligne)) return;
+      c[cle] = enPlusBorne(cle, ligne[cle]);
+      if (c[cle] !== ligne[cle]) change = true;
+    });
     return change ? { ligne: Object.assign({}, ligne, c), change: true }
                   : { ligne: ligne, change: false };
   }
@@ -1102,8 +1145,12 @@
     if ('reps' in champs) c.reps = repsBornees(champs.reps);
     if ('duree' in champs) c.duree_s = dureeBornee(champs.duree);
     if ('duree_s' in champs) c.duree_s = dureeBornee(champs.duree_s);
-    if ('distance_m' in champs) c.distance_m = entierOuNul(champs.distance_m, 1);
-    if ('distance_km' in champs) c.distance_m = entierOuNul(champs.distance_km, 1000);
+    if ('distance_m' in champs) c.distance_m = distanceBornee(champs.distance_m, 1);
+    if ('distance_km' in champs) c.distance_m = distanceBornee(champs.distance_km, 1000);
+    if ('denivele_m' in champs) c.denivele_m = enPlusBorne('denivele_m', champs.denivele_m);
+    if ('etages' in champs) c.etages = enPlusBorne('etages', champs.etages);
+    // 132 — le nom de l'élastique : un texte non vide (une liste de Ma salle le donne), sinon rien.
+    if ('elastique' in champs) c.elastique = typeof champs.elastique === 'string' && champs.elastique ? champs.elastique : null;
     return avecSerie(seance, iExo, iSerie, c);
   }
 
@@ -1572,17 +1619,47 @@
     };
   }
 
+  // ECRAN §7 septies.4 et §3 ter.5 (prompt 131, écran 6) — LA DONNÉE FACULTATIVE RESTÉE VIDE, une seule : la
+  // PREMIÈRE, dans l'ordre de la séance, sur une série de travail validée — un champ en plus du catalogue (D+,
+  // étages, dans l'ordre de `THModele.champsDeSerie`), sinon la distance d'un `distance_temps` dont la durée est
+  // remplie. Une donnée obligatoire bloque déjà la série et n'arrive jamais ici. Rend `{ iExo, iSerie, slug, nom }`
+  // (`nom` : le champ, `CHAMPS_MESURE`), ou `null`. `exercices` : le catalogue.
+  function donneeFacultativeVide(seance, exercices) {
+    var M = racine.THModele;
+    var cat = M.indexerExercices(exercices || []);
+    var vide = function (v) { return v === null || v === undefined || v === ''; };
+    var plat = toutesLesSeries(seance || {});
+    for (var k = 0; k < plat.length; k++) {
+      var p = plat[k];
+      if (!p.serie || !p.serie.validee_a || !M.estTravail(p.serie)) continue;
+      var exo = cat[p.exo.exercise_slug];
+      var noms = M.champsDeSerie(exo);
+      var g = M.gabaritDe(exo);
+      var candidats = noms.slice(g.champs.length);
+      if (g.mesure === 'distance_temps' && !vide(p.serie.duree_s)) candidats.push('distance_km');
+      for (var j = 0; j < candidats.length; j++) {
+        var c = M.champDeMesure(candidats[j]);
+        if (c && vide(p.serie[c.cle])) {
+          return { iExo: p.iExo, iSerie: p.iSerie, slug: p.exo.exercise_slug, nom: candidats[j] };
+        }
+      }
+    }
+    return null;
+  }
+
   // 115 (audit du 16/10/2026, E4 ; décision d'Aurélien D10) — LES SÉRIES REMPLIES, PAS VALIDÉES. Une valeur
   // tapée (charge, reps, durée, distance) sur une ligne qui ne part pas en base (`partEnBase`) : « Terminer » la
   // laisserait derrière lui sans un mot (§5.2 : seul ce qui est validé entre dans la séance enregistrée). La
   // feuille de fin le dit d'abord. Les INTENTIONS (`reps_visees`, `charge_cible_kg`, `duree_cible_s`…) et les
   // fantômes du plan ne sont pas des valeurs tapées : une ligne qui ne porte qu'eux est vide. Rend les positions,
   // dans l'ordre de la séance.
-  var CHAMPS_TAPES = ['charge_kg', 'reps', 'duree_s', 'distance_m'];
+  // Prompt 131 — les colonnes tapées sont celles de `THModele.colonnesDeSerie()` (D+ et étages
+  // compris) : la table des champs, pas une liste recopiée.
   function rempliesNonValidees(seance) {
+    var tapes = colonnesDeMesure();
     return toutesLesSeries(seance).filter(function (p) {
       if (!p.serie || partEnBase(p.serie)) return false;
-      return CHAMPS_TAPES.some(function (c) {
+      return tapes.some(function (c) {
         var v = p.serie[c];
         return v !== null && v !== undefined && v !== '';
       });
@@ -1743,6 +1820,11 @@
           // une valeur périmée en base après un changement d'exercice.
           duree_s: p.serie.duree_s === undefined ? null : p.serie.duree_s,
           distance_m: p.serie.distance_m === undefined ? null : p.serie.distance_m,
+          // Prompt 131 — le D+ et les étages, toujours envoyés, à null compris (même raison).
+          denivele_m: p.serie.denivele_m === undefined ? null : p.serie.denivele_m,
+          etages: p.serie.etages === undefined ? null : p.serie.etages,
+          // 132 — le nom de l'élastique (une série notée par nom), toujours envoyé, à null compris.
+          elastique: p.serie.elastique === undefined ? null : p.serie.elastique,
           rpe: p.serie.rpe,
           ressenti: p.serie.ressenti,
           // La note de l'EXERCICE, projetée sur chaque série — c'est la forme
@@ -1914,9 +1996,10 @@
         return {
           seance: s,
           series: series.map(function (x) {
+            // 132 — et le nom de l'élastique : « préc. » le dit (« Noir × 12 »), le plan le lit (MOTEUR §10 ter).
             return { charge_kg: x.charge_kg, reps: x.reps,
                      duree_s: x.duree_s, distance_m: x.distance_m,
-                     type_serie: x.type_serie };
+                     type_serie: x.type_serie, elastique: x.elastique === undefined ? null : x.elastique };
           })
         };
       }
@@ -2500,15 +2583,55 @@
   // chiffres). Exemptés : le lest et l'aide (vide = sans lest, sans aide — la
   // case de charge seule ; les reps restent dues), et le gabarit inconnu (on ne
   // sait pas ce que l'exercice mesure : on n'empêche rien).
+  //
+  // ⚠️ DURÉE OU DISTANCE (ECRAN §3 bis.3 bis, décision du 17/10/2026, codée au prompt
+  // 131 — audit 130 n°2). Sur `distance_temps`, une série se valide avec L'UNE des
+  // deux : une natation en durée seule, une course en distance seule. Les deux
+  // vides, les deux passent au rouge (la durée d'abord : le clavier va sur elle).
+  // Exiger les deux bloquait en rouge toute série de vélo sans distance passée, dès
+  // que le vélo passe en `distance_temps` (v2_101).
+  function videDeSaisie(v) { return v === null || v === undefined || v === '' || !isFinite(Number(v)); }
+
+  // ⚠️ LE CHIFFRE GRIS EN CARDIO (ECRAN §3 ter.5, décidé le 21/10/2026 — audit 130 n°3).
+  // Sur `temps` et `distance_temps`, le gris de la fois d'avant n'est validé que si
+  // TOUTES les cases de la série sont vides : « ✓ sans rien taper » = comme la
+  // dernière fois. Dès qu'une case est tapée, une case vide reste vide (« durée ou
+  // distance ») : on n'écrit jamais la distance de la randonnée d'avant sur celle du
+  // jour — un record possible, une médaille, pour une distance jamais faite. Le gris
+  // reste affiché : il n'est plus qu'un souvenir.
+  //
+  // `charge_reps` et `reps` ne changent pas : leur gris est une consigne du coach,
+  // validée case par case (§3 bis.3). Rend le fantôme à valider : `f`, ou `{}`.
+  function grisValide(g, serie, f) {
+    if (!g || (g.mesure !== 'temps' && g.mesure !== 'distance_temps')) return f || {};
+    // Toutes les cases : celles de la mesure ET les champs en plus (un D+ tapé compte) —
+    // les colonnes de mesure de la série (`THModele.colonnesDeSerie()`).
+    var tapee = colonnesDeMesure().some(function (cle) { return !videDeSaisie(serie && serie[cle]); });
+    return tapee ? {} : (f || {});
+  }
+
   function casesManquantes(g, serie, f) {
     if (!g || g.inconnue || !g.champs) return [];
-    var vide = function (v) { return v === null || v === undefined || v === '' || !isFinite(Number(v)); };
-    return g.champs.filter(function (nom) {
+    f = grisValide(g, serie, f);
+    var vide = videDeSaisie;
+    var manquent = g.champs.filter(function (nom) {
       if (nom === 'charge_kg' && g.nature) return false;
       var c = racine.THModele.champDeMesure(nom);
       var cle = c ? c.cle : nom;
-      return vide(serie && serie[cle]) && vide(f && f[cle]);
+      // 132 (ECRAN-SAISIE §3 ter.6) — la case « ÉLASTIQUE » porte un NOM : elle est vide sans nom.
+      if (c && c.saisie === 'elastique') {
+        var sansNom = function (v) { return typeof v !== 'string' || v === ''; };
+        return sansNom(serie && serie[cle]) && sansNom(f && f[cle]);
+      }
+      // Audit 130 n°9 — une durée ou une distance à 0 (ou hors borne) est une case vide.
+      var absente = function (v) { return vide(v) || racine.THModele.borneDeColonne(cle, v) === null; };
+      return absente(serie && serie[cle]) && absente(f && f[cle]);
     });
+    if (g.mesure === 'distance_temps' &&
+        !(manquent.indexOf('duree') >= 0 && manquent.indexOf('distance_km') >= 0)) {
+      return manquent.filter(function (nom) { return nom !== 'duree' && nom !== 'distance_km'; });
+    }
+    return manquent;
   }
 
   function fantome(seance, iExo, iSerie, prec, plan) {
@@ -2720,6 +2843,39 @@
     return s >= c ? 0 : c - s;
   }
 
+  // ══ 136 (audit du 16/10, E13 ; audit iPhone I-06) — LE REPOS SURVIT AU RECHARGEMENT ══
+  //
+  // Le chronomètre vivait en mémoire seulement : une page rechargée pendant un repos (ou une app qu'iOS ferme en
+  // arrière-plan) rouvrait la séance SANS son repos. Il ne s'écrit pourtant nulle part, et il n'a pas à l'être : le
+  // repos en cours est celui qui suit la DERNIÈRE série validée, et son départ EST son `validee_a`. On le relit donc,
+  // par le même calcul « depuis » que l'affichage (`secondesDeRepos` : maintenant − départ) — jamais un compteur
+  // gardé, qui dériverait du temps réel dès que la page dort.
+  //
+  //   · `cibleDe(iExo, iSerie)` : la cible du repos APRÈS cette série, la règle de la validation (`Plan.reposApres`) —
+  //     passée par `cibleArmable`, comme à la validation : un repos jamais prescrit ne revient pas ;
+  //   · un repos DÉJÀ ÉCHU ne revient pas (`secondesRestantes` à zéro) : rien à décompter, et l'échéance ne se
+  //     rejoue pas ;
+  //   · rend `{ depuis, cible, iExo, iSerie }` (`depuis` en ms : l'instant de la validation), ou `null`.
+  //
+  // À égalité d'instant, la première série dans l'ordre de la séance (celle de `derniereValidation`).
+  function reposAReprendre(seance, cibleDe, maintenant) {
+    if (!seance || seance.statut !== EN_COURS || typeof cibleDe !== 'function') return null;
+    var derniere = null;
+    toutesLesSeries(seance).forEach(function (x) {
+      var t = x.serie && x.serie.validee_a ? Date.parse(x.serie.validee_a) : NaN;
+      if (isNaN(t)) return;
+      if (!derniere || t > derniere.t) derniere = { t: t, iExo: x.iExo, iSerie: x.iSerie };
+    });
+    if (!derniere) return null;
+    var c = cibleArmable(cibleDe(derniere.iExo, derniere.iSerie));
+    if (c === null) return null;
+    var m = maintenant instanceof Date ? maintenant.getTime() : Number(maintenant);
+    if (!isFinite(m)) return null;
+    var ecoule = Math.max(0, Math.round((m - derniere.t) / 1000));
+    if (secondesRestantes(c, ecoule) === 0) return null;
+    return { depuis: derniere.t, cible: c, iExo: derniere.iExo, iSerie: derniere.iSerie };
+  }
+
   // ══ 84 (12/10/2026) — UNE SÉANCE VIVANTE D'UN AUTRE APPAREIL ═══════════
   //
   // ECRAN-SAISIE §7 duovicies.1 ter. Une séance `en_cours` d'un autre appareil
@@ -2785,6 +2941,7 @@
     echeanceAtteinte: echeanceAtteinte,
     reposTermine: reposTermine,
     secondesRestantes: secondesRestantes,
+    reposAReprendre: reposAReprendre,
     EN_COURS: EN_COURS, TERMINEE: TERMINEE, REPOS_MAX: REPOS_MAX,
     REPOS_CIBLE_MIN: REPOS_CIBLE_MIN, REPOS_CIBLE_MAX: REPOS_CIBLE_MAX,
     SALLE_MAX: SALLE_MAX,
@@ -2863,6 +3020,8 @@
     derniereSaisie: derniereSaisie,
     fantome: fantome,
     casesManquantes: casesManquantes,
+    grisValide: grisValide,
+    donneeFacultativeVide: donneeFacultativeVide,
     planDe: planDe,
     couvertureDe: couvertureDe,
     couvertureSeance: couvertureSeance,

@@ -1,0 +1,220 @@
+<title>Bio du profil social</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap">
+<style>
+/* Maquette dans la peau de l'app : un téléphone par cas, empilés ; les décisions en bas. Tokens repris de v2/styles.css. */
+:root{
+  --fond:#0f1114; --panneau:#181b20; --panneau-2:#21252c; --trait:#2c3139;
+  --texte:#eceef2; --texte-2:#9aa1ac; --texte-3:#888e98;
+  --accent:#f2b84b; --sur-accent:#1a1305; --nouveau:#4fb3a0;
+  --pile:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --pile-c:"Barlow Condensed","Barlow",system-ui,sans-serif;
+  color-scheme:dark;
+}
+body{background:var(--fond);color:var(--texte);font:15px/1.45 var(--pile);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.page{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1{font:700 30px/1.1 var(--pile-c);margin:0;text-wrap:balance}
+.intro{color:var(--texte-2);max-width:62ch;margin:6px 0 0}
+.grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:22px}
+.cas{display:flex;flex-direction:column;gap:8px;min-width:0}
+.cas h2{font:700 18px/1.2 var(--pile-c);margin:0;letter-spacing:.01em}
+.cas p.leg{margin:0;color:var(--texte-2);font-size:13px}
+.tel{background:var(--fond);border:1px solid var(--trait);border-radius:26px;padding:14px 14px 18px;min-height:300px}
+.barre{display:flex;justify-content:space-between;color:var(--texte-2);font-size:13px;margin-bottom:14px}
+.prof{text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;margin-bottom:10px}
+.pseudo{font:700 22px/1.2 var(--pile);overflow-wrap:anywhere}
+.niveau{color:var(--texte-2);font-size:13px}
+.etat{display:inline-block;font-size:12px;padding:4px 10px;border-radius:99px;background:var(--panneau);color:var(--texte-2)}
+.bio{font-size:14px;line-height:1.45;color:var(--texte);max-width:32ch;white-space:pre-line;overflow-wrap:anywhere;margin-top:6px;position:relative}
+.nouv{outline:1.5px dashed var(--nouveau);outline-offset:5px;border-radius:4px}
+.actions{display:flex;gap:8px;justify-content:center;margin:12px 0 16px}
+.btn{border:0;border-radius:12px;padding:8px 12px;font:600 13px/1.2 var(--pile);min-height:36px}
+.b1{background:var(--texte);color:var(--fond)} .b2{background:var(--panneau-2);color:var(--texte)}
+.note{font-size:13px;color:var(--texte-2);text-align:center;margin:12px 0 0}
+.mini-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:11px;text-align:center;color:var(--texte-2)}
+.mini-cal span{padding:5px 0;border-radius:8px}
+.mini-cal .s{background:#3a3220;color:var(--texte)}
+.titre-s{font-weight:600;font-size:13px;margin:4px 2px 8px;display:flex;justify-content:space-between}
+/* feuille */
+.voile{background:#0009;border-radius:20px;padding-top:70px;margin:-14px -14px -18px}
+.feuille{background:var(--panneau);border-radius:18px 18px 0 0;padding:16px 14px 14px}
+.feuille-t{font-weight:600;font-size:14px;padding-bottom:10px}
+.champ-e{font-size:12px;color:var(--texte-2);margin-bottom:6px}
+.champ{background:var(--panneau-2);border:1px solid var(--trait);border-radius:10px;padding:10px;min-height:66px;font-size:16px;white-space:pre-line}
+.compte{font-size:11px;color:var(--texte-3);text-align:right;margin-top:4px;font-variant-numeric:tabular-nums}
+.aide{font-size:12px;line-height:1.45;color:var(--texte-2);margin-top:8px}
+.aide.nouv{outline-offset:3px}
+.pied{display:flex;gap:8px;padding-top:12px}
+.pied span{flex:1;height:42px;border-radius:10px;display:grid;place-items:center;font-weight:600;font-size:14px}
+.pied .sec{border:1px solid var(--trait);color:var(--texte-2)} .pied .pri{background:var(--accent);color:var(--sur-accent)}
+.legende{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--texte-2)}
+.legende i{width:22px;height:12px;outline:1.5px dashed var(--nouveau);border-radius:3px}
+/* décisions */
+.decis{background:var(--panneau);border:1px solid var(--trait);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.decis h2{font:700 22px/1.1 var(--pile-c);margin:0}
+.d{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}
+.d b.n{font:700 18px/1 var(--pile-c);color:var(--accent);padding-top:2px}
+.d p{margin:0;max-width:68ch} .d p+p{margin-top:4px;color:var(--texte-2);font-size:14px}
+.q{border-top:1px solid var(--trait);padding-top:14px}
+.q strong{color:var(--accent)}
+.tab{overflow-x:auto}
+table{border-collapse:collapse;font-size:13px;min-width:420px;width:100%}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--trait)} th{color:var(--texte-2);font-weight:600}
+td.oui{color:var(--texte)} td.non{color:var(--texte-3)}
+</style>
+
+<div class="page">
+<header>
+  <h1>La bio sur le profil social</h1>
+  <p class="intro">Six cas, dans l'app telle qu'elle est. Seuls les éléments entourés changent ; tout le reste est l'écran d'aujourd'hui. Les décisions à valider sont en bas.</p>
+  <div class="legende" style="margin-top:10px"><i></i> ce qui change</div>
+</header>
+
+<div class="grille">
+
+<section class="cas">
+  <h2>1. Abonné accepté</h2>
+  <p class="leg">Tu suis jordan, il a accepté. La bio vient sous l'état, avant les boutons : ce qui dit qui il est reste groupé, ses mots viennent ensuite.</p>
+  <div class="tel">
+    <div class="barre"><span>← Fil</span><span></span></div>
+    <div class="prof">
+      <svg width="64" height="74" viewBox="0 0 40 46" aria-hidden="true" style="color:#5b8ac4"><path d="M20 2 37 8v14c0 11-7 19-17 22C10 41 3 33 3 22V8z" fill="currentColor"/><path d="M11 22h18l-3 4h-3v5h4v3H13v-3h4v-5h-3z" fill="var(--fond)"/></svg>
+      <b class="pseudo">jordan</b>
+      <small class="niveau">Niveau 14</small>
+      <span class="etat">Abonné</span>
+      <div class="bio nouv">Powerbuilding depuis 2021.
+Le squat d'abord, le reste suit.</div>
+    </div>
+    <div class="actions"><button class="btn b2">Abonné</button><button class="btn b2">···</button></div>
+    <div class="titre-s"><span>‹</span><span>octobre 2026</span><span>›</span></div>
+    <div class="mini-cal"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span>
+      <span>13</span><span class="s">14</span><span>15</span><span class="s">16</span><span>17</span><span class="s">18</span><span>19</span>
+      <span class="s">20</span><span>21</span><span>22</span><span></span><span></span><span></span><span></span></div>
+  </div>
+</section>
+
+<section class="cas">
+  <h2>2. Même guilde, pas abonné</h2>
+  <p class="leg">Il est dans ta guilde, tu ne le suis pas. Tu lis sa bio ; ses séances restent fermées, comme aujourd'hui.</p>
+  <div class="tel">
+    <div class="barre"><span>← Fil</span><span></span></div>
+    <div class="prof">
+      <svg width="64" height="74" viewBox="0 0 40 46" aria-hidden="true" style="color:#a26ee8"><path d="M20 2 37 8v14c0 11-7 19-17 22C10 41 3 33 3 22V8z" fill="currentColor"/><path d="M11 22h18l-3 4h-3v5h4v3H13v-3h4v-5h-3z" fill="var(--fond)"/></svg>
+      <b class="pseudo">sam_street</b>
+      <small class="niveau">Niveau 6</small>
+      <span class="etat">Compte privé</span>
+      <div class="bio nouv">Street workout. Objectif : la traction à un bras.</div>
+    </div>
+    <div class="actions"><button class="btn b1">S'abonner</button><button class="btn b2">···</button></div>
+    <p class="note">Abonne-toi pour voir ses séances.</p>
+  </div>
+</section>
+
+<section class="cas">
+  <h2>3. Inconnu</h2>
+  <p class="leg">Ni abonné, ni dans ta guilde : rien ne change. Pseudo, blason, niveau. La base ne rend pas la bio.</p>
+  <div class="tel">
+    <div class="barre"><span>← Fil</span><span></span></div>
+    <div class="prof">
+      <svg width="64" height="74" viewBox="0 0 40 46" aria-hidden="true" style="color:#5fa97a"><path d="M20 2 37 8v14c0 11-7 19-17 22C10 41 3 33 3 22V8z" fill="currentColor"/><path d="M11 22h18l-3 4h-3v5h4v3H13v-3h4v-5h-3z" fill="var(--fond)"/></svg>
+      <b class="pseudo">mathis_lift</b>
+      <small class="niveau">Niveau 9</small>
+      <span class="etat">Compte privé</span>
+    </div>
+    <div class="actions"><button class="btn b1">S'abonner</button><button class="btn b2">···</button></div>
+    <p class="note">Abonne-toi pour voir ses séances.</p>
+  </div>
+</section>
+
+<section class="cas">
+  <h2>4. Pas de bio</h2>
+  <p class="leg">Une bio vide ne laisse ni trou ni texte de remplacement. Jamais « Pas de bio » chez un ami.</p>
+  <div class="tel">
+    <div class="barre"><span>← Fil</span><span></span></div>
+    <div class="prof">
+      <svg width="64" height="74" viewBox="0 0 40 46" aria-hidden="true" style="color:#cd7167"><path d="M20 2 37 8v14c0 11-7 19-17 22C10 41 3 33 3 22V8z" fill="currentColor"/><path d="M11 22h18l-3 4h-3v5h4v3H13v-3h4v-5h-3z" fill="var(--fond)"/></svg>
+      <b class="pseudo">alexis</b>
+      <small class="niveau">Niveau 11</small>
+      <span class="etat">Mutuel</span>
+    </div>
+    <div class="actions"><button class="btn b2">Abonné</button><button class="btn b2">···</button></div>
+    <div class="titre-s"><span>‹</span><span>octobre 2026</span><span>›</span></div>
+    <div class="mini-cal"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span>
+      <span class="s">13</span><span>14</span><span class="s">15</span><span>16</span><span class="s">17</span><span>18</span><span>19</span></div>
+  </div>
+</section>
+
+<section class="cas">
+  <h2>5. Ton profil, vu par toi</h2>
+  <p class="leg">Sur « C'est toi », ta bio s'affiche comme les autres la voient. C'est là que tu te relis.</p>
+  <div class="tel">
+    <div class="barre"><span>← Fil</span><span></span></div>
+    <div class="prof">
+      <svg width="64" height="74" viewBox="0 0 40 46" aria-hidden="true" style="color:#f2b84b"><path d="M20 2 37 8v14c0 11-7 19-17 22C10 41 3 33 3 22V8z" fill="currentColor"/><path d="M11 22h18l-3 4h-3v5h4v3H13v-3h4v-5h-3z" fill="var(--fond)"/></svg>
+      <b class="pseudo">aurel_br</b>
+      <small class="niveau">Niveau 23</small>
+      <span class="etat">C'est toi</span>
+      <div class="bio nouv">Le créateur</div>
+    </div>
+    <div class="titre-s" style="margin-top:16px"><span>‹</span><span>octobre 2026</span><span>›</span></div>
+    <div class="mini-cal"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span>
+      <span class="s">13</span><span class="s">14</span><span>15</span><span class="s">16</span><span class="s">17</span><span>18</span><span>19</span></div>
+  </div>
+</section>
+
+<section class="cas">
+  <h2>6. Profil → Bio</h2>
+  <p class="leg">La feuille d'aujourd'hui, avec une phrase d'aide qui dit le vrai. Elle remplace « Elle ne sera visible que le jour où le social existera… ».</p>
+  <div class="tel">
+    <div class="voile"><div class="feuille">
+      <div class="feuille-t">Bio</div>
+      <div class="champ-e">Deux lignes sur toi</div>
+      <div class="champ">Le créateur</div>
+      <div class="compte">11 / 280</div>
+      <div class="aide nouv">Tes abonnés et les membres de ta guilde la voient sur ton profil.</div>
+      <div class="pied"><span class="sec">Annuler</span><span class="pri">Enregistrer</span></div>
+    </div></div>
+  </div>
+</section>
+
+</div>
+
+<section class="decis">
+  <h2>Ce qu'il faut valider</h2>
+
+  <div class="d"><b class="n">1</b><div>
+    <p><strong>Qui voit la bio : tes abonnés acceptés (mutuels compris), les membres de ta guilde, et toi.</strong> L'inconnu ne la voit pas, même si ton compte est public.</p>
+    <p>C'est ton choix du 22/10, « amis et guilde ». Instagram et Strava montrent la bio à tout le monde ; chez nous, le cercle de l'inconnu est déjà réduit au pseudo, au blason et au niveau, et une bio peut dire plus qu'on ne croit (ville, salle, travail).</p>
+  </div></div>
+
+  <div class="tab"><table>
+    <tr><th>Qui regarde</th><th>Bio</th><th>Séances</th></tr>
+    <tr><td>Toi</td><td class="oui">oui</td><td class="oui">oui</td></tr>
+    <tr><td>Mutuel</td><td class="oui">oui</td><td class="oui">oui, en détail</td></tr>
+    <tr><td>Abonné accepté</td><td class="oui">oui</td><td class="oui">calendrier, résumé</td></tr>
+    <tr><td>Même guilde, pas abonné</td><td class="oui">oui</td><td class="non">non</td></tr>
+    <tr><td>Demande en attente</td><td class="non">non</td><td class="non">non</td></tr>
+    <tr><td>Inconnu</td><td class="non">non</td><td class="non">non</td></tr>
+    <tr><td>Bloqué, dans un sens ou l'autre</td><td class="non">profil invisible</td><td class="non">profil invisible</td></tr>
+  </table></div>
+
+  <div class="d"><b class="n">2</b><div>
+    <p><strong>La base décide, pas l'écran.</strong> <code>social_profil</code> rend une colonne <code>bio</code>, nulle hors de ces cercles. Comme pour les séances, la règle est d'abord en base : une app modifiée ne pourrait pas lire une bio qu'on ne lui envoie pas.</p>
+    <p>Une migration v2_105, avec essai à blanc. Le type de retour change, donc la fonction se recrée avec ses droits (authenticated oui, anon non), vérifiés après.</p>
+  </div></div>
+
+  <div class="d"><b class="n">3</b><div>
+    <p><strong>Le texte s'affiche en entier</strong>, retours à la ligne compris, sans « voir plus » : 280 caractères tiennent en six lignes sur un téléphone. En blanc, pas en gris : ce sont les mots de la personne, pas un libellé de l'app.</p>
+  </div></div>
+
+  <div class="d"><b class="n">4</b><div>
+    <p><strong>Le point 5 du prompt 136 sort du 136.</strong> Il écrivait une phrase provisoire (« Pour l'instant, personne ne la voit ») qui ne vivrait qu'une PR. Le 137 écrit directement la bonne, celle du cas 6.</p>
+  </div></div>
+
+  <div class="q">
+    <p><strong>Une question, avec ma recommandation.</strong> Ta décision disait « selon la visibilité bio du profil ». Cette colonne, <code>visibility_bio</code>, existe en base mais aucun écran du v2 ne la montre, et aucune fonction ne la lit. Ses valeurs viennent du v1 : « public » chez toi, « mutuels » chez Léa et Alexis, « privé » chez les autres. Personne ne les a choisies dans cette app.</p>
+    <p style="margin-top:8px">Je recommande de <strong>ne pas la suivre</strong> : un réglage invisible qui cache ou montre ta bio sans que tu le saches contredit « une décision de l'utilisateur ne s'efface jamais en silence ». La règle des cercles ci-dessus suffit. Si un jour quelqu'un veut cacher sa bio, il la vide. La colonne rejoint la liste « noté pour plus tard », avec les cinq autres réglages de visibilité du v1.</p>
+  </div>
+</section>
+</div>

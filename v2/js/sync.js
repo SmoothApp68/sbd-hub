@@ -42,7 +42,11 @@
   //     première correction de séance les écrirait à null — c'est-à-dire le
   //     défaut qu'on vient de corriger, rejoué depuis le cache. Incrémenter
   //     REPARE les appareils existants sans qu'ils aient rien à faire.
-  var VERSION_SYNC = 4;
+  // 5 — la liste des colonnes LUES s'élargit encore (prompt 131, v2_101) : `denivele_m` et
+  //     `etages`. Un cache existant porte des séries SANS ces colonnes ; une passe complète,
+  //     une fois, les redescend — un D+ posé depuis un autre appareil avant la mise à jour
+  //     ne resterait pas invisible derrière un curseur incrémental déjà au maximum.
+  var VERSION_SYNC = 5;
 
   // Un marqueur de version plutôt qu'un drapeau à usage unique : il est
   // idempotent, il survit aux rechargements, et le prochain défaut de ce genre

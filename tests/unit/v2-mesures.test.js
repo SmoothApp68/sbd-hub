@@ -130,7 +130,7 @@ describe('1 — chaque mesure rend ses colonnes, et SEULEMENT les siennes', () =
 
   test('le type de mesure est rappelé sous le nom de l’exercice', () => {
     expect(blocs().map((b) => b.type)).toEqual([
-      'CHARGE × REPS', 'REPS SEULES', 'DURÉE', 'DISTANCE ET DURÉE'
+      'CHARGE × REPS', 'REPS SEULES', 'DURÉE', 'DURÉE · DISTANCE'
     ]);
   });
 });

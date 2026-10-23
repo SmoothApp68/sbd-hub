@@ -397,27 +397,58 @@
   // ── Les noms ────────────────────────────────────────────────────────────
   //
   // Un nom se cherche, sans accents ni casse, dans le catalogue
-  // (`exercises.nom`), puis dans les noms communs (`exercise_alias`), puis
-  // dans les rattachements de la personne (`alias_exercice`). Le premier
-  // trouvé fait foi.
+  // (`exercises.nom`), puis dans les rattachements de la personne
+  // (`alias_exercice`), puis dans les noms communs (`exercise_alias`). Le
+  // premier trouvé fait foi. 137 (audit du 16/10, 03 #13) : ce que la personne
+  // a rattachée elle-même passe avant un nom commun — un nom commun ne défait
+  // jamais un choix de la personne.
   //   `sources` : { catalogue: [{ slug, nom }], communs: [{ alias, slug }],
   //                 miens: [{ alias, exercise_slug }] }
+  //
+  // 141 — LA PONCTUATION NE COMPTE PLUS. Chaque niveau garde deux tables : le nom
+  // à la lettre de la base (`norme`, comme avant) et le nom REPLIÉ (`cle` :
+  // « Developpe couche - barre » = « Développé Couché (Barre) »). Par niveau,
+  // l'exact passe avant le replié ; entre niveaux, l'ordre du 137 tient (un
+  // « mien » l'emporte sur un commun, même replié). Deux exercices DIFFÉRENTS du
+  // même niveau sur la même clé : clé ambiguë, le nom reste « à rattacher »
+  // (un nom inconnu n'est jamais deviné) — et un niveau plus bas ne tranche pas.
+  var AMBIGU = { ambigu: true };
+  // La clé repliée : celle de la recherche du catalogue (`Routines.replier`),
+  // atteinte, jamais recopiée.
+  function cle(s) { return racine.THRoutines.replier(s); }
+
   function indexDesNoms(sources) {
-    var s = sources || {}, index = {};
-    var poser = function (nom, slug) {
-      var k = norme(nom);
-      if (!k || !slug || Object.prototype.hasOwnProperty.call(index, k)) return;
-      index[k] = slug;
+    var s = sources || {};
+    var niveaux = [{ exact: {}, replie: {} }, { exact: {}, replie: {} }, { exact: {}, replie: {} }];
+    var a = Object.prototype.hasOwnProperty;
+    var poser = function (n, nom, slug) {
+      var k = norme(nom), c = cle(nom);
+      if (!k || !slug) return;
+      var niv = niveaux[n];
+      if (!a.call(niv.exact, k)) niv.exact[k] = slug;
+      if (c) {
+        if (!a.call(niv.replie, c)) niv.replie[c] = slug;
+        else if (niv.replie[c] !== slug) niv.replie[c] = AMBIGU;
+      }
     };
-    (s.catalogue || []).forEach(function (e) { if (e) poser(e.nom, e.slug); });
-    (s.communs || []).forEach(function (a) { if (a) poser(a.alias, a.slug); });
-    (s.miens || []).forEach(function (a) { if (a) poser(a.alias, a.exercise_slug); });
-    return index;
+    (s.catalogue || []).forEach(function (e) { if (e) poser(0, e.nom, e.slug); });
+    (s.miens || []).forEach(function (m) { if (m) poser(1, m.alias, m.exercise_slug); });
+    (s.communs || []).forEach(function (m) { if (m) poser(2, m.alias, m.slug); });
+    return { niveaux: niveaux };
   }
 
   function slugDuNom(index, nom) {
-    var k = norme(nom);
-    return Object.prototype.hasOwnProperty.call(index || {}, k) ? index[k] : null;
+    var niveaux = (index && index.niveaux) || [];
+    var a = Object.prototype.hasOwnProperty;
+    var k = norme(nom), c = cle(nom);
+    for (var i = 0; i < niveaux.length; i++) {
+      if (a.call(niveaux[i].exact, k)) return niveaux[i].exact[k];
+      if (c && a.call(niveaux[i].replie, c)) {
+        var v = niveaux[i].replie[c];
+        return v === AMBIGU ? null : v;
+      }
+    }
+    return null;
   }
 
   // La séance lue, avec son heure universelle et ses exercices résolus
@@ -563,7 +594,11 @@
         exercise_slug: slug, note: e.note, groupe_superset: e.groupe_superset,
         series: e.series.map(function (x) {
           rang++;
-          return {
+          // Prompt 131 — Hevy n'exporte ni D+ ni étages : toutes les colonnes de mesure partent à
+          // `null` (la table des champs, `colonnesDeSerie`), puis celles que Hevy porte.
+          var vides = {};
+          Mo().colonnesDeSerie().forEach(function (c) { vides[c] = null; });
+          return Object.assign(vides, {
             id: ids.serie(rang), source: 'hevy', type_serie: x.type_serie,
             charge_kg: x.charge_kg, reps: x.reps, duree_s: x.duree_s, distance_m: x.distance_m,
             // `sets_rpe_ok` : 0 < rpe ≤ 10. Hors de là, la ligne serait refusée
@@ -571,7 +606,7 @@
             rpe: typeof x.rpe === 'number' && x.rpe > 0 && x.rpe <= 10 ? x.rpe : null,
             ressenti: null, note: null, validee_a: null, repos_s: null,
             rang_origine: rang
-          };
+          });
         })
       });
     });

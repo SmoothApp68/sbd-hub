@@ -131,8 +131,16 @@ function neuveBase() {
 function salleConforme(v, avantV2095) {
   if (v === null) return true;
   if (typeof v !== 'object' || Array.isArray(v)) return false;
-  if (Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres'].indexOf(k) < 0)) return false;
+  // 132 (`v2_099`, `v2_102`) — les élastiques : `elastiques` [{nom, kg?}], `mini_bandes` [{nom}], `elastiques_par_nom`.
+  if (Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres', 'elastiques', 'elastiques_par_nom',
+    'mini_bandes'].indexOf(k) < 0)) return false;
   const demi = (x) => typeof x === 'number' && Math.floor(x * 2) === x * 2;
+  const liste = (x, cles) => x === undefined || (Array.isArray(x) && x.length <= 10 && x.every((e) => e &&
+    typeof e === 'object' && !Array.isArray(e) && Object.keys(e).every((k) => cles.indexOf(k) >= 0) &&
+    typeof e.nom === 'string' && /^[^ ](.{0,28}[^ ])?$/.test(e.nom) &&
+    (e.kg === undefined || e.kg === null || (demi(e.kg) && e.kg >= 0.5 && e.kg <= 100))));
+  if (!liste(v.elastiques, ['nom', 'kg']) || !liste(v.mini_bandes, ['nom'])) return false;
+  if (v.elastiques_par_nom !== undefined && typeof v.elastiques_par_nom !== 'boolean') return false;
   const barres = (l) => l === undefined || (Array.isArray(l) && l.length <= 20 &&
     l.every((x) => typeof x === 'number' && x >= 1 && x <= 100 && Math.floor(x * 2) === x * 2));
   if (!barres(v.barres_ez) || !barres(v.barres_droites)) return false;
@@ -152,14 +160,28 @@ function salleConforme(v, avantV2095) {
 
 async function contexte(nav, bd, o) {
   const opt = o || {};
-  const ctx = await nav.newContext({ viewport: { width: 380, height: 760 }, serviceWorkers: 'block' });
+  // 138 — `agent` : l'agent du navigateur (l'iPhone se simule par l'agent et `maxTouchPoints`, jamais autrement) ;
+  // `script` : un script posé avant la page (`navigator.standalone`, la plateforme d'un iPad qui se dit Mac).
+  const ctx = await nav.newContext(Object.assign({ viewport: { width: 380, height: 760 }, serviceWorkers: 'block' },
+    opt.agent ? { userAgent: opt.agent } : {}));
+  if (opt.script) await ctx.addInitScript(opt.script);
   // Le stockage de départ — posé UNE fois par onglet (le rechargement ne le repose pas).
   await ctx.addInitScript((s) => {
     if (sessionStorage.getItem('__graine')) return;
     sessionStorage.setItem('__graine', '1');
     if (s) localStorage.setItem('th-v2-auth', s);
   }, opt.stockage ? JSON.stringify(opt.stockage) : null);
+  // 135 — chaque requête est comptée en vol jusqu'à sa réponse (`calme`). Sauf celles que le banc fait PENDRE
+  // exprès (`userPend`, `rpcPend`) : elles ne répondent jamais, et le calme se mesure sans elles.
   await ctx.route(/supabase\.co/, async (route) => {
+    const r = route.request(), ch = new URL(r.url()).pathname;
+    const pend = (bd.userPend && ch === '/auth/v1/user' && r.method() === 'GET') ||
+      (bd.rpcPend && ch.indexOf('/rest/v1/rpc/pseudo_libre') === 0);
+    if (pend) return traiter(route);
+    bd.enVol = (bd.enVol || 0) + 1; bd.dernier = Date.now();
+    try { return await traiter(route); } finally { bd.enVol--; bd.dernier = Date.now(); }
+  });
+  async function traiter(route) {
     const req = route.request();
     const url = new URL(req.url());
     const chemin = url.pathname;
@@ -296,7 +318,7 @@ async function contexte(nav, bd, o) {
     }
     if (req.method() === 'GET') return json(objet ? null : []);
     return json([], 201);
-  });
+  }
   return ctx;
 }
 
@@ -304,10 +326,34 @@ async function attendreQue(page, cond, ms) {
   const fin = Date.now() + (ms || 12000);
   while (Date.now() < fin) {
     if (await cond()) return true;
-    await attendre(200);
+    await attendre(200);   // le pas d'une boucle d'attente d'état (pas un délai fixe)
   }
   return false;
 }
+
+// ── 135 — L'ÉTAT, PAS LA DURÉE ────────────────────────────────────────────────
+// Les délais fixes de ce banc « laissaient finir ce qui part encore » ou laissaient une feuille s'ouvrir. Ils
+// deviennent l'attente de l'état que le contrôle suivant lit :
+//   · `calme` : la base de papier n'a plus rien en vol, et rien depuis 400 ms ; puis l'écran est peint ;
+//   · `feuilleOuverte` / `feuilleFermee` : la feuille du Profil, avec son contenu ;
+//   · `rendu` : deux images peintes — la réaction synchrone d'un geste dans la feuille est à l'écran.
+// Gardés, commentés « VOULU » : ceux qui constatent qu'un envoi N'A PAS lieu après un évènement sans effet
+// visible (`online`) — aucun état de l'app ne dit « je n'enverrai rien », seul le temps le constate.
+const rendu = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))).catch(() => {});
+const calme = async (page, bd, ms) => {
+  await attendreQue(page, () => (bd.enVol || 0) === 0 && Date.now() - (bd.dernier || 0) >= 400, ms || 20000);
+  await rendu(page);
+};
+const feuilleOuverte = (page) => attendreQue(page, () => page.evaluate(() => {
+  const f = document.querySelector('#feuille-seance'), c = document.querySelector('#feuille-contenu');
+  return !!f && !f.hidden && !!c && c.children.length > 0;
+}), 10000);
+const feuilleFermee = (page) => attendreQue(page, () => page.evaluate(() => {
+  const f = document.querySelector('#feuille-seance'); return !f || f.hidden;
+}), 10000);
+const versInscription = (page) => attendreQue(page, () => page.evaluate(() => {
+  const p = document.querySelector('#env-pseudo'); return !!p && !p.hidden;
+}), 10000);
 
 // ── 60-3b — l'inscription AVEC confirmation d'e-mail ────────────────────────
 // Le pseudo tapé n'est pas déjà normalisé : le contrôle de la ligne discrimine aussi la normalisation.
@@ -324,14 +370,14 @@ async function inscrireSansSession(nav, bd) {
   await attendreQue(page, () => page.evaluate(() => {
     const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; }), 15000);
   await page.click('#btn-bascule-entree');
-  await attendre(300);
+  await versInscription(page);
   await page.fill('#champ-pseudo', PSEUDO_TAPE);
   await page.fill('#champ-email', 'b@banc.test');
   await page.fill('#champ-mdp', 'motdepasse123');
   await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
   await page.click('#btn-connexion');
   await attendreQue(page, () => bd.inscriptions.length > 0, 15000);
-  await attendre(800);     // laisse le message s'écrire
+  await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
   const message = await page.evaluate(() => document.querySelector('#erreur-connexion').textContent);
   const jeton = await page.evaluate(() => localStorage.getItem('th-v2-auth'));
   // 70 — « Mot de passe oublié ? » visible, juste sous la phrase.
@@ -373,7 +419,7 @@ const feuilleSaisie = (page) => page.evaluate(() => {
 // Ouvre la feuille « Pseudo », y tape `pseudo`, touche « Valider ».
 async function taperPseudo(page, pseudo) {
   await cliquerLigne(page, 'Pseudo');
-  await attendre(400);
+  await feuilleOuverte(page);
   await page.fill('#feuille-contenu input', pseudo);
   await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
     .filter((b) => b.textContent === 'Valider')[0].click());
@@ -389,7 +435,7 @@ const baseSansPseudo = () => {
 const PHRASE_PRIS = 'Ce pseudo vient d’être pris : choisis-en un autre.';
 const choisirObjectif = async (page, cle) => {
   await cliquerLigne(page, 'Objectif');
-  await attendre(500);
+  await feuilleOuverte(page);
   await page.click('#feuille-contenu .feuille-menu button[data-cle="' + cle + '"]');
 };
 const ouvrirProfilDe = async (nav, bd) => {
@@ -399,7 +445,7 @@ const ouvrirProfilDe = async (nav, bd) => {
   page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
   await page.goto(BASE + '/profil', { waitUntil: 'domcontentloaded' });
   await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 15000);
-  await attendre(1200);     // l'entrée va jusqu'au bout (profil lu, questionnaire écarté)
+  await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
   return { ctx, page, erreurs };
 };
 
@@ -428,14 +474,14 @@ function ok(nom, cond, detail) {
       const surProfil = await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#btn-deconnexion')), 15000);
       ok('prémisse — A est connecté, son profil s’affiche', surProfil);
       await page.click('#btn-deconnexion');
-      await attendre(500);
+      await feuilleOuverte(page);
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .filter((b) => b.textContent === 'Quitter')[0].click());
       const surConnexion = await attendreQue(page, () => page.evaluate(() => !document.querySelector('#vue-connexion').hidden), 10000);
       ok('« Quitter » ramène sur l’écran de connexion', surConnexion);
       const avantB = bd.requetes.length;
       await page.click('#btn-bascule-entree');
-      await attendre(300);
+      await versInscription(page);
       await page.fill('#champ-pseudo', 'test_0710');
       await page.fill('#champ-email', 'b@banc.test');
       await page.fill('#champ-mdp', 'motdepasse123');
@@ -467,7 +513,7 @@ function ok(nom, cond, detail) {
       const lien = BASE + '/#access_token=' + jwt(B) + '&expires_in=3600&refresh_token=r-' + B + '&token_type=bearer&type=signup';
       await page.goto(lien, { waitUntil: 'domcontentloaded' });
       const cree = await attendreQue(page, () => !!bd.profils[B], 15000);
-      await attendre(1500);     // laisse finir ce qui part encore (l'entrée de A, ses lectures)
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       ok('DISCRIMINANT — la ligne de B est créée', cree, JSON.stringify(bd.requetes));
       ok('DISCRIMINANT — du PREMIER coup : aucune création refusée (jamais l’identifiant de A sous le jeton de B)',
         bd.refus.length === 0, JSON.stringify(bd.refus));
@@ -494,15 +540,15 @@ function ok(nom, cond, detail) {
       await page.goto(BASE + '/profil', { waitUntil: 'domcontentloaded' });
       const surProfil = await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 15000);
       ok('prémisse — A est connecté, son profil s’affiche', surProfil);
-      await attendre(1500);     // l'entrée de A va jusqu'au bout
+      await calme(page, bd);     // l'entrée de A va jusqu'au bout (135 : l'état, plus 1,5 s)
       const avant = bd.requetes.length;
       await page.evaluate((s) => localStorage.setItem('th-v2-auth', s), JSON.stringify(sessionDe(B)));
       await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
         .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Objectif') === 0)[0].click());
-      await attendre(500);
+      await feuilleOuverte(page);
       await page.click('#feuille-contenu .feuille-menu button[data-cle="force"]');
       await attendreQue(page, () => !!bd.profils[B], 12000);
-      await attendre(1500);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       const apres = bd.requetes.slice(avant);
       ok('DISCRIMINANT — aucune écriture de profil sous l’identifiant de A avec le jeton de B (pas de 403)',
         bd.refus.length === 0 && apres.every((q) => q.id === q.sub), JSON.stringify(apres));
@@ -549,7 +595,7 @@ function ok(nom, cond, detail) {
         const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; }), 15000);
       ok('prémisse — page vierge : l’écran de connexion s’affiche, personne n’est connecté', surConnexion);
       await page.click('#btn-bascule-entree');
-      await attendre(300);
+      await versInscription(page);
       await page.fill('#champ-pseudo', 'test_0710');
       await page.fill('#champ-email', 'b@banc.test');
       await page.fill('#champ-mdp', 'motdepasse123');
@@ -585,7 +631,7 @@ function ok(nom, cond, detail) {
       page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
       await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
       const cree = await attendreQue(page, () => !!bd.profils[B], 15000);
-      await attendre(1000);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       ok('la ligne de B est créée par la page neuve', cree, JSON.stringify(bd.requetes));
       ok('DISCRIMINANT — la ligne de B porte le PSEUDO de l’inscription, repris des données du compte',
         !!bd.profils[B] && bd.profils[B].username === PSEUDO_NORMALISE, JSON.stringify(bd.profils[B]));
@@ -616,7 +662,7 @@ function ok(nom, cond, detail) {
       await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
       await page.click('#btn-connexion');
       const cree = await attendreQue(page, () => !!bd.profils[B], 15000);
-      await attendre(1000);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       ok('la ligne de B est créée à la première connexion', cree, JSON.stringify(bd.requetes));
       ok('DISCRIMINANT — elle porte le PSEUDO de l’inscription, repris des données du compte',
         !!bd.profils[B] && bd.profils[B].username === PSEUDO_NORMALISE, JSON.stringify(bd.profils[B]));
@@ -639,7 +685,7 @@ function ok(nom, cond, detail) {
       page.on('console', (m) => { if (m.type() === 'warning' && /Pseudo déjà pris/.test(m.text())) avertissements.push(m.text().slice(0, 200)); });
       await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
       const cree = await attendreQue(page, () => !!bd.profils[B], 15000);
-      await attendre(1000);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       ok('prémisse — l’inscription a bien déposé le pseudo dans les données du compte',
         !!bd.inscriptions[0] && bd.inscriptions[0].data && bd.inscriptions[0].data.pseudo === PSEUDO_NORMALISE, JSON.stringify(bd.inscriptions));
       ok('DISCRIMINANT — la ligne de B est créée quand même, SANS pseudo (le 23505 est repris, pas avalé)',
@@ -651,7 +697,7 @@ function ok(nom, cond, detail) {
 
       await page.goto(BASE + '/profil', { waitUntil: 'domcontentloaded' });
       await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 15000);
-      await attendre(500);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       const l1 = await lignePseudoDuProfil(page);
       ok('DISCRIMINANT — la ligne « Pseudo » du Profil dit « Ce pseudo vient d’être pris : choisis-en un autre. »',
         !!l1 && l1.lib.indexOf('Ce pseudo vient d’être pris : choisis-en un autre.') >= 0, JSON.stringify(l1));
@@ -659,7 +705,7 @@ function ok(nom, cond, detail) {
 
       await page.reload({ waitUntil: 'domcontentloaded' });
       await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 15000);
-      await attendre(500);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       const l2 = await lignePseudoDuProfil(page);
       ok('la phrase est retenue d’une ouverture à l’autre (rechargement)',
         !!l2 && l2.lib.indexOf('Ce pseudo vient d’être pris') >= 0, JSON.stringify(l2));
@@ -667,12 +713,12 @@ function ok(nom, cond, detail) {
       // Un pseudo se pose : la phrase s'en va.
       await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
         .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Pseudo') === 0)[0].click());
-      await attendre(500);
+      await feuilleOuverte(page);
       await page.fill('#feuille-contenu input', 'melodie_b');
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
         .filter((b) => b.textContent === 'Valider')[0].click());
       const pose = await attendreQue(page, () => bd.profils[B] && bd.profils[B].username === 'melodie_b', 12000);
-      await attendre(500);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       const l3 = await lignePseudoDuProfil(page);
       ok('un autre pseudo se pose depuis le Profil : la ligne de B le porte', pose, JSON.stringify(bd.profils[B]));
       ok('DISCRIMINANT — la phrase disparaît une fois un pseudo posé, la ligne montre le pseudo',
@@ -688,7 +734,9 @@ function ok(nom, cond, detail) {
       const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
       const avant = bd.tentatives;
       await taperPseudo(page, 'Deja_Pris');
-      await attendre(900);
+      // 135 — la question est partie et revenue (la feuille la rend), plus 900 ms.
+      await attendreQue(page, () => bd.questions.length > 0, 10000);
+      await calme(page, bd);
       const f = await feuilleSaisie(page);
       ok('prémisse — la feuille a posé la question de la base, avec le pseudo normalisé', bd.questions.join() === 'deja_pris', JSON.stringify(bd.questions));
       ok('DISCRIMINANT — la feuille RESTE OUVERTE et dit « Déjà pris — essaie « … » ou « … ». »',
@@ -707,7 +755,7 @@ function ok(nom, cond, detail) {
         await taperPseudo(page, 'melodie_b');
       }
       const pose = await attendreQue(page, () => bd.profils[B].username === 'melodie_b', 12000);
-      await attendre(500);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       const f2 = await feuilleSaisie(page), l2 = await lignePseudoDuProfil(page);
       ok('un pseudo LIBRE se pose depuis la même feuille : la ligne de B le porte', pose, JSON.stringify(bd.profils[B]));
       ok('la feuille est fermée et la ligne « Pseudo » montre le pseudo', !f2.ouverte && !!l2 && l2.val === 'melodie_b', JSON.stringify([f2, l2]));
@@ -723,9 +771,11 @@ function ok(nom, cond, detail) {
       const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
       bd.reseauCoupe = true;
       await choisirObjectif(page, 'force');                 // une réponse du questionnaire, hors ligne
-      await attendre(700);
+      await feuilleFermee(page);                            // 135 — la feuille du choix s'est refermée
+      await calme(page, bd);
       await taperPseudo(page, 'Deja_Pris');                 // la question ne passe pas : « on ne sait pas »
-      await attendre(1200);
+      await feuilleFermee(page);                            // 135 — « on ne sait pas » : la feuille se ferme (la prémisse)
+      await calme(page, bd);
       const f = await feuilleSaisie(page), l1 = await lignePseudoDuProfil(page);
       ok('prémisse — hors ligne, la feuille se ferme (on ne sait pas) : le pseudo se montre posé, en local',
         !f.ouverte && !!l1 && l1.val === 'deja_pris', JSON.stringify([f, l1]));
@@ -737,7 +787,7 @@ function ok(nom, cond, detail) {
       const avant = bd.requetes.length;
       await page.evaluate(() => window.dispatchEvent(new Event('online')));       // le téléphone retrouve le réseau
       const resolu = await attendreQue(page, () => bd.requetes.length - avant >= 2, 12000);
-      await attendre(800);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       const envois = bd.requetes.slice(avant);
       ok('DISCRIMINANT — DEUX envois au retour : le premier (avec le pseudo) refusé en 409, le second (sans) accepté en 201',
         resolu && JSON.stringify(envois.map((q) => [q.statut, q.aPseudo])) === '[[409,true],[201,false]]', JSON.stringify(envois));
@@ -750,11 +800,13 @@ function ok(nom, cond, detail) {
       // Aucun rejeu : le profil ne repart plus tout seul.
       const total = bd.tentatives;
       await page.evaluate(() => window.dispatchEvent(new Event('online')));
+      // VOULU (135) : on constate qu'un envoi N'A PAS lieu. Aucun état de l'app ne dit « je n'enverrai rien » ;
+      // seul un temps laissé à l'envoi fautif pour partir le constate.
       await attendre(1500);
       ok('PAS DE REJEU SANS FIN : un nouveau retour du réseau n’envoie plus rien (plus rien n’attend)', bd.tentatives === total, bd.tentatives + ' / ' + total);
       await page.reload({ waitUntil: 'domcontentloaded' });
       await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 15000);
-      await attendre(800);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       const l3 = await lignePseudoDuProfil(page);
       ok('la phrase est retenue d’une ouverture à l’autre (rechargement)',
         !!l3 && l3.lib.indexOf(PHRASE_PRIS) >= 0, JSON.stringify(l3));
@@ -770,11 +822,11 @@ function ok(nom, cond, detail) {
       const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
       await choisirObjectif(page, 'force');
       await attendreQue(page, () => bd.profils[B].objectif === 'force', 12000);
-      await attendre(500);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       const avant = bd.requetes.length;
       await taperPseudo(page, 'Deja_Pris');
       const resolu = await attendreQue(page, () => bd.requetes.length - avant >= 2, 12000);
-      await attendre(800);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       const envois = bd.requetes.slice(avant);
       ok('la feuille s’est fermée sur le « libre » de la vérification', !(await feuilleSaisie(page)).ouverte);
       ok('DISCRIMINANT — DEUX envois : 409 avec le pseudo, puis 201 sans lui',
@@ -787,7 +839,7 @@ function ok(nom, cond, detail) {
       bd.rpcToujoursLibre = false;
       await taperPseudo(page, 'melodie_b');
       const pose = await attendreQue(page, () => bd.profils[B].username === 'melodie_b', 12000);
-      await attendre(500);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       const l2 = await lignePseudoDuProfil(page);
       ok('un pseudo libre se pose ensuite : la phrase s’en va', pose && !!l2 && l2.val === 'melodie_b' && l2.lib.indexOf('pris') < 0, JSON.stringify(l2));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
@@ -802,14 +854,15 @@ function ok(nom, cond, detail) {
       const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
       bd.reseauCoupe = true;
       await taperPseudo(page, 'Deja_Pris');
-      await attendre(1200);
+      await feuilleFermee(page);                            // 135 — l'état, plus 1,2 s
+      await calme(page, bd);
       const l1 = await lignePseudoDuProfil(page);
       ok('prémisse — hors ligne, la ligne montre le nouveau pseudo, posé en local', !!l1 && l1.val === 'deja_pris', JSON.stringify(l1));
       bd.reseauCoupe = false;
       const avant = bd.requetes.length;
       await page.evaluate(() => window.dispatchEvent(new Event('online')));
       const resolu = await attendreQue(page, () => bd.requetes.length - avant >= 2, 12000);
-      await attendre(800);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       ok('DEUX envois au retour : 409 avec le pseudo, puis 201 sans lui ; la base garde l’ancien pseudo',
         resolu && JSON.stringify(bd.requetes.slice(avant).map((q) => [q.statut, q.aPseudo])) === '[[409,true],[201,false]]' &&
           bd.profils[B].username === 'ancien', JSON.stringify([bd.requetes.slice(avant), bd.profils[B]]));
@@ -818,12 +871,12 @@ function ok(nom, cond, detail) {
         !!l2 && l2.val === 'ancien' && l2.lib.indexOf(PHRASE_PRIS) >= 0, JSON.stringify(l2));
       await page.reload({ waitUntil: 'domcontentloaded' });
       await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 15000);
-      await attendre(800);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       const l3 = await lignePseudoDuProfil(page);
       ok('la phrase est retenue d’une ouverture à l’autre', !!l3 && l3.val === 'ancien' && l3.lib.indexOf(PHRASE_PRIS) >= 0, JSON.stringify(l3));
       await taperPseudo(page, 'nouveau_pseudo');
       const pose = await attendreQue(page, () => bd.profils[B].username === 'nouveau_pseudo', 12000);
-      await attendre(500);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       const l4 = await lignePseudoDuProfil(page);
       ok('choisir un pseudo libre : la base le porte, la phrase s’en va', pose && !!l4 && l4.val === 'nouveau_pseudo' && l4.lib.indexOf('pris') < 0, JSON.stringify([bd.profils[B], l4]));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
@@ -837,9 +890,11 @@ function ok(nom, cond, detail) {
       const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
       bd.reseauCoupe = true;
       await choisirObjectif(page, 'force');
-      await attendre(700);
+      await feuilleFermee(page);                            // 135 — l'état, plus 700 ms
+      await calme(page, bd);
       await taperPseudo(page, 'melodie_b');
-      await attendre(1200);
+      await feuilleFermee(page);                            // 135 — l'état, plus 1,2 s
+      await calme(page, bd);
       const l1 = await lignePseudoDuProfil(page);
       ok('hors ligne : la feuille se ferme et la ligne montre le pseudo, posé en local', !(await feuilleSaisie(page)).ouverte && !!l1 && l1.val === 'melodie_b', JSON.stringify(l1));
       ok('rien n’est arrivé en base tant que le réseau manque', bd.profils[B].username === null && !bd.profils[B].objectif, JSON.stringify(bd.profils[B]));
@@ -847,7 +902,7 @@ function ok(nom, cond, detail) {
       const avant = bd.requetes.length;
       await page.evaluate(() => window.dispatchEvent(new Event('online')));
       const resolu = await attendreQue(page, () => bd.profils[B].username === 'melodie_b', 12000);
-      await attendre(500);
+      await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
       const envois = bd.requetes.slice(avant);
       ok('au retour du réseau, le pseudo ET la réponse arrivent, en UN envoi', resolu && bd.profils[B].objectif === 'force' &&
         JSON.stringify(envois.map((q) => [q.statut, q.aPseudo])) === '[[201,true]]', JSON.stringify([bd.profils[B], envois]));
@@ -889,7 +944,7 @@ function ok(nom, cond, detail) {
         const ouverte = await attendreQue(page, async () => /Choisis ton nouveau mot de passe/.test((await ecran(page)).feuille || ''), 15000);
         // La ligne de profil de B se crée (questionnaire jamais rempli) : il est DÛ, et il doit attendre derrière.
         await attendreQue(page, () => !!bd.profils[B], 12000);
-        await attendre(1500);
+        await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
         const e1 = await ecran(page);
         ok('DISCRIMINANT [E70 a] — l’app ENTRE (pas l’écran de connexion) et le jeton du lien est enregistré',
           !e1.connexion && e1.profil && !!(await page.evaluate(() => localStorage.getItem('th-v2-auth'))), JSON.stringify(e1));
@@ -908,11 +963,11 @@ function ok(nom, cond, detail) {
         const e2 = await ecran(page);
         ok('[E70 a] — validé : « Mot de passe changé. » dans le profil, la feuille est fermée',
           dit && e2.profil && e2.feuille === null, JSON.stringify([e2.feuille, e2.profilTexte.slice(0, 80)]));
-        await attendre(1500);     // `USER_UPDATED` : l'app ré-entre et re-rend le Profil — la phrase reste
+        await calme(page, bd);     // `USER_UPDATED` : l'app ré-entre et re-rend le Profil — la phrase reste (135 : l'état, plus 1,5 s)
         ok('[E70 a] — la phrase survit au re-rendu qui suit le changement', /Mot de passe changé\./.test((await ecran(page)).profilTexte));
         // La ligne « Mot de passe » du Profil, elle, garde son titre habituel (le clic n'est pas une récupération).
         await cliquerLigne(page, 'Mot de passe');
-        await attendre(400);
+        await feuilleOuverte(page);
         const e3 = await ecran(page);
         ok('[E70 a] — la ligne « Mot de passe » ouvre la feuille titrée « Mot de passe », pas celle de la récupération',
           /^Mot de passe/.test(e3.feuille || '') && !/Choisis/.test(e3.feuille || ''), JSON.stringify(e3.feuille));
@@ -932,7 +987,7 @@ function ok(nom, cond, detail) {
         await page.goto(lien('/profil', 'recovery'), { waitUntil: 'domcontentloaded' });
         await attendreQue(page, async () => /Choisis ton nouveau mot de passe/.test((await ecran(page)).feuille || ''), 15000);
         await attendreQue(page, () => !!bd.profils[B], 12000);
-        await attendre(1500);
+        await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
         ok('prémisse — la feuille est ouverte, le questionnaire dû attend', !(await ecran(page)).questionnaire && !!bd.profils[B]);
         await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
           .filter((b) => b.textContent === 'Annuler')[0].click());
@@ -1094,6 +1149,302 @@ function ok(nom, cond, detail) {
       }
     }
 
+
+    // ══ [138] IPHONE, L'ÉCRAN : INSTALLER TRAINHUB, ET LES RETOURS DE LIEN DANS SAFARI (ECRAN-PROFIL §3.5) ═══
+    console.log('\n══ [138] iPhone : l’encart de la connexion, la feuille, le bandeau de Saisie, la ligne du Profil, les retours de lien ══');
+    {
+      const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+      const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
+      const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
+      const tactile = (n) => 'Object.defineProperty(navigator,"platform",{get:()=>"MacIntel"});' +
+        'Object.defineProperty(navigator,"maxTouchPoints",{get:()=>' + n + '});';
+      const installee = 'Object.defineProperty(navigator,"standalone",{get:()=>true});';
+      const PH = {
+        connexion: ['Sur iPhone, installe TrainHub d’abord.', 'Puis ouvre-le depuis ton écran d’accueil et connecte-toi là.'],
+        saisie: ['Tu utilises TrainHub dans Safari.', 'Installé, il garde tes séances : Safari efface un site qu’on n’ouvre pas pendant 7 jours.'],
+        lien: ['C’est fait : ton adresse est confirmée.', 'Ouvre TrainHub depuis ton écran d’accueil et connecte-toi là. Pas encore installé ? Fais-le d’abord.'],
+        mdp: ['Ton mot de passe est changé.', 'Ouvre TrainHub depuis ton écran d’accueil et connecte-toi avec le nouveau.']
+      };
+      const bandeau = (page, id) => page.evaluate((i) => {
+        const n = document.querySelector('#' + i);
+        if (!n || n.hidden || !n.querySelector('.bandeau-reprise')) return null;
+        return { quoi: (n.querySelector('.reprise-quoi') || {}).textContent || '', sujet: (n.querySelector('.reprise-sujet') || {}).textContent || '',
+          boutons: Array.from(n.querySelectorAll('.reprise-actions button')).map((b) => b.textContent) };
+      }, id);
+      const toucher = (page, id, libelle) => page.evaluate((a) => Array.from(document.querySelectorAll('#' + a[0] + ' .reprise-actions button'))
+        .filter((b) => b.textContent === a[1])[0].click(), [id, libelle]);
+      const feuille = (page) => page.evaluate(() => {
+        const f = document.querySelector('#feuille-seance'), c = document.querySelector('#feuille-contenu');
+        if (!f || f.hidden) return null;
+        return { titre: (c.querySelector('.feuille-t') || {}).textContent || '',
+          etapes: Array.from(c.querySelectorAll('.installer-etape')).map((l) => ({ n: l.querySelector('.installer-n').textContent,
+            texte: l.querySelector('div').firstChild.textContent })),
+          sept: (c.querySelector('.aide-sept') || {}).textContent || '',
+          svg: !!c.querySelector('li svg.ico-part path'), image: !!c.querySelector('img'),
+          fermer: !!document.querySelector('#btn-fermer-feuille') && document.querySelector('#btn-fermer-feuille').textContent };
+      });
+      const lignesProfil = (page) => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .map((x) => [((x.querySelector('.p-lib') || {}).textContent || ''), ((x.querySelector('.p-val') || {}).textContent || '')]));
+      const dansLaPage = async (nav, bd, o, chemin, attente) => {
+        const ctx = await contexte(nav, bd, o);
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        await page.goto(BASE + chemin, { waitUntil: 'domcontentloaded' });
+        await attendreQue(page, () => page.evaluate(attente), 15000);
+        await calme(page, bd);
+        return { ctx, page, erreurs };
+      };
+      const connexionVue = () => { const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; };
+      const saisieVue = () => { const v = document.querySelector('#vue-saisie'); return !!v && !v.hidden; };
+      const profilVue = () => !!document.querySelector('#profil-corps .p-ligne');
+
+      // (1) l'encart de la connexion : iPhone oui (les deux modes), Android non, app installée non, iPad « Mac » oui, Mac non
+      console.log('   — (1) l’encart de la connexion');
+      {
+        const cas = [['iPhone', IPHONE, null, true], ['Android', ANDROID, null, false], ['iPhone installé (navigator.standalone)', IPHONE, installee, false],
+          ['iPad qui se dit Mac, tactile', MAC, tactile(5), true], ['Mac sans écran tactile', MAC, tactile(0), false]];
+        for (const [nom, agent, script, attendu] of cas) {
+          const bd = neuveBase();
+          const { ctx, page, erreurs } = await dansLaPage(nav, bd, { agent, script }, '/', connexionVue);
+          const b = await bandeau(page, 'encart-installer');
+          if (attendu) {
+            ok('DISCRIMINANT [138 1] — ' + nom + ' : l’encart dit les deux phrases au mot près, et « Comment faire » seul (pas de « Plus tard »)',
+              !!b && b.quoi === PH.connexion[0] && b.sujet === PH.connexion[1] && JSON.stringify(b.boutons) === '["Comment faire"]', JSON.stringify(b));
+            const place = await page.evaluate(() => { const f = document.querySelector('#form-connexion'), e = document.querySelector('#encart-installer');
+              return f.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING ? 'sous' : 'dessus'; });
+            ok('[138 1] — ' + nom + ' : l’encart est sous le formulaire', place === 'sous', place);
+          } else {
+            ok('DISCRIMINANT [138 1] — ' + nom + ' : AUCUN encart', b === null, JSON.stringify(b));
+          }
+          ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+          if (nom === 'iPhone') {
+            // les deux modes de l'entrée
+            await page.click('#btn-bascule-entree');
+            await versInscription(page);
+            const ins = await bandeau(page, 'encart-installer');
+            ok('[138 1] — iPhone, inscription : le même encart', !!ins && ins.quoi === PH.connexion[0], JSON.stringify(ins));
+            // (2) la feuille « Comment faire », depuis la connexion
+            await toucher(page, 'encart-installer', 'Comment faire');
+            await feuilleOuverte(page);
+            const f = await feuille(page);
+            ok('DISCRIMINANT [138 2] — la feuille : titre, trois étapes numérotées, la phrase des 7 jours, « Fermer » — au mot près',
+              !!f && f.titre === 'Installer TrainHub sur ton iPhone' && JSON.stringify(f.etapes.map((e) => e.n)) === '["1","2","3"]' &&
+              JSON.stringify(f.etapes.map((e) => e.texte)) === JSON.stringify(['Touche le bouton Partager, en bas de Safari.',
+                'Fais défiler et touche « Sur l’écran d’accueil ».', 'Touche « Ajouter », puis ouvre TrainHub depuis son icône et connecte-toi.']) &&
+              f.sept === 'Dans Safari, l’iPhone efface les données d’un site qu’on n’ouvre pas pendant 7 jours. Installé, TrainHub garde tes séances.' &&
+              f.fermer === 'Fermer', JSON.stringify(f));
+            ok('[138 2] — le pictogramme Partager est un SVG en ligne, pas une image', !!f && f.svg && !f.image, JSON.stringify(f));
+            await page.click('#btn-fermer-feuille');
+            ok('[138 2] — « Fermer » ferme la feuille', await feuilleFermee(page));
+          }
+          await ctx.close();
+        }
+      }
+
+      // (3) le bandeau de Saisie : iPhone connectée ; « Plus tard » 7 jours ; Android et app installée non
+      console.log('   — (3) le bandeau de Saisie');
+      {
+        const bd = neuveBase();
+        const { ctx, page, erreurs } = await dansLaPage(nav, bd, { agent: IPHONE, stockage: sessionDe(A) }, '/saisie', saisieVue);
+        await attendreQue(page, async () => !!(await bandeau(page, 'bandeau-installer')), 8000);
+        const b = await bandeau(page, 'bandeau-installer');
+        ok('DISCRIMINANT [138 4] — iPhone connectée : « Tu utilises TrainHub dans Safari. », Plus tard · Comment faire',
+          !!b && b.quoi === PH.saisie[0] && b.sujet === PH.saisie[1] && JSON.stringify(b.boutons) === '["Plus tard","Comment faire"]', JSON.stringify(b));
+        const ordre = await page.evaluate(() => {
+          const ids = ['bandeau-questionnaire', 'bandeau-phase', 'bandeau-installer'].map((i) => document.getElementById(i));
+          return ids.every((n) => !!n) && !!(ids[1].compareDocumentPosition(ids[2]) & Node.DOCUMENT_POSITION_FOLLOWING) &&
+            !!(ids[0].compareDocumentPosition(ids[2]) & Node.DOCUMENT_POSITION_FOLLOWING) &&
+            ids[2].parentNode.id === 'vue-saisie';
+        });
+        ok('[138 4] — dans la pile des bandeaux de Saisie, SOUS le questionnaire et la phase', ordre);
+        await toucher(page, 'bandeau-installer', 'Comment faire');
+        await feuilleOuverte(page);
+        ok('[138 4] — « Comment faire » ouvre la feuille', !!(await feuille(page)));
+        await page.click('#btn-fermer-feuille');
+        await feuilleFermee(page);
+        const avant = bd.requetes.length;
+        await toucher(page, 'bandeau-installer', 'Plus tard');
+        const cache = await attendreQue(page, async () => (await bandeau(page, 'bandeau-installer')) === null, 5000);
+        const cle = await page.evaluate(() => localStorage.getItem('th-v2-installer-plus-tard'));
+        ok('DISCRIMINANT [138 4] — « Plus tard » cache le bandeau et écrit l’instant sur l’appareil (localStorage), rien en base',
+          cache && Number(cle) > Date.now() - 60000 && bd.requetes.length === avant, String(cle));
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await attendreQue(page, () => page.evaluate(saisieVue), 15000);
+        await calme(page, bd);
+        ok('[138 4] — rechargé : il reste caché', (await bandeau(page, 'bandeau-installer')) === null);
+        // 6 jours 23 h : caché ; 7 jours et plus : il revient
+        for (const [jours, revient] of [[6.9, false], [7.1, true]]) {
+          await page.evaluate((j) => localStorage.setItem('th-v2-installer-plus-tard', String(Date.now() - j * 86400000)), jours);
+          await page.reload({ waitUntil: 'domcontentloaded' });
+          await attendreQue(page, () => page.evaluate(saisieVue), 15000);
+          await calme(page, bd);
+          const r = (await bandeau(page, 'bandeau-installer')) !== null;
+          ok('DISCRIMINANT [138 4] — « Plus tard » il y a ' + jours + ' jours : le bandeau ' + (revient ? 'REVIENT (7 jours écoulés)' : 'reste caché'), r === revient);
+        }
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+      {
+        // un stockage fermé (lecture qui lève) ne casse rien : on ne sait pas, le bandeau se montre
+        const bd = neuveBase();
+        const ferme = 'var g=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(k==="th-v2-installer-plus-tard")throw new Error("stockage fermé");return g.call(this,k);};';
+        const { ctx, page, erreurs } = await dansLaPage(nav, bd, { agent: IPHONE, stockage: sessionDe(A), script: ferme }, '/saisie', saisieVue);
+        await attendreQue(page, async () => !!(await bandeau(page, 'bandeau-installer')), 8000);
+        ok('[138 4] — un stockage fermé (lecture qui lève) : le bandeau se montre, aucune erreur de page', !!(await bandeau(page, 'bandeau-installer')) && erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+      for (const [nom, agent, script] of [['Android', ANDROID, null], ['iPhone installé', IPHONE, installee]]) {
+        const bd = neuveBase();
+        const { ctx, page, erreurs } = await dansLaPage(nav, bd, { agent, script, stockage: sessionDe(A) }, '/saisie', saisieVue);
+        ok('DISCRIMINANT [138 4] — ' + nom + ' : Saisie ne change pas, aucun bandeau', (await bandeau(page, 'bandeau-installer')) === null);
+        await page.goto(BASE + '/profil', { waitUntil: 'domcontentloaded' });
+        await attendreQue(page, () => page.evaluate(profilVue), 15000);
+        const l = await lignesProfil(page);
+        ok('DISCRIMINANT [138 7] — ' + nom + ' : le Profil ne change pas, aucune ligne « Installer »', l.length > 3 && !l.some((x) => /Installer/.test(x[0])), JSON.stringify(l.slice(0, 3)));
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // (4) la ligne du Profil
+      console.log('   — (4) la ligne du Profil');
+      {
+        const bd = neuveBase();
+        const { ctx, page, erreurs } = await dansLaPage(nav, bd, { agent: IPHONE, stockage: sessionDe(A) }, '/profil', profilVue);
+        const l = await lignesProfil(page);
+        const i = l.findIndex((x) => x[0] === 'Installer sur l’écran d’accueil');
+        ok('DISCRIMINANT [138 7] — iPhone : « Installer sur l’écran d’accueil », valeur « Comment faire », en tête de « L’APP » (avant le pseudo)',
+          i >= 0 && l[i][1] === 'Comment faire' && i + 1 < l.length && /Pseudo/.test(l[i + 1][0]), JSON.stringify(l.slice(Math.max(0, i - 1), i + 2)));
+        await cliquerLigne(page, 'Installer sur');
+        await feuilleOuverte(page);
+        const f = await feuille(page);
+        ok('[138 7] — elle ouvre la feuille « Comment faire »', !!f && f.titre === 'Installer TrainHub sur ton iPhone', JSON.stringify(f && f.titre));
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // (5) le retour d'un lien de confirmation, sur iPhone hors de l'app : l'écran du lien, et l'entrée attend
+      console.log('   — (5) le retour d’un lien de confirmation sur iPhone');
+      {
+        const lienSignup = BASE + '/#access_token=' + jwt(B) + '&expires_at=' + (Math.floor(Date.now() / 1000) + 3600) +
+          '&expires_in=3600&refresh_token=r-' + B + '&token_type=bearer&type=signup';
+        const bd = neuveBase();
+        // L'ORDRE RÉEL DES ÉVÉNEMENTS DU SDK : posé avant la page, relevé dans `window.__ordre`.
+        const releve = 'window.__ordre=[];var _t=0;Object.defineProperty(window,"THAuth",{configurable:true,get:function(){return _t;},set:function(v){' +
+          'if(v&&v.surChangement&&!v.__espion){var sc=v.surChangement,sk=v.sessionCourante;' +
+          'v.surChangement=function(r){return sc(function(s,e){window.__ordre.push("evt:"+e+":"+(s?"session":"null"));return r(s,e);});};' +
+          'v.sessionCourante=function(){return sk().then(function(x){window.__ordre.push("getSession:"+(x?"session":"null"));return x;});};v.__espion=1;}_t=v;}});';
+        const ctx = await contexte(nav, bd, { agent: IPHONE, script: releve });
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        await page.goto(lienSignup, { waitUntil: 'domcontentloaded' });
+        const vu = await attendreQue(page, async () => !!(await bandeau(page, 'bandeau-lien')), 15000);
+        await attendreQue(page, () => page.evaluate(() => window.__ordre.some((x) => x.indexOf('evt:') === 0)), 8000);
+        await calme(page, bd);
+        const b = await bandeau(page, 'bandeau-lien');
+        const ordre = await page.evaluate(() => window.__ordre);
+        console.log('   ℹ︎ l’ordre des événements du SDK sur ce lien : ' + JSON.stringify(ordre));
+        ok('DISCRIMINANT [138 5] — le lien s’arrête sur son écran : « C’est fait : ton adresse est confirmée. », Continuer ici · Comment installer',
+          vu && !!b && b.quoi === PH.lien[0] && b.sujet === PH.lien[1] && JSON.stringify(b.boutons) === '["Continuer ici","Comment installer"]', JSON.stringify(b));
+        ok('prémisse [138 5] — le SDK a bien émis `SIGNED_IN` avec la session du lien (et pas `PASSWORD_RECOVERY`), pendant l’attente',
+          ordre.indexOf('evt:SIGNED_IN:session') >= 0 && !ordre.some((x) => /PASSWORD_RECOVERY/.test(x)), JSON.stringify(ordre));
+        const e1 = await page.evaluate(() => ({ lien: !document.querySelector('#vue-lien').hidden,
+          autre: Array.from(document.querySelectorAll('section[id^="vue-"]')).some((v) => v.id !== 'vue-lien' && !v.hidden),
+          jeton: !!localStorage.getItem('th-v2-auth'), adresse: location.href }));
+        ok('DISCRIMINANT [138 5] — l’app n’est PAS entrée (aucun autre écran), la session du lien n’est pas perdue (jeton enregistré)',
+          e1.lien && !e1.autre && e1.jeton && bd.requetes.length === 0 && !bd.profils[B], JSON.stringify([e1, bd.requetes]));
+        ok('[138 5] — l’adresse ne garde aucun fragment', e1.adresse.indexOf('access_token') < 0 && e1.adresse.indexOf('#') < 0, e1.adresse);
+        await toucher(page, 'bandeau-lien', 'Comment installer');
+        await feuilleOuverte(page);
+        const f = await feuille(page);
+        ok('[138 5] — « Comment installer » ouvre la feuille, l’écran du lien reste là', !!f && f.titre === 'Installer TrainHub sur ton iPhone' && !!(await bandeau(page, 'bandeau-lien')));
+        await page.click('#btn-fermer-feuille');
+        await feuilleFermee(page);
+        await toucher(page, 'bandeau-lien', 'Continuer ici');
+        const entre = await attendreQue(page, () => page.evaluate(() => Array.from(document.querySelectorAll('section[id^="vue-"]'))
+          .some((v) => v.id !== 'vue-lien' && v.id !== 'vue-connexion' && !v.hidden)), 15000);
+        await attendreQue(page, () => !!bd.profils[B], 12000);
+        const e2 = await page.evaluate(() => ({ lien: !document.querySelector('#vue-lien').hidden, connexion: !document.querySelector('#vue-connexion').hidden }));
+        ok('DISCRIMINANT [138 5] — « Continuer ici » : l’app ENTRE, sur le compte du lien (sa ligne de profil se crée)',
+          entre && !e2.lien && !e2.connexion && !!bd.profils[B] && bd.refus.length === 0, JSON.stringify([e2, bd.requetes]));
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // (5 bis) lien expiré, et réponse tardive du SDK : sur iPhone, RIEN ne change (§5.6)
+      console.log('   — (5 bis) lien expiré, SDK en retard : rien ne change');
+      {
+        const bd = neuveBase();
+        const { ctx, page, erreurs } = await dansLaPage(nav, bd, { agent: IPHONE }, '/profil#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired',
+          () => { const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden && !!document.querySelector('#erreur-connexion').textContent; });
+        const m = await page.evaluate(() => document.querySelector('#erreur-connexion').textContent);
+        ok('DISCRIMINANT [138 5] — iPhone, lien expiré : l’écran de connexion et sa phrase, comme avant (et l’encart)',
+          m === 'Ce lien a expiré ou a déjà servi. Redemande-en un avec « Mot de passe oublié ? ».' && !!(await bandeau(page, 'encart-installer')), m);
+        ok('[138 5] — pas de bandeau de lien', (await bandeau(page, 'bandeau-lien')) === null);
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+      {
+        const lienTard = BASE + '/#access_token=' + jwt(B) + '&expires_at=' + (Math.floor(Date.now() / 1000) + 3600) +
+          '&expires_in=3600&refresh_token=r-' + B + '&token_type=bearer&type=signup';
+        const bd = neuveBase();
+        bd.userDelai = 7000;
+        const ctx = await contexte(nav, bd, { agent: IPHONE });
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        await page.goto(lienTard, { waitUntil: 'domcontentloaded' });
+        const dit = await attendreQue(page, () => page.evaluate(() => { const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden &&
+          !!document.querySelector('#erreur-connexion').textContent; }), 12000);
+        ok('[138 5] — iPhone, SDK à 7 s : à 5 s l’écran de connexion et sa phrase (aucun bandeau de lien)', dit && (await bandeau(page, 'bandeau-lien')) === null);
+        const entre = await attendreQue(page, () => page.evaluate(() => { const v = document.querySelector('#vue-connexion'); return !!v && v.hidden &&
+          document.querySelector('#vue-lien').hidden; }), 15000);
+        await attendreQue(page, () => !!bd.profils[B], 12000);
+        ok('DISCRIMINANT [138 5] — la réponse tardive du SDK fait ENTRER, comme avant (le délai a relâché l’attente)', entre && !!bd.profils[B]);
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      // (6) la récupération sur iPhone : la feuille du mot de passe comme avant, puis la phrase en tête du Profil
+      console.log('   — (6) la récupération sur iPhone');
+      {
+        const lienRecup = BASE + '/profil#access_token=' + jwt(B) + '&expires_at=' + (Math.floor(Date.now() / 1000) + 3600) +
+          '&expires_in=3600&refresh_token=r-' + B + '&token_type=bearer&type=recovery';
+        const bd = neuveBase();
+        const ctx = await contexte(nav, bd, { agent: IPHONE });
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        await page.goto(lienRecup, { waitUntil: 'domcontentloaded' });
+        const ouverte = await attendreQue(page, async () => /Choisis ton nouveau mot de passe/.test(((await feuille(page)) || {}).titre || '') ||
+          /Choisis ton nouveau mot de passe/.test(await page.evaluate(() => document.querySelector('#feuille-contenu').textContent)), 15000);
+        await attendreQue(page, () => !!bd.profils[B], 12000);
+        await calme(page, bd);
+        ok('DISCRIMINANT [138 5] — la récupération ne s’arrête pas : la feuille « Choisis ton nouveau mot de passe » s’ouvre, sans bandeau de lien',
+          ouverte && (await bandeau(page, 'bandeau-lien')) === null);
+        await page.fill('#feuille-contenu input', 'nouveau-mdp-138');
+        await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
+        await attendreQue(page, () => bd.motsDePasse.length > 0, 8000);
+        const dit = await attendreQue(page, async () => !!(await page.evaluate(() => document.querySelector('#profil-corps .bandeau-reprise'))), 8000);
+        await calme(page, bd);
+        const t = await page.evaluate(() => {
+          const c = document.querySelector('#profil-corps'), b = c.querySelector('.bandeau-reprise');
+          return { quoi: b ? b.querySelector('.reprise-quoi').textContent : null, sujet: b ? b.querySelector('.reprise-sujet').textContent : null,
+            boutons: b ? Array.from(b.querySelectorAll('button')).map((x) => x.textContent) : null,
+            enTete: !!b && c.firstChild.contains(b), note: /Mot de passe changé\./.test(c.textContent) };
+        });
+        ok('DISCRIMINANT [138 6] — après le nouveau mot de passe : « Ton mot de passe est changé. » en tête du Profil, « Compris » seul, à la place de la note',
+          dit && t.quoi === PH.mdp[0] && t.sujet === PH.mdp[1] && JSON.stringify(t.boutons) === '["Compris"]' && t.enTete && !t.note, JSON.stringify(t));
+        await calme(page, bd);     // `USER_UPDATED` re-rend le Profil : le bandeau reste
+        ok('[138 6] — il survit au re-rendu qui suit le changement', !!(await page.evaluate(() => document.querySelector('#profil-corps .bandeau-reprise'))));
+        await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .bandeau-reprise button')).filter((b) => b.textContent === 'Compris')[0].click());
+        ok('[138 6] — « Compris » le ferme', await attendreQue(page, async () => !(await page.evaluate(() => document.querySelector('#profil-corps .bandeau-reprise'))), 4000));
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+    }
+
     // ══ 11. LA VÉRIFICATION QUI PEND : ELLE NE RETIENT PAS LA PERSONNE ═══
     console.log('\n══ 11. la vérification du pseudo ne répond pas : la feuille attend visiblement, puis se ferme ══');
     {
@@ -1101,12 +1452,14 @@ function ok(nom, cond, detail) {
       const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
       bd.rpcPend = true;
       await cliquerLigne(page, 'Pseudo');
-      await attendre(400);
+      await feuilleOuverte(page);
       await page.fill('#feuille-contenu input', 'melodie_b');
       const t0 = Date.now();
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
         .filter((b) => b.textContent === 'Valider')[0].click());
-      await attendre(1200);
+      // 135 — « pendant l'attente » : la question est EN VOL (posée à la base qui ne répond pas), l'écran peint.
+      await attendreQue(page, () => bd.questions.length > 0, 10000);
+      await rendu(page);
       const attente = await page.evaluate(() => {
         const b = Array.from(document.querySelectorAll('#feuille-contenu button')).filter((x) => x.textContent === 'Valider')[0];
         const champ = document.querySelector('#feuille-contenu .champ-texte input');
@@ -1132,7 +1485,7 @@ function ok(nom, cond, detail) {
       const bd = baseSansPseudo();
       const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
       await cliquerLigne(page, 'Poids');
-      await attendre(400);
+      await feuilleOuverte(page);
       const champs = await page.evaluate(() => ({
         poids: !!document.querySelector('#feuille-contenu input[data-cle="poids"]'),
         jour: (document.querySelector('#feuille-contenu input[data-cle="jour"]') || {}).value || '' }));
@@ -1142,7 +1495,8 @@ function ok(nom, cond, detail) {
         .filter((b) => b.textContent === 'Valider')[0].click());
       await page.fill('#feuille-contenu input[data-cle="poids"]', '500');
       await valider();
-      await attendre(300);
+      // 135 — le refus est local : la phrase dans la feuille (ce que lit le contrôle).
+      await attendreQue(page, () => page.evaluate(() => !!(document.querySelector('#feuille-contenu .feuille-err') || {}).textContent), 5000);
       const refus = await page.evaluate(() => (document.querySelector('#feuille-contenu .feuille-err') || {}).textContent || '');
       ok('[92] un poids hors bornes reste dans la feuille, avec la phrase du questionnaire', /^Un poids entre 20 et 400 kg\.$/.test(refus), refus);
       await page.fill('#feuille-contenu input[data-cle="poids"]', '96,8');
@@ -1177,7 +1531,7 @@ function ok(nom, cond, detail) {
       await attendreQue(page, () => page.evaluate(() => {
         const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; }), 15000);
       await page.click('#btn-bascule-entree');
-      await attendre(300);
+      await versInscription(page);
       await page.fill('#champ-pseudo', 'test_0710');
       await page.fill('#champ-email', 'b@banc.test');
       await page.fill('#champ-mdp', 'motdepasse123');
@@ -1190,12 +1544,13 @@ function ok(nom, cond, detail) {
       await page.click('#onglet-profil');
       await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 8000);
       await cliquerLigne(page, 'Sexe');
-      await attendre(500);
+      await feuilleOuverte(page);
       await page.click('#feuille-contenu .feuille-menu button[data-cle="femme"]');
       const cree = await attendreQue(page, () => !!bd.profils[B], 12000);
       ok('[93] la ligne naît du geste du Profil', cree && bd.profils[B].sexe === 'femme', JSON.stringify(bd.profils[B]));
-      // (`onboarding_completed` part à `false` avec la création, puis passe à `true` quand on quitte le Profil pour le
-      // questionnaire — `marquerProfilVu`, comme pour toute ligne créée par `chargerProfil` : il n'est pas contrôlé ici.)
+      // (136, audit du 16/10, 03 #18 : `onboarding_completed` ne s'écrit plus — ni à la création, ni en quittant le Profil.)
+      ok('[136 · 03 #18] la ligne naît sans `onboarding_completed`',
+        !!bd.profils[B] && !Object.prototype.hasOwnProperty.call(bd.profils[B], 'onboarding_completed'), JSON.stringify(bd.profils[B]));
       ok('DISCRIMINANT [93] — elle naît avec le PSEUDO tapé à l’inscription',
         !!bd.profils[B] && bd.profils[B].username === 'test_0710', JSON.stringify(bd.profils[B]));
       const ouvert = await attendreQue(page, questionnaireOuvert, 8000);
@@ -1217,28 +1572,28 @@ function ok(nom, cond, detail) {
       });
       ok('[108] la ligne « Ma salle » est là, sous « Matériel »', (await valeurLigne()) !== null);
       await cliquerLigne(page, 'Ma salle');
-      await attendre(400);
+      await feuilleOuverte(page);
       const puces = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .salle-puces[data-type="barres_ez"] button[data-kg]'))
         .map((b) => b.dataset.kg + (b.getAttribute('aria-pressed') === 'true' ? '+' : '')));
       ok('[108] la feuille : la barre EZ, 10 à 40 kg, rien de coché (non renseignée)', JSON.stringify(puces) === JSON.stringify(['10', '15', '20', '25', '30', '35', '40']), JSON.stringify(puces));
       for (const kg of ['10', '15', '20', '25', '30']) {
         await page.click('#feuille-contenu .salle-puces[data-type="barres_ez"] button[data-kg="' + kg + '"]');
-        await attendre(80);
+        await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 80 ms)
       }
       await page.fill('#feuille-contenu .salle-halteres input', '40');
-      await attendre(150);
+      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
       await page.click('#feuille-contenu .salle-pas button[data-pas="2"]');
-      await attendre(150);
+      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
       const ecrit = await attendreQue(page, () => !!bd.profils[B].ma_salle, 10000);
       ok('DISCRIMINANT [108] — la déclaration part en base : EZ 10-30, haltères jusqu’à 40 de 2 en 2', ecrit &&
         JSON.stringify(bd.profils[B].ma_salle) === JSON.stringify({ barres_ez: [10, 15, 20, 25, 30], barres_droites: [], halteres: { max: 40, pas: 2 } }),
         JSON.stringify(bd.profils[B].ma_salle));
-      await attendre(300);
+      await calme(page, bd);   // 135 — l'écriture rendue à l'écran (était 300 ms)
       ok('[108] la ligne dit ce qui est déclaré : « EZ, haltères »', (await valeurLigne()) === 'EZ, haltères', String(await valeurLigne()));
       // « Effacer » écrit le vide : non renseignée, rien ne change.
       await cliquerLigne(page, 'Ma salle');
-      await attendre(400);
+      await feuilleOuverte(page);
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Effacer')[0].click());
       const efface = await attendreQue(page, () => bd.profils[B].ma_salle === null, 10000);
       ok('[108] « Effacer » écrit le vide (NULL)', efface, JSON.stringify(bd.profils[B].ma_salle));
@@ -1258,23 +1613,23 @@ function ok(nom, cond, detail) {
       bd.avantV2095 = avant;
       const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
       await cliquerLigne(page, 'Ma salle');
-      await attendre(400);
+      await feuilleOuverte(page);
       const sansOn = () => page.evaluate(() => {
         const b = document.querySelector('#feuille-contenu .salle-sans button');
         return b ? b.getAttribute('aria-pressed') : null;
       });
       ok(tag + ' « Pas d’haltères » allumée sur une salle sans haltères', (await sansOn()) === 'true', String(await sansOn()));
       await page.fill('#feuille-contenu .salle-halteres[data-i="0"] input', '10');
-      await attendre(150);
+      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
       ok(tag + ' taper un « jusqu’à » éteint « Pas d’haltères »', (await sansOn()) === 'false', String(await sansOn()));
       await page.click('#feuille-contenu .salle-pas[data-i="0"] button[data-pas="1"]');
-      await attendre(150);
+      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
       await page.click('#feuille-contenu .salle-tranche');
-      await attendre(150);
+      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
       await page.fill('#feuille-contenu .salle-halteres[data-i="1"] input', '40');
-      await attendre(150);
+      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
       await page.click('#feuille-contenu .salle-pas[data-i="1"] button[data-pas="2"]');
-      await attendre(150);
+      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
       const lignes = await page.evaluate(() => document.querySelectorAll('#feuille-contenu .salle-halteres').length);
       ok(tag + ' deux lignes de tranche, « + Une tranche » toujours là (au plus 3)', lignes === 2 &&
         !!(await page.$('#feuille-contenu .salle-tranche')), String(lignes));
@@ -1285,14 +1640,14 @@ function ok(nom, cond, detail) {
         ok('DISCRIMINANT ' + tag + ' — la liste des tranches part en base', ecrit &&
           JSON.stringify(bd.profils[B].ma_salle) === JSON.stringify({ barres_ez: [], barres_droites: [], halteres: TRANCHES }),
           JSON.stringify(bd.profils[B].ma_salle));
-        await attendre(300);
+        await calme(page, bd);   // 135 — l'écriture rendue à l'écran (était 300 ms)
         // « Pas d'haltères » : le geste explicite.
         await cliquerLigne(page, 'Ma salle');
-        await attendre(400);
+        await feuilleOuverte(page);
         ok(tag + ' la feuille rouverte montre les deux tranches', (await page.evaluate(() =>
           Array.from(document.querySelectorAll('#feuille-contenu .salle-halteres input')).map((x) => x.value).join(','))) === '10,40');
         await page.click('#feuille-contenu .salle-sans button');
-        await attendre(150);
+        await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
         await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
         const efface = await attendreQue(page, () => bd.profils[B].ma_salle === null, 10000);
         ok('DISCRIMINANT ' + tag + ' — « Pas d’haltères » efface les haltères (rien d’autre déclaré : NULL)', efface,
@@ -1301,18 +1656,105 @@ function ok(nom, cond, detail) {
       } else {
         const refuse = await attendreQue(page, () => bd.requetes.some((q) => q.statut === 400), 10000);
         ok('prémisse ' + tag + ' — la base d’avant refuse la liste (23514)', refuse, JSON.stringify(bd.requetes));
-        await attendre(800);
+        await calme(page, bd);   // 135 — le refus traité et dit à l'écran (était 800 ms)
         ok('DISCRIMINANT ' + tag + ' — la salle d’avant est gardée en base (rien n’est inventé à la place)',
           (bd.profils[B].ma_salle === undefined || bd.profils[B].ma_salle === null), JSON.stringify(bd.profils[B].ma_salle));
         const texte = await page.evaluate(() => (document.querySelector('#profil-corps') || {}).textContent || '');
         ok(tag + ' le Profil le dit : « Pas enregistré : Ma salle. »', /Pas enregistré : Ma salle\./.test(texte), texte.slice(0, 200));
         // Le reste du profil s'écrit toujours (la colonne refusée ne bloque rien).
         await cliquerLigne(page, 'Sexe');
-        await attendre(500);
+        await feuilleOuverte(page);
         await page.click('#feuille-contenu .feuille-menu button[data-cle="femme"]');
         const sexe = await attendreQue(page, () => bd.profils[B].sexe === 'femme', 10000);
         ok(tag + ' un geste suivant du Profil s’écrit (Sexe)', sexe, JSON.stringify(bd.profils[B].sexe));
       }
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
+    // ══ 132. « MA SALLE » : LES DEUX LISTES D'ÉLASTIQUES, L'ORDRE EN GLISSANT, « PAR SON NOM » ══════════════════════
+    // ECRAN-PROFIL §2.4 sexies (maquette `maquette-elastiques-v2.html`, écran 1). Les grands élastiques Noir (35 kg),
+    // Rouge (25 kg) et Vert, tapés dans le désordre et rangés EN GLISSANT ; les mini-bandes Bleue et Jaune ; « par son
+    // nom ». L'ordre est la donnée : il part en base tel quel. Un nom déjà dans la liste est refusé, avec sa phrase.
+    console.log('\n══ 132. « Ma salle » : deux listes d’élastiques, l’ordre en glissant, « par son nom » ══');
+    {
+      const bd = baseSansPseudo();
+      const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
+      await page.setViewportSize({ width: 360, height: 760 });
+      await cliquerLigne(page, 'Ma salle');
+      await feuilleOuverte(page);
+      const ajouter = async (liste, nom, kg) => {
+        await page.click('#feuille-contenu .el-carte[data-liste="' + liste + '"] .el-ajout');
+        await attendreQue(page, () => page.evaluate((l) => !!document.querySelector('#feuille-contenu .el-carte[data-liste="' + l + '"] .el-champ-nom'), liste), 5000);
+        await page.fill('#feuille-contenu .el-carte[data-liste="' + liste + '"] .el-champ-nom', nom);
+        if (kg !== undefined) await page.fill('#feuille-contenu .el-carte[data-liste="' + liste + '"] .el-champ-kg', kg);
+        await page.evaluate((l) => Array.from(document.querySelectorAll('#feuille-contenu .el-carte[data-liste="' + l + '"] .el-saisie button'))
+          .filter((b) => b.textContent === 'Ajouter')[0].click(), liste);
+        await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
+      };
+      const noms = (liste) => page.evaluate((l) => Array.from(document.querySelectorAll('#feuille-contenu .el-carte[data-liste="' + l + '"] .el-rang'))
+        .map((r) => r.querySelector('.el-nom').textContent + '|' + r.querySelector('.el-kg').textContent), liste);
+      ok('[132] la feuille montre « Grands élastiques », « Mini-bandes » et le choix « en kg / par son nom »',
+        (await page.evaluate(() => document.querySelectorAll('#feuille-contenu .el-carte').length)) === 3);
+      await ajouter('elastiques', 'Vert', '');
+      await ajouter('elastiques', 'Rouge', '25');
+      await ajouter('elastiques', 'Noir', '35');
+      ok('[132] trois grands élastiques, dans l’ordre tapé, le kg facultatif (« — »)',
+        JSON.stringify(await noms('elastiques')) === JSON.stringify(['Vert|\u2014', 'Rouge|25\u00a0kg', 'Noir|35\u00a0kg']),
+        JSON.stringify(await noms('elastiques')));
+      await ajouter('elastiques', 'noir', '');
+      const err = await page.evaluate(() => (document.querySelector('#feuille-contenu .feuille-err') || {}).textContent || '');
+      ok('[132] un nom déjà dans la liste est refusé, et la phrase le dit', /déjà dans la liste/.test(err) &&
+        (await noms('elastiques')).length === 3, err);
+      // Glisser : Noir (3e) tout en haut (vers le haut), puis Vert (2e) tout en bas (vers le bas).
+      const glisser = async (de, vers) => {
+        const rangs = await page.$$('#feuille-contenu .el-carte[data-liste="elastiques"] .el-rang');
+        const p = await (await rangs[de].$('.el-poignee')).boundingBox();
+        const cible = await rangs[vers].boundingBox();
+        await page.mouse.move(p.x + p.width / 2, p.y + p.height / 2);
+        await page.mouse.down();
+        const y = vers < de ? cible.y + 4 : cible.y + cible.height - 4;
+        for (let k = 1; k <= 6; k++) await page.mouse.move(p.x + p.width / 2, p.y + (y - p.y) * k / 6);
+        await page.mouse.up();
+        await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 200 ms)
+      };
+      await glisser(2, 0);
+      await glisser(1, 2);
+      ok('DISCRIMINANT [132] — glisser range la liste : Noir, Rouge, Vert',
+        JSON.stringify((await noms('elastiques')).map((x) => x.split('|')[0])) === JSON.stringify(['Noir', 'Rouge', 'Vert']),
+        JSON.stringify(await noms('elastiques')));
+      await ajouter('mini_bandes', 'Bleue');
+      await ajouter('mini_bandes', 'Jaune');
+      ok('[132] les mini-bandes : un nom seul (pas de champ kg)',
+        JSON.stringify(await noms('mini_bandes')) === JSON.stringify(['Bleue|', 'Jaune|']) &&
+        !(await page.$('#feuille-contenu .el-carte[data-liste="mini_bandes"] .el-champ-kg')), JSON.stringify(await noms('mini_bandes')));
+      await page.click('#feuille-contenu .el-choix button[data-choix="nom"]');
+      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
+      const large = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+      ok('[132] à 360 px, rien ne déborde', large);
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
+      const ATTENDU = { barres_ez: [], barres_droites: [], halteres: null,
+        elastiques: [{ nom: 'Noir', kg: 35 }, { nom: 'Rouge', kg: 25 }, { nom: 'Vert' }],
+        mini_bandes: [{ nom: 'Bleue' }, { nom: 'Jaune' }], elastiques_par_nom: true };
+      const ecrit = await attendreQue(page, () => !!bd.profils[B].ma_salle, 10000);
+      ok('DISCRIMINANT [132] — les deux listes, dans leur ordre, et « par son nom » partent en base', ecrit &&
+        JSON.stringify(bd.profils[B].ma_salle) === JSON.stringify(ATTENDU), JSON.stringify(bd.profils[B].ma_salle));
+      await calme(page, bd);   // 135 — l'écriture rendue à l'écran (était 300 ms)
+      await cliquerLigne(page, 'Ma salle');
+      await feuilleOuverte(page);
+      ok('[132] la feuille rouverte : l’ordre et le choix relus',
+        JSON.stringify((await noms('elastiques')).map((x) => x.split('|')[0])) === JSON.stringify(['Noir', 'Rouge', 'Vert']) &&
+        (await page.evaluate(() => (document.querySelector('#feuille-contenu .el-choix button[data-choix="nom"]') || {}).getAttribute('aria-pressed'))) === 'true');
+      // Retirer Vert, revenir « en kg » : la base suit.
+      await page.click('#feuille-contenu .el-carte[data-liste="elastiques"] .el-rang[data-i="2"] .el-retirer');
+      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
+      await page.click('#feuille-contenu .el-choix button[data-choix="kg"]');
+      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
+      const suivi = await attendreQue(page, () => !!bd.profils[B].ma_salle && !bd.profils[B].ma_salle.elastiques_par_nom &&
+        (bd.profils[B].ma_salle.elastiques || []).length === 2, 10000);
+      ok('[132] retirer un élastique et revenir « en kg » : la base suit', suivi, JSON.stringify(bd.profils[B].ma_salle));
+      ok('[132] aucune écriture refusée par la contrainte imitée', bd.requetes.every((q) => q.statut !== 400), JSON.stringify(bd.requetes));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }
@@ -1338,7 +1780,7 @@ function ok(nom, cond, detail) {
       await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#profil-corps .p-ligne')), 8000);
       const avant = bd.requetes.length;
       await cliquerLigne(page, 'Sexe');
-      await attendre(500);
+      await feuilleOuverte(page);
       await page.click('#feuille-contenu .feuille-menu button[data-cle="femme"]');
       const ecrit = await attendreQue(page, () => bd.profils[A].sexe === 'femme', 12000);
       ok('DISCRIMINANT [104, 108] — un geste du Profil s’écrit en base (Sexe → Femme)', ecrit, JSON.stringify(bd.profils[A]));

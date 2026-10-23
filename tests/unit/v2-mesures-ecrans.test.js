@@ -45,15 +45,15 @@ describe('119 — E8 : la colonne du détail suit la mesure', () => {
     s('tapis', { duree_s: 1200, distance_m: 3200 }), s('dc', { charge_kg: 100, reps: 5 }),
     s('dc', { charge_kg: 100, reps: 5 }, 7), s('dips', { reps: 12 }, 7), s('inconnu', { duree_s: 30 })];
   const blocs = Modele.construireBlocs(series, CAT);
-  test('« Durée » sur une planche, « Durée · distance » sur un tapis, « Charge » sur le couché', () => {
-    expect(blocs.map((b) => b.entete)).toEqual(['Durée', 'Durée · distance', 'Charge', 'Mesure', 'Durée']);
+  test('« Durée » sur une planche, « Distance · durée » sur un tapis (131b), « Charge » sur le couché', () => {
+    expect(blocs.map((b) => b.entete)).toEqual(['Durée', 'Distance · durée', 'Charge', 'Mesure', 'Durée']);
   });
-  test('l’écran l’affiche : jamais « Charge » au-dessus de « 1 min 30 » ni de « 20 min · 3,2 km »', () => {
+  test('l’écran l’affiche : jamais « Charge » au-dessus de « 1 min 30 » ni de « 3,2 km · 20 min »', () => {
     const cible = document.createElement('div');
     Rendu().rendreDetail(cible, { titre: 'Gainage', debut: '2026-10-16T17:00:00Z' }, blocs, {});
     const tetes = [...cible.querySelectorAll('.entetes')].map((x) => x.textContent);
-    expect(tetes).toEqual(['SérieDurée', 'SérieDurée · distance', 'SérieCharge', 'SérieMesure', 'SérieDurée']);
-    expect(cible.textContent).toContain('20 min · 3,2 km');
+    expect(tetes).toEqual(['SérieDurée', 'SérieDistance · durée', 'SérieCharge', 'SérieMesure', 'SérieDurée']);
+    expect(cible.textContent).toContain('3,2 km · 20 min');  // 131 : distance, puis durée
   });
 });
 
@@ -81,9 +81,9 @@ describe('119 — E12 : la feuille « Terminer » et le récap d’une séance d
       surNote: () => {}, surTerminer: () => {}, surAnnuler: () => {}, surAbandonner: () => {} });
     return cible.querySelector('.feuille-t em').textContent;
   };
-  test('« 1 série enregistrée · 20 min · 3,2 km », jamais « 0 série de travail enregistrée »', () => {
+  test('« 1 série enregistrée · 3,2 km · 20 min » (131b), jamais « 0 série de travail enregistrée »', () => {
     expect(feuille({ travail: 0, horsMusculation: { series: 1, duree_s: 1200, distance_m: 3200 } }))
-      .toBe('1 série enregistrée · 20 min · 3,2 km');
+      .toBe('1 série enregistrée · 3,2 km · 20 min');
   });
   test('une séance de musculation garde son compte de séries de travail', () => {
     expect(feuille({ travail: 12, horsMusculation: { series: 1, duree_s: 600, distance_m: 1000 } }))

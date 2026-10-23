@@ -88,7 +88,9 @@ describe('Profil — la déclaration « Ma salle » (profiles.ma_salle, v2_088)'
 
   test('les gestes de la feuille : cocher, décocher, « ＋ », le plus lourd et l’écart des haltères', () => {
     let b = Profil.brouillonSalle({});
-    expect(b).toEqual({ barres_ez: [], barres_droites: [], halteres: null });
+    // 132 — le brouillon porte aussi les élastiques (vides : rien de déclaré).
+    expect(b).toEqual({ barres_ez: [], barres_droites: [], halteres: null, elastiques: [], mini_bandes: [],
+                        elastiques_par_nom: false });
     [10, 15, 20, 25, 30].forEach((kg) => { b = Profil.basculerBarre(b, 'barres_ez', kg); });
     b = Profil.basculerBarre(b, 'barres_ez', 15);
     b = Profil.basculerBarre(b, 'barres_ez', 12.5);   // « ＋ »

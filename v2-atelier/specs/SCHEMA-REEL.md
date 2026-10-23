@@ -27,6 +27,8 @@ DEFINER appelables par les comptes connectés (l'API sociale) ; pas de clé étr
 > ⚠️ Numérotation : le catalogue (v2_096, v2_097) avait d'abord été lancé sous les noms v2_091 et v2_092 ; renuméroté
 > le 17/10 (seuls les commentaires des colonnes changent). Les v2_091 à v2_095 ci-dessous sont celles de l'audit.
 
+> **v2_107 en attente** (22/10/2026, `v2-atelier/migrations-proposees/v2_107_blocage_groupe.sql`, prompt 142) : à lancer par Aurélien ; ce fichier n'est pas régénéré avant.
+
 | Migration | Ce qu'elle fait |
 |---|---|
 | `v2_091_scores_sans_charge` | `scores_force` vidée ; `charge_kg` facultative et contrainte `scores_force_sans_charge CHECK (charge_kg IS NULL)` ; `social_scores_force` (même signature) ne rend plus la charge d'autrui ; nouvelle `social_meilleures_charges(p_slug)` → `(user_id, charge_max)` (mutuels, séances non privées, 12 mois) |

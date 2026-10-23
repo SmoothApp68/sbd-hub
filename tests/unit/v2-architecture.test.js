@@ -568,7 +568,7 @@ const NOTIONS = [
       '66A : la jauge d’une barre de la relecture (§5 ter.3) est cet arrondi, à 2 décimales.' },
   // Après la consolidation, les notions d'un chantier portent son geste.
   { notion: 'la lecture d’un nombre tapé (l’inverse du formateur, tous les signes moins)', pr: 'correctif 03/10/2026',
-    module: 'modele.js', fonction: 'lireNombre', lecteurs: ['seance.js', 'routines.js', 'app.js', 'importhevy.js', 'objectif.js'],
+    module: 'modele.js', fonction: 'lireNombre', lecteurs: ['seance.js', 'routines.js', 'app.js', 'importhevy.js', 'objectif.js', 'rendu.js'],
     motif: /\.\s*lireNombre\s*\(/g,
     parAilleurs: { 'seance.js': ['nombreOuNul'], 'routines.js': ['decimalOuNul'] },
     interditAilleurs: { motif: /\.replace\(\s*(['"]),\1\s*,\s*(['"])\.\2\s*\)/,
@@ -576,7 +576,8 @@ const NOTIONS = [
     raison: 'le champ réaffiche une assistance avec le vrai signe moins (U+2212) que la copie de ' +
       '`seance.js` ne relisait pas : retoucher les reps d’une série à « −25 » effaçait sa charge. ' +
       '69 : les nombres que Hevy écrit (« 31,5 kg », « 1.17 » km) se lisent ici aussi (`importhevy.js`). 109 : la ' +
-      'charge et les reps d’un objectif tapées dans sa feuille (`objectif.js`, `lireSaisie`).' },
+      'charge et les reps d’un objectif tapées dans sa feuille (`objectif.js`, `lireSaisie`). 131 : la borne d’un champ ' +
+      'de série (`rendu.js`, `champSerie` : au-delà de 400 km, le chiffre n’entre pas).' },
   { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
     module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js', 'parcours.js', 'deraille.js', 'routines.js'],
     parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'],
@@ -874,13 +875,14 @@ const NOTIONS = [
     raison: 'MOTEUR §9.23, ECRAN §7 bis.16 (« cumulée, jamais brute ») : la médaille, le tableau des records, ' +
       'le record de charge de la page et le chiffre d’une ligne déduite lisent la même table.' },
   { notion: 'les records d’un exercice à une date (le périmètre de la médaille)', pr: '55-U1',
-    module: 'modele.js', fonction: 'recordsDeLExercice', lecteurs: ['app.js', 'faits.js', 'objectif.js'],
+    module: 'modele.js', fonction: 'recordsDeLExercice', lecteurs: ['app.js', 'faits.js', 'objectif.js', 'bilans.js'],
     par: ['tableauDesRecords'],
-    parAilleurs: { 'app.js': ['recordDeLaPage'], 'faits.js': ['ceQueJeSais'], 'objectif.js': ['recordA'] },
+    parAilleurs: { 'app.js': ['recordDeLaPage'], 'faits.js': ['ceQueJeSais'], 'objectif.js': ['recordA'], 'bilans.js': ['bilanDeLaPeriode'] },
     raison: 'MOTEUR §9.23 : le record de charge de la page, sa force estimée (hors des records, D1) et le tableau des records lisent ' +
       'la même table cumulée, sur le même périmètre que la médaille (12 mois pour un matériel de salle). ' +
       '60-2a : « Ce que je sais » montre le maximum de chaque barre par cette même fonction — jamais une seconde. ' +
-      '109 (MOTEUR §9.25) : le rythme d’un objectif se lit sur ce record « au moins N reps », jamais sur un maximum estimé.' },
+      '109 (MOTEUR §9.25) : le rythme d’un objectif se lit sur ce record « au moins N reps », jamais sur un maximum estimé. ' +
+      '136 (F5) : les nouvelles charges max d’une saison ou d’un mois comparent à ce qui précède dans la même fenêtre.' },
   { notion: 'le périmètre d’un record (12 mois pour un matériel de salle, toute la vie ailleurs)', pr: '55-U1',
     module: 'modele.js', fonction: 'seancesDuPerimetre', lecteurs: ['app.js', 'objectif.js'],
     par: ['recordsDeLExercice'],
@@ -893,10 +895,11 @@ const NOTIONS = [
     raison: 'ECRAN §7 bis.15 : hors de 3 à 10 reps, l’estimation n’est pas fiable. 120 (D1, 16/10/2026) : la force ' +
       'estimée n’est plus un record — la médaille ne la lit plus ; la page seule la dit.' },
   { notion: 'les records battus par une série (et l’ancien record, avec sa date)', pr: '55-U1',
-    module: 'modele.js', fonction: 'recordsBattus', lecteurs: ['faits.js'],
-    parAilleurs: { 'faits.js': ['recordsDeLaSerie', 'recordsDeLaSeance'] },
+    module: 'modele.js', fonction: 'recordsBattus', lecteurs: ['faits.js', 'plan.js'],
+    parAilleurs: { 'faits.js': ['recordsDeLaSerie', 'recordsDeLaSeance'], 'plan.js': ['verifierElastiques'] },
     raison: 'MOTEUR §9.23 : un record est un fait ; une seule fonction décide ce qu’une série bat, ' +
-      'la médaille en séance, la feuille « Terminer » et Progression la lisent.' },
+      'la médaille en séance, la feuille « Terminer » et Progression la lisent. 132 (I51) : la garde du plan la ' +
+      'rejoue sur chaque série notée par nom — aucune ne doit rien battre.' },
   { notion: 'la phrase de la médaille ([gras, gris])', pr: '55-U1',
     module: 'modele.js', fonction: 'phraseDeRecord', lecteurs: ['app.js', 'faits.js'],
     parAilleurs: { 'app.js': ['medailleSurLigne'], 'faits.js': ['recordsDuJour'] },
@@ -942,9 +945,10 @@ const NOTIONS = [
       'par état du cache ; seul le module des faits les assemble.' },
   { notion: 'les séances d’un exercice, pour le coach et sa page (`{ seance, series }`)', pr: '58-U1',
     module: 'faits.js', fonction: 'seancesDeLExercice', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['derniereSeanceDe', 'consigneDe', 'suiteDe', 'rendreExercice'] },
+    parAilleurs: { 'app.js': ['derniereSeanceDe', 'groupesDuMoteur', 'rendreExercice'] },
     raison: 'la consigne, la suite, « Dernière séance » et la page d’exercice lisent le même historique ' +
-      'd’un exercice ; un second assemblage dans l’écran pourrait en oublier une séance.' },
+      'd’un exercice ; un second assemblage dans l’écran pourrait en oublier une séance. 132 : la consigne et la ' +
+      'suite le lisent par `groupesDuMoteur` (en charges virtuelles pour un exercice noté par nom, MOTEUR §10 ter).' },
   { notion: 'les records d’une séance passée (ses séries médaillées)', pr: '58-U1',
     module: 'faits.js', fonction: 'recordsDeLaSeance', lecteurs: [],
     par: ['recordsDuMois', 'dernierRecord', 'journalDeLaSeance'],
@@ -1467,6 +1471,29 @@ const NOTIONS = [
     raison: 'une lecture des lignes `predictions` (module escalier) : les périodes de la série de plus, l’observation et ' +
       'la démonstration lisent les mêmes marches.' },
   // 127 (MOTEUR §9.17 bis, ECRAN-SAISIE §7 quater.6) — l'échelle des variantes.
+  { notion: 'ce qui manque aux séances (les champs en plus vides, la distance au vélo ; moins les refus)', pr: '131-U1',
+    module: 'faits.js', fonction: 'ceQuiManque', lecteurs: ['app.js'],
+    raison: 'ECRAN-SAISIE §3 ter.5 (écran 5) : la carte « Ce qui manque à tes séances » lit le fait ; elle ne calcule rien.' },
+  { notion: 'les champs d’une série (ceux de la mesure, puis ceux du catalogue : `champs_series`)', pr: '131-U1',
+    module: 'modele.js', fonction: 'champsDeSerie', lecteurs: ['seance.js', 'faits.js', 'app.js'],
+    par: ['colonnesDeSerie', 'grilleDe'],
+    raison: 'ECRAN-SAISIE §3 ter.5 (prompt 131, v2_101) : le D+ et les étages, exercice par exercice. Une seule fonction ' +
+      'dit les champs d’une série ; la grille (`grilleDe`) et les colonnes (`colonnesDeSerie`) passent par elle.' },
+  { notion: 'les colonnes de mesure d’une série (`sets` : charge, reps, durée, distance, D+, étages)', pr: '131-U1',
+    module: 'modele.js', fonction: 'colonnesDeSerie', lecteurs: ['seance.js', 'app.js', 'importhevy.js'],
+    raison: 'ECRAN-SAISIE §3 ter.5 (prompt 131) : la série vide, la reprise, les cases remplies non validées, la fin de ' +
+      'séance, l’import et le fait « ce qui manque » lisent la même liste ; aucune n’est recopiée.' },
+  { notion: 'la grille d’un exercice (ses colonnes, ses champs sous la série, sa légende)', pr: '131-U1',
+    module: 'modele.js', fonction: 'grilleDe', lecteurs: ['rendu.js'],
+    raison: 'ECRAN-SAISIE §3 ter.5 (maquette mesures-cardio, écrans 1 et 2) : les étages en colonne, le D+ sous la série ; ' +
+      'rien dans l’éditeur de routine.' },
+  { notion: 'les bornes des mesures (jamais 0 ; distance 400 km, D+ 10 000 m, étages 2 000)', pr: '131-U1',
+    module: 'modele.js', fonction: 'borneDeColonne', lecteurs: ['seance.js'],
+    raison: 'ECRAN-SAISIE §3 ter.5 (bornes du 21/10/2026, audit 130 n°8 et n°9) : la saisie et la réparation de la file ' +
+      'bornent par la même table (`BORNES_DES_COLONNES`).' },
+  { notion: 'la borne d’un champ de saisie (le chiffre de trop n’entre pas)', pr: '131-U1',
+    module: 'modele.js', fonction: 'maxDeSaisie', lecteurs: ['rendu.js', 'app.js'],
+    raison: 'ECRAN-SAISIE §3 ter.5 (audit 130 n°8) : le champ refuse au-delà de la borne, comme le pavé de la durée.' },
   { notion: 'le seuil d’une marche au poids du corps (le haut de la zone et 8 reps : le lest comme la marche suivante)', pr: '127-U1',
     module: 'moteur.js', fonction: 'seuilDeMarche', lecteurs: ['plan.js'],
     par: ['consignePour', 'carteMarcheDecidee', 'phraseDeLaSuivante'],
@@ -1535,6 +1562,46 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'lignesDArret', lecteurs: ['app.js'],
     raison: 'MOTEUR §9.22 (53-2 ter) : la règle de l’arrêt (sauf un exercice corrigé pendant le programme) vit dans ' +
       'le moteur ; l’app pose ce qu’elle rend.' },
+  // 132 (MOTEUR §10 ter, ECRAN-SAISIE §3 ter.6) — les élastiques par leur nom : une liste de Ma salle est une salle dont
+  // les crans sont des noms. Une seule source, portée de `elastiques132.py` (cas-132.json, 0 écart) ; aucun écran ne
+  // recalcule un ordre ou un cran (ni `chargesVirtuelles`, ni `cranElastique`, ni `rattacher` hors du profil).
+  { notion: 'la liste d’élastiques d’un exercice (grands ou mini-bandes, selon `type_elastique`)', pr: '132-U1',
+    module: 'profil.js', fonction: 'listeDe', lecteurs: ['app.js'],
+    par: ['parNom', 'elastiqueDeSerie', 'chargePourLeMoteur', 'salleElastique', 'cranElastique'],
+    raison: 'MOTEUR §10 ter : le catalogue dit la liste (`type_elastique`), Ma salle la donne ; la grille ouvre cette liste.' },
+  { notion: 'l’exercice noté par le nom de l’élastique (résistance toujours ; aide si « par son nom »)', pr: '132-U1',
+    module: 'profil.js', fonction: 'parNom', lecteurs: ['app.js'], par: ['salleElastique'],
+    raison: 'MOTEUR §10 ter : une seule définition ; la salle de l’exercice, la grille et l’objectif la lisent.' },
+  { notion: 'les charges virtuelles d’une liste (l’ordre, dans le sens où monter est plus dur)', pr: '132-U1',
+    module: 'profil.js', fonction: 'chargesVirtuelles', lecteurs: [],
+    par: ['chargePourLeMoteur', 'salleElastique', 'cranElastique'],
+    raison: 'MOTEUR §10 ter : aide −3, −2, −1 ; résistance 3, 2, 1. Jamais affichées, jamais écrites ; aucun écran ne les calcule.' },
+  { notion: 'le rattachement d’une aide notée en kg (le kg EXACT d’un élastique déclaré)', pr: '132-U1',
+    module: 'profil.js', fonction: 'rattacherElastique', lecteurs: [], par: ['elastiqueDeSerie'],
+    raison: 'MOTEUR §10 ter : un 20 kg sans élastique de 20 kg ne devient pas « Rouge » ; jamais le plus proche.' },
+  { notion: 'l’élastique d’une série au sens du coach (un nom absent de la liste : neutre, jamais deviné)', pr: '132-U1',
+    module: 'profil.js', fonction: 'elastiqueDeSerie', lecteurs: ['app.js'], par: ['chargePourLeMoteur', 'meilleurElastique'],
+    raison: 'MOTEUR §10 ter : la consigne, le meilleur et la grille lisent la même série.' },
+  { notion: 'la charge qu’une série d’un exercice noté par nom donne au moteur (`null` : neutre)', pr: '132-U1',
+    module: 'profil.js', fonction: 'chargePourLeMoteur', lecteurs: ['app.js', 'plan.js'],
+    raison: 'MOTEUR §10 ter : l’historique (l’app) et la séance du jour (le plan) passent par elle ; les neutres sortent.' },
+  { notion: 'la salle d’un exercice noté par nom (ses charges virtuelles et leurs noms)', pr: '132-U1',
+    module: 'profil.js', fonction: 'salleElastique', lecteurs: [], par: ['salleDeLExercice'],
+    raison: 'MOTEUR §10 ter : `salleDeLExercice`, étendue, la rend au moteur ; tout le §10 bis s’applique tel quel.' },
+  { notion: 'l’élastique au cran au-dessus ou en dessous', pr: '132-U1',
+    module: 'profil.js', fonction: 'cranElastique', lecteurs: [],
+    raison: 'MOTEUR §10 ter : le moteur monte d’un cran sur les charges virtuelles ; cette fonction le dit en nom, pour la ' +
+      'référence ; aucun écran ne recalcule un cran.' },
+  { notion: 'ce qui part en base pour une série notée par nom (le nom ; −kg déclaré d’une aide, sinon NULL)', pr: '132-U1',
+    module: 'profil.js', fonction: 'ecrireSerie', lecteurs: ['app.js'],
+    raison: 'MOTEUR §10 ter : la charge virtuelle n’est jamais écrite ; `sets.elastique` le nom, `sets.charge_kg` le kg déclaré.' },
+  { notion: 'le meilleur d’un exercice noté par nom (le plus dur, puis le plus de reps)', pr: '132-U1',
+    module: 'profil.js', fonction: 'meilleurElastique', lecteurs: ['app.js'],
+    raison: 'MOTEUR §10 ter : calculé à l’affichage (un record est immuable, l’ordre d’une liste peut changer).' },
+  { notion: 'le formateur d’une série notée par nom (« Noir × 12 »)', pr: '132-U1',
+    module: 'modele.js', fonction: 'affichageElastique', lecteurs: ['profil.js', 'rendu.js', 'app.js', 'faits.js', 'social.js', 'plan.js'],
+    raison: 'ECRAN-SAISIE §3 ter.6 : le formateur unique écrit « Noir × 12 » partout (journal, détail, page d’exercice, ' +
+      'récap, fil, séance d’ami, direct du groupe, « préc. »).' },
   { notion: 'la ligne de zone qui commence un bloc', pr: '124-U1',
     module: 'moteur.js', fonction: 'ligneDeDebutDeBloc', lecteurs: ['app.js'],
     raison: 'MOTEUR §9.10 (53-2 bis) : « Nouveau bloc » et « · bloc » se disent sur la même ligne.' },
@@ -1976,7 +2043,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : trente-neuf (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : quarante (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126, ce qui manque aux séances en 131), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -1987,7 +2054,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(39);
+    expect(FAITS.length).toBe(40);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 
@@ -2582,12 +2649,19 @@ const REGISTRE_ECRITURES = [
   { fn: 'groupeInviter', chemin: 'liste-blanche', appelants: ['app.js:inviterAuGroupe'], raison: RAISON_GROUPE },
   { fn: 'groupeAnnulerInvitation', chemin: 'liste-blanche', appelants: ['app.js:annulerInvitation'], raison: RAISON_GROUPE },
   { fn: 'groupeRejoindre', chemin: 'liste-blanche', appelants: ['app.js:rejoindre'], raison: RAISON_GROUPE },
-  { fn: 'groupePublier', chemin: 'liste-blanche', appelants: ['app.js:publierMesExercices', 'app.js:publierFinPourLeGroupe'],
-    raison: RAISON_GROUPE },
+  // 136 (audit du 16/10, 06 #14) — l'XP de fin et le départ à l'abandon passent par la file du groupe (`grp.file`,
+  // `envoyerFileGroupe` → `envoyerGesteDuGroupe`), gardée sur l'appareil et renvoyée : plus d'envoi unique sans retour.
+  { fn: 'groupePublier', chemin: 'liste-blanche', appelants: ['app.js:publierMesExercices', 'app.js:envoyerGesteDuGroupe'],
+    raisons: {
+      'app.js:publierMesExercices': RAISON_GROUPE + ' ; ma liste d’exercices se republie à chaque lecture du groupe si elle a changé',
+      'app.js:envoyerGesteDuGroupe': RAISON_GROUPE + ' ; mon XP de fin de séance attend dans la file du groupe (`grp.file`), '
+        + 'sur l’appareil, et repart au retour du réseau'
+    } },
   { fn: 'groupeEnvoyer', chemin: 'liste-blanche', appelants: ['app.js:envoyerFileGroupe'],
     raison: RAISON_GROUPE + ' ; un message écrit hors ligne attend dans la file du groupe (`grp.file`), sur l’appareil' },
   { fn: 'groupeFermer', chemin: 'liste-blanche', appelants: ['app.js:fermerRecapGroupe'], raison: RAISON_GROUPE },
-  { fn: 'groupeQuitter', chemin: 'liste-blanche', appelants: ['app.js:quitterLeGroupeSiMembre'], raison: RAISON_GROUPE },
+  { fn: 'groupeQuitter', chemin: 'liste-blanche', appelants: ['app.js:envoyerGesteDuGroupe'],
+    raison: RAISON_GROUPE + ' ; le départ à l’abandon attend dans la file du groupe (`grp.file`), sur l’appareil' },
   // ── 89 (SOCIAL-V1 « Étage 2 ») — mes scores de force (`scores_force`, v2_079) : le score et la charge, jamais le poids.
   { fn: 'publierScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_PUBLICATION },
   { fn: 'retirerScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_PUBLICATION },

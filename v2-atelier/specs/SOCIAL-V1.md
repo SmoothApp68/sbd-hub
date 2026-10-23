@@ -15,10 +15,20 @@ Abonnements façon Instagram, trois cercles :
 | Mutuel | + détail des séances (exercices, séries, charges) ; bouton « Inviter dans un groupe » (grisé sinon, avec « Abonnez-vous l'un à l'autre pour l'inviter » — l'invitation elle-même est l'étage 3, le bouton seulement ici, inactif même en mutuel avec « Bientôt ») — **retiré le 16/10/2026 (audit du 16/10, 05 #10)** : l'étage 3 est livré ailleurs (le groupe se lance depuis la séance, §7.1 ; la guilde invite depuis ses Membres, §6.2), le bouton restait figé à « Bientôt » et disait sur mon propre profil de m'abonner à moi-même |
 | Jamais | poids de corps, santé, notes, RPE, ressenti, douleur |
 
+**La bio — décidée par Aurélien le 22/10/2026** (audit du 16/10, 03 #15 ; maquette `maquette-bio-profil-social-v1.html`).
+Elle se lit sur le profil social, **sous l'état** (« Abonné », « Compte privé », « C'est toi »), avant les boutons, en
+entier (280 caractères au plus, retours à la ligne gardés, sans « voir plus »), en blanc : ce sont les mots de la
+personne. **La voient** : la personne elle-même, ses abonnés acceptés (mutuels compris) et les membres d'une même guilde.
+**Ne la voient pas** : l'inconnu, même si le compte est public, et une demande en attente. Un blocage cache déjà tout le
+profil. Une bio vide ne laisse ni trou ni texte de remplacement. **La base décide** : `social_profil` rend `bio`, nulle
+hors de ces cercles (v2_105). `profiles.visibility_bio`, réglage du v1 jamais montré par le v2, **n'est pas lue** — un
+réglage invisible qui cache ou montre la bio contredirait « une décision de l'utilisateur ne s'efface jamais en
+silence ». La feuille Bio du Profil dit : « Tes abonnés et les membres de ta guilde la voient sur ton profil. »
+
 ## 2. Les règles
 
 - Compte privé par défaut (chaque abonnement s'approuve ; public = acceptation d'office).
-- Bloquer et retirer un abonné en silence ; bloquer efface tout lien.
+- Bloquer et retirer un abonné en silence ; bloquer efface tout lien, sauf la guilde, où l'autre devient « un membre » (§6.5).
 - Le nombre de réactions n'est visible que par l'auteur.
 - Fil : séances terminées des 30 derniers jours, liste chronologique, puis « Tu es à jour » ; jamais une séance en
   cours ; jamais une séance `visibilite = 'private'`.
@@ -182,8 +192,10 @@ elle retire ses scores.
 - **1b. Proposition sans chiffre** (« le cran au-dessus ») : règle « suivie » de MOTEUR §12, toute charge au-dessus du palier
   compte.
 - **1c. Révisions** : le pari relié à la série par `set_observe`.
-- **1d. Types de record qui comptent** : `charge_a_reps`, `reps_a_charge`, `charge_max`, `cap`, `duree_s`, `distance_m`.
-  Exclus : `un_rm_estime` (une estimation, pas un fait) et `volume_seance` (pousserait au volume). Une série « à fond »
+- **1d. Types de record qui comptent** : `charge_a_reps`, `reps_a_charge`, `charge_max`, `cap`, `volume_seance`, `duree_s`, `distance_m`.
+  Exclu : `un_rm_estime` (une estimation, pas un fait). **22/10/2026 : le volume de la séance reste un record, partout, la guilde
+  comprise** (décision d'Aurélien, revient sur 05 #2 et sur l'exclusion du 14/10) ; la série qui porte sa médaille
+  suit la règle « sans dépasser la charge proposée » comme les autres. Une série « à fond »
   compte (c'est un fait). **16/10/2026 (D1, audit du 16/10)** : la force estimée n'est plus un record nulle part
   (MOTEUR §9.23) — plus aucune ligne `un_rm_estime` ne s'écrit, et celles d'avant sont ignorées aussi par le fil
   (`faits.medaillesDuSocial`) et le récap du groupe (`groupe_recap_de`, v2_093) : une série que seule l'estimation
@@ -195,7 +207,7 @@ elle retire ses scores.
 
 ### 6.2 Ce que le code en a fait (90)
 
-- **Le record qui compte** : `faits.recordsSansDepasser` — une ligne du journal des six types, comptée **une fois par
+- **Le record qui compte** : `faits.recordsSansDepasser` — une ligne du journal des sept types (volume_seance compris, 22/10/2026), comptée **une fois par
   série** (une médaille par série, comme le fil). Sa série sans pari de consigne relié (`set_observe`, module ≠
   `escalier`) compte ; avec, le pari de la plus haute `fondement.revision` ; compte si la charge faite ≤ la charge
   proposée (au centième) ; `fondement.charge` nul (le cran sans chiffre) ou série sans charge : compte.
@@ -217,7 +229,10 @@ elle retire ses scores.
   `Social.defiModifiable`) et la base refuse (`guilde_semaine_lancee`, exception `guilde_defi_fige`). Choisir le
   premier défi après une séance terminée est aussi refusé : le défi (1) court alors seul.
 - **« La guilde cette semaine »** (fait brut de la base) : séances terminées non privées des membres avec une série de travail,
-  leurs séries médaillées (six types, une par série), et le tonnage de `Bilan.volumeKg`.
+  leurs **records comptés comme la jauge du défi** (`records_semaine` : sans dépasser la charge proposée, la règle de
+  §6.1), et le tonnage de `Bilan.volumeKg`. *Décidé le 22/10/2026 (audit du 16/10, 05 #15) : la carte comptait toutes
+  les séries médaillées (`medailles`) sous le mot « records », pendant que la jauge disait « 1 record sur 3 » ; deux
+  chiffres pour le même fait se contredisent. Un seul chiffre, un seul mot : « records ».*
 - **Progression** : ordre par part décroissante, puis par nombre d'exercices ; « 5 sur 6 » ; sans exercice compté, « — »
   en bas. Numéros de ligne comme la maquette ; ni couronne, ni rouge, ni vainqueur.
 - **Blason** : le seul gabarit du social (`bouclier`), huit couleurs. Plus de gabarits : noté pour plus tard.
@@ -346,6 +361,12 @@ invitations, défis : des fonctions SECURITY DEFINER (`guilde_choisir_defi` refu
 - **Le détail de la séance** : « Faite en groupe avec jordan, lea » (en ligne), qui rouvre le récap figé.
 - **Bloquer en plein groupe** fait partir celui qui bloque, en silence (sa séance continue) — interprétation de « deux
   personnes qui se bloquent ne peuvent être dans le même groupe ».
+  **v2_107 (22/10/2026, décision « personne ne part de la guilde »)** : (1) un membre dont la place est déjà fermée n'est pas
+  retiré par le blocage, mais `groupe_etat` ne le rend plus à l'autre (la ligne reste : « Faite en groupe avec … ») ;
+  (2) une invitation d'un tiers vers un groupe où se trouve la personne bloquée ne s'affiche plus
+  (`groupe_invitations_recues`), et le déclencheur retire celles qui existaient ; (3) **un message de groupe encore dans la
+  file après ce départ revient avec `groupe_pas_membre` : aucune phrase** (ni « Il faut le réseau »), l'opération sort de la
+  file en silence. `guilde_bloque` n'a pas de phrase propre : la phrase générique ne révèle pas le blocage.
 - **Le coach et les bilans** ne lisent rien du groupe : `plan.js` n'est pas touché ; le groupe n'écrit jamais dans une
   série ni dans un plan.
 

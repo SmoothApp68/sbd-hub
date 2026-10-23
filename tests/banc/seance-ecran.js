@@ -495,6 +495,8 @@ const PROFIL_BANC = {
   compte_prive: true, jeu_niveau: null, jeu_titre: null,
   // 50-1 — la réponse à la carte du lest : `oui`, `non`, ou NULL (pas encore).
   lest_reponse: null, lest_reponse_le: null,
+  // 131 (`v2_101`) — « Je ne sais plus » : les groupes refusés de « Ce qui manque à tes séances ».
+  completer_refus: [],
   // 127 (`v2_099`) — la réponse à la carte « marche suivante », par exercice de départ.
   marche_reponses: null,
   // 60-2a (`v2_065`) — le questionnaire du coach.
@@ -706,7 +708,13 @@ const SETS_IMPORTES = [
     // répond `22003` ; au-delà de 1e21 le nombre part en notation exponentielle
     // dans le JSON et devient `22P02`, code DÉFINITIF. Un banc qui accepte
     // n'importe quel entier ne peut pas voir ce défaut-là.
-    for (const col of ['reps', 'duree_s']) {
+    // 131 (v2_101) — le D+ et les étages : des entiers, bornés comme dans l'app (jamais 0 ; D+ ≤ 10 000 m,
+    // étages ≤ 2 000 ; la distance ≤ 400 km). Une app plus permissive bloquerait la file (23514, définitif).
+    if (l.denivele_m !== null && l.denivele_m !== undefined && !(l.denivele_m >= 1 && l.denivele_m <= 10000)) {
+      return refus('23514', 'sets_denivele_borne');
+    }
+    if (l.etages !== null && l.etages !== undefined && !(l.etages >= 1 && l.etages <= 2000)) return refus('23514', 'sets_etages_borne');
+    for (const col of ['reps', 'duree_s', 'denivele_m', 'etages']) {
       const v = l[col];
       if (v === null || v === undefined) continue;
       if (typeof v !== 'number' || !isFinite(v)) return refus('22P02', col + ' : entier invalide');
@@ -1337,7 +1345,25 @@ const SETS_IMPORTES = [
         base.journal.push({ op: 'objectifs-absente', methode: req.method() });
         return json({ code: 'PGRST205', message: 'Could not find the table \'public.objectifs\' in the schema cache', details: null }, 404);
       }
-      if (req.method() === 'GET') return json(projeter(base.objectifs, url));
+      if (req.method() === 'GET') {
+        // 139 — `lenteurObjectifs` : UNE lecture de la table retenue. ⚠️ La réponse est CONSTRUITE À L'ARRIVÉE de la
+        // requête, puis retenue : construite après l'attente, elle contiendrait déjà le geste fait pendant la lecture,
+        // et le test ne discriminerait rien (c'est la lecture PÉRIMÉE que l'app reçoit, comme d'un serveur lent).
+        const reponse = JSON.parse(JSON.stringify(projeter(base.objectifs, url)));
+        if (base.lenteurObjectifs) {
+          const retenue = base.lenteurObjectifs;
+          base.lenteurObjectifs = 0;
+          base.objectifsLibereA = Date.now() + retenue;
+          base.objectifsRetenue = true;
+          await pause(retenue);
+        }
+        return json(reponse);
+      }
+      // 139 — `ecritureApresLecture` : l'écriture (upsert ou retrait) attend que la lecture retenue soit ARRIVÉE (sa réponse
+      // est alors construite sans le geste) : le geste est dans la file quand la lecture part, et arrive en base après elle.
+      if (req.method() !== 'GET' && base.ecritureApresLecture) {
+        for (let k = 0; k < 400 && !base.objectifsRetenue; k++) await pause(50);
+      }
       if (req.method() === 'DELETE') {
         const slug = (url.searchParams.get('exercise_slug') || '').replace('eq.', '');
         base.journal.push({ op: 'objectifs-retrait', slug });
@@ -1458,6 +1484,11 @@ const SETS_IMPORTES = [
             return json(refus('23514', 'profiles_marche_reponses_ok'), 400);
           }
         }
+        // 131 (`v2_101`) — `completer_refus` : une liste de « slug:colonne ».
+        if (l.completer_refus !== undefined && (!Array.isArray(l.completer_refus) ||
+            l.completer_refus.some((x) => typeof x !== 'string' || !/^[a-z0-9_-]+:[a-z_]+$/.test(x)))) {
+          return json(refus('23514', 'profiles_completer_refus_ok'), 400);
+        }
         // 108 (`v2_088`) — `profiles_ma_salle_ok` : NULL, ou un objet aux seules clés barres_ez, barres_droites,
         // halteres ; des barres de 1 à 100 kg au demi-kilo ; des haltères nuls, { max, pas } ou des tranches (v2_095).
         if (l.ma_salle !== undefined && l.ma_salle !== null) {
@@ -1471,8 +1502,18 @@ const SETS_IMPORTES = [
             t.jusqua > (i ? h[i - 1].jusqua : 0) && t.pas <= t.jusqua - (i ? h[i - 1].jusqua : 0));
           const okH = h === undefined || h === null || okT || (typeof h === 'object' && !Array.isArray(h) && typeof h.max === 'number' &&
             typeof h.pas === 'number' && h.max >= 1 && h.max <= 100 && h.pas >= 0.5 && h.pas <= 10 && h.pas <= h.max);
-          if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH ||
-              Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres'].indexOf(k) < 0)) {
+          // 132 (`v2_099`, `v2_102`) — les élastiques : `elastiques` [{nom, kg?}], `mini_bandes` [{nom}] (10 au plus,
+          // un nom de 1 à 30 caractères sans espace au bord, un kg de 0,5 à 100 au demi-kilo), `elastiques_par_nom`
+          // booléen (`profiles_ma_salle_elastiques_ok`, `profiles_ma_salle_mini_bandes_ok`).
+          const liste = (x, cles) => x === undefined || (Array.isArray(x) && x.length <= 10 && x.every((e) => e &&
+            typeof e === 'object' && !Array.isArray(e) && Object.keys(e).every((k) => cles.indexOf(k) >= 0) &&
+            typeof e.nom === 'string' && /^[^ ](.{0,28}[^ ])?$/.test(e.nom) &&
+            (e.kg === undefined || e.kg === null || (typeof e.kg === 'number' && e.kg >= 0.5 && e.kg <= 100 && Math.floor(e.kg * 2) === e.kg * 2))));
+          const okE = liste(v.elastiques, ['nom', 'kg']) && liste(v.mini_bandes, ['nom']) &&
+            (v.elastiques_par_nom === undefined || typeof v.elastiques_par_nom === 'boolean');
+          if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH || !okE ||
+              Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres', 'elastiques', 'elastiques_par_nom',
+                'mini_bandes'].indexOf(k) < 0)) {
             return json(refus('23514', 'profiles_ma_salle_ok'), 400);
           }
         }
@@ -2064,7 +2105,7 @@ const SETS_IMPORTES = [
   // en vol pendant Quitter »). Attendre que le réseau se taise traverserait la fenêtre qu'il observe :
   // on garde le délai fixe d'avant, qui est ici une mesure, pas une attente.
   const retenueEnCours = () => !!(base.lenteur || base.lenteurPredictions || base.lenteurRecords ||
-    base.lenteurProfil || (base.courseSync && !(base.courseSync.envoye && base.courseSync.lectures >= 2)));
+    base.lenteurProfil || base.lenteurObjectifs || (base.courseSync && !(base.courseSync.envoye && base.courseSync.lectures >= 2)));
   const aller = async (chemin) => {
     const retenue = retenueEnCours();
     await page.goto(BASE + (chemin || '/'), { waitUntil: 'domcontentloaded' }).catch(() => {});
@@ -2102,15 +2143,32 @@ const SETS_IMPORTES = [
   // 115 (audit du 16/10, E4) — « Terminer » DEMANDE quand des séries remplies ne sont pas validées : les
   // sections écrites avant gardent leur sens (terminer, ce qui n'est pas validé ne part pas) par « Terminer quand
   // même ». Sans question, rien.
+  // 135 — L'ISSUE DU GESTE, PLUS 300 MS FIXES : après « Terminer » (ou « Abandonner »), soit la question s'affiche
+  // dans la feuille, soit la feuille se ferme, soit la séance quitte l'écran. On attend l'un des trois (plafond
+  // 6 s : au plafond, la lecture qui suit dit ce qu'elle voit, comme avant).
+  const issueDuGeste = (motif) => jusqua(() => page.evaluate((m) => {
+    const sv = document.getElementById('vue-seance'), f = document.getElementById('feuille-seance');
+    const t = (document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || '';
+    return !sv || sv.hidden || !f || f.hidden || new RegExp(m).test(t);
+  }, motif).catch(() => true), 6000);
   const terminerQuandMeme = async () => {
-    await attendre(300);
+    await issueDuGeste('pas validées? : (elles|elle) ne ser');
     if (/pas validées? : (elles|elle) ne ser/.test(await texte('#feuille-contenu .feuille-t'))) {
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .filter((b) => b.textContent === 'Terminer quand même')[0].click());
     }
   };
+  // 137 (E12) — « Abandonner » depuis la feuille de fin : en rouge (« Abandonner et tout effacer ») quand une série est
+  // validée ; sur une séance sans série validée, c'est le geste principal de la feuille (« Abandonner », immédiat).
+  const cliquerAbandon = async () => {
+    await jusqua(() => page.evaluate(() => !document.getElementById('feuille-seance').hidden &&
+      !!(document.querySelector('#feuille-contenu .danger') ||
+        Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Abandonner')[0])).catch(() => false), 6000);
+    await page.evaluate(() => (document.querySelector('#feuille-contenu .danger') ||
+      Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Abandonner')[0]).click());
+  };
   const confirmerAbandon = async () => {
-    await attendre(300);
+    await issueDuGeste('^Abandonner la séance \\?');
     if (/^Abandonner la séance \?/.test(await texte('#feuille-contenu .feuille-t'))) {
       await page.click('#feuille-contenu .danger');
     }
@@ -3111,7 +3169,7 @@ const SETS_IMPORTES = [
     JSON.stringify(g4.map((x) => x.champs)));
   ok('le type de mesure est rappelé sous le nom',
     JSON.stringify(g4.map((x) => x.type)) ===
-      '["CHARGE × REPS","REPS SEULES","DURÉE","DISTANCE ET DURÉE"]',
+      '["CHARGE × REPS","REPS SEULES","DURÉE","DURÉE · DISTANCE"]',
     JSON.stringify(g4.map((x) => x.type)));
 
   // §3 — la colonne d'effort n'existe que là où il y a des répétitions.
@@ -4433,6 +4491,9 @@ const SETS_IMPORTES = [
     JSON.stringify([['Développé Couché (Barre)', 'Squat (Barre)']]),
     JSON.stringify(await formeEcran()));
 
+  // 137 (E12) — une séance sans série validée ne se termine plus (elle s'abandonne) : une série est validée.
+  await saisirSerie(0, 60, 5);
+  await attendre(800);
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(700);
   const q2 = await texte('#feuille-contenu');
@@ -4488,6 +4549,9 @@ const SETS_IMPORTES = [
   await entree('Ajouter un exercice après');
   await choisirCatalogue('planche');
 
+  // 137 (E12) — une série validée : sans elle, la feuille de fin propose d'abandonner, pas de terminer.
+  await saisirSerie(0, 60, 5);
+  await attendre(800);
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(700);
   ok('un exercice ajouté en séance se rapporte comme ajouté',
@@ -4637,7 +4701,7 @@ const SETS_IMPORTES = [
   await aller('/saisie');
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
-  await page.click('#feuille-contenu .danger');
+  await cliquerAbandon();
   await confirmerAbandon();
   await attendre(1600);
 
@@ -4860,14 +4924,19 @@ const SETS_IMPORTES = [
   // applaudit une séance amputée. Il faut les deux — c'est ce qui a laissé le
   // défaut traverser onze chantiers.
 
+  // 135 — le bouton « séance vide » est là (la bibliothèque rendue, aucune séance en cours) avant de le toucher ;
+  // puis la séance est à l'écran. Avant : un clic à l'aveugle (« Cannot read properties of undefined (reading
+  // 'click') » sous charge, 7 quinvicies, la séance d'avant pas encore partie) et 900 ms fixes.
   const seanceVide = async () => {
     await aller('/saisie');
+    await jusqua(() => page.evaluate(() => Array.from(document.querySelectorAll('button'))
+      .some((x) => /séance vide/i.test(x.textContent) && x.offsetParent !== null)).catch(() => false), 10000);
     await page.evaluate(() => {
       const b = Array.from(document.querySelectorAll('button'))
-        .filter((x) => /séance vide/i.test(x.textContent))[0];
+        .filter((x) => /séance vide/i.test(x.textContent) && x.offsetParent !== null)[0];
       b.click();
     });
-    await attendre(900);
+    await jusqua(() => page.evaluate(() => !document.getElementById('vue-seance').hidden).catch(() => false), 10000);
   };
   const ajouterExoSeance = async (q) => {
     await page.click('#btn-ajouter-exo-seance');
@@ -4912,12 +4981,21 @@ const SETS_IMPORTES = [
   };
   const seriesDe = (id) => base.sets.filter((x) => x.session_id === id).length;
   const enCoursId = () => (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
+  // 135 — chaque pas attend son état : la feuille de fin ouverte (son bouton là), puis la séance sortie de
+  // l'écran et le réseau calme (la séance, ses séries, ses records sont partis par la file). Avant : 600 ms,
+  // puis 2 600 ms fixes.
+  const feuilleAvec = (sel) => jusqua(() => page.evaluate((x) => !document.getElementById('feuille-seance').hidden &&
+    !!document.querySelector('#feuille-contenu ' + x)).catch(() => false), 6000);
+  const seanceSortie = async () => {
+    await jusqua(() => page.evaluate(() => document.getElementById('vue-seance').hidden).catch(() => false), 10000);
+    await reseauCalme();
+  };
   const terminer = async () => {
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(600);
+    await feuilleAvec('.principal');
     await page.click('#feuille-contenu .principal');
     await terminerQuandMeme();
-    await attendre(2600);
+    await seanceSortie();
   };
   // ⚠️ ABANDONNER N'EST PAS TERMINER, ET C'EST TOUT L'INTÉRÊT (§7 octodecies).
   // « Terminer » fait entrer la séance dans l'historique : elle devient alors
@@ -4925,10 +5003,9 @@ const SETS_IMPORTES = [
   // de poser. « Abandonner » la supprime — l'antécédent reste l'antécédent.
   const abandonner = async () => {
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(600);
-    await page.click('#feuille-contenu .danger');
+    await cliquerAbandon();
     await confirmerAbandon();
-    await attendre(1600);
+    await seanceSortie();   // 135 — l'état, plus 1 600 ms fixes
   };
   const onglet = async (vue) => {
     await page.click('.onglet[data-vue="' + vue + '"]');
@@ -7130,7 +7207,10 @@ const SETS_IMPORTES = [
     await saisirSerie(0, planOuvert[0][0], planOuvert[0][1]);
     await saisirSerie(1, planOuvert[1][0], planOuvert[1][1]);
     await saisirSerie(2, planOuvert[2][0], planOuvert[2][1]);
-    await attendre(900);
+    // 135 — les trois paris passent par la file : on attend qu'ils soient en base (l'état que lit le contrôle),
+    // puis que le réseau se taise (un quatrième, fautif, aurait eu le temps de partir).
+    await jusqua(async () => predictions().length >= 3, 10000);
+    await reseauCalme();
     const notees = predictions();
     ok('[P] une ligne PAR SÉRIE VALIDÉE, écrite à sa validation, avec ce que la ligne affichait',
       notees.length === 3 && notees.map((l) => l.fondement.rang).join() === '1,2,3' &&
@@ -7174,10 +7254,17 @@ const SETS_IMPORTES = [
     // validation de chacune (49-C : le pari naît à la même validation).
     await aller('/saisie');
     await demarrerRoutine('Terre');
+    // 135 — `parRang` rend `{}` tant que le pari n'est pas en base : un contrôle lu trop tôt échoue proprement au
+    // lieu de faire planter la section (« parRang(1) indéfini », groupe 4 en parallèle, PR 463 et 464).
     const parRang = (r) => predictions().filter((l) => l.fondement.rang === r &&
-      l.fondement.seance === base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0])[0];
+      l.fondement.seance === base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0])[0] || {};
     const c1 = planOuvert[0][0];
     await saisirSerie(0, c1, 5);
+    // 135 — LA CAUSE DU PLANTAGE : `saisirSerie` rend la main 450 ms après la validation ; le pari, sa séance et
+    // son observation montent par la file (vidange, puis un aller-retour par ligne). Sous charge, rien n'était
+    // encore en base : `parRang(1)` était indéfini. On attend l'état que lit le contrôle : le pari en base,
+    // observé, rattaché à sa série.
+    await jusqua(async () => !!parRang(1).observee_a && !!parRang(1).set_observe, 10000);
     ok('[P] la série faite à la charge proposée est OBSERVÉE',
       parRang(1).valeur_observee === 5 && !!parRang(1).observee_a && !!parRang(1).set_observe,
       JSON.stringify({ v: parRang(1).valeur_observee, set: !!parRang(1).set_observe }));
@@ -7189,6 +7276,8 @@ const SETS_IMPORTES = [
     // la même charge, apparier sur le rang seul et apparier sur les deux
     // donnent le même résultat — c'est la déviation qui les sépare.
     await saisirSerie(1, planOuvert[1][0] + 5, 5);
+    await jusqua(async () => !!parRang(2).set_observe && base.sets.some((x) => x.id === parRang(2).set_observe), 10000);
+    await reseauCalme();
     // ⚠️ CORRIGÉ LE 21/09 (48c-2) : la série est RELIÉE, ses reps ne comptent
     // pas. Une exploration dit quelque chose ; elle ne doit pas disparaître de
     // la table. Mais comparer « vise 4 à 130 » à « 3 à 135 » ne dirait rien de
@@ -7204,24 +7293,29 @@ const SETS_IMPORTES = [
     const taper = async (i, champ, v) => {
       const champs = await (await ligne(i)).$$('input');
       await champs[champ].fill(String(v));
-      await attendre(600);
     };
+    // 135 — une correction monte par la file : on attend qu'elle soit en base (l'état que lit le contrôle).
     await taper(0, 1, 4);
+    await jusqua(async () => parRang(1).valeur_observee === 4, 10000);
     ok('[P] les reps corrigées sur une série validée : l’observation SUIT',
       parRang(1).valeur_observee === 4, JSON.stringify(parRang(1).valeur_observee));
     await taper(0, 0, c1 + 10);
+    await jusqua(async () => parRang(1).valeur_observee === null && parRang(1).observee_a === null, 10000);
     ok('[P] la CHARGE corrigée hors de la proposition : les reps se retirent, la série reste',
       parRang(1).valeur_observee === null && parRang(1).observee_a === null &&
       !!parRang(1).set_observe,
       JSON.stringify({ v: parRang(1).valeur_observee, a: parRang(1).observee_a,
         set: !!parRang(1).set_observe }));
     await taper(0, 0, c1);
+    await jusqua(async () => parRang(1).valeur_observee === 4, 10000);
     ok('[P] revenue à la charge proposée : l’observation revient',
       parRang(1).valeur_observee === 4, JSON.stringify(parRang(1).valeur_observee));
 
     // ── L'ORDRE DANS LA FILE, ET HORS LIGNE ───────────────────────────────
     base.reseau = false;
     await taper(0, 1, 3);
+    // 135 — hors ligne, la correction ATTEND dans la file : on attend qu'elle y soit, avec ses séries.
+    await jusqua(async () => (await enFilePred()).length > 0 && (await enFileSets()).length > 0, 10000);
     const fileP = await enFilePred();
     const fileS = await enFileSets();
     ok('[P] hors ligne, la prédiction ATTEND dans la file, avec sa dépendance',
@@ -9325,7 +9419,78 @@ const SETS_IMPORTES = [
     ok('[RE] la séance suivante arrive en base, avec sa série',
       !!sid2 && sid2 !== sid && base.sets.some((x) => x.session_id === sid2),
       JSON.stringify({ sid2: sid2, series: base.sets.filter((x) => x.session_id === sid2).length }));
+
+    // 134 (I-13, audit iPhone) — LE RETOUR AU PREMIER PLAN VIDE LA FILE, sans `online` ni `SIGNED_IN`.
+    // ⚠️ Configuration discriminante : iOS ne délivre pas toujours `online` à la reprise, et le SDK n'est pas
+    // garanti de ré-entrer. On retire donc son écoute de la visibilité (sinon `SIGNED_IN` → `reentrer` →
+    // `vidanger` passerait pour l'app), on ne dispatche PAS `online`, et seule la visibilité reste.
+    {
+      base.reseau = false;
+      let derniere = Date.now();
+      const surRequete = (r) => { if (/\/rest\/v1\//.test(r.url())) derniere = Date.now(); };
+      page.on('request', surRequete);
+      const l1 = await ligne(1);
+      const ph1 = await l1.$$eval('input', (x) => x.map((y) => y.placeholder));
+      await saisirSerie(1, Number(String(ph1[0]).replace(',', '.')) || 20, Number(ph1[1]) || 8);
+      // ⚠️ La vidange lancée par la série est encore EN VOL : le SDK rejoue une lecture qui échoue (1 s, 2 s,
+      // 4 s), puis la vidange se relance une fois (`vidangeARelancer`) et rejoue à son tour. Si le réseau revenait
+      // pendant ce temps, c'est elle qui rattraperait la série, et le banc ne prouverait rien (vu par la mutation
+      // « visibilité non branchée »). On attend le silence : aucune requête depuis 5 s (plus que le plus long
+      // intervalle du SDK).
+      await attendre(1000);
+      for (let k = 0; k < 60 && Date.now() - derniere < 5000; k++) await pause(500);
+      page.off('request', surRequete);
+      const avant = base.sets.filter((x) => x.session_id === sid2).length;
+      const enFile = (await page.evaluate(() => window.THCache.lireAttente())).length;
+      ok('[I-13] prémisse : hors réseau, la série attend dans la file', enFile > 0 && avant === 1,
+        enFile + ' entrée(s) en file, ' + avant + ' série(s) en base');
+      const sdkCoupe = await page.evaluate(() => {
+        const a = window.THClient.obtenir().auth;
+        if (typeof a.visibilityChangedCallback !== 'function') return false;
+        window.removeEventListener('visibilitychange', a.visibilityChangedCallback);
+        return true;
+      });
+      ok('[I-13] prémisse : l’écoute de la visibilité du SDK est retirée', sdkCoupe);
+      base.reseau = true;
+      await attendre(3000);
+      ok('[I-13] prémisse : sans geste, la file attend toujours',
+        base.sets.filter((x) => x.session_id === sid2).length === 1);
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange', { bubbles: true })));
+      await jusqua(async () => base.sets.filter((x) => x.session_id === sid2).length === 2, 6000);
+      ok('[I-13] DISCRIMINANT — au retour au premier plan, la série en attente monte (sans `online`)',
+        base.sets.filter((x) => x.session_id === sid2).length === 2,
+        base.sets.filter((x) => x.session_id === sid2).length + ' série(s) en base');
+    }
     await abandonner();
+
+    // 134 (I-12, audit iPhone) — LA PERSISTANCE DU STOCKAGE SE DEMANDE UNE FOIS, au premier enregistrement local
+    // d'une séance. Une page neuve (la demande est par page), `persist` compté puis rendu à l'original.
+    {
+      await page.addInitScript(() => {
+        window.__persist = 0;
+        const S = window.StorageManager && window.StorageManager.prototype;
+        if (S && typeof S.persist === 'function') {
+          const vrai = S.persist;
+          S.persist = function () { window.__persist++; return vrai.apply(this, arguments); };
+        }
+      });
+      await page.reload();
+      await page.waitForLoadState('domcontentloaded').catch(() => {});
+      await attendre(1500);
+      await aller('/saisie');
+      await attendre(400);
+      ok('[I-12] prémisse : sans séance enregistrée, rien n’est demandé',
+        await page.evaluate(() => window.__persist === 0), String(await page.evaluate(() => window.__persist)));
+      await demarrerRoutine('Superset');
+      await attendre(800);
+      const lp = await ligne(0);
+      const php = await lp.$$eval('input', (x) => x.map((y) => y.placeholder));
+      await saisirSerie(0, Number(String(php[0]).replace(',', '.')) || 20, Number(php[1]) || 8);
+      await attendre(1200);
+      ok('[I-12] DISCRIMINANT — une séance enregistrée en local : `navigator.storage.persist()` demandé, une seule fois',
+        await page.evaluate(() => window.__persist === 1), String(await page.evaluate(() => window.__persist)));
+      await abandonner();
+    }
     page.off('console', ecouter);
     ok('[RE] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
@@ -12144,7 +12309,7 @@ const SETS_IMPORTES = [
     ok('[T51] DISCRIMINANT — la question de fin ne propose jamais de retirer un exercice raccourci',
       !/Poussée Haute Délai/.test(d1) && !/Cardio Délai U51 — retiré/.test(d1) && !/retiré/.test(d1),
       sp(d1).slice(0, 160));
-    await page.click('#feuille-contenu .danger');
+    await cliquerAbandon();
     await confirmerAbandon();
     await attendre(1600);
     ok('[T51] DISCRIMINANT — la routine n’a pas changé : aucune écriture, aucune ligne en moins',
@@ -17524,6 +17689,43 @@ const SETS_IMPORTES = [
       b0.inviter === false && b0.inviterSous === null && !/Inviter dans un groupe|Abonnez-vous l’un/.test(await texte('#social-ami')), JSON.stringify(b0));
     await mesurer('profil à sens unique');
 
+    // ── B bis (137, SOCIAL §1, v2_105). LA BIO SUR LE PROFIL SOCIAL : la base la rend dans les cercles (soi, abonné
+    // accepté, même guilde), nulle ailleurs ; l'app l'affiche sous l'état, en entier, retours à la ligne gardés.
+    const BIO_LEA = 'Powerbuilding, 3 ans\nSquat d’abord';
+    const profilLea = S.profils.filter((x) => x.id === 'u-lea')[0], profilAlexis = S.profils.filter((x) => x.id === 'u-alexis')[0];
+    const profilBanc = base.profiles.filter((x) => x.id === 'u-banc')[0], bioBancAvant = profilBanc.bio;
+    profilLea.bio = BIO_LEA; profilAlexis.bio = 'Visible des seuls abonnés'; profilBanc.bio = '  Ma bio, à moi  ';
+    const bio = () => page.evaluate(() => {
+      const n = document.querySelector('#social-ami .s-prof .s-bio');
+      return n ? { texte: n.textContent, apresEtat: !!n.previousElementSibling && n.previousElementSibling.classList.contains('s-etat'),
+        couleur: getComputedStyle(n).color, blancs: getComputedStyle(n).whiteSpace, taille: getComputedStyle(n).fontSize,
+        avantActions: !!n.parentElement.nextElementSibling && n.parentElement.nextElementSibling.classList.contains('s-actions') } : null;
+    });
+    await aller('/a/alexis');
+    await attendreQue(async () => (await ami()).pseudo === 'alexis');
+    const bioInconnu = await bio();
+    ok('[137-bio] DISCRIMINANT — un inconnu (même profil existant) : pas de bio, ni trou ni texte de remplacement',
+      bioInconnu === null && (await ami()).pseudo === 'alexis' && (await ami()).etat !== null, JSON.stringify([bioInconnu, await ami()]));
+    await aller('/a/lea');
+    await attendreQue(async () => (await bio()) !== null);
+    const bioAbonne = await bio();
+    ok('[137-bio] DISCRIMINANT — un abonné accepté voit la bio de lea : sous l’état, avant les boutons, 14 px, en blanc, retours à la ligne gardés',
+      !!bioAbonne && bioAbonne.texte === BIO_LEA && bioAbonne.apresEtat && bioAbonne.avantActions &&
+        bioAbonne.blancs === 'pre-line' && bioAbonne.taille === '14px' && bioAbonne.couleur === 'rgb(236, 238, 242)', JSON.stringify(bioAbonne));
+    await aller('/a/banc');
+    await attendreQue(async () => (await bio()) !== null);
+    const bioMoi = await bio();
+    ok('[137-bio] son propre profil : la bio (sans espaces de bord), sous « C’est toi »',
+      !!bioMoi && bioMoi.texte === 'Ma bio, à moi' && bioMoi.apresEtat && (await ami()).etat === 'C’est toi', JSON.stringify([bioMoi, await ami()]));
+    profilBanc.bio = '   ';
+    await aller('/a/banc');
+    await attendreQue(async () => (await ami()).etat === 'C’est toi');
+    await attendre(300);   // VOULU : l'absence d'un évènement (une bio qui ne vient pas) ne se prouve par aucun état
+    ok('[137-bio] une bio vide : rien (pas de paragraphe)', (await bio()) === null, JSON.stringify(await bio()));
+    if (bioBancAvant === undefined) delete profilBanc.bio; else profilBanc.bio = bioBancAvant;
+    delete profilLea.bio; delete profilAlexis.bio;
+    await aller('/a/lea');
+
     // ── C. LEA DEMANDE À SON TOUR : la demande dans le fil (et le badge), « Accepter » → MUTUEL : le détail.
     fauxSocial.appeler('u-lea', 'POST', 'abonnements', { suiveur: 'u-lea', suivi: 'u-banc' });
     await aller('/jeu/fil');
@@ -17973,10 +18175,11 @@ const SETS_IMPORTES = [
     let n0 = S.appels.length;
     await aller('/a/jordan');
     await attendreQue(async () => (await page.evaluate(() => document.querySelectorAll('#social-ami button.s-jour').length)) > 0);
-    await attendre(500);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const a0 = await lire();
     await aller('/a/jordan/exercice/squat-barre');
     await attendreQue(async () => !!(await lire()).cache);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const a1 = await lire();
     ok('[social-2] DISCRIMINANT — à sens unique : ni son mois, ni ses exercices, ni la page de son exercice — l’app ne demande rien, et la base refuserait',
       a0.mois === null && a0.exos.length === 0 && !a0.comparer && a1.cache === 'Ses exercices se voient quand vous vous suivez l’un l’autre.' &&
@@ -17989,6 +18192,7 @@ const SETS_IMPORTES = [
     S.abonnements.push({ suiveur: 'u-jordan', suivi: 'u-banc', statut: 'accepte', cree_le: iso(new Date(tS)), accepte_le: iso(new Date(tS)) });
     await aller('/a/jordan');
     await attendreQue(async () => (await lire()).exos.length > 0);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const b0 = await lire();
     const sq = b0.exos.filter((x) => x.slug === 'squat-barre')[0];
     ok('[social-2] mutuel : son mois en deux chiffres (2 séances, ses tonnes), « Ses exercices » (squat 210 kg · 2 séances, en tête), « Se comparer sur la période »',
@@ -18000,6 +18204,7 @@ const SETS_IMPORTES = [
     n0 = S.appels.length;
     await page.click('#social-ami .s-exo-ami[data-slug="squat-barre"]');
     await attendreQue(async () => !!(await lire()).charge);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const c0 = await lire();
     ok('[social-2] son exercice : meilleure charge 210 kg, meilleure série 180 × 5 (le plus gros charge × reps), sa courbe sur 6 mois ; l’adresse /a/jordan/exercice/squat-barre',
       (await chemin()) === '/a/jordan/exercice/squat-barre' && c0.charge === '210 kg' && c0.serie === '180 × 5' && c0.lui === 1 &&
@@ -18007,6 +18212,7 @@ const SETS_IMPORTES = [
       JSON.stringify(c0));
     await page.click('#social-comparer-exo');
     await attendreQue(async () => (await lire()).moiCourbe > 0);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const c1 = await lire();
     ok('[social-2] « Se comparer » : ma courbe en pointillés or par-dessus la sienne, et côte à côte meilleure charge, meilleure série, séances (6 mois)',
       c1.moiCourbe === 1 && c1.lui === 1 && c1.duoMoi[0] === monSquat + ' kg' && c1.duoLui[0] === '210 kg' && c1.duoLui[1] === '180 × 5' &&
@@ -18014,12 +18220,14 @@ const SETS_IMPORTES = [
     await mesurer('son exercice, comparé');
     await page.click('#btn-retour-ami');
     await attendreQue(async () => (await lire()).exos.length > 0);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     ok('[social-2] le retour d’une sous-page ramène à son profil (« ← jordan » → /a/jordan, « ← Fil »)',
       (await chemin()) === '/a/jordan' && (await lire()).retour === '← Fil', await chemin());
 
     // ── D. SE COMPARER SUR LA PÉRIODE.
     await page.click('#social-comparer');
     await attendreQue(async () => (await lire()).communs.length > 0);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const d0 = await lire();
     const dc = d0.communs.filter((x) => x.slug === 'dc-barre')[0];
     ok('[social-2] DISCRIMINANT — « Se comparer » (ce mois) : séances, tonnage, séries, reps côte à côte ; au couché (à la barre, en tête), à kilos égaux, jordan devant — sans chiffre DOTS',
@@ -18029,12 +18237,14 @@ const SETS_IMPORTES = [
     await mesurer('se comparer');
     await page.click('#social-ami .s-periode[data-periode="3mois"]');
     await attendreQue(async () => (await lire()).duoLui[0] === '3');
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     ok('[social-2] « 3 mois » : sa séance d’il y a deux mois entre dans la période', (await lire()).duoLui[0] === '3', JSON.stringify(await lire()));
 
     // ── E. « ENTRE AMIS », en bas de MA page d'exercice — après v2_091 (le faux serveur par défaut).
     const refusAvantE = S.journal.filter((j) => j.op === 'refus').length;
     await aller('/exercice/dc-barre');
     await attendreQue(async () => (await entre()).rangs.length > 0);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const e0 = await entre();
     ok('[social-2] DISCRIMINANT — « Entre amis » au couché : à kilos égaux (' + monCouche + ' kg), jordan (plus léger) PREMIER ; alexis, qui n’est pas mutuel, absent',
       e0.rangs.length === 2 && e0.rangs[0].t === 'jordan' && e0.rangs[1].t === 'toi' && e0.rangs[1].moi &&
@@ -18047,6 +18257,7 @@ const SETS_IMPORTES = [
     await mesurer('entre amis');
     await aller('/exercice/squat-barre');
     await attendreQue(async () => (await entre()).rangs.length > 0);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const e2 = await entre();
     ok('[social-2] « Entre amis » au squat : jordan (210 kg, lus dans ses séances), puis toi — les vrais kilos', e2.rangs.length === 2 &&
       e2.rangs[0].t === 'jordan' && e2.rangs[0].kg === '210 kg' && e2.rangs[1].kg === monSquat + ' kg', JSON.stringify(e2));
@@ -18067,7 +18278,7 @@ const SETS_IMPORTES = [
     base.pesees.length = 0;
     await aller('/exercice/dc-barre');
     await attendreQue(async () => S.scores.filter((x) => x.user_id === 'u-banc').length === 0);
-    await attendre(800);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const f0 = await entre();
     ok('[social-2] sans pesée : mes scores sont retirés de la base, et « Entre amis » disparaît (jordan seul : moins de deux)',
       S.scores.filter((x) => x.user_id === 'u-banc').length === 0 && f0.rangs.length === 0 && f0.texte === '', JSON.stringify([f0, S.scores]));
@@ -18078,14 +18289,17 @@ const SETS_IMPORTES = [
     // ⚠️ La pesée d'abord dans le cache de l'appareil (une ouverture qui synchronise) : sinon, à l'ouverture suivante,
     // l'app n'a pas encore de pesée et retire mes scores par le chemin « sans pesée » — pas celui qu'on éprouve ici.
     await aller('/saisie');
-    await attendre(1500);
+    // 135 — l'état que ce pas prépare : la pesée dans le cache de l'appareil, puis le réseau calme.
+    await jusqua(() => page.evaluate(() => window.THCache.lireTout('pesees')
+      .then((l) => (l || []).some((x) => x.id === '00000000-0000-4000-8890-000000000001'))).catch(() => false), 10000);
+    await reseauCalme();
     S.v2_091 = false;
     // Une ancienne ligne à moi (score sur la pesée, avec sa charge), comme en base aujourd'hui.
     S.scores.push({ user_id: 'u-banc', exercise_slug: 'dc-barre', score: SocialJs.scoreDots(monCouche, 96.75, 'homme'), charge_kg: monCouche });
     const journalAvantG = S.journal.length, envoisAvantG = S.journal.filter((j) => j.op === 'scores').length;
     await aller('/exercice/dc-barre');
     await attendreQue(async () => S.scores.filter((x) => x.user_id === 'u-banc').length === 0);
-    await attendre(1500);
+    await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const g0 = await entre();
     const journalG = S.journal.slice(journalAvantG);
     const refusG = journalG.filter((j) => j.op === 'refus' && j.refus !== 'PGRST202');   // la fonction des kilos manque : attendu
@@ -18321,7 +18535,8 @@ const SETS_IMPORTES = [
       '« La guilde cette semaine » : séances, records (la médaille de melodie au moins), tonnage',
       c0.defi.indexOf('3 records sans dépasser la charge proposée · ') === 0 &&
         c0.phrase === (mien.records_semaine + 2) + ' record' + (mien.records_semaine + 2 > 1 ? 's' : '') + ' sur 3, à vous trois' &&
-        Number(c0.semaine[0]) >= 1 && Number(c0.semaine[1]) >= 1 && !!c0.semaine[2], JSON.stringify(c0));
+        // 137 (05 #15) — la carte dit le MÊME nombre de records que la jauge (`records_semaine`), pas `medailles`.
+        Number(c0.semaine[0]) >= 1 && Number(c0.semaine[1]) === mien.records_semaine + 2 && !!c0.semaine[2], JSON.stringify(c0));
     await mesurer('semaine');
 
     // ── D. PROGRESSION : la part, sans vainqueur ni rouge.
@@ -18847,6 +19062,34 @@ const SETS_IMPORTES = [
         !S.gmembres.some((m) => m.groupe_id === G4 && m.user_id === 'u-banc') && placeG3.ferme === true,
       JSON.stringify([finG3, messagesG3, messagesG3Apres, h3, h4.parts]));
     console.log('  durée H : ' + Math.round((Date.now() - ta) / 1000) + ' s');
+
+    // ── 142 (v2_107) — LE BLOCAGE DANS LE GROUPE : on ne se voit plus (membre à la place fermée ; invitation d'un tiers).
+    {
+      ['x1', 'x2', 'x3', 'x4'].forEach((p) => S.profils.push({ id: 'u-' + p, username: p, compte_prive: true, jeu_actif: true, deleted_at: null }));
+      S.groupes.push({ id: 'gr-142', createur: 'u-x1', cree_le: iso(new Date(tG)), fini_le: null });
+      [['u-x1', false], ['u-x2', true], ['u-x3', false]].forEach(([u, ferme], k) => S.gmembres.push({ groupe_id: 'gr-142', user_id: u, session_id: null,
+        exercices: [], xp: null, entre_le: iso(new Date(tG + k)), ferme }));
+      const pseudos = (u) => fauxSocial.rpc(u, 'groupe_etat').map((x) => x.pseudo).sort().join(',');
+      const avant142 = pseudos('u-x1');
+      fauxSocial.bloquer('u-x2', 'u-x1');   // x2, place déjà fermée, bloque x1 : le déclencheur ne la retire pas
+      const x1Apres = pseudos('u-x1'), x3Apres = pseudos('u-x3'), x2Apres = pseudos('u-x2');
+      const ligneX2 = S.gmembres.filter((m) => m.user_id === 'u-x2').length;
+      ok('[groupe] 142 (v2_107) — DISCRIMINANT — membre à la place fermée, puis blocage : l’autre ne le voit plus dans le groupe (sa ligne reste en base) ; ' +
+        'un tiers, lui, voit tout le monde',
+        avant142 === 'x1,x2,x3' && x1Apres === 'x1,x3' && x3Apres === 'x1,x2,x3' && ligneX2 === 1 && x2Apres === '',
+        JSON.stringify([avant142, x1Apres, x3Apres, x2Apres, ligneX2]));
+      S.ginvitations.push({ groupe_id: 'gr-142', invite: 'u-x4', invitant: 'u-x3', cree_le: 1 });
+      const vue1 = fauxSocial.rpc('u-x4', 'groupe_invitations_recues').length;
+      fauxSocial.bloquer('u-x4', 'u-x1');   // x4 bloque x1, membre du groupe : le déclencheur retire l'invitation de x3
+      const retiree = S.ginvitations.filter((i) => i.invite === 'u-x4').length;
+      S.ginvitations.push({ groupe_id: 'gr-142', invite: 'u-x4', invitant: 'u-x3', cree_le: 4 });
+      const vue2 = fauxSocial.rpc('u-x4', 'groupe_invitations_recues').length;
+      ok('[groupe] 142 (v2_107) — DISCRIMINANT — invitation d’un tiers, puis blocage avec un membre : l’invitation disparaît (déclencheur), ' +
+        'et une invitation posée après ne s’affiche pas',
+        vue1 === 1 && retiree === 0 && vue2 === 0, JSON.stringify([vue1, retiree, vue2]));
+      S.ginvitations = []; S.blocages = []; S.gmembres = S.gmembres.filter((m) => m.groupe_id !== 'gr-142');
+      S.groupes = S.groupes.filter((g) => g.id !== 'gr-142');
+    }
 
     ok('[groupe] DISCRIMINANT — aucune réponse ne porte poids de corps, note, RPE, ressenti ou douleur',
       S.fuites.length === 0 && S.sets.some((t) => t.rpe && t.poids_corps_kg), JSON.stringify(S.fuites));
@@ -20080,6 +20323,21 @@ const SETS_IMPORTES = [
     ok('[E69] (c) un second import du même nom : résolu sans question',
       !c3.noms.length && !c3.groupe && nbE(c3.bouton) === nbE({ libelle: 'Importer 1 séance', actif: true }), nbE(c3));
 
+    // 141 — LA PONCTUATION NE COMPTE PLUS : le même nom, écrit « good  morning - barre » (autre ponctuation, doubles
+    // espaces), trouve l'exercice rattaché ; un nom d'un mot de plus reste à rattacher (rien n'est deviné).
+    await aller('/profil/import');
+    await coller(FUTUR.replace('Good Morning (Barre)', 'good  morning - barre'));
+    const c4 = await etat();
+    ok('[E141] (c) DISCRIMINANT — « good  morning - barre » trouve l’exercice rattaché sous « Good Morning (Barre) » : rien à rattacher',
+      !c4.noms.length && !c4.groupe && nbE(c4.bouton) === nbE({ libelle: 'Importer 1 séance', actif: true }), nbE(c4));
+    await aller('/profil/import');
+    await coller(FUTUR.replace('Good Morning (Barre)', 'Good Morning (Barre) Large'));
+    const c5 = await etat();
+    ok('[E141] (c) un mot de plus n’est pas deviné : « Good Morning (Barre) Large » reste à rattacher',
+      c5.groupe === '1 exercice à rattacher' && nbE(c5.noms) === nbE(['Good Morning (Barre) Large']), nbE(c5));
+    await aller('/profil/import');
+    await coller(FUTUR);
+
     // ── (f) UNE SÉANCE PLUS RÉCENTE QUE TOUT : SES RECORDS PARTENT ────────
     await page.click('#import-hevy .imp-importer');
     await jusqua(async () => /importée/.test((await etat()).titre), 12000);
@@ -20340,6 +20598,7 @@ const SETS_IMPORTES = [
     ok('[R71] (a) la comparaison : « 3,8 t soulevées : à peu près … »',
       /^3,8 t soulevées : à peu près .+\.$/.test((a.comp || '').replace(/[\u00a0\u202f]/g, ' ')), nbR(a.comp));
     // Deux records : la série 1 (80 kg à 12, contre 79) et la série 4 (le volume de la séance passe 3 792 kg).
+    // 140 : le volume de la séance reste un record (revient sur 137, D9).
     ok('[R71] (a) les séries par muscle (la fonction du bloc Volume), les records (or), ce que le coach avait visé (ambre)',
       a.groupes.map((g) => g.trim()).slice(0, 3).join(' | ') === 'Séries par muscle | 2 records | Ce que le coach avait visé' &&
       nbR(a.muscles) === nbR(['Grand dorsal', 'Biceps']) && nbR(a.records) === nbR(['Rowing r71 : 80 kg × 12', 'Rowing r71 : 80 kg × 12']),
@@ -20397,7 +20656,7 @@ const SETS_IMPORTES = [
     await attendre(600);
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(600);
-    await page.click('#feuille-contenu .danger');
+    await cliquerAbandon();
     await confirmerAbandon();
     await attendre(1800);
     ok('[R71] (d) abandonner : pas de récap', !(await recapVu()).visible && JSON.stringify(await visible()) !== '["vue-recap"]',
@@ -21324,23 +21583,23 @@ const SETS_IMPORTES = [
       montees('planche-c105').length === 1 && montees('planche-c105')[0].duree_s === 45,
       nb105(montees('planche-c105').map((s) => s.duree_s)));
 
-    // 4. LA DISTANCE VIDE (la durée tapée).
-    await remplir105(4, 'duree', '3000');
+    // 4. DURÉE OU DISTANCE (D1, décision du 17/10/2026, prompt 131 — audit 130 n°2). Les deux vides : les deux en
+    // rouge, le clavier sur la durée. La durée tapée seule : la course part, sans distance.
     await valider105(4);
     const r4 = await etat105(4);
-    ok('[C105] DISCRIMINANT — durée tapée, distance vide : rien en base, la distance SEULE en rouge, le clavier sur elle',
-      montees('course-c105').length === 0 && !r4.cochee && nb105(r4.rouges) === nb105(['distance_km']) &&
-      r4.clavier === 'distance_km', nb105(r4));
-    await remplir105(4, 'distance_km', '5');
+    ok('[C105] DISCRIMINANT — durée et distance vides : rien en base, les DEUX en rouge, le clavier sur la durée',
+      montees('course-c105').length === 0 && !r4.cochee && nb105(r4.rouges) === nb105(['duree', 'distance_km']) &&
+      r4.clavier === 'duree', nb105(r4));
+    await remplir105(4, 'duree', '3000');
     await valider105(4);
-    ok('[C105] la distance tapée : la course part, 30:00 et 5 km',
+    ok('[C105] DISCRIMINANT — la durée seule suffit : la course part, 30:00, sans distance',
       montees('course-c105').length === 1 && montees('course-c105')[0].duree_s === 1800 &&
-      montees('course-c105')[0].distance_m === 5000,
+      montees('course-c105')[0].distance_m === null && (await etat105(4)).rouges.length === 0,
       nb105(montees('course-c105').map((s) => [s.duree_s, s.distance_m])));
     ok('[C105] aucune case obligatoire vide en base',
       base.sets.every((s) => (s.exercise_slug !== 'charge-c105' || (s.charge_kg !== null && s.reps !== null)) &&
         (s.exercise_slug !== 'reps-c105' || s.reps !== null) && (s.exercise_slug !== 'planche-c105' || s.duree_s !== null) &&
-        (s.exercise_slug !== 'course-c105' || (s.duree_s !== null && s.distance_m !== null))),
+        (s.exercise_slug !== 'course-c105' || (s.duree_s !== null || s.distance_m !== null))),
       nb105(base.sets.map((s) => [s.exercise_slug, s.charge_kg, s.reps, s.duree_s, s.distance_m])));
     ok('[C105] et aucune violation de la garde', gardeBanc.violations === violationsAvant,
       String(gardeBanc.violations - violationsAvant));
@@ -21886,6 +22145,34 @@ const SETS_IMPORTES = [
         boutons: ['0', '1', '2', '3 ou +'], choisi: [] }), nb78([fA, q2]));
 
     const idA2 = p0[0].ids[1], idA1 = p0[0].ids[0];
+    // 136 (audit du 16/10, E13 ; audit iPhone I-06) — LA PAGE RECHARGÉE PENDANT LE REPOS : le décompte reprend où il en
+    // était (le même calcul « depuis » que l'affichage, depuis `validee_a`), jamais de la cible entière ; la question
+    // revient avec lui, avant toute réponse (une question répondue n'est plus due :
+    // `questionDuRepos`, la règle de l'armement). Le repos de A2 vaut 120 s ; on recharge quelques secondes après la
+    // validation : un décompte repris de zéro afficherait 2:00.
+    {
+      const grand136 = () => page.evaluate(() => {
+        const r = document.getElementById('repos');
+        const t = r && !r.hidden ? ((r.querySelector('.repos-g') || {}).textContent || '').trim() : '';
+        const m = /^(\d+):(\d\d)$/.exec(t);
+        return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+      });
+      const valideeA2 = Date.parse((base.sets.filter((x) => x.id === idA2)[0] || {}).validee_a);
+      // Le décompte a bougé d'au moins 3 s : un état, pas un délai fixe (garde 135).
+      await jusqua(async () => { const g = await grand136(); return g !== null && g <= 116; }, 8000);
+      const avant136 = await grand136();
+      await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+      await jusqua(async () => (await grand136()) !== null, 10000);
+      const apres136 = await grand136();
+      const attendu136 = 120 - Math.round((Date.now() - valideeA2) / 1000);
+      ok('[136-E13] DISCRIMINANT — la page rechargée pendant le repos : le décompte REPREND où il en était, pas à 2:00',
+        avant136 !== null && apres136 !== null && apres136 <= avant136 && apres136 <= 116 && Math.abs(apres136 - attendu136) <= 3,
+        nb78({ avant: avant136, apres: apres136, attendu: attendu136 }));
+      const q136 = await question78();
+      ok('[136-E13] …et la question de réserve, due, revient avec lui (la même phrase, aucun bouton choisi)',
+        nb78(q136) === nb78(q2), nb78([q136, q2]));
+    }
+
     await page.click('#repos .repos-q button[data-ressenti="reste_1"]');
     await attendre(2200);
     const q3 = await question78();
@@ -22525,15 +22812,30 @@ const SETS_IMPORTES = [
       await aller('/exercice/squat-o109');
       return a;
     };
-    // La carte vient avec la première synchronisation (elle dit si la table existe) : on rouvre la page jusqu'à elle.
+    // La carte vient avec la première synchronisation (elle dit si la table existe).
+    //
+    // ⚠️ 135 — ON ATTEND QUE CETTE SYNCHRONISATION SOIT FINIE, ON NE RECHARGE PLUS POUR LA VOIR VENIR. Chaque
+    // appareil d'O109 est NEUF : sa première synchronisation lit tout l'historique du banc (au séquentiel, des
+    // centaines de séances accumulées par les sections d'avant), puis l'écrit sur l'appareil — de longues
+    // secondes sans un mot au réseau. `aller()` rend la main au plafond de silence (`CALME_LONG_MS`) avant la fin,
+    // et l'ancienne boucle RECHARGEAIT alors la page : le rechargement tue la synchronisation en cours (son
+    // curseur ne s'écrit qu'à la fin), la suivante repart de zéro… dix fois, 5 s au total, carte toujours `null`
+    // (l'échec du séquentiel du 129). L'état attendu est celui que l'app pose À LA FIN de `synchroniser` :
+    // `#etat-sync` porte un libellé (il est vide au démarrage) et n'est pas « Synchronisation… ». Puis UNE
+    // ouverture lit la page depuis l'appareil synchronisé.
+    // La ligne de profil se lit APRÈS la synchronisation (`chargerProfil`) : l'intention du serveur (« Juste un
+    // carnet » au cas 7) doit être sur l'appareil avant qu'on y pose un objectif — sinon l'app pose avec
+    // l'intention par défaut, et le banc mesurerait la course, pas la règle.
+    const syncTerminee = () => page.evaluate((intention) => {
+      const s = document.getElementById('etat-sync');
+      if (!s || (s.textContent || '').trim() === '' || s.classList.contains('sync')) return false;
+      return window.THCache.lireMeta('profil').then((p) => !!p && p.intention === intention);
+    }, base.profiles[0].intention).catch(() => false);
     const carteApres = async () => {
-      for (let k = 0; k < 10; k++) {
-        const c = await carteO();
-        if (c) return c;
-        await attendre(500);
-        await aller('/exercice/squat-o109');
-      }
-      return null;
+      await jusqua(syncTerminee, 60000);
+      await aller('/exercice/squat-o109');
+      await jusqua(async () => !!(await carteO()), 10000);
+      return carteO();
     };
     const feuilleO = async (charge, reps) => {
       await page.click('#page-exercice .objectif-changer');
@@ -22549,7 +22851,8 @@ const SETS_IMPORTES = [
     // ── 0. TÉMOIN : LA MIGRATION N'EST PAS LANCÉE.
     base.objectifsAbsente = true;
     const T = await ouvrirO('O109-sans-table', new Date(2026, 9, 16, 12, 0, 0));
-    await attendre(1500);
+    // 135 — le témoin aussi : la première synchronisation finie (elle dit que la table manque), puis la page.
+    await jusqua(syncTerminee, 60000);
     await aller('/exercice/squat-o109');
     const t0 = await carteO();
     const ecritsSans = base.journal.filter((j) => j.op === 'objectifs' || j.op === 'objectifs-retrait').length;
@@ -22603,6 +22906,10 @@ const SETS_IMPORTES = [
     ok('[O109] changer l’objectif (155 × 1) écrit un nouveau pari et garde l’ancien ; la ligne `objectifs` est réécrite (un par exercice)',
       p4.length === 2 && base.objectifs.length === 1 && (base.objectifs[0] || {}).charge_kg === 155 && (base.objectifs[0] || {}).pari_id !== (p1[0] || {}).id &&
         p4.some((x) => x.id === (p1[0] || {}).id), nbO([p4.map((x) => [x.id, x.fondement.charge, x.valeur_predite]), base.objectifs]));
+    // 135 — la carte RE-DESSINÉE pour 155 × 1 (la feuille se ferme, puis la page se redessine) : lue avant, elle
+    // donnait encore la ligne de 150 × 1, et le contrôle du cas 5 comparait le pari de 155 à celui de 150
+    // (relevé : « fin septembre » contre « fin avril », un passage sur dix de la section seule, pages ×4).
+    await jusqua(async () => nbO((await carteO() || {}).titre) === nbO('155 kg × 1'), 10000);
     const ligne155 = (await carteO() || {}).ligne;
     await A.fermer();
 
@@ -22672,10 +22979,13 @@ const SETS_IMPORTES = [
       l7.projection === 'carnet' && !l7.echeance && !l7.pari_id && base.predictions.filter((x) => x.module === 'objectif').length === parisO7,
       nbO([l7, base.predictions.filter((x) => x.module === 'objectif').length, parisO7]));
     await page.click('.onglet[data-vue="profil"]');
-    await attendre(900);
+    // 135 — le Profil rendu, son choix « Progresser » à l'écran, avant de le toucher (900 ms fixes avant : un clic
+    // tombé avant le rendu ne faisait rien, relevé un passage sur dix de la section seule, pages ×4).
+    await jusqua(() => page.evaluate(() => { const b = document.querySelector('.p-seg button[data-cle="progresser"]');
+      return !!b && b.offsetParent !== null; }).catch(() => false), 10000);
     await page.click('.p-seg button[data-cle="progresser"]');
     await jusqua(async () => base.profiles[0].intention === 'progresser' && (base.objectifs[0] || {}).projection === 'date' &&
-      base.predictions.filter((x) => x.module === 'objectif').length === parisO7 + 1, 10000);
+      base.predictions.filter((x) => x.module === 'objectif').length === parisO7 + 1, 20000);
     const r7 = base.objectifs[0] || {};
     const pari7 = base.predictions.filter((x) => x.module === 'objectif' && x.id === r7.pari_id)[0] || {};
     await aller('/exercice/squat-o109');
@@ -22685,6 +22995,117 @@ const SETS_IMPORTES = [
         nbO(c7.ligne) === nbO('Au rythme actuel : fin avril.'), nbO([r7, pari7.valeur_predite, c7]));
     await C7.fermer();
     base.profiles[0].intention = intentionAvant7;
+
+    // ── 8. (139) UN GESTE FAIT PENDANT LA LECTURE DES OBJECTIFS NE REVIENT PAS EN ARRIÈRE. La synchronisation lit les
+    // objectifs au début (la base a 150) ; l'objectif change pendant que cette lecture est retenue, la ligne monte et
+    // sort de la file ; la lecture périmée arrive : elle ne remplace pas le geste (`versionObjectifs`, comme
+    // `versionProfil`). Le déclencheur : « Rafraîchir », comme D7 ; la lecture retenue est UNE seule (`lenteurObjectifs`).
+    {
+      const RETENUE = 9000;
+      const brouillonO = () => page.evaluate(() => window.THCache.lireBrouillon('objectifs')).catch(() => null);
+      const fileVide = () => page.evaluate(() => window.THCache.lireAttente().then((f) => (f || []).filter((x) => x.table === 'objectifs').length === 0)).catch(() => false);
+      const dernierSync = () => page.evaluate(() => {
+        const e = document.getElementById('etat-sync');
+        return !!e && /À jour/.test(e.textContent || '') && !e.classList.contains('sync');
+      }).catch(() => false);
+      // Lance la synchronisation et attend que SA lecture des objectifs soit en vol (retenue).
+      const lectureRetenue = async () => {
+        // Aucune synchronisation en vol avant le clic : `synchroniser()` rend la main aussitôt s'il y en a une (le clic
+        // ne ferait alors que changer d'écran), et la lecture retenue serait celle d'une AUTRE — le geste partirait
+        // d'une page qui n'est plus celle de l'exercice (relevé : pages ralenties ×4).
+        await jusqua(dernierSync, 60000);
+        base.objectifsRetenue = false; base.lenteurObjectifs = RETENUE;
+        await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+        return jusqua(async () => base.objectifsRetenue === true, 60000);
+      };
+      // La lecture est rendue (l'heure de sa libération passée) et la synchronisation est finie.
+      const lectureRendue = async () => {
+        await jusqua(async () => Date.now() > (base.objectifsLibereA || 0) + 300, RETENUE + 5000);
+        return jusqua(dernierSync, 60000);
+      };
+      base.objectifs = [];
+      const D = await ouvrirO('O139', new Date(2026, 9, 16, 12, 0, 0));
+      await carteApres();
+      await feuilleO(150, 1);
+      await jusqua(async () => base.objectifs.length === 1 && base.objectifs[0].charge_kg === 150 && await fileVide(), 8000);
+
+      // a — CHANGER PENDANT LA LECTURE : 155 × 1.
+      const enVolA = await lectureRetenue();
+      await feuilleO(155, 1);
+      await jusqua(async () => (base.objectifs[0] || {}).charge_kg === 155 && await fileVide(), 8000);
+      const avantLiberationA = Date.now() < base.objectifsLibereA;
+      await jusqua(async () => nbO((await carteO() || {}).titre) === nbO('155 kg × 1'), 10000);
+      const ligneA = (await carteO() || {}).ligne;
+      ok('[O139] a — prémisse : la lecture des objectifs est en vol (150 en main), le geste 155 × 1 est en base et sa ligne est sortie de la file, AVANT que la lecture rende',
+        enVolA && avantLiberationA && (base.objectifs[0] || {}).charge_kg === 155, nbO([enVolA, avantLiberationA, base.objectifs]));
+      await lectureRendue();
+      const cA = await carteO(), bA = await brouillonO();
+      ok('[O139] a — DISCRIMINANT : la lecture périmée (150) rendue, la carte garde « 155 kg × 1 » et la date du pari de 155 ; le brouillon local `objectifs` est à 155 ; la base aussi',
+        !!cA && nbO(cA.titre) === nbO('155 kg × 1') && cA.ligne === ligneA && !!bA && (bA.lignes || []).length === 1 &&
+          bA.lignes[0].charge_kg === 155 && (base.objectifs[0] || {}).charge_kg === 155, nbO([cA, ligneA, bA, base.objectifs]));
+      base.reseau = false;
+      await aller('/exercice/squat-o109');
+      await jusqua(async () => !!(await carteO()), 10000);
+      const cAhl = await carteO();
+      base.reseau = true;
+      ok('[O139] a — rechargée hors ligne (le seul cache), la carte dit toujours « 155 kg × 1 »',
+        !!cAhl && nbO(cAhl.titre) === nbO('155 kg × 1'), nbO(cAhl));
+      await jusqua(syncTerminee, 60000);
+
+      // c — SANS GESTE, LA BASE FAIT FOI (garde-fou : la garde ne bloque pas une vraie mise à jour). Un autre appareil
+      // a mis 160 × 1 en base ; une synchronisation sans aucun geste la ramène.
+      base.objectifs[0] = Object.assign({}, base.objectifs[0], { charge_kg: 160 });
+      base.lenteurObjectifs = 0;
+      await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+      await jusqua(async () => { const b = await brouillonO(); return !!b && (b.lignes || []).some((l) => l.charge_kg === 160); }, 30000);
+      await jusqua(dernierSync, 60000);
+      await aller('/exercice/squat-o109');
+      await jusqua(async () => nbO((await carteO() || {}).titre) === nbO('160 kg × 1'), 10000);
+      const cC = await carteO();
+      ok('[O139] c — sans geste, la base fait foi : l’objectif changé directement en base (160 × 1, comme un autre appareil) arrive à la synchronisation — la carte dit « 160 kg × 1 »',
+        !!cC && nbO(cC.titre) === nbO('160 kg × 1'), nbO([cC, base.objectifs]));
+      await jusqua(syncTerminee, 60000);
+
+      // b — RETIRER PENDANT LA LECTURE.
+      const enVolB = await lectureRetenue();
+      await page.click('#page-exercice .objectif-changer');
+      await jusqua(async () => !!(await page.$('#feuille-contenu .feuille-pied .des')), 4000);
+      await page.click('#feuille-contenu .feuille-pied .des');
+      await jusqua(async () => base.objectifs.length === 0 && await fileVide(), 8000);
+      const avantLiberationB = Date.now() < base.objectifsLibereA;
+      ok('[O139] b — prémisse : la lecture (160 en main) est en vol, la suppression est en base et sortie de la file, AVANT que la lecture rende',
+        enVolB && avantLiberationB && base.objectifs.length === 0, nbO([enVolB, avantLiberationB, base.objectifs]));
+      await lectureRendue();
+      const cB = await carteO(), bB = await brouillonO();
+      ok('[O139] b — DISCRIMINANT : la lecture périmée rendue, l’objectif retiré ne revient pas : la carte propose « Poser un objectif », le brouillon est vide, la base n’a plus la ligne',
+        !!cB && nbO(cB).indexOf('Poser un objectif') >= 0 && !cB.titre && !!bB && (bB.lignes || []).length === 0 && base.objectifs.length === 0,
+        nbO([cB, bB, base.objectifs]));
+
+      // d — LE GESTE EST DANS LA FILE QUAND LA LECTURE PART, ET SON ENVOI ARRIVE EN BASE APRÈS ELLE : la version n'a pas bougé
+      // depuis la capture, et la file est vide à l'application — la lecture (sans le geste) ne le remplace pas non plus.
+      await aller('/exercice/squat-o109');   // le « Rafraîchir » précédent a ramené la semaine à l'écran
+      await jusqua(syncTerminee, 60000);
+      await jusqua(async () => !!(await carteO()), 10000);
+      await feuilleO(150, 1);
+      await jusqua(async () => base.objectifs.length === 1 && (base.objectifs[0] || {}).charge_kg === 150 && await fileVide(), 8000);
+      await jusqua(dernierSync, 60000);
+      base.objectifsRetenue = false; base.lenteurObjectifs = RETENUE; base.ecritureApresLecture = true;
+      await feuilleO(155, 1);
+      const dansLaFileD = !(await fileVide());
+      await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+      const enVolD = await jusqua(async () => base.objectifsRetenue === true, 60000);
+      await jusqua(async () => (base.objectifs[0] || {}).charge_kg === 155 && await fileVide(), 8000);
+      base.ecritureApresLecture = false;
+      ok('[O139] d — prémisse : le geste 155 × 1 attendait dans la file quand la lecture (150) est partie ; il arrive en base après elle, avant qu’elle rende',
+        dansLaFileD && enVolD && Date.now() < base.objectifsLibereA && (base.objectifs[0] || {}).charge_kg === 155,
+        nbO([dansLaFileD, enVolD, base.objectifs]));
+      await lectureRendue();
+      const cD = await carteO(), bD = await brouillonO();
+      ok('[O139] d — DISCRIMINANT : la lecture rendue (150, sans le geste), la carte garde « 155 kg × 1 », le brouillon local est à 155',
+        !!cD && nbO(cD.titre) === nbO('155 kg × 1') && !!bD && (bD.lignes || []).length === 1 && bD.lignes[0].charge_kg === 155,
+        nbO([cD, bD, base.objectifs]));
+      await D.fermer();
+    }
 
     // LA REMISE EN ÉTAT.
     page = pageBanc;
@@ -22723,7 +23144,7 @@ const SETS_IMPORTES = [
       if (JSON.stringify(await visible()) === '["vue-seance"]') {
         await page.click('#bandeau-seance .bandeau-fin');
         await attendre(600);
-        await page.click('#feuille-contenu .danger');
+        await cliquerAbandon();
         await confirmerAbandon();
         await attendre(1600);
         await aller('/saisie');
@@ -22871,11 +23292,13 @@ const SETS_IMPORTES = [
       base.sessions.some((x) => x.id === idE2 && x.statut === 'terminee') && setsE2().length === 2,
       JSON.stringify(setsE2().map((x) => [x.charge_kg, x.reps])));
 
-    // ── E4. UNE SÉRIE REMPLIE, PAS VALIDÉE, AU MOMENT DE TERMINER.
+    // ── E4. UNE SÉRIE REMPLIE, PAS VALIDÉE, AU MOMENT DE TERMINER. 137 (E12) : la séance a UNE série validée (70 × 5) —
+    // sans elle, la feuille de fin propose d'abandonner, pas de terminer (voir plus bas).
     await sansSeance115();
     await demarrerRoutine(ROUTINE_115.nom);
     await attendre(1200);
-    await remplir115(0, 62.5, 6);
+    await saisirSerie(0, 70, 5);
+    await remplir115(1, 62.5, 6);
     await attendre(1200);
     const idE4 = enCours115();
     await page.click('#bandeau-seance .bandeau-fin');
@@ -22891,7 +23314,7 @@ const SETS_IMPORTES = [
       !!idE4 && base.sessions.some((x) => x.id === idE4 && x.statut === 'en_cours'), JSON.stringify(idE4));
     await entree115('Les valider');
     await attendre(700);
-    const valeursE4 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).slice(0, 1)
+    const valeursE4 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).slice(1, 2)
       .map((l) => Array.from(l.querySelectorAll('input')).map((i) => i.value).join('×')));
     ok('[115-E4] « Les valider » : la feuille se ferme, la séance continue, la ligne garde 62,5 × 6',
       !(await feuille115()).ouverte && JSON.stringify(await visible()) === '["vue-seance"]' &&
@@ -22904,21 +23327,72 @@ const SETS_IMPORTES = [
     await entree115('Terminer quand même');
     await attendre(2600);
     const setsE4 = base.sets.filter((x) => x.session_id === idE4);
-    ok('[115-E4] « Terminer quand même » : la séance est terminée, la série remplie (62,5 × 6) n’est pas gardée',
-      base.sessions.some((x) => x.id === idE4 && x.statut === 'terminee') && setsE4.length === 0,
+    ok('[115-E4] « Terminer quand même » : la séance est terminée, la série validée (70 × 5) est gardée, la série remplie (62,5 × 6) ne l’est pas',
+      base.sessions.some((x) => x.id === idE4 && x.statut === 'terminee') && setsE4.length === 1 &&
+        Number(setsE4[0].charge_kg) === 70 && setsE4[0].reps === 5,
       JSON.stringify(setsE4.map((x) => [x.charge_kg, x.reps])));
 
-    // Sans série remplie, « Terminer » ne demande rien (non-régression du chemin courant).
+    // ── E12 (137). UNE SÉANCE SANS SÉRIE VALIDÉE NE SE TERMINE PAS : ELLE S'ABANDONNE.
+    // « Terminer » (le bandeau) ouvre la feuille ; sans série validée, elle ne propose plus de terminer. Chaque
+    // attente porte sur l'ÉTAT que lit le contrôle suivant (135), jamais sur un délai.
+    const feuilleAvec115 = (motif) => jusqua(() => page.evaluate((m) => {
+      const f = document.getElementById('feuille-seance');
+      return !!f && !f.hidden && new RegExp(m).test((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || '');
+    }, motif).catch(() => false), 6000);
+    const seanceMontee115 = () => jusqua(async () => !!enCours115() && (await compter('.ligne-serie')) > 0, 8000);
+    const feuilleFermee115 = () => jusqua(async () => !(await feuille115()).ouverte, 6000);
+    const bouton115 = (libelle) => page.evaluate((t) => Array.from(document.querySelectorAll('#feuille-contenu button'))
+      .filter((b) => b.textContent === t)[0].click(), libelle);
+    const lireFeuille115 = () => page.evaluate(() => ({
+      textes: Array.from(document.querySelectorAll('#feuille-contenu .feuille-aide')).map((n) => n.textContent),
+      boutons: Array.from(document.querySelectorAll('#feuille-contenu button')).map((b) => [b.textContent, b.className]),
+      champs: document.querySelectorAll('#feuille-contenu .champs-fin, #feuille-contenu .question-routine, #feuille-contenu .manque-fin').length }));
+    // Avec une série remplie mais pas validée : la phrase, « Les valider » (principal) et « Abandonner » (rouge).
     await sansSeance115();
     await demarrerRoutine(ROUTINE_115.nom);
-    await attendre(2000);
-    const idE4b = enCours115();
+    await seanceMontee115();
+    await remplir115(0, 62.5, 6);
+    await jusqua(async () => (await valeurs115())[0] === '62,5×6', 6000);
+    const idE12a = enCours115();
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(600);
-    await page.click('#feuille-contenu .principal');
-    await attendre(2600);
-    ok('[115-E4] sans série remplie non validée, « Terminer » termine aussitôt, sans question',
-      base.sessions.some((x) => x.id === idE4b && x.statut === 'terminee'), JSON.stringify(idE4b));
+    await feuilleAvec115('^Terminer la séance');
+    const fE12a = await lireFeuille115();
+    ok('[137-E12] DISCRIMINANT — séance sans série validée mais avec une série remplie : « Aucune série validée », la phrase, [Les valider] puis [Abandonner] (rouge), ni titre ni salle ni note',
+      JSON.stringify(fE12a.textes) === JSON.stringify(['Aucune série validée : rien à enregistrer.', '1 série remplie n’est pas validée.']) &&
+        fE12a.boutons.length === 2 && fE12a.boutons[0][0] === 'Les valider' && /principal/.test(fE12a.boutons[0][1]) &&
+        fE12a.boutons[1][0] === 'Abandonner' && /danger/.test(fE12a.boutons[1][1]) && fE12a.champs === 0,
+      JSON.stringify(fE12a));
+    await bouton115('Les valider');
+    await feuilleFermee115();
+    const valeursE12a = await valeurs115();
+    ok('[137-E12] « Les valider » : la feuille se ferme, la séance continue, la ligne garde 62,5 × 6',
+      !(await feuille115()).ouverte && valeursE12a[0] === '62,5×6' && base.sessions.some((x) => x.id === idE12a && x.statut === 'en_cours'),
+      JSON.stringify([await feuille115(), valeursE12a]));
+    // Séance neuve, rien tapé : « Aucune série validée », [Abandonner] (principal), [Continuer la séance].
+    await sansSeance115();
+    await demarrerRoutine(ROUTINE_115.nom);
+    await seanceMontee115();
+    const idE12 = enCours115();
+    await page.click('#bandeau-seance .bandeau-fin');
+    await feuilleAvec115('^Terminer la séance');
+    const fE12 = await lireFeuille115();
+    ok('[137-E12] DISCRIMINANT — « Terminer » sur une séance neuve : « Aucune série validée : rien à enregistrer. », [Abandonner] en principal, [Continuer la séance] ; ni titre, ni salle, ni note, ni question de routine',
+      JSON.stringify(fE12.textes) === JSON.stringify(['Aucune série validée : rien à enregistrer.']) &&
+        fE12.boutons.length === 2 && fE12.boutons[0][0] === 'Abandonner' && /principal/.test(fE12.boutons[0][1]) &&
+        fE12.boutons[1][0] === 'Continuer la séance' && fE12.champs === 0, JSON.stringify(fE12));
+    await bouton115('Continuer la séance');
+    await feuilleFermee115();
+    ok('[137-E12] « Continuer la séance » : la feuille se ferme, la séance reste en cours',
+      !(await feuille115()).ouverte && base.sessions.some((x) => x.id === idE12 && x.statut === 'en_cours'),
+      JSON.stringify(await feuille115()));
+    await page.click('#bandeau-seance .bandeau-fin');
+    await feuilleAvec115('^Terminer la séance');
+    await bouton115('Abandonner');
+    await jusqua(async () => !base.sessions.some((x) => x.id === idE12), 8000);
+    ok('[137-E12] « Abandonner » : immédiat (rien à perdre, pas de confirmation), plus de séance en cours, aucune séance terminée, aucune série en base',
+      !base.sessions.some((x) => x.id === idE12) && !enCours115() &&
+        !base.sets.some((x) => x.session_id === idE12) && !(await feuille115()).ouverte,
+      JSON.stringify([base.sessions.filter((x) => x.id === idE12), await feuille115()]));
 
     // Le décor rendu : la routine quitte la bibliothèque (ses séances restent, comme celles des autres sections).
     const i115 = ROUTINES.indexOf(ROUTINE_115);
@@ -23121,7 +23595,7 @@ const SETS_IMPORTES = [
       if (JSON.stringify(await visible()) === '["vue-seance"]') {
         await page.click('#bandeau-seance .bandeau-fin');
         await attendre(600);
-        await page.click('#feuille-contenu .danger');
+        await cliquerAbandon();
         await confirmerAbandon();
         await attendre(1600);
         await aller('/saisie');
@@ -23383,6 +23857,412 @@ const SETS_IMPORTES = [
       gardeBanc.violations === violations127 && base.journal.filter((j) => j.op === 'refus').length === refus127 &&
         erreurs.length === erreurs127,
       JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus127), erreurs.slice(erreurs127)]));
+  }
+
+  console.log('\n══ mesures. LES MESURES EXERCICE PAR EXERCICE : LE D+, LES ÉTAGES, LA DISTANCE AU VÉLO (131, ECRAN-SAISIE §3 ter.5) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : trois exercices du catalogue servis AVEC `champs_series` (v2_101) — une randonnée
+  // (`distance_temps`, D+ sous la série), un escalier (`temps`, les étages en colonne) et un vélo d'appartement
+  // (`distance_temps`, sans champ en plus). La randonnée se valide en DURÉE SEULE (« durée OU distance ») ; l'escalier
+  // porte ses étages ; le vélo sa distance. Après « Terminer » et un rechargement, la base et le détail retrouvent tout.
+  // Tout est retiré à la fin.
+  {
+    const erreurs131 = erreurs.length;
+    const refus131 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations131 = gardeBanc.violations;
+    const catalogueAvant131 = CATALOGUE.length;
+    const sessionsAvant131 = base.sessions.map((x) => x.id);
+    const sp131 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    CATALOGUE.push({ slug: 'rando-u131', nom: 'Randonnée U131', mesure: 'distance_temps', charge: 'aucune', equipement: 'aucun',
+      muscles_primaires: [], muscles_secondaires: [], hors_salle: true, champs_series: ['denivele_m'] });
+    CATALOGUE.push({ slug: 'escaliers-u131', nom: 'Escaliers U131', mesure: 'temps', charge: 'aucune', equipement: 'machine',
+      muscles_primaires: [], muscles_secondaires: [], champs_series: ['etages'] });
+    CATALOGUE.push({ slug: 'velo-u131', nom: 'Vélo d’Appartement U131', mesure: 'distance_temps', charge: 'aucune',
+      equipement: 'machine', muscles_primaires: [], muscles_secondaires: [], champs_series: [] });
+    const ex131 = (slug, rang) => ({ id: 'r-u131-' + rang, routine_id: 'r-u131', exercise_slug: slug, rang,
+      routine_sets: progr(1), repos_cible_s: 0, groupe_superset: null, note: null });
+    const ROUTINE_131 = { id: 'r-u131', nom: 'Mesures U131', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [ex131('rando-u131', 0), ex131('escaliers-u131', 1), ex131('velo-u131', 2)] };
+    ROUTINES.push(ROUTINE_131);
+    // Le passé (écran 5) : deux randonnées sans D+, un escalier sans étages — ce que la carte doit lister.
+    const t131 = Date.now();
+    const passe131 = [];
+    const poser131 = (id, jours, slug, champs) => {
+      const debut = ilYa(jours * 86400000, t131).toISOString();
+      passe131.push(id);
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Passé — ' + id, debut, fin: finDe(debut, t131).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'hevy', created_at: debut });
+      base.sets.push(Object.assign({ id: id + '-s1', session_id: id, user_id: 'u-banc', exercise_slug: slug, charge_kg: null,
+        reps: null, duree_s: null, distance_m: null, denivele_m: null, etages: null, type_serie: 'travail', rang: 1,
+        groupe_superset: null, validee_a: null, rpe: null, ressenti: null, repos_s: null, note: null, source: 'hevy',
+        created_at: debut, modifie_a: null }, champs));
+    };
+    poser131('m131-1', 9, 'rando-u131', { duree_s: 11100, distance_m: 11800 });
+    poser131('m131-2', 24, 'rando-u131', { duree_s: 13200, distance_m: 14100 });
+    poser131('m131-3', 7, 'escaliers-u131', { duree_s: 1200 });
+    const refusAvant131 = base.profiles[0].completer_refus;
+    const sets131 = (slug) => base.sets.filter((x) => x.exercise_slug === slug && passe131.indexOf(x.session_id) < 0);
+    const taper131 = async (i, champ, v) => {
+      const inp = (await page.$$('.ligne-serie >> nth=' + i + ' >> [data-champ="' + champ + '"] input'))[0];
+      if (!inp) return;   // une grille sans la case (une régression) : le contrôle qui suit échoue, la section continue
+      if (champ === 'duree') { await inp.click(); await inp.type(String(v), { delay: 30 }); }
+      else await inp.fill(String(v));
+      await inp.evaluate((e) => e.blur());
+      await attendre(300);
+    };
+    const valider131 = async (i) => {
+      await page.evaluate((k) => document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), i);
+      await attendre(700);
+    };
+
+    await aller('/saisie');
+    await demarrerRoutine('Mesures U131');
+    await attendre(900);
+    const grille131 = await page.evaluate(() => Array.from(document.querySelectorAll('#vue-seance .bloc-seance')).map((b) => ({
+      entetes: Array.from(b.querySelectorAll('.cols-seance span')).map((x) => x.textContent),
+      champs: Array.from(b.querySelectorAll('.ligne-serie [data-champ]')).map((x) => x.getAttribute('data-champ')),
+      plus: Array.from(b.querySelectorAll('.serie-plus')).map((x) => x.textContent),
+      large: b.querySelector('.serie') ? b.querySelector('.serie').getBoundingClientRect().width : 0,
+      deborde: document.documentElement.scrollWidth > window.innerWidth })));
+    ok('[131] A — la randonnée : durée et distance en colonnes, le D+ sur sa propre ligne, « (facultatif) »',
+      grille131.length === 3 && JSON.stringify(grille131[0].champs) === '["duree","distance_km"]' &&
+        grille131[0].plus.length === 1 && /Dénivelé \+ \(facultatif\)/.test(sp131(grille131[0].plus[0])), JSON.stringify(grille131));
+    ok('[131] A — l’escalier : ÉTAGES prend la colonne de la distance ; le vélo : durée et distance ; rien ne déborde à 360 px',
+      JSON.stringify(grille131[1].entetes) === '["","PRÉC.","DURÉE","ÉTAGES",""]' &&
+        JSON.stringify(grille131[1].champs) === '["duree","etages"]' && grille131[1].plus.length === 0 &&
+        JSON.stringify(grille131[2].champs) === '["duree","distance_km"]' && grille131.every((g) => !g.deborde),
+      JSON.stringify(grille131));
+
+    // B. LA RANDONNÉE EN DURÉE SEULE : « durée OU distance », la série part, sans distance ni D+.
+    await taper131(0, 'duree', '31000');
+    await valider131(0);
+    await jusqua(async () => sets131('rando-u131').length === 1, 6000);
+    const r131 = sets131('rando-u131')[0] || {};
+    ok('[131] B — DISCRIMINANT : la randonnée en durée seule passe (3:10:00), sans distance ni D+ en base',
+      r131.duree_s === 11400 && r131.distance_m === null && r131.denivele_m === null && r131.etages === null,
+      JSON.stringify(r131));
+    // C. L'ESCALIER : durée et étages.
+    await taper131(1, 'duree', '2000');
+    await taper131(1, 'etages', '72');
+    await valider131(1);
+    await jusqua(async () => sets131('escaliers-u131').length === 1, 6000);
+    const e131 = sets131('escaliers-u131')[0] || {};
+    ok('[131] C — l’escalier part avec ses étages : 20:00 · 72 étages, sans distance',
+      e131.duree_s === 1200 && e131.etages === 72 && e131.distance_m === null, JSON.stringify(e131));
+    // D. LE VÉLO : durée et kilomètres.
+    await taper131(2, 'duree', '3000');
+    await taper131(2, 'distance_km', '12,6');
+    await valider131(2);
+    await jusqua(async () => sets131('velo-u131').length === 1, 6000);
+    const v131 = sets131('velo-u131')[0] || {};
+    ok('[131] D — le vélo d’appartement part en distance : 30:00 · 12,6 km',
+      v131.duree_s === 1800 && v131.distance_m === 12600, JSON.stringify(v131));
+    const id131 = enCoursId();
+    // F. LA FEUILLE « TERMINER » (écran 6) : UNE case, le D+ de la randonnée (la première donnée facultative
+    // restée vide) ; 920 tapés partent avec la séance.
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(600);
+    const feuille131 = await page.evaluate(() => ({
+      phrase: (document.querySelector('#feuille-contenu .manque-fin-t') || {}).textContent || null,
+      serie: (document.querySelector('#feuille-contenu .manque-fin-s') || {}).textContent || null,
+      cases: Array.from(document.querySelectorAll('#feuille-contenu .manque-fin [data-champ]')).map((x) => x.getAttribute('data-champ')) }));
+    ok('[131] F — la feuille « Terminer » : « Il manque le D+. », la randonnée, UNE case',
+      feuille131.phrase === 'Il manque le D+.' && /^Randonnée U131 · 3 h 10/.test(sp131(feuille131.serie)) &&
+        JSON.stringify(feuille131.cases) === '["denivele_m"]', JSON.stringify(feuille131));
+    // Une feuille sans la case (une régression) ne fait pas planter la section : le contrôle F suivant échoue.
+    if (await page.$('#feuille-contenu .manque-fin input')) await page.fill('#feuille-contenu .manque-fin input', '920');
+    await attendre(300);
+    if (await page.$('#feuille-contenu .principal')) await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
+    await attendre(2600);
+    await jusqua(async () => (sets131('rando-u131')[0] || {}).denivele_m === 920, 6000);
+    ok('[131] F — DISCRIMINANT : le D+ tapé sur la feuille part avec la séance (920 m), la durée et la distance inchangées',
+      (sets131('rando-u131')[0] || {}).denivele_m === 920 && sets131('rando-u131')[0].duree_s === 11400 &&
+        sets131('rando-u131')[0].distance_m === null, JSON.stringify(sets131('rando-u131')));
+
+    // E. LE RECHARGEMENT RETROUVE TOUT : la base, puis le détail, lu sur l'appareil après un rechargement.
+    await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(1500);
+    await aller('/seance/' + id131);
+    await jusqua(async () => /Escaliers U131/.test(await texte('#vue-detail')), 6000);
+    const detail131 = sp131(await texte('#vue-detail'));
+    ok('[131] E — après rechargement, le détail dit « 3 h 10 · D+ 920 m », « 20 min · 72 étages », « 12,6 km · 30 min »',
+      /3 h 10 · D\+ 920 m/.test(detail131) && /20 min · 72 étages/.test(detail131) && /12,6 km · 30 min/.test(detail131),
+      detail131.slice(0, 400));
+
+    // G. « CE QUI MANQUE À TES SÉANCES » (écran 5), à l'accueil de Saisie, hors séance ouverte.
+    const carte131 = () => page.evaluate(() => {
+      const c = document.querySelector('#carte-manque');
+      if (!c || c.hidden) return null;
+      return Array.from(c.querySelectorAll('.manque-groupe')).map((g) => ({ cle: g.getAttribute('data-cle'),
+        tete: g.querySelector('.manque-tete').textContent,
+        lignes: Array.from(g.querySelectorAll('.manque-ligne')).map((l) => l.getAttribute('data-serie')) }));
+    });
+    await aller('/saisie');
+    await jusqua(async () => !!(await carte131()), 6000);
+    const g131 = await carte131();
+    ok('[131] G — la carte liste les randonnées sans D+ (la plus récente d’abord) et l’escalier sans étages ; pas la randonnée du jour (D+ 920)',
+      !!g131 && JSON.stringify(g131.map((x) => x.cle)) === '["escaliers-u131:etages","rando-u131:denivele_m"]' &&
+        JSON.stringify(g131[1].lignes) === '["m131-1-s1","m131-2-s1"]' && /RANDONNÉE U131 · D\+ · 2 SÉANCES/.test(sp131(g131[1].tete)),
+      JSON.stringify(g131));
+    // « Enregistrer » : 850 m sur la randonnée la plus récente, par la correction d'une séance passée.
+    const caseG = await page.$('#carte-manque .manque-ligne[data-serie="m131-1-s1"] input');
+    if (caseG) await caseG.fill('850');
+    await attendre(200);
+    if (await page.$('#carte-manque .manque-enregistrer')) await page.click('#carte-manque .manque-enregistrer');
+    await jusqua(async () => (base.sets.filter((x) => x.id === 'm131-1-s1')[0] || {}).denivele_m === 850, 8000);
+    await attendre(600);
+    const apresG = await carte131();
+    const corr131 = base.sets.filter((x) => x.id === 'm131-1-s1')[0] || {};
+    ok('[131] G — DISCRIMINANT : « Enregistrer » écrit le D+ (850 m) sur la série passée, sans toucher au reste ; la ligne quitte la carte',
+      corr131.denivele_m === 850 && corr131.duree_s === 11100 && corr131.distance_m === 11800 && corr131.source === 'hevy' &&
+        !!apresG && JSON.stringify((apresG.filter((x) => x.cle === 'rando-u131:denivele_m')[0] || {}).lignes) === '["m131-2-s1"]' &&
+        (await page.evaluate(() => location.pathname)) === '/saisie', JSON.stringify([corr131, apresG, await visible()]));
+    // H. « JE NE SAIS PLUS » sur l'escalier : le groupe part pour de bon, au profil, et ne revient pas au rechargement.
+    await page.evaluate(() => {
+      const g = document.querySelector('#carte-manque .manque-groupe[data-cle="escaliers-u131:etages"]');
+      if (g) g.querySelector('.manque-refus').click();
+    });
+    await jusqua(async () => (base.profiles[0].completer_refus || []).indexOf('escaliers-u131:etages') >= 0, 8000);
+    await attendre(600);
+    const apresH = await carte131();
+    ok('[131] H — « Je ne sais plus » : `completer_refus` = ["escaliers-u131:etages"] au profil, et le groupe quitte la carte',
+      JSON.stringify(base.profiles[0].completer_refus) === '["escaliers-u131:etages"]' && !!apresH &&
+        JSON.stringify(apresH.map((x) => x.cle)) === '["rando-u131:denivele_m"]', JSON.stringify([base.profiles[0].completer_refus, apresH]));
+    await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(1500);
+    await aller('/saisie');
+    await jusqua(async () => !!(await carte131()), 6000);
+    const apresR = await carte131();
+    ok('[131] H — après rechargement, l’escalier ne revient pas ; la randonnée restante est toujours là',
+      !!apresR && JSON.stringify(apresR.map((x) => x.cle)) === '["rando-u131:denivele_m"]', JSON.stringify(apresR));
+    // « Plus tard » : la carte se replie (en mémoire seulement).
+    if (await page.$('#carte-manque .manque-tard')) await page.click('#carte-manque .manque-tard');
+    await attendre(300);
+    ok('[131] « Plus tard » replie la carte', (await carte131()) === null, '');
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    base.profiles[0].completer_refus = refusAvant131 === undefined ? [] : refusAvant131;
+    base.sets = base.sets.filter((x) => passe131.indexOf(x.session_id) < 0);
+    base.sessions = base.sessions.filter((x) => passe131.indexOf(x.id) < 0);
+    CATALOGUE.splice(catalogueAvant131, CATALOGUE.length - catalogueAvant131);
+    const iR131 = ROUTINES.indexOf(ROUTINE_131);
+    if (iR131 >= 0) ROUTINES.splice(iR131, 1);
+    const neuves131 = base.sessions.filter((x) => sessionsAvant131.indexOf(x.id) < 0).map((x) => x.id);
+    base.sets = base.sets.filter((x) => neuves131.indexOf(x.session_id) < 0);
+    base.sessions = base.sessions.filter((x) => neuves131.indexOf(x.id) < 0);
+    await aller('/saisie');
+    ok('[131] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations131 && base.journal.filter((j) => j.op === 'refus').length === refus131 &&
+        erreurs.length === erreurs131,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus131), erreurs.slice(erreurs131)]));
+  }
+
+  console.log('\n══ elastiques. LES ÉLASTIQUES PAR LEUR NOM : LA COLONNE « ÉLASTIQUE », LE ROUGE EN DERNIÈRE SÉRIE, LES MINI-BANDES, L’ÉLASTIQUE RETIRÉ (132, MOTEUR §10 ter, ECRAN-SAISIE §3 ter.6) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un profil avec DEUX listes (Noir 35 kg, Rouge 25 kg, Vert ; les mini-bandes Bleue
+  // et Jaune) et « par son nom » ; trois exercices servis avec `type_elastique` (v2_102) — un face pull en résistance
+  // (grand), des tractions en aide (grand), un clamshell (mini). Le passé : le face pull au Vert au HAUT de sa zone
+  // (20 reps) deux séances de suite ; les tractions au Noir (aide de 35 kg, son nom écrit) au haut de leur zone (12).
+  // Le coach teste le cran au-dessus EN DERNIÈRE SÉRIE, par son nom : le Rouge (plus fort) sur le face pull, le Rouge
+  // (plus léger) sur les tractions. Le clamshell ouvre les mini-bandes. Puis le Vert est retiré de Ma salle : sa
+  // séance devient neutre. Tout est retiré à la fin.
+  {
+    const erreurs132 = erreurs.length;
+    const refus132 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations132 = gardeBanc.violations;
+    const catalogueAvant132 = CATALOGUE.length;
+    const sessionsAvant132 = base.sessions.map((x) => x.id);
+    const salleAvant132 = base.profiles[0].ma_salle;
+    const sp132 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const FP = 'fp-u132-elastique', TR = 'tr-u132-elastique', CS = 'cs-u132-elastique';
+    CATALOGUE.push({ slug: FP, nom: 'Face Pull U132 (Élastique)', mesure: 'reps', charge: 'elastique', type_elastique: 'grand',
+      equipement: 'elastique', muscles_primaires: ['u132_delt'], muscles_secondaires: [] });
+    CATALOGUE.push({ slug: TR, nom: 'Tractions U132 (Élastique)', mesure: 'charge_reps', charge: 'assistance', type_elastique: 'grand',
+      equipement: 'elastique', muscles_primaires: ['u132_dos', 'u132_bi', 'u132_trap'], muscles_secondaires: [] });
+    CATALOGUE.push({ slug: CS, nom: 'Clamshell U132 (Élastique)', mesure: 'reps', charge: 'elastique', type_elastique: 'mini',
+      equipement: 'elastique', muscles_primaires: ['u132_fess'], muscles_secondaires: [] });
+    const SALLE_132 = { barres_ez: [], barres_droites: [], halteres: null,
+      elastiques: [{ nom: 'Noir', kg: 35 }, { nom: 'Rouge', kg: 25 }, { nom: 'Vert' }],
+      mini_bandes: [{ nom: 'Bleue' }, { nom: 'Jaune' }], elastiques_par_nom: true };
+    base.profiles[0].ma_salle = JSON.parse(JSON.stringify(SALLE_132));
+    const t132 = Date.now();
+    const passe132 = [];
+    const poser132 = (id, jours, slug, nom, kg, reps) => {
+      const debut = ilYa(jours * 86400000, t132).toISOString();
+      if (passe132.indexOf(id) < 0) {
+        passe132.push(id);
+        base.sessions.push({ id, user_id: 'u-banc', titre: 'Élastiques — ' + id, debut, fin: finDe(debut, t132).toISOString(),
+          statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      }
+      // Les rangs suivent dans la séance (`sets_rang_unique`) : deux exercices d'une même séance ne partagent pas un rang.
+      const deja = base.sets.filter((x) => x.session_id === id).length;
+      [1, 2, 3].forEach((k) => base.sets.push({ id: id + '-' + slug + '-s' + k, session_id: id, user_id: 'u-banc', exercise_slug: slug,
+        charge_kg: kg, reps, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: nom, type_serie: 'travail',
+        rang: deja + k, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app',
+        created_at: debut, modifie_a: null }));
+    };
+    poser132('e132-1', 21, FP, 'Vert', null, 18);
+    poser132('e132-2', 14, FP, 'Vert', null, 20);
+    poser132('e132-3', 7, FP, 'Vert', null, 20);
+    poser132('e132-2', 14, TR, 'Noir', -35, 12);
+    poser132('e132-3', 7, TR, 'Noir', -35, 12);
+    const ex132 = (slug, rang) => ({ id: 'r-u132-' + rang, routine_id: 'r-u132', exercise_slug: slug, rang,
+      routine_sets: progr(3, 12), repos_cible_s: 0, groupe_superset: null, note: null });
+    const ROUTINE_132 = { id: 'r-u132', nom: 'Élastiques U132', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [ex132(FP, 0), ex132(TR, 1), ex132(CS, 2)] };
+    ROUTINES.push(ROUTINE_132);
+    const neufs132 = (slug) => base.sets.filter((x) => x.exercise_slug === slug && passe132.indexOf(x.session_id) < 0);
+    const grille132 = () => page.evaluate(() => Array.from(document.querySelectorAll('#vue-seance .bloc-seance')).map((b) => ({
+      nom: (b.querySelector('.nom-exo, .bloc-nom') || {}).textContent,
+      entetes: Array.from(b.querySelectorAll('.cols-seance span')).map((x) => x.textContent),
+      champs: Array.from((b.querySelector('.ligne-serie') || document.createElement('i')).querySelectorAll('[data-champ]')).map((x) => x.getAttribute('data-champ')),
+      prec: Array.from(b.querySelectorAll('.ligne-serie .prec')).map((x) => x.textContent),
+      cases: Array.from(b.querySelectorAll('.ligne-serie .el-case')).map((x) => x.textContent + (x.classList.contains('gris') ? '°' : '')),
+      jaune: (b.querySelector('.consigne-dit, .bloc-consigne, .consigne') || {}).textContent || '',
+      deborde: document.documentElement.scrollWidth > window.innerWidth })));
+    const plan132 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? d.plan.exercices.map((x) => ({ slug: x.slug, etat: x.consigne ? x.consigne.etat : null,
+        raison: x.consigne ? x.consigne.raison || null : null, gris: x.entete ? x.entete.gris : null,
+        jaune: x.entete ? x.entete.jaune : null, paris: (x.paris || []).filter(Boolean).length,
+        chauffes: !!x.chauffes || !!x.proposition, elastique: x.elastique || null })) : null;
+    });
+    const valider132 = async (iExo, iSerie) => {
+      await page.evaluate(([i, j]) => {
+        const r = document.querySelector('.serie[data-iexo="' + i + '"][data-iserie="' + j + '"]');
+        if (r) r.querySelector('.ok-serie').click();
+      }, [iExo, iSerie]);
+      await attendre(800);
+    };
+    const caseVide132 = (iExo, iSerie) => page.evaluate(([i, j]) => {
+      const r = document.querySelector('.serie[data-iexo="' + i + '"][data-iserie="' + j + '"] [data-champ="elastique"]');
+      return !!r && r.classList.contains('case-vide');
+    }, [iExo, iSerie]);
+
+    // A. LA GRILLE : la colonne « ÉLASTIQUE » ; « préc. » par son nom ; le test en DERNIÈRE série, par son nom.
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(1500);
+    await aller('/saisie');
+    await demarrerRoutine('Élastiques U132');
+    await attendre(1200);
+    const g132 = await grille132();
+    const p132 = await plan132();
+    ok('[132] A — la colonne « ÉLASTIQUE » devant les reps (face pull, clamshell), à la place de « AIDE (KG) » (tractions) ; rien ne déborde à 360 px',
+      g132.length === 3 && g132.every((g) => JSON.stringify(g.champs) === '["elastique","reps"]' &&
+        g.entetes.indexOf('ÉLASTIQUE') === 2 && g.entetes.indexOf('AIDE (KG)') < 0 && !g.deborde), JSON.stringify(g132));
+    ok('[132] A — « préc. » dit le nom : « Vert × 20 », « Noir × 12 »',
+      !!g132[0] && sp132(g132[0].prec[0]) === 'Vert × 20' && !!g132[1] && sp132(g132[1].prec[0]) === 'Noir × 12', JSON.stringify(g132));
+    ok('[132] A — DISCRIMINANT : le face pull au Vert au haut de sa zone, deux séances de suite : le Rouge en DERNIÈRE série (plus fort)',
+      !!g132[0] && JSON.stringify(g132[0].cases.map(sp132)) === '["Vert°","Vert°","Rouge°"]', JSON.stringify(g132[0]));
+    ok('[132] A — DISCRIMINANT : les tractions au Noir : le plus léger, le Rouge, en dernière série',
+      !!g132[1] && JSON.stringify(g132[1].cases.map(sp132)) === '["Noir°","Noir°","Rouge°"]', JSON.stringify(g132[1]));
+    const xfp = p132 && p132.filter((x) => x.slug === FP)[0];
+    ok('[132] A — l’en-tête par les noms (« Vert × 20 », « Rouge × 15 »), sans kg ; aucun pari, aucune chauffe',
+      !!xfp && /Vert × 20/.test(sp132((xfp.jaune || []).join(' '))) && /Rouge × 15/.test(sp132((xfp.jaune || []).join(' '))) &&
+        !/kg/.test((xfp.jaune || []).join(' ') + (xfp.gris || '')) && p132.every((x) => x.paris === 0 && !x.chauffes), JSON.stringify(p132));
+    ok('[132] A — le clamshell : rien à proposer (première fois), la case dit « choisir »',
+      !!g132[2] && JSON.stringify(g132[2].cases.map(sp132)) === '["choisir","choisir","choisir"]', JSON.stringify(g132[2]));
+
+    // B. VALIDER LE GRIS : la série part avec son NOM ; la charge, le kg déclaré d'une aide (−35), sinon rien.
+    await valider132(0, 0);
+    await valider132(1, 0);
+    await jusqua(async () => neufs132(FP).length === 1 && neufs132(TR).length === 1, 6000);
+    const sfp = neufs132(FP)[0] || {}, str = neufs132(TR)[0] || {};
+    ok('[132] B — DISCRIMINANT : le face pull part « Vert × 20 », sans charge ; les tractions « Noir × 12 » avec l’aide déclarée (−35)',
+      sfp.elastique === 'Vert' && sfp.charge_kg === null && sfp.reps === 20 &&
+        str.elastique === 'Noir' && str.charge_kg === -35 && str.reps === 12,
+      JSON.stringify([sfp, str, base.journal.filter((j) => j.op === 'refus').slice(refus132)]));
+
+    // C. LA CASE EST OBLIGATOIRE : le clamshell sans élastique passe au rouge ; la feuille ouvre les MINI-BANDES.
+    await page.evaluate(() => {
+      const r = document.querySelector('.serie[data-iexo="2"][data-iserie="0"] [data-champ="reps"] input');
+      if (r) { r.value = '15'; r.dispatchEvent(new Event('input', { bubbles: true })); r.blur(); }
+    });
+    await attendre(300);
+    await valider132(2, 0);
+    ok('[132] C — sans élastique, la série ne part pas, la case passe au rouge',
+      neufs132(CS).length === 0 && (await caseVide132(2, 0)), JSON.stringify(neufs132(CS)));
+    await page.evaluate(() => {
+      const c = document.querySelector('.serie[data-iexo="2"][data-iserie="0"] [data-champ="elastique"]');
+      if (c) c.click();
+    });
+    await attendre(600);
+    const feuille132 = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .el-choisir'))
+      .map((b) => b.getAttribute('data-nom') + '|' + (b.querySelector('.el-kg') || {}).textContent));
+    ok('[132] C — DISCRIMINANT : le clamshell ouvre les mini-bandes, dans leur ordre (« la plus forte » d’abord)',
+      JSON.stringify(feuille132) === '["Bleue|la plus forte","Jaune|"]', JSON.stringify(feuille132));
+    await page.evaluate(() => { const b = document.querySelector('#feuille-contenu .el-choisir[data-nom="Jaune"]'); if (b) b.click(); });
+    await attendre(700);
+    await valider132(2, 0);
+    await jusqua(async () => neufs132(CS).length === 1, 6000);
+    const scs = neufs132(CS)[0] || {};
+    ok('[132] C — le clamshell part « Jaune × 15 », sans charge', scs.elastique === 'Jaune' && scs.charge_kg === null && scs.reps === 15,
+      JSON.stringify(scs));
+
+    // D. LE RECHARGEMENT RETROUVE LES NOMS (la séance en cours).
+    const id132 = enCoursId();
+    await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(1800);
+    await aller('/saisie');
+    await attendre(900);
+    const r132 = await grille132();
+    ok('[132] D — après rechargement, les séries validées gardent leur nom (Vert, Noir, Jaune) ; les autres, le gris du coach',
+      r132.length === 3 && sp132(r132[0].cases[0]) === 'Vert' && sp132(r132[1].cases[0]) === 'Noir' &&
+        sp132(r132[2].cases[0]) === 'Jaune' && sp132(r132[0].cases[2]) === 'Rouge°', JSON.stringify(r132));
+    await terminer();
+    await jusqua(async () => sessions().filter((x) => x.id === id132 && x.statut === 'terminee').length === 1, 6000);
+    // D'. LE FORMATEUR UNIQUE (132, point 6) : le détail de la séance et la page d'exercice disent « Vert × 20 »,
+    // « Noir × 12 », « Jaune × 15 » — jamais une charge.
+    await aller('/seance/' + id132);
+    await jusqua(async () => /Face Pull U132/.test(await texte('#vue-detail')), 6000);
+    const detail132 = sp132(await texte('#vue-detail'));
+    ok('[132] D — le détail de la séance : « Vert × 20 », « Noir × 12 », « Jaune × 15 », sans « Aide » ni kg',
+      /Vert × 20/.test(detail132) && /Noir × 12/.test(detail132) && /Jaune × 15/.test(detail132) &&
+        !/Aide 35|35 kg/.test(detail132), detail132.slice(0, 500));
+    await aller('/exercice/' + TR);
+    await jusqua(async () => /Tractions U132/.test(await texte('#page-exercice')), 6000);
+    const page132 = sp132(await texte('#page-exercice'));
+    ok('[132] D — la page des tractions : « Ton meilleur : Noir × 12 », aucun record en kg (ni la table par reps)',
+      /Ton meilleur\s*Noir × 12/.test(page132) && !/Aide 35/.test(page132) && !/Record de charge/.test(page132), page132.slice(0, 500));
+
+    // E. L'ÉLASTIQUE RETIRÉ : le Vert quitte Ma salle. Le face pull n'a plus que des séances au Vert : elles sont neutres ;
+    // la consigne le dit, sans rien proposer ; « préc. » garde le nom ; la case dit « choisir ».
+    base.profiles[0].ma_salle = Object.assign(JSON.parse(JSON.stringify(SALLE_132)),
+      { elastiques: [{ nom: 'Noir', kg: 35 }, { nom: 'Rouge', kg: 25 }] });
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(1500);
+    await aller('/saisie');
+    await demarrerRoutine('Élastiques U132');
+    await attendre(1200);
+    const e132 = await grille132(), pe132 = await plan132();
+    const xe = pe132 && pe132.filter((x) => x.slug === FP)[0];
+    ok('[132] E — DISCRIMINANT : un élastique retiré donne une séance neutre — « Ton élastique Vert n’est plus dans Ma salle : je note sans proposer. »',
+      !!xe && xe.etat === 'silence' && xe.raison === 'elastique_retire' &&
+        sp132(xe.gris).replace(/'/g, '’') === 'Ton élastique Vert n’est plus dans Ma salle : je note sans proposer.', JSON.stringify(pe132));
+    ok('[132] E — « préc. » garde le nom (« Vert × 20 »), la case dit « choisir »',
+      !!e132[0] && sp132(e132[0].prec[0]) === 'Vert × 20' && sp132(e132[0].cases[0]) === 'choisir', JSON.stringify(e132[0]));
+    await abandonner();
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    base.profiles[0].ma_salle = salleAvant132 === undefined ? null : salleAvant132;
+    base.sets = base.sets.filter((x) => passe132.indexOf(x.session_id) < 0);
+    base.sessions = base.sessions.filter((x) => passe132.indexOf(x.id) < 0);
+    CATALOGUE.splice(catalogueAvant132, CATALOGUE.length - catalogueAvant132);
+    const iR132 = ROUTINES.indexOf(ROUTINE_132);
+    if (iR132 >= 0) ROUTINES.splice(iR132, 1);
+    const neuves132 = base.sessions.filter((x) => sessionsAvant132.indexOf(x.id) < 0).map((x) => x.id);
+    base.sets = base.sets.filter((x) => neuves132.indexOf(x.session_id) < 0);
+    base.sessions = base.sessions.filter((x) => neuves132.indexOf(x.id) < 0);
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(1500);
+    await aller('/saisie');
+    ok('[132] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations132 && base.journal.filter((j) => j.op === 'refus').length === refus132 &&
+        erreurs.length === erreurs132,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus132), erreurs.slice(erreurs132)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

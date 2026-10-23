@@ -448,4 +448,18 @@ describe('58-2 — le journal des records : ce que la fonction des records a con
     // Le jeu lit le journal par `faitsDuJeu` : une seule série médaillée (b), pas deux.
     expect(f.faitsDuJeu(c, '2026-10-09').journal.map((x) => x.set_id)).toEqual(['b']);
   });
+  // 140 — `volume_seance` est un record et a sa place dans l'ordre de la phrase (§9.23) : après `cap`, avant `duree_s`.
+  test('⚠️ DISCRIMINANT (140) — à instant égal, le volume vient après le cap et avant la durée', () => {
+    const t = '2026-10-06T16:00:00Z';
+    const l = (set_id, type) => ({ set_id, session_id: 'S', exercise_slug: 'presse', type, valeur: 603, battu_le: t });
+    const c = Object.assign(corpus(), { journal: [l('d', 'duree_s'), l('v', 'volume_seance'), l('k', 'cap'), l('m', 'charge_max')] });
+    expect(f.recordsDuJournal(c).map((x) => x.type)).toEqual(['charge_max', 'cap', 'volume_seance', 'duree_s']);
+    const m = f.medaillesDuSocial(Object.assign(corpus(), { journal: [
+      { set_id: 's', session_id: 'S', exercise_slug: 'presse', type: 'volume_seance', valeur: 603, unite: 'kg', battu_le: t },
+      { set_id: 's', session_id: 'S', exercise_slug: 'presse', type: 'cap', valeur: 150, battu_le: t }] }), [
+      { set_id: 's', session_id: 'S', exercise_slug: 'presse', type: 'volume_seance', valeur: 603, unite: 'kg', battu_le: t },
+      { set_id: 's', session_id: 'S', exercise_slug: 'presse', type: 'cap', valeur: 150, battu_le: t }]);
+    expect(m.map((x) => x.types)).toEqual([['cap', 'volume_seance']]);
+  });
+
 });

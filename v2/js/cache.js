@@ -148,6 +148,10 @@
           try { db.close(); } catch (e) { /* déjà fermée */ }
           if (_db === db) _db = null;
         };
+        // 134 (I-02, audit iPhone) — WebKit peut tuer le processus d'IndexedDB quand l'app passe en arrière-plan :
+        // la connexion se ferme ANORMALEMENT (`close`). Sans ce gestionnaire, `_db` gardait la connexion morte et
+        // chaque écriture échouait jusqu'au prochain lancement. On l'oublie : la suivante rouvrira.
+        db.onclose = function () { if (_db === db) _db = null; };
         _db = db;
         _ouverture = null;
         resoudre(db);
@@ -163,8 +167,35 @@
 
   function estBloquee() { return !!_horsService; }
 
-  function transaction(magasins, mode) {
-    return ouvrir().then(function (db) { return db.transaction(magasins, mode); });
+  // 134 (I-02, audit iPhone) — UNE CONNEXION PERDUE SE ROUVRE, UNE FOIS.
+  //
+  // La connexion peut mourir sans que `close` soit encore arrivé : la transaction échoue alors à l'ouverture
+  // (`InvalidStateError`) ou en cours (« Connection to Indexed Database server lost »). `operation` joue le
+  // travail sur une transaction ; s'il échoue ainsi, la connexion est oubliée et le travail rejoué UNE fois, sur
+  // une connexion neuve. Une transaction est atomique : celle qui a échoué n'a rien écrit, la rejouer ne double
+  // rien. Le second échec remonte tel quel — c'est lui, et lui seul, qui fait dire « Sauvegarde impossible ».
+  function connexionPerdue(err) {
+    if (!err) return false;
+    return err.name === 'InvalidStateError' || /Connection to Indexed Database server lost/i.test(String(err.message || ''));
+  }
+  function operation(magasins, mode, travail) {
+    var essai = function () {
+      var connexion = null;
+      return ouvrir().then(function (db) {
+        connexion = db;
+        return travail(db.transaction(magasins, mode));
+      }).catch(function (err) {
+        if (connexion && connexionPerdue(err)) {
+          if (_db === connexion) _db = null;
+          try { connexion.close(); } catch (e) { /* déjà fermée */ }
+        }
+        throw err;
+      });
+    };
+    return essai().catch(function (err) {
+      if (!connexionPerdue(err)) throw err;
+      return essai();
+    });
   }
 
   function finDe(tx) {
@@ -176,7 +207,7 @@
   }
 
   function lireTout(magasin) {
-    return transaction([magasin], 'readonly').then(function (tx) {
+    return operation([magasin], 'readonly', function (tx) {
       return new Promise(function (resoudre, rejeter) {
         var req = tx.objectStore(magasin).getAll();
         req.onsuccess = function () { resoudre(req.result || []); };
@@ -195,7 +226,7 @@
     for (var i = 0; i < liste.length; i += LOT) tranches.push(liste.slice(i, i + LOT));
     return tranches.reduce(function (chaine, tranche) {
       return chaine.then(function () {
-        return transaction([magasin], 'readwrite').then(function (tx) {
+        return operation([magasin], 'readwrite', function (tx) {
           var st = tx.objectStore(magasin);
           tranche.forEach(function (e) { st.put(e); });
           return finDe(tx);
@@ -212,7 +243,7 @@
   // 237 exercices. Les 28 103 séries ne passent pas par ici.
   function remplacerTout(magasin, enregistrements) {
     var liste = enregistrements || [];
-    return transaction([magasin], 'readwrite').then(function (tx) {
+    return operation([magasin], 'readwrite', function (tx) {
       var st = tx.objectStore(magasin);
       st.clear();
       liste.forEach(function (e) { st.put(e); });
@@ -230,7 +261,7 @@
     for (var i = 0; i < liste.length; i += LOT) tranches.push(liste.slice(i, i + LOT));
     return tranches.reduce(function (chaine, tranche) {
       return chaine.then(function () {
-        return transaction([magasin], 'readwrite').then(function (tx) {
+        return operation([magasin], 'readwrite', function (tx) {
           var st = tx.objectStore(magasin);
           tranche.forEach(function (c) { st.delete(c); });
           return finDe(tx);
@@ -243,7 +274,7 @@
   // ce qui a atteint le disque — et c'est exactement la différence entre
   // constater et autoriser.
   function compterMagasin(magasin) {
-    return transaction([magasin], 'readonly').then(function (tx) {
+    return operation([magasin], 'readonly', function (tx) {
       return new Promise(function (resoudre, rejeter) {
         var req = tx.objectStore(magasin).count();
         req.onsuccess = function () { resoudre(req.result || 0); };
@@ -253,7 +284,7 @@
   }
 
   function lireMeta(cle) {
-    return transaction(['meta'], 'readonly').then(function (tx) {
+    return operation(['meta'], 'readonly', function (tx) {
       return new Promise(function (resoudre, rejeter) {
         var req = tx.objectStore('meta').get(cle);
         req.onsuccess = function () { resoudre(req.result ? req.result.valeur : null); };
@@ -263,7 +294,7 @@
   }
 
   function ecrireMeta(cle, valeur) {
-    return transaction(['meta'], 'readwrite').then(function (tx) {
+    return operation(['meta'], 'readwrite', function (tx) {
       tx.objectStore('meta').put({ cle: cle, valeur: valeur });
       return finDe(tx);
     });
@@ -272,7 +303,7 @@
   // Purge totale. Appelée à la déconnexion et dès qu'un autre compte se
   // présente : le cloisonnement local doit valoir celui du RLS.
   function viderTout() {
-    return transaction(MAGASINS, 'readwrite').then(function (tx) {
+    return operation(MAGASINS, 'readwrite', function (tx) {
       MAGASINS.forEach(function (m) { tx.objectStore(m).clear(); });
       return finDe(tx);
     });
@@ -292,7 +323,7 @@
   var CLE_GARDES_AUTRES = 'gardes-du-compte';
   function changerDeCompte(ancienUid, nouveauUid, autres, preparer) {
     var liste = (autres || []).filter(function (x) { return x && MAGASINS.indexOf(x.magasin) >= 0 && x.cle; });
-    return transaction(MAGASINS, 'readwrite').then(function (tx) {
+    return operation(MAGASINS, 'readwrite', function (tx) {
       var issue = { rendue: [], gardees: {}, rendues: {} };
       var b = tx.objectStore('brouillon'), a = tx.objectStore('attente');
       var lu = b.get(CLE_FILES_GARDEES);
@@ -346,7 +377,7 @@
   // Deux raccourcis sur les primitives ci-dessus, pour que l'appelant n'ait pas
   // à connaître la forme des enregistrements. `null` efface.
   function lireBrouillon(cle) {
-    return transaction(['brouillon'], 'readonly').then(function (tx) {
+    return operation(['brouillon'], 'readonly', function (tx) {
       return new Promise(function (resoudre, rejeter) {
         var req = tx.objectStore('brouillon').get(cle);
         req.onsuccess = function () { resoudre(req.result ? req.result.valeur : null); };
@@ -356,7 +387,7 @@
   }
 
   function ecrireBrouillon(cle, valeur) {
-    return transaction(['brouillon'], 'readwrite').then(function (tx) {
+    return operation(['brouillon'], 'readwrite', function (tx) {
       var st = tx.objectStore('brouillon');
       if (valeur === null || valeur === undefined) st.delete(cle);
       else st.put({ cle: cle, valeur: valeur });

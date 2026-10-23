@@ -1,7 +1,7 @@
 {
-  "name": "TrainHub v2",
-  "short_name": "TrainHub v2",
-  "description": "Socle v2 — lecture des séances",
+  "name": "TrainHub",
+  "short_name": "TrainHub",
+  "description": "TrainHub — ton carnet de musculation",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

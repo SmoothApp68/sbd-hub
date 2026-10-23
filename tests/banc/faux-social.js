@@ -285,8 +285,13 @@ function creer(base, options) {
       const moi = etat.moi;
       return profils().filter((p) => p.username === a.p_pseudo && !p.deleted_at && !bloque(moi, p.id)).map((p) => {
         const ab = etat.abonnements.filter((x) => x.suiveur === moi && x.suivi === p.id)[0];
+        // 137 (v2_105, SOCIAL §1) — `bio`, EN DERNIER : le texte sans espaces de bord, ou null hors des cercles (soi, abonné
+        // accepté, même guilde) et quand elle est vide. La base décide ; `visibility_bio` n'est pas lue.
+        const g = guildeDe(moi);
+        const dansLesCercles = p.id === moi || (!!ab && ab.statut === 'accepte') || (!!g && guildeDe(p.id) === g);
+        const bio = dansLesCercles ? String(p.bio === undefined || p.bio === null ? '' : p.bio).trim() : '';
         return { id: p.id, pseudo: p.username, niveau: niveau(p), titre: titre(p), compte_prive: p.compte_prive !== false,
-                 je_suis: ab ? ab.statut : null, me_suit: suit(p.id, moi) };
+                 je_suis: ab ? ab.statut : null, me_suit: suit(p.id, moi), bio: bio === '' ? null : bio };
       });
     },
     social_rechercher(a) {
@@ -325,6 +330,9 @@ function creer(base, options) {
       return sets().filter((t) => t.session_id === s.id).sort((x, y) => (x.rang || 0) - (y.rang || 0))
         .map((t) => ({ exercise_slug: t.exercise_slug, rang: t.rang, charge_kg: t.charge_kg, reps: t.reps,
           duree_s: t.duree_s === undefined ? null : t.duree_s, distance_m: t.distance_m === undefined ? null : t.distance_m,
+          // 131 (v2_101) — le D+, les étages et l'élastique rendus par la RPC.
+          denivele_m: t.denivele_m === undefined ? null : t.denivele_m, etages: t.etages === undefined ? null : t.etages,
+          elastique: t.elastique === undefined ? null : t.elastique,
           type_serie: t.type_serie || 'travail' }));
     },
     social_mes_reactions(a) {
@@ -639,7 +647,9 @@ function creer(base, options) {
     groupe_etat() {
       const moi = etat.moi, gid = groupeDe(moi);
       if (!gid) return [];
-      return gmembresDe(gid).map((m) => ({ m, p: profil(m.user_id) })).filter((x) => x.p && !x.p.deleted_at).map((x) => {
+      // 142 (v2_107) — un membre lié à moi par un blocage (dans un sens ou dans l'autre) n'est pas rendu, sauf moi : sa ligne
+      // reste en base (une place fermée sert à « Faite en groupe avec … »), seul l'écran ne la montre plus.
+      return gmembresDe(gid).filter((m) => m.user_id === moi || !bloque(moi, m.user_id)).map((m) => ({ m, p: profil(m.user_id) })).filter((x) => x.p && !x.p.deleted_at).map((x) => {
         const m = x.m, s = session(m.session_id), sienne = s && s.user_id === m.user_id ? s : null;
         const v = sienne ? sets().filter((t) => t.session_id === m.session_id && t.validee_a).map((t) => t.validee_a).sort() : [];
         return { user_id: m.user_id, pseudo: x.p.username, moi: m.user_id === moi, session_id: m.session_id,
@@ -659,6 +669,9 @@ function creer(base, options) {
         sets().filter((t) => t.session_id === m.session_id && t.validee_a).forEach((t) => out.push({ pseudo: p.username,
           exercise_slug: t.exercise_slug, charge_kg: t.charge_kg === undefined ? null : t.charge_kg, reps: t.reps === undefined ? null : t.reps,
           duree_s: t.duree_s === undefined ? null : t.duree_s, distance_m: t.distance_m === undefined ? null : t.distance_m,
+          // 131 (v2_101) — le D+, les étages et l'élastique rendus par la RPC.
+          denivele_m: t.denivele_m === undefined ? null : t.denivele_m, etages: t.etages === undefined ? null : t.etages,
+          elastique: t.elastique === undefined ? null : t.elastique,
           type_serie: t.type_serie || 'travail', validee_a: t.validee_a }));
       });
       return out.sort((x, y) => String(y.validee_a).localeCompare(String(x.validee_a))).slice(0, GROUPE.DIRECT);
@@ -674,7 +687,7 @@ function creer(base, options) {
     // Mes invitations : qui m'invite, la liste d'exercices de sa séance, combien ils sont (pas un groupe fini, v2_087).
     groupe_invitations_recues() {
       const moi = etat.moi;
-      return etat.ginvitations.filter((i) => i.invite === moi && !bloque(moi, i.invitant) && !finiLe(i.groupe_id)).sort((a, b) => a.cree_le - b.cree_le).map((i) => {
+      return etat.ginvitations.filter((i) => i.invite === moi && !bloque(moi, i.invitant) && !finiLe(i.groupe_id) && !bloqueAvec(i.groupe_id, moi)).sort((a, b) => a.cree_le - b.cree_le).map((i) => {
         const p = profil(i.invitant), m = gmembresDe(i.groupe_id).filter((x) => x.user_id === i.invitant)[0];
         return { groupe_id: i.groupe_id, invitant: p && !p.deleted_at ? p.username : null, exercices: m ? m.exercices.slice() : [],
           membres: gmembresDe(i.groupe_id).length };
@@ -730,6 +743,9 @@ function creer(base, options) {
     }
     etat.ginvitations = etat.ginvitations.filter((i) => !((i.invitant === b.bloqueur && i.invite === b.bloque) ||
       (i.invitant === b.bloque && i.invite === b.bloqueur)));
+    // 142 (v2_107) — et les invitations d'un TIERS vers l'un, dans un groupe où l'autre est membre.
+    etat.ginvitations = etat.ginvitations.filter((i) => !((i.invite === b.bloqueur && gmembresDe(i.groupe_id).some((x) => x.user_id === b.bloque)) ||
+      (i.invite === b.bloque && gmembresDe(i.groupe_id).some((x) => x.user_id === b.bloqueur))));
     // `blocages_apres_ajout` : les abonnements dans les DEUX sens, et les réactions croisées.
     etat.abonnements = etat.abonnements.filter((x) => !((x.suiveur === b.bloqueur && x.suivi === b.bloque) ||
       (x.suiveur === b.bloque && x.suivi === b.bloqueur)));
@@ -932,7 +948,13 @@ function creer(base, options) {
     return comme(id, () => gerer('POST', new URL('https://banc.supabase.co/rest/v1/rpc/' + nom), args || {})).data;
   }
 
-  return { etat, gerer, comme, appeler, rpc, suit, mutuel, bloque, tonnage, guildeDe, lundiCourant, moisCourant, groupeDe, finiLe };
+  // 142 : poser un blocage comme la base le fait (la ligne, puis les déclencheurs).
+  function bloquer(bloqueur, bloqueLui) {
+    const b = { bloqueur, bloque: bloqueLui, cree_le: new Date().toISOString() };
+    etat.blocages.push(b);
+    bloquerApres(b);
+  }
+  return { etat, gerer, comme, appeler, rpc, bloquer, suit, mutuel, bloque, tonnage, guildeDe, lundiCourant, moisCourant, groupeDe, finiLe };
 }
 
 function champsInterdits(x) {

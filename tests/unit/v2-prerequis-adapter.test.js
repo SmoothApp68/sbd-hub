@@ -397,7 +397,9 @@ describe('5 — répondre à la carte du lest ne recalcule que l’exercice qui 
       calculs
     };
     vm.createContext(ctx);
-    ['lestReponseDe', 'cleConsignes', 'cleSauveeValable', 'consigneDe'].forEach((n) => vm.runInContext(extraire(n), ctx));
+    // 132 : l'historique et l'état que le moteur lit (`groupesDuMoteur`, `etatDuMoteur` : tels quels sans élastiques).
+    ['estSalleElastique', 'groupesDuMoteur', 'etatDuMoteur', 'lestReponseDe', 'cleConsignes', 'cleSauveeValable', 'consigneDe']
+      .forEach((n) => vm.runInContext(extraire(n), ctx));
     vm.runInContext('function optionsDeConsigne(slug) { return { lestReponse: lestReponseDe() }; }', ctx);
     return ctx;
   }

@@ -1105,8 +1105,8 @@
     // par exercice de départ) et, par exercice d'échelle, ce que l'app a lu au catalogue et dans les faits
     // (`echelles[slug]` : `{ marche, nomCible, aide, cibleHabilete, cibleFaiteLe }`). Le plan décide de la carte ;
     // il recopie la réponse, et le dit (I49).
-    var marcheReponses = e.marcheReponses && typeof e.marcheReponses === 'object' && !Array.isArray(e.marcheReponses)
-      ? e.marcheReponses : {};
+    var marcheReponses = reponsesEnCharges(e, e.marcheReponses && typeof e.marcheReponses === 'object' &&
+      !Array.isArray(e.marcheReponses) ? e.marcheReponses : {});
     var echelles = e.echelles || {};
     var marchesPosees = {};
     // 60-1 (QUESTIONNAIRE-COACH-V2 §4) — « JUSTE UN CARNET » : en Entretenir
@@ -1144,7 +1144,20 @@
       carte: esc.carte,
       // §9.22 (53-2) — les exercices d'un bloc en cours ce jour-là (I39).
       programme: { enBloc: enBlocDuJour(e, seance) },
-      exercices: questionsDuPlan(exos.map(function (exo, i) {
+      exercices: questionsDuPlan(exos.map(function (exoBrut, i) {
+        // 132 (MOTEUR §10 ter) — UN EXERCICE NOTÉ PAR NOM : sa salle est la liste de ses élastiques (`cat.salle`,
+        // `materiel: 'elastique'`). Ses séries entrent avec leur charge VIRTUELLE (`THProfil.seriesPourLeMoteur` :
+        // la séance du jour garde ses lignes, une ligne pas encore remplie se lit sans charge) ; tout ce que le plan
+        // rédige pour lui se dit par les NOMS (`THModele.avecNoms`, le formateur) ; ses lignes se pré-remplissent d'un
+        // nom, jamais d'une charge virtuelle (`enNoms`).
+        var salleEl = salleElastiqueDuPlan(e, exoBrut && exoBrut.exercise_slug);
+        return Voix().avecNoms(salleEl ? salleEl.noms : null, function () {
+          var exo = salleEl ? exoPourLeMoteur(exoBrut, salleEl) : exoBrut;
+          return sansParis(enNoms(planDeLOccurrence(exo, i, salleEl), salleEl), salleEl);
+        });
+      }), e.reserve, seance)
+    };
+    function planDeLOccurrence(exo, i, salleEl) {
         var slug = exo && exo.exercise_slug;
         // Prérequis d'« adapter » — LE COACH SUIT UNE OCCURRENCE de l'exercice
         // dans la séance (`THSeance.occurrenceCoachee` : la première, ou celle
@@ -1179,11 +1192,12 @@
         var modeX = Object.prototype.hasOwnProperty.call(modes, slug) && modes[slug] ? modes[slug] : null;
         var intentionX = Moteur().intentionDe(intentionProfil, modeX);
         var x = planDExercice(exo, i, c, Seance().parisDeLOccurrence(e.paris || [], seance, i), seance.id, e.reglage, suite, seance.debut,
-          intentionX === 'entretien' ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
+          intentionX === 'entretien' || salleEl ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
           esc.allegee ? { decharge: esc.allegee.source === SOURCE_DECHARGE } : null, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
           Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null,
           Seance().exerciceFini(seance, slug),
-          Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null, objectif);
+          precedentPourLeMoteur(Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null, salleEl),
+          objectif);
         if (x.escalier && x.escalier.copie) x.escalier = null;
         // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
@@ -1269,8 +1283,74 @@
           }
         }
         return x;
-      }), e.reserve, seance)
-    };
+    }
+  }
+
+  // ── 132 (MOTEUR §10 ter) — LES ÉLASTIQUES PAR LEUR NOM, DANS LE PLAN ──────────────────────────────────────────────
+  //
+  // La salle d'un exercice noté par nom (`entrees.catalogue[slug].salle`, `materiel: 'elastique'`), ou `null`.
+  function salleElastiqueDuPlan(e, slug) {
+    var cat = e && e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
+    var s = cat && cat.salle;
+    return s && s.materiel === 'elastique' && s.noms && s.fiche ? s : null;
+  }
+  // La dernière séance de l'exercice (le pré-remplissage d'une ligne que le plan ne couvre pas), vue de même.
+  function precedentPourLeMoteur(prec, salleEl) {
+    if (!prec || !salleEl || !Array.isArray(prec.series)) return prec;
+    return Object.assign({}, prec, { series: racine.THProfil.seriesPourLeMoteur(salleEl, prec.series, true) });
+  }
+  // La séance du jour d'un exercice noté par nom, vue par le moteur : chaque série avec sa charge virtuelle.
+  function exoPourLeMoteur(exo, salleEl) {
+    if (!exo) return exo;
+    return Object.assign({}, exo, { series: racine.THProfil.seriesPourLeMoteur(salleEl, exo.series || [], true) });
+  }
+  // Le nom d'une charge virtuelle, ou `null`.
+  function nomDuCran(salleEl, charge) {
+    var c = nombre(charge);
+    return c === null || !salleEl ? null : (Object.prototype.hasOwnProperty.call(salleEl.noms, String(c)) ? salleEl.noms[String(c)] : null);
+  }
+  // Ce que l'écran lit d'un exercice noté par nom : `x.elastique` (la liste, le sens, et les noms des crans pour le
+  // seul affichage) ; le pré-remplissage de chaque ligne dit un NOM (`prerempli.elastique`) et jamais une charge —
+  // la série écrit son nom et le kg déclaré d'une aide, à la validation (`THProfil.ecrireSerie`).
+  function enNoms(x, salleEl) {
+    if (!x || !salleEl) return x;
+    x.elastique = { liste: (salleEl.liste || []).slice(), aide: salleEl.aide === true, noms: salleEl.noms };
+    (x.lignes || []).forEach(function (l) {
+      if (!l || !l.prerempli) return;
+      l.prerempli = Object.assign({}, l.prerempli, { elastique: nomDuCran(salleEl, l.prerempli.charge_kg), charge_kg: null });
+    });
+    if (x.carteMarche && x.carteMarche.aide) x.carteMarche.elastique = nomDuCran(salleEl, x.carteMarche.charge);
+    return x;
+  }
+  // ⚠️ AUCUN PARI SUR UN EXERCICE NOTÉ PAR NOM (rapporté le 22/10/2026, prompt 132 : la règle des paris ne s'applique
+  // pas telle quelle aux charges virtuelles). Un pari s'écrit dans `predictions` (immuable) avec la charge de sa ligne
+  // (`fondement.charge`, `palier`, `declencheur.charge`) : ce serait ÉCRIRE une charge virtuelle, que le §10 ter
+  // interdit, et que les bilans des paris liraient comme des kilos. L'exercice est donc tenu hors de la règle, comme le
+  // demande le prompt : ses lignes ne parient rien (I7 : « non pariée »), son compteur ne compte pas (il ne lit que les
+  // séances sous consigne), l'escalier ne s'y déclenche pas. La décision (un pari qui écrit le NOM) est à prendre.
+  function sansParis(x, salleEl) {
+    if (!x || !salleEl || !Array.isArray(x.paris)) return x;
+    x.paris = x.paris.map(function () { return null; });
+    return x;
+  }
+
+  // La réponse « Pas maintenant » à la carte « marche suivante » d'un exercice noté par nom garde le NOM de l'élastique
+  // (`profiles.marche_reponses[slug].aide`, une chaîne) : le plan la lit en charge virtuelle, pour comparer ; un nom
+  // absent de la liste ne se devine pas (`null`).
+  function reponsesEnCharges(e, reponses) {
+    var out = null;
+    Object.keys(reponses).forEach(function (slug) {
+      var r = reponses[slug];
+      if (!r || typeof r.aide !== 'string') return;
+      var salleEl = salleElastiqueDuPlan(e, slug);
+      var v = null;
+      if (salleEl) {
+        Object.keys(salleEl.noms).forEach(function (k) { if (salleEl.noms[k] === r.aide) v = Number(k); });
+      }
+      out = out || Object.assign({}, reponses);
+      out[slug] = Object.assign({}, r, { aide: v });
+    });
+    return out || reponses;
   }
 
   // ── MOTEUR §17.2 bis (78) — LA QUESTION DE RÉSERVE ─────────────────────────
@@ -1592,7 +1672,9 @@
     var modes = e.modes || {};
     var modeX = Object.prototype.hasOwnProperty.call(modes, slug) && modes[slug] ? modes[slug] : null;
     return {
-      polyarticulaire: polyarticulaireDe(e, slug),
+      // 132 (MOTEUR §10 ter) — pas de dégressive sur un élastique noté par nom (un élastique n'est pas un disque) :
+      // la classe tue, comme hors du catalogue — aucune dégressive proposée.
+      polyarticulaire: salleElastiqueDuPlan(e, slug) ? null : polyarticulaireDe(e, slug),
       zone: zone, phase: phase,
       allegee: !!(esc && esc.allegee),
       entretien: Moteur().intentionDe(intentionProfil || 'progresser', modeX) === 'entretien',
@@ -3516,6 +3598,7 @@
     verifierReserve(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
     verifierEscalierSalle(plan, entrees, erreurs);
+    verifierElastiques(plan, entrees, erreurs);
     // Prérequis d'« adapter » — LES PARIS D'UNE OCCURRENCE, et seulement d'elle
     // (I7) : la seconde occurrence d'un exercice ne doit pas se voir reprocher
     // les paris de la première.
@@ -3667,6 +3750,82 @@
         erreurs.push(nom + 'un remplacement vers un exercice qui ne se charge pas plus que le plafond (' +
           (m.remplacant ? m.remplacant.slug : 'aucun') + ')');
       }
+    });
+  }
+
+  // I51 (MOTEUR §10 ter, 132) — SUR UN EXERCICE NOTÉ PAR NOM : « aucune charge proposée hors de la liste (ligne, ligne
+  // haute, test, proposition de la réaction, fantôme), aucune chauffe, aucune dégressive, aucune ligne de record ; une
+  // série neutre ne compte ni pour le niveau, ni pour le compteur, ni pour le meilleur. » Condition par condition :
+  //   a) la consigne : sa ligne, sa ligne haute (jamais un test sans chiffre) dans la liste ;
+  //   b) les lignes : chaque fantôme d'une ligne à faire, chaque proposition de la réaction (ligne du coach, attente)
+  //      dans la liste ; chaque pré-remplissage dit un NOM de la liste, jamais une charge ;
+  //   c) aucune chauffe, ni proposition de chauffes ;
+  //   d) aucune dégressive (ligne remplie, dégressive en cours, marche de l'escalier) ;
+  //   e) aucun record : une série validée notée par nom ne bat rien, même après une série plus faible
+  //      (`THModele.recordsBattus` rejoué sur elle) ;
+  //   f) une série neutre (un nom absent de la liste) ne compte pas : elle n'entre pas dans les séries faites que la
+  //      réaction lit, et aucun pari ne s'écrit sur l'exercice (le compteur ne lit que les séances sous consigne).
+  function verifierElastiques(plan, entrees, erreurs) {
+    var Mo = racine.THModele;
+    var exos = entrees && entrees.seance && entrees.seance.exercices ? entrees.seance.exercices : [];
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var el = x && x.elastique;
+      if (!el || !el.noms) return;
+      var nom = 'I51 — exercice ' + i + ' (' + x.slug + ') : ';
+      var dans = function (c) { return c !== null && Object.prototype.hasOwnProperty.call(el.noms, String(c)); };
+      var hors = function (v, ou) {
+        var c = nombre(v);
+        if (c === null) erreurs.push(nom + ou + ' sans élastique');
+        else if (!dans(c)) erreurs.push(nom + ou + ' à une charge hors de la liste (' + c + ')');
+      };
+      // a) la consigne.
+      var k = x.consigne;
+      if (k && k.etat !== 'silence') {
+        if (k.ligne) hors(k.ligne.charge, 'la ligne de la consigne');
+        if (k.haut) hors(k.haut.charge, 'la ligne haute de la consigne');
+      }
+      // b) les lignes, la réaction, le pré-remplissage.
+      (x.lignes || []).forEach(function (l) {
+        if (!l || l.validee) return;
+        if (l.role !== 'hors' && l.fantome && nombre(l.fantome.charge) !== null) hors(l.fantome.charge, 'le fantôme de la série ' + l.iSerie);
+        var p = l.prerempli;
+        if (p && p.charge_kg !== null && p.charge_kg !== undefined) {
+          erreurs.push(nom + 'la série ' + l.iSerie + ' pré-remplie d’une charge (' + p.charge_kg + '), pas d’un nom');
+        }
+        if (p && p.elastique !== null && p.elastique !== undefined && (el.liste || []).indexOf(p.elastique) < 0) {
+          erreurs.push(nom + 'la série ' + l.iSerie + ' pré-remplie d’un élastique hors de la liste (' + p.elastique + ')');
+        }
+      });
+      ((x.reaction && x.reaction.plan) || []).forEach(function (q, j) {
+        if (q && q.source === 'coach') hors(q.charge, 'la proposition du coach (ligne ' + j + ')');
+      });
+      var attente = x.reaction && x.reaction.attente;
+      if (attente && Array.isArray(attente.charges)) attente.charges.forEach(function (c) { hors(c, 'la proposition de la réaction'); });
+      // c) les chauffes.
+      if (x.chauffes || x.proposition) erreurs.push(nom + 'des chauffes sur un élastique');
+      // d) la dégressive.
+      if (x.degressive || x.degressiveEnCours || (x.escalier && x.escalier.marche === Moteur().MARCHE_DEGRESSIVE)) {
+        erreurs.push(nom + 'une dégressive sur un élastique');
+      }
+      // e) aucun record, et f) aucune série neutre comptée.
+      var exo = exos[i];
+      var faites = (x.faites || []).length;
+      ((exo && exo.series) || []).forEach(function (s, k2) {
+        if (!s || !Seance().partEnBase(s)) return;
+        if (s.elastique !== null && s.elastique !== undefined) {
+          // La veille, la MÊME série notée en kg, une rep de moins : sans la règle, celle du jour la battrait.
+          var faible = Object.assign({}, s, { elastique: null, reps: Math.max(1, (Number(s.reps) || 1) - 1) });
+          var veille = { debut: new Date(Date.parse((entrees.seance && entrees.seance.debut) || 0) - 864e5).toISOString(),
+                         series: [faible] };
+          var r = Mo.recordsBattus([veille], { debut: entrees.seance.debut, series: [s] }, 0, {});
+          if (r.length) erreurs.push(nom + 'la série ' + k2 + ' (' + s.elastique + ') ferait un record (' + r[0].type + ')');
+          if ((el.liste || []).indexOf(s.elastique) < 0 && faites &&
+              (x.lignes || []).some(function (l) { return l && l.iSerie === k2 && l.role !== 'hors' && l.faite && nombre(l.faite.charge) !== null; })) {
+            erreurs.push(nom + 'la série neutre ' + k2 + ' (' + s.elastique + ') compte dans les séries faites');
+          }
+        }
+      });
+      if ((x.paris || []).some(Boolean)) erreurs.push(nom + 'un pari (il écrirait une charge virtuelle)');
     });
   }
 

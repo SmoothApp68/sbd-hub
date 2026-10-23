@@ -391,11 +391,26 @@
     // Les records (98) : les NOUVELLES CHARGES MAX de la période — un exercice dont la charge la plus lourde de la
     // période (série de travail, au moins 1 rep) dépasse tout ce qui précède la période. Sans avant, pas de record.
     // Les plus lourdes d'abord ; haltères : la charge d'une main (l'écran l'écrit « 2 × »).
+    //
+    // ⚠️ 136 (audit du 16/10/2026, F5) — UN SEUL PÉRIMÈTRE DE RECORD : « ce qui précède » se lit dans la fenêtre de la
+    // MÉDAILLE (MOTEUR §9.23 : 12 mois avant la série pour une machine, une poulie, des haltères, une Smith ; toute la
+    // vie ailleurs), par sa fonction (`Modele.recordsDeLExercice(...).lourde`, ancrée sur le jour du record). Sur toute
+    // la vie, une presse à 200 kg en 2024 effaçait le 190 du 10/09/2026 que la médaille avait salué (180 en 11/2025).
     var recs = [], vus = {};
     travailIci.forEach(function (t) { vus[t.serie.exercise_slug] = true; });
+    var avantDe = function (slug, jour) {
+      var pour = [];
+      seances.forEach(function (s) {
+        if (s.jour >= periode.debut) return;
+        var siennes = (s.series || []).filter(function (x) { return x && x.exercise_slug === slug; });
+        if (siennes.length) pour.push({ debut: s.jour, series: siennes });
+      });
+      var l = Mo().recordsDeLExercice(pour, jour, Mo().optionsDeRecord(index[slug] || null)).lourde;
+      return l && l.charge !== null && l.charge > 0 ? { charge: l.charge } : null;
+    };
     Object.keys(vus).forEach(function (slug) {
       var ic = lourdeDe(slug, function (j) { return j >= periode.debut; });
-      var av = lourdeDe(slug, function (j) { return j < periode.debut; });
+      var av = ic ? avantDe(slug, ic.jour) : null;
       if (!ic || !av || ic.charge <= av.charge) return;
       recs.push({ slug: slug, nom: nomDe(slug), charge: ic.charge, avant: av.charge, jour: ic.jour,
                   haltere: !!(index[slug] && index[slug].equipement === 'haltere') });

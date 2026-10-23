@@ -10,6 +10,8 @@ process.env.TZ = 'Europe/Paris';
 global.self = global;
 require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
+require('../../v2/js/palier.js');
+require('../../v2/js/moteur.js');   // 136 (F5) — la fenêtre de la médaille (`plancherDuMateriel`), comme dans index.html
 const Bilan = require('../../v2/js/bilan.js');
 require('../../v2/js/parcours.js');
 const Profil = require('../../v2/js/profil.js');
@@ -252,5 +254,42 @@ describe('124 — les paris du mois : un fil (app.js)', () => {
     expect(src).not.toMatch(/paris_verifies|paris_tenus/);
     expect(src).toMatch(/var co = vue\.bilan && vue\.bilan\.coach;\s*vue\.paris = co \? \{ phrase: Bilan\.phraseParis\(co\.faits, co\.tenus, \{ telsQuels: true \}\) \}/);
     expect(src).toMatch(/bilanPeriode\(Bilans\.periodeDuMois\(mois\)\)\.coach/);
+  });
+});
+
+// 136 (audit du 16/10/2026, F5) — UN SEUL PÉRIMÈTRE DE RECORD. La presse du bilan : 200 × 8 en 2024, 180 × 8 en 11/2025,
+// 190 × 8 le 10/09/2026. Une machine : la médaille compare aux 12 mois avant la série (180) et salue 190 ; la saison
+// lisait toute la vie (200) et taisait le record. Elles lisent maintenant la même fenêtre, par la même fonction.
+describe('136 — F5 : la saison et la médaille, un seul périmètre de record', () => {
+  const Modele = require('../../v2/js/modele.js');
+  const PRESSE = { slug: 'presse_a_cuisses', nom: 'Presse à cuisses', equipement: 'machine', mesure: 'charge_reps',
+    muscles_primaires: ['quadriceps'], muscles_secondaires: [] };
+  const s24 = seance('2024-03-14', [['presse_a_cuisses', 200, 8]]);
+  const s25 = seance('2025-11-13', [['presse_a_cuisses', 180, 8]]);
+  const s26 = seance('2026-09-10', [['presse_a_cuisses', 190, 8]]);
+  const toutes = [s24, s25, s26];
+  const automne = Bilans.periodeDeLaSaison('2026-automne');
+  const b = Bilans.bilanDeLaPeriode({ periode: automne, aujourdhui: '2026-11-30', seances: toutes, exercices: CAT.concat([PRESSE]),
+    pesees: [], paris: [], salle: { jours: 0, minutes: 0 } });
+  const medaille = Modele.recordsBattus(toutes.slice(0, 2).map((s) => ({ debut: s.jour, series: s.series })),
+    { debut: s26.jour, series: s26.series }, 0, Modele.optionsDeRecord(PRESSE)).filter((r) => r.type === 'charge_max')[0];
+
+  test('DISCRIMINANT — la médaille du 10/09/2026 salue 190, contre 180 (11/2025) : 2024 est hors de sa fenêtre', () => {
+    expect(medaille).toMatchObject({ valeur: 190, ancien: 180 });
+  });
+  test('DISCRIMINANT — la saison dit le MÊME record : 190 kg, au-dessus de 180 (pas de 200, hors de la fenêtre)', () => {
+    expect(b.records.filter((r) => r.slug === 'presse_a_cuisses').map((r) => [r.charge, r.avant, r.jour]))
+      .toEqual([[medaille.valeur, medaille.ancien, '2026-09-10']]);
+  });
+  test('une barre garde toute la vie : un squat à 200 en 2024 tait un 190 de l’automne', () => {
+    const sq = [seance('2024-03-14', [['squat_barre', 200, 3]]), seance('2025-11-13', [['squat_barre', 180, 3]]),
+      seance('2026-09-10', [['squat_barre', 190, 3]])];
+    const bs = Bilans.bilanDeLaPeriode({ periode: automne, aujourdhui: '2026-11-30', seances: sq, exercices: CAT,
+      pesees: [], paris: [], salle: { jours: 0, minutes: 0 } });
+    expect(bs.records).toEqual([]);
+  });
+  test('la saison passe par la fonction de la médaille (`Modele.recordsDeLExercice`), pas une seconde règle', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/bilans.js'), 'utf8');
+    expect(src).toMatch(/Mo\(\)\.recordsDeLExercice\(pour, jour, Mo\(\)\.optionsDeRecord\(index\[slug\] \|\| null\)\)\.lourde/);
   });
 });

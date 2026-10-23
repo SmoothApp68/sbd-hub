@@ -19,13 +19,17 @@ const RACINE = path.join(__dirname, '../..');
 const GARDE = 'tests/banc/garde-reseau.js';
 const MOI = 'tests/unit/v2-garde-reseau.test.js';
 const IGNORES = ['node_modules', '.git', 'archive'];
+// Les copies de travail des agents (`.claude/worktrees/`, ignorées par git) sont
+// d'autres dépôts : leurs fichiers ne sont pas ceux de celui-ci (135, point 1).
+// Le reste de `.claude/` (réglages, skills) reste lu.
+const COPIES_DE_TRAVAIL = ['.claude/worktrees'];
 
 function fichiersDeCode(dossier, rel) {
   const out = [];
   fs.readdirSync(dossier, { withFileTypes: true }).forEach((e) => {
     const r = rel ? rel + '/' + e.name : e.name;
     if (e.isDirectory()) {
-      if (IGNORES.indexOf(e.name) < 0) fichiersDeCode(path.join(dossier, e.name), r).forEach((x) => out.push(x));
+      if (IGNORES.indexOf(e.name) < 0 && COPIES_DE_TRAVAIL.indexOf(r) < 0) fichiersDeCode(path.join(dossier, e.name), r).forEach((x) => out.push(x));
     } else if (/\.(js|mjs|cjs|html)$/.test(e.name)) out.push(r);
   });
   return out;

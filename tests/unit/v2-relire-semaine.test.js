@@ -179,7 +179,7 @@ describe('66A — relireSemaine est pure', () => {
   test('elle lit les définitions existantes, elle ne les recopie pas', () => {
     const code = SOURCE.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     ['Modele.estTravail', 'Semaine.musclesPonderes', 'Semaine.libelleMuscle', 'Moteur.estPolyarticulaire',
-      'Modele.estExerciceSortie', 'Semaine.porteDuVolume', 'Moteur.motsDesMuscles', 'Modele.nombre', 'Modele.arrondi',
+      'Semaine.porteDuVolume', 'Moteur.motsDesMuscles', 'Modele.nombre', 'Modele.arrondi',
       'Modele.chargeFois', 'Modele.quand', 'Modele.moisAnnee', 'Modele.freresDe', 'Profil.joursDepuis']
       .forEach((f) => expect([f, code.indexOf(f + '(') >= 0]).toEqual([f, true]));
     // Ni les poids, ni les mois, ni les libellés, ni les singuliers recopiés.

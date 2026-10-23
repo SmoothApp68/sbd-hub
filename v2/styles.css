@@ -54,6 +54,11 @@
   unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 
 :root{
+  /* 134 (I-07, audit iPhone) — LA TAILLE D'UN CHAMP DE SAISIE. Safari iOS zoome sur tout champ en dessous de
+     16 px, et ne dézoome pas à la sortie. Tous les champs hors de la grille (connexion, pesée, profil, recherche,
+     cartes, social, import) la lisent ICI ; la grille (17 px) et le questionnaire (20 px) sont au-dessus.
+     Ne JAMAIS ajouter `maximum-scale=1` à la place : cela retire le zoom d'accessibilité. */
+  --police-champ:16px;
   /* 56-1 (la forge) : les valeurs changent, les rôles restent. */
   --fond:#0f1114;        /* fond de page. Graphite, PAS noir — le noir pur vibre sur OLED */
   --panneau:#181b20;     /* surface : une carte */
@@ -109,6 +114,8 @@
 .semaine-libelle{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 
 *{box-sizing:border-box;margin:0;padding:0}
+/* 134 (I-07) — un champ sans règle propre prendrait la taille du navigateur (13,3 px) : jamais sous 16 px. */
+input,textarea,select{font-size:var(--police-champ)}
 
 body{
   background:var(--fond);
@@ -179,7 +186,7 @@ button{font-family:inherit;cursor:pointer}
 .carte input{
   width:100%;height:38px;padding:0 10px;
   background:var(--panneau-2);border:1px solid var(--trait);border-radius:var(--r-petit);
-  color:var(--texte);font-family:inherit;font-size:15px;
+  color:var(--texte);font-family:inherit;font-size:var(--police-champ);
 }
 .carte input:focus{outline:none;border-color:var(--texte-2)}
 
@@ -329,7 +336,10 @@ button{font-family:inherit;cursor:pointer}
 
 /* ── Voiles : fenêtre de muscle et calendrier ───────────────────────────── */
 .voile{position:fixed;inset:0;z-index:60;background:rgba(6,7,9,.68);
-  display:grid;place-items:center;padding:var(--e4)}
+  display:grid;place-items:center;padding:var(--e4);
+  /* 134 (I-09, audit iPhone) — la barre d'accueil de l'iPhone (≈ 34 px) : « Fermer » et les boutons du pied d'une
+     feuille ne se posent plus dans sa zone, où un toucher se lit comme le geste « retour à l'accueil ». */
+  padding-bottom:max(var(--e4), env(safe-area-inset-bottom, 0px))}
 .voile[hidden]{display:none}
 .fen,.cal{width:100%;max-width:360px;max-height:100%;overflow-y:auto;
   background:var(--panneau);border:1px solid var(--trait);border-radius:14px;
@@ -620,6 +630,18 @@ button.bloc-exo:active{background:var(--panneau-2)}
   font-variant-numeric:tabular-nums}
 .reprise-actions{display:flex;gap:var(--e2);margin-top:var(--e3)}
 .reprise-actions button{flex:1;margin:0}
+/* 138 — iPhone, installer (ECRAN-PROFIL §3.5) : le bandeau de la connexion et du lien garde le composant de reprise ;
+   la feuille « Comment faire » : trois étapes numérotées, le pictogramme Partager dessiné en SVG. */
+.entree .bandeau-reprise{margin:var(--e3) 0 0}
+.installer-etapes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--e3)}
+.installer-etape{display:grid;grid-template-columns:28px 1fr;gap:var(--e2);align-items:start;
+  font-size:14px;line-height:1.4;color:var(--texte)}
+.installer-etape .installer-n{font-family:var(--pile-c);font-size:18px;font-weight:700;line-height:1.2;color:var(--accent)}
+.puce-ios{display:inline-flex;align-items:center;gap:6px;background:var(--panneau-2);
+  border-radius:var(--r-petit);padding:4px 8px;font-size:13px;margin-top:4px;color:var(--texte-2)}
+.ico-part{display:inline-block;width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.aide-sept{margin-top:var(--e3);padding-bottom:0;font-size:12px;line-height:1.45;color:var(--texte-2)}
 .vide-aide{font-size:12.5px;color:var(--texte-3);line-height:1.55;
   padding:0 4px var(--e4)}
 
@@ -675,7 +697,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
 #champ-recherche-exo{
   width:100%;height:40px;padding:0 var(--e3);
   background:var(--panneau-2);border:1px solid var(--trait);border-radius:var(--r-petit);
-  color:var(--texte);font-family:inherit;font-size:15px;
+  color:var(--texte);font-family:inherit;font-size:var(--police-champ);
 }
 #champ-recherche-exo:focus{outline:none;border-color:var(--texte-2)}
 .resultats{max-height:52vh;overflow-y:auto;margin-top:var(--e3)}
@@ -885,6 +907,34 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .g-reps{grid-template-columns:30px 62px 1fr 40px 40px}              /* 128 px */
 .g-temps{grid-template-columns:30px 62px 1fr 40px}                  /* 173 px, pas d'effort */
 .g-distance_temps{grid-template-columns:30px 66px 1fr 1fr 40px}     /* 82 px chacune */
+/* ECRAN §3 ter.5 (prompt 131) — un champ en plus prend une colonne (Escaliers : durée ·
+   étages) : la grille à deux cases de la distance, vérifiée à 360 px (82 px chacune). */
+.g-temps.g-plus{grid-template-columns:30px 66px 1fr 1fr 40px}
+/* Le D+, sur sa propre ligne, sous la série (maquette mesures-cardio, écran 1) : la case
+   sous les champs, à la place de la colonne de la coche. */
+.serie-plus{display:grid;grid-template-columns:30px 1fr 110px 40px;gap:5px;align-items:center;
+  padding:0 var(--e3) 6px;background:var(--panneau)}
+.serie-plus-k{grid-column:2;font-size:13px;color:var(--texte-2)}
+.serie-plus-k small{color:var(--texte-3);font-size:12px}
+.serie-plus .rp-serie{grid-column:3}
+/* La feuille « Terminer » (prompt 131, écran 6) : la donnée facultative restée vide. */
+.manque-fin{margin:var(--e3) 0;padding:var(--e3);border-radius:var(--r-petit);background:var(--panneau)}
+.manque-fin-t{margin:0 0 6px;color:var(--texte)}
+.manque-fin-l{display:grid;grid-template-columns:1fr 110px;gap:8px;align-items:center}
+.manque-fin-s{color:var(--texte-2);font-size:13px;min-width:0}
+/* « Ce qui manque à tes séances » (prompt 131, écran 5). */
+.carte-manque{margin:0 0 var(--e3);padding:var(--e3);border-radius:var(--r-petit);background:var(--panneau)}
+.manque-titre{margin:0;font-weight:620;color:var(--texte)}
+.manque-phrase{margin:4px 0 var(--e2);font-size:13px;color:var(--texte-2)}
+.manque-groupe{border-top:1px solid var(--trait);padding:var(--e2) 0}
+.manque-tete{font-size:10px;font-weight:600;letter-spacing:.02em;color:var(--texte-3);margin-bottom:4px}
+.manque-ligne{display:grid;grid-template-columns:1fr 110px;gap:8px;align-items:center;padding:3px 0}
+.manque-quoi{font-size:13px;color:var(--texte-2);min-width:0}
+.manque-gestes,.manque-actions{display:flex;gap:var(--e3);align-items:center;flex-wrap:wrap;margin-top:4px}
+.manque-message{font-size:13px;color:var(--texte-2)}
+/* « Ajouter le D+ » sous une série du détail (écran 4). */
+.ajouter-manque{display:block;margin-top:2px;font-size:13px;color:var(--accent);background:none;border:none;padding:0;
+  text-align:right;margin-left:auto;border-bottom:1px dashed var(--accent)}
 
 /* ── LE MÊME GABARIT, MOINS DEUX COLONNES (§7 quindecies.2) ────────────────
    L'éditeur de routine EST l'écran de séance : il rend les MÊMES rangées, par
@@ -1247,7 +1297,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .champ-texte input,.champ-texte textarea{width:100%;box-sizing:border-box;
   border-radius:var(--r-petit);border:1px solid var(--trait);
   background:var(--panneau-2);color:var(--texte);
-  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;padding:9px 10px;resize:none}
+  font-size:var(--police-champ);font-weight:400;line-height:normal;font-family:inherit;padding:9px 10px;resize:none}
 .champ-texte input{height:40px;padding-top:0;padding-bottom:0}
 /* La forge (56-1) : l'indication d'un champ libre était au gris du navigateur
    (3,3:1) ; elle prend le troisième niveau de texte (4,6:1). */
@@ -1443,7 +1493,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .entree-champ>span{font-size:11px;font-weight:600;line-height:1;color:var(--texte-3)}
 .entree-champ input{height:48px;border-radius:var(--r-petit);border:1px solid var(--trait);
   background:var(--panneau);color:var(--texte);padding:0 var(--e3);
-  font-family:inherit;font-size:15px}
+  font-family:inherit;font-size:var(--police-champ)}
 .entree-champ input::placeholder{color:var(--texte-3)}
 .entree-champ input:focus{outline:none;border-color:#4A5058}
 .entree-champ input.ko{border-color:#4A3330}
@@ -1556,7 +1606,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 /* ── Tous mes exercices (§2.4 bis) ───────────────────────────────────────── */
 .recherche-plein{width:100%;height:42px;padding:0 var(--e3);background:var(--panneau-2);
   border:1px solid var(--trait);border-radius:var(--r-petit);color:var(--texte);
-  font-family:inherit;font-size:14px;margin-bottom:var(--e2)}
+  font-family:inherit;font-size:var(--police-champ);margin-bottom:var(--e2)}
 .recherche-plein:focus{outline:none;border-color:var(--texte-2)}
 .p-compte{font-size:11px;line-height:1.4;color:var(--texte-3);padding:0 0 var(--e2)}
 .exo-liste{background:var(--panneau);border-radius:var(--r-grand);overflow:hidden}
@@ -2021,7 +2071,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .imp-aide{color:var(--texte-3);font-size:12.5px;line-height:1.35}
 .imp-zone{display:block;width:100%;box-sizing:border-box;min-height:118px;margin:var(--e2) 0;padding:10px;
   background:var(--panneau-2);color:var(--texte);border:1px solid var(--trait);border-radius:var(--r-petit);
-  font:12.5px/1.35 ui-monospace,monospace;resize:vertical}
+  font:var(--police-champ)/1.35 ui-monospace,monospace;resize:vertical}
 .imp-bouton{display:block;width:100%;margin-top:10px}
 .imp-ok{color:var(--texte-2);font-size:14px;margin-top:10px;line-height:1.4}
 .imp-erreur{color:var(--texte)}
@@ -2161,6 +2211,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .s-pseudo{font:700 22px/1.2 var(--pile);overflow-wrap:anywhere}
 .s-niveau{color:var(--texte-2)}
 .s-etat{display:inline-block;font-size:12px;padding:4px 10px;border-radius:99px;background:var(--panneau);color:var(--texte-2)}
+/* 137 (SOCIAL §1, la bio) : les mots de la personne — en blanc, en entier, ses retours à la ligne gardés. */
+.s-bio{font-size:14px;line-height:1.45;color:var(--texte);max-width:32ch;white-space:pre-line;overflow-wrap:anywhere;margin:6px 0 0;text-align:center}
 .s-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0 18px}
 .s-menu{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}
 .s-menu[hidden]{display:none}
@@ -2177,7 +2229,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .s-detail h3{margin:0 0 8px;font-size:15px;overflow-wrap:anywhere}
 .s-ex{display:flex;flex-direction:column;padding:6px 0;border-top:1px solid var(--trait)}
 .s-ex small{color:var(--texte-2)}
-.s-champ{width:100%;box-sizing:border-box;background:var(--panneau);border:1px solid var(--trait);border-radius:14px;padding:12px 14px;color:var(--texte);font:inherit;margin-bottom:12px}
+.s-champ{width:100%;box-sizing:border-box;background:var(--panneau);border:1px solid var(--trait);border-radius:14px;padding:12px 14px;color:var(--texte);font:inherit;font-size:var(--police-champ);margin-bottom:12px}
 .s-lien-invit{background:var(--panneau-2);border-radius:18px;padding:14px;margin:16px 0}
 .s-lien-invit code{display:block;background:var(--fond);border-radius:10px;padding:8px 10px;margin:8px 0;color:var(--medaille);font-size:13px;overflow-wrap:anywhere}
 .s-titre-s{color:var(--texte-2);font-size:12px;margin:16px 0 4px}
@@ -2391,7 +2443,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .salle-puces,.salle-pas{margin-bottom:var(--e2)}
 .salle-ajout{display:flex;gap:var(--e2);align-items:center;margin:0 0 var(--e2)}
 .salle-ajout input{width:96px;height:36px;box-sizing:border-box;background:var(--panneau);color:var(--texte);
-  border:1.5px solid var(--trait);border-radius:10px;padding:0 var(--e2);font:inherit}
+  border:1.5px solid var(--trait);border-radius:10px;padding:0 var(--e2);font:inherit;font-size:var(--police-champ)}
 /* 123 — les tranches d'haltères : « Pas d'haltères », « Retirer cette tranche », « + Une tranche ». */
 .salle-sans{margin-bottom:var(--e2)}
 .salle-retirer,.salle-tranche{display:block;margin:0 0 var(--e2)}
@@ -2423,3 +2475,44 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .te-etiq.hab{border:1px dashed var(--trait);color:var(--texte-3)}
 .te-phrase{margin:10px 0 0;padding:9px 10px;border:1px dashed var(--trait);border-radius:var(--r-petit);font-size:13px;
   line-height:1.45;color:var(--texte-2)}
+
+/* 132 (ECRAN-PROFIL §2.4 sexies, maquette-elastiques-v2, écran 1) — « Mes élastiques », dans Ma salle : deux listes
+   rangées en glissant par la poignée, puis « en kg / par son nom ». Les jetons de la forge ; la pastille porte la
+   couleur que le nom dit (une donnée, posée par le rendu), neutre sinon. */
+.el-carte{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3) var(--e3) var(--e2);margin:var(--e3) 0 0}
+.el-carte .salle-titre{margin-top:0}
+.el-rangs{margin-top:var(--e1)}
+.el-rang{display:grid;grid-template-columns:28px 14px 1fr auto 36px;gap:var(--e2);align-items:center;min-height:44px;
+  border-top:1px solid var(--trait);background:var(--panneau);touch-action:none}
+.el-rang:first-child{border-top:0}
+.el-rang.glisse{position:relative;z-index:2;box-shadow:0 2px 10px rgba(0,0,0,.45);opacity:.95}
+.el-poignee{color:var(--texte-3);letter-spacing:-2px;font-size:13px;text-align:center;cursor:grab;line-height:44px;touch-action:none}
+.el-pastille{width:12px;height:12px;border-radius:50%;display:inline-block;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+.el-pastille.neutre{background:var(--panneau-2);box-shadow:inset 0 0 0 1.5px var(--texte-3)}
+.el-nom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.el-kg{color:var(--texte-2);font-weight:600}
+.el-retirer{width:36px;height:36px;border:0;background:transparent;color:var(--texte-3);font-size:18px;border-radius:var(--r-petit)}
+.el-ordre{color:var(--texte-3);font-size:11.5px;display:flex;justify-content:space-between;margin-top:var(--e1)}
+.el-ajout{display:block;margin:var(--e2) 0 0;color:var(--texte-2)}
+.el-saisie{margin:var(--e2) 0 0}
+.el-saisie .el-champ-nom{width:140px;height:36px;box-sizing:border-box;background:var(--panneau-2);color:var(--texte);
+  border:1.5px solid var(--trait);border-radius:10px;padding:0 var(--e2);font:inherit;font-size:var(--police-champ)}
+.el-saisie .el-champ-kg{width:72px}
+.el-choix{display:flex;gap:6px;margin-top:var(--e2)}
+.el-choix .q-puce{flex:1;text-align:center}
+
+/* 132 (ECRAN-SAISIE §3 ter.6, maquette-elastiques-v2, écrans 2 à 4) — la colonne « ÉLASTIQUE » : la grille de la charge
+   (la case de l'élastique à la place de la charge, puis les reps) ; la case porte la pastille et le nom, en gris quand
+   c'est le coach qui le propose (validé tel quel), « choisir » quand rien n'est proposé. La feuille de choix reprend les
+   rangées de Ma salle ; le choisi en ambre, coché. */
+.g-elastique{grid-template-columns:30px 62px 1fr 44px 40px 40px}
+.el-case{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 6px;
+  border:1.5px solid var(--trait);background:var(--panneau-2);color:var(--texte);font:inherit;font-size:14.5px}
+.el-case .el-case-nom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.el-case.vide{border-style:dashed;background:transparent;color:var(--texte-3)}
+.el-case.gris{color:var(--texte-3)}
+.el-case.coach.gris{color:var(--accent);font-weight:600}
+.el-feuille{margin:var(--e2) 0}
+.el-choisir{width:100%;text-align:left;background:transparent;border:0;border-top:1px solid var(--trait);color:var(--texte);
+  font:inherit;grid-template-columns:8px 14px 1fr auto 8px}
+.el-choisir.sel{color:var(--accent);font-weight:600}

@@ -329,7 +329,8 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
       zonesLues: () => []
     };
     vm.createContext(ctx);
-    ['optionsDeConsigne', 'suiteDe'].forEach((n) => vm.runInContext(extraire(n), ctx));
+    // 132 : l'historique et l'état que le moteur lit (`groupesDuMoteur`, `etatDuMoteur` : tels quels sans élastiques).
+    ['estSalleElastique', 'groupesDuMoteur', 'etatDuMoteur', 'optionsDeConsigne', 'suiteDe'].forEach((n) => vm.runInContext(extraire(n), ctx));
     vm.runInContext('suiteDe("curl")', ctx);
     const attendu = vm.runInContext('optionsDeConsigne("curl", local.exercices[0])', ctx);
     expect(vus).toHaveLength(1);

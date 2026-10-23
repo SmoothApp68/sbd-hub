@@ -195,19 +195,12 @@
     // 66B — LA RELECTURE NE SURVIT PAS À SA VUE : les cartes repliées valent pour CETTE ouverture.
     if (nom !== 'relecture') relecture = null;
     // 70 — « Mot de passe changé. » ne vaut que sous les yeux : quitter le profil l'efface.
-    if (nom !== 'profil') noteProfil = null;
+    if (nom !== 'profil') { noteProfil = null; bandeauMotDePasse = false; }
     // 116 (03 #6) — « Pas enregistré : … » se dit une fois, sur le Profil : vue, elle s'efface en le quittant.
     if (nom !== 'profil' && refusProfil && refusProfil.vu) refusProfil = null;
     var onglet = Routeur.ongletDe(vue || nom);
-    // ⚠️ MÊME PORTE, MÊME RAISON (§2, ch. 46). Quitter le profil vaut « vu » :
-    // sans ça, quelqu'un qui remplit tout puis touche un onglet retrouverait le
-    // bandeau de bienvenue à chaque ouverture.
-    //
-    // ⚠️ ET ON DEMANDE AU ROUTEUR, ON NE LISTE PAS LES ÉCRANS. « Tous mes
-    // exercices » est une sous-vue DU profil : en sortir n'est pas quitter le
-    // profil. Lister les exceptions à la main, c'était garantir qu'une sous-vue
-    // de plus soit oubliée le jour où on l'ajoute — `ongletDe` le sait déjà.
-    if (ecranCourant === 'profil' && onglet !== Routeur.PROFIL) marquerProfilVu();
+    // 136 (audit du 16/10, 03 #18) — quitter le profil n'écrit plus rien (`onboarding_completed`, « vu », retiré : le
+    // bandeau de bienvenue n'existe plus depuis 60-2a, et plus rien ne lisait la colonne).
     ecranCourant = nom;
     // ⚠️ LA DURÉE DE LA BARRE N'A DE SENS QUE SOUS LES YEUX (62). Une seule porte,
     // comme pour le mode Réorganiser : quitter l'écran de séance — par un onglet,
@@ -1032,6 +1025,8 @@
       if (programmeDuCompte) local.programme = fondreZones(local.programme, programmeDuCompte);
       // 109 (MOTEUR §9.25) — les objectifs et leurs paris. Accessoires comme les autres ; une table absente
       // (migration v2_089 pas lancée) le DIT : la carte ne s'affiche pas, et rien ne part vers elle.
+      var versionObjectifsALaLecture = versionObjectifs;   // 139 — voir la garde à l'application
+      var objectifsEnFileALaLecture = objectifsEnFile();
       var objectifsDuCompte = await lireObjectifs();
       if (!generationValide(g)) return;
       var parisObjectifDuCompte = objectifsDuCompte && objectifsDuCompte.lignes ? await essayer(Donnees.parisObjectif) : null;
@@ -1120,9 +1115,17 @@
       if (escalierDuCompte) {
         await Cache.ecrireBrouillon(CLE_PARIS_ESCALIER, local.escalier).catch(function () {});
       }
-      if (objectifsDuCompte) {
+      // 139 — une lecture partie AVANT un geste ne le remplace pas (comme `versionProfil`). L'objectif changé ou
+      // retiré pendant la lecture a pu monter et sortir de la file entre-temps : `fondreObjectifs` ne protège que
+      // ce qui y est encore, et la lecture périmée écrasait le geste (150 revenait à la place de 155), en mémoire et
+      // dans le brouillon. La version a bougé : on n'adopte rien ; la synchronisation suivante relira la base.
+      // …et un geste déjà dans la file À LA LECTURE, dont l'envoi est arrivé en base APRÈS elle puis a vidé la file
+      // avant l'application : `fondreObjectifs` ne le voit plus, la lecture ne l'a jamais eu — on garde la ligne de
+      // l'appareil (relevé au banc, pages ralenties ×4 : 155 × 1 reparti en 150 × 1, version inchangée).
+      if (objectifsDuCompte && versionObjectifsALaLecture === versionObjectifs) {
         local.objectifsDispo = objectifsDuCompte.dispo;
-        local.objectifs = objectifsDuCompte.dispo ? fondreObjectifs(objectifsDuCompte.lignes) : [];
+        local.objectifs = objectifsDuCompte.dispo
+          ? gardeLesGestesEnVol(fondreObjectifs(objectifsDuCompte.lignes), objectifsEnFileALaLecture) : [];
         await Cache.ecrireBrouillon(CLE_OBJECTIFS, { dispo: local.objectifsDispo, lignes: local.objectifs }).catch(function () {});
         if (!generationValide(g)) return;
       }
@@ -1292,7 +1295,7 @@
       rendreVolume();
     });
     Rendu.rendreJours($('liste-seances'), Semaine.joursAvecSeances(sem.jours), function (s) {
-      return Modele.resumerSeance(s, seriesDe(s.id), local.exercices, Palier, etatsExercices);
+      return Modele.resumerSeance(s, seriesDe(s.id), local.exercices, Palier, etatsExercices, meilleurNomme);
     }, afficherDetail, ouvrirMenuSeance);
     // 91 — mes invitations à un groupe, et le groupe qui finit.
     dessinerGroupeAccueil();
@@ -2016,6 +2019,7 @@
       pseudo: p.pseudo, couleur: Social.couleurDuBlason(p.pseudo),
       ligneJeu: Social.ligneDuJeu(p.niveau, p.titre, Rendu.JEU_TITRES),
       etatTexte: etatTexte,
+      bio: p.bio,   // 137 : la base décide (null hors des cercles) ; aucun réglage de visibilité du v1 n'est lu
       bouton: texteBouton ? { texte: texteBouton, sur: function () {
         poserGesteSocial(Object.assign({ geste: G.SABONNER, prive: p.compte_prive !== false, niveau: p.niveau === undefined ? null : p.niveau }, lui));
       } } : null,
@@ -2528,7 +2532,7 @@
       var s = o.semaine;
       var j = Social.jaugeDuDefi(s, moi.membres);
       v.defi = j ? { titre: j.titre, quand: Social.joursRestants(maintenant), part: j.part, phrase: j.phrase } : null;
-      v.cetteSemaine = s ? { seances: String(s.seances), records: String(s.medailles), tonnes: tonnesSociales(s.tonnage_kg) } : null;
+      v.cetteSemaine = s ? { seances: String(s.seances), records: String(Social.recordsDeLaSemaine(s)), tonnes: tonnesSociales(s.tonnage_kg) } : null;
       v.progression = progression;
       // Le défi est FIGÉ une fois la semaine lancée (un membre y a terminé une séance) : la base le refuserait.
       if (moi.admin && Social.defiModifiable(s)) {
@@ -2636,6 +2640,9 @@
   // un geste, pas « voir le social »).
   function messageGroupe(e, action) {
     var m = String((e && (e.message || e.details)) || '');
+    // 142 — « pas membre » : je ne suis plus dans ce groupe (parti, ou parti en silence après un blocage, SOCIAL-V1 §7.1).
+    // Aucune phrase : le réseau est là, et rien n'est à dire. L'opération sort de la file (`refusDuGroupe`).
+    if (/groupe_pas_membre/.test(m)) return null;
     if (/groupe_plein/.test(m)) return 'Le groupe est complet : 6 personnes.';
     if (/groupe_invite_non_mutuel/.test(m)) return 'On n’invite qu’un abonné mutuel.';
     if (/groupe_bloque/.test(m)) return 'Ce groupe n’est pas possible.';
@@ -2750,10 +2757,12 @@
       while (grp.file.length && generationValide(g)) {
         var m = grp.file[0];
         try {
-          await Donnees.groupeEnvoyer(m.texte, m.groupe_id, m.id);
+          if (m.geste) await envoyerGesteDuGroupe(m);
+          else await Donnees.groupeEnvoyer(m.texte, m.groupe_id, m.id);
         } catch (e) {
           if (!refusDuGroupe(e)) throw e;
-          grp.message = messageGroupe(e);
+          if (m.geste) console.warn('Geste du groupe refusé (' + m.geste + ') :', texteErreur(e));
+          else grp.message = messageGroupe(e);
         }
         if (!generationValide(g)) return;
         grp.file = grp.file.filter(function (x) { return x.id !== m.id; });
@@ -2766,6 +2775,28 @@
     var lever = function () { if (grp.envoi === envoi) grp.envoi = null; };
     envoi.then(lever, lever);
     return envoi;
+  }
+  // 136 (audit du 16/10, 06 #14) — UN GESTE DE FIN DU GROUPE, PAR LA FILE DU GROUPE (`grp.file`). La base l'applique au
+  // groupe où je suis À L'ENVOI (`groupe_publier`, `groupe_quitter` ne prennent pas de groupe) : parti en retard, il
+  // ne doit jamais toucher un AUTRE groupe. On relit donc mon groupe d'abord ; s'il a changé (ou si je n'y suis plus),
+  // le geste n'a plus d'objet et sort de la file, sans rien écrire.
+  async function envoyerGesteDuGroupe(m) {
+    var moi = await Donnees.groupeMoi();
+    if (!moi || moi.id !== m.groupe_id) return;
+    if (m.geste === 'publier') { await Donnees.groupePublier(m.exercices, m.xp); return; }
+    await Donnees.groupeQuitter();
+    if (grp.moi && grp.moi.id === m.groupe_id) {
+      grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.publie = null;
+    }
+  }
+  // Poser un geste de fin dans la file du groupe : gardé sur l'appareil AVANT le premier essai (comme un message),
+  // puis envoyé ; le réseau absent, il attend — la boucle du groupe et le retour du réseau le renvoient.
+  function poserGesteDuGroupe(geste) {
+    if (!grp.moi) return Promise.resolve();
+    grp.file = grp.file.concat([Object.assign({ id: uuid(), groupe_id: grp.moi.id, le: new Date().toISOString() }, geste)]);
+    return garderFileGroupe().then(function () { return envoyerFileGroupe(); }).catch(function (e) {
+      console.warn('Le groupe attend le réseau :', texteErreur(e));
+    });
   }
   // Un refus de la base (une règle du groupe), pas le réseau.
   function refusDuGroupe(e) { return !!e && /groupe_/.test(String(e.message || e.details || '')); }
@@ -3046,9 +3077,8 @@
     if (!groupeDeLaSeance(finie)) return;
     var xp = jeuAllume() && jeuDuRecap && jeuDuRecap.apport ? Math.max(0, Math.round(Number(jeuDuRecap.apport.xp) || 0)) : null;
     grp.recapAuto = true;
-    Donnees.groupePublier(exercicesDe(finie), xp).catch(function (e) {
-      console.warn('L’XP du groupe attend le réseau :', texteErreur(e));
-    });
+    // 136 (06 #14) — par la file du groupe : hors ligne, l'XP attend et repart (plus d'envoi unique sans retour).
+    poserGesteDuGroupe({ geste: 'publier', exercices: exercicesDe(finie), xp: xp });
   }
   // Après « Fermer » de mon récap : si toutes les séances du groupe sont terminées, le récap du groupe s'ouvre.
   function apresRecapDeSeance() {
@@ -3073,6 +3103,9 @@
   async function fermerRecapGroupe() {
     var v = grp.vue;
     try {
+      // 136 (06 #14) — ce qui attend pour ce groupe (mon XP de fin, un message) part AVANT que je le ferme : fermé, il ne
+      // le prendrait plus, et la file ci-dessous l'oublierait.
+      await envoyerFileGroupe();
       await Donnees.groupeFermer();
     } catch (e) {
       if (v) { v.message = messageGroupe(e, 'fermer le récap du groupe'); dessinerVueGroupe(); }
@@ -3087,11 +3120,10 @@
   }
   // Une séance abandonnée sort du groupe, sans récap — la séance DU groupe seulement (106 : abandonner une séance
   // suivante ne fait pas quitter le groupe d'avant).
+  // 136 (06 #14) — par la file du groupe, comme l'XP : hors ligne, le départ attend et repart.
   function quitterLeGroupeSiMembre(abandonnee) {
     if (!groupeDeLaSeance(abandonnee)) return;
-    Donnees.groupeQuitter().then(function () {
-      grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.publie = null;
-    }).catch(function (e) { console.warn('Le groupe attend le réseau :', texteErreur(e)); });
+    poserGesteDuGroupe({ geste: 'quitter' });
   }
 
   // Le détail d'une séance faite en groupe : « Faite en groupe avec jordan, lea », et le récap figé.
@@ -3329,14 +3361,15 @@
         // et que « Dernière séance » sur la page d'exercice
         // (`Modele.meilleureSerieDe`) : elle appelait le moteur de palier à
         // part. Seule la charge s'affiche ici, comme avant.
-        var m = Modele.meilleureSerieDe(serie.exercise_slug, duJour, local.exercices, Palier, etatsExercices);
+        var m = Modele.meilleureSerieDe(serie.exercise_slug, duJour, local.exercices, Palier, etatsExercices, meilleurNomme);
         var r = { meilleure: m.charge === null || m.charge === undefined ? null : { charge: m.charge, reps: m.reps } };
         lignes.push({
           // Le slug voyage avec la ligne : c'est lui qui ouvre la page
           // d'exercice (§7 quater), et le nom ne sert qu'à l'affichage.
           slug: serie.exercise_slug,
           nom: (index[serie.exercise_slug] && index[serie.exercise_slug].nom) || serie.exercise_slug,
-          mesure: r.meilleure === null ? ''
+          // 132 — une série notée par nom : « Rouge × 10 » (`valeur`).
+          mesure: r.meilleure === null ? (m.valeur && m.charge === null ? m.valeur : '')
             : Modele.formatMesure({ charge_kg: r.meilleure.charge, reps: r.meilleure.reps }),
           jour: d && !isNaN(d.getTime()) ? d : null
         });
@@ -3381,18 +3414,43 @@
   // rien, et l'appel est sûr à répéter.
   function semerSeance() { seance = Seance.semerIdentifiants(seance, uuid); }
 
+  // 134 (I-12, audit iPhone) — DEMANDER QUE LE STOCKAGE NE S'EFFACE PAS. Dans un onglet Safari, WebKit efface ce
+  // qu'un site a écrit après 7 jours d'usage sans visite : une séance finie hors ligne et jamais renvoyée, le
+  // brouillon. Une fois, au premier enregistrement local d'une séance, si l'API existe. La réponse ne change rien à
+  // l'app et ne s'affiche pas : on ne l'attend pas.
+  var persistanceDemandee = false;
+  function demanderPersistance() {
+    if (persistanceDemandee) return;
+    persistanceDemandee = true;
+    var st = racine.navigator && racine.navigator.storage;
+    if (!st || typeof st.persist !== 'function') return;
+    try { Promise.resolve(st.persist()).catch(function () {}); } catch (e) { /* refusé : rien à faire */ }
+  }
+
   async function sauverSeance() {
     // 115 (E2) — ce qui s'enregistre est la séance qu'on voit : une suppression en attente part d'abord.
     if (suppressionDifferee) await solderSuppression();
     semerSeance();
     try {
       await Cache.ecrireBrouillon('seance', seance);
+      demanderPersistance();
     } catch (e) {
       // Le disque local est la dernière ligne. S'il refuse, l'utilisateur doit
       // le savoir tout de suite — c'est le seul cas où la saisie doit crier.
       console.error('Séance non sauvegardée :', texteErreur(e));
-      Rendu.message($('erreur-seance'), 'Sauvegarde impossible sur cet appareil. Ne ferme pas l\u2019app.', 'erreur');
+      direSauvegardeImpossible();
     }
+  }
+
+  // 136 (audit du 16/10, E15 ; ECRAN-SAISIE §7 sexies : « la file ne perd rien en silence ») — LE DISQUE QUI REFUSE SE
+  // DIT, une phrase et une place : celles de la séance. La séance (`sauverSeance`) et la file (`poser`, `poserPaquet`)
+  // la disent toutes deux : une file qui ne s'écrit pas sur disque est une promesse d'envoi qu'un rechargement perdrait.
+  // Elle ne vient qu'APRÈS le nouvel essai de `Cache` (134, I-02 : une connexion perdue se rouvre une fois) — c'est le
+  // second échec, et lui seul, qui remonte ici.
+  var PHRASE_SAUVEGARDE_IMPOSSIBLE = 'Sauvegarde impossible sur cet appareil. Ne ferme pas l\u2019app.';
+  function direSauvegardeImpossible() {
+    var cible = $('erreur-seance');
+    if (cible) Rendu.message(cible, PHRASE_SAUVEGARDE_IMPOSSIBLE, 'erreur');
   }
 
   // Pose une intention dans la file ET l'écrit sur disque. La file EST la
@@ -3400,7 +3458,7 @@
   async function poser(operation) {
     attente = Attente.poser(attente, operation);
     try { await Cache.ecrireAttente(attente); }
-    catch (e) { console.warn('File non persistée :', texteErreur(e)); }
+    catch (e) { console.warn('File non persistée :', texteErreur(e)); direSauvegardeImpossible(); }
     rendreEtatSync();
     vidanger();   // volontairement PAS attendu : la saisie ne dépend pas du réseau
   }
@@ -3426,6 +3484,10 @@
   // constate pas. En cas d'échec, l'entrée reste, marquée — et la file s'arrête
   // là plutôt que de sauter l'entrée suivante, dont la clé étrangère dépend
   // peut-être de celle qui vient d'échouer.
+  // Le réseau revient, ou l'app revient au premier plan (134, I-13) : la file part, et le profil modifié hors ligne
+  // avec elle. Sûr à répéter : une vidange en cours se relance après elle (`vidangeARelancer`).
+  function renvoyerCeQuiAttend() { vidanger(); if (profilAEnvoyer) envoyerProfil(); }
+
   async function vidanger() {
     if (vidangeEnCours) { vidangeARelancer = true; return; }
     if (!sessionActive) return;
@@ -3641,14 +3703,22 @@
   // liste » emportait les séries que l'autre venait de valider (prouvé au banc,
   // 82). L'entrée porte donc ses `connues` : ce que cet appareil a envoyé pour
   // la séance, plus ce qu'il en a chargé depuis la base (`connaitre`).
-  function poserSeries() {
-    // 115 (E2) — même règle que `sauverSeance` : une suppression en attente part d'abord.
-    if (suppressionDifferee) return solderSuppression().then(poserSeries);
-    semerSeance();
-    var lignes = Seance.lignes(seance);
-    var connues = connaitre(seance.id, lignes.map(function (l) { return l.id; }));
+  //
+  // 131 — `s` (facultatif) : une séance PASSÉE corrigée sans être ouverte (« Ce qui manque à tes séances »,
+  // `enregistrerCorrection`). Le même envoi, la même file ; la séance ouverte (`seance`) n'est pas touchée. Sans `s`,
+  // rien ne change : la séance ouverte, ses identifiants semés, la suppression différée soldée d'abord.
+  function poserSeries(s) {
+    var x = s || null;
+    if (!x) {
+      // 115 (E2) — même règle que `sauverSeance` : une suppression en attente part d'abord.
+      if (suppressionDifferee) return solderSuppression().then(function () { return poserSeries(); });
+      semerSeance();
+      x = seance;
+    }
+    var lignes = Seance.lignes(x);
+    var connues = connaitre(x.id, lignes.map(function (l) { return l.id; }));
     return poser({
-      table: Attente.SETS, op: Attente.REMPLACER, id: seance.id,
+      table: Attente.SETS, op: Attente.REMPLACER, id: x.id,
       donnees: lignes, connues: connues
     });
   }
@@ -3683,10 +3753,12 @@
     await Cache.ecrireBrouillon(CLE_CONNUES, local.connues).catch(function () {});
   }
 
-  function poserSeance(creation) {
+  // 131 — `s` (facultatif) : la séance passée d'une correction faite sans l'ouvrir (`enregistrerCorrection`).
+  function poserSeance(creation, s) {
+    var x = s || seance;
     return poser({
-      table: Attente.SESSIONS, op: Attente.UPSERT, id: seance.id,
-      donnees: Seance.ligneSession(seance), creation: !!creation
+      table: Attente.SESSIONS, op: Attente.UPSERT, id: x.id,
+      donnees: Seance.ligneSession(x), creation: !!creation
     });
   }
 
@@ -3983,6 +4055,8 @@
         Modele.toursFaitsParGroupe(Modele.blocsDeSeance(seance, local.exercices)));
       chrono = null;
       await sauverSeance();
+      // 136 (E13) — la même reprise du repos que celle de la page rechargée : depuis la dernière série validée.
+      reprendreChrono();
       rendreChrono();
     } catch (e) { console.warn('Séance distante non reprise :', texteErreur(e)); }
   }
@@ -4528,6 +4602,23 @@
     rendreChrono();
   }
 
+  // 136 (audit du 16/10, E13 ; audit iPhone I-06) — À LA REPRISE D'UNE SÉANCE EN COURS (la page rechargée, l'app
+  // rouverte après qu'iOS l'a fermée), le repos se RÉARME depuis `validee_a` de la dernière série validée et la cible
+  // du plan (`Seance.reposAReprendre`) : `depuis` est cet instant, donc le décompte affiché est le même calcul que
+  // pendant le repos — jamais un compteur repris de zéro. Un repos déjà échu ne revient pas. La question de réserve
+  // (MOTEUR §17.2 bis) revient avec lui si elle était due (`questionDuRepos`, la règle de l'armement). Le son de
+  // l'échéance dépend ici de la plateforme : le contexte audio ne naît que d'un geste, et une reprise n'en est pas un.
+  function reprendreChrono() {
+    var r = Seance.reposAReprendre(seance, function (iExo, iSerie) {
+      var exo = seance.exercices[iExo];
+      return Plan.reposApres(planDeLExercice(iExo), iSerie, exo && exo.repos_cible_s);
+    }, Date.now());
+    if (!r) return;
+    var exo = seance.exercices[r.iExo];
+    chrono = { depuis: r.depuis, cible: r.cible, sonne: false, exo: { i: r.iExo, slug: exo.exercise_slug },
+               question: questionDuRepos(r.iExo, r.iSerie) };
+  }
+
   // MOTEUR §17.2 bis (78) — « Il t'en restait combien ? ». L'écran ne décide rien : le plan dit sur quelle série
   // (`x.serieReserve`), l'écran vérifie seulement que c'est celle qu'on vient de valider et que son effort n'est
   // pas déjà noté (une série notée par la feuille d'effort ne se redemande pas).
@@ -4953,8 +5044,16 @@
     var g = Modele.gabaritDe((local.exercices || []).filter(function (e) {
       return e && e.slug === exo.exercise_slug;
     })[0]);
+    // 132 (ECRAN-SAISIE §3 ter.6) — un exercice noté par nom : la grille « ÉLASTIQUE × REPS » ; la case de l'élastique
+    // est obligatoire (le gris du coach se valide) ; la série s'écrit par `Profil.ecrireSerie`.
+    var elg = elastiqueDeLaGrille(exo.exercise_slug);
+    if (elg) g = Modele.grilleElastique(g);
     var ligneDuPlan = (planDeLExercice(iExo) || { lignes: [] }).lignes[iSerie];
-    var f = fantomeDe(iExo, iSerie);
+    // ECRAN §3 ter.5 (prompt 131, audit 130 n°3) — en cardio, le gris n'est validé
+    // que si TOUTES les cases de la série sont vides : une case tapée laisse les
+    // autres vides. La règle vit dans `Seance.grisValide`, lue aussi par
+    // `casesManquantes` : la recopie ci-dessous ne peut pas la contredire.
+    var f = Seance.grisValide(g, serie, fantomeDe(iExo, iSerie));
     // ECRAN §3 bis.3 bis (prompts 100 puis 105) — AUCUNE CASE OBLIGATOIRE VIDE :
     // une case ni tapée ni grisée par le coach, et la série ne se valide pas.
     // Le test « le cran au-dessus × 3 » sans chiffre validait « charge inconnue
@@ -4981,13 +5080,21 @@
       return;
     }
     var champs = {};
+    if (elg) {
+      // Le nom tapé, sinon le gris ; les reps tapées, sinon le gris. Puis ce qui part en base : le nom, et le kg déclaré
+      // d'une aide (sinon NULL) — jamais la charge virtuelle.
+      var nomEl = serie.elastique || f.elastique;
+      var repsEl = serie.reps === null || serie.reps === undefined ? f.reps : serie.reps;
+      var ecrit = Profil.ecrireSerie(elg.fiche, elg.ma, nomEl, repsEl);
+      champs = { elastique: ecrit.elastique, charge_kg: ecrit.charge_kg, reps: ecrit.reps };
+    }
     //
     // La seule condition qui compte est « le champ est VIDE » : ce qui a été
     // tapé n'est jamais écrasé. Un fantôme absent se normalise en `null` dans
     // `modifierSerie`, donc le tester ici ne changerait rien — un garde-fou
     // qu'aucune mutation ne peut tuer est un garde-fou mort (leçon de
     // `palier.js`, chantier 17).
-    g.champs.forEach(function (nom) {
+    if (!elg) g.champs.forEach(function (nom) {
       var c = Modele.champDeMesure(nom);
       // §9.17 — UNE AIDE SE RANGE EN NÉGATIF, par `rangerAide` et nulle part ailleurs,
       // aussi pour ce que la validation recopie : le fantôme d'une aide est
@@ -5431,8 +5538,8 @@
       // ou plus. Seule la consigne de la séance les reçoit, figés avec elle —
       // ni la suite du constat, ni la page d'exercice.
       if (exo) options.freres = function () { return freresPourLeMoteur(slug, consignes.index); };
-      var calculee = Moteur.consigneDExercice(
-        faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug], seance.debut, options);
+      var groupesM = groupesDuMoteur(slug, options.salle);
+      var calculee = Moteur.consigneDExercice(groupesM, etatDuMoteur(slug, options.salle, groupesM), seance.debut, options);
       if (!exo) return calculee;
       // §14.4 (49-U14) — les séries de travail de la routine, FIGÉES avec la
       // consigne : la semaine allégée en couvre 60 %, et « + Série » ne change
@@ -5474,8 +5581,8 @@
   // les MÊMES entrées que leur propre consigne (`optionsDeConsigne`).
   function freresPourLeMoteur(slug, index) {
     return Modele.freresDe(index, slug).map(function (f) {
-      return { slug: f, nom: Modele.nommer(index, f), groupes: faits.seancesDeLExercice(corpus(), f),
-               etat: etatsExercices[f], options: optionsDeConsigne(f, index[f]) };
+      var o = optionsDeConsigne(f, index[f]), g = groupesDuMoteur(f, o.salle);
+      return { slug: f, nom: Modele.nommer(index, f), groupes: g, etat: etatDuMoteur(f, o.salle, g), options: o };
     });
   }
 
@@ -5486,12 +5593,54 @@
   // en recevait moins (ni les séances sous consigne, ni les zones par date, ni
   // les périodes) — sa « cible de la prochaine fois » pouvait ne pas être la
   // consigne de la fois d'après (« le coach ne fait qu'un »).
+  // 132 (MOTEUR §10 ter) — CE QUE LE MOTEUR LIT D'UN EXERCICE NOTÉ PAR NOM : sa salle est la liste de ses élastiques
+  // (`Profil.salleDeLExercice`, `materiel: 'elastique'`) ; son historique entre avec les charges VIRTUELLES, les séries
+  // neutres en sortent (`Profil.seancesPourLeMoteur`) ; son état d'exercice (« monte » ou non, `Palier`) se lit sur ces
+  // mêmes séries. Tout le reste ne change pas. Sans salle d'élastiques : l'historique et l'état tels quels.
+  function estSalleElastique(salle) { return !!salle && salle.materiel === 'elastique'; }
+  function groupesDuMoteur(slug, salle) {
+    var g = faits.seancesDeLExercice(corpus(), slug);
+    return estSalleElastique(salle) ? Profil.seancesPourLeMoteur(salle, g) : g;
+  }
+  // 132 (ECRAN-SAISIE §3 ter.6) — LA GRILLE D'UN EXERCICE NOTÉ PAR NOM : sa salle d'élastiques (la liste, le sens, et de
+  // quoi écrire une série), ou `null` — la grille de sa mesure, comme avant.
+  // 132 (MOTEUR §10 ter) — LE MEILLEUR D'UN EXERCICE NOTÉ PAR NOM, à l'affichage : `Profil.meilleurElastique` sur l'ordre
+  // de Ma salle (le plus dur, puis le plus de reps ; les neutres exclues), ou `null`. Passé au modèle (`nomme`) : la
+  // carte de séance, « Dernière séance », la page d'exercice et le sommaire disent le même.
+  function meilleurNomme(slug, series) {
+    var fiche = catalogueIndexe()[slug];
+    return fiche ? Profil.meilleurElastique(fiche, Profil.salleDe(profil), series) : null;
+  }
+  function elastiqueDeLaGrille(slug) {
+    var s = Profil.salleDeLExercice(profil, slug, catalogueIndexe());
+    return estSalleElastique(s) ? s : null;
+  }
+  // Le nom choisi dans la feuille, écrit dans la série par `Profil.ecrireSerie` : `elastique`, et `charge_kg` (−kg
+  // déclaré d'une aide, sinon NULL). Une série déjà validée suit (la file la renvoie, la réaction se refait).
+  async function poserElastique(iExo, iSerie, nom) {
+    if (!seance) return;
+    var exo = seance.exercices[iExo], s0 = exo && exo.series[iSerie];
+    var elg = exo ? elastiqueDeLaGrille(exo.exercise_slug) : null;
+    if (!s0 || !elg || elg.liste.indexOf(nom) < 0) return;
+    var e = Profil.ecrireSerie(elg.fiche, elg.ma, nom, s0.reps);
+    seance = Seance.modifierSerie(seance, iExo, iSerie, { elastique: e.elastique, charge_kg: e.charge_kg });
+    if (Seance.partEnBase(s0)) reactionPerimee = true;
+    await apresGeste();
+    if (Seance.partEnBase(s0)) await observerSerie(iExo, iSerie);
+  }
+  function etatDuMoteur(slug, salle, groupes) {
+    if (!estSalleElastique(salle)) return etatsExercices[slug];
+    return Palier.etatsExercices((groupes || []).map(function (x) { return { slug: slug, series: x.series }; }))[slug];
+  }
   function optionsDeConsigne(slug, exo) {
     var g = Modele.gabaritDe(exo);
     var index = catalogueIndexe();
     var libreDuLeste = Modele.parentDe(index, slug);
+    var salleX = Profil.salleDeLExercice(profil, slug, index);
     return {
-      mesure: g.inconnue ? null : g.mesure,
+      // 132 — un exercice noté par nom se charge (charges virtuelles) : le moteur le lit en charge × reps, même en
+      // résistance (`reps` au catalogue).
+      mesure: g.inconnue ? null : (estSalleElastique(salleX) ? 'charge_reps' : g.mesure),
       // §9.17 — le matériel EFFECTIF : une charge ajoutée est du lest (cran 2,5).
       equipement: Moteur.equipementEffectif(exo),
       // §9.17 — l'intention de l'EXERCICE : celle du profil, puis son mode
@@ -5540,11 +5689,14 @@
       // §7 octies — une séance terminée rouverte est une séance FAITE : le
       // moteur n'y prescrit rien, ni en-tête ni plan.
       edition: enEdition(),
-      // §9.21 (52-1) — la charge de départ de la routine, la première fois.
-      depart: chargeDeDepartDe(slug),
+      // §9.21 (52-1) — la charge de départ de la routine, la première fois. 132 : jamais sur un exercice noté par nom
+      // (l'éditeur de routine n'a pas de colonne d'élastique ; une aide de départ en kg n'est pas un nom).
+      depart: estSalleElastique(salleX) ? null : chargeDeDepartDe(slug),
       // MOTEUR §10 bis (108) — la salle déclarée pour cet exercice (barre fixe,
-      // haltères), ou `null` : non renseignée, rien ne change.
-      salle: Profil.salleDeLExercice(profil, slug, index)
+      // haltères), ou `null` : non renseignée, rien ne change. 132 — ou la liste de ses élastiques (§10 ter).
+      salle: salleX,
+      // 132 (ECRAN-SAISIE §3 ter.6, écran 4) — l'élastique de la dernière séance qui n'est plus dans la liste, ou `null`.
+      elastiqueRetire: estSalleElastique(salleX) ? Profil.elastiqueRetireDe(salleX, faits.seancesDeLExercice(corpus(), slug)) : null
     };
   }
 
@@ -5777,8 +5929,9 @@
           var b = Object.assign({}, s, { reps_visees: p.reps_visees === undefined ? null : p.reps_visees,
                                          charge_cible_kg: p.charge_cible_kg === undefined ? null : p.charge_cible_kg });
           if (validees[s.id]) return b;
-          return Object.assign(b, { charge_kg: null, reps: null, duree_s: null, distance_m: null, rpe: null,
-                                    ressenti: null, validee_a: null, repos_s: null, source: null });
+          // Prompt 131 — toutes les colonnes de mesure (D+ et étages compris), par la table des champs.
+          Modele.colonnesDeSerie().forEach(function (c) { b[c] = null; });
+          return Object.assign(b, { rpe: null, ressenti: null, validee_a: null, repos_s: null, source: null });
         });
         return Object.assign({}, exo, { series: siennes });
       }).filter(function (exo) { return exo.series.length; });
@@ -6087,7 +6240,8 @@
                             muscles_stabilisateurs: (f.muscles_stabilisateurs || []).slice(),
                             // §9.17 — la mesure (le plan la porte, I13/I28 la lisent) et
                             // la version lestée (la carte du lest ne promet que ce qu'elle livre).
-                            mesure: gc.inconnue ? null : gc.mesure,
+                            mesure: gc.inconnue ? null : (estSalleElastique(Profil.salleDeLExercice(profil, slug, index))
+                              ? 'charge_reps' : gc.mesure),
                             leste: Modele.lesteDe(index, slug),
                             // MOTEUR §10 bis (108) — la salle déclarée (chauffes et
                             // dégressive d'un exercice sans consigne), ou `null`.
@@ -6534,9 +6688,8 @@
   function consigneDeLExercice(slug) {
     if (seance && !enEdition()) return consigneDe(slug);
     var exo = Modele.indexerExercices(local.exercices)[slug] || null;
-    return Moteur.consigneDExercice(faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug],
-      seance ? seance.debut : new Date().toISOString(),
-      Object.assign(optionsDeConsigne(slug, exo), { edition: false }));
+    var o = Object.assign(optionsDeConsigne(slug, exo), { edition: false }), g = groupesDuMoteur(slug, o.salle);
+    return Moteur.consigneDExercice(g, etatDuMoteur(slug, o.salle, g), seance ? seance.debut : new Date().toISOString(), o);
   }
 
   // §3.12 (49-U1) — l'en-tête LU SUR LE PLAN : il décrit les lignes de la
@@ -6659,6 +6812,8 @@
     var vu = constats.parSlug[slug];
     if (!vu || vu.options !== cleOptions) {
       var faites = seriesDeTravailDe(slug).filter(function (s) { return Seance.partEnBase(s); });
+      // 132 — un exercice noté par nom : la séance du jour et l'historique en charges virtuelles (§10 ter).
+      if (estSalleElastique(options.salle)) faites = Profil.seriesPourLeMoteur(options.salle, faites, false);
       // ⚠️ LA COUPURE D'APRÈS EST L'INSTANT PRÉSENT. Le moteur ne lit jamais
       // l'avenir : une coupure au début de la séance en exclurait la séance du
       // jour, et la suite raconterait la fois d'avant.
@@ -6666,13 +6821,13 @@
       // reprise des jours plus tard : les séances faites entre-temps ne sont
       // pas « aujourd'hui » (le constat racontait l'une d'elles).
       var debutDuJour = Date.parse(seance.debut);
-      var anterieures = faits.seancesDeLExercice(corpus(), slug).filter(function (g) {
+      var anterieures = groupesDuMoteur(slug, options.salle).filter(function (g) {
         return g.seance.id === seance.id || !(Date.parse(g.seance.debut) > debutDuJour);
       });
       var r = Moteur.suiteDExercice(
         anterieures,
         { seance: { debut: seance.debut }, series: faites },
-        etatsExercices[slug], rejeuEnCours ? rejeuEnCours.instant : new Date().toISOString(),
+        etatDuMoteur(slug, options.salle, anterieures), rejeuEnCours ? rejeuEnCours.instant : new Date().toISOString(),
         options);
       var parSlug = Object.assign({}, constats.parSlug);
       parSlug[slug] = { options: cleOptions,
@@ -7113,7 +7268,9 @@
     var oui = reponse === 'oui';
     var slug = x.slug;
     var r = oui ? { r: 'oui', le: new Date().toISOString() } : { r: 'non', le: new Date().toISOString() };
-    if (!oui && carte.aide) r.aide = carte.charge;
+    // 132 (MOTEUR §10 ter) — sur un exercice noté par nom, la réponse garde le NOM de l'élastique, jamais sa charge
+    // virtuelle (`marche_reponses.*.aide` accepte un nombre ou un texte, v2_099).
+    if (!oui && carte.aide) r.aide = carte.elastique !== undefined && carte.elastique !== null ? carte.elastique : carte.charge;
     reponseEnCours = true;
     try {
       if (demoEscalier()) {
@@ -7816,6 +7973,9 @@
       // ligne. `undefined` si le catalogue n'est pas encore là : `gabaritDe`
       // retombe alors sur `charge_reps` sans rien affirmer.
       exercice: function (slug) { return index[slug]; },
+      // 132 (ECRAN-SAISIE §3 ter.6) — un exercice noté par nom : la colonne « ÉLASTIQUE », et sa feuille de choix.
+      elastique: elastiqueDeLaGrille,
+      surElastique: function (i, j) { ouvrirFeuille('elastique', i, j); },
       precedent: precedentDe,
       fantome: function (i, j) {
         return fantomeDe(i, j);
@@ -8631,6 +8791,25 @@
     if (!exo) return;
     var nom = Modele.nommer(index, exo.exercise_slug);
 
+    // 132 (ECRAN-SAISIE §3 ter.6, écran 3) — LA FEUILLE DE CHOIX DE L'ÉLASTIQUE : la liste qui va avec l'exercice ; le
+    // choix s'écrit dans la série (`poserElastique`), validée ou non.
+    if (feuille.quoi === 'elastique') {
+      var elg = elastiqueDeLaGrille(exo.exercise_slug);
+      var se0 = exo.series[feuille.iSerie];
+      if (!elg || !se0) return;
+      var fg = fantomeDe(feuille.iExo, feuille.iSerie);
+      return Rendu.rendreFeuilleElastique(cible, {
+        exercice: nom, numero: feuille.iSerie + 1, liste: elg.liste, mini: elg.fiche.type_elastique === 'mini',
+        choisi: se0.elastique || (fg && fg.elastique) || null,
+        surChoix: function (n) {
+          var i = feuille.iExo, j = feuille.iSerie;
+          fermerVoile();
+          poserElastique(i, j, n);
+        },
+        surAnnuler: fermerVoile
+      });
+    }
+
     // La note d'EXERCICE (§7 septies.1). Elle ne touche pas à la structure mais
     // elle change ce que `lignes()` produit — toutes les séries de cet exercice
     // la portent — donc elle repose bien les séries.
@@ -8762,9 +8941,37 @@
     return routines.filter(function (r) { return r.id === seance.routine_id; })[0] || null;
   }
 
+  // ECRAN §7 septies.4 (prompt 131, écran 6) — LA DONNÉE FACULTATIVE RESTÉE VIDE, choisie UNE FOIS à l'ouverture de
+  // la feuille (`Seance.donneeFacultativeVide`) : un rendu suivant (« Reporter sur la routine ») ne passe pas à la
+  // suivante. Tapée, elle s'écrit sur la série, donc avec la séance ; laissée vide, rien ne se passe — la carte
+  // « Ce qui manque à tes séances » la reprendra. Jamais en Édition (« Enregistrer » ne passe pas par cette feuille).
+  var manqueFin = null;
+
   function confirmerFin() {
     majRoutineVoulue = false;
+    manqueFin = seance ? Seance.donneeFacultativeVide(seance, local.exercices) : null;
     ouvrirFeuille('fin', null, null);
+  }
+
+  // La vue de la donnée manquante : la phrase, la série telle qu'elle part, la case (sa valeur, son unité, sa borne).
+  function vueManqueFin(index) {
+    var m = manqueFin;
+    var serie = m && seance && seance.exercices[m.iExo] && seance.exercices[m.iExo].series[m.iSerie];
+    if (!m || !serie) return null;
+    var c = Modele.champDeMesure(m.nom);
+    var v = serie[c.cle];
+    return {
+      phrase: 'Il manque ' + c.manque + '.',
+      serie: Modele.nommer(index, m.slug) + ' \u00b7 ' + Modele.formatMesure(serie),
+      champ: m.nom, unite: c.unite, max: Modele.maxDeSaisie(m.nom),
+      valeur: v === null || v === undefined ? null : v / (c.facteur || 1),
+      surSaisie: function (texte) {
+        var o = {};
+        o[m.nom] = texte;
+        seance = Seance.modifierSerie(seance, m.iExo, m.iSerie, o);
+        sauverSeance();
+      }
+    };
   }
 
   function rendreFeuilleFin(cible, index) {
@@ -8773,10 +8980,18 @@
     // conforme n'ouvre aucune question, sinon la question devient un bruit
     // qu'on tape sans lire.
     var verdict = Seance.ecartsRoutine(seance, routine);
+    // 137 (E12) — « vide » se lit par la règle de l'abandon (`aEffacerALAbandon`), pas par un compte de plus.
+    var remplies = Seance.rempliesNonValidees(seance);
+    var vide = !aEffacerALAbandon().lignes;
     Rendu.rendreFeuilleFin(cible, {
+      vide: vide,
+      remplies: remplies.length,
+      surValider: function () { fermerVoile(); amenerEnVue(remplies[0]); },
+      surContinuer: function () { fermerVoile(); },
       // 71 (ECRAN-SAISIE §7 septies.4 bis) — LA FEUILLE DÉCLARE, LE RÉCAP CONSTATE : les records du jour et le
       // bloc « Le jeu » sont passés au récap, qui s'ouvre juste après « Terminer ».
       compte: Seance.compter(seance, local.exercices),
+      manque: vueManqueFin(index),
       titre: seance.titre,
       note: seance.note,
       salle: seance.salle,
@@ -8835,13 +9050,15 @@
         fermerVoile();
         await terminerSeance(verdict);
       },
-      surAnnuler: function () {
-        var p = remplies[0];
-        fermerVoile();
-        var l = doc.querySelector('#blocs-seance [data-iexo="' + p.iExo + '"][data-iserie="' + p.iSerie + '"]');
-        if (l && l.scrollIntoView) l.scrollIntoView({ block: 'center' });
-      }
+      surAnnuler: function () { fermerVoile(); amenerEnVue(remplies[0]); }
     });
+  }
+
+  // « Les valider » : la feuille se ferme, la première série remplie vient en vue ; la valider reste le geste de
+  // l'utilisateur (115 E4). Partagé entre la feuille « non-validees » et la feuille de fin d'une séance vide (137).
+  function amenerEnVue(p) {
+    var l = p && doc.querySelector('#blocs-seance [data-iexo="' + p.iExo + '"][data-iserie="' + p.iSerie + '"]');
+    if (l && l.scrollIntoView) l.scrollIntoView({ block: 'center' });
   }
 
   // Ce qui part avec la séance abandonnée : ses lignes faites (`partEnBase`), chauffes comprises — le compte de
@@ -9135,6 +9352,10 @@
     rendreBandeauPhase();
     rendreCarteCycles();
     rendreCarteSemaine();
+    rendreCarteManque();
+    // 138 — iPhone, hors de l'app : sous le questionnaire et la phrase (l'ordre du DOM). Il ne lit pas le profil : seulement
+    // la session, la séance et l'appareil, donc la ligne qui arrive n'a rien à y redessiner.
+    rendreBandeauInstaller();
     var cible = $('liste-routines');
     // ⚠️ « Je ne sais pas encore » n'est PAS « il n'y en a pas ». Tant qu'un
     // chargement n'a pas abouti, on ne montre pas l'état vide : hors ligne, il
@@ -9645,7 +9866,10 @@
       surChamp: function (i, j, champ, valeur) {
         var l = ligneBrouillon(i, j);
         if (!l) return;
-        l[champ] = valeur;
+        // Audit 130 n°1 — le nom de saisie (`duree`, `distance_km`) se traduit en
+        // colonne du brouillon par la table de la séance, sinon la cible se perd.
+        var t = Routines.champDeLEditeur(champ, valeur);
+        l[t.cle] = t.valeur;
         apresEditeur({ rendre: false });
       },
       surNumero: ouvrirTypeSerieRoutine,
@@ -10593,7 +10817,9 @@
       surSupprimer: ligne ? function () { demanderSuppressionSeance(ligne); } : null,
       surModifier: ligne ? function () { modifierSeance(ligne, blocs); } : null,
       surRefaire: ligne ? function () { refaireSeance(ligne, blocs); } : null,
-      surEnFaireUneRoutine: ligne ? function () { enFaireUneRoutine(ligne); } : null
+      surEnFaireUneRoutine: ligne ? function () { enFaireUneRoutine(ligne); } : null,
+      // 131 (écran 4) — « Ajouter le D+ » sous une série qui ne l'a pas.
+      ajout: ajoutDuDetail(ligne, blocs)
     });
     rendreReactionsDeLaSeance(sessionId);
     // 91 — « Faite en groupe avec … » et le récap figé.
@@ -10632,7 +10858,7 @@
   function derniereSeanceDe(slug, groupes) {
     var g = groupes || faits.seancesDeLExercice(corpus(), slug);
     if (!g.length) return null;
-    var d = Modele.meilleureSerieDe(slug, g[0].series, local.exercices, Palier, etatsExercices);
+    var d = Modele.meilleureSerieDe(slug, g[0].series, local.exercices, Palier, etatsExercices, meilleurNomme);
     d.date = g[0].seance.debut;
     return d;
   }
@@ -10673,7 +10899,8 @@
     // anciennes restent dans l'historique.
     var dansLePerimetre = [];
     Modele.seancesDuPerimetre(pourRecords, maintenant, optionsRecords).forEach(function (h) {
-      h.series.forEach(function (x) { dansLePerimetre.push(x); });
+      // 132 — une série notée par nom n'entre dans aucun record, ni dans la table par reps (MOTEUR §10 ter).
+      h.series.forEach(function (x) { if (!(x && x.elastique)) dansLePerimetre.push(x); });
     });
     var table = Modele.tableParReps(dansLePerimetre, mesure, function (x) { return debutDe[x.id] || null; });
     // Un jour de record se DÉDUIT de la table, il ne se recalcule pas : ce sont
@@ -10711,7 +10938,8 @@
     // 1 an ; le rapport au poids (la charge de travail du coach, divisée par
     // une pesée de moins de 14 jours).
     var teteRecords = null;
-    if (mesure === 'charge_reps' && groupes.length) {
+    // 132 — pas de records en kg pour un exercice noté par nom (MOTEUR §10 ter) : son meilleur, par son nom, suffit.
+    if (mesure === 'charge_reps' && groupes.length && !rp.nommes) {
       var il6 = new Date(maintenant.getTime()); il6.setMonth(il6.getMonth() - 6);
       var il12 = new Date(maintenant.getTime()); il12.setFullYear(il12.getFullYear() - 1);
       var travail = null;
@@ -10828,13 +11056,18 @@
     var optionsRecords = Modele.optionsDeRecord(exo);
     var pourRecords = groupes.map(function (g) { return { debut: g.seance.debut, series: g.series }; });
     var recordsExo = Modele.recordsDeLExercice(pourRecords, maintenant, optionsRecords);
-    var record = mesure === 'charge_reps'
-      ? Modele.recordDeLaTable(recordsExo.table)
-      : Modele.meilleureSerieDeTout(slug, groupes.map(function (g) {
+    // 132 (MOTEUR §10 ter) — un exercice noté par nom : son meilleur se calcule à l'affichage, sur l'ordre de Ma salle
+    // (« Rouge × 10 », `Profil.meilleurElastique`) — jamais un record en kg (un record est immuable, l'ordre change).
+    var nommes = groupes.some(function (g) { return (g.series || []).some(function (x) { return x && x.elastique; }); });
+    var record = nommes || mesure !== 'charge_reps'
+      ? Modele.meilleureSerieDeTout(slug, groupes.map(function (g) {
         return { cle: g.seance.debut, series: g.series };
-      }), local.exercices, Palier, etatsExercices);
-    if (record && mesure !== 'charge_reps') record.date = record.cle || null;
-    return { record: record, recordsExo: recordsExo, optionsRecords: optionsRecords, pourRecords: pourRecords };
+      }), local.exercices, Palier, etatsExercices, meilleurNomme)
+      : Modele.recordDeLaTable(recordsExo.table);
+    if (record && (nommes || mesure !== 'charge_reps')) record.date = record.cle || null;
+    // Le libellé dit ce que c'est : un meilleur, pas un record (« Ton meilleur », comme « Ton échelle »).
+    if (record && nommes) record.libelle = 'Ton meilleur';
+    return { record: record, recordsExo: recordsExo, optionsRecords: optionsRecords, pourRecords: pourRecords, nommes: nommes };
   }
 
   // 127 (ECRAN-SAISIE §7 quater.6, maquette validée le 21/10/2026) — LA VUE DE « TON ÉCHELLE ». Un câblage, sans
@@ -11852,6 +12085,152 @@
   // surface qui oublierait de demander ne doit pas pouvoir effacer.
   function seriesIncompletes(id) { return Seance.seriesIncompletes(seriesDe(id)); }
 
+  // ══ 131 (ECRAN-SAISIE §3 ter.5, maquette mesures-cardio écrans 4 et 5) — « CE QUI MANQUE À TES SÉANCES » ══
+  //
+  // La carte lit le fait (`faits.ceQuiManque`, moins les refus du profil) ; elle ne s'affiche qu'à l'accueil de Saisie,
+  // hors séance ouverte (en cours ou en Édition : `rendreSaisie` rend la séance avant), en carnet comme en coach.
+  //   · ce qui est tapé reste EN MÉMOIRE (`manque.saisies`) jusqu'à « Enregistrer » ;
+  //   · « Enregistrer » corrige chaque séance touchée par `enregistrerCorrection` — la séance reprise depuis le cache
+  //     (`Seance.reprendre`), la valeur posée par `Seance.modifierSerie` (ses bornes), la même file. La séance ouverte
+  //     (`seance`) n'est jamais touchée, rien ne navigue ;
+  //   · « Je ne sais plus » ferme un groupe pour de bon : `completer_refus` au profil, par `poserProfil` ;
+  //   · « Plus tard » replie la carte jusqu'à la prochaine ouverture de l'app (en mémoire seulement).
+  var manque = { saisies: {}, ouverts: {}, plusTard: false, message: null, enCours: false };
+  var LIGNES_MANQUE = 2;
+
+  function refusDuProfil() {
+    var r = profil && profil.completer_refus;
+    return Array.isArray(r) ? r : [];
+  }
+
+  function vueCarteManque() {
+    if (seance || manque.plusTard) return null;
+    var groupes = faits.ceQuiManque(corpus(), refusDuProfil());
+    if (!groupes.length) return null;
+    return {
+      phrase: 'L’app note maintenant le D+, les étages et la distance au vélo. Complète ce dont tu te souviens.',
+      message: manque.message,
+      groupes: groupes.map(function (g) {
+        var c = Modele.champDeMesure(g.champ);
+        var visibles = manque.ouverts[g.cle] ? g.lignes : g.lignes.slice(0, LIGNES_MANQUE);
+        return {
+          cle: g.cle, champ: g.champ,
+          titre: [Modele.nomCourt(g.nom).toUpperCase(), c.libelle || c.entete,
+            g.seances + ' SÉANCE' + (g.seances > 1 ? 'S' : '')].join(' · '),
+          autres: g.lignes.length - visibles.length,
+          lignes: visibles.map(function (l) {
+            var tape = manque.saisies[l.serieId];
+            return { serieId: l.serieId, seanceId: l.seanceId, unite: c.unite, max: Modele.maxDeSaisie(g.champ),
+              texte: Modele.dateCourte(l.debut) + ' · ' + Modele.formatMesure(l.serie),
+              valeur: tape ? Modele.lireNombre(tape.valeur) : null };
+          })
+        };
+      }),
+      surSaisie: function (serieId, seanceId, champ, v) {
+        manque.saisies[serieId] = { seanceId: seanceId, champ: champ, valeur: v };
+      },
+      surVoir: function (cle) { manque.ouverts[cle] = true; rendreCarteManque(); },
+      surRefus: refuserManque,
+      surEnregistrer: enregistrerManque,
+      surPlusTard: function () { manque.plusTard = true; rendreCarteManque(); }
+    };
+  }
+
+  function rendreCarteManque() {
+    Rendu.rendreCarteManque($('carte-manque'), vueCarteManque());
+  }
+
+  // « Je ne sais plus » : le groupe quitte la carte pour de bon (`completer_refus`, « slug:colonne »). Ses saisies
+  // en attente partent avec lui.
+  async function refuserManque(cle) {
+    var liste = refusDuProfil().slice();
+    if (liste.indexOf(cle) < 0) liste.push(cle);
+    var slug = cle.split(':')[0];
+    Object.keys(manque.saisies).forEach(function (id) {
+      var x = (local.series || []).filter(function (s) { return s && s.id === id; })[0];
+      if (x && x.exercise_slug === slug) delete manque.saisies[id];
+    });
+    await poserProfil({ completer_refus: liste });
+    rendreCarteManque();
+  }
+
+  // « Enregistrer » : une correction par séance touchée, par le chemin de l'Édition (`enregistrerCorrection`).
+  async function enregistrerManque() {
+    if (seance || manque.enCours) return;
+    var parSeance = {};
+    Object.keys(manque.saisies).forEach(function (id) {
+      var t = manque.saisies[id];
+      if (!t || Modele.lireNombre(t.valeur) === null) return;
+      (parSeance[t.seanceId] = parSeance[t.seanceId] || []).push({ id: id, champ: t.champ, valeur: t.valeur });
+    });
+    var ids = Object.keys(parSeance);
+    if (!ids.length) { manque.message = null; return rendreCarteManque(); }
+    manque.enCours = true;
+    var nonFaites = 0;
+    try {
+      for (var k = 0; k < ids.length; k++) {
+        var sid = ids[k];
+        var ligne = local.seances.filter(function (s) { return s.id === sid; })[0] || null;
+        var series = seriesDe(sid);
+        // La garde de l'Édition (chantier 47) : une séance dont les séries n'ont pas fini d'arriver ne se corrige pas.
+        if (!ligne || Seance.seriesIncompletes(series)) { nonFaites++; continue; }
+        connaitre(sid, series.map(function (x) { return x.id; }));
+        var s = Seance.reprendre(ligne, Modele.construireBlocs(series, local.exercices));
+        parSeance[sid].forEach(function (t) {
+          s.exercices.forEach(function (e, iExo) {
+            (e.series || []).forEach(function (x, iSerie) {
+              if (x && x.id === t.id) {
+                var o = {};
+                o[t.champ] = t.valeur;
+                s = Seance.modifierSerie(s, iExo, iSerie, o);
+              }
+            });
+          });
+          delete manque.saisies[t.id];
+        });
+        await enregistrerCorrection(s);
+        await oublierConnues(sid);
+      }
+    } finally {
+      manque.enCours = false;
+    }
+    manque.message = nonFaites ? 'Une séance finit d’arriver : réessaie dans un instant.' : null;
+    rendreCarteManque();
+  }
+
+  // Écran 4 — « Ajouter le D+ » sous une série passée qui n'a pas son champ en plus : la séance s'ouvre en correction
+  // (`modifierSeance`, le « Modifier » qui existe), la case du champ en vue.
+  function ajoutDuDetail(ligne, blocs) {
+    if (!ligne) return null;
+    var index = catalogueIndexe();
+    return function (s) {
+      if (!s || !s.estTravail) return null;
+      var exo = index[s.exercise_slug];
+      if (!exo) return null;
+      var plus = Modele.champsDeSerie(exo).slice(Modele.gabaritDe(exo).champs.length);
+      for (var i = 0; i < plus.length; i++) {
+        var c = Modele.champDeMesure(plus[i]);
+        if (s[c.cle] === null || s[c.cle] === undefined || s[c.cle] === '') {
+          return { texte: 'Ajouter ' + c.manque, sur: (function (nom) {
+            return function () { ouvrirPourAjouter(ligne, blocs, s.id, nom); };
+          })(plus[i]) };
+        }
+      }
+      return null;
+    };
+  }
+  function ouvrirPourAjouter(ligne, blocs, serieId, nom) {
+    modifierSeance(ligne, blocs);
+    if (!seance || seance.id !== ligne.id) return;
+    seance.exercices.forEach(function (e, iExo) {
+      (e.series || []).forEach(function (x, iSerie) {
+        if (!x || x.id !== serieId) return;
+        var n = doc.querySelector('#blocs-seance [data-iexo="' + iExo + '"][data-iserie="' + iSerie + '"] [data-champ="' + nom + '"] input');
+        if (n) { if (n.scrollIntoView) n.scrollIntoView({ block: 'center' }); n.focus(); }
+      });
+    });
+  }
+
   function modifierSeance(ligne, blocs) {
     if (seanceEnCoursBloque()) return;
     if (seriesIncompletes(ligne.id)) {
@@ -11886,15 +12265,24 @@
   // Enregistrer une modification : les mêmes écritures qu'une fin de séance,
   // sans la fin. Pas de question de routine — une séance passée a pu diverger
   // depuis longtemps, et la routine d'aujourd'hui n'est plus celle du jour-là.
-  async function enregistrerEdition() {
-    var id = seance.id;
+  //
+  // ⚠️ 131 — LES ÉCRITURES D'UNE CORRECTION, UNE FOIS (`enregistrerCorrection`), PARAMÉTRÉES PAR LA SÉANCE. « Ce qui
+  // manque à tes séances » corrige une séance passée SANS l'ouvrir : il appelle la même fonction, avec la séance
+  // reprise (`Seance.reprendre`) — la même file (`poserSeries` → `remplacerSeries`), le même journal des records, la
+  // même adoption locale. Aucun second chemin d'écriture d'une série ; aucune navigation ici.
+  async function enregistrerCorrection(s) {
     // 58-2 — les séries telles qu'elles étaient, AVANT que le cache n'adopte la
     // correction : celles qui changent perdent leurs records.
-    var seriesAvant = seriesDe(id).slice();
-    await poserSeries();
-    await poserSeance(false);
-    await ecrireJournalDeSeance(seance, seriesAvant);
-    adopterLocalement(seance);
+    var seriesAvant = seriesDe(s.id).slice();
+    await poserSeries(s === seance ? undefined : s);
+    await poserSeance(false, s);
+    await ecrireJournalDeSeance(s, seriesAvant);
+    adopterLocalement(s);
+  }
+
+  async function enregistrerEdition() {
+    var id = seance.id;
+    await enregistrerCorrection(seance);
     seance = null; chrono = null;
     arreterMinuteur();
     rendreChrono();
@@ -12059,6 +12447,9 @@
     // On honore l'URL d'entrée : un rechargement direct sur /semaine/… ou
     // /seance/… rouvre la bonne vue, pas systématiquement la semaine courante.
     await chargerProfilLocal();
+    // 136 (E13) — le repos en cours, relu de la séance (jamais du disque) : avant le premier rendu.
+    try { if (seance && !chrono) reprendreChrono(); }
+    catch (e) { console.warn('Repos non repris :', texteErreur(e)); }
 
     var routeInitiale = Routeur.analyser(racine.location.pathname);
     // 64B — jeu éteint (le profil en cache le dit), `/jeu…` est une route inconnue dès le démarrage.
@@ -12398,7 +12789,7 @@
 
     if (!distant) {
       var creer = function (pseudo) {
-        return Donnees.enregistrerProfil(id, Profil.champsEcrits({ username: pseudo || null, onboarding_completed: false }));
+        return Donnees.enregistrerProfil(id, Profil.champsEcrits({ username: pseudo || null }));
       };
       // 60-3b — LE PSEUDO DE LA LIGNE : UN SEUL ENDROIT CHOISIT (`Profil.pseudoDeLInscription`). Celui de la
       // page d'abord ; sinon celui que l'inscription a déposé dans les données du compte — le lien de
@@ -12492,12 +12883,10 @@
       var champs = Profil.champsEnAttente(profilAEnvoyer, profil);
       // 93 — LA LIGNE PEUT NAÎTRE ICI : `chargerProfil` ne l'a pas posée (lecture ou création ratée), et c'est le
       // premier geste du Profil qui la crée (`ligneACreer`). La création reprend alors ce que `chargerProfil` aurait
-      // écrit — le pseudo choisi au MÊME endroit (`Profil.pseudoDeLInscription`), et `onboarding_completed: false` —
-      // sauf ce que le geste pose lui-même. Un pseudo pris entre-temps retombe dans la sortie 60-5 ci-dessous.
+      // écrit — le pseudo choisi au MÊME endroit (`Profil.pseudoDeLInscription`) — sauf ce que le geste pose lui-même. Un pseudo pris entre-temps retombe dans la sortie 60-5 ci-dessous.
       if (ligneACreer && !Object.prototype.hasOwnProperty.call(champs, 'username')) {
         champs.username = Profil.pseudoDeLInscription(pseudoAInscrire, await metadonneesDuCompte(id));
         if (!generationValide(g)) return;
-        if (!Object.prototype.hasOwnProperty.call(champs, 'onboarding_completed')) champs.onboarding_completed = false;
       }
       var rendu, refusees = [];
       // 116 (audit du 16/10/2026, 03 #6) — UNE COLONNE REFUSÉE POUR DE BON NE BLOQUE PLUS LE PROFIL. Un refus
@@ -12603,11 +12992,12 @@
   // Le seul chemin d'écriture. Local d'abord — l'écran dit la vérité tout de
   // suite et hors ligne — puis le réseau.
   //
-  // ⚠️ POSER ET RENDRE SONT SÉPARÉS, et ce n'est pas du zèle. `marquerProfilVu`
-  // écrit depuis `montrer`, AU MOMENT OÙ L'ON QUITTE LE PROFIL : s'il passait
-  // par `rendreProfilEcran`, il rappellerait `montrer('profil')` et ramènerait
-  // l'écran qu'on vient de quitter. Un écran qui se rouvre tout seul quand on
-  // en sort est exactement le genre de défaut qu'aucun test unitaire ne voit.
+  // ⚠️ POSER ET RENDRE SONT SÉPARÉS, et ce n'est pas du zèle. Une écriture faite
+  // depuis `montrer` (au moment où l'on quitte un écran) qui passerait par
+  // `rendreProfilEcran` rappellerait `montrer('profil')` et ramènerait l'écran
+  // qu'on vient de quitter (le défaut de l'ancien `marquerProfilVu`, retiré au 136).
+  // Un écran qui se rouvre tout seul quand on en sort est exactement le genre de
+  // défaut qu'aucun test unitaire ne voit.
   async function poserProfil(champs) {
     var ecrits = Profil.champsEcrits(champs);
     var avant = profil;
@@ -12771,6 +13161,8 @@
   function choisirDansQuestionnaire(cle, valeur) {
     if (!questionnaire) return;
     questionnaire.rep = Questionnaire.appliquerChoix(questionnaire.rep, cle, valeur);
+    // 137 — une puce de durée touchée : les minutes tapées pour « Plus » ne sont plus la réponse.
+    if (cle === 'duree') { delete questionnaire.textes.duree; delete questionnaire.erreurs.duree; }
     rendreQuestionnaire();
   }
 
@@ -12961,7 +13353,7 @@
       seancesDuDossier: seances,
       estProgramme: (local.blocs || []).some(function (b) { return b && b.dossier === dossier; }),
       carnet: Moteur.coachSeTait(p.intention),
-      dejaVue: !!p.carte_cycles_le
+      dejaVue: Profil.carteCyclesDejaVue(p)   // 137 : le refus vaut pour CE programme (MOTEUR §9.22)
     });
     return affichee ? { dossier: dossier, seances: seances } : null;
   }
@@ -13018,6 +13410,8 @@
   // de carte, et rien ne part vers elle.
   var CLE_OBJECTIFS = 'objectifs';
   var CLE_PARIS_OBJECTIF = 'paris-objectif';
+  // 139 — la version des gestes sur les objectifs (`ecrireObjectif`, `retirerObjectif`) ; lue par `synchroniser`.
+  var versionObjectifs = 0;
 
   // `{ dispo, lignes }` — `dispo: false` : la base ne connaît pas la table ; `null` : rien reçu (réseau).
   async function lireObjectifs() {
@@ -13040,6 +13434,24 @@
       if (e.op !== Attente.SUPPRIMER && e.donnees) par[slug] = e.donnees;
     });
     return Object.keys(par).map(function (k) { return par[k]; });
+  }
+  // 139 — les objectifs (leur `exercise_slug`) qui attendent dans la file à cet instant.
+  function objectifsEnFile() {
+    var ids = {};
+    (attente || []).forEach(function (e) { if (e && e.table === Attente.OBJECTIFS) ids[e.id] = true; });
+    return ids;
+  }
+  // 139 — `fondus` : la lecture du serveur fondue avec la file d'aujourd'hui ; `enFileALaLecture` : ce qui attendait
+  // quand la lecture est partie. Un objectif qui attendait alors et n'attend plus est parti PENDANT la lecture : le
+  // serveur qui a répondu ne l'avait pas encore, l'appareil le sait — sa ligne (ou son absence, s'il a été retiré)
+  // remplace celle de la lecture. Un objectif encore dans la file est déjà gardé par `fondreObjectifs`.
+  function gardeLesGestesEnVol(fondus, enFileALaLecture) {
+    var maintenant = objectifsEnFile();
+    var partis = Object.keys(enFileALaLecture || {}).filter(function (slug) { return !maintenant[slug]; });
+    if (!partis.length) return fondus;
+    var reste = (fondus || []).filter(function (l) { return l && partis.indexOf(l.exercise_slug) < 0; });
+    var locales = (local.objectifs || []).filter(function (l) { return l && partis.indexOf(l.exercise_slug) >= 0; });
+    return reste.concat(locales);
   }
   // Les paris d'objectif : ceux du serveur ; ceux de l'appareil quand leur pari ou leur observation attend encore
   // dans la file, ou que le serveur ne les a pas encore.
@@ -13114,6 +13526,7 @@
     });
     if (pr.etat === 'deja') return Objectif.phraseDejaFait(pr, maintenant);
     if (pr.etat === 'hors_salle') return Objectif.phraseHorsSalle(pr);
+    if (pr.etat === 'elastique') return Objectif.PHRASE_ELASTIQUE;
     var pariId = pr.etat === 'date' ? await Moteur.idDObjectif(slug, pose) : null;
     var ligne = Objectif.ligneDe(slug, lu.charge, lu.reps, pose, pr, uid, pariId);
     await ecrireObjectif(slug, ligne, Objectif.pariDe(ligne, pr, uid, pariId));
@@ -13122,6 +13535,7 @@
 
   // Le pari part avant la ligne ; aucun ne dépend de l'autre. Local d'abord (le cache), puis la file.
   async function ecrireObjectif(slug, ligne, pari) {
+    versionObjectifs++;
     local.objectifs = (local.objectifs || []).filter(function (l) { return l && l.exercise_slug !== slug; }).concat([ligne]);
     await Cache.ecrireBrouillon(CLE_OBJECTIFS, { dispo: true, lignes: local.objectifs }).catch(function () {});
     if (pari) {
@@ -13129,6 +13543,7 @@
       await Cache.ecrireBrouillon(CLE_PARIS_OBJECTIF, local.parisObjectif).catch(function () {});
       await poser({ table: Attente.PREDICTIONS, op: Attente.UPSERT, id: pari.id, depend: pari.id, donnees: pari });
     }
+    versionObjectifs++;   // 139 — l'entrée entre dans la file ICI, derrière le pari : une lecture partie entre-temps est périmée aussi
     await poser({ table: Attente.OBJECTIFS, op: Attente.UPSERT, id: slug, donnees: ligne });
   }
 
@@ -13176,8 +13591,10 @@
 
   // RETIRER : la ligne s'efface ; son pari reste, et s'observe comme les autres.
   async function retirerObjectif(slug) {
+    versionObjectifs++;
     local.objectifs = (local.objectifs || []).filter(function (l) { return l && l.exercise_slug !== slug; });
     await Cache.ecrireBrouillon(CLE_OBJECTIFS, { dispo: true, lignes: local.objectifs }).catch(function () {});
+    versionObjectifs++;
     await poser({ table: Attente.OBJECTIFS, op: Attente.SUPPRIMER, id: slug });
   }
 
@@ -13281,7 +13698,8 @@
              mentions: aj.map(function (a) { return a.mention; }) };
   }
 
-  // « Pas maintenant » : la carte ne revient jamais (`carte_cycles_le`). Le bouton du dossier, lui, reste.
+  // « Pas maintenant » : la carte ne revient pas pour CE programme (`carte_cycles_le`, 137 : un programme reconstruit la
+  // remontrait). Le bouton du dossier, lui, reste.
   function reporterLaCarteCycles() {
     var champs = Profil.preparerChamps(profil, { carte_cycles_le: new Date() }, new Date());
     if (Object.keys(champs).length) poserProfil(champs).catch(function () {});
@@ -13310,6 +13728,66 @@
       surQuitter: ouvrirPhaseDuRappel,
       libelleReprendre: 'C’est toujours ça',
       surReprendre: function () { repondrePhaseDuRappel(Profil.phaseDe(profil)); }
+    });
+  }
+
+  // ══ 138 (ECRAN-PROFIL §3.5) — IPHONE : INSTALLER, ET LES RETOURS DE LIEN ══════════════════════════════
+  //
+  // Sur Android, Chrome propose l'installation : l'app n'en dit rien. Sur iPhone, Safari ne propose rien et efface les
+  // données d'un site non installé qu'on n'ouvre pas pendant 7 jours (audit I-03, I-12) ; un lien d'e-mail ouvre
+  // Safari, jamais l'app installée (I-05). UNE SEULE fonction décide « iPhone, hors de l'app » (`Auth.iphoneHorsApp`),
+  // et les phrases viennent d'un seul endroit (`Auth.PHRASES_IPHONE`). Tout ce qui suit la LIT : rien n'est écrit en base.
+  function surIphone() {
+    return Auth.iphoneHorsApp(racine.navigator, typeof racine.matchMedia === 'function' ? racine.matchMedia.bind(racine) : null);
+  }
+
+  // La feuille « Comment faire » : le voile et la feuille de l'app (son « Fermer » est celui du voile).
+  function ouvrirFeuilleInstaller() {
+    var f = Auth.PHRASES_IPHONE.feuille;
+    Rendu.rendreFeuilleInstaller($('feuille-contenu'), { titre: f.titre, etapes: f.etapes, sept: f.sept });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  // L'encart de la connexion : sous le formulaire, les deux modes (connexion, inscription), pas de « Plus tard ».
+  function rendreEncartInstaller() {
+    var noeud = $('encart-installer');
+    if (!noeud) return;
+    if (!surIphone()) { Rendu.rendreBandeauReprise(noeud, null); return; }
+    var p = Auth.PHRASES_IPHONE.connexion;
+    Rendu.rendreBandeauReprise(noeud, { quoi: p.quoi, sujet: p.sujet,
+      libelleReprendre: 'Comment faire', surReprendre: ouvrirFeuilleInstaller });
+  }
+
+  // « Plus tard » : un fait de CET APPAREIL (le Safari qu'on a ouvert), pas du compte — `localStorage`, une clé,
+  // l'instant en millisecondes, lecture et écriture sous `try` (comme `th-v2-sourdine`). Aucune colonne en base.
+  var CLE_INSTALLER_PLUS_TARD = 'th-v2-installer-plus-tard';
+  var SEPT_JOURS_MS = 7 * 24 * 60 * 60 * 1000;
+
+  function installerRepousse(maintenant) {
+    try {
+      var t = Number(racine.localStorage.getItem(CLE_INSTALLER_PLUS_TARD));
+      return t > 0 && maintenant - t >= 0 && maintenant - t < SEPT_JOURS_MS;
+    } catch (e) { return false; }
+  }
+
+  // Le bandeau de Saisie : connectée, hors séance, SOUS le questionnaire et la phase (ils passent d'abord : l'ordre du DOM).
+  function rendreBandeauInstaller() {
+    var noeud = $('bandeau-installer');
+    if (!noeud) return;
+    if (seance || !sessionActive || !surIphone() || installerRepousse(Date.now())) {
+      Rendu.rendreBandeauReprise(noeud, null);
+      return;
+    }
+    var p = Auth.PHRASES_IPHONE.saisie;
+    Rendu.rendreBandeauReprise(noeud, {
+      quoi: p.quoi, sujet: p.sujet,
+      libelleQuitter: 'Plus tard',
+      surQuitter: function () {
+        try { racine.localStorage.setItem(CLE_INSTALLER_PLUS_TARD, String(Date.now())); } catch (e) { /* stockage fermé : il reviendra */ }
+        rendreBandeauInstaller();
+      },
+      libelleReprendre: 'Comment faire',
+      surReprendre: ouvrirFeuilleInstaller
     });
   }
 
@@ -13571,6 +14049,23 @@
         surAjouterTranche: function () { brouillon = Profil.ajouterTrancheHalteres(brouillon); erreur = null; redessiner(); },
         surRetirerTranche: function (i) { brouillon = Profil.retirerTrancheHalteres(brouillon, i); erreur = null; redessiner(); },
         surSansHalteres: function () { brouillon = Profil.sansHalteres(brouillon); erreur = null; redessiner(); },
+        // 132 (ECRAN-PROFIL §2.4 sexies) — les deux listes d'élastiques et « en kg / par son nom » : les gestes de
+        // `profil.js`, purs ; une saisie refusée laisse la feuille ouverte, sa phrase dit pourquoi.
+        surAjouterElastique: function (liste, nom, kg) {
+          var texteKg = kg === null || kg === undefined ? '' : String(kg).trim();
+          var lu = texteKg === '' ? null : Modele.lireNombre(texteKg);
+          var r = Profil.ajouterElastique(brouillon, liste, nom, texteKg !== '' && lu === null ? NaN : lu);
+          brouillon = r.brouillon;
+          erreur = r.erreur;
+          redessiner();
+        },
+        surRetirerElastique: function (liste, i) { brouillon = Profil.retirerElastique(brouillon, liste, i); erreur = null; redessiner(); },
+        surDeplacerElastique: function (liste, de, vers) {
+          brouillon = Profil.deplacerElastique(brouillon, liste, de, vers);
+          erreur = null;
+          redessiner();
+        },
+        surParNom: function (parNom) { brouillon = Profil.poserParNom(brouillon, parNom); erreur = null; redessiner(); },
         surValider: function () {
           // 116 (03 #8) — un « jusqu'à » vidé ou illisible n'efface pas les haltères déclarés : la feuille reste
           // ouverte, le plus lourd déclaré revient dans le champ, une phrase dit pourquoi (123 : ligne par ligne).
@@ -13657,7 +14152,7 @@
     bio: {
       titre: 'Bio', lignes: 3, max: 280, etiquette: 'Deux lignes sur toi',
       placeholder: 'Powerbuilding, 3 ans',
-      aide: 'Elle ne sera visible que le jour où le social existera, et seulement si tu l’ouvres.',
+      aide: 'Tes abonnés et les membres de ta guilde la voient sur ton profil.',
       lire: function (p) { return p.bio; },
       valider: function (v) { return { champs: { bio: String(v).trim() } }; }
     },
@@ -13770,7 +14265,10 @@
           // changement émet `USER_UPDATED`, l'app ré-entre et re-rend le Profil, ce qui l'effaçait.
           Auth.changerMotDePasse(v).then(function () {
             finRecuperation();
-            noteProfil = { classe: 'vide', texte: 'Mot de passe changé.' };
+            // 138 (§3.5) — après une RÉCUPÉRATION, sur iPhone hors de l'app : la phrase qui dit où se connecter, à la place
+            // de la seule note. Ailleurs (Android, ordinateur, app installée, ligne « Mot de passe »), la note d'avant.
+            if (pourRecuperation && surIphone()) { noteProfil = null; bandeauMotDePasse = true; }
+            else noteProfil = { classe: 'vide', texte: 'Mot de passe changé.' };
             rendreProfilEcran();
           }).catch(function (e) {
             finRecuperation();
@@ -13792,6 +14290,8 @@
   // La phrase que le Profil porte en tête après un changement de mot de passe : elle survit aux
   // re-rendus (synchronisation, ré-entrée) et s'en va quand on quitte l'écran (`montrer`).
   var noteProfil = null;
+  // 138 — « Ton mot de passe est changé. » (iPhone, hors de l'app) : un état du Profil, comme la note ; « Compris » le ferme.
+  var bandeauMotDePasse = false;
   // 116 (03 #6) — une colonne que la base a refusée pour de bon (`envoyerProfilMaintenant`) : `{ texte, vu }`, ou `null`.
   var refusProfil = null;
 
@@ -13913,7 +14413,10 @@
           // 60-2a — les quatre réponses de l'écran « Temps » (leurs phrases sont dans la feuille).
           Profil.ligneTemps(p, ouvrirReponseProfil)
         ] },
-        { titre: 'L’APP', lignes: [
+        { titre: 'L’APP', lignes: (surIphone() ? [
+          // 138 (§3.5) — en tête, seulement sur iPhone hors de l'app : la feuille « Comment faire ».
+          { libelle: Auth.PHRASES_IPHONE.ligne, valeur: 'Comment faire', surChoix: ouvrirFeuilleInstaller }
+        ] : []).concat([
           // 60-3b — et, « pris entre-temps », la phrase qui le dit tant qu'aucun pseudo n'est posé.
           Profil.lignePseudo(p, pseudoPrisSignale(), function () { ouvrirSaisieProfil('username'); }),
           { libelle: 'Bio', valeur: p.bio || null,
@@ -13924,7 +14427,7 @@
             valeur: (sessionActive && sessionActive.user && sessionActive.user.email) || null },
           // 70 — appelée SANS argument : le rendu passe l'événement du clic, qui n'est pas une récupération.
           { libelle: 'Mot de passe', valeur: '••••••••', surChoix: function () { ouvrirMotDePasseProfil(false); } }
-        ] }
+        ]) }
       ],
       // 64B — la vitrine (les trois succès les plus rares, décidés par le jeu), et en bas l'interrupteur, qui
       // écrit par le chemin du profil : local d'abord, l'écran suit tout de suite, hors ligne compris.
@@ -13934,17 +14437,17 @@
       surSupprimer: demanderSuppressionCompte
     });
     if (noteProfil) $('profil-corps').insertBefore(Rendu.el('p', noteProfil.classe, noteProfil.texte), $('profil-corps').firstChild);
+    if (bandeauMotDePasse) {
+      var pm = Auth.PHRASES_IPHONE.motDePasse;
+      $('profil-corps').insertBefore(Rendu.rendreBandeauReprise(Rendu.el('div', 'bandeau-profil'), {
+        quoi: pm.quoi, sujet: pm.sujet, libelleReprendre: 'Compris',
+        surReprendre: function () { bandeauMotDePasse = false; rendreProfilEcran(); }
+      }), $('profil-corps').firstChild);
+    }
     if (refusProfil && refusProfil.texte) {
       $('profil-corps').insertBefore(Rendu.el('p', 'vide', refusProfil.texte), $('profil-corps').firstChild);
       refusProfil.vu = true;
     }
-  }
-
-  // Le profil a été VU : le bandeau d'accueil ne revient plus. C'est le seul
-  // effet de « première connexion » — pas un drapeau qui gouvernerait un tunnel.
-  function marquerProfilVu() {
-    if (!profil || profil.onboarding_completed !== false) return;
-    poserProfil({ onboarding_completed: true });
   }
 
   // ── Quitter, et supprimer ────────────────────────────────────────────────
@@ -14210,7 +14713,7 @@
   async function poserPaquet(ops) {
     ops.forEach(function (op) { attente = Attente.poser(attente, op); });
     try { await Cache.ecrireAttente(attente); }
-    catch (e) { console.warn('File non persistée :', texteErreur(e)); }
+    catch (e) { console.warn('File non persistée :', texteErreur(e)); direSauvegardeImpossible(); }
     rendreEtatSync();
     vidanger();
   }
@@ -14496,6 +14999,7 @@
     var c = champsEntree();
     c.mode = modeEntree;
     Rendu.rendreEntree(c);
+    rendreEncartInstaller();   // 138 : iPhone, hors de l'app
     majBoutonEntree();
   }
 
@@ -14614,6 +15118,31 @@
   // 70 — l'attente d'un retour de lien est bornée (ECRAN-PROFIL §5.6), et ses deux phrases.
   var DELAI_LIEN_MS = 5000;
   var DELAI_DEPASSE = {};
+
+  // 138 — le lien de confirmation en attente de « Continuer ici » : `{ session }` (la dernière reçue du SDK), ou `null`.
+  var lienTenu = null;
+
+  // L'écran du lien montre le bandeau du §3.5 au lieu d'entrer. « Continuer ici » appelle l'entrée qui aurait eu lieu ;
+  // « Comment installer » ouvre la feuille (l'écran reste là).
+  function proposerRetourIphone(sessionDuLien) {
+    var noeud = $('bandeau-lien');
+    var phrase = doc.querySelector('#vue-lien .entree-phrase');
+    var p = Auth.PHRASES_IPHONE.lien;
+    if (phrase) phrase.textContent = '';
+    Rendu.rendreBandeauReprise(noeud, {
+      quoi: p.quoi, sujet: p.sujet,
+      libelleQuitter: 'Continuer ici',
+      surQuitter: function () {
+        var tenu = lienTenu;
+        lienTenu = null;
+        Rendu.rendreBandeauReprise(noeud, null);
+        if (phrase) phrase.textContent = 'Ouverture du lien…';
+        entrer((tenu && tenu.session) || sessionDuLien).catch(function (e) { console.warn('Entrée :', texteErreur(e)); });
+      },
+      libelleReprendre: 'Comment installer',
+      surReprendre: ouvrirFeuilleInstaller
+    });
+  }
   var PHRASE_LIEN_EXPIRE = 'Ce lien a expiré ou a déjà servi. Redemande-en un avec « Mot de passe oublié ? ».';
   var PHRASE_LIEN_NON_VERIFIE = 'Le lien n\'a pas pu être vérifié. Réessaie, ou redemande-en un avec « Mot de passe oublié ? ».';
 
@@ -14871,7 +15400,15 @@
     // Le profil ne repart que s'il y a quelque chose à envoyer : le renvoyer en entier à
     // chaque retour du réseau écraserait, avec un cache périmé, ce qu'un autre appareil
     // a répondu entre-temps (`questionnaire_fait_le`, objectif, priorités).
-    racine.addEventListener('online', function () { vidanger(); if (profilAEnvoyer) envoyerProfil(); });
+    racine.addEventListener('online', renvoyerCeQuiAttend);
+    // 134 (I-13, audit iPhone) — LE RETOUR AU PREMIER PLAN, PAR LE MÊME CHEMIN. iOS n'a pas de Background Sync, et ne
+    // délivre pas toujours `online` à la reprise : une séance finie hors ligne, l'app rouverte plus tard avec du
+    // réseau, n'attendait plus que le prochain geste. Hors ligne, rien : `online` s'en chargera.
+    doc.addEventListener('visibilitychange', function () {
+      if (doc.visibilityState !== 'visible') return;
+      if (racine.navigator && racine.navigator.onLine === false) return;
+      renvoyerCeQuiAttend();
+    });
     // 106 — les messages du groupe gardés hors ligne partent au retour du réseau.
     racine.addEventListener('online', function () { if (grp.file.length) chargerGroupe(); });
     // Rotation, clavier logiciel, changement de taille : les barres changent de
@@ -14960,6 +15497,12 @@
     // jeton a VRAIMENT disparu du stockage — ce que fait `Auth.deconnecter`, et
     // ce que fait le SDK quand le compte est réellement révoqué.
     Auth.surChangement(function (session, evenement) {
+      // 138 — iPhone, hors de l'app, lien de confirmation : l'entrée attend « Continuer ici » (voir plus bas). La session
+      // reçue est GARDÉE (la plus récente : le jeton peut être rafraîchi pendant l'attente), jamais perdue ni jetée.
+      if (lienTenu && session) {
+        if (evenement === 'PASSWORD_RECOVERY') lienTenu = null;   // une récupération n'attend personne (§5.6)
+        else { lienTenu.session = session; return; }
+      }
       // 70 — arrivé par un lien de récupération : la feuille du mot de passe
       // s'ouvre d'elle-même, dès que l'entrée a posé son premier écran.
       if (session && evenement === 'PASSWORD_RECOVERY') {
@@ -15001,6 +15544,21 @@
     // répond plus tard, le rappel de `surChangement` fait entrer (et ouvre la
     // feuille d'une récupération) — rien d'autre à écrire pour l'entrée tardive.
     var persistee = Auth.sessionPersistee();
+    // ⚠️ 138 (ECRAN-PROFIL §3.5) — UN LIEN DE CONFIRMATION, SUR IPHONE HORS DE L'APP, S'ARRÊTE SUR SA PHRASE.
+    // Le lien ouvre Safari, pas l'app installée, et le stockage de Safari est à part : y entrer en silence
+    // connectait la personne dans une copie qu'elle ne cherchait pas (I-05). La personne décide (« Continuer ici »).
+    //
+    // L'ORDRE DES ÉVÉNEMENTS DU SDK (supabase-js 2.105.1, `GoTrueClient._initialize`, lu dans le dépôt ET relevé au banc
+    // [138], vrai SDK, faux serveur) : le SDK lit le fragment, demande `GET /auth/v1/user`, ENREGISTRE la session
+    // (`_saveSession`), puis émet `PASSWORD_RECOVERY` si le fragment porte `type=recovery`, et `SIGNED_IN` pour TOUT AUTRE
+    // type (signup, magiclink, invite, email_change…), suivi de `INITIAL_SESSION` (la souscription l'attend). Relevé sur un
+    // lien de confirmation : `SIGNED_IN`, `INITIAL_SESSION`, PUIS la lecture de `getSession()` rend la main — les événements
+    // passent AVANT elle. Tous passent par `Auth.surChangement`, qui fait entrer : l'attente est donc POSÉE ICI, de façon
+    // synchrone, avant le premier `await`, sans rien supposer de l'ordre entre l'événement et la lecture de la session ;
+    // `surChangement` GARDE la session reçue au lieu d'entrer. La récupération se distingue AVANT toute décision, sur
+    // l'adresse seule (`retour.recup`, le `type` du fragment) : elle n'attend jamais. Le flux PKCE (`?code=`) ne porte pas
+    // son type : rien n'est arrêté (`retour.implicite` absent).
+    lienTenu = retour && retour.implicite && surIphone() ? { session: null } : null;
     if (retour) {
       montrer('lien');
       var minuteur = null;
@@ -15018,8 +15576,19 @@
       } else if (!lue) {
         phraseLien = retour.erreur ? PHRASE_LIEN_EXPIRE : PHRASE_LIEN_NON_VERIFIE;
       }
+      // 138 — la session QUE LE LIEN A DONNÉE (ni le délai, ni une session déjà enregistrée), et qui n'est pas une récupération.
+      var duLien = lue;
+      if (lienTenu && duLien && recuperation !== 'due') {
+        proposerRetourIphone(duLien);
+        enregistrerSW();
+        Auth.sessionCourante().catch(function () {});
+        return;
+      }
+      // Sans session du lien (expiré, délai) : rien ne change. Un événement gardé en attendant n'est pas perdu.
+      var tenu = lienTenu;
+      lienTenu = null;
+      lue = lue || (tenu && tenu.session) || Auth.sessionPersistee();
       // Une entrée a pu partir de l'événement du SDK pendant l'attente : elle décide, pas le délai.
-      lue = lue || Auth.sessionPersistee();
       if (lue) await entrer(lue);
       else if (!entreeEnCours && !sessionActive) {
         allerA(Routeur.CONNEXION, {}, true);

@@ -97,6 +97,34 @@
     return String(n).replace('.', ',').replace(/^-/, '\u2212');
   }
 
+  // 132 (MOTEUR §10 ter, ECRAN-SAISIE §3 ter.6) — LE FORMATEUR D'UNE SÉRIE NOTÉE PAR NOM : « Noir × 12 », « Noir »
+  // sans reps ; `null` pour une série sans nom (elle garde l'affichage d'avant). Le seul endroit qui l'écrit : le
+  // journal, le détail, la page d'exercice et son meilleur, le récap, le fil, une séance d'ami, le direct du groupe,
+  // la colonne « préc. » le lisent ici. La charge virtuelle n'y paraît jamais.
+  function affichageElastique(serie) {
+    if (!serie || serie.elastique === null || serie.elastique === undefined) return null;
+    return serie.elastique + (serie.reps !== null && serie.reps !== undefined ? ' \u00d7 ' + serie.reps : '');
+  }
+
+  // 132 (maquette `maquette-elastiques-v2.html`) — LA PASTILLE D'UN ÉLASTIQUE : la couleur que son nom dit (« Noir »,
+  // « Rouge », « Bleue »…), lue sur le premier mot, sans accent ni « e » final ; `null` pour un nom qui n'est pas une
+  // couleur (la pastille reste neutre). Un repère pour l'œil, jamais une donnée : le coach ne lit que l'ordre.
+  var COULEURS_ELASTIQUES = {
+    noir: '#2b2b2b', rouge: '#b8433b', vert: '#3f8f5a', bleu: '#2f5f9e', jaune: '#d9b13b', orange: '#d9813b',
+    violet: '#7d5bb5', mauve: '#9b7cc4', gris: '#8a8f96', rose: '#d27a9b', marron: '#7a5537', brun: '#7a5537',
+    blanc: '#e6e6e6', argent: '#b9bec4', or: '#c9a23b', turquoise: '#3fa3a0', beige: '#cbb89a'
+  };
+  function pastilleElastique(nom) {
+    var m = String(nom || '').trim().split(/\s+/)[0].toLowerCase()
+      .replace(/[éèêë]/g, 'e').replace(/[àâ]/g, 'a').replace(/[îï]/g, 'i').replace(/[ôö]/g, 'o').replace(/[ûü]/g, 'u');
+    if (Object.prototype.hasOwnProperty.call(COULEURS_ELASTIQUES, m)) return COULEURS_ELASTIQUES[m];
+    var essais = [m.replace(/s$/, ''), m.replace(/s$/, '').replace(/e$/, ''), m.replace(/s$/, '').replace(/tte$/, 't')];
+    for (var i = 0; i < essais.length; i++) {
+      if (Object.prototype.hasOwnProperty.call(COULEURS_ELASTIQUES, essais[i])) return COULEURS_ELASTIQUES[essais[i]];
+    }
+    return null;
+  }
+
   // \u26a0\ufe0f LA LECTURE D'UN NOMBRE TAP\u00c9 \u2014 L'INVERSE DU FORMATEUR (correctif du
   // 03/10/2026). Le champ de charge r\u00e9affiche une assistance avec le vrai
   // signe moins (`nombreSigne`, U+2212), que la relecture d'alors (`Number`
@@ -269,16 +297,43 @@
   // même sens qu'une barre. Le « kg » reste collé au nombre par l'espace
   // insécable ; « Aide » et son nombre se séparent d'un espace ordinaire.
   var POIDS_DU_CORPS = 'Poids du corps';
+  // 133 (audit 130 #10, décidé le 21/10/2026) — en cours de phrase (le journal, le détail, la médaille, le récap) :
+  // « poids du corps × 12 », jamais « 0 kg × 12 ». Un seul mot, lu par `chargeDuJournal` et `chargeDeLaMedaille`.
+  var POIDS_DU_CORPS_EN_LIGNE = 'poids du corps';
+  // 133 — dans une colonne étroite (« préc. », 62 px ; la colonne des kilos de la table par reps, 66 px), « poids du
+  // corps » ne tient pas : « PDC », l'abréviation du carnet (« PDC×12 »). Jamais « 0 ».
+  var POIDS_DU_CORPS_COURT = 'PDC';
+  // La charge d'une colonne étroite : « PDC » pour 0 kg, le nombre sinon (l'en-tête dit l'unité).
+  function chargeEnColonne(kg) { return Number(kg) === 0 ? POIDS_DU_CORPS_COURT : nombreTexte(kg); }
   var AIDE = 'Aide';
   // 50-1 bis — ce que la page d'un exercice en reps dit de sa charge : le coach
   // suit les reps, la charge est le corps (§9.17). Une phrase, ici : le
   // formateur est le seul endroit où le coach (et ses pages) ont une voix.
   // Sans « palier », sans point d'interrogation (§20.2).
   var PHRASE_POIDS_DU_CORPS = 'Ta charge, c\u2019est ton poids du corps' + INSECABLE + ': le coach suit tes reps.';
+  // 132 (MOTEUR §10 ter) — UN EXERCICE NOTÉ PAR NOM : ses charges sont VIRTUELLES (l'ordre de la liste), et le
+  // formateur les dit par leur NOM (« Noir », « Noir × 12 »). C'est ici, au seul endroit de l'affichage, que la charge
+  // virtuelle se traduit : une phrase rédigée sous `avecNoms(noms, fn)` — le plan pour un exercice, la consigne pour
+  // ses libellés — écrit le nom à la place du chiffre ; la citation garde la charge (le coach la compare). Hors de
+  // cette portée, rien ne change. Synchrone, rendue dans `finally`, comme la capture.
+  var portees = [];
+  function avecNoms(noms, fn) {
+    if (!noms) return fn();
+    portees.push(noms);
+    try { return fn(); } finally { portees.pop(); }
+  }
+  // Le nom d'une charge virtuelle dans la portée en cours, ou `null`.
+  function nomDeLaCharge(kg) {
+    if (!portees.length || kg === null || kg === undefined || kg === '' || !isFinite(Number(kg))) return null;
+    var noms = portees[portees.length - 1], k = String(Number(kg));
+    return Object.prototype.hasOwnProperty.call(noms, k) ? noms[k] : null;
+  }
   function chargeTexte(kg, repli) {
     if (kg === null || kg === undefined || kg === '' || !isFinite(Number(kg))) {
       return repli === undefined ? CRAN_INCONNU : repli;
     }
+    var nomme = nomDeLaCharge(kg);
+    if (nomme !== null) return nomme;
     var n = Number(kg);
     if (n === 0) return POIDS_DU_CORPS;
     if (n < 0) return AIDE + ' ' + nombreTexte(-n) + INSECABLE + 'kg';
@@ -473,14 +528,25 @@
   function aValeur(v) { return v !== null && v !== undefined && v !== ''; }
   // §9.17 — une charge négative est une aide : « Aide 22,5 kg × 8 », jamais « −22,5 kg × 8 » (le journal dit la même
   // chose que le coach).
-  function chargeDuJournal(kg) { return Number(kg) < 0 ? chargeTexte(kg) : nombreTexte(kg) + ' kg'; }
+  // 133 (audit 130 #10) — une charge de 0 kg est le poids du corps : « poids du corps × 12 », comme la médaille.
+  function chargeDuJournal(kg) {
+    var n = Number(kg);
+    if (n === 0) return POIDS_DU_CORPS_EN_LIGNE;
+    return n < 0 ? chargeTexte(kg) : nombreTexte(kg) + ' kg';
+  }
   function partiesDe(s, champs) {
     return champs.map(function (f) { return f(s); }).filter(Boolean).join(' · ') || '—';
   }
   var PART = {
     charge: function (s) { return aValeur(s.charge_kg) ? chargeDuJournal(s.charge_kg) : ''; },
     duree: function (s) { return s.duree_s ? formatDuree(s.duree_s) : ''; },
-    distance: function (s) { return s.distance_m ? formatDistance(s.distance_m) : ''; }
+    distance: function (s) { return s.distance_m ? formatDistance(s.distance_m) : ''; },
+    // ECRAN §3 ter.5 (prompt 131) — les champs en plus. Une valeur absente ne s'affiche
+    // jamais, ni à zéro (jamais « D+ 0 m »).
+    denivele: function (s) { return s.denivele_m ? 'D+ ' + nombreGroupe(nombreTexte(s.denivele_m, 0)) + ' m' : ''; },
+    etages: function (s) {
+      return s.etages ? nombreGroupe(nombreTexte(s.etages, 0)) + ' ' + (Number(s.etages) >= 2 ? 'étages' : 'étage') : '';
+    }
   };
   var AFFICHAGE_DES_MESURES = {
     charge_reps: { entete: 'Charge', meilleure: 'Record de charge', valeur: function (s) {
@@ -490,11 +556,13 @@
     reps: { entete: 'Reps', meilleure: 'Record de reps', valeur: function (s) {
       return aValeur(s.reps) ? repsTexte(s.reps) : '—';
     } },
+    // ECRAN §3 ter.5 (prompt 131, maquette mesures-cardio écran 4) — distance, puis durée,
+    // puis D+ ou étages : « 13,2 km · 3 h 25 · D+ 920 m », « 20 min · 72 étages ».
     temps: { entete: 'Durée', meilleure: 'Plus longue durée', valeur: function (s) {
-      return partiesDe(s, [PART.duree]);
+      return partiesDe(s, [PART.duree, PART.denivele, PART.etages]);
     } },
-    distance_temps: { entete: 'Durée · distance', meilleure: 'Plus longue durée', valeur: function (s) {
-      return partiesDe(s, [PART.duree, PART.distance]);
+    distance_temps: { entete: 'Distance · durée', meilleure: 'Plus longue durée', valeur: function (s) {
+      return partiesDe(s, [PART.distance, PART.duree, PART.denivele, PART.etages]);
     } },
     charge_distance: { entete: 'Charge · distance', meilleure: 'Plus longue distance', valeur: function (s) {
       return partiesDe(s, [PART.charge, PART.distance]);
@@ -507,11 +575,13 @@
   // 28 103 séries) : ce qu'on affiche est ce qui a été fait, même sans catalogue.
   function mesureDesColonnes(s) {
     var c = aValeur(s.charge_kg), r = aValeur(s.reps), d = !!s.duree_s, m = !!s.distance_m;
+    // Prompt 131 — un D+ ou des étages seuls se disent avec la durée (`temps`).
+    var plus = !!s.denivele_m || !!s.etages;
     if (r) return c ? 'charge_reps' : 'reps';
     if (c && m) return 'charge_distance';
     if (c && d) return 'charge_temps';
     if (m) return 'distance_temps';
-    if (d) return 'temps';
+    if (d || plus) return 'temps';
     return c ? 'charge_reps' : null;
   }
   // L'affichage d'une mesure (`{ entete, meilleure }`), ou `null` pour une mesure inconnue : on ne nomme pas ce qu'on
@@ -520,9 +590,12 @@
     return Object.prototype.hasOwnProperty.call(AFFICHAGE_DES_MESURES, mesure) ? AFFICHAGE_DES_MESURES[mesure] : null;
   }
 
-  // « 52 kg × 12 » · « 6 h 35 · 22,7 km » · « 12 reps » · « 1 rep » — la valeur d'une série dans le journal.
+  // « 52 kg × 12 » · « 22,7 km · 6 h 35 » · « 12 reps » · « 1 rep » — la valeur d'une série dans le journal.
   function formatMesure(serie) {
     if (!serie) return '';
+    // 132 (ECRAN-SAISIE §3 ter.6) — LE FORMATEUR UNIQUE écrit « Noir × 12 » pour une série notée par nom : le journal,
+    // le détail, une séance d'ami, le direct du groupe — jamais sa charge (le kg d'une aide, ni rien de virtuel).
+    if (notee(serie)) return affichageElastique(serie);
     var m = mesureDesColonnes(serie);
     return m ? AFFICHAGE_DES_MESURES[m].valeur(serie) : '—';
   }
@@ -573,7 +646,17 @@
     // Taper `8,76` en kilomètres est aussi rapide que `8760` en mètres et plus
     // lisible. Le décalage n'apporte rien là où il n'y a ni trois groupes ni
     // base de soixante.
-    distance_km: { cle: 'distance_m', entete: 'DISTANCE', unite: 'km',  facteur: 1000, saisie: 'nombre' }
+    distance_km: { cle: 'distance_m', entete: 'DISTANCE', unite: 'km',  facteur: 1000, saisie: 'nombre',
+                   manque: 'la distance' },
+    // ECRAN §3 ter.5 (prompt 131, v2_101) — LES CHAMPS EN PLUS, exercice par exercice : jamais
+    // obligatoires, jamais de chiffre gris. `place` dit où la grille les pose : les étages
+    // prennent la colonne de la distance (Escaliers = durée · étages) ; le D+ a sa propre
+    // ligne, sous la série (une troisième colonne ne tient pas à 360 px à côté d'une durée
+    // en horloge). `libelle` : ce que la légende ajoute sous le nom de l'exercice.
+    denivele_m:  { cle: 'denivele_m', entete: 'D+',       unite: 'm',   facteur: 1,    saisie: 'nombre',
+                   facultatif: true, place: 'dessous', libelle: 'D+', texte: 'Dénivelé +', manque: 'le D+' },
+    etages:      { cle: 'etages',     entete: 'ÉTAGES',   unite: null,  facteur: 1,    saisie: 'nombre',
+                   facultatif: true, place: 'colonne', libelle: 'ÉTAGES', manque: 'les étages' }
   };
 
   // ── Le pavé de chronométrage, en fonctions pures ────────────────────────
@@ -586,6 +669,41 @@
   // suivant — sans perte, puisque la valeur, elle, est exacte à la seconde.
   var MAX_DUREE_S = 9 * 3600 + 59 * 60 + 59;   // 9:59:59 — 35 999 s, LA borne
   var MAX_CHIFFRES_DUREE = 5;                  // sa conséquence, pas une règle
+
+  // ══ LES BORNES DES MESURES (ECRAN §3 ter.5, décidées le 21/10/2026 — audit 130 n°8 et n°9) ══
+  //
+  // UNE TABLE, en unités de COLONNE, lue par la saisie (`THSeance.modifierSerie`), la
+  // réparation de la file (`THSeance.bornerLigne`) et le champ lui-même (`maxDeSaisie`,
+  // le chiffre de trop n'entre pas, comme au pavé). Une borne recopiée ailleurs
+  // dériverait, et une contrainte en base sans la même borne dans l'app bloquerait la
+  // file (23514, définitif).
+  //
+  // ⚠️ JAMAIS 0 : une durée, une distance à 0 ne se valident pas — le 0 s'affichait
+  // « — » (audit 130 n°9). Hors borne, la valeur n'est PAS écrite (`null`) : la case
+  // obligatoire reste vide, donc rouge au ✓.
+  var MAX_DISTANCE_M = 400000;                 // 400 km
+  var BORNES_DES_COLONNES = {
+    duree_s:    { min: 1, max: MAX_DUREE_S },
+    distance_m: { min: 1, max: MAX_DISTANCE_M },
+    denivele_m: { min: 1, max: 10000 },        // D+ : 10 000 m
+    etages:     { min: 1, max: 2000 }          // les étages tels que la machine les affiche
+  };
+  // La valeur bornée d'une colonne : la valeur, ou `null` (hors borne, ou pas un nombre).
+  // Une colonne sans borne passe telle quelle.
+  function borneDeColonne(cle, v) {
+    var b = Object.prototype.hasOwnProperty.call(BORNES_DES_COLONNES, cle) ? BORNES_DES_COLONNES[cle] : null;
+    if (!b || v === null || v === undefined) return v === undefined ? null : v;
+    var n = Number(v);
+    if (!isFinite(n) || n < b.min || n > b.max) return null;
+    return v;
+  }
+  // Le plus grand nombre que le CHAMP de saisie accepte (unité de saisie : km pour la
+  // distance), ou `null` : au-delà, le chiffre tapé n'entre pas.
+  function maxDeSaisie(nom) {
+    var c = Object.prototype.hasOwnProperty.call(CHAMPS_MESURE, nom) ? CHAMPS_MESURE[nom] : null;
+    var b = c && Object.prototype.hasOwnProperty.call(BORNES_DES_COLONNES, c.cle) ? BORNES_DES_COLONNES[c.cle] : null;
+    return b ? b.max / (c.facteur || 1) : null;
+  }
 
   function deux(n) { return (n < 10 ? '0' : '') + n; }
 
@@ -691,7 +809,7 @@
     temps:          { mesure: 'temps',          champs: ['duree'],
                       effort: false, libelle: 'DURÉE' },
     distance_temps: { mesure: 'distance_temps', champs: ['duree', 'distance_km'],
-                      effort: false, libelle: 'DISTANCE ET DURÉE' }
+                      effort: false, libelle: 'DURÉE · DISTANCE' }
   };
 
   var MESURES = Object.keys(GABARITS);
@@ -727,9 +845,73 @@
              effort: true, libelle: null, inconnue: true };
   }
 
+  // ══ LES CHAMPS D'UNE SÉRIE (ECRAN §3 ter.5, prompt 131) ═══════════════════════
+  //
+  // ⚠️ UNE SEULE FONCTION DIT LES CHAMPS D'UNE SÉRIE : ceux de la MESURE (`gabaritDe`),
+  // puis ceux du CATALOGUE (`exercises.champs_series`, v2_101 : « au cas par cas, jamais
+  // un champ pour tout »). La mesure ne change pas — une Randonnée reste `distance_temps`,
+  // donc le coach, les bilans, le jeu et les records ne voient rien de neuf. Tout le reste
+  // la lit : la grille (`grilleDe`), la série vide, la reprise, l'envoi, les cases
+  // remplies non validées, le compte de fin, la carte « Ce qui manque », le formateur.
+  //
+  // `champsDeSerie(exo)` rend des NOMS de champ (`CHAMPS_MESURE`) : Randonnée →
+  // `['duree', 'distance_km', 'denivele_m']`, Escaliers → `['duree', 'etages']`. Une valeur
+  // du catalogue que la table ne connaît pas est ignorée (on ne saisit pas ce qu'on ne sait
+  // pas ranger). Sans fiche, la mesure inconnue : ses champs, et aucun en plus.
+  // `colonnesDeSerie(exo)` : les COLONNES de `sets` de ces champs ; sans argument, TOUTES
+  // celles que la table connaît — ce que porte toute série, quel que soit son exercice.
+  function champsEnPlusDe(exo) {
+    var l = exo && Array.isArray(exo.champs_series) ? exo.champs_series : [];
+    var g = gabaritDe(exo);
+    if (g.inconnue) return [];
+    return l.filter(function (nom, i) {
+      var c = Object.prototype.hasOwnProperty.call(CHAMPS_MESURE, nom) ? CHAMPS_MESURE[nom] : null;
+      return !!c && c.facultatif === true && l.indexOf(nom) === i;
+    });
+  }
+  function champsDeSerie(exo) {
+    return gabaritDe(exo).champs.concat(champsEnPlusDe(exo));
+  }
+  function colonnesDeSerie(exo) {
+    var noms = arguments.length ? champsDeSerie(exo) : Object.keys(CHAMPS_MESURE);
+    return noms.map(function (n) { return CHAMPS_MESURE[n].cle; });
+  }
+  // La grille d'un exercice : le gabarit de sa mesure, plus `colonnes` (les champs en
+  // colonne), `dessous` (les champs sous la série) et la légende complétée (« DURÉE ·
+  // ÉTAGES »). `programme` (l'éditeur de routine) : aucun champ en plus — `routine_sets`
+  // n'a pas de colonne pour eux.
+  function grilleDe(exo, programme) {
+    var g = gabaritDe(exo);
+    var plus = programme ? [] : champsDeSerie(exo).slice(g.champs.length);
+    var colonnes = g.champs.concat(plus.filter(function (n) { return CHAMPS_MESURE[n].place === 'colonne'; }));
+    var dessous = plus.filter(function (n) { return CHAMPS_MESURE[n].place === 'dessous'; });
+    if (!plus.length) return Object.assign({}, g, { colonnes: g.champs, dessous: [] });
+    return Object.assign({}, g, {
+      colonnes: colonnes, dessous: dessous,
+      libelle: g.libelle ? [g.libelle].concat(plus.map(function (n) { return CHAMPS_MESURE[n].libelle; })).join(' \u00b7 ') : g.libelle
+    });
+  }
+
   function champDeMesure(nom) {
+    if (nom === CHAMP_ELASTIQUE.cle) return CHAMP_ELASTIQUE;
     return Object.prototype.hasOwnProperty.call(CHAMPS_MESURE, nom)
       ? CHAMPS_MESURE[nom] : null;
+  }
+
+  // 132 (ECRAN-SAISIE §3 ter.6, MOTEUR §10 ter) — LA COLONNE « ÉLASTIQUE » d'un exercice noté par son nom : une case qui
+  // ouvre la liste qui va avec l'exercice (grands élastiques ou mini-bandes). En résistance, le gabarit `reps` la reçoit
+  // devant les reps ; sur une aide, elle remplace « AIDE (KG) ». Elle n'est PAS une colonne de mesure
+  // (`CHAMPS_MESURE`) : elle n'existe que pour qui note par nom, et sa valeur est un nom, jamais un nombre — `sets.elastique`
+  // s'écrit par `THProfil.ecrireSerie` (le nom, et le kg déclaré d'une aide). Obligatoire (§3 bis.3 bis) : une série
+  // sans élastique passe au rouge, sauf si le coach en propose un (le gris), qui est alors validé.
+  var CHAMP_ELASTIQUE = { cle: 'elastique', entete: 'ÉLASTIQUE', unite: null, facteur: 1, saisie: 'elastique',
+                          manque: 'l’élastique' };
+  // La grille d'un exercice noté par nom : `grilleDe` (sa mesure), où la colonne de charge — ou, en `reps`, une colonne
+  // devant les reps — devient « ÉLASTIQUE ». `programme` (l'éditeur de routine) : jamais (comme la charge de départ).
+  function grilleElastique(g) {
+    var colonnes = ['elastique', 'reps'];
+    return Object.assign({}, g, { champs: colonnes, colonnes: colonnes, dessous: [], elastique: true, nature: 'elastique',
+      entetes: { elastique: CHAMP_ELASTIQUE.entete }, libelle: 'ÉLASTIQUE × REPS' });
   }
 
   // La colonne « précédent » : 62 px. `formatMesure` y déborderait — on donne
@@ -738,6 +920,9 @@
   //   distance_temps → « 6 h 35 » (la distance ne tient pas, la durée gagne)
   function formatPrecedent(serie, mesure, nature) {
     if (!serie) return '—';
+    // 132 (ECRAN-SAISIE §3 ter.6) — une série notée par nom : « Noir × 12 », le formateur unique, quelle que soit la
+    // grille d'aujourd'hui (un élastique retiré garde son nom ; revenu « en kg », la série d'avant dit encore son nom).
+    if (serie.elastique !== null && serie.elastique !== undefined) return affichageElastique(serie);
     if (mesure === 'reps') {
       return serie.reps === null || serie.reps === undefined ? '—' : String(serie.reps);
     }
@@ -747,15 +932,20 @@
     // a cataloguée. La grille de saisie est une horloge ; le journal — cartes,
     // détail, résumés — reste en prose et garde `formatDuree`. Les deux ne se
     // rencontrent jamais.
+    // Audit 130 n°5 (prompt 131) — « durée OU distance » : une série en distance seule
+    // montre sa distance (le même formateur que le journal), jamais « — ».
     if (mesure === 'temps' || mesure === 'distance_temps') {
-      return formatChrono(serie.duree_s) || '—';
+      var chrono = formatChrono(serie.duree_s);
+      if (chrono) return chrono;
+      return mesure === 'distance_temps' && serie.distance_m ? formatDistance(serie.distance_m) : '—';
     }
     if (serie.charge_kg === null || serie.charge_kg === undefined) return '—';
     // §9.17 — sous « AIDE (KG) », l'aide se lit comme elle se tape : sans signe.
     // La colonne est de 62 px : « Aide 22,5 kg » n'y tient pas, et l'en-tête de
     // la colonne d'à côté dit déjà ce que c'est.
     var kg = nature === 'aide' ? aideAffichee(serie.charge_kg) : serie.charge_kg;
-    return nombreTexte(kg) +
+    // 133 — 0 kg : « PDC×12 », jamais « 0×12 » (`chargeEnColonne`).
+    return chargeEnColonne(kg) +
       (serie.reps === null || serie.reps === undefined ? '' : '\u00d7' + serie.reps);
   }
 
@@ -993,13 +1183,20 @@
     return moisAnnee(d);
   }
 
-  // Une « sortie » n'est pas une séance de musculation : l'exercice ne porte
-  // aucune charge et se mesure en temps et/ou en distance. Établi par lecture
-  // du catalogue : charge='aucune' + mesure ∈ {temps, distance_temps} couvre
-  // Randonnée, Course à pieds, Cyclisme, Marche, Natation, Pilates, Escalade…
+  // Une « sortie » n'est pas une séance de musculation : c'est le CARDIO du catalogue.
+  //
+  // 133 (audit 130 #11, décidé le 21/10/2026, ECRAN-SAISIE §3 ter.4, JEU §… « Cardio ») — UNE SORTIE, ET LE CARDIO
+  // DU JEU, CE SONT SEULEMENT LES EXERCICES DE NATURE `cardio` (course, vélo, randonnée, sports, corde à sauter…).
+  // Les étirements et la mobilité, le gainage et les figures tenues restent des séances ordinaires, avec leurs
+  // exercices. Sans `nature` connue (un catalogue en cache d'avant v2_096), l'ancienne règle : aucune charge, et une
+  // mesure en temps et/ou en distance.
+  //
+  // Ses lecteurs (133b, 22/10/2026) : le jeu (minutes de cardio), le résumé d'une séance, « les autres activités »
+  // des faits. Le générateur et les habitudes NE la lisent PAS : ils lisent `THSemaine.porteDuVolume`.
   function estExerciceSortie(exo) {
-    return !!exo && exo.charge === 'aucune' &&
-      (exo.mesure === 'temps' || exo.mesure === 'distance_temps');
+    if (!exo) return false;
+    if (exo.nature) return exo.nature === 'cardio';
+    return exo.charge === 'aucune' && (exo.mesure === 'temps' || exo.mesure === 'distance_temps');
   }
 
   // ── Découpage en blocs ──────────────────────────────────────────────────
@@ -1467,10 +1664,22 @@
   // Elle rend les mêmes clés qu'avant : `charge`/`reps` sur `charge_reps`,
   // `valeur` (+ `complement`) sur les trois autres mesures. Une absence reste
   // une absence — aucune clé plutôt qu'un zéro.
-  function meilleureSerieDe(slug, series, exercices, palier, etats) {
+  // 132 (MOTEUR §10 ter, ECRAN-SAISIE §3 ter.6) — `nomme` (facultatif) : `nomme(slug, series)` rend le meilleur d'un
+  // exercice noté par nom (« Rouge × 10 », `THProfil.meilleurElastique` : l'ordre de Ma salle, que ce module ne lit
+  // pas), ou `null`. Des séries notées par nom : la meilleure série se dit par lui (`valeur`), jamais par une charge —
+  // la carte de séance, « Dernière séance », la page d'exercice et le sommaire lisent la même.
+  function meilleureNommee(slug, series, nomme) {
+    var siennes = (series || []).filter(function (x) { return x && x.exercise_slug === slug && estTravail(x) && notee(x); });
+    if (!siennes.length) return null;
+    var t = typeof nomme === 'function' ? nomme(slug, siennes) : null;
+    return { charge: null, reps: null, valeur: t || affichageElastique(siennes[siennes.length - 1]) };
+  }
+  function meilleureSerieDe(slug, series, exercices, palier, etats, nomme) {
     var index = indexerExercices(exercices || []);
     var g = gabaritDe(index[slug]);
     var e = {};
+    var n = meilleureNommee(slug, series, nomme);
+    if (n) return n;
 
     // ⚠️ L'ORDRE ET LES CLÉS SONT CEUX D'AVANT L'EXTRACTION. `charge` et `reps`
     // sont posées — à `null` s'il n'y a rien — pour TOUTES les mesures dès qu'un
@@ -1514,7 +1723,22 @@
       if (d === null) return;
       if (longue === null || d > plusLongue) { longue = x; plusLongue = d; }
     });
-    if (longue === null) return e;
+    if (longue === null) {
+      // Audit 130 n°5 (prompt 131) — « durée OU distance » : sans aucune durée, la page
+      // montre la plus longue DISTANCE, et le libellé le dit (« un libellé ne contredit
+      // jamais son chiffre ») : `libelle` remplace « Plus longue durée ».
+      if (g.mesure !== 'distance_temps') return e;
+      var loin = null, plusLoin = null;
+      siennes.forEach(function (x) {
+        var m = valeurNumerique(x, 'distance_m');
+        if (m === null || m <= 0) return;
+        if (loin === null || m > plusLoin) { loin = x; plusLoin = m; }
+      });
+      if (loin === null) return e;
+      e.valeur = formatDistance(loin.distance_m);
+      e.libelle = 'Plus longue distance';
+      return e;
+    }
     e.valeur = formatDuree(longue.duree_s);
     if (g.mesure === 'distance_temps' && longue.distance_m) {
       e.complement = '\u00b7 ' + formatDistance(longue.distance_m);
@@ -1544,9 +1768,14 @@
   // meilleure série SEULEMENT quand on a comparé séance par séance, c'est-à-dire
   // sur `charge_reps`. Ailleurs, un maximum n'a pas de séance gagnante à
   // désigner sans la rechercher, et on ne prétend pas la connaître.
-  function meilleureSerieDeTout(slug, parSeance, exercices, palier, etats) {
+  function meilleureSerieDeTout(slug, parSeance, exercices, palier, etats, nomme) {
     var groupes = parSeance || [];
     var g = gabaritDe(indexerExercices(exercices || [])[slug]);
+    // 132 — des séries notées par nom, toutes séances confondues : le meilleur se lit sur l'ordre de la liste.
+    var tout = [];
+    groupes.forEach(function (gr) { tout = tout.concat((gr && gr.series) || []); });
+    var n = meilleureNommee(slug, tout, nomme);
+    if (n) return n;
     if (g.mesure !== 'charge_reps') {
       var toutes = [];
       groupes.forEach(function (gr) { toutes = toutes.concat((gr && gr.series) || []); });
@@ -1828,19 +2057,24 @@
   // porte `valeur`, l'ancien record `ancien` et sa date `ancien_le` (le début
   // de sa séance), et `douzeMois` (lu dans la fenêtre des 12 mois d'un matériel
   // de salle) ; `[]` sans record.
+  function notee(s) { return !!s && s.elastique !== null && s.elastique !== undefined; }
   function recordsBattus(historique, seance, indice, options) {
     var o = options || {};
     var se = seance || {};
     var series = se.series || [];
     var s = series[indice];
     if (!s || !estTravail(s)) return [];
+    // 132 (MOTEUR §10 ter, I51) — UNE SÉRIE NOTÉE PAR NOM NE FAIT AUCUN RECORD (ni médaille, ni ligne du journal) :
+    // un record est immuable, et l'ordre d'une liste d'élastiques peut changer. Elle ne sert pas non plus de base à
+    // battre (ci-dessous, `siennes`). Le meilleur d'un tel exercice se lit à l'affichage (`THProfil.meilleurElastique`).
+    if (notee(s)) return [];
     var slug = s.exercise_slug;
     var t0 = instantRecord(se.debut);
     if (t0 === null) return [];
     var corps = !!o.corps;
     var M = racine.THMoteur;
     var siennes = function (liste) {
-      return (liste || []).filter(function (x) { return x && x.exercise_slug === slug && estTravail(x); });
+      return (liste || []).filter(function (x) { return x && x.exercise_slug === slug && estTravail(x) && !notee(x); });
     };
     // Les séances antérieures qui ont fait cet exercice — toute la vie (la
     // durée, la distance) et dans la fenêtre du matériel (les charges).
@@ -1970,7 +2204,7 @@
   // plus un record — elle ne figure plus dans la médaille.)
   function chargeDeLaMedaille(kg) {
     var n = Number(kg);
-    if (n === 0) return 'poids du corps';
+    if (n === 0) return POIDS_DU_CORPS_EN_LIGNE;
     if (n < 0) return nombreTexte(-n) + INSECABLE + 'kg d\'aide';
     return nombreTexte(n) + INSECABLE + 'kg';
   }
@@ -2048,7 +2282,7 @@
       : { charge: null, reps: null, date: null };
   }
 
-  function apercuExercices(series, exercices, palier, etats) {
+  function apercuExercices(series, exercices, palier, etats, nomme) {
     var index = indexerExercices(exercices || []);
     var vus = {}, ordre = [];
     trierParRang(series || []).forEach(function (s) {
@@ -2060,7 +2294,7 @@
     var tete = ordre.slice(0, APERCU_MAX);
     // Un seul calcul, partagé avec la page d'exercice : voir `meilleureSerieDe`.
     tete.forEach(function (e) {
-      var m = meilleureSerieDe(e.slug, series, exercices, palier, etats);
+      var m = meilleureSerieDe(e.slug, series, exercices, palier, etats, nomme);
       Object.keys(m).forEach(function (k) { e[k] = m[k]; });
     });
 
@@ -2072,7 +2306,7 @@
     };
   }
 
-  function resumerSeance(seance, series, exercices, palier, etats) {
+  function resumerSeance(seance, series, exercices, palier, etats, nomme) {
     var index = indexerExercices(exercices);
     var listeSeries = series || [];
     // ⚠️ LA CARTE LIT LE MÊME COMPTE QUE LA BARRE (chantier 40).
@@ -2128,7 +2362,7 @@
       estSortie: sortie,
       // Une sortie n'a pas d'aperçu d'exercices : elle se dit en durée et en
       // distance. On ne construit donc rien qu'on n'affichera pas.
-      apercu: sortie ? null : apercuExercices(listeSeries, exercices, palier, etats),
+      apercu: sortie ? null : apercuExercices(listeSeries, exercices, palier, etats, nomme),
       dureeTotale: dureeTotale || null,
       distanceTotale: distanceTotale || null
     };
@@ -2175,8 +2409,16 @@
     PHRASE_POIDS_DU_CORPS: PHRASE_POIDS_DU_CORPS,
     ENTETES_DE_CHARGE: ENTETES_DE_CHARGE,
     champDeMesure: champDeMesure,
+    champsEnPlusDe: champsEnPlusDe,
+    champsDeSerie: champsDeSerie,
+    colonnesDeSerie: colonnesDeSerie,
+    grilleDe: grilleDe,
     MAX_CHIFFRES_DUREE: MAX_CHIFFRES_DUREE,
     MAX_DUREE_S: MAX_DUREE_S,
+    MAX_DISTANCE_M: MAX_DISTANCE_M,
+    BORNES_DES_COLONNES: BORNES_DES_COLONNES,
+    borneDeColonne: borneDeColonne,
+    maxDeSaisie: maxDeSaisie,
     poserChiffreDuree: poserChiffreDuree,
     retirerChiffreDuree: retirerChiffreDuree,
     dureeDeChiffres: dureeDeChiffres,
@@ -2202,6 +2444,11 @@
     nombreFixe: nombreFixe,
     nombreTexte: nombreTexte,
     nombreSigne: nombreSigne,
+    pastilleElastique: pastilleElastique,
+    affichageElastique: affichageElastique,
+    grilleElastique: grilleElastique,
+    avecNoms: avecNoms,
+    nomDeLaCharge: nomDeLaCharge,
     lireNombre: lireNombre,
     // §9.17 — l'aide : tapée en positif, rangée en négatif, lue sans signe.
     rangerAide: rangerAide,
@@ -2229,6 +2476,7 @@
     formatDuree: formatDuree,
     formatDistance: formatDistance,
     formatMesure: formatMesure,
+    chargeEnColonne: chargeEnColonne,
     affichageDeMesure: affichageDeMesure,
     mesureDesColonnes: mesureDesColonnes,
     seMesureEnReps: seMesureEnReps,

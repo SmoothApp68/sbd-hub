@@ -16,6 +16,14 @@
 <title>TrainHub v2</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icons/icon-192.png">
+<!-- 134 (I-15, I-16, I-19, audit iPhone) — l'écran d'accueil de l'iPhone : une icône OPAQUE sur le fond de l'app
+     (iOS noircit la transparence ; générée par v2-atelier/outils/apple-touch-icon.py), une barre d'état opaque et
+     sombre (`black`, JAMAIS `black-translucent` : le contenu monterait sous l'heure, aucune marge haute n'est
+     prévue), et le nom sous l'icône. -->
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="TrainHub">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -54,6 +62,9 @@
         <button id="btn-connexion" type="submit" class="principal">Se connecter</button>
         <p id="erreur-connexion" class="erreur" role="alert" aria-live="polite"></p>
       </form>
+      <!-- 138 (ECRAN-PROFIL §3.5) — sur iPhone, hors de l'app installée : « installe TrainHub d'abord ». Le composant du
+           bandeau de reprise, rempli par l'app ; vide et caché partout ailleurs (Android compris). -->
+      <div id="encart-installer" hidden></div>
       <!-- Le bandeau RASSURE, il ne bloque pas : la connexion demande le réseau,
            mais une session déjà ouverte n'en demande aucun (chantier 22). -->
       <div class="entree-hors">
@@ -72,6 +83,8 @@
         <div class="entree-marque">Train<b>Hub</b></div>
         <div class="entree-phrase" role="status" aria-live="polite">Ouverture du lien…</div>
       </div>
+      <!-- 138 — iPhone, hors de l'app : un lien de confirmation s'arrête ici (« Continuer ici » / « Comment installer »). -->
+      <div id="bandeau-lien" hidden></div>
     </div>
   </section>
 
@@ -149,11 +162,15 @@
          questionnaire (le questionnaire passe d'abord). Jamais pendant une séance,
          jamais en « Juste un carnet ». -->
     <div id="bandeau-phase" hidden></div>
+    <!-- 138 (ECRAN-PROFIL §3.5) — « Tu utilises TrainHub dans Safari. » : iPhone hors de l'app, connectée, hors séance. SOUS le
+         questionnaire et la phase (ils passent d'abord) ; « Plus tard » le cache 7 jours sur cet appareil. -->
+    <div id="bandeau-installer" hidden></div>
     <!-- 60-4 (MOTEUR §9.22) — la carte « Passer en cycles » : une seule fois, 21 jours après un programme construit. -->
     <div id="carte-cycles" hidden></div>
     <!-- 99 (MOTEUR §9.24) — la semaine qui déraille : une séance prévue n'a pas eu lieu. À l'ouverture, jamais par
          une notification ; seulement avec un programme à jours prévus. -->
     <div id="carte-semaine" hidden></div>
+    <div id="carte-manque" hidden></div>
     <!-- Le bandeau de reprise (§7 octodecies.3) : il ne s'affiche que s'il y a
          quelque chose d'ouvert. Le même composant servira à la séance en cours
          (§7 nonies), qui n'est pas encore branchée. -->

@@ -334,6 +334,19 @@
     return d === null || a === null ? null : a - d;
   }
 
+  // 137 (MOTEUR §9.22, décision du 22/10/2026) — « PAS MAINTENANT » VAUT POUR CE PROGRAMME-LÀ. La carte « Passer en
+  // cycles » est déjà vue quand `carte_cycles_le` existe ET n'est pas antérieure à `programme_construit_le`
+  // (comparées comme des instants) : un programme reconstruit réécrit `programme_construit_le`, et le refus d'avant
+  // ne vaut plus. Sans refus : jamais vue. Un refus sans date de programme lisible : vue (la règle d'avant).
+  function carteCyclesDejaVue(profil) {
+    var p = profil || {};
+    if (!p.carte_cycles_le) return false;
+    var refus = new Date(p.carte_cycles_le).getTime();
+    var construit = p.programme_construit_le ? new Date(p.programme_construit_le).getTime() : NaN;
+    if (isNaN(refus) || isNaN(construit)) return true;
+    return refus >= construit;
+  }
+
   // Vrai quand une phase est DÉCLARÉE et que sa dernière confirmation date de
   // 42 jours calendaires ou plus. Faux sans date lisible, avec une date dans le
   // futur, ou sans phase déclarée. `aujourdhui` : l'horloge, passée pour les tests.
@@ -589,6 +602,9 @@
                        // départ (`{ slug: { r, le, aide } }`). FACULTATIVE en lecture et en écriture tant que la migration
                        // n'est pas lancée (`COLONNES_FACULTATIVES`, donnees.js).
                        'marche_reponses',
+                       // 131 (v2_101, ECRAN §3 ter.5) — « Je ne sais plus » : les groupes (« slug:colonne ») que la
+                       // carte « Ce qui manque à tes séances » ne propose plus, pour de bon.
+                       'completer_refus',
                        'materiel',
                        'seances_par_semaine', 'duree_seance_min',
                        // 60-2a (v2_065) — le questionnaire du coach. `zone_force_reponse*` n'y
@@ -616,8 +632,9 @@
                        'bilans_annonces',
                        // 108 (v2_088) — ma salle (MOTEUR §10 bis). FACULTATIVE en lecture et en écriture tant que
                        // la migration n'est pas lancée (`COLONNES_FACULTATIVES`, donnees.js).
-                       'ma_salle',
-                       'onboarding_completed'];
+                       'ma_salle'];
+  // 136 (audit du 16/10, 03 #18) — `onboarding_completed` n'est plus écrite (ni lue) : plus rien ne la décide depuis
+  // 60-2a (`questionnaire_fait_le`). La colonne reste en base.
 
   // ⚠️ `jeu_actif` EST NOT NULL (v2_068) : un `null` serait un 23502, que la file classe définitif — et le profil part
   // en ligne ENTIÈRE à chaque envoi, il bloquerait tout. Seul un booléen part ; absent ou nul, il n'est pas envoyé (la
@@ -639,6 +656,12 @@
       if (c === 'marche_reponses') {
         var mr = src[c];
         if (mr === null || (mr && typeof mr === 'object' && !Array.isArray(mr))) sortie[c] = mr;
+        return;
+      }
+      // 131 — les refus de « Ce qui manque » : une liste de « slug:colonne », jamais autre chose.
+      if (c === 'completer_refus') {
+        var cr = src[c];
+        if (Array.isArray(cr)) sortie[c] = cr.filter(function (x, i) { return typeof x === 'string' && x && cr.indexOf(x) === i; });
         return;
       }
       // 108 — une salle hors bornes ne part pas (elle serait refusée en 23514, et tout le profil avec elle).
@@ -708,7 +731,7 @@
     duree_seance_min: 'Durée d’une séance', objectif: 'Objectif', priorites: 'Priorités', temps_reponse: 'Ton temps',
     historique_declare: 'Historique', programme_choix: 'Ton programme', zones_a_menager: 'Zone à ménager',
     exercices_ecartes: 'Exercices écartés', jeu_actif: 'Le jeu', compte_prive: 'Compte privé', ma_salle: 'Ma salle',
-    marche_reponses: 'Marche suivante'
+    marche_reponses: 'Marche suivante', completer_refus: 'Ce qui manque à tes séances'
   };
   // « Pas enregistré : Bio. La base a refusé cette valeur ; celle d'avant est gardée. » — `null` sans colonne.
   function phraseRefusProfil(colonnes) {
@@ -1311,15 +1334,65 @@
     });
     return sortie;
   }
+  // 132 (B3, ECRAN-PROFIL §2.4 sexies, MOTEUR §10 ter) — MES ÉLASTIQUES : deux listes, chacune rangée de la plus
+  // forte à la plus légère (l'ORDRE est la donnée : le coach ne lit que lui). `elastiques` (v2_099) : `[{ nom, kg? }]`,
+  // le kg facultatif (il ne sert qu'à rattacher un ancien historique noté en kg) ; `mini_bandes` (v2_102) : `[{ nom }]`.
+  // `elastiques_par_nom` (v2_099) : un booléen, « J'ai noté une aide à l'élastique : en kg / par son nom ».
+  // Les bornes DOUBLENT `profiles_ma_salle_elastiques_ok` et `profiles_ma_salle_mini_bandes_ok` : 10 au plus par
+  // liste, un nom de 1 à 30 caractères sans espace au bord, un kg de 0,5 à 100 au demi-kilo. Et une de plus que la
+  // base, décidée au prompt 132 : deux élastiques d'une même liste n'ont jamais le même nom (sans compter la casse —
+  // « Noir » et « noir » se confondraient dans la feuille de choix).
+  var ELASTIQUES_MAX = 10, ELASTIQUE_NOM_MAX = 30, ELASTIQUE_KG_MIN = 0.5, ELASTIQUE_KG_MAX = 100;
+  var NOM_ELASTIQUE = /^[^ ](.{0,28}[^ ])?$/;
+  function nomElastiqueValide(n) {
+    return typeof n === 'string' && n.length <= ELASTIQUE_NOM_MAX && NOM_ELASTIQUE.test(n) ? n : null;
+  }
+  function cleDeNom(n) { return String(n).toLowerCase(); }
+  // Une liste valide, dans son ordre (jamais triée : l'ordre est la déclaration), ou `null` (refusée).
+  function elastiquesValides(l, avecKg) {
+    if (l === null || l === undefined) return [];
+    if (!Array.isArray(l) || l.length > ELASTIQUES_MAX) return null;
+    var vus = {}, sortie = [];
+    for (var i = 0; i < l.length; i++) {
+      var x = l[i];
+      if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+      var cles = Object.keys(x);
+      for (var k = 0; k < cles.length; k++) {
+        if (cles[k] !== 'nom' && !(avecKg && cles[k] === 'kg')) return null;
+      }
+      var nom = nomElastiqueValide(x.nom);
+      if (nom === null || vus[cleDeNom(nom)]) return null;
+      vus[cleDeNom(nom)] = true;
+      var e = { nom: nom };
+      if (avecKg && x.kg !== undefined && x.kg !== null) {
+        var kg = auDemi(x.kg);
+        if (kg === null || kg < ELASTIQUE_KG_MIN || kg > ELASTIQUE_KG_MAX) return null;
+        e.kg = kg;
+      }
+      sortie.push(e);
+    }
+    return sortie;
+  }
+
   // LA DÉCLARATION, normalisée : l'objet tel qu'il s'écrit, `null` quand rien n'est déclaré (non renseigné), ou
   // `undefined` quand une valeur est hors bornes (refusée : rien ne s'écrit).
+  // 132 — les élastiques n'y figurent que déclarés : une salle sans élastique s'écrit exactement comme avant
+  // (`{ barres_ez, barres_droites, halteres }`), lisible par une app d'avant 132.
   function salleValide(v) {
     if (v === null || v === undefined) return null;
     if (typeof v !== 'object' || Array.isArray(v)) return undefined;
     var ez = barresValides(v.barres_ez), droites = barresValides(v.barres_droites), h = halteresValides(v.halteres);
     if (ez === null || droites === null || h === undefined) return undefined;
-    if (!ez.length && !droites.length && h === null) return null;
-    return { barres_ez: ez, barres_droites: droites, halteres: h };
+    var el = elastiquesValides(v.elastiques, true), mini = elastiquesValides(v.mini_bandes, false);
+    var parNom = v.elastiques_par_nom;
+    if (el === null || mini === null) return undefined;
+    if (parNom !== undefined && parNom !== null && typeof parNom !== 'boolean') return undefined;
+    if (!ez.length && !droites.length && h === null && !el.length && !mini.length && parNom !== true) return null;
+    var s = { barres_ez: ez, barres_droites: droites, halteres: h };
+    if (el.length) s.elastiques = el;
+    if (mini.length) s.mini_bandes = mini;
+    if (parNom === true) s.elastiques_par_nom = true;
+    return s;
   }
   // La salle d'un profil, lisible, ou `null` (absente, illisible, ou une colonne pas encore là : rien ne change).
   function salleDe(profil) {
@@ -1331,11 +1404,15 @@
   // une par tranche : `{ jusqua (null : vide ou illisible), pas, pasChoisi }`.
   function brouillonSalle(profil) {
     var s = salleDe(profil);
+    // 132 — les élastiques suivent le brouillon : « Valider » les barres ne les efface pas.
     return s ? { barres_ez: s.barres_ez.slice(), barres_droites: s.barres_droites.slice(),
                  halteres: s.halteres ? tranchesDe(s.halteres).map(function (t) {
                    return { jusqua: t.jusqua, pas: t.pas, pasChoisi: true };
-                 }) : null }
-             : { barres_ez: [], barres_droites: [], halteres: null };
+                 }) : null,
+                 elastiques: (s.elastiques || []).map(function (e) { return Object.assign({}, e); }),
+                 mini_bandes: (s.mini_bandes || []).map(function (e) { return Object.assign({}, e); }),
+                 elastiques_par_nom: s.elastiques_par_nom === true }
+             : { barres_ez: [], barres_droites: [], halteres: null, elastiques: [], mini_bandes: [], elastiques_par_nom: false };
   }
   function basculerBarre(brouillon, type, kg) {
     var b = Object.assign({}, brouillon);
@@ -1459,6 +1536,69 @@
                : '« Jusqu’à » vide ou illisible : je remets ' + repris.join(' et ') + '.' };
   }
 
+  // 132 (ECRAN-PROFIL §2.4 sexies, maquette `maquette-elastiques-v2.html`, écran 1) — LES GESTES DES DEUX LISTES, purs.
+  // `liste` : `elastiques` (les grands, un kg facultatif) ou `mini_bandes` (un nom seul). Chaque geste rend
+  // `{ brouillon, erreur }` : `erreur` est la phrase qui dit pourquoi rien n'a changé (la feuille reste ouverte), ou
+  // `null`. Le nom tapé perd ses espaces au bord (un nom ne commence ni ne finit par une espace).
+  var LISTES_ELASTIQUES = ['elastiques', 'mini_bandes'];
+  function listeDuBrouillon(brouillon, liste) {
+    return ((brouillon && brouillon[liste]) || []).map(function (e) { return Object.assign({}, e); });
+  }
+  function avecListe(brouillon, liste, l) {
+    var b = Object.assign({}, brouillon || {});
+    b[liste] = l;
+    return b;
+  }
+  function peutAjouterElastique(brouillon, liste) {
+    return LISTES_ELASTIQUES.indexOf(liste) >= 0 && listeDuBrouillon(brouillon, liste).length < ELASTIQUES_MAX;
+  }
+  function ajouterElastique(brouillon, liste, nom, kg) {
+    var l = listeDuBrouillon(brouillon, liste);
+    var refus = function (phrase) { return { brouillon: brouillon, erreur: phrase }; };
+    if (LISTES_ELASTIQUES.indexOf(liste) < 0) return refus(null);
+    if (l.length >= ELASTIQUES_MAX) return refus('Dix au plus dans une liste.');
+    var n = nomElastiqueValide(String(nom === null || nom === undefined ? '' : nom).trim());
+    if (n === null) return refus('Un nom de 1 à ' + ELASTIQUE_NOM_MAX + ' caractères.');
+    if (l.some(function (e) { return cleDeNom(e.nom) === cleDeNom(n); })) return refus('« ' + n + ' » est déjà dans la liste.');
+    var e = { nom: n };
+    // `kg` : le nombre que l'écran a lu (`THModele.lireNombre`), `null` pour un champ vide, `NaN` pour un champ
+    // illisible (refusé : on ne garde pas un élastique sans le kg qu'on a voulu lui donner).
+    var M = racine.THModele;
+    var vide = kg === null || kg === undefined;
+    if (liste === 'elastiques' && !vide) {
+      var v = auDemi(kg);
+      if (v === null || v < ELASTIQUE_KG_MIN || v > ELASTIQUE_KG_MAX) {
+        return refus('Un kg entre ' + (M ? M.nombreSigne(ELASTIQUE_KG_MIN) : '0,5') + ' et ' + ELASTIQUE_KG_MAX +
+          ', au demi-kilo — ou rien.');
+      }
+      e.kg = v;
+    }
+    l.push(e);
+    return { brouillon: avecListe(brouillon, liste, l), erreur: null };
+  }
+  function retirerElastique(brouillon, liste, i) {
+    var l = listeDuBrouillon(brouillon, liste);
+    if (!l[i]) return brouillon;
+    l.splice(i, 1);
+    return avecListe(brouillon, liste, l);
+  }
+  // Glisser : l'élastique `de` prend la place `vers` (les autres se décalent). L'ordre est la donnée.
+  function deplacerElastique(brouillon, liste, de, vers) {
+    var l = listeDuBrouillon(brouillon, liste);
+    if (!l[de] || vers < 0 || vers >= l.length || vers === de) return brouillon;
+    var e = l.splice(de, 1)[0];
+    l.splice(vers, 0, e);
+    return avecListe(brouillon, liste, l);
+  }
+  function poserParNom(brouillon, parNom) {
+    return Object.assign({}, brouillon || {}, { elastiques_par_nom: parNom === true });
+  }
+  var PHRASE_GRANDS_ELASTIQUES = 'Du plus fort au plus léger. Pour les tractions, les dips, et les exercices à ' +
+    'l’élastique (curl, face pull…).';
+  var PHRASE_MINI_BANDES = 'Les bandes en boucle autour des jambes : clamshell, marche latérale, abductions…';
+  var PHRASE_PAR_NOM = 'Seulement pour l’élastique qui t’aide (tractions, dips, nordique). Un élastique qui fait ' +
+    'résistance se note toujours par son nom.';
+
   // « EZ, droite, haltères » — ce qui est déclaré ; `null` : non renseigné.
   function resumeSalle(profil) {
     var s = salleDe(profil);
@@ -1467,7 +1607,10 @@
     if (s.barres_ez.length) t.push('EZ');
     if (s.barres_droites.length) t.push(t.length ? 'droite' : 'Barre droite');
     if (s.halteres) t.push(t.length ? 'haltères' : 'Haltères');
-    return t.join(', ');
+    // 132 — les élastiques.
+    if (s.elastiques) t.push(t.length ? 'élastiques' : 'Élastiques');
+    if (s.mini_bandes) t.push(t.length ? 'mini-bandes' : 'Mini-bandes');
+    return t.length ? t.join(', ') : null;
   }
   function ligneSalle(profil, ouvrir) {
     return { libelle: 'Ma salle', sous: PHRASE_SALLE, valeur: resumeSalle(profil), surChoix: ouvrir };
@@ -1506,10 +1649,164 @@
                     stab: fiche.muscles_stabilisateurs || [] };
     return Mo.estIsolation(muscles) ? Object.assign(salle, { isolation: true }) : salle;
   }
+  // ══ 132 (B3, MOTEUR §10 ter) — LES ÉLASTIQUES PAR LEUR NOM : LA SALLE DONT LES CRANS SONT DES NOMS ══════════════
+  //
+  // ⚠️ UNE SEULE SOURCE : la référence `elastiques132.py`, portée fonction par fonction (le fichier de cas
+  // `cas-132.json` les rejoue à 0 écart). « Une liste d'élastiques de Ma salle est une salle (§10 bis) dont les crans
+  // sont des noms. Le coach ne lit que l'ordre de la liste, jamais un chiffre : jamais de pourcentage, jamais de kg
+  // inventé. » Chaque élastique reçoit une charge VIRTUELLE, ordonnée dans le sens où monter est plus dur : sur une
+  // AIDE (`charge = assistance`), [Noir, Rouge, Vert] donne −3, −2, −1 (monter = un élastique plus léger) ; en
+  // RÉSISTANCE (`charge = elastique`), 3, 2, 1 (monter = un élastique plus fort). LA CHARGE VIRTUELLE N'EST JAMAIS
+  // AFFICHÉE, NI ÉCRITE : le moteur la lit, l'affichage la traduit en nom (`nomDeLaCharge`), une série écrit son nom
+  // (`ecrireSerie`).
+  //
+  // `fiche` : la fiche du catalogue (`charge`, `type_elastique`) ; `salle` : `ma_salle` (brute ou `salleDe`).
+  function listeDe(fiche, salle) {
+    var s = salle || {}, t = fiche && fiche.type_elastique;
+    var l = t === 'grand' ? s.elastiques : t === 'mini' ? s.mini_bandes : null;
+    return Array.isArray(l) ? l.map(function (e) { return e && e.nom; }) : [];
+  }
+  // L'exercice se note-t-il par le nom de l'élastique ? Sa liste a au moins un élastique, et : en résistance, toujours ;
+  // sur une aide à l'élastique, si « par son nom » est choisi ; jamais ailleurs (une machine d'aide se note en kg).
+  function parNom(fiche, salle) {
+    if (!listeDe(fiche, salle).length) return false;
+    if (fiche.charge === 'elastique') return true;
+    if (fiche.charge === 'assistance' && fiche.type_elastique) return !!(salle || {}).elastiques_par_nom;
+    return false;
+  }
+  function chargesVirtuelles(fiche, liste) {
+    var n = (liste || []).length, cv = {};
+    (liste || []).forEach(function (nom, i) { cv[nom] = fiche && fiche.charge === 'assistance' ? i - n : n - i; });
+    return cv;
+  }
+  function kgDeLElastique(salle, nom) {
+    var l = (salle || {}).elastiques || [];
+    for (var i = 0; i < l.length; i++) {
+      if (l[i] && l[i].nom === nom) return l[i].kg === undefined ? null : l[i].kg;
+    }
+    return null;
+  }
+  // Une aide notée en kg (sans nom) se rattache à l'élastique dont le kg déclaré est EXACTEMENT celui de l'aide ; sinon
+  // `null` (la série reste en kg, neutre pour la consigne par nom). Jamais en résistance. Un 20 kg sans élastique de
+  // 20 kg ne devient pas « Rouge ».
+  function rattacherElastique(fiche, salle, chargeKg) {
+    if (!fiche || fiche.charge !== 'assistance' || chargeKg === null || chargeKg === undefined) return null;
+    var c = Number(chargeKg);
+    if (!isFinite(c)) return null;
+    var l = (salle || {}).elastiques || [];
+    for (var i = 0; i < l.length; i++) {
+      var e = l[i];
+      if (e && e.kg !== null && e.kg !== undefined && Math.abs(-c - Number(e.kg)) < 1e-9) return e.nom;
+    }
+    return null;
+  }
+  // Le nom de l'élastique d'une série, au sens du coach : son nom s'il est dans la liste ; le rattachement d'une aide
+  // en kg ; sinon `null` — NEUTRE : un nom absent de la liste (retiré, renommé) n'est jamais deviné.
+  function elastiqueDeSerie(fiche, salle, serie) {
+    var liste = listeDe(fiche, salle);
+    var nom = serie ? serie.elastique : null;
+    if (nom !== null && nom !== undefined) return liste.indexOf(nom) >= 0 ? nom : null;
+    return rattacherElastique(fiche, salle, serie ? serie.charge_kg : null);
+  }
+  // La charge virtuelle que le moteur lit pour une série d'un exercice noté par nom ; `null` = série neutre.
+  function chargePourLeMoteur(fiche, salle, serie) {
+    var nom = elastiqueDeSerie(fiche, salle, serie);
+    return nom === null ? null : chargesVirtuelles(fiche, listeDe(fiche, salle))[nom];
+  }
+  // La salle au sens du §10 bis : les charges proposables (virtuelles, croissantes) et leurs noms ; `null` quand
+  // l'exercice ne se note pas par nom.
+  function salleElastique(fiche, salle) {
+    if (!parNom(fiche, salle)) return null;
+    var cv = chargesVirtuelles(fiche, listeDe(fiche, salle)), noms = {};
+    var charges = Object.keys(cv).map(function (n) { noms[String(cv[n])] = n; return cv[n]; })
+      .sort(function (a, b) { return a - b; });
+    return { charges: charges, noms: noms };
+  }
+  // CE QUE LE MOTEUR LIT d'un exercice noté par nom (`salleExo` : sa salle, `salleDeLExercice`) : chaque série avec sa
+  // charge virtuelle (`chargePourLeMoteur`). L'HISTORIQUE (`seancesPourLeMoteur`) : les séries NEUTRES en sortent — un
+  // élastique retiré ou renommé, une aide en kg qui ne se rattache à aucun élastique — et une séance qui n'en garde
+  // aucune aussi (elle reste dans l'historique, avec son nom ; elle ne compte pas pour la consigne). LA SÉANCE DU JOUR
+  // (`seriesPourLeMoteur(…, true)`) garde toutes ses lignes : une ligne pas encore remplie se lit sans charge. Sans
+  // salle d'élastiques, rien ne change : les séries telles quelles.
+  function seriesPourLeMoteur(salleExo, series, garderNeutres) {
+    if (!salleExo || salleExo.materiel !== 'elastique') return series;
+    var out = [];
+    (series || []).forEach(function (s) {
+      if (!s) return;
+      var v = chargePourLeMoteur(salleExo.fiche, salleExo.ma, s);
+      if ((v === null || v === undefined) && !garderNeutres) return;
+      out.push(Object.assign({}, s, { charge_kg: v === undefined ? null : v }));
+    });
+    return out;
+  }
+  function seancesPourLeMoteur(salleExo, groupes) {
+    if (!salleExo || salleExo.materiel !== 'elastique') return groupes;
+    return (groupes || []).map(function (g) {
+      var l = seriesPourLeMoteur(salleExo, (g && g.series) || [], false);
+      return l.length ? Object.assign({}, g, { series: l }) : null;
+    }).filter(Boolean);
+  }
+
+  // ECRAN-SAISIE §3 ter.6 (écran 4) — L'ÉLASTIQUE RETIRÉ OU RENOMMÉ : le nom d'un élastique de la DERNIÈRE séance de
+  // l'exercice qui n'est plus dans la liste (« Gris »), ou `null`. La consigne le dit quand il ne reste rien pour
+  // proposer (« Ton élastique Gris n'est plus dans Ma salle : je note sans proposer. ») ; on ne devine jamais lequel
+  // c'était.
+  function elastiqueRetireDe(salleExo, groupes) {
+    if (!salleExo || salleExo.materiel !== 'elastique') return null;
+    var derniere = null;
+    (groupes || []).forEach(function (g) {
+      var d = g && g.seance ? Date.parse(g.seance.debut) : NaN;
+      if (isFinite(d) && (derniere === null || d > derniere.d)) derniere = { d: d, g: g };
+    });
+    var liste = listeDe(salleExo.fiche, salleExo.ma), nom = null;
+    ((derniere && derniere.g.series) || []).forEach(function (s) {
+      if (nom === null && s && typeof s.elastique === 'string' && s.elastique && liste.indexOf(s.elastique) < 0) nom = s.elastique;
+    });
+    return nom;
+  }
+
+  // L'élastique au cran au-dessus (`sens` = +1, plus dur) ou en dessous (−1) ; `null` au bout de la liste.
+  function cranElastique(fiche, salle, nom, sens) {
+    var cv = chargesVirtuelles(fiche, listeDe(fiche, salle));
+    if (!Object.prototype.hasOwnProperty.call(cv, nom)) return null;
+    var cible = cv[nom] + sens;
+    var noms = Object.keys(cv);
+    for (var i = 0; i < noms.length; i++) if (cv[noms[i]] === cible) return noms[i];
+    return null;
+  }
+  // Ce qui part en base pour une série notée par nom : `elastique` = le nom ; `charge_kg` = −kg déclaré d'une aide
+  // (un grand élastique), sinon `NULL` — toujours `NULL` en résistance.
+  function ecrireSerie(fiche, salle, nom, reps) {
+    var kg = fiche && fiche.charge === 'assistance' && fiche.type_elastique === 'grand' ? kgDeLElastique(salle, nom) : null;
+    return { elastique: nom, charge_kg: kg !== null ? -kg : null, reps: reps };
+  }
+  // Le meilleur d'un exercice noté par nom : l'élastique le plus dur, puis le plus de reps ; séries neutres exclues.
+  // « Rouge × 10 », ou `null`. Il se calcule à l'affichage (un record est immuable, l'ordre d'une liste peut changer).
+  function meilleurElastique(fiche, salle, series) {
+    var best = null;
+    (series || []).forEach(function (s) {
+      var v = chargePourLeMoteur(fiche, salle, s);
+      if (v === null || v === undefined || !s || s.reps === null || s.reps === undefined) return;
+      if (best === null || v > best.v || (v === best.v && s.reps > best.reps)) {
+        best = { v: v, nom: elastiqueDeSerie(fiche, salle, s), reps: s.reps };
+      }
+    });
+    return best === null ? null : racine.THModele.affichageElastique({ elastique: best.nom, reps: best.reps });
+  }
+
   function salleDeLExercice(profil, slug, index) {
     var s = salleDe(profil);
     var fiche = index && slug && Object.prototype.hasOwnProperty.call(index, slug) ? index[slug] : null;
     if (!s || !fiche) return null;
+    // 132 (MOTEUR §10 ter) — UN EXERCICE NOTÉ PAR NOM : sa liste est sa salle. Le moteur reçoit les charges virtuelles
+    // (§10 bis tel quel) ; `noms` les traduit à l'affichage, `fiche` et `ma` disent comment lire une série
+    // (`chargePourLeMoteur`), `aide` le sens. Jamais rien d'autre : une barre, des haltères ne sont pas concernés.
+    var el = salleElastique(fiche, s);
+    if (el) {
+      return avecIsolation({ materiel: 'elastique', charges: el.charges, noms: el.noms,
+                             aide: fiche.charge === 'assistance', liste: listeDe(fiche, s),
+                             fiche: { charge: fiche.charge, type_elastique: fiche.type_elastique }, ma: s }, fiche);
+    }
     if (fiche.equipement === 'haltere') {
       if (!s.halteres) return null;
       // 123 — toutes tranches confondues (11 kg n'existe pas chez Aurélien : 10 ou 12), en PAIRE (§10.1).
@@ -1759,7 +2056,7 @@
     basculerPriorite: basculerPriorite, libelleDePriorite: libelleDePriorite, resumeDesPriorites: resumeDesPriorites,
     AIDE_OBJECTIF: AIDE_OBJECTIF, AIDE_PRIORITES: AIDE_PRIORITES, optionsTemps: optionsTemps,
     sectionBut: sectionBut, ligneTemps: ligneTemps, ligneQuestionnaire: ligneQuestionnaire,
-    lignesProgramme: lignesProgramme, libelleDesZones: libelleDesZones, joursDepuis: joursDepuis,
+    lignesProgramme: lignesProgramme, libelleDesZones: libelleDesZones, joursDepuis: joursDepuis, carteCyclesDejaVue: carteCyclesDejaVue,
     PHRASE_ZONES: PHRASE_ZONES, PHRASE_ECARTES: PHRASE_ECARTES, PHRASE_REFAIRE: PHRASE_REFAIRE,
     doitOuvrirQuestionnaire: doitOuvrirQuestionnaire,
     questionnaireAFaire: questionnaireAFaire,
@@ -1783,13 +2080,22 @@
     SALLE_PAS_MIN: SALLE_PAS_MIN, SALLE_PAS_MAX: SALLE_PAS_MAX,
     PHRASE_SALLE: PHRASE_SALLE, PHRASE_BARRES_FIXES: PHRASE_BARRES_FIXES,
     salleValide: salleValide, salleDe: salleDe, brouillonSalle: brouillonSalle, basculerBarre: basculerBarre,
+    // 132 (ECRAN-PROFIL §2.4 sexies) — les deux listes d'élastiques.
+    ELASTIQUES_MAX: ELASTIQUES_MAX, peutAjouterElastique: peutAjouterElastique, ajouterElastique: ajouterElastique,
+    retirerElastique: retirerElastique, deplacerElastique: deplacerElastique, poserParNom: poserParNom,
+    PHRASE_GRANDS_ELASTIQUES: PHRASE_GRANDS_ELASTIQUES, PHRASE_MINI_BANDES: PHRASE_MINI_BANDES, PHRASE_PAR_NOM: PHRASE_PAR_NOM,
     pucesDeBarres: pucesDeBarres, champsSalle: champsSalle, poserMaxHalteres: poserMaxHalteres,
     poserPasHalteres: poserPasHalteres, halteresGardees: halteresGardees,
     // 123 — les haltères par tranches.
     SALLE_TRANCHES_MAX: SALLE_TRANCHES_MAX, tranchesDe: tranchesDe, chargesDesTranches: chargesDesTranches,
     ajouterTrancheHalteres: ajouterTrancheHalteres, retirerTrancheHalteres: retirerTrancheHalteres, sansHalteres: sansHalteres,
     peutAjouterTranche: peutAjouterTranche, phraseHalteresHorsBornes: phraseHalteresHorsBornes, SALLE_PAS_DEFAUT: SALLE_PAS_DEFAUT, resumeSalle: resumeSalle, ligneSalle: ligneSalle,
-    estBarreEZ: estBarreEZ, salleDeLExercice: salleDeLExercice
+    estBarreEZ: estBarreEZ, salleDeLExercice: salleDeLExercice,
+    // 132 (MOTEUR §10 ter) — les élastiques par leur nom (la référence `elastiques132.py`).
+    listeDe: listeDe, parNom: parNom, chargesVirtuelles: chargesVirtuelles, rattacherElastique: rattacherElastique,
+    elastiqueDeSerie: elastiqueDeSerie, chargePourLeMoteur: chargePourLeMoteur, salleElastique: salleElastique,
+    cranElastique: cranElastique, ecrireSerie: ecrireSerie, meilleurElastique: meilleurElastique,
+    seriesPourLeMoteur: seriesPourLeMoteur, seancesPourLeMoteur: seancesPourLeMoteur, elastiqueRetireDe: elastiqueRetireDe
   };
 
   racine.THProfil = api;

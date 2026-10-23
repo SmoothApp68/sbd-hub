@@ -66,10 +66,22 @@
     return '0';
   }
 
-  // « 6 h 35 · 22,7 km » — ce qui résume une sortie, au lieu d'un compte de séries.
+  // « 22,7 km · 6 h 35 » — ce qui résume une sortie, au lieu d'un compte de séries. 131b : la distance d'abord,
+  // dans l'ordre de la prose (ECRAN §3 ter.5).
   function resumeSortie(r) {
-    return [M().formatDuree(r.dureeTotale), M().formatDistance(r.distanceTotale)]
+    return [M().formatDistance(r.distanceTotale), M().formatDuree(r.dureeTotale)]
       .filter(Boolean).join(' · ');
+  }
+
+  // LA LIGNE SOUS LE TITRE D'UNE CARTE DE SÉANCE, UNE FOIS (les deux listes la lisent). Une sortie : sa distance et sa
+  // durée. Une séance de musculation : « 3 exercices · 12 séries de travail ».
+  // 133 (ECRAN-SAISIE §3 ter.4, 133b) — une séance sans série de musculation qui n'est pas une sortie (des étirements
+  // seuls, depuis qu'un étirement n'est plus une sortie) se résume par ses exercices et sa durée, jamais « 0 série ».
+  function metaDeSeance(r) {
+    if (r.estSortie) return resumeSortie(r);
+    var exos = r.nbExercices + ' exercice' + (r.nbExercices > 1 ? 's' : '');
+    if (!r.nbSeriesTravail) return [exos, M().formatDuree(r.dureeTotale)].filter(Boolean).join(' · ');
+    return exos + ' · ' + r.nbSeriesTravail + ' série' + (r.nbSeriesTravail > 1 ? 's' : '') + ' de travail';
   }
 
   function rendreListeSeances(cible, resumes, surChoix) {
@@ -89,15 +101,9 @@
       haut.appendChild(el('span', 'seance-date', dateCourte(r.debut)));
       carte.appendChild(haut);
 
-      if (r.estSortie) {
-        var res = resumeSortie(r);
-        if (res) carte.appendChild(el('div', 'seance-meta', res));
-      } else {
-        carte.appendChild(el('div', 'seance-meta',
-          r.nbExercices + ' exercice' + (r.nbExercices > 1 ? 's' : '') +
-          ' · ' + r.nbSeriesTravail + ' série' + (r.nbSeriesTravail > 1 ? 's' : '') + ' de travail'));
-        if (r.salle) carte.appendChild(el('div', 'seance-salle', r.salle));
-      }
+      var res = metaDeSeance(r);
+      if (res) carte.appendChild(el('div', 'seance-meta', res));
+      if (!r.estSortie && r.salle) carte.appendChild(el('div', 'seance-salle', r.salle));
 
       carte.addEventListener('click', function () { surChoix(r.id); });
       cible.appendChild(carte);
@@ -129,7 +135,9 @@
   // ⚠️ `surExercice` EST FACULTATIF. Sans lui le bloc est exactement ce qu'il
   // était — et c'est ce qui permet à la page d'exercice de réutiliser
   // `rendreBloc` pour son historique sans s'y rappeler elle-même.
-  function rendreBloc(bloc, surExercice) {
+  // 131 (écran 4) — `ajout` (facultatif) : pour une série, `{ texte, sur }` (« Ajouter le D+ ») ou `null` ; l'app
+  // le décide, le rendu le pose sous la valeur.
+  function rendreBloc(bloc, surExercice, ajout) {
     var section = el('section', 'bloc' + (bloc.superset ? ' superset' : ''));
 
     // Légende A/B/C en tête de bloc : le nom de l'exercice n'apparaît qu'une
@@ -172,7 +180,15 @@
       // libellé de type — `W` pour une chauffe — plutôt que sur un badge nu.
       ligne.appendChild(el('span', 'tag' + (t ? ' ' + t.classe : ''),
         s.etiquette || (t ? t.texte : '')));
-      ligne.appendChild(el('span', 'mesure', M().formatMesure(s)));
+      var mesure = el('span', 'mesure', M().formatMesure(s));
+      var a = typeof ajout === 'function' ? ajout(s) : null;
+      if (a) {
+        var lien = el('button', 'lien ajouter-manque', a.texte);
+        lien.type = 'button';
+        lien.addEventListener('click', a.sur);
+        mesure.appendChild(lien);
+      }
+      ligne.appendChild(mesure);
       section.appendChild(ligne);
     });
 
@@ -204,7 +220,7 @@
         : 'Aucune série sur cette séance.'));
     } else {
       blocs.forEach(function (b) {
-        cible.appendChild(rendreBloc(b, vue && vue.surExercice));
+        cible.appendChild(rendreBloc(b, vue && vue.surExercice, vue && !vue.incomplet ? vue.ajout : null));
       });
     }
 
@@ -393,7 +409,9 @@
         ligne.appendChild(jauge);
         // §9.17 — une aide se lit « Aide 22,5 kg », jamais « −22,5 » : la même
         // phrase que la séance et le journal (`chargeTexte`, le formateur).
-        ligne.appendChild(el('span', 'tr-charge num', kg < 0 ? M().formatMesure({ charge_kg: kg }) : nombreFr(kg)));
+        // 133 — 0 kg : « PDC » (la colonne fait 66 px), jamais « 0 » (`chargeEnColonne`).
+        ligne.appendChild(el('span', 'tr-charge num', kg < 0 ? M().formatMesure({ charge_kg: kg })
+          : Number(kg) === 0 ? M().chargeEnColonne(kg) : nombreFr(kg)));
       }
       ligne.appendChild(el('span', 'tr-quand' + (l.deduit ? '' : ' num'),
         l.deduit ? 'déduit' : dateCourte(l.date)));
@@ -626,7 +644,8 @@
     // 119 (E5) — le libellé suit la mesure (`THModele.affichageDeMesure`) : « Plus longue durée » sur une planche ou
     // un tapis, « Record de reps » au poids du corps ; « Record » pour une mesure inconnue.
     var aff = M().affichageDeMesure(vue.mesure);
-    ligneFiche(fiche, aff ? aff.meilleure : 'Record',
+    // Prompt 131 (audit 130 n°5) — une meilleure série en distance seule porte son libellé.
+    ligneFiche(fiche, r && r.libelle ? r.libelle : (aff ? aff.meilleure : 'Record'),
       sousDouzeMois(r && r.date ? dateCourte(r.date) : null, vue.recordSurDouzeMois), r ? texteMeilleure(r) : '');
     var v = vue.volume || {};
     ligneFiche(fiche, 'Séries de travail',
@@ -1127,13 +1146,10 @@
         var haut = el('div', 'seance-haut');
         haut.appendChild(el('span', 'seance-titre', r.titre));
         carte.appendChild(haut);
-        var meta = r.incomplet ? 'séries pas encore reçues'
-          : r.estSortie ? resumeSortie(r)
-          // `de travail` — le qualificatif que le jumeau `rendreListeSeances`
-          // porte encore et que celui-ci avait perdu (audit, C1).
-          : r.nbExercices + ' exercice' + (r.nbExercices > 1 ? 's' : '') +
-            ' · ' + r.nbSeriesTravail + ' série' + (r.nbSeriesTravail > 1 ? 's' : '') +
-            ' de travail';
+        // `de travail` — le qualificatif que le jumeau `rendreListeSeances`
+        // porte encore et que celui-ci avait perdu (audit, C1) : une fonction
+        // pour les deux depuis 133 (`metaDeSeance`).
+        var meta = r.incomplet ? 'séries pas encore reçues' : metaDeSeance(r);
         if (meta) carte.appendChild(el('div', 'seance-meta', meta));
         // Une sortie garde sa carte évidée : durée et distance, pas d'aperçu.
         if (!r.estSortie) rendreApercu(carte, r.apercu);
@@ -2002,7 +2018,19 @@
     } else if (indication) {
       input.placeholder = indication;
     }
-    input.addEventListener('input', function () { surSaisie(input.value); });
+    // Prompt 131 (audit 130 n°8) — `options.max`, la borne du champ en unité de saisie
+    // (`THModele.maxDeSaisie`) : au-delà, le chiffre tapé n'entre pas — comme au pavé de
+    // la durée (§3 ter.2 ter). Le champ revient au dernier texte accepté, et rien n'est
+    // écrit.
+    var accepte = input.value;
+    input.addEventListener('input', function () {
+      if (o.max !== null && o.max !== undefined) {
+        var n = M().lireNombre(input.value);
+        if (n !== null && n > o.max) { input.value = accepte; return; }
+      }
+      accepte = input.value;
+      surSaisie(input.value);
+    });
     if (typeof o.surQuitte === 'function') {
       input.addEventListener('change', function () { o.surQuitte(); });
     }
@@ -2392,8 +2420,21 @@
 
   // Le gabarit d'un exercice du bloc. ⚠️ Un superset peut MÉLANGER les mesures
   // (un exercice en `charge_reps`, un en `temps`) : chaque ligne garde le sien.
+  // Prompt 131 (ECRAN §3 ter.5) — LA GRILLE d'un exercice : le gabarit de sa mesure, plus les
+  // champs en plus du catalogue (`THModele.grilleDe` : `colonnes`, `dessous`). Dans l'éditeur
+  // de routine, aucun champ en plus.
+  // 132 (ECRAN-SAISIE §3 ter.6) — un exercice noté par nom (`vue.elastique(slug)`, hors éditeur de routine) : la
+  // colonne « ÉLASTIQUE » (`THModele.grilleElastique`).
   function gabaritDe(vue, slug) {
-    return M().gabaritDe(vue.exercice(slug));
+    var g = M().grilleDe(vue.exercice(slug), !!vue.programme);
+    return !vue.programme && typeof vue.elastique === 'function' && vue.elastique(slug) ? M().grilleElastique(g) : g;
+  }
+  function colonnesDe(g) { return g.colonnes || g.champs; }
+  // La classe de la grille : celle de la mesure, et `g-plus` quand un champ en plus prend une
+  // colonne (Escaliers : durée · étages, la grille à deux cases de la distance). 132 : `g-elastique`.
+  function classeDeGrille(g) {
+    if (g.elastique) return ' grille g-elastique';
+    return ' grille g-' + g.mesure + (colonnesDe(g).length > g.champs.length ? ' g-plus' : '');
   }
 
   function rendreBlocSaisie(bloc, iBloc, vue) {
@@ -2414,7 +2455,8 @@
     // des rangées. On la tait plutôt que de nommer KG au-dessus d'une durée ; le
     // type de mesure reste écrit sous chaque nom, dans la légende.
     var memeGabarit = gabarits.every(function (g) {
-      return g.mesure === gabarits[0].mesure && (g.nature || null) === (gabarits[0].nature || null);
+      return g.mesure === gabarits[0].mesure && (g.nature || null) === (gabarits[0].nature || null) &&
+        colonnesDe(g).join() === colonnesDe(gabarits[0]).join();
     });
     // §7 quindecies.3 (52-1) — dans l'éditeur, la colonne de charge dit ce
     // qu'elle est : « DÉPART » sur un exercice jamais fait, absente sinon. Des
@@ -2472,6 +2514,14 @@
         noeud.appendChild(propositionDeDegressiveVide(info.message, s._iExo, s._iSerie, vue));
       } else if (info && info.message) noeud.appendChild(phraseDeReaction(info.message, s.debutTour));
       noeud.appendChild(rangeeDeSerie(bloc, s, complets, vue, info));
+      // ECRAN §3 ter.5 (prompt 131, maquette mesures-cardio écran 1) — LE D+, SUR SA PROPRE LIGNE,
+      // SOUS LA SÉRIE : une troisième colonne ne tient pas à 360 px à côté d'une durée en horloge.
+      // Facultatif, sans chiffre gris ; jamais dans l'éditeur de routine.
+      if (!vue.programme) {
+        (gabaritDe(vue, s.exercise_slug).dessous || []).forEach(function (nom) {
+          noeud.appendChild(ligneEnPlus(s, nom, vue));
+        });
+      }
       // MOTEUR §9.23 (55-1) — LA MÉDAILLE, SOUS LA RANGÉE de la série qui bat
       // un record. Une sœur de la ligne, comme la réaction (qui reste
       // au-dessus de la ligne suivante : elle parle de la suite, la médaille
@@ -2728,19 +2778,20 @@
   // n'observe rien. `EFFORT` tombe avec elles pour la même raison, et parce
   // que `routine_sets` n'a pas de colonne où le mettre.
   function enTetesColonnes(g, programme, chargeProgramme) {
-    var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
+    var noms = colonnesDe(g);
+    var champs = noms.map(function (n) { return M().champDeMesure(n); });
     var cp = programme ? chargeProgramme : null;
     var sansCharge = !!cp && !cp.depart;
-    var entetes = el('div', 'cols-seance grille g-' + g.mesure +
+    var entetes = el('div', 'cols-seance' + classeDeGrille(g) +
       (programme ? ' programme' : '') + (sansCharge ? ' sans-charge' : ''));
     entetes.appendChild(el('span', '', ''));
     if (!programme) entetes.appendChild(el('span', 'droite', 'PRÉC.'));
     champs.forEach(function (c, i) {
-      if (sansCharge && g.champs[i] === 'charge_kg') return;
+      if (sansCharge && noms[i] === 'charge_kg') return;
       // §9.17 — la nature de la charge nomme la colonne (« LEST (KG) », « AIDE (KG) »).
-      var surcharge = g.entetes && g.entetes[g.champs[i]];
+      var surcharge = g.entetes && g.entetes[noms[i]];
       // §7 quindecies.3 (52-1) — la charge de départ, sur un exercice jamais fait.
-      if (!surcharge && cp && cp.depart && g.champs[i] === 'charge_kg') surcharge = 'DÉPART (KG)';
+      if (!surcharge && cp && cp.depart && noms[i] === 'charge_kg') surcharge = 'DÉPART (KG)';
       entetes.appendChild(el('span', 'centre', surcharge || c.entete));
     });
     if (g.effort && !programme) entetes.appendChild(el('span', 'centre', 'EFFORT'));
@@ -2767,6 +2818,27 @@
       if (ser.length && ser[0]._iExo === s._iExo) return ser;
     }
     return null;
+  }
+
+  // Un champ en plus, sous la série (ECRAN §3 ter.5) : « Dénivelé + (facultatif) », la case et
+  // son unité. Le même champ que la grille (`champSerie`, sa borne comprise), sans fantôme.
+  function ligneEnPlus(s, nom, vue) {
+    var c = M().champDeMesure(nom);
+    var iExo = s._iExo, iSerie = s._iSerie;
+    var n = el('div', 'serie-plus');
+    n.setAttribute('data-iexo', iExo);
+    n.setAttribute('data-iserie', iSerie);
+    var k = el('span', 'serie-plus-k', (c.texte || c.entete) + ' ');
+    k.appendChild(el('small', null, '(facultatif)'));
+    n.appendChild(k);
+    var caseSerie = champSerie('rp-serie num', s[c.cle], null, c.unite,
+      function (v) { vue.surChamp(iExo, iSerie, nom, v); },
+      { max: M().maxDeSaisie(nom),
+        surQuitte: typeof vue.surChampQuitte === 'function'
+          ? function () { vue.surChampQuitte(iExo, iSerie); } : null });
+    caseSerie.setAttribute('data-champ', nom);
+    n.appendChild(caseSerie);
+    return n;
   }
 
   // MOTEUR §9.23 (55-1) — la médaille : le rond, le gras, le gris (maquette
@@ -2994,8 +3066,18 @@
     var r = racine.querySelector('.serie[data-iexo="' + iExo + '"][data-iserie="' + iSerie + '"]');
     if (!r) return false;
     var premier = null;
+    var rouge = false;
     noms.forEach(function (nom) {
       var champ = r.querySelector('[data-champ="' + nom + '"]');
+      // 132 (ECRAN-SAISIE §3 ter.6) — la case « ÉLASTIQUE » est un bouton (elle ouvre la liste) : elle passe au rouge,
+      // et le rouge part au choix (le redessin).
+      if (champ && champ.classList.contains('el-case')) {
+        champ.classList.remove('case-vide');
+        void champ.offsetWidth;
+        champ.classList.add('case-vide');
+        rouge = true;
+        return;
+      }
       var input = champ && champ.querySelector('input');
       if (!input) return;
       champ.classList.remove('case-vide');
@@ -3010,7 +3092,7 @@
       input.addEventListener('input', retirer);
       if (!premier) premier = input;
     });
-    if (!premier) return false;
+    if (!premier) return rouge;
     premier.focus();
     return true;
   }
@@ -3018,13 +3100,14 @@
   function rangeeDeSerie(bloc, s, complets, vue, reaction) {
     var iExo = s._iExo, iSerie = s._iSerie;
     var g = gabaritDe(vue, s.exercise_slug);
-    var champs = g.champs.map(function (n) { return M().champDeMesure(n); });
+    var noms = colonnesDe(g);
+    var champs = noms.map(function (n) { return M().champDeMesure(n); });
     // §7 quindecies.3 (52-1) — dans l'éditeur, un exercice DÉJÀ FAIT n'a plus
     // de champ de charge : le coach décide d'après les séances, et la légende
     // le dit. Rien n'est ignoré sans être dit.
     var cp = vue.programme && vue.chargeProgramme ? vue.chargeProgramme(s.exercise_slug) : null;
     var sansCharge = !!cp && !cp.depart;
-    var classeGrille = ' grille g-' + g.mesure + (vue.programme ? ' programme' : '') +
+    var classeGrille = classeDeGrille(g) + (vue.programme ? ' programme' : '') +
       (sansCharge ? ' sans-charge' : '');
 
     // §2.6 — l'éclairage porte sur le TOUR, jamais sur la ligne isolée.
@@ -3115,8 +3198,24 @@
     // entre une seconde et un kilomètre.
     champs.forEach(function (c, iChamp) {
       var classe = (iChamp === 0 ? 'ch-serie' : 'rp-serie') + ' num';
-      var nom = g.champs[iChamp];
+      var nom = noms[iChamp];
       if (sansCharge && nom === 'charge_kg') return;
+      // 132 (ECRAN-SAISIE §3 ter.6, maquette `maquette-elastiques-v2.html`, écran 3) — LA CASE « ÉLASTIQUE » : le nom
+      // tapé (choisi) de la série, sinon le gris du coach (`f.elastique`, le pré-remplissage du plan), sinon « choisir ».
+      // Elle ouvre la feuille de choix (`vue.surElastique`). Jamais une charge : le nom, et sa pastille.
+      if (c.saisie === 'elastique') {
+        var choisi = s.elastique || null, gris = choisi ? null : (f && f.elastique) || null;
+        var caseEl = el('button', classe + ' el-case' + (choisi ? '' : ' vide') + (gris ? ' gris' : '') +
+          (proposee || elan ? ' coach' : ''));
+        caseEl.type = 'button';
+        if (choisi || gris) caseEl.appendChild(pastille(choisi || gris));
+        caseEl.appendChild(el('span', 'el-case-nom', choisi || gris || 'choisir'));
+        caseEl.setAttribute('aria-label', 'Élastique : ' + (choisi || gris || 'à choisir'));
+        caseEl.setAttribute('data-champ', nom);
+        caseEl.addEventListener('click', function () { if (vue.surElastique) vue.surElastique(iExo, iSerie); });
+        rangee.appendChild(caseEl);
+        return;
+      }
       // `data-champ` : la case se retrouve par son nom (§3 bis.3 bis, `demanderCases`).
       if (c.saisie === 'chrono') {
         var chrono = champChrono(classe, s[c.cle], f[c.cle],
@@ -3144,7 +3243,7 @@
         versChamp(enUniteDeSaisie(f[c.cle], c.facteur)),
         c.unite,
         function (v) { vue.surChamp(iExo, iSerie, nom, aide && !vue.programme ? M().rangerAide(v) : v); },
-        { indication: fourchette,
+        { indication: fourchette, max: M().maxDeSaisie(nom),
           surQuitte: typeof vue.surChampQuitte === 'function'
             ? function () { vue.surChampQuitte(iExo, iSerie); } : null });
       caseSerie.setAttribute('data-champ', nom);
@@ -4161,14 +4260,61 @@
     // 3,2 km », jamais « 0 série de travail enregistrée ».
     var hm = vue.compte.horsMusculation;
     if (!nF && hm && hm.series) {
-      var quoi = [M().formatDuree(hm.duree_s), M().formatDistance(hm.distance_m)].filter(Boolean);
+      var quoi = [M().formatDistance(hm.distance_m), M().formatDuree(hm.duree_s)].filter(Boolean);  // 131b
       t.appendChild(el('em', '', [hm.series + ' série' + (hm.series > 1 ? 's' : '') + ' enregistrée' +
         (hm.series > 1 ? 's' : '')].concat(quoi).join(' \u00b7 ')));
     } else {
       t.appendChild(el('em', '', nF + ' série' + (nF > 1 ? 's' : '') +
         ' de travail enregistrée' + (nF > 1 ? 's' : '')));
     }
+    // 137 (audit du 16/10, E12 ; ECRAN-SAISIE §7 septies.4) — UNE SÉANCE SANS SÉRIE VALIDÉE NE SE TERMINE PAS : elle
+    // s'abandonne. « Vide » est décidé par l'appelant (la règle de l'abandon) ; ici on le dit, sans titre, salle,
+    // note, question de routine ni case facultative. Rien n'est perdu : l'abandon est immédiat.
+    if (vue.vide) {
+      var tv = el('div', 'feuille-t', 'Terminer la séance');
+      cible.appendChild(tv);
+      cible.appendChild(el('p', 'feuille-aide', 'Aucune série validée : rien à enregistrer.'));
+      var nR = vue.remplies || 0;
+      if (nR) {
+        cible.appendChild(el('p', 'feuille-aide', nR > 1
+          ? nR + ' séries remplies ne sont pas validées.'
+          : '1 série remplie n\u2019est pas validée.'));
+        var bv = el('button', 'principal', 'Les valider');
+        bv.type = 'button';
+        bv.addEventListener('click', vue.surValider);
+        cible.appendChild(bv);
+        var av = el('button', 'discret bloc-large danger', 'Abandonner');
+        av.type = 'button';
+        av.addEventListener('click', vue.surAbandonner);
+        cible.appendChild(av);
+      } else {
+        var ab = el('button', 'principal', 'Abandonner');
+        ab.type = 'button';
+        ab.addEventListener('click', vue.surAbandonner);
+        cible.appendChild(ab);
+        var co = el('button', 'discret bloc-large', 'Continuer la séance');
+        co.type = 'button';
+        co.addEventListener('click', vue.surContinuer);
+        cible.appendChild(co);
+      }
+      return cible;
+    }
     cible.appendChild(t);
+
+    // ECRAN §7 septies.4 (prompt 131, maquette mesures-cardio écran 6) — UNE donnée facultative restée vide : sa
+    // phrase, la série, la case. Rien d'obligatoire : laissée vide, « Terminer » ne demande rien de plus.
+    if (vue.manque) {
+      var mq = el('div', 'manque-fin');
+      mq.appendChild(el('p', 'manque-fin-t', vue.manque.phrase));
+      var rang = el('div', 'manque-fin-l');
+      rang.appendChild(el('span', 'manque-fin-s', vue.manque.serie));
+      var caseFin = champSerie('rp-serie num', vue.manque.valeur, null, vue.manque.unite, vue.manque.surSaisie,
+        { max: vue.manque.max });
+      caseFin.setAttribute('data-champ', vue.manque.champ);
+      rang.appendChild(caseFin);
+      mq.appendChild(rang);
+      cible.appendChild(mq);
+    }
 
     // 71 (ECRAN-SAISIE §7 septies.4 bis) — LA FEUILLE DÉCLARE, LE RÉCAP CONSTATE. Les records du jour et le
     // bloc « Le jeu » ont quitté cette feuille : ils passent au récap (`rendreRecap`), juste après « Terminer ».
@@ -4417,11 +4563,97 @@
     return cible;
   }
 
+  // 138 (ECRAN-PROFIL §3.5) — LA FEUILLE « COMMENT FAIRE » : installer TrainHub sur l'écran d'accueil de l'iPhone.
+  // Le titre, les trois étapes et la phrase des 7 jours viennent de l'appelant (`Auth.PHRASES_IPHONE`, un seul
+  // endroit) ; le « Fermer » est celui de la feuille de l'app (le voile). Le pictogramme Partager est dessiné en
+  // SVG (un carré ouvert, une flèche vers le haut), jamais une image.
+  function rendreFeuilleInstaller(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', vue.titre));
+    var liste = el('ol', 'installer-etapes');
+    (vue.etapes || []).forEach(function (texte, i) {
+      var li = el('li', 'installer-etape');
+      li.appendChild(el('b', 'installer-n', String(i + 1)));
+      var d = el('div', '', texte);
+      if (i < 2) {
+        var puce = el('span', 'puce-ios');
+        var ico = svg('svg', 'ico-part', { viewBox: '0 0 24 24', 'aria-hidden': 'true' });
+        ico.appendChild(svg('path', '', { d: i === 0 ? 'M12 3v12M8 7l4-4 4 4M6 11v9h12v-9' : 'M12 5v14M5 12h14' }));
+        puce.appendChild(ico);
+        puce.appendChild(doc.createTextNode(i === 0 ? ' Partager' : ' Sur l\u2019\u00e9cran d\u2019accueil'));
+        d.appendChild(doc.createElement('br'));
+        d.appendChild(puce);
+      }
+      li.appendChild(d);
+      liste.appendChild(li);
+    });
+    cible.appendChild(liste);
+    cible.appendChild(el('p', 'feuille-aide aide-sept', vue.sept));
+    return cible;
+  }
+
   // 99 (MOTEUR §9.24) — LA SEMAINE QUI DÉRAILLE. La carte lit ce que le coach a décidé (`THDeraille`) : la bande
   // de la semaine, la phrase qui parle du plan, les choix (celui mis en avant en principal) et sa raison en une
   // ligne. Après « la suite se décale », la bande montre la semaine décalée et « Démarrer ». Rien n'est calculé ici.
   // `vue` : `{ bande: [{ jour, routine }], aujourdhui (0-6), titre, phrase?, choix: [{ cle, libelle, avant? }],
   // pourquoi?, surChoix(cle) }` ou `{ bande, aujourdhui, apres: { titre, exercices: [nom], surDemarrer } }`.
+  // ══ 131 (ECRAN-SAISIE §3 ter.5, maquette mesures-cardio écran 5) — « CE QUI MANQUE À TES SÉANCES » ══
+  //
+  // Le rendu ne calcule rien : `vue.groupes` vient du fait (`faits.ceQuiManque`), mis en mots par l'app. Par groupe :
+  // l'en-tête (« RANDONNÉE · D+ · 29 SÉANCES »), 2 lignes (ou toutes, ouvert), « Voir les N autres », « Je ne sais
+  // plus » ; puis « Enregistrer » et « Plus tard ». Chaque ligne : la séance et la série, et une case (sa borne).
+  // `null` : la carte est cachée.
+  function rendreCarteManque(cible, vue) {
+    if (!cible) return cible;
+    vider(cible);
+    if (!vue || !vue.groupes || !vue.groupes.length) { cible.hidden = true; return cible; }
+    cible.hidden = false;
+    var c = el('div', 'carte-manque');
+    c.appendChild(el('p', 'manque-titre', 'Ce qui manque à tes séances'));
+    c.appendChild(el('p', 'manque-phrase', vue.phrase || ''));
+    vue.groupes.forEach(function (g) {
+      var bloc = el('div', 'manque-groupe');
+      bloc.setAttribute('data-cle', g.cle);
+      bloc.appendChild(el('div', 'manque-tete', g.titre));
+      g.lignes.forEach(function (l) {
+        var r = el('div', 'manque-ligne');
+        r.setAttribute('data-serie', l.serieId);
+        r.appendChild(el('span', 'manque-quoi', l.texte));
+        var caseM = champSerie('rp-serie num', l.valeur, null, l.unite,
+          function (v) { vue.surSaisie(l.serieId, l.seanceId, g.champ, v); }, { max: l.max });
+        caseM.setAttribute('data-champ', g.champ);
+        r.appendChild(caseM);
+        bloc.appendChild(r);
+      });
+      var bas = el('div', 'manque-gestes');
+      if (g.autres > 0) {
+        var voir = el('button', 'discret manque-voir', 'Voir les ' + g.autres + ' autres');
+        voir.type = 'button';
+        voir.addEventListener('click', function () { vue.surVoir(g.cle); });
+        bas.appendChild(voir);
+      }
+      var non = el('button', 'discret manque-refus', 'Je ne sais plus');
+      non.type = 'button';
+      non.addEventListener('click', function () { vue.surRefus(g.cle); });
+      bas.appendChild(non);
+      bloc.appendChild(bas);
+      c.appendChild(bloc);
+    });
+    if (vue.message) c.appendChild(el('p', 'manque-message', vue.message));
+    var actions = el('div', 'manque-actions');
+    var ok = el('button', 'principal manque-enregistrer', 'Enregistrer');
+    ok.type = 'button';
+    ok.addEventListener('click', function () { vue.surEnregistrer(); });
+    actions.appendChild(ok);
+    var tard = el('button', 'discret manque-tard', 'Plus tard');
+    tard.type = 'button';
+    tard.addEventListener('click', function () { vue.surPlusTard(); });
+    actions.appendChild(tard);
+    c.appendChild(actions);
+    cible.appendChild(c);
+    return cible;
+  }
+
   function rendreCarteSemaine(cible, vue) {
     vider(cible);
     if (!vue) { cible.hidden = true; return cible; }
@@ -5767,6 +5999,8 @@
       ajout.addEventListener('click', vue.surAjouterTranche);
       cible.appendChild(ajout);
     }
+    // 132 (ECRAN-PROFIL §2.4 sexies, maquette `maquette-elastiques-v2.html`, écran 1) — LES DEUX LISTES et le choix.
+    if (vue.surAjouterElastique) elastiquesDeLaSalle(cible, b, vue);
     cible.appendChild(el('p', 'feuille-err', vue.erreur || ''));
     // « Effacer » seulement quand une salle est déjà déclarée : il écrit le vide (non renseignée).
     piedFeuille(cible, [
@@ -5777,7 +6011,175 @@
     return cible;
   }
 
-  // 60-4 (ECRAN-PROFIL §4 bis, G10) — « Exercices écartés » : la liste, « Reprendre » sur chacun. Rien n'est caché
+  // 132 — UNE PASTILLE : la couleur que le nom dit (`THModele.pastilleElastique`), ou neutre.
+  function pastille(nom) {
+    var p = el('span', 'el-pastille');
+    var c = racine.THModele.pastilleElastique(nom);
+    if (c) p.style.background = c;
+    else p.className += ' neutre';
+    return p;
+  }
+
+  // 132 — MES ÉLASTIQUES, dans Ma salle : « Grands élastiques » (nom, kg facultatif) et « Mini-bandes » (nom seul),
+  // chacune rangée du plus fort au plus léger EN GLISSANT par la poignée ; puis « J'ai noté une aide à l'élastique :
+  // en kg / par son nom ». La feuille ne décide rien : `vue.surAjouterElastique(liste, nom, kg)`,
+  // `vue.surRetirerElastique(liste, i)`, `vue.surDeplacerElastique(liste, de, vers)`, `vue.surParNom(bool)` ; les
+  // phrases et la borne viennent de `THProfil`.
+  function elastiquesDeLaSalle(cible, b, vue) {
+    var P = racine.THProfil, M = racine.THModele;
+    [['elastiques', 'Grands élastiques', P.PHRASE_GRANDS_ELASTIQUES, 'Ajouter un élastique'],
+     ['mini_bandes', 'Mini-bandes', P.PHRASE_MINI_BANDES, 'Ajouter une mini-bande']].forEach(function (t) {
+      var liste = t[0], avecKg = liste === 'elastiques';
+      var carte = el('div', 'el-carte');
+      carte.dataset.liste = liste;
+      carte.appendChild(el('div', 'choix-groupe salle-titre', t[1]));
+      carte.appendChild(el('p', 'feuille-aide', t[2]));
+      var rangs = el('div', 'el-rangs');
+      var elements = (b[liste] || []);
+      elements.forEach(function (e, i) {
+        var r = el('div', 'el-rang');
+        r.dataset.i = String(i);
+        var poignee = el('span', 'el-poignee', '\u22ee\u22ee');
+        poignee.setAttribute('aria-label', 'Glisser pour ranger ' + e.nom);
+        poignee.setAttribute('role', 'button');
+        r.appendChild(poignee);
+        r.appendChild(pastille(e.nom));
+        r.appendChild(el('span', 'el-nom', e.nom));
+        r.appendChild(el('span', 'el-kg num', avecKg ? (e.kg !== undefined && e.kg !== null ? M.nombreSigne(e.kg) + '\u00a0kg' : '\u2014') : ''));
+        var x = el('button', 'el-retirer', '\u00d7');
+        x.type = 'button';
+        x.setAttribute('aria-label', 'Retirer ' + e.nom);
+        x.addEventListener('click', function () { vue.surRetirerElastique(liste, i); });
+        r.appendChild(x);
+        glisserPourRanger(poignee, r, rangs, i, function (vers) { vue.surDeplacerElastique(liste, i, vers); });
+        rangs.appendChild(r);
+      });
+      carte.appendChild(rangs);
+      if (elements.length > 1) {
+        var ordre = el('div', 'el-ordre');
+        ordre.appendChild(el('span', '', 'le plus fort'));
+        ordre.appendChild(el('span', '', 'le plus léger'));
+        carte.appendChild(ordre);
+      }
+      if (P.peutAjouterElastique(b, liste)) {
+        var ajout = el('button', 'discret el-ajout', '\uff0b ' + t[3]);
+        ajout.type = 'button';
+        carte.appendChild(ajout);
+        // « ＋ » : le nom (et le kg d'un grand élastique, facultatif), puis « Ajouter ». Rien ne s'ajoute avant.
+        ajout.addEventListener('click', function () {
+          if (carte.querySelector('.el-saisie')) return;
+          var saisie = el('div', 'salle-ajout el-saisie');
+          var nom = doc.createElement('input');
+          nom.type = 'text';
+          nom.maxLength = 30;
+          nom.placeholder = 'Nom';
+          nom.setAttribute('aria-label', 'Nom de l’élastique');
+          nom.className = 'el-champ-nom';
+          saisie.appendChild(nom);
+          var kg = null;
+          if (avecKg) {
+            kg = doc.createElement('input');
+            kg.type = 'number';
+            kg.inputMode = 'decimal';
+            kg.step = '0.5';
+            kg.placeholder = 'kg';
+            kg.setAttribute('aria-label', 'Son aide en kg, facultative');
+            kg.className = 'el-champ-kg';
+            saisie.appendChild(kg);
+          }
+          var ok = el('button', 'discret', 'Ajouter');
+          ok.type = 'button';
+          ok.addEventListener('click', function () { vue.surAjouterElastique(liste, nom.value, kg ? kg.value : null); });
+          saisie.appendChild(ok);
+          carte.insertBefore(saisie, ajout);
+          nom.focus();
+        });
+      }
+      cible.appendChild(carte);
+    });
+    var parNom = b.elastiques_par_nom === true;
+    var carteChoix = el('div', 'el-carte el-choix-carte');
+    carteChoix.appendChild(el('div', 'choix-groupe salle-titre', 'J’ai noté une aide à l’élastique'));
+    var choix = el('div', 'el-choix');
+    [[false, 'en kg'], [true, 'par son nom']].forEach(function (c) {
+      var on = parNom === c[0];
+      var bt = el('button', 'q-puce' + (on ? ' on' : ''), c[1]);
+      bt.type = 'button';
+      bt.dataset.choix = c[0] ? 'nom' : 'kg';
+      bt.setAttribute('aria-pressed', on ? 'true' : 'false');
+      bt.addEventListener('click', function () { vue.surParNom(c[0]); });
+      choix.appendChild(bt);
+    });
+    carteChoix.appendChild(choix);
+    carteChoix.appendChild(el('p', 'feuille-aide', P.PHRASE_PAR_NOM));
+    cible.appendChild(carteChoix);
+  }
+
+  // 132 (ECRAN-SAISIE §3 ter.6, maquette `maquette-elastiques-v2.html`, écran 3) — LA FEUILLE DE CHOIX DE L'ÉLASTIQUE :
+  // la liste qui va avec l'exercice, dans son ordre (du plus fort au plus léger), avec la pastille, « le plus fort » sur
+  // le premier, la coche sur le choisi. `vue` : `{ exercice, numero, liste: [noms], mini, choisi, surChoix(nom),
+  // surAnnuler }`. Elle ne décide rien.
+  function rendreFeuilleElastique(cible, vue) {
+    vider(cible);
+    teteFeuille(cible, vue.exercice, 'Série ' + vue.numero, null);
+    var l = el('div', 'el-feuille');
+    (vue.liste || []).forEach(function (nom, i) {
+      var sel = nom === vue.choisi;
+      var b = el('button', 'el-rang el-choisir' + (sel ? ' sel' : ''));
+      b.type = 'button';
+      b.dataset.nom = nom;
+      b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+      b.appendChild(el('span', '', ''));
+      b.appendChild(pastille(nom));
+      b.appendChild(el('span', 'el-nom', nom));
+      b.appendChild(el('span', 'el-kg', sel ? '\u2713' : (i === 0 && vue.liste.length > 1 ? (vue.mini ? 'la plus forte' : 'le plus fort') : '')));
+      b.addEventListener('click', function () { vue.surChoix(nom); });
+      l.appendChild(b);
+    });
+    cible.appendChild(l);
+    piedFeuille(cible, [{ classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler }]);
+    return cible;
+  }
+
+  // Glisser une rangée par sa poignée : la rangée suit le doigt, et au lâcher la place se lit sur la hauteur des autres
+  // rangées (le milieu de chacune). Rien ne change sans déplacement réel.
+  function glisserPourRanger(poignee, rang, conteneur, i, surLacher) {
+    var depart = null;
+    poignee.addEventListener('pointerdown', function (e) {
+      depart = e.clientY;
+      if (poignee.setPointerCapture && e.pointerId !== undefined) {
+        try { poignee.setPointerCapture(e.pointerId); } catch (x) { /* rien */ }
+      }
+      rang.classList.add('glisse');
+      e.preventDefault();
+    });
+    poignee.addEventListener('pointermove', function (e) {
+      if (depart === null) return;
+      rang.style.transform = 'translateY(' + (e.clientY - depart) + 'px)';
+    });
+    var lacher = function (e) {
+      if (depart === null) return;
+      var y = e.clientY;
+      depart = null;
+      rang.style.transform = '';
+      rang.classList.remove('glisse');
+      var autres = Array.prototype.slice.call(conteneur.children);
+      var vers = 0;
+      autres.forEach(function (a, k) {
+        if (k === i) return;
+        var bx = a.getBoundingClientRect();
+        if (y > bx.top + bx.height / 2) vers = k < i ? k + 1 : k;
+      });
+      // Au-dessus de tout : la première place ; sinon, la dernière rangée dépassée (décalée de la rangée qui part).
+      if (vers !== i) surLacher(Math.max(0, Math.min(autres.length - 1, vers)));
+    };
+    poignee.addEventListener('pointerup', lacher);
+    poignee.addEventListener('pointercancel', function () {
+      depart = null; rang.style.transform = ''; rang.classList.remove('glisse');
+    });
+  }
+
+  // 60-4 (ECRAN-PROFIL §4 bis, G10) — « Exercices écartés » : la liste, « Reprendre » sur chacun.  // 60-4 (ECRAN-PROFIL §4 bis, G10) — « Exercices écartés » : la liste, « Reprendre » sur chacun. Rien n'est caché
   // ni perdu : un exercice repris revient dans les programmes et en tête du catalogue. `vue` : `{ titre, aide,
   // exercices: [{ nom, surReprendre }], surFermer }`.
   function rendreFeuilleEcartes(cible, vue) {
@@ -6547,6 +6949,9 @@
     tete.appendChild(el('b', 's-pseudo', p.pseudo));
     if (p.ligneJeu) tete.appendChild(el('small', 's-niveau', p.ligneJeu));
     if (p.etatTexte) tete.appendChild(el('span', 's-etat', p.etatTexte));
+    // 137 (SOCIAL §1, la bio) — sous l'état, avant les boutons, en entier : la base décide qui la voit (`social_profil`
+    // la rend nulle hors des cercles) ; ici on montre `bio` si elle est non vide, rien sinon. Ni trou, ni texte de remplacement.
+    if (typeof p.bio === 'string' && p.bio.trim()) tete.appendChild(el('p', 's-bio', p.bio));
     cible.appendChild(tete);
     var actions = el('div', 's-actions');
     if (p.bouton) actions.appendChild(boutonSocial(p.bouton.texte, 's-b1 s-principal', p.bouton.sur, 'social-principal'));
@@ -7368,6 +7773,7 @@
     rendreApercuProgramme: rendreApercuProgramme,
     rendreFeuilleEcartes: rendreFeuilleEcartes,
     rendreFeuilleSalle: rendreFeuilleSalle,
+    rendreFeuilleElastique: rendreFeuilleElastique,
     rendreFeuilleBlocEnCours: rendreFeuilleBlocEnCours,
     rendreFeuilleDupliquer: rendreFeuilleDupliquer,
     champDossier: champDossier,
@@ -7406,7 +7812,9 @@
     etiquetteSerie: etiquetteSerie,
     texteEffort: texteEffort,
     rendreBandeauReprise: rendreBandeauReprise,
+    rendreFeuilleInstaller: rendreFeuilleInstaller,
     rendreCarteSemaine: rendreCarteSemaine,
+    rendreCarteManque: rendreCarteManque,
     rendreEscalier: rendreEscalier,
     brancherReorganisation: brancherReorganisation,
     rendrePiedReorganisation: rendrePiedReorganisation,

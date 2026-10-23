@@ -259,9 +259,21 @@
       return client().from('exercises')
         .select('slug, nom, mesure, charge, parent, equipement, muscles_primaires, muscles_secondaires, ' +
                 'muscles_stabilisateurs, mouvement, habilete, schema_mouvement, nature, description, actif, hors_salle, ' +
-                'echelle, echelle_rang, barre_charge_fixe');
+                'echelle, echelle_rang, barre_charge_fixe, champs_series, type_elastique');
     }, 'slug'), 'slug').then(function (lignes) {
-      return lignes.filter(function (e) { return !e || e.actif !== false; }).map(sansColonnesVides);
+      // ⚠️ `champs_series` DEPUIS 131 (v2_101, ECRAN §3 ter.5) — DANS LE `select` PRINCIPAL : la migration passe
+      // avant la fusion (décision du prompt 131). Un tableau, `[]` par défaut : une ligne sans la colonne (cache
+      // d'avant, faux serveur) ou à `null` n'a aucun champ en plus.
+      // ⚠️ `type_elastique` DEPUIS 132 (v2_102, MOTEUR §10 ter) — DANS LE `select` PRINCIPAL, comme `champs_series`
+      // (décision du prompt 132 : la migration passe avant la fusion). `grand` (ma_salle.elastiques) ou `mini`
+      // (ma_salle.mini_bandes) ; toute autre valeur, ou une ligne sans la colonne (cache d'avant, faux serveur), se lit
+      // `null` : l'exercice n'a pas de liste, rien ne change.
+      return lignes.filter(function (e) { return !e || e.actif !== false; }).map(sansColonnesVides).map(function (e) {
+        if (!e) return e;
+        var x = !Array.isArray(e.champs_series) ? Object.assign({}, e, { champs_series: [] }) : e;
+        var t = x.type_elastique === 'grand' || x.type_elastique === 'mini' ? x.type_elastique : null;
+        return x.type_elastique === t ? x : Object.assign(x === e ? Object.assign({}, e) : x, { type_elastique: t });
+      });
     });
   }
 
@@ -872,6 +884,9 @@
     'lest_reponse, lest_reponse_le, ' +
     // 127 (`v2_099`, MOTEUR §9.17 bis) — la réponse à la carte « marche suivante ». FACULTATIVE : ci-dessous.
     'marche_reponses, ' +
+    // 131 (`v2_101`, ECRAN §3 ter.5) — « Je ne sais plus » : les groupes refusés de « Ce qui manque à tes séances »
+    // (« slug:colonne »). Dans la lecture principale : la migration passe avant la fusion.
+    'completer_refus, ' +
     'seances_par_semaine, duree_seance_min, ' +
     // 60-2a (`v2_065`) — le questionnaire du coach. Omises ici, elles seraient
     // écrites mais jamais relues, et `profil = rendu` les effacerait de l'état
@@ -889,8 +904,8 @@
     // 104 (`v2_086`) — les bilans déjà annoncés. Écrite, donc relue (le même piège). FACULTATIVE : ci-dessous.
     'bilans_annonces, ' +
     // 108 (`v2_088`) — ma salle (MOTEUR §10 bis). FACULTATIVE aussi : absente, la salle n'est pas déclarée.
-    'ma_salle, ' +
-    'onboarding_completed';
+    // 136 (audit du 16/10, 03 #18) — `onboarding_completed` n'est plus lue ni écrite : la colonne reste en base.
+    'ma_salle';
 
   // ⚠️ 104 — UNE COLONNE FACULTATIVE NE CASSE JAMAIS LE PROFIL (le défaut de #418). Nommer une colonne que la base
   // n'a pas encore (migration pas lancée) fait échouer la lecture ENTIÈRE (`42703`, « column … does not exist ») et

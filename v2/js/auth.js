@@ -67,10 +67,52 @@
     var req = String((adresse && adresse.search) || '').replace(/^\?/, '');
     var f = new URLSearchParams(frag), q = new URLSearchParams(req);
     if (f.has('error')) return { jeton: false, erreur: true };
-    if (f.has('access_token')) return { jeton: true, erreur: false };
+    // 138 — `recup` : le lien est une RÉCUPÉRATION (`type=recovery`, dans le fragment du flux implicite). Le SDK n'émet
+    // `PASSWORD_RECOVERY` que dans ce cas, mais APRÈS le démarrage (voir `app.js`, le retour de lien sur iPhone) : l'adresse,
+    // elle, le dit tout de suite. Le flux PKCE (`?code=`) ne porte pas son type : `recup` y est absent, et l'app n'y arrête rien.
+    if (f.has('access_token')) return f.get('type') === 'recovery'
+      ? { jeton: true, erreur: false, recup: true } : { jeton: true, erreur: false, implicite: true };
     if (q.has('code')) return { jeton: true, erreur: false };
     return null;
   }
+
+  // ── 138 — « IPHONE, HORS DE L'APP » (ECRAN-PROFIL §3.5, audit iPhone I-03 et I-05) ──────────────────────
+  //
+  // Une seule fonction décide si l'app dit comment l'installer : un appareil Apple tactile, dans un navigateur
+  // (Safari, le navigateur interne de Gmail…), pas dans l'app installée. Safari efface les données d'un site non
+  // installé qu'on n'ouvre pas pendant 7 jours, et un lien d'e-mail n'ouvre jamais l'app installée.
+  //
+  // PURE : `nav` (`navigator`) et `matchMedia` sont injectés, rien n'est lu sur `window`.
+  //   · Apple tactile : `iPhone|iPad|iPod` dans l'agent, OU `MacIntel` avec plus d'un point de contact (un iPad récent
+  //     se présente comme un Mac ; un Mac sans écran tactile n'en a pas).
+  //   · installée : `navigator.standalone === true` (Safari) OU `display-mode: standalone` (le manifeste).
+  // Android et ordinateur : toujours faux.
+  function iphoneHorsApp(nav, matchMedia) {
+    if (!nav) return false;
+    var agent = String(nav.userAgent || '');
+    var apple = /iPhone|iPad|iPod/.test(agent) || (nav.platform === 'MacIntel' && Number(nav.maxTouchPoints) > 1);
+    if (!apple) return false;
+    if (nav.standalone === true) return false;
+    try { if (typeof matchMedia === 'function' && matchMedia('(display-mode: standalone)').matches) return false; }
+    catch (e) { /* la requête n'existe pas : on ne sait pas, on ne dit pas « installée » */ }
+    return true;
+  }
+
+  // Les phrases de ECRAN-PROFIL §3.5, au mot près : UN SEUL ENDROIT (les six écrans les lisent ici).
+  var PHRASES_IPHONE = {
+    connexion: { quoi: 'Sur iPhone, installe TrainHub d’abord.', sujet: 'Puis ouvre-le depuis ton écran d’accueil et connecte-toi là.' },
+    feuille: {
+      titre: 'Installer TrainHub sur ton iPhone',
+      etapes: ['Touche le bouton Partager, en bas de Safari.', 'Fais défiler et touche « Sur l’écran d’accueil ».',
+        'Touche « Ajouter », puis ouvre TrainHub depuis son icône et connecte-toi.'],
+      sept: 'Dans Safari, l’iPhone efface les données d’un site qu’on n’ouvre pas pendant 7 jours. Installé, TrainHub garde tes séances.'
+    },
+    saisie: { quoi: 'Tu utilises TrainHub dans Safari.', sujet: 'Installé, il garde tes séances : Safari efface un site qu’on n’ouvre pas pendant 7 jours.' },
+    lien: { quoi: 'C’est fait : ton adresse est confirmée.',
+      sujet: 'Ouvre TrainHub depuis ton écran d’accueil et connecte-toi là. Pas encore installé ? Fais-le d’abord.' },
+    motDePasse: { quoi: 'Ton mot de passe est changé.', sujet: 'Ouvre TrainHub depuis ton écran d’accueil et connecte-toi avec le nouveau.' },
+    ligne: 'Installer sur l’écran d’accueil'
+  };
 
   async function sessionCourante() {
     var r = await client().auth.getSession();
@@ -195,6 +237,8 @@
     deconnecter: deconnecter,
     surChangement: surChangement,
     retourDeLien: retourDeLien,
+    iphoneHorsApp: iphoneHorsApp,
+    PHRASES_IPHONE: PHRASES_IPHONE,
     phraseInscription: phraseInscription
   };
 })(typeof self !== 'undefined' ? self : globalThis);

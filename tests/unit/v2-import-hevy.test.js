@@ -20,6 +20,7 @@ require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
 require('../../v2/js/profil.js');
 require('../../v2/js/palier.js');
+require('../../v2/js/routines.js');
 const Moteur = require('../../v2/js/moteur.js');
 const Seance = require('../../v2/js/seance.js');
 const I = require('../../v2/js/importhevy.js');
@@ -299,7 +300,7 @@ describe('69 — les noms : trouvés à l’identique, jamais devinés', () => {
   });
 
   test('⚠️ un nom voisin n’est PAS trouvé « au plus près » : il est à rattacher', () => {
-    expect(I.slugDuNom(INDEX, 'Développé Couché Barre')).toBeNull();
+    expect(I.slugDuNom(INDEX, 'Développé Couché Barre Haltère')).toBeNull();
     expect(I.slugDuNom(INDEX, 'Good Morning (Barre)')).toBeNull();
   });
 
@@ -321,10 +322,76 @@ describe('69 — les noms : trouvés à l’identique, jamais devinés', () => {
     expect(I.pretAImporter(lignes, index2, {})).toBe(true);
   });
 
-  test('le catalogue passe avant les noms communs, qui passent avant les rattachements', () => {
+  test('le catalogue passe avant les rattachements de la personne, qui passent avant les noms communs', () => {
     const index = I.indexDesNoms({ catalogue: [{ slug: 'a', nom: 'X' }], communs: [{ alias: 'x', slug: 'b' }],
       miens: [{ alias: 'X', exercise_slug: 'c' }] });
     expect(I.slugDuNom(index, 'x')).toBe('a');
+  });
+
+  test('137 (03 #13) — DISCRIMINANT : un nom à la fois dans `communs` (slug A) et `miens` (slug B) → B', () => {
+    const index = I.indexDesNoms({ catalogue: [],
+      communs: [{ alias: 'good morning (barre)', slug: 'A' }],
+      miens: [{ alias: 'Good Morning (Barre)', exercise_slug: 'B' }] });
+    expect(I.slugDuNom(index, 'Good Morning (Barre)')).toBe('B');
+    // Témoin : sans rattachement de la personne, le nom commun répond.
+    expect(I.slugDuNom(I.indexDesNoms({ communs: [{ alias: 'good morning (barre)', slug: 'A' }] }), 'Good Morning (Barre)')).toBe('A');
+  });
+});
+
+describe('141 — la ponctuation ne compte plus pour trouver un exercice', () => {
+  // Une fixture à ponctuation DIFFÉRENTE de celle des essais : le code d'avant ne trouvait aucune variante.
+  const CAT = [
+    { slug: 'dev', nom: 'Développé Couché (Barre)' },
+    { slug: 'hauss', nom: 'Haussement d’Épaules' },
+    { slug: 'trac', nom: 'Tractions – Lestées' }
+  ];
+  const COM = [{ alias: 'Bench Press (Barbell)', slug: 'bench' }];
+  const idx = I.indexDesNoms({ catalogue: CAT, communs: COM });
+  const VARIANTES = [
+    ['Developpe couche - barre', 'dev'], ['Développé Couché Barre', 'dev'], ['Développé  Couché  (Barre)', 'dev'],
+    ['Développé Couché ( Barre )', 'dev'], ['Haussement d\'Épaules', 'hauss'], ['Haussement d\'epaules', 'hauss'],
+    ['Tractions - Lestées', 'trac'], ['Tractions — Lestées', 'trac'], ['Tractions Lestées', 'trac'],
+    ['Bench Press  (Barbell)', 'bench'], ['Bench Press - Barbell', 'bench'],
+    ['Développé\u00a0Couché (Barre)', 'dev'], ['De\u0301veloppe\u0301 Couche\u0301 (Barre)', 'dev']
+  ];
+  test.each(VARIANTES)('« %s » trouve %s', (nom, slug) => {
+    expect(I.slugDuNom(idx, nom)).toBe(slug);
+  });
+
+  test('rien d’approché : un mot de plus ou de moins reste à rattacher', () => {
+    expect(I.slugDuNom(idx, 'Développé Couché')).toBeNull();
+    expect(I.slugDuNom(idx, '')).toBeNull();
+    expect(I.slugDuNom(idx, '(  )')).toBeNull();
+  });
+
+  test('collision : deux exercices différents du même niveau sur la même clé → à rattacher', () => {
+    const cat = [{ slug: 'a', nom: 'Tractions (Lestées)' }, { slug: 'b', nom: 'Tractions - Lestées' }];
+    const index = I.indexDesNoms({ catalogue: cat });
+    expect(I.slugDuNom(index, 'tractions lestees')).toBeNull();
+    // Le nom exact, lui, reste trouvé : il n'est pas deviné.
+    expect(I.slugDuNom(index, 'Tractions (Lestées)')).toBe('a');
+    expect(I.slugDuNom(index, 'tractions - lestees')).toBe('b');
+    // Un niveau plus bas ne tranche pas l'ambiguïté.
+    const avecCommun = I.indexDesNoms({ catalogue: cat, communs: [{ alias: 'Tractions Lestées', slug: 'c' }] });
+    expect(I.slugDuNom(avecCommun, 'tractions lestees')).toBeNull();
+    // Deux écritures du MÊME exercice ne sont pas une collision.
+    const meme = I.indexDesNoms({ catalogue: [{ slug: 'a', nom: 'Tractions (Lestées)' }, { slug: 'a', nom: 'Tractions - Lestées' }] });
+    expect(I.slugDuNom(meme, 'tractions lestees')).toBe('a');
+  });
+
+  test('un « mien » l’emporte sur un commun, même replié ; l’exact l’emporte sur le replié (même niveau)', () => {
+    const index = I.indexDesNoms({
+      communs: [{ alias: 'good morning (barre)', slug: 'A' }],
+      miens: [{ alias: 'Good Morning - Barre', exercise_slug: 'B' }] });
+    expect(I.slugDuNom(index, 'Good Morning (Barre)')).toBe('B');
+    const memeNiveau = I.indexDesNoms({ miens: [{ alias: 'Good Morning - Barre', exercise_slug: 'B' },
+      { alias: 'Good Morning (Barre)', exercise_slug: 'A' }] });
+    expect(I.slugDuNom(memeNiveau, 'Good Morning (Barre)')).toBe('A');
+  });
+
+  test('`norme()` reste la normalisation de la colonne générée (ponctuation conservée)', () => {
+    expect(I.norme(' Développé Couché - (Barre) ')).toBe('developpe couche - (barre)');
+    expect(I.norme('Haussement d’Épaules')).toBe('haussement d’epaules');
   });
 });
 

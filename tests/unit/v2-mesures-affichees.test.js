@@ -31,7 +31,7 @@ describe('119 — une fonction d’affichage par mesure', () => {
     expect(e('charge_reps')).toBe('Charge');
     expect(e('reps')).toBe('Reps');
     expect(e('temps')).toBe('Durée');
-    expect(e('distance_temps')).toBe('Durée · distance');
+    expect(e('distance_temps')).toBe('Distance · durée');  // 131b : l'ordre de la prose
     expect(e('charge_distance')).toBe('Charge · distance');
     expect(e('charge_temps')).toBe('Charge · durée');
     expect(Modele.affichageDeMesure('inconnue')).toBeNull();
@@ -41,7 +41,7 @@ describe('119 — une fonction d’affichage par mesure', () => {
     expect(Modele.formatMesure({ charge_kg: -22.5, reps: 8 })).toBe('Aide 22,5 kg × 8');
     expect(Modele.formatMesure({ reps: 15 })).toBe('15 reps');
     expect(Modele.formatMesure({ duree_s: 90 })).toBe('1 min 30');
-    expect(Modele.formatMesure({ duree_s: 1200, distance_m: 3200 })).toBe('20 min · 3,2 km');
+    expect(Modele.formatMesure({ duree_s: 1200, distance_m: 3200 })).toBe('3,2 km · 20 min');  // 131 : distance, puis durée
     expect(Modele.formatMesure({ charge_kg: 40, distance_m: 50 })).toBe('40 kg · 50 m');
     expect(Modele.formatMesure({ charge_kg: 10, duree_s: 60 })).toBe('10 kg · 1 min');
     expect(Modele.formatMesure({ charge_kg: 52 })).toBe('52 kg');

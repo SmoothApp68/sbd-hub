@@ -268,7 +268,14 @@
     if (cle === 'priorite') r.priorites = basculerPriorite(r.priorites, valeur);
     else if (cle === 'aucune') r.priorites = [];
     else if (cle === 'zone') r.menager = Profil().basculerZone(r.menager, valeur);
-    else if (CHOIX.indexOf(cle) >= 0) {
+    else if (cle === 'duree') {
+      // 137 — « Plus » ne porte pas de durée : elle ouvre le champ des minutes. Une durée déjà au-delà des
+      // puces est gardée ; sinon rien n'est en réponse tant que la personne n'a pas tapé ses minutes.
+      if (valeur === 'plus') {
+        r.dureePlus = true;
+        if (!(typeof r.duree === 'number' && r.duree >= DUREE_PLUS_MIN)) r.duree = null;
+      } else { r.duree = valeur; r.dureePlus = false; }
+    } else if (CHOIX.indexOf(cle) >= 0) {
       r[cle] = valeur;
       if (cle === 'seances') delete r.joursBornes;   // 116 — une puce touchée : la valeur est une réponse
     }
@@ -293,6 +300,12 @@
     if (cle === 'taille') {
       var taille = n === null ? null : P.tailleValide(n);
       return { valeur: taille, erreur: taille === null ? 'Une taille entre ' + P.TAILLE_MIN + ' et ' + P.TAILLE_MAX + ' cm.' : null };
+    }
+    if (cle === 'duree') {
+      // 137 — « Plus » : de 95 min à la borne de la base. Hors bornes : la phrase, rien n'est écrit.
+      var duree = n !== null && Math.floor(n) === n && n >= DUREE_PLUS_MIN && n <= P.DUREE_MAX ? n : null;
+      return { valeur: duree, erreur: duree === null
+        ? 'Une durée entre ' + DUREE_PLUS_MIN + ' et ' + P.DUREE_MAX + ' min.' : null };
     }
     if (cle === 'poids') {
       var W = Poids();
@@ -356,9 +369,36 @@
   // ce qui est TAPÉ dans les champs (le brouillon des chiffres est un nombre, le
   // champ garde le texte). `erreurs` : `{ champ: phrase }`.
   var PUCES_SEANCES = [2, 3, 4, 5, 6].map(function (n) { return { cle: n, libelle: n === 6 ? '6+' : String(n) }; });
-  var PUCES_DUREES = [45, 60, 75, 90, 120].map(function (n) {
-    return { cle: n, libelle: n === 120 ? 'Plus' : n + ' min' };
-  });
+  // 137 (audit du 16/10, 03 #11 ; décision du 22/10) — « PLUS » NE VAUT PLUS 120 : choisie, elle demande COMBIEN,
+  // juste dessous (un champ de 95 à `Profil.DUREE_MAX`, la borne de la base). 120 min aurait été inventé. Sans
+  // minutes tapées, « Plus » n'écrit rien pour la durée.
+  var DUREE_PLUS_MIN = 95;
+  // Les quatre durées sont celles de « Moins en ce moment » (`Profil.DUREES_DE_MOINS`) : une liste, un endroit.
+  function pucesDeDuree() {
+    return Profil().DUREES_DE_MOINS.map(function (n) {
+      return { cle: n, libelle: n + ' min' };
+    }).concat([{ cle: 'plus', libelle: 'Plus' }]);
+  }
+
+  // « Plus » est choisie quand la personne l'a touchée, ou quand la durée en réponse est déjà au-delà des puces.
+  function plusChoisie(rep) {
+    return !!(rep && (rep.dureePlus || (typeof rep.duree === 'number' && rep.duree >= DUREE_PLUS_MIN)));
+  }
+
+  // Les puces de la durée, et — « Plus » choisie — « Combien de minutes ? » juste dessous (un bloc `champs`).
+  function blocsDeLaDuree(etat, titre) {
+    var rep = etat.rep, erreurs = etat.erreurs || {};
+    var plus = plusChoisie(rep);
+    var blocs = [{ type: 'puces', cle: 'duree', titre: titre, valeur: plus ? 'plus' : rep.duree, options: pucesDeDuree() }];
+    if (plus) {
+      blocs.push({ type: 'champs', champs: [
+        { cle: 'duree', libelle: 'Combien de minutes ?', unite: 'min', mode: 'numeric',
+          valeur: texteDe(etat, 'duree', typeof rep.duree === 'number' && rep.duree >= DUREE_PLUS_MIN ? rep.duree : null),
+          erreur: erreurs.duree || null, aide: null }
+      ] });
+    }
+    return blocs;
+  }
 
   var SOUS_HISTORIQUE = {
     import: 'Hevy, Strong',
@@ -441,10 +481,8 @@
       blocs: [
         { type: 'options', cle: 'anciennete', valeur: rep.anciennete, options: Profil().ANCIENNETES },
         { type: 'puces', cle: 'seances', titre: 'Combien de séances par semaine ?',
-          valeur: rep.seances, options: PUCES_SEANCES },
-        { type: 'puces', cle: 'duree', titre: 'Combien de temps par séance ?',
-          valeur: rep.duree, options: PUCES_DUREES }
-      ]
+          valeur: rep.seances, options: PUCES_SEANCES }
+      ].concat(blocsDeLaDuree(etat, 'Combien de temps par séance ?'))
     };
   }
 
@@ -523,7 +561,7 @@
       titre = 'Tes séances durent environ ' + en(habituelle || visee, 'min') + '.';
     } else {
       titre = 'Combien de temps dure une séance, en général ?';
-      blocs.push({ type: 'puces', cle: 'duree', valeur: rep.duree, options: PUCES_DUREES });
+      blocsDeLaDuree(etat, null).forEach(function (b) { blocs.push(b); });
     }
     // 60-2c : « Moins en ce moment », choisi, demande combien JUSTE DESSOUS — quatre puces, la
     // même fonction que la feuille du Profil. Les autres réponses gardent la ligne « Durée visée ».
@@ -688,7 +726,7 @@
     ECRANS: ECRANS, BIENVENUE: BIENVENUE, DONNEES: DONNEES, SAIT: SAIT, SANS_HISTORIQUE: SANS_HISTORIQUE,
     TOI: TOI, BUT: BUT, PRIORITES: PRIORITES, TEMPS: TEMPS, PROGRAMME: PROGRAMME, CONSTRUIT: CONSTRUIT,
     COACH: COACH, RECAP: RECAP,
-    BARRES: BARRES, PUCES_SEANCES: PUCES_SEANCES, PUCES_DUREES: PUCES_DUREES,
+    BARRES: BARRES, PUCES_SEANCES: PUCES_SEANCES, get PUCES_DUREES() { return pucesDeDuree(); }, DUREE_PLUS_MIN: DUREE_PLUS_MIN, plusChoisie: plusChoisie,
     aUnHistorique: aUnHistorique,
     joursValides: joursValides, joursPrecoches: joursPrecoches, precocherJours: precocherJours,
     ecransVisibles: ecransVisibles,

@@ -84,15 +84,16 @@
     // ── 90 (SOCIAL-V1 « Guilde ») — LES NOMBRES DE MA GUILDE, calculés ici, publiés tels quels (`guilde_scores`) ──
     //
     // LE RECORD QUI COMPTE (décision du 14/10/2026) : une ligne du journal (`recordsDuJournal`) d'un des six types
-    // `TYPES_DE_LA_GUILDE` — jamais `un_rm_estime` (une estimation) ni `volume_seance` (pousserait au volume) ; une
-    // série « à fond » compte, c'est un fait. Sa série :
+    // `TYPES_DE_LA_GUILDE` — jamais `un_rm_estime` (une estimation). 22/10/2026 : `volume_seance` COMPTE, comme les autres
+    // (décision d'Aurélien, revient sur l'exclusion du 14/10 : rare, un fait, sans jugement) ; une
+    // série « à fond » compte, c'est un fait. Sa série (celle qui porte la médaille de volume) :
     //   · sans pari de consigne relié par `set_observe` (séance importée, série sans proposition) : elle COMPTE —
     //     sans consigne, il n'y a rien à dépasser ;
     //   · avec un pari relié : le pari de la plus haute révision ; elle compte à la charge proposée ou en dessous
     //     (au centième) ; une proposition sans chiffre (« le cran au-dessus », `fondement.charge` nul) : elle compte
     //     (la règle « suivie » de MOTEUR §12 : toute charge au-dessus du palier) ; une série sans charge : elle compte.
     // Un record se compte par SÉRIE (une médaille par série, comme le fil). `paris` : les paris connus (`predictions`).
-    var TYPES_DE_LA_GUILDE = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'duree_s', 'distance_m'];
+    var TYPES_DE_LA_GUILDE = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'volume_seance', 'duree_s', 'distance_m'];
     function recordsSansDepasser(c, paris, de, a) {
       var series = {}, parSerie = {};
       seancesAvecSeries(c).forEach(function (s) { s.series.forEach(function (x) { if (x && x.id) series[x.id] = x; }); });
@@ -412,19 +413,25 @@
     // « 90 kg × 10, 10, 10 » ; une charge qui change, « 32 kg × 12 · 36 kg × 10 » ;
     // sans charge, les reps (« 9, 9, 8, 7 ») ; une durée ou une distance, la
     // mesure de chaque série (`Modele.formatMesure`).
+    // 133 (audit 130 #10, décidé le 21/10/2026) — une charge de 0 kg EST une charge, le poids du corps :
+    // « poids du corps × 12, 12 », écrit par le formateur unique, comme le journal et la médaille (elle se disait
+    // « 12, 12 » ici, « 0 kg × 12 » au journal).
     function faitDeLExercice(series) {
       var travail = (series || []).filter(function (x) { return Modele.estTravail(x); });
       var paquets = [];
       travail.forEach(function (x) {
-        var aCharge = x.charge_kg !== null && x.charge_kg !== undefined && Number(x.charge_kg) !== 0;
+        var aCharge = x.charge_kg !== null && x.charge_kg !== undefined && x.charge_kg !== '' && isFinite(Number(x.charge_kg));
         var aReps = x.reps !== null && x.reps !== undefined;
-        var cle = aCharge && aReps ? 'c' + Number(x.charge_kg) : aReps ? 'r' : null;
+        // 132 (ECRAN-SAISIE §3 ter.6) — une série notée par nom se groupe par son élastique : « Noir × 12, 12 · Rouge × 10 ».
+        var nom = x.elastique !== null && x.elastique !== undefined ? x.elastique : null;
+        var cle = nom !== null && aReps ? 'e' + nom : aCharge && aReps ? 'c' + Number(x.charge_kg) : aReps ? 'r' : null;
         var dernier = paquets[paquets.length - 1];
         if (cle && dernier && dernier.cle === cle) { dernier.reps.push(x.reps); return; }
         paquets.push({ cle: cle, serie: x, reps: aReps ? [x.reps] : [] });
       });
       return paquets.map(function (p) {
         if (p.cle === 'r') return p.reps.join(', ');
+        if (p.cle && p.cle.charAt(0) === 'e') return Modele.affichageElastique({ elastique: p.serie.elastique, reps: p.reps.join(', ') });
         if (p.cle) return Modele.formatMesure({ charge_kg: p.serie.charge_kg }) + ' \u00d7 ' + p.reps.join(', ');
         return Modele.formatMesure(p.serie);
       }).join(' \u00b7 ');
@@ -609,9 +616,9 @@
     //     (`barres` : des slugs, dans l'ordre voulu), par la fonction des records
     //     (MOTEUR §9.23) — celle de la page d'exercice ; seulement les barres
     //     faites ;
-    //   · `autres` : les noms (catalogue, en minuscules) des SORTIES — sans
-    //     charge, mesurées en durée ou en distance, hors gainage et planches, qui
-    //     portent un muscle — faites dans ces 84 jours, trois au plus, les plus
+    //   · `autres` : les noms (catalogue, en minuscules) des SORTIES — le cardio
+    //     (`Modele.estExerciceSortie`, 133 : jamais un étirement), hors ce qui
+    //     porte un muscle — faites dans ces 84 jours, trois au plus, les plus
     //     fréquentes d'abord.
     //
     // `aujourdhui` : le jour de l'ouverture, passé (jamais l'horloge).
@@ -742,7 +749,8 @@
     // Sur la fenêtre du programme déduit (`Routines.fenetreDeLaPersonne` : les 84 jours qui finissent à la DERNIÈRE
     // séance, jamais « aujourd'hui »). Une séance COMPTE si elle a la signature du programme déduit
     // (`Routines.signatureDeSeance`, lue au même endroit, jamais recopiée). Les séries comptées ensuite : la série de
-    // travail (`Modele.estTravail`) ; les sorties (le cardio du jeu) jamais.
+    // travail (`Modele.estTravail`) ; jamais une série qui ne porte pas de volume (`Semaine.porteDuVolume` : le cardio,
+    // un étirement — 133b).
     //   · `seances_par_semaine` : la médiane, sur les semaines (lundi → dimanche, heure locale) qui ont au moins une
     //     séance comptée, du nombre de séances comptées ;
     //   · `taille_de_seance` : la médiane du nombre de séries de travail par séance comptée ;
@@ -770,7 +778,9 @@
         (s.series || []).forEach(function (x) {
           if (!x || !x.exercise_slug || !Modele.estTravail(x)) return;
           var f = index[x.exercise_slug];
-          if (Modele.estExerciceSortie(f) && !Semaine.porteDuVolume(f)) return;
+          // 133b (22/10/2026) — une série qui ne porte pas de volume (le cardio, un étirement) n'est pas une habitude
+          // de musculation : la règle du volume, pas celle de la sortie (un étirement n'est plus une sortie).
+          if (f && !Semaine.porteDuVolume(f)) return;
           n++;
           parExo[x.exercise_slug] = (parExo[x.exercise_slug] || 0) + 1;
           var r = x.reps === null || x.reps === undefined || x.reps === '' ? NaN : Number(x.reps);
@@ -1272,6 +1282,59 @@
       };
     }
 
+    // ── 131 (ECRAN-SAISIE §3 ter.5, écran 5) — « CE QUI MANQUE À TES SÉANCES » ──────────────────────────────
+    //
+    // Ce qui est devenu possible à noter : les séries de travail des séances terminées dont un champ en plus du
+    // catalogue est vide (le D+ d'une randonnée, les étages d'un escalier : `Modele.champsDeSerie`, au-delà des champs
+    // de la mesure), et les séries de Vélo d'Appartement, Spinning et Rameur sans distance (passés en
+    // `distance_temps` par v2_101). Groupé par (exercice, colonne) — la clé « slug:colonne » de
+    // `profiles.completer_refus` : un groupe refusé (« Je ne sais plus ») n'y est plus, pour de bon. Dans chaque
+    // groupe, de la plus récente à la plus ancienne ; les groupes, par leur série la plus récente. ⚠️ SANS MÉMO : une
+    // correction change la VALEUR d'une série sans changer le nombre de séries, la clé des autres mémos ; un balayage
+    // du corpus coûte moins qu'une carte qui garderait une ligne déjà complétée.
+    var A_DISTANCE = ['velo_machine', 'spinning', 'rameur'];
+    function ceQuiManque(c, refus) {
+      var refuses = {};
+      (Array.isArray(refus) ? refus : []).forEach(function (r) { if (typeof r === 'string') refuses[r] = true; });
+      var index = c.catalogue() || {};
+      var parCle = {}, liste = [];
+      var vide = function (v) { return v === null || v === undefined || v === ''; };
+      (c.seances || []).forEach(function (s) {
+        if (!s || !s.id || !s.debut || s.statut === 'en_cours') return;
+        c.seriesDe(s.id).forEach(function (x) {
+          if (!x || !Modele.estTravail(x)) return;
+          var exo = index[x.exercise_slug];
+          if (!exo) return;
+          var g = Modele.gabaritDe(exo);
+          var noms = Modele.champsDeSerie(exo).slice(g.champs.length);
+          if (A_DISTANCE.indexOf(x.exercise_slug) >= 0 && g.mesure === 'distance_temps') noms = noms.concat(['distance_km']);
+          noms.forEach(function (nom) {
+            var champ = Modele.champDeMesure(nom);
+            if (!champ || !vide(x[champ.cle])) return;
+            var k = x.exercise_slug + ':' + champ.cle;
+            if (refuses[k]) return;
+            if (!parCle[k]) {
+              parCle[k] = { cle: k, slug: x.exercise_slug, colonne: champ.cle, champ: nom, nom: exo.nom || x.exercise_slug,
+                            lignes: [] };
+              liste.push(parCle[k]);
+            }
+            parCle[k].lignes.push({ serieId: x.id, seanceId: s.id, debut: s.debut, rang: x.rang || 0, serie: x });
+          });
+        });
+      });
+      var recent = function (a, b) {
+        return String(b.debut).localeCompare(String(a.debut)) || (a.rang - b.rang);
+      };
+      liste.forEach(function (gr) {
+        gr.lignes.sort(recent);
+        var seances = {};
+        gr.lignes.forEach(function (l) { seances[l.seanceId] = true; });
+        gr.seances = Object.keys(seances).length;
+      });
+      liste.sort(function (a, b) { return recent(a.lignes[0], b.lignes[0]); });
+      return liste;
+    }
+
     return {
       entreeDuBilan: entreeDuBilan,
       tempsALaSalle: tempsALaSalle,
@@ -1295,6 +1358,7 @@
       recordsDuJour: recordsDuJour,
       recapDeLaSeance: recapDeLaSeance,
       faitDeLExercice: faitDeLExercice,
+      ceQuiManque: ceQuiManque,
       journalDuJour: journalDuJour,
       journalDeLaSeance: journalDeLaSeance,
       recordsDuJournal: recordsDuJournal,

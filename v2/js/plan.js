@@ -161,7 +161,7 @@
 
     var lignes = liste.map(function (sr, i) {
       var cov = couverture[i];
-      var ligne = { iSerie: i, id: sr && sr.id ? sr.id : null, type: S.typeDe(sr), validee: S.partEnBase(sr) };
+      var ligne = { iSerie: i, id: sr && sr.id ? sr.id : null, type: racine.THModele.typeLu(sr), typeBase: S.typeDe(sr), validee: S.partEnBase(sr) };
       if (!cov) { ligne.role = 'hors'; return ligne; }
       var p = reaction.plan[cov.position] || {};
       ligne.position = cov.position;
@@ -716,7 +716,7 @@
                  occurrence: exo && exo.occurrence ? exo.occurrence : null };
     if (!c) {
       base.lignes = series.map(function (s, i) {
-        return { iSerie: i, type: S.typeDe(s), role: 'hors', validee: S.partEnBase(s) };
+        return { iSerie: i, type: racine.THModele.typeLu(s), typeBase: S.typeDe(s), role: 'hors', validee: S.partEnBase(s) };
       });
       // §9.15 — sans consigne, pas de chauffe (pas de référence) ; la
       // dégressive se cale sur la dernière série de travail faite.
@@ -2702,6 +2702,9 @@
         // passée en échauffement, en dégressive ou en échec, elle sort de la
         // couverture (`hors`).
         if (!lp || !lp.validee || lp.role === 'hors') return;
+        // 152 : « À l'échec » (1 rep et +) reste une série de travail, mais changer son type de base vide son
+        // observation (le geste et la base, `v2_050`) : une ligne passée de `travail` à `echec` n'est plus la même ligne figée.
+        if (la.typeBase === 'travail' && lp.typeBase === 'echec') return;
         var nom = 'I4 — exercice ' + xa.iExo + ' (' + xa.slug + '), série ' + la.id + ' : ';
         if (!lp.figee) { erreurs.push(nom + 'figée avant, plus maintenant'); return; }
         if (lp.rang !== la.rang) erreurs.push(nom + 'rang ' + la.rang + ' → ' + lp.rang);

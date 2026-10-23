@@ -215,7 +215,7 @@ describe('49-18/19 — R1 : une série validée qui quitte le travail sort de I4
     return s.calculer('→ ' + type);
   };
 
-  ['echauffement', 'degressive', 'echec'].forEach((type) => {
+  ['echauffement', 'degressive'].forEach((type) => {
     test('⚠️ DISCRIMINANT — R1 : validée, observée, passée en ' + type + ' : aucune violation (ni I4, ni I7)', () => {
       const s = seanceSimulee(3);
       s.valider(0, 125, 5);
@@ -236,14 +236,23 @@ describe('49-18/19 — R1 : une série validée qui quitte le travail sort de I4
       .toEqual([expect.stringMatching(/figée avant, plus maintenant/)]);
   });
 
-  test('⚠️ DISCRIMINANT — E1 : passée en échec, l’observation est vidée, et aucune violation I7', () => {
-    // 49-19 : `echec` est une tentative manquée (hors couverture, ne vote pas).
+  test('⚠️ DISCRIMINANT — E1 : passée en échec À 0 REP, l’observation est vidée, et aucune violation I7', () => {
+    // 49-19 : `echec` à 0 rep est une tentative manquée (hors couverture, ne vote pas).
     // Au quatrième commit (H2, annulé), l'observation restait : I7.
+    const s = seanceSimulee(3);
+    s.valider(0, 125, 0);
+    const p = changerType(s, 0, 'echec');
+    expect(s.paris.filter((q) => q.set_observe === s.serie(0).id)).toHaveLength(0);
+    expect(p.exercices[0].lignes[0].role).toBe('hors');
+    expect(s.erreurs).toEqual([]);
+  });
+
+  test('⚠️ DISCRIMINANT — 152 : passée en échec À 5 REPS, elle reste une ligne couverte (l’observation, vidée par le geste, n’est pas une violation)', () => {
     const s = seanceSimulee(3);
     s.valider(0, 125, 5);
     const p = changerType(s, 0, 'echec');
     expect(s.paris.filter((q) => q.set_observe === s.serie(0).id)).toHaveLength(0);
-    expect(p.exercices[0].lignes[0].role).toBe('hors');
+    expect(p.exercices[0].lignes[0]).toMatchObject({ role: 'ligne', validee: true });
     expect(s.erreurs).toEqual([]);
   });
 });

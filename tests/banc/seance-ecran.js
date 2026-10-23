@@ -9199,12 +9199,29 @@ const SETS_IMPORTES = [
     ok('[TY] prémisse : la série 1 est validée, son pari observé en base',
       !!s1 && observes().length === 1, JSON.stringify({ s1: s1 && s1.id, observes: observes().length }));
     await toucher(0, '.no-serie');
-    await page.click('#feuille-contenu .feuille-menu button:nth-child(4)');   // Tentative manquée (echec)
+    await page.click('#feuille-contenu .feuille-menu button:nth-child(4)');   // À l'échec (echec)
     await attendre(700);
     await jusqua(async () => observes().length === 0, 6000);
-    ok('[TY] DISCRIMINANT — passée en « Tentative manquée », elle perd son observation (E1)',
+    ok('[TY] DISCRIMINANT — passée en « À l’échec », elle perd son observation (E1 ; l’observation se vide avec le type, comme en base)',
       sets().filter((x) => x.id === s1.id)[0].type_serie === 'echec' && observes().length === 0,
       JSON.stringify({ type: (sets().filter((x) => x.id === s1.id)[0] || {}).type_serie, observes: observes().length }));
+    // 152 — « À l'échec » : la série 1 (125 × 5) est du travail à l'échec, son étiquette est ambre ; une série
+    // sans rep passée en « À l'échec » est une tentative manquée.
+    const lignes152 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) => ({
+      no: (l.querySelector('.no-serie') || {}).textContent, etq: (l.querySelector('.etq-ligne') || {}).textContent || null,
+      ambre: !!l.querySelector('.etq-ligne.fond') })));
+    const l152 = await lignes152();
+    ok('[TY] 152 DISCRIMINANT — 125 × 5 passée en « À l’échec » : étiquette « à l’échec » en ambre, et le numéro 1 (du travail), pas ✕',
+      !!l152[0] && l152[0].etq === 'à l’échec' && l152[0].ambre === true && l152[0].no === '1', JSON.stringify(l152.slice(0, 2)));
+    await toucher(2, '.no-serie');
+    const menu152 = await page.evaluate(() => (document.querySelector('#feuille-contenu .feuille-menu button:nth-child(4)') || {}).textContent);
+    ok('[TY] 152 — le quatrième choix de la feuille dit « À l’échec » et sa règle',
+      /^À l’échec/.test(menu152 || '') && /À 0 rep : une tentative manquée\./.test(menu152 || ''), JSON.stringify(menu152));
+    await page.click('#feuille-contenu .feuille-menu button:nth-child(4)');
+    await jusqua(async () => (await lignes152()).some((x) => x.etq === 'manquée'), 6000);
+    const l152b = await lignes152();
+    ok('[TY] 152 DISCRIMINANT — une série sans rep passée en « À l’échec » : « manquée », pas en ambre, badge ✕',
+      !!l152b[2] && l152b[2].etq === 'manquée' && l152b[2].ambre === false && l152b[2].no === '✕', JSON.stringify(l152b));
     // La dégressive, sur la série 2.
     await saisirSerie(1, 125, 5);
     await attendre(1500);

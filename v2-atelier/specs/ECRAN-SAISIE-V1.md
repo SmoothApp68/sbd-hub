@@ -433,9 +433,11 @@ le pire cas étant `122,5`. Ça ne tient que parce que la suggestion n'est **pas
 (§3.1) — les 54 px libérés sont ceux-là.
 
 **3 bis.1 — Le numéro porte le type de la série.** Un appui ouvre un menu court : travail,
-échauffement, dégressive, tentative manquée, supprimer. Le numéro change d'apparence —
+échauffement, dégressive, à l'échec, supprimer. Le numéro change d'apparence —
 `C`, `D`, `✕`. Les quatre valeurs de `sets.type_serie` sont couvertes **sans un champ de
 plus**. Dans un superset, la chauffe de A s'appelle `Ac` et se place avant `A1` (§2.5).
+
+**23/10/2026, décision d'Aurélien (152) — « À l'échec ».** Le quatrième choix du menu se lit « À l'échec », avec « Tes reps comptent, sans marge. À 0 rep : une tentative manquée. » (avant : « Tentative manquée »). L'étiquette de la ligne (séance, détail, historique) suit les reps : **« à l'échec »** (ambre, comme « à fond ») à 1 rep ou plus — la série est du travail, elle prend son numéro — **« manquée »** à 0 rep (badge `✕`). Le ressenti « 0 — à l'échec » reste. Aucun calcul à l'écran : le mot sort de `Modele.motDEchec`.
 
 **3 bis.2 — La colonne EFFORT accepte deux formes.** Un RPE chiffré, ou un ressenti en
 répétitions restantes affiché `−1`, `−2`, `−0`. **L'affichage suit ce qui a été saisi**, sans

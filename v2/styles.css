@@ -2553,3 +2553,9 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .el-choisir{width:100%;text-align:left;background:transparent;border:0;border-top:1px solid var(--trait);color:var(--texte);
   font:inherit;grid-template-columns:8px 14px 1fr auto 8px}
 .el-choisir.sel{color:var(--accent);font-weight:600}
+
+/* 152 — « à l'échec » (ambre, comme « à fond ») et « manquée » : le mot d'une série `echec`, lu par les reps. */
+.etq{font-size:var(--t-petit,12px);color:var(--texte-3);margin-left:8px;font-weight:500}
+.etq.fond{color:var(--accent)}
+.etq-ligne{margin:-2px 0 4px 44px}
+.feuille-menu button .aide-type{display:block;font-weight:400;font-size:12px;color:var(--texte-3);margin-top:2px}

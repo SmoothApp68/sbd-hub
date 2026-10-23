@@ -46,7 +46,15 @@
   ROLE_DU_TAG[DEGRESSIVE] = 'degressive';   // §6.3 — descente choisie, déclarée
   ROLE_DU_TAG[ECHEC] = 'echec';             // §6.3 — descente subie, déclarée
 
+  // 152 — UNE SÉRIE `echec` À 1 REP OU PLUS EST UNE SÉRIE DE TRAVAIL À FOND, pas un tag
+  // qui écarte : la lecture est UNE (`THModele.estAEchec`, chargé avant ce module). À
+  // 0 rep (ou reps vides) elle reste le rôle `echec`, ignoré comme avant.
+  function aEchec(s) {
+    return !!racine.THModele && racine.THModele.estAEchec(s);
+  }
+
   function roleDuTag(s) {
+    if (aEchec(s)) return null;
     return Object.prototype.hasOwnProperty.call(ROLE_DU_TAG, s && s.type_serie)
       ? ROLE_DU_TAG[s.type_serie] : null;
   }
@@ -581,6 +589,8 @@
   // là où « reste 2 » et « reste 1 » tombent dans le même cran.
   function cranDeSerie(serie) {
     if (!serie) return null;
+    // 152 : « à l'échec » (1 rep et +) = plus rien en réserve, comme `reste_0` — le même cran, la même conséquence (68B).
+    if (aEchec(serie)) return 'max';
     var parRPE = cranEffort(serie.rpe);
     if (parRPE !== null) return parRPE;
     // `hasOwnProperty` et pas une lecture directe : `ressenti` vient de la base,

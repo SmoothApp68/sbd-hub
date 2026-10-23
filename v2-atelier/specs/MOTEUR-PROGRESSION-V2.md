@@ -368,6 +368,8 @@ Le rowing assis machine est le cas pur : descente entièrement planifiée, rien 
 
 > **Le tag prime sur la déduction.** Une série taguée `degressive` est une descente **choisie**, par déclaration. Une série taguée `echec` est une descente **subie**, par déclaration. Dans les deux cas, aucune inférence n'est appliquée.
 >
+> **23/10/2026, décision d'Aurélien (152) — le rôle `echec` se lit par les reps.** Les 128 séries `echec` de la base viennent toutes de Hevy, où « failure » veut dire série **menée à l'échec, reps faites**. Une série `echec` à **1 rep ou plus** se lit comme une **série de travail à fond** (`Modele.estAEchec` : `estTravail` vrai, cran `max` comme `reste_0`, §17) : elle vote au palier, entre dans les records (faits), le volume et le récap, et reste couverte sur une ligne du coach (son pari s'observe). À **0 rep** (ou reps vides) elle reste une **tentative manquée** : descente subie, ignorée, hors couverture (I4 inchangé). Rien ne se réécrit en base ; le journal `records`, immuable, ne se rattrape pas.
+>
 > **Pour les séries non taguées seulement :** quand la dernière série redescend en charge, l'app regarde l'avant-dernière. Si l'avant-dernière a tenu le compte de reps, la descente est un choix : elle n'est pas retenue pour juger le palier. Sinon, c'est un signal de fatigue et elle est conservée.
 
 ### 6.4 Pourquoi le tag doit primer — la mesure
@@ -2472,6 +2474,8 @@ Le champ se met en surbrillance **30 secondes après la validation de la série*
   5 à RPE 10 → niveau 5 (au lieu de 4), sans test proposé.
 - **Ce qui se dit** ne change pas (68B) : « sans marge », jamais « pas encore » pour des reps faites ; en séance,
   après une série à fond, ni élan ni proposition.
+
+**23/10/2026 (152) — « À l'échec » est un cran `max`.** Une série `echec` à 1 rep ou plus porte le cran `max` sans que l'utilisateur ait rien noté de plus (`cranDeSerie`, `palier.js`) : mêmes conséquences que `reste_0` / RPE 10 (68B, §17.4) — ses reps comptent, la charge ne monte pas sur sa foi. À 0 rep : pas de cran.
 
 ### 17.5 Deux réserves de fond
 

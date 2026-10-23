@@ -30,9 +30,30 @@
   // (`seance.js`, `rejeu.js`) disait « oui ». Partout ailleurs, on appelle ;
   // la garde d'architecture refuse un `type_serie === 'travail'` écrit en dur.
   function typeDe(serie) { return (serie && serie.type_serie) || 'travail'; }
-  function estTravail(serie) {
-    return !!serie && typeDe(serie) === 'travail';
+  // ⚠️ « À L'ÉCHEC » : UNE LECTURE, ICI (152, décision d'Aurélien du 23/10/2026). Les 128
+  // séries `echec` de la base viennent de Hevy, où « failure » veut dire série MENÉE à
+  // l'échec, reps faites. Donc : `echec` à 1 rep ou plus = une série de travail À FOND
+  // (`estTravail` vrai, cran « max » : `palier.js`) ; à 0 rep ou reps vides = une
+  // tentative manquée, ignorée comme avant. Rien ne se réécrit en base : c'est la lecture.
+  // Tout ce qui demande « est-ce du travail ? », « est-ce à l'échec ? » passe par ici.
+  function estAEchec(serie) {
+    if (!serie || typeDe(serie) !== 'echec') return false;
+    var r = lireNombre(serie.reps);
+    return r !== null && r >= 1;
   }
+  function estManquee(serie) {
+    return !!serie && typeDe(serie) === 'echec' && !estAEchec(serie);
+  }
+  // Le mot de l'étiquette d'une ligne : « à l'échec » (ambre) ou « manquée » ; `null` sinon.
+  function motDEchec(serie) {
+    return estAEchec(serie) ? 'à l’échec' : (estManquee(serie) ? 'manquée' : null);
+  }
+  function estTravail(serie) {
+    return !!serie && (typeDe(serie) === 'travail' || estAEchec(serie));
+  }
+  // Le type TEL QU'ON LE LIT : `travail` pour une série à l'échec (1 rep et +), le type de la base sinon. Le plan
+  // (`plan.js`) l'écrit sur chacune de ses lignes : aucun invariant ne compare `type_serie` à `'echec'`.
+  function typeLu(serie) { return estTravail(serie) ? 'travail' : typeDe(serie); }
 
   // UN EXERCICE « FAIT » (PR 6, décision du 02/10/2026) : au moins une série
   // de travail, cardio compris — le tapis est un exercice fait. Un exercice où
@@ -1517,6 +1538,8 @@
           if (travail) tour++;
           return Object.assign({}, brute, {
             estTravail: travail,
+            // 152 : « à l'échec » (1 rep et +) ou « manquée » (0 rep) ; la lecture unique.
+            motEchec: motDEchec(brute),
             // Ce que l'écran doit montrer comme fait — coché, vert, compté.
             faite: faiteEnBase(brute),
             // Le tour d'une série de travail est son rang parmi les séries de
@@ -2561,7 +2584,11 @@
     formatChrono: formatChrono,
     formatPrecedent: formatPrecedent,
     estTravail: estTravail,
+    estAEchec: estAEchec,
+    estManquee: estManquee,
+    motDEchec: motDEchec,
     typeDe: typeDe,
+    typeLu: typeLu,
     exercicesFaits: exercicesFaits,
     nombre: nombre,
     charge: charge,

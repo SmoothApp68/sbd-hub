@@ -174,7 +174,7 @@
       // la distinction se fait par le style.
       var ligne = el('div', 'serie' + (s.estTravail ? '' : ' hors-travail') +
         (s.debutTour ? ' debut-tour' : ''));
-      var t = ETIQUETTE_TYPE[s.type_serie];
+      var t = s.estTravail ? null : ETIQUETTE_TYPE[s.type_serie];
       // Hors superset, `etiquette` est vide sur une série qui n'est pas du
       // travail : elle n'a pas de lettre à porter. On retombe alors sur le
       // libellé de type — `W` pour une chauffe — plutôt que sur un badge nu.
@@ -188,6 +188,8 @@
         lien.addEventListener('click', a.sur);
         mesure.appendChild(lien);
       }
+      // 152 — « à l'échec » (ambre) ou « manquée » : le mot vient de la lecture unique (`Modele.motDEchec`).
+      if (s.motEchec) mesure.appendChild(el('span', 'etq' + (s.estTravail ? ' fond' : ''), s.motEchec));
       ligne.appendChild(mesure);
       section.appendChild(ligne);
     });
@@ -3340,6 +3342,8 @@
     }
 
     ligne.appendChild(rangee);
+    // 152 — le mot d'une série `echec` : « à l'échec » (ambre) à 1 rep et plus, « manquée » à 0.
+    if (s.motEchec) ligne.appendChild(el('div', 'etq-ligne etq' + (s.estTravail ? ' fond' : ''), s.motEchec));
     ligne.appendChild(fond);
     brancherGlissement(ligne, function () { vue.surSupprimerSerie(iExo, iSerie); });
     return ligne;
@@ -3350,8 +3354,8 @@
   // exactement comme au détail de séance. Hors superset, rien ne change — `C`,
   // `D`, `✕`, ou le numéro de la série de travail.
   function etiquetteDeSerie(bloc, s) {
-    if (!bloc.superset) return etiquetteSerie(s.type_serie, s.tour);
-    var e = ETIQUETTE_TYPE[s.type_serie];
+    if (!bloc.superset) return etiquetteSerie(s.estTravail ? 'travail' : s.type_serie, s.tour);
+    var e = s.estTravail ? null : ETIQUETTE_TYPE[s.type_serie];
     return { texte: s.etiquette, classe: e ? e.classe : '' };
   }
 
@@ -3474,7 +3478,7 @@
     ['travail', 'Série de travail'],
     ['echauffement', 'Échauffement'],
     ['degressive', 'Dégressive'],
-    ['echec', 'Tentative manquée']
+    ['echec', 'À l’échec', 'Tes reps comptent, sans marge. À 0 rep : une tentative manquée.']
   ];
 
   var LIBELLE_RESSENTI = [
@@ -3497,6 +3501,7 @@
       var menu = el('div', 'feuille-menu');
       LIBELLE_TYPE.forEach(function (t) {
         var b = el('button', M().typeDe(vue.serie) === t[0] ? 'sel' : '', t[1]);
+        if (t[2]) b.appendChild(el('small', 'aide-type', t[2]));
         b.type = 'button';
         b.addEventListener('click', function () { vue.surType(t[0]); });
         menu.appendChild(b);

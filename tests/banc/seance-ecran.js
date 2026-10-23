@@ -17410,7 +17410,8 @@ const SETS_IMPORTES = [
     await mesurerLargeur('accueil');
     await mesurerOnglets('allumé');
     const sousVues = [['#jeu-porte-muscles', 'vue-muscles', '/jeu/muscles', '#btn-retour-muscles', '#jeu-muscles .j-metier', 7],
-      ['#jeu-porte-succes', 'vue-succes', '/jeu/succes', '#btn-retour-succes', '#jeu-succes .j-cat', 8],
+      // 153 : la catégorie « Distances » ajoute une ligne (8 -> 9).
+      ['#jeu-porte-succes', 'vue-succes', '/jeu/succes', '#btn-retour-succes', '#jeu-succes .j-cat', 9],
       ['#jeu-porte-deblocages', 'vue-deblocages', '/jeu/deblocages', '#btn-retour-deblocages', '#jeu-deblocages .j-cadres .j-ligne', 4]];
     for (const [porte, vue, url, retour, lignes, n] of sousVues) {
       await page.click(porte);

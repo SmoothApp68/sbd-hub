@@ -15,7 +15,7 @@ describe('144-4 — le direct étiqueté', () => {
   test('tout est montré ; chauffe, dégressive et échec portent leur étiquette, le travail aucune', () => {
     const l = Social.lignesDuDirect([ligne('travail', 1), ligne('echauffement', 2), ligne('degressive', 3), ligne('echec', 4), ligne(null, 5)],
       iso(T0), (s) => s, mesure);
-    expect(l.map((x) => x.etiquette)).toEqual([null, 'Chauffe', 'Dégressive', 'Échec', null]);
+    expect(l.map((x) => x.etiquette)).toEqual([null, 'Chauffe', 'Dégressive', 'Tentative manquée', null]);
   });
   test('la ligne rendue porte l\'étiquette dans un .g-etiq, et pas pour le travail', () => {
     const l = Social.lignesDuDirect([ligne('travail', 1), ligne('echauffement', 2)], iso(T0), (s) => s, mesure);

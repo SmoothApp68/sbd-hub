@@ -640,7 +640,7 @@
   // 144-4 — le direct montre TOUT, avec une étiquette : un ami ne lit plus « 60 kg × 5 » sans savoir si c'est une
   // chauffe. Aucun calcul : le `type_serie` que `groupe_direct` rend déjà. Le travail n'a pas d'étiquette. Le récap de
   // fin, lui, ne compte que le travail (inchangé).
-  var ETIQUETTES_DU_DIRECT = { echauffement: 'Chauffe', degressive: 'Dégressive', echec: 'Échec' };
+  var ETIQUETTES_DU_DIRECT = { echauffement: 'Chauffe', degressive: 'Dégressive', echec: 'Tentative manquée' };
 
   function lignesDuDirect(direct, maintenantIso, nomDe, mesure) {
     return (direct || []).filter(function (d) { return d && d.validee_a; }).slice()

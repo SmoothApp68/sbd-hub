@@ -1108,6 +1108,11 @@
     var marcheReponses = reponsesEnCharges(e, e.marcheReponses && typeof e.marcheReponses === 'object' &&
       !Array.isArray(e.marcheReponses) ? e.marcheReponses : {});
     var echelles = e.echelles || {};
+    // 149 (MOTEUR §9.17 ter) — LES FIGURES : par exercice d'une échelle de figures (marches en secondes, lues au
+    // catalogue par l'app), `{ tenues, dessous, seuil }` — la tenue max de chaque séance faite (la plus récente en
+    // dernier : un fait de `faits.js`), le nom de la marche d'en dessous (`null` au rang 1) et le seuil de la marche
+    // (`echelle_seuil_s`). Le plan décide ; il recopie ce qu'il a reçu.
+    var figures = e.figures && typeof e.figures === 'object' && !Array.isArray(e.figures) ? e.figures : {};
     var marchesPosees = {};
     // 149 — le réglage de rythme (`prudent`, `normal`, `franc`), normalisé : il décide du nombre de séances que lit la
     // carte « marche suivante » et la carte du lest (Franc : une), et de la part de la tenue max (figures).
@@ -1287,8 +1292,98 @@
             x.phrases.push({ ou: 'marche.detail', texte: capMD.texte, citations: capMD.citations });
           }
         }
+        // 149 (MOTEUR §9.17 ter) — LES FIGURES EN SECONDES : la tenue max, les tenues, la carte. Une règle par discipline,
+        // branchée ici : le coach actif seulement (ni « Juste un carnet », ni Entretenir, ni Édition, ni « J'ai mal »), sur
+        // la première occurrence de l'exercice, jamais avec une consigne (une figure n'a ni zone, ni palier).
+        x.figure = null;
+        var fig = slug && Object.prototype.hasOwnProperty.call(figures, slug) ? figures[slug] : null;
+        if (fig && coachee && !c && !douloureuse && x.mesure === 'temps' && intentionX !== 'entretien' && !seance.edition) {
+          poserLaFigure(x, exo, fig, reglagePlan);
+          var echF = Object.prototype.hasOwnProperty.call(echelles, slug) ? echelles[slug] : null;
+          if (x.figure && echF && !marchesPosees[slug]) {
+            var M5 = Moteur(), V5 = Voix();
+            var tenuesF = x.figure.tenues.slice();
+            if (x.figure.max !== null) tenuesF.push(x.figure.max);
+            var reponseF = Object.prototype.hasOwnProperty.call(marcheReponses, slug) ? marcheReponses[slug] : null;
+            var dF = M5.carteMarcheEnSecondes({ marche: echF.marche, nomCible: echF.nomCible, seuil: nombre(fig.seuil),
+              tenues: tenuesF, duJour: x.figure.max !== null, reponse: reponseF, cibleFaiteLe: echF.cibleFaiteLe || null,
+              aujourdHui: seance.debut, coachActif: true, reglage: reglagePlan });
+            if (dF) {
+              marchesPosees[slug] = true;
+              var capFT = V5.capturer(function () { return M5.carteMarcheTitre(dF); });
+              var capFD = V5.capturer(function () { return M5.carteMarcheDetail(dF); });
+              x.carteMarche = { titre: capFT.texte, detail: capFD.texte, oui: M5.ouiMarche(dF.nom), non: M5.NON_MARCHE,
+                                cible: dF.cible, nom: dF.nom, type: echF.marche.type, proposable: echF.marche.proposable === true,
+                                cibleHabilete: false, aide: false, niveau: dF.niveau, charge: null,
+                                secondes: true, seuil: dF.seuil, tenues: tenuesF };
+              x.phrases.push({ ou: 'marche.titre', texte: capFT.texte, citations: capFT.citations });
+              x.phrases.push({ ou: 'marche.detail', texte: capFD.texte, citations: capFD.citations });
+            }
+          }
+        }
         return x;
     }
+  }
+
+  // ── 149 (MOTEUR §9.17 ter) — LES FIGURES EN SECONDES : LA TENUE MAX ET LES TENUES DU COACH ───────────────────────
+  //
+  // Un exercice d'une échelle de figures (`fig`, donné par l'app) se coache en SECONDES, sans charge :
+  //   · la PREMIÈRE série de travail est la tenue max (`l.tenue = 'max'`, étiquette « max ») ; son fantôme est le max de la
+  //     dernière séance (`fig.tenues`, le dernier) — « Ton max la dernière fois… », ou « Première fois ici… » ;
+  //   · une fois la tenue max VALIDÉE, chaque autre série de travail (`l.tenue = 'tenue'`) vise `max(2, arrondi(part × max du
+  //     jour))` — part 50 / 60 / 70 % selon le réglage ; avant : pas de durée (« — s », « après ton max » sur la
+  //     première) ; une tenue suivante plus longue ne change rien (une seule tenue max, la première) ;
+  //   · le coach ne pose ni n'enlève de ligne : leur nombre vient de la routine ou de la personne ;
+  //   · AUCUN pari (`predictions` : rien), ni chauffe ni dégressive : la ligne ne porte que `vise`.
+  //   · le RÔLE PROPRE de ces lignes est `l.tenue` ; leur `role` reste `hors` (aucune consigne ne les couvre : I1 à I48,
+  //     écrits pour la charge, ne les voient pas).
+  // `x.figure` : `{ dernier, tenues, max, vise, part, reglage, battu, sous, premiere, dessous }` — de quoi I52 à I55
+  // se vérifient. Les phrases se rédigent sous capture (§20 bis) et se posent sur la ligne max (`phraseAvant` au-dessus
+  // tant que la tenue max n'est pas validée, `phraseApres` dessous ensuite).
+  function poserLaFigure(x, exo, fig, reglage) {
+    var S = Seance(), M = Moteur(), V = Voix();
+    var series = (exo && exo.series) || [];
+    var lignes = x.lignes || [];
+    var travail = lignes.filter(function (l) { return l.type === 'travail'; });
+    if (!travail.length) return;
+    var tenues = (Array.isArray(fig.tenues) ? fig.tenues : []).map(nombre).filter(function (v) { return v !== null && v > 0; });
+    var dernier = tenues.length ? tenues[tenues.length - 1] : null;
+    var premiere = travail[0];
+    var sPremiere = series[premiere.iSerie];
+    var dMax = sPremiere && S.partEnBase(sPremiere) ? nombre(sPremiere.duree_s) : null;
+    var max = dMax !== null && dMax > 0 ? dMax : null;
+    var vise = max !== null ? M.dureeVisee(max, reglage) : null;
+    var dessous = typeof fig.dessous === 'string' && fig.dessous ? fig.dessous : null;
+    var avecDuree = function (l, d) { l.prerempli = Object.assign({}, l.prerempli || {}, { duree_s: d }); };
+    travail.forEach(function (l, k) {
+      if (k === 0) {
+        l.tenue = 'max';
+        l.vise = null;
+        l.etiquette = 'max';
+        avecDuree(l, dernier);
+      } else {
+        l.tenue = 'tenue';
+        l.vise = vise;
+        l.etiquette = k === 1 && max === null ? 'après ton max' : null;
+        avecDuree(l, vise);
+      }
+    });
+    premiere.phraseAvant = null;
+    premiere.phraseApres = null;
+    if (max === null) {
+      var capA = V.capturer(function () { return M.phraseDeLaTenueMax({ dernier: dernier }); });
+      premiere.phraseAvant = capA.texte;
+      x.phrases.push({ ou: 'figure.avant', texte: capA.texte, citations: capA.citations });
+    } else {
+      var capP = V.capturer(function () { return M.phraseDesTenues({ max: max, dernier: dernier, vise: vise, dessous: dessous }); });
+      premiere.phraseApres = capP.texte;
+      x.phrases.push({ ou: 'figure.apres', texte: capP.texte, citations: capP.citations });
+    }
+    x.figure = {
+      dernier: dernier, tenues: tenues, max: max, vise: vise, part: M.partDeLaTenue(reglage), reglage: reglage,
+      premiere: dernier === null, battu: dernier !== null && max !== null ? max > dernier : null,
+      sous: max !== null && max < M.TENUE_SOUS_S, dessous: dessous
+    };
   }
 
   // ── 132 (MOTEUR §10 ter) — LES ÉLASTIQUES PAR LEUR NOM, DANS LE PLAN ──────────────────────────────────────────────
@@ -2758,6 +2853,8 @@
     if ((x.lignes || []).some(function (l) { return l.role !== 'hors'; })) raisons.push('une ligne du coach');
     if ((x.paris || []).some(Boolean)) raisons.push('un pari');
     if (x.message) raisons.push('un message');
+    // 149 — la règle des secondes (la tenue max, les tenues, leurs phrases) est une voix du coach.
+    if (x.figure || (x.lignes || []).some(function (l) { return l && l.tenue; })) raisons.push('la règle des secondes (tenue max, tenues)');
     if (jusquaLaVoix) {
       if (x.degressive) raisons.push('une dégressive');
       if ((x.lignes || []).some(function (l) { return l.fantome && l.fantome.source; })) raisons.push('un fantôme du coach');
@@ -2770,6 +2867,108 @@
       if ((x.phrases || []).length) raisons.push('une phrase du coach');
     }
     return raisons;
+  }
+
+  // ══ I52 À I55 (MOTEUR §9.17 ter, 149) — LES FIGURES EN SECONDES ═══════════════════════════════════════════════════
+  //
+  //   I52  une ligne de tenue du coach (la tenue max, une tenue) n'existe que sur une ÉCHELLE DE FIGURES (l'app a donné
+  //        l'exercice dans `entrees.figures`, lu au catalogue), en mesure `temps`, coach actif : jamais en « Juste un
+  //        carnet », en Entretenir (profil ou exercice), en Édition, ni sous « J'ai mal » ; et un exercice de figure,
+  //        coach actif, première occurrence, a sa règle (jamais un coach muet par oubli) ;
+  //   I53  la tenue max est la PREMIÈRE ligne de travail de l'exercice, une seule par séance ; toutes les autres
+  //        lignes de travail sont des tenues ; une chauffe ou une dégressive n'est jamais une tenue ;
+  //   I54  la durée visée d'une tenue = `max(2, arrondi(part × tenue max du jour))`, part 50 / 60 / 70 % selon le
+  //        réglage ; pas de durée tant que la tenue max n'est pas validée ; la tenue max du jour est lue sur la SÉRIE
+  //        de la séance (`entrees.seance`), pas sur ce que le plan en dit ; le fantôme de la tenue max est le max de
+  //        la dernière séance ;
+  //   I55  aucun pari, aucune consigne, aucune chauffe, aucune dégressive, aucun message de charge ; les phrases
+  //        (« Ton max la dernière fois… », « 22 s : 2 s de plus… ») se rédigent de ce que le plan porte, une à la fois.
+  function verifierLesSecondes(plan, entrees, x, err) {
+    var M = Moteur(), S = Seance();
+    var lignes = x.lignes || [];
+    var tenues = lignes.filter(function (l) { return l && l.tenue; });
+    var fg = x.figure || null;
+    var donnee = entrees && entrees.figures && x.slug && Object.prototype.hasOwnProperty.call(entrees.figures, x.slug)
+      ? entrees.figures[x.slug] : null;
+    var silence = [];
+    if (plan.intention === 'entretien') silence.push('Entretenir (profil)');
+    if (plan.edition === true) silence.push('Édition');
+    if (x.intention === 'entretien' || x.mode === 'entretien') silence.push('Entretenir (cet exercice)');
+    if (x.douleur) silence.push('« J’ai mal »');
+    // I52
+    if (!fg && tenues.length) err('I52', 'une ligne de tenue sans la règle des secondes');
+    if (fg) {
+      if (x.mesure !== 'temps') err('I52', 'la règle des secondes sur une mesure « ' + x.mesure + ' » (une échelle de figures est en secondes)');
+      if (entrees && !donnee) err('I52', 'la règle des secondes sur un exercice qui n’est pas sur une échelle de figures');
+      silence.forEach(function (c) { err('I52', 'la règle des secondes en ' + c); });
+      if (x.consigne) err('I52', 'la règle des secondes avec une consigne de charge');
+    } else if (donnee && !silence.length && x.mesure === 'temps' && !x.douleur) {
+      var premiereOcc = (plan.exercices || []).filter(function (q) { return q.slug === x.slug; })[0];
+      var travailPlan = lignes.some(function (l) { return l && l.type === 'travail'; });
+      if (premiereOcc === x && travailPlan && !x.consigne) {
+        err('I52', 'une figure, coach actif, sans la règle des secondes (aucune tenue max)');
+      }
+    }
+    if (!fg) return;
+    // I53
+    var travail = lignes.filter(function (l) { return l && l.type === 'travail'; });
+    var maxs = lignes.filter(function (l) { return l && l.tenue === 'max'; });
+    if (maxs.length !== 1) err('I53', maxs.length + ' tenues max (une seule, la première)');
+    else if (!travail.length || travail[0] !== maxs[0]) err('I53', 'la tenue max n’est pas la première ligne de travail');
+    travail.slice(1).forEach(function (l) {
+      if (l.tenue !== 'tenue') err('I53', 'la ligne de travail ' + l.iSerie + ' n’est pas une tenue');
+    });
+    lignes.forEach(function (l) {
+      if (l && l.type !== 'travail' && l.tenue) err('I53', 'la ligne ' + l.iSerie + ' (' + l.type + ') est une tenue');
+    });
+    // I54 — la tenue max du jour se lit sur la série de la séance.
+    var exoS = entrees && entrees.seance && entrees.seance.exercices ? entrees.seance.exercices[x.iExo] : null;
+    var sMax = maxs.length === 1 && exoS && exoS.series ? exoS.series[maxs[0].iSerie] : null;
+    var maxLu = exoS ? (sMax && S.partEnBase(sMax) && nombre(sMax.duree_s) > 0 ? nombre(sMax.duree_s) : null) : fg.max;
+    if (exoS && fg.max !== maxLu) err('I54', 'la tenue max du jour est ' + maxLu + ' s dans la séance, le plan dit ' + fg.max + ' s');
+    if (fg.part !== M.partDeLaTenue(plan.reglage)) {
+      err('I54', 'la part ' + fg.part + ' % n’est pas celle du réglage « ' + plan.reglage + ' » (' + M.partDeLaTenue(plan.reglage) + ' %)');
+    }
+    var attendu = maxLu === null ? null : M.dureeVisee(maxLu, plan.reglage);
+    if (attendu !== null && attendu < M.TENUE_MIN_S) err('I54', 'une durée visée sous ' + M.TENUE_MIN_S + ' s');
+    if (nombre(fg.vise) !== attendu) err('I54', 'la durée visée est ' + fg.vise + ' s, le calcul donne ' + attendu + ' s');
+    lignes.forEach(function (l) {
+      if (!l || l.tenue !== 'tenue') return;
+      if (nombre(l.vise) !== attendu) err('I54', 'la tenue ' + l.iSerie + ' vise ' + l.vise + ' s, le calcul donne ' + attendu + ' s');
+      var f = l.prerempli ? nombre(l.prerempli.duree_s) : null;
+      if (f !== attendu) err('I54', 'le fantôme de la tenue ' + l.iSerie + ' est ' + f + ' s, la cible est ' + attendu + ' s');
+    });
+    var dernierLu = donnee && Array.isArray(donnee.tenues) && donnee.tenues.length
+      ? nombre(donnee.tenues[donnee.tenues.length - 1]) : (donnee ? null : fg.dernier);
+    if (nombre(fg.dernier) !== dernierLu) err('I54', 'le max de la dernière fois est ' + dernierLu + ' s, le plan dit ' + fg.dernier + ' s');
+    if (maxs.length === 1) {
+      var fm = maxs[0].prerempli ? nombre(maxs[0].prerempli.duree_s) : null;
+      if (fm !== dernierLu) err('I54', 'le fantôme de la tenue max est ' + fm + ' s, le max de la dernière fois est ' + dernierLu + ' s');
+    }
+    // I55
+    if (x.consigne) err('I55', 'une consigne de charge sur une figure');
+    if ((x.paris || []).some(Boolean)) err('I55', 'un pari sur une figure');
+    if (x.chauffes || x.proposition) err('I55', 'des chauffes sur une figure');
+    if (x.degressive) err('I55', 'une dégressive sur une figure');
+    if (x.message || x.escalier || x.carteLest || x.carteReprise) err('I55', 'une voix de charge (message, escalier, lest, reprise) sur une figure');
+    if (maxs.length === 1) {
+      var m1 = maxs[0];
+      var dit = maxLu === null;
+      if (dit && (!m1.phraseAvant || m1.phraseApres)) err('I55', 'avant la tenue max, une seule phrase : « Ton max la dernière fois… »');
+      if (!dit && (!m1.phraseApres || m1.phraseAvant)) err('I55', 'après la tenue max, une seule phrase : la tenue du jour et la cible');
+      var refaite = Voix().capturer(function () {
+        return dit ? M.phraseDeLaTenueMax({ dernier: dernierLu })
+          : M.phraseDesTenues({ max: maxLu, dernier: dernierLu, vise: attendu, dessous: fg.dessous });
+      }).texte;
+      var posee = dit ? m1.phraseAvant : m1.phraseApres;
+      if (posee !== refaite) err('I55', 'la phrase « ' + posee + ' » n’est pas celle des faits (« ' + refaite + ' »)');
+      if (!dit && maxLu < M.TENUE_SOUS_S && fg.dessous && !/marche d'en dessous/.test(String(posee))) {
+        err('I55', 'sous ' + M.TENUE_SOUS_S + ' s, la phrase de la marche d’en dessous manque');
+      }
+      if (!dit && (maxLu >= M.TENUE_SOUS_S || !fg.dessous) && /marche d'en dessous/.test(String(posee))) {
+        err('I55', 'la phrase de la marche d’en dessous sans raison (' + (maxLu >= M.TENUE_SOUS_S ? 'tenue max de ' + maxLu + ' s' : 'rang 1') + ')');
+      }
+    }
   }
 
   // I33 À I35 (MOTEUR §9.20, 51-3) — « J'AI MAL ».
@@ -2886,7 +3085,7 @@
     });
   }
 
-  function verifierPoidsDuCorps(plan, erreurs) {
+  function verifierPoidsDuCorps(plan, erreurs, entrees) {
     if (!plan) return;
     var M = Moteur();
     var cartes = 0;
@@ -2901,13 +3100,16 @@
       var causes = [];
       if (plan.intention === 'entretien') causes.push('Entretenir (profil)');
       if (plan.edition === true) causes.push('Édition');
-      if (horsMesure) causes.push('une mesure en ' + (x.mesure === 'temps' ? 'durée' : 'distance'));
+      // 149 — SAUF une figure : I13 ne s'ouvre QUE pour les échelles de figures (la règle des secondes, I52 à I55) ;
+      // gainage, étirements, cardio, sorties : rien ne change.
+      if (horsMesure && !x.figure) causes.push('une mesure en ' + (x.mesure === 'temps' ? 'durée' : 'distance'));
       // 119 (audit du 16/10/2026, E6) — sur une mesure en durée ou en distance, le coach ne dit RIEN, comme en
       // Entretenir : ni dégressive, ni chauffe, ni phrase (« Pas de charge de travail pour caler la dégressive. »
       // passait sous I13, qui ne regardait pas la dégressive).
       if (causes.length) {
         sansCoach(x, plan.intention === 'entretien' || horsMesure).forEach(function (r) { err('I13', causes.join(', ') + ' : ' + r); });
       }
+      verifierLesSecondes(plan, entrees, x, err);
       // I28 (119, E6) — au poids du corps (mesure en reps), jamais de dégressive : §9.17, « pas de dégressive sous un
       // corps », avec ou sans consigne.
       if (x.mesure === 'reps' && x.degressive) err('I28', 'une dégressive au poids du corps');
@@ -2982,6 +3184,33 @@
         if (plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien') e49('une carte en Entretenir');
         if (x.carteLest) e49('avec la carte du lest');
         if (k && k.allegee) e49('pendant une semaine allégée');
+        if (cm.secondes) {
+          // 149 (MOTEUR §9.17 ter) — la carte EN SECONDES : la tenue max de chaque séance lue (Franc : la dernière)
+          // atteint le seuil du catalogue ; la dernière est celle du jour, validée (la carte lit la tenue max du jour).
+          var fg49 = x.figure;
+          var seuilCat = entrees && entrees.figures && Object.prototype.hasOwnProperty.call(entrees.figures, x.slug)
+            ? nombre(entrees.figures[x.slug].seuil) : cm.seuil;
+          if (!fg49) e49('une carte en secondes sans la règle des secondes');
+          if (!(nombre(seuilCat) > 0) || nombre(cm.seuil) !== nombre(seuilCat)) {
+            e49('le seuil de la carte (' + cm.seuil + ' s) n’est pas celui du catalogue (' + seuilCat + ' s)');
+          }
+          var tn = Array.isArray(cm.tenues) ? cm.tenues.map(nombre) : [];
+          var franc49s = plan.reglage === 'franc';
+          var lues = tn.slice(franc49s ? -1 : -2);
+          if (tn.length < (franc49s ? 1 : 2) || !lues.every(function (v) { return v !== null && v >= nombre(seuilCat); })) {
+            e49('sans ' + (franc49s ? 'la dernière séance' : 'deux séances') + ' à ' + seuilCat + ' s de tenue max (' + JSON.stringify(cm.tenues) + ')');
+          }
+          if (!fg49 || fg49.max === null || tn[tn.length - 1] !== fg49.max) e49('la carte en secondes sans la tenue max du jour validée');
+          if (nombre(cm.niveau) !== tn[tn.length - 1]) e49('la carte dit ' + cm.niveau + ' s, la dernière tenue max est ' + tn[tn.length - 1] + ' s');
+          if (franc49s ? /deux séances/.test(String(cm.titre)) : !/deux séances de suite/.test(String(cm.titre))) {
+            e49('la carte ne dit pas la règle du réglage « ' + plan.reglage + ' » (' + cm.titre + ')');
+          }
+          if (cm.proposable !== true || cm.type !== 'marche') e49('une marche qui ne se propose pas (' + cm.type + ')');
+          var rep2 = plan.marcheReponses && Object.prototype.hasOwnProperty.call(plan.marcheReponses, x.slug) ? plan.marcheReponses[x.slug] : null;
+          if (rep2) e49('la carte revient après une réponse (' + rep2.r + ')');
+          if (/\?/.test(String(cm.titre) + String(cm.detail))) e49('un point d’interrogation dans la carte (§20.2)');
+          return;
+        }
         var zk = k ? M.zoneParCle(k.zone) : null;
         var ds = k && k.fondement && Array.isArray(k.fondement.deuxSeances) ? k.fondement.deuxSeances : null;
         var seuil49 = zk ? M.seuilDeMarche(zk.haut) : null;
@@ -3610,7 +3839,7 @@
     verifierEscalier(plan, entrees, erreurs);
     verifierProgramme(plan, entrees, erreurs);
     verifierMarches(plan, erreurs);
-    verifierPoidsDuCorps(plan, erreurs);
+    verifierPoidsDuCorps(plan, erreurs, entrees);
     if (entrees && entrees.raccourci) verifierRaccourci(plan, entrees, erreurs);
     verifierDouleur(plan, entrees, erreurs);
     verifierReserve(plan, entrees, erreurs);

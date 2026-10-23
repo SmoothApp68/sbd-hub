@@ -6530,7 +6530,7 @@
     var x = e || {};
     // 149 — en Franc, une séance suffit : la phrase dit la règle (§20 bis).
     return nombreFr(x.niveau, regle('lest.niveau')) + ' reps sur toutes tes séries' +
-      (x.reglage === 'franc' ? ' aujourd\u2019hui.' : ', deux séances de suite.');
+      (x.reglage === 'franc' ? ' aujourd\'hui.' : ', deux séances de suite.');
   }
   function carteLestDetail(e) {
     var x = e || {};
@@ -6601,13 +6601,22 @@
   // `d` : la décision (`carteMarcheDecidee`).
   function carteMarcheTitre(d) {
     var x = d || {};
+    // 149 — EN SECONDES (une échelle de figures) : « 22 s tenues, deux séances de suite. » · Franc : « … aujourd'hui. »
+    if (x.secondes === true) {
+      return Modele().secondes(x.niveau, regle('marche.niveau')) + ' tenues' +
+        (x.reglage === 'franc' ? ' aujourd\'hui.' : ', deux séances de suite.');
+    }
     var tenue = x.aide
       ? enKg(x.charge, regle('marche.aide')) + ' \u00d7 ' + nombreFr(x.niveau, regle('marche.niveau'))
       : nombreFr(x.niveau, regle('marche.niveau')) + ' reps';
-    return tenue + ' sur toutes tes séries' + (x.reglage === 'franc' ? ' aujourd\u2019hui.' : ', deux séances de suite.');
+    return tenue + ' sur toutes tes séries' + (x.reglage === 'franc' ? ' aujourd\'hui.' : ', deux séances de suite.');
   }
   function carteMarcheDetail(d) {
     var x = d || {};
+    if (x.secondes === true) {
+      return 'La marche au-dessus : ' + x.nom + '. Je te propose d\'en faire ' + nombreFr(SERIES_MARCHE, regle('constante')) +
+             ' tenues avant, autant de secondes que tu peux.';
+    }
     return 'La marche au-dessus : ' + x.nom + '. Je te propose d\'en faire ' + nombreFr(SERIES_MARCHE, regle('constante')) +
            ' séries avant, autant de reps que tu peux.';
   }
@@ -6638,6 +6647,14 @@
     }
     // 149 — en Franc, une séance suffit : la phrase dit la règle (§20 bis).
     var deux = x.reglage === 'franc' ? ' sur toutes tes séries, sur une séance.' : ' sur toutes tes séries, deux séances de suite.';
+    // 149 (MOTEUR §9.17 ter) — UNE FIGURE se tient en secondes : le seuil est celui du catalogue (`echelle_seuil_s`),
+    // sans « sur toutes tes séries » (une tenue max par séance) et sans « Elle s'ajoute ».
+    if (nombre(x.seuil) !== null) {
+      var regleS = x.reglage === 'franc' ? ', sur une séance.' : ', deux séances de suite.';
+      var secs = Modele().secondes(x.seuil, regle('marche.seuil'));
+      if (court) return tete + 'à ' + secs + regleS;
+      return tete + 'Je te la propose quand tu tiens ' + secs + regleS + (x.meilleur ? ' Ton meilleur : ' + x.meilleur + '.' : '');
+    }
     if (x.type === 'lest') {
       if (court) return tete + 'quand tu tiens ' + nombreFr(seuilDeMarche(x.haut)) + ' reps' + deux;
       return tete + 'Je te la propose quand tu tiens ' + nombreFr(seuilDeMarche(x.haut)) + ' reps' + deux +
@@ -6659,7 +6676,8 @@
     var x = e || {};
     var sc = Array.isArray(x.seances) ? x.seances.filter(Boolean) : [];
     if (!sc.length) return null;
-    var seuil = seuilDeMarche(x.haut);
+    // 149 — en secondes (une figure), le seuil est celui du catalogue ; sinon le haut de la zone ET 8 reps.
+    var seuil = nombre(x.seuil) !== null ? nombre(x.seuil) : seuilDeMarche(x.haut);
     var tenu = function (s) { return nombre(s.niveau) !== null && nombre(s.niveau) >= seuil; };
     // 149 — en Franc, UN SEUL ROND : la dernière séance.
     if (x.reglage === 'franc') return [tenu(sc[sc.length - 1])];
@@ -6668,6 +6686,83 @@
         !(Math.abs(nombre(sc[sc.length - 2].charge) - nombre(sc[sc.length - 1].charge)) <= 1e-9)) out[1] = false;
     while (out.length < 2) out.push(false);
     return out;
+  }
+
+  // ══ §9.17 ter (149) — LES FIGURES EN SECONDES : LA TENUE MAX, LES TENUES, LA CARTE ═══════════════════════════════
+  //
+  // Décisions d'Aurélien du 23/10/2026 (13 h 03 – 13 h 24 ; maquettes `maquette-figures-c-v1.html` et `-v2.html`).
+  // UNE ÉCHELLE DE FIGURES (front lever, back lever, planche, L-sit, équilibre, drapeau : toutes ses marches en
+  // secondes, `THModele.estEchelleDeFigures`) se coache en SECONDES, jamais en charge : la première tenue de travail de
+  // l'exercice est la TENUE MAX (« fais mieux que la dernière fois »), les suivantes visent une part du max du jour.
+  // Du temps, pas une charge : aucune zone, aucun cran, aucun palier, aucun pari, ni chauffe ni dégressive.
+  //
+  //   · la part : Prudent 50 %, Normal 60 %, Franc 70 % de la tenue max du jour (les coachs : 50 à 80 %), arrondie à la
+  //     seconde la plus proche, au moins 2 s ;
+  //   · une tenue suivante plus longue que sa cible NE CHANGE PAS la cible (une seule tenue max par séance) ;
+  //   · sous 5 s de tenue max, un fait sourcé (Sommer) : les coachs travaillent la marche d'en dessous ;
+  //   · la carte « marche suivante » lit la tenue max de chaque séance (Franc : la dernière) contre le seuil du catalogue.
+  var PARTS_DE_TENUE = { prudent: 50, normal: 60, franc: 70 };   // % de la tenue max du jour
+  var TENUE_MIN_S = 2;
+  var TENUE_SOUS_S = 5;
+  function partDeLaTenue(reglage) {
+    return Object.prototype.hasOwnProperty.call(PARTS_DE_TENUE, reglage) ? PARTS_DE_TENUE[reglage] : PARTS_DE_TENUE.normal;
+  }
+  // La durée visée d'une tenue suivante : `max(2, arrondi(part × max du jour))`, à la seconde. `null` sans max valide.
+  function dureeVisee(max, reglage) {
+    var m = nombre(max);
+    if (m === null || !(m > 0)) return null;
+    return Math.max(TENUE_MIN_S, Math.floor(m * partDeLaTenue(reglage) / 100 + 0.5));
+  }
+  // « Ton max la dernière fois : 20 s. Essaie de faire mieux, proprement. » · sans séance avant : « Première fois ici… ».
+  function phraseDeLaTenueMax(e) {
+    var d = nombre(e && e.dernier);
+    if (d === null) return 'Première fois ici : autant que tu peux, proprement.';
+    return 'Ton max la dernière fois : ' + Modele().secondes(d, cite(FAIT, { quoi: 'max_dernier' })) +
+           '. Essaie de faire mieux, proprement.';
+  }
+  // Après la tenue max validée. `e` : `{ max, dernier, vise, dessous }` — `dessous` : le nom de la marche d'en dessous
+  // (`null` au rang 1 : pas de seconde phrase).
+  //   battu     « 22 s : 2 s de plus que la dernière fois. Tes tenues : 13 s. »
+  //   pas battu « 18 s aujourd'hui. Tes tenues : 11 s. »
+  //   sous 5 s  + « Sous 5 s, les coachs travaillent la marche d'en dessous : Front Lever Groupé. »
+  function phraseDesTenues(e) {
+    var x = e || {};
+    var S = Modele().secondes;
+    var max = nombre(x.max), dernier = nombre(x.dernier);
+    var t = dernier !== null && max > dernier
+      ? S(max, cite(FAIT, { quoi: 'max_du_jour' })) + ' : ' + S(max - dernier, cite(FAIT, { quoi: 'ecart_max' })) +
+        ' de plus que la dernière fois.'
+      : S(max, cite(FAIT, { quoi: 'max_du_jour' })) + ' aujourd\'hui.';
+    t += ' Tes tenues : ' + S(nombre(x.vise), cite(CIBLE, { role: 'tenue' })) + '.';
+    if (max < TENUE_SOUS_S && x.dessous) {
+      t += ' Sous ' + S(TENUE_SOUS_S, regle('tenue.sous')) + ', les coachs travaillent la marche d\'en dessous : ' + x.dessous + '.';
+    }
+    return t;
+  }
+  // LA CARTE « MARCHE SUIVANTE » EN SECONDES : la décision `{ cible, nom, secondes: true, niveau, seuil, reglage }`, ou
+  // `null`. Mêmes refus que `carteMarcheDecidee`, la condition lue en secondes. `e` : `{ marche, nomCible, seuil, tenues,
+  // duJour, reponse, cibleFaiteLe, aujourdHui, coachActif, reglage }` — `tenues` : la tenue max de chaque séance faite,
+  // la plus récente en dernier, et celle du jour en dernier si elle est validée (`duJour`) ; `seuil` : `echelle_seuil_s`
+  // de l'exercice de départ. La carte lit la tenue max du JOUR : sans elle, pas de carte.
+  function carteMarcheEnSecondes(e) {
+    var x = e || {};
+    var m = x.marche;
+    if (x.coachActif === false || !m || !m.proposable || !Array.isArray(m.cible) || !m.cible.length) return null;
+    var seuil = nombre(x.seuil);
+    if (seuil === null || !(seuil > 0) || x.duJour !== true) return null;
+    var franc = x.reglage === 'franc';
+    var t = (Array.isArray(x.tenues) ? x.tenues : []).map(nombre);
+    if (t.length < (franc ? 1 : 2)) return null;
+    var dernieres = t.slice(franc ? -1 : -2);
+    if (!dernieres.every(function (v) { return v !== null && v >= seuil; })) return null;
+    var r = x.reponse;
+    if (r && (r.r === 'oui' || r.r === 'non')) return null;      // « Ajouter » : jamais deux fois ; « Pas maintenant » : une fois
+    if (x.cibleFaiteLe) {
+      var j = numeroDuJour(jourCivil(x.aujourdHui)), f = numeroDuJour(jourCivil(x.cibleFaiteLe));
+      if (j !== null && f !== null && j - f <= JOURS_MARCHE_FAITE) return null;
+    }
+    return { cible: m.cible[0], nom: x.nomCible || m.cible[0], secondes: true, aide: false, niveau: t[t.length - 1],
+             seuil: seuil, charge: null, reglage: franc ? 'franc' : null };
   }
 
   // §8.4 (exception étroite, 03/10/2026) — LE DÉPART DE LA VERSION LESTÉE : sa
@@ -7913,6 +8008,14 @@
     NON_MARCHE: NON_MARCHE,
     phraseDeLaSuivante: phraseDeLaSuivante,
     rondsDeLaSuivante: rondsDeLaSuivante,
+    PARTS_DE_TENUE: PARTS_DE_TENUE,
+    TENUE_MIN_S: TENUE_MIN_S,
+    TENUE_SOUS_S: TENUE_SOUS_S,
+    partDeLaTenue: partDeLaTenue,
+    dureeVisee: dureeVisee,
+    phraseDeLaTenueMax: phraseDeLaTenueMax,
+    phraseDesTenues: phraseDesTenues,
+    carteMarcheEnSecondes: carteMarcheEnSecondes,
     consigneDepartLeste: consigneDepartLeste,
     seanceDuContrat: seanceDuContrat,
     consigneDExercice: consigneDExercice,

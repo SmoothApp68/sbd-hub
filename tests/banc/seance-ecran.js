@@ -24390,6 +24390,216 @@ const SETS_IMPORTES = [
       JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus145), erreurs.slice(erreurs145)]));
   }
 
+  console.log('\n══ figures. LES FIGURES EN SECONDES : LA TENUE MAX, LES TENUES, LA CARTE « MARCHE SUIVANTE », « TON ÉCHELLE » (149, MOTEUR §9.17 ter) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une échelle de figures de trois marches (groupé 20 s, groupé avancé 12 s, complet), servie
+  // par le faux serveur avec ses colonnes (`echelle`, `echelle_rang`, `echelle_seuil_s`, mesure `temps`, nature `habilete`) ;
+  // deux séances du groupé (tenue max 18 s, puis 20 s). Le banc lit le PLAN que l'app calcule et l'ÉCRAN : la tenue max
+  // (étiquette « max », fantôme = le max de la dernière fois), 22 s validées → les trois tenues suivantes à 13 s (Normal),
+  // une tenue plus longue ne bouge pas la cible, la carte « marche suivante » (deux séances à 20 s ou plus), « Ajouter »
+  // (la marche juste avant, « Première fois ici »), Franc (une séance suffit, 70 %), « Juste un carnet » (rien). Aucun délai
+  // fixe : chaque attente est une condition. Tout est retiré à la fin.
+  {
+    const t149 = Date.now();
+    const erreurs149 = erreurs.length;
+    const refus149 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations149 = gardeBanc.violations;
+    const catalogueAvant149 = CATALOGUE.length;
+    const routinesAvant149 = ROUTINES.length;
+    const sessionsAvant149 = base.sessions, setsAvant149 = base.sets;
+    const intentionAvant149 = base.profiles[0].intention, rythmeAvant149 = base.profiles[0].rythme_progression;
+    const marcheAvant149 = base.profiles[0].marche_reponses;
+    const sp149 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    base.sessions = []; base.sets = [];
+    const E149 = 'fl-u149';
+    const G149 = 'fl-u149-groupe', A149 = 'fl-u149-avance';
+    [[G149, 'Front Lever U149 Groupé', 1, 20], [A149, 'Front Lever U149 Groupé Avancé', 2, 12], ['fl-u149-complet', 'Front Lever U149', 3, null]]
+      .forEach(([slug, nom, rang, seuil]) => CATALOGUE.push(Object.assign({ slug, nom, mesure: 'temps', charge: 'aucune',
+        equipement: 'aucun', parent: null, nature: 'habilete', habilete: true, actif: true,
+        muscles_primaires: ['abdominaux'], muscles_secondaires: [], echelle: E149, echelle_rang: rang },
+        seuil === null ? {} : { echelle_seuil_s: seuil })));
+    ROUTINES.push({ id: 'r-u149', nom: 'Figures U149', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-u149-a', routine_id: 'r-u149', exercise_slug: G149, rang: 0,
+        routine_sets: progr(4), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const poser149 = (id, jours, durees) => {
+      const debut = ilYa(jours * 86400000, t149).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Figures — ' + id, debut, fin: finDe(debut, t149).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      durees.forEach((d, k) => base.sets.push({ id: id + '-s' + k, session_id: id, user_id: 'u-banc', exercise_slug: G149,
+        charge_kg: null, reps: null, duree_s: d, distance_m: null, type_serie: 'travail', rang: k + 1, groupe_superset: null,
+        validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    const historique149 = (liste) => { base.sessions = []; base.sets = []; liste.forEach((h, k) => poser149('f149-' + k, h[0], h[1])); };
+    const plan149 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? d.plan.exercices.map((x) => ({ slug: x.slug, figure: x.figure,
+        lignes: (x.lignes || []).map((l) => ({ tenue: l.tenue || null, vise: l.vise === undefined ? null : l.vise,
+          eti: l.etiquette || null, avant: l.phraseAvant || null, apres: l.phraseApres || null,
+          fant: l.prerempli ? l.prerempli.duree_s : null })),
+        carte: x.carteMarche ? { titre: x.carteMarche.titre, detail: x.carteMarche.detail, cible: x.carteMarche.cible } : null,
+        phrases: (x.phrases || []).length, paris: (x.paris || []).filter(Boolean).length })) : null;
+    });
+    // L'écran : par exercice, ses rangées (placeholder de la durée, valeur), ses étiquettes, ses phrases, ses cartes.
+    const ecran149 = () => page.evaluate(() => ({
+      eti: Array.from(document.querySelectorAll('#vue-seance .fig-eti')).map((n) => n.textContent),
+      phrases: Array.from(document.querySelectorAll('#vue-seance .reaction-serie.figure')).map((n) => n.textContent),
+      champs: Array.from(document.querySelectorAll('#vue-seance .ligne-serie .serie .chrono input')).map((i) => ({ ph: i.placeholder, v: i.value })),
+      cartes: Array.from(document.querySelectorAll('#vue-seance .proposition-marche')).map((c) => ({
+        texte: (c.querySelector('.pc-texte') || {}).textContent, detail: (c.querySelector('.pc-detail') || {}).textContent,
+        boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) }))
+    }));
+    const taper149 = async (i, chiffres) => {
+      const l = await ligne(i);
+      const champ = await l.$('.serie .chrono input');
+      await champ.click();
+      await champ.type(String(chiffres), { delay: 30 });
+      await l.$eval('.ok-serie', (b) => b.click());
+    };
+    const duree149 = (n) => base.sets.filter((x) => x.exercise_slug === G149 && x.duree_s === n && /^[0-9a-f-]{8,}$/.test(String(x.id))).length;
+    const lancer149 = async () => {
+      await aller('/saisie');
+      await demarrerRoutine('Figures U149');
+      await jusqua(async () => { const p = await plan149(); return !!p && p.length > 0; }, 8000);
+    };
+    const dernier149 = (p) => p && p.filter((x) => x.slug === G149)[0];
+    const phrases149 = (p) => p ? p.lignes.map((l) => l.avant || l.apres).filter(Boolean) : [];
+
+    // ── A. NORMAL : avant la tenue max.
+    historique149([[21, [18, 11, 10]], [7, [20, 12, 12]]]);
+    await lancer149();
+    const a149 = dernier149(await plan149());
+    ok('[149] A — DISCRIMINANT : la première ligne est la tenue max (fantôme 20 s = le max de la dernière fois), les autres sans durée, « après ton max » sur la seconde',
+      !!a149 && JSON.stringify(a149.lignes.map((l) => l.tenue)) === '["max","tenue","tenue","tenue"]' &&
+        JSON.stringify(a149.lignes.map((l) => l.fant)) === '[20,null,null,null]' &&
+        JSON.stringify(a149.lignes.map((l) => l.eti)) === '["max","après ton max",null,null]' &&
+        a149.figure.dernier === 20 && a149.paris === 0, JSON.stringify(a149));
+    await jusqua(async () => (await ecran149()).phrases.length === 1, 6000);
+    const ea = await ecran149();
+    ok('[149] A — à l’écran : « Ton max la dernière fois : 20 s. Essaie de faire mieux, proprement. », les étiquettes « max » et « après ton max », le fantôme du plan dans la durée',
+      ea.phrases.map(sp149).join('|') === 'Ton max la dernière fois : 20 s. Essaie de faire mieux, proprement.' &&
+        JSON.stringify(ea.eti) === '["max","après ton max"]' && ea.champs.length === 4 && /20/.test(ea.champs[0].ph) &&
+        ea.champs.slice(1).every((c) => !/\d/.test(c.ph)) && ea.cartes.length === 0, JSON.stringify(ea));
+
+    // ── B. 22 s validées : les trois tenues suivantes à 13 s, la phrase, la carte.
+    await taper149(0, 22);
+    await jusqua(() => duree149(22) === 1, 8000);
+    await jusqua(async () => { const p = dernier149(await plan149()); return !!p && p.figure.max === 22; }, 8000);
+    const b149 = dernier149(await plan149());
+    ok('[149] B — DISCRIMINANT : 22 s validées → les trois lignes suivantes visent 13 s (60 % de 22), fantôme 13 s, la tenue max garde 20 s',
+      !!b149 && JSON.stringify(b149.lignes.map((l) => l.vise)) === '[null,13,13,13]' &&
+        JSON.stringify(b149.lignes.map((l) => l.fant)) === '[20,13,13,13]' && b149.figure.vise === 13 && b149.figure.battu === true,
+      JSON.stringify(b149));
+    await jusqua(async () => (await ecran149()).champs.slice(1).every((c) => /13/.test(c.ph)), 6000);
+    const eb = await ecran149();
+    ok('[149] B — à l’écran : « 22 s : 2 s de plus que la dernière fois. Tes tenues : 13 s. », 13 dans les trois champs, plus d’« après ton max »',
+      eb.phrases.map(sp149).join('|') === '22 s : 2 s de plus que la dernière fois. Tes tenues : 13 s.' &&
+        eb.champs.slice(1).every((c) => /13/.test(c.ph)) && JSON.stringify(eb.eti) === '["max"]', JSON.stringify(eb));
+    ok('[149] B — la carte « marche suivante » : 20 s la séance d’avant, 22 s aujourd’hui — « 22 s tenues, deux séances de suite. », la marche juste au-dessus, deux boutons, aucun point d’interrogation',
+      eb.cartes.length === 1 && sp149(eb.cartes[0].texte) === '22 s tenues, deux séances de suite.' &&
+        sp149(eb.cartes[0].detail).replace(/'/g, '’') === 'La marche au-dessus : Front Lever U149 Groupé Avancé. Je te propose d’en faire 2 tenues avant, autant de secondes que tu peux.' &&
+        JSON.stringify(eb.cartes[0].boutons.map(sp149)) === '["Ajouter Front Lever U149 Groupé Avancé","Pas maintenant"]' &&
+        !/\?/.test(eb.cartes[0].texte + eb.cartes[0].detail), JSON.stringify(eb));
+
+    // ── C. UNE TENUE SUIVANTE PLUS LONGUE ne change pas la cible.
+    await taper149(1, 30);
+    await jusqua(() => duree149(30) === 1, 8000);
+    const c149 = dernier149(await plan149());
+    ok('[149] C — DISCRIMINANT : une deuxième tenue de 30 s (plus longue que la cible, et que la tenue max) ne bouge pas la cible : toujours 13 s, tenue max 22 s',
+      !!c149 && c149.figure.max === 22 && JSON.stringify(c149.lignes.map((l) => l.vise)) === '[null,13,13,13]', JSON.stringify(c149));
+
+    // ── D. « AJOUTER » : la marche juste avant, l'exercice de départ reste, « Première fois ici ».
+    await page.evaluate(() => document.querySelector('.proposition-marche .pc-ajouter').click());
+    await jusqua(async () => { const p = await plan149(); return !!p && p.length === 2; }, 8000);
+    await jusqua(async () => !!(base.profiles[0].marche_reponses && base.profiles[0].marche_reponses[G149]), 8000);
+    const d149 = await plan149();
+    ok('[149] D — « Ajouter » : le groupé avancé JUSTE AVANT le groupé (qui reste), 2 lignes, « Première fois ici : autant que tu peux, proprement. », plus de carte ; la réponse est au profil',
+      !!d149 && d149[0].slug === A149 && d149[1].slug === G149 && d149[0].lignes.length === 2 &&
+        d149[0].lignes[0].avant === 'Première fois ici : autant que tu peux, proprement.' && d149[0].figure.premiere === true &&
+        d149[0].lignes[0].fant === null && d149[1].carte === null &&
+        base.profiles[0].marche_reponses[G149].r === 'oui', JSON.stringify([d149, base.profiles[0].marche_reponses]));
+    await abandonner();
+
+    // ── E. FRANC : UNE SEULE SÉANCE (10 s) suffit à la carte ; les tenues à 70 %.
+    base.profiles[0].marche_reponses = marcheAvant149 === undefined ? null : marcheAvant149;
+    base.profiles[0].rythme_progression = 'franc';
+    historique149([[7, [10, 8, 8]]]);
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await aller('/saisie');
+    await lancer149();
+    await taper149(0, 21);
+    await jusqua(async () => { const p = dernier149(await plan149()); return !!p && p.figure.max === 21; }, 8000);
+    const e149 = dernier149(await plan149());
+    ok('[149] E — DISCRIMINANT : en Franc, 21 s validées → les tenues à 70 % (15 s)',
+      !!e149 && e149.figure.reglage === 'franc' && JSON.stringify(e149.lignes.map((l) => l.vise)) === '[null,15,15,15]', JSON.stringify(e149));
+    await jusqua(async () => (await ecran149()).cartes.length === 1, 6000);
+    const ee = await ecran149();
+    ok('[149] E — DISCRIMINANT : en Franc la carte vient après UNE séance au seuil (la tenue max du jour, 21 s) : « 21 s tenues aujourd’hui. » — Normal ne l’aurait pas posée (une séance à 10 s)',
+      ee.cartes.length === 1 && sp149(ee.cartes[0].texte).replace(/’/g, "'") === "21 s tenues aujourd'hui." && !/deux séances/.test(ee.cartes[0].texte), JSON.stringify(ee));
+    await abandonner();
+    base.profiles[0].rythme_progression = 'normal';
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await aller('/saisie');
+    await lancer149();
+    await taper149(0, 21);
+    await jusqua(async () => { const p = dernier149(await plan149()); return !!p && p.figure.max === 21; }, 8000);
+    ok('[149] E — témoin : le même jour en Normal (une séance à 10 s) : tenues à 60 % (13 s), pas de carte',
+      JSON.stringify(dernier149(await plan149()).lignes.map((l) => l.vise)) === '[null,13,13,13]' && (await ecran149()).cartes.length === 0,
+      JSON.stringify([await plan149(), await ecran149()]));
+    await abandonner();
+
+    // ── F. « JUSTE UN CARNET » : la tenue se note, le coach ne dit rien.
+    base.profiles[0].intention = 'entretien';
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await aller('/saisie');
+    await lancer149();
+    await taper149(0, 22);
+    await jusqua(() => duree149(22) >= 1, 8000);
+    const f149 = dernier149(await plan149());
+    const ef = await ecran149();
+    ok('[149] F — DISCRIMINANT : en « Juste un carnet », 22 s notées : ni tenue max, ni étiquette, ni fantôme du coach, ni phrase, ni carte',
+      !!f149 && f149.figure === null && f149.lignes.every((l) => !l.tenue && !l.eti && !l.avant && !l.apres && l.vise === null) &&
+        ef.eti.length === 0 && ef.phrases.length === 0 && ef.cartes.length === 0, JSON.stringify([f149, ef]));
+    await abandonner();
+    base.profiles[0].intention = intentionAvant149;
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+
+    // ── G. « TON ÉCHELLE » : une figure entre comme une échelle de reps, en secondes.
+    historique149([[21, [18, 11, 10]], [7, [20, 12, 12]]]);
+    await aller('/exercice/' + G149);
+    const echelleDom149 = () => page.evaluate(() => {
+      const c = document.querySelector('#page-exercice .ton-echelle');
+      if (!c) return null;
+      return { marches: Array.from(c.querySelectorAll('.te-marche')).map((m) => ({ rang: m.querySelector('.te-rond').textContent,
+        classes: m.className, texte: m.textContent })), phrase: (c.querySelector('.te-phrase') || {}).textContent || null };
+    });
+    let g149 = await echelleDom149();
+    for (let n = 0; n < 20 && !g149; n++) { await attendre(250); await aller('/exercice/' + G149); g149 = await echelleDom149(); }
+    ok('[149] G — « Ton échelle » existe pour la figure : trois marches, la tienne est le groupé, la suivante le groupé avancé',
+      !!g149 && JSON.stringify(g149.marches.map((m) => m.rang)) === '["3","2","1"]' && /\btienne\b/.test(g149.marches[2].classes) &&
+        /\bsuivante\b/.test(g149.marches[1].classes), JSON.stringify(g149));
+    ok('[149] G — DISCRIMINANT : ton meilleur en secondes (« 20 s »), la suivante à 20 s « deux séances de suite » — sans « Elle s’ajoute » ni « sur toutes tes séries »',
+      !!g149 && /Ton meilleur : 20 s/.test(sp149(g149.marches[2].texte)) &&
+        sp149(g149.phrase).replace(/'/g, '’') === 'La suivante : Front Lever U149 Groupé Avancé. Je te la propose quand tu tiens 20 s, deux séances de suite. Ton meilleur : 20 s.', JSON.stringify(g149));
+
+    // ── H. LA REMISE EN ÉTAT.
+    ROUTINES.splice(routinesAvant149, ROUTINES.length - routinesAvant149);
+    CATALOGUE.splice(catalogueAvant149, CATALOGUE.length - catalogueAvant149);
+    base.sessions = sessionsAvant149; base.sets = setsAvant149;
+    base.profiles[0].intention = intentionAvant149; base.profiles[0].rythme_progression = rythmeAvant149;
+    base.profiles[0].marche_reponses = marcheAvant149 === undefined ? null : marcheAvant149;
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    ok('[149] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations149 && base.journal.filter((j) => j.op === 'refus').length === refus149 &&
+        erreurs.length === erreurs149,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus149), erreurs.slice(erreurs149)]));
+  }
+
   console.log('\n══ seance-longue. UNE SÉANCE TROP LONGUE : À « TERMINER », L’APP LE DIT ET DEMANDE (147, ECRAN-SAISIE §7 septies.4) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : une séance de musculation dont la dernière série validée est vieille de 2 h au moment

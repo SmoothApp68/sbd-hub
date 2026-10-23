@@ -6320,6 +6320,17 @@
                          cibleHabilete: c.nature ? c.nature === 'habilete' : c.habilete === true,
                          cibleFaiteLe: datesFaites[m.cible[0]] || null };
     });
+    // 149 (MOTEUR §9.17 ter) — LES FIGURES : pour chaque exercice d'une échelle de figures (marches en secondes, lues
+    // au catalogue), la tenue max de chaque séance faite (`faits.tenuesDeLExercice`, la plus récente en dernier), le nom
+    // de la marche d'en dessous et le seuil de la marche. Le plan décide ; l'app donne les faits.
+    var figures = {};
+    exos.forEach(function (x) {
+      var slug = x && x.exercise_slug;
+      if (!slug || Object.prototype.hasOwnProperty.call(figures, slug) || !index[slug] || !Modele.estUneFigure(index, slug)) return;
+      var dessous = Modele.marcheDEnDessous(index, slug);
+      figures[slug] = { tenues: faits.tenuesDeLExercice(corpus(), slug).map(function (t) { return t.max; }),
+                        dessous: dessous ? (dessous.nom || dessous.slug) : null, seuil: Modele.seuilDeLaMarche(index[slug]) };
+    });
     var lestPlan = lestReponseDe();
     if (demoModeEscalier() === 'lest') {
       lestPlan = demoLest;
@@ -6358,6 +6369,7 @@
       lestReponse: lestPlan,
       // MOTEUR §9.17 bis (127) — l'échelle : les marches à proposer et les réponses du profil.
       echelles: echelles,
+      figures: figures,
       marcheReponses: marcheReponsesDe(),
       // MOTEUR §17.2 bis (78) — le passé de chaque exercice, figé : le plan décide de la question de réserve.
       reserve: reserveDeLaSeance(),
@@ -7903,6 +7915,13 @@
       // §9.15.3 (94) — la ligne vide porte ses deux gestes (hors Édition).
       if (x.degressive.gestes && !enEdition()) md.gestes = x.degressive.gestes.slice();
       return { message: md, proposee: false, fourchette: null };
+    }
+    // 149 (MOTEUR §9.17 ter) — UNE FIGURE EN SECONDES : la phrase du coach au-dessus de la tenue max tant qu'elle n'est
+    // pas validée, sous elle ensuite, l'étiquette « max » / « après ton max » — lues sur le plan, jamais recomposées.
+    var lf = x && x.figure && x.lignes ? x.lignes[iSerie] : null;
+    if (lf && lf.tenue && (lf.phraseAvant || lf.phraseApres || lf.etiquette)) {
+      return { message: lf.phraseAvant ? { type: 'figure', phrase: lf.phraseAvant } : null, proposee: false, fourchette: null,
+               apres: lf.phraseApres || null, etiquette: lf.etiquette || null };
     }
     // §14.7 (49-U17) — la ligne de la série de plus, marquée à la couleur du
     // coach (lue sur le plan).
@@ -11226,8 +11245,12 @@
       var exercices = {};
       Object.keys(it.exercices).forEach(function (s) {
         var e = it.exercices[s];
+        // 149 — une FIGURE se lit en secondes : « 12 s, 10 s, 9 s, 8 s » (le formateur des durées), pas en reps.
+        var enSecondes = Modele.estUneFigure(index, s);
         exercices[s] = { semaine: meilleurTexte(s, e.semaine), avant: meilleurTexte(s, e.avant),
-                         reps: e.semaine.map(function (x) { return x.reps; }).filter(function (r) { return r !== null && r !== undefined; }) };
+                         reps: enSecondes
+                           ? e.semaine.map(function (x) { return Modele.formatDuree(x.duree_s); }).filter(Boolean)
+                           : e.semaine.map(function (x) { return x.reps; }).filter(function (r) { return r !== null && r !== undefined; }) };
       });
       var n = it.nouvelle;
       return { echelle: it.echelle, exercices: exercices,
@@ -11238,6 +11261,11 @@
       faites: faites, zonesHaut: zonesHaut, coachActif: !Moteur.coachSeTait(profil && profil.intention),
       phraseDe: function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { court: true, reglage: Profil.rythmeDe(profil) })); },
       rondsDe: function (slug, e) {
+        // 149 — une FIGURE : les tenues max des séances (un fait de `faits.js`) contre le seuil du catalogue.
+        if (e.seuil) {
+          var tn = faits.tenuesDeLExercice(corpus(), slug).map(function (t) { return { niveau: t.max, charge: 0 }; });
+          return tn.length ? Moteur.rondsDeLaSuivante({ seuil: e.seuil, seances: tn, reglage: Profil.rythmeDe(profil) }) : null;
+        }
         var ds = deuxSeancesDeLExercice(slug, index[slug]);
         return ds ? Moteur.rondsDeLaSuivante({ haut: e.haut, aide: e.aide, seances: ds, reglage: Profil.rythmeDe(profil) }) : null;
       }

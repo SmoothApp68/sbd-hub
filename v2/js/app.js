@@ -3495,7 +3495,7 @@
     vidangeARelancer = false;
     var g = generation;
     try {
-      var garde = 200;   // une file qui ne rétrécit pas ne doit pas tourner sans fin
+      var garde = Attente.gardeDeVidange(attente.length);   // lue au départ : une file qui ne rétrécit pas ne tourne pas sans fin, une file saine part entière (144-3)
       while (garde-- > 0) {
         var op = Attente.prochaine(fileEnvoyable(attente));
         if (!op) break;

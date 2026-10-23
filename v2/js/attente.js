@@ -918,6 +918,14 @@
     return { code: 'a-envoyer', libelle: r.libelle, local: true };
   }
 
+  // 144-3 — combien de tours une vidange s'accorde. Une entrée fait au plus deux passages (un échec, puis la marque) :
+  // 2 × la file + 10 ne coupe jamais une file saine (630 entrées après un mois hors ligne, 200 seulement partaient) et
+  // reste une vraie protection contre une file qui ne rétrécit pas. Plancher à 200 : une petite file garde sa marge.
+  function gardeDeVidange(longueur) {
+    var n = Number(longueur);
+    return Math.max(200, 2 * (isFinite(n) && n > 0 ? Math.floor(n) : 0) + 10);
+  }
+
   var api = {
     SESSIONS: SESSIONS, SETS: SETS, ROUTINE_EXOS: ROUTINE_EXOS, ZONES: ZONES, MODES: MODES, BLOCS: BLOCS,
     PREDICTIONS: PREDICTIONS,
@@ -958,6 +966,7 @@
     poser: poser,
     ordonnee: ordonnee,
     prochaine: prochaine,
+    gardeDeVidange: gardeDeVidange,
     retirer: retirer,
     marquerEchec: marquerEchec,
     marquerParti: marquerParti,

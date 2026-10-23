@@ -1290,6 +1290,8 @@ dit sa plage de validité.
 
 *Exception, à l'essai (16/10/2026) : la carte « Mon objectif », en tête de la vue (hors des courbes), dit la date d'un objectif posé par la personne — MOTEUR §9.25.*
 
+*23/10/2026, décision d'Aurélien (150) : la carte dit « Le pari du coach : fin avril. » (gris : « Posé le 16 oct. On verra s'il tombe juste. »), figé ; et dessous, séparée d'un trait fin, « Au rythme d'aujourd'hui : fin février. » (ou « toujours fin avril », « plus d'un an », « pas encore de date »), recalculée à chaque ouverture par le même calcul — rien n'est écrit. Pas de ligne en « Juste un carnet », une fois atteint, ni sans pari. MOTEUR §9.25.*
+
 ### 7 bis.16 Records de série — et la correction d'un défaut de Hevy
 
 Le meilleur poids **pour chaque nombre de répétitions**. Factuel, sans formule, et répond à

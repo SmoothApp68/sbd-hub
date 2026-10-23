@@ -1845,7 +1845,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .objectif-jauge i{display:block;height:100%;border-radius:99px;background:var(--accent)}
 .objectif-aujourdhui{font-size:12px;line-height:1.4;color:var(--texte-2)}
 .objectif-date{font-size:13px;line-height:1.5;color:var(--texte);margin:var(--e2) 0 0}
-.objectif-pari{color:var(--texte-2)}
+.objectif-pari{display:block;color:var(--texte-3);font-size:12.5px;margin-top:2px}
+.objectif-rythme{font-size:13px;line-height:1.5;color:var(--texte);margin:var(--e2) 0 0;padding-top:var(--e2);border-top:1px solid var(--trait)}
 .objectif-changer{margin-top:var(--e2)}
 .defile-records{overflow-x:auto;margin-top:var(--e2)}
 .tableau-records{width:100%;border-collapse:collapse;font-size:13.5px}

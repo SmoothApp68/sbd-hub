@@ -529,8 +529,9 @@
       if (v.aujourdhui) fiche.appendChild(el('div', 'objectif-aujourdhui num', v.aujourdhui));
       if (v.ligne) {
         var ligne = el('p', 'objectif-date', v.ligne);
-        if (v.pari) ligne.appendChild(el('span', 'objectif-pari', ' ' + v.pari));
+        if (v.pari) ligne.appendChild(el('span', 'objectif-pari', v.pari));
         fiche.appendChild(ligne);
+        if (v.rythme) fiche.appendChild(el('p', 'objectif-rythme', v.rythme));
       }
       carte.appendChild(fiche);
     }

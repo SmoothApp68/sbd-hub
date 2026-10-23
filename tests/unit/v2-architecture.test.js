@@ -900,6 +900,16 @@ const NOTIONS = [
     raison: 'MOTEUR §9.23 : un record est un fait ; une seule fonction décide ce qu’une série bat, ' +
       'la médaille en séance, la feuille « Terminer » et Progression la lisent. 132 (I51) : la garde du plan la ' +
       'rejoue sur chaque série notée par nom — aucune ne doit rien battre.' },
+  { notion: 'l’allure d’une série pour au moins N (course, tapis, natation, rameur — la liste des sports, au registre `SPORTS`)', pr: '153-U1',
+    module: 'modele.js', fonction: 'allureDeSerie', lecteurs: [],
+    par: ['recordsBattus'],
+    raison: '153 (MOTEUR §9.23) : durée ÷ distance de la série entière, au plus grand palier atteint ; la liste des ' +
+      'exercices (jamais le vélo, la marche, la randonnée) et des paliers est UNE : `SPORTS`. Plus bas = mieux.' },
+  { notion: 'la plus grande distance d’une série de travail par sport (les caps de distance du jeu)', pr: '153-U1',
+    module: 'modele.js', fonction: 'distancesMaxParSport', lecteurs: ['faits.js'],
+    parAilleurs: { 'faits.js': ['faitsDuJeu'] },
+    raison: '153 (JEU §5) : le jeu reçoit ses faits de `faits.js` ; il ne lit pas les séries. Les sports viennent de ' +
+      '`SPORTS`, le même registre que l’allure.' },
   { notion: 'la phrase de la médaille ([gras, gris])', pr: '55-U1',
     module: 'modele.js', fonction: 'phraseDeRecord', lecteurs: ['app.js', 'faits.js'],
     parAilleurs: { 'app.js': ['medailleSurLigne'], 'faits.js': ['recordsDuJour'] },
@@ -3049,6 +3059,8 @@ const VOIX_INTERDITS = [
 ];
 // Une exception : son fichier, la chaîne exacte qui la porte, et sa raison. Elle doit encore servir.
 const VOIX_EXCEPTIONS = [
+  { fichier: 'donnees.js', chaine: 'palier_m', raison: '153 : le nom de la colonne `records.palier_m` (v2_109) dans la liste des colonnes lues ; ' +
+    'jamais montré' },
   { fichier: 'app.js', chaine: ' · palier ', raison: 'le journal de la garde de développement (« contrôle consigne »), ' +
     'jamais en production' },
 ];

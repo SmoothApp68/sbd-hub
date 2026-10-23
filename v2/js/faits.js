@@ -93,7 +93,8 @@
     //     (au centième) ; une proposition sans chiffre (« le cran au-dessus », `fondement.charge` nul) : elle compte
     //     (la règle « suivie » de MOTEUR §12 : toute charge au-dessus du palier) ; une série sans charge : elle compte.
     // Un record se compte par SÉRIE (une médaille par série, comme le fil). `paris` : les paris connus (`predictions`).
-    var TYPES_DE_LA_GUILDE = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'volume_seance', 'duree_s', 'distance_m'];
+    var TYPES_DE_LA_GUILDE = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'volume_seance', 'duree_s', 'distance_m',
+                              'allure', 'marche', 'denivele_m', 'etages'];
     function recordsSansDepasser(c, paris, de, a) {
       var series = {}, parSerie = {};
       seancesAvecSeries(c).forEach(function (s) { s.series.forEach(function (x) { if (x && x.id) series[x.id] = x; }); });
@@ -246,7 +247,7 @@
       var index = c.catalogue(), out = [];
       se.series.forEach(function (x, k) {
         if (!x || !Modele.estTravail(x)) return;
-        var r = Modele.recordsBattus(seancesDuSlug(c, x.exercise_slug), se, k, Modele.optionsDeRecord(index[x.exercise_slug] || null));
+        var r = Modele.recordsBattus(seancesDuSlug(c, x.exercise_slug), se, k, optionsDesRecords(c, x.exercise_slug));
         if (!r.length) return;
         var nom = Modele.nomCourt(index[x.exercise_slug] ? index[x.exercise_slug].nom : x.exercise_slug);
         // 58-2 — `serieId` : le journal écrit une ligne par série et par type.
@@ -313,13 +314,33 @@
       return { debut: seance ? seance.debut : null, series: series, positions: positions };
     }
 
+    // 153 (B) — les options des records d'un exercice : son matériel (la fenêtre), et de quoi lire une MARCHE (le
+    // catalogue, et — à la demande seulement — toutes les séances d'avant, tous exercices : une seule lecture par
+    // corpus). `Modele.recordsBattus` filtre sur la date de la série.
+    var memoToutes = { cle: null, liste: null };
+    function toutesLesSeancesPourMarche(c) {
+      var cle = (c.seances || []).length + '|' + (c.series || []).length;
+      if (memoToutes.cle !== cle) {
+        memoToutes = { cle: cle, liste: seancesAvecSeries(c).map(function (s) { return { id: s.id, debut: s.debut, series: s.series }; }) };
+      }
+      return memoToutes.liste;
+    }
+    function optionsDesRecords(c, slug) {
+      var index = c.catalogue();
+      return Object.assign({}, Modele.optionsDeRecord(index[slug] || null),
+        { marche: { index: index, passees: function () { return toutesLesSeancesPourMarche(c); } } });
+    }
+    function nomCompletDuCatalogue(c) {
+      var index = c.catalogue();
+      return function (slug) { return index[slug] ? index[slug].nom : slug; };
+    }
+
     function recordsDeLaSerie(c, seance, iExo, iSerie, lue) {
       var v = lue || seanceDesRecords(seance);
       var k = v.positions[iExo + ':' + iSerie];
       if (k === undefined) return [];
       var slug = v.series[k].exercise_slug;
-      return Modele.recordsBattus(historiqueDesRecords(c, seance, slug), v, k,
-        Modele.optionsDeRecord(c.catalogue()[slug] || null));
+      return Modele.recordsBattus(historiqueDesRecords(c, seance, slug), v, k, optionsDesRecords(c, slug));
     }
 
     // Les records du jour : une ligne par série médaillée, « Développé couché
@@ -337,7 +358,7 @@
           if (!r.length) return;
           var nom = Modele.nomCourt(index[exo.exercise_slug] ? index[exo.exercise_slug].nom : exo.exercise_slug);
           var ligne = { nom: nom.charAt(0).toUpperCase() + nom.slice(1), mesure: Modele.formatMesure(s) };
-          if (avecPhrase) ligne.phrase = Modele.phraseDeRecord(r, nom, seance.debut);
+          if (avecPhrase) ligne.phrase = Modele.phraseDeRecord(r, nom, seance.debut, nomCompletDuCatalogue(c));
           out.push(ligne);
         });
       });
@@ -481,6 +502,7 @@
         reps: vide(r.reps),
         charge: vide(r.charge),
         unite: vide(r.unite),
+        palier_m: vide(r.palier_m),
         ancien: vide(r.ancien),
         ancien_le: vide(r.ancien_le),
         sur_douze_mois: !!r.douzeMois,
@@ -530,7 +552,7 @@
     // restent en base, immuables (`records_immuable`) : ELLES SONT IGNORÉES ICI, à la lecture — la seule, donc le jeu,
     // le récap de fin de séance et tout lecteur à venir ne les voient plus. `medaillesDuSocial` (le fil) aussi.
     var ORDRE_DES_TYPES = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap',
-                           'volume_seance', 'duree_s', 'distance_m'];
+                           'volume_seance', 'duree_s', 'distance_m', 'allure', 'denivele_m', 'etages', 'marche'];
     var TYPES_HORS_RECORDS = ['un_rm_estime'];
     function estUnRecord(l) { return !!l && TYPES_HORS_RECORDS.indexOf(l.type) < 0; }
     function recordsDuJournal(c, filtre) {
@@ -569,6 +591,8 @@
       if ((l = de('reps_a_charge'))) return { charge_kg: l.charge, reps: l.valeur };
       if ((l = de('duree_s'))) return { duree_s: l.valeur };
       if ((l = de('distance_m'))) return { distance_m: l.valeur };
+      if ((l = de('denivele_m'))) return { denivele_m: l.valeur };
+      if ((l = de('etages'))) return { etages: l.valeur };
       if ((l = de('charge_max')) || (l = de('cap'))) return { charge_kg: l.valeur };
       return null;
     }
@@ -1116,6 +1140,8 @@
         series: series,
         catalogue: c.catalogue(),
         journal: journal,
+        // 153 (D) — la plus grande distance d'une série de travail, par sport (course, nage, velo) : le jeu ne lit pas les séries.
+        distances: Modele.distancesMaxParSport(series),
         maximums: avec ? avec.maximums : ceQueJeSais(c, aujourdhui, BARRES_DU_JEU).maximums,
         exercicesFaits: avec ? avec.exercicesFaits : compterExercices(c).faits
       };

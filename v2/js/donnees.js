@@ -731,7 +731,7 @@
   // qu'avec sa série (cascade, ou `sets_efface_records` quand la série est
   // corrigée). Aucune suppression par l'app.
   var COLONNES_RECORD = 'id, user_id, set_id, session_id, exercise_slug, type, valeur, reps, charge, ' +
-    'unite, ancien, ancien_le, sur_douze_mois, battu_le, created_at';
+    'unite, palier_m, ancien, ancien_le, sur_douze_mois, battu_le, created_at';
 
   // INCRÉMENTAL sur `created_at` : une ligne ne se modifie jamais, une neuve
   // est la seule nouveauté possible. Ce qui DISPARAÎT ne revient pas par ici —

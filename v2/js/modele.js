@@ -2215,6 +2215,55 @@
   // porte `valeur`, l'ancien record `ancien` et sa date `ancien_le` (le début
   // de sa séance), et `douzeMois` (lu dans la fenêtre des 12 mois d'un matériel
   // de salle) ; `[]` sans record.
+  // ══ 153 — LES SPORTS DE DISTANCE : UNE LISTE, ICI (registre NOTIONS) ═════════════════════════════════════════
+  //
+  // Pour chaque sport : ses exercices du catalogue (slugs), et — s'il a une ALLURE — l'unité du record
+  // (`records.unite`), la distance de l'unité (« /km », « /100 m », « /500 m ») et les paliers « pour au moins N »
+  // (mètres). Course et tapis ne font qu'un sport (le tapis est de la course). Le vélo (dehors et d'appartement), la
+  // marche et la randonnée n'ont PAS d'allure (le dénivelé, le vent, la pause : une allure y serait fausse) ; la
+  // randonnée garde son cap de 20 km (jeu). Ajouter un exercice à un sport, c'est ajouter son slug ICI, nulle part ailleurs.
+  // ⚠️ L'ALLURE SE COMPTE EN SECONDES PAR UNITÉ : PLUS BAS = MIEUX. Tout lecteur qui trie ou compare la `valeur` d'un
+  // record `allure` le sait ; `recordsBattus` est le seul à la comparer.
+  var SPORTS = {
+    course: { slugs: ['course_a_pieds', 'tapis_roulant'], unite: 's_km', metres: 1000,
+              paliers: [1000, 5000, 10000, 21097, 42195] },
+    nage: { slugs: ['natation'], unite: 's_100m', metres: 100, paliers: [400, 1000, 1500] },
+    rameur: { slugs: ['rameur'], unite: 's_500m', metres: 500, paliers: [500, 2000, 5000] },
+    velo: { slugs: ['cyclisme'] }
+  };
+  var LIBELLE_PALIER_COURSE = { 1000: '1 km', 5000: '5 km', 10000: '10 km', 21097: 'un semi', 42195: 'un marathon' };
+  function sportDe(slug) {
+    var trouve = null;
+    Object.keys(SPORTS).forEach(function (k) { if (SPORTS[k].slugs.indexOf(slug) >= 0) trouve = k; });
+    return trouve;
+  }
+  // La plus grande distance d'une série de travail, par sport de distance (course, nage, velo) — le jeu (153, D).
+  function distancesMaxParSport(series) {
+    var out = {};
+    (series || []).forEach(function (x) {
+      if (!x || !estTravail(x)) return;
+      var sp = sportDe(x.exercise_slug), m = valeurNumerique(x, 'distance_m');
+      if (sp === null || m === null || m <= 0) return;
+      if (out[sp] === undefined || m > out[sp]) out[sp] = m;
+    });
+    return out;
+  }
+  // L'ALLURE D'UNE SÉRIE : `{ allure, palier, unite }` (secondes par unité du sport, le plus grand palier ≤ sa distance),
+  // ou `null` : pas un sport à allure, pas de distance ou de durée, ou sous le premier palier.
+  function allureDeSerie(serie) {
+    var sp = serie ? sportDe(serie.exercise_slug) : null;
+    var def = sp ? SPORTS[sp] : null;
+    if (!def || !def.unite) return null;
+    var d = valeurNumerique(serie, 'duree_s'), m = valeurNumerique(serie, 'distance_m');
+    if (d === null || m === null || d <= 0 || m <= 0) return null;
+    var palier = null;
+    def.paliers.forEach(function (p) { if (p <= m + EPS_RECORD && (palier === null || p > palier)) palier = p; });
+    if (palier === null) return null;
+    return { allure: d / m * def.metres, palier: palier, unite: def.unite };
+  }
+  var UNITES_D_ALLURE = { s_km: '/km', s_100m: '/100\u00a0m', s_500m: '/500\u00a0m' };
+  function arrondi2(v) { return Math.round(v * 100) / 100; }
+
   function notee(s) { return !!s && s.elastique !== null && s.elastique !== undefined; }
   function recordsBattus(historique, seance, indice, options) {
     var o = options || {};
@@ -2312,9 +2361,9 @@
       }
     }
 
-    // ── La durée et la distance : toute la vie.
+    // ── La durée, la distance, le D+ et les étages : toute la vie (153 : le D+ et les étages, la même règle).
     if (passees.length) {
-      ['duree_s', 'distance_m'].forEach(function (champ) {
+      ['duree_s', 'distance_m', 'denivele_m', 'etages'].forEach(function (champ) {
         var v = valeurNumerique(s, champ);
         if (v === null || v <= 0) return;
         var avantLui = plusGrand(dater(passees).map(function (x) {
@@ -2325,13 +2374,73 @@
           out.push({ type: champ, valeur: v, ancien: avantLui ? avantLui.v : null, ancien_le: avantLui ? avantLui.date : null });
         }
       });
+      // 153 (A) — L'ALLURE POUR AU MOINS N : la série entière (durée ÷ distance), au plus grand palier atteint par sa
+      // distance. Un record si AUCUNE série passée du même exercice d'au moins ce palier n'a une allure ≤ (plus vite ou
+      // égale) ; sans série passée d'au moins ce palier, rien à battre. Toute la vie. PLUS BAS = MIEUX.
+      var al = allureDeSerie(s);
+      if (al) {
+        var rivale = null;
+        dater(passees).forEach(function (x) {
+          var ax = allureDeSerie(x.s);
+          if (!ax || ax.palier < al.palier) return;
+          if (rivale === null || ax.allure < rivale.v - EPS_RECORD ||
+              (Math.abs(ax.allure - rivale.v) <= EPS_RECORD && plusTot(x.date, rivale.date))) rivale = { v: ax.allure, date: x.date };
+        });
+        if (rivale !== null && al.allure < rivale.v - EPS_RECORD) {
+          out.push({ type: 'allure', valeur: arrondi2(al.allure), unite: al.unite, palier_m: al.palier,
+                     ancien: arrondi2(rivale.v), ancien_le: rivale.date, slug: slug });
+        }
+      }
+    }
+    // 153 (B) — LA PREMIÈRE FOIS SUR UNE MARCHE. Jamais à la toute première séance de la personne dans l'app (on ne sait
+    // rien d'avant), et une seule fois par exercice (la première série de travail). Une HABILETÉ faite pour la première
+    // fois, toute échelle, même sans marche d'avant ; une marche plus HAUTE que toute marche déjà faite sur son échelle
+    // (au moins une déjà faite). L'échelle se lit par `echelleDe` : jamais `echelle_rang` en direct ailleurs.
+    var mq = o.marche;
+    if (mq && mq.index && passees.length === 0 && avant.length === 0) {
+      var exoM = mq.index[slug];
+      var toutes = typeof mq.passees === 'function' ? mq.passees() : (mq.passees || []);
+      var anterieures = toutes.filter(function (h) {
+        var t = instantRecord(h && h.debut);
+        return t !== null && t < t0 && (h.series || []).some(function (x) { return x && estTravail(x); });
+      });
+      if (exoM && anterieures.length) {
+        if (exoM.nature === 'habilete') {
+          out.push({ type: 'marche', valeur: echelleDe(exoM) !== null ? exoM.echelle_rang : 1, ancien: null, ancien_le: null,
+                     slug: slug, habilete: true });
+        } else if (echelleDe(exoM) !== null) {
+          var E = echelleDe(exoM), vus = [];
+          var noter = function (x, date) {
+            if (!x || !estTravail(x) || notee(x)) return;
+            var e2 = mq.index[x.exercise_slug];
+            if (e2 && echelleDe(e2) === E) vus.push({ rang: e2.echelle_rang, slug: x.exercise_slug, date: date });
+          };
+          anterieures.forEach(function (h) { (h.series || []).forEach(function (x) { noter(x, h.debut); }); });
+          series.slice(0, indice).forEach(function (x) { noter(x, se.debut); });
+          if (vus.length) {
+            var R = Math.max.apply(null, vus.map(function (v) { return v.rang; }));
+            if (exoM.echelle_rang > R) {
+              var premiers = {};
+              vus.filter(function (v) { return v.rang === R; }).forEach(function (v) {
+                if (!premiers[v.slug] || plusTot(v.date, premiers[v.slug])) premiers[v.slug] = v.date;
+              });
+              var choix = Object.keys(premiers).sort(function (a, b) {
+                return instantRecord(premiers[a]) - instantRecord(premiers[b]) || (a < b ? -1 : a > b ? 1 : 0);
+              })[0];
+              out.push({ type: 'marche', valeur: exoM.echelle_rang, ancien: R, ancien_le: premiers[choix],
+                         slug: slug, ancien_slug: choix });
+            }
+          }
+        }
+      }
     }
     // 58-2 — LA FENÊTRE OÙ LE RECORD A ÉTÉ LU, dite par la fonction qui l'a
     // lu : 12 mois pour les charges d'un matériel de salle, toute la vie pour
     // la durée et la distance. Le journal la garde telle quelle (« sur 12
     // mois », §9.23 H1) ; la médaille ne la lit pas.
     var douzeMois = plancher !== null;
-    out.forEach(function (x) { x.douzeMois = douzeMois && x.type !== 'duree_s' && x.type !== 'distance_m'; });
+    var TOUTE_LA_VIE = ['duree_s', 'distance_m', 'denivele_m', 'etages', 'allure', 'marche'];
+    out.forEach(function (x) { x.douzeMois = douzeMois && TOUTE_LA_VIE.indexOf(x.type) < 0; });
     return out;
   }
 
@@ -2382,12 +2491,19 @@
     var t = 'le ' + (d.getDate() === 1 ? '1er' : d.getDate()) + ' ' + MOIS_COURTS[d.getMonth()];
     return r !== null && d.getFullYear() === r.getFullYear() ? t : t + ' ' + d.getFullYear();
   }
-  function phraseDeRecord(records, exercice, aujourdhui) {
+  // Le palier d'une allure, en mots : « 1 km », « un semi », « 1 000 m » (course et tapis en km, les autres en mètres).
+  function libelleDuPalier(r) {
+    if (r.unite === 's_km' && LIBELLE_PALIER_COURSE[r.palier_m]) return LIBELLE_PALIER_COURSE[r.palier_m];
+    return nombreGroupe(nombreTexte(r.palier_m, 0)) + INSECABLE + 'm';
+  }
+  function phraseDeRecord(records, exercice, aujourdhui, nomDe) {
     var liste = records || [];
     if (!liste.length) return null;
     var de = function (type) { return liste.filter(function (x) { return x.type === type; })[0] || null; };
     var cap = de('cap'), car = de('charge_a_reps'), rac = de('reps_a_charge'), lourde = de('charge_max');
     var vol = de('volume_seance'), duree = de('duree_s'), distance = de('distance_m');
+    var allure = de('allure'), marche = de('marche'), deniv = de('denivele_m'), etages = de('etages');
+    var nomComplet = function (slug) { return nomDe ? nomDe(slug) : slug; };
     var gras = [];
     if (cap) gras.push('Premier ' + chargeDeLaMedaille(cap.valeur) + ' au ' + exercice + '.');
     else if (car) gras.push('Record à ' + repsDeLaMedaille(car.reps) + ' : ' + chargeDeLaMedaille(car.valeur) + '.');
@@ -2404,6 +2520,13 @@
     // ligne d'au-dessus dit « Tapis : 20 min · 3,2 km ») ; l'horloge (« 01:30 ») reste sous la rangée de la grille.
     if (duree) gras.push('Plus longue durée : ' + formatDuree(duree.valeur) + '.');
     if (distance) gras.push('Plus longue distance : ' + formatDistance(distance.valeur) + '.');
+    // 153 — l'allure pour au moins N (« Record d'allure sur 1 km ou plus : 7:00 /km. »), le D+, les étages, la première
+    // fois sur une marche (« Première fois : Tractions Lestées. »).
+    if (allure) gras.push('Record d’allure sur ' + libelleDuPalier(allure) + ' ou plus : ' + mmss(allure.valeur) + INSECABLE +
+      UNITES_D_ALLURE[allure.unite] + '.');
+    if (deniv) gras.push('Record de D+ : ' + nombreTexte(deniv.valeur, 0) + INSECABLE + 'm.');
+    if (etages) gras.push('Record d’étages : ' + nombreTexte(etages.valeur, 0) + '.');
+    if (marche) gras.push('Première fois : ' + nomComplet(marche.slug) + '.');
     var quandAvant = function (x) { return dateDeLaMedaille(x.ancien_le, aujourdhui); };
     // Le point final, une fois : « le 1er sept. », jamais « sept.. ».
     var fin = function (t) { return /\.$/.test(t) ? t : t + '.'; };
@@ -2418,6 +2541,15 @@
       if (duree.ancien !== null) gris = 'Avant : ' + formatDuree(duree.ancien) + ', ' + fin(quandAvant(duree));
     } else if (distance) {
       if (distance.ancien !== null) gris = 'Avant : ' + formatDistance(distance.ancien) + ', ' + fin(quandAvant(distance));
+    } else if (allure) {
+      gris = 'Avant : ' + mmss(allure.ancien) + INSECABLE + UNITES_D_ALLURE[allure.unite] + ', ' + fin(quandAvant(allure));
+    } else if (deniv) {
+      if (deniv.ancien !== null) gris = 'Avant : ' + nombreTexte(deniv.ancien, 0) + INSECABLE + 'm, ' + fin(quandAvant(deniv));
+    } else if (etages) {
+      if (etages.ancien !== null) gris = 'Avant : ' + nombreTexte(etages.ancien, 0) + ', ' + fin(quandAvant(etages));
+    } else if (marche) {
+      gris = marche.habilete ? 'Une habileté.'
+        : fin('Avant : ' + nomComplet(marche.ancien_slug) + ', depuis ' + dateDeLaMedaille(marche.ancien_le, aujourdhui));
     }
     return [gras.join(' '), gris];
   }
@@ -2684,6 +2816,9 @@
     tableCumulee: tableCumulee,
     auMoinsDe: auMoinsDe,
     recordsBattus: recordsBattus,
+    SPORTS: SPORTS,
+    allureDeSerie: allureDeSerie,
+    distancesMaxParSport: distancesMaxParSport,
     phraseDeRecord: phraseDeRecord,
     optionsDeRecord: optionsDeRecord,
     recordsDeLExercice: recordsDeLExercice,

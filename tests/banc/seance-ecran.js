@@ -7224,6 +7224,7 @@ const SETS_IMPORTES = [
     });
     await attendre(1600);
 
+    const idsAvantC6 = new Set(base.sets.map((x) => x.id));   // 143-bis — ce que la séance ajoute
     await aller('/saisie');
     await demarrerRoutine('Terre');
     ok('[C6] au départ, la consigne parle et il n’y a pas de constat',
@@ -7245,7 +7246,7 @@ const SETS_IMPORTES = [
         const champs = document.querySelectorAll('.ligne-serie')[k].querySelectorAll('input');
         return { charge: Number(String(champs[0].value).replace(',', '.')), reps: Number(champs[1].value) };
       }));
-      const arrivees = base.sets.filter((x) => x.exercise_slug === 'souleve-terre' && x.validee_a);
+      const arrivees = base.sets.filter((x) => !idsAvantC6.has(x.id) && x.exercise_slug === 'souleve-terre' && x.validee_a);
       ok('[143-bis] les DEUX séries validées sont dans la table `sets` du faux serveur',
         arrivees.length === 2, JSON.stringify({ arrivees: arrivees.length, sets: base.sets.length }));
       ok('[143-bis] avec leur charge et leurs reps',

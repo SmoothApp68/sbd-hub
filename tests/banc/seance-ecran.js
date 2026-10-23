@@ -24578,7 +24578,7 @@ const SETS_IMPORTES = [
         classes: m.className, texte: m.textContent })), phrase: (c.querySelector('.te-phrase') || {}).textContent || null };
     });
     let g149 = await echelleDom149();
-    for (let n = 0; n < 20 && !g149; n++) { await attendre(250); await aller('/exercice/' + G149); g149 = await echelleDom149(); }
+    await jusqua(async () => !!(g149 = await echelleDom149()), 6000);
     ok('[149] G — « Ton échelle » existe pour la figure : trois marches, la tienne est le groupé, la suivante le groupé avancé',
       !!g149 && JSON.stringify(g149.marches.map((m) => m.rang)) === '["3","2","1"]' && /\btienne\b/.test(g149.marches[2].classes) &&
         /\bsuivante\b/.test(g149.marches[1].classes), JSON.stringify(g149));

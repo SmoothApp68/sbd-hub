@@ -327,12 +327,17 @@ describe('§9.15.3 — la dégressive', () => {
     ok(p, e);
   });
 
-  test('une seule baisse : seule la première dégressive après la dernière série de travail', () => {
+  // 151 (23/10/2026) — INVERSÉ : « une seule baisse » devient deux baisses au plus. La seconde ligne dégressive est
+  // remplie à −20 % de la première (cran de 5 : 45 → 36 → 35), « Vise 4 à 6 » ; le détail vit dans v2-degressive-deux-baisses.
+  test('deux baisses au plus : la première ligne dégressive à −22,5 %, la seconde à −20 % de la première', () => {
     const exos = [{ slug: 'extension_jambes', travail: 2, degressives: [1, 1], consigne: consigne(60, 15), pas: 5 }];
-    const x = T.planDeSeance(entreesDe(seanceDe(exos), exos)).exercices[0];
+    const e = entreesDe(seanceDe(exos), exos);
+    const p = T.planDeSeance(e);
+    const x = p.exercices[0];
     expect(x.lignes[2].degressive.charge).toBe(45);
-    expect(x.lignes[3].degressive).toBeUndefined();
-    expect(x.lignes[3].fantome).toBeFalsy();
+    expect(x.lignes[3].degressive).toMatchObject({ charge: 35, vise: [4, 6] });
+    expect(x.lignes[3].fantome).toMatchObject({ charge: 35, source: 'degressive' });
+    ok(p, e);
   });
 });
 

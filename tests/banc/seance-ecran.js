@@ -22610,7 +22610,8 @@ const SETS_IMPORTES = [
     CATALOGUE.push(exo112('presse-s112', 'Presse S112 (Machine)', 'machine', 's112_quadri'),
       exo112('extension-s112', 'Extension S112 (Machine)', 'machine', 's112_quadri'),
       exo112('leger-s112', 'Léger S112 (Barre)', 'barre', 's112_bras'),
-      exo112('lourd-s112', 'Lourd S112 (Barre)', 'barre', 's112_dos'));
+      exo112('lourd-s112', 'Lourd S112 (Barre)', 'barre', 's112_dos'),
+      exo112('poulie-s151', 'Curl S151 (Poulie)', 'poulie', 's151_biceps'));
     const t112 = Date.now();
     base.sessions = [];
     base.sets = [];
@@ -22641,7 +22642,9 @@ const SETS_IMPORTES = [
         re112(0, 'presse-s112', [['travail', 10]], 120),
         re112(1, 'extension-s112', [['travail', 12], ['travail', 12]], 90),
         re112(2, 'leger-s112', [['travail', 12], ['degressive', null]], 90),
-        re112(3, 'lourd-s112', [['travail', 8], ['degressive', null]], 180)] });
+        re112(3, 'lourd-s112', [['travail', 8], ['degressive', null]], 180),
+        // 151 — la seconde baisse : deux lignes dégressives posées par la routine.
+        re112(4, 'poulie-s151', [['travail', 15], ['degressive', null], ['degressive', null]], 60)] });
     const nb112 = (x) => JSON.stringify(x).replace(/[\u00a0\u202f]/g, ' ');
     const esp112 = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
     // La rangée (i, j) : ses deux fantômes (charge, reps) et son étiquette.
@@ -22759,6 +22762,31 @@ const SETS_IMPORTES = [
     ok('[S112] et la phrase, à l’écran, dit quoi enlever : « Enlève 10 kg de chaque côté : 80 kg. … »',
       phrasesDeg112.map(esp112).indexOf('Enlève 10 kg de chaque côté : 80 kg. Sans repos, jusqu\'à l\'échec. Vise 3 à 5.') >= 0,
       nb112(phrasesDeg112));
+    // ── (4) 151 — LA SECONDE BAISSE : deux lignes dégressives posées, la seconde remplie à −20 % de la première ──────
+    const deg151 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'poulie-s151')[0];
+      return x ? { types: x.lignes.map((l) => l.type), premiere: x.degressive ? x.degressive.charge : undefined,
+        plus: (x.degressivesPlus || []).map((q) => ({ rang: q.rang, charge: q.charge, phrase: q.phrase, gestes: q.gestes || null })) } : null;
+    });
+    const phrases151 = () => page.evaluate(() => Array.from(document.querySelectorAll('.reaction-serie.degressive')).map((e) => e.textContent));
+    await valider112(4, 0, 30, 15);
+    const p151 = await deg151(), r151a = await rangee112(4, 1), r151b = await rangee112(4, 2);
+    ok('[S151] DISCRIMINANT — curl poulie 30 × 15, deux dégressives posées : 22,5 kg puis 17,5 kg (−20 % de la première, et non −22,5 %), reps pré-remplies 7 puis 5',
+      !!p151 && p151.premiere === 22.5 && p151.plus.length === 1 && p151.plus[0].charge === 17.5 && p151.plus[0].rang === 2 &&
+      !!r151a && r151a.charge === '22,5' && r151a.reps === '7' && !!r151b && r151b.charge === '17,5' && r151b.reps === '5', nb112([p151, r151a, r151b]));
+    ok('[S151] la phrase de la seconde, à l’écran : « Deuxième baisse : 17,5 kg, sans repos, jusqu’à l’échec. Vise 4 à 6. » ; sa rangée porte « D2 »',
+      (await phrases151()).map(esp112).indexOf('Deuxième baisse : 17,5 kg, sans repos, jusqu\'à l\'échec. Vise 4 à 6.') >= 0 && !!r151b && r151b.no === 'D2',
+      nb112([await phrases151(), r151b]));
+    await valider112(4, 1, 22.5, 3);
+    const arret151 = await deg151(), prop151 = await propDeg112(4), r151c = await rangee112(4, 2);
+    ok('[S151] DISCRIMINANT — la première baisse validée à 3 reps : la seconde n’est pas remplie, « 3 reps à la première baisse : on s’arrête là. » et ses deux gestes',
+      !!arret151 && arret151.plus.length === 1 && arret151.plus[0].charge === null &&
+      arret151.plus[0].phrase === '3 reps à la première baisse : on s\'arrête là.' && !!r151c && !/\d/.test(r151c.charge || '') &&
+      !!prop151 && esp112(prop151.texte) === '3 reps à la première baisse : on s\'arrête là.' &&
+      JSON.stringify(prop151.boutons) === '["En faire une série normale","La retirer"]', nb112([arret151, prop151, r151c]));
+    ok('[S151] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
     ok('[S112] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
     await abandonner();

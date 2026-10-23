@@ -1290,6 +1290,8 @@ dit sa plage de validité.
 
 *Exception, à l'essai (16/10/2026) : la carte « Mon objectif », en tête de la vue (hors des courbes), dit la date d'un objectif posé par la personne — MOTEUR §9.25.*
 
+*23/10/2026, décision d'Aurélien (151) : la dégressive à deux baisses. Une seconde ligne dégressive est remplie par le coach (rangée « D2 », « 2ᵉ baisse ») : « Deuxième baisse : 17,5 kg, sans repos, jusqu'à l'échec. Vise 4 à 6. » ; ou, vide avec ses deux gestes (« En faire une série normale », « La retirer ») : « 3 reps à la première baisse : on s'arrête là. », « À la barre lourde, une seule baisse. », « Deux baisses au plus : une troisième fatigue sans rien ajouter. » MOTEUR §9.15.3.*
+
 *23/10/2026, décision d'Aurélien (150) : la carte dit « Le pari du coach : fin avril. » (gris : « Posé le 16 oct. On verra s'il tombe juste. »), figé ; et dessous, séparée d'un trait fin, « Au rythme d'aujourd'hui : fin février. » (ou « toujours fin avril », « plus d'un an », « pas encore de date »), recalculée à chaque ouverture par le même calcul — rien n'est écrit. Pas de ligne en « Juste un carnet », une fois atteint, ni sans pari. MOTEUR §9.25.*
 
 ### 7 bis.16 Records de série — et la correction d'un défaut de Hevy

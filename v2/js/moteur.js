@@ -7468,6 +7468,13 @@
   var SEUIL_DIZAINE = 100;
   var CRAN_PAR_DEFAUT = 2.5;
   var BAISSE_DEGRESSIVE = 0.225;
+  // 151 (23/10/2026, décision d'Aurélien) — LA SECONDE BAISSE : −20 % de la charge de la première, posée par la
+  // routine ou l'utilisateur ; le coach la remplit, il n'en ajoute jamais.
+  var BAISSE_SECONDE = 0.20;
+  var VISEE_SECONDE = [4, 6];
+  var REPS_MIN_CHAINE = 4;
+  var PHRASE_BARRE_LOURDE = 'À la barre lourde, une seule baisse.';
+  var PHRASE_TROISIEME = 'Deux baisses au plus : une troisième fatigue sans rien ajouter.';
   var SEUIL_PROPOSITION_BARRE = 60;
   var SEUIL_PROPOSITION_AUTRE = 80;
 
@@ -7661,9 +7668,9 @@
   var DISQUES = [25, 20, 15, 10, 5, 2.5, 1.25];
   var BAISSE_MIN_BARRE = 0.15, BAISSE_MAX_BARRE = 0.30;
   // Ce qu'on enlève de CHAQUE côté (kg), ou `null` si rien ne tombe dans la fenêtre.
-  function disquesAEnlever(der) {
+  function disquesAEnlever(der, baisse) {
     var bas = der * BAISSE_MIN_BARRE / 2 - 1e-9, haut = der * BAISSE_MAX_BARRE / 2 + 1e-9;
-    var cible = der * BAISSE_DEGRESSIVE / 2;
+    var cible = der * (baisse || BAISSE_DEGRESSIVE) / 2;
     var dans = function (v) { return v >= bas && v <= haut; };
     var seul = DISQUES.filter(dans).sort(function (a, b) {
       var da = Math.abs(a - cible), db = Math.abs(b - cible);
@@ -7675,8 +7682,20 @@
     paires.sort(function (a, b) { return a - b; });
     return paires.length ? paires[0] : null;
   }
+  // 151 — `rang` : 1 (défaut) la première baisse ; 2 la seconde (−20 % de la charge de la première, passée en
+  // `derniere_serie`, « Vise 4 à 6 ») ; 3 et plus jamais remplie. `lourde` : une barre lourde (une seule baisse) ;
+  // `reps_premiere` : les reps de la première baisse si elle est faite (sous 4, la chaîne s'arrête).
   function degressiveDe(entree) {
     var e = entree || {};
+    var rang = nombre(e.rang) || 1;
+    if (rang >= 2 && e.lourde) return degressiveVide(PHRASE_BARRE_LOURDE);
+    if (rang >= 3) return degressiveVide(PHRASE_TROISIEME);
+    var rp = nombre(e.reps_premiere);
+    if (rang === 2 && rp !== null && rp < REPS_MIN_CHAINE) {
+      return degressiveVide(nombreFr(rp, regle('degressive.arret')) + (rp > 1 ? ' reps' : ' rep') + ' à la première baisse : on s\'arrête là.');
+    }
+    var seconde = rang === 2;
+    var baisse = seconde ? BAISSE_SECONDE : BAISSE_DEGRESSIVE;
     var der = nombre(e.derniere_serie);
     if (der === null || der <= 0) return degressiveVide('Pas de charge de travail pour caler la dégressive.');
     var cran = nombre(e.cran);
@@ -7685,16 +7704,16 @@
     // inférieur que la salle fait — une barre fixe, une paire d'haltères. À la
     // barre fixe, on change de barre : « Prends la barre de 20 kg. »
     var salle = e.salle ? salleEnVigueur(e.salle, der) : null;
-    if (salle) return degressiveDeLaSalle(salle, der, nombre(e.reps_travail));
+    if (salle) return degressiveDeLaSalle(salle, der, nombre(e.reps_travail), seconde);
     // Au cran INFÉRIEUR : jamais au-dessus des −22,5 %.
-    var charge = auCentieme(Math.floor(der * (1 - BAISSE_DEGRESSIVE) / cran + 1e-9) * cran);
+    var charge = auCentieme(Math.floor(der * (1 - baisse) / cran + 1e-9) * cran);
     var barre = estBarre(e.equipement);
     // 94 (Claude.ai, 15/10/2026) — À LA BARRE, ON ENLÈVE DES DISQUES : un seul
     // disque standard de chaque côté, le plus proche de −22,5 %, entre −15 % et
     // −30 % ; sinon la plus petite combinaison de deux disques dans la fenêtre.
     var enleveBarre = null;
     if (barre) {
-      enleveBarre = disquesAEnlever(der);
+      enleveBarre = disquesAEnlever(der, baisse);
       if (enleveBarre === null) return degressiveVide('Trop léger pour une dégressive.');
       charge = auCentieme(der - 2 * enleveBarre);
     }
@@ -7702,8 +7721,9 @@
     // le curl EZ d'aurel_br descend à 15 kg (relevé du 14/10). Seul le zéro.
     if (!(charge > 0)) return degressiveVide('Trop léger pour une dégressive.');
     var reps = nombre(e.reps_travail);
-    var vise = viseeDegressive(reps);
+    var vise = seconde ? VISEE_SECONDE.slice() : viseeDegressive(reps);
     var visee = phraseViseeDegressive(vise);
+    var debutPhrase = seconde ? 'Deuxième baisse' : 'Dégressive';
     if (barre) {
       var enleve = enleveBarre;
       return {
@@ -7714,7 +7734,7 @@
     }
     return {
       charge: charge, vise: vise, repos: 0,
-      phrase: 'Dégressive : ' + Modele().charge(charge, undefined, regle('degressive')) +
+      phrase: debutPhrase + ' : ' + Modele().charge(charge, undefined, regle('degressive')) +
         ', sans repos, jusqu\'à l\'échec. ' + visee
     };
   }
@@ -7731,21 +7751,21 @@
   }
   // §10 bis (108) — la dégressive dans la salle déclarée : la charge qu'elle
   // fait juste sous −22,5 %, toujours sous la dernière série de travail.
-  function degressiveDeLaSalle(salle, der, reps) {
-    var cible = auCentieme(der * (1 - BAISSE_DEGRESSIVE));
+  function degressiveDeLaSalle(salle, der, reps, seconde) {
+    var cible = auCentieme(der * (1 - (seconde ? BAISSE_SECONDE : BAISSE_DEGRESSIVE)));
     var sous = chargesDeLaSalle(salle).filter(function (v) {
       return (v < cible || memeCharge(v, cible)) && v < der && !memeCharge(v, der);
     });
     if (!sous.length) return degressiveVide('Trop léger pour une dégressive.');
     var charge = sous[sous.length - 1];
-    var vise = viseeDegressive(reps);
+    var vise = seconde ? VISEE_SECONDE.slice() : viseeDegressive(reps);
     var suite = 'Sans repos, jusqu\'à l\'échec. ' + phraseViseeDegressive(vise);
     if (SALLE_BARRES.indexOf(salle.materiel) >= 0) {
       return { charge: charge, vise: vise, repos: 0, barreFixe: true,
                phrase: 'Prends la barre de ' + Modele().charge(charge, undefined, regle('degressive')) + '. ' + suite };
     }
     return { charge: charge, vise: vise, repos: 0,
-             phrase: 'Dégressive : ' + Modele().charge(charge, undefined, regle('degressive')) +
+             phrase: (seconde ? 'Deuxième baisse' : 'Dégressive') + ' : ' + Modele().charge(charge, undefined, regle('degressive')) +
                ', sans repos, jusqu\'à l\'échec. ' + phraseViseeDegressive(vise) };
   }
 

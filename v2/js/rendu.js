@@ -3216,6 +3216,8 @@
     rangee.setAttribute('data-iserie', iSerie);
 
     var eti = etiquetteDeSerie(bloc, s);
+    // 151 — la seconde baisse porte son rang (« D2 », la lecture de « 2ᵉ baisse »), lu sur le plan.
+    if (!bloc.superset && s.type_serie === 'degressive' && reaction && reaction.baisse > 1) eti = { texte: 'D' + reaction.baisse, classe: 'd' };
     // Une note propre à CETTE série se signale sur son numéro — sinon elle
     // serait invisible, et une donnée qu'on ne voit pas est une donnée dont on
     // ne se souvient pas.

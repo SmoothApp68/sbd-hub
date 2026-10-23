@@ -81,3 +81,29 @@ describe('144-6 — le câblage de l\'app', () => {
     expect(src).toMatch(/ligne\.surOuvrir = function \(\) \{ ouvrirCommentFaireAmi\(fiche\)/);
   });
 });
+
+describe('144-8 — deux vérifications d\'échelle', () => {
+  const Profil = require('../../v2/js/profil.js');
+  const SALLE = { barres_ez: [10, 20, 30], barres_droites: [10, 20, 30], halteres: null };
+
+  test('un curl à la barre CHARGÉE (`false`) n\'est pas lu comme une barre fixe de la salle ; la barre EZ (`true`), si', () => {
+    const index = {
+      curl_barre_chargee: { slug: 'curl_barre_chargee', nom: 'Curl Biceps (Barre chargée)', equipement: 'barre', barre_charge_fixe: false },
+      curl_biceps_barre_ez: { slug: 'curl_biceps_barre_ez', nom: 'Curl Biceps (Barre EZ)', equipement: 'barre', barre_charge_fixe: true }
+    };
+    expect(Profil.salleDeLExercice({ ma_salle: SALLE }, 'curl_barre_chargee', index)).toBeNull();
+    expect(Profil.salleDeLExercice({ ma_salle: SALLE }, 'curl_biceps_barre_ez', index))
+      .toEqual(expect.objectContaining({ materiel: 'barre_ez', charges: [10, 20, 30] }));
+  });
+
+  test('l\'échelle des pompes : déclinées après « pompes » (rang), avant l\'archer, dans l\'ordre de la spec', () => {
+    const cas = JSON.parse(lire('tests/unit/fixtures/cas-127.json'));
+    const rang = {};
+    cas.echelles.filter((x) => x.echelle === 'pompes').forEach((x) => { rang[x.slug] = x.rang; });
+    expect(rang.pompes).toBeLessThan(rang.pompes_declinees);
+    expect(rang.pompes_declinees).toBeLessThan(rang.pompes_archer);
+    expect(rang.pompes_archer).toBeLessThan(rang.pompes_une_main);
+    expect(rang.pompes_negatives).toBeLessThan(rang.pompes);
+    expect(Math.max(rang.pompes_genoux, rang.pompes_inclinees)).toBeLessThanOrEqual(rang.pompes_negatives);
+  });
+});

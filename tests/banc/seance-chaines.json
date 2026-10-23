@@ -214,6 +214,8 @@
     "plafond-propose": 90.0,
     "Q78": 60.0,
     "deux-appareils": 120.0,
-    "chauffes-ajoutees": 20.0
+    "chauffes-ajoutees": 20.0,
+    "echelles-semaine": 10.0,
+    "seance-longue": 40.0
   }
 }

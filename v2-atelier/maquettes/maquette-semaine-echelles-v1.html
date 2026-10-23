@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tes échelles cette semaine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap">
+<style>
+/* Maquette fidèle aux jetons de v2/styles.css (la forge), comme maquette-echelle-page-v1. L'app est sombre seulement. */
+:root{
+  --fond:#0f1114; --panneau:#181b20; --panneau-2:#21252c; --trait:#2c3139;
+  --texte:#eceef2; --texte-2:#9aa1ac; --texte-3:#888e98;
+  --accent:#f2b84b; --sur-accent:#1a1305; --page:#0a0b0d;
+  --r-grand:14px;
+  --pile:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --pile-c:"Barlow Condensed","Barlow",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--page);color:var(--texte);font-family:var(--pile);-webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 40px}
+.intro{max-width:1180px;margin:0 auto 24px}
+.intro h1{font:700 26px/1.15 var(--pile-c);text-wrap:balance}
+.intro p{color:var(--texte-2);font-size:14px;line-height:1.55;max-width:75ch;margin-top:8px}
+.intro p b{color:var(--texte)}
+.ecrans{display:flex;flex-wrap:wrap;gap:28px;justify-content:center;max-width:1180px;margin:0 auto}
+.cadre{display:flex;flex-direction:column;gap:10px;width:360px;max-width:100%}
+.legende{font-size:12.5px;line-height:1.5;color:var(--texte-2);min-height:5.6em}
+.legende b{color:var(--texte);font-weight:600}
+.tel{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:16px 12px 24px;min-height:560px}
+.saisie-haut{display:flex;justify-content:space-between;align-items:baseline;margin:2px 2px 12px}
+.saisie-haut b{font:700 24px var(--pile-c)}
+.saisie-haut span{color:var(--texte-3);font-size:12.5px}
+.carte{background:var(--panneau);border-radius:var(--r-grand);padding:12px 14px;margin-bottom:12px;border:1px solid var(--trait)}
+.etiquette{display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--texte-3);margin-bottom:6px}
+.ech{padding:9px 0;border-top:1px solid var(--trait)}
+.ech:first-of-type{border-top:0;padding-top:2px}
+.e-tete{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.e-nom{font:700 16px var(--pile-c)}
+.e-marche{font-size:12px;color:var(--texte-2)}
+.e-marche b{color:var(--texte);font-weight:600}
+.nouvelle{display:inline-block;background:var(--accent);color:var(--sur-accent);font-size:11px;font-weight:600;border-radius:6px;padding:1px 7px;margin-left:4px}
+.e-fait{font-size:14px;line-height:1.45;margin-top:4px}
+.e-fait .gris{color:var(--texte-3)}
+.e-suite{font-size:13px;line-height:1.45;color:var(--texte-2);margin-top:6px;padding:7px 9px;border:1px dashed var(--trait);border-radius:8px}
+.e-suite b{color:var(--texte)}
+.pas{display:inline-flex;gap:4px;vertical-align:-1px;margin-left:4px}
+.pas i{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--texte-3)}
+.pas i.ok{background:var(--texte-2);border-color:var(--texte-2)}
+.lien{color:var(--texte-2);font-size:13px;margin-top:8px}
+.lien b{color:var(--texte);font-weight:600}
+.fantome{background:var(--panneau);border-radius:var(--r-grand);height:64px;margin-bottom:12px;opacity:.45}
+.bouton{display:block;text-align:center;background:var(--accent);color:var(--sur-accent);font-weight:600;border-radius:12px;padding:12px;margin-top:14px;font-size:15px}
+.regles{max-width:1180px;margin:36px auto 0;border-top:1px solid var(--trait);padding-top:20px;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px}
+.regles h3{font:700 15px var(--pile-c);margin-bottom:6px}
+.regles p,.regles li{font-size:13px;line-height:1.55;color:var(--texte-2)}
+.regles li b{color:var(--texte)}
+.regles ul,.regles ol{padding-left:18px}
+.regles li{margin-bottom:4px}
+.question{border:1px solid var(--trait);border-radius:12px;padding:12px 14px}
+.reco{color:var(--accent);font-weight:600}
+</style>
+</head>
+<body>
+<header class="intro">
+  <h1>Tes échelles cette semaine — maquette v1 (option 2 du bilan de la semaine)</h1>
+  <p>Décidé le 23/10 au matin : pour la muscu, un bilan semaine contre semaine donne surtout du bruit (une séance manquée, une semaine allégée). Pour les exercices <b>à marches</b> (tractions, dips, pompes, muscle-up, et les autres échelles du catalogue), la semaine a du sens : le progrès va vite et se voit. Cette carte ne montre donc <b>que les échelles</b>. Elle ne calcule rien de neuf : la marche, le meilleur et la condition de la suivante viennent de « Ton échelle » (chantier B, maquette validée).</p>
+  <p>L'écran 1 montre <b>tes vrais chiffres</b> (tractions, du 5 au 18 octobre). Les écrans 2 et 3 sont un exemple inventé pour quelqu'un du street.</p>
+</header>
+
+<main class="ecrans">
+  <section class="cadre">
+    <div class="legende"><b>1. Toi, le lundi 19 octobre.</b> Une seule échelle travaillée, les tractions. Elle dit ta meilleure série et celle de la semaine d'avant, puis où tu en es vers la marche suivante. Ici, la dernière série à 6 reps ne compte pas : la condition demande 8 reps sur toutes les séries.</div>
+    <div class="tel">
+      <div class="saisie-haut"><b>Saisie</b><span>lundi 19 oct.</span></div>
+      <div class="carte">
+        <span class="etiquette">Tes échelles · semaine du 12 au 18 oct.</span>
+        <div class="ech">
+          <div class="e-tete"><span class="e-nom">Tractions</span><span class="e-marche">ta marche : <b>Tractions</b></span></div>
+          <div class="e-fait">Poids du corps × 9 <span class="gris">· la semaine d'avant : × 9</span></div>
+          <div class="e-suite">La suivante : <b>les tractions lestées</b>, quand tu tiens 8 reps sur toutes tes séries, deux séances de suite. <span class="pas"><i></i><i></i></span><br>Cette semaine : 9, 9, 9, 6.</div>
+        </div>
+        <div class="lien"><b>Ton échelle</b> ›</div>
+      </div>
+      <div class="fantome"></div>
+      <div class="fantome"></div>
+      <div class="bouton">Commencer une séance</div>
+    </div>
+  </section>
+
+  <section class="cadre">
+    <div class="legende"><b>2. Le street, trois échelles (exemple inventé).</b> Une marche franchie est le seul fait mis en couleur, dans la couleur de « ta marche » de l'échelle. La condition se suit séance par séance (les ronds), sans pourcentage ni date.</div>
+    <div class="tel">
+      <div class="saisie-haut"><b>Saisie</b><span>lundi 19 oct.</span></div>
+      <div class="carte">
+        <span class="etiquette">Tes échelles · semaine du 12 au 18 oct.</span>
+        <div class="ech">
+          <div class="e-tete"><span class="e-nom">Pompes</span><span class="e-marche">ta marche : <b>Pompes</b><span class="nouvelle">nouvelle</span></span></div>
+          <div class="e-fait">Première fois : poids du corps × 6 <span class="gris">· avant : pompes négatives × 8</span></div>
+        </div>
+        <div class="ech">
+          <div class="e-tete"><span class="e-nom">Tractions</span><span class="e-marche">ta marche : <b>Tractions</b></span></div>
+          <div class="e-fait">Poids du corps × 8 <span class="gris">· la semaine d'avant : × 7</span></div>
+          <div class="e-suite">La suivante : <b>les tractions lestées</b>, 8 reps sur toutes tes séries, deux séances de suite. <span class="pas"><i class="ok"></i><i></i></span></div>
+        </div>
+        <div class="ech">
+          <div class="e-tete"><span class="e-nom">Dips</span><span class="e-marche">ta marche : <b>Dips (Élastique)</b></span></div>
+          <div class="e-fait">Rouge × 10 <span class="gris">· la semaine d'avant : Rouge × 10</span></div>
+          <div class="e-suite">La suivante : <b>les dips</b>, quand tu tiens le haut de ta zone (12 reps) sur toutes tes séries, deux séances de suite. <span class="pas"><i></i><i></i></span></div>
+        </div>
+        <div class="lien"><b>Tes échelles</b> ›</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cadre">
+    <div class="legende"><b>3. Au sommet de ce que le coach propose.</b> Au-dessus, ce sont des habiletés (archer, un bras) : le coach ne les propose jamais. La carte dit seulement ce que c'est, comme « Ton échelle ».</div>
+    <div class="tel">
+      <div class="saisie-haut"><b>Saisie</b><span>lundi 19 oct.</span></div>
+      <div class="carte">
+        <span class="etiquette">Tes échelles · semaine du 12 au 18 oct.</span>
+        <div class="ech">
+          <div class="e-tete"><span class="e-nom">Tractions</span><span class="e-marche">ta marche : <b>Tractions Lestées</b></span></div>
+          <div class="e-fait">10 kg × 5 <span class="gris">· la semaine d'avant : 10 kg × 4</span></div>
+          <div class="e-suite">Au-dessus : <b>les tractions archer</b>, une habileté. Je ne te la propose pas : c'est toi qui choisis quand l'essayer.</div>
+        </div>
+        <div class="lien"><b>Ton échelle</b> ›</div>
+      </div>
+      <div class="fantome"></div>
+      <div class="bouton">Commencer une séance</div>
+    </div>
+  </section>
+</main>
+
+<section class="regles">
+  <div>
+    <h3>Ce qu'elle montre, et d'où ça vient</h3>
+    <ul>
+      <li><b>Quand</b> : en tête de Saisie, du lundi au dimanche, pour la semaine écoulée. Seulement si tu as fait au moins un exercice d'une échelle cette semaine-là. Jamais pour les barres.</li>
+      <li><b>Par échelle travaillée</b> : ta marche, puis ta meilleure série de travail de la semaine et celle de la semaine d'avant (au format du formateur unique : « poids du corps × 9 », « 10 kg × 5 », « Rouge × 10 »).</li>
+      <li><b>Une nouvelle marche</b> (première série de travail sur un rang plus haut) : l'étiquette « nouvelle ». C'est le seul fait en couleur.</li>
+      <li><b>La suivante</b> : la phrase de la carte « marche suivante » (chantier B), et les deux ronds des « deux séances de suite » (pleins quand la séance a tenu la condition).</li>
+      <li>La carte s'ouvre sur la page « Ton échelle » de l'exercice (ou la liste des échelles s'il y en a plusieurs).</li>
+    </ul>
+  </div>
+  <div>
+    <h3>Ce qu'elle ne montre jamais</h3>
+    <ul>
+      <li>Le nombre de séances, les heures, une date prévue.</li>
+      <li>Aucune flèche, aucun rouge. « Comme la semaine d'avant » reste un fait.</li>
+      <li>Aucune comparaison à une autre personne.</li>
+      <li>En « Juste un carnet » : les marches et les meilleures séries, sans la phrase « la suivante ».</li>
+      <li>Une semaine sans exercice à marches : pas de carte.</li>
+    </ul>
+  </div>
+  <div class="question">
+    <h3>À valider</h3>
+    <ol>
+      <li><b>Les deux ronds</b> (« deux séances de suite ») : ils lisent la règle de la carte « marche suivante », sans calcul nouveau. <span class="reco">Reco : oui</span>, c'est le « prochain palier » que ton amie demandait.</li>
+      <li><b>Les séries de la semaine en clair</b> (« Cette semaine : 9, 9, 9, 6 ») quand la condition n'est pas tenue. <span class="reco">Reco : oui</span>, elles disent pourquoi sans juger.</li>
+      <li><b>Où</b> : sur Saisie, en tête, du lundi au dimanche. <span class="reco">Reco : oui</span>.</li>
+      <li><b>Le chantier</b> : un seul prompt, qui ajoute la carte et lit ce que « Ton échelle » calcule déjà (page d'exercice, en place depuis la #458). <span class="reco">Reco : oui</span>, une fois la file fusionnée.</li>
+    </ol>
+  </div>
+</section>
+</body>
+</html>

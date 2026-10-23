@@ -514,7 +514,7 @@ const PROFIL_BANC = {
 // SEMAINE. Le pourquoi, en entier, est dans `decor-dates.js` — avec la seule
 // milliseconde de bord qui subsiste. `JOURS[n]` remplace l'ancien
 // `LUNDI + n jours` : même ORDRE, mêmes rangs, et toujours dans le passé.
-const { datesDuDecor, ancreSemaineIsolee, seanceSansSeries, jourIsole, ilYa, finDe, horsDeVie } =
+const { datesDuDecor, ancreSemaineIsolee, seanceSansSeries, jourIsole, ilYa, finDe, horsDeVie, mercrediEcoule } =
   require(path.join(__dirname, 'decor-dates.js'));
 const JOURS = datesDuDecor();
 // 87 — le faux serveur du social (cercles, blocage, compte privé, colonnes autorisées).
@@ -2152,10 +2152,17 @@ const SETS_IMPORTES = [
     return !sv || sv.hidden || !f || f.hidden || new RegExp(m).test(t);
   }, motif).catch(() => true), 6000);
   const terminerQuandMeme = async () => {
-    await issueDuGeste('pas validées? : (elles|elle) ne ser');
+    await issueDuGeste('pas validées? : (elles|elle) ne ser|^Ta séance dure');
     if (/pas validées? : (elles|elle) ne ser/.test(await texte('#feuille-contenu .feuille-t'))) {
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .filter((b) => b.textContent === 'Terminer quand même')[0].click());
+      await issueDuGeste('^Ta séance dure');
+    }
+    // 147 — une séance dont la dernière série date de plus d'1 h (ou de plus de 5 h) DEMANDE : les sections écrites avant
+    // gardent leur sens (« Terminer » comme avant) par « Garder », qui écrit l'instant du geste. La section `seance-longue`
+    // joue les trois choix à part.
+    if (/^Ta séance dure/.test(await texte('#feuille-contenu .feuille-t'))) {
+      await page.evaluate(() => document.querySelector('#feuille-contenu button[data-choix="garder"]').click());
     }
   };
   // 137 (E12) — « Abandonner » depuis la feuille de fin : en rouge (« Abandonner et tout effacer ») quand une série est
@@ -24263,6 +24270,214 @@ const SETS_IMPORTES = [
       gardeBanc.violations === violations132 && base.journal.filter((j) => j.op === 'refus').length === refus132 &&
         erreurs.length === erreurs132,
       JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus132), erreurs.slice(erreurs132)]));
+  }
+
+  console.log('\n══ echelles-semaine. « TES ÉCHELLES CETTE SEMAINE » : LA CARTE EN TÊTE DE SAISIE, LA SEMAINE ÉCOULÉE, LE TOUCHER, SON ABSENCE (145, ECRAN-SAISIE §7 quater.7) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une échelle de quatre marches (une aide, la stricte, la lestée, une habileté), et des
+  // séances de la stricte sur TROIS semaines — la semaine écoulée (9, 9, 9, 6), celle d'avant (9, 8, 8) et une plus
+  // ancienne (9, 9, 9). Les dates sont les mercredis à midi de ces semaines (lundi → dimanche, jamais dans l'avenir, quel
+  // que soit le jour où le banc tourne). La carte lit la semaine ÉCOULÉE : la séance d'avant ne s'y confond pas avec
+  // elle. Sans exercice d'échelle (une barre seule), pas de carte. En « Juste un carnet », ni phrase ni ronds.
+  {
+    const erreurs145 = erreurs.length;
+    const refus145 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations145 = gardeBanc.violations;
+    const catalogueAvant145 = CATALOGUE.length;
+    const intentionAvant145 = base.profiles[0].intention;
+    const sp145 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const E145 = 'tr-u145';
+    [['tr-u145-elastique', 'Tractions U145 (Élastique)', 'charge_reps', 'assistance', 'elastique', 'force', 1],
+     ['tr-u145', 'Tractions U145', 'reps', 'aucune', 'aucun', 'force', 2],
+     ['tr-u145-leste', 'Tractions U145 Lestées', 'charge_reps', 'ajoutee', 'aucun', 'force', 3],
+     ['tr-u145-archer', 'Tractions U145 Archer', 'reps', 'aucune', 'aucun', 'habilete', 4]
+    ].forEach(([slug, nom, mesure, charge, equipement, nature, rang]) => CATALOGUE.push({ slug, nom, mesure, charge, equipement,
+      parent: charge === 'ajoutee' ? E145 : null, nature, habilete: nature === 'habilete', actif: true,
+      muscles_primaires: ['dorsaux'], muscles_secondaires: [], echelle: E145, echelle_rang: rang }));
+    // Le mercredi à midi de la semaine écoulée − n (`decor-dates.js`, `mercrediEcoule`).
+    const mercredi145 = (n) => mercrediEcoule(n).toISOString();
+    const poser145 = (id, debut, reps) => {
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Échelles — ' + id, debut,
+        fin: finDe(debut).toISOString(), statut: 'terminee', note: null, salle: null,
+        salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      reps.forEach((r, k) => base.sets.push({ id: id + '-s' + k, session_id: id, user_id: 'u-banc', exercise_slug: 'tr-u145',
+        charge_kg: null, reps: r, duree_s: null, distance_m: null, type_serie: 'travail', rang: k + 1, groupe_superset: null,
+        validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    const sessions145 = ['e145-3', 'e145-2', 'e145-1'];
+    poser145('e145-3', mercredi145(2), [9, 9, 9]);
+    poser145('e145-2', mercredi145(1), [9, 8, 8]);
+    poser145('e145-1', mercredi145(0), [9, 9, 9, 6]);
+    const carte145 = () => page.evaluate(() => {
+      const c = document.querySelector('#carte-echelles');
+      if (!c || c.hidden || !c.querySelector('.carte-echelles')) return null;
+      const q = (s) => (c.querySelector(s) || {}).textContent || null;
+      return { etiquette: q('.ce-etiquette'), nom: q('.ce-nom'), marche: q('.ce-marche'), fait: q('.ce-fait'),
+        suite: q('.ce-suite'), ronds: c.querySelectorAll('.ce-pas i').length, pleins: c.querySelectorAll('.ce-pas i.ok').length,
+        lien: q('.ce-lien'), haut: c.getBoundingClientRect().top };
+    });
+
+    // A. LA CARTE : la semaine écoulée, ta marche, le meilleur de la semaine et celui d'avant, la suivante, les ronds.
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await jusqua(async () => !!(await carte145()), 8000);
+    const a145 = await carte145();
+    ok('[145] A — DISCRIMINANT : la carte est en tête de Saisie, l\'étiquette dit « Tes échelles · semaine du … » et la marche est la stricte',
+      !!a145 && /^Tes échelles · semaine du \d{1,2}( \p{L}+\.?)? au \d{1,2} \p{L}+\.?$/u.test(sp145(a145.etiquette)) &&
+        sp145(a145.nom) === 'Tractions U145' && /ta marche : Tractions U145/.test(sp145(a145.marche)), JSON.stringify(a145));
+    ok('[145] A — la meilleure série de la semaine ÉCOULÉE (× 9) et, en gris, celle de la semaine d\'avant (« la semaine d\'avant : … × 9 ») ; pas de « nouvelle »',
+      !!a145 && /^9 · la semaine d.avant : 9$/.test(sp145(a145.fait)) && !/nouvelle/.test(a145.marche), JSON.stringify(a145));
+    ok('[145] A — la suivante en phrase courte (sans « Je te la propose »), deux ronds, et les reps de la semaine « Cette semaine : 9, 9, 9, 6. »',
+      !!a145 && /^La suivante : Tractions U145 Lestées, quand tu tiens/.test(sp145(a145.suite)) &&
+        !/Je te la propose|Ton meilleur/.test(a145.suite) && a145.ronds === 2 && /Cette semaine : 9, 9, 9, 6\./.test(sp145(a145.suite)),
+      JSON.stringify(a145));
+    ok('[145] A — ni nombre de séances, ni heure, ni flèche, ni date prévue dans la carte',
+      !!a145 && !/séance|\d ?h\b|[↑↓→]|prévu/i.test(sp145(a145.fait + ' ' + a145.marche)), JSON.stringify(a145));
+
+    // B. LE TOUCHER : la carte ouvre « Ton échelle » de l'exercice de ta marche.
+    await page.click('#carte-echelles .carte-echelles');
+    await jusqua(async () => (await page.evaluate(() => location.pathname)) === '/exercice/tr-u145', 8000);
+    await jusqua(async () => !!(await page.$('.ton-echelle')), 6000);
+    ok('[145] B — DISCRIMINANT : toucher la carte ouvre la page de la stricte, avec « Ton échelle »',
+      (await page.evaluate(() => location.pathname)) === '/exercice/tr-u145' && !!(await page.$('.ton-echelle')),
+      await page.evaluate(() => location.pathname));
+
+    // C. « JUSTE UN CARNET » : les marches et les séries, sans la phrase de la suivante ni les ronds.
+    base.profiles[0].intention = 'entretien';
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await jusqua(async () => !!(await carte145()), 8000);
+    // Le profil arrive APRÈS le premier rendu : un second passage montre l'intention posée côté serveur.
+    await aller('/saisie');
+    await jusqua(async () => { const x = await carte145(); return !!x && x.suite === null; }, 6000);
+    const c145 = await carte145();
+    ok('[145] C — DISCRIMINANT : en « Juste un carnet », la carte garde la marche et le meilleur, sans phrase de la suivante ni ronds',
+      !!c145 && /^9 · la semaine d.avant : 9$/.test(sp145(c145.fait)) && c145.suite === null && c145.ronds === 0, JSON.stringify(c145));
+    base.profiles[0].intention = intentionAvant145;
+
+    // D. SANS EXERCICE D'ÉCHELLE CETTE SEMAINE-LÀ : pas de carte (la semaine écoulée vidée, celle d'avant reste).
+    const ecoulee145 = base.sets.filter((x) => x.session_id === 'e145-1').map((x) => x.id);
+    base.sets = base.sets.filter((x) => ecoulee145.indexOf(x.id) < 0);
+    base.sessions = base.sessions.filter((x) => x.id !== 'e145-1');
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await aller('/saisie');
+    await jusqua(async () => (await page.evaluate(() => !!document.querySelector('#liste-routines'))), 6000);
+    ok('[145] D — DISCRIMINANT : seule la semaine d\'avant a une série d\'échelle : pas de carte',
+      (await carte145()) === null, JSON.stringify(await carte145()));
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    base.profiles[0].intention = intentionAvant145;
+    base.sets = base.sets.filter((x) => sessions145.indexOf(x.session_id) < 0);
+    base.sessions = base.sessions.filter((x) => sessions145.indexOf(x.id) < 0);
+    CATALOGUE.splice(catalogueAvant145, CATALOGUE.length - catalogueAvant145);
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    ok('[145] la garde (C6) n\'a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations145 && base.journal.filter((j) => j.op === 'refus').length === refus145 &&
+        erreurs.length === erreurs145,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus145), erreurs.slice(erreurs145)]));
+  }
+
+  console.log('\n══ seance-longue. UNE SÉANCE TROP LONGUE : À « TERMINER », L’APP LE DIT ET DEMANDE (147, ECRAN-SAISIE §7 septies.4) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une séance de musculation dont la dernière série validée est vieille de 2 h au moment
+  // de « Terminer » (l'horloge de la page avance de 2 h, `Horloge.scriptNavigateur`, sans aucun délai fixe). « Terminer à
+  // <heure de la série> » écrit pour fin cette heure-là ; « Garder » écrit l'instant du geste ; « Revenir » n'écrit rien.
+  // Une séance qui vient d'être validée ne demande rien (témoin).
+  {
+    const erreurs147 = erreurs.length;
+    const refus147 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations147 = gardeBanc.violations;
+    const sessions147 = base.sessions, sets147 = base.sets, catalogue147 = CATALOGUE.length, routines147 = ROUTINES.length;
+    base.sessions = []; base.sets = [];
+    CATALOGUE.push({ slug: 'rowing-l147', nom: 'Rowing L147 (Barre)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [], actif: true });
+    ROUTINES.push({ id: 'r-l147', nom: 'Rowing L147 ×2', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-l147-e', routine_id: 'r-l147', exercise_slug: 'rowing-l147', rang: 0,
+        routine_sets: progr(2, 10), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const sp147 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const feuille147 = () => page.evaluate(() => {
+      const f = document.getElementById('feuille-seance'), c = document.getElementById('feuille-contenu');
+      return { visible: !!f && !f.hidden, texte: c ? c.textContent : '',
+               choix: c ? Array.from(c.querySelectorAll('button[data-choix]')).map((b) => b.getAttribute('data-choix') + ':' + b.textContent) : [] };
+    });
+    const heure147 = (iso) => { const d = new Date(iso); return d.getHours() + ' h ' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); };
+    const cliquer147 = (choix) => page.evaluate((c) => document.querySelector('#feuille-contenu button[data-choix="' + c + '"]').click(), choix);
+    const demarrer147 = async () => {
+      await aller('/saisie'); await demarrerRoutine('Rowing L147 ×2');
+      await saisirSerie(0, 90, 10);
+      await jusqua(() => base.sets.length >= 1, 8000);
+    };
+    const ouvrirFin147 = async () => {
+      await page.click('#bandeau-seance .bandeau-fin');
+      await feuilleAvec('.principal');
+      await page.click('#feuille-contenu .principal');
+    };
+    const dernierSet = () => base.sets.map((x) => Date.parse(x.validee_a)).sort((a, b) => b - a)[0];
+
+    // 1. Témoin : la série vient d'être validée, « Terminer » ne demande rien.
+    await demarrer147();
+    await ouvrirFin147();
+    await jusqua(async () => base.sessions.some((x) => x.statut === 'terminee') || (await feuille147()).choix.length > 0, 10000);
+    const f0 = await feuille147();
+    ok('[L147] témoin — série validée à l\u2019instant : « Terminer » termine sans alerte', f0.choix.length === 0 &&
+      base.sessions.filter((x) => x.statut === 'terminee').length === 1, JSON.stringify([f0, base.sessions.map((x) => x.statut)]));
+    await seanceSortie();
+    base.sessions = []; base.sets = [];
+
+    // 2. La dernière série date de 2 h : la feuille, « Revenir », puis « Terminer à ».
+    await demarrer147();
+    const t0 = dernierSet();
+    await page.evaluate(Horloge.scriptNavigateur(2 * 3600000));
+    await ouvrirFin147();
+    await jusqua(async () => (await feuille147()).choix.length > 0, 6000);
+    const f1 = await feuille147();
+    ok('[L147] DISCRIMINANT — dernière série vieille de 2 h : « Ta séance dure 2 h 0x. Ta dernière série date de <heure>. », trois choix',
+      f1.visible && /^Ta séance dure 2 h 0\d\./.test(sp147(f1.texte)) && sp147(f1.texte).indexOf('Ta dernière série date de ' + heure147(t0) + '.') > 0 &&
+        f1.choix.length === 3 && f1.choix[0] === 'terminer-a:Terminer à ' + heure147(t0) && /^garder:Garder 2 h 0\d$/.test(f1.choix[1]) &&
+        f1.choix[2] === 'revenir:Revenir à la séance', JSON.stringify(f1));
+    await cliquer147('revenir');
+    await jusqua(async () => !(await feuille147()).visible, 6000);
+    const f2 = await feuille147();
+    ok('[L147] « Revenir » : la feuille se ferme, rien n\u2019est écrit (séance toujours en cours, sans fin)',
+      !f2.visible && base.sessions.every((x) => x.statut === 'en_cours' && !x.fin), JSON.stringify([f2, base.sessions.map((x) => [x.statut, x.fin])]));
+    await ouvrirFin147();
+    await jusqua(async () => (await feuille147()).choix.length > 0, 6000);
+    await cliquer147('terminer-a');
+    await jusqua(() => base.sessions.some((x) => x.statut === 'terminee'), 10000);
+    const fin1 = base.sessions.filter((x) => x.statut === 'terminee')[0];
+    ok('[L147] « Terminer à <heure> » : la fin en base est exactement la `validee_a` de la dernière série',
+      !!fin1 && Date.parse(fin1.fin) === t0, JSON.stringify([fin1 && fin1.fin, new Date(t0).toISOString()]));
+    await seanceSortie();
+    base.sessions = []; base.sets = [];
+
+    // 3. « Garder » : la fin est l'instant du geste (2 h après la dernière série).
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await demarrer147();
+    const t1 = dernierSet();
+    await page.evaluate(Horloge.scriptNavigateur(2 * 3600000));
+    await ouvrirFin147();
+    await jusqua(async () => (await feuille147()).choix.length > 0, 6000);
+    await cliquer147('garder');
+    await jusqua(() => base.sessions.some((x) => x.statut === 'terminee'), 10000);
+    const fin2 = base.sessions.filter((x) => x.statut === 'terminee')[0];
+    const ecart = fin2 ? Date.parse(fin2.fin) - t1 : -1;
+    ok('[L147] « Garder 2 h 0x » : la fin en base est l\u2019instant de « Terminer », deux heures après la dernière série',
+      !!fin2 && ecart >= 2 * 3600000 && ecart < 2 * 3600000 + 120000, JSON.stringify([fin2 && fin2.fin, ecart]));
+    await seanceSortie();
+
+    // LA REMISE EN ÉTAT (la page repart d'une horloge neuve).
+    ROUTINES.splice(routines147, ROUTINES.length - routines147);
+    CATALOGUE.splice(catalogue147, CATALOGUE.length - catalogue147);
+    base.sessions = sessions147; base.sets = sets147;
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    ok('[L147] la garde (C6) n\u2019a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations147 && base.journal.filter((j) => j.op === 'refus').length === refus147 &&
+        erreurs.length === erreurs147,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus147), erreurs.slice(erreurs147)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

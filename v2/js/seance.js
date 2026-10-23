@@ -1537,6 +1537,47 @@
     return max;
   }
 
+  // ══ 147 (23/10/2026, décision d'Aurélien) — UNE SÉANCE TROP LONGUE : L'APP LE DIT ET DEMANDE ═══════════
+  //
+  // ECRAN-SAISIE §7 septies.4. PURE : « maintenant » (ou la fin choisie en Édition) est un PARAMÈTRE. L'écran ne
+  // calcule rien, il lit ce que cette fonction rend. Elle décide de l'ALERTE, jamais d'une écriture.
+  //   · La séance compte au moins un exercice FAIT qui n'est pas une sortie (`THModele.estExerciceSortie`) : une
+  //     randonnée, un trail, un vélo seuls ne demandent JAMAIS rien, leur durée est réelle.
+  //   · ET (a) elle dure plus de 5 h (strict), OU (b) — « Terminer » seulement — sa dernière série validée date de
+  //     plus d'1 h (strict).
+  //   · Sans série validée (la séance vide de 137) : null, la feuille « Aucune série validée » reste la sienne.
+  // `mode` : 'terminer' (défaut) ou 'edition' (la fin choisie ; pas de dernière série à proposer, l'Édition fixe déjà
+  // `validee_a`). Rend null ou `{ duree_ms, duree, longue, derniere }` ; `derniere` (iso) n'est rendue que si
+  // « Terminer à <heure> » est proposable (mode 'terminer', dernière série de plus d'1 h avant la fin).
+  var SEUIL_SEANCE_LONGUE_MS = 5 * 3600000, SEUIL_DERNIERE_SERIE_MS = 3600000;
+
+  // « 6 h 12 » : la durée, en heures et minutes, comme l'heure de l'app.
+  function dureeDite(ms) {
+    var m = Math.round(ms / 60000);
+    var h = Math.floor(m / 60), mi = m % 60;
+    return h + ' h ' + (mi < 10 ? '0' : '') + mi;
+  }
+
+  function alerteDeDuree(seance, index, fin, mode) {
+    if (!seance) return null;
+    var edition = mode === 'edition';
+    var t0 = Date.parse(seance.debut);
+    var t1 = fin instanceof Date ? fin.getTime() : Date.parse(fin);
+    if (isNaN(t0) || isNaN(t1)) return null;
+    var derniere = derniereValidation(seance);
+    if (!edition && !derniere) return null;
+    var muscu = toutesLesSeries(seance).some(function (p) {
+      return partEnBase(p.serie) && !racine.THModele.estExerciceSortie((index || {})[p.exo.exercise_slug]);
+    });
+    if (!muscu) return null;
+    var duree = t1 - t0;
+    var longue = duree > SEUIL_SEANCE_LONGUE_MS;
+    var ancienne = !edition && !!derniere && t1 - derniere.getTime() > SEUIL_DERNIERE_SERIE_MS;
+    if (!longue && !ancienne) return null;
+    return { duree_ms: duree, duree: dureeDite(duree), longue: longue,
+             derniere: ancienne ? derniere.toISOString() : null };
+  }
+
   function terminer(seance, fin) {
     var t = fin instanceof Date ? fin : new Date(fin || Date.now());
     return Object.assign({}, seance, { statut: TERMINEE, fin: t.toISOString() });
@@ -2985,6 +3026,10 @@
     devalider: devalider,
     derniereValidation: derniereValidation,
     terminer: terminer,
+    alerteDeDuree: alerteDeDuree,
+    dureeDite: dureeDite,
+    SEUIL_SEANCE_LONGUE_MS: SEUIL_SEANCE_LONGUE_MS,
+    SEUIL_DERNIERE_SERIE_MS: SEUIL_DERNIERE_SERIE_MS,
     COLONNES_SET: COLONNES_SET,
     COLONNES_SET_EN_PLUS: COLONNES_SET_EN_PLUS,
     COLONNES_SESSION: COLONNES_SESSION,

@@ -141,7 +141,7 @@ function extraire(nom) {
 const FONCTIONS = ['ouvrirFeuilleExoRoutine', 'ouvrirRemplacerDansLEditeur', 'remplacerDansLEditeur', 'renumeroterBrouillon',
   'freresDe', 'cousinsDe', 'neVeutPasDansLEditeur', 'annoncerDansLEditeur', 'faitsDesFreres', 'horsDuMateriel', 'nomExoBrouillon', 'rendreCatalogue', 'ouvrirCatalogue', 'indiceOuNul',
   // 126 (ES §7 quindecies.11) — le contexte d'ouverture, les options de la recherche, les mentions.
-  'contexteCatalogue', 'optionsDuCatalogue', 'slugsDesLignes', 'mentionsExo'];
+  'contexteCatalogue', 'optionsDuCatalogue', 'slugsDesLignes', 'mentionsExo', 'mesuresDuRemplacement'];
 
 const CATALOGUE = [
   { slug: 'dc-barre', nom: 'Développé couché (barre)', mesure: 'charge_reps', mouvement: 'developpe_couche', equipement: 'barre' },
@@ -270,5 +270,37 @@ describe('les gestes : « Remplacer » dans l’éditeur', () => {
     const avec = bac({ jamaisFait: true, equipements: ['barre', 'machine'] });
     avec.appel('ouvrirRemplacerDansLEditeur(1)');
     expect(avec.ctx.__feuille.freres.map((f) => f.nom)).toEqual(['Développé couché (machine)', 'Développé couché (haltères)']);
+  });
+});
+
+// 144-5 — la mesure change : les cibles sans sens pour la nouvelle mesure sont vidées.
+describe('Routines.exerciceRemplace — la mesure change (144-5)', () => {
+  const plein = (type) => ({ type_serie: type, reps: 8, charge_kg: 100, duree_s: 60, distance_m: 500, id: 'x' });
+  const squat = { id: 're-9', exercise_slug: 'squat-barre', series: [plein('travail'), plein('echauffement')], repos_cible_s: 120, groupe_superset: null, note: null };
+  const cibles = (r) => r.series.map((l) => [l.type_serie, l.reps, l.duree_s, l.distance_m, l.charge_kg]);
+
+  test('charge_reps → temps : les reps et la distance partent, la durée reste', () => {
+    const r = Routines.exerciceRemplace(squat, 'planche', { avant: 'charge_reps', apres: 'temps' });
+    expect(cibles(r)).toEqual([['travail', null, 60, null, null], ['echauffement', null, 60, null, null]]);
+  });
+  test('temps → charge_reps : la durée et la distance partent, les reps restent', () => {
+    const r = Routines.exerciceRemplace(squat, 'squat-barre-2', { avant: 'temps', apres: 'charge_reps' });
+    expect(cibles(r)[0]).toEqual(['travail', 8, null, null, null]);
+  });
+  test('distance_temps : durée et distance restent, les reps partent', () => {
+    expect(cibles(Routines.exerciceRemplace(squat, 'course', { avant: 'charge_reps', apres: 'distance_temps' }))[0])
+      .toEqual(['travail', null, 60, 500, null]);
+  });
+  test('même mesure : rien ne change (reps, durée et distance gardées)', () => {
+    expect(cibles(Routines.exerciceRemplace(squat, 'presse', { avant: 'charge_reps', apres: 'charge_reps' }))[0])
+      .toEqual(['travail', 8, 60, 500, null]);
+    expect(cibles(Routines.exerciceRemplace(squat, 'presse'))[0]).toEqual(['travail', 8, 60, 500, null]);
+  });
+  test('charge_reps → reps : les reps restent (elles ont encore un sens)', () => {
+    expect(cibles(Routines.exerciceRemplace(squat, 'pompes', { avant: 'charge_reps', apres: 'reps' }))[0][1]).toBe(8);
+  });
+  test('l\'original n\'est pas touché', () => {
+    Routines.exerciceRemplace(squat, 'planche', { avant: 'charge_reps', apres: 'temps' });
+    expect(squat.series[0].reps).toBe(8);
   });
 });

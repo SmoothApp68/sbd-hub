@@ -45,7 +45,7 @@ PWA fitness de powerlifting/powerbuilding (français), pour Aurélien et un peti
   **`v2-atelier/`** (`specs/`, `maquettes/`, `banc/`). La garde de publication
   (`tests/unit/v2-publication.test.js`) refuse tout autre fichier dans `v2/`. Les en-têtes de sécurité
   sont dans `v2/_headers`.
-  Cible : Android Chrome, PWA installée, 380 px (l'appareil est peut-être à 360).
+  Cible : Android Chrome et iPhone (Safari, écran d'accueil), PWA installée, 380 px (l'appareil est peut-être à 360).
 - Positionnement : « Data-Driven Powerbuilding — l'algorithme de force piloté par votre physiologie ».
 - Modèle : Freemium + Premium (gate IA en place, Stripe à venir).
 

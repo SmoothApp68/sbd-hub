@@ -2112,6 +2112,18 @@
     }
   }
 
+  // 144-6 — la feuille « Comment faire » d'un exercice de la séance d'un ami : la fiche (125), lecture seule.
+  function ouvrirCommentFaireAmi(exo) {
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleCommentFaire(cible, {
+        nom: Modele.nommer(Modele.indexerExercices(local.exercices), exo.slug),
+        comment: vueCommentFaire(exo),
+        surFermer: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
   async function chargerMoisAmi(annee, mois, sessionChoisie) {
     var a = social.ami;
     if (!a || !a.profil) return;
@@ -2154,7 +2166,13 @@
         var index = corpus().catalogue() || {};
         a.resume.detail = Social.detailParExercice(detail).map(function (x) {
           var nom = Modele.nomCourt(index[x.slug] ? index[x.slug].nom : x.slug);
-          return { nom: nom.charAt(0).toUpperCase() + nom.slice(1), fait: faits.faitDeLExercice(x.series) };
+          var ligne = { nom: nom.charAt(0).toUpperCase() + nom.slice(1), fait: faits.faitDeLExercice(x.series) };
+          // 144-6 — « Comment faire » seulement quand l'exercice a une description (comme l'onglet de la page d'exercice).
+          var fiche = index[x.slug];
+          if (fiche && fiche.description && String(fiche.description).trim()) {
+            ligne.surOuvrir = function () { ouvrirCommentFaireAmi(fiche); };
+          }
+          return ligne;
         });
       } else {
         a.resume.detailCache = 'Le détail des exercices se voit quand vous vous suivez l’un l’autre.';
@@ -2661,6 +2679,12 @@
   function nomDuCatalogue(slug) {
     var e = Modele.indexerExercices(local.exercices)[slug];
     return e ? e.nom : slug;
+  }
+  // 144-5 — la mesure de l'exercice qui part et de celui qui arrive, pour que « Remplacer » vide les cibles sans sens.
+  function mesuresDuRemplacement(avant, apres) {
+    var index = Modele.indexerExercices(local.exercices);
+    var m = function (slug) { var e = index[slug]; return e && e.mesure ? e.mesure : null; };
+    return { avant: m(avant), apres: m(apres) };
   }
   // Ma dernière série validée, lue sur l'appareil (la base peut l'attendre).
   function maDerniereSerie() {
@@ -3495,7 +3519,7 @@
     vidangeARelancer = false;
     var g = generation;
     try {
-      var garde = 200;   // une file qui ne rétrécit pas ne doit pas tourner sans fin
+      var garde = Attente.gardeDeVidange(attente.length);   // lue au départ : une file qui ne rétrécit pas ne tourne pas sans fin, une file saine part entière (144-3)
       while (garde-- > 0) {
         var op = Attente.prochaine(fileEnvoyable(attente));
         if (!op) break;
@@ -4387,12 +4411,12 @@
              remplissage: remplissage ? Object.assign({}, remplissage) : null };
   }
 
-  async function terminerSeance(verdict) {
+  async function terminerSeance(verdict, fin) {
     // 71 — LE BLOC « LE JEU » DU RÉCAP, calculé ICI, comme la feuille le calculait : l'état du jeu AVANT la
     // séance (elle n'est pas encore dans le cache) contre l'état avec elle. Après l'adoption, « avant »
     // la contiendrait déjà, et l'apport serait nul.
     var jeuDuRecap = jeuDeLaFeuille();
-    seance = Seance.terminer(seance, new Date());
+    seance = Seance.terminer(seance, fin || new Date());
     await sauverSeance();
     await poserSeries();
     await poserSeance(false);
@@ -7187,7 +7211,7 @@
         var voulues = lignes.map(function (l, i) {
           if (i !== j) return l;
           // La note parlait de l'ancien exercice : elle part, comme dans la séance (`Seance.remplacerExercice`).
-          return Object.assign(Routines.exerciceRemplace(l, vers), { id: uuid(), note: null });
+          return Object.assign(Routines.exerciceRemplace(l, vers, mesuresDuRemplacement(l.exercise_slug, vers)), { id: uuid(), note: null });
         });
         idLigne = voulues[j].id;
         await poserRoutineVoulue(routine, voulues);
@@ -8769,6 +8793,7 @@
     if (feuille.quoi === 'fin') return rendreFeuilleFin(cible, index);
     if (feuille.quoi === 'abandon') return rendreFeuilleAbandon(cible);
     if (feuille.quoi === 'non-validees') return rendreFeuilleNonValidees(cible);
+    if (feuille.quoi === 'duree') return rendreFeuilleDuree(cible, index);
     if (feuille.quoi === 'pourquoi') {
       return Rendu.rendreFeuillePourquoi(cible, {
         nom: Modele.nommer(index, feuille.slug),
@@ -9014,8 +9039,7 @@
       // silence : une phrase d'abord, « Les valider » ou « Terminer quand même ».
       surTerminer: async function () {
         if (Seance.rempliesNonValidees(seance).length) { feuille.quoi = 'non-validees'; rendreFeuille(); return; }
-        fermerVoile();
-        await terminerSeance(verdict);
+        await terminerOuDemander(verdict);
       },
       // 115 (audit du 16/10, E1) — « Abandonner et tout effacer » DEMANDE dès qu'une série est faite : la
       // confirmation de « Supprimer cette séance ? », qui compte ce qui part. Sans série faite, rien à perdre :
@@ -9025,6 +9049,35 @@
         fermerVoile();
         await abandonnerSeance();
       }
+    });
+  }
+
+  // 147 (23/10/2026) — UNE SÉANCE TROP LONGUE : l'app le dit et demande, AVANT d'écrire. `Seance.alerteDeDuree` décide
+  // (pure) ; ici on lit sa réponse. Pas d'alerte : la séance se termine comme avant. Une alerte : la feuille « duree »,
+  // avec l'instant du geste (« Garder » écrit CET instant) ; fermer la feuille ne tape rien.
+  async function terminerOuDemander(verdict) {
+    var maintenant = new Date();
+    var alerte = Seance.alerteDeDuree(seance, Modele.indexerExercices(local.exercices), maintenant, 'terminer');
+    if (!alerte) { fermerVoile(); return terminerSeance(verdict); }
+    feuille.quoi = 'duree';
+    feuille.instant = maintenant;
+    rendreFeuille();
+  }
+
+  function rendreFeuilleDuree(cible, index) {
+    var instant = feuille.instant || new Date();
+    var alerte = Seance.alerteDeDuree(seance, index, instant, 'terminer');
+    if (!alerte) { feuille.quoi = 'fin'; return rendreFeuille(); }
+    var verdict = Seance.ecartsRoutine(seance, routineDeLaSeance());
+    Rendu.rendreFeuilleDuree(cible, {
+      duree: alerte.duree,
+      derniere: alerte.derniere ? Modele.heureMinute(alerte.derniere) : '',
+      surTerminerA: alerte.derniere ? async function () {
+        fermerVoile();
+        await terminerSeance(verdict, new Date(alerte.derniere));
+      } : null,
+      surGarder: async function () { fermerVoile(); await terminerSeance(verdict, instant); },
+      surRevenir: function () { fermerVoile(); }
     });
   }
 
@@ -9046,9 +9099,7 @@
       libelle: 'Terminer quand même',
       libelleAnnuler: 'Les valider',
       surConfirmer: async function () {
-        var verdict = Seance.ecartsRoutine(seance, routineDeLaSeance());
-        fermerVoile();
-        await terminerSeance(verdict);
+        await terminerOuDemander(Seance.ecartsRoutine(seance, routineDeLaSeance()));
       },
       surAnnuler: function () { fermerVoile(); amenerEnVue(remplies[0]); }
     });
@@ -9350,6 +9401,7 @@
     // pas terminé » ne dépend pas du chargement des routines.
     rendreBandeauQuestionnaire();
     rendreBandeauPhase();
+    rendreCarteEchelles();
     rendreCarteCycles();
     rendreCarteSemaine();
     rendreCarteManque();
@@ -10040,7 +10092,8 @@
 
   function remplacerDansLEditeur(i, slug) {
     if (!brouillon || !brouillon.exercices[i] || !slug) return;
-    brouillon.exercices[i] = Routines.exerciceRemplace(brouillon.exercices[i], slug);
+    brouillon.exercices[i] = Routines.exerciceRemplace(brouillon.exercices[i], slug,
+      mesuresDuRemplacement(brouillon.exercices[i].exercise_slug, slug));
     renumeroterBrouillon();
   }
 
@@ -11100,6 +11153,83 @@
     // La phrase se tait en carnet (le profil) ; en Entretenir (l'exercice de départ), `phraseDe` le sait.
     var phraseDe = function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(e); };
     return Modele.vueEchelle(index, slug, faites, zonesHaut, !Moteur.coachSeTait(profil && profil.intention), phraseDe);
+  }
+
+  // 145 (ECRAN-SAISIE §7 quater.7, maquette `maquette-semaine-echelles-v1.html`, validée le 23/10/2026) — « TES ÉCHELLES
+  // CETTE SEMAINE », en tête de Saisie. Un câblage, sans calcul : les faits de la semaine ÉCOULÉE (lundi → dimanche qui
+  // précède celle d'aujourd'hui : `faits.echellesDeLaSemaine`), le meilleur de chaque semaine par le formateur unique
+  // (`Modele.meilleureSerieDeTout` + `Modele.texteMeilleure`, comme la page d'exercice), « Ton échelle » (`Modele.vueEchelle`
+  // : ta marche, la suivante) et sa phrase COURTE (`Moteur.phraseDeLaSuivante`, option `court`), les deux ronds
+  // (`Moteur.rondsDeLaSuivante`, sur le fondement de la consigne : `deuxSeances`). `[]` sans exercice d'échelle travaillé
+  // cette semaine-là (une barre seule n'en est pas un). En « Juste un carnet » : les marches et les séries, ni phrase ni
+  // ronds (`Modele.vueEchellesDeLaSemaine`).
+  function deuxSeancesDeLExercice(slug, exo) {
+    var o = Object.assign(optionsDeConsigne(slug, exo), { edition: false, echelle: true }), g = groupesDuMoteur(slug, o.salle);
+    var k = Moteur.consigneDExercice(g, etatDuMoteur(slug, o.salle, g), new Date().toISOString(), o);
+    var ds = k && k.consigne && k.consigne.fondement ? k.consigne.fondement.deuxSeances : null;
+    return Array.isArray(ds) ? ds : null;
+  }
+  function vueCarteEchelles(maintenant) {
+    var index = catalogueIndexe();
+    var cette = Semaine.bornesSemaine(maintenant);
+    var ecoulee = cette ? Semaine.decalerSemaine(cette.lundi, -1) : null;
+    if (!ecoulee) return null;
+    var semaine = faits.echellesDeLaSemaine(corpus(), ecoulee.lundi);
+    if (!semaine.length) return null;
+    var dates = faits.datesDesExercices(corpus());
+    var meilleurTexte = function (slug, series) {
+      if (!series || !series.length) return null;
+      var parSeance = {}, ordre = [];
+      series.forEach(function (x) {
+        var k = x.session_id || '';
+        if (!parSeance[k]) { parSeance[k] = { cle: k, series: [] }; ordre.push(k); }
+        parSeance[k].series.push(x);
+      });
+      var r = Modele.meilleureSerieDeTout(slug, ordre.map(function (k) { return parSeance[k]; }), local.exercices, Palier,
+        etatsExercices, meilleurNomme);
+      return Modele.texteMeilleure(r) || null;
+    };
+    var faites = {}, zonesHaut = {}, actifs = {};
+    semaine.forEach(function (it) {
+      Object.keys(index).forEach(function (s) {
+        if (Modele.echelleDe(index[s]) !== it.echelle || !dates[s]) return;
+        faites[s] = { meilleur: null, quand: null, derniere: dates[s] };
+        var k = consigneDeLExercice(s);
+        var z = k && k.consigne ? Moteur.zoneParCle(k.consigne.zone) : null;
+        if (z) zonesHaut[s] = z.haut;
+        actifs[s] = intentionDeLExercice(s) !== 'entretien';
+      });
+    });
+    var items = semaine.map(function (it) {
+      var exercices = {};
+      Object.keys(it.exercices).forEach(function (s) {
+        var e = it.exercices[s];
+        exercices[s] = { semaine: meilleurTexte(s, e.semaine), avant: meilleurTexte(s, e.avant),
+                         reps: e.semaine.map(function (x) { return x.reps; }).filter(function (r) { return r !== null && r !== undefined; }) };
+      });
+      var n = it.nouvelle;
+      return { echelle: it.echelle, exercices: exercices,
+               nouvelle: n ? { slug: n.slug, ancienne: { nom: (index[n.ancienne.slug] || {}).nom || n.ancienne.slug,
+                                                         texte: meilleurTexte(n.ancienne.slug, n.ancienne.series) } } : null };
+    });
+    var cartes = Modele.vueEchellesDeLaSemaine(index, items, {
+      faites: faites, zonesHaut: zonesHaut, coachActif: !Moteur.coachSeTait(profil && profil.intention),
+      phraseDe: function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { court: true })); },
+      rondsDe: function (slug, e) {
+        var ds = deuxSeancesDeLExercice(slug, index[slug]);
+        return ds ? Moteur.rondsDeLaSuivante({ haut: e.haut, aide: e.aide, seances: ds }) : null;
+      }
+    });
+    if (!cartes.length) return null;
+    return { libelle: Modele.libelleDeLaSemaine(ecoulee.lundi, ecoulee.dimanche), echelles: cartes };
+  }
+  function rendreCarteEchelles() {
+    var noeud = $('carte-echelles');
+    if (!noeud) return;
+    if (seance) { Rendu.rendreCarteEchelles(noeud, null); return; }
+    var vue = vueCarteEchelles(new Date());
+    if (vue) vue.surOuvrir = function (slug) { afficherExercice(slug); };
+    Rendu.rendreCarteEchelles(noeud, vue);
   }
 
   // 125 — la vue de « Comment faire » : Matériel (`Profil.libelleEquipement`), Travaille (muscles primaires), Aussi
@@ -14701,6 +14831,14 @@
     rendreImportEcran();
   }
 
+  // 147 — « Sans heure de fin » (défaut) ou « Garder <durée> », pour une séance de plus de 5 h.
+  function choisirFinImport(i, sansFin) {
+    var l = importHevy && importHevy.lignes && importHevy.lignes[i];
+    if (!l || !l.duree_longue || l.verdict === 'deja_la') return;
+    l.sans_fin = !!sansFin;
+    rendreImportEcran();
+  }
+
   function cocherImport(i) {
     var l = importHevy && importHevy.lignes && importHevy.lignes[i];
     if (!l || l.verdict === 'deja_la') return;
@@ -14770,7 +14908,7 @@
     // d'écrire quoi que ce soit : les séances déjà là, telles qu'elles sont.
     var dejaLa = (local.seances || []).slice();
     var choisies = imp.lignes.filter(function (l) { return l.coche && l.verdict !== 'deja_la'; })
-      .map(function (l) { return l.seance; })
+      .map(function (l) { return Object.assign({}, l.seance, { sans_fin: !!l.sans_fin }); })   // 147
       .sort(function (a, b) { return Date.parse(a.debut) - Date.parse(b.debut); });
     var resultat = {
       importees: 0,
@@ -14890,9 +15028,10 @@
       v.lignes = imp.lignes.map(function (l) {
         return { titre: l.seance.titre || 'Séance', quand: Import.jourEtHeure(l.seance.debut_local, annee),
                  sous: Import.sousLigne(l, imp.fuseau), coche: l.coche && l.verdict !== 'deja_la',
-                 grise: l.verdict === 'deja_la' };
+                 grise: l.verdict === 'deja_la', duree: l.duree_longue || null, sansFin: !!l.sans_fin };
       });
       v.surCocher = cocherImport;
+      v.surChoisirFin = choisirFinImport;
       var noms = Import.nomsARattacher(imp.lignes, index, imp.ignores);
       v.noms = noms.map(function (x) {
         return { nom: x.nom, aide: x.series + (x.series > 1 ? ' séries, ' : ' série, ') + x.seances +

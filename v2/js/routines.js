@@ -1194,15 +1194,34 @@
   // (`id: null`) : un autre exercice n'hérite pas de la ligne d'un autre —
   // comme en séance, où le remplaçant n'a pas de `routine_exercise_id`. Rien
   // n'est écrit ici : l'éditeur enregistre.
-  function exerciceRemplace(exo, slug) {
+  //
+  // 144-5 — QUAND LA MESURE CHANGE (squat → planche), les cibles qui n'ont plus de sens pour la nouvelle mesure sont
+  // vidées : reps pour une durée, durée pour des reps, distance hors `distance_temps`. Sans cela une planche était
+  // enregistrée avec 8 reps visées (donnée cachée, recopiée dans chaque séance). `mesures` : { avant, apres } ; même
+  // mesure, ou une mesure inconnue : rien ne change.
+  var CIBLES_DE = {
+    charge_reps: ['reps'], reps: ['reps'], temps: ['duree_s'], distance_temps: ['duree_s', 'distance_m']
+  };
+  function viderCiblesHorsMesure(ligne, apres) {
+    var gardees = CIBLES_DE[apres] || null;
+    if (!gardees) return ligne;
+    var l = Object.assign({}, ligne);
+    ['reps', 'duree_s', 'distance_m'].forEach(function (c) { if (gardees.indexOf(c) < 0) l[c] = null; });
+    return l;
+  }
+  function exerciceRemplace(exo, slug, mesures) {
     var e = exo || {};
     // Le même exercice choisi (le catalogue, ou un aller-retour) : rien ne change —
     // ni sa ligne, ni sa charge de départ.
     if (e.exercise_slug === slug) return e;
+    var change = !!(mesures && mesures.avant && mesures.apres && mesures.avant !== mesures.apres);
     return Object.assign({}, e, {
       id: null,
       exercise_slug: slug,
-      series: (e.series || []).map(function (l) { return Object.assign({}, l, { id: null, charge_kg: null }); })
+      series: (e.series || []).map(function (l) {
+        var n = Object.assign({}, l, { id: null, charge_kg: null });
+        return change ? viderCiblesHorsMesure(n, mesures.apres) : n;
+      })
     });
   }
 

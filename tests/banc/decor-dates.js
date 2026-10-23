@@ -87,6 +87,16 @@ function ancreSemaineIsolee(premierRang) {
   return new Date(new Date(premierRang).getTime() - SEMAINES_ISOLEE * 7 * JOUR);
 }
 
+// 145 — « TES ÉCHELLES CETTE SEMAINE » lit la semaine ÉCOULÉE (lundi → dimanche qui précède celle d'aujourd'hui) : le
+// mercredi, à midi, de la semaine écoulée moins `n` semaines (`n` = 0 : la semaine écoulée). Toujours dans le passé, tous
+// les jours, et toujours dans SA semaine : midi ne change pas de jour avec un fuseau ou un changement d'heure.
+function mercrediEcoule(n, maintenant) {
+  var t = maintenant === undefined ? Date.now() : Number(maintenant);
+  var a = new Date(t);
+  var lundi = new Date(a.getFullYear(), a.getMonth(), a.getDate() - ((a.getDay() + 6) % 7) - 7 - 7 * (n || 0));
+  return new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + 2, 12);
+}
+
 // Section 47 — la séance dont les séries ne sont pas arrivées.
 function seanceSansSeries(ancre) {
   return new Date(new Date(ancre).getTime());
@@ -157,6 +167,7 @@ module.exports = {
   debutDeJournee: debutDeJournee,
   datesDuDecor: datesDuDecor,
   ancreSemaineIsolee: ancreSemaineIsolee,
+  mercrediEcoule: mercrediEcoule,
   seanceSansSeries: seanceSansSeries,
   jourIsole: jourIsole,
   ilYa: ilYa,

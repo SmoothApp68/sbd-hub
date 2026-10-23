@@ -6608,22 +6608,51 @@
 
   // LA PHRASE DE « LA SUIVANTE » sur la page d'exercice (ECRAN-SAISIE §7 quater.6) : la condition de la carte, sans
   // calcul nouveau. `e` : `{ type, nomCible, nomDepart, haut, meilleur }` (`THModele.vueEchelle` la compose).
+  //
+  // 145 (ECRAN-SAISIE §7 quater.7) — `e.court` : la MÊME condition, dite pour la carte « Tes échelles cette semaine » —
+  // sans « Je te la propose » ni « Ton meilleur », et sans « Elle s'ajoute » : « La suivante : Tractions Lestées, quand tu
+  // tiens 8 reps sur toutes tes séries, deux séances de suite. » Une option, jamais une seconde règle : le seuil
+  // (`seuilDeMarche`) et la condition sont ceux de la phrase longue.
   function phraseDeLaSuivante(e) {
     var x = e || {};
-    var tete = 'La suivante : ' + x.nomCible + '. ';
+    var court = x.court === true;
+    var tete = 'La suivante : ' + x.nomCible + (court ? ', ' : '. ');
     if (x.type === 'habilete') {
+      if (court) {
+        return 'Au-dessus : ' + x.nomCible + ', une habileté. Je ne te la propose pas : c\'est toi qui choisis quand l\'essayer.';
+      }
       return tete + 'Une habileté : je ne te la propose pas, c\'est toi qui choisis quand l\'essayer. ' +
              'Tu peux l\'ajouter à une séance comme n\'importe quel exercice.';
     }
     var deux = ' sur toutes tes séries, deux séances de suite.';
     if (x.type === 'lest') {
+      if (court) return tete + 'quand tu tiens ' + nombreFr(seuilDeMarche(x.haut)) + ' reps' + deux;
       return tete + 'Je te la propose quand tu tiens ' + nombreFr(seuilDeMarche(x.haut)) + ' reps' + deux +
              (x.meilleur ? ' Ton meilleur : ' + x.meilleur + '.' : '');
     }
     var quand = typeof x.haut === 'number' && x.haut
       ? nombreFr(seuilDeMarche(x.haut)) + ' reps'
       : 'le haut de ta zone, et au moins ' + nombreFr(SEUIL_MARCHE) + ' reps,';
+    if (court) return tete + 'quand tu tiens ' + quand + deux;
     return tete + 'Je te la propose quand tu tiens ' + quand + deux + ' Elle s\'ajoute : tu gardes ' + x.nomDepart + '.';
+  }
+
+  // 145 (ECRAN-SAISIE §7 quater.7) — LES DEUX RONDS des « deux séances de suite » : pour chacune des deux dernières séances
+  // de l'exercice de départ (la plus ancienne d'abord), plein quand elle a tenu la condition de la carte « marche
+  // suivante » (`carteMarcheDecidee`) : le niveau au moins égal à `seuilDeMarche(haut)` ; depuis une aide, la seconde
+  // compte à la MÊME aide que la première. Aucune règle nouvelle : les faits sont ceux du fondement de la consigne
+  // (`deuxSeances`). `e` : `{ haut, aide, seances }`, `seances` = `[{ niveau, charge }]`. `null` sans séance connue.
+  function rondsDeLaSuivante(e) {
+    var x = e || {};
+    var sc = Array.isArray(x.seances) ? x.seances.filter(Boolean) : [];
+    if (!sc.length) return null;
+    var seuil = seuilDeMarche(x.haut);
+    var tenu = function (s) { return nombre(s.niveau) !== null && nombre(s.niveau) >= seuil; };
+    var out = sc.slice(-2).map(tenu);
+    if (x.aide === true && sc.length >= 2 && out[1] &&
+        !(Math.abs(nombre(sc[sc.length - 2].charge) - nombre(sc[sc.length - 1].charge)) <= 1e-9)) out[1] = false;
+    while (out.length < 2) out.push(false);
+    return out;
   }
 
   // §8.4 (exception étroite, 03/10/2026) — LE DÉPART DE LA VERSION LESTÉE : sa
@@ -7868,6 +7897,7 @@
     ouiMarche: ouiMarche,
     NON_MARCHE: NON_MARCHE,
     phraseDeLaSuivante: phraseDeLaSuivante,
+    rondsDeLaSuivante: rondsDeLaSuivante,
     consigneDepartLeste: consigneDepartLeste,
     seanceDuContrat: seanceDuContrat,
     consigneDExercice: consigneDExercice,

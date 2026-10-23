@@ -6581,7 +6581,7 @@
                      complet: 'Complet', collectionneur: 'Collectionneur' };
   var JEU_CADRES = { vitrine: 'Cadre de vitrine', niveau: 'Cadre de niveau', or: 'Cadre d’or', grave: 'Cadre gravé' };
   var JEU_CATEGORIES = { seances: 'Séances', serie: 'Série de semaines', records: 'Records', rando: 'Randonnée',
-                         decouverte: 'Découverte', muscle: 'Muscles', tous: 'Tous les muscles', cap: 'Caps ronds' };
+                         decouverte: 'Découverte', muscle: 'Muscles', tous: 'Tous les muscles', distance: 'Distances', cap: 'Caps ronds' };
   var JEU_RANG = { commun: 1, rare: 2, exceptionnel: 3, majeur: 4 };
   var NBSP = ' ', FINE = ' ';
 
@@ -6646,6 +6646,7 @@
       case 'rando': return 'Randonnée : ' + groupe(p) + NBSP + 'km';
       case 'decouverte': return p + ' ' + motJeu(p, 'exercice', 'exercices');
       case 'sortie': return 'Grande sortie : ' + p + NBSP + 'km';
+      case 'distance': return d.libelle || String(p);
       case 'muscle': return libelleMuscleJeu(d.cle) + ' niveau ' + p;
       case 'tous': return 'Tous les muscles à ' + p;
       case 'cap': return 'Cap rond : ' + (d.nom || d.cle) + ' ' + nombreFr(p) + NBSP + 'kg';

@@ -69,6 +69,19 @@
   var PALIERS_TOUS = [[10, 'commun'], [20, 'rare'], [30, 'exceptionnel'], [40, 'exceptionnel'], [50, 'majeur']];
   var RANDONNEE = 'randonnee', METRES_PAR_KM = 1000;
   var SORTIE_M = 20000, SUCCES_SORTIE = 'rando-sortie-20', RARETE_SORTIE = 'rare';
+  // 153 (D, JEU §5) — LES CAPS DE DISTANCE : des succès (une série de travail d'AU MOINS cette distance), à côté de la
+  // grande sortie. `sport` : la clé de `entree.distances` (`faits.faitsDuJeu`, la plus grande distance par sport — le
+  // jeu ne lit pas les séries) ; course = course à pied ET tapis. Dans l'ordre de `succes.ids`.
+  var CAPS_DE_DISTANCE = [
+    { id: 'course-5', sport: 'course', m: 5000, rarete: 'commun', libelle: 'Premier 5 km de course' },
+    { id: 'course-10', sport: 'course', m: 10000, rarete: 'rare', libelle: 'Premier 10 km de course' },
+    { id: 'course-semi', sport: 'course', m: 21097, rarete: 'exceptionnel', libelle: 'Premier semi de course' },
+    { id: 'course-marathon', sport: 'course', m: 42195, rarete: 'majeur', libelle: 'Premier marathon' },
+    { id: 'nage-1', sport: 'nage', m: 1000, rarete: 'commun', libelle: 'Premier 1 km de nage' },
+    { id: 'nage-2', sport: 'nage', m: 2000, rarete: 'rare', libelle: 'Premier 2 km de nage' },
+    { id: 'velo-50', sport: 'velo', m: 50000, rarete: 'commun', libelle: 'Première sortie de 50 km à vélo' },
+    { id: 'velo-100', sport: 'velo', m: 100000, rarete: 'rare', libelle: 'Première sortie de 100 km à vélo' }
+  ];
   var CAP_PREMIER = 40, CAP_PAS = 20, RARETE_CAP = 'commun';
 
   // §6 — les titres (le plus petit des sept niveaux) et les cadres.
@@ -208,6 +221,10 @@
       });
     });
     if (comptes.sortie) gagner(SUCCES_SORTIE, RARETE_SORTIE);
+    CAPS_DE_DISTANCE.forEach(function (c) {
+      var d = entree.distances && possede(entree.distances, c.sport) ? entree.distances[c.sport] : 0;
+      if (d >= c.m) gagner(c.id, c.rarete);
+    });
     ORDRE_DES_MUSCLES.forEach(function (m) {
       PALIERS_MUSCLE.forEach(function (p) {
         if (mus[m].niveau >= p[0]) gagner('muscle-' + m + '-' + p[0], p[1]);
@@ -330,6 +347,12 @@
       return { categorie: categorie, cle: cle, palier: palier, rarete: r.rarete, points: r.points };
     };
     if (id === SUCCES_SORTIE) return d('sortie', null, SORTIE_M / METRES_PAR_KM, RARETE_SORTIE);
+    var cd = CAPS_DE_DISTANCE.filter(function (c) { return c.id === id; })[0];
+    if (cd) {
+      var dd = d('distance', cd.id, cd.m / METRES_PAR_KM, cd.rarete);
+      dd.libelle = cd.libelle;
+      return dd;
+    }
     var m = /^muscle-([a-z_]+)-(\d+)$/.exec(id);
     if (m) {
       if (ORDRE_DES_MUSCLES.indexOf(m[1]) < 0) return null;
@@ -400,6 +423,7 @@
       raretes: Object.keys(RARETES).map(function (r) { return { rarete: r, points: RARETES[r].points }; }),
       categories: PALIERS.map(function (c) { return { cle: c.cle, paliers: copie(c.paliers) }; }),
       sortie: { id: SUCCES_SORTIE, km: SORTIE_M / METRES_PAR_KM, rarete: RARETE_SORTIE },
+      distances: CAPS_DE_DISTANCE.map(function (c) { return { id: c.id, km: c.m / METRES_PAR_KM, rarete: c.rarete, libelle: c.libelle }; }),
       muscles: copie(PALIERS_MUSCLE),
       tous: copie(PALIERS_TOUS),
       cap: { premier: CAP_PREMIER, pas: CAP_PAS, rarete: RARETE_CAP },
@@ -468,6 +492,9 @@
     out.push({ cle: 'muscle', obtenus: muscles, total: ORDRE_DES_MUSCLES.length * PALIERS_MUSCLE.length, prochain: null });
     var tous = compte('tous-', PALIERS_TOUS);
     out.push({ cle: 'tous', obtenus: tous.obtenus, total: PALIERS_TOUS.length, prochain: tous.prochain });
+    out.push({ cle: 'distance', obtenus: etat.succes.ids.filter(function (id) {
+      return CAPS_DE_DISTANCE.some(function (c) { return c.id === id; });
+    }).length, total: CAPS_DE_DISTANCE.length, prochain: null });
     out.push({ cle: 'cap', obtenus: etat.succes.ids.filter(function (id) {
       var d = descriptionDuSucces(id);
       return !!d && d.categorie === 'cap';

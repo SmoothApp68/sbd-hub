@@ -82,9 +82,9 @@ describe('64A — faitsDuJeu, l’entrée du jeu (JEU-V1 §8)', () => {
       'developpe_militaire_barre']);
   });
 
-  test('il rend les sept champs, et seulement eux', () => {
+  test('il rend les huit champs, et seulement eux', () => {
     const e = Faits.creer().faitsDuJeu(historique(), AUJ);
-    expect(Object.keys(e).sort()).toEqual(['aujourdhui', 'catalogue', 'exercicesFaits', 'journal', 'maximums',
+    expect(Object.keys(e).sort()).toEqual(['aujourdhui', 'catalogue', 'distances', 'exercicesFaits', 'journal', 'maximums',
       'seances', 'series'].sort());
     expect(e.aujourdhui).toBe(AUJ);
   });
@@ -245,5 +245,43 @@ describe('64B — faitsDuJeu avec la séance en cours (« comme si elle était t
     expect(Array.from(new Set(lignes.map((l) => l.set_id))).sort()).toEqual(['cur-squat_barre-0', 'cur-squat_barre-1']);
     expect(lignes.every((l) => ec.lignes.some((x) => x.id === l.set_id))).toBe(true);
     expect(e.journal.length).toBe(Faits.creer().recordsDuJournal(c).length + lignes.length);
+  });
+});
+
+describe('153 (D) — les caps de distance du jeu (JEU-V1 §5)', () => {
+  const Jeu = require('../../v2/js/jeu.js');
+  // La course (tapis compris), la nage et le vélo, en plus de la randonnée.
+  const historique = () => corpus([
+    { debut: jourDe(2), series: [s('randonnee', null, null, { duree_s: 7200, distance_m: 12000 })] },
+    { debut: jourDe(1), series: [s('tapis_roulant', null, null, { duree_s: 3600, distance_m: 10200 }),
+      s('natation', null, null, { duree_s: 2400, distance_m: 2000 }), s('cyclisme', null, null, { duree_s: 7200, distance_m: 49000 })] }
+  ], []);
+  test('faitsDuJeu porte la plus grande distance par sport ; le jeu en fait des succès (≥ la distance)', () => {
+    const e = Faits.creer().faitsDuJeu(historique(), AUJ);
+    expect(e.distances).toEqual({ course: 10200, nage: 2000, velo: 49000 });   // la randonnée n'est pas un sport de distance ; 49 km < 50
+    const ids = Jeu.etatDuJeu(e).succes.ids;
+    expect(ids).toEqual(expect.arrayContaining(['course-5', 'course-10', 'nage-1', 'nage-2']));
+    ['course-semi', 'course-marathon', 'velo-50', 'velo-100'].forEach((id) => expect(ids).not.toContain(id));
+  });
+  test('les identifiants, les raretés, les libellés et l’ordre (après la grande sortie)', () => {
+    const attendu = { 'course-5': ['commun', 'Premier 5 km de course'], 'course-10': ['rare', 'Premier 10 km de course'],
+      'course-semi': ['exceptionnel', 'Premier semi de course'], 'course-marathon': ['majeur', 'Premier marathon'],
+      'nage-1': ['commun', 'Premier 1 km de nage'], 'nage-2': ['rare', 'Premier 2 km de nage'],
+      'velo-50': ['commun', 'Première sortie de 50 km à vélo'], 'velo-100': ['rare', 'Première sortie de 100 km à vélo'] };
+    Object.keys(attendu).forEach((id) => {
+      const d = Jeu.descriptionDuSucces(id);
+      expect([id, d.categorie, d.rarete, d.libelle]).toEqual([id, 'distance', attendu[id][0], attendu[id][1]]);
+    });
+    const e = Faits.creer().faitsDuJeu(historique(), AUJ);
+    e.distances = { course: 42195, nage: 2000, velo: 100000 };
+    const ids = Jeu.etatDuJeu(e).succes.ids.filter((id) => /^(course|nage|velo)-/.test(id));
+    expect(ids).toEqual(['course-5', 'course-10', 'course-semi', 'course-marathon', 'nage-1', 'nage-2', 'velo-50', 'velo-100']);
+  });
+  test('rando-sortie-20 est inchangé', () => {
+    expect(Jeu.descriptionDuSucces('rando-sortie-20')).toMatchObject({ categorie: 'sortie', palier: 20, rarete: 'rare' });
+  });
+  test('une série qui n’est pas du travail (chauffe) ne compte pas dans la distance du sport', () => {
+    expect(Modele.distancesMaxParSport([{ exercise_slug: 'natation', type_serie: 'echauffement', distance_m: 5000 },
+      { exercise_slug: 'natation', type_serie: 'travail', distance_m: 900 }])).toEqual({ nage: 900 });
   });
 });

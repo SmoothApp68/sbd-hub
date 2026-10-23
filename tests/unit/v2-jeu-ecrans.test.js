@@ -212,7 +212,7 @@ describe('les lectures des vues (64B, JEU-V1 §9.2) — décidées dans le modul
 
   test('parCategorie : obtenus / total · prochain ; la randonnée compte la grande sortie ; les caps sans total', () => {
     const e = etat({ ids: ['seances-10', 'seances-50', 'serie-4', 'rando-50', 'rando-sortie-20', 'muscle-dos-10',
-      'muscle-tronc-10', 'muscle-tronc-20', 'tous-10', 'cap-squat_barre-40', 'cap-squat_barre-60'] });
+      'muscle-tronc-10', 'muscle-tronc-20', 'tous-10', 'cap-squat_barre-40', 'cap-squat_barre-60', 'course-5', 'nage-1'] });
     expect(Jeu.parCategorie(e)).toEqual([
       { cle: 'seances', obtenus: 2, total: 6, prochain: 100 },
       { cle: 'serie', obtenus: 1, total: 5, prochain: 12 },
@@ -221,6 +221,7 @@ describe('les lectures des vues (64B, JEU-V1 §9.2) — décidées dans le modul
       { cle: 'decouverte', obtenus: 0, total: 4, prochain: 10 },
       { cle: 'muscle', obtenus: 3, total: 35, prochain: null },
       { cle: 'tous', obtenus: 1, total: 5, prochain: 20 },
+      { cle: 'distance', obtenus: 2, total: 8, prochain: null },   // 153 : les caps de distance
       { cle: 'cap', obtenus: 2, total: null, prochain: null }]);
   });
 

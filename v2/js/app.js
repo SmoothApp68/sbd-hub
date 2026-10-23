@@ -7967,7 +7967,9 @@
     var r = faits.recordsDeLaSerie(corpus(), seance, iExo, iSerie);
     if (!r.length) return null;
     var exo = catalogueIndexe()[seance.exercices[iExo].exercise_slug];
-    return Modele.phraseDeRecord(r, Modele.nomCourt(exo ? exo.nom : ''), seance.debut);
+    var index = catalogueIndexe();
+    return Modele.phraseDeRecord(r, Modele.nomCourt(exo ? exo.nom : ''), seance.debut,
+      function (slug) { return index[slug] ? index[slug].nom : slug; });
   }
 
 

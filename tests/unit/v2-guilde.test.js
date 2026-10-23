@@ -192,7 +192,8 @@ describe('90 — faits.recordsSansDepasser : la règle du 14/10/2026', () => {
     const l = Faits.creer().recordsSansDepasser(c, [], '2026-10-12', '2026-10-18');
     // 140 : b3 (volume_seance + un_rm_estime) compte par son volume.
     expect(ids(l)).toEqual(['a1', 'a2', 'a3', 'a4', 'b1', 'b2', 'b3']);
-    expect(Faits.creer().TYPES_DE_LA_GUILDE).toEqual(['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'volume_seance', 'duree_s', 'distance_m']);
+    expect(Faits.creer().TYPES_DE_LA_GUILDE).toEqual(['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'volume_seance', 'duree_s', 'distance_m',
+      'allure', 'marche', 'denivele_m', 'etages']);   // 153 : les quatre types de la v2_109
   });
   test('⚠️ DISCRIMINANT (140) — même séance : un volume seul compte dans la guilde, sauf pari relié dépassé', () => {
     const d = new Date(2026, 9, 14, 18);
@@ -294,7 +295,7 @@ describe('90 — v2_080 : le texte de la migration', () => {
     expect(FauxSocial.GUILDE.COULEURS).toEqual(Social.COULEURS_GUILDE);
     // 140 : l'app compte aussi `volume_seance`; la colonne `records` du défi lue en base (v2_080, v2_081, v2_093) garde
     // les six types — écart connu, à router vers Claude.ai (migration), non touché ici.
-    expect(liste(/r\.type IN \(([^)]*)\)/)).toEqual(Faits.creer().TYPES_DE_LA_GUILDE.filter((t) => t !== 'volume_seance'));
+    expect(liste(/r\.type IN \(([^)]*)\)/)).toEqual(Faits.creer().TYPES_DE_LA_GUILDE.filter((t) => ['volume_seance', 'allure', 'marche', 'denivele_m', 'etages'].indexOf(t) < 0));   // 153 : `guilde_semaine` les compte depuis la v2_109 ; le texte de la v2_080 est historique
   });
   test('les règles en base : une guilde par personne (clé primaire), 30 au plus, inviter un mutuel, l’administration au plus ancien', () => {
     expect(MIGRATION).toMatch(/user_id\s+uuid PRIMARY KEY REFERENCES auth\.users\(id\) ON DELETE CASCADE,\s*\n\s*guilde_id/);

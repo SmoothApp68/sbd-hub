@@ -2112,6 +2112,18 @@
     }
   }
 
+  // 144-6 — la feuille « Comment faire » d'un exercice de la séance d'un ami : la fiche (125), lecture seule.
+  function ouvrirCommentFaireAmi(exo) {
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleCommentFaire(cible, {
+        nom: Modele.nommer(Modele.indexerExercices(local.exercices), exo.slug),
+        comment: vueCommentFaire(exo),
+        surFermer: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
   async function chargerMoisAmi(annee, mois, sessionChoisie) {
     var a = social.ami;
     if (!a || !a.profil) return;
@@ -2154,7 +2166,13 @@
         var index = corpus().catalogue() || {};
         a.resume.detail = Social.detailParExercice(detail).map(function (x) {
           var nom = Modele.nomCourt(index[x.slug] ? index[x.slug].nom : x.slug);
-          return { nom: nom.charAt(0).toUpperCase() + nom.slice(1), fait: faits.faitDeLExercice(x.series) };
+          var ligne = { nom: nom.charAt(0).toUpperCase() + nom.slice(1), fait: faits.faitDeLExercice(x.series) };
+          // 144-6 — « Comment faire » seulement quand l'exercice a une description (comme l'onglet de la page d'exercice).
+          var fiche = index[x.slug];
+          if (fiche && fiche.description && String(fiche.description).trim()) {
+            ligne.surOuvrir = function () { ouvrirCommentFaireAmi(fiche); };
+          }
+          return ligne;
         });
       } else {
         a.resume.detailCache = 'Le détail des exercices se voit quand vous vous suivez l’un l’autre.';

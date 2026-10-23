@@ -71,3 +71,13 @@ describe('144-3 — la vidange de la file ne s\'arrête plus à 200', () => {
     expect(src).not.toMatch(/var garde = 200;/);
   });
 });
+
+describe('144-6 — le câblage de l\'app', () => {
+  test('la séance d\'un ami ouvre « Comment faire » par la fiche (vueCommentFaire), sans échelle', () => {
+    const src = lire('v2/js/app.js');
+    const f = src.slice(src.indexOf('function ouvrirCommentFaireAmi'), src.indexOf('async function chargerMoisAmi'));
+    expect(f).toMatch(/vueCommentFaire\(exo\)/);
+    expect(f).not.toMatch(/echelle|Echelle/);
+    expect(src).toMatch(/ligne\.surOuvrir = function \(\) \{ ouvrirCommentFaireAmi\(fiche\)/);
+  });
+});

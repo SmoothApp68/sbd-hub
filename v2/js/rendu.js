@@ -789,6 +789,18 @@
     if (n) cible.appendChild(etapes);
   }
 
+  // 144-6 — la feuille « Comment faire » d'un exercice vu chez un ami : LE MÊME rendu que l'onglet (`rendreCommentExo`),
+  // en lecture seule. Ni « Ton échelle » ni record : ce seraient les siens ou les tiens, et ce n'est ni l'un ni l'autre.
+  function rendreFeuilleCommentFaire(cible, vue) {
+    vider(cible);
+    teteFeuille(cible, 'Comment faire', vue.nom, null);
+    var corps = el('div', 'exo-comment-feuille');
+    rendreCommentExo(corps, { comment: vue.comment });
+    cible.appendChild(corps);
+    piedFeuille(cible, [{ classe: 'des', texte: 'Fermer', surClic: vue.surFermer }]);
+    return cible;
+  }
+
   function rendrePageExercice(cible, vue) {
     vider(cible);
     if (vue.seanceEnCours) cible.appendChild(bandeauExoSeance(vue));
@@ -7102,6 +7114,14 @@
       var ex = el('div', 's-ex');
       ex.appendChild(el('span', 's-ex-nom', x.nom));
       ex.appendChild(el('small', null, x.fait));
+      // 144-6 — « Comment faire » chez un ami, en lecture seule : la même fiche que la page d'exercice.
+      if (x.surOuvrir) {
+        ex.classList.add('s-ex-ouvrable');
+        ex.setAttribute('role', 'button');
+        ex.tabIndex = 0;
+        ex.addEventListener('click', x.surOuvrir);
+        ex.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); x.surOuvrir(); } });
+      }
       d.appendChild(ex);
     });
     if (r.detailCache) d.appendChild(el('p', 's-gris s-cache s-detail-cache', r.detailCache));
@@ -7915,6 +7935,7 @@
     rendreProfil: rendreProfil,
     rendreQuestionnaire: rendreQuestionnaire,
     rendreFeuilleChoix: rendreFeuilleChoix,
+    rendreFeuilleCommentFaire: rendreFeuilleCommentFaire,
     rendreFeuilleChoixMultiple: rendreFeuilleChoixMultiple,
     rendreFeuilleSaisie: rendreFeuilleSaisie,
     rendreFeuillePesee: rendreFeuillePesee,

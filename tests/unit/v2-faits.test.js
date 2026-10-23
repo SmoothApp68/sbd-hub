@@ -300,10 +300,12 @@ describe('58-1 — le module des faits rend exactement ce que rendait app.js', (
 // records a constaté, aux colonnes de la table (v2_061, v2_062). Le journal ne
 // calcule rien — ces tests le vérifient champ par champ, sur le même corpus.
 const COLONNES_RECORDS = ['user_id', 'set_id', 'session_id', 'exercise_slug', 'type', 'valeur', 'reps',
-  'charge', 'unite', 'ancien', 'ancien_le', 'sur_douze_mois', 'battu_le'].sort();
+  'charge', 'unite', 'palier_m', 'ancien', 'ancien_le', 'sur_douze_mois', 'battu_le'].sort();
 // 120 (D1, 16/10/2026) — plus de `un_rm_estime` : la force estimée n'est plus un record, rien ne l'écrit.
 const TYPES_RECORDS = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap',
-  'volume_seance', 'duree_s', 'distance_m'];
+  'volume_seance', 'duree_s', 'distance_m',
+  // 153 (v2_109) — l'allure, la première fois sur une marche, le D+, les étages.
+  'allure', 'marche', 'denivele_m', 'etages'];
 const rouvrir = (s) => {
   const exercices = [];
   seriesDe(s.id).forEach((x) => {
@@ -338,8 +340,11 @@ describe('58-2 — le journal des records : ce que la fonction des records a con
       if (typeof l.valeur !== 'number' || !isFinite(l.valeur)) fautes.push('valeur ' + l.valeur);
       if ((l.reps !== null) !== (l.type === 'charge_a_reps')) fautes.push('reps sur ' + l.type);
       if ((l.charge !== null) !== (l.type === 'reps_a_charge')) fautes.push('charge sur ' + l.type);
-      if ((l.unite !== null) !== (l.type === 'volume_seance')) fautes.push('unite sur ' + l.type);
-      if (l.unite !== null && ['kg', 'reps'].indexOf(l.unite) < 0) fautes.push('unite ' + l.unite);
+      if ((l.unite !== null) !== (l.type === 'volume_seance' || l.type === 'allure')) fautes.push('unite sur ' + l.type);
+      if (l.unite !== null && ['kg', 'reps', 's_km', 's_100m', 's_500m'].indexOf(l.unite) < 0) fautes.push('unite ' + l.unite);
+      // v2_109 : `palier_m` (entier > 0) pour un record d'allure, vide sinon ; l'allure en secondes par unité, > 0.
+      if ((l.palier_m !== null) !== (l.type === 'allure')) fautes.push('palier_m sur ' + l.type);
+      if (l.type === 'allure' && !(Number.isInteger(l.palier_m) && l.palier_m > 0 && l.valeur > 0 && l.unite !== 'kg' && l.unite !== 'reps')) fautes.push('allure invalide');
       if (l.reps !== null && !Number.isInteger(l.reps)) fautes.push('reps non entier ' + l.reps);
       if (typeof l.sur_douze_mois !== 'boolean') fautes.push('sur_douze_mois');
       if (l.user_id !== 'u1') fautes.push('user_id');

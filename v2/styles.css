@@ -1020,6 +1020,10 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 /* MOTEUR §9.14 bis (68A) — « pas encore » de son propre chef, en gris comme « pas encore ». */
 .reaction-serie.pas_encore,.reaction-serie.pas_encore_soi{color:var(--texte-2);font-weight:500}
 .reaction-serie.debut-tour{margin-top:11px}
+/* 149 (MOTEUR §9.17 ter) — LES FIGURES EN SECONDES : la phrase du coach, en gris (un fait, pas un bravo), et
+   l'étiquette « max » / « après ton max » sous la rangée de la tenue. */
+.reaction-serie.figure{color:var(--texte-2);font-weight:500}
+.fig-eti{color:var(--accent);font-size:12px;font-weight:620;line-height:1.2;padding:0 2px 2px 35px}
 /* MOTEUR §9.23 (55-1) — LA MÉDAILLE (maquette-progression-v1, « La médaille »).
    Un fait, pas la voix du coach : l'or de la médaille, jamais l'accent. Sous la
    rangée de la série, la phrase en gras, le record d'avant en gris. */
@@ -1841,7 +1845,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .objectif-jauge i{display:block;height:100%;border-radius:99px;background:var(--accent)}
 .objectif-aujourdhui{font-size:12px;line-height:1.4;color:var(--texte-2)}
 .objectif-date{font-size:13px;line-height:1.5;color:var(--texte);margin:var(--e2) 0 0}
-.objectif-pari{color:var(--texte-2)}
+.objectif-pari{display:block;color:var(--texte-3);font-size:12.5px;margin-top:2px}
+.objectif-rythme{font-size:13px;line-height:1.5;color:var(--texte);margin:var(--e2) 0 0;padding-top:var(--e2);border-top:1px solid var(--trait)}
 .objectif-changer{margin-top:var(--e2)}
 .defile-records{overflow-x:auto;margin-top:var(--e2)}
 .tableau-records{width:100%;border-collapse:collapse;font-size:13.5px}
@@ -2082,6 +2087,10 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .imp-case{width:20px;height:20px;border-radius:6px;border:2px solid var(--texte-3);flex:none;margin-top:2px;box-sizing:border-box}
 .imp-case.on{background:var(--accent);border-color:var(--accent)}
 .imp-case.off{opacity:.35}
+.imp-duree{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:0 2px 10px 32px}
+.imp-duree-t{color:var(--texte-2);font-size:13px;margin-right:4px}
+.imp-duree-c{background:none;border:1px solid var(--trait);border-radius:var(--r-grand);color:var(--texte-2);font:inherit;font-size:13px;padding:6px 10px;min-height:32px}
+.imp-duree-c.sel{border-color:var(--accent);color:var(--texte)}
 .imp-g{display:flex;flex-direction:column;min-width:0}
 .imp-t{font-weight:600}
 .imp-d{color:var(--texte-2);font-size:13px}
@@ -2229,6 +2238,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .s-detail h3{margin:0 0 8px;font-size:15px;overflow-wrap:anywhere}
 .s-ex{display:flex;flex-direction:column;padding:6px 0;border-top:1px solid var(--trait)}
 .s-ex small{color:var(--texte-2)}
+.s-ex-ouvrable{cursor:pointer}
+.s-ex-ouvrable:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .s-champ{width:100%;box-sizing:border-box;background:var(--panneau);border:1px solid var(--trait);border-radius:14px;padding:12px 14px;color:var(--texte);font:inherit;font-size:var(--police-champ);margin-bottom:12px}
 .s-lien-invit{background:var(--panneau-2);border-radius:18px;padding:14px;margin:16px 0}
 .s-lien-invit code{display:block;background:var(--fond);border-radius:10px;padding:8px 10px;margin:8px 0;color:var(--medaille);font-size:13px;overflow-wrap:anywhere}
@@ -2318,6 +2329,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .g-ouvert .g-lignes{height:auto;max-height:240px;overflow-y:auto}
 .g-l{font-size:13px;line-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .g-l small{color:var(--texte-2)}
+.g-etiq{display:inline-block;font-size:11px;line-height:16px;padding:0 6px;border-radius:var(--r-etiquette);background:var(--panneau-2);color:var(--texte-2);vertical-align:1px}
 .g-tout{padding:4px 0;min-height:0;font-size:12px}
 .g-msg{font-size:13px;color:var(--texte-2);margin:4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .g-proposition{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;margin-top:6px}
@@ -2476,6 +2488,31 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .te-phrase{margin:10px 0 0;padding:9px 10px;border:1px dashed var(--trait);border-radius:var(--r-petit);font-size:13px;
   line-height:1.45;color:var(--texte-2)}
 
+/* 145 (ECRAN-SAISIE §7 quater.7, maquette-semaine-echelles-v1) — « Tes échelles cette semaine », en tête de Saisie. Les
+   jetons de la forge seulement ; « nouvelle » est le seul fait en couleur, les ronds sont gris (jamais de rouge). La carte
+   entière se touche (44 px au moins) et ouvre « Ton échelle ». */
+.carte-echelles{display:block;width:100%;min-height:44px;text-align:left;background:var(--panneau);border:1px solid var(--trait);
+  border-radius:var(--r-grand);padding:var(--e3) 14px;margin-bottom:var(--e3);color:var(--texte);font:inherit;cursor:pointer;
+  box-sizing:border-box}
+.ce-etiquette{display:block;font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--texte-3);margin-bottom:6px}
+.ce-ech{display:block;padding:9px 0;border-top:1px solid var(--trait)}
+.ce-etiquette + .ce-ech{border-top:0;padding-top:2px}
+.ce-tete{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ce-nom{font:700 16px var(--pile-c)}
+.ce-marche{font-size:12px;color:var(--texte-2);text-align:right}
+.ce-marche b{color:var(--texte);font-weight:600}
+.ce-nouvelle{display:inline-block;background:var(--accent);color:var(--sur-accent);font-size:11px;font-weight:600;
+  border-radius:var(--r-etiquette);padding:1px 7px;margin-left:4px}
+.ce-fait{display:block;font-size:14px;line-height:1.45;margin-top:4px}
+.ce-gris{color:var(--texte-3)}
+.ce-suite{display:block;font-size:13px;line-height:1.45;color:var(--texte-2);margin-top:6px;padding:7px 9px;
+  border:1px dashed var(--trait);border-radius:var(--r-petit)}
+.ce-pas{display:inline-flex;gap:4px;vertical-align:-1px;margin-left:4px}
+.ce-pas i{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--texte-3);box-sizing:border-box}
+.ce-pas i.ok{background:var(--texte-2);border-color:var(--texte-2)}
+.ce-lien{display:block;color:var(--texte-2);font-size:13px;margin-top:8px}
+.ce-lien b{color:var(--texte);font-weight:600}
+
 /* 132 (ECRAN-PROFIL §2.4 sexies, maquette-elastiques-v2, écran 1) — « Mes élastiques », dans Ma salle : deux listes
    rangées en glissant par la poignée, puis « en kg / par son nom ». Les jetons de la forge ; la pastille porte la
    couleur que le nom dit (une donnée, posée par le rendu), neutre sinon. */
@@ -2516,3 +2553,9 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .el-choisir{width:100%;text-align:left;background:transparent;border:0;border-top:1px solid var(--trait);color:var(--texte);
   font:inherit;grid-template-columns:8px 14px 1fr auto 8px}
 .el-choisir.sel{color:var(--accent);font-weight:600}
+
+/* 152 — « à l'échec » (ambre, comme « à fond ») et « manquée » : le mot d'une série `echec`, lu par les reps. */
+.etq{font-size:var(--t-petit,12px);color:var(--texte-3);margin-left:8px;font-weight:500}
+.etq.fond{color:var(--accent)}
+.etq-ligne{margin:-2px 0 4px 44px}
+.feuille-menu button .aide-type{display:block;font-weight:400;font-size:12px;color:var(--texte-3);margin-top:2px}

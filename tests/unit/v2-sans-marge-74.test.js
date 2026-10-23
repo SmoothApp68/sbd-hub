@@ -57,10 +57,26 @@ describe('74 — la concordance sur les 79 séance-exercices réels', () => {
     });
   });
 
+  // 149 (23/10/2026, décision d'Aurélien, 13 h 10) — EN FRANC, UNE SÉANCE SUFFIT à la carte du lest : le cas
+  // `u1|releve_de_genoux_suspendu#7` (réglage franc, poids du corps, 12 reps à la dernière séance seulement) passe de
+  // `etirement_reps` à `carte_lest`. Le fichier de référence ne se retouche pas ; l'écart est nommé ici, à sa valeur
+  // exacte — un autre écart, ou celui-ci autrement, fait échouer le test.
+  // 152 (23/10/2026, décision d'Aurélien) — UNE SÉRIE `echec` À 1 REP OU PLUS EST UNE SÉRIE DE TRAVAIL À FOND : elle entre
+  // dans le palier. Deux cas du fichier portent une telle série (squat #14 : 130 × 1 à l'échec ; militaire #9 n'en porte pas
+  // lui-même mais son historique, oui) ; leurs consignes bougent, à leur valeur exacte. Le fichier de référence ne se retouche pas.
+  const ECHEC_152 = {
+    'u1|squat_barre#14': { etat: 'progression', zone: 'lourd', palier: 130, niveau: 1, ligne: { charge: 130, vise: 2 }, haut: null },
+    'u1|developpe_militaire_barre#9': { etat: 'nouvelle_zone', zone: 'volume', palier: 52.5, niveau: 9, ligne: { charge: 47.5, vise: 10 }, haut: null }
+  };
+  const FRANC_149 = {
+    'u1|releve_de_genoux_suspendu#7': { etat: 'carte_lest', zone: 'volume', palier: 0, niveau: 12,
+      ligne: { charge: 0, vise: 12 }, haut: null }
+  };
   test('0 écart avec `aujourdhui_74` (état, zone, palier, niveau, ligne, haut)', () => {
+    const attendu = (c) => ECHEC_152[c.cle + '#' + c.jusqua] || FRANC_149[c.cle + '#' + c.jusqua] || c.aujourdhui_74;
     const ecarts = D.cas
       .map((c) => ({ c, r: consigneDuCas(c) }))
-      .filter(({ c, r }) => JSON.stringify(r) !== JSON.stringify(c.aujourdhui_74))
+      .filter(({ c, r }) => JSON.stringify(r) !== JSON.stringify(attendu(c)))
       .map(({ c, r }) => c.cle + '#' + c.jusqua + ' : ' + JSON.stringify(r));
     expect(ecarts).toEqual([]);
   });

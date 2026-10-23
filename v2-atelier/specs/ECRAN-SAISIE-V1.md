@@ -191,7 +191,7 @@ deux colonnes au milieu de lignes à trois désoriente.
 détail de séance et de l'historique d'un exercice dit « Durée », « Distance · durée » (dans l'ordre de la prose, précisé le 22/10/2026), « Reps » ou « Charge » selon la
 mesure du bloc (« Mesure » pour un superset de mesures différentes) — jamais « Charge » au-dessus d'une durée (E8) ;
 l'aperçu « En faire une routine » écrit une durée en durée (« 20 s », jamais « 0 min », E10) ; la médaille écrit
-« 3,2 km » et « 1 min 30 », comme le journal (E9) ; « rep » s'accorde une fois (`repsTexte`). *Décidé le 21/10/2026 (audit 130 #10)* : une charge de 0 kg s'écrit « poids du corps × 12 » partout (journal, détail, médaille, récap), jamais « 0 kg × 12 ».
+« 3,2 km » et « 1 min 30 », comme le journal (E9) ; « rep » s'accorde une fois (`repsTexte`). *23/10/2026, décision d'Aurélien (153)* : la médaille nomme aussi, dans l'ordre de la phrase, « Record d'allure sur 1 km ou plus : 7:00 /km. », « Record de D+ : 920 m. », « Record d'étages : 72. » et « Première fois : Muscle-Up. » (gris « Une habileté. » ou « Avant : Tractions, depuis le 5 févr. ») — MOTEUR §9.23. *Décidé le 21/10/2026 (audit 130 #10)* : une charge de 0 kg s'écrit « poids du corps × 12 » partout (journal, détail, médaille, récap), jamais « 0 kg × 12 ».
 
 #### 3 ter.2 L'effort suit la mesure — RIR ou RPE
 
@@ -433,9 +433,11 @@ le pire cas étant `122,5`. Ça ne tient que parce que la suggestion n'est **pas
 (§3.1) — les 54 px libérés sont ceux-là.
 
 **3 bis.1 — Le numéro porte le type de la série.** Un appui ouvre un menu court : travail,
-échauffement, dégressive, tentative manquée, supprimer. Le numéro change d'apparence —
+échauffement, dégressive, à l'échec, supprimer. Le numéro change d'apparence —
 `C`, `D`, `✕`. Les quatre valeurs de `sets.type_serie` sont couvertes **sans un champ de
 plus**. Dans un superset, la chauffe de A s'appelle `Ac` et se place avant `A1` (§2.5).
+
+**23/10/2026, décision d'Aurélien (152) — « À l'échec ».** Le quatrième choix du menu se lit « À l'échec », avec « Tes reps comptent, sans marge. À 0 rep : une tentative manquée. » (avant : « Tentative manquée »). L'étiquette de la ligne (séance, détail, historique) suit les reps : **« à l'échec »** (ambre, comme « à fond ») à 1 rep ou plus — la série est du travail, elle prend son numéro — **« manquée »** à 0 rep (badge `✕`). Le ressenti « 0 — à l'échec » reste. Aucun calcul à l'écran : le mot sort de `Modele.motDEchec`.
 
 **3 bis.2 — La colonne EFFORT accepte deux formes.** Un RPE chiffré, ou un ressenti en
 répétitions restantes affiché `−1`, `−2`, `−0`. **L'affichage suit ce qui a été saisi**, sans
@@ -1290,6 +1292,10 @@ dit sa plage de validité.
 
 *Exception, à l'essai (16/10/2026) : la carte « Mon objectif », en tête de la vue (hors des courbes), dit la date d'un objectif posé par la personne — MOTEUR §9.25.*
 
+*23/10/2026, décision d'Aurélien (151) : la dégressive à deux baisses. Une seconde ligne dégressive est remplie par le coach (rangée « D2 », « 2ᵉ baisse ») : « Deuxième baisse : 17,5 kg, sans repos, jusqu'à l'échec. Vise 4 à 6. » ; ou, vide avec ses deux gestes (« En faire une série normale », « La retirer ») : « 3 reps à la première baisse : on s'arrête là. », « À la barre lourde, une seule baisse. », « Deux baisses au plus : une troisième fatigue sans rien ajouter. » MOTEUR §9.15.3.*
+
+*23/10/2026, décision d'Aurélien (150) : la carte dit « Le pari du coach : fin avril. » (gris : « Posé le 16 oct. On verra s'il tombe juste. »), figé ; et dessous, séparée d'un trait fin, « Au rythme d'aujourd'hui : fin février. » (ou « toujours fin avril », « plus d'un an », « pas encore de date »), recalculée à chaque ouverture par le même calcul — rien n'est écrit. Pas de ligne en « Juste un carnet », une fois atteint, ni sans pari. MOTEUR §9.25.*
+
 ### 7 bis.16 Records de série — et la correction d'un défaut de Hevy
 
 Le meilleur poids **pour chaque nombre de répétitions**. Factuel, sans formule, et répond à
@@ -1596,6 +1602,19 @@ met-elle à jour la routine ?
 > validées. ») et propose **Les valider** (le geste du §7 septies.4 E4) ou **Abandonner** (rouge : il jette ce qui a
 > été tapé). L'Édition d'une séance terminée ne change pas.
 
+> **Une séance trop longue : l'app le dit et demande — 23/10/2026, décision d'Aurélien (prompt 147).** À « Terminer »
+> (et à l'enregistrement d'une fin choisie au-delà de 5 h en Édition), si la séance compte au moins un exercice **fait**
+> qui n'est pas une sortie (`estExerciceSortie`) **et** qu'elle dure plus de **5 h** (début → l'instant de « Terminer »),
+> **ou** que sa dernière série validée date de plus d'**1 h** (seuils stricts, « Terminer » seulement), la feuille dit un
+> fait : « Ta séance dure 6 h 12. » puis, si elle apporte quelque chose, « Ta dernière série date de 12 h 40. ». Deux
+> choix : **« Terminer à 12 h 40 »** (principal ; la fin = la `validee_a` de la dernière série) et **« Garder 6 h 12 »**
+> (la fin = l'instant de « Terminer », comme avant) ; **« Revenir à la séance »** (ou fermer la feuille) n'écrit rien.
+> Séance longue dont la dernière série est récente : « Garder » seul, pas de « Terminer à ». Une séance faite
+> uniquement de sorties (randonnée, trail, vélo, ski…) : **jamais** d'alerte, sa durée est réelle. La séance vide (137)
+> garde sa feuille. En Édition, la même feuille avec « Garder » et « Revenir » (l'Édition fixe déjà `validee_a`) :
+> la décision est `Seance.alerteDeDuree(…, 'edition')` ; aucun écran de l'Édition ne change encore la fin, elle n'est
+> donc pas câblée. Décision pure (`seance.js`), l'écran ne calcule rien.
+
 > **Une donnée facultative restée vide — décidé le 21/10/2026 (prompt 131).** La feuille montre une fois la case d'un
 > D+, d'étages ou d'une distance (durée remplie) restés vides sur une série validée de la séance (§3 ter.5, écran 6).
 
@@ -1875,6 +1894,33 @@ les faits et la marche suivante.
     quand l'essayer. Tu peux l'ajouter à une séance comme n'importe quel exercice. »
 - **En « Juste un carnet »** (ou l'exercice en Entretenir) : les marches et les meilleurs, **sans phrase**.
 - Jamais de date prédite, de comparaison à une autre personne, ni de « bravo ».
+- *Ajouté le 23/10/2026 (145)* : la semaine écoulée des exercices d'échelle se lit aussi en tête de Saisie (§7 quater.7).
+
+### 7 quater.7 Tes échelles cette semaine — décidée le 23/10/2026 (prompt 145)
+
+Demandé par une pratiquante de street (21/10) : « un bilan simple de la semaine comparé à la précédente, avec une
+suggestion ». Décidé le 23/10 : **pas de bilan de semaine pour la muscu** (une semaine contre l'autre est surtout du bruit
+et pousse à lire de l'assiduité) ; pour les exercices **à marches**, la semaine a du sens. Une carte, **seulement pour les
+échelles**, qui ne calcule rien de neuf : elle lit « Ton échelle » (§7 quater.6). Maquette validée le 23/10/2026 :
+`v2-atelier/maquettes/maquette-semaine-echelles-v1.html`.
+
+- **Où, quand** : en tête de Saisie, au-dessus des cartes. Elle dit la semaine **écoulée** (lundi → dimanche qui précède celle
+  d'aujourd'hui, heure locale), tous les jours de la semaine. **Seulement** s'il y a au moins une série de travail d'un
+  exercice d'échelle cette semaine-là ; jamais pour les barres ; sinon, pas de carte. Jamais pendant une séance.
+- **Par échelle travaillée** (celle travaillée le plus récemment d'abord) : son nom et « ta marche : <exercice> »
+  (`Modele.vueEchelle`) ; la meilleure série de travail de la semaine sur cet exercice et, en gris, celle de la semaine d'avant
+  (absente si rien), par le formateur unique ; **« nouvelle »** quand la première série de travail de la vie sur un rang plus
+  haut que tout ce qui précédait la semaine a été faite (« Première fois : … · avant : <ancienne marche>, … ») ; **la suivante**
+  (`Moteur.phraseDeLaSuivante`, option `court` : la même condition, sans « Je te la propose » ni « Ton meilleur ») ;
+  **deux ronds** (`Moteur.rondsDeLaSuivante`, la plus ancienne des deux dernières séances d'abord), pleins pour chaque séance qui
+  a tenu la condition de la carte « marche suivante » ; **quand la condition n'est pas tenue**, les reps des séries de la
+  semaine sur l'exercice de départ (« Cette semaine : 9, 9, 9, 6. ») ; au-dessus d'une habileté, la phrase « habileté », sans
+  ronds.
+- **Le toucher** : la carte ouvre « Ton échelle » de l'exercice de ta marche (avec plusieurs échelles : celle de la première).
+- **Jamais** : le nombre de séances, les heures, une date prévue, une flèche, du rouge, une comparaison à quelqu'un. En « Juste
+  un carnet » (ou l'exercice en Entretenir) : les marches et les séries, **sans** phrase ni ronds ni reps de la condition.
+- **Câblage** : le fait `faits.echellesDeLaSemaine` ; la vue `Modele.vueEchellesDeLaSemaine` ; l'app (`vueCarteEchelles`) ;
+  `Rendu.rendreCarteEchelles` ne calcule rien.
 
 ### 7 quater.3 La table par nombre de répétitions
 
@@ -3488,3 +3534,12 @@ que « Basic-Fit » et « Basic Fit » donnent la même pastille.
 - **Le moteur n'a pas besoin de prévoir, il a besoin de ne pas contredire.**
 - **Une intention datée bat une observation antérieure à sa date.**
 - **La destination se calcule, le délai se prédit** — on affiche le prochain palier, jamais le nombre de séances pour l'atteindre
+
+
+### 7 quater.8 Les figures en secondes — décidé le 23/10/2026 (prompt 149)
+
+Une figure s'affiche en secondes : la première ligne porte l'étiquette « max » (fantôme : le max de la dernière fois), la
+suivante « après ton max », les tenues suivantes visent 50/60/70 % du max du jour. Messages au-dessus de la ligne : « Ton max
+la dernière fois : 20 s. Essaie de faire mieux, proprement. », puis « 22 s : 2 s de plus que la dernière fois. Tes tenues : 13 s. ».
+Carte : « 22 s tenues, deux séances de suite. » (Franc : « … aujourd'hui. »). « Ton échelle » et « Tes échelles » lisent le seuil en secondes.
+L'écran lit le plan ; il ne calcule rien. Voir MOTEUR §9.17 ter.

@@ -1583,10 +1583,16 @@
     // §9.17 — le niveau validé des DEUX dernières séances (non neutres), de la
     // plus ancienne à la plus récente ; `null` s'il n'y en a qu'une, ou si l'une
     // n'a pas de niveau. Le niveau se calcule sans la chute (§9.2 bis).
+    //
+    // 149 (23/10/2026, décision d'Aurélien, 13 h 10) — EN FRANC, UNE SÉANCE SUFFIT (la carte du lest comme la carte
+    // « marche suivante ») : « deux séances de suite » devient « la dernière séance ». Les deux entrées valent alors
+    // la dernière séance (`[b, b]`) : la carte, ses invariants (I29, I49, I50) et les deux ronds lisent une forme
+    // inchangée. `prudent` et `normal` : inchangés.
     function niveauxDesDeuxDernieres() {
-      if (ant.length < 2) return null;
-      var a = niveauValide(seriesAuPalier(ant[ant.length - 2]));
+      if (ant.length < (reglage === 'franc' ? 1 : 2)) return null;
       var b = niveauValide(seriesAuPalier(ant[ant.length - 1]));
+      if (reglage === 'franc') return b === null ? null : [b, b];
+      var a = niveauValide(seriesAuPalier(ant[ant.length - 2]));
       return a === null || b === null ? null : [a, b];
     }
     // §9.17 bis (127) — les MÊMES deux séances, avec leur charge (le palier : 0 au poids du corps, négatif pour une
@@ -1594,7 +1600,8 @@
     function deuxDernieresSeances() {
       var niveaux = niveauxDesDeuxDernieres();
       if (niveaux === null) return null;
-      return [ant[ant.length - 2], ant[ant.length - 1]].map(function (se, i) {
+      var deux = reglage === 'franc' ? [ant[ant.length - 1], ant[ant.length - 1]] : [ant[ant.length - 2], ant[ant.length - 1]];
+      return deux.map(function (se, i) {
         return { niveau: niveaux[i], charge: nombre(se.palier) };
       });
     }
@@ -4062,7 +4069,7 @@
 
       // §9.17 — au poids du corps, sans cran : la carte du lest, ou les reps.
       case 'carte_lest':
-        return 'Ta charge de travail est au haut de ta zone depuis deux séances. ' +
+        return 'Ta charge de travail est au haut de ta zone ' + (reglage === 'franc' ? 'à ta dernière séance' : 'depuis deux séances') + '. ' +
                'Un lest te ferait continuer en force : je te le propose, et on tient la ligne en attendant.';
 
       case 'etirement_reps':
@@ -6521,7 +6528,9 @@
   // sous deux captures (§20 bis), pour que chaque phrase porte SES citations.
   function carteLestTitre(e) {
     var x = e || {};
-    return nombreFr(x.niveau, regle('lest.niveau')) + ' reps sur toutes tes séries, deux séances de suite.';
+    // 149 — en Franc, une séance suffit : la phrase dit la règle (§20 bis).
+    return nombreFr(x.niveau, regle('lest.niveau')) + ' reps sur toutes tes séries' +
+      (x.reglage === 'franc' ? ' aujourd\'hui.' : ', deux séances de suite.');
   }
   function carteLestDetail(e) {
     var x = e || {};
@@ -6567,12 +6576,14 @@
     var m = x.marche;
     if (x.coachActif === false || !m || !m.proposable || !Array.isArray(m.cible) || !m.cible.length) return null;
     var sc = Array.isArray(x.seances) ? x.seances : [];
-    if (sc.length < 2) return null;
-    var a = sc[sc.length - 2], b = sc[sc.length - 1];
+    // 149 — EN FRANC, UNE SÉANCE SUFFIT : la dernière. La garde « à la même aide » n'a plus d'objet (une seule séance).
+    var franc = x.reglage === 'franc';
+    if (sc.length < (franc ? 1 : 2)) return null;
+    var b = sc[sc.length - 1], a = franc ? b : sc[sc.length - 2];
     var seuil = seuilDeMarche(x.haut);
     if (!a || !b || !(nombre(a.niveau) >= seuil) || !(nombre(b.niveau) >= seuil)) return null;
     var aide = x.aide === true;
-    if (aide && !(Math.abs(nombre(a.charge) - nombre(b.charge)) <= 1e-9)) return null;   // deux séances à la même aide
+    if (aide && !franc && !(Math.abs(nombre(a.charge) - nombre(b.charge)) <= 1e-9)) return null;   // deux séances à la même aide
     var r = x.reponse;
     if (r) {
       if (r.r === 'oui') return null;
@@ -6583,19 +6594,29 @@
       var j = numeroDuJour(jourCivil(x.aujourdHui)), f = numeroDuJour(jourCivil(x.cibleFaiteLe));
       if (j !== null && f !== null && j - f <= JOURS_MARCHE_FAITE) return null;
     }
-    return { cible: m.cible[0], nom: x.nomCible || m.cible[0], aide: aide, niveau: nombre(b.niveau), charge: nombre(b.charge) };
+    return { cible: m.cible[0], nom: x.nomCible || m.cible[0], aide: aide, niveau: nombre(b.niveau), charge: nombre(b.charge),
+             reglage: franc ? 'franc' : null };
   }
   // Le titre et le détail s'écrivent chacun par sa fonction : le plan les rédige sous deux captures (§20 bis).
   // `d` : la décision (`carteMarcheDecidee`).
   function carteMarcheTitre(d) {
     var x = d || {};
+    // 149 — EN SECONDES (une échelle de figures) : « 22 s tenues, deux séances de suite. » · Franc : « … aujourd'hui. »
+    if (x.secondes === true) {
+      return Modele().secondes(x.niveau, regle('marche.niveau')) + ' tenues' +
+        (x.reglage === 'franc' ? ' aujourd\'hui.' : ', deux séances de suite.');
+    }
     var tenue = x.aide
       ? enKg(x.charge, regle('marche.aide')) + ' \u00d7 ' + nombreFr(x.niveau, regle('marche.niveau'))
       : nombreFr(x.niveau, regle('marche.niveau')) + ' reps';
-    return tenue + ' sur toutes tes séries, deux séances de suite.';
+    return tenue + ' sur toutes tes séries' + (x.reglage === 'franc' ? ' aujourd\'hui.' : ', deux séances de suite.');
   }
   function carteMarcheDetail(d) {
     var x = d || {};
+    if (x.secondes === true) {
+      return 'La marche au-dessus : ' + x.nom + '. Je te propose d\'en faire ' + nombreFr(SERIES_MARCHE, regle('constante')) +
+             ' tenues avant, autant de secondes que tu peux.';
+    }
     return 'La marche au-dessus : ' + x.nom + '. Je te propose d\'en faire ' + nombreFr(SERIES_MARCHE, regle('constante')) +
            ' séries avant, autant de reps que tu peux.';
   }
@@ -6608,22 +6629,140 @@
 
   // LA PHRASE DE « LA SUIVANTE » sur la page d'exercice (ECRAN-SAISIE §7 quater.6) : la condition de la carte, sans
   // calcul nouveau. `e` : `{ type, nomCible, nomDepart, haut, meilleur }` (`THModele.vueEchelle` la compose).
+  //
+  // 145 (ECRAN-SAISIE §7 quater.7) — `e.court` : la MÊME condition, dite pour la carte « Tes échelles cette semaine » —
+  // sans « Je te la propose » ni « Ton meilleur », et sans « Elle s'ajoute » : « La suivante : Tractions Lestées, quand tu
+  // tiens 8 reps sur toutes tes séries, deux séances de suite. » Une option, jamais une seconde règle : le seuil
+  // (`seuilDeMarche`) et la condition sont ceux de la phrase longue.
   function phraseDeLaSuivante(e) {
     var x = e || {};
-    var tete = 'La suivante : ' + x.nomCible + '. ';
+    var court = x.court === true;
+    var tete = 'La suivante : ' + x.nomCible + (court ? ', ' : '. ');
     if (x.type === 'habilete') {
+      if (court) {
+        return 'Au-dessus : ' + x.nomCible + ', une habileté. Je ne te la propose pas : c\'est toi qui choisis quand l\'essayer.';
+      }
       return tete + 'Une habileté : je ne te la propose pas, c\'est toi qui choisis quand l\'essayer. ' +
              'Tu peux l\'ajouter à une séance comme n\'importe quel exercice.';
     }
-    var deux = ' sur toutes tes séries, deux séances de suite.';
+    // 149 — en Franc, une séance suffit : la phrase dit la règle (§20 bis).
+    var deux = x.reglage === 'franc' ? ' sur toutes tes séries, sur une séance.' : ' sur toutes tes séries, deux séances de suite.';
+    // 149 (MOTEUR §9.17 ter) — UNE FIGURE se tient en secondes : le seuil est celui du catalogue (`echelle_seuil_s`),
+    // sans « sur toutes tes séries » (une tenue max par séance) et sans « Elle s'ajoute ».
+    if (nombre(x.seuil) !== null) {
+      var regleS = x.reglage === 'franc' ? ', sur une séance.' : ', deux séances de suite.';
+      var secs = Modele().secondes(x.seuil, regle('marche.seuil'));
+      if (court) return tete + 'à ' + secs + regleS;
+      return tete + 'Je te la propose quand tu tiens ' + secs + regleS + (x.meilleur ? ' Ton meilleur : ' + x.meilleur + '.' : '');
+    }
     if (x.type === 'lest') {
+      if (court) return tete + 'quand tu tiens ' + nombreFr(seuilDeMarche(x.haut)) + ' reps' + deux;
       return tete + 'Je te la propose quand tu tiens ' + nombreFr(seuilDeMarche(x.haut)) + ' reps' + deux +
              (x.meilleur ? ' Ton meilleur : ' + x.meilleur + '.' : '');
     }
     var quand = typeof x.haut === 'number' && x.haut
       ? nombreFr(seuilDeMarche(x.haut)) + ' reps'
       : 'le haut de ta zone, et au moins ' + nombreFr(SEUIL_MARCHE) + ' reps,';
+    if (court) return tete + 'quand tu tiens ' + quand + deux;
     return tete + 'Je te la propose quand tu tiens ' + quand + deux + ' Elle s\'ajoute : tu gardes ' + x.nomDepart + '.';
+  }
+
+  // 145 (ECRAN-SAISIE §7 quater.7) — LES DEUX RONDS des « deux séances de suite » : pour chacune des deux dernières séances
+  // de l'exercice de départ (la plus ancienne d'abord), plein quand elle a tenu la condition de la carte « marche
+  // suivante » (`carteMarcheDecidee`) : le niveau au moins égal à `seuilDeMarche(haut)` ; depuis une aide, la seconde
+  // compte à la MÊME aide que la première. Aucune règle nouvelle : les faits sont ceux du fondement de la consigne
+  // (`deuxSeances`). `e` : `{ haut, aide, seances }`, `seances` = `[{ niveau, charge }]`. `null` sans séance connue.
+  function rondsDeLaSuivante(e) {
+    var x = e || {};
+    var sc = Array.isArray(x.seances) ? x.seances.filter(Boolean) : [];
+    if (!sc.length) return null;
+    // 149 — en secondes (une figure), le seuil est celui du catalogue ; sinon le haut de la zone ET 8 reps.
+    var seuil = nombre(x.seuil) !== null ? nombre(x.seuil) : seuilDeMarche(x.haut);
+    var tenu = function (s) { return nombre(s.niveau) !== null && nombre(s.niveau) >= seuil; };
+    // 149 — en Franc, UN SEUL ROND : la dernière séance.
+    if (x.reglage === 'franc') return [tenu(sc[sc.length - 1])];
+    var out = sc.slice(-2).map(tenu);
+    if (x.aide === true && sc.length >= 2 && out[1] &&
+        !(Math.abs(nombre(sc[sc.length - 2].charge) - nombre(sc[sc.length - 1].charge)) <= 1e-9)) out[1] = false;
+    while (out.length < 2) out.push(false);
+    return out;
+  }
+
+  // ══ §9.17 ter (149) — LES FIGURES EN SECONDES : LA TENUE MAX, LES TENUES, LA CARTE ═══════════════════════════════
+  //
+  // Décisions d'Aurélien du 23/10/2026 (13 h 03 – 13 h 24 ; maquettes `maquette-figures-c-v1.html` et `-v2.html`).
+  // UNE ÉCHELLE DE FIGURES (front lever, back lever, planche, L-sit, équilibre, drapeau : toutes ses marches en
+  // secondes, `THModele.estEchelleDeFigures`) se coache en SECONDES, jamais en charge : la première tenue de travail de
+  // l'exercice est la TENUE MAX (« fais mieux que la dernière fois »), les suivantes visent une part du max du jour.
+  // Du temps, pas une charge : aucune zone, aucun cran, aucun palier, aucun pari, ni chauffe ni dégressive.
+  //
+  //   · la part : Prudent 50 %, Normal 60 %, Franc 70 % de la tenue max du jour (les coachs : 50 à 80 %), arrondie à la
+  //     seconde la plus proche, au moins 2 s ;
+  //   · une tenue suivante plus longue que sa cible NE CHANGE PAS la cible (une seule tenue max par séance) ;
+  //   · sous 5 s de tenue max, un fait sourcé (Sommer) : les coachs travaillent la marche d'en dessous ;
+  //   · la carte « marche suivante » lit la tenue max de chaque séance (Franc : la dernière) contre le seuil du catalogue.
+  var PARTS_DE_TENUE = { prudent: 50, normal: 60, franc: 70 };   // % de la tenue max du jour
+  var TENUE_MIN_S = 2;
+  var TENUE_SOUS_S = 5;
+  function partDeLaTenue(reglage) {
+    return Object.prototype.hasOwnProperty.call(PARTS_DE_TENUE, reglage) ? PARTS_DE_TENUE[reglage] : PARTS_DE_TENUE.normal;
+  }
+  // La durée visée d'une tenue suivante : `max(2, arrondi(part × max du jour))`, à la seconde. `null` sans max valide.
+  function dureeVisee(max, reglage) {
+    var m = nombre(max);
+    if (m === null || !(m > 0)) return null;
+    return Math.max(TENUE_MIN_S, Math.floor(m * partDeLaTenue(reglage) / 100 + 0.5));
+  }
+  // « Ton max la dernière fois : 20 s. Essaie de faire mieux, proprement. » · sans séance avant : « Première fois ici… ».
+  function phraseDeLaTenueMax(e) {
+    var d = nombre(e && e.dernier);
+    if (d === null) return 'Première fois ici : autant que tu peux, proprement.';
+    return 'Ton max la dernière fois : ' + Modele().secondes(d, cite(FAIT, { quoi: 'max_dernier' })) +
+           '. Essaie de faire mieux, proprement.';
+  }
+  // Après la tenue max validée. `e` : `{ max, dernier, vise, dessous }` — `dessous` : le nom de la marche d'en dessous
+  // (`null` au rang 1 : pas de seconde phrase).
+  //   battu     « 22 s : 2 s de plus que la dernière fois. Tes tenues : 13 s. »
+  //   pas battu « 18 s aujourd'hui. Tes tenues : 11 s. »
+  //   sous 5 s  + « Sous 5 s, les coachs travaillent la marche d'en dessous : Front Lever Groupé. »
+  function phraseDesTenues(e) {
+    var x = e || {};
+    var S = Modele().secondes;
+    var max = nombre(x.max), dernier = nombre(x.dernier);
+    var t = dernier !== null && max > dernier
+      ? S(max, cite(FAIT, { quoi: 'max_du_jour' })) + ' : ' + S(max - dernier, cite(FAIT, { quoi: 'ecart_max' })) +
+        ' de plus que la dernière fois.'
+      : S(max, cite(FAIT, { quoi: 'max_du_jour' })) + ' aujourd\'hui.';
+    t += ' Tes tenues : ' + S(nombre(x.vise), cite(CIBLE, { role: 'tenue' })) + '.';
+    if (max < TENUE_SOUS_S && x.dessous) {
+      t += ' Sous ' + S(TENUE_SOUS_S, regle('tenue.sous')) + ', les coachs travaillent la marche d\'en dessous : ' + x.dessous + '.';
+    }
+    return t;
+  }
+  // LA CARTE « MARCHE SUIVANTE » EN SECONDES : la décision `{ cible, nom, secondes: true, niveau, seuil, reglage }`, ou
+  // `null`. Mêmes refus que `carteMarcheDecidee`, la condition lue en secondes. `e` : `{ marche, nomCible, seuil, tenues,
+  // duJour, reponse, cibleFaiteLe, aujourdHui, coachActif, reglage }` — `tenues` : la tenue max de chaque séance faite,
+  // la plus récente en dernier, et celle du jour en dernier si elle est validée (`duJour`) ; `seuil` : `echelle_seuil_s`
+  // de l'exercice de départ. La carte lit la tenue max du JOUR : sans elle, pas de carte.
+  function carteMarcheEnSecondes(e) {
+    var x = e || {};
+    var m = x.marche;
+    if (x.coachActif === false || !m || !m.proposable || !Array.isArray(m.cible) || !m.cible.length) return null;
+    var seuil = nombre(x.seuil);
+    if (seuil === null || !(seuil > 0) || x.duJour !== true) return null;
+    var franc = x.reglage === 'franc';
+    var t = (Array.isArray(x.tenues) ? x.tenues : []).map(nombre);
+    if (t.length < (franc ? 1 : 2)) return null;
+    var dernieres = t.slice(franc ? -1 : -2);
+    if (!dernieres.every(function (v) { return v !== null && v >= seuil; })) return null;
+    var r = x.reponse;
+    if (r && (r.r === 'oui' || r.r === 'non')) return null;      // « Ajouter » : jamais deux fois ; « Pas maintenant » : une fois
+    if (x.cibleFaiteLe) {
+      var j = numeroDuJour(jourCivil(x.aujourdHui)), f = numeroDuJour(jourCivil(x.cibleFaiteLe));
+      if (j !== null && f !== null && j - f <= JOURS_MARCHE_FAITE) return null;
+    }
+    return { cible: m.cible[0], nom: x.nomCible || m.cible[0], secondes: true, aide: false, niveau: t[t.length - 1],
+             seuil: seuil, charge: null, reglage: franc ? 'franc' : null };
   }
 
   // §8.4 (exception étroite, 03/10/2026) — LE DÉPART DE LA VERSION LESTÉE : sa
@@ -7329,6 +7468,13 @@
   var SEUIL_DIZAINE = 100;
   var CRAN_PAR_DEFAUT = 2.5;
   var BAISSE_DEGRESSIVE = 0.225;
+  // 151 (23/10/2026, décision d'Aurélien) — LA SECONDE BAISSE : −20 % de la charge de la première, posée par la
+  // routine ou l'utilisateur ; le coach la remplit, il n'en ajoute jamais.
+  var BAISSE_SECONDE = 0.20;
+  var VISEE_SECONDE = [4, 6];
+  var REPS_MIN_CHAINE = 4;
+  var PHRASE_BARRE_LOURDE = 'À la barre lourde, une seule baisse.';
+  var PHRASE_TROISIEME = 'Deux baisses au plus : une troisième fatigue sans rien ajouter.';
   var SEUIL_PROPOSITION_BARRE = 60;
   var SEUIL_PROPOSITION_AUTRE = 80;
 
@@ -7522,9 +7668,9 @@
   var DISQUES = [25, 20, 15, 10, 5, 2.5, 1.25];
   var BAISSE_MIN_BARRE = 0.15, BAISSE_MAX_BARRE = 0.30;
   // Ce qu'on enlève de CHAQUE côté (kg), ou `null` si rien ne tombe dans la fenêtre.
-  function disquesAEnlever(der) {
+  function disquesAEnlever(der, baisse) {
     var bas = der * BAISSE_MIN_BARRE / 2 - 1e-9, haut = der * BAISSE_MAX_BARRE / 2 + 1e-9;
-    var cible = der * BAISSE_DEGRESSIVE / 2;
+    var cible = der * (baisse || BAISSE_DEGRESSIVE) / 2;
     var dans = function (v) { return v >= bas && v <= haut; };
     var seul = DISQUES.filter(dans).sort(function (a, b) {
       var da = Math.abs(a - cible), db = Math.abs(b - cible);
@@ -7536,8 +7682,20 @@
     paires.sort(function (a, b) { return a - b; });
     return paires.length ? paires[0] : null;
   }
+  // 151 — `rang` : 1 (défaut) la première baisse ; 2 la seconde (−20 % de la charge de la première, passée en
+  // `derniere_serie`, « Vise 4 à 6 ») ; 3 et plus jamais remplie. `lourde` : une barre lourde (une seule baisse) ;
+  // `reps_premiere` : les reps de la première baisse si elle est faite (sous 4, la chaîne s'arrête).
   function degressiveDe(entree) {
     var e = entree || {};
+    var rang = nombre(e.rang) || 1;
+    if (rang >= 2 && e.lourde) return degressiveVide(PHRASE_BARRE_LOURDE);
+    if (rang >= 3) return degressiveVide(PHRASE_TROISIEME);
+    var rp = nombre(e.reps_premiere);
+    if (rang === 2 && rp !== null && rp < REPS_MIN_CHAINE) {
+      return degressiveVide(nombreFr(rp, regle('degressive.arret')) + (rp > 1 ? ' reps' : ' rep') + ' à la première baisse : on s\'arrête là.');
+    }
+    var seconde = rang === 2;
+    var baisse = seconde ? BAISSE_SECONDE : BAISSE_DEGRESSIVE;
     var der = nombre(e.derniere_serie);
     if (der === null || der <= 0) return degressiveVide('Pas de charge de travail pour caler la dégressive.');
     var cran = nombre(e.cran);
@@ -7546,16 +7704,16 @@
     // inférieur que la salle fait — une barre fixe, une paire d'haltères. À la
     // barre fixe, on change de barre : « Prends la barre de 20 kg. »
     var salle = e.salle ? salleEnVigueur(e.salle, der) : null;
-    if (salle) return degressiveDeLaSalle(salle, der, nombre(e.reps_travail));
+    if (salle) return degressiveDeLaSalle(salle, der, nombre(e.reps_travail), seconde);
     // Au cran INFÉRIEUR : jamais au-dessus des −22,5 %.
-    var charge = auCentieme(Math.floor(der * (1 - BAISSE_DEGRESSIVE) / cran + 1e-9) * cran);
+    var charge = auCentieme(Math.floor(der * (1 - baisse) / cran + 1e-9) * cran);
     var barre = estBarre(e.equipement);
     // 94 (Claude.ai, 15/10/2026) — À LA BARRE, ON ENLÈVE DES DISQUES : un seul
     // disque standard de chaque côté, le plus proche de −22,5 %, entre −15 % et
     // −30 % ; sinon la plus petite combinaison de deux disques dans la fenêtre.
     var enleveBarre = null;
     if (barre) {
-      enleveBarre = disquesAEnlever(der);
+      enleveBarre = disquesAEnlever(der, baisse);
       if (enleveBarre === null) return degressiveVide('Trop léger pour une dégressive.');
       charge = auCentieme(der - 2 * enleveBarre);
     }
@@ -7563,8 +7721,9 @@
     // le curl EZ d'aurel_br descend à 15 kg (relevé du 14/10). Seul le zéro.
     if (!(charge > 0)) return degressiveVide('Trop léger pour une dégressive.');
     var reps = nombre(e.reps_travail);
-    var vise = viseeDegressive(reps);
+    var vise = seconde ? VISEE_SECONDE.slice() : viseeDegressive(reps);
     var visee = phraseViseeDegressive(vise);
+    var debutPhrase = seconde ? 'Deuxième baisse' : 'Dégressive';
     if (barre) {
       var enleve = enleveBarre;
       return {
@@ -7575,7 +7734,7 @@
     }
     return {
       charge: charge, vise: vise, repos: 0,
-      phrase: 'Dégressive : ' + Modele().charge(charge, undefined, regle('degressive')) +
+      phrase: debutPhrase + ' : ' + Modele().charge(charge, undefined, regle('degressive')) +
         ', sans repos, jusqu\'à l\'échec. ' + visee
     };
   }
@@ -7592,21 +7751,21 @@
   }
   // §10 bis (108) — la dégressive dans la salle déclarée : la charge qu'elle
   // fait juste sous −22,5 %, toujours sous la dernière série de travail.
-  function degressiveDeLaSalle(salle, der, reps) {
-    var cible = auCentieme(der * (1 - BAISSE_DEGRESSIVE));
+  function degressiveDeLaSalle(salle, der, reps, seconde) {
+    var cible = auCentieme(der * (1 - (seconde ? BAISSE_SECONDE : BAISSE_DEGRESSIVE)));
     var sous = chargesDeLaSalle(salle).filter(function (v) {
       return (v < cible || memeCharge(v, cible)) && v < der && !memeCharge(v, der);
     });
     if (!sous.length) return degressiveVide('Trop léger pour une dégressive.');
     var charge = sous[sous.length - 1];
-    var vise = viseeDegressive(reps);
+    var vise = seconde ? VISEE_SECONDE.slice() : viseeDegressive(reps);
     var suite = 'Sans repos, jusqu\'à l\'échec. ' + phraseViseeDegressive(vise);
     if (SALLE_BARRES.indexOf(salle.materiel) >= 0) {
       return { charge: charge, vise: vise, repos: 0, barreFixe: true,
                phrase: 'Prends la barre de ' + Modele().charge(charge, undefined, regle('degressive')) + '. ' + suite };
     }
     return { charge: charge, vise: vise, repos: 0,
-             phrase: 'Dégressive : ' + Modele().charge(charge, undefined, regle('degressive')) +
+             phrase: (seconde ? 'Deuxième baisse' : 'Dégressive') + ' : ' + Modele().charge(charge, undefined, regle('degressive')) +
                ', sans repos, jusqu\'à l\'échec. ' + phraseViseeDegressive(vise) };
   }
 
@@ -7868,6 +8027,15 @@
     ouiMarche: ouiMarche,
     NON_MARCHE: NON_MARCHE,
     phraseDeLaSuivante: phraseDeLaSuivante,
+    rondsDeLaSuivante: rondsDeLaSuivante,
+    PARTS_DE_TENUE: PARTS_DE_TENUE,
+    TENUE_MIN_S: TENUE_MIN_S,
+    TENUE_SOUS_S: TENUE_SOUS_S,
+    partDeLaTenue: partDeLaTenue,
+    dureeVisee: dureeVisee,
+    phraseDeLaTenueMax: phraseDeLaTenueMax,
+    phraseDesTenues: phraseDesTenues,
+    carteMarcheEnSecondes: carteMarcheEnSecondes,
     consigneDepartLeste: consigneDepartLeste,
     seanceDuContrat: seanceDuContrat,
     consigneDExercice: consigneDExercice,

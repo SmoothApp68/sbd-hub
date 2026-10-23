@@ -59,8 +59,9 @@ describe('66C — faits.habitudes (§5 quater.2)', () => {
   test('la signature du déduit : deux exercices dont un seulement en ÉCHEC comptent ; la taille, elle, ne compte que le travail', () => {
     const h = habitudes([{ debut: jour(0), series: S('presse', 3, 10).concat(S('curl', 2, 8, 'echec')) }]);
     expect(h).not.toBeNull();
-    expect(h.taille_de_seance).toBe(3);
-    expect(h.series).toEqual({ presse: 3 });
+    // 152 : un « echec » à 8 reps est une série de travail à l'échec — elle compte dans la taille.
+    expect(h.taille_de_seance).toBe(5);
+    expect(h.series).toEqual({ presse: 3, curl: 2 });
     // Sans l'échec, une séance à un seul exercice : rien.
     expect(habitudes([{ debut: jour(0), series: S('presse', 3, 10).concat(S('curl', 2, 8, 'echauffement')) }])).toBeNull();
   });
@@ -115,7 +116,7 @@ describe('66C — faits.habitudes (§5 quater.2)', () => {
     const R = globalThis.THRoutines;
     const mesures = { presse: 'charge_reps', curl: 'charge_reps', tapis: 'temps' };
     expect(R.signatureDeSeance({ series: [{ exercise_slug: 'presse', type_serie: 'travail' },
-      { exercise_slug: 'curl', type_serie: 'echec' }] }, mesures)).toEqual({ presse: true, curl: true });
+      { exercise_slug: 'curl', type_serie: 'echec', reps: 3 }] }, mesures)).toEqual({ presse: true, curl: true });
     expect(R.signatureDeSeance({ series: [{ exercise_slug: 'presse', type_serie: 'travail' },
       { exercise_slug: 'tapis', type_serie: 'travail' }] }, mesures)).toBeNull();
   });

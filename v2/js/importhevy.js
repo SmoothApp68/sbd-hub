@@ -511,18 +511,44 @@
   //
   // Les séances lues, préparées, avec leur verdict ; la case : cochée pour une
   // nouvelle, décochée pour « sans doute la même », absente pour « déjà là ».
+  //
+  // ══ 147 (23/10/2026, décision d'Aurélien) — UNE SÉANCE DE PLUS DE 5 H EST SIGNALÉE ════════════════════
+  // `fin_local - debut_local` > 5 h (strict) ET au moins un exercice qui n'est pas une sortie
+  // (`THModele.estExerciceSortie`) : « Dure 9 h 42 ». Une randonnée de 7 h seule : aucun signal. Un nom pas encore
+  // rattaché compte comme exercice de musculation (on ne devine rien : il peut être rattaché plus tard, et
+  // `recalculer` refait le signal). Deux choix par séance, `sans_fin` : VRAI par défaut (« Sans heure de fin » : la
+  // séance et ses séries entrent, `fin` vide — le fichier ne donne pas l'heure de chaque série, rien n'est deviné) ;
+  // FAUX = « Garder 9 h 42 ». Le signal ne change ni le verdict ni la case.
+  var SEUIL_LONGUE_MS = 5 * 3600000;
+  function dureeLongue(s, catalogue) {
+    var d = s && s.debut ? Date.parse(s.debut) : NaN, f = s && s.fin ? Date.parse(s.fin) : NaN;
+    if (isNaN(d) || isNaN(f) || f - d <= SEUIL_LONGUE_MS) return null;
+    var index = Mo().indexerExercices(catalogue || []);
+    var muscu = (s.exercices || []).some(function (e) {
+      return e.series.length && !(e.exercise_slug && Mo().estExerciceSortie(index[e.exercise_slug]));
+    });
+    if (!muscu) return null;
+    var m = Math.round((f - d) / 60000);
+    return (Math.floor(m / 60)) + ' h ' + deux(m % 60);
+  }
+  // Le signal d'une ligne, et son choix : `sans_fin` garde la valeur déjà choisie.
+  function signalDeDuree(ligne, catalogue, avant) {
+    var t = dureeLongue(ligne.seance, catalogue);
+    return Object.assign({}, ligne, { duree_longue: t, sans_fin: t ? (avant === undefined ? true : !!avant) : false });
+  }
+
   function apercu(lues, contexte) {
     var c = contexte || {};
     var index = indexDesNoms(c.sources);
     return lues.map(function (lue) {
       var s = preparer(lue, index, c.fuseau);
       var v = verdictDetaille(s, c.base);
-      return {
+      return signalDeDuree({
         seance: s, verdict: v.verdict, avec: v.avec,
         coche: v.verdict === 'nouvelle',
         exercices: s.exercices.length,
         series: s.exercices.reduce(function (n, e) { return n + e.series.length; }, 0)
-      };
+      }, c.sources && c.sources.catalogue);
     });
   }
 
@@ -542,10 +568,10 @@
         })
       });
       var v = verdictDetaille(s, c.base);
-      return Object.assign({}, l, {
+      return signalDeDuree(Object.assign({}, l, {
         seance: s, verdict: v.verdict, avec: v.avec,
         coche: v.verdict === l.verdict ? l.coche : v.verdict === 'nouvelle'
-      });
+      }), c.sources && c.sources.catalogue, l.duree_longue ? l.sans_fin : undefined);
     });
   }
 
@@ -612,7 +638,8 @@
     });
     if (!rang) return null;
     return {
-      id: ids.seance, user_id: userId, debut: s.debut, fin: s.fin || null,
+      // 147 — « Sans heure de fin » : la séance entre, `fin` vide (jamais devinée, jamais celle du fichier).
+      id: ids.seance, user_id: userId, debut: s.debut, fin: s.sans_fin ? null : (s.fin || null),
       titre: s.titre || null, note: s.note || null, salle: null, routine_id: null,
       source: 'hevy', source_ref: s.ref, statut: 'terminee',
       exercices: exercices
@@ -736,7 +763,7 @@
     preparer: preparer,
     verdict: verdict,
     verdictDetaille: verdictDetaille,
-    apercu: apercu,
+    apercu: apercu, dureeLongue: dureeLongue, SEUIL_LONGUE_MS: SEUIL_LONGUE_MS,
     recalculer: recalculer,
     nomsARattacher: nomsARattacher,
     pretAImporter: pretAImporter,

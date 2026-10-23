@@ -59,7 +59,7 @@ describe('132 — le catalogue lit `type_elastique` dans son `select` principal'
         then(res, rej) {
           requetes.push(select);
           const premiere = requetes.filter((x) => x === select).length === 1;
-          const data = !premiere || /echelle/.test(select) ? [] : LIGNES.map((l) => Object.assign({}, l));
+          const data = !premiere ? [] : LIGNES.map((l) => Object.assign({}, l));
           return Promise.resolve({ data, error: null }).then(res, rej);
         }
       };

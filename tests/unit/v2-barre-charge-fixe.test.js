@@ -12,8 +12,8 @@
 //   1. `Profil.salleDeLExercice` : `false`, `true` (EZ et droite), l'absence de la colonne dans les deux sens ;
 //   2. le moteur : un rowing à barre chargée n'est plus arrondi à une barre fixe ; un curl EZ, toujours ;
 //   3. l'objectif : un rowing à 80 kg dans une salle à 30 kg n'est plus refusé ; un curl EZ, toujours ;
-//   4. la lecture du catalogue : `barre_charge_fixe` par la seconde lecture (celle des échelles, 127), jamais dans
-//      le `select` principal ; absente, le catalogue se synchronise, ses fiches sans la colonne.
+//   4. la lecture du catalogue : `barre_charge_fixe` dans le `select` du catalogue, une seule lecture (129 — la seconde
+//      lecture de 127-128 a servi le temps de v2_099) ; `null` ou une ligne sans la colonne : la fiche sans elle.
 // Ne pas confondre avec `barre_fixe` du générateur (R3, 60-5) : la barre de traction d'une ligne de programme.
 
 process.env.TZ = 'Europe/Paris';
@@ -117,12 +117,16 @@ describe('128 — l’objectif lit Ma salle par `salleDeLExercice` : un rowing �
   const poser = (seances, charge, salle) => Obj.projection({ seances, charge, reps: 8, maintenant: MAINTENANT,
     anciennete: null, options: BARRE, salle });
 
-  // ⚠️ 80 kg au-delà d'une salle à 30 kg passait déjà avant 128 : la garde de la salle en vigueur (`salleEnVigueur`,
-  // record de 70 kg au-delà de la plus lourde barre fixe) y voyait déjà une barre qu'on charge. Ce test garde le cas
-  // demandé ; celui qui discrimine est le rowing LÉGER, plus bas (record 25 kg, sous la plus lourde).
+  // ⚠️ 144-7 — 80 kg avec un record de 70 passait AUSSI sur l'ancienne règle (colonne absente) : la garde de la salle
+  // en vigueur (`salleEnVigueur`, record au-delà de la plus lourde barre fixe) y voyait déjà une barre qu'on charge.
+  // Le test ne discriminait rien. Le cas demandé (80 kg, salle à 30 kg) se garde donc avec un record SOUS la plus lourde
+  // barre fixe (25 kg) : c'est là que l'ancienne règle refusait, et que la colonne `false` ne refuse plus.
+  const LEGER = () => [seance('2026-06-01', [[20, 8]]), seance('2026-08-01', [[22.5, 8]]), seance('2026-10-01', [[25, 8]])];
   test('rowing (`false`) : 80 kg, salle à 30 kg, n’est pas refusé', () => {
-    const rowing = [seance('2026-06-01', [[60, 8]]), seance('2026-08-01', [[65, 8]]), seance('2026-10-01', [[70, 8]])];
-    expect(poser(rowing, 80, Profil.salleDeLExercice(P, 'rowing_barre', APRES)).etat).not.toBe('hors_salle');
+    expect(poser(LEGER(), 80, Profil.salleDeLExercice(P, 'rowing_barre', APRES)).etat).not.toBe('hors_salle');
+  });
+  test('⚠️ DISCRIMINANT — le même 80 kg était refusé sans la colonne (l’ancienne règle) : le test échoue sur le code fautif', () => {
+    expect(poser(LEGER(), 80, Profil.salleDeLExercice(P, 'rowing_barre', AVANT)).etat).toBe('hors_salle');
   });
   test('curl EZ (`true`) : 35 kg, salle à 30 kg, toujours refusé', () => {
     const curl = [seance('2026-06-01', [[20, 8]]), seance('2026-08-01', [[22.5, 8]]), seance('2026-10-01', [[25, 8]])];
@@ -137,31 +141,30 @@ describe('128 — l’objectif lit Ma salle par `salleDeLExercice` : un rowing �
 });
 
 // ═══ 4. LA LECTURE DU CATALOGUE ═══════════════════════════════════════════
-describe('128 — `barre_charge_fixe` par la seconde lecture du catalogue (celle de 127)', () => {
+// 129 — une seule lecture : `barre_charge_fixe` rejoint le `select` du catalogue (v2_099 lancée le 21/10). Le résultat
+// pour l'app ne change pas : un booléen posé, `null` laissée absente, une ligne sans la colonne (cache d'avant, faux
+// serveur) lue sans elle — et l'ancienne règle de Ma salle s'applique.
+describe('128-129 — `barre_charge_fixe` par la lecture du catalogue (une seule)', () => {
   const LIGNES = [
-    { slug: 'rowing_barre', nom: 'Rowing Barre', equipement: 'barre' },
-    { slug: 'curl_biceps_barre_ez', nom: 'Curl Biceps (Barre EZ)', equipement: 'barre' },
-    { slug: 'presse_cuisses', nom: 'Presse', equipement: 'machine' }
+    { slug: 'rowing_barre', nom: 'Rowing Barre', equipement: 'barre', barre_charge_fixe: false },
+    { slug: 'curl_biceps_barre_ez', nom: 'Curl Biceps (Barre EZ)', equipement: 'barre', barre_charge_fixe: true },
+    { slug: 'presse_cuisses', nom: 'Presse', equipement: 'machine', barre_charge_fixe: null }
   ];
   let requetes;
   const client = (avecColonne) => ({
-    from() {
+    from(table) {
       let select = '';
       const c = {
         select(s) { select = s; return c; }, eq() { return c; }, gt() { return c; }, or() { return c; },
         order() { return c; }, limit() { return c; }, range() { return c; },
         then(res, rej) {
-          requetes.push(select);
-          const accessoire = /barre_charge_fixe/.test(select);
-          if (accessoire && !avecColonne) {
-            return Promise.resolve({ data: null, error: { code: '42703', message: 'column exercises.barre_charge_fixe does not exist' } }).then(res, rej);
-          }
-          const premiere = requetes.filter((x) => x === select).length === 1;
-          const data = !premiere ? [] : accessoire
-            ? [{ slug: 'rowing_barre', echelle: null, echelle_rang: null, barre_charge_fixe: false },
-               { slug: 'curl_biceps_barre_ez', echelle: null, echelle_rang: null, barre_charge_fixe: true },
-               { slug: 'presse_cuisses', echelle: null, echelle_rang: null, barre_charge_fixe: null }]
-            : LIGNES.map((l) => Object.assign({}, l));
+          requetes.push({ table, select });
+          const premiere = requetes.filter((x) => x.select === select).length === 1;
+          const data = !premiere ? [] : LIGNES.map((l) => {
+            const x = Object.assign({}, l);
+            if (!avecColonne) delete x.barre_charge_fixe;
+            return x;
+          });
           return Promise.resolve({ data, error: null }).then(res, rej);
         }
       };
@@ -177,13 +180,13 @@ describe('128 — `barre_charge_fixe` par la seconde lecture du catalogue (celle
   };
   afterEach(() => { delete globalThis.THClient; });
 
-  test('le `select` principal ne nomme PAS `barre_charge_fixe` ; la seconde lecture, oui (une seule, avec les échelles)', async () => {
+  test('une seule lecture du catalogue : son `select` nomme `barre_charge_fixe` (avec les échelles)', async () => {
     const D = charger(true);
     await D.tousLesExercices();
-    expect(requetes[0]).not.toMatch(/barre_charge_fixe/);
-    const accessoires = requetes.filter((r) => /barre_charge_fixe/.test(r));
-    expect(accessoires.length).toBeGreaterThan(0);
-    accessoires.forEach((r) => expect(r).toMatch(/echelle_rang/));
+    const selects = Array.from(new Set(requetes.filter((r) => r.table === 'exercises').map((r) => r.select)));
+    expect(selects.length).toBe(1);
+    expect(selects[0]).toMatch(/\bbarre_charge_fixe\b/);
+    expect(selects[0]).toMatch(/\bechelle_rang\b/);
   });
   test('colonne présente : posée sur chaque fiche (un booléen) ; `null` laissée absente', async () => {
     const D = charger(true);
@@ -193,10 +196,13 @@ describe('128 — `barre_charge_fixe` par la seconde lecture du catalogue (celle
     expect(ix.presse_cuisses).not.toHaveProperty('barre_charge_fixe');
     expect(Profil.salleDeLExercice(P, 'rowing_barre', ix)).toBeNull();
   });
-  test('colonne absente (v2_099 pas lancée) : le catalogue entier, ses fiches sans la colonne (`undefined`)', async () => {
+  test('une ligne sans la colonne (cache d’avant v2_099, faux serveur) : la fiche sans elle (`undefined`), l’ancienne règle', async () => {
     const D = charger(false);
     const cat = await D.tousLesExercices();
     expect(cat.map((e) => e.slug)).toEqual(['rowing_barre', 'curl_biceps_barre_ez', 'presse_cuisses']);
-    expect(cat.every((e) => e.barre_charge_fixe === undefined)).toBe(true);
+    expect(cat.every((e) => !('barre_charge_fixe' in e))).toBe(true);
+    const ancienne = Profil.salleDeLExercice(P, 'rowing_barre', M.indexerExercices(cat));
+    expect(ancienne).not.toBeNull();   // l'ancienne règle : une barre fixe (le test discrimine de `false` → `null`)
+    expect(ancienne).toEqual(Profil.salleDeLExercice(P, 'rowing_barre', AVANT));
   });
 });

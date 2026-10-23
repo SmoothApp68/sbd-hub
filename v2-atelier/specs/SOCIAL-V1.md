@@ -192,7 +192,7 @@ elle retire ses scores.
 - **1b. Proposition sans chiffre** (« le cran au-dessus ») : règle « suivie » de MOTEUR §12, toute charge au-dessus du palier
   compte.
 - **1c. Révisions** : le pari relié à la série par `set_observe`.
-- **1d. Types de record qui comptent** : `charge_a_reps`, `reps_a_charge`, `charge_max`, `cap`, `volume_seance`, `duree_s`, `distance_m`.
+- **1d. Types de record qui comptent** : `charge_a_reps`, `reps_a_charge`, `charge_max`, `cap`, `volume_seance`, `duree_s`, `distance_m`, et — 153, 23/10/2026, `v2_109` — `allure`, `marche`, `denivele_m`, `etages`. (`TYPES_DE_LA_GUILDE`, `faits.js` ; `guilde_semaine` les compte.)
   Exclu : `un_rm_estime` (une estimation, pas un fait). **22/10/2026 : le volume de la séance reste un record, partout, la guilde
   comprise** (décision d'Aurélien, revient sur 05 #2 et sur l'exclusion du 14/10) ; la série qui porte sa médaille
   suit la règle « sans dépasser la charge proposée » comme les autres. Une série « à fond »
@@ -339,7 +339,7 @@ invitations, défis : des fonctions SECURITY DEFINER (`guilde_choisir_defi` refu
   (séries de départ de MON habitude, semaine allégée, série de plus) ; la copie est gardée dans le brouillon de la séance
   (`seance.groupe.suivi`, comme `raccourcie`), jamais en base. Un exercice que X ajoute ensuite est proposé UNE fois
   (« Ajouter » / « Non »).
-- **Le direct** : les 20 dernières séries validées des AUTRES membres (chauffes comprises), dans leur séance du groupe ;
+- **Le direct** : les 20 dernières séries validées des AUTRES membres (chauffes et dégressives comprises, chacune ÉTIQUETÉE « Chauffe », « Dégressive », « à l'échec » (1 rep et +) ou « manquée » (0 rep) — 152, 23/10/2026 : les mots de la ligne de série, lus par les reps ; avant : « Tentative manquée » — 144, décision du 23/10/2026 ; le récap de fin ne compte que le travail), dans leur séance du groupe ;
   la carte montre une pastille par membre (point vert : une série validée il y a moins de 3 min), les 2 plus récentes,
   « Tout voir (N) » / « Réduire », et la ligne des messages (toujours là, vide ou cachée par « Muet ») : la carte garde sa
   hauteur de 2 à 6 membres. Relu toutes les 20 s en séance ou dans un groupe (app visible), et tout de suite en touchant

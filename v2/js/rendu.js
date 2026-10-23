@@ -174,7 +174,7 @@
       // la distinction se fait par le style.
       var ligne = el('div', 'serie' + (s.estTravail ? '' : ' hors-travail') +
         (s.debutTour ? ' debut-tour' : ''));
-      var t = ETIQUETTE_TYPE[s.type_serie];
+      var t = s.estTravail ? null : ETIQUETTE_TYPE[s.type_serie];
       // Hors superset, `etiquette` est vide sur une série qui n'est pas du
       // travail : elle n'a pas de lettre à porter. On retombe alors sur le
       // libellé de type — `W` pour une chauffe — plutôt que sur un badge nu.
@@ -188,6 +188,8 @@
         lien.addEventListener('click', a.sur);
         mesure.appendChild(lien);
       }
+      // 152 — « à l'échec » (ambre) ou « manquée » : le mot vient de la lecture unique (`Modele.motDEchec`).
+      if (s.motEchec) mesure.appendChild(el('span', 'etq' + (s.estTravail ? ' fond' : ''), s.motEchec));
       ligne.appendChild(mesure);
       section.appendChild(ligne);
     });
@@ -529,8 +531,9 @@
       if (v.aujourdhui) fiche.appendChild(el('div', 'objectif-aujourdhui num', v.aujourdhui));
       if (v.ligne) {
         var ligne = el('p', 'objectif-date', v.ligne);
-        if (v.pari) ligne.appendChild(el('span', 'objectif-pari', ' ' + v.pari));
+        if (v.pari) ligne.appendChild(el('span', 'objectif-pari', v.pari));
         fiche.appendChild(ligne);
+        if (v.rythme) fiche.appendChild(el('p', 'objectif-rythme', v.rythme));
       }
       carte.appendChild(fiche);
     }
@@ -623,6 +626,58 @@
     carte.appendChild(ol);
     if (v.phrase) carte.appendChild(el('p', 'te-phrase', v.phrase));
     cible.appendChild(carte);
+  }
+
+  // 145 (ECRAN-SAISIE §7 quater.7, maquette `maquette-semaine-echelles-v1.html`, validée le 23/10/2026) — « TES ÉCHELLES
+  // CETTE SEMAINE », en tête de Saisie. Le dessin seulement : tout arrive fait (`Modele.vueEchellesDeLaSemaine`, l'app).
+  // La carte s'ouvre sur la page « Ton échelle » (`vue.surOuvrir(slug)`, celle de la première échelle). Ni flèche, ni
+  // rouge : « nouvelle » est le seul fait en couleur ; les ronds sont pleins quand la séance a tenu la condition.
+  function rendreCarteEchelles(cible, vue) {
+    vider(cible);
+    if (!vue || !vue.echelles || !vue.echelles.length) { cible.hidden = true; return cible; }
+    cible.hidden = false;
+    var carte = el('button', 'carte-echelles');
+    carte.type = 'button';
+    carte.setAttribute('data-slug', vue.echelles[0].ouvre);
+    carte.appendChild(el('span', 'ce-etiquette', 'Tes échelles \u00b7 semaine du ' + vue.libelle));
+    vue.echelles.forEach(function (e) {
+      var bloc = el('span', 'ce-ech');
+      var tete = el('span', 'ce-tete');
+      tete.appendChild(el('span', 'ce-nom', e.nom));
+      var marche = el('span', 'ce-marche', 'ta marche : ');
+      marche.appendChild(el('b', null, e.marche.nom));
+      if (e.nouvelle) marche.appendChild(el('span', 'ce-nouvelle', 'nouvelle'));
+      tete.appendChild(marche);
+      bloc.appendChild(tete);
+      if (e.fait) {
+        var f = el('span', 'ce-fait');
+        var dit = (e.fait.slug !== e.marche.slug ? e.fait.nom + ' : ' : '') + e.fait.meilleur;
+        f.appendChild(doc.createTextNode(e.nouvelle ? 'Première fois : ' + dit : dit));
+        var gris = e.nouvelle ? (e.nouvelle.avant ? 'avant : ' + e.nouvelle.avant : '')
+          : (e.fait.avant ? 'la semaine d\u2019avant : ' + e.fait.avant : '');
+        if (gris) f.appendChild(el('span', 'ce-gris', ' \u00b7 ' + gris));
+        bloc.appendChild(f);
+      }
+      if (e.suite) {
+        var s = el('span', 'ce-suite');
+        s.appendChild(doc.createTextNode(e.suite.phrase + ' '));
+        if (e.suite.ronds) {
+          var pas = el('span', 'ce-pas');
+          e.suite.ronds.forEach(function (plein) { pas.appendChild(el('i', plein ? 'ok' : null)); });
+          s.appendChild(pas);
+        }
+        if (e.suite.serie) { s.appendChild(el('br')); s.appendChild(doc.createTextNode('Cette semaine : ' + e.suite.serie + '.')); }
+        bloc.appendChild(s);
+      }
+      carte.appendChild(bloc);
+    });
+    var lien = el('span', 'ce-lien');
+    lien.appendChild(el('b', null, vue.echelles.length > 1 ? 'Tes échelles' : 'Ton échelle'));
+    lien.appendChild(doc.createTextNode(' \u203a'));
+    carte.appendChild(lien);
+    carte.addEventListener('click', function () { if (vue.surOuvrir) vue.surOuvrir(vue.echelles[0].ouvre); });
+    cible.appendChild(carte);
+    return cible;
   }
 
   function rendreResumeExo(cible, vue) {
@@ -735,6 +790,18 @@
       etapes.appendChild(li);
     });
     if (n) cible.appendChild(etapes);
+  }
+
+  // 144-6 — la feuille « Comment faire » d'un exercice vu chez un ami : LE MÊME rendu que l'onglet (`rendreCommentExo`),
+  // en lecture seule. Ni « Ton échelle » ni record : ce seraient les siens ou les tiens, et ce n'est ni l'un ni l'autre.
+  function rendreFeuilleCommentFaire(cible, vue) {
+    vider(cible);
+    teteFeuille(cible, 'Comment faire', vue.nom, null);
+    var corps = el('div', 'exo-comment-feuille');
+    rendreCommentExo(corps, { comment: vue.comment });
+    cible.appendChild(corps);
+    piedFeuille(cible, [{ classe: 'des', texte: 'Fermer', surClic: vue.surFermer }]);
+    return cible;
   }
 
   function rendrePageExercice(cible, vue) {
@@ -2514,6 +2581,10 @@
         noeud.appendChild(propositionDeDegressiveVide(info.message, s._iExo, s._iSerie, vue));
       } else if (info && info.message) noeud.appendChild(phraseDeReaction(info.message, s.debutTour));
       noeud.appendChild(rangeeDeSerie(bloc, s, complets, vue, info));
+      // 149 (MOTEUR §9.17 ter) — UNE FIGURE EN SECONDES : l'étiquette de la ligne (« max », « après ton max ») et, la tenue
+      // max validée, la phrase du coach sous elle. Lues sur le plan (`info`), jamais recomposées.
+      if (info && info.etiquette) noeud.appendChild(el('div', 'fig-eti', info.etiquette));
+      if (info && info.apres) noeud.appendChild(phraseDeReaction({ type: 'figure', phrase: info.apres }, false));
       // ECRAN §3 ter.5 (prompt 131, maquette mesures-cardio écran 1) — LE D+, SUR SA PROPRE LIGNE,
       // SOUS LA SÉRIE : une troisième colonne ne tient pas à 360 px à côté d'une durée en horloge.
       // Facultatif, sans chiffre gris ; jamais dans l'éditeur de routine.
@@ -3147,6 +3218,8 @@
     rangee.setAttribute('data-iserie', iSerie);
 
     var eti = etiquetteDeSerie(bloc, s);
+    // 151 — la seconde baisse porte son rang (« D2 », la lecture de « 2ᵉ baisse »), lu sur le plan.
+    if (!bloc.superset && s.type_serie === 'degressive' && reaction && reaction.baisse > 1) eti = { texte: 'D' + reaction.baisse, classe: 'd' };
     // Une note propre à CETTE série se signale sur son numéro — sinon elle
     // serait invisible, et une donnée qu'on ne voit pas est une donnée dont on
     // ne se souvient pas.
@@ -3269,6 +3342,8 @@
     }
 
     ligne.appendChild(rangee);
+    // 152 — le mot d'une série `echec` : « à l'échec » (ambre) à 1 rep et plus, « manquée » à 0.
+    if (s.motEchec) ligne.appendChild(el('div', 'etq-ligne etq' + (s.estTravail ? ' fond' : ''), s.motEchec));
     ligne.appendChild(fond);
     brancherGlissement(ligne, function () { vue.surSupprimerSerie(iExo, iSerie); });
     return ligne;
@@ -3279,8 +3354,8 @@
   // exactement comme au détail de séance. Hors superset, rien ne change — `C`,
   // `D`, `✕`, ou le numéro de la série de travail.
   function etiquetteDeSerie(bloc, s) {
-    if (!bloc.superset) return etiquetteSerie(s.type_serie, s.tour);
-    var e = ETIQUETTE_TYPE[s.type_serie];
+    if (!bloc.superset) return etiquetteSerie(s.estTravail ? 'travail' : s.type_serie, s.tour);
+    var e = s.estTravail ? null : ETIQUETTE_TYPE[s.type_serie];
     return { texte: s.etiquette, classe: e ? e.classe : '' };
   }
 
@@ -3403,7 +3478,7 @@
     ['travail', 'Série de travail'],
     ['echauffement', 'Échauffement'],
     ['degressive', 'Dégressive'],
-    ['echec', 'Tentative manquée']
+    ['echec', 'À l’échec', 'Tes reps comptent, sans marge. À 0 rep : une tentative manquée.']
   ];
 
   var LIBELLE_RESSENTI = [
@@ -3426,6 +3501,7 @@
       var menu = el('div', 'feuille-menu');
       LIBELLE_TYPE.forEach(function (t) {
         var b = el('button', M().typeDe(vue.serie) === t[0] ? 'sel' : '', t[1]);
+        if (t[2]) b.appendChild(el('small', 'aide-type', t[2]));
         b.type = 'button';
         b.addEventListener('click', function () { vue.surType(t[0]); });
         menu.appendChild(b);
@@ -4248,6 +4324,32 @@
     entreeMenu(menu, 'Dupliquer', { classe: 'accent-menu', surClic: vue.surDupliquer });
     entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
     cible.appendChild(menu);
+    return cible;
+  }
+
+  // 147 (23/10/2026) — UNE SÉANCE TROP LONGUE : un fait, pas un reproche. Deux phrases au plus (la seconde seulement
+  // si « Terminer à <heure> » est proposable), deux choix, et « Revenir à la séance » qui n'écrit rien.
+  function rendreFeuilleDuree(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', 'Ta séance dure ' + vue.duree + '.'));
+    if (vue.derniere) cible.appendChild(el('p', 'feuille-aide', 'Ta dernière série date de ' + vue.derniere + '.'));
+    var b1 = el('button', 'principal', vue.surTerminerA ? 'Terminer à ' + vue.derniere : 'Garder ' + vue.duree);
+    b1.type = 'button';
+    b1.setAttribute('data-choix', vue.surTerminerA ? 'terminer-a' : 'garder');
+    b1.addEventListener('click', vue.surTerminerA || vue.surGarder);
+    cible.appendChild(b1);
+    if (vue.surTerminerA) {
+      var b2 = el('button', 'discret bloc-large', 'Garder ' + vue.duree);
+      b2.type = 'button';
+      b2.setAttribute('data-choix', 'garder');
+      b2.addEventListener('click', vue.surGarder);
+      cible.appendChild(b2);
+    }
+    var b3 = el('button', 'discret bloc-large', 'Revenir à la séance');
+    b3.type = 'button';
+    b3.setAttribute('data-choix', 'revenir');
+    b3.addEventListener('click', vue.surRevenir);
+    cible.appendChild(b3);
     return cible;
   }
 
@@ -6337,6 +6439,22 @@
         g.appendChild(el('span', 'imp-e', l.sous));
         b.appendChild(g);
         liste.appendChild(b);
+        // 147 — une séance de plus de 5 h : « Dure 9 h 42 », et deux choix (« Sans heure de fin » par défaut).
+        if (l.duree && !l.grise) {
+          var d = el('div', 'imp-duree');
+          d.setAttribute('role', 'radiogroup');
+          d.appendChild(el('span', 'imp-duree-t', 'Dure ' + l.duree));
+          [[true, 'Sans heure de fin'], [false, 'Garder ' + l.duree]].forEach(function (c) {
+            var bc = el('button', 'imp-duree-c' + (!!l.sansFin === c[0] ? ' sel' : ''), c[1]);
+            bc.type = 'button';
+            bc.setAttribute('role', 'radio');
+            bc.setAttribute('data-choix', c[0] ? 'sans-fin' : 'garder');
+            bc.setAttribute('aria-checked', !!l.sansFin === c[0] ? 'true' : 'false');
+            bc.addEventListener('click', function () { vue.surChoisirFin(i, c[0]); });
+            d.appendChild(bc);
+          });
+          liste.appendChild(d);
+        }
       });
       cible.appendChild(liste);
       if (vue.noms.length) {
@@ -6463,7 +6581,7 @@
                      complet: 'Complet', collectionneur: 'Collectionneur' };
   var JEU_CADRES = { vitrine: 'Cadre de vitrine', niveau: 'Cadre de niveau', or: 'Cadre d’or', grave: 'Cadre gravé' };
   var JEU_CATEGORIES = { seances: 'Séances', serie: 'Série de semaines', records: 'Records', rando: 'Randonnée',
-                         decouverte: 'Découverte', muscle: 'Muscles', tous: 'Tous les muscles', cap: 'Caps ronds' };
+                         decouverte: 'Découverte', muscle: 'Muscles', tous: 'Tous les muscles', distance: 'Distances', cap: 'Caps ronds' };
   var JEU_RANG = { commun: 1, rare: 2, exceptionnel: 3, majeur: 4 };
   var NBSP = ' ', FINE = ' ';
 
@@ -6528,6 +6646,7 @@
       case 'rando': return 'Randonnée : ' + groupe(p) + NBSP + 'km';
       case 'decouverte': return p + ' ' + motJeu(p, 'exercice', 'exercices');
       case 'sortie': return 'Grande sortie : ' + p + NBSP + 'km';
+      case 'distance': return d.libelle || String(p);
       case 'muscle': return libelleMuscleJeu(d.cle) + ' niveau ' + p;
       case 'tous': return 'Tous les muscles à ' + p;
       case 'cap': return 'Cap rond : ' + (d.nom || d.cle) + ' ' + nombreFr(p) + NBSP + 'kg';
@@ -7050,6 +7169,14 @@
       var ex = el('div', 's-ex');
       ex.appendChild(el('span', 's-ex-nom', x.nom));
       ex.appendChild(el('small', null, x.fait));
+      // 144-6 — « Comment faire » chez un ami, en lecture seule : la même fiche que la page d'exercice.
+      if (x.surOuvrir) {
+        ex.classList.add('s-ex-ouvrable');
+        ex.setAttribute('role', 'button');
+        ex.tabIndex = 0;
+        ex.addEventListener('click', x.surOuvrir);
+        ex.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); x.surOuvrir(); } });
+      }
       d.appendChild(ex);
     });
     if (r.detailCache) d.appendChild(el('p', 's-gris s-cache s-detail-cache', r.detailCache));
@@ -7555,6 +7682,10 @@
     g.lignes.forEach(function (l) {
       var d = el('div', 'g-l');
       d.appendChild(doc.createTextNode(l.texte + ' '));
+      if (l.etiquette) {
+        d.appendChild(el('span', 'g-etiq', l.etiquette));
+        d.appendChild(doc.createTextNode(' '));
+      }
       d.appendChild(el('small', null, '· ' + l.quand));
       lignes.appendChild(d);
     });
@@ -7791,6 +7922,7 @@
     rendreFeuilleSupprimer: rendreFeuilleSupprimer,
     phraseEffacement: phraseEffacement,
     rendreFeuilleFin: rendreFeuilleFin,
+    rendreFeuilleDuree: rendreFeuilleDuree,
     rendreRecap: rendreRecap,
     // 64B — le jeu (JEU-V1 §9).
     rendreJeuAccueil: rendreJeuAccueil,
@@ -7814,6 +7946,7 @@
     rendreBandeauReprise: rendreBandeauReprise,
     rendreFeuilleInstaller: rendreFeuilleInstaller,
     rendreCarteSemaine: rendreCarteSemaine,
+    rendreCarteEchelles: rendreCarteEchelles,
     rendreCarteManque: rendreCarteManque,
     rendreEscalier: rendreEscalier,
     brancherReorganisation: brancherReorganisation,
@@ -7858,6 +7991,7 @@
     rendreProfil: rendreProfil,
     rendreQuestionnaire: rendreQuestionnaire,
     rendreFeuilleChoix: rendreFeuilleChoix,
+    rendreFeuilleCommentFaire: rendreFeuilleCommentFaire,
     rendreFeuilleChoixMultiple: rendreFeuilleChoixMultiple,
     rendreFeuilleSaisie: rendreFeuilleSaisie,
     rendreFeuillePesee: rendreFeuillePesee,

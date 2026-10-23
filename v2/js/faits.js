@@ -93,7 +93,8 @@
     //     (au centième) ; une proposition sans chiffre (« le cran au-dessus », `fondement.charge` nul) : elle compte
     //     (la règle « suivie » de MOTEUR §12 : toute charge au-dessus du palier) ; une série sans charge : elle compte.
     // Un record se compte par SÉRIE (une médaille par série, comme le fil). `paris` : les paris connus (`predictions`).
-    var TYPES_DE_LA_GUILDE = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'volume_seance', 'duree_s', 'distance_m'];
+    var TYPES_DE_LA_GUILDE = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'volume_seance', 'duree_s', 'distance_m',
+                              'allure', 'marche', 'denivele_m', 'etages'];
     function recordsSansDepasser(c, paris, de, a) {
       var series = {}, parSerie = {};
       seancesAvecSeries(c).forEach(function (s) { s.series.forEach(function (x) { if (x && x.id) series[x.id] = x; }); });
@@ -215,6 +216,25 @@
       }).filter(Boolean);
     }
 
+    // 149 (MOTEUR §9.17 ter) — LES TENUES MAX D'UNE FIGURE : pour chaque séance faite qui porte l'exercice, sa meilleure
+    // tenue de TRAVAIL (la plus longue `duree_s` d'une série de travail) — « le max de la dernière fois » du coach et la
+    // matière de la carte « marche suivante » en secondes. Rend `[{ seance, debut, max }]`, de la plus ancienne à la plus
+    // récente ; une séance sans tenue de travail chiffrée n'y est pas. La séance en cours n'y est pas (le cache ne la
+    // porte qu'une fois terminée). Un fait : rien n'est formaté ni jugé ici.
+    function tenuesDeLExercice(c, slug) {
+      var out = [];
+      seancesDeLExercice(c, slug).forEach(function (g) {
+        var max = null;
+        g.series.forEach(function (x) {
+          if (!x || !Modele.estTravail(x)) return;
+          var d = Number(x.duree_s);
+          if (x.duree_s !== null && x.duree_s !== undefined && isFinite(d) && d > 0 && (max === null || d > max)) max = d;
+        });
+        if (max !== null) out.push({ seance: g.seance.id, debut: g.seance.debut, max: max });
+      });
+      return out.reverse();
+    }
+
     // ── Les records (MOTEUR §9.23, 55-1) ────────────────────────────────────
     //
     // Les séries médaillées d'une séance PASSÉE : chacune comparée aux séances
@@ -227,7 +247,7 @@
       var index = c.catalogue(), out = [];
       se.series.forEach(function (x, k) {
         if (!x || !Modele.estTravail(x)) return;
-        var r = Modele.recordsBattus(seancesDuSlug(c, x.exercise_slug), se, k, Modele.optionsDeRecord(index[x.exercise_slug] || null));
+        var r = Modele.recordsBattus(seancesDuSlug(c, x.exercise_slug), se, k, optionsDesRecords(c, x.exercise_slug));
         if (!r.length) return;
         var nom = Modele.nomCourt(index[x.exercise_slug] ? index[x.exercise_slug].nom : x.exercise_slug);
         // 58-2 — `serieId` : le journal écrit une ligne par série et par type.
@@ -294,13 +314,33 @@
       return { debut: seance ? seance.debut : null, series: series, positions: positions };
     }
 
+    // 153 (B) — les options des records d'un exercice : son matériel (la fenêtre), et de quoi lire une MARCHE (le
+    // catalogue, et — à la demande seulement — toutes les séances d'avant, tous exercices : une seule lecture par
+    // corpus). `Modele.recordsBattus` filtre sur la date de la série.
+    var memoToutes = { cle: null, liste: null };
+    function toutesLesSeancesPourMarche(c) {
+      var cle = (c.seances || []).length + '|' + (c.series || []).length;
+      if (memoToutes.cle !== cle) {
+        memoToutes = { cle: cle, liste: seancesAvecSeries(c).map(function (s) { return { id: s.id, debut: s.debut, series: s.series }; }) };
+      }
+      return memoToutes.liste;
+    }
+    function optionsDesRecords(c, slug) {
+      var index = c.catalogue();
+      return Object.assign({}, Modele.optionsDeRecord(index[slug] || null),
+        { marche: { index: index, passees: function () { return toutesLesSeancesPourMarche(c); } } });
+    }
+    function nomCompletDuCatalogue(c) {
+      var index = c.catalogue();
+      return function (slug) { return index[slug] ? index[slug].nom : slug; };
+    }
+
     function recordsDeLaSerie(c, seance, iExo, iSerie, lue) {
       var v = lue || seanceDesRecords(seance);
       var k = v.positions[iExo + ':' + iSerie];
       if (k === undefined) return [];
       var slug = v.series[k].exercise_slug;
-      return Modele.recordsBattus(historiqueDesRecords(c, seance, slug), v, k,
-        Modele.optionsDeRecord(c.catalogue()[slug] || null));
+      return Modele.recordsBattus(historiqueDesRecords(c, seance, slug), v, k, optionsDesRecords(c, slug));
     }
 
     // Les records du jour : une ligne par série médaillée, « Développé couché
@@ -318,7 +358,7 @@
           if (!r.length) return;
           var nom = Modele.nomCourt(index[exo.exercise_slug] ? index[exo.exercise_slug].nom : exo.exercise_slug);
           var ligne = { nom: nom.charAt(0).toUpperCase() + nom.slice(1), mesure: Modele.formatMesure(s) };
-          if (avecPhrase) ligne.phrase = Modele.phraseDeRecord(r, nom, seance.debut);
+          if (avecPhrase) ligne.phrase = Modele.phraseDeRecord(r, nom, seance.debut, nomCompletDuCatalogue(c));
           out.push(ligne);
         });
       });
@@ -462,6 +502,7 @@
         reps: vide(r.reps),
         charge: vide(r.charge),
         unite: vide(r.unite),
+        palier_m: vide(r.palier_m),
         ancien: vide(r.ancien),
         ancien_le: vide(r.ancien_le),
         sur_douze_mois: !!r.douzeMois,
@@ -511,7 +552,7 @@
     // restent en base, immuables (`records_immuable`) : ELLES SONT IGNORÉES ICI, à la lecture — la seule, donc le jeu,
     // le récap de fin de séance et tout lecteur à venir ne les voient plus. `medaillesDuSocial` (le fil) aussi.
     var ORDRE_DES_TYPES = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap',
-                           'volume_seance', 'duree_s', 'distance_m'];
+                           'volume_seance', 'duree_s', 'distance_m', 'allure', 'denivele_m', 'etages', 'marche'];
     var TYPES_HORS_RECORDS = ['un_rm_estime'];
     function estUnRecord(l) { return !!l && TYPES_HORS_RECORDS.indexOf(l.type) < 0; }
     function recordsDuJournal(c, filtre) {
@@ -550,6 +591,8 @@
       if ((l = de('reps_a_charge'))) return { charge_kg: l.charge, reps: l.valeur };
       if ((l = de('duree_s'))) return { duree_s: l.valeur };
       if ((l = de('distance_m'))) return { distance_m: l.valeur };
+      if ((l = de('denivele_m'))) return { denivele_m: l.valeur };
+      if ((l = de('etages'))) return { etages: l.valeur };
       if ((l = de('charge_max')) || (l = de('cap'))) return { charge_kg: l.valeur };
       return null;
     }
@@ -593,6 +636,79 @@
         bilan: Semaine.bilanSemaine(seances, series, c.exercices),
         zones: Semaine.volumeParZone(series, c.exercices)
       };
+    }
+
+    // ── 145 (ECRAN-SAISIE §7 quater.7) — « Tes échelles cette semaine » ──────
+    //
+    // Les exercices D'ÉCHELLE (le catalogue : `Modele.echelleDe`) travaillés pendant la semaine qui commence à `lundi`
+    // (lundi → dimanche, heure locale — comme `semaineDe`), leurs séries de travail (`Modele.estTravail`) de cette
+    // semaine et de la semaine d'avant, et la MARCHE FRANCHIE : la première série de travail de la vie sur un rang plus
+    // haut que tout ce qui précédait la semaine. Rend, l'échelle travaillée le plus récemment d'abord :
+    //   `[{ echelle, derniere, exercices: { slug: { semaine: [séries], avant: [séries] } },
+    //       nouvelle: { slug, ancienne: { slug, series } | null } | null }]`
+    // `exercices` ne porte que les exercices travaillés cette semaine ; `nouvelle.ancienne.series` : les séries de
+    // travail de la dernière séance de l'ancienne marche avant la semaine. Rien de la semaine sans exercice d'échelle :
+    // `[]`. Une séance en cours n'y est pas. Le fait ne formate rien et ne juge rien : l'app écrit les meilleures séries
+    // par le formateur unique, `Modele.vueEchellesDeLaSemaine` compose la carte.
+    function echellesDeLaSemaine(c, lundi) {
+      var b = Semaine.bornesSemaine(lundi);
+      if (!b) return [];
+      var avant = Semaine.decalerSemaine(b.lundi, -1);
+      var index = Modele.indexerExercices(c.exercices || []);
+      var enCours = {};
+      (c.seances || []).forEach(function (s) { if (s && s.id && s.statut === 'en_cours') enCours[s.id] = true; });
+      var datees = seancesDatees(c).filter(function (s) { return !enCours[s.id]; }).slice().sort(function (x, y) {
+        return new Date(x.debut) - new Date(y.debut);
+      });
+      var parEchelle = {}, ordre = [];
+      datees.forEach(function (s) {
+        var d = new Date(s.debut);
+        if (d > b.dimanche) return;
+        var zone = d >= b.lundi ? 'semaine' : d >= avant.lundi ? 'avant' : 'ancien';
+        var duJour = {};
+        (s.series || []).forEach(function (x) {
+          var exo = x && x.exercise_slug ? index[x.exercise_slug] : null;
+          var E = exo ? Modele.echelleDe(exo) : null;
+          if (E === null || !Modele.estTravail(x)) return;
+          var r = parEchelle[E];
+          if (!r) { r = parEchelle[E] = { echelle: E, derniere: null, exercices: {}, avantLaSemaine: {} }; ordre.push(E); }
+          var slug = x.exercise_slug;
+          if (zone === 'semaine') {
+            var e = r.exercices[slug] || (r.exercices[slug] = { semaine: [], avant: [], derniere: null });
+            e.semaine.push(x);
+            e.derniere = s.debut;
+            if (r.derniere === null || new Date(s.debut) > new Date(r.derniere)) r.derniere = s.debut;
+          } else {
+            (duJour[E + '|' + slug] = duJour[E + '|' + slug] || { E: E, slug: slug, debut: s.debut, series: [] }).series.push(x);
+            if (zone === 'avant') {
+              var e2 = r.exercices[slug] || (r.exercices[slug] = { semaine: [], avant: [], derniere: null });
+              e2.avant.push(x);
+            }
+          }
+        });
+        // La dernière séance de chaque exercice AVANT la semaine (la séance d'avant remplace la précédente).
+        Object.keys(duJour).forEach(function (k) { parEchelle[duJour[k].E].avantLaSemaine[duJour[k].slug] = duJour[k]; });
+      });
+      var out = [];
+      ordre.forEach(function (E) {
+        var r = parEchelle[E];
+        if (r.derniere === null) return;
+        var travailles = Object.keys(r.exercices).filter(function (s) { return r.exercices[s].semaine.length > 0; });
+        var exercices = {};
+        travailles.forEach(function (s) { exercices[s] = { semaine: r.exercices[s].semaine, avant: r.exercices[s].avant }; });
+        // La marche franchie : un rang plus haut que tout ce qui précédait la semaine (et il y avait un « avant »).
+        var pre = Object.keys(r.avantLaSemaine);
+        var nouvelle = null;
+        if (pre.length) {
+          var ancien = Modele.marcheLaPlusHaute(index, pre, function (s) { return r.avantLaSemaine[s].debut; });
+          var nouveau = Modele.marcheLaPlusHaute(index, travailles, function (s) { return r.exercices[s].derniere; });
+          if (Modele.estPlusHaute(index, nouveau, ancien)) {
+            nouvelle = { slug: nouveau, ancienne: { slug: ancien, series: r.avantLaSemaine[ancien].series } };
+          }
+        }
+        out.push({ echelle: E, derniere: r.derniere, exercices: exercices, nouvelle: nouvelle });
+      });
+      return out.sort(function (x, y) { return new Date(y.derniere) - new Date(x.derniere); });
     }
 
     // ── Ce que les séances savent de la personne (60-2a) ────────────────────
@@ -1024,6 +1140,8 @@
         series: series,
         catalogue: c.catalogue(),
         journal: journal,
+        // 153 (D) — la plus grande distance d'une série de travail, par sport (course, nage, velo) : le jeu ne lit pas les séries.
+        distances: Modele.distancesMaxParSport(series),
         maximums: avec ? avec.maximums : ceQueJeSais(c, aujourdhui, BARRES_DU_JEU).maximums,
         exercicesFaits: avec ? avec.exercicesFaits : compterExercices(c).faits
       };
@@ -1349,6 +1467,7 @@
       TYPES_DE_LA_GUILDE: TYPES_DE_LA_GUILDE,
       seancesDuSlug: seancesDuSlug,
       seancesDeLExercice: seancesDeLExercice,
+      tenuesDeLExercice: tenuesDeLExercice,
       recordsDeLaSeance: recordsDeLaSeance,
       recordsDuMois: recordsDuMois,
       dernierRecord: dernierRecord,
@@ -1364,6 +1483,7 @@
       recordsDuJournal: recordsDuJournal,
       medaillesDuSocial: medaillesDuSocial,
       semaineDe: semaineDe,
+      echellesDeLaSemaine: echellesDeLaSemaine,
       datesDesExercices: datesDesExercices,
       exercicesFaitsParSeance: exercicesFaitsParSeance,
       seancesParExercice: seancesParExercice,

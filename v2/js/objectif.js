@@ -343,13 +343,43 @@
 
   // « Au rythme actuel : fin février. » — l'année seulement quand le mois annoncé est celui d'aujourd'hui, un an plus
   // tard (la date ne dépasse jamais 12 mois : c'est le seul nom de mois ambigu).
-  function ligneDeDate(o, aujourdhui) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String((o && o.echeance) || ''));
+  // 150 : « fin avril » — le mois du pari, ou celui de la ligne « au rythme d'aujourd'hui » (la même règle d'année).
+  function finDeMois(echeance, aujourdhui) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(echeance || ''));
     if (!m) return null;
     var auj = new Date(instant(aujourdhui));
     var mois = Number(m[2]) - 1, annee = Number(m[1]);
     var ambigu = mois === auj.getMonth() && annee !== auj.getFullYear();
-    return 'Au rythme actuel\u00a0: fin ' + moisLong(mois) + (ambigu ? ' ' + annee : '') + '.';
+    return 'fin ' + moisLong(mois) + (ambigu ? ' ' + annee : '');
+  }
+  function ligneDeDate(o, aujourdhui) {
+    var t = finDeMois(o && o.echeance, aujourdhui);
+    return t ? 'Le pari du coach\u00a0: ' + t + '.' : null;
+  }
+  // 150 (23/10/2026) — « Posé le 16 oct. On verra s'il tombe juste. » : la date de pose, l'année seulement si elle
+  // diffère d'aujourd'hui.
+  function lignePose(o, aujourdhui) {
+    var d = new Date(instant(o && o.pose_le));
+    if (isNaN(d.getTime())) return PARI;
+    var auj = new Date(instant(aujourdhui));
+    var j = Modele().jourMois(d, auj.getFullYear());
+    return 'Pos\u00e9 le ' + j + (/\.$/.test(j) ? '' : '.') + ' ' + PARI;
+  }
+  // 150 — « Au rythme d'aujourd'hui : fin février. » : un SECOND appel de `projection` (la seule règle), à la date
+  // d'aujourd'hui. Rien n'est écrit. Seulement quand un pari existe ; aucun état autre que date / plus d'un an / pas
+  // encore ne parle.
+  function ligneDuRythme(o, pr, aujourdhui) {
+    var debut = 'Au rythme d\u2019aujourd\u2019hui\u00a0: ';
+    if (!pr) return null;
+    if (pr.etat === 'date') {
+      var t = finDeMois(pr.echeance, aujourdhui);
+      if (!t) return null;
+      var memeMois = String(pr.echeance).slice(0, 7) === String(o.echeance).slice(0, 7);
+      return debut + (memeMois ? 'toujours ' : '') + t + '.';
+    }
+    if (pr.etat === 'plus_d_un_an') return debut + 'plus d\u2019un an.';
+    if (pr.etat === 'pas_encore') return debut + 'pas encore de date.';
+    return null;
   }
   function ligneAtteint(debut, aujourdhui) {
     var d = new Date(instant(debut)), auj = new Date(instant(aujourdhui));
@@ -359,7 +389,7 @@
 
   var PAS_ENCORE = 'Pas encore de date.';
   var PLUS_D_UN_AN = 'Au rythme actuel\u00a0: plus d\u2019un an.';
-  var PARI = 'C\u2019est un pari du coach\u00a0: on verra s\u2019il tombe juste.';
+  var PARI = 'On verra s\u2019il tombe juste.';
 
   // `e` : { objectif (la ligne), seances, options, maintenant, carnet }. Rend la carte « Mon objectif » :
   //   `titre` (« 150 kg × 1 »), `jauge` (0 à 1, depuis le record de la pose), `aujourdhui` (« Aujourd'hui : 145 kg ×
@@ -379,10 +409,12 @@
     else if (depart === null || charge - depart <= EPS) jauge = maintenant.charge / charge;
     else jauge = (maintenant.charge - depart) / (charge - depart);
     jauge = Math.max(0, Math.min(1, jauge));
-    var ligne = null, pari = null;
+    var ligne = null, pari = null, rythme = null;
     if (a) ligne = ligneAtteint(a.debut, e.maintenant);
     else if (!e.carnet) {
-      if (o.projection === 'date' && o.echeance) { ligne = ligneDeDate(o, e.maintenant); pari = PARI; }
+      if (o.projection === 'date' && o.echeance) { ligne = ligneDeDate(o, e.maintenant); pari = lignePose(o, e.maintenant);
+        rythme = ligneDuRythme(o, projection({ seances: e.seances, charge: charge, reps: n, maintenant: e.maintenant,
+          anciennete: e.anciennete || null, options: e.options, carnet: false, salle: e.salle || null }), e.maintenant); }
       else if (o.projection === 'plus_d_un_an') ligne = PLUS_D_UN_AN;
       else ligne = PAS_ENCORE;
     }
@@ -390,7 +422,7 @@
       titre: M.chargeFois(charge, n),
       jauge: jauge,
       aujourdhui: maintenant ? 'Aujourd\u2019hui\u00a0: ' + M.chargeFois(maintenant.charge, n) : null,
-      ligne: ligne, pari: pari, atteint: !!a
+      ligne: ligne, pari: pari, rythme: rythme, atteint: !!a
     };
   }
 

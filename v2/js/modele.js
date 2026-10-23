@@ -30,9 +30,30 @@
   // (`seance.js`, `rejeu.js`) disait « oui ». Partout ailleurs, on appelle ;
   // la garde d'architecture refuse un `type_serie === 'travail'` écrit en dur.
   function typeDe(serie) { return (serie && serie.type_serie) || 'travail'; }
-  function estTravail(serie) {
-    return !!serie && typeDe(serie) === 'travail';
+  // ⚠️ « À L'ÉCHEC » : UNE LECTURE, ICI (152, décision d'Aurélien du 23/10/2026). Les 128
+  // séries `echec` de la base viennent de Hevy, où « failure » veut dire série MENÉE à
+  // l'échec, reps faites. Donc : `echec` à 1 rep ou plus = une série de travail À FOND
+  // (`estTravail` vrai, cran « max » : `palier.js`) ; à 0 rep ou reps vides = une
+  // tentative manquée, ignorée comme avant. Rien ne se réécrit en base : c'est la lecture.
+  // Tout ce qui demande « est-ce du travail ? », « est-ce à l'échec ? » passe par ici.
+  function estAEchec(serie) {
+    if (!serie || typeDe(serie) !== 'echec') return false;
+    var r = lireNombre(serie.reps);
+    return r !== null && r >= 1;
   }
+  function estManquee(serie) {
+    return !!serie && typeDe(serie) === 'echec' && !estAEchec(serie);
+  }
+  // Le mot de l'étiquette d'une ligne : « à l'échec » (ambre) ou « manquée » ; `null` sinon.
+  function motDEchec(serie) {
+    return estAEchec(serie) ? 'à l’échec' : (estManquee(serie) ? 'manquée' : null);
+  }
+  function estTravail(serie) {
+    return !!serie && (typeDe(serie) === 'travail' || estAEchec(serie));
+  }
+  // Le type TEL QU'ON LE LIT : `travail` pour une série à l'échec (1 rep et +), le type de la base sinon. Le plan
+  // (`plan.js`) l'écrit sur chacune de ses lignes : aucun invariant ne compare `type_serie` à `'echec'`.
+  function typeLu(serie) { return estTravail(serie) ? 'travail' : typeDe(serie); }
 
   // UN EXERCICE « FAIT » (PR 6, décision du 02/10/2026) : au moins une série
   // de travail, cardio compris — le tapis est un exercice fait. Un exercice où
@@ -346,6 +367,15 @@
   function charge(kg, repli, cite) {
     var t = chargeTexte(kg, repli);
     declarer(cite, { charge: chargeOuNul(kg) }, t);
+    return t;
+  }
+
+  // 149 (MOTEUR §9.17 ter) — UNE DURÉE QUE LE COACH DIT : « 22 s », « 1 min 30 » — le formateur unique des durées
+  // (`formatDuree`, comme « Ton meilleur : 10 s »), déclaré au registre de la capture (§20 bis) avec sa valeur en
+  // secondes. Aucune phrase du coach n'écrit « s » à la main.
+  function secondes(v, cite) {
+    var t = formatDuree(v);
+    declarer(cite, { valeur: v === undefined ? null : v }, t);
     return t;
   }
 
@@ -1082,6 +1112,51 @@
       .filter(function (x) { return echelleDe(x) === echelle; });
   }
 
+  // 149 (v2_108, MOTEUR §9.17 ter) — UNE ÉCHELLE DE FIGURES : une échelle dont TOUTES les marches sont en secondes
+  // (`mesure = 'temps'` : front lever, back lever, planche, L-sit, équilibre, drapeau). Elle se lit sur le catalogue,
+  // jamais sur une liste de slugs. Vraie aussi pour l'échelle d'un exercice (`echelleDe(x)`), pas seulement pour sa clé.
+  function estEchelleDeFigures(index, echelle) {
+    if (typeof echelle !== 'string' || !echelle) return false;
+    var m = marchesDe(index, echelle);
+    return m.length > 0 && m.every(function (x) { return x.mesure === 'temps'; });
+  }
+  // L'exercice est une marche d'une échelle de figures.
+  function estUneFigure(index, slug) {
+    var x = index && slug ? index[slug] : null;
+    var E = echelleDe(x);
+    return E !== null && estEchelleDeFigures(index, E);
+  }
+  // 149 — LA MARCHE D'EN DESSOUS d'une figure : une marche du rang juste en dessous dans la même échelle (à rang égal :
+  // par slug), ou `null` au rang 1. « Sous 5 s, les coachs travaillent la marche d'en dessous : <nom>. »
+  function marcheDEnDessous(index, slug) {
+    var e = index && slug ? index[slug] : null;
+    var E = echelleDe(e);
+    if (E === null) return null;
+    var moins = marchesDe(index, E).filter(function (x) { return x.echelle_rang < e.echelle_rang; });
+    if (!moins.length) return null;
+    var r = Math.max.apply(null, moins.map(function (x) { return x.echelle_rang; }));
+    return moins.filter(function (x) { return x.echelle_rang === r; }).sort(parSlug)[0] || null;
+  }
+  // 149 — LE SEUIL DE LA MARCHE, en secondes (`exercises.echelle_seuil_s`) : la tenue de travail qui ouvre la marche
+  // suivante. La seule lecture de la colonne. `null` : vide (le sommet d'une échelle, les échelles en reps) ou absente.
+  function seuilDeLaMarche(x) {
+    var v = x ? x.echelle_seuil_s : null;
+    return typeof v === 'number' && isFinite(v) && v > 0 && Math.floor(v) === v ? v : null;
+  }
+
+  // 145 — le rang d'une marche, pour les faits (`faits.echellesDeLaSemaine`) : la marche la plus haute d'une liste
+  // d'exercices d'une même échelle (à rang égal : la plus récente selon `quand(slug)`, puis le slug), et « plus haut que ».
+  // La seule lecture de `echelle_rang` : le fait ne lit pas la colonne.
+  function marcheLaPlusHaute(index, slugs, quand) {
+    var rang = function (s) { return index[s].echelle_rang; };
+    return (slugs || []).slice().sort(function (x, y) {
+      return rang(y) - rang(x) || String(quand(y)).localeCompare(String(quand(x))) || (x < y ? -1 : x > y ? 1 : 0);
+    })[0] || null;
+  }
+  function estPlusHaute(index, a, b) {
+    return !!index[a] && !!index[b] && index[a].echelle_rang > index[b].echelle_rang;
+  }
+
   // LA MARCHE SUIVANTE d'un exercice d'échelle : `{ type, cible: [slugs], proposable }`, ou `null` (pas d'échelle, ou
   // rien au-dessus). Une seule fonction, lue par la carte du plan et par la page d'exercice :
   //   · depuis une AIDE (`charge = assistance`) : la marche stricte (« sans aide »), qui s'AJOUTE ;
@@ -1108,9 +1183,22 @@
       if (stricte && e.slug === stricte.slug && lest.length) { cible = lest; type = 'lest'; }
       else type = 'marche';
     }
-    var force = cible.filter(estDeForce);
+    // 149 — DANS UNE ÉCHELLE DE FIGURES, une habileté est proposable : la règle « une habileté n'est jamais proposée »
+    // vise le saut d'une échelle de force vers une habileté (les tractions vers l'archer), pas l'intérieur d'une figure
+    // (déjà dit le 17/10 pour le muscle-up, qui reste inchangé).
+    var force = estEchelleDeFigures(index, E) ? cible : cible.filter(estDeForce);
     if (!force.length) return { type: 'habilete', cible: cible.map(function (x) { return x.slug; }), proposable: false };
     return { type: type, cible: force.map(function (x) { return x.slug; }), proposable: type !== 'lest' };
+  }
+
+  // LE DÉPART d'une échelle : l'exercice de ta marche (`tienne`, le plus haut rang fait) fait le plus récemment, puis le
+  // slug (comme la référence). `faits` : les exercices faits de l'échelle ; `F` : leurs faits (`derniere`). 145 : « Tes
+  // échelles cette semaine » le lit ici, par la même fonction que « Ton échelle ».
+  function departDeLEchelle(faits, tienne, F) {
+    return faits.filter(function (x) { return x.echelle_rang === tienne; }).sort(function (a, b) {
+      var da = String(F[a.slug].derniere || ''), db = String(F[b.slug].derniere || '');
+      return da < db ? 1 : da > db ? -1 : (a.slug < b.slug ? 1 : a.slug > b.slug ? -1 : 0);
+    })[0];
   }
 
   // « TON ÉCHELLE » (ECRAN-SAISIE §7 quater.6, maquette validée le 21/10/2026) — la vue de la carte de la page d'un
@@ -1134,18 +1222,17 @@
     var suivante = null, phrase = null;
     if (tienne !== null) {
       // Le départ : l'exercice de ta marche fait le plus récemment (puis le slug, comme la référence).
-      var depart = faits.filter(function (x) { return x.echelle_rang === tienne; }).sort(function (a, b) {
-        var da = String(F[a.slug].derniere || ''), db = String(F[b.slug].derniere || '');
-        return da < db ? 1 : da > db ? -1 : (a.slug < b.slug ? 1 : a.slug > b.slug ? -1 : 0);
-      })[0];
+      var depart = departDeLEchelle(faits, tienne, F);
       var m = marcheSuivante(index, depart.slug);
       if (m) {
         var c = index[m.cible[0]];
         suivante = c.echelle_rang;
         var zh = zonesHaut && Object.prototype.hasOwnProperty.call(zonesHaut, depart.slug) ? zonesHaut[depart.slug] : null;
         if (coachActif && typeof phraseDe === 'function') {
+          // 149 — une FIGURE se dit en secondes : le seuil du catalogue (`echelle_seuil_s` de l'exercice de départ).
           phrase = phraseDe({ type: m.type, nomCible: c.nom || c.slug, nomDepart: depart.nom || depart.slug, depart: depart.slug,
-                              haut: typeof zh === 'number' ? zh : null, meilleur: F[depart.slug].meilleur || null });
+                              haut: typeof zh === 'number' ? zh : null, meilleur: F[depart.slug].meilleur || null,
+                              seuil: estEchelleDeFigures(index, E) ? seuilDeLaMarche(depart) : null });
         }
       }
     }
@@ -1167,6 +1254,75 @@
       }),
       phrase: phrase
     };
+  }
+
+  // « TES ÉCHELLES CETTE SEMAINE » (ECRAN-SAISIE §7 quater.7, maquette validée le 23/10/2026, 145) — la vue de la carte
+  // de Saisie, ou `[]`. Elle ne calcule rien de neuf : « Ton échelle » (`vueEchelle`) donne ta marche, la suivante et sa
+  // phrase ; les faits de la semaine (`faits.echellesDeLaSemaine`) arrivent DÉJÀ FORMATÉS par l'app (le formateur unique).
+  //   · `items` : `[{ echelle, exercices: { slug: { semaine, avant, reps } }, nouvelle }]`, dans l'ordre des faits
+  //     (l'échelle travaillée le plus récemment d'abord) ; `semaine` / `avant` : le meilleur de la semaine / de la semaine
+  //     d'avant (texte, ou `null`), `reps` : les reps des séries de travail de la semaine, dans l'ordre ; `nouvelle` :
+  //     `{ slug, ancienne: { nom, texte } }` quand la marche vient d'être franchie ;
+  //   · `o` : `{ faites, zonesHaut, coachActif, phraseDe, rondsDe }` — `faites` : comme `vueEchelle` (les exercices de
+  //     l'échelle faits, avec `derniere`) ; `phraseDe(e)` la phrase COURTE du coach ; `rondsDe(slug, e)` les deux ronds.
+  // Sans coach (« Juste un carnet »), ni phrase, ni ronds, ni reps de la condition. Rend, par échelle :
+  // `{ echelle, nom, marche: { slug, nom }, fait: { slug, nom, meilleur, avant } | null, nouvelle: { avant } | null,
+  //    suite: { phrase, ronds, serie } | null, ouvre }`.
+  function vueEchellesDeLaSemaine(index, items, o) {
+    var opt = o || {};
+    var out = [];
+    (items || []).forEach(function (it) {
+      if (!it || !index) return;
+      var membres = Object.keys(it.exercices || {}).filter(function (s) { return index[s] && echelleDe(index[s]) === it.echelle; });
+      if (!membres.length) return;
+      var v = vueEchelle(index, membres[0], opt.faites, opt.zonesHaut, opt.coachActif === true, opt.phraseDe);
+      if (!v) return;
+      var F = opt.faites || {};
+      var faits = marchesDe(index, it.echelle).filter(function (x) {
+        return Object.prototype.hasOwnProperty.call(F, x.slug) && !!F[x.slug];
+      });
+      var tienne = faits.length ? Math.max.apply(null, faits.map(function (x) { return x.echelle_rang; })) : null;
+      if (tienne === null) return;
+      var depart = departDeLEchelle(faits, tienne, F);
+      var nom = function (s) { return (index[s] && index[s].nom) || s; };
+      var ex = it.exercices;
+      // L'exercice dont la semaine se dit : la marche franchie, sinon ta marche, sinon le plus haut rang travaillé.
+      var travailles = membres.filter(function (s) { return ex[s] && ex[s].semaine; });
+      var ligne = it.nouvelle && ex[it.nouvelle.slug] && ex[it.nouvelle.slug].semaine ? it.nouvelle.slug
+        : ex[depart.slug] && ex[depart.slug].semaine ? depart.slug
+        : travailles.sort(function (a, b) { return index[b].echelle_rang - index[a].echelle_rang || parSlug(index[a], index[b]); })[0] || null;
+      var m = marcheSuivante(index, depart.slug);
+      var suite = null;
+      if (opt.coachActif === true && m) {
+        var haut = opt.zonesHaut && Object.prototype.hasOwnProperty.call(opt.zonesHaut, depart.slug) ? opt.zonesHaut[depart.slug] : null;
+        var habilete = m.type === 'habilete';
+        var ronds = !habilete && typeof opt.rondsDe === 'function'
+          ? opt.rondsDe(depart.slug, { haut: typeof haut === 'number' ? haut : null, aide: index[depart.slug].charge === 'assistance',
+                                       seuil: estEchelleDeFigures(index, it.echelle) ? seuilDeLaMarche(depart) : null }) : null;
+        var reps = ex[depart.slug] && ex[depart.slug].reps && ex[depart.slug].reps.length ? ex[depart.slug].reps : null;
+        var tenue = !!ronds && ronds.length > 0 && ronds.every(function (r) { return r === true; });
+        suite = { phrase: v.phrase, ronds: ronds || null, serie: !habilete && !tenue && reps ? reps.join(', ') : null };
+        if (!suite.phrase) suite = null;
+      }
+      out.push({
+        echelle: it.echelle,
+        nom: nom(it.echelle),
+        marche: { slug: depart.slug, nom: nom(depart.slug) },
+        fait: ligne ? { slug: ligne, nom: nom(ligne), meilleur: ex[ligne].semaine, avant: ex[ligne].avant || null } : null,
+        nouvelle: it.nouvelle ? { avant: it.nouvelle.ancienne ? it.nouvelle.ancienne.nom + (it.nouvelle.ancienne.texte ? ', ' + it.nouvelle.ancienne.texte : '') : null } : null,
+        suite: suite,
+        ouvre: depart.slug
+      });
+    });
+    return out;
+  }
+
+  // « 12 au 18 oct. » : la semaine (lundi → dimanche) de la carte « Tes échelles cette semaine ». Les mois et les
+  // chiffres ne s'écrivent que dans ce module.
+  function libelleDeLaSemaine(lundi, dimanche) {
+    if (!(lundi instanceof Date) || !(dimanche instanceof Date) || isNaN(lundi.getTime()) || isNaN(dimanche.getTime())) return '';
+    var memeMois = lundi.getMonth() === dimanche.getMonth() && lundi.getFullYear() === dimanche.getFullYear();
+    return (memeMois ? String(lundi.getDate()) : jourMois(lundi)) + ' au ' + jourMois(dimanche);
   }
 
   // « mardi » (sur les 7 derniers jours, `quandTexte`), sinon le mois (« mars » ; « mars 2025 » une autre année) :
@@ -1382,6 +1538,8 @@
           if (travail) tour++;
           return Object.assign({}, brute, {
             estTravail: travail,
+            // 152 : « à l'échec » (1 rep et +) ou « manquée » (0 rep) ; la lecture unique.
+            motEchec: motDEchec(brute),
             // Ce que l'écran doit montrer comme fait — coché, vert, compté.
             faite: faiteEnBase(brute),
             // Le tour d'une série de travail est son rang parmi les séries de
@@ -2057,6 +2215,55 @@
   // porte `valeur`, l'ancien record `ancien` et sa date `ancien_le` (le début
   // de sa séance), et `douzeMois` (lu dans la fenêtre des 12 mois d'un matériel
   // de salle) ; `[]` sans record.
+  // ══ 153 — LES SPORTS DE DISTANCE : UNE LISTE, ICI (registre NOTIONS) ═════════════════════════════════════════
+  //
+  // Pour chaque sport : ses exercices du catalogue (slugs), et — s'il a une ALLURE — l'unité du record
+  // (`records.unite`), la distance de l'unité (« /km », « /100 m », « /500 m ») et les paliers « pour au moins N »
+  // (mètres). Course et tapis ne font qu'un sport (le tapis est de la course). Le vélo (dehors et d'appartement), la
+  // marche et la randonnée n'ont PAS d'allure (le dénivelé, le vent, la pause : une allure y serait fausse) ; la
+  // randonnée garde son cap de 20 km (jeu). Ajouter un exercice à un sport, c'est ajouter son slug ICI, nulle part ailleurs.
+  // ⚠️ L'ALLURE SE COMPTE EN SECONDES PAR UNITÉ : PLUS BAS = MIEUX. Tout lecteur qui trie ou compare la `valeur` d'un
+  // record `allure` le sait ; `recordsBattus` est le seul à la comparer.
+  var SPORTS = {
+    course: { slugs: ['course_a_pieds', 'tapis_roulant'], unite: 's_km', metres: 1000,
+              paliers: [1000, 5000, 10000, 21097, 42195] },
+    nage: { slugs: ['natation'], unite: 's_100m', metres: 100, paliers: [400, 1000, 1500] },
+    rameur: { slugs: ['rameur'], unite: 's_500m', metres: 500, paliers: [500, 2000, 5000] },
+    velo: { slugs: ['cyclisme'] }
+  };
+  var LIBELLE_PALIER_COURSE = { 1000: '1 km', 5000: '5 km', 10000: '10 km', 21097: 'un semi', 42195: 'un marathon' };
+  function sportDe(slug) {
+    var trouve = null;
+    Object.keys(SPORTS).forEach(function (k) { if (SPORTS[k].slugs.indexOf(slug) >= 0) trouve = k; });
+    return trouve;
+  }
+  // La plus grande distance d'une série de travail, par sport de distance (course, nage, velo) — le jeu (153, D).
+  function distancesMaxParSport(series) {
+    var out = {};
+    (series || []).forEach(function (x) {
+      if (!x || !estTravail(x)) return;
+      var sp = sportDe(x.exercise_slug), m = valeurNumerique(x, 'distance_m');
+      if (sp === null || m === null || m <= 0) return;
+      if (out[sp] === undefined || m > out[sp]) out[sp] = m;
+    });
+    return out;
+  }
+  // L'ALLURE D'UNE SÉRIE : `{ allure, palier, unite }` (secondes par unité du sport, le plus grand palier ≤ sa distance),
+  // ou `null` : pas un sport à allure, pas de distance ou de durée, ou sous le premier palier.
+  function allureDeSerie(serie) {
+    var sp = serie ? sportDe(serie.exercise_slug) : null;
+    var def = sp ? SPORTS[sp] : null;
+    if (!def || !def.unite) return null;
+    var d = valeurNumerique(serie, 'duree_s'), m = valeurNumerique(serie, 'distance_m');
+    if (d === null || m === null || d <= 0 || m <= 0) return null;
+    var palier = null;
+    def.paliers.forEach(function (p) { if (p <= m + EPS_RECORD && (palier === null || p > palier)) palier = p; });
+    if (palier === null) return null;
+    return { allure: d / m * def.metres, palier: palier, unite: def.unite };
+  }
+  var UNITES_D_ALLURE = { s_km: '/km', s_100m: '/100\u00a0m', s_500m: '/500\u00a0m' };
+  function arrondi2(v) { return Math.round(v * 100) / 100; }
+
   function notee(s) { return !!s && s.elastique !== null && s.elastique !== undefined; }
   function recordsBattus(historique, seance, indice, options) {
     var o = options || {};
@@ -2154,9 +2361,9 @@
       }
     }
 
-    // ── La durée et la distance : toute la vie.
+    // ── La durée, la distance, le D+ et les étages : toute la vie (153 : le D+ et les étages, la même règle).
     if (passees.length) {
-      ['duree_s', 'distance_m'].forEach(function (champ) {
+      ['duree_s', 'distance_m', 'denivele_m', 'etages'].forEach(function (champ) {
         var v = valeurNumerique(s, champ);
         if (v === null || v <= 0) return;
         var avantLui = plusGrand(dater(passees).map(function (x) {
@@ -2167,13 +2374,73 @@
           out.push({ type: champ, valeur: v, ancien: avantLui ? avantLui.v : null, ancien_le: avantLui ? avantLui.date : null });
         }
       });
+      // 153 (A) — L'ALLURE POUR AU MOINS N : la série entière (durée ÷ distance), au plus grand palier atteint par sa
+      // distance. Un record si AUCUNE série passée du même exercice d'au moins ce palier n'a une allure ≤ (plus vite ou
+      // égale) ; sans série passée d'au moins ce palier, rien à battre. Toute la vie. PLUS BAS = MIEUX.
+      var al = allureDeSerie(s);
+      if (al) {
+        var rivale = null;
+        dater(passees).forEach(function (x) {
+          var ax = allureDeSerie(x.s);
+          if (!ax || ax.palier < al.palier) return;
+          if (rivale === null || ax.allure < rivale.v - EPS_RECORD ||
+              (Math.abs(ax.allure - rivale.v) <= EPS_RECORD && plusTot(x.date, rivale.date))) rivale = { v: ax.allure, date: x.date };
+        });
+        if (rivale !== null && al.allure < rivale.v - EPS_RECORD) {
+          out.push({ type: 'allure', valeur: arrondi2(al.allure), unite: al.unite, palier_m: al.palier,
+                     ancien: arrondi2(rivale.v), ancien_le: rivale.date, slug: slug });
+        }
+      }
+    }
+    // 153 (B) — LA PREMIÈRE FOIS SUR UNE MARCHE. Jamais à la toute première séance de la personne dans l'app (on ne sait
+    // rien d'avant), et une seule fois par exercice (la première série de travail). Une HABILETÉ faite pour la première
+    // fois, toute échelle, même sans marche d'avant ; une marche plus HAUTE que toute marche déjà faite sur son échelle
+    // (au moins une déjà faite). L'échelle se lit par `echelleDe` : jamais `echelle_rang` en direct ailleurs.
+    var mq = o.marche;
+    if (mq && mq.index && passees.length === 0 && avant.length === 0) {
+      var exoM = mq.index[slug];
+      var toutes = typeof mq.passees === 'function' ? mq.passees() : (mq.passees || []);
+      var anterieures = toutes.filter(function (h) {
+        var t = instantRecord(h && h.debut);
+        return t !== null && t < t0 && (h.series || []).some(function (x) { return x && estTravail(x); });
+      });
+      if (exoM && anterieures.length) {
+        if (exoM.nature === 'habilete') {
+          out.push({ type: 'marche', valeur: echelleDe(exoM) !== null ? exoM.echelle_rang : 1, ancien: null, ancien_le: null,
+                     slug: slug, habilete: true });
+        } else if (echelleDe(exoM) !== null) {
+          var E = echelleDe(exoM), vus = [];
+          var noter = function (x, date) {
+            if (!x || !estTravail(x) || notee(x)) return;
+            var e2 = mq.index[x.exercise_slug];
+            if (e2 && echelleDe(e2) === E) vus.push({ rang: e2.echelle_rang, slug: x.exercise_slug, date: date });
+          };
+          anterieures.forEach(function (h) { (h.series || []).forEach(function (x) { noter(x, h.debut); }); });
+          series.slice(0, indice).forEach(function (x) { noter(x, se.debut); });
+          if (vus.length) {
+            var R = Math.max.apply(null, vus.map(function (v) { return v.rang; }));
+            if (exoM.echelle_rang > R) {
+              var premiers = {};
+              vus.filter(function (v) { return v.rang === R; }).forEach(function (v) {
+                if (!premiers[v.slug] || plusTot(v.date, premiers[v.slug])) premiers[v.slug] = v.date;
+              });
+              var choix = Object.keys(premiers).sort(function (a, b) {
+                return instantRecord(premiers[a]) - instantRecord(premiers[b]) || (a < b ? -1 : a > b ? 1 : 0);
+              })[0];
+              out.push({ type: 'marche', valeur: exoM.echelle_rang, ancien: R, ancien_le: premiers[choix],
+                         slug: slug, ancien_slug: choix });
+            }
+          }
+        }
+      }
     }
     // 58-2 — LA FENÊTRE OÙ LE RECORD A ÉTÉ LU, dite par la fonction qui l'a
     // lu : 12 mois pour les charges d'un matériel de salle, toute la vie pour
     // la durée et la distance. Le journal la garde telle quelle (« sur 12
     // mois », §9.23 H1) ; la médaille ne la lit pas.
     var douzeMois = plancher !== null;
-    out.forEach(function (x) { x.douzeMois = douzeMois && x.type !== 'duree_s' && x.type !== 'distance_m'; });
+    var TOUTE_LA_VIE = ['duree_s', 'distance_m', 'denivele_m', 'etages', 'allure', 'marche'];
+    out.forEach(function (x) { x.douzeMois = douzeMois && TOUTE_LA_VIE.indexOf(x.type) < 0; });
     return out;
   }
 
@@ -2224,12 +2491,19 @@
     var t = 'le ' + (d.getDate() === 1 ? '1er' : d.getDate()) + ' ' + MOIS_COURTS[d.getMonth()];
     return r !== null && d.getFullYear() === r.getFullYear() ? t : t + ' ' + d.getFullYear();
   }
-  function phraseDeRecord(records, exercice, aujourdhui) {
+  // Le palier d'une allure, en mots : « 1 km », « un semi », « 1 000 m » (course et tapis en km, les autres en mètres).
+  function libelleDuPalier(r) {
+    if (r.unite === 's_km' && LIBELLE_PALIER_COURSE[r.palier_m]) return LIBELLE_PALIER_COURSE[r.palier_m];
+    return nombreGroupe(nombreTexte(r.palier_m, 0)) + INSECABLE + 'm';
+  }
+  function phraseDeRecord(records, exercice, aujourdhui, nomDe) {
     var liste = records || [];
     if (!liste.length) return null;
     var de = function (type) { return liste.filter(function (x) { return x.type === type; })[0] || null; };
     var cap = de('cap'), car = de('charge_a_reps'), rac = de('reps_a_charge'), lourde = de('charge_max');
     var vol = de('volume_seance'), duree = de('duree_s'), distance = de('distance_m');
+    var allure = de('allure'), marche = de('marche'), deniv = de('denivele_m'), etages = de('etages');
+    var nomComplet = function (slug) { return nomDe ? nomDe(slug) : slug; };
     var gras = [];
     if (cap) gras.push('Premier ' + chargeDeLaMedaille(cap.valeur) + ' au ' + exercice + '.');
     else if (car) gras.push('Record à ' + repsDeLaMedaille(car.reps) + ' : ' + chargeDeLaMedaille(car.valeur) + '.');
@@ -2246,6 +2520,13 @@
     // ligne d'au-dessus dit « Tapis : 20 min · 3,2 km ») ; l'horloge (« 01:30 ») reste sous la rangée de la grille.
     if (duree) gras.push('Plus longue durée : ' + formatDuree(duree.valeur) + '.');
     if (distance) gras.push('Plus longue distance : ' + formatDistance(distance.valeur) + '.');
+    // 153 — l'allure pour au moins N (« Record d'allure sur 1 km ou plus : 7:00 /km. »), le D+, les étages, la première
+    // fois sur une marche (« Première fois : Tractions Lestées. »).
+    if (allure) gras.push('Record d’allure sur ' + libelleDuPalier(allure) + ' ou plus : ' + mmss(allure.valeur) + INSECABLE +
+      UNITES_D_ALLURE[allure.unite] + '.');
+    if (deniv) gras.push('Record de D+ : ' + nombreTexte(deniv.valeur, 0) + INSECABLE + 'm.');
+    if (etages) gras.push('Record d’étages : ' + nombreTexte(etages.valeur, 0) + '.');
+    if (marche) gras.push('Première fois : ' + nomComplet(marche.slug) + '.');
     var quandAvant = function (x) { return dateDeLaMedaille(x.ancien_le, aujourdhui); };
     // Le point final, une fois : « le 1er sept. », jamais « sept.. ».
     var fin = function (t) { return /\.$/.test(t) ? t : t + '.'; };
@@ -2260,6 +2541,15 @@
       if (duree.ancien !== null) gris = 'Avant : ' + formatDuree(duree.ancien) + ', ' + fin(quandAvant(duree));
     } else if (distance) {
       if (distance.ancien !== null) gris = 'Avant : ' + formatDistance(distance.ancien) + ', ' + fin(quandAvant(distance));
+    } else if (allure) {
+      gris = 'Avant : ' + mmss(allure.ancien) + INSECABLE + UNITES_D_ALLURE[allure.unite] + ', ' + fin(quandAvant(allure));
+    } else if (deniv) {
+      if (deniv.ancien !== null) gris = 'Avant : ' + nombreTexte(deniv.ancien, 0) + INSECABLE + 'm, ' + fin(quandAvant(deniv));
+    } else if (etages) {
+      if (etages.ancien !== null) gris = 'Avant : ' + nombreTexte(etages.ancien, 0) + ', ' + fin(quandAvant(etages));
+    } else if (marche) {
+      gris = marche.habilete ? 'Une habileté.'
+        : fin('Avant : ' + nomComplet(marche.ancien_slug) + ', depuis ' + dateDeLaMedaille(marche.ancien_le, aujourdhui));
     }
     return [gras.join(' '), gris];
   }
@@ -2426,10 +2716,15 @@
     formatChrono: formatChrono,
     formatPrecedent: formatPrecedent,
     estTravail: estTravail,
+    estAEchec: estAEchec,
+    estManquee: estManquee,
+    motDEchec: motDEchec,
     typeDe: typeDe,
+    typeLu: typeLu,
     exercicesFaits: exercicesFaits,
     nombre: nombre,
     charge: charge,
+    secondes: secondes,
     capturer: capturer,
     reporter: reporter,
     NATURES: NATURES,
@@ -2495,7 +2790,15 @@
     // MOTEUR §9.17 bis (127) — l'échelle des variantes.
     echelleDe: echelleDe,
     marcheSuivante: marcheSuivante,
+    estEchelleDeFigures: estEchelleDeFigures,
+    estUneFigure: estUneFigure,
+    marcheDEnDessous: marcheDEnDessous,
+    seuilDeLaMarche: seuilDeLaMarche,
     vueEchelle: vueEchelle,
+    vueEchellesDeLaSemaine: vueEchellesDeLaSemaine,
+    marcheLaPlusHaute: marcheLaPlusHaute,
+    estPlusHaute: estPlusHaute,
+    libelleDeLaSemaine: libelleDeLaSemaine,
     texteMeilleure: texteMeilleure,
     quandDeLEchelle: quandDeLEchelle,
     construireBlocs: construireBlocs,
@@ -2513,6 +2816,9 @@
     tableCumulee: tableCumulee,
     auMoinsDe: auMoinsDe,
     recordsBattus: recordsBattus,
+    SPORTS: SPORTS,
+    allureDeSerie: allureDeSerie,
+    distancesMaxParSport: distancesMaxParSport,
     phraseDeRecord: phraseDeRecord,
     optionsDeRecord: optionsDeRecord,
     recordsDeLExercice: recordsDeLExercice,

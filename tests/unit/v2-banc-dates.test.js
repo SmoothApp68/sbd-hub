@@ -183,6 +183,23 @@ describe('le décor du banc ne dépend plus du jour de la semaine', () => {
     });
   });
 
+  test('DISCRIMINANT (145) — les mercredis de la semaine écoulée : dans le passé, dans SA semaine, tous les jours', () => {
+    const { mercrediEcoule } = require('../banc/decor-dates.js');
+    const lundiDe = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
+    for (let j = 0; j < 14; j++) {
+      [0, 6, 12, 23].forEach((h) => {
+        const maintenant = new Date(2026, 9, 5 + j, h, 30).getTime();
+        const lundiActuel = lundiDe(new Date(maintenant));
+        [0, 1, 2].forEach((n) => {
+          const d = mercrediEcoule(n, maintenant);
+          expect(d.getTime()).toBeLessThan(maintenant);
+          const attendu = new Date(lundiActuel.getFullYear(), lundiActuel.getMonth(), lundiActuel.getDate() - 7 * (n + 1));
+          expect(lundiDe(d).getTime()).toBe(attendu.getTime());
+        });
+      });
+    }
+  });
+
   test('le banc ne calcule plus aucune date du décor lui-même', () => {
     const source = require('fs').readFileSync(
       require('path').join(__dirname, '../banc/seance-ecran.js'), 'utf8');

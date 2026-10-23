@@ -451,6 +451,16 @@ describe('12. la liste de lecture est DÉRIVÉE, jamais recopiée', () => {
       'muscles_stabilisateurs'].forEach((c) => expect(demandees).toContain(c));
   });
 
+  // ⚠️ `echelle_seuil_s` (149, v2_108, MOTEUR §9.17 ter) — MÊME PIÈGE : omise du `select`, le seuil d'une marche de figure
+  // vaudrait `undefined` partout, et la carte « marche suivante » en secondes ne s'ouvrirait jamais, sans une erreur.
+  test('le `select` du catalogue demande `echelle_seuil_s` — la carte « marche suivante » en secondes en dépend', async () => {
+    const Donnees = charger();
+    await Donnees.tousLesExercices();
+    const demandees = requetes[0].colonnes.split(',').map((c) => c.trim());
+    expect(demandees).toContain('echelle_seuil_s');
+    ['slug', 'nom', 'mesure', 'echelle', 'echelle_rang', 'nature'].forEach((c) => expect(demandees).toContain(c));
+  });
+
   // ⚠️ `nature`, `description`, `actif` (125, v2_096/v2_097, ECRAN-SAISIE §7 quater.5) — MÊME PIÈGE : omise du `select`,
   // `description` vaudrait `undefined` et l'onglet « Comment faire » n'existerait jamais ; `actif` omise, les doublons
   // désactivés seraient proposés partout. Sans une erreur.

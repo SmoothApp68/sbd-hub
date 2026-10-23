@@ -545,7 +545,7 @@ const PROFIL_BANC = {
 // SEMAINE. Le pourquoi, en entier, est dans `decor-dates.js` — avec la seule
 // milliseconde de bord qui subsiste. `JOURS[n]` remplace l'ancien
 // `LUNDI + n jours` : même ORDRE, mêmes rangs, et toujours dans le passé.
-const { datesDuDecor, ancreSemaineIsolee, seanceSansSeries, jourIsole, ilYa, finDe, horsDeVie } =
+const { datesDuDecor, ancreSemaineIsolee, seanceSansSeries, jourIsole, ilYa, finDe, horsDeVie, mercrediEcoule } =
   require(path.join(__dirname, 'decor-dates.js'));
 const JOURS = datesDuDecor();
 // 87 — le faux serveur du social (cercles, blocage, compte privé, colonnes autorisées).
@@ -1261,9 +1261,10 @@ const SETS_IMPORTES = [
     // l'envoi tombait dans le `json([])` final et « réussissait » sans rien
     // écrire — le banc plus permissif que la base.
     const COLONNES_RECORDS = ['id', 'user_id', 'set_id', 'session_id', 'exercise_slug', 'type', 'valeur', 'reps',
-      'charge', 'unite', 'ancien', 'ancien_le', 'sur_douze_mois', 'battu_le', 'created_at'];
+      'charge', 'unite', 'palier_m', 'ancien', 'ancien_le', 'sur_douze_mois', 'battu_le', 'created_at'];
+    // v2_109 (153) : l'allure, la première fois sur une marche, le D+, les étages ; `palier_m` (allure seulement) ; les unités s_*.
     const TYPES_RECORDS = ['charge_a_reps', 'reps_a_charge', 'charge_max', 'cap', 'un_rm_estime',
-      'volume_seance', 'duree_s', 'distance_m'];
+      'volume_seance', 'duree_s', 'distance_m', 'allure', 'marche', 'denivele_m', 'etages'];
     if (table === 'records') {
       if (req.method() === 'GET') {
         let l = base.records.slice();
@@ -1298,8 +1299,14 @@ const SETS_IMPORTES = [
           if (l.valeur === null || l.valeur === undefined) return json(refus('23502', 'records.valeur NOT NULL'), 400);
           if (!l.battu_le) return json(refus('23502', 'records.battu_le NOT NULL'), 400);
           if (l.sur_douze_mois === null) return json(refus('23502', 'records.sur_douze_mois NOT NULL'), 400);
-          if (l.unite !== null && l.unite !== undefined && ['kg', 'reps'].indexOf(l.unite) < 0) {
+          if (l.unite !== null && l.unite !== undefined && ['kg', 'reps', 's_km', 's_100m', 's_500m'].indexOf(l.unite) < 0) {
             return json(refus('23514', 'records_unite_check'), 400);
+          }
+          // records_allure_ok (v2_109) : `palier_m` exactement pour une allure, entier > 0, unité s_*, valeur > 0.
+          const aPalier = l.palier_m !== null && l.palier_m !== undefined;
+          if ((l.type === 'allure') !== aPalier ||
+              (l.type === 'allure' && !(l.palier_m > 0 && ['s_km', 's_100m', 's_500m'].indexOf(l.unite) >= 0 && l.valeur > 0))) {
+            return json(refus('23514', 'records_allure_ok'), 400);
           }
           if (l.reps !== null && l.reps !== undefined && !Number.isInteger(l.reps)) return json(refus('22P02', 'records.reps : entier'), 400);
           if (base.records.some((x) => meme(x, l)) || ajouts.some((x) => meme(x, l))) {
@@ -1619,7 +1626,18 @@ const SETS_IMPORTES = [
         return json(projeter(sid ? base.sets.filter((s) => s.session_id === sid) : base.sets, url));
       }
       // 55-1 — les pesées (le rapport au poids de la page d'exercice).
-      if (table === 'body_weight_log') return json(projeter(base.pesees, url));
+      if (table === 'body_weight_log') {
+        // 148 — `peseesRetenir` : UNE lecture des pesées retenue jusqu'à `peseesLibere` (un verrou, aucun délai). ⚠️ La
+        // réponse est CONSTRUITE À L'ARRIVÉE de la requête, puis retenue : construite après l'attente, elle contiendrait
+        // déjà le geste fait pendant la lecture, et le test ne discriminerait rien (la lecture PÉRIMÉE, d'un serveur lent).
+        const reponse = JSON.parse(JSON.stringify(projeter(base.pesees, url)));
+        if (base.peseesRetenir) {
+          base.peseesRetenir = false; base.peseesLibere = false; base.peseesRetenue = true;
+          for (let k = 0; k < 1200 && !base.peseesLibere; k++) await pause(50);   // le pas d'une attente d'état : le verrou
+          base.peseesRetenue = false;
+        }
+        return json(reponse);
+      }
       return json([]);
     }
 
@@ -2186,10 +2204,17 @@ const SETS_IMPORTES = [
     return !sv || sv.hidden || !f || f.hidden || new RegExp(m).test(t);
   }, motif).catch(() => true), 6000);
   const terminerQuandMeme = async () => {
-    await issueDuGeste('pas validées? : (elles|elle) ne ser');
+    await issueDuGeste('pas validées? : (elles|elle) ne ser|^Ta séance dure');
     if (/pas validées? : (elles|elle) ne ser/.test(await texte('#feuille-contenu .feuille-t'))) {
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .filter((b) => b.textContent === 'Terminer quand même')[0].click());
+      await issueDuGeste('^Ta séance dure');
+    }
+    // 147 — une séance dont la dernière série date de plus d'1 h (ou de plus de 5 h) DEMANDE : les sections écrites avant
+    // gardent leur sens (« Terminer » comme avant) par « Garder », qui écrit l'instant du geste. La section `seance-longue`
+    // joue les trois choix à part.
+    if (/^Ta séance dure/.test(await texte('#feuille-contenu .feuille-t'))) {
+      await page.evaluate(() => document.querySelector('#feuille-contenu button[data-choix="garder"]').click());
     }
   };
   // 137 (E12) — « Abandonner » depuis la feuille de fin : en rouge (« Abandonner et tout effacer ») quand une série est
@@ -9423,12 +9448,29 @@ const SETS_IMPORTES = [
     ok('[TY] prémisse : la série 1 est validée, son pari observé en base',
       !!s1 && observes().length === 1, JSON.stringify({ s1: s1 && s1.id, observes: observes().length }));
     await toucher(0, '.no-serie');
-    await page.click('#feuille-contenu .feuille-menu button:nth-child(4)');   // Tentative manquée (echec)
+    await page.click('#feuille-contenu .feuille-menu button:nth-child(4)');   // À l'échec (echec)
     await attendre(700);
     await jusqua(async () => observes().length === 0, 6000);
-    ok('[TY] DISCRIMINANT — passée en « Tentative manquée », elle perd son observation (E1)',
+    ok('[TY] DISCRIMINANT — passée en « À l’échec », elle perd son observation (E1 ; l’observation se vide avec le type, comme en base)',
       sets().filter((x) => x.id === s1.id)[0].type_serie === 'echec' && observes().length === 0,
       JSON.stringify({ type: (sets().filter((x) => x.id === s1.id)[0] || {}).type_serie, observes: observes().length }));
+    // 152 — « À l'échec » : la série 1 (125 × 5) est du travail à l'échec, son étiquette est ambre ; une série
+    // sans rep passée en « À l'échec » est une tentative manquée.
+    const lignes152 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) => ({
+      no: (l.querySelector('.no-serie') || {}).textContent, etq: (l.querySelector('.etq-ligne') || {}).textContent || null,
+      ambre: !!l.querySelector('.etq-ligne.fond') })));
+    const l152 = await lignes152();
+    ok('[TY] 152 DISCRIMINANT — 125 × 5 passée en « À l’échec » : étiquette « à l’échec » en ambre, et le numéro 1 (du travail), pas ✕',
+      !!l152[0] && l152[0].etq === 'à l’échec' && l152[0].ambre === true && l152[0].no === '1', JSON.stringify(l152.slice(0, 2)));
+    await toucher(2, '.no-serie');
+    const menu152 = await page.evaluate(() => (document.querySelector('#feuille-contenu .feuille-menu button:nth-child(4)') || {}).textContent);
+    ok('[TY] 152 — le quatrième choix de la feuille dit « À l’échec » et sa règle',
+      /^À l’échec/.test(menu152 || '') && /À 0 rep : une tentative manquée\./.test(menu152 || ''), JSON.stringify(menu152));
+    await page.click('#feuille-contenu .feuille-menu button:nth-child(4)');
+    await jusqua(async () => (await lignes152()).some((x) => x.etq === 'manquée'), 6000);
+    const l152b = await lignes152();
+    ok('[TY] 152 DISCRIMINANT — une série sans rep passée en « À l’échec » : « manquée », pas en ambre, badge ✕',
+      !!l152b[2] && l152b[2].etq === 'manquée' && l152b[2].ambre === false && l152b[2].no === '✕', JSON.stringify(l152b));
     // La dégressive, sur la série 2.
     await saisirSerie(1, 125, 5);
     await attendre(1500);
@@ -17587,7 +17629,8 @@ const SETS_IMPORTES = [
     await mesurerLargeur('accueil');
     await mesurerOnglets('allumé');
     const sousVues = [['#jeu-porte-muscles', 'vue-muscles', '/jeu/muscles', '#btn-retour-muscles', '#jeu-muscles .j-metier', 7],
-      ['#jeu-porte-succes', 'vue-succes', '/jeu/succes', '#btn-retour-succes', '#jeu-succes .j-cat', 8],
+      // 153 : la catégorie « Distances » ajoute une ligne (8 -> 9).
+      ['#jeu-porte-succes', 'vue-succes', '/jeu/succes', '#btn-retour-succes', '#jeu-succes .j-cat', 9],
       ['#jeu-porte-deblocages', 'vue-deblocages', '/jeu/deblocages', '#btn-retour-deblocages', '#jeu-deblocages .j-cadres .j-ligne', 4]];
     for (const [porte, vue, url, retour, lignes, n] of sousVues) {
       await page.click(porte);
@@ -22781,7 +22824,8 @@ const SETS_IMPORTES = [
     CATALOGUE.push(exo112('presse-s112', 'Presse S112 (Machine)', 'machine', 's112_quadri'),
       exo112('extension-s112', 'Extension S112 (Machine)', 'machine', 's112_quadri'),
       exo112('leger-s112', 'Léger S112 (Barre)', 'barre', 's112_bras'),
-      exo112('lourd-s112', 'Lourd S112 (Barre)', 'barre', 's112_dos'));
+      exo112('lourd-s112', 'Lourd S112 (Barre)', 'barre', 's112_dos'),
+      exo112('poulie-s151', 'Curl S151 (Poulie)', 'poulie', 's151_biceps'));
     const t112 = Date.now();
     base.sessions = [];
     base.sets = [];
@@ -22812,7 +22856,9 @@ const SETS_IMPORTES = [
         re112(0, 'presse-s112', [['travail', 10]], 120),
         re112(1, 'extension-s112', [['travail', 12], ['travail', 12]], 90),
         re112(2, 'leger-s112', [['travail', 12], ['degressive', null]], 90),
-        re112(3, 'lourd-s112', [['travail', 8], ['degressive', null]], 180)] });
+        re112(3, 'lourd-s112', [['travail', 8], ['degressive', null]], 180),
+        // 151 — la seconde baisse : deux lignes dégressives posées par la routine.
+        re112(4, 'poulie-s151', [['travail', 15], ['degressive', null], ['degressive', null]], 60)] });
     const nb112 = (x) => JSON.stringify(x).replace(/[\u00a0\u202f]/g, ' ');
     const esp112 = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
     // La rangée (i, j) : ses deux fantômes (charge, reps) et son étiquette.
@@ -22930,6 +22976,31 @@ const SETS_IMPORTES = [
     ok('[S112] et la phrase, à l’écran, dit quoi enlever : « Enlève 10 kg de chaque côté : 80 kg. … »',
       phrasesDeg112.map(esp112).indexOf('Enlève 10 kg de chaque côté : 80 kg. Sans repos, jusqu\'à l\'échec. Vise 3 à 5.') >= 0,
       nb112(phrasesDeg112));
+    // ── (4) 151 — LA SECONDE BAISSE : deux lignes dégressives posées, la seconde remplie à −20 % de la première ──────
+    const deg151 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'poulie-s151')[0];
+      return x ? { types: x.lignes.map((l) => l.type), premiere: x.degressive ? x.degressive.charge : undefined,
+        plus: (x.degressivesPlus || []).map((q) => ({ rang: q.rang, charge: q.charge, phrase: q.phrase, gestes: q.gestes || null })) } : null;
+    });
+    const phrases151 = () => page.evaluate(() => Array.from(document.querySelectorAll('.reaction-serie.degressive')).map((e) => e.textContent));
+    await valider112(4, 0, 30, 15);
+    const p151 = await deg151(), r151a = await rangee112(4, 1), r151b = await rangee112(4, 2);
+    ok('[S151] DISCRIMINANT — curl poulie 30 × 15, deux dégressives posées : 22,5 kg puis 17,5 kg (−20 % de la première, et non −22,5 %), reps pré-remplies 7 puis 5',
+      !!p151 && p151.premiere === 22.5 && p151.plus.length === 1 && p151.plus[0].charge === 17.5 && p151.plus[0].rang === 2 &&
+      !!r151a && r151a.charge === '22,5' && r151a.reps === '7' && !!r151b && r151b.charge === '17,5' && r151b.reps === '5', nb112([p151, r151a, r151b]));
+    ok('[S151] la phrase de la seconde, à l’écran : « Deuxième baisse : 17,5 kg, sans repos, jusqu’à l’échec. Vise 4 à 6. » ; sa rangée porte « D2 »',
+      (await phrases151()).map(esp112).indexOf('Deuxième baisse : 17,5 kg, sans repos, jusqu\'à l\'échec. Vise 4 à 6.') >= 0 && !!r151b && r151b.no === 'D2',
+      nb112([await phrases151(), r151b]));
+    await valider112(4, 1, 22.5, 3);
+    const arret151 = await deg151(), prop151 = await propDeg112(4), r151c = await rangee112(4, 2);
+    ok('[S151] DISCRIMINANT — la première baisse validée à 3 reps : la seconde n’est pas remplie, « 3 reps à la première baisse : on s’arrête là. » et ses deux gestes',
+      !!arret151 && arret151.plus.length === 1 && arret151.plus[0].charge === null &&
+      arret151.plus[0].phrase === '3 reps à la première baisse : on s\'arrête là.' && !!r151c && !/\d/.test(r151c.charge || '') &&
+      !!prop151 && esp112(prop151.texte) === '3 reps à la première baisse : on s\'arrête là.' &&
+      JSON.stringify(prop151.boutons) === '["En faire une série normale","La retirer"]', nb112([arret151, prop151, r151c]));
+    ok('[S151] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
+      JSON.stringify(gardeBanc.liste.slice(-2)));
     ok('[S112] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
     await abandonner();
@@ -22991,7 +23062,7 @@ const SETS_IMPORTES = [
       const d = n.querySelector('.objectif-date');
       const jauge = n.querySelector('.objectif-jauge');
       return { titre: t('.objectif-titre'), aujourdhui: t('.objectif-aujourdhui'), ligne: d ? d.firstChild.textContent : null,
-        pari: t('.objectif-pari'), bouton: t('.objectif-changer'), jauge: jauge ? jauge.getAttribute('aria-valuenow') : null,
+        pari: t('.objectif-pari'), rythme: t('.objectif-rythme'), bouton: t('.objectif-changer'), jauge: jauge ? jauge.getAttribute('aria-valuenow') : null,
         couleurLigne: d ? getComputedStyle(d).color : null, couleurJauge: jauge ? getComputedStyle(jauge.firstChild).backgroundColor : null,
         manque: getComputedStyle(document.documentElement).getPropertyValue('--manque').trim() };
     });
@@ -23060,9 +23131,10 @@ const SETS_IMPORTES = [
       nbO(f1.phrase) === nbO('Ton record : 144 kg × 1. Le coach projettera une date à partir de tes records.'), nbO(f1));
     await aller('/exercice/squat-o109');
     const c1 = await carteO();
-    ok('[O109] posé : « 150 kg × 1 », la jauge depuis le record (0), « Aujourd’hui : 144 kg × 1 », UNE ligne : « Au rythme actuel : fin avril. » et le pari',
+    ok('[O109] posé : « 150 kg × 1 », la jauge depuis le record (0), « Aujourd’hui : 144 kg × 1 », le pari figé : « Le pari du coach : fin avril. », « Posé le 16 oct. On verra s’il tombe juste. », et « Au rythme d’aujourd’hui : toujours fin avril. »',
       !!c1 && nbO(c1.titre) === nbO('150 kg × 1') && c1.jauge === '0' && nbO(c1.aujourdhui) === nbO('Aujourd’hui : 144 kg × 1') &&
-        nbO(c1.ligne) === nbO('Au rythme actuel : fin avril.') && nbO(c1.pari) === nbO(' C’est un pari du coach : on verra s’il tombe juste.') &&
+        nbO(c1.ligne) === nbO('Le pari du coach : fin avril.') && nbO(c1.pari) === nbO('Posé le 16 oct. On verra s’il tombe juste.') &&
+        nbO(c1.rythme) === nbO('Au rythme d’aujourd’hui : toujours fin avril.') &&
         c1.bouton === 'Changer l’objectif', nbO(c1));
     const rgb = (h) => { const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(h); return m ? 'rgb(' + [1, 2, 3].map((k) => parseInt(m[k], 16)).join(', ') + ')' : h; };
     ok('[O109] jamais en rouge, jamais « impossible » : ni la ligne de date ni la jauge ne prennent la couleur des manques',
@@ -23085,8 +23157,8 @@ const SETS_IMPORTES = [
 
     // ── 3. LA DATE EST FIGÉE : rechargée, la ligne ne bouge pas.
     await aller('/exercice/squat-o109');
-    ok('[O109] la date affichée est celle du pari, figée : rechargée, « Au rythme actuel : fin avril. »',
-      nbO((await carteO() || {}).ligne) === nbO('Au rythme actuel : fin avril.'), nbO(await carteO()));
+    ok('[O109] la date affichée est celle du pari, figée : rechargée, « Le pari du coach : fin avril. »',
+      nbO((await carteO() || {}).ligne) === nbO('Le pari du coach : fin avril.'), nbO(await carteO()));
 
     // ── 4. CHANGER POUR 155 × 1 : un nouveau pari, l'ancien reste.
     await feuilleO(155, 1);
@@ -23116,6 +23188,8 @@ const SETS_IMPORTES = [
     const c5 = await carteO();
     ok('[O109] la carte garde la date du pari de 155, figée — elle ne bouge pas avec la séance du 10 mars ; « Aujourd’hui : 150 kg × 1 »',
       !!c5 && c5.ligne === ligne155 && nbO(c5.aujourdhui) === nbO('Aujourd’hui : 150 kg × 1'), nbO([c5, ligne155]));
+    ok('[O150] un record de plus depuis la pose : le pari ne bouge pas, la ligne « Au rythme d’aujourd’hui » est recalculée à la date d’aujourd’hui (une date, jamais un écart chiffré)',
+      !!c5 && /^Au rythme d’aujourd’hui : (toujours )?fin [a-zéû]+( \d{4})?\.$|^Au rythme d’aujourd’hui : (plus d’un an|pas encore de date)\.$/.test((c5 && c5.rythme || '').replace(/[\u00a0\u202f]/g, ' ')), nbO(c5));
     // Le mois de mars est la STORY du mois (98, BILANS-V1) : son écran « Le coach » compte les paris de CONSIGNE
     // vérifiés en mars (`parisDeConsigneConnus`), jamais le pari d'objectif tenu. Attendu : autant de paris que de
     // paris de consigne observés sur une séance de mars dans la base du banc — aucun, ici : pas d'écran « Le coach ».
@@ -23179,9 +23253,9 @@ const SETS_IMPORTES = [
     const pari7 = base.predictions.filter((x) => x.module === 'objectif' && x.id === r7.pari_id)[0] || {};
     await aller('/exercice/squat-o109');
     const c7 = (await carteO()) || {};
-    ok('[O109] revenu en Progresser : la date se calcule une fois (« Au rythme actuel : fin avril. »), le pari est posé alors (196 jours) ; la pose est gardée',
+    ok('[O109] revenu en Progresser : la date se calcule une fois (« Le pari du coach : fin avril. »), le pari est posé alors (196 jours) ; la pose est gardée',
       r7.projection === 'date' && r7.echeance === '2027-04-30' && r7.pose_le === l7.pose_le && pari7.valeur_predite === 196 &&
-        nbO(c7.ligne) === nbO('Au rythme actuel : fin avril.'), nbO([r7, pari7.valeur_predite, c7]));
+        nbO(c7.ligne) === nbO('Le pari du coach : fin avril.'), nbO([r7, pari7.valeur_predite, c7]));
     await C7.fermer();
     base.profiles[0].intention = intentionAvant7;
 
@@ -24451,6 +24525,644 @@ const SETS_IMPORTES = [
       gardeBanc.violations === violations132 && base.journal.filter((j) => j.op === 'refus').length === refus132 &&
         erreurs.length === erreurs132,
       JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus132), erreurs.slice(erreurs132)]));
+  }
+
+  console.log('\n══ echelles-semaine. « TES ÉCHELLES CETTE SEMAINE » : LA CARTE EN TÊTE DE SAISIE, LA SEMAINE ÉCOULÉE, LE TOUCHER, SON ABSENCE (145, ECRAN-SAISIE §7 quater.7) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une échelle de quatre marches (une aide, la stricte, la lestée, une habileté), et des
+  // séances de la stricte sur TROIS semaines — la semaine écoulée (9, 9, 9, 6), celle d'avant (9, 8, 8) et une plus
+  // ancienne (9, 9, 9). Les dates sont les mercredis à midi de ces semaines (lundi → dimanche, jamais dans l'avenir, quel
+  // que soit le jour où le banc tourne). La carte lit la semaine ÉCOULÉE : la séance d'avant ne s'y confond pas avec
+  // elle. Sans exercice d'échelle (une barre seule), pas de carte. En « Juste un carnet », ni phrase ni ronds.
+  {
+    const erreurs145 = erreurs.length;
+    const refus145 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations145 = gardeBanc.violations;
+    const catalogueAvant145 = CATALOGUE.length;
+    const intentionAvant145 = base.profiles[0].intention;
+    const sp145 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const E145 = 'tr-u145';
+    [['tr-u145-elastique', 'Tractions U145 (Élastique)', 'charge_reps', 'assistance', 'elastique', 'force', 1],
+     ['tr-u145', 'Tractions U145', 'reps', 'aucune', 'aucun', 'force', 2],
+     ['tr-u145-leste', 'Tractions U145 Lestées', 'charge_reps', 'ajoutee', 'aucun', 'force', 3],
+     ['tr-u145-archer', 'Tractions U145 Archer', 'reps', 'aucune', 'aucun', 'habilete', 4]
+    ].forEach(([slug, nom, mesure, charge, equipement, nature, rang]) => CATALOGUE.push({ slug, nom, mesure, charge, equipement,
+      parent: charge === 'ajoutee' ? E145 : null, nature, habilete: nature === 'habilete', actif: true,
+      muscles_primaires: ['dorsaux'], muscles_secondaires: [], echelle: E145, echelle_rang: rang }));
+    // Le mercredi à midi de la semaine écoulée − n (`decor-dates.js`, `mercrediEcoule`).
+    const mercredi145 = (n) => mercrediEcoule(n).toISOString();
+    const poser145 = (id, debut, reps) => {
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Échelles — ' + id, debut,
+        fin: finDe(debut).toISOString(), statut: 'terminee', note: null, salle: null,
+        salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      reps.forEach((r, k) => base.sets.push({ id: id + '-s' + k, session_id: id, user_id: 'u-banc', exercise_slug: 'tr-u145',
+        charge_kg: null, reps: r, duree_s: null, distance_m: null, type_serie: 'travail', rang: k + 1, groupe_superset: null,
+        validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    const sessions145 = ['e145-3', 'e145-2', 'e145-1'];
+    poser145('e145-3', mercredi145(2), [9, 9, 9]);
+    poser145('e145-2', mercredi145(1), [9, 8, 8]);
+    poser145('e145-1', mercredi145(0), [9, 9, 9, 6]);
+    const carte145 = () => page.evaluate(() => {
+      const c = document.querySelector('#carte-echelles');
+      if (!c || c.hidden || !c.querySelector('.carte-echelles')) return null;
+      const q = (s) => (c.querySelector(s) || {}).textContent || null;
+      return { etiquette: q('.ce-etiquette'), nom: q('.ce-nom'), marche: q('.ce-marche'), fait: q('.ce-fait'),
+        suite: q('.ce-suite'), ronds: c.querySelectorAll('.ce-pas i').length, pleins: c.querySelectorAll('.ce-pas i.ok').length,
+        lien: q('.ce-lien'), haut: c.getBoundingClientRect().top };
+    });
+
+    // A. LA CARTE : la semaine écoulée, ta marche, le meilleur de la semaine et celui d'avant, la suivante, les ronds.
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await jusqua(async () => !!(await carte145()), 8000);
+    const a145 = await carte145();
+    ok('[145] A — DISCRIMINANT : la carte est en tête de Saisie, l\'étiquette dit « Tes échelles · semaine du … » et la marche est la stricte',
+      !!a145 && /^Tes échelles · semaine du \d{1,2}( \p{L}+\.?)? au \d{1,2} \p{L}+\.?$/u.test(sp145(a145.etiquette)) &&
+        sp145(a145.nom) === 'Tractions U145' && /ta marche : Tractions U145/.test(sp145(a145.marche)), JSON.stringify(a145));
+    ok('[145] A — la meilleure série de la semaine ÉCOULÉE (× 9) et, en gris, celle de la semaine d\'avant (« la semaine d\'avant : … × 9 ») ; pas de « nouvelle »',
+      !!a145 && /^9 · la semaine d.avant : 9$/.test(sp145(a145.fait)) && !/nouvelle/.test(a145.marche), JSON.stringify(a145));
+    ok('[145] A — la suivante en phrase courte (sans « Je te la propose »), deux ronds, et les reps de la semaine « Cette semaine : 9, 9, 9, 6. »',
+      !!a145 && /^La suivante : Tractions U145 Lestées, quand tu tiens/.test(sp145(a145.suite)) &&
+        !/Je te la propose|Ton meilleur/.test(a145.suite) && a145.ronds === 2 && /Cette semaine : 9, 9, 9, 6\./.test(sp145(a145.suite)),
+      JSON.stringify(a145));
+    ok('[145] A — ni nombre de séances, ni heure, ni flèche, ni date prévue dans la carte',
+      !!a145 && !/séance|\d ?h\b|[↑↓→]|prévu/i.test(sp145(a145.fait + ' ' + a145.marche)), JSON.stringify(a145));
+
+    // B. LE TOUCHER : la carte ouvre « Ton échelle » de l'exercice de ta marche.
+    await page.click('#carte-echelles .carte-echelles');
+    await jusqua(async () => (await page.evaluate(() => location.pathname)) === '/exercice/tr-u145', 8000);
+    await jusqua(async () => !!(await page.$('.ton-echelle')), 6000);
+    ok('[145] B — DISCRIMINANT : toucher la carte ouvre la page de la stricte, avec « Ton échelle »',
+      (await page.evaluate(() => location.pathname)) === '/exercice/tr-u145' && !!(await page.$('.ton-echelle')),
+      await page.evaluate(() => location.pathname));
+
+    // C. « JUSTE UN CARNET » : les marches et les séries, sans la phrase de la suivante ni les ronds.
+    base.profiles[0].intention = 'entretien';
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await jusqua(async () => !!(await carte145()), 8000);
+    // Le profil arrive APRÈS le premier rendu : un second passage montre l'intention posée côté serveur.
+    await aller('/saisie');
+    await jusqua(async () => { const x = await carte145(); return !!x && x.suite === null; }, 6000);
+    const c145 = await carte145();
+    ok('[145] C — DISCRIMINANT : en « Juste un carnet », la carte garde la marche et le meilleur, sans phrase de la suivante ni ronds',
+      !!c145 && /^9 · la semaine d.avant : 9$/.test(sp145(c145.fait)) && c145.suite === null && c145.ronds === 0, JSON.stringify(c145));
+    base.profiles[0].intention = intentionAvant145;
+
+    // D. SANS EXERCICE D'ÉCHELLE CETTE SEMAINE-LÀ : pas de carte (la semaine écoulée vidée, celle d'avant reste).
+    const ecoulee145 = base.sets.filter((x) => x.session_id === 'e145-1').map((x) => x.id);
+    base.sets = base.sets.filter((x) => ecoulee145.indexOf(x.id) < 0);
+    base.sessions = base.sessions.filter((x) => x.id !== 'e145-1');
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await aller('/saisie');
+    await jusqua(async () => (await page.evaluate(() => !!document.querySelector('#liste-routines'))), 6000);
+    ok('[145] D — DISCRIMINANT : seule la semaine d\'avant a une série d\'échelle : pas de carte',
+      (await carte145()) === null, JSON.stringify(await carte145()));
+
+    // LA REMISE EN ÉTAT, pour les sections suivantes.
+    base.profiles[0].intention = intentionAvant145;
+    base.sets = base.sets.filter((x) => sessions145.indexOf(x.session_id) < 0);
+    base.sessions = base.sessions.filter((x) => sessions145.indexOf(x.id) < 0);
+    CATALOGUE.splice(catalogueAvant145, CATALOGUE.length - catalogueAvant145);
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    ok('[145] la garde (C6) n\'a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations145 && base.journal.filter((j) => j.op === 'refus').length === refus145 &&
+        erreurs.length === erreurs145,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus145), erreurs.slice(erreurs145)]));
+  }
+
+  console.log('\n══ figures. LES FIGURES EN SECONDES : LA TENUE MAX, LES TENUES, LA CARTE « MARCHE SUIVANTE », « TON ÉCHELLE » (149, MOTEUR §9.17 ter) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une échelle de figures de trois marches (groupé 20 s, groupé avancé 12 s, complet), servie
+  // par le faux serveur avec ses colonnes (`echelle`, `echelle_rang`, `echelle_seuil_s`, mesure `temps`, nature `habilete`) ;
+  // deux séances du groupé (tenue max 18 s, puis 20 s). Le banc lit le PLAN que l'app calcule et l'ÉCRAN : la tenue max
+  // (étiquette « max », fantôme = le max de la dernière fois), 22 s validées → les trois tenues suivantes à 13 s (Normal),
+  // une tenue plus longue ne bouge pas la cible, la carte « marche suivante » (deux séances à 20 s ou plus), « Ajouter »
+  // (la marche juste avant, « Première fois ici »), Franc (une séance suffit, 70 %), « Juste un carnet » (rien). Aucun délai
+  // fixe : chaque attente est une condition. Tout est retiré à la fin.
+  {
+    const t149 = Date.now();
+    const erreurs149 = erreurs.length;
+    const refus149 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations149 = gardeBanc.violations;
+    const catalogueAvant149 = CATALOGUE.length;
+    const routinesAvant149 = ROUTINES.length;
+    const sessionsAvant149 = base.sessions, setsAvant149 = base.sets;
+    const intentionAvant149 = base.profiles[0].intention, rythmeAvant149 = base.profiles[0].rythme_progression;
+    const marcheAvant149 = base.profiles[0].marche_reponses;
+    const sp149 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    base.sessions = []; base.sets = [];
+    const E149 = 'fl-u149';
+    const G149 = 'fl-u149-groupe', A149 = 'fl-u149-avance';
+    [[G149, 'Front Lever U149 Groupé', 1, 20], [A149, 'Front Lever U149 Groupé Avancé', 2, 12], ['fl-u149-complet', 'Front Lever U149', 3, null]]
+      .forEach(([slug, nom, rang, seuil]) => CATALOGUE.push(Object.assign({ slug, nom, mesure: 'temps', charge: 'aucune',
+        equipement: 'aucun', parent: null, nature: 'habilete', habilete: true, actif: true,
+        muscles_primaires: ['abdominaux'], muscles_secondaires: [], echelle: E149, echelle_rang: rang },
+        seuil === null ? {} : { echelle_seuil_s: seuil })));
+    ROUTINES.push({ id: 'r-u149', nom: 'Figures U149', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-u149-a', routine_id: 'r-u149', exercise_slug: G149, rang: 0,
+        routine_sets: progr(4), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const poser149 = (id, jours, durees) => {
+      const debut = ilYa(jours * 86400000, t149).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Figures — ' + id, debut, fin: finDe(debut, t149).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      durees.forEach((d, k) => base.sets.push({ id: id + '-s' + k, session_id: id, user_id: 'u-banc', exercise_slug: G149,
+        charge_kg: null, reps: null, duree_s: d, distance_m: null, type_serie: 'travail', rang: k + 1, groupe_superset: null,
+        validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    const historique149 = (liste) => { base.sessions = []; base.sets = []; liste.forEach((h, k) => poser149('f149-' + k, h[0], h[1])); };
+    const plan149 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? d.plan.exercices.map((x) => ({ slug: x.slug, figure: x.figure,
+        lignes: (x.lignes || []).map((l) => ({ tenue: l.tenue || null, vise: l.vise === undefined ? null : l.vise,
+          eti: l.etiquette || null, avant: l.phraseAvant || null, apres: l.phraseApres || null,
+          fant: l.prerempli ? l.prerempli.duree_s : null })),
+        carte: x.carteMarche ? { titre: x.carteMarche.titre, detail: x.carteMarche.detail, cible: x.carteMarche.cible } : null,
+        phrases: (x.phrases || []).length, paris: (x.paris || []).filter(Boolean).length })) : null;
+    });
+    // L'écran : par exercice, ses rangées (placeholder de la durée, valeur), ses étiquettes, ses phrases, ses cartes.
+    const ecran149 = () => page.evaluate(() => ({
+      eti: Array.from(document.querySelectorAll('#vue-seance .fig-eti')).map((n) => n.textContent),
+      phrases: Array.from(document.querySelectorAll('#vue-seance .reaction-serie.figure')).map((n) => n.textContent),
+      champs: Array.from(document.querySelectorAll('#vue-seance .ligne-serie .serie .chrono input')).map((i) => ({ ph: i.placeholder, v: i.value })),
+      cartes: Array.from(document.querySelectorAll('#vue-seance .proposition-marche')).map((c) => ({
+        texte: (c.querySelector('.pc-texte') || {}).textContent, detail: (c.querySelector('.pc-detail') || {}).textContent,
+        boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) }))
+    }));
+    const taper149 = async (i, chiffres) => {
+      const l = await ligne(i);
+      const champ = await l.$('.serie .chrono input');
+      await champ.click();
+      await champ.type(String(chiffres), { delay: 30 });
+      await l.$eval('.ok-serie', (b) => b.click());
+    };
+    const duree149 = (n) => base.sets.filter((x) => x.exercise_slug === G149 && x.duree_s === n && /^[0-9a-f-]{8,}$/.test(String(x.id))).length;
+    const lancer149 = async () => {
+      await aller('/saisie');
+      await demarrerRoutine('Figures U149');
+      await jusqua(async () => { const p = await plan149(); return !!p && p.length > 0; }, 8000);
+    };
+    const dernier149 = (p) => p && p.filter((x) => x.slug === G149)[0];
+    const phrases149 = (p) => p ? p.lignes.map((l) => l.avant || l.apres).filter(Boolean) : [];
+
+    // ── A. NORMAL : avant la tenue max.
+    historique149([[21, [18, 11, 10]], [7, [20, 12, 12]]]);
+    await lancer149();
+    const a149 = dernier149(await plan149());
+    ok('[149] A — DISCRIMINANT : la première ligne est la tenue max (fantôme 20 s = le max de la dernière fois), les autres sans durée, « après ton max » sur la seconde',
+      !!a149 && JSON.stringify(a149.lignes.map((l) => l.tenue)) === '["max","tenue","tenue","tenue"]' &&
+        JSON.stringify(a149.lignes.map((l) => l.fant)) === '[20,null,null,null]' &&
+        JSON.stringify(a149.lignes.map((l) => l.eti)) === '["max","après ton max",null,null]' &&
+        a149.figure.dernier === 20 && a149.paris === 0, JSON.stringify(a149));
+    await jusqua(async () => (await ecran149()).phrases.length === 1, 6000);
+    const ea = await ecran149();
+    ok('[149] A — à l’écran : « Ton max la dernière fois : 20 s. Essaie de faire mieux, proprement. », les étiquettes « max » et « après ton max », le fantôme du plan dans la durée',
+      ea.phrases.map(sp149).join('|') === 'Ton max la dernière fois : 20 s. Essaie de faire mieux, proprement.' &&
+        JSON.stringify(ea.eti) === '["max","après ton max"]' && ea.champs.length === 4 && /20/.test(ea.champs[0].ph) &&
+        ea.champs.slice(1).every((c) => !/\d/.test(c.ph)) && ea.cartes.length === 0, JSON.stringify(ea));
+
+    // ── B. 22 s validées : les trois tenues suivantes à 13 s, la phrase, la carte.
+    await taper149(0, 22);
+    await jusqua(() => duree149(22) === 1, 8000);
+    await jusqua(async () => { const p = dernier149(await plan149()); return !!p && p.figure.max === 22; }, 8000);
+    const b149 = dernier149(await plan149());
+    ok('[149] B — DISCRIMINANT : 22 s validées → les trois lignes suivantes visent 13 s (60 % de 22), fantôme 13 s, la tenue max garde 20 s',
+      !!b149 && JSON.stringify(b149.lignes.map((l) => l.vise)) === '[null,13,13,13]' &&
+        JSON.stringify(b149.lignes.map((l) => l.fant)) === '[20,13,13,13]' && b149.figure.vise === 13 && b149.figure.battu === true,
+      JSON.stringify(b149));
+    await jusqua(async () => (await ecran149()).champs.slice(1).every((c) => /13/.test(c.ph)), 6000);
+    const eb = await ecran149();
+    ok('[149] B — à l’écran : « 22 s : 2 s de plus que la dernière fois. Tes tenues : 13 s. », 13 dans les trois champs, plus d’« après ton max »',
+      eb.phrases.map(sp149).join('|') === '22 s : 2 s de plus que la dernière fois. Tes tenues : 13 s.' &&
+        eb.champs.slice(1).every((c) => /13/.test(c.ph)) && JSON.stringify(eb.eti) === '["max"]', JSON.stringify(eb));
+    ok('[149] B — la carte « marche suivante » : 20 s la séance d’avant, 22 s aujourd’hui — « 22 s tenues, deux séances de suite. », la marche juste au-dessus, deux boutons, aucun point d’interrogation',
+      eb.cartes.length === 1 && sp149(eb.cartes[0].texte) === '22 s tenues, deux séances de suite.' &&
+        sp149(eb.cartes[0].detail).replace(/'/g, '’') === 'La marche au-dessus : Front Lever U149 Groupé Avancé. Je te propose d’en faire 2 tenues avant, autant de secondes que tu peux.' &&
+        JSON.stringify(eb.cartes[0].boutons.map(sp149)) === '["Ajouter Front Lever U149 Groupé Avancé","Pas maintenant"]' &&
+        !/\?/.test(eb.cartes[0].texte + eb.cartes[0].detail), JSON.stringify(eb));
+
+    // ── C. UNE TENUE SUIVANTE PLUS LONGUE ne change pas la cible.
+    await taper149(1, 30);
+    await jusqua(() => duree149(30) === 1, 8000);
+    const c149 = dernier149(await plan149());
+    ok('[149] C — DISCRIMINANT : une deuxième tenue de 30 s (plus longue que la cible, et que la tenue max) ne bouge pas la cible : toujours 13 s, tenue max 22 s',
+      !!c149 && c149.figure.max === 22 && JSON.stringify(c149.lignes.map((l) => l.vise)) === '[null,13,13,13]', JSON.stringify(c149));
+
+    // ── D. « AJOUTER » : la marche juste avant, l'exercice de départ reste, « Première fois ici ».
+    await page.evaluate(() => document.querySelector('.proposition-marche .pc-ajouter').click());
+    await jusqua(async () => { const p = await plan149(); return !!p && p.length === 2; }, 8000);
+    await jusqua(async () => !!(base.profiles[0].marche_reponses && base.profiles[0].marche_reponses[G149]), 8000);
+    const d149 = await plan149();
+    ok('[149] D — « Ajouter » : le groupé avancé JUSTE AVANT le groupé (qui reste), 2 lignes, « Première fois ici : autant que tu peux, proprement. », plus de carte ; la réponse est au profil',
+      !!d149 && d149[0].slug === A149 && d149[1].slug === G149 && d149[0].lignes.length === 2 &&
+        d149[0].lignes[0].avant === 'Première fois ici : autant que tu peux, proprement.' && d149[0].figure.premiere === true &&
+        d149[0].lignes[0].fant === null && d149[1].carte === null &&
+        base.profiles[0].marche_reponses[G149].r === 'oui', JSON.stringify([d149, base.profiles[0].marche_reponses]));
+    await abandonner();
+
+    // ── E. FRANC : UNE SEULE SÉANCE (10 s) suffit à la carte ; les tenues à 70 %.
+    base.profiles[0].marche_reponses = marcheAvant149 === undefined ? null : marcheAvant149;
+    base.profiles[0].rythme_progression = 'franc';
+    historique149([[7, [10, 8, 8]]]);
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await aller('/saisie');
+    await lancer149();
+    await taper149(0, 21);
+    await jusqua(async () => { const p = dernier149(await plan149()); return !!p && p.figure.max === 21; }, 8000);
+    const e149 = dernier149(await plan149());
+    ok('[149] E — DISCRIMINANT : en Franc, 21 s validées → les tenues à 70 % (15 s)',
+      !!e149 && e149.figure.reglage === 'franc' && JSON.stringify(e149.lignes.map((l) => l.vise)) === '[null,15,15,15]', JSON.stringify(e149));
+    await jusqua(async () => (await ecran149()).cartes.length === 1, 6000);
+    const ee = await ecran149();
+    ok('[149] E — DISCRIMINANT : en Franc la carte vient après UNE séance au seuil (la tenue max du jour, 21 s) : « 21 s tenues aujourd’hui. » — Normal ne l’aurait pas posée (une séance à 10 s)',
+      ee.cartes.length === 1 && sp149(ee.cartes[0].texte).replace(/’/g, "'") === "21 s tenues aujourd'hui." && !/deux séances/.test(ee.cartes[0].texte), JSON.stringify(ee));
+    await abandonner();
+    base.profiles[0].rythme_progression = 'normal';
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await aller('/saisie');
+    await lancer149();
+    await taper149(0, 21);
+    await jusqua(async () => { const p = dernier149(await plan149()); return !!p && p.figure.max === 21; }, 8000);
+    ok('[149] E — témoin : le même jour en Normal (une séance à 10 s) : tenues à 60 % (13 s), pas de carte',
+      JSON.stringify(dernier149(await plan149()).lignes.map((l) => l.vise)) === '[null,13,13,13]' && (await ecran149()).cartes.length === 0,
+      JSON.stringify([await plan149(), await ecran149()]));
+    await abandonner();
+
+    // ── F. « JUSTE UN CARNET » : la tenue se note, le coach ne dit rien.
+    base.profiles[0].intention = 'entretien';
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    await aller('/saisie');
+    await lancer149();
+    await taper149(0, 22);
+    await jusqua(() => duree149(22) >= 1, 8000);
+    const f149 = dernier149(await plan149());
+    const ef = await ecran149();
+    ok('[149] F — DISCRIMINANT : en « Juste un carnet », 22 s notées : ni tenue max, ni étiquette, ni fantôme du coach, ni phrase, ni carte',
+      !!f149 && f149.figure === null && f149.lignes.every((l) => !l.tenue && !l.eti && !l.avant && !l.apres && l.vise === null) &&
+        ef.eti.length === 0 && ef.phrases.length === 0 && ef.cartes.length === 0, JSON.stringify([f149, ef]));
+    await abandonner();
+    base.profiles[0].intention = intentionAvant149;
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+
+    // ── G. « TON ÉCHELLE » : une figure entre comme une échelle de reps, en secondes.
+    historique149([[21, [18, 11, 10]], [7, [20, 12, 12]]]);
+    await aller('/exercice/' + G149);
+    const echelleDom149 = () => page.evaluate(() => {
+      const c = document.querySelector('#page-exercice .ton-echelle');
+      if (!c) return null;
+      return { marches: Array.from(c.querySelectorAll('.te-marche')).map((m) => ({ rang: m.querySelector('.te-rond').textContent,
+        classes: m.className, texte: m.textContent })), phrase: (c.querySelector('.te-phrase') || {}).textContent || null };
+    });
+    let g149 = await echelleDom149();
+    await jusqua(async () => !!(g149 = await echelleDom149()), 6000);
+    ok('[149] G — « Ton échelle » existe pour la figure : trois marches, la tienne est le groupé, la suivante le groupé avancé',
+      !!g149 && JSON.stringify(g149.marches.map((m) => m.rang)) === '["3","2","1"]' && /\btienne\b/.test(g149.marches[2].classes) &&
+        /\bsuivante\b/.test(g149.marches[1].classes), JSON.stringify(g149));
+    ok('[149] G — DISCRIMINANT : ton meilleur en secondes (« 20 s »), la suivante à 20 s « deux séances de suite » — sans « Elle s’ajoute » ni « sur toutes tes séries »',
+      !!g149 && /Ton meilleur : 20 s/.test(sp149(g149.marches[2].texte)) &&
+        sp149(g149.phrase).replace(/'/g, '’') === 'La suivante : Front Lever U149 Groupé Avancé. Je te la propose quand tu tiens 20 s, deux séances de suite. Ton meilleur : 20 s.', JSON.stringify(g149));
+
+    // ── H. LA REMISE EN ÉTAT.
+    ROUTINES.splice(routinesAvant149, ROUTINES.length - routinesAvant149);
+    CATALOGUE.splice(catalogueAvant149, CATALOGUE.length - catalogueAvant149);
+    base.sessions = sessionsAvant149; base.sets = setsAvant149;
+    base.profiles[0].intention = intentionAvant149; base.profiles[0].rythme_progression = rythmeAvant149;
+    base.profiles[0].marche_reponses = marcheAvant149 === undefined ? null : marcheAvant149;
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    ok('[149] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations149 && base.journal.filter((j) => j.op === 'refus').length === refus149 &&
+        erreurs.length === erreurs149,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus149), erreurs.slice(erreurs149)]));
+  }
+
+  console.log('\n══ seance-longue. UNE SÉANCE TROP LONGUE : À « TERMINER », L’APP LE DIT ET DEMANDE (147, ECRAN-SAISIE §7 septies.4) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une séance de musculation dont la dernière série validée est vieille de 2 h au moment
+  // de « Terminer » (l'horloge de la page avance de 2 h, `Horloge.scriptNavigateur`, sans aucun délai fixe). « Terminer à
+  // <heure de la série> » écrit pour fin cette heure-là ; « Garder » écrit l'instant du geste ; « Revenir » n'écrit rien.
+  // Une séance qui vient d'être validée ne demande rien (témoin).
+  {
+    const erreurs147 = erreurs.length;
+    const refus147 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations147 = gardeBanc.violations;
+    const sessions147 = base.sessions, sets147 = base.sets, catalogue147 = CATALOGUE.length, routines147 = ROUTINES.length;
+    base.sessions = []; base.sets = [];
+    CATALOGUE.push({ slug: 'rowing-l147', nom: 'Rowing L147 (Barre)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: [], actif: true });
+    ROUTINES.push({ id: 'r-l147', nom: 'Rowing L147 ×2', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-l147-e', routine_id: 'r-l147', exercise_slug: 'rowing-l147', rang: 0,
+        routine_sets: progr(2, 10), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const sp147 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const feuille147 = () => page.evaluate(() => {
+      const f = document.getElementById('feuille-seance'), c = document.getElementById('feuille-contenu');
+      return { visible: !!f && !f.hidden, texte: c ? c.textContent : '',
+               choix: c ? Array.from(c.querySelectorAll('button[data-choix]')).map((b) => b.getAttribute('data-choix') + ':' + b.textContent) : [] };
+    });
+    const heure147 = (iso) => { const d = new Date(iso); return d.getHours() + ' h ' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); };
+    const cliquer147 = (choix) => page.evaluate((c) => document.querySelector('#feuille-contenu button[data-choix="' + c + '"]').click(), choix);
+    const demarrer147 = async () => {
+      await aller('/saisie'); await demarrerRoutine('Rowing L147 ×2');
+      await saisirSerie(0, 90, 10);
+      await jusqua(() => base.sets.length >= 1, 8000);
+    };
+    const ouvrirFin147 = async () => {
+      await page.click('#bandeau-seance .bandeau-fin');
+      await feuilleAvec('.principal');
+      await page.click('#feuille-contenu .principal');
+    };
+    const dernierSet = () => base.sets.map((x) => Date.parse(x.validee_a)).sort((a, b) => b - a)[0];
+
+    // 1. Témoin : la série vient d'être validée, « Terminer » ne demande rien.
+    await demarrer147();
+    await ouvrirFin147();
+    await jusqua(async () => base.sessions.some((x) => x.statut === 'terminee') || (await feuille147()).choix.length > 0, 10000);
+    const f0 = await feuille147();
+    ok('[L147] témoin — série validée à l\u2019instant : « Terminer » termine sans alerte', f0.choix.length === 0 &&
+      base.sessions.filter((x) => x.statut === 'terminee').length === 1, JSON.stringify([f0, base.sessions.map((x) => x.statut)]));
+    await seanceSortie();
+    base.sessions = []; base.sets = [];
+
+    // 2. La dernière série date de 2 h : la feuille, « Revenir », puis « Terminer à ».
+    await demarrer147();
+    const t0 = dernierSet();
+    await page.evaluate(Horloge.scriptNavigateur(2 * 3600000));
+    await ouvrirFin147();
+    await jusqua(async () => (await feuille147()).choix.length > 0, 6000);
+    const f1 = await feuille147();
+    ok('[L147] DISCRIMINANT — dernière série vieille de 2 h : « Ta séance dure 2 h 0x. Ta dernière série date de <heure>. », trois choix',
+      f1.visible && /^Ta séance dure 2 h 0\d\./.test(sp147(f1.texte)) && sp147(f1.texte).indexOf('Ta dernière série date de ' + heure147(t0) + '.') > 0 &&
+        f1.choix.length === 3 && f1.choix[0] === 'terminer-a:Terminer à ' + heure147(t0) && /^garder:Garder 2 h 0\d$/.test(f1.choix[1]) &&
+        f1.choix[2] === 'revenir:Revenir à la séance', JSON.stringify(f1));
+    await cliquer147('revenir');
+    await jusqua(async () => !(await feuille147()).visible, 6000);
+    const f2 = await feuille147();
+    ok('[L147] « Revenir » : la feuille se ferme, rien n\u2019est écrit (séance toujours en cours, sans fin)',
+      !f2.visible && base.sessions.every((x) => x.statut === 'en_cours' && !x.fin), JSON.stringify([f2, base.sessions.map((x) => [x.statut, x.fin])]));
+    await ouvrirFin147();
+    await jusqua(async () => (await feuille147()).choix.length > 0, 6000);
+    await cliquer147('terminer-a');
+    await jusqua(() => base.sessions.some((x) => x.statut === 'terminee'), 10000);
+    const fin1 = base.sessions.filter((x) => x.statut === 'terminee')[0];
+    ok('[L147] « Terminer à <heure> » : la fin en base est exactement la `validee_a` de la dernière série',
+      !!fin1 && Date.parse(fin1.fin) === t0, JSON.stringify([fin1 && fin1.fin, new Date(t0).toISOString()]));
+    await seanceSortie();
+    base.sessions = []; base.sets = [];
+
+    // 3. « Garder » : la fin est l'instant du geste (2 h après la dernière série).
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await demarrer147();
+    const t1 = dernierSet();
+    await page.evaluate(Horloge.scriptNavigateur(2 * 3600000));
+    await ouvrirFin147();
+    await jusqua(async () => (await feuille147()).choix.length > 0, 6000);
+    await cliquer147('garder');
+    await jusqua(() => base.sessions.some((x) => x.statut === 'terminee'), 10000);
+    const fin2 = base.sessions.filter((x) => x.statut === 'terminee')[0];
+    const ecart = fin2 ? Date.parse(fin2.fin) - t1 : -1;
+    ok('[L147] « Garder 2 h 0x » : la fin en base est l\u2019instant de « Terminer », deux heures après la dernière série',
+      !!fin2 && ecart >= 2 * 3600000 && ecart < 2 * 3600000 + 120000, JSON.stringify([fin2 && fin2.fin, ecart]));
+    await seanceSortie();
+
+    // LA REMISE EN ÉTAT (la page repart d'une horloge neuve).
+    ROUTINES.splice(routines147, ROUTINES.length - routines147);
+    CATALOGUE.splice(catalogue147, CATALOGUE.length - catalogue147);
+    base.sessions = sessions147; base.sets = sets147;
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await aller('/saisie');
+    ok('[L147] la garde (C6) n\u2019a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations147 && base.journal.filter((j) => j.op === 'refus').length === refus147 &&
+        erreurs.length === erreurs147,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus147), erreurs.slice(erreurs147)]));
+  }
+
+  console.log('\n══ pesee-gardee. UNE PESÉE POSÉE PENDANT UNE SYNCHRONISATION NE REVIENT PAS EN ARRIÈRE (148, diagnostic 146) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : la lecture GET de `body_weight_log` est retenue (réponse construite à l'arrivée, donc
+  // SANS la pesée) ; pendant la retenue, la pesée est posée depuis le profil, part, et sort de la file ; la lecture
+  // périmée est alors libérée. Sans la garde commune de `poser`, elle remplaçait la pesée (appareil, écran, cache).
+  {
+    const erreurs148 = erreurs.length;
+    const refus148 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations148 = gardeBanc.violations;
+    const peseesAvant148 = base.pesees;
+    const jour148 = await page.evaluate(() => { const d = new Date(), p = (n) => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); });
+    const nb148 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    base.pesees = [{ id: '00000000-0000-4000-8148-000000000001', user_id: 'u-banc', date: '2025-12-01', poids_kg: 80, source: 'manuel' }];
+    base.peseesRetenir = false; base.peseesRetenue = false; base.peseesLibere = true;
+    const synchroLibre = () => page.evaluate(() => { const e = document.getElementById('etat-sync');
+      return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
+    const rafraichir = () => page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    const cachePesees = () => page.evaluate(() => window.THCache.lireTout('pesees')
+      .then((l) => (l || []).map((x) => x.date + '=' + x.poids_kg).sort())).catch(() => null);
+    const filePesees = () => page.evaluate(() => window.THCache.lireAttente()
+      .then((f) => (f || []).filter((x) => x.table === 'body_weight_log').length)).catch(() => -1);
+    const ligneP148 = () => page.evaluate(() => {
+      const n = Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Poids') === 0)[0];
+      return n ? ((n.querySelector('.p-val') || {}).textContent || null) : null;
+    }).catch(() => null);
+    // La pesée du profil, par la feuille « Poids » (le geste de l'utilisateur).
+    const peser148 = async (texte) => {
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Poids') === 0)[0].click());
+      await jusqua(async () => !!(await page.$('#feuille-contenu input[data-cle="poids"]')), 6000);
+      await page.fill('#feuille-contenu input[data-cle="poids"]', texte);
+      await page.click('#feuille-contenu .feuille-pied .pri');
+    };
+    const pleine = async () => { await jusqua(synchroLibre, 60000); await rafraichir(); await jusqua(synchroLibre, 60000); };
+
+    // Départ : l'appareil a la pesée du 1er déc. (80 kg), la file est vide.
+    await aller('/profil');
+    await jusqua(synchroLibre, 60000);
+    await rafraichir();
+    await jusqua(async () => (await cachePesees() || []).join('|') === '2025-12-01=80' && await synchroLibre(), 60000);
+
+    // a — LA PESÉE POSÉE PENDANT LA LECTURE RETENUE.
+    base.peseesRetenir = true;
+    await rafraichir();
+    const enVol = await jusqua(async () => base.peseesRetenue === true, 60000);
+    await peser148('81,5');
+    await jusqua(async () => base.pesees.some((x) => x.date === jour148 && x.poids_kg === 81.5) && await filePesees() === 0, 10000);
+    const encoreRetenue = base.peseesRetenue === true;
+    ok('[P148] a — prémisse : la lecture des pesées est en vol (sans la pesée), la pesée 81,5 est en base et sortie de la file, AVANT que la lecture rende',
+      enVol && encoreRetenue && base.pesees.some((x) => x.date === jour148 && x.poids_kg === 81.5), nb148([enVol, encoreRetenue, base.pesees]));
+    base.peseesLibere = true;
+    await jusqua(async () => base.peseesRetenue === false, 60000);
+    await reseauCalme();   // la synchronisation a fini d'appliquer la lecture périmée (le libellé « À jour » ment : `poser` le réécrit)
+    // ⚠️ Sans recharger la page : un rechargement relance une synchronisation qui ramène la pesée (la synchro suivante
+    // du diagnostic) et cache le défaut. On lit l'état laissé par la lecture périmée, puis on rouvre le profil EN L'APP.
+    const cacheA = await cachePesees();
+    await page.click('.onglet[data-vue="saisie"]');
+    await page.click('.onglet[data-vue="profil"]');
+    await jusqua(async () => (await ligneP148()) !== null, 10000);
+    const ecranA = nb148(await ligneP148());
+    ok('[P148] a — DISCRIMINANT : la lecture périmée rendue, la pesée 81,5 reste sur l’appareil (cache), à l’écran (ligne « Poids ») et en base',
+      (cacheA || []).indexOf(jour148 + '=81.5') >= 0 && /^81,5 kg/.test(ecranA) && base.pesees.some((x) => x.date === jour148 && x.poids_kg === 81.5),
+      nb148([cacheA, ecranA, base.pesees]));
+    base.reseau = false;
+    await aller('/profil');
+    await jusqua(async () => (await ligneP148()) !== null, 10000);
+    const ecranHl = nb148(await ligneP148());
+    base.reseau = true;
+    ok('[P148] a — rechargée hors ligne (le seul cache), la ligne « Poids » dit toujours 81,5 kg', /^81,5 kg/.test(ecranHl), ecranHl);
+    await jusqua(synchroLibre, 60000);
+
+    // c — SANS GESTE, LA BASE FAIT FOI (garde-fou : la note ne survit pas à la synchronisation). Une pesée posée SANS
+    // lecture en vol (80,2 kg) reste sur l'appareil sous son identifiant du jour ; puis un autre appareil pèse 79 kg le même
+    // jour et 83 kg un autre jour : la synchronisation suivante, sans aucun geste, les ramène l'un et l'autre. Une note qui
+    // survivrait à la synchronisation protégerait encore le 80,2.
+    await peser148('80,2');
+    await jusqua(async () => base.pesees.some((x) => x.date === jour148 && x.poids_kg === 80.2) && await filePesees() === 0, 10000);
+    await reseauCalme();
+    base.pesees.filter((x) => x.date === jour148).forEach((x) => { x.poids_kg = 79; });
+    base.pesees.push({ id: '00000000-0000-4000-8148-000000000002', user_id: 'u-banc', date: '2025-12-05', poids_kg: 83, source: 'manuel' });
+    await rafraichir();
+    await jusqua(async () => (await cachePesees() || []).indexOf('2025-12-05=83') >= 0, 60000);
+    await reseauCalme();
+    const cacheC = await cachePesees();
+    await page.click('.onglet[data-vue="saisie"]');
+    await page.click('.onglet[data-vue="profil"]');
+    await jusqua(async () => (await ligneP148()) !== null, 10000);
+    const ecranC = nb148(await ligneP148());
+    ok('[P148] c — sans geste, la base fait foi : la pesée d\u2019un autre appareil (79 kg le même jour, 83 kg le 5 déc.) arrive, la 80,2 posée avant est remplacée',
+      (cacheC || []).indexOf(jour148 + '=79') >= 0 && (cacheC || []).indexOf('2025-12-05=83') >= 0 && (cacheC || []).indexOf(jour148 + '=80.2') < 0 &&
+        /^79 kg/.test(ecranC), nb148([cacheC, ecranC]));
+
+    // LA REMISE EN ÉTAT.
+    base.pesees = peseesAvant148;
+    base.peseesRetenir = false; base.peseesLibere = true;
+    await aller('/saisie');
+    await pleine();
+    ok('[P148] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations148 && base.journal.filter((j) => j.op === 'refus').length === refus148 && erreurs.length === erreurs148,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus148), erreurs.slice(erreurs148)]));
+  }
+
+  console.log('\n══ hors-barres. LES RECORDS HORS DES BARRES : L’ALLURE, LA PREMIÈRE FOIS SUR UNE MARCHE, LE RÉCAP ET LES CAPS DU JEU (153, MOTEUR §9.23) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un tapis fait il y a 20 jours (1 000 m en 7:13). Ce soir, deux séries de tapis —
+  // 1 000 m en 7:00 (plus vite que toute série d'au moins 1 km : la médaille « Record d'allure sur 1 km ou plus : 7:00 /km. »,
+  // « Avant : 7:13 /km, le … ») puis 5 km en 30:00 (rien à battre à ce palier : pas d'allure, mais la plus longue distance et le
+  // cap de 5 km du jeu) — puis un Muscle-Up, première fois (une habileté, même sans marche d'avant : « Première fois :
+  // Muscle-Up. » / « Une habileté. »). Le récap liste les trois médailles et le bloc « Le jeu » porte le succès
+  // « Premier 5 km de course ». Aucun délai fixe : chaque attente est une condition. Tout est retiré à la fin.
+  {
+    const erreurs153 = erreurs.length;
+    const refus153 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations153 = gardeBanc.violations;
+    const catalogueAvant153 = CATALOGUE.length, routinesAvant153 = ROUTINES.length;
+    const sessionsAvant153 = base.sessions, setsAvant153 = base.sets, recordsAvant153 = base.records.slice();
+    const sp153 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    CATALOGUE.push({ slug: 'tapis_roulant', nom: 'Tapis de Course', mesure: 'distance_temps', charge: 'aucune', equipement: 'machine',
+        nature: 'cardio', hors_salle: false, actif: true, muscles_primaires: [], muscles_secondaires: [] },
+      { slug: 'muscle_up', nom: 'Muscle-Up', mesure: 'reps', charge: 'aucune', equipement: 'aucun', nature: 'habilete', habilete: true,
+        actif: true, muscles_primaires: ['dorsaux'], muscles_secondaires: [], echelle: 'muscle_up', echelle_rang: 1 });
+    base.sessions = []; base.sets = [];
+    const t153 = Date.now();
+    const debutAvant153 = ilYa(20 * 86400000, t153).toISOString();
+    base.sessions.push({ id: 'h153-0', user_id: 'u-banc', titre: 'Tapis — h153-0', debut: debutAvant153,
+      fin: finDe(debutAvant153, t153).toISOString(), statut: 'terminee', note: null, salle: null, salle_norme: null,
+      routine_id: null, source: 'app', created_at: debutAvant153 });
+    base.sets.push({ id: 'h153-0-s1', session_id: 'h153-0', user_id: 'u-banc', exercise_slug: 'tapis_roulant', charge_kg: null,
+      reps: null, duree_s: 433, distance_m: 1000, type_serie: 'travail', rang: 1, groupe_superset: null, validee_a: debutAvant153,
+      rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debutAvant153, modifie_a: null });
+    const ex153 = (slug, rang, sets) => ({ id: 'r-h153-' + rang, routine_id: 'r-h153', exercise_slug: slug, rang,
+      routine_sets: sets, repos_cible_s: 0, groupe_superset: null, note: null });
+    ROUTINES.push({ id: 'r-h153', nom: 'Hors barres U153', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [ex153('tapis_roulant', 0, progr(2)), ex153('muscle_up', 1, progr(1, 1))] });
+    const remplir153 = async (i, champ, v) => {
+      const inp = await page.$$('.ligne-serie >> nth=' + i + ' >> [data-champ="' + champ + '"] input');
+      if (champ === 'duree') { await inp[0].click(); await inp[0].type(String(v), { delay: 30 }); }
+      else await inp[0].fill(String(v));
+      await inp[0].evaluate((e) => e.blur());
+    };
+    const valider153 = async (i) => {
+      await page.evaluate((k) => document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), i);
+      await jusqua(() => page.evaluate((k) => !!document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie.cochee'), i), 6000);
+    };
+    // La médaille qui suit la rangée i : `[gras, gris]`, ou null.
+    const medaille153 = (i) => page.evaluate((k) => {
+      const l = document.querySelectorAll('.ligne-serie')[k];
+      const m = l && l.nextElementSibling && l.nextElementSibling.classList.contains('record-serie') ? l.nextElementSibling : null;
+      return m ? [m.querySelector('b').textContent, m.querySelector('.record-avant') ? m.querySelector('.record-avant').textContent : null] : null;
+    }, i);
+    const dAvant = new Date(debutAvant153);
+    const MOIS153 = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    const dateAvant153 = 'le ' + (dAvant.getDate() === 1 ? '1er' : dAvant.getDate()) + ' ' + MOIS153[dAvant.getMonth()] +
+      (dAvant.getFullYear() !== new Date(t153).getFullYear() ? ' ' + dAvant.getFullYear() : '');
+
+    await aller('/saisie');
+    await demarrerRoutine('Hors barres U153');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.ligne-serie').length >= 3), 8000);
+    // A. L'ALLURE : 1 000 m en 7:00 contre 7:13 il y a 20 jours.
+    await remplir153(0, 'duree', 700);
+    await remplir153(0, 'distance_km', 1);
+    await valider153(0);
+    await jusqua(async () => !!(await medaille153(0)), 6000);
+    const mA = await medaille153(0);
+    ok('[H153] DISCRIMINANT — 1 000 m en 7:00 contre 7:13 : « Record d’allure sur 1 km ou plus : 7:00 /km. », « Avant : 7:13 /km, … »',
+      !!mA && sp153(mA[0]) === 'Record d’allure sur 1 km ou plus : 7:00 /km.' &&
+        sp153(mA[1]) === sp153('Avant : 7:13 /km, ' + dateAvant153 + (/\.$/.test(dateAvant153) ? '' : '.')), JSON.stringify([mA, dateAvant153]));
+    // B. 5 km en 30:00 : rien à battre à ce palier (pas d'allure), mais la plus longue distance.
+    await remplir153(1, 'duree', 3000);
+    await remplir153(1, 'distance_km', 5);
+    await valider153(1);
+    await jusqua(async () => !!(await medaille153(1)), 6000);
+    const mB = await medaille153(1);
+    ok('[H153] DISCRIMINANT — 5 km en 30:00 : la plus longue distance, et PAS d’allure (aucune série passée d’au moins 5 km)',
+      !!mB && /Plus longue distance : 5 km/.test(sp153(mB[0])) && !/allure/.test(mB[0]), JSON.stringify(mB));
+    // C. LE MUSCLE-UP : une habileté, première fois — même sans marche d'avant.
+    await remplir153(2, 'reps', 1);
+    await valider153(2);
+    await jusqua(async () => !!(await medaille153(2)), 6000);
+    const mC = await medaille153(2);
+    ok('[H153] DISCRIMINANT — Muscle-Up, première fois : « Première fois : Muscle-Up. », gris « Une habileté. »',
+      !!mC && sp153(mC[0]) === 'Première fois : Muscle-Up.' && sp153(mC[1]) === 'Une habileté.', JSON.stringify(mC));
+    // D. LE RÉCAP : les trois médailles, et le bloc « Le jeu » avec le cap de 5 km.
+    await garderRecap(true);
+    await page.click('#bandeau-seance .bandeau-fin');
+    await feuilleAvec('.principal');
+    await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('#recap-corps .recap-rec .l1').length >= 3), 8000);
+    const recap153 = await page.evaluate(() => ({
+      lignes: Array.from(document.querySelectorAll('#recap-corps .recap-rec')).map((x) => x.textContent),
+      jeu: Array.from(document.querySelectorAll('#jeu-fin .j-ligne')).map((x) => x.textContent) }));
+    ok('[H153] le récap : les trois médailles (allure, distance, première fois)',
+      recap153.lignes.length === 3 && /Record d.allure sur 1 km ou plus/.test(sp153(recap153.lignes.join(' '))) &&
+        /Première fois : Muscle-Up/.test(sp153(recap153.lignes.join(' '))), JSON.stringify(recap153.lignes.map(sp153)));
+    ok('[H153] le bloc « Le jeu » porte le succès « Premier 5 km de course »',
+      recap153.jeu.some((t) => /Premier 5 km de course/.test(sp153(t))), JSON.stringify(recap153.jeu.map(sp153)));
+    await fermerRecapBanc();
+    await garderRecap(false);
+    // E. LE JOURNAL : l'allure porte son palier et son unité (v2_109), la première fois sa valeur (le rang).
+    await jusqua(() => base.records.some((r) => r.type === 'marche'), 8000);
+    const al153 = base.records.filter((r) => r.type === 'allure')[0];
+    const ma153 = base.records.filter((r) => r.type === 'marche')[0];
+    ok('[H153] le journal : l’allure à 420 s/km, palier 1 000 m, unité s_km ; la première fois sur Muscle-Up (rang 1, sans ancien)',
+      !!al153 && al153.valeur === 420 && al153.palier_m === 1000 && al153.unite === 's_km' && al153.ancien === 433 &&
+        !!ma153 && ma153.valeur === 1 && ma153.ancien === null && ma153.exercise_slug === 'muscle_up',
+      JSON.stringify([al153, ma153]));
+    // LA REMISE EN ÉTAT.
+    base.sessions = sessionsAvant153; base.sets = setsAvant153; base.records = recordsAvant153;
+    CATALOGUE.splice(catalogueAvant153, CATALOGUE.length - catalogueAvant153);
+    ROUTINES.splice(routinesAvant153, ROUTINES.length - routinesAvant153);
+    await aller('/saisie');
+    ok('[H153] aucun refus du faux serveur (les quatre types et `palier_m` passent), la garde (C6) n’a rien signalé, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refus153 && gardeBanc.violations === violations153 && erreurs.length === erreurs153,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus153), gardeBanc.liste.slice(-2), erreurs.slice(erreurs153)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

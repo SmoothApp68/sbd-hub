@@ -187,8 +187,8 @@ describe('la date figée, et ce que la page montre', () => {
     const p = projeter({});
     const ligne = O.ligneDe('squat', 150, 1, MAINTENANT.toISOString(), p, 'u', 'pari-1');
     const v1 = O.vue({ objectif: ligne, seances: HISTOIRE(), options: BARRE, maintenant: MAINTENANT });
-    expect(v1.ligne).toBe('Au rythme actuel\u00a0: fin avril.');
-    expect(v1.pari).toBe('C\u2019est un pari du coach\u00a0: on verra s\u2019il tombe juste.');
+    expect(v1.ligne).toBe('Le pari du coach\u00a0: fin avril.');
+    expect(v1.pari).toBe('Pos\u00e9 le 16 oct. On verra s\u2019il tombe juste.');
     const plusTard = new Date(2026, 10, 20, 12);
     const avance = HISTOIRE().concat([seance('2026-11-10', [[147.5, 1]])]);
     expect(projeter({ seances: avance, maintenant: plusTard }).echeance).not.toBe('2027-04-30');   // recalculée, elle bougerait
@@ -359,7 +359,7 @@ describe('audit du 16/10/2026, 01 #11 — posé en « Juste un carnet », la dat
     const r = O.ligneAuRetour(l, pr, 'pari-retour');
     expect([r.projection, r.echeance, r.pari_id, r.pose_le, r.depart_kg]).toEqual(['date', '2027-04-30', 'pari-retour', poseCarnet, l.depart_kg]);
     expect(O.vue({ objectif: r, seances: HISTOIRE(), options: BARRE, maintenant: MAINTENANT, carnet: false }).ligne)
-      .toBe('Au rythme actuel\u00a0: fin avril.');
+      .toBe('Le pari du coach\u00a0: fin avril.');
     const pari = O.pariDe({ exercise_slug: 'squat', charge_kg: 150, reps: 1, pose_le: MAINTENANT.toISOString() }, pr, 'u', 'pari-retour');
     expect([pari.emise_a, pari.fondement.pose_le, pari.valeur_predite]).toEqual([MAINTENANT.toISOString(), MAINTENANT.toISOString(), 196]);
   });
@@ -369,5 +369,74 @@ describe('audit du 16/10/2026, 01 #11 — posé en « Juste un carnet », la dat
     expect(O.ligneAuRetour(carnet(), projeter({ charge: 140 }), 'p')).toBeNull();
     const pe = O.ligneAuRetour(carnet(), projeter({ seances: HISTOIRE().slice(-2) }), 'p');
     expect([pe.projection, pe.pari_id]).toEqual(['pas_encore', null]);
+  });
+});
+
+
+describe('150 — le pari figé, et « Au rythme d\u2019aujourd\u2019hui » (second appel de la même projection, rien d\u2019écrit)', () => {
+  const pose = () => O.ligneDe('squat', 150, 1, MAINTENANT.toISOString(), projeter({}), 'u', 'pari-1');
+  const vue = (o) => O.vue(Object.assign({ objectif: pose(), seances: HISTOIRE(), options: BARRE, maintenant: MAINTENANT }, o));
+
+  test('même mois que le pari : « toujours fin avril » ; le pari porte sa date de pose', () => {
+    const v = vue({});
+    expect(v.ligne).toBe('Le pari du coach\u00a0: fin avril.');
+    expect(v.pari).toBe('Pos\u00e9 le 16 oct. On verra s\u2019il tombe juste.');
+    expect(v.rythme).toBe('Au rythme d\u2019aujourd\u2019hui\u00a0: toujours fin avril.');
+  });
+
+  test('un record de plus : la ligne change (autre mois), le pari ne bouge pas', () => {
+    const plusTard = new Date(2026, 10, 20, 12);
+    const avance = HISTOIRE().concat([seance('2026-11-10', [[147.5, 1]])]);
+    const attendu = projeter({ seances: avance, maintenant: plusTard }).echeance;
+    expect(attendu).not.toBe('2027-04-30');
+    const v = vue({ seances: avance, maintenant: plusTard });
+    expect(v.ligne).toBe('Le pari du coach\u00a0: fin avril.');
+    expect(v.pari).toBe('Pos\u00e9 le 16 oct. On verra s\u2019il tombe juste.');
+    expect(v.rythme).toMatch(/^Au rythme d\u2019aujourd\u2019hui\u00a0: fin [a-zéû]+\.$/);
+    expect(v.rythme).not.toMatch(/toujours/);
+    expect(v.rythme).not.toBe('Au rythme d\u2019aujourd\u2019hui\u00a0: fin avril.');
+  });
+
+  test('plus d\u2019un an, pas encore de date', () => {
+    const lent = [seance('2025-01-01', [[138, 1]]), seance('2025-06-01', [[140, 1]]), seance('2026-09-01', [[141, 1]]),
+      seance('2026-09-20', [[144, 1]])];
+    expect(projeter({ seances: lent, maintenant: new Date(2027, 2, 1) }).etat).toBe('plus_d_un_an');
+    expect(vue({ seances: lent, maintenant: new Date(2027, 2, 1) }).rythme).toBe('Au rythme d\u2019aujourd\u2019hui\u00a0: plus d\u2019un an.');
+    const peu = [seance('2026-09-20', [[144, 1]])];
+    expect(projeter({ seances: peu, maintenant: new Date(2027, 2, 1) }).etat).toBe('pas_encore');
+    expect(vue({ seances: peu, maintenant: new Date(2027, 2, 1) }).rythme).toBe('Au rythme d\u2019aujourd\u2019hui\u00a0: pas encore de date.');
+  });
+
+  test('atteint : « Atteint le … » seul ; carnet : rien ; hors salle : rien ; sans pari : la carte reste comme avant', () => {
+    const atteint = HISTOIRE().concat([seance('2027-02-12', [[150, 1]])]);
+    const a = vue({ seances: atteint, maintenant: new Date(2027, 1, 20) });
+    expect([a.ligne, a.pari, a.rythme]).toEqual(['Atteint le 12 février.', null, null]);
+    const c = vue({ carnet: true });
+    expect([c.ligne, c.pari, c.rythme]).toEqual([null, null, null]);
+    const EZ = { materiel: 'barre_ez', charges: [10, 15, 20, 25, 30] };
+    const curl = [seance('2026-06-01', [[20, 10]]), seance('2026-08-01', [[22.5, 10]]), seance('2026-10-01', [[25, 10]])];
+    const l35 = Object.assign({}, pose(), { charge_kg: 35, reps: 10 });
+    expect(projeter({ seances: curl, charge: 35, reps: 10, salle: EZ }).etat).toBe('hors_salle');   // la fixture déclenche le chemin
+    const hs = O.vue({ objectif: l35, seances: curl, options: BARRE, maintenant: MAINTENANT, salle: EZ });
+    expect(hs.rythme).toBeNull();
+    expect(O.vue({ objectif: l35, seances: curl, options: BARRE, maintenant: MAINTENANT }).rythme).not.toBeNull();   // sans la salle : une ligne
+    const lent = [seance('2025-01-01', [[138, 1]]), seance('2025-06-01', [[140, 1]]), seance('2026-09-01', [[141, 1]])];
+    const sansPari = O.ligneDe('squat', 150, 1, MAINTENANT.toISOString(), projeter({ seances: lent }), 'u');
+    const v = O.vue({ objectif: sansPari, seances: lent, options: BARRE, maintenant: MAINTENANT });
+    expect([v.ligne, v.pari, v.rythme]).toEqual(['Au rythme actuel\u00a0: plus d\u2019un an.', null, null]);
+  });
+
+  test('l\u2019année de la pose seulement si elle diffère d\u2019aujourd\u2019hui', () => {
+    const l = Object.assign({}, pose(), { pose_le: new Date(2026, 9, 16, 12).toISOString() });
+    expect(O.vue({ objectif: l, seances: HISTOIRE(), options: BARRE, maintenant: new Date(2027, 0, 5, 12) }).pari)
+      .toBe('Pos\u00e9 le 16 oct. 2026. On verra s\u2019il tombe juste.');
+  });
+
+  test('rien n\u2019est écrit : l\u2019objet de la ligne et les séances sont intacts après deux rendus', () => {
+    const l = pose(), s = HISTOIRE();
+    const avant = JSON.stringify([l, s]);
+    O.vue({ objectif: l, seances: s, options: BARRE, maintenant: MAINTENANT });
+    O.vue({ objectif: l, seances: s, options: BARRE, maintenant: MAINTENANT });
+    expect(JSON.stringify([l, s])).toBe(avant);
   });
 });

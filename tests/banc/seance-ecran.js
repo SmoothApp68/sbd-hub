@@ -22820,7 +22820,7 @@ const SETS_IMPORTES = [
       const d = n.querySelector('.objectif-date');
       const jauge = n.querySelector('.objectif-jauge');
       return { titre: t('.objectif-titre'), aujourdhui: t('.objectif-aujourdhui'), ligne: d ? d.firstChild.textContent : null,
-        pari: t('.objectif-pari'), bouton: t('.objectif-changer'), jauge: jauge ? jauge.getAttribute('aria-valuenow') : null,
+        pari: t('.objectif-pari'), rythme: t('.objectif-rythme'), bouton: t('.objectif-changer'), jauge: jauge ? jauge.getAttribute('aria-valuenow') : null,
         couleurLigne: d ? getComputedStyle(d).color : null, couleurJauge: jauge ? getComputedStyle(jauge.firstChild).backgroundColor : null,
         manque: getComputedStyle(document.documentElement).getPropertyValue('--manque').trim() };
     });
@@ -22889,9 +22889,10 @@ const SETS_IMPORTES = [
       nbO(f1.phrase) === nbO('Ton record : 144 kg × 1. Le coach projettera une date à partir de tes records.'), nbO(f1));
     await aller('/exercice/squat-o109');
     const c1 = await carteO();
-    ok('[O109] posé : « 150 kg × 1 », la jauge depuis le record (0), « Aujourd’hui : 144 kg × 1 », UNE ligne : « Au rythme actuel : fin avril. » et le pari',
+    ok('[O109] posé : « 150 kg × 1 », la jauge depuis le record (0), « Aujourd’hui : 144 kg × 1 », le pari figé : « Le pari du coach : fin avril. », « Posé le 16 oct. On verra s’il tombe juste. », et « Au rythme d’aujourd’hui : toujours fin avril. »',
       !!c1 && nbO(c1.titre) === nbO('150 kg × 1') && c1.jauge === '0' && nbO(c1.aujourdhui) === nbO('Aujourd’hui : 144 kg × 1') &&
-        nbO(c1.ligne) === nbO('Au rythme actuel : fin avril.') && nbO(c1.pari) === nbO(' C’est un pari du coach : on verra s’il tombe juste.') &&
+        nbO(c1.ligne) === nbO('Le pari du coach : fin avril.') && nbO(c1.pari) === nbO('Posé le 16 oct. On verra s’il tombe juste.') &&
+        nbO(c1.rythme) === nbO('Au rythme d’aujourd’hui : toujours fin avril.') &&
         c1.bouton === 'Changer l’objectif', nbO(c1));
     const rgb = (h) => { const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(h); return m ? 'rgb(' + [1, 2, 3].map((k) => parseInt(m[k], 16)).join(', ') + ')' : h; };
     ok('[O109] jamais en rouge, jamais « impossible » : ni la ligne de date ni la jauge ne prennent la couleur des manques',
@@ -22914,8 +22915,8 @@ const SETS_IMPORTES = [
 
     // ── 3. LA DATE EST FIGÉE : rechargée, la ligne ne bouge pas.
     await aller('/exercice/squat-o109');
-    ok('[O109] la date affichée est celle du pari, figée : rechargée, « Au rythme actuel : fin avril. »',
-      nbO((await carteO() || {}).ligne) === nbO('Au rythme actuel : fin avril.'), nbO(await carteO()));
+    ok('[O109] la date affichée est celle du pari, figée : rechargée, « Le pari du coach : fin avril. »',
+      nbO((await carteO() || {}).ligne) === nbO('Le pari du coach : fin avril.'), nbO(await carteO()));
 
     // ── 4. CHANGER POUR 155 × 1 : un nouveau pari, l'ancien reste.
     await feuilleO(155, 1);
@@ -22945,6 +22946,8 @@ const SETS_IMPORTES = [
     const c5 = await carteO();
     ok('[O109] la carte garde la date du pari de 155, figée — elle ne bouge pas avec la séance du 10 mars ; « Aujourd’hui : 150 kg × 1 »',
       !!c5 && c5.ligne === ligne155 && nbO(c5.aujourdhui) === nbO('Aujourd’hui : 150 kg × 1'), nbO([c5, ligne155]));
+    ok('[O150] un record de plus depuis la pose : le pari ne bouge pas, la ligne « Au rythme d’aujourd’hui » est recalculée à la date d’aujourd’hui (une date, jamais un écart chiffré)',
+      !!c5 && /^Au rythme d’aujourd’hui : (toujours )?fin [a-zéû]+( \d{4})?\.$|^Au rythme d’aujourd’hui : (plus d’un an|pas encore de date)\.$/.test((c5 && c5.rythme || '').replace(/[\u00a0\u202f]/g, ' ')), nbO(c5));
     // Le mois de mars est la STORY du mois (98, BILANS-V1) : son écran « Le coach » compte les paris de CONSIGNE
     // vérifiés en mars (`parisDeConsigneConnus`), jamais le pari d'objectif tenu. Attendu : autant de paris que de
     // paris de consigne observés sur une séance de mars dans la base du banc — aucun, ici : pas d'écran « Le coach ».
@@ -23008,9 +23011,9 @@ const SETS_IMPORTES = [
     const pari7 = base.predictions.filter((x) => x.module === 'objectif' && x.id === r7.pari_id)[0] || {};
     await aller('/exercice/squat-o109');
     const c7 = (await carteO()) || {};
-    ok('[O109] revenu en Progresser : la date se calcule une fois (« Au rythme actuel : fin avril. »), le pari est posé alors (196 jours) ; la pose est gardée',
+    ok('[O109] revenu en Progresser : la date se calcule une fois (« Le pari du coach : fin avril. »), le pari est posé alors (196 jours) ; la pose est gardée',
       r7.projection === 'date' && r7.echeance === '2027-04-30' && r7.pose_le === l7.pose_le && pari7.valeur_predite === 196 &&
-        nbO(c7.ligne) === nbO('Au rythme actuel : fin avril.'), nbO([r7, pari7.valeur_predite, c7]));
+        nbO(c7.ligne) === nbO('Le pari du coach : fin avril.'), nbO([r7, pari7.valeur_predite, c7]));
     await C7.fermer();
     base.profiles[0].intention = intentionAvant7;
 

@@ -13660,7 +13660,8 @@
     var o = objectifDe(slug);
     return {
       vue: o ? Objectif.vue({ objectif: o, seances: seancesPourObjectif(groupes), options: Modele.optionsDeRecord(exo),
-                              maintenant: maintenant, carnet: coachSeTaitIci() }) : null,
+                              maintenant: maintenant, carnet: coachSeTaitIci(), anciennete: profil ? profil.anciennete : null,
+                              salle: Profil.salleDeLExercice(profil, slug, Modele.indexerExercices(local.exercices)) }) : null,
       surPoser: function () { ouvrirFeuilleObjectif(slug, function () { rendreExercice(slug, onglet); }); }
     };
   }

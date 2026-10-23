@@ -259,7 +259,7 @@
       return client().from('exercises')
         .select('slug, nom, mesure, charge, parent, equipement, muscles_primaires, muscles_secondaires, ' +
                 'muscles_stabilisateurs, mouvement, habilete, schema_mouvement, nature, description, actif, hors_salle, ' +
-                'echelle, echelle_rang, barre_charge_fixe, champs_series, type_elastique');
+                'echelle, echelle_rang, echelle_seuil_s, barre_charge_fixe, champs_series, type_elastique');
     }, 'slug'), 'slug').then(function (lignes) {
       // ⚠️ `champs_series` DEPUIS 131 (v2_101, ECRAN §3 ter.5) — DANS LE `select` PRINCIPAL : la migration passe
       // avant la fusion (décision du prompt 131). Un tableau, `[]` par défaut : une ligne sans la colonne (cache
@@ -285,10 +285,16 @@
     var aEchelle = 'echelle' in e || 'echelle_rang' in e, aBarre = 'barre_charge_fixe' in e;
     var echelleOk = typeof e.echelle === 'string' && !!e.echelle && typeof e.echelle_rang === 'number';
     var barreOk = typeof e.barre_charge_fixe === 'boolean';
-    if ((!aEchelle || echelleOk) && (!aBarre || barreOk)) return e;
+    // 149 (v2_108, MOTEUR §9.17 ter) — le seuil de la marche, en secondes : un entier > 0, sur un exercice d'échelle ;
+    // sinon absent (comme `echelle`/`echelle_rang`) — vide au sommet d'une échelle et pour les échelles en reps.
+    var aSeuil = 'echelle_seuil_s' in e;
+    var seuilOk = echelleOk && typeof e.echelle_seuil_s === 'number' && isFinite(e.echelle_seuil_s) &&
+      e.echelle_seuil_s > 0 && Math.floor(e.echelle_seuil_s) === e.echelle_seuil_s;
+    if ((!aEchelle || echelleOk) && (!aBarre || barreOk) && (!aSeuil || seuilOk)) return e;
     var c = Object.assign({}, e);
     if (!echelleOk) { delete c.echelle; delete c.echelle_rang; }
     if (!barreOk) delete c.barre_charge_fixe;
+    if (!seuilOk) delete c.echelle_seuil_s;
     return c;
   }
 

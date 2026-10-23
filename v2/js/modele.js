@@ -1082,6 +1082,27 @@
       .filter(function (x) { return echelleDe(x) === echelle; });
   }
 
+  // 149 (v2_108, MOTEUR §9.17 ter) — UNE ÉCHELLE DE FIGURES : une échelle dont TOUTES les marches sont en secondes
+  // (`mesure = 'temps'` : front lever, back lever, planche, L-sit, équilibre, drapeau). Elle se lit sur le catalogue,
+  // jamais sur une liste de slugs. Vraie aussi pour l'échelle d'un exercice (`echelleDe(x)`), pas seulement pour sa clé.
+  function estEchelleDeFigures(index, echelle) {
+    if (typeof echelle !== 'string' || !echelle) return false;
+    var m = marchesDe(index, echelle);
+    return m.length > 0 && m.every(function (x) { return x.mesure === 'temps'; });
+  }
+  // L'exercice est une marche d'une échelle de figures.
+  function estUneFigure(index, slug) {
+    var x = index && slug ? index[slug] : null;
+    var E = echelleDe(x);
+    return E !== null && estEchelleDeFigures(index, E);
+  }
+  // 149 — LE SEUIL DE LA MARCHE, en secondes (`exercises.echelle_seuil_s`) : la tenue de travail qui ouvre la marche
+  // suivante. La seule lecture de la colonne. `null` : vide (le sommet d'une échelle, les échelles en reps) ou absente.
+  function seuilDeLaMarche(x) {
+    var v = x ? x.echelle_seuil_s : null;
+    return typeof v === 'number' && isFinite(v) && v > 0 && Math.floor(v) === v ? v : null;
+  }
+
   // 145 — le rang d'une marche, pour les faits (`faits.echellesDeLaSemaine`) : la marche la plus haute d'une liste
   // d'exercices d'une même échelle (à rang égal : la plus récente selon `quand(slug)`, puis le slug), et « plus haut que ».
   // La seule lecture de `echelle_rang` : le fait ne lit pas la colonne.
@@ -1121,7 +1142,10 @@
       if (stricte && e.slug === stricte.slug && lest.length) { cible = lest; type = 'lest'; }
       else type = 'marche';
     }
-    var force = cible.filter(estDeForce);
+    // 149 — DANS UNE ÉCHELLE DE FIGURES, une habileté est proposable : la règle « une habileté n'est jamais proposée »
+    // vise le saut d'une échelle de force vers une habileté (les tractions vers l'archer), pas l'intérieur d'une figure
+    // (déjà dit le 17/10 pour le muscle-up, qui reste inchangé).
+    var force = estEchelleDeFigures(index, E) ? cible : cible.filter(estDeForce);
     if (!force.length) return { type: 'habilete', cible: cible.map(function (x) { return x.slug; }), proposable: false };
     return { type: type, cible: force.map(function (x) { return x.slug; }), proposable: type !== 'lest' };
   }
@@ -2583,6 +2607,9 @@
     // MOTEUR §9.17 bis (127) — l'échelle des variantes.
     echelleDe: echelleDe,
     marcheSuivante: marcheSuivante,
+    estEchelleDeFigures: estEchelleDeFigures,
+    estUneFigure: estUneFigure,
+    seuilDeLaMarche: seuilDeLaMarche,
     vueEchelle: vueEchelle,
     vueEchellesDeLaSemaine: vueEchellesDeLaSemaine,
     marcheLaPlusHaute: marcheLaPlusHaute,

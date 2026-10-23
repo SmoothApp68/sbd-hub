@@ -2662,6 +2662,12 @@
     var e = Modele.indexerExercices(local.exercices)[slug];
     return e ? e.nom : slug;
   }
+  // 144-5 — la mesure de l'exercice qui part et de celui qui arrive, pour que « Remplacer » vide les cibles sans sens.
+  function mesuresDuRemplacement(avant, apres) {
+    var index = Modele.indexerExercices(local.exercices);
+    var m = function (slug) { var e = index[slug]; return e && e.mesure ? e.mesure : null; };
+    return { avant: m(avant), apres: m(apres) };
+  }
   // Ma dernière série validée, lue sur l'appareil (la base peut l'attendre).
   function maDerniereSerie() {
     var t = null;
@@ -7187,7 +7193,7 @@
         var voulues = lignes.map(function (l, i) {
           if (i !== j) return l;
           // La note parlait de l'ancien exercice : elle part, comme dans la séance (`Seance.remplacerExercice`).
-          return Object.assign(Routines.exerciceRemplace(l, vers), { id: uuid(), note: null });
+          return Object.assign(Routines.exerciceRemplace(l, vers, mesuresDuRemplacement(l.exercise_slug, vers)), { id: uuid(), note: null });
         });
         idLigne = voulues[j].id;
         await poserRoutineVoulue(routine, voulues);
@@ -10041,7 +10047,8 @@
 
   function remplacerDansLEditeur(i, slug) {
     if (!brouillon || !brouillon.exercices[i] || !slug) return;
-    brouillon.exercices[i] = Routines.exerciceRemplace(brouillon.exercices[i], slug);
+    brouillon.exercices[i] = Routines.exerciceRemplace(brouillon.exercices[i], slug,
+      mesuresDuRemplacement(brouillon.exercices[i].exercise_slug, slug));
     renumeroterBrouillon();
   }
 

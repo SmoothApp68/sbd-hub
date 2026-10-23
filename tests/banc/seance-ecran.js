@@ -6281,6 +6281,7 @@ const SETS_IMPORTES = [
   const zoneDC = Moteur.zoneParCle(consigneDC.consigne.zone);
   const prevu4 = Number(String(attendus[4]).replace(',', '.'));
   const attendu4 = zoneDC && 5 >= zoneDC.bas && prevu4 < 130 ? '130' : attendus[4];
+  await attendreQue(async () => (await fantomes())[4] === attendu4, 15000, '143 · [G] la suivante est redessinée');
   ok('[G] 130 à plat sur la suivante, jamais 135 — l’élan s’il tient, sinon le plan (68A)',
     (await fantomes())[4] === attendu4, JSON.stringify(await fantomes()) + ' vs ' + attendu4 +
       ' (zone ' + (zoneDC && zoneDC.cle) + ')');
@@ -8154,7 +8155,9 @@ const SETS_IMPORTES = [
       fAvant[2] === Lg && fAvant[3] === Tst, JSON.stringify(fAvant));
     await saisirSerie(2, ref[0][0], ref[0][1]);
     await saisirSerie(3, ref[2][0], ref[2][1]);
-    await attendre(1500);
+    await attendreQue(() => parisDe(sid).length >= 4 && parisDe(sid).every((l) => rangDuSet(l.set_observe) === l.fondement.rang),
+      15000, '143 · [C] les quatre paris sont reliés');
+    await attendre(300);
     const pc = parisDe(sid);
     ok('[C] et chaque série a SON pari, à son rang : la 3ᵉ à la ligne, la 4ᵉ au test',
       pc.length === 4 && pc.map((l) => l.fondement.rang + ':' + l.fondement.role).join() ===

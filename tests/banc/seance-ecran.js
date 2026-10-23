@@ -514,7 +514,7 @@ const PROFIL_BANC = {
 // SEMAINE. Le pourquoi, en entier, est dans `decor-dates.js` — avec la seule
 // milliseconde de bord qui subsiste. `JOURS[n]` remplace l'ancien
 // `LUNDI + n jours` : même ORDRE, mêmes rangs, et toujours dans le passé.
-const { datesDuDecor, ancreSemaineIsolee, seanceSansSeries, jourIsole, ilYa, finDe, horsDeVie } =
+const { datesDuDecor, ancreSemaineIsolee, seanceSansSeries, jourIsole, ilYa, finDe, horsDeVie, mercrediEcoule } =
   require(path.join(__dirname, 'decor-dates.js'));
 const JOURS = datesDuDecor();
 // 87 — le faux serveur du social (cercles, blocage, compte privé, colonnes autorisées).
@@ -24287,16 +24287,11 @@ const SETS_IMPORTES = [
     ].forEach(([slug, nom, mesure, charge, equipement, nature, rang]) => CATALOGUE.push({ slug, nom, mesure, charge, equipement,
       parent: charge === 'ajoutee' ? E145 : null, nature, habilete: nature === 'habilete', actif: true,
       muscles_primaires: ['dorsaux'], muscles_secondaires: [], echelle: E145, echelle_rang: rang }));
-    // Le lundi de la semaine écoulée, à minuit ; `mercredi(n)` : le mercredi à midi de la semaine écoulée − n.
-    const lundiEcoule145 = (() => {
-      const d = new Date(); d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() - ((d.getDay() + 6) % 7) - 7);
-      return d;
-    })();
-    const mercredi145 = (n) => { const d = new Date(lundiEcoule145); d.setDate(d.getDate() - 7 * n + 2); d.setHours(12, 0, 0, 0); return d.toISOString(); };
+    // Le mercredi à midi de la semaine écoulée − n (`decor-dates.js`, `mercrediEcoule`).
+    const mercredi145 = (n) => mercrediEcoule(n).toISOString();
     const poser145 = (id, debut, reps) => {
       base.sessions.push({ id, user_id: 'u-banc', titre: 'Échelles — ' + id, debut,
-        fin: new Date(new Date(debut).getTime() + 3600000).toISOString(), statut: 'terminee', note: null, salle: null,
+        fin: finDe(debut).toISOString(), statut: 'terminee', note: null, salle: null,
         salle_norme: null, routine_id: null, source: 'app', created_at: debut });
       reps.forEach((r, k) => base.sets.push({ id: id + '-s' + k, session_id: id, user_id: 'u-banc', exercise_slug: 'tr-u145',
         charge_kg: null, reps: r, duree_s: null, distance_m: null, type_serie: 'travail', rang: k + 1, groupe_superset: null,
@@ -24359,7 +24354,7 @@ const SETS_IMPORTES = [
     base.sessions = base.sessions.filter((x) => x.id !== 'e145-1');
     await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
     await aller('/saisie');
-    await attendre(1200);
+    await aller('/saisie');
     await jusqua(async () => (await page.evaluate(() => !!document.querySelector('#liste-routines'))), 6000);
     ok('[145] D — DISCRIMINANT : seule la semaine d\'avant a une série d\'échelle : pas de carte',
       (await carte145()) === null, JSON.stringify(await carte145()));

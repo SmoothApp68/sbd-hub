@@ -1082,6 +1082,19 @@
       .filter(function (x) { return echelleDe(x) === echelle; });
   }
 
+  // 145 — le rang d'une marche, pour les faits (`faits.echellesDeLaSemaine`) : la marche la plus haute d'une liste
+  // d'exercices d'une même échelle (à rang égal : la plus récente selon `quand(slug)`, puis le slug), et « plus haut que ».
+  // La seule lecture de `echelle_rang` : le fait ne lit pas la colonne.
+  function marcheLaPlusHaute(index, slugs, quand) {
+    var rang = function (s) { return index[s].echelle_rang; };
+    return (slugs || []).slice().sort(function (x, y) {
+      return rang(y) - rang(x) || String(quand(y)).localeCompare(String(quand(x))) || (x < y ? -1 : x > y ? 1 : 0);
+    })[0] || null;
+  }
+  function estPlusHaute(index, a, b) {
+    return !!index[a] && !!index[b] && index[a].echelle_rang > index[b].echelle_rang;
+  }
+
   // LA MARCHE SUIVANTE d'un exercice d'échelle : `{ type, cible: [slugs], proposable }`, ou `null` (pas d'échelle, ou
   // rien au-dessus). Une seule fonction, lue par la carte du plan et par la page d'exercice :
   //   · depuis une AIDE (`charge = assistance`) : la marche stricte (« sans aide »), qui s'AJOUTE ;
@@ -1113,6 +1126,16 @@
     return { type: type, cible: force.map(function (x) { return x.slug; }), proposable: type !== 'lest' };
   }
 
+  // LE DÉPART d'une échelle : l'exercice de ta marche (`tienne`, le plus haut rang fait) fait le plus récemment, puis le
+  // slug (comme la référence). `faits` : les exercices faits de l'échelle ; `F` : leurs faits (`derniere`). 145 : « Tes
+  // échelles cette semaine » le lit ici, par la même fonction que « Ton échelle ».
+  function departDeLEchelle(faits, tienne, F) {
+    return faits.filter(function (x) { return x.echelle_rang === tienne; }).sort(function (a, b) {
+      var da = String(F[a.slug].derniere || ''), db = String(F[b.slug].derniere || '');
+      return da < db ? 1 : da > db ? -1 : (a.slug < b.slug ? 1 : a.slug > b.slug ? -1 : 0);
+    })[0];
+  }
+
   // « TON ÉCHELLE » (ECRAN-SAISIE §7 quater.6, maquette validée le 21/10/2026) — la vue de la carte de la page d'un
   // exercice d'échelle, ou `null` sans échelle. Elle ne calcule rien de neuf : l'échelle du catalogue, les faits
   // (`faites` : `{ [slug]: { meilleur, quand, derniere } }`, les exercices qui ont au moins une série de travail, leur
@@ -1134,10 +1157,7 @@
     var suivante = null, phrase = null;
     if (tienne !== null) {
       // Le départ : l'exercice de ta marche fait le plus récemment (puis le slug, comme la référence).
-      var depart = faits.filter(function (x) { return x.echelle_rang === tienne; }).sort(function (a, b) {
-        var da = String(F[a.slug].derniere || ''), db = String(F[b.slug].derniere || '');
-        return da < db ? 1 : da > db ? -1 : (a.slug < b.slug ? 1 : a.slug > b.slug ? -1 : 0);
-      })[0];
+      var depart = departDeLEchelle(faits, tienne, F);
       var m = marcheSuivante(index, depart.slug);
       if (m) {
         var c = index[m.cible[0]];
@@ -1167,6 +1187,74 @@
       }),
       phrase: phrase
     };
+  }
+
+  // « TES ÉCHELLES CETTE SEMAINE » (ECRAN-SAISIE §7 quater.7, maquette validée le 23/10/2026, 145) — la vue de la carte
+  // de Saisie, ou `[]`. Elle ne calcule rien de neuf : « Ton échelle » (`vueEchelle`) donne ta marche, la suivante et sa
+  // phrase ; les faits de la semaine (`faits.echellesDeLaSemaine`) arrivent DÉJÀ FORMATÉS par l'app (le formateur unique).
+  //   · `items` : `[{ echelle, exercices: { slug: { semaine, avant, reps } }, nouvelle }]`, dans l'ordre des faits
+  //     (l'échelle travaillée le plus récemment d'abord) ; `semaine` / `avant` : le meilleur de la semaine / de la semaine
+  //     d'avant (texte, ou `null`), `reps` : les reps des séries de travail de la semaine, dans l'ordre ; `nouvelle` :
+  //     `{ slug, ancienne: { nom, texte } }` quand la marche vient d'être franchie ;
+  //   · `o` : `{ faites, zonesHaut, coachActif, phraseDe, rondsDe }` — `faites` : comme `vueEchelle` (les exercices de
+  //     l'échelle faits, avec `derniere`) ; `phraseDe(e)` la phrase COURTE du coach ; `rondsDe(slug, e)` les deux ronds.
+  // Sans coach (« Juste un carnet »), ni phrase, ni ronds, ni reps de la condition. Rend, par échelle :
+  // `{ echelle, nom, marche: { slug, nom }, fait: { slug, nom, meilleur, avant } | null, nouvelle: { avant } | null,
+  //    suite: { phrase, ronds, serie } | null, ouvre }`.
+  function vueEchellesDeLaSemaine(index, items, o) {
+    var opt = o || {};
+    var out = [];
+    (items || []).forEach(function (it) {
+      if (!it || !index) return;
+      var membres = Object.keys(it.exercices || {}).filter(function (s) { return index[s] && echelleDe(index[s]) === it.echelle; });
+      if (!membres.length) return;
+      var v = vueEchelle(index, membres[0], opt.faites, opt.zonesHaut, opt.coachActif === true, opt.phraseDe);
+      if (!v) return;
+      var F = opt.faites || {};
+      var faits = marchesDe(index, it.echelle).filter(function (x) {
+        return Object.prototype.hasOwnProperty.call(F, x.slug) && !!F[x.slug];
+      });
+      var tienne = faits.length ? Math.max.apply(null, faits.map(function (x) { return x.echelle_rang; })) : null;
+      if (tienne === null) return;
+      var depart = departDeLEchelle(faits, tienne, F);
+      var nom = function (s) { return (index[s] && index[s].nom) || s; };
+      var ex = it.exercices;
+      // L'exercice dont la semaine se dit : la marche franchie, sinon ta marche, sinon le plus haut rang travaillé.
+      var travailles = membres.filter(function (s) { return ex[s] && ex[s].semaine; });
+      var ligne = it.nouvelle && ex[it.nouvelle.slug] && ex[it.nouvelle.slug].semaine ? it.nouvelle.slug
+        : ex[depart.slug] && ex[depart.slug].semaine ? depart.slug
+        : travailles.sort(function (a, b) { return index[b].echelle_rang - index[a].echelle_rang || parSlug(index[a], index[b]); })[0] || null;
+      var m = marcheSuivante(index, depart.slug);
+      var suite = null;
+      if (opt.coachActif === true && m) {
+        var haut = opt.zonesHaut && Object.prototype.hasOwnProperty.call(opt.zonesHaut, depart.slug) ? opt.zonesHaut[depart.slug] : null;
+        var habilete = m.type === 'habilete';
+        var ronds = !habilete && typeof opt.rondsDe === 'function'
+          ? opt.rondsDe(depart.slug, { haut: typeof haut === 'number' ? haut : null, aide: index[depart.slug].charge === 'assistance' }) : null;
+        var reps = ex[depart.slug] && ex[depart.slug].reps && ex[depart.slug].reps.length ? ex[depart.slug].reps : null;
+        var tenue = !!ronds && ronds[0] === true && ronds[1] === true;
+        suite = { phrase: v.phrase, ronds: ronds || null, serie: !habilete && !tenue && reps ? reps.join(', ') : null };
+        if (!suite.phrase) suite = null;
+      }
+      out.push({
+        echelle: it.echelle,
+        nom: nom(it.echelle),
+        marche: { slug: depart.slug, nom: nom(depart.slug) },
+        fait: ligne ? { slug: ligne, nom: nom(ligne), meilleur: ex[ligne].semaine, avant: ex[ligne].avant || null } : null,
+        nouvelle: it.nouvelle ? { avant: it.nouvelle.ancienne ? it.nouvelle.ancienne.nom + (it.nouvelle.ancienne.texte ? ', ' + it.nouvelle.ancienne.texte : '') : null } : null,
+        suite: suite,
+        ouvre: depart.slug
+      });
+    });
+    return out;
+  }
+
+  // « 12 au 18 oct. » : la semaine (lundi → dimanche) de la carte « Tes échelles cette semaine ». Les mois et les
+  // chiffres ne s'écrivent que dans ce module.
+  function libelleDeLaSemaine(lundi, dimanche) {
+    if (!(lundi instanceof Date) || !(dimanche instanceof Date) || isNaN(lundi.getTime()) || isNaN(dimanche.getTime())) return '';
+    var memeMois = lundi.getMonth() === dimanche.getMonth() && lundi.getFullYear() === dimanche.getFullYear();
+    return (memeMois ? String(lundi.getDate()) : jourMois(lundi)) + ' au ' + jourMois(dimanche);
   }
 
   // « mardi » (sur les 7 derniers jours, `quandTexte`), sinon le mois (« mars » ; « mars 2025 » une autre année) :
@@ -2496,6 +2584,10 @@
     echelleDe: echelleDe,
     marcheSuivante: marcheSuivante,
     vueEchelle: vueEchelle,
+    vueEchellesDeLaSemaine: vueEchellesDeLaSemaine,
+    marcheLaPlusHaute: marcheLaPlusHaute,
+    estPlusHaute: estPlusHaute,
+    libelleDeLaSemaine: libelleDeLaSemaine,
     texteMeilleure: texteMeilleure,
     quandDeLEchelle: quandDeLEchelle,
     construireBlocs: construireBlocs,

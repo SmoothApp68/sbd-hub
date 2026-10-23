@@ -625,6 +625,58 @@
     cible.appendChild(carte);
   }
 
+  // 145 (ECRAN-SAISIE §7 quater.7, maquette `maquette-semaine-echelles-v1.html`, validée le 23/10/2026) — « TES ÉCHELLES
+  // CETTE SEMAINE », en tête de Saisie. Le dessin seulement : tout arrive fait (`Modele.vueEchellesDeLaSemaine`, l'app).
+  // La carte s'ouvre sur la page « Ton échelle » (`vue.surOuvrir(slug)`, celle de la première échelle). Ni flèche, ni
+  // rouge : « nouvelle » est le seul fait en couleur ; les ronds sont pleins quand la séance a tenu la condition.
+  function rendreCarteEchelles(cible, vue) {
+    vider(cible);
+    if (!vue || !vue.echelles || !vue.echelles.length) { cible.hidden = true; return cible; }
+    cible.hidden = false;
+    var carte = el('button', 'carte-echelles');
+    carte.type = 'button';
+    carte.setAttribute('data-slug', vue.echelles[0].ouvre);
+    carte.appendChild(el('span', 'ce-etiquette', 'Tes échelles \u00b7 semaine du ' + vue.libelle));
+    vue.echelles.forEach(function (e) {
+      var bloc = el('span', 'ce-ech');
+      var tete = el('span', 'ce-tete');
+      tete.appendChild(el('span', 'ce-nom', e.nom));
+      var marche = el('span', 'ce-marche', 'ta marche : ');
+      marche.appendChild(el('b', null, e.marche.nom));
+      if (e.nouvelle) marche.appendChild(el('span', 'ce-nouvelle', 'nouvelle'));
+      tete.appendChild(marche);
+      bloc.appendChild(tete);
+      if (e.fait) {
+        var f = el('span', 'ce-fait');
+        var dit = (e.fait.slug !== e.marche.slug ? e.fait.nom + ' : ' : '') + e.fait.meilleur;
+        f.appendChild(doc.createTextNode(e.nouvelle ? 'Première fois : ' + dit : dit));
+        var gris = e.nouvelle ? (e.nouvelle.avant ? 'avant : ' + e.nouvelle.avant : '')
+          : (e.fait.avant ? 'la semaine d\u2019avant : ' + e.fait.avant : '');
+        if (gris) f.appendChild(el('span', 'ce-gris', ' \u00b7 ' + gris));
+        bloc.appendChild(f);
+      }
+      if (e.suite) {
+        var s = el('span', 'ce-suite');
+        s.appendChild(doc.createTextNode(e.suite.phrase + ' '));
+        if (e.suite.ronds) {
+          var pas = el('span', 'ce-pas');
+          e.suite.ronds.forEach(function (plein) { pas.appendChild(el('i', plein ? 'ok' : null)); });
+          s.appendChild(pas);
+        }
+        if (e.suite.serie) { s.appendChild(el('br')); s.appendChild(doc.createTextNode('Cette semaine : ' + e.suite.serie + '.')); }
+        bloc.appendChild(s);
+      }
+      carte.appendChild(bloc);
+    });
+    var lien = el('span', 'ce-lien');
+    lien.appendChild(el('b', null, vue.echelles.length > 1 ? 'Tes échelles' : 'Ton échelle'));
+    lien.appendChild(doc.createTextNode(' \u203a'));
+    carte.appendChild(lien);
+    carte.addEventListener('click', function () { if (vue.surOuvrir) vue.surOuvrir(vue.echelles[0].ouvre); });
+    cible.appendChild(carte);
+    return cible;
+  }
+
   function rendreResumeExo(cible, vue) {
     if (vue.tonEchelle) rendreTonEchelle(cible, vue.tonEchelle, vue.surMarche);
     if (vue.objectif) rendreCarteObjectif(cible, vue.objectif);
@@ -7814,6 +7866,7 @@
     rendreBandeauReprise: rendreBandeauReprise,
     rendreFeuilleInstaller: rendreFeuilleInstaller,
     rendreCarteSemaine: rendreCarteSemaine,
+    rendreCarteEchelles: rendreCarteEchelles,
     rendreCarteManque: rendreCarteManque,
     rendreEscalier: rendreEscalier,
     brancherReorganisation: brancherReorganisation,

@@ -1496,7 +1496,7 @@ const NOTIONS = [
     raison: 'ECRAN-SAISIE §3 ter.5 (audit 130 n°8) : le champ refuse au-delà de la borne, comme le pavé de la durée.' },
   { notion: 'le seuil d’une marche au poids du corps (le haut de la zone et 8 reps : le lest comme la marche suivante)', pr: '127-U1',
     module: 'moteur.js', fonction: 'seuilDeMarche', lecteurs: ['plan.js'],
-    par: ['consignePour', 'carteMarcheDecidee', 'phraseDeLaSuivante'],
+    par: ['consignePour', 'carteMarcheDecidee', 'phraseDeLaSuivante', 'rondsDeLaSuivante'],
     raison: 'MOTEUR §9.17 et §9.17 bis (21/10/2026) : la carte du lest, la carte « marche suivante », la phrase de la page ' +
       'et les invariants I49 et I50 lisent le même seuil, écrit une fois (`SEUIL_MARCHE`).' },
   { notion: 'la marche suivante d’un exercice d’échelle (`echelle`, `echelle_rang` au catalogue)', pr: '127-U1',
@@ -1509,7 +1509,7 @@ const NOTIONS = [
     raison: 'MOTEUR §9.17 bis : une seule fonction, lue par la carte du plan (l’app la lui passe, `entreesDuPlan`) ' +
       'et par la page d’exercice (« Ton échelle ») — aucun écran ne recalcule une marche.' },
   { notion: 'l’échelle d’un exercice (la clé, ou `null` sans les colonnes)', pr: '127-U1',
-    module: 'modele.js', fonction: 'echelleDe', lecteurs: ['app.js'],
+    module: 'modele.js', fonction: 'echelleDe', lecteurs: ['app.js', 'faits.js'],
     parAilleurs: { 'app.js': ['vueEchelleDe'] },
     raison: 'ECRAN-SAISIE §7 quater.6 : la page dit « Ton échelle » sur les exercices de la même échelle, lue par la ' +
       'même fonction que la marche suivante.' },
@@ -1527,6 +1527,32 @@ const NOTIONS = [
     module: 'modele.js', fonction: 'quandDeLEchelle', lecteurs: ['app.js'],
     raison: 'ECRAN-SAISIE §7 quater.6 : la date d’un meilleur, par le formateur des dates (les jours et les mois ne ' +
       's’écrivent que dans `modele.js`).' },
+  // 145 (ECRAN-SAISIE §7 quater.7) — « Tes échelles cette semaine ».
+  { notion: 'les exercices d’échelle de la semaine écoulée (leurs séries de la semaine et de la semaine d’avant, la marche franchie)', pr: '145-U1',
+    module: 'faits.js', fonction: 'echellesDeLaSemaine', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['vueCarteEchelles'] },
+    raison: 'ECRAN-SAISIE §7 quater.7 (maquette du 23/10/2026) : la carte de Saisie ne calcule rien — le fait se déclare ici ; ' +
+      'l’app écrit les meilleures séries par le formateur unique, le modèle compose la carte.' },
+  { notion: 'la vue de « Tes échelles cette semaine » (ta marche, la semaine, la suivante, ses ronds)', pr: '145-U1',
+    module: 'modele.js', fonction: 'vueEchellesDeLaSemaine', lecteurs: ['app.js'],
+    par: [],
+    parAilleurs: { 'app.js': ['vueCarteEchelles'] },
+    raison: 'ECRAN-SAISIE §7 quater.7 : elle relit « Ton échelle » (`vueEchelle`) et les faits de la semaine ; sans coach, ni ' +
+      'phrase, ni ronds.' },
+  { notion: 'les deux ronds des « deux séances de suite » (la condition de la carte « marche suivante », lue sur `deuxSeances`)', pr: '145-U1',
+    module: 'moteur.js', fonction: 'rondsDeLaSuivante', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['vueCarteEchelles'] },
+    raison: 'ECRAN-SAISIE §7 quater.7 : aucune règle nouvelle — le seuil (`seuilDeMarche`) et le fondement de la consigne ' +
+      '(`deuxSeances`) sont ceux de la carte « marche suivante ».' },
+  { notion: 'la marche la plus haute d’une échelle, et « plus haute que » (la seule lecture de `echelle_rang` pour les faits)', pr: '145-U1',
+    module: 'modele.js', fonction: 'marcheLaPlusHaute', lecteurs: ['faits.js'],
+    raison: 'ECRAN-SAISIE §7 quater.7 : le fait « marche franchie » compare des rangs ; la colonne ne se lit que dans `modele.js`.' },
+  { notion: 'la marche plus haute qu’une autre (un rang strictement supérieur)', pr: '145-U1',
+    module: 'modele.js', fonction: 'estPlusHaute', lecteurs: ['faits.js'],
+    raison: 'ECRAN-SAISIE §7 quater.7 : compagnon de `marcheLaPlusHaute`, pour le même fait.' },
+  { notion: 'la semaine d’une carte d’échelles (« 12 au 18 oct. »)', pr: '145-U1',
+    module: 'modele.js', fonction: 'libelleDeLaSemaine', lecteurs: ['app.js'],
+    raison: 'ECRAN-SAISIE §7 quater.7 : les mois et les chiffres des dates ne s’écrivent que dans `modele.js`.' },
   { notion: 'une zone par sa clé (bornes, libellé)', pr: '124-U1',
     module: 'moteur.js', fonction: 'zoneParCle', lecteurs: ['app.js', 'plan.js'],
     raison: 'les bornes d’une zone sont écrites une fois (`ZONES`) ; le plan et la démonstration les lisent par la clé.' },
@@ -2043,7 +2069,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : quarante (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126, ce qui manque aux séances en 131), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : quarante et un (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126, ce qui manque aux séances en 131, les échelles de la semaine en 145), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -2054,7 +2080,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(40);
+    expect(FAITS.length).toBe(41);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

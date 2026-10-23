@@ -9350,6 +9350,7 @@
     // pas terminé » ne dépend pas du chargement des routines.
     rendreBandeauQuestionnaire();
     rendreBandeauPhase();
+    rendreCarteEchelles();
     rendreCarteCycles();
     rendreCarteSemaine();
     rendreCarteManque();
@@ -11100,6 +11101,83 @@
     // La phrase se tait en carnet (le profil) ; en Entretenir (l'exercice de départ), `phraseDe` le sait.
     var phraseDe = function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(e); };
     return Modele.vueEchelle(index, slug, faites, zonesHaut, !Moteur.coachSeTait(profil && profil.intention), phraseDe);
+  }
+
+  // 145 (ECRAN-SAISIE §7 quater.7, maquette `maquette-semaine-echelles-v1.html`, validée le 23/10/2026) — « TES ÉCHELLES
+  // CETTE SEMAINE », en tête de Saisie. Un câblage, sans calcul : les faits de la semaine ÉCOULÉE (lundi → dimanche qui
+  // précède celle d'aujourd'hui : `faits.echellesDeLaSemaine`), le meilleur de chaque semaine par le formateur unique
+  // (`Modele.meilleureSerieDeTout` + `Modele.texteMeilleure`, comme la page d'exercice), « Ton échelle » (`Modele.vueEchelle`
+  // : ta marche, la suivante) et sa phrase COURTE (`Moteur.phraseDeLaSuivante`, option `court`), les deux ronds
+  // (`Moteur.rondsDeLaSuivante`, sur le fondement de la consigne : `deuxSeances`). `[]` sans exercice d'échelle travaillé
+  // cette semaine-là (une barre seule n'en est pas un). En « Juste un carnet » : les marches et les séries, ni phrase ni
+  // ronds (`Modele.vueEchellesDeLaSemaine`).
+  function deuxSeancesDeLExercice(slug, exo) {
+    var o = Object.assign(optionsDeConsigne(slug, exo), { edition: false, echelle: true }), g = groupesDuMoteur(slug, o.salle);
+    var k = Moteur.consigneDExercice(g, etatDuMoteur(slug, o.salle, g), new Date().toISOString(), o);
+    var ds = k && k.consigne && k.consigne.fondement ? k.consigne.fondement.deuxSeances : null;
+    return Array.isArray(ds) ? ds : null;
+  }
+  function vueCarteEchelles(maintenant) {
+    var index = catalogueIndexe();
+    var cette = Semaine.bornesSemaine(maintenant);
+    var ecoulee = cette ? Semaine.decalerSemaine(cette.lundi, -1) : null;
+    if (!ecoulee) return null;
+    var semaine = faits.echellesDeLaSemaine(corpus(), ecoulee.lundi);
+    if (!semaine.length) return null;
+    var dates = faits.datesDesExercices(corpus());
+    var meilleurTexte = function (slug, series) {
+      if (!series || !series.length) return null;
+      var parSeance = {}, ordre = [];
+      series.forEach(function (x) {
+        var k = x.session_id || '';
+        if (!parSeance[k]) { parSeance[k] = { cle: k, series: [] }; ordre.push(k); }
+        parSeance[k].series.push(x);
+      });
+      var r = Modele.meilleureSerieDeTout(slug, ordre.map(function (k) { return parSeance[k]; }), local.exercices, Palier,
+        etatsExercices, meilleurNomme);
+      return Modele.texteMeilleure(r) || null;
+    };
+    var faites = {}, zonesHaut = {}, actifs = {};
+    semaine.forEach(function (it) {
+      Object.keys(index).forEach(function (s) {
+        if (Modele.echelleDe(index[s]) !== it.echelle || !dates[s]) return;
+        faites[s] = { meilleur: null, quand: null, derniere: dates[s] };
+        var k = consigneDeLExercice(s);
+        var z = k && k.consigne ? Moteur.zoneParCle(k.consigne.zone) : null;
+        if (z) zonesHaut[s] = z.haut;
+        actifs[s] = intentionDeLExercice(s) !== 'entretien';
+      });
+    });
+    var items = semaine.map(function (it) {
+      var exercices = {};
+      Object.keys(it.exercices).forEach(function (s) {
+        var e = it.exercices[s];
+        exercices[s] = { semaine: meilleurTexte(s, e.semaine), avant: meilleurTexte(s, e.avant),
+                         reps: e.semaine.map(function (x) { return x.reps; }).filter(function (r) { return r !== null && r !== undefined; }) };
+      });
+      var n = it.nouvelle;
+      return { echelle: it.echelle, exercices: exercices,
+               nouvelle: n ? { slug: n.slug, ancienne: { nom: (index[n.ancienne.slug] || {}).nom || n.ancienne.slug,
+                                                         texte: meilleurTexte(n.ancienne.slug, n.ancienne.series) } } : null };
+    });
+    var cartes = Modele.vueEchellesDeLaSemaine(index, items, {
+      faites: faites, zonesHaut: zonesHaut, coachActif: !Moteur.coachSeTait(profil && profil.intention),
+      phraseDe: function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { court: true })); },
+      rondsDe: function (slug, e) {
+        var ds = deuxSeancesDeLExercice(slug, index[slug]);
+        return ds ? Moteur.rondsDeLaSuivante({ haut: e.haut, aide: e.aide, seances: ds }) : null;
+      }
+    });
+    if (!cartes.length) return null;
+    return { libelle: Modele.libelleDeLaSemaine(ecoulee.lundi, ecoulee.dimanche), echelles: cartes };
+  }
+  function rendreCarteEchelles() {
+    var noeud = $('carte-echelles');
+    if (!noeud) return;
+    if (seance) { Rendu.rendreCarteEchelles(noeud, null); return; }
+    var vue = vueCarteEchelles(new Date());
+    if (vue) vue.surOuvrir = function (slug) { afficherExercice(slug); };
+    Rendu.rendreCarteEchelles(noeud, vue);
   }
 
   // 125 — la vue de « Comment faire » : Matériel (`Profil.libelleEquipement`), Travaille (muscles primaires), Aussi

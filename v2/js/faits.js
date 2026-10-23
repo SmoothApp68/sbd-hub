@@ -595,6 +595,79 @@
       };
     }
 
+    // ── 145 (ECRAN-SAISIE §7 quater.7) — « Tes échelles cette semaine » ──────
+    //
+    // Les exercices D'ÉCHELLE (le catalogue : `Modele.echelleDe`) travaillés pendant la semaine qui commence à `lundi`
+    // (lundi → dimanche, heure locale — comme `semaineDe`), leurs séries de travail (`Modele.estTravail`) de cette
+    // semaine et de la semaine d'avant, et la MARCHE FRANCHIE : la première série de travail de la vie sur un rang plus
+    // haut que tout ce qui précédait la semaine. Rend, l'échelle travaillée le plus récemment d'abord :
+    //   `[{ echelle, derniere, exercices: { slug: { semaine: [séries], avant: [séries] } },
+    //       nouvelle: { slug, ancienne: { slug, series } | null } | null }]`
+    // `exercices` ne porte que les exercices travaillés cette semaine ; `nouvelle.ancienne.series` : les séries de
+    // travail de la dernière séance de l'ancienne marche avant la semaine. Rien de la semaine sans exercice d'échelle :
+    // `[]`. Une séance en cours n'y est pas. Le fait ne formate rien et ne juge rien : l'app écrit les meilleures séries
+    // par le formateur unique, `Modele.vueEchellesDeLaSemaine` compose la carte.
+    function echellesDeLaSemaine(c, lundi) {
+      var b = Semaine.bornesSemaine(lundi);
+      if (!b) return [];
+      var avant = Semaine.decalerSemaine(b.lundi, -1);
+      var index = Modele.indexerExercices(c.exercices || []);
+      var enCours = {};
+      (c.seances || []).forEach(function (s) { if (s && s.id && s.statut === 'en_cours') enCours[s.id] = true; });
+      var datees = seancesDatees(c).filter(function (s) { return !enCours[s.id]; }).slice().sort(function (x, y) {
+        return new Date(x.debut) - new Date(y.debut);
+      });
+      var parEchelle = {}, ordre = [];
+      datees.forEach(function (s) {
+        var d = new Date(s.debut);
+        if (d > b.dimanche) return;
+        var zone = d >= b.lundi ? 'semaine' : d >= avant.lundi ? 'avant' : 'ancien';
+        var duJour = {};
+        (s.series || []).forEach(function (x) {
+          var exo = x && x.exercise_slug ? index[x.exercise_slug] : null;
+          var E = exo ? Modele.echelleDe(exo) : null;
+          if (E === null || !Modele.estTravail(x)) return;
+          var r = parEchelle[E];
+          if (!r) { r = parEchelle[E] = { echelle: E, derniere: null, exercices: {}, avantLaSemaine: {} }; ordre.push(E); }
+          var slug = x.exercise_slug;
+          if (zone === 'semaine') {
+            var e = r.exercices[slug] || (r.exercices[slug] = { semaine: [], avant: [], derniere: null });
+            e.semaine.push(x);
+            e.derniere = s.debut;
+            if (r.derniere === null || new Date(s.debut) > new Date(r.derniere)) r.derniere = s.debut;
+          } else {
+            (duJour[E + '|' + slug] = duJour[E + '|' + slug] || { E: E, slug: slug, debut: s.debut, series: [] }).series.push(x);
+            if (zone === 'avant') {
+              var e2 = r.exercices[slug] || (r.exercices[slug] = { semaine: [], avant: [], derniere: null });
+              e2.avant.push(x);
+            }
+          }
+        });
+        // La dernière séance de chaque exercice AVANT la semaine (la séance d'avant remplace la précédente).
+        Object.keys(duJour).forEach(function (k) { parEchelle[duJour[k].E].avantLaSemaine[duJour[k].slug] = duJour[k]; });
+      });
+      var out = [];
+      ordre.forEach(function (E) {
+        var r = parEchelle[E];
+        if (r.derniere === null) return;
+        var travailles = Object.keys(r.exercices).filter(function (s) { return r.exercices[s].semaine.length > 0; });
+        var exercices = {};
+        travailles.forEach(function (s) { exercices[s] = { semaine: r.exercices[s].semaine, avant: r.exercices[s].avant }; });
+        // La marche franchie : un rang plus haut que tout ce qui précédait la semaine (et il y avait un « avant »).
+        var pre = Object.keys(r.avantLaSemaine);
+        var nouvelle = null;
+        if (pre.length) {
+          var ancien = Modele.marcheLaPlusHaute(index, pre, function (s) { return r.avantLaSemaine[s].debut; });
+          var nouveau = Modele.marcheLaPlusHaute(index, travailles, function (s) { return r.exercices[s].derniere; });
+          if (Modele.estPlusHaute(index, nouveau, ancien)) {
+            nouvelle = { slug: nouveau, ancienne: { slug: ancien, series: r.avantLaSemaine[ancien].series } };
+          }
+        }
+        out.push({ echelle: E, derniere: r.derniere, exercices: exercices, nouvelle: nouvelle });
+      });
+      return out.sort(function (x, y) { return new Date(y.derniere) - new Date(x.derniere); });
+    }
+
     // ── Ce que les séances savent de la personne (60-2a) ────────────────────
     //
     // QUESTIONNAIRE-COACH-V2 §1 : « rien de ce que les séries savent n'est
@@ -1364,6 +1437,7 @@
       recordsDuJournal: recordsDuJournal,
       medaillesDuSocial: medaillesDuSocial,
       semaineDe: semaineDe,
+      echellesDeLaSemaine: echellesDeLaSemaine,
       datesDesExercices: datesDesExercices,
       exercicesFaitsParSeance: exercicesFaitsParSeance,
       seancesParExercice: seancesParExercice,

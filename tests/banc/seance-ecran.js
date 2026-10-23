@@ -2373,7 +2373,9 @@ const SETS_IMPORTES = [
   // le réseau calme (la séance, ses séries, ses records sont partis par la file).
   // 143 — au préambule (il était déclaré après les premières sections qui s'en servent).
   const seanceSortie = async () => {
-    await jusqua(() => page.evaluate(() => document.getElementById('vue-seance').hidden).catch(() => false), 10000, 'seanceSortie');
+    // 143-bis — une prémisse NOMMÉE : si la séance ne quitte pas l'écran, c'est ce contrôle qui échoue (et dit pourquoi).
+    const sortie = await jusqua(() => page.evaluate(() => document.getElementById('vue-seance').hidden).catch(() => false), 10000, 'seanceSortie');
+    if (!sortie) ok('[prémisse] « Terminer » fait sortir de la séance : le récap s’ouvre', false, 'la séance est encore à l’écran après 10 s');
     await reseauCalme();
   };
 
@@ -2421,10 +2423,12 @@ const SETS_IMPORTES = [
     // qu'une feuille la précède — avant de rendre la main.
     // 143 — l'état, plus 900 ms fixes avant lui : la séance est à l'écran AVEC ses lignes (ou la feuille de question),
     // dessinées, et le disque a reçu la séance.
-    await jusqua(() => page.evaluate(() => {
+    // 143-bis — une prémisse NOMMÉE : si « Commencer » ne démarre rien, ce contrôle échoue (au lieu d'un plantage plus loin).
+    const demarree = await jusqua(() => page.evaluate(() => {
       const s = document.getElementById('vue-seance'), f = document.getElementById('feuille-seance');
       return (!!s && !s.hidden && document.querySelectorAll('#vue-seance .ligne-serie').length > 0) || (!!f && !f.hidden);
     }).catch(() => true), 12000, 'demarrerRoutine ' + nom + ' (la séance)');
+    if (!demarree) ok('[prémisse] la routine « ' + nom + ' » est démarrée : la séance est à l’écran avec ses lignes', false, 'ni séance ni feuille après 12 s');
     await brouillonPose();
     await calmeApres(depart, 0);   // la lecture des séances en cours, la séance posée en base : le réseau s'est tu
   };

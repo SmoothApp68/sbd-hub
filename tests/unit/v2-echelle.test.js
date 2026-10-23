@@ -463,32 +463,31 @@ describe('127 — la réponse à la carte : « Ajouter » insère avant et garde
   });
 });
 
-// ═══ 6. LE CATALOGUE SANS LES COLONNES D'ÉCHELLE (v2_099 pas lancée) ══════
-describe('127 — la lecture du catalogue ne casse pas sans `echelle` / `echelle_rang`', () => {
+// ═══ 6. LE CATALOGUE ET LES COLONNES D'ÉCHELLE ══════════════════════════════
+// 129 — une seule lecture : `echelle` et `echelle_rang` rejoignent le `select` du catalogue (v2_099 lancée le 21/10).
+// Le résultat pour l'app ne change pas : l'échelle posée sur les exercices d'une échelle, et seulement eux ; une ligne
+// sans les colonnes (cache d'avant, faux serveur) n'est sur aucune échelle.
+describe('127-129 — la lecture du catalogue et les colonnes `echelle` / `echelle_rang`', () => {
   const LIGNES = [
-    { slug: 'tractions', nom: 'Tractions', charge: 'aucune' },
-    { slug: 'tractions_elastique', nom: 'Tractions (Élastique)', charge: 'assistance' },
-    { slug: 'squat_barre', nom: 'Squat', charge: 'barre' }
+    { slug: 'tractions', nom: 'Tractions', charge: 'aucune', echelle: 'tractions', echelle_rang: 3 },
+    { slug: 'tractions_elastique', nom: 'Tractions (Élastique)', charge: 'assistance', echelle: 'tractions', echelle_rang: 1 },
+    { slug: 'squat_barre', nom: 'Squat', charge: 'barre', echelle: null, echelle_rang: null }
   ];
   let requetes;
   const client = (avecColonnes) => ({
-    from() {
+    from(table) {
       let select = '';
       const c = {
         select(s) { select = s; return c; }, eq() { return c; }, gt() { return c; }, or() { return c; },
         order() { return c; }, limit() { return c; }, range() { return c; },
         then(res, rej) {
-          requetes.push(select);
-          const echelle = /echelle/.test(select);
-          if (echelle && !avecColonnes) {
-            return Promise.resolve({ data: null, error: { code: '42703', message: 'column exercises.echelle does not exist' } }).then(res, rej);
-          }
-          const premiere = requetes.filter((x) => x === select).length === 1;
-          const data = !premiere ? [] : echelle
-            ? [{ slug: 'tractions', echelle: 'tractions', echelle_rang: 3 },
-               { slug: 'tractions_elastique', echelle: 'tractions', echelle_rang: 1 },
-               { slug: 'squat_barre', echelle: null, echelle_rang: null }]
-            : LIGNES.map((l) => Object.assign({}, l));
+          requetes.push({ table, select });
+          const premiere = requetes.filter((x) => x.select === select).length === 1;
+          const data = !premiere ? [] : LIGNES.map((l) => {
+            const x = Object.assign({}, l);
+            if (!avecColonnes) { delete x.echelle; delete x.echelle_rang; }
+            return x;
+          });
           return Promise.resolve({ data, error: null }).then(res, rej);
         }
       };
@@ -504,27 +503,30 @@ describe('127 — la lecture du catalogue ne casse pas sans `echelle` / `echelle
   };
   afterEach(() => { delete globalThis.THClient; });
 
-  test('le `select` du catalogue ne nomme PAS les colonnes d’échelle (une colonne inconnue refuserait tout)', async () => {
+  test('une seule lecture du catalogue : son `select` nomme `echelle` et `echelle_rang`', async () => {
     const D = charger(true);
     await D.tousLesExercices();
-    expect(requetes[0]).not.toMatch(/echelle/);
-    expect(requetes.some((r) => /echelle_rang/.test(r))).toBe(true);
+    const selects = Array.from(new Set(requetes.filter((r) => r.table === 'exercises').map((r) => r.select)));
+    expect(selects.length).toBe(1);
+    const colonnes = selects[0].split(',').map((c) => c.trim());
+    expect(colonnes).toEqual(expect.arrayContaining(['echelle', 'echelle_rang']));
   });
 
-  test('colonnes absentes : le catalogue entier, ses lignes sans échelle', async () => {
+  test('une ligne sans les colonnes (cache d’avant v2_099, faux serveur) : le catalogue entier, sans échelle', async () => {
     const D = charger(false);
     const cat = await D.tousLesExercices();
     expect(cat.map((e) => e.slug)).toEqual(['tractions', 'tractions_elastique', 'squat_barre']);
     expect(cat.every((e) => e.echelle === undefined && e.echelle_rang === undefined)).toBe(true);
   });
 
-  test('colonnes présentes : posées sur les exercices d’une échelle, et seulement eux', async () => {
+  test('colonnes présentes : posées sur les exercices d’une échelle, et seulement eux (`null` laissées absentes)', async () => {
     const D = charger(true);
     const cat = await D.tousLesExercices();
     const ix = Mo.indexerExercices(cat);
     expect([ix.tractions.echelle, ix.tractions.echelle_rang]).toEqual(['tractions', 3]);
     expect(ix.tractions_elastique.echelle_rang).toBe(1);
-    expect(ix.squat_barre.echelle).toBeUndefined();
+    expect(ix.squat_barre).not.toHaveProperty('echelle');
+    expect(ix.squat_barre).not.toHaveProperty('echelle_rang');
     expect(Mo.marcheSuivante(ix, 'tractions_elastique')).toEqual({ type: 'sans_aide', cible: ['tractions'], proposable: true });
   });
 

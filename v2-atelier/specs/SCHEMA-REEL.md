@@ -1,10 +1,25 @@
-# Schéma réel — état au 17 octobre 2026
+# Schéma réel — état au 21 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_097`** (descriptions du catalogue). Prochain numéro libre : **`v2_098`**.
+Dernière migration appliquée : **`v2_100`** (sécurité). Prochain numéro libre : **`v2_101`**.
 
-**Volumétrie (17/10, 13 h)** : 1 284 séances · 29 568 séries · 480 exercices (475 actifs) · 328 alias (`exercise_alias`)
-· 275 prédictions · 3 630 records · 9 profils · `scores_force` vide (republiée floutée par l'app, v2_091).
+**Volumétrie (21/10, 21 h 45)** : 1 286 séances · 29 619 séries · 859 exercices (847 actifs : force 671, habileté 74,
+mobilité 58, cardio 44) · 961 alias (`exercise_alias`) · 313 prédictions · 3 629 records · 9 profils · 36 règles d'accès.
+
+## Depuis le 21/10 — migrations `v2_098` à `v2_100` (régénéré depuis la base par Claude.ai le 21/10/2026)
+
+> Lancées dans l'éditeur SQL par Aurélien, après un essai à blanc sur une réplique locale (l'outil de Claude.ai refuse
+> le DDL), puis vérifiées en lecture. Absentes de `list_migrations`.
+
+| Migration | Ce qu'elle fait |
+|---|---|
+| `v2_098` (catalogue complet) | Préalable `V2-098-AVANT-SUPPRESSIONS` (DELETE de 6 records d'aurel_br sur `oiseau_penche_haltere` et de 7 alias faux ou illisibles). 480 → **859 exercices** (379 ajoutés, chacun avec sa description `claude`), 174 renommages selon « Mouvement Variante (Matériel) » (les slugs ne changent pas ; l'ancien nom devient un alias source `app`), **961 alias** (9 déplacés, 640 ajoutés ; aucun nom ni alias porté par deux exercices, ponctuation ignorée) ; colonne **`exercises.hors_salle`** (boolean NOT NULL, défaut false ; 27 exercices : natation, course, rando, vélo, ski, sports collectifs, escalade, boxe…) ; `schema_mouvement` posé sur 10 gainages (abdos ; Gainage Copenhague : adducteurs) ; fusions : les séries de `gainage` → `planche` (nom « Gainage ») et de `oiseau_penche_haltere` → `oiseau_haltere` ; 7 exercices `actif = false` (les deux fusionnés et 5 jamais utilisés) ; Pilates en `mobilite` |
+| `v2_099` (échelle) | **`exercises.echelle`** (text, `^[a-z_]{1,40}$`) et **`echelle_rang`** (smallint 1-20 ; contrainte `exercises_echelle_ok` : les deux vides ensemble ; index partiel `exercises_echelle_idx`) — 36 exercices, 6 échelles (tractions, tractions_supination, dips_torse, dips_triceps, pompes, muscle_up) ; **`exercises.barre_charge_fixe`** (boolean NOT NULL, défaut false ; `exercises_barre_charge_fixe_ok` : seulement si `equipement = 'barre'` ; 21 exercices) — à ne pas confondre avec `barre_fixe` du générateur (la barre de traction) ; `profiles_ma_salle_ok` accepte deux clés de plus, **`elastiques`** (liste de 10 au plus, du plus fort au plus léger, `{nom, kg?}`, contrainte séparée `profiles_ma_salle_elastiques_ok`) et **`elastiques_par_nom`** (boolean) ; **`profiles.marche_reponses`** (jsonb, par exercice de départ `{r: oui|non, le, aide?}`, `profiles_marche_reponses_ok`) |
+| `v2_100` (sécurité) | `EXECUTE` retiré à PUBLIC, anon et authenticated sur les fonctions de déclencheur `abonnements_avant_ajout`, `abonnements_avant_modif`, `blocages_apres_ajout` (un déclencheur se déclenche sans ce droit) ; les 7 règles de `abonnements`, `blocages`, `reactions_seance` passent de `public` à **`authenticated`** ; `reactions_ajout` et `reactions_guilde` fusionnées en une règle d'ajout : `user_id = auth.uid() AND (social_peut_reagir(session_id) OR guilde_peut_reagir(session_id))` |
+
+**Reste noté** : `pseudo_libre` ouverte à `anon` (voulu : le pseudo se vérifie avant le compte) ; 57 fonctions SECURITY
+DEFINER appelables par les comptes connectés (l'API sociale) ; pas de clé étrangère `groupe_recaps.groupe_id` ni
+`objectifs.pari_id` ; pas d'index sur `sets.exercise_slug` ; « Leaked password protection » (tableau de bord).
 
 ## Depuis le 17/10 — migrations `v2_091` à `v2_097` (régénéré depuis la base par Claude.ai le 17/10/2026, 13 h)
 
@@ -25,7 +40,7 @@ Dernière migration appliquée : **`v2_097`** (descriptions du catalogue). Proch
 **Règles d'accès** : aucune modifiée par v2_091 à v2_097 (37 règles au 17/10). Toutes les fonctions ajoutées sont
 SECURITY DEFINER, `search_path` figé, fermées à `anon`.
 
-**Noté (non corrigé)** : `EXECUTE` ouvert à `anon` sur `abonnements_avant_ajout`, `blocages_apres_ajout`,
+**Noté au 17/10 (corrigé le 21/10 par `v2_100`)** : `EXECUTE` ouvert à `anon` sur `abonnements_avant_ajout`, `blocages_apres_ajout`,
 `abonnements_avant_modif` ; règles de `abonnements`, `blocages`, `reactions_seance` sur le rôle `public` ; deux règles
 d'ajout permissives sur `reactions_seance` ; pas de clé étrangère `groupe_recaps.groupe_id` ni `objectifs.pari_id` ; pas
 d'index sur `sets.exercise_slug`. Une migration de sécurité est décidée (17/10).

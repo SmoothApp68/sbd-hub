@@ -437,7 +437,7 @@
   // proposées sont un sous-ensemble sensé de l'intervalle — une durée VISÉE ne
   // se règle pas à la minute.
   var SEANCES_MIN = 1, SEANCES_MAX = 14;
-  var DUREES = [30, 45, 60, 75, 90, 105, 120, 150, 180];
+  var DUREES = [30, 45, 60, 75, 90, 105, 120, 150, 180, 210, 240, 300];
   var TAILLE_MIN = 100, TAILLE_MAX = 250;
 
   function libelleDe(liste, cle) {

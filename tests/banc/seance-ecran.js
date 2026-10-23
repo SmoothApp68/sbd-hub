@@ -24518,6 +24518,14 @@ const SETS_IMPORTES = [
         .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Poids') === 0)[0];
       return n ? ((n.querySelector('.p-val') || {}).textContent || null) : null;
     }).catch(() => null);
+    // La pesée du profil, par la feuille « Poids » (le geste de l'utilisateur).
+    const peser148 = async (texte) => {
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Poids') === 0)[0].click());
+      await jusqua(async () => !!(await page.$('#feuille-contenu input[data-cle="poids"]')), 6000);
+      await page.fill('#feuille-contenu input[data-cle="poids"]', texte);
+      await page.click('#feuille-contenu .feuille-pied .pri');
+    };
     const pleine = async () => { await jusqua(synchroLibre, 60000); await rafraichir(); await jusqua(synchroLibre, 60000); };
 
     // Départ : l'appareil a la pesée du 1er déc. (80 kg), la file est vide.
@@ -24530,17 +24538,14 @@ const SETS_IMPORTES = [
     base.peseesRetenir = true;
     await rafraichir();
     const enVol = await jusqua(async () => base.peseesRetenue === true, 60000);
-    await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
-      .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Poids') === 0)[0].click());
-    await jusqua(async () => !!(await page.$('#feuille-contenu input[data-cle="poids"]')), 6000);
-    await page.fill('#feuille-contenu input[data-cle="poids"]', '81,5');
-    await page.click('#feuille-contenu .feuille-pied .pri');
+    await peser148('81,5');
     await jusqua(async () => base.pesees.some((x) => x.date === jour148 && x.poids_kg === 81.5) && await filePesees() === 0, 10000);
     const encoreRetenue = base.peseesRetenue === true;
     ok('[P148] a — prémisse : la lecture des pesées est en vol (sans la pesée), la pesée 81,5 est en base et sortie de la file, AVANT que la lecture rende',
       enVol && encoreRetenue && base.pesees.some((x) => x.date === jour148 && x.poids_kg === 81.5), nb148([enVol, encoreRetenue, base.pesees]));
     base.peseesLibere = true;
-    await jusqua(async () => base.peseesRetenue === false && await synchroLibre(), 60000);
+    await jusqua(async () => base.peseesRetenue === false, 60000);
+    await reseauCalme();   // la synchronisation a fini d'appliquer la lecture périmée (le libellé « À jour » ment : `poser` le réécrit)
     // ⚠️ Sans recharger la page : un rechargement relance une synchronisation qui ramène la pesée (la synchro suivante
     // du diagnostic) et cache le défaut. On lit l'état laissé par la lecture périmée, puis on rouvre le profil EN L'APP.
     const cacheA = await cachePesees();
@@ -24559,19 +24564,25 @@ const SETS_IMPORTES = [
     ok('[P148] a — rechargée hors ligne (le seul cache), la ligne « Poids » dit toujours 81,5 kg', /^81,5 kg/.test(ecranHl), ecranHl);
     await jusqua(synchroLibre, 60000);
 
-    // c — SANS GESTE, LA BASE FAIT FOI (garde-fou : la note ne survit pas à la synchronisation). Un autre appareil a
-    // pesé 79 kg le même jour et 83 kg un autre jour : une synchronisation sans geste les ramène l'un et l'autre.
+    // c — SANS GESTE, LA BASE FAIT FOI (garde-fou : la note ne survit pas à la synchronisation). Une pesée posée SANS
+    // lecture en vol (80,2 kg) reste sur l'appareil sous son identifiant du jour ; puis un autre appareil pèse 79 kg le même
+    // jour et 83 kg un autre jour : la synchronisation suivante, sans aucun geste, les ramène l'un et l'autre. Une note qui
+    // survivrait à la synchronisation protégerait encore le 80,2.
+    await peser148('80,2');
+    await jusqua(async () => base.pesees.some((x) => x.date === jour148 && x.poids_kg === 80.2) && await filePesees() === 0, 10000);
+    await reseauCalme();
     base.pesees.filter((x) => x.date === jour148).forEach((x) => { x.poids_kg = 79; });
     base.pesees.push({ id: '00000000-0000-4000-8148-000000000002', user_id: 'u-banc', date: '2025-12-05', poids_kg: 83, source: 'manuel' });
     await rafraichir();
-    await jusqua(async () => (await cachePesees() || []).indexOf('2025-12-05=83') >= 0 && await synchroLibre(), 60000);
+    await jusqua(async () => (await cachePesees() || []).indexOf('2025-12-05=83') >= 0, 60000);
+    await reseauCalme();
     const cacheC = await cachePesees();
     await page.click('.onglet[data-vue="saisie"]');
     await page.click('.onglet[data-vue="profil"]');
     await jusqua(async () => (await ligneP148()) !== null, 10000);
     const ecranC = nb148(await ligneP148());
-    ok('[P148] c — sans geste, la base fait foi : la pesée d’un autre appareil (79 kg le même jour, 83 kg le 5 déc.) arrive, l’ancienne 81,5 est remplacée',
-      (cacheC || []).indexOf(jour148 + '=79') >= 0 && (cacheC || []).indexOf('2025-12-05=83') >= 0 && (cacheC || []).indexOf(jour148 + '=81.5') < 0 &&
+    ok('[P148] c — sans geste, la base fait foi : la pesée d\u2019un autre appareil (79 kg le même jour, 83 kg le 5 déc.) arrive, la 80,2 posée avant est remplacée',
+      (cacheC || []).indexOf(jour148 + '=79') >= 0 && (cacheC || []).indexOf('2025-12-05=83') >= 0 && (cacheC || []).indexOf(jour148 + '=80.2') < 0 &&
         /^79 kg/.test(ecranC), nb148([cacheC, ecranC]));
 
     // LA REMISE EN ÉTAT.

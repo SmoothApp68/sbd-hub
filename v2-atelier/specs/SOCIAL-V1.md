@@ -339,7 +339,7 @@ invitations, défis : des fonctions SECURITY DEFINER (`guilde_choisir_defi` refu
   (séries de départ de MON habitude, semaine allégée, série de plus) ; la copie est gardée dans le brouillon de la séance
   (`seance.groupe.suivi`, comme `raccourcie`), jamais en base. Un exercice que X ajoute ensuite est proposé UNE fois
   (« Ajouter » / « Non »).
-- **Le direct** : les 20 dernières séries validées des AUTRES membres (chauffes comprises), dans leur séance du groupe ;
+- **Le direct** : les 20 dernières séries validées des AUTRES membres (chauffes et dégressives comprises, chacune ÉTIQUETÉE « Chauffe », « Dégressive » ou « Échec » — 144, décision du 23/10/2026 ; le récap de fin ne compte que le travail), dans leur séance du groupe ;
   la carte montre une pastille par membre (point vert : une série validée il y a moins de 3 min), les 2 plus récentes,
   « Tout voir (N) » / « Réduire », et la ligne des messages (toujours là, vide ou cachée par « Muet ») : la carte garde sa
   hauteur de 2 à 6 membres. Relu toutes les 20 s en séance ou dans un groupe (app visible), et tout de suite en touchant

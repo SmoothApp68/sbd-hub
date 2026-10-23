@@ -7607,6 +7607,10 @@
     g.lignes.forEach(function (l) {
       var d = el('div', 'g-l');
       d.appendChild(doc.createTextNode(l.texte + ' '));
+      if (l.etiquette) {
+        d.appendChild(el('span', 'g-etiq', l.etiquette));
+        d.appendChild(doc.createTextNode(' '));
+      }
       d.appendChild(el('small', null, '· ' + l.quand));
       lignes.appendChild(d);
     });

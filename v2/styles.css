@@ -2318,6 +2318,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .g-ouvert .g-lignes{height:auto;max-height:240px;overflow-y:auto}
 .g-l{font-size:13px;line-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .g-l small{color:var(--texte-2)}
+.g-etiq{display:inline-block;font-size:11px;line-height:16px;padding:0 6px;border-radius:var(--r-etiquette);background:var(--panneau-2);color:var(--texte-2);vertical-align:1px}
 .g-tout{padding:4px 0;min-height:0;font-size:12px}
 .g-msg{font-size:13px;color:var(--texte-2);margin:4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .g-proposition{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;margin-top:6px}

@@ -79,7 +79,11 @@ describe('51-3 — une séance marquée est neutre (les 4 cas d’Aurélien)', (
       const nonMarquee = forme(consigneDe(contrat(c, false), c.avant));
       expect(avec).toEqual(c.attendu);
       expect(sans).toEqual(c.sans_la_seance_douloureuse);
-      expect(nonMarquee).toEqual(c.si_elle_n_etait_pas_marquee);
+      // 154 (MOTEUR §9.26) — N02 : sans la marque, la dernière série (réserve sous la visée) ne fait plus monter sur sa foi :
+      // le test de 97,5 kg n'est plus proposé. Le fichier ne se retouche pas ; l'écart est nommé.
+      const attenduNonMarquee = c.id === 'N02'
+        ? Object.assign({}, c.si_elle_n_etait_pas_marquee, { etat: 'progression', haut: null }) : c.si_elle_n_etait_pas_marquee;
+      expect(nonMarquee).toEqual(attenduNonMarquee);
       // LA PROPRIÉTÉ : la ligne avec la marque = la ligne sans la séance…
       expect(avec.ligne).toEqual(sans.ligne);
       // …et sans la marque, elle aurait reculé.

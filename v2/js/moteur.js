@@ -3586,21 +3586,24 @@
   }
   // 154 — « 130 kg × 5, sans marge. On garde 130 kg la prochaine fois. » (R < V, la montée n'a pas lieu).
   function phraseDeLaGarde(e) {
-    var c = cite(FAIT, { quoi: 'effort_vise' });
-    return chargeFois(e.charge, e.reps, c) +
-      (e.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(e.reserve, c) + ' en réserve') + '. On garde ' +
-      enKg(e.charge, c) + ' la prochaine fois.';
+    var cF = cite(FAIT, { quoi: 'effort_vise' });
+    var cR = cite(FAIT, { quoi: 'effort_vise.reserve' });
+    var cC = cite(FAIT, { quoi: 'effort_vise.charge' });
+    return chargeFois(e.charge, e.reps, cF) +
+      (e.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(e.reserve, cR) + ' en réserve') + '. On garde ' +
+      enKg(e.charge, cC) + ' la prochaine fois.';
   }
   // 154 — LA PHRASE APRÈS LA RÉPONSE (VOIX-DU-COACH) : « 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais : la
   // prochaine fois, on essaie 36 kg. » / « 130 kg × 5, sans marge. On garde 130 kg la prochaine fois. » `ev` : le fait
   // `effortVise` de la consigne suivante ; `haut` : la charge du test qu'elle pose. `null` : rien à dire.
   function phraseEffortVise(ev, haut) {
     if (!ev) return null;
-    var c = cite(FAIT, { quoi: 'effort_vise' });
     if (ev.effet === 'garde') return phraseDeLaGarde(ev);
     if (ev.effet !== 'test' || haut === null || haut === undefined) return null;
-    return chargeFois(ev.charge, ev.reps, c) + ', il t’en restait ' + nombreFr(ev.reserve, c) +
-      '. Au-dessus de ce que je visais' + DEUX_POINTS + 'la prochaine fois, on essaie ' + enKg(haut, c) + '.';
+    return chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ', il t’en restait ' +
+      nombreFr(ev.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) +
+      '. Au-dessus de ce que je visais' + DEUX_POINTS + 'la prochaine fois, on essaie ' +
+      enKg(haut, cite(FAIT, { quoi: 'effort_vise.haut' })) + '.';
   }
   function phraseGrise(c, reference) {
     var f = c.fondement || {};
@@ -3662,10 +3665,9 @@
       case 'test_propose':
         // 154 (§9.26) — le test posé « par la réserve » dit la réserve notée, pas le haut de la zone.
         if (f.effortVise && f.effortVise.effet === 'test' && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) {
-          var cE = cite(FAIT, { quoi: 'effort_vise' });
-          return 'On essaie ' + enKg(c.haut.charge, cE) + DEUX_POINTS + 'la dernière fois, ' +
-            chargeFois(f.effortVise.charge, f.effortVise.reps, cE) + ' avec ' + nombreFr(f.effortVise.reserve, cE) +
-            ' en réserve.';
+          return 'On essaie ' + enKg(c.haut.charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + DEUX_POINTS + 'la dernière fois, ' +
+            chargeFois(f.effortVise.charge, f.effortVise.reps, cite(FAIT, { quoi: 'effort_vise' })) + ' avec ' +
+            nombreFr(f.effortVise.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) + ' en réserve.';
         }
         return jour() + DEUX_POINTS + auPalier() + ', ' +
                (f.preuve === 'haut' ? nombreFr(PREUVE_DEPASSEMENT, regle('constante')) + ' reps au-dessus du haut'
@@ -4068,8 +4070,8 @@
         var dit = tete + DEUX_POINTS + 'on teste le cran au-dessus sur la dernière série.';
         if (f.effortVise && f.effortVise.effet === 'test') {
           dit = 'Ta dernière série, ' + chargeFois(f.effortVise.charge, f.effortVise.reps, cite(FAIT, { quoi: 'effort_vise' })) +
-            ', laissait ' + nombreFr(f.effortVise.reserve, cite(FAIT, { quoi: 'effort_vise' })) +
-            ' en réserve, plus que les ' + nombreFr(f.effortVise.visee, cite(FAIT, { quoi: 'effort_vise' })) +
+            ', laissait ' + nombreFr(f.effortVise.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) +
+            ' en réserve, plus que les ' + nombreFr(f.effortVise.visee, cite(FAIT, { quoi: 'effort_vise.visee' })) +
             ' visées : on teste le cran au-dessus sur la dernière série.';
         }
         if (f.preuve) {

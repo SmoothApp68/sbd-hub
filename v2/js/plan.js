@@ -3647,6 +3647,14 @@
     });
     if (f.palierPrecedent !== undefined && f.palierPrecedent !== null) fait.reste = { charge: f.palierPrecedent };
     if (f.serieAFond) fait.a_fond = { charge: f.serieAFond.charge, reps: [f.serieAFond.reps] };
+    // 154 (§9.26) — l'effort visé : la série (charge × reps), la réserve notée, la visée, la charge gardée ou du test.
+    if (f.effortVise) {
+      fait.effort_vise = { charge: f.effortVise.charge, reps: [f.effortVise.reps] };
+      fait['effort_vise.reserve'] = { valeur: f.effortVise.reserve };
+      fait['effort_vise.visee'] = { valeur: f.effortVise.visee };
+      fait['effort_vise.charge'] = { charge: f.effortVise.charge };
+      if (k.haut && k.haut.charge !== null && k.haut.charge !== undefined) fait['effort_vise.haut'] = { charge: k.haut.charge };
+    }
     var meilleur = x.compteur && x.compteur.meilleur;
     if (meilleur) fait.meilleur = { charge: meilleur.palier, reps: [meilleur.niveau] };
     // §13.6 (49-U20) — le frère qui progresse : « avant » et « maintenant ».

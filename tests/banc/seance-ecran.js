@@ -3740,6 +3740,8 @@ const SETS_IMPORTES = [
   await saisirSerie(0, 100, 5);
   await saisirSerie(1, 100, 5);
   await saisirSerie(2, 100, 5);
+  // 158 — la 3e série part un peu après son coche : on attend l'ÉTAT en base, pas un délai.
+  await jusqua(async () => notesEnBase('squat-barre').length === 3, 6000);
   ok('TOUTES les séries de cet exercice portent la note en base',
     notesEnBase('squat-barre').length === 3 &&
     notesEnBase('squat-barre').every((n) => n === 'Barre basse, ceinture'),

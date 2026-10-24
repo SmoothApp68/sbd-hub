@@ -49,7 +49,7 @@ const PLAFOND_ACTIVATION_MS = 20000;
 function evaluer(cible, fn, arg) {
   let minuteur;
   const borne = new Promise((_, refuser) => {
-    minuteur = setTimeout(() => refuser(new Error('évaluation sans réponse en ' + BORNE_EVAL_MS / 1000 + ' s')), BORNE_EVAL_MS);
+    minuteur = setTimeout(() => refuser(new Error('évaluation sans réponse en ' + BORNE_EVAL_MS / 1000 + ' s')), BORNE_EVAL_MS);   // plafond (143) : la borne d'une évaluation, l'état gagne dès qu'il vient
   });
   return Promise.race([cible.evaluate(fn, arg), borne]).finally(() => clearTimeout(minuteur));
 }
@@ -314,7 +314,7 @@ const SCENARIOS = [
       };
       r.onsuccess = () => { r.result.close(); res('ouverte'); };
       r.onerror = () => res('erreur');
-      setTimeout(() => res('delai'), 4000);
+      setTimeout(() => res('delai'), 4000);   // plafond (143) : la borne d'une course (Promise.race), l'état gagne dès qu'il vient
     }));
     verifier('une base locale existe avant', bases === 'ouverte', String(bases));
 

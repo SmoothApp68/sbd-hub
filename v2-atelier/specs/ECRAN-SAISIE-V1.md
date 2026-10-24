@@ -1976,6 +1976,14 @@ qui mène au détail complet pour qui veut le contexte des autres exercices.
 
 ---
 
+## 7 septies bis. L'effort visé — « garde-en N » — décidé le 24/10/2026 (chantier 154)
+
+Maquette : `maquette-effort-vise-v1.html` (elle fait foi pour les textes). Détail de la règle : MOTEUR §9.26.
+
+- **L'en-tête de l'exercice** : la première ligne de la consigne est suivie de l'étiquette « garde-en N » (grise, au contour ; jamais jaune : le jaune est la voix du moteur). Une fois par exercice, **jamais sur chaque ligne**. Rien en « Juste un carnet », en Édition, sans consigne, sur une durée, une distance, une dégressive.
+- **Le geste** : sous la **dernière série de travail validée**, quand toutes les lignes de travail de l'exercice sont validées, les puces « Il t'en restait combien ? » **0 · 1 · 2 · 3 et +** et « Passer ». Elles écrivent le ressenti de cette série (comme la feuille de l'effort). « Passer » ne se retient que pour la séance en cours et n'écrit rien. Une série qui a déjà un ressenti ou un RPE : pas de puces. L'écran ne décide rien : il lit `x.effortVise` du plan.
+- **La phrase** : après la réponse, sous la série, en gris, la phrase du coach quand la règle a parlé (MOTEUR §9.26) ; sinon rien. La question de réserve de la carte de repos (§17.2 bis) reste ce qu'elle est : elle écrit le même ressenti, sur la même série.
+
 ## 7 octies. Gestes sur une séance — manquants, constaté le 13/09/2026
 
 **Aucun des quatre gestes que toute application de suivi propose n'existe.**

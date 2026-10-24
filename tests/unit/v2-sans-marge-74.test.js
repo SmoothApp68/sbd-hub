@@ -72,8 +72,16 @@ describe('74 — la concordance sur les 79 séance-exercices réels', () => {
     'u1|releve_de_genoux_suspendu#7': { etat: 'carte_lest', zone: 'volume', palier: 0, niveau: 12,
       ligne: { charge: 0, vise: 12 }, haut: null }
   };
+  // 154 (24/10/2026, décision d'Aurélien) — L'EFFORT VISÉ : une dernière série dont la réserve notée est SOUS la visée
+  // (MOTEUR §9.26) ne fait plus monter sur sa foi. Trois cas du fichier perdent leur test (`test_propose` → `progression`,
+  // sans ligne haute) ; le fichier de référence ne se retouche pas, les écarts sont nommés à leur valeur exacte.
+  const EFFORT_154 = {
+    'u1|developpe_couche_barre#35': { etat: 'progression', zone: 'lourd', palier: 122.5, niveau: 5, ligne: { charge: 122.5, vise: 5 }, haut: null },
+    'u1|squat_barre#24': { etat: 'progression', zone: 'lourd', palier: 105, niveau: 8, ligne: { charge: 105, vise: 5 }, haut: null },
+    'u2|kickbacks_poulie#9': { etat: 'progression', zone: 'series_longues', palier: 15, niveau: 20, ligne: { charge: 15, vise: 20 }, haut: null }
+  };
   test('0 écart avec `aujourdhui_74` (état, zone, palier, niveau, ligne, haut)', () => {
-    const attendu = (c) => ECHEC_152[c.cle + '#' + c.jusqua] || FRANC_149[c.cle + '#' + c.jusqua] || c.aujourdhui_74;
+    const attendu = (c) => EFFORT_154[c.cle + '#' + c.jusqua] || ECHEC_152[c.cle + '#' + c.jusqua] || FRANC_149[c.cle + '#' + c.jusqua] || c.aujourdhui_74;
     const ecarts = D.cas
       .map((c) => ({ c, r: consigneDuCas(c) }))
       .filter(({ c, r }) => JSON.stringify(r) !== JSON.stringify(attendu(c)))

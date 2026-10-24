@@ -218,7 +218,7 @@ async function contexte(nav, bd, o) {
     if (chemin === '/auth/v1/user' && req.method() === 'GET') {
       // 70 — la vérification du jeton d'un lien : qui ne répond jamais (`userPend`), ou en retard (`userDelai`, ms).
       if (bd.userPend) return new Promise(() => {});
-      if (bd.userDelai) { await attendre(bd.userDelai); bd.userRepondu = Date.now(); }   // 86 — l'instant de la réponse
+      if (bd.userDelai) { await attendre(bd.userDelai); bd.userRepondu = Date.now(); }   // 86 — l'instant de la réponse · VOULU (143) : le faux serveur retient la réponse exprès, le délai est la mesure
       return sub ? json(utilisateur(sub, bd.metadonnees[sub])) : json({ message: 'jeton absent' }, 401);
     }
     // 70 — `updateUser({ password })` : le nouveau mot de passe, sous le compte du jeton.

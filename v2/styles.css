@@ -862,6 +862,31 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .lien-profil{font:inherit;color:var(--texte);background:none;border:0;padding:0;
   text-decoration:underline;text-underline-offset:3px}
 
+/* 160 — « Demander au coach » : le bouton, l'accord, la conversation (la forge : ambre une fois, le reste en gris). */
+.assistant-reste{text-align:center;font-size:11px;color:var(--texte-3);margin-top:6px}
+.assistant-accord{padding-left:18px;margin-top:var(--e3)}
+.assistant-accord li{font-size:13px;line-height:1.45;color:var(--texte-2);margin-bottom:6px}
+.assistant-accord b{color:var(--texte);font-weight:600}
+.assistant-puces{display:flex;flex-wrap:wrap;gap:6px;margin:var(--e3) 0}
+.assistant-puce{background:none;border:1px solid var(--trait);color:var(--texte-2);border-radius:999px;
+  padding:9px 12px;min-height:44px;font-size:13px}
+.assistant-puce:disabled{opacity:.6;cursor:default}
+.assistant-fil{display:flex;flex-direction:column;gap:6px;margin:var(--e3) 0;max-height:46vh;overflow-y:auto}
+.assistant-q{align-self:flex-end;background:var(--panneau-2);border-radius:14px 14px 4px 14px;padding:8px 12px;
+  font-size:14px;max-width:82%;overflow-wrap:anywhere}
+.assistant-r{background:var(--panneau);border-radius:14px 14px 14px 4px;padding:9px 12px;font-size:14px;
+  line-height:1.45;max-width:92%;overflow-wrap:anywhere}
+.assistant-r.local{border-left:3px solid var(--texte-3)}
+.assistant-attente{color:var(--texte-3)}
+.assistant-mention{font-size:11px;color:var(--texte-3);margin:0 0 6px}
+.assistant-champ{display:flex;gap:8px;align-items:center;margin-top:var(--e3)}
+.assistant-champ input{flex:1;min-width:0;height:44px;box-sizing:border-box;border-radius:var(--r-petit);
+  border:1px solid var(--trait);background:var(--panneau-2);color:var(--texte);font-size:var(--police-champ);
+  font-family:inherit;padding:0 10px}
+.assistant-envoyer{height:44px;padding:0 14px;border-radius:var(--r-bouton);border:1px solid var(--trait);
+  background:none;color:var(--accent);font-size:14px;font-weight:700}
+.assistant-envoyer:disabled{opacity:.6;cursor:default}
+
 .consigne-dit{color:var(--texte-2);font-size:12px;line-height:1.4;margin-top:3px;
   overflow-wrap:anywhere}
 

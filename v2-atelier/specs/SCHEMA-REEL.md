@@ -1,7 +1,7 @@
 # Schéma réel — état au 24 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_111`** (barre chargée). Prochain numéro libre : **`v2_112`**.
+Dernière migration appliquée : **`v2_112`** (assistant IA, 160). Prochain numéro libre : **`v2_113`**.
 ⚠️ **`v2_106` n'a jamais été lancée** (décision du 22/10 : le volume reste un record) : le numéro reste vide.
 
 **Volumétrie (24/10, 2 h 30)** : 1 288 séances · 29 673 séries · 860 exercices (848 actifs) · 961 alias
@@ -26,6 +26,7 @@ Dernière migration appliquée : **`v2_111`** (barre chargée). Prochain numéro
 | `v2_109` (records hors des barres) | `records.type` accepte **`allure`**, **`marche`**, **`denivele_m`**, **`etages`** ; `records.unite` accepte **`s_km`**, **`s_100m`**, **`s_500m`** ; colonne **`records.palier_m`** (integer ; `records_allure_ok` : obligatoire et > 0 pour `allure`, vide sinon ; `allure` : `valeur` > 0 en secondes par unité, **plus bas = mieux**) ; `guilde_semaine` (colonne `medailles`) compte aussi `volume_seance` et les quatre nouveaux types (153) |
 | `v2_110` (bornes durée et distance) | `sets_duree_borne` : `duree_s` NULL ou 1 à 86 399 ; `sets_distance_borne` : `distance_m` NULL ou > 0 et ≤ 1 000 000. Un filet plus large que l'app (9:59:59, 400 km), l'import Hevy ne bornant pas. Lancée par Claude.ai le 24/10/2026 (essai puis vrai) |
 | `v2_111` (barre chargée, 159) | `profiles.ma_salle` accepte deux clés booléennes, **`barre_ez_chargee`** et **`barre_droite_chargee`** (absentes = non) ; contraintes `profiles_ma_salle_ok` (liste des clés) et `profiles_ma_salle_chargees_ok` (type) |
+| `v2_112` (assistant IA, 160) | **`assistant_questions`** (id, cree_a, exercise_slug, etat, question ≤ 500, reponse ≤ 2000, contexte jsonb, bloquee, `raison` ∈ nombre_absent · sante · erreur_modele · vide, modele — **aucun `user_id`** : les questions se gardent 30 jours sans lien avec le compte) ; **`assistant_quota`** (user_id, jour, n) ; **`profiles.assistant_accord_a`** (timestamptz, écrite par l'app, facultative en lecture/écriture) ; RPC **`assistant_prendre_question(p_user, p_max) → int`** (le reste, −1 au quota ; jour en heure de Paris ; `service_role` seulement). RLS active sur les deux tables, **aucune règle** : seule la fonction y accède. **Écart : la fonction SQL ne purge pas** — la purge (questions de plus de 30 jours, quota de plus de 2 jours) est faite par la fonction Edge `demander-coach` (24/10/2026, décision d'Aurélien) |
 
 **Reste noté** : `pseudo_libre` ouverte à `anon` (voulu) ; 57 fonctions SECURITY DEFINER (l'API sociale) ; pas de FK
 `groupe_recaps.groupe_id` (abandonnée) ni `objectifs.pari_id` (à reprendre) ; « Leaked password protection » (tableau

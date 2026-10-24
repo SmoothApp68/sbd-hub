@@ -640,6 +640,31 @@ sort du test ; la conclusion ; le réglage de rythme, avec renvoi au Profil ; et
 
 **48b-7.** « Touche l'étiquette pour la changer » termine désormais la ligne de zone, dans tous ses états. Quand la zone est choisie : « Ta zone : Hypertrophie, de 8 à 10 reps, choisie par toi. D'après tes 8 dernières séances, ce serait Volume : tu fais 10 reps d'habitude. Touche l'étiquette pour la changer. » La phrase « ce serait » se tait quand la zone déduite est la même que la choisie, ou quand il n'y en a pas.
 
+**3.10 ter — « Demander au coach » : l'assistant IA dans la feuille « Pourquoi » — 24/10/2026, décision d'Aurélien (160).**
+Maquette : `maquette-demander-au-coach-v1.html` (elle fait foi pour les textes). **Seulement depuis la feuille « Pourquoi »**
+(pas de chat libre ailleurs). L'IA **explique** la consigne du plan, elle ne la change jamais (CADRAGE §3.1 ter).
+- **Le bouton** « Demander au coach » est en bas de la feuille, rien ne change au-dessus ; dessous : « 10 questions par jour »,
+  puis « · il en reste N » (le nombre rendu par la fonction, gardé en mémoire pour le jour). **Sans réseau** : le bouton est
+  éteint et la ligne dit « Demande le réseau ».
+- **L'accord**, la première fois seulement : ce qui part (la question et la consigne de l'exercice, chez Anthropic, aux États-Unis),
+  ce qui ne part pas (nom, pseudo, date ; une douleur), « La réponse explique la consigne ; elle ne la change jamais », et
+  « Tes questions sont gardées 30 jours, sans ton nom, pour améliorer les réponses. » « J'ai compris, continuer » écrit
+  `profiles.assistant_accord_a` (par le chemin du profil) ; « Pas maintenant » ne fait rien.
+- **La conversation** : trois questions toutes prêtes selon l'état de la ligne (un test, une garde, une reprise, `salle_max`…),
+  ou la sienne (500 caractères) ; une réponse de trois phrases au plus, avec la mention « Rédigé par une IA à partir de la
+  consigne du coach. ». Elle vit **en mémoire seulement** : rien en cache, rien en base côté app.
+- **Le contexte** vient du plan et des faits (jamais calculé par l'écran) : la consigne de la ligne, la phrase du coach, la zone
+  et ses bornes, l'état et son fondement, **les crans du matériel** (les charges de la salle autour du palier ; sinon les
+  charges déjà faites), les trois dernières séances de l'exercice (« charge × reps », sans date), le réglage. **Jamais** : nom,
+  pseudo, identifiant, date, poids du corps, notes libres.
+- **Les garde-fous, sans IA.** Une **douleur ou une blessure** est reconnue **dans le téléphone** (la même liste que la fonction,
+  prouvée identique par un test) et ne part pas : la bulle « Je ne réponds pas sur une douleur. Dis-le au coach avec « J'ai
+  mal » : il adapte ta séance. » et le bouton « J'ai mal ». **Au bout des dix questions du jour**, rien ne part : « Tu as posé
+  tes 10 questions d'aujourd'hui. Le compteur repart demain. » Un **nombre absent du contexte** dans la réponse : elle n'est pas
+  montrée (« Je n'ai pas de réponse sûre : regarde la feuille Pourquoi. »), contrôle fait côté serveur.
+- **Les questions et réponses** sont gardées 30 jours **sans lien avec le compte** (table `assistant_questions`, aucune colonne
+  d'utilisateur) pour relire la qualité ; la purge est faite par la fonction.
+
 **3.11** — **La reprise.** Après une coupure (MOTEUR §9.9), l'en-tête dit « On
 reprend à ton dernier palier, sans rep de plus » ou « On reprend un cran sous ton
 dernier palier, 125 kg ». **Jamais la durée de l'absence** (CADRAGE §3.1 bis) : la

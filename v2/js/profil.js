@@ -632,7 +632,9 @@
                        'bilans_annonces',
                        // 108 (v2_088) — ma salle (MOTEUR §10 bis). FACULTATIVE en lecture et en écriture tant que
                        // la migration n'est pas lancée (`COLONNES_FACULTATIVES`, donnees.js).
-                       'ma_salle'];
+                       'ma_salle',
+                       // 160 (v2_112) — l'accord à « Demander au coach » (timestamptz) : écrit une fois, relu. FACULTATIVE.
+                       'assistant_accord_a'];
   // 136 (audit du 16/10, 03 #18) — `onboarding_completed` n'est plus écrite (ni lue) : plus rien ne la décide depuis
   // 60-2a (`questionnaire_fait_le`). La colonne reste en base.
 
@@ -668,6 +670,11 @@
       if (c === 'ma_salle') {
         var s = salleValide(src[c]);
         if (s !== undefined) sortie[c] = s;
+        return;
+      }
+      // 160 — l'accord à l'assistant : un instant (texte) ou rien ; jamais un autre type.
+      if (c === 'assistant_accord_a') {
+        if (typeof src[c] === 'string' && !isNaN(Date.parse(src[c]))) sortie[c] = src[c];
         return;
       }
       sortie[c] = src[c];
@@ -731,7 +738,7 @@
     duree_seance_min: 'Durée d’une séance', objectif: 'Objectif', priorites: 'Priorités', temps_reponse: 'Ton temps',
     historique_declare: 'Historique', programme_choix: 'Ton programme', zones_a_menager: 'Zone à ménager',
     exercices_ecartes: 'Exercices écartés', jeu_actif: 'Le jeu', compte_prive: 'Compte privé', ma_salle: 'Ma salle',
-    marche_reponses: 'Marche suivante', completer_refus: 'Ce qui manque à tes séances'
+    marche_reponses: 'Marche suivante', completer_refus: 'Ce qui manque à tes séances', assistant_accord_a: 'Demander au coach'
   };
   // « Pas enregistré : Bio. La base a refusé cette valeur ; celle d'avant est gardée. » — `null` sans colonne.
   function phraseRefusProfil(colonnes) {

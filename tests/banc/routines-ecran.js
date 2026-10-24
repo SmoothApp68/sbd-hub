@@ -2016,6 +2016,12 @@ const ALIAS_COMMUNS = [
       Date.now = () => vrai() + window.__avance;
     });
     const avancer = (ms) => page.evaluate((m) => { window.__avance += m; }, ms);
+    // `aller` recharge la page : l'horloge qui avance à la demande est à reposer.
+    const reposerHorloge = () => page.evaluate(() => {
+      const vrai = Date.now.bind(Date);
+      window.__avance = 0;
+      Date.now = () => vrai() + window.__avance;
+    });
     const retour = () => page.evaluate(() => document.dispatchEvent(new Event('visibilitychange', { bubbles: true })));
     const dossiersAffiches = () => page.evaluate(() => Array.from(document.querySelectorAll('#liste-routines .dossier-ligne'))
       .map((l) => l.getAttribute('data-dossier')));
@@ -2116,11 +2122,7 @@ const ALIAS_COMMUNS = [
     // `chargerRoutines`) ; puis la réponse arrive. Les gardes (feuille refermée, pas d'éditeur) laissent passer :
     // seul le compteur de génération la jette. Page rechargée : aucun éditeur n'a été ouvert (`brouillon` nul).
     await aller('/saisie');
-    await page.evaluate(() => {   // `aller` recharge la page : l'horloge qui avance à la demande est à reposer
-      const vrai = Date.now.bind(Date);
-      window.__avance = 0;
-      Date.now = () => vrai() + window.__avance;
-    });
+    await reposerHorloge();
     await avancer(120000);
     reseau.retenirProchaine = true;
     await retour();
@@ -2143,6 +2145,22 @@ const ALIAS_COMMUNS = [
     ok('[164] DISCRIMINANT — la réponse tardive (ancienne liste) n\'écrase pas le renommage qu\'on vient de faire',
       (await dossiersAffiches()).indexOf('Gain 164') >= 0 && (await dossiersAffiches()).indexOf('Prise de masse 155') < 0,
       JSON.stringify(await dossiersAffiches()));
+
+    // ── D. 164 (D2) — une routine dont seuls les exercices ou les séries changent ailleurs apparaît au retour ──
+    // `routines.modifiee_a` n'est écrite que pour le nom ou le dossier : la signature doit voir le CONTENU.
+    const carte155 = (nom) => page.evaluate((n) => (Array.from(document.querySelectorAll('#liste-routines .routine'))
+      .filter((c) => c.textContent.indexOf(n) >= 0)[0] || { textContent: '' }).textContent.replace(/\s+/g, ' '), nom);
+    await aller('/saisie');
+    await reposerHorloge();
+    ok('[164 D2 prémisse] la routine « Haut A 155 » n\'a aucun exercice à l\'écran', /0 exercice/.test(await carte155('Haut A 155')), await carte155('Haut A 155'));
+    base.exos.push({ id: 'e-164', routine_id: 'r155a', exercise_slug: 'dc-barre', rang: 1, repos_cible_s: null, groupe_superset: null, note: null });
+    base.series.push({ id: 'rs-164', routine_exercise_id: 'e-164', user_id: 'u-banc', rang: 1, type_serie: 'travail',
+      reps_visees: null, charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null });
+    await avancer(120000);
+    await retour();
+    await jusqua('[164 D2] l\'exercice ajouté ailleurs apparaît', async () => /1 exercice/.test(await carte155('Haut A 155')));
+    ok('[164 D2] DISCRIMINANT — exercices et séries changés ailleurs (sans `modifiee_a`) apparaissent au retour',
+      /1 exercice · 1 série/.test(await carte155('Haut A 155')), await carte155('Haut A 155'));
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

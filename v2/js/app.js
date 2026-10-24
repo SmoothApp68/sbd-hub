@@ -9590,7 +9590,11 @@
 
   function signatureDesRoutines(liste) {
     return JSON.stringify((liste || []).map(function (r) {
-      return [r.id, r.nom, r.dossier === undefined ? null : r.dossier, r.modifiee_a || null, r.archivee_a || null];
+      // 164 (D2) — le CONTENU aussi : `routines.modifiee_a` n'est écrite que pour le nom ou le dossier, jamais pour un
+      // exercice ou une série (autres tables). La signature voit donc le rang, les jours, la note, les exercices et leurs
+      // séries — quel que soit l'écrivain (autre appareil, ancienne version), sans dépendre d'un `modifiee_a` tenu à jour.
+      return [r.id, r.nom, r.dossier === undefined ? null : r.dossier, r.modifiee_a || null, r.archivee_a || null,
+        r.rang === undefined ? null : r.rang, r.jours || null, r.note || null, r.exercices || []];
     }));
   }
 

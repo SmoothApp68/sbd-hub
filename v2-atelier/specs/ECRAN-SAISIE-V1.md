@@ -3595,4 +3595,6 @@ signature (ids, noms, dossiers, `modifiee_a`, archivage) a changé ; un échec r
 **24/10/2026 (prompt 164) — une réponse lente n'écrase pas une écriture plus récente.** `chargerRoutines` (et le vidage d'un
 changement de compte) incrémente un compteur de génération des routines ; la relecture le lit AVANT sa requête et jette sa
 réponse s'il a bougé (renommer un dossier pendant que la 4G répond ne ramène plus l'ancien nom). Fréquence, gardes et signature
-inchangées. Cache 292.
+inchangées. **Et la signature voit le contenu** (164, D2) : `modifiee_a` n'est écrite que pour un nom ou un dossier, jamais pour un exercice
+ou une série ; la signature compare donc aussi le rang, les jours, la note, les exercices et leurs séries (choix : le client
+n'attend aucun écrivain, ni trigger, ni autre appareil pour tenir un `modifiee_a` à jour). Cache 292.

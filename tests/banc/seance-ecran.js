@@ -20544,6 +20544,10 @@ const SETS_IMPORTES = [
     const ecrituresDeSeances = () => base.journal.filter((j) => j.op === 'session' || j.op === 'sets').length;
     const resultatRoumain = () => jusqua(() => page.evaluate(() => Array.from(document.querySelectorAll('#resultats-exo .resultat'))
       .some((b) => b.firstChild.textContent === 'E69 Roumain (Barre)')).catch(() => false), 6000, '[E69] le résultat « E69 Roumain (Barre) »');
+    // 156 — le verdict « déjà là » / « sans doute la même » se calcule sur le cache de l'appareil : on attend que la
+    // synchronisation y ait posé les séances que le banc vient de mettre sur le serveur (sous charge, `aller` rend la main avant).
+    const cacheAvec = (ids) => jusqua(() => page.evaluate((x) => window.THCache.lireTout('seances')
+      .then((l) => x.every((id) => l.some((s) => s.id === id))), ids).catch(() => false), 15000, '[E69] le cache a les séances du serveur');
     const idDImport = (ref, rang) => page.evaluate(([a, b]) => window.THMoteur.idDImport('u-banc', a, b), [ref, rang]);
 
     // ── (a) LE TEXTE DU CAS, SUR UNE BASE OÙ 2 DES 5 SÉANCES EXISTENT ──────
@@ -20559,6 +20563,7 @@ const SETS_IMPORTES = [
     poserE('e69-ancienne', { source: 'app', source_ref: null, debut: '2026-09-01T16:00:00Z', fin: '2026-09-01T17:00:00Z',
       slugs: ['developpe_couche_haltere'] }, { charge_kg: 20, reps: 5 });
     await aller('/profil');
+    await cacheAvec(['e69-4x', 'e69-rr', 'e69-ancienne']);
     const ligneImport = await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
       .filter((l) => /Importer depuis Hevy/.test(l.textContent)).length);
     const sections = await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-sect'))
@@ -20714,6 +20719,7 @@ const SETS_IMPORTES = [
     const DOUBLE = 'Jambes E118\nLe lundi, oct. 5, 2026 à 6:00pm\n\nRoumain Machin E118\nSérie 1: 80 kg x 8\nSérie 2: 80 kg x 8\n' +
       '@hevyapp\nhttps://hevy.com/workout/e118Double\n';
     await aller('/profil/import');
+    await cacheAvec(['e118-app']);
     await coller(DOUBLE);
     const g1 = await etat();
     ok('[E118] (g) avant le rattachement : « nouvelle », cochée, le nom inconnu à rattacher',
@@ -20774,6 +20780,7 @@ const SETS_IMPORTES = [
     base.records = [];
     CAS.doublons.base.forEach((b, i) => poserE('e69-b' + i, b));
     await aller('/profil/import');
+    await cacheAvec(CAS.doublons.base.map((b, i) => 'e69-b' + i));
     await page.setInputFiles('#fichier-hevy', { name: 'workouts.csv', mimeType: 'text/csv', buffer: Buffer.from(CAS.csv.source, 'utf8') });
     await jusqua(async () => /trouvées/.test((await etat()).titre), 6000);
     const d1 = await etat();

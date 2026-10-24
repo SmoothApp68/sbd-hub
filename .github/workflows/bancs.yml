@@ -18,12 +18,10 @@ permissions:
 
 env:
   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-  # 158 — GitHub est PLUS RAPIDE que la machine de Claude (2 cœurs, six navigateurs) pour laquelle le banc a été
-  # calibré : des contrôles lisent l'écran ou la base avant que la page n'ait fini (ou, au contraire, mesurent des
-  # durées trop courtes, `repos_s = null`). On rejoue donc la machine lente : `BANC_RALENTI` multiplie les plafonds
-  # d'attente (seance-ecran.js) ET `charge-ralentir.js` (préchargé par NODE_OPTIONS aux pas de banc) freine le
-  # processeur de chaque page de ce même facteur, comme `charge.js`.
-  BANC_RALENTI: '2'
+  # 158 — le banc est calibré pour l'heure d'Aurélien (Haut-Rhin) : les semaines, les « aujourd'hui » et les
+  # fenêtres de date se calculent dans le fuseau du navigateur. GitHub tourne en UTC ; sans cette ligne, des
+  # contrôles de date lisent un autre jour que sur la machine de Claude (Europe/Paris).
+  TZ: Europe/Paris
 
 jobs:
   banc-complet:
@@ -52,8 +50,6 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Banc complet (npm test + routines + service worker + création du profil + séance en parallèle)
         shell: bash
-        env:
-          NODE_OPTIONS: --require ${{ github.workspace }}/tests/banc/charge-ralentir.js
         run: |
           export CHROME_BIN="$(node -e "console.log(require('playwright').chromium.executablePath())")"
           node tests/banc/tout.js 2>&1 | tee banc-complet.txt
@@ -102,8 +98,6 @@ jobs:
           echo "nproc=$(nproc)"; free -m; df -h /dev/shm /tmp
       - name: Banc de séance séquentiel (la référence)
         shell: bash
-        env:
-          NODE_OPTIONS: --require ${{ github.workspace }}/tests/banc/charge-ralentir.js
         run: |
           export CHROME_BIN="$(node -e "console.log(require('playwright').chromium.executablePath())")"
           node tests/banc/seance-rapide.js --sequentiel --rapport seq.json 2>&1 | tee banc-sequentiel.txt

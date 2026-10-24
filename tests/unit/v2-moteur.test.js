@@ -662,10 +662,11 @@ describe('§10.2 — le pas de la salle, et quelle charge proposer', () => {
   test('P8 — DISCRIMINANT : un pas non multiple de 0,5 est APPROCHÉ, donc inutilisable', () => {
     // Poulie convertie des livres : écarts de 2,2 kg, récurrents trois fois.
     // Sans le test du 0,5, le moteur proposerait 18,8 — une charge que la
-    // machine ne fait pas. Rien au-dessus, pas de repli pour une poulie : rien.
+    // machine ne fait pas. Rien au-dessus : le repli de la poulie (163, 2,5 kg), jamais 18,8.
+    // 163 (24/10/2026) — INVERSÉ : la poulie a maintenant son repli (avant : `toBeNull`, le « sans chiffre »).
     const P8 = jeu(10, 12.2, 14.4, 16.6);
     expect(M.pasDeSalle(P8, COUPURE)).toEqual({ pas: 2.2, nature: 'approche' });
-    expect(dessus(P8, 'poulie', 16.6)).toBeNull();
+    expect(dessus(P8, 'poulie', 16.6)).toBe(19.1);
   });
 
   // ⚠️ AJOUTÉ EN 48b-5a-2, quand le code a rejoint la spec. Le §10.2 dit
@@ -681,8 +682,8 @@ describe('§10.2 — le pas de la salle, et quelle charge proposer', () => {
     const P8b = jeu(10, 12, 17, 27);
     expect(M.pasDeSalle(P8b, COUPURE)).toEqual({ pas: 5, nature: 'approche' });
     // ⚠️ ET SANS EFFET SUR LES CHARGES : approché, donc le rang 1 se tait. Il
-    // n'y a rien au-dessus de 27, et une poulie n'a pas de repli.
-    expect(dessus(P8b, 'poulie', 27)).toBeNull();
+    // n'y a rien au-dessus de 27 : le repli de la poulie (163, inversé — avant : `toBeNull`).
+    expect(dessus(P8b, 'poulie', 27)).toBe(29.5);
     // Contre-épreuve du rang 2 : depuis 12, la charge attestée au-dessus est 17,
     // pas 12 + 5.
     expect(dessus(P8b, 'poulie', 12)).toBe(17);
@@ -707,7 +708,8 @@ describe('§10.2 — le pas de la salle, et quelle charge proposer', () => {
     // Dans la fenêtre il ne reste que 40 et 45 : un seul écart, donc aucun
     // récurrent — le pas est APPROCHÉ à 5, et le rang 1 ne le lit pas.
     expect(M.pasDeSalle(P9b, COUPURE)).toEqual({ pas: 5, nature: 'approche' });
-    expect(dessus(P9b, 'machine', 45)).toBeNull();
+    // 163 — INVERSÉ (avant : `toBeNull`) : rien au-dessus sur 12 mois, le repli de la machine (5 kg) répond.
+    expect(dessus(P9b, 'machine', 45)).toBe(50);
     // Contre-épreuve du rang 2 (§10.2, delta 49-36) : À LA BARRE il n'a PAS
     // de limite de date, et depuis 22 il retrouve la charge de 22,5 faite il
     // y a deux ans et demi ; sur une MACHINE, seulement les 12 derniers mois
@@ -733,12 +735,41 @@ describe('§10.2 — le pas de la salle, et quelle charge proposer', () => {
     expect(dessous(jeu(20, 24), 'haltere', 20)).toBe(18);
   });
 
-  test('P12 — sans repli connu, le moteur se tait plutôt que d’inventer', () => {
-    // Une machine : ses charges viennent d'un plan qu'on ne devine pas.
-    // L'écran dira « le cran au-dessus », sans chiffre.
-    expect(dessus(jeu(40, 45), 'machine', 45)).toBeNull();
-    expect(dessus(jeu(40, 45), 'poulie', 45)).toBeNull();
-    expect(dessus(jeu(40, 45), 'kettlebell', 45)).toBeNull();
+  // 163 (24/10/2026, décision d'Aurélien) — INVERSÉ : « sans repli connu, le moteur se tait » devient « un pas par
+  // matériel » (machine 5, poulie 2,5, kettlebell 4) ; la charge qui en sort est APPROCHÉE (`estApprochee`).
+  test('P12 — un pas par matériel : plus jamais de charge sans chiffre en kg (163)', () => {
+    expect(dessus(jeu(40, 45), 'machine', 45)).toBe(50);
+    expect(dessus(jeu(40, 45), 'poulie', 45)).toBe(47.5);
+    expect(dessus(jeu(40, 45), 'kettlebell', 45)).toBe(49);
+    // Sans pas : ce qui ne se monte pas en kg (disque, élastique, aucun).
+    expect(dessus(jeu(40, 45), 'disque', 45)).toBeNull();
+    expect(dessus(jeu(40, 45), 'elastique', 45)).toBeNull();
+    expect(dessus(jeu(40, 45), 'aucun', 45)).toBeNull();
+  });
+
+  test('163 — approchée : jamais faite = « ≈ » ; faite (ou pas exact) = connue', () => {
+    const h = jeu(30, 30, 30);
+    expect(M.estApprochee(h, COUPURE, 35, 'machine')).toBe(true);
+    // Après 32,5 noté : une charge connue de l'exercice, plus de « ≈ ».
+    const h2 = jeu(30, 30, 32.5);
+    expect(M.estApprochee(h2, COUPURE, 32.5, 'machine')).toBe(false);
+    expect(M.estApprochee(h2, COUPURE, 35, 'machine')).toBe(true);
+    // Barre fixe de jadis : 32,5 et 27,5 se disent approchés, plus affirmés (le repli 2,5 d'une barre).
+    expect(M.estApprochee(jeu(30), COUPURE, 32.5, 'barre')).toBe(true);
+    expect(M.estApprochee(jeu(30), COUPURE, 27.5, 'barre')).toBe(true);
+    // Un pas EXACT de l'historique porte la charge (comme avant).
+    expect(M.estApprochee(jeu(10, 12.5, 15, 17.5), COUPURE, 20, 'barre')).toBe(false);
+    // Rien qui ne se monte en kg, ni charge nulle ou d'aide.
+    expect(M.estApprochee(h, COUPURE, 35, 'elastique')).toBe(false);
+    expect(M.estApprochee(h, COUPURE, 0, 'machine')).toBe(false);
+    expect(M.estApprochee(h, COUPURE, -10, 'machine')).toBe(false);
+    // Haltères : la PAIRE, +2 jusqu'à 20 kg la paire (1 kg par haltère), puis +4 (2 par haltère).
+    expect(dessus(jeu(18), 'haltere', 18)).toBe(20);
+    expect(dessus(jeu(20), 'haltere', 20)).toBe(24);
+    expect(M.phraseApprochee('haltere')).toMatch(/l’haltère au-dessus/);
+    expect(M.phraseApprochee('barre')).toMatch(/petits disques/);
+    expect(M.phraseApprochee('poulie')).toMatch(/petit disque/);
+    expect(M.phraseApprochee('machine')).toMatch(/ta machine permet/);
   });
 
   test('un matériel venu de la base n’atteint jamais la chaîne de prototypes', () => {
@@ -805,8 +836,9 @@ describe('§10.2 — le pas de la salle, et quelle charge proposer', () => {
       retenues: [{ charge_kg: 100, reps: 5 }], votantes: [{ charge_kg: 100, reps: 5 }] };
     const s2 = { debut: ilYA(7), palier: 105,
       retenues: [{ charge_kg: 105, reps: 5 }], votantes: [{ charge_kg: 105, reps: 5 }] };
-    // Rien en dessous de 100 : la chauffe de la vraie séance n'y est pas.
-    expect(dessous([s1, s2], 'machine', 100)).toBeNull();
+    // Rien en dessous de 100 dans l'historique : la chauffe de la vraie séance n'y est pas. 163 — INVERSÉ (avant :
+    // `toBeNull`) : le repli de la machine (5 kg) donne 95, jamais la chauffe à 20.
+    expect(dessous([s1, s2], 'machine', 100)).toBe(95);
   });
 });
 
@@ -1012,7 +1044,13 @@ describe('§9.13 — la consigne, en calcul pur', () => {
       const rendu = M.consigneApresAFond(c.seances, c.avant, {
         reglage: c.reglage, equipement: c.equipement, correction: null
       });
-      expect(lire(rendu)).toEqual(attendu(c.attendu));
+      // 163 — `approchee` est un drapeau d'affichage (« ≈ »), testé à part : ici on compare les charges et les reps.
+      const sans = (o) => (o && typeof o === 'object' ? Object.keys(o).filter((k) => k !== 'approchee')
+        .reduce((a, k) => { a[k] = o[k]; return a; }, {}) : o);
+      const lu = lire(rendu);
+      if (lu.ligne) lu.ligne = sans(lu.ligne);
+      if (lu.haut) lu.haut = sans(lu.haut);
+      expect(lu).toEqual(attendu(c.attendu));
     });
   });
 
@@ -1346,8 +1384,11 @@ describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases e
     test(`${c.id} — ${c.titre} (${c.reglage})`, () => {
       const rendu = pour(c);
       // Les clés d'abord : c'est l'ABSENCE qui porte le sens.
-      expect(Object.keys(rendu.fondement).sort()).toEqual(Object.keys(c.fondement).sort());
-      expect(rendu.fondement).toEqual(c.fondement);
+      // 163 — la clé `approchee` du fondement (une charge jamais faite, « ≈ ») est testée à part.
+      const fond = Object.assign({}, rendu.fondement);
+      delete fond.approchee;
+      expect(Object.keys(fond).sort()).toEqual(Object.keys(c.fondement).sort());
+      expect(fond).toEqual(c.fondement);
       // §20.2 (49-U9) — la référence des dates est `avant`, comme dans l'app.
       expect(M.libellesConsigne(rendu, c.avant)).toEqual(c.phrases);
       expect(M.pourquoiConsigne(rendu, c.reglage, c.avant)).toEqual(c.pourquoi);
@@ -1381,8 +1422,9 @@ describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases e
     const r = M.consignePour(loin, '2026-09-20T10:00:00+00:00',
       { reglage: 'normal', equipement: 'machine', correction: null });
     expect(r.etat).toBe('reprise_longue');
-    expect(r.ligne).toEqual({ charge: null, vise: 5 });
-    expect(M.libellesConsigne(r).jaune).toEqual(['Le cran en dessous\u00a0×\u00a05']);
+    // 163 — INVERSÉ (avant : `charge: null`, « Le cran en dessous × 5 ») : la machine a son pas (5 kg) → 95, « ≈ ».
+    expect(r.ligne).toEqual({ charge: 95, vise: 5, approchee: true });
+    expect(M.libellesConsigne(r).jaune).toEqual(['\u2248\u00a095\u00a0kg\u00a0×\u00a05']);
   });
 
   test('DISCRIMINANT — et « Le cran au-dessus » en tête de ligne à la règle de bord', () => {
@@ -1393,8 +1435,9 @@ describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases e
     const r = M.consignePour(maximaux, '2026-09-20T10:00:00+00:00',
       { reglage: 'normal', equipement: 'machine', correction: null });
     expect(r.etat).toBe('bord');
-    expect(r.ligne).toEqual({ charge: null, vise: 2 });
-    expect(M.libellesConsigne(r).jaune).toEqual(['Le cran au-dessus\u00a0×\u00a02']);
+    // 163 — INVERSÉ (avant : `charge: null`, « Le cran au-dessus × 2 ») : la machine a son pas (5 kg) → 105, « ≈ ».
+    expect(r.ligne).toEqual({ charge: 105, vise: 2, approchee: true });
+    expect(M.libellesConsigne(r).jaune).toEqual(['\u2248\u00a0105\u00a0kg\u00a0×\u00a02']);
     expect(M.libellesConsigne(r).gris)
       .toBe('Sous 3 reps, pas de rep de plus' + NB + ': le cran au-dessus, aux mêmes reps.');
   });

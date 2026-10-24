@@ -380,8 +380,9 @@
   }
 
   // « 125 kg × 5 » — la charge d'abord, puis les reps.
-  function chargeFois(kg, reps, repli, cite) {
-    var t = chargeTexte(kg, repli) + INSECABLE + '\u00d7' + INSECABLE + nombreTexte(reps);
+  // 163 — `approchee` : une charge jamais faite sur l'exercice se dit « ≈ 35 kg » (MOTEUR §10.2 bis).
+  function chargeFois(kg, reps, repli, cite, approchee) {
+    var t = (approchee === true && chargeOuNul(kg) !== null ? '\u2248' + INSECABLE : '') + chargeTexte(kg, repli) + INSECABLE + '\u00d7' + INSECABLE + nombreTexte(reps);
     declarer(cite, { charge: chargeOuNul(kg), reps: [reps === undefined ? null : reps] }, t);
     return t;
   }

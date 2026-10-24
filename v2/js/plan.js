@@ -318,7 +318,7 @@
     if (!suite || !suite.consigne) return null;
     var c = Moteur().constatDuJour(consigne, suite.consigne, reglage || null,
       suite.cranSuivant === undefined ? null : suite.cranSuivant, faitsDuJour(lignes, consigne),
-      reference === undefined ? null : reference);
+      reference === undefined ? null : reference, suite.cranSuivantApprochee === true);
     if (!c) return null;
     // Ce que la prochaine séance proposera, en charges : de quoi vérifier
     // qu'elle ne propose pas moins qu'une montée tenue (I10 b).
@@ -919,6 +919,15 @@
     (autour.degressivesPlus || []).forEach(function (q) { if (q.phrase) dire('degressive', q.phrase, q.citations || []); });
     if (marche && marche.carte) dire('escalier.carte', marche.carte.phrase, citationsDeCarte(marche.carte));
 
+    // 163 (MOTEUR §10.2 bis) — UNE CHARGE JAMAIS FAITE SE DIT APPROCHÉE : le plan porte la phrase (par matériel) ;
+    // l'écran la lit sous la ligne, il ne la rédige pas. I59 relit le fondement, les charges marquées et la phrase.
+    var approchee = null;
+    if (consigne && consigne.fondement && consigne.fondement.approchee === true) {
+      approchee = { materiel: materiel ? materiel.equipement || null : null,
+                    phrase: M.phraseApprochee(materiel ? materiel.equipement : null) };
+      dire('entete.approchee', approchee.phrase, []);
+    }
+
     preremplir(exo, r.lignes, consigne, { reaction: r.reaction, figees: figees }, precedent);
 
     return {
@@ -943,6 +952,8 @@
       donc: donc,
       pourquoi: pourquoi,
       materiel: materiel ? materiel.equipement || null : null,
+      // 163 — la charge approchée et sa phrase, ou `null` : I59 la relit.
+      approchee: approchee,
       // §10 bis (108) — la salle de l'exercice, ou `null` : I46 la relit.
       salle: materiel ? materiel.salle || null : (c.salle || null),
       chauffes: autour.chauffes, proposition: autour.proposition, degressive: autour.degressive,
@@ -3960,6 +3971,7 @@
     verifierDouleur(plan, entrees, erreurs);
     verifierReserve(plan, entrees, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
+    verifierApprochee(plan, erreurs);
     verifierSalle(plan, erreurs);
     verifierEscalierSalle(plan, entrees, erreurs);
     verifierElastiques(plan, entrees, erreurs);
@@ -4064,6 +4076,40 @@
     });
   }
   var ETATS_TEST_PLAN = { test_propose: true, retest: true, retest_un_cran: true, tout_passe: true };
+
+  // I59 (MOTEUR §10.2 bis, 163) — UNE CHARGE JAMAIS FAITE SE DIT APPROCHÉE, et se dit complètement :
+  //   · la ligne ou le test marqués `approchee` portent une vraie charge en kg (positive), jamais le palier (une charge
+  //     tenue a été faite), jamais avec une salle en vigueur (les élastiques) ;
+  //   · le fondement, les lignes marquées et la clé `approchee` du plan vont ensemble : l'un sans les autres est une
+  //     charge affirmée ou un « ≈ » sans cause ;
+  //   · le plan porte la phrase « vise la charge la plus proche… » et l'en-tête dit « ≈ » devant chaque charge marquée.
+  function verifierApprochee(plan, erreurs) {
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.consigne;
+      var nom = 'I59 — exercice ' + i + ' (' + (x && x.slug) + ') : ';
+      var marquees = [];
+      if (k && k.ligne && k.ligne.approchee === true) marquees.push(['la ligne', k.ligne]);
+      if (k && k.haut && k.haut.approchee === true) marquees.push(['le test', k.haut]);
+      var fond = !!(k && k.fondement && k.fondement.approchee === true);
+      marquees.forEach(function (m) {
+        var c = nombre(m[1].charge);
+        if (c === null || c <= 0) erreurs.push(nom + m[0] + ' approchée sans charge en kg');
+        else if (nombre(k.palier) !== null && memeChargeOuVides(c, k.palier)) erreurs.push(nom + m[0] + ' approchée à ' + c + ' kg, la charge tenue du palier');
+        if (x.salle) erreurs.push(nom + m[0] + ' approchée alors qu’une salle est en vigueur');
+      });
+      if (fond !== (marquees.length > 0)) erreurs.push(nom + 'le fondement ' + (fond ? 'dit' : 'ne dit pas') + ' « approchée » pour ' + marquees.length + ' charge(s) marquée(s)');
+      if ((marquees.length > 0) !== !!x.approchee) erreurs.push(nom + 'la charge approchée et la clé « approchee » du plan ne vont pas ensemble');
+      if (x.approchee && (!x.approchee.phrase || !/vise/.test(String(x.approchee.phrase)))) erreurs.push(nom + 'une charge approchée sans sa phrase');
+      // L'en-tête dit « ≈ » devant chaque charge approchée qu'il décrit (ses segments), et seulement elles.
+      var segs = x.entete && Array.isArray(x.entete.segments) ? x.entete.segments : [];
+      if (!k || !k.allegee) {
+        var dit = x.entete && Array.isArray(x.entete.jaune) && x.entete.jaune.join(' ').indexOf('\u2248') >= 0;
+        var voulu = segs.some(function (sg) { return sg.approchee === true; });
+        if (voulu && !dit) erreurs.push(nom + 'une charge approchée que l’en-tête ne dit pas « ≈ »');
+        if (dit && !voulu) erreurs.push(nom + 'un « ≈ » dans l’en-tête sans charge approchée');
+      }
+    });
+  }
 
   // I46 (MOTEUR §10 bis, 108) — LA SALLE : pour un exercice dont la salle déclarée est en vigueur, aucune charge que
   // le coach propose n'en sort — ni la ligne ni la ligne haute de la consigne, ni une proposition de la réaction, ni

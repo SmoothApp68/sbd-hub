@@ -6914,7 +6914,7 @@
         options);
       var parSlug = Object.assign({}, constats.parSlug);
       parSlug[slug] = { options: cleOptions,
-                        valeur: r ? { consigne: r.apres.consigne, cranSuivant: r.cranSuivant } : null };
+                        valeur: r ? { consigne: r.apres.consigne, cranSuivant: r.cranSuivant, cranSuivantApprochee: r.cranSuivantApprochee === true } : null };
       constats = { cle: cle, parSlug: parSlug };
     }
     return constats.parSlug[slug].valeur;

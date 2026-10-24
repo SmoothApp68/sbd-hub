@@ -14613,6 +14613,9 @@ const SETS_IMPORTES = [
     base.pesees.push({ id: 'pz55b', date: '2026-01-02', poids_kg: 97.5, source: 'manuel' });
     // Au rechargement, les pesées se resynchronisent (`Sync.remplacer`).
     await aller('/exercice/record-u55');
+    // 156 — la nouvelle pesée (trop vieille) vient de la synchronisation : on attend que le rapport disparaisse.
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('#page-exercice .exo-records .exo-fiche').length === 1).catch(() => false),
+      15000, '[P55] le rapport au poids disparaît');
     const noteP = await page.evaluate(() => {
       const c = document.querySelector('#page-exercice .exo-records');
       return c ? { note: (c.querySelector('.exo-note') || {}).textContent || null, fiches: c.querySelectorAll('.exo-fiche').length } : null;

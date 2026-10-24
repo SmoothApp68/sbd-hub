@@ -622,6 +622,8 @@ const SETS_IMPORTES = [
     sessions: [Object.assign({}, PASSEE), Object.assign({}, IMPORTEE)],
     sets: SETS_PASSES.concat(SETS_IMPORTES).map((s) => Object.assign({}, s)),
     profiles: [Object.assign({}, PROFIL_BANC)],
+    // 160 — la fonction « Demander au coach » du faux serveur : les appels reçus, le mode, le reste du jour, la réponse.
+    assistant: { appels: [], mode: 'ok', reste: 10, reponse: 'Je teste le cran au-dessus de ta charge de travail.' },
     zones: [],
     modes: [],
     // 99 (v2_085) — `semaine_choix` : le choix fait pour une séance manquée.
@@ -946,6 +948,19 @@ const SETS_IMPORTES = [
 
     if (url.pathname.startsWith('/auth/')) return json({ error: 'x' }, 400);
     if (!base.reseau) return route.abort('failed');
+    // 160 — LA FONCTION « DEMANDER AU COACH » (jamais la vraie : la garde réseau le vérifie). Chaque appel est GARDÉ
+    // (`base.assistant.appels`) : « une douleur ne part pas » se prouve par ce compte, pas par ce que la page affiche.
+    // `mode` : 'ok' (une réponse, le reste décroît), 'quota' (429 `quota`), 'accord' (403), 'panne' (503).
+    if (url.pathname === '/functions/v1/demander-coach') {
+      const a = base.assistant;
+      if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, body: '' });
+      a.appels.push({ corps: corps, auth: req.headers()['authorization'] || '' });
+      if (a.mode === 'quota') return json({ quota: true, reste: 0 }, 429);
+      if (a.mode === 'accord') return json({ erreur: 'accord' }, 403);
+      if (a.mode === 'panne') return json({ erreur: 'indisponible' }, 503);
+      a.reste = Math.max(0, a.reste - 1);
+      return json({ reponse: a.reponse, reste: a.reste });
+    }
     // 107 — LES ÉCRITURES SOCIALES COUPÉES, LES LECTURES PASSENT : la configuration qui permet un SECOND geste après un
     // rechargement (le profil se relit), pendant que le premier attend toujours dans la file. Les fonctions de guilde qui
     // écrivent comptent comme des écritures, et le profil (« Compte privé ») ; les lectures (`social_*`, `guilde_moi`…) passent.
@@ -25430,6 +25445,175 @@ const SETS_IMPORTES = [
     ok('[EV154] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       nb154([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ demander-coach. « DEMANDER AU COACH » : LE BOUTON, L’ACCORD, UNE PUCE, UNE DOULEUR QUI NE PART PAS, LE QUOTA, SANS RÉSEAU (160, ECRAN-SAISIE §3.10 ter) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice à la barre, 40 kg × 9 trois séances de suite, séance du jour ouverte, la feuille
+  // « Pourquoi » ouverte. Le faux serveur GARDE chaque appel de la fonction : une douleur « ne part pas » se prouve par le compte
+  // d'appels (zéro de plus), jamais par ce que la page affiche. Aucun délai fixe : chaque attente est une condition.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    CATALOGUE.push({ slug: 'dc160-a', nom: 'Exercice DC160 A (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
+    const t160 = Date.now();
+    base.sessions = [];
+    base.sets = [];
+    [21, 14, 7].forEach((j) => {
+      const id = 'dc160-h' + j;
+      const debut = ilYa(j * 86400000, t160).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'DC160 — ' + id, debut,
+        fin: finDe(debut, t160).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((k) => base.sets.push({
+        id: id + '-' + k, session_id: id, user_id: 'u-banc', exercise_slug: 'dc160-a',
+        charge_kg: 40, reps: 9, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: k, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    ROUTINES.push({ id: 'r-dc160', nom: 'Demander au coach U160', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-dc160-a', routine_id: 'r-dc160', exercise_slug: 'dc160-a', rang: 0, routine_sets: progr(3, 9),
+        repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const sp160 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const A160 = base.assistant;
+    A160.appels.length = 0; A160.mode = 'ok'; A160.reste = 10;
+    const texte160 = (sel) => page.evaluate((x) => { const n = document.querySelector('#feuille-contenu ' + x); return n ? n.textContent : null; }, sel);
+    const textes160 = (sel) => page.evaluate((x) => Array.from(document.querySelectorAll('#feuille-contenu ' + x)).map((n) => n.textContent), sel);
+    const ouvrirPourquoi160 = async () => {
+      await page.evaluate(() => { const c = document.querySelector('.legende-exo .consigne, .legende-exo .consigne-dit'); if (c) c.click(); });
+      await feuilleOuverte('.assistant-demander', 8000);
+    };
+    const appels160 = () => A160.appels.length;
+
+    await aller('/saisie');
+    await demarrerRoutine('Demander au coach U160');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 3), 8000);
+    await ouvrirPourquoi160();
+
+    // A. LE BOUTON : en bas de la feuille, « 10 questions par jour » dessous.
+    ok('[DC160] le bouton « Demander au coach » est en bas de la feuille « Pourquoi », « 10 questions par jour » dessous',
+      sp160(await texte160('.assistant-demander')) === 'Demander au coach' &&
+        sp160(await texte160('.assistant-reste')) === '10 questions par jour' &&
+        await page.evaluate(() => !document.querySelector('#feuille-contenu .assistant-demander').disabled),
+      JSON.stringify([await texte160('.assistant-demander'), await texte160('.assistant-reste')]));
+
+    // B. L'ACCORD : la première fois ; « Pas maintenant » ne fait rien.
+    await page.click('#feuille-contenu .assistant-demander');
+    await feuilleOuverte('.assistant-accord-ok', 6000);
+    const accord160 = sp160(await texte160('.assistant-accord'));
+    ok('[DC160] DISCRIMINANT — l’accord dit ce qui part (Anthropic, États-Unis), ce qui ne part pas, et « gardées 30 jours, sans ton nom »',
+      /Anthropic, aux États-Unis/.test(accord160) && /Rien qui t’identifie/.test(accord160) && /Une douleur ne part jamais/.test(accord160) &&
+        /Tes questions sont gardées 30 jours, sans ton nom, pour améliorer les réponses\./.test(accord160) && appels160() === 0, accord160);
+    await page.click('#feuille-contenu .assistant-accord-non');
+    await feuilleOuverte('.assistant-demander', 6000);
+    ok('[DC160] « Pas maintenant » ne fait rien : retour à la feuille, l’accord n’est pas écrit, aucun appel',
+      !base.profiles[0].assistant_accord_a && !base.journal.some((j) => j.op === 'profil' && j.champs && j.champs.assistant_accord_a) && appels160() === 0,
+      JSON.stringify([base.profiles[0].assistant_accord_a, appels160()]));
+    await page.click('#feuille-contenu .assistant-demander');
+    await feuilleOuverte('.assistant-accord-ok', 6000);
+    await page.click('#feuille-contenu .assistant-accord-ok');
+    await feuilleOuverte('.assistant-puce', 8000);
+    await jusqua(() => !!base.profiles[0].assistant_accord_a, 8000);
+    ok('[DC160] « J’ai compris, continuer » écrit `assistant_accord_a` (par le profil) et ouvre la conversation',
+      !!base.profiles[0].assistant_accord_a && !isNaN(Date.parse(base.profiles[0].assistant_accord_a)), String(base.profiles[0].assistant_accord_a));
+
+    // C. UNE PUCE → LA RÉPONSE, avec sa mention, le reste décompté.
+    const puces160 = await textes160('.assistant-puce');
+    ok('[DC160] trois questions toutes prêtes, adaptées à la ligne', puces160.length === 3 && puces160.every((t) => /\?$/.test(t)), JSON.stringify(puces160));
+    await page.click('#feuille-contenu .assistant-puce >> nth=0');
+    await jusqua(() => page.evaluate(() => !!document.querySelector('#feuille-contenu .assistant-mention')), 8000);
+    const c1 = A160.appels[0] || {};
+    const cx = (c1.corps && c1.corps.contexte) || {};
+    ok('[DC160] DISCRIMINANT — une puce part à la fonction avec le jeton de session, la question, le slug et un contexte SANS date ni identifiant',
+      appels160() === 1 && /^Bearer /.test(c1.auth) && c1.corps.question === puces160[0] && c1.corps.slug === 'dc160-a' &&
+        cx.exercice === 'Exercice DC160 A (Barre)' && Array.isArray(cx.seances) && cx.seances.length === 3 &&
+        !/\d{4}-\d{2}-\d{2}|dc160-h|u-banc|sess/i.test(JSON.stringify(cx)) && Object.keys(c1.corps).sort().join() === 'contexte,question,slug',
+      JSON.stringify(c1.corps).slice(0, 600));
+    ok('[DC160] la bulle porte la réponse, la mention « Rédigé par une IA à partir de la consigne du coach. », « il en reste 9 »',
+      sp160((await textes160('.assistant-r'))[0]) === A160.reponse &&
+        sp160(await texte160('.assistant-mention')) === 'Rédigé par une IA à partir de la consigne du coach.' &&
+        /il en reste 9/.test(sp160(await texte160('.assistant-reste'))),
+      JSON.stringify([await textes160('.assistant-r'), await texte160('.assistant-reste')]));
+
+    // D. UNE DOULEUR NE PART PAS : zéro appel de plus, la bulle locale, « J'ai mal ».
+    const avantDouleur = appels160();
+    await page.fill('#feuille-contenu .assistant-champ input', 'J’ai mal au genou depuis hier, je continue ?');
+    await page.press('#feuille-contenu .assistant-champ input', 'Enter');
+    await jusqua(() => page.evaluate(() => !!document.querySelector('#feuille-contenu .assistant-jaimal')), 8000);
+    ok('[DC160] DISCRIMINANT — une douleur ne part pas : le faux serveur compte zéro appel de plus, la bulle locale et le bouton « J’ai mal »',
+      appels160() === avantDouleur && /Je ne réponds pas sur une douleur/.test(sp160((await textes160('.assistant-r')).slice(-1)[0])) &&
+        sp160(await texte160('.assistant-jaimal')) === 'J’ai mal', JSON.stringify([appels160(), await textes160('.assistant-r')]));
+    ok('[DC160] la question « je m’y prends mal » (pas une douleur) part bel et bien',
+      await (async () => {
+        await page.fill('#feuille-contenu .assistant-champ input', 'Je m’y prends mal, pourquoi pas plus ?');
+        await page.press('#feuille-contenu .assistant-champ input', 'Enter');
+        await jusqua(() => appels160() === avantDouleur + 1, 8000);
+        await jusqua(() => page.evaluate(() => !document.querySelector('#feuille-contenu .assistant-attente')), 8000);
+        return appels160() === avantDouleur + 1;
+      })(), String(appels160()));
+    await page.fill('#feuille-contenu .assistant-champ input', 'mon genou qui craque');
+    await page.press('#feuille-contenu .assistant-champ input', 'Enter');
+    await jusqua(() => page.evaluate(() => !!document.querySelector('#feuille-contenu .assistant-jaimal')), 8000);
+    await page.click('#feuille-contenu .assistant-jaimal');
+    await feuilleOuverte('.douleur-phrase', 6000);
+    ok('[DC160] « J’ai mal » ouvre la feuille de la douleur de l’exercice, sans appel de plus', appels160() === avantDouleur + 1,
+      String(appels160()));
+    await fermerFeuille();
+
+    // E. LE QUOTA : le faux serveur dit « quota » ; la bulle locale, puis plus rien ne part.
+    A160.mode = 'quota';
+    await ouvrirPourquoi160();
+    await page.click('#feuille-contenu .assistant-demander');
+    await feuilleOuverte('.assistant-puce', 6000);
+    const avantQuota = appels160();
+    await page.click('#feuille-contenu .assistant-puce >> nth=1');
+    await jusqua(() => page.evaluate(() => !!document.querySelector('#feuille-contenu .assistant-r') &&
+      !document.querySelector('#feuille-contenu .assistant-attente')), 8000);
+    ok('[DC160] le quota atteint : la bulle locale « Tu as posé tes 10 questions d’aujourd’hui. Le compteur repart demain. »',
+      appels160() === avantQuota + 1 && /Tu as posé tes 10 questions d’aujourd’hui\. Le compteur repart demain\./.test(sp160((await textes160('.assistant-r')).slice(-1)[0])),
+      JSON.stringify([appels160(), await textes160('.assistant-r')]));
+    await page.fill('#feuille-contenu .assistant-champ input', 'Et pour demain ?');
+    await page.press('#feuille-contenu .assistant-champ input', 'Enter');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('#feuille-contenu .assistant-r').length >= 2), 8000);
+    ok('[DC160] DISCRIMINANT — au quota, rien ne part : le faux serveur ne reçoit aucun appel de plus', appels160() === avantQuota + 1, String(appels160()));
+    await fermerFeuille();
+    A160.mode = 'ok';
+    await page.evaluate(() => window.THAssistant.oublier());
+
+    // F. SANS RÉSEAU : le bouton est éteint, « Demande le réseau », aucun appel.
+    const avantHors = appels160();
+    await page.evaluate(() => Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false }));
+    await ouvrirPourquoi160();
+    ok('[DC160] sans réseau : le bouton est éteint et la ligne dit « Demande le réseau »',
+      await page.evaluate(() => document.querySelector('#feuille-contenu .assistant-demander').disabled) &&
+        sp160(await texte160('.assistant-reste')) === 'Demande le réseau', String(await texte160('.assistant-reste')));
+    await page.evaluate(() => { document.querySelector('#feuille-contenu .assistant-demander').click(); });
+    ok('[DC160] le bouton éteint ne fait rien : toujours la feuille « Pourquoi », aucun appel',
+      appels160() === avantHors && !(await texte160('.assistant-accord-ok')) && !(await texte160('.assistant-champ')), String(appels160()));
+    await page.evaluate(() => { delete navigator.onLine; });
+    await fermerFeuille();
+
+    // G. RIEN NE RESTE : ni la question ni la réponse dans le stockage de l'appareil.
+    const stockage = await page.evaluate(() => JSON.stringify(Object.assign({}, localStorage)));
+    ok('[DC160] la conversation vit en mémoire : ni la question ni la réponse dans le stockage de l’appareil',
+      !/genou|Je teste le cran au-dessus/.test(stockage), stockage.slice(0, 200));
+
+    // LA REMISE EN ÉTAT.
+    await abandonner();
+    base.sessions = sessionsAvant; base.sets = setsAvant;
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    delete base.profiles[0].assistant_accord_a;
+    A160.appels.length = 0; A160.mode = 'ok'; A160.reste = 10;
+    await aller('/saisie');
+    ok('[DC160] aucun refus du faux serveur, la garde (C6) n’a rien signalé, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

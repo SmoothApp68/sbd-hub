@@ -21,6 +21,8 @@
   var Palier = racine.THPalier, Routines = racine.THRoutines;
   var Seance = racine.THSeance, Attente = racine.THAttente;
   var Profil = racine.THProfil, Moteur = racine.THMoteur, Plan = racine.THPlan;
+  // 160 — « Demander au coach » : le contexte d'une ligne, les garde-fous locaux, l'appel (la conversation vit en mémoire).
+  var Assistant = racine.THAssistant;
   var Questionnaire = racine.THQuestionnaire;
   var Import = racine.THImportHevy;
   var Generateur = racine.THGenerateur;
@@ -73,6 +75,8 @@
     vidangeARelancer = false;
     // 107 — les gestes sociaux confirmés et le refus à dire appartiennent au compte qui part.
     social.confirmes = []; social.refus = null; social.aRafraichir = null;
+    // 160 — le nombre de questions qui restent aujourd'hui appartient au compte qui part.
+    if (Assistant) Assistant.oublier();
   }
   var lundiAffiche = null;   // le lundi de la semaine à l'écran
   var gardes = [];           // vues qui peuvent refuser la sortie (§ écran de saisie)
@@ -8797,11 +8801,121 @@
   // en a une par branche.
   function ouvrirPourquoi(slug) {
     if (!pourquoiDe(slug)) return;
-    feuille = { quoi: 'pourquoi', slug: slug };
+    feuille = { quoi: 'pourquoi', slug: slug, vue: 'fiche', conv: { bulles: [], saisie: '', enCours: false } };
     rendreFeuille();
     ouvrirVoile($('feuille-seance'), function () {
       feuille = null;
       if (seance) rendreSeance();
+    });
+  }
+
+  // ── 160 — « DEMANDER AU COACH » (ECRAN-SAISIE, la feuille « Pourquoi ») ─────
+  //
+  // L'IA EXPLIQUE la consigne du plan ; elle ne la change jamais. Le contexte vient du PLAN (`planDuSlug`), des faits
+  // (`faits.seancesDeLExercice`) et de la salle (`Profil.salleDeLExercice`) : rien n'est calculé ici (`assistant.js`).
+  // Une douleur ne part pas (`Assistant.estSante`, la même liste que la fonction) ; au bout du quota, rien ne part non
+  // plus ; sans réseau, le bouton est éteint. La conversation vit dans `feuille.conv` — en mémoire, rien en base.
+  function enLigneAssistant() { return !(racine.navigator && racine.navigator.onLine === false); }
+  function texteResteAssistant() {
+    var r = Assistant.resteDuJour();
+    return Assistant.TEXTES.parJour + (r === null ? '' : ' \u00b7 il en reste ' + r);
+  }
+
+  function rendreAccordAssistant(cible) {
+    var f = feuille;
+    return Rendu.rendreFeuilleAccord(cible, {
+      textes: Assistant.TEXTES,
+      // L'accord s'écrit AVANT la première question (la fonction le relit en base) ; refermer ne le retire pas.
+      surAccord: function () {
+        poserProfil({ assistant_accord_a: new Date().toISOString() }).catch(function () {}).then(function () {
+          if (feuille !== f) return;
+          f.vue = 'conv';
+          rendreFeuille();
+        });
+      },
+      surRefus: function () { f.vue = 'fiche'; rendreFeuille(); }
+    });
+  }
+
+  function rendreConversationAssistant(cible, index) {
+    var f = feuille, conv = f.conv, slug = f.slug;
+    var x = planDuSlug(slug);
+    var T = Assistant.TEXTES;
+    var redessiner = function () {
+      if (feuille !== f || f.vue !== 'conv') return;
+      rendreFeuille();
+      var fil = $('feuille-contenu').querySelector('.assistant-fil');
+      if (fil) fil.scrollTop = fil.scrollHeight;
+      var champ = $('feuille-contenu').querySelector('.assistant-champ input');
+      if (champ && conv.garderFocus && !conv.enCours) champ.focus();
+    };
+    var local1 = function (q, texte, sante) { conv.bulles.push({ q: q, r: texte, local: true, sante: !!sante }); };
+    var envoyer = function (brut) {
+      var q = String(brut || '').trim().slice(0, Assistant.MAX_QUESTION);
+      if (!q || conv.enCours) return;
+      conv.garderFocus = true;
+      conv.saisie = '';
+      // 1. Une douleur ne part pas : la bulle locale et le bouton « J'ai mal ».
+      if (Assistant.estSante(q)) { local1(q, T.sante, true); return redessiner(); }
+      // 2. Le quota du jour atteint : rien ne part.
+      if (Assistant.resteDuJour() === 0) { local1(q, T.quota); return redessiner(); }
+      if (!enLigneAssistant()) { local1(q, T.reseau); return redessiner(); }
+      var contexte = Assistant.contexteDe({
+        nom: Modele.nommer(index, slug), x: x,
+        groupes: faits.seancesDeLExercice(corpus(), slug),
+        salle: Profil.salleDeLExercice(profil, slug, index)
+      });
+      if (!contexte) { local1(q, T.indisponible); return redessiner(); }
+      var bulle = { q: q, r: null, local: false };
+      conv.bulles.push(bulle);
+      conv.enCours = true;
+      redessiner();
+      var cfg = racine.THConfig;
+      var fin = function (res) {
+        conv.enCours = false;
+        if (res.genre === 'accord') {
+          conv.bulles.pop();
+          if (feuille === f) { f.vue = 'accord'; }
+          return feuille === f ? rendreFeuille() : undefined;
+        }
+        if (res.genre === 'quota') { Assistant.noterReste(0); bulle.r = T.quota; bulle.local = true; }
+        else if (res.genre === 'indisponible') { bulle.r = T.indisponible; bulle.local = true; }
+        else if (res.genre === 'reseau') { bulle.r = T.reseau; bulle.local = true; }
+        else {
+          if (typeof res.reste === 'number') Assistant.noterReste(res.reste);
+          bulle.r = res.texte || T.bloquee;
+          // Une réponse sûre porte la mention « Rédigé par une IA » ; la réponse fixe (blocage, douleur) est locale.
+          bulle.local = res.genre === 'bloquee';
+          bulle.sante = !!res.sante;
+        }
+        redessiner();
+      };
+      var session = racine.THClient.obtenir().auth.getSession();
+      Promise.resolve(session).then(function (r) {
+        var jeton = r && r.data && r.data.session ? r.data.session.access_token : (sessionActive && sessionActive.access_token);
+        return Assistant.demander({ url: cfg.URL, cle: cfg.CLE_PUBLISHABLE, jeton: jeton, question: q, slug: slug, contexte: contexte });
+      }).catch(function () { return { genre: 'reseau' }; }).then(fin);
+    };
+    return Rendu.rendreFeuilleAssistant(cible, {
+      titre: T.bouton, nom: Modele.nommer(index, slug), textes: T, mention: T.mention, attente: '\u2026', max: Assistant.MAX_QUESTION,
+      puces: Assistant.puces(x && x.consigne ? x.consigne.etat : null),
+      bulles: conv.bulles, saisie: conv.saisie, enCours: conv.enCours,
+      reste: texteResteAssistant(),
+      surSaisie: function (v) { conv.saisie = v; },
+      surEnvoyer: envoyer,
+      surRetour: function () { f.vue = 'fiche'; rendreFeuille(); },
+      // « J'ai mal » : la feuille de la douleur de l'exercice, dans la séance (rien si l'exercice n'y est pas).
+      surJaiMal: function () {
+        if (!seance) return;
+        var iExo = -1;
+        seance.exercices.forEach(function (e, i) { if (iExo < 0 && e.exercise_slug === slug) iExo = i; });
+        if (iExo < 0) return;
+        var blocs = Modele.blocsDeSeance(seance, local.exercices), iBloc = -1;
+        blocs.forEach(function (b, k) { if (iBloc < 0 && indicesDe(b).indexOf(iExo) >= 0) iBloc = k; });
+        if (iBloc < 0) return;
+        feuille = { quoi: 'douleur', iBloc: iBloc, cibleExo: iExo };
+        rendreFeuille();
+      }
     });
   }
 
@@ -8869,10 +8983,22 @@
     if (feuille.quoi === 'abandon') return rendreFeuilleAbandon(cible);
     if (feuille.quoi === 'non-validees') return rendreFeuilleNonValidees(cible);
     if (feuille.quoi === 'duree') return rendreFeuilleDuree(cible, index);
+    if (feuille.quoi === 'pourquoi' && feuille.vue === 'accord') return rendreAccordAssistant(cible);
+    if (feuille.quoi === 'pourquoi' && feuille.vue === 'conv') return rendreConversationAssistant(cible, index);
     if (feuille.quoi === 'pourquoi') {
       return Rendu.rendreFeuillePourquoi(cible, {
         nom: Modele.nommer(index, feuille.slug),
         pourquoi: pourquoiDe(feuille.slug),
+        // 160 — le bouton « Demander au coach », en bas de la feuille (connecté seulement).
+        assistant: userId() ? {
+          bouton: Assistant.TEXTES.bouton,
+          horsLigne: enLigneAssistant() ? null : Assistant.TEXTES.horsLigne,
+          reste: texteResteAssistant(),
+          surDemander: function () {
+            feuille.vue = profil && profil.assistant_accord_a ? 'conv' : 'accord';
+            rendreFeuille();
+          }
+        } : null,
         // ⚠️ ON FERME AVANT DE NAVIGUER. Une feuille laissée ouverte sur un
         // autre écran est un voile qu'on ne sait plus d'où il vient — et le
         // retour d'Android le refermerait au lieu de remonter.

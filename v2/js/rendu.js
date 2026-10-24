@@ -3690,6 +3690,104 @@
       cible.appendChild(pr);
     }
     if (p.fin) cible.appendChild(el('p', 'pq-p', p.fin));
+    // 160 — « Demander au coach » : un bouton en bas, rien ne change au-dessus. Le texte n'est pas écrit ici (`vue.assistant`).
+    if (vue.assistant) {
+      var a = vue.assistant;
+      var bd = el('button', 'principal assistant-demander', a.bouton);
+      bd.type = 'button';
+      if (a.horsLigne) bd.disabled = true;
+      else bd.addEventListener('click', a.surDemander);
+      cible.appendChild(bd);
+      cible.appendChild(el('div', 'assistant-reste', a.horsLigne ? a.horsLigne : a.reste));
+    }
+    return cible;
+  }
+
+  // ── 160 — « DEMANDER AU COACH » : L'ACCORD, PUIS LA CONVERSATION ─────────
+  //
+  // ⚠️ ELLES N'ÉCRIVENT AUCUNE RÉPONSE : les textes viennent d'`assistant.js` (`vue.textes`), les réponses de la fonction.
+  // La première fois seulement : l'accord (ce qui part, où, ce qui ne part jamais). La conversation vit en mémoire.
+  function rendreFeuilleAccord(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', vue.textes.accordTitre));
+    var ul = el('ul', 'assistant-accord');
+    vue.textes.accord.forEach(function (parties) {
+      var li = el('li');
+      parties.forEach(function (t, i) {
+        if (i % 2 === 1) li.appendChild(el('b', '', t));
+        else li.appendChild(doc.createTextNode(t));
+      });
+      ul.appendChild(li);
+    });
+    cible.appendChild(ul);
+    var ok = el('button', 'principal assistant-accord-ok', vue.textes.accordOk);
+    ok.type = 'button';
+    ok.addEventListener('click', vue.surAccord);
+    cible.appendChild(ok);
+    var non = el('button', 'discret bloc-large assistant-accord-non', vue.textes.accordNon);
+    non.type = 'button';
+    non.addEventListener('click', vue.surRefus);
+    cible.appendChild(non);
+    return cible;
+  }
+
+  function rendreFeuilleAssistant(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', vue.titre));
+    cible.appendChild(el('div', 'feuille-sous', vue.nom));
+    if (!vue.bulles.length) {
+      var pu = el('div', 'assistant-puces');
+      vue.puces.forEach(function (q) {
+        var b = el('button', 'assistant-puce', q);
+        b.type = 'button';
+        if (vue.enCours) b.disabled = true;
+        else b.addEventListener('click', function () { vue.surEnvoyer(q); });
+        pu.appendChild(b);
+      });
+      cible.appendChild(pu);
+    }
+    var fil = el('div', 'assistant-fil');
+    vue.bulles.forEach(function (b, i) {
+      fil.appendChild(el('div', 'assistant-q', b.q));
+      if (b.r === null) {
+        fil.appendChild(el('div', 'assistant-r assistant-attente', vue.attente));
+        return;
+      }
+      fil.appendChild(el('div', 'assistant-r' + (b.local ? ' local' : ''), b.r));
+      if (!b.local) fil.appendChild(el('div', 'assistant-mention', vue.mention));
+      if (b.sante && i === vue.bulles.length - 1) {
+        var jm = el('button', 'discret bloc-large assistant-jaimal', 'J\u2019ai mal');
+        jm.type = 'button';
+        jm.addEventListener('click', vue.surJaiMal);
+        fil.appendChild(jm);
+      }
+    });
+    cible.appendChild(fil);
+    var form = el('form', 'assistant-champ');
+    var inp = el('input');
+    inp.type = 'text';
+    inp.maxLength = vue.max;
+    inp.placeholder = 'Ta question\u2026';
+    inp.value = vue.saisie || '';
+    inp.setAttribute('aria-label', 'Ta question');
+    inp.autocomplete = 'off';
+    inp.addEventListener('input', function () { vue.surSaisie(inp.value); });
+    var env = el('button', 'assistant-envoyer', 'Envoyer');
+    env.type = 'submit';
+    if (vue.enCours) { env.disabled = true; inp.disabled = true; }
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var q = inp.value.trim();
+      if (q && !vue.enCours) vue.surEnvoyer(q);
+    });
+    form.appendChild(inp);
+    form.appendChild(env);
+    cible.appendChild(form);
+    if (vue.reste) cible.appendChild(el('div', 'assistant-reste', vue.reste));
+    var ret = el('button', 'discret bloc-large assistant-retour', 'Retour \u00e0 la consigne');
+    ret.type = 'button';
+    ret.addEventListener('click', vue.surRetour);
+    cible.appendChild(ret);
     return cible;
   }
 
@@ -8022,6 +8120,8 @@
     texteChangementSeries: texteChangementSeries,
     texteChargeProgramme: texteChargeProgramme,
     rendreFeuillePourquoi: rendreFeuillePourquoi,
+    rendreFeuilleAccord: rendreFeuilleAccord,
+    rendreFeuilleAssistant: rendreFeuilleAssistant,
     rendreFeuilleZone: rendreFeuilleZone,
     rendreFeuilleBloc: rendreFeuilleBloc,
     rendreFeuilleExercice: rendreFeuilleExercice,

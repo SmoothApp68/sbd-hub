@@ -60,6 +60,8 @@ Deux Claude, rôles séparés :
    est autorisée** (`v2-atelier/specs/SCHEMA-REEL.md`, « Règle de travail »), précisément pour ne jamais
    coder sur des noms de colonnes non vérifiés.
 
+**Fonctions Edge** (`supabase/functions/demander-coach/`, 160) : tu écris le code dans le dépôt, **Claude.ai les déploie** (jamais toi). Les dossiers `anthropic-proxy` et `coach-ai` sont du v1 archivé, non déployés.
+
 **Conséquence** : si une tâche exige une **écriture**, une migration ou une vérification de RLS, **signale-le explicitement** dans ton rapport et route cette partie via Claude.ai. Lire le schéma pour vérifier un nom de colonne est autorisé et attendu ; lire des données personnelles ne l'est pas. Les prompts de tâche arrivent en `.md` (préparés côté Claude.ai) — ton rôle : les exécuter avec rigueur.
 
 ---

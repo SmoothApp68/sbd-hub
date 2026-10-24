@@ -25022,8 +25022,10 @@ const SETS_IMPORTES = [
       const n = document.querySelector('.bloc-seance .effort-vise');
       if (!n) return null;
       const lignes = Array.from(document.querySelectorAll('.bloc-seance .ligne-serie'));
-      const prec = n.previousElementSibling;
-      return { apres: lignes.findIndex((l) => l === prec || prec.contains(l)), precede: prec ? prec.className : null, question: (n.querySelector('.effort-vise-q') || {}).textContent || null,
+      // La ligne qui précède (une médaille peut s'intercaler entre la rangée et les puces).
+      let prec = n.previousElementSibling;
+      while (prec && !lignes.some((l) => l === prec || prec.contains(l))) prec = prec.previousElementSibling;
+      return { apres: lignes.findIndex((l) => prec && (l === prec || prec.contains(l))), question: (n.querySelector('.effort-vise-q') || {}).textContent || null,
         boutons: Array.from(n.querySelectorAll('button')).map((b) => b.textContent),
         phrase: (n.querySelector('.effort-vise-dit') || {}).textContent || null };
     });

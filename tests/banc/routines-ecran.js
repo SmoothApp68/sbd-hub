@@ -2178,6 +2178,45 @@ const ALIAS_COMMUNS = [
     await jusqua('[164 D3] la routine modifiée ailleurs apparaît', async () => /Haut A 164 ailleurs/.test(await carte155('Haut A 164 ailleurs')));
     ok('[164 D3] DISCRIMINANT — après un retour Android sur la feuille « Renommer », la relecture fonctionne encore',
       /Haut A 164 ailleurs/.test(await carte155('Haut A 164 ailleurs')), await carte155('Haut A 164 ailleurs'));
+
+    // ── F. 164 (D11) — « Annuler » pendant l'écriture d'un renommage ne lève pas d'exception ──
+    // L'écriture est RETENUE (puis refusée : réseau coupé), « Annuler » ferme la feuille entre-temps.
+    // Une promesse rejetée sans gestionnaire est relevée dans la page elle-même (indépendamment de `pageerror`).
+    await page.addInitScript(() => {
+      window.__rejets = [];
+      window.addEventListener('unhandledrejection', (ev) => { window.__rejets.push(String(ev.reason).slice(0, 120)); });
+    });
+    await aller('/saisie');
+    await reposerHorloge();
+    const e0 = erreurs.length;
+    let lacher; const tenue = new Promise((fin) => { lacher = fin; });
+    await page.click('#liste-routines .dossier-ligne[data-dossier="Recompo"] .dossier-menu');
+    await jusqua('[164 D11] menu du dossier', async () => !(await feuilleFermee(page)));
+    await page.click('#feuille-contenu .renommer-dossier');
+    await jusqua('[164 D11] feuille de renommage', () => page.evaluate(() => !!document.querySelector('#feuille-contenu .renommer-valider')));
+    await page.fill('#feuille-contenu input', 'Zeta 164');
+    let retenue164 = 0;
+    const retenirEcriture = async (route) => {
+      if (route.request().method() === 'GET' || retenue164 > 0) return route.fallback();   // seule la première écriture est retenue puis refusée
+      retenue164++; await tenue; await route.abort('failed');
+    };
+    await ctx.route(/supabase\.co/, retenirEcriture);
+    await page.click('#feuille-contenu .renommer-valider');
+    await jusqua('[164 D11] l\'écriture est partie, retenue', () => retenue164 > 0);
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+      .filter((b) => b.textContent === 'Annuler')[0].click());
+    await jusqua('[164 D11] la feuille est fermée par « Annuler »', () => feuilleFermee(page));
+    lacher();
+    const ailleurs = base.routines.find((r) => r.id === 'r155a');
+    ailleurs.nom = 'Haut A 164 après annulation'; ailleurs.modifiee_a = '2026-10-24T12:00:00.000Z';
+    await jusqua('[164 D11] la relecture reprend après l\'écriture refusée', async () => {
+      await avancer(120000); await retour();
+      return /après annulation/.test(await carte155('après annulation'));
+    });
+    await ctx.unroute(/supabase\.co/, retenirEcriture);
+    ok('[164 D11] DISCRIMINANT — « Annuler » pendant l\'écriture : aucune exception, la relecture reprend',
+      erreurs.length === e0 && (await page.evaluate(() => window.__rejets || [])).length === 0,
+      erreurs.slice(e0).concat(await page.evaluate(() => window.__rejets || [])).join(' | ') || 'aucune exception');
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

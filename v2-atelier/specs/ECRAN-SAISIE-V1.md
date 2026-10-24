@@ -3597,4 +3597,7 @@ changement de compte) incrémente un compteur de génération des routines ; la 
 réponse s'il a bougé (renommer un dossier pendant que la 4G répond ne ramène plus l'ancien nom). Fréquence, gardes et signature
 inchangées. **Et la signature voit le contenu** (164, D2) : `modifiee_a` n'est écrite que pour un nom ou un dossier, jamais pour un exercice
 ou une série ; la signature compare donc aussi le rang, les jours, la note, les exercices et leurs séries (choix : le client
-n'attend aucun écrivain, ni trigger, ni autre appareil pour tenir un `modifiee_a` à jour). Cache 292.
+n'attend aucun écrivain, ni trigger, ni autre appareil pour tenir un `modifiee_a` à jour).
+**Les feuilles « Renommer » et « Dupliquer » se remettent à zéro à toute fermeture** (164, D3 : retour d'Android, fond, « Annuler »),
+sinon `renommage` / `duplication` bloquaient la relecture jusqu'au rechargement. Fermée pendant l'écriture (D11), la feuille laisse
+`renommage` en place jusqu'à la fin de l'écriture, qui le remet à zéro sans redessiner ni lever d'exception. Cache 292.

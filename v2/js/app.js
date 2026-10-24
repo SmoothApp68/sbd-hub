@@ -9772,7 +9772,11 @@
     rendreFeuilleRenommer();
     // 164 (D3) — remis à zéro à la fermeture, QUEL QU'EN SOIT LE CHEMIN (retour d'Android, fond, « Annuler ») : un
     // `renommage` resté non nul bloque la relecture des routines jusqu'au rechargement.
-    ouvrirVoile($('feuille-seance'), function () { renommage = null; });
+    ouvrirVoile($('feuille-seance'), function () {
+      // 164 (D11) — fermée PENDANT l'écriture : `renommage` reste jusqu'à la fin de l'écriture (la relecture ne passe pas au
+      // travers d'un renommage en route) ; `renommerDossier` le remet à zéro, sans rien redessiner dans une feuille fermée.
+      if (renommage && renommage.enCours) renommage.fermee = true; else renommage = null;
+    });
   }
 
   function rendreFeuilleRenommer() {
@@ -9794,8 +9798,9 @@
     if (!renommage || renommage.enCours) return;
     var plan = planDeRenommage(ancien, texte);
     if (!plan.ok) return;
-    renommage.enCours = true;
-    renommage.texte = texte;   // un échec rend la feuille avec ce qui était tapé
+    var en = renommage;   // 164 (D11) : l'état de CE renommage, que la fermeture de la feuille ne peut plus nous retirer
+    en.enCours = true;
+    en.texte = texte;   // un échec rend la feuille avec ce qui était tapé
     var faites = [];
     try {
       for (var i = 0; i < plan.routines.length; i++) {
@@ -9806,8 +9811,9 @@
       for (var j = 0; j < faites.length; j++) {
         try { await Donnees.majRoutine(faites[j], { dossier: ancien }); } catch (e2) { /* rendu au mieux */ }
       }
-      renommage.enCours = false;
-      renommage.erreur = Routines.messageErreur({ erreur: Routines.classerErreur(e) });
+      en.enCours = false;
+      if (en.fermee) { if (renommage === en) renommage = null; return; }
+      en.erreur = Routines.messageErreur({ erreur: Routines.classerErreur(e) });
       return rendreFeuilleRenommer();
     }
     for (var k = 0; k < plan.blocs.length; k++) await poserBloc(plan.blocs[k]);
@@ -9820,8 +9826,8 @@
       delete dossiersReplies[ancien];
       memoriserDossiersReplies();
     }
-    renommage = null;
-    fermerVoile();
+    if (renommage === en) renommage = null;
+    if (!en.fermee) fermerVoile();   // déjà fermée par l'utilisateur : ne pas fermer une autre feuille ouverte depuis
     await chargerRoutines();
     if (!vues.saisie.hidden && !seance) rendreSaisie();
   }
@@ -10685,9 +10691,10 @@
 
   async function dupliquerRoutine() {
     if (!duplication || enregistrementEnCours) return;
-    var copie = Routines.copieDeRoutine(duplication.routine, duplication.nom);
+    var dup = duplication;   // 164 (D11) : la fermeture de la feuille remet `duplication` à zéro pendant l'écriture
+    var copie = Routines.copieDeRoutine(dup.routine, dup.nom);
     var verdict = Routines.valider(copie, routines);
-    if (!verdict.valide) { duplication.erreur = messageVerdict(verdict); return rendreFeuilleDuplication(); }
+    if (!verdict.valide) { dup.erreur = messageVerdict(verdict); return rendreFeuilleDuplication(); }
     enregistrementEnCours = true;
     try {
       var r = await Routines.enregistrer(copie, Donnees, {
@@ -10695,9 +10702,8 @@
         uuid: uuid,
         rangSuivant: rangSuivantBibliotheque()
       });
-      if (!r.ok) { duplication.erreur = Routines.messageErreur(r); return rendreFeuilleDuplication(); }
-      duplication = null;
-      fermerVoile();
+      if (!r.ok) { dup.erreur = Routines.messageErreur(r); if (duplication === dup) rendreFeuilleDuplication(); return; }
+      if (duplication === dup) { duplication = null; fermerVoile(); }
       await chargerRoutines();
       // La copie s'ouvre À LA PLACE de l'originale (on remplace l'entrée
       // d'historique) : c'est elle qu'on vient faire, la semaine 2 à partir de

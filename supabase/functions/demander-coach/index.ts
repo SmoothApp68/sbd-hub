@@ -83,7 +83,7 @@ Deno.serve(async (req: Request) => {
   const etat = typeof contexte.etat_cle === 'string' ? contexte.etat_cle : null;
 
   // 3. L'accord (écrit par l'app dans profiles.assistant_accord_a).
-  const { data: prof } = await service.from('profiles').select('assistant_accord_a').eq('user_id', userId).maybeSingle();
+  const { data: prof } = await service.from('profiles').select('assistant_accord_a').eq('id', userId).maybeSingle();
   if (!prof || !prof.assistant_accord_a) return rendre({ erreur: 'accord' }, 403);
 
   const garder = async (ligne: Record<string, unknown>) => {

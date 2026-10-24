@@ -2217,11 +2217,25 @@ const SETS_IMPORTES = [
   const ligneDuBloc = async (iBloc, k) => (await (await page.$$('.bloc-seance'))[iBloc].$$('.ligne-serie'))[k];
 
   const saisirSerie = async (i, charge, reps) => {
-    const l = await ligne(i);
-    const champs = await l.$$('input');
-    await champs[0].fill(String(charge));
-    await champs[1].fill(String(reps));
-    await l.$eval('.ok-serie', (b) => b.click());
+    // 158 — sur GitHub, l'écran se redessine parfois ENTRE la recherche de la ligne et la frappe
+    // (« Element is not attached to the DOM », vu en 7 G quater) : on retrouve la ligne à chaque champ
+    // et on recommence si l'élément a été détaché. Rien n'est relâché : la saisie reste la même.
+    const detache = (e) => /not attached to the DOM|Execution context was destroyed|detached/i.test(String(e && e.message));
+    const remplir = async (k, v) => {
+      for (let essai = 0; ; essai++) {
+        try {
+          const champs = await (await ligne(i)).$$('input');
+          await champs[k].fill(String(v));
+          return;
+        } catch (e) { if (!detache(e) || essai >= 4) throw e; await attendre(250); }
+      }
+    };
+    await remplir(0, charge);
+    await remplir(1, reps);
+    for (let essai = 0; ; essai++) {
+      try { await (await ligne(i)).$eval('.ok-serie', (b) => b.click()); break; }
+      catch (e) { if (!detache(e) || essai >= 4) throw e; await attendre(250); }
+    }
     await attendre(450);
   };
 

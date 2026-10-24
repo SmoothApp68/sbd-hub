@@ -14437,6 +14437,7 @@ const SETS_IMPORTES = [
     });
     // 156 — l'état que lit le contrôle (plus 1 000 ms fixes) : la médaille est partie.
     await jusqua(async () => JSON.stringify(await medailles()) === '[]', 6000, '[P55] la médaille se retire');
+    await reseauCalme();   // 156 bis — l'écriture de la dévalidation (retrait du pari, `figee`) est partie avant de revalider
     ok('[P55] DISCRIMINANT — dévalider la série retire la médaille', JSON.stringify(await medailles()) === '[]',
       JSON.stringify(await medailles()));
     await page.evaluate(() => {
@@ -14444,6 +14445,7 @@ const SETS_IMPORTES = [
       b.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click();
     });
     await jusqua(async () => ((await medailles()) || []).length === 1, 6000, '[P55] la médaille revient');
+    await reseauCalme();   // 156 bis — la revalidation (série, pari) est écrite avant la série suivante
     ok('[P55] revalider la rend', ((await medailles()) || []).length === 1, JSON.stringify(await medailles()));
 
     // ── C. LA SÉRIE QUI NE BAT RIEN, PUIS CELLE QUI FAIT DÉPASSER LE VOLUME.
@@ -23753,6 +23755,7 @@ const SETS_IMPORTES = [
     await demarrerRoutine(ROUTINE_115.nom);
     await saisirSerie(0, 70, 5);
     await remplir115(1, 62.5, 6);
+    await reseauCalme();   // 156 bis — la saisie est écrite (brouillon, file) avant « Terminer »
     const idE4 = enCours115();
     await page.click('#bandeau-seance .bandeau-fin');
     await feuilleOuverte('.principal');   // 156 — plus 600 ms fixes
@@ -23768,8 +23771,13 @@ const SETS_IMPORTES = [
       !!idE4 && base.sessions.some((x) => x.id === idE4 && x.statut === 'en_cours'), JSON.stringify(idE4));
     await entree115('Les valider');
     await feuilleFermee();   // 156 — plus 700 ms fixes
-    const valeursE4 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).slice(1, 2)
+    // 156 bis — l'état, pas l'instant : la feuille se ferme avant le redessin du `focusout` (« Terminer »), la ligne est lue
+    // quand elle porte ses valeurs (si elles ne reviennent jamais dans le délai, le contrôle suivant échoue : défaut d'app).
+    const lireE4 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).slice(1, 2)
       .map((l) => Array.from(l.querySelectorAll('input')).map((i) => i.value).join('×')));
+    await jusqua(async () => (await lireE4())[0] === '62,5×6', 6000, '[115-E4] la ligne garde 62,5 × 6');
+    await reseauCalme();
+    const valeursE4 = await lireE4();
     ok('[115-E4] « Les valider » : la feuille se ferme, la séance continue, la ligne garde 62,5 × 6',
       !(await feuille115()).ouverte && JSON.stringify(await visible()) === '["vue-seance"]' &&
         valeursE4[0] === '62,5×6' && base.sessions.some((x) => x.id === idE4 && x.statut === 'en_cours'),

@@ -58,7 +58,7 @@ jobs:
           { echo '### Banc complet'; echo '```'; sed -n '/══ TOUT/,$p' banc-complet.txt | head -40; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: Annotations (lisibles par l'API REST)
         if: always()
-        run: node .github/annoter.js "Banc complet" banc-complet.txt /tmp/tout-*/*.txt /tmp/banc-groupe-*/journal.txt
+        run: node .github/annoter.js "Banc complet" banc-complet.txt $(grep -oP "code [1-9] .*journal \K\S+" /tmp/tout-*/banc-d-cran*.txt | head -3)
       - uses: actions/upload-artifact@v4
         if: always()
         with:

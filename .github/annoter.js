@@ -19,6 +19,7 @@ for (const f of fichiers) {
     dire(titre + ' · ' + nom + ' · autour du 1er ❌', l.slice(Math.max(0, i0 - 25), i0 + 6).map((x) => x.slice(0, 400)), 8000);
     if (f !== fichiers[0] || true) dire(titre + ' · ' + nom + ' · les ❌', idx.slice(0, 30).map((i) => l[i].slice(0, 260)), 8000);
   }
+  if (f !== fichiers[0] && !idx.length) dire(titre + ' · ' + nom + ' · fin du journal', l.slice(-40).map((x) => x.slice(0, 300)), 8000);
   // Les titres de section, pour situer la panne dans la durée.
   if (f === fichiers[0]) dire(titre + ' · ' + nom + ' · sections', l.filter((x) => /^══ /.test(x)).map((x) => x.slice(0, 90)), 9000);
 }

@@ -25010,7 +25010,7 @@ const SETS_IMPORTES = [
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
       routine_exercises: [{ id: 'r-ev154-a', routine_id: 'r-ev154', exercise_slug: 'ev154-a', rang: 0, routine_sets: progr(3, 9),
         repos_cible_s: 90, groupe_superset: null, note: null }] });
-    const sp154 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const sp154 = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ').replace(/\s+/g, ' ').trim();
     const valider154 = async (j) => {
       await casesSiVides(await ligneDuBloc(0, j));
       await page.evaluate((k) => document.querySelectorAll('.bloc-seance')[0]
@@ -25034,7 +25034,7 @@ const SETS_IMPORTES = [
         dit: (document.querySelector('.legende-exo .consigne-dit') || {}).textContent || null,
         jaune: Array.from(document.querySelectorAll('.legende-exo .consigne')).map((x) => x.textContent), c: !!c };
     });
-        const nb154 = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+        const nb154 = (x) => JSON.stringify(x).replace(/[\u00a0\u202f]/g, ' ');
     const ressentiDuJour = () => base.sets.filter((x) => !/^ev154-h/.test(x.session_id) && x.exercise_slug === 'ev154-a').map((x) => x.ressenti);
 
     // A. LA SÉANCE DU JOUR.

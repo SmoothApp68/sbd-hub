@@ -128,18 +128,18 @@ describe('154 C — la règle, dans la consigne', () => {
   });
 
   test('R < V au haut de la zone : pas de montée sur sa foi (même charge, jamais de ligne haute)', () => {
-    // Témoin : au haut de la zone (10), sans réponse, le test est proposé.
-    const sans = consigne(histoire(40, 10, { reps: 10 }));
+    // Témoin : au haut de la zone (12, Volume), sans réponse, le test est proposé.
+    const sans = consigne(histoire(40, 12, { reps: 12 }));
     expect(sans.etat).toBe('test_propose');
     // Avec « 0 en réserve » pour 1 visée : on garde.
-    const k = consigne(histoire(40, 10, { reps: 10, ressenti: 'reste_0' }));
+    const k = consigne(histoire(40, 12, { reps: 12, ressenti: 'reste_0' }));
     expect(k.etat).toBe('progression');
     expect(k.haut).toBeNull();
-    expect(k.fondement.effortVise).toEqual({ effet: 'garde', charge: 40, reps: 10, reserve: 0, visee: 1 });
+    expect(k.fondement.effortVise).toEqual({ effet: 'garde', charge: 40, reps: 12, reserve: 0, visee: 1 });
   });
 
   test('R = V au haut de la zone : la montée a lieu comme avant', () => {
-    expect(consigne(histoire(40, 10, { reps: 10, ressenti: 'reste_1' })).etat).toBe('test_propose');
+    expect(consigne(histoire(40, 12, { reps: 12, ressenti: 'reste_1' })).etat).toBe('test_propose');
   });
 
   test('un RPE vaut la réserve 10 − RPE', () => {
@@ -167,14 +167,14 @@ describe('154 C — la règle, dans la consigne', () => {
 
   test('la phrase du test cite la série et la réserve ; celle de la garde dit « sans marge »', () => {
     const t = consigne(histoire(40, 9, { reps: 9, ressenti: 'reste_3_plus' }));
-    const dit = M.libellesConsigne(t).gris.replace(/[  ]/g, ' ');
+    const dit = M.libellesConsigne(t).gris.replace(/[\u00a0\u202f]/g, ' ');
     expect(dit).toBe('On essaie 42,5 kg : la dernière fois, 40 kg × 9 avec 3 en réserve.');
-    const g = consigne(histoire(40, 10, { reps: 10, ressenti: 'reste_0' }));
-    expect(M.libellesConsigne(g).gris.replace(/[  ]/g, ' ')).toBe('40 kg × 10, sans marge. On garde 40 kg la prochaine fois.');
+    const g = consigne(histoire(40, 12, { reps: 12, ressenti: 'reste_0' }));
+    expect(M.libellesConsigne(g).gris.replace(/[\u00a0\u202f]/g, ' ')).toBe('40 kg × 12, sans marge. On garde 40 kg la prochaine fois.');
   });
 
   test('les phrases d’après la réponse (VOIX-DU-COACH)', () => {
-    const f = (s) => s.replace(/[  ]/g, ' ');
+    const f = (s) => s.replace(/[\u00a0\u202f]/g, ' ');
     expect(f(M.phraseEffortVise({ effet: 'test', charge: 34, reps: 9, reserve: 3, visee: 1 }, 36)))
       .toBe('34 kg × 9, il t’en restait 3. Au-dessus de ce que je visais : la prochaine fois, on essaie 36 kg.');
     expect(f(M.phraseEffortVise({ effet: 'garde', charge: 130, reps: 5, reserve: 0, visee: 2 }, null)))
@@ -250,7 +250,7 @@ describe('154 B — le plan', () => {
     expect(e.demande).toBe(false);
     expect(e.reponse).toBe(3);
     expect(e.effet).toBe('test');
-    expect(e.phrase.replace(/[  ]/g, ' ')).toBe('40 kg × 9, il t’en restait 3. Au-dessus de ce que je visais : la prochaine fois, on essaie 42,5 kg.');
+    expect(e.phrase.replace(/[\u00a0\u202f]/g, ' ')).toBe('40 kg × 9, il t’en restait 3. Au-dessus de ce que je visais : la prochaine fois, on essaie 42,5 kg.');
     expect(sim.verifier().erreurs).toEqual([]);
   });
 

@@ -25023,7 +25023,7 @@ const SETS_IMPORTES = [
       if (!n) return null;
       const lignes = Array.from(document.querySelectorAll('.bloc-seance .ligne-serie'));
       const prec = n.previousElementSibling;
-      return { apres: lignes.findIndex((l) => l === prec || prec.contains(l)), question: (n.querySelector('.effort-vise-q') || {}).textContent || null,
+      return { apres: lignes.findIndex((l) => l === prec || prec.contains(l)), precede: prec ? prec.className : null, question: (n.querySelector('.effort-vise-q') || {}).textContent || null,
         boutons: Array.from(n.querySelectorAll('button')).map((b) => b.textContent),
         phrase: (n.querySelector('.effort-vise-dit') || {}).textContent || null };
     });

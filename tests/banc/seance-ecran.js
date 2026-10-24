@@ -24900,7 +24900,7 @@ const SETS_IMPORTES = [
     };
     const ouvrirFin147 = async () => {
       await page.click('#bandeau-seance .bandeau-fin');
-      await feuilleAvec('.principal');
+      await feuilleOuverte('.principal');
       await page.click('#feuille-contenu .principal');
     };
     const dernierSet = () => base.sets.map((x) => Date.parse(x.validee_a)).sort((a, b) => b - a)[0];
@@ -25156,7 +25156,7 @@ const SETS_IMPORTES = [
     // D. LE RÉCAP : les trois médailles, et le bloc « Le jeu » avec le cap de 5 km.
     await garderRecap(true);
     await page.click('#bandeau-seance .bandeau-fin');
-    await feuilleAvec('.principal');
+    await feuilleOuverte('.principal');
     await page.click('#feuille-contenu .principal');
     await terminerQuandMeme();
     await jusqua(() => page.evaluate(() => document.querySelectorAll('#recap-corps .recap-rec .l1').length >= 3), 8000);

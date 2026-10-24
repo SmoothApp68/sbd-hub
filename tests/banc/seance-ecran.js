@@ -21678,9 +21678,11 @@ const SETS_IMPORTES = [
         lignes: x.lignes.map((l) => ({ charge: l.charge === undefined ? null : l.charge, vise: l.vise, role: l.role || null })) } : null;
     });
     // La ligne sans chiffre : la première ligne du plan dont la charge est nulle.
-    const iNul = plan100 ? plan100.lignes.findIndex((l) => l.charge === null || l.charge === undefined) : -1;
-    ok('[C100] le décor : la consigne teste le cran au-dessus SANS chiffre (machine, une seule charge connue)',
-      !!plan100 && !!plan100.haut && (plan100.haut.charge === null || plan100.haut.charge === undefined) && iNul >= 0,
+    // 163 — le cran au-dessus a TOUJOURS un chiffre (« ≈ 55 kg », le pas de 5 kg des machines) : la ligne du test est celle
+    // qui porte ce chiffre approché ; la case est préremplie (fantôme), on l'efface pour rejouer le refus du ✓ sans poids.
+    const iNul = plan100 ? plan100.lignes.findIndex((l) => l.charge === 55) : -1;
+    ok('[C100] le décor : la consigne teste le cran au-dessus avec le pas de la machine, ≈ 55 kg (une seule charge connue)',
+      !!plan100 && !!plan100.haut && plan100.haut.charge === 55 && plan100.haut.approchee === true && iNul >= 0,
       nb100(plan100));
     // Les lignes d'avant : faites au poids proposé, comme une vraie personne.
     for (let i = 0; i < iNul; i++) {
@@ -21694,8 +21696,8 @@ const SETS_IMPORTES = [
       10000, { nom: 'C100 les séries d’avant en base' });
     const nSets = base.sets.length;
     const chargeVide = await (await ligne(iNul)).$$eval('input', (l) => [l[0].value, l[0].placeholder]);
-    ok('[C100] la ligne du test : aucune charge dans le champ, ni tapée ni en fantôme',
-      chargeVide[0] === '' && !/\d/.test(chargeVide[1] || ''), nb100(chargeVide));
+    ok('[C100] la ligne du test : le champ est vide (rien de tapé) et le fantôme dit 55 (préremplissage 163)',
+      chargeVide[0] === '' && /55/.test(chargeVide[1] || ''), nb100(chargeVide));
     {
       const champs = await (await ligne(iNul)).$$('input');
       await champs[1].fill('3');

@@ -5429,6 +5429,15 @@
   // moins (au moins 1), aucune ligne haute, et ne COUVRE que les premières
   // séries (`couvre`). `allegee` porte de quoi écrire l'en-tête et l'invariant.
   // `decharge` : la semaine est la décharge planifiée d'un programme (§9.22).
+  // 163 — le fondement d'une consigne RECONSTRUITE (allégée, repli) dit « approchée » exactement quand sa ligne la porte
+  // (I59) : l'allégée garde la charge de sa source, le repli repart d'une charge tenue (connue).
+  function fondementApproche(c, approchee) {
+    if (!c.fondement || typeof c.fondement !== 'object') return c.fondement;
+    var f = Object.assign({}, c.fondement);
+    if (approchee === true) f.approchee = true; else delete f.approchee;
+    return f;
+  }
+
   function consigneAllegee(consigne, seriesRoutine, decharge) {
     var c = consigne || null;
     if (!c || c.etat === 'silence') return c;
@@ -5438,8 +5447,10 @@
     var series = seriesAllegees(routine);
     var vise = nombre(src.vise);
     return Object.assign({}, c, {
-      ligne: { charge: src.charge, vise: vise === null ? null : Math.max(1, vise - REPS_EN_MOINS) },
+      ligne: Object.assign({ charge: src.charge, vise: vise === null ? null : Math.max(1, vise - REPS_EN_MOINS) },
+        src.approchee === true ? { approchee: true } : {}),
       haut: null,
+      fondement: fondementApproche(c, src.approchee === true),
       n: series,
       couvre: series,
       allegee: decharge === true ? { series: series, routine: routine, decharge: true } : { series: series, routine: routine }
@@ -6153,6 +6164,7 @@
     return Object.assign({}, c, {
       ligne: { charge: repli.ligne[0], vise: repli.ligne[1] },
       haut: null,
+      fondement: fondementApproche(c, false),
       repli: { palier: repli.palier, niveau: repli.niveau, debut: repli.debut, reps: (repli.reps || []).slice() }
     });
   }

@@ -89,7 +89,7 @@ describe('135 — les délais fixes des bancs', () => {
   '7-quatervicies': 10, '7-novovicies': 10, '7-duotricies': 10, '7-G-septies': 10, '7-G-quindecies': 10, 'forge': 10,
   'import-hevy': 10, 'echelle': 10, '7-sexdecies': 9, '7-quinquatricies': 9, 'a-fond': 9, '7-undecies': 8,
   '7-tricies': 8, '7-untricies': 8, '7-G-undecies': 8, '7-G-unvicies': 8, 'relecture': 8, 'construis': 8,
-  '49': 7, '108': 7, '7-octodecies': 7, '47-bis': 7, '7-sexvicies': 7, '7-G-octies': 7,
+  '49': 7, '108': 6, '7-octodecies': 7, '47-bis': 7, '7-sexvicies': 7, '7-G-octies': 7,
   '7-G-septdecies': 7, '7': 6, '7-vicies': 6, '7-quinvicies': 6, '7-G-terdecies': 6, '7-G-duodecies': 6, 'report': 6,
   'famille': 6, 'ecarts': 6, 'degressive-proposee': 6, 'chauffes-ajoutees': 6, 'comment': 6, '7-terdecies': 5,
   '7-novodecies': 5, '7-G-quater': 5, 'annee': 5, '3': 4, '4-bis': 4, '4-ter': 4, '7-ter': 4, '7-quinquies': 4,

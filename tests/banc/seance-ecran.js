@@ -23228,17 +23228,14 @@ const SETS_IMPORTES = [
       await page.fill('#feuille-contenu input[data-cle="charge"]', String(charge));
       await page.fill('#feuille-contenu input[data-cle="reps"]', String(reps));
       const phrase = await texte('#feuille-contenu .objectif-phrase');
-      const departO = await departGeste();
       await page.click('#feuille-contenu .feuille-pied .pri');
-      // 156 — l'état (plus 700 ms fixes) : la feuille se ferme (l'objectif est posé) ou elle dit son refus ; puis la file de
-      // l'appareil est vide et le réseau calme (l'écriture est partie — un rechargement ne la perd pas). Un refus
-      // inattendu, ou une carte qui n'arrive pas, est un défaut de l'app : jamais un plafond à relever.
+      // 156 — l'état (plus 700 ms fixes) : la feuille se ferme (l'objectif est posé) ou elle dit son refus. Rien de plus : O139
+      // JOUE avec une lecture retenue en vol et le geste qui attend dans la file (`dansLaFileD`) — attendre le réseau calme ou la
+      // file vide ici changerait le scénario ; chaque appelant attend l'état de SON contrôle (`base.objectifs`, la file des objectifs).
       await jusqua(() => page.evaluate(() => {
         const f = document.getElementById('feuille-seance');
         return !f || f.hidden || !!((document.querySelector('#feuille-contenu .feuille-err') || {}).textContent || '').trim();
       }).catch(() => false), 6000, 'feuilleO : « Valider »');
-      await fileVide();
-      await calmeApres(departO);
       return { phrase, refus: await texte('#feuille-contenu .feuille-err') };
     };
 

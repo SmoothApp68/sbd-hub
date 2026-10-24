@@ -2227,14 +2227,16 @@ const SETS_IMPORTES = [
           const champs = await (await ligne(i)).$$('input');
           await champs[k].fill(String(v));
           return;
-        } catch (e) { if (!detache(e) || essai >= 4) throw e; await attendre(250); }
+        } catch (e) { if (!detache(e) || essai >= 4) throw e; await attendre(250); // le pas d'une reprise (158)
+        }
       }
     };
     await remplir(0, charge);
     await remplir(1, reps);
     for (let essai = 0; ; essai++) {
       try { await (await ligne(i)).$eval('.ok-serie', (b) => b.click()); break; }
-      catch (e) { if (!detache(e) || essai >= 4) throw e; await attendre(250); }
+      catch (e) { if (!detache(e) || essai >= 4) throw e; await attendre(250); // le pas d'une reprise (158)
+        }
     }
     await attendre(450);
   };
@@ -14454,7 +14456,8 @@ const SETS_IMPORTES = [
     const etatJ = () => page.evaluate(() => window.THApp && THApp.journal ? THApp.journal() : null);
     const metaJ = () => page.evaluate(() => THCache.lireMeta('journalRecords'));
     const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); }
+      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); // le pas d'une reprise (158)
+        }
       return false;
     };
 
@@ -17397,7 +17400,8 @@ const SETS_IMPORTES = [
     });
     const ecrituresDepuis = (n) => base.journal.slice(n).filter((j) => j.op !== 'refus');
     const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); }
+      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); // le pas d'une reprise (158)
+        }
       return false;
     };
     const texteCoach = () => page.evaluate(() => ['#escalier-seance', '#blocs-seance']
@@ -19239,7 +19243,8 @@ const SETS_IMPORTES = [
 
     const chemin = () => page.evaluate(() => location.pathname);
     const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); }
+      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); // le pas d'une reprise (158)
+        }
       return false;
     };
     const ecran = () => page.evaluate(() => {

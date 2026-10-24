@@ -130,6 +130,50 @@
     return d === null || d.length <= DOSSIER_MAX;
   }
 
+  // ── RENOMMER UN DOSSIER (155, décision d'Aurélien du 24/10/2026) ───────
+  //
+  // UNE FONCTION PURE : elle ne lit rien, n'écrit rien, elle dit CE QU'IL FAUT
+  // écrire. Toutes les routines du dossier, ARCHIVÉES COMPRISES (restaurer une
+  // routine ne doit pas ressusciter l'ancien nom), et TOUS ses cycles, en cours
+  // et passés (l'historique les relie par le nom), `modifie_a` à jour pour que
+  // la fusion des blocs garde la copie renommée. Un nom déjà pris est REFUSÉ,
+  // jamais fusionné — la casse suit la règle de `dossiersDe` : « sèche » et
+  // « Sèche » sont deux dossiers, le renommage de l'un en l'autre est donc permis.
+  // `maintenant` : l'instant ISO posé sur les cycles (injecté, la fonction reste pure).
+  function planRenommageDossier(routines, blocs, ancien, nouveau, maintenant) {
+    var a = dossierPropre(ancien), n = dossierPropre(nouveau);
+    function refus(raison, message) {
+      return { ok: false, raison: raison, message: message || '', routines: [], blocs: [] };
+    }
+    if (a === null) return refus('ancien');
+    if (n === null) return refus('vide', 'Donne un nom au dossier.');
+    if (!dossierValide(n)) return refus('trop-long', 'Le nom du dossier fait plus de ' + DOSSIER_MAX + ' caractères.');
+    if (n === a) return refus('identique');
+    var pris = (routines || []).some(function (r) { return r && dossierPropre(r.dossier) === n; }) ||
+      (blocs || []).some(function (b) { return b && dossierPropre(b.dossier) === n; });
+    if (pris) return refus('pris', 'Un dossier s\'appelle déjà « ' + n + ' ».');
+    var quand = maintenant || new Date().toISOString();
+    var rs = (routines || []).filter(function (r) { return r && dossierPropre(r.dossier) === a; });
+    var bs = (blocs || []).filter(function (b) { return b && dossierPropre(b.dossier) === a; });
+    return {
+      ok: true, raison: null, message: '', ancien: a, nouveau: n,
+      routines: rs.map(function (r) { return { id: r.id, champs: { dossier: n } }; }),
+      actives: rs.filter(function (r) { return !r.archivee_a; }).length,
+      blocs: bs.map(function (b) { return Object.assign({}, b, { dossier: n, modifie_a: quand }); }),
+      enCours: bs.some(function (b) { return b.statut === 'en_cours'; })
+    };
+  }
+
+  // La phrase de la feuille : ce qui suit le nouveau nom, sans rien promettre de plus.
+  function phraseRenommage(actives, cycle) {
+    if (actives > 0) {
+      var sujet = actives === 1 ? 'Ta routine' : 'Tes ' + actives + ' routines';
+      var verbe = actives === 1 && !cycle ? 'suit' : 'suivent';
+      return sujet + (cycle ? ' et ton cycle en cours' : '') + ' ' + verbe + ' le nouveau nom.';
+    }
+    return cycle ? 'Ton cycle en cours suit le nouveau nom.' : '';
+  }
+
   // Les dossiers de la bibliothèque, dans l'ordre où ils apparaissent (l'ordre
   // global, `visibles`) : c'est l'utilisateur qui range, rien ne se trie à part.
   // Deux dossiers qui ne diffèrent que par la casse sont DEUX dossiers : le
@@ -1896,6 +1940,8 @@
     ORIGINE_SUPERSET: ORIGINE_SUPERSET,
     dossierPropre: dossierPropre,
     dossierValide: dossierValide,
+    planRenommageDossier: planRenommageDossier,
+    phraseRenommage: phraseRenommage,
     dossiersDe: dossiersDe,
     parDossier: parDossier,
     nomLibre: nomLibre,

@@ -73,6 +73,8 @@ function bac() {
     rendreEtatSync: () => {},
     synchroniser: () => { journal.syncs++; return Promise.resolve(); },
     vidanger: () => { journal.vidanges++; },
+    // 155 — la relecture des routines au retour : hors du sujet ici (son banc est routines-ecran).
+    relireRoutinesAuRetour: () => Promise.resolve(false),
     // L'outil de rejeu (développement) : rien demandé ici.
     rejeuDemande: null, ouvrirRejeu: () => {}, apresSynchroAnnee: () => {}
   };

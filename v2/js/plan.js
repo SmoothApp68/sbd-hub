@@ -223,6 +223,11 @@
       // un même exercice peut y figurer deux fois, et chaque pari dit à QUELLE
       // occurrence il appartient (`THSeance.parisDeLOccurrence`, l'identifiant).
       if (p.length && o.occurrence) p[0].fondement.occurrence = o.occurrence;
+      // 154 (MOTEUR §9.26) — la RÉSERVE VISÉE de la ligne, dans le fondement de chaque pari qu'elle couvre.
+      if (p.length && o.reglage !== undefined) {
+        var rvLigne = M.reserveVisee({ zone: consigne ? consigne.zone : null, role: roles[j], reglage: o.reglage });
+        if (rvLigne !== null) p[0].fondement.reserve_visee = rvLigne;
+      }
       paris[l.iSerie] = p.length ? p[0] : null;
     });
 
@@ -1290,6 +1295,11 @@
         x.mesure = cat && cat.mesure !== undefined ? cat.mesure : null;
         x.mode = modeX;
         x.intention = intentionX;
+        // 154 (MOTEUR §9.26) — L'EFFORT VISÉ : « garde-en N » dans l'en-tête, les puces sous la dernière série, la phrase.
+        var rvX = aUnPari(x) && !seance.edition && (x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps')
+          ? Moteur().reserveVisee({ zone: x.consigne.zone, role: 'ligne', reglage: reglagePlan }) : null;
+        x.reserveVisee = rvX;
+        x.effortVise = rvX === null ? null : effortViseDuPlan(exo, rvX, suite, Seance().exerciceFini(seance, slug));
         // §9.17 — LA CARTE DU LEST : UNE SEULE, en tête de l'exercice (le composant
         // des propositions d'exercice). Quand le moteur la dit (`carte_lest`) et
         // qu'aucune autre carte du lest n'est déjà posée dans la séance : deux
@@ -1543,6 +1553,24 @@
       if (racine.THModele.estTravail(series[j])) return j;
     }
     return null;
+  }
+
+  // 154 — ce que l'écran lit de l'effort visé, pour UN exercice : la réserve visée, la série qui porte la réponse, la
+  // réponse (R, ou `null`), si les puces se posent (`demande` : exercice fini, aucune réponse), et la phrase d'après.
+  // La règle n'est pas ici : la phrase se lit sur le fait que la CONSIGNE SUIVANTE a posé (`fondement.effortVise`).
+  function effortViseDuPlan(exo, visee, suite, fini) {
+    var j = derniereSerieDeTravail(exo);
+    if (j === null) return null;
+    var s = exo.series[j];
+    var R = Palier().reserveDeSerie(s);
+    var k = suite && suite.consigne ? suite.consigne : null;
+    var ev = k && k.fondement && k.fondement.effortVise ? k.fondement.effortVise : null;
+    var effet = null, phrase = null;
+    if (R !== null && ev && ev.reserve === R && ev.visee === visee && memeChargeOuVides(ev.charge, s.charge_kg)) {
+      effet = ev.effet;
+      phrase = Moteur().phraseEffortVise(ev, k.haut ? k.haut.charge : null);
+    }
+    return { visee: visee, serie: j, reponse: R, demande: !!fini && R === null, effet: effet, phrase: phrase };
   }
 
   function questionsDuPlan(xs, reserve, seance) {
@@ -3619,6 +3647,14 @@
     });
     if (f.palierPrecedent !== undefined && f.palierPrecedent !== null) fait.reste = { charge: f.palierPrecedent };
     if (f.serieAFond) fait.a_fond = { charge: f.serieAFond.charge, reps: [f.serieAFond.reps] };
+    // 154 (§9.26) — l'effort visé : la série (charge × reps), la réserve notée, la visée, la charge gardée ou du test.
+    if (f.effortVise) {
+      fait.effort_vise = { charge: f.effortVise.charge, reps: [f.effortVise.reps] };
+      fait['effort_vise.reserve'] = { valeur: f.effortVise.reserve };
+      fait['effort_vise.visee'] = { valeur: f.effortVise.visee };
+      fait['effort_vise.charge'] = { charge: f.effortVise.charge };
+      if (k.haut && k.haut.charge !== null && k.haut.charge !== undefined) fait['effort_vise.haut'] = { charge: k.haut.charge };
+    }
     var meilleur = x.compteur && x.compteur.meilleur;
     if (meilleur) fait.meilleur = { charge: meilleur.palier, reps: [meilleur.niveau] };
     // §13.6 (49-U20) — le frère qui progresse : « avant » et « maintenant ».
@@ -3923,6 +3959,7 @@
     if (entrees && entrees.raccourci) verifierRaccourci(plan, entrees, erreurs);
     verifierDouleur(plan, entrees, erreurs);
     verifierReserve(plan, entrees, erreurs);
+    verifierEffortVise(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
     verifierEscalierSalle(plan, entrees, erreurs);
     verifierElastiques(plan, entrees, erreurs);
@@ -3979,6 +4016,54 @@
     });
     if (n > I45_AU_PLUS) erreurs.push('I45 — ' + n + ' questions de réserve dans le plan (au plus ' + I45_AU_PLUS + ')');
   }
+
+  // I56 à I58 (MOTEUR §9.26, 154) — L'EFFORT VISÉ.
+  //   I56  une réserve visée n'existe que là où le coach parle (un pari, hors Édition, une mesure charge × reps), et vaut
+  //        la table (`reserveVisee`) ; ce que l'écran lit (`x.effortVise`) n'existe que s'il y en a une, sur la dernière
+  //        série de travail ;
+  //   I57  un test posé « par la réserve » cite dans son fondement la série et sa réserve : une charge, des reps, une
+  //        réserve d'au moins la visée + 2 ;
+  //   I58  une réserve sous la visée n'ouvre jamais une montée : ni test, ni ligne haute, ni double cran.
+  function verifierEffortVise(plan, entrees, erreurs) {
+    var xs = (plan && plan.exercices) || [];
+    xs.forEach(function (x, i) {
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var rv = x.reserveVisee === undefined ? null : x.reserveVisee;
+      if (rv === null) {
+        if (x.effortVise) erreurs.push('I56' + nom + 'un effort visé sans réserve visée');
+      } else {
+        if (!aUnPari(x)) erreurs.push('I56' + nom + 'une réserve visée sans pari');
+        if (plan.edition) erreurs.push('I56' + nom + 'une réserve visée en Édition');
+        var attendu = x.consigne ? Moteur().reserveVisee({ zone: x.consigne.zone, role: 'ligne', reglage: plan.reglage }) : null;
+        if (rv !== attendu) erreurs.push('I56' + nom + 'la réserve visée est ' + rv + ', la table donne ' + attendu);
+        var exos = entrees && entrees.seance && entrees.seance.exercices ? entrees.seance.exercices : null;
+        if (x.effortVise && exos && x.effortVise.serie !== derniereSerieDeTravail(exos[i])) {
+          erreurs.push('I56' + nom + 'l’effort visé sur la série ' + x.effortVise.serie + ', pas sur la dernière série de travail');
+        }
+      }
+      var f = x.consigne && x.consigne.fondement ? x.consigne.fondement : null;
+      var ev = f && f.effortVise ? f.effortVise : null;
+      if (ev) {
+        if (ev.effet === 'test') {
+          if (nombre(ev.charge) === null || nombre(ev.reps) === null || nombre(ev.reserve) === null || nombre(ev.visee) === null) {
+            erreurs.push('I57' + nom + 'un test par la réserve sans sa série ou sa réserve dans le fondement');
+          } else if (ev.reserve < ev.visee + Moteur().RESERVE_ECART) {
+            erreurs.push('I57' + nom + 'un test par la réserve avec ' + ev.reserve + ' en réserve pour ' + ev.visee + ' visées');
+          }
+          if (x.consigne.etat !== 'test_propose') erreurs.push('I57' + nom + 'un test par la réserve dans l’état « ' + x.consigne.etat + ' »');
+        } else if (ev.effet === 'garde') {
+          if (!(ev.reserve < ev.visee)) erreurs.push('I58' + nom + 'une montée retenue avec ' + ev.reserve + ' en réserve pour ' + ev.visee + ' visées');
+          if (x.consigne.haut || ETATS_TEST_PLAN[x.consigne.etat] === true) erreurs.push('I58' + nom + 'une montée ouverte malgré une réserve sous la visée');
+        } else {
+          erreurs.push('I57' + nom + 'un effet « ' + ev.effet + ' » inconnu');
+        }
+      }
+      if (x.effortVise && x.effortVise.effet === 'garde' && x.effortVise.reponse !== null && x.effortVise.reponse >= x.reserveVisee) {
+        erreurs.push('I58' + nom + 'une garde pour une réserve de ' + x.effortVise.reponse + ' (visée ' + x.reserveVisee + ')');
+      }
+    });
+  }
+  var ETATS_TEST_PLAN = { test_propose: true, retest: true, retest_un_cran: true, tout_passe: true };
 
   // I46 (MOTEUR §10 bis, 108) — LA SALLE : pour un exercice dont la salle déclarée est en vigueur, aucune charge que
   // le coach propose n'en sort — ni la ligne ni la ligne haute de la consigne, ni une proposition de la réaction, ni

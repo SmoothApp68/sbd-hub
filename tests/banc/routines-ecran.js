@@ -135,7 +135,7 @@ const ALIAS_COMMUNS = [
   // sans elle, l'éditeur ne rend plus une seule ligne — il lit la structure
   // là, pas dans `routine_exercises`. Un banc qui l'ignorerait mesurerait un
   // écran vide et le trouverait conforme.
-  const base = { routines: [], exos: [], series: [], sessions: [], sets: [],
+  const base = { routines: [], exos: [], series: [], sessions: [], sets: [], blocs: [],
                  // Ce que le SERVEUR rend en lecture, distinct de ce que les
                  // sections écrivent : voir le commentaire de la route `sessions`.
                  corpusSeances: [], corpusSeries: [],
@@ -357,6 +357,8 @@ const ALIAS_COMMUNS = [
       // séance est restée ouverte, et elle tente de la refermer. C'est la même
       // famille que la projection des colonnes du chantier 34 — un banc plus
       // permissif que la base ne prouve rien.
+      // 155 — les cycles (`blocs`) : lus par la synchronisation, écrits par la file (renommer un dossier).
+      if (table === 'blocs') return json(projeter(base.blocs, url));
       if (table === 'sessions') return json(projeter(filtrer(base.corpusSeances, url), url));
       if (table === 'sets') return json(projeter(filtrer(base.corpusSeries, url), url));
       // ⚠️ AUCUN FILTRE SUR `archivee_a` ICI. `Donnees.mesRoutines` n'en pose
@@ -485,6 +487,13 @@ const ALIAS_COMMUNS = [
         temps_reponse: null, historique_declare: null, phase_confirmee_le: null };
       base.profil = Object.assign({}, defauts, base.profil || {}, l);
       return json(projeter([base.profil], url), 201);
+    }
+    if (req.method() === 'POST' && table === 'blocs') {
+      const l = Array.isArray(corps) ? corps[0] : corps;
+      const i = base.blocs.findIndex((x) => x.id === l.id);
+      const ligne = Object.assign({ decharge: true, statut: 'en_cours', precedent: null }, i >= 0 ? base.blocs[i] : {}, l);
+      if (i >= 0) base.blocs[i] = ligne; else base.blocs.push(ligne);
+      return json([ligne], 201);
     }
     if (req.method() === 'POST' && table === 'routines') {
       const mauvais = nomBorne(Array.isArray(corps) ? corps[0] : corps);
@@ -1966,6 +1975,125 @@ const ALIAS_COMMUNS = [
     JSON.stringify(await exosEcran()) !== JSON.stringify(avantEdit) &&
     (await exosEcran())[0] === avantEdit[2],
     'avant ' + JSON.stringify(avantEdit) + ' → ' + JSON.stringify(await exosEcran()));
+
+
+  console.log('\n══ 7 bis. 155 — L’APP RELIT TES ROUTINES, ET « RENOMMER LE DOSSIER » ══');
+  {
+    const U = 'u-banc';
+    const maintenant = '2026-10-20T08:00:00.000Z';
+    const r155 = (id, nom, dossier, rang, extra) => Object.assign({ id: id, nom: nom, note: null, archivee_a: null,
+      rang: rang, dossier: dossier, jours: null, created_at: maintenant, modifiee_a: maintenant }, extra || {});
+    base.routines.push(r155('r155a', 'Haut A 155', 'Sèche', 901), r155('r155b', 'Bas A 155', 'Sèche', 902),
+      r155('r155c', 'Vieille 155', 'Sèche', 903, { archivee_a: '2026-10-01T08:00:00.000Z' }),
+      r155('r155d', 'Masse 155', 'Prise de masse 155', 904));
+    const bloc155 = (id, statut, debut, precedent) => ({ id: id, user_id: U, dossier: 'Sèche', zone: 'lourd', debut: debut,
+      semaines: 4, decharge: true, exercices: ['squat-barre'], statut: statut, precedent: precedent || null,
+      created_at: maintenant, modifie_a: maintenant });
+    base.blocs.push(bloc155('b155-1', 'termine', '2026-09-07'), bloc155('b155-2', 'en_cours', '2026-10-19', 'b155-1'));
+
+    await aller('/saisie');
+    // L'horloge de la page avance à la demande : le « au plus une fois par minute » se joue sans dormir.
+    await page.evaluate(() => {
+      const vrai = Date.now.bind(Date);
+      window.__avance = 0;
+      Date.now = () => vrai() + window.__avance;
+    });
+    const avancer = (ms) => page.evaluate((m) => { window.__avance += m; }, ms);
+    const retour = () => page.evaluate(() => document.dispatchEvent(new Event('visibilitychange', { bubbles: true })));
+    const dossiersAffiches = () => page.evaluate(() => Array.from(document.querySelectorAll('#liste-routines .dossier-ligne'))
+      .map((l) => l.getAttribute('data-dossier')));
+    ok('[155 prémisse] la bibliothèque montre « Sèche » et « Prise de masse 155 »',
+      (await dossiersAffiches()).indexOf('Sèche') >= 0 && (await dossiersAffiches()).indexOf('Prise de masse 155') >= 0,
+      JSON.stringify(await dossiersAffiches()));
+
+    // ── A. une routine modifiée « ailleurs » apparaît au retour ──
+    const l0 = reseau.lecturesRoutines;
+    const bas = base.routines.find((r) => r.id === 'r155b');
+    bas.dossier = 'Ailleurs'; bas.modifiee_a = '2026-10-24T09:00:00.000Z';
+    await avancer(120000);
+    await retour();
+    await jusqua('le dossier modifié ailleurs apparaît', async () => (await dossiersAffiches()).indexOf('Ailleurs') >= 0);
+    await calme('après la relecture');
+    ok('[155 A] DISCRIMINANT — une routine modifiée ailleurs apparaît au retour dans l’app',
+      (await dossiersAffiches()).indexOf('Ailleurs') >= 0, JSON.stringify(await dossiersAffiches()));
+    ok('[155 A] une seule lecture des routines de plus', reseau.lecturesRoutines === l0 + 1, (reseau.lecturesRoutines - l0) + ' lecture(s)');
+
+    // ── au plus une fois par minute ──
+    const l1 = reseau.lecturesRoutines;
+    bas.dossier = 'Encore ailleurs'; bas.modifiee_a = '2026-10-24T09:05:00.000Z';
+    await retour();
+    await calme('retour rapproché');
+    ok('[155 A] un second retour dans la minute ne relit pas', reseau.lecturesRoutines === l1 &&
+      (await dossiersAffiches()).indexOf('Encore ailleurs') < 0, (reseau.lecturesRoutines - l1) + ' lecture(s)');
+
+    // ── jamais quand l'éditeur d'une routine est ouvert ──
+    await ouvrirRoutine('Haut A 155');
+    const nomAvant = await page.evaluate(() => document.getElementById('champ-nom-routine').value);
+    await page.fill('#champ-nom-routine', 'Haut A 155 en cours de frappe');
+    const l2 = reseau.lecturesRoutines;
+    await avancer(120000);
+    await retour();
+    await calme('retour sous l’éditeur');
+    ok('[155 A] DISCRIMINANT — pas de relecture pendant l’éditeur, et ce qui se tape reste',
+      reseau.lecturesRoutines === l2 &&
+      (await page.evaluate(() => document.getElementById('champ-nom-routine').value)) === 'Haut A 155 en cours de frappe' &&
+      nomAvant === 'Haut A 155', (reseau.lecturesRoutines - l2) + ' lecture(s)');
+    bas.dossier = 'Sèche'; bas.modifiee_a = '2026-10-24T09:10:00.000Z';
+
+    // ── B. renommer, de bout en bout ──
+    await aller('/saisie');
+    const menuDe = (d) => '#liste-routines .dossier-ligne[data-dossier="' + d + '"] .dossier-menu';
+    await page.click(menuDe('Sèche'));
+    await jusqua('menu du dossier', async () => !(await feuilleFermee(page)));
+    const entrees = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button')).map((b) => b.textContent));
+    ok('[155 B] le menu « ⋯ » propose « Renommer le dossier »', entrees.indexOf('Renommer le dossier') >= 0, JSON.stringify(entrees));
+    await page.click('#feuille-contenu .renommer-dossier');
+    await jusqua('feuille de renommage', () => page.evaluate(() => !!document.querySelector('#feuille-contenu .renommer-valider')));
+    const feuille = () => page.evaluate(() => ({
+      nom: document.querySelector('#feuille-contenu input').value,
+      aide: (document.querySelector('#feuille-contenu .renommer-aide') || {}).textContent,
+      erreur: (document.querySelector('#feuille-contenu .erreur') || {}).textContent,
+      eteint: document.querySelector('#feuille-contenu .renommer-valider').disabled }));
+    let f = await feuille();
+    ok('[155 B] la feuille : nom prérempli, la phrase des routines et du cycle',
+      f.nom === 'Sèche' && f.aide === 'Tes 2 routines et ton cycle en cours suivent le nouveau nom.', JSON.stringify(f));
+    await page.fill('#feuille-contenu input', 'Prise de masse 155');
+    f = await feuille();
+    ok('[155 B] un nom déjà pris : le message, le bouton éteint',
+      f.eteint && f.erreur === 'Un dossier s\'appelle déjà « Prise de masse 155 ».', JSON.stringify(f));
+    await page.fill('#feuille-contenu input', '');
+    ok('[155 B] un nom vide : le bouton éteint', (await feuille()).eteint);
+    await page.fill('#feuille-contenu input', 'Recompo');
+    f = await feuille();
+    ok('[155 B] un nom libre : le bouton s’allume, plus de message', !f.eteint && f.erreur === '', JSON.stringify(f));
+
+    // Hors ligne : le geste le dit et ne fait rien à moitié.
+    const coupe = (route) => route.abort('failed');
+    await ctx.route(/supabase\.co/, coupe);
+    await page.click('#feuille-contenu .renommer-valider');
+    await jusqua('le refus hors ligne', () => page.evaluate(() => ((document.querySelector('#feuille-contenu .erreur') || {}).textContent || '') !== ''));
+    ok('[155 B] hors ligne : il le dit, la feuille reste, rien n’a bougé en base',
+      (await feuille()).erreur !== '' && base.routines.filter((r) => r.dossier === 'Sèche').length === 3 &&
+      base.blocs.every((b) => b.dossier === 'Sèche'), (await feuille()).erreur);
+    await ctx.unroute(/supabase\.co/, coupe);
+
+    await page.click('#feuille-contenu .renommer-valider');
+    await jusqua('renommage fini en base', () => base.routines.filter((r) => r.dossier === 'Recompo').length === 3 &&
+      base.blocs.every((b) => b.dossier === 'Recompo'));
+    await calme('après le renommage');
+    await jusqua('Recompo à l’écran', async () => (await dossiersAffiches()).indexOf('Recompo') >= 0);
+    ok('[155 B] DISCRIMINANT — les 3 routines (archivée comprise) suivent le nouveau nom',
+      base.routines.filter((r) => r.dossier === 'Recompo').length === 3 && base.routines.filter((r) => r.dossier === 'Sèche').length === 0,
+      JSON.stringify(base.routines.filter((r) => /155/.test(r.nom)).map((r) => r.nom + '→' + r.dossier)));
+    ok('[155 B] DISCRIMINANT — tous les cycles (en cours et passé) suivent, `modifie_a` à jour',
+      base.blocs.length === 2 && base.blocs.every((b) => b.dossier === 'Recompo' && b.modifie_a > maintenant),
+      JSON.stringify(base.blocs.map((b) => b.dossier + ' ' + b.modifie_a)));
+    ok('[155 B] l’écran : « Recompo » plein, avec le badge du cycle ; plus de « Sèche »',
+      (await dossiersAffiches()).indexOf('Sèche') < 0 &&
+      (await page.evaluate(() => !!document.querySelector('#liste-routines .dossier-ligne[data-dossier="Recompo"] .dossier-badge'))),
+      JSON.stringify(await dossiersAffiches()));
+    ok('[155 B] la feuille est fermée', await feuilleFermee(page));
+  }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');
   for (const [chemin, attendu] of [['/', 'vue-liste'], ['/progression', 'vue-progression'], ['/profil', 'vue-profil']]) {

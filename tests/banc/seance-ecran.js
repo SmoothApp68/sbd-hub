@@ -3768,6 +3768,7 @@ const SETS_IMPORTES = [
   await saisirSerie(0, 100, 5);
   await saisirSerie(1, 100, 5);
   await saisirSerie(2, 100, 5);
+  await attendreNotes('squat-barre', Array(3).fill('Barre basse, ceinture'));   // 156 — la 3e série est partie en base
   ok('TOUTES les séries de cet exercice portent la note en base',
     notesEnBase('squat-barre').length === 3 &&
     notesEnBase('squat-barre').every((n) => n === 'Barre basse, ceinture'),
@@ -3776,6 +3777,7 @@ const SETS_IMPORTES = [
   // ⚠️ LA SÉRIE AJOUTÉE APRÈS. C'est elle qui sépare les deux implémentations.
   await plusSerie(0);   // 156 — la ligne est là, le brouillon posé, le réseau calme (plus 600 ms fixes)
   await saisirSerie(3, 105, 5);
+  await attendreNotes('squat-barre', Array(4).fill('Barre basse, ceinture'));   // 156 — la 4e série est partie en base
   ok('une série ajoutée APRÈS la note la reçoit aussi',
     notesEnBase('squat-barre').length === 4 &&
     notesEnBase('squat-barre').every((n) => n === 'Barre basse, ceinture'),
@@ -14568,7 +14570,10 @@ const SETS_IMPORTES = [
     const jourP = new Date(ilYa(3 * 86400000, tP));
     base.pesees.push({ id: 'pz55', date: jourP.getFullYear() + '-' + String(jourP.getMonth() + 1).padStart(2, '0') + '-' +
       String(jourP.getDate()).padStart(2, '0'), poids_kg: 96.8, source: 'manuel' });
+    // 156 — la pesée vient de la synchronisation, après le rendu : on attend le rapport (2e fiche) au lieu de le lire trop tôt.
     await aller('/exercice/record-u55');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('#page-exercice .exo-records .exo-fiche').length >= 2).catch(() => false),
+      15000, '[P55] le rapport au poids paraît');
     const exoP = await page.evaluate(() => {
       const c = document.querySelector('#page-exercice .exo-records');
       if (!c) return null;
@@ -14631,6 +14636,9 @@ const SETS_IMPORTES = [
         source: 'app', created_at: debut, modifie_a: null });
     });
     await aller('/exercice/machine-u55');
+    // 156 — les séances viennent de la synchronisation, après le rendu : on attend le tableau.
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('#page-exercice .tableau-records tr').length >= 2 &&
+      document.querySelectorAll('#page-exercice .tr-ligne').length >= 1).catch(() => false), 15000, '[P55] le tableau de la machine');
     const mach = await page.evaluate(() => {
       const li = Array.from(document.querySelectorAll('#page-exercice .exo-li'));
       const de = (re) => li.filter((l) => re.test(l.textContent)).map((l) => l.textContent)[0] || null;

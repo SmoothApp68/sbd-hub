@@ -874,7 +874,7 @@
     // Les routines ne sont pas dans le cache, mais elles appartiennent au
     // compte précédent : les laisser en mémoire montrerait la bibliothèque de
     // quelqu'un d'autre le temps d'une requête.
-    routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
+    routines = []; generationRoutines++; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
     // La séance en cours et la file appartiennent au compte précédent. Le
     // changement de compte ci-dessus a vidé leurs magasins (la file, gardée à
     // part pour lui) ; on remet la mémoire d'accord avec le disque.
@@ -9578,6 +9578,10 @@
   // remplace `routines` que si la signature a changé.
   var RELECTURE_ROUTINES_MS = 60000;
   var derniereLectureRoutines = 0;
+  // 164 — GÉNÉRATION DES ROUTINES : +1 à chaque fois que `routines` est remplacée par `chargerRoutines` (après une écriture
+  // locale, un import, une création) ou vidée (changement de compte). La relecture lit le compteur AVANT sa requête et jette
+  // sa réponse s'il a bougé : une réponse lente, partie avant l'écriture, n'écrase pas la liste qui l'a suivie.
+  var generationRoutines = 0;
 
   function relectureRoutinesPermise() {
     return etatRoutines.code === 'ok' && !seance && brouillon === null && vues.routine.hidden &&
@@ -9594,10 +9598,13 @@
     if (!relectureRoutinesPermise()) return false;
     if (Date.now() - derniereLectureRoutines < RELECTURE_ROUTINES_MS) return false;
     derniereLectureRoutines = Date.now();
+    var generation = generationRoutines;
     try {
       var brutes = await Donnees.mesRoutines();
       // Pendant la lecture, un éditeur a pu s'ouvrir : on ne touche à rien.
       if (!relectureRoutinesPermise()) return false;
+      // 164 — …ou une écriture locale a pu être relue (`chargerRoutines`) : cette réponse est plus vieille qu'elle.
+      if (generation !== generationRoutines) return false;
       var neuves = brutes.map(normaliserRoutine);
       if (signatureDesRoutines(neuves) === signatureDesRoutines(routines)) return false;
       routines = neuves;
@@ -9617,6 +9624,7 @@
     try {
       var brutes = await Donnees.mesRoutines();
       routines = brutes.map(normaliserRoutine);
+      generationRoutines++;
       etatRoutines = { code: 'ok', message: '' };
       derniereLectureRoutines = Date.now();
       return true;
@@ -13028,7 +13036,7 @@
     notesEnCours = {};
     // Les routines vivent en mémoire, pas dans le cache — mais elles
     // appartiennent quand même au compte qui part.
-    routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
+    routines = []; generationRoutines++; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
     seance = null; attente = []; chrono = null; arreterMinuteur();
     oublierSuppressionDifferee();
     // 106 — le groupe aussi, et ses messages gardés hors ligne (leur brouillon vient d'être vidé) : les envoyer au nom du

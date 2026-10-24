@@ -597,6 +597,10 @@ Pendant cette période, l'utilisateur a le journal de bord : ses séances, ses c
 
 **Leçon de méthode, à garder.** Cinq profils suffisent à calibrer un seuil technique. Ils ne suffisent pas à interpréter un comportement. Sur les charges, la donnée peut corriger une hypothèse ; sur les vies, non.
 
+### 3.1 ter L'IA explique une décision du moteur, elle n'en prend jamais — 24/10/2026, décision d'Aurélien (160)
+
+« Demander au coach » (la feuille « Pourquoi », ECRAN-SAISIE §3.10 ter) fait rédiger par un modèle trois phrases sur la consigne **que le plan a déjà décidée**. L'IA ne calcule rien, ne change aucune consigne, ne propose aucun programme, ne prédit pas, ne compare pas, ne parle ni d'assiduité ni de durée d'absence. Chaque nombre de sa réponse doit être dans le contexte (contrôlé côté serveur) : sinon la réponse n'est pas montrée. Aucune IA dans un calcul ou un verdict (doctrine du projet) : celle-ci habille un fait, elle ne le produit pas.
+
 ### 3.2 Le vrai gisement : les seuils de détection
 
 Plutôt que chercher le programme idéal, utiliser les 1 221 séances pour répondre à : **combien de séances faut-il avant de pouvoir affirmer qu'un utilisateur progresse réellement, plutôt que de bouger dans le bruit ?**

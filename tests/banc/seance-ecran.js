@@ -1998,9 +1998,12 @@ const SETS_IMPORTES = [
   // bougé. C'est l'état qu'attend `aller()` (« le réseau s'est tu »), au lieu d'un délai fixe.
   // 143 — `compte` : le nombre de requêtes PARTIES depuis le début. Une aide qui attend « le geste est monté » le lit
   // avant le geste, puis exige qu'il ait augmenté : sans cela, un réseau déjà calme rendrait l'attente vraie d'avance.
-  const reseauBanc = { enVol: 0, dernier: Date.now(), compte: 0 };
+  const reseauBanc = { enVol: 0, dernier: Date.now(), compte: 0, sets: 0 };
   const gestionnaireSuivi = async (route) => {
     reseauBanc.enVol++; reseauBanc.compte++; reseauBanc.dernier = Date.now();
+    // 158 — les ÉCRITURES de la table `sets` : une requête quelconque (profil, records…) partie pendant le geste ne prouve
+    // pas que la série est PARTIE ; sur GitHub, `serieMontee` rendait vrai avant l'envoi de la série et le contrôle lisait une base vide.
+    { const rq = route.request(); if (!/^(GET|HEAD|OPTIONS)$/.test(rq.method()) && /\/rest\/v1\/sets(\?|$)/.test(rq.url())) reseauBanc.sets++; }
     try { return await gestionnaireBanc(route); }
     finally { reseauBanc.enVol--; reseauBanc.dernier = Date.now(); }
   };
@@ -2271,7 +2274,7 @@ const SETS_IMPORTES = [
     const a = document.activeElement;
     return !!l.querySelector('.case-vide') || (!!a && a.tagName === 'INPUT' && l.contains(a));
   }, i).catch(() => false);
-  const departGeste = async (i) => ({ c0: reseauBanc.compte, f0: await lireFile('sets'), t0: Date.now(),
+  const departGeste = async (i) => ({ c0: reseauBanc.compte, s0: reseauBanc.sets, f0: await lireFile('sets'), t0: Date.now(),
     refus0: typeof i === 'number' ? await refusVisible(i) : false });
   const enBase = (pred, ms, opts) => jusqua(async () => { try { return !!(await pred()); } catch (e) { return false; } },
     ms || 6000, opts || 'enBase');
@@ -2368,6 +2371,7 @@ const SETS_IMPORTES = [
       // Le faux serveur REFUSE tout (`base.reseau = false`) : l'envoi a été tenté, il a échoué, la ligne reste dans la file.
       if (!base.reseau) return reseauBanc.compte > d.c0 && reseauBanc.enVol === 0 && (await lireFile('sets')) > 0;
       if (reseauBanc.compte <= d.c0 || reseauBanc.enVol !== 0 || Date.now() - reseauBanc.dernier < 150 * RALENTI) return false;
+      if (voulue && depart && typeof i === 'number' && !(reseauBanc.sets > d.s0)) return false;   // 158 — la série n'est pas encore PARTIE
       return ecran && ((await lireFile('sets')) <= d.f0 || Date.now() - reseauBanc.dernier >= 700 * RALENTI);
     }, 3000, { nom: 'serieMontee ' + (typeof i === 'function' ? 'rangée' : i), detail: () => vu });
   };

@@ -21780,8 +21780,8 @@ const SETS_IMPORTES = [
     // Le poids du corps : aucune charge à taper, le ✓ valide (mutation b).
     {
       const iP = (await page.$$('.ligne-serie')).length - 1;
-      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(iP).locator('input').nth(k));  // 158 — localisateurs
-      await champs[champs.length - 1].fill('15');
+      // 161 — le DERNIER champ de la ligne (le poids du corps n'en a que deux) : `.last()`, pas le 4e d'une liste de quatre
+      await page.locator('.ligne-serie').nth(iP).locator('input').last().fill('15');
       await (await ligne(iP)).$eval('.ok-serie', (b) => b.click());
       await attendre(900);
     }

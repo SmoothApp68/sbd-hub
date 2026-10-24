@@ -17,6 +17,9 @@ for (const f of fichiers) {
   if (idx.length) {
     const i0 = idx[0];
     dire(titre + ' · ' + nom + ' · autour du 1er ❌', l.slice(Math.max(0, i0 - 25), i0 + 6).map((x) => x.slice(0, 400)), 8000);
+    // 161 — le contexte de chacun des trois premiers ❌ du journal détaillé (le résumé ne dit pas ce que l'écran montrait avant)
+    if (f !== fichiers[0]) idx.slice(1, 4).forEach((i, k) => dire(titre + ' · ' + nom + ' · autour du ❌ n°' + (k + 2),
+      l.slice(Math.max(0, i - 12), i + 3).map((x) => x.slice(0, 300)), 5000));
     if (f !== fichiers[0] || true) dire(titre + ' · ' + nom + ' · les ❌', idx.slice(0, 30).map((i) => l[i].slice(0, 260)), 8000);
   }
   if (f !== fichiers[0] && !idx.length) dire(titre + ' · ' + nom + ' · fin du journal', l.slice(-40).map((x) => x.slice(0, 300)), 8000);

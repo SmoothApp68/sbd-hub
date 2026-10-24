@@ -2310,6 +2310,18 @@ const SETS_IMPORTES = [
     const t = (await texte(sel)).trim();
     return attendu instanceof RegExp ? attendu.test(t) : t === attendu;
   }, ms || 6000, opts || ('texteVaut ' + sel));
+  // 161 — « Chargement… » N'EST PAS L'ÉTAT FINAL D'UN ÉCRAN SOCIAL. Au retour du réseau (`online`) ou après un geste, l'app
+  // relit le profil / la guilde et repasse un instant par « Chargement… » (voir `rendreGuilde`, « l'écran clignotait ») : une
+  // attente satisfaite AVANT ce clignotement, suivie d'une lecture, lit le placeholder. `sansChargement(sel)` attend que le
+  // conteneur ne dise plus « Chargement… » (ou qu'il soit caché), deux lectures de suite : l'état posé, pas son passage.
+  const sansChargement = (sel, nom) => {
+    let avant = false;
+    return jusqua(async () => {
+      const pose = await page.evaluate((x) => { const n = document.querySelector(x);
+        return !n || n.offsetParent === null || !/Chargement…/.test(n.textContent); }, sel).catch(() => false);
+      const rend = pose && avant; avant = pose; return rend;
+    }, 10000, nom || ('sansChargement ' + sel));
+  };
   // La séance écrite sur le disque de l'appareil : une lecture du magasin, derrière l'écriture déjà demandée (les
   // transactions d'un même magasin passent dans l'ordre). Une page tuée juste après un geste ne perd rien de ce que
   // le geste vient d'écrire — c'est ce que le délai fixe d'avant garantissait sans le dire.
@@ -18395,6 +18407,8 @@ const SETS_IMPORTES = [
     fauxSocial.appeler('u-olga', 'POST', 'blocages', { bloqueur: 'u-olga', bloque: 'u-banc' });
     const partis3 = await retour();
     await attendreQue(async () => (await compter('#social-ami .s-introuvable')) === 1);
+    await sansChargement('#social-ami');   // 161 — le profil relu après le retour passe un instant par « Chargement… »
+    await attendreQue(async () => (await compter('#social-ami .s-introuvable')) === 1);
     const h3b = { texte: await texte('#social-ami'), sync: (await texte('#etat-sync')).trim() };
     ok('[social 107] H3 — DISCRIMINANT — refusé au retour (olga m’a bloqué entre-temps) : l’écran le dit en une phrase, puis l’état RÉEL ' +
       '(son profil n’est plus visible) — pas « Demande envoyée », pas son profil d’avant ; la file est vide, rien n’est « refusé » en attente',
@@ -18517,7 +18531,7 @@ const SETS_IMPORTES = [
       const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
       largeurs.push({ ecran, doc: l.doc, fen: l.fen });
     };
-    const lire = () => page.evaluate(() => {
+    const lire = async () => { await sansChargement('#social-ami'); return page.evaluate(() => {
       const t = (s) => { const n = document.querySelector('#social-ami ' + s); return n ? n.textContent : null; };
       const tous = (s) => Array.from(document.querySelectorAll('#social-ami ' + s)).map((x) => x.textContent);
       return { mois: t('.s-mois-seances'), tonnes: t('.s-mois-tonnes'), exos: Array.from(document.querySelectorAll('#social-ami .s-exo-ami'))
@@ -18528,7 +18542,7 @@ const SETS_IMPORTES = [
         communs: Array.from(document.querySelectorAll('#social-ami .s-commun')).map((c) => ({ slug: c.getAttribute('data-slug'),
           qui: Array.from(c.querySelectorAll('.s-commun-qui')).map((x) => x.textContent), barre: /poids de corps égal/.test(c.textContent) })),
         retour: document.getElementById('btn-retour-ami').textContent, texte: document.getElementById('social-ami').textContent };
-    });
+    }); };
     const entre = () => page.evaluate(() => ({
       rangs: Array.from(document.querySelectorAll('#exercice-entre-amis .s-rang')).map((r) => ({ t: r.querySelector('.s-t').textContent,
         kg: r.querySelector('.s-sc').textContent, moi: r.classList.contains('s-moi') })),
@@ -18748,7 +18762,7 @@ const SETS_IMPORTES = [
     S.sets.push({ id: 'sm-1', session_id: SM, exercise_slug: 'rowing-barre', rang: 1, charge_kg: 50, reps: 8, type_serie: 'travail', rpe: 9,
       note: 'dos', ressenti: 'dur', douleur: 'non', poids_corps_kg: 61 });
     S.records.push({ set_id: 'sm-1', session_id: SM, battu_le: dM, exercise_slug: 'rowing-barre', type: 'charge_a_reps', valeur: 50, reps: 8 });
-    const lire = () => page.evaluate(() => {
+    const lire = async () => { await sansChargement('#social-guilde'); return page.evaluate(() => {
       const r = document.getElementById('social-guilde');
       const t = (s) => { const n = r.querySelector(s); return n ? n.textContent : null; };
       const tous = (s) => Array.from(r.querySelectorAll(s)).map((x) => x.textContent);
@@ -18766,7 +18780,7 @@ const SETS_IMPORTES = [
         voir: Array.from(r.querySelectorAll('.s-fil-guilde .s-carte')).filter((x) => !!x.querySelector('.s-voir'))
           .map((x) => x.getAttribute('data-session')),
         reagi: !!r.querySelector('.s-fil-guilde .s-reag.s-fait') };
-    });
+    }); };
     const largeurs = [];
     const mesurer = async (ecran) => {
       const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));

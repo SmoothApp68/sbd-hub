@@ -108,7 +108,7 @@ jobs:
           { echo '### Banc séquentiel'; echo '```'; grep -E 'contrôles ·|en échec|\[exception\]' banc-sequentiel.txt | tail -20; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: Annotations (lisibles par l'API REST)
         if: always()
-        run: node .github/annoter.js "Banc séquentiel" banc-sequentiel.txt
+        run: node .github/annoter.js "Banc séquentiel" banc-sequentiel.txt $(grep -oP "code [1-9] .*journal \K\S+" banc-sequentiel.txt | head -1)
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -1,10 +1,36 @@
-# Schéma réel — état au 21 octobre 2026
+# Schéma réel — état au 24 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_100`** (sécurité). Prochain numéro libre : **`v2_101`**.
+Dernière migration appliquée : **`v2_111`** (barre chargée). Prochain numéro libre : **`v2_112`**.
+⚠️ **`v2_106` n'a jamais été lancée** (décision du 22/10 : le volume reste un record) : le numéro reste vide.
 
-**Volumétrie (21/10, 21 h 45)** : 1 286 séances · 29 619 séries · 859 exercices (847 actifs : force 671, habileté 74,
-mobilité 58, cardio 44) · 961 alias (`exercise_alias`) · 313 prédictions · 3 629 records · 9 profils · 36 règles d'accès.
+**Volumétrie (24/10, 2 h 30)** : 1 288 séances · 29 673 séries · 860 exercices (848 actifs) · 961 alias
+(`exercise_alias`) · 361 prédictions · 3 647 records · 9 profils · 36 règles d'accès.
+
+## Depuis le 22/10 — migrations `v2_101` à `v2_109` (régénéré depuis la base par Claude.ai le 24/10/2026)
+
+> v2_101 à v2_105 et v2_107 lancées par Aurélien dans l'éditeur SQL le 23/10 au matin ; v2_108 et v2_109 lancées par
+> Claude.ai le 23/10 à 16 h 30 (essai `__ESSAI__ = true` puis réel). Toutes essayées d'abord sur une réplique locale
+> (Postgres 16) et vérifiées en lecture. Absentes de `list_migrations`.
+
+| Migration | Ce qu'elle fait |
+|---|---|
+| `v2_101` (mesures) | **`exercises.champs_series`** (text[] NOT NULL, défaut `{}` ; `exercises_champs_series_ok` : ⊂ `{denivele_m, etages}`) — les colonnes de `sets` en plus de la mesure : `{denivele_m}` sur Randonnée, Trail, Ski de randonnée, VTT, Cyclisme ; `{etages}` sur Escaliers ; **`sets.denivele_m`** (integer, 1 à 10 000, facultatif, jamais 0) et **`sets.etages`** (integer, 1 à 2 000) ; Vélo d'appartement, Spinning, Rameur passent en `distance_temps` ; **`profiles.completer_refus`** (text[], « slug:colonne », les « Je ne sais plus » de « Ce qui manque à tes séances ») ; `social_detail_seance` et `groupe_direct` rendent aussi `denivele_m`, `etages`, `elastique` (DROP + CREATE, droits : `authenticated`, `service_role`) |
+| `v2_102` (élastiques) | `exercises.charge` accepte **`'elastique'`** (l'élastique fait résistance ; `exercises_charge_elastique_ok` : `equipement = 'elastique'` et `mesure = 'reps'`) ; **`exercises.type_elastique`** (`grand` \| `mini`, `exercises_type_elastique_ok` : obligatoire sur un exercice à l'élastique qui aide ou résiste, `mini` seulement en résistance) ; Leg Curl Nordique Assisté (Élastique) devient une aide ; `ma_salle.mini_bandes` (`[{nom}]`, 10 au plus, sans kg). `sets.elastique` et `sets.elastique_norme` existaient déjà (v2_034) |
+| `v2_103` (index) | **`sets_exercise_slug_idx`** sur `sets(exercise_slug)` (les lectures par exercice qui ne partent pas de `user_id`). Notés, non faits : FK `objectifs.pari_id` (l'ordre d'envoi de la file d'abord), FK `groupe_recaps.groupe_id` (abandonnée : la cascade effacerait des récaps figés, D7) |
+| `v2_104` (mois sociaux) | Quatre fonctions sociales bornent leurs périodes en heure de Paris (une séance à 0 h 30 le 1ᵉʳ tombait dans le mois d'avant) |
+| `v2_105` (bio sociale) | `social_profil` rend une colonne de plus, **`bio`** (en dernier, espaces de bord retirés) — la bio a un lecteur (137) |
+| ~~`v2_106`~~ | **jamais lancée** (récap sans volume : abandonné le 22/10) |
+| `v2_107` (blocage groupe) | `groupe_etat` ne rend plus un membre lié par un blocage (`social_bloque`) ; `groupe_invitations_recues` cache une invitation vers un groupe où un membre a un blocage avec moi (`groupe_bloque_avec`) ; le déclencheur `groupe_apres_blocage` retire aussi les invitations d'un tiers (142) |
+| `v2_108` (figures) | **`exercises.echelle_seuil_s`** (smallint, 1 à 600 ; `exercises_echelle_seuil_ok` : seulement sur un exercice d'échelle) — la tenue qui ouvre la marche suivante ; vide au sommet et pour les échelles en reps ; nouvel exercice **`back_lever_groupe_avance`** ; six échelles de figures : `front_lever` (5 marches), `back_lever` (4), `planche_street` (5), `l_sit` (4), `poirier` (2), `drapeau` (2) — 61 exercices en échelle, 19 seuils (149) |
+| `v2_109` (records hors des barres) | `records.type` accepte **`allure`**, **`marche`**, **`denivele_m`**, **`etages`** ; `records.unite` accepte **`s_km`**, **`s_100m`**, **`s_500m`** ; colonne **`records.palier_m`** (integer ; `records_allure_ok` : obligatoire et > 0 pour `allure`, vide sinon ; `allure` : `valeur` > 0 en secondes par unité, **plus bas = mieux**) ; `guilde_semaine` (colonne `medailles`) compte aussi `volume_seance` et les quatre nouveaux types (153) |
+| `v2_110` (bornes durée et distance) | `sets_duree_borne` : `duree_s` NULL ou 1 à 86 399 ; `sets_distance_borne` : `distance_m` NULL ou > 0 et ≤ 1 000 000. Un filet plus large que l'app (9:59:59, 400 km), l'import Hevy ne bornant pas. Lancée par Claude.ai le 24/10/2026 (essai puis vrai) |
+| `v2_111` (barre chargée, 159) | `profiles.ma_salle` accepte deux clés booléennes, **`barre_ez_chargee`** et **`barre_droite_chargee`** (absentes = non) ; contraintes `profiles_ma_salle_ok` (liste des clés) et `profiles_ma_salle_chargees_ok` (type) |
+
+**Reste noté** : `pseudo_libre` ouverte à `anon` (voulu) ; 57 fonctions SECURITY DEFINER (l'API sociale) ; pas de FK
+`groupe_recaps.groupe_id` (abandonnée) ni `objectifs.pari_id` (à reprendre) ; « Leaked password protection » (tableau
+de bord) ; les six colonnes `profiles.visibility_*` du v1 ; **on ne renomme jamais une donnée de l'app depuis la base**
+(23/10, « Recompo » : l'app ne relit pas une routine ou un dossier modifiés côté serveur).
 
 ## Depuis le 21/10 — migrations `v2_098` à `v2_100` (régénéré depuis la base par Claude.ai le 21/10/2026)
 
@@ -27,7 +53,6 @@ DEFINER appelables par les comptes connectés (l'API sociale) ; pas de clé étr
 > ⚠️ Numérotation : le catalogue (v2_096, v2_097) avait d'abord été lancé sous les noms v2_091 et v2_092 ; renuméroté
 > le 17/10 (seuls les commentaires des colonnes changent). Les v2_091 à v2_095 ci-dessous sont celles de l'audit.
 
-> **v2_107 en attente** (22/10/2026, `v2-atelier/migrations-proposees/v2_107_blocage_groupe.sql`, prompt 142) : à lancer par Aurélien ; ce fichier n'est pas régénéré avant.
 
 | Migration | Ce qu'elle fait |
 |---|---|

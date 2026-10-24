@@ -2194,7 +2194,25 @@ const SETS_IMPORTES = [
 
   // Les lignes de série sont réparties dans plusieurs blocs : on les adresse par
   // leur index GLOBAL, pas par `nth-child`, qui compterait l'en-tête du bloc.
-  const ligne = async (i) => (await page.$$('.ligne-serie'))[i];
+  // 161 — UNE POIGNÉE VIVANTE, pas une poignée gardée. `(await page.$$('.ligne-serie'))[i]` rendait un nœud ; la grille se
+  // redessine après une validation, le nœud se périmait entre deux gestes (« Element is not attached ») et la section
+  // plantait au hasard sous charge. `vive(loc)` garde un LOCALISATEUR et retrouve l'élément à CHAQUE appel — mêmes
+  // méthodes que l'ElementHandle utilisé par le banc ($eval, $$eval, $, $$, evaluate, boundingBox, fill, click, type).
+  const vive = (loc) => ({
+    $eval: (sel, fn, arg) => loc.locator(sel).first().evaluate(fn, arg),
+    $$eval: (sel, fn, arg) => loc.locator(sel).evaluateAll(fn, arg),
+    $: async (sel) => ((await loc.locator(sel).count()) ? vive(loc.locator(sel).first()) : null),
+    $$: async (sel) => Array.from({ length: await loc.locator(sel).count() }, (_, k) => vive(loc.locator(sel).nth(k))),
+    evaluate: (fn, arg) => loc.evaluate(fn, arg),
+    boundingBox: () => loc.boundingBox(),
+    scrollIntoViewIfNeeded: () => loc.scrollIntoViewIfNeeded(),
+    fill: (v) => loc.fill(v),
+    click: (o) => loc.click(o),
+    type: (t, o) => loc.pressSequentially(t, o)
+  });
+  const ligne = async (i) => vive(page.locator('.ligne-serie').nth(i));
+  // 161 — le champ `champ` de la ligne `i`, retrouvé à chaque appel (les tableaux `[0]` de l'ancienne forme s'y réduisent).
+  const champsDe = (i, champ) => vive(page.locator('.ligne-serie').nth(i)).$$('[data-champ="' + champ + '"] input');
   // 115 (audit du 16/10, E1) — « Abandonner et tout effacer » DEMANDE dès qu'une série est faite : la
   // confirmation porte le même rouge (`.danger`). Sans série faite, aucune feuille : l'abandon est immédiat.
   // 115 (audit du 16/10, E4) — « Terminer » DEMANDE quand des séries remplies ne sont pas validées : les
@@ -2253,7 +2271,7 @@ const SETS_IMPORTES = [
       await attendre(300);
     }
   };
-  const ligneDuBloc = async (iBloc, k) => (await (await page.$$('.bloc-seance'))[iBloc].$$('.ligne-serie'))[k];
+  const ligneDuBloc = async (iBloc, k) => vive(page.locator('.bloc-seance').nth(iBloc).locator('.ligne-serie').nth(k));
 
   // ── 143 — LES AIDES D'ÉTAT ──────────────────────────────────────────────
   // Chaque délai fixe d'une aide devient l'attente de l'ÉTAT que lit le contrôle qui suit — jamais un état déjà vrai
@@ -2362,7 +2380,7 @@ const SETS_IMPORTES = [
     }, i);
     let vu = '';
     const stable = suivreEcran();
-    return jusqua(async () => {
+    const monte = await jusqua(async () => {
       const ecran = await stable();   // lu à chaque tour, pour voir ses changements
       const etat = await lireCochee().catch(() => null);
       vu = 'cochée=' + etat + ' voulue=' + voulue + ' requêtes=' + (reseauBanc.compte - d.c0) + ' en vol=' + reseauBanc.enVol + ' écran stable=' + ecran;
@@ -2374,6 +2392,19 @@ const SETS_IMPORTES = [
       if (voulue && depart && typeof i === 'number' && !(reseauBanc.sets > d.s0)) return false;   // 158 — la série n'est pas encore PARTIE
       return ecran && ((await lireFile('sets')) <= d.f0 || Date.now() - reseauBanc.dernier >= 700 * RALENTI);
     }, 3000, { nom: 'serieMontee ' + (typeof i === 'function' ? 'rangée' : i), detail: () => vu });
+    if (monte) await poseApresGeste();   // 161 — le redessin qui suit l'écriture est posé avant que le contrôle lise
+    return monte;
+  };
+  // 161 — L'ÉCRAN POSÉ APRÈS UN GESTE. Le réseau calme et 150 ms sans redessin ne prouvent pas que l'app a FINI : le plan se
+  // recalcule après une lecture du disque, et sous charge le redessin (la phrase du coach, la proposition) arrive après le
+  // calme. Les transactions d'un même magasin passent dans l'ordre : une lecture du brouillon revient quand les écritures
+  // demandées sont faites ; deux images, puis un écran qui ne bouge plus pendant 150 ms (× ralenti) — jamais un délai fixe.
+  const poseApresGeste = async () => {
+    await brouillonPose();
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))).catch(() => {});
+    const stable = suivreEcran();
+    await stable();
+    return jusqua(() => stable(), 5000, 'poseApresGeste');
   };
   // 135 — chaque pas attend son état : la feuille de fin ouverte (son bouton là), puis la séance sortie de l'écran et
   // le réseau calme (la séance, ses séries, ses records sont partis par la file).
@@ -3423,7 +3454,7 @@ const SETS_IMPORTES = [
     (envs, k) => envs[k] ? envs[k].classList.contains('chrono') : false, i);
 
   const saisirChamps = async (iBloc, valeurs) => {
-    const bloc = (await page.$$('.bloc-seance'))[iBloc];
+    const bloc = vive(page.locator('.bloc-seance').nth(iBloc));   // 161 — retrouvé à chaque appel
     const champs = await bloc.$$('.serie input');
     for (let i = 0; i < valeurs.length; i++) {
       if (await estChrono(bloc, i)) {
@@ -3506,7 +3537,7 @@ const SETS_IMPORTES = [
     return { valeur: i.value, tampon: i.dataset.chiffres, mode: i.inputMode };
   });
   const frapper = async (suite) => {
-    const i = (await page.$$('.bloc-seance'))[3];
+    const i = vive(page.locator('.bloc-seance').nth(3));
     const champ = (await i.$$('.serie input'))[0];
     await champ.click();
     await champ.type(String(suite), { delay: 30 });
@@ -5231,7 +5262,7 @@ const SETS_IMPORTES = [
   const validerToutes = async () => {
     const n = await compter('.ligne-serie');
     for (let i = 0; i < n; i++) {
-      const l = (await page.$$('.ligne-serie'))[i];
+      const l = await ligne(i);
       await casesSiVides(l);
       await l.$eval('.ok-serie', (b) => b.click());
       await attendre(200);   // rapprochées, comme un pouce sur l'appareil
@@ -5260,6 +5291,25 @@ const SETS_IMPORTES = [
     await cliquerAbandon();
     await confirmerAbandon();
     await seanceSortie();   // 135 — l'état, plus 1 600 ms fixes
+  };
+  // 161 — UNE SECTION QUI PLANTE REND UN ÉTAT PROPRE. Une exception laissait la séance (ou une feuille) ouverte : la section
+  // suivante démarrait dans la vue séance, la bibliothèque n'était pas à l'écran, `demarrerRoutine` allait au plafond et
+  // tout le reste tombait en cascade. Le découpeur résistant (`seance-sections.js`) l'appelle dans son `catch` : feuille
+  // fermée, séance abandonnée PAR LE GESTE DE L'APP (à défaut, le brouillon et la séance en cours de la base de papier
+  // sont effacés), retour sur `/saisie`. Elle ne cache rien : l'exception reste un contrôle en échec.
+  const remettreAPropre = async () => {
+    const feuilleOuverteMaintenant = () => page.evaluate(() => { const f = document.getElementById('feuille-seance'); return !!f && !f.hidden; }).catch(() => false);
+    const seanceOuverte = () => page.evaluate(() => { const v = document.getElementById('vue-seance'); return !!v && !v.hidden; }).catch(() => false);
+    if (await feuilleOuverteMaintenant()) {
+      await page.click('#btn-fermer-feuille', { timeout: 3000 }).catch(() => {});
+      await feuilleFermee(3000);
+    }
+    if (await seanceOuverte()) { try { await abandonner(); } catch (e) { /* le repli ci-dessous */ } }
+    if (await seanceOuverte() || (await sessions().filter((x) => x.statut === 'en_cours').length)) {
+      await page.evaluate(() => window.THCache.ecrireBrouillon('seance', null)).catch(() => {});
+      base.sessions = base.sessions.filter((x) => x.statut !== 'en_cours');
+    }
+    await aller('/saisie');
   };
   // 143 — la vue que montre chaque onglet (racine : la liste des séances ; saisie : la saisie, ou la séance en cours).
   const VUES_DE_L_ONGLET = { racine: ['vue-liste'], saisie: ['vue-saisie', 'vue-seance'], progression: ['vue-progression'],
@@ -7731,10 +7781,9 @@ const SETS_IMPORTES = [
       20000, '143 · [P] les deux instances ont dessiné la séance');
     await attendre(300);
     await Promise.all([p1, p2].map(async (p) => {
-      const l = (await p.$$('.ligne-serie'))[0];
-      const champs = await l.$$('input');
-      await champs[0].fill(String(planOuvert[0][0]));
-      await champs[1].fill(String(planOuvert[0][1]));
+      const champs = p.locator('.ligne-serie').nth(0).locator('input');   // 161 — localisateur, retrouvé à chaque frappe
+      await champs.nth(0).fill(String(planOuvert[0][0]));
+      await champs.nth(1).fill(String(planOuvert[0][1]));
     }));
     await Promise.all([p1, p2].map((p) => p.evaluate(() =>
       document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click())));
@@ -7787,9 +7836,11 @@ const SETS_IMPORTES = [
     const idSeance = () => base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0];
     const quitterChamp = async (i, champ, v) => {
       const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(i).locator('input').nth(k));  // 158 — localisateurs
+      const depart = await departGeste();
       await champs[champ].fill(String(v));
       await champs[champ].evaluate((e) => e.blur());
-      await attendre(900);
+      await calmeApres(depart, 300);   // 161 — l'état (le réseau s'est tu), plus 900 ms fixes
+      await poseApresGeste();
     };
 
     // ── LA PROPOSITION, PUIS LA MONTÉE PRISE ─────────────────────────────
@@ -11351,7 +11402,7 @@ const SETS_IMPORTES = [
     await attendre(1200);
     const idRJ = enCoursId();
     const validerTel = async (i) => {
-      const l = (await page.$$('.ligne-serie'))[i];
+      const l = await ligne(i);
       await l.$eval('.ok-serie', (b) => b.click());
       await attendre(450);
     };
@@ -21806,7 +21857,7 @@ const SETS_IMPORTES = [
       await attendre(700);
     };
     const remplir105 = async (i, champ, v) => {
-      const inp = await page.$$('.ligne-serie >> nth=' + i + ' >> [data-champ="' + champ + '"] input');
+      const inp = await champsDe(i, champ);
       if (champ === 'duree') { await inp[0].click(); await inp[0].type(String(v), { delay: 30 }); }
       else await inp[0].fill(String(v));
       await attendre(300);
@@ -22960,7 +23011,7 @@ const SETS_IMPORTES = [
     };
     const ECHAUFFEMENT = 2, DEGRESSIVE = 3;
     const valider112 = async (i, j, kg, reps) => {
-      const s = await page.$('.serie[data-iexo="' + i + '"][data-iserie="' + j + '"]');
+      const s = vive(page.locator('.serie[data-iexo="' + i + '"][data-iserie="' + j + '"]').first());
       const champs = await s.$$('input');
       await champs[0].fill(String(kg));
       await champs[1].fill(String(reps));
@@ -24238,7 +24289,7 @@ const SETS_IMPORTES = [
     const refusAvant131 = base.profiles[0].completer_refus;
     const sets131 = (slug) => base.sets.filter((x) => x.exercise_slug === slug && passe131.indexOf(x.session_id) < 0);
     const taper131 = async (i, champ, v) => {
-      const inp = (await page.$$('.ligne-serie >> nth=' + i + ' >> [data-champ="' + champ + '"] input'))[0];
+      const inp = (await champsDe(i, champ))[0];
       if (!inp) return;   // une grille sans la case (une régression) : le contrôle qui suit échoue, la section continue
       if (champ === 'duree') { await inp.click(); await inp.type(String(v), { delay: 30 }); }
       else await inp.fill(String(v));
@@ -25155,7 +25206,7 @@ const SETS_IMPORTES = [
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
       routine_exercises: [ex153('tapis_roulant', 0, progr(2)), ex153('muscle_up', 1, progr(1, 1))] });
     const remplir153 = async (i, champ, v) => {
-      const inp = await page.$$('.ligne-serie >> nth=' + i + ' >> [data-champ="' + champ + '"] input');
+      const inp = await champsDe(i, champ);
       if (champ === 'duree') { await inp[0].click(); await inp[0].type(String(v), { delay: 30 }); }
       else await inp[0].fill(String(v));
       await inp[0].evaluate((e) => e.blur());

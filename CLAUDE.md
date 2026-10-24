@@ -193,6 +193,7 @@ trappe `/__sw-off` pendrait avec lui.
   `node tests/banc/tout.js`. Le banc de séance y tourne en parallèle
   (6 groupes, ~5 min au lieu de ~50) ; `--sequentiel` rejoue la référence historique.
 - **Depuis le 24/10/2026 (158), le séquentiel de fin de chantier tourne sur GitHub à chaque PR** (`.github/workflows/bancs.yml` : jobs `banc-complet` = `tout.js`, et `banc-sequentiel`). On lit la coche du job `banc-sequentiel` au lieu de le relancer sur la machine (il reste possible en local) ; sortie et `seq.json` en artefact (7 jours). La règle « un banc à la fois » reste pour la machine.
+- **Avant toute fusion d'une PR qui touche `v2/` ou un banc : le job `banc-sequentiel` de GitHub vert sur son dernier commit (la coche de la PR) ; une PR de banc : trois exécutions vertes de suite** (24/10/2026, 161). Le banc ne tient plus de poignée d'élément entre deux gestes (`vive`, localisateurs), `serieMontee` attend l'ÉCRITURE de la série, et une section qui plante est suivie d'un état propre (`remettreAPropre`).
 - **Attendre un banc en local** : `pgrep -f` avec le motif dans la ligne de commande se reconnaît lui-même ; attendre par nom de processus (`pgrep -x node`, `pgrep -x chrome`), comme `/home/claude/nuit/156-attendre.sh`.
 - **Et, à la fin de chaque CHANTIER, un banc séquentiel complet** sur l'état
   commité : `node tests/banc/seance-rapide.js --sequentiel` (~50 min).

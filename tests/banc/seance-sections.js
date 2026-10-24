@@ -289,6 +289,8 @@ function sectionResistante(src, s) {
     '  } catch (exceptionDuBanc) {',
     '    ok(' + JSON.stringify('[exception] ' + s.nom + ' — la section s’arrête là, le banc continue') + ', false,',
     '      String((exceptionDuBanc && exceptionDuBanc.stack) || exceptionDuBanc).split(\'\\n\').slice(0, 4).join(\' | \'));',
+    '    // 161 — la section suivante repart d\'un état propre (feuille fermée, séance abandonnée, /saisie)',
+    '    try { await remettreAPropre(); } catch (_) { /* hors d\'atteinte (section avant sa déclaration) : l\'exception reste notée */ }',
     '  }'
   ].filter((l) => l !== '').join('\n');
 }

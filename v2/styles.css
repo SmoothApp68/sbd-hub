@@ -1688,6 +1688,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    programme : quatre champs, puis les exercices cochés. */
 .dossier-ligne{display:flex;align-items:center;gap:var(--e2)}
 .dossier-ligne .dossier-tete{flex:1;min-width:0}
+.dossier-menu{background:none;border:none;color:var(--texte-2);font:inherit;font-size:18px;line-height:1;
+  padding:var(--e2) var(--e2);min-width:44px;min-height:44px;cursor:pointer}
 .dossier-badge{background:none;border:0;padding:var(--e3) 2px var(--e1);color:var(--accent);font:inherit;
   font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer}
 .programme-dossier{margin:0 0 var(--e2)}
@@ -2559,3 +2561,14 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .etq.fond{color:var(--accent)}
 .etq-ligne{margin:-2px 0 4px 44px}
 .feuille-menu button .aide-type{display:block;font-weight:400;font-size:12px;color:var(--texte-3);margin-top:2px}
+
+/* 154 — l'effort visé : « garde-en N » dans l'en-tête, les puces sous la dernière série, la phrase du coach. */
+.consigne[data-garde]::after{content:attr(data-garde);display:inline-block;margin-left:var(--e2);padding:0 6px;border:1px solid var(--trait);
+  border-radius:var(--r-etiquette);font-family:var(--pile-c);font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--texte-2);
+  white-space:nowrap;vertical-align:1px}
+.effort-vise{display:flex;flex-wrap:wrap;align-items:center;gap:var(--e2);padding:var(--e2) 0 var(--e1)}
+.effort-vise-q,.effort-vise-dit{font-size:14px;color:var(--texte-2)}
+.effort-vise-b{display:flex;gap:var(--e2);flex:1 1 100%}
+.effort-puce{flex:1;min-width:44px;height:40px;border-radius:var(--r-petit);border:1px solid var(--trait);background:var(--panneau-2);
+  color:var(--texte);font:inherit;font-weight:600;cursor:pointer}
+.effort-puce.passer{flex:1.4;background:none;color:var(--texte-2);font-weight:400}

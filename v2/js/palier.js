@@ -600,6 +600,19 @@
       ? CRAN_DU_RESSENTI[serie.ressenti] : null;
   }
 
+  // 154 (MOTEUR §9.26, l'effort visé) — LA RÉSERVE D'UNE SÉRIE, en reps, bornée de 0 à 3 : « à l'échec » et `reste_0` → 0,
+  // `reste_N` → N, `reste_3_plus` → 3, un RPE → 10 − RPE (borné). `null` : rien de noté. Le RPE l'emporte, comme dans
+  // `cranDeSerie` ; ce n'est qu'une autre lecture du même effort, au même endroit.
+  var RESERVE_DU_RESSENTI = { reste_0: 0, reste_1: 1, reste_2: 2, reste_3_plus: 3 };
+  function reserveDeSerie(serie) {
+    if (!serie) return null;
+    if (aEchec(serie)) return 0;
+    var rpe = nombre(serie.rpe);
+    if (rpe !== null) return Math.min(3, Math.max(0, 10 - rpe));
+    return Object.prototype.hasOwnProperty.call(RESERVE_DU_RESSENTI, serie.ressenti)
+      ? RESERVE_DU_RESSENTI[serie.ressenti] : null;
+  }
+
   // §17.4, révisé le 11/10/2026 (74) — UNE SÉRIE À FOND COMPTE SES REPS. On
   // n'enlève pas une rep réellement faite : le niveau validé, le test,
   // l'échelle, l'observation d'un pari, le bilan se lisent sur les reps faites.
@@ -686,6 +699,7 @@
     // lit — on passe par `cranDeSerie`, qui arbitre.
     CRAN_DU_RESSENTI: CRAN_DU_RESSENTI,
     cranDeSerie: cranDeSerie,
+    reserveDeSerie: reserveDeSerie,
     repsComptees: repsComptees,
     repsPrudentes: repsPrudentes,
     palierTenu: palierTenu

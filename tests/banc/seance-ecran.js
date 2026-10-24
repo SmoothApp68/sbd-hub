@@ -51,14 +51,45 @@ const attendre = async (ms) => {
 // écriture par chiffre : taper « 21000 » enchaîne cinq vidanges de file, et la
 // dernière montée arrive après un délai qui dépend de la machine. Un `sleep`
 // calibré sur un portable devient une intermittence sur un runner chargé.
-const jusqua = async (cond, ms) => {
-  const fin = Date.now() + (ms || 6000);
+//
+// 143 — LE PLAFOND D'UNE ATTENTE EST EN TEMPS MUR, ET IL SE COMPTE. Sous charge (`charge.js` pose `BANC_RALENTI`), la
+// page tourne `RALENTI` fois moins vite : un plafond de 6 s écrit pour une machine libre devient une intermittence.
+// `plafond(ms)` le multiplie. Et une attente qui arrive à son plafond n'est JAMAIS une réussite silencieuse : elle est
+// comptée (`statAttentes`, imprimé en fin de banc) et fait ÉCHOUER le banc — sauf si l'appelant la déclare attendue
+// (`{ attendu: 'motif' }` : un état qui peut ne jamais venir, et dont le contrôle suivant le dit).
+const RALENTI = Math.max(1, Number(process.env.BANC_RALENTI) || 1);
+const plafond = (ms) => Math.round(ms * RALENTI);
+const statAttentes = { appels: 0, plafond: 0, attendues: 0, liste: [] };
+// Les lignes du banc qui ont posé l'attente (la pile d'ENTRÉE de `jusqua`, lue dans le fichier qui tourne) : sans nom
+// donné, c'est elles qui disent QUELLE attente a atteint son plafond.
+const ouEtaitLAttente = (pile) => {
+  try {
+    return String(pile).split('\n').slice(2, 6).map((l) => /\(?([^()\s]+):(\d+):\d+\)?$/.exec(l)).filter(Boolean)
+      .map((m) => require('fs').readFileSync(m[1], 'utf8').split('\n')[Number(m[2]) - 1].trim().slice(0, 70)).slice(0, 2).join(' ⇐ ');
+  } catch (e) { return ''; }
+};
+const noterPlafond = (opts, pile) => {
+  const o = typeof opts === 'string' ? { nom: opts } : (opts || {});
+  const nom = (o.nom || 'attente') + ' · ' + sectionRapport + (o.nom ? '' : ' · ' + ouEtaitLAttente(pile)) + (typeof o.detail === 'function' ? ' [' + o.detail() + ']' : '');
+  if (o.attendu) { statAttentes.attendues++; return; }
+  statAttentes.plafond++;
+  if (statAttentes.liste.length < 40) statAttentes.liste.push(nom);
+  console.log('   ⏱ plafond atteint : ' + nom);
+};
+const jusqua = async (cond, ms, opts) => {
+  statAttentes.appels++;
+  const pile = new Error().stack;
+  const fin = Date.now() + plafond(ms || 6000);
   while (Date.now() < fin) {
     if (await cond()) return true;
-    await attendre(120);
+    await attendre(120);   // le pas d'une boucle qui lit l'état à chaque tour
   }
+  noterPlafond(opts, pile);
   return false;
 };
+// 143 — UNE SEULE FOIS (il était déclaré huit fois, avec des pas de 200 ou 250 ms et des budgets en ITÉRATIONS :
+// le temps mur s'allongeait tout seul avec la charge, et un plafond atteint rendait la main sans rien dire).
+const attendreQue = (cond, ms, opts) => jusqua(cond, ms || 15000, opts || 'attendreQue');
 
 let echecs = 0;
 // Le dernier contrôle écrit : la garde du banc s'en sert pour situer le geste
@@ -1518,9 +1549,11 @@ const SETS_IMPORTES = [
             (e.kg === undefined || e.kg === null || (typeof e.kg === 'number' && e.kg >= 0.5 && e.kg <= 100 && Math.floor(e.kg * 2) === e.kg * 2))));
           const okE = liste(v.elastiques, ['nom', 'kg']) && liste(v.mini_bandes, ['nom']) &&
             (v.elastiques_par_nom === undefined || typeof v.elastiques_par_nom === 'boolean');
-          if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH || !okE ||
+          // 159 (`v2_111`) — `barre_ez_chargee`, `barre_droite_chargee` : deux booléens (`profiles_ma_salle_chargees_ok`).
+          const okC = ['barre_ez_chargee', 'barre_droite_chargee'].every((k) => v[k] === undefined || typeof v[k] === 'boolean');
+          if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH || !okE || !okC ||
               Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres', 'elastiques', 'elastiques_par_nom',
-                'mini_bandes'].indexOf(k) < 0)) {
+                'mini_bandes', 'barre_ez_chargee', 'barre_droite_chargee'].indexOf(k) < 0)) {
             return json(refus('23514', 'profiles_ma_salle_ok'), 400);
           }
         }
@@ -1963,9 +1996,11 @@ const SETS_IMPORTES = [
   };
   // 96 — LE FAUX SERVEUR EST SUIVI : combien de requêtes sont en vol, et quand la dernière a
   // bougé. C'est l'état qu'attend `aller()` (« le réseau s'est tu »), au lieu d'un délai fixe.
-  const reseauBanc = { enVol: 0, dernier: Date.now() };
+  // 143 — `compte` : le nombre de requêtes PARTIES depuis le début. Une aide qui attend « le geste est monté » le lit
+  // avant le geste, puis exige qu'il ait augmenté : sans cela, un réseau déjà calme rendrait l'attente vraie d'avance.
+  const reseauBanc = { enVol: 0, dernier: Date.now(), compte: 0 };
   const gestionnaireSuivi = async (route) => {
-    reseauBanc.enVol++; reseauBanc.dernier = Date.now();
+    reseauBanc.enVol++; reseauBanc.compte++; reseauBanc.dernier = Date.now();
     try { return await gestionnaireBanc(route); }
     finally { reseauBanc.enVol--; reseauBanc.dernier = Date.now(); }
   };
@@ -2127,6 +2162,7 @@ const SETS_IMPORTES = [
   const aller = async (chemin) => {
     const retenue = retenueEnCours();
     await page.goto(BASE + (chemin || '/'), { waitUntil: 'domcontentloaded' }).catch(() => {});
+    // VOULU : une réponse retenue exprès par le faux serveur — le délai est la mesure (la ligne est en vol), pas une attente
     if (retenue) { statAller.fixes++; await attendre(2600); } else await ecranPose();
   };
   // ⚠️ LES BLOCS LAISSÉS PAR UNE AUTRE SECTION, RETIRÉS DE L'APPAREIL (16/10/2026, décidé par Claude.ai). Au banc
@@ -2216,35 +2252,158 @@ const SETS_IMPORTES = [
   };
   const ligneDuBloc = async (iBloc, k) => (await (await page.$$('.bloc-seance'))[iBloc].$$('.ligne-serie'))[k];
 
-  const saisirSerie = async (i, charge, reps) => {
-    // 158 — sur GitHub, l'écran se redessine parfois ENTRE la recherche de la ligne et la frappe
-    // (« Element is not attached to the DOM », vu en 7 G quater) : on retrouve la ligne à chaque champ
-    // et on recommence si l'élément a été détaché. Rien n'est relâché : la saisie reste la même.
-    const detache = (e) => /not attached to the DOM|Execution context was destroyed|detached/i.test(String(e && e.message));
-    const remplir = async (k, v) => {
-      for (let essai = 0; ; essai++) {
-        try {
-          const champs = await (await ligne(i)).$$('input');
-          await champs[k].fill(String(v));
-          return;
-        } catch (e) { if (!detache(e) || essai >= 4) throw e; await attendre(250); // le pas d'une reprise (158)
-        }
-      }
+  // ── 143 — LES AIDES D'ÉTAT ──────────────────────────────────────────────
+  // Chaque délai fixe d'une aide devient l'attente de l'ÉTAT que lit le contrôle qui suit — jamais un état déjà vrai
+  // avant le geste : on lit l'avant (`departGeste`), on exige un CHANGEMENT. Un état qui ne vient pas rend la main au
+  // plafond (en temps mur, × `BANC_RALENTI`), est compté (`statAttentes`) et fait échouer le banc.
+  //   · `jusqua`, `attendreQue` : l'attente d'une condition (plus haut, une seule fois) ;
+  //   · `serieMontee`  : la ligne est cochée ET l'écriture est partie et revenue (ou, hors ligne, posée dans la file) ;
+  //   · `enBase`, `fileVide` : la base de papier a la valeur ; la file de l'appareil n'a plus la ligne ;
+  //   · `feuilleOuverte`, `feuilleFermee`, `vueAffichee`, `texteVaut` : ce que l'écran montre.
+  const lireFile = (table) => page.evaluate((t) => window.THCache.lireAttente()
+    .then((f) => (f || []).filter((e) => !t || e.table === t).length), table || null).catch(() => 0);
+  const horsLigne = () => page.evaluate(() => navigator.onLine === false).catch(() => false);
+  // Le refus d'un tap sur « ✓ », tel que l'écran le MONTRE : une case obligatoire passe au rouge (`.case-vide`), ou le
+  // curseur entre dans la ligne (les reps d'une ligne proposée ou d'élan se tapent : on ne valide pas, on le dit).
+  const refusVisible = (i) => page.evaluate((k) => {
+    const l = document.querySelectorAll('.ligne-serie')[k];
+    if (!l) return false;
+    const a = document.activeElement;
+    return !!l.querySelector('.case-vide') || (!!a && a.tagName === 'INPUT' && l.contains(a));
+  }, i).catch(() => false);
+  const departGeste = async (i) => ({ c0: reseauBanc.compte, f0: await lireFile('sets'), t0: Date.now(),
+    refus0: typeof i === 'number' ? await refusVisible(i) : false });
+  const enBase = (pred, ms, opts) => jusqua(async () => { try { return !!(await pred()); } catch (e) { return false; } },
+    ms || 6000, opts || 'enBase');
+  const fileVide = (table, ms, opts) => jusqua(async () => (await lireFile(table)) === 0, ms || 6000, opts || 'fileVide');
+  const feuilleOuverte = (sel, ms, opts) => jusqua(() => page.evaluate((x) => {
+    const f = document.getElementById('feuille-seance');
+    return !!f && !f.hidden && (!x || !!document.querySelector('#feuille-contenu ' + x));
+  }, sel || null).catch(() => false), ms || 6000, opts || ('feuilleOuverte ' + (sel || '')));
+  const feuilleFermee = (ms, opts) => jusqua(() => page.evaluate(() => {
+    const f = document.getElementById('feuille-seance');
+    return !f || f.hidden;
+  }).catch(() => false), ms || 6000, opts || 'feuilleFermee');
+  const vueAffichee = (id, ms, opts) => jusqua(async () => (await visible()).indexOf(id) >= 0, ms || 6000, opts || ('vueAffichee ' + id));
+  const texteVaut = (sel, attendu, ms, opts) => jusqua(async () => {
+    const t = (await texte(sel)).trim();
+    return attendu instanceof RegExp ? attendu.test(t) : t === attendu;
+  }, ms || 6000, opts || ('texteVaut ' + sel));
+  // La séance écrite sur le disque de l'appareil : une lecture du magasin, derrière l'écriture déjà demandée (les
+  // transactions d'un même magasin passent dans l'ordre). Une page tuée juste après un geste ne perd rien de ce que
+  // le geste vient d'écrire — c'est ce que le délai fixe d'avant garantissait sans le dire.
+  const brouillonPose = () => page.evaluate(() => window.THCache.lireBrouillon('seance')).catch(() => null);
+  // Le réseau du faux serveur est calme, SANS plancher d'une seconde : au moins `plancher` ms (× ralenti) depuis le
+  // geste, plus rien en vol, et plus rien de parti depuis 150 ms. Pour un geste qui n'écrit QUE SOUVENT (changer le
+  // type d'une série ne part en base que si elle est validée) : l'absence d'écriture n'a pas d'état à attendre.
+  // L'écran des séries ne bouge plus depuis `150 × RALENTI` ms : la réponse du serveur a été traitée PAR LA PAGE, qui a
+  // redessiné ce qu'elle devait redessiner (le gris d'une ligne qui suit une validation, par exemple). Le réseau calme
+  // ne le dit pas : sous charge la page traite sa réponse bien après qu'elle est arrivée.
+  const suivreEcran = () => {
+    let derniere = null, depuis = Date.now();
+    return async () => {
+      const sg = await page.evaluate(() => {
+        const n = document.getElementById('blocs-seance');
+        if (!n) return 'aucun';
+        const t = n.innerHTML;
+        let h = 0;
+        for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0;
+        return h + ':' + t.length;
+      }).catch(() => 'illisible');
+      if (sg !== derniere) { derniere = sg; depuis = Date.now(); }
+      return Date.now() - depuis >= 150 * RALENTI;
     };
-    await remplir(0, charge);
-    await remplir(1, reps);
-    for (let essai = 0; ; essai++) {
-      try { await (await ligne(i)).$eval('.ok-serie', (b) => b.click()); break; }
-      catch (e) { if (!detache(e) || essai >= 4) throw e; await attendre(250); // le pas d'une reprise (158)
-        }
-    }
-    await attendre(450);
+  };
+  const calmeApres = (depart, plancher) => {
+    const stable = suivreEcran();
+    return jusqua(async () => {
+      const ecran = await stable();   // lu à chaque tour, pour voir ses changements
+      return ecran && Date.now() - depart.t0 >= (plancher === undefined ? 150 : plancher) * RALENTI &&
+        (retenueEnCours() || (reseauBanc.enVol === 0 && Date.now() - reseauBanc.dernier >= 150 * RALENTI));
+    }, 8000, 'calmeApres');
+  };
+  // La feuille de la séance : fermée, ou son contenu. Un geste de menu fait CHANGER cette signature (ou ferme la feuille).
+  const signatureFeuille = () => page.evaluate(() => {
+    const f = document.getElementById('feuille-seance');
+    return (!f || f.hidden) ? '(fermée)' : document.getElementById('feuille-contenu').innerHTML;
+  }).catch(() => null);
+  // Un clic dans une zone (le questionnaire, la feuille) : sans `pause`, on attend que la zone CHANGE ; avec `pause`,
+  // le délai du site d'appel reste (il s'écrit au site, il ne se cache plus dans l'aide).
+  const cliquer = async (clic, zone, pause) => {
+    const signature = () => (zone ? page.evaluate((z) => { const n = document.querySelector(z); return n ? n.innerHTML : null; }, zone).catch(() => null)
+      : signatureFeuille());
+    const avant = await signature();
+    // Une option DÉJÀ choisie (`.on`) : retoucher ne change rien à l'écran — il n'y a pas d'état à attendre que le réseau.
+    const deja = await page.evaluate((c) => { const n = document.querySelector(c); return !!n && n.classList.contains('on'); }, clic).catch(() => false);
+    const depart = await departGeste();
+    await page.click(clic);
+    if (pause) { await attendre(pause); return; }
+    if (deja) { await calmeApres(depart); return; }
+    await jusqua(async () => (await signature()) !== avant, 6000, 'cliquer ' + clic);
+  };
+  // ⚠️ La ligne `i` (indice GLOBAL) est cochée — ou, avec `cochee === false`, dévalidée — et l'écriture est montée :
+  // au moins une requête partie DEPUIS le geste, plus rien en vol, la file des séries revenue à ce qu'elle était
+  // (ou, si une entrée reste, le réseau muet depuis 700 ms : un refus n'est pas une file qui se vide). Hors ligne :
+  // l'entrée est dans la file. Une réponse RETENUE exprès (`lenteur…`) : le délai d'avant est ici la mesure.
+  const serieMontee = async (i, depart, cochee) => {
+    if (retenueEnCours()) { statAller.fixes++; await attendre(450); return true; }   // VOULU : une réponse retenue exprès
+    const voulue = cochee !== false;
+    const d = depart || { c0: -1, f0: Infinity };
+    // Une ligne dont une case obligatoire est vide NE SE VALIDE PAS (100/105), ni les reps d'une ligne proposée ou d'élan
+    // (§9.14, 68A) : le tap est REFUSÉ, et l'écran le montre (`refusVisible`) — c'est l'état qui clôt l'attente. Le
+    // refus n'est attendu qu'en validation (`voulue`), et seulement s'il n'était pas déjà là avant le geste.
+    // `i` : l'indice GLOBAL d'une ligne, ou une fonction qui rend « cochée ? » (true / false / null si la ligne n'est pas là).
+    const lireCochee = typeof i === 'function' ? i : () => page.evaluate((k) => {
+      const l = document.querySelectorAll('.ligne-serie')[k];
+      return l ? !!l.querySelector('.ok-serie.cochee') : null;
+    }, i);
+    let vu = '';
+    const stable = suivreEcran();
+    return jusqua(async () => {
+      const ecran = await stable();   // lu à chaque tour, pour voir ses changements
+      const etat = await lireCochee().catch(() => null);
+      vu = 'cochée=' + etat + ' voulue=' + voulue + ' requêtes=' + (reseauBanc.compte - d.c0) + ' en vol=' + reseauBanc.enVol + ' écran stable=' + ecran;
+      if (etat !== voulue) return voulue && !!depart && typeof i === 'number' && !depart.refus0 && await refusVisible(i);
+      if (await horsLigne()) return (await lireFile('sets')) > d.f0 || !depart;
+      // Le faux serveur REFUSE tout (`base.reseau = false`) : l'envoi a été tenté, il a échoué, la ligne reste dans la file.
+      if (!base.reseau) return reseauBanc.compte > d.c0 && reseauBanc.enVol === 0 && (await lireFile('sets')) > 0;
+      if (reseauBanc.compte <= d.c0 || reseauBanc.enVol !== 0 || Date.now() - reseauBanc.dernier < 150 * RALENTI) return false;
+      return ecran && ((await lireFile('sets')) <= d.f0 || Date.now() - reseauBanc.dernier >= 700 * RALENTI);
+    }, 3000, { nom: 'serieMontee ' + (typeof i === 'function' ? 'rangée' : i), detail: () => vu });
+  };
+  // 135 — chaque pas attend son état : la feuille de fin ouverte (son bouton là), puis la séance sortie de l'écran et
+  // le réseau calme (la séance, ses séries, ses records sont partis par la file).
+  // 143 — au préambule (il était déclaré après les premières sections qui s'en servent).
+  const seanceSortie = async () => {
+    // 143-bis — une prémisse NOMMÉE : si la séance ne quitte pas l'écran, c'est ce contrôle qui échoue (et dit pourquoi).
+    const sortie = await jusqua(() => page.evaluate(() => document.getElementById('vue-seance').hidden).catch(() => false), 10000, 'seanceSortie');
+    if (!sortie) ok('[prémisse] « Terminer » fait sortir de la séance : le récap s’ouvre', false, 'la séance est encore à l’écran après 10 s');
+    await reseauCalme();
+  };
+
+  // 143 — des LOCALISATEURS, pas des poignées : la ligne est retrouvée à chaque action. Une poignée prise avant un
+  // redessin de la séance (« Element is not attached », « ligne is undefined ») plantait le banc au hasard sous charge ;
+  // le localisateur attend la ligne, et la retrouve si l'écran se redessine entre deux gestes.
+  const saisirSerie = async (i, charge, reps) => {
+    const champ = (k) => page.locator('.ligne-serie').nth(i).locator('input').nth(k);
+    await champ(0).fill(String(charge));
+    await champ(1).fill(String(reps));
+    const depart = await departGeste();
+    await page.evaluate((k) => document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), i);
+    await serieMontee(i, depart);
   };
 
   const toucher = async (i, sel) => {
-    const l = await ligne(i);
-    await l.$eval(sel, (b) => b.click());
-    await attendre(400);
+    await page.locator('.ligne-serie').nth(i).waitFor();
+    const depart = await departGeste();
+    const etaitCochee = sel === '.ok-serie' ? await page.evaluate((k) => document.querySelectorAll('.ligne-serie')[k]
+      .querySelector('.ok-serie').classList.contains('cochee'), i) : null;
+    if (sel === '.ok-serie') depart.refus0 = (await departGeste(i)).refus0;
+    await page.evaluate(([k, x]) => document.querySelectorAll('.ligne-serie')[k].querySelector(x).click(), [i, sel]);
+    if (sel === '.no-serie') await feuilleOuverte('.feuille-menu button');
+    else if (sel === '.eff-serie') await feuilleOuverte('.grille-rir, .grille-rpe');
+    else if (sel === '.ok-serie') await serieMontee(i, depart, !etaitCochee);
+    else await calmeApres(depart);
   };
   const lire = async (i, sel) => (await ligne(i)).$eval(sel, (b) => b.textContent);
 
@@ -2254,24 +2413,26 @@ const SETS_IMPORTES = [
     // 96 — sous charge, la bibliothèque n'est pas toujours rendue quand on arrive ici
     // (« TypeError: r is undefined ») : on attend que LA rangée visée existe, plafond 10 s.
     await jusqua(() => page.evaluate((n) => Array.from(document.querySelectorAll('.routine-rangee'))
-      .some((x) => (x.querySelector('.routine-nom') || {}).textContent === n), nom).catch(() => false), 10000);
+      .some((x) => (x.querySelector('.routine-nom') || {}).textContent === n), nom).catch(() => false), 10000, 'demarrerRoutine ' + nom);
+    const depart = await departGeste();
     await page.evaluate((n) => {
       const rangees = Array.from(document.querySelectorAll('.routine-rangee'));
       const r = rangees.filter((x) => x.querySelector('.routine-nom').textContent === n)[0];
       r.querySelector('.demarrer').click();
     }, nom);
-    await attendre(900);
     // 84 — « Commencer » lit d'abord les séances en cours en base (la question de l'autre appareil) : serveur
     // injoignable, la séance n'arrive qu'à l'échec de cette lecture (1,5 s au plus). On attend qu'elle soit là — ou
     // qu'une feuille la précède — avant de rendre la main.
-    for (let t = 0; t < 12; t++) {
-      const pret = await page.evaluate(() => {
-        const s = document.getElementById('vue-seance'), f = document.getElementById('feuille-seance');
-        return (!!s && !s.hidden) || (!!f && !f.hidden);
-      }).catch(() => true);
-      if (pret) break;
-      await attendre(500);
-    }
+    // 143 — l'état, plus 900 ms fixes avant lui : la séance est à l'écran AVEC ses lignes (ou la feuille de question),
+    // dessinées, et le disque a reçu la séance.
+    // 143-bis — une prémisse NOMMÉE : si « Commencer » ne démarre rien, ce contrôle échoue (au lieu d'un plantage plus loin).
+    const demarree = await jusqua(() => page.evaluate(() => {
+      const s = document.getElementById('vue-seance'), f = document.getElementById('feuille-seance');
+      return (!!s && !s.hidden && document.querySelectorAll('#vue-seance .ligne-serie').length > 0) || (!!f && !f.hidden);
+    }).catch(() => true), 12000, 'demarrerRoutine ' + nom + ' (la séance)');
+    if (!demarree) ok('[prémisse] la routine « ' + nom + ' » est démarrée : la séance est à l’écran avec ses lignes', false, 'ni séance ni feuille après 12 s');
+    await brouillonPose();
+    await calmeApres(depart, 0);   // la lecture des séances en cours, la séance posée en base : le réseau s'est tu
   };
 
   // ── LA FIN DU BANC ──────────────────────────────────────────────────────
@@ -2288,6 +2449,17 @@ const SETS_IMPORTES = [
     console.log('\naller() : ' + statAller.appels + ' navigation(s), ' + Math.round(statAller.total / Math.max(1, statAller.appels)) +
       ' ms en moyenne, ' + statAller.plafond + ' au plafond (' + ALLER_MAX_MS / 1000 + ' s), ' +
       statAller.fixes + ' à délai fixe (réponse retenue)');
+    // 143 — UN PLAFOND N'EST JAMAIS UNE RÉUSSITE SILENCIEUSE : une attente d'état arrivée à son plafond (hors celles
+    // que l'appelant déclare attendues) fait échouer le banc, avec son nom et sa section.
+    console.log('\nattentes d\u2019état : ' + statAttentes.appels + ' attente(s), ' + statAttentes.plafond + ' au plafond' +
+      (statAttentes.liste.length ? ' (' + statAttentes.liste.join(' | ') + ')' : '') + ', ' + statAttentes.attendues +
+      ' déclarée(s) attendue(s)');
+    if (statAttentes.plafond > 0) {
+      // Une « erreur » du rapport, pas un contrôle : le lanceur la compte (verdict, code de sortie) sans ajouter de
+      // contrôle au rapport — `--contre` compare les contrôles un par un.
+      erreurs.push('[attentes d\u2019état] ' + statAttentes.plafond + ' au plafond : ' + statAttentes.liste.join(' | '));
+      console.log('   ❌ ' + statAttentes.plafond + ' attente(s) d\u2019état arrivée(s) au plafond : le contrôle qui suivait lisait un état qui n\u2019est pas venu');
+    }
     console.log('\nerreurs de page : ' + (erreurs.length ? erreurs.join(' | ') : 'aucune'));
     if (erreurs.length) echecs++;
     if (process.env.BANC_RAPPORT) {
@@ -2870,9 +3042,16 @@ const SETS_IMPORTES = [
       p.scrollTop = opts.findIndex((o) => Number(o.dataset.v) === v) * 48;
       p.dispatchEvent(new Event('scroll'));
     }, secondes);
-    await attendre(250);
+    // 143 — l'état : l'option choisie est celle que la molette marque (plus 250 ms fixes), puis la feuille se ferme.
+    await jusqua(() => page.evaluate((v) => {
+      const o = document.querySelector('#feuille-contenu .molette .opt.sel');
+      return !!o && Number(o.dataset.v) === v;
+    }, secondes).catch(() => false), 6000, 'molette ' + secondes);
+    const depart = await departGeste();
     await page.click('#feuille-contenu .feuille-pied .pri');
-    await attendre(700);
+    await feuilleFermee();
+    await brouillonPose();
+    await calmeApres(depart);
   };
 
   await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
@@ -3770,7 +3949,7 @@ const SETS_IMPORTES = [
   await attendre(400);
   await page.click('#feuille-contenu .principal');
   await terminerQuandMeme();
-  await attendre(2600);
+  await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
 
   const finie = base.sessions.filter((s) => s.titre === 'Jambes du jeudi')[0];
   ok('titre, salle et note de séance sont enregistrés', !!finie &&
@@ -3856,7 +4035,7 @@ const SETS_IMPORTES = [
     }), 'défaut = garder');
   await page.click('#feuille-contenu .principal');
   await terminerQuandMeme();
-  await attendre(2600);
+  await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
   ok('terminer en gardant n’écrit RIEN dans la routine',
     patchsRoutine().length === patchsAvantGarder &&
     ROUTINE.routine_exercises[0].repos_cible_s === 120,
@@ -3882,11 +4061,17 @@ const SETS_IMPORTES = [
   // l'ordre entrelacé, donc exactement ce qu'un pouce touche.
   const validerRangee = async (iBloc, iRangee) => {
     await casesSiVides(await ligneDuBloc(iBloc, iRangee));
+    const cocheeDe = () => page.evaluate(([k, r]) => {
+      const l = document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.ligne-serie')[r];
+      return l ? !!l.querySelector('.ok-serie.cochee') : null;
+    }, [iBloc, iRangee]);
+    const etait = await cocheeDe();
+    const depart = await departGeste();
     await page.evaluate(([k, r]) => {
       document.querySelectorAll('.bloc-seance')[k]
         .querySelectorAll('.ligne-serie')[r].querySelector('.ok-serie').click();
     }, [iBloc, iRangee]);
-    await attendre(500);
+    await serieMontee(cocheeDe, depart, !etait);
   };
   const superT = () => texte('.bloc-seance.superset .superset-t');
 
@@ -4029,19 +4214,19 @@ const SETS_IMPORTES = [
   // passer un débordement des lettres sur le bloc d'à côté.
   await validerRangee(1, 0);
   await validerRangee(1, 1);
-  const enBase = sets().filter((s) => s.session_id === seanceCourante());
+  const enBaseSeance = sets().filter((s) => s.session_id === seanceCourante());
   ok('`groupe_superset` part en base — sinon le superset disparaîtrait au détail',
-    enBase.length === 10 &&
-    enBase.filter((s) => s.groupe_superset === 1).length === 8 &&
-    enBase.filter((s) => s.groupe_superset === null).length === 2,
-    JSON.stringify(enBase.map((s) => s.exercise_slug + '@' + s.groupe_superset)));
+    enBaseSeance.length === 10 &&
+    enBaseSeance.filter((s) => s.groupe_superset === 1).length === 8 &&
+    enBaseSeance.filter((s) => s.groupe_superset === null).length === 2,
+    JSON.stringify(enBaseSeance.map((s) => s.exercise_slug + '@' + s.groupe_superset)));
 
   const idSuper = seanceCourante();
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
   await page.click('#feuille-contenu .principal');
   await terminerQuandMeme();
-  await attendre(2600);
+  await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
 
   // ⚠️ LA COMPARAISON QUI COMPTE : le détail de séance rend déjà
   // l'entrelacement en lecture (chantier 12). Les deux écrans doivent dire la
@@ -4078,7 +4263,7 @@ const SETS_IMPORTES = [
     await page.evaluate((k) => {
       document.querySelectorAll('.bloc-seance')[k].querySelector('.tete-haut .menu-pts').click();
     }, i);
-    await attendre(500);
+    await feuilleOuverte('.feuille-menu button');
   };
   // ⚠️ « MONTER LE BLOC » A QUITTÉ LE MENU AU CHANTIER 46 (§7 vicies.1) : le
   // menu porte désormais « Réorganiser… », qui ouvre le mode. Les deux flèches
@@ -4101,24 +4286,40 @@ const SETS_IMPORTES = [
       document.querySelectorAll('.bloc-seance')[b]
         .querySelectorAll('.legende-haut .menu-pts')[x].click();
     }, [i, k]);
-    await attendre(500);
+    await feuilleOuverte('.feuille-menu button');
   };
   const entreesFeuille = () => page.evaluate(() =>
     Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
       .map((b) => b.textContent + (b.disabled ? ' (inerte)' : '')));
   const entree = async (motif) => {
+    const avant = await signatureFeuille();
+    const depart = await departGeste();
     await page.evaluate((m) => {
       const b = Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .filter((x) => new RegExp(m).test(x.textContent))[0];
       b.click();
     }, motif);
-    await attendre(700);
+    // 143 — l'état : la feuille se ferme ou change de contenu (plus 700 ms fixes), puis le disque a la séance.
+    await jusqua(async () => (await signatureFeuille()) !== avant, 6000, 'entree ' + motif);
+    await brouillonPose();
+    await calmeApres(depart);   // la séance corrigée repart en base (ou rien ne part) : le contrôle suivant peut la lire
   };
+  const catalogueOuvert = (ms, opts) => jusqua(() => page.evaluate(() => {
+    const c = document.getElementById('champ-recherche-exo');
+    return !!c && !!c.offsetParent;
+  }).catch(() => false), ms || 6000, opts || 'catalogueOuvert');
   const choisirCatalogue = async (q) => {
+    const depart = await departGeste();
     await page.fill('#champ-recherche-exo', q);
-    await attendre(350);
+    await jusqua(() => page.evaluate(() => !!document.querySelector('#resultats-exo .resultat')).catch(() => false), 6000, 'choisirCatalogue ' + q);
     await page.click('#resultats-exo .resultat');
-    await attendre(800);
+    // 143 — l'état : le catalogue se referme (plus 800 ms fixes), puis le disque a la séance.
+    await jusqua(() => page.evaluate(() => {
+      const c = document.getElementById('champ-recherche-exo');
+      return !c || !c.offsetParent;
+    }).catch(() => false), 6000, 'choisirCatalogue ' + q + ' (fermé)');
+    await brouillonPose();
+    await calmeApres(depart);
   };
   // La forme de la séance : un tableau de blocs, chacun la liste de ses noms.
   // ⚠️ PAS LE TEXTE ENTIER : le nom est précédé de sa lettre dans un superset
@@ -4496,7 +4697,7 @@ const SETS_IMPORTES = [
 
   await page.click('#feuille-contenu .principal');
   await terminerQuandMeme();
-  await attendre(2600);
+  await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
   ok('« Garder » tenu parole : la routine est exactement celle d’avant',
     JSON.stringify(ROUTINE_SUPERSET.routine_exercises) === avantFin &&
     base.patchs.length === patchsAvant,
@@ -4638,9 +4839,12 @@ const SETS_IMPORTES = [
       document.querySelectorAll('.bloc-seance')[k]
         .querySelectorAll('.ligne-serie')[r].querySelector('.no-serie').click();
     }, [iBloc, iRangee]);
-    await attendre(500);
+    await feuilleOuverte('.feuille-menu button:nth-child(2)');
+    const depart = await departGeste();
     await page.click('#feuille-contenu .feuille-menu button:nth-child(2)');   // Échauffement
-    await attendre(700);   // la feuille de type se referme d'elle-même
+    await feuilleFermee();   // la feuille de type se referme d'elle-même
+    await brouillonPose();
+    await calmeApres(depart);   // une série validée repart en base ; une autre, non
   };
 
   // Le bloc 0 est le superset : A = Développé Couché (3), B = Curl (3),
@@ -4693,7 +4897,7 @@ const SETS_IMPORTES = [
   await attendre(600);
   await page.click('#feuille-contenu .principal');
   await terminerQuandMeme();
-  await attendre(2600);
+  await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
 
   // ── §7 octies.3 — REFAIRE ───────────────────────────────────────────────
   await aller('/seance/' + idGestes);
@@ -4779,7 +4983,7 @@ const SETS_IMPORTES = [
   });
   await attendre(400);
   await page.click('#bandeau-seance .bandeau-fin');
-  await attendre(2600);
+  await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
   ok('« Enregistrer » referme sur le détail, correction écrite',
     JSON.stringify(await visible()) === '["vue-detail"]' &&
     lignesGestes().some((s) => s.charge_kg === 137),
@@ -4802,7 +5006,7 @@ const SETS_IMPORTES = [
     new RegExp(nSeriesAvant + ' série').test(await texte('#feuille-contenu')),
     (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 110));
   await page.click('#feuille-contenu .feuille-menu .danger');
-  await attendre(2600);
+  await feuilleFermee(); await reseauCalme();   // 143 — l'état (la confirmation part, le réseau se tait), plus 2 600 ms fixes
   ok('confirmé : la séance part, ses séries avec, et rien d’autre n’est touché',
     base.sessions.filter((s) => s.id === idGestes).length === 0 &&
     lignesGestes().length === 0 &&
@@ -4917,7 +5121,7 @@ const SETS_IMPORTES = [
   await attendre(600);
   await page.click('#feuille-contenu .principal');
   await terminerQuandMeme();
-  await attendre(2600);
+  await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
 
   await aller('/');
   ok('la carte de séance porte un menu, sans qu’on l’ouvre',
@@ -4949,7 +5153,7 @@ const SETS_IMPORTES = [
     /Supprimer cette séance/.test(await texte('#feuille-contenu')),
     (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 90));
   await page.click('#feuille-contenu .feuille-menu .danger');
-  await attendre(2600);
+  await feuilleFermee(); await reseauCalme();   // 143 — l'état (la confirmation part, le réseau se tait), plus 2 600 ms fixes
   ok('confirmé : la séance part, sans jamais avoir été ouverte',
     base.sessions.length === avantSup - 1 &&
     JSON.stringify(await visible()) === '["vue-liste"]',
@@ -4981,7 +5185,7 @@ const SETS_IMPORTES = [
   };
   const ajouterExoSeance = async (q) => {
     await page.click('#btn-ajouter-exo-seance');
-    await attendre(300);
+    await catalogueOuvert();
     await choisirCatalogue(q);
   };
   // ⚠️ 49-C (MOTEUR §9.13, 26/09/2026) — HORS ROUTINE, UN EXERCICE AJOUTÉ
@@ -4993,21 +5197,28 @@ const SETS_IMPORTES = [
   // l'exercice ajouté est le DERNIER de la séance — c'est le cas partout où
   // on l'appelle.
   const reduireA = async (n) => {
-    while ((await compter('.ligne-serie')) > n) {
+    for (let avant = await compter('.ligne-serie'); avant > n; avant = await compter('.ligne-serie')) {
+      const depart = await departGeste();
       await page.evaluate(() => {
         const nos = document.querySelectorAll('.ligne-serie .no-serie');
         nos[nos.length - 1].click();
       });
-      await attendre(500);
+      await feuilleOuverte('button.danger');
       await page.click('#feuille-contenu .feuille-menu button.danger');
-      await attendre(700);
+      await jusqua(async () => (await compter('.ligne-serie')) < avant, 6000, 'reduireA ' + n);
+      await brouillonPose();
+      await calmeApres(depart);
     }
   };
   const plusSerie = async (iBloc) => {
+    const avant = await compter('.ligne-serie');
+    const depart = await departGeste();
     await page.evaluate((k) => {
       document.querySelectorAll('.ajout-serie')[k].querySelector('button').click();
     }, iBloc);
-    await attendre(300);
+    await jusqua(async () => (await compter('.ligne-serie')) > avant, 6000, 'plusSerie ' + iBloc);
+    await brouillonPose();
+    await calmeApres(depart);
   };
   const validerToutes = async () => {
     const n = await compter('.ligne-serie');
@@ -5025,15 +5236,9 @@ const SETS_IMPORTES = [
   // 135 — chaque pas attend son état : la feuille de fin ouverte (son bouton là), puis la séance sortie de
   // l'écran et le réseau calme (la séance, ses séries, ses records sont partis par la file). Avant : 600 ms,
   // puis 2 600 ms fixes.
-  const feuilleAvec = (sel) => jusqua(() => page.evaluate((x) => !document.getElementById('feuille-seance').hidden &&
-    !!document.querySelector('#feuille-contenu ' + x)).catch(() => false), 6000);
-  const seanceSortie = async () => {
-    await jusqua(() => page.evaluate(() => document.getElementById('vue-seance').hidden).catch(() => false), 10000);
-    await reseauCalme();
-  };
   const terminer = async () => {
     await page.click('#bandeau-seance .bandeau-fin');
-    await feuilleAvec('.principal');
+    await feuilleOuverte('.principal');
     await page.click('#feuille-contenu .principal');
     await terminerQuandMeme();
     await seanceSortie();
@@ -5048,9 +5253,24 @@ const SETS_IMPORTES = [
     await confirmerAbandon();
     await seanceSortie();   // 135 — l'état, plus 1 600 ms fixes
   };
+  // 143 — la vue que montre chaque onglet (racine : la liste des séances ; saisie : la saisie, ou la séance en cours).
+  const VUES_DE_L_ONGLET = { racine: ['vue-liste'], saisie: ['vue-saisie', 'vue-seance'], progression: ['vue-progression'],
+    profil: ['vue-profil'], jeu: ['vue-jeu'] };
   const onglet = async (vue) => {
+    const depart = await departGeste();
     await page.click('.onglet[data-vue="' + vue + '"]');
-    await attendre(900);
+    // L'état : l'onglet est marqué, ET c'est la vue de la racine de l'onglet qui est affichée (un clic depuis une
+    // sous-vue de l'onglet le ramène à elle : « l'onglet est actif » serait vrai d'avance), puis le réseau se tait.
+    const racines = VUES_DE_L_ONGLET[vue];
+    await jusqua(async () => {
+      const actif = await page.evaluate((v) => {
+        const b = document.querySelector('.onglet[data-vue="' + v + '"]');
+        return !!b && b.classList.contains('actif');
+      }, vue).catch(() => false);
+      const vues = await visible();
+      return actif && (racines ? vues.some((x) => racines.indexOf(x) >= 0) : vues.length > 0);
+    }, 6000, 'onglet ' + vue);
+    await calmeApres(depart, 100);
   };
   // La bascule d'intention, par l'écran : le mémo des consignes se cle dessus
   // (`cleConsignes`), et l'écrire en base à la main ne le ferait pas bouger.
@@ -5194,7 +5414,7 @@ const SETS_IMPORTES = [
   // route directement sur `enregistrerEdition` (app.js). Attendre une
   // confirmation ici ferait expirer le banc sur un écran qui n'existe pas.
   await page.click('#bandeau-seance .bandeau-fin');
-  await attendre(2600);
+  await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
 
   ok('enregistrée sans rien changer : AUCUNE série n’est effacée',
     sesSeries(IMPORTEE.id).length === 6,
@@ -5237,7 +5457,7 @@ const SETS_IMPORTES = [
   };
   const enregistrer = async () => {
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(2600);
+    await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
   };
 
   // ── D2 : DÉPLACER ─────────────────────────────────────────────────────
@@ -5471,7 +5691,7 @@ const SETS_IMPORTES = [
   await attendre(400);
   await page.click('#feuille-contenu .principal');
   await terminerQuandMeme();
-  await attendre(2600);
+  await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
 
   ok('[D5] AUCUNE écriture n’est refusée — c’était `23514`, définitif',
     refusDepuis(repereD5).length === 0,
@@ -6092,6 +6312,7 @@ const SETS_IMPORTES = [
   const zoneDC = Moteur.zoneParCle(consigneDC.consigne.zone);
   const prevu4 = Number(String(attendus[4]).replace(',', '.'));
   const attendu4 = zoneDC && 5 >= zoneDC.bas && prevu4 < 130 ? '130' : attendus[4];
+  await attendreQue(async () => (await fantomes())[4] === attendu4, 15000, '143 · [G] la suivante est redessinée');
   ok('[G] 130 à plat sur la suivante, jamais 135 — l’élan s’il tient, sinon le plan (68A)',
     (await fantomes())[4] === attendu4, JSON.stringify(await fantomes()) + ' vs ' + attendu4 +
       ' (zone ' + (zoneDC && zoneDC.cle) + ')');
@@ -6177,7 +6398,7 @@ const SETS_IMPORTES = [
     (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 60));
   await page.click('#feuille-contenu .principal');
   await terminerQuandMeme();
-  await attendre(2600);
+  await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
 
   // ⚠️ QUATRE LIGNES POUR DEUX SÉRIES DE TRAVAIL. C'est l'écart que les cinq
   // écrans confondaient — et c'est lui que l'avertissement de suppression, seul,
@@ -6923,6 +7144,7 @@ const SETS_IMPORTES = [
     // ── LE RÉSEAU REVIENT : la ligne monte, et UNE SEULE FOIS ────────────
     base.reseau = true;
     await aller('/saisie');
+    await attendreQue(() => base.zones.length >= 3, 15000, '143 · [Z] la vidange a monté la ligne');
     ok('[Z] le réseau revenu, la ligne monte',
       base.zones.length === 3 && base.zones[2].zone === 'mix',
       JSON.stringify(zonesEnBase()));
@@ -6988,10 +7210,13 @@ const SETS_IMPORTES = [
     const puceZone = () => page.evaluate(() =>
       (document.querySelector('.legende-exo .puce-zone') || {}).textContent || null);
     const valider = async (i) => {
+      const etait = await page.evaluate((k) => document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie')
+        .classList.contains('cochee'), i);
+      const depart = await departGeste(i);
       await page.evaluate((k) => {
         document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click();
       }, i);
-      await attendre(700);
+      await serieMontee(i, depart, !etait);
     };
 
     // La zone du soulevé a été corrigée en Hypertrophie au §7 tervicies : on
@@ -7005,6 +7230,7 @@ const SETS_IMPORTES = [
     });
     await attendre(1600);
 
+    const idsAvantC6 = new Set(base.sets.map((x) => x.id));   // 143-bis — ce que la séance ajoute
     await aller('/saisie');
     await demarrerRoutine('Terre');
     ok('[C6] au départ, la consigne parle et il n’y a pas de constat',
@@ -7016,6 +7242,24 @@ const SETS_IMPORTES = [
     ok('[C6] DEUX séries sur trois validées : toujours la consigne, pas de constat',
       (await enTete()).length > 0 && (await constat()).verdict === null,
       JSON.stringify(await enTete()));
+
+    // 143-bis — LA SÉRIE VALIDÉE PART AU SERVEUR. Sans ce contrôle, une file qui avale les séries (`return true`)
+    // laissait tout le banc vert : rien ne regardait la table `sets` du faux serveur. L'état, pas un délai : on
+    // attend le retour au calme du réseau, puis on lit la table.
+    {
+      await reseauCalme();
+      const affichees = await page.evaluate(() => [0, 1].map((k) => {
+        const champs = document.querySelectorAll('.ligne-serie')[k].querySelectorAll('input');
+        return { charge: Number(String(champs[0].value).replace(',', '.')), reps: Number(champs[1].value) };
+      }));
+      const arrivees = base.sets.filter((x) => !idsAvantC6.has(x.id) && x.exercise_slug === 'souleve-terre' && x.validee_a);
+      ok('[143-bis] les DEUX séries validées sont dans la table `sets` du faux serveur',
+        arrivees.length === 2, JSON.stringify({ arrivees: arrivees.length, sets: base.sets.length }));
+      ok('[143-bis] avec leur charge et leurs reps',
+        arrivees.length === 2 && affichees.every((a, k) => a.reps > 0 &&
+          arrivees.some((x) => Number(x.charge_kg) === a.charge && Number(x.reps) === a.reps)),
+        JSON.stringify({ affichees, arrivees: arrivees.map((x) => [x.charge_kg, x.reps]) }));
+    }
 
     await valider(2);
     const fini = await constat();
@@ -7195,6 +7439,8 @@ const SETS_IMPORTES = [
         !!document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie.cochee'), i);
       if (!deja) await saisirSerie(i, 20, 10);
     }
+    await attendreQue(async () => { const t = await parExo(); return t.length === 2 && !!t[0].constat && !!t[1].constat; },
+      15000, '143 · [C6] les deux constats sont dessinés');
     const tout = await parExo();
     ok('[C6] le bloc fini : LES DEUX constats paraissent, chacun le sien',
       tout.length === 2 && !!tout[0].constat && !!tout[1].constat &&
@@ -7424,7 +7670,6 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     base.reseau = false;
     await demarrerRoutine('Terre');
-    await attendre(900);
     await saisirSerie(0, planOuvert[0][0], planOuvert[0][1]);
     await attendre(900);
     const parisHorsLigne = (await enFilePred()).filter((e) => e.op !== 'observer').length;
@@ -7474,7 +7719,9 @@ const SETS_IMPORTES = [
       p1.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {}),
       p2.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {})
     ]);
-    await attendre(3200);
+    await attendreQue(async () => (await Promise.all([p1, p2].map((p) => p.$$('.ligne-serie')))).every((ls) => ls.length > 0),
+      20000, '143 · [P] les deux instances ont dessiné la séance');
+    await attendre(300);
     await Promise.all([p1, p2].map(async (p) => {
       const l = (await p.$$('.ligne-serie'))[0];
       const champs = await l.$$('input');
@@ -7483,7 +7730,8 @@ const SETS_IMPORTES = [
     }));
     await Promise.all([p1, p2].map((p) => p.evaluate(() =>
       document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click())));
-    await attendre(3200);
+    await attendreQue(() => base.predictions.length > depart3, 20000, '143 · [P] le pari des deux instances est monté');
+    await attendre(1500 * RALENTI);   // un doublon, s'il devait exister, a eu le temps de paraître
     const duo = base.predictions.slice(depart3);
     ok('[P] DEUX INSTANCES QUI VALIDENT LA MÊME SÉRIE : UN SEUL pari en base',
       duo.length === 1 && new Set(duo.map((l) => l.id)).size === 1,
@@ -7618,7 +7866,6 @@ const SETS_IMPORTES = [
     // ── LE REFUS ─────────────────────────────────────────────────────────
     await aller('/saisie');
     await demarrerRoutine('Terre');
-    await attendre(600);
     await saisirSerie(0, c1, vise + 3);
     await saisirSerie(1, c1, vise + 2);
     const phRefus = await phrases();
@@ -7633,7 +7880,6 @@ const SETS_IMPORTES = [
     // ── L'EFFORT SAISI APRÈS COUP ────────────────────────────────────────
     await aller('/saisie');
     await demarrerRoutine('Terre');
-    await attendre(600);
     await saisirSerie(0, c1, vise + 3);
     ok('[R] (effort) la proposition est affichée', (await phrases()).length === 1,
       JSON.stringify(await phrases()));
@@ -7657,7 +7903,6 @@ const SETS_IMPORTES = [
     // ── LA CORRECTION AU CLAVIER D'UNE SÉRIE VALIDÉE ─────────────────────
     await aller('/saisie');
     await demarrerRoutine('Terre');
-    await attendre(600);
     await saisirSerie(0, c1, vise);
     ok('[R] (clavier) à la visée, le coach se tait', (await phrases()).length === 0,
       JSON.stringify(await phrases()));
@@ -7684,7 +7929,6 @@ const SETS_IMPORTES = [
     base.profiles[0].intention = 'entretien';
     await aller('/saisie');
     await demarrerRoutine('Terre');
-    await attendre(600);
     await saisirSerie(0, c1, vise + 3);
     ok('[R] EN ENTRETENIR, rien : ni phrase, ni ligne proposée',
       (await phrases()).length === 0 && (await proposees()).every((x) => !x),
@@ -7722,8 +7966,12 @@ const SETS_IMPORTES = [
       !avant[id].set || (apres[id] && apres[id].set === avant[id].set &&
         apres[id].v === avant[id].v && apres[id].a === avant[id].a));
     const plusSerie = async () => {
+      const avant = await compter('.ligne-serie');
+      const depart = await departGeste();
       await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
-      await attendre(900);
+      await jusqua(async () => (await compter('.ligne-serie')) > avant, 6000, 'plusSerie');
+      await brouillonPose();
+      await calmeApres(depart);
     };
     const planAffiche = async () => {
       const p = [];
@@ -7957,7 +8205,9 @@ const SETS_IMPORTES = [
       fAvant[2] === Lg && fAvant[3] === Tst, JSON.stringify(fAvant));
     await saisirSerie(2, ref[0][0], ref[0][1]);
     await saisirSerie(3, ref[2][0], ref[2][1]);
-    await attendre(1500);
+    await attendreQue(() => parisDe(sid).length >= 4 && parisDe(sid).every((l) => rangDuSet(l.set_observe) === l.fondement.rang),
+      15000, '143 · [C] les quatre paris sont reliés');
+    await attendre(300);
     const pc = parisDe(sid);
     ok('[C] et chaque série a SON pari, à son rang : la 3ᵉ à la ligne, la 4ᵉ au test',
       pc.length === 4 && pc.map((l) => l.fondement.rang + ':' + l.fondement.role).join() ===
@@ -8017,6 +8267,8 @@ const SETS_IMPORTES = [
     await saisirSerie(1, ref[0][0], ref[0][1] + 3);
     await attendre(900);
     const phL = await phrasesC();
+    await attendreQue(() => { const p = parisDe(sid).filter((l) => l.fondement.rang === 1)[0]; return !!p && rangDuSet(p.set_observe) === 1; },
+      15000, '143 · [C] le pari du rang 1 est relié');
     const p1L = parisDe(sid).filter((l) => l.fondement.rang === 1)[0];
     ok('[C] une série PLUS LÉGÈRE en travail : pas un refus — la suivante propose encore',
       phL.length === 1 && /ta série 3 /.test(phL[0]), JSON.stringify(phL));
@@ -8060,7 +8312,7 @@ const SETS_IMPORTES = [
       avantEd === 6 && (await compter('.ligne-serie')) === avantEd + 1,
       avantEd + ' → ' + (await compter('.ligne-serie')) + ' ligne(s)');
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(2600);
+    await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
     ok('[C] et l’enregistrer n’écrit aucune ligne vide : la séance garde ses 6 séries',
       base.sets.filter((x) => x.session_id === 'curl-49c').length === 6,
       base.sets.filter((x) => x.session_id === 'curl-49c').length + ' série(s)');
@@ -8179,7 +8431,7 @@ const SETS_IMPORTES = [
     poserHip('hip-d', 0.1, [[130, 5], [130, 5], [130, 5], [135, 3]]);
     await onglet('racine');
     await page.evaluate(() => document.getElementById('btn-rafraichir').click());
-    await attendre(2600);
+    await reseauCalme();   // 143 — l'état (la synchronisation est revenue), plus 2 600 ms fixes
     await onglet('saisie');
     await attendre(900);
     ok('[U] D7 — une synchronisation en pleine séance ne change pas la consigne : même en-tête',
@@ -8252,7 +8504,7 @@ const SETS_IMPORTES = [
       f2.length > 1 && /proposée après /.test(f2[1]) && f2[1].indexOf('faite') >= 0 &&
       f2[1].indexOf(String(cProp).replace('.', ',')) >= 0, nb({ f2, cProp }));
     await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
-    await attendre(2600);
+    await ecranPose();   // 143 — l'état (l'écran est posé), plus 2 600 ms fixes
     await verifierApres('rechargement');
     const f3 = await feuilleCommeLaGrille('après un rechargement');
     ok('[U6] DISCRIMINANT — après un rechargement, la feuille est IDENTIQUE', nb(f3) === nb(f2), nb({ f2, f3 }));
@@ -8260,7 +8512,6 @@ const SETS_IMPORTES = [
 
     await aller('/saisie');
     await demarrerRoutine('Terre ×4');
-    await attendre(800);
     await saisirSerie(0, cT, vT + 3);
     await attendre(900);
     await saisirSerie(1, cT, vT);
@@ -8339,7 +8590,7 @@ const SETS_IMPORTES = [
       await page.close({ runBeforeUnload: false });
       page = await ctx.newPage(); brancher(page);
       await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
-      await attendre(2600);
+      await ecranPose();   // 143 — l'état (l'écran est posé), plus 2 600 ms fixes
       const d = await idbT();
       // ⚠️ 84 (12/10/2026) — « Commencer » lit d'abord les séances en cours en base (la question de l'autre
       // appareil), AVANT de créer quoi que ce soit. Une page fermée pendant cette lecture n'a rien créé : c'est
@@ -8691,17 +8942,17 @@ const SETS_IMPORTES = [
     const fin = await planP();
     const role = { ligne: 'ligne', test: 'haut', coach: 'coach', retour: 'retour' };
     const lignes = fin.plan.exercices[0].lignes;
-    const enBase = base.predictions.filter((l) => l.exercise_slug === 'leg-extension' &&
+    const parisEnBase = base.predictions.filter((l) => l.exercise_slug === 'leg-extension' &&
       l.fondement && l.fondement.seance === idS);
     const concordent = lignes.every((l) => {
-      const q = enBase.filter((x) => x.fondement.rang === l.rang);
+      const q = parisEnBase.filter((x) => x.fondement.rang === l.rang);
       return l.validee && q.length === 1 && q[0].fondement.role === role[l.role] &&
         Number(q[0].fondement.charge) === Number(l.charge) && Number(q[0].valeur_predite) === Number(l.vise) &&
         q[0].set_observe === l.id;
     });
     ok('[P3] séance complète : UN pari en base par série validée, identique à sa ligne (rang, rôle, charge, visée, série)',
-      enBase.length === lignes.length && concordent,
-      nbP({ base: enBase.map((q) => q.fondement.rang + ':' + q.fondement.role + ':' + q.fondement.charge + '×' + q.valeur_predite),
+      parisEnBase.length === lignes.length && concordent,
+      nbP({ base: parisEnBase.map((q) => q.fondement.rang + ':' + q.fondement.role + ':' + q.fondement.charge + '×' + q.valeur_predite),
             plan: lignes.map((l) => l.rang + ':' + l.role + ':' + l.charge + '×' + l.vise) }));
 
     await terminer();
@@ -9187,16 +9438,16 @@ const SETS_IMPORTES = [
     });
     await attendre(2500);
     const locaux = (await parisLocaux()).filter((l) => l.fondement && l.fondement.seance === sid);
-    const enBase = base.predictions.filter((l) => l.fondement && l.fondement.seance === sid &&
+    const parisEnBase = base.predictions.filter((l) => l.fondement && l.fondement.seance === sid &&
       l.exercise_slug === 'souleve-terre');
     const serie0 = base.sets.filter((x) => x.session_id === sid && x.rang === 1)[0];
     ok('[FV] DISCRIMINANT — la frappe croise la validation : UN pari au rang 1 sur l’appareil, avec son identifiant',
       locaux.filter((l) => l.fondement.rang === 1).length === 1 && locaux.every((l) => !!l.id),
       JSON.stringify(locaux.map((l) => [l.fondement.rang, l.fondement.revision || 0, l.id ? 'id' : 'SANS id', l.set_observe ? 'obs' : '—'])));
     ok('[FV] …et en base : le pari du rang 1, observé sur la série 1',
-      enBase.filter((l) => l.fondement.rang === 1).length === 1 && !!serie0 &&
-      enBase.filter((l) => l.fondement.rang === 1)[0].set_observe === serie0.id,
-      JSON.stringify(enBase.map((l) => [l.fondement.rang, l.set_observe === (serie0 && serie0.id) ? 'obs s1' : l.set_observe])));
+      parisEnBase.filter((l) => l.fondement.rang === 1).length === 1 && !!serie0 &&
+      parisEnBase.filter((l) => l.fondement.rang === 1)[0].set_observe === serie0.id,
+      JSON.stringify(parisEnBase.map((l) => [l.fondement.rang, l.set_observe === (serie0 && serie0.id) ? 'obs s1' : l.set_observe])));
     const fileF = await page.evaluate(() => window.THCache.lireAttente());
     ok('[FV] …et la file est vide : rien de bloqué', fileF.length === 0,
       JSON.stringify(fileF.map((e) => e.cle + (e.bloquee ? ' BLOQUÉE' : ''))));
@@ -9220,7 +9471,7 @@ const SETS_IMPORTES = [
     const s1 = base.sets.filter((x) => x.session_id === sid && x.rang === 1)[0];
     const observes = () => base.predictions.filter((l) => s1 && l.set_observe === s1.id);
     ok('[TY] prémisse : la série 1 est validée, son pari observé en base',
-      !!s1 && observes().length === 99, JSON.stringify({ s1: s1 && s1.id, observes: observes().length }));
+      !!s1 && observes().length === 1, JSON.stringify({ s1: s1 && s1.id, observes: observes().length }));
     await toucher(0, '.no-serie');
     await page.click('#feuille-contenu .feuille-menu button:nth-child(4)');   // À l'échec (echec)
     await attendre(700);
@@ -9711,7 +9962,6 @@ const SETS_IMPORTES = [
     // Une AUTRE séance : un seul refus, la proposition revient ; « Ajouter ».
     await aller('/saisie');
     await demarrerRoutine('Chauffes U10');
-    await attendre(900);
     await ajouterExoSeance('Militaire U10');
     ok('[U10] une autre séance : la proposition revient (un refus seulement)', (await propositionU(3)) !== null, '');
     const avantAjout = await compter('.ligne-serie');
@@ -9860,6 +10110,38 @@ const SETS_IMPORTES = [
       JSON.stringify(gardeBanc.liste.slice(-2)));
     await abandonner();
 
+    // 3 bis. 159 — « J'ai aussi une barre EZ qu'on charge » : cocher, enregistrer, rouvrir (cochée) ; la charge part avec
+    // la clé ; et le coach teste 32,5 kg au lieu de l'état `salle_max`.
+    const bascule159 = (type) => page.evaluate((t) => {
+      const b = document.querySelector('#feuille-contenu .salle-bascule[data-type="' + t + '"]');
+      return b ? b.getAttribute('aria-checked') : null;
+    }, type);
+    await ouvrirSalle();
+    const avant159 = await bascule159('barres_ez');
+    await page.click('#feuille-contenu .salle-bascule[data-type="barres_ez"]');
+    await jusqua(async () => (await bascule159('barres_ez')) === 'true', 4000);
+    const apres159 = await bascule159('barres_ez');
+    await bouton('Valider');
+    await jusqua(() => (base.profiles[0].ma_salle || {}).barre_ez_chargee === true, 6000);
+    ok('[159] la bascule EZ part décochée, se coche, et la clé part en base (la droite : absente)',
+      avant159 === 'false' && apres159 === 'true' && (base.profiles[0].ma_salle || {}).barre_ez_chargee === true &&
+      (base.profiles[0].ma_salle || {}).barre_droite_chargee === undefined &&
+      JSON.stringify(base.profiles[0].ma_salle.barres_ez) === JSON.stringify([10, 15, 20, 25, 30]),
+      JSON.stringify([avant159, apres159, base.profiles[0].ma_salle]));
+    await ouvrirSalle();
+    const rouverte159 = await bascule159('barres_ez');
+    const droite159 = await bascule159('barres_droites');
+    ok('[159] rouverte : la bascule EZ est cochée, la droite non', rouverte159 === 'true' && droite159 === 'false',
+      JSON.stringify([rouverte159, droite159]));
+    await bouton('Annuler');
+    await aller('/saisie');
+    await demarrerRoutine('Salle 108');
+    await jusqua(async () => { const q = await plan108(); return !!q && q.etat === 'test_propose'; }, 8000);
+    const p159 = await plan108();
+    ok('[159] DISCRIMINANT — à 30 kg avec la barre EZ chargée : le coach teste 32,5 kg (test_propose), plus salle_max',
+      !!p159 && p159.etat === 'test_propose' && !!p159.haut && p159.haut.charge === 32.5, JSON.stringify(p159));
+    await abandonner();
+
     // 4. Effacer : non renseignée, rien ne change pour la suite du banc.
     await ouvrirSalle();
     await bouton('Effacer');
@@ -9928,7 +10210,6 @@ const SETS_IMPORTES = [
     // 2. Une séance, deux séries validées : deux paris à `seche`.
     await onglet('saisie');
     await demarrerRoutine('Phase U11');
-    await attendre(900);
     await saisirSerie(0, 100, 10);
     await saisirSerie(1, 100, 10);
     await attendre(1500);
@@ -9967,7 +10248,6 @@ const SETS_IMPORTES = [
     // 5. La séance SUIVANTE prend la nouvelle phase.
     await aller('/saisie');
     await demarrerRoutine('Phase U11');
-    await attendre(900);
     await saisirSerie(0, 100, 10);
     await attendre(1500);
     const ps = parSeance();
@@ -10034,7 +10314,6 @@ const SETS_IMPORTES = [
     base.profiles[0].objectif = 'les_deux';
     await aller('/saisie');
     await demarrerRoutine('Objectif O60');
-    await attendre(900);
     await saisirSerie(0, 100, 10);
     await saisirSerie(1, 100, 10);
     await attendre(1500);
@@ -10057,7 +10336,6 @@ const SETS_IMPORTES = [
     // 4. La séance SUIVANTE prend le nouvel objectif.
     await aller('/saisie');
     await demarrerRoutine('Objectif O60');
-    await attendre(900);
     await saisirSerie(0, 100, 10);
     await attendre(1500);
     const ps = parSeanceO();
@@ -10069,7 +10347,6 @@ const SETS_IMPORTES = [
     base.profiles[0].objectif = 'force';
     await aller('/saisie');
     await demarrerRoutine('Objectif O60');
-    await attendre(900);
     await saisirSerie(0, 100, 10);
     await attendre(1500);
     base.profiles[0].objectif = 'forme';
@@ -10085,7 +10362,6 @@ const SETS_IMPORTES = [
     base.profiles[0].objectif = null;
     await aller('/saisie');
     await demarrerRoutine('Objectif O60');
-    await attendre(900);
     await saisirSerie(0, 100, 10);
     await attendre(1500);
     const sans = parSeanceO().slice(-1)[0];
@@ -10120,7 +10396,6 @@ const SETS_IMPORTES = [
     base.profiles[0].priorites = ['poitrine'];
     await aller('/saisie');
     await demarrerRoutine('Objectif O60');
-    await attendre(900);
     await saisirSerie(0, 100, 10);
     await attendre(1200);
     const p1 = await prioritesLues();
@@ -10147,7 +10422,6 @@ const SETS_IMPORTES = [
     await terminer();
     await aller('/saisie');
     await demarrerRoutine('Objectif O60');
-    await attendre(900);
     await saisirSerie(0, 100, 10);
     await attendre(1200);
     const p4 = await prioritesLues();
@@ -10157,7 +10431,6 @@ const SETS_IMPORTES = [
     base.profiles[0].priorites = null;
     await aller('/saisie');
     await demarrerRoutine('Objectif O60');
-    await attendre(900);
     await saisirSerie(0, 100, 10);
     await attendre(1200);
     const p5 = await prioritesLues();
@@ -10913,7 +11186,6 @@ const SETS_IMPORTES = [
     // sa routine aux 2 lignes déjà allégées, et n'en couvrait plus qu'une.
     await aller('/saisie');
     await demarrerRoutine('Allégée U14');
-    await attendre(900);
     await menuBloc(0);
     await entree('Remplacer');
     await choisirCatalogue('Tirée U14');
@@ -11541,7 +11813,7 @@ const SETS_IMPORTES = [
     ok('[E] PR 6 — DISCRIMINANT : rouverte en modification, le bandeau dit « 3 séries de travail » (avant : 0, rien n’était validé dans l’app)',
       /(^|\D)3 séries de travail/.test(sp(bandeauCpt)), sp(bandeauCpt).slice(0, 90));
     await page.click('#bandeau-seance .bandeau-fin').catch(() => {});
-    await attendre(2600);
+    await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
     // Le profil : les séries de travail, sur la même règle, contre ce que la
     // base porte (la règle rejouée ici).
     const sansMuscle = new Set(CATALOGUE.filter((e) => !(e.muscles_primaires || []).length).map((e) => e.slug));
@@ -11612,7 +11884,7 @@ const SETS_IMPORTES = [
       routine_exercises: [
         { id: 'r-0310-a', routine_id: 'r-0310', exercise_slug: 'assist-0310', rang: 0,
           routine_sets: progr(2, 8), repos_cible_s: 90, groupe_superset: null, note: null }] });
-    const enBase = () => {
+    const valeurEnBase = () => {
       const id = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
       const l = base.sets.filter((x) => x.session_id === id && x.exercise_slug === 'assist-0310' && x.rang === 1)[0];
       return l ? { charge: l.charge_kg, reps: l.reps } : null;
@@ -11629,7 +11901,7 @@ const SETS_IMPORTES = [
     await saisirSerie(0, '25', 8);
     await attendre(1500);
     ok('[0310] DISCRIMINANT — « 25 » tapé en POSITIF part en base à −25 × 8 (rangé par `rangerAide`)',
-      JSON.stringify(enBase()) === '{"charge":-25,"reps":8}', JSON.stringify(enBase()));
+      JSON.stringify(valeurEnBase()) === '{"charge":-25,"reps":8}', JSON.stringify(valeurEnBase()));
     const affichee = await valeurAffichee();
     ok('[0310] le champ réaffiche la valeur absolue « 25 » : ni signe, ni « Aide » — l’en-tête le dit',
       affichee === '25', JSON.stringify(affichee));
@@ -11637,8 +11909,8 @@ const SETS_IMPORTES = [
     await reps.fill('10');
     await reps.evaluate((e) => e.blur());
     await attendre(900);
-    ok('[0310] les reps retouchées : la charge reste −25', JSON.stringify(enBase()) === '{"charge":-25,"reps":10}',
-      JSON.stringify(enBase()));
+    ok('[0310] les reps retouchées : la charge reste −25', JSON.stringify(valeurEnBase()) === '{"charge":-25,"reps":10}',
+      JSON.stringify(valeurEnBase()));
     const c = await champCharge();
     await c.click();
     await page.keyboard.press('End');
@@ -11647,14 +11919,14 @@ const SETS_IMPORTES = [
     await c.evaluate((e) => e.blur());
     await attendre(900);
     ok('[0310] DISCRIMINANT — la charge retouchée au clavier dans le champ affiché (« 25 » → « 20 ») : −20 en base, pas rien, pas +20',
-      JSON.stringify(enBase()) === '{"charge":-20,"reps":10}', JSON.stringify([enBase(), await valeurAffichee()]));
+      JSON.stringify(valeurEnBase()) === '{"charge":-20,"reps":10}', JSON.stringify([valeurEnBase(), await valeurAffichee()]));
     // Taper un moins reste toléré : `rangerAide` est idempotente, tous les signes moins.
     const c2 = await champCharge();   // le champ a été redessiné à la sortie du précédent
     await c2.fill('-22,5');
     await c2.evaluate((e) => e.blur());
     await attendre(900);
     ok('[0310] un moins tapé quand même (« -22,5 ») donne −22,5, jamais +22,5',
-      JSON.stringify(enBase()) === '{"charge":-22.5,"reps":10}', JSON.stringify(enBase()));
+      JSON.stringify(valeurEnBase()) === '{"charge":-22.5,"reps":10}', JSON.stringify(valeurEnBase()));
     const prec = await page.evaluate(() => {
       const p = document.querySelector('.serie .prec');
       return p ? p.textContent : null;
@@ -11677,7 +11949,7 @@ const SETS_IMPORTES = [
     await page.evaluate(() => document.querySelector('.ok-serie').click());
     await attendre(1500);
     ok('[0310] DISCRIMINANT — la cible positive de la routine (25) est rangée −25 à la validation, jamais +25',
-      JSON.stringify(enBase()) === '{"charge":-25,"reps":8}', JSON.stringify(enBase()));
+      JSON.stringify(valeurEnBase()) === '{"charge":-25,"reps":8}', JSON.stringify(valeurEnBase()));
     await abandonner();
     await aller('/saisie');
     ok('[0310] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
@@ -14172,7 +14444,7 @@ const SETS_IMPORTES = [
     await garderRecap(true);
     await page.click('#feuille-contenu .principal');
     await terminerQuandMeme();
-    await attendre(2600);
+    await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
     const fin = await page.evaluate(() => {
       const g = Array.from(document.querySelectorAll('#recap-corps .recap-groupe.or'))[0];
       return { tete: g ? g.textContent : null,
@@ -14455,11 +14727,6 @@ const SETS_IMPORTES = [
     const fileJ = () => page.evaluate(() => THCache.lireAttente().then((f) => (f || []).map((e) => e.table + ':' + e.id)));
     const etatJ = () => page.evaluate(() => window.THApp && THApp.journal ? THApp.journal() : null);
     const metaJ = () => page.evaluate(() => THCache.lireMeta('journalRecords'));
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); // le pas d'une reprise (158)
-        }
-      return false;
-    };
 
     // ── A. LE REMPLISSAGE : le journal du serveur VIDE, et l'appareil n'a
     // rien décidé — l'état d'un compte au premier démarrage de cette version.
@@ -14526,7 +14793,6 @@ const SETS_IMPORTES = [
     // ── B. « TERMINER » : une ligne par (série, type), rien avant.
     await aller('/saisie');
     await demarrerRoutine('Journal U58');
-    await attendre(1500);
     await saisirSerie(0, 150, 2);
     await saisirSerie(1, 100, 5);
     await saisirSerie(2, 147.5, 6);
@@ -14655,7 +14921,6 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     base.reseau = false;
     await demarrerRoutine('Push');
-    await attendre(1200);
     await saisirSerie(0, 60, 5);
     await terminer();
     const enFile = await fileQ();
@@ -15015,7 +15280,7 @@ const SETS_IMPORTES = [
     await relever('feuille-terminer', '6-terminer');
     await page.click('#feuille-contenu .principal');
     await terminerQuandMeme();
-    await attendre(2600);
+    await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
     await relever('apres-terminer');
 
     // ── C bis. LA SÉANCE DE HUIT EXERCICES, PENDANT UN REPOS (62, la barre de la séance).
@@ -15029,7 +15294,6 @@ const SETS_IMPORTES = [
       ROUTINES.push(routineU62());
       await aller('/saisie');
       await demarrerRoutine('Barre U62');
-      await attendre(1200);
       await saisirSerie(0, 50, 8);
       await attendre(600);
       const huit = await page.evaluate(() => ({ blocs: document.querySelectorAll('.bloc-seance').length,
@@ -15150,7 +15414,7 @@ const SETS_IMPORTES = [
     const clesVues = () => page.evaluate(() => Object.keys(localStorage).filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0));
     const effacerVu = () => page.evaluate(() => Object.keys(localStorage)
       .filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0).forEach((k) => localStorage.removeItem(k)));
-    const cliquerQ = async (sel, pause) => { await page.click(SEL + sel); await attendre(pause || 350); };
+    const cliquerQ = (sel, pause) => cliquer(SEL + sel, '#questionnaire-corps', pause);
     // L'ouverture de lui-même se décide quand la ligne de profil ARRIVE, après la
     // synchronisation : plus elle porte de séances, plus c'est tard (un compte sans
     // cache, après une section qui en a laissé beaucoup, dépasse largement 5 s).
@@ -15201,7 +15465,7 @@ const SETS_IMPORTES = [
       eteintes: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button.inerte')).map((b) => b.dataset.cle),
       pied: Array.from(document.querySelectorAll('#feuille-contenu .feuille-pied button')).map((b) => b.textContent)
     }));
-    const cliquerFeuille = async (sel, pause) => { await page.click('#feuille-contenu ' + sel); await attendre(pause || 450); };
+    const cliquerFeuille = (sel, pause) => cliquer('#feuille-contenu ' + sel, null, pause);
     const rouvrir = async (champs) => {        // l'appareil redémarre sur CETTE ligne de profil
       await effacerVu();
       Object.assign(profilBase(), champs);
@@ -16035,7 +16299,7 @@ const SETS_IMPORTES = [
         recap: Array.from(document.querySelectorAll('#questionnaire-corps .q-resume-ligne, #questionnaire-corps .q-ligne'))
           .map((l) => l.textContent.replace(/[  ]/g, ' ')) };
     });
-    const cliquerR = async (sel, pause) => { await page.click(SEL + sel); await attendre(pause || 450); };
+    const cliquerR = (sel, pause) => cliquer(SEL + sel, '#questionnaire-corps', pause);
     const continuerR = () => cliquerR('.q-continuer', 550);
     const ouvrirLeQuestionnaire = async () => {
       // Joué seul, le banc n'a pas encore de page : le stockage local n'existe qu'une fois l'app ouverte.
@@ -17202,10 +17466,10 @@ const SETS_IMPORTES = [
     const avantFeuille = await barre();
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(600);
-    const feuilleOuverte = /Terminer la séance/.test(await texte('#feuille-contenu'));
+    const feuilleVue = /Terminer la séance/.test(await texte('#feuille-contenu'));
     await fermerFeuille();
     const apresFeuille = await barre();
-    ok('[barre] un tap sur « Terminer » ouvre la feuille de confirmation (comme avant)', feuilleOuverte === true,
+    ok('[barre] un tap sur « Terminer » ouvre la feuille de confirmation (comme avant)', feuilleVue === true,
       (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 50));
     ok('[barre] refermée, la barre est intacte : mêmes titre, durée, séries, boutons, et toujours collée',
       apresFeuille.texte === avantFeuille.texte && apresFeuille.position === 'sticky' &&
@@ -17266,7 +17530,6 @@ const SETS_IMPORTES = [
     // ── O. ANNULER (ABANDONNER) : PAREIL.
     await aller('/saisie');
     await demarrerRoutine('Barre U62');
-    await attendre(800);
     await saisirSerie(0, 50, 8);
     await attendre(500);
     m = await minuteurs();
@@ -17291,7 +17554,7 @@ const SETS_IMPORTES = [
     ok('[barre] et aucun réveil de durée ne tourne en correction (la barre reste collée)',
       m.durees === 0 && m.intervalles === 0 && edition.position === 'sticky', JSON.stringify(m));
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(2600);
+    await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
 
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.
     await decaler(0);
@@ -17399,11 +17662,6 @@ const SETS_IMPORTES = [
         succes: t('#jeu-porte-succes .j-d') };
     });
     const ecrituresDepuis = (n) => base.journal.slice(n).filter((j) => j.op !== 'refus');
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); // le pas d'une reprise (158)
-        }
-      return false;
-    };
     const texteCoach = () => page.evaluate(() => ['#escalier-seance', '#blocs-seance']
       .map((s) => { const n = document.querySelector(s); return n && !n.hidden ? n.innerText.replace(/\s+/g, ' ').trim() : ''; }).join(' ¦ '));
     const basculer = async () => {
@@ -17690,10 +17948,6 @@ const SETS_IMPORTES = [
         meds: Array.from(c.querySelectorAll('.s-med')).map((x) => x.textContent), reag: (c.querySelector('.s-reag') || {}).textContent })),
       demandes: Array.from(document.querySelectorAll('#social-fil .s-demande')).map((d) => d.getAttribute('data-pseudo')),
       fin: (document.querySelector('#social-fil .s-fin') || {}).textContent }));
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
-      return false;
-    };
     const lien = (a, b) => S.abonnements.filter((x) => x.suiveur === a && x.suivi === b)[0] || null;
 
     // ── A. INCONNU → DEMANDE → ACCEPTATION → FIL.
@@ -17935,10 +18189,6 @@ const SETS_IMPORTES = [
     ab('u-lea', 'u-banc', 'demande'); ab('u-banc', 'u-lea'); ab('u-jordan', 'u-banc');
     S.blocages.push({ bloqueur: 'u-banc', bloque: 'u-alexis', cree_le: iso(hier) });
     const lien = (a, b) => S.abonnements.filter((x) => x.suiveur === a && x.suivi === b)[0] || null;
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
-      return false;
-    };
     const fileSociale = () => page.evaluate(() => THCache.lireAttente().then((f) => (f || []).filter((x) => x.table === 'social')
       .sort((a, b) => a.seq - b.seq).map((x) => x.donnees.geste + ':' + (x.donnees.pseudo || ''))));
     const sAttente = (cible) => texte(cible + ' .s-attente');
@@ -18206,10 +18456,6 @@ const SETS_IMPORTES = [
       const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
       largeurs.push({ ecran, doc: l.doc, fen: l.fen });
     };
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
-      return false;
-    };
     const lire = () => page.evaluate(() => {
       const t = (s) => { const n = document.querySelector('#social-ami ' + s); return n ? n.textContent : null; };
       const tous = (s) => Array.from(document.querySelectorAll('#social-ami ' + s)).map((x) => x.textContent);
@@ -18460,10 +18706,6 @@ const SETS_IMPORTES = [
           .map((x) => x.getAttribute('data-session')),
         reagi: !!r.querySelector('.s-fil-guilde .s-reag.s-fait') };
     });
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
-      return false;
-    };
     const largeurs = [];
     const mesurer = async (ecran) => {
       const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
@@ -18471,7 +18713,6 @@ const SETS_IMPORTES = [
     };
     const onglet = async (cle, cond) => { await page.click('#social-guilde button[data-onglet="' + cle + '"]'); await attendreQue(cond); };
     // 107 — un geste se montre fait AUSSITÔT (il passe par la file) : ce que la base en a fait se lit une fois la file vide.
-    const fileVide = () => page.evaluate(() => THCache.lireAttente().then((f) => !(f || []).some((x) => x.table === 'social')));
 
     // ── A. SANS GUILDE : le nom pris par lea, puis libre quand sa guilde (sans membre) a disparu.
     fauxSocial.rpc('u-lea', 'guilde_creer', { p_nom: 'Les Fers du Mardi', p_couleur: '#d9b45a' });
@@ -18492,7 +18733,7 @@ const SETS_IMPORTES = [
     await page.fill('#guilde-nom', 'LES FERS DU MARDÍ');
     await page.click('#guilde-creer');
     await attendreQue(async () => !!(await lire()).nom);
-    await attendreQue(fileVide);
+    await fileVide('social');
     const a2 = await lire();
     const G = fauxSocial.guildeDe('u-banc');
     ok('[guilde] créée : le nom tel que tapé, la couleur choisie, « 1 membre », moi administrateur ; les quatre onglets',
@@ -18540,7 +18781,7 @@ const SETS_IMPORTES = [
         rangRecharge.attente === 'En attente du réseau' && rangRecharge.base === 'Novice', JSON.stringify([rangHors, rangRecharge]));
     base.ecrituresSocialesCoupees = false;
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    await attendreQue(fileVide);
+    await fileVide('social');
     await attendreQue(async () => !(await texte('#social-guilde .s-attente')));
     ok('[guilde] je choisis mon rang (« Terreur ») : les neuf rangs, sans aucun pouvoir',
       S.membres.filter((m) => m.user_id === 'u-banc')[0].rang === 'Terreur' && (await lire()).rangs.length === 9 &&
@@ -18570,7 +18811,7 @@ const SETS_IMPORTES = [
         cSeries.choixDefi.indexOf('series') === 0, JSON.stringify(cSeries));
     await page.click('#social-guilde .s-choix-defi button[data-defi="records"][data-n="3"]');
     await attendreQue(async () => /records? sur 3/.test((await lire()).phrase || ''));
-    await attendreQue(fileVide);
+    await fileVide('social');
     const cAvant = await lire();
     const refusTonnage = fauxSocial.rpc('u-banc', 'guilde_choisir_defi', { p_type: 'tonnage', p_n: 5 });
     // melodie termine une séance : la semaine est lancée, le défi est figé.
@@ -18629,7 +18870,7 @@ const SETS_IMPORTES = [
     const e1 = await lire();
     await page.click('#social-guilde .s-fil-guilde .s-carte[data-session="' + SM + '"] .s-reag');
     await attendreQue(async () => (await lire()).reagi);
-    await attendreQue(fileVide);
+    await fileVide('social');
     ok('[guilde] DISCRIMINANT — melodie en compte public : le fil de la guilde montre sa séance (que je ne suis pas : absente de mon fil), ' +
       'sa médaille, sans note ni poids, SANS « Voir la séance » (121, 05 #11) ; j’y réagis (règle de la guilde)',
       e1.cartes.indexOf(SM) >= 0 && e1.voir.indexOf(SM) < 0 && e1.voir.indexOf(SJ) >= 0 && monFil.indexOf(SM) < 0 &&
@@ -18668,7 +18909,7 @@ const SETS_IMPORTES = [
     // Sous charge, le démarrage (synchronisation, profil, puis la file) peut dépasser 12 s : 30 s, et la page finit de
     // charger avant la navigation suivante (une navigation qui en interrompt une autre laisse des erreurs de page).
     await attendreQue(async () => (S.gscores.filter((x) => x.user_id === 'u-banc')[0] || {}).prevues === 4, 30000);
-    await attendreQue(fileVide);
+    await fileVide('social');
     const prevuesApres = (S.gscores.filter((x) => x.user_id === 'u-banc')[0] || {}).prevues;
     const ecranGuilde = await page.evaluate(() => !document.getElementById('vue-guilde') || !document.getElementById('vue-guilde').hidden);
     ok('[guilde] 121 — DISCRIMINANT — l’écran Guilde jamais ouvert, l’app relancée publie mes nombres périmés (5 → 4 séances prévues) par la file',
@@ -18682,7 +18923,7 @@ const SETS_IMPORTES = [
     await attendreQue(async () => !!(await compter('#guilde-quitter-oui')));
     await page.click('#guilde-quitter-oui');
     await attendreQue(async () => (await lire()).creer);
-    await attendreQue(fileVide);
+    await fileVide('social');
     ok('[guilde] DISCRIMINANT — je pars (j’administrais) : jordan, le plus ancien, administre ; la guilde reste, à deux ; je retrouve « Créer une guilde »',
       S.guildes.length === 1 && S.guildes[0].admin === 'u-jordan' && fauxSocial.rpc('u-jordan', 'guilde_moi')[0].membres === 2 &&
         !fauxSocial.guildeDe('u-banc') && (await lire()).creer, JSON.stringify([S.guildes, S.membres]));
@@ -18763,10 +19004,6 @@ const SETS_IMPORTES = [
     const G = fauxSocial.rpc('u-jordan', 'groupe_creer', { p_session: SJ, p_exercices: ['squat-barre', 'dc-barre'] });
     fauxSocial.rpc('u-jordan', 'groupe_inviter', { p_user: 'u-banc' });
     const enCours = () => (sessions().filter((x) => x.statut === 'en_cours' && x.user_id !== 'u-jordan')[0] || {}).id;
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 8000); t += 200) { if (await cond()) return true; await attendre(200); }
-      return false;
-    };
     const largeurs = [];
     const mesurer = async (ecran) => {
       const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
@@ -19242,11 +19479,6 @@ const SETS_IMPORTES = [
       phase_depuis: new Date(tR - 12 * JOUR).toISOString().slice(0, 10), priorites: ['dos', 'jambes'] });
 
     const chemin = () => page.evaluate(() => location.pathname);
-    const attendreQue = async (cond, ms) => {
-      for (let t = 0; t < (ms || 15000); t += 250) { if (await cond()) return true; await attendre(250); // le pas d'une reprise (158)
-        }
-      return false;
-    };
     const ecran = () => page.evaluate(() => {
       const t = (n) => (n ? n.textContent : '');
       const r = document.getElementById('relecture');
@@ -19999,7 +20231,6 @@ const SETS_IMPORTES = [
 
     // ── 3. UNE SÉANCE « PLUS LOURD » : 84 × 12 sur la ligne à 79 — l'élan ─
     await demarrerRoutine('Rowing C68 ×3');
-    await attendre(900);
     await saisirSerie(0, 84, 12);
     await attendre(700);
     await invariants68('84 × 12 (l’élan)');
@@ -20135,7 +20366,6 @@ const SETS_IMPORTES = [
 
     // ── 2. LA PROPOSITION PRISE, PUIS « À FOND » NOTÉ ─────────────────────
     await demarrerRoutine('Rowing C68B ×4');
-    await attendre(900);
     await saisirSerie(0, 79, 15);
     await attendre(800);
     ok('[C68B] prémisse : 79 × 15, le coach propose 81,3 sur la série 2', (await phrasesB()).some((x) => /^propose \|/.test(x)),
@@ -20158,7 +20388,6 @@ const SETS_IMPORTES = [
     // ⚠️ L'effort doit être sur la série QUAND elle s'observe (à sa validation) :
     // noté après coup, le pari est déjà observé, et l'observation ne change plus.
     await demarrerRoutine('Rowing C68B ×4');
-    await attendre(900);
     await saisirSerie(0, 79, 15);
     await attendre(800);
     const champsB = await (await ligne(1)).$$('input');
@@ -20698,7 +20927,6 @@ const SETS_IMPORTES = [
 
     // ── (b bis) UNE SECONDE SÉANCE, « VOIR LA SÉANCE » → SON DÉTAIL ────────
     await demarrerRoutine('Dos R71 ×4');
-    await attendre(900);
     await saisirSerie(0, 80, 12);
     await attendre(800);
     const idB = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
@@ -20713,7 +20941,6 @@ const SETS_IMPORTES = [
     await allerSaisie();
     await attendre(1200);
     await demarrerRoutine('Dos R71 ×4');
-    await attendre(900);
     await saisirSerie(0, 70, 10);
     await attendre(600);
     await page.click('#bandeau-seance .bandeau-fin');
@@ -20737,7 +20964,7 @@ const SETS_IMPORTES = [
     ok('[R71] (e) prémisse : la séance passée s’ouvre en correction', JSON.stringify(await visible()) === '["vue-seance"]',
       nbR(await visible()));
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(2600);
+    await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
     ok('[R71] (e) l’Édition d’une séance passée, enregistrée : pas de récap',
       !(await recapVu()).visible && JSON.stringify(await visible()) !== '["vue-recap"]', nbR(await visible()));
 
@@ -21446,6 +21673,11 @@ const SETS_IMPORTES = [
       const v = plan100.lignes[i];
       await saisirSerie(i, v.charge, v.vise || 12);
     }
+    // 143-bis — les séries d'avant sont EN BASE avant qu'on compte : `saisirSerie` rend la main quand l'écran est
+    // posé, et la dernière pouvait encore être dans la file (séquentiel : « sets » +1 pendant le ✓ refusé).
+    await reseauCalme();
+    await attendreQue(() => base.sets.filter((s) => s.exercise_slug === 'cran-c100' && !/^c100-/.test(s.session_id)).length >= iNul,
+      10000, { nom: 'C100 les séries d’avant en base' });
     const nSets = base.sets.length;
     const chargeVide = await (await ligne(iNul)).$$eval('input', (l) => [l[0].value, l[0].placeholder]);
     ok('[C100] la ligne du test : aucune charge dans le champ, ni tapée ni en fantôme',
@@ -22178,7 +22410,7 @@ const SETS_IMPORTES = [
         .querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), [i, j]);
       await attendre(800);
     };
-    const enBase = (id) => (base.sets.filter((x) => x.id === id)[0] || {}).ressenti;
+    const ressentiEnBase = (id) => (base.sets.filter((x) => x.id === id)[0] || {}).ressenti;
     // Ce que la série porte à l'écran, au format du formateur (« 60 kg × 9 ») : la phrase cite la série faite.
     const faite78 = (i, j) => page.evaluate(([a, b]) => {
       const sr = window.THPlan.dernier.entrees.seance.exercices[a].series[b];
@@ -22241,14 +22473,14 @@ const SETS_IMPORTES = [
     ok('[Q78] un tap : le bouton s’allume, la question reste tant que le repos dure',
       nb78(q3 && q3.choisi) === nb78(['reste_1']), nb78(q3));
     ok('[Q78] DISCRIMINANT — la file écrit `reste_1` sur la DERNIÈRE série de A, et sur elle seule',
-      enBase(idA2) === 'reste_1' && enBase(idA1) === null,
-      nb78({ A1: enBase(idA1), A2: enBase(idA2) }));
+      ressentiEnBase(idA2) === 'reste_1' && ressentiEnBase(idA1) === null,
+      nb78({ A1: ressentiEnBase(idA1), A2: ressentiEnBase(idA2) }));
 
     await page.click('#repos .repos-q button[data-ressenti="reste_2"]');
     await attendre(2200);
     const q4 = await question78();
     ok('[Q78] un deuxième tap change d’avis : `reste_2`, en base comme à l’écran',
-      enBase(idA2) === 'reste_2' && nb78(q4 && q4.choisi) === nb78(['reste_2']), nb78({ base: enBase(idA2), q4 }));
+      ressentiEnBase(idA2) === 'reste_2' && nb78(q4 && q4.choisi) === nb78(['reste_2']), nb78({ base: ressentiEnBase(idA2), q4 }));
 
     await valider78(1, 0);
     await valider78(1, 1);
@@ -22309,7 +22541,7 @@ const SETS_IMPORTES = [
       const c = await nav.newContext({ viewport: { width: 360, height: 760 } });
       await c.addInitScript(SCRIPT_JETON);
       if (Horloge.DECALAGE) await c.addInitScript(Horloge.scriptNavigateur(Horloge.DECALAGE));
-      await c.route(/supabase\.co/, gestionnaireBanc);
+      await c.route(/supabase\.co/, gestionnaireSuivi);   // 143 — le suivi compte aussi les requêtes de cet appareil
       const p = await c.newPage();
       p.on('pageerror', (e) => erreurs.push('[' + nom + '] ' + String(e).slice(0, 140)));
       return { c, p, fermer: async () => { await p.close(); await c.close(); } };
@@ -22317,7 +22549,7 @@ const SETS_IMPORTES = [
     const seriesDe = (sid) => base.sets.filter((x) => x.session_id === sid).sort((x, y) => x.rang - y.rang)
       .map((x) => x.charge_kg + '×' + x.reps);
     const statutDe = (sid) => (base.sessions.filter((x) => x.id === sid)[0] || {}).statut || null;
-    const enBase = () => base.sessions.map((x) => x.id.slice(0, 8) + ':' + x.statut + ' [' + seriesDe(x.id).join(', ') + ']').join(' | ');
+    const seancesEnBase = () => base.sessions.map((x) => x.id.slice(0, 8) + ':' + x.statut + ' [' + seriesDe(x.id).join(', ') + ']').join(' | ');
     const feuille = (p) => p.evaluate(() => {
       const f = document.getElementById('feuille-seance'), c = document.getElementById('feuille-contenu');
       return { visible: !!f && !f.hidden, texte: c ? c.textContent : '',
@@ -22350,7 +22582,7 @@ const SETS_IMPORTES = [
       nb2(f0.boutons) === nb2(['La continuer ici', 'Pas maintenant']), nb2(f0));
     await repondre(Bv.p, 'Pas maintenant');
     ok('[D2A] S1 — « Pas maintenant » : B n’a pas de séance, celle de A reste en_cours avec ses 2 séries',
-      (await lignesDe(Bv.p)) === 0 && statutDe(idA0) === 'en_cours' && seriesDe(idA0).length === 2, enBase());
+      (await lignesDe(Bv.p)) === 0 && statutDe(idA0) === 'en_cours' && seriesDe(idA0).length === 2, seancesEnBase());
     await Bv.fermer();
 
     // ── S1 : « La continuer ici », puis la suite du 83 (B ne supprime que ce qu'il connaît).
@@ -22363,7 +22595,7 @@ const SETS_IMPORTES = [
     page = pageA; await saisirSerie(2, 80, 9); await attendre(1500);  // la 3ᵉ série de A, que B n'a jamais vue
     page = B.p; await toucher(0, '.ok-serie'); await attendre(1800); // B dévalide SA première série (connue de lui)
     const apresB = seriesDe(idA0);
-    console.log('   S1 — après le geste de B (il dévalide 80 × 10) : ' + enBase());
+    console.log('   S1 — après le geste de B (il dévalide 80 × 10) : ' + seancesEnBase());
     ok('[D2A] S1 — DISCRIMINANT : après le geste de B, la 3ᵉ série de A (80 × 9) est encore en base',
       apresB.indexOf('80×9') >= 0, nb2(apresB));
     ok('[D2A] S1 — la série que B connaît et a dévalidée (80 × 10) est bien retirée par lui',
@@ -22388,18 +22620,18 @@ const SETS_IMPORTES = [
       nb2(f2.boutons) === nb2(['La terminer et commencer', 'Annuler']), nb2(f2));
     await repondre(B2.p, 'Annuler');
     ok('[D2A] S2a — « Annuler » : la séance de A reste en_cours, rien n’est créé',
-      statutDe(idA2) === 'en_cours' && base.sessions.length === nSeances && (await lignesDe(B2.p)) === 0, enBase());
+      statutDe(idA2) === 'en_cours' && base.sessions.length === nSeances && (await lignesDe(B2.p)) === 0, seancesEnBase());
     page = B2.p; await demarrerRoutine('Rowing D2A ×4'); await attendre(1500);
     await repondre(B2.p, 'La terminer et commencer');
     await attendre(1500);
     const idB2 = base.sessions.filter((x) => x.id !== idA2 && x.statut === 'en_cours').map((x) => x.id)[0] || null;
     ok('[D2A] S2b — « La terminer et commencer » : A terminee, B en_cours',
-      statutDe(idA2) === 'terminee' && idB2 !== null, enBase());
+      statutDe(idA2) === 'terminee' && idB2 !== null, seancesEnBase());
     page = B2.p; await saisirSerie(0, 60, 12); await attendre(1500);
 
     // ── S3 : A recharge pendant que la séance de B est vivante → elle reste en_cours.
     page = pageA; await aller('/saisie'); await attendre(1500);
-    ok('[D2A] S3 — A recharge (une séance ici) : la séance vivante de B reste en_cours', statutDe(idB2) === 'en_cours', enBase());
+    ok('[D2A] S3 — A recharge (une séance ici) : la séance vivante de B reste en_cours', statutDe(idB2) === 'en_cours', seancesEnBase());
     await B2.fermer();
     page = pageA; await abandonner().catch(() => {});
     const refusAvantAbandon = base.journal.filter((j) => j.op === 'refus').length;
@@ -22432,7 +22664,7 @@ const SETS_IMPORTES = [
     await saisirSerie(0, 60, 12); await attendre(2000);
     ok('[D2A] abandonnée — D commence : pas de feuille, la vieille séance est refermée, la nouvelle est en_cours',
       !fD.visible && statutDe('d2a-vieille-2') === 'terminee' &&
-      base.sessions.some((x) => x.id !== 'd2a-vieille-2' && x.statut === 'en_cours'), nb2([fD.visible, enBase()]));
+      base.sessions.some((x) => x.id !== 'd2a-vieille-2' && x.statut === 'en_cours'), nb2([fD.visible, seancesEnBase()]));
     await Dd.fermer();
 
     // ── 117 (audit du 16/10, 06 #1) — UNE SÉRIE EFFACÉE SUR UN APPAREIL QUITTE LE CACHE DE L'AUTRE ─────────────
@@ -22531,7 +22763,7 @@ const SETS_IMPORTES = [
       const c = await nav.newContext({ viewport: { width: 360, height: 760 } });
       await c.addInitScript(SCRIPT_JETON);
       await c.addInitScript(Horloge.scriptNavigateur(mercredi - vraiMaintenant));
-      await c.route(/supabase\.co/, gestionnaireBanc);
+      await c.route(/supabase\.co/, gestionnaireSuivi);   // 143 — le suivi compte aussi les requêtes de cet appareil
       const p = await c.newPage();
       p.on('pageerror', (e) => erreurs.push('[' + nom + '] ' + String(e).slice(0, 140)));
       return { c, p, fermer: async () => { await p.close(); await c.close(); } };
@@ -22880,7 +23112,7 @@ const SETS_IMPORTES = [
       const c = await nav.newContext({ viewport: { width: 360, height: 760 } });
       await c.addInitScript(SCRIPT_JETON);
       await c.addInitScript(Horloge.scriptNavigateur(quand.getTime() - (Horloge.DECALAGE || 0) - vraiMaintenant));
-      await c.route(/supabase\.co/, gestionnaireBanc);
+      await c.route(/supabase\.co/, gestionnaireSuivi);   // 143 — le suivi compte aussi les requêtes de cet appareil
       const p = await c.newPage();
       p.on('pageerror', (e) => erreurs.push('[' + nom + '] ' + String(e).slice(0, 140)));
       return { c, p, fermer: async () => { await p.close(); await c.close(); } };
@@ -23096,7 +23328,7 @@ const SETS_IMPORTES = [
     {
       const RETENUE = 9000;
       const brouillonO = () => page.evaluate(() => window.THCache.lireBrouillon('objectifs')).catch(() => null);
-      const fileVide = () => page.evaluate(() => window.THCache.lireAttente().then((f) => (f || []).filter((x) => x.table === 'objectifs').length === 0)).catch(() => false);
+      const fileObjectifsVide = () => page.evaluate(() => window.THCache.lireAttente().then((f) => (f || []).filter((x) => x.table === 'objectifs').length === 0)).catch(() => false);
       const dernierSync = () => page.evaluate(() => {
         const e = document.getElementById('etat-sync');
         return !!e && /À jour/.test(e.textContent || '') && !e.classList.contains('sync');
@@ -23120,12 +23352,12 @@ const SETS_IMPORTES = [
       const D = await ouvrirO('O139', new Date(2026, 9, 16, 12, 0, 0));
       await carteApres();
       await feuilleO(150, 1);
-      await jusqua(async () => base.objectifs.length === 1 && base.objectifs[0].charge_kg === 150 && await fileVide(), 8000);
+      await jusqua(async () => base.objectifs.length === 1 && base.objectifs[0].charge_kg === 150 && await fileObjectifsVide(), 8000);
 
       // a — CHANGER PENDANT LA LECTURE : 155 × 1.
       const enVolA = await lectureRetenue();
       await feuilleO(155, 1);
-      await jusqua(async () => (base.objectifs[0] || {}).charge_kg === 155 && await fileVide(), 8000);
+      await jusqua(async () => (base.objectifs[0] || {}).charge_kg === 155 && await fileObjectifsVide(), 8000);
       const avantLiberationA = Date.now() < base.objectifsLibereA;
       await jusqua(async () => nbO((await carteO() || {}).titre) === nbO('155 kg × 1'), 10000);
       const ligneA = (await carteO() || {}).ligne;
@@ -23164,7 +23396,7 @@ const SETS_IMPORTES = [
       await page.click('#page-exercice .objectif-changer');
       await jusqua(async () => !!(await page.$('#feuille-contenu .feuille-pied .des')), 4000);
       await page.click('#feuille-contenu .feuille-pied .des');
-      await jusqua(async () => base.objectifs.length === 0 && await fileVide(), 8000);
+      await jusqua(async () => base.objectifs.length === 0 && await fileObjectifsVide(), 8000);
       const avantLiberationB = Date.now() < base.objectifsLibereA;
       ok('[O139] b — prémisse : la lecture (160 en main) est en vol, la suppression est en base et sortie de la file, AVANT que la lecture rende',
         enVolB && avantLiberationB && base.objectifs.length === 0, nbO([enVolB, avantLiberationB, base.objectifs]));
@@ -23180,14 +23412,14 @@ const SETS_IMPORTES = [
       await jusqua(syncTerminee, 60000);
       await jusqua(async () => !!(await carteO()), 10000);
       await feuilleO(150, 1);
-      await jusqua(async () => base.objectifs.length === 1 && (base.objectifs[0] || {}).charge_kg === 150 && await fileVide(), 8000);
+      await jusqua(async () => base.objectifs.length === 1 && (base.objectifs[0] || {}).charge_kg === 150 && await fileObjectifsVide(), 8000);
       await jusqua(dernierSync, 60000);
       base.objectifsRetenue = false; base.lenteurObjectifs = RETENUE; base.ecritureApresLecture = true;
       await feuilleO(155, 1);
-      const dansLaFileD = !(await fileVide());
+      const dansLaFileD = !(await fileObjectifsVide());
       await page.evaluate(() => document.getElementById('btn-rafraichir').click());
       const enVolD = await jusqua(async () => base.objectifsRetenue === true, 60000);
-      await jusqua(async () => (base.objectifs[0] || {}).charge_kg === 155 && await fileVide(), 8000);
+      await jusqua(async () => (base.objectifs[0] || {}).charge_kg === 155 && await fileObjectifsVide(), 8000);
       base.ecritureApresLecture = false;
       ok('[O139] d — prémisse : le geste 155 × 1 attendait dans la file quand la lecture (150) est partie ; il arrive en base après elle, avant qu’elle rende',
         dansLaFileD && enVolD && Date.now() < base.objectifsLibereA && (base.objectifs[0] || {}).charge_kg === 155,
@@ -23245,10 +23477,10 @@ const SETS_IMPORTES = [
       }
     };
     const remplir115 = async (i, charge, reps) => {
-      const l = await ligne(i);
-      const champs = await l.$$('input');
-      await champs[0].fill(String(charge));
-      await champs[1].fill(String(reps));
+      // 143 — des localisateurs (voir `saisirSerie`) : la ligne est retrouvée si l'écran se redessine entre deux gestes.
+      const champ = (k) => page.locator('.ligne-serie').nth(i).locator('input').nth(k);
+      await champ(0).fill(String(charge));
+      await champ(1).fill(String(reps));
       await attendre(500);
     };
 
@@ -23299,7 +23531,6 @@ const SETS_IMPORTES = [
     ROUTINES.push(ROUTINE_115);
     await sansSeance115();
     await demarrerRoutine(ROUTINE_115.nom);
-    await attendre(1200);
     await saisirSerie(0, 70, 5);
     await saisirSerie(1, 72.5, 5);
     await attendre(1800);
@@ -23380,7 +23611,7 @@ const SETS_IMPORTES = [
     await page.click('#bandeau-seance .bandeau-fin');
     await attendre(600);
     await page.click('#feuille-contenu .principal');
-    await attendre(2600);
+    await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
     ok('[115-E2] la séance se termine avec les séries restantes (60 × 8, et la nouvelle de 122 : 75 × 3)',
       base.sessions.some((x) => x.id === idE2 && x.statut === 'terminee') && setsE2().length === 2,
       JSON.stringify(setsE2().map((x) => [x.charge_kg, x.reps])));
@@ -23389,7 +23620,6 @@ const SETS_IMPORTES = [
     // sans elle, la feuille de fin propose d'abandonner, pas de terminer (voir plus bas).
     await sansSeance115();
     await demarrerRoutine(ROUTINE_115.nom);
-    await attendre(1200);
     await saisirSerie(0, 70, 5);
     await remplir115(1, 62.5, 6);
     await attendre(1200);
@@ -23418,7 +23648,7 @@ const SETS_IMPORTES = [
     await page.click('#feuille-contenu .principal');
     await attendre(800);
     await entree115('Terminer quand même');
-    await attendre(2600);
+    await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
     const setsE4 = base.sets.filter((x) => x.session_id === idE4);
     ok('[115-E4] « Terminer quand même » : la séance est terminée, la série validée (70 × 5) est gardée, la série remplie (62,5 × 6) ne l’est pas',
       base.sessions.some((x) => x.id === idE4 && x.statut === 'terminee') && setsE4.length === 1 &&
@@ -23445,7 +23675,9 @@ const SETS_IMPORTES = [
     await demarrerRoutine(ROUTINE_115.nom);
     await seanceMontee115();
     await remplir115(0, 62.5, 6);
-    await jusqua(async () => (await valeurs115())[0] === '62,5×6', 6000);
+    // 143 — la case porte « 62.5 » tant qu'elle n'a pas perdu le focus : la comparaison à « 62,5 » ne venait JAMAIS (6 s
+    // de plafond perdues à chaque passage, que personne ne voyait). Le point ou la virgule.
+    await jusqua(async () => /^62[.,]5×6$/.test((await valeurs115())[0]), 6000);
     const idE12a = enCours115();
     await page.click('#bandeau-seance .bandeau-fin');
     await feuilleAvec115('^Terminer la séance');
@@ -23700,7 +23932,6 @@ const SETS_IMPORTES = [
     // séances passées de la routine), puis « Pour les mêmes muscles » ; jamais ce qui est déjà dans la séance.
     await sansSeance126();
     await demarrerRoutine(ROUTINE_126.nom);
-    await attendre(1200);
     await page.click('#btn-ajouter-exo-seance');
     await attendre(600);
     let c126 = await catalogue126();
@@ -24068,7 +24299,7 @@ const SETS_IMPORTES = [
     await attendre(300);
     if (await page.$('#feuille-contenu .principal')) await page.click('#feuille-contenu .principal');
     await terminerQuandMeme();
-    await attendre(2600);
+    await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
     await jusqua(async () => (sets131('rando-u131')[0] || {}).denivele_m === 920, 6000);
     ok('[131] F — DISCRIMINANT : le D+ tapé sur la feuille part avec la séance (920 m), la durée et la distance inchangées',
       (sets131('rando-u131')[0] || {}).denivele_m === 920 && sets131('rando-u131')[0].duree_s === 11400 &&
@@ -24708,7 +24939,7 @@ const SETS_IMPORTES = [
     };
     const ouvrirFin147 = async () => {
       await page.click('#bandeau-seance .bandeau-fin');
-      await feuilleAvec('.principal');
+      await feuilleOuverte('.principal');
       await page.click('#feuille-contenu .principal');
     };
     const dernierSet = () => base.sets.map((x) => Date.parse(x.validee_a)).sort((a, b) => b - a)[0];
@@ -24964,7 +25195,7 @@ const SETS_IMPORTES = [
     // D. LE RÉCAP : les trois médailles, et le bloc « Le jeu » avec le cap de 5 km.
     await garderRecap(true);
     await page.click('#bandeau-seance .bandeau-fin');
-    await feuilleAvec('.principal');
+    await feuilleOuverte('.principal');
     await page.click('#feuille-contenu .principal');
     await terminerQuandMeme();
     await jusqua(() => page.evaluate(() => document.querySelectorAll('#recap-corps .recap-rec .l1').length >= 3), 8000);
@@ -24994,6 +25225,136 @@ const SETS_IMPORTES = [
     ok('[H153] aucun refus du faux serveur (les quatre types et `palier_m` passent), la garde (C6) n’a rien signalé, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refus153 && gardeBanc.violations === violations153 && erreurs.length === erreurs153,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus153), gardeBanc.liste.slice(-2), erreurs.slice(erreurs153)]));
+  }
+
+  console.log('\n══ effort-vise. L’EFFORT VISÉ : « GARDE-EN 1 », LES PUCES SOUS LA DERNIÈRE SÉRIE, LA PHRASE, PUIS LE TEST DE LA SÉANCE SUIVANTE (154, MOTEUR §9.26) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice à la barre, 40 kg × 9 trois séances de suite (zone Hypertrophie, Normal : « garde-en 1 »).
+  // Séance du jour : trois séries validées — les puces « Il t’en restait combien ? » n’apparaissent qu’après la DERNIÈRE ; « 3 et + » écrit
+  // `reste_3_plus` sur elle seule et la phrase du coach suit (« …Au-dessus de ce que je visais : la prochaine fois, on essaie 42,5 kg. »).
+  // Séance suivante (la réponse est dans l’historique) : le test à 42,5 kg et son pourquoi. « Passer » : rien n’est écrit. Aucun délai fixe.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    CATALOGUE.push({ slug: 'ev154-a', nom: 'Exercice EV154 A (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
+    const t154 = Date.now();
+    base.sessions = [];
+    base.sets = [];
+    [21, 14, 7].forEach((j) => {
+      const id = 'ev154-h' + j;
+      const debut = ilYa(j * 86400000, t154).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'EV154 — ' + id, debut,
+        fin: finDe(debut, t154).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((k) => base.sets.push({
+        id: id + '-' + k, session_id: id, user_id: 'u-banc', exercise_slug: 'ev154-a',
+        charge_kg: 40, reps: 9, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: k, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    ROUTINES.push({ id: 'r-ev154', nom: 'Effort visé U154', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-ev154-a', routine_id: 'r-ev154', exercise_slug: 'ev154-a', rang: 0, routine_sets: progr(3, 9),
+        repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const sp154 = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ').replace(/\s+/g, ' ').trim();
+    const valider154 = async (j) => {
+      await casesSiVides(await ligneDuBloc(0, j));
+      await page.evaluate((k) => document.querySelectorAll('.bloc-seance')[0]
+        .querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), j);
+      await jusqua(() => page.evaluate((k) => !!document.querySelectorAll('.bloc-seance')[0]
+        .querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie.cochee'), j), 6000);
+    };
+    const puces154 = () => page.evaluate(() => {
+      const n = document.querySelector('.bloc-seance .effort-vise');
+      if (!n) return null;
+      const lignes = Array.from(document.querySelectorAll('.bloc-seance .ligne-serie'));
+      // La ligne qui précède (une médaille peut s'intercaler entre la rangée et les puces).
+      let prec = n.previousElementSibling;
+      while (prec && !lignes.some((l) => l === prec || prec.contains(l))) prec = prec.previousElementSibling;
+      return { apres: lignes.findIndex((l) => prec && (l === prec || prec.contains(l))), question: (n.querySelector('.effort-vise-q') || {}).textContent || null,
+        boutons: Array.from(n.querySelectorAll('button')).map((b) => b.textContent),
+        phrase: (n.querySelector('.effort-vise-dit') || {}).textContent || null };
+    });
+    const entete154 = () => page.evaluate(() => {
+      const c = document.querySelector('.legende-exo .consigne');
+      const g = document.querySelector('.legende-exo .consigne[data-garde]');
+      return { garde: g ? g.getAttribute('data-garde') : null, nb: document.querySelectorAll('[data-garde]').length,
+        dit: (document.querySelector('.legende-exo .consigne-dit') || {}).textContent || null,
+        jaune: Array.from(document.querySelectorAll('.legende-exo .consigne')).map((x) => x.textContent), c: !!c };
+    });
+        const nb154 = (x) => JSON.stringify(x).replace(/[\u00a0\u202f]/g, ' ');
+    const ressentiDuJour = () => base.sets.filter((x) => !/^ev154-h/.test(x.session_id) && x.exercise_slug === 'ev154-a').map((x) => x.ressenti);
+
+    // A. LA SÉANCE DU JOUR.
+    await aller('/saisie');
+    await demarrerRoutine('Effort visé U154');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 3), 8000);
+    const e0 = await entete154();
+    ok('[EV154] DISCRIMINANT — l’en-tête dit « garde-en 1 », une seule fois (pas sur chaque ligne)',
+      e0.garde !== null && sp154(e0.garde) === 'garde-en 1' && e0.nb === 1, JSON.stringify(e0));
+    await valider154(0);
+    await valider154(1);
+    ok('[EV154] DISCRIMINANT — jamais de puces avant la DERNIÈRE série de travail', (await puces154()) === null, JSON.stringify(await puces154()));
+    await valider154(2);
+    await jusqua(async () => (await puces154()) !== null, 6000);
+    const p1 = await puces154();
+    ok('[EV154] après la dernière série : « Il t’en restait combien ? », 0 · 1 · 2 · 3 et + · Passer, sous la troisième ligne',
+      !!p1 && sp154(p1.question) === 'Il t’en restait combien ?' && sp154(p1.boutons.join('|')) === '0|1|2|3 et +|Passer' && p1.apres === 2, JSON.stringify(p1));
+    await page.click('.bloc-seance .effort-vise button[data-ressenti="reste_3_plus"]');
+    await jusqua(() => ressentiDuJour().some((r) => r === 'reste_3_plus'), 8000);
+    await jusqua(async () => { const p = await puces154(); return !!p && p.phrase !== null; }, 8000);
+    const p2 = await puces154();
+    ok('[EV154] « 3 et + » : `reste_3_plus` écrit sur UNE série, la dernière',
+      nb154(ressentiDuJour()) === nb154([null, null, 'reste_3_plus']), nb154(ressentiDuJour()));
+    ok('[EV154] DISCRIMINANT — la phrase du coach : « …il t’en restait 3. Au-dessus de ce que je visais : la prochaine fois, on essaie 42,5 kg. »',
+      !!p2 && /^40 kg × \d+, il t’en restait 3\. Au-dessus de ce que je visais : la prochaine fois, on essaie 42,5 kg\.$/.test(sp154(p2.phrase)) &&
+        p2.boutons.length === 0, JSON.stringify(p2));
+    const v154 = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? window.THPlan.verifierPlan(d.plan, d.entrees) : { ok: false, erreurs: ['aucun plan calculé'] };
+    });
+    ok('[EV154] invariants du plan (I56 à I58 compris)', v154.ok, JSON.stringify(v154.erreurs.slice(0, 3)));
+    await abandonner();
+
+    // B. LA SÉANCE SUIVANTE : la réponse est dans l’historique ; le test, et son pourquoi.
+    const derniere = base.sets.filter((x) => x.id === 'ev154-h7-3')[0];
+    derniere.ressenti = 'reste_3_plus';
+    await aller('/saisie');
+    await demarrerRoutine('Effort visé U154');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 3), 8000);
+    await jusqua(async () => (await entete154()).dit !== null, 6000);
+    const e1 = await entete154();
+    ok('[EV154] DISCRIMINANT — la séance suivante pose le test à 42,5 kg, SOUS le haut de la zone, et dit pourquoi',
+      e1.jaune.some((t) => /42,5/.test(sp154(t))) &&
+        sp154(e1.dit) === 'On essaie 42,5 kg : la dernière fois, 40 kg × 9 avec 3 en réserve.', JSON.stringify(e1));
+    await abandonner();
+
+    // C. « PASSER » : rien n’est écrit, plus de puces.
+    derniere.ressenti = null;
+    await aller('/saisie');
+    await demarrerRoutine('Effort visé U154');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 3), 8000);
+    await valider154(0); await valider154(1); await valider154(2);
+    await jusqua(async () => (await puces154()) !== null, 6000);
+    await page.click('.bloc-seance .effort-vise button[data-passer="1"]');
+    await jusqua(async () => (await puces154()) === null, 6000);
+    ok('[EV154] DISCRIMINANT — « Passer » : plus de puces, et RIEN d’écrit (aucune réserve présumée)',
+      (await puces154()) === null && ressentiDuJour().every((r) => r === null || r === undefined), nb154(ressentiDuJour()));
+    await abandonner();
+
+    // LA REMISE EN ÉTAT.
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[EV154] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb154([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

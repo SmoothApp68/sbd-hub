@@ -870,7 +870,7 @@
     // Les routines ne sont pas dans le cache, mais elles appartiennent au
     // compte précédent : les laisser en mémoire montrerait la bibliothèque de
     // quelqu'un d'autre le temps d'une requête.
-    routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };
+    routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
     // La séance en cours et la file appartiennent au compte précédent. Le
     // changement de compte ci-dessus a vidé leurs magasins (la file, gardée à
     // part pour lui) ; on remet la mémoire d'accord avec le disque.
@@ -3589,8 +3589,10 @@
             continue;
           }
           if (issue.suite === 'abandonnee') {
-            console.warn('Observation orpheline abandonnée (' + op.cle + ') : son pari n\u2019est pas en base, ' +
-              'et sa séance n\u2019a plus rien à envoyer.');
+            console.warn(op.table === Attente.OBJECTIFS
+              ? 'Objectif abandonné (' + op.cle + ') : son pari n\u2019est pas en base et n\u2019est plus dans la file.'
+              : 'Observation orpheline abandonnée (' + op.cle + ') : son pari n\u2019est pas en base, ' +
+                'et sa séance n\u2019a plus rien à envoyer.');
             continue;
           }
           if (issue.suite === 'attend') continue;
@@ -4675,6 +4677,25 @@
     if (!s || !Seance.partEnBase(s)) return null;
     if ((s.rpe !== null && s.rpe !== undefined) || s.ressenti) return null;
     return { iExo: iExo, iSerie: iSerie, id: s.id };
+  }
+
+  // 154 (MOTEUR §9.26) — LES PUCES DE L'EFFORT VISÉ. Le plan dit sur quelle série (`x.effortVise.serie`), si elles se
+  // posent (`demande`) et la phrase d'après ; l'écran n'ajoute que « Passer », qui ne se retient que pour la session
+  // et n'écrit RIEN (jamais une réserve présumée).
+  var effortPasse = {};
+  function effortViseSurLigne(iExo, iSerie) {
+    var x = planDeLExercice(iExo);
+    var e = x && x.effortVise;
+    if (!e || e.serie !== iSerie) return null;
+    var s = seance && seance.exercices[iExo] && seance.exercices[iExo].series[iSerie];
+    if (!s || !Seance.partEnBase(s)) return null;
+    var demande = e.demande && !effortPasse[s.id];
+    if (!demande && !e.phrase) return null;
+    return {
+      cle: s.id, demande: demande, phrase: e.phrase,
+      surChoix: function (ressenti) { noterEffort(iExo, iSerie, { ressenti: ressenti }); },
+      surPasser: async function () { effortPasse[s.id] = true; await apresGeste(); rendreChrono(); }
+    };
   }
 
   // Ce que la carte de repos montre de la question : la série telle qu'elle est À CET INSTANT (le bouton choisi
@@ -8072,6 +8093,12 @@
       surValider: validerSerie,
       // §9.14 (49-R2) — la phrase du coach et la ligne proposée.
       reaction: reactionSurLigne,
+      // 154 (MOTEUR §9.26) — l'effort visé : « garde-en N » dans l'en-tête, les puces sous la dernière série.
+      reserveVisee: function (iExo) {
+        var x = planDeLExercice(iExo);
+        return x && x.reserveVisee !== undefined ? x.reserveVisee : null;
+      },
+      effortVise: effortViseSurLigne,
       // MOTEUR §9.23 (55-1) — la médaille, sous la rangée d'une série validée.
       medaille: medailleSurLigne,
       // ⚠️ CORRIGER AU CLAVIER UNE SÉRIE VALIDÉE REDESSINE LE BLOC (P10), mais
@@ -9416,6 +9443,45 @@
     };
   }
 
+  // ══ 155 — L'APP RELIT LES ROUTINES AU RETOUR (décision d'Aurélien du 24/10/2026) ══
+  //
+  // Les routines n'ont pas de cache et `synchroniser` ne les lisait jamais : une routine changée ailleurs
+  // n'apparaissait qu'au rechargement de la page. À la ré-entrée (retour au premier plan), on relit — au plus
+  // une fois par minute, JAMAIS pendant une séance ni quand l'éditeur d'une routine (ou une feuille de
+  // renommage / duplication) est ouvert : on n'écrase pas ce qu'on modifie. Un échec garde l'affichage. On ne
+  // remplace `routines` que si la signature a changé.
+  var RELECTURE_ROUTINES_MS = 60000;
+  var derniereLectureRoutines = 0;
+
+  function relectureRoutinesPermise() {
+    return etatRoutines.code === 'ok' && !seance && brouillon === null && vues.routine.hidden &&
+      !duplication && !renommage;
+  }
+
+  function signatureDesRoutines(liste) {
+    return JSON.stringify((liste || []).map(function (r) {
+      return [r.id, r.nom, r.dossier === undefined ? null : r.dossier, r.modifiee_a || null, r.archivee_a || null];
+    }));
+  }
+
+  async function relireRoutinesAuRetour() {
+    if (!relectureRoutinesPermise()) return false;
+    if (Date.now() - derniereLectureRoutines < RELECTURE_ROUTINES_MS) return false;
+    derniereLectureRoutines = Date.now();
+    try {
+      var brutes = await Donnees.mesRoutines();
+      // Pendant la lecture, un éditeur a pu s'ouvrir : on ne touche à rien.
+      if (!relectureRoutinesPermise()) return false;
+      var neuves = brutes.map(normaliserRoutine);
+      if (signatureDesRoutines(neuves) === signatureDesRoutines(routines)) return false;
+      routines = neuves;
+      return true;
+    } catch (e) {
+      console.warn('Routines non relues :', texteErreur(e));
+      return false;
+    }
+  }
+
   async function chargerRoutines() {
     etatRoutines = { code: 'charge', message: '' };
     // Sans routines, pas de « Démarrer » : attendre ici la vérification de la
@@ -9426,6 +9492,7 @@
       var brutes = await Donnees.mesRoutines();
       routines = brutes.map(normaliserRoutine);
       etatRoutines = { code: 'ok', message: '' };
+      derniereLectureRoutines = Date.now();
       return true;
     } catch (e) {
       // On ne vide pas `routines` : ce qu'on avait affiché reste affiché. Un
@@ -9503,6 +9570,8 @@
       dossiersDeProgramme: dossiersDeProgramme,
       surProgramme: function (d) { ouvrirProgramme(d, null); },
       surBadgeProgramme: ouvrirBlocEnCours,
+      // 155 — le menu « \u22ef » du dossier.
+      surMenuDossier: ouvrirMenuDossier,
       surCommencerBloc: commencerBlocSuivant,
       surAjusterBloc: function (d) {
         var b = Moteur.blocEnCours(local.blocs, d);
@@ -9537,6 +9606,84 @@
     brancherReorg('liste-routines');
     brancherAppuiLong('liste-routines');
     rendrePiedReorg();
+  }
+
+  // ══ 155 — RENOMMER UN DOSSIER (décision d'Aurélien du 24/10/2026) ═════════
+  //
+  // Toutes les routines du dossier (archivées comprises), puis tous ses cycles, puis le profil et l'état
+  // « replié ». Les routines d'abord, EN DIRECT : si le réseau manque, la première écriture échoue et RIEN n'a
+  // bougé (ni cycle, ni profil). Une écriture qui échoue en route rend les précédentes. Les paris gardent leur
+  // dossier d'origine (immuables) et rien ne relit ce nom comme clé.
+  var renommage = null;   // { ancien, erreur, enCours }
+
+  function planDeRenommage(ancien, texte) {
+    return Routines.planRenommageDossier(routines, local.blocs || [], ancien, texte, instantDuJour());
+  }
+
+  function ouvrirMenuDossier(dossier) {
+    Rendu.rendreFeuilleMenuDossier($('feuille-contenu'), {
+      dossier: dossier,
+      surRenommer: function () { ouvrirRenommerDossier(dossier); },
+      surAnnuler: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  function ouvrirRenommerDossier(dossier) {
+    renommage = { ancien: dossier, erreur: '', enCours: false };
+    rendreFeuilleRenommer();
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  function rendreFeuilleRenommer() {
+    var ancien = renommage.ancien;
+    Rendu.rendreFeuilleRenommerDossier($('feuille-contenu'), {
+      nom: renommage.texte === undefined ? ancien : renommage.texte,
+      erreur: renommage.erreur,
+      verdict: function (texte) {
+        var p = planDeRenommage(ancien, texte);
+        var phrase = Routines.phraseRenommage(routinesDuDossier(ancien).length, !!Moteur.blocEnCours(local.blocs, ancien));
+        return { ok: p.ok, message: p.message, phrase: p.message ? '' : phrase };
+      },
+      surRenommer: function (texte) { renommerDossier(ancien, texte); },
+      surAnnuler: function () { renommage = null; fermerVoile(); }
+    });
+  }
+
+  async function renommerDossier(ancien, texte) {
+    if (!renommage || renommage.enCours) return;
+    var plan = planDeRenommage(ancien, texte);
+    if (!plan.ok) return;
+    renommage.enCours = true;
+    renommage.texte = texte;   // un échec rend la feuille avec ce qui était tapé
+    var faites = [];
+    try {
+      for (var i = 0; i < plan.routines.length; i++) {
+        await Donnees.majRoutine(plan.routines[i].id, plan.routines[i].champs);
+        faites.push(plan.routines[i].id);
+      }
+    } catch (e) {
+      for (var j = 0; j < faites.length; j++) {
+        try { await Donnees.majRoutine(faites[j], { dossier: ancien }); } catch (e2) { /* rendu au mieux */ }
+      }
+      renommage.enCours = false;
+      renommage.erreur = Routines.messageErreur({ erreur: Routines.classerErreur(e) });
+      return rendreFeuilleRenommer();
+    }
+    for (var k = 0; k < plan.blocs.length; k++) await poserBloc(plan.blocs[k]);
+    if (profil && profil.programme_construit_dossier === ancien) {
+      var champs = Profil.preparerChamps(profil, { programme_construit_dossier: plan.nouveau }, new Date());
+      if (Object.keys(champs).length) poserProfil(champs).catch(function () {});
+    }
+    if (dossiersReplies[ancien]) {
+      dossiersReplies[plan.nouveau] = dossiersReplies[ancien];
+      delete dossiersReplies[ancien];
+      memoriserDossiersReplies();
+    }
+    renommage = null;
+    fermerVoile();
+    await chargerRoutines();
+    if (!vues.saisie.hidden && !seance) rendreSaisie();
   }
 
   // §7 duodecies.3 (52-1) — LES DOSSIERS REPLIÉS. Un confort de lecture, propre
@@ -12588,6 +12735,8 @@
     await synchroniser();
     vidanger();
     rendreEtatSync();
+    // 155 — les routines aussi, avant de redessiner.
+    await relireRoutinesAuRetour();
     // Comme à la fin de l'entrée complète : une synchronisation de fond ne
     // reprend jamais la main sur un écran en cours d'édition — le questionnaire
     // compris (60-2a) : il perdrait l'écran où l'on en est.
@@ -12753,7 +12902,7 @@
     notesEnCours = {};
     // Les routines vivent en mémoire, pas dans le cache — mais elles
     // appartiennent quand même au compte qui part.
-    routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };
+    routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
     seance = null; attente = []; chrono = null; arreterMinuteur();
     oublierSuppressionDifferee();
     // 106 — le groupe aussi, et ses messages gardés hors ligne (leur brouillon vient d'être vidé) : les envoyer au nom du
@@ -13721,7 +13870,9 @@
     return null;
   }
 
-  // Le pari part avant la ligne ; aucun ne dépend de l'autre. Local d'abord (le cache), puis la file.
+  // Le pari part avant la ligne. 157 — l'objectif DÉPEND de son pari (`depend`) et se pose EN FIN DE FILE (`alaFin`) :
+  // reposé hors ligne alors que son entrée attend encore, il passe derrière le nouveau pari, et un pari refusé le
+  // retient. « Juste un carnet » (sans pari) : inchangé. Local d'abord (le cache), puis la file.
   async function ecrireObjectif(slug, ligne, pari) {
     versionObjectifs++;
     local.objectifs = (local.objectifs || []).filter(function (l) { return l && l.exercise_slug !== slug; }).concat([ligne]);
@@ -13732,7 +13883,7 @@
       await poser({ table: Attente.PREDICTIONS, op: Attente.UPSERT, id: pari.id, depend: pari.id, donnees: pari });
     }
     versionObjectifs++;   // 139 — l'entrée entre dans la file ICI, derrière le pari : une lecture partie entre-temps est périmée aussi
-    await poser({ table: Attente.OBJECTIFS, op: Attente.UPSERT, id: slug, donnees: ligne });
+    await poser({ table: Attente.OBJECTIFS, op: Attente.UPSERT, id: slug, depend: pari ? pari.id : null, alaFin: !!pari, donnees: ligne });
   }
 
   // Audit du 16/10/2026, 01 #11 — LE RETOUR EN PROGRESSER : un objectif posé en « Juste un carnet » reçoit sa date
@@ -14253,6 +14404,7 @@
           erreur = null;
           redessiner();
         },
+        surBarreChargee: function (type, oui) { brouillon = Profil.poserBarreChargee(brouillon, type, oui); erreur = null; redessiner(); },
         surParNom: function (parNom) { brouillon = Profil.poserParNom(brouillon, parNom); erreur = null; redessiner(); },
         surValider: function () {
           // 116 (03 #8) — un « jusqu'à » vidé ou illisible n'efface pas les haltères déclarés : la feuille reste

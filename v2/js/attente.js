@@ -477,6 +477,16 @@
     return code === '23503' || code === AUCUNE_LIGNE;
   }
 
+  // 157 (24/10/2026, décision d'Aurélien) — L'OBJECTIF PART TOUJOURS APRÈS SON PARI. Il se pose avec `depend` = l'id du
+  // pari et `alaFin` (`ecrireObjectif`) ; un 23503 sur `objectifs` (clé `pari_id`) attend le pari comme une
+  // observation attend sa série, ou s'abandonne si le pari n'est plus en file.
+  function attendSonPari(op, erreur) {
+    return !!op && op.table === OBJECTIFS && op.op !== SUPPRIMER && !!op.depend && !!erreur && String(erreur.code || '') === '23503';
+  }
+  function pariEnFile(file, op) {
+    return (file || []).some(function (e) { return e && e.table === PREDICTIONS && e.id === op.depend; });
+  }
+
   // ⚠️ L'OBSERVATION ORPHELINE EST ABANDONNÉE — et seulement elle (29/09/2026).
   //
   // `TH000` : son pari n'est pas en base. Tant que sa séance a encore une
@@ -571,7 +581,7 @@
   // `raison` restreint aux observations qui attendent pour cette raison-là.
   function libererObservations(file, seanceId, raison) {
     return (file || []).map(function (e) {
-      if (!e.attend || e.table !== OBSERVATIONS || e.depend !== seanceId) return e;
+      if (!e.attend || (e.table !== OBSERVATIONS && e.table !== OBJECTIFS) || e.depend !== seanceId) return e;
       if (raison && e.attend !== raison) return e;
       return Object.assign({}, e, { attend: null });
     });
@@ -608,6 +618,12 @@
       return { file: sans, suite: 'caduque' };
     }
     if (orpheline(file, op, erreur)) {
+      return { file: retirer(file, op.cle, op.version || 1), suite: 'abandonnee' };
+    }
+    // 157 — un objectif refusé en 23503 (son `pari_id` n'est pas en base) : tant que son pari est encore en file, il
+    // attend ; quand le pari n'y est plus (refusé, retiré, déjà parti sans monter), il ne montera jamais : abandonné.
+    if (attendSonPari(op, erreur)) {
+      if (pariEnFile(file, op)) return { file: marquerAttente(file, op.cle, 'pari'), suite: 'attend' };
       return { file: retirer(file, op.cle, op.version || 1), suite: 'abandonnee' };
     }
     if (attendSaSerie(op, erreur)) {

@@ -1387,11 +1387,18 @@
     var parNom = v.elastiques_par_nom;
     if (el === null || mini === null) return undefined;
     if (parNom !== undefined && parNom !== null && typeof parNom !== 'boolean') return undefined;
-    if (!ez.length && !droites.length && h === null && !el.length && !mini.length && parNom !== true) return null;
+    // 159 — « une barre EZ / droite qu'on charge » : deux booléens, absents = non (v2_111, `profiles_ma_salle_chargees_ok`).
+    var chEz = v.barre_ez_chargee, chDr = v.barre_droite_chargee;
+    if ((chEz !== undefined && chEz !== null && typeof chEz !== 'boolean') ||
+        (chDr !== undefined && chDr !== null && typeof chDr !== 'boolean')) return undefined;
+    if (!ez.length && !droites.length && h === null && !el.length && !mini.length && parNom !== true &&
+        chEz !== true && chDr !== true) return null;
     var s = { barres_ez: ez, barres_droites: droites, halteres: h };
     if (el.length) s.elastiques = el;
     if (mini.length) s.mini_bandes = mini;
     if (parNom === true) s.elastiques_par_nom = true;
+    if (chEz === true) s.barre_ez_chargee = true;
+    if (chDr === true) s.barre_droite_chargee = true;
     return s;
   }
   // La salle d'un profil, lisible, ou `null` (absente, illisible, ou une colonne pas encore là : rien ne change).
@@ -1411,8 +1418,10 @@
                  }) : null,
                  elastiques: (s.elastiques || []).map(function (e) { return Object.assign({}, e); }),
                  mini_bandes: (s.mini_bandes || []).map(function (e) { return Object.assign({}, e); }),
-                 elastiques_par_nom: s.elastiques_par_nom === true }
-             : { barres_ez: [], barres_droites: [], halteres: null, elastiques: [], mini_bandes: [], elastiques_par_nom: false };
+                 elastiques_par_nom: s.elastiques_par_nom === true,
+                 barre_ez_chargee: s.barre_ez_chargee === true, barre_droite_chargee: s.barre_droite_chargee === true }
+             : { barres_ez: [], barres_droites: [], halteres: null, elastiques: [], mini_bandes: [], elastiques_par_nom: false,
+                 barre_ez_chargee: false, barre_droite_chargee: false };
   }
   function basculerBarre(brouillon, type, kg) {
     var b = Object.assign({}, brouillon);
@@ -1590,6 +1599,18 @@
     l.splice(vers, 0, e);
     return avecListe(brouillon, liste, l);
   }
+  // 159 — la bascule « J'ai aussi une barre EZ / droite qu'on charge » (`type` : 'barres_ez' | 'barres_droites').
+  var CLE_CHARGEE = { barres_ez: 'barre_ez_chargee', barres_droites: 'barre_droite_chargee' };
+  function poserBarreChargee(brouillon, type, oui) {
+    var o = {};
+    o[CLE_CHARGEE[type]] = oui === true;
+    return Object.assign({}, brouillon || {}, o);
+  }
+  function barreChargee(brouillon, type) {
+    return !!brouillon && brouillon[CLE_CHARGEE[type]] === true;
+  }
+  // Au-delà de la plus lourde barre fixe : des crans de 2,5 kg jusqu'à 100 kg (30 → 32,5, 35 …).
+  var SALLE_CRAN_CHARGEE = 2.5;
   function poserParNom(brouillon, parNom) {
     return Object.assign({}, brouillon || {}, { elastiques_par_nom: parNom === true });
   }
@@ -1606,6 +1627,9 @@
     var t = [];
     if (s.barres_ez.length) t.push('EZ');
     if (s.barres_droites.length) t.push(t.length ? 'droite' : 'Barre droite');
+    // 159 — déclarée seule (aucune barre fixe de ce type), la barre qu'on charge se lit quand même.
+    if (!s.barres_ez.length && s.barre_ez_chargee) t.push(t.length ? 'EZ chargée' : 'Barre EZ chargée');
+    if (!s.barres_droites.length && s.barre_droite_chargee) t.push(t.length ? 'droite chargée' : 'Barre droite chargée');
     if (s.halteres) t.push(t.length ? 'haltères' : 'Haltères');
     // 132 — les élastiques.
     if (s.elastiques) t.push(t.length ? 'élastiques' : 'Élastiques');
@@ -1821,6 +1845,17 @@
     }
     var ez = estBarreEZ(Object.assign({ slug: slug }, fiche));
     var liste = ez ? s.barres_ez : s.barres_droites;
+    // 159 (MOTEUR §10 bis) — « une barre de ce type qu'on charge » : les barres fixes déclarées, puis, au-delà de la plus
+    // lourde, des crans de 2,5 kg jusqu'à 100 kg. Sans barre fixe déclarée : la salle n'en dit rien (`null`).
+    if (liste.length && (ez ? s.barre_ez_chargee : s.barre_droite_chargee) === true) {
+      var etendue = liste.slice();
+      for (var k = 1; ; k++) {
+        var c = Math.round((liste[liste.length - 1] + k * SALLE_CRAN_CHARGEE) * 100) / 100;
+        if (c > SALLE_BARRE_MAX) break;
+        etendue.push(c);
+      }
+      liste = etendue;
+    }
     return liste.length ? avecIsolation({ materiel: ez ? 'barre_ez' : 'barre_droite', charges: liste.slice() }, fiche) : null;
   }
 
@@ -2082,7 +2117,7 @@
     salleValide: salleValide, salleDe: salleDe, brouillonSalle: brouillonSalle, basculerBarre: basculerBarre,
     // 132 (ECRAN-PROFIL §2.4 sexies) — les deux listes d'élastiques.
     ELASTIQUES_MAX: ELASTIQUES_MAX, peutAjouterElastique: peutAjouterElastique, ajouterElastique: ajouterElastique,
-    retirerElastique: retirerElastique, deplacerElastique: deplacerElastique, poserParNom: poserParNom,
+    retirerElastique: retirerElastique, deplacerElastique: deplacerElastique, poserParNom: poserParNom, poserBarreChargee: poserBarreChargee, barreChargee: barreChargee,
     PHRASE_GRANDS_ELASTIQUES: PHRASE_GRANDS_ELASTIQUES, PHRASE_MINI_BANDES: PHRASE_MINI_BANDES, PHRASE_PAR_NOM: PHRASE_PAR_NOM,
     pucesDeBarres: pucesDeBarres, champsSalle: champsSalle, poserMaxHalteres: poserMaxHalteres,
     poserPasHalteres: poserPasHalteres, halteresGardees: halteresGardees,

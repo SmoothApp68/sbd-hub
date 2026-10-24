@@ -173,6 +173,8 @@ Une colonne plutôt que quatre : une seule écriture par « Valider », une seul
 n'est pas lancée (le profil se lit et s'écrit sans elle, le mécanisme du prompt 104), et une forme imbriquée (deux
 listes et une plage) qu'une contrainte valide entière.
 
+
+**Une barre qu'on charge (24/10/2026, décision d'Aurélien, prompt 159, maquette `maquette-barre-ez-chargee-v1.html`).** Sous les puces de chaque barre, une bascule : « J'ai aussi une barre EZ qu'on charge avec des disques » (et « … une barre droite … »). Décochée par défaut ; elle s'écrit `barre_ez_chargee` / `barre_droite_chargee` (`true` seulement, `false` ne s'écrit pas). Cochée, les charges de cette barre continuent au-delà de la plus lourde barre fixe par crans de 2,5 kg (MOTEUR §10 bis). Une app d'avant 159 qui réécrit Ma salle perd la clé (pas de parade).
 ### 2.4 sexies Mes élastiques — décidé le 17/10/2026, précisé le 21/10/2026 (chantier B3, prompt 132)
 
 Dans Ma salle (§2.4 quinquies), **deux listes**, chacune rangée **de la plus forte à la plus légère** en les glissant

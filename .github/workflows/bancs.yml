@@ -1,0 +1,119 @@
+name: Bancs
+
+# 158 — les bancs tournent sur GitHub (machines en parallèle, dépôt public) :
+# la coche du job « banc-sequentiel » tient lieu du séquentiel de fin de chantier.
+# Pas sur `push` (tout tournerait deux fois). Aucun secret, aucune variable SUPABASE_* :
+# la garde réseau des bancs (tests/banc/garde-reseau.js) reste la seule porte vers le réseau.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: bancs-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+  # 158 — le banc est calibré pour l'heure d'Aurélien (Haut-Rhin) : les semaines, les « aujourd'hui » et les
+  # fenêtres de date se calculent dans le fuseau du navigateur. GitHub tourne en UTC ; sans cette ligne, des
+  # contrôles de date lisent un autre jour que sur la machine de Claude (Europe/Paris).
+  TZ: Europe/Paris
+
+jobs:
+  banc-complet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Aucun secret, aucune adresse de la base dans l'environnement
+        shell: bash
+        run: |
+          if env | grep -Ei 'supabase\.co|SUPABASE|eyJ[A-Za-z0-9_-]{20,}'; then
+            echo "::error::une variable d'environnement touche à Supabase ou ressemble à une clé"; exit 1
+          fi
+      - name: Version de Playwright
+        id: pw
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - run: npx playwright install --with-deps chromium
+      - name: Banc complet (npm test + routines + service worker + création du profil + séance en parallèle)
+        shell: bash
+        run: |
+          export CHROME_BIN="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          node tests/banc/tout.js 2>&1 | tee banc-complet.txt
+      - name: Résumé
+        if: always()
+        shell: bash
+        run: |
+          { echo '### Banc complet'; echo '```'; sed -n '/══ TOUT/,$p' banc-complet.txt | head -40; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Annotations (lisibles par l'API REST)
+        if: always()
+        run: node .github/annoter.js "Banc complet" banc-complet.txt $(grep -oP "code [1-9] .*journal \K\S+" /tmp/tout-*/banc-d-cran*.txt | head -3)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: banc-complet
+          path: banc-complet.txt
+          retention-days: 7
+
+  banc-sequentiel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 130
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Aucun secret, aucune adresse de la base dans l'environnement
+        shell: bash
+        run: |
+          if env | grep -Ei 'supabase\.co|SUPABASE|eyJ[A-Za-z0-9_-]{20,}'; then
+            echo "::error::une variable d'environnement touche à Supabase ou ressemble à une clé"; exit 1
+          fi
+      - name: Version de Playwright
+        id: pw
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - run: npx playwright install --with-deps chromium
+      - name: Machine
+        shell: bash
+        run: |
+          echo "nproc=$(nproc)"; free -m; df -h /dev/shm /tmp
+      - name: Banc de séance séquentiel (la référence)
+        shell: bash
+        run: |
+          export CHROME_BIN="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          node tests/banc/seance-rapide.js --sequentiel --rapport seq.json 2>&1 | tee banc-sequentiel.txt
+      - name: Résumé
+        if: always()
+        shell: bash
+        run: |
+          { echo '### Banc séquentiel'; echo '```'; grep -E 'contrôles ·|en échec|\[exception\]' banc-sequentiel.txt | tail -20; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Annotations (lisibles par l'API REST)
+        if: always()
+        run: node .github/annoter.js "Banc séquentiel" banc-sequentiel.txt $(grep -oP "code [1-9] .*journal \K\S+" banc-sequentiel.txt | head -1)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: banc-sequentiel
+          path: |
+            banc-sequentiel.txt
+            seq.json
+          retention-days: 7

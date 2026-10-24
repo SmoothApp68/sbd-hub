@@ -2013,9 +2013,12 @@ const SETS_IMPORTES = [
   // bougé. C'est l'état qu'attend `aller()` (« le réseau s'est tu »), au lieu d'un délai fixe.
   // 143 — `compte` : le nombre de requêtes PARTIES depuis le début. Une aide qui attend « le geste est monté » le lit
   // avant le geste, puis exige qu'il ait augmenté : sans cela, un réseau déjà calme rendrait l'attente vraie d'avance.
-  const reseauBanc = { enVol: 0, dernier: Date.now(), compte: 0 };
+  const reseauBanc = { enVol: 0, dernier: Date.now(), compte: 0, sets: 0 };
   const gestionnaireSuivi = async (route) => {
     reseauBanc.enVol++; reseauBanc.compte++; reseauBanc.dernier = Date.now();
+    // 158 — les ÉCRITURES de la table `sets` : une requête quelconque (profil, records…) partie pendant le geste ne prouve
+    // pas que la série est PARTIE ; sur GitHub, `serieMontee` rendait vrai avant l'envoi de la série et le contrôle lisait une base vide.
+    { const rq = route.request(); if (!/^(GET|HEAD|OPTIONS)$/.test(rq.method()) && /\/rest\/v1\/sets(\?|$)/.test(rq.url())) reseauBanc.sets++; }
     try { return await gestionnaireBanc(route); }
     finally { reseauBanc.enVol--; reseauBanc.dernier = Date.now(); }
   };
@@ -2206,7 +2209,25 @@ const SETS_IMPORTES = [
 
   // Les lignes de série sont réparties dans plusieurs blocs : on les adresse par
   // leur index GLOBAL, pas par `nth-child`, qui compterait l'en-tête du bloc.
-  const ligne = async (i) => (await page.$$('.ligne-serie'))[i];
+  // 161 — UNE POIGNÉE VIVANTE, pas une poignée gardée. `(await page.$$('.ligne-serie'))[i]` rendait un nœud ; la grille se
+  // redessine après une validation, le nœud se périmait entre deux gestes (« Element is not attached ») et la section
+  // plantait au hasard sous charge. `vive(loc)` garde un LOCALISATEUR et retrouve l'élément à CHAQUE appel — mêmes
+  // méthodes que l'ElementHandle utilisé par le banc ($eval, $$eval, $, $$, evaluate, boundingBox, fill, click, type).
+  const vive = (loc) => ({
+    $eval: (sel, fn, arg) => loc.locator(sel).first().evaluate(fn, arg),
+    $$eval: (sel, fn, arg) => loc.locator(sel).evaluateAll(fn, arg),
+    $: async (sel) => ((await loc.locator(sel).count()) ? vive(loc.locator(sel).first()) : null),
+    $$: async (sel) => Array.from({ length: await loc.locator(sel).count() }, (_, k) => vive(loc.locator(sel).nth(k))),
+    evaluate: (fn, arg) => loc.evaluate(fn, arg),
+    boundingBox: () => loc.boundingBox(),
+    scrollIntoViewIfNeeded: () => loc.scrollIntoViewIfNeeded(),
+    fill: (v) => loc.fill(v),
+    click: (o) => loc.click(o),
+    type: (t, o) => loc.pressSequentially(t, o)
+  });
+  const ligne = async (i) => vive(page.locator('.ligne-serie').nth(i));
+  // 161 — le champ `champ` de la ligne `i`, retrouvé à chaque appel (les tableaux `[0]` de l'ancienne forme s'y réduisent).
+  const champsDe = (i, champ) => vive(page.locator('.ligne-serie').nth(i)).$$('[data-champ="' + champ + '"] input');
   // 115 (audit du 16/10, E1) — « Abandonner et tout effacer » DEMANDE dès qu'une série est faite : la
   // confirmation porte le même rouge (`.danger`). Sans série faite, aucune feuille : l'abandon est immédiat.
   // 115 (audit du 16/10, E4) — « Terminer » DEMANDE quand des séries remplies ne sont pas validées : les
@@ -2265,7 +2286,7 @@ const SETS_IMPORTES = [
       await attendre(300);
     }
   };
-  const ligneDuBloc = async (iBloc, k) => (await (await page.$$('.bloc-seance'))[iBloc].$$('.ligne-serie'))[k];
+  const ligneDuBloc = async (iBloc, k) => vive(page.locator('.bloc-seance').nth(iBloc).locator('.ligne-serie').nth(k));
 
   // ── 143 — LES AIDES D'ÉTAT ──────────────────────────────────────────────
   // Chaque délai fixe d'une aide devient l'attente de l'ÉTAT que lit le contrôle qui suit — jamais un état déjà vrai
@@ -2286,7 +2307,7 @@ const SETS_IMPORTES = [
     const a = document.activeElement;
     return !!l.querySelector('.case-vide') || (!!a && a.tagName === 'INPUT' && l.contains(a));
   }, i).catch(() => false);
-  const departGeste = async (i) => ({ c0: reseauBanc.compte, f0: await lireFile('sets'), t0: Date.now(),
+  const departGeste = async (i) => ({ c0: reseauBanc.compte, s0: reseauBanc.sets, f0: await lireFile('sets'), t0: Date.now(),
     refus0: typeof i === 'number' ? await refusVisible(i) : false });
   const enBase = (pred, ms, opts) => jusqua(async () => { try { return !!(await pred()); } catch (e) { return false; } },
     ms || 6000, opts || 'enBase');
@@ -2304,6 +2325,18 @@ const SETS_IMPORTES = [
     const t = (await texte(sel)).trim();
     return attendu instanceof RegExp ? attendu.test(t) : t === attendu;
   }, ms || 6000, opts || ('texteVaut ' + sel));
+  // 161 — « Chargement… » N'EST PAS L'ÉTAT FINAL D'UN ÉCRAN SOCIAL. Au retour du réseau (`online`) ou après un geste, l'app
+  // relit le profil / la guilde et repasse un instant par « Chargement… » (voir `rendreGuilde`, « l'écran clignotait ») : une
+  // attente satisfaite AVANT ce clignotement, suivie d'une lecture, lit le placeholder. `sansChargement(sel)` attend que le
+  // conteneur ne dise plus « Chargement… » (ou qu'il soit caché), deux lectures de suite : l'état posé, pas son passage.
+  const sansChargement = (sel, nom) => {
+    let avant = false;
+    return jusqua(async () => {
+      const pose = await page.evaluate((x) => { const n = document.querySelector(x);
+        return !n || n.offsetParent === null || !/Chargement…/.test(n.textContent); }, sel).catch(() => false);
+      const rend = pose && avant; avant = pose; return rend;
+    }, 10000, nom || ('sansChargement ' + sel));
+  };
   // La séance écrite sur le disque de l'appareil : une lecture du magasin, derrière l'écriture déjà demandée (les
   // transactions d'un même magasin passent dans l'ordre). Une page tuée juste après un geste ne perd rien de ce que
   // le geste vient d'écrire — c'est ce que le délai fixe d'avant garantissait sans le dire.
@@ -2374,7 +2407,7 @@ const SETS_IMPORTES = [
     }, i);
     let vu = '';
     const stable = suivreEcran();
-    return jusqua(async () => {
+    const monte = await jusqua(async () => {
       const ecran = await stable();   // lu à chaque tour, pour voir ses changements
       const etat = await lireCochee().catch(() => null);
       vu = 'cochée=' + etat + ' voulue=' + voulue + ' requêtes=' + (reseauBanc.compte - d.c0) + ' en vol=' + reseauBanc.enVol + ' écran stable=' + ecran;
@@ -2383,8 +2416,22 @@ const SETS_IMPORTES = [
       // Le faux serveur REFUSE tout (`base.reseau = false`) : l'envoi a été tenté, il a échoué, la ligne reste dans la file.
       if (!base.reseau) return reseauBanc.compte > d.c0 && reseauBanc.enVol === 0 && (await lireFile('sets')) > 0;
       if (reseauBanc.compte <= d.c0 || reseauBanc.enVol !== 0 || Date.now() - reseauBanc.dernier < 150 * RALENTI) return false;
+      if (voulue && depart && typeof i === 'number' && !(reseauBanc.sets > d.s0)) return false;   // 158 — la série n'est pas encore PARTIE
       return ecran && ((await lireFile('sets')) <= d.f0 || Date.now() - reseauBanc.dernier >= 700 * RALENTI);
     }, 3000, { nom: 'serieMontee ' + (typeof i === 'function' ? 'rangée' : i), detail: () => vu });
+    if (monte) await poseApresGeste();   // 161 — le redessin qui suit l'écriture est posé avant que le contrôle lise
+    return monte;
+  };
+  // 161 — L'ÉCRAN POSÉ APRÈS UN GESTE. Le réseau calme et 150 ms sans redessin ne prouvent pas que l'app a FINI : le plan se
+  // recalcule après une lecture du disque, et sous charge le redessin (la phrase du coach, la proposition) arrive après le
+  // calme. Les transactions d'un même magasin passent dans l'ordre : une lecture du brouillon revient quand les écritures
+  // demandées sont faites ; deux images, puis un écran qui ne bouge plus pendant 150 ms (× ralenti) — jamais un délai fixe.
+  const poseApresGeste = async () => {
+    await brouillonPose();
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))).catch(() => {});
+    const stable = suivreEcran();
+    await stable();
+    return jusqua(() => stable(), 5000, 'poseApresGeste');
   };
   // 135 — chaque pas attend son état : la feuille de fin ouverte (son bouton là), puis la séance sortie de l'écran et
   // le réseau calme (la séance, ses séries, ses records sont partis par la file).
@@ -3434,7 +3481,7 @@ const SETS_IMPORTES = [
     (envs, k) => envs[k] ? envs[k].classList.contains('chrono') : false, i);
 
   const saisirChamps = async (iBloc, valeurs) => {
-    const bloc = (await page.$$('.bloc-seance'))[iBloc];
+    const bloc = vive(page.locator('.bloc-seance').nth(iBloc));   // 161 — retrouvé à chaque appel
     const champs = await bloc.$$('.serie input');
     for (let i = 0; i < valeurs.length; i++) {
       if (await estChrono(bloc, i)) {
@@ -3517,7 +3564,7 @@ const SETS_IMPORTES = [
     return { valeur: i.value, tampon: i.dataset.chiffres, mode: i.inputMode };
   });
   const frapper = async (suite) => {
-    const i = (await page.$$('.bloc-seance'))[3];
+    const i = vive(page.locator('.bloc-seance').nth(3));
     const champ = (await i.$$('.serie input'))[0];
     await champ.click();
     await champ.type(String(suite), { delay: 30 });
@@ -3755,6 +3802,8 @@ const SETS_IMPORTES = [
   await saisirSerie(0, 100, 5);
   await saisirSerie(1, 100, 5);
   await saisirSerie(2, 100, 5);
+  // 158 — la 3e série part un peu après son coche : on attend l'ÉTAT en base, pas un délai.
+  await jusqua(async () => notesEnBase('squat-barre').length === 3, 6000);
   ok('TOUTES les séries de cet exercice portent la note en base',
     notesEnBase('squat-barre').length === 3 &&
     notesEnBase('squat-barre').every((n) => n === 'Barre basse, ceinture'),
@@ -3764,6 +3813,8 @@ const SETS_IMPORTES = [
   await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
   await attendre(600);
   await saisirSerie(3, 105, 5);
+  // 158 — sur GitHub la base n'a pas toujours reçu la 4e série quand on la lit : on attend l'ÉTAT, pas un délai.
+  await jusqua(async () => notesEnBase('squat-barre').length === 4, 6000);
   ok('une série ajoutée APRÈS la note la reçoit aussi',
     notesEnBase('squat-barre').length === 4 &&
     notesEnBase('squat-barre').every((n) => n === 'Barre basse, ceinture'),
@@ -5238,7 +5289,7 @@ const SETS_IMPORTES = [
   const validerToutes = async () => {
     const n = await compter('.ligne-serie');
     for (let i = 0; i < n; i++) {
-      const l = (await page.$$('.ligne-serie'))[i];
+      const l = await ligne(i);
       await casesSiVides(l);
       await l.$eval('.ok-serie', (b) => b.click());
       await attendre(200);   // rapprochées, comme un pouce sur l'appareil
@@ -5267,6 +5318,25 @@ const SETS_IMPORTES = [
     await cliquerAbandon();
     await confirmerAbandon();
     await seanceSortie();   // 135 — l'état, plus 1 600 ms fixes
+  };
+  // 161 — UNE SECTION QUI PLANTE REND UN ÉTAT PROPRE. Une exception laissait la séance (ou une feuille) ouverte : la section
+  // suivante démarrait dans la vue séance, la bibliothèque n'était pas à l'écran, `demarrerRoutine` allait au plafond et
+  // tout le reste tombait en cascade. Le découpeur résistant (`seance-sections.js`) l'appelle dans son `catch` : feuille
+  // fermée, séance abandonnée PAR LE GESTE DE L'APP (à défaut, le brouillon et la séance en cours de la base de papier
+  // sont effacés), retour sur `/saisie`. Elle ne cache rien : l'exception reste un contrôle en échec.
+  const remettreAPropre = async () => {
+    const feuilleOuverteMaintenant = () => page.evaluate(() => { const f = document.getElementById('feuille-seance'); return !!f && !f.hidden; }).catch(() => false);
+    const seanceOuverte = () => page.evaluate(() => { const v = document.getElementById('vue-seance'); return !!v && !v.hidden; }).catch(() => false);
+    if (await feuilleOuverteMaintenant()) {
+      await page.click('#btn-fermer-feuille', { timeout: 3000 }).catch(() => {});
+      await feuilleFermee(3000);
+    }
+    if (await seanceOuverte()) { try { await abandonner(); } catch (e) { /* le repli ci-dessous */ } }
+    if (await seanceOuverte() || (await sessions().filter((x) => x.statut === 'en_cours').length)) {
+      await page.evaluate(() => window.THCache.ecrireBrouillon('seance', null)).catch(() => {});
+      base.sessions = base.sessions.filter((x) => x.statut !== 'en_cours');
+    }
+    await aller('/saisie');
   };
   // 143 — la vue que montre chaque onglet (racine : la liste des séances ; saisie : la saisie, ou la séance en cours).
   const VUES_DE_L_ONGLET = { racine: ['vue-liste'], saisie: ['vue-saisie', 'vue-seance'], progression: ['vue-progression'],
@@ -7309,7 +7379,7 @@ const SETS_IMPORTES = [
     const repsDe = (i) => page.evaluate((k) =>
       document.querySelectorAll('.ligne-serie')[k].querySelectorAll('input')[1].value, i);
     const taperReps = async (i, v) => {
-      const champs = await (await ligne(i)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(i).locator('input').nth(k));  // 158 — localisateurs
       await champs[1].fill(String(v));
       await attendre(500);
     };
@@ -7349,7 +7419,7 @@ const SETS_IMPORTES = [
     // UUID tirés au hasard — le décor exact qui a fait lire « 4-5-4 » à la
     // séance du 20/09, alors que l'écran montrait 5, 4, 4.
     const taper = async (i, charge, reps) => {
-      const champs = await (await ligne(i)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(i).locator('input').nth(k));  // 158 — localisateurs
       await champs[0].fill(String(charge));
       await champs[1].fill(String(reps));
       await attendre(450);
@@ -7377,7 +7447,7 @@ const SETS_IMPORTES = [
     // 68A (décision E, 11/10/2026) — 130 tapé sur des lignes à 125 : la ligne
     // ajoutée est une ligne d'élan, et une ligne d'élan ne se valide pas sans
     // ses reps (comme la ligne proposée). On les tape, puis on valide.
-    await (await (await ligne(3)).$$('input'))[1].fill('4');
+    await page.locator('.ligne-serie').nth(3).locator('input').nth(1).fill('4');
     await attendre(450);
     await valider(3);
     ok('[C6] la quatrième validée : le constat revient',
@@ -7593,7 +7663,7 @@ const SETS_IMPORTES = [
 
     // ── UNE VALEUR CORRIGÉE APRÈS COUP ────────────────────────────────────
     const taper = async (i, champ, v) => {
-      const champs = await (await ligne(i)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(i).locator('input').nth(k));  // 158 — localisateurs
       await champs[champ].fill(String(v));
     };
     // 135 — une correction monte par la file : on attend qu'elle soit en base (l'état que lit le contrôle).
@@ -7738,10 +7808,9 @@ const SETS_IMPORTES = [
       20000, '143 · [P] les deux instances ont dessiné la séance');
     await attendre(300);
     await Promise.all([p1, p2].map(async (p) => {
-      const l = (await p.$$('.ligne-serie'))[0];
-      const champs = await l.$$('input');
-      await champs[0].fill(String(planOuvert[0][0]));
-      await champs[1].fill(String(planOuvert[0][1]));
+      const champs = p.locator('.ligne-serie').nth(0).locator('input');   // 161 — localisateur, retrouvé à chaque frappe
+      await champs.nth(0).fill(String(planOuvert[0][0]));
+      await champs.nth(1).fill(String(planOuvert[0][1]));
     }));
     await Promise.all([p1, p2].map((p) => p.evaluate(() =>
       document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click())));
@@ -7793,10 +7862,12 @@ const SETS_IMPORTES = [
     });
     const idSeance = () => base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0];
     const quitterChamp = async (i, champ, v) => {
-      const champs = await (await ligne(i)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(i).locator('input').nth(k));  // 158 — localisateurs
+      const depart = await departGeste();
       await champs[champ].fill(String(v));
       await champs[champ].evaluate((e) => e.blur());
-      await attendre(900);
+      await calmeApres(depart, 300);   // 161 — l'état (le réseau s'est tu), plus 900 ms fixes
+      await poseApresGeste();
     };
 
     // ── LA PROPOSITION, PUIS LA MONTÉE PRISE ─────────────────────────────
@@ -7845,7 +7916,7 @@ const SETS_IMPORTES = [
     // Les reps tapées, la charge laissée au fantôme du coach : la montée tient.
     const bas = Number(fourchette.split('-')[0]);
     {
-      const champs = await (await ligne(1)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(1).locator('input').nth(k));  // 158 — localisateurs
       await champs[1].fill(String(bas));
       await (await ligne(1)).$eval('.ok-serie', (b) => b.click());
       await attendre(900);
@@ -7896,6 +7967,8 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await demarrerRoutine('Terre');
     await saisirSerie(0, c1, vise + 3);
+    // 158 — la phrase se rend un peu après la validation, plus tard encore sur GitHub : on attend l'ÉTAT.
+    await jusqua(async () => (await phrases()).length === 1, 6000);
     ok('[R] (effort) la proposition est affichée', (await phrases()).length === 1,
       JSON.stringify(await phrases()));
     await toucher(0, '.eff-serie');
@@ -8102,7 +8175,7 @@ const SETS_IMPORTES = [
       JSON.stringify({ base: dire(sid), local: local2 && [local2.set_observe, local2.valeur_observee] }));
     // s1 porte maintenant le rang 2 (alignement par la fin). Une frappe sur
     // ses reps refait SON observation — et rien d'autre.
-    const champs = await (await ligne(0)).$$('input');
+    const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(0).locator('input').nth(k));  // 158 — localisateurs
     await champs[1].fill(String(plan[0][1] + 1));
     await champs[1].evaluate((e) => e.blur());
     await attendre(1500);
@@ -11356,7 +11429,7 @@ const SETS_IMPORTES = [
     await attendre(1200);
     const idRJ = enCoursId();
     const validerTel = async (i) => {
-      const l = (await page.$$('.ligne-serie'))[i];
+      const l = await ligne(i);
       await l.$eval('.ok-serie', (b) => b.click());
       await attendre(450);
     };
@@ -14878,7 +14951,7 @@ const SETS_IMPORTES = [
     const avantD = JSON.stringify(lignesDe(setsJ[1]).concat(lignesDe(setsJ[2])));
     await ouvrirMenuDe('Journal U58');
     await entree('Modifier');
-    const champsD = await (await ligne(0)).$$('input');
+    const champsD = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(0).locator('input').nth(k));  // 158 — localisateurs
     await champsD[0].fill('152.5');
     await attendre(600);
     const ecrituresAvantD = base.ecrituresRecords.length;
@@ -18349,6 +18422,8 @@ const SETS_IMPORTES = [
     fauxSocial.appeler('u-olga', 'POST', 'blocages', { bloqueur: 'u-olga', bloque: 'u-banc' });
     const partis3 = await retour();
     await attendreQue(async () => (await compter('#social-ami .s-introuvable')) === 1);
+    await sansChargement('#social-ami');   // 161 — le profil relu après le retour passe un instant par « Chargement… »
+    await attendreQue(async () => (await compter('#social-ami .s-introuvable')) === 1);
     const h3b = { texte: await texte('#social-ami'), sync: (await texte('#etat-sync')).trim() };
     ok('[social 107] H3 — DISCRIMINANT — refusé au retour (olga m’a bloqué entre-temps) : l’écran le dit en une phrase, puis l’état RÉEL ' +
       '(son profil n’est plus visible) — pas « Demande envoyée », pas son profil d’avant ; la file est vide, rien n’est « refusé » en attente',
@@ -18471,7 +18546,7 @@ const SETS_IMPORTES = [
       const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
       largeurs.push({ ecran, doc: l.doc, fen: l.fen });
     };
-    const lire = () => page.evaluate(() => {
+    const lire = async () => { await sansChargement('#social-ami'); return page.evaluate(() => {
       const t = (s) => { const n = document.querySelector('#social-ami ' + s); return n ? n.textContent : null; };
       const tous = (s) => Array.from(document.querySelectorAll('#social-ami ' + s)).map((x) => x.textContent);
       return { mois: t('.s-mois-seances'), tonnes: t('.s-mois-tonnes'), exos: Array.from(document.querySelectorAll('#social-ami .s-exo-ami'))
@@ -18482,7 +18557,7 @@ const SETS_IMPORTES = [
         communs: Array.from(document.querySelectorAll('#social-ami .s-commun')).map((c) => ({ slug: c.getAttribute('data-slug'),
           qui: Array.from(c.querySelectorAll('.s-commun-qui')).map((x) => x.textContent), barre: /poids de corps égal/.test(c.textContent) })),
         retour: document.getElementById('btn-retour-ami').textContent, texte: document.getElementById('social-ami').textContent };
-    });
+    }); };
     const entre = () => page.evaluate(() => ({
       rangs: Array.from(document.querySelectorAll('#exercice-entre-amis .s-rang')).map((r) => ({ t: r.querySelector('.s-t').textContent,
         kg: r.querySelector('.s-sc').textContent, moi: r.classList.contains('s-moi') })),
@@ -18702,7 +18777,7 @@ const SETS_IMPORTES = [
     S.sets.push({ id: 'sm-1', session_id: SM, exercise_slug: 'rowing-barre', rang: 1, charge_kg: 50, reps: 8, type_serie: 'travail', rpe: 9,
       note: 'dos', ressenti: 'dur', douleur: 'non', poids_corps_kg: 61 });
     S.records.push({ set_id: 'sm-1', session_id: SM, battu_le: dM, exercise_slug: 'rowing-barre', type: 'charge_a_reps', valeur: 50, reps: 8 });
-    const lire = () => page.evaluate(() => {
+    const lire = async () => { await sansChargement('#social-guilde'); return page.evaluate(() => {
       const r = document.getElementById('social-guilde');
       const t = (s) => { const n = r.querySelector(s); return n ? n.textContent : null; };
       const tous = (s) => Array.from(r.querySelectorAll(s)).map((x) => x.textContent);
@@ -18720,7 +18795,7 @@ const SETS_IMPORTES = [
         voir: Array.from(r.querySelectorAll('.s-fil-guilde .s-carte')).filter((x) => !!x.querySelector('.s-voir'))
           .map((x) => x.getAttribute('data-session')),
         reagi: !!r.querySelector('.s-fil-guilde .s-reag.s-fait') };
-    });
+    }); };
     const largeurs = [];
     const mesurer = async (ecran) => {
       const l = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, fen: window.innerWidth }));
@@ -20405,7 +20480,7 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Rowing C68B ×4');
     await saisirSerie(0, 79, 15);
     await attendre(800);
-    const champsB = await (await ligne(1)).$$('input');
+    const champsB = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(1).locator('input').nth(k));  // 158 — localisateurs
     await champsB[0].fill('81.3');
     await champsB[1].fill('12');
     await attendre(450);
@@ -21698,7 +21773,7 @@ const SETS_IMPORTES = [
     ok('[C100] la ligne du test : aucune charge dans le champ, ni tapée ni en fantôme',
       chargeVide[0] === '' && !/\d/.test(chargeVide[1] || ''), nb100(chargeVide));
     {
-      const champs = await (await ligne(iNul)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(iNul).locator('input').nth(k));  // 158 — localisateurs
       await champs[1].fill('3');
       await (await ligne(iNul)).$eval('.ok-serie', (b) => b.click());
       await attendre(700);
@@ -21720,7 +21795,7 @@ const SETS_IMPORTES = [
       !/12.kg.×.5|null|inconnu/.test(refus100.constat), nb100(refus100.constat));
     // Le poids tapé : la série part, avec lui.
     {
-      const champs = await (await ligne(iNul)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(iNul).locator('input').nth(k));  // 158 — localisateurs
       await champs[0].fill('55');
       await (await ligne(iNul)).$eval('.ok-serie', (b) => b.click());
       await attendre(900);
@@ -21734,8 +21809,8 @@ const SETS_IMPORTES = [
     // Le poids du corps : aucune charge à taper, le ✓ valide (mutation b).
     {
       const iP = (await page.$$('.ligne-serie')).length - 1;
-      const champs = await (await ligne(iP)).$$('input');
-      await champs[champs.length - 1].fill('15');
+      // 161 — le DERNIER champ de la ligne (le poids du corps n'en a que deux) : `.last()`, pas le 4e d'une liste de quatre
+      await page.locator('.ligne-serie').nth(iP).locator('input').last().fill('15');
       await (await ligne(iP)).$eval('.ok-serie', (b) => b.click());
       await attendre(900);
     }
@@ -21811,7 +21886,7 @@ const SETS_IMPORTES = [
       await attendre(700);
     };
     const remplir105 = async (i, champ, v) => {
-      const inp = await page.$$('.ligne-serie >> nth=' + i + ' >> [data-champ="' + champ + '"] input');
+      const inp = await champsDe(i, champ);
       if (champ === 'duree') { await inp[0].click(); await inp[0].type(String(v), { delay: 30 }); }
       else await inp[0].fill(String(v));
       await attendre(300);
@@ -22965,7 +23040,7 @@ const SETS_IMPORTES = [
     };
     const ECHAUFFEMENT = 2, DEGRESSIVE = 3;
     const valider112 = async (i, j, kg, reps) => {
-      const s = await page.$('.serie[data-iexo="' + i + '"][data-iserie="' + j + '"]');
+      const s = vive(page.locator('.serie[data-iexo="' + i + '"][data-iserie="' + j + '"]').first());
       const champs = await s.$$('input');
       await champs[0].fill(String(kg));
       await champs[1].fill(String(reps));
@@ -24243,7 +24318,7 @@ const SETS_IMPORTES = [
     const refusAvant131 = base.profiles[0].completer_refus;
     const sets131 = (slug) => base.sets.filter((x) => x.exercise_slug === slug && passe131.indexOf(x.session_id) < 0);
     const taper131 = async (i, champ, v) => {
-      const inp = (await page.$$('.ligne-serie >> nth=' + i + ' >> [data-champ="' + champ + '"] input'))[0];
+      const inp = (await champsDe(i, champ))[0];
       if (!inp) return;   // une grille sans la case (une régression) : le contrôle qui suit échoue, la section continue
       if (champ === 'duree') { await inp.click(); await inp.type(String(v), { delay: 30 }); }
       else await inp.fill(String(v));
@@ -25160,7 +25235,7 @@ const SETS_IMPORTES = [
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
       routine_exercises: [ex153('tapis_roulant', 0, progr(2)), ex153('muscle_up', 1, progr(1, 1))] });
     const remplir153 = async (i, champ, v) => {
-      const inp = await page.$$('.ligne-serie >> nth=' + i + ' >> [data-champ="' + champ + '"] input');
+      const inp = await champsDe(i, champ);
       if (champ === 'duree') { await inp[0].click(); await inp[0].type(String(v), { delay: 30 }); }
       else await inp[0].fill(String(v));
       await inp[0].evaluate((e) => e.blur());

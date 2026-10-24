@@ -4020,6 +4020,12 @@
   function etatDuPourquoi(c, reglage, reference) {
     if (c.allegee) {
       var d = detailAllegee(c);
+      // 165 — la décharge planifiée se nomme « Décharge » (et sa semaine) ; la semaine allégée acceptée, « Semaine allégée ».
+      if (c.allegee.decharge === true) {
+        var k = c.allegee.semaine !== null && c.allegee.semaine !== undefined && c.allegee.semaines !== null && c.allegee.semaines !== undefined
+          ? ', semaine ' + nombreFr(c.allegee.semaine, regle('bloc.semaine')) + ' sur ' + nombreFr(c.allegee.semaines, regle('bloc.semaines')) : '';
+        return 'Décharge' + k + DEUX_POINTS + FIN_ALLEGEE + (d ? ' ' + d.charAt(0).toUpperCase() + d.slice(1) + '.' : '');
+      }
       return 'Semaine allégée' + DEUX_POINTS + FIN_ALLEGEE +
              (d ? ' ' + d.charAt(0).toUpperCase() + d.slice(1) + '.' : '');
     }
@@ -5361,7 +5367,7 @@
   // moins (au moins 1), aucune ligne haute, et ne COUVRE que les premières
   // séries (`couvre`). `allegee` porte de quoi écrire l'en-tête et l'invariant.
   // `decharge` : la semaine est la décharge planifiée d'un programme (§9.22).
-  function consigneAllegee(consigne, seriesRoutine, decharge) {
+  function consigneAllegee(consigne, seriesRoutine, decharge, rang) {
     var c = consigne || null;
     if (!c || c.etat === 'silence') return c;
     var src = c.ligne || c.haut;
@@ -5374,7 +5380,11 @@
       haut: null,
       n: series,
       couvre: series,
-      allegee: decharge === true ? { series: series, routine: routine, decharge: true } : { series: series, routine: routine }
+      allegee: decharge === true
+        ? { series: series, routine: routine, decharge: true,
+            semaine: rang && nombre(rang.semaine) !== null ? nombre(rang.semaine) : null,
+            semaines: rang && nombre(rang.semaines) !== null ? nombre(rang.semaines) : null }
+        : { series: series, routine: routine }
     });
   }
 
@@ -7266,8 +7276,9 @@
     if (o.edition) return null;
     if ((o.intention || 'progresser') === 'entretien') return null;
     if (o.mesure !== 'charge_reps' && o.mesure !== 'reps') return null;
-    var seances = contratDe(groupes, etat, o.mesure,
-      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null });
+    var seances = sansLesAllegees(contratDe(groupes, etat, o.mesure,
+      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null }),
+      o.periodesAllegees);
     // §9.1.1 (48b-7) — LE RANG 2 EST BRANCHÉ. Il attendait ici depuis
     // 48b-5b-2, câblé à `null` faute d'un endroit où lire la zone choisie.
     // §9.17 — `lestReponse` : la réponse à la carte du lest, une ENTRÉE du
@@ -7424,6 +7435,23 @@
   // — pas le détail des verdicts, que rien ne relit hors des tests.
   function compteurFige(c) {
     return { compteur: c.compteur, meilleur: c.meilleur, derniere: c.derniere, blocages: c.blocages };
+  }
+
+  // 165 (MOTEUR §9.22, §14.4, décision d'Aurélien du 24/10/2026) — UNE SÉANCE ALLÉGÉE NE SERT JAMAIS DE RÉFÉRENCE.
+  // Une séance dont le jour tombe dans une décharge planifiée ou une semaine allégée acceptée (`periodes`, jours
+  // civils `[{ debut, fin }]`) devient NEUTRE pour la consigne : palier, niveau validé, zone, habitude, effort visé,
+  // compteur et « pourquoi » lisent la dernière séance normale. Elle reste dans le contrat — une présence pour le
+  // rythme (§9.9), ses séries dans les faits, records et volume (qui ne passent pas par ici). `decharge` : la
+  // marque que le compteur lit déjà (§14.4). Sans période, la liste est rendue telle quelle.
+  function sansLesAllegees(seances, periodes) {
+    if (!periodes || !periodes.length) return seances;
+    return (seances || []).map(function (se) {
+      var jour = jourCivil(se && se.debut);
+      var allegee = !!jour && periodes.some(function (p) {
+        return p && p.debut && p.fin && p.debut <= jour && jour <= p.fin;
+      });
+      return allegee ? Object.assign({}, se, { neutre: true, decharge: true }) : se;
+    });
   }
 
   // §12.9 — « sous consigne », dans l'app : la séance porte au moins un pari

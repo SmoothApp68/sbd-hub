@@ -1663,6 +1663,8 @@ Maquette validée par Aurélien le 15/10/2026 : `v2-atelier/maquettes/maquette-s
 - **I48** (§14.8) : au plafond, la dégressive suit l'ordre du plafond (dès le 1er déclenchement si la série de plus est sans objet) — « au 2e déclenchement, après une série de plus » ne s'y vérifie pas ; I47 vérifie l'ordre.
 - **Démonstration** (prévisualisation, jamais en production) : `?escalier=plafond` — le premier exercice d'isolation chargé de la séance est mis, dans les entrées du plan seulement, au plafond d'une salle inventée (une barre EZ à sa charge de travail, 15 reps), ses muscles avec de la place ; son compteur avance d'un déclenchement à chaque réponse : la série de plus, la dégressive, un frère plus chargeable (« Changer d'exercice » remplace dans la séance seule), puis le maintien. Aucun pari ne s'écrit.
 
+- **Une barre qu'on charge (24/10/2026, décision d'Aurélien, prompt 159)** : Ma salle porte deux booléens, `barre_ez_chargee` et `barre_droite_chargee` (absents = non). Pour un exercice à barre fixe (`barre_charge_fixe === true`) dont le type a la bascule, la salle de l'exercice est **les barres fixes déclarées, puis, au-delà de la plus lourde, des crans de 2,5 kg jusqu'à 100 kg** (30 → 32,5, 35…). Sans barre fixe déclarée de ce type, la bascule seule donne `null` (la salle n'en dit rien). Rien d'autre ne change. Conséquence : à 30 kg au haut de la zone, le coach teste 32,5 kg au lieu de l'état `salle_max` ; `salleEnVigueur` et `salle_max` lisent cette liste, sans autre code.
+
 ---
 
 ## 10 ter. Les élastiques — décidé le 17/10/2026, précisé le 21/10/2026 (chantier B3, prompt 132)

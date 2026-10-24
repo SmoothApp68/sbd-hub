@@ -1,7 +1,7 @@
 # Schéma réel — état au 24 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_109`** (records hors des barres). Prochain numéro libre : **`v2_110`**.
+Dernière migration appliquée : **`v2_111`** (barre chargée). Prochain numéro libre : **`v2_112`**.
 ⚠️ **`v2_106` n'a jamais été lancée** (décision du 22/10 : le volume reste un record) : le numéro reste vide.
 
 **Volumétrie (24/10, 2 h 30)** : 1 288 séances · 29 673 séries · 860 exercices (848 actifs) · 961 alias
@@ -24,6 +24,7 @@ Dernière migration appliquée : **`v2_109`** (records hors des barres). Prochai
 | `v2_107` (blocage groupe) | `groupe_etat` ne rend plus un membre lié par un blocage (`social_bloque`) ; `groupe_invitations_recues` cache une invitation vers un groupe où un membre a un blocage avec moi (`groupe_bloque_avec`) ; le déclencheur `groupe_apres_blocage` retire aussi les invitations d'un tiers (142) |
 | `v2_108` (figures) | **`exercises.echelle_seuil_s`** (smallint, 1 à 600 ; `exercises_echelle_seuil_ok` : seulement sur un exercice d'échelle) — la tenue qui ouvre la marche suivante ; vide au sommet et pour les échelles en reps ; nouvel exercice **`back_lever_groupe_avance`** ; six échelles de figures : `front_lever` (5 marches), `back_lever` (4), `planche_street` (5), `l_sit` (4), `poirier` (2), `drapeau` (2) — 61 exercices en échelle, 19 seuils (149) |
 | `v2_109` (records hors des barres) | `records.type` accepte **`allure`**, **`marche`**, **`denivele_m`**, **`etages`** ; `records.unite` accepte **`s_km`**, **`s_100m`**, **`s_500m`** ; colonne **`records.palier_m`** (integer ; `records_allure_ok` : obligatoire et > 0 pour `allure`, vide sinon ; `allure` : `valeur` > 0 en secondes par unité, **plus bas = mieux**) ; `guilde_semaine` (colonne `medailles`) compte aussi `volume_seance` et les quatre nouveaux types (153) |
+| `v2_111` (barre chargée, 159) | `profiles.ma_salle` accepte deux clés booléennes, **`barre_ez_chargee`** et **`barre_droite_chargee`** (absentes = non) ; contraintes `profiles_ma_salle_ok` (liste des clés) et `profiles_ma_salle_chargees_ok` (type) |
 
 **Reste noté** : `pseudo_libre` ouverte à `anon` (voulu) ; 57 fonctions SECURITY DEFINER (l'API sociale) ; pas de FK
 `groupe_recaps.groupe_id` (abandonnée) ni `objectifs.pari_id` (à reprendre) ; « Leaked password protection » (tableau

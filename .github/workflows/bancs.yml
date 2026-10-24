@@ -90,6 +90,10 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ms-playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
       - run: npx playwright install --with-deps chromium
+      - name: Machine
+        shell: bash
+        run: |
+          echo "nproc=$(nproc)"; free -m; df -h /dev/shm /tmp
       - name: Banc de séance séquentiel (la référence)
         shell: bash
         run: |

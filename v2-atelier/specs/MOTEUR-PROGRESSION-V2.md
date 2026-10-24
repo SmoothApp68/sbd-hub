@@ -2512,6 +2512,12 @@ Le champ se met en surbrillance **30 secondes après la validation de la série*
   5 à RPE 10 → niveau 5 (au lieu de 4), sans test proposé.
 - **Ce qui se dit** ne change pas (68B) : « sans marge », jamais « pas encore » pour des reps faites ; en séance,
   après une série à fond, ni élan ni proposition.
+- **24/10/2026, décision d'Aurélien (154, l'effort visé, §9.26)** : une série à fond (« à l'échec », `reste_0`, RPE 10) a
+  une **réserve 0**, donc **sous la réserve visée** de toute zone (V ≥ 1) : le coach **ne monte pas** sur sa foi, même au
+  haut de la zone — une zone tenue seulement à l'échec n'est pas encore tenue. Les cas « sans marge » de 74 qui posaient un
+  test ne le posent plus (`v2-sans-marge-74.test.js`, `v2-j-ai-mal.test.js` : l'écart y est nommé). Et la puce la plus
+  haute étant « 3 et + », la montée par la réserve (R ≥ V + 2) ne joue que pour V ≤ 1 : jamais au Lourd ni au Mix en
+  Normal, jamais en Prudent — voulu (prudence sur les charges lourdes ; le test du haut de zone continue de jouer).
 
 **23/10/2026 (152) — « À l'échec » est un cran `max`.** Une série `echec` à 1 rep ou plus porte le cran `max` sans que l'utilisateur ait rien noté de plus (`cranDeSerie`, `palier.js`) : mêmes conséquences que `reste_0` / RPE 10 (68B, §17.4) — ses reps comptent, la charge ne monte pas sur sa foi. À 0 rep : pas de cran.
 

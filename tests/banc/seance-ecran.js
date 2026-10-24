@@ -1001,7 +1001,12 @@ const SETS_IMPORTES = [
     if (base.lenteurProfil && req.method() === 'GET' && table === 'profiles') {
       const retenue = base.lenteurProfil;
       base.lenteurProfil = 0;
-      await attendre(retenue);
+      // 156 — la retenue se DIT : `profilRetenuDepuis` (l'instant où la requête est retenue) et `profilLibere` (celui où la
+      // réponse part). Q60 H attend CET état, au lieu de 2 600 ms fixes comptés depuis un autre instant que la retenue.
+      base.profilRetenuDepuis = Date.now();
+      base.profilLibere = 0;
+      await attendre(retenue);   // retenue : le faux serveur retient la réponse exprès — le délai est la mesure
+      base.profilLibere = Date.now();
     }
 
     // PR 8 de la consolidation — LA COURSE DE LA SYNCHRONISATION, FORCÉE
@@ -2378,6 +2383,25 @@ const SETS_IMPORTES = [
     if (!sortie) ok('[prémisse] « Terminer » fait sortir de la séance : le récap s’ouvre', false, 'la séance est encore à l’écran après 10 s');
     await reseauCalme();
   };
+  // 156 — « + Série » : au préambule (7 septies s'en sert, et il joue avant la section qui le déclarait).
+  const plusSerie = async (iBloc) => {
+    const avant = await compter('.ligne-serie');
+    const depart = await departGeste();
+    await page.evaluate((k) => {
+      document.querySelectorAll('.ajout-serie')[k].querySelector('button').click();
+    }, iBloc);
+    await jusqua(async () => (await compter('.ligne-serie')) > avant, 6000, 'plusSerie ' + iBloc);
+    await brouillonPose();
+    await calmeApres(depart);
+  };
+  // 156 — le geste a été TRAITÉ par la page : deux images rendues (le clic, son gestionnaire, le redessin). Pour un geste
+  // sans effet à attendre (un « +15 » sur une barre éteinte : il ne se passe RIEN) — et qui, sous charge, suit le
+  // processeur de la page (`BANC_RALENTI`), là où un délai fixe se calait sur une machine libre.
+  const rafs = (n) => page.evaluate((k) => new Promise((res) => {
+    let i = 0;
+    const t = () => { if (++i >= k) res(); else requestAnimationFrame(t); };
+    requestAnimationFrame(t);
+  }), n || 2).catch(() => {});
 
   // 143 — des LOCALISATEURS, pas des poignées : la ligne est retrouvée à chaque action. Une poignée prise avant un
   // redessin de la séance (« Element is not attached », « ligne is undefined ») plantait le banc au hasard sous charge ;
@@ -3705,13 +3729,18 @@ const SETS_IMPORTES = [
     await page.evaluate(([k, s]) => {
       document.querySelectorAll('.bloc-seance')[k].querySelector(s).click();
     }, [iBloc, sel]);
-    await attendre(400);
+    // 156 — l'état : la feuille est ouverte sur SON contenu (le champ de la note, ou la molette), plus 400 ms fixes.
+    await feuilleOuverte(sel === '.note-exo' || sel === '.no-serie' ? 'textarea' : '.molette');
   };
   const taperFeuille = async (sel, texte) => {
+    // 156 — `fill` pose la valeur ET lève `input` : le gestionnaire de la page a tourné (plus 500 ms fixes). Ce que la note
+    // devient en base s'attend là où il se lit (`attendreNotes`).
     await page.fill('#feuille-contenu ' + sel, texte);
-    await attendre(500);
   };
-  const fermerFeuille = async () => { await page.click('#btn-fermer-feuille'); await attendre(600); };
+  const fermerFeuille = async () => { await page.click('#btn-fermer-feuille'); await feuilleFermee(); };
+  // 156 — les notes de la séance en cours, EN BASE, sont celles-ci : la correction de la note monte par la file.
+  const attendreNotes = (slug, attendu) => enBase(() => JSON.stringify(notesEnBase(slug)) === JSON.stringify(attendu),
+    8000, 'notes en base ' + slug);
 
   // §7 septies.2 — le repos s'affiche MÊME ABSENT : sans tiret, il n'y aurait
   // rien à toucher pour en poser un, et le seul chemin serait l'éditeur.
@@ -3732,6 +3761,7 @@ const SETS_IMPORTES = [
     (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 60));
   await taperFeuille('textarea', 'Barre basse, ceinture');
   await fermerFeuille();
+  await jusqua(async () => /Barre basse, ceinture/.test(await lireBloc(0, '.note-exo')), 6000, 'la note s’affiche');
   ok('la note s’affiche sous le nom, à la place du « + Note »',
     /Barre basse, ceinture/.test(await lireBloc(0, '.note-exo')), await lireBloc(0, '.note-exo'));
 
@@ -3744,8 +3774,7 @@ const SETS_IMPORTES = [
     JSON.stringify(notesEnBase('squat-barre')));
 
   // ⚠️ LA SÉRIE AJOUTÉE APRÈS. C'est elle qui sépare les deux implémentations.
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
-  await attendre(600);
+  await plusSerie(0);   // 156 — la ligne est là, le brouillon posé, le réseau calme (plus 600 ms fixes)
   await saisirSerie(3, 105, 5);
   ok('une série ajoutée APRÈS la note la reçoit aussi',
     notesEnBase('squat-barre').length === 4 &&
@@ -3756,6 +3785,7 @@ const SETS_IMPORTES = [
   await ouvrirFeuilleBloc(0, '.note-exo');
   await taperFeuille('textarea', 'Ceinture + genouillères');
   await fermerFeuille();
+  await attendreNotes('squat-barre', Array(4).fill('Ceinture + genouillères'));
   ok('modifiée, toutes les séries suivent — aucune ne reste en arrière',
     notesEnBase('squat-barre').length === 4 &&
     notesEnBase('squat-barre').every((n) => n === 'Ceinture + genouillères'),
@@ -3768,6 +3798,7 @@ const SETS_IMPORTES = [
     (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 80));
   await taperFeuille('textarea', 'Celle-ci sur bloc');
   await fermerFeuille();
+  await attendreNotes('squat-barre', ['Ceinture + genouillères', 'Celle-ci sur bloc', 'Ceinture + genouillères', 'Ceinture + genouillères']);
   ok('une note de série est DISTINCTE de celle de l’exercice, et ne déteint pas',
     JSON.stringify(notesEnBase('squat-barre')) === JSON.stringify([
       'Ceinture + genouillères', 'Celle-ci sur bloc',
@@ -3783,20 +3814,8 @@ const SETS_IMPORTES = [
   // valeurs est partie au chantier 44 : elle et le pavé de l'éditeur disaient
   // la même chose, pour la même question. Il n'en reste qu'un écran — et ce
   // banc et celui des routines parcourent maintenant le MÊME composant.
-  const reglerRepos = async (secondes) => {
-    await page.evaluate((v) => {
-      const p = document.querySelector('#feuille-contenu .molette .piste');
-      const opts = Array.from(p.querySelectorAll('.opt'));
-      const i = opts.findIndex((o) => Number(o.dataset.v) === v);
-      p.scrollTop = i * 48;
-      p.dispatchEvent(new Event('scroll'));
-    }, secondes);
-    await attendre(250);
-  };
-  const sortieRepos = async (classe) => {
-    await page.click('#feuille-contenu .feuille-pied .' + classe);
-    await attendre(900);
-  };
+  // 156 — `molette(secondes)` (l'aide du préambule) : l'option marquée est la bonne, « Valider », la feuille fermée, le
+  // réseau calme — à la place de `reglerRepos` (250 ms) et `sortieRepos` (900 ms), ses deux copies à délai fixe.
   const patchsAvantRepos = patchsRoutine().length;
   await ouvrirFeuilleBloc(0, '.repos-cible');
   ok('[44] un appui sur le repos ouvre la MOLETTE — 36 valeurs, pas 8',
@@ -3809,8 +3828,7 @@ const SETS_IMPORTES = [
   ok('[44] …et elle rappelle que la routine n’est pas touchée',
     /La routine n’est pas touchée/.test(await texte('#feuille-contenu')),
     (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 90));
-  await reglerRepos(120);
-  await sortieRepos('pri');
+  await molette(120);
   ok('le repos cible change à l’écran, tout de suite',
     /repos 2:00/.test(await lireBloc(0, '.repos-cible')), await lireBloc(0, '.repos-cible'));
   ok('et RIEN n’est écrit dans la routine au moment du geste (§7 septies.2)',
@@ -3832,8 +3850,7 @@ const SETS_IMPORTES = [
   // ⚠️ ET SUR UNE LIGNE NEUVE : les quatre premières sont déjà validées, les
   // retaper les DÉvaliderait (et ne relancerait aucun chronomètre).
   console.log('   … 30 s de chronomètre réel');
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
-  await attendre(600);
+  await plusSerie(0);
   await saisirSerie(4, 60, 8);   // 5ᵉ ligne du bloc 0 : l'index global vaut encore 4
   const cliqueRepos2 = async (i, n) => {
     for (let k = 0; k < (n || 1); k++) {
@@ -3841,7 +3858,7 @@ const SETS_IMPORTES = [
         const b = document.querySelectorAll('#repos .repos-b')[j];
         if (b) b.click();
       }, i);
-      await attendre(260);
+      await rafs(2);   // 156 — le clic est traité par la page (un « +15 » sur une barre éteinte n'a aucun état à attendre)
     }
   };
   const chrono = async () => (await texte('#repos .repos-g')).trim();
@@ -3857,7 +3874,7 @@ const SETS_IMPORTES = [
     return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
   };
   const t1 = await chrono();
-  await attendre(20000);                    // écoulé ≈ 21 s, bien sous la cible
+  await attendre(20000);                    // temps réel : le temps ÉCOULÉ est la prémisse (≈ 21 s, il doit dépasser les 15 s de la cible de 0:15 plus bas)
   const t2 = await chrono();
   ok('sous la cible, il DÉCOMPTE', enSecondes(t2) < enSecondes(t1) && (await barreVisible()) === true,
     t1 + ' → ' + t2);
@@ -3884,7 +3901,7 @@ const SETS_IMPORTES = [
     let n = 0;
     const obs = new MutationObserver((l) => { n += l.length; });
     obs.observe(cible, { childList: true, subtree: true });
-    setTimeout(function () { obs.disconnect(); res(n); }, 3200);
+    setTimeout(function () { obs.disconnect(); res(n); }, 3200);   // temps réel : la mesure EST l'absence de remaniement pendant 3,2 s
   }));
   ok('éteinte, la barre cesse AUSSI de se redessiner chaque seconde',
     remuements === 0, remuements + ' remaniement(s) du DOM en 3,2 s');
@@ -3894,7 +3911,7 @@ const SETS_IMPORTES = [
   // doit pas ressusciter un chronomètre éteint. C'est `ajusterRepos` qui le
   // garantit (`if (!chrono) return`), et c'est la seule façon de le voir.
   await cliqueRepos2(1, 3);
-  await attendre(1200);
+  await attendre(1200);   // VOULU : un +15 sur une barre éteinte ne fait RIEN — l'absence d'un évènement n'a pas d'état à attendre
   ok('[51] …et un +15 sur une barre éteinte ne la fait pas revenir',
     (await barreVisible()) === false, 'barre ' + ((await barreVisible()) ? 'revenue' : 'toujours partie'));
 
@@ -3906,11 +3923,11 @@ const SETS_IMPORTES = [
   // rien, et la mesure lisait un affichage périmé : « 0:08 → 0:08 », comme un
   // chronomètre mort. Les lignes du bloc 0 venant en premier, son dernier indice
   // LOCAL vaut encore son indice global.
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
-  await attendre(600);
+  await plusSerie(0);
   await saisirSerie((await lignesDuBloc(0)) - 1, 60, 8);
   const reparti = await chrono();
-  await attendre(3200);
+  // 156 — l'état : le décompte a DESCENDU (plus 3 200 ms fixes) ; sans barre vivante il ne descend jamais, et le plafond le dit.
+  await jusqua(async () => enSecondes(await chrono()) < enSecondes(reparti), 8000, 'le décompte descend');
   const reparti2 = await chrono();
   ok('valider une série réarme un décompte neuf, qui descend',
     (await barreVisible()) === true && enSecondes(reparti2) < enSecondes(reparti),
@@ -3918,7 +3935,7 @@ const SETS_IMPORTES = [
 
   // ── L'écran de fin ─────────────────────────────────────────────────────
   await page.click('#bandeau-seance .bandeau-fin');
-  await attendre(600);
+  await feuilleOuverte('.champs-fin .champ-texte');
   ok('l’écran de fin porte les trois champs déclarés',
     (await compter('#feuille-contenu .champs-fin .champ-texte')) === 3,
     (await compter('#feuille-contenu .champs-fin .champ-texte')) + ' champ(s)');
@@ -3928,7 +3945,6 @@ const SETS_IMPORTES = [
     (await texte('#feuille-contenu .ecarts')).replace(/\s+/g, ' ').slice(0, 90));
 
   await page.fill('#feuille-contenu .champs-fin input[type="text"]', 'Jambes du jeudi');
-  await attendre(300);
   await page.evaluate(() => {
     const c = document.querySelectorAll('#feuille-contenu .champs-fin .champ-texte');
     const salle = c[1].querySelector('input');
@@ -3938,13 +3954,16 @@ const SETS_IMPORTES = [
     note.value = 'Dos fatigué, charges tenues';
     note.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  await attendre(500);
   await page.evaluate(() => {
     const b = Array.from(document.querySelectorAll('#feuille-contenu .choix-routine button'))
       .filter((x) => /Reporter/.test(x.textContent))[0];
     b.click();
   });
-  await attendre(400);
+  // 156 — l'état : « Reporter » est le choix marqué (le défaut était « Garder »).
+  await jusqua(() => page.evaluate(() => {
+    const s = document.querySelector('#feuille-contenu .choix-routine button.sel');
+    return !!s && /Reporter/.test(s.textContent);
+  }).catch(() => false), 6000, 'Reporter choisi');
   await page.click('#feuille-contenu .principal');
   await terminerQuandMeme();
   await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
@@ -3991,7 +4010,8 @@ const SETS_IMPORTES = [
       .filter((x) => /Jambes du jeudi/.test(x.textContent))[0];
     c.click();
   });
-  await attendre(1200);
+  // 156 — l'état : le détail de la séance porte sa note (plus 1 200 ms fixes).
+  await jusqua(async () => /Dos fatigué/.test(await texte('#vue-detail')), 8000, 'le détail porte la note');
   ok('la note de séance se relit sur le détail',
     /Dos fatigué/.test(await texte('#vue-detail')),
     (await texte('#vue-detail')).replace(/\s+/g, ' ').slice(0, 100));
@@ -4007,7 +4027,7 @@ const SETS_IMPORTES = [
     /Ceinture/.test(await lireBloc(0, '.note-exo')), await lireBloc(0, '.note-exo'));
   await saisirSerie(0, 100, 5);
   await page.click('#bandeau-seance .bandeau-fin');
-  await attendre(600);
+  await feuilleOuverte('.principal');
   ok('sans déviation, AUCUNE question sur la routine ne se pose',
     (await compter('#feuille-contenu .question-routine')) === 0,
     (await compter('#feuille-contenu .question-routine')) + ' question(s)');
@@ -4019,11 +4039,10 @@ const SETS_IMPORTES = [
   // demander n'écrit pas. Sans ce test, une implémentation qui reporte TOUJOURS
   // passerait le banc — et corrigerait les routines d'Aurélien dans son dos.
   await ouvrirFeuilleBloc(0, '.repos-cible');
-  await reglerRepos(180);
-  await sortieRepos('pri');
+  await molette(180);
   const patchsAvantGarder = patchsRoutine().length;
   await page.click('#bandeau-seance .bandeau-fin');
-  await attendre(600);
+  await feuilleOuverte('.question-routine');
   ok('une déviation ROUVRE la question', (await compter('#feuille-contenu .question-routine')) === 1,
     (await texte('#feuille-contenu .ecarts')).replace(/\s+/g, ' ').slice(0, 60));
   ok('et « Garder la routine » est sélectionné par défaut',
@@ -5207,16 +5226,6 @@ const SETS_IMPORTES = [
       await brouillonPose();
       await calmeApres(depart);
     }
-  };
-  const plusSerie = async (iBloc) => {
-    const avant = await compter('.ligne-serie');
-    const depart = await departGeste();
-    await page.evaluate((k) => {
-      document.querySelectorAll('.ajout-serie')[k].querySelector('button').click();
-    }, iBloc);
-    await jusqua(async () => (await compter('.ligne-serie')) > avant, 6000, 'plusSerie ' + iBloc);
-    await brouillonPose();
-    await calmeApres(depart);
   };
   const validerToutes = async () => {
     const n = await compter('.ligne-serie');
@@ -7642,7 +7651,9 @@ const SETS_IMPORTES = [
     // 49-C : le pari naîtrait à la validation — on valide donc, sinon cette
     // vérification serait vraie de toute implémentation.
     await saisirSerie(0, planOuvert[0][0], planOuvert[0][1]);
-    await attendre(900);
+    // 156 — un contrôle NÉGATIF n'a pas d'état : le seul substitut honnête est que le réseau se taise (le pari, s'il devait
+    // partir, serait parti derrière la série montée), puis lire (900 ms fixes avant).
+    await reseauCalme();
     ok('[P] EN ENTRETENIR, rien ne s’écrit — le moteur ne prescrit pas',
       base.predictions.length === compteAvant,
       base.predictions.length + ' vs ' + compteAvant);
@@ -7651,7 +7662,7 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await seanceVide();
     await ajouterExoSeance('Planche');
-    await attendre(900);
+    await reseauCalme();   // 156 — négatif : le réseau se tait, puis on lit
     ok('[P] sur une mesure SANS CHARGE, rien non plus',
       base.predictions.length === compteAvant,
       base.predictions.length + ' vs ' + compteAvant);
@@ -7669,7 +7680,8 @@ const SETS_IMPORTES = [
     base.reseau = false;
     await demarrerRoutine('Terre');
     await saisirSerie(0, planOuvert[0][0], planOuvert[0][1]);
-    await attendre(900);
+    // 156 — l'état que lit le contrôle : le pari est dans la file (hors ligne, il y attend), plus 900 ms fixes.
+    await jusqua(async () => (await enFilePred()).filter((e) => e.op !== 'observer').length > 0, 8000, '[P] 117 le pari attend dans la file');
     const parisHorsLigne = (await enFilePred()).filter((e) => e.op !== 'observer').length;
     await abandonner();
     const fileApresAbandon = await fileEntiere();
@@ -7705,7 +7717,7 @@ const SETS_IMPORTES = [
     const depart3 = base.predictions.length;
     await aller('/saisie');
     await demarrerRoutine('Terre');
-    await attendre(1200);
+    await reseauCalme();   // 156 — négatif : « rien n'est noté » se lit une fois le réseau tu (1 200 ms fixes avant)
     ok('[P] la séance est ouverte, et rien n’est noté avant une validation (49-C)',
       base.predictions.length === depart3, (base.predictions.length - depart3) + ' ligne(s)');
     await page.close();
@@ -7719,7 +7731,8 @@ const SETS_IMPORTES = [
     ]);
     await attendreQue(async () => (await Promise.all([p1, p2].map((p) => p.$$('.ligne-serie')))).every((ls) => ls.length > 0),
       20000, '143 · [P] les deux instances ont dessiné la séance');
-    await attendre(300);
+    // 156 — chaque instance a fini de démarrer : sa lecture du magasin (la marque « déjà noté ») est faite, le réseau se tait.
+    await reseauCalme();
     await Promise.all([p1, p2].map(async (p) => {
       const l = (await p.$$('.ligne-serie'))[0];
       const champs = await l.$$('input');
@@ -7729,7 +7742,11 @@ const SETS_IMPORTES = [
     await Promise.all([p1, p2].map((p) => p.evaluate(() =>
       document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click())));
     await attendreQue(() => base.predictions.length > depart3, 20000, '143 · [P] le pari des deux instances est monté');
-    await attendre(1500 * RALENTI);   // un doublon, s'il devait exister, a eu le temps de paraître
+    // 156 — négatif : un doublon, s'il devait exister, partirait des files des DEUX instances ; on attend qu'elles soient
+    // vides et que le réseau se taise, puis on lit (1 500 ms × ralenti fixes avant).
+    await jusqua(async () => (await Promise.all([p1, p2].map((p) => p.evaluate(() => window.THCache.lireAttente()
+      .then((f) => f.length)).catch(() => 0)))).every((n) => n === 0), 10000, '[P] les files des deux instances sont vides');
+    await reseauCalme();
     const duo = base.predictions.slice(depart3);
     ok('[P] DEUX INSTANCES QUI VALIDENT LA MÊME SÉRIE : UN SEUL pari en base',
       duo.length === 1 && new Set(duo.map((l) => l.id)).size === 1,
@@ -14341,9 +14358,11 @@ const SETS_IMPORTES = [
       await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'p55-' + nom + '.png'), fullPage: true });
     };
     // La séance n'a qu'un exercice : les lignes s'adressent par leur index.
-    const valider55 = async (k, kg, reps) => {
+    // 156 — `saisirSerie` attend déjà la montée de la série ET que l'écran ne bouge plus (plus 1 000 ms fixes) ; avec
+    // `attendu`, on attend aussi le nombre de médailles que lit le contrôle suivant.
+    const valider55 = async (k, kg, reps, attendu) => {
       await saisirSerie(k, kg, reps);
-      await attendre(1000);
+      if (attendu !== undefined) await jusqua(async () => ((await medailles()) || []).length === attendu, 6000, 'médailles ' + attendu);
     };
     const avantJ13 = new Date(ilYa(13 * 86400000, tP));
     const MOIS_C = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
@@ -14353,10 +14372,10 @@ const SETS_IMPORTES = [
     // ── A. LA MÉDAILLE.
     await aller('/saisie');
     await demarrerRoutine('Médaille U55');
-    await attendre(1500);
+    await jusqua(async () => (await medailles()) !== null, 8000, '[P55] le bloc « Médaillé U55 » est à l’écran');   // 156 — plus 1 500 ms fixes
     ok('[P55] prémisse : aucune médaille avant la première validation', JSON.stringify(await medailles()) === '[]',
       JSON.stringify(await medailles()));
-    await valider55(0, 125, 5);
+    await valider55(0, 125, 5, 1);
     const m1 = await medailles();
     ok('[P55] DISCRIMINANT — 125 × 5 bat un record : la médaille SOUS la rangée 1, avec le record d’avant et sa date',
       m1 && m1.length === 1 && m1[0].apres === 0 &&
@@ -14380,22 +14399,23 @@ const SETS_IMPORTES = [
       const b = Array.from(document.querySelectorAll('.bloc-seance')).filter((x) => /Médaillé U55/.test(x.textContent))[0];
       b.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click();
     });
-    await attendre(1000);
+    // 156 — l'état que lit le contrôle (plus 1 000 ms fixes) : la médaille est partie.
+    await jusqua(async () => JSON.stringify(await medailles()) === '[]', 6000, '[P55] la médaille se retire');
     ok('[P55] DISCRIMINANT — dévalider la série retire la médaille', JSON.stringify(await medailles()) === '[]',
       JSON.stringify(await medailles()));
     await page.evaluate(() => {
       const b = Array.from(document.querySelectorAll('.bloc-seance')).filter((x) => /Médaillé U55/.test(x.textContent))[0];
       b.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click();
     });
-    await attendre(1000);
+    await jusqua(async () => ((await medailles()) || []).length === 1, 6000, '[P55] la médaille revient');
     ok('[P55] revalider la rend', ((await medailles()) || []).length === 1, JSON.stringify(await medailles()));
 
     // ── C. LA SÉRIE QUI NE BAT RIEN, PUIS CELLE QUI FAIT DÉPASSER LE VOLUME.
-    await valider55(1, 100, 5);
+    await valider55(1, 100, 5);   // aucune médaille de plus : l'écran stable après la montée (saisirSerie) fait l'état
     const m2 = await medailles();
     ok('[P55] 100 × 5 ne bat rien : pas de médaille sous la rangée 2 (le volume, 1 125 kg, reste sous 1 200)',
       m2 && m2.length === 1 && m2[0].apres === 0, JSON.stringify(m2));
-    await valider55(2, 100, 5);
+    await valider55(2, 100, 5, 2);
     const m3 = await medailles();
     ok('[P55] DISCRIMINANT — la série 3 fait dépasser le volume de la séance (1 625 kg contre 1 200) : une médaille, une fois, sans « Avant »',
       m3 && m3.length === 2 && m3[1].apres === 2 && sp(m3[1].gras) === 'Volume de la séance : 1625 kg.' && m3[1].gris === null,
@@ -14404,7 +14424,7 @@ const SETS_IMPORTES = [
     // ── D. LES RECORDS DU JOUR : 71 (ECRAN-SAISIE §7 septies.4 bis) — la feuille « Terminer » ne les montre plus,
     // le récap qui s'ouvre juste après les liste.
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(700);
+    await feuilleOuverte('.principal');   // 156 — l'état (plus 700 ms fixes) : la feuille « Terminer » est ouverte
     const feuille55 = await compter('#feuille-contenu .records-fin');
     await capturer55('2-terminer');
     await garderRecap(true);
@@ -14426,7 +14446,7 @@ const SETS_IMPORTES = [
     // ── E. PROGRESSION : DEUX BLOCS EN TÊTE, LES AUTRES NE BOUGENT PAS. 75 (ECRAN-SAISIE §7 bis.14 ter) : « Ton
     //    parcours » se pose juste après le mois écoulé ; les records passent en troisième.
     await onglet('progression');
-    await attendre(800);
+    await jusqua(async () => (await compter('#sommaire .bloc-som')) >= 6, 8000, '[P55] le sommaire de Progression est rendu');   // 156 — plus 800 ms fixes
     // 95 — le bloc « Ton année » (l'année écoulée, toute l'année suivante ; hors production, l'année en cours) a sa
     // propre section ([A95]) : l'ordre contrôlé ici est celui des six blocs de 55-1 et 75. 98 — de même pour le bloc de la
     // saison ([B98]).
@@ -14458,14 +14478,17 @@ const SETS_IMPORTES = [
         ancien: document.querySelectorAll('#bilan-mois, #vue-mois, .tuiles-mois').length };
     });
     await page.evaluate(() => document.querySelectorAll('#sommaire .bloc-som')[0].click());
-    await attendre(900);
+    // 156 — l'état (plus 900 ms fixes) : la story du mois écoulé est ouverte, à son adresse.
+    await jusqua(async () => (await story55()).periode === cleMois55(ecoule) && (await page.evaluate(() => location.pathname)) ===
+      '/progression/mois/' + cleMois55(ecoule), 8000, '[P55] la story du mois écoulé s’ouvre');
     const routeMois = await page.evaluate(() => location.pathname);
     const ouvertEcoule = await story55();
     ok('[P55] le bloc du mois s’ouvre sur la story du mois écoulé (/progression/mois/AAAA-MM), sans l’ancien bilan (98)',
       routeMois === '/progression/mois/' + cleMois55(ecoule) && ouvertEcoule.ouvert && ouvertEcoule.periode === cleMois55(ecoule) &&
         ouvertEcoule.ancien === 0, JSON.stringify([routeMois, ouvertEcoule]));
     await page.click('#annee .fermer');
-    await attendre(500);
+    await jusqua(async () => !(await story55()).ouvert && (await page.evaluate(() => location.pathname)) === '/progression', 6000,
+      '[P55] la story se ferme');   // 156 — plus 500 ms fixes
     ok('[P55] fermée, la story rend Progression et son adresse',
       (await page.evaluate(() => location.pathname)) === '/progression' && !(await story55()).ouvert,
       await page.evaluate(() => location.pathname));
@@ -14505,14 +14528,20 @@ const SETS_IMPORTES = [
         b.dispatchEvent(new PointerEvent('pointerup', o));
       });
     }
-    await attendre(900);
+    // 156 — l'état (plus 900 ms fixes) : la page de l'exercice est affichée, avec son titre.
+    if (touche) await jusqua(async () => JSON.stringify(await visible()) === '["vue-exercice"]' &&
+      (await page.evaluate(() => { const h = document.querySelector('#page-exercice h2'); return h ? h.textContent : null; })) === touche.nom,
+      8000, '[57-1] la page de l’exercice du mois');
     const versExo = { touche, route: await page.evaluate(() => location.pathname), vues: await visible(),
       titre: await page.evaluate(() => { const h = document.querySelector('#page-exercice h2'); return h ? h.textContent : null; }) };
     ok('[57-1] DISCRIMINANT — dans la story du mois, l’exercice du mois ouvre SA page (son identifiant)',
       !!touche && JSON.stringify(versExo.vues) === '["vue-exercice"]' && versExo.titre === touche.nom &&
         versExo.route === '/exercice/' + touche.slug, JSON.stringify(versExo));
-    if (JSON.stringify(versExo.vues) === '["vue-exercice"]') await page.click('#btn-retour-exercice');
-    await attendre(1200);
+    if (JSON.stringify(versExo.vues) === '["vue-exercice"]') {
+      await page.click('#btn-retour-exercice');
+      // 156 — l'état (plus 1 200 ms fixes) : la story du même mois est revenue.
+      await jusqua(async () => (await story55()).ouvert && (await page.evaluate(() => location.pathname)) === avantExo, 8000, '[57-1] le retour rend la story');
+    }
     const retour55 = await story55();
     ok('[57-1] le retour rend la story du même mois',
       (await page.evaluate(() => location.pathname)) === avantExo && retour55.ouvert && retour55.periode === cleMois55(ici),
@@ -14524,14 +14553,14 @@ const SETS_IMPORTES = [
       const o = { bubbles: true, clientX: 10, clientY: 10 };
       if (b) { b.dispatchEvent(new PointerEvent('pointerdown', o)); b.dispatchEvent(new PointerEvent('pointerup', o)); }
     });
-    await attendre(900);
+    await jusqua(async () => (await compter('#records-mois .ligne-mois')) > 0, 8000, '[P55] la liste des records du mois');   // 156 — plus 900 ms fixes
     const rec = await page.evaluate(() => Array.from(document.querySelectorAll('#records-mois .ligne-mois')).map((x) => x.textContent));
     ok('[P55] la liste des records du mois porte les deux records de la séance',
       rec.filter((x) => /Médaillé u55 125\s*kg\s*×\s*5/.test(sp(x))).length === 1 &&
         rec.filter((x) => /Médaillé u55 100\s*kg\s*×\s*5/.test(sp(x))).length === 1, JSON.stringify(rec));
     await page.evaluate(() => Array.from(document.querySelectorAll('#records-mois .ligne-mois'))
       .filter((x) => /Médaillé u55 125/.test(x.textContent.replace(/\u00a0/g, ' ')))[0].click());
-    await attendre(1200);
+    await jusqua(async () => JSON.stringify(await visible()) === '["vue-detail"]', 8000, '[P55] le détail de la séance');   // 156 — plus 1 200 ms fixes
     ok('[P55] un record mène à sa séance (le détail)', JSON.stringify(await visible()) === '["vue-detail"]',
       JSON.stringify(await visible()));
     // ── H. LA VUE D'UN EXERCICE : LES RECORDS EN TÊTE (ECRAN §7 bis.15).
@@ -14749,7 +14778,10 @@ const SETS_IMPORTES = [
     // tranches. D'un seul bloc (une tranche), l'app serait figée le temps de
     // rejouer toute une vie de records — des secondes sur un téléphone.
     ok('[J58] DISCRIMINANT — le remplissage se fait en tranches qui rendent la main (≥ 2, aucune de plus de 250 ms)',
-      r.tranches >= 2 && r.tranches >= Math.ceil(r.total / 10) && r.plusLongueTranche < 250,
+      // 156 — la tranche MESURE un temps de la page : sous ralenti (`BANC_RALENTI` = le facteur de ralentissement du
+      // processeur de la page) une tranche sans défaut dure `RALENTI` fois plus. Le plafond suit le facteur ; le nombre de
+      // tranches (≥ 2, ≥ total/10) dit déjà que la main est rendue.
+      r.tranches >= 2 && r.tranches >= Math.ceil(r.total / 10) && r.plusLongueTranche < 250 * RALENTI,
       JSON.stringify(r));
     ok('[J58] il part par lots, par la file : tout ce que l’app a écrit est en base, par un ajout qui ignore les doublons',
       base.ecrituresRecords.length > ecrituresAvantA &&
@@ -14762,13 +14794,16 @@ const SETS_IMPORTES = [
     await saisirSerie(0, 150, 2);
     await saisirSerie(1, 100, 5);
     await saisirSerie(2, 147.5, 6);
-    await attendre(800);
+    // 156 — contrôle NÉGATIF (plus 800 ms fixes) : le journal ne s'écrit qu'à « Terminer ». Pas d'état à attendre : le
+    // réseau se tait (une écriture tardive, si elle devait venir, serait venue), et on lit DEUX FOIS, avant et après.
     const enCoursJ = (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
+    const avantCalmeJ = base.records.filter((x) => x.session_id === enCoursJ).length;
+    await reseauCalme();
     ok('[J58] rien au journal avant « Terminer » : la médaille, en séance, n’écrit rien',
-      !!enCoursJ && !base.records.some((x) => x.session_id === enCoursJ), JSON.stringify(enCoursJ));
+      !!enCoursJ && avantCalmeJ === 0 && !base.records.some((x) => x.session_id === enCoursJ), JSON.stringify(enCoursJ));
     const setsJ = base.sets.filter((x) => x.session_id === enCoursJ).sort((a, b) => a.rang - b.rang).map((x) => x.id);
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(700);
+    await feuilleOuverte('.principal');   // 156 — l'état (plus 700 ms fixes) : la feuille « Terminer » est ouverte
     // 71 — les records du jour ne sont plus dans la feuille : le récap, juste après « Terminer », les montre.
     const feuilleJ = await compter('#feuille-contenu .records-fin');
     await garderRecap(true);
@@ -14831,7 +14866,7 @@ const SETS_IMPORTES = [
     await entree('Modifier');
     const champsD = await (await ligne(0)).$$('input');
     await champsD[0].fill('152.5');
-    await attendre(600);
+    await rafs(3);   // 156 — la saisie est traitée par la page (le champ lève `input`, la séance est mise à jour ; 600 ms fixes avant)
     const ecrituresAvantD = base.ecrituresRecords.length;
     await page.click('#bandeau-seance .bandeau-fin');
     await attendreQue(async () => base.ecrituresRecords.length > ecrituresAvantD && (await fileJ()).length === 0, 15000);
@@ -15380,20 +15415,30 @@ const SETS_IMPORTES = [
     const clesVues = () => page.evaluate(() => Object.keys(localStorage).filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0));
     const effacerVu = () => page.evaluate(() => Object.keys(localStorage)
       .filter((k) => k.indexOf('th-v2-questionnaire-vu-') === 0).forEach((k) => localStorage.removeItem(k)));
-    const cliquerQ = (sel, pause) => cliquer(SEL + sel, '#questionnaire-corps', pause);
+    // 156 — sans `pause` : l'écran du questionnaire CHANGE (ou, option déjà choisie, le réseau se tait), PUIS le réseau est
+    // calme (l'écriture du geste est partie et revenue). Avec `pause`, le délai du site d'appel reste (il s'écrit au site).
+    const cliquerQ = async (sel, pause) => {
+      const depart = await departGeste();
+      await cliquer(SEL + sel, '#questionnaire-corps', pause);
+      if (!pause) await calmeApres(depart);
+    };
+    // 156 — « Plus tard » FERME le questionnaire : l'état est la vue qui le quitte (l'écran du questionnaire, lui, peut rester).
+    const plusTardQ = async () => {
+      const depart = await departGeste();
+      await page.click(SEL + '.q-plus-tard');
+      await jusqua(async () => (await visible()).indexOf('vue-questionnaire') < 0, 8000, 'plusTardQ');
+      await calmeApres(depart);
+    };
     // L'ouverture de lui-même se décide quand la ligne de profil ARRIVE, après la
     // synchronisation : plus elle porte de séances, plus c'est tard (un compte sans
     // cache, après une section qui en a laissé beaucoup, dépasse largement 5 s).
     // On attend l'événement, pas un délai ; les contrôles « rien ne s'ouvre »,
     // eux, gardent leur instant.
-    const attendreOuverture = async (max) => {
-      for (let n = 0; n < (max || 60); n++) {
-        if ((await visible()).indexOf('vue-questionnaire') >= 0) return true;
-        await attendre(250);
-      }
-      return false;
-    };
-    const continuerQ = async () => { await cliquerQ('.q-continuer', 500); };
+    // 156 — l'état, en temps mur (× `BANC_RALENTI`) et COMPTÉ s'il n'arrive pas (la boucle de 250 ms d'itérations rendait la main
+    // en silence).
+    const attendreOuverture = (max) => jusqua(async () => (await visible()).indexOf('vue-questionnaire') >= 0,
+      (max || 60) * 250, 'attendreOuverture');
+    const continuerQ = async () => { await cliquerQ('.q-continuer'); };   // 156 — plus 500 ms fixes
     const aujourdhuiLocal = () => page.evaluate(() => {
       const d = new Date(), p = (n) => String(n).padStart(2, '0');
       return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
@@ -15415,7 +15460,7 @@ const SETS_IMPORTES = [
         Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
           .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf(l) === 0)[0].click();
       }, libelle);
-      await attendre(500);
+      await feuilleOuverte();   // 156 — l'état (plus 500 ms fixes) : la feuille du réglage est ouverte
     };
     const feuilleChoixP = () => page.evaluate(() => ({
       ouverte: !document.querySelector('#feuille-seance').hidden,
@@ -15431,11 +15476,24 @@ const SETS_IMPORTES = [
       eteintes: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button.inerte')).map((b) => b.dataset.cle),
       pied: Array.from(document.querySelectorAll('#feuille-contenu .feuille-pied button')).map((b) => b.textContent)
     }));
-    const cliquerFeuille = (sel, pause) => cliquer('#feuille-contenu ' + sel, null, pause);
-    const rouvrir = async (champs) => {        // l'appareil redémarre sur CETTE ligne de profil
+    // 156 — comme `cliquerQ` : la feuille change (ou se ferme), PUIS le réseau est calme.
+    const cliquerFeuille = async (sel, pause) => {
+      const depart = await departGeste();
+      await cliquer('#feuille-contenu ' + sel, null, pause);
+      if (!pause) await calmeApres(depart);
+    };
+    // 156 — la ligne de profil RETENUE par le faux serveur (`lenteurProfil`) : l'état est « la requête est retenue ET la vue
+    // est posée » (plus 2 600 ms fixes de `aller`, comptés depuis l'ouverture de la page et non depuis la retenue).
+    const allerRetenu = async (chemin) => {
+      base.profilRetenuDepuis = 0;
+      base.profilLibere = 0;
+      await page.goto(BASE + (chemin || '/'), { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await jusqua(async () => base.profilRetenuDepuis > 0 && (await visible()).length > 0, 15000, 'Q60 H : la ligne de profil est retenue, la vue posée');
+    };
+    const rouvrir = async (champs, retenu) => {        // l'appareil redémarre sur CETTE ligne de profil
       await effacerVu();
       Object.assign(profilBase(), champs);
-      await aller('/saisie');
+      if (retenu) await allerRetenu('/saisie'); else await aller('/saisie');
     };
 
     // ── 0. LA RÉFÉRENCE : un compte dont le questionnaire est rempli ouvre Saisie.
@@ -15471,7 +15529,7 @@ const SETS_IMPORTES = [
     ok('[Q60] écran 2 — « Importer » choisi : « Continuer » s’allume (rien n’est encore écrit : c’est « Continuer » qui écrit)',
       e.actif === true && e.choisis.indexOf('import') >= 0 && ecritsProfil() === ecritsAvant, JSON.stringify([e.choisis, e.actif]));
     await continuerQ();
-    await attendre(600);
+    await jusqua(() => profilBase().historique_declare === 'import', 8000, '[Q60] écran 2 : le profil est écrit');   // 156 — plus 600 ms fixes
     ok('[Q60] écran 2 — « Continuer » écrit UNE fois, par le chemin du profil : `historique_declare` = import',
       ecritsProfil() === ecritsAvant + 1 && profilBase().historique_declare === 'import' && profilBase().questionnaire_fait_le === null,
       JSON.stringify([ecritsProfil() - ecritsAvant, profilBase().historique_declare, profilBase().questionnaire_fait_le]));
@@ -15494,16 +15552,17 @@ const SETS_IMPORTES = [
       e.ecran === 'toi' && e.titre === 'Qui es-tu ?' && e.etape === 'Toi · facultatif' && e.champs.indexOf('annee=1990') >= 0 && e.actif === true,
       JSON.stringify(e));
     await page.fill(SEL + '#q-champ-annee', '1850');
-    await attendre(250);
+    await jusqua(() => page.evaluate(() => !!document.querySelector('#questionnaire-corps .q-err:not([hidden])')), 6000, '[Q60] l’année absurde est dite');   // 156 — plus 250 ms fixes
     const erreurAnnee = await page.evaluate(() => { const n = document.querySelector('#questionnaire-corps .q-err:not([hidden])'); return n ? n.textContent : null; });
     ok('[Q60] écran 4 — une année absurde (1850) est dite, pas écrite', erreurAnnee === 'Une année de naissance plausible.', JSON.stringify(erreurAnnee));
     await page.fill(SEL + '#q-champ-annee', '1990');
     await cliquerQ('.q-puce[data-cle="homme"]');
     await page.fill(SEL + '#q-champ-taille', '182');
     await page.fill(SEL + '#q-champ-poids', '98,4');
-    await attendre(250);
     await continuerQ();
-    await attendre(1500);
+    // 156 — l'état (plus 1 500 ms fixes) : le profil est écrit ET la pesée est partie par la file.
+    await jusqua(() => profilBase().sexe === 'homme' && profilBase().taille_cm === 182 && base.ecrituresPesees.length > ecrituresAvant,
+      10000, '[Q60] écran 4 : le profil et la pesée sont en base');
     const jour = await aujourdhuiLocal();
     const p1 = profilBase();
     ok('[Q60] écran 4 — « Continuer » écrit le profil : sexe, taille ; DISCRIMINANT : l’année 1990 inchangée NE RÉÉCRIT PAS la date entière (1990-06-15 reste 1990-06-15)',
@@ -15520,7 +15579,7 @@ const SETS_IMPORTES = [
     ok('[Q60] écran 5 — « Ton objectif principal ? » : « Continuer » éteint (objectif ET phase sont obligatoires)',
       e.ecran === 'but' && e.titre === 'Ton objectif principal ?' && e.actif === false, JSON.stringify(e));
     ecritsAvant = ecritsProfil();
-    await cliquerQ('.q-plus-tard', 900);
+    await plusTardQ();
     e = await ecranQ();
     const bq = await bandeauQ();
     ok('[Q60] B — « Plus tard » : on arrive sur Saisie, le questionnaire est fermé, rien n’est écrit de plus',
@@ -15544,17 +15603,17 @@ const SETS_IMPORTES = [
     ok('[Q60] B — la ligne « Terminer mon questionnaire › » est en TÊTE de Profil, tant qu’il n’est pas rempli',
       !!teteP && teteP.indexOf('Terminer mon questionnaire') === 0, JSON.stringify([teteP, await titresP()]));
     await page.click('#profil-corps .p-questionnaire .p-ligne');
-    await attendre(600);
+    await jusqua(async () => (await ecranQ()).ecran === 'bienvenue', 8000, '[Q60] B : la ligne rouvre le questionnaire');   // 156 — plus 600 ms fixes
     e = await ecranQ();
     ok('[Q60] B — la ligne rouvre le questionnaire au PREMIER écran, déjà répondu (import) ; « Plus tard » ramène sur Saisie',
       e.ecran === 'bienvenue' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
-    await cliquerQ('.q-plus-tard', 700);
+    await plusTardQ();
     ok('[Q60] B — « Plus tard » depuis la ligne du Profil : Saisie, bandeau toujours là',
       JSON.stringify(await visible()) === JSON.stringify(saisie) && (await bandeauQ()).visible, JSON.stringify([await visible(), await bandeauQ()]));
 
     // ── C. LA REPRISE : « Le terminer » repart du début, tout pré-rempli depuis la base.
     await page.click('#bandeau-questionnaire .principal');
-    await attendre(600);
+    await jusqua(async () => (await ecranQ()).ecran === 'bienvenue', 8000, '[Q60] C : « Le terminer » rouvre le questionnaire');   // 156 — plus 600 ms fixes
     e = await ecranQ();
     ok('[Q60] C — « Le terminer » rouvre au PREMIER écran', e.ecran === 'bienvenue' && e.retour === false, JSON.stringify(e));
     await continuerQ();
@@ -15562,7 +15621,7 @@ const SETS_IMPORTES = [
     ok('[Q60] C — écran 2 : la réponse déjà donnée (import) est pré-remplie', e.ecran === 'donnees' && e.choisis.indexOf('import') >= 0 && e.actif === true, JSON.stringify(e));
     // Le retour d'Android recule d'UN écran (il ne quitte pas l'app, il ne recharge rien).
     await page.goBack().catch(() => {});
-    await attendre(900);
+    await jusqua(async () => (await ecranQ()).ecran === 'bienvenue', 8000, '[Q60] C : le retour d’Android recule d’un écran');   // 156 — plus 900 ms fixes
     e = await ecranQ();
     ok('[Q60] C — le retour d’Android recule d’un écran (2 → 1), sans quitter le questionnaire',
       e.ecran === 'bienvenue' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
@@ -15575,9 +15634,10 @@ const SETS_IMPORTES = [
         ['annee=1990', 'taille=182', 'poids=98,4'].every((c) => e.champs.indexOf(c) >= 0), JSON.stringify(e));
     const ecrituresPesee1 = base.ecrituresPesees.length;
     await page.fill(SEL + '#q-champ-annee', '1985');
-    await attendre(250);
     await continuerQ();
-    await attendre(1500);
+    // 156 — l'état que lit le contrôle : la date réécrite ; puis (contrôle NÉGATIF : aucune pesée de plus) le réseau se tait.
+    await jusqua(() => profilBase().date_naissance === '1985-01-01', 8000, '[Q60] C : l’année changée est écrite');
+    await reseauCalme();
     ok('[Q60] C — DISCRIMINANT : le poids inchangé (98,4) n’écrit AUCUNE pesée de plus ; l’année changée (1985) réécrit la date (1985-01-01)',
       base.ecrituresPesees.length === ecrituresPesee1 && base.pesees.length === 1 && profilBase().date_naissance === '1985-01-01',
       JSON.stringify([base.ecrituresPesees.length - ecrituresPesee1, base.pesees.length, profilBase().date_naissance]));
@@ -15590,7 +15650,7 @@ const SETS_IMPORTES = [
     e = await ecranQ();
     ok('[Q60] écran 5 — objectif ET phase : « Continuer » s’allume', e.actif === true, JSON.stringify(e));
     await continuerQ();
-    await attendre(500);
+    await jusqua(() => profilBase().objectif === 'muscle' && profilBase().phase === 'maintien', 8000, '[Q60] écran 5 : objectif et phase écrits');   // 156 — plus 500 ms fixes
     ok('[Q60] écran 5 — écrit : objectif = muscle (et sa date), phase = maintien (et sa date de confirmation)',
       profilBase().objectif === 'muscle' && !!profilBase().objectif_depuis && profilBase().phase === 'maintien' && !!profilBase().phase_confirmee_le,
       JSON.stringify([profilBase().objectif, profilBase().objectif_depuis, profilBase().phase, profilBase().phase_confirmee_le]));
@@ -15598,12 +15658,12 @@ const SETS_IMPORTES = [
     ok('[Q60] écran 6 — « Où veux-tu progresser en priorité ? », « Jusqu’à trois. »',
       e.ecran === 'priorites' && e.titre === 'Où veux-tu progresser en priorité ?' && e.voix === 'Jusqu’à trois.', JSON.stringify(e));
     const puces = await page.evaluate(() => Array.from(document.querySelectorAll('#questionnaire-corps .q-puce')).map((n) => n.dataset.cle));
-    for (const c of puces.slice(0, 4)) await cliquerQ('.q-puce[data-cle="' + c + '"]', 200);
+    for (const c of puces.slice(0, 4)) await cliquerQ('.q-puce[data-cle="' + c + '"]');   // 156 — plus 200 ms fixes : l'écran change, le réseau se tait
     e = await ecranQ();
     ok('[Q60] écran 6 — quatre touchées, TROIS retenues (la quatrième est sans effet)',
       e.choisis.length === 3 && JSON.stringify(e.choisis) === JSON.stringify(puces.slice(0, 3)), JSON.stringify([puces.slice(0, 4), e.choisis]));
     await continuerQ();
-    await attendre(500);
+    await jusqua(() => JSON.stringify(profilBase().priorites) === JSON.stringify(puces.slice(0, 3)), 8000, '[Q60] écran 6 : les priorités sont écrites');   // 156 — plus 500 ms fixes
     ok('[Q60] écran 6 — écrit : trois priorités, dans l’ordre touché',
       JSON.stringify(profilBase().priorites) === JSON.stringify(puces.slice(0, 3)), JSON.stringify(profilBase().priorites));
 
@@ -15645,7 +15705,7 @@ const SETS_IMPORTES = [
     await cliquerQ('.q-opt[data-cle="marge"]');
     await cliquerQ('.q-puce[data-cle="salle_complete"]');
     await continuerQ();
-    await attendre(500);
+    await jusqua(() => profilBase().temps_reponse === 'marge' && profilBase().materiel === 'salle_complete', 8000, '[Q60] écran 7 : temps et matériel écrits');   // 156 — plus 500 ms fixes
     ok('[Q60] écran 7 — écrit : temps_reponse = marge, matériel = salle complète ; DISCRIMINANT : la durée MONTRÉE (la médiane des séances) n’est pas écrite comme une réponse',
       profilBase().temps_reponse === 'marge' && profilBase().materiel === 'salle_complete' && profilBase().duree_seance_min === dureeAvant,
       JSON.stringify([profilBase().temps_reponse, profilBase().materiel, profilBase().duree_seance_min, dureeAvant]));
@@ -15656,7 +15716,7 @@ const SETS_IMPORTES = [
       e.ecran === 'coach' && e.titre === 'Comment veux-tu être coaché ?' && e.actif === true && e.choisis.indexOf('normal') >= 0, JSON.stringify(e));
     await cliquerQ('.q-opt[data-cle="franc"]');
     await continuerQ();
-    await attendre(500);
+    await jusqua(() => profilBase().rythme_progression === 'franc', 8000, '[Q60] écran 8 : le rythme est écrit');   // 156 — plus 500 ms fixes
     ok('[Q60] écran 8 — écrit : intention = progresser, rythme = franc',
       profilBase().intention === 'progresser' && profilBase().rythme_progression === 'franc', JSON.stringify([profilBase().intention, profilBase().rythme_progression]));
     e = await ecranQ();
@@ -15666,28 +15726,28 @@ const SETS_IMPORTES = [
         /Coach.*Franc/.test(e.lignes[5]), JSON.stringify(e));
     ok('[Q60] écran 9 — rien ne dit « fait » avant « Commencer » : `questionnaire_fait_le` est encore vide',
       profilBase().questionnaire_fait_le === null, JSON.stringify(profilBase().questionnaire_fait_le));
-    await cliquerQ('.q-mod[data-ecran="but"]', 500);
+    await cliquerQ('.q-mod[data-ecran="but"]');   // 156 — plus 500 ms fixes
     e = await ecranQ();
     ok('[Q60] écran 9 — « changer » mène à l’écran concerné', e.ecran === 'but', JSON.stringify(e));
     await continuerQ();
     e = await ecranQ();
     ok('[Q60] écran 9 — et « Continuer » y REVIENT au récapitulatif (pas à l’écran suivant)', e.ecran === 'recap', JSON.stringify(e));
     // ── 60-2c : « Je ne sais pas » écrit le VIDE (jamais `maintien`), et le récapitulatif le dit « Maintien (par défaut) ».
-    await cliquerQ('.q-mod[data-ecran="but"]', 500);
+    await cliquerQ('.q-mod[data-ecran="but"]');
     await cliquerQ('.q-opt[data-cle="inconnue"]');
     await continuerQ();
-    await attendre(600);
+    await jusqua(() => profilBase().phase === null && !!profilBase().phase_confirmee_le, 8000, '[Q60c] « Je ne sais pas » : la phase vide est écrite');   // 156 — plus 600 ms fixes
     e = await ecranQ();
     ok('[Q60c] DISCRIMINANT — « Je ne sais pas » (écran 5) écrit une phase VIDE (`null`, jamais `maintien`), datée de sa confirmation ; le récapitulatif dit « Maintien (par défaut) »',
       e.ecran === 'recap' && profilBase().phase === null && !!profilBase().phase_confirmee_le &&
         /Phase.*Maintien \(par défaut\)/.test(e.lignes[1].replace(/[\u00a0\u202f]/g, ' ')),
       JSON.stringify([e.ecran, profilBase().phase, profilBase().phase_confirmee_le, e.lignes[1]]));
     // ── 60-2c : « Moins » + une durée, changés depuis le récapitulatif : les deux s'écrivent ensemble, le récapitulatif dit la durée.
-    await cliquerQ('.q-mod[data-ecran="temps"]', 500);
+    await cliquerQ('.q-mod[data-ecran="temps"]');
     await cliquerQ('.q-opt[data-cle="moins"]');
     await cliquerQ('.q-options .q-puce[data-cle="60"]');
     await continuerQ();
-    await attendre(600);
+    await jusqua(() => profilBase().temps_reponse === 'moins' && profilBase().duree_seance_min === 60, 8000, '[Q60c] « Moins » + 60 sont écrits ensemble');   // 156 — plus 600 ms fixes
     e = await ecranQ();
     const ligneTemps = (e.lignes.filter((l) => /^Temps/.test(l))[0] || '').replace(/[\u00a0\u202f]/g, ' ');
     ok('[Q60c] DISCRIMINANT — « Moins » + la durée 60 s’écrivent ENSEMBLE (`temps_reponse` ET `duree_seance_min`), et le récapitulatif dit « 60 min · j’ai moins de temps en ce moment »',
@@ -15696,7 +15756,7 @@ const SETS_IMPORTES = [
       JSON.stringify([e.ecran, profilBase().temps_reponse, profilBase().duree_seance_min, ligneTemps]));
     // On repart comme avant pour la suite du récapitulatif : « marge ». (Relecture adverse : la durée ÉCRITE est
     // la durée visée du brouillon — après « changer » et une autre réponse, la ligne dit 60 min, pas l'habituelle.)
-    await cliquerQ('.q-mod[data-ecran="temps"]', 500);
+    await cliquerQ('.q-mod[data-ecran="temps"]');
     await cliquerQ('.q-opt[data-cle="marge"]');
     e = await ecranQ();
     const ligneVisee = await page.evaluate(() => ((document.querySelector('#questionnaire-corps .q-ligne-choix[data-cle="duree"] .q-lc-val') || {})
@@ -15708,17 +15768,20 @@ const SETS_IMPORTES = [
     ok('[Q60c] DISCRIMINANT — « Moins » + 60 écrit, puis « changer » et une autre réponse : la ligne « Durée visée » dit « 60 min » (ce que la base porte), pas l’habituelle',
       ligneVisee === '60 min', JSON.stringify([ligneVisee, e.titre, profilBase().duree_seance_min]));
     await continuerQ();
-    await attendre(600);
+    await jusqua(() => profilBase().temps_reponse === 'marge', 8000, '[Q60c] « marge » est écrite');   // 156 — plus 600 ms fixes
     ok('[Q60c] … et « Continuer » ne remet pas une autre durée : la base garde 60 avec la réponse « marge »',
       profilBase().temps_reponse === 'marge' && profilBase().duree_seance_min === 60, JSON.stringify([profilBase().temps_reponse, profilBase().duree_seance_min]));
     // La durée VISÉE se change depuis le récapitulatif : la ligne et le récapitulatif
     // disent ce qui a été choisi (90), le titre garde le fait (la médiane des séances).
     const titreTemps0 = (await ecranQ()).lignes.filter((l) => /^Temps/.test(l))[0];
-    await cliquerQ('.q-mod[data-ecran="temps"]', 500);
+    await cliquerQ('.q-mod[data-ecran="temps"]');
     e = await ecranQ();
     const titreMed = e.titre;
-    await cliquerQ('.q-ligne-choix[data-cle="duree"]', 600);
-    await cliquerFeuille('.feuille-menu button[data-cle="90"]', 700);
+    await page.click(SEL + '.q-ligne-choix[data-cle="duree"]');
+    await feuilleOuverte('.feuille-menu button[data-cle="90"]');   // 156 — l'état (plus 600 ms fixes) : la feuille des durées est ouverte
+    await cliquerFeuille('.feuille-menu button[data-cle="90"]');
+    await jusqua(() => page.evaluate(() => /^90.min$/.test(((document.querySelector('#questionnaire-corps .q-lc-val') || {}).textContent || ''))),
+      6000, '[Q60] la durée choisie se voit');   // 156 — l'état que lit le contrôle (plus 700 ms fixes)
     const apresDuree = await page.evaluate(() => ({
       titre: (document.querySelector('#questionnaire-corps .q-titre') || {}).textContent,
       visee: (document.querySelector('#questionnaire-corps .q-lc-val') || {}).textContent }));
@@ -15726,15 +15789,19 @@ const SETS_IMPORTES = [
       e.ecran === 'temps' && /^Tes séances durent environ \d+.min\.$/.test(titreMed) && titreMed === apresDuree.titre &&
         /^90.min$/.test(apresDuree.visee), JSON.stringify([titreMed, apresDuree]));
     await continuerQ();
-    await attendre(500);
+    await jusqua(() => profilBase().duree_seance_min === 90, 8000, '[Q60] écran 9 : la durée 90 est écrite');   // 156 — plus 500 ms fixes
     e = await ecranQ();
     ok('[Q60] écran 9 — et le récapitulatif la dit (90 min), `duree_seance_min` est écrit une fois changée',
       e.ecran === 'recap' && e.lignes.filter((l) => /^Temps/.test(l))[0] !== titreTemps0 &&
         /^Temps90.min/.test(e.lignes.filter((l) => /^Temps/.test(l))[0]) && profilBase().duree_seance_min === 90,
       JSON.stringify([e.lignes, profilBase().duree_seance_min]));
     const peseesAvantFin = base.ecrituresPesees.length;
-    await continuerQ();
-    await attendre(1200);
+    // 156 — « Commencer » FERME le questionnaire : l'état est Saisie à l'écran ET la fin posée en base (plus 1 200 ms fixes).
+    const departFin = await departGeste();
+    await page.click(SEL + '.q-continuer');
+    await jusqua(async () => JSON.stringify(await visible()) === JSON.stringify(saisie) && !!profilBase().questionnaire_fait_le, 10000,
+      '[Q60] « Commencer » ferme le questionnaire et pose la fin');
+    await calmeApres(departFin);
     ok('[Q60] « Commencer » : on arrive sur Saisie, `questionnaire_fait_le` est posé, le bandeau a disparu, aucune pesée de plus',
       JSON.stringify(await visible()) === JSON.stringify(saisie) && !!profilBase().questionnaire_fait_le && !(await bandeauQ()).visible &&
         base.ecrituresPesees.length === peseesAvantFin, JSON.stringify([await visible(), profilBase().questionnaire_fait_le, await bandeauQ()]));
@@ -15763,11 +15830,13 @@ const SETS_IMPORTES = [
         JSON.stringify(fp.coches) === '["muscle"]' && fp.aide === true &&
         fp.aideTexte === 'Il choisit la zone de ton premier bloc de programme : Lourd pour la force, Mix pour le muscle.' &&
         fp.pied.indexOf('Effacer') < 0, JSON.stringify(fp));
-    await cliquerFeuille('.feuille-menu button[data-cle="muscle"]', 900);
+    await cliquerFeuille('.feuille-menu button[data-cle="muscle"]');   // 156 — la feuille se ferme, le réseau se tait (négatif : rien n'est écrit)
     ok('[Q60] P — DISCRIMINANT : choisir le MÊME objectif n’écrit rien (ni valeur ni date)',
       ecritsProfil() === ecritsP0 && profilBase().objectif_depuis === depuisP0, JSON.stringify([ecritsProfil() - ecritsP0, profilBase().objectif_depuis, depuisP0]));
     await toucherP('Objectif');
-    await cliquerFeuille('.feuille-menu button[data-cle="force"]', 1500);
+    await cliquerFeuille('.feuille-menu button[data-cle="force"]');
+    await jusqua(() => profilBase().objectif === 'force' && ecritsProfil() > ecritsP0, 8000, '[Q60] P : l’objectif changé est écrit');   // 156 — plus 1 500 ms fixes
+    await calmeApres(await departGeste());
     ok('[Q60] P — un objectif CHANGÉ s’écrit comme au questionnaire : la valeur ET sa date (`objectif_depuis`)',
       profilBase().objectif === 'force' && profilBase().objectif_depuis !== depuisP0 && !!profilBase().objectif_depuis &&
         ecritsProfil() === ecritsP0 + 1 && (await ligneP('Objectif')).valeur === 'Force', JSON.stringify([profilBase().objectif, profilBase().objectif_depuis, depuisP0, ecritsProfil() - ecritsP0]));
@@ -15787,13 +15856,15 @@ const SETS_IMPORTES = [
     fp = await feuilleChoixP();
     ok('[Q60] P — « Pas de priorité » vide la liste et se coche', JSON.stringify(fp.coches) === '["aucune"]', JSON.stringify(fp));
     const ecritsP1 = ecritsProfil();
-    await cliquerFeuille('.feuille-pied .pri', 1500);
+    await cliquerFeuille('.feuille-pied .pri');
+    await jusqua(() => ecritsProfil() > ecritsP1, 8000, '[Q60] P : « Valider » écrit les priorités');   // 156 — plus 1 500 ms fixes
+    await calmeApres(await departGeste());
     ok('[Q60] P — « Valider » écrit `priorites = {}` (une RÉPONSE, pas un trou) ; la ligne dit « Pas de priorité »',
       Array.isArray(profilBase().priorites) && profilBase().priorites.length === 0 && ecritsProfil() === ecritsP1 + 1 &&
         (await ligneP('Priorités')).valeur === 'Pas de priorité', JSON.stringify([profilBase().priorites, ecritsProfil() - ecritsP1]));
     await toucherP('Priorités');
     await cliquerFeuille('.feuille-menu button[data-cle="tractions"]');
-    await cliquerFeuille('.feuille-pied .sec', 600);
+    await cliquerFeuille('.feuille-pied .sec');   // 156 — négatif : la feuille se ferme, le réseau se tait, rien n'est écrit
     ok('[Q60] P — « Annuler » après avoir coché n’écrit rien', ecritsProfil() === ecritsP1 + 1 && (await ligneP('Priorités')).valeur === 'Pas de priorité',
       JSON.stringify([ecritsProfil() - ecritsP1, await ligneP('Priorités')]));
     await toucherP('Ton temps');
@@ -15804,14 +15875,16 @@ const SETS_IMPORTES = [
         JSON.stringify(fp.sous) === JSON.stringify([
           ['moins', 'Quand ta routine dépasse ta durée visée, je te propose de la raccourcir dès son ouverture.'],
           ['varie', 'Quand ta routine dépasse ta durée visée, je te le montre à côté de « J’ai peu de temps ».']]), JSON.stringify(fp));
-    await cliquerFeuille('.feuille-menu button[data-cle="varie"]', 1500);
+    await cliquerFeuille('.feuille-menu button[data-cle="varie"]');
+    await jusqua(() => profilBase().temps_reponse === 'varie', 8000, '[Q60] P : « varie » est écrit');   // 156 — plus 1 500 ms fixes
+    await calmeApres(await departGeste());
     ok('[Q60] P — le choix écrit `temps_reponse` ; la ligne le dit',
       profilBase().temps_reponse === 'varie' && (await ligneP('Ton temps')).valeur === 'Ça varie beaucoup', JSON.stringify([profilBase().temps_reponse, await ligneP('Ton temps')]));
     // ── 60-2c : la feuille « Ton temps » fait la même chose pour « Moins » — la feuille RESTE ouverte, demande combien, écrit à « Valider ».
     const ecritsT0 = ecritsProfil();
     const dureeT0 = profilBase().duree_seance_min;
     await toucherP('Ton temps');
-    await cliquerFeuille('.feuille-menu button[data-cle="moins"]', 600);
+    await cliquerFeuille('.feuille-menu button[data-cle="moins"]');   // 156 — la feuille RESTE ouverte : son contenu change (les durées s'ouvrent)
     fp = await feuilleChoixP();
     const pucesFeuille = await page.evaluate(() => ({
       libelles: Array.from(document.querySelectorAll('#feuille-contenu .choix-puces .q-puce')).map((n) => n.textContent),
@@ -15824,22 +15897,25 @@ const SETS_IMPORTES = [
         pucesFeuille.question === 'Combien de temps par séance ?' && JSON.stringify(fp.options) === '["max","marge","moins","varie"]' &&
         JSON.stringify(fp.coches) === '["moins"]' && JSON.stringify(fp.pied) === '["Annuler","Valider"]',
       JSON.stringify([fp, pucesFeuille, ecritsProfil() - ecritsT0, profilBase().temps_reponse]));
-    await cliquerFeuille('.choix-puces .q-puce[data-cle="90"]', 500);
-    await cliquerFeuille('.feuille-pied .sec', 600);
+    await cliquerFeuille('.choix-puces .q-puce[data-cle="90"]');
+    await cliquerFeuille('.feuille-pied .sec');
     ok('[Q60c] « Annuler » après avoir touché une durée n’écrit rien',
       !(await feuilleChoixP()).ouverte && ecritsProfil() === ecritsT0 && profilBase().temps_reponse === 'varie' && profilBase().duree_seance_min === dureeT0,
       JSON.stringify([ecritsProfil() - ecritsT0, profilBase().temps_reponse, profilBase().duree_seance_min, dureeT0]));
     await toucherP('Ton temps');
-    await cliquerFeuille('.feuille-menu button[data-cle="moins"]', 600);
-    await cliquerFeuille('.choix-puces .q-puce[data-cle="45"]', 500);
-    await cliquerFeuille('.feuille-pied .pri', 1500);
+    await cliquerFeuille('.feuille-menu button[data-cle="moins"]');
+    await cliquerFeuille('.choix-puces .q-puce[data-cle="45"]');
+    await cliquerFeuille('.feuille-pied .pri');
+    await jusqua(() => profilBase().temps_reponse === 'moins' && profilBase().duree_seance_min === 45 && ecritsProfil() > ecritsT0, 8000,
+      '[Q60c] « Valider » écrit la réponse et la durée');   // 156 — plus 1 500 ms fixes
+    await calmeApres(await departGeste());
     ok('[Q60c] DISCRIMINANT — « Valider » écrit la réponse ET la durée en UNE écriture ; la ligne le dit',
       !(await feuilleChoixP()).ouverte && profilBase().temps_reponse === 'moins' && profilBase().duree_seance_min === 45 &&
         ecritsProfil() === ecritsT0 + 1 && /^J’ai moins/.test((await ligneP('Ton temps')).valeur),
       JSON.stringify([profilBase().temps_reponse, profilBase().duree_seance_min, ecritsProfil() - ecritsT0, await ligneP('Ton temps')]));
     await toucherP('Ton temps');
-    await cliquerFeuille('.feuille-menu button[data-cle="moins"]', 600);
-    await cliquerFeuille('.feuille-pied .pri', 1500);
+    await cliquerFeuille('.feuille-menu button[data-cle="moins"]');
+    await cliquerFeuille('.feuille-pied .pri');   // 156 — négatif : la feuille se ferme, le réseau se tait (plus 1 500 ms fixes), rien de plus n'est écrit
     ok('[Q60c] « Valider » sans durée touchée : rien de plus (la réponse et la durée sont déjà celles de la base)',
       ecritsProfil() === ecritsT0 + 1 && profilBase().duree_seance_min === 45, JSON.stringify([ecritsProfil() - ecritsT0, profilBase().duree_seance_min]));
     await aller('/saisie');
@@ -15860,10 +15936,12 @@ const SETS_IMPORTES = [
 
     // ── H. LA LIGNE ARRIVE APRÈS L'OUVERTURE DE SAISIE : la décision se prend à son arrivée.
     base.lenteurProfil = 3500;
-    await rouvrir(Object.assign({}, VIERGE, { onboarding_completed: true }));
+    await rouvrir(Object.assign({}, VIERGE, { onboarding_completed: true }), true);
     const avantLigne = await visible();
+    // 156 — la prémisse dit SA raison : la réponse était encore retenue au moment de lire l'écran (`profilLibere` encore à 0).
     ok('[Q60] H — prémisse : la ligne de profil est en vol, l’app est déjà sur Saisie (rien n’est ouvert sur une ligne inconnue)',
-      JSON.stringify(avantLigne) === JSON.stringify(saisie), JSON.stringify(avantLigne));
+      JSON.stringify(avantLigne) === JSON.stringify(saisie) && base.profilLibere === 0,
+      JSON.stringify([avantLigne, base.profilLibere ? 'la réponse était déjà partie' : 'retenue']));
     await attendreOuverture();
     e = await ecranQ();
     ok('[Q60] H — la ligne arrive (questionnaire vide) : il s’ouvre alors, une fois', e.ecran === 'bienvenue' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
@@ -15890,14 +15968,14 @@ const SETS_IMPORTES = [
         noms.forEach((n) => tx.objectStore(n).clear());
         tx.oncomplete = tx.onerror = tx.onabort = () => { db.close(); ok2(); };
       };
-      setTimeout(ok2, 10000);
+      setTimeout(ok2, 10000);   // plafond : la course de l'ouverture d'IndexedDB — `onsuccess` gagne dès qu'il vient
     }));
     Object.assign(profilBase(), VIERGE, { onboarding_completed: false });
     base.lenteurProfil = 3500;
-    await aller('/saisie');
+    await allerRetenu('/saisie');   // 156 — l'état : la requête du profil est retenue ET la vue posée (plus 2 600 ms fixes)
     const neufAvant = await visible();
     ok('[Q60] H — compte neuf sans cache : tant que la ligne n’est pas arrivée, rien ne s’ouvre',
-      neufAvant.indexOf('vue-questionnaire') < 0, JSON.stringify(neufAvant));
+      neufAvant.indexOf('vue-questionnaire') < 0 && base.profilLibere === 0, JSON.stringify([neufAvant, base.profilLibere]));
     await attendreOuverture();
     e = await ecranQ();
     ok('[Q60] H — DISCRIMINANT : la ligne arrive (questionnaire vide, `onboarding_completed` faux) : il s’ouvre au premier démarrage, au premier écran',
@@ -15917,10 +15995,12 @@ const SETS_IMPORTES = [
     ok('[Q60] K — hors ligne, on avance quand même : l’écran « Toi » est atteint', e.ecran === 'toi', JSON.stringify(e));
     await cliquerQ('.q-puce[data-cle="femme"]');
     await page.fill(SEL + '#q-champ-poids', '71,3');
-    await attendre(250);
     await continuerQ();
-    await attendre(900);
-    const fileK = await page.evaluate(() => THCache.lireAttente().then((f) => (f || []).map((x) => x.table + ':' + x.id)));
+    // 156 — l'état que lit le contrôle (plus 900 ms fixes) : la pesée attend dans la file, le profil est marqué « à envoyer ».
+    const fileDeK = () => page.evaluate(() => THCache.lireAttente().then((f) => (f || []).map((x) => x.table + ':' + x.id)));
+    await jusqua(async () => (await fileDeK()).indexOf('body_weight_log:pesee-' + (await aujourdhuiLocal())) >= 0 &&
+      !!(await page.evaluate(() => THCache.lireMeta('profil-a-envoyer'))), 8000, '[Q60] K : la pesée et le profil attendent hors ligne');
+    const fileK = await fileDeK();
     const aEnvoyerK = await page.evaluate(() => THCache.lireMeta('profil-a-envoyer'));
     ok('[Q60] K — hors ligne : rien n’est arrivé en base ; la pesée attend dans la file (un identifiant par jour), le profil est marqué « à envoyer »',
       profilBase().historique_declare === null && profilBase().sexe !== 'femme' && base.ecrituresPesees.length === ecrituresK0 &&
@@ -15931,11 +16011,9 @@ const SETS_IMPORTES = [
       JSON.stringify([fileK, aEnvoyerK, profilBase().historique_declare]));
     base.reseau = true;
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    let partiK = false;
-    for (let n = 0; n < 40 && !partiK; n++) {
-      await attendre(250);
-      partiK = profilBase().historique_declare === 'import' && base.pesees.some((x) => x.poids_kg === 71.3);
-    }
+    // 156 — l'état, en temps mur et COMPTÉ s'il n'arrive pas (la boucle de 40 pas de 250 ms rendait la main en silence).
+    const partiK = await jusqua(() => profilBase().historique_declare === 'import' && base.pesees.some((x) => x.poids_kg === 71.3),
+      10000, '[Q60] K : le profil et la pesée partent au retour du réseau');
     const fileK2 = await page.evaluate(() => THCache.lireAttente().then((f) => (f || []).length));
     ok('[Q60] K — le réseau revient : le profil (historique, sexe) et la pesée du jour partent ; la file se vide ; la pesée FUSIONNE (une ligne par jour)',
       partiK && profilBase().sexe === 'femme' && fileK2 === 0 && base.pesees.filter((x) => x.date === jour).length === 1,
@@ -15946,7 +16024,7 @@ const SETS_IMPORTES = [
     // a répondu entre-temps (`questionnaire_fait_le`, l'objectif, les priorités).
     const ecritsK = ecritsProfil();
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    await attendre(1500);
+    await reseauCalme();   // 156 — négatif (plus 1 500 ms fixes) : si le profil devait repartir, il serait parti avant que le réseau se taise
     ok('[Q60] K — DISCRIMINANT : « online » sans rien en attente n’écrit pas le profil', ecritsProfil() === ecritsK, JSON.stringify(ecritsProfil() - ecritsK));
 
     // ── G. JAMAIS PAR-DESSUS UNE SÉANCE OUVERTE.
@@ -15956,7 +16034,6 @@ const SETS_IMPORTES = [
     Object.assign(profilBase(), { questionnaire_fait_le: FAIT_LE });
     await aller('/saisie');
     await demarrerRoutine('Push');
-    await attendre(900);
     await effacerVu();
     Object.assign(profilBase(), NON_REMPLI);
     await aller('/saisie');
@@ -15969,9 +16046,12 @@ const SETS_IMPORTES = [
     await onglet('profil');
     await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
       .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Sexe') === 0)[0].click());
-    await attendre(500);
+    await feuilleOuverte('.feuille-menu button[data-cle="femme"]');   // 156 — plus 500 ms fixes
+    const departG = await departGeste();
     await page.click('#feuille-contenu .feuille-menu button[data-cle="femme"]');
-    await attendre(1500);
+    // 156 — l'état (plus 1 500 ms fixes) : la réponse est en base ET le réseau s'est tu (la décision d'ouvrir se prend à l'arrivée).
+    await jusqua(() => profilBase().sexe === 'femme', 8000, '[93] G : le sexe est écrit');
+    await calmeApres(departG);
     const surProfilG = await visible();
     ok('[93] G — DISCRIMINANT : séance ouverte, un geste du Profil répondu par la base n’ouvre PAS le questionnaire par-dessus',
       profilBase().sexe === 'femme' && surProfilG.indexOf('vue-questionnaire') < 0 && (await clesVues()).length === 0,
@@ -20449,6 +20529,8 @@ const SETS_IMPORTES = [
     const slugSDT = (CATALOGUE.filter((e) => e.nom === 'Soulevé de Terre (Barre)')[0] || { slug: 'souleve_de_terre_barre' }).slug;
     const nouvelles = (ids) => base.sessions.filter((x) => ids.indexOf(x.id) >= 0);
     const ecrituresDeSeances = () => base.journal.filter((j) => j.op === 'session' || j.op === 'sets').length;
+    const resultatRoumain = () => jusqua(() => page.evaluate(() => Array.from(document.querySelectorAll('#resultats-exo .resultat'))
+      .some((b) => b.firstChild.textContent === 'E69 Roumain (Barre)')).catch(() => false), 6000, '[E69] le résultat « E69 Roumain (Barre) »');
     const idDImport = (ref, rang) => page.evaluate(([a, b]) => window.THMoteur.idDImport('u-banc', a, b), [ref, rang]);
 
     // ── (a) LE TEXTE DU CAS, SUR UNE BASE OÙ 2 DES 5 SÉANCES EXISTENT ──────
@@ -20473,7 +20555,7 @@ const SETS_IMPORTES = [
       nbE({ ligneImport, sections }));
     await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
       .filter((l) => /Importer depuis Hevy/.test(l.textContent))[0].click());
-    await attendre(800);
+    await jusqua(async () => (await visible())[0] === 'vue-import' && page.url().endsWith('/profil/import'), 8000, '[E69] l’écran d’import s’ouvre');   // 156 — plus 800 ms fixes
     ok('[E69] l’écran à deux choix, sous « /profil/import »',
       (await visible())[0] === 'vue-import' && page.url().endsWith('/profil/import') &&
       (await etat()).titre === 'Importer depuis Hevy' && (await compter('#import-hevy .imp-fichier')) === 1,
@@ -20532,7 +20614,7 @@ const SETS_IMPORTES = [
     const b1 = await etat();
     const avantB = ecrituresDeSeances();
     await page.click('#import-hevy .imp-importer').catch(() => {});
-    await attendre(1200);
+    await reseauCalme();   // 156 — négatif (plus 1 200 ms fixes) : rien ne part ; le réseau se tait, puis on lit
     ok('[E69] (b) recommencer : 5 « déjà là », le bouton ne peut rien importer, rien ne part',
       b1.lignes.length === 5 && b1.lignes.every((l) => l.grise) && !!b1.bouton && b1.bouton.actif === false &&
       ecrituresDeSeances() === avantB && base.sessions.length === 6,
@@ -20549,7 +20631,8 @@ const SETS_IMPORTES = [
       c1.bouton.actif === false && c1.attend === 'Le bouton attend que chaque exercice soit rattaché ou laissé de côté.',
       nbE(c1));
     await page.click('#import-hevy .imp-lien');
-    await attendre(600);
+    await jusqua(() => page.evaluate(() => !document.querySelector('#catalogue').hidden && !document.querySelector('#titre-catalogue').hidden), 6000,
+      '[E69] (c) le catalogue en mode « rattacher » s’ouvre');   // 156 — plus 600 ms fixes
     const feuille = await page.evaluate(() => ({ ouvert: !document.querySelector('#catalogue').hidden,
       titre: document.querySelector('#titre-catalogue').textContent, titreVu: !document.querySelector('#titre-catalogue').hidden,
       recherche: document.querySelector('#champ-recherche-exo').value, pied: !document.querySelector('#pied-rattacher').hidden,
@@ -20562,7 +20645,7 @@ const SETS_IMPORTES = [
       feuille.recherche === '' && feuille.pied && feuille.ne === 'Ne pas importer cet exercice' &&
       feuille.aide === 'Je m’en souviendrai pour tes prochains imports.', nbE(feuille));
     await page.fill('#champ-recherche-exo', 'E69 Roumain');
-    await attendre(400);
+    await resultatRoumain();   // 156 — l'état (plus 400 ms fixes) : le résultat cherché est dans la liste
     await page.evaluate(() => Array.from(document.querySelectorAll('#resultats-exo .resultat'))
       .filter((b) => b.firstChild.textContent === 'E69 Roumain (Barre)')[0].click());
     await jusqua(async () => base.aliasMiens.length === 1, 5000);
@@ -20624,13 +20707,15 @@ const SETS_IMPORTES = [
       g1.lignes.length === 1 && g1.lignes[0].coche && nbE(g1.noms) === nbE(['Roumain Machin E118']), nbE(g1));
     const ecrituresG = ecrituresDeSeances();
     await page.click('#import-hevy .imp-lien');
-    await attendre(600);
+    await jusqua(() => page.evaluate(() => !document.querySelector('#catalogue').hidden && !document.querySelector('#titre-catalogue').hidden), 6000,
+      '[E118] (g) le catalogue en mode « rattacher » s’ouvre');   // 156 — plus 600 ms fixes
     await page.fill('#champ-recherche-exo', 'E69 Roumain');
-    await attendre(400);
+    await resultatRoumain();   // 156 — plus 400 ms fixes
     await page.evaluate(() => Array.from(document.querySelectorAll('#resultats-exo .resultat'))
       .filter((b) => b.firstChild.textContent === 'E69 Roumain (Barre)')[0].click());
     await jusqua(async () => base.aliasMiens.some((a) => a.alias === 'Roumain Machin E118'), 5000);
-    await attendre(300);
+    // 156 — l'état (plus 300 ms fixes) : l'aperçu a refait son verdict (« sans doute la même »).
+    await jusqua(async () => { const l = (await etat()).lignes[0]; return !!l && /sans doute la même\.$/.test(l.sous); }, 6000, '[E118] (g) le verdict est refait');
     const g2 = await etat();
     ok('[E118] (g) DISCRIMINANT — rattachée : « sans doute la même », décochée, rien à importer, rien n’est écrit',
       g2.lignes.length === 1 && !g2.lignes[0].coche && /sans doute la même\.$/.test(g2.lignes[0].sous) &&
@@ -20658,7 +20743,9 @@ const SETS_IMPORTES = [
     const ecrituresH = ecrituresDeSeances();
     await page.click('#import-hevy .imp-importer');
     await jusqua(async () => /importée/.test((await etat()).titre), 12000);
-    await attendre(600);
+    // 156 — l'état (plus 600 ms fixes) : la fin dit « 1 était déjà dans l’app. » ; puis (négatif : rien n'est réécrit) le réseau se tait.
+    await jusqua(async () => (await etat()).ok.length > 0, 6000, '[E118] (h) la fin de l’import est dite');
+    await reseauCalme();
     const h2 = await etat();
     const sessH = base.sessions.filter((x) => x.id === idH), setsH = base.sets.filter((x) => x.session_id === idH);
     ok('[E118] (h) DISCRIMINANT — « nouvelle » à l’aperçu (absente du cache), mais déjà en base : rien n’est réécrit, « 1 était déjà dans l’app. »',
@@ -20688,7 +20775,7 @@ const SETS_IMPORTES = [
     ok('[E69] (d) « Une séance de l’app commence à 11 h 01 ce jour-là : sans doute la même. »',
       d1.lignes[iMeme].sous === 'Une séance de l’app commence à 11 h 01 ce jour-là : sans doute la même.', nbE(d1.lignes[iMeme]));
     await page.evaluate((i) => document.querySelectorAll('#import-hevy .imp-seance')[i].click(), iMeme);
-    await attendre(300);
+    await jusqua(async () => (await etat()).lignes[iMeme].coche, 6000, '[E69] (d) la séance est cochée');   // 156 — plus 300 ms fixes
     ok('[E69] (d) cochée à la main, elle compte : « Importer 4 séances »',
       (await etat()).lignes[iMeme].coche && nbE((await etat()).bouton) === nbE({ libelle: 'Importer 4 séances', actif: true }),
       nbE((await etat()).bouton));
@@ -20706,7 +20793,9 @@ const SETS_IMPORTES = [
     // Un texte qui n'est pas de Hevy.
     await page.fill('#champ-texte-hevy', 'Bonjour\nceci n’est pas une séance');
     await page.click('#import-hevy .imp-lire');
-    await attendre(400);
+    // 156 — l'état (plus 400 ms fixes) : LA phrase attendue (l'erreur d'avant, « L’import demande une connexion. », était déjà là).
+    await jusqua(async () => (await etat()).erreur === 'Je ne reconnais pas ce texte. Copie-le depuis Hevy : une séance → Partager → Copier.', 6000,
+      '[E69] le texte inconnu est refusé');
     ok('[E69] un texte qui n’est pas de Hevy : « Je ne reconnais pas ce texte. Copie-le depuis Hevy : une séance → Partager → Copier. »',
       (await etat()).erreur === 'Je ne reconnais pas ce texte. Copie-le depuis Hevy : une séance → Partager → Copier.', nbE(await etat()));
     await page.setInputFiles('#fichier-hevy', { name: 'pesees.csv', mimeType: 'text/csv', buffer: Buffer.from('date,poids\n2026-01-01,80\n', 'utf8') });
@@ -23126,8 +23215,17 @@ const SETS_IMPORTES = [
       await page.fill('#feuille-contenu input[data-cle="charge"]', String(charge));
       await page.fill('#feuille-contenu input[data-cle="reps"]', String(reps));
       const phrase = await texte('#feuille-contenu .objectif-phrase');
+      const departO = await departGeste();
       await page.click('#feuille-contenu .feuille-pied .pri');
-      await attendre(700);
+      // 156 — l'état (plus 700 ms fixes) : la feuille se ferme (l'objectif est posé) ou elle dit son refus ; puis la file de
+      // l'appareil est vide et le réseau calme (l'écriture est partie — un rechargement ne la perd pas). Un refus
+      // inattendu, ou une carte qui n'arrive pas, est un défaut de l'app : jamais un plafond à relever.
+      await jusqua(() => page.evaluate(() => {
+        const f = document.getElementById('feuille-seance');
+        return !f || f.hidden || !!((document.querySelector('#feuille-contenu .feuille-err') || {}).textContent || '').trim();
+      }).catch(() => false), 6000, 'feuilleO : « Valider »');
+      await fileVide();
+      await calmeApres(departO);
       return { phrase, refus: await texte('#feuille-contenu .feuille-err') };
     };
 
@@ -23176,7 +23274,7 @@ const SETS_IMPORTES = [
       nbO(f2.refus) === nbO('Déjà fait : 144 kg × 1, le 20 sept.') && (base.objectifs[0] || {}).charge_kg === 150 &&
         base.predictions.filter((x) => x.module === 'objectif').length === 1, nbO([f2, base.objectifs]));
     await page.click('#feuille-contenu .feuille-pied .sec');
-    await attendre(400);
+    await feuilleFermee();   // 156 — plus 400 ms fixes
 
     // ── 3. LA DATE EST FIGÉE : rechargée, la ligne ne bouge pas.
     await aller('/exercice/squat-o109');
@@ -23235,7 +23333,7 @@ const SETS_IMPORTES = [
         (attendusO === 0 ? moisO.coach === null && moisO.cles.indexOf('coach') < 0 : moisO.coach === '/ ' + attendusO),
       nbO([attendusO, moisO]));
     await page.click('#annee .fermer').catch(() => {});
-    await attendre(500);
+    await jusqua(() => page.evaluate(() => { const h = document.getElementById('annee'); return !h || h.hidden; }).catch(() => false), 6000, '[O109] la story se ferme');   // 156 — plus 500 ms fixes
 
     // ── 6. RETIRER : la ligne part, les deux paris restent.
     await aller('/exercice/squat-o109');
@@ -23425,16 +23523,10 @@ const SETS_IMPORTES = [
       .filter((b) => b.textContent === t)[0].click(), libelle);
     // La section se joue seule ou derrière n'importe quelle autre : une séance laissée ouverte est abandonnée.
     const sansSeance115 = async () => {
-      await aller('/saisie');
-      await attendre(800);
+      await aller('/saisie');   // 156 — l'écran posé (`ecranPose`) : plus 800 ms fixes
       if (JSON.stringify(await visible()) === '["vue-seance"]') {
-        await page.click('#bandeau-seance .bandeau-fin');
-        await attendre(600);
-        await cliquerAbandon();
-        await confirmerAbandon();
-        await attendre(1600);
+        await abandonner();     // 156 — la feuille ouverte, l'abandon confirmé, la séance sortie et le réseau calme (600 + 1 600 ms fixes avant)
         await aller('/saisie');
-        await attendre(500);
       }
     };
     const remplir115 = async (i, charge, reps) => {
@@ -23442,7 +23534,7 @@ const SETS_IMPORTES = [
       const champ = (k) => page.locator('.ligne-serie').nth(i).locator('input').nth(k);
       await champ(0).fill(String(charge));
       await champ(1).fill(String(reps));
-      await attendre(500);
+      await rafs(2);   // 156 — `fill` lève `input` : la page a traité la saisie (plus 500 ms fixes)
     };
 
     // ── E2. LE GLISSEMENT SUR UNE SÉRIE FAITE : « SÉRIE SUPPRIMÉE · ANNULER ».
@@ -23450,13 +23542,13 @@ const SETS_IMPORTES = [
       const l = await ligne(i);
       // Au centre : en bas, la barre de repos (armée par la validation) recevrait le geste.
       await l.evaluate((n) => n.scrollIntoView({ block: 'center' }));
-      await attendre(300);
+      await rafs(2);   // 156 — la ligne est à sa place avant de la mesurer (plus 300 ms fixes)
       const b = await l.boundingBox();
       await page.mouse.move(b.x + b.width - 40, b.y + b.height / 2);
       await page.mouse.down();
       for (let d = 0; d <= 110; d += 14) {
         await page.mouse.move(b.x + b.width - 40 - d, b.y + b.height / 2);
-        await attendre(30);
+        await attendre(30);   // VOULU : le rythme d'un doigt qui glisse — la vitesse du geste est ce que l'app lit
       }
       await page.mouse.up();
     };
@@ -23494,7 +23586,9 @@ const SETS_IMPORTES = [
     await demarrerRoutine(ROUTINE_115.nom);
     await saisirSerie(0, 70, 5);
     await saisirSerie(1, 72.5, 5);
-    await attendre(1800);
+    // 156 — l'état (plus 1 800 ms fixes) : les deux séries sont en base ; puis le réseau se tait (leurs paris sont partis).
+    await jusqua(() => base.sets.filter((x) => x.session_id === enCours115()).length === 2, 8000, '[115-E2] les deux séries sont en base');
+    await reseauCalme();
     const idE2 = enCours115();
     const setsE2 = () => base.sets.filter((x) => x.session_id === idE2);
     const idsE2 = setsE2().map((x) => x.id).sort();
@@ -23506,7 +23600,8 @@ const SETS_IMPORTES = [
     const lignesE2 = await compter('.ligne-serie');
     const valeursAvant = await valeurs115();
     await glisser115(0);
-    await attendre(1500);
+    // 156 — l'état que lit le contrôle (plus 1 500 ms fixes) : la ligne a quitté l'écran, le toast est là.
+    await jusqua(async () => (await toast115()).visible && (await compter('.ligne-serie')) === lignesE2 - 1, 6000, '[115-E2] la ligne glissée quitte l’écran');
     const t1 = await toast115();
     ok('[115-E2] DISCRIMINANT — glisser une série faite : la ligne quitte l’écran, « Série supprimée · Annuler », rien n’a quitté l’appareil',
       t1.visible && JSON.stringify(t1.texte) === '["Série supprimée","Annuler"]' &&
@@ -23514,7 +23609,9 @@ const SETS_IMPORTES = [
         JSON.stringify(setsE2().map((x) => x.id).sort()) === JSON.stringify(idsE2) && parisE2() === parisAvant,
       JSON.stringify([t1, await compter('.ligne-serie'), lignesE2, setsE2().length, parisE2(), parisAvant]));
     await page.click('#toast-seance button');
-    await attendre(1500);
+    // 156 — l'état (plus 1 500 ms fixes) : le toast est parti, la série est revenue à sa place.
+    await jusqua(async () => !(await toast115()).visible && JSON.stringify(await valeurs115()) === JSON.stringify(valeursAvant), 6000, '[115-E2] « Annuler » rend la série');
+    await reseauCalme();
     ok('[115-E2] DISCRIMINANT — « Annuler » : la série revient entière, à sa place (70 × 5, validée), la base n’a pas bougé',
       !(await toast115()).visible && JSON.stringify(await valeurs115()) === JSON.stringify(valeursAvant) &&
         (await compter('.ok-serie.cochee')) === 2 &&
@@ -23522,7 +23619,9 @@ const SETS_IMPORTES = [
       JSON.stringify([(await valeurs115()).slice(0, 3), valeursAvant.slice(0, 3), await compter('.ok-serie.cochee'), setsE2().length]));
 
     await glisser115(0);
-    await attendre(6800);
+    // 156 — TEMPS RÉEL (le délai d'annulation de l'app est de 5 s) : on n'attend plus 6 800 ms fixes mais l'ÉTAT — le toast
+    // est parti et la suppression est en base — qui vient à la fin du délai, pas avant ; plafond de 15 s.
+    await jusqua(async () => !(await toast115()).visible && setsE2().length === 1, 15000, '[115-E2] la suppression part à la fin du délai de 5 s');
     ok('[115-E2] à la fin du délai, la suppression part : 70 × 5 n’est plus en base, le toast est parti, 72,5 × 5 reste',
       !(await toast115()).visible && setsE2().length === 1 && Number(setsE2()[0].charge_kg) === 72.5 &&
         (await compter('.ligne-serie')) === lignesE2 - 1,
@@ -23535,11 +23634,12 @@ const SETS_IMPORTES = [
       return bloc ? toutes.indexOf(bloc.querySelector('.ligne-serie')) : -1;
     });
     await glisser115(0);
-    await attendre(500);
+    await jusqua(async () => (await toast115()).visible, 6000, '[115-E2] le toast de la deuxième suppression');   // 156 — plus 500 ms fixes
     const t2 = await toast115();
     await (await ligne(premiereDc - 1)).evaluate((n) => n.scrollIntoView({ block: 'center' }));
     await saisirSerie(premiereDc - 1, 60, 8);
-    await attendre(1800);
+    // 156 — l'état (plus 1 800 ms fixes) : la suppression en attente est partie (plus de toast), 60 × 8 est en base.
+    await jusqua(async () => !(await toast115()).visible && setsE2().length === 1 && Number(setsE2()[0].charge_kg) === 60, 8000, '[115-E2] le geste suivant fait partir la suppression');
     ok('[115-E2] le geste suivant qui enregistre la fait partir : plus d’« Annuler », 72,5 n’est plus en base, 60 × 8 y est',
       premiereDc > 0 && t2.visible && !(await toast115()).visible && setsE2().length === 1 && Number(setsE2()[0].charge_kg) === 60,
       JSON.stringify([premiereDc, t2, await toast115(), setsE2().map((x) => [x.charge_kg, x.reps])]));
@@ -23554,7 +23654,10 @@ const SETS_IMPORTES = [
     const rangsAvant8 = parisDuPremier().map((x) => x.fondement.rang).sort();
     await (await ligne(0)).evaluate((n) => n.scrollIntoView({ block: 'center' }));
     await saisirSerie(0, 75, 3);
-    await attendre(2200);
+    // 156 — l'état (plus 2 200 ms fixes) : la série de 75 est en base ET son pari est observé ; puis le réseau se tait.
+    await jusqua(() => { const s = setsE2().filter((x) => Number(x.charge_kg) === 75)[0]; return !!s && parisDuPremier().some((x) => x.set_observe === s.id); },
+      10000, '[122-I8] le pari de la série neuve est observé');
+    await reseauCalme();
     const set75 = (setsE2().filter((x) => Number(x.charge_kg) === 75)[0] || {}).id;
     const obs8 = parisDuPremier().filter((x) => x.set_observe === set75);
     ok('[122-I8] DISCRIMINANT — après la suppression des deux séries faites, la nouvelle série prend un rang neuf : son propre pari, observé ; les anciens restent non observés',
@@ -23565,12 +23668,12 @@ const SETS_IMPORTES = [
     // Une série NON faite part tout de suite, sans toast (rien à rattraper) — comme au 4 bis.
     const lignesN = await compter('.ligne-serie');
     await glisser115(lignesN - 1);
-    await attendre(700);
+    await jusqua(async () => (await compter('.ligne-serie')) === lignesN - 1, 6000, '[115-E2] la ligne vide part tout de suite');   // 156 — plus 700 ms fixes
     ok('[115-E2] une ligne vide, non validée, part tout de suite, sans « Annuler »',
       (await compter('.ligne-serie')) === lignesN - 1 && !(await toast115()).visible,
       JSON.stringify([await compter('.ligne-serie'), lignesN, await toast115()]));
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(600);
+    await feuilleOuverte('.principal');   // 156 — plus 600 ms fixes
     await page.click('#feuille-contenu .principal');
     await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
     ok('[115-E2] la séance se termine avec les séries restantes (60 × 8, et la nouvelle de 122 : 75 × 3)',
@@ -23583,12 +23686,12 @@ const SETS_IMPORTES = [
     await demarrerRoutine(ROUTINE_115.nom);
     await saisirSerie(0, 70, 5);
     await remplir115(1, 62.5, 6);
-    await attendre(1200);
     const idE4 = enCours115();
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(600);
+    await feuilleOuverte('.principal');   // 156 — plus 600 ms fixes
     await page.click('#feuille-contenu .principal');
-    await attendre(1200);
+    // 156 — l'état (plus 1 200 ms fixes) : la phrase « n'est pas validée » est dans la feuille.
+    await jusqua(async () => /n’est pas validée/.test(await texte('#feuille-contenu .feuille-t')), 6000, '[115-E4] la question de la série non validée');
     const qE4 = await feuille115();
     ok('[115-E4] DISCRIMINANT — « Terminer » avec une série remplie non validée : une phrase d’abord, [Terminer quand même] (rouge) [Les valider]',
       qE4.ouverte && qE4.titre === '1 série remplie n’est pas validée : elle ne sera pas gardée.' &&
@@ -23597,7 +23700,7 @@ const SETS_IMPORTES = [
     ok('[115-E4] DISCRIMINANT — la séance n’est pas terminée tant qu’on n’a pas répondu',
       !!idE4 && base.sessions.some((x) => x.id === idE4 && x.statut === 'en_cours'), JSON.stringify(idE4));
     await entree115('Les valider');
-    await attendre(700);
+    await feuilleFermee();   // 156 — plus 700 ms fixes
     const valeursE4 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).slice(1, 2)
       .map((l) => Array.from(l.querySelectorAll('input')).map((i) => i.value).join('×')));
     ok('[115-E4] « Les valider » : la feuille se ferme, la séance continue, la ligne garde 62,5 × 6',
@@ -23605,9 +23708,9 @@ const SETS_IMPORTES = [
         valeursE4[0] === '62,5×6' && base.sessions.some((x) => x.id === idE4 && x.statut === 'en_cours'),
       JSON.stringify([valeursE4, await visible()]));
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(600);
+    await feuilleOuverte('.principal');   // 156 — plus 600 ms fixes
     await page.click('#feuille-contenu .principal');
-    await attendre(800);
+    await jusqua(async () => /n’est pas validée/.test(await texte('#feuille-contenu .feuille-t')), 6000, '[115-E4] la question, de nouveau');   // 156 — plus 800 ms fixes
     await entree115('Terminer quand même');
     await seanceSortie();   // 143 — l'état (la séance a quitté l'écran, le réseau est calme), plus 2 600 ms fixes
     const setsE4 = base.sets.filter((x) => x.session_id === idE4);

@@ -15658,7 +15658,10 @@ const SETS_IMPORTES = [
     ok('[Q60] écran 6 — « Où veux-tu progresser en priorité ? », « Jusqu’à trois. »',
       e.ecran === 'priorites' && e.titre === 'Où veux-tu progresser en priorité ?' && e.voix === 'Jusqu’à trois.', JSON.stringify(e));
     const puces = await page.evaluate(() => Array.from(document.querySelectorAll('#questionnaire-corps .q-puce')).map((n) => n.dataset.cle));
-    for (const c of puces.slice(0, 4)) await cliquerQ('.q-puce[data-cle="' + c + '"]');   // 156 — plus 200 ms fixes : l'écran change, le réseau se tait
+    for (const c of puces.slice(0, 3)) await cliquerQ('.q-puce[data-cle="' + c + '"]');   // 156 — plus 200 ms fixes : l'écran change, le réseau se tait
+    // La QUATRIÈME est sans effet (trois au plus) : l'écran ne change pas, il n'y a pas d'état à attendre — le geste est traité par la page.
+    await page.click(SEL + '.q-puce[data-cle="' + puces[3] + '"]');
+    await rafs(2);
     e = await ecranQ();
     ok('[Q60] écran 6 — quatre touchées, TROIS retenues (la quatrième est sans effet)',
       e.choisis.length === 3 && JSON.stringify(e.choisis) === JSON.stringify(puces.slice(0, 3)), JSON.stringify([puces.slice(0, 4), e.choisis]));
@@ -17998,6 +18001,9 @@ const SETS_IMPORTES = [
 
     // ── A. INCONNU → DEMANDE → ACCEPTATION → FIL.
     await aller('/a/lea');
+    // 156 — l'état que lit le contrôle : le profil d'une personne est RENDU (`aller` rend la main quand le réseau se tait, pas quand
+    // la lecture sociale a dessiné l'écran — sous charge, `ami()` lisait un écran vide : pseudo, niveau, bouton à `null`).
+    await attendreQue(async () => { const a = await ami(); return a.pseudo === 'lea' && a.bouton === 'S’abonner'; }, 10000, '[social] A : le profil de l’inconnu est rendu');
     const a0 = await ami();
     ok('[social] inconnu : pseudo, blason, niveau du jeu — et rien de ses séances (pas de calendrier)',
       a0.pseudo === 'lea' && a0.niveau === 'Niveau 12 · Athlète' && a0.bouton === 'S’abonner' && a0.jours === 0 &&
@@ -18115,7 +18121,8 @@ const SETS_IMPORTES = [
     await attendreQue(async () => (await fil()).cartes.length > 0);
     await page.click('#social-fil .s-carte .s-reag');
     await attendreQue(async () => S.reactions.length === 1);
-    await attendre(400);
+    // 156 — l'état que lit le contrôle (plus 400 ms fixes) : la carte dit « Tu as réagi ».
+    await attendreQue(async () => ((await fil()).cartes[0] || {}).reag === '🔥 Tu as réagi', 8000, '[social] D : la carte dit « Tu as réagi »');
     const d0 = await fil();
     ok('[social] « Réagir » : une réaction en base, « Tu as réagi » — et AUCUN nombre de réactions sur la séance d’une autre',
       S.reactions.length === 1 && S.reactions[0].user_id === 'u-banc' && d0.cartes[0].reag === '🔥 Tu as réagi' &&
@@ -18160,7 +18167,9 @@ const SETS_IMPORTES = [
     await page.click('#social-ami [data-geste="bloquer"]');
     await page.click('#social-ami [data-geste="bloquer"]');
     await attendreQue(async () => S.blocages.length === 1);
-    await attendre(600);
+    // 156 — l'état que lit le contrôle (plus 600 ms fixes) : plus aucun lien entre eux, ni réaction croisée.
+    await attendreQue(async () => !lien('u-banc', 'u-lea') && !lien('u-lea', 'u-banc') &&
+      S.reactions.filter((r) => r.user_id === 'u-banc' || r.user_id === 'u-lea').length === 0, 8000, '[social] F : bloquer efface tout lien');
     ok('[social] DISCRIMINANT — bloquer efface tout lien : plus aucun abonnement entre eux, dans un sens comme dans l’autre, ni réaction croisée',
       S.blocages.length === 1 && !lien('u-banc', 'u-lea') && !lien('u-lea', 'u-banc') &&
         S.reactions.filter((r) => r.user_id === 'u-banc' || r.user_id === 'u-lea').length === 0, JSON.stringify([S.abonnements, S.reactions]));
@@ -18335,6 +18344,10 @@ const SETS_IMPORTES = [
       await texte('#social-fil'));
     ok('[social 107] H1 — DISCRIMINANT — « Compte privé » coupé hors ligne, l’app rechargée : au retour du réseau, le profil en base est public',
       await attendreQue(async () => base.profiles[0].compte_prive === false), JSON.stringify(base.profiles[0].compte_prive));
+    // 156 — l'état que lit le contrôle : le fil est REDESSINÉ (la lecture sociale qui suit le retour du réseau l'a laissé sur
+    // « Chargement… » : le banc le lisait à cet instant, 2 passages sur 3 sous charge ×4, sur le code d'avant).
+    await attendreQue(async () => (await compter('#social-fil .s-carte')) > 0 && !(await sAttente('#social-fil')) &&
+      (await texte('#social-fil .s-carte .s-reag')) === '🔥 Tu as réagi', 10000, '[social 107] H1 : le fil est redessiné après le retour');
     ok('[social 107] H1 — après le retour : l’écran ne dit plus « en attente », et montre l’état réel (« Tu as réagi », aucune demande)',
       !(await sAttente('#social-fil')) && (await texte('#social-fil .s-carte .s-reag')) === '🔥 Tu as réagi' &&
         (await compter('#social-fil .s-demande')) === 0, await texte('#social-fil'));

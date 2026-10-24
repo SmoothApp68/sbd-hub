@@ -79,7 +79,7 @@ describe('135 — les délais fixes des bancs', () => {
   // 143 — LE POINT DE DÉPART RÉEL, SECTION PAR SECTION. Le total est la somme : 1 028 sites au 142 (1 000 littéraux que
   // la garde du 135 comptait, plus 28 qu'elle ne voyait pas : trois aides à délai par défaut, 25 `cliquerX(sel, N)`),
   // 1 020 une fois les huit `attendreQue` locaux rendus à l'unique du préambule (lot 0), 942 après les aides communes (lot 1),
-  // 828 après le lot 2 (156 : les sections qui échouent — questionnaire, 115, 7-septies, progression, import-hevy, 7-quinvicies, journal, mon-objectif — n'ont plus aucun délai nu). La section est lue sur la ligne
+  // 826 après le lot 2 (156 : les sections qui échouent — questionnaire, 115, 7-septies, progression, import-hevy, 7-quinvicies, journal, mon-objectif, social — n'ont plus aucun délai nu). La section est lue sur la ligne
   // `══` qui précède. Une section absente de cette table n'a droit à AUCUN délai fixe.
   const PLAFONDS_PAR_SECTION = {
   'retrouver': 39, 'cycles': 37, '7-nonies': 26,
@@ -97,7 +97,7 @@ describe('135 — les délais fixes des bancs', () => {
   '7-tervicies': 4, '7-G': 4, '7-G-quinquies': 4, '7-G-quaterdecies': 4, 'parcours': 4, 'charge-obligatoire': 4,
   'Q78': 4, 'deraille': 4, '5': 3, '7-quindecies': 3, '7-unvicies': 3, '7-quatertricies': 3, '7-G-decies': 3,
   'groupe': 3, 'case-vide': 3, '4': 2, '6': 2, '5-quater': 2, '7-sexies': 2,
-  '7-quater': 2, '7-duodecies': 2, '7-G-ter': 2, '7-G-nonies': 2, 'social': 2, 'saison-mois': 2, '2': 1, '5-bis': 1,
+  '7-quater': 2, '7-duodecies': 2, '7-G-ter': 2, '7-G-nonies': 2, 'saison-mois': 2, '2': 1, '5-bis': 1,
   '7-octies': 1, '7-quaterdecies': 1, '7-G-sexdecies': 1, 'sans-marge': 1,
   };
   const PLAFOND_SEANCE = Object.keys(PLAFONDS_PAR_SECTION).reduce((n, k) => n + PLAFONDS_PAR_SECTION[k], 0);

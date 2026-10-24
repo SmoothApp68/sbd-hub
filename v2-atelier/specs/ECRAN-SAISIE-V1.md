@@ -3551,3 +3551,19 @@ suivante « après ton max », les tenues suivantes visent 50/60/70 % du max du 
 la dernière fois : 20 s. Essaie de faire mieux, proprement. », puis « 22 s : 2 s de plus que la dernière fois. Tes tenues : 13 s. ».
 Carte : « 22 s tenues, deux séances de suite. » (Franc : « … aujourd'hui. »). « Ton échelle » et « Tes échelles » lisent le seuil en secondes.
 L'écran lit le plan ; il ne calcule rien. Voir MOTEUR §9.17 ter.
+
+### 7 duodecies.3 bis Renommer le dossier, et l'app qui relit les routines — décidé le 24/10/2026 (prompt 155)
+24/10/2026, décision d'Aurélien (maquette « renommer-dossier v1 », trois questions : oui).
+**Le menu du dossier.** La tête de chaque dossier (pas « Sans dossier ») porte un « ⋯ » qui ouvre une feuille à une entrée,
+« Renommer le dossier ». La feuille : le nom prérempli ; « Tes N routines et ton cycle en cours suivent le nouveau nom. » (sans
+cycle : « Tes N routines suivent le nouveau nom. ») ; « Renommer » / « Annuler ». Mêmes règles qu'un nom de dossier (1 à 40
+caractères, `dossierValide`). Un nom déjà pris — par une routine (archivée comprise) ou un cycle — est REFUSÉ, jamais fusionné :
+« Un dossier s'appelle déjà « … ». », bouton éteint. La casse suit la règle des dossiers : « sèche » et « Sèche » sont deux
+dossiers. Fonction pure : `Routines.planRenommageDossier(routines, blocs, ancien, nouveau, maintenant)`.
+**L'exécution.** Toutes les routines du dossier, archivées comprises (`majRoutine`, en direct), PUIS tous ses cycles, en cours et
+passés (`poserBloc`, `modifie_a` à jour, par la file), puis `programme_construit_dossier` s'il vaut l'ancien nom, l'état « replié »,
+puis `chargerRoutines` et le rendu. Les routines d'abord : hors ligne la première écriture échoue et rien n'a bougé ; une
+écriture qui échoue en route rend les précédentes. Les paris (`predictions.fondement.dossier`) ne changent pas (immuables).
+**L'app relit les routines.** À la ré-entrée (retour au premier plan, `reentrer`), au plus une fois par minute, JAMAIS pendant
+une séance ni quand l'éditeur d'une routine, une duplication ou un renommage est ouvert ; l'affichage ne change que si la
+signature (ids, noms, dossiers, `modifiee_a`, archivage) a changé ; un échec réseau garde l'affichage.

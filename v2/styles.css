@@ -1688,6 +1688,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    programme : quatre champs, puis les exercices cochés. */
 .dossier-ligne{display:flex;align-items:center;gap:var(--e2)}
 .dossier-ligne .dossier-tete{flex:1;min-width:0}
+.dossier-menu{background:none;border:none;color:var(--texte-2);font:inherit;font-size:18px;line-height:1;
+  padding:var(--e2) var(--e2);min-width:44px;min-height:44px;cursor:pointer}
 .dossier-badge{background:none;border:0;padding:var(--e3) 2px var(--e1);color:var(--accent);font:inherit;
   font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer}
 .programme-dossier{margin:0 0 var(--e2)}

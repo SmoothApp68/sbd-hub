@@ -16712,14 +16712,14 @@ const SETS_IMPORTES = [
     };
     await aller('/profil');
     let sh = await sectionH();
-    // 108 — « Ma salle » (ECRAN-PROFIL §2.4 quinquies) se range sous « Matériel ».
-    ok('[R60] H — « CE QUE JE FAIS » : Matériel, Ma salle, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
-      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Exercices écartés|Refaire mon programme' &&
-        sh[2].val === 'Dos' && sh[3].val === '1' && sh[4].val === null, JSON.stringify(sh));
+    // 108 — « Ma salle » (ECRAN-PROFIL 2.4 quinquies) se range sous « Matériel ».
+    ok('[R60] H — « CE QUE JE FAIS » : Matériel, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
+      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Exercices écartés|Refaire mon programme' &&
+        sh[1].val === 'Dos' && sh[2].val === '1' && sh[3].val === null, JSON.stringify(sh));
     ok('[R60] H — les phrases de la spec (G10), au mot près',
-      !!sh && sh[2].sous === 'Ton programme construit la garde sans série lourde. Rien ne change en séance.' &&
-        sh[3].sous === 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.' &&
-        sh[4].sous === 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.', JSON.stringify(sh));
+      !!sh && sh[1].sous === 'Ton programme construit la garde sans série lourde. Rien ne change en séance.' &&
+        sh[2].sous === 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.' &&
+        sh[3].sous === 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.', JSON.stringify(sh));
     // Zone à ménager : une feuille à puces.
     await toucherH('Zone à ménager');
     const puces = () => page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
@@ -16735,15 +16735,15 @@ const SETS_IMPORTES = [
     await attendre(900);
     sh = await sectionH();
     ok('[R60] H — « Valider » : Dos et Genou écrits (dans l’ordre de la liste), la ligne dit « Dos, Genou »',
-      JSON.stringify(profilBase().zones_a_menager) === '["dos","genou"]' && sh[2].val === 'Dos, Genou',
-      JSON.stringify([profilBase().zones_a_menager, sh[2].val]));
+      JSON.stringify(profilBase().zones_a_menager) === '["dos","genou"]' && sh[1].val === 'Dos, Genou',
+      JSON.stringify([profilBase().zones_a_menager, sh[1].val]));
     await toucherH('Zone à ménager');
     await page.click('#feuille-contenu button[data-cle="aucune"]');
     await page.click('#feuille-contenu .feuille-pied .pri');
     await attendre(900);
     sh = await sectionH();
     ok('[R60] H — « Aucune » écrit le vide (NULL) ; la ligne dit « Aucune »',
-      profilBase().zones_a_menager === null && sh[2].val === 'Aucune', JSON.stringify([profilBase().zones_a_menager, sh[2].val]));
+      profilBase().zones_a_menager === null && sh[1].val === 'Aucune', JSON.stringify([profilBase().zones_a_menager, sh[1].val]));
     // Exercices écartés : la liste, « Reprendre ».
     await toucherH('Exercices écartés');
     const liste = () => page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
@@ -16757,7 +16757,7 @@ const SETS_IMPORTES = [
     li = await liste();
     sh = await sectionH();
     ok('[R60] H — « Reprendre » : l’exercice n’est plus écarté (NULL), la feuille se ferme, la ligne « Exercices écartés » s’efface',
-      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Refaire mon programme',
+      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Refaire mon programme',
       JSON.stringify([profilBase().exercices_ecartes, li.ouverte, sh && sh.map((l) => l.lib)]));
     // Refaire mon programme : « Retour » ramène au Profil sans rien écrire.
     const avantRefaire = JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ROUTINES.length]);
@@ -21714,22 +21714,15 @@ const SETS_IMPORTES = [
         cochee: !!(l && l.querySelector('.ok-serie.cochee')),
         constat: (document.querySelector('.legende-exo .constat') || {}).textContent || null };
     }, iNul);
-    ok('[C100] DISCRIMINANT — ✓ SANS POIDS : rien ne part en base, la ligne reste ouverte, la case du poids en rouge et le clavier sur elle',
-      base.sets.length === nSets && !refus100.cochee && refus100.ch && refus100.rouge && refus100.iSerie === String(iNul),
-      nb100({ sets: base.sets.length - nSets, refus100 }));
+    // 163 — la case est PRÉREMPLIE (« ≈ 55 kg ») : le ✓ avec les seules reps valide la charge proposée, 55 kg × 3. Le refus
+    // du ✓ sans poids (case rouge, clavier) ne se joue plus sur une ligne du plan, qui a toujours son chiffre.
+    await attendre(300);
+    const partie = base.sets.filter((s) => s.exercise_slug === 'cran-c100' && !/^c100-/.test(s.session_id));
+    ok('[C100] DISCRIMINANT — ✓ avec les reps seules : la série part avec la charge préremplie, 55 kg × 3, aucune case en rouge',
+      base.sets.length === nSets + 1 && partie.some((s) => Number(s.charge_kg) === 55 && s.reps === 3) &&
+      (await compter('.case-vide')) === 0, nb100({ sets: base.sets.length - nSets, refus100, partie: partie.map((s) => [s.charge_kg, s.reps]) }));
     ok('[C100] aucun constat menteur : pas de « 12 kg × 5 », pas de charge inconnue', !refus100.constat ||
       !/12.kg.×.5|null|inconnu/.test(refus100.constat), nb100(refus100.constat));
-    // Le poids tapé : la série part, avec lui.
-    {
-      const champs = await (await ligne(iNul)).$$('input');
-      await champs[0].fill('55');
-      await (await ligne(iNul)).$eval('.ok-serie', (b) => b.click());
-      await attendre(900);
-    }
-    const partie = base.sets.filter((s) => s.exercise_slug === 'cran-c100' && !/^c100-/.test(s.session_id));
-    ok('[C100] le poids tapé : la série part avec 55 kg × 3, et plus aucune ligne en rouge',
-      base.sets.length === nSets + 1 && partie.some((s) => Number(s.charge_kg) === 55 && s.reps === 3) &&
-      (await compter('.case-vide')) === 0, nb100(partie.map((s) => [s.charge_kg, s.reps])));
     ok('[C100] aucune série chargée sans charge en base', partie.every((s) => s.charge_kg !== null && s.charge_kg !== undefined),
       nb100(partie.map((s) => s.charge_kg)));
     // Le poids du corps : aucune charge à taper, le ✓ valide (mutation b).

@@ -2664,7 +2664,7 @@ const REGISTRE_ECRITURES = [
     raison: 'une lecture (ce pseudo est-il pris ?) par une fonction du serveur : rien n’est écrit' },
   // La bibliothèque de routines : les écrivains, appelés par `routines.js` (l'écrivain injecté) ou par un geste.
   { fn: 'creerRoutine', chemin: 'liste-blanche', appelants: ['routines.js:enregistrer'], raison: RAISON_BIBLIOTHEQUE },
-  { fn: 'majRoutine', chemin: 'liste-blanche', appelants: ['routines.js:enregistrer', 'app.js:enregistrerOrdreBibliotheque'],
+  { fn: 'majRoutine', chemin: 'liste-blanche', appelants: ['routines.js:enregistrer', 'app.js:enregistrerOrdreBibliotheque', 'app.js:renommerDossier'],
     raison: RAISON_BIBLIOTHEQUE },
   { fn: 'supprimerRoutine', chemin: 'liste-blanche',
     appelants: ['routines.js:enregistrer', 'app.js:supprimerCourante', 'app.js:creerDansUnDossier'], raison: RAISON_BIBLIOTHEQUE },
@@ -2723,6 +2723,7 @@ const GESTES_BIBLIOTHEQUE = [
   { geste: 'dupliquerRoutine', quoi: '« Dupliquer »', raison: RAISON_BIBLIOTHEQUE },
   { geste: 'supprimerCourante', quoi: '« Supprimer »', raison: RAISON_BIBLIOTHEQUE },
   { geste: 'enregistrerOrdreBibliotheque', quoi: '« Réorganiser »', raison: RAISON_BIBLIOTHEQUE },
+  { geste: 'renommerDossier', quoi: '« Renommer le dossier » (155)', raison: RAISON_BIBLIOTHEQUE },
   { geste: 'creerDansUnDossier', quoi: '« Retrouver mes routines », le programme du questionnaire', raison: RAISON_BIBLIOTHEQUE },
   { geste: 'creerRoutineDepuisSeance', quoi: '« En faire une routine »', raison: 'à passer par la file (noté le 11/10)' },
   { geste: 'creerRoutineNeuve', quoi: 'relais de « En faire une routine » et de `creerDansUnDossier`', relais: true },

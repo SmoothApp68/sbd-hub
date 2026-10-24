@@ -21639,6 +21639,11 @@ const SETS_IMPORTES = [
       const v = plan100.lignes[i];
       await saisirSerie(i, v.charge, v.vise || 12);
     }
+    // 143-bis — les séries d'avant sont EN BASE avant qu'on compte : `saisirSerie` rend la main quand l'écran est
+    // posé, et la dernière pouvait encore être dans la file (séquentiel : « sets » +1 pendant le ✓ refusé).
+    await reseauCalme();
+    await attendreQue(() => base.sets.filter((s) => s.exercise_slug === 'cran-c100' && !/^c100-/.test(s.session_id)).length >= iNul,
+      10000, { nom: 'C100 les séries d’avant en base' });
     const nSets = base.sets.length;
     const chargeVide = await (await ligne(iNul)).$$eval('input', (l) => [l[0].value, l[0].placeholder]);
     ok('[C100] la ligne du test : aucune charge dans le champ, ni tapée ni en fantôme',

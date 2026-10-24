@@ -2458,6 +2458,15 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   border:1.5px solid var(--trait);border-radius:10px;padding:0 var(--e2);font:inherit;font-size:var(--police-champ)}
 /* 123 — les tranches d'haltères : « Pas d'haltères », « Retirer cette tranche », « + Une tranche ». */
 .salle-sans{margin-bottom:var(--e2)}
+/* 159 — la bascule « une barre qu'on charge » : un vrai switch, sous les puces de sa barre. */
+.salle-bascule{display:flex;align-items:center;justify-content:space-between;gap:var(--e2);width:100%;box-sizing:border-box;
+  text-align:left;background:var(--panneau);color:var(--texte);border:0;border-radius:12px;padding:10px 12px;
+  margin:0 0 var(--e2);font:inherit;font-size:14px;line-height:1.35;cursor:pointer}
+.salle-curseur{flex:0 0 auto;position:relative;width:42px;height:24px;border-radius:12px;background:var(--panneau-2);
+  border:1px solid var(--trait)}
+.salle-curseur i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--texte-3)}
+.salle-bascule.on .salle-curseur{background:var(--texte-2);border-color:var(--texte-2)}
+.salle-bascule.on .salle-curseur i{left:auto;right:2px;background:var(--texte)}
 .salle-retirer,.salle-tranche{display:block;margin:0 0 var(--e2)}
 
 /* 127 (ECRAN-SAISIE §7 quater.6, maquette-echelle-page-v1) — « Ton échelle », en tête du Résumé. Les jetons de la

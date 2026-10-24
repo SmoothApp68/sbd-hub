@@ -18,8 +18,10 @@ permissions:
 
 env:
   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-  # Facteur de ralentissement du processeur, lu par tests/banc/charge-ralentir.js (0 = aucun).
-  BANC_RALENTI: '0'
+  # 158 — les plafonds d'attente du banc de séance sont multipliés par ce facteur (seance-ecran.js, `plafond`) ;
+  # le processeur n'est PAS freiné (charge-ralentir.js n'est pas préchargé). Sur GitHub, la première validation
+  # d'une série tarde plus que les 3 s écrites pour la machine de Claude : ×2 est la mesure retenue.
+  BANC_RALENTI: '2'
 
 jobs:
   banc-complet:

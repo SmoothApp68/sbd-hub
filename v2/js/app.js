@@ -9770,7 +9770,9 @@
   function ouvrirRenommerDossier(dossier) {
     renommage = { ancien: dossier, erreur: '', enCours: false };
     rendreFeuilleRenommer();
-    ouvrirVoile($('feuille-seance'));
+    // 164 (D3) — remis à zéro à la fermeture, QUEL QU'EN SOIT LE CHEMIN (retour d'Android, fond, « Annuler ») : un
+    // `renommage` resté non nul bloque la relecture des routines jusqu'au rechargement.
+    ouvrirVoile($('feuille-seance'), function () { renommage = null; });
   }
 
   function rendreFeuilleRenommer() {
@@ -9784,7 +9786,7 @@
         return { ok: p.ok, message: p.message, phrase: p.message ? '' : phrase };
       },
       surRenommer: function (texte) { renommerDossier(ancien, texte); },
-      surAnnuler: function () { renommage = null; fermerVoile(); }
+      surAnnuler: fermerVoile
     });
   }
 
@@ -10667,7 +10669,7 @@
     if (!r) return;
     duplication = { routine: r, nom: Routines.nomLibre(r.nom, nomsReserves(), 'copie'), erreur: '' };
     rendreFeuilleDuplication();
-    ouvrirVoile($('feuille-seance'));
+    ouvrirVoile($('feuille-seance'), function () { duplication = null; });   // 164 (D3) : à toute fermeture
   }
 
   function rendreFeuilleDuplication() {
@@ -10677,7 +10679,7 @@
       erreur: duplication.erreur,
       surNom: function (v) { duplication.nom = v; },
       surDupliquer: dupliquerRoutine,
-      surAnnuler: function () { duplication = null; fermerVoile(); }
+      surAnnuler: fermerVoile
     });
   }
 

@@ -2161,6 +2161,23 @@ const ALIAS_COMMUNS = [
     await jusqua('[164 D2] l\'exercice ajouté ailleurs apparaît', async () => /1 exercice/.test(await carte155('Haut A 155')));
     ok('[164 D2] DISCRIMINANT — exercices et séries changés ailleurs (sans `modifiee_a`) apparaissent au retour',
       /1 exercice · 1 série/.test(await carte155('Haut A 155')), await carte155('Haut A 155'));
+
+    // ── E. 164 (D3) — fermer la feuille « Renommer » par le retour d'Android ne bloque pas la relecture ──
+    await aller('/saisie');
+    await reposerHorloge();
+    await page.click('#liste-routines .dossier-ligne[data-dossier="Recompo"] .dossier-menu');
+    await jusqua('[164 D3] menu du dossier', async () => !(await feuilleFermee(page)));
+    await page.click('#feuille-contenu .renommer-dossier');
+    await jusqua('[164 D3] feuille de renommage', () => page.evaluate(() => !!document.querySelector('#feuille-contenu .renommer-valider')));
+    await page.goBack({ waitUntil: 'networkidle' }).catch(() => {});   // le retour d'Android, pas « Annuler »
+    await jusqua('[164 D3] la feuille est fermée par le retour', () => feuilleFermee(page));
+    const haut = base.routines.find((r) => r.id === 'r155a');
+    haut.nom = 'Haut A 164 ailleurs'; haut.modifiee_a = '2026-10-24T11:00:00.000Z';
+    await avancer(120000);
+    await retour();
+    await jusqua('[164 D3] la routine modifiée ailleurs apparaît', async () => /Haut A 164 ailleurs/.test(await carte155('Haut A 164 ailleurs')));
+    ok('[164 D3] DISCRIMINANT — après un retour Android sur la feuille « Renommer », la relecture fonctionne encore',
+      /Haut A 164 ailleurs/.test(await carte155('Haut A 164 ailleurs')), await carte155('Haut A 164 ailleurs'));
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

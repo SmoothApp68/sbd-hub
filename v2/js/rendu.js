@@ -2599,6 +2599,10 @@
       // de cette série). Lue sur l'app, jamais calculée ici.
       var med = !vue.programme && typeof vue.medaille === 'function' ? vue.medaille(s._iExo, s._iSerie) : null;
       if (med) noeud.appendChild(medailleDeSerie(med));
+      // 154 (MOTEUR §9.26) — L'EFFORT VISÉ : sous la dernière série de travail, les puces « Il t'en restait combien ? » ;
+      // une fois la réponse donnée, la phrase du coach. Lu sur le plan (`vue.effortVise`), jamais décidé ici.
+      var ef = !vue.programme && typeof vue.effortVise === 'function' ? vue.effortVise(s._iExo, s._iSerie) : null;
+      if (ef) noeud.appendChild(effortViseDeSerie(ef));
     });
 
     noeud.appendChild(boutonsAjoutSerie(bloc, vue));
@@ -2775,8 +2779,15 @@
           n.addEventListener('click', function () { vue.surPourquoi(x.slug); });
           return n;
         };
-        (lib.jaune || []).forEach(function (l) {
-          entree.appendChild(tapable(el('div', 'consigne', l)));
+        // 154 — « garde-en N » : l'étiquette de la réserve visée, UNE FOIS, au bout de la première ligne de la consigne.
+        var gardeEn = !vue.programme && typeof vue.reserveVisee === 'function' ? vue.reserveVisee(x._iExo) : null;
+        (lib.jaune || []).forEach(function (l, iJ) {
+          var ligneJ = el('div', 'consigne', l);
+          if (iJ === 0 && gardeEn !== null && gardeEn !== undefined) {
+            ligneJ.appendChild(doc.createTextNode(' '));
+            ligneJ.appendChild(el('span', 'garde-en', 'garde-en\u00a0' + gardeEn));
+          }
+          entree.appendChild(tapable(ligneJ));
         });
         if (lib.gris) entree.appendChild(tapable(el('div', 'consigne-dit', lib.gris)));
         // §12.9 (49-U13) — le compteur de stagnation, à 4 séances ou plus : une
@@ -2909,6 +2920,34 @@
           ? function () { vue.surChampQuitte(iExo, iSerie); } : null });
     caseSerie.setAttribute('data-champ', nom);
     n.appendChild(caseSerie);
+    return n;
+  }
+
+  // 154 — les puces de l'effort visé (0 · 1 · 2 · 3 et + · Passer) ou la phrase d'après. `ef` : `{ cle, demande, phrase,
+  // surChoix, surPasser }`. « Passer » n'écrit rien.
+  var PUCES_EFFORT = [['reste_0', '0'], ['reste_1', '1'], ['reste_2', '2'], ['reste_3_plus', '3 et +']];
+  function effortViseDeSerie(ef) {
+    var n = el('div', 'effort-vise');
+    n.setAttribute('data-cle', String(ef.cle));
+    if (ef.demande) {
+      n.appendChild(el('span', 'effort-vise-q', 'Il t’en restait combien ?'));
+      var rang = el('span', 'effort-vise-b');
+      PUCES_EFFORT.forEach(function (r) {
+        var b = el('button', 'effort-puce', r[1]);
+        b.type = 'button';
+        b.setAttribute('data-ressenti', r[0]);
+        b.addEventListener('click', function () { ef.surChoix(r[0]); });
+        rang.appendChild(b);
+      });
+      var passer = el('button', 'effort-puce passer', 'Passer');
+      passer.type = 'button';
+      passer.setAttribute('data-passer', '1');
+      passer.addEventListener('click', function () { ef.surPasser(); });
+      rang.appendChild(passer);
+      n.appendChild(rang);
+    } else if (ef.phrase) {
+      n.appendChild(el('span', 'effort-vise-dit', ef.phrase));
+    }
     return n;
   }
 

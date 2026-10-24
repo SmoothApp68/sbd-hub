@@ -28,23 +28,10 @@ require('../../v2/js/moteur.js');
 const F = require('./fixtures/cas-55-1-records.json');
 
 // 120 (D1, décision d'Aurélien du 16/10/2026, audit du 16/10) — « La force estimée reste, comme progression […] ; elle
-// sort des records, des médailles, du fil et de l'XP ; les records sont les vraies barres. » Le fichier de cas vient
-// de la référence `records55.py`, d'avant D1 : il garde ses lignes `un_rm_estime` et la phrase « 1RM estimé : ≈ … kg. »
-// de la médaille. On les retire ICI, à la lecture, explicitement — le fichier n'est pas corrigé en silence ; la
-// référence est à régénérer côté Claude.ai. Une médaille qui n'aurait eu que cette ligne n'en est plus une.
-const SANS_1RM = / ?1RM estimé : ≈\u00a0[\d\s\u00a0,]+\u00a0kg\./;
-function selonD1(records, phrase) {
-  const r = (records || []).filter((x) => x.type !== 'un_rm_estime');
-  if (!r.length) return { records: r, phrase: null };
-  return { records: r, phrase: phrase ? [phrase[0].replace(SANS_1RM, ''), phrase[1]] : phrase };
-}
-['rejeu', 'synthetiques'].forEach((k) => {
-  (k === 'rejeu' ? F.rejeu.attendus : F.synthetiques).forEach((a) => {
-    const d = selonD1(a.records, a.phrase);
-    a.records = d.records; a.phrase = d.phrase;
-  });
-});
-
+// sort des records, des médailles, du fil et de l'XP ; les records sont les vraies barres. » 156 — le fichier de cas est
+// RÉGÉNÉRÉ sans ses lignes `un_rm_estime` ni la phrase « 1RM estimé : ≈ … kg. » (il les gardait, d'avant D1, et ce test les
+// retirait à la lecture) : plus aucun filtre ici. `volume_seance`, lui, reste un record (depuis le 22/10) et reste au cas.
+// La référence `records55.py` n'est pas dans le dépôt : le cas a été réécrit par la transformation que ce filtre faisait.
 const COL = F.colonnes_serie;
 const serieDe = (t) => {
   const o = {};

@@ -22,10 +22,10 @@
   function nombresDe(texte, sansGroupes) {
     var s = String(texte === null || texte === undefined ? '' : texte);
     var out = [];
-    var re = sansGroupes ? /\d+(?:[.,]\d+)?/g : /\d{1,3}(?:[   ]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?/g;
+    var re = sansGroupes ? /\d+(?:[.,]\d+)?/g : /\d{1,3}(?:[\u00a0\u202f ]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?/g;
     var m;
     while ((m = re.exec(s)) !== null) {
-      var v = Number(m[0].replace(/[   ]/g, '').replace(',', '.'));
+      var v = Number(m[0].replace(/[\u00a0\u202f ]/g, '').replace(',', '.'));
       if (isFinite(v)) out.push(v);
     }
     return out;
@@ -36,7 +36,7 @@
   function phrasesDe(texte) {
     var s = String(texte || '').replace(/\s+/g, ' ').trim();
     if (!s) return [];
-    return s.split(/(?<=[.!?…])\s+(?=[A-ZÀ-ÖØ-Þ«"“(\d])/).map(function (p) { return p.trim(); }).filter(Boolean);
+    return s.split(/(?<=[.!?\u2026])\s+(?=[A-Z\u00c0-\u00d6\u00d8-\u00de\u00ab"\u201c(\d])/).map(function (p) { return p.trim(); }).filter(Boolean);
   }
 
   function contientMotRefuse(phrase) {
@@ -76,8 +76,8 @@
     '\\b(?:dos|genou|genoux|epaule|epaules|cou|nuque|poignet|coude|hanche|cheville) (?:est |sont )?(?:bloque|bloques|coince|coinces|gonfle|gonfles|enfle|enfles)\\b'
   ];
   function normaliser(texte) {
-    return String(texte || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-      .replace(/[’‘`´]/g, "'").replace(/\s+/g, ' ');
+    return String(texte || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[\u2019\u2018`\u00b4]/g, "'").replace(/\s+/g, ' ');
   }
   var REGEX_SANTE = MOTIFS_SANTE.map(function (m) { return new RegExp(m); });
   function estSante(question) {

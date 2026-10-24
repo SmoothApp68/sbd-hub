@@ -77,13 +77,14 @@ describe('51-3 — une séance marquée est neutre (les 4 cas d’Aurélien)', (
       const avec = forme(consigneDe(contrat(c), c.avant));
       const sans = forme(consigneDe(contrat(c).filter((s) => !s.douleur), c.avant));
       const nonMarquee = forme(consigneDe(contrat(c, false), c.avant));
-      expect(avec).toEqual(c.attendu);
-      expect(sans).toEqual(c.sans_la_seance_douloureuse);
-      // 154 (MOTEUR §9.26) — N02 : sans la marque, la dernière série (réserve sous la visée) ne fait plus monter sur sa foi :
-      // le test de 97,5 kg n'est plus proposé. Le fichier ne se retouche pas ; l'écart est nommé.
-      const attenduNonMarquee = c.id === 'N02'
-        ? Object.assign({}, c.si_elle_n_etait_pas_marquee, { etat: 'progression', haut: null }) : c.si_elle_n_etait_pas_marquee;
-      expect(nonMarquee).toEqual(attenduNonMarquee);
+      // 154 (MOTEUR §9.26, 24/10/2026) — L'EFFORT VISÉ : sur N01 et N02, la dernière série (réserve sous la visée) ne fait plus
+      // monter sur sa foi : le test (125 kg, 97,5 kg) n'est plus proposé, `test_propose` devient `progression` sans ligne
+      // haute, le reste du cas ne bouge pas. Le fichier ne se retouche pas ; l'écart est nommé, et il est exact.
+      const sansTest = (ref) => (['N01', 'N02'].indexOf(c.id) >= 0 && ref.etat === 'test_propose'
+        ? Object.assign({}, ref, { etat: 'progression', haut: null }) : ref);
+      expect(avec).toEqual(sansTest(c.attendu));
+      expect(sans).toEqual(sansTest(c.sans_la_seance_douloureuse));
+      expect(nonMarquee).toEqual(sansTest(c.si_elle_n_etait_pas_marquee));
       // LA PROPRIÉTÉ : la ligne avec la marque = la ligne sans la séance…
       expect(avec.ligne).toEqual(sans.ligne);
       // …et sans la marque, elle aurait reculé.

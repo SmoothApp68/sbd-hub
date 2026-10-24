@@ -316,6 +316,9 @@
     var couvertes = lignes.filter(function (l) { return l.role !== 'hors'; });
     if (!couvertes.length || !fini) return null;
     if (!suite || !suite.consigne) return null;
+    // 165 — une séance allégée ne se juge pas et ne sert pas de référence : pas de constat (la suite lirait la dernière
+    // séance normale, qui n'est pas ce que la personne vient de faire).
+    if (consigne && consigne.allegee) return null;
     var c = Moteur().constatDuJour(consigne, suite.consigne, reglage || null,
       suite.cranSuivant === undefined ? null : suite.cranSuivant, faitsDuJour(lignes, consigne),
       reference === undefined ? null : reference);

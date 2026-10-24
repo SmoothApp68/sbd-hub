@@ -4306,6 +4306,53 @@
     return cible;
   }
 
+  // 155 — le menu d'un dossier : une entrée, « Renommer le dossier ».
+  function rendreFeuilleMenuDossier(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Dossier');
+    t.appendChild(el('em', '', vue.dossier));
+    cible.appendChild(t);
+    var menu = el('div', 'feuille-menu');
+    entreeMenu(menu, 'Renommer le dossier', { classe: 'renommer-dossier', surClic: vue.surRenommer });
+    entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
+    cible.appendChild(menu);
+    return cible;
+  }
+
+  // 155 — « Renommer le dossier » : le nom prérempli, la phrase de ce qui suit, ou la raison du refus (le bouton
+  // reste ÉTEINT). `vue.verdict(texte)` -> { ok, message, phrase } ; le dessin se met à jour SANS se refaire
+  // (le champ garde le focus).
+  function rendreFeuilleRenommerDossier(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', 'Renommer le dossier'));
+    var saisi = vue.nom;
+    var champs = el('div', 'champs-fin');
+    champs.appendChild(champTexte('Nom', vue.nom, { max: R().DOSSIER_MAX }, function (v) { saisi = v; maj(); }));
+    cible.appendChild(champs);
+    var aide = el('p', 'feuille-aide renommer-aide', '');
+    cible.appendChild(aide);
+    var err = el('p', 'erreur', vue.erreur || '');
+    err.setAttribute('role', 'alert');
+    cible.appendChild(err);
+    var menu = el('div', 'feuille-menu');
+    var bouton = el('button', 'accent-menu renommer-valider', 'Renommer');
+    bouton.type = 'button';
+    bouton.addEventListener('click', function () { if (!bouton.disabled) vue.surRenommer(saisi); });
+    menu.appendChild(bouton);
+    entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
+    cible.appendChild(menu);
+    function maj() {
+      var d = vue.verdict(saisi);
+      bouton.disabled = !d.ok;
+      bouton.classList.toggle('inerte', !d.ok);
+      aide.textContent = d.phrase || '';
+      err.textContent = d.ok ? '' : d.message;
+    }
+    maj();
+    if (vue.erreur) err.textContent = vue.erreur;
+    return cible;
+  }
+
   // Dupliquer : une copie complète, dans le même dossier, sous un nom libre.
   function rendreFeuilleDupliquer(cible, vue) {
     vider(cible);
@@ -4944,6 +4991,14 @@
       badge.type = 'button';
       badge.addEventListener('click', function () { if (v.surBadgeProgramme) v.surBadgeProgramme(g.dossier); });
       ligne.appendChild(badge);
+    }
+    // 155 — le menu « \u22ef » du dossier (« Renommer le dossier »). « Sans dossier » n'est pas un dossier.
+    if (g.dossier !== null && v.surMenuDossier) {
+      var plus = el('button', 'dossier-menu', '\u22ef');
+      plus.type = 'button';
+      plus.setAttribute('aria-label', 'Menu du dossier ' + g.dossier);
+      plus.addEventListener('click', function () { v.surMenuDossier(g.dossier); });
+      ligne.appendChild(plus);
     }
     return ligne;
   }
@@ -7907,6 +7962,8 @@
     rendreFeuilleElastique: rendreFeuilleElastique,
     rendreFeuilleBlocEnCours: rendreFeuilleBlocEnCours,
     rendreFeuilleDupliquer: rendreFeuilleDupliquer,
+    rendreFeuilleMenuDossier: rendreFeuilleMenuDossier,
+    rendreFeuilleRenommerDossier: rendreFeuilleRenommerDossier,
     champDossier: champDossier,
     resumeStructure: resumeStructure,
     texteChangementSeries: texteChangementSeries,

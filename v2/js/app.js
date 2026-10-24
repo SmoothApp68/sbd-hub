@@ -870,7 +870,7 @@
     // Les routines ne sont pas dans le cache, mais elles appartiennent au
     // compte précédent : les laisser en mémoire montrerait la bibliothèque de
     // quelqu'un d'autre le temps d'une requête.
-    routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };
+    routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
     // La séance en cours et la file appartiennent au compte précédent. Le
     // changement de compte ci-dessus a vidé leurs magasins (la file, gardée à
     // part pour lui) ; on remet la mémoire d'accord avec le disque.
@@ -9416,6 +9416,45 @@
     };
   }
 
+  // ══ 155 — L'APP RELIT LES ROUTINES AU RETOUR (décision d'Aurélien du 24/10/2026) ══
+  //
+  // Les routines n'ont pas de cache et `synchroniser` ne les lisait jamais : une routine changée ailleurs
+  // n'apparaissait qu'au rechargement de la page. À la ré-entrée (retour au premier plan), on relit — au plus
+  // une fois par minute, JAMAIS pendant une séance ni quand l'éditeur d'une routine (ou une feuille de
+  // renommage / duplication) est ouvert : on n'écrase pas ce qu'on modifie. Un échec garde l'affichage. On ne
+  // remplace `routines` que si la signature a changé.
+  var RELECTURE_ROUTINES_MS = 60000;
+  var derniereLectureRoutines = 0;
+
+  function relectureRoutinesPermise() {
+    return etatRoutines.code === 'ok' && !seance && brouillon === null && vues.routine.hidden &&
+      !duplication && !renommage;
+  }
+
+  function signatureDesRoutines(liste) {
+    return JSON.stringify((liste || []).map(function (r) {
+      return [r.id, r.nom, r.dossier === undefined ? null : r.dossier, r.modifiee_a || null, r.archivee_a || null];
+    }));
+  }
+
+  async function relireRoutinesAuRetour() {
+    if (!relectureRoutinesPermise()) return false;
+    if (Date.now() - derniereLectureRoutines < RELECTURE_ROUTINES_MS) return false;
+    derniereLectureRoutines = Date.now();
+    try {
+      var brutes = await Donnees.mesRoutines();
+      // Pendant la lecture, un éditeur a pu s'ouvrir : on ne touche à rien.
+      if (!relectureRoutinesPermise()) return false;
+      var neuves = brutes.map(normaliserRoutine);
+      if (signatureDesRoutines(neuves) === signatureDesRoutines(routines)) return false;
+      routines = neuves;
+      return true;
+    } catch (e) {
+      console.warn('Routines non relues :', texteErreur(e));
+      return false;
+    }
+  }
+
   async function chargerRoutines() {
     etatRoutines = { code: 'charge', message: '' };
     // Sans routines, pas de « Démarrer » : attendre ici la vérification de la
@@ -9426,6 +9465,7 @@
       var brutes = await Donnees.mesRoutines();
       routines = brutes.map(normaliserRoutine);
       etatRoutines = { code: 'ok', message: '' };
+      derniereLectureRoutines = Date.now();
       return true;
     } catch (e) {
       // On ne vide pas `routines` : ce qu'on avait affiché reste affiché. Un
@@ -9503,6 +9543,8 @@
       dossiersDeProgramme: dossiersDeProgramme,
       surProgramme: function (d) { ouvrirProgramme(d, null); },
       surBadgeProgramme: ouvrirBlocEnCours,
+      // 155 — le menu « \u22ef » du dossier.
+      surMenuDossier: ouvrirMenuDossier,
       surCommencerBloc: commencerBlocSuivant,
       surAjusterBloc: function (d) {
         var b = Moteur.blocEnCours(local.blocs, d);
@@ -9537,6 +9579,83 @@
     brancherReorg('liste-routines');
     brancherAppuiLong('liste-routines');
     rendrePiedReorg();
+  }
+
+  // ══ 155 — RENOMMER UN DOSSIER (décision d'Aurélien du 24/10/2026) ═════════
+  //
+  // Toutes les routines du dossier (archivées comprises), puis tous ses cycles, puis le profil et l'état
+  // « replié ». Les routines d'abord, EN DIRECT : si le réseau manque, la première écriture échoue et RIEN n'a
+  // bougé (ni cycle, ni profil). Une écriture qui échoue en route rend les précédentes. Les paris gardent leur
+  // dossier d'origine (immuables) et rien ne relit ce nom comme clé.
+  var renommage = null;   // { ancien, erreur, enCours }
+
+  function planDeRenommage(ancien, texte) {
+    return Routines.planRenommageDossier(routines, local.blocs || [], ancien, texte, instantDuJour());
+  }
+
+  function ouvrirMenuDossier(dossier) {
+    Rendu.rendreFeuilleMenuDossier($('feuille-contenu'), {
+      dossier: dossier,
+      surRenommer: function () { ouvrirRenommerDossier(dossier); },
+      surAnnuler: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  function ouvrirRenommerDossier(dossier) {
+    renommage = { ancien: dossier, erreur: '', enCours: false };
+    rendreFeuilleRenommer();
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  function rendreFeuilleRenommer() {
+    var ancien = renommage.ancien;
+    Rendu.rendreFeuilleRenommerDossier($('feuille-contenu'), {
+      nom: ancien,
+      erreur: renommage.erreur,
+      verdict: function (texte) {
+        var p = planDeRenommage(ancien, texte);
+        var phrase = Routines.phraseRenommage(routinesDuDossier(ancien).length, !!Moteur.blocEnCours(local.blocs, ancien));
+        return { ok: p.ok, message: p.message, phrase: p.message ? '' : phrase };
+      },
+      surRenommer: function (texte) { renommerDossier(ancien, texte); },
+      surAnnuler: function () { renommage = null; fermerVoile(); }
+    });
+  }
+
+  async function renommerDossier(ancien, texte) {
+    if (!renommage || renommage.enCours) return;
+    var plan = planDeRenommage(ancien, texte);
+    if (!plan.ok) return;
+    renommage.enCours = true;
+    var faites = [];
+    try {
+      for (var i = 0; i < plan.routines.length; i++) {
+        await Donnees.majRoutine(plan.routines[i].id, plan.routines[i].champs);
+        faites.push(plan.routines[i].id);
+      }
+    } catch (e) {
+      for (var j = 0; j < faites.length; j++) {
+        try { await Donnees.majRoutine(faites[j], { dossier: ancien }); } catch (e2) { /* rendu au mieux */ }
+      }
+      renommage.enCours = false;
+      renommage.erreur = Routines.messageErreur({ erreur: Routines.classerErreur(e) });
+      return rendreFeuilleRenommer();
+    }
+    for (var k = 0; k < plan.blocs.length; k++) await poserBloc(plan.blocs[k]);
+    if (profil && profil.programme_construit_dossier === ancien) {
+      var champs = Profil.preparerChamps(profil, { programme_construit_dossier: plan.nouveau }, new Date());
+      if (Object.keys(champs).length) poserProfil(champs).catch(function () {});
+    }
+    if (dossiersReplies[ancien]) {
+      dossiersReplies[plan.nouveau] = dossiersReplies[ancien];
+      delete dossiersReplies[ancien];
+      memoriserDossiersReplies();
+    }
+    renommage = null;
+    fermerVoile();
+    await chargerRoutines();
+    if (!vues.saisie.hidden && !seance) rendreSaisie();
   }
 
   // §7 duodecies.3 (52-1) — LES DOSSIERS REPLIÉS. Un confort de lecture, propre
@@ -12588,6 +12707,8 @@
     await synchroniser();
     vidanger();
     rendreEtatSync();
+    // 155 — les routines aussi, avant de redessiner.
+    await relireRoutinesAuRetour();
     // Comme à la fin de l'entrée complète : une synchronisation de fond ne
     // reprend jamais la main sur un écran en cours d'édition — le questionnaire
     // compris (60-2a) : il perdrait l'écran où l'on en est.
@@ -12753,7 +12874,7 @@
     notesEnCours = {};
     // Les routines vivent en mémoire, pas dans le cache — mais elles
     // appartiennent quand même au compte qui part.
-    routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' };
+    routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
     seance = null; attente = []; chrono = null; arreterMinuteur();
     oublierSuppressionDifferee();
     // 106 — le groupe aussi, et ses messages gardés hors ligne (leur brouillon vient d'être vidé) : les envoyer au nom du

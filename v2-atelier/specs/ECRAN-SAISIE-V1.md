@@ -3592,3 +3592,7 @@ puis `chargerRoutines` et le rendu. Les routines d'abord : hors ligne la premiè
 **L'app relit les routines.** À la ré-entrée (retour au premier plan, `reentrer`), au plus une fois par minute, JAMAIS pendant
 une séance ni quand l'éditeur d'une routine, une duplication ou un renommage est ouvert ; l'affichage ne change que si la
 signature (ids, noms, dossiers, `modifiee_a`, archivage) a changé ; un échec réseau garde l'affichage.
+**24/10/2026 (prompt 164) — une réponse lente n'écrase pas une écriture plus récente.** `chargerRoutines` (et le vidage d'un
+changement de compte) incrémente un compteur de génération des routines ; la relecture le lit AVANT sa requête et jette sa
+réponse s'il a bougé (renommer un dossier pendant que la 4G répond ne ramène plus l'ancien nom). Fréquence, gardes et signature
+inchangées. Cache 292.

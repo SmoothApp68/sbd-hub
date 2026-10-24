@@ -70,7 +70,9 @@ const jusqua = async (nom, cond, max) => {
   return d;
 };
 // Le faux serveur, compté : les requêtes en vol et l'instant de la dernière réponse.
-const reseau = { enVol: 0, dernier: 0, total: 0, lecturesRoutines: 0 };
+const reseau = { enVol: 0, dernier: 0, total: 0, lecturesRoutines: 0,
+  // 164 — retenir UNE réponse de lecture des routines : `retenirProchaine` l'arme, `retenue` dit qu'elle attend, `liberer` la rend.
+  retenirProchaine: false, retenue: false, liberer: null };
 const CALME_MS = 300;
 // Le réseau du banc se tait : aucune requête en vol, aucune depuis `CALME_MS`. C'est l'état qui prouve
 // qu'une écriture qui ne DOIT PAS partir n'est pas partie (avec l'effet attendu à l'écran, lu avant).
@@ -370,7 +372,15 @@ const ALIAS_COMMUNS = [
       // `routines → routine_exercises → routine_sets`. `projeterUne` descend
       // déjà récursivement ; il fallait seulement que la donnée soit là.
       if (table === 'routines') reseau.lecturesRoutines++;
-      if (table === 'routines') return json(projeter(base.routines.map((r) =>
+      // 164 — VOULU : la réponse est CONSTRUITE à la requête (l'état d'alors) et rendue plus tard, comme une 4G lente.
+      // La requête retenue ne compte pas « en vol » : le banc doit pouvoir enregistrer pendant qu'elle attend.
+      let attente = null;
+      if (table === 'routines' && reseau.retenirProchaine) {
+        reseau.retenirProchaine = false; reseau.retenue = true;
+        attente = new Promise((fin) => { reseau.liberer = fin; });
+      }
+      if (table === 'routines') {
+        const corpsRoutines = projeter(base.routines.map((r) =>
         Object.assign({}, r, {
           routine_exercises: base.exos.filter((e) => e.routine_id === r.id).map((e) =>
             Object.assign({}, e, {
@@ -383,7 +393,14 @@ const ALIAS_COMMUNS = [
                 .filter((x) => x.routine_exercise_id === e.id)
                 .slice().reverse()
             }))
-        })), url));
+        })), url);
+        if (attente) {
+          reseau.enVol--;
+          await attente;
+          reseau.enVol++; reseau.retenue = false; reseau.liberer = null;
+        }
+        return json(JSON.parse(JSON.stringify(corpsRoutines)));
+      }
       return json([]);
     }
     // ⚠️ LES SIX CHECK DE `routine_exercises`, ET LE NOM DE ROUTINE (ch. 34).
@@ -2093,6 +2110,39 @@ const ALIAS_COMMUNS = [
       (await page.evaluate(() => !!document.querySelector('#liste-routines .dossier-ligne[data-dossier="Recompo"] .dossier-badge'))),
       JSON.stringify(await dossiersAffiches()));
     ok('[155 B] la feuille est fermée', await feuilleFermee(page));
+
+    // ── C. 164 — la relecture ne peut pas écraser une écriture locale faite pendant sa requête ──
+    // La réponse (l'ancienne liste) est retenue ; pendant ce temps on renomme un dossier (écriture locale, puis
+    // `chargerRoutines`) ; puis la réponse arrive. Les gardes (feuille refermée, pas d'éditeur) laissent passer :
+    // seul le compteur de génération la jette. Page rechargée : aucun éditeur n'a été ouvert (`brouillon` nul).
+    await aller('/saisie');
+    await page.evaluate(() => {   // `aller` recharge la page : l'horloge qui avance à la demande est à reposer
+      const vrai = Date.now.bind(Date);
+      window.__avance = 0;
+      Date.now = () => vrai() + window.__avance;
+    });
+    await avancer(120000);
+    reseau.retenirProchaine = true;
+    await retour();
+    await jusqua('[164] la relecture est partie, sa réponse est retenue', () => reseau.retenue === true);
+    await page.click('#liste-routines .dossier-ligne[data-dossier="Prise de masse 155"] .dossier-menu');
+    await jusqua('[164] menu du dossier', async () => !(await feuilleFermee(page)));
+    await page.click('#feuille-contenu .renommer-dossier');
+    await jusqua('[164] feuille de renommage', () => page.evaluate(() => !!document.querySelector('#feuille-contenu .renommer-valider')));
+    await page.fill('#feuille-contenu input', 'Gain 164');
+    await page.click('#feuille-contenu .renommer-valider');
+    await jusqua('[164] renommage fini en base', () => base.routines.filter((r) => r.dossier === 'Gain 164').length === 1);
+    await calme('[164] après le renommage');
+    await jusqua('[164] Gain 164 à l’écran', async () => (await dossiersAffiches()).indexOf('Gain 164') >= 0);
+    ok('[164 prémisse] le dossier renommé est affiché, la réponse tarde toujours',
+      reseau.retenue === true && (await dossiersAffiches()).indexOf('Prise de masse 155') < 0, JSON.stringify(await dossiersAffiches()));
+    reseau.liberer();
+    await jusqua('[164] la réponse retenue est arrivée', () => reseau.retenue === false);
+    await calme('[164] après la réponse tardive');
+    await rendu(page);
+    ok('[164] DISCRIMINANT — la réponse tardive (ancienne liste) n\'écrase pas le renommage qu\'on vient de faire',
+      (await dossiersAffiches()).indexOf('Gain 164') >= 0 && (await dossiersAffiches()).indexOf('Prise de masse 155') < 0,
+      JSON.stringify(await dossiersAffiches()));
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

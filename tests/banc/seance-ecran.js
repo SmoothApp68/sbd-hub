@@ -1549,9 +1549,11 @@ const SETS_IMPORTES = [
             (e.kg === undefined || e.kg === null || (typeof e.kg === 'number' && e.kg >= 0.5 && e.kg <= 100 && Math.floor(e.kg * 2) === e.kg * 2))));
           const okE = liste(v.elastiques, ['nom', 'kg']) && liste(v.mini_bandes, ['nom']) &&
             (v.elastiques_par_nom === undefined || typeof v.elastiques_par_nom === 'boolean');
-          if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH || !okE ||
+          // 159 (`v2_111`) — `barre_ez_chargee`, `barre_droite_chargee` : deux booléens (`profiles_ma_salle_chargees_ok`).
+          const okC = ['barre_ez_chargee', 'barre_droite_chargee'].every((k) => v[k] === undefined || typeof v[k] === 'boolean');
+          if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH || !okE || !okC ||
               Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres', 'elastiques', 'elastiques_par_nom',
-                'mini_bandes'].indexOf(k) < 0)) {
+                'mini_bandes', 'barre_ez_chargee', 'barre_droite_chargee'].indexOf(k) < 0)) {
             return json(refus('23514', 'profiles_ma_salle_ok'), 400);
           }
         }
@@ -10106,6 +10108,38 @@ const SETS_IMPORTES = [
       !!p2 && p2.coach === 0, JSON.stringify(p2));
     ok('[108] la garde (C6) n’a rien signalé dans cette section (I46 compris)', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
+    await abandonner();
+
+    // 3 bis. 159 — « J'ai aussi une barre EZ qu'on charge » : cocher, enregistrer, rouvrir (cochée) ; la charge part avec
+    // la clé ; et le coach teste 32,5 kg au lieu de l'état `salle_max`.
+    const bascule159 = (type) => page.evaluate((t) => {
+      const b = document.querySelector('#feuille-contenu .salle-bascule[data-type="' + t + '"]');
+      return b ? b.getAttribute('aria-checked') : null;
+    }, type);
+    await ouvrirSalle();
+    const avant159 = await bascule159('barres_ez');
+    await page.click('#feuille-contenu .salle-bascule[data-type="barres_ez"]');
+    await jusqua(async () => (await bascule159('barres_ez')) === 'true', 4000);
+    const apres159 = await bascule159('barres_ez');
+    await bouton('Valider');
+    await jusqua(() => (base.profiles[0].ma_salle || {}).barre_ez_chargee === true, 6000);
+    ok('[159] la bascule EZ part décochée, se coche, et la clé part en base (la droite : absente)',
+      avant159 === 'false' && apres159 === 'true' && (base.profiles[0].ma_salle || {}).barre_ez_chargee === true &&
+      (base.profiles[0].ma_salle || {}).barre_droite_chargee === undefined &&
+      JSON.stringify(base.profiles[0].ma_salle.barres_ez) === JSON.stringify([10, 15, 20, 25, 30]),
+      JSON.stringify([avant159, apres159, base.profiles[0].ma_salle]));
+    await ouvrirSalle();
+    const rouverte159 = await bascule159('barres_ez');
+    const droite159 = await bascule159('barres_droites');
+    ok('[159] rouverte : la bascule EZ est cochée, la droite non', rouverte159 === 'true' && droite159 === 'false',
+      JSON.stringify([rouverte159, droite159]));
+    await bouton('Annuler');
+    await aller('/saisie');
+    await demarrerRoutine('Salle 108');
+    await jusqua(async () => { const q = await plan108(); return !!q && q.etat === 'test_propose'; }, 8000);
+    const p159 = await plan108();
+    ok('[159] DISCRIMINANT — à 30 kg avec la barre EZ chargée : le coach teste 32,5 kg (test_propose), plus salle_max',
+      !!p159 && p159.etat === 'test_propose' && !!p159.haut && p159.haut.charge === 32.5, JSON.stringify(p159));
     await abandonner();
 
     // 4. Effacer : non renseignée, rien ne change pour la suite du banc.

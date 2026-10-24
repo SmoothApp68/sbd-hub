@@ -6114,6 +6114,22 @@
       plus.setAttribute('aria-label', 'Ajouter un poids de ' + t[1].toLowerCase());
       g.appendChild(plus);
       cible.appendChild(g);
+      // 159 — « J'ai aussi une barre EZ / droite qu'on charge avec des disques » (maquette `maquette-barre-ez-chargee-v1`).
+      if (vue.surBarreChargee) {
+        var oui = P.barreChargee(b, type);
+        var bas = el('button', 'salle-bascule' + (oui ? ' on' : ''));
+        bas.type = 'button';
+        bas.dataset.type = type;
+        bas.setAttribute('role', 'switch');
+        bas.setAttribute('aria-checked', oui ? 'true' : 'false');
+        bas.appendChild(el('span', '', 'J’ai aussi une ' + t[1].toLowerCase() + ' qu’on charge avec des disques'));
+        var cur = el('span', 'salle-curseur');
+        cur.setAttribute('aria-hidden', 'true');
+        cur.appendChild(el('i'));
+        bas.appendChild(cur);
+        bas.addEventListener('click', function () { vue.surBarreChargee(type, !oui); });
+        cible.appendChild(bas);
+      }
       // « ＋ » : un champ juste dessous, et « Ajouter ». Rien ne s'ajoute avant le geste.
       plus.addEventListener('click', function () {
         if (g.nextSibling && g.nextSibling.className === 'salle-ajout') return;

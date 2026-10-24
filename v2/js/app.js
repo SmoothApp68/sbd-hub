@@ -14404,6 +14404,7 @@
           erreur = null;
           redessiner();
         },
+        surBarreChargee: function (type, oui) { brouillon = Profil.poserBarreChargee(brouillon, type, oui); erreur = null; redessiner(); },
         surParNom: function (parNom) { brouillon = Profil.poserParNom(brouillon, parNom); erreur = null; redessiner(); },
         surValider: function () {
           // 116 (03 #8) — un « jusqu'à » vidé ou illisible n'efface pas les haltères déclarés : la feuille reste

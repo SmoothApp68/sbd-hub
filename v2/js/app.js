@@ -3589,8 +3589,10 @@
             continue;
           }
           if (issue.suite === 'abandonnee') {
-            console.warn('Observation orpheline abandonnée (' + op.cle + ') : son pari n\u2019est pas en base, ' +
-              'et sa séance n\u2019a plus rien à envoyer.');
+            console.warn(op.table === Attente.OBJECTIFS
+              ? 'Objectif abandonné (' + op.cle + ') : son pari n\u2019est pas en base et n\u2019est plus dans la file.'
+              : 'Observation orpheline abandonnée (' + op.cle + ') : son pari n\u2019est pas en base, ' +
+                'et sa séance n\u2019a plus rien à envoyer.');
             continue;
           }
           if (issue.suite === 'attend') continue;
@@ -13868,7 +13870,9 @@
     return null;
   }
 
-  // Le pari part avant la ligne ; aucun ne dépend de l'autre. Local d'abord (le cache), puis la file.
+  // Le pari part avant la ligne. 157 — l'objectif DÉPEND de son pari (`depend`) et se pose EN FIN DE FILE (`alaFin`) :
+  // reposé hors ligne alors que son entrée attend encore, il passe derrière le nouveau pari, et un pari refusé le
+  // retient. « Juste un carnet » (sans pari) : inchangé. Local d'abord (le cache), puis la file.
   async function ecrireObjectif(slug, ligne, pari) {
     versionObjectifs++;
     local.objectifs = (local.objectifs || []).filter(function (l) { return l && l.exercise_slug !== slug; }).concat([ligne]);
@@ -13879,7 +13883,7 @@
       await poser({ table: Attente.PREDICTIONS, op: Attente.UPSERT, id: pari.id, depend: pari.id, donnees: pari });
     }
     versionObjectifs++;   // 139 — l'entrée entre dans la file ICI, derrière le pari : une lecture partie entre-temps est périmée aussi
-    await poser({ table: Attente.OBJECTIFS, op: Attente.UPSERT, id: slug, donnees: ligne });
+    await poser({ table: Attente.OBJECTIFS, op: Attente.UPSERT, id: slug, depend: pari ? pari.id : null, alaFin: !!pari, donnees: ligne });
   }
 
   // Audit du 16/10/2026, 01 #11 — LE RETOUR EN PROGRESSER : un objectif posé en « Juste un carnet » reçoit sa date

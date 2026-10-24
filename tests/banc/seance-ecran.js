@@ -7302,7 +7302,7 @@ const SETS_IMPORTES = [
     const repsDe = (i) => page.evaluate((k) =>
       document.querySelectorAll('.ligne-serie')[k].querySelectorAll('input')[1].value, i);
     const taperReps = async (i, v) => {
-      const champs = await (await ligne(i)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(i).locator('input').nth(k));  // 158 — localisateurs
       await champs[1].fill(String(v));
       await attendre(500);
     };
@@ -7342,7 +7342,7 @@ const SETS_IMPORTES = [
     // UUID tirés au hasard — le décor exact qui a fait lire « 4-5-4 » à la
     // séance du 20/09, alors que l'écran montrait 5, 4, 4.
     const taper = async (i, charge, reps) => {
-      const champs = await (await ligne(i)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(i).locator('input').nth(k));  // 158 — localisateurs
       await champs[0].fill(String(charge));
       await champs[1].fill(String(reps));
       await attendre(450);
@@ -7370,7 +7370,7 @@ const SETS_IMPORTES = [
     // 68A (décision E, 11/10/2026) — 130 tapé sur des lignes à 125 : la ligne
     // ajoutée est une ligne d'élan, et une ligne d'élan ne se valide pas sans
     // ses reps (comme la ligne proposée). On les tape, puis on valide.
-    await (await (await ligne(3)).$$('input'))[1].fill('4');
+    await page.locator('.ligne-serie').nth(3).locator('input').nth(1).fill('4');
     await attendre(450);
     await valider(3);
     ok('[C6] la quatrième validée : le constat revient',
@@ -7586,7 +7586,7 @@ const SETS_IMPORTES = [
 
     // ── UNE VALEUR CORRIGÉE APRÈS COUP ────────────────────────────────────
     const taper = async (i, champ, v) => {
-      const champs = await (await ligne(i)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(i).locator('input').nth(k));  // 158 — localisateurs
       await champs[champ].fill(String(v));
     };
     // 135 — une correction monte par la file : on attend qu'elle soit en base (l'état que lit le contrôle).
@@ -7786,7 +7786,7 @@ const SETS_IMPORTES = [
     });
     const idSeance = () => base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0];
     const quitterChamp = async (i, champ, v) => {
-      const champs = await (await ligne(i)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(i).locator('input').nth(k));  // 158 — localisateurs
       await champs[champ].fill(String(v));
       await champs[champ].evaluate((e) => e.blur());
       await attendre(900);
@@ -7838,7 +7838,7 @@ const SETS_IMPORTES = [
     // Les reps tapées, la charge laissée au fantôme du coach : la montée tient.
     const bas = Number(fourchette.split('-')[0]);
     {
-      const champs = await (await ligne(1)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(1).locator('input').nth(k));  // 158 — localisateurs
       await champs[1].fill(String(bas));
       await (await ligne(1)).$eval('.ok-serie', (b) => b.click());
       await attendre(900);
@@ -8097,7 +8097,7 @@ const SETS_IMPORTES = [
       JSON.stringify({ base: dire(sid), local: local2 && [local2.set_observe, local2.valeur_observee] }));
     // s1 porte maintenant le rang 2 (alignement par la fin). Une frappe sur
     // ses reps refait SON observation — et rien d'autre.
-    const champs = await (await ligne(0)).$$('input');
+    const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(0).locator('input').nth(k));  // 158 — localisateurs
     await champs[1].fill(String(plan[0][1] + 1));
     await champs[1].evaluate((e) => e.blur());
     await attendre(1500);
@@ -14873,7 +14873,7 @@ const SETS_IMPORTES = [
     const avantD = JSON.stringify(lignesDe(setsJ[1]).concat(lignesDe(setsJ[2])));
     await ouvrirMenuDe('Journal U58');
     await entree('Modifier');
-    const champsD = await (await ligne(0)).$$('input');
+    const champsD = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(0).locator('input').nth(k));  // 158 — localisateurs
     await champsD[0].fill('152.5');
     await attendre(600);
     const ecrituresAvantD = base.ecrituresRecords.length;
@@ -20400,7 +20400,7 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Rowing C68B ×4');
     await saisirSerie(0, 79, 15);
     await attendre(800);
-    const champsB = await (await ligne(1)).$$('input');
+    const champsB = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(1).locator('input').nth(k));  // 158 — localisateurs
     await champsB[0].fill('81.3');
     await champsB[1].fill('12');
     await attendre(450);
@@ -21693,7 +21693,7 @@ const SETS_IMPORTES = [
     ok('[C100] la ligne du test : aucune charge dans le champ, ni tapée ni en fantôme',
       chargeVide[0] === '' && !/\d/.test(chargeVide[1] || ''), nb100(chargeVide));
     {
-      const champs = await (await ligne(iNul)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(iNul).locator('input').nth(k));  // 158 — localisateurs
       await champs[1].fill('3');
       await (await ligne(iNul)).$eval('.ok-serie', (b) => b.click());
       await attendre(700);
@@ -21715,7 +21715,7 @@ const SETS_IMPORTES = [
       !/12.kg.×.5|null|inconnu/.test(refus100.constat), nb100(refus100.constat));
     // Le poids tapé : la série part, avec lui.
     {
-      const champs = await (await ligne(iNul)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(iNul).locator('input').nth(k));  // 158 — localisateurs
       await champs[0].fill('55');
       await (await ligne(iNul)).$eval('.ok-serie', (b) => b.click());
       await attendre(900);
@@ -21729,7 +21729,7 @@ const SETS_IMPORTES = [
     // Le poids du corps : aucune charge à taper, le ✓ valide (mutation b).
     {
       const iP = (await page.$$('.ligne-serie')).length - 1;
-      const champs = await (await ligne(iP)).$$('input');
+      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(iP).locator('input').nth(k));  // 158 — localisateurs
       await champs[champs.length - 1].fill('15');
       await (await ligne(iP)).$eval('.ok-serie', (b) => b.click());
       await attendre(900);

@@ -1086,6 +1086,28 @@
   // §9.8 — « le haut dépassé de 3 reps » : l'une des deux preuves.
   var PREUVE_DEPASSEMENT = 3;
 
+  // ── §9.26 (154) — L'EFFORT VISÉ : « garde-en N » ─────────────────────────────────────────────────────────────────
+  //
+  // La réserve que le coach vise sur la dernière série de travail d'un exercice, en reps. Une table, un seul endroit :
+  // Normal — Lourd 2, Mix 2, Hypertrophie 1, Volume 1, Séries longues 1 ; Prudent +1, Franc −1 ; une ligne de test : celle de
+  // sa zone moins 1 ; bornée à [0, 3]. `null` : pas de réserve visée (sans zone, sans coach, une chauffe, une durée, une
+  // distance, une dégressive). Décision d'Aurélien, 24/10/2026.
+  var RESERVE_NORMALE = { lourd: 2, mix: 2, hypertrophie: 1, volume: 1, series_longues: 1 };
+  var ROLES_A_RESERVE = { ligne: true, coach: true, retour: true, elan: true, test: true, haut: true };
+  var RESERVE_ECART = 2;   // la réserve notée ≥ visée + 2 : un vrai signal (l'erreur moyenne d'estimation est d'environ 1 rep)
+  function reserveVisee(o) {
+    var x = o || {};
+    var z = typeof x.zone === 'string' ? x.zone : (x.zone && x.zone.cle) || null;
+    if (z === null || !Object.prototype.hasOwnProperty.call(RESERVE_NORMALE, z)) return null;
+    var role = x.role === undefined || x.role === null ? 'ligne' : x.role;
+    if (!Object.prototype.hasOwnProperty.call(ROLES_A_RESERVE, role)) return null;
+    var v = RESERVE_NORMALE[z];
+    if (x.reglage === 'prudent') v += 1;
+    else if (x.reglage === 'franc') v -= 1;
+    if (role === 'test' || role === 'haut') v -= 1;
+    return Math.min(3, Math.max(0, v));
+  }
+
   function cible(v) { return Math.min(v, PLAFOND_CIBLE); }
 
   // `hasOwnProperty` et non une lecture directe : `role` vient de la base, et
@@ -1750,6 +1772,23 @@
 
     // 9. LE DÉCLENCHEUR DU RÉGLAGE (§9.8) — les trois vitesses.
     var declenche;
+    // 154 (§9.26) — L'EFFORT VISÉ, lu sur la DERNIÈRE série de travail de la dernière séance, faite au moins au bas de
+    // la zone (la visée d'une ligne n'est pas gardée sur la série : le bas de la zone en tient lieu). Réserve notée
+    // R, visée V : R ≥ V + 2 → le test, même sous le haut de la zone ; R < V → pas de montée sur sa foi ; sinon rien.
+    var effortVise = null;
+    var derniereRetenue = L.retenues && L.retenues.length ? L.retenues[L.retenues.length - 1] : null;
+    if (derniereRetenue !== null && A.length && A[A.length - 1] === derniereRetenue && !aide && !poidsDuCorps) {
+      var Rn = Palier().reserveDeSerie(derniereRetenue);
+      var Vn = reserveVisee({ zone: zone.cle, role: 'ligne', reglage: reglage });
+      var repsN = comptees(derniereRetenue);
+      if (Rn !== null && Vn !== null && repsN !== null && repsN >= lo) {
+        if (Rn >= Vn + RESERVE_ECART) {
+          effortVise = { effet: 'test', charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, visee: Vn };
+        } else if (Rn < Vn) {
+          effortVise = { effet: 'garde', charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, visee: Vn };
+        }
+      }
+    }
     if (reglage === 'franc') {
       // Dès qu'UNE série touche le haut : c'est la double progression dynamique.
       declenche = auMoins(A, hi);
@@ -1761,7 +1800,19 @@
     } else {
       declenche = niv >= hi;
     }
-    if (!declenche) return rendre('progression', ligneDe(P, vise), null);
+    // R < V ne change rien quand la montée n'avait pas lieu : le fait n'est écrit que s'il a RETENU quelque chose.
+    if (effortVise !== null) {
+      if (effortVise.effet === 'garde') {
+        if (declenche) declenche = false;
+        else effortVise = null;
+      } else {
+        declenche = true;
+      }
+    }
+    if (!declenche) {
+      return rendre('progression', ligneDe(P, vise), null,
+        effortVise !== null && effortVise.effet === 'garde' ? { effortVise: effortVise } : null);
+    }
 
     var c1 = voisine(P, 1);
     var saut = c1;
@@ -1780,7 +1831,7 @@
       // « facile » (§17.3, logique APRE).
       var preuve = auMoins(A, hi + PREUVE_DEPASSEMENT) || A.some(function (s) {
         return Palier().cranDeSerie(s) === 'facile';
-      });
+      }) || (effortVise !== null && effortVise.effet === 'test');
       if (preuve) {
         // ⚠️ DEUX CRANS SEULEMENT S'ILS RESTENT SOUS 10 % DE LA CHARGE —
         // corrigé le 19/09/2026 : l'ancienne limite « un cran au plus sur les
@@ -1793,8 +1844,9 @@
         }
       }
     }
-    return rendre('test_propose', ligneDe(P, vise), hautDe(saut, lo, 1),
-      preuveRetenue === null ? null : { preuve: preuveRetenue });
+    var plusTest = preuveRetenue === null ? {} : { preuve: preuveRetenue };
+    if (effortVise !== null && effortVise.effet === 'test') plusTest.effortVise = effortVise;
+    return rendre('test_propose', ligneDe(P, vise), hautDe(saut, lo, 1), plusTest.preuve || plusTest.effortVise ? plusTest : null);
   }
 
   // ── §9.14 — LA RÉACTION SÉRIE PAR SÉRIE (chantier 49, 49-R1) ─────────────
@@ -3532,6 +3584,24 @@
     return !!t && z !== null && t.niveauFait !== undefined && t.niveauFait !== null &&
       t.niveau !== null && t.niveau < z.bas && t.niveauFait >= z.bas;
   }
+  // 154 — « 130 kg × 5, sans marge. On garde 130 kg la prochaine fois. » (R < V, la montée n'a pas lieu).
+  function phraseDeLaGarde(e) {
+    var c = cite(FAIT, { quoi: 'effort_vise' });
+    return chargeFois(e.charge, e.reps, c) +
+      (e.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(e.reserve, c) + ' en réserve') + '. On garde ' +
+      enKg(e.charge, c) + ' la prochaine fois.';
+  }
+  // 154 — LA PHRASE APRÈS LA RÉPONSE (VOIX-DU-COACH) : « 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais : la
+  // prochaine fois, on essaie 36 kg. » / « 130 kg × 5, sans marge. On garde 130 kg la prochaine fois. » `ev` : le fait
+  // `effortVise` de la consigne suivante ; `haut` : la charge du test qu'elle pose. `null` : rien à dire.
+  function phraseEffortVise(ev, haut) {
+    if (!ev) return null;
+    var c = cite(FAIT, { quoi: 'effort_vise' });
+    if (ev.effet === 'garde') return phraseDeLaGarde(ev);
+    if (ev.effet !== 'test' || haut === null || haut === undefined) return null;
+    return chargeFois(ev.charge, ev.reps, c) + ', il t’en restait ' + nombreFr(ev.reserve, c) +
+      '. Au-dessus de ce que je visais' + DEUX_POINTS + 'la prochaine fois, on essaie ' + enKg(haut, c) + '.';
+  }
   function phraseGrise(c, reference) {
     var f = c.fondement || {};
     var z = zoneParCle(c.zone);
@@ -3580,6 +3650,8 @@
         // montre jamais des reps comptées pour des reps faites.
         // 79 (12/10/2026) — les chiffres d'abord et pas de jargon : « 125 kg × 5, sans marge : … », la même
         // phrase pour un RPE et pour un ressenti (« reste 0 »).
+        // 154 (§9.26) — la montée retenue par la réserve : « 130 kg × 5, sans marge. On garde 130 kg la prochaine fois. »
+        if (f.effortVise && f.effortVise.effet === 'garde') return phraseDeLaGarde(f.effortVise);
         if (f.serieAFond) {
           var a = f.serieAFond;
           return chargeFois(a.charge, a.reps, cite(FAIT, { quoi: 'a_fond' })) +
@@ -3588,6 +3660,13 @@
         return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus.';
 
       case 'test_propose':
+        // 154 (§9.26) — le test posé « par la réserve » dit la réserve notée, pas le haut de la zone.
+        if (f.effortVise && f.effortVise.effet === 'test' && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) {
+          var cE = cite(FAIT, { quoi: 'effort_vise' });
+          return 'On essaie ' + enKg(c.haut.charge, cE) + DEUX_POINTS + 'la dernière fois, ' +
+            chargeFois(f.effortVise.charge, f.effortVise.reps, cE) + ' avec ' + nombreFr(f.effortVise.reserve, cE) +
+            ' en réserve.';
+        }
         return jour() + DEUX_POINTS + auPalier() + ', ' +
                (f.preuve === 'haut' ? nombreFr(PREUVE_DEPASSEMENT, regle('constante')) + ' reps au-dessus du haut'
                 : f.preuve === 'facile' ? 'avec de la marge'
@@ -3975,6 +4054,7 @@
           : null;
 
       case 'progression':
+        if (f.effortVise && f.effortVise.effet === 'garde') return phraseDeLaGarde(f.effortVise);
         return (t !== null ? rate + ' ' : '') +
           'Ta charge de travail n\'est pas encore au haut de ta zone' + DEUX_POINTS +
           'une rep de plus sur chaque série.';
@@ -3986,6 +4066,12 @@
               ? 'Ta charge de travail a touché le haut de ta zone'
               : 'Une de tes séries a touché le haut de ta zone');
         var dit = tete + DEUX_POINTS + 'on teste le cran au-dessus sur la dernière série.';
+        if (f.effortVise && f.effortVise.effet === 'test') {
+          dit = 'Ta dernière série, ' + chargeFois(f.effortVise.charge, f.effortVise.reps, cite(FAIT, { quoi: 'effort_vise' })) +
+            ', laissait ' + nombreFr(f.effortVise.reserve, cite(FAIT, { quoi: 'effort_vise' })) +
+            ' en réserve, plus que les ' + nombreFr(f.effortVise.visee, cite(FAIT, { quoi: 'effort_vise' })) +
+            ' visées : on teste le cran au-dessus sur la dernière série.';
+        }
         if (f.preuve) {
           var ecart = c.haut.charge === null ? null : c.haut.charge - c.ligne.charge;
           var pourcent = ecart === null ? null : Math.round(ecart / c.ligne.charge * 1000) / 10;
@@ -7913,6 +7999,9 @@
     zoneDe: zoneDe,
     zoneRetenue: zoneRetenue,
     niveauValide: niveauValide,
+    reserveVisee: reserveVisee,
+    phraseEffortVise: phraseEffortVise,
+    RESERVE_ECART: RESERVE_ECART,
     formatDe: formatDe,
     coupleDe: coupleDe,
     // Le pont entre `THPalier.analyser` et `niveauValide` : l'un rend une

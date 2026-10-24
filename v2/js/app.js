@@ -9611,7 +9611,7 @@
   function rendreFeuilleRenommer() {
     var ancien = renommage.ancien;
     Rendu.rendreFeuilleRenommerDossier($('feuille-contenu'), {
-      nom: ancien,
+      nom: renommage.texte === undefined ? ancien : renommage.texte,
       erreur: renommage.erreur,
       verdict: function (texte) {
         var p = planDeRenommage(ancien, texte);
@@ -9628,6 +9628,7 @@
     var plan = planDeRenommage(ancien, texte);
     if (!plan.ok) return;
     renommage.enCours = true;
+    renommage.texte = texte;   // un échec rend la feuille avec ce qui était tapé
     var faites = [];
     try {
       for (var i = 0; i < plan.routines.length; i++) {

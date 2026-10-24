@@ -4677,6 +4677,25 @@
     return { iExo: iExo, iSerie: iSerie, id: s.id };
   }
 
+  // 154 (MOTEUR §9.26) — LES PUCES DE L'EFFORT VISÉ. Le plan dit sur quelle série (`x.effortVise.serie`), si elles se
+  // posent (`demande`) et la phrase d'après ; l'écran n'ajoute que « Passer », qui ne se retient que pour la session
+  // et n'écrit RIEN (jamais une réserve présumée).
+  var effortPasse = {};
+  function effortViseSurLigne(iExo, iSerie) {
+    var x = planDeLExercice(iExo);
+    var e = x && x.effortVise;
+    if (!e || e.serie !== iSerie) return null;
+    var s = seance && seance.exercices[iExo] && seance.exercices[iExo].series[iSerie];
+    if (!s || !Seance.partEnBase(s)) return null;
+    var demande = e.demande && !effortPasse[s.id];
+    if (!demande && !e.phrase) return null;
+    return {
+      cle: s.id, demande: demande, phrase: e.phrase,
+      surChoix: function (ressenti) { noterEffort(iExo, iSerie, { ressenti: ressenti }); },
+      surPasser: async function () { effortPasse[s.id] = true; await apresGeste(); rendreChrono(); }
+    };
+  }
+
   // Ce que la carte de repos montre de la question : la série telle qu'elle est À CET INSTANT (le bouton choisi
   // s'allume, on peut changer d'avis). Une série retirée ou déplacée entre-temps : plus de question.
   function vueDeLaQuestion(q) {
@@ -8072,6 +8091,12 @@
       surValider: validerSerie,
       // §9.14 (49-R2) — la phrase du coach et la ligne proposée.
       reaction: reactionSurLigne,
+      // 154 (MOTEUR §9.26) — l'effort visé : « garde-en N » dans l'en-tête, les puces sous la dernière série.
+      reserveVisee: function (iExo) {
+        var x = planDeLExercice(iExo);
+        return x && x.reserveVisee !== undefined ? x.reserveVisee : null;
+      },
+      effortVise: effortViseSurLigne,
       // MOTEUR §9.23 (55-1) — la médaille, sous la rangée d'une série validée.
       medaille: medailleSurLigne,
       // ⚠️ CORRIGER AU CLAVIER UNE SÉRIE VALIDÉE REDESSINE LE BLOC (P10), mais

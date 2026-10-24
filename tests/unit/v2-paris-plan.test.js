@@ -54,6 +54,11 @@ const OPTIONS = { slug: 'x', seance: 'S', reglage: 'normal' };
 
 // Rejoue un cas : à chaque validation, le pari que le PLAN porte pour la série
 // (`paris[iSerie]`), observé sur elle — ce qui fige sa ligne pour la suite.
+function sansReserveVisee(q) {
+  const f = Object.assign({}, q.fondement);
+  delete f.reserve_visee;
+  return Object.assign({}, q, { fondement: f });
+}
 function parisDuPlan(k, contexte, n, faites) {
   const consigne = consigneDuCas(k);
   const paris = [];
@@ -62,7 +67,9 @@ function parisDuPlan(k, contexte, n, faites) {
   for (let t = 0; t < faites.length; t++) {
     const apres = T.rejouer(consigne, contexte, n, faites.slice(0, t + 1), figees, OPTIONS);
     const q = apres.paris[t];
-    parSerie.push(q ? [q] : []);
+    // 154 — `reserve_visee` (l'effort visé, MOTEUR §9.26) est une clé NEUVE du fondement : la référence de 49-U3 ne la connaît
+    // pas, et tout le reste du pari reste à l'octet. Elle est vérifiée dans `v2-effort-vise.test.js`.
+    parSerie.push(q ? [sansReserveVisee(q)] : []);
     if (q) paris.push(Object.assign({}, q, { set_observe: 'r' + (t + 1) }));
     const g = S.figeesDe(paris, apres.series, consigne);
     figees = {};

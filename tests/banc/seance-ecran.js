@@ -25319,6 +25319,136 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus153), gardeBanc.liste.slice(-2), erreurs.slice(erreurs153)]));
   }
 
+  console.log('\n══ effort-vise. L’EFFORT VISÉ : « GARDE-EN 1 », LES PUCES SOUS LA DERNIÈRE SÉRIE, LA PHRASE, PUIS LE TEST DE LA SÉANCE SUIVANTE (154, MOTEUR §9.26) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice à la barre, 40 kg × 9 trois séances de suite (zone Hypertrophie, Normal : « garde-en 1 »).
+  // Séance du jour : trois séries validées — les puces « Il t’en restait combien ? » n’apparaissent qu’après la DERNIÈRE ; « 3 et + » écrit
+  // `reste_3_plus` sur elle seule et la phrase du coach suit (« …Au-dessus de ce que je visais : la prochaine fois, on essaie 42,5 kg. »).
+  // Séance suivante (la réponse est dans l’historique) : le test à 42,5 kg et son pourquoi. « Passer » : rien n’est écrit. Aucun délai fixe.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    CATALOGUE.push({ slug: 'ev154-a', nom: 'Exercice EV154 A (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
+    const t154 = Date.now();
+    base.sessions = [];
+    base.sets = [];
+    [21, 14, 7].forEach((j) => {
+      const id = 'ev154-h' + j;
+      const debut = ilYa(j * 86400000, t154).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'EV154 — ' + id, debut,
+        fin: finDe(debut, t154).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((k) => base.sets.push({
+        id: id + '-' + k, session_id: id, user_id: 'u-banc', exercise_slug: 'ev154-a',
+        charge_kg: 40, reps: 9, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: k, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    ROUTINES.push({ id: 'r-ev154', nom: 'Effort visé U154', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-ev154-a', routine_id: 'r-ev154', exercise_slug: 'ev154-a', rang: 0, routine_sets: progr(3, 9),
+        repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const sp154 = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ').replace(/\s+/g, ' ').trim();
+    const valider154 = async (j) => {
+      await casesSiVides(await ligneDuBloc(0, j));
+      await page.evaluate((k) => document.querySelectorAll('.bloc-seance')[0]
+        .querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), j);
+      await jusqua(() => page.evaluate((k) => !!document.querySelectorAll('.bloc-seance')[0]
+        .querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie.cochee'), j), 6000);
+    };
+    const puces154 = () => page.evaluate(() => {
+      const n = document.querySelector('.bloc-seance .effort-vise');
+      if (!n) return null;
+      const lignes = Array.from(document.querySelectorAll('.bloc-seance .ligne-serie'));
+      // La ligne qui précède (une médaille peut s'intercaler entre la rangée et les puces).
+      let prec = n.previousElementSibling;
+      while (prec && !lignes.some((l) => l === prec || prec.contains(l))) prec = prec.previousElementSibling;
+      return { apres: lignes.findIndex((l) => prec && (l === prec || prec.contains(l))), question: (n.querySelector('.effort-vise-q') || {}).textContent || null,
+        boutons: Array.from(n.querySelectorAll('button')).map((b) => b.textContent),
+        phrase: (n.querySelector('.effort-vise-dit') || {}).textContent || null };
+    });
+    const entete154 = () => page.evaluate(() => {
+      const c = document.querySelector('.legende-exo .consigne');
+      const g = document.querySelector('.legende-exo .consigne[data-garde]');
+      return { garde: g ? g.getAttribute('data-garde') : null, nb: document.querySelectorAll('[data-garde]').length,
+        dit: (document.querySelector('.legende-exo .consigne-dit') || {}).textContent || null,
+        jaune: Array.from(document.querySelectorAll('.legende-exo .consigne')).map((x) => x.textContent), c: !!c };
+    });
+        const nb154 = (x) => JSON.stringify(x).replace(/[\u00a0\u202f]/g, ' ');
+    const ressentiDuJour = () => base.sets.filter((x) => !/^ev154-h/.test(x.session_id) && x.exercise_slug === 'ev154-a').map((x) => x.ressenti);
+
+    // A. LA SÉANCE DU JOUR.
+    await aller('/saisie');
+    await demarrerRoutine('Effort visé U154');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 3), 8000);
+    const e0 = await entete154();
+    ok('[EV154] DISCRIMINANT — l’en-tête dit « garde-en 1 », une seule fois (pas sur chaque ligne)',
+      e0.garde !== null && sp154(e0.garde) === 'garde-en 1' && e0.nb === 1, JSON.stringify(e0));
+    await valider154(0);
+    await valider154(1);
+    ok('[EV154] DISCRIMINANT — jamais de puces avant la DERNIÈRE série de travail', (await puces154()) === null, JSON.stringify(await puces154()));
+    await valider154(2);
+    await jusqua(async () => (await puces154()) !== null, 6000);
+    const p1 = await puces154();
+    ok('[EV154] après la dernière série : « Il t’en restait combien ? », 0 · 1 · 2 · 3 et + · Passer, sous la troisième ligne',
+      !!p1 && sp154(p1.question) === 'Il t’en restait combien ?' && sp154(p1.boutons.join('|')) === '0|1|2|3 et +|Passer' && p1.apres === 2, JSON.stringify(p1));
+    await page.click('.bloc-seance .effort-vise button[data-ressenti="reste_3_plus"]');
+    await jusqua(() => ressentiDuJour().some((r) => r === 'reste_3_plus'), 8000);
+    await jusqua(async () => { const p = await puces154(); return !!p && p.phrase !== null; }, 8000);
+    const p2 = await puces154();
+    ok('[EV154] « 3 et + » : `reste_3_plus` écrit sur UNE série, la dernière',
+      nb154(ressentiDuJour()) === nb154([null, null, 'reste_3_plus']), nb154(ressentiDuJour()));
+    ok('[EV154] DISCRIMINANT — la phrase du coach : « …il t’en restait 3. Au-dessus de ce que je visais : la prochaine fois, on essaie 42,5 kg. »',
+      !!p2 && /^40 kg × \d+, il t’en restait 3\. Au-dessus de ce que je visais : la prochaine fois, on essaie 42,5 kg\.$/.test(sp154(p2.phrase)) &&
+        p2.boutons.length === 0, JSON.stringify(p2));
+    const v154 = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? window.THPlan.verifierPlan(d.plan, d.entrees) : { ok: false, erreurs: ['aucun plan calculé'] };
+    });
+    ok('[EV154] invariants du plan (I56 à I58 compris)', v154.ok, JSON.stringify(v154.erreurs.slice(0, 3)));
+    await abandonner();
+
+    // B. LA SÉANCE SUIVANTE : la réponse est dans l’historique ; le test, et son pourquoi.
+    const derniere = base.sets.filter((x) => x.id === 'ev154-h7-3')[0];
+    derniere.ressenti = 'reste_3_plus';
+    await aller('/saisie');
+    await demarrerRoutine('Effort visé U154');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 3), 8000);
+    await jusqua(async () => (await entete154()).dit !== null, 6000);
+    const e1 = await entete154();
+    ok('[EV154] DISCRIMINANT — la séance suivante pose le test à 42,5 kg, SOUS le haut de la zone, et dit pourquoi',
+      e1.jaune.some((t) => /42,5/.test(sp154(t))) &&
+        sp154(e1.dit) === 'On essaie 42,5 kg : la dernière fois, 40 kg × 9 avec 3 en réserve.', JSON.stringify(e1));
+    await abandonner();
+
+    // C. « PASSER » : rien n’est écrit, plus de puces.
+    derniere.ressenti = null;
+    await aller('/saisie');
+    await demarrerRoutine('Effort visé U154');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 3), 8000);
+    await valider154(0); await valider154(1); await valider154(2);
+    await jusqua(async () => (await puces154()) !== null, 6000);
+    await page.click('.bloc-seance .effort-vise button[data-passer="1"]');
+    await jusqua(async () => (await puces154()) === null, 6000);
+    ok('[EV154] DISCRIMINANT — « Passer » : plus de puces, et RIEN d’écrit (aucune réserve présumée)',
+      (await puces154()) === null && ressentiDuJour().every((r) => r === null || r === undefined), nb154(ressentiDuJour()));
+    await abandonner();
+
+    // LA REMISE EN ÉTAT.
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[EV154] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb154([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

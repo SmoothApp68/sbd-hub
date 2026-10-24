@@ -1007,9 +1007,20 @@
     poulie: 'vise la plaque au-dessus, ou un petit disque si ta poulie en a. Note ce que tu as mis.',
     kettlebell: 'vise le kettlebell au-dessus. Note ce que tu as mis.'
   };
-  function phraseApprochee(equipement) {
-    return Object.prototype.hasOwnProperty.call(PHRASES_APPROCHEE, equipement) && equipement !== 'defaut'
+  // La phrase, avec la charge approchée en tête (« ≈ 35 kg : vise la charge la plus proche… ») quand la consigne est
+  // donnée : les charges passent par le formateur de la voix (citations I26, mêmes rôles que l'en-tête).
+  function phraseApprochee(equipement, consigne) {
+    var base = Object.prototype.hasOwnProperty.call(PHRASES_APPROCHEE, equipement) && equipement !== 'defaut'
       ? PHRASES_APPROCHEE[equipement] : PHRASES_APPROCHEE.defaut;
+    var morceaux = [];
+    ['ligne', 'haut'].forEach(function (r) {
+      var l = consigne && consigne[r];
+      if (l && l.approchee === true && nombre(l.charge) !== null) {
+        var t = '\u2248' + INSECABLE + enKg(l.charge, cite(CIBLE, { role: r }));
+        if (morceaux.indexOf(t) < 0) morceaux.push(t);
+      }
+    });
+    return morceaux.length ? morceaux.join(' et ') + DEUX_POINTS + base : base;
   }
 
   // §10.2 (delta 49-36) et §9.23 (55-1) — LE PLANCHER DES 12 MOIS d'un

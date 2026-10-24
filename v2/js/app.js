@@ -5686,6 +5686,25 @@
     var s = Profil.salleDeLExercice(profil, slug, catalogueIndexe());
     return estSalleElastique(s) ? s : null;
   }
+  // 163 — L'exercice se note à l'élastique (grand ou mini) et sa liste est vide : « Ajoute tes élastiques ».
+  function elastiqueAAjouter(slug) {
+    var index = catalogueIndexe();
+    var fiche = slug && Object.prototype.hasOwnProperty.call(index, slug) ? index[slug] : null;
+    return !!fiche && Profil.elastiqueAAjouter(profil, fiche);
+  }
+  // 163 — « Ma salle » n'apparaît dans le Profil que si un exercice à l'élastique est dans une routine, l'historique
+  // ou la séance en cours.
+  function unExerciceALElastique() {
+    var index = catalogueIndexe();
+    var elastique = function (slug) {
+      var f = slug && Object.prototype.hasOwnProperty.call(index, slug) ? index[slug] : null;
+      return !!f && (f.type_elastique === 'grand' || f.type_elastique === 'mini');
+    };
+    var dans = function (l) { return (l || []).some(function (x) { return !!x && elastique(x.exercise_slug); }); };
+    if (seance && dans(seance.exercices)) return true;
+    if ((routines || []).some(function (r) { return !!r && !r.archivee_a && dans(r.exercices); })) return true;
+    return dans(local.exercices);
+  }
   // Le nom choisi dans la feuille, écrit dans la série par `Profil.ecrireSerie` : `elastique`, et `charge_kg` (−kg
   // déclaré d'une aide, sinon NULL). Une série déjà validée suit (la file la renvoie, la réaction se refait).
   async function poserElastique(iExo, iSerie, nom) {
@@ -6784,7 +6803,8 @@
     if (!c) return null;
     var x = planDuSlug(slug);
     return x ? { jaune: x.entete.jaune, gris: x.entete.gris, compteur: x.entete.compteur || null,
-                 frere: x.entete.frere || null, plus: x.entete.plus || null } : c.libelles;
+                 frere: x.entete.frere || null, plus: x.entete.plus || null,
+                 approchee: x.approchee ? x.approchee.phrase : null } : c.libelles;
   }
 
   // §3.8 et §3.10 — l'étiquette de zone et le calcul, tirés du MÊME mémo que
@@ -8070,6 +8090,8 @@
       exercice: function (slug) { return index[slug]; },
       // 132 (ECRAN-SAISIE §3 ter.6) — un exercice noté par nom : la colonne « ÉLASTIQUE », et sa feuille de choix.
       elastique: elastiqueDeLaGrille,
+      // 163 — un exercice à l'élastique sans liste déclarée : la colonne « Élastique » propose « Ajoute tes élastiques ».
+      elastiqueAAjouter: elastiqueAAjouter,
       surElastique: function (i, j) { ouvrirFeuille('elastique', i, j); },
       precedent: precedentDe,
       fantome: function (i, j) {
@@ -9019,6 +9041,22 @@
 
     // 132 (ECRAN-SAISIE §3 ter.6, écran 3) — LA FEUILLE DE CHOIX DE L'ÉLASTIQUE : la liste qui va avec l'exercice ; le
     // choix s'écrit dans la série (`poserElastique`), validée ou non.
+    if (feuille.quoi === 'elastique' && !elastiqueDeLaGrille(exo.exercise_slug) && elastiqueAAjouter(exo.exercise_slug)) {
+      // 163 — « Ajoute tes élastiques » : par son nom ou par son poids ; la série reprend ensuite (la feuille se ferme,
+      // la colonne « Élastique » propose alors la liste).
+      var ficheA = catalogueIndexe()[exo.exercise_slug];
+      return Rendu.rendreFeuilleAjoutElastiques(cible, {
+        exercice: nom, mini: ficheA.type_elastique === 'mini', noms: Profil.ELASTIQUES_CLASSIQUES,
+        erreur: feuille.erreur || '',
+        surValider: function (choix) {
+          var r = Profil.elastiquesAjoutes(profil, ficheA, choix);
+          if (r.erreur) { feuille.erreur = r.erreur; return rendreFeuille(); }
+          ecrireProfil(r.champs);
+          fermerVoile();
+        },
+        surAnnuler: fermerVoile
+      });
+    }
     if (feuille.quoi === 'elastique') {
       var elg = elastiqueDeLaGrille(exo.exercise_slug);
       var se0 = exo.series[feuille.iSerie];
@@ -14814,9 +14852,10 @@
         // s'efface quand il n'y en a plus), « Refaire mon programme ».
         { titre: 'CE QUE JE FAIS', lignes: [
           ligneChoix('materiel', 'Matériel'),
-          // 108 (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies) — les barres fixes et les haltères de la salle.
-          Profil.ligneSalle(p, ouvrirSalleProfil)
-        ].concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil)) },
+          // 108 (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies) — Ma salle ; 163 : les élastiques seulement, et seulement si un
+          // exercice à l'élastique est dans une routine, l'historique ou la séance en cours.
+          Profil.ligneSalle(p, ouvrirSalleProfil, unExerciceALElastique())
+        ].filter(Boolean).concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil)) },
         // 60-1 — « Progresser » ou « Juste un carnet » : la section se construit
         // dans `profil.js`, comme « Ton rythme » (la phrase dépend du choix).
         Profil.sectionIntention(p, ecrireProfil),
@@ -15678,6 +15717,17 @@
   var VUES_ONGLET = {};
   VUES_ONGLET[Routeur.PROGRESSION] = 'progression';
 
+  // 163 — « Ma salle » dépend des routines (un exercice à l'élastique dans l'une d'elles) : si elles ne sont pas encore lues,
+  // on les lit une fois et l'écran se refait. Jamais de boucle : une lecture à la fois, un seul nouveau rendu.
+  var routinesDuProfilDemandees = false;
+  function demanderLesRoutinesDuProfil() {
+    if (etatRoutines.code === 'ok' || routinesDuProfilDemandees) return;
+    routinesDuProfilDemandees = true;
+    chargerRoutines().then(function () {
+      if (etatRoutines.code === 'ok' && ecranCourant === 'profil') rendreProfilEcran();
+    }).catch(function () { /* hors ligne : la ligne attend les routines */ }).then(function () { routinesDuProfilDemandees = false; });
+  }
+
   function rendreRoute(route) {
     var cible = Routeur.routeAffichable(route, { session: sessionActive });
     // Sans session, l'URL est corrigée en même temps que l'écran : laisser
@@ -15685,7 +15735,7 @@
     if (cible.redirigeDepuis) allerA(Routeur.CONNEXION, {}, true);
     if (cible.vue === Routeur.CONNEXION) return rendreEntree('connexion');
     if (cible.vue === Routeur.INSCRIPTION) return rendreEntree('inscription');
-    if (cible.vue === Routeur.PROFIL) return rendreProfilEcran();
+    if (cible.vue === Routeur.PROFIL) { demanderLesRoutinesDuProfil(); return rendreProfilEcran(); }
     if (cible.vue === Routeur.EXERCICES) return rendreMesExercices();
     if (cible.vue === Routeur.IMPORT) return rendreImportEcran();
     // 64B — LA GARDE DU JEU VIT ICI, PAS DANS LE ROUTEUR (qui reste pur et ne connaît pas l'interrupteur). Jeu

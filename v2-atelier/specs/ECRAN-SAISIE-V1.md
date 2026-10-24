@@ -3524,6 +3524,10 @@ rien : l'étiquette « cible 0:15 » y reste affichée quoi qu'il arrive — pi�
 chantier 49, et devenu franchement trompeur ici puisqu'il n'y a plus de grand nombre à lire.
 
 
+## 7 septies ter. La charge approchée et « Ajoute tes élastiques » — décidé le 24/10/2026 (prompt 163)
+
+**24/10/2026, décision d'Aurélien.** (1) Une charge que le coach propose sans l'avoir jamais vue sur cet exercice s'écrit « **≈ 35 kg** » (le « ≈ » suivi d'une espace insécable) dans l'en-tête, la consigne et le constat ; sous la ligne, une phrase dit le pas du matériel. La case de charge est **préremplie** de ce chiffre et reste modifiable ; dès qu'une charge est notée, elle est connue et le « ≈ » disparaît. Jamais de « un cran au-dessus » sans chiffre pour un exercice en kg (MOTEUR §10.4). (2) Dans la colonne « Élastique » d'une ligne sans élastique déclaré : « **Ajoute tes élastiques** » ouvre une feuille pour choisir par son nom (Noir, Violet, Rouge, Bleu, Vert, Jaune) ou par son poids ; la feuille écrit la liste du Profil (« Ma salle ») puis se ferme.
+
 ## 8. Reste ouvert
 
 - **Écran de fin de séance** : titre, note, photo, salle.

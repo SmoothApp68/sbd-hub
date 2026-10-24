@@ -923,9 +923,9 @@
     // l'écran la lit sous la ligne, il ne la rédige pas. I59 relit le fondement, les charges marquées et la phrase.
     var approchee = null;
     if (consigne && consigne.fondement && consigne.fondement.approchee === true) {
-      approchee = { materiel: materiel ? materiel.equipement || null : null,
-                    phrase: M.phraseApprochee(materiel ? materiel.equipement : null) };
-      dire('entete.approchee', approchee.phrase, []);
+      var capAp = V.capturer(function () { return M.phraseApprochee(materiel ? materiel.equipement : null, consigne); });
+      approchee = { materiel: materiel ? materiel.equipement || null : null, phrase: capAp.texte };
+      dire('entete.approchee', capAp.texte, capAp.citations);
     }
 
     preremplir(exo, r.lignes, consigne, { reaction: r.reaction, figees: figees }, precedent);

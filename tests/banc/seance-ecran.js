@@ -25031,8 +25031,8 @@ const SETS_IMPORTES = [
     });
     const entete154 = () => page.evaluate(() => {
       const c = document.querySelector('.legende-exo .consigne');
-      const g = document.querySelector('.legende-exo .garde-en');
-      return { garde: g ? g.textContent : null, nb: document.querySelectorAll('.garde-en').length,
+      const g = document.querySelector('.legende-exo .consigne[data-garde]');
+      return { garde: g ? g.getAttribute('data-garde') : null, nb: document.querySelectorAll('[data-garde]').length,
         dit: (document.querySelector('.legende-exo .consigne-dit') || {}).textContent || null,
         jaune: Array.from(document.querySelectorAll('.legende-exo .consigne')).map((x) => x.textContent), c: !!c };
     });

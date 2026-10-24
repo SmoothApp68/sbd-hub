@@ -2783,10 +2783,8 @@
         var gardeEn = !vue.programme && typeof vue.reserveVisee === 'function' ? vue.reserveVisee(x._iExo) : null;
         (lib.jaune || []).forEach(function (l, iJ) {
           var ligneJ = el('div', 'consigne', l);
-          if (iJ === 0 && gardeEn !== null && gardeEn !== undefined) {
-            ligneJ.appendChild(doc.createTextNode(' '));
-            ligneJ.appendChild(el('span', 'garde-en', 'garde-en\u00a0' + gardeEn));
-          }
+          // Un attribut, rendu par CSS (`::after`) : le texte de la consigne reste celui du moteur, mot pour mot.
+          if (iJ === 0 && gardeEn !== null && gardeEn !== undefined) ligneJ.setAttribute('data-garde', 'garde-en\u00a0' + gardeEn);
           entree.appendChild(tapable(ligneJ));
         });
         if (lib.gris) entree.appendChild(tapable(el('div', 'consigne-dit', lib.gris)));

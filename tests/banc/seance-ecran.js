@@ -3749,6 +3749,8 @@ const SETS_IMPORTES = [
   await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
   await attendre(600);
   await saisirSerie(3, 105, 5);
+  // 158 — sur GitHub la base n'a pas toujours reçu la 4e série quand on la lit : on attend l'ÉTAT, pas un délai.
+  await jusqua(async () => notesEnBase('squat-barre').length === 4, 6000);
   ok('une série ajoutée APRÈS la note la reçoit aussi',
     notesEnBase('squat-barre').length === 4 &&
     notesEnBase('squat-barre').every((n) => n === 'Barre basse, ceinture'),
@@ -7881,6 +7883,8 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await demarrerRoutine('Terre');
     await saisirSerie(0, c1, vise + 3);
+    // 158 — la phrase se rend un peu après la validation, plus tard encore sur GitHub : on attend l'ÉTAT.
+    await jusqua(async () => (await phrases()).length === 1, 6000);
     ok('[R] (effort) la proposition est affichée', (await phrases()).length === 1,
       JSON.stringify(await phrases()));
     await toucher(0, '.eff-serie');

@@ -1394,6 +1394,8 @@ Un exercice **jamais fait** par la personne (aucune série de travail dans son h
 
 ### 9.22 Les programmes à cycles — décidés le 05/10/2026 (chantier 53)
 
+**Après la décharge, le coach reprend sur la dernière séance normale — 24/10/2026, décision d'Aurélien (chantier 165).** Une séance allégée (décharge planifiée ci-dessous, ou semaine allégée acceptée, §14.4) **ne sert jamais de référence** : pour la consigne, le palier, le niveau validé, la zone, l'habitude, le compteur de stagnation, les records-cibles et le « pourquoi », le coach lit la **dernière séance normale** de l'exercice (80 × 8 × 4, décharge 80 × 6 × 2, le lundi d'après : 80 × 8-9 sur 4 séries, pas 80 × 7 sur 2). Les séries allégées restent dans l'historique — faits, records, volume — rien n'est effacé ni caché à l'écran ; la séance reste une présence pour le rythme (§9.9). La garde est celle de la semaine allégée (`decharge`, §14.4), étendue de la consigne au compteur : `consigneDExercice` rend ces séances neutres pour la consigne (`sansLesAllegees`, périodes `periodesAllegees`). **La décharge s'applique à toutes les séances du jour**, pas seulement au dossier du programme : c'est voulu, la fatigue est générale (la spec ne le disait pas). La feuille « Pourquoi » dit « **Décharge, semaine k sur N** » pendant une décharge planifiée, « **Semaine allégée** » pour une semaine allégée acceptée. **Pas de constat** en fin d'exercice pendant une semaine allégée ou une décharge : une séance allégée ne se juge pas, et sa suite lirait la dernière séance normale, pas ce que la personne vient de faire. **Invariants** : **I59** pas d'effort visé, de réserve visée ni de question de réserve sur une consigne allégée ; **I60** aucune consigne ne cite une séance allégée comme référence (`fondement.date` hors des périodes allégées).
+
 > **Un programme fixe la zone de tes barres, la durée du bloc et sa décharge. Il ne choisit jamais un exercice, ne touche pas à leur ordre, et ne décide pas des charges : le coach continue de le faire.**
 
 **Ce qu'est un programme.** Les **blocs** d'un même **dossier** (§7 duodecies.3 d'ECRAN-SAISIE : le dossier reste une étiquette), chaînés (`blocs.precedent`) ; un seul bloc en cours par dossier. « **Faire de ce dossier un programme** » : la zone du premier bloc (**Lourd ou Mix**, §19.2 amendé), sa durée (**4 semaines par défaut**, de 3 à 6), sa décharge (la dernière semaine, oui par défaut), son début (le lundi qui suit, réglable) ; **les exercices du bloc** : par défaut **les barres polyarticulaires** des routines du dossier (au moins 3 muscles principaux, secondaires et stabilisateurs), **plus les exercices prioritaires** du questionnaire (`profiles.priorites`) qui sont dans les routines du dossier, même hors barre (précisé le 08/10/2026, 60-2b : la force se travaille lourde, sur l'exercice qu'on veut améliorer), décochables ; **la zone proposée pour le premier bloc suit l'objectif** : Force ou Les deux → **Lourd** ; Muscle, Forme ou sans réponse → **Mix** (Schoenfeld 2021 : le lourd fait la force, le muscle se gagne sur un large éventail de charges ; précisé le 08/10/2026) — toujours modifiable. Le bloc suivant garde sa règle fixe ; les autres gardent leur zone.
@@ -1560,6 +1562,8 @@ Exception à « jamais le délai » : la règle d'ECRAN-SAISIE §3.5, §7 bis.15
 
 
 ### 9.26 L'effort visé — « garde-en N » — décidé le 23-24/10/2026 (chantier 154)
+
+**Pendant une semaine allégée ou une décharge — 24/10/2026, décision d'Aurélien (chantier 165).** Ni « garde-en N », ni « Il t'en restait combien ? » : la consigne allégée est « loin de l'échec ». Une réserve notée pendant (ressenti, RPE) **n'est jamais comptée** par cette règle, ni la semaine même ni après (la séance allégée n'est pas une référence, §9.22) : un « 3 et + » en décharge ne pose pas de test la séance suivante. I59.
 
 > **« Effort visé avant l'IA. »** (Aurélien, 23/10/2026 18 h 53 ; « ok pour tout », 24/10/2026 1 h 05)
 
@@ -2155,6 +2159,8 @@ Si l'utilisateur retire une série, l'app **ne la repropose pas** — ni sur min
 Le filet existe déjà : si le retrait fait descendre le volume sous la fourchette personnelle, la règle de volume le signale, selon ses propres conditions — REGLE-VOLUME fait foi, le nombre de fenêtres ne se recopie pas ici (précisé le 25/09/2026, #319).
 
 ### 14.4 La semaine allégée dans l'app — câblée le 01/10/2026 (chantier 49)
+
+**Une séance allégée ne sert jamais de référence — 24/10/2026, décision d'Aurélien (chantier 165).** La garde du compteur (« ni comptée ni jugée ») vaut aussi pour la consigne : la séance suivante repart de la dernière séance normale (§9.22). Ni « garde-en » ni question de réserve pendant la semaine allégée (§9.26).
 
 > **Une carte, en tête de la séance, quand plusieurs exercices calent ensemble. Acceptée : 7 jours, mêmes exercices, mêmes charges, 60 % des séries, 2 reps de moins, rien ne monte.**
 

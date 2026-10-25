@@ -665,6 +665,21 @@ Maquette : `maquette-demander-au-coach-v1.html` (elle fait foi pour les textes).
 - **Les questions et réponses** sont gardées 30 jours **sans lien avec le compte** (table `assistant_questions`, aucune colonne
   d'utilisateur) pour relire la qualité ; la purge est faite par la fonction.
 
+**3.10 quater — « Demander au coach » : cinq correctifs de la relecture — 24/10/2026, décision d'Aurélien (166).**
+- **Les chiffres sont gardés.** `sansDate` ne retire que de vraies dates : « le 13 sept. », « le 3 octobre 2026 », « 24/10 », ISO,
+  noms de jours, « hier », « il y a N jours ». Le mois est nommé, jamais deviné : « séries de 5 reps », « pause de 3 min »,
+  « charge de 12 kg », « marge de 2 reps » arrivent entiers au modèle.
+- **Une douleur ne part jamais**, sous plus de formes : « mon genou tire », « ça pince dans l'épaule », « une gêne au coude »,
+  « ça me lance », « ça coince », « ça me fait souffrir », « élancement »… Le motif exige **une partie du corps ou « ça »** :
+  « tirage », « tirer la barre », « tire-bouchon », « je m'y prends mal » ne sont pas des douleurs. La liste est copiée dans la
+  fonction (ce dossier n'est pas servi) ; un test prouve les listes de santé et de dates identiques.
+- **Une question de santé ne s'écrit nulle part** : la fonction répond la phrase de renvoi sans aucune écriture (ni question, ni
+  contexte, ni ligne) ; l'accord n'a pas à changer. Les autres questions gardées restent gardées 30 jours.
+- **La fonction se garde seule** : le corps est borné (16 Ko) avant d'être lu ; la question et le contexte passent par le même
+  filtre de dates que l'app, quel que soit le format ; une date qui reste fait un 400.
+- **Pas de boucle d'accord** : si l'accord est posé en local mais pas encore en base (écriture en attente, 403 `accord`), la
+  conversation reste et dit « Ton accord part dès que le réseau revient. » ; l'accord reste dans la file, rien n'est perdu.
+
 **3.11** — **La reprise.** Après une coupure (MOTEUR §9.9), l'en-tête dit « On
 reprend à ton dernier palier, sans rep de plus » ou « On reprend un cran sous ton
 dernier palier, 125 kg ». **Jamais la durée de l'absence** (CADRAGE §3.1 bis) : la
@@ -2002,6 +2017,8 @@ qui mène au détail complet pour qui veut le contexte des autres exercices.
 ---
 
 ## 7 septies bis. L'effort visé — « garde-en N » — décidé le 24/10/2026 (chantier 154)
+
+- **Pendant une semaine allégée ou une décharge** (24/10/2026, décision d'Aurélien, chantier 165) : ni « garde-en N » dans l'en-tête, ni « Il t'en restait combien ? » sous la dernière série. Une réserve notée là ne compte jamais. La feuille « Pourquoi » dit « Décharge, semaine k sur N » (décharge planifiée) ou « Semaine allégée » (carte acceptée).
 
 Maquette : `maquette-effort-vise-v1.html` (elle fait foi pour les textes). Détail de la règle : MOTEUR §9.26.
 

@@ -316,6 +316,9 @@
     var couvertes = lignes.filter(function (l) { return l.role !== 'hors'; });
     if (!couvertes.length || !fini) return null;
     if (!suite || !suite.consigne) return null;
+    // 165 — une séance allégée ne se juge pas et ne sert pas de référence : pas de constat (la suite lirait la dernière
+    // séance normale, qui n'est pas ce que la personne vient de faire).
+    if (consigne && consigne.allegee) return null;
     var c = Moteur().constatDuJour(consigne, suite.consigne, reglage || null,
       suite.cranSuivant === undefined ? null : suite.cranSuivant, faitsDuJour(lignes, consigne),
       reference === undefined ? null : reference);
@@ -749,7 +752,7 @@
     // l'exercice est la consigne allégée : même charge, 2 reps de moins, 60 %
     // des séries de la routine, rien ne monte. C'est elle que lisent les
     // lignes, l'en-tête, les paris, les chauffes et les invariants.
-    if (allegee && consigne && consigne.etat !== 'silence') consigne = M.consigneAllegee(consigne, seriesRoutine, allegee.decharge === true);
+    if (allegee && consigne && consigne.etat !== 'silence') consigne = M.consigneAllegee(consigne, seriesRoutine, allegee.decharge === true, allegee);
     // MOTEUR §14.5 (49-U15) — LE REPLI (deuxième déclenchement isolé) : la
     // consigne de la séance devient celle du repli — la charge du dernier
     // palier tenu, sa visée bornée à la zone, sans ligne haute (I22). Les
@@ -1274,7 +1277,7 @@
         var intentionX = Moteur().intentionDe(intentionProfil, modeX);
         var x = planDExercice(exo, i, c, Seance().parisDeLOccurrence(e.paris || [], seance, i), seance.id, e.reglage, suite, seance.debut,
           intentionX === 'entretien' || salleEl ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
-          esc.allegee ? { decharge: esc.allegee.source === SOURCE_DECHARGE } : null, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
+          esc.allegee ? { decharge: esc.allegee.source === SOURCE_DECHARGE, semaine: esc.allegee.semaine, semaines: esc.allegee.semaines } : null, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
           Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null,
           Seance().exerciceFini(seance, slug),
           precedentPourLeMoteur(Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null, salleEl),
@@ -1543,7 +1546,9 @@
   // les séances d'avant) ; absent (le simulateur, les tests du plan), aucune question. Le jour est celui du début
   // de la séance. Jamais en Édition : on ne demande pas à chaud ce qui a été fait avant-hier.
   function aUnPari(x) {
-    return !!(x && x.consigne && x.consigne.etat !== 'silence' &&
+    // 165 — ni « garde-en » ni « Il t'en restait combien ? » pendant une semaine allégée ou une décharge : la consigne
+    // allégée est « loin de l'échec », une réserve notée là ne se compte pas (MOTEUR §9.26).
+    return !!(x && x.consigne && x.consigne.etat !== 'silence' && !x.consigne.allegee &&
       (x.lignes || []).some(function (l) { return l && Object.prototype.hasOwnProperty.call(ROLE_DU_PARI, l.role); }));
   }
 
@@ -3711,6 +3716,9 @@
       cible: f.cible === undefined ? null : { valeur: f.cible },
       'allegee.series': k.allegee ? { valeur: k.allegee.series } : null,
       'allegee.routine': k.allegee ? { valeur: k.allegee.routine } : null,
+      // 165 — « Décharge, semaine k sur N » : le rang de la semaine dans le bloc.
+      'bloc.semaine': k.allegee && k.allegee.decharge && nombre(k.allegee.semaine) !== null ? { valeur: k.allegee.semaine } : null,
+      'bloc.semaines': k.allegee && k.allegee.decharge && nombre(k.allegee.semaines) !== null ? { valeur: k.allegee.semaines } : null,
       ecart: k.haut && k.ligne && k.haut.charge !== null ? { charge: k.haut.charge - k.ligne.charge } : null,
       'ecart.pourcent': k.haut && k.ligne && k.haut.charge !== null && k.ligne.charge
         ? { valeur: Math.round((k.haut.charge - k.ligne.charge) / k.ligne.charge * 1000) / 10 } : null,
@@ -3960,6 +3968,7 @@
     verifierDouleur(plan, entrees, erreurs);
     verifierReserve(plan, entrees, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
+    verifierApresLaDecharge(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
     verifierEscalierSalle(plan, entrees, erreurs);
     verifierElastiques(plan, entrees, erreurs);
@@ -4015,6 +4024,31 @@
       }
     });
     if (n > I45_AU_PLUS) erreurs.push('I45 — ' + n + ' questions de réserve dans le plan (au plus ' + I45_AU_PLUS + ')');
+  }
+
+  // I59, I60 (MOTEUR §9.22, §9.26, 165) — UNE SÉANCE ALLÉGÉE NE SERT JAMAIS DE RÉFÉRENCE.
+  //   I59  pendant une semaine allégée ou une décharge, aucune consigne allégée ne porte d'effort visé, de réserve visée
+  //        ni de question « Il t'en restait combien ? » ;
+  //   I60  aucune consigne ne cite, comme séance de référence (`fondement.date`), une séance dont le jour tombe dans
+  //        une période allégée (`entrees.periodesAllegees`, `[{ debut, fin }]` en jours civils) : le coach lit la
+  //        dernière séance normale.
+  function verifierApresLaDecharge(plan, entrees, erreurs) {
+    var M = Moteur();
+    var periodes = entrees && entrees.periodesAllegees ? entrees.periodesAllegees : [];
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var nom = ' — exercice ' + i + ' (' + (x && x.slug) + ') : ';
+      var k = x && x.consigne;
+      if (!k || k.etat === 'silence') return;
+      if (k.allegee) {
+        if (x.effortVise) erreurs.push('I59' + nom + 'un effort visé sur une consigne allégée');
+        if (x.reserveVisee !== null && x.reserveVisee !== undefined) erreurs.push('I59' + nom + 'une réserve visée sur une consigne allégée');
+        if (x.questionReserve) erreurs.push('I59' + nom + 'une question de réserve sur une consigne allégée');
+      }
+      var d = k.fondement && k.fondement.date ? M.jourCivil(k.fondement.date) : null;
+      if (d && periodes.some(function (p) { return p && p.debut && p.fin && p.debut <= d && d <= p.fin; })) {
+        erreurs.push('I60' + nom + 'la consigne cite une séance allégée (' + d + ') comme référence');
+      }
+    });
   }
 
   // I56 à I58 (MOTEUR §9.26, 154) — L'EFFORT VISÉ.

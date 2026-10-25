@@ -153,7 +153,7 @@ trappe `/__sw-off` pendrait avec lui.
 > [MOTEUR §9.13 bis](v2-atelier/specs/MOTEUR-PROGRESSION-V2.md) — ne le recopie pas ici.
 
 - **Toute nouvelle règle du coach se branche sur `planDeSeance`** (`v2/js/plan.js`)
-  et passe les invariants de `verifierPlan` (I1 à I58, tous vérifiés depuis le 16/10/2026 — I5 manquait ; I49-I50 depuis 127, I51 depuis 132, I52-I55 depuis 149, I56-I58 depuis 154 ; leurs définitions sont dans MOTEUR, §9.13 bis et les sections de chaque règle). **Aucun écran ne calcule une
+  et passe les invariants de `verifierPlan` (I1 à I60, tous vérifiés depuis le 16/10/2026 — I5 manquait ; I49-I50 depuis 127, I51 depuis 132, I52-I55 depuis 149, I56-I58 depuis 154, I59-I60 depuis 165 ; leurs définitions sont dans MOTEUR, §9.13 bis et les sections de chaque règle). **Aucun écran ne calcule une
   décision du coach** : il lit le plan.
 - **La garde d'architecture** : `tests/unit/v2-architecture.test.js` lit le source de
   `v2/js/` et `v2/index.html`. Une fonction de calcul du coach (liste `GARDEES`) ne
@@ -206,6 +206,14 @@ trappe `/__sw-off` pendrait avec lui.
   le banc par le découpeur, chaque section protégée (`sectionResistante`) ;
   une exception devient un contrôle en échec « [exception] … », la section
   suivante joue, et le résumé liste **tous** les échecs à la fin.
+- **Un seul banc à la fois** (25/10/2026, 168). `tout.js`, `seance-rapide.js`, `muter.js`, `profil-creation.js`,
+  `routines-ecran.js`, `sw-navigation.js` (et `seance-ecran.js`, `journal-mesure.js`) prennent un verrou fichier commun
+  (`os.tmpdir()/trainhub-banc.verrou`, PID dedans, repris si le PID est mort) et **attendent** qu'il soit libre en le
+  disant (« banc en attente : un autre tourne, PID … ») : le verrou **remplace l'attente à la main**
+  (`156-attendre.sh`), deux bancs ne tournent jamais ensemble. Les bancs lancés par un banc jouent sous son verrou
+  (`BANC_VERROU_TENU`, pas d'interblocage ; `muter.js` le prend une fois pour tout son lot). `--sans-verrou`
+  (ou `BANC_SANS_VERROU=1`) l'écarte ; la CI n'en a pas besoin (une machine par job). **Plus aucun port fixe** :
+  chaque serveur de banc écoute sur un port demandé au système (`tests/banc/verrou.js`, `ecouter`).
 - **Aucun test ne parle à la vraie base** (59-4, 07/10/2026). Tout navigateur de test
   s'ouvre par `Garde.lancer(chromium, …)` (`tests/banc/garde-reseau.js`) : une requête
   ou un WebSocket vers `*.supabase.co` que le faux serveur du banc n'a pas pris en charge

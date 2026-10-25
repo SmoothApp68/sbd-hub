@@ -542,7 +542,9 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     const jours = vues.filter((v) => /(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(v.phrase));
     expect(jours.length).toBeGreaterThan(50);
     expect(vues.some((v) => SECONDE_CHARGE.test(v.phrase))).toBe(true);
-    expect(vues.some((v) => /le cran (au-dessus|en dessous) ×/i.test(v.phrase))).toBe(true);
+    // 163 (24/10/2026) — INVERSÉ (avant : « le cran au-dessus × », la charge sans chiffre) : une charge jamais faite se
+    // dit « ≈ 35 kg × 10 » ; plus de « cran » sans chiffre pour un exercice en kg.
+    expect(vues.some((v) => /≈\s*[0-9,]+\s*kg\s*×/.test(v.phrase))).toBe(true);
   });
 
   test('⚠️ LA GARDE — aucune phrase ne viole les règles de la voix (§20.2)', () => {

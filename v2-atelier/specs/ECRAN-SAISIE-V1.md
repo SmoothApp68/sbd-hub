@@ -982,6 +982,8 @@ table « ancien nom → valeur » est dans la PR #372).
 | rareté 1 à 4 | `#8b929c` · `#4f9be8` · `#a26ee8` · `#f2c14b` | le jeu seulement (badges), plus tard |
 | `--reussi` / `--manque` | `#5FA97A` / `#CD7167` | **sens uniquement**, jamais décoratif ; `--manque` sert aux actions destructives (« Abandonner et tout effacer »), **jamais à juger une performance** (« pas encore », jamais de rouge sur un chiffre) |
 
+**25/10/2026, décision d'Aurélien (170, refonte graphique lot 1, direction « Vivant »)** : les valeurs du tableau ci-dessus sont remplacées, mêmes rôles — fond `#0A0C10` · surface `#171C25` · surface 2 `#222A37` · trait `#2B3442` · texte `#F2F4F7` / `#A9B3C1` / `#8C97A6` · ambre `#FFB938` (sombre `#C2790F`, texte dessus `#1A1200`) · `--reussi` `#4ADE80` · `--manque` `#FF7B72` · `--chauffe` `#6F9ADB` ; jetons nouveaux `--donnees` `#6AA8FF`, `--record` `#B79CFF`, `--reflet` (filet haut des cartes). La source des valeurs est `v2/styles.css` ; `tests/unit/v2-contrastes.test.js` tient les 4,5:1.
+
 Thème clair : aucun aujourd'hui ; s'il vient, ses valeurs sont celles de `PROMPT-CC-56-1` (mêmes rôles).
 
 **Espacements** : échelle de 4 — 4, 8, 12, 16, 24, 32.
@@ -3540,6 +3542,10 @@ premier, aucune règle les fait tomber tous les deux.
 rien : l'étiquette « cible 0:15 » y reste affichée quoi qu'il arrive — piège trouvé au
 chantier 49, et devenu franchement trompeur ici puisqu'il n'y a plus de grand nombre à lire.
 
+
+## 7 septies ter. La charge approchée et « Ajoute tes élastiques » — décidé le 24/10/2026 (prompt 163)
+
+**24/10/2026, décision d'Aurélien.** (1) Une charge que le coach propose sans l'avoir jamais vue sur cet exercice s'écrit « **≈ 35 kg** » (le « ≈ » suivi d'une espace insécable) dans l'en-tête, la consigne et le constat ; sous la ligne, une phrase dit le pas du matériel. La case de charge est **préremplie** de ce chiffre et reste modifiable ; dès qu'une charge est notée, elle est connue et le « ≈ » disparaît. Jamais de « un cran au-dessus » sans chiffre pour un exercice en kg (MOTEUR §10.4). (2) Dans la colonne « Élastique » d'une ligne sans élastique déclaré : « **Ajoute tes élastiques** » ouvre une feuille pour choisir par son nom (Noir, Violet, Rouge, Bleu, Vert, Jaune) ou par son poids ; la feuille écrit la liste du Profil (« Ma salle ») puis se ferme.
 
 ## 8. Reste ouvert
 

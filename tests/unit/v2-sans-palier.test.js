@@ -153,9 +153,10 @@ describe('49-U8 — la règle, ses bords', () => {
     const o = options(S014);
     const r = M.sansPalierRetenues(S014.seances, o);
     // Les charges des neutres (66, 59, 45, 41, 36) ne créent aucun cran : le
-    // seul palier est 52, sur une machine sans repli — le cran reste inconnu.
-    expect(M.chargeVoisine(r, S014.avant, 52, 'machine', 1)).toBeNull();
-    expect(M.chargeVoisine(r, S014.avant, 52, 'machine', -1)).toBeNull();
+    // seul palier est 52 : le cran vient du repli de la machine (163, 5 kg — avant : `toBeNull`, le cran restait
+    // inconnu), jamais d'une charge de séance neutre (57 et 47, pas 59/66/45/41/36).
+    expect(M.chargeVoisine(r, S014.avant, 52, 'machine', 1)).toBe(57);
+    expect(M.chargeVoisine(r, S014.avant, 52, 'machine', -1)).toBe(47);
   });
 
   // 3 depuis 49-U8 ; elle a monté depuis (4 en 49-U12, la chute) — ce test

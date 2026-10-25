@@ -117,7 +117,10 @@ exercices jamais faits**, avec la dernière séance, et un tap ouvre la page de 
 dernières dates sont en base. Tri par dernière utilisation, recherche par nom.
 
 
-### 2.4 quinquies Ma salle — décidé le 15/10/2026 (prompt 108)
+### 2.4 quinquies Ma salle — décidé le 15/10/2026 (prompt 108) — **barres fixes, haltères et « barre chargée » REMPLACÉS le 24/10/2026 (163)**
+
+> **24/10/2026, décision d'Aurélien.** « Ma salle » ne garde que les élastiques (§2.4 sexies) : les sections barres fixes, haltères (par tranches) et la bascule « barre chargée » sont retirées de la feuille. La ligne n'est dans le Profil que si un exercice à l'élastique est dans une routine, l'historique ou la séance en cours ; sa valeur dit « Élastiques » / « mini-bandes ». La phrase de la feuille : « Tes élastiques, du plus fort au plus léger. Rien d'autre à déclarer : le coach lit tes charges dans ton historique. » Ce qui suit est **remplacé**, gardé pour l'historique.
+
 
 Maquette validée par Aurélien le 15/10/2026 : `v2-atelier/maquettes/maquette-salle-objectif-v1.html`, écran 1
 (Profil → Ma salle) et écran 2 (en séance). Le moteur : MOTEUR §10 bis.

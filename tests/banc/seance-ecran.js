@@ -15417,7 +15417,7 @@ const SETS_IMPORTES = [
     const ecrans = [['routines', '/saisie', '2-routines'], ['progression', '/progression', '3-progression'],
       ['mois', '/progression/mois', null], ['records', '/progression/records', null],
       ['exercice', '/exercice/forge-u56', '4-exercice'], ['exercice-historique', '/exercice/forge-u56/historique', null],
-      ['profil', '/profil', '5-profil'], ['semaine', '/', null],
+      ['profil', '/profil', '5-profil'], ['semaine', '/', '7-accueil'],
       // 66B — « Le coach relit ta semaine » (les routines sans dossier, dont « Forge U56 »).
       ['relecture', '/saisie/relecture', null]];
     const vues = {};

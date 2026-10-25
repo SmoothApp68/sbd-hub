@@ -29,6 +29,7 @@ const Horloge = require(path.join(R, 'tests/banc/horloge.js'));
 const { chromium } = require(path.join(R, 'node_modules/playwright-core'));
 // 59-4 — tout navigateur de test passe par la garde réseau (aucune requête vers la vraie base).
 const Garde = require(path.join(R, 'tests/banc/garde-reseau.js'));
+const Verrou = require(path.join(R, 'tests/banc/verrou.js'));   // 168 (R : le banc découpé tourne depuis /tmp)
 const { creer } = require(path.join(R, 'v2-atelier/banc/serveur-pages.js'));
 const { compteDeLaGarde } = require(path.join(__dirname, 'garde-compte.js'));
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
@@ -618,7 +619,7 @@ const SETS_IMPORTES = [
 }));
 
 (async () => {
-  await require('./verrou.js').prendre();   // 168
+  await Verrou.prendre();   // 168
   // ── Le Supabase de papier, avec les contraintes de la vraie base ────────
   const base = {
     sessions: [Object.assign({}, PASSEE), Object.assign({}, IMPORTEE)],
@@ -763,7 +764,7 @@ const SETS_IMPORTES = [
   // permet de relever le texte visible de l'app d'un commit de base
   // (`texte-visible.js`, 56-1). Sans la variable, rien ne change.
   const serveur = creer({ racine: process.env.BANC_V2 || path.join(R, 'v2') });
-  PORT = await require('./verrou.js').ecouter(serveur, PORT); BASE = 'http://127.0.0.1:' + PORT;
+  PORT = await Verrou.ecouter(serveur, PORT); BASE = 'http://127.0.0.1:' + PORT;
   const nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ['--no-sandbox'] });
   const ctx = await nav.newContext({ viewport: { width: 360, height: 760 } });
 

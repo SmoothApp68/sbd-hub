@@ -145,6 +145,8 @@ describe('168 — aucun port fixe', () => {
     const fautifs = fs.readdirSync(dossier).filter((f) => f.endsWith('.js'))
       .filter((f) => /BANC_PORT\s*\|\|\s*[1-9]\d{3}|BANC_PORT:\s*String\(\d{4,5}\s*\+/.test(fs.readFileSync(path.join(dossier, f), 'utf8')));
     expect(fautifs).toEqual([]);
+    // le banc de séance est copié par le découpeur dans /tmp : un require relatif y casse.
+    expect(fs.readFileSync(path.join(dossier, 'seance-ecran.js'), 'utf8')).not.toMatch(/require\('\.\/verrou\.js'\)/);
     expect(fs.readFileSync(path.join(__dirname, '../../v2-atelier/banc/serveur-pages.js'), 'utf8')).not.toMatch(/\|\|\s*8788/);
   });
 });

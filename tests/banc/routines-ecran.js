@@ -2214,9 +2214,28 @@ const ALIAS_COMMUNS = [
       return /après annulation/.test(await carte155('après annulation'));
     });
     await ctx.unroute(/supabase\.co/, retenirEcriture);
+    ok('[164 D11] la feuille fermée n\'est pas redessinée avec une erreur (l\'écriture refusée ne parle à personne)',
+      (await page.evaluate(() => (document.querySelector('#feuille-contenu .erreur') || { textContent: '' }).textContent)) === '',
+      await page.evaluate(() => (document.querySelector('#feuille-contenu .erreur') || { textContent: '(aucune)' }).textContent));
     ok('[164 D11] DISCRIMINANT — « Annuler » pendant l\'écriture : aucune exception, la relecture reprend',
       erreurs.length === e0 && (await page.evaluate(() => window.__rejets || [])).length === 0,
       erreurs.slice(e0).concat(await page.evaluate(() => window.__rejets || [])).join(' | ') || 'aucune exception');
+
+    // ── G. 164 — ouvrir une routine puis la refermer sans enregistrer ne bloque pas la relecture ──
+    // `relectureRoutinesPermise` exigeait `brouillon === null`, or `brouillon` n'est remis à zéro qu'au changement de compte :
+    // après le premier éditeur ouvert, plus aucune relecture jusqu'au rechargement. « Éditeur ouvert » se lit sur la vue.
+    await aller('/saisie');
+    await reposerHorloge();
+    await ouvrirRoutine('Bas A 155');
+    await page.click('#btn-retour-routine');   // refermée sans enregistrer
+    await jusqua('[164 G] retour à la bibliothèque', () => vueVisible(page, 'vue-saisie'));
+    const bas164 = base.routines.find((r) => r.id === 'r155b');
+    bas164.nom = 'Bas A 164 refermée'; bas164.modifiee_a = '2026-10-24T13:00:00.000Z';
+    await avancer(120000);
+    await retour();
+    await jusqua('[164 G] la routine modifiée ailleurs apparaît', async () => /Bas A 164 refermée/.test(await carte155('Bas A 164 refermée')));
+    ok('[164 G] DISCRIMINANT — après avoir ouvert puis refermé un éditeur sans enregistrer, la relecture fonctionne encore',
+      /Bas A 164 refermée/.test(await carte155('Bas A 164 refermée')), await carte155('Bas A 164 refermée'));
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

@@ -12,6 +12,7 @@ const A = require('../../v2/js/attente.js');
 const { extraire } = require('./aide-profil-ecran.js');
 
 const pari = (id) => ({ id, user_id: 'u', exercise_slug: 'squat' });
+const ERR_PARI = { code: '23503', message: 'insert or update on table "objectifs" violates foreign key constraint "objectifs_pari_fk"' };
 const ligne = (pariId) => ({ exercise_slug: 'squat', pari_id: pariId });
 
 // `ecrireObjectif` telle qu'`app.js` la définit, sur la vraie file.
@@ -123,24 +124,67 @@ describe('157 C — faux serveur à clé étrangère', () => {
     const b = bac(); await b.ecrire(pari('P1')); const s = serveur(['P1']);
     const f = vidanger(b.etat.file, s);
     expect(s.erreurs).toEqual([]); expect(s.objectifs.squat).toBeUndefined();
-    expect(f.map((e) => e.cle)).toEqual(['predictions:P1', 'objectifs:squat'].filter((c) => f.some((e) => e.cle === c)));
+    // 167 : il reste VRAIMENT retenu — présent, intact, relié à son pari, et jamais rendu par `prochaine`
+    expect(f.map((e) => e.cle).sort()).toEqual(['objectifs:squat', 'predictions:P1']);
+    const o = f.find((e) => e.table === A.OBJECTIFS);
+    expect(o.depend).toBe('P1'); expect(o.donnees.pari_id).toBe('P1');
+    expect(A.prochaine(f)).toBeNull();
   });
   test('23503 sur l’objectif, pari encore en file : il attend, puis repart quand le pari monte', async () => {
     const b = bac(); await b.ecrire(pari('P1'));
     const o = b.etat.file.find((e) => e.table === A.OBJECTIFS);
-    const r = A.apresEchec(b.etat.file, o, { code: '23503' });
+    const r = A.apresEchec(b.etat.file, o, ERR_PARI);
     expect(r.suite).toBe('attend');
     const p = r.file.find((e) => e.table === A.PREDICTIONS);
     const apres = A.apresSucces(r.file, p);
     expect(apres[0].attend).toBeNull();
     expect(A.prochaine(apres).cle).toBe('objectifs:squat');
   });
-  test('23503 sur l’objectif, pari absent de la file : abandonné (raison dite), pas de refus définitif', async () => {
+  test('167 — 23503 sur l’objectif, pari absent de la file : il repart SANS pari, il n’est pas effacé', async () => {
     const b = bac(); await b.ecrire(pari('P1'));
     const o = b.etat.file.find((e) => e.table === A.OBJECTIFS);
     const sans = b.etat.file.filter((e) => e.table === A.OBJECTIFS);
-    const r = A.apresEchec(sans, o, { code: '23503' });
-    expect(r.suite).toBe('abandonnee'); expect(r.file).toEqual([]);
+    const r = A.apresEchec(sans, o, ERR_PARI);
+    expect(r.suite).toBe('attend'); expect(r.file.length).toBe(1);
+    const nouveau = A.prochaine(r.file);
+    expect(nouveau.cle).toBe('objectifs:squat'); expect(nouveau.donnees.pari_id).toBeNull(); expect(nouveau.depend).toBeNull();
+  });
+  test('167 point 7 — un 23503 qui ne cite pas le pari est un refus ordinaire, visible', async () => {
+    const b = bac(); await b.ecrire(pari('P1'));
+    const o = b.etat.file.find((e) => e.table === A.OBJECTIFS);
+    for (const erreur of [{ code: '23503' }, { code: '23503', message: 'violates foreign key constraint "objectifs_user_fk"', details: 'Key (user_id)=(x) is not present in table "users".' }]) {
+      const r = A.apresEchec([o], o, erreur);
+      expect(r.suite).toBe('bloquee');
+      expect(r.file.length).toBe(1); expect(r.file[0].bloquee).toBeTruthy();
+    }
+    // la lecture porte aussi sur `details`
+    expect(A.apresEchec(b.etat.file, o, { code: '23503', details: 'Key (pari_id)=(P1) is not present in table "predictions".' }).suite).toBe('attend');
+  });
+  test('167 point 8 — le pari sort de la file sans monter : l’objectif en attente est réévalué, jamais coincé', async () => {
+    const b = bac(); await b.ecrire(pari('P1'));
+    const o = b.etat.file.find((e) => e.table === A.OBJECTIFS);
+    let f = A.apresEchec(b.etat.file, o, ERR_PARI).file;
+    expect(A.prochaine(f).cle).toBe('predictions:P1');         // l’objectif attend son pari
+    f = f.filter((e) => e.table !== A.PREDICTIONS);          // le pari sort sans monter (caduque, retiré…)
+    const suivant = A.prochaine(f);
+    expect(suivant && suivant.cle).toBe('objectifs:squat');  // réévalué
+    const r = A.apresEchec(f, suivant, ERR_PARI);            // la base refuse encore le pari : il part sans
+    expect(r.suite).toBe('attend');
+    const sansPari = A.prochaine(r.file);
+    expect(sansPari.donnees.pari_id).toBeNull();
+    const encore = A.apresEchec(r.file, sansPari, { code: '23503', message: 'objectifs_user_fk' });
+    expect(encore.suite).toBe('bloquee');                    // sinon : refusé, visible
+  });
+  test('167 point 9 — retirer un objectif remet sa dépendance à zéro', async () => {
+    const b = bac(); await b.ecrire(pari('P1'));
+    // l'objectif a déjà été envoyé une fois (plus `creation`) : le retrait garde l'intention de suppression
+    b.etat.file = b.etat.file.map((e) => (e.table === A.OBJECTIFS ? Object.assign({}, e, { creation: false }) : e));
+    const f = A.poser(b.etat.file, { table: A.OBJECTIFS, op: A.SUPPRIMER, id: 'squat' });
+    const o = f.find((e) => e.table === A.OBJECTIFS);
+    expect(o.op).toBe(A.SUPPRIMER); expect(o.depend || null).toBeNull();
+    // le pari bloqué ne retient plus la suppression
+    const bloque = f.map((e) => (e.table === A.PREDICTIONS ? Object.assign({}, e, { bloquee: { code: '42501' } }) : e));
+    expect(A.prochaine(bloque).cle).toBe('objectifs:squat');
   });
   test('un 23503 sur une autre table ne change pas', () => {
     const f = A.poser([], { table: A.ZONES, op: A.UPSERT, id: 'z', depend: null, donnees: {} });

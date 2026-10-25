@@ -2661,16 +2661,20 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    Barlow Condensed 40 px ambre, « kg × » 24 px gris, les reps 40 px en texte ; l'étiquette « AUJOURD'HUI » au-dessus ;
    « garde-en N » (data-garde) à droite, contour ambre. */
 .consigne-heros{display:flex;flex-wrap:wrap;align-items:baseline;margin-top:8px;font-family:var(--pile-c);line-height:1;color:var(--texte)}
-.consigne-heros::before{content:"AUJOURD'HUI";flex:0 0 100%;margin-bottom:4px;font-family:var(--pile);font-size:11px;font-weight:700;
+.consigne-heros.avec-mot::before{content:"AUJOURD'HUI";flex:0 0 100%;margin-bottom:4px;font-family:var(--pile);font-size:11px;font-weight:700;
   letter-spacing:.1em;color:var(--texte-2)}
+.consigne-heros .c-chiffre{white-space:nowrap}
+.consigne-heros .c-reste{font-size:16px;font-weight:600;color:var(--texte-2);margin-left:6px}
 .consigne-heros .c-mot{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .consigne-heros .c-charge{font-size:40px;font-weight:700;color:var(--accent)}
 .consigne-heros .c-kg{font-size:24px;font-weight:600;color:var(--texte-2);white-space:pre}
 .consigne-heros .c-reps{font-size:40px;font-weight:700;color:var(--texte)}
 .consigne-heros .c-point{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .consigne-heros[data-garde]::after{margin-left:auto;align-self:center}
+/* à 360 px, un badge qui ne tient pas à côté du chiffre passe dessous (flex-wrap), à gauche */
+.consigne-heros[data-garde]{row-gap:6px;column-gap:var(--e2)}
 /* Les autres formes de consigne (sans « Aujourd'hui : ») : la même mise en avant, adaptée — la phrase en Condensed 22 px. */
-.consigne-grande{font-family:var(--pile-c);font-size:22px;font-weight:700;line-height:1.15;margin-top:6px}
+.consigne.consigne-grande{font-family:var(--pile-c);font-size:28px;font-weight:700;line-height:1.15;margin-top:6px}
 /* « Si ça passe, … » : une bulle, la charge × reps en gras ambre. */
 .consigne.si-ca-passe{display:inline-block;background:var(--panneau-2);border-radius:var(--r-petit);padding:6px 10px;margin-top:8px;
   font-size:13.5px;font-weight:500;color:var(--texte-2)}

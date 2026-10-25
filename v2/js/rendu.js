@@ -2863,18 +2863,30 @@
   // reste dans le DOM (textContent identique, lu en entier par les lecteurs d'écran, `aria-label` compris) ; on le découpe en
   // <span> pour que la charge et les reps prennent la taille du chiffre du jour. L'étiquette « AUJOURD'HUI » est dessinée par CSS
   // (le mot « Aujourd'hui : » reste présent, hors de vue). Les autres formes gardent leur phrase, en plus grand.
-  var RE_AUJOURDHUI = /^(Aujourd'hui\s:\s)((?:≈\s)?[\d,.]+)(\skg\s×\s)(\d+)(\.)$/;
+  // Correctif 173 : le héros vaut pour TOUTE ligne de consigne qui commence par un chiffre (« 102,5 kg × 9 », « Aujourd'hui : 105 kg × 5. »,
+  // « ≈ 35 kg × 8 », « 45 s », « 1 min 30 »…) ; l'étiquette AUJOURD'HUI n'existe que là où la phrase « Aujourd'hui : » existait déjà.
+  var RE_FOIS = /^(Aujourd'hui\s:\s)?((?:≈\s)?\d[\d,.]*)(\skg\s×\s)(\d+)([\s\S]*)$/;
+  var RE_NOMBRE = /^(Aujourd'hui\s:\s)?((?:≈\s)?\d[\d,.]*)([\s\S]*)$/;
   var RE_SI_CA_PASSE = /^(Si ça passe,\s)((?:≈\s)?[\d,.]+\skg\s×\s\d+)(.*)$/;
   function consigneVivante(l, iJ) {
-    var m = iJ === 0 ? RE_AUJOURDHUI.exec(l) : null;
-    if (m) {
-      var h = el('div', 'consigne consigne-heros');
+    var m = RE_FOIS.exec(l), n = m ? null : RE_NOMBRE.exec(l);
+    if (m || n) {
+      var h = el('div', 'consigne consigne-heros' + ((m || n)[1] ? ' avec-mot' : ''));
       h.setAttribute('aria-label', l);
-      h.appendChild(el('span', 'c-mot', m[1]));
-      h.appendChild(el('span', 'c-charge', m[2]));
-      h.appendChild(el('span', 'c-kg', m[3]));
-      h.appendChild(el('span', 'c-reps', m[4]));
-      h.appendChild(el('span', 'c-point', m[5]));
+      var mot = (m || n)[1];
+      if (mot) h.appendChild(el('span', 'c-mot', mot));
+      var groupe = el('span', 'c-chiffre');
+      if (m) {
+        groupe.appendChild(el('span', 'c-charge', m[2]));
+        groupe.appendChild(el('span', 'c-kg', m[3]));
+        groupe.appendChild(el('span', 'c-reps', m[4]));
+      } else {
+        groupe.appendChild(el('span', 'c-charge', n[2]));
+        if (n[3]) groupe.appendChild(el('span', 'c-kg', n[3]));
+      }
+      h.appendChild(groupe);
+      var reste = m ? m[5] : '';
+      if (reste) h.appendChild(el('span', reste === '.' ? 'c-point' : 'c-reste', reste));
       return h;
     }
     var sp = iJ > 0 ? RE_SI_CA_PASSE.exec(l) : null;
@@ -2886,7 +2898,7 @@
       return b;
     }
     if (iJ > 0 && /^Si ça passe,/.test(l)) return el('div', 'consigne si-ca-passe', l);
-    return el('div', 'consigne' + (iJ === 0 ? ' consigne-grande' : ''), l);
+    return el('div', 'consigne consigne-grande', l);
   }
 
   // ⚠️ PAS DE `stopPropagation` ICI. Le seul parent qui écoute le clic est un

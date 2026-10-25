@@ -60,13 +60,47 @@ describe('la consigne du jour en héros (173)', () => {
     expect(b.querySelector('b.sp-chiffre').textContent).toBe('107,5' + NB + 'kg' + NB + '×' + NB + '4');
   });
 
-  test('les autres formes gardent leur phrase, en plus grand', () => {
-    const T = '130' + NB + 'kg' + NB + '×' + NB + '4 sur les 2 dernières séries';
-    const c = rendre(seance(3), () => ({ jaune: [T, 'puis 125' + NB + 'kg' + NB + '×' + NB + '5 sur celle d\'avant'] }));
-    const l = [...c.querySelectorAll('.consigne')];
-    expect(l[0].textContent).toBe(T);
-    expect(l[0].classList.contains('consigne-grande')).toBe(true);
-    expect(c.querySelector('.consigne-heros')).toBeNull();
+  const F = (kg, n) => kg + NB + 'kg' + NB + '×' + NB + n;
+  const forme = (lignes, extra) => rendre(seance(3), () => ({ jaune: lignes }), extra);
+
+  test('la forme zone « X kg × N » (sans « Aujourd\'hui ») prend le héros, sans étiquette AUJOURD\'HUI, texte identique', () => {
+    const c = forme([F('102,5', 9)], { reserveVisee: () => 1 });
+    const h = c.querySelector('.consigne-heros');
+    expect(h).not.toBeNull();
+    expect(h.classList.contains('avec-mot')).toBe(false);
+    expect(h.textContent).toBe(F('102,5', 9));
+    expect(h.getAttribute('aria-label')).toBe(F('102,5', 9));
+    expect(h.querySelector('.c-charge').textContent).toBe('102,5');
+    expect(h.querySelector('.c-reps').textContent).toBe('9');
+    expect(h.getAttribute('data-garde')).toBe('garde-en' + NB + '1');
+  });
+
+  test('« Aujourd\'hui : » garde son étiquette ; « ≈ », « sur les 2 dernières séries », décharge : le chiffre en héros, texte identique', () => {
+    [['Aujourd\'hui' + NB + ': ' + F('105', 5) + '.', true],
+     ['≈' + NB + F('35', 8), false],
+     [F('130', 4) + ' sur les 2 dernières séries', false],
+     [F('142,5', 12), false]].forEach(([t, mot]) => {
+      const h = forme([t]).querySelector('.consigne-heros');
+      expect(h).not.toBeNull();
+      expect(h.textContent).toBe(t);
+      expect(h.getAttribute('aria-label')).toBe(t);
+      expect(h.classList.contains('avec-mot')).toBe(mot);
+    });
+  });
+
+  test('temps / distance : un nombre en tête prend le héros ; « le cran au-dessus », « puis … » : la phrase en grand, texte identique', () => {
+    ['45 s', '1 min 30', '2,5 km'].forEach((t) => {
+      const h = forme([t]).querySelector('.consigne-heros');
+      expect(h.textContent).toBe(t);
+      expect(h.querySelector('.c-charge').textContent).toMatch(/^\d/);
+    });
+    ['Le cran au-dessus', 'puis ' + F('125', 5) + ' sur celle d\'avant'].forEach((t) => {
+      const c = forme([t]);
+      expect(c.querySelector('.consigne-heros')).toBeNull();
+      const l = c.querySelector('.consigne');
+      expect(l.textContent).toBe(t);
+      expect(l.classList.contains('consigne-grande')).toBe(true);
+    });
   });
 });
 

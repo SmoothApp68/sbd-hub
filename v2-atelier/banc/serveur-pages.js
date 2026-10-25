@@ -118,9 +118,9 @@ if (require.main === module) {
     racine: args[0],
     canonicalise: process.argv.indexOf('--sans-canonicalisation') < 0
   });
-  const port = Number(args[1]) || 8788;
+  const port = Number(args[1]) || 0;     // 168 : 0 = un port libre, donné par le système
   serveur.listen(port, () => {
-    process.stderr.write('serveur-pages prêt sur ' + port +
+    process.stderr.write('serveur-pages prêt sur ' + serveur.address().port +
       (process.argv.indexOf('--sans-canonicalisation') < 0
         ? ' (canonicalisation Cloudflare ACTIVE)\n' : ' (TÉMOIN, sans canonicalisation)\n'));
   });

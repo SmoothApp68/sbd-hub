@@ -5,7 +5,7 @@
 //   1. le pas par matériel (machine 5, poulie 2,5, kettlebell 4, haltères la paire +2 puis +4, barre 2,5) — plus jamais
 //      de charge « sans chiffre » pour un exercice en kg ;
 //   2. une charge jamais faite est APPROCHÉE (« ≈ 35 kg ») ; une charge notée devient connue (plus de « ≈ ») ;
-//   3. le plan : la phrase par matériel, la case préremplie, I59 ;
+//   3. le plan : la phrase par matériel, la case préremplie, I61 ;
 //   4. « Ajoute tes élastiques » : par le nom ou par le poids, sans rien effacer ;
 //   5. « Ma salle » ne garde que les élastiques.
 
@@ -110,7 +110,7 @@ function entrees(c, equipement) {
 }
 const plan = (c, eq) => { const e = entrees(c, eq); const p = T.planDeSeance(e); return { e, p, x: p.exercices[0] }; };
 
-describe('163 — le plan porte la charge approchée, et I59 la vérifie', () => {
+describe('163 — le plan porte la charge approchée, et I61 la vérifie', () => {
   test('⚠️ DISCRIMINANT — « ≈ 35 kg » dans l’en-tête, la phrase sous la ligne, la case préremplie à 35, plan vert', () => {
     const { e, p, x } = plan(M.consigneDExercice(HIST(), undefined, AVANT, O('machine')));
     expect(x.entete.jaune.join(' ')).toContain('≈' + NB + '35' + NB + 'kg');
@@ -127,9 +127,9 @@ describe('163 — le plan porte la charge approchée, et I59 la vérifie', () =>
     expect(x.entete.jaune.join(' ')).not.toContain('≈');
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
-  test('⚠️ DISCRIMINANT — I59 attrape : une charge approchée sans phrase, sans fondement, sur le palier, sans « ≈ »', () => {
+  test('⚠️ DISCRIMINANT — I61 attrape : une charge approchée sans phrase, sans fondement, sur le palier, sans « ≈ »', () => {
     const { e, p } = plan(M.consigneDExercice(HIST(), undefined, AVANT, O('machine')));
-    const forge = (fn) => { const q = JSON.parse(JSON.stringify(p)); fn(q.exercices[0]); return T.verifierPlan(q, e).erreurs.filter((x) => /^I59/.test(x)); };
+    const forge = (fn) => { const q = JSON.parse(JSON.stringify(p)); fn(q.exercices[0]); return T.verifierPlan(q, e).erreurs.filter((x) => /^I61/.test(x)); };
     expect(forge((x) => { x.approchee = null; })).not.toEqual([]);
     expect(forge((x) => { x.approchee.phrase = ''; })).not.toEqual([]);
     expect(forge((x) => { delete x.consigne.fondement.approchee; })).not.toEqual([]);
@@ -195,5 +195,23 @@ describe('163 — « Ma salle » ne garde que les élastiques', () => {
   });
   test('la colonne reste valide en base : les clés anciennes passent `salleValide` (aucune migration)', () => {
     expect(Profil.salleValide(SALLE)).toMatchObject({ barres_ez: [10, 20, 30], barre_ez_chargee: true });
+  });
+});
+
+// 163 + 165 — les deux règles cohabitent : une consigne allégée (semaine allégée ou décharge) garde le « ≈ » de sa source.
+describe('163 + 165 — la consigne allégée garde le « ≈ » (I61) et porte le rang de la décharge (165)', () => {
+  test('⚠️ DISCRIMINANT — allégée depuis une charge approchée : ligne et fondement marqués ; depuis une charge connue : aucun', () => {
+    const c = consigne(HIST());
+    const src = c;
+    const approchee = Object.assign({}, src, { ligne: Object.assign({}, src.haut || src.ligne, { approchee: true }), haut: null,
+      fondement: Object.assign({}, src.fondement, { approchee: true }) });
+    const a = M.consigneAllegee(approchee, 4, true, { semaine: 4, semaines: 4 });
+    expect(a.ligne.approchee).toBe(true);
+    expect(a.fondement.approchee).toBe(true);
+    expect(a.allegee).toMatchObject({ decharge: true, semaine: 4, semaines: 4 });
+    const connue = Object.assign({}, approchee, { ligne: Object.assign({}, approchee.ligne, { approchee: undefined }) });
+    const b = M.consigneAllegee(connue, 4, false);
+    expect(b.ligne.approchee).toBeUndefined();
+    expect(b.fondement.approchee).toBeUndefined();
   });
 });

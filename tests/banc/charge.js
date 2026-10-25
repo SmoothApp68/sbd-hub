@@ -48,7 +48,7 @@ const epingle = (cmd) => (taskset ? ['taskset', '-c', '0'].concat(cmd) : cmd);
     const c = epingle(commande);
     const code = await new Promise((ok) => {
       const p = spawn(c[0], c.slice(1), { stdio: ['ignore', sortie, sortie], cwd: path.join(__dirname, '../..'),
-        env: Object.assign({}, process.env, { BANC_RALENTI: String(RALENTI), BANC_PORT: String(19300 + k),
+        env: Object.assign({}, process.env, { BANC_RALENTI: String(RALENTI), BANC_PORT: '0',
           NODE_OPTIONS: ((process.env.NODE_OPTIONS || '') + ' --require ' + path.join(__dirname, 'charge-ralentir.js')).trim() }) });
       p.on('exit', (x) => ok(x));
     });

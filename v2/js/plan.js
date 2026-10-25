@@ -316,6 +316,9 @@
     var couvertes = lignes.filter(function (l) { return l.role !== 'hors'; });
     if (!couvertes.length || !fini) return null;
     if (!suite || !suite.consigne) return null;
+    // 165 — une séance allégée ne se juge pas et ne sert pas de référence : pas de constat (la suite lirait la dernière
+    // séance normale, qui n'est pas ce que la personne vient de faire).
+    if (consigne && consigne.allegee) return null;
     var c = Moteur().constatDuJour(consigne, suite.consigne, reglage || null,
       suite.cranSuivant === undefined ? null : suite.cranSuivant, faitsDuJour(lignes, consigne),
       reference === undefined ? null : reference, suite.cranSuivantApprochee === true);
@@ -749,7 +752,7 @@
     // l'exercice est la consigne allégée : même charge, 2 reps de moins, 60 %
     // des séries de la routine, rien ne monte. C'est elle que lisent les
     // lignes, l'en-tête, les paris, les chauffes et les invariants.
-    if (allegee && consigne && consigne.etat !== 'silence') consigne = M.consigneAllegee(consigne, seriesRoutine, allegee.decharge === true);
+    if (allegee && consigne && consigne.etat !== 'silence') consigne = M.consigneAllegee(consigne, seriesRoutine, allegee.decharge === true, allegee);
     // MOTEUR §14.5 (49-U15) — LE REPLI (deuxième déclenchement isolé) : la
     // consigne de la séance devient celle du repli — la charge du dernier
     // palier tenu, sa visée bornée à la zone, sans ligne haute (I22). Les
@@ -920,7 +923,7 @@
     if (marche && marche.carte) dire('escalier.carte', marche.carte.phrase, citationsDeCarte(marche.carte));
 
     // 163 (MOTEUR §10.2 bis) — UNE CHARGE JAMAIS FAITE SE DIT APPROCHÉE : le plan porte la phrase (par matériel) ;
-    // l'écran la lit sous la ligne, il ne la rédige pas. I59 relit le fondement, les charges marquées et la phrase.
+    // l'écran la lit sous la ligne, il ne la rédige pas. I61 relit le fondement, les charges marquées et la phrase.
     var approchee = null;
     if (consigne && consigne.fondement && consigne.fondement.approchee === true) {
       var capAp = V.capturer(function () { return M.phraseApprochee(materiel ? materiel.equipement : null, consigne); });
@@ -952,7 +955,7 @@
       donc: donc,
       pourquoi: pourquoi,
       materiel: materiel ? materiel.equipement || null : null,
-      // 163 — la charge approchée et sa phrase, ou `null` : I59 la relit.
+      // 163 — la charge approchée et sa phrase, ou `null` : I61 la relit.
       approchee: approchee,
       // §10 bis (108) — la salle de l'exercice, ou `null` : I46 la relit.
       salle: materiel ? materiel.salle || null : (c.salle || null),
@@ -1285,7 +1288,7 @@
         var intentionX = Moteur().intentionDe(intentionProfil, modeX);
         var x = planDExercice(exo, i, c, Seance().parisDeLOccurrence(e.paris || [], seance, i), seance.id, e.reglage, suite, seance.debut,
           intentionX === 'entretien' || salleEl ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
-          esc.allegee ? { decharge: esc.allegee.source === SOURCE_DECHARGE } : null, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
+          esc.allegee ? { decharge: esc.allegee.source === SOURCE_DECHARGE, semaine: esc.allegee.semaine, semaines: esc.allegee.semaines } : null, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
           Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null,
           Seance().exerciceFini(seance, slug),
           precedentPourLeMoteur(Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null, salleEl),
@@ -1554,7 +1557,9 @@
   // les séances d'avant) ; absent (le simulateur, les tests du plan), aucune question. Le jour est celui du début
   // de la séance. Jamais en Édition : on ne demande pas à chaud ce qui a été fait avant-hier.
   function aUnPari(x) {
-    return !!(x && x.consigne && x.consigne.etat !== 'silence' &&
+    // 165 — ni « garde-en » ni « Il t'en restait combien ? » pendant une semaine allégée ou une décharge : la consigne
+    // allégée est « loin de l'échec », une réserve notée là ne se compte pas (MOTEUR §9.26).
+    return !!(x && x.consigne && x.consigne.etat !== 'silence' && !x.consigne.allegee &&
       (x.lignes || []).some(function (l) { return l && Object.prototype.hasOwnProperty.call(ROLE_DU_PARI, l.role); }));
   }
 
@@ -3722,6 +3727,9 @@
       cible: f.cible === undefined ? null : { valeur: f.cible },
       'allegee.series': k.allegee ? { valeur: k.allegee.series } : null,
       'allegee.routine': k.allegee ? { valeur: k.allegee.routine } : null,
+      // 165 — « Décharge, semaine k sur N » : le rang de la semaine dans le bloc.
+      'bloc.semaine': k.allegee && k.allegee.decharge && nombre(k.allegee.semaine) !== null ? { valeur: k.allegee.semaine } : null,
+      'bloc.semaines': k.allegee && k.allegee.decharge && nombre(k.allegee.semaines) !== null ? { valeur: k.allegee.semaines } : null,
       ecart: k.haut && k.ligne && k.haut.charge !== null ? { charge: k.haut.charge - k.ligne.charge } : null,
       'ecart.pourcent': k.haut && k.ligne && k.haut.charge !== null && k.ligne.charge
         ? { valeur: Math.round((k.haut.charge - k.ligne.charge) / k.ligne.charge * 1000) / 10 } : null,
@@ -3972,6 +3980,7 @@
     verifierReserve(plan, entrees, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
     verifierApprochee(plan, erreurs);
+    verifierApresLaDecharge(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
     verifierEscalierSalle(plan, entrees, erreurs);
     verifierElastiques(plan, entrees, erreurs);
@@ -4029,6 +4038,31 @@
     if (n > I45_AU_PLUS) erreurs.push('I45 — ' + n + ' questions de réserve dans le plan (au plus ' + I45_AU_PLUS + ')');
   }
 
+  // I59, I60 (MOTEUR §9.22, §9.26, 165) — UNE SÉANCE ALLÉGÉE NE SERT JAMAIS DE RÉFÉRENCE.
+  //   I59  pendant une semaine allégée ou une décharge, aucune consigne allégée ne porte d'effort visé, de réserve visée
+  //        ni de question « Il t'en restait combien ? » ;
+  //   I60  aucune consigne ne cite, comme séance de référence (`fondement.date`), une séance dont le jour tombe dans
+  //        une période allégée (`entrees.periodesAllegees`, `[{ debut, fin }]` en jours civils) : le coach lit la
+  //        dernière séance normale.
+  function verifierApresLaDecharge(plan, entrees, erreurs) {
+    var M = Moteur();
+    var periodes = entrees && entrees.periodesAllegees ? entrees.periodesAllegees : [];
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var nom = ' — exercice ' + i + ' (' + (x && x.slug) + ') : ';
+      var k = x && x.consigne;
+      if (!k || k.etat === 'silence') return;
+      if (k.allegee) {
+        if (x.effortVise) erreurs.push('I59' + nom + 'un effort visé sur une consigne allégée');
+        if (x.reserveVisee !== null && x.reserveVisee !== undefined) erreurs.push('I59' + nom + 'une réserve visée sur une consigne allégée');
+        if (x.questionReserve) erreurs.push('I59' + nom + 'une question de réserve sur une consigne allégée');
+      }
+      var d = k.fondement && k.fondement.date ? M.jourCivil(k.fondement.date) : null;
+      if (d && periodes.some(function (p) { return p && p.debut && p.fin && p.debut <= d && d <= p.fin; })) {
+        erreurs.push('I60' + nom + 'la consigne cite une séance allégée (' + d + ') comme référence');
+      }
+    });
+  }
+
   // I56 à I58 (MOTEUR §9.26, 154) — L'EFFORT VISÉ.
   //   I56  une réserve visée n'existe que là où le coach parle (un pari, hors Édition, une mesure charge × reps), et vaut
   //        la table (`reserveVisee`) ; ce que l'écran lit (`x.effortVise`) n'existe que s'il y en a une, sur la dernière
@@ -4077,7 +4111,7 @@
   }
   var ETATS_TEST_PLAN = { test_propose: true, retest: true, retest_un_cran: true, tout_passe: true };
 
-  // I59 (MOTEUR §10.2 bis, 163) — UNE CHARGE JAMAIS FAITE SE DIT APPROCHÉE, et se dit complètement :
+  // I61 (MOTEUR §10.2 bis, 163) — UNE CHARGE JAMAIS FAITE SE DIT APPROCHÉE, et se dit complètement :
   //   · la ligne ou le test marqués `approchee` portent une vraie charge en kg (positive), jamais le palier (une charge
   //     tenue a été faite), jamais avec une salle en vigueur (les élastiques) ;
   //   · le fondement, les lignes marquées et la clé `approchee` du plan vont ensemble : l'un sans les autres est une
@@ -4086,7 +4120,7 @@
   function verifierApprochee(plan, erreurs) {
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var k = x && x.consigne;
-      var nom = 'I59 — exercice ' + i + ' (' + (x && x.slug) + ') : ';
+      var nom = 'I61 — exercice ' + i + ' (' + (x && x.slug) + ') : ';
       var marquees = [];
       if (k && k.ligne && k.ligne.approchee === true) marquees.push(['la ligne', k.ligne]);
       if (k && k.haut && k.haut.approchee === true) marquees.push(['le test', k.haut]);

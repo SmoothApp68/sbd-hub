@@ -1305,13 +1305,13 @@
       var ligne = el('div', 'bloc-pesee');
       ligne.appendChild(el('span', 'pesee-gros', nombreFr(r.poids)));
       ligne.appendChild(el('span', 'pesee-unite', 'kg'));
-      var droite = el('span', 'pesee-var', r.variation ? signe(r.variation.valeur) + ' kg' : '');
+      // 173 — ligne 1 : le poids à gauche, la variation à droite (même ligne de base) ; ligne 2 : « depuis le … · N pesées », pleine largeur.
       var an = r.date.getFullYear();
-      droite.appendChild(el('em', null,
+      ligne.appendChild(el('span', 'pesee-var', r.variation ? signe(r.variation.valeur) + ' kg' : ''));
+      bloc.appendChild(ligne);
+      bloc.appendChild(el('div', 'pesee-depuis',
         (r.variation ? 'depuis le ' + jour(r.variation.depuis, an) + ' \u00b7 ' : '') +
         r.nb + ' pesée' + (r.nb > 1 ? 's' : '')));
-      ligne.appendChild(droite);
-      bloc.appendChild(ligne);
     } else {
       bloc.appendChild(el('div', 'bloc-rien', 'Aucune pesée enregistrée.'));
     }
@@ -1321,11 +1321,13 @@
       bloc.classList.add('avec-peser');
       var env = el('div', 'bloc-enveloppe');
       env.appendChild(bloc);
+      var rangeePeser = el('div', 'bloc-peser-rangee');
       var pe = el('button', 'bloc-peser', 'Peser');
       pe.type = 'button';
       pe.setAttribute('aria-label', 'Peser');
       pe.addEventListener('click', function () { v.surPeser(); });
-      env.appendChild(pe);
+      rangeePeser.appendChild(pe);
+      env.appendChild(rangeePeser);
       return env;
     }
     return bloc;
@@ -1382,7 +1384,8 @@
     // 173 (« Vivant ») — le chiffre en héros : « 13 t » (puis « soulevées »), « 14 » (puis « records ») ; le texte, lui, ne change pas.
     var ligneM = el('div', 'bloc-ligne bloc-heros');
     bouts.forEach(function (b, i) {
-      if (i > 0) ligneM.appendChild(doc.createTextNode(' \u00b7 '));
+      // Le « · » reste dans le texte lu (banc, lecteurs) mais ne se dessine pas : l'espace (gap) sépare les blocs, rien ne pend en fin de ligne.
+      if (i > 0) { var sepM = el('span', 'bh-sep', ' \u00b7 '); sepM.setAttribute('aria-hidden', 'true'); ligneM.appendChild(sepM); }
       var m = /^(\d[\d,.\u00a0]*?(?:\u00a0t)?)(\s.*)$/.exec(b);
       var bout = el('span', 'bh-bout' + (i === 0 ? ' bh-premier' : ''));
       if (m) { bout.appendChild(el('span', 'bh-n', m[1])); bout.appendChild(doc.createTextNode(m[2])); }

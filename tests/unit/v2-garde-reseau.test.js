@@ -59,7 +59,7 @@ describe('59-4 — tout navigateur de test passe par la garde réseau', () => {
   test('les cinq bancs à navigateur sont bien vus, et passent par la garde', () => {
     const lanceurs = TOUS.filter((f) => f !== GARDE && f !== MOI && LANCE.test(lire(f))).sort();
     expect(lanceurs).toEqual(['tests/banc/journal-mesure.js', 'tests/banc/profil-creation.js', 'tests/banc/routines-ecran.js',
-      'tests/banc/seance-ecran.js', 'tests/banc/sw-navigation.js']);
+      'tests/banc/seance-ecran.js', 'tests/banc/sw-navigation.js', 'tests/unit/v2-vivant-progression-mise-en-page.test.js']);
     lanceurs.forEach((f) => expect([f, /Garde\.lancer\(chromium,/.test(lire(f))]).toEqual([f, true]));
   });
 

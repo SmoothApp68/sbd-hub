@@ -5658,6 +5658,36 @@
     return cible;
   }
 
+  // 173 (refonte « Vivant ») — « PROCHAINE SÉANCE », en tête de l'accueil : la routine qui suit la dernière faite, son résumé (comme la
+  // carte de routine de Saisie) et [Démarrer] — le même démarrage. `vue` : `{ routine, catalogue, temps, enCours, surDemarrer, surReprendre,
+  // surAutre }`. Sans routine, le conteneur se cache. Rien n'est calculé ici : l'app a choisi la routine.
+  function rendreProchaineSeance(cible, vue) {
+    vider(cible);
+    var r = vue && vue.routine;
+    if (!r) { cible.hidden = true; return cible; }
+    cible.hidden = false;
+    var carte = el('div', 'prochaine');
+    carte.appendChild(el('div', 'prochaine-eti', 'PROCHAINE SÉANCE'));
+    carte.appendChild(el('div', 'prochaine-nom', r.nom));
+    var a = R().apercu(r.exercices, vue.catalogue);
+    var temps = vue.temps ? vue.temps(r) : null;
+    carte.appendChild(el('div', 'prochaine-meta',
+      a.nbExercices + ' exercice' + (a.nbExercices > 1 ? 's' : '') + ' \u00b7 ' + a.nbSeries + ' série' + (a.nbSeries > 1 ? 's' : '') +
+      (temps && temps.texte ? ' \u00b7 ' + temps.texte : '')));
+    var pied = el('div', 'prochaine-pied');
+    var go = el('button', 'principal prochaine-go', vue.enCours ? 'Reprendre' : 'Démarrer');
+    go.type = 'button';
+    go.addEventListener('click', function () { if (vue.enCours) { if (vue.surReprendre) vue.surReprendre(); } else if (vue.surDemarrer) vue.surDemarrer(r.id); });
+    pied.appendChild(go);
+    var autre = el('button', 'discret prochaine-autre', 'Autre routine \u203a');
+    autre.type = 'button';
+    autre.addEventListener('click', function () { if (vue.surAutre) vue.surAutre(); });
+    pied.appendChild(autre);
+    carte.appendChild(pied);
+    cible.appendChild(carte);
+    return cible;
+  }
+
   // Une routine de la bibliothèque : sa carte et ses actions.
   function rangeeDeRoutine(r, v) {
     var carte = el('button', 'routine');
@@ -8233,6 +8263,7 @@
     brancherReorganisation: brancherReorganisation,
     rendrePiedReorganisation: rendrePiedReorganisation,
     rendreListeRoutines: rendreListeRoutines,
+    rendreProchaineSeance: rendreProchaineSeance,
     rendreRelecture: rendreRelecture,
     rendreFeuilleExoRoutine: rendreFeuilleExoRoutine,
     champChrono: champChrono,

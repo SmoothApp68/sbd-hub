@@ -1291,6 +1291,8 @@
     rendreEtatSync();
 
     var sem = semaineCourante();
+    rendreProchaineSeance();
+    demanderLesRoutinesDeLAccueil();
     Rendu.rendreBarreSemaine($('barre-seances'), barrePour(sem, true));
     Rendu.rendreRappel($('rappel-zones'), sem.zones, function () {
       // Un rappel DE VOLUME ouvre le volume, pas le sommaire : passer par une
@@ -9805,6 +9807,39 @@
     }
   }
 
+  // « Démarrer » d'une routine — UN SEUL démarrage, pour la bibliothèque de Saisie et pour « Prochaine séance » (173).
+  function demarrerRoutineParId(id) {
+    var r = routines.filter(function (x) { return x.id === id; })[0] || null;
+    // 60-2b (MOTEUR §9.18) — « J'ai moins de temps en ce moment » : la carte de « J'ai
+    // peu de temps » s'ouvre d'elle-même AVANT la séance, une fois par routine et par jour.
+    if (r && ouvrirPeuDeTempsDOffice(r)) return;
+    demarrerSeance(r);
+  }
+
+  // 173 (refonte « Vivant ») — « Prochaine séance », en tête de l'accueil : la routine qui suit la dernière faite (`Routines.routineSuivante`).
+  function rendreProchaineSeance() {
+    var cible = $('prochaine-seance');
+    if (!cible) return;
+    var suivante = etatRoutines.code === 'ok' || routines.length ? Routines.routineSuivante(routines, local.seances) : null;
+    Rendu.rendreProchaineSeance(cible, {
+      routine: suivante ? suivante.routine : null,
+      catalogue: local.exercices,
+      temps: tempsDeLaRoutine,
+      enCours: !!seance,
+      surDemarrer: demarrerRoutineParId,
+      surReprendre: function () { allerA(Routeur.SAISIE, {}); rendreSeance(); },
+      surAutre: function () { allerA(Routeur.SAISIE, {}); rendreSaisie(); }
+    });
+  }
+  var routinesDeLAccueilDemandees = false;
+  function demanderLesRoutinesDeLAccueil() {
+    if (etatRoutines.code === 'ok' || routinesDeLAccueilDemandees) return;
+    routinesDeLAccueilDemandees = true;
+    chargerRoutines().then(function () {
+      if (etatRoutines.code === 'ok' && ecranCourant === 'liste') rendreProchaineSeance();
+    }).catch(function () { /* hors ligne : pas de carte */ }).then(function () { routinesDeLAccueilDemandees = false; });
+  }
+
   function rendreSaisie() {
     // L'onglet Saisie EST la saisie : s'il y a une séance en cours, c'est elle
     // qu'on ouvre. Un rechargement, un retour d'arrière-plan, une app tuée et
@@ -9888,13 +9923,7 @@
       // 66B (§5 ter.4 bis) — « Le coach relit ce dossier » : seulement un dossier qui a une routine non archivée.
       surRelire: ouvrirRelecture,
       relirable: function (d) { return routinesDuDossier(d).length > 0; },
-      surDemarrer: function (id) {
-        var r = routines.filter(function (x) { return x.id === id; })[0] || null;
-        // 60-2b (MOTEUR §9.18) — « J'ai moins de temps en ce moment » : la carte de « J'ai
-        // peu de temps » s'ouvre d'elle-même AVANT la séance, une fois par routine et par jour.
-        if (r && ouvrirPeuDeTempsDOffice(r)) return;
-        demarrerSeance(r);
-      },
+      surDemarrer: demarrerRoutineParId,
       // §9.18 (51-1) — la durée estimée, et « J'ai peu de temps ».
       temps: tempsDeLaRoutine,
       surPeuDeTemps: function (id) {

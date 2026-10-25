@@ -1925,7 +1925,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .titre-vue,.entete h1,.detail-tete h2,.exo-tete h2,.bandeau-nom,.fen-quoi,.cal-mois-nom,.p-nom,
 .exo-seance,.nom,.nom.lien,.nom-exo,.nom-exo.lien,.exo-nom,.bloc-exo-nom,.fen-nom,.replie-nom,.apercu-nom,
 .pesee-gros,.carte-v,.graphe-v,.fen-combien,.fen-valeur,.p-kpi b,.zone-valeur,.bloc-exo-val,
-.pesee-p,.mesure,.muscle-valeur,.apercu-val,.molette .opt,.tableau-records{font-family:var(--pile-c)}
+.pesee-p,.mesure,.muscle-valeur,.apercu-val,.molette .opt,.tableau-records,.seance-date,.seance-meta,.jour-date{font-family:var(--pile-c)}
 .principal,.feuille-pied .pri,.demarrer,.proposition-exercice .pc-ajouter,
 .carte-escalier .ce-alleger,.carte-fin-bloc .cfb-commencer{font-family:var(--pile-c);
   text-transform:uppercase;letter-spacing:.05em}
@@ -2675,3 +2675,13 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .consigne.si-ca-passe{display:inline-block;background:var(--panneau-2);border-radius:var(--r-petit);padding:6px 10px;margin-top:8px;
   font-size:13.5px;font-weight:500;color:var(--texte-2)}
 .consigne.si-ca-passe .sp-chiffre{color:var(--accent);font-weight:800}
+
+/* ── 173 (« Vivant », 25/10/2026) — « PROCHAINE SÉANCE », en tête de l'accueil ────────────────────────────────────────── */
+#prochaine-seance{margin-bottom:var(--e3)}
+.prochaine{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e4);box-shadow:inset 0 1px 0 var(--reflet)}
+.prochaine-eti{font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--texte-2)}
+.prochaine-nom{font-family:var(--pile-c);font-size:30px;font-weight:700;line-height:1.1;margin-top:var(--e1);overflow-wrap:anywhere}
+.prochaine-meta{font-family:var(--pile-c);font-size:15px;font-weight:600;color:var(--texte-2);margin-top:var(--e1);font-variant-numeric:tabular-nums}
+.prochaine-pied{display:flex;align-items:center;gap:var(--e3);margin-top:var(--e3)}
+.prochaine-go{flex:1;min-height:44px}
+.prochaine-autre{flex:none;min-height:44px;border:none;background:none;color:var(--texte-2);font-size:13px}

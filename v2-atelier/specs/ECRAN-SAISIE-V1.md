@@ -3626,3 +3626,22 @@ sinon `renommage` / `duplication` bloquaient la relecture jusqu'au rechargement.
 `renommage` en place jusqu'à la fin de l'écriture, qui le remet à zéro sans redessiner ni lever d'exception. « Éditeur ouvert » se lit sur la vue, pas sur `brouillon` (qui n'est remis à zéro qu'au changement de compte : après un premier éditeur
 ouvert, la relecture ne jouait plus jusqu'au rechargement) ; la saisie non enregistrée vit dans `brouillonLocal` et n'est jamais touchée.
 Cache 292.
+
+### 7 quater.9 L'ordre de l'écran Saisie — « rien d'autre que les routines, sauf s'il y a quelque chose à dire » — décidé le 25/10/2026 (prompt 171)
+
+**25/10/2026, décision d'Aurélien** (maquette `maquette-saisie-avis-v1`, « tout est ok ») : « s'il n'y a rien à dire, n'affichons rien
+d'autre que les routines ». Aucun texte de carte, aucune règle d'apparition, aucune donnée ne changent : **seule la place change**. L'ordre, de haut en bas :
+1. **A · À faire** (cartes ouvertes, liseré ambre à gauche, chacune seulement quand elle a lieu d'être) : la fin de cycle ou de bloc
+   (`#carte-fin-saisie` ; la MÊME carte que la bibliothèque, lue sur `programmeDuDossier`, mêmes gestes ; elle reste aussi dans
+   `#liste-routines`), la semaine qui déraille (`#carte-semaine`), la routine pas finie d'enregistrer (`#bandeau-reprise`).
+2. **B · « Le coach te dit (n) »** (`#avis-coach`) : une ligne repliée qui regroupe `#carte-echelles`, `#carte-manque`, `#carte-cycles`,
+   `#bandeau-phase` (chacune garde sa règle, son texte et ses gestes). La ligne montre les titres courts (« Échelles · Ce qui manque ·
+   Cycles · Phase », seulement ceux présents) et le nombre ; un toucher l'ouvre, un autre la referme ; elle ne s'ouvre jamais d'elle-même.
+   **Un point ambre** tant qu'un avis n'a pas été vu : l'ouvrir les marque vus — une préférence de CET appareil (`localStorage`
+   `th-v2-avis-vus`, try/catch, aucune écriture en base). Un avis vu redevient neuf quand son texte change (une autre semaine
+   d'échelles). Un avis lu reste dans la ligne tant que sa règle le montre ; il en sort quand elle ne le montre plus. **Sans avis, la ligne n'existe pas.**
+3. **Les routines** (`#liste-routines`), comme avant.
+4. **C · En bas, discret** : `#bandeau-questionnaire` et `#bandeau-installer`, en une ligne de texte, seulement quand ils s'affichent.
+Le bloc « Groupe » (`#groupe-accueil-saisie`, doublon de l'accueil) ne s'affiche plus dans Saisie ; il reste sur l'accueil (`#groupe-accueil`).
+**Invariant d'écran (banc `saisie-avis`)** : sans carte A, sans avis, sans questionnaire ni installation, le premier élément visible sous
+l'en-tête est la liste des routines. Cache 300.

@@ -5481,6 +5481,10 @@ const SETS_IMPORTES = [
   const sesSeries = (id) => base.sets.filter((x) => x.session_id === id);
   const ouvrirMenuDe = async (titre) => {
     await aller('/');
+    // 165 — la liste se dessine après l'arrivée sur la route : on attend l'enveloppe qui porte le titre avant de cliquer.
+    await attendreQue(() => page.evaluate((t) => Array.from(document.querySelectorAll('.seance-enveloppe'))
+      .some((e) => e.querySelector('.seance') && e.querySelector('.seance').textContent.indexOf(t) >= 0), titre),
+    15000, '7 quaterdecies · l’enveloppe « ' + titre + ' » est dessinée');
     await page.evaluate((t) => {
       const env = Array.from(document.querySelectorAll('.seance-enveloppe'))
         .filter((e) => e.querySelector('.seance').textContent.indexOf(t) >= 0)[0];
@@ -24109,6 +24113,9 @@ const SETS_IMPORTES = [
   // légère la reposent. Tout est retiré à la fin.
   {
     const t127 = Date.now();
+    // 165 — les blocs de « cycles » (leur semaine de décharge planifiée) rendraient NEUTRES les séances d'il y a 28 à 3 jours :
+    // une séance de décharge ne sert plus de référence. Retirés de l'appareil, rendus à la fin.
+    const rendreBlocs127 = await retirerBlocsDeLAppareil();
     const erreurs127 = erreurs.length;
     const refus127 = base.journal.filter((j) => j.op === 'refus').length;
     const violations127 = gardeBanc.violations;
@@ -24275,6 +24282,7 @@ const SETS_IMPORTES = [
     base.sessions = base.sessions.filter((x) => sessions127.indexOf(x.id) < 0);
     profil127().marche_reponses = marcheAvant127 === undefined ? null : marcheAvant127;
     await aller('/saisie');
+    rendreBlocs127();
     ok('[127] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
       gardeBanc.violations === violations127 && base.journal.filter((j) => j.op === 'refus').length === refus127 &&
         erreurs.length === erreurs127,
@@ -25453,6 +25461,113 @@ const SETS_IMPORTES = [
     ok('[EV154] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       nb154([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ apres-decharge. PENDANT LA DÉCHARGE : NI « GARDE-EN » NI QUESTION ; LA SÉANCE D’APRÈS REPART DE LA DERNIÈRE SÉANCE NORMALE (165, MOTEUR §9.22, §9.26) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice à la barre, 80 kg × 8 × 4 trois fois, puis une décharge 80 kg × 6 × 2 dont la
+  // dernière série porte « 3 et + » (sans le garde, c'est un TEST à la séance suivante). Deux temps : AUJOURD'HUI en décharge
+  // (bloc commencé il y a 22 jours : ni « garde-en » ni puces) ; puis la décharge est derrière (bloc commencé il y a 35 jours) :
+  // la séance du jour repart de 80 kg sur 4 séries, avec « garde-en », sans test. Aucun délai fixe.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    const rendreBlocs = await retirerBlocsDeLAppareil();
+    CATALOGUE.push({ slug: 'ad165-a', nom: 'Exercice AD165 A (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
+    const t165 = Date.now();
+    const jour165 = (t) => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    base.sessions = [];
+    base.sets = [];
+    const seance165 = (id, j, reps, ressentiFin) => {
+      const debut = ilYa(j * 86400000, t165).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'AD165 — ' + id, debut,
+        fin: finDe(debut, t165).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      reps.forEach((r, k) => base.sets.push({
+        id: id + '-' + (k + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'ad165-a',
+        charge_kg: 80, reps: r, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: k + 1, groupe_superset: null, validee_a: debut, rpe: null,
+        ressenti: ressentiFin && k === reps.length - 1 ? ressentiFin : null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    [35, 28, 21].forEach((j) => seance165('ad165-h' + j, j, [8, 8, 8, 8], null));
+    ROUTINES.push({ id: 'r-ad165', nom: 'Après la décharge U165', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-ad165-a', routine_id: 'r-ad165', exercise_slug: 'ad165-a', rang: 0, routine_sets: progr(4, 8),
+        repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const sp165 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const bloc165 = (jours) => ({ id: 'b-ad165-' + jours, user_id: 'u-banc', dossier: 'AD165', zone: 'lourd', semaines: 4, decharge: true,
+      statut: 'en_cours', precedent: null, exercices: ['ad165-a'], debut: jour165(t165 - jours * 86400000),
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z' });
+    const etat165 = () => page.evaluate(() => {
+      const g = document.querySelector('.legende-exo .consigne[data-garde]');
+      const gris = document.querySelector('.legende-exo .consigne-gris, .legende-exo .consigne-detail');
+      return { garde: g ? g.getAttribute('data-garde') : null,
+        jaune: Array.from(document.querySelectorAll('.legende-exo .consigne')).map((x) => x.textContent),
+        lignes: document.querySelectorAll('.bloc-seance .ligne-serie').length,
+        puces: !!document.querySelector('.bloc-seance .effort-vise'), gris: gris ? gris.textContent : null,
+        bandeau: (document.getElementById('escalier-seance') || {}).textContent || null };
+    });
+    const valider165 = async (j) => {
+      await casesSiVides(await ligneDuBloc(0, j));
+      await page.evaluate((k) => document.querySelectorAll('.bloc-seance')[0]
+        .querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), j);
+      await jusqua(() => page.evaluate((k) => !!document.querySelectorAll('.bloc-seance')[0]
+        .querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie.cochee'), j), 6000);
+    };
+
+    // A. AUJOURD'HUI EN DÉCHARGE (semaine 4 du bloc commencé il y a 22 jours).
+    base.blocs.push(bloc165(22));
+    await aller('/saisie');
+    await demarrerRoutine('Après la décharge U165');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 2), 8000);
+    await jusqua(async () => (await etat165()).bandeau !== null, 8000);
+    const a0 = await etat165();
+    ok('[AD165] DISCRIMINANT — pendant la décharge : le bandeau, aucun « garde-en » dans l’en-tête',
+      /décharge/.test(sp165(a0.bandeau)) && a0.garde === null, JSON.stringify(a0));
+    await valider165(0);
+    await valider165(1);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const a1 = await etat165();
+    ok('[AD165] DISCRIMINANT — après la dernière série de la décharge : aucune puce « Il t’en restait combien ? »', a1.puces === false, JSON.stringify(a1));
+    const pa = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? window.THPlan.verifierPlan(d.plan, d.entrees) : { ok: false, erreurs: ['aucun plan calculé'] };
+    });
+    ok('[AD165] invariants du plan (I59, I60 compris)', pa.ok, JSON.stringify(pa.erreurs.slice(0, 3)));
+    await abandonner();
+
+    // B. LA DÉCHARGE EST DERRIÈRE (bloc commencé il y a 35 jours) ; sa séance : 80 kg × 6 × 2, « 3 et + » sur la dernière.
+    const rendreA = await retirerBlocsDeLAppareil();
+    seance165('ad165-d10', 10, [6, 6], 'reste_3_plus');
+    base.blocs.push(bloc165(35));
+    await aller('/saisie');
+    await demarrerRoutine('Après la décharge U165');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 4), 8000);
+    await jusqua(async () => (await etat165()).jaune.length > 0, 8000);
+    const b0 = await etat165();
+    const dit = sp165(b0.jaune.join(' | '));
+    ok('[AD165] DISCRIMINANT — la séance d’après repart de 80 kg × 8-9, sur 4 lignes, sans test (ni 82,5 ni 85 kg)',
+      /80 kg × (8|9)/.test(dit) && !/8[25]/.test(dit) && b0.lignes >= 4, JSON.stringify(b0));
+    ok('[AD165] DISCRIMINANT — hors décharge, le coach parle de nouveau : « garde-en », et la décharge n’est plus nommée',
+      b0.garde !== null && !/décharge/i.test(sp165(b0.bandeau)), JSON.stringify(b0));
+    await abandonner();
+    rendreA();
+
+    // LA REMISE EN ÉTAT.
+    rendreBlocs();
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[AD165] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ demander-coach. « DEMANDER AU COACH » : LE BOUTON, L’ACCORD, UNE PUCE, UNE DOULEUR QUI NE PART PAS, LE QUOTA, SANS RÉSEAU (160, ECRAN-SAISIE §3.10 ter) ══');

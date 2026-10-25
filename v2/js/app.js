@@ -874,7 +874,7 @@
     // Les routines ne sont pas dans le cache, mais elles appartiennent au
     // compte précédent : les laisser en mémoire montrerait la bibliothèque de
     // quelqu'un d'autre le temps d'une requête.
-    routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
+    routines = []; generationRoutines++; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
     // La séance en cours et la file appartiennent au compte précédent. Le
     // changement de compte ci-dessus a vidé leurs magasins (la file, gardée à
     // part pour lui) ; on remet la mémoire d'accord avec le disque.
@@ -9582,15 +9582,26 @@
   // remplace `routines` que si la signature a changé.
   var RELECTURE_ROUTINES_MS = 60000;
   var derniereLectureRoutines = 0;
+  // 164 — GÉNÉRATION DES ROUTINES : +1 à chaque fois que `routines` est remplacée par `chargerRoutines` (après une écriture
+  // locale, un import, une création) ou vidée (changement de compte). La relecture lit le compteur AVANT sa requête et jette
+  // sa réponse s'il a bougé : une réponse lente, partie avant l'écriture, n'écrase pas la liste qui l'a suivie.
+  var generationRoutines = 0;
 
   function relectureRoutinesPermise() {
-    return etatRoutines.code === 'ok' && !seance && brouillon === null && vues.routine.hidden &&
+    // 164 — « éditeur ouvert » se lit sur la VUE : `brouillon` n'est remis à zéro qu'au changement de compte, donc après le
+    // premier éditeur ouvert il bloquait la relecture jusqu'au rechargement. Une saisie non enregistrée ne se perd pas pour
+    // autant : elle vit dans `brouillonLocal` (disque), la relecture ne touche que `routines`.
+    return etatRoutines.code === 'ok' && !seance && vues.routine.hidden &&
       !duplication && !renommage;
   }
 
   function signatureDesRoutines(liste) {
     return JSON.stringify((liste || []).map(function (r) {
-      return [r.id, r.nom, r.dossier === undefined ? null : r.dossier, r.modifiee_a || null, r.archivee_a || null];
+      // 164 (D2) — le CONTENU aussi : `routines.modifiee_a` n'est écrite que pour le nom ou le dossier, jamais pour un
+      // exercice ou une série (autres tables). La signature voit donc le rang, les jours, la note, les exercices et leurs
+      // séries — quel que soit l'écrivain (autre appareil, ancienne version), sans dépendre d'un `modifiee_a` tenu à jour.
+      return [r.id, r.nom, r.dossier === undefined ? null : r.dossier, r.modifiee_a || null, r.archivee_a || null,
+        r.rang === undefined ? null : r.rang, r.jours || null, r.note || null, r.exercices || []];
     }));
   }
 
@@ -9598,10 +9609,13 @@
     if (!relectureRoutinesPermise()) return false;
     if (Date.now() - derniereLectureRoutines < RELECTURE_ROUTINES_MS) return false;
     derniereLectureRoutines = Date.now();
+    var generation = generationRoutines;
     try {
       var brutes = await Donnees.mesRoutines();
       // Pendant la lecture, un éditeur a pu s'ouvrir : on ne touche à rien.
       if (!relectureRoutinesPermise()) return false;
+      // 164 — …ou une écriture locale a pu être relue (`chargerRoutines`) : cette réponse est plus vieille qu'elle.
+      if (generation !== generationRoutines) return false;
       var neuves = brutes.map(normaliserRoutine);
       if (signatureDesRoutines(neuves) === signatureDesRoutines(routines)) return false;
       routines = neuves;
@@ -9621,6 +9635,7 @@
     try {
       var brutes = await Donnees.mesRoutines();
       routines = brutes.map(normaliserRoutine);
+      generationRoutines++;
       etatRoutines = { code: 'ok', message: '' };
       derniereLectureRoutines = Date.now();
       return true;
@@ -9762,7 +9777,13 @@
   function ouvrirRenommerDossier(dossier) {
     renommage = { ancien: dossier, erreur: '', enCours: false };
     rendreFeuilleRenommer();
-    ouvrirVoile($('feuille-seance'));
+    // 164 (D3) — remis à zéro à la fermeture, QUEL QU'EN SOIT LE CHEMIN (retour d'Android, fond, « Annuler ») : un
+    // `renommage` resté non nul bloque la relecture des routines jusqu'au rechargement.
+    ouvrirVoile($('feuille-seance'), function () {
+      // 164 (D11) — fermée PENDANT l'écriture : `renommage` reste jusqu'à la fin de l'écriture (la relecture ne passe pas au
+      // travers d'un renommage en route) ; `renommerDossier` le remet à zéro, sans rien redessiner dans une feuille fermée.
+      if (renommage && renommage.enCours) renommage.fermee = true; else renommage = null;
+    });
   }
 
   function rendreFeuilleRenommer() {
@@ -9776,7 +9797,7 @@
         return { ok: p.ok, message: p.message, phrase: p.message ? '' : phrase };
       },
       surRenommer: function (texte) { renommerDossier(ancien, texte); },
-      surAnnuler: function () { renommage = null; fermerVoile(); }
+      surAnnuler: fermerVoile
     });
   }
 
@@ -9784,8 +9805,9 @@
     if (!renommage || renommage.enCours) return;
     var plan = planDeRenommage(ancien, texte);
     if (!plan.ok) return;
-    renommage.enCours = true;
-    renommage.texte = texte;   // un échec rend la feuille avec ce qui était tapé
+    var en = renommage;   // 164 (D11) : l'état de CE renommage, que la fermeture de la feuille ne peut plus nous retirer
+    en.enCours = true;
+    en.texte = texte;   // un échec rend la feuille avec ce qui était tapé
     var faites = [];
     try {
       for (var i = 0; i < plan.routines.length; i++) {
@@ -9796,8 +9818,9 @@
       for (var j = 0; j < faites.length; j++) {
         try { await Donnees.majRoutine(faites[j], { dossier: ancien }); } catch (e2) { /* rendu au mieux */ }
       }
-      renommage.enCours = false;
-      renommage.erreur = Routines.messageErreur({ erreur: Routines.classerErreur(e) });
+      en.enCours = false;
+      if (en.fermee) { if (renommage === en) renommage = null; return; }
+      en.erreur = Routines.messageErreur({ erreur: Routines.classerErreur(e) });
       return rendreFeuilleRenommer();
     }
     for (var k = 0; k < plan.blocs.length; k++) await poserBloc(plan.blocs[k]);
@@ -9810,8 +9833,8 @@
       delete dossiersReplies[ancien];
       memoriserDossiersReplies();
     }
-    renommage = null;
-    fermerVoile();
+    if (renommage === en) renommage = null;
+    if (!en.fermee) fermerVoile();   // déjà fermée par l'utilisateur : ne pas fermer une autre feuille ouverte depuis
     await chargerRoutines();
     if (!vues.saisie.hidden && !seance) rendreSaisie();
   }
@@ -10659,7 +10682,7 @@
     if (!r) return;
     duplication = { routine: r, nom: Routines.nomLibre(r.nom, nomsReserves(), 'copie'), erreur: '' };
     rendreFeuilleDuplication();
-    ouvrirVoile($('feuille-seance'));
+    ouvrirVoile($('feuille-seance'), function () { duplication = null; });   // 164 (D3) : à toute fermeture
   }
 
   function rendreFeuilleDuplication() {
@@ -10669,15 +10692,16 @@
       erreur: duplication.erreur,
       surNom: function (v) { duplication.nom = v; },
       surDupliquer: dupliquerRoutine,
-      surAnnuler: function () { duplication = null; fermerVoile(); }
+      surAnnuler: fermerVoile
     });
   }
 
   async function dupliquerRoutine() {
     if (!duplication || enregistrementEnCours) return;
-    var copie = Routines.copieDeRoutine(duplication.routine, duplication.nom);
+    var dup = duplication;   // 164 (D11) : la fermeture de la feuille remet `duplication` à zéro pendant l'écriture
+    var copie = Routines.copieDeRoutine(dup.routine, dup.nom);
     var verdict = Routines.valider(copie, routines);
-    if (!verdict.valide) { duplication.erreur = messageVerdict(verdict); return rendreFeuilleDuplication(); }
+    if (!verdict.valide) { dup.erreur = messageVerdict(verdict); return rendreFeuilleDuplication(); }
     enregistrementEnCours = true;
     try {
       var r = await Routines.enregistrer(copie, Donnees, {
@@ -10685,9 +10709,8 @@
         uuid: uuid,
         rangSuivant: rangSuivantBibliotheque()
       });
-      if (!r.ok) { duplication.erreur = Routines.messageErreur(r); return rendreFeuilleDuplication(); }
-      duplication = null;
-      fermerVoile();
+      if (!r.ok) { dup.erreur = Routines.messageErreur(r); if (duplication === dup) rendreFeuilleDuplication(); return; }
+      if (duplication === dup) { duplication = null; fermerVoile(); }
       await chargerRoutines();
       // La copie s'ouvre À LA PLACE de l'originale (on remplace l'entrée
       // d'historique) : c'est elle qu'on vient faire, la semaine 2 à partir de
@@ -13032,7 +13055,7 @@
     notesEnCours = {};
     // Les routines vivent en mémoire, pas dans le cache — mais elles
     // appartiennent quand même au compte qui part.
-    routines = []; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
+    routines = []; generationRoutines++; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
     seance = null; attente = []; chrono = null; arreterMinuteur();
     oublierSuppressionDifferee();
     // 106 — le groupe aussi, et ses messages gardés hors ligne (leur brouillon vient d'être vidé) : les envoyer au nom du

@@ -3609,3 +3609,14 @@ puis `chargerRoutines` et le rendu. Les routines d'abord : hors ligne la premiè
 **L'app relit les routines.** À la ré-entrée (retour au premier plan, `reentrer`), au plus une fois par minute, JAMAIS pendant
 une séance ni quand l'éditeur d'une routine, une duplication ou un renommage est ouvert ; l'affichage ne change que si la
 signature (ids, noms, dossiers, `modifiee_a`, archivage) a changé ; un échec réseau garde l'affichage.
+**24/10/2026 (prompt 164) — une réponse lente n'écrase pas une écriture plus récente.** `chargerRoutines` (et le vidage d'un
+changement de compte) incrémente un compteur de génération des routines ; la relecture le lit AVANT sa requête et jette sa
+réponse s'il a bougé (renommer un dossier pendant que la 4G répond ne ramène plus l'ancien nom). Fréquence, gardes et signature
+inchangées. **Et la signature voit le contenu** (164, D2) : `modifiee_a` n'est écrite que pour un nom ou un dossier, jamais pour un exercice
+ou une série ; la signature compare donc aussi le rang, les jours, la note, les exercices et leurs séries (choix : le client
+n'attend aucun écrivain, ni trigger, ni autre appareil pour tenir un `modifiee_a` à jour).
+**Les feuilles « Renommer » et « Dupliquer » se remettent à zéro à toute fermeture** (164, D3 : retour d'Android, fond, « Annuler »),
+sinon `renommage` / `duplication` bloquaient la relecture jusqu'au rechargement. Fermée pendant l'écriture (D11), la feuille laisse
+`renommage` en place jusqu'à la fin de l'écriture, qui le remet à zéro sans redessiner ni lever d'exception. « Éditeur ouvert » se lit sur la vue, pas sur `brouillon` (qui n'est remis à zéro qu'au changement de compte : après un premier éditeur
+ouvert, la relecture ne jouait plus jusqu'au rechargement) ; la saisie non enregistrée vit dans `brouillonLocal` et n'est jamais touchée.
+Cache 292.

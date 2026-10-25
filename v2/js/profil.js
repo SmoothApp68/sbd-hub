@@ -1263,7 +1263,7 @@
   // Les puces de la maquette validée (15/10/2026) ; « ＋ » ajoute un autre poids.
   var SALLE_BARRES_PROPOSEES = { barres_ez: [10, 15, 20, 25, 30, 35, 40], barres_droites: [10, 15, 20, 25, 30] };
   var SALLE_PAS_PROPOSES = [1, 2, 2.5, 5];
-  var PHRASE_SALLE = 'Non renseigné : le coach suppose qu’on peut ajouter des disques, comme aujourd’hui.';
+  var PHRASE_SALLE = 'Tes élastiques, du plus fort au plus léger. Rien d’autre à déclarer : le coach lit tes charges dans ton historique.';
   var PHRASE_BARRES_FIXES = 'Les barres déjà chargées de ta salle. Le coach ne te proposera que ces charges-là.';
 
   // Un nombre (jamais une chaîne : la contrainte refuse « "10" »), au demi-kilo.
@@ -1627,23 +1627,19 @@
   var PHRASE_PAR_NOM = 'Seulement pour l’élastique qui t’aide (tractions, dips, nordique). Un élastique qui fait ' +
     'résistance se note toujours par son nom.';
 
-  // « EZ, droite, haltères » — ce qui est déclaré ; `null` : non renseigné.
+  // « Élastiques, mini-bandes » — ce qui est déclaré ; `null` : non renseigné. 163 : seuls les élastiques se lisent.
   function resumeSalle(profil) {
     var s = salleDe(profil);
     if (!s) return null;
     var t = [];
-    if (s.barres_ez.length) t.push('EZ');
-    if (s.barres_droites.length) t.push(t.length ? 'droite' : 'Barre droite');
-    // 159 — déclarée seule (aucune barre fixe de ce type), la barre qu'on charge se lit quand même.
-    if (!s.barres_ez.length && s.barre_ez_chargee) t.push(t.length ? 'EZ chargée' : 'Barre EZ chargée');
-    if (!s.barres_droites.length && s.barre_droite_chargee) t.push(t.length ? 'droite chargée' : 'Barre droite chargée');
-    if (s.halteres) t.push(t.length ? 'haltères' : 'Haltères');
-    // 132 — les élastiques.
-    if (s.elastiques) t.push(t.length ? 'élastiques' : 'Élastiques');
+    if (s.elastiques) t.push('Élastiques');
     if (s.mini_bandes) t.push(t.length ? 'mini-bandes' : 'Mini-bandes');
     return t.length ? t.join(', ') : null;
   }
-  function ligneSalle(profil, ouvrir) {
+  // 163 — « Ma salle » n'apparaît dans le Profil que si un exercice à l'élastique est dans une routine, l'historique
+  // ou la séance en cours (`visible`, décidé par l'app). Sinon : `null`, la ligne ne s'affiche pas.
+  function ligneSalle(profil, ouvrir, visible) {
+    if (visible !== true) return null;
     return { libelle: 'Ma salle', sous: PHRASE_SALLE, valeur: resumeSalle(profil), surChoix: ouvrir };
   }
 
@@ -1825,6 +1821,48 @@
     return best === null ? null : racine.THModele.affichageElastique({ elastique: best.nom, reps: best.reps });
   }
 
+  // 163 (24/10/2026) — « AJOUTE TES ÉLASTIQUES » : au premier usage, en séance, l'exercice à l'élastique dont la liste est
+  // vide propose une feuille où l'on choisit PAR SON NOM (rangés du plus fort au plus léger) ou PAR SON POIDS (kg). Les
+  // deux écrivent dans Ma salle (`elastiques` / `mini_bandes`) ; le réglage existant « par son nom » (`elastiques_par_nom`)
+  // est posé pour une aide. Les élastiques déjà déclarés ne s'effacent jamais d'eux-mêmes (on AJOUTE au brouillon de la
+  // salle), et un nom déjà là n'est pas une erreur.
+  var ELASTIQUES_CLASSIQUES = ['Noir', 'Violet', 'Rouge', 'Bleu', 'Vert', 'Jaune'];
+  function elastiqueAAjouter(profil, fiche) {
+    var t = fiche && fiche.type_elastique;
+    if (t !== 'grand' && t !== 'mini') return false;
+    return listeDe(fiche, salleDe(profil)).length === 0;
+  }
+  // `choix` : `{ noms: [...], kgs: [nombre, ...] }`. Rend `{ champs }` (à écrire par le profil) ou `{ erreur }`.
+  function elastiquesAjoutes(profil, fiche, choix) {
+    var t = fiche && fiche.type_elastique;
+    if (t !== 'grand' && t !== 'mini') return { erreur: 'Cet exercice ne se note pas à l’élastique.' };
+    var liste = t === 'mini' ? 'mini_bandes' : 'elastiques';
+    var c = choix || {};
+    var b = brouillonSalle(profil), erreur = null, ajoutes = 0;
+    var noms = (c.noms || []).slice().sort(function (x, y) {
+      var i = ELASTIQUES_CLASSIQUES.indexOf(x), j = ELASTIQUES_CLASSIQUES.indexOf(y);
+      return (i < 0 ? 99 : i) - (j < 0 ? 99 : j);
+    });
+    var kgs = liste === 'elastiques' ? (c.kgs || []).slice().sort(function (x, y) { return y - x; }) : [];
+    var M = racine.THModele;
+    noms.forEach(function (nom) {
+      var r = ajouterElastique(b, liste, nom, null);
+      if (r.erreur && !/déjà dans la liste/.test(r.erreur)) erreur = r.erreur;
+      else if (!r.erreur) { ajoutes++; b = r.brouillon; }
+    });
+    kgs.forEach(function (kg) {
+      var v = auDemi(kg);
+      var r = ajouterElastique(b, liste, v === null ? '' : (M ? M.nombreSigne(v) : String(v)) + '\u00a0kg', kg);
+      if (r.erreur && !/déjà dans la liste/.test(r.erreur)) erreur = r.erreur;
+      else if (!r.erreur) { ajoutes++; b = r.brouillon; }
+    });
+    if (erreur) return { erreur: erreur };
+    if (!ajoutes && !(salleDe(profil) && listeDe(fiche, salleDe(profil)).length)) return { erreur: 'Choisis au moins un élastique.' };
+    if (liste === 'elastiques' && fiche.charge === 'assistance') b = poserParNom(b, true);
+    var champs = champsSalle(b);
+    return champs ? { champs: champs } : { erreur: 'Un nom de 1 à ' + ELASTIQUE_NOM_MAX + ' caractères, un kg entre ' + ELASTIQUE_KG_MIN + ' et ' + ELASTIQUE_KG_MAX + '.' };
+  }
+
   function salleDeLExercice(profil, slug, index) {
     var s = salleDe(profil);
     var fiche = index && slug && Object.prototype.hasOwnProperty.call(index, slug) ? index[slug] : null;
@@ -1838,32 +1876,12 @@
                              aide: fiche.charge === 'assistance', liste: listeDe(fiche, s),
                              fiche: { charge: fiche.charge, type_elastique: fiche.type_elastique }, ma: s }, fiche);
     }
-    if (fiche.equipement === 'haltere') {
-      if (!s.halteres) return null;
-      // 123 — toutes tranches confondues (11 kg n'existe pas chez Aurélien : 10 ou 12), en PAIRE (§10.1).
-      var charges = chargesDesTranches(tranchesDe(s.halteres)).map(function (v) { return Math.round(2 * v * 100) / 100; });
-      return avecIsolation({ materiel: 'halteres', charges: charges }, fiche);
-    }
-    if (fiche.equipement !== 'barre') return null;
-    if (fiche.barre_charge_fixe === false) return null;
-    if (fiche.barre_charge_fixe !== true) {
-      var G = racine.THGenerateur;
-      if (G && G.estBarreLourde(slug, index)) return null;
-    }
-    var ez = estBarreEZ(Object.assign({ slug: slug }, fiche));
-    var liste = ez ? s.barres_ez : s.barres_droites;
-    // 159 (MOTEUR §10 bis) — « une barre de ce type qu'on charge » : les barres fixes déclarées, puis, au-delà de la plus
-    // lourde, des crans de 2,5 kg jusqu'à 100 kg. Sans barre fixe déclarée : la salle n'en dit rien (`null`).
-    if (liste.length && (ez ? s.barre_ez_chargee : s.barre_droite_chargee) === true) {
-      var etendue = liste.slice();
-      for (var k = 1; ; k++) {
-        var c = Math.round((liste[liste.length - 1] + k * SALLE_CRAN_CHARGEE) * 100) / 100;
-        if (c > SALLE_BARRE_MAX) break;
-        etendue.push(c);
-      }
-      liste = etendue;
-    }
-    return liste.length ? avecIsolation({ materiel: ez ? 'barre_ez' : 'barre_droite', charges: liste.slice() }, fiche) : null;
+    // 163 (24/10/2026, décision d'Aurélien) — « MA SALLE » NE GARDE QUE LES ÉLASTIQUES. Les barres fixes (EZ, droites),
+    // les haltères et les deux bascules « barre chargée » (159) ne sont plus lus : pour tout autre exercice, `null` —
+    // le pas vient de l'historique, sinon du repli du matériel, et la charge jamais faite se dit « ≈ » (MOTEUR §10.2
+    // bis). Les clés `barres_*`, `halteres`, `barre_*_chargee` restent permises en base (aucune migration) ; l'app ne
+    // les lit plus, et `barre_charge_fixe` (catalogue) n'a plus d'effet.
+    return null;
   }
 
   // ══ LE PSEUDO ════════════════════════════════════════════════════════════
@@ -2133,6 +2151,7 @@
     ajouterTrancheHalteres: ajouterTrancheHalteres, retirerTrancheHalteres: retirerTrancheHalteres, sansHalteres: sansHalteres,
     peutAjouterTranche: peutAjouterTranche, phraseHalteresHorsBornes: phraseHalteresHorsBornes, SALLE_PAS_DEFAUT: SALLE_PAS_DEFAUT, resumeSalle: resumeSalle, ligneSalle: ligneSalle,
     estBarreEZ: estBarreEZ, salleDeLExercice: salleDeLExercice,
+    elastiqueAAjouter: elastiqueAAjouter, elastiquesAjoutes: elastiquesAjoutes, ELASTIQUES_CLASSIQUES: ELASTIQUES_CLASSIQUES,
     // 132 (MOTEUR §10 ter) — les élastiques par leur nom (la référence `elastiques132.py`).
     listeDe: listeDe, parNom: parNom, chargesVirtuelles: chargesVirtuelles, rattacherElastique: rattacherElastique,
     elastiqueDeSerie: elastiqueDeSerie, chargePourLeMoteur: chargePourLeMoteur, salleElastique: salleElastique,

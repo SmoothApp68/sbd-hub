@@ -2494,7 +2494,10 @@
   // colonne « ÉLASTIQUE » (`THModele.grilleElastique`).
   function gabaritDe(vue, slug) {
     var g = M().grilleDe(vue.exercice(slug), !!vue.programme);
-    return !vue.programme && typeof vue.elastique === 'function' && vue.elastique(slug) ? M().grilleElastique(g) : g;
+    // 163 — et un exercice à l'élastique dont la liste est vide : la colonne « Élastique » aussi, « Ajoute tes élastiques ».
+    var parNom = !vue.programme && ((typeof vue.elastique === 'function' && vue.elastique(slug)) ||
+      (typeof vue.elastiqueAAjouter === 'function' && vue.elastiqueAAjouter(slug)));
+    return parNom ? M().grilleElastique(g) : g;
   }
   function colonnesDe(g) { return g.colonnes || g.champs; }
   // La classe de la grille : celle de la mesure, et `g-plus` quand un champ en plus prend une
@@ -2788,6 +2791,9 @@
           entree.appendChild(tapable(ligneJ));
         });
         if (lib.gris) entree.appendChild(tapable(el('div', 'consigne-dit', lib.gris)));
+        // 163 (MOTEUR §10.2 bis) — UNE CHARGE JAMAIS FAITE : « ≈ 35 kg : vise la charge la plus proche que ta machine
+        // permet… », sous la ligne, lue sur le plan (jamais rédigée ici).
+        if (lib.approchee) entree.appendChild(tapable(el('div', 'consigne-dit approchee', lib.approchee)));
         // §12.9 (49-U13) — le compteur de stagnation, à 4 séances ou plus : une
         // seconde ligne grise, lue sur le plan (`lib.compteur`), jamais calculée ici.
         if (lib.compteur) entree.appendChild(tapable(el('div', 'consigne-dit compteur', lib.compteur)));
@@ -3319,8 +3325,10 @@
           (proposee || elan ? ' coach' : ''));
         caseEl.type = 'button';
         if (choisi || gris) caseEl.appendChild(pastille(choisi || gris));
-        caseEl.appendChild(el('span', 'el-case-nom', choisi || gris || 'choisir'));
-        caseEl.setAttribute('aria-label', 'Élastique : ' + (choisi || gris || 'à choisir'));
+        // 163 — sans élastique déclaré : « Ajoute tes élastiques » (la feuille d'ajout), jamais « choisir » dans le vide.
+        var aAjouter = !choisi && !gris && typeof vue.elastiqueAAjouter === 'function' && vue.elastiqueAAjouter(s.exercise_slug);
+        caseEl.appendChild(el('span', 'el-case-nom', choisi || gris || (aAjouter ? 'Ajoute tes élastiques' : 'choisir')));
+        caseEl.setAttribute('aria-label', 'Élastique : ' + (choisi || gris || (aAjouter ? 'ajoute tes élastiques' : 'à choisir')));
         caseEl.setAttribute('data-champ', nom);
         caseEl.addEventListener('click', function () { if (vue.surElastique) vue.surElastique(iExo, iSerie); });
         rangee.appendChild(caseEl);
@@ -5843,7 +5851,7 @@
       if (sec.aide) g.appendChild(el('div', 'p-aide', sec.aide));
       if (sec.segment) g.appendChild(segmentProfil(sec.segment));
       if (sec.pied) g.appendChild(el('div', 'p-pied', sec.pied));
-      (sec.lignes || []).forEach(function (l) { g.appendChild(ligneProfil(l)); });
+      (sec.lignes || []).forEach(function (l) { if (l) g.appendChild(ligneProfil(l)); });
       if (sec.note) {
         var note = el('div', 'p-note');
         note.appendChild(el('b', '', sec.note.fort));
@@ -6192,121 +6200,8 @@
     var b = vue.brouillon || { barres_ez: [], barres_droites: [], halteres: null };
     vider(cible);
     teteFeuille(cible, 'Ma salle', null, P.PHRASE_SALLE);
-    cible.appendChild(el('div', 'choix-groupe salle-titre', 'Barres fixes'));
-    cible.appendChild(el('p', 'feuille-aide', P.PHRASE_BARRES_FIXES));
-    [['barres_ez', 'Barre EZ'], ['barres_droites', 'Barre droite']].forEach(function (t) {
-      var type = t[0];
-      cible.appendChild(el('div', 'choix-groupe', t[1]));
-      var g = el('div', 'q-puces salle-puces');
-      g.dataset.type = type;
-      P.pucesDeBarres(b, type).forEach(function (p) {
-        var n = el('button', 'q-puce' + (p.coche ? ' on' : ''), M.nombreSigne(p.kg));
-        n.type = 'button';
-        n.dataset.kg = String(p.kg);
-        n.setAttribute('aria-pressed', p.coche ? 'true' : 'false');
-        n.addEventListener('click', function () { vue.surBasculer(type, p.kg); });
-        g.appendChild(n);
-      });
-      var plus = el('button', 'q-puce salle-plus', '＋');
-      plus.type = 'button';
-      plus.setAttribute('aria-label', 'Ajouter un poids de ' + t[1].toLowerCase());
-      g.appendChild(plus);
-      cible.appendChild(g);
-      // 159 — « J'ai aussi une barre EZ / droite qu'on charge avec des disques » (maquette `maquette-barre-ez-chargee-v1`).
-      if (vue.surBarreChargee) {
-        var oui = P.barreChargee(b, type);
-        var bas = el('button', 'salle-bascule' + (oui ? ' on' : ''));
-        bas.type = 'button';
-        bas.dataset.type = type;
-        bas.setAttribute('role', 'switch');
-        bas.setAttribute('aria-checked', oui ? 'true' : 'false');
-        bas.appendChild(el('span', '', 'J’ai aussi une ' + t[1].toLowerCase() + ' qu’on charge avec des disques'));
-        var cur = el('span', 'salle-curseur');
-        cur.setAttribute('aria-hidden', 'true');
-        cur.appendChild(el('i'));
-        bas.appendChild(cur);
-        bas.addEventListener('click', function () { vue.surBarreChargee(type, !oui); });
-        cible.appendChild(bas);
-      }
-      // « ＋ » : un champ juste dessous, et « Ajouter ». Rien ne s'ajoute avant le geste.
-      plus.addEventListener('click', function () {
-        if (g.nextSibling && g.nextSibling.className === 'salle-ajout') return;
-        var ajout = el('div', 'salle-ajout');
-        var champ = doc.createElement('input');
-        champ.type = 'number';
-        champ.inputMode = 'decimal';
-        champ.step = '0.5';
-        champ.placeholder = 'kg';
-        champ.setAttribute('aria-label', 'Poids de la barre, en kg');
-        var ok = el('button', 'discret', 'Ajouter');
-        ok.type = 'button';
-        ok.addEventListener('click', function () { vue.surAjouter(type, champ.value); });
-        ajout.appendChild(champ);
-        ajout.appendChild(ok);
-        g.parentNode.insertBefore(ajout, g.nextSibling);
-        champ.focus();
-      });
-    });
-    cible.appendChild(el('div', 'choix-groupe salle-titre', 'Haltères'));
-    // 123 — « Pas d'haltères » : le geste explicite (vider le champ ne les efface plus, 116).
-    var sans = el('div', 'q-puces salle-sans');
-    var aucun = !b.halteres;
-    var puceSans = el('button', 'q-puce' + (aucun ? ' on' : ''), 'Pas d’haltères');
-    puceSans.type = 'button';
-    puceSans.setAttribute('aria-pressed', aucun ? 'true' : 'false');
-    puceSans.addEventListener('click', function () { if (vue.surSansHalteres) vue.surSansHalteres(); });
-    sans.appendChild(puceSans);
-    cible.appendChild(sans);
-    // 123 — une ligne par tranche (« Jusqu'à … kg, de … en … ») ; sans haltères, une ligne vide à remplir.
-    var lignes = Array.isArray(b.halteres) && b.halteres.length ? b.halteres : [null];
-    lignes.forEach(function (h, i) {
-      var ligneMax = el('label', 'champ-texte salle-halteres');
-      ligneMax.dataset.i = String(i);
-      ligneMax.appendChild(el('span', '', 'Jusqu’à (par haltère, en kg)'));
-      var max = doc.createElement('input');
-      max.type = 'number';
-      max.inputMode = 'decimal';
-      max.step = '0.5';
-      max.placeholder = 'Non renseigné';
-      max.value = h && h.jusqua !== null && h.jusqua !== undefined ? String(h.jusqua) : '';
-      // ⚠️ SANS REDESSIN : la saisie met le brouillon à jour, la feuille ne se refait pas sous le doigt (un redessin
-      // au `blur` arrachait le champ pendant qu'on touchait une puce). Seule la puce « Pas d'haltères » suit.
-      max.addEventListener('input', function () {
-        vue.surMaxHalteres(max.value, i);
-        if (vue.aucunHaltere) {
-          var non = vue.aucunHaltere();
-          puceSans.className = 'q-puce' + (non ? ' on' : '');
-          puceSans.setAttribute('aria-pressed', non ? 'true' : 'false');
-        }
-      });
-      ligneMax.appendChild(max);
-      cible.appendChild(ligneMax);
-      cible.appendChild(el('div', 'choix-groupe', 'De … en …'));
-      var pas = el('div', 'q-puces salle-pas');
-      pas.dataset.i = String(i);
-      P.SALLE_PAS_PROPOSES.forEach(function (v) {
-        var on = !!h && h.pas === v;
-        var n = el('button', 'q-puce' + (on ? ' on' : ''), M.nombreSigne(v) + ' kg');
-        n.type = 'button';
-        n.dataset.pas = String(v);
-        n.setAttribute('aria-pressed', on ? 'true' : 'false');
-        n.addEventListener('click', function () { vue.surPasHalteres(v, i); });
-        pas.appendChild(n);
-      });
-      cible.appendChild(pas);
-      if (lignes.length > 1 && vue.surRetirerTranche) {
-        var retirer = el('button', 'discret salle-retirer', 'Retirer cette tranche');
-        retirer.type = 'button';
-        retirer.addEventListener('click', function () { vue.surRetirerTranche(i); });
-        cible.appendChild(retirer);
-      }
-    });
-    if (vue.surAjouterTranche && P.peutAjouterTranche(b)) {
-      var ajout = el('button', 'discret salle-tranche', '+ Une tranche');
-      ajout.type = 'button';
-      ajout.addEventListener('click', vue.surAjouterTranche);
-      cible.appendChild(ajout);
-    }
+    // 163 (24/10/2026, décision d'Aurélien) — « Ma salle » ne garde que les élastiques : plus de barres fixes, plus de
+    // haltères, plus de bascule « barre chargée ». Le coach lit ces charges dans l'historique (MOTEUR §10.2 bis).
     // 132 (ECRAN-PROFIL §2.4 sexies, maquette `maquette-elastiques-v2.html`, écran 1) — LES DEUX LISTES et le choix.
     if (vue.surAjouterElastique) elastiquesDeLaSalle(cible, b, vue);
     cible.appendChild(el('p', 'feuille-err', vue.erreur || ''));
@@ -6446,6 +6341,90 @@
     });
     cible.appendChild(l);
     piedFeuille(cible, [{ classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler }]);
+    return cible;
+  }
+
+  // 163 (MOTEUR §10 ter, ECRAN-SAISIE §3 ter.6) — « AJOUTE TES ÉLASTIQUES » : au premier usage, la feuille où l'on
+  // choisit PAR SON NOM (Noir, Rouge… du plus fort au plus léger) ou PAR SON POIDS (kg). `vue` : `{ exercice, mini,
+  // noms: [...], erreur, surValider({ noms, kgs }), surAnnuler }`. Elle ne décide rien : la liste rangée et le réglage
+  // « par son nom » sont ceux de `THProfil.elastiquesAjoutes`.
+  function rendreFeuilleAjoutElastiques(cible, vue) {
+    vider(cible);
+    teteFeuille(cible, 'Ajoute tes élastiques', vue.exercice, null);
+    cible.appendChild(el('p', 'feuille-aide', vue.mini
+      ? 'Tes mini-bandes, par leur nom. Le coach les range du plus fort au plus léger.'
+      : 'Choisis tes élastiques par leur nom, ou par leur poids. Tu pourras les ranger dans le Profil, Ma salle.'));
+    var choisis = {};
+    var mode = 'nom';
+    var corps = el('div', 'el-ajout-corps');
+    var segment = el('div', 'el-choix');
+    var champKg = null;
+    var dessiner = function () {
+      vider(corps);
+      if (mode === 'nom') {
+        var puces = el('div', 'q-puces salle-puces el-noms');
+        (vue.noms || []).forEach(function (nom) {
+          var on = choisis[nom] === true;
+          var b = el('button', 'q-puce' + (on ? ' on' : ''), '');
+          b.type = 'button';
+          b.dataset.nom = nom;
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+          b.appendChild(pastille(nom));
+          b.appendChild(el('span', 'el-nom', nom));
+          b.addEventListener('click', function () { choisis[nom] = !choisis[nom]; dessiner(); });
+          puces.appendChild(b);
+        });
+        corps.appendChild(puces);
+        corps.appendChild(el('div', 'el-ordre')).appendChild(el('span', '', 'le plus fort'));
+      } else {
+        var lab = el('label', 'champ-texte');
+        lab.appendChild(el('span', '', 'Le poids de ton aide, en kg (plusieurs : 10, 20, 35)'));
+        champKg = doc.createElement('input');
+        champKg.type = 'text';
+        champKg.inputMode = 'decimal';
+        champKg.placeholder = 'kg';
+        champKg.className = 'el-champ-kg';
+        champKg.setAttribute('aria-label', 'Poids des élastiques, en kg');
+        lab.appendChild(champKg);
+        corps.appendChild(lab);
+      }
+    };
+    if (!vue.mini) {
+      [['nom', 'par son nom'], ['kg', 'par son poids']].forEach(function (c) {
+        var bt = el('button', 'q-puce' + (c[0] === mode ? ' on' : ''), c[1]);
+        bt.type = 'button';
+        bt.dataset.choix = c[0];
+        bt.addEventListener('click', function () {
+          mode = c[0];
+          Array.prototype.forEach.call(segment.children, function (x) {
+            x.className = 'q-puce' + (x.dataset.choix === mode ? ' on' : '');
+            x.setAttribute('aria-pressed', x.dataset.choix === mode ? 'true' : 'false');
+          });
+          dessiner();
+        });
+        bt.setAttribute('aria-pressed', c[0] === mode ? 'true' : 'false');
+        segment.appendChild(bt);
+      });
+      cible.appendChild(segment);
+    }
+    cible.appendChild(corps);
+    dessiner();
+    cible.appendChild(el('p', 'feuille-err', vue.erreur || ''));
+    piedFeuille(cible, [
+      { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler },
+      { classe: 'pri', texte: 'Valider', surClic: function () {
+        var noms = Object.keys(choisis).filter(function (n) { return choisis[n]; });
+        var kgs = [];
+        if (mode === 'kg' && champKg) {
+          String(champKg.value || '').split(/;\s*|,\s+|\s+/).forEach(function (t) {
+            var v = t.trim() === '' ? null : M().lireNombre(t);
+            if (v !== null) kgs.push(v);
+          });
+          if (String(champKg.value || '').trim() !== '' && !kgs.length) kgs.push(NaN);
+        }
+        vue.surValider({ noms: noms, kgs: kgs });
+      } }
+    ]);
     return cible;
   }
 
@@ -8111,6 +8090,7 @@
     rendreFeuilleEcartes: rendreFeuilleEcartes,
     rendreFeuilleSalle: rendreFeuilleSalle,
     rendreFeuilleElastique: rendreFeuilleElastique,
+    rendreFeuilleAjoutElastiques: rendreFeuilleAjoutElastiques,
     rendreFeuilleBlocEnCours: rendreFeuilleBlocEnCours,
     rendreFeuilleDupliquer: rendreFeuilleDupliquer,
     rendreFeuilleMenuDossier: rendreFeuilleMenuDossier,

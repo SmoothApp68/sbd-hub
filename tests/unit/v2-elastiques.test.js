@@ -132,7 +132,8 @@ describe('132 — Ma salle lit et écrit les élastiques (ECRAN-PROFIL §2.4 sex
   });
   test('le résumé de Ma salle les nomme', () => {
     expect(Profil.resumeSalle({ ma_salle: { elastiques: GRANDS, mini_bandes: MINI } })).toBe('Élastiques, mini-bandes');
-    expect(Profil.resumeSalle({ ma_salle: { barres_ez: [10], elastiques: GRANDS } })).toBe('EZ, élastiques');
+    // 163 — INVERSÉ (avant : « EZ, élastiques ») : les barres fixes ne se résument plus.
+    expect(Profil.resumeSalle({ ma_salle: { barres_ez: [10], elastiques: GRANDS } })).toBe('Élastiques');
   });
 });
 

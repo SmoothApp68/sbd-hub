@@ -68,6 +68,9 @@ function profilEcran(profil, options) {
     ouvrirProgrammeProfil: (quoi) => { programmesOuverts.push(quoi); },
     // 108 — « Ma salle » (MOTEUR §10 bis) : la feuille qu'ouvre la ligne.
     ouvrirSalleProfil: () => { sallesOuvertes.push(true); },
+    // 163 — « Ma salle » n'apparaît que si un exercice à l'élastique est dans une routine, l'historique ou la séance
+    // en cours : `options.elastique` le dit (absent : aucun, la ligne n'est pas là).
+    unExerciceALElastique: () => !!opt.elastique,
     // 60-3b — « pris entre-temps » : l'état retenu en local par compte (`pseudoPrisSignale`, app.js).
     pseudoPrisSignale: () => !!opt.pseudoPris,
     // 70 — la phrase en tête du Profil après un changement de mot de passe (aucune ici).

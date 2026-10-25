@@ -29,21 +29,9 @@ const INDEX = {
 const charges = (p, slug) => (Profil.salleDeLExercice(p, slug, INDEX) || {}).charges;
 
 describe('159 — Profil.salleDeLExercice et la barre qu’on charge', () => {
-  test('EZ cochée : les barres fixes, puis des crans de 2,5 jusqu’à 100', () => {
-    expect(charges(salle({ barre_ez_chargee: true }), 'curl_biceps_barre_ez')).toEqual(FIXES.concat(CRANS));
-  });
-  test('non cochée, false ou absente : inchangé', () => {
-    expect(charges(salle({}), 'curl_biceps_barre_ez')).toEqual(FIXES);
-    expect(charges(salle({ barre_ez_chargee: false }), 'curl_biceps_barre_ez')).toEqual(FIXES);
-  });
   test('cochée sans barre fixe EZ : null', () => {
     expect(Profil.salleDeLExercice({ ma_salle: { barres_ez: [], barres_droites: FIXES, halteres: null, barre_ez_chargee: true } },
       'curl_biceps_barre_ez', INDEX)).toBeNull();
-  });
-  test('la bascule EZ ne touche pas la droite, et réciproquement', () => {
-    expect(charges(salle({ barre_ez_chargee: true }), 'curl_biceps_barre')).toEqual(FIXES);
-    expect(charges(salle({ barre_droite_chargee: true }), 'curl_biceps_barre_ez')).toEqual(FIXES);
-    expect(charges(salle({ barre_droite_chargee: true }), 'curl_biceps_barre')).toEqual(FIXES.concat(CRANS));
   });
   test('un exercice `barre_charge_fixe === false` n’est jamais touché', () => {
     expect(Profil.salleDeLExercice(salle({ barre_droite_chargee: true }), 'rowing_barre', INDEX)).toBeNull();
@@ -55,10 +43,6 @@ describe('159 — Profil.salleDeLExercice et la barre qu’on charge', () => {
     const off = Profil.champsSalle(Profil.poserBarreChargee(b, 'barres_ez', false)).ma_salle;
     expect('barre_ez_chargee' in off).toBe(false);
     expect(Profil.champsSalle({ barres_ez: FIXES, barre_ez_chargee: 'oui' })).toBeNull();
-  });
-  test('seule, la bascule est une déclaration (la salle n’est pas vide) et se résume', () => {
-    const p = { ma_salle: { barre_ez_chargee: true } };
-    expect(Profil.resumeSalle(p)).toBe('Barre EZ chargée');
   });
 });
 
@@ -75,12 +59,14 @@ describe('159 — le coach teste 32,5 kg au lieu de l’état salle_max', () => 
   const consigne = (p) => M.consigneDExercice(hist(), undefined, jour('10-14'),
     Object.assign({ salle: Profil.salleDeLExercice(p, 'curl_biceps_barre_ez', INDEX) }, O)).consigne;
 
-  test('⚠️ DISCRIMINANT — avec la bascule : test_propose, ligne haute 32,5', () => {
-    const c = consigne(salle({ barre_ez_chargee: true }));
-    expect(c.etat).toBe('test_propose');
-    expect(c.haut.charge).toBe(32.5);
-  });
-  test('sans la bascule : salle_max, comme avant', () => {
-    expect(consigne(salle({})).etat).toBe('salle_max');
+  // 163 (24/10/2026) — REPRIS : la bascule « barre chargée » n'est plus lue (« Ma salle » ne garde que les élastiques).
+  // Sans salle, 30 kg × 12 de la dernière séance teste 32,5 kg, jamais faite : APPROCHÉE (« ≈ 32,5 kg »).
+  test('⚠️ DISCRIMINANT — bascule ou non : test_propose, ligne haute 32,5 approchée (plus de salle_max)', () => {
+    [salle({ barre_ez_chargee: true }), salle({})].forEach((p) => {
+      const c = consigne(p);
+      expect(c.etat).toBe('test_propose');
+      expect(c.haut.charge).toBe(32.5);
+      expect(c.haut.approchee).toBe(true);
+    });
   });
 });

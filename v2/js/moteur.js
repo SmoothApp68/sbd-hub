@@ -624,10 +624,18 @@
   var EQUIPEMENT_LEST = 'lest';
   var SAUT_LEST = 2.5;
 
+  // 163 (24/10/2026, décision d'Aurélien) — LE PAS PAR MATÉRIEL EST COMPLET : plus jamais une charge « sans chiffre » pour
+  // un exercice en kg. Machine 5, poulie 2,5, kettlebell 4 (la série 8 · 12 · 16 · 20 · 24), en plus de la barre et du
+  // Smith 2,5 et des haltères (la PAIRE : +2 jusqu'à 20 kg, +4 au-delà, soit 1 kg par haltère jusqu'à 10 kg, puis 2).
+  // Une charge qui sort de ce repli n'a JAMAIS été faite : elle se dit approchée (`estApprochee`, « ≈ »).
+  // Sans pas : disque, élastique, aucun (rien qui se monte en kg). Les « sacs à poignées » n'existent pas au catalogue.
   var REPLI_MATERIEL = {
     barre:         { pas: 2.5 },
     machine_smith: { pas: 2.5 },
-    haltere:       { pas: 2, pasLourd: 4, bascule: 20 }
+    haltere:       { pas: 2, pasLourd: 4, bascule: 20 },
+    machine:       { pas: 5 },
+    poulie:        { pas: 2.5 },
+    kettlebell:    { pas: 4 }
   };
   REPLI_MATERIEL[EQUIPEMENT_LEST] = { pas: SAUT_LEST };
 
@@ -971,6 +979,48 @@
     if (repli !== null) return auCentieme(p + dir * repli);
 
     return null;
+  }
+
+  // 163 (MOTEUR §10.2 bis) — UNE CHARGE APPROCHÉE est une charge que le coach propose sans qu'elle ait jamais été faite
+  // sur cet exercice, et sans qu'un pas EXACT de l'historique la porte : elle sort du repli du matériel. L'écran la dit
+  // « ≈ 35 kg » et demande de viser la charge la plus proche que la salle permet ; ce qui est noté devient une charge
+  // CONNUE (l'historique suffit, rien à écrire) et le « ≈ » disparaît à la séance suivante. Faux sans matériel au repli
+  // (disque, élastique, aucun), pour le poids du corps et pour une charge nulle ou négative.
+  function estApprochee(seances, avant, charge, equipement) {
+    var c = nombre(charge);
+    if (c === null || c <= 0 || instant(avant) === null) return false;
+    if (!Object.prototype.hasOwnProperty.call(REPLI_MATERIEL, equipement)) return false;
+    var ant = anterieures(seances, avant);
+    for (var i = 0; i < ant.length; i++) {
+      var cs = chargesDe(ant[i]);
+      for (var j = 0; j < cs.length; j++) if (memeCharge(cs[j], c)) return false;
+    }
+    var pas = pasDeSalle(seances, avant);
+    return !(pas && pas.nature === 'exact');
+  }
+  // La phrase sous la ligne, par matériel (maquette `maquette-cran-suivant-v3`, validée le 24/10/2026).
+  var PHRASES_APPROCHEE = {
+    defaut: 'vise la charge la plus proche que ta machine permet — la plaque au-dessus, ou un petit poids ajouté si elle en a. Note ce que tu as mis.',
+    barre: 'vise la barre au-dessus, ou des petits disques si ta barre se charge. Note ce que tu as mis.',
+    machine_smith: 'vise la barre au-dessus, ou des petits disques si ta barre se charge. Note ce que tu as mis.',
+    haltere: 'vise l’haltère au-dessus. Note ce que tu as mis.',
+    poulie: 'vise la plaque au-dessus, ou un petit disque si ta poulie en a. Note ce que tu as mis.',
+    kettlebell: 'vise le kettlebell au-dessus. Note ce que tu as mis.'
+  };
+  // La phrase, avec la charge approchée en tête (« ≈ 35 kg : vise la charge la plus proche… ») quand la consigne est
+  // donnée : les charges passent par le formateur de la voix (citations I26, mêmes rôles que l'en-tête).
+  function phraseApprochee(equipement, consigne) {
+    var base = Object.prototype.hasOwnProperty.call(PHRASES_APPROCHEE, equipement) && equipement !== 'defaut'
+      ? PHRASES_APPROCHEE[equipement] : PHRASES_APPROCHEE.defaut;
+    var morceaux = [];
+    ['ligne', 'haut'].forEach(function (r) {
+      var l = consigne && consigne[r];
+      if (l && l.approchee === true && nombre(l.charge) !== null) {
+        var t = '\u2248' + INSECABLE + enKg(l.charge, cite(CIBLE, { role: r }));
+        if (morceaux.indexOf(t) < 0) morceaux.push(t);
+      }
+    });
+    return morceaux.length ? morceaux.join(' et ') + DEUX_POINTS + base : base;
   }
 
   // §10.2 (delta 49-36) et §9.23 (55-1) — LE PLANCHER DES 12 MOIS d'un
@@ -1574,6 +1624,20 @@
         for (var k in plus) {
           if (Object.prototype.hasOwnProperty.call(plus, k)) f[k] = plus[k];
         }
+      }
+      // 163 — UNE CHARGE JAMAIS FAITE SE DIT APPROCHÉE : la ligne ou le test dont la charge sort du repli du matériel
+      // porte `approchee: true`, et le fondement aussi (I51 les lit ensemble). Jamais avec une salle (les élastiques).
+      if (!salle && !poidsDuCorps) {
+        var marque = false;
+        if (ligne && estApprochee(vues, avant, ligne.charge, equipement)) {
+          ligne = Object.assign({}, ligne, { approchee: true });
+          marque = true;
+        }
+        if (haut && estApprochee(vues, avant, haut.charge, equipement)) {
+          haut = Object.assign({}, haut, { approchee: true });
+          marque = true;
+        }
+        if (marque) f.approchee = true;
       }
       return {
         etat: etat, zone: zone === null ? null : zone.cle, palier: P, niveau: niv,
@@ -3415,8 +3479,9 @@
   }
   // « 125 kg × 5 » — une ligne de la consigne, la charge d'abord (§20.2). La
   // visée passe par le formateur, avec la charge : une seule citation.
-  function ligneFois(charge, vise, tete, dessous, c) {
-    return Modele().chargeFois(charge, vise, motDuCran(tete, dessous), c);
+  // 163 — `approchee` : la charge n'a jamais été faite, le formateur la précède de « ≈ ».
+  function ligneFois(charge, vise, tete, dessous, c, approchee) {
+    return Modele().chargeFois(charge, vise, motDuCran(tete, dessous), c, approchee === true);
   }
 
   // ⚠️ L'ORDRE DES DEUX LIGNES EST UNE RÈGLE, pas un goût. La ligne majoritaire
@@ -3439,18 +3504,19 @@
     var dessous = c.etat === 'reprise_longue' || c.etat === 'nouvelle_zone';
     var ligne = c.ligne, haut = c.haut;
     var cL = cite(nat, { role: 'ligne' }), cH = cite(nat, { role: 'haut' });
-    if (!haut) return [ligneFois(ligne.charge, ligne.vise, true, dessous, cL)];
-    if (!ligne) return [ligneFois(haut.charge, haut.vise, true, false, cH)];
+    var aL = !!ligne && ligne.approchee === true, aH = !!haut && haut.approchee === true;
+    if (!haut) return [ligneFois(ligne.charge, ligne.vise, true, dessous, cL, aL)];
+    if (!ligne) return [ligneFois(haut.charge, haut.vise, true, false, cH, aH)];
     if (haut.k === 1) {
       return [
-        ligneFois(ligne.charge, ligne.vise, true, dessous, cL),
-        'puis ' + ligneFois(haut.charge, haut.vise, false, false, cH) + ' sur la dernière série'
+        ligneFois(ligne.charge, ligne.vise, true, dessous, cL, aL),
+        'puis ' + ligneFois(haut.charge, haut.vise, false, false, cH, aH) + ' sur la dernière série'
       ];
     }
     var restantes = c.n - haut.k;
     return [
-      ligneFois(haut.charge, haut.vise, true, false, cH) + ' sur les ' + nombreFr(haut.k, regle('series')) + ' dernières séries',
-      ligneFois(ligne.charge, ligne.vise, false, dessous, cL) +
+      ligneFois(haut.charge, haut.vise, true, false, cH, aH) + ' sur les ' + nombreFr(haut.k, regle('series')) + ' dernières séries',
+      ligneFois(ligne.charge, ligne.vise, false, dessous, cL, aL) +
         (restantes === 1 ? ' sur celle d\'avant' : ' sur les ' + nombreFr(restantes, regle('series')) + ' d\'avant')
     ];
   }
@@ -3484,18 +3550,20 @@
       var src = r === 'haut' ? (c.haut || c.ligne) : (c.ligne || c.haut);
       var der = segments[segments.length - 1];
       if (der && der.role === r) { der.nombre++; return; }
-      segments.push({ role: r, charge: src ? src.charge : null, vise: src ? src.vise : null, nombre: 1 });
+      segments.push({ role: r, charge: src ? src.charge : null, vise: src ? src.vise : null, nombre: 1,
+        approchee: !!src && src.approchee === true });
     });
     if (!segments.length) return { jaune: [], segments: [] };
     // Et quand TOUS les segments disent les mêmes chiffres (la ligne à la
     // charge du haut), la ligne jaune les dit une fois : « 92 kg × 11 ». Les
     // segments, eux, gardent leurs rôles (I6).
     var unSeul = segments.every(function (x) {
-      return memeCharge(nombre(x.charge), nombre(segments[0].charge)) && x.vise === segments[0].vise;
+      return memeCharge(nombre(x.charge), nombre(segments[0].charge)) && x.vise === segments[0].vise &&
+        x.approchee === segments[0].approchee;
     });
     if (segments.length > 1 && unSeul && segments[0].vise !== null && segments[0].vise !== undefined) {
       return { jaune: [ligneFois(segments[0].charge, segments[0].vise, true, false,
-        cite(CIBLE, { role: segments[0].role }))], segments: segments };
+        cite(CIBLE, { role: segments[0].role }), segments[0].approchee)], segments: segments };
     }
     var a = segments[0].role === 'ligne' ? segments[0].nombre : 0;
     var b = segments[segments.length - 1].role === 'haut' ? segments[segments.length - 1].nombre : 0;
@@ -3510,8 +3578,8 @@
       if (!pourLaFeuille && a > 0 && b > 0 && c.etat !== 'reprise_longue' && c.etat !== 'nouvelle_zone') {
         return { jaune: [
           'Aujourd\'hui' + DEUX_POINTS + ligneFois(c.ligne.charge, c.ligne.vise, false, false,
-            cite(CIBLE, { role: 'ligne' })) + '.',
-          'Si ça passe, ' + ligneFois(c.haut.charge, c.haut.vise, false, false, cite(CIBLE, { role: 'haut' })) +
+            cite(CIBLE, { role: 'ligne' }), c.ligne.approchee === true) + '.',
+          'Si ça passe, ' + ligneFois(c.haut.charge, c.haut.vise, false, false, cite(CIBLE, { role: 'haut' }), c.haut.approchee === true) +
             (b === 1 ? ', à la série que tu veux' : ' sur ' + nombreFr(b, regle('series')) + ' séries, celles que tu veux') + '.'
         ], segments: segments };
       }
@@ -3527,7 +3595,7 @@
       if (s.charge === undefined || s.vise === undefined) return null;
       var tete = i === 0;
       return (tete ? '' : 'puis ') + ligneFois(s.charge, s.vise, tete, s.role === 'ligne' && dessous,
-        cite(CIBLE, { role: s.role })) +
+        cite(CIBLE, { role: s.role }), s.approchee) +
         (s.nombre === 1 ? ' sur une série' : ' sur ' + nombreFr(s.nombre, regle('series')) + ' séries');
     }).filter(Boolean);
     return { jaune: jaune, segments: segments };
@@ -4270,8 +4338,8 @@
   //
   // `reference` : la date de la séance du jour — « 3 reps mardi » se lit contre
   // elle, jamais contre l'horloge.
-  function constatDe(consigneAvant, consigneApres, reglage, cranSuivant, reference) {
-    var d = constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference);
+  function constatDe(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche) {
+    var d = constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche);
     if (!d) return null;
     Modele().reporter(d.verdict.citations);
     Modele().reporter(d.suite.citations);
@@ -4281,7 +4349,7 @@
   // §20 bis (49-U19) — le verdict et la suite, chacun RÉDIGÉ DANS SA CAPTURE
   // (`{ texte, citations }`) : un verdict remplacé (la montée tenue) ne laisse
   // pas ses citations derrière lui.
-  function constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference) {
+  function constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche) {
     if (!consigneAvant || !consigneApres) return null;
     var ap = consigneApres.fondement || {};
     var av = consigneAvant.fondement || {};
@@ -4307,7 +4375,7 @@
              }),
              suite: V.capturer(function () {
                return suiteDuJour(consigneAvant, consigneApres, z, reglage,
-                                  faitAujourdHui, cranSuivant);
+                                  faitAujourdHui, cranSuivant, cranApproche === true);
              }) };
   }
 
@@ -4662,7 +4730,7 @@
 
   // Ce qui vient. La consigne d'après le dit déjà en jaune : on la reprend
   // telle quelle plutôt que de la réécrire.
-  function suiteDuJour(cAvant, cApres, z, reglage, fait, cranSuivant) {
+  function suiteDuJour(cAvant, cApres, z, reglage, fait, cranSuivant, cranApproche) {
     if (cApres.etat === 'silence') return null;
     // Rédigée à la demande : seule la branche qui l'écrit la déclare (§20 bis).
     var prochaine = function () { return 'Prochaine séance' + DEUX_POINTS + lignesJaunes(cApres, SUIVANTE).join(', ') + '.'; };
@@ -4702,7 +4770,7 @@
           nombre(cApres.palier) !== 0) {
         var manque = z.haut - fait;
         return 'Il te manque ' + (manque === 1 ? 'une rep' : nombreFr(manque, regle('manque')) + ' reps') +
-               ' pour tester ' + enKg(cranSuivant, regle('cran_suivant')) + '.';
+               ' pour tester ' + (cranApproche === true ? '\u2248' + INSECABLE : '') + enKg(cranSuivant, regle('cran_suivant')) + '.';
       }
     }
     return prochaine();
@@ -5367,6 +5435,15 @@
   // moins (au moins 1), aucune ligne haute, et ne COUVRE que les premières
   // séries (`couvre`). `allegee` porte de quoi écrire l'en-tête et l'invariant.
   // `decharge` : la semaine est la décharge planifiée d'un programme (§9.22).
+  // 163 — le fondement d'une consigne RECONSTRUITE (allégée, repli) dit « approchée » exactement quand sa ligne la porte
+  // (I61) : l'allégée garde la charge de sa source, le repli repart d'une charge tenue (connue).
+  function fondementApproche(c, approchee) {
+    if (!c.fondement || typeof c.fondement !== 'object') return c.fondement;
+    var f = Object.assign({}, c.fondement);
+    if (approchee === true) f.approchee = true; else delete f.approchee;
+    return f;
+  }
+
   function consigneAllegee(consigne, seriesRoutine, decharge, rang) {
     var c = consigne || null;
     if (!c || c.etat === 'silence') return c;
@@ -5376,8 +5453,10 @@
     var series = seriesAllegees(routine);
     var vise = nombre(src.vise);
     return Object.assign({}, c, {
-      ligne: { charge: src.charge, vise: vise === null ? null : Math.max(1, vise - REPS_EN_MOINS) },
+      ligne: Object.assign({ charge: src.charge, vise: vise === null ? null : Math.max(1, vise - REPS_EN_MOINS) },
+        src.approchee === true ? { approchee: true } : {}),
       haut: null,
+      fondement: fondementApproche(c, src.approchee === true),
       n: series,
       couvre: series,
       allegee: decharge === true
@@ -6095,6 +6174,7 @@
     return Object.assign({}, c, {
       ligne: { charge: repli.ligne[0], vise: repli.ligne[1] },
       haut: null,
+      fondement: fondementApproche(c, false),
       repli: { palier: repli.palier, niveau: repli.niveau, debut: repli.debut, reps: (repli.reps || []).slice() }
     });
   }
@@ -7515,11 +7595,14 @@
     // §9.17 — au poids du corps (palier 0), il n'y a pas de cran suivant.
     // §10 bis (108) — la salle : le cran suivant est une charge qu'elle fait,
     // ou rien (« il te manque une rep pour tester… » ne se dit pas au-delà).
-    var cran = P === null || P === undefined || P === 0 ? null
-      : voisineSalleComprise(contratDe(tous, etat, o.mesure,
-          { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null }),
-        apres, P, o.equipement, 1, P > 0 ? salleEnVigueur(o.salle || null, P) : null);
-    return { apres: cApres, cranSuivant: cran };
+    var contrat = P === null || P === undefined || P === 0 ? null
+      : contratDe(tous, etat, o.mesure,
+          { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null });
+    var salleDuCran = P > 0 ? salleEnVigueur(o.salle || null, P) : null;
+    var cran = contrat === null ? null : voisineSalleComprise(contrat, apres, P, o.equipement, 1, salleDuCran);
+    // 163 — le cran suivant jamais fait se dit « ≈ » (« Il te manque une rep pour tester ≈ 45 kg »).
+    var approche = cran !== null && !salleDuCran && estApprochee(contrat, apres, cran, o.equipement);
+    return { apres: cApres, cranSuivant: cran, cranSuivantApprochee: approche };
   }
 
   // ── §3.9, §9.13 bis (49-U4) — LE CONSTAT LU SUR LE PLAN (I10) ────────────
@@ -7550,8 +7633,8 @@
   // règle. Rend `{ verdict, suite, montee }`, ou `null`.
   //
   // `reference` : la date de la séance du jour (le plan la tient de sa séance).
-  function constatDuJour(consigneAvant, consigneApres, reglage, cranSuivant, jour, reference) {
-    var d = constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference);
+  function constatDuJour(consigneAvant, consigneApres, reglage, cranSuivant, jour, reference, cranApproche) {
+    var d = constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche);
     if (!d) return null;
     var base = { verdict: d.verdict.texte, suite: d.suite.texte };
     Modele().reporter(d.suite.citations);
@@ -8041,6 +8124,8 @@
     anterieures: anterieures,
     pasDeSalle: pasDeSalle,
     chargeVoisine: chargeVoisine,
+    estApprochee: estApprochee,
+    phraseApprochee: phraseApprochee,
     ecartHabituel: ecartHabituel,
     repriseDe: repriseDe,
     consignePour: consignePour,

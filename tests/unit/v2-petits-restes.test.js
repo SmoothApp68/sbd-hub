@@ -92,8 +92,8 @@ describe('144-8 — deux vérifications d\'échelle', () => {
       curl_biceps_barre_ez: { slug: 'curl_biceps_barre_ez', nom: 'Curl Biceps (Barre EZ)', equipement: 'barre', barre_charge_fixe: true }
     };
     expect(Profil.salleDeLExercice({ ma_salle: SALLE }, 'curl_barre_chargee', index)).toBeNull();
-    expect(Profil.salleDeLExercice({ ma_salle: SALLE }, 'curl_biceps_barre_ez', index))
-      .toEqual(expect.objectContaining({ materiel: 'barre_ez', charges: [10, 20, 30] }));
+    // 163 — INVERSÉ (avant : la salle des barres EZ `[10, 20, 30]`) : « Ma salle » ne garde que les élastiques.
+    expect(Profil.salleDeLExercice({ ma_salle: SALLE }, 'curl_biceps_barre_ez', index)).toBeNull();
   });
 
   test('l\'échelle des pompes : déclinées après « pompes » (rang), avant l\'archer, dans l\'ordre de la spec', () => {

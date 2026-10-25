@@ -5478,6 +5478,10 @@ const SETS_IMPORTES = [
   const sesSeries = (id) => base.sets.filter((x) => x.session_id === id);
   const ouvrirMenuDe = async (titre) => {
     await aller('/');
+    // 165 — la liste se dessine après l'arrivée sur la route : on attend l'enveloppe qui porte le titre avant de cliquer.
+    await attendreQue(() => page.evaluate((t) => Array.from(document.querySelectorAll('.seance-enveloppe'))
+      .some((e) => e.querySelector('.seance') && e.querySelector('.seance').textContent.indexOf(t) >= 0), titre),
+    15000, '7 quaterdecies · l’enveloppe « ' + titre + ' » est dessinée');
     await page.evaluate((t) => {
       const env = Array.from(document.querySelectorAll('.seance-enveloppe'))
         .filter((e) => e.querySelector('.seance').textContent.indexOf(t) >= 0)[0];
@@ -24106,6 +24110,9 @@ const SETS_IMPORTES = [
   // légère la reposent. Tout est retiré à la fin.
   {
     const t127 = Date.now();
+    // 165 — les blocs de « cycles » (leur semaine de décharge planifiée) rendraient NEUTRES les séances d'il y a 28 à 3 jours :
+    // une séance de décharge ne sert plus de référence. Retirés de l'appareil, rendus à la fin.
+    const rendreBlocs127 = await retirerBlocsDeLAppareil();
     const erreurs127 = erreurs.length;
     const refus127 = base.journal.filter((j) => j.op === 'refus').length;
     const violations127 = gardeBanc.violations;
@@ -24272,6 +24279,7 @@ const SETS_IMPORTES = [
     base.sessions = base.sessions.filter((x) => sessions127.indexOf(x.id) < 0);
     profil127().marche_reponses = marcheAvant127 === undefined ? null : marcheAvant127;
     await aller('/saisie');
+    rendreBlocs127();
     ok('[127] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
       gardeBanc.violations === violations127 && base.journal.filter((j) => j.op === 'refus').length === refus127 &&
         erreurs.length === erreurs127,

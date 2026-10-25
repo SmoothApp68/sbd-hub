@@ -25369,6 +25369,8 @@ const SETS_IMPORTES = [
     const violationsAvant = gardeBanc.violations;
     const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
     const routinesAvant = ROUTINES.length;
+    // 165 — les blocs d'une section d'avant (« cycles ») rendraient NEUTRES les séances d'il y a 14 jours : retirés, rendus à la fin.
+    const rendreBlocs169 = await retirerBlocsDeLAppareil();
     CATALOGUE.push({ slug: 'jb169-a', nom: 'Exercice JB169 A (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
       muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
     CATALOGUE.push({ slug: 'jb169-b', nom: 'Exercice JB169 B (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
@@ -25461,6 +25463,7 @@ const SETS_IMPORTES = [
     await abandonner();
 
     // LA REMISE EN ÉTAT.
+    rendreBlocs169();
     ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
     CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
     base.sessions = sessionsAvant;

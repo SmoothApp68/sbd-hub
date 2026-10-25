@@ -2180,6 +2180,13 @@ const SETS_IMPORTES = [
   // on garde le délai fixe d'avant, qui est ici une mesure, pas une attente.
   const retenueEnCours = () => !!(base.lenteur || base.lenteurPredictions || base.lenteurRecords ||
     base.lenteurProfil || base.lenteurObjectifs || (base.courseSync && !(base.courseSync.envoye && base.courseSync.lectures >= 2)));
+  // 171 — « Le coach te dit (n) » : échelles, ce qui manque, cycles et phase vivent dans une ligne repliée. Le geste qui
+  // précède un toucher sur l'une d'elles : ouvrir la ligne (s'il y en a une et qu'elle est fermée). Ce que les bancs
+  // vérifient ne change pas.
+  const ouvrirAvis = () => page.evaluate(() => {
+    const c = document.getElementById('avis-corps'), l = document.getElementById('avis-ligne'), a = document.getElementById('avis-coach');
+    if (c && l && a && !a.hidden && c.hidden) l.click();
+  });
   const aller = async (chemin) => {
     const retenue = retenueEnCours();
     await page.goto(BASE + (chemin || '/'), { waitUntil: 'domcontentloaded' }).catch(() => {});
@@ -16155,6 +16162,8 @@ const SETS_IMPORTES = [
       await aller('/saisie');
     };
     const bandeauPh = () => page.evaluate(() => {
+      { const c = document.getElementById('avis-corps'), l = document.getElementById('avis-ligne'), a = document.getElementById('avis-coach');
+        if (c && l && a && !a.hidden && c.hidden) l.click(); }   // 171 : la phase vit dans « Le coach te dit »
       const b = document.querySelector('#bandeau-phase');
       const q = document.querySelector('#bandeau-questionnaire');
       const t = (sel) => { const n = b && b.querySelector(sel); return n ? n.textContent : null; };
@@ -16163,7 +16172,7 @@ const SETS_IMPORTES = [
       return { visible: affiche(b), quoi: t('.reprise-quoi'), gris: t('.reprise-depuis'),
         boutons: b ? Array.from(b.querySelectorAll('button')).map((x) => x.textContent) : [],
         questionnaireVisible: affiche(q),
-        apresQuestionnaire: b && q ? !!(q.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) : null };
+        avantQuestionnaire: b && q ? !!(b.compareDocumentPosition(q) & Node.DOCUMENT_POSITION_FOLLOWING) : null };  // 171 : la phase (B) passe AVANT le questionnaire (C, en bas)
     });
     const feuilleP = () => page.evaluate(() => ({
       ouverte: !document.querySelector('#feuille-seance').hidden,
@@ -16223,13 +16232,14 @@ const SETS_IMPORTES = [
       await attendre(800);
     }
     b = await bandeauPh();
-    ok('[PH60] DISCRIMINANT — le questionnaire pas terminé ET le rappel dû : les deux bandeaux, celui du questionnaire AU-DESSUS',
-      b.visible && b.questionnaireVisible && b.apresQuestionnaire === true, JSON.stringify(b));
+    ok('[PH60] DISCRIMINANT — le questionnaire pas terminé ET le rappel dû : la phase dans « Le coach te dit », le questionnaire en bas (C) ; la phase passe avant lui',
+      b.visible && b.questionnaireVisible && b.avantQuestionnaire === true, JSON.stringify(b));
 
     // 5. « C'EST TOUJOURS ÇA ».
     await rouvrir();
     const phaseAvant = profilBase().phase, depuisAvant = profilBase().phase_depuis;
     const ecritsAvant = ecritsProfil();
+    await ouvrirAvis();
     await page.click('#bandeau-phase .principal');
     await attendre(1200);
     b = await bandeauPh();
@@ -16244,6 +16254,7 @@ const SETS_IMPORTES = [
     // 6. « CHANGER ».
     await rouvrir();
     const ecritsAvant2 = ecritsProfil();
+    await ouvrirAvis();
     await page.click('#bandeau-phase .discret');
     await attendre(600);
     let f = await feuilleP();
@@ -16259,6 +16270,7 @@ const SETS_IMPORTES = [
         !b.visible && JSON.stringify(await visible()) === saisieSeule && !(await feuilleP()).ouverte,
       JSON.stringify([profilBase().phase, profilBase().phase_depuis, profilBase().phase_confirmee_le, b, await visible()]));
     await rouvrir();
+    await ouvrirAvis();
     await page.click('#bandeau-phase .discret');
     await attendre(500);
     await page.click('#feuille-contenu .feuille-menu button[data-cle="seche"]');
@@ -16267,6 +16279,7 @@ const SETS_IMPORTES = [
       profilBase().phase === 'seche' && profilBase().phase_depuis === DUE.phase_depuis && recent(profilBase().phase_confirmee_le) &&
         !(await bandeauPh()).visible, JSON.stringify([profilBase().phase, profilBase().phase_depuis, profilBase().phase_confirmee_le]));
     await rouvrir();
+    await ouvrirAvis();
     await page.click('#bandeau-phase .discret');
     await attendre(500);
     const ecritsAvant3 = ecritsProfil();
@@ -19126,10 +19139,10 @@ const SETS_IMPORTES = [
 
     // ── A. L'INVITATION, PUIS « SUIVRE LA SÉANCE DE JORDAN » : sa LISTE, mes charges.
     let ta = Date.now();
-    await aller('/saisie');
-    await attendreQue(async () => (await compter('#groupe-accueil-saisie .g-invitation')) === 1);
-    const a0 = await texte('#groupe-accueil-saisie');
-    await page.click('#groupe-accueil-saisie .g-voir-invitation');
+    await aller('/');   // 171 : le bloc « Groupe » a quitté Saisie ; il vit sur l'accueil
+    await attendreQue(async () => (await compter('#groupe-accueil .g-invitation')) === 1);
+    const a0 = await texte('#groupe-accueil');
+    await page.click('#groupe-accueil .g-voir-invitation');
     await attendreQue(async () => (await compter('#groupe-corps .g-option')) > 0);
     const choix = await page.evaluate(() => Array.from(document.querySelectorAll('#groupe-corps .g-option')).map((b) => b.getAttribute('data-choix')));
     const a1 = await texte('#groupe-corps');
@@ -19377,9 +19390,9 @@ const SETS_IMPORTES = [
     const G3 = fauxSocial.rpc('u-jordan', 'groupe_creer', { p_session: SJ2, p_exercices: ['squat-barre'] });
     fauxSocial.rpc('u-jordan', 'groupe_inviter', { p_user: 'u-banc' });
     fauxSocial.rpc('u-jordan', 'groupe_envoyer', { p_texte: 'Dernière série !' });
-    await aller('/saisie');
-    await attendreQue(async () => (await compter('#groupe-accueil-saisie .g-invitation')) === 1);
-    await page.click('#groupe-accueil-saisie .g-voir-invitation');
+    await aller('/');   // 171 : l'invitation se lit sur l'accueil
+    await attendreQue(async () => (await compter('#groupe-accueil .g-invitation')) === 1);
+    await page.click('#groupe-accueil .g-voir-invitation');
     await attendreQue(async () => (await compter('#groupe-corps .g-option')) > 0);
     await page.click('#groupe-corps .g-option[data-choix="suivre"]');
     await attendreQue(async () => fauxSocial.groupeDe('u-banc') === G3 && (await carte()) && (await carte()).titre === 'Groupe · 2', 12000);
@@ -24437,6 +24450,7 @@ const SETS_IMPORTES = [
         JSON.stringify(g131[1].lignes) === '["m131-1-s1","m131-2-s1"]' && /RANDONNÉE U131 · D\+ · 2 SÉANCES/.test(sp131(g131[1].tete)),
       JSON.stringify(g131));
     // « Enregistrer » : 850 m sur la randonnée la plus récente, par la correction d'une séance passée.
+    await ouvrirAvis();
     const caseG = await page.$('#carte-manque .manque-ligne[data-serie="m131-1-s1"] input');
     if (caseG) await caseG.fill('850');
     await attendre(200);
@@ -24468,6 +24482,7 @@ const SETS_IMPORTES = [
     ok('[131] H — après rechargement, l’escalier ne revient pas ; la randonnée restante est toujours là',
       !!apresR && JSON.stringify(apresR.map((x) => x.cle)) === '["rando-u131:denivele_m"]', JSON.stringify(apresR));
     // « Plus tard » : la carte se replie (en mémoire seulement).
+    await ouvrirAvis();
     if (await page.$('#carte-manque .manque-tard')) await page.click('#carte-manque .manque-tard');
     await attendre(300);
     ok('[131] « Plus tard » replie la carte', (await carte131()) === null, '');
@@ -24758,6 +24773,7 @@ const SETS_IMPORTES = [
       !!a145 && !/séance|\d ?h\b|[↑↓→]|prévu/i.test(sp145(a145.fait + ' ' + a145.marche)), JSON.stringify(a145));
 
     // B. LE TOUCHER : la carte ouvre « Ton échelle » de l'exercice de ta marche.
+    await ouvrirAvis();
     await page.click('#carte-echelles .carte-echelles');
     await jusqua(async () => (await page.evaluate(() => location.pathname)) === '/exercice/tr-u145', 8000);
     await jusqua(async () => !!(await page.$('.ton-echelle')), 6000);
@@ -25737,6 +25753,256 @@ const SETS_IMPORTES = [
     ok('[DC160] aucun refus du faux serveur, la garde (C6) n’a rien signalé, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ saisie-avis. SAISIE : RIEN D’AUTRE QUE TES ROUTINES, SAUF S’IL Y A QUELQUE CHOSE À DIRE — A · À FAIRE, B · « LE COACH TE DIT », C · EN BAS (171, ECRAN-SAISIE) ══');
+  //
+  // Décision d'Aurélien du 25/10/2026 : « s'il n'y a rien à dire, n'affichons rien d'autre que les routines ». Aucune règle
+  // d'apparition ni aucun texte ne change : seule la place change. Quatre scénarios.
+  //   (a) un jour vide : le premier élément sous l'en-tête est la liste des routines ;
+  //   (b) deux avis (la phase et les échelles) : la ligne « Le coach te dit », 2, le point ambre ; ouverte, refermée ; le point
+  //       éteint une fois ouverte, et toujours éteint après rechargement ;
+  //   (c) une fin de cycle : la carte en tête de Saisie ET dans la bibliothèque ; (d) la semaine qui déraille : en A, ses trois gestes.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    const pageBanc = page;
+    const profil171 = () => base.profiles[0];
+    const rendreBlocs = await retirerBlocsDeLAppareil();
+    // L'ORDRE DE L'ÉCRAN : les identifiants des éléments visibles de Saisie, sous l'en-tête.
+    const ordre171 = () => page.evaluate(() => Array.from(document.querySelectorAll('#vue-saisie > :not(.entete)'))
+      .filter((n) => !n.hidden).map((n) => n.id || n.className));
+    const ligne171 = () => page.evaluate(() => {
+      const a = document.getElementById('avis-coach'), l = document.getElementById('avis-ligne'), c = document.getElementById('avis-corps');
+      if (!a || a.hidden) return null;
+      return { n: (l.querySelector('.avis-n') || {}).textContent, titres: (l.querySelector('.avis-titres') || {}).textContent,
+        point: !!l.querySelector('.avis-point'), ouvert: !c.hidden, aria: l.getAttribute('aria-expanded'),
+        cartes: Array.from(c.children).filter((x) => !x.hidden).map((x) => x.id) };
+    });
+    const vider171 = () => page.evaluate(() => { try { localStorage.removeItem('th-v2-avis-vus'); } catch (e) { /* rien */ } });
+
+    // Un profil dont tout ce que la scène suppose est posé : le questionnaire fait, aucune phase due, le coach parle.
+    const FAIT_LE = '2026-10-01T08:00:00.000Z';
+    const JOUR = 86400000;
+    const iso = (j) => ilYa(j * JOUR).toISOString();
+    const SANS_PHASE = { questionnaire_fait_le: FAIT_LE, intention: 'progresser', phase: 'seche', phase_depuis: iso(60), phase_confirmee_le: iso(5) };
+    const AVEC_PHASE = Object.assign({}, SANS_PHASE, { phase_confirmee_le: iso(50) });
+    const poserProfil = (champs) => { Object.assign(profil171(), champs); };
+    base.sessions = []; base.sets = [];
+
+    // (a) UN JOUR VIDE.
+    await vider171();
+    poserProfil(SANS_PHASE);
+    await aller('/saisie');
+    await attendre(1500);   // VOULU : le profil arrive après le premier rendu ; aucune carte ne doit venir, qu'aucun état ne prouve
+    await aller('/saisie');
+    await attendre(800);   // VOULU : l'absence d'un évènement — aucune carte ne vient après le second rendu
+    const o171a = await ordre171();
+    ok('[SA171] a — DISCRIMINANT : un jour sans rien (ni fin de cycle, ni semaine, ni avis, ni questionnaire, ni installation) : sous l’en-tête, seulement la liste des routines',
+      JSON.stringify(o171a) === JSON.stringify(['liste-routines']) && (await ligne171()) === null, JSON.stringify(o171a));
+    ok('[SA171] a — le bloc « Groupe » n’existe plus dans Saisie (il reste sur l’accueil)',
+      await page.evaluate(() => !document.getElementById('groupe-accueil-saisie') && !!document.getElementById('groupe-accueil')));
+
+    // (b) DEUX AVIS : la phase (due) et les échelles (une marche, deux semaines).
+    const E171 = 'tr-sa171';
+    [['tr-sa171-elastique', 'Tractions SA171 (Élastique)', 'charge_reps', 'assistance', 'elastique', 'force', 1],
+     ['tr-sa171', 'Tractions SA171', 'reps', 'aucune', 'aucun', 'force', 2],
+     ['tr-sa171-leste', 'Tractions SA171 Lestées', 'charge_reps', 'ajoutee', 'aucun', 'force', 3]
+    ].forEach(([slug, nom, mesure, charge, equipement, nature, rang]) => CATALOGUE.push({ slug, nom, mesure, charge, equipement,
+      parent: charge === 'ajoutee' ? E171 : null, nature, habilete: false, actif: true,
+      muscles_primaires: ['dorsaux'], muscles_secondaires: [], echelle: E171, echelle_rang: rang }));
+    const poser171 = (id, debut, reps) => {
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Avis — ' + id, debut, fin: finDe(debut).toISOString(), statut: 'terminee',
+        note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      reps.forEach((r, k) => base.sets.push({ id: id + '-s' + k, session_id: id, user_id: 'u-banc', exercise_slug: 'tr-sa171',
+        charge_kg: null, reps: r, duree_s: null, distance_m: null, type_serie: 'travail', rang: k + 1, groupe_superset: null,
+        validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    };
+    poser171('sa171-2', mercrediEcoule(1).toISOString(), [9, 8, 8]);
+    poser171('sa171-1', mercrediEcoule(0).toISOString(), [9, 9, 9, 6]);
+    poserProfil(AVEC_PHASE);
+    await vider171();
+    await aller('/saisie');
+    await jusqua(async () => { const l = await ligne171(); return !!l && l.n === '2 ›'; }, 9000);
+    const b0 = await ligne171();
+    const ob = await ordre171();
+    ok('[SA171] b — deux avis : une ligne « Le coach te dit », ses titres « Échelles · Phase », le nombre 2, un point ambre, FERMÉE ; les deux cartes ne sont pas affichées',
+      !!b0 && b0.n === '2 ›' && b0.titres === 'Échelles · Phase' && b0.point === true && b0.ouvert === false && b0.aria === 'false' &&
+        JSON.stringify(ob) === JSON.stringify(['avis-coach', 'liste-routines']) &&
+        await page.evaluate(() => !document.getElementById('avis-corps').offsetParent), JSON.stringify([b0, ob]));
+    await page.click('#avis-ligne');
+    const b1 = await ligne171();
+    ok('[SA171] b — un toucher l’ouvre : les deux cartes telles qu’elles étaient (échelles, phase), visibles ; le point est éteint',
+      !!b1 && b1.ouvert === true && b1.aria === 'true' && b1.point === false && JSON.stringify(b1.cartes) === JSON.stringify(['carte-echelles', 'bandeau-phase']) &&
+        await page.evaluate(() => !!document.querySelector('#carte-echelles .carte-echelles').offsetParent && !!document.querySelector('#bandeau-phase .principal').offsetParent),
+      JSON.stringify(b1));
+    await page.click('#avis-ligne');
+    const b2 = await ligne171();
+    ok('[SA171] b — un autre toucher la referme ; le point reste éteint (avis vus), la ligne garde ses 2 titres', !!b2 && b2.ouvert === false && b2.point === false && b2.n === '2 ›', JSON.stringify(b2));
+    await aller('/saisie');
+    await jusqua(async () => { const l = await ligne171(); return !!l && l.n === '2 ›'; }, 9000);
+    const b3 = await ligne171();
+    ok('[SA171] b — DISCRIMINANT : rechargé, le point est TOUJOURS éteint (préférence de l’appareil) et la ligne ne s’ouvre pas d’elle-même',
+      !!b3 && b3.point === false && b3.ouvert === false, JSON.stringify(b3));
+    ok('[SA171] b — la préférence est locale : rien n’a été écrit en base (profil intact)',
+      profil171().phase_confirmee_le === AVEC_PHASE.phase_confirmee_le);
+    // Un avis qui disparaît quand sa règle ne le montre plus : « C'est toujours ça » ferme la phase ; reste 1.
+    await page.click('#avis-ligne');
+    await page.click('#bandeau-phase .principal');
+    await jusqua(async () => { const l = await ligne171(); return !!l && l.titres === 'Échelles'; }, 9000);
+    const b4 = await ligne171();
+    ok('[SA171] b — la phase confirmée quitte la ligne (sa règle ne la montre plus) : reste 1 avis, « Échelles »', !!b4 && b4.titres === 'Échelles', JSON.stringify(b4));
+    // Plus aucun avis : la ligne n'existe pas.
+    base.sessions = []; base.sets = [];
+    await aller('/saisie');
+    await attendre(1200);   // VOULU : l'absence d'un évènement — plus aucun avis, qu'aucun état ne prouve
+    await aller('/saisie');
+    await attendre(600);   // VOULU : l'absence d'un évènement — la ligne ne revient pas
+    ok('[SA171] b — sans avis, la ligne n’existe pas', (await ligne171()) === null && JSON.stringify(await ordre171()) === JSON.stringify(['liste-routines']), JSON.stringify(await ordre171()));
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+
+    // (c) UNE FIN DE CYCLE : le bloc a fini il y a longtemps ; la carte est en A, et reste dans la bibliothèque.
+    CATALOGUE.push({ slug: 'sa171-a', nom: 'Exercice SA171 A (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
+    ROUTINES.push({ id: 'r-sa171', nom: 'Fin de cycle SA171', note: null, archivee_a: null, rang: null, dossier: 'SA171',
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-sa171-a', routine_id: 'r-sa171', exercise_slug: 'sa171-a', rang: 0, routine_sets: progr(3, 8),
+        repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const jourDe = (t) => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    base.blocs.push({ id: 'b-sa171', user_id: 'u-banc', dossier: 'SA171', zone: 'lourd', semaines: 4, decharge: true, statut: 'en_cours',
+      precedent: null, exercices: ['sa171-a'], debut: jourDe(Date.now() - 70 * JOUR),
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z' });
+    await aller('/saisie');
+    await jusqua(() => page.evaluate(() => !!document.querySelector('#carte-fin-saisie .carte-fin-bloc')), 9000);
+    const oc = await ordre171();
+    const fin171 = await page.evaluate(() => {
+      const t = (s, r) => ((r || document).querySelector(s) || {}).textContent || null;
+      const a = document.querySelector('#carte-fin-saisie .carte-fin-bloc'), b = document.querySelector('#liste-routines .carte-fin-bloc');
+      return { a: !!a, b: !!b, titreA: t('.cfb-titre', a), titreB: t('.cfb-titre', b),
+        gestesA: a ? Array.from(a.querySelectorAll('.cfb-gestes button')).map((x) => x.textContent) : [],
+        gestesB: b ? Array.from(b.querySelectorAll('.cfb-gestes button')).map((x) => x.textContent) : [],
+        dossier: a && a.getAttribute('data-dossier') };
+    });
+    ok('[SA171] c — DISCRIMINANT : la fin de cycle est EN TÊTE de Saisie (avant les routines), et la bibliothèque la montre toujours : mêmes titre et mêmes gestes',
+      oc[0] === 'carte-fin-saisie' && oc.indexOf('liste-routines') > 0 && fin171.a && fin171.b && fin171.titreA === fin171.titreB && !!fin171.titreA &&
+        JSON.stringify(fin171.gestesA) === JSON.stringify(fin171.gestesB) && fin171.gestesA.length >= 2 && fin171.dossier === 'SA171', JSON.stringify([oc, fin171]));
+    await page.click('#carte-fin-saisie .cfb-ajuster');
+    await jusqua(() => page.evaluate(() => !document.getElementById('feuille-seance').hidden), 6000);
+    const feuille171 = await page.evaluate(() => ((document.querySelector('#feuille-contenu .feuille-t') || {}).firstChild || {}).textContent || null);
+    ok('[SA171] c — un geste de la carte d’en tête marche : « Ajuster » ouvre la feuille du bloc suivant', feuille171 === 'Ajuster le bloc', String(feuille171));
+    await page.click('#btn-fermer-feuille');
+    await jusqua(() => page.evaluate(() => document.getElementById('feuille-seance').hidden), 6000);
+    rendreBlocs();
+    base.blocs = base.blocs.filter((x) => x.id !== 'b-sa171');
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+
+    // (d) LA SEMAINE QUI DÉRAILLE : en A (avant la ligne et les routines), ses trois gestes. Appareil neuf au MERCREDI 14/10/2026.
+    const nb171 = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+    const cat171 = (slug, nom, prim, sec, stab) => CATALOGUE.push({ slug, nom, mesure: 'charge_reps', charge: 'externe',
+      equipement: 'barre', muscles_primaires: prim, muscles_secondaires: sec, muscles_stabilisateurs: stab });
+    cat171('couche-sa171', 'Couché SA171 (Barre)', ['pectoraux'], ['triceps'], []);
+    cat171('squat-sa171', 'Squat SA171 (Barre)', ['quadriceps', 'fessiers'], ['adducteurs'], ['bas_du_dos']);
+    cat171('legcurl-sa171', 'Leg Curl SA171', ['ischio_jambiers'], [], []);
+    cat171('tractions-sa171', 'Tractions SA171', ['grand_dorsal'], ['biceps'], []);
+    const routine171 = (id, nom, jours, exos) => ROUTINES.push({ id, nom, note: null, archivee_a: null, rang: null, dossier: 'Programme SA171',
+      jours, created_at: '2026-09-01T10:00:00.000Z', modifiee_a: '2026-09-01T10:00:00.000Z',
+      routine_exercises: exos.map(([slug, n], i) => ({ id: id + '-e' + i, routine_id: id, exercise_slug: slug, rang: i,
+        routine_sets: progr(n, 8), repos_cible_s: 120, groupe_superset: null, note: null })) });
+    routine171('r-sa171-push', 'Lundi — Push SA171', [1, 5], [['couche-sa171', 4]]);
+    routine171('r-sa171-jambes', 'Mardi — Jambes SA171', [2, 6], [['squat-sa171', 4], ['legcurl-sa171', 3]]);
+    routine171('r-sa171-pull', 'Mercredi — Pull SA171', [3], [['tractions-sa171', 4]]);
+    const lundi = new Date(2026, 9, 12, 18, 0, 0).toISOString();
+    base.sessions.push({ id: 'sa171-lundi', user_id: 'u-banc', titre: 'Lundi — Push SA171', debut: lundi,
+      fin: new Date(2026, 9, 12, 19, 0, 0).toISOString(), statut: 'terminee', note: null, salle: null, salle_norme: null,
+      routine_id: 'r-sa171-push', source: 'app', created_at: lundi });
+    [1, 2].forEach((i) => base.sets.push({ id: 'sa171-l-s' + i, session_id: 'sa171-lundi', user_id: 'u-banc', exercise_slug: 'couche-sa171',
+      charge_kg: 100, reps: 8, duree_s: null, distance_m: null, type_serie: 'travail', rang: i, groupe_superset: null,
+      validee_a: lundi, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: lundi, modifie_a: null }));
+    const vraiMaintenant = Date.now() - (Horloge.DECALAGE || 0);
+    const mercredi = new Date(2026, 9, 14, 10, 0, 0).getTime() - (Horloge.DECALAGE || 0);
+    const appareil171 = async (nom) => {
+      const c = await nav.newContext({ viewport: { width: 360, height: 760 } });
+      await c.addInitScript(SCRIPT_JETON);
+      await c.addInitScript(Horloge.scriptNavigateur(mercredi - vraiMaintenant));
+      await c.route(/supabase\.co/, gestionnaireSuivi);
+      const p = await c.newPage();
+      p.on('pageerror', (e) => erreurs.push('[' + nom + '] ' + String(e).slice(0, 140)));
+      return { c, p, fermer: async () => { await p.close(); await c.close(); } };
+    };
+    const carte171 = () => page.evaluate(() => {
+      const n = document.getElementById('carte-semaine');
+      if (!n || n.hidden) return null;
+      return { titre: (n.querySelector('.semaine-titre') || {}).textContent || null,
+        choix: Array.from(n.querySelectorAll('.semaine-choix button')).map((b) => b.dataset.choix),
+        cliquables: Array.from(n.querySelectorAll('.semaine-choix button')).every((b) => !!b.offsetParent && !b.disabled),
+        bande: Array.from(n.querySelectorAll('.semaine-r')).map((x) => x.textContent),
+        demarrer: !!n.querySelector('.carte-semaine > .principal') };
+    });
+    const ouvrir171 = async (nom) => {
+      const a = await appareil171(nom);
+      page = a.p;
+      await aller('/saisie');
+      await jusqua(async () => !!(await carte171()), 9000);
+      return a;
+    };
+    poserProfil(SANS_PHASE);
+    const A = await ouvrir171('SA171-répartir');
+    const od = await ordre171();
+    const cd = await carte171();
+    ok('[SA171] d — DISCRIMINANT : la semaine qui déraille est EN A (avant les routines, hors de la ligne « Le coach te dit »), ses trois gestes visibles et touchables',
+      od[0] === 'carte-semaine' && od.indexOf('liste-routines') > 0 && !!cd && cd.choix.length === 3 && cd.cliquables &&
+        await page.evaluate(() => !document.getElementById('carte-semaine').closest('#avis-coach')), nb171([od, cd]));
+    const choixPremier = cd.choix.slice();
+    await page.click('#carte-semaine button[data-choix="repartir"]');
+    await jusqua(async () => (await carte171()) === null, 6000);
+    const apresR = await carte171();
+    await aller('/saisie');
+    await attendre(900);   // VOULU : l'absence d'un évènement — la carte ne revient pas après le rechargement, qu'aucun état ne prouve
+    ok('[SA171] d — « Répartir » : la carte se ferme, la question ne revient pas au rechargement, le choix est écrit (`semaine_choix` « repartir »)',
+      apresR === null && (await carte171()) === null && base.semaineChoix.map((x) => x.choix).join() === 'repartir', nb171([choixPremier, base.semaineChoix]));
+    await A.fermer();
+    base.semaineChoix = [];
+    const B = await ouvrir171('SA171-garder');
+    await page.click('#carte-semaine button[data-choix="garder"]');
+    await jusqua(async () => (await carte171()) === null, 6000);
+    await aller('/saisie');
+    await attendre(900);   // VOULU : l'absence d'un évènement — la carte ne revient pas après le rechargement, qu'aucun état ne prouve
+    ok('[SA171] d — « Garder … comme prévu » : respecté, rechargé, plus de carte', (await carte171()) === null);
+    await B.fermer();
+    base.semaineChoix = [];
+    const C = await ouvrir171('SA171-décaler');
+    await page.click('#carte-semaine button[data-choix="decaler"]');
+    await jusqua(async () => !!(await carte171()) && (await carte171()).demarrer, 6000);
+    const cdec = await carte171();
+    ok('[SA171] d — « la suite se décale » : la bande est décalée et « Démarrer » est là, toujours en A',
+      !!cdec && cdec.demarrer && nb171(cdec.bande) === nb171(['Push SA171', '—', 'Jambes SA171', 'Pull SA171', 'Push SA171', 'Jambes SA171', '—']) &&
+        (await ordre171())[0] === 'carte-semaine', nb171(cdec));
+    await page.click('#carte-semaine .carte-semaine > .principal');
+    await jusqua(() => Promise.resolve(base.sessions.some((x) => x.statut === 'en_cours')), 8000);
+    ok('[SA171] d — « Démarrer » ouvre la séance de Jambes (la séance porte sa routine)',
+      (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).routine_id === 'r-sa171-jambes');
+    await abandonner();
+    await C.fermer();
+    page = pageBanc;
+    base.semaineChoix = [];
+
+    // LA REMISE EN ÉTAT.
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    Object.keys(profil171()).forEach((k) => { delete profil171()[k]; });
+    Object.assign(profil171(), profilAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await vider171();
+    await aller('/saisie');
+    ok('[SA171] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

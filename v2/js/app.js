@@ -2929,7 +2929,8 @@
 
   // ── L'accueil : mes invitations ; le groupe qui finit ──
   function dessinerGroupeAccueil() {
-    var id = ecranCourant === 'liste' ? 'groupe-accueil' : ecranCourant === 'saisie' ? 'groupe-accueil-saisie' : null;
+    // 171 — Saisie n'a plus de bloc « Groupe » (doublon exact de l'accueil, où il reste).
+    var id = ecranCourant === 'liste' ? 'groupe-accueil' : null;
     if (!id) return;
     if (!userId()) return Rendu.rendreGroupeAccueil($(id), null);
     var v = { invitations: (grp.invitations || []).map(function (i) {
@@ -9648,6 +9649,120 @@
     }
   }
 
+  // 171 — les trois gestes de la carte de fin de cycle : les MÊMES dans la bibliothèque et en tête de Saisie.
+  var gestesFinDeCycle = {
+    surCommencerBloc: function (d) { return commencerBlocSuivant(d); },
+    surAjusterBloc: function (d) {
+      var b = Moteur.blocEnCours(local.blocs, d);
+      if (b) ouvrirProgramme(d, b);
+    },
+    surArreterProgramme: function (d) { return arreterProgramme(d); }
+  };
+
+  // 171 (famille A) — la fin de cycle en tête de Saisie. Mêmes dossiers, même règle (`programmeDuDossier`) que la
+  // bibliothèque : on lit la vue, on ne la recalcule pas. Rien n'est écrit.
+  function rendreFinsDeCycleSaisie() {
+    var noeud = $('carte-fin-saisie');
+    if (!noeud) return;
+    var items = [];
+    if (!seance && etatRoutines.code === 'ok') {
+      var vus = {};
+      var dossiers = routines.map(function (r) { return r.dossier; }).concat(dossiersDeProgramme());
+      dossiers.forEach(function (d) {
+        if (!d || vus[d]) return;
+        vus[d] = true;
+        var pr = programmeDuDossier(d);
+        if (pr && pr.fin) items.push({ dossier: d, fin: pr.fin });
+      });
+    }
+    Rendu.rendreFinsDeCycleSaisie(noeud, items, gestesFinDeCycle);
+  }
+
+  // ══ 171 — « LE COACH TE DIT (n) » : les avis de Saisie sur une ligne ═══════════════════════════════════
+  //
+  // Échelles, ce qui manque, cycles, phase : des informations, pas des décisions. Chacune GARDE sa règle (son
+  // `rendre…`, inchangé) ; ici on ne fait que les REGROUPER. La ligne n'existe que s'il y en a au moins une ; elle ne
+  // s'ouvre jamais d'elle-même. Un point ambre = un avis pas encore vu ; l'ouvrir les marque vus — une commodité de
+  // CET appareil (localStorage, try/catch ; rien n'est écrit en base). Un avis vu reste dans la ligne tant que sa
+  // règle le montre. Il est « neuf » à nouveau quand son texte change (une autre semaine d'échelles).
+  var AVIS_SAISIE = [
+    { id: 'echelles', titre: 'Échelles', noeud: 'carte-echelles', signe: '.ce-etiquette' },
+    { id: 'manque', titre: 'Ce qui manque', noeud: 'carte-manque', signe: '.manque-phrase' },
+    { id: 'cycles', titre: 'Cycles', noeud: 'carte-cycles', signe: '.reprise-quoi' },
+    { id: 'phase', titre: 'Phase', noeud: 'bandeau-phase', signe: '.reprise-quoi' }
+  ];
+  var CLE_AVIS_VUS = 'th-v2-avis-vus';
+  var avisOuvert = false;
+  var avisVus = lireAvisVus();
+
+  function lireAvisVus() {
+    try {
+      var v = JSON.parse(racine.localStorage.getItem(CLE_AVIS_VUS) || '{}');
+      return v && typeof v === 'object' ? v : {};
+    } catch (e) { return {}; }
+  }
+  function memoriserAvisVus() {
+    try { racine.localStorage.setItem(CLE_AVIS_VUS, JSON.stringify(avisVus)); }
+    catch (e) { /* stockage refusé : le point reviendra, rien d'autre */ }
+  }
+
+  // Les avis que leur règle montre en ce moment, avec leur signature.
+  function avisPresents() {
+    var liste = [];
+    AVIS_SAISIE.forEach(function (a) {
+      var n = $(a.noeud);
+      if (!n || n.hidden) return;
+      var t = n.querySelector(a.signe);
+      liste.push({ id: a.id, titre: a.titre, signe: String((t || n).textContent || '').replace(/\s+/g, ' ').trim().slice(0, 160) });
+    });
+    return liste;
+  }
+
+  function majAvisSaisie() {
+    var cadre = $('avis-coach'), ligne = $('avis-ligne'), corps = $('avis-corps');
+    if (!cadre || !ligne || !corps) return;
+    var presents = avisPresents();
+    if (!presents.length) {
+      cadre.hidden = true; corps.hidden = true; avisOuvert = false;
+      ligne.setAttribute('aria-expanded', 'false');
+      return;
+    }
+    if (avisOuvert) {
+      var change = false;
+      presents.forEach(function (a) { if (avisVus[a.id] !== a.signe) { avisVus[a.id] = a.signe; change = true; } });
+      if (change) memoriserAvisVus();
+    }
+    var neufs = presents.filter(function (a) { return avisVus[a.id] !== a.signe; }).length;
+    cadre.hidden = false;
+    corps.hidden = !avisOuvert;
+    ligne.setAttribute('aria-expanded', avisOuvert ? 'true' : 'false');
+    ligne.setAttribute('data-neufs', String(neufs));
+    ligne.textContent = '';
+    var tete = Rendu.el('span', 'avis-tete');
+    if (neufs) tete.appendChild(Rendu.el('span', 'avis-point'));
+    tete.appendChild(Rendu.el('b', 'avis-nom', 'Le coach te dit'));
+    ligne.appendChild(tete);
+    ligne.appendChild(Rendu.el('span', 'avis-titres', presents.map(function (a) { return a.titre; }).join(' \u00b7 ')));
+    ligne.appendChild(Rendu.el('span', 'avis-n num', presents.length + (avisOuvert ? ' \u2304' : ' \u203a')));
+  }
+
+  var avisBranches = false;
+  function brancherAvisSaisie() {
+    if (avisBranches) return;
+    var ligne = $('avis-ligne');
+    if (!ligne) return;
+    avisBranches = true;
+    ligne.addEventListener('click', function () { avisOuvert = !avisOuvert; majAvisSaisie(); });
+    // Chaque carte se redessine toute seule (un geste, un chargement) et pose son propre `hidden` : la ligne suit.
+    if (typeof racine.MutationObserver === 'function') {
+      var o = new racine.MutationObserver(function () { majAvisSaisie(); });
+      AVIS_SAISIE.forEach(function (a) {
+        var n = $(a.noeud);
+        if (n) o.observe(n, { attributes: true, attributeFilter: ['hidden'], childList: true });
+      });
+    }
+  }
+
   function rendreSaisie() {
     // L'onglet Saisie EST la saisie : s'il y a une séance en cours, c'est elle
     // qu'on ouvre. Un rechargement, un retour d'arrière-plan, une app tuée et
@@ -9668,6 +9783,10 @@
     // 138 — iPhone, hors de l'app : sous le questionnaire et la phrase (l'ordre du DOM). Il ne lit pas le profil : seulement
     // la session, la séance et l'appareil, donc la ligne qui arrive n'a rien à y redessiner.
     rendreBandeauInstaller();
+    // 171 — la fin de cycle EN TÊTE (famille A), puis la ligne qui regroupe les avis (famille B).
+    rendreFinsDeCycleSaisie();
+    brancherAvisSaisie();
+    majAvisSaisie();
     var cible = $('liste-routines');
     // ⚠️ « Je ne sais pas encore » n'est PAS « il n'y en a pas ». Tant qu'un
     // chargement n'a pas abouti, on ne montre pas l'état vide : hors ligne, il
@@ -9717,12 +9836,9 @@
       surBadgeProgramme: ouvrirBlocEnCours,
       // 155 — le menu « \u22ef » du dossier.
       surMenuDossier: ouvrirMenuDossier,
-      surCommencerBloc: commencerBlocSuivant,
-      surAjusterBloc: function (d) {
-        var b = Moteur.blocEnCours(local.blocs, d);
-        if (b) ouvrirProgramme(d, b);
-      },
-      surArreterProgramme: arreterProgramme,
+      surCommencerBloc: gestesFinDeCycle.surCommencerBloc,
+      surAjusterBloc: gestesFinDeCycle.surAjusterBloc,
+      surArreterProgramme: gestesFinDeCycle.surArreterProgramme,
       surChoix: ouvrirRoutine,
       surNouvelle: function () { ouvrirRoutine(null); },
       // 60-3 (ES §7 quindecies.7) — « Retrouver mes séances qui reviennent ».

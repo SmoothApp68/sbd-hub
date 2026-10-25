@@ -308,7 +308,8 @@ describe('le branchement dans app.js', () => {
   test('Saisie rend la carte juste après le rappel de phase ; le profil qui arrive la redessine ; le conteneur existe', () => {
     expect(APP).toMatch(/rendreBandeauQuestionnaire\(\);\s*rendreBandeauPhase\(\);\s*rendreCarteCycles\(\);/);
     const html = fs.readFileSync(path.join(__dirname, '../../v2/index.html'), 'utf8');
-    expect(html).toMatch(/<div id="bandeau-phase" hidden><\/div>[\s\S]*?<div id="carte-cycles" hidden><\/div>[\s\S]*?<div id="bandeau-reprise" hidden><\/div>/);
+    // 171 (ECRAN-SAISIE) — la carte « Passer en cycles » est un avis : elle vit dans « Le coach te dit », avec la phase.
+    expect(html).toMatch(/<div id="avis-corps" hidden>[\s\S]*?<div id="carte-cycles" hidden><\/div>[\s\S]*?<div id="bandeau-phase" hidden><\/div>[\s\S]*?<div id="liste-routines">/);
   });
 });
 

@@ -151,34 +151,33 @@
         <button id="btn-nouvelle-routine" type="button" class="discret">Nouvelle routine</button>
       </div>
     </header>
-    <!-- 91 — mes invitations à un groupe de séance (on rejoint en commençant sa séance). -->
-    <div id="groupe-accueil-saisie" hidden></div>
-    <!-- 60-2a — « Ton questionnaire n'est pas terminé. » : le même composant que le
-         bandeau de reprise, dans SON conteneur (un seul nœud ne tient pas deux
-         bandeaux). Il ne se ferme qu'en remplissant le questionnaire. -->
-    <div id="bandeau-questionnaire" hidden></div>
-    <!-- 60-2b — « Sèche depuis le 28 sept. » : le rappel de phase, 6 semaines après la
-         dernière réponse. Le même composant, son propre conteneur, SOUS celui du
-         questionnaire (le questionnaire passe d'abord). Jamais pendant une séance,
-         jamais en « Juste un carnet ». -->
-    <div id="bandeau-phase" hidden></div>
-    <!-- 138 (ECRAN-PROFIL §3.5) — « Tu utilises TrainHub dans Safari. » : iPhone hors de l'app, connectée, hors séance. SOUS le
-         questionnaire et la phase (ils passent d'abord) ; « Plus tard » le cache 7 jours sur cet appareil. -->
-    <div id="bandeau-installer" hidden></div>
-    <!-- 145 (ECRAN-SAISIE §7 quater.7) — « Tes échelles cette semaine » : la semaine écoulée des exercices à marches
-         (tractions, dips, pompes…), en tête des cartes. Jamais pendant une séance, jamais sans exercice d'échelle. -->
-    <div id="carte-echelles" hidden></div>
-    <!-- 60-4 (MOTEUR §9.22) — la carte « Passer en cycles » : une seule fois, 21 jours après un programme construit. -->
-    <div id="carte-cycles" hidden></div>
-    <!-- 99 (MOTEUR §9.24) — la semaine qui déraille : une séance prévue n'a pas eu lieu. À l'ouverture, jamais par
-         une notification ; seulement avec un programme à jours prévus. -->
+    <!-- 171 (ECRAN-SAISIE, décision du 25/10/2026) — « Rien à dire = rien d'autre que les routines ». L'ordre :
+         A · À FAIRE (des décisions, ouvertes, liseré ambre : la fin de cycle, la semaine qui déraille, la routine pas
+         finie d'enregistrer) ; B · « Le coach te dit (n) » (une ligne repliée : échelles, ce qui manque, cycles, phase) ;
+         les routines ; C · en bas, discret (questionnaire, installation). Chaque carte garde sa règle et son texte :
+         seule la place change. Le bloc « Groupe » n'est plus ici (doublon de l'accueil). Un conteneur vide est caché. -->
+    <div id="carte-fin-saisie" hidden></div>
     <div id="carte-semaine" hidden></div>
-    <div id="carte-manque" hidden></div>
     <!-- Le bandeau de reprise (§7 octodecies.3) : il ne s'affiche que s'il y a
-         quelque chose d'ouvert. Le même composant servira à la séance en cours
-         (§7 nonies), qui n'est pas encore branchée. -->
+         quelque chose d'ouvert. -->
     <div id="bandeau-reprise" hidden></div>
+    <div id="avis-coach" hidden>
+      <button id="avis-ligne" type="button" class="avis-ligne" aria-expanded="false" aria-controls="avis-corps"></button>
+      <div id="avis-corps" hidden>
+        <!-- 145 (ECRAN-SAISIE §7 quater.7) — « Tes échelles cette semaine ». Jamais pendant une séance. -->
+        <div id="carte-echelles" hidden></div>
+        <div id="carte-manque" hidden></div>
+        <!-- 60-4 (MOTEUR §9.22) — « Passer en cycles » : une seule fois, 21 jours après un programme construit. -->
+        <div id="carte-cycles" hidden></div>
+        <!-- 60-2b (MOTEUR §9.18) — « Sèche depuis le 28 sept. » : le rappel de phase, 6 semaines après la dernière réponse. -->
+        <div id="bandeau-phase" hidden></div>
+      </div>
+    </div>
     <div id="liste-routines"></div>
+    <!-- C · en bas, discret. 60-2a : « Ton questionnaire n'est pas terminé » (il ne se ferme qu'en le remplissant) ;
+         138 (ECRAN-PROFIL §3.5) : « Tu utilises TrainHub dans Safari » (« Plus tard » le cache 7 jours). -->
+    <div id="bandeau-questionnaire" hidden></div>
+    <div id="bandeau-installer" hidden></div>
   </section>
 
   <!-- L'éditeur. Une VUE avec son URL (/routine/<uuid>), pas un basculement :

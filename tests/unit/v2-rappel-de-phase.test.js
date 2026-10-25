@@ -315,15 +315,17 @@ describe('le bandeau de Saisie (app.js, rejoué)', () => {
 describe('le câblage', () => {
   const HTML = fs.readFileSync(path.join(__dirname, '../../v2/index.html'), 'utf8');
 
-  test('⚠️ le nœud du rappel est SOUS celui du questionnaire (le questionnaire passe d’abord) et au-dessus des routines', () => {
+  test('⚠️ 171 — le rappel est un avis (dans « Le coach te dit », au-dessus des routines) ; le questionnaire passe en bas (C), après elles', () => {
     const q = HTML.indexOf('id="bandeau-questionnaire"');
     const ph = HTML.indexOf('id="bandeau-phase"');
     const rep = HTML.indexOf('id="bandeau-reprise"');
+    const avis = HTML.indexOf('id="avis-corps"');
     const liste = HTML.indexOf('id="liste-routines"');
-    expect(q).toBeGreaterThan(0);
-    expect(ph).toBeGreaterThan(q);
-    expect(rep).toBeGreaterThan(ph);
-    expect(liste).toBeGreaterThan(rep);
+    expect(rep).toBeGreaterThan(0);
+    expect(avis).toBeGreaterThan(rep);
+    expect(ph).toBeGreaterThan(avis);
+    expect(liste).toBeGreaterThan(ph);
+    expect(q).toBeGreaterThan(liste);
   });
 
   test('`rendreSaisie` dessine le rappel juste après le bandeau du questionnaire — avant tout retour anticipé', () => {

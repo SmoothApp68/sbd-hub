@@ -5482,6 +5482,17 @@
     return c;
   }
 
+  // 171 (ECRAN-SAISIE, décision du 25/10/2026) — la fin de cycle EN TÊTE de Saisie (famille A, « à faire »). La MÊME carte
+  // que la bibliothèque (`carteFinDeBloc`) : mêmes lignes, mêmes gestes, rien recalculé ici — `items` est la liste des
+  // `{ dossier, fin }` que l'app a lue sur `programmeDuDossier`. Sans carte, le conteneur se cache.
+  function rendreFinsDeCycleSaisie(cible, items, v) {
+    vider(cible);
+    if (!items || !items.length) { cible.hidden = true; return cible; }
+    cible.hidden = false;
+    items.forEach(function (x) { cible.appendChild(carteFinDeBloc(x.dossier, x.fin, v)); });
+    return cible;
+  }
+
   // LA FEUILLE « FAIRE DE CE DOSSIER UN PROGRAMME » (ou « Ajuster le bloc »),
   // maquette cycles v1, « Créer » : quatre champs (le bloc, sa durée, sa
   // décharge, son début), puis les exercices du bloc — cochés, ils prennent
@@ -8158,6 +8169,7 @@
     rendreCarteSemaine: rendreCarteSemaine,
     rendreCarteEchelles: rendreCarteEchelles,
     rendreCarteManque: rendreCarteManque,
+    rendreFinsDeCycleSaisie: rendreFinsDeCycleSaisie,
     rendreEscalier: rendreEscalier,
     brancherReorganisation: brancherReorganisation,
     rendrePiedReorganisation: rendrePiedReorganisation,

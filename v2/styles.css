@@ -2606,3 +2606,20 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .effort-puce{flex:1;min-width:44px;height:40px;border-radius:var(--r-petit);border:1px solid var(--trait);background:var(--panneau-2);
   color:var(--texte);font:inherit;font-weight:600;cursor:pointer}
 .effort-puce.passer{flex:1.4;background:none;color:var(--texte-2);font-weight:400}
+
+/* 171 (ECRAN-SAISIE, décision du 25/10/2026) — Saisie : A · à faire (liseré ambre), B · « Le coach te dit (n) » (une ligne),
+   les routines, C · en bas, discret. Seule la place des cartes change. */
+#carte-fin-saisie .carte-fin-bloc,#carte-semaine .carte-semaine{border-left:3px solid var(--accent);border-style:solid;border-width:1px 1px 1px 3px;border-color:var(--trait) var(--trait) var(--trait) var(--accent)}
+.avis-ligne{display:flex;align-items:center;gap:var(--e2);width:100%;min-height:44px;margin:0 0 var(--e3);padding:var(--e2) var(--e3);
+  background:var(--panneau-2);border:0;border-radius:var(--r-grand);color:var(--texte);font:inherit;text-align:left;cursor:pointer}
+.avis-tete{display:inline-flex;align-items:center;gap:6px;flex:none}
+.avis-nom{font-weight:600;font-size:14.5px}
+.avis-point{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+.avis-titres{flex:1 1 auto;min-width:0;font-size:12px;color:var(--texte-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.avis-n{margin-left:auto;flex:none;font-weight:700;color:var(--accent)}
+#avis-corps{margin:0 0 var(--e3)}
+#avis-corps .bandeau-reprise{border-left-color:var(--trait)}
+#bandeau-questionnaire .bandeau-reprise,#bandeau-installer .bandeau-reprise{background:none;border-left:0;border-top:1px solid var(--trait);border-radius:0;
+  padding:var(--e2) var(--e1);margin:var(--e2) 0 0}
+#bandeau-questionnaire .reprise-t,#bandeau-installer .reprise-t{font-size:12.5px;font-weight:400;color:var(--texte-3)}
+#bandeau-questionnaire .reprise-actions,#bandeau-installer .reprise-actions{margin-top:var(--e2)}

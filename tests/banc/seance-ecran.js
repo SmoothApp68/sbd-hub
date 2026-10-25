@@ -25733,6 +25733,7 @@ const SETS_IMPORTES = [
     const choixPremier = cd.choix.slice();
     await page.click('#carte-semaine button[data-choix="repartir"]');
     await jusqua(async () => (await carte171()) === null, 6000);
+    await jusqua(() => Promise.resolve(base.semaineChoix.some((x) => x.choix === 'repartir')), 15000);   // l'ÉCRITURE du choix (l'état), avant tout rechargement
     const apresR = await carte171();
     await aller('/saisie');
     await jusqua(async () => (await carte171()) === null, 12000);   // la carte, si elle venait, serait déjà là ; sous charge on laisse la synchronisation finir
@@ -25743,6 +25744,7 @@ const SETS_IMPORTES = [
     const B = await ouvrir171('SA171-garder');
     await page.click('#carte-semaine button[data-choix="garder"]');
     await jusqua(async () => (await carte171()) === null, 6000);
+    await jusqua(() => Promise.resolve(base.semaineChoix.some((x) => x.choix === 'garder')), 15000);   // l'ÉCRITURE du choix (l'état), avant tout rechargement
     await aller('/saisie');
     await jusqua(async () => (await carte171()) === null, 12000);   // la carte, si elle venait, serait déjà là ; sous charge on laisse la synchronisation finir
     ok('[SA171] d — « Garder … comme prévu » : respecté, rechargé, plus de carte', (await carte171()) === null);

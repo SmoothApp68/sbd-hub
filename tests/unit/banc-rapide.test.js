@@ -77,7 +77,7 @@ describe('le lanceur parallèle, sur le banc factice', () => {
     expect(r.couverture).toEqual([]);
     const noms = r.fusion.controles.map((c) => c.nom);
     // Le préambule est rejoué par chaque groupe ; les sections, une fois.
-    expect(noms.filter((n) => /^[ABCD] —/.test(n))).toEqual(['A — un', 'A — deux', 'B — un', 'C — se sert du helper de A', 'C — deux', 'D — après C']);
+    expect(noms.filter((n) => /^[ABCD] —/.test(n))).toEqual(['A — un', 'A — deux', 'B — un', 'C — se sert du helper de A', 'C — deux', 'D — après C', 'D — la séance de C est refermée (état propre)', 'D — le réseau coupé par C est rendu (état propre)']);
     // Le contrôle du préambule, rejoué par les deux groupes, compte une fois :
     // le même nombre de contrôles qu'en séquentiel.
     expect(noms.filter((n) => /préambule/.test(n)).length).toBe(1);
@@ -195,6 +195,9 @@ describe('le séquentiel résistant', () => {
     expect(seq.couverture).toEqual([]);
     const noms = seq.fusion.controles.map((c) => (c.ok ? '✅ ' : '❌ ') + c.nom);
     expect(noms).toContain('✅ D — après C');
+    // 161 — la section qui plante laisse une séance ouverte : le découpeur la remet à propre, D part d'un état propre.
+    expect(noms).toContain('✅ D — la séance de C est refermée (état propre)');
+    expect(noms).toContain('✅ D — le réseau coupé par C est rendu (état propre)');
     expect(noms.filter((n) => /^❌ \[exception\] C\. LA TROISIÈME/.test(n)).length).toBe(1);
     // Le reste de C, après l'exception, ne joue pas (la section s'arrête là).
     expect(noms.filter((n) => /C — se sert/.test(n))).toEqual([]);

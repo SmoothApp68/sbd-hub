@@ -5134,7 +5134,7 @@ const SETS_IMPORTES = [
     teintes[0].couleur !== teintes[1].couleur &&
     teintes[0].fond !== teintes[1].fond &&
     teintes[0].bord !== teintes[1].bord &&
-    teintes[0].couleur === 'rgb(91, 138, 196)',
+    teintes[0].couleur === 'rgb(111, 154, 219)',
     JSON.stringify(teintes[0]) + ' vs ' + JSON.stringify(teintes[1]));
   ok('et la colonne garde son rythme : même boîte, au pixel près',
     teintes[0].l === teintes[1].l && teintes[0].h === teintes[1].h,
@@ -12793,7 +12793,7 @@ const SETS_IMPORTES = [
     //   · « Moins en ce moment » : « Démarrer » ouvre d'abord la carte, UNE fois par routine et par jour ;
     //   · « marge », « Juste un carnet », pas de durée déclarée : rien.
     const spG = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
-    const AMBRE = 'rgb(242, 184, 75)';
+    const AMBRE = 'rgb(255, 185, 56)';
     const dureeCouleur = (nom) => page.evaluate((n) => {
       const r = Array.from(document.querySelectorAll('.routine-rangee'))
         .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === n)[0];
@@ -17374,7 +17374,7 @@ const SETS_IMPORTES = [
     const b0 = await barre();
     ok('[barre] la barre est `sticky` (dans le flux), jamais `fixed`', b0.position === 'sticky', b0.position);
     ok('[barre] son fond est OPAQUE (--fond) : les blocs ne défilent pas à travers',
-      b0.fond === 'rgb(15, 17, 20)', b0.fond);
+      b0.fond === 'rgb(10, 12, 16)', b0.fond);
     ok('[barre] elle est au-dessus des lignes de saisie et sous la rangée prise, les onglets, le repos et les feuilles',
       Number(b0.z) > 1 && Number(b0.z) < 9, 'z-index ' + b0.z);
     ok('[barre] elle porte le titre, la durée, les séries de travail, Modifier et Terminer — rien d’autre',
@@ -18125,7 +18125,7 @@ const SETS_IMPORTES = [
     const bioAbonne = await bio();
     ok('[137-bio] DISCRIMINANT — un abonné accepté voit la bio de lea : sous l’état, avant les boutons, 14 px, en blanc, retours à la ligne gardés',
       !!bioAbonne && bioAbonne.texte === BIO_LEA && bioAbonne.apresEtat && bioAbonne.avantActions &&
-        bioAbonne.blancs === 'pre-line' && bioAbonne.taille === '14px' && bioAbonne.couleur === 'rgb(236, 238, 242)', JSON.stringify(bioAbonne));
+        bioAbonne.blancs === 'pre-line' && bioAbonne.taille === '14px' && bioAbonne.couleur === 'rgb(242, 244, 247)', JSON.stringify(bioAbonne));
     await aller('/a/banc');
     await attendreQue(async () => (await bio()) !== null);
     const bioMoi = await bio();
@@ -21915,7 +21915,7 @@ const SETS_IMPORTES = [
         const cs = c && getComputedStyle(c);
         return cs ? { bord: cs.borderTopColor, anim: cs.animationName } : null;
       });
-      ok('[C105] le rouge (--manque) et le léger tremblement', !!st && st.bord === 'rgb(205, 113, 103)' &&
+      ok('[C105] le rouge (--manque) et le léger tremblement', !!st && st.bord === 'rgb(255, 123, 114)' &&
         st.anim === 'trembler-case', nb105(st));
       await page.emulateMedia({ reducedMotion: 'reduce' });
       const st2 = await page.evaluate(() => {
@@ -21924,7 +21924,7 @@ const SETS_IMPORTES = [
         return cs ? { bord: cs.borderTopColor, anim: cs.animationName } : null;
       });
       await page.emulateMedia({ reducedMotion: null });
-      ok('[C105] mouvement réduit : le rouge reste, le tremblement non', !!st2 && st2.bord === 'rgb(205, 113, 103)' &&
+      ok('[C105] mouvement réduit : le rouge reste, le tremblement non', !!st2 && st2.bord === 'rgb(255, 123, 114)' &&
         st2.anim === 'none', nb105(st2));
     }
     await remplir105(0, 'charge_kg', 40);

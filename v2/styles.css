@@ -504,19 +504,22 @@ button{font-family:inherit;cursor:pointer}
 .bloc-fl{margin-left:auto;color:var(--texte-3);font-size:13px;flex:none}
 .bloc-rien{font-size:12.5px;line-height:1.5;color:var(--texte-3)}
 
-.bloc-zones{display:grid;grid-template-columns:repeat(3,1fr);gap:3px var(--e2);
-  font-size:11.5px;line-height:1.5;color:var(--texte-3)}
-.bloc-zone{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bloc-zone b{color:var(--texte-2);font-weight:600;font-variant-numeric:tabular-nums}
+.bloc-zones{display:flex;flex-direction:column;gap:4px;font-size:12.5px;line-height:1.5;color:var(--texte-2)}
+/* 173 — le volume par muscle en barres horizontales `--donnees`, largeur proportionnelle au plus grand, le nombre à droite. */
+.bloc-zone{display:grid;grid-template-columns:minmax(72px,34%) 1fr 30px;align-items:center;gap:var(--e2);white-space:nowrap}
+.bz-nom{overflow:hidden;text-overflow:ellipsis}
+.bz-piste{display:block;height:8px;border-radius:4px;background:var(--panneau-2);overflow:hidden}
+.bz-barre{display:block;height:100%;border-radius:4px;background:var(--donnees)}
+.bloc-zone b{color:var(--texte);font-weight:700;font-family:var(--pile-c);font-size:15px;text-align:right;font-variant-numeric:tabular-nums}
 
 /* Le poids : une valeur, sa date, un écart daté, un compte. Aucune couleur de
    jugement — l'écart est du texte ordinaire, qu'il monte ou qu'il descende. */
 .bloc-pesee{display:flex;align-items:baseline;gap:var(--e2)}
-.pesee-gros{font-size:26px;font-weight:700;line-height:1;letter-spacing:-.02em;
+.pesee-gros{font-family:var(--pile-c);font-size:42px;font-weight:700;line-height:1;letter-spacing:-.01em;
   font-variant-numeric:tabular-nums}
 .pesee-unite{font-size:12px;line-height:1;color:var(--texte-3)}
-.pesee-var{margin-left:auto;text-align:right;font-size:12px;font-weight:500;
-  line-height:1.3;color:var(--texte-2);font-variant-numeric:tabular-nums}
+.pesee-var{margin-left:auto;text-align:right;font-size:14px;font-weight:600;
+  line-height:1.3;color:var(--donnees);font-variant-numeric:tabular-nums}
 .pesee-var em{display:block;font-style:normal;font-size:10px;color:var(--texte-3);margin-top:2px}
 
 /* La ligne mène à la page d'exercice : c'est un bouton, et il ne doit rien
@@ -580,9 +583,9 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .graphe svg{width:100%;height:104px;display:block}
 /* Aucune ligne d'objectif, aucune zone colorée « bien / insuffisant », aucune
    projection : une courbe décrit, elle ne juge pas. */
-.courbe-trait{fill:none;stroke:#7E8B9A;stroke-width:2;stroke-linejoin:round;
+.courbe-trait{fill:none;stroke:var(--donnees);stroke-width:2;stroke-linejoin:round;
   stroke-linecap:round;vector-effect:non-scaling-stroke}
-.courbe-pt{fill:var(--accent)}
+.courbe-pt{fill:var(--donnees)}
 .graphe-axe{display:flex;justify-content:space-between;gap:var(--e2);
   font-size:10px;line-height:1.3;color:var(--texte-3);margin-top:5px;
   font-variant-numeric:tabular-nums}
@@ -1836,8 +1839,23 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 /* ── MOTEUR §9.23 (55-1) — LE MOIS ET SES RECORDS (maquette « L'onglet »,
    « Le mois »). Descriptif : le mois affiché en couleur du coach, les autres
    en gris, quelle que soit leur hauteur ; aucune couleur de jugement. */
-.bloc-som.neuf{border:1px solid rgba(255,185,56,.35)}
+/* 173 — le liseré doré est retiré : les cartes ressortent par leur surface. */
+.bloc-som.neuf{border:none}
 .bloc-ligne{font-size:12.5px;line-height:1.5;color:var(--texte-2)}
+/* 173 — le mois : le chiffre en héros (Condensed 38 px pour le premier, 26 px pour les suivants). */
+.bloc-heros{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 0;font-size:13.5px}
+.bh-n{font-family:var(--pile-c);font-weight:700;color:var(--texte);font-size:26px;line-height:1.1;margin-right:2px}
+.bh-premier .bh-n{font-size:38px}
+/* 173 — le dernier record : l'étoile et la pastille « RECORD » (`--record`), dessinées en CSS ; la charge × reps en gras. */
+.bloc-dernier::before{content:"\2605 RECORD";display:inline-block;margin-right:8px;padding:0 7px;border-radius:var(--r-etiquette);
+  border:1px solid var(--record);color:var(--record);font-size:10.5px;font-weight:700;letter-spacing:.08em;line-height:18px;vertical-align:1px}
+.rec-mesure{color:var(--texte);font-weight:700}
+.bloc-enveloppe{position:relative}
+.bloc-som.avec-peser{padding-bottom:calc(var(--e4) + 34px)}
+.bloc-peser{position:absolute;right:var(--e4);bottom:calc(var(--e3) + var(--e3));height:34px;padding:0 16px;border-radius:var(--r-bouton);
+  border:1px solid var(--accent);background:transparent;color:var(--accent);font:700 14px/1 var(--pile)}
+.bloc-tous{display:block;width:100%;margin-top:var(--e2);padding:8px 0 2px;border:none;border-top:1px solid var(--trait);background:none;
+  color:var(--texte-2);font:600 13px/1.3 var(--pile);text-align:left}
 .bloc-quoi .medaille{margin-right:8px;vertical-align:-3px}
 .mois-nav{display:flex;align-items:center;justify-content:space-between;gap:var(--e2);margin:var(--e2) 0 var(--e3)}
 .mois-nav .titre-vue{margin:0;text-align:center;flex:1}
@@ -2188,8 +2206,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .pc-lift-tete{display:flex;justify-content:space-between;align-items:baseline;gap:var(--e2)}
 .pc-lift-nom{font:600 18px var(--pile-c)}
 .pc-courbe{display:block;width:100%;height:90px;margin:4px 0}
-.pc-meilleur{fill:none;stroke:var(--medaille);stroke-width:2;vector-effect:non-scaling-stroke}
-.pc-point{fill:var(--texte-2);opacity:.7}
+.pc-meilleur{fill:none;stroke:var(--record);stroke-width:2;vector-effect:non-scaling-stroke}
+.pc-point{fill:var(--donnees);opacity:.9}
 .pc-maintenant{fill:var(--texte)}
 .pc-lift-pied{display:flex;justify-content:space-between;gap:6px;font-size:11.5px;color:var(--texte-2);
   font-variant-numeric:tabular-nums}

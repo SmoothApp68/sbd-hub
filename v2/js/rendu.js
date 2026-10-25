@@ -1271,10 +1271,18 @@
   function blocVolume(v) {
     var bloc = coquilleBloc('Volume par muscle', v.quand, false);
     if (v.zones && v.zones.length) {
+      // 173 (« Vivant ») — les mêmes nombres, en barres horizontales `--donnees` : largeur proportionnelle au plus grand, le nombre à droite.
       var grille = el('div', 'bloc-zones');
+      var plusGrand = Math.max.apply(null, v.zones.map(function (z) { return Number(z.series) || 0; }).concat([0]));
       v.zones.forEach(function (z) {
         var item = el('span', 'bloc-zone');
-        item.appendChild(doc.createTextNode(z.libelle + ' '));
+        item.appendChild(el('span', 'bz-nom', z.libelle));
+        item.appendChild(doc.createTextNode(' '));
+        var piste = el('i', 'bz-piste');
+        var barre = el('i', 'bz-barre');
+        barre.style.width = (plusGrand > 0 ? Math.round((Number(z.series) || 0) / plusGrand * 100) : 0) + '%';
+        piste.appendChild(barre);
+        item.appendChild(piste);
         item.appendChild(el('b', null, nombreFr(z.series)));
         grille.appendChild(item);
       });
@@ -1308,6 +1316,18 @@
       bloc.appendChild(el('div', 'bloc-rien', 'Aucune pesée enregistrée.'));
     }
     bloc.addEventListener('click', v.surChoix);
+    // 173 — « Peser » : un bouton posé sur la carte (à côté d'elle dans le DOM : la carte est un bouton, on n'en imbrique pas un second).
+    if (v.surPeser) {
+      bloc.classList.add('avec-peser');
+      var env = el('div', 'bloc-enveloppe');
+      env.appendChild(bloc);
+      var pe = el('button', 'bloc-peser', 'Peser');
+      pe.type = 'button';
+      pe.setAttribute('aria-label', 'Peser');
+      pe.addEventListener('click', function () { v.surPeser(); });
+      env.appendChild(pe);
+      return env;
+    }
     return bloc;
   }
 
@@ -1332,6 +1352,13 @@
       ligne.appendChild(el('span', 'bloc-exo-jour', jour(l.jour)));
       bloc.appendChild(ligne);
     });
+    // 173 — « Tous mes exercices » sous les trois derniers : la même destination que la porte du Profil (qui reste).
+    if (v.surTous) {
+      var tous = el('button', 'bloc-tous', 'Tous mes exercices \u203a');
+      tous.type = 'button';
+      tous.addEventListener('click', function () { v.surTous(); });
+      bloc.appendChild(tous);
+    }
     return bloc;
   }
 
@@ -1352,7 +1379,17 @@
     if (v.records) bouts.push(pluriel(v.records, 'record'));
     if (v.paris && v.paris.verifies) bouts.push(v.paris.tenus + ' pari' + (v.paris.tenus > 1 ? 's' : '') +
       ' tenu' + (v.paris.tenus > 1 ? 's' : '') + ' sur ' + v.paris.verifies);
-    bloc.appendChild(el('div', 'bloc-ligne', bouts.join(' \u00b7 ')));
+    // 173 (« Vivant ») — le chiffre en héros : « 13 t » (puis « soulevées »), « 14 » (puis « records ») ; le texte, lui, ne change pas.
+    var ligneM = el('div', 'bloc-ligne bloc-heros');
+    bouts.forEach(function (b, i) {
+      if (i > 0) ligneM.appendChild(doc.createTextNode(' \u00b7 '));
+      var m = /^(\d[\d,.\u00a0]*?(?:\u00a0t)?)(\s.*)$/.exec(b);
+      var bout = el('span', 'bh-bout' + (i === 0 ? ' bh-premier' : ''));
+      if (m) { bout.appendChild(el('span', 'bh-n', m[1])); bout.appendChild(doc.createTextNode(m[2])); }
+      else bout.appendChild(doc.createTextNode(b));
+      ligneM.appendChild(bout);
+    });
+    bloc.appendChild(ligneM);
     bloc.addEventListener('click', v.surChoix);
     return bloc;
   }
@@ -1363,9 +1400,19 @@
     bloc.classList.add('neuf');
     var haut = bloc.querySelector('.bloc-quoi');
     if (haut) haut.insertBefore(pastilleMedaille(), haut.firstChild);
-    bloc.appendChild(el('div', 'bloc-ligne', v.dernier
-      ? 'Le dernier : ' + v.dernier.texte + ', le ' + v.dernier.date + (/\.$/.test(v.dernier.date) ? '' : '.')
-      : 'Aucun record pour l\u2019instant.'));
+    // 173 (« Vivant ») — la charge × reps en gras sur le dernier record (la pastille `--record`, en CSS). Même texte.
+    var ligneR = el('div', 'bloc-ligne');
+    if (v.dernier) {
+      ligneR.classList.add('bloc-dernier');
+      // L'étoile et la pastille « RECORD » sont dessinées par CSS (::before) : le texte de la ligne reste celui d'avant.
+      ligneR.appendChild(doc.createTextNode('Le dernier : '));
+      if (v.dernier.nom && v.dernier.mesure) {
+        ligneR.appendChild(doc.createTextNode(v.dernier.nom + ' '));
+        ligneR.appendChild(el('b', 'rec-mesure', v.dernier.mesure));
+      } else ligneR.appendChild(doc.createTextNode(v.dernier.texte));
+      ligneR.appendChild(doc.createTextNode(', le ' + v.dernier.date + (/\.$/.test(v.dernier.date) ? '' : '.')));
+    } else ligneR.appendChild(doc.createTextNode('Aucun record pour l\u2019instant.'));
+    bloc.appendChild(ligneR);
     if (v.surChoix) bloc.addEventListener('click', v.surChoix);
     return bloc;
   }

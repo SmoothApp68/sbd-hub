@@ -1351,7 +1351,7 @@
         return an ? { an: an, surChoix: function () { ouvrirAnnee(an); } } : null;
       })(),
       records: {
-        dernier: dernier ? { texte: dernier.nom + ' ' + dernier.mesure,
+        dernier: dernier ? { texte: dernier.nom + ' ' + dernier.mesure, nom: dernier.nom, mesure: dernier.mesure,
                              date: Modele.jourMois(new Date(dernier.debut), new Date().getFullYear()) } : null,
         surChoix: dernier ? function () { afficherRecordsDuMois(Bilan.cleMois(dernier.debut)); } : null
       },
@@ -1362,9 +1362,13 @@
       },
       poids: {
         resume: Poids.resume(local.pesees),
-        surChoix: function () { allerA(Routeur.POIDS, {}); rendrePoids(); }
+        surChoix: function () { allerA(Routeur.POIDS, {}); rendrePoids(); },
+        // 173 — « Peser » : la même pesée que la ligne « Poids » du Profil.
+        surPeser: ouvrirPeseeProfil
       },
-      exercices: sommaireExercices(function (slug) { afficherExercice(slug); })
+      exercices: sommaireExercices(function (slug) { afficherExercice(slug); },
+        // 173 — « Tous mes exercices » : la même destination que la porte du Profil.
+        function () { allerA(Routeur.EXERCICES, {}); rendreMesExercices(); })
     });
   }
 
@@ -3376,7 +3380,7 @@
   // même jour — deux voix pour un seul chiffre est la famille de défauts que
   // l'audit v1 a cataloguée. Un exercice sans meilleure série n'affiche pas de
   // valeur : rien ne s'invente.
-  function sommaireExercices(surExercice) {
+  function sommaireExercices(surExercice, surTous) {
     var index = Modele.indexerExercices(local.exercices);
     var vus = {}, lignes = [];
     for (var i = 0; i < local.seances.length && lignes.length < 3; i++) {
@@ -3412,7 +3416,7 @@
     // profil et de Mes exercices. Et « 1 exercice » prend le singulier.
     var n = Object.keys(Modele.exercicesFaits(local.series)).length;
 
-    return { quand: n ? n + ' exercice' + (n > 1 ? 's' : '') : '', lignes: lignes, surExercice: surExercice };
+    return { quand: n ? n + ' exercice' + (n > 1 ? 's' : '') : '', lignes: lignes, surExercice: surExercice, surTous: surTous };
   }
 
   // ══ LA SÉANCE EN COURS ═══════════════════════════════════════════════════
@@ -14875,6 +14879,7 @@
           fermerVoile();
           poserPesee(r.pesee).catch(function () {}).then(function () {
             if (ecranCourant === 'profil') rendreProfilEcran();
+            else if (ecranCourant === 'progression') rendreProgression();
           });
           return null;
         },

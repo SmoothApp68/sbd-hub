@@ -735,7 +735,7 @@
     username: 'Pseudo', bio: 'Bio', sexe: 'Sexe', taille_cm: 'Taille', date_naissance: 'Date de naissance',
     anciennete: 'Ancienneté', intention: 'Progresser ou carnet', rythme_progression: 'Ton rythme', phase: 'Ta phase',
     phase_depuis: 'Ta phase', lest_reponse: 'Lest', materiel: 'Matériel', seances_par_semaine: 'Séances par semaine',
-    duree_seance_min: 'Durée d’une séance', objectif: 'Objectif', priorites: 'Priorités', temps_reponse: 'Ton temps',
+    duree_seance_min: 'Durée d’une séance', objectif: 'But d’entraînement', priorites: 'Priorités', temps_reponse: 'Ton temps',
     historique_declare: 'Historique', programme_choix: 'Ton programme', zones_a_menager: 'Zone à ménager',
     exercices_ecartes: 'Exercices écartés', jeu_actif: 'Le jeu', compte_prive: 'Compte privé', ma_salle: 'Ma salle',
     marche_reponses: 'Marche suivante', completer_refus: 'Ce qui manque à tes séances', assistant_accord_a: 'Demander au coach'
@@ -1143,7 +1143,7 @@
     return {
       titre: 'TON BUT',
       lignes: [
-        { libelle: 'Objectif', valeur: libelleDe(OBJECTIFS, p.objectif),
+        { libelle: 'But d’entraînement', valeur: libelleDe(OBJECTIFS, p.objectif),
           surChoix: function () { ouvrir('objectif'); } },
         { libelle: 'Priorités', valeur: resumeDesPriorites(p.priorites),
           surChoix: function () { ouvrir('priorites'); } }

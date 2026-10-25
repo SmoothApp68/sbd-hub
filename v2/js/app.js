@@ -14612,7 +14612,7 @@
         });
       }
       Rendu.rendreFeuilleChoix(cible, {
-        titre: objectif ? 'Objectif' : 'Ton temps',
+        titre: objectif ? 'But d’entraînement' : 'Ton temps',
         // 60-2b : ce que le coach fait de la réponse — une phrase pour l'objectif, une
         // sous-ligne par réponse de temps qu'il lit (`Profil.optionsTemps`).
         aide: objectif ? Profil.AIDE_OBJECTIF : null,
@@ -15016,6 +15016,11 @@
 
     var exos = faits.compterExercices(corpus());
 
+    // 173 — une section « du groupe » : la même section, avec le nom de son groupe (les sections absentes — `null` — restent absentes).
+    function dansLeGroupe(nom, sections) {
+      return sections.map(function (sec) { return sec ? Object.assign({}, sec, { groupe: nom }) : sec; });
+    }
+
     Rendu.rendreProfil($('profil-corps'), {
       // 60-2a — « Terminer mon questionnaire › » en tête, tant qu'il n'est pas rempli.
       questionnaire: Profil.ligneQuestionnaire(p, ouvrirQuestionnaire),
@@ -15024,39 +15029,81 @@
         { valeur: nombreGroupe(stats.series), libelle: 'séries' },
         { valeur: Profil.libelleAnciennete(stats.annees), libelle: 'd’historique' }
       ],
-      sections: [
-        // 60-4 (ECRAN-PROFIL §4 bis) — le programme construit : la zone à ménager, les exercices écartés (la ligne
-        // s'efface quand il n'y en a plus), « Refaire mon programme ».
-        { titre: 'CE QUE JE FAIS', lignes: [
-          ligneChoix('materiel', 'Matériel'),
-          // 108 (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies) — Ma salle ; 163 : les élastiques seulement, et seulement si un
-          // exercice à l'élastique est dans une routine, l'historique ou la séance en cours.
-          Profil.ligneSalle(p, ouvrirSalleProfil, unExerciceALElastique())
-        ].filter(Boolean).concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil)) },
-        // 60-1 — « Progresser » ou « Juste un carnet » : la section se construit
-        // dans `profil.js`, comme « Ton rythme » (la phrase dépend du choix).
-        Profil.sectionIntention(p, ecrireProfil),
-        // ── MOTEUR §9.8 / ECRAN-PROFIL §2.3 — « TON RYTHME » ───────────────
-        //
-        // Le MÊME sélecteur que l'intention juste au-dessus (§2.3, tranché le
-        // 19/09) : deux composants pour deux réglages voisins donneraient deux
-        // langages sur le même écran.
-        //
-        // ⚠️ LA SECTION SE CONSTRUIT DANS `profil.js`, ET C'EST VOULU. Elle
-        // porte une RÈGLE — absente en Entretenir — et une COLONNE écrite ;
-        // ici, rien ne les exercerait (`rendreProfilEcran` n'est pas testable).
-        // `null` en Entretenir, et `rendreProfil` saute les sections absentes.
-        Profil.sectionRythme(p, ecrireProfil),
-        // 60-2a — « TON BUT » (l'objectif, les priorités), après le réglage du coach :
-        // les réponses du questionnaire, une ligne à la fois. Leurs phrases d'aide sont dans les feuilles.
-        Profil.sectionBut(p, ouvrirReponseProfil),
-        // MOTEUR §9.16 (49-U11) — « TA PHASE », à côté du rythme : le même
-        // sélecteur, la même écriture (`ecrireProfil`, par la file du profil).
-        Profil.sectionPhase(p, ecrireProfil),
-        { titre: 'DEPUIS QUAND', lignes: [
-          ligneChoix('anciennete', 'Entraînement régulier')
-        ] },
-        { titre: 'MES EXERCICES', lignes: [
+      // 173 (refonte « Vivant », 25/10/2026) — LE PROFIL RANGÉ PAR FRÉQUENCE : « Mon coach », « Mon programme », « Moi », « Mon compte »,
+      // puis, en bas comme avant, mes exercices, mes données, le jeu, quitter, supprimer. Les mêmes sections, les mêmes lignes, les mêmes
+      // feuilles : seule la `groupe` de chaque section change (le titre de groupe se dessine une fois, devant la première de ses sections).
+      sections: [].concat(
+        dansLeGroupe('Mon coach', [
+          // 60-1 — « Progresser » ou « Juste un carnet » : la section se construit dans `profil.js` (la phrase dépend du choix).
+          Profil.sectionIntention(p, ecrireProfil),
+          // ── MOTEUR §9.8 / ECRAN-PROFIL §2.3 — « TON RYTHME » (Prudent / Normal / Franc) ──────────────────────────
+          // Le MÊME sélecteur que l'intention (§2.3, tranché le 19/09). ⚠️ LA SECTION SE CONSTRUIT DANS `profil.js`, ET C'EST VOULU :
+          // elle porte une RÈGLE — absente en Entretenir — et une COLONNE écrite. `null` en Entretenir : `rendreProfil` saute les absentes.
+          Profil.sectionRythme(p, ecrireProfil),
+          // Le poids n'est pas un champ du profil : c'est la DERNIÈRE PESÉE, datée (« 96,8 kg · mardi »). 92 (14/10/2026) — la ligne
+          // SAISIT une pesée, par `poserPesee`, le chemin du questionnaire ; la courbe reste sous Progression.
+          { titre: 'TON POIDS', lignes: [
+            { libelle: 'Poids',
+              valeur: resumePoids ? Modele.nombreSigne(resumePoids.poids) + ' kg · ' +
+                Modele.quand(resumePoids.date, jourDuJour()) : null,
+              surChoix: ouvrirPeseeProfil }
+          ] },
+          // MOTEUR §9.16 (49-U11) — « TA PHASE » : le même sélecteur, la même écriture (`ecrireProfil`, par la file du profil).
+          Profil.sectionPhase(p, ecrireProfil),
+          // 60-2a — « TON BUT » (le but d'entraînement, les priorités) : les réponses du questionnaire, une ligne à la fois.
+          Profil.sectionBut(p, ouvrirReponseProfil),
+          // ⚠️ « TA SEMAINE », ET PLUS « RYTHME VISÉ » (ECRAN-PROFIL §2.4, renommé le 19/09) : « rythme » désigne le réglage de progression.
+          { titre: 'TA SEMAINE', lignes: [
+            { libelle: 'Séances par semaine', valeur: p.seances_par_semaine || null,
+              surChoix: function () { ouvrirRythmeProfil('seances_par_semaine'); } },
+            { libelle: 'Durée d’une séance',
+              valeur: p.duree_seance_min ? p.duree_seance_min + ' min' : null,
+              surChoix: function () { ouvrirRythmeProfil('duree_seance_min'); } },
+            // 60-2a — les quatre réponses de l'écran « Temps » (leurs phrases sont dans la feuille).
+            Profil.ligneTemps(p, ouvrirReponseProfil)
+          ] }
+        ]),
+        dansLeGroupe('Mon programme', [
+          // 60-4 (ECRAN-PROFIL §4 bis) — le programme construit : la zone à ménager, les exercices écartés (la ligne
+          // s'efface quand il n'y en a plus), « Refaire mon programme ».
+          { titre: 'CE QUE JE FAIS', lignes: [
+            ligneChoix('materiel', 'Matériel'),
+            // 108 (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies) — Ma salle ; 163 : les élastiques seulement, et seulement si un
+            // exercice à l'élastique est dans une routine, l'historique ou la séance en cours.
+            Profil.ligneSalle(p, ouvrirSalleProfil, unExerciceALElastique())
+          ].filter(Boolean).concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil)) }
+        ]),
+        dansLeGroupe('Moi', [
+          { titre: 'MON CORPS', lignes: [
+            { libelle: 'Taille', valeur: p.taille_cm ? p.taille_cm + ' cm' : null,
+              surChoix: function () { ouvrirSaisieProfil('taille_cm'); } },
+            { libelle: 'Date de naissance',
+              valeur: p.date_naissance ? Rendu.dateCourte(p.date_naissance) : null,
+              surChoix: function () { ouvrirSaisieProfil('date_naissance'); } },
+            ligneChoix('sexe', 'Sexe')
+          ] },
+          { titre: 'DEPUIS QUAND', lignes: [
+            ligneChoix('anciennete', 'Entraînement régulier')
+          ] }
+        ]),
+        dansLeGroupe('Mon compte', [
+          { titre: 'L’APP', lignes: (surIphone() ? [
+            // 138 (§3.5) — en tête, seulement sur iPhone hors de l'app : la feuille « Comment faire ».
+            { libelle: Auth.PHRASES_IPHONE.ligne, valeur: 'Comment faire', surChoix: ouvrirFeuilleInstaller }
+          ] : []).concat([
+            // 60-3b — et, « pris entre-temps », la phrase qui le dit tant qu'aucun pseudo n'est posé.
+            Profil.lignePseudo(p, pseudoPrisSignale(), function () { ouvrirSaisieProfil('username'); }),
+            { libelle: 'Bio', valeur: p.bio || null,
+              surChoix: function () { ouvrirSaisieProfil('bio'); } },
+            // L'e-mail se LIT, il ne se change pas d'ici : le changer demande une confirmation sur les deux adresses.
+            { libelle: 'E-mail de connexion',
+              valeur: (sessionActive && sessionActive.user && sessionActive.user.email) || null },
+            // 70 — appelée SANS argument : le rendu passe l'événement du clic, qui n'est pas une récupération.
+            { libelle: 'Mot de passe', valeur: '••••••••', surChoix: function () { ouvrirMotDePasseProfil(false); } }
+          ]) }
+        ]),
+        // En bas, comme avant : mes exercices, mes données (le jeu, quitter et supprimer suivent, dans le rendu).
+        [{ titre: 'MES EXERCICES', lignes: [
           { libelle: 'Tous mes exercices', sansValeur: true,
             sous: exos.total + ' au catalogue · ' + exos.faits + ' déjà faits',
             surChoix: function () { allerA(Routeur.EXERCICES, {}); rendreMesExercices(); } }
@@ -15065,52 +15112,8 @@
         { titre: 'MES DONNÉES', lignes: [
           { libelle: 'Importer depuis Hevy', sansValeur: true,
             surChoix: function () { allerA(Routeur.IMPORT, {}); ouvrirImport(); } }
-        ] },
-        { titre: 'MON CORPS', lignes: [
-          // Le poids n'est pas un champ du profil : c'est la DERNIÈRE PESÉE, datée (« 96,8 kg · mardi »).
-          // 92 (14/10/2026) — la ligne SAISIT une pesée, par `poserPesee`, le chemin du questionnaire ;
-          // la courbe reste sous Progression.
-          { libelle: 'Poids',
-            valeur: resumePoids ? Modele.nombreSigne(resumePoids.poids) + ' kg · ' +
-              Modele.quand(resumePoids.date, jourDuJour()) : null,
-            surChoix: ouvrirPeseeProfil },
-          { libelle: 'Taille', valeur: p.taille_cm ? p.taille_cm + ' cm' : null,
-            surChoix: function () { ouvrirSaisieProfil('taille_cm'); } },
-          { libelle: 'Date de naissance',
-            valeur: p.date_naissance ? Rendu.dateCourte(p.date_naissance) : null,
-            surChoix: function () { ouvrirSaisieProfil('date_naissance'); } },
-          ligneChoix('sexe', 'Sexe')
-        ] },
-        // ⚠️ « TA SEMAINE », ET PLUS « RYTHME VISÉ » (ECRAN-PROFIL §2.4, renommé
-        // le 19/09). Ce bloc-ci parle de séances par semaine ; « rythme »
-        // désigne désormais le réglage de progression, juste au-dessus. Deux
-        // sections nommées « rythme » sur le même écran ne parleraient pas de
-        // la même chose.
-        { titre: 'TA SEMAINE', lignes: [
-          { libelle: 'Séances par semaine', valeur: p.seances_par_semaine || null,
-            surChoix: function () { ouvrirRythmeProfil('seances_par_semaine'); } },
-          { libelle: 'Durée d’une séance',
-            valeur: p.duree_seance_min ? p.duree_seance_min + ' min' : null,
-            surChoix: function () { ouvrirRythmeProfil('duree_seance_min'); } },
-          // 60-2a — les quatre réponses de l'écran « Temps » (leurs phrases sont dans la feuille).
-          Profil.ligneTemps(p, ouvrirReponseProfil)
-        ] },
-        { titre: 'L’APP', lignes: (surIphone() ? [
-          // 138 (§3.5) — en tête, seulement sur iPhone hors de l'app : la feuille « Comment faire ».
-          { libelle: Auth.PHRASES_IPHONE.ligne, valeur: 'Comment faire', surChoix: ouvrirFeuilleInstaller }
-        ] : []).concat([
-          // 60-3b — et, « pris entre-temps », la phrase qui le dit tant qu'aucun pseudo n'est posé.
-          Profil.lignePseudo(p, pseudoPrisSignale(), function () { ouvrirSaisieProfil('username'); }),
-          { libelle: 'Bio', valeur: p.bio || null,
-            surChoix: function () { ouvrirSaisieProfil('bio'); } },
-          // L'e-mail se LIT, il ne se change pas d'ici : le changer demande une
-          // confirmation sur les deux adresses, et c'est un geste à part entière.
-          { libelle: 'E-mail de connexion',
-            valeur: (sessionActive && sessionActive.user && sessionActive.user.email) || null },
-          // 70 — appelée SANS argument : le rendu passe l'événement du clic, qui n'est pas une récupération.
-          { libelle: 'Mot de passe', valeur: '••••••••', surChoix: function () { ouvrirMotDePasseProfil(false); } }
-        ]) }
-      ],
+        ] }]
+      ),
       // 64B — la vitrine (les trois succès les plus rares, décidés par le jeu), et en bas l'interrupteur, qui
       // écrit par le chemin du profil : local d'abord, l'écran suit tout de suite, hors ligne compris.
       vitrine: jeu ? Jeu.vitrine(jeu).map(succesDecrit) : null,

@@ -640,7 +640,7 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
       temps: 'moins', materiel: 'maison_minimal', coach: 'franc', duree: 60 });
     const v = vue('recap', { rep });
     const lignes = blocs(v, 'resume')[0].lignes;
-    expect(lignes.map((l) => l.libelle)).toEqual(['Objectif', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Coach']);
+    expect(lignes.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Coach']);
     expect(lignes.map((l) => l.valeur)).toEqual(['Force', 'Sèche', 'Squat, Dos', '60 min · j’ai moins de temps en ce moment',
       'Maison, minimum', 'Franc']);
     expect(lignes.map((l) => l.ecran)).toEqual(['but', 'but', 'priorites', 'temps', 'temps', 'coach']);
@@ -747,7 +747,7 @@ describe('60-3 — l’écran 8 : « Ton programme », sans routine', () => {
     const rep = Object.assign(Q.reponsesInitiales({}, {}), { programme: 'deduit' });
     const lignes = (visibles) => vue('recap', { rep, visibles }).blocs[0].lignes;
     const avec = lignes(Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: false }));
-    expect(avec.map((l) => l.libelle)).toEqual(['Objectif', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Programme', 'Coach']);
+    expect(avec.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Programme', 'Coach']);
     expect(avec[5]).toEqual({ libelle: 'Programme', valeur: 'Garder ce que je fais', ecran: 'programme' });
     const sans = lignes(Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: true }));
     expect(sans.map((l) => l.libelle)).not.toContain('Programme');

@@ -2182,7 +2182,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .recap-mu{display:grid;grid-template-columns:120px 1fr 40px;gap:8px;align-items:center;font-size:13px;margin:5px 0}
 .recap-mu i{display:block;height:8px;border-radius:4px;background:var(--texte-3)}
 .recap-mu b{font-weight:600;text-align:right}
-.recap-rec{border-left:3px solid var(--medaille);padding:6px 0 6px 10px;margin:6px 0}
+.recap-rec{border-left:3px solid var(--record);padding:6px 0 6px 10px;margin:6px 0}
 .recap-rec .l1{font-weight:600}
 .recap-rec .l2{color:var(--texte-3);font-size:12.5px}
 .recap-voix{color:var(--accent);font-weight:600;margin:4px 0 8px}
@@ -2264,11 +2264,11 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .s-tete{display:flex;gap:10px;align-items:center;margin-bottom:10px;min-width:0}
 .s-tete b{display:block;overflow-wrap:anywhere}.s-tete small{color:var(--texte-2)}
 .s-chiffres{display:flex;gap:22px;align-items:flex-end}
-.s-chiffres strong{display:block;font:700 26px/1 var(--pile)}
+.s-chiffres strong{display:block;font:700 30px/1 var(--pile-c)}
 .s-chiffres span{color:var(--texte-2);font-size:12px}
 .s-meds{margin-top:10px;display:flex;flex-direction:column;gap:4px}
 .s-med{font-size:13px;display:flex;gap:8px;align-items:center;overflow-wrap:anywhere}
-.s-med i{width:16px;height:16px;border-radius:50%;background:var(--medaille);flex:none}
+.s-med i{width:16px;height:16px;border-radius:50%;background:var(--record);flex:none}
 .s-pied{display:flex;justify-content:space-between;margin-top:12px;gap:8px}
 .s-reag{background:var(--panneau-2);color:var(--texte);border-radius:99px}
 .s-reag.s-fait{color:var(--medaille)}
@@ -2312,7 +2312,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .s-comparer-periode{margin-top:14px}
 .s-sous-exo{font-size:12px;margin:0 0 10px;overflow-wrap:anywhere}
 .s-courbe{display:block;margin-top:12px}
-.s-courbe-lui{stroke:#7a8fa3;stroke-width:2.5}
+.s-courbe-lui{stroke:var(--donnees);stroke-width:2.5}
 .s-courbe-moi{stroke:var(--medaille);stroke-width:2.5;stroke-dasharray:5 4}
 .s-courbe-lui-nom{fill:var(--texte-2);font-size:11px}.s-courbe-moi-nom{fill:var(--medaille);font-size:11px}
 .s-duo{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px 14px;align-items:baseline;font-size:14px}
@@ -2338,7 +2338,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .s-onglets-guilde{flex-wrap:nowrap;overflow-x:auto}
 .s-guilde-nom{overflow-wrap:anywhere;text-align:center}
 .s-jauge{height:10px;border-radius:99px;background:var(--panneau-2);overflow:hidden;margin:4px 0}
-.s-jauge-plein{height:100%;border-radius:99px;background:var(--medaille)}
+.s-jauge-plein{height:100%;border-radius:99px;background:var(--donnees)}
 .s-choix-defi{margin-top:12px;border-top:1px solid var(--trait);padding-top:10px}
 .s-defi-option{margin-top:8px}.s-defi-option .s-choix{margin:4px 0 0}
 .s-defi-libelle{font-size:13px}
@@ -2685,3 +2685,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .prochaine-pied{display:flex;align-items:center;gap:var(--e3);margin-top:var(--e3)}
 .prochaine-go{flex:1;min-height:44px}
 .prochaine-autre{flex:none;min-height:44px;border:none;background:none;color:var(--texte-2);font-size:13px}
+
+/* ── 173 (« Vivant », 25/10/2026) — LE PROFIL RANGÉ PAR FRÉQUENCE : le titre d'un groupe (« Mon coach », « Mon programme », « Moi », « Mon compte »). */
+.p-grp{margin:var(--e5) 0 0;padding:0 var(--e3);font-family:var(--pile-c);font-size:22px;font-weight:700;line-height:1.1;letter-spacing:.01em;color:var(--texte)}
+.p-grp + .p-sect{padding-top:var(--e3)}

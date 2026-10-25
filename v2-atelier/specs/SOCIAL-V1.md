@@ -510,3 +510,6 @@ la file** : le groupe est du temps réel, fait réseau présent, et le direct es
   (« « S'abonner à olga » n'a pas pu se faire. », ou les mots de la guilde), puis se relit et montre l'état réel. **Le
   compte devenu privé** n'est pas un refus de la base (l'abonnement arrive en demande) ; l'écran avait dit « tu le
   suis », il le dit : « Le compte de melodie est devenu privé : ta demande attend son accord. »
+
+## Refonte « Vivant » — Amis / Groupe / Jeu (173, 25/10/2026)
+Seulement les jetons, aucune structure : les chiffres en Condensed, `--donnees` pour les graphiques (la courbe de l'autre, la jauge), `--record` pour les records (la médaille du fil, le récap de séance).

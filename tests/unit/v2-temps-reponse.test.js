@@ -280,7 +280,10 @@ describe('§9.18 — app.js, rejoué', () => {
   });
 
   test('GARDE — `surDemarrer` ouvre la carte AVANT de démarrer, et ne démarre pas quand elle s’est ouverte', () => {
-    expect(extraire('rendreSaisie')).toMatch(/if \(r && ouvrirPeuDeTempsDOffice\(r\)\) return;\s*demarrerSeance\(r\);/);
+    // 173 : ce démarrage est UN SEUL (`demarrerRoutineParId`), partagé par la bibliothèque de Saisie et par « Prochaine séance ».
+    expect(extraire('demarrerRoutineParId')).toMatch(/if \(r && ouvrirPeuDeTempsDOffice\(r\)\) return;\s*demarrerSeance\(r\);/);
+    expect(extraire('rendreSaisie')).toMatch(/surDemarrer: demarrerRoutineParId,/);
+    expect(extraire('rendreProchaineSeance')).toMatch(/surDemarrer: demarrerRoutineParId,/);
   });
 
   test('le rendu n’ouvre rien et n’écrit rien : `tempsDeLaRoutine` reste pur', () => {

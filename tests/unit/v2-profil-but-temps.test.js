@@ -56,11 +56,11 @@ describe('60-2a — les règles pures du Profil : priorités, sections, ligne du
     expect(Profil.resumeDesPriorites(['tractions', 'squat_barre'])).toBe('Tractions, Squat');
   });
 
-  test('`sectionBut` : « TON BUT », deux lignes (Objectif, Priorités), AUCUNE phrase d’aide', () => {
+  test('`sectionBut` : « TON BUT », deux lignes (But d’entraînement, Priorités), AUCUNE phrase d’aide', () => {
     const ouverts = [];
     const sec = Profil.sectionBut({ objectif: 'muscle', priorites: ['squat_barre'] }, (c) => ouverts.push(c));
     expect(sec.titre).toBe('TON BUT');
-    expect(sec.lignes.map((l) => [l.libelle, l.valeur])).toEqual([['Objectif', 'Muscle'], ['Priorités', 'Squat']]);
+    expect(sec.lignes.map((l) => [l.libelle, l.valeur])).toEqual([['But d’entraînement', 'Muscle'], ['Priorités', 'Squat']]);
     expect(sec.aide).toBeUndefined();
     expect(sec.note).toBeUndefined();
     expect(sec.lignes.every((l) => l.sous === undefined)).toBe(true);
@@ -94,13 +94,15 @@ describe('60-2a — les règles pures du Profil : priorités, sections, ligne du
 describe('60-2a — l’écran Profil : où sont les sections, ce qu’elles ouvrent', () => {
   const titres = (e) => e.vue.sections.filter(Boolean).map((s) => s.titre);
 
-  test('⚠️ « TON BUT » vient APRÈS le réglage du coach (« TON RYTHME ») et avant « TA PHASE »', () => {
+  test('⚠️ « TON BUT » vient APRÈS le réglage du coach (« TON RYTHME »), le poids et « TA PHASE » ; « TA SEMAINE » le suit (173 : « Mon coach »)', () => {
     const e = profilEcran({ id: 'u1', intention: 'progresser', rythme_progression: 'normal', questionnaire_fait_le: '2026-10-07T10:00:00.000Z' });
     const t = titres(e);
     expect(t.indexOf('POURQUOI')).toBeGreaterThanOrEqual(0);
     expect(t.indexOf('TON RYTHME')).toBeGreaterThan(t.indexOf('POURQUOI'));
-    expect(t.indexOf('TON BUT')).toBe(t.indexOf('TON RYTHME') + 1);
-    expect(t.indexOf('TA PHASE')).toBe(t.indexOf('TON BUT') + 1);
+    expect(t.indexOf('TON POIDS')).toBe(t.indexOf('TON RYTHME') + 1);
+    expect(t.indexOf('TA PHASE')).toBe(t.indexOf('TON POIDS') + 1);
+    expect(t.indexOf('TON BUT')).toBe(t.indexOf('TA PHASE') + 1);
+    expect(t.indexOf('TA SEMAINE')).toBe(t.indexOf('TON BUT') + 1);
   });
 
   test('en « Juste un carnet », « TON RYTHME » s’efface, « TON BUT » reste (c’est une réponse, pas un réglage du coach)', () => {
@@ -174,7 +176,7 @@ describe('60-2a — les feuilles : une réponse du Profil s’écrit comme celle
     const b = bac({ id: 'u1', objectif: null });
     b.ouvrir('objectif');
     const v = b.vues.choix;
-    expect(v.titre).toBe('Objectif');
+    expect(v.titre).toBe('But d’entraînement');
     expect(v.aide).toBe('Il choisit la zone de ton premier bloc de programme : Lourd pour la force, Mix pour le muscle.');
     expect(v.surEffacer).toBe(null);
     expect(v.options.map((o) => o.libelle)).toEqual(['Force', 'Muscle', 'Les deux', 'Forme et santé']);

@@ -9559,7 +9559,7 @@ const SETS_IMPORTES = [
     const s1 = base.sets.filter((x) => x.session_id === sid && x.rang === 1)[0];
     const observes = () => base.predictions.filter((l) => s1 && l.set_observe === s1.id);
     ok('[TY] prémisse : la série 1 est validée, son pari observé en base',
-      !!s1 && observes().length === 99, JSON.stringify({ s1: s1 && s1.id, observes: observes().length }));
+      !!s1 && observes().length === 1, JSON.stringify({ s1: s1 && s1.id, observes: observes().length }));
     await toucher(0, '.no-serie');
     await page.click('#feuille-contenu .feuille-menu button:nth-child(4)');   // À l'échec (echec)
     await attendre(700);

@@ -25628,8 +25628,13 @@ const SETS_IMPORTES = [
     ok('[SA171] b — la phase confirmée quitte la ligne (sa règle ne la montre plus) : reste 1 avis, « Échelles »', !!b4 && b4.titres === 'Échelles', JSON.stringify(b4));
     // Plus aucun avis : la ligne n'existe pas.
     base.sessions = []; base.sets = [];
+    // L'appareil garde ses séances en cache local : on les y vide aussi (état, pas délai), puis l'app redémarre sur cet état.
+    await page.evaluate(async () => {
+      await window.THCache.remplacerTout('seances', []);
+      await window.THCache.remplacerTout('series', []);
+    });
     await aller('/saisie');
-    await jusqua(async () => (await ligne171()) === null, 12000);   // les séances d'échelles ont disparu de la base de papier : la ligne s'éteint dès que l'appareil les relit
+    await jusqua(async () => (await ligne171()) === null, 12000);   // l'appareil et la base de papier n'ont plus de séances d'échelles
     ok('[SA171] b — sans avis, la ligne n’existe pas', (await ligne171()) === null && JSON.stringify(await ordre171()) === JSON.stringify(['liste-routines']), JSON.stringify(await ordre171()));
     CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
 

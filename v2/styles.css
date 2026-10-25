@@ -60,29 +60,33 @@
      Ne JAMAIS ajouter `maximum-scale=1` à la place : cela retire le zoom d'accessibilité. */
   --police-champ:16px;
   /* 56-1 (la forge) : les valeurs changent, les rôles restent. */
-  --fond:#0f1114;        /* fond de page. Graphite, PAS noir — le noir pur vibre sur OLED */
-  --panneau:#181b20;     /* surface : une carte */
-  --panneau-2:#21252c;   /* surface 2 : une case, un champ */
-  --trait:#2c3139;       /* séparations */
+  --fond:#0A0C10;        /* fond de page (170, direction « Vivant », 25/10/2026) */
+  --panneau:#171C25;     /* surface : une carte */
+  --panneau-2:#222A37;   /* surface 2 : une case, un champ */
+  --trait:#2B3442;       /* séparations */
 
   /* Trois niveaux de texte, pas plus. */
-  --texte:#eceef2;
-  --texte-2:#9aa1ac;     /* texte gris */
+  --texte:#F2F4F7;
+  --texte-2:#A9B3C1;     /* texte gris */
   /* ⚠️ Le troisième niveau n'a pas de valeur dans la palette de la forge. Il
      était à 3,1:1 sur une carte, sous le seuil de 4,5:1 ; il passe à la valeur
      la plus sombre qui tienne 4,5:1 sur une case (surface 2) ET sur une ligne
      validée (#1E2A25) — plus lisible, jamais moins, et toujours un cran sous le
      gris. */
-  --texte-3:#888e98;
+  --texte-3:#8C97A6;
 
-  --accent:#f2b84b;      /* l'ambre : la voix du coach, l'action principale */
-  --accent-sombre:#b97a14;
-  --sur-accent:#1a1305;  /* le texte posé sur l'ambre */
-  --reussi:#5FA97A;      /* sens uniquement, jamais décoratif */
+  --accent:#FFB938;      /* l'ambre : la voix du coach, l'action principale */
+  --accent-sombre:#C2790F;
+  --sur-accent:#1A1200;  /* le texte posé sur l'ambre */
+  --reussi:#4ADE80;      /* sens uniquement, jamais décoratif */
   /* 56-1 (#372) : même teinte, remontée à 5,1:1 sur la surface et 4,5:1 sur la
      surface 2. Le sens seulement (une action destructive), jamais un jugement. */
-  --manque:#CD7167;
-  --chauffe:#5B8AC4;     /* §7 undecies.1 — la chauffe, et rien d'autre */
+  --manque:#FF7B72;
+  --chauffe:#6F9ADB;     /* §7 undecies.1 — la chauffe, et rien d'autre */
+  /* 170 — déclarés, utilisés aux lots 2-3 : les données (barres), le record. */
+  --donnees:#6AA8FF;
+  --record:#B79CFF;
+  --reflet:rgba(255,255,255,.07); /* le reflet haut d'une carte */
 
   /* La rareté, pour le jeu (64B, JEU-V1 §9.6) : commun gris, rare bleu, exceptionnel violet ; MAJEUR = l'or des
      records (`--medaille`). `#f2c14b`, son ancienne valeur, était trop proche de l'ambre du coach — et ne servait
@@ -543,7 +547,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
 /* La période précédente en gris neutre, la courante en accent. Pas de vert ni
    de rouge : deux périodes se comparent, elles ne se jugent pas. */
 .radar-prec{fill:rgba(120,130,145,.12);stroke:#6E7885;stroke-width:1.5}
-.radar-cour{fill:rgba(242,184,75,.10);stroke:var(--accent);stroke-width:2}
+.radar-cour{fill:rgba(255,185,56,.10);stroke:var(--accent);stroke-width:2}
 .radar-et{font:600 10px/1 var(--pile);fill:var(--texte-3)}
 .radar-lg{display:flex;justify-content:center;gap:var(--e4);margin-top:var(--e2);
   font-size:11px;line-height:1;color:var(--texte-3)}
@@ -663,9 +667,9 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .molette::before,.molette::after{content:"";position:absolute;left:0;right:0;
   height:84px;pointer-events:none;z-index:2}
 .molette::before{top:0;
-  background:linear-gradient(180deg,var(--panneau) 18%,rgba(24,27,32,0))}
+  background:linear-gradient(180deg,var(--panneau) 18%,rgba(23,28,37,0))}
 .molette::after{bottom:0;
-  background:linear-gradient(0deg,var(--panneau) 18%,rgba(24,27,32,0))}
+  background:linear-gradient(0deg,var(--panneau) 18%,rgba(23,28,37,0))}
 /* La fenêtre de sélection ne se touche pas : c'est un repère, pas un bouton. */
 .molette .selection{position:absolute;left:0;right:0;top:84px;height:48px;
   border-radius:var(--r-petit);background:var(--panneau-2);border:1px solid #363B44;
@@ -1103,15 +1107,15 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 /* MOTEUR §14.7 (49-U17) — la ligne de la série de plus, à la couleur du coach. */
 .ligne-serie.ajoutee .serie{box-shadow:inset 3px 0 0 var(--accent)}
 .ligne-serie.proposee .serie{box-shadow:inset 3px 0 0 var(--accent);
-  background:rgba(242,184,75,.06)}
+  background:rgba(255,185,56,.06)}
 .ch-serie.coach input::placeholder{color:var(--accent);font-weight:600;opacity:.9}
 .rp-serie.indication{border-style:dashed;background:transparent}
 .rp-serie.indication input::placeholder{color:var(--accent);font-weight:400;opacity:.9}
 /* La ligne proposée validée sans ses reps : le champ attend, sans alarme. */
 .rp-serie.a-taper{border-color:var(--accent);border-style:solid;
   animation:attendre-reps .9s ease-out 1}
-@keyframes attendre-reps{0%{box-shadow:0 0 0 0 rgba(242,184,75,.45)}
-  100%{box-shadow:0 0 0 8px rgba(242,184,75,0)}}
+@keyframes attendre-reps{0%{box-shadow:0 0 0 0 rgba(255,185,56,.45)}
+  100%{box-shadow:0 0 0 8px rgba(255,185,56,0)}}
 /* Prompts 100 et 105 (§3 bis.3 bis) — la série validée avec une case obligatoire
    vide, sans chiffre gris : la case en rouge, un léger tremblement, sauf
    mouvement réduit. */
@@ -1775,7 +1779,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .ap-ex{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--e2);width:100%;
   padding:9px 12px;background:none;border:0;border-top:1px solid var(--trait);color:var(--texte);
   font:inherit;font-size:13.5px;text-align:left;cursor:pointer}
-.ap-ex.neuf{background:rgba(242,184,75,.10)}
+.ap-ex.neuf{background:rgba(255,185,56,.10)}
 .ap-ex-corps{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .ap-ex-nom{overflow-wrap:anywhere}
 .ap-ex-mention{font-size:12px;color:var(--texte-2)}
@@ -1824,7 +1828,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 /* ── MOTEUR §9.23 (55-1) — LE MOIS ET SES RECORDS (maquette « L'onglet »,
    « Le mois »). Descriptif : le mois affiché en couleur du coach, les autres
    en gris, quelle que soit leur hauteur ; aucune couleur de jugement. */
-.bloc-som.neuf{border:1px solid rgba(242,184,75,.35)}
+.bloc-som.neuf{border:1px solid rgba(255,185,56,.35)}
 .bloc-ligne{font-size:12.5px;line-height:1.5;color:var(--texte-2)}
 .bloc-quoi .medaille{margin-right:8px;vertical-align:-3px}
 .mois-nav{display:flex;align-items:center;justify-content:space-between;gap:var(--e2);margin:var(--e2) 0 var(--e3)}
@@ -2606,3 +2610,6 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .effort-puce{flex:1;min-width:44px;height:40px;border-radius:var(--r-petit);border:1px solid var(--trait);background:var(--panneau-2);
   color:var(--texte);font:inherit;font-weight:600;cursor:pointer}
 .effort-puce.passer{flex:1.4;background:none;color:var(--texte-2);font-weight:400}
+
+/* 170 — le reflet haut des cartes : un filet de lumière, sans toucher aux dimensions. */
+.carte,.carte-per,.bloc,.radar,.graphe,.pesees,.bloc-seance,.exo-fiche,.table-reps,.exo-jour,.p-groupe,.exo-liste,.tuile-mois,.bandeau-reprise,.releve{box-shadow:inset 0 1px 0 var(--reflet)}

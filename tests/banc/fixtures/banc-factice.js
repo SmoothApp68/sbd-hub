@@ -47,6 +47,11 @@ const pause = (ms) => new Promise((r) => setTimeout(r, ms));
     }
     process.exit(echecs ? 1 : 0);
   };
+  // 161 — l'état que laisse une section : « la séance est ouverte ». `remettreAPropre` (comme celle du vrai banc, appelée par
+  // le découpeur résistant dans son `catch`) le referme ; sans elle, la section suivante part d'un état sale.
+  let seanceOuverte = false;
+  let reseauCoupe = false;   // le faux serveur : C le coupe avant de planter (comme `base.reseau = false` du groupe, 91)
+  const remettreAPropre = async () => { seanceOuverte = false; reseauCoupe = false; };
   // Un helper déclaré DANS une section et servi dans une autre.
   ok('le préambule a reçu un port', port > 0);
 
@@ -60,6 +65,8 @@ const pause = (ms) => new Promise((r) => setTimeout(r, ms));
   ok('B — un', echoue !== 'B');
 
   console.log('\n══ C. LA TROISIÈME ══');
+  seanceOuverte = true;   // 161 — C ouvre une séance… et coupe le réseau du faux serveur…
+  reseauCoupe = true;
   if (plante === 'C') throw new Error('la section C plante');
   ok('C — se sert du helper de A', doubler(3) === 6);
   ok('C — deux', echoue !== 'C');
@@ -69,6 +76,9 @@ const pause = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('\n══ D. LA QUATRIÈME ══');
   const triple = doubler(1) + 1;
   ok('D — après C', triple === 3 && echoue !== 'D');
+  // 161 — … et D repart d'un état propre quand C a planté (sans plantage, C la laisse ouverte : seul le plantage nettoie).
+  ok('D — la séance de C est refermée (état propre)', plante !== 'C' || !seanceOuverte);
+  ok('D — le réseau coupé par C est rendu (état propre)', plante !== 'C' || !reseauCoupe);
 
   await clore();
 })().catch((e) => { console.error(String(e)); process.exit(3); });

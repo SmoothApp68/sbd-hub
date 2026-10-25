@@ -77,12 +77,15 @@ describe('49-U18 — le fichier de cas', () => {
     });
   });
 
-  test('V01 et V03 : un test sans charge connue se dit « le cran au-dessus » (§10, rang 4)', () => {
+  // 163 (24/10/2026, décision d'Aurélien) — INVERSÉ : le rang 4 « sans chiffre » n'existe plus pour un exercice en kg.
+  // Une machine sans charge connue au-dessus propose le pas du matériel (5 kg), APPROCHÉE : « ≈ 37 kg ».
+  test('V01 : un test sans charge connue se dit « ≈ » le pas du matériel (§10.2 bis, plus de « cran au-dessus » sans chiffre)', () => {
     const c = F.cas.filter((x) => x.id === 'V01')[0];
     const k = consigneDuCas(c);
-    expect(k.haut.charge).toBeNull();
+    expect(k.haut.charge).toBe(37);
+    expect(k.haut.approchee).toBe(true);
     const l = M.libellesConsigne(k, c.avant);
-    expect(l.jaune[1]).toBe('puis le cran au-dessus' + NB + '×' + NB + '8 sur la dernière série');
+    expect(l.jaune[1]).toBe('puis \u2248' + NB + '37' + NB + 'kg' + NB + '×' + NB + '8 sur la dernière série');
   });
 });
 

@@ -70,7 +70,8 @@ describe('Profil.lignesProgramme — trois lignes, leurs phrases au mot près', 
 // ═══ L'ÉCRAN PROFIL ═════════════════════════════════════════════════════════
 describe('l’écran Profil : la section du matériel porte le programme construit', () => {
   test('« CE QUE JE FAIS » : Matériel, Ma salle (108), puis les trois lignes ; chaque ligne ouvre sa feuille par `ouvrirProgrammeProfil`', () => {
-    const e = profilEcran({ id: 'u1', exercices_ecartes: ['squat_barre'] });
+    // 163 — « Ma salle » n'est là que si un exercice à l'élastique est dans une routine, l'historique ou la séance.
+    const e = profilEcran({ id: 'u1', exercices_ecartes: ['squat_barre'] }, { elastique: true });
     const s = e.section('CE QUE JE FAIS');
     expect(s.lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Ma salle', 'Zone à ménager', 'Exercices écartés', 'Refaire mon programme']);
     s.lignes.slice(2).forEach((l) => l.surChoix());
@@ -79,9 +80,17 @@ describe('l’écran Profil : la section du matériel porte le programme constru
     expect(e.sallesOuvertes).toEqual([true]);
   });
 
-  test('sans écarté : trois lignes seulement (et Ma salle)', () => {
-    const e = profilEcran({ id: 'u1' });
+  test('sans écarté : trois lignes seulement (et Ma salle, avec un exercice à l’élastique)', () => {
+    const e = profilEcran({ id: 'u1' }, { elastique: true });
     expect(e.section('CE QUE JE FAIS').lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Ma salle', 'Zone à ménager', 'Refaire mon programme']);
+  });
+
+  // 163 (24/10/2026, décision d'Aurélien) — NEUF : sans exercice à l'élastique, « Ma salle » n'apparaît pas.
+  test('163 — sans exercice à l’élastique : pas de « Ma salle » dans le Profil', () => {
+    const e = profilEcran({ id: 'u1' });
+    expect(e.section('CE QUE JE FAIS').lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Zone à ménager', 'Refaire mon programme']);
+    expect(Profil.ligneSalle({ ma_salle: { elastiques: [{ nom: 'Noir' }] } }, () => {}, false)).toBeNull();
+    expect(Profil.ligneSalle({}, () => {}, true).libelle).toBe('Ma salle');
   });
 
   test('le rendu réel : la phrase d’aide sous chaque libellé, « à renseigner » jamais pour « Refaire »', () => {

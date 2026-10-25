@@ -190,10 +190,10 @@ const CATALOGUE = [
   { slug: 'quadri-u10', nom: 'Quadri U10 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['quadriceps'], muscles_secondaires: [] },
   { slug: 'biceps-u10', nom: 'Biceps U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['biceps'], muscles_secondaires: [] },
   { slug: 'militaire-u10', nom: 'Militaire U10 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['epaules'], muscles_secondaires: [] },
-  // 108 — réservé à la section 108 (« Ma salle », MOTEUR §10 bis) : une barre EZ, le nom le dit.
-  { slug: 'curl-ez-108', nom: 'Kz108 (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['biceps'], muscles_secondaires: [] },
-  // 128 — un exercice à barre CHARGÉE (`barre_charge_fixe: false`) dans la séance de la section 108 : la salle n'en dit rien.
-  { slug: 'rowing-108', nom: 'Rz108 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['dorsaux'], muscles_secondaires: ['biceps'] },
+  // 163 — réservés à la section 108 (« La charge suivante ») : une machine jamais montée au-dessus de 30 kg, et des tractions à
+  // l'élastique dont la liste est vide (« Ajoute tes élastiques »). Remplacent le curl EZ et le rowing de 108/128/159 (Ma salle).
+  { slug: 'leg-curl-163', nom: 'Lc163 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['ischios163'], muscles_secondaires: [] },
+  { slug: 'traction-163', nom: 'Tr163 (Élastique)', mesure: 'charge_reps', charge: 'assistance', type_elastique: 'grand', equipement: 'elastique', muscles_primaires: ['dos163', 'bi163', 'trap163'], muscles_secondaires: [] },
   // 49-U11 — réservé à la section 7 G octies (la phase). Son nom ne répond à
   // aucune des recherches faites ailleurs.
   // 115 — réservés à la section 115 (« Rien ne se perd à la saisie ») : son décor propre, pour qu'elle se joue seule
@@ -10097,159 +10097,158 @@ const SETS_IMPORTES = [
     ok('[U10] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
-  console.log('\n══ 108. MA SALLE : LE CURL EZ À 30 KG, LA PLUS LOURDE DE LA SALLE (MOTEUR §10 bis) ══');
+  console.log('\n══ 108. LA CHARGE SUIVANTE, SANS RIEN DÉCLARER : « ≈ », LA PHRASE, LA CASE PRÉREMPLIE, « AJOUTE TES ÉLASTIQUES » (163, MOTEUR §10.2 bis) ══');
   //
-  // ⚠️ CONFIGURATION DISCRIMINANTE : le cas réel d'Aurélien (Basic-Fit) — curl EZ, barres de 10 à 30 kg de 5 en 5,
-  // et trois séances à 30 × 12, 12 (le haut de Volume). Sans salle déclarée, le coach testerait 32,5 kg. Déclarée
-  // dans le Profil (« Ma salle »), la grille reste à 30 kg, on monte en reps, la dégressive prend la barre de 20 kg,
-  // et 3 reps de plus en séance ne font proposer aucune charge. La salle s'efface à la fin (rien ne change ensuite).
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une machine (leg curl) faite trois fois à 30 kg × 12, le haut de Volume, JAMAIS
+  // au-dessus : le coach teste le cran suivant. Avant 163 (« sans chiffre ») ou avec « Ma salle » (la liste des barres),
+  // la ligne disait « le cran au-dessus » ; elle dit maintenant « ≈ 35 kg » (le pas d'une machine, 5 kg), la phrase « vise
+  // la charge la plus proche que ta machine permet… » sous la ligne, et la case est préremplie à 35 (modifiable). On
+  // note 32,5 : la séance suivante le propose SANS « ≈ » (l'historique suffit). « Ma salle » n'est dans le Profil que si
+  // un exercice à l'élastique existe (une routine, l'historique, la séance) ; au premier usage, la colonne « Élastique »
+  // d'une ligne sans élastique déclaré dit « Ajoute tes élastiques » et la feuille se choisit par le nom ou par le poids.
   {
     const tS = Date.now();
+    const erreurs163 = erreurs.length;
+    const violations163 = gardeBanc.violations;
+    const catalogueAvant163 = CATALOGUE.length;
+    const sessionsAvant163 = base.sessions.map((x) => x.id);
+    const salleAvant163 = base.profiles[0].ma_salle;
+    base.profiles[0].ma_salle = null;
     const poserS = (id, jours, lignes) => {
       const debut = ilYa(jours * 86400000, tS).toISOString();
-      base.sessions.push({ id, user_id: 'u-banc', titre: '108 — ' + id, debut,
+      base.sessions.push({ id, user_id: 'u-banc', titre: '163 — ' + id, debut,
         fin: finDe(debut, tS).toISOString(), statut: 'terminee', note: null,
         salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
       lignes.forEach(([kg, reps], i) => base.sets.push({ id: id + '-s' + (i + 1), session_id: id,
-        user_id: 'u-banc', exercise_slug: 'curl-ez-108', charge_kg: kg, reps, duree_s: null, distance_m: null,
+        user_id: 'u-banc', exercise_slug: 'leg-curl-163', charge_kg: kg, reps, duree_s: null, distance_m: null,
         type_serie: 'travail', rang: i + 1, groupe_superset: null, validee_a: debut, rpe: null,
         ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
     };
-    poserS('s108-a', 15, [[30, 11], [30, 11]]);
-    poserS('s108-b', 8, [[30, 12], [30, 12]]);
-    poserS('s108-c', 1, [[30, 12], [30, 12]]);
-    // 128 — le rowing à barre chargée (`barre_charge_fixe: false`), dans les mêmes séances : 27,5 kg × 8. L'ancienne
-    // règle l'arrondissait à la barre droite de 25 kg déclarée.
-    ['s108-b', 's108-c'].forEach((id) => {
-      const debut = base.sessions.filter((x) => x.id === id)[0].debut;
-      [1, 2].forEach((r) => base.sets.push({ id: id + '-r' + r, session_id: id, user_id: 'u-banc',
-        exercise_slug: 'rowing-108', charge_kg: 27.5, reps: 8, duree_s: null, distance_m: null, type_serie: 'travail',
-        rang: 10 + r, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
-        source: 'app', created_at: debut, modifie_a: null }));
-    });
-    const lignes108 = [['travail', 12], ['travail', 12], ['degressive', null]].map(([t, reps], i) => ({
-      id: 's108-l' + (++grainePr), rang: i + 1, type_serie: t, reps_visees: reps, charge_cible_kg: null,
+    poserS('s163-a', 15, [[30, 12], [30, 12], [30, 12]]);
+    poserS('s163-b', 8, [[30, 12], [30, 12], [30, 12]]);
+    poserS('s163-c', 1, [[30, 12], [30, 12], [30, 12]]);
+    const lignes163 = (slug, n) => Array.from({ length: n }, (_, i) => ({
+      id: 's163-l' + (++grainePr), rang: i + 1, type_serie: 'travail', reps_visees: 12, charge_cible_kg: null,
       duree_cible_s: null, distance_cible_m: null }));
-    ROUTINES.push({ id: 'r-108', nom: 'Salle 108', note: null, archivee_a: null,
+    const ROUTINE_LC = { id: 'r-163', nom: 'Charge 163', note: null, archivee_a: null,
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
-      routine_exercises: [{ id: 'r-108-e', routine_id: 'r-108', exercise_slug: 'curl-ez-108', rang: 0,
-        routine_sets: lignes108, repos_cible_s: 90, groupe_superset: null, note: null },
-      { id: 'r-108-r', routine_id: 'r-108', exercise_slug: 'rowing-108', rang: 1,
-        routine_sets: progr(2, 10), repos_cible_s: 90, groupe_superset: null, note: null }] });
-    const esp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
+      routine_exercises: [{ id: 'r-163-e', routine_id: 'r-163', exercise_slug: 'leg-curl-163', rang: 0,
+        routine_sets: lignes163('leg-curl-163', 3), repos_cible_s: 90, groupe_superset: null, note: null }] };
+    ROUTINES.push(ROUTINE_LC);
+    const esp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
     const violationsAvant = gardeBanc.violations;
-    const ouvrirSalle = async () => {
-      await aller('/profil');
-      await jusqua(() => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
-        .some((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0)), 8000);
-      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
-        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0)[0].click());
-      await attendre(500);
-    };
+    const ligneSalle = () => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .some((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0));
     const bouton = (t) => page.evaluate((x) => Array.from(document.querySelectorAll('#feuille-contenu button'))
       .filter((b) => b.textContent === x)[0].click(), t);
-    const plan108 = () => page.evaluate(() => {
+    const plan163 = (slug) => page.evaluate((sl) => {
       const d = window.THPlan && window.THPlan.dernier;
-      const x = d && d.plan.exercices.filter((e) => e.slug === 'curl-ez-108')[0];
+      const x = d && d.plan.exercices.filter((e) => e.slug === sl)[0];
       const c = x && x.consigne;
-      return x ? { etat: c && c.etat, ligne: c && c.ligne, haut: c && c.haut, salle: x.salle,
-                   degressive: x.degressive ? { charge: x.degressive.charge, phrase: x.degressive.phrase } : null,
-                   coach: ((x.reaction && x.reaction.plan) || []).filter((q) => q.source === 'coach').length } : null;
-    });
-    const fantomes108 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+      return x ? { etat: c && c.etat, ligne: c && c.ligne, haut: c && c.haut, jaune: x.entete.jaune,
+                   approchee: x.approchee, fondement: c && c.fondement && c.fondement.approchee === true } : null;
+    }, slug);
+    const fantomes163 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
       .map((l) => (l.querySelector('.ch-serie input') || {}).placeholder || ''));
+    const neufs163 = () => base.sets.filter((x) => x.exercise_slug === 'leg-curl-163' && x.session_id.indexOf('s163-') !== 0);
 
-    // 1. La salle déclarée dans le Profil : barres EZ 10, 15, 20, 25, 30.
-    await ouvrirSalle();
-    for (const kg of ['10', '15', '20', '25', '30']) {
-      await page.click('#feuille-contenu .salle-puces[data-type="barres_ez"] button[data-kg="' + kg + '"]');
-      await attendre(80);
-    }
-    // 128 — et des barres droites (20, 25, 30) : celles que l'ancienne règle prêtait au rowing.
-    for (const kg of ['20', '25', '30']) {
-      await page.click('#feuille-contenu .salle-puces[data-type="barres_droites"] button[data-kg="' + kg + '"]');
-      await attendre(80);
-    }
-    await bouton('Valider');
-    await attendre(900);
-    ok('[108] la déclaration part en base : barres EZ 10 à 30, droites 20 à 30', JSON.stringify((base.profiles[0] || {}).ma_salle) ===
-      JSON.stringify({ barres_ez: [10, 15, 20, 25, 30], barres_droites: [20, 25, 30], halteres: null }), JSON.stringify((base.profiles[0] || {}).ma_salle));
+    // 1. « Ma salle » est absente du Profil tant qu'aucun exercice à l'élastique n'existe (ni routine, ni historique).
+    await aller('/profil');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('#profil-corps .p-ligne').length > 3), 8000);
+    ok('[163] DISCRIMINANT — sans exercice à l’élastique : pas de « Ma salle » dans le Profil', !(await ligneSalle()), '');
 
-    // 2. La séance : la grille à 30 kg, jamais 32,5 ; la phrase ; la dégressive.
+    // 2. La machine jamais montée : « ≈ 35 kg », la phrase sous la ligne, la case préremplie à 35 (modifiable).
     await aller('/saisie');
-    await demarrerRoutine('Salle 108');
+    await demarrerRoutine('Charge 163');
     await attendre(900);
-    const p1 = await plan108();
-    const f1 = await fantomes108();
-    ok('[108] DISCRIMINANT — à 30 kg, la plus lourde de la salle : on monte en reps (30 kg × 13), pas de test à 32,5',
-      !!p1 && p1.etat === 'salle_max' && p1.ligne.charge === 30 && p1.ligne.vise === 13 && p1.haut === null &&
-      JSON.stringify(f1.slice(0, 2)) === JSON.stringify(['30', '30']), JSON.stringify([p1, f1]));
-    const gris = esp(await texte('.legende-exo .consigne-dit'));
-    ok('[108] la phrase grise : « 30 kg, la plus lourde de ta salle : on monte en reps. »',
-      gris === '30 kg, la plus lourde de ta salle : on monte en reps.', gris);
-    ok('[108] DISCRIMINANT — la dégressive à barre fixe : 20 kg, « Prends la barre de 20 kg. »',
-      !!p1 && p1.degressive && p1.degressive.charge === 20 && f1[2] === '20' &&
-      esp(p1.degressive.phrase).indexOf('Prends la barre de 20 kg.') === 0, JSON.stringify([p1 && p1.degressive, f1]));
-    // 128 (MOTEUR §10 bis, `barre_charge_fixe`) — le rowing à barre chargée, même salle déclarée : la charge du coach.
-    const r1 = await page.evaluate(() => {
-      const d = window.THPlan && window.THPlan.dernier;
-      const x = d && d.plan.exercices.filter((e) => e.slug === 'rowing-108')[0];
-      return x ? { salle: x.salle || null, ligne: x.consigne && x.consigne.ligne } : null;
-    });
-    ok('[128] DISCRIMINANT — un exercice à barre chargée n’est plus arrondi à une barre fixe : rowing à 27,5 kg (pas 25), aucune salle',
-      !!r1 && r1.salle === null && !!r1.ligne && r1.ligne.charge === 27.5 && f1[3] === '27,5' && f1[4] === '27,5',
-      JSON.stringify([r1, f1]));
+    const p1 = await plan163('leg-curl-163');
+    const f1 = await fantomes163();
+    ok('[163] DISCRIMINANT — la machine à 30 kg × 12 trois fois : le test est ≈ 35 kg (le pas d’une machine), approché, jamais « le cran au-dessus »',
+      !!p1 && p1.etat === 'test_propose' && !!p1.haut && p1.haut.charge === 35 && p1.haut.approchee === true && p1.fondement === true &&
+      esp((p1.jaune || []).join(' ')).indexOf('≈ 35 kg') >= 0 && esp((p1.jaune || []).join(' ')).indexOf('cran') < 0, JSON.stringify(p1));
+    const dits = esp(await page.evaluate(() => Array.from(document.querySelectorAll('.legende-exo .consigne-dit'))
+      .map((x) => x.textContent).join(' | ')));
+    ok('[163] la phrase sous la ligne : « ≈ 35 kg : vise la charge la plus proche que ta machine permet — la plaque au-dessus, ou un petit poids ajouté si elle en a. Note ce que tu as mis. »',
+      dits.indexOf('≈ 35 kg : vise la charge la plus proche que ta machine permet — la plaque au-dessus, ou un petit poids ajouté si elle en a. Note ce que tu as mis.') >= 0, dits);
+    ok('[163] DISCRIMINANT — la case de la dernière série est préremplie avec la charge approchée (35), les autres à 30',
+      JSON.stringify(f1.slice(0, 3)) === JSON.stringify(['30', '30', '35']), JSON.stringify(f1));
 
-    // 3. 3 reps de plus que visé (16 au lieu de 13) : aucune charge proposée au-delà de la salle.
-    await saisirSerie(0, 30, 16);
+    // 3. On met la demi-plaque : 32,5 noté (la case se modifie). L'app l'apprend, sans rien demander.
+    await saisirSerie(0, 30, 12);
+    await saisirSerie(1, 30, 12);
+    await saisirSerie(2, '32,5', 11);
+    await jusqua(() => neufs163().length === 3, 8000);
+    const dernier = neufs163().filter((x) => x.rang === 3)[0] || {};
+    ok('[163] la charge notée part telle quelle : 32,5 kg × 11 (la case préremplie à 35 s’est modifiée)',
+      dernier.charge_kg === 32.5 && dernier.reps === 11, JSON.stringify(neufs163()));
+    await terminer();
+    await aller('/saisie');
+    await demarrerRoutine('Charge 163');
     await attendre(900);
-    const p2 = await plan108();
-    ok('[108] DISCRIMINANT — 30 kg × 16 (3 de plus) : le coach ne propose aucune charge (la salle n’a rien au-delà)',
-      !!p2 && p2.coach === 0, JSON.stringify(p2));
-    ok('[108] la garde (C6) n’a rien signalé dans cette section (I46 compris)', gardeBanc.violations === violationsAvant,
-      JSON.stringify(gardeBanc.liste.slice(-2)));
+    const p2 = await plan163('leg-curl-163');
+    const j2 = esp(((p2 || {}).jaune || []).join(' '));
+    ok('[163] DISCRIMINANT — la séance suivante : 32,5 kg est une charge connue, proposée SANS « ≈ », sans phrase d’approchée',
+      !!p2 && j2.indexOf('32,5 kg') >= 0 && j2.indexOf('≈') < 0 && p2.approchee === null && p2.fondement === false, JSON.stringify(p2));
     await abandonner();
 
-    // 3 bis. 159 — « J'ai aussi une barre EZ qu'on charge » : cocher, enregistrer, rouvrir (cochée) ; la charge part avec
-    // la clé ; et le coach teste 32,5 kg au lieu de l'état `salle_max`.
-    const bascule159 = (type) => page.evaluate((t) => {
-      const b = document.querySelector('#feuille-contenu .salle-bascule[data-type="' + t + '"]');
-      return b ? b.getAttribute('aria-checked') : null;
-    }, type);
-    await ouvrirSalle();
-    const avant159 = await bascule159('barres_ez');
-    await page.click('#feuille-contenu .salle-bascule[data-type="barres_ez"]');
-    await jusqua(async () => (await bascule159('barres_ez')) === 'true', 4000);
-    const apres159 = await bascule159('barres_ez');
+    // 4. Un exercice à l'élastique entre dans une routine : « Ma salle » apparaît ; sa colonne « Élastique » dit « Ajoute
+    //    tes élastiques » (aucune liste) ; la feuille se choisit par le nom ; la liste part en base, rien d'autre ne bouge.
+    const ROUTINE_EL = { id: 'r-163-el', nom: 'Élastique 163', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-163-el-e', routine_id: 'r-163-el', exercise_slug: 'traction-163', rang: 0,
+        routine_sets: lignes163('traction-163', 3), repos_cible_s: 90, groupe_superset: null, note: null }] };
+    ROUTINES.push(ROUTINE_EL);
+    await page.goto(BASE + '/profil', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('#profil-corps .p-ligne').length > 3), 10000);
+    await attendre(600);
+    ok('[163] DISCRIMINANT — un exercice à l’élastique dans une routine : « Ma salle » apparaît dans le Profil', await ligneSalle(), '');
+    await aller('/saisie');
+    await demarrerRoutine('Élastique 163');
+    await attendre(900);
+    const case1 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie .el-case'))
+      .map((x) => (x.textContent || '').trim()));
+    ok('[163] DISCRIMINANT — sans élastique déclaré, la colonne « Élastique » de chaque ligne dit « Ajoute tes élastiques »',
+      case1.length === 3 && case1.every((t) => t === 'Ajoute tes élastiques'), JSON.stringify(case1));
+    await page.evaluate(() => document.querySelector('.ligne-serie .el-case').click());
+    await jusqua(() => page.evaluate(() => !!document.querySelector('#feuille-contenu .el-noms')), 6000);
+    const titre = esp(await texte('#feuille-contenu'));
+    ok('[163] la feuille « Ajoute tes élastiques » propose le nom (Noir, Violet, Rouge…) ou le poids',
+      titre.indexOf('Ajoute tes élastiques') >= 0 && titre.indexOf('par son nom') >= 0 && titre.indexOf('par son poids') >= 0 &&
+      titre.indexOf('Noir') >= 0, titre);
+    await page.click('#feuille-contenu .el-noms button[data-nom="Rouge"]');
+    await page.click('#feuille-contenu .el-noms button[data-nom="Noir"]');
     await bouton('Valider');
-    await jusqua(() => (base.profiles[0].ma_salle || {}).barre_ez_chargee === true, 6000);
-    ok('[159] la bascule EZ part décochée, se coche, et la clé part en base (la droite : absente)',
-      avant159 === 'false' && apres159 === 'true' && (base.profiles[0].ma_salle || {}).barre_ez_chargee === true &&
-      (base.profiles[0].ma_salle || {}).barre_droite_chargee === undefined &&
-      JSON.stringify(base.profiles[0].ma_salle.barres_ez) === JSON.stringify([10, 15, 20, 25, 30]),
-      JSON.stringify([avant159, apres159, base.profiles[0].ma_salle]));
-    await ouvrirSalle();
-    const rouverte159 = await bascule159('barres_ez');
-    const droite159 = await bascule159('barres_droites');
-    ok('[159] rouverte : la bascule EZ est cochée, la droite non', rouverte159 === 'true' && droite159 === 'false',
-      JSON.stringify([rouverte159, droite159]));
+    await jusqua(() => !!(base.profiles[0].ma_salle || {}).elastiques, 8000);
+    const salle163 = base.profiles[0].ma_salle || {};
+    ok('[163] DISCRIMINANT — Noir et Rouge rangés du plus fort au plus léger, « par son nom » posé ; rien d’autre ne part',
+      JSON.stringify(salle163.elastiques) === JSON.stringify([{ nom: 'Noir' }, { nom: 'Rouge' }]) && salle163.elastiques_par_nom === true,
+      JSON.stringify(salle163));
+    await attendre(600);
+    const case2 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie .el-case'))
+      .map((x) => (x.textContent || '').trim()));
+    ok('[163] la série reprend : la colonne n’offre plus « Ajoute tes élastiques » (la liste est là)',
+      case2.length === 3 && case2.every((t) => t.indexOf('Ajoute') < 0), JSON.stringify(case2));
+    await page.evaluate(() => document.querySelector('.ligne-serie .el-case').click());
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('#feuille-contenu .el-choisir').length > 0), 6000);
+    const choix = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .el-choisir'))
+      .map((b) => b.getAttribute('data-nom')));
+    ok('[163] la feuille de choix d’une série offre maintenant Noir, Rouge', JSON.stringify(choix) === '["Noir","Rouge"]', JSON.stringify(choix));
     await bouton('Annuler');
-    await aller('/saisie');
-    await demarrerRoutine('Salle 108');
-    await jusqua(async () => { const q = await plan108(); return !!q && q.etat === 'test_propose'; }, 8000);
-    const p159 = await plan108();
-    ok('[159] DISCRIMINANT — à 30 kg avec la barre EZ chargée : le coach teste 32,5 kg (test_propose), plus salle_max',
-      !!p159 && p159.etat === 'test_propose' && !!p159.haut && p159.haut.charge === 32.5, JSON.stringify(p159));
     await abandonner();
 
-    // 4. Effacer : non renseignée, rien ne change pour la suite du banc.
-    await ouvrirSalle();
-    await bouton('Effacer');
-    await attendre(900);
-    ok('[108] « Effacer » : la salle n’est plus déclarée (NULL)', (base.profiles[0] || {}).ma_salle === null,
-      JSON.stringify((base.profiles[0] || {}).ma_salle));
+    // 5. La remise en état, pour les sections suivantes.
+    base.profiles[0].ma_salle = salleAvant163 === undefined ? null : salleAvant163;
+    CATALOGUE.splice(catalogueAvant163, CATALOGUE.length - catalogueAvant163);
+    [ROUTINE_LC, ROUTINE_EL].forEach((r) => { const i = ROUTINES.indexOf(r); if (i >= 0) ROUTINES.splice(i, 1); });
+    const neuves163 = base.sessions.filter((x) => sessionsAvant163.indexOf(x.id) < 0 || x.id.indexOf('s163-') === 0).map((x) => x.id);
+    base.sets = base.sets.filter((x) => neuves163.indexOf(x.session_id) < 0);
+    base.sessions = base.sessions.filter((x) => neuves163.indexOf(x.id) < 0);
+    await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await attendre(1500);
     await aller('/saisie');
-    ok('[108] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+    ok('[163] la garde (C6) n’a rien signalé (I61 compris), aucune erreur de page',
+      gardeBanc.violations === violations163 && erreurs.length === erreurs163,
+      JSON.stringify([gardeBanc.liste.slice(-2), erreurs.slice(erreurs163, erreurs163 + 2)]));
   }
 
   console.log('\n══ 7 G octies. LA PHASE, GELÉE POUR LA SÉANCE ET ENREGISTRÉE AVEC CHAQUE PARI (49-U11, MOTEUR §9.16) ══');
@@ -16798,14 +16797,14 @@ const SETS_IMPORTES = [
     };
     await aller('/profil');
     let sh = await sectionH();
-    // 108 — « Ma salle » (ECRAN-PROFIL §2.4 quinquies) se range sous « Matériel ».
-    ok('[R60] H — « CE QUE JE FAIS » : Matériel, Ma salle, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
-      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Exercices écartés|Refaire mon programme' &&
-        sh[2].val === 'Dos' && sh[3].val === '1' && sh[4].val === null, JSON.stringify(sh));
+    // 108 — « Ma salle » (ECRAN-PROFIL 2.4 quinquies) se range sous « Matériel ».
+    ok('[R60] H — « CE QUE JE FAIS » : Matériel, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
+      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Exercices écartés|Refaire mon programme' &&
+        sh[1].val === 'Dos' && sh[2].val === '1' && sh[3].val === null, JSON.stringify(sh));
     ok('[R60] H — les phrases de la spec (G10), au mot près',
-      !!sh && sh[2].sous === 'Ton programme construit la garde sans série lourde. Rien ne change en séance.' &&
-        sh[3].sous === 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.' &&
-        sh[4].sous === 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.', JSON.stringify(sh));
+      !!sh && sh[1].sous === 'Ton programme construit la garde sans série lourde. Rien ne change en séance.' &&
+        sh[2].sous === 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.' &&
+        sh[3].sous === 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.', JSON.stringify(sh));
     // Zone à ménager : une feuille à puces.
     await toucherH('Zone à ménager');
     const puces = () => page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
@@ -16821,15 +16820,15 @@ const SETS_IMPORTES = [
     await attendre(900);
     sh = await sectionH();
     ok('[R60] H — « Valider » : Dos et Genou écrits (dans l’ordre de la liste), la ligne dit « Dos, Genou »',
-      JSON.stringify(profilBase().zones_a_menager) === '["dos","genou"]' && sh[2].val === 'Dos, Genou',
-      JSON.stringify([profilBase().zones_a_menager, sh[2].val]));
+      JSON.stringify(profilBase().zones_a_menager) === '["dos","genou"]' && sh[1].val === 'Dos, Genou',
+      JSON.stringify([profilBase().zones_a_menager, sh[1].val]));
     await toucherH('Zone à ménager');
     await page.click('#feuille-contenu button[data-cle="aucune"]');
     await page.click('#feuille-contenu .feuille-pied .pri');
     await attendre(900);
     sh = await sectionH();
     ok('[R60] H — « Aucune » écrit le vide (NULL) ; la ligne dit « Aucune »',
-      profilBase().zones_a_menager === null && sh[2].val === 'Aucune', JSON.stringify([profilBase().zones_a_menager, sh[2].val]));
+      profilBase().zones_a_menager === null && sh[1].val === 'Aucune', JSON.stringify([profilBase().zones_a_menager, sh[1].val]));
     // Exercices écartés : la liste, « Reprendre ».
     await toucherH('Exercices écartés');
     const liste = () => page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
@@ -16843,7 +16842,7 @@ const SETS_IMPORTES = [
     li = await liste();
     sh = await sectionH();
     ok('[R60] H — « Reprendre » : l’exercice n’est plus écarté (NULL), la feuille se ferme, la ligne « Exercices écartés » s’efface',
-      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Refaire mon programme',
+      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Refaire mon programme',
       JSON.stringify([profilBase().exercices_ecartes, li.ouverte, sh && sh.map((l) => l.lib)]));
     // Refaire mon programme : « Retour » ramène au Profil sans rien écrire.
     const avantRefaire = JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ROUTINES.length]);
@@ -21766,9 +21765,11 @@ const SETS_IMPORTES = [
         lignes: x.lignes.map((l) => ({ charge: l.charge === undefined ? null : l.charge, vise: l.vise, role: l.role || null })) } : null;
     });
     // La ligne sans chiffre : la première ligne du plan dont la charge est nulle.
-    const iNul = plan100 ? plan100.lignes.findIndex((l) => l.charge === null || l.charge === undefined) : -1;
-    ok('[C100] le décor : la consigne teste le cran au-dessus SANS chiffre (machine, une seule charge connue)',
-      !!plan100 && !!plan100.haut && (plan100.haut.charge === null || plan100.haut.charge === undefined) && iNul >= 0,
+    // 163 — le cran au-dessus a TOUJOURS un chiffre (« ≈ 55 kg », le pas de 5 kg des machines) : la ligne du test est celle
+    // qui porte ce chiffre approché ; la case est préremplie (fantôme), on l'efface pour rejouer le refus du ✓ sans poids.
+    const iNul = plan100 ? plan100.lignes.findIndex((l) => l.charge === 55) : -1;
+    ok('[C100] le décor : la consigne teste le cran au-dessus avec le pas de la machine, ≈ 55 kg (une seule charge connue)',
+      !!plan100 && !!plan100.haut && plan100.haut.charge === 55 && plan100.haut.approchee === true && iNul >= 0,
       nb100(plan100));
     // Les lignes d'avant : faites au poids proposé, comme une vraie personne.
     for (let i = 0; i < iNul; i++) {
@@ -21782,8 +21783,8 @@ const SETS_IMPORTES = [
       10000, { nom: 'C100 les séries d’avant en base' });
     const nSets = base.sets.length;
     const chargeVide = await (await ligne(iNul)).$$eval('input', (l) => [l[0].value, l[0].placeholder]);
-    ok('[C100] la ligne du test : aucune charge dans le champ, ni tapée ni en fantôme',
-      chargeVide[0] === '' && !/\d/.test(chargeVide[1] || ''), nb100(chargeVide));
+    ok('[C100] la ligne du test : le champ est vide (rien de tapé) et le fantôme dit 55 (préremplissage 163)',
+      chargeVide[0] === '' && /55/.test(chargeVide[1] || ''), nb100(chargeVide));
     {
       const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(iNul).locator('input').nth(k));  // 158 — localisateurs
       await champs[1].fill('3');
@@ -21800,22 +21801,15 @@ const SETS_IMPORTES = [
         cochee: !!(l && l.querySelector('.ok-serie.cochee')),
         constat: (document.querySelector('.legende-exo .constat') || {}).textContent || null };
     }, iNul);
-    ok('[C100] DISCRIMINANT — ✓ SANS POIDS : rien ne part en base, la ligne reste ouverte, la case du poids en rouge et le clavier sur elle',
-      base.sets.length === nSets && !refus100.cochee && refus100.ch && refus100.rouge && refus100.iSerie === String(iNul),
-      nb100({ sets: base.sets.length - nSets, refus100 }));
+    // 163 — la case est PRÉREMPLIE (« ≈ 55 kg ») : le ✓ avec les seules reps valide la charge proposée, 55 kg × 3. Le refus
+    // du ✓ sans poids (case rouge, clavier) ne se joue plus sur une ligne du plan, qui a toujours son chiffre.
+    await attendre(300);
+    const partie = base.sets.filter((s) => s.exercise_slug === 'cran-c100' && !/^c100-/.test(s.session_id));
+    ok('[C100] DISCRIMINANT — ✓ avec les reps seules : la série part avec la charge préremplie, 55 kg × 3, aucune case en rouge',
+      base.sets.length === nSets + 1 && partie.some((s) => Number(s.charge_kg) === 55 && s.reps === 3) &&
+      (await compter('.case-vide')) === 0, nb100({ sets: base.sets.length - nSets, refus100, partie: partie.map((s) => [s.charge_kg, s.reps]) }));
     ok('[C100] aucun constat menteur : pas de « 12 kg × 5 », pas de charge inconnue', !refus100.constat ||
       !/12.kg.×.5|null|inconnu/.test(refus100.constat), nb100(refus100.constat));
-    // Le poids tapé : la série part, avec lui.
-    {
-      const champs = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(iNul).locator('input').nth(k));  // 158 — localisateurs
-      await champs[0].fill('55');
-      await (await ligne(iNul)).$eval('.ok-serie', (b) => b.click());
-      await attendre(900);
-    }
-    const partie = base.sets.filter((s) => s.exercise_slug === 'cran-c100' && !/^c100-/.test(s.session_id));
-    ok('[C100] le poids tapé : la série part avec 55 kg × 3, et plus aucune ligne en rouge',
-      base.sets.length === nSets + 1 && partie.some((s) => Number(s.charge_kg) === 55 && s.reps === 3) &&
-      (await compter('.case-vide')) === 0, nb100(partie.map((s) => [s.charge_kg, s.reps])));
     ok('[C100] aucune série chargée sans charge en base', partie.every((s) => s.charge_kg !== null && s.charge_kg !== undefined),
       nb100(partie.map((s) => s.charge_kg)));
     // Le poids du corps : aucune charge à taper, le ✓ valide (mutation b).
@@ -22222,233 +22216,9 @@ const SETS_IMPORTES = [
       nb111([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
-  console.log('\n══ plafond-propose. AU PLAFOND DE LA SALLE, LE COACH PROPOSE : LA DÉGRESSIVE, PUIS UN FRÈRE PLUS CHARGEABLE (113, MOTEUR §10 bis) ══');
-  //
-  // ⚠️ CONFIGURATION DISCRIMINANTE : le cas d'Aurélien (Basic-Fit) — une flexion à la barre EZ, la salle déclarée
-  // (barres EZ et droites de 10 à 30 kg, haltères jusqu'à 40 kg de 2 en 2), 30 kg × 15 sur toutes ses séries depuis
-  // des séances : AU PLAFOND (la plus lourde, au haut de la fourchette d'une isolation). Avant 113, l'escalier s'y
-  // taisait ; désormais il propose, une marche par déclenchement : la série de plus (proposée et refusée au 1er
-  // déclenchement, plantée), puis
-  //   A — au 2e déclenchement (compteur 8) : la carte de la dégressive, sa première phrase au plafond ; « Ajouter une
-  //       dégressive » : le pari de l'escalier (« tu tiens le plafond », `origine : salle_max`), la ligne dégressive
-  //       remplie à la barre de 20 kg ;
-  //   B — au 3e (12, la dégressive refusée) : un frère plus chargeable — la flexion aux haltères (2 × 40 kg), jamais la
-  //       barre droite de 30 ; « Non merci » : le refus s'écrit, comme les autres ;
-  //   C — « Changer d'exercice » : aucun pari d'escalier ; l'exercice change dans la séance ET dans la routine ;
-  //   D — au 4e (16, le remplacement refusé) : le coach maintient — aucune carte, la phrase reste un fait.
-  // La base est vidée pour la section, puis rendue ; la salle s'efface à la fin.
-  {
-    const erreursAvant = erreurs.length;
-    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
-    const sessionsAvant = base.sessions, setsAvant = base.sets, predictionsAvant = base.predictions;
-    const catalogueAvant = CATALOGUE.length, routinesAvant = ROUTINES.length;
-    const phaseAvant = base.profiles && base.profiles[0] ? base.profiles[0].phase : undefined;
-    const salleAvant = base.profiles && base.profiles[0] ? base.profiles[0].ma_salle : undefined;
-    const violationsAvant = gardeBanc.violations;
-    // Les blocs d'une section d'avant (« cycles », au banc séquentiel) : leur décharge neutraliserait nos séances.
-    const rendreBlocsP = await retirerBlocsDeLAppareil();
-    const EZ = 'flexion-pq-ez', EZ2 = 'flexion-pq-ez-c', DROITE = 'flexion-pq-barre', HALT = 'flexion-pq-haltere';
-    CATALOGUE.push({ slug: EZ, nom: 'Flexion Pq (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
-      mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'], barre_charge_fixe: true });
-    // C joue sur une seconde flexion EZ (une autre poignée) : les réponses de B restent sur l'appareil.
-    CATALOGUE.push({ slug: EZ2, nom: 'Flexion Pq Prise Large (Barre EZ)', mesure: 'charge_reps', charge: 'externe',
-      equipement: 'barre', mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'],
-      barre_charge_fixe: true });
-    CATALOGUE.push({ slug: DROITE, nom: 'Flexion Pq (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
-      mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'], barre_charge_fixe: true });
-    CATALOGUE.push({ slug: HALT, nom: 'Flexion Pq (Haltère)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere',
-      mouvement: 'flexion-pq', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'] });
-    if (base.profiles && base.profiles[0]) {
-      base.profiles[0].phase = 'maintien';
-      base.profiles[0].ma_salle = { barres_ez: [10, 15, 20, 25, 30], barres_droites: [10, 15, 20, 25, 30], halteres: { max: 40, pas: 2 } };
-    }
-    const tP = Date.now();
-    let graineP = 9000;
-    const idPari = () => '00000000-0000-5000-8113-' + String(++graineP).padStart(12, '0');
-    const seanceP = (id, j) => {
-      const debut = ilYa(j * 86400000, tP).toISOString();
-      base.sessions.push({ id, user_id: 'u-banc', titre: 'P113 — ' + id, debut, fin: finDe(debut, tP).toISOString(),
-        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
-      return debut;
-    };
-    let slugP = EZ;
-    const seriesP = (id, debut, kg, reps) => [1, 2, 3].forEach((r) => base.sets.push({
-      id: id + '-s' + r, session_id: id, user_id: 'u-banc', exercise_slug: slugP, charge_kg: kg, reps, duree_s: null,
-      distance_m: null, type_serie: 'travail', rang: r, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
-      repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
-    const pariConsigne = (id, debut, kg, reps, compteur) => base.predictions.push({ id: idPari(), user_id: 'u-banc',
-      module: 'moteur.consigne', module_version: 13, emise_a: debut, exercise_slug: slugP, grandeur: 'reps', horizon_jours: null,
-      valeur_predite: reps, borne_basse: 10, borne_haute: 12,
-      fondement: { rang: 1, charge: kg, etat: 'progression', zone: 'volume', reglage: 'normal', palier: kg, niveau: reps,
-                   seance: id, role: 'ligne', phase: 'maintien', compteur },
-      valeur_observee: reps, observee_a: debut, set_observe: id + '-s1', created_at: debut });
-    const pariMarche = (seance, debut, marche, reponse, compteur) => base.predictions.push({ id: idPari(), user_id: 'u-banc',
-      module: 'escalier', module_version: 1, emise_a: debut, exercise_slug: null, grandeur: 'progres', horizon_jours: null,
-      valeur_predite: 1, borne_basse: null, borne_haute: null,
-      fondement: { seance, jour: debut.slice(0, 10), exercice: slugP, marche, reponse, compteur, n: compteur / 4, zone: 'volume',
-                   phase: 'maintien', n_routine: 3, debut, origine: 'salle_max', plafond: { charge: 30, reps: 15 } },
-      valeur_observee: null, observee_a: null, set_observe: null, created_at: debut });
-    // L'histoire : douze séances à 25 × 12 hors consigne (l'habitude), puis 30 × 12, 13, 14, 15 sous consigne (la
-    // plus lourde de la salle, les reps qui montent jusqu'au plafond), puis `arret` séances à 30 × 15, tous les 3 jours,
-    // la dernière il y a 3 jours : le compteur à l'ouverture d'aujourd'hui vaut `arret`. Les marches déjà proposées,
-    // à leur déclenchement (`marches` : `[marche, réponse, compteur]`).
-    const decorP = (arret, marches, slug) => {
-      slugP = slug || EZ;
-      base.sessions = [];
-      base.sets = [];
-      base.predictions = [];
-      const total = arret + 4;
-      for (let i = 0; i < 12; i++) {
-        const id = 'p113-h' + i, j = 3 * total + 3 + 4 * (12 - i);
-        seriesP(id, seanceP(id, j), 25, 12);
-      }
-      [12, 13, 14, 15].forEach((reps, i) => {
-        const id = 'p113-m' + i, j = 3 * (total - i);
-        const debut = seanceP(id, j);
-        seriesP(id, debut, 30, reps);
-        pariConsigne(id, debut, 30, reps, 0);
-      });
-      for (let i = 0; i < arret; i++) {
-        const id = 'p113-s' + i, j = 3 * (arret - i);
-        const debut = seanceP(id, j);
-        seriesP(id, debut, 30, 15);
-        pariConsigne(id, debut, 30, 15, i);
-        (marches || []).forEach(([mk, rep, k]) => { if (k === i) pariMarche(id, debut, mk, rep, k); });
-      }
-    };
-    ROUTINES.push({ id: 'r-p113', nom: 'Plafond P113', note: null, archivee_a: null,
-      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
-      routine_exercises: [{ id: 'r-p113-0', routine_id: 'r-p113', exercise_slug: EZ, rang: 0, routine_sets: progr(3, 12),
-        repos_cible_s: 90, groupe_superset: null, note: 'barre EZ, coudes serrés' }] });
-    ROUTINES.push({ id: 'r-p113c', nom: 'Plafond P113 C', note: null, archivee_a: null,
-      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
-      routine_exercises: [{ id: 'r-p113c-0', routine_id: 'r-p113c', exercise_slug: EZ2, rang: 0, routine_sets: progr(3, 12),
-        repos_cible_s: 90, groupe_superset: null, note: 'prise large' }] });
-    const espP = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
-    const nbP = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
-    const lireP = () => page.evaluate(() => {
-      const d = window.THPlan && window.THPlan.dernier;
-      const x = d && d.plan.exercices[0];
-      const carte = document.querySelector('.proposition-exercice[data-iexo="0"]');
-      const c = x && x.consigne;
-      return x ? {
-        slug: x.slug, compteur: x.compteur ? x.compteur.compteur : null, salle: !!x.salle, etat: c && c.etat,
-        maintien: !!(c && c.fondement && c.fondement.salle && c.fondement.salle.maintien),
-        marche: x.escalier ? x.escalier.marche : null, reponse: x.escalier ? x.escalier.reponse || null : null,
-        carte: carte ? { classe: carte.className, texte: carte.querySelector('.pc-texte').textContent,
-          detail: (carte.querySelector('.pc-detail') || {}).textContent || null,
-          boutons: Array.from(carte.querySelectorAll('button')).map((b) => b.textContent) } : null,
-        types: x.lignes.map((l) => l.type), repli: !!(c && c.repli),
-        degressive: x.degressive ? { charge: x.degressive.charge, phrase: x.degressive.phrase } : null,
-        compteurDit: x.entete ? x.entete.compteur : null
-      } : null;
-    });
-    const parisP = (mk) => base.predictions.filter((l) => l.module === 'escalier' && l.fondement &&
-      l.fondement.exercice === EZ && l.fondement.marche === mk);
-
-    // ── A. Le 2e déclenchement (la série de plus refusée au 1er) : la dégressive, au plafond.
-    decorP(8, [['serie_de_plus', 'refusee', 4]]);
-    await aller('/saisie');
-    await demarrerRoutine('Plafond P113');
-    await attendre(1500);
-    const a = await lireP();
-    ok('[P113] prémisse : la salle déclarée, au plafond (30 kg × 15, le maintien), 8 séances sans progrès',
-      !!a && a.slug === EZ && a.salle && a.etat === 'salle_max' && a.maintien && a.compteur === 8, nbP(a));
-    ok('[P113] A — la carte de la dégressive, sa première phrase au plafond, « Ajouter une dégressive » / « Non merci »',
-      a.marche === 'degressive' && !!a.carte && /proposition-degressive-proposee/.test(a.carte.classe) &&
-      nbP(a.carte.texte) === nbP('30 kg × 15 depuis 8 séances, et ta salle n\'a pas plus lourd. Une dégressive après ta dernière série ?') &&
-      nbP(a.carte.boutons) === nbP(['Ajouter une dégressive', 'Non merci']), nbP(a));
-    ok('[P113] A — DISCRIMINANT : jamais le repli au plafond (le 2e déclenchement de l’escalier ordinaire)',
-      !a.repli && a.marche !== 'repli', nbP(a));
-    await page.click('.proposition-degressive-proposee .pdp-oui');
-    await attendre(1500);
-    const a2 = await lireP();
-    const pD = parisP('degressive')[0];
-    ok('[P113] A — le pari : escalier, « degressive », acceptée, `origine : salle_max`, le plafond 30 × 15, 3 séries de routine',
-      parisP('degressive').length === 1 && !!pD && pD.exercise_slug === null && pD.fondement.reponse === 'acceptee' &&
-      pD.fondement.origine === 'salle_max' && nbP(pD.fondement.plafond) === nbP({ charge: 30, reps: 15 }) &&
-      pD.fondement.n_routine === 3 && pD.fondement.compteur === 8, nbP(pD && pD.fondement));
-    ok('[P113] A — la ligne dégressive, une, après les séries de travail ; plus de carte',
-      a2.carte === null && a2.types.join() === 'travail,travail,travail,degressive', nbP(a2));
-    for (let i = 0; i < 3; i++) await saisirSerie(i, 30, 15);
-    await attendre(800);
-    const a3 = await lireP();
-    ok('[P113] A — les séries faites : la dégressive à la barre de 20 kg (« Prends la barre de 20 kg. »)',
-      !!a3.degressive && a3.degressive.charge === 20 && espP(a3.degressive.phrase).indexOf('Prends la barre de 20 kg.') === 0,
-      nbP(a3));
-    await abandonner();
-
-    // ── B. Le 3e déclenchement (la dégressive refusée au 2e) : un frère plus chargeable.
-    decorP(12, [['serie_de_plus', 'refusee', 4], ['degressive', 'refusee', 8]]);
-    await aller('/saisie');
-    await demarrerRoutine('Plafond P113');
-    await attendre(1500);
-    const b = await lireP();
-    ok('[P113] B — DISCRIMINANT : la flexion aux haltères (2 × 40 kg), jamais la barre droite de 30 ; « Changer d’exercice » / « Non merci »',
-      b.compteur === 12 && b.marche === 'remplacement' && !!b.carte && /proposition-remplacement/.test(b.carte.classe) &&
-      nbP(b.carte.texte) === nbP('30 kg × 15 depuis 12 séances, et ta salle n\'a pas plus lourd. Passer à Flexion Pq (Haltère) ?') &&
-      nbP(b.carte.detail) === nbP('Flexion Pq (Haltère) : ta salle va jusqu\'à 2 × 40 kg.') &&
-      nbP(b.carte.boutons) === nbP(['Changer d\'exercice', 'Non merci']), nbP(b));
-    await page.click('.proposition-remplacement .prp-non');
-    await attendre(1200);
-    const b2 = await lireP();
-    const pR = parisP('remplacement')[0];
-    ok('[P113] B — « Non merci » : le refus s’écrit comme les autres (escalier, « remplacement », refusée, `vers`) ; plus de carte',
-      parisP('remplacement').length === 1 && !!pR && pR.exercise_slug === null && pR.fondement.reponse === 'refusee' &&
-      pR.fondement.vers === HALT && pR.fondement.origine === 'salle_max' && b2.carte === null && b2.slug === EZ,
-      nbP([pR && pR.fondement, b2]));
-    await abandonner();
-
-    // ── C. « Changer d'exercice » (la seconde flexion EZ, au même déclenchement) : la séance et la routine ; aucun pari
-    // d'escalier.
-    decorP(12, [['serie_de_plus', 'refusee', 4], ['degressive', 'refusee', 8]], EZ2);
-    await aller('/saisie');
-    await demarrerRoutine('Plafond P113 C');
-    await attendre(1500);
-    const c0 = await lireP();
-    ok('[P113] C — prémisse : la seconde flexion EZ, au plafond, 12 séances ; la carte du remplacement (les haltères)',
-      c0.slug === EZ2 && c0.compteur === 12 && c0.marche === 'remplacement' && !!c0.carte &&
-      /Passer à Flexion Pq \(Haltère\) \?$/.test(c0.carte.texte), nbP(c0));
-    await page.click('.proposition-remplacement .prp-oui');
-    await attendre(2500);
-    const c1 = await lireP();
-    const routineP = ROUTINES.filter((r) => r.id === 'r-p113c')[0];
-    const lignesP = routineP ? routineP.routine_exercises.map((e) => [e.exercise_slug, (e.routine_sets || []).length, e.note]) : null;
-    ok('[P113] C — l’exercice de la séance devient la flexion aux haltères ; aucun pari d’escalier pour le remplacement',
-      !!c1 && c1.slug === HALT && !base.predictions.some((l) => l.module === 'escalier' && l.fondement &&
-        l.fondement.exercice === EZ2 && l.fondement.marche === 'remplacement'), nbP(c1));
-    ok('[P113] C — DISCRIMINANT : la routine aussi (même place, mêmes 3 séries, la note de l’ancien partie)',
-      !!lignesP && nbP(lignesP) === nbP([[HALT, 3, null]]), nbP(lignesP));
-    await abandonner();
-
-    // ── D. Le 4e déclenchement (le remplacement refusé au 3e) : le maintien.
-    decorP(16, [['serie_de_plus', 'refusee', 4], ['degressive', 'refusee', 8], ['remplacement', 'refusee', 12]]);
-    await aller('/saisie');
-    await demarrerRoutine('Plafond P113');
-    await attendre(1500);
-    const dd = await lireP();
-    ok('[P113] D — au-delà : le coach maintient — aucune marche, aucune carte, la phrase du compteur reste un fait',
-      dd.slug === EZ && dd.compteur === 16 && dd.marche === null && dd.carte === null && !dd.repli &&
-      /^30 kg × 15 reste ta meilleure charge de travail depuis 16 séances/.test(espP(dd.compteurDit)), nbP(dd));
-    ok('[P113] aucune violation de la garde (I47, I48 compris)', gardeBanc.violations === violationsAvant,
-      String(gardeBanc.violations - violationsAvant) + ' ' + nbP(gardeBanc.liste.slice(-2)));
-    await abandonner();
-
-    if (base.profiles && base.profiles[0]) {
-      base.profiles[0].phase = phaseAvant;
-      base.profiles[0].ma_salle = salleAvant === undefined ? null : salleAvant;
-    }
-    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
-    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
-    base.sessions = sessionsAvant;
-    base.sets = setsAvant;
-    base.predictions = predictionsAvant;
-    rendreBlocsP();
-    await aller('/saisie');
-    ok('[P113] aucun refus du faux serveur, aucune erreur de page',
-      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
-      nbP([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
-  }
+  // 163 — la section « plafond-propose » (113) est RETIRÉE : elle déclarait une « Ma salle » de barres EZ, droites et
+  // d'haltères, que la décision du 24/10/2026 supprime (le coach lit l'historique et le repli par matériel). Le mécanisme
+  // du plafond de la salle reste couvert par les tests unitaires, sur une salle forgée (tests/unit/aide-salle-forgee.js).
 
   console.log('\n══ Q78. LA QUESTION DE RÉSERVE : « IL T’EN RESTAIT COMBIEN ? », APRÈS LA DERNIÈRE SÉRIE D’UN EXERCICE QUI A UN PARI (78, MOTEUR §17.2 bis) ══');
   //

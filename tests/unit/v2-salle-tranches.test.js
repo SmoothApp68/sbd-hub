@@ -28,6 +28,8 @@ const Obj = require('../../v2/js/objectif.js');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+// 163 — la salle de barres/haltères que l'app résolvait avant (forgée) : ce fichier couvre le MÉCANISME de la liste fermée.
+const { salleForgee } = require('./aide-salle-forgee.js');
 
 const NB = '\u00a0';
 const BASIC_FIT = [{ jusqua: 10, pas: 1 }, { jusqua: 40, pas: 2 }];
@@ -39,7 +41,7 @@ const INDEX = {
   curl_biceps_haltere: { slug: 'curl_biceps_haltere', nom: 'Curl Biceps (Haltère)', equipement: 'haltere',
     mouvement: 'curl', muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'], muscles_stabilisateurs: [] }
 };
-const salleDe = (ma) => Profil.salleDeLExercice({ ma_salle: ma }, 'elevation_laterale_haltere', INDEX);
+const salleDe = (ma) => salleForgee({ ma_salle: ma }, 'elevation_laterale_haltere', INDEX);
 const parHaltere = (s) => s.charges.map((v) => v / 2);
 
 // ═══ 1. LA DÉCLARATION ════════════════════════════════════════════════════
@@ -68,7 +70,8 @@ describe('123 — la déclaration par tranches (bornes de v2_095)', () => {
     expect(Profil.tranchesDe(ANCIENNE.halteres)).toEqual([{ jusqua: 40, pas: 2 }]);
     expect(Profil.champsEcrits({ ma_salle: ANCIENNE })).toEqual({ ma_salle: ANCIENNE });
     expect(Profil.champsEcrits({ ma_salle: SALLE_AUREL })).toEqual({ ma_salle: SALLE_AUREL });
-    expect(Profil.resumeSalle({ ma_salle: SALLE_AUREL })).toBe('EZ, droite, haltères');
+    // 163 — INVERSÉ (avant : « EZ, droite, haltères ») : le résumé ne nomme plus que les élastiques.
+    expect(Profil.resumeSalle({ ma_salle: SALLE_AUREL })).toBeNull();
   });
 });
 
@@ -148,7 +151,7 @@ describe('123 — le coach lit les tranches (§10 bis)', () => {
 
   test('dans le plan : la ligne dégressive aux haltères prend 2 × 18 après 2 × 24, et le plan passe ses invariants (I46)', () => {
     const cat = { curl_biceps_haltere: Object.assign({}, INDEX.curl_biceps_haltere,
-      { salle: Profil.salleDeLExercice({ ma_salle: SALLE_AUREL }, 'curl_biceps_haltere', INDEX) }) };
+      { salle: salleForgee({ ma_salle: SALLE_AUREL }, 'curl_biceps_haltere', INDEX) }) };
     let k = 0;
     const id = () => 's' + (++k);
     let se = S.creer({ id: 'S1', userId: 'u', idSerie: id });

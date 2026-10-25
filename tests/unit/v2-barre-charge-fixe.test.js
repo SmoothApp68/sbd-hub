@@ -55,27 +55,6 @@ describe('128 — `Profil.salleDeLExercice` lit `barre_charge_fixe`', () => {
   test('⚠️ DISCRIMINANT — rowing penché à la barre (`false`) : `null`, une barre qu’on charge', () => {
     expect(Profil.salleDeLExercice(P, 'rowing_barre', APRES)).toBeNull();
   });
-  test('curl à la barre EZ (`true`) : les barres EZ déclarées', () => {
-    expect(Profil.salleDeLExercice(P, 'curl_biceps_barre_ez', APRES))
-      .toEqual({ materiel: 'barre_ez', charges: [10, 15, 20, 25, 30], isolation: true });
-  });
-  test('curl à la barre droite (`true`) : les barres droites déclarées', () => {
-    expect(Profil.salleDeLExercice({ ma_salle: { barres_droites: [10, 20] } }, 'curl_biceps_barre', APRES))
-      .toEqual({ materiel: 'barre_droite', charges: [10, 20], isolation: true });
-  });
-  test('`true` : la colonne prime sur la barre lourde (le catalogue dit, la définition du générateur se tait)', () => {
-    const ix = Object.assign({}, APRES, { squat_barre: Object.assign({}, APRES.squat_barre, { barre_charge_fixe: true }) });
-    expect(Profil.salleDeLExercice(P, 'squat_barre', ix)).toEqual(expect.objectContaining({ materiel: 'barre_droite' }));
-  });
-  test('fiche SANS la colonne : l’ancienne règle, dans les deux sens', () => {
-    // Une barre lourde : `null`.
-    expect(Profil.salleDeLExercice(P, 'squat_barre', AVANT)).toBeNull();
-    // Un curl : une barre fixe (EZ par le nom, sinon droite).
-    expect(Profil.salleDeLExercice(P, 'curl_biceps_barre_ez', AVANT)).toEqual(expect.objectContaining({ materiel: 'barre_ez' }));
-    expect(Profil.salleDeLExercice(P, 'curl_biceps_barre', AVANT)).toEqual(expect.objectContaining({ materiel: 'barre_droite' }));
-    // Le rowing, sans la colonne, reste une barre fixe : c'est l'ancienne règle, gardée exprès.
-    expect(Profil.salleDeLExercice(P, 'rowing_barre', AVANT)).toEqual(expect.objectContaining({ materiel: 'barre_droite' }));
-  });
 });
 
 // ═══ 2. LE MOTEUR ═════════════════════════════════════════════════════════
@@ -96,9 +75,6 @@ describe('128 — un exercice à barre chargée n’est plus arrondi à une barr
     expect(sans.ligne.charge).toBe(27.5);
     const c = consigne(Profil.salleDeLExercice(P, 'rowing_barre', APRES));
     expect([c.etat, c.ligne]).toEqual([sans.etat, sans.ligne]);
-  });
-  test('prémisse — l’ancienne règle (colonne absente) l’arrondissait à 25 : le test discrimine', () => {
-    expect(consigne(Profil.salleDeLExercice(P, 'rowing_barre', AVANT)).ligne.charge).toBe(25);
   });
 });
 
@@ -124,19 +100,6 @@ describe('128 — l’objectif lit Ma salle par `salleDeLExercice` : un rowing �
   const LEGER = () => [seance('2026-06-01', [[20, 8]]), seance('2026-08-01', [[22.5, 8]]), seance('2026-10-01', [[25, 8]])];
   test('rowing (`false`) : 80 kg, salle à 30 kg, n’est pas refusé', () => {
     expect(poser(LEGER(), 80, Profil.salleDeLExercice(P, 'rowing_barre', APRES)).etat).not.toBe('hors_salle');
-  });
-  test('⚠️ DISCRIMINANT — le même 80 kg était refusé sans la colonne (l’ancienne règle) : le test échoue sur le code fautif', () => {
-    expect(poser(LEGER(), 80, Profil.salleDeLExercice(P, 'rowing_barre', AVANT)).etat).toBe('hors_salle');
-  });
-  test('curl EZ (`true`) : 35 kg, salle à 30 kg, toujours refusé', () => {
-    const curl = [seance('2026-06-01', [[20, 8]]), seance('2026-08-01', [[22.5, 8]]), seance('2026-10-01', [[25, 8]])];
-    const p = poser(curl, 35, Profil.salleDeLExercice(P, 'curl_biceps_barre_ez', APRES));
-    expect([p.etat, p.salle, p.max]).toEqual(['hors_salle', 'barre_ez', 30]);
-  });
-  test('⚠️ DISCRIMINANT — rowing léger (record 25) : 35 kg était refusé sans la colonne (barre droite de 30), ne l’est plus', () => {
-    const leger = [seance('2026-06-01', [[20, 8]]), seance('2026-08-01', [[22.5, 8]]), seance('2026-10-01', [[25, 8]])];
-    expect(poser(leger, 35, Profil.salleDeLExercice(P, 'rowing_barre', AVANT)).etat).toBe('hors_salle');
-    expect(poser(leger, 35, Profil.salleDeLExercice(P, 'rowing_barre', APRES)).etat).not.toBe('hors_salle');
   });
 });
 
@@ -196,13 +159,18 @@ describe('128-129 — `barre_charge_fixe` par la lecture du catalogue (une seule
     expect(ix.presse_cuisses).not.toHaveProperty('barre_charge_fixe');
     expect(Profil.salleDeLExercice(P, 'rowing_barre', ix)).toBeNull();
   });
-  test('une ligne sans la colonne (cache d’avant v2_099, faux serveur) : la fiche sans elle (`undefined`), l’ancienne règle', async () => {
-    const D = charger(false);
-    const cat = await D.tousLesExercices();
-    expect(cat.map((e) => e.slug)).toEqual(['rowing_barre', 'curl_biceps_barre_ez', 'presse_cuisses']);
-    expect(cat.every((e) => !('barre_charge_fixe' in e))).toBe(true);
-    const ancienne = Profil.salleDeLExercice(P, 'rowing_barre', M.indexerExercices(cat));
-    expect(ancienne).not.toBeNull();   // l'ancienne règle : une barre fixe (le test discrimine de `false` → `null`)
-    expect(ancienne).toEqual(Profil.salleDeLExercice(P, 'rowing_barre', AVANT));
+});
+
+// ═══ 163 — « MA SALLE » NE GARDE QUE LES ÉLASTIQUES ═══════════════════════════
+// Décision d'Aurélien du 24/10/2026 : les barres fixes ne sont plus lues. `barre_charge_fixe` (la colonne du catalogue)
+// reste en base et à la lecture du catalogue (ci-dessus), mais n'a plus d'effet sur la salle. Les tests de 128 qui
+// vérifiaient `salleDeLExercice` pour une barre fixe (EZ, droite, la colonne qui prime sur la barre lourde, l'ancienne
+// règle sans la colonne) sont RETIRÉS ; le moteur lit toujours une salle forgée (`aide-salle-forgee.js`).
+describe('163 — `barre_charge_fixe` n’a plus d’effet : aucune salle de barre', () => {
+  test('⚠️ DISCRIMINANT — le curl EZ, la barre droite et le rowing : `null`, déclarées ou non', () => {
+    ['curl_biceps_barre_ez', 'curl_biceps_barre', 'rowing_barre', 'squat_barre'].forEach((slug) => {
+      expect(Profil.salleDeLExercice(P, slug, APRES)).toBeNull();
+      expect(Profil.salleDeLExercice(P, slug, AVANT)).toBeNull();
+    });
   });
 });

@@ -39,7 +39,10 @@ const INDEX = {
   curl_poulie: { slug: 'curl_poulie', nom: 'Curl à la poulie', equipement: 'poulie', mouvement: 'curl',
     mesure: 'charge_reps', muscles_primaires: ['biceps'], muscles_secondaires: [] }
 };
-const salleDe = (slug, salle) => Profil.salleDeLExercice({ ma_salle: salle === undefined ? SALLE_AUREL : salle }, slug, INDEX);
+// 163 — la salle de barres/haltères que l'app résolvait avant (forgée, `aide-salle-forgee.js`) : ce fichier couvre le
+// MÉCANISME du plafond (I47, l'escalier, les marches), que les élastiques utilisent toujours.
+const { salleForgee } = require('./aide-salle-forgee.js');
+const salleDe = (slug, salle) => salleForgee({ ma_salle: salle === undefined ? SALLE_AUREL : salle }, slug, INDEX);
 const O = { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser', reglage: 'normal', edition: false };
 let nId = 0;
 const brute = (kg, reps, type) => ({ id: 'i' + (++nId), rang: nId, charge_kg: kg, reps: reps, rpe: null, ressenti: null,

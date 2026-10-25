@@ -1384,10 +1384,12 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     c.seances = ['07-19', '07-26', '08-02', '08-09', '09-13'].map((d) => trois(d, 8));
     c.seanceDuJour = trois('09-20', 9);
     const r = constatDe(c);
-    expect(r.cran).toBeNull();
+    // 163 (24/10/2026) — INVERSÉ (avant : `cran` nul, « tester le cran au-dessus ») : la machine a son pas (5 kg), le
+    // cran suivant est 45, et jamais fait : « ≈ » devant lui dès que l'app le dit approché.
+    expect(r.cran).toBe(45);
     expect(r.constat).toEqual({
       verdict: '40' + NB + 'kg' + NB + ': 8 reps le 13' + NB + 'sept., 9 aujourd\'hui.',
-      suite: 'Il te manque une rep pour tester le cran au-dessus.'
+      suite: 'Il te manque une rep pour tester 45' + NB + 'kg.'
     });
   });
 

@@ -313,6 +313,10 @@ async function contexte(nav, bd, o) {
       const tenu = Object.keys(bd.profils).some((k) => bd.profils[k].username && String(bd.profils[k].username).toLowerCase() === nom);
       return json(bd.rpcToujoursLibre ? true : !tenu);
     }
+    // 163 — « Ma salle » n'est dans le Profil que si un exercice à l'élastique est dans une routine, l'historique ou la
+    // séance : la base de ce banc en sert un (le catalogue, et une routine qui le porte) quand `bd.exElastique` le demande.
+    if (req.method() === 'GET' && bd.exElastique && chemin === '/rest/v1/exercises') return json(bd.exElastique.catalogue);
+    if (req.method() === 'GET' && bd.exElastique && chemin === '/rest/v1/routines' && !objet) return json(bd.exElastique.routines);
     if (/count=exact/.test(req.headers()['prefer'] || '')) {
       return route.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'content-range': '0-0/0',
         'access-control-expose-headers': 'content-range, content-length' }, body: '' });
@@ -431,6 +435,18 @@ const baseSansPseudo = () => {
   const bd = neuveBase();
   bd.profils[B] = { id: B, username: null, onboarding_completed: true, questionnaire_fait_le: '2026-10-01T08:00:00.000Z' };
   bd.profils[C] = { id: C, username: 'Deja_Pris' };
+  // 163 — des tractions à l'élastique dans une routine : « Ma salle » est dans le Profil.
+  bd.exElastique = {
+    catalogue: [{ slug: 'tractions-el-163', nom: 'Tractions (Élastique)', mesure: 'charge_reps', charge: 'assistance',
+      type_elastique: 'grand', equipement: 'elastique', muscles_primaires: ['dos'], muscles_secondaires: [] },
+    { slug: 'clamshell-el-163', nom: 'Clamshell (Élastique)', mesure: 'reps', charge: 'elastique',
+      type_elastique: 'mini', equipement: 'elastique', muscles_primaires: ['fessiers'], muscles_secondaires: [] }],
+    routines: [{ id: 'r-el-163', nom: 'Élastiques', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-el-163-e', routine_id: 'r-el-163', exercise_slug: 'tractions-el-163', rang: 0,
+        routine_sets: [{ id: 'r-el-163-l1', rang: 1, type_serie: 'travail', reps_visees: 10, charge_cible_kg: null,
+          duree_cible_s: null, distance_cible_m: null }], repos_cible_s: 90, groupe_superset: null, note: null }] }]
+  };
   return bd;
 };
 const PHRASE_PRIS = 'Ce pseudo vient d’être pris : choisis-en un autre.';
@@ -1562,114 +1578,35 @@ function ok(nom, cond, detail) {
       await ctx.close();
     }
 
-    // ══ 108. « MA SALLE » : LA FEUILLE ÉCRIT LA DÉCLARATION (v2_088 lancée) ══════════════════════════════════
-    console.log('\n══ 108. « Ma salle » : cocher les barres EZ, les haltères, Valider — la déclaration part en base ══');
+    // ══ 163. « MA SALLE » NE GARDE QUE LES ÉLASTIQUES (décision d'Aurélien du 24/10/2026) ═══════════════════════
+    // Les barres fixes, les haltères et la « barre chargée » sont retirés (anciennes sections 108 et 123 : la feuille de
+    // la barre EZ et des haltères par tranches). La ligne n'est dans le Profil que si un exercice à l'élastique est dans
+    // une routine, l'historique ou la séance ; la feuille ne porte que les élastiques.
+    console.log('\n══ 163. « Ma salle » : absente sans exercice à l’élastique, élastiques seulement avec ══');
     {
       const bd = baseSansPseudo();
+      bd.exElastique = null;
       const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
-      const valeurLigne = () => page.evaluate(() => {
-        const l = Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
-          .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0)[0];
-        return l ? ((l.querySelector('.p-val') || {}).textContent || '') : null;
-      });
-      ok('[108] la ligne « Ma salle » est là, sous « Matériel »', (await valeurLigne()) !== null);
-      await cliquerLigne(page, 'Ma salle');
-      await feuilleOuverte(page);
-      const puces = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .salle-puces[data-type="barres_ez"] button[data-kg]'))
-        .map((b) => b.dataset.kg + (b.getAttribute('aria-pressed') === 'true' ? '+' : '')));
-      ok('[108] la feuille : la barre EZ, 10 à 40 kg, rien de coché (non renseignée)', JSON.stringify(puces) === JSON.stringify(['10', '15', '20', '25', '30', '35', '40']), JSON.stringify(puces));
-      for (const kg of ['10', '15', '20', '25', '30']) {
-        await page.click('#feuille-contenu .salle-puces[data-type="barres_ez"] button[data-kg="' + kg + '"]');
-        await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 80 ms)
-      }
-      await page.fill('#feuille-contenu .salle-halteres input', '40');
-      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
-      await page.click('#feuille-contenu .salle-pas button[data-pas="2"]');
-      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
-      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
-      const ecrit = await attendreQue(page, () => !!bd.profils[B].ma_salle, 10000);
-      ok('DISCRIMINANT [108] — la déclaration part en base : EZ 10-30, haltères jusqu’à 40 de 2 en 2', ecrit &&
-        JSON.stringify(bd.profils[B].ma_salle) === JSON.stringify({ barres_ez: [10, 15, 20, 25, 30], barres_droites: [], halteres: { max: 40, pas: 2 } }),
-        JSON.stringify(bd.profils[B].ma_salle));
-      await calme(page, bd);   // 135 — l'écriture rendue à l'écran (était 300 ms)
-      ok('[108] la ligne dit ce qui est déclaré : « EZ, haltères »', (await valeurLigne()) === 'EZ, haltères', String(await valeurLigne()));
-      // « Effacer » écrit le vide : non renseignée, rien ne change.
-      await cliquerLigne(page, 'Ma salle');
-      await feuilleOuverte(page);
-      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Effacer')[0].click());
-      const efface = await attendreQue(page, () => bd.profils[B].ma_salle === null, 10000);
-      ok('[108] « Effacer » écrit le vide (NULL)', efface, JSON.stringify(bd.profils[B].ma_salle));
-      ok('[108] aucune écriture refusée par la contrainte imitée', bd.requetes.every((q) => q.statut !== 400), JSON.stringify(bd.requetes));
+      const ligne = () => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0).length);
+      ok('DISCRIMINANT [163] — sans exercice à l’élastique, « Ma salle » n’est pas dans le Profil', (await ligne()) === 0, String(await ligne()));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }
-
-    // ══ 123. « MA SALLE » : LES HALTÈRES PAR TRANCHES, APRÈS ET AVANT v2_095 ══════════════════════════════════
-    // « Ok ma salle, par contre pour les petites haltères de 1 à 10 c'est de 1 en 1 » : de 1 en 1 jusqu'à 10, puis de 2
-    // en 2 jusqu'à 40. Après v2_095, la liste part ; « Pas d'haltères » les efface. Avant, la base refuse la liste
-    // (23514) : la colonne sort de l'envoi, la salle d'avant est gardée, le Profil le dit (le mécanisme de 116).
-    for (const avant of [false, true]) {
-      const tag = avant ? '[123, avant v2_095]' : '[123, après v2_095]';
-      console.log('\n══ 123. « Ma salle » par tranches ' + (avant ? '(base AVANT v2_095)' : '(base APRÈS v2_095)') + ' ══');
+    {
       const bd = baseSansPseudo();
-      bd.avantV2095 = avant;
       const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
+      const ligne = () => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0).length);
+      await attendreQue(page, async () => (await ligne()) === 1, 8000);
+      ok('[163] avec des tractions à l’élastique dans une routine, « Ma salle » est là', (await ligne()) === 1, String(await ligne()));
       await cliquerLigne(page, 'Ma salle');
       await feuilleOuverte(page);
-      const sansOn = () => page.evaluate(() => {
-        const b = document.querySelector('#feuille-contenu .salle-sans button');
-        return b ? b.getAttribute('aria-pressed') : null;
-      });
-      ok(tag + ' « Pas d’haltères » allumée sur une salle sans haltères', (await sansOn()) === 'true', String(await sansOn()));
-      await page.fill('#feuille-contenu .salle-halteres[data-i="0"] input', '10');
-      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
-      ok(tag + ' taper un « jusqu’à » éteint « Pas d’haltères »', (await sansOn()) === 'false', String(await sansOn()));
-      await page.click('#feuille-contenu .salle-pas[data-i="0"] button[data-pas="1"]');
-      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
-      await page.click('#feuille-contenu .salle-tranche');
-      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
-      await page.fill('#feuille-contenu .salle-halteres[data-i="1"] input', '40');
-      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
-      await page.click('#feuille-contenu .salle-pas[data-i="1"] button[data-pas="2"]');
-      await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
-      const lignes = await page.evaluate(() => document.querySelectorAll('#feuille-contenu .salle-halteres').length);
-      ok(tag + ' deux lignes de tranche, « + Une tranche » toujours là (au plus 3)', lignes === 2 &&
-        !!(await page.$('#feuille-contenu .salle-tranche')), String(lignes));
-      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
-      const TRANCHES = [{ jusqua: 10, pas: 1 }, { jusqua: 40, pas: 2 }];
-      if (!avant) {
-        const ecrit = await attendreQue(page, () => !!bd.profils[B].ma_salle, 10000);
-        ok('DISCRIMINANT ' + tag + ' — la liste des tranches part en base', ecrit &&
-          JSON.stringify(bd.profils[B].ma_salle) === JSON.stringify({ barres_ez: [], barres_droites: [], halteres: TRANCHES }),
-          JSON.stringify(bd.profils[B].ma_salle));
-        await calme(page, bd);   // 135 — l'écriture rendue à l'écran (était 300 ms)
-        // « Pas d'haltères » : le geste explicite.
-        await cliquerLigne(page, 'Ma salle');
-        await feuilleOuverte(page);
-        ok(tag + ' la feuille rouverte montre les deux tranches', (await page.evaluate(() =>
-          Array.from(document.querySelectorAll('#feuille-contenu .salle-halteres input')).map((x) => x.value).join(','))) === '10,40');
-        await page.click('#feuille-contenu .salle-sans button');
-        await rendu(page);   // 135 — le geste dans la feuille est synchrone : l'écran peint (était 150 ms)
-        await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
-        const efface = await attendreQue(page, () => bd.profils[B].ma_salle === null, 10000);
-        ok('DISCRIMINANT ' + tag + ' — « Pas d’haltères » efface les haltères (rien d’autre déclaré : NULL)', efface,
-          JSON.stringify(bd.profils[B].ma_salle));
-        ok(tag + ' aucune écriture refusée par la contrainte imitée', bd.requetes.every((q) => q.statut !== 400), JSON.stringify(bd.requetes));
-      } else {
-        const refuse = await attendreQue(page, () => bd.requetes.some((q) => q.statut === 400), 10000);
-        ok('prémisse ' + tag + ' — la base d’avant refuse la liste (23514)', refuse, JSON.stringify(bd.requetes));
-        await calme(page, bd);   // 135 — le refus traité et dit à l'écran (était 800 ms)
-        ok('DISCRIMINANT ' + tag + ' — la salle d’avant est gardée en base (rien n’est inventé à la place)',
-          (bd.profils[B].ma_salle === undefined || bd.profils[B].ma_salle === null), JSON.stringify(bd.profils[B].ma_salle));
-        const texte = await page.evaluate(() => (document.querySelector('#profil-corps') || {}).textContent || '');
-        ok(tag + ' le Profil le dit : « Pas enregistré : Ma salle. »', /Pas enregistré : Ma salle\./.test(texte), texte.slice(0, 200));
-        // Le reste du profil s'écrit toujours (la colonne refusée ne bloque rien).
-        await cliquerLigne(page, 'Sexe');
-        await feuilleOuverte(page);
-        await page.click('#feuille-contenu .feuille-menu button[data-cle="femme"]');
-        const sexe = await attendreQue(page, () => bd.profils[B].sexe === 'femme', 10000);
-        ok(tag + ' un geste suivant du Profil s’écrit (Sexe)', sexe, JSON.stringify(bd.profils[B].sexe));
-      }
+      const reste = await page.evaluate(() => ({
+        ez: document.querySelectorAll('#feuille-contenu .salle-puces').length,
+        halt: document.querySelectorAll('#feuille-contenu .salle-halteres').length,
+        pas: document.querySelectorAll('#feuille-contenu .salle-pas').length }));
+      ok('DISCRIMINANT [163] — la feuille ne porte ni barres fixes ni haltères', reste.ez === 0 && reste.halt === 0 && reste.pas === 0, JSON.stringify(reste));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }

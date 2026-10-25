@@ -27,6 +27,8 @@ const Profil = require('../../v2/js/profil.js');
 const M = require('../../v2/js/moteur.js');
 const S = require('../../v2/js/seance.js');
 const T = require('../../v2/js/plan.js');
+// 163 — la salle de barres/haltères que l'app résolvait avant (forgée) : ce fichier couvre le MÉCANISME de la liste fermée.
+const { salleForgee } = require('./aide-salle-forgee.js');
 require('../../v2/js/semaine.js');
 require('../../v2/js/generateur.js');
 
@@ -59,7 +61,7 @@ function curlEZ(derniere) {
     { seance: { id: 'S1', debut: jour('09-28') }, series: [brute(25, 12), brute(25, 12), brute(25, 12)] }
   ];
 }
-const salleEZ = () => Profil.salleDeLExercice({ ma_salle: SALLE_AUREL }, 'curl_biceps_barre_ez', INDEX);
+const salleEZ = () => salleForgee({ ma_salle: SALLE_AUREL }, 'curl_biceps_barre_ez', INDEX);
 
 // ═══ 1. LA DÉCLARATION ════════════════════════════════════════════════════
 describe('Profil — la déclaration « Ma salle » (profiles.ma_salle, v2_088)', () => {
@@ -107,13 +109,19 @@ describe('Profil — la déclaration « Ma salle » (profiles.ma_salle, v2_088)'
     expect(Profil.champsSalle(Profil.poserMaxHalteres(Profil.brouillonSalle({}), 500))).toBeNull();
   });
 
-  test('la ligne du Profil : « Ma salle », sa phrase, ce qui est déclaré', () => {
-    const l = Profil.ligneSalle({ ma_salle: SALLE_AUREL }, () => {});
+  // 163 (24/10/2026, décision d'Aurélien) — INVERSÉ : « Ma salle » ne garde que les élastiques ; la ligne du Profil
+  // n'apparaît que si un exercice à l'élastique est dans une routine, l'historique ou la séance (`visible`), et le
+  // résumé ne nomme plus les barres ni les haltères (ils restent permis en base, l'app ne les lit plus).
+  test('la ligne du Profil : « Ma salle » seulement si un exercice à l’élastique existe ; le résumé ne nomme que les élastiques', () => {
+    expect(Profil.ligneSalle({ ma_salle: SALLE_AUREL }, () => {})).toBeNull();
+    expect(Profil.ligneSalle({ ma_salle: SALLE_AUREL }, () => {}, false)).toBeNull();
+    const l = Profil.ligneSalle({ ma_salle: SALLE_AUREL }, () => {}, true);
     expect(l.libelle).toBe('Ma salle');
-    expect(l.sous).toBe('Non renseigné : le coach suppose qu’on peut ajouter des disques, comme aujourd’hui.');
-    expect(l.valeur).toBe('EZ, droite, haltères');
-    expect(Profil.ligneSalle({}, () => {}).valeur).toBeNull();
-    expect(Profil.resumeSalle({ ma_salle: { halteres: { max: 20, pas: 1 } } })).toBe('Haltères');
+    expect(l.sous).toBe(Profil.PHRASE_SALLE);
+    expect(l.valeur).toBeNull();                  // les barres et les haltères ne se résument plus
+    expect(Profil.ligneSalle({}, () => {}, true).valeur).toBeNull();
+    expect(Profil.resumeSalle({ ma_salle: { halteres: { max: 20, pas: 1 } } })).toBeNull();
+    expect(Profil.resumeSalle({ ma_salle: { elastiques: [{ nom: 'Noir' }], mini_bandes: [{ nom: 'Rose' }] } })).toBe('Élastiques, mini-bandes');
   });
 });
 
@@ -123,28 +131,28 @@ describe('§10 bis — quelle salle pour quel exercice (la donnée du catalogue 
     expect(salleEZ()).toEqual({ materiel: 'barre_ez', charges: [10, 15, 20, 25, 30], isolation: true });
   });
   test('16/10/2026 — `isolation` : une isolation (moins de 3 muscles) seulement ; un polyarticulaire ou un exercice sans muscle connu, non', () => {
-    expect(Profil.salleDeLExercice({ ma_salle: SALLE_AUREL }, 'rowing_barre', INDEX)).not.toHaveProperty('isolation');
+    expect(salleForgee({ ma_salle: SALLE_AUREL }, 'rowing_barre', INDEX)).not.toHaveProperty('isolation');
     const sansMuscle = Object.assign({}, INDEX, { curl_x_barre_ez: { slug: 'curl_x_barre_ez', nom: 'Curl X (Barre EZ)', equipement: 'barre', mouvement: 'curl' } });
-    expect(Profil.salleDeLExercice({ ma_salle: SALLE_AUREL }, 'curl_x_barre_ez', sansMuscle)).not.toHaveProperty('isolation');
+    expect(salleForgee({ ma_salle: SALLE_AUREL }, 'curl_x_barre_ez', sansMuscle)).not.toHaveProperty('isolation');
   });
   test('une barre légère qui n’est pas EZ : les barres droites', () => {
-    expect(Profil.salleDeLExercice({ ma_salle: { barres_droites: [10, 20] } }, 'curl_biceps_barre', INDEX))
+    expect(salleForgee({ ma_salle: { barres_droites: [10, 20] } }, 'curl_biceps_barre', INDEX))
       .toEqual({ materiel: 'barre_droite', charges: [10, 20], isolation: true });
     // Les droites déclarées ne valent pas pour l'EZ.
-    expect(Profil.salleDeLExercice({ ma_salle: { barres_droites: [10, 20] } }, 'curl_biceps_barre_ez', INDEX)).toBeNull();
+    expect(salleForgee({ ma_salle: { barres_droites: [10, 20] } }, 'curl_biceps_barre_ez', INDEX)).toBeNull();
   });
   test('DISCRIMINANT — une barre lourde (les quatre barres et leurs frères) n’est jamais une barre fixe', () => {
-    expect(Profil.salleDeLExercice({ ma_salle: SALLE_AUREL }, 'squat_barre', INDEX)).toBeNull();
-    expect(Profil.salleDeLExercice({ ma_salle: SALLE_AUREL }, 'squat_avec_pause_barre', INDEX)).toBeNull();
+    expect(salleForgee({ ma_salle: SALLE_AUREL }, 'squat_barre', INDEX)).toBeNull();
+    expect(salleForgee({ ma_salle: SALLE_AUREL }, 'squat_avec_pause_barre', INDEX)).toBeNull();
   });
   test('les haltères se déclarent par haltère, les séries notent la paire : 2 × 2 … 2 × 40', () => {
-    const s = Profil.salleDeLExercice({ ma_salle: SALLE_AUREL }, 'developpe_couche_haltere', INDEX);
+    const s = salleForgee({ ma_salle: SALLE_AUREL }, 'developpe_couche_haltere', INDEX);
     expect(s.materiel).toBe('halteres');
     expect(s.charges.slice(0, 3)).toEqual([4, 8, 12]);
     expect(s.charges[s.charges.length - 1]).toBe(80);
   });
   test('une machine : rien (« les machines : pas pour l’instant »)', () => {
-    expect(Profil.salleDeLExercice({ ma_salle: SALLE_AUREL }, 'extension_jambes', INDEX)).toBeNull();
+    expect(salleForgee({ ma_salle: SALLE_AUREL }, 'extension_jambes', INDEX)).toBeNull();
   });
 });
 
@@ -207,7 +215,7 @@ describe('§10 bis — le curl EZ à 30 kg, la plus lourde de la salle (le cas r
   });
 
   test('DISCRIMINANT — polyarticulaire à barre fixe (rowing, barre droite de 30) : la fourchette ne s’étend pas', () => {
-    const s = Profil.salleDeLExercice({ ma_salle: SALLE_AUREL }, 'rowing_barre', INDEX);
+    const s = salleForgee({ ma_salle: SALLE_AUREL }, 'rowing_barre', INDEX);
     const hist = (r) => [
       { seance: { id: 'S2', debut: jour('10-10') }, series: [brute(30, r), brute(30, r), brute(30, r)] },
       { seance: { id: 'S1', debut: jour('10-06') }, series: [brute(30, 11), brute(30, 11), brute(30, 11)] }];
@@ -233,7 +241,7 @@ describe('§10 bis — le curl EZ à 30 kg, la plus lourde de la salle (le cas r
       hist = [{ seance: { id: 'T' + i, debut: avant }, series: [1, 2, 3].map(() => brute(c.ligne.charge, c.ligne.vise)) }].concat(hist);
     }
     const avant = new Date(Date.parse(AVANT) + 24 * 864e5).toISOString();
-    const avec35 = Profil.salleDeLExercice({ ma_salle: { barres_ez: [10, 15, 20, 25, 30, 35] } }, 'curl_biceps_barre_ez', INDEX);
+    const avec35 = salleForgee({ ma_salle: { barres_ez: [10, 15, 20, 25, 30, 35] } }, 'curl_biceps_barre_ez', INDEX);
     const c = M.consigneDExercice(hist, undefined, avant, Object.assign({ salle: avec35 }, O));
     // Plus de plafond de la salle : la zone suit l'habitude (Séries longues), et la consigne est celle d'une
     // personne sans déclaration — à cette histoire près, les mêmes charges.
@@ -285,7 +293,7 @@ describe('§10 bis — les haltères, arrondis aux charges déclarées', () => {
     { seance: { id: 'S2', debut: jour('10-02') }, series: [brute(32, 12), brute(32, 12), brute(32, 12)] },
     { seance: { id: 'S1', debut: jour('09-28') }, series: [brute(28, 12), brute(28, 12), brute(28, 12)] }];
   // Une salle aux haltères de 2,5 en 2,5 jusqu'à 25 kg : les paires 5, 10 … 50.
-  const salle = () => Profil.salleDeLExercice({ ma_salle: { halteres: { max: 25, pas: 2.5 } } }, 'developpe_couche_haltere', INDEX);
+  const salle = () => salleForgee({ ma_salle: { halteres: { max: 25, pas: 2.5 } } }, 'developpe_couche_haltere', INDEX);
 
   test('DISCRIMINANT — le test au pas déclaré (45), pas au pas de l’historique (44)', () => {
     expect(M.consigneDExercice(histo([12, 12, 12]), undefined, AVANT, DH).consigne.haut.charge).toBe(44);
@@ -313,7 +321,7 @@ describe('§10 bis — une barre chargée de disques n’est pas concernée', ()
     const hist = [
       { seance: { id: 'S2', debut: jour('10-10') }, series: [brute(80, 10), brute(80, 10), brute(80, 10)] },
       { seance: { id: 'S1', debut: jour('10-06') }, series: [brute(77.5, 10), brute(77.5, 10), brute(77.5, 10)] }];
-    const s = Profil.salleDeLExercice({ ma_salle: SALLE_AUREL }, 'rowing_barre', INDEX);
+    const s = salleForgee({ ma_salle: SALLE_AUREL }, 'rowing_barre', INDEX);
     expect(s).toEqual({ materiel: 'barre_droite', charges: [10, 15, 20, 25, 30] });
     const sans = M.consigneDExercice(hist, undefined, AVANT, O);
     const avec = M.consigneDExercice(hist, undefined, AVANT, Object.assign({ salle: s }, O));
@@ -543,14 +551,14 @@ describe('§10 bis (16/10/2026, 113) — au plafond plusieurs séances : l’esc
 describe('§10 bis — non renseignée, rien ne change', () => {
   test('DISCRIMINANT — sans `ma_salle` (absente, NULL, illisible), aucune salle pour aucun exercice', () => {
     [{}, { ma_salle: null }, { ma_salle: { barres_ez: [] } }, { ma_salle: 'x' }, null].forEach((p) => {
-      Object.keys(INDEX).forEach((slug) => expect(Profil.salleDeLExercice(p, slug, INDEX)).toBeNull());
+      Object.keys(INDEX).forEach((slug) => expect(salleForgee(p, slug, INDEX)).toBeNull());
     });
   });
 
   test('DISCRIMINANT — la consigne d’une personne sans déclaration est identique à celle d’avant 108', () => {
     const cas = [curlEZ([12, 12, 12]), curlEZ([11, 11, 11]), curlEZ([13, 12, 9])];
     cas.forEach((hist) => {
-      const salle = Profil.salleDeLExercice({}, 'curl_biceps_barre_ez', INDEX);
+      const salle = salleForgee({}, 'curl_biceps_barre_ez', INDEX);
       const avant = M.consigneDExercice(hist, undefined, AVANT, O);
       const apres = M.consigneDExercice(hist, undefined, AVANT, Object.assign({ salle: salle }, O));
       expect(JSON.stringify(apres)).toBe(JSON.stringify(Object.assign({}, avant)));

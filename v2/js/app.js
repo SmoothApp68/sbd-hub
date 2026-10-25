@@ -6401,6 +6401,8 @@
       // MOTEUR §9.22 (53-2) — les blocs des programmes (la décharge planifiée,
       // « Changer de schéma ») et les lignes de zone (I36, I37).
       programme: { blocs: local.blocs || [], lignes: local.zones || [] },
+      // 165 (I60) — les périodes allégées : le plan vérifie qu'aucune consigne n'en cite une séance comme référence.
+      periodesAllegees: periodesAllegees(),
       suites: suites,
       precedents: precedents,
       paris: (local.predictions || []).filter(function (l) {
@@ -8875,6 +8877,8 @@
         conv.enCours = false;
         if (res.genre === 'accord') {
           conv.bulles.pop();
+          // 166 (D9) : l'accord local est posé mais pas encore en base : on le dit, on ne boucle pas sur l'écran d'accord.
+          if (Assistant.issueAccordRefuse(profil) === 'attente') { bulle.r = T.accordEnAttente; bulle.local = true; conv.bulles.push(bulle); return redessiner(); }
           if (feuille === f) { f.vue = 'accord'; }
           return feuille === f ? rendreFeuille() : undefined;
         }

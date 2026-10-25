@@ -57,7 +57,7 @@ restent alignées.
 `index.html` en 200 (la règle `/* /index.html 200` de `v2/_redirects`).
 
 ```
-node v2-atelier/banc/serveur-pages.js [racine] [port] [--sans-canonicalisation]
+node v2-atelier/banc/serveur-pages.js [racine] [port] [--sans-canonicalisation]   # sans port : un port libre (168)
 ```
 
 **Pourquoi il existe.** Le banc du chantier 18 servait `/index.html` avec un

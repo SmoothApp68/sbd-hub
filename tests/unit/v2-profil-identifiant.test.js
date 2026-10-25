@@ -396,7 +396,7 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
         changerDeCompte: () => { journal.vide++; return Promise.resolve({ rendue: [], gardees: {} }); },
         ecrireMeta: (cle, v) => { journal.meta.push([cle, v]); return Promise.resolve(); }
       },
-      routines: ['x'], brouillon: {}, etatRoutines: {}, seance: {}, attente: [1], chrono: {},
+      routines: ['x'], generationRoutines: 0, brouillon: {}, etatRoutines: {}, seance: {}, attente: [1], chrono: {},
       local: {}, journalDecide: true, remplissage: {},
       fermerQuestionnaire: () => {}, faits: { oublierDates: () => {} },
       // 106 — le groupe et ses messages gardés hors ligne appartiennent au compte précédent.

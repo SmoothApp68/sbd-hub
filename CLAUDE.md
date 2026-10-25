@@ -206,6 +206,14 @@ trappe `/__sw-off` pendrait avec lui.
   le banc par le découpeur, chaque section protégée (`sectionResistante`) ;
   une exception devient un contrôle en échec « [exception] … », la section
   suivante joue, et le résumé liste **tous** les échecs à la fin.
+- **Un seul banc à la fois** (25/10/2026, 168). `tout.js`, `seance-rapide.js`, `muter.js`, `profil-creation.js`,
+  `routines-ecran.js`, `sw-navigation.js` (et `seance-ecran.js`, `journal-mesure.js`) prennent un verrou fichier commun
+  (`os.tmpdir()/trainhub-banc.verrou`, PID dedans, repris si le PID est mort) et **attendent** qu'il soit libre en le
+  disant (« banc en attente : un autre tourne, PID … ») : le verrou **remplace l'attente à la main**
+  (`156-attendre.sh`), deux bancs ne tournent jamais ensemble. Les bancs lancés par un banc jouent sous son verrou
+  (`BANC_VERROU_TENU`, pas d'interblocage ; `muter.js` le prend une fois pour tout son lot). `--sans-verrou`
+  (ou `BANC_SANS_VERROU=1`) l'écarte ; la CI n'en a pas besoin (une machine par job). **Plus aucun port fixe** :
+  chaque serveur de banc écoute sur un port demandé au système (`tests/banc/verrou.js`, `ecouter`).
 - **Aucun test ne parle à la vraie base** (59-4, 07/10/2026). Tout navigateur de test
   s'ouvre par `Garde.lancer(chromium, …)` (`tests/banc/garde-reseau.js`) : une requête
   ou un WebSocket vers `*.supabase.co` que le faux serveur du banc n'a pas pris en charge

@@ -8877,6 +8877,8 @@
         conv.enCours = false;
         if (res.genre === 'accord') {
           conv.bulles.pop();
+          // 166 (D9) : l'accord local est posé mais pas encore en base : on le dit, on ne boucle pas sur l'écran d'accord.
+          if (Assistant.issueAccordRefuse(profil) === 'attente') { bulle.r = T.accordEnAttente; bulle.local = true; conv.bulles.push(bulle); return redessiner(); }
           if (feuille === f) { f.vue = 'accord'; }
           return feuille === f ? rendreFeuille() : undefined;
         }

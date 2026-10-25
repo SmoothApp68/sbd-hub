@@ -7,7 +7,7 @@
 //
 // Étapes : POST seulement · CORS (sbd-hub.pages.dev, aperçus, localhost) · JWT → auth.getUser (sinon 401) ·
 //   profiles.assistant_accord_a non nul (sinon 403 `accord`) · contexte revérifié (liste blanche, aucune date : sinon 400) ·
-//   estSante → réponse fixe, AUCUN appel au modèle, ligne `raison = 'sante'`, quota non compté ·
+//   estSante → réponse fixe, AUCUN appel au modèle, AUCUNE écriture (ni question, ni contexte, ni ligne), quota non compté ·
 //   assistant_prendre_question(user, 10) → −1 : { quota: true } · appel du modèle (15 s) · contrôle des nombres ·
 //   ligne gardée dans assistant_questions SANS user_id · purge (questions > 30 jours, quota > 2 jours).
 // Base (v2_112, Claude.ai) : assistant_questions, assistant_quota, profiles.assistant_accord_a, RPC assistant_prendre_question
@@ -51,6 +51,25 @@ function entetes(origine: string | null) {
   return h;
 }
 
+// Lit le corps par morceaux et s'arrête dès qu'il dépasse `max` octets (rend null) : la borne vaut même sans Content-Length.
+async function lireBorne(req: Request, max: number): Promise<string | null> {
+  if (!req.body) return '';
+  const lecteur = req.body.getReader();
+  const morceaux: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await lecteur.read();
+    if (done) break;
+    total += value.length;
+    if (total > max) { await lecteur.cancel(); return null; }
+    morceaux.push(value);
+  }
+  const tout = new Uint8Array(total);
+  let o = 0;
+  for (const m of morceaux) { tout.set(m, o); o += m.length; }
+  return new TextDecoder().decode(tout);
+}
+
 Deno.serve(async (req: Request) => {
   const origine = req.headers.get('Origin');
   const rendre = (corps: unknown, statut = 200) => new Response(JSON.stringify(corps), { status: statut, headers: entetes(origine) });
@@ -68,18 +87,27 @@ Deno.serve(async (req: Request) => {
   if (eu || !u || !u.user) return rendre({ erreur: 'jeton' }, 401);
   const userId: string = u.user.id;
 
-  // 2. Le corps : trois clés, pas une de plus.
+  // 2. Le corps : borné AVANT d'être lu (166, D7), puis trois clés, pas une de plus.
+  if (C.corpsTropGros(req.headers.get('content-length'), C.MAX_CORPS)) return rendre({ erreur: 'corps' }, 413);
   let corps: Record<string, unknown>;
-  try { corps = await req.json(); } catch (_e) { return rendre({ erreur: 'corps' }, 400); }
+  try {
+    const brut = await lireBorne(req, C.MAX_CORPS);
+    if (brut === null) return rendre({ erreur: 'corps' }, 413);
+    corps = JSON.parse(brut);
+  } catch (_e) { return rendre({ erreur: 'corps' }, 400); }
   if (!corps || typeof corps !== 'object' || Object.keys(corps).some((k) => ['question', 'contexte', 'slug'].indexOf(k) < 0)) {
     return rendre({ erreur: 'corps' }, 400);
   }
-  const question = typeof corps.question === 'string' ? corps.question.trim() : '';
-  if (!question || question.length > C.MAX_QUESTION) return rendre({ erreur: 'question' }, 400);
+  const brutQuestion = typeof corps.question === 'string' ? corps.question.trim() : '';
+  if (!brutQuestion || brutQuestion.length > C.MAX_QUESTION) return rendre({ erreur: 'question' }, 400);
+  // Le même filtre de dates que l'app, quel que soit le format ; une date qui reste fait un 400.
+  const question = C.nettoyerQuestion(brutQuestion);
+  if (!question) return rendre({ erreur: 'question' }, 400);
+  if (C.contientDate(question)) return rendre({ erreur: 'question', cle: 'date' }, 400);
   const slug = typeof corps.slug === 'string' && /^[a-z0-9_-]{1,80}$/.test(corps.slug) ? corps.slug : null;
-  const verif = C.verifierContexte(corps.contexte);
+  const contexte = C.nettoyerContexte(corps.contexte) as Record<string, unknown>;
+  const verif = C.verifierContexte(contexte);
   if (!verif.ok) return rendre({ erreur: 'contexte', cle: verif.raison }, 400);
-  const contexte = corps.contexte as Record<string, unknown>;
   const etat = typeof contexte.etat_cle === 'string' ? contexte.etat_cle : null;
 
   // 3. L'accord (écrit par l'app dans profiles.assistant_accord_a).
@@ -96,9 +124,9 @@ Deno.serve(async (req: Request) => {
     await service.from('assistant_quota').delete().lt('jour', il2);
   };
 
-  // 4. Une douleur ne part pas : réponse fixe, aucun appel au modèle, quota non compté.
+  // 4. Une douleur ne part pas : réponse fixe, aucun appel au modèle, quota non compté, et AUCUNE écriture (166, D5 + D6) :
+  // ni la question, ni le contexte, ni une ligne ne sont gardés.
   if (C.estSante(question)) {
-    await garder({ reponse: REPONSE_SANTE, bloquee: true, raison: 'sante' });
     return rendre({ bloquee: true, sante: true, reponse: REPONSE_SANTE });
   }
 

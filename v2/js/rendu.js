@@ -2785,7 +2785,7 @@
         // 154 — « garde-en N » : l'étiquette de la réserve visée, UNE FOIS, au bout de la première ligne de la consigne.
         var gardeEn = !vue.programme && typeof vue.reserveVisee === 'function' ? vue.reserveVisee(x._iExo) : null;
         (lib.jaune || []).forEach(function (l, iJ) {
-          var ligneJ = el('div', 'consigne', l);
+          var ligneJ = consigneVivante(l, iJ);
           // Un attribut, rendu par CSS (`::after`) : le texte de la consigne reste celui du moteur, mot pour mot.
           if (iJ === 0 && gardeEn !== null && gardeEn !== undefined) ligneJ.setAttribute('data-garde', 'garde-en\u00a0' + gardeEn);
           entree.appendChild(tapable(ligneJ));
@@ -2810,6 +2810,36 @@
       tete.appendChild(entree);
     });
     return tete;
+  }
+
+  // 173 (refonte « Vivant », 25/10/2026) — LA CONSIGNE EN HÉROS. Le texte du coach ne change pas d'un mot : « Aujourd'hui : 105 kg × 5. »
+  // reste dans le DOM (textContent identique, lu en entier par les lecteurs d'écran, `aria-label` compris) ; on le découpe en
+  // <span> pour que la charge et les reps prennent la taille du chiffre du jour. L'étiquette « AUJOURD'HUI » est dessinée par CSS
+  // (le mot « Aujourd'hui : » reste présent, hors de vue). Les autres formes gardent leur phrase, en plus grand.
+  var RE_AUJOURDHUI = /^(Aujourd'hui\s:\s)((?:≈\s)?[\d,.]+)(\skg\s×\s)(\d+)(\.)$/;
+  var RE_SI_CA_PASSE = /^(Si ça passe,\s)((?:≈\s)?[\d,.]+\skg\s×\s\d+)(.*)$/;
+  function consigneVivante(l, iJ) {
+    var m = iJ === 0 ? RE_AUJOURDHUI.exec(l) : null;
+    if (m) {
+      var h = el('div', 'consigne consigne-heros');
+      h.setAttribute('aria-label', l);
+      h.appendChild(el('span', 'c-mot', m[1]));
+      h.appendChild(el('span', 'c-charge', m[2]));
+      h.appendChild(el('span', 'c-kg', m[3]));
+      h.appendChild(el('span', 'c-reps', m[4]));
+      h.appendChild(el('span', 'c-point', m[5]));
+      return h;
+    }
+    var sp = iJ > 0 ? RE_SI_CA_PASSE.exec(l) : null;
+    if (sp) {
+      var b = el('div', 'consigne si-ca-passe');
+      b.appendChild(el('span', '', sp[1]));
+      b.appendChild(el('b', 'sp-chiffre', sp[2]));
+      if (sp[3]) b.appendChild(el('span', '', sp[3]));
+      return b;
+    }
+    if (iJ > 0 && /^Si ça passe,/.test(l)) return el('div', 'consigne si-ca-passe', l);
+    return el('div', 'consigne' + (iJ === 0 ? ' consigne-grande' : ''), l);
   }
 
   // ⚠️ PAS DE `stopPropagation` ICI. Le seul parent qui écoute le clic est un
@@ -3256,7 +3286,7 @@
       (s.debutTour && !(reaction && reaction.message) ? ' debut-tour' : '') +
       (proposee ? ' proposee' : '') + (ajoutee ? ' ajoutee' : ''));
     var fond = el('div', 'glisse-fond', 'Supprimer');
-    var rangee = el('div', 'serie' + classeGrille + (allumee ? ' faite' : ''));
+    var rangee = el('div', 'serie' + classeGrille + (allumee ? ' faite' : '') + (!vue.programme && s.faite ? ' fait' : ''));
     rangee.setAttribute('data-iexo', iExo);
     rangee.setAttribute('data-iserie', iSerie);
 
@@ -3371,6 +3401,8 @@
     if (g.effort && !vue.programme) {
       var eff = el('button', 'eff-serie num' + (texteEffort(s) ? ' plein' : ''), texteEffort(s));
       eff.type = 'button';
+      // 173 — le mot « fait » d'une série validée sans effort : dessiné par CSS depuis cet attribut (le contenu du bouton reste vide).
+      if (s.faite && !texteEffort(s)) eff.setAttribute('data-fait', 'fait');
       eff.addEventListener('click', function () { vue.surEffort(iExo, iSerie); });
       rangee.appendChild(eff);
     }

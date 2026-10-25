@@ -1043,8 +1043,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    variante A). La phrase au-dessus de la ligne qu'elle concerne ; la ligne
    proposée porte un filet à gauche et sa charge en couleur du coach ; ses reps
    n'ont qu'une indication (la fourchette), pas un fantôme. */
-.reaction-serie{color:var(--accent);font-size:13.5px;font-weight:620;line-height:1.35;
-  padding:6px 2px 4px 35px}
+.reaction-serie{color:var(--texte);font-size:13.5px;font-weight:620;line-height:1.35;
+  margin:6px 0 4px 35px;padding:2px 2px 2px 9px;border-left:3px solid var(--accent)}
 .reaction-serie.tenue,.reaction-serie.haut{color:var(--texte);font-weight:560}
 /* MOTEUR §9.14 bis (68A) — « pas encore » de son propre chef, en gris comme « pas encore ». */
 .reaction-serie.pas_encore,.reaction-serie.pas_encore_soi{color:var(--texte-2);font-weight:500}
@@ -1139,14 +1139,22 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    discrète à bout de bras, entre deux séries : on doit voir où l'on en est
    sans lire. Vert de SENS (--reussi dilué dans le panneau), jamais l'accent —
    le jaune reste réservé à l'onglet actif et à la suggestion du moteur. */
-.serie.faite{background:#1E2A25}
+.serie.faite{background:rgba(74,222,128,.11)}
+/* 173 (« Vivant ») — une série validée s'allume : le numéro plein, la case pleine, le mot « fait » dans la colonne effort si elle est vide. */
+.serie.fait .no-serie{background:var(--reussi);border-color:var(--reussi);color:var(--sur-accent)}
+.eff-serie[data-fait]:empty::before{content:attr(data-fait);font-family:var(--pile);font-size:10.5px;font-weight:700;
+  letter-spacing:.08em;font-variant:small-caps;text-transform:lowercase;color:var(--reussi)}
+.eff-serie[data-fait]{border-style:solid;border-color:transparent}
 .serie.faite .ch-serie,.serie.faite .rp-serie{background:transparent;border-color:transparent}
 /* ⚠️ LA COCHE PORTE SON PROPRE ÉTAT DEPUIS LE CHANTIER 27, et il le fallait :
    le fond vert dit désormais « le TOUR est fait » (§2.6), pas « cette ligne est
    validée ». Dans un superset, A2 validé pendant que B2 ne l'est pas reste sur
    fond neutre — sa coche, elle, doit se voir. Accrocher le style de la coche à
    `.serie.faite` l'aurait éteinte exactement là où elle sert le plus. */
-.ok-serie.cochee{background:#27392F;border-color:#3A5A46;color:var(--reussi)}
+.ok-serie.cochee{background:var(--reussi);border-color:var(--reussi);color:var(--sur-accent)}
+@media (prefers-reduced-motion: no-preference){
+  .ok-serie.cochee svg path{stroke-dasharray:24;stroke-dashoffset:24;animation:tracer-coche .2s ease-out forwards}
+  @keyframes tracer-coche{to{stroke-dashoffset:0}}}
 
 .ajout-serie{padding:var(--e2) var(--e3) var(--e3);display:flex;flex-wrap:wrap;gap:6px}
 .ajout-serie button{flex:1 1 120px;height:36px;border-radius:var(--r-bouton);
@@ -1261,7 +1269,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   max-width:520px;margin:0 auto;z-index:50}
 .repos[hidden]{display:none}
 .repos-h{display:flex;align-items:center;gap:var(--e2);margin-bottom:var(--e2)}
-.repos-g{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1;font-family:var(--pile-c)}
+.repos-g{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1;font-family:var(--pile-c);color:var(--accent)}
 /* Arrêté à l'échéance, pas planté (§7 septies.3). */
 .repos-c{font-size:11px;color:var(--texte-3);white-space:nowrap}
 /* −15 / +15 / son : des commandes, pas des boutons d'action. Discrètes, mais
@@ -1270,8 +1278,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
   font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;flex:0 0 auto}
 .repos-b.coupe{color:var(--texte-3);border-style:dashed}
-.piste{height:3px;background:var(--panneau-2);border-radius:2px;overflow:hidden}
-.piste i{display:block;height:100%;background:var(--texte-3)}
+.piste{height:4px;background:var(--panneau-2);border-radius:2px;overflow:hidden}
+.piste i{display:block;height:100%;background:var(--accent)}
 /* MOTEUR §17.2 bis (78) — la question de réserve, dans la carte de repos : la voix du coach (ambre). Quatre
    boutons à la largeur égale, 40 px de haut — on les vise entre deux séries, en sueur. */
 .repos-q{margin-top:var(--e3);padding-top:var(--e2);border-top:1px solid var(--trait)}
@@ -2601,8 +2609,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .feuille-menu button .aide-type{display:block;font-weight:400;font-size:12px;color:var(--texte-3);margin-top:2px}
 
 /* 154 — l'effort visé : « garde-en N » dans l'en-tête, les puces sous la dernière série, la phrase du coach. */
-.consigne[data-garde]::after{content:attr(data-garde);display:inline-block;margin-left:var(--e2);padding:0 6px;border:1px solid var(--trait);
-  border-radius:var(--r-etiquette);font-family:var(--pile-c);font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--texte-2);
+.consigne[data-garde]::after{content:attr(data-garde);display:inline-block;margin-left:var(--e2);padding:0 6px;border:1px solid var(--accent);
+  border-radius:var(--r-etiquette);font-family:var(--pile-c);font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--accent);
   white-space:nowrap;vertical-align:1px}
 .effort-vise{display:flex;flex-wrap:wrap;align-items:center;gap:var(--e2);padding:var(--e2) 0 var(--e1)}
 .effort-vise-q,.effort-vise-dit{font-size:14px;color:var(--texte-2)}
@@ -2629,3 +2637,23 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 #bandeau-questionnaire .reprise-actions,#bandeau-installer .reprise-actions{margin-top:var(--e2)}
 /* 170 — le reflet haut des cartes : un filet de lumière, sans toucher aux dimensions. */
 .carte,.carte-per,.bloc,.radar,.graphe,.pesees,.bloc-seance,.exo-fiche,.table-reps,.exo-jour,.p-groupe,.exo-liste,.tuile-mois,.bandeau-reprise,.releve{box-shadow:inset 0 1px 0 var(--reflet)}
+
+/* ── 173 (« Vivant », 25/10/2026) — LA CONSIGNE DU JOUR EN HÉROS ─────────────────────────────────────────────────────────────
+   Même texte, même phrase pour les lecteurs d'écran (le mot « Aujourd'hui : » reste dans le DOM, hors de vue) : la charge en
+   Barlow Condensed 40 px ambre, « kg × » 24 px gris, les reps 40 px en texte ; l'étiquette « AUJOURD'HUI » au-dessus ;
+   « garde-en N » (data-garde) à droite, contour ambre. */
+.consigne-heros{display:flex;flex-wrap:wrap;align-items:baseline;margin-top:8px;font-family:var(--pile-c);line-height:1;color:var(--texte)}
+.consigne-heros::before{content:"AUJOURD'HUI";flex:0 0 100%;margin-bottom:4px;font-family:var(--pile);font-size:11px;font-weight:700;
+  letter-spacing:.1em;color:var(--texte-2)}
+.consigne-heros .c-mot{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.consigne-heros .c-charge{font-size:40px;font-weight:700;color:var(--accent)}
+.consigne-heros .c-kg{font-size:24px;font-weight:600;color:var(--texte-2);white-space:pre}
+.consigne-heros .c-reps{font-size:40px;font-weight:700;color:var(--texte)}
+.consigne-heros .c-point{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.consigne-heros[data-garde]::after{margin-left:auto;align-self:center}
+/* Les autres formes de consigne (sans « Aujourd'hui : ») : la même mise en avant, adaptée — la phrase en Condensed 22 px. */
+.consigne-grande{font-family:var(--pile-c);font-size:22px;font-weight:700;line-height:1.15;margin-top:6px}
+/* « Si ça passe, … » : une bulle, la charge × reps en gras ambre. */
+.consigne.si-ca-passe{display:inline-block;background:var(--panneau-2);border-radius:var(--r-petit);padding:6px 10px;margin-top:8px;
+  font-size:13.5px;font-weight:500;color:var(--texte-2)}
+.consigne.si-ca-passe .sp-chiffre{color:var(--accent);font-weight:800}

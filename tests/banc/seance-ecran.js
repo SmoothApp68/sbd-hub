@@ -25356,6 +25356,124 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ jamais-bloque. L’ÉCHEC AU HAUT DE LA ZONE GARDE UNE FOIS, PUIS LE TEST ; PAS DE PUCES SOUS UNE AIDE (169, MOTEUR §9.26) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice à la barre en zone Hypertrophie (habitude 9, haut 10), 30 kg × 10 × 3 les deux dernières
+  // fois, la dernière série de la séance d'il y a 7 jours « à l'échec » (reste_0). Temps 1 : seule la dernière a échoué → la phrase de la
+  // GARDE (« …encore une fois au haut de ta zone et je teste plus lourd »), pas de test. Temps 2 : la séance d'avant a échoué aussi → le
+  // TEST est posé (« Deux fois 30 kg × 10 au haut de ta zone… »). Temps 3 : une aide (charge négative) → ni « garde-en » ni question.
+  // Aucun délai fixe.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    // 165 — les blocs d'une section d'avant (« cycles ») rendraient NEUTRES les séances d'il y a 14 jours : retirés, rendus à la fin.
+    const rendreBlocs169 = await retirerBlocsDeLAppareil();
+    CATALOGUE.push({ slug: 'jb169-a', nom: 'Exercice JB169 A (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
+    CATALOGUE.push({ slug: 'jb169-b', nom: 'Exercice JB169 B (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
+    CATALOGUE.push({ slug: 'jb169-t', nom: 'Exercice JB169 T (Aide)', mesure: 'charge_reps', charge: 'assistance', equipement: 'machine',
+      muscles_primaires: ['dorsaux'], muscles_secondaires: [] });
+    const t169 = Date.now();
+    base.sessions = [];
+    base.sets = [];
+    // [jours, reps, kg, slug]
+    // A : seule la séance d'il y a 7 jours finit à l'échec. B : celle d'il y a 14 jours aussi (aucune donnée n'est modifiée en cours de banc).
+    const histoire169 = [[42, 9, 30, 'jb169-a'], [35, 9, 30, 'jb169-a'], [28, 9, 30, 'jb169-a'], [14, 10, 30, 'jb169-a'], [7, 10, 30, 'jb169-a'],
+      [42, 9, 30, 'jb169-b'], [35, 9, 30, 'jb169-b'], [28, 9, 30, 'jb169-b'], [14, 10, 30, 'jb169-b'], [7, 10, 30, 'jb169-b'],
+      [21, 8, -20, 'jb169-t'], [14, 8, -20, 'jb169-t'], [7, 8, -20, 'jb169-t']];
+    histoire169.forEach(([j, reps, kg, slug]) => {
+      const id = 'jb169-' + slug + '-' + j;
+      const debut = ilYa(j * 86400000, t169).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'JB169 — ' + id, debut,
+        fin: finDe(debut, t169).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((k) => base.sets.push({
+        id: id + '-' + k, session_id: id, user_id: 'u-banc', exercise_slug: slug,
+        charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: k, groupe_superset: null, validee_a: debut, rpe: null, ressenti: k === 3 && ((slug === 'jb169-a' && j === 7) || (slug === 'jb169-b' && j <= 14)) ? 'reste_0' : null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    ROUTINES.push({ id: 'r-jb169', nom: 'Jamais bloqué U169', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-jb169-a', routine_id: 'r-jb169', exercise_slug: 'jb169-a', rang: 0, routine_sets: progr(3, 10),
+        repos_cible_s: 90, groupe_superset: null, note: null }] });
+    ROUTINES.push({ id: 'r-jb169b', nom: 'Jamais bloqué B U169', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-jb169b-a', routine_id: 'r-jb169b', exercise_slug: 'jb169-b', rang: 0, routine_sets: progr(3, 10),
+        repos_cible_s: 90, groupe_superset: null, note: null }] });
+    ROUTINES.push({ id: 'r-jb169t', nom: 'Jamais bloqué aide U169', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-jb169t-a', routine_id: 'r-jb169t', exercise_slug: 'jb169-t', rang: 0, routine_sets: progr(3, 8),
+        repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const sp169 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const entete169 = () => page.evaluate(() => {
+      const g = document.querySelector('.legende-exo .consigne[data-garde]');
+      return { garde: g ? g.getAttribute('data-garde') : null, nb: document.querySelectorAll('[data-garde]').length,
+        dit: (document.querySelector('.legende-exo .consigne-dit') || {}).textContent || null,
+        jaune: Array.from(document.querySelectorAll('.legende-exo .consigne')).map((x) => x.textContent) };
+    });
+    const valider169 = async (j) => {
+      await casesSiVides(await ligneDuBloc(0, j));
+      await page.evaluate((k) => document.querySelectorAll('.bloc-seance')[0]
+        .querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), j);
+      await jusqua(() => page.evaluate((k) => !!document.querySelectorAll('.bloc-seance')[0]
+        .querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie.cochee'), j), 6000);
+    };
+    const puces169 = () => page.evaluate(() => !!document.querySelector('.bloc-seance .effort-vise'));
+
+    // 1. La séance d'il y a 14 jours finissait sans l'échec : la garde est une PREMIÈRE fois.
+    await aller('/saisie');
+    await demarrerRoutine('Jamais bloqué U169');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 3), 8000);
+    await jusqua(async () => (await entete169()).dit !== null, 6000);
+    const a1 = await entete169();
+    ok('[JB169] DISCRIMINANT — 1re fois (A : seule la dernière séance a échoué), 30 kg × 10 à l’échec : on garde, et la phrase annonce le test (« encore une fois au haut de ta zone et je teste plus lourd »)',
+      sp169(a1.dit) === '30 kg × 10, sans marge. On garde 30 kg : encore une fois au haut de ta zone et je teste plus lourd.' &&
+        a1.garde !== null && !a1.jaune.some((t) => /32,5/.test(sp169(t))), JSON.stringify(a1));
+    await abandonner();
+
+    // 2. La séance d'avant a échoué elle aussi : le test est posé.
+    await aller('/saisie');
+    await demarrerRoutine('Jamais bloqué B U169');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 3), 8000);
+    await jusqua(async () => /^Deux fois/.test(String((await entete169()).dit || '')), 8000);
+    const a2 = await entete169();
+    ok('[JB169] DISCRIMINANT — 2e fois (B : la séance d’avant a échoué aussi) : le coach pose le test (32,5 kg), un seul cran, et dit « Deux fois 30 kg × 10 au haut de ta zone »',
+      /^Deux fois 30 kg × 10 au haut de ta zone : aujourd’hui, on teste (≈ )?32,5 kg × 8\.$/.test(sp169(a2.dit)) &&
+        a2.jaune.some((t) => /32,5/.test(sp169(t))), JSON.stringify(a2));
+    const v169 = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? window.THPlan.verifierPlan(d.plan, d.entrees) : { ok: false, erreurs: ['aucun plan calculé'] };
+    });
+    ok('[JB169] invariants du plan (I62 à I64 compris)', v169.ok, JSON.stringify(v169.erreurs.slice(0, 3)));
+    await abandonner();
+
+    // 3. Une aide (charge négative) : ni « garde-en » ni « Il t’en restait combien ? ».
+    await aller('/saisie');
+    await demarrerRoutine('Jamais bloqué aide U169');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 3), 8000);
+    await valider169(0); await valider169(1); await valider169(2);
+    const aide = await entete169();
+    ok('[JB169] DISCRIMINANT — sous une aide : aucun « garde-en » dans l’en-tête et aucune question « Il t’en restait combien ? » après la dernière série',
+      aide.garde === null && aide.nb === 0 && (await puces169()) === false, JSON.stringify([aide, await puces169()]));
+    await abandonner();
+
+    // LA REMISE EN ÉTAT.
+    rendreBlocs169();
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[JB169] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ demander-coach. « DEMANDER AU COACH » : LE BOUTON, L’ACCORD, UNE PUCE, UNE DOULEUR QUI NE PART PAS, LE QUOTA, SANS RÉSEAU (160, ECRAN-SAISIE §3.10 ter) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice à la barre, 40 kg × 9 trois séances de suite, séance du jour ouverte, la feuille

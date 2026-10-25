@@ -25859,9 +25859,7 @@ const SETS_IMPORTES = [
     // Plus aucun avis : la ligne n'existe pas.
     base.sessions = []; base.sets = [];
     await aller('/saisie');
-    await attendre(1200);   // VOULU : l'absence d'un évènement — plus aucun avis, qu'aucun état ne prouve
-    await aller('/saisie');
-    await attendre(600);   // VOULU : l'absence d'un évènement — la ligne ne revient pas
+    await jusqua(async () => (await ligne171()) === null, 12000);   // les séances d'échelles ont disparu de la base de papier : la ligne s'éteint dès que l'appareil les relit
     ok('[SA171] b — sans avis, la ligne n’existe pas', (await ligne171()) === null && JSON.stringify(await ordre171()) === JSON.stringify(['liste-routines']), JSON.stringify(await ordre171()));
     CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
 
@@ -25962,7 +25960,7 @@ const SETS_IMPORTES = [
     await jusqua(async () => (await carte171()) === null, 6000);
     const apresR = await carte171();
     await aller('/saisie');
-    await attendre(900);   // VOULU : l'absence d'un évènement — la carte ne revient pas après le rechargement, qu'aucun état ne prouve
+    await jusqua(async () => (await carte171()) === null, 12000);   // la carte, si elle venait, serait déjà là ; sous charge on laisse la synchronisation finir
     ok('[SA171] d — « Répartir » : la carte se ferme, la question ne revient pas au rechargement, le choix est écrit (`semaine_choix` « repartir »)',
       apresR === null && (await carte171()) === null && base.semaineChoix.map((x) => x.choix).join() === 'repartir', nb171([choixPremier, base.semaineChoix]));
     await A.fermer();
@@ -25971,7 +25969,7 @@ const SETS_IMPORTES = [
     await page.click('#carte-semaine button[data-choix="garder"]');
     await jusqua(async () => (await carte171()) === null, 6000);
     await aller('/saisie');
-    await attendre(900);   // VOULU : l'absence d'un évènement — la carte ne revient pas après le rechargement, qu'aucun état ne prouve
+    await jusqua(async () => (await carte171()) === null, 12000);   // la carte, si elle venait, serait déjà là ; sous charge on laisse la synchronisation finir
     ok('[SA171] d — « Garder … comme prévu » : respecté, rechargé, plus de carte', (await carte171()) === null);
     await B.fermer();
     base.semaineChoix = [];

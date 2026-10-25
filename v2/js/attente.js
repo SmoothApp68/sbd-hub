@@ -278,7 +278,7 @@
           op: SUPPRIMER, donnees: null,
           version: (liste[i].version || 1) + 1,
           bloquee: null, essais: 0
-        });
+        }, liste[i].table === OBJECTIFS ? { depend: null, attend: null } : {});   // 167 : retirer un objectif lâche son pari
         return liste;
       }
       return liste.concat([entree(cle, op, prochainSeq(liste))]);
@@ -384,7 +384,8 @@
       var e = liste[i];
       if (e.bloquee) { retenues[e.id] = true; continue; }
       // Une observation qui attend sa série ne part pas, et n'arrête rien.
-      if (e.attend) continue;
+      // 167 — sauf un objectif qui attend un pari sorti de la file sans monter : il est réévalué (`attendSonPari`).
+      if (e.attend && !(e.attend === 'pari' && e.table === OBJECTIFS && e.depend && !pariEnFile(file, e))) continue;
       // ⚠️ RETENUE PAR DÉPENDANCE DÉCLARÉE (48c), et elle se propage : une
       // entrée retenue retient à son tour ce qui dépend d'elle, sinon la
       // chaîne se romprait au deuxième maillon.
@@ -480,8 +481,12 @@
   // 157 (24/10/2026, décision d'Aurélien) — L'OBJECTIF PART TOUJOURS APRÈS SON PARI. Il se pose avec `depend` = l'id du
   // pari et `alaFin` (`ecrireObjectif`) ; un 23503 sur `objectifs` (clé `pari_id`) attend le pari comme une
   // observation attend sa série, ou s'abandonne si le pari n'est plus en file.
+  // 167 — seulement si l'erreur CITE le pari (`message` ou `details`, comme `seanceDisparue` lit /session/) : un 23503 sur
+  // une autre clé (utilisateur, exercice) reste un refus ordinaire, visible. Une décision ne s'efface jamais en silence.
   function attendSonPari(op, erreur) {
-    return !!op && op.table === OBJECTIFS && op.op !== SUPPRIMER && !!op.depend && !!erreur && String(erreur.code || '') === '23503';
+    if (!op || op.table !== OBJECTIFS || op.op === SUPPRIMER || !op.depend || !erreur) return false;
+    if (String(erreur.code || '') !== '23503') return false;
+    return /pari/i.test(String(erreur.message || '') + ' ' + String(erreur.details || ''));
   }
   function pariEnFile(file, op) {
     return (file || []).some(function (e) { return e && e.table === PREDICTIONS && e.id === op.depend; });
@@ -569,6 +574,14 @@
     });
   }
 
+  function sansPari(file, cle) {
+    return (file || []).map(function (e) {
+      if (e.cle !== cle) return e;
+      var d = Object.assign({}, e.donnees || {}, { pari_id: null });
+      return Object.assign({}, e, { donnees: d, depend: null, attend: null, essais: (e.essais || 0) + 1, bloquee: null });
+    });
+  }
+
   function marquerAttente(file, cle, raison) {
     return (file || []).map(function (e) {
       if (e.cle !== cle) return e;
@@ -621,10 +634,12 @@
       return { file: retirer(file, op.cle, op.version || 1), suite: 'abandonnee' };
     }
     // 157 — un objectif refusé en 23503 (son `pari_id` n'est pas en base) : tant que son pari est encore en file, il
-    // attend ; quand le pari n'y est plus (refusé, retiré, déjà parti sans monter), il ne montera jamais : abandonné.
+    // attend ; quand le pari n'y est plus (retiré, déjà parti sans monter), il ne montera jamais : l'objectif part sans pari (167).
     if (attendSonPari(op, erreur)) {
       if (pariEnFile(file, op)) return { file: marquerAttente(file, op.cle, 'pari'), suite: 'attend' };
-      return { file: retirer(file, op.cle, op.version || 1), suite: 'abandonnee' };
+      // 167 — le pari n'est plus en file et n'est pas en base : l'objectif part SANS pari (le choix de l'utilisateur
+      // tient) ; si la base le refuse encore, il tombe sur le chemin « refusé », visible.
+      return { file: sansPari(file, op.cle), suite: 'attend' };
     }
     if (attendSaSerie(op, erreur)) {
       var raison = String(erreur.code || '') === AUCUNE_LIGNE ? 'pari' : 'serie';

@@ -10,7 +10,7 @@
 // Jamais dans le contexte : nom, pseudo, id, date, poids du corps, notes libres. Les dates que le coach écrit dans ses
 // phrases (« mardi », « le 13 sept. ») sont retirées (`sansDate`).
 //
-// ⚠️ `estSante` EST LA MÊME LISTE QUE CELLE DE LA FONCTION (`supabase/functions/demander-coach/controle.js`) : copiée, parce
+// ⚠️ `estSante` ET `MOTIFS_DATE` SONT LES MÊMES LISTES QUE CELLES DE LA FONCTION (`supabase/functions/demander-coach/controle.js`) : copiée, parce
 // que ce dossier n'est pas servi ; `tests/unit/v2-assistant-controle.test.js` prouve que les deux listes sont identiques.
 // Une douleur ne part jamais.
 //
@@ -23,10 +23,11 @@
   var MAX_PAR_JOUR = 10;
   var MAX_QUESTION = 500;
 
-  // ── La santé (copie de controle.js, prouvée identique par un test) ──────
+  // ── La santé (copie de controle.js, prouvée identique par un test) : une douleur ne part JAMAIS (166, D4) ─────────────────────
+  // Le motif exige une PARTIE du corps ou « ça » : « tirage », « tirer la barre », « tire-bouchon » ne sont pas des douleurs.
   var PARTIES = 'dos|genou|genoux|epaule|epaules|coude|coudes|poignet|poignets|hanche|hanches|cheville|chevilles|cou|nuque|tete|ventre|coeur|poitrine|thorax|cuisse|cuisses|mollet|mollets|biceps|triceps|pied|pieds|main|mains|bras|jambe|jambes|lombaires|cote|cotes|pec|pecs|fesse|fesses|aine|tendon|tendons|articulation|articulations|ischio|ischios|quadriceps';
   var MOTIFS_SANTE = [
-    '\\b(?:douleurs?|douloureu[xs]e?s?|blessures?|blesse|blessee|tendinites?|tendinopathies?|claquage|claquages|claque|claquee|dechirures?|dechire|dechiree|entorses?|luxations?|fractures?|hernies?|lumbago|sciatique|contractures?|elongations?|inflammations?|vertiges?|malaises?|nausees?|palpitations?)\\b',
+    '\\b(?:douleurs?|douloureu[xs]e?s?|blessures?|blesse|blessee|tendinites?|tendinopathies?|claquage|claquages|claque|claquee|dechirures?|dechire|dechiree|entorses?|luxations?|fractures?|hernies?|lumbago|sciatique|contractures?|elongations?|inflammations?|vertiges?|malaises?|nausees?|palpitations?|elancements?|pincements?|picotements?|souffrances?|souffre)\\b',
     "\\bj'?ai (?:tres |vraiment |super |trop )?mal\\b",
     '\\bavoir (?:tres |vraiment )?mal\\b',
     '\\bme sens (?:tres |vraiment )?mal\\b',
@@ -36,7 +37,12 @@
     '\\bmal (?:de |du |des )(?:' + PARTIES + ')\\b',
     "\\bmal dans (?:le |la |les |l'|mon |ma |mes )",
     '\\b(?:' + PARTIES + ') qui (?:tire|tirent|craque|craquent|claque|lache|bloque|brule|pique|gonfle|fait|me|saute|coince|grince|cede)\\b',
-    '\\b(?:dos|genou|genoux|epaule|epaules|cou|nuque|poignet|coude|hanche|cheville) (?:est |sont )?(?:bloque|bloques|coince|coinces|gonfle|gonfles|enfle|enfles)\\b'
+    '\\b(?:dos|genou|genoux|epaule|epaules|cou|nuque|poignet|coude|hanche|cheville) (?:est |sont )?(?:bloque|bloques|coince|coinces|gonfle|gonfles|enfle|enfles)\\b',
+    "\\b(?:mon|ma|mes|ton|ta|tes|le|la|les|l'|son|sa|ses) ?(?:" + PARTIES + ') (?:me )?(?:tire|tirent|pince|pincent|lance|lancent|brule|brulent|picote|elance|gene|genent|craque|craquent|claque|coince|grince|fait souffrir)\\b',
+    "\\b(?:pince|pincement|tire|tirent|lance|elancement|brulure|picotement|gene) (?:dans|a|au|aux|sur) (?:le |la |les |l'|mon |ma |mes )?(?:" + PARTIES + ')\\b',
+    "\\bca (?:me |m')?(?:fait souffrir|lance|pince|coince|tire|brule|craque|claque|elance|gene|picote)\\b",
+    '\\b(?:une |la |ma |cette |de la )?gene (?:a |au |aux |dans |sur |autour |sous )',
+    "\\bj'?ai (?:une |un )?(?:legere |petite |vague |grosse )?gene\\b"
   ];
   var REGEX_SANTE = MOTIFS_SANTE.map(function (m) { return new RegExp(m); });
   function normaliser(texte) {
@@ -67,23 +73,38 @@
       ['La réponse ', 'explique', ' la consigne ; elle ne la change jamais.'],
       ['Tes questions sont gardées 30 jours, sans ton nom, pour améliorer les réponses.']
     ],
+    accordEnAttente: 'Ton accord part dès que le réseau revient.',
     accordOk: 'J’ai compris, continuer',
     accordNon: 'Pas maintenant'
   };
 
-  // ── Les dates, retirées ─────────────────────────────────────────────────
-  // (écrit en deux morceaux : la liste des jours ne s'écrit que dans le formateur, `modele.js`)
+  // ── Les dates : une seule liste de motifs, copiée dans la fonction (`MOTIFS_DATE`), prouvée identique par un test ──
+  // Une VRAIE date seulement (166, D1) : « le 13 sept. », « le 3 octobre 2026 », « 24/10 », ISO, noms de jours, « hier »,
+  // « il y a N jours ». « de 5 reps », « de 3 min », « de 12 kg » n'en sont pas : le mois est nommé, jamais deviné.
+  // (la liste des jours s'écrit en deux morceaux : elle ne s'écrit en entier que dans le formateur, `modele.js`)
+  var MOIS = 'janv(?:ier)?|f[ée]vr(?:ier)?|mars|avr(?:il)?|mai|juin|juil(?:let)?|ao[uû]t|sept(?:embre)?|oct(?:obre)?|nov(?:embre)?|d[ée]c(?:embre)?';
   var JOURS = '(?:(?:lun|mar|mercre|jeu|vendre|sam)di|diman' + 'che)';
+  var PREP = '(?:(?:depuis le|le|du|de) )?';
+  var MOTIFS_DATE = [
+    '\\b' + PREP + '\\d{4}-\\d{2}-\\d{2}\\b',
+    '\\b' + PREP + '\\d{1,2}(?:er)?\\s+(?:' + MOIS + ')(?![a-zéûèôî])\\.?(?:\\s+\\d{4})?',
+    '\\b' + PREP + '(?:0?[1-9]|[12]\\d|3[01])/(?:0?[1-9]|1[0-2])(?:/\\d{2,4})?(?![\\d/])',
+    '\\b' + PREP + '(?:0?[1-9]|[12]\\d|3[01])\\.(?:0?[1-9]|1[0-2])\\.\\d{2,4}\\b',
+    '\\b(?:(?:de|du|le) )?' + JOURS + '(?: dernier)?\\b',
+    '\\b(?:avant-hier|hier)\\b',
+    '\\bil y a \\d+ (?:jours?|semaines?|mois)\\b'
+  ];
+  var REGEX_DATE = MOTIFS_DATE.map(function (m) { return new RegExp(m, 'i'); });
+  function contientDate(texte) {
+    var t = String(texte === null || texte === undefined ? '' : texte).replace(/[  ]/g, ' ');
+    return REGEX_DATE.some(function (re) { return re.test(t); });
+  }
   function sansDate(texte) {
     var t = String(texte === null || texte === undefined ? '' : texte);
     t = t.replace(/[  ]/g, ' ');
-    t = t.replace(/\b\d{4}-\d{2}-\d{2}\b/g, '');
     // « Hier, tu as fait… » en tête de phrase : la phrase garde sa majuscule.
     t = t.replace(/(^|[.!?]\s+)(?:avant-)?hier,?\s+(\S)/gi, function (m, a, c) { return a + c.toUpperCase(); });
-    t = t.replace(new RegExp('\\s*(?:de |du |le )?' + JOURS + '(?: dernier)?\\b', 'gi'), '');
-    t = t.replace(/\s*\b(?:le|du|de) \d{1,2}(?:er)? [a-zéûè]+\.?(?: \d{4})?/gi, '');
-    t = t.replace(/\s*\b(?:avant-hier|hier)\b/gi, '');
-    t = t.replace(/\s*\bil y a \d+ (?:jours?|semaines?|mois)\b/gi, '');
+    MOTIFS_DATE.forEach(function (m) { t = t.replace(new RegExp('\\s*' + m, 'gi'), ''); });
     return t.replace(/ +([,.:;])/g, '$1').replace(/([.!?]),/g, '$1').replace(/ {2,}/g, ' ').trim();
   }
   function net(texte, max) {
@@ -120,6 +141,13 @@
     });
     vues.sort(function (a, b) { return a - b; });
     return vues.length ? { genre: 'faites', charges: vues.slice(-12).map(kg) } : null;
+  }
+
+  // ── L'accord refusé (403 « accord ») : boucle ou attente ? (166, D9) ────────
+  // Le profil local porte déjà l'accord (écrit dans la file, il part dès que le réseau revient) : on le dit en une ligne et on
+  // ne revient PAS à l'écran d'accord. Sans accord local, l'écran d'accord se rouvre comme avant.
+  function issueAccordRefuse(profilLocal) {
+    return profilLocal && profilLocal.assistant_accord_a ? 'attente' : 'accord';
   }
 
   // ── Le contexte d'une ligne ─────────────────────────────────────────────
@@ -232,7 +260,8 @@
   }
 
   var api = {
-    estSante: estSante, MOTIFS_SANTE: MOTIFS_SANTE, normaliser: normaliser, sansDate: sansDate, contexteDe: contexteDe,
+    estSante: estSante, MOTIFS_SANTE: MOTIFS_SANTE, MOTIFS_DATE: MOTIFS_DATE, contientDate: contientDate, issueAccordRefuse: issueAccordRefuse,
+    normaliser: normaliser, sansDate: sansDate, contexteDe: contexteDe,
     cransDe: cransDe, puces: puces, TEXTES: TEXTES, MAX_PAR_JOUR: MAX_PAR_JOUR, MAX_QUESTION: MAX_QUESTION,
     resteDuJour: resteDuJour, noterReste: noterReste, oublier: oublier, demander: demander
   };

@@ -665,6 +665,21 @@ Maquette : `maquette-demander-au-coach-v1.html` (elle fait foi pour les textes).
 - **Les questions et réponses** sont gardées 30 jours **sans lien avec le compte** (table `assistant_questions`, aucune colonne
   d'utilisateur) pour relire la qualité ; la purge est faite par la fonction.
 
+**3.10 quater — « Demander au coach » : cinq correctifs de la relecture — 24/10/2026, décision d'Aurélien (166).**
+- **Les chiffres sont gardés.** `sansDate` ne retire que de vraies dates : « le 13 sept. », « le 3 octobre 2026 », « 24/10 », ISO,
+  noms de jours, « hier », « il y a N jours ». Le mois est nommé, jamais deviné : « séries de 5 reps », « pause de 3 min »,
+  « charge de 12 kg », « marge de 2 reps » arrivent entiers au modèle.
+- **Une douleur ne part jamais**, sous plus de formes : « mon genou tire », « ça pince dans l'épaule », « une gêne au coude »,
+  « ça me lance », « ça coince », « ça me fait souffrir », « élancement »… Le motif exige **une partie du corps ou « ça »** :
+  « tirage », « tirer la barre », « tire-bouchon », « je m'y prends mal » ne sont pas des douleurs. La liste est copiée dans la
+  fonction (ce dossier n'est pas servi) ; un test prouve les listes de santé et de dates identiques.
+- **Une question de santé ne s'écrit nulle part** : la fonction répond la phrase de renvoi sans aucune écriture (ni question, ni
+  contexte, ni ligne) ; l'accord n'a pas à changer. Les autres questions gardées restent gardées 30 jours.
+- **La fonction se garde seule** : le corps est borné (16 Ko) avant d'être lu ; la question et le contexte passent par le même
+  filtre de dates que l'app, quel que soit le format ; une date qui reste fait un 400.
+- **Pas de boucle d'accord** : si l'accord est posé en local mais pas encore en base (écriture en attente, 403 `accord`), la
+  conversation reste et dit « Ton accord part dès que le réseau revient. » ; l'accord reste dans la file, rien n'est perdu.
+
 **3.11** — **La reprise.** Après une coupure (MOTEUR §9.9), l'en-tête dit « On
 reprend à ton dernier palier, sans rep de plus » ou « On reprend un cran sous ton
 dernier palier, 125 kg ». **Jamais la durée de l'absence** (CADRAGE §3.1 bis) : la
@@ -3598,3 +3613,14 @@ puis `chargerRoutines` et le rendu. Les routines d'abord : hors ligne la premiè
 **L'app relit les routines.** À la ré-entrée (retour au premier plan, `reentrer`), au plus une fois par minute, JAMAIS pendant
 une séance ni quand l'éditeur d'une routine, une duplication ou un renommage est ouvert ; l'affichage ne change que si la
 signature (ids, noms, dossiers, `modifiee_a`, archivage) a changé ; un échec réseau garde l'affichage.
+**24/10/2026 (prompt 164) — une réponse lente n'écrase pas une écriture plus récente.** `chargerRoutines` (et le vidage d'un
+changement de compte) incrémente un compteur de génération des routines ; la relecture le lit AVANT sa requête et jette sa
+réponse s'il a bougé (renommer un dossier pendant que la 4G répond ne ramène plus l'ancien nom). Fréquence, gardes et signature
+inchangées. **Et la signature voit le contenu** (164, D2) : `modifiee_a` n'est écrite que pour un nom ou un dossier, jamais pour un exercice
+ou une série ; la signature compare donc aussi le rang, les jours, la note, les exercices et leurs séries (choix : le client
+n'attend aucun écrivain, ni trigger, ni autre appareil pour tenir un `modifiee_a` à jour).
+**Les feuilles « Renommer » et « Dupliquer » se remettent à zéro à toute fermeture** (164, D3 : retour d'Android, fond, « Annuler »),
+sinon `renommage` / `duplication` bloquaient la relecture jusqu'au rechargement. Fermée pendant l'écriture (D11), la feuille laisse
+`renommage` en place jusqu'à la fin de l'écriture, qui le remet à zéro sans redessiner ni lever d'exception. « Éditeur ouvert » se lit sur la vue, pas sur `brouillon` (qui n'est remis à zéro qu'au changement de compte : après un premier éditeur
+ouvert, la relecture ne jouait plus jusqu'au rechargement) ; la saisie non enregistrée vit dans `brouillonLocal` et n'est jamais touchée.
+Cache 292.

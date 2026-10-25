@@ -71,7 +71,9 @@ const jusqua = async (nom, cond, max) => {
   return d;
 };
 // Le faux serveur, compté : les requêtes en vol et l'instant de la dernière réponse.
-const reseau = { enVol: 0, dernier: 0, total: 0, lecturesRoutines: 0 };
+const reseau = { enVol: 0, dernier: 0, total: 0, lecturesRoutines: 0,
+  // 164 — retenir UNE réponse de lecture des routines : `retenirProchaine` l'arme, `retenue` dit qu'elle attend, `liberer` la rend.
+  retenirProchaine: false, retenue: false, liberer: null };
 const CALME_MS = 300;
 // Le réseau du banc se tait : aucune requête en vol, aucune depuis `CALME_MS`. C'est l'état qui prouve
 // qu'une écriture qui ne DOIT PAS partir n'est pas partie (avec l'effet attendu à l'écran, lu avant).
@@ -372,7 +374,15 @@ const ALIAS_COMMUNS = [
       // `routines → routine_exercises → routine_sets`. `projeterUne` descend
       // déjà récursivement ; il fallait seulement que la donnée soit là.
       if (table === 'routines') reseau.lecturesRoutines++;
-      if (table === 'routines') return json(projeter(base.routines.map((r) =>
+      // 164 — VOULU : la réponse est CONSTRUITE à la requête (l'état d'alors) et rendue plus tard, comme une 4G lente.
+      // La requête retenue ne compte pas « en vol » : le banc doit pouvoir enregistrer pendant qu'elle attend.
+      let attente = null;
+      if (table === 'routines' && reseau.retenirProchaine) {
+        reseau.retenirProchaine = false; reseau.retenue = true;
+        attente = new Promise((fin) => { reseau.liberer = fin; });
+      }
+      if (table === 'routines') {
+        const corpsRoutines = projeter(base.routines.map((r) =>
         Object.assign({}, r, {
           routine_exercises: base.exos.filter((e) => e.routine_id === r.id).map((e) =>
             Object.assign({}, e, {
@@ -385,7 +395,14 @@ const ALIAS_COMMUNS = [
                 .filter((x) => x.routine_exercise_id === e.id)
                 .slice().reverse()
             }))
-        })), url));
+        })), url);
+        if (attente) {
+          reseau.enVol--;
+          await attente;
+          reseau.enVol++; reseau.retenue = false; reseau.liberer = null;
+        }
+        return json(JSON.parse(JSON.stringify(corpsRoutines)));
+      }
       return json([]);
     }
     // ⚠️ LES SIX CHECK DE `routine_exercises`, ET LE NOM DE ROUTINE (ch. 34).
@@ -2001,6 +2018,12 @@ const ALIAS_COMMUNS = [
       Date.now = () => vrai() + window.__avance;
     });
     const avancer = (ms) => page.evaluate((m) => { window.__avance += m; }, ms);
+    // `aller` recharge la page : l'horloge qui avance à la demande est à reposer.
+    const reposerHorloge = () => page.evaluate(() => {
+      const vrai = Date.now.bind(Date);
+      window.__avance = 0;
+      Date.now = () => vrai() + window.__avance;
+    });
     const retour = () => page.evaluate(() => document.dispatchEvent(new Event('visibilitychange', { bubbles: true })));
     const dossiersAffiches = () => page.evaluate(() => Array.from(document.querySelectorAll('#liste-routines .dossier-ligne'))
       .map((l) => l.getAttribute('data-dossier')));
@@ -2095,6 +2118,126 @@ const ALIAS_COMMUNS = [
       (await page.evaluate(() => !!document.querySelector('#liste-routines .dossier-ligne[data-dossier="Recompo"] .dossier-badge'))),
       JSON.stringify(await dossiersAffiches()));
     ok('[155 B] la feuille est fermée', await feuilleFermee(page));
+
+    // ── C. 164 — la relecture ne peut pas écraser une écriture locale faite pendant sa requête ──
+    // La réponse (l'ancienne liste) est retenue ; pendant ce temps on renomme un dossier (écriture locale, puis
+    // `chargerRoutines`) ; puis la réponse arrive. Les gardes (feuille refermée, pas d'éditeur) laissent passer :
+    // seul le compteur de génération la jette. Page rechargée : aucun éditeur n'a été ouvert (`brouillon` nul).
+    await aller('/saisie');
+    await reposerHorloge();
+    await avancer(120000);
+    reseau.retenirProchaine = true;
+    await retour();
+    await jusqua('[164] la relecture est partie, sa réponse est retenue', () => reseau.retenue === true);
+    await page.click('#liste-routines .dossier-ligne[data-dossier="Prise de masse 155"] .dossier-menu');
+    await jusqua('[164] menu du dossier', async () => !(await feuilleFermee(page)));
+    await page.click('#feuille-contenu .renommer-dossier');
+    await jusqua('[164] feuille de renommage', () => page.evaluate(() => !!document.querySelector('#feuille-contenu .renommer-valider')));
+    await page.fill('#feuille-contenu input', 'Gain 164');
+    await page.click('#feuille-contenu .renommer-valider');
+    await jusqua('[164] renommage fini en base', () => base.routines.filter((r) => r.dossier === 'Gain 164').length === 1);
+    await calme('[164] après le renommage');
+    await jusqua('[164] Gain 164 à l’écran', async () => (await dossiersAffiches()).indexOf('Gain 164') >= 0);
+    ok('[164 prémisse] le dossier renommé est affiché, la réponse tarde toujours',
+      reseau.retenue === true && (await dossiersAffiches()).indexOf('Prise de masse 155') < 0, JSON.stringify(await dossiersAffiches()));
+    reseau.liberer();
+    await jusqua('[164] la réponse retenue est arrivée', () => reseau.retenue === false);
+    await calme('[164] après la réponse tardive');
+    await rendu(page);
+    ok('[164] DISCRIMINANT — la réponse tardive (ancienne liste) n\'écrase pas le renommage qu\'on vient de faire',
+      (await dossiersAffiches()).indexOf('Gain 164') >= 0 && (await dossiersAffiches()).indexOf('Prise de masse 155') < 0,
+      JSON.stringify(await dossiersAffiches()));
+
+    // ── D. 164 (D2) — une routine dont seuls les exercices ou les séries changent ailleurs apparaît au retour ──
+    // `routines.modifiee_a` n'est écrite que pour le nom ou le dossier : la signature doit voir le CONTENU.
+    const carte155 = (nom) => page.evaluate((n) => (Array.from(document.querySelectorAll('#liste-routines .routine'))
+      .filter((c) => c.textContent.indexOf(n) >= 0)[0] || { textContent: '' }).textContent.replace(/\s+/g, ' '), nom);
+    await aller('/saisie');
+    await reposerHorloge();
+    ok('[164 D2 prémisse] la routine « Haut A 155 » n\'a aucun exercice à l\'écran', /0 exercice/.test(await carte155('Haut A 155')), await carte155('Haut A 155'));
+    base.exos.push({ id: 'e-164', routine_id: 'r155a', exercise_slug: 'dc-barre', rang: 1, repos_cible_s: null, groupe_superset: null, note: null });
+    base.series.push({ id: 'rs-164', routine_exercise_id: 'e-164', user_id: 'u-banc', rang: 1, type_serie: 'travail',
+      reps_visees: null, charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null });
+    await avancer(120000);
+    await retour();
+    await jusqua('[164 D2] l\'exercice ajouté ailleurs apparaît', async () => /1 exercice/.test(await carte155('Haut A 155')));
+    ok('[164 D2] DISCRIMINANT — exercices et séries changés ailleurs (sans `modifiee_a`) apparaissent au retour',
+      /1 exercice · 1 série/.test(await carte155('Haut A 155')), await carte155('Haut A 155'));
+
+    // ── E. 164 (D3) — fermer la feuille « Renommer » par le retour d'Android ne bloque pas la relecture ──
+    await aller('/saisie');
+    await reposerHorloge();
+    await page.click('#liste-routines .dossier-ligne[data-dossier="Recompo"] .dossier-menu');
+    await jusqua('[164 D3] menu du dossier', async () => !(await feuilleFermee(page)));
+    await page.click('#feuille-contenu .renommer-dossier');
+    await jusqua('[164 D3] feuille de renommage', () => page.evaluate(() => !!document.querySelector('#feuille-contenu .renommer-valider')));
+    await page.goBack({ waitUntil: 'networkidle' }).catch(() => {});   // le retour d'Android, pas « Annuler »
+    await jusqua('[164 D3] la feuille est fermée par le retour', () => feuilleFermee(page));
+    const haut = base.routines.find((r) => r.id === 'r155a');
+    haut.nom = 'Haut A 164 ailleurs'; haut.modifiee_a = '2026-10-24T11:00:00.000Z';
+    await avancer(120000);
+    await retour();
+    await jusqua('[164 D3] la routine modifiée ailleurs apparaît', async () => /Haut A 164 ailleurs/.test(await carte155('Haut A 164 ailleurs')));
+    ok('[164 D3] DISCRIMINANT — après un retour Android sur la feuille « Renommer », la relecture fonctionne encore',
+      /Haut A 164 ailleurs/.test(await carte155('Haut A 164 ailleurs')), await carte155('Haut A 164 ailleurs'));
+
+    // ── F. 164 (D11) — « Annuler » pendant l'écriture d'un renommage ne lève pas d'exception ──
+    // L'écriture est RETENUE (puis refusée : réseau coupé), « Annuler » ferme la feuille entre-temps.
+    // Une promesse rejetée sans gestionnaire est relevée dans la page elle-même (indépendamment de `pageerror`).
+    await page.addInitScript(() => {
+      window.__rejets = [];
+      window.addEventListener('unhandledrejection', (ev) => { window.__rejets.push(String(ev.reason).slice(0, 120)); });
+    });
+    await aller('/saisie');
+    await reposerHorloge();
+    const e0 = erreurs.length;
+    let lacher; const tenue = new Promise((fin) => { lacher = fin; });
+    await page.click('#liste-routines .dossier-ligne[data-dossier="Recompo"] .dossier-menu');
+    await jusqua('[164 D11] menu du dossier', async () => !(await feuilleFermee(page)));
+    await page.click('#feuille-contenu .renommer-dossier');
+    await jusqua('[164 D11] feuille de renommage', () => page.evaluate(() => !!document.querySelector('#feuille-contenu .renommer-valider')));
+    await page.fill('#feuille-contenu input', 'Zeta 164');
+    let retenue164 = 0;
+    const retenirEcriture = async (route) => {
+      if (route.request().method() === 'GET' || retenue164 > 0) return route.fallback();   // seule la première écriture est retenue puis refusée
+      retenue164++; await tenue; await route.abort('failed');
+    };
+    await ctx.route(/supabase\.co/, retenirEcriture);
+    await page.click('#feuille-contenu .renommer-valider');
+    await jusqua('[164 D11] l\'écriture est partie, retenue', () => retenue164 > 0);
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+      .filter((b) => b.textContent === 'Annuler')[0].click());
+    await jusqua('[164 D11] la feuille est fermée par « Annuler »', () => feuilleFermee(page));
+    lacher();
+    const ailleurs = base.routines.find((r) => r.id === 'r155a');
+    ailleurs.nom = 'Haut A 164 après annulation'; ailleurs.modifiee_a = '2026-10-24T12:00:00.000Z';
+    await jusqua('[164 D11] la relecture reprend après l\'écriture refusée', async () => {
+      await avancer(120000); await retour();
+      return /après annulation/.test(await carte155('après annulation'));
+    });
+    await ctx.unroute(/supabase\.co/, retenirEcriture);
+    ok('[164 D11] la feuille fermée n\'est pas redessinée avec une erreur (l\'écriture refusée ne parle à personne)',
+      (await page.evaluate(() => (document.querySelector('#feuille-contenu .erreur') || { textContent: '' }).textContent)) === '',
+      await page.evaluate(() => (document.querySelector('#feuille-contenu .erreur') || { textContent: '(aucune)' }).textContent));
+    ok('[164 D11] DISCRIMINANT — « Annuler » pendant l\'écriture : aucune exception, la relecture reprend',
+      erreurs.length === e0 && (await page.evaluate(() => window.__rejets || [])).length === 0,
+      erreurs.slice(e0).concat(await page.evaluate(() => window.__rejets || [])).join(' | ') || 'aucune exception');
+
+    // ── G. 164 — ouvrir une routine puis la refermer sans enregistrer ne bloque pas la relecture ──
+    // `relectureRoutinesPermise` exigeait `brouillon === null`, or `brouillon` n'est remis à zéro qu'au changement de compte :
+    // après le premier éditeur ouvert, plus aucune relecture jusqu'au rechargement. « Éditeur ouvert » se lit sur la vue.
+    await aller('/saisie');
+    await reposerHorloge();
+    await ouvrirRoutine('Bas A 155');
+    await page.click('#btn-retour-routine');   // refermée sans enregistrer
+    await jusqua('[164 G] retour à la bibliothèque', () => vueVisible(page, 'vue-saisie'));
+    const bas164 = base.routines.find((r) => r.id === 'r155b');
+    bas164.nom = 'Bas A 164 refermée'; bas164.modifiee_a = '2026-10-24T13:00:00.000Z';
+    await avancer(120000);
+    await retour();
+    await jusqua('[164 G] la routine modifiée ailleurs apparaît', async () => /Bas A 164 refermée/.test(await carte155('Bas A 164 refermée')));
+    ok('[164 G] DISCRIMINANT — après avoir ouvert puis refermé un éditeur sans enregistrer, la relecture fonctionne encore',
+      /Bas A 164 refermée/.test(await carte155('Bas A 164 refermée')), await carte155('Bas A 164 refermée'));
   }
 
   console.log('\n══ 8. NON-RÉGRESSION ══');

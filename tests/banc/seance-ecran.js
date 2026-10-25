@@ -15802,7 +15802,7 @@ const SETS_IMPORTES = [
     e = await ecranQ();
     ok('[Q60] écran 9 — « Voici ce que j’ai compris. » : les six lignes, avec ce qui vient d’être répondu ; « Commencer »',
       e.ecran === 'recap' && e.bouton === 'Commencer' && e.lignes.length === 6 &&
-        /Objectif.*Muscle/.test(e.lignes[0]) && /Phase.*Maintien/.test(e.lignes[1]) && /Matériel.*Salle complète/.test(e.lignes[4]) &&
+        /But d’entraînement.*Muscle/.test(e.lignes[0]) && /Phase.*Maintien/.test(e.lignes[1]) && /Matériel.*Salle complète/.test(e.lignes[4]) &&
         /Coach.*Franc/.test(e.lignes[5]), JSON.stringify(e));
     ok('[Q60] écran 9 — rien ne dit « fait » avant « Commencer » : `questionnaire_fait_le` est encore vide',
       profilBase().questionnaire_fait_le === null, JSON.stringify(profilBase().questionnaire_fait_le));

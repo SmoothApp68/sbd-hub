@@ -1142,7 +1142,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    discrète à bout de bras, entre deux séries : on doit voir où l'on en est
    sans lire. Vert de SENS (--reussi dilué dans le panneau), jamais l'accent —
    le jaune reste réservé à l'onglet actif et à la suggestion du moteur. */
-.serie.faite{background:rgba(74,222,128,.11)}
+.serie.faite{background:#1D312F} /* le vert de sens à ~11 % sur la surface (opaque : le contraste se mesure sur un fond plein) */
 /* 173 (« Vivant ») — une série validée s'allume : le numéro plein, la case pleine, le mot « fait » dans la colonne effort si elle est vide. */
 .serie.fait .no-serie{background:var(--reussi);border-color:var(--reussi);color:var(--sur-accent)}
 .eff-serie[data-fait]:empty::before{content:attr(data-fait);font-family:var(--pile);font-size:10.5px;font-weight:700;

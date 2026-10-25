@@ -1144,6 +1144,12 @@
   // distance, une dégressive). Décision d'Aurélien, 24/10/2026.
   var RESERVE_NORMALE = { lourd: 2, mix: 2, hypertrophie: 1, volume: 1, series_longues: 1 };
   var ROLES_A_RESERVE = { ligne: true, coach: true, retour: true, elan: true, test: true, haut: true };
+  // 169 — L'ÉLIGIBILITÉ DE L'EFFORT VISÉ, une seule fonction pour le moteur et pour le plan : la règle ne joue pas au poids du
+  // corps (palier 0) ni avec une aide (palier < 0). `palier` : le palier de la consigne (`consigne.palier`).
+  function effortViseEligible(palier) {
+    var p = nombre(palier);
+    return p !== null && p > 0;
+  }
   var RESERVE_ECART = 2;   // la réserve notée ≥ visée + 2 : un vrai signal (l'erreur moyenne d'estimation est d'environ 1 rep)
   function reserveVisee(o) {
     var x = o || {};
@@ -1152,7 +1158,9 @@
     var role = x.role === undefined || x.role === null ? 'ligne' : x.role;
     if (!Object.prototype.hasOwnProperty.call(ROLES_A_RESERVE, role)) return null;
     var v = RESERVE_NORMALE[z];
-    if (x.reglage === 'prudent') v += 1;
+    // 169 (25/10/2026, décision d'Aurélien) — le Prudent vise 2 en Lourd et en Mix, comme le Normal : à 3, le plafond de la
+    // réserve notée, la réserve bloquait la montée sans issue. Sa prudence reste dans son déclencheur (deux séances de suite).
+    if (x.reglage === 'prudent' && z !== 'lourd' && z !== 'mix') v += 1;
     else if (x.reglage === 'franc') v -= 1;
     if (role === 'test' || role === 'haut') v -= 1;
     return Math.min(3, Math.max(0, v));
@@ -1695,6 +1703,16 @@
       var r = compter(s);
       return r === null ? null : r;
     }
+    // 169 — la séance d'AVANT (du même couple, hors séances allégées : elles sont neutres) finissait-elle déjà au haut de la
+    // zone, à la même charge, avec une réserve notée sous la visée ? C'est la « première fois » de la garde.
+    function precedenteAuHautSansMarge(prec, charge, haut, visee) {
+      if (prec === null || nombre(prec.seance.palier) !== charge) return false;
+      var rs = prec.seance.retenues || [];
+      var d = rs.length ? rs[rs.length - 1] : null;
+      if (d === null || nombre(d.charge_kg) !== charge) return false;
+      var r = Palier().reserveDeSerie(d), n = comptees(d);
+      return r !== null && n !== null && n >= haut && r < visee;
+    }
     function auMoins(series, seuil) {
       return series.some(function (s) { var r = comptees(s); return r !== null && r >= seuil; });
     }
@@ -1841,7 +1859,7 @@
     // R, visée V : R ≥ V + 2 → le test, même sous le haut de la zone ; R < V → pas de montée sur sa foi ; sinon rien.
     var effortVise = null;
     var derniereRetenue = L.retenues && L.retenues.length ? L.retenues[L.retenues.length - 1] : null;
-    if (derniereRetenue !== null && A.length && A[A.length - 1] === derniereRetenue && !aide && !poidsDuCorps) {
+    if (derniereRetenue !== null && A.length && A[A.length - 1] === derniereRetenue && effortViseEligible(P)) {
       var Rn = Palier().reserveDeSerie(derniereRetenue);
       var Vn = reserveVisee({ zone: zone.cle, role: 'ligne', reglage: reglage });
       var repsN = comptees(derniereRetenue);
@@ -1849,7 +1867,12 @@
         if (Rn >= Vn + RESERVE_ECART) {
           effortVise = { effet: 'test', charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, visee: Vn };
         } else if (Rn < Vn) {
-          effortVise = { effet: 'garde', charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, visee: Vn };
+          // 169 — LA SORTIE : la garde ne dure qu'une séance au haut de la zone. Si la séance d'avant, à la même charge,
+          // finissait déjà au haut avec R < V, la garde a déjà eu lieu : le coach pose le test, quelle que soit la réserve.
+          var deja = repsN >= hi && precedenteAuHautSansMarge(precedente, P, hi, Vn);
+          effortVise = { effet: deja ? 'test' : 'garde', charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, visee: Vn,
+                         auHaut: repsN >= hi, deja: deja };
+          if (deja) effortVise.sortie = true;
         }
       }
     }
@@ -1869,6 +1892,9 @@
       if (effortVise.effet === 'garde') {
         if (declenche) declenche = false;
         else effortVise = null;
+      } else if (effortVise.sortie === true) {
+        // 169 — la sortie ne force rien qu'une montée déjà due : sans le déclencheur du réglage, rien à poser.
+        if (!declenche) effortVise = null;
       } else {
         declenche = true;
       }
@@ -1895,7 +1921,7 @@
       // « facile » (§17.3, logique APRE).
       var preuve = auMoins(A, hi + PREUVE_DEPASSEMENT) || A.some(function (s) {
         return Palier().cranDeSerie(s) === 'facile';
-      }) || (effortVise !== null && effortVise.effet === 'test');
+      }) || (effortVise !== null && effortVise.effet === 'test' && effortVise.sortie !== true);
       if (preuve) {
         // ⚠️ DEUX CRANS SEULEMENT S'ILS RESTENT SOUS 10 % DE LA CHARGE —
         // corrigé le 19/09/2026 : l'ancienne limite « un cran au plus sur les
@@ -3657,21 +3683,37 @@
     var cF = cite(FAIT, { quoi: 'effort_vise' });
     var cR = cite(FAIT, { quoi: 'effort_vise.reserve' });
     var cC = cite(FAIT, { quoi: 'effort_vise.charge' });
-    return chargeFois(e.charge, e.reps, cF) +
+    var debut = chargeFois(e.charge, e.reps, cF) +
       (e.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(e.reserve, cR) + ' en réserve') + '. On garde ' +
-      enKg(e.charge, cC) + ' la prochaine fois.';
+      enKg(e.charge, cC);
+    // 169 — au haut de la zone, la garde ne dure qu'une fois, et la phrase le dit ; sous le haut, la rep de plus reste la voie.
+    return e.auHaut === false ? debut + ' la prochaine fois.'
+      : debut + ' : encore une fois au haut de ta zone et je teste plus lourd.';
+  }
+  // 169 — LA SORTIE DITE : « Deux fois 30 kg × 10 au haut de ta zone. Prochaine fois : on teste 32,5 kg × 8. » `haut` : la
+  // ligne haute de la consigne (`{ charge, vise, approchee }`), ou une charge seule.
+  function phraseDeLaSortie(ev, haut, aujourdhui) {
+    var h = haut !== null && typeof haut === 'object' ? haut : { charge: haut, vise: null };
+    var cH = cite(FAIT, { quoi: 'effort_vise.haut' });
+    var test = h.vise === null || h.vise === undefined ? enKg(h.charge, cH) : ligneFois(h.charge, h.vise, false, false, cH, h.approchee === true);
+    // Dite à la fin de la séance : « Prochaine fois ». Dite en tête de la séance suivante, le test est pour aujourd'hui.
+    return 'Deux fois ' + chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ' au haut de ta zone' +
+      (aujourdhui === true ? DEUX_POINTS + 'aujourd’hui, on teste ' : '. Prochaine fois' + DEUX_POINTS + 'on teste ') + test + '.';
   }
   // 154 — LA PHRASE APRÈS LA RÉPONSE (VOIX-DU-COACH) : « 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais : la
-  // prochaine fois, on essaie 36 kg. » / « 130 kg × 5, sans marge. On garde 130 kg la prochaine fois. » `ev` : le fait
-  // `effortVise` de la consigne suivante ; `haut` : la charge du test qu'elle pose. `null` : rien à dire.
+  // prochaine fois, on essaie 36 kg. » / « 130 kg × 5, sans marge. On garde 130 kg : encore une fois au haut de ta zone et
+  // je teste plus lourd. » `ev` : le fait `effortVise` de la consigne suivante ; `haut` : la ligne haute du test qu'elle
+  // pose (ou sa charge). `null` : rien à dire.
   function phraseEffortVise(ev, haut) {
     if (!ev) return null;
     if (ev.effet === 'garde') return phraseDeLaGarde(ev);
-    if (ev.effet !== 'test' || haut === null || haut === undefined) return null;
+    var charge = haut !== null && typeof haut === 'object' ? haut.charge : haut;
+    if (ev.effet !== 'test' || charge === null || charge === undefined) return null;
+    if (ev.sortie === true) return phraseDeLaSortie(ev, haut);
     return chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ', il t’en restait ' +
       nombreFr(ev.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) +
       '. Au-dessus de ce que je visais' + DEUX_POINTS + 'la prochaine fois, on essaie ' +
-      enKg(haut, cite(FAIT, { quoi: 'effort_vise.haut' })) + '.';
+      enKg(charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + '.';
   }
   function phraseGrise(c, reference) {
     var f = c.fondement || {};
@@ -3732,6 +3774,9 @@
 
       case 'test_propose':
         // 154 (§9.26) — le test posé « par la réserve » dit la réserve notée, pas le haut de la zone.
+        if (f.effortVise && f.effortVise.sortie === true && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) {
+          return phraseDeLaSortie(f.effortVise, c.haut, true);
+        }
         if (f.effortVise && f.effortVise.effet === 'test' && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) {
           return 'On essaie ' + enKg(c.haut.charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + DEUX_POINTS + 'la dernière fois, ' +
             chargeFois(f.effortVise.charge, f.effortVise.reps, cite(FAIT, { quoi: 'effort_vise' })) + ' avec ' +
@@ -4142,7 +4187,10 @@
               ? 'Ta charge de travail a touché le haut de ta zone'
               : 'Une de tes séries a touché le haut de ta zone');
         var dit = tete + DEUX_POINTS + 'on teste le cran au-dessus sur la dernière série.';
-        if (f.effortVise && f.effortVise.effet === 'test') {
+        if (f.effortVise && f.effortVise.sortie === true) {
+          dit = 'Deux séances de suite, ' + chargeFois(f.effortVise.charge, f.effortVise.reps, cite(FAIT, { quoi: 'effort_vise' })) +
+            ' au haut de ta zone, sans la marge visée : on teste le cran au-dessus sur la dernière série.';
+        } else if (f.effortVise && f.effortVise.effet === 'test') {
           dit = 'Ta dernière série, ' + chargeFois(f.effortVise.charge, f.effortVise.reps, cite(FAIT, { quoi: 'effort_vise' })) +
             ', laissait ' + nombreFr(f.effortVise.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) +
             ' en réserve, plus que les ' + nombreFr(f.effortVise.visee, cite(FAIT, { quoi: 'effort_vise.visee' })) +
@@ -7277,7 +7325,10 @@
     // 2. Pas de test plus lourd que la charge la plus lourde de la séance. Un
     // test sans charge chiffrée est « le cran au-dessus » : il compte comme plus
     // lourd que tout ce qui a été fait (§17.4, corrigé le 12/10/2026).
-    if (r.haut && lourde !== null) {
+    // 169 — SAUF LA SORTIE de la garde (MOTEUR §9.26) : deux séances de suite au haut de la zone à la même charge, la
+    // seconde à fond comprise, le test est posé — sinon une dernière série toujours à l'échec ne monterait jamais.
+    var sortie = !!(faite.fondement && faite.fondement.effortVise && faite.fondement.effortVise.sortie === true);
+    if (r.haut && lourde !== null && !sortie) {
       var ch = nombre(r.haut.charge);
       if (ch === null || (ch > lourde && !memeCharge(ch, lourde))) etatPrudent(false);
     }
@@ -8114,6 +8165,7 @@
     niveauValide: niveauValide,
     reserveVisee: reserveVisee,
     phraseEffortVise: phraseEffortVise,
+    effortViseEligible: effortViseEligible,
     RESERVE_ECART: RESERVE_ECART,
     formatDe: formatDe,
     coupleDe: coupleDe,

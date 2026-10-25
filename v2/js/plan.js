@@ -1310,8 +1310,8 @@
         x.mode = modeX;
         x.intention = intentionX;
         // 154 (MOTEUR §9.26) — L'EFFORT VISÉ : « garde-en N » dans l'en-tête, les puces sous la dernière série, la phrase.
-        var rvX = aUnPari(x) && !seance.edition && (x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps')
-          ? Moteur().reserveVisee({ zone: x.consigne.zone, role: 'ligne', reglage: reglagePlan }) : null;
+        var rvX = aUnPari(x) && !seance.edition && Moteur().effortViseEligible(x.consigne.palier) && (x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps')
+          ? Moteur().reserveVisee({ zone: x.consigne.zone, role: roleDeLaVisee(x), reglage: reglagePlan }) : null;
         x.reserveVisee = rvX;
         x.effortVise = rvX === null ? null : effortViseDuPlan(exo, rvX, suite, Seance().exerciceFini(seance, slug));
         // §9.17 — LA CARTE DU LEST : UNE SEULE, en tête de l'exercice (le composant
@@ -1563,6 +1563,16 @@
       (x.lignes || []).some(function (l) { return l && Object.prototype.hasOwnProperty.call(ROLE_DU_PARI, l.role); }));
   }
 
+  // 169 — le rôle de la ligne qui porte la visée : la dernière ligne du coach. Sur une série de test (rôle `test`), la visée
+  // affichée est V − 1 (la ligne de test de la table), pas V.
+  function roleDeLaVisee(x) {
+    var dernier = null;
+    ((x && x.lignes) || []).forEach(function (l) {
+      if (l && Object.prototype.hasOwnProperty.call(ROLE_DU_PARI, l.role)) dernier = l;
+    });
+    return dernier !== null && dernier.role === 'test' ? 'test' : 'ligne';
+  }
+
   function derniereSerieDeTravail(exo) {
     var series = (exo && exo.series) || [];
     for (var j = series.length - 1; j >= 0; j--) {
@@ -1584,7 +1594,7 @@
     var effet = null, phrase = null;
     if (R !== null && ev && ev.reserve === R && ev.visee === visee && memeChargeOuVides(ev.charge, s.charge_kg)) {
       effet = ev.effet;
-      phrase = Moteur().phraseEffortVise(ev, k.haut ? k.haut.charge : null);
+      phrase = Moteur().phraseEffortVise(ev, k.haut || null);
     }
     return { visee: visee, serie: j, reponse: R, demande: !!fini && R === null, effet: effet, phrase: phrase };
   }
@@ -3669,7 +3679,7 @@
       fait['effort_vise.reserve'] = { valeur: f.effortVise.reserve };
       fait['effort_vise.visee'] = { valeur: f.effortVise.visee };
       fait['effort_vise.charge'] = { charge: f.effortVise.charge };
-      if (k.haut && k.haut.charge !== null && k.haut.charge !== undefined) fait['effort_vise.haut'] = { charge: k.haut.charge };
+      if (k.haut && k.haut.charge !== null && k.haut.charge !== undefined) fait['effort_vise.haut'] = { charge: k.haut.charge, reps: [k.haut.vise === undefined ? null : k.haut.vise] };
     }
     var meilleur = x.compteur && x.compteur.meilleur;
     if (meilleur) fait.meilleur = { charge: meilleur.palier, reps: [meilleur.niveau] };
@@ -4063,12 +4073,13 @@
     });
   }
 
+  // I62 à I64 (169) — la sortie de la garde, l'éligibilité, la visée du fondement : voir ci-dessous.
   // I56 à I58 (MOTEUR §9.26, 154) — L'EFFORT VISÉ.
   //   I56  une réserve visée n'existe que là où le coach parle (un pari, hors Édition, une mesure charge × reps), et vaut
   //        la table (`reserveVisee`) ; ce que l'écran lit (`x.effortVise`) n'existe que s'il y en a une, sur la dernière
   //        série de travail ;
   //   I57  un test posé « par la réserve » cite dans son fondement la série et sa réserve : une charge, des reps, une
-  //        réserve d'au moins la visée + 2 ;
+  //        réserve d'au moins la visée + 2 (169 : sauf la SORTIE de la garde, qui pose le test avec R < V, I62) ;
   //   I58  une réserve sous la visée n'ouvre jamais une montée : ni test, ni ligne haute, ni double cran.
   function verifierEffortVise(plan, entrees, erreurs) {
     var xs = (plan && plan.exercices) || [];
@@ -4080,7 +4091,7 @@
       } else {
         if (!aUnPari(x)) erreurs.push('I56' + nom + 'une réserve visée sans pari');
         if (plan.edition) erreurs.push('I56' + nom + 'une réserve visée en Édition');
-        var attendu = x.consigne ? Moteur().reserveVisee({ zone: x.consigne.zone, role: 'ligne', reglage: plan.reglage }) : null;
+        var attendu = x.consigne ? Moteur().reserveVisee({ zone: x.consigne.zone, role: roleDeLaVisee(x), reglage: plan.reglage }) : null;
         if (rv !== attendu) erreurs.push('I56' + nom + 'la réserve visée est ' + rv + ', la table donne ' + attendu);
         var exos = entrees && entrees.seance && entrees.seance.exercices ? entrees.seance.exercices : null;
         if (x.effortVise && exos && x.effortVise.serie !== derniereSerieDeTravail(exos[i])) {
@@ -4093,7 +4104,7 @@
         if (ev.effet === 'test') {
           if (nombre(ev.charge) === null || nombre(ev.reps) === null || nombre(ev.reserve) === null || nombre(ev.visee) === null) {
             erreurs.push('I57' + nom + 'un test par la réserve sans sa série ou sa réserve dans le fondement');
-          } else if (ev.reserve < ev.visee + Moteur().RESERVE_ECART) {
+          } else if (ev.sortie !== true && ev.reserve < ev.visee + Moteur().RESERVE_ECART) {
             erreurs.push('I57' + nom + 'un test par la réserve avec ' + ev.reserve + ' en réserve pour ' + ev.visee + ' visées');
           }
           if (x.consigne.etat !== 'test_propose') erreurs.push('I57' + nom + 'un test par la réserve dans l’état « ' + x.consigne.etat + ' »');
@@ -4103,6 +4114,27 @@
         } else {
           erreurs.push('I57' + nom + 'un effet « ' + ev.effet + ' » inconnu');
         }
+      }
+      // 169 — I62 : la garde au haut de la zone ne dure qu'UNE séance (une garde est « première fois », une sortie est
+      // « deuxième fois » et pose un test d'un cran) ; I63 : les puces et « garde-en N » n'existent que si la règle peut
+      // jouer (ni poids du corps, ni aide) ; I64 : la visée et la charge du fondement sont celles de la table et du palier.
+      if (ev && ev.effet === 'garde' && ev.auHaut === true && ev.deja !== false) {
+        erreurs.push('I62' + nom + 'une garde au haut de la zone alors que la séance d’avant avait déjà gardé');
+      }
+      if (ev && ev.sortie === true) {
+        if (ev.effet !== 'test' || ev.deja !== true) erreurs.push('I62' + nom + 'une sortie qui n’est pas un test posé après une première garde');
+        if (x.consigne && x.consigne.fondement && x.consigne.fondement.preuve) erreurs.push('I62' + nom + 'une sortie en double cran');
+        if (x.consigne && x.consigne.haut && x.consigne.ligne && !(x.consigne.haut.charge === null || x.consigne.haut.charge > x.consigne.ligne.charge)) {
+          erreurs.push('I62' + nom + 'une sortie dont le test n’est pas au-dessus de la ligne');
+        }
+      }
+      if ((x.effortVise || rv !== null) && !(x.consigne && Moteur().effortViseEligible(x.consigne.palier))) {
+        erreurs.push('I63' + nom + 'des puces ou une réserve visée sur un exercice où la règle ne joue pas (palier ' + (x.consigne ? x.consigne.palier : null) + ')');
+      }
+      if (ev && x.consigne) {
+        var tableLigne = Moteur().reserveVisee({ zone: x.consigne.zone, role: 'ligne', reglage: plan.reglage });
+        if (ev.visee !== tableLigne) erreurs.push('I64' + nom + 'la visée du fondement est ' + ev.visee + ', la table donne ' + tableLigne);
+        if (nombre(ev.charge) !== nombre(x.consigne.palier)) erreurs.push('I64' + nom + 'l’effort visé porte ' + ev.charge + ' kg, le palier est ' + x.consigne.palier);
       }
       if (x.effortVise && x.effortVise.effet === 'garde' && x.effortVise.reponse !== null && x.effortVise.reponse >= x.reserveVisee) {
         erreurs.push('I58' + nom + 'une garde pour une réserve de ' + x.effortVise.reponse + ' (visée ' + x.reserveVisee + ')');

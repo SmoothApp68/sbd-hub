@@ -76,7 +76,9 @@ describe('74 — la concordance sur les 79 séance-exercices réels', () => {
   // (MOTEUR §9.26) ne fait plus monter sur sa foi. Trois cas du fichier perdent leur test (`test_propose` → `progression`,
   // sans ligne haute) ; le fichier de référence ne se retouche pas, les écarts sont nommés à leur valeur exacte.
   const EFFORT_154 = {
-    'u1|developpe_couche_barre#35': { etat: 'progression', zone: 'lourd', palier: 122.5, niveau: 5, ligne: { charge: 122.5, vise: 5 }, haut: null },
+    // 169 (25/10/2026, décision d'Aurélien) — LA SORTIE : la séance d'avant (01/09, 122,5 × 5, 5, 5 à RPE 9,5) finissait déjà
+    // au haut de la zone avec R < V ; le 08/09 aussi (RPE 10) : la garde a eu lieu, le test est posé (125 × 3), un seul cran.
+    'u1|developpe_couche_barre#35': { etat: 'test_propose', zone: 'lourd', palier: 122.5, niveau: 5, ligne: { charge: 122.5, vise: 5 }, haut: { charge: 125, vise: 3, k: 1 } },
     'u1|squat_barre#24': { etat: 'progression', zone: 'lourd', palier: 105, niveau: 8, ligne: { charge: 105, vise: 5 }, haut: null },
     'u2|kickbacks_poulie#9': { etat: 'progression', zone: 'series_longues', palier: 15, niveau: 20, ligne: { charge: 15, vise: 20 }, haut: null }
   };
@@ -124,10 +126,11 @@ describe('74 — les exemples du MOTEUR §17.4', () => {
     expect(c.aujourdhui_main.haut).toEqual({ charge: 145, vise: 3, k: 1 });
   });
 
-  test('couché 08/09/2026, 122,5 × 6, 5, 5 à RPE 10 : niveau 5 (68B : 4), sans test proposé', () => {
+  test('couché 08/09/2026, 122,5 × 6, 5, 5 à RPE 10 : niveau 5 (68B : 4), le test posé par la sortie (169)', () => {
     const c = cas('u1|developpe_couche_barre', 35);
     const r = consigneDuCas(c);
-    expect([r.niveau, r.haut]).toEqual([5, null]);
+    // 169 : le niveau reste 5 ; le test, lui, est posé par la sortie de la garde (deux séances de suite au haut, R < V).
+    expect([r.niveau, r.haut]).toEqual([5, { charge: 125, vise: 3, k: 1 }]);
     expect(c.aujourdhui_main.niveau).toBe(4);
   });
 });

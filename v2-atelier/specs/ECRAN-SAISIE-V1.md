@@ -3600,4 +3600,6 @@ ou une série ; la signature compare donc aussi le rang, les jours, la note, les
 n'attend aucun écrivain, ni trigger, ni autre appareil pour tenir un `modifiee_a` à jour).
 **Les feuilles « Renommer » et « Dupliquer » se remettent à zéro à toute fermeture** (164, D3 : retour d'Android, fond, « Annuler »),
 sinon `renommage` / `duplication` bloquaient la relecture jusqu'au rechargement. Fermée pendant l'écriture (D11), la feuille laisse
-`renommage` en place jusqu'à la fin de l'écriture, qui le remet à zéro sans redessiner ni lever d'exception. Cache 292.
+`renommage` en place jusqu'à la fin de l'écriture, qui le remet à zéro sans redessiner ni lever d'exception. « Éditeur ouvert » se lit sur la vue, pas sur `brouillon` (qui n'est remis à zéro qu'au changement de compte : après un premier éditeur
+ouvert, la relecture ne jouait plus jusqu'au rechargement) ; la saisie non enregistrée vit dans `brouillonLocal` et n'est jamais touchée.
+Cache 292.

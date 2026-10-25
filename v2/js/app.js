@@ -9584,7 +9584,10 @@
   var generationRoutines = 0;
 
   function relectureRoutinesPermise() {
-    return etatRoutines.code === 'ok' && !seance && brouillon === null && vues.routine.hidden &&
+    // 164 — « éditeur ouvert » se lit sur la VUE : `brouillon` n'est remis à zéro qu'au changement de compte, donc après le
+    // premier éditeur ouvert il bloquait la relecture jusqu'au rechargement. Une saisie non enregistrée ne se perd pas pour
+    // autant : elle vit dans `brouillonLocal` (disque), la relecture ne touche que `routines`.
+    return etatRoutines.code === 'ok' && !seance && vues.routine.hidden &&
       !duplication && !renommage;
   }
 

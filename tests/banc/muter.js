@@ -246,7 +246,8 @@ if (require.main === module) {
   if (fautes.length) { fautes.forEach((f) => console.error(f)); process.exit(2); }
   const garder = a.indexOf('--garder') >= 0;
   const debut = Date.now();
-  lot(mutations, { garder }).then((r) => {
+  // 168 : le verrou est pris UNE fois pour tout le lot ; les copies jouent dessous (BANC_VERROU_TENU hérité).
+  require('./verrou.js').prendre().then(() => lot(mutations, { garder })).then((r) => {
     console.log(rapport(r, Date.now() - debut, garder));
     process.exit(r.every(conforme) ? 0 : 1);
   }).catch((e) => { console.error(e && e.stack || e); process.exit(2); });

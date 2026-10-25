@@ -434,6 +434,7 @@ if (require.main === module) {
         (x.prealables.length ? '  [rejoue : ' + x.prealables.join(', ') + ']' : '')));
       return;
     }
+    await require('./verrou.js').prendre();   // 168 : un seul banc à la fois (--lister, lecture seule, n'en prend pas)
     if (a.indexOf('--comparer') >= 0) {
       const p = await parallele(options);
       console.log(resumer(p).texte);

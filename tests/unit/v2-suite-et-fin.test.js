@@ -79,7 +79,14 @@ describe('PR 2 — « l’exercice est fini » : une définition', () => {
     expect(enCours.lignes.filter((l) => l.role !== 'hors').every((l) => l.validee)).toBe(true);
     expect(enCours.constat).toBeNull();
     const fini = plan(faites.concat([fait('z', 50, 8)])).exercices[0];
-    expect(fini.constat).not.toBeNull();
+    // 165 (24/10/2026) — une séance allégée ne se juge pas : même finie, pas de constat (sa suite lirait la dernière
+    // séance normale, pas ce que la personne vient de faire). Le constat sur l'exercice fini se prouve hors semaine allégée.
+    expect(fini.constat).toBeNull();
+    const planNormal = (series) => T.planDeSeance({ seance: { id: 'S', debut: DEBUT, edition: false,
+      exercices: [{ exercise_slug: 'x', series }] }, consignes: { x: { consigne: base } }, paris: [], suites: { x: suite } });
+    const quatre = [0, 1, 2].map((i) => fait('n' + i, 50, 9));
+    expect(planNormal(quatre.concat([vide('z')])).exercices[0].constat).toBeNull();
+    expect(planNormal(quatre.concat([fait('z', 50, 9)])).exercices[0].constat).not.toBeNull();
   });
 });
 

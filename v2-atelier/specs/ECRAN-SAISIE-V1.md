@@ -2018,6 +2018,8 @@ qui mène au détail complet pour qui veut le contexte des autres exercices.
 
 ## 7 septies bis. L'effort visé — « garde-en N » — décidé le 24/10/2026 (chantier 154)
 
+- **Pendant une semaine allégée ou une décharge** (24/10/2026, décision d'Aurélien, chantier 165) : ni « garde-en N » dans l'en-tête, ni « Il t'en restait combien ? » sous la dernière série. Une réserve notée là ne compte jamais. La feuille « Pourquoi » dit « Décharge, semaine k sur N » (décharge planifiée) ou « Semaine allégée » (carte acceptée).
+
 Maquette : `maquette-effort-vise-v1.html` (elle fait foi pour les textes). Détail de la règle : MOTEUR §9.26.
 
 - **L'en-tête de l'exercice** : la première ligne de la consigne est suivie de l'étiquette « garde-en N » (grise, au contour ; jamais jaune : le jaune est la voix du moteur). Une fois par exercice, **jamais sur chaque ligne**. Rien en « Juste un carnet », en Édition, sans consigne, sur une durée, une distance, une dégressive.

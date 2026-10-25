@@ -32,8 +32,9 @@ const { creer } = require(path.join(__dirname, '../../v2-atelier/banc/serveur-pa
 
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const RACINE = path.join(__dirname, '../../v2');
-const PORT = Number(process.env.BANC_PORT || 8860);
-const BASE = 'http://127.0.0.1:' + PORT;
+// 168 : pas de port fixe — posé à la première écoute, puis gardé (le scénario 7 ré-écoute le même).
+let PORT = Number(process.env.BANC_PORT || 0);
+let BASE = '';
 
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -101,7 +102,7 @@ const etatCache = (page) => evaluer(page, async () => {
 async function session(fn, options) {
   const opts = options || {};
   const serveur = creer({ racine: opts.racine || RACINE, canonicalise: opts.canonicalise !== false });
-  await new Promise((r) => serveur.listen(PORT, r));
+  PORT = await require('./verrou.js').ecouter(serveur, PORT); BASE = 'http://127.0.0.1:' + PORT;
   const nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ['--no-sandbox'] });
   const ctx = await nav.newContext({ viewport: { width: 360, height: 760 } });
   const page = await ctx.newPage();
@@ -373,7 +374,7 @@ const SCENARIOS = [
     }).catch((e) => [String(e).slice(0, 80)]);
     verifier('hors ligne, les sept faces Barlow se chargent depuis le cache',
       polices.length === 7 && polices.every((f) => / loaded$/.test(f)), JSON.stringify(polices));
-    await new Promise((r) => serveur.listen(PORT, r));  // pour le `finally`
+    await require('./verrou.js').ecouter(serveur, PORT);  // pour le `finally`
   })},
 
 { n: 8, titre: 'une nouvelle version déployée app ouverte : bandeau, « Recharger » donne la nouvelle, rien n’est effacé (88)',
@@ -516,6 +517,7 @@ const VERIF_6 = [
 ];
 
 (async () => {
+  await require('./verrou.js').prendre();   // 168
   const seul = Number(process.argv[2]) || null;
   const bilan = {};
   for (const s of SCENARIOS) {

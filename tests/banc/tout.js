@@ -13,18 +13,18 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
-const { portLibre } = require('./seance-rapide.js');
+const { prendre } = require('./verrou.js');
 
 const RACINE = path.join(__dirname, '../..');
 
 function lancer(nom, args, env) {
-  return portLibre().then((port) => new Promise((ok) => {
+  return Promise.resolve().then(() => new Promise((ok) => {
     const journal = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'tout-')), nom.replace(/\W+/g, '-') + '.txt');
     const sortie = fs.openSync(journal, 'w');
     const debut = Date.now();
     const p = spawn(process.execPath, args, {
       cwd: RACINE, stdio: ['ignore', sortie, sortie],
-      env: Object.assign({}, process.env, { BANC_PORT: String(port) }, env || {})
+      env: Object.assign({}, process.env, { BANC_PORT: '0' }, env || {})   // 168 : chaque banc demande son port au système
     });
     p.on('exit', (code) => {
       fs.closeSync(sortie);
@@ -35,7 +35,8 @@ function lancer(nom, args, env) {
   }));
 }
 
-if (require.main === module) {
+if (require.main === module) (async () => {
+  await prendre();   // 168 : un seul banc à la fois ; les cinq lancés ici jouent sous ce verrou
   const seq = process.argv.indexOf('--sequentiel') >= 0;
   const debut = Date.now();
   Promise.all([
@@ -53,4 +54,4 @@ if (require.main === module) {
     console.log('\n   ' + Math.round((Date.now() - debut) / 1000) + ' s au total');
     process.exit(r.every((x) => x.code === 0) ? 0 : 1);
   });
-}
+})();

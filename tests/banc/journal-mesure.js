@@ -29,7 +29,8 @@ const { chromium } = require(path.join(R, 'node_modules/playwright-core'));
 const Garde = require(path.join(R, 'tests/banc/garde-reseau.js'));
 const { creer } = require(path.join(R, 'v2-atelier/banc/serveur-pages.js'));
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-const PORT = Number(process.env.BANC_PORT || 8891), BASE = 'http://127.0.0.1:' + PORT;
+// 168 : pas de port fixe — le système en donne un libre à l'écoute (PORT/BASE sont posés là).
+let PORT = Number(process.env.BANC_PORT || 0), BASE = '';
 
 const arg = (nom, defaut) => {
   const i = process.argv.indexOf('--' + nom);
@@ -103,7 +104,7 @@ function historique(nSeances, nExos) {
 async function passe(h, ralenti) {
   const base = { records: [], requetes: 0, lots: [] };
   const serveur = creer({ racine: path.join(R, 'v2') });
-  await new Promise((r) => serveur.listen(PORT, r));
+  PORT = await require('./verrou.js').ecouter(serveur, PORT); BASE = 'http://127.0.0.1:' + PORT;
   const nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ['--no-sandbox'] });
   try {
     const ctx = await nav.newContext({ viewport: { width: 360, height: 760 } });
@@ -222,6 +223,7 @@ async function passe(h, ralenti) {
 }
 
 (async () => {
+  await require('./verrou.js').prendre();   // 168
   const h = historique(N_SEANCES, N_EXOS);
   const out = [];
   for (const ralenti of [1, RALENTI]) out.push(await passe(h, ralenti));

@@ -20,7 +20,7 @@ for (const f of fichiers) {
     // 161 — le contexte de chacun des trois premiers ❌ du journal détaillé (le résumé ne dit pas ce que l'écran montrait avant)
     if (f !== fichiers[0]) idx.slice(1, 4).forEach((i, k) => dire(titre + ' · ' + nom + ' · autour du ❌ n°' + (k + 2),
       l.slice(Math.max(0, i - 12), i + 3).map((x) => x.slice(0, 300)), 5000));
-    if (f !== fichiers[0] || true) dire(titre + ' · ' + nom + ' · les ❌', idx.slice(0, 30).map((i) => l[i].slice(0, 260)), 8000);
+    if (f !== fichiers[0] || true) dire(titre + ' · ' + nom + ' · les ❌', idx.slice(0, 30).map((i) => l[i].slice(0, 700)), 8000);
   }
   if (f !== fichiers[0] && !idx.length) dire(titre + ' · ' + nom + ' · fin du journal', l.slice(-40).map((x) => x.slice(0, 300)), 8000);
   // Les titres de section, pour situer la panne dans la durée.

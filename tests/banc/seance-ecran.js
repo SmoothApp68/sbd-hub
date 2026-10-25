@@ -5325,6 +5325,11 @@ const SETS_IMPORTES = [
   // fermée, séance abandonnée PAR LE GESTE DE L'APP (à défaut, le brouillon et la séance en cours de la base de papier
   // sont effacés), retour sur `/saisie`. Elle ne cache rien : l'exception reste un contrôle en échec.
   const remettreAPropre = async () => {
+    // Le FAUX SERVEUR d'abord : une section qui plante entre `base.reseau = false` et `base.reseau = true` (le groupe, 91) laissait
+    // le réseau refusé pour TOUTES les suivantes (« page.click: Timeout », « routines arrivées = [] » : 60 échecs en cascade).
+    base.reseau = true; base.ecrituresSocialesCoupees = false; base.ecrituresSocialesLentes = 0;
+    base.lenteur = 0; base.lenteurProfil = 0; base.lenteurObjectifs = 0; base.lenteurRecords = 0; base.lenteurPredictions = 0;
+    base.enCoursEnPanne = false;
     const feuilleOuverteMaintenant = () => page.evaluate(() => { const f = document.getElementById('feuille-seance'); return !!f && !f.hidden; }).catch(() => false);
     const seanceOuverte = () => page.evaluate(() => { const v = document.getElementById('vue-seance'); return !!v && !v.hidden; }).catch(() => false);
     if (await feuilleOuverteMaintenant()) {

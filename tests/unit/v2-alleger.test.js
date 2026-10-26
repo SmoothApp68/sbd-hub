@@ -182,6 +182,16 @@ describe('174 — le plan : la carte, le refus, l\'acceptation', () => {
     expect(x.entete.gris).toBe('Moins lourd, sans dégressive, jusqu\'à ton prochain progrès.');
     sansErreur(d);
   });
+  test('DISCRIMINANT — la ligne dégressive pas encore faite part avec la marche ; une dégressive validée reste', () => {
+    const lignes = (valideeDeg) => [
+      { type: 'travail', role: 'ligne', iSerie: 0, validee: true }, { type: 'travail', role: 'ligne', iSerie: 1, validee: false },
+      { type: 'degressive', role: 'ligne', iSerie: 2, validee: valideeDeg }];
+    const plan = (valideeDeg, alleger) => ({ allegee: null, exercices: [{ iExo: 0, consigne: alleger ? { alleger: { mode: 'serie' } } : {},
+      lignes: lignes(valideeDeg) }] });
+    expect(T.lignesARetirer(plan(false, true))).toEqual([{ iExo: 0, iSerie: 2 }]);
+    expect(T.lignesARetirer(plan(true, true))).toEqual([]);
+    expect(T.lignesARetirer(plan(false, false))).toEqual([]);
+  });
   test('la dégressive en cours est retirée tant que la marche dure', () => {
     const oui = marche('alleger', 'acceptee', '2026-10-29', 12, 'S1');
     const d = decor({ seance: 'S2', debut: '2026-11-01T10:00:00+00:00', compteur: 13,

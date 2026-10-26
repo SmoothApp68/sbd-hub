@@ -156,6 +156,14 @@ describe('174 — trois séances sans monter : on repart de P × 0,95, arrondi a
     expect(k.etat).toBe('bord');
   });
 
+  test('DISCRIMINANT — une séance allégée au milieu ne casse pas la série : les trois autres font la vague', () => {
+    // Quatre séances à 140 après le record, la deuxième dans une semaine allégée : trois comptent, la vague tombe.
+    const liste = SANS(4);
+    const jourAllege = jourN(MONTEE.length + 2).slice(0, 10);
+    const k = consigne(liste, { periodesAllegees: [{ debut: jourAllege, fin: jourAllege }] });
+    expect(k.etat).toBe('bord_vague');
+  });
+
   test('après la vague, la séance à 132,5 repart de ce niveau : pas de seconde vague', () => {
     const k = consigne(SANS(3).concat([[132.5, 2]]));
     expect(k.etat).toBe('bord');

@@ -25476,6 +25476,187 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ coach-recule. LE COACH SAIT RECULER : UNE BARRE RATÉE SOUS 3 REPS, SIX SÉANCES SANS MONTER → LA ZONE 3-5, LA 4e MARCHE : ALLÉGER (174, MOTEUR §9.1.2, §14.9) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : des exercices à la barre en doubles (2 reps : sous 3, donc sans zone, la règle de bord).
+  //   A — la dernière séance a raté la barre (140 kg × 1, 1, 1 sur 2 visées) : « On repart d'un cran plus bas », 137,5 kg × 2.
+  //   B — la dernière séance a tenu 140 kg × 2 à 0 en réserve : on GARDE 140 kg (jamais un recul : aller à l'échec n'est pas un motif).
+  //   C — six séances sans dépasser 140 kg : la carte du schéma vers 3-5 ; « Passer à 3-5 reps » pose la zone.
+  //   D — un curl qui cale depuis 12 séances (série de plus et dégressive refusées) : la carte « Alléger », puis deux séries.
+  // Aucun délai fixe hors ce que le banc fait déjà. La base est vidée pour la section, puis rendue.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, predictionsAvant = base.predictions, zonesAvant = base.zones;
+    const catalogueAvant = CATALOGUE.length, routinesAvant = ROUTINES.length;
+    const rendreBlocs174 = await retirerBlocsDeLAppareil();
+    ['a', 'b', 'c'].forEach((k) => CATALOGUE.push({ slug: 'cr174-' + k, nom: 'Exercice CR174 ' + k.toUpperCase() + ' (Barre)',
+      mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] }));
+    CATALOGUE.push({ slug: 'curl-cr174', nom: 'Curl CR174 (Poulie)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'poulie', muscles_primaires: ['biceps'], muscles_secondaires: [] });
+    const t174 = Date.now();
+    base.sessions = [];
+    base.sets = [];
+    base.predictions = [];
+    let graine174 = 17400;
+    const idPari174 = () => '00000000-0000-5000-8174-' + String(++graine174).padStart(12, '0');
+    // Une séance : `[jours, kg, [reps…], réserve de la dernière série]`.
+    const poser174 = (slug, liste) => liste.forEach(([j, kg, reps, ressenti], i) => {
+      const id = 'cr174-' + slug + '-' + i, debut = ilYa(j * 86400000, t174).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'CR174 — ' + id, debut,
+        fin: finDe(debut, t174).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      reps.forEach((r, k) => base.sets.push({
+        id: id + '-s' + (k + 1), session_id: id, user_id: 'u-banc', exercise_slug: slug,
+        charge_kg: kg, reps: r, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: k + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: k === reps.length - 1 && ressenti ? ressenti : null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    const montee = (jMax) => [[jMax, 130, [2, 2, 2]], [jMax - 3, 132.5, [2, 2, 2]], [jMax - 6, 135, [2, 2, 2]],
+      [jMax - 9, 137.5, [2, 2, 2]], [jMax - 12, 140, [2, 2, 2]]];
+    // A : le record à 140 × 2, puis 140 × 1, 1, 1 il y a 4 jours. B : 140 × 2 à 0 en réserve il y a 4 jours.
+    poser174('cr174-a', [[28, 130, [2, 2, 2]], [24, 132.5, [2, 2, 2]], [20, 135, [2, 2, 2]], [16, 137.5, [2, 2, 2]], [12, 140, [2, 2, 2]], [4, 140, [1, 1, 1]]]);
+    poser174('cr174-b', [[28, 130, [2, 2, 2]], [24, 132.5, [2, 2, 2]], [20, 135, [2, 2, 2]], [16, 137.5, [2, 2, 2]], [4, 140, [2, 2, 2], 'reste_0']]);
+    // C : le record il y a 36 jours (140 × 2), puis six séances sans le dépasser, la dernière il y a 3 jours.
+    poser174('cr174-c', [[51, 130, [2, 2, 2]], [48, 132.5, [2, 2, 2]], [45, 135, [2, 2, 2]], [42, 137.5, [2, 2, 2]], [39, 140, [2, 2, 2]],
+      [36, 140, [1, 1, 1]], [30, 137.5, [2, 2, 2]], [24, 137.5, [2, 2, 2]], [18, 137.5, [2, 2, 2]], [12, 137.5, [2, 2, 2]], [6, 137.5, [2, 2, 2]]]);
+    // D : le curl, 14 séances tous les 4 jours sans progrès ; la première hors consigne, les 13 autres sous consigne (compteur 12).
+    for (let i = 0; i < 14; i++) {
+      const j = 5 + 4 * (13 - i), id = 'cr174-curl-s' + i, debut = ilYa(j * 86400000, t174).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'CR174 — ' + id, debut,
+        fin: finDe(debut, t174).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((r) => base.sets.push({
+        id: id + '-s' + r, session_id: id, user_id: 'u-banc', exercise_slug: 'curl-cr174',
+        charge_kg: 25, reps: 12, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: r, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+      if (i === 0) continue;
+      base.predictions.push({ id: idPari174(), user_id: 'u-banc', module: 'moteur.consigne', module_version: 4,
+        emise_a: debut, exercise_slug: 'curl-cr174', grandeur: 'reps', horizon_jours: null, valeur_predite: 12,
+        borne_basse: 10, borne_haute: 12,
+        fondement: { rang: 1, charge: 25, etat: 'progression', zone: 'volume', reglage: 'normal', palier: 25,
+                     niveau: 12, seance: id, role: 'ligne', phase: 'maintien', compteur: Math.max(0, i - 1) },
+        valeur_observee: 12, observee_a: debut, set_observe: id + '-s1', created_at: debut });
+      [[5, 'serie_de_plus', 4], [9, 'degressive', 8]].forEach(([qui, marche, compteur]) => {
+        if (i !== qui) return;
+        base.predictions.push({ id: idPari174(), user_id: 'u-banc', module: 'escalier', module_version: 1,
+          emise_a: debut, exercise_slug: null, grandeur: 'progres', horizon_jours: null, valeur_predite: 1,
+          borne_basse: null, borne_haute: null,
+          fondement: { seance: id, jour: debut.slice(0, 10), exercice: 'curl-cr174', marche, reponse: 'refusee', compteur, n: marche === 'degressive' ? 2 : 1,
+                       zone: 'volume', phase: 'maintien', n_routine: 3, debut },
+          valeur_observee: null, observee_a: null, set_observe: null, created_at: debut });
+      });
+    }
+    ['a', 'b', 'c'].forEach((k) => ROUTINES.push({ id: 'r-cr174-' + k, nom: 'Recule ' + k.toUpperCase() + ' CR174', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-cr174-' + k + '-0', routine_id: 'r-cr174-' + k, exercise_slug: 'cr174-' + k, rang: 0,
+        routine_sets: progr(3, 2), repos_cible_s: 180, groupe_superset: null, note: null }] }));
+    ROUTINES.push({ id: 'r-cr174-d', nom: 'Recule D CR174', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-cr174-d-0', routine_id: 'r-cr174-d', exercise_slug: 'curl-cr174', rang: 0,
+        routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const sp174 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const lire174 = (slug) => page.evaluate((s) => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === s)[0];
+      const i = x ? x.iExo : -1;
+      const carte = (cl, oui, non) => {
+        const n = document.querySelector('.' + cl + '[data-iexo="' + i + '"]');
+        return n ? { texte: n.querySelector('.pc-texte').textContent, detail: n.querySelector('.pc-detail') ? n.querySelector('.pc-detail').textContent : null,
+                     oui: n.querySelector(oui).textContent, non: n.querySelector(non).textContent } : null;
+      };
+      const legende = Array.from(document.querySelectorAll('.legende-exo'))[i] || null;
+      return { etat: x && x.consigne ? x.consigne.etat : null, zone: x && x.consigne ? x.consigne.zone : null,
+        marche: x && x.escalier ? x.escalier.marche : null,
+        schema: carte('proposition-schema', '.ps-oui', '.ps-non'), alleger: carte('proposition-alleger', '.pal-oui', '.pal-non'),
+        jaune: legende ? Array.from(legende.querySelectorAll('.consigne')).map((n) => n.textContent) : [],
+        dit: legende && legende.querySelector('.consigne-dit') ? legende.querySelector('.consigne-dit').textContent : null,
+        types: x ? x.lignes.map((l) => l.type) : [] };
+    }, slug);
+    const pret174 = () => jusqua(() => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return !!d && d.plan.exercices.length > 0 && document.querySelectorAll('.legende-exo .consigne').length > 0;
+    }), 8000);
+    const parisE174 = () => base.predictions.filter((l) => l.module === 'escalier' && l.fondement &&
+      (l.fondement.marche === 'schema' || l.fondement.marche === 'alleger') && String(l.fondement.seance).indexOf('cr174') < 0);
+
+    // ── A. La barre est ratée : le coach recule d'un cran, aux reps visées.
+    await aller('/saisie');
+    await demarrerRoutine('Recule A CR174');
+    await pret174();
+    const a = await lire174('cr174-a');
+    ok('[CR174] A — DISCRIMINANT : 140 kg × 1, 1, 1 sur 2 visées → un recul, 137,5 kg × 2 (aucune zone), et la phrase le dit',
+      a.etat === 'bord_recul' && a.zone === null && a.jaune.some((t) => /137,5 kg × 2/.test(sp174(t))) &&
+        /^140 kg × 1 sur 2 visées\. On repart d'un cran plus bas, aux mêmes reps/.test(sp174(a.dit)), JSON.stringify(a));
+    await abandonner();
+
+    // ── B. 140 kg × 2 à 0 en réserve : jamais un recul, la charge est gardée.
+    await aller('/saisie');
+    await demarrerRoutine('Recule B CR174');
+    await pret174();
+    const b = await lire174('cr174-b');
+    ok('[CR174] B — DISCRIMINANT : 140 kg × 2 à 0 en réserve → on garde 140 kg (jamais un recul : aller à l\'échec n\'est pas un motif)',
+      b.etat === 'bord_garde' && b.jaune.some((t) => /140 kg × 2/.test(sp174(t))) && !b.jaune.some((t) => /137,5/.test(sp174(t))) &&
+        /^140 kg × 2, sans marge\. On garde 140 kg/.test(sp174(b.dit)), JSON.stringify(b));
+    await abandonner();
+
+    // ── C. Six séances sans monter : la carte du schéma, vers 3-5.
+    await aller('/saisie');
+    await demarrerRoutine('Recule C CR174');
+    await pret174();
+    const c = await lire174('cr174-c');
+    ok('[CR174] C — DISCRIMINANT : six séances sans dépasser 140 kg → la carte du schéma, « Passer à 3-5 reps » / « Garder les doubles »',
+      c.marche === 'schema' && !!c.schema &&
+        sp174(c.schema.texte) === '140 kg × 2 depuis 6 séances, malgré le recul.' &&
+        c.schema.detail === 'Quelques semaines en 3-5 reps relancent souvent la barre, avant d\'y revenir.' &&
+        c.schema.oui === 'Passer à 3-5 reps' && c.schema.non === 'Garder les doubles', JSON.stringify(c));
+    await page.click('.proposition-schema .ps-oui');
+    await jusqua(() => page.evaluate(() => !document.querySelector('.proposition-schema')), 8000);
+    await jusqua(() => base.zones.some((l) => l.exercise_slug === 'cr174-c'), 8000);
+    const c2 = await lire174('cr174-c');
+    const pariC = parisE174().filter((l) => l.fondement.exercice === 'cr174-c')[0];
+    const zoneC = base.zones.filter((l) => l.exercise_slug === 'cr174-c').slice(-1)[0];
+    ok('[CR174] C — « Passer à 3-5 reps » : le pari du schéma (accepté, zone lourd) et la zone posée, comme pour un schéma ; plus de carte',
+      !!pariC && pariC.fondement.marche === 'schema' && pariC.fondement.reponse === 'acceptee' && pariC.fondement.nouvelle_zone === 'lourd' &&
+        !!zoneC && zoneC.zone === 'lourd' && c2.zone === 'lourd' && c2.schema === null, JSON.stringify([pariC && pariC.fondement, zoneC, c2.zone]));
+    await abandonner();
+
+    // ── D. Le curl cale depuis 12 séances : la carte « Alléger ».
+    await aller('/saisie');
+    await demarrerRoutine('Recule D CR174');
+    await pret174();
+    const d = await lire174('curl-cr174');
+    ok('[CR174] D — DISCRIMINANT : 12 séances sans progrès, série de plus et dégressive refusées → la carte « Alléger » / « Garder 3 séries »',
+      d.marche === 'alleger' && !!d.alleger && /^25 kg × 12 depuis 12 séances/.test(sp174(d.alleger.texte)) &&
+        /On allège : 2 séries au lieu de 3, sans dégressive, même charge\./.test(sp174(d.alleger.detail)) &&
+        d.alleger.oui === 'Alléger' && d.alleger.non === 'Garder 3 séries', JSON.stringify(d));
+    await page.click('.proposition-alleger .pal-oui');
+    await jusqua(() => page.evaluate(() => !document.querySelector('.proposition-alleger')), 8000);
+    await jusqua(() => base.predictions.some((l) => l.module === 'escalier' && l.fondement && l.fondement.marche === 'alleger'), 8000);
+    const d2 = await lire174('curl-cr174');
+    const pariD = base.predictions.filter((l) => l.module === 'escalier' && l.fondement && l.fondement.marche === 'alleger')[0];
+    ok('[CR174] D — « Alléger » : le pari (alleger, accepté, 3 séries à la routine) et DEUX lignes de travail, plus de carte',
+      !!pariD && pariD.fondement.reponse === 'acceptee' && pariD.fondement.n_routine === 3 && pariD.fondement.exercice === 'curl-cr174' &&
+        d2.alleger === null && d2.types.filter((t) => t !== 'chauffe').length === 2, JSON.stringify([pariD && pariD.fondement, d2.types]));
+    await abandonner();
+
+    ok('[CR174] la garde (I65 à I67 compris) n\'a rien signalé', gardeBanc.violations === violationsAvant,
+      String(gardeBanc.violations - violationsAvant) + ' ' + JSON.stringify(gardeBanc.liste.slice(-2)));
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = predictionsAvant;
+    base.zones = zonesAvant.filter((l) => String(l.exercise_slug).indexOf('cr174') < 0);
+    rendreBlocs174();
+    await aller('/saisie');
+    ok('[CR174] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ demander-coach. « DEMANDER AU COACH » : LE BOUTON, L’ACCORD, UNE PUCE, UNE DOULEUR QUI NE PART PAS, LE QUOTA, SANS RÉSEAU (160, ECRAN-SAISIE §3.10 ter) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice à la barre, 40 kg × 9 trois séances de suite, séance du jour ouverte, la feuille

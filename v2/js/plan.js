@@ -1791,6 +1791,13 @@
       if (pris[slug] || !c || !c.consigne || !c.compteur || typeof c.compteur.compteur !== 'number') return;
       var k = c.compteur.compteur;
       var zone = c.consigne.zone;
+      // 174 (3/3) — SOUS 3 REPS, SIX SÉANCES SANS MONTER : la zone 3-5 est proposée, par la carte du schéma. L'exercice n'a
+      // pas de zone, donc ni compteur d'escalier ni repli : cette marche est la seule qu'il entende.
+      if (c.bord) {
+        var mBord = marcheDuBord(seance, slug, c, jour, marches, enBloc);
+        if (mBord) sortie[slug] = mBord;
+        return;
+      }
       // §10 bis (113, 16/10/2026) — AU PLAFOND DE SA SALLE : l'escalier du plafond (la série de plus, la dégressive,
       // un frère plus chargeable, puis le maintien) ; jamais le schéma ni le repli — c'est la salle qui bloque.
       if (auPlafond(c)) {
@@ -1889,6 +1896,33 @@
       sortie[slug] = m;
     });
     return sortie;
+  }
+
+  // 174 (3/3, MOTEUR §9.1.2) — LA ZONE 3-5 PROPOSÉE SOUS 3 REPS. `c.bord` (figé avec la consigne) : le compte long de la règle
+  // de bord, le record et ce qu'il vaut. La marche est celle du schéma : la même carte, la même réponse (`poserZone` à
+  // l'acceptation), une fois par blocage. Un exercice d'un bloc de programme en cours se tait (I39). Elle part à la sixième
+  // séance exactement, comme un déclenchement : sans réponse, elle ne revient pas à la suivante.
+  function marcheDuBord(seance, slug, c, jour, marches, enBloc) {
+    var M = Moteur();
+    var b = c.bord;
+    if (enBloc[slug] || b.total !== M.BORD_PROPOSE_DES) return null;
+    var depuisJour = M.jourCivil(b.depuis);
+    var deja = marches.filter(function (x) {
+      if (!x || x.exercice !== slug || x.marche !== M.MARCHE_SCHEMA) return false;
+      if (x.seance === seance.id) return true;
+      return (x.reponse === 'acceptee' || x.reponse === 'refusee') && !!x.jour && !!depuisJour &&
+        x.jour >= depuisJour && x.jour <= jour;
+    })[0];
+    var m = { marche: M.MARCHE_SCHEMA, n: 1, compteur: b.total, declenchement: true, zone: null, bord: b };
+    if (deja) {
+      m.reponse = deja.reponse;
+      return m;
+    }
+    var cap = Voix().capturer(function () { return M.carteBordSchema(b); });
+    if (!cap.texte) return null;
+    m.carte = cap.texte;
+    retenirCitationsDeCarte(m.carte, cap.citations);
+    return m;
   }
 
   // §10 bis (113, décidé le 16/10/2026) — L'ESCALIER AU PLAFOND DE LA SALLE. Une marche par déclenchement, dans cet
@@ -3779,6 +3813,12 @@
       if (f.bord.depuis !== undefined) fait['bord.depuis'] = { valeur: f.bord.depuis };
       if (f.bord.vers !== undefined) fait['bord.vers'] = { charge: f.bord.vers };
     }
+    // 174 (3/3) — la zone 3-5 proposée sous 3 reps : le record (charge × reps) et le compte long.
+    var eb = x.escalier && x.escalier.bord;
+    if (eb) {
+      fait['bord.record'] = { charge: eb.charge, reps: [eb.reps] };
+      fait['bord.long'] = { valeur: eb.total };
+    }
     var meilleur = x.compteur && x.compteur.meilleur;
     if (meilleur) fait.meilleur = { charge: meilleur.palier, reps: [meilleur.niveau] };
     // §13.6 (49-U20) — le frère qui progresse : « avant » et « maintenant ».
@@ -4306,6 +4346,29 @@
       }
       if (k.etat === 'bord_garde' && c !== null && P !== null && c !== P) {
         erreurs.push('I65' + nom + 'une garde à ' + c + ' kg, le palier est ' + P + ' kg');
+      }
+    });
+    verifierBordSchema(plan, erreurs);
+  }
+
+  // I67 (MOTEUR §9.1.2, 174 3/3) — LA ZONE 3-5 PROPOSÉE SOUS 3 REPS : jamais avant six séances sans monter, jamais à un exercice
+  // qui a une zone (ni à un poids du corps), jamais en semaine allégée ni dans un bloc de programme en cours (I21, I39), et elle
+  // ne change que la zone vers 3-5 ; elle ne cite que le compte et le record, jamais une réserve ni un effort.
+  function verifierBordSchema(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var m = x && x.escalier;
+      if (!m || !m.bord) return;
+      var e67 = function (t) { erreurs.push('I67 — exercice ' + i + ' (' + x.slug + ') : ' + t); };
+      var k = x.consigne || {};
+      if (m.marche !== M.MARCHE_SCHEMA) e67('un compte de bord qui porte la marche « ' + m.marche + ' », pas le schéma');
+      if (!(nombre(m.bord.total) >= M.BORD_PROPOSE_DES)) e67('la zone 3-5 proposée à ' + m.bord.total + ' séance(s) sans monter, sous ' + M.BORD_PROPOSE_DES);
+      if (k.zone) e67('la zone 3-5 proposée à un exercice qui a une zone (' + k.zone + ')');
+      if (!(nombre(k.palier) > 0)) e67('la zone 3-5 proposée sans charge');
+      if (plan.allegee) e67('la zone 3-5 proposée pendant une semaine allégée');
+      if (m.carte && m.carte.nouvelle_zone !== 'lourd') e67('la zone proposée est « ' + m.carte.nouvelle_zone + ' », pas 3-5');
+      if (m.carte && /réserve|effort|échec/i.test(String(m.carte.phrase) + ' ' + String(m.carte.detail))) {
+        e67('la carte parle de réserve ou d’échec : seul le compte la déclenche');
       }
     });
   }

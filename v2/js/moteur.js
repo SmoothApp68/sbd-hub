@@ -1764,7 +1764,23 @@
       } else {
         meilleur = prec.meilleur; sans = prec.sans + 1; recul = prec.recul || ratee;
       }
-      var etatSuite = { meilleur: meilleur, sans: sans, recul: recul };
+      // Le COMPTE LONG (commit 3 de 174) : les séances de la série sans dépasser son record, que la « vague » ne remet pas à
+      // zéro (`sans` repart à chaque vague). `record` : la charge la plus haute de la série ; `aRecule` : un recul ou une
+      // vague a eu lieu depuis le dernier record. Retrouver son record après un recul ne compte pas, comme pour `sans`.
+      var record, total, aRecule, repsRecord, depuisRecord;
+      if (prec === null) {
+        record = P; total = 0; aRecule = ratee; repsRecord = niv; depuisRecord = L.debut;
+      } else if (!ratee && P > prec.record && !memeCharge(P, prec.record)) {
+        record = P; total = 0; aRecule = false; repsRecord = niv; depuisRecord = L.debut;
+      } else if (!ratee && prec.recul && memeCharge(P, prec.record)) {
+        record = prec.record; total = prec.total; aRecule = prec.aRecule;
+        repsRecord = prec.repsRecord; depuisRecord = prec.depuisRecord;
+      } else {
+        record = prec.record; total = prec.total + 1; repsRecord = prec.repsRecord; depuisRecord = prec.depuisRecord;
+        aRecule = prec.aRecule || ratee || rk.etat === 'bord_vague' || rk.etat === 'bord_recul';
+      }
+      var etatSuite = { meilleur: meilleur, sans: sans, recul: recul, record: record, total: total, aRecule: aRecule,
+                        repsRecord: repsRecord, depuisRecord: depuisRecord };
       function fin(etat, ligne, plus) {
         var r = rendre(etat, ligne, null, plus);
         if (r && typeof r === 'object') Object.defineProperty(r, '_bord', { value: etatSuite, enumerable: false });
@@ -6719,6 +6735,38 @@
     return debut + ' On allège : ' + Modele().charge(prop.charge) + ' au lieu de ' + Modele().charge(palier) +
       ', environ 5 % de moins, mêmes séries, sans dégressive.' + fin;
   }
+  // ══ 174 (3/3, décidé le 26/10/2026) — SOUS 3 REPS, SIX SÉANCES SANS MONTER : LA ZONE 3-5 EST PROPOSÉE ══════════
+  //
+  // « Quand le compte des séances de bord sans monter atteint 6, le coach PROPOSE de passer l'exercice en zone 3-5 quelques
+  // semaines. Il ne change rien sans accord. » Le compte est le COMPTE LONG de la règle de bord (`_bord.total`, que la vague
+  // ne remet pas à zéro) ; la marche est celle du schéma (`MARCHE_SCHEMA`) : la même carte, la même réponse, la même zone
+  // posée (`poserZone`) à l'acceptation, le même silence dans un bloc de programme en cours (I39). Elle part d'une
+  // consigne SANS ZONE : `bord` est figé avec la consigne (`consigneDExercice`) et dit ce que la carte écrit. Aller à
+  // l'échec n'est jamais un motif : seul le compte parle.
+  var BORD_PROPOSE_DES = 6;
+  var DETAIL_BORD_SCHEMA = 'Quelques semaines en 3-5 reps relancent souvent la barre, avant d\'y revenir.';
+  // `{ total, charge, reps, aRecule, depuis }` à partir de la sixième séance sans dépasser le record ; sinon `null`.
+  function bordSansMonter(consigne) {
+    var b = consigne && consigne._bord;
+    if (!b || (consigne.zone !== null && consigne.zone !== undefined)) return null;
+    if (nombre(b.total) === null || b.total < BORD_PROPOSE_DES) return null;
+    return { total: b.total, charge: b.record, reps: b.repsRecord, aRecule: b.aRecule === true, depuis: b.depuisRecord || null };
+  }
+  // « 140 kg × 2 depuis 6 séances, malgré le recul. » — le détail se lit à part (hors capture : il écrit « 3-5 »).
+  function carteBordSchema(bord) {
+    if (!bord || nombre(bord.charge) === null || nombre(bord.reps) === null) return null;
+    var cB = cite(FAIT, { quoi: 'bord.record' });
+    var r = nombre(bord.reps);
+    return {
+      zone: null, nouvelle_zone: 'lourd',
+      phrase: Modele().charge(bord.charge, undefined, cB) + ' × ' + nombreFr(r, cite(FAIT, { quoi: 'bord.record', champ: 'reps' })) +
+        ' depuis ' + nombreFr(bord.total, cite(FAIT, { quoi: 'bord.long' })) + ' séances' +
+        (bord.aRecule ? ', malgré le recul.' : '.'),
+      detail: DETAIL_BORD_SCHEMA, oui: 'Passer à 3-5 reps',
+      non: r === 1 ? 'Garder les simples' : r === 2 ? 'Garder les doubles' : 'Garder ' + Modele().nombre(r) + ' reps'
+    };
+  }
+
   // La marche proposée (acceptée ou refusée) depuis le dernier progrès, ou l'acceptée en cours.
   function allegerProposee(exercice, jour, compteur, marches, compteurs) {
     return marcheProposee(exercice, jour, compteur, marches, compteurs, MARCHE_ALLEGER);
@@ -7617,7 +7665,13 @@
     var V = seriesAFondDeLaDerniere(seances, avant);
     if (V === null) return consigne;
     var prudente = enPrudent(function () { return consignePour(seances, avant, options); });
-    return plafonnerAFond(consigne, prudente, V);
+    var plafonnee = plafonnerAFond(consigne, prudente, V);
+    // 174 (3/3) — le compte long de la règle de bord (`_bord`, non énumérable) suit la consigne plafonnée : une série à fond
+    // (0 en réserve) ne le fait ni naître ni disparaître.
+    if (plafonnee && plafonnee !== consigne && consigne && consigne._bord && !plafonnee._bord) {
+      Object.defineProperty(plafonnee, '_bord', { value: consigne._bord, enumerable: false });
+    }
+    return plafonnee;
   }
 
   // La consigne d'UN exercice de la séance ouverte, silences compris. Pure :
@@ -7728,6 +7782,8 @@
              // zone de chaque séance candidate est celle de la consigne qu'elle
              // a reçue (la zone choisie en vigueur ce jour-là).
              // 174 — LES CRANS DE LA MARCHE « ALLÉGER », figés avec la consigne : le cran en dessous et l'arrondi de P x 0,95.
+             // 174 (3/3) — SIX SÉANCES DE BORD SANS MONTER : de quoi proposer la zone 3-5, figé avec la consigne.
+             bord: bordSansMonter(consigne),
              alleger: compteur.compteur >= ALLEGER_DES && consigne && consigne.zone
                ? crans(seances, avant, consigne.palier, o.equipement, salle) : null,
              repli: compteur.compteur >= PAS_ESCALIER && consigne && consigne.zone
@@ -8335,6 +8391,8 @@
     propositionAlleger: propositionAlleger,
     consigneAlleger: consigneAlleger,
     carteAlleger: carteAlleger,
+    carteBordSchema: carteBordSchema,
+    BORD_PROPOSE_DES: BORD_PROPOSE_DES,
     detailAlleger: detailAlleger,
     grisAlleger: grisAlleger,
     phraseRappelAlleger: phraseRappelAlleger,

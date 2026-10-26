@@ -527,7 +527,8 @@ describe('l’en-tête dit la consigne (ECRAN-SAISIE §3.1)', () => {
     expect(textes(cible, '.consigne-dit')).toEqual([LIB.gris]);
     // L'ordre dans la légende : type de mesure, jaune, jaune, gris, réglages.
     const legende = cible.querySelector('.legende-exo');
-    const classes = [...legende.children].map((e) => e.className);
+    // 173 : la consigne porte des classes de mise en forme en plus (consigne-grande, si-ca-passe) ; l'ordre et la classe de base restent.
+    const classes = [...legende.children].map((e) => e.className.split(' ')[0]);
     expect(classes).toEqual(['legende-haut', 'type-mesure', 'consigne', 'consigne', 'consigne-dit', 'reglages-exo']);
   });
 

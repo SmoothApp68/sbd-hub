@@ -10408,7 +10408,7 @@ const SETS_IMPORTES = [
     const choisirObjectif = async (cle) => {
       await onglet('profil');
       await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
-        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Objectif') === 0)[0].click());
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('But d’entraînement') === 0)[0].click());
       await attendre(500);
       await page.click('#feuille-contenu .feuille-menu button[data-cle="' + cle + '"]');
       await attendre(1200);
@@ -15417,7 +15417,7 @@ const SETS_IMPORTES = [
     const ecrans = [['routines', '/saisie', '2-routines'], ['progression', '/progression', '3-progression'],
       ['mois', '/progression/mois', null], ['records', '/progression/records', null],
       ['exercice', '/exercice/forge-u56', '4-exercice'], ['exercice-historique', '/exercice/forge-u56/historique', null],
-      ['profil', '/profil', '5-profil'], ['semaine', '/', null],
+      ['profil', '/profil', '5-profil'], ['semaine', '/', '7-accueil'],
       // 66B — « Le coach relit ta semaine » (les routines sans dossier, dont « Forge U56 »).
       ['relecture', '/saisie/relecture', null]];
     const vues = {};
@@ -15802,7 +15802,7 @@ const SETS_IMPORTES = [
     e = await ecranQ();
     ok('[Q60] écran 9 — « Voici ce que j’ai compris. » : les six lignes, avec ce qui vient d’être répondu ; « Commencer »',
       e.ecran === 'recap' && e.bouton === 'Commencer' && e.lignes.length === 6 &&
-        /Objectif.*Muscle/.test(e.lignes[0]) && /Phase.*Maintien/.test(e.lignes[1]) && /Matériel.*Salle complète/.test(e.lignes[4]) &&
+        /But d’entraînement.*Muscle/.test(e.lignes[0]) && /Phase.*Maintien/.test(e.lignes[1]) && /Matériel.*Salle complète/.test(e.lignes[4]) &&
         /Coach.*Franc/.test(e.lignes[5]), JSON.stringify(e));
     ok('[Q60] écran 9 — rien ne dit « fait » avant « Commencer » : `questionnaire_fait_le` est encore vide',
       profilBase().questionnaire_fait_le === null, JSON.stringify(profilBase().questionnaire_fait_le));
@@ -15886,31 +15886,33 @@ const SETS_IMPORTES = [
     // (60-2b) sont dans les FEUILLES, pas sous les lignes.
     await onglet('profil');
     const titresRempli = await titresP();
-    ok('[Q60] P — plus de ligne en tête ; « TON BUT » vient après « TON RYTHME » (le réglage du coach), avant « TA PHASE »',
-      (await enTeteP()) === null && titresRempli.indexOf('TON BUT') === titresRempli.indexOf('TON RYTHME') + 1 &&
-        titresRempli.indexOf('TA PHASE') === titresRempli.indexOf('TON BUT') + 1, JSON.stringify(titresRempli));
-    const [pObj, pPri, pTps] = [await ligneP('Objectif'), await ligneP('Priorités'), await ligneP('Ton temps')];
-    ok('[Q60] P — les réponses du questionnaire sont là : Objectif Muscle, Priorités Squat · Couché · Soulevé, Ton temps « J’ai de la marge… » ; aucune phrase sous ces lignes (elles sont dans les feuilles)',
+    // 173 (« Mon coach ») : TON RYTHME, TON POIDS, TA PHASE, TON BUT, TA SEMAINE se suivent dans cet ordre.
+    ok('[Q60] P — plus de ligne en tête ; « TON BUT » vient après « TON RYTHME » (le réglage du coach), le poids et « TA PHASE » ; « TA SEMAINE » le suit',
+      (await enTeteP()) === null && titresRempli.indexOf('TA PHASE') === titresRempli.indexOf('TON RYTHME') + 2 &&
+        titresRempli.indexOf('TON BUT') === titresRempli.indexOf('TA PHASE') + 1 &&
+        titresRempli.indexOf('TA SEMAINE') === titresRempli.indexOf('TON BUT') + 1, JSON.stringify(titresRempli));
+    const [pObj, pPri, pTps] = [await ligneP('But d’entraînement'), await ligneP('Priorités'), await ligneP('Ton temps')];
+    ok('[Q60] P — les réponses du questionnaire sont là : But d’entraînement Muscle, Priorités Squat · Couché · Soulevé, Ton temps « J’ai de la marge… » ; aucune phrase sous ces lignes (elles sont dans les feuilles)',
       pObj && pObj.valeur === 'Muscle' && pPri && pPri.valeur === 'Squat, Couché, Soulevé' &&
         pTps && pTps.valeur === 'J’ai de la marge pour en faire plus' && !pObj.aide && !pPri.aide && !pTps.aide,
       JSON.stringify([pObj, pPri, pTps]));
     const ecritsP0 = ecritsProfil();
     const depuisP0 = profilBase().objectif_depuis;
-    await toucherP('Objectif');
+    await toucherP('But d’entraînement');
     let fp = await feuilleChoixP();
-    ok('[Q60] P — « Objectif » : la feuille des quatre objectifs, Muscle coché, sa phrase d’aide (60-2b), sans « Effacer »',
-      fp.ouverte && fp.titre === 'Objectif' && JSON.stringify(fp.options) === '["force","muscle","les_deux","forme"]' &&
+    ok('[Q60] P — « But d’entraînement » : la feuille des quatre objectifs, Muscle coché, sa phrase d’aide (60-2b), sans « Effacer »',
+      fp.ouverte && fp.titre === 'But d’entraînement' && JSON.stringify(fp.options) === '["force","muscle","les_deux","forme"]' &&
         JSON.stringify(fp.coches) === '["muscle"]' && fp.aide === true &&
         fp.aideTexte === 'Il choisit la zone de ton premier bloc de programme : Lourd pour la force, Mix pour le muscle.' &&
         fp.pied.indexOf('Effacer') < 0, JSON.stringify(fp));
     await cliquerFeuille('.feuille-menu button[data-cle="muscle"]', 900);
     ok('[Q60] P — DISCRIMINANT : choisir le MÊME objectif n’écrit rien (ni valeur ni date)',
       ecritsProfil() === ecritsP0 && profilBase().objectif_depuis === depuisP0, JSON.stringify([ecritsProfil() - ecritsP0, profilBase().objectif_depuis, depuisP0]));
-    await toucherP('Objectif');
+    await toucherP('But d’entraînement');
     await cliquerFeuille('.feuille-menu button[data-cle="force"]', 1500);
     ok('[Q60] P — un objectif CHANGÉ s’écrit comme au questionnaire : la valeur ET sa date (`objectif_depuis`)',
       profilBase().objectif === 'force' && profilBase().objectif_depuis !== depuisP0 && !!profilBase().objectif_depuis &&
-        ecritsProfil() === ecritsP0 + 1 && (await ligneP('Objectif')).valeur === 'Force', JSON.stringify([profilBase().objectif, profilBase().objectif_depuis, depuisP0, ecritsProfil() - ecritsP0]));
+        ecritsProfil() === ecritsP0 + 1 && (await ligneP('But d’entraînement')).valeur === 'Force', JSON.stringify([profilBase().objectif, profilBase().objectif_depuis, depuisP0, ecritsProfil() - ecritsP0]));
     await toucherP('Priorités');
     fp = await feuilleChoixP();
     ok('[Q60] P — « Priorités » : sa phrase d’aide (60-2b), « Des exercices » / « Ou des muscles », « Pas de priorité », trois cochées → les autres s’éteignent (sans un mot) ; Annuler · Valider',

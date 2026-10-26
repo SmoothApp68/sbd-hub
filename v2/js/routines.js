@@ -1389,6 +1389,30 @@
       });
   }
 
+  // 173 (refonte « Vivant », accueil) — LA PROCHAINE SÉANCE : la routine qui SUIT, dans l'ordre de la bibliothèque, la dernière
+  // routine faite. Le dossier en cours est celui de cette dernière routine (un dossier est une étiquette, sans ordre ni cycle :
+  // l'ordre est celui de `visibles`, que la personne range) ; après la dernière du dossier, on reprend la première. Rien ne se
+  // déduit sans séance faite d'une routine encore là : pas de carte. `seances` : `[{ routine_id, debut }]`, dans n'importe quel ordre.
+  function routineSuivante(routines, seances) {
+    var vis = visibles(routines).filter(function (r) { return !r.archivee_a && r.id; });
+    var parId = {};
+    vis.forEach(function (r) { parId[r.id] = r; });
+    var derniere = null, quand = -Infinity;
+    (seances || []).forEach(function (s) {
+      if (!s || !s.routine_id || !parId[s.routine_id] || !s.debut) return;
+      var t = new Date(s.debut).getTime();
+      if (isNaN(t) || t <= quand) return;
+      quand = t;
+      derniere = parId[s.routine_id];
+    });
+    if (!derniere) return null;
+    var d = dossierPropre(derniere.dossier);
+    var groupe = vis.filter(function (r) { return dossierPropre(r.dossier) === d; });
+    var i = groupe.indexOf(derniere);
+    if (i < 0 || !groupe.length) return null;
+    return { routine: groupe[(i + 1) % groupe.length], derniere: derniere };
+  }
+
   // ⚠️ UNE CHAÎNE VIDE N'EST PAS LE RANG ZÉRO. `Number('')` et `Number('  ')`
   // valent 0 : sans ce filtre, une routine au rang vide passerait DEVANT tout le
   // monde et réclamerait un 0 peut-être déjà pris — donc un 23505 sur
@@ -1944,6 +1968,7 @@
     phraseRenommage: phraseRenommage,
     dossiersDe: dossiersDe,
     parDossier: parDossier,
+    routineSuivante: routineSuivante,
     nomLibre: nomLibre,
     copieDeRoutine: copieDeRoutine,
     routineDepuisSeance: routineDepuisSeance,

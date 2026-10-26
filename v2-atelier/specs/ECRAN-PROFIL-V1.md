@@ -507,7 +507,7 @@ maquette `maquette-questionnaire-v4.html`).
 - **Nouveaux champs du profil** (v2_065) : l'objectif et les priorités (« Ton but »), ce que la personne veut faire de
   son temps (avec la durée). Ce que les séries savent n'y figure pas.
 
-- **Leurs phrases, avec leurs lecteurs (08/10/2026, 60-2b)** — Objectif : « Il choisit la zone de ton premier bloc
+- **Leurs phrases, avec leurs lecteurs (08/10/2026, 60-2b)** — But d’entraînement (ex-« Objectif », 173) : « Il choisit la zone de ton premier bloc
   de programme : Lourd pour la force, Mix pour le muscle. » ; Priorités : « Un exercice prioritaire est coché d'office
   dans un programme. Un muscle prioritaire peut recevoir une série de plus jusqu'à ton plus haut volume, hors
   sèche. » ; Temps, selon la réponse : « Moins en ce moment » → « Quand ta routine dépasse ta durée visée, je te
@@ -704,3 +704,6 @@ interdit d'afficher ses percentiles, restreindre aux premières compétitions ne
 baisse la médiane que de 5 %, et un niveau tiré d'un seul mouvement est
 arbitraire. La spec est postérieure et fait autorité (`CLAUDE.md` §0). **Seul le
 niveau déclaré est implémenté ; le test 8 est vide, et il le dit.**
+
+## Refonte « Vivant » — le Profil rangé par fréquence (173, 25/10/2026, décision d'Aurélien)
+Mêmes lignes, mêmes réglages, mêmes feuilles ; l'écran se range en quatre groupes, du plus fréquent au plus rare, puis « en bas comme avant ». **Mon coach** : le réglage de progression (Prudent / Normal / Franc, section « TON RYTHME », précédée de « POURQUOI » — Progresser ou Juste un carnet), le poids (section « TON POIDS », la ligne « Poids » qui saisit une pesée), la phase, le but d'entraînement (« TON BUT » : But d'entraînement, Priorités), « TA SEMAINE ». **Mon programme** : « CE QUE JE FAIS » (Matériel, Ma salle, Zone à ménager, Exercices écartés, Refaire mon programme). **Moi** : « MON CORPS » (Taille, Date de naissance, Sexe), « DEPUIS QUAND ». **Mon compte** : « L'APP » (iPhone, Pseudo, Bio, E-mail, Mot de passe). En bas : MES EXERCICES, MES DONNÉES, LE JEU, Quitter, Supprimer mon compte. Le titre d'un groupe se dessine une fois, devant sa première section (`sec.groupe`). **« Objectif » du Profil devient « But d'entraînement »** (la ligne, la feuille, le récapitulatif du questionnaire) ; l'objectif d'un exercice reste « Mon objectif ». « Compte privé » n'est pas une ligne du Profil (il vit dans Amis) : il n'y est pas ajouté.

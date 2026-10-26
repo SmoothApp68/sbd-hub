@@ -666,7 +666,7 @@
         ? 'Je me tais. Un geste dans Profil si tu veux mes propositions.'
         : 'À ta première séance, je te propose tes charges. Tu peux toujours taper autre chose.',
       blocs: [{ type: 'resume', lignes: [
-        { libelle: 'Objectif', valeur: (rep.objectif && P.libelleDe(P.OBJECTIFS, rep.objectif)) || tiret, ecran: BUT },
+        { libelle: 'But d’entraînement', valeur: (rep.objectif && P.libelleDe(P.OBJECTIFS, rep.objectif)) || tiret, ecran: BUT },
         { libelle: 'Phase', valeur: phase || tiret, ecran: BUT },
         { libelle: 'Priorités', valeur: priorites || tiret, ecran: PRIORITES },
         { libelle: 'Temps', valeur: tempsTexte || tiret, ecran: TEMPS },

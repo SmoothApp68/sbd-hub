@@ -1271,10 +1271,18 @@
   function blocVolume(v) {
     var bloc = coquilleBloc('Volume par muscle', v.quand, false);
     if (v.zones && v.zones.length) {
+      // 173 (« Vivant ») — les mêmes nombres, en barres horizontales `--donnees` : largeur proportionnelle au plus grand, le nombre à droite.
       var grille = el('div', 'bloc-zones');
+      var plusGrand = Math.max.apply(null, v.zones.map(function (z) { return Number(z.series) || 0; }).concat([0]));
       v.zones.forEach(function (z) {
         var item = el('span', 'bloc-zone');
-        item.appendChild(doc.createTextNode(z.libelle + ' '));
+        item.appendChild(el('span', 'bz-nom', z.libelle));
+        item.appendChild(doc.createTextNode(' '));
+        var piste = el('i', 'bz-piste');
+        var barre = el('i', 'bz-barre');
+        barre.style.width = (plusGrand > 0 ? Math.round((Number(z.series) || 0) / plusGrand * 100) : 0) + '%';
+        piste.appendChild(barre);
+        item.appendChild(piste);
         item.appendChild(el('b', null, nombreFr(z.series)));
         grille.appendChild(item);
       });
@@ -1297,17 +1305,31 @@
       var ligne = el('div', 'bloc-pesee');
       ligne.appendChild(el('span', 'pesee-gros', nombreFr(r.poids)));
       ligne.appendChild(el('span', 'pesee-unite', 'kg'));
-      var droite = el('span', 'pesee-var', r.variation ? signe(r.variation.valeur) + ' kg' : '');
+      // 173 — ligne 1 : le poids à gauche, la variation à droite (même ligne de base) ; ligne 2 : « depuis le … · N pesées », pleine largeur.
       var an = r.date.getFullYear();
-      droite.appendChild(el('em', null,
+      ligne.appendChild(el('span', 'pesee-var', r.variation ? signe(r.variation.valeur) + ' kg' : ''));
+      bloc.appendChild(ligne);
+      bloc.appendChild(el('div', 'pesee-depuis',
         (r.variation ? 'depuis le ' + jour(r.variation.depuis, an) + ' \u00b7 ' : '') +
         r.nb + ' pesée' + (r.nb > 1 ? 's' : '')));
-      ligne.appendChild(droite);
-      bloc.appendChild(ligne);
     } else {
       bloc.appendChild(el('div', 'bloc-rien', 'Aucune pesée enregistrée.'));
     }
     bloc.addEventListener('click', v.surChoix);
+    // 173 — « Peser » : un bouton posé sur la carte (à côté d'elle dans le DOM : la carte est un bouton, on n'en imbrique pas un second).
+    if (v.surPeser) {
+      bloc.classList.add('avec-peser');
+      var env = el('div', 'bloc-enveloppe');
+      env.appendChild(bloc);
+      var rangeePeser = el('div', 'bloc-peser-rangee');
+      var pe = el('button', 'bloc-peser', 'Peser');
+      pe.type = 'button';
+      pe.setAttribute('aria-label', 'Peser');
+      pe.addEventListener('click', function () { v.surPeser(); });
+      rangeePeser.appendChild(pe);
+      env.appendChild(rangeePeser);
+      return env;
+    }
     return bloc;
   }
 
@@ -1332,6 +1354,13 @@
       ligne.appendChild(el('span', 'bloc-exo-jour', jour(l.jour)));
       bloc.appendChild(ligne);
     });
+    // 173 — « Tous mes exercices » sous les trois derniers : la même destination que la porte du Profil (qui reste).
+    if (v.surTous) {
+      var tous = el('button', 'bloc-tous', 'Tous mes exercices \u203a');
+      tous.type = 'button';
+      tous.addEventListener('click', function () { v.surTous(); });
+      bloc.appendChild(tous);
+    }
     return bloc;
   }
 
@@ -1352,7 +1381,18 @@
     if (v.records) bouts.push(pluriel(v.records, 'record'));
     if (v.paris && v.paris.verifies) bouts.push(v.paris.tenus + ' pari' + (v.paris.tenus > 1 ? 's' : '') +
       ' tenu' + (v.paris.tenus > 1 ? 's' : '') + ' sur ' + v.paris.verifies);
-    bloc.appendChild(el('div', 'bloc-ligne', bouts.join(' \u00b7 ')));
+    // 173 (« Vivant ») — le chiffre en héros : « 13 t » (puis « soulevées »), « 14 » (puis « records ») ; le texte, lui, ne change pas.
+    var ligneM = el('div', 'bloc-ligne bloc-heros');
+    bouts.forEach(function (b, i) {
+      // Le « · » reste dans le texte lu (banc, lecteurs) mais ne se dessine pas : l'espace (gap) sépare les blocs, rien ne pend en fin de ligne.
+      if (i > 0) { var sepM = el('span', 'bh-sep', ' \u00b7 '); sepM.setAttribute('aria-hidden', 'true'); ligneM.appendChild(sepM); }
+      var m = /^(\d[\d,.\u00a0]*?(?:\u00a0t)?)(\s.*)$/.exec(b);
+      var bout = el('span', 'bh-bout' + (i === 0 ? ' bh-premier' : ''));
+      if (m) { bout.appendChild(el('span', 'bh-n', m[1])); bout.appendChild(doc.createTextNode(m[2])); }
+      else bout.appendChild(doc.createTextNode(b));
+      ligneM.appendChild(bout);
+    });
+    bloc.appendChild(ligneM);
     bloc.addEventListener('click', v.surChoix);
     return bloc;
   }
@@ -1363,9 +1403,19 @@
     bloc.classList.add('neuf');
     var haut = bloc.querySelector('.bloc-quoi');
     if (haut) haut.insertBefore(pastilleMedaille(), haut.firstChild);
-    bloc.appendChild(el('div', 'bloc-ligne', v.dernier
-      ? 'Le dernier : ' + v.dernier.texte + ', le ' + v.dernier.date + (/\.$/.test(v.dernier.date) ? '' : '.')
-      : 'Aucun record pour l\u2019instant.'));
+    // 173 (« Vivant ») — la charge × reps en gras sur le dernier record (la pastille `--record`, en CSS). Même texte.
+    var ligneR = el('div', 'bloc-ligne');
+    if (v.dernier) {
+      ligneR.classList.add('bloc-dernier');
+      // L'étoile et la pastille « RECORD » sont dessinées par CSS (::before) : le texte de la ligne reste celui d'avant.
+      ligneR.appendChild(doc.createTextNode('Le dernier : '));
+      if (v.dernier.nom && v.dernier.mesure) {
+        ligneR.appendChild(doc.createTextNode(v.dernier.nom + ' '));
+        ligneR.appendChild(el('b', 'rec-mesure', v.dernier.mesure));
+      } else ligneR.appendChild(doc.createTextNode(v.dernier.texte));
+      ligneR.appendChild(doc.createTextNode(', le ' + v.dernier.date + (/\.$/.test(v.dernier.date) ? '' : '.')));
+    } else ligneR.appendChild(doc.createTextNode('Aucun record pour l\u2019instant.'));
+    bloc.appendChild(ligneR);
     if (v.surChoix) bloc.addEventListener('click', v.surChoix);
     return bloc;
   }
@@ -2785,7 +2835,7 @@
         // 154 — « garde-en N » : l'étiquette de la réserve visée, UNE FOIS, au bout de la première ligne de la consigne.
         var gardeEn = !vue.programme && typeof vue.reserveVisee === 'function' ? vue.reserveVisee(x._iExo) : null;
         (lib.jaune || []).forEach(function (l, iJ) {
-          var ligneJ = el('div', 'consigne', l);
+          var ligneJ = consigneVivante(l, iJ);
           // Un attribut, rendu par CSS (`::after`) : le texte de la consigne reste celui du moteur, mot pour mot.
           if (iJ === 0 && gardeEn !== null && gardeEn !== undefined) ligneJ.setAttribute('data-garde', 'garde-en\u00a0' + gardeEn);
           entree.appendChild(tapable(ligneJ));
@@ -2810,6 +2860,48 @@
       tete.appendChild(entree);
     });
     return tete;
+  }
+
+  // 173 (refonte « Vivant », 25/10/2026) — LA CONSIGNE EN HÉROS. Le texte du coach ne change pas d'un mot : « Aujourd'hui : 105 kg × 5. »
+  // reste dans le DOM (textContent identique, lu en entier par les lecteurs d'écran, `aria-label` compris) ; on le découpe en
+  // <span> pour que la charge et les reps prennent la taille du chiffre du jour. L'étiquette « AUJOURD'HUI » est dessinée par CSS
+  // (le mot « Aujourd'hui : » reste présent, hors de vue). Les autres formes gardent leur phrase, en plus grand.
+  // Correctif 173 : le héros vaut pour TOUTE ligne de consigne qui commence par un chiffre (« 102,5 kg × 9 », « Aujourd'hui : 105 kg × 5. »,
+  // « ≈ 35 kg × 8 », « 45 s », « 1 min 30 »…) ; l'étiquette AUJOURD'HUI n'existe que là où la phrase « Aujourd'hui : » existait déjà.
+  var RE_FOIS = /^(Aujourd'hui\s:\s)?((?:≈\s)?\d[\d,.]*)(\skg\s×\s)(\d+)([\s\S]*)$/;
+  var RE_NOMBRE = /^(Aujourd'hui\s:\s)?((?:≈\s)?\d[\d,.]*)([\s\S]*)$/;
+  var RE_SI_CA_PASSE = /^(Si ça passe,\s)((?:≈\s)?[\d,.]+\skg\s×\s\d+)(.*)$/;
+  function consigneVivante(l, iJ) {
+    var m = RE_FOIS.exec(l), n = m ? null : RE_NOMBRE.exec(l);
+    if (m || n) {
+      var h = el('div', 'consigne consigne-heros' + ((m || n)[1] ? ' avec-mot' : ''));
+      h.setAttribute('aria-label', l);
+      var mot = (m || n)[1];
+      if (mot) h.appendChild(el('span', 'c-mot', mot));
+      var groupe = el('span', 'c-chiffre');
+      if (m) {
+        groupe.appendChild(el('span', 'c-charge', m[2]));
+        groupe.appendChild(el('span', 'c-kg', m[3]));
+        groupe.appendChild(el('span', 'c-reps', m[4]));
+      } else {
+        groupe.appendChild(el('span', 'c-charge', n[2]));
+        if (n[3]) groupe.appendChild(el('span', 'c-kg', n[3]));
+      }
+      h.appendChild(groupe);
+      var reste = m ? m[5] : '';
+      if (reste) h.appendChild(el('span', reste === '.' ? 'c-point' : 'c-reste', reste));
+      return h;
+    }
+    var sp = iJ > 0 ? RE_SI_CA_PASSE.exec(l) : null;
+    if (sp) {
+      var b = el('div', 'consigne si-ca-passe');
+      b.appendChild(el('span', '', sp[1]));
+      b.appendChild(el('b', 'sp-chiffre', sp[2]));
+      if (sp[3]) b.appendChild(el('span', '', sp[3]));
+      return b;
+    }
+    if (iJ > 0 && /^Si ça passe,/.test(l)) return el('div', 'consigne si-ca-passe', l);
+    return el('div', 'consigne consigne-grande', l);
   }
 
   // ⚠️ PAS DE `stopPropagation` ICI. Le seul parent qui écoute le clic est un
@@ -3256,7 +3348,7 @@
       (s.debutTour && !(reaction && reaction.message) ? ' debut-tour' : '') +
       (proposee ? ' proposee' : '') + (ajoutee ? ' ajoutee' : ''));
     var fond = el('div', 'glisse-fond', 'Supprimer');
-    var rangee = el('div', 'serie' + classeGrille + (allumee ? ' faite' : ''));
+    var rangee = el('div', 'serie' + classeGrille + (allumee ? ' faite' : '') + (!vue.programme && s.faite ? ' fait' : ''));
     rangee.setAttribute('data-iexo', iExo);
     rangee.setAttribute('data-iserie', iSerie);
 
@@ -3371,6 +3463,8 @@
     if (g.effort && !vue.programme) {
       var eff = el('button', 'eff-serie num' + (texteEffort(s) ? ' plein' : ''), texteEffort(s));
       eff.type = 'button';
+      // 173 — le mot « fait » d'une série validée sans effort : dessiné par CSS depuis cet attribut (le contenu du bouton reste vide).
+      if (s.faite && !texteEffort(s)) eff.setAttribute('data-fait', 'fait');
       eff.addEventListener('click', function () { vue.surEffort(iExo, iSerie); });
       rangee.appendChild(eff);
     }
@@ -5579,6 +5673,36 @@
     return cible;
   }
 
+  // 173 (refonte « Vivant ») — « PROCHAINE SÉANCE », en tête de l'accueil : la routine qui suit la dernière faite, son résumé (comme la
+  // carte de routine de Saisie) et [Démarrer] — le même démarrage. `vue` : `{ routine, catalogue, temps, enCours, surDemarrer, surReprendre,
+  // surAutre }`. Sans routine, le conteneur se cache. Rien n'est calculé ici : l'app a choisi la routine.
+  function rendreProchaineSeance(cible, vue) {
+    vider(cible);
+    var r = vue && vue.routine;
+    if (!r) { cible.hidden = true; return cible; }
+    cible.hidden = false;
+    var carte = el('div', 'prochaine');
+    carte.appendChild(el('div', 'prochaine-eti', 'PROCHAINE SÉANCE'));
+    carte.appendChild(el('div', 'prochaine-nom', r.nom));
+    var a = R().apercu(r.exercices, vue.catalogue);
+    var temps = vue.temps ? vue.temps(r) : null;
+    carte.appendChild(el('div', 'prochaine-meta',
+      a.nbExercices + ' exercice' + (a.nbExercices > 1 ? 's' : '') + ' \u00b7 ' + a.nbSeries + ' série' + (a.nbSeries > 1 ? 's' : '') +
+      (temps && temps.texte ? ' \u00b7 ' + temps.texte : '')));
+    var pied = el('div', 'prochaine-pied');
+    var go = el('button', 'principal prochaine-go', vue.enCours ? 'Reprendre' : 'Démarrer');
+    go.type = 'button';
+    go.addEventListener('click', function () { if (vue.enCours) { if (vue.surReprendre) vue.surReprendre(); } else if (vue.surDemarrer) vue.surDemarrer(r.id); });
+    pied.appendChild(go);
+    var autre = el('button', 'discret prochaine-autre', 'Autre routine \u203a');
+    autre.type = 'button';
+    autre.addEventListener('click', function () { if (vue.surAutre) vue.surAutre(); });
+    pied.appendChild(autre);
+    carte.appendChild(pied);
+    cible.appendChild(carte);
+    return cible;
+  }
+
   // Une routine de la bibliothèque : sa carte et ses actions.
   function rangeeDeRoutine(r, v) {
     var carte = el('button', 'routine');
@@ -5849,12 +5973,18 @@
     });
     cible.appendChild(chiffres);
 
+    var groupeVu;
     (vue.sections || []).forEach(function (sec) {
       // ⚠️ UNE SECTION ABSENTE VAUT `null`, ET C'EST ICI QU'ON LA SAUTE.
       // « Ton rythme » n'existe pas en Entretenir (ECRAN-PROFIL §2.3), et
       // d'autres suivront. Filtrer chez l'appelant demandait à chaque écran d'y
       // penser ; une garde ici le fait une fois pour toutes, et elle se teste.
       if (!sec) return;
+      // 173 (« Vivant ») — le titre du groupe (« Mon coach »…), une fois, devant la première section du groupe.
+      if (sec.groupe !== groupeVu) {
+        groupeVu = sec.groupe;
+        if (groupeVu) cible.appendChild(el('h2', 'p-grp', groupeVu));
+      }
       cible.appendChild(el('div', 'p-sect', sec.titre));
       var g = el('div', 'p-groupe');
       // La voix du coach sous le titre, puis le choix, puis une ligne grise
@@ -8154,6 +8284,7 @@
     brancherReorganisation: brancherReorganisation,
     rendrePiedReorganisation: rendrePiedReorganisation,
     rendreListeRoutines: rendreListeRoutines,
+    rendreProchaineSeance: rendreProchaineSeance,
     rendreRelecture: rendreRelecture,
     rendreFeuilleExoRoutine: rendreFeuilleExoRoutine,
     champChrono: champChrono,

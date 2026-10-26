@@ -451,7 +451,7 @@ const baseSansPseudo = () => {
 };
 const PHRASE_PRIS = 'Ce pseudo vient d’être pris : choisis-en un autre.';
 const choisirObjectif = async (page, cle) => {
-  await cliquerLigne(page, 'Objectif');
+  await cliquerLigne(page, 'But d’entraînement');
   await feuilleOuverte(page);
   await page.click('#feuille-contenu .feuille-menu button[data-cle="' + cle + '"]');
 };
@@ -562,7 +562,7 @@ function ok(nom, cond, detail) {
       const avant = bd.requetes.length;
       await page.evaluate((s) => localStorage.setItem('th-v2-auth', s), JSON.stringify(sessionDe(B)));
       await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
-        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Objectif') === 0)[0].click());
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('But d’entraînement') === 0)[0].click());
       await feuilleOuverte(page);
       await page.click('#feuille-contenu .feuille-menu button[data-cle="force"]');
       await attendreQue(page, () => !!bd.profils[B], 12000);

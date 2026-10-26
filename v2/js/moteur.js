@@ -6682,7 +6682,8 @@
     var ligne = prop.charge === null ? c.ligne : { charge: prop.charge, vise: prop.vise };
     var sortie = Object.assign({}, c, {
       ligne: ligne, haut: null,
-      fondement: prop.charge === null ? c.fondement : fondementApproche(c, false),
+      // I61 : « approchée » ne reste au fondement que si la ligne gardée l'est (la ligne haute, souvent la seule approchée, part).
+      fondement: fondementApproche(c, !!ligne && ligne.approchee === true),
       alleger: { mode: prop.mode, routine: prop.routine, series: prop.series, charge: prop.charge, palier: nombre(c.palier) }
     });
     if (prop.mode === 'serie') { sortie.n = prop.series; sortie.couvre = prop.series; }

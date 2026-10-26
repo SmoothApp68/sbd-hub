@@ -151,6 +151,14 @@ describe('174 — le plan : la carte, le refus, l\'acceptation', () => {
     expect(T.lignesARetirer(d.p)).toEqual([{ iExo: 0, iSerie: 2 }]);
     sansErreur(d);
   });
+  test('DISCRIMINANT — la ligne haute (souvent la seule « approchée ») part : le fondement ne dit plus « approchée » (I61)', () => {
+    const oui = marche('alleger', 'acceptee', '2026-10-29', 12, 'S1');
+    const d = decor({ seance: 'S2', debut: '2026-11-01T10:00:00+00:00', compteur: 13, marches: [PLUS, DEG, oui],
+      consigne: { haut: { charge: 110, vise: 10, k: 1, approchee: true }, fondement: { approchee: true } } });
+    expect(d.p.exercices[0].consigne.haut).toBeNull();
+    expect(d.p.exercices[0].consigne.fondement.approchee).toBeUndefined();
+    sansErreur(d);
+  });
   test('DISCRIMINANT — une série VALIDÉE n\'est jamais retirée', () => {
     const oui = marche('alleger', 'acceptee', '2026-10-29', 12, 'S1');
     const d = decor({ seance: 'S2', debut: '2026-11-01T10:00:00+00:00', compteur: 13, marches: [PLUS, DEG, oui],

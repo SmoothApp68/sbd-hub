@@ -662,6 +662,23 @@
     var v = profil && profil.lest_reponse;
     return v === 'oui' || v === 'non' ? v : null;
   }
+  // 175 (MOTEUR §9.17 bis) — LA VARIANTE SANS MATÉRIEL de la marche lestée d'un exercice (`Modele.marcheSuivante`, la seule
+  // définition), `{ slug, nom }`, ou `null`. La carte du lest la propose avec le lest.
+  function varianteDe(index, slug) {
+    var m = index && slug ? Modele.marcheSuivante(index, slug) : null;
+    if (!m || m.type !== 'lest' || !m.variante || !index[m.variante]) return null;
+    return { slug: m.variante, nom: index[m.variante].nom || m.variante };
+  }
+  // 175 — LA RÉPONSE AU LEST D'UN EXERCICE : celle du profil ; sinon, sur un exercice dont la carte du lest proposait aussi
+  // la variante, une réponse à cette carte (`marche_reponses[slug]` : la variante ajoutée, ou « Rester aux … ») vaut « pas de
+  // lest » pour lui seul — la carte du lest ne revient pas, et les reps continuent. Le profil, lui, n'est pas touché.
+  function lestReponseDeLExercice(slug) {
+    var g = lestReponseDe();
+    if (g !== null) return g;
+    var r = slug ? marcheReponsesDe()[slug] : null;
+    if (r && typeof r === 'object' && (r.r === 'oui' || r.r === 'non') && varianteDe(catalogueIndexe(), slug)) return 'non';
+    return null;
+  }
 
   // MOTEUR §9.17 bis (127) — les réponses à la carte « marche suivante », lues au profil (`marche_reponses`, v2_099) :
   // `{ [slug de départ]: { r, le, aide } }`, ou `{}` (pas de réponse, colonne absente). La démonstration (`demoMarche`)
@@ -5600,7 +5617,7 @@
     var seriesFigees;
     var attendait = consignes.parSlug[slug];
     if (attendait && attendait.consigne && attendait.consigne.etat === 'carte_lest' &&
-        lestReponseDe() !== null) {
+        lestReponseDeLExercice(slug) !== null) {
       seriesFigees = attendait.seriesRoutine;
       delete consignes.parSlug[slug];
     }
@@ -5650,7 +5667,8 @@
   // §9.17 bis (127) — la marche suivante d'un exercice, quand le coach peut la proposer (`Modele.marcheSuivante`,
   // la seule définition), sinon `null`.
   function marcheAProposer(index, slug) {
-    var m = Modele.marcheSuivante(index, slug);
+    // 175 — « Pas de lest » (le profil, ou la réponse de l'exercice) : la variante sans matériel devient la marche.
+    var m = Modele.marcheSuivante(index, slug, { lestRefuse: lestReponseDeLExercice(slug) === 'non' });
     return m && m.proposable ? m : null;
   }
 
@@ -5745,7 +5763,7 @@
       intention: intentionDeLExercice(slug),
       // §9.17 — la réponse à la carte du lest (profil), et ce que le catalogue
       // sait livrer : sans version lestée, la carte ne se pose pas.
-      lestReponse: lestReponseDe(),
+      lestReponse: lestReponseDeLExercice(slug),
       lestPossible: exo ? Modele.lesteDe(index, slug) !== null : false,
       // §9.17 bis (127) — l'exercice est sur une échelle avec une marche à proposer : le fondement porte alors ses
       // deux dernières séances (`deuxSeances`), que lit la carte « marche suivante ».
@@ -6340,6 +6358,8 @@
                             mesure: gc.inconnue ? null : (estSalleElastique(Profil.salleDeLExercice(profil, slug, index))
                               ? 'charge_reps' : gc.mesure),
                             leste: Modele.lesteDe(index, slug),
+                            // 175 (MOTEUR §9.17 bis) — la variante sans matériel que la carte du lest propose avec le lest.
+                            variante: varianteDe(index, slug),
                             // MOTEUR §10 bis (108) — la salle déclarée (chauffes et
                             // dégressive d'un exercice sans consigne), ou `null`.
                             salle: Profil.salleDeLExercice(profil, slug, index) };
@@ -7344,6 +7364,12 @@
     var x = planDeLExercice(iExo);
     var carte = x && x.carteLest;
     if (!carte) return;
+    // 175 (MOTEUR §9.17 bis) — la carte du lest qui propose aussi la variante sans matériel : « Pompes Déclinées » s'ajoute
+    // comme une marche (`marche_reponses[slug]`, `oui`), « Rester aux … » est un refus gardé (`non`) ; ni l'un ni l'autre
+    // n'écrit « Pas de lest » au profil (`lestReponseDeLExercice`). « Ajouter du lest » est le `oui` d'avant.
+    if (carte.variante && (reponse === 'variante' || reponse === 'non')) {
+      return repondreMarche(iExo, reponse === 'variante' ? 'oui' : 'non', { cible: carte.variante.slug, aide: false });
+    }
     var oui = reponse === 'oui';
     var leste = carte.leste;
     reponseEnCours = true;
@@ -7376,10 +7402,11 @@
   //   · « Pas maintenant » : `{ r: 'non', le, aide }` — `aide`, la charge de la dernière séance quand l'exercice est
   //     une aide (la carte revient à une aide plus légère). La séance ne change pas.
   // La démonstration (`demoEscalier`) garde la réponse EN MÉMOIRE (`demoMarche`) : rien ne s'écrit.
-  async function repondreMarche(iExo, reponse) {
+  async function repondreMarche(iExo, reponse, carteLest) {
     if (!seance || enEdition() || reponseEnCours) return;
     var x = planDeLExercice(iExo);
-    var carte = x && x.carteMarche;
+    // 175 — `carteLest` : la réponse vient de la carte du lest (la variante sans matériel), pas de la carte « marche suivante ».
+    var carte = carteLest || (x && x.carteMarche);
     if (!carte) return;
     var oui = reponse === 'oui';
     var slug = x.slug;
@@ -11691,7 +11718,8 @@
     });
     // La phrase se tait en carnet (le profil) ; en Entretenir (l'exercice de départ), `phraseDe` le sait.
     var phraseDe = function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { reglage: Profil.rythmeDe(profil) })); };
-    return Modele.vueEchelle(index, slug, faites, zonesHaut, !Moteur.coachSeTait(profil && profil.intention), phraseDe);
+    return Modele.vueEchelle(index, slug, faites, zonesHaut, !Moteur.coachSeTait(profil && profil.intention), phraseDe,
+      { lestRefuse: lestReponseDe() === 'non' });
   }
 
   // 145 (ECRAN-SAISIE §7 quater.7, maquette `maquette-semaine-echelles-v1.html`, validée le 23/10/2026) — « TES ÉCHELLES
@@ -11756,6 +11784,7 @@
                                                          texte: meilleurTexte(n.ancienne.slug, n.ancienne.series) } } : null };
     });
     var cartes = Modele.vueEchellesDeLaSemaine(index, items, {
+      lestRefuse: lestReponseDe() === 'non',
       faites: faites, zonesHaut: zonesHaut, coachActif: !Moteur.coachSeTait(profil && profil.intention),
       phraseDe: function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { court: true, reglage: Profil.rythmeDe(profil) })); },
       rondsDe: function (slug, e) {

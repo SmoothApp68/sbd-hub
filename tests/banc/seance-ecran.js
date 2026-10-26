@@ -25657,6 +25657,154 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ plafond-echelle. L’ÉCHELLE PROPOSE AUSSI LA VARIANTE SANS MATÉRIEL : LA CARTE DU LEST À TROIS GESTES, LA VARIANTE SEULE APRÈS « PAS DE LEST », 30 REPS = LE PLAFOND (175, MOTEUR §9.17 bis) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une échelle de pompes à la taille de la vraie (la stricte, sa version lestée ET une
+  // variante déclinée au même rang), quatre séances de la stricte au HAUT de la zone (12). Le banc lit le plan que l'app
+  // calcule et l'écran :
+  //   A — la carte du lest propose les DEUX (« Ajouter du lest » / la variante / « Rester aux … ») ;
+  //   B — la variante s'ajoute JUSTE AVANT, par `marche_reponses`, sans écrire « Pas de lest » au profil ; la carte ne revient pas ;
+  //   C — « Rester aux … » est un refus gardé (`marche_reponses[…] = non`), la carte ne revient pas non plus ;
+  //   D — « Pas de lest » déjà répondu au profil : la carte de la marche suivante propose la variante SEULE ;
+  //   E — à 30 reps, la phrase du plafond (jamais « une rep de plus »).
+  {
+    const t175 = Date.now();
+    const rendreBlocs175 = await retirerBlocsDeLAppareil();
+    const erreurs175 = erreurs.length;
+    const refus175 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations175 = gardeBanc.violations;
+    const catalogueAvant175 = CATALOGUE.length, routinesAvant175 = ROUTINES.length;
+    const sessionsAvant175 = base.sessions, setsAvant175 = base.sets;
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const E175 = 'po-u175';
+    [['po-u175', 'Pompes U175', 'reps', 'aucune', 'force', 2, null],
+     ['po-u175-leste', 'Pompes U175 Lestées', 'charge_reps', 'ajoutee', 'force', 3, E175],
+     ['po-u175-decl', 'Pompes U175 Déclinées', 'reps', 'aucune', 'force', 3, null]
+    ].forEach(([slug, nom, mesure, charge, nature, rang, parent]) => CATALOGUE.push({ slug, nom, mesure, charge,
+      equipement: 'aucun', parent, nature, habilete: false, actif: true,
+      muscles_primaires: ['pectoraux'], muscles_secondaires: [], echelle: E175, echelle_rang: rang }));
+    base.sessions = base.sessions.slice();
+    base.sets = base.sets.slice();
+    const poser175 = (id, jours, reps) => {
+      const debut = ilYa(jours * 86400000, t175).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Plafond — ' + id, debut, fin: finDe(debut, t175).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((k) => base.sets.push({ id: id + '-s' + k, session_id: id, user_id: 'u-banc',
+        exercise_slug: 'po-u175', charge_kg: 0, reps, duree_s: null, distance_m: null, type_serie: 'travail',
+        rang: k, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null,
+        source: 'app', created_at: debut, modifie_a: null }));
+    };
+    const poserSeances175 = (reps) => { [28, 21, 14, 7].forEach((j, i) => poser175('p175-' + reps + '-' + i, j, reps)); };
+    const retirerSeances175 = () => {
+      base.sessions = base.sessions.filter((x) => String(x.id).indexOf('p175-') !== 0);
+      base.sets = base.sets.filter((x) => String(x.id).indexOf('p175-') !== 0);
+    };
+    ROUTINES.push({ id: 'r-u175', nom: 'Plafond U175', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-u175-a', routine_id: 'r-u175', exercise_slug: 'po-u175', rang: 0,
+        routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const profil175 = () => base.profiles[0];
+    const marcheAvant175 = profil175().marche_reponses, lestAvant175 = profil175().lest_reponse, lestLeAvant175 = profil175().lest_reponse_le;
+    const plan175 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? d.plan.exercices.map((x) => ({ slug: x.slug, etat: x.consigne ? x.consigne.etat : null,
+        lest: x.carteLest ? { oui: x.carteLest.oui, non: x.carteLest.non, variante: x.carteLest.variante || null, detail: x.carteLest.detail } : null,
+        marche: x.carteMarche ? { cible: x.carteMarche.cible, oui: x.carteMarche.oui, non: x.carteMarche.non } : null })) : null;
+    });
+    const cartes175 = () => page.evaluate(() => Array.from(document.querySelectorAll('.proposition-lest')).map((c) => ({
+      marche: c.classList.contains('proposition-marche'),
+      texte: (c.querySelector('.pc-texte') || {}).textContent, detail: (c.querySelector('.pc-detail') || {}).textContent,
+      boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) })));
+    const exos175 = () => page.evaluate(() => (window.THPlan && window.THPlan.dernier ? window.THPlan.dernier.plan.exercices.map((x) => x.slug) : []));
+    const pret175 = () => jusqua(() => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return !!d && d.plan.exercices.length > 0 && document.querySelectorAll('.legende-exo .consigne').length > 0;
+    }), 8000);
+    const demarrer175 = async () => { await aller('/saisie'); await demarrerRoutine('Plafond U175'); await pret175(); };
+
+    // ── A. La carte du lest propose les deux.
+    poserSeances175(12);
+    await demarrer175();
+    const a175 = await plan175();
+    const xa175 = a175 && a175.filter((x) => x.slug === 'po-u175')[0];
+    ok('[175] A — DISCRIMINANT : pompes au haut de la zone deux séances de suite : le plan pose la carte du lest AVEC la variante (les déclinées), et pas de carte « marche suivante »',
+      !!xa175 && xa175.etat === 'carte_lest' && !!xa175.lest && !!xa175.lest.variante && xa175.lest.variante.slug === 'po-u175-decl' && xa175.marche === null,
+      JSON.stringify(a175));
+    const ca175 = await cartes175();
+    ok('[175] A — UNE carte à l’écran, trois gestes : « Ajouter du lest » / « Pompes U175 Déclinées » / « Rester aux Pompes U175 », sans point d’interrogation',
+      ca175.length === 1 && !ca175[0].marche &&
+        JSON.stringify(ca175[0].boutons.map(sp)) === JSON.stringify(['Ajouter du lest', 'Pompes U175 Déclinées', 'Rester aux Pompes U175']) &&
+        /ou Pompes U175 Déclinées, sans matériel\.$/.test(sp(ca175[0].detail)) && !/\?/.test(ca175[0].texte + ca175[0].detail),
+      JSON.stringify(ca175));
+
+    // ── B. La variante s'ajoute juste avant ; ni « Pas de lest » au profil, ni retour de la carte.
+    await page.evaluate(() => document.querySelectorAll('.proposition-lest .pc-choix button')[1].click());
+    await jusqua(async () => !!(profil175().marche_reponses && profil175().marche_reponses['po-u175']), 8000);
+    await jusqua(async () => (await exos175()).length === 2, 8000);
+    const rb175 = profil175().marche_reponses && profil175().marche_reponses['po-u175'];
+    ok('[175] B — la variante s’écrit comme une marche : `marche_reponses[po-u175] = { r: oui }`, et JAMAIS « Pas de lest » au profil',
+      !!rb175 && rb175.r === 'oui' && !!rb175.le && !profil175().lest_reponse, JSON.stringify([profil175().marche_reponses, profil175().lest_reponse]));
+    const b175 = await exos175();
+    ok('[175] B — DISCRIMINANT : les déclinées JUSTE AVANT les pompes, qui restent ; plus de carte',
+      JSON.stringify(b175) === JSON.stringify(['po-u175-decl', 'po-u175']) && (await cartes175()).length === 0, JSON.stringify([b175, await cartes175()]));
+    await abandonner();
+    await demarrer175();
+    ok('[175] B — la carte ne revient jamais (les reps continuent, une de plus)', (await cartes175()).length === 0, JSON.stringify(await cartes175()));
+    await abandonner();
+
+    // ── C. « Rester aux … » : un refus gardé, la carte ne revient pas.
+    profil175().marche_reponses = marcheAvant175;
+    await demarrer175();
+    ok('[175] C — sans réponse, la carte est de retour (la réponse se relit au profil)', (await cartes175()).length === 1, JSON.stringify(await cartes175()));
+    await page.evaluate(() => document.querySelectorAll('.proposition-lest .pc-choix button')[2].click());
+    await jusqua(async () => !!(profil175().marche_reponses && profil175().marche_reponses['po-u175']), 8000);
+    await jusqua(async () => (await cartes175()).length === 0, 8000);
+    const rc175 = profil175().marche_reponses && profil175().marche_reponses['po-u175'];
+    ok('[175] C — DISCRIMINANT : « Rester aux … » est gardé (`marche_reponses[po-u175] = { r: non }`), sans « Pas de lest » au profil, sans exercice ajouté ; la carte disparaît',
+      !!rc175 && rc175.r === 'non' && !profil175().lest_reponse && JSON.stringify(await exos175()) === JSON.stringify(['po-u175']) &&
+        (await cartes175()).length === 0, JSON.stringify([profil175().marche_reponses, await exos175()]));
+    await abandonner();
+    await demarrer175();
+    ok('[175] C — le refus est relu : séance suivante, aucune carte', (await cartes175()).length === 0, JSON.stringify(await cartes175()));
+    await abandonner();
+
+    // ── D. « Pas de lest » déjà répondu : la variante, seule, par la carte de la marche suivante.
+    profil175().marche_reponses = marcheAvant175;
+    profil175().lest_reponse = 'non';
+    profil175().lest_reponse_le = '2026-10-01T10:00:00.000Z';
+    await demarrer175();
+    const d175 = await plan175();
+    const xd175 = d175 && d175.filter((x) => x.slug === 'po-u175')[0];
+    ok('[175] D — DISCRIMINANT : « Pas de lest » au profil → la carte de la marche suivante propose la variante seule (une carte, pas de carte du lest)',
+      !!xd175 && !xd175.lest && !!xd175.marche && xd175.marche.cible === 'po-u175-decl', JSON.stringify(d175));
+    const cd175 = await cartes175();
+    ok('[175] D — à l’écran : « Ajouter Pompes U175 Déclinées » / « Pas maintenant »',
+      cd175.length === 1 && cd175[0].marche && JSON.stringify(cd175[0].boutons.map(sp)) === JSON.stringify(['Ajouter Pompes U175 Déclinées', 'Pas maintenant']),
+      JSON.stringify(cd175));
+    await abandonner();
+
+    // ── E. 30 reps : le plafond sans lest.
+    retirerSeances175();
+    poserSeances175(30);
+    await demarrer175();
+    const ligneGrise175 = await page.evaluate(() => Array.from(document.querySelectorAll('.legende-exo')).map((n) => n.textContent).join(' | '));
+    ok('[175] E — DISCRIMINANT : 30 reps sur toutes les séries → « Ton plafond sans lest. », jamais « Une rep de plus »',
+      /Ton plafond sans lest\./.test(sp(ligneGrise175)) && !/Une rep de plus/.test(sp(ligneGrise175)), sp(ligneGrise175).slice(0, 300));
+    await abandonner();
+
+    ok('[175] la garde n’a rien signalé', gardeBanc.violations === violations175, String(gardeBanc.violations - violations175) + ' ' + JSON.stringify(gardeBanc.liste.slice(-2)));
+    ROUTINES.splice(routinesAvant175, ROUTINES.length - routinesAvant175);
+    CATALOGUE.splice(catalogueAvant175, CATALOGUE.length - catalogueAvant175);
+    retirerSeances175();
+    base.sessions = sessionsAvant175; base.sets = setsAvant175;
+    profil175().marche_reponses = marcheAvant175; profil175().lest_reponse = lestAvant175; profil175().lest_reponse_le = lestLeAvant175;
+    rendreBlocs175();
+    await aller('/saisie');
+    ok('[175] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refus175 && erreurs.length === erreurs175,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus175), erreurs.slice(erreurs175)]));
+  }
+
   console.log('\n══ demander-coach. « DEMANDER AU COACH » : LE BOUTON, L’ACCORD, UNE PUCE, UNE DOULEUR QUI NE PART PAS, LE QUOTA, SANS RÉSEAU (160, ECRAN-SAISIE §3.10 ter) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice à la barre, 40 kg × 9 trois séances de suite, séance du jour ouverte, la feuille

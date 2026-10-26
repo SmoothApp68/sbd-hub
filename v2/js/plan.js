@@ -1372,12 +1372,18 @@
         if (!carteLestPosee && fl && kl.etat === 'carte_lest' && !kl.allegee) {
           carteLestPosee = true;
           var M2 = Moteur(), V2 = Voix();
-          var entreeLest = { niveau: Math.min.apply(null, fl.niveaux), bas: fl.bas, reglage: reglagePlan === 'franc' ? 'franc' : null };
+          // 175 — la variante sans matériel (le catalogue la lit, `Modele.marcheSuivante`) : la carte propose les deux.
+          var varianteLest = cat && cat.variante && cat.variante.slug ? cat.variante : null;
+          var entreeLest = { niveau: Math.min.apply(null, fl.niveaux), bas: fl.bas, reglage: reglagePlan === 'franc' ? 'franc' : null,
+                             variante: varianteLest ? (varianteLest.nom || varianteLest.slug) : null };
           var capLT = V2.capturer(function () { return M2.carteLestTitre(entreeLest); });
           var capLD = V2.capturer(function () { return M2.carteLestDetail(entreeLest); });
-          x.carteLest = { titre: capLT.texte, detail: capLD.texte, oui: M2.OUI_LEST, non: M2.NON_LEST,
+          x.carteLest = { titre: capLT.texte, detail: capLD.texte,
+                          oui: varianteLest ? M2.OUI_LEST_VARIANTE : M2.OUI_LEST,
+                          non: varianteLest ? M2.nonLestVariante(cat && cat.nom ? cat.nom : slug) : M2.NON_LEST,
                           niveaux: fl.niveaux.slice(), bas: fl.bas, haut: fl.haut,
                           leste: cat && cat.leste ? cat.leste : null };
+          if (varianteLest) x.carteLest.variante = { slug: varianteLest.slug, nom: varianteLest.nom || varianteLest.slug };
           // §20 bis — le titre et le détail se vérifient comme toute phrase du coach.
           x.phrases.push({ ou: 'lest.titre', texte: capLT.texte, citations: capLT.citations });
           x.phrases.push({ ou: 'lest.detail', texte: capLD.texte, citations: capLD.citations });
@@ -3409,6 +3415,11 @@
           err('I29', 'une carte du lest sans deux séances au haut de la zone (' + JSON.stringify(nv) + ')');
         }
         if (!x.carteLest.leste) err('I29', 'une carte du lest sans version lestée à poser');
+        // 175 (§9.17 bis) — la variante sans matériel : un autre exercice que le lest, jamais seul sur la carte.
+        if (x.carteLest.variante !== undefined && (!x.carteLest.variante || !x.carteLest.variante.slug ||
+            x.carteLest.variante.slug === x.carteLest.leste || x.slug === x.carteLest.variante.slug)) {
+          err('I29', 'la variante de la carte du lest est absente, ou c’est le lest ou l’exercice lui-même');
+        }
         if (/\?/.test(String(x.carteLest.titre) + String(x.carteLest.detail))) err('I29', 'un point d’interrogation dans la carte du lest (§20.2)');
         if (k && k.allegee) err('I29', 'la carte du lest pendant une semaine allégée');
         // I50 (§9.17 bis, 127) — la carte du lest jamais sous 8 reps sur les deux séances : le seuil est le haut de

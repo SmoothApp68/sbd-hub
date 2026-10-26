@@ -1165,7 +1165,12 @@
   //     lest (§9.17), qui REMPLACE, et que cette fonction ne propose donc pas (`proposable: false`) ;
   //   · sinon : le rang au-dessus, qui s'AJOUTE ; plusieurs exercices sur ce rang : par slug, ceux de force ;
   //   · un rang au-dessus fait seulement d'habiletés : `habilete`, visible, jamais proposé (21/10/2026).
-  function marcheSuivante(index, slug) {
+  //
+  // 175 (MOTEUR §9.17 bis, décision d'Aurélien du 26/10/2026) — LA VARIANTE SANS MATÉRIEL : depuis la stricte, quand le
+  // rang au-dessus compte, avec la version lestée, un exercice de force SANS lest (les pompes déclinées), la marche lestée
+  // porte `variante` (son slug) : la carte du lest propose les deux. Une fois le lest refusé (`o.lestRefuse`, la réponse
+  // « Pas de lest »), la variante devient la marche suivante, proposable : la carte « marche suivante » la propose seule.
+  function marcheSuivante(index, slug, o) {
     var e = index && slug ? index[slug] : null;
     var E = echelleDe(e);
     if (E === null) return null;
@@ -1181,7 +1186,15 @@
       var r = Math.min.apply(null, plus);
       cible = marches.filter(function (x) { return x.echelle_rang === r; }).sort(parSlug);
       var lest = cible.filter(function (x) { return x.charge === 'ajoutee'; });
-      if (stricte && e.slug === stricte.slug && lest.length) { cible = lest; type = 'lest'; }
+      if (stricte && e.slug === stricte.slug && lest.length) {
+        var sansLest = cible.filter(function (x) { return x.charge !== 'ajoutee' && estDeForce(x); });
+        var lestForce = lest.filter(estDeForce);
+        if (sansLest.length && lestForce.length) {
+          if (o && o.lestRefuse === true) return { type: 'marche', cible: [sansLest[0].slug], proposable: true };
+          return { type: 'lest', cible: lestForce.map(function (x) { return x.slug; }), variante: sansLest[0].slug, proposable: false };
+        }
+        cible = lest; type = 'lest';
+      }
       else type = 'marche';
     }
     // 149 — DANS UNE ÉCHELLE DE FIGURES, une habileté est proposable : la règle « une habileté n'est jamais proposée »
@@ -1211,7 +1224,7 @@
   // n'est pas appelée sans coach (`coachActif` faux : « Juste un carnet », ou l'exercice en Entretenir).
   // Rend `{ echelle, marches: [{ rang, tienne, suivante, vue, exercices: [{ slug, nom, habilete, fait, meilleur,
   // quand }] }], phrase }`, du plus difficile au plus facile.
-  function vueEchelle(index, slug, faites, zonesHaut, coachActif, phraseDe) {
+  function vueEchelle(index, slug, faites, zonesHaut, coachActif, phraseDe, o) {
     var e = index && slug ? index[slug] : null;
     var E = echelleDe(e);
     if (E === null) return null;
@@ -1224,14 +1237,15 @@
     if (tienne !== null) {
       // Le départ : l'exercice de ta marche fait le plus récemment (puis le slug, comme la référence).
       var depart = departDeLEchelle(faits, tienne, F);
-      var m = marcheSuivante(index, depart.slug);
+      var m = marcheSuivante(index, depart.slug, o);
       if (m) {
         var c = index[m.cible[0]];
         suivante = c.echelle_rang;
         var zh = zonesHaut && Object.prototype.hasOwnProperty.call(zonesHaut, depart.slug) ? zonesHaut[depart.slug] : null;
         if (coachActif && typeof phraseDe === 'function') {
           // 149 — une FIGURE se dit en secondes : le seuil du catalogue (`echelle_seuil_s` de l'exercice de départ).
-          phrase = phraseDe({ type: m.type, nomCible: c.nom || c.slug, nomDepart: depart.nom || depart.slug, depart: depart.slug,
+          phrase = phraseDe({ type: m.type, nomCible: c.nom || c.slug,
+                              nomVariante: m.variante && index[m.variante] ? (index[m.variante].nom || m.variante) : null, nomDepart: depart.nom || depart.slug, depart: depart.slug,
                               haut: typeof zh === 'number' ? zh : null, meilleur: F[depart.slug].meilleur || null,
                               seuil: estEchelleDeFigures(index, E) ? seuilDeLaMarche(depart) : null });
         }
@@ -1276,7 +1290,7 @@
       if (!it || !index) return;
       var membres = Object.keys(it.exercices || {}).filter(function (s) { return index[s] && echelleDe(index[s]) === it.echelle; });
       if (!membres.length) return;
-      var v = vueEchelle(index, membres[0], opt.faites, opt.zonesHaut, opt.coachActif === true, opt.phraseDe);
+      var v = vueEchelle(index, membres[0], opt.faites, opt.zonesHaut, opt.coachActif === true, opt.phraseDe, { lestRefuse: opt.lestRefuse === true });
       if (!v) return;
       var F = opt.faites || {};
       var faits = marchesDe(index, it.echelle).filter(function (x) {
@@ -1292,7 +1306,7 @@
       var ligne = it.nouvelle && ex[it.nouvelle.slug] && ex[it.nouvelle.slug].semaine ? it.nouvelle.slug
         : ex[depart.slug] && ex[depart.slug].semaine ? depart.slug
         : travailles.sort(function (a, b) { return index[b].echelle_rang - index[a].echelle_rang || parSlug(index[a], index[b]); })[0] || null;
-      var m = marcheSuivante(index, depart.slug);
+      var m = marcheSuivante(index, depart.slug, { lestRefuse: opt.lestRefuse === true });
       var suite = null;
       if (opt.coachActif === true && m) {
         var haut = opt.zonesHaut && Object.prototype.hasOwnProperty.call(opt.zonesHaut, depart.slug) ? opt.zonesHaut[depart.slug] : null;

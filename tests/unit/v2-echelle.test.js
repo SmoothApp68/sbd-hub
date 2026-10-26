@@ -51,7 +51,10 @@ describe('127 — le fichier de cas', () => {
 describe('127 — concordance avec echelle127.py', () => {
   F.marche_suivante.forEach((c) => {
     test('marche_suivante — ' + c.slug, () => {
-      expect(Mo.marcheSuivante(INDEX, c.slug)).toEqual(c.attendu);
+      // 175 (26/10/2026) : la marche lestée des pompes porte désormais `variante` (les pompes déclinées, sans matériel) ;
+      // le fichier de cas, d'avant, ne la connaît pas. Tout le reste de la marche est celle de la référence.
+      const att = c.slug === 'pompes' ? Object.assign({}, c.attendu, { variante: 'pompes_declinees' }) : c.attendu;
+      expect(Mo.marcheSuivante(INDEX, c.slug)).toEqual(att);
     });
   });
 

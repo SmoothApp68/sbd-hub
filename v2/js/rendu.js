@@ -3187,6 +3187,17 @@
   // « Pas de lest ». Le MÊME composant que les chauffes et le schéma — aucune
   // seconde carte.
   function propositionDeLest(carte, iExo, vue) {
+    // 175 (MOTEUR §9.17 bis) — la variante sans matériel : trois gestes, la même carte (le composant de la reprise).
+    if (carte.variante) {
+      return propositionDExercice({
+        classe: 'proposition-lest', texte: carte.titre, detail: carte.detail,
+        gestes: [
+          { texte: carte.oui, classe: 'pl-oui', surClic: function () { vue.surLest(iExo, 'oui'); } },
+          { texte: carte.variante.nom, classe: 'pl-variante', surClic: function () { vue.surLest(iExo, 'variante'); } },
+          { texte: carte.non, classe: 'pl-non', surClic: function () { vue.surLest(iExo, 'non'); } }
+        ]
+      }, iExo);
+    }
     return propositionDExercice({
       classe: 'proposition-lest', texte: carte.titre, detail: carte.detail,
       oui: carte.oui, non: carte.non, classeOui: 'pl-oui', classeNon: 'pl-non',

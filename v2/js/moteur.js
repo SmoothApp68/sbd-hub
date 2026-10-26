@@ -1649,6 +1649,12 @@
           if (Object.prototype.hasOwnProperty.call(plus, k)) f[k] = plus[k];
         }
       }
+      // 175 (MOTEUR §9.17 bis, décision du 26/10/2026) — LE PLAFOND SANS LEST : au poids du corps, les reps montent jusqu'à
+      // 30 (`PLAFOND_CIBLE`). La ligne à 30 : `vise` (pas encore 30 partout), `atteint` (30 sur toutes les séries) — la
+      // phrase ne dit plus « une rep de plus », elle dit le plafond.
+      if (etat === 'etirement_reps' && poidsDuCorps && ligne && nombre(ligne.vise) !== null && ligne.vise >= PLAFOND_CIBLE) {
+        f.plafondReps = nombre(niv) !== null && niv >= PLAFOND_CIBLE ? 'atteint' : 'vise';
+      }
       // 163 — UNE CHARGE JAMAIS FAITE SE DIT APPROCHÉE : la ligne ou le test dont la charge sort du repli du matériel
       // porte `approchee: true`, et le fondement aussi (I51 les lit ensemble). Jamais avec une salle (les élastiques).
       if (!salle && !poidsDuCorps) {
@@ -4004,6 +4010,9 @@
       // dernière fois, au-delà de la zone. La même phrase que la progression,
       // parce que c'est la même chose dite à un corps.
       case 'etirement_reps':
+        // 175 — au plafond sans lest (30 reps), plus jamais « une rep de plus ».
+        if (f.plafondReps === 'atteint') return jour() + DEUX_POINTS + auPalier() + '. Ton plafond sans lest.';
+        if (f.plafondReps === 'vise') return jour() + DEUX_POINTS + auPalier() + '. Vise ' + nombreFr(PLAFOND_CIBLE, regle('constante')) + ' sur toutes tes séries.';
         return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus.';
 
       // §10 bis (108, décidé le 15/10/2026) — « 30 kg, la plus lourde de ta
@@ -4415,6 +4424,11 @@
                'Un lest te ferait continuer en force : je te le propose, et on tient la ligne en attendant.';
 
       case 'etirement_reps':
+        // 175 — au plafond sans lest (30 reps), la feuille dit le plafond.
+        if (f.plafondReps === 'atteint') {
+          return 'Au poids du corps, il n\'y a pas de cran à monter, et ' + nombreFr(PLAFOND_CIBLE, regle('constante')) +
+                 ' reps est le plafond sans lest.';
+        }
         return 'Au poids du corps, il n\'y a pas de cran à monter' + DEUX_POINTS +
                'tu gagnes des reps, une de plus que la dernière fois.';
 
@@ -7048,8 +7062,16 @@
     return nombreFr(x.niveau, regle('lest.niveau')) + ' reps sur toutes tes séries' +
       (x.reglage === 'franc' ? ' aujourd\'hui.' : ', deux séances de suite.');
   }
+  // 175 (MOTEUR §9.17 bis, décision du 26/10/2026) — quand le rang au-dessus a aussi une variante SANS MATÉRIEL (`variante`,
+  // son nom), la carte propose les deux : trois gestes, « Ajouter du lest » / la variante / « Rester aux … ».
+  var OUI_LEST_VARIANTE = 'Ajouter du lest';
+  function nonLestVariante(nomExercice) { return 'Rester aux ' + nomExercice; }
   function carteLestDetail(e) {
     var x = e || {};
+    if (typeof x.variante === 'string' && x.variante) {
+      return 'Le haut de ta zone tient. La marche au-dessus : du lest (' + enKg(SAUT_LEST, regle('lest.saut')) +
+             ', en revenant à ' + nombreFr(x.bas, regle('zone.bas')) + ' reps), ou ' + x.variante + ', sans matériel.';
+    }
     return 'Au haut de ta zone, un lest te fait continuer en force. Avec une ceinture ou un gilet, ' +
            'je te propose de commencer à ' + enKg(SAUT_LEST, regle('lest.saut')) +
            ', en revenant à ' + nombreFr(x.bas, regle('zone.bas')) + ' reps.';
@@ -7153,7 +7175,8 @@
   function phraseDeLaSuivante(e) {
     var x = e || {};
     var court = x.court === true;
-    var tete = 'La suivante : ' + x.nomCible + (court ? ', ' : '. ');
+    // 175 — depuis la stricte, le lest ET la variante sans matériel : « Pompes Lestées ou Pompes Déclinées ».
+    var tete = 'La suivante : ' + x.nomCible + (x.type === 'lest' && x.nomVariante ? ' ou ' + x.nomVariante : '') + (court ? ', ' : '. ');
     if (x.type === 'habilete') {
       if (court) {
         return 'Au-dessus : ' + x.nomCible + ', une habileté. Je ne te la propose pas : c\'est toi qui choisis quand l\'essayer.';
@@ -8584,6 +8607,8 @@
     carteLestTitre: carteLestTitre,
     carteLestDetail: carteLestDetail,
     OUI_LEST: OUI_LEST,
+    OUI_LEST_VARIANTE: OUI_LEST_VARIANTE,
+    nonLestVariante: nonLestVariante,
     NON_LEST: NON_LEST,
     // §9.17 bis (127) — l'échelle des variantes : le seuil de 8 reps, la carte « marche suivante », la phrase de la page.
     SEUIL_MARCHE: SEUIL_MARCHE,

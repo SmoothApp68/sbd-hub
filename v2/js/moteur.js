@@ -71,6 +71,11 @@
   // squat passé de 7 reps à 5 le 31/08 restait ignoré cinq séances. Deux sur
   // trois tient les deux bouts : une séance isolée ne fait jamais basculer, un
   // nouveau bloc est suivi dès sa 2ᵉ séance.
+  // 174 — la règle de bord qui recule : combien de séances d'historique elle remonte, combien de séances sans monter font
+  // repartir plus bas, et de combien (× 0,95, arrondi au cran).
+  var BORD_PROFONDEUR = 10;
+  var BORD_SEANCES_SANS_MONTER = 3;
+  var BORD_VAGUE = 0.95;
   var FENETRE_COUPLE = 3;
   var MAJORITE_COUPLE = 2;
 
@@ -1713,6 +1718,78 @@
       var r = Palier().reserveDeSerie(d), n = comptees(d);
       return r !== null && n !== null && n >= haut && r < visee;
     }
+    // 174 — LA RÈGLE DE BORD AVEC CHARGE (MOTEUR §9.1.2). Rend la consigne ; son état (`bord`, `bord_garde`, `bord_recul`,
+    // `bord_vague`) et ce qu'elle porte pour la suite (`_bord`, non énumérable : ni le fondement ni les cas de fichier ne le
+    // voient) : le meilleur palier de la série de séances sous 3 reps, le nombre de séances sans monter, un recul en cours.
+    function consigneDeBord() {
+      var prof = nombre(opt.bordProf) || 0;
+      // La consigne que L a REÇUE (sa visée, son état). Au-delà de BORD_PROFONDEUR séances d'historique, on cesse de
+      // remonter : la ratée ne se juge plus, la série repart de L (le coût reste borné).
+      var rk = null;
+      if (prof < BORD_PROFONDEUR) {
+        var brute = anterieures(seances, avant), iL = -1;
+        for (var q = brute.length - 1; q >= 0; q--) {
+          if (instant(brute[q].debut) === instant(L.debut)) { iL = q; break; }
+        }
+        if (iL >= 0) {
+          rk = consigneDeLaSeance(brute, iL, avant, { reglage: reglage, equipement: equipement, correction: correction,
+            salle: salleDeclaree, bordProf: prof + 1 });
+        }
+      }
+      var visees = rk && rk.ligne ? nombre(rk.ligne.vise) : null;
+      var faites = A.map(function (s) { return nombre(s.reps); }).filter(function (r) { return r !== null; });
+      var plusBas = faites.length ? Math.min.apply(null, faites) : null;
+      // ⚠️ SUR LES REPS SAISIES, pas les comptées : « à fond » compte une rep de moins (§17.4), et ce n'est pas une barre ratée.
+      var ratee = visees !== null && plusBas !== null && plusBas < visees;
+      var prec = rk && rk._bord ? rk._bord : null;
+      var meilleur, sans, recul;
+      if (prec === null || rk.etat === 'bord_vague') {
+        meilleur = ratee ? null : P; sans = 0; recul = ratee;
+      } else if (!ratee && (prec.meilleur === null || (P > prec.meilleur && !memeCharge(P, prec.meilleur)))) {
+        meilleur = P; sans = 0; recul = false;
+      } else if (!ratee && prec.recul && (memeCharge(P, prec.meilleur) || P > prec.meilleur)) {
+        // Retrouver son meilleur après un recul n'est pas une séance qui stagne.
+        meilleur = prec.meilleur; sans = 0; recul = false;
+      } else {
+        meilleur = prec.meilleur; sans = prec.sans + 1; recul = prec.recul || ratee;
+      }
+      var etatSuite = { meilleur: meilleur, sans: sans, recul: recul };
+      function fin(etat, ligne, plus) {
+        var r = rendre(etat, ligne, null, plus);
+        if (r && typeof r === 'object') Object.defineProperty(r, '_bord', { value: etatSuite, enumerable: false });
+        return r;
+      }
+      var vise = ratee ? visees : niv;
+      // Trois séances de suite sans monter au-dessus du meilleur : on repart du cran le plus proche de P × 0,95, au plus
+      // bas le cran en dessous.
+      if (sans >= BORD_SEANCES_SANS_MONTER) {
+        var cible95 = P * BORD_VAGUE;
+        var cur = voisine(P, -1);
+        if (cur === null) cur = P;
+        else {
+          for (var t = 0; t < 12; t++) {
+            var nxt = voisine(cur, -1);
+            if (nxt !== null && nxt < cur && Math.abs(nxt - cible95) < Math.abs(cur - cible95)) cur = nxt; else break;
+          }
+        }
+        return fin('bord_vague', ligneDe(cur, vise), { bord: { charge: P, reps: niv, depuis: sans, vers: cur } });
+      }
+      if (ratee) {
+        var bas = voisine(P, -1);
+        if (bas === null) bas = P;
+        return fin('bord_recul', ligneDe(bas, visees), { bord: { charge: P, faites: plusBas, visees: visees } });
+      }
+      // Toutes les reps visées avec une réserve notée sous la visée : on garde la charge, UNE séance (la 169, même sortie).
+      var derniere = L.retenues && L.retenues.length ? L.retenues[L.retenues.length - 1] : null;
+      if (derniere !== null && A.length && A[A.length - 1] === derniere && effortViseEligible(P)) {
+        var Rb = Palier().reserveDeSerie(derniere);
+        var Vb = reserveVisee({ zone: 'lourd', role: 'ligne', reglage: reglage });
+        if (Rb !== null && Vb !== null && Rb < Vb && !precedenteAuHautSansMarge(precedente, P, vise, Vb)) {
+          return fin('bord_garde', ligneDe(P, vise), { bord: { charge: P, reps: nombre(derniere.reps), reserve: Rb } });
+        }
+      }
+      return fin('bord', ligneDe(voisine(P, 1), niv), null);
+    }
     function auMoins(series, seuil) {
       return series.some(function (s) { var r = comptees(s); return r !== null && r >= seuil; });
     }
@@ -1755,6 +1832,11 @@
     // continuent, comme l'étirement (une de plus, sans zone ni ligne haute).
     if (zone === null) {
       if (poidsDuCorps) return rendre('etirement_reps', ligneDe(P, cible(niv + 1)), null);
+      // 174 (26/10/2026, décision d'Aurélien, MOTEUR §9.1.2) — LE COACH SAIT RECULER : une barre ratée (des reps faites sous
+      // les reps visées par la consigne reçue) fait reculer d'un cran, aux reps visées ; trois séances sans monter font
+      // repartir plus bas ; une réserve notée sous la visée garde la charge une séance. Le 0 en réserve seul ne fait jamais
+      // reculer : la ratée se lit sur les reps SAISIES, jamais sur les reps comptées. Une aide garde la règle d'avant.
+      if (!aide) return consigneDeBord();
       return rendre('bord', ligneDe(voisine(P, 1), niv), null);
     }
 
@@ -1977,7 +2059,7 @@
   // charge avec 3 reps de marge montre que la prudence n'était pas nécessaire,
   // et le coach le dit (mesure R1 : retour à 98 % en médiane).
   var ETATS_MUETS_REACTION = {
-    silence: true, bord: true
+    silence: true, bord: true, bord_garde: true, bord_recul: true, bord_vague: true
   };
 
   // §9.9 (delta 49-13, 27/09/2026) — LE REPLI DE LA REPRISE LONGUE, PLAFONNÉ.
@@ -3678,6 +3760,26 @@
     return !!t && z !== null && t.niveauFait !== undefined && t.niveauFait !== null &&
       t.niveau !== null && t.niveau < z.bas && t.niveauFait >= z.bas;
   }
+  // 174 (MOTEUR §9.1.2) — LES TROIS PHRASES DE LA RÈGLE DE BORD QUI RECULE. Le fait : `f.bord`.
+  //   recul  : « 140 kg × 1 sur 2 visées. On repart d'un cran plus bas, aux mêmes reps ; on remonte dès que les deux passent. »
+  //   garde  : « 140 kg × 2, sans marge. On garde 140 kg ; la prochaine fois, on retente au-dessus. »
+  //   vague  : « 140 kg × 2 depuis 3 séances. On repart de 132,5 kg pour reprendre de l'élan. »
+  function phraseDeBord(etat, b) {
+    var cF = cite(FAIT, { quoi: 'bord' });
+    if (etat === 'bord_recul') {
+      var v = b.visees;
+      return chargeFois(b.charge, b.faites, cF) + ' sur ' + nombreFr(v, cite(FAIT, { quoi: 'bord.visees' })) +
+        ' visées. On repart d\'un cran plus bas, aux mêmes reps ; on remonte dès ' +
+        (v === 1 ? 'que la rep passe.' : v === 2 ? 'que les deux passent.' : 'que les ' + nombreFr(v, cite(FAIT, { quoi: 'bord.visees' })) + ' passent.');
+    }
+    if (etat === 'bord_garde') {
+      return chargeFois(b.charge, b.reps, cF) +
+        (b.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(b.reserve, cite(FAIT, { quoi: 'bord.reserve' })) + ' en réserve') +
+        '. On garde ' + enKg(b.charge, cite(FAIT, { quoi: 'bord.charge' })) + ' ; la prochaine fois, on retente au-dessus.';
+    }
+    return chargeFois(b.charge, b.reps, cF) + ' depuis ' + nombreFr(b.depuis, cite(FAIT, { quoi: 'bord.depuis' })) +
+      ' séances. On repart de ' + enKg(b.vers, cite(FAIT, { quoi: 'bord.vers' })) + ' pour reprendre de l\'élan.';
+  }
   // 154 — « 130 kg × 5, sans marge. On garde 130 kg la prochaine fois. » (R < V, la montée n'a pas lieu).
   function phraseDeLaGarde(e) {
     var cF = cite(FAIT, { quoi: 'effort_vise' });
@@ -3866,6 +3968,11 @@
       case 'bord':
         return 'Sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) + ' reps, pas de rep de plus' + DEUX_POINTS +
                'le cran au-dessus, aux mêmes reps.';
+
+      case 'bord_recul':
+      case 'bord_garde':
+      case 'bord_vague':
+        return f.bord ? phraseDeBord(c.etat, f.bord) : '';
 
       // §9.17 — AU POIDS DU CORPS, au haut de la zone, deux séances de suite :
       // la ligne tient, et la carte du lest parle (une fois). Le coach ne dit
@@ -4335,6 +4442,17 @@
       case 'bord':
         return 'Tu travailles sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) + ' reps' + DEUX_POINTS +
                'je ne te demande jamais une rep de plus, je propose le plus petit cran de charge.';
+
+      // 174 — la même phrase que l'en-tête, puis la règle qui la porte.
+      case 'bord_recul':
+        return !f.bord ? '' : phraseDeBord(c.etat, f.bord) + ' Sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) +
+          ' reps, je ne demande jamais une rep de plus : une barre ratée fait reculer d\'un cran.';
+      case 'bord_garde':
+        return !f.bord ? '' : phraseDeBord(c.etat, f.bord) + ' Sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) +
+          ' reps, une réserve sous ma visée garde la charge une séance.';
+      case 'bord_vague':
+        return !f.bord ? '' : phraseDeBord(c.etat, f.bord) + ' Trois séances sans passer au-dessus de ton meilleur : je baisse d\'environ ' +
+          nombreFr(Math.round((1 - BORD_VAGUE) * 100), regle('constante')) + INSECABLE + '%.';
     }
     return '';
   }
@@ -5128,7 +5246,8 @@
     // §10 bis (16/10/2026) — la salle déclarée aussi : la zone d'une séance passée à la plus lourde est la zone gelée,
     // la même que celle d'aujourd'hui (sinon le report verrait une « nouvelle zone » que le gel a empêchée).
     return consignePour(liste.slice(0, i), se.debut,
-      { reglage: o.reglage, equipement: o.equipement, correction: correction, salle: o.salle || null });
+      { reglage: o.reglage, equipement: o.equipement, correction: correction, salle: o.salle || null,
+        bordProf: o.bordProf });
   }
   function zoneDeLaSeance(liste, i, avant, o) {
     var k = consigneDeLaSeance(liste, i, avant, o);
@@ -7209,7 +7328,7 @@
   // La ligne part de la charge reportée, au bas de la zone, sans ligne haute ;
   // le fondement garde ce que la phrase grise et la feuille diront, rien de
   // l'estimation.
-  var SANS_REPORT = { silence: true, bord: true, reprise_courte: true, reprise_longue: true };
+  var SANS_REPORT = { silence: true, bord: true, bord_garde: true, bord_recul: true, bord_vague: true, reprise_courte: true, reprise_longue: true };
   // §9.10 (53-2 bis, D1) — l'origine de la ligne de zone en vigueur, en
   // paramètre de la phrase (`o.ligneDeZone` : la ligne en vigueur QUAND elle
   // commence un bloc, `ligneDeDebutDeBloc` ; `null` sinon) : `bloc` pour une

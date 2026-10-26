@@ -3681,6 +3681,15 @@
       fait['effort_vise.charge'] = { charge: f.effortVise.charge };
       if (k.haut && k.haut.charge !== null && k.haut.charge !== undefined) fait['effort_vise.haut'] = { charge: k.haut.charge, reps: [k.haut.vise === undefined ? null : k.haut.vise] };
     }
+    // 174 (§9.1.2) — la règle de bord qui recule : la séance d'avant (charge × reps faites), la visée, la réserve, la vague.
+    if (f.bord) {
+      fait.bord = { charge: f.bord.charge, reps: [f.bord.faites !== undefined ? f.bord.faites : f.bord.reps] };
+      fait['bord.charge'] = { charge: f.bord.charge };
+      if (f.bord.visees !== undefined) fait['bord.visees'] = { valeur: f.bord.visees };
+      if (f.bord.reserve !== undefined) fait['bord.reserve'] = { valeur: f.bord.reserve };
+      if (f.bord.depuis !== undefined) fait['bord.depuis'] = { valeur: f.bord.depuis };
+      if (f.bord.vers !== undefined) fait['bord.vers'] = { charge: f.bord.vers };
+    }
     var meilleur = x.compteur && x.compteur.meilleur;
     if (meilleur) fait.meilleur = { charge: meilleur.palier, reps: [meilleur.niveau] };
     // §13.6 (49-U20) — le frère qui progresse : « avant » et « maintenant ».
@@ -3989,6 +3998,7 @@
     verifierDouleur(plan, entrees, erreurs);
     verifierReserve(plan, entrees, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
+    verifierBord(plan, erreurs);
     verifierApprochee(plan, erreurs);
     verifierApresLaDecharge(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
@@ -4138,6 +4148,30 @@
       }
       if (x.effortVise && x.effortVise.effet === 'garde' && x.effortVise.reponse !== null && x.effortVise.reponse >= x.reserveVisee) {
         erreurs.push('I58' + nom + 'une garde pour une réserve de ' + x.effortVise.reponse + ' (visée ' + x.reserveVisee + ')');
+      }
+    });
+  }
+  // I65 (MOTEUR §9.1.2, 174) — LA RÈGLE DE BORD QUI RECULE : une consigne de bord après une séance ratée (des reps faites
+  // sous les reps visées) ne propose jamais plus que le palier de cette séance, et vise les reps VISÉES, pas les faites ;
+  // une vague (trois séances sans monter) repart sous le palier. Le fondement `bord` ne dit que ce qu'il sait : un recul
+  // porte `faites < visees`, une garde garde le palier, une vague baisse.
+  function verifierBord(plan, erreurs) {
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x.consigne;
+      if (!k || !k.ligne) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var b = k.fondement ? k.fondement.bord : null;
+      var P = nombre(k.palier), c = nombre(k.ligne.charge);
+      if (k.etat === 'bord_recul') {
+        if (!b || !(nombre(b.faites) < nombre(b.visees))) erreurs.push('I65' + nom + 'un recul sans barre ratée dans le fondement');
+        else if (nombre(k.ligne.vise) !== nombre(b.visees)) erreurs.push('I65' + nom + 'un recul qui vise ' + k.ligne.vise + ' reps, la consigne reçue en visait ' + b.visees);
+        if (c !== null && P !== null && c > P) erreurs.push('I65' + nom + 'un recul à ' + c + ' kg, au-dessus du palier ' + P + ' kg');
+      }
+      if (k.etat === 'bord_vague' && c !== null && P !== null && c > P) {
+        erreurs.push('I65' + nom + 'une vague à ' + c + ' kg au-dessus du palier ' + P + ' kg');
+      }
+      if (k.etat === 'bord_garde' && c !== null && P !== null && c !== P) {
+        erreurs.push('I65' + nom + 'une garde à ' + c + ' kg, le palier est ' + P + ' kg');
       }
     });
   }

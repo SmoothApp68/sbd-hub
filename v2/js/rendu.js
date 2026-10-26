@@ -628,6 +628,30 @@
     cible.appendChild(carte);
   }
 
+  // 175 (MOTEUR §10 bis) — « POUR CONTINUER À MONTER » : les leviers de la carte du plafond, gardés sur la page de l'exercice
+  // (refusés ou non). Le dessin seulement : tout arrive fait (`plan.exercices[i].leviersGardes`). Un geste par levier quand la
+  // séance est ouverte (`surLevier`), sinon la liste se lit.
+  function rendreLeviersGardes(cible, v) {
+    if (!v || !(v.liste || []).length) return;
+    var carte = el('section', 'pour-monter');
+    carte.appendChild(el('h3', 'te-titre', 'Pour continuer à monter'));
+    var ul = el('ul', 'pm-leviers');
+    v.liste.forEach(function (lv) {
+      var li = el('li', 'pm-levier pm-' + lv.cle);
+      if (v.surLevier) {
+        var b = el('button', 'pm-geste', lv.texte);
+        b.type = 'button';
+        b.addEventListener('click', function () { v.surLevier(lv.cle); });
+        li.appendChild(b);
+      } else {
+        li.appendChild(doc.createTextNode(lv.texte));
+      }
+      ul.appendChild(li);
+    });
+    carte.appendChild(ul);
+    cible.appendChild(carte);
+  }
+
   // 145 (ECRAN-SAISIE §7 quater.7, maquette `maquette-semaine-echelles-v1.html`, validée le 23/10/2026) — « TES ÉCHELLES
   // CETTE SEMAINE », en tête de Saisie. Le dessin seulement : tout arrive fait (`Modele.vueEchellesDeLaSemaine`, l'app).
   // La carte s'ouvre sur la page « Ton échelle » (`vue.surOuvrir(slug)`, celle de la première échelle). Ni flèche, ni
@@ -682,6 +706,7 @@
 
   function rendreResumeExo(cible, vue) {
     if (vue.tonEchelle) rendreTonEchelle(cible, vue.tonEchelle, vue.surMarche);
+    if (vue.leviers) rendreLeviersGardes(cible, vue.leviers);
     if (vue.objectif) rendreCarteObjectif(cible, vue.objectif);
     if (vue.teteRecords) rendreTeteRecords(cible, vue.teteRecords);
     cible.appendChild(el('div', 'section-t', 'RECORDS'));
@@ -2854,6 +2879,8 @@
         if (lib.plus) entree.appendChild(tapable(el('div', 'consigne-dit serie-de-plus', lib.plus)));
         // 174 — la 4e marche : « une série de moins, sans dégressive, jusqu'à ton prochain progrès », ou le rappel d'une marche refusée.
         if (lib.alleger) entree.appendChild(tapable(el('div', 'consigne-dit alleger-en-cours', lib.alleger)));
+        // 175 — le tempo lent en cours (le levier accepté au plafond) : « 3 s en descente, jusqu'à ton prochain progrès ».
+        if (lib.tempo) entree.appendChild(tapable(el('div', 'consigne-dit tempo-en-cours', lib.tempo)));
       }
       // 99 (MOTEUR §9.24) — un exercice ajouté pour cette semaine seulement : « ajouté : séance manquée de mardi ».
       if (x.ajout) entree.appendChild(el('div', 'consigne-dit ajout-semaine', 'ajouté : ' + x.ajout));
@@ -3227,6 +3254,16 @@
     // le même geste que la série de plus, « Ajouter une dégressive » / « Non merci ».
     // MOTEUR §10 bis (113) — AU PLAFOND DE LA SALLE, la troisième marche : un frère plus chargeable, « Changer
     // d'exercice » / « Non merci ». La même carte, la même réponse (`vue.surSchema`).
+    // 175 (MOTEUR §10 bis) — À LA PLUS LOURDE DE LA SALLE, LA CARTE DES LEVIERS : « 30 kg × 15, la plus lourde de ta salle. Pour
+    // continuer à monter : » puis un geste par levier (un frère plus chargeable, le tempo lent, plus de reps, une charge dans
+    // Ma salle) et « Garder ». Le composant des choix de la carte de reprise ; la réponse est `vue.surLevier(iExo, cle)`.
+    if (carte.type === 'leviers') {
+      var gestesL = (carte.leviers || []).map(function (lv) {
+        return { texte: lv.texte, classe: 'pl-levier pl-' + lv.cle, surClic: function () { vue.surLevier(iExo, lv.cle); } };
+      });
+      gestesL.push({ texte: carte.non, classe: 'pl-garder', surClic: function () { vue.surLevier(iExo, 'garder'); } });
+      return propositionDExercice({ classe: 'proposition-leviers', texte: carte.phrase, detail: carte.detail, gestes: gestesL }, iExo);
+    }
     if (carte.type === 'remplacement') {
       return propositionDExercice({
         classe: 'proposition-remplacement', texte: carte.phrase, detail: carte.detail,

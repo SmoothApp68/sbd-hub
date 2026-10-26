@@ -5621,6 +5621,17 @@
       seriesFigees = attendait.seriesRoutine;
       delete consignes.parSlug[slug];
     }
+    // 175 (MOTEUR §10 bis) — DE MÊME, LE LEVIER « VISER N REPS » : une consigne figée au maintien (la plus lourde, au plafond
+    // des reps) se recalcule une fois la visée acceptée, à cette charge, plus haute que son plafond. Les séries de sa
+    // routine restent celles figées à l'ouverture.
+    else if (attendait && attendait.consigne && attendait.consigne.etat === 'salle_max' && attendait.consigne.fondement &&
+             attendait.consigne.fondement.salle && attendait.consigne.fondement.salle.maintien === true) {
+      var rl = rallongeDe(slug), fs = attendait.consigne.fondement.salle;
+      if (Moteur.rallongeChangeLePlafond(rl, fs)) {
+        seriesFigees = attendait.seriesRoutine;
+        delete consignes.parSlug[slug];
+      }
+    }
     if (!Object.prototype.hasOwnProperty.call(consignes.parSlug, slug)) {
       var exo = consignes.index[slug];
       if (!exo && (local.exercices || []).length) {
@@ -5662,6 +5673,12 @@
       }
     }
     return consignes.parSlug[slug];
+  }
+
+  // 175 (MOTEUR §10 bis) — la visée acceptée d'un exercice (le levier « Viser N reps »), `{ charge, visee }`, ou `null` :
+  // elle rallonge le plafond de sa plus lourde (`Moteur.avecRallonge`), dans les options de la consigne.
+  function rallongeDe(slug) {
+    return Moteur.rallongeAcceptee(slug, Moteur.marchesDesParis(parisEscalierConnus()));
   }
 
   // §9.17 bis (127) — la marche suivante d'un exercice, quand le coach peut la proposer (`Modele.marcheSuivante`,
@@ -5765,6 +5782,8 @@
       // sait livrer : sans version lestée, la carte ne se pose pas.
       lestReponse: lestReponseDeLExercice(slug),
       lestPossible: exo ? Modele.lesteDe(index, slug) !== null : false,
+      // 175 (MOTEUR §10 bis) — la visée acceptée (le levier « Viser N reps »), qui rallonge le plafond de la plus lourde.
+      rallonge: rallongeDe(slug),
       // §9.17 bis (127) — l'exercice est sur une échelle avec une marche à proposer : le fondement porte alors ses
       // deux dernières séances (`deuxSeances`), que lit la carte « marche suivante ».
       echelle: exo ? marcheAProposer(index, slug) !== null : false,
@@ -6833,6 +6852,7 @@
     var x = planDuSlug(slug);
     return x ? { jaune: x.entete.jaune, gris: x.entete.gris, compteur: x.entete.compteur || null,
                  frere: x.entete.frere || null, plus: x.entete.plus || null, alleger: x.entete.alleger || null,
+                 tempo: x.entete.tempo || null,
                  approchee: x.approchee ? x.approchee.phrase : null } : c.libelles;
   }
 
@@ -7299,6 +7319,45 @@
     if (seance && acceptee && plus) await appliquerSerieDePlus();
     if (seance && acceptee && deg) await appliquerDegressive();
     if (seance && acceptee && alleger) await appliquerAllegee();
+  }
+
+  // 175 (MOTEUR §10 bis) — LA CARTE DES LEVIERS, LA RÉPONSE : un geste par levier, ou « Garder ». UNE réponse par carte, gardée :
+  //   · `remplacement` : le frère prend la place (`remplacerAuPlafond`, le geste d'avant), sans pari — l'ancien exercice sort ;
+  //   · `tempo`, `reps`, `salle` : un pari accepté (`marche : leviers`, `levier`, le plafond au moment du choix, la visée de
+  //     « reps ») SANS `origine` : il s'observe comme toute marche, par le progrès avant le prochain déclenchement ;
+  //   · `garder` : un pari refusé — la phrase de maintien reste, les leviers restent sur la page de l'exercice, et la série de
+  //     plus puis la dégressive continuent aux déclenchements.
+  // « salle » ouvre ensuite Ma salle. La démonstration garde la réponse en mémoire : aucun pari.
+  async function repondreLevier(iExo, cle) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var p = planActuel();
+    var x = p && p.exercices[iExo];
+    var m = x && x.escalier;
+    if (!m || !m.carte || m.carte.type !== Moteur.MARCHE_LEVIERS) return;
+    var levier = (m.carte.leviers || []).filter(function (lv) { return lv.cle === cle; })[0] || null;
+    if (cle !== 'garder' && !levier) return;
+    if (cle === Moteur.LEVIER_REMPLACEMENT) {
+      return remplacerAuPlafond(iExo, x.slug, levier.vers);
+    }
+    var acceptee = cle !== 'garder';
+    var extra = { levier: acceptee ? cle : null, debut: seance.debut,
+                  plafond: { charge: m.plafond.charge, reps: m.plafond.reps } };
+    if (cle === Moteur.LEVIER_REPS) extra.visee = levier.visee;
+    reponseEnCours = true;
+    try {
+      if (demoEscalier()) {
+        demoMarches = demoMarches.concat([{ seance: seance.id, jour: Moteur.jourCivil(seance.debut), exercice: x.slug,
+          marche: Moteur.MARCHE_LEVIERS, reponse: acceptee ? 'acceptee' : 'refusee', levier: extra.levier,
+          compteur: m.compteur, debut: seance.debut, n: null, plafond: extra.plafond, visee: extra.visee || null }]);
+      } else {
+        var id = await Moteur.idDEscalier(seance.id, x.slug, Moteur.MARCHE_LEVIERS);
+        await ecrirePariDeMarche(pariDeMarche(id, x, Moteur.MARCHE_LEVIERS, acceptee ? 'acceptee' : 'refusee', p, extra));
+      }
+    } finally {
+      reponseEnCours = false;
+    }
+    if (seance) rendreSeance();
+    if (seance && cle === Moteur.LEVIER_SALLE) ouvrirSalleProfil();
   }
 
   // MOTEUR §10 bis (113) — « CHANGER D'EXERCICE » : le frère prend la place de l'exercice DANS LA ROUTINE DE LA
@@ -8207,6 +8266,7 @@
         return x && x.escalier && x.escalier.carte ? x.escalier.carte : null;
       },
       surSchema: function (i, reponse) { return repondreSchema(i, reponse); },
+      surLevier: function (i, cle) { return repondreLevier(i, cle); },
       // MOTEUR §9.17 (50-1) — la carte du lest : UNE, en tête de l'exercice,
       // lue sur le plan ; ses deux gestes écrivent la réponse au profil.
       propositionLest: function (i) {
@@ -11632,6 +11692,15 @@
       teteRecords: teteRecords,
       objectif: carteObjectif,
       tonEchelle: echelle,
+      // 175 (MOTEUR §10 bis) — « Pour continuer à monter » : les leviers du plafond, relus du plan (jamais recalculés ici).
+      leviers: xPlan && xPlan.leviersGardes ? {
+        liste: xPlan.leviersGardes.leviers,
+        surLevier: (function () {
+          var iL = seance ? (seance.exercices || []).findIndex(function (z) { return z && z.exercise_slug === slug; }) : -1;
+          return iL >= 0 && xPlan.escalier && xPlan.escalier.carte && xPlan.escalier.carte.type === Moteur.MARCHE_LEVIERS
+            ? function (cle) { afficherSaisie(); repondreLevier(iL, cle); } : null;
+        })()
+      } : null,
       surMarche: function (s) { afficherExercice(s); },
       volume: {
         nbSeries: Semaine.compteSeriesTravail(toutes, local.exercices),

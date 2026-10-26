@@ -11,6 +11,12 @@
 // 4. au-delà, le coach maintient. Le changement de schéma et le repli ne sont jamais proposés au plafond. Une marche
 // sans objet est sautée. »
 //
+// 175 (décision du 26/10/2026) — LE REMPLACEMENT N'EST PLUS UNE MARCHE : c'est le premier LEVIER de la carte des leviers
+// (« 30 kg × 15, la plus lourde de ta salle. Pour continuer à monter : »), montrée dès la première séance au plafond, sans
+// attendre un déclenchement ; ensuite seulement, aux déclenchements, la série de plus puis la dégressive. Ce fichier
+// garde le MÉCANISME du plafond : la carte des leviers y est répondue d'avance (`LEV0`, refusée au compteur 1), sauf
+// quand un test la veut (`sansLeviers`). Les leviers eux-mêmes sont dans `v2-plafonds-175.test.js`.
+//
 // Le cas : le curl EZ d'Aurélien (Basic-Fit), barres EZ et droites de 10 à 30 kg, haltères jusqu'à 40 kg de 2 en 2 ;
 // 30 kg × 15 sur toutes ses séries, séance après séance.
 
@@ -92,6 +98,10 @@ function remplacants(o) {
 }
 const marche = (mk, reponse, compteur, extra) => Object.assign({ id: null, seance: 'P' + compteur + mk, jour: '2026-11-0' + (compteur / 4),
   exercice: SLUG, marche: mk, reponse, compteur, debut: '2026-11-0' + (compteur / 4) + 'T10:00:00+00:00', n: 3 }, extra || {});
+// 175 — la carte des leviers, répondue d'avance (refusée au compteur 1) : le mécanisme de la série de plus et de la dégressive
+// se lit alors comme avant.
+const LEV0 = { id: null, seance: 'L0', jour: '2026-11-01', exercice: SLUG, marche: 'leviers', reponse: 'refusee', compteur: 1,
+  debut: '2026-11-01T10:00:00+00:00', n: null, levier: null };
 function entrees(c, o) {
   const opt = o || {};
   const se = seanceDe(3);
@@ -106,7 +116,7 @@ function entrees(c, o) {
     debutant: opt.debutant === true,
     volume: { biceps: { place: opt.place === false ? false : true, moyenne: 8, seuil: 10, fenetres: 12 } },
     escalier: { cartes: [], compteurs: opt.compteurs || [], noms: {}, seriesRoutine: { [SLUG]: 3 },
-                marches: opt.marches || [], remplacants: opt.sansFreres ? {} : { [SLUG]: remplacants(opt) } }
+                marches: (opt.sansLeviers ? [] : [LEV0]).concat(opt.marches || []), remplacants: opt.sansFreres ? {} : { [SLUG]: remplacants(opt) } }
   };
 }
 const plan = (c, o) => { const e = entrees(c, o); const p = T.planDeSeance(e); return { e, p, x: p.exercices[0] }; };
@@ -127,28 +137,34 @@ describe('§10 bis (113) — le moteur : au plafond, la marche du déclenchement
     expect(M.auPlafondDeLaSalle(c.consigne, null)).toBe(false);
   });
 
-  test('l’ordre : une marche par déclenchement, la première après la dernière proposée, qui a un objet', () => {
-    const tout = { serie_de_plus: true, degressive: true, remplacement: true };
+  test('l’ordre : les leviers d’abord, sans déclenchement ; puis une marche par déclenchement, la première après la dernière proposée, qui a un objet', () => {
+    const tout = { leviers: true, serie_de_plus: true, degressive: true };
     const p = (mk, k) => ({ marche: mk, compteur: k });
-    expect(M.marcheAuPlafond(4, {}, tout)).toEqual({ marche: 'serie_de_plus', deja: null });
-    expect(M.marcheAuPlafond(8, { serie_de_plus: p('serie_de_plus', 4) }, tout).marche).toBe('degressive');
-    expect(M.marcheAuPlafond(12, { serie_de_plus: p('serie_de_plus', 4), degressive: p('degressive', 8) }, tout).marche)
-      .toBe('remplacement');
-    expect(M.marcheAuPlafond(16, { serie_de_plus: p('serie_de_plus', 4), degressive: p('degressive', 8),
-      remplacement: p('remplacement', 12) }, tout)).toBeNull();
+    // 175 — la première séance au plafond, quel que soit le compteur : la carte des leviers.
+    expect(M.marcheAuPlafond(1, {}, tout)).toEqual({ marche: 'leviers', deja: null });
+    expect(M.marcheAuPlafond(3, {}, tout).marche).toBe('leviers');
+    expect(M.marcheAuPlafond(4, {}, tout).marche).toBe('leviers');
+    // Les leviers vus (au compteur 1) : le 1er déclenchement, la série de plus.
+    const lev = { leviers: p('leviers', 1) };
+    expect(M.marcheAuPlafond(4, lev, tout)).toEqual({ marche: 'serie_de_plus', deja: null });
+    expect(M.marcheAuPlafond(8, Object.assign({ serie_de_plus: p('serie_de_plus', 4) }, lev), tout).marche).toBe('degressive');
+    // Au-delà de la dégressive : le coach maintient. Le remplacement n'est plus une marche.
+    expect(M.marcheAuPlafond(12, Object.assign({ serie_de_plus: p('serie_de_plus', 4), degressive: p('degressive', 8) }, lev), tout)).toBeNull();
+    expect(M.MARCHES_PLAFOND).toEqual(['leviers', 'serie_de_plus', 'degressive']);
     // Sautée : sans place, la dégressive dès le premier déclenchement ; la série de plus ne revient plus ensuite.
-    expect(M.marcheAuPlafond(4, {}, { serie_de_plus: false, degressive: true, remplacement: true }).marche).toBe('degressive');
-    expect(M.marcheAuPlafond(8, { degressive: p('degressive', 4) }, tout).marche).toBe('remplacement');
+    expect(M.marcheAuPlafond(4, lev, { leviers: true, serie_de_plus: false, degressive: true }).marche).toBe('degressive');
+    expect(M.marcheAuPlafond(8, Object.assign({ degressive: p('degressive', 4) }, lev), tout)).toBeNull();
     // Rien qui ait un objet : le maintien.
-    expect(M.marcheAuPlafond(4, {}, { serie_de_plus: false, degressive: false, remplacement: false })).toBeNull();
-    // Au même déclenchement : la marche proposée, avec son pari ; hors déclenchement : rien.
-    const d = M.marcheAuPlafond(4, { serie_de_plus: p('serie_de_plus', 4) }, tout);
+    expect(M.marcheAuPlafond(4, lev, { leviers: true, serie_de_plus: false, degressive: false })).toBeNull();
+    expect(M.marcheAuPlafond(4, {}, { leviers: false, serie_de_plus: false, degressive: false })).toBeNull();
+    // Au même déclenchement : la marche proposée, avec son pari ; hors déclenchement : rien (la série de plus, la dégressive).
+    const d = M.marcheAuPlafond(4, Object.assign({ serie_de_plus: p('serie_de_plus', 4) }, lev), tout);
     expect(d.marche).toBe('serie_de_plus');
     expect(d.deja).toEqual(p('serie_de_plus', 4));
-    expect(M.marcheAuPlafond(5, {}, tout)).toBeNull();
+    expect(M.marcheAuPlafond(5, lev, tout)).toBeNull();
     // 124 (01 #15) — entre deux déclenchements, même une marche déjà proposée ne se rend pas : la branche morte est partie.
-    expect(M.marcheAuPlafond(5, { serie_de_plus: p('serie_de_plus', 4) }, tout)).toBeNull();
-    expect(M.marcheAuPlafond(3, {}, tout)).toBeNull();
+    expect(M.marcheAuPlafond(5, Object.assign({ serie_de_plus: p('serie_de_plus', 4) }, lev), tout)).toBeNull();
+    expect(M.marcheAuPlafond(3, lev, tout)).toBeNull();
   });
 
   test('« plus chargeable dans la salle déclarée » : haltères jusqu’à 2 × 40 oui, barre droite de 30 non, poulie (non déclarée) oui', () => {
@@ -177,7 +193,7 @@ describe('§10 bis (113) — le moteur : au plafond, la marche du déclenchement
 });
 
 // ═══ 2. LE PLAN : LES QUATRE MARCHES ═══════════════════════════════════════
-describe('§10 bis (113) — le curl EZ au plafond : la série de plus, puis la dégressive, puis le curl aux haltères, puis le maintien', () => {
+describe('§10 bis (113, 175) — le curl EZ au plafond : les leviers, la série de plus, la dégressive, puis le maintien', () => {
   test('DISCRIMINANT — 1er déclenchement : la série de plus, sa première phrase au plafond ; I47 vert', () => {
     const { e, p, x } = plan(auPlafond(4));
     expect(x.escalier.marche).toBe('serie_de_plus');
@@ -218,32 +234,26 @@ describe('§10 bis (113) — le curl EZ au plafond : la série de plus, puis la 
       expect(T.verifierPlan(p, e).erreurs).toEqual([]);
     });
 
-    test('DISCRIMINANT — 3e déclenchement, la dégressive ' + r + ' : le curl aux haltères (la barre droite de 30 ne se charge pas plus)', () => {
+    test('DISCRIMINANT — 3e déclenchement, la dégressive ' + r + ' : le coach maintient (le curl aux haltères est un levier, plus une marche)', () => {
       const { e, p, x } = plan(auPlafond(12), { marches: [marche('serie_de_plus', 'refusee', 4), marche('degressive', r, 8)] });
-      expect(x.escalier.marche).toBe('remplacement');
-      expect(esp(x.escalier.carte.phrase)).toBe(PHRASE(12) + ' Passer à Curl Biceps (Haltère) ?');
-      expect(esp(x.escalier.carte.detail)).toBe('Curl Biceps (Haltère) : ta salle va jusqu\'à 2 × 40 kg.');
-      expect([x.escalier.carte.oui, x.escalier.carte.non]).toEqual(['Changer d\'exercice', 'Non merci']);
-      expect(x.escalier.carte.vers).toBe('curl_biceps_haltere');
+      expect(x.escalier).toBeNull();
       expect(T.verifierPlan(p, e).erreurs).toEqual([]);
     });
   });
 
-  test('DISCRIMINANT — 4e déclenchement, le remplacement refusé : le coach maintient (aucune marche, la phrase reste un fait)', () => {
-    const { e, p, x } = plan(auPlafond(16), { marches: [marche('serie_de_plus', 'refusee', 4), marche('degressive', 'refusee', 8),
-      marche('remplacement', 'refusee', 12)] });
+  test('DISCRIMINANT — 4e déclenchement : le coach maintient (aucune marche, la phrase reste un fait)', () => {
+    const { e, p, x } = plan(auPlafond(16), { marches: [marche('serie_de_plus', 'refusee', 4), marche('degressive', 'refusee', 8)] });
     expect(x.escalier).toBeNull();
     expect(x.consigne.repli).toBeUndefined();
     expect(esp(x.entete.gris)).toBe('30 kg × 15, la plus lourde de ta salle.');
     expect(esp(x.entete.compteur)).toMatch(/^30 kg × 15 reste ta meilleure charge de travail depuis 16 séances/);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
     // Et plus loin, toujours rien (20).
-    expect(plan(auPlafond(20), { marches: [marche('serie_de_plus', 'refusee', 4), marche('degressive', 'refusee', 8),
-      marche('remplacement', 'refusee', 12)] }).x.escalier).toBeNull();
+    expect(plan(auPlafond(20), { marches: [marche('serie_de_plus', 'refusee', 4), marche('degressive', 'refusee', 8)] }).x.escalier).toBeNull();
   });
 
   test('audit du 16/10/2026, 01 #8 — acceptées toutes deux, la série de plus et la dégressive reviennent sans s’additionner : une ligne en plus et une dégressive, au 4e déclenchement comme au 6e', () => {
-    const marches = [marche('serie_de_plus', 'acceptee', 4), marche('degressive', 'acceptee', 8), marche('remplacement', 'refusee', 12)];
+    const marches = [marche('serie_de_plus', 'acceptee', 4), marche('degressive', 'acceptee', 8)];
     [16, 17, 24].forEach((k) => {
       const { e, p, x } = plan(auPlafond(k), { marches });
       expect([k, x.escalier]).toEqual([k, null]);                         // plus aucune marche : le maintien
@@ -253,14 +263,14 @@ describe('§10 bis (113) — le curl EZ au plafond : la série de plus, puis la 
       expect([k, T.degressivesAAjouter(p)]).toEqual([k, [0]]);
       expect([k, T.verifierPlan(p, e).erreurs]).toEqual([k, []]);
     });
-    // Le moteur : au plafond, une marche par déclenchement, jamais deux fois la même — au-delà de la troisième, rien.
-    const o = { serie_de_plus: true, degressive: true, remplacement: true }, prop = {};
+    // Le moteur : au plafond, une marche par déclenchement, jamais deux fois la même — au-delà de la troisième (les leviers, la série de plus, la dégressive), rien.
+    const o = { leviers: true, serie_de_plus: true, degressive: true }, prop = {};
     const suite = [4, 8, 12, 16, 20, 24].map((k) => {
       const c = M.marcheAuPlafond(k, prop, o);
       if (c && !c.deja) prop[c.marche] = { compteur: k, reponse: 'acceptee' };
       return c && c.marche;
     });
-    expect(suite).toEqual(['serie_de_plus', 'degressive', 'remplacement', null, null, null]);
+    expect(suite).toEqual(['leviers', 'serie_de_plus', 'degressive', null, null, null]);
   });
 
   test('DISCRIMINANT — jamais le repli au plafond, même avec un repli possible et aucune autre marche qui ait un objet', () => {
@@ -277,10 +287,12 @@ describe('§10 bis (113) — le curl EZ au plafond : la série de plus, puis la 
     expect(sans.x.consigne.repli).toBeDefined();
   });
 
-  test('DISCRIMINANT — jamais le changement de schéma : en zone Lourd au plafond, le remplacement (ni série de plus ni dégressive en force)', () => {
-    const { e, p, x } = plan(auPlafond(4, { zone: 'lourd' }));
-    expect(x.escalier.marche).toBe('remplacement');
+  test('DISCRIMINANT — jamais le changement de schéma : en zone Lourd au plafond, les leviers (ni série de plus ni dégressive en force)', () => {
+    const { e, p, x } = plan(auPlafond(4, { zone: 'lourd' }), { sansLeviers: true });
+    expect(x.escalier.marche).toBe('leviers');
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+    // Les leviers répondus, la zone Lourd n'a ni série de plus ni dégressive : le maintien, jamais le schéma.
+    expect(plan(auPlafond(4, { zone: 'lourd' })).x.escalier).toBeNull();
     // Prémisse : sans la salle, la zone Lourd propose le schéma.
     expect(plan(auPlafond(4, { zone: 'lourd', sansSalle: true }), { sansSalle: true }).x.escalier.marche).toBe('schema');
   });
@@ -288,21 +300,22 @@ describe('§10 bis (113) — le curl EZ au plafond : la série de plus, puis la 
 
 // ═══ 3. LES MARCHES SAUTÉES ═══════════════════════════════════════════════
 describe('§10 bis (113) — une marche sans objet est sautée', () => {
-  test('DISCRIMINANT — sans place de volume : la dégressive dès le 1er déclenchement, puis le remplacement ; la série de plus ne revient pas', () => {
+  test('DISCRIMINANT — sans place de volume : la dégressive dès le 1er déclenchement ; la série de plus ne revient pas, ni rien d’autre', () => {
     const a = plan(auPlafond(4), { place: false });
     expect(a.x.escalier.marche).toBe('degressive');
     expect(esp(a.x.escalier.carte.phrase)).toBe(PHRASE(4) + ' Une dégressive après ta dernière série ?');
     expect(T.verifierPlan(a.p, a.e).erreurs).toEqual([]);
-    // Au déclenchement suivant, même avec de la place revenue : le remplacement.
+    // Au déclenchement suivant, même avec de la place revenue : le maintien (le frère plus chargeable est un levier).
     const b = plan(auPlafond(8), { marches: [marche('degressive', 'refusee', 4)] });
-    expect(b.x.escalier.marche).toBe('remplacement');
+    expect(b.x.escalier).toBeNull();
     expect(T.verifierPlan(b.p, b.e).erreurs).toEqual([]);
   });
 
-  test('DISCRIMINANT — en sèche : ni série de plus ni dégressive, le remplacement reste possible (dès le 1er déclenchement)', () => {
-    const { e, p, x } = plan(auPlafond(4), { phase: 'seche' });
-    expect(x.escalier.marche).toBe('remplacement');
-    expect(esp(x.escalier.carte.phrase)).toBe(PHRASE(4) + ' Passer à Curl Biceps (Haltère) ?');
+  test('DISCRIMINANT — en sèche : ni série de plus ni dégressive, mais les leviers restent (dès la 1re séance au plafond)', () => {
+    const { e, p, x } = plan(auPlafond(4), { phase: 'seche', sansLeviers: true });
+    expect(x.escalier.marche).toBe('leviers');
+    expect(esp(x.escalier.carte.phrase)).toBe('30 kg × 15, la plus lourde de ta salle. Pour continuer à monter :');
+    expect(x.escalier.carte.leviers[0]).toMatchObject({ cle: 'remplacement', vers: 'curl_biceps_haltere' });
     expect(x.consigne.serieDePlus).toBeUndefined();
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
     // Ni la phrase de sèche de l'escalier ordinaire.
@@ -312,23 +325,25 @@ describe('§10 bis (113) — une marche sans objet est sautée', () => {
     expect(q.x.consigne.serieDePlus).toBeUndefined();
   });
 
-  test('pour un débutant : pas de dégressive (§14.8), la série de plus puis le remplacement', () => {
+  test('pour un débutant : pas de dégressive (§14.8), la série de plus puis le maintien', () => {
     const { x } = plan(auPlafond(8), { debutant: true, marches: [marche('serie_de_plus', 'refusee', 4)] });
-    expect(x.escalier.marche).toBe('remplacement');
+    expect(x.escalier).toBeNull();
   });
 
-  test('DISCRIMINANT — aucun frère plus chargeable (seule la barre droite de 30) : le maintien après la dégressive', () => {
+  test('DISCRIMINANT — aucun frère plus chargeable (seule la barre droite de 30) : le maintien après la dégressive, et pas de levier de remplacement', () => {
     const { e, p, x } = plan(auPlafond(12), { liste: ['curl_biceps_barre'],
       marches: [marche('serie_de_plus', 'refusee', 4), marche('degressive', 'refusee', 8)] });
     expect(x.escalier).toBeNull();
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+    const l = plan(auPlafond(4), { liste: ['curl_biceps_barre'], sansLeviers: true });
+    expect(l.x.escalier.carte.leviers.some((lv) => lv.cle === 'remplacement')).toBe(false);
   });
 
-  test('un frère non déclaré (la poulie) est plus chargeable : proposé, « aucune limite déclarée dans ta salle »', () => {
-    const { x } = plan(auPlafond(12), { liste: ['curl_biceps_barre', 'curl_poulie'],
-      marches: [marche('serie_de_plus', 'refusee', 4), marche('degressive', 'refusee', 8)] });
-    expect(x.escalier.carte.vers).toBe('curl_poulie');
-    expect(esp(x.escalier.carte.detail)).toBe('Curl à la poulie : aucune limite déclarée dans ta salle.');
+  test('un frère non déclaré (la poulie) est plus chargeable : proposé comme levier, « aucune limite déclarée dans ta salle »', () => {
+    const { x } = plan(auPlafond(4), { liste: ['curl_biceps_barre', 'curl_poulie'], sansLeviers: true });
+    const lv = x.escalier.carte.leviers[0];
+    expect(lv).toMatchObject({ cle: 'remplacement', vers: 'curl_poulie' });
+    expect(esp(lv.detail)).toBe('Curl à la poulie : aucune limite déclarée dans ta salle.');
   });
 });
 
@@ -382,9 +397,9 @@ describe('§10 bis (113) — I47 révisé', () => {
       .some((t) => /^I47 — .*\(schema\) au plafond/.test(t))).toBe(true);
     expect(forge(auPlafond(4), {}, (x) => { x.consigne.repli = { palier: 25 }; x.consigne.ligne = { charge: 25, vise: 15 }; })
       .some((t) => /^I47 — .*un repli au plafond/.test(t))).toBe(true);
-    expect(forge(auPlafond(12), { marches: [marche('serie_de_plus', 'refusee', 4), marche('degressive', 'refusee', 8)] }, (x) => {
+    expect(forge(auPlafond(4), { sansLeviers: true }, (x) => {
       x.escalier.remplacant = { slug: 'curl_biceps_barre', mesure: 'charge_reps', salle: salleDe('curl_biceps_barre') };
-      x.escalier.carte.vers = 'curl_biceps_barre';
+      x.escalier.carte.leviers[0].vers = 'curl_biceps_barre';
     }).some((t) => /^I47 — .*un remplacement vers un exercice qui ne se charge pas plus/.test(t))).toBe(true);
     // La dégressive proposée alors que la série de plus avait un objet et n'a jamais été proposée.
     expect(forge(auPlafond(8), { marches: [marche('serie_de_plus', 'refusee', 4)] }, (x) => {
@@ -447,5 +462,132 @@ describe('§10 bis (113) — le pari au plafond : « tu tiens le plafond sur tou
     expect(M.observationPlafond(pari('degressive', { reponse: 'refusee' }), groupes, [])).toBeNull();
     // Une marche ordinaire (sans origine) ne s'observe pas ici.
     expect(M.observationPlafond(pari('degressive', { origine: undefined }), groupes, [])).toBeNull();
+  });
+});
+
+// ═══ 7. 175 — LA CARTE DES LEVIERS : « Pour continuer à monter » ═══════════════════════
+describe('§10 bis (175) — à la plus lourde de la salle : la carte des leviers', () => {
+  const LEVIERS = ['remplacement', 'tempo', 'reps', 'salle'];
+  const lev = (reponse, compteur, extra) => Object.assign({ id: null, seance: 'L' + compteur, jour: '2026-11-0' + Math.min(compteur, 4), exercice: SLUG,
+    marche: 'leviers', reponse, compteur, debut: '2026-11-0' + Math.min(compteur, 4) + 'T10:00:00+00:00', n: null,
+    levier: reponse === 'acceptee' ? 'tempo' : null, plafond: { charge: 30, reps: 15 } }, extra || {});
+
+  test('DISCRIMINANT — la première séance au plafond (compteur 2, sans déclenchement) : UNE carte, les leviers dans l’ordre', () => {
+    const { e, p, x } = plan(auPlafond(2), { sansLeviers: true });
+    expect(x.escalier.marche).toBe('leviers');
+    expect(x.escalier.declenchement).toBe(false);
+    expect(esp(x.escalier.carte.phrase)).toBe('30 kg × 15, la plus lourde de ta salle. Pour continuer à monter :');
+    expect(x.escalier.carte.leviers.map((lv) => lv.cle)).toEqual(LEVIERS);
+    expect(x.escalier.carte.leviers.map((lv) => esp(lv.texte))).toEqual([
+      'Curl Biceps (Haltère)', 'Tempo lent : 3 s en descente', 'Viser 18 reps à 30 kg', 'Ajouter une charge dans Ma salle']);
+    expect(x.escalier.carte.leviers[0].vers).toBe('curl_biceps_haltere');
+    expect(x.escalier.carte.non).toBe('Garder');
+    expect(x.entete.compteur).toBeNull();
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+
+  test('refus « Garder » : la phrase de maintien reste, la page de l’exercice garde les leviers ; la série de plus continue au déclenchement', () => {
+    const garde = lev('refusee', 2);
+    const a = plan(auPlafond(3), { marches: [garde], sansLeviers: true });
+    expect(a.x.escalier).toBeNull();
+    expect(esp(a.x.entete.gris)).toBe('30 kg × 15, la plus lourde de ta salle.');
+    expect(a.x.leviersGardes.leviers.map((lv) => lv.cle)).toEqual(LEVIERS);
+    expect(T.verifierPlan(a.p, a.e).erreurs).toEqual([]);
+    // Le déclenchement suivant : la série de plus ; le remplacement n'est pas reproposé comme carte.
+    const b = plan(auPlafond(4), { marches: [garde], sansLeviers: true });
+    expect(b.x.escalier.marche).toBe('serie_de_plus');
+    expect(T.verifierPlan(b.p, b.e).erreurs).toEqual([]);
+    // Et la dégressive ensuite, jamais un second remplacement.
+    const c = plan(auPlafond(8), { marches: [garde, marche('serie_de_plus', 'refusee', 4)], sansLeviers: true });
+    expect(c.x.escalier.marche).toBe('degressive');
+  });
+
+  test('une réponse par carte, gardée : les leviers répondus ne reviennent pas avant le prochain progrès', () => {
+    const { x } = plan(auPlafond(3), { marches: [lev('refusee', 2)], sansLeviers: true });
+    expect(x.escalier).toBeNull();
+    expect(x.leviersGardes).not.toBeNull();
+  });
+
+  test('« Viser N reps » : haut + 3, au plus 30 ; au plus 8 quand le plafond est de 5 reps ou moins (la force)', () => {
+    expect([15, 12, 10, 28, 29, 30].map((r) => M.viseeDuLevier(r))).toEqual([18, 15, 13, 30, 30, null]);
+    expect([5, 4, 3].map((r) => M.viseeDuLevier(r))).toEqual([8, 7, 6]);
+    expect(M.viseeDuLevier(null)).toBeNull();
+  });
+
+  test('DISCRIMINANT — zone Lourd (plafond 5 reps ou moins) : la visée proposée ne dépasse jamais 8', () => {
+    const c = auPlafond(2, { zone: 'lourd' });
+    const { x } = plan(c, { sansLeviers: true });
+    const r = x.escalier.carte.leviers.filter((lv) => lv.cle === 'reps')[0];
+    expect(x.escalier.plafond.reps).toBeLessThanOrEqual(15);
+    if (x.escalier.plafond.reps <= 5) expect(r.visee).toBeLessThanOrEqual(8);
+    else expect(r.visee).toBe(Math.min(30, x.escalier.plafond.reps + 3));
+  });
+
+  test('la visée acceptée allonge le plafond par la seule définition (`plafondALaSalle`) : 30 kg × 18, le plafond devient 18', () => {
+    const salle = salleDe(SLUG);
+    const hist = historique(salle);
+    const sans = M.consigneDExercice(hist, undefined, FIN, Object.assign({ salle: salle }, O));
+    const avec = M.consigneDExercice(hist, undefined, FIN, Object.assign({ salle: salle, rallonge: { charge: 30, visee: 18 } }, O));
+    expect(M.plafondDeLaConsigne(sans.consigne, sans.salle)).toEqual({ charge: 30, reps: 15 });
+    // Le plafond est 18 : 30 kg × 15 n'y est plus (on monte en reps, une de plus), l'escalier du plafond se tait.
+    expect(avec.consigne.fondement.salle).toMatchObject({ max: 30, plafond: 18 });
+    expect(avec.consigne.fondement.salle.maintien).toBeUndefined();
+    expect(avec.consigne.ligne).toEqual({ charge: 30, vise: 16 });
+    expect(M.plafondDeLaConsigne(avec.consigne, avec.salle)).toBeNull();
+    // Une autre charge que la plus lourde : la salle telle qu'elle est.
+    expect(M.avecRallonge(salle, { charge: 27.5, visee: 18 })).toBe(salle);
+    // Le plafond se lit en un seul endroit.
+    expect(M.plafondALaSalle({ haut: 15 }, Object.assign({}, salle, { visee: 18 }))).toBe(18);
+    expect(M.plafondALaSalle({ haut: 15 }, salle)).toBe(15);
+  });
+
+  test('le tempo lent accepté : la consigne le dit jusqu’au prochain progrès, même charge ; il ne revient pas dans les leviers', () => {
+    const t = lev('acceptee', 2, { levier: 'tempo' });
+    const { e, p, x } = plan(auPlafond(3), { marches: [t], sansLeviers: true });
+    expect(x.tempo).toMatchObject({ descente: 3 });
+    expect(esp(x.entete.tempo)).toBe('3 s en descente, jusqu\'à ton prochain progrès');
+    expect(esp(x.entete.gris)).toBe('30 kg × 15, la plus lourde de ta salle.');
+    expect(x.leviersGardes.leviers.map((lv) => lv.cle)).toEqual(['remplacement', 'reps', 'salle']);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+    // Sans tempo accepté : rien.
+    expect(plan(auPlafond(3), { marches: [lev('refusee', 2)], sansLeviers: true }).x.tempo).toBeNull();
+  });
+
+  test('une isolation à 15 reps : la visée 18 ; sans frère plus chargeable, pas de levier de remplacement', () => {
+    expect(M.leviersDuPlafond({ remplacant: null, charge: 30, reps: 15 }).map((lv) => lv.cle)).toEqual(['tempo', 'reps', 'salle']);
+    expect(M.leviersDuPlafond({ remplacant: null, charge: 30, reps: 15 }).filter((lv) => lv.cle === 'reps')[0].visee).toBe(18);
+    expect(M.leviersDuPlafond({ remplacant: null, charge: 30, reps: 30 }).map((lv) => lv.cle)).toEqual(['tempo', 'salle']);
+  });
+
+  test('DISCRIMINANT — forgé (I47) : un levier de remplacement vers un exercice qui ne charge pas plus est vu', () => {
+    const { p } = plan(auPlafond(2), { sansLeviers: true });
+    const q = JSON.parse(JSON.stringify(p));
+    q.exercices[0].escalier.carte.leviers[0].vers = 'curl_biceps_barre';
+    q.exercices[0].escalier.remplacant = { slug: 'curl_biceps_barre', mesure: 'charge_reps', salle: salleDe('curl_biceps_barre') };
+    expect(T.verifierPlan(q, undefined).erreurs.some((t) => /^I47 — .*un remplacement vers un exercice qui ne se charge pas plus/.test(t))).toBe(true);
+  });
+});
+
+describe('§10 bis (175) — I69 : la carte des leviers, forgée', () => {
+  const forge = (f, o) => {
+    const { p } = plan(auPlafond(2), Object.assign({ sansLeviers: true }, o || {}));
+    const q = JSON.parse(JSON.stringify(p));
+    f(q.exercices[0], q);
+    return T.verifierPlan(q, undefined).erreurs.filter((t) => /^I69/.test(t));
+  };
+  test('DISCRIMINANT — la carte réelle passe ; chaque faute forgée est vue', () => {
+    expect(forge(() => {})).toEqual([]);
+    // « Viser N reps » au-delà de plafond + 3, de 30, de 8 en force.
+    expect(forge((x) => { x.escalier.carte.leviers[2].visee = 21; }).some((t) => /viser 21 reps, la visée du plafond est 18/.test(t))).toBe(true);
+    expect(forge((x) => { x.escalier.plafond.reps = 5; x.escalier.carte.leviers[2].visee = 9; })
+      .some((t) => /en zone de force, au-delà de 8/.test(t))).toBe(true);
+    expect(forge((x) => { x.escalier.plafond.reps = 29; x.escalier.carte.leviers[2].visee = 32; })
+      .some((t) => /au-delà de 30/.test(t))).toBe(true);
+    // L'ordre, la répétition, « Ma salle » en dernier, le tempo déjà en cours, un mot d'échec.
+    expect(forge((x) => { x.escalier.carte.leviers.reverse(); }).some((t) => /hors de l’ordre/.test(t))).toBe(true);
+    expect(forge((x) => { x.escalier.carte.leviers.push(x.escalier.carte.leviers[1]); }).some((t) => /hors de l’ordre ou répétés/.test(t))).toBe(true);
+    expect(forge((x) => { x.escalier.carte.leviers.pop(); }).some((t) => /« Ma salle » n’est pas le dernier/.test(t))).toBe(true);
+    expect(forge((x) => { x.tempo = { descente: 3, phrase: 'x' }; }).some((t) => /déjà en cours/.test(t))).toBe(true);
+    expect(forge((x) => { x.escalier.carte.leviers[1].texte = 'Tempo lent jusqu’à l’échec'; }).some((t) => /réserve ou d’échec/.test(t))).toBe(true);
   });
 });

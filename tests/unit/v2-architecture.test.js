@@ -1657,6 +1657,13 @@ const NOTIONS = [
       raison: 'la liste des phases écrite en dur : lire `Profil.PHASES_EN_BASE` ou `Profil.phaseDe`' },
     raison: 'audit du 16/10/2026 (01 #14) : le plan (`PHASES_DU_PLAN`) et le questionnaire (`phaseSaisie`) recopiaient la ' +
       'liste du profil, et le plan son défaut (« maintien ») ; une liste, un défaut, au profil.' },
+  { notion: 'la visée acceptée (le levier « Viser N reps ») qui rallonge le plafond de la plus lourde', pr: 'correctif 26/10/2026',
+    module: 'moteur.js', fonction: 'rallongeAcceptee', lecteurs: ['app.js'],
+    raison: 'MOTEUR §10 bis (175) : la visée acceptée se lit sur les paris (`marchesDesParis`), une fois ; l\u2019app la passe aux options de ' +
+      'la consigne, qui allonge le plafond par `plafondALaSalle` (la seule définition).' },
+  { notion: 'la visée acceptée dépasse le plafond d\u2019une consigne figée au maintien', pr: 'correctif 26/10/2026',
+    module: 'moteur.js', fonction: 'rallongeChangeLePlafond', lecteurs: ['app.js'],
+    raison: 'MOTEUR §10 bis (175) : la consigne figée se recalcule une fois la visée acceptée ; la comparaison des charges reste au moteur.' },
   { notion: 'deux charges égales (au centième)', pr: '124-U2',
     module: 'moteur.js', fonction: 'memeCharge', lecteurs: ['plan.js'],
     parAilleurs: { 'plan.js': ['memeChargeOuVides'] },

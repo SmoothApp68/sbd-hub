@@ -113,7 +113,7 @@ describe('PR 2 — la suite du constat suit la zone en vigueur', () => {
       Moteur: { suiteDExercice: (g, j, e, a, o) => { appels.push(o.correction); return { apres: { consigne: { zone: o.correction } }, cranSuivant: null }; },
                 equipementEffectif: (e) => (e ? e.equipement || null : null) },
       // 50-1 : les deux lectures du profil et des modes que `optionsDeConsigne` appelle.
-      intentionDeLExercice: () => 'progresser', lestReponseDe: () => null, lestReponseDeLExercice: () => null,
+      intentionDeLExercice: () => 'progresser', lestReponseDe: () => null, lestReponseDeLExercice: () => null, rallongeDe: () => null,
       catalogueIndexe: () => ({ couche: { slug: 'couche', equipement: 'haltere' } }),
       cleConsignes: () => 'k', empreinteValidations: () => 'e', exerciceFini: () => true,
       seriesDeTravailDe: () => [],

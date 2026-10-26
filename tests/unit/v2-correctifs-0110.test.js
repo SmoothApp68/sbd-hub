@@ -313,7 +313,7 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
       Moteur: { suiteDExercice: (g, j, e, a, o) => { vus.push(o); return null; },
                 equipementEffectif: (e) => (e ? e.equipement || null : null) },
       // 50-1 : les deux lectures du profil et des modes que `optionsDeConsigne` appelle.
-      intentionDeLExercice: () => 'progresser', lestReponseDe: () => null, lestReponseDeLExercice: () => null,
+      intentionDeLExercice: () => 'progresser', lestReponseDe: () => null, lestReponseDeLExercice: () => null, rallongeDe: () => null,
       // `suiteDe` lit le catalogue indexé de l'app (PR 2 de la consolidation).
       catalogueIndexe: () => ({ curl: { slug: 'curl', equipement: 'barre' } }),
       cleConsignes: () => 'k', empreinteValidations: () => 'e', exerciceFini: () => true,

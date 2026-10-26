@@ -721,6 +721,8 @@
     var s = { materiel: salle.materiel, charges: l };
     // L'isolation (non polyarticulaire) : la fourchette à la plus lourde s'étend à 15 reps (`plafondALaSalle`).
     if (salle.isolation === true) s.isolation = true;
+    // 175 — la visée acceptée (le levier « reps ») rallonge le plafond de CETTE plus lourde (`avecRallonge`).
+    if (nombre(salle.visee) !== null) s.visee = nombre(salle.visee);
     // 132 — les noms des crans d'une liste d'élastiques suivent la salle en vigueur : l'affichage les lit.
     if (salleDElastiques(salle) && salle.noms) s.noms = salle.noms;
     return s;
@@ -779,8 +781,27 @@
   // Sans zone (la règle de bord) : 15 sur une isolation, sinon `null` (une rep de plus, comme avant).
   function plafondALaSalle(zone, salle) {
     var iso = !!(salle && salle.isolation === true);
-    if (!zone) return iso ? REPS_ISOLATION_SALLE : null;
-    return iso ? Math.max(zone.haut, REPS_ISOLATION_SALLE) : zone.haut;
+    var base = !zone ? (iso ? REPS_ISOLATION_SALLE : null) : (iso ? Math.max(zone.haut, REPS_ISOLATION_SALLE) : zone.haut);
+    // 175 — LA ZONE S'ALLONGE (le levier « Viser N reps », accepté) : la visée acceptée, à cette charge (`rallonge`), est le
+    // plafond. L'allongement passe ICI, par la seule définition du plafond.
+    var v = salle ? nombre(salle.visee) : null;
+    return v !== null && (base === null || v > base) ? v : base;
+  }
+  // 175 — le plafond de la salle rallongé de la visée acceptée (`rallonge` : `{ charge, visee }`), seulement tant que
+  // l'exercice est à CETTE plus lourde ; sinon la salle telle qu'elle est.
+  function avecRallonge(salle, rallonge) {
+    if (!salle || !rallonge) return salle;
+    var v = nombre(rallonge.visee), c = nombre(rallonge.charge), m = maxDeLaSalle(salle);
+    if (v === null || c === null || m === null || !memeCharge(m, c)) return salle;
+    return Object.assign({}, salle, { visee: v });
+  }
+  // 175 — LA VISÉE du levier « reps » : le plafond d'aujourd'hui + 3 reps, au plus 30 ; au plus 8 quand le plafond est de 5
+  // reps ou moins (la force). `null` : rien à viser de plus.
+  function viseeDuLevier(plafond) {
+    var p = nombre(plafond);
+    if (p === null) return null;
+    var v = Math.min(p + RALLONGE_REPS, p <= HAUT_FORCE ? RALLONGE_MAX_FORCE : RALLONGE_MAX_REPS);
+    return v > p ? v : null;
   }
   // LE GEL DE LA ZONE (« comme pendant un étirement », §9.7) : les dernières séances (non neutres, `ant`) à la plus
   // lourde de la salle, sans interruption ; la zone d'alors est celle de l'habitude lue juste après la PREMIÈRE
@@ -1375,7 +1396,8 @@
     var lestPossible = opt.lestPossible !== false;
     // §10 bis (108) — la salle déclarée pour cet exercice, ou `null` (rien ne
     // change). Elle se décide sur le palier, plus bas, une fois.
-    var salleDeclaree = opt.salle || null;
+    // 175 — le plafond rallongé par le levier « Viser N reps » (`opt.rallonge`), à la plus lourde où il a été accepté.
+    var salleDeclaree = opt.salle ? avecRallonge(opt.salle, opt.rallonge) : null;
     // §9.17 bis (127) — l'exercice est sur une ÉCHELLE (l'app le dit, le moteur ne lit pas le catalogue) : le
     // fondement porte alors les deux dernières séances, niveau et charge (`deuxSeances`), que la carte « marche
     // suivante » du plan lit sans rien recalculer. Absent ailleurs : une clé n'y figure que si elle a un sens.
@@ -6190,6 +6212,19 @@
   // 174 (MOTEUR §14.5, §14.7) — LA 4e MARCHE : ALLÉGER au lieu de se taire. Là où l'escalier n'avait plus rien à dire (la
   // série de plus et la dégressive ont eu leur tour), le coach propose une fois d'alléger l'exercice, jusqu'au prochain progrès.
   var MARCHE_ALLEGER = 'alleger';
+  // 175 (MOTEUR §10 bis, décision du 26/10/2026) — LES LEVIERS DU PLAFOND : à la plus lourde de la salle, UNE carte qui
+  // propose tout ce qui permet de continuer à monter (un frère plus chargeable, le tempo lent, plus de reps, une charge de
+  // plus dans Ma salle) — la première marche de l'escalier du plafond. Le pari d'une réponse porte `levier`.
+  var MARCHE_LEVIERS = 'leviers';
+  var LEVIER_REMPLACEMENT = 'remplacement';
+  var LEVIER_TEMPO = 'tempo';
+  var LEVIER_REPS = 'reps';
+  var LEVIER_SALLE = 'salle';
+  var TEMPO_DESCENTE_S = 3;        // « Tempo lent : 3 s en descente »
+  var RALLONGE_REPS = 3;           // « Viser [haut + 3] reps »
+  var RALLONGE_MAX_REPS = 30;      // au plus (le plafond des reps au poids du corps, `PLAFOND_CIBLE`)
+  var RALLONGE_MAX_FORCE = 8;      // au plus, quand le haut de la zone est ≤ 5 (la force)
+  var HAUT_FORCE = 5;
   // Lourd → Mix, Mix → Lourd : le schéma voisin, et les deux libellés.
   var SCHEMAS = {
     lourd: { vers: 'mix', oui: 'Passer à 6-8 reps', non: 'Garder 3-5' },
@@ -6409,7 +6444,8 @@
       return l && l.module === MODULE_ESCALIER && l.fondement &&
         (l.fondement.marche === MARCHE_SCHEMA || l.fondement.marche === MARCHE_REPLI ||
          l.fondement.marche === MARCHE_SERIE_DE_PLUS || l.fondement.marche === MARCHE_DEGRESSIVE ||
-         l.fondement.marche === MARCHE_REMPLACEMENT || l.fondement.marche === MARCHE_ALLEGER);
+         l.fondement.marche === MARCHE_REMPLACEMENT || l.fondement.marche === MARCHE_ALLEGER ||
+         l.fondement.marche === MARCHE_LEVIERS);
     }).map(function (l) {
       var f = l.fondement;
       var m = { id: l.id || null, seance: f.seance || null, jour: f.jour || null,
@@ -6419,6 +6455,15 @@
       // §10 bis (113) — une marche AU PLAFOND DE LA SALLE : son origine et le plafond qu'elle parie de tenir.
       if (f.origine === ORIGINE_SALLE_MAX) {
         m.origine = ORIGINE_SALLE_MAX;
+        m.plafond = f.plafond && typeof f.plafond === 'object'
+          ? { charge: nombre(f.plafond.charge), reps: nombre(f.plafond.reps) } : null;
+      }
+      // 175 — le levier choisi sur la carte des leviers (`remplacement`, `tempo`, `reps`, `salle`), et la visée de « reps ».
+      if (f.marche === MARCHE_LEVIERS) {
+        m.levier = typeof f.levier === 'string' ? f.levier : null;
+        m.visee = nombre(f.visee);
+        // Le plafond au moment du choix (la plus lourde et ses reps) : la visée « reps » ne vaut que pour CETTE charge. Un
+        // pari de leviers n'a pas d'`origine` : il s'observe comme toute marche (le progrès avant le prochain déclenchement).
         m.plafond = f.plafond && typeof f.plafond === 'object'
           ? { charge: nombre(f.plafond.charge), reps: nombre(f.plafond.reps) } : null;
       }
@@ -6805,7 +6850,7 @@
   // séance au plafond des reps (`salle.maintien`, posé par la consigne) — UNE définition, que le plan, I47 et
   // l'observation lisent. À la plus lourde SOUS le plafond, la personne peut encore gagner des reps : l'escalier
   // ordinaire (§14.5) — c'est elle qui bloque, pas la salle.
-  var MARCHES_PLAFOND = [MARCHE_SERIE_DE_PLUS, MARCHE_DEGRESSIVE, MARCHE_REMPLACEMENT];
+  var MARCHES_PLAFOND = [MARCHE_LEVIERS, MARCHE_SERIE_DE_PLUS, MARCHE_DEGRESSIVE];
   var QUESTION_SERIE_PLAFOND = ' Une série de plus ?';
   function auPlafondDeLaSalle(consigne, salle) {
     if (!aLaPlusLourdeDeLaSalle(consigne, salle)) return false;
@@ -6832,8 +6877,13 @@
   // maintient. Rend `{ marche, deja }`.
   function marcheAuPlafond(compteur, proposees, objets) {
     var k = nombre(compteur);
-    if (k === null || !estDeclenchement(k)) return null;
+    if (k === null) return null;
     var p = proposees || {}, o = objets || {};
+    // 175 (MOTEUR §10 bis) — LES LEVIERS D'ABORD, et sans attendre un déclenchement : la première séance où le plafond est
+    // atteint, la carte des leviers (une réponse, gardée) ; elle ne revient pas depuis le dernier progrès. Ensuite
+    // seulement, aux déclenchements, la série de plus et la dégressive.
+    if (!p[MARCHE_LEVIERS] && o[MARCHE_LEVIERS] === true) return { marche: MARCHE_LEVIERS, deja: null };
+    if (!estDeclenchement(k)) return null;
     var iDerniere = -1;
     MARCHES_PLAFOND.forEach(function (mk, i) { if (p[mk]) iDerniere = i; });
     if (iDerniere >= 0) {
@@ -6881,6 +6931,9 @@
   function cartePlafond(marche, meilleur, compteur, o) {
     if (!meilleur || meilleur.niveau === null || meilleur.niveau === undefined) return null;
     var x = o || {};
+    // 175 — la carte des leviers a sa propre phrase (`carteLeviers`) et ne cite pas le compteur : le début se rédige sous la
+    // série de plus et la dégressive seulement (une citation non écrite fait échouer I26).
+    if (marche === MARCHE_LEVIERS) return carteLeviers(meilleur, x.sens);
     var debut = phrasePlafond(meilleur, compteur);
     if (marche === MARCHE_SERIE_DE_PLUS) {
       var sp = carteSerieDePlus(meilleur, compteur, false, x.muscles, x.parPriorite);
@@ -6890,12 +6943,81 @@
       return { type: MARCHE_DEGRESSIVE, phrase: debut + QUESTION_DEGRESSIVE, detail: DETAIL_DEGRESSIVE,
                oui: 'Ajouter une dégressive', non: 'Non merci', plafond: true };
     }
-    if (marche === MARCHE_REMPLACEMENT && x.remplacant && x.remplacant.slug) {
-      var nom = x.remplacant.nom || x.remplacant.slug;
-      return { type: MARCHE_REMPLACEMENT, phrase: debut + ' Passer à ' + nom + ' ?', detail: x.detail || null,
-               vers: x.remplacant.slug, nom: nom, oui: 'Changer d\'exercice', non: 'Non merci', plafond: true };
-    }
     return null;
+  }
+  // ══ 175 (MOTEUR §10 bis, décision d'Aurélien du 26/10/2026) — À LA PLUS LOURDE DE LA SALLE : TOUS LES LEVIERS D'UN COUP ══
+  //
+  // « 30 kg × 15, la plus lourde de ta salle. Pour continuer à monter : » — UNE carte, la première séance où le plafond est
+  // atteint (`marcheAuPlafond`), avec les leviers qui ont un objet, dans cet ordre : un frère plus chargeable (le remplaçant
+  // d'avant, même fonction), le tempo lent (3 s en descente, même charge, même zone), plus de reps (la zone s'allonge de 3,
+  // au plus 30 — 8 si le haut est ≤ 5), une charge de plus dans Ma salle. « Garder » est un refus, gardé et relu. Une réponse
+  // par carte. Le moteur propose, la personne décide. Aller à l'échec n'est jamais un motif.
+  var NON_LEVIERS = 'Garder';
+  // La phrase de la carte (rédigée sous capture, §20 bis) : le meilleur au plafond, comme la phrase de maintien.
+  // `sens` : au bout d'une liste d'élastiques (132), « ton élastique le plus fort » (résistance) ou « le plus léger » (aide), comme
+  // la phrase de maintien de la consigne ; le nom de l'élastique vient du formateur (`avecNoms`).
+  function carteLeviers(meilleur, sens) {
+    if (!meilleur || meilleur.niveau === null || meilleur.niveau === undefined) return null;
+    var bout = sens === 'aide' ? ', ton élastique le plus léger' : sens === 'resistance' ? ', ton élastique le plus fort'
+      : ', la plus lourde de ta salle';
+    return {
+      type: MARCHE_LEVIERS, non: NON_LEVIERS, plafond: true,
+      phrase: Modele().charge(meilleur.palier, undefined, cite(FAIT, { quoi: 'meilleur' })) + ' × ' +
+        nombreFr(meilleur.niveau, cite(FAIT, { quoi: 'meilleur', champ: 'reps' })) +
+        bout + '. Pour continuer à monter' + INSECABLE + ':'
+    };
+  }
+  // Les LEVIERS d'une exercice au plafond, dans l'ordre, ceux qui ont un objet. `o` : `{ remplacant, detail, charge, reps,
+  // tempoActif }` — le remplaçant (`remplacantAuPlafond`) et son détail (`detailRemplacement`), la plus lourde et le plafond
+  // des reps (`plafondDeLaConsigne`), le tempo déjà en cours depuis le dernier progrès. Une donnée : l'écran la dessine, la
+  // page de l'exercice la relit, rien n'y est recalculé. `[{ cle, texte, vers?, detail?, visee? }]`.
+  function leviersDuPlafond(o) {
+    var x = o || {};
+    var liste = [];
+    if (x.remplacant && x.remplacant.slug) {
+      liste.push({ cle: LEVIER_REMPLACEMENT, texte: x.remplacant.nom || x.remplacant.slug, vers: x.remplacant.slug,
+                   detail: x.detail || null });
+    }
+    if (x.tempoActif !== true) {
+      liste.push({ cle: LEVIER_TEMPO, texte: 'Tempo lent' + DEUX_POINTS + Modele().secondes(TEMPO_DESCENTE_S) + ' en descente' });
+    }
+    var v = viseeDuLevier(x.reps);
+    var c = nombre(x.charge);
+    if (v !== null && c !== null) {
+      liste.push({ cle: LEVIER_REPS, texte: 'Viser ' + Modele().nombre(v) + ' reps à ' + Modele().charge(c), visee: v });
+    }
+    liste.push({ cle: LEVIER_SALLE, texte: 'Ajouter une charge dans Ma salle' });
+    return liste;
+  }
+  // « 3 s en descente, jusqu'à ton prochain progrès » — la mention de la consigne quand le tempo lent est en cours. Rédigée
+  // sous capture : le « 3 » est une constante du moteur (§20 bis).
+  function grisTempo() {
+    return Modele().secondes(TEMPO_DESCENTE_S, regle('constante')) + ' en descente, jusqu\'à ton prochain progrès';
+  }
+  // Le levier `levier` accepté depuis le dernier progrès de l'exercice (la même lecture que la série de plus) : le pari le
+  // plus récent, ou `null`.
+  function levierActif(exercice, jour, compteur, marches, compteurs, levier) {
+    var a = marchesDepuisProgres(exercice, jour, compteur, marches, compteurs, MARCHE_LEVIERS, ['acceptee'])
+      .filter(function (m) { return m.levier === levier; });
+    if (!a.length) return null;
+    return a.slice().sort(function (x, y) { return avantAlpha(String(y.jour), String(x.jour)); })[0];
+  }
+  // La visée acceptée d'un exercice (le levier « reps ») : `{ charge, visee }` du pari le plus récent, ou `null`. Elle
+  // rallonge le plafond de CETTE plus lourde (`avecRallonge`) ; un nouveau plafond atteint peut en proposer une autre.
+  function rallongeAcceptee(exercice, marches) {
+    var a = (marches || []).filter(function (m) {
+      return m && m.exercice === exercice && m.marche === MARCHE_LEVIERS && m.levier === LEVIER_REPS &&
+        m.reponse === 'acceptee' && nombre(m.visee) !== null && m.plafond && nombre(m.plafond.charge) !== null;
+    });
+    if (!a.length) return null;
+    var d = a.slice().sort(function (x, y) { return avantAlpha(String(y.debut || y.jour), String(x.debut || x.jour)); })[0];
+    return { charge: nombre(d.plafond.charge), visee: nombre(d.visee) };
+  }
+  // 175 — la visée acceptée allonge-t-elle le plafond d'une consigne FIGÉE au maintien (`fondement.salle` : `max`, `plafond`) ?
+  // Oui quand elle vaut pour cette plus lourde et dépasse son plafond : l'app recalcule alors la consigne, une fois.
+  function rallongeChangeLePlafond(rallonge, salleFondement) {
+    if (!rallonge || !salleFondement) return false;
+    return memeCharge(rallonge.charge, salleFondement.max) && nombre(rallonge.visee) > nombre(salleFondement.plafond);
   }
   // « Curl Biceps (Haltère) : ta salle va jusqu'à 2 × 40 kg. » ; sans salle déclarée pour lui, « … : aucune limite
   // déclarée dans ta salle. » Rédigée HORS de la capture de la carte : le détail ne cite rien du plan.
@@ -7738,7 +7860,7 @@
     // reste : ce qui suit lit la consigne plafonnée.
     var consigne = consigneApresAFond(seances, avant,
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null,
-        lestReponse: o.lestReponse, lestPossible: o.lestPossible, salle: o.salle || null, echelle: o.echelle === true });
+        lestReponse: o.lestReponse, lestPossible: o.lestPossible, salle: o.salle || null, rallonge: o.rallonge || null, echelle: o.echelle === true });
     // §9.10 (53-1) — LA ZONE A CHANGÉ depuis la dernière séance : la charge se
     // reporte (la plus basse de la charge déjà tenue et de l'estimation, au bas
     // de la zone). Une seule fois, ici : tout ce qui suit lit cette consigne.
@@ -8464,6 +8586,22 @@
     carteDegressive: carteDegressive,
     // §10 bis (113) — au plafond de la salle, le coach propose.
     MARCHE_REMPLACEMENT: MARCHE_REMPLACEMENT,
+    // 175 — les leviers du plafond.
+    MARCHE_LEVIERS: MARCHE_LEVIERS,
+    LEVIER_REMPLACEMENT: LEVIER_REMPLACEMENT,
+    LEVIER_TEMPO: LEVIER_TEMPO,
+    LEVIER_REPS: LEVIER_REPS,
+    LEVIER_SALLE: LEVIER_SALLE,
+    TEMPO_DESCENTE_S: TEMPO_DESCENTE_S,
+    NON_LEVIERS: NON_LEVIERS,
+    carteLeviers: carteLeviers,
+    leviersDuPlafond: leviersDuPlafond,
+    viseeDuLevier: viseeDuLevier,
+    avecRallonge: avecRallonge,
+    grisTempo: grisTempo,
+    levierActif: levierActif,
+    rallongeAcceptee: rallongeAcceptee,
+    rallongeChangeLePlafond: rallongeChangeLePlafond,
     ORIGINE_SALLE_MAX: ORIGINE_SALLE_MAX,
     MARCHES_PLAFOND: MARCHES_PLAFOND,
     auPlafondDeLaSalle: auPlafondDeLaSalle,

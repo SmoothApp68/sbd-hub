@@ -1085,7 +1085,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
    la carte de schéma. */
 .proposition-exercice{margin:6px 0 4px;padding:8px 10px;border:1px dashed var(--trait);border-radius:8px}
 .proposition-exercice .pc-texte{color:var(--texte-2);font-size:13.5px;line-height:1.35}
-.proposition-schema .pc-texte,.proposition-serie .pc-texte,.proposition-degressive-proposee .pc-texte,.proposition-alleger .pc-texte,.proposition-remplacement .pc-texte{color:var(--texte);font-weight:600}
+.proposition-schema .pc-texte,.proposition-serie .pc-texte,.proposition-degressive-proposee .pc-texte,.proposition-alleger .pc-texte,.proposition-remplacement .pc-texte,.proposition-leviers .pc-texte{color:var(--texte);font-weight:600}
 .proposition-exercice .pc-detail{margin-top:4px;color:var(--texte-2);font-size:13px;line-height:1.4}
 .proposition-exercice .pc-gestes{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .proposition-exercice button{min-height:36px;padding:0 12px;border-radius:var(--r-bouton);font:inherit;font-size:13.5px}
@@ -2696,3 +2696,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 /* ── 173 (« Vivant », 25/10/2026) — LE PROFIL RANGÉ PAR FRÉQUENCE : le titre d'un groupe (« Mon coach », « Mon programme », « Moi », « Mon compte »). */
 .p-grp{margin:var(--e5) 0 0;padding:0 var(--e3);font-family:var(--pile-c);font-size:22px;font-weight:700;line-height:1.1;letter-spacing:.01em;color:var(--texte)}
 .p-grp + .p-sect{padding-top:var(--e3)}
+.pour-monter{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3) 14px;margin-bottom:var(--e3)}
+.pm-leviers{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.pm-levier{color:var(--texte)}
+.pm-geste{min-height:44px;width:100%;text-align:left;background:transparent;color:var(--texte);border:1px solid var(--bordure,currentColor);border-radius:var(--r-grand);padding:0 12px;font:inherit}

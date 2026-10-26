@@ -575,6 +575,8 @@
       if (!deg) deg = lignes[i]; else suivantes.push(lignes[i]);
     }
     if (!deg) return sortie;
+    // 174 — « alléger » retire la dégressive : une ligne dégressive pas encore faite n'a plus de phrase ni de fantôme.
+    if (consigne && consigne.alleger && !deg.validee) return sortie;
     var t = lignes[derniere];
     var sr = liste[t.iSerie] || {};
     var charge, reps;
@@ -712,7 +714,7 @@
   }
 
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -763,7 +765,11 @@
     // MOTEUR §14.7 (49-U17) — LA SÉRIE DE PLUS EN COURS : la consigne sait que
     // la routine compte `routinePlus` séries ; la ligne en plus les suit, à la
     // charge et à la visée de la ligne, jamais un test.
-    if (routinePlus && !consigne.allegee) consigne = M.consigneSerieDePlus(consigne, routinePlus);
+    // 174 (MOTEUR §14.5, §14.7) — LA 4e MARCHE EN COURS, « ALLÉGER » : acceptée, pas de progrès depuis. La consigne perd sa
+    // ligne haute et sa dégressive ; une série de moins (même charge) ou la charge d'un cran plus bas / de P x 0,95. Elle
+    // l'emporte sur la série de plus acceptée avant elle (une série de moins n'ajoute pas de ligne).
+    if (allege && !consigne.allegee && !consigne.repli && consigne.etat !== 'silence') consigne = M.consigneAlleger(consigne, allege);
+    if (routinePlus && !consigne.allegee && !consigne.alleger) consigne = M.consigneSerieDePlus(consigne, routinePlus);
     var siens = (paris || []).filter(function (l) {
       return l && l.exercise_slug === base.slug && l.fondement && l.fondement.seance === seanceId;
     });
@@ -830,6 +836,23 @@
     }
     // §14.7 — « une série de plus, jusqu'à ton prochain progrès », en gris.
     var grisPlus = consigne.serieDePlus ? M.GRIS_SERIE_DE_PLUS : null;
+    // 174 — LA 4e MARCHE DIT CE QU'ELLE FAIT : en cours (acceptée), « une série de moins, sans dégressive, jusqu'à ton prochain
+    // progrès » ; refusée, le rappel « 107 kg × 10 depuis 13 séances. Une série de moins reste la sortie. » (au lieu de rien).
+    // Quand la CHARGE change, la phrase grise de l'état (« une rep de plus… », qui cite l'ancienne ligne) cède la place.
+    var enteteAlleger = null, citesAlleger = [];
+    if (consigne.alleger) {
+      var gA = M.grisAlleger(consigne.alleger);
+      if (consigne.alleger.charge !== null && consigne.alleger.charge !== undefined) {
+        gris = gA.charAt(0).toUpperCase() + gA.slice(1) + '.';
+        citesGris = [];
+      } else {
+        enteteAlleger = gA;
+      }
+    } else if (marche && marche.marche === M.MARCHE_ALLEGER && marche.reponse === 'refusee' && c.compteur) {
+      var capAl = V.capturer(function () { return M.phraseRappelAlleger(c.compteur.meilleur, c.compteur.compteur, marche.mode); });
+      enteteAlleger = capAl.texte;
+      citesAlleger = capAl.citations;
+    }
     var donc = jauneDonc.length ? 'Donc ' + jauneDonc.join(', ') + '.' : null;
     var autour = chauffesEtDegressive(r.lignes, series, consigne, materiel || null);
     var capP = V.capturer(function () { return pourquoiDuPlan(consigne, r.lignes, donc); });
@@ -853,7 +876,7 @@
         capK = V.capturer(function () { return M.phraseSeche(compteur); });
         phraseDuCompteur = capK.texte;
         citesCompteur = capK.citations;
-      } else if (marche.marche === M.MARCHE_SILENCE || marche.carte || consigne.repli) phraseDuCompteur = null;
+      } else if (marche.marche === M.MARCHE_SILENCE || marche.marche === M.MARCHE_ALLEGER || marche.carte || consigne.repli) phraseDuCompteur = null;
     }
     if (pourquoi && phraseDuCompteur) pourquoi.compteur = phraseDuCompteur;
     // MOTEUR §13.6 (49-U20) — LE FRÈRE QUI PROGRESSE, côte à côte : figé avec
@@ -863,7 +886,7 @@
     // taisent avec lui ; la semaine allégée aussi. L'escalier ne le lit pas :
     // sa marche reste proposée (§13.1, ne pas conclure).
     var frere = c.frere || null;
-    var compteurParle = capK0 !== null && !(marche && (marche.marche === M.MARCHE_SILENCE || consigne.repli));
+    var compteurParle = capK0 !== null && !(marche && (marche.marche === M.MARCHE_SILENCE || marche.marche === M.MARCHE_ALLEGER || consigne.repli));
     var capFr = V.capturer(function () { return frere && compteurParle ? M.phraseFrere(frere) : null; });
     var phraseDuFrere = capFr.texte, citesFrere = capFr.citations;
     if (pourquoi && phraseDuFrere) pourquoi.frere = phraseDuFrere;
@@ -904,6 +927,7 @@
     dire('entete.compteur', phraseDuCompteur, citesCompteur);
     dire('entete.frere', phraseDuFrere, citesFrere);
     dire('entete.plus', grisPlus, []);
+    dire('entete.alleger', enteteAlleger, citesAlleger);
     dire('message', r.message ? r.message.phrase : null, r.citationsMessage);
     dire('donc', donc, citesDonc);
     if (pourquoi) {
@@ -943,7 +967,7 @@
       lignes: r.lignes, message: r.message, paris: r.paris,
       constat: constat,
       entete: Object.assign({ jaune: entete.jaune, gris: gris, segments: entete.segments, compteur: phraseDuCompteur, plus: grisPlus },
-                            phraseDuFrere ? { frere: phraseDuFrere } : {}),
+                            phraseDuFrere ? { frere: phraseDuFrere } : {}, enteteAlleger ? { alleger: enteteAlleger } : {}),
       // §14.5 (49-U15) — la marche de l'escalier de cet exercice, ou `null` :
       // `{ marche, n, compteur, declenchement, zone, carte?, repli?, reponse? }`.
       escalier: marche || null,
@@ -1217,6 +1241,9 @@
     var precedents = e.precedents || {};
     var plus = seriesDePlusActives(e, seance, consignes, esc, phase);
     var degPlus = degressivesActives(e, seance, consignes, esc, phase, intentionProfil);
+    // 174 — la 4e marche en cours ; la dégressive est retirée tant qu'elle dure.
+    var alleges = allegementsActifs(e, seance, consignes, esc, phase);
+    Object.keys(alleges).forEach(function (sl) { delete degPlus[sl]; });
     // Une marche par EXERCICE (I21) : un exercice présent deux fois dans la
     // séance ne la porte que sur sa première occurrence ; le repli, lui, est la
     // consigne de l'exercice — les deux occurrences la lisent.
@@ -1292,7 +1319,7 @@
           Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null,
           Seance().exerciceFini(seance, slug),
           precedentPourLeMoteur(Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null, salleEl),
-          objectif);
+          objectif, Object.prototype.hasOwnProperty.call(alleges, slug) ? alleges[slug] : null);
         if (x.escalier && x.escalier.copie) x.escalier = null;
         // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
@@ -1660,12 +1687,19 @@
   // d'ajouter en pleine semaine allégée (consolidation 4/7). Sans lui, tous.
   function lignesARetirer(plan, iExo) {
     var sortie = [];
-    if (!plan || !plan.allegee) return sortie;
+    if (!plan) return sortie;
     (plan.exercices || []).forEach(function (x) {
-      if (!x || !x.consigne || !x.consigne.allegee) return;
+      if (!x || !x.consigne) return;
+      // 174 — la 4e marche (« alléger ») retire aussi, sur son exercice : les séries au-delà de celles qu'elle couvre et la
+      // ligne dégressive. Jamais une série validée.
+      var semaine = !!plan.allegee && !!x.consigne.allegee;
+      var alleger = !!x.consigne.alleger;
+      if (!semaine && !alleger) return;
       if (typeof iExo === 'number' && x.iExo !== iExo) return;
       (x.lignes || []).filter(function (l) {
-        return l.role === 'hors' && l.type === 'travail' && !l.validee;
+        if (l.validee) return false;
+        if (l.role === 'hors' && l.type === 'travail') return true;
+        return alleger && l.type === 'degressive';
       }).map(function (l) { return l.iSerie; }).sort(function (a, b) { return b - a; })
         .forEach(function (i) { sortie.push({ iExo: x.iExo, iSerie: i }); });
     });
@@ -1785,6 +1819,38 @@
       // plus restent.
       if (marche === M.MARCHE_SCHEMA && enBloc[slug]) marche = M.MARCHE_SILENCE;
       var declenche = M.estDeclenchement(k);
+      // 174 (MOTEUR §14.5, §14.7) — LA 4e MARCHE : là où l'escalier se tairait (3e déclenchement isolé et au-delà, le repli
+      // sauté compris), le coach propose d'alléger, une fois par blocage ; refusée, une ligne la rappelle à chaque séance.
+      // Jamais en sèche (§9.16 : « rien de plus »), jamais au plafond de la salle (son escalier est plus haut).
+      if ((marche === M.MARCHE_SILENCE || (marche === M.MARCHE_REPLI && !c.repli)) && n >= 3 && phase !== 'seche') {
+        var nR = Object.prototype.hasOwnProperty.call(E.seriesRoutine || {}, slug) ? Number(E.seriesRoutine[slug]) : null;
+        var prop = nR === null || !isFinite(nR) ? null : M.propositionAlleger(c.consigne, c.alleger, nR);
+        if (prop) {
+          var ma = { marche: M.MARCHE_ALLEGER, n: n, compteur: k, declenchement: declenche, zone: zone === undefined ? null : zone,
+                     mode: prop.mode, alleger: prop };
+          var dejaA = marches.filter(function (x) {
+            return x && x.seance === seance.id && x.exercice === slug && x.marche === M.MARCHE_ALLEGER;
+          })[0] || M.allegerProposee(slug, jour, k, marches, compteurs);
+          if (dejaA) {
+            ma.reponse = dejaA.reponse;
+            sortie[slug] = ma;
+            return;
+          }
+          if (declenche) {
+            var capA = Voix().capturer(function () { return M.carteAlleger(c.compteur.meilleur, k, prop); });
+            if (capA.texte) {
+              ma.carte = capA.texte;
+              ma.carte.detail = M.detailAlleger(prop, {
+                serie: M.serieDePlusProposee(slug, jour, k, marches, compteurs),
+                degressive: M.degressiveProposee(slug, jour, k, marches, compteurs)
+              }, c.consigne.palier);
+              retenirCitationsDeCarte(ma.carte, capA.citations);
+              sortie[slug] = ma;
+              return;
+            }
+          }
+        }
+      }
       if (!declenche && marche !== M.MARCHE_SILENCE) return;
       var m = { marche: marche, n: n, compteur: k, declenchement: declenche, zone: zone === undefined ? null : zone };
       if (marche === M.MARCHE_REPLI) {
@@ -2036,6 +2102,29 @@
       if (!M.serieDePlusActive(slug, jour, c.compteur.compteur, E.marches || [], E.compteurs || [])) return;
       var n = Object.prototype.hasOwnProperty.call(routine, slug) ? Number(routine[slug]) : NaN;
       if (isFinite(n) && n >= 1) sortie[slug] = n;
+    });
+    return sortie;
+  }
+
+  // 174 (MOTEUR §14.5, §14.7) — LES ALLÈGEMENTS EN COURS : la 4e marche, acceptée, pas de progrès depuis — à chaque séance de
+  // l'exercice jusqu'à son prochain progrès. Jamais pendant une semaine allégée, jamais en sèche, jamais en Édition, jamais au
+  // plafond de la salle (son escalier est le sien). Rend `{ [slug]: proposition }` (la proposition du moteur, recalculée sur
+  // les crans figés avec la consigne et les séries de la routine : la même qu'à l'acceptation).
+  function allegementsActifs(e, seance, consignes, esc, phase) {
+    var sortie = {};
+    var E = e.escalier;
+    if (!E || seance.edition || esc.allegee || phase === 'seche') return sortie;
+    var M = Moteur();
+    var jour = M.jourCivil(seance.debut);
+    if (!jour) return sortie;
+    var routine = E.seriesRoutine || {};
+    Object.keys(consignes).forEach(function (slug) {
+      var c = consignes[slug];
+      if (!c || !c.consigne || !c.compteur || typeof c.compteur.compteur !== 'number' || auPlafond(c)) return;
+      if (!M.allegerActive(slug, jour, c.compteur.compteur, E.marches || [], E.compteurs || [])) return;
+      var n = Object.prototype.hasOwnProperty.call(routine, slug) ? Number(routine[slug]) : NaN;
+      var prop = isFinite(n) ? M.propositionAlleger(c.consigne, c.alleger, n) : null;
+      if (prop) sortie[slug] = prop;
     });
     return sortie;
   }
@@ -3718,6 +3807,7 @@
     };
     structure(k.n, k.haut ? k.haut.k : null);
     if (suite) structure(suite.n, suite.k);
+    if (k.alleger) { nbSeries.push(k.alleger.series); nbSeries.push(k.alleger.routine); }
     ((x.entete && x.entete.segments) || []).forEach(function (sg) { nbSeries.push(sg.nombre); });
     // Et les séries faites aujourd'hui à une même charge (« ta nouvelle charge
     // tient sur 2 séries »).
@@ -3999,6 +4089,7 @@
     verifierReserve(plan, entrees, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
     verifierBord(plan, erreurs);
+    verifierAlleger(plan, erreurs);
     verifierApprochee(plan, erreurs);
     verifierApresLaDecharge(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
@@ -4151,6 +4242,49 @@
       }
     });
   }
+  // I66 (MOTEUR §14.5, §14.7, 174) — LA 4e MARCHE NE PROPOSE JAMAIS PLUS : ni plus de séries ni plus de charge que la séance d'avant
+  // (la routine, le palier), jamais une ligne haute, jamais pendant une semaine allégée ; une série de moins retire vraiment une
+  // série ; la charge d'un cran plus bas / de P x 0,95 est strictement sous le palier ; « une série de moins » ne s'applique ni
+  // en zone force (elle y change la charge) ni sous 3 séries, « la charge » ni en zone muscle ni au poids du corps.
+  function verifierAlleger(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x.consigne;
+      var m = x.escalier && x.escalier.marche === M.MARCHE_ALLEGER ? x.escalier : null;
+      var a = (k && k.alleger) || (m && m.carte ? m.alleger : null);
+      if (!a) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var e = function (t) { erreurs.push('I66' + nom + t); };
+      var P = k ? nombre(k.palier) : null;
+      var mode = a.mode;
+      var routine = nombre(a.routine), series = nombre(a.series);
+      if (plan.allegee) e('une marche « alléger » pendant une semaine allégée');
+      if (routine === null || series === null || series > routine) e('plus de séries (' + series + ') que la routine (' + routine + ')');
+      if (mode === 'serie') {
+        if (series >= routine) e('une série de moins qui n\'en retire aucune');
+        if (routine < 3) e('une série de moins sous 3 séries');
+        if (k && P !== null && P > 0 && M.zoneParCle(k.zone) && M.zoneParCle(k.zone).haut <= 5) e('une série de moins en zone force');
+        if (nombre(a.charge) !== null) e('une série de moins qui change la charge');
+      } else if (mode === 'cran' || mode === 'force') {
+        var ch = nombre(a.charge);
+        if (P === null || P <= 0) e('une charge allégée sur un palier de ' + P + ' kg');
+        else if (ch === null || ch >= P - 1e-9) e('une charge allégée (' + ch + ' kg) pas sous le palier (' + P + ' kg)');
+        var z = k ? M.zoneParCle(k.zone) : null;
+        if (z && mode === 'force' && z.haut > 5) e('la charge allégée en zone muscle (' + k.zone + ')');
+        if (z && mode === 'cran' && (z.haut <= 5 || routine >= 3)) e('un cran de moins hors du cas « zone muscle, 2 séries ou moins »');
+      } else {
+        e('un mode « ' + mode + ' » inconnu');
+      }
+      if (k && k.alleger) {
+        if (k.haut) e('une ligne haute sur une consigne allégée');
+        if (k.ligne && P !== null && nombre(k.ligne.charge) !== null && nombre(k.ligne.charge) > P + 1e-9) {
+          e('la ligne (' + k.ligne.charge + ' kg) au-dessus du palier (' + P + ' kg)');
+        }
+        (x.planInitial || []).forEach(function (q, j) { if (q && q.role === 'haut') e('la ligne ' + j + ' est un test'); });
+      }
+    });
+  }
+
   // I65 (MOTEUR §9.1.2, 174) — LA RÈGLE DE BORD QUI RECULE : une consigne de bord après une séance ratée (des reps faites
   // sous les reps visées) ne propose jamais plus que le palier de cette séance, et vise les reps VISÉES, pas les faites ;
   // une vague (trois séances sans monter) repart sous le palier. Le fondement `bord` ne dit que ce qu'il sait : un recul

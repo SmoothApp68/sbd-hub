@@ -212,7 +212,8 @@ describe('§14 (111) — le curl à la poulie qui stagne', () => {
       expect(d.p.exercices[0].escalier.marche).toBe('repli');
       sansErreur(d);
     });
-    expect(decor({ compteur: 12, marches: [PLUS_REFUSEE] }).p.exercices[0].escalier.marche).toBe('silence');
+    // 174 — sans dégressive proposée, il n'y a toujours pas de repli : là où l'escalier se taisait, la 4e marche propose d'alléger.
+    expect(decor({ compteur: 12, marches: [PLUS_REFUSEE] }).p.exercices[0].escalier.marche).toBe('alleger');
   });
   test('la même séance rouverte au même déclenchement : la carte ne revient pas', () => {
     const d = decor({ seance: 'S1bis', marches: [PLUS_REFUSEE, marche('degressive', 'refusee', '2026-10-15', 8, 'S1')] });

@@ -6812,7 +6812,7 @@
     if (!c) return null;
     var x = planDuSlug(slug);
     return x ? { jaune: x.entete.jaune, gris: x.entete.gris, compteur: x.entete.compteur || null,
-                 frere: x.entete.frere || null, plus: x.entete.plus || null,
+                 frere: x.entete.frere || null, plus: x.entete.plus || null, alleger: x.entete.alleger || null,
                  approchee: x.approchee ? x.approchee.phrase : null } : c.libelles;
   }
 
@@ -7246,9 +7246,12 @@
     // (`origine : salle_max`, le plafond, les séries de la routine) ; le remplacement n'a aucun pari d'escalier —
     // refusé, il s'écrit comme les autres refus ; accepté, l'exercice change dans la routine et dans la séance.
     var rempl = marche === Moteur.MARCHE_REMPLACEMENT;
+    // 174 — LA 4e MARCHE, « ALLÉGER » : la même réponse ; son pari porte les séries de la routine et le début de la séance ;
+    // acceptée, les lignes en trop partent (`appliquerAllegee`, jamais une série validée).
+    var alleger = marche === Moteur.MARCHE_ALLEGER;
     var auPlafond = !!m.plafond;
     var nRoutine = nombreDeSeriesRoutine(x.slug);
-    var extra = plus ? { n_routine: nRoutine, debut: seance.debut }
+    var extra = plus || alleger ? { n_routine: nRoutine, debut: seance.debut }
       : deg ? { debut: seance.debut } : rempl ? { debut: seance.debut, vers: m.carte.vers }
       : { nouvelle_zone: m.carte.nouvelle_zone };
     if (auPlafond) {
@@ -7266,7 +7269,7 @@
       } else if (!(rempl && acceptee)) {
         var id = await Moteur.idDEscalier(seance.id, x.slug, marche);
         await ecrirePariDeMarche(pariDeMarche(id, x, marche, acceptee ? 'acceptee' : 'refusee', p, extra));
-        if (acceptee && !plus && !deg && !rempl) await poserZone(x.slug, m.carte.nouvelle_zone);
+        if (acceptee && !plus && !deg && !rempl && !alleger) await poserZone(x.slug, m.carte.nouvelle_zone);
       }
     } finally {
       reponseEnCours = false;
@@ -7275,6 +7278,7 @@
     if (seance) rendreSeance();
     if (seance && acceptee && plus) await appliquerSerieDePlus();
     if (seance && acceptee && deg) await appliquerDegressive();
+    if (seance && acceptee && alleger) await appliquerAllegee();
   }
 
   // MOTEUR §10 bis (113) — « CHANGER D'EXERCICE » : le frère prend la place de l'exercice DANS LA ROUTINE DE LA

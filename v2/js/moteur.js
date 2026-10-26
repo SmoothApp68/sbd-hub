@@ -76,6 +76,17 @@
   var BORD_PROFONDEUR = 10;
   var BORD_SEANCES_SANS_MONTER = 3;
   var BORD_VAGUE = 0.95;
+  // 174 — le cran sous P le plus proche de `cible` (x 0,95 : une vague de bord, une marche « alléger » en force), au plus bas
+  // le cran en dessous. `voisineFn(charge, sens)` : le cran de l'exercice, salle comprise. `null` : rien de plus léger.
+  function cranSousProcheDe(voisineFn, P, cible) {
+    var cur = voisineFn(P, -1);
+    if (cur === null) return null;
+    for (var t = 0; t < 12; t++) {
+      var nxt = voisineFn(cur, -1);
+      if (nxt !== null && nxt < cur && Math.abs(nxt - cible) < Math.abs(cur - cible)) cur = nxt; else break;
+    }
+    return cur;
+  }
   var FENETRE_COUPLE = 3;
   var MAJORITE_COUPLE = 2;
 
@@ -1763,15 +1774,8 @@
       // Trois séances de suite sans monter au-dessus du meilleur : on repart du cran le plus proche de P × 0,95, au plus
       // bas le cran en dessous.
       if (sans >= BORD_SEANCES_SANS_MONTER) {
-        var cible95 = P * BORD_VAGUE;
-        var cur = voisine(P, -1);
+        var cur = cranSousProcheDe(voisine, P, P * BORD_VAGUE);
         if (cur === null) cur = P;
-        else {
-          for (var t = 0; t < 12; t++) {
-            var nxt = voisine(cur, -1);
-            if (nxt !== null && nxt < cur && Math.abs(nxt - cible95) < Math.abs(cur - cible95)) cur = nxt; else break;
-          }
-        }
         return fin('bord_vague', ligneDe(cur, vise), { bord: { charge: P, reps: niv, depuis: sans, vers: cur } });
       }
       if (ratee) {
@@ -4250,6 +4254,11 @@
              (d ? ' ' + d.charAt(0).toUpperCase() + d.slice(1) + '.' : '');
     }
     if (c.repli) return phraseRepli(c.repli, reference);
+    // 174 — la marche « alléger » en cours : la feuille dit ce que la ligne fait, pas « une rep de plus ».
+    if (c.alleger) {
+      var ga = grisAlleger(c.alleger);
+      return ga.charAt(0).toUpperCase() + ga.slice(1) + '. La fatigue redescend, la charge remontera.';
+    }
     var e = etatBrutDuPourquoi(c, reglage);
     if (c.serieDePlus && e) {
       return e + ' ' + GRIS_SERIE_DE_PLUS.charAt(0).toUpperCase() + GRIS_SERIE_DE_PLUS.slice(1) + '.';
@@ -6148,6 +6157,9 @@
   var MARCHE_REMPLACEMENT = 'remplacement';
   var ORIGINE_SALLE_MAX = 'salle_max';
   var MARCHE_SILENCE = 'silence';
+  // 174 (MOTEUR §14.5, §14.7) — LA 4e MARCHE : ALLÉGER au lieu de se taire. Là où l'escalier n'avait plus rien à dire (la
+  // série de plus et la dégressive ont eu leur tour), le coach propose une fois d'alléger l'exercice, jusqu'au prochain progrès.
+  var MARCHE_ALLEGER = 'alleger';
   // Lourd → Mix, Mix → Lourd : le schéma voisin, et les deux libellés.
   var SCHEMAS = {
     lourd: { vers: 'mix', oui: 'Passer à 6-8 reps', non: 'Garder 3-5' },
@@ -6367,7 +6379,7 @@
       return l && l.module === MODULE_ESCALIER && l.fondement &&
         (l.fondement.marche === MARCHE_SCHEMA || l.fondement.marche === MARCHE_REPLI ||
          l.fondement.marche === MARCHE_SERIE_DE_PLUS || l.fondement.marche === MARCHE_DEGRESSIVE ||
-         l.fondement.marche === MARCHE_REMPLACEMENT);
+         l.fondement.marche === MARCHE_REMPLACEMENT || l.fondement.marche === MARCHE_ALLEGER);
     }).map(function (l) {
       var f = l.fondement;
       var m = { id: l.id || null, seance: f.seance || null, jour: f.jour || null,
@@ -6605,6 +6617,116 @@
       detail: DETAIL_DEGRESSIVE,
       oui: 'Ajouter une dégressive', non: 'Non merci'
     };
+  }
+
+  // ══ §14.5, §14.7 (174, 26/10/2026) — L'ESCALIER, LA 4e MARCHE : ALLÉGER ═════════
+  //
+  // « Après la série de plus et la dégressive, un exercice bloqué n'entend plus rien » : désormais, là où la marche serait
+  // le SILENCE (à partir du 3e déclenchement isolé), le coach propose d'alléger, une fois par blocage (« une marche proposée
+  // ne revient pas »). Aller à l'échec n'est jamais un motif : la marche ne lit que le compteur et la routine.
+  //
+  //   zone muscle (haut > 5), 3 séries ou plus  une série de moins, dégressive retirée, même charge, mêmes reps ;
+  //   zone muscle, 2 séries ou moins            séries gardées, dégressive retirée, le cran en dessous, au bas de la zone ;
+  //   zone force (haut <= 5)                    séries gardées, dégressive retirée, l'arrondi au cran de P x 0,95 ;
+  //   poids du corps, aide (palier <= 0)        une série de moins si la routine en compte 3 ou plus, sinon le silence.
+  //
+  // Les crans (`cran`, `cinq`) se lisent sur l'historique : `consigneDExercice` les fige avec la consigne, comme le repli.
+  var ALLEGER_DES = 3 * PAS_ESCALIER;      // le 3e déclenchement : compteur 12
+  var ALLEGER_PART = 0.95;
+  function crans(seances, avant, palier, equipement, salle) {
+    var P = nombre(palier);
+    if (P === null || P <= 0) return null;
+    var voisineFn = function (charge, sens) { return voisineSalleComprise(seances, avant, charge, equipement, sens, salle || null); };
+    return { cran: voisineFn(P, -1), cinq: cranSousProcheDe(voisineFn, P, P * ALLEGER_PART) };
+  }
+  function allegerForce(zone) { var z = zoneParCle(zone); return z !== null && z.haut <= 5; }
+  // La proposition : `{ mode, routine, series, charge, vise }` ou `null` (le silence). `env` : `{ cran, cinq }` figés avec
+  // la consigne ; `nRoutine` : les séries de travail de la routine.
+  function propositionAlleger(consigne, env, nRoutine) {
+    var c = consigne || null;
+    var z = c ? zoneParCle(c.zone) : null;
+    var N = nombre(nRoutine), P = c ? nombre(c.palier) : null;
+    if (!c || c.etat === 'silence' || !c.ligne || z === null || P === null || N === null || N < 1) return null;
+    var e = env || {};
+    if (P <= 0) return N >= 3 ? { mode: 'serie', routine: N, series: N - 1, charge: null, vise: nombre(c.ligne.vise) } : null;
+    if (allegerForce(c.zone)) {
+      var cinq = nombre(e.cinq);
+      return cinq === null || cinq >= P - 1e-9 ? null
+        : { mode: 'force', routine: N, series: N, charge: cinq, vise: nombre(c.ligne.vise) };
+    }
+    if (N >= 3) return { mode: 'serie', routine: N, series: N - 1, charge: null, vise: nombre(c.ligne.vise) };
+    var cran = nombre(e.cran);
+    return cran === null || cran >= P - 1e-9 ? null : { mode: 'cran', routine: N, series: N, charge: cran, vise: z.bas };
+  }
+  // LA CONSIGNE ALLÉGÉE D'UN EXERCICE (pas la semaine allégée, §14.4) : sans ligne haute, la charge de la proposition, le
+  // nombre de séries qu'elle couvre (`couvre`, seulement quand une série part). `alleger` dit de quoi écrire l'en-tête et I66.
+  function consigneAlleger(consigne, prop) {
+    var c = consigne || null;
+    if (!c || !prop || c.etat === 'silence' || !c.ligne) return c;
+    var ligne = prop.charge === null ? c.ligne : { charge: prop.charge, vise: prop.vise };
+    var sortie = Object.assign({}, c, {
+      ligne: ligne, haut: null,
+      fondement: prop.charge === null ? c.fondement : fondementApproche(c, false),
+      alleger: { mode: prop.mode, routine: prop.routine, series: prop.series, charge: prop.charge, palier: nombre(c.palier) }
+    });
+    if (prop.mode === 'serie') { sortie.n = prop.series; sortie.couvre = prop.series; }
+    return sortie;
+  }
+  var ALLEGER_QUI = { serie: 'une série de moins', cran: 'un cran plus bas', force: 'moins lourd' };
+  function grisAlleger(a) {
+    var m = a && ALLEGER_QUI[a.mode];
+    return m ? m + ', sans dégressive, jusqu\'à ton prochain progrès' : null;
+  }
+  // « 107 kg × 10 depuis 13 séances. Une série de moins reste la sortie. » — le rappel d'une marche refusée.
+  function phraseRappelAlleger(meilleur, compteur, mode) {
+    var q = ALLEGER_QUI[mode];
+    if (!meilleur || meilleur.niveau === null || meilleur.niveau === undefined || !q) return null;
+    return Modele().charge(meilleur.palier, undefined, cite(FAIT, { quoi: 'meilleur' })) + ' × ' +
+      nombreFr(meilleur.niveau, cite(FAIT, { quoi: 'meilleur', champ: 'reps' })) +
+      ' depuis ' + nombreFr(compteur, regle('compteur')) + ' séances. ' + q.charAt(0).toUpperCase() + q.slice(1) +
+      ' reste la sortie.';
+  }
+  // LA CARTE : le titre (le meilleur et le compteur) ; le détail se rédige à part, hors capture (`detailAlleger`).
+  function carteAlleger(meilleur, compteur, prop) {
+    if (!meilleur || meilleur.niveau === null || meilleur.niveau === undefined || !prop) return null;
+    return {
+      type: MARCHE_ALLEGER, mode: prop.mode,
+      phrase: Modele().charge(meilleur.palier, undefined, cite(FAIT, { quoi: 'meilleur' })) + ' × ' +
+        nombreFr(meilleur.niveau, cite(FAIT, { quoi: 'meilleur', champ: 'reps' })) +
+        ' depuis ' + nombreFr(compteur, regle('compteur')) + ' séances',
+      oui: 'Alléger',
+      non: prop.mode === 'serie' ? 'Garder ' + prop.routine + ' séries' : prop.mode === 'force' ? 'Garder la charge' : 'Non merci',
+      gris_apres: grisAlleger(prop)
+    };
+  }
+  // « Une série de plus, puis la dégressive, n'ont rien changé. On allège : 2 séries au lieu de 3, sans dégressive, même
+  // charge. La fatigue redescend, la charge remontera. » `avant` : `{ serie, degressive }`, les marches déjà proposées.
+  function detailAlleger(prop, avant, palier) {
+    if (!prop) return null;
+    var a = avant || {};
+    var debut = a.serie && a.degressive ? 'Une série de plus, puis la dégressive, n\'ont rien changé.'
+      : a.serie ? 'Une série de plus n\'a rien changé.' : a.degressive ? 'La dégressive n\'a rien changé.'
+      : 'Rien n\'a changé depuis le début de ce blocage.';
+    var fin = ' La fatigue redescend, la charge remontera.';
+    if (prop.mode === 'serie') {
+      return debut + ' On allège : ' + Modele().nombre(prop.series) + ' séries au lieu de ' + Modele().nombre(prop.routine) +
+        ', sans dégressive, même charge.' + fin;
+    }
+    if (prop.mode === 'cran') {
+      return debut + ' On allège : un cran plus bas, ' + Modele().chargeFois(prop.charge, prop.vise) +
+        ' (le bas de ta zone), sans dégressive.' + fin;
+    }
+    return debut + ' On allège : ' + Modele().charge(prop.charge) + ' au lieu de ' + Modele().charge(palier) +
+      ', environ 5 % de moins, mêmes séries, sans dégressive.' + fin;
+  }
+  // La marche proposée (acceptée ou refusée) depuis le dernier progrès, ou l'acceptée en cours.
+  function allegerProposee(exercice, jour, compteur, marches, compteurs) {
+    return marcheProposee(exercice, jour, compteur, marches, compteurs, MARCHE_ALLEGER);
+  }
+  function allegerActive(exercice, jour, compteur, marches, compteurs) {
+    var a = marchesDepuisProgres(exercice, jour, compteur, marches, compteurs, MARCHE_ALLEGER, ['acceptee']);
+    if (!a.length) return null;
+    return a.slice().sort(function (x, y) { return avantAlpha(String(y.jour), String(x.jour)); })[0];
   }
 
   // ══ §10 bis (113, décidé le 16/10/2026) — AU PLAFOND DE LA SALLE, LE COACH PROPOSE ══
@@ -7605,6 +7727,9 @@
              // plan décide s'il s'applique (la marche dépend des cartes). La
              // zone de chaque séance candidate est celle de la consigne qu'elle
              // a reçue (la zone choisie en vigueur ce jour-là).
+             // 174 — LES CRANS DE LA MARCHE « ALLÉGER », figés avec la consigne : le cran en dessous et l'arrondi de P x 0,95.
+             alleger: compteur.compteur >= ALLEGER_DES && consigne && consigne.zone
+               ? crans(seances, avant, consigne.palier, o.equipement, salle) : null,
              repli: compteur.compteur >= PAS_ESCALIER && consigne && consigne.zone
                ? repliDansLaSalle(repliEscalier(marquees, avant, compteur.meilleur, consigne.zone,
                                                 { zoneAu: zoneAu, actuel: consigne.palier }), salle)
@@ -8206,6 +8331,16 @@
     MARCHE_SECHE: MARCHE_SECHE,
     MARCHE_SERIE_DE_PLUS: MARCHE_SERIE_DE_PLUS,
     MARCHE_DEGRESSIVE: MARCHE_DEGRESSIVE,
+    MARCHE_ALLEGER: MARCHE_ALLEGER,
+    propositionAlleger: propositionAlleger,
+    consigneAlleger: consigneAlleger,
+    carteAlleger: carteAlleger,
+    detailAlleger: detailAlleger,
+    grisAlleger: grisAlleger,
+    phraseRappelAlleger: phraseRappelAlleger,
+    allegerProposee: allegerProposee,
+    allegerActive: allegerActive,
+    cransDAlleger: crans,
     MARCHE_SILENCE: MARCHE_SILENCE,
     FENETRE_REPLI_JOURS: FENETRE_REPLI_JOURS,
     nIsole: nIsole,

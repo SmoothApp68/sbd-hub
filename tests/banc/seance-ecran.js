@@ -25959,6 +25959,69 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus175b), erreurs.slice(erreurs175b)]));
   }
 
+  console.log('\n══ gros-cran. LE GROS CRAN : « DE 9 À 11,5 KG, C’EST +28 % », LE TEST SE VALIDE AU PLANCHER (175, MOTEUR §9.7 bis) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une machine, 9 kg × 12 trois séances de suite (zone Volume 10-12, haut atteint), et un
+  // cran de 11,5 kg connu de l'historique (une séance plus ancienne, qui fixe le plus petit cran au-dessus de 9). Le banc lit
+  // le plan puis l'écran : le test est posé À 8 REPS (le plancher), pas à 10 (le bas de la zone), et le « Pourquoi » dit
+  // l'écart. Aucun délai fixe : chaque attente est une condition.
+  {
+    const t175c = Date.now();
+    const erreurs175c = erreurs.length;
+    const refus175c = base.journal.filter((j) => j.op === 'refus').length;
+    const violations175c = gardeBanc.violations;
+    const catalogueAvant175c = CATALOGUE.length, routinesAvant175c = ROUTINES.length;
+    const sessionsAvant175c = base.sessions, setsAvant175c = base.sets;
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const slug = 'g175-machine';
+    base.sessions = base.sessions.slice();
+    base.sets = base.sets.slice();
+    CATALOGUE.push({ slug, nom: 'Machine G175 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine',
+      muscles_primaires: ['u175_gros'], muscles_secondaires: [] });
+    [[60, 11.5, 12], [21, 9, 12], [14, 9, 12], [7, 9, 12]].forEach(([jours, kg, reps]) => {
+      const id = 'g175-' + jours;
+      const debut = ilYa(jours * 86400000, t175c).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Gros cran — ' + id, debut, fin: finDe(debut, t175c).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((r) => base.sets.push({ id: id + '-s' + r, session_id: id, user_id: 'u-banc', exercise_slug: slug,
+        charge_kg: kg, reps, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null,
+        type_serie: 'travail', rang: r, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null,
+        note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    ROUTINES.push({ id: 'r-g175', nom: 'Gros cran G175', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-g175-a', routine_id: 'r-g175', exercise_slug: slug, rang: 0,
+        routine_sets: progr(3, 12), repos_cible_s: 0, groupe_superset: null, note: null }] });
+    await aller('/saisie');
+    await demarrerRoutine('Gros cran G175');
+    const lire175c = () => page.evaluate((s) => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d ? d.plan.exercices.filter((y) => y.slug === s)[0] : null;
+      return x && x.consigne ? { etat: x.consigne.etat, haut: x.consigne.haut, gros: x.consigne.fondement && x.consigne.fondement.cranGros || null,
+        etatDit: x.pourquoi && x.pourquoi.etat || null, jaune: x.entete ? x.entete.jaune : null } : null;
+    }, slug);
+    await jusqua(async () => { const p = await lire175c(); return !!p && p.etat === 'test_propose'; }, 8000);
+    const p175c = await lire175c();
+    ok('[175] gros cran — DISCRIMINANT : le test du cran de +28 % est posé au PLANCHER (8 reps), pas au bas de la zone (10)',
+      !!p175c && p175c.haut && p175c.haut.charge === 11.5 && p175c.haut.vise === 8 && !!p175c.gros && p175c.gros.pct === 28 && p175c.gros.plancher === 8,
+      JSON.stringify(p175c));
+    ok('[175] gros cran — le « Pourquoi » dit l’écart et ce qui suffit : « De 9 à 11,5 kg, c’est +28 % … 8 reps suffisent pour t’y installer. »',
+      !!p175c && /De 9 à 11,5 kg, c['’]est \+28 % : environ 11 reps d['’]écart\. À 11,5 kg, 8 reps suffisent pour t['’]y installer\./.test(sp(p175c.etatDit)),
+      JSON.stringify(p175c));
+    ok('[175] gros cran — l’en-tête : « Si ça passe, 11,5 kg × 8 »',
+      !!p175c && Array.isArray(p175c.jaune) && p175c.jaune.some((l) => /11,5 kg × 8/.test(sp(l))), JSON.stringify(p175c && p175c.jaune));
+    await page.screenshot({ path: '/home/claude/nuit/captures-175/gros-cran-seance.png' }).catch(() => {});
+    await abandonner();
+    ok('[175] gros cran — la garde n’a rien signalé', gardeBanc.violations === violations175c, String(gardeBanc.violations - violations175c) + ' ' + JSON.stringify(gardeBanc.liste.slice(-2)));
+    ROUTINES.splice(routinesAvant175c, ROUTINES.length - routinesAvant175c);
+    CATALOGUE.splice(catalogueAvant175c, CATALOGUE.length - catalogueAvant175c);
+    base.sessions = sessionsAvant175c; base.sets = setsAvant175c;
+    await aller('/saisie');
+    ok('[175] gros cran — aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refus175c && erreurs.length === erreurs175c,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus175c), erreurs.slice(erreurs175c)]));
+  }
+
   console.log('\n══ demander-coach. « DEMANDER AU COACH » : LE BOUTON, L’ACCORD, UNE PUCE, UNE DOULEUR QUI NE PART PAS, LE QUOTA, SANS RÉSEAU (160, ECRAN-SAISIE §3.10 ter) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice à la barre, 40 kg × 9 trois séances de suite, séance du jour ouverte, la feuille

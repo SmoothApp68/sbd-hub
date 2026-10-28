@@ -5784,6 +5784,10 @@
       lestPossible: exo ? Modele.lesteDe(index, slug) !== null : false,
       // 175 (MOTEUR §10 bis) — la visée acceptée (le levier « Viser N reps »), qui rallonge le plafond de la plus lourde.
       rallonge: rallongeDe(slug),
+      // 175 (MOTEUR §9.7) — l'exercice est-il une ISOLATION (la définition du moteur) ? Le plancher d'un gros cran ne descend
+      // pas sous 8 reps.
+      isolation: exo ? Moteur.estIsolation({ prim: exo.muscles_primaires || [], sec: exo.muscles_secondaires || [],
+                                             stab: exo.muscles_stabilisateurs || [] }) === true : false,
       // §9.17 bis (127) — l'exercice est sur une échelle avec une marche à proposer : le fondement porte alors ses
       // deux dernières séances (`deuxSeances`), que lit la carte « marche suivante ».
       echelle: exo ? marcheAProposer(index, slug) !== null : false,

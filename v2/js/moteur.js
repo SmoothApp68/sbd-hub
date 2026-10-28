@@ -1288,7 +1288,56 @@
   // réussi, à un changement de palier, ou dès que le cran pouvait être réduit.
   // Rendu du plus RÉCENT au plus ANCIEN : le premier sert au §9.7, le dernier
   // au gel de la zone.
-  function episodeEtirement(duCouple, P, vues, avant, equipement, correction, salle) {
+  // ══ 175 (MOTEUR §9.7 / §10.2, décision d'Aurélien du 26/10/2026) — LE GROS CRAN ══
+  //
+  // Un cran de charge est GROS quand l'écart (T − P) / P dépasse ce que la zone absorbe : (haut − bas) × 2,5 % (Epley : une
+  // rep ≈ 2,5 % de charge autour de 8-12 reps). Sur une machine dont le plus petit cran est gros (9 → 11,5 kg : +28 %, ~11
+  // reps d'écart), exiger le BAS de la zone au premier essai le condamne : le test se valide dès `plancher` reps —
+  // max(bas − 2, 8 sur une isolation, 4 sinon), jamais au-dessus du bas. Raté même au plancher : retour à P, la cible
+  // d'étirement monte de 2 reps par essai raté (au plus haut + 6, jamais plus de 30) ; au plafond ou après deux essais
+  // ratés, la carte des leviers (sans « Viser plus de reps »). Un cran qui n'est pas gros ne change rien.
+  var GROS_CRAN_PAR_REP = 2.5;          // % de charge par rep d'écart
+  var GROS_PLANCHER_ISOLATION = 8;      // reps : le test d'une isolation ne se valide jamais sous 8
+  var GROS_PLANCHER = 4;                // reps : ni sous 4 ailleurs
+  var GROS_RECUL_REPS = 2;              // reps de cible d'étirement en plus par essai raté
+  var GROS_CIBLE_MAX = 6;               // reps au-dessus du haut de la zone, au plus (et jamais plus de PLAFOND_CIBLE)
+  var GROS_ESSAIS_AVANT_LEVIERS = 2;    // essais ratés après lesquels la carte des leviers vient
+  function plancherDuGros(zone, isolation) {
+    var lo = nombre(zone && zone.bas);
+    if (lo === null) return null;
+    return Math.min(lo, Math.max(lo - 2, isolation === true ? GROS_PLANCHER_ISOLATION : GROS_PLANCHER));
+  }
+  // `{ de, vers, pct, reps, plancher }` quand le cran P → T est gros pour cette zone, sinon `null`. Le pourcentage et les reps
+  // d'écart sont ARRONDIS (la phrase les dit tels quels, le test les relit).
+  function grosCran(P, T, zone, isolation) {
+    if (isolation === null) return null;   // une liste d'élastiques n'a pas de pourcentage de charge
+    var p = nombre(P), t = nombre(T);
+    if (!zone || p === null || t === null || !(p > 0) || !(t > p)) return null;
+    var delta = (t - p) / p * 100;
+    if (!(delta > (nombre(zone.haut) - nombre(zone.bas)) * GROS_CRAN_PAR_REP + 1e-9)) return null;
+    return { de: p, vers: t, pct: Math.round(delta), reps: Math.round(delta / GROS_CRAN_PAR_REP),
+             plancher: plancherDuGros(zone, isolation) };
+  }
+  // « De 9 à 11,5 kg, c'est +28 % : environ 11 reps d'écart. À 11,5 kg, 10 reps suffisent pour t'y installer. » — le test d'un
+  // gros cran, avant. Le pourcentage arrondi, les reps d'écart (écart ÷ 2,5 %) et le plancher sont des règles du moteur ;
+  // les charges sont celles des lignes de la consigne (la ligne, la ligne haute).
+  function phraseGrosCran(g) {
+    // Les deux charges et les reps sont des FAITS DE LA RÈGLE (le fondement `cranGros`), pas des lignes de la consigne : la
+    // ligne haute peut ne pas être posée (séries allégées), et la phrase dit l'écart quand même.
+    var cV = regle('cran.vers');
+    return 'De ' + nombreFr(g.de, regle('cran.de')) + ' à ' + enKg(g.vers, cV) +
+      ', c\'est +' + nombreFr(g.pct, regle('cran.pct')) + INSECABLE + '%' + DEUX_POINTS + 'environ ' +
+      nombreFr(g.reps, regle('cran.reps')) + ' reps d\'écart. À ' + enKg(g.vers, cV) + ', ' +
+      nombreFr(g.plancher, regle('cran.plancher')) + ' reps suffisent pour t\'y installer.';
+  }
+    // Le plafond de la cible d'étirement d'un gros cran : le haut de la zone + 6, au plus 30.
+  function cibleMaxDuGros(zone) { return Math.min(PLAFOND_CIBLE, nombre(zone.haut) + GROS_CIBLE_MAX); }
+  // La cible d'étirement après `ratees` essais ratés : le haut + 2 par essai, plafonnée.
+  function cibleDuGros(zone, ratees) {
+    return Math.min(cibleMaxDuGros(zone), nombre(zone.haut) + GROS_RECUL_REPS * Math.max(1, ratees));
+  }
+
+  function episodeEtirement(duCouple, P, vues, avant, equipement, correction, salle, isolation) {
     var rates = [];
     for (var i = duCouple.length - 1; i >= 0; i--) {
       var x = duCouple[i];
@@ -1298,7 +1347,10 @@
       // « sa zone d'alors » : l'habitude arrêtée à cette séance-là, jamais la
       // zone d'aujourd'hui — elle est justement ce qu'on cherche à figer.
       var z = zoneRetenue(correction, habitudeSur(duCouple.slice(0, i + 1)));
-      if (z === null || t.niveau === null || t.niveau >= z.bas) break;
+      if (z === null || t.niveau === null) break;
+      // 175 — un gros cran se valide au plancher : un test à `plancher` reps ou plus a passé.
+      var gg = grosCran(P, t.charge, z, isolation);
+      if (t.niveau >= (gg ? gg.plancher : z.bas)) break;
       var c1 = voisineSalleComprise(vues, avant, P, equipement, 1, salle || null);
       if (c1 !== null && c1 < t.charge) break;
       rates.push({ rang: i, test: t, auPalier: x.auPalier, debut: x.seance.debut });
@@ -1398,6 +1450,11 @@
     // change). Elle se décide sur le palier, plus bas, une fois.
     // 175 — le plafond rallongé par le levier « Viser N reps » (`opt.rallonge`), à la plus lourde où il a été accepté.
     var salleDeclaree = opt.salle ? avecRallonge(opt.salle, opt.rallonge) : null;
+    // 175 — l'exercice est-il une ISOLATION ? (la définition du moteur, `estIsolation`, que l'app lit sur le catalogue ; une salle
+    // d'élastiques le porte aussi) : le plancher d'un gros cran ne descend pas sous 8 reps.
+    // Une liste d'élastiques (132) n'a pas de pourcentage de charge : `null`, jamais de gros cran.
+    var isolation = opt.salle && opt.salle.materiel === 'elastique' ? null
+      : opt.isolation === true || !!(opt.salle && opt.salle.isolation === true);
     // §9.17 bis (127) — l'exercice est sur une ÉCHELLE (l'app le dit, le moteur ne lit pas le catalogue) : le
     // fondement porte alors les deux dernières séances, niveau et charge (`deuxSeances`), que la carte « marche
     // suivante » du plan lit sans rien recalculer. Absent ailleurs : une clé n'y figure que si elle a un sens.
@@ -1446,7 +1503,7 @@
     // — gelée au premier test raté si un épisode d'étirement court.
     var lecture = lectureDuCouple(vues, avant);
     var duCouple = lecture === null ? [] : lecture.duCouple;
-    var rates = episodeEtirement(duCouple, P, vues, avant, equipement, correction, salle);
+    var rates = episodeEtirement(duCouple, P, vues, avant, equipement, correction, salle, isolation);
     // ⚠️ DEUX HABITUDES, ET CE N'EST PAS UNE DUPLICATION (§9.7, précisé
     // 48b-6a). Le gel porte sur LA ZONE, pas sur ce que la personne fait :
     //
@@ -1898,8 +1955,12 @@
       var T = t.charge;
       var k = t.k;
       var lvl = t.niveau;
+      // 175 — LE GROS CRAN : le test du cran irréductible (T est le plus petit cran au-dessus de P) se valide au plancher.
+      var c1Gros = voisine(P, 1);
+      var gros = c1Gros !== null && !memeCharge(c1Gros, T) && c1Gros < T ? null : grosCran(P, T, zone, isolation);
+      var seuilTest = gros ? gros.plancher : lo;
 
-      if (lvl >= lo) {
+      if (lvl >= seuilTest) {
         // Franc : le test au HAUT de sa zone emporte tout d'un coup — sauf en
         // zone Lourd, où le §9.7 n'accorde qu'une série de plus par séance.
         if (reglage === 'franc' && lvl >= hi && zone.cle !== 'lourd') {
@@ -1912,10 +1973,16 @@
             return rendre('etend', ligneDe(P, vise),
               hautDe(T, cible(Math.min(lvl, hi)), Math.min(k + 1, n)));
           }
-          return rendre('garde', ligneDe(P, vise), hautDe(T, cible(Math.min(lvl + 1, hi)), k));
+          return rendre('garde', ligneDe(P, vise), hautDe(T, cible(Math.min(lvl + 1, hi)), k),
+            lvl < lo ? { cranGros: Object.assign({ valide: true, niveau: lvl }, gros) } : null);
         }
         // Normal et Franc : au BAS de la zone le test est gardé — il a passé,
         // mais tout juste ; au-dessus du bas, il gagne une série de plus.
+        // 175 — validé au plancher d'un gros cran (sous le bas de la zone) : la charge reste T, la double progression reprend à T.
+        if (lvl < lo) {
+          return rendre('garde', ligneDe(P, vise), hautDe(T, cible(lvl + 1), k),
+            { cranGros: Object.assign({ valide: true, niveau: lvl }, gros) });
+        }
         if (lvl === lo) return rendre('garde', ligneDe(P, vise), hautDe(T, cible(lvl + 1), k));
         return rendre('etend', ligneDe(P, vise),
           hautDe(T, cible(Math.min(lvl, hi)), Math.min(k + 1, n)));
@@ -1931,12 +1998,23 @@
         // Le cran est irréductible : la zone s'étire. ⚠️ LA CIBLE COMPTE LES
         // REPS PERDUES — `hi + niv − lvl` — sinon on redemanderait le même test
         // sans avoir rien gagné.
+        //
+        // 175 — UN GROS CRAN : la cible monte de 2 reps par essai raté (au plus haut + 6, jamais plus de 30), au lieu de
+        // compter les reps perdues ; au plafond ou après deux essais ratés, le plan pose la carte des leviers.
         var cibleEtirement = cible(hi + niv - lvl);
+        var plusEtirement = null;
+        if (gros) {
+          var rateesG = Math.max(1, rates.length);
+          cibleEtirement = cibleDuGros(zone, rateesG);
+          plusEtirement = { cranGros: Object.assign({ ratees: rateesG, plafond: cibleMaxDuGros(zone),
+            carte: rateesG >= GROS_ESSAIS_AVANT_LEVIERS || cibleEtirement >= cibleMaxDuGros(zone) }, gros) };
+        }
         if (niv >= cibleEtirement) {
-          return rendre('retest', ligneDe(P, niv), hautDe(T, lo, 1), { cible: cibleEtirement });
+          return rendre('retest', ligneDe(P, niv), hautDe(T, gros ? gros.plancher : lo, 1),
+            Object.assign({ cible: cibleEtirement }, plusEtirement || {}));
         }
         return rendre('etirement', ligneDe(P, cible(Math.min(niv + 1, cibleEtirement))), null,
-          { cible: cibleEtirement });
+          Object.assign({ cible: cibleEtirement }, plusEtirement || {}));
       }
       return rendre('progression', ligneDe(P, vise), null);
     }
@@ -1974,8 +2052,17 @@
       if (nivAlors !== null) {
         var cibleEnCours = cible(hi + nivAlors - episode.test.niveau);
         var faitEpisode = { test: faitDuTest(episode.test, episode.debut, zone), cible: cibleEnCours };
+        // 175 — un gros cran : la cible suit le nombre d'essais ratés, pas les reps perdues.
+        var grosEnCours = grosCran(P, episode.test.charge, zone, isolation);
+        if (grosEnCours) {
+          var rateesEnCours = Math.max(1, rates.length);
+          cibleEnCours = cibleDuGros(zone, rateesEnCours);
+          faitEpisode.cible = cibleEnCours;
+          faitEpisode.cranGros = Object.assign({ ratees: rateesEnCours, plafond: cibleMaxDuGros(zone),
+            carte: rateesEnCours >= GROS_ESSAIS_AVANT_LEVIERS || cibleEnCours >= cibleMaxDuGros(zone) }, grosEnCours);
+        }
         if (niv >= cibleEnCours) {
-          return rendre('retest', ligneDe(P, niv), hautDe(episode.test.charge, lo, 1), faitEpisode);
+          return rendre('retest', ligneDe(P, niv), hautDe(episode.test.charge, grosEnCours ? grosEnCours.plancher : lo, 1), faitEpisode);
         }
         return rendre('etirement', ligneDe(P, cible(Math.min(niv + 1, cibleEnCours))), null,
           faitEpisode);
@@ -2066,6 +2153,12 @@
     }
     var plusTest = preuveRetenue === null ? {} : { preuve: preuveRetenue };
     if (effortVise !== null && effortVise.effet === 'test') plusTest.effortVise = effortVise;
+    // 175 — LE GROS CRAN : le test du plus petit cran (une seule marche, jamais un double saut) se joue au plancher.
+    var grosPropose = saut !== null && saut === c1 && preuveRetenue === null ? grosCran(P, saut, zone, isolation) : null;
+    if (grosPropose) {
+      plusTest.cranGros = grosPropose;
+      return rendre('test_propose', ligneDe(P, vise), hautDe(saut, grosPropose.plancher, 1), plusTest);
+    }
     return rendre('test_propose', ligneDe(P, vise), hautDe(saut, lo, 1), plusTest.preuve || plusTest.effortVise ? plusTest : null);
   }
 
@@ -3932,6 +4025,8 @@
             chargeFois(f.effortVise.charge, f.effortVise.reps, cite(FAIT, { quoi: 'effort_vise' })) + ' avec ' +
             nombreFr(f.effortVise.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) + ' en réserve.';
         }
+        // 175 — un gros cran : l'écart dit, et ce qui suffit pour s'y installer.
+        if (f.cranGros && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) return phraseGrosCran(f.cranGros);
         return jour() + DEUX_POINTS + auPalier() + ', ' +
                (f.preuve === 'haut' ? nombreFr(PREUVE_DEPASSEMENT, regle('constante')) + ' reps au-dessus du haut'
                 : f.preuve === 'facile' ? 'avec de la marge'
@@ -3939,6 +4034,12 @@
                (f.preuve ? 'On teste deux crans au-dessus' : 'On teste le cran au-dessus') + '.';
 
       case 'garde':
+        // 175 — validé au plancher d'un gros cran : « ça suffit pour t'y installer », la rep de plus par séance jusqu'au bas.
+        if (f.cranGros && f.cranGros.valide === true && t !== null) {
+          return duTest() + 'a fait ' + nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps' + DEUX_POINTS +
+                 'ça suffit pour t\'y installer. On le garde sur la dernière série, une rep de plus à chaque séance jusqu\'à ' +
+                 nombreFr(z.bas, regle('zone.bas')) + '.';
+        }
         if (niveauDitDuTest(t) === z.bas) {
           return duTest() + 'est au bas de ta zone' + DEUX_POINTS + 'on le garde sur la dernière série.';
         }
@@ -4324,9 +4425,13 @@
     var tSansMarge = testSansMarge(t, z);
     // Rédigé à la demande (§20 bis) : un fragment non écrit ne déclare rien.
     var testSansMargeDit = function () { return 'Ton test' + DEUX_POINTS + chargeFois(t.charge, t.reps, cT) + ', sans marge.'; };
-    var rate = t === null ? '' : tSansMarge ? testSansMargeDit() :
-      'Ton test à ' + enKg(t.charge, cT) + ' a fait ' +
-      nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps' + DEUX_POINTS + 'pas encore dans ta zone.';
+    // 175 — rédigé à la demande aussi : un état qui ne dit pas le test raté ne déclare pas ses reps (la citation « 7 » d'un test
+    // raté ne se cachait que dans le « 28 » d'une charge).
+    var rateDit = function () {
+      return t === null ? '' : tSansMarge ? testSansMargeDit() :
+        'Ton test à ' + enKg(t.charge, cT) + ' a fait ' +
+        nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps' + DEUX_POINTS + 'pas encore dans ta zone.';
+    };
     var cH = cite(CIBLE, { role: 'haut' }), cL = cite(CIBLE, { role: 'ligne' });
 
     switch (c.etat) {
@@ -4339,7 +4444,7 @@
 
       case 'progression':
         if (f.effortVise && f.effortVise.effet === 'garde') return phraseDeLaGarde(f.effortVise);
-        return (t !== null ? rate + ' ' : '') +
+        return (t !== null ? rateDit() + ' ' : '') +
           'Ta charge de travail n\'est pas encore au haut de ta zone' + DEUX_POINTS +
           'une rep de plus sur chaque série.';
 
@@ -4371,9 +4476,16 @@
             nombreFr(pourcent, regle('ecart.pourcent')) + INSECABLE + '% de plus, ' +
             'dans la limite de ' + nombreFr(Math.round(MARGE_DOUBLE_SAUT * 100), regle('constante')) + INSECABLE + '%.';
         }
+        // 175 — un gros cran : l'écart dit, et ce qui suffit pour s'y installer.
+        if (f.cranGros && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) dit += ' ' + phraseGrosCran(f.cranGros);
         return dit;
 
       case 'garde':
+        if (f.cranGros && f.cranGros.valide === true && t !== null) {
+          return testPuis(c, 'assez pour t\'y installer' + DEUX_POINTS + 'sur ce cran, ' +
+                 nombreFr(f.cranGros.plancher, regle('cran.plancher')) + ' reps suffisent. On le garde sur la dernière série ; ' +
+                 'une rep de plus à chaque séance jusqu\'à ' + nombreFr(z.bas, regle('zone.bas')) + '.');
+        }
         if (niveauDitDuTest(t) === z.bas) {
           return testPuis(c, 'le bas de ta zone' + DEUX_POINTS + 'il tient. ' +
                  'On le garde sur la dernière série ; à ' + nombreFr(z.bas + 1, regle('zone.bas+1')) + ' reps, il gagnera une série.');
@@ -4424,7 +4536,7 @@
                chargeFois(c.ligne.charge, c.ligne.vise, cL) + ' avant de tester plus lourd.';
 
       case 'retest_un_cran':
-        return rate + ' Ta charge de travail est au haut' + DEUX_POINTS +
+        return rateDit() + ' Ta charge de travail est au haut' + DEUX_POINTS +
                'on reteste d\'un seul cran, à ' + enKg(c.haut.charge, cH) + '.';
 
       case 'etirement':
@@ -6989,6 +7101,32 @@
     liste.push({ cle: LEVIER_SALLE, texte: 'Ajouter une charge dans Ma salle' });
     return liste;
   }
+  // 175 (MOTEUR §9.7 / §10.2) — LA CARTE DU GROS CRAN, quand les essais ne suffisent pas (deux tests ratés au plancher, ou la
+  // cible d'étirement au plafond haut + 6) : les leviers SANS « Viser plus de reps » (monter en reps ne rapproche pas du cran),
+  // ouverts par les poids d'appoint de la machine dans Ma salle. `g` : le gros cran (`grosCran`) ; `o.nom` : le nom de la machine.
+  function carteLeviersGros(meilleur, g) {
+    if (!meilleur || meilleur.niveau === null || meilleur.niveau === undefined || !g) return null;
+    return {
+      type: MARCHE_LEVIERS, non: NON_LEVIERS, plafond: false, gros: true,
+      phrase: Modele().charge(meilleur.palier, undefined, cite(FAIT, { quoi: 'meilleur' })) + ' × ' +
+        nombreFr(meilleur.niveau, cite(FAIT, { quoi: 'meilleur', champ: 'reps' })) +
+        ', et le cran suivant est de +' + nombreFr(g.pct, regle('cran.pct')) + INSECABLE + '%. Pour continuer à monter' + INSECABLE + ':'
+    };
+  }
+  // Les leviers du gros cran, dans l'ordre : les poids d'appoint de la machine (Ma salle), un frère plus chargeable, le tempo
+  // lent. Jamais « Viser N reps ». `o` : `{ nom, remplacant, detail, tempoActif }`.
+  function leviersDuGros(o) {
+    var x = o || {};
+    var liste = [{ cle: LEVIER_SALLE, texte: 'Les poids d\'appoint de ta ' + (x.nom || 'machine') + ' dans Ma salle' }];
+    if (x.remplacant && x.remplacant.slug) {
+      liste.push({ cle: LEVIER_REMPLACEMENT, texte: x.remplacant.nom || x.remplacant.slug, vers: x.remplacant.slug,
+                   detail: x.detail || null });
+    }
+    if (x.tempoActif !== true) {
+      liste.push({ cle: LEVIER_TEMPO, texte: 'Tempo lent' + DEUX_POINTS + Modele().secondes(TEMPO_DESCENTE_S) + ' en descente' });
+    }
+    return liste;
+  }
   // « 3 s en descente, jusqu'à ton prochain progrès » — la mention de la consigne quand le tempo lent est en cours. Rédigée
   // sous capture : le « 3 » est une constante du moteur (§20 bis).
   function grisTempo() {
@@ -8602,6 +8740,19 @@
     levierActif: levierActif,
     rallongeAcceptee: rallongeAcceptee,
     rallongeChangeLePlafond: rallongeChangeLePlafond,
+    // 175 — le gros cran.
+    GROS_CRAN_PAR_REP: GROS_CRAN_PAR_REP,
+    GROS_PLANCHER_ISOLATION: GROS_PLANCHER_ISOLATION,
+    GROS_PLANCHER: GROS_PLANCHER,
+    GROS_RECUL_REPS: GROS_RECUL_REPS,
+    GROS_CIBLE_MAX: GROS_CIBLE_MAX,
+    GROS_ESSAIS_AVANT_LEVIERS: GROS_ESSAIS_AVANT_LEVIERS,
+    grosCran: grosCran,
+    carteLeviersGros: carteLeviersGros,
+    leviersDuGros: leviersDuGros,
+    plancherDuGros: plancherDuGros,
+    cibleMaxDuGros: cibleMaxDuGros,
+    cibleDuGros: cibleDuGros,
     ORIGINE_SALLE_MAX: ORIGINE_SALLE_MAX,
     MARCHES_PLAFOND: MARCHES_PLAFOND,
     auPlafondDeLaSalle: auPlafondDeLaSalle,

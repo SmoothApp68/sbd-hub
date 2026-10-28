@@ -726,11 +726,12 @@ const NOTIONS = [
       'proposée (MOTEUR §14), en isolation seulement — le plan la lit (`polyarticulaireDe`), et la démonstration ' +
       '`?escalier=degressive` de l’app y choisit son exercice (`degressiveDeDemo`).' },
   { notion: 'l’isolation (des muscles au catalogue, moins de trois ; sans muscle connu : ni l’un ni l’autre)', pr: '124-U3',
-    module: 'moteur.js', fonction: 'estIsolation', lecteurs: ['profil.js', 'plan.js'],
-    parAilleurs: { 'profil.js': ['avecIsolation'], 'plan.js': ['polyarticulaireDe'] },
+    module: 'moteur.js', fonction: 'estIsolation', lecteurs: ['profil.js', 'plan.js', 'app.js'],
+    parAilleurs: { 'profil.js': ['avecIsolation'], 'plan.js': ['polyarticulaireDe'], 'app.js': ['optionsDeConsigne'] },
     raison: 'audit du 16/10/2026 (01 #15) : pour un exercice sans muscle connu, la salle (`avecIsolation`) n’en faisait pas ' +
       'une isolation, la dégressive du plan si ; une définition, lue aux deux endroits (MOTEUR §10 bis et §14 : « la ' +
-      'même définition que la salle »).' },
+      'même définition que la salle »). 175 (MOTEUR §9.7 bis) : le gros cran — le plancher de son test ne descend pas sous 8 reps ' +
+      'sur une isolation — la lit pour la donner au moteur (`optionsDeConsigne`, l\'option `isolation`).' },
   { notion: 'le débutant (« Moins d’un an » d’ancienneté)', pr: '111-U1',
     module: 'profil.js', fonction: 'estDebutant', lecteurs: ['app.js', 'generateur.js'],
     parAilleurs: { 'app.js': ['entreeDeLaSemaine', 'debutantDeLaSeance'], 'generateur.js': ['generer', 'neVeuxPas'] },

@@ -1838,6 +1838,11 @@
         if (mp) sortie[slug] = mp;
         return;
       }
+      // 175 (MOTEUR §9.7 / §10.2) — LE GROS CRAN SANS ISSUE : deux essais ratés au plancher, ou la cible d'étirement au plafond
+      // (haut + 6) : la carte des leviers sans « Viser plus de reps », une fois par blocage. Une fois proposée, l'escalier ordinaire
+      // reprend (la marche ne bloque rien).
+      var mg = marcheDuGrosCran(e, seance, slug, c, zone, jour, marches, compteurs);
+      if (mg) { sortie[slug] = mg; return; }
       var n = M.nIsole(k, M.declenchementsRepondus(slug, jour, k, cartes, compteurs));
       // §14.7 (49-U17) — la place sur chacun des muscles primaires (§14.6), et
       // une série de plus déjà proposée depuis le dernier progrès.
@@ -1954,6 +1959,40 @@
     var cap = Voix().capturer(function () { return M.carteBordSchema(b); });
     if (!cap.texte) return null;
     m.carte = cap.texte;
+    retenirCitationsDeCarte(m.carte, cap.citations);
+    return m;
+  }
+
+  // 175 — LA CARTE DU GROS CRAN. Le fondement de la consigne porte `cranGros.carte` (le moteur décide : deux essais ratés, ou la
+  // cible au plafond). La marche est celle des leviers, sa réponse un pari `leviers` (gardé ou non) ; proposée, elle ne revient
+  // pas avant le prochain progrès (`marcheProposee`), et l'escalier ordinaire reprend la main.
+  function marcheDuGrosCran(e, seance, slug, c, zone, jour, marches, compteurs) {
+    var M = Moteur();
+    var f = c.consigne && c.consigne.fondement;
+    var g = f && f.cranGros;
+    if (!g || g.carte !== true || !c.compteur || !c.compteur.meilleur) return null;
+    var k = c.compteur.compteur;
+    var deja = marches.filter(function (x) {
+      return x && x.seance === seance.id && x.exercice === slug && x.marche === M.MARCHE_LEVIERS;
+    })[0] || M.marcheProposee(slug, jour, k, marches, compteurs, M.MARCHE_LEVIERS);
+    var cat = e.catalogue && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
+    var nom = cat && cat.nom ? cat.nom : slug;
+    var remplacant = M.remplacantAuPlafond(remplacantsDe(e, slug), g.de);
+    var m = { marche: M.MARCHE_LEVIERS, n: 1, compteur: k, declenchement: false, zone: zone === undefined ? null : zone,
+              plafond: { charge: g.de, reps: c.compteur.meilleur.niveau }, gros: true, objets: {}, proposees: {} };
+    if (remplacant) {
+      m.remplacant = { slug: remplacant.slug, nom: remplacant.nom || remplacant.slug, mesure: remplacant.mesure,
+                       salle: remplacant.salle || null };
+    }
+    var leviers = M.leviersDuGros({ nom: nom, remplacant: m.remplacant || null,
+      detail: remplacant ? M.detailRemplacement(remplacant) : null,
+      tempoActif: !!M.levierActif(slug, jour, k, marches, compteurs, M.LEVIER_TEMPO) });
+    m.leviers = leviers;
+    if (deja) { m.reponse = deja.reponse; return m; }
+    var cap = Voix().capturer(function () { return M.carteLeviersGros(c.compteur.meilleur, g); });
+    m.carte = cap.texte;
+    if (!m.carte) return null;
+    m.carte.leviers = leviers;
     retenirCitationsDeCarte(m.carte, cap.citations);
     return m;
   }
@@ -3973,7 +4012,13 @@
       'lest.saut': { charge: M.SAUT_LEST },
       // §9.17 bis (127) — la carte « marche suivante » : le niveau et l'aide de la dernière des deux séances.
       'marche.niveau': x.carteMarche ? { valeur: x.carteMarche.niveau } : null,
-      'marche.aide': x.carteMarche ? { charge: x.carteMarche.charge } : null
+      'marche.aide': x.carteMarche ? { charge: x.carteMarche.charge } : null,
+      // 175 — le gros cran : le pourcentage, les reps d'écart et le plancher que le moteur seul écrit.
+      'cran.de': f.cranGros ? { valeur: f.cranGros.de } : null,
+      'cran.vers': f.cranGros ? { charge: f.cranGros.vers } : null,
+      'cran.pct': f.cranGros ? { valeur: f.cranGros.pct } : null,
+      'cran.reps': f.cranGros ? { valeur: f.cranGros.reps } : null,
+      'cran.plancher': f.cranGros ? { valeur: f.cranGros.plancher } : null
     };
     var msg = x.reaction && x.reaction.message;
     return { lignes: lignes, jour: jour, fait: fait, regle: regle, suite: suite,
@@ -4197,6 +4242,7 @@
     verifierEffortVise(plan, entrees, erreurs);
     verifierBord(plan, erreurs);
     verifierLeviers(plan, erreurs);
+    verifierGrosCran(plan, erreurs);
     verifierAlleger(plan, erreurs);
     verifierApprochee(plan, erreurs);
     verifierApresLaDecharge(plan, entrees, erreurs);
@@ -4419,6 +4465,40 @@
     verifierBordSchema(plan, erreurs);
   }
 
+  // I68 (MOTEUR §9.7 / §10.2, 175) — LE GROS CRAN : un cran n'est gros que si (T − P) / P dépasse (haut − bas) × 2,5 % ; son test
+  // se valide au plancher max(bas − 2, 8 sur une isolation, 4 sinon), jamais au-dessus du bas ni sous 8 sur une isolation ;
+  // la cible d'étirement va de haut + 2 à haut + 6, jamais au-delà de 30 ; la carte des leviers ne vient qu'après deux essais
+  // ratés ou au plafond de la cible, et ne porte jamais de réserve ni d'échec.
+  function verifierGrosCran(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.consigne;
+      var g = k && k.fondement && k.fondement.cranGros;
+      if (!g) return;
+      var nom = 'I68 — exercice ' + i + ' (' + x.slug + ') : ';
+      var z = k.zone ? M.zoneParCle(k.zone) : null;
+      if (!z) { erreurs.push(nom + 'un gros cran sans zone'); return; }
+      var delta = g.de > 0 ? (g.vers - g.de) / g.de * 100 : 0;
+      if (!(delta > (z.haut - z.bas) * M.GROS_CRAN_PAR_REP)) erreurs.push(nom + 'un cran de ' + Math.round(delta) + ' % dit gros, la zone ' + z.bas + '-' + z.haut + ' l’absorbe');
+      if (g.pct !== Math.round(delta)) erreurs.push(nom + 'le pourcentage dit ' + g.pct + ' pour un écart de ' + Math.round(delta));
+      var iso = x.polyarticulaire === false;
+      var plancher = Math.min(z.bas, Math.max(z.bas - 2, iso ? M.GROS_PLANCHER_ISOLATION : M.GROS_PLANCHER));
+      if (g.plancher !== plancher) erreurs.push(nom + 'le plancher est ' + g.plancher + ', attendu ' + plancher);
+      if (g.plancher > z.bas) erreurs.push(nom + 'le plancher ' + g.plancher + ' au-dessus du bas ' + z.bas);
+      if (iso && g.plancher < Math.min(z.bas, M.GROS_PLANCHER_ISOLATION)) erreurs.push(nom + 'le test d’une isolation validé sous ' + M.GROS_PLANCHER_ISOLATION + ' reps');
+      if (k.etat === 'test_propose' && k.haut && k.haut.vise !== g.plancher) erreurs.push(nom + 'le test du gros cran vise ' + k.haut.vise + ', pas le plancher ' + g.plancher);
+      if (g.ratees !== undefined) {
+        var cible = k.fondement.cible;
+        var max = M.cibleMaxDuGros(z);
+        if (typeof cible === 'number' && (cible > max || cible > 30 || cible < z.haut + M.GROS_RECUL_REPS)) {
+          erreurs.push(nom + 'la cible d’étirement ' + cible + ' hors de ' + (z.haut + M.GROS_RECUL_REPS) + '-' + max);
+        }
+        var carte = x.escalier && x.escalier.gros === true;
+        if (carte && !(g.carte === true)) erreurs.push(nom + 'la carte des leviers du gros cran sans deux essais ratés ni cible au plafond');
+      }
+    });
+  }
+
   // I69 (MOTEUR §10 bis, 175) — LA CARTE DES LEVIERS, à la plus lourde de la salle : les leviers dans l'ordre (un frère plus
   // chargeable, le tempo lent, plus de reps, une charge dans Ma salle), chacun une fois, « Ma salle » toujours le dernier ;
   // le remplacement vers un frère qui se charge plus (I47) ; le tempo absent quand il est déjà en cours ; « Viser N reps » à
@@ -4434,6 +4514,20 @@
       if (!m || m.marche !== M.MARCHE_LEVIERS) return;
       var carte = m.carte || {};
       var cles = (carte.leviers || []).map(function (lv) { return lv && lv.cle; });
+      // 175 — la carte du GROS CRAN : « Ma salle » en tête, jamais « Viser N reps » (monter en reps ne rapproche pas du cran).
+      if (m.gros === true) {
+        var ordreG = ['salle', 'remplacement', 'tempo'];
+        var rg = cles.map(function (c) { return ordreG.indexOf(c); });
+        if (!cles.length || cles[0] !== 'salle') erreurs.push(nom + 'la carte du gros cran ne s’ouvre pas sur les poids d’appoint de Ma salle');
+        if (cles.indexOf('reps') >= 0) erreurs.push(nom + 'la carte du gros cran propose « Viser plus de reps »');
+        if (rg.some(function (r) { return r < 0; }) || rg.some(function (r, j) { return j && r <= rg[j - 1]; })) {
+          erreurs.push(nom + 'les leviers du gros cran hors de l’ordre ou répétés (' + cles.join(', ') + ')');
+        }
+        if (/réserve|échec/i.test(String(carte.phrase) + ' ' + (carte.leviers || []).map(function (lv) { return lv && lv.texte; }).join(' '))) {
+          erreurs.push(nom + 'la carte parle de réserve ou d’échec : jamais un motif');
+        }
+        return;
+      }
       var rangs = cles.map(function (c) { return ORDRE_LEVIERS.indexOf(c); });
       if (!cles.length) erreurs.push(nom + 'la carte des leviers sans levier');
       if (rangs.some(function (r) { return r < 0; })) erreurs.push(nom + 'un levier inconnu (' + cles.join(', ') + ')');

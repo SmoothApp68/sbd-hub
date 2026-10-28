@@ -110,7 +110,7 @@ describe('PR 2 — la suite du constat suit la zone en vigueur', () => {
       Modele: { gabaritDe: () => ({ mesure: 'charge_reps' }), lesteDe: () => null, parentDe: () => null },
       Profil: { rythmeDe: () => 'normal', salleDeLExercice: () => null },   // 108 — la salle (aucune ici)
       Seance: { partEnBase: () => true },
-      Moteur: { suiteDExercice: (g, j, e, a, o) => { appels.push(o.correction); return { apres: { consigne: { zone: o.correction } }, cranSuivant: null }; },
+      Moteur: { estIsolation: () => false, suiteDExercice: (g, j, e, a, o) => { appels.push(o.correction); return { apres: { consigne: { zone: o.correction } }, cranSuivant: null }; },
                 equipementEffectif: (e) => (e ? e.equipement || null : null) },
       // 50-1 : les deux lectures du profil et des modes que `optionsDeConsigne` appelle.
       intentionDeLExercice: () => 'progresser', lestReponseDe: () => null, lestReponseDeLExercice: () => null, rallongeDe: () => null,

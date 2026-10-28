@@ -60,7 +60,7 @@ describe('163 — une charge jamais faite est approchée (« ≈ »)', () => {
     expect(c.ligne.approchee).toBeUndefined();            // 30 kg a été fait
     expect(c.fondement.approchee).toBe(true);
     const l = M.libellesConsigne(c, AVANT);
-    expect(l.jaune).toEqual(['30' + NB + 'kg' + NB + '×' + NB + '12', 'puis ≈' + NB + '35' + NB + 'kg' + NB + '×' + NB + '10 sur la dernière série']);
+    expect(l.jaune).toEqual(['30' + NB + 'kg' + NB + '×' + NB + '12', 'puis ≈' + NB + '35' + NB + 'kg' + NB + '×' + NB + '8 sur la dernière série']);
   });
   test('⚠️ DISCRIMINANT — après 32,5 noté, la séance suivante propose 32,5 SANS « ≈ » (l’historique suffit)', () => {
     const apres = [seance('S4', '10-19', 32.5, 11)].concat(HIST());

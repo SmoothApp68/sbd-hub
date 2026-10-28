@@ -3039,6 +3039,25 @@
     allerA(Routeur.RACINE, {});
     rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
   }
+  // 182 — ce que le récap détaillé lit de l'app : le catalogue (jamais le slug brut), le formateur des séries, la phrase de
+  // la médaille, les tonnes, la durée, le jour et l'heure locaux. Aucun calcul ici.
+  function outilsDuRecapDeGroupe() {
+    var index = Modele.indexerExercices(local.exercices);
+    // Un slug que mon catalogue ne connaît pas (l'exercice perso d'un autre) prend le nom générique de `Modele.nommer`
+    // (appelé sans slug) : on ne devine pas, on n'affiche pas le slug brut.
+    var nomComplet = function (slug) { return index[slug] ? index[slug].nom : Modele.nommer(index, ''); };
+    return {
+      nomDe: nomComplet,
+      mesure: function (s) { return Modele.formatMesure(s); },
+      record: function (r) {
+        var nom = Modele.nomCourt(nomComplet(r.slug));
+        var phrase = Modele.phraseDeRecord([r], nom, null, nomComplet);
+        return { nom: nom.charAt(0).toUpperCase() + nom.slice(1), phrase: phrase ? phrase[0] : null };
+      },
+      tonnes: tonnesSociales, duree: Modele.formatDuree, nombre: function (n) { return Modele.nombreTexte(n, 0); },
+      jour: function (iso) { return Modele.jourNomme(Routeur.versDate(new Date(iso))); }, heure: Modele.heureMinute
+    };
+  }
   function dessinerVueGroupe() {
     if (ecranCourant !== 'groupe' || !grp.vue) return;
     var v = grp.vue, vue = { mode: v.mode, message: v.message || null };
@@ -3081,6 +3100,9 @@
         var r = Social.recapDuGroupe(v.lignes);
         var d = v.le ? new Date(v.le) : null;
         var jour = d && !isNaN(d.getTime()) ? Modele.jourNomme(Routeur.versDate(d)) : '';
+        // 182 — le récap qui raconte la séance (chacun porte son `detail`) ; un ancien récap figé garde l'affichage d'avant.
+        var detaille = Social.recapDetaille(v.lignes, outilsDuRecapDeGroupe());
+        if (detaille) vue.detaille = detaille;
         vue.recap = {
           titre: 'Ensemble' + (jour ? ' · ' + jour : ''),
           qui: r.membres.map(function (m) { return m.pseudo; }).join(' · '),
@@ -3221,8 +3243,15 @@
     grp.recapAuto = false;
     ouvrirVueGroupe({ mode: 'recap' });
     var v = grp.vue;
-    Donnees.groupeRecap().then(function (l) {
-      v.lignes = l; v.le = l.length ? l[0].le : null;
+    // 182 — le récap EN DIRECT passe par `groupe_recap_seance` (ma séance) : seul son JSON porte le `detail` de chacun
+    // (v2_115) ; l'ancienne `groupe_recap` (une table) ne le porte pas. Sans place connue, elle reste le repli.
+    var place = maPlace();
+    (place && place.session_id ? Donnees.groupeRecapSeance(place.session_id).then(function (r) {
+      if (r && r.recap && r.recap.membres) return { lignes: r.recap.membres, le: r.le || null };
+      return Donnees.groupeRecap().then(function (l) { return { lignes: l, le: l.length ? l[0].le : null }; });
+    }) : Donnees.groupeRecap().then(function (l) { return { lignes: l, le: l.length ? l[0].le : null }; })
+    ).then(function (r) {
+      v.lignes = r.lignes; v.le = r.le;
     }).catch(function (e) { v.message = messageGroupe(e, 'voir le récap du groupe'); v.lignes = null; }).then(dessinerVueGroupe);
   }
   // FERMER le récap du groupe : il se fige pour moi (lisible depuis ma séance) ; le dernier éteint le groupe.

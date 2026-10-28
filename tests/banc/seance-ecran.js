@@ -19351,7 +19351,15 @@ const SETS_IMPORTES = [
       const t = (s) => { const n = r.querySelector(s); return n ? n.textContent : null; };
       return { texte: r.textContent, titre: t('.g-ensemble b'), qui: t('.g-ensemble small'), tonnes: t('.g-tonnes strong'),
         series: t('.g-series strong'), records: t('.g-records strong'), xp: t('.g-xp'),
-        parts: Array.from(r.querySelectorAll('.g-part')).map((x) => x.querySelector('b').textContent + ' : ' + x.querySelector('small').textContent) };
+        // 182 — le récap qui raconte la séance (`detail`) : `.g-part` = « Chacun » (« toi : 14 t · 12 séries +140 XP »).
+        detaille: !!r.querySelector('.g-tuiles'),
+        tuiles: Array.from(r.querySelectorAll('.g-tuiles .recap-tuile')).map((x) => x.querySelector('b').textContent + ' ' + x.querySelector('span').textContent),
+        phrase: t('.g-phrase'), exos: Array.from(r.querySelectorAll('.g-exo')).map((x) => ({ slug: x.getAttribute('data-slug'),
+          nom: x.querySelector('.g-exo-nom').textContent, lignes: Array.from(x.querySelectorAll('.g-exo-ligne')).map((l) => l.textContent) })),
+        recordsDuJour: Array.from(r.querySelectorAll('.g-record')).map((x) => x.textContent), aucunRecord: t('.g-aucun-record'),
+        parts: Array.from(r.querySelectorAll('.g-part')).map((x) => x.querySelector('b')
+          ? x.querySelector('b').textContent + ' : ' + x.querySelector('small').textContent
+          : Array.from(x.children).map((c) => c.textContent).join(' ')) };
     });
     const f1 = await lireRecap();
     await mesurer('récap du groupe');
@@ -19360,13 +19368,16 @@ const SETS_IMPORTES = [
     ok('[groupe] DISCRIMINANT — MON récap d’abord ; puis « Groupe · jordan s’entraîne encore » tant qu’il est en séance (vivante) — rien ne s’ouvre',
       recapSeance && /jordan s’entraîne encore/.test(f0) && !vueApres, JSON.stringify([recapSeance, f0, vueApres]));
     ok('[groupe] MUTATION (c) — le récap du « combat » compte TOUT ce que jordan a fait, même AVANT que je rejoigne : 180×3 + 170×4 + 100×6 = 1 820 kg, ' +
-      '3 séries, 1 record (la chauffe ne compte pas)',
-      f1.parts.some((x) => /^jordan : 1,8\s?t · 3 séries · 1 record$/.test(x)), JSON.stringify(f1.parts));
-    ok('[groupe] le récap du « combat » : « Ensemble · … », nous trois dans l’ordre d’arrivée, le score collectif, la part de chacun en faits — ' +
-      'ni classement, ni vainqueur, ni couronne ; l’XP cumulée (jeu allumé), sans celle de lea (jeu éteint)',
-      /^Ensemble · /.test(f1.titre) && f1.qui === 'jordan · banc · lea' && Number(f1.series) === 3 + moiG.series &&
-        Number(f1.records) >= 1 && f1.xp === '+' + (300 + (mien.xp || 0)) + ' XP ensemble' && mien.xp !== null &&
-        !/vainqueur|gagnant|👑|1er|classement/i.test(f1.texte) && /Ta séance garde « Faite en groupe avec jordan, lea » et ce récap\./.test(f1.texte),
+      '3 séries (la chauffe ne compte pas) ; 182 — « Chacun » le dit sans le mot « record »',
+      f1.parts.some((x) => /^jordan 1,8\s?t · 3 séries/.test(x)), JSON.stringify(f1.parts));
+    ok('[groupe] 182 — le récap qui raconte la séance : « Séance en groupe », « avec jordan, lea · … », trois tuiles (volume, séries, exercices), ' +
+      'une carte par exercice (le nom du catalogue, jamais le slug), « Records du jour » ; nous trois dans l’ordre d’arrivée, « toi » en premier sur un exercice commun, ' +
+      'ni classement, ni vainqueur ; l’XP de chacun (jeu allumé), sans celle de lea (jeu éteint)',
+      f1.detaille && f1.titre === 'Séance en groupe' && /^avec jordan, lea · /.test(f1.qui) && f1.tuiles.length >= 3 &&
+        Number(f1.tuiles[1].split(' ')[0]) === 3 + moiG.series && f1.exos.length >= 1 && f1.exos.every((e) => e.nom && e.nom !== e.slug) &&
+        f1.parts.length === 3 && f1.parts.some((x) => /^jordan .*\+300 XP$/.test(x)) && mien.xp !== null &&
+        f1.parts.some((x) => /^toi .*\+/.test(x)) && !f1.parts.some((x) => /^lea .*XP/.test(x)) &&
+        !/vainqueur|gagnant|👑|1er|classement|bravo/i.test(f1.texte) && /Ta séance garde « Faite en groupe avec jordan, lea » et ce récap\./.test(f1.texte),
       JSON.stringify([f1, moiG, mien]));
     await page.click('#groupe-fermer');
     await attendreQue(async () => !fauxSocial.groupeDe('u-banc'));
@@ -19392,6 +19403,23 @@ const SETS_IMPORTES = [
     ok('[groupe] la séance garde « Faite en groupe avec jordan, lea » ; le récap figé se rouvre depuis son détail (sans « Fermer »), et revient au détail',
       g0 === 'Faite en groupe avec jordan, lea' && g1.parts.length === 3 && !/Fermer/.test(g1.texte) &&
         (await page.evaluate(() => !document.getElementById('vue-detail').hidden)), JSON.stringify([g0, g1]));
+    // 182 — le récap figé AVEC `detail` raconte la séance (nom du catalogue, « toi » d'abord) ; le MÊME récap figé avant v2_115
+    // (sans `detail`) garde l'affichage d'avant, sans planter ni rien inventer.
+    ok('[groupe] 182 — DISCRIMINANT — le récap figé (avec `detail`) : « Séance en groupe », une carte par exercice au nom du catalogue, « toi » d’abord, ' +
+      '« Records du jour » (ou « Pas de record aujourd’hui. »), aucune ligne pour qui n’a pas fait l’exercice',
+      g1.detaille && g1.titre === 'Séance en groupe' && g1.exos.length >= 1 && g1.exos.every((e) => e.nom && e.nom !== e.slug &&
+        e.lignes.every((l, i) => i === 0 || !/^toi/.test(l))) && (g1.recordsDuJour.length > 0 || g1.aucunRecord === 'Pas de record aujourd’hui.') &&
+        !/vainqueur|gagnant|classement|bravo/i.test(g1.texte), JSON.stringify(g1));
+    S.grecaps.filter((r) => r.session_id === maSeance).forEach((r) => { r.recap.membres.forEach((m) => { delete m.detail; }); });
+    await page.evaluate(() => { try { sessionStorage.clear(); } catch (e) { /* aucun */ } });
+    await aller('/seance/' + maSeance);
+    await attendreQue(async () => (await compter('#detail-groupe-voir')) === 1);
+    await page.click('#detail-groupe-voir');
+    await attendreQue(async () => (await compter('#groupe-corps .g-part')) === 3);
+    const g1Ancien = await lireRecap();
+    await page.click('#btn-retour-groupe');
+    ok('[groupe] 182 — DISCRIMINANT — un ancien récap figé (sans `detail`) garde l’affichage d’avant : « Ensemble · … », la part de chacun, ni tuiles ni cartes d’exercice',
+      !g1Ancien.detaille && /^Ensemble · /.test(g1Ancien.titre) && g1Ancien.exos.length === 0 && g1Ancien.parts.length === 3, JSON.stringify(g1Ancien));
     console.log('  durée G : ' + Math.round((Date.now() - ta) / 1000) + ' s');
 
     // ── H (106). LA FIN DU GROUPE : un autre groupe dès que MA séance est finie ; le membre qui ne rouvre jamais l'app

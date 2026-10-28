@@ -63,6 +63,9 @@ function creer(base, options) {
     v2_093: o.v2_093 !== false,
     // 121 (v2_094, D5 et 05 #6) — la guilde respecte le compte privé et le blocage. `false` : la base d'avant v2_094.
     v2_094: o.v2_094 !== false,
+    // 182 (v2_115) — le récap porte, par membre, `detail` (début, fin, meilleure série par exercice, records) ; plus de récap figé
+    // pour un groupe où une seule personne est passée. `false` : la base d'avant v2_115 (l'ancien affichage).
+    v2_115: o.v2_115 !== false,
     maintenant: o.maintenant || (() => new Date())
   };
 
@@ -203,7 +206,7 @@ function creer(base, options) {
   // `groupe_figer` : à l'extinction, le récap se fige pour chaque membre encore là (un récap déjà figé ne bouge plus).
   function figer(gid) {
     const g = etat.groupes.filter((x) => x.id === gid)[0];
-    if (!g) return;
+    if (!g || !figeable(gid)) return;
     gmembresDe(gid).forEach((m) => {
       if (etat.grecaps.some((r) => r.user_id === m.user_id && r.groupe_id === gid)) return;
       etat.grecaps.push({ user_id: m.user_id, groupe_id: gid, session_id: m.session_id, le: g.cree_le, recap: recapJson(gid, m.user_id) });
@@ -268,7 +271,7 @@ function creer(base, options) {
       const m = x.m, s = session(m.session_id), sienne = !!s && s.user_id === m.user_id;
       const siennes = sienne ? sets().filter((t) => t.session_id === m.session_id) : [];
       const travail = siennes.filter((t) => (t.type_serie || 'travail') === 'travail');
-      return { pseudo: x.p.username, moi: m.user_id === moi,
+      return { user_id: m.user_id, pseudo: x.p.username, moi: m.user_id === moi,
         tonnage_kg: Math.round(travail.filter((t) => Number(t.charge_kg) > 0 && Number(t.reps) > 0)
           .reduce((a, t) => a + Number(t.charge_kg) * Number(t.reps), 0) * 100) / 100,
         series: travail.length,
@@ -279,8 +282,40 @@ function creer(base, options) {
     });
   }
   // `groupe_recap_json` : le récap vu par `moi`, la forme figée.
-  const recapJson = (gid, moi) => ({ membres: recapDe(gid, moi).map((x) => ({ pseudo: x.pseudo, moi: x.moi, tonnage_kg: x.tonnage_kg,
-    series: x.series, records: x.records, xp: x.xp })) });
+  // 182 (v2_115) — `groupe_detail_membre` : début et fin de la séance, la MEILLEURE série de travail par exercice (la plus
+  // lourde, puis le plus de reps) avec le nombre de séries, dans l'ordre de la séance, et ses records (sans la force estimée).
+  function detailDe(m) {
+    const s = session(m.session_id);
+    if (!s || s.user_id !== m.user_id) return null;
+    const travail = sets().filter((t) => t.session_id === m.session_id &&
+      (t.type_serie || 'travail') === 'travail');
+    const quand = (t) => String(t.validee_a || t.created_at || '');
+    const ordre = [];
+    travail.slice().sort((a, b) => quand(a).localeCompare(quand(b))).forEach((t) => { if (ordre.indexOf(t.exercise_slug) < 0) ordre.push(t.exercise_slug); });
+    const num = (v) => (v === null || v === undefined ? -Infinity : Number(v));
+    return { debut: s.debut, fin: s.fin || null,
+      exercices: ordre.map((slug) => {
+        const l = travail.filter((t) => t.exercise_slug === slug);
+        const b = l.slice().sort((x, y) => num(y.charge_kg) - num(x.charge_kg) || num(y.reps) - num(x.reps) ||
+          num(y.duree_s) - num(x.duree_s) || num(y.distance_m) - num(x.distance_m))[0];
+        const v = (k) => (b[k] === undefined ? null : b[k]);
+        return { slug, series: l.length, charge_kg: v('charge_kg'), reps: v('reps'), duree_s: v('duree_s'), distance_m: v('distance_m') };
+      }),
+      records: records().filter((r) => r.session_id === m.session_id && r.type !== 'un_rm_estime')
+        .map((r) => ({ slug: r.exercise_slug, type: r.type, valeur: r.valeur === undefined ? null : r.valeur,
+          reps: r.reps === undefined ? null : r.reps, charge: r.charge === undefined ? null : r.charge, unite: r.unite === undefined ? null : r.unite })) };
+  }
+  const recapJson = (gid, moi) => {
+    const membres = gmembresDe(gid);
+    return { membres: recapDe(gid, moi).map((x) => {
+      const ligne = { pseudo: x.pseudo, moi: x.moi, tonnage_kg: x.tonnage_kg, series: x.series, records: x.records, xp: x.xp };
+      const m = membres.filter((y) => y.user_id === x.user_id)[0];
+      if (etat.v2_115 && m) ligne.detail = detailDe(m);
+      return ligne;
+    }) };
+  };
+  // 182 (v2_115) — pas de récap figé pour un groupe où une seule personne est passée.
+  const figeable = (gid) => !etat.v2_115 || gmembresDe(gid).length >= 2;
 
   // ── Les fonctions de lecture (v2_078), colonnes autorisées seulement ──
   const RPC = {
@@ -634,7 +669,7 @@ function creer(base, options) {
       if (!gid) return null;
       const m = etat.gmembres.filter((x) => x.groupe_id === gid && x.user_id === moi)[0];
       const g = etat.groupes.filter((x) => x.id === gid)[0];
-      if (!etat.grecaps.some((r) => r.user_id === moi && r.groupe_id === gid)) {
+      if (figeable(gid) && !etat.grecaps.some((r) => r.user_id === moi && r.groupe_id === gid)) {
         etat.grecaps.push({ user_id: moi, groupe_id: gid, session_id: m.session_id, le: g.cree_le, recap: recapJson(gid, moi) });
       }
       m.ferme = true;

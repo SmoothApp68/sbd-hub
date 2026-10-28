@@ -2406,6 +2406,16 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .g-ensemble small{color:var(--texte-2);overflow-wrap:anywhere}
 .g-chiffres{justify-content:space-between}
 .g-trace{width:100%;margin-top:10px}
+.g-tuiles-3{grid-template-columns:repeat(3,1fr)}
+.g-tuile-ensemble b{white-space:nowrap}
+.g-phrase{margin:-4px 0 12px}
+.g-exo{padding:12px 14px}
+.g-exo-nom{margin-bottom:6px;overflow-wrap:anywhere}
+.g-exo-ligne,.g-chacun-ligne{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:3px 0}
+.g-exo-qui{color:var(--texte-2);flex:none}
+.g-exo-val{text-align:right;min-width:0;overflow-wrap:anywhere}
+.g-xp-part{color:var(--texte-2);flex:none}
+.g-record .l1{overflow-wrap:anywhere}
 
 /* ══ 95 — « TON ANNÉE » (BILANS-V1, maquette `maquette-ton-annee-v11.html`) ══════════════════════════════════
    La maquette telle quelle, sous `.annee` : Archivo (variable, axes wdth et wght, servie ici), la palette acier,

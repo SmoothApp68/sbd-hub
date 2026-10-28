@@ -199,7 +199,7 @@ describe('§10 bis (113, 175) — le curl EZ au plafond : les leviers, la série
     expect(x.escalier.marche).toBe('serie_de_plus');
     expect(x.escalier.plafond).toEqual({ charge: 30, reps: 15 });
     expect(esp(x.escalier.carte.phrase)).toBe(PHRASE(4) + ' Une série de plus ?');
-    expect(x.escalier.carte.detail).toBe('Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus. ' +
+    expect(x.escalier.carte.detail).toBe('Sur cet exercice, une série de plus aide souvent : environ 33 % de travail en plus. ' +
       'Tes biceps restent sous leur volume habituel.');
     expect([x.escalier.carte.oui, x.escalier.carte.non]).toEqual(['Ajouter une série', 'Non merci']);
     // La carte parle à la place du compteur ; aucune ligne n'est ajoutée avant la réponse.

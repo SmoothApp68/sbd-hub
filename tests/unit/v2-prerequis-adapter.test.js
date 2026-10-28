@@ -403,6 +403,7 @@ describe('5 — répondre à la carte du lest ne recalcule que l’exercice qui 
     // 175 : la réponse au lest d'un exercice (`lestReponseDeLExercice`) est celle du profil tant qu'aucune variante n'a été répondue.
     vm.runInContext('function lestReponseDeLExercice(slug) { return lestReponseDe(); }', ctx);
     vm.runInContext('function optionsDeConsigne(slug) { return { lestReponse: lestReponseDe() }; }', ctx);
+    vm.runInContext('function instantDuCalcul() { return "2026-10-28T10:00:00.000Z"; }', ctx);   // 179 (B-B7)
     return ctx;
   }
 

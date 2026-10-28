@@ -2104,7 +2104,6 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .rl-barre{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:9px 0;border-top:1px solid var(--trait)}
 .rl-h2+.rl-barre,.rl-fait+.rl-barre{border-top:0}
 .rl-nom{font:600 17px var(--pile-c)}
-.rl-retard{font:500 13px var(--pile);font-style:normal;color:var(--texte)}
 .rl-kg{font:700 19px var(--pile-c);text-align:right}
 .rl-kg small{font:500 12px var(--pile);color:var(--texte-2)}
 .rl-medaille{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--medaille);

@@ -5,8 +5,8 @@
 // un modèle — après avoir contrôlé que chaque nombre de la réponse est dans le contexte.
 //
 // ⚠️ RIEN N'EST CALCULÉ ICI. Le contexte (`contexteDe`) est tiré du PLAN (`x`, le plan d'un exercice : ses paragraphes
-// « Pourquoi », ses lignes), des FAITS (les séances de l'exercice, lues par l'appelant dans `faits.js`) et de la salle
-// (`Profil.salleDeLExercice`, lue par l'appelant). Une décision du coach ne se recalcule pas ici : elle se recopie.
+// « Pourquoi », ses lignes), des FAITS (les séances de l'exercice, lues par l'appelant dans `faits.js`) et des charges du plan
+// (lignes de l'exercice). Une décision du coach ne se recalcule pas ici : elle se recopie.
 // Jamais dans le contexte : nom, pseudo, id, date, poids du corps, notes libres. Les dates que le coach écrit dans ses
 // phrases (« mardi », « le 13 sept. ») sont retirées (`sansDate`).
 //
@@ -26,12 +26,20 @@
   // ── La santé (copie de controle.js, prouvée identique par un test) : une douleur ne part JAMAIS (166, D4) ─────────────────────
   // Le motif exige une PARTIE du corps ou « ça » : « tirage », « tirer la barre », « tire-bouchon » ne sont pas des douleurs.
   var PARTIES = 'dos|genou|genoux|epaule|epaules|coude|coudes|poignet|poignets|hanche|hanches|cheville|chevilles|cou|nuque|tete|ventre|coeur|poitrine|thorax|cuisse|cuisses|mollet|mollets|biceps|triceps|pied|pieds|main|mains|bras|jambe|jambes|lombaires|cote|cotes|pec|pecs|fesse|fesses|aine|tendon|tendons|articulation|articulations|ischio|ischios|quadriceps';
+  // 179 (B-H1) — DEUX ENSEMBLES : une partie du corps × (un symptôme | autre chose qu'un mot de séance), plus des expressions qui
+  // coupent seules. Le nom d'un exercice (« développé épaules », « extension mollets ») n'est pas une partie du corps nommée.
+  var PARTIES_CORPS = 'dos|genou|genoux|epaule|epaules|coude|coudes|poignet|poignets|hanche|hanches|cheville|chevilles|cou|nuque|tete|ventre|coeur|poitrine|thorax|cuisse|cuisses|mollet|mollets|biceps|triceps|pied|pieds|main|mains|bras|jambe|jambes|lombaires|lombes|pec|pecs|pectoraux|fesse|fesses|aine|tendon|tendons|articulation|articulations|ischio|ischios|quadriceps|trapeze|trapezes|doigt|doigts|pouce|rotule|rotules|menisque|ligament|ligaments|cervicales|abdos|sternum|tibia|talon|talons|orteil|orteils|machoire|gorge|clavicule|omoplate|omoplates|adducteurs?|rhomboides|deltoide|deltoides';
+  var NOMS_EXERCICES = '(?:developpes?|elevations?|curls?|extensions?|presse|releves?|leg|rowing|tirages?|tractions?|ecartes?|oiseau|shrugs?|pull-?over|dips?|fentes?|souleves?|squats?|crunch|hip thrust|pompes?|gainage|kickbacks?|face pull)';
+  var LIENS_EXERCICES = 'de|du|des|d|a|au|aux|la|le|les|l|en|sur|debout|assis|assise|couche|incline|inclines|decline|machine|poulie|barre|haltere|halteres|ez|unilateral|vertical|horizontal|serre|large|neutre|supination|pronation|laterale|laterales|frontale|frontales|arriere|avant|libre|smith|bulgare|roumain|' + PARTIES_CORPS;
+  var SYMPTOMES = "(?:tue|fourmi\\w*|fourmillements?|engourdi\\w*|raide|raideur|crispe\\w*|crispation|crampes?|tiraille\\w*|sensibles?|souci|soucis|probleme|problemes|gene|genent|bloque\\w*|craque\\w*|claque\\w*|coince\\w*|brule\\w*|pique|piquent|lance|lancent|pince|pincent|gonfle\\w*|enfle\\w*|grince\\w*|cede|faible|faiblit|tremble\\w*|inquiet\\w*|peur|bizarre|etrange|anormal\\w*|fatigue\\w*|souffre|chaud|mou|lache|lachent|(?:qui|ca|me|m') ?(?:tire|tirent)|tire (?:dans|a|au|aux|sur)|pas bien|va pas|pas normal)";
+  var MOTS_DE_SEANCE = "(?:kg|kilos?|charges?|reps?|repetitions?|series?|palier|cran|crans|barre|disques?|poids|lourds?|lourde|legers?|legere|monter|monte|baisser|baisse|augmenter|garder|garde|tester|teste|consigne|zone|volume|seances?|echauffements?|exercices?|programme|routine|entrainements?|travail\\w*|progress\\w*|intensite|rpe|rir|reserve|marche|escalier|deload|decharge|echec|machine|halteres?|elastiques?|lest|pourquoi|combien|1rm)";
   var MOTIFS_SANTE = [
     '\\b(?:douleurs?|douloureu[xs]e?s?|blessures?|blesse|blessee|tendinites?|tendinopathies?|claquage|claquages|claque|claquee|dechirures?|dechire|dechiree|entorses?|luxations?|fractures?|hernies?|lumbago|sciatique|contractures?|elongations?|inflammations?|vertiges?|malaises?|nausees?|palpitations?|elancements?|pincements?|picotements?|souffrances?|souffre)\\b',
     "\\bj'?ai (?:tres |vraiment |super |trop )?mal\\b",
     '\\bavoir (?:tres |vraiment )?mal\\b',
     '\\bme sens (?:tres |vraiment )?mal\\b',
     '\\bfai(?:t|ts) (?:tres |vraiment |super |trop )?mal\\b',
+    "\\b(?:me|se|te|m') ?fai(?:s|re|t) mal\\b",
     '\\bmal (?:au|aux)\\b',
     "\\bmal a (?:l'|la |le |les |mon |ma |mes |ton |ta |tes |son |sa |ses )",
     '\\bmal (?:de |du |des )(?:' + PARTIES + ')\\b',
@@ -42,16 +50,35 @@
     "\\b(?:pince|pincement|tire|tirent|lance|elancement|brulure|picotement|gene) (?:dans|a|au|aux|sur) (?:le |la |les |l'|mon |ma |mes )?(?:" + PARTIES + ')\\b',
     "\\bca (?:me |m')?(?:fait souffrir|lance|pince|coince|tire|brule|craque|claque|elance|gene|picote)\\b",
     '\\b(?:une |la |ma |cette |de la )?gene (?:a |au |aux |dans |sur |autour |sous )',
-    "\\bj'?ai (?:une |un )?(?:legere |petite |vague |grosse )?gene\\b"
+    "\\bj'?ai (?:une |un )?(?:legere |petite |vague |grosse )?gene\\b",
+    // 179 : les expressions qui coupent seules, sans partie du corps nommée
+    '\\bme tue(?:nt)?\\b',
+    '\\bfourmi(?:s|llements?|llent)?\\b',
+    '\\bengourdi\\w*',
+    '\\bcrispe\\w*|\\bcrispations?\\b',
+    '\\bcrampes?\\b|\\braideurs?\\b',
+    "\\b(?:ca|qui) (?:me |m')?(?:tire|tirent|tiraille|tiraillent|lache|lachent|bloque|brule|pique|lance|pince)\\b",
+    "\\b(?:me|m') ?(?:lache|lachent|gene|genent|bloque|brule|pique|pince|tiraille)\\b",
+    '\\bsouci (?:physique|de sante|medical)\\b',
+    '\\bje boite\\b|\\bje boitille\\b'
   ];
-  var REGEX_SANTE = MOTIFS_SANTE.map(function (m) { return new RegExp(m); });
   function normaliser(texte) {
     return String(texte || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
       .replace(/[’‘`´]/g, "'").replace(/\s+/g, ' ');
   }
+  var REGEX_SANTE = MOTIFS_SANTE.map(function (m) { return new RegExp(m); });
+  var RE_CORPS = new RegExp('\\b(?:' + PARTIES_CORPS + ')\\b');
+  var RE_NOM_EXERCICE = new RegExp('\\b' + NOMS_EXERCICES + '\\b(?:[ \']+(?:' + LIENS_EXERCICES + ')\\b){0,5}', 'g');
+  var RE_SYMPTOMES = new RegExp('\\b' + SYMPTOMES + '\\b');
+  var RE_SEANCE = new RegExp('\\b' + MOTS_DE_SEANCE + '\\b');
+  // Une douleur ne part jamais : un motif, OU une partie du corps nommée hors d'un nom d'exercice avec un symptôme, OU une partie
+  // du corps nommée sans aucun mot de séance (« mon épaule ? »). « Pourquoi 20 kg au développé épaules ? » n'en est pas une.
   function estSante(question) {
     var q = normaliser(question);
-    return REGEX_SANTE.some(function (re) { return re.test(q); });
+    if (REGEX_SANTE.some(function (re) { return re.test(q); })) return true;
+    var sansExercice = q.replace(RE_NOM_EXERCICE, ' ');
+    if (!RE_CORPS.test(sansExercice)) return false;
+    return RE_SYMPTOMES.test(sansExercice) || !RE_SEANCE.test(sansExercice);
   }
 
   // ── Les textes locaux (aucune IA) ───────────────────────────────────────
@@ -119,28 +146,19 @@
     if (!isFinite(n)) return null;
     return racine.THModele.nombreTexte(n, 2);
   }
-  // `salle` : ce que rend `Profil.salleDeLExercice` (`{ materiel, charges }`, charges croissantes) ou null.
-  // Les charges de la salle AUTOUR du palier (deux crans de chaque côté de la charge de travail, ou de la ligne) ;
-  // sans salle : les charges déjà faites sur cet exercice.
-  function cransDe(salle, repere, deja) {
-    var liste = salle && salle.materiel !== 'elastique' && Array.isArray(salle.charges)
-      ? salle.charges.filter(function (c) { return isFinite(Number(c)); }).map(Number).sort(function (a, b) { return a - b; }) : [];
-    if (liste.length) {
-      var r = isFinite(Number(repere)) && repere !== null ? Number(repere) : liste[0];
-      var i = 0;
-      while (i < liste.length - 1 && liste[i] < r) i++;
-      // le plus proche de r
-      if (i > 0 && Math.abs(liste[i - 1] - r) <= Math.abs(liste[i] - r)) i--;
-      var bas = Math.max(0, i - 3), haut = Math.min(liste.length, i + 4);
-      return { genre: 'salle', charges: liste.slice(bas, haut).map(kg) };
-    }
+  // 179 (B-B9) — les charges que le plan a DÉCIDÉES pour cet exercice, rien d'autre : celles de ses lignes (la séance du jour et la suite
+  // qu'il annonce) et sa charge de travail. Plus de charges voisines de la salle calculées par l'écran : le modèle ne pouvait citer, comme
+  // « la suite », un cran que le coach n'a pas choisi (gros cran, deux crans en Franc). `lignes` : `x.lignes` du plan ; `repere` : le palier.
+  function cransDe(lignes, repere) {
     var vues = [];
-    (deja || []).forEach(function (c) {
+    function pose(c) {
       var n = Number(c);
-      if (c !== null && c !== undefined && isFinite(n) && n > 0 && vues.indexOf(n) < 0) vues.push(n);
-    });
+      if (c !== null && c !== undefined && c !== '' && isFinite(n) && n > 0 && vues.indexOf(n) < 0) vues.push(n);
+    }
+    (lignes || []).forEach(function (l) { if (l) { pose(l.charge); if (l.faite) pose(l.faite.charge); } });
+    pose(repere);
     vues.sort(function (a, b) { return a - b; });
-    return vues.length ? { genre: 'faites', charges: vues.slice(-12).map(kg) } : null;
+    return vues.length ? { genre: 'plan', charges: vues.slice(-12).map(kg) } : null;
   }
 
   // ── L'accord refusé (403 « accord ») : boucle ou attente ? (166, D9) ────────
@@ -154,7 +172,7 @@
   // `e` : { nom, x, groupes, salle }
   //   · x : l'exercice du plan (`planDuSlug`) : `x.pourquoi` (paragraphes, « Donc », lignes), `x.entete`, `x.consigne` ;
   //   · groupes : les séances de l'exercice lues dans `faits.js` (la plus récente d'abord), `[{ seance, series }]` ;
-  //   · salle : `Profil.salleDeLExercice`.
+  //   · salle : n'est plus lue (179, B-B9 : les charges citables sont celles du plan).
   // Rend l'objet que la fonction revérifie (liste blanche) ; `null` si le plan ne dit rien de cet exercice.
   function contexteDe(e) {
     var x = e && e.x, p = x && x.pourquoi;
@@ -178,13 +196,11 @@
     if (der.length) ctx.derniere = der;
 
     // Les 3 dernières séances de cet exercice : « charge × reps », SANS date.
-    var deja = [];
     var seances = [];
     (e.groupes || []).forEach(function (g) {
       var vus = [];
       ((g && g.series) || []).forEach(function (s) {
         if (!s || !Modele.estTravail(s)) return;
-        if (s.charge_kg !== null && s.charge_kg !== undefined) deja.push(s.charge_kg);
         if (s.reps === null || s.reps === undefined) return;
         vus.push(Modele.serieFaite(s.charge_kg, s.reps));
       });
@@ -192,7 +208,7 @@
     });
     if (seances.length) ctx.seances = seances;
     var repere = x.consigne.palier !== undefined ? x.consigne.palier : null;
-    var crans = cransDe(e.salle, repere, deja);
+    var crans = cransDe(x.lignes, repere);
     if (crans) ctx.crans = crans;
     return ctx;
   }
@@ -260,7 +276,7 @@
   }
 
   var api = {
-    estSante: estSante, MOTIFS_SANTE: MOTIFS_SANTE, MOTIFS_DATE: MOTIFS_DATE, contientDate: contientDate, issueAccordRefuse: issueAccordRefuse,
+    estSante: estSante, MOTIFS_SANTE: MOTIFS_SANTE, PARTIES_CORPS: PARTIES_CORPS, SYMPTOMES: SYMPTOMES, MOTS_DE_SEANCE: MOTS_DE_SEANCE, NOMS_EXERCICES: NOMS_EXERCICES, MOTIFS_DATE: MOTIFS_DATE, contientDate: contientDate, issueAccordRefuse: issueAccordRefuse,
     normaliser: normaliser, sansDate: sansDate, contexteDe: contexteDe,
     cransDe: cransDe, puces: puces, TEXTES: TEXTES, MAX_PAR_JOUR: MAX_PAR_JOUR, MAX_QUESTION: MAX_QUESTION,
     resteDuJour: resteDuJour, noterReste: noterReste, oublier: oublier, demander: demander

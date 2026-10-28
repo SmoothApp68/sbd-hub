@@ -67,7 +67,10 @@ const GARDEES = [
   { fn: 'planDeCouverture', module: 'moteur.js' },
   { fn: 'lignesDePari', module: 'moteur.js' },
   { fn: 'revisionsDuPlan', module: 'moteur.js' },
-  { fn: 'observationDe', module: 'moteur.js' },
+  // B-B6 (181) : deux fonctions de même nom, deux modules — chacune a sa clé (`cle`) dans le relevé et dans
+  // AUTORISATIONS ; sans cela la seconde écrasait la première et la raison de l'une se perdait.
+  { fn: 'observationDe', module: 'moteur.js', cle: 'Moteur.observationDe',
+    motif: /(?:\bMoteur|\bMoteur\(\)|racine\.THMoteur)\s*\.\s*observationDe\b/g },
   { fn: 'idDePrediction', module: 'moteur.js' },
   // moteur.js — ce que le coach dit (phrases, en-tête, pourquoi, constat)
   { fn: 'phraseReaction', module: 'moteur.js' },
@@ -187,7 +190,7 @@ const GARDEES = [
   // montre, l'observation du pari ; et l'identifiant du pari (moteur.js).
   { fn: 'projection', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*projection\b/g },
   { fn: 'vue', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*vue\b/g },
-  { fn: 'observationDe', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*observationDe\b/g },
+  { fn: 'observationDe', module: 'objectif.js', cle: 'Objectif.observationDe', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*observationDe\b/g },
   { fn: 'idDObjectif', module: 'moteur.js' },
   // 124 (audit du 16/10/2026, 06 #5) — ce que le coach PROPOSE ou RÉDIGE hors de la séance : la carte de fin de bloc
   // (§9.22), les cibles et la carte de « J'ai peu de temps » (§9.18), la feuille « J'ai mal » (§9.20). Appelées par
@@ -238,7 +241,7 @@ const AUTORISATIONS = {
     'app.js': 'MOTEUR §9.25 (109) : la carte « Mon objectif » de la page d’exercice relit l’objectif posé (sa date ' +
       'figée) et les records de l’exercice — une lecture, hors séance (app.js, `carteObjectifDe`).'
   },
-  observationDe: {
+  'Objectif.observationDe': {
     'app.js': 'MOTEUR §9.25 (109) : l’observation d’un pari d’objectif (les jours réellement mis, la série qui ' +
       'l’atteint), au moment de l’écrire en base : de la persistance (app.js, `observerObjectifs`).'
   },
@@ -257,10 +260,20 @@ const AUTORISATIONS = {
       'dit si une semaine allégée est en cours, pour taire « J’ai peu de temps » et afficher la durée ' +
       'allégée ; la même lecture des cartes que `escalierDuPlan` (app.js, `semaineAllegeeEnCours`).'
   },
+  // B-M2 (181) : l'autorisation est par (fichier, FONCTION APPELANTE). Un objet à la place de la raison nomme chaque
+  // fonction de l'app qui a le droit d'appeler, avec sa raison ; un appel depuis une autre fonction échoue, une entrée
+  // dont la fonction n'appelle plus échoue aussi. Les quatre sites réels de `consigneDExercice` (28/10/2026).
   consigneDExercice: {
-    'app.js': 'calcule les ENTRÉES du plan (`entrees.consignes`) : le plan n’a pas l’historique ' +
-      '(app.js, `consigneDe`) ; et l’étiquette de zone de la page d’exercice, hors séance, où ' +
-      'il n’y a pas de plan (app.js, `rendreExercice`).'
+    'app.js': {
+      consigneDe: 'calcule les ENTRÉES du plan (`entrees.consignes`) : le plan n’a pas l’historique.',
+      consigneDeLExercice: 'l’étiquette de zone et le menu des zones de la page d’exercice, hors séance, où il n’y a ' +
+        'pas de plan (ECRAN-SAISIE) : la même consigne que celle du plan, sur le même historique.',
+      lestDeDemo: 'la démonstration du lest (50-1) : trois séances fictives (7, 14, 21 jours) passées au moteur ' +
+        'pour montrer ce que la consigne dirait ; rien n’en est écrit ni décidé pour une vraie séance.',
+      deuxSeancesDeLExercice: '« Tes échelles cette semaine » de Saisie (145), hors séance donc sans plan : une consigne ' +
+        '(option `echelle: true`) dont l’app lit `fondement.deuxSeances` pour les « deux ronds » de la marche suivante. ' +
+        'Dette connue de l’audit du 28/10/2026 : le plan décide la même marche par `carteMarcheDecidee`.'
+    }
   },
   periodesSerieDePlus: {
     'app.js': 'calcule l’ENTRÉE `periodesSerieDePlus` de `consigneDExercice` (les séances où une ' +
@@ -318,7 +331,7 @@ const AUTORISATIONS = {
       'plafond »), au moment de l’écrire en base : de la persistance (app.js, `observerEscalier`) ; la règle vit dans ' +
       'le moteur (113, MOTEUR §10 bis), sur les faits (`faits.seancesDeLExercice`).'
   },
-  observationDe: {
+  'Moteur.observationDe': {
     'app.js': 'l’observation d’un pari par sa série, au moment de l’écrire en base : de la ' +
       'persistance d’une ligne du plan (app.js, `observerPari`).'
   },
@@ -1742,10 +1755,43 @@ function appels(src, g) {
   const code = nettoyer(src, false);
   const motif = g.motif ? new RegExp(g.motif.source, 'g') : new RegExp('\\.\\s*' + echapper(g.fn) + '\\b', 'g');
   let m;
-  while ((m = motif.exec(code)) !== null) trouves.push({ ligne: ligneDe(code, m.index) });
+  while ((m = motif.exec(code)) !== null) trouves.push({ ligne: ligneDe(code, m.index), index: m.index });
   const avecChaines = nettoyer(src, true);
   const crochets = new RegExp('\\[\\s*([\'"`])' + echapper(g.fn) + '\\1\\s*\\]', 'g');
-  while ((m = crochets.exec(avecChaines)) !== null) trouves.push({ ligne: ligneDe(avecChaines, m.index) });
+  while ((m = crochets.exec(avecChaines)) !== null) trouves.push({ ligne: ligneDe(avecChaines, m.index), index: m.index });
+  return trouves;
+}
+
+// B-M2 (181) — la fonction qui contient un index : la plus proche déclarée `function nom(`. Une seule passe sur le source
+// nettoyé (chaînes et commentaires blancs) : une pile d'accolades, dont celles qui ouvrent le corps d'une fonction
+// nommée portent son nom. Une fonction anonyme se lit à la fonction nommée qui la contient ; hors de toute fonction : null.
+function appelantsDe(src, indices) {
+  const code = nettoyer(src, false);
+  const pile = [];
+  const trouves = {};
+  const attendus = indices.slice().sort((a, b) => a - b);
+  let k = 0, enAttente = null, parens = 0, dansParams = false;
+  const re = /function\s*([A-Za-z_$][\w$]*)?\s*\(/y;
+  for (let i = 0; i < code.length && k < attendus.length; i++) {
+    while (k < attendus.length && attendus[k] === i) {
+      let nom = null;
+      for (let q = pile.length - 1; q >= 0; q--) if (pile[q]) { nom = pile[q]; break; }
+      trouves[i] = nom; k++;
+    }
+    const c = code[i];
+    if (dansParams) {
+      if (c === '(') parens++;
+      else if (c === ')') { parens--; if (parens === 0) dansParams = false; }
+      continue;
+    }
+    if (c === 'f' && (i === 0 || !/[\w$]/.test(code[i - 1]))) {
+      re.lastIndex = i;
+      const m = re.exec(code);
+      if (m) { enAttente = m[1] || ''; dansParams = true; parens = 1; i = re.lastIndex - 1; continue; }
+    }
+    if (c === '{') { pile.push(enAttente || null); enAttente = null; }
+    else if (c === '}') pile.pop();
+  }
   return trouves;
 }
 
@@ -1761,11 +1807,17 @@ function perimetre() {
 function releve(fichiers, gardees) {
   const r = {};
   gardees.forEach((g) => {
-    r[g.fn] = {};
+    const cle = g.cle || g.fn;
+    r[cle] = {};
     fichiers.forEach((f) => {
       if (f.nom === g.module) return;
       const a = appels(f.src, g);
-      if (a.length) r[g.fn][f.nom] = a.map((x) => x.ligne);
+      if (a.length) {
+        r[cle][f.nom] = a.map((x) => x.ligne);
+        const dans = appelantsDe(f.src, a.map((x) => x.index));
+        // les fonctions appelantes (non énumérable : le relevé reste des listes de lignes)
+        Object.defineProperty(r[cle][f.nom], 'dans', { value: a.map((x) => dans[x.index] || '(hors fonction)') });
+      }
     });
   });
   return r;
@@ -1777,6 +1829,17 @@ function violations(rel, autorisations) {
     Object.keys(rel[fn]).forEach((fichier) => {
       if (fichier === LE_COACH) return;
       const permis = autorisations[fn] && Object.prototype.hasOwnProperty.call(autorisations[fn], fichier);
+      const aut = permis ? autorisations[fn][fichier] : null;
+      if (permis && aut && typeof aut === 'object') {
+        // B-M2 : une autorisation par fonction appelante
+        const dans = rel[fn][fichier].dans || [];
+        const hors = dans.filter((d) => !Object.prototype.hasOwnProperty.call(aut, d));
+        if (hors.length) {
+          v.push('`' + fn + '` est appelée dans v2/js/' + fichier + ' depuis ' + hors.map((d) => '`' + d + '`').join(', ') +
+            ', qui n’est pas inscrite pour elle (autorisées : ' + Object.keys(aut).join(', ') + '). ' + CONSEIL);
+        }
+        return;
+      }
       if (!permis) {
         v.push('`' + fn + '` est appelée dans v2/' + (fichier === 'index.html' ? '' : 'js/') + fichier +
           ', ligne' + (rel[fn][fichier].length > 1 ? 's ' : ' ') + rel[fn][fichier].join(', ') +
@@ -1794,6 +1857,13 @@ function perimees(rel, autorisations) {
       if (!rel[fn] || !rel[fn][fichier]) {
         v.push('AUTORISATIONS.' + fn + '[\'' + fichier + '\'] n’a plus d’appel : retire l’entrée — ' +
           'la liste dit ce qui est, pas ce qui a été.');
+      } else if (typeof autorisations[fn][fichier] === 'object') {
+        const dans = rel[fn][fichier].dans || [];
+        Object.keys(autorisations[fn][fichier]).forEach((appelante) => {
+          if (dans.indexOf(appelante) < 0) {
+            v.push('AUTORISATIONS.' + fn + '[\'' + fichier + '\'].' + appelante + ' n’appelle plus : retire l’entrée.');
+          }
+        });
       }
     });
   });
@@ -1819,13 +1889,17 @@ describe('architecture — un seul coach, un seul câblage', () => {
   });
 
   test('la liste d’autorisations ne nomme que des fonctions gardées, et chaque entrée a sa raison', () => {
-    const noms = new Set(GARDEES.map((g) => g.fn));
+    const noms = new Set(GARDEES.map((g) => g.cle || g.fn));
     Object.keys(AUTORISATIONS).forEach((fn) => {
       expect([fn, noms.has(fn)]).toEqual([fn, true]);
       Object.keys(AUTORISATIONS[fn]).forEach((f) => {
         expect([fn, f, f !== LE_COACH]).toEqual([fn, f, true]);
         const raison = AUTORISATIONS[fn][f];
-        expect([fn, f, typeof raison === 'string' && raison.length > 20]).toEqual([fn, f, true]);
+        if (raison && typeof raison === 'object') {
+          expect([fn, f, Object.keys(raison).length > 0]).toEqual([fn, f, true]);
+          Object.keys(raison).forEach((appelante) =>
+            expect([fn, f, appelante, raison[appelante].length > 20]).toEqual([fn, f, appelante, true]));
+        } else expect([fn, f, typeof raison === 'string' && raison.length > 20]).toEqual([fn, f, true]);
       });
     });
   });
@@ -1837,6 +1911,63 @@ describe('architecture — un seul coach, un seul câblage', () => {
 
   test('la liste d’autorisations dit exactement ce qui est : aucune entrée sans appel', () => {
     expect(perimees(REL, AUTORISATIONS)).toEqual([]);
+  });
+
+  // B-M2 (181) — l'autorisation par fonction appelante. `consigneDExercice` a quatre sites dans app.js, tous nommés ;
+  // un cinquième, depuis une autre fonction, échoue même si le fichier est autorisé.
+  test('⚠️ B-M2 — les quatre sites de `consigneDExercice` sont nommés, un cinquième échoue', () => {
+    expect(REL.consigneDExercice['app.js'].dans.slice().sort())
+      .toEqual(['consigneDe', 'consigneDeLExercice', 'deuxSeancesDeLExercice', 'lestDeDemo']);
+    const rel = { consigneDExercice: { 'app.js': Object.assign([10, 20], { dans: ['consigneDe', 'unCinquieme'] }) } };
+    const v = violations(rel, { consigneDExercice: AUTORISATIONS.consigneDExercice });
+    expect(v).toHaveLength(1);
+    expect(v[0]).toContain('`unCinquieme`');
+    expect(v[0]).toContain('AUTORISATIONS');
+    // une fonction inscrite qui n'appelle plus est périmée
+    const rel2 = { consigneDExercice: { 'app.js': Object.assign([10], { dans: ['consigneDe'] }) } };
+    expect(perimees(rel2, { consigneDExercice: AUTORISATIONS.consigneDExercice }).join(' ')).toContain('lestDeDemo');
+  });
+
+  test('B-M2 — la fonction appelante se lit : nommée la plus proche, anonyme remontée, hors fonction nommée', () => {
+    const src = 'function a() {\n  var x = function () { M.f(1); };\n  function b(p, q) { return M.f(p); }\n  M.f(2);\n}\nM.f(3);';
+    const code = nettoyer(src, false);
+    const idx = []; const re = /M\.f/g; let m;
+    while ((m = re.exec(code)) !== null) idx.push(m.index);
+    const r = appelantsDe(src, idx);
+    expect(idx.map((i) => r[i])).toEqual(['a', 'b', 'a', null]);
+  });
+
+  test('B-B6 — deux fonctions de même nom, deux clés : `observationDe` du moteur et de l’objectif ne s’écrasent plus', () => {
+    expect(REL['Moteur.observationDe']['app.js'].length).toBe(1);
+    expect(REL['Objectif.observationDe']['app.js'].length).toBe(1);
+    expect(AUTORISATIONS['Moteur.observationDe']).toBeTruthy();
+    expect(AUTORISATIONS['Objectif.observationDe']).toBeTruthy();
+  });
+
+  // B-M3 (181) — « quand dégeler une consigne figée » est décidé dans app.js, à six endroits. Rien n'est implémenté
+  // ici : l'invariant LISTE les six et échoue si un septième apparaît sans être inscrit (audit du 28/10/2026, M3).
+  // Un dégel = un `delete consignes.parSlug[…]` dans app.js. Ajouter un levier = l'inscrire ici, avec la raison.
+  const DEGELS = {
+    poserZone: 1,           // la personne change sa zone : la consigne se recalcule dans la séance en cours
+    poserLignesDeZone: 1,   // une correction de zone datée arrive à échéance
+    poserMode: 1,           // la personne change le mode d'un exercice
+    consigneDe: 2,          // la réponse au lest (`carte_lest`) et la salle qui change le plafond (`salle_max`)
+    calculerRejeu: 1        // le rejeu d'une séance reprise
+  };
+  test('⚠️ B-M3 — les dégels de consigne d’app.js sont six, tous inscrits : un septième échoue', () => {
+    const app = FICHIERS.filter((f) => f.nom === 'app.js')[0];
+    const code = nettoyer(app.src, false);
+    const re = /delete\s+[\w.]*parSlug\s*\[/g;
+    const idx = []; let m;
+    while ((m = re.exec(code)) !== null) idx.push(m.index);
+    const dans = appelantsDe(app.src, idx);
+    const vus = {};
+    idx.forEach((i) => { const n = dans[i] || '(hors fonction)'; vus[n] = (vus[n] || 0) + 1; });
+    expect(vus).toEqual(DEGELS);
+    expect(idx).toHaveLength(6);
+    // aucun autre fichier servi ne dégèle une consigne
+    FICHIERS.filter((f) => f.nom !== 'app.js').forEach((f) =>
+      expect([f.nom, /delete\s+[\w.]*parSlug\s*\[/.test(nettoyer(f.src, false))]).toEqual([f.nom, false]));
   });
 
   test('le plan appelle bien le moteur : la garde lit le vrai câblage, pas un fichier vide', () => {

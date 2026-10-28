@@ -17,6 +17,9 @@
   // ⚠️ LES NOMBRES ET LES DATES S'ÉCRIVENT DANS `modele.js`, LE FORMATEUR
   // UNIQUE (consolidation, PR 7). Ces noms ne sont plus que des appels.
   function nombreFr(n) { return M().nombreSigne(n); }
+  // 175 — « 1 265 » : l'espace fine insécable des milliers (le formateur de `Modele.nombreGroupe`, jamais un second), pour les
+  // nombres que Progression AFFICHE (les champs de saisie gardent `nombreFr`, que `lireNombre` relit à l'identique).
+  function grand(n) { return M().nombreGroupe(nombreFr(n)); }
   function dateCourte(iso) { return M().dateCourte(iso); }
   function dateLongue(iso) { return M().dateLongue(iso); }
   function mmss(secondes) { return M().mmss(secondes); }
@@ -1308,7 +1311,7 @@
         barre.style.width = (plusGrand > 0 ? Math.round((Number(z.series) || 0) / plusGrand * 100) : 0) + '%';
         piste.appendChild(barre);
         item.appendChild(piste);
-        item.appendChild(el('b', null, nombreFr(z.series)));
+        item.appendChild(el('b', null, grand(z.series)));
         grille.appendChild(item);
       });
       bloc.appendChild(grille);
@@ -1402,16 +1405,16 @@
     // pompes, dips), le mois dit ses séries de travail ; « Pas encore » seulement quand il n'en a aucune (les sorties
     // seules n'en sont pas, comme la story du mois).
     bouts.push(v.kg ? tonnes(v.kg) + ' soulevées'
-      : (v.series ? v.series + ' série' + (v.series > 1 ? 's' : '') + ' de travail' : 'Pas encore de série de travail'));
+      : (v.series ? grand(v.series) + ' série' + (v.series > 1 ? 's' : '') + ' de travail' : 'Pas encore de série de travail'));
     if (v.records) bouts.push(pluriel(v.records, 'record'));
-    if (v.paris && v.paris.verifies) bouts.push(v.paris.tenus + ' pari' + (v.paris.tenus > 1 ? 's' : '') +
-      ' tenu' + (v.paris.tenus > 1 ? 's' : '') + ' sur ' + v.paris.verifies);
+    if (v.paris && v.paris.verifies) bouts.push(grand(v.paris.tenus) + ' pari' + (v.paris.tenus > 1 ? 's' : '') +
+      ' tenu' + (v.paris.tenus > 1 ? 's' : '') + ' sur ' + grand(v.paris.verifies));
     // 173 (« Vivant ») — le chiffre en héros : « 13 t » (puis « soulevées »), « 14 » (puis « records ») ; le texte, lui, ne change pas.
     var ligneM = el('div', 'bloc-ligne bloc-heros');
     bouts.forEach(function (b, i) {
       // Le « · » reste dans le texte lu (banc, lecteurs) mais ne se dessine pas : l'espace (gap) sépare les blocs, rien ne pend en fin de ligne.
       if (i > 0) { var sepM = el('span', 'bh-sep', ' \u00b7 '); sepM.setAttribute('aria-hidden', 'true'); ligneM.appendChild(sepM); }
-      var m = /^(\d[\d,.\u00a0]*?(?:\u00a0t)?)(\s.*)$/.exec(b);
+      var m = /^(\d[\d,.\u00a0\u202f]*?(?:\u00a0t)?)( .*)$/.exec(b);
       var bout = el('span', 'bh-bout' + (i === 0 ? ' bh-premier' : ''));
       if (m) { bout.appendChild(el('span', 'bh-n', m[1])); bout.appendChild(doc.createTextNode(m[2])); }
       else bout.appendChild(doc.createTextNode(b));
@@ -1700,7 +1703,7 @@
   }
   function tonnes(kg) {
     var t = (Number(kg) || 0) / 1000;
-    return nombreFr(Math.round(t * (t < 10 ? 10 : 1)) / (t < 10 ? 10 : 1)) + '\u00a0t';
+    return grand(Math.round(t * (t < 10 ? 10 : 1)) / (t < 10 ? 10 : 1)) + '\u00a0t';
   }
   // 98 (BILANS-V1) — l'ancien bilan du mois (`rendreBilanMois`) n'existe plus : la story du mois le remplace
   // (`annee.js`), et en reprend les records et les paris.
@@ -4412,7 +4415,7 @@
   // le nom de `THRoutines.nomLibre` : ici, on ne pose que des mots sur ce qu'on
   // reçoit. Les repos sont des valeurs par défaut et leur origine se dit.
 
-  function pluriel(n, mot) { return n + ' ' + mot + (n > 1 ? 's' : ''); }
+  function pluriel(n, mot) { return grand(n) + ' ' + mot + (n > 1 ? 's' : ''); }
 
   // L'origine d'un repos, en français : « par défaut », ou la routine d'où il
   // vient. Dans un superset, le repos est porté par le dernier exercice : les

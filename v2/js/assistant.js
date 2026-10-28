@@ -5,8 +5,8 @@
 // un modèle — après avoir contrôlé que chaque nombre de la réponse est dans le contexte.
 //
 // ⚠️ RIEN N'EST CALCULÉ ICI. Le contexte (`contexteDe`) est tiré du PLAN (`x`, le plan d'un exercice : ses paragraphes
-// « Pourquoi », ses lignes), des FAITS (les séances de l'exercice, lues par l'appelant dans `faits.js`) et de la salle
-// (`Profil.salleDeLExercice`, lue par l'appelant). Une décision du coach ne se recalcule pas ici : elle se recopie.
+// « Pourquoi », ses lignes), des FAITS (les séances de l'exercice, lues par l'appelant dans `faits.js`) et des charges du plan
+// (lignes de l'exercice). Une décision du coach ne se recalcule pas ici : elle se recopie.
 // Jamais dans le contexte : nom, pseudo, id, date, poids du corps, notes libres. Les dates que le coach écrit dans ses
 // phrases (« mardi », « le 13 sept. ») sont retirées (`sansDate`).
 //
@@ -146,28 +146,19 @@
     if (!isFinite(n)) return null;
     return racine.THModele.nombreTexte(n, 2);
   }
-  // `salle` : ce que rend `Profil.salleDeLExercice` (`{ materiel, charges }`, charges croissantes) ou null.
-  // Les charges de la salle AUTOUR du palier (deux crans de chaque côté de la charge de travail, ou de la ligne) ;
-  // sans salle : les charges déjà faites sur cet exercice.
-  function cransDe(salle, repere, deja) {
-    var liste = salle && salle.materiel !== 'elastique' && Array.isArray(salle.charges)
-      ? salle.charges.filter(function (c) { return isFinite(Number(c)); }).map(Number).sort(function (a, b) { return a - b; }) : [];
-    if (liste.length) {
-      var r = isFinite(Number(repere)) && repere !== null ? Number(repere) : liste[0];
-      var i = 0;
-      while (i < liste.length - 1 && liste[i] < r) i++;
-      // le plus proche de r
-      if (i > 0 && Math.abs(liste[i - 1] - r) <= Math.abs(liste[i] - r)) i--;
-      var bas = Math.max(0, i - 3), haut = Math.min(liste.length, i + 4);
-      return { genre: 'salle', charges: liste.slice(bas, haut).map(kg) };
-    }
+  // 179 (B-B9) — les charges que le plan a DÉCIDÉES pour cet exercice, rien d'autre : celles de ses lignes (la séance du jour et la suite
+  // qu'il annonce) et sa charge de travail. Plus de charges voisines de la salle calculées par l'écran : le modèle ne pouvait citer, comme
+  // « la suite », un cran que le coach n'a pas choisi (gros cran, deux crans en Franc). `lignes` : `x.lignes` du plan ; `repere` : le palier.
+  function cransDe(lignes, repere) {
     var vues = [];
-    (deja || []).forEach(function (c) {
+    function pose(c) {
       var n = Number(c);
-      if (c !== null && c !== undefined && isFinite(n) && n > 0 && vues.indexOf(n) < 0) vues.push(n);
-    });
+      if (c !== null && c !== undefined && c !== '' && isFinite(n) && n > 0 && vues.indexOf(n) < 0) vues.push(n);
+    }
+    (lignes || []).forEach(function (l) { if (l) { pose(l.charge); if (l.faite) pose(l.faite.charge); } });
+    pose(repere);
     vues.sort(function (a, b) { return a - b; });
-    return vues.length ? { genre: 'faites', charges: vues.slice(-12).map(kg) } : null;
+    return vues.length ? { genre: 'plan', charges: vues.slice(-12).map(kg) } : null;
   }
 
   // ── L'accord refusé (403 « accord ») : boucle ou attente ? (166, D9) ────────
@@ -181,7 +172,7 @@
   // `e` : { nom, x, groupes, salle }
   //   · x : l'exercice du plan (`planDuSlug`) : `x.pourquoi` (paragraphes, « Donc », lignes), `x.entete`, `x.consigne` ;
   //   · groupes : les séances de l'exercice lues dans `faits.js` (la plus récente d'abord), `[{ seance, series }]` ;
-  //   · salle : `Profil.salleDeLExercice`.
+  //   · salle : n'est plus lue (179, B-B9 : les charges citables sont celles du plan).
   // Rend l'objet que la fonction revérifie (liste blanche) ; `null` si le plan ne dit rien de cet exercice.
   function contexteDe(e) {
     var x = e && e.x, p = x && x.pourquoi;
@@ -205,13 +196,11 @@
     if (der.length) ctx.derniere = der;
 
     // Les 3 dernières séances de cet exercice : « charge × reps », SANS date.
-    var deja = [];
     var seances = [];
     (e.groupes || []).forEach(function (g) {
       var vus = [];
       ((g && g.series) || []).forEach(function (s) {
         if (!s || !Modele.estTravail(s)) return;
-        if (s.charge_kg !== null && s.charge_kg !== undefined) deja.push(s.charge_kg);
         if (s.reps === null || s.reps === undefined) return;
         vus.push(Modele.serieFaite(s.charge_kg, s.reps));
       });
@@ -219,7 +208,7 @@
     });
     if (seances.length) ctx.seances = seances;
     var repere = x.consigne.palier !== undefined ? x.consigne.palier : null;
-    var crans = cransDe(e.salle, repere, deja);
+    var crans = cransDe(x.lignes, repere);
     if (crans) ctx.crans = crans;
     return ctx;
   }

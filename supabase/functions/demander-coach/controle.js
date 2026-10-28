@@ -190,7 +190,7 @@
         }
       } else if (k === 'crans') {
         if (!v || typeof v !== 'object' || Object.keys(v).some(function (x) { return x !== 'genre' && x !== 'charges'; }) ||
-            (v.genre !== 'salle' && v.genre !== 'faites') || !Array.isArray(v.charges) || v.charges.length > 24 ||
+            (v.genre !== 'plan' && v.genre !== 'salle' && v.genre !== 'faites') || !Array.isArray(v.charges) || v.charges.length > 24 ||
             !v.charges.every(function (x) { return texteBorne(x, 20); })) return { ok: false, raison: k };
       } else if (k === 'seances') {
         if (!Array.isArray(v) || v.length > 3 || !v.every(function (s) {

@@ -26431,6 +26431,32 @@ const SETS_IMPORTES = [
     ok('[SA171] d — « Garder … comme prévu » : respecté, rechargé, plus de carte', (await carte171()) === null);
     await B.fermer();
     base.semaineChoix = [];
+    // 178 — « Répartir » : L'ENVOI PART MÊME SI LE BROUILLON DE L'APPAREIL NE S'ÉCRIT JAMAIS (page tuée entre les deux
+    // transactions), puis le rattrapage au démarrage remet dans la file ce que le serveur n'a pas.
+    const D178 = await ouvrir171('SA178-répartir');
+    await page.evaluate(() => {
+      const ecrire = window.THCache.ecrireBrouillon;
+      window.THCache.ecrireBrouillon = function (cle) { return cle === 'semaine-choix' ? new Promise(function () {}) : ecrire.apply(this, arguments); };
+    });
+    await page.click('#carte-semaine button[data-choix="repartir"]');
+    await jusqua(() => Promise.resolve(base.semaineChoix.some((x) => x.choix === 'repartir')), 8000);
+    ok('[178] a — DISCRIMINANT : le brouillon de l\u2019appareil ne s\u2019écrit jamais, l\u2019envoi part quand même (la file est posée AVANT le brouillon)',
+      base.semaineChoix.map((x) => x.choix).join() === 'repartir', nb171(base.semaineChoix));
+    await D178.fermer();
+    // Le rattrapage : le choix est sur l'appareil (brouillon), le serveur ne l'a pas (perdu en route) -> le démarrage le renvoie.
+    base.semaineChoix = [];
+    const E178 = await ouvrir171('SA178-rattrapage');
+    await page.click('#carte-semaine button[data-choix="repartir"]');
+    await jusqua(() => Promise.resolve(base.semaineChoix.some((x) => x.choix === 'repartir')), 8000);
+    await jusqua(async () => (await carte171()) === null, 6000);
+    await page.waitForTimeout(600);   // le brouillon de l'appareil, posé après la file, a le temps de s'écrire
+    base.semaineChoix = [];
+    await aller('/saisie');
+    await jusqua(() => Promise.resolve(base.semaineChoix.some((x) => x.choix === 'repartir')), 12000);
+    ok('[178] b — DISCRIMINANT : un choix sur l\u2019appareil que le serveur n\u2019a pas repart au démarrage (et la question ne revient pas)',
+      base.semaineChoix.map((x) => x.choix).join() === 'repartir' && (await carte171()) === null, nb171(base.semaineChoix));
+    await E178.fermer();
+    base.semaineChoix = [];
     const C = await ouvrir171('SA171-décaler');
     await page.click('#carte-semaine button[data-choix="decaler"]');
     await jusqua(async () => !!(await carte171()) && (await carte171()).demarrer, 6000);

@@ -1126,9 +1126,15 @@
         if (!generationValide(g)) return;
       }
       if (choixSemaine) {
+        // 178 — lu AVANT la fusion : ce que l'appareil a et que le serveur n'a pas repart dans la file.
+        var absents = Deraille.choixAReposer(local.semaineChoix, choixSemaine, protegeesEtEnVol(Attente.SEMAINE_CHOIX),
+          Deraille.lundiDe(Moteur.jourCivil(new Date(Date.now() - 7 * 864e5))), idUtilisateur());
         local.semaineChoix = fondreChoix(local.semaineChoix, choixSemaine);
         await Cache.ecrireBrouillon(CLE_SEMAINE, local.semaineChoix).catch(function () {});
         if (!generationValide(g)) return;
+        for (var ia = 0; ia < absents.length; ia++) {
+          await poser({ table: Attente.SEMAINE_CHOIX, op: Attente.UPSERT, id: cleDuChoix(absents[ia]), donnees: absents[ia] });
+        }
       }
       if (parisDuCompte) {
         await Cache.ecrireBrouillon(CLE_SOUS_CONSIGNE, local.sousConsigne).catch(function () {});
@@ -14419,10 +14425,13 @@
 
   async function poserChoixDeSemaine(lignes) {
     local.semaineChoix = fondreChoix(local.semaineChoix, lignes);
-    await Cache.ecrireBrouillon(CLE_SEMAINE, local.semaineChoix).catch(function () {});
+    // 178 (diagnostic « Répartir ») — L'ENVOI D'ABORD. La file est la promesse d'envoi ; le brouillon de l'appareil n'est
+    // qu'une copie de lecture. Posé dans l'autre sens, une page tuée entre les deux transactions gardait le choix
+    // sur l'appareil mais ne l'envoyait jamais. Le rattrapage au démarrage (`choixAReposer`) couvre le reste.
     for (var i = 0; i < lignes.length; i++) {
       await poser({ table: Attente.SEMAINE_CHOIX, op: Attente.UPSERT, id: cleDuChoix(lignes[i]), donnees: lignes[i] });
     }
+    await Cache.ecrireBrouillon(CLE_SEMAINE, local.semaineChoix).catch(function () {});
   }
 
   function entreeDeLaSemaine(jour) {

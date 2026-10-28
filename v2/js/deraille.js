@@ -406,7 +406,20 @@
     });
   }
 
+  // 178 — À la fusion avec le serveur, les lignes que l'appareil a (dans la fenêtre lue, pour ce compte) et que ni le
+  // serveur ni la file ne portent : elles repartent dans la file (upsert idempotent sur user_id, semaine, routine_id).
+  function choixAReposer(locales, serveur, protegees, depuis, uid) {
+    var cle = function (l) { return String(l.semaine).slice(0, 10) + '|' + l.routine_id; };
+    var chez = {};
+    (serveur || []).forEach(function (l) { if (l && l.routine_id && l.semaine) chez[cle(l)] = true; });
+    return (locales || []).filter(function (l) {
+      return l && l.routine_id && l.semaine && String(l.semaine).slice(0, 10) >= depuis &&
+        (!uid || l.user_id === uid) && !chez[cle(l)] && !(protegees || {})[cle(l)];
+    });
+  }
+
   var api = {
+    choixAReposer: choixAReposer,
     ECART: ECART, ECART_DEBUTANT: ECART_DEBUTANT,
     jourDuNom: jourDuNom, nomCourt: nomCourt, lundiDe: lundiDe,
     semaineQuiDeraille: semaineQuiDeraille, decider: decider, ajoutsDuJour: ajoutsDuJour,

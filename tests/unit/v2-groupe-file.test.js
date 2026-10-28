@@ -95,6 +95,16 @@ describe('136 — 06 #14 : l’XP de fin et le départ passent par la file du gr
     expect(b.ctx.grp.file).toEqual([]);
   });
 
+  test('177 — les refus de « Rejoindre » se disent en une phrase claire', () => {
+    const { ctx } = bac({});
+    const m = (c) => ctx.f.messageGroupe(new Error(c));
+    expect(m('groupe_deja_dans_un')).toBe('Tu es déjà dans un groupe avec quelqu’un : quitte-le d’abord.');
+    expect(m('groupe_sans_invitation')).toBe('Cette invitation n’est plus valable.');
+    expect(m('groupe_eteint')).toBe('Ce groupe est terminé.');
+    expect(m('groupe_plein')).toBe('Le groupe est complet : 6 personnes.');
+    expect(m('groupe_bloque')).toBe('Ce groupe n’est pas possible.');
+  });
+
   test('« Quitter » les compte : la fenêtre dit qu’il reste des changements', () => {
     const { ctx } = bac({ reseau: false });
     ctx.grp.file = [{ id: 'a', groupe_id: 'g-1', geste: 'publier', exercices: [], xp: 10 }, { id: 'b', groupe_id: 'g-1', geste: 'quitter' }];

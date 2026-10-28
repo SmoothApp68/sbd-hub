@@ -19553,7 +19553,7 @@ const SETS_IMPORTES = [
       ok('[groupe] 177 — DISCRIMINANT — MUTATION (c) — « Rejoindre » depuis mon groupe seul : MA séance continue (même identifiant, séries gardées), je suis dans le groupe d’alexis, ' +
         'mon groupe vide a disparu, plus de carte d’invitation',
         !!placeA && placeA.session_id === SB && base.sets.filter((t) => t.session_id === SB).length === seriesAvant && enCours() === SB &&
-          !S.groupes.some((g) => g.id === GB) && c1.invitations.length === 0 && JSON.stringify(c1.pastilles) === JSON.stringify(['alexis+', 'banc']),
+          !S.groupes.some((g) => g.id === GB) && c1.invitations.length === 0 && JSON.stringify(c1.pastilles) === JSON.stringify(['alexis+', 'banc+']),
         JSON.stringify([placeA, SB, c1]));
       // Avec un autre membre ACTIF, la base refuse de partir ailleurs : le serveur imité garde le refus (invitation de lea).
       fauxSocial.rpc('u-lea', 'groupe_inviter', { p_user: 'u-banc' });

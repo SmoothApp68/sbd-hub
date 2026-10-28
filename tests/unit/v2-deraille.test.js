@@ -358,3 +358,20 @@ describe('audit du 16/10/2026, 01 #2 et #4 — répartir compte ce qui est déj�
     try { G.PAR_SEANCE = 9; expect(quadsDansLePull(carte())).toBe(9); } finally { G.PAR_SEANCE = avant; }
   });
 });
+
+// 178 — « Répartir » : ce que l'appareil a et que ni le serveur ni la file ne portent repart dans la file.
+describe('choixAReposer (178)', () => {
+  const L = (semaine, routine, extra) => Object.assign({ user_id: 'u1', semaine, routine_id: routine, choix: 'repartir', cree_le: '2026-10-28T10:00:00Z' }, extra || {});
+  const DEPUIS = '2026-10-19';
+  test('une ligne locale absente du serveur et de la file repart', () => {
+    expect(D.choixAReposer([L('2026-10-26', 'r1')], [], {}, DEPUIS, 'u1').map((l) => l.routine_id)).toEqual(['r1']);
+  });
+  test('déjà chez le serveur, ou déjà dans la file : rien', () => {
+    expect(D.choixAReposer([L('2026-10-26', 'r1')], [L('2026-10-26', 'r1')], {}, DEPUIS, 'u1')).toEqual([]);
+    expect(D.choixAReposer([L('2026-10-26', 'r1')], [], { '2026-10-26|r1': true }, DEPUIS, 'u1')).toEqual([]);
+  });
+  test('hors de la fenêtre lue, ou d’un autre compte : rien', () => {
+    expect(D.choixAReposer([L('2026-10-05', 'r1')], [], {}, DEPUIS, 'u1')).toEqual([]);
+    expect(D.choixAReposer([L('2026-10-26', 'r1', { user_id: 'u2' })], [], {}, DEPUIS, 'u1')).toEqual([]);
+  });
+});

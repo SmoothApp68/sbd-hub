@@ -85,7 +85,7 @@ Claude.ai (data Supabase) → toi, Claude Code (implémentation) → Gemini (val
 0. **Ne jamais pousser sur `main`.** La branche n'est pas protégée (offre gratuite de GitHub, décidé le 11/10/2026) : toute livraison passe par une PR, ouverte en brouillon ; seul Aurélien fusionne.
 1. `node -c` sur les fichiers JS touchés.
 2. **`npm test` vert.** Ajoute/inverse les tests dans le **même commit** que le fix ; vérifie que la fixture déclenche vraiment le chemin visé (un test qui ne teste pas ce qu'il prétend est pire qu'aucun test).
-3. **Bump le Service Worker** : `CACHE_V2` (`v2/service-worker.js`) → version suivante, à chaque commit qui touche la coquille (§4 bis). La version en vigueur se lit dans le fichier, jamais ici.
+3. **Ne plus incrémenter `CACHE_V2` à la main** (178, 28/10/2026) : le numéro est **estampé au déploiement** par `v2-atelier/outils/estamper-sw.js` (empreinte du contenu de la coquille, §4 bis). Le littéral du dépôt n'est que la valeur de repli (local, bancs, tests) : on ne le touche plus.
 4. **Livre en PR — NE MERGE JAMAIS.** Aurélien vérifie sur **device** sur vraies données avant de merger. **Non optionnel** : un lot mergé sur CI verte seule a déjà laissé passer des bugs que les tests ne voyaient pas (facteur calorique volatile, e1RM affiché au lieu du PR).
 5. **La PR s'ouvre EN BROUILLON, et ne passe « prête » qu'avec le message final** (règle du 01/10/2026, 49-U14). Deux PR ont été fusionnées avant leur dernier commit : une PR prête se lit comme « à fusionner ». Tant qu'un commit, un banc ou un écart reste à venir, elle reste en brouillon ; elle passe prête dans le même geste que le message final, et la vérification sur la prévisualisation fait foi avant la fusion.
 
@@ -130,11 +130,18 @@ npx jest tests/unit/v2-service-worker.test.js
 - `tests/banc/fixtures/sw-chantier-18.js` est **le défaut, gardé exprès** : le
   scénario 5 l'installe pour de vrai avant de déployer la correction. **Ne le
   répare pas.**
-- Bump `CACHE_V2` (`v2/service-worker.js`) à chaque commit qui touche la
-  coquille. **La version en vigueur se lit dans `v2/service-worker.js`
-  (`CACHE_V2`)** — elle n'est pas recopiée ici. Un chiffre recopié ne peut que
-  dériver : celui qui figurait à cette ligne avait dix versions de retard
-  (CADRAGE §2 undecies).
+- **Le numéro de cache est estampé au déploiement (178, diagnostic 172) ; ne plus l'incrémenter à la main.**
+  La commande de build Cloudflare lance `v2-atelier/outils/estamper-sw.js`, qui remplace la valeur de `CACHE_V2`
+  dans le dossier publié par `trainhub-v2-` + les 10 premiers caractères de sha256 de (chemins + octets de chaque
+  fichier de `SHELL` + octets de `service-worker.js` dont la ligne `CACHE_V2` est neutralisée). Le numéro change
+  donc si et seulement si ce qui est servi depuis le cache change. **Échec fermé** : le script sort en code 1 si le
+  littéral `const CACHE_V2 = '…';` n'apparaît pas exactement une fois (garde-le tel quel, apostrophes simples), si
+  `SHELL` est introuvable ou si un fichier de la coquille manque ; un build en échec laisse l'ancien déploiement en
+  ligne. Le fichier du dépôt reste valide SANS le script (valeur de repli). Commande de build tolérante aux vieilles
+  branches : `[ ! -f v2-atelier/outils/estamper-sw.js ] || node v2-atelier/outils/estamper-sw.js`.
+  **La vérification 3 se fait sur la PRÉVISUALISATION construite par Cloudflare** : ouvrir `<prévisualisation>/service-worker.js`
+  et lire `CACHE_V2` — il doit être `trainhub-v2-<10 hexadécimaux>`, pas le littéral du dépôt. Tests :
+  `npx jest tests/unit/v2-estamper-sw.test.js`.
 
 - **Un cache, une version** (16/10/2026, 117, audit 06 #8) : un fichier de la coquille (`SHELL`) ne se met
   jamais à jour en arrière-plan — une nouvelle version n'arrive que par install/activate, dans SON cache. Le

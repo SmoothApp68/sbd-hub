@@ -90,6 +90,14 @@ describe('175 / 1 — la marche suivante : le lest ET la variante', () => {
     expect(m).toEqual({ type: 'marche', cible: ['pompes'], proposable: true });
     expect(Mo.marcheSuivante(INDEX, 'pompes_negatives').variante).toBeUndefined();
   });
+  test('DISCRIMINANT — une marche non stricte dont le rang suivant porte un lest : la carte du lest et la variante ne viennent que de la stricte', () => {
+    const idx = clone(INDEX);
+    idx.pompes_negatives.echelle_rang = idx.pompes.echelle_rang;   // une marche non stricte au rang de la stricte : le rang suivant a le lest
+    const m = Mo.marcheSuivante(idx, 'pompes_negatives');
+    expect(m.type).toBe('marche');
+    expect(m.variante).toBeUndefined();
+    expect(Mo.marcheSuivante(idx, 'pompes').type).toBe('lest');
+  });
   test('la variante est de force : une habileté au même rang n’est jamais la variante', () => {
     const idx = clone(INDEX);
     idx.pompes_declinees.nature = 'habilete';
@@ -211,5 +219,21 @@ describe('175 / 1 — 30 reps au poids du corps : le plafond sans lest', () => {
     const etat = esp(M.pourquoiConsigne(c.consigne, 'normal', AVANT).etat);
     expect(etat).toMatch(/30 reps est le plafond sans lest/);
     expect(etat).not.toMatch(/une de plus que la dernière fois/);
+  });
+});
+
+describe('175 / 2 — la visée du levier « reps » : plafond + 3, au plus 8 en force, au plus 30', () => {
+  test('en zone de force (≤ 5) : jamais au-delà de 8 ; au-dessus : plafond + 3 ; au plafond de 30, rien à viser', () => {
+    expect(M.viseeDuLevier(3)).toBe(6);
+    expect(M.viseeDuLevier(5)).toBe(8);
+    expect(M.viseeDuLevier(6)).toBe(9);
+    expect(M.viseeDuLevier(12)).toBe(15);
+    expect(M.viseeDuLevier(28)).toBe(30);
+    expect(M.viseeDuLevier(30)).toBeNull();
+  });
+  test('le pas de 3 tient en force comme ailleurs (le cap de 8 n’est atteint qu’à 5 reps)', () => {
+    expect(M.viseeDuLevier(4)).toBe(7);
+    expect(M.viseeDuLevier(5) - 5).toBe(3);
+    expect(M.viseeDuLevier(6) - 6).toBe(3);
   });
 });

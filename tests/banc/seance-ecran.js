@@ -21976,6 +21976,8 @@ const SETS_IMPORTES = [
       charge: 'externe', equipement: 'machine' }, mus('adducteurs')));
     CATALOGUE.push(Object.assign({ slug: 'reps-c105', nom: 'Pompes C105', mesure: 'reps', charge: 'aucune',
       equipement: 'aucun' }, mus('pectoraux')));
+    CATALOGUE.push(Object.assign({ slug: 'sans-c105', nom: 'Tractions C105', mesure: 'reps', charge: 'aucune',
+      equipement: 'aucun' }, mus('dos')));
     CATALOGUE.push(Object.assign({ slug: 'planche-c105', nom: 'Planche C105', mesure: 'temps', charge: 'aucune',
       equipement: 'aucun' }, mus('abdominaux')));
     CATALOGUE.push(Object.assign({ slug: 'course-c105', nom: 'Course C105', mesure: 'distance_temps', charge: 'aucune',
@@ -21989,7 +21991,7 @@ const SETS_IMPORTES = [
     ROUTINES.push({ id: 'r-c105', nom: 'Cases C105', note: null, archivee_a: null,
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
       routine_exercises: [ex105('charge-c105', 0, progr(1)), ex105('reps-c105', 1, lignesReps),
-        ex105('planche-c105', 2, progr(1)), ex105('course-c105', 3, progr(1))] });
+        ex105('planche-c105', 2, progr(1)), ex105('course-c105', 3, progr(1)), ex105('sans-c105', 4, progr(1))] });
     const nb105 = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
     await aller('/saisie');
     await demarrerRoutine('Cases C105');
@@ -22062,13 +22064,17 @@ const SETS_IMPORTES = [
       nb105([montees('charge-c105').map((s) => [s.charge_kg, s.reps]), await etat105(0)]));
 
     // 2. REPS VIDES SANS FANTÔME : rouge. AVEC FANTÔME : validé sur le chiffre gris.
-    const e1 = await etat105(1), e2 = await etat105(2);
-    ok('[C105] le décor : la 1re ligne de pompes sans chiffre, la 2e avec 12 en gris',
-      sansChiffre(e1) && e2.cases.length === 1 && e2.cases[0][1] === '' && e2.cases[0][2] === '12', nb105([e1, e2]));
-    await valider105(1);
-    const r1 = await etat105(1);
+    // 180 (A-F-09) — la première fois au poids du corps, le coach pose les reps de la routine (« 12 reps ») : les DEUX lignes de
+    // pompes portent le chiffre gris. La règle « reps vides sans chiffre gris : rouge » se joue sur des tractions dont la routine
+    // ne dit aucune rep (index 5 : presse 0, pompes 1-2, planche 3, course 4).
+    const e1 = await etat105(1), e2 = await etat105(2), e5 = await etat105(5);
+    ok('[C105] le décor : les deux lignes de pompes avec 12 en gris, les tractions sans aucun chiffre',
+      e1.cases.length === 1 && e1.cases[0][1] === '' && e1.cases[0][2] === '12' &&
+      e2.cases.length === 1 && e2.cases[0][1] === '' && e2.cases[0][2] === '12' && sansChiffre(e5), nb105([e1, e2, e5]));
+    await valider105(5);
+    const r1 = await etat105(5);
     ok('[C105] DISCRIMINANT — reps vides sans chiffre gris : rien en base, la case des reps en rouge, le clavier sur elle',
-      montees('reps-c105').length === 0 && !r1.cochee && nb105(r1.rouges) === nb105(['reps']) && r1.clavier === 'reps',
+      montees('sans-c105').length === 0 && !r1.cochee && nb105(r1.rouges) === nb105(['reps']) && r1.clavier === 'reps',
       nb105(r1));
     await remplir105(1, 'reps', 10);
     await valider105(1);
@@ -22109,7 +22115,7 @@ const SETS_IMPORTES = [
       nb105(montees('course-c105').map((s) => [s.duree_s, s.distance_m])));
     ok('[C105] aucune case obligatoire vide en base',
       base.sets.every((s) => (s.exercise_slug !== 'charge-c105' || (s.charge_kg !== null && s.reps !== null)) &&
-        (s.exercise_slug !== 'reps-c105' || s.reps !== null) && (s.exercise_slug !== 'planche-c105' || s.duree_s !== null) &&
+        (s.exercise_slug !== 'reps-c105' || s.reps !== null) && (s.exercise_slug !== 'sans-c105' || s.reps !== null) && (s.exercise_slug !== 'planche-c105' || s.duree_s !== null) &&
         (s.exercise_slug !== 'course-c105' || (s.duree_s !== null || s.distance_m !== null))),
       nb105(base.sets.map((s) => [s.exercise_slug, s.charge_kg, s.reps, s.duree_s, s.distance_m])));
     ok('[C105] et aucune violation de la garde', gardeBanc.violations === violationsAvant,

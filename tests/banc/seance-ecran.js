@@ -19252,7 +19252,8 @@ const SETS_IMPORTES = [
     await attendreQue(async () => /partira au retour du réseau/.test((await carte()).texte));
     const e0 = await carte();
     await page.evaluate(() => { const b = document.querySelector('.ligne-serie .ok-serie'); if (b) b.click(); });
-    await attendre(1200);
+    // 176 — l'état, pas 1,2 s : la série validée hors réseau est comptée « faite » (plafond 8 s, le contrôle dit le reste).
+    await attendreQue(async () => (await compter('.ligne-serie.faite, .serie.faite')) > avantHL, 8000, 'groupe · série validée hors réseau');
     const apresHL = await compter('.ligne-serie.faite, .serie.faite');
     const vivante = await page.evaluate(() => !document.getElementById('vue-seance').hidden);
     base.reseau = true;
@@ -19272,6 +19273,9 @@ const SETS_IMPORTES = [
     const garde0 = await garde();
     await aller('/saisie');
     await attendreQue(async () => page.evaluate(() => !document.getElementById('vue-seance').hidden), 12000);
+    // VOULU (176) : on constate que le message gardé N'EST PAS perdu hors réseau. Aucun état de l'app ne dit « je ne
+    // l'effacerai pas » (la carte ne le redit pas, essayé : plafond atteint) ; seul un temps laissé à un effacement
+    // fautif pour venir le constate.
     await attendre(1500);
     const garde1 = await garde();
     const partiHorsReseau = S.gmessages.filter((m) => m.texte === 'On y va ?').length;
@@ -19432,6 +19436,8 @@ const SETS_IMPORTES = [
     base.reseau = false;
     await page.click('#groupe-seance #groupe-inviter');
     await attendreQue(async () => /Il faut le réseau/.test(await texte('#groupe-corps')));
+    // VOULU (176) : on constate que la phrase TIENT — qu'elle ne retombe pas sur « Chargement… ». Aucun état de l'app
+    // ne dit « je ne changerai plus » ; seul un temps laissé à la bascule fautive pour venir le constate.
     await attendre(600);
     const inviterHL = await texte('#groupe-corps');
     await page.click('#btn-retour-groupe');

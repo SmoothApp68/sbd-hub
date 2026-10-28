@@ -95,7 +95,7 @@ describe('135 — les délais fixes des bancs', () => {
   '7-novodecies': 5, '7-G-quater': 5, 'annee': 5, '3': 4, '4-bis': 4, '4-ter': 4, '7-ter': 4, '7-quinquies': 4,
   '7-tervicies': 4, '7-G': 4, '7-G-quinquies': 4, '7-G-quaterdecies': 4, 'parcours': 4, 'charge-obligatoire': 4,
   'Q78': 4, 'deraille': 4, '5': 3, '7-quindecies': 3, '7-unvicies': 3, '7-quatertricies': 3, '7-G-decies': 3,
-  'journal': 3, 'groupe': 3, 'case-vide': 3, 'mon-objectif': 3, '4': 2, '6': 2, '5-quater': 2, '7-sexies': 2,
+  'journal': 3, 'case-vide': 3, 'mon-objectif': 3, '4': 2, '6': 2, '5-quater': 2, '7-sexies': 2,
   '7-quater': 2, '7-duodecies': 2, '7-G-ter': 2, '7-G-nonies': 2, 'social': 2, 'saison-mois': 2, '2': 1, '5-bis': 1,
   '7-octies': 1, '7-quaterdecies': 1, '7-G-sexdecies': 1, 'sans-marge': 1,
   };

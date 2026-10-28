@@ -92,7 +92,7 @@ describe('174 (3/3) — la carte, réutilisée du schéma', () => {
   test('la phrase, le détail et les boutons de la décision', () => {
     const c = M.carteBordSchema(envelope(histoire(6)).bord);
     expect(plat(c.phrase)).toBe('140 kg × 2 depuis 6 séances, malgré le recul.');
-    expect(c.detail).toBe('Quelques semaines en 3-5 reps relancent souvent la barre, avant d\'y revenir.');
+    expect(c.detail).toBe('Quelques semaines en 3-5 reps peuvent relancer la barre, avant d\'y revenir.');
     expect([c.oui, c.non]).toEqual(['Passer à 3-5 reps', 'Garder les doubles']);
     expect([c.zone, c.nouvelle_zone]).toEqual([null, 'lourd']);
   });

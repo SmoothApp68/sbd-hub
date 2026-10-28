@@ -736,9 +736,9 @@ const ALIAS_COMMUNS = [
     return c ? { phrases: Array.from(c.querySelectorAll('p')).map((p) => p.textContent),
                  boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) } : null;
   });
-  ok('[54-1] la phrase : « Une routine, c’est une liste d’exercices dans un ordre. Le coach décide des charges à chaque séance. »',
+  ok('[54-1] la phrase : « Une routine, c’est une liste d’exercices dans un ordre. Je décide des charges à chaque séance. »',
     !!etatVide && JSON.stringify(etatVide.phrases) === JSON.stringify(['Aucune routine pour l’instant.',
-      'Une routine, c’est une liste d’exercices dans un ordre. Le coach décide des charges à chaque séance.']),
+      'Une routine, c’est une liste d’exercices dans un ordre. Je décide des charges à chaque séance.']),
     JSON.stringify(etatVide && etatVide.phrases));
   // 60-3 (ES §7 quindecies.7) — « Retrouver mes séances qui reviennent », à côté de la création.
   ok('[54-1] les boutons, dans cet ordre : créer, retrouver ses séances qui reviennent (60-3), depuis une séance passée, séance vide',

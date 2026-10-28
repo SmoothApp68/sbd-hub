@@ -139,15 +139,16 @@ describe('160 — assistant.js : le contexte construit à partir du plan et des 
   test('les 3 dernières séances seulement, « charge × reps », sans date', () => {
     expect(ctx.seances).toEqual([['130,4 kg × 17', '130,4 kg × 20'], ['120 kg × 20'], ['110 kg × 20']]);
   });
-  test('les crans de la salle autour du palier sont présents (le cran au-dessus de 130,4 est 140,4)', () => {
-    expect(ctx.crans.genre).toBe('salle');
-    expect(ctx.crans.charges).toEqual(expect.arrayContaining(['130,4', '140,4']));
-    expect(ctx.crans.charges).not.toContain('80');   // sept crans autour du palier au plus
-    expect(ctx.crans.charges).toHaveLength(7);
+  test('179 (B-B9) — les crans sont les charges décidées par le plan (ses lignes et son palier), jamais celles de la salle', () => {
+    const avec = A.contexteDe({ nom: 'X', x: Object.assign({}, PLAN, { lignes: [{ charge: 140.4, vise: 15 }, { charge: null }] }),
+      groupes: GROUPES, salle: SALLE });
+    expect(avec.crans).toEqual({ genre: 'plan', charges: ['130,4', '140,4'] });
+    expect(avec.crans.charges).not.toContain('150,4');
   });
-  test('sans salle : les charges déjà faites sur cet exercice', () => {
-    const sans = A.contexteDe({ nom: 'X', x: PLAN, groupes: GROUPES, salle: null });
-    expect(sans.crans).toEqual({ genre: 'faites', charges: ['100', '110', '120', '130,4'] });
+  test('sans ligne chargée : le palier seul ; sans palier ni ligne : pas de crans', () => {
+    expect(A.contexteDe({ nom: 'X', x: PLAN, groupes: GROUPES, salle: null }).crans).toEqual({ genre: 'plan', charges: ['130,4'] });
+    const nu = Object.assign({}, PLAN, { consigne: { etat: 'test_propose' } });
+    expect(A.contexteDe({ nom: 'X', x: nu, groupes: GROUPES, salle: null }).crans).toBeUndefined();
   });
   test('le contexte passe la revérification de la fonction', () => {
     expect(C.verifierContexte(ctx)).toEqual({ ok: true, raison: null });

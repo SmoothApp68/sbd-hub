@@ -10854,7 +10854,7 @@ const SETS_IMPORTES = [
     ok('[U17] A — la carte de la série de plus sous l’exercice : la phrase, le détail, « Ajouter une série » / « Non merci »',
       a.marche === 'serie_de_plus' && !!a.carte &&
       /^25 kg × 12 reste ta meilleure charge de travail depuis 4 séances(, et tes autres exercices avancent)?\.$/.test(esp(a.carte.texte)) &&
-      a.carte.detail === 'Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus. Tes avant-bras restent sous leur volume habituel.' &&
+      a.carte.detail === 'Sur cet exercice, une série de plus aide souvent : environ 33 % de travail en plus. Tes avant-bras restent sous leur volume habituel.' &&
       a.carte.oui === 'Ajouter une série' && a.carte.non === 'Non merci', JSON.stringify(a.carte));
     ok('[U17] A — avant la réponse : les 3 lignes de la routine, aucune en plus',
       a.lignes.length === 3 && a.lignes.every((l) => !l[3]), JSON.stringify(a.lignes));
@@ -11055,7 +11055,7 @@ const SETS_IMPORTES = [
       a.compteur === 4 && a.zone === 'lourd' && a.marche === 'schema' && !a.carteAllegee && a.cartes === 1, JSON.stringify(a));
     ok('[U15] A — la phrase, le détail et les deux libellés de §14.5',
       !!a.carte && /^125 kg × 5 reste ta meilleure charge de travail depuis 4 séances(, et tes autres exercices avancent)?\.$/.test(esp(a.carte.texte)) &&
-      a.carte.detail === 'En force, une série de plus aide peu. Changer de schéma quelques semaines relance souvent la barre, avant d\'y revenir.' &&
+      a.carte.detail === 'En force, une série de plus aide peu. Changer de schéma quelques semaines peut relancer la barre, avant d\'y revenir.' &&
       a.carte.oui === 'Passer à 6-8 reps' && a.carte.non === 'Garder 3-5', JSON.stringify(a.carte));
     ok('[U15] A — la phrase du compteur n\'est pas répétée dans l\'en-tête', a.phraseCompteur === null, JSON.stringify(a.phraseCompteur));
     // MOTEUR §14.6 (49-U16) — la règle de volume, entrée du plan : calculée
@@ -13687,7 +13687,7 @@ const SETS_IMPORTES = [
         !/kg/.test(JSON.stringify(fb.lignes)),
       JSON.stringify(fb));
     ok('[O52] l’aperçu dit que les reps sont des repères et que le coach propose les charges',
-      fb.aide.some((a) => /reps sont des repères de départ/.test(a) && /coach qui les propose/.test(a)), JSON.stringify(fb.aide));
+      fb.aide.some((a) => /reps sont des repères de départ/.test(a) && /moi qui te les propose/.test(a)), JSON.stringify(fb.aide));
     await entree('^Créer la routine');
     await attendre(1500);
     const neuve = routineEnBase('Import Rangé U52');
@@ -13776,11 +13776,11 @@ const SETS_IMPORTES = [
       champs: b.querySelector('.ligne-serie') ? b.querySelector('.ligne-serie').querySelectorAll('input').length : 0 })));
     ok('[O52] DISCRIMINANT — l’éditeur : « DÉPART (KG) » et sa phrase sur l’exercice jamais fait',
       ed[0] && JSON.stringify(ed[0].entetes) === JSON.stringify(['DÉPART (KG)', 'REPS']) && ed[0].champs === 2 &&
-        sp(ed[0].gris) === 'Charge de départ : le coach part d’ici la première fois, puis décide d’après tes séances.',
+        sp(ed[0].gris) === 'Charge de départ : je pars d’ici la première fois, puis je décide d’après tes séances.',
       JSON.stringify(ed[0]));
     ok('[O52] DISCRIMINANT — l’exercice déjà fait : plus de champ de charge, « le coach décide », et la dernière fois',
       ed[1] && JSON.stringify(ed[1].entetes) === JSON.stringify(['REPS']) && ed[1].champs === 1 &&
-        sp(ed[1].gris) === 'Charge : le coach décide d’après tes séances (dernière fois : 77,5 kg × 5).',
+        sp(ed[1].gris) === 'Charge : je décide d’après tes séances (dernière fois : 77,5 kg × 5).',
       JSON.stringify(ed[1]));
     await aller('/saisie');
     await demarrerRoutine('Rangée Trois U52');
@@ -18634,8 +18634,8 @@ const SETS_IMPORTES = [
     await attendreQue(async () => !!(await lire()).charge);
     await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const c0 = await lire();
-    ok('[social-2] son exercice : meilleure charge 210 kg, meilleure série 180 × 5 (le plus gros charge × reps), sa courbe sur 6 mois ; l’adresse /a/jordan/exercice/squat-barre',
-      (await chemin()) === '/a/jordan/exercice/squat-barre' && c0.charge === '210 kg' && c0.serie === '180 × 5' && c0.lui === 1 &&
+    ok('[social-2] son exercice : meilleure charge 210 kg, meilleure série 180 kg × 5 (le plus gros charge × reps), sa courbe sur 6 mois ; l’adresse /a/jordan/exercice/squat-barre',
+      (await chemin()) === '/a/jordan/exercice/squat-barre' && c0.charge === '210 kg' && String(c0.serie).replace(/[\u00a0\u202f]/g, ' ') === '180 kg × 5' && c0.lui === 1 &&
         c0.moiCourbe === 0 && c0.btnExo && c0.retour === '← jordan' && appelsDepuis(n0).indexOf('social_series_exercice') >= 0,
       JSON.stringify(c0));
     await page.click('#social-comparer-exo');
@@ -18643,7 +18643,7 @@ const SETS_IMPORTES = [
     await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const c1 = await lire();
     ok('[social-2] « Se comparer » : ma courbe en pointillés or par-dessus la sienne, et côte à côte meilleure charge, meilleure série, séances (6 mois)',
-      c1.moiCourbe === 1 && c1.lui === 1 && c1.duoMoi[0] === monSquat + ' kg' && c1.duoLui[0] === '210 kg' && c1.duoLui[1] === '180 × 5' &&
+      c1.moiCourbe === 1 && c1.lui === 1 && c1.duoMoi[0] === monSquat + ' kg' && c1.duoLui[0] === '210 kg' && String(c1.duoLui[1]).replace(/[\u00a0\u202f]/g, ' ') === '180 kg × 5' &&
         c1.duoLui[2] === '2' && !c1.btnExo && !/rpe|ressenti|genou|89,5|89\.5/i.test(c1.texte), JSON.stringify(c1));
     await mesurer('son exercice, comparé');
     await page.click('#btn-retour-ami');
@@ -19165,7 +19165,7 @@ const SETS_IMPORTES = [
     ok('[groupe] l’invitation de jordan s’affiche (« jordan t’invite à t’entraîner ensemble ») ; quatre choix : suivre sa séance, une routine, ' +
       'séance vide, « Pas maintenant »',
       /jordan/.test(a0) && /t’invite à t’entraîner ensemble/.test(a0) && JSON.stringify(choix) === JSON.stringify(['suivre', 'routine', 'vide']) &&
-        /Pas maintenant/.test(a1) && /Mêmes exercices · tes charges, proposées par ton coach/.test(a1), JSON.stringify([a0, choix, a1]));
+        /Pas maintenant/.test(a1) && /Mêmes exercices · tes charges, que je te propose/.test(a1), JSON.stringify([a0, choix, a1]));
     ok('[groupe] DISCRIMINANT — « Suivre la séance de jordan » : MA séance, avec SA liste d’exercices (squat, couché), et je suis membre avec ' +
       'MON identifiant de séance — aucune donnée de séance mélangée',
       !!maSeance && maSeance !== SJ && exosMiens === 2 && !!membreMoi && membreMoi.session_id === maSeance &&
@@ -19775,9 +19775,9 @@ const SETS_IMPORTES = [
     ok('[relecture] DISCRIMINANT — les deux cartes sont là AVANT tout clic : la priorité (squat ÷ couché sous 1,2) et le retrait des abducteurs (sèche)',
       e0.ratio && e0.priorite && JSON.stringify(e0.retraits) === '["abducteurs:oui"]' && e0.lignes.length === 1 &&
         /^Abduction U66 \(Machine\) · Relecture A : 6 \d$/.test(e0.lignes[0]), JSON.stringify(e0));
-    ok('[relecture] l’en-tête : 2 séances · 12 séries · en sèche depuis le …, le squat « en retard sur ton couché »',
+    ok('[relecture] l’en-tête : 2 séances · 12 séries · en sèche depuis le …, le squat sans l’étiquette « en retard » (179, D1)',
       /^2 séances · 12 séries · en sèche depuis le \d+ \S+$/.test(e0.sous) &&
-        e0.barres.indexOf('squat_barre:Squat · en retard sur ton couché') >= 0, JSON.stringify(e0));
+        e0.barres.indexOf('squat_barre:Squat') >= 0 && !e0.barres.some((b) => /en retard/.test(b)), JSON.stringify(e0));
     ok('[relecture] la garde de développement a vérifié la relecture (R1-R4), sans faute',
       (await relectures()) > relecturesAvant && gardeBanc.violations === violationsAvant,
       JSON.stringify([relecturesAvant, await relectures()]));
@@ -21360,9 +21360,9 @@ const SETS_IMPORTES = [
       pageP.groupes.length === 6 && pageP.groupes.every((g) => !g.ouvert) &&
         sp(pageP.groupes[0].resume) === 'Jambes↑ progresse' && sp(pageP.groupes[4].resume) === 'Poitrine↗ le plus lent' &&
         sp(pageP.groupes[3].resume) === 'Épaulespas assez de séances comparables', JSON.stringify(pageP.groupes));
-    ok('[P75] les équilibres : squat / couché 1,11, environ 1,21 chez les pratiquants, +8 kg au squat ; le levier : Poitrine',
-      /^Squat \/ couché1,11/.test(sp(pageP.rapport)) && /environ 1,21/.test(sp(pageP.rapport)) &&
-        /environ \+8 kg au squat/.test(sp(pageP.rapport)) && /^Poitrine\. De tes priorités \(poitrine, jambes\)/.test(sp(pageP.levier)),
+    ok('[P75] les équilibres : le fait, « Ton squat vaut 1,11 × ton couché ; repère de pratiquants 1,21 » (179, D1) ; le levier : Poitrine',
+      /^Squat \/ couché1,11/.test(sp(pageP.rapport)) && /Ton squat vaut 1,11 × ton couché ; repère de pratiquants 1,21\./.test(sp(pageP.rapport)) &&
+        !/en retard/.test(sp(pageP.rapport)) && /^Poitrine\. De tes priorités \(poitrine, jambes\)/.test(sp(pageP.levier)),
       JSON.stringify([pageP.rapport, pageP.levier]));
     ok('[P75] pas de défilement horizontal', !pageP.large, String(pageP.large));
 
@@ -23210,8 +23210,8 @@ const SETS_IMPORTES = [
     ok('[O109] la carte « Mon objectif » propose « Poser un objectif » (aucun objectif)', !!vide && vide.bouton === 'Poser un objectif' && !vide.titre,
       nbO(vide));
     const f1 = await feuilleO(150, 1);
-    ok('[O109] la feuille dit le record pour les reps tapées : « Ton record : 144 kg × 1. Le coach projettera une date à partir de tes records. »',
-      nbO(f1.phrase) === nbO('Ton record : 144 kg × 1. Le coach projettera une date à partir de tes records.'), nbO(f1));
+    ok('[O109] la feuille dit le record pour les reps tapées : « Ton record : 144 kg × 1. Je projetterai une date à partir de tes records. »',
+      nbO(f1.phrase) === nbO('Ton record : 144 kg × 1. Je projetterai une date à partir de tes records.'), nbO(f1));
     await aller('/exercice/squat-o109');
     const c1 = await carteO();
     ok('[O109] posé : « 150 kg × 1 », la jauge depuis le record (0), « Aujourd’hui : 144 kg × 1 », le pari figé : « Le pari du coach : fin avril. », « Posé le 16 oct. On verra s’il tombe juste. », et « Au rythme d’aujourd’hui : toujours fin avril. »',
@@ -25744,7 +25744,7 @@ const SETS_IMPORTES = [
     ok('[CR174] C — DISCRIMINANT : six séances sans dépasser 140 kg → la carte du schéma, « Passer à 3-5 reps » / « Garder les doubles »',
       c.marche === 'schema' && !!c.schema &&
         sp174(c.schema.texte) === '140 kg × 2 depuis 6 séances, malgré le recul.' &&
-        c.schema.detail === 'Quelques semaines en 3-5 reps relancent souvent la barre, avant d\'y revenir.' &&
+        c.schema.detail === 'Quelques semaines en 3-5 reps peuvent relancer la barre, avant d\'y revenir.' &&
         c.schema.oui === 'Passer à 3-5 reps' && c.schema.non === 'Garder les doubles', JSON.stringify(c));
     await page.click('.proposition-schema .ps-oui');
     await jusqua(() => page.evaluate(() => !document.querySelector('.proposition-schema')), 8000);

@@ -428,11 +428,11 @@
 
   // ══ LA FEUILLE « POSER UN OBJECTIF » ═════════════════════════════════════════════════════════════════════════
 
-  // La phrase sous les champs, pour les reps tapées : « Ton record : 145 kg × 1. Le coach projettera une date à
+  // La phrase sous les champs, pour les reps tapées : « Ton record : 145 kg × 1. Je projetterai une date à
   // partir de tes records. » (sans la seconde phrase en « Juste un carnet »).
   function phraseDeSaisie(seances, reps, maintenant, options, carnet) {
     var n = Math.round(Number(reps));
-    var suite = carnet ? '' : ' Le coach projettera une date à partir de tes records.';
+    var suite = carnet ? '' : ' Je projetterai une date à partir de tes records.';
     if (!(n >= 1)) return suite.trim();
     var r = recordA(seances, n, instant(maintenant), options);
     var debut = r ? 'Ton record\u00a0: ' + Modele().chargeFois(r.charge, n) + '.'

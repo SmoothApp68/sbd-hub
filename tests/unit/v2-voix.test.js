@@ -165,13 +165,6 @@ function textesDe(o) {
 
 const plusJours = (iso, n) => new Date(new Date(iso).getTime() + n * 86400000).toISOString();
 
-// 181 — les fautes de voix connues, corrigées par la 179 dans v2/js (voir le test « en attente de la 179 »).
-const ATTENDUS_179 = [
-  { re: /^\[feuille · [^\]]+\] du jargon du moteur .*« rampe, ne compte pas »$/,
-    note: 'B-B1 : « rampe, ne compte pas » (moteur.js, rôle d’une série de la feuille) → « série d’approche » (179). Retire l’entrée.' }
-];
-const ATTENDUES_VUES = [];
-
 describe('§20.2 — la garde de la voix : toutes les phrases produites', () => {
   const vues = [];          // { famille, source, phrase, dates, reference }
   const noter = (famille, source, phrases, dates, reference) => {
@@ -635,20 +628,7 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
         fautes.push('[' + v.famille + ' · ' + v.source + '] ' + r + ' : « ' + v.phrase.replace(/ /g, ' ') + ' »');
       });
     });
-    // 181 — ATTENDU DE LA 179 : « rampe, ne compte pas » (moteur.js, rôle d'une série de la feuille « Pourquoi », B-B1)
-    // devient « série d'approche » dans la 179 (`claude/179-securite-verite`). Tant que ce texte est dans v2/js, la faute
-    // est NOTÉE ici, pas ignorée : le test « en attente » plus bas la compte. RETIRER cette entrée à la fusion de la 179.
-    const unique = Array.from(new Set(fautes));
-    const attendues = unique.filter((f) => ATTENDUS_179.some((a) => a.re.test(f)));
-    expect(unique.filter((f) => attendues.indexOf(f) < 0)).toEqual([]);
-    ATTENDUES_VUES.push.apply(ATTENDUES_VUES, attendues);
-  });
-
-  // 181 — en attente de la 179 : la liste des fautes de voix connues, que la 179 corrige dans v2/js. Le test ne
-  // s'échoue pas tant qu'elles y sont ; il échoue quand une entrée ne correspond plus à rien (la 179 a corrigé : retire-la).
-  test('en attente de la 179 — chaque faute attendue existe encore, sinon retire l’entrée', () => {
-    const encore = ATTENDUS_179.filter((a) => !ATTENDUES_VUES.some((f) => a.re.test(f)));
-    expect(encore.map((a) => a.note)).toEqual([]);
+    expect(Array.from(new Set(fautes))).toEqual([]);
   });
 
   test('181 — le fichier des motifs est tenu : 15 motifs, « cran » admis (D2), « max » admis aux seules figures', () => {

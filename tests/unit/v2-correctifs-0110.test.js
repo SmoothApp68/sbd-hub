@@ -329,7 +329,9 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
       // 53-2 bis : la ligne de zone en vigueur (son origine, « Nouveau bloc »).
       ligneDeZoneDe: () => null,
       // 53-2 bis : les zones lues (`local.zones` sans les lignes rendues sans objet par un arrêt).
-      zonesLues: () => []
+      zonesLues: () => [],
+      // 179 (B-B7) : l'instant du calcul des options, une entrée de l'app (le rejeu ou maintenant).
+      instantDuCalcul: () => '2026-10-28T10:00:00.000Z'
     };
     vm.createContext(ctx);
     // 132 : l'historique et l'état que le moteur lit (`groupesDuMoteur`, `etatDuMoteur` : tels quels sans élastiques).

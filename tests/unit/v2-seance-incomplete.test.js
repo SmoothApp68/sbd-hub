@@ -344,7 +344,7 @@ describe('test 6 — aucune surface ne promet un moteur au présent', () => {
   test('l’état vide de la bibliothèque dit le vrai', () => {
     const c = cible();
     R().rendreListeRoutines(c, [], { etat: { code: 'ok' } });
-    expect(c.textContent).toMatch(/Une routine, c’est une liste d’exercices dans un ordre\. Le coach décide des charges à chaque séance\./);
+    expect(c.textContent).toMatch(/Une routine, c’est une liste d’exercices dans un ordre\. Je décide des charges à chaque séance\./);
     expect(c.textContent).not.toMatch(/pas ce que tu soulèves/);
     expect(c.textContent).not.toMatch(/le moteur/);
   });

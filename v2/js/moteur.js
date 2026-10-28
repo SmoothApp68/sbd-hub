@@ -347,8 +347,10 @@
   // le mode d'UN exercice (`modes_exercice`) n'y touche pas : ce sont des faits
   // du programme entier, pas d'un exercice. Aucun appelant n'écrit un second
   // test de `intention` — ils passent ici.
-  function coachSeTait(intentionProfil) {
-    return intentionDe(intentionProfil, null) === 'entretien';
+  // 179 (B-B8) — `modeExercice` (facultatif) : le mode d'UN exercice. Le même prédicat dit alors si le coach se tait sur CET exercice
+  // (profil en Entretenir, ou exercice en Entretenir) : l'app ne recompose plus ce test de son côté.
+  function coachSeTait(intentionProfil, modeExercice) {
+    return intentionDe(intentionProfil, modeExercice === undefined ? null : modeExercice) === 'entretien';
   }
 
   function zoneRetenue(correction, habitude) {
@@ -3911,9 +3913,14 @@
     var cF = cite(FAIT, { quoi: 'bord' });
     if (etat === 'bord_recul') {
       var v = b.visees;
+      // 179 (A-F-05) — « aux mêmes reps » : les reps de la ligne. Bornée par une charge faite à fond (`bord.vise`), la phrase dit
+      // les reps de la ligne, pas celles de la barre ratée.
+      var borne = b.vise !== undefined && b.vise !== null && b.vise !== v;
+      var L = borne ? b.vise : v;
+      var cL = cite(FAIT, { quoi: borne ? 'bord.vise' : 'bord.visees' });
       return chargeFois(b.charge, b.faites, cF) + ' sur ' + nombreFr(v, cite(FAIT, { quoi: 'bord.visees' })) +
-        ' visées. On repart d\'un cran plus bas, aux mêmes reps ; on remonte dès ' +
-        (v === 1 ? 'que la rep passe.' : v === 2 ? 'que les deux passent.' : 'que les ' + nombreFr(v, cite(FAIT, { quoi: 'bord.visees' })) + ' passent.');
+        ' visées. On repart d\'un cran plus bas, ' + (borne ? 'à ' + nombreFr(L, cL) + (L === 1 ? ' rep' : ' reps') : 'aux mêmes reps') + ' ; on remonte dès ' +
+        (L === 1 ? 'que la rep passe.' : L === 2 ? 'que les deux passent.' : 'que les ' + nombreFr(L, cL) + ' passent.');
     }
     if (etat === 'bord_garde') {
       return chargeFois(b.charge, b.reps, cF) +
@@ -4276,7 +4283,9 @@
     f.seance.forEach(function (s) {
       if (ORIGINES_CHAUFFE[s.origine] === true) { chauffes.push(nombreFr(s.charge_kg, cite(FAIT, { quoi: 'seance', champ: 'charge' }))); return; }
       var role = '';
-      if (ROLES_LIGNE[s.origine]) role = ROLES_LIGNE[s.origine];
+      // 179 (B-B1) — « muet » est une donnée du plan (la ligne ne compte pas), plus une recherche de « ne compte » dans le texte.
+      var muet = false;
+      if (ROLES_LIGNE[s.origine]) { role = ROLES_LIGNE[s.origine]; muet = true; }
       else if (s.role === 'exploration') {
         var n = t !== null && nombre(s.charge_kg) === t.charge ? t.niveau : null;
         var dit = niveauDuTest(n, z);
@@ -4284,14 +4293,17 @@
       } else if (Pv !== null && nombre(s.charge_kg) === Pv &&
                  (s.role === 'rampe' || s.role === 'travail')) {
         role = 'restée à ' + enKg(s.charge_kg, cite(FAIT, { quoi: 'reste' }));
-      } else if (s.role === 'rampe') role = 'rampe, ne compte pas';
+      } else if (s.role === 'rampe') { role = 'série d\'approche, ne compte pas'; muet = true; }
       else if (s.role === 'palier') role = 'ta charge de travail';
-      lignes.push({ texte: chargeFois(s.charge_kg, s.reps, cite(FAIT, { quoi: 'seance' })), role: role });
+      var lg = { texte: chargeFois(s.charge_kg, s.reps, cite(FAIT, { quoi: 'seance' })), role: role };
+      if (muet) lg.muet = true;
+      lignes.push(lg);
     });
     if (chauffes.length) {
       lignes.unshift({
         texte: chauffes.join(', '),
-        role: chauffes.length > 1 ? 'chauffes, ne comptent pas' : 'chauffe, ne compte pas'
+        role: chauffes.length > 1 ? 'chauffes, ne comptent pas' : 'chauffe, ne compte pas',
+        muet: true
       });
     }
     return { date: quand(f.date, reference, false, cite(FAIT, { quoi: 'palier' })), lignes: lignes };
@@ -4582,7 +4594,7 @@
 
       case 'depart_routine':
         return 'Rien avant aujourd\'hui' + DEUX_POINTS + 'on part de la charge de départ de ta routine, ' +
-               enKg(c.ligne.charge, cL) + '. Ensuite, le coach décide d\'après tes séances.';
+               enKg(c.ligne.charge, cL) + '. Ensuite, je décide d\'après tes séances.';
 
       // §9.10 (53-1) — la plus basse des deux, dite sans l'estimation.
       case 'nouvelle_zone':
@@ -4690,7 +4702,7 @@
   // §20 bis (49-U19) — le verdict et la suite, chacun RÉDIGÉ DANS SA CAPTURE
   // (`{ texte, citations }`) : un verdict remplacé (la montée tenue) ne laisse
   // pas ses citations derrière lui.
-  function constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche) {
+  function constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche, seriesDuJour) {
     if (!consigneAvant || !consigneApres) return null;
     var ap = consigneApres.fondement || {};
     var av = consigneAvant.fondement || {};
@@ -4712,7 +4724,7 @@
     var V = Modele();
     return { verdict: V.capturer(function () {
                return verdictDuJour(consigneAvant, consigneApres, z, repsDuJour,
-                                    testDuJour, faitAujourdHui, av, ap, reference);
+                                    testDuJour, faitAujourdHui, av, ap, reference, seriesDuJour);
              }),
              suite: V.capturer(function () {
                return suiteDuJour(consigneAvant, consigneApres, z, reglage,
@@ -5000,13 +5012,46 @@
     return tete + 'ta nouvelle charge tient sur ' + combien + (dit ? ', ' + dit : '') + '.';
   }
 
-  function verdictDuJour(cAvant, cApres, z, repsDuJour, t, fait, av, ap, reference) {
+  function verdictDuJour(cAvant, cApres, z, repsDuJour, t, fait, av, ap, reference, seriesDuJour) {
     // ⚠️ Plus de « pas de palier » (§20.2, 49-U9) : depuis le §7.6, la chaîne
     // complète ne rend plus de consigne d'après en silence. Un contrat brut
     // qui y tombe encore n'a pas de verdict.
     if (cApres.etat === 'silence') return null;
     // Rédigé à la demande : seule la branche qui l'écrit le déclare (§20 bis).
-    var faitDuJour = function () { return serieFr(cApres.palier, repsDuJour, cite(FAIT, { quoi: 'du_jour' })); };
+    // 179 (A-F-06, « le coach ne dit jamais rien de faux ») — le fait du jour ne cite que des séries RÉELLEMENT faites : la charge
+    // de la consigne d'après et les reps saisies au palier quand elles se recoupent ; sinon les séries faites à cette charge ;
+    // sinon chaque charge du jour. Jamais « le cran au-dessus × . » (palier absent) ni le 5 d'une autre charge (« 26 kg × 5 »).
+    var faitDuJour = function (toutLeJour) {
+      var citeJour = function () { return cite(FAIT, { quoi: 'du_jour' }); };
+      var p = nombre(cApres.palier);
+      // Les séries du jour viennent du PLAN (`jour.series`, les lignes de travail faites) ; à défaut, de la séance du fondement.
+      var jour = Array.isArray(seriesDuJour) && seriesDuJour.length ? seriesDuJour : parRole((ap || {}).seance, ROLES_VOTANTS);
+      var auPalier = p === null ? [] : jour.filter(function (q) { return memeCharge(nombre(q.charge_kg), p); });
+      var reelles = auPalier.map(function (q) { return nombre(q.reps); });
+      var fidele = p !== null && repsDuJour.length > 0 && reelles.length === repsDuJour.length &&
+        reelles.every(function (r, k) { return r === nombre(repsDuJour[k]); });
+      if (toutLeJour !== true) {
+        if (fidele || !jour.length) return serieFr(cApres.palier, repsDuJour, citeJour());
+        if (auPalier.length) return serieFr(p, reelles, citeJour());
+      }
+      var groupes = [];
+      jour.forEach(function (q) {
+        var c = nombre(q.charge_kg);
+        var g = groupes.filter(function (x) { return x.charge === c || (c !== null && x.charge !== null && memeCharge(x.charge, c)); })[0];
+        if (!g) groupes.push(g = { charge: c, reps: [] });
+        g.reps.push(nombre(q.reps));
+      });
+      return groupes.map(function (g) {
+        return g.charge === null ? g.reps.map(function (r) { return Modele().serieFaite(null, r, citeJour()); }).join(', ')
+                                 : serieFr(g.charge, g.reps, citeJour());
+      }).join(', ');
+    };
+    // 179 (A-F-06) — UNE SÉANCE NEUTRE NE PARLE PAS D'UNE AUTRE : quand la consigne d'après est encore celle d'une séance d'avant
+    // (aucune charge répétée aujourd'hui, §7.6), « 8 reps aujourd'hui » racontait la séance précédente. Le verdict dit alors ce
+    // que la personne a fait, série par série.
+    if (reference && ap && ap.date && jourCivil(ap.date) !== jourCivil(reference) && Array.isArray(seriesDuJour) && seriesDuJour.length) {
+      return 'Aujourd\'hui' + DEUX_POINTS + faitDuJour(true) + '.';
+    }
     if (cAvant.etat === 'silence') return 'Premier repère' + DEUX_POINTS + faitDuJour() + '.';
     if (cAvant.etat === 'reprise_courte' || cAvant.etat === 'reprise_longue') {
       return 'Reprise faite' + DEUX_POINTS + faitDuJour() + '.';
@@ -5046,7 +5091,9 @@
       return enKg(t.charge, cite(FAIT, { quoi: 'du_jour' })) + DEUX_POINTS +
         (avant ? nombreFr(avant.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps ' +
                  quand(avant.date, reference, false, cite(FAIT, { quoi: 'test' })) + ', ' : '') +
-        nombreFr(t.reps, cite(FAIT, { quoi: 'du_jour', champ: 'reps' })) + ' aujourd\'hui, ' + dit + '.';
+        nombreFr(t.reps, cite(FAIT, { quoi: 'du_jour', champ: 'reps' })) + ' aujourd\'hui' +
+        // 179 (A-F-06) — sans zone (règle de bord), il n'y a pas de position à dire : la clause tombe, « null » ne s'écrit jamais.
+        (dit ? ', ' + dit : '') + '.';
     }
     // Pas de test : la charge de travail a-t-elle gagné une rep ? On compare
     // au NIVEAU de la consigne d'avant, celui qu'elle a elle-même calculé.
@@ -5673,6 +5720,8 @@
       nombreFr(REPS_EN_MOINS, regle('constante')) + ' reps de moins, pendant ' +
       nombreFr(DUREE_ALLEGEE_JOURS, regle('constante')) + ' jours. Rien ne monte.';
   }
+  // 179 (B-B4) — le bouton de la carte dit la durée que la règle porte (`DUREE_ALLEGEE_JOURS`) : le plan le donne avec la carte.
+  function libelleAlleger() { return 'Alléger ' + DUREE_ALLEGEE_JOURS + ' jours'; }
   var PHRASE_REFUS = 'Séance normale. Au prochain blocage, je regarderai exercice par exercice.';
 
   function estDeclenchement(c) {
@@ -6345,7 +6394,7 @@
     mix: { vers: 'lourd', oui: 'Passer à 3-5 reps', non: 'Garder 6-8' }
   };
   var DETAIL_SCHEMA = 'En force, une série de plus aide peu. Changer de schéma quelques semaines ' +
-    'relance souvent la barre, avant d\'y revenir.';
+    'peut relancer la barre, avant d\'y revenir.';
   var FIN_SECHE = ' En sèche, je ne te propose rien de plus.';
 
   // Le n-ième déclenchement isolé depuis le dernier progrès : n = (compteur −
@@ -6618,7 +6667,15 @@
   // ont de la place (§14.6) : une série de plus, jusqu'au prochain progrès.
   // Référence : `coach49.py` (`marche_isolee_2c`, `carte_serie_de_plus`,
   // `niveau_sur_la_routine`) ; cas `cas-49u17-serie-de-plus.json`.
-  var DETAIL_SERIE_DE_PLUS = 'Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus.';
+  // 179 (C-F8) — LE POURCENTAGE SE CALCULE : une série de plus sur `n` séries de la routine ajoute 1/n du travail (3 séries : 33 %,
+  // 4 : 25 %, 5 : 20 %). Le nombre de séries de la routine absent, la phrase ne chiffre rien.
+  function detailSerieDePlus(nRoutine) {
+    var n = nombre(nRoutine);
+    var base = 'Sur cet exercice, une série de plus aide souvent';
+    return n !== null && n >= 1
+      ? base + ' : environ ' + Math.round(100 / n) + ' % de travail en plus.'
+      : base + ' : du travail en plus.';
+  }
   var GRIS_SERIE_DE_PLUS = 'une série de plus, jusqu\'à ton prochain progrès';
   // Les muscles au SINGULIER (« ton grand dorsal reste… ») ; les autres se
   // disent au pluriel (« tes pectoraux restent… »). Tous masculins.
@@ -6733,14 +6790,14 @@
   // boutons, et le gris qui suivra l'acceptation. `parPriorite` : les muscles
   // de l'exercice dont la place ne vient QUE de la priorité (60-2b) — s'il y
   // en a, le détail le dit à la place de « restent sous leur volume habituel ».
-  function carteSerieDePlus(meilleur, compteur, avancent, muscles, parPriorite) {
+  function carteSerieDePlus(meilleur, compteur, avancent, muscles, parPriorite, nRoutine) {
     if (!meilleur || meilleur.niveau === null || meilleur.niveau === undefined) return null;
     var sujet = (parPriorite && parPriorite.length ? sujetDesPriorites(parPriorite) : null) ||
       sujetDesMuscles(muscles);
     return {
       type: MARCHE_SERIE_DE_PLUS,
       phrase: meilleurDepuis(meilleur, compteur) + (avancent ? ', et tes autres exercices avancent.' : '.'),
-      detail: DETAIL_SERIE_DE_PLUS + (sujet ? ' ' + sujet : ''),
+      detail: detailSerieDePlus(nRoutine) + (sujet ? ' ' + sujet : ''),
       oui: 'Ajouter une série', non: 'Non merci', gris_apres: GRIS_SERIE_DE_PLUS
     };
   }
@@ -6918,7 +6975,7 @@
   // consigne SANS ZONE : `bord` est figé avec la consigne (`consigneDExercice`) et dit ce que la carte écrit. Aller à
   // l'échec n'est jamais un motif : seul le compte parle.
   var BORD_PROPOSE_DES = 6;
-  var DETAIL_BORD_SCHEMA = 'Quelques semaines en 3-5 reps relancent souvent la barre, avant d\'y revenir.';
+  var DETAIL_BORD_SCHEMA = 'Quelques semaines en 3-5 reps peuvent relancer la barre, avant d\'y revenir.';
   // `{ total, charge, reps, aRecule, depuis }` à partir de la sixième séance sans dépasser le record ; sinon `null`.
   function bordSansMonter(consigne) {
     var b = consigne && consigne._bord;
@@ -7050,7 +7107,7 @@
     if (marche === MARCHE_LEVIERS) return carteLeviers(meilleur, x.sens);
     var debut = phrasePlafond(meilleur, compteur);
     if (marche === MARCHE_SERIE_DE_PLUS) {
-      var sp = carteSerieDePlus(meilleur, compteur, false, x.muscles, x.parPriorite);
+      var sp = carteSerieDePlus(meilleur, compteur, false, x.muscles, x.parPriorite, x.nRoutine);
       return Object.assign({}, sp, { phrase: debut + QUESTION_SERIE_PLAFOND, plafond: true });
     }
     if (marche === MARCHE_DEGRESSIVE) {
@@ -7924,6 +7981,13 @@
     }
     r.ligne = borner(r.ligne);
     r.haut = borner(r.haut);
+    // 179 (A-F-05) — un recul de la règle de bord vise les reps visées de la barre ratée ; quand une charge faite à fond en borne la
+    // rep de plus (ci-dessus), la ligne affiche la borne et le fondement la dit (`bord.vise`) : la phrase ne promet jamais plus
+    // de reps que la ligne.
+    if (r.etat === 'bord_recul' && r.ligne && r.fondement && r.fondement.bord && nombre(r.ligne.vise) !== null &&
+        nombre(r.ligne.vise) !== nombre(r.fondement.bord.visees)) {
+      r.fondement = Object.assign({}, r.fondement, { bord: Object.assign({}, r.fondement.bord, { vise: nombre(r.ligne.vise) }) });
+    }
     // 4. Pas de série de test en plus à une charge faite à fond.
     if (r.haut && aFondA(nombre(r.haut.charge))) {
       var kMax = Math.max(aCetteCharge(nombre(r.haut.charge)).length,
@@ -8271,11 +8335,11 @@
   //
   // `reference` : la date de la séance du jour (le plan la tient de sa séance).
   function constatDuJour(consigneAvant, consigneApres, reglage, cranSuivant, jour, reference, cranApproche) {
-    var d = constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche);
+    var j = jour || {};
+    var d = constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche, j.series || null);
     if (!d) return null;
     var base = { verdict: d.verdict.texte, suite: d.suite.texte };
     Modele().reporter(d.suite.citations);
-    var j = jour || {};
     var m = j.montee || null;
     var contredit = !!m && (/^Pas de palier/.test(base.verdict || '') || /^Pas encore/.test(base.verdict || ''));
     if (!contredit) Modele().reporter(d.verdict.citations);
@@ -8652,6 +8716,7 @@
     MARCHE_SEMAINE_ALLEGEE: MARCHE_SEMAINE_ALLEGEE,
     get DETAIL_CARTE() { return detailCarte(); },
     detailCarte: detailCarte,
+    libelleAlleger: libelleAlleger,
     PHRASE_REFUS: PHRASE_REFUS,
     estDeclenchement: estDeclenchement,
     jourCivil: jourCivil,

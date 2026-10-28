@@ -128,8 +128,19 @@ function jourIsole(ancre, n) {
 
 // « Il y a `duree` millisecondes » — la séance d'avant, posée juste derrière
 // maintenant (et quelques semaines plus tôt pour un historique).
+//
+// 176 — DES JOURS ENTIERS SE COMPTENT AU CALENDRIER, PAS EN 24 h. Le dimanche 25/10/2026 (fin de l'heure d'été),
+// entre 23 h et minuit, « il y a 7 × 24 h » tombait au lundi 00 h 55 de la semaine d'avant, pas au dimanche : les
+// séances du décor changeaient de JOUR (et de semaine affichée), et le banc échouait sur [E] et [J58] sans qu'une
+// ligne de l'app ait changé. Une durée multiple de 24 h recule donc de N jours civils à la MÊME heure locale ;
+// toute autre durée (minutes, heures) reste une soustraction en millisecondes.
 function ilYa(duree, maintenant) {
   var t = maintenant === undefined ? Date.now() : Number(maintenant);
+  if (duree > 0 && duree % JOUR === 0) {
+    var d = new Date(t);
+    d.setDate(d.getDate() - duree / JOUR);
+    return d;
+  }
   return new Date(t - duree);
 }
 

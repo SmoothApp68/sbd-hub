@@ -547,7 +547,7 @@ const PROFIL_BANC = {
 // SEMAINE. Le pourquoi, en entier, est dans `decor-dates.js` — avec la seule
 // milliseconde de bord qui subsiste. `JOURS[n]` remplace l'ancien
 // `LUNDI + n jours` : même ORDRE, mêmes rangs, et toujours dans le passé.
-const { datesDuDecor, ancreSemaineIsolee, seanceSansSeries, jourIsole, ilYa, finDe, horsDeVie, mercrediEcoule } =
+const { datesDuDecor, ancreSemaineIsolee, seanceSansSeries, jourIsole, ilYa, debutDeJournee, finDe, horsDeVie, mercrediEcoule } =
   require(path.join(__dirname, 'decor-dates.js'));
 const JOURS = datesDuDecor();
 // 87 — le faux serveur du social (cercles, blocage, compte privé, colonnes autorisées).
@@ -5489,14 +5489,19 @@ const SETS_IMPORTES = [
   const ouvrirMenuDe = async (titre) => {
     await aller('/');
     // 165 — la liste se dessine après l'arrivée sur la route : on attend l'enveloppe qui porte le titre avant de cliquer.
-    await attendreQue(() => page.evaluate((t) => Array.from(document.querySelectorAll('.seance-enveloppe'))
-      .some((e) => e.querySelector('.seance') && e.querySelector('.seance').textContent.indexOf(t) >= 0), titre),
+    // 176 — LE TITRE EXACT D'ABORD. Chercher le texte dans toute la carte attrape aussi une séance dont l'APERÇU
+    // nomme l'exercice (« Décor journal 35 » porte « Journal U58 (Barre) ») ; or la liste range par jour de la
+    // semaine : un décor vieux d'un multiple de 7 jours tombe dans le MÊME jour que la séance du banc, et, selon
+    // l'heure et le fuseau, avant elle. Le banc ouvrait alors le menu d'une autre séance (échecs [J58] du 25/10,
+    // dimanche 23 h 55). Le titre exact désigne la bonne ; l'ancienne recherche reste le repli.
+    const trouver = (t) => {
+      const toutes = Array.from(document.querySelectorAll('.seance-enveloppe'));
+      return toutes.filter((e) => (e.querySelector('.seance-titre') || {}).textContent === t)[0] ||
+        toutes.filter((e) => e.querySelector('.seance') && e.querySelector('.seance').textContent.indexOf(t) >= 0)[0] || null;
+    };
+    await attendreQue(() => page.evaluate(([t, f]) => !!(new Function('return ' + f))()(t), [titre, String(trouver)]),
     15000, '7 quaterdecies · l’enveloppe « ' + titre + ' » est dessinée');
-    await page.evaluate((t) => {
-      const env = Array.from(document.querySelectorAll('.seance-enveloppe'))
-        .filter((e) => e.querySelector('.seance').textContent.indexOf(t) >= 0)[0];
-      env.querySelector('.menu-pts').click();
-    }, titre);
+    await page.evaluate(([t, f]) => (new Function('return ' + f))()(t).querySelector('.menu-pts').click(), [titre, String(trouver)]);
     await attendre(700);
   };
 
@@ -18791,7 +18796,11 @@ const SETS_IMPORTES = [
     ab('u-jordan', 'u-melodie'); ab('u-melodie', 'u-jordan');
     // Une séance de melodie il y a une heure, avec un record ; ses séries portent des colonnes interdites.
     const SM = 'a0000000-0000-4000-8900-0000000000aa';
-    const dM = iso(ilYa(3600000, tS));
+    // 176 — « il y a une heure » franchit minuit : le lundi à 00 h 05 c'était DIMANCHE, la semaine d'avant, et la séance de
+    // melodie ne lançait plus la semaine de la guilde (défi jamais figé : cinq échecs [guilde], banc du 25 → 26/10). Dans la
+    // journée en cours, comme tout le décor (decor-dates.js) : même semaine à toute heure, et toujours dans le passé.
+    const cetteJournee = (duree) => new Date(Math.min(Math.max(tS - duree, debutDeJournee(tS) + 1), tS - 1));
+    const dM = iso(cetteJournee(3600000));
     // LE DÉFI SE FIGE dès qu'un membre a terminé une séance cette semaine : mes séances de la semaine (posées par
     // d'autres sections) sont mises de côté, et celle de melodie n'arrive qu'APRÈS le choix du défi.
     const jourL = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -18969,7 +18978,7 @@ const SETS_IMPORTES = [
     // amis, donc guilde ne voit pas le détail) ») — une séance de jordan (mutuel) ce matin ; celle de melodie (compte
     // PRIVÉ, que je ne suis pas) n'est pas au fil de la guilde ; melodie passée en compte public, elle y est — sans
     // « Voir la séance » (je ne la suis pas : son profil me dirait « Abonne-toi pour voir ses séances. », 05 #11).
-    const SJ = 'a0000000-0000-4000-8900-0000000000bb', dJ = iso(ilYa(2 * 3600000, tS));
+    const SJ = 'a0000000-0000-4000-8900-0000000000bb', dJ = iso(cetteJournee(2 * 3600000));
     S.sessions.push({ id: SJ, user_id: 'u-jordan', titre: 'Jambes', debut: dJ, fin: dJ, statut: 'terminee', visibilite: 'mutuels' });
     S.sets.push({ id: 'sj-1', session_id: SJ, exercise_slug: 'squat-barre', rang: 1, charge_kg: 150, reps: 5, type_serie: 'travail' });
     await onglet('fil', async () => (await lire()).cartes.length > 0);
@@ -19243,7 +19252,8 @@ const SETS_IMPORTES = [
     await attendreQue(async () => /partira au retour du réseau/.test((await carte()).texte));
     const e0 = await carte();
     await page.evaluate(() => { const b = document.querySelector('.ligne-serie .ok-serie'); if (b) b.click(); });
-    await attendre(1200);
+    // 176 — l'état, pas 1,2 s : la série validée hors réseau est comptée « faite » (plafond 8 s, le contrôle dit le reste).
+    await attendreQue(async () => (await compter('.ligne-serie.faite, .serie.faite')) > avantHL, 8000, 'groupe · série validée hors réseau');
     const apresHL = await compter('.ligne-serie.faite, .serie.faite');
     const vivante = await page.evaluate(() => !document.getElementById('vue-seance').hidden);
     base.reseau = true;
@@ -19263,6 +19273,9 @@ const SETS_IMPORTES = [
     const garde0 = await garde();
     await aller('/saisie');
     await attendreQue(async () => page.evaluate(() => !document.getElementById('vue-seance').hidden), 12000);
+    // VOULU (176) : on constate que le message gardé N'EST PAS perdu hors réseau. Aucun état de l'app ne dit « je ne
+    // l'effacerai pas » (la carte ne le redit pas, essayé : plafond atteint) ; seul un temps laissé à un effacement
+    // fautif pour venir le constate.
     await attendre(1500);
     const garde1 = await garde();
     const partiHorsReseau = S.gmessages.filter((m) => m.texte === 'On y va ?').length;
@@ -19423,6 +19436,8 @@ const SETS_IMPORTES = [
     base.reseau = false;
     await page.click('#groupe-seance #groupe-inviter');
     await attendreQue(async () => /Il faut le réseau/.test(await texte('#groupe-corps')));
+    // VOULU (176) : on constate que la phrase TIENT — qu'elle ne retombe pas sur « Chargement… ». Aucun état de l'app
+    // ne dit « je ne changerai plus » ; seul un temps laissé à la bascule fautive pour venir le constate.
     await attendre(600);
     const inviterHL = await texte('#groupe-corps');
     await page.click('#btn-retour-groupe');

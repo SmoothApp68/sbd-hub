@@ -1112,7 +1112,12 @@ function ok(nom, cond, detail) {
         ok('[E70 g] — « Ouverture du lien… » s’affiche tout de suite (< 3 s), et rien d’autre',
           attente && !(await ecran(page)).connexion, tAttente + ' ms');
         const dit = await attendreQue(page, async () => { const e = await ecran(page); return e.connexion && !!e.message; }, 12000);
-        const delai = Date.now() - t0;
+        // 176 — LE DÉLAI SE MESURE DANS LA PAGE, PAS DEPUIS NODE. `t0` part avant `goto` : sous charge, le chargement
+        // de la page et chaque tour de l'attente (200 ms + la lecture de l'écran) s'y ajoutaient, et « 5 s » dépassait
+        // 8 s sans que l'app ait attendu une milliseconde de plus. `performance.now()` compte depuis le début de la
+        // navigation, là où l'app lance sa minuterie : la borne basse (≥ 4,5 s : elle n'abandonne pas trop tôt) et la
+        // haute (< 8 s : elle n'attend pas les 7 s de (h)) gardent leur sens, sans dépendre de la machine.
+        const delai = await page.evaluate(() => Math.round(performance.now()));
         const e = await ecran(page);
         ok('DISCRIMINANT [E70 g] — à 5 s sans réponse : l’écran de connexion, avec la phrase au mot près',
           dit && delai >= 4500 && delai < 8000 && e.message === PHRASE_NON_VERIFIE && !(await lienVu(page)),

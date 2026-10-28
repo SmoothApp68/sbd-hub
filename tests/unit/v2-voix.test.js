@@ -85,6 +85,30 @@ const jourLocal = (iso) => { const d = new Date(iso); return Date.UTC(d.getFullY
 const absolue = (iso) => { const d = new Date(iso); return d.getDate() + NB + MOIS[d.getMonth()]; };
 const SECONDE_CHARGE = /, si tu te sens bien \?$/;
 
+const REGLES_181 = require('./fixtures/voix-regles-181.json');
+const motifDe = (i, attendu) => {
+  const r = REGLES_181.interdits[i];
+  if (r.motif.indexOf(attendu) < 0) throw new Error('voix-regles-181.json : l\'ordre a changé, le motif ' + i + ' n\'est plus « ' + attendu + ' »');
+  // \b ne voit pas « é » comme une lettre : « validé\b », « régularité\b », « bien joué\b » ne se déclenchaient jamais.
+  // Les bords du motif deviennent des bords de LETTRES (accents compris).
+  const lettre = '[\\wÀ-ÿ]';
+  const motif = r.motif.replace(/^\\b/, '(?<!' + lettre + ')').replace(/\\b$/, '(?!' + lettre + ')').replace(/\\w\*/g, lettre + '*');
+  return new RegExp(motif, r.drapeaux);
+};
+const AUTRES_REGLES = [
+  { nom: 'un compliment (« bravo », principe 5 : un fait)', re: motifDe(2, 'bravo') },
+  { nom: 'du jargon du moteur (« rampe », « bascule », « étirement », « niveau validé »)', re: motifDe(3, 'rampe') },
+  { nom: 'l’assiduité ou une absence (CADRAGE §3.1 bis)', re: motifDe(5, 'assidu') },
+  { nom: 'un ordre ou un reproche (« il faut », « tu dois »…)', re: motifDe(6, 'il faut') },
+  { nom: '« vous » (principe 4 : « tu »)', re: motifDe(7, 'vous') },
+  { nom: 'un point décimal (MOTEUR §20.2 règle 1 : la virgule)', re: motifDe(8, '\\d+\\.\\d+') },
+  { nom: 'une comparaison à une autre personne (CADRAGE §3)', re: motifDe(13, 'que les autres') },
+  { nom: '« la science » / « les études » (un réglage n’est pas la science)', re: motifDe(14, 'la science') }
+];
+// Les 15 motifs du fichier : palier, le moteur, ×, ?, 1RM et max sont appliqués dans `reglesViolees`, les huit ci-dessus
+// par la table, et « cran » (index 4) est ADMIS (D2, 28/10/2026 : mot du produit) — le test « 181 » compte les motifs.
+const MOTIF_ADMIS = motifDe(4, 'crans?');
+
 function reglesViolees(phrase, famille, dates, reference) {
   const t = String(phrase);
   const v = [];
@@ -95,9 +119,20 @@ function reglesViolees(phrase, famille, dates, reference) {
   // 55-1 (MOTEUR §9.23) faisait une exception pour la médaille (« 1RM estimé :
   // ≈ 147 kg. ») ; 120 (D1, 16/10/2026) la retire : la force estimée sort des
   // records et des médailles. Plus aucune famille ne dit un 1RM.
-  if (/\b1\s?RM\b|\bmax(?:imum|imale?)?\b/i.test(t)) v.push('un maximum (« 1RM », « max »)');
-  if (t.indexOf('?') >= 0 && !(famille === 'réaction' && SECONDE_CHARGE.test(t) &&
+  // 181 (B-M4) — « max » : les figures disent « Ton max la dernière fois : 20 s » (la tenue la plus longue, 149) ; la
+  // contradiction relevée par l'audit du 28/10/2026 se tranche ainsi — « max » est permis dans la famille 'figures' et
+  // nulle part ailleurs ; 1RM, e1RM, « maximum » restent interdits partout.
+  if (/\b1\s?RM\b|\be1RM\b|\bmaximum\b|\bmaximale?\b/i.test(t) || (famille !== 'figures' && /\bmax\b/i.test(t))) {
+    v.push('un maximum (« 1RM », « max »)');
+  }
+  // 181 : la carte PROPOSE (VOIX-V1 principe 6 : « une question quand le coach propose ») — « Une série de plus ? »,
+  // « Une dégressive après ta dernière série ? » : un seul « ? », en fin de phrase, famille 'carte' seulement.
+  const questionDeCarte = famille === 'carte' && t.indexOf('?') === t.length - 1 && t.split('?').length === 2;
+  if (t.indexOf('?') >= 0 && !questionDeCarte && !(famille === 'réaction' && SECONDE_CHARGE.test(t) &&
       t.indexOf('?') === t.length - 1)) v.push('un « ? » hors du choix entre deux charges');
+  // 181 (B-M4) — les règles de VOIX-V1 et du CADRAGE que la garde ne lisait pas : les motifs et leurs faux positifs
+  // réels sont dans fixtures/voix-regles-181.json (audit du 28/10/2026). « cran » (index 4) est un mot du produit (D2).
+  AUTRES_REGLES.forEach((r) => { if (r.re.test(t)) v.push(r.nom); });
   for (let i = t.indexOf('×'); i >= 0; i = t.indexOf('×', i + 1)) {
     const avant = t.slice(0, i).replace(/[\s ]+$/, '');
     // 50-1 : « Poids du corps × 8 » — au poids du corps, la charge est le corps.
@@ -464,7 +499,46 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
       series: [{ exercise_slug: 'x', type_serie: 'travail', charge_kg: 100, reps: 6, _equip: 'barre' }] }, 0, 'avant-hier');
   }
 
+  // (l) 181 (B-M4, audit du 28/10/2026) — LES CARTES que la garde ne balayait pas : la marche suivante (en kg, en reps,
+  // en Franc, en secondes), le lest (avec et sans variante), la carte d'alléger (3 modes), la dégressive, le plafond
+  // (série de plus, dégressive, leviers), les leviers (3 sens), le gros cran, le bord, le rappel d'une marche refusée.
+  {
+    const MEI = { palier: 107, niveau: 10 };
+    const cM = (o) => M.carteMarche(Object.assign({ marche: { proposable: true, cible: ['x'] }, nomCible: 'Tractions',
+      reglage: 'normal', haut: 8, aide: false, seances: [{ niveau: 9, charge: 10 }, { niveau: 9, charge: 10 }] }, o));
+    const carte = (source, k) => {
+      if (!k) throw new Error('181 : la carte « ' + source + ' » ne se construit plus — la fixture ne tient plus le chemin visé');
+      noter('carte', source, [k.titre, k.detail, k.phrase, k.oui, k.non, k.gris_apres]);
+    };
+    carte('marche en kg', cM({ aide: true }));
+    carte('marche en reps', cM({}));
+    carte('marche en Franc', cM({ reglage: 'franc', seances: [{ niveau: 10 }] }));
+    const dS = M.carteMarcheEnSecondes({ marche: { proposable: true, cible: ['fl'] }, nomCible: 'Front Lever', seuil: 15,
+      tenues: [16, 22], duJour: true, reglage: 'normal' });
+    noter('figures', 'marche en secondes', [M.carteMarcheTitre(dS), M.carteMarcheDetail(dS)]);
+    carte('lest', M.carteLest({ niveau: 10, bas: 5, reglage: 'normal' }));
+    carte('lest et variante', M.carteLest({ niveau: 10, bas: 5, variante: 'Tractions Australiennes', reglage: 'franc' }));
+    ['serie', 'force', 'autre'].forEach((mode) => carte('alléger ' + mode, M.carteAlleger(MEI, 13, { mode, routine: 3 })));
+    ['serie', 'force'].forEach((mode) => noter('carte', 'rappel ' + mode, [M.phraseRappelAlleger(MEI, 13, mode)]));
+    carte('dégressive', M.carteDegressive(MEI, 8));
+    ['serie_de_plus', 'degressive', 'leviers'].forEach((m) =>
+      carte('plafond ' + m, M.cartePlafond(m, MEI, 8, { sens: 'aide', muscles: [] })));
+    ['aide', 'resistance', null].forEach((s) => carte('leviers ' + s, M.carteLeviers(MEI, s)));
+    carte('gros cran', M.carteLeviersGros(MEI, { pct: 7, de: 100, vers: 107.5, reps: 4, plancher: 3 }));
+    carte('bord', M.carteBordSchema({ charge: 140, reps: 2, total: 6, aRecule: true }));
+    carte('bord sans recul', M.carteBordSchema({ charge: 140, reps: 1, total: 6, aRecule: false }));
+    // Les figures (149) : la tenue max d'hier, la première fois, la tenue battue, et sous 5 s (« la marche d'en dessous »).
+    noter('figures', 'tenue max', [M.phraseDeLaTenueMax({ dernier: 20 }), M.phraseDeLaTenueMax({}),
+      M.phraseDesTenues({ max: 22, dernier: 20, vise: 13, dessous: null }),
+      M.phraseDesTenues({ max: 18, dernier: 20, vise: 11, dessous: null }),
+      M.phraseDesTenues({ max: 3, dernier: 4, vise: 2, dessous: 'Front Lever Groupé' })]);
+  }
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
+    // 181 : les cartes (21 cartes × leurs textes) et les figures sont balayées.
+    expect(vues.filter((v) => v.famille === 'carte').length).toBeGreaterThan(60);
+    expect(vues.filter((v) => v.famille === 'figures').length).toBe(2 + 5);
+    expect(vues.filter((v) => v.famille === 'figures' && /\bmax\b/.test(v.phrase)).length).toBe(1);
     const parFamille = {};
     vues.forEach((v) => { parFamille[v.famille] = (parFamille[v.famille] || 0) + 1; });
     expect(parFamille['en-tête']).toBeGreaterThan(200);
@@ -554,7 +628,42 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
         fautes.push('[' + v.famille + ' · ' + v.source + '] ' + r + ' : « ' + v.phrase.replace(/ /g, ' ') + ' »');
       });
     });
-    expect(fautes.slice(0, 20)).toEqual([]);
+    expect(Array.from(new Set(fautes))).toEqual([]);
+  });
+
+  test('181 — le fichier des motifs est tenu : 15 motifs, « cran » admis (D2), « max » admis aux seules figures', () => {
+    expect(REGLES_181.interdits).toHaveLength(15);
+    // « cran » est un mot du produit : aucune règle ne le refuse, nulle part.
+    expect(MOTIF_ADMIS.test('Un cran de moins, un gros cran, deux crans d’un coup')).toBe(true);
+    expect(reglesViolees('Un cran de moins.', 'constat')).toEqual([]);
+    expect(reglesViolees('Ton max la dernière fois : 20' + NB + 's.', 'figures')).toEqual([]);
+    expect(reglesViolees('Ton max la dernière fois : 20' + NB + 's.', 'feuille')).toContain('un maximum (« 1RM », « max »)');
+    expect(reglesViolees('Ton maximum : 20' + NB + 's.', 'figures')).toContain('un maximum (« 1RM », « max »)');
+  });
+
+  test('la garde attrape les règles de VOIX-V1 et du CADRAGE qu’elle ne lisait pas (181, B-M4)', () => {
+    const attrape = (texte, morceau) => expect(reglesViolees(texte, 'constat').join(' | ')).toContain(morceau);
+    attrape('Bravo, 130' + NB + 'kg' + NB + '×' + NB + '4.', 'compliment');
+    attrape('Excellent, tu progresses.', 'compliment');
+    attrape('Rampe, ne compte pas.', 'jargon');
+    attrape('Le niveau validé est 8.', 'jargon');
+    attrape('La bascule vers le haut.', 'jargon');
+    attrape('Ton assiduité baisse.', 'assiduité');
+    attrape('Tu es absent depuis 12 jours.', 'assiduité');
+    attrape('Tu dois monter.', 'ordre');
+    attrape('Il faut alléger.', 'ordre');
+    attrape('Vous avez progressé.', '« vous »');
+    attrape('Votre squat monte.', '« vous »');
+    attrape('127.5' + NB + 'kg', 'point décimal');
+    attrape('Plus fort que les autres.', 'comparaison');
+    attrape('La science dit de monter.', 'science');
+    // Les faux positifs réels du fichier ne sont PAS pris : « tentative manquée » (une série), « maximal » du jeu, hors famille coach.
+    expect(reglesViolees('Tentative manquée.', 'constat')).toEqual([]);
+    expect(reglesViolees('Tu tiens 130' + NB + 'kg' + NB + '×' + NB + '4, 127,5' + NB + 'kg' + NB + '×' + NB + '5.', 'constat')).toEqual([]);
+    // Une question de carte est admise (principe 6), un « ? » ailleurs non.
+    expect(reglesViolees('Une série de plus ?', 'carte')).toEqual([]);
+    expect(reglesViolees('Une série de plus ?', 'constat')).toContain('un « ? » hors du choix entre deux charges');
+    expect(reglesViolees('Pourquoi ? Une série de plus ?', 'carte')).toContain('un « ? » hors du choix entre deux charges');
   });
 
   test('la garde elle-même attrape chaque règle (sinon elle serait muette)', () => {

@@ -165,7 +165,7 @@ trappe `/__sw-off` pendrait avec lui.
 - **La garde d'architecture** : `tests/unit/v2-architecture.test.js` lit le source de
   `v2/js/` et `v2/index.html`. Une fonction de calcul du coach (liste `GARDEES`) ne
   s'appelle que depuis son module, `plan.js`, ou un fichier inscrit pour elle dans
-  `AUTORISATIONS` **avec sa raison**. L'élargir est un geste conscient, dans une PR
+  `AUTORISATIONS` **avec sa raison** (depuis 181, une autorisation peut être **par fonction appelante** : un objet `{ fonction: raison }` à la place de la raison, comme pour `consigneDExercice` ; les dégels de consigne d'`app.js` sont listés et un septième échoue). L'élargir est un geste conscient, dans une PR
   qui le justifie — jamais un contournement silencieux. Une entrée sans appel fait
   aussi échouer le test : la liste dit ce qui est. **Depuis le 17/10/2026 (124, audit 06 #5)**, toute
   fonction de `moteur.js` lue hors du moteur et du plan doit être inscrite — dans `GARDEES` (une décision

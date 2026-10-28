@@ -50,7 +50,7 @@ function V2(runs) {
       // 8 séances coachées consécutives à la même cible sans proposition
       let run = 0, last = null;
       L.forEach(({ s, x }) => {
-        const cible = JSON.stringify(x.consigne.ligne);
+        const cible = JSON.stringify([x.consigne.ligne, x.consigne.haut]);   // la ligne ET le test : un test qui progresse (8, 9, 10 reps) est un changement
         const prop = s.cartes.some((q) => q.exo === slug) || ETATS_CHANGE.indexOf(x.consigne.etat) >= 0;
         if (cible === last && !prop) run++; else run = prop ? 0 : 1;
         last = cible;
@@ -134,10 +134,12 @@ function V5(runs) {
         const a = L[i].x, b = L[i + 1].x; if (!a.constat || !a.constat.suiteLignes || !b.consigne || !b.consigne.ligne) continue;
         n++;
         const cs = a.constat.suiteLignes.ligne; if (!cs) continue;
-        if (cs.charge !== b.consigne.ligne.charge || cs.vise !== b.consigne.ligne.vise) {
+        // La consigne REÇUE par la séance suivante = sa première ligne du plan initial (le plan final porte les réactions en séance, §9.14).
+        const li = (b.lignesInitiales || []).find((q) => q.role === 'ligne') || b.consigne.ligne;
+        if (cs.charge !== li.charge || cs.vise !== li.vise) {
           const ecartJours = (Date.parse(L[i + 1].s.date) - Date.parse(L[i].s.date)) / 864e5;
           const ev = ['reprise_courte', 'reprise_longue', 'nouvelle_zone'].indexOf(b.consigne.etat) >= 0 || ecartJours > 14 || !!L[i + 1].s.allegee || !!L[i].s.allegee;
-          if (!ev) ecarts.push(E(r, L[i + 1].s, b, 'le constat de fin disait « ' + a.constat.suite + ' » (' + cs.charge + '×' + cs.vise + ') mais la consigne suivante est ' + b.consigne.ligne.charge + '×' + b.consigne.ligne.vise + ' (état ' + b.consigne.etat + ')'));
+          if (!ev) ecarts.push(E(r, L[i + 1].s, b, 'le constat de fin disait « ' + a.constat.suite + ' » (' + cs.charge + '×' + cs.vise + ') mais la consigne suivante est ' + li.charge + '×' + li.vise + ' (état ' + b.consigne.etat + ')'));
         }
       }
     });

@@ -227,11 +227,14 @@ function jouerSeance(ctx, routine, semaine, rang, date) {
       if (j === sers.length - 1 && consignes[ex.slug] && !entretien) {
         const groupes = ctx.H[ex.slug] || [];
         const faites = se.exercices[i].series.filter((s) => s.validee_a).map((s, k) => ({ id: s.id, rang: k + 1, charge_kg: s.charge_kg, reps: s.reps, rpe: s.rpe, ressenti: s.ressenti, type_serie: 'travail', exercise_slug: ex.slug, validee_a: s.validee_a }));
-        const rs = Moteur.suiteDExercice(groupes, { seance: { id: se.id, debut: se.debut }, series: faites }, etatDe(ex.slug, groupes), new Date(t + 600000).toISOString(), opts[ex.slug]);
+        // Les MÊMES options que la consigne de la séance, recalculées à l'instant (app.js suiteDe : `optionsDeConsigne`) : la séance du jour,
+        // dont les paris sont écrits, est « sous consigne » — les options prises à l'ouverture l'ignoraient (artefact de la 1re passe).
+        const oSuite = Object.assign({}, opts[ex.slug], { seancesSousConsigne: [...new Set(ctx.predictions.filter((l) => l.exercise_slug === ex.slug && l.fondement && l.module !== Moteur.MODULE_ESCALIER).map((l) => l.fondement.seance))] });
+        const rs = Moteur.suiteDExercice(groupes, { seance: { id: se.id, debut: se.debut }, series: faites }, etatDe(ex.slug, groupes), new Date(t + 600000).toISOString(), oSuite);
         // V10 (a) — le contrefactuel : la même séance, sans réserve notée ; la suite doit être identique (hors bord_garde).
         if (faites.some((f) => f.ressenti === 'reste_0')) {
           const sans = faites.map((f) => Object.assign({}, f, { ressenti: null, rpe: null }));
-          const rs2 = Moteur.suiteDExercice(groupes, { seance: { id: se.id, debut: se.debut }, series: sans }, etatDe(ex.slug, groupes), new Date(t + 600000).toISOString(), opts[ex.slug]);
+          const rs2 = Moteur.suiteDExercice(groupes, { seance: { id: se.id, debut: se.debut }, series: sans }, etatDe(ex.slug, groupes), new Date(t + 600000).toISOString(), oSuite);
           const k1 = rs && rs.apres.consigne, k2 = rs2 && rs2.apres.consigne;
           ex.contrefactuel = { etat: k1 && k1.etat, etatSans: k2 && k2.etat, ligne: k1 && k1.ligne, ligneSans: k2 && k2.ligne };
         }

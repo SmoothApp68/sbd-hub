@@ -16,8 +16,8 @@ BASES.forEach((id) => {
   const base = PROFILS.find((p) => p.id === id);
   [1, 2].forEach((g) => {
     const res = {};
-    ['P', 'N', 'F'].forEach((rg) => { const p = Object.assign({}, base, { reglage: rg }); res['reglage_' + rg] = vitesse(jouerProfil(p, g, 16).lignes, () => true); });
-    ['maintien', 'seche', 'masse'].forEach((ph) => { const p = Object.assign({}, base, { phase: ph }); res['phase_' + ph] = vitesse(jouerProfil(p, g, 16).lignes, () => true); });
+    ['prudent', 'normal', 'franc'].forEach((rg) => { const p = Object.assign({}, base, { reglage: rg }); res['reglage_' + rg[0].toUpperCase()] = vitesse(jouerProfil(p, g, 16).lignes, () => true); });
+    ['maintien', 'seche', 'prise_de_masse'].forEach((ph) => { const p = Object.assign({}, base, { phase: ph }); res['phase_' + ph] = vitesse(jouerProfil(p, g, 16).lignes, () => true); });
     const l = jouerProfil(base, g, 16).lignes; res.haut = vitesse(l, (s) => !BAS.test(s)); res.bas = vitesse(l, (s) => BAS.test(s));
     out.push({ profil: id, graine: g, base: { reglage: base.reglage, phase: base.phase, anciennete: base.anciennete }, res });
     console.log(id, g, JSON.stringify(res));

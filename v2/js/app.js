@@ -425,7 +425,7 @@
   // (la consigne les lit ainsi) et les paris de consigne — le moteur décide.
   function bilanDe(bloc) {
     var index = catalogueIndexe();
-    var instantBilan = new Date().toISOString();
+    var instantBilan = instantDuCalcul();
     var parSlug = {};
     (bloc.exercices || []).forEach(function (slug) {
       parSlug[slug] = Moteur.chargesDeTravailDe(faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug],
@@ -5640,7 +5640,7 @@
         consignes.index = Modele.indexerExercices(local.exercices);
         exo = consignes.index[slug];
       }
-      var options = optionsDeConsigne(slug, exo, seance.debut);
+      var options = optionsDeConsigne(slug, exo, instantDuCalcul());
       // MOTEUR §13.6 (49-U20) — LES FRÈRES, à la demande : le moteur ne les
       // demande (et ne rejoue leur compteur) que si celui de l'exercice est à 4
       // ou plus. Seule la consigne de la séance les reçoit, figés avec elle —
@@ -5696,7 +5696,7 @@
   // les MÊMES entrées que leur propre consigne (`optionsDeConsigne`).
   function freresPourLeMoteur(slug, index) {
     return Modele.freresDe(index, slug).map(function (f) {
-      var o = optionsDeConsigne(f, index[f], seance ? seance.debut : new Date().toISOString()), g = groupesDuMoteur(f, o.salle);
+      var o = optionsDeConsigne(f, index[f], instantDuCalcul()), g = groupesDuMoteur(f, o.salle);
       return { slug: f, nom: Modele.nommer(index, f), groupes: g, etat: etatDuMoteur(f, o.salle, g), options: o };
     });
   }
@@ -5766,8 +5766,13 @@
     if (!estSalleElastique(salle)) return etatsExercices[slug];
     return Palier.etatsExercices((groupes || []).map(function (x) { return { slug: slug, series: x.series }; }))[slug];
   }
-  // 179 (B-B7) — `instant` (ISO) : l'instant AUQUEL la consigne se calcule (début de la séance, instant rejoué, « maintenant » de
-  // l'écran qui n'a pas de séance) ; il décide quelles lignes de zone sont déjà en vigueur. Jamais l'horloge lue ici.
+  // 179 (B-B7) — L'INSTANT D'UN CALCUL DE CONSIGNE : l'instant rejoué pendant un rejeu (`?rejouer=`), sinon « maintenant » — le seul
+  // endroit où l'app lit l'horloge pour cela. `optionsDeConsigne` le reçoit en entrée (`instant`, ISO) et n'appelle plus `Date.now()` :
+  // il décide quelles lignes de zone sont déjà en vigueur (une correction posée en séance l'est dès qu'elle est posée).
+  function instantDuCalcul() {
+    var i = rejeuEnCours && rejeuEnCours.instant ? Date.parse(rejeuEnCours.instant) : NaN;
+    return new Date(isFinite(i) ? i : Date.now()).toISOString();
+  }
   function optionsDeConsigne(slug, exo, instant) {
     var g = Modele.gabaritDe(exo);
     var index = catalogueIndexe();
@@ -6847,7 +6852,7 @@
     if (seance && !enEdition()) return consigneDe(slug);
     var exo = Modele.indexerExercices(local.exercices)[slug] || null;
     var instant = seance ? seance.debut : new Date().toISOString();
-    var o = Object.assign(optionsDeConsigne(slug, exo, instant), { edition: false }), g = groupesDuMoteur(slug, o.salle);
+    var o = Object.assign(optionsDeConsigne(slug, exo, instantDuCalcul()), { edition: false }), g = groupesDuMoteur(slug, o.salle);
     return Moteur.consigneDExercice(g, etatDuMoteur(slug, o.salle, g), instant, o);
   }
 
@@ -6968,7 +6973,7 @@
     if (!constats || constats.cle !== cle) constats = { cle: cle, parSlug: {} };
     var exo = catalogueIndexe()[slug];
     // Les MÊMES options que la consigne de la séance (49-U18).
-    var options = optionsDeConsigne(slug, exo, seance.debut);
+    var options = optionsDeConsigne(slug, exo, instantDuCalcul());
     var cleOptions = JSON.stringify(options);
     var vu = constats.parSlug[slug];
     if (!vu || vu.options !== cleOptions) {
@@ -11636,7 +11641,7 @@
       var il6 = new Date(maintenant.getTime()); il6.setMonth(il6.getMonth() - 6);
       var il12 = new Date(maintenant.getTime()); il12.setFullYear(il12.getFullYear() - 1);
       var travail = null;
-      Moteur.chargesDeTravailDe(faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug], optionsDeConsigne(slug, exo, maintenant.toISOString()))
+      Moteur.chargesDeTravailDe(faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug], optionsDeConsigne(slug, exo, instantDuCalcul()))
         .forEach(function (x) { if (!travail || String(x.date) > String(travail.date)) travail = x; });
       teteRecords = {
         douzeMois: recordsExo.douzeMois,
@@ -11813,8 +11818,8 @@
   // (`Moteur.rondsDeLaSuivante`, sur le fondement de la consigne : `deuxSeances`). `[]` sans exercice d'échelle travaillé
   // cette semaine-là (une barre seule n'en est pas un). En « Juste un carnet » : les marches et les séries, ni phrase ni
   // ronds (`Modele.vueEchellesDeLaSemaine`).
-  function deuxSeancesDeLExercice(slug, exo, instant) {
-    var o = Object.assign(optionsDeConsigne(slug, exo, instant), { edition: false, echelle: true }), g = groupesDuMoteur(slug, o.salle);
+  function deuxSeancesDeLExercice(slug, exo, instant) {   // `instant` : celui de la consigne (ISO)
+    var o = Object.assign(optionsDeConsigne(slug, exo, instantDuCalcul()), { edition: false, echelle: true }), g = groupesDuMoteur(slug, o.salle);
     var k = Moteur.consigneDExercice(g, etatDuMoteur(slug, o.salle, g), instant, o);
     var ds = k && k.consigne && k.consigne.fondement ? k.consigne.fondement.deuxSeances : null;
     return Array.isArray(ds) ? ds : null;

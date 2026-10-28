@@ -10854,7 +10854,7 @@ const SETS_IMPORTES = [
     ok('[U17] A — la carte de la série de plus sous l’exercice : la phrase, le détail, « Ajouter une série » / « Non merci »',
       a.marche === 'serie_de_plus' && !!a.carte &&
       /^25 kg × 12 reste ta meilleure charge de travail depuis 4 séances(, et tes autres exercices avancent)?\.$/.test(esp(a.carte.texte)) &&
-      a.carte.detail === 'Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus. Tes avant-bras restent sous leur volume habituel.' &&
+      a.carte.detail === 'Sur cet exercice, une série de plus aide souvent : environ 33 % de travail en plus. Tes avant-bras restent sous leur volume habituel.' &&
       a.carte.oui === 'Ajouter une série' && a.carte.non === 'Non merci', JSON.stringify(a.carte));
     ok('[U17] A — avant la réponse : les 3 lignes de la routine, aucune en plus',
       a.lignes.length === 3 && a.lignes.every((l) => !l[3]), JSON.stringify(a.lignes));
@@ -13687,7 +13687,7 @@ const SETS_IMPORTES = [
         !/kg/.test(JSON.stringify(fb.lignes)),
       JSON.stringify(fb));
     ok('[O52] l’aperçu dit que les reps sont des repères et que le coach propose les charges',
-      fb.aide.some((a) => /reps sont des repères de départ/.test(a) && /coach qui les propose/.test(a)), JSON.stringify(fb.aide));
+      fb.aide.some((a) => /reps sont des repères de départ/.test(a) && /moi qui te les propose/.test(a)), JSON.stringify(fb.aide));
     await entree('^Créer la routine');
     await attendre(1500);
     const neuve = routineEnBase('Import Rangé U52');
@@ -21241,9 +21241,9 @@ const SETS_IMPORTES = [
       pageP.groupes.length === 6 && pageP.groupes.every((g) => !g.ouvert) &&
         sp(pageP.groupes[0].resume) === 'Jambes↑ progresse' && sp(pageP.groupes[4].resume) === 'Poitrine↗ le plus lent' &&
         sp(pageP.groupes[3].resume) === 'Épaulespas assez de séances comparables', JSON.stringify(pageP.groupes));
-    ok('[P75] les équilibres : squat / couché 1,11, environ 1,21 chez les pratiquants, +8 kg au squat ; le levier : Poitrine',
-      /^Squat \/ couché1,11/.test(sp(pageP.rapport)) && /environ 1,21/.test(sp(pageP.rapport)) &&
-        /environ \+8 kg au squat/.test(sp(pageP.rapport)) && /^Poitrine\. De tes priorités \(poitrine, jambes\)/.test(sp(pageP.levier)),
+    ok('[P75] les équilibres : le fait, « Ton squat vaut 1,11 × ton couché ; repère de pratiquants 1,21 » (179, D1) ; le levier : Poitrine',
+      /^Squat \/ couché1,11/.test(sp(pageP.rapport)) && /Ton squat vaut 1,11 × ton couché ; repère de pratiquants 1,21\./.test(sp(pageP.rapport)) &&
+        !/en retard/.test(sp(pageP.rapport)) && /^Poitrine\. De tes priorités \(poitrine, jambes\)/.test(sp(pageP.levier)),
       JSON.stringify([pageP.rapport, pageP.levier]));
     ok('[P75] pas de défilement horizontal', !pageP.large, String(pageP.large));
 

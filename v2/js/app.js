@@ -8227,6 +8227,11 @@
         var x = planDeLExercice(iExo);
         return x && x.reserveVisee !== undefined ? x.reserveVisee : null;
       },
+      // 175 — « un cran de moins » : le badge du recul (174), à côté du chiffre du jour.
+      cranDeMoins: function (iExo) {
+        var x = planDeLExercice(iExo);
+        return x && x.cranDeMoins ? x.cranDeMoins : null;
+      },
       effortVise: effortViseSurLigne,
       // MOTEUR §9.23 (55-1) — la médaille, sous la rangée d'une série validée.
       medaille: medailleSurLigne,

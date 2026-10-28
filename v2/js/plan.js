@@ -1367,6 +1367,8 @@
         var rvX = aUnPari(x) && !seance.edition && Moteur().effortViseEligible(x.consigne.palier) && (x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps')
           ? Moteur().reserveVisee({ zone: x.consigne.zone, role: roleDeLaVisee(x), reglage: reglagePlan }) : null;
         x.reserveVisee = rvX;
+        // 175 — « un cran de moins » : le recul de la règle de bord (174) se dit à côté du chiffre du jour, d'un badge. Le plan le dit, l'écran le dessine.
+        x.cranDeMoins = x.consigne && (x.consigne.etat === 'bord_recul' || x.consigne.etat === 'bord_vague') ? 'un cran de moins' : null;
         x.effortVise = rvX === null ? null : effortViseDuPlan(exo, rvX, suite, Seance().exerciceFini(seance, slug));
         // §9.17 — LA CARTE DU LEST : UNE SEULE, en tête de l'exercice (le composant
         // des propositions d'exercice). Quand le moteur la dit (`carte_lest`) et

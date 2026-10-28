@@ -2676,6 +2676,9 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .consigne-heros[data-garde]::after{margin-left:auto;align-self:center}
 /* à 360 px, un badge qui ne tient pas à côté du chiffre passe dessous (flex-wrap), à gauche */
 .consigne-heros[data-garde]{row-gap:6px;column-gap:var(--e2)}
+/* 175 — « un cran de moins » : le badge du recul (174), à côté du chiffre du jour, en --donnees ; passe dessous à 360 px (flex-wrap) */
+.consigne-heros .badge-recul{margin-left:var(--e2);align-self:center;padding:0 6px;border:1px solid var(--donnees);border-radius:var(--r-etiquette);
+  font-family:var(--pile-c);font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--donnees);white-space:nowrap}
 /* Les autres formes de consigne (sans « Aujourd'hui : ») : la même mise en avant, adaptée — la phrase en Condensed 22 px. */
 .consigne.consigne-grande{font-family:var(--pile-c);font-size:28px;font-weight:700;line-height:1.15;margin-top:6px}
 /* « Si ça passe, … » : une bulle, la charge × reps en gras ambre. */

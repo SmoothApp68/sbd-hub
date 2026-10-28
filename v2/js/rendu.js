@@ -2863,6 +2863,14 @@
           var ligneJ = consigneVivante(l, iJ);
           // Un attribut, rendu par CSS (`::after`) : le texte de la consigne reste celui du moteur, mot pour mot.
           if (iJ === 0 && gardeEn !== null && gardeEn !== undefined) ligneJ.setAttribute('data-garde', 'garde-en\u00a0' + gardeEn);
+          // 175 — « un cran de moins » : le badge du recul, au bout du chiffre du jour (couleur --donnees) ; la phrase lue le dit aussi.
+          if (iJ === 0 && !vue.programme && typeof vue.cranDeMoins === 'function') {
+            var recul = vue.cranDeMoins(x._iExo);
+            if (recul && ligneJ.classList.contains('consigne-heros')) {
+              ligneJ.appendChild(el('span', 'badge-recul', recul));
+              ligneJ.setAttribute('aria-label', (ligneJ.getAttribute('aria-label') || '') + ' ' + recul);
+            }
+          }
           entree.appendChild(tapable(ligneJ));
         });
         if (lib.gris) entree.appendChild(tapable(el('div', 'consigne-dit', lib.gris)));

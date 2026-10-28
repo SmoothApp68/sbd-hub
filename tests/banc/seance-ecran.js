@@ -18634,8 +18634,8 @@ const SETS_IMPORTES = [
     await attendreQue(async () => !!(await lire()).charge);
     await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const c0 = await lire();
-    ok('[social-2] son exercice : meilleure charge 210 kg, meilleure série 180 × 5 (le plus gros charge × reps), sa courbe sur 6 mois ; l’adresse /a/jordan/exercice/squat-barre',
-      (await chemin()) === '/a/jordan/exercice/squat-barre' && c0.charge === '210 kg' && c0.serie === '180 × 5' && c0.lui === 1 &&
+    ok('[social-2] son exercice : meilleure charge 210 kg, meilleure série 180 kg × 5 (le plus gros charge × reps), sa courbe sur 6 mois ; l’adresse /a/jordan/exercice/squat-barre',
+      (await chemin()) === '/a/jordan/exercice/squat-barre' && c0.charge === '210 kg' && c0.serie === '180 kg × 5' && c0.lui === 1 &&
         c0.moiCourbe === 0 && c0.btnExo && c0.retour === '← jordan' && appelsDepuis(n0).indexOf('social_series_exercice') >= 0,
       JSON.stringify(c0));
     await page.click('#social-comparer-exo');
@@ -18643,7 +18643,7 @@ const SETS_IMPORTES = [
     await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const c1 = await lire();
     ok('[social-2] « Se comparer » : ma courbe en pointillés or par-dessus la sienne, et côte à côte meilleure charge, meilleure série, séances (6 mois)',
-      c1.moiCourbe === 1 && c1.lui === 1 && c1.duoMoi[0] === monSquat + ' kg' && c1.duoLui[0] === '210 kg' && c1.duoLui[1] === '180 × 5' &&
+      c1.moiCourbe === 1 && c1.lui === 1 && c1.duoMoi[0] === monSquat + ' kg' && c1.duoLui[0] === '210 kg' && c1.duoLui[1] === '180 kg × 5' &&
         c1.duoLui[2] === '2' && !c1.btnExo && !/rpe|ressenti|genou|89,5|89\.5/i.test(c1.texte), JSON.stringify(c1));
     await mesurer('son exercice, comparé');
     await page.click('#btn-retour-ami');

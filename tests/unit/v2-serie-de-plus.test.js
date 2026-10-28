@@ -56,7 +56,7 @@ describe('§14.5, §14.7 — les cas du simulateur', () => {
   F.carte.forEach((c, i) => {
     test('carte ' + (i + 1) + ' (' + c.muscles.join(', ') + ')', () => {
       const k = M.carteSerieDePlus({ palier: c.meilleur[0], niveau: c.meilleur[1] }, c.compteur,
-        c.autres_avancent, muscles(c.muscles));
+        c.autres_avancent, muscles(c.muscles), null, 5);   // 5 séries de routine : 1/5 = 20 %, la valeur des cas du simulateur
       expect(octets(k.phrase)).toBe(octets(c.attendu.phrase));
       expect([k.oui, k.non, k.gris_apres]).toEqual([c.attendu.oui, c.attendu.non, c.attendu.gris_apres]);
       if (c.muscles[0] === 'deltoide_lateral') {
@@ -162,7 +162,7 @@ describe('§14.7 — la série de plus, dans le plan', () => {
     const x = p.exercices[0];
     expect(x.escalier.marche).toBe('serie_de_plus');
     expect(x.escalier.carte.phrase).toBe('27' + NB + 'kg × 12 reste ta meilleure charge de travail depuis 4 séances, et tes autres exercices avancent.');
-    expect(x.escalier.carte.detail).toBe('Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus. ' +
+    expect(x.escalier.carte.detail).toBe('Sur cet exercice, une série de plus aide souvent : environ 33 % de travail en plus. ' +
       'Tes pectoraux restent sous leur volume habituel.');
     expect([x.escalier.carte.oui, x.escalier.carte.non]).toEqual(['Ajouter une série', 'Non merci']);
     expect(x.entete.compteur).toBeNull();

@@ -1263,8 +1263,8 @@
   // Les puces de la maquette validée (15/10/2026) ; « ＋ » ajoute un autre poids.
   var SALLE_BARRES_PROPOSEES = { barres_ez: [10, 15, 20, 25, 30, 35, 40], barres_droites: [10, 15, 20, 25, 30] };
   var SALLE_PAS_PROPOSES = [1, 2, 2.5, 5];
-  var PHRASE_SALLE = 'Tes élastiques, du plus fort au plus léger. Rien d’autre à déclarer : le coach lit tes charges dans ton historique.';
-  var PHRASE_BARRES_FIXES = 'Les barres déjà chargées de ta salle. Le coach ne te proposera que ces charges-là.';
+  var PHRASE_SALLE = 'Tes élastiques, du plus fort au plus léger. Rien d’autre à déclarer : tes charges se lisent dans ton historique.';
+  var PHRASE_BARRES_FIXES = 'Les barres déjà chargées de ta salle. Seules ces charges-là seront proposées.';
 
   // Un nombre (jamais une chaîne : la contrainte refuse « "10" »), au demi-kilo.
   function auDemi(v) {

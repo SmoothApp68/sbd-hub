@@ -1603,12 +1603,9 @@
         carte.appendChild(ligneMois(majuscule(vue.nomsCourts[r.num]) + ' / ' + vue.nomsCourts[r.den],
           el('span', r.lecture === 'en dessous' ? 'pc-neutre' : 'pc-gris', r.affiche)));
         if (r.repere !== null) {
-          var t = 'Chez les pratiquants : environ ' + M().nombreFixe(r.repere, 2) + '. ';
-          if (r.lecture === 'en dessous') {
-            t += 'Ton ' + vue.nomsCourts[r.den] + ' tire devant : environ +' + r.ecart_kg + ' kg au ' +
-              vue.nomsCourts[r.num] + ' pour t’y aligner.';
-          } else if (r.lecture === 'au-dessus') t += 'Ton ' + vue.nomsCourts[r.num] + ' tire devant.';
-          else t += 'Proche.';
+          // 179 (D1) — un fait : le rapport et le repère de pratiquants, sans « pour t’y aligner » (descriptif, jamais prescriptif).
+          var t = 'Ton ' + vue.nomsCourts[r.num] + ' vaut ' + r.affiche + ' × ton ' + vue.nomsCourts[r.den] +
+            ' ; repère de pratiquants ' + M().nombreFixe(r.repere, 2) + '.';
           carte.appendChild(el('p', 'pc-note', t));
         }
         cible.appendChild(carte);
@@ -3131,7 +3128,7 @@
       c.appendChild(el('p', 'ce-phrase', v.carte.phrase));
       c.appendChild(el('p', 'ce-detail', v.carte.detail));
       var gestes = el('div', 'ce-gestes');
-      var oui = el('button', 'ce-alleger', 'Alléger 7 jours');
+      var oui = el('button', 'ce-alleger', v.carte.oui || 'Alléger');   // 179 (B-B4) : le libellé vient du plan, avec la durée de la règle
       oui.type = 'button';
       oui.addEventListener('click', function () { v.surAlleger(); });
       var non = el('button', 'ce-refuser', 'Non merci');
@@ -3821,7 +3818,7 @@
       // La date vient du formateur de la voix : « mardi », ou « le 13 sept. ».
       cible.appendChild(el('div', 'pq-sec', 'Ta dernière séance, ' + p.seance.date));
       p.seance.lignes.forEach(function (l) {
-        var n = el('div', 'pq-ligne' + (l.role && /ne compte/.test(l.role) ? ' muet' : ''));
+        var n = el('div', 'pq-ligne' + (l.muet === true ? ' muet' : ''));   // 179 (B-B1) : le plan le dit (`muet`), le texte ne sert plus de signal
         n.appendChild(el('span', 'pq-quoi', l.texte));
         n.appendChild(el('span', 'pq-role', l.role || ''));
         cible.appendChild(n);
@@ -3990,7 +3987,7 @@
       cible.appendChild(modes);
       if (vue.mode === 'entretien') {
         cible.appendChild(el('p', 'feuille-aide',
-          'Le coach se tait sur cet exercice : tu charges comme tu veux.'));
+          'Je me tais sur cet exercice : tu charges comme tu veux.'));
         var fermerE = el('button', 'discret bloc-large', 'Fermer');
         fermerE.type = 'button';
         fermerE.addEventListener('click', vue.surFermer);
@@ -4107,9 +4104,9 @@
   // §7 quindecies.3 (52-1) — « Charge de départ » sur un exercice jamais fait ;
   // sinon « le coach décide », avec la dernière fois (« Dernière séance »).
   function texteChargeProgramme(cp) {
-    if (cp.depart) return 'Charge de départ : le coach part d\u2019ici la première fois, puis décide d\u2019après tes séances.';
+    if (cp.depart) return 'Charge de départ : je pars d\u2019ici la première fois, puis je décide d\u2019après tes séances.';
     var valeur = texteMeilleure(cp.fait);
-    return 'Charge : le coach décide d\u2019après tes séances' + (valeur ? ' (dernière fois : ' + valeur + ')' : '') + '.';
+    return 'Charge : je décide d\u2019après tes séances' + (valeur ? ' (dernière fois : ' + valeur + ')' : '') + '.';
   }
 
   function texteFaitFrere(fait) {
@@ -4518,7 +4515,7 @@
     });
     cible.appendChild(liste);
     cible.appendChild(el('p', 'feuille-aide',
-      'Les reps sont des repères de départ ; les charges, c\u2019est le coach qui les propose à chaque séance.'));
+      'Les reps sont des repères de départ ; les charges, c\u2019est moi qui te les propose à chaque séance.'));
     var err = el('p', 'erreur', vue.erreur || '');
     err.setAttribute('role', 'alert');
     cible.appendChild(err);
@@ -5184,7 +5181,7 @@
       // des charges. Et elle montre le chemin le plus utile avec un historique
       // importé : en faire une depuis une séance passée.
       vide.appendChild(el('p', 'vide-aide',
-        'Une routine, c\u2019est une liste d\u2019exercices dans un ordre. Le coach décide des charges à chaque séance.'));
+        'Une routine, c\u2019est une liste d\u2019exercices dans un ordre. Je décide des charges à chaque séance.'));
       var b = el('button', 'principal', 'Créer une routine');
       b.type = 'button';
       b.addEventListener('click', function () { if (v.surNouvelle) v.surNouvelle(); });
@@ -5512,7 +5509,6 @@
         var l = el('div', 'rl-barre');
         l.setAttribute('data-slug', b.slug);
         var nom = el('span', 'rl-nom', b.nom);
-        if (b.retard) nom.appendChild(el('em', 'rl-retard', ' \u00b7 en retard sur ton couché'));
         l.appendChild(nom);
         var kg = el('span', 'rl-kg num');
         kg.appendChild(el('span', 'rl-medaille'));
@@ -6563,7 +6559,7 @@
     vider(cible);
     teteFeuille(cible, 'Ajoute tes élastiques', vue.exercice, null);
     cible.appendChild(el('p', 'feuille-aide', vue.mini
-      ? 'Tes mini-bandes, par leur nom. Le coach les range du plus fort au plus léger.'
+      ? 'Tes mini-bandes, par leur nom, rangées du plus fort au plus léger.'
       : 'Choisis tes élastiques par leur nom, ou par leur poids. Tu pourras les ranger dans le Profil, Ma salle.'));
     var choisis = {};
     var mode = 'nom';

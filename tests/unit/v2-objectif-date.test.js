@@ -218,7 +218,7 @@ describe('la date figée, et ce que la page montre', () => {
 
   test('la feuille : la phrase du record pour les reps tapées, et la saisie bornée', () => {
     expect(O.phraseDeSaisie(HISTOIRE(), '1', MAINTENANT, BARRE, false))
-      .toBe('Ton record\u00a0: 144\u00a0kg\u00a0×\u00a01. Le coach projettera une date à partir de tes records.');
+      .toBe('Ton record\u00a0: 144\u00a0kg\u00a0×\u00a01. Je projetterai une date à partir de tes records.');
     expect(O.phraseDeSaisie(HISTOIRE(), '8', MAINTENANT, BARRE, true)).toBe('Pas encore de série à 8 reps ou plus.');
     expect(O.lireSaisie('152,5', '1')).toEqual({ charge: 152.5, reps: 1 });
     expect(O.lireSaisie('0', '1').refus).toBeTruthy();

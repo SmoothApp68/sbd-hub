@@ -125,6 +125,20 @@
     });
   }
 
+  // 179 (A-F-03) — la consigne que l'en-tête décrit : celle du moteur, dont la visée du TEST se lit sur la ligne de test telle que
+  // le plan l'affiche (même charge). Rien d'autre ne change : la charge, la ligne de travail et les états restent ceux de la consigne.
+  function consigneDeLEntete(consigne, lignes) {
+    if (!consigne || consigne.etat === 'silence' || consigne.allegee || !consigne.haut) return consigne;
+    var ch = nombre(consigne.haut.charge), vise = nombre(consigne.haut.vise);
+    if (ch === null || vise === null) return consigne;
+    var derniere = null;
+    (lignes || []).forEach(function (l) {
+      if (l && l.role === 'test' && nombre(l.vise) !== null && nombre(l.charge) !== null && memeChargeOuVides(nombre(l.charge), ch)) derniere = l;
+    });
+    if (!derniere || nombre(derniere.vise) === vise) return consigne;
+    return Object.assign({}, consigne, { haut: Object.assign({}, consigne.haut, { vise: nombre(derniere.vise) }) });
+  }
+
   // ── LE CŒUR : LES LIGNES D'UN EXERCICE, À PARTIR D'UNE CONSIGNE DONNÉE ────
   //
   // `series` : les séries de l'exercice telles qu'elles sont (validées ou non) ;
@@ -310,7 +324,11 @@
         montee = { charge: l.faite.charge, reps: l.faite.reps };
       }
     });
-    return { montee: montee };
+    // 179 (A-F-06) — les séries de travail FAITES du jour, dans l'ordre : le constat ne cite que ce que la personne a fait.
+    var series = couvertes.filter(function (l) { return l.validee && l.faite; }).map(function (l) {
+      return { charge_kg: nombre(l.faite.charge), reps: nombre(l.faite.reps) };
+    });
+    return { montee: montee, series: series };
   }
 
   // `reference` : le début de la séance du jour — le constat dit « mardi »
@@ -805,12 +823,16 @@
     // le plan garde les citations à côté du texte (`x.phrases`), pour I26.
     var V = Voix();
     var disposition = r.planInitial.map(function (p) { return p && p.role === 'haut' ? 'haut' : 'ligne'; });
-    var capE = V.capturer(function () { return M.enteteDeDisposition(consigne, disposition); });
+    // 179 (A-F-03) — LA CIBLE DU TEST DE L'EN-TÊTE EST CELLE DE LA LIGNE. Un test que « à fond » a retouché (20 kg × 8 → 20 kg × 7)
+    // ne se cite plus à l'ancienne visée : « Si ça passe, 20 kg × 8 » devant une seule ligne à 7 est une cible qu'aucune ligne
+    // n'affiche (I26). L'en-tête lit la visée de la dernière ligne de test à la charge du test.
+    var consigneEntete = consigneDeLEntete(consigne, r.lignes);
+    var capE = V.capturer(function () { return M.enteteDeDisposition(consigneEntete, disposition); });
     var entete = capE.texte, citesJaune = capE.citations;
     // ECRAN §3.12 (68A) — « Aujourd'hui… Si ça passe… » est la phrase de
     // l'en-tête seul : le « Donc » de la feuille « Pourquoi » garde la sienne
     // (`lignesJaunes`, « puis … sur la dernière série »).
-    var capD = V.capturer(function () { return M.enteteDeDisposition(consigne, disposition, true); });
+    var capD = V.capturer(function () { return M.enteteDeDisposition(consigneEntete, disposition, true); });
     var jauneDonc = capD.texte.jaune, citesDonc = capD.citations;
     var gris = c.libelles ? c.libelles.gris : '';
     // La phrase grise vient de la consigne (`libellesConsigne`, calculée avec
@@ -1796,6 +1818,11 @@
   // (une carte est une donnée de l'escalier : elle ne porte pas de champ de
   // plus). Une table faible : la carte morte, ses citations partent avec elle.
   var CITATIONS_DES_CARTES = typeof WeakMap === 'function' ? new WeakMap() : null;
+  // 179 (C-F8) — les séries de travail de la routine pour cet exercice (figées avec la consigne) : la part d'une série de plus.
+  function seriesDeLaRoutine(e, slug) {
+    var r = e && e.escalier && e.escalier.seriesRoutine;
+    return r && Object.prototype.hasOwnProperty.call(r, slug) && Number(r[slug]) >= 1 ? Number(r[slug]) : null;
+  }
   function retenirCitationsDeCarte(carte, citations) {
     if (CITATIONS_DES_CARTES && carte && typeof carte === 'object') CITATIONS_DES_CARTES.set(carte, citations);
   }
@@ -1934,7 +1961,7 @@
             return marche === M.MARCHE_SCHEMA
               ? M.carteSchema(zone, c.compteur.meilleur, k, avancent)
               : M.carteSerieDePlus(c.compteur.meilleur, k, avancent, musclesPrimaires(e, slug),
-                  musclesParPriorite(e, slug, phase));
+                  musclesParPriorite(e, slug, phase), seriesDeLaRoutine(e, slug));
           });
           m.carte = capCarte.texte;
           if (!m.carte) return;
@@ -2078,7 +2105,8 @@
     var capCarte = enNomsEl(function () {
       return Voix().capturer(function () {
         return M.cartePlafond(choix.marche, c.compteur.meilleur, k, {
-          muscles: musclesPrimaires(e, slug), parPriorite: musclesParPriorite(e, slug, phase), sens: sensEl });
+          muscles: musclesPrimaires(e, slug), parPriorite: musclesParPriorite(e, slug, phase), sens: sensEl,
+          nRoutine: seriesDeLaRoutine(e, slug) });
       });
     });
     m.carte = capCarte.texte;
@@ -2324,7 +2352,7 @@
     return {
       allegee: null,
       carte: { jour: jour, declencheur: b.declencheur, compteur: b.compteur, cites: b.cites.slice(),
-               phrase: M.phraseCarte(b.cites.map(nom)), detail: M.detailCarte() }
+               phrase: M.phraseCarte(b.cites.map(nom)), detail: M.detailCarte(), oui: M.libelleAlleger() }
     };
   }
 
@@ -2735,7 +2763,12 @@
       deplie.forEach(function (s, i) {
         if (dispo[i] !== s.role) err('I6', 'segment ' + s.role + ' sur une ligne ' + dispo[i] + ' (position ' + i + ')');
         var src = s.role === 'haut' ? x.consigne.haut : x.consigne.ligne;
-        if (src && (!memeChargeOuVides(s.charge, src.charge) || nombre(s.vise) !== nombre(src.vise))) {
+        // 179 (A-F-03) — la visée du TEST de l'en-tête est celle de la ligne de test que le plan affiche (`consigneDeLEntete`) :
+        // un test que « à fond » a retouché se dit à sa visée du moment, jamais à celle d'avant.
+        var viseDuTest = s.role === 'haut' && src && (x.lignes || []).some(function (l) {
+          return l && l.role === 'test' && nombre(l.vise) === nombre(s.vise) && memeChargeOuVides(nombre(l.charge), nombre(src.charge));
+        });
+        if (src && (!memeChargeOuVides(s.charge, src.charge) || (nombre(s.vise) !== nombre(src.vise) && !viseDuTest))) {
           err('I6', 'segment ' + s.role + ' à ' + s.charge + '×' + s.vise + ' pour une consigne à ' + src.charge + '×' + src.vise);
         }
       });
@@ -3925,6 +3958,7 @@
       fait.bord = { charge: f.bord.charge, reps: [f.bord.faites !== undefined ? f.bord.faites : f.bord.reps] };
       fait['bord.charge'] = { charge: f.bord.charge };
       if (f.bord.visees !== undefined) fait['bord.visees'] = { valeur: f.bord.visees };
+      if (f.bord.vise !== undefined) fait['bord.vise'] = { valeur: f.bord.vise };
       if (f.bord.reserve !== undefined) fait['bord.reserve'] = { valeur: f.bord.reserve };
       if (f.bord.depuis !== undefined) fait['bord.depuis'] = { valeur: f.bord.depuis };
       if (f.bord.vers !== undefined) fait['bord.vers'] = { charge: f.bord.vers };
@@ -4460,9 +4494,16 @@
       var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
       var b = k.fondement ? k.fondement.bord : null;
       var P = nombre(k.palier), c = nombre(k.ligne.charge);
-      if (k.etat === 'bord_recul') {
+      // 179 — une semaine allégée porte sa propre ligne (la phrase du recul n'y est pas dite) : elle ne se compare pas aux visées.
+      if (k.etat === 'bord_recul' && !k.allegee) {
         if (!b || !(nombre(b.faites) < nombre(b.visees))) erreurs.push('I65' + nom + 'un recul sans barre ratée dans le fondement');
-        else if (nombre(k.ligne.vise) !== nombre(b.visees)) erreurs.push('I65' + nom + 'un recul qui vise ' + k.ligne.vise + ' reps, la consigne reçue en visait ' + b.visees);
+        // 179 (A-F-05) — « aux mêmes reps » est le nombre que la ligne affiche : les reps visées, ou, quand une charge faite à fond
+        // en borne la rep de plus, `bord.vise` (jamais au-dessus des visées), que la phrase dit alors elle-même.
+        else if (nombre(k.ligne.vise) !== nombre(b.vise !== undefined && b.vise !== null ? b.vise : b.visees) ||
+                 (b.vise !== undefined && b.vise !== null && !(nombre(b.vise) <= nombre(b.visees)))) {
+          erreurs.push('I65' + nom + 'un recul qui vise ' + k.ligne.vise + ' reps, la consigne reçue en visait ' + b.visees +
+            (b.vise !== undefined && b.vise !== null ? ' (bornée à ' + b.vise + ')' : ''));
+        }
         if (c !== null && P !== null && c > P) erreurs.push('I65' + nom + 'un recul à ' + c + ' kg, au-dessus du palier ' + P + ' kg');
       }
       if (k.etat === 'bord_vague' && c !== null && P !== null && c > P) {

@@ -425,10 +425,11 @@
   // (la consigne les lit ainsi) et les paris de consigne — le moteur décide.
   function bilanDe(bloc) {
     var index = catalogueIndexe();
+    var instantBilan = new Date().toISOString();
     var parSlug = {};
     (bloc.exercices || []).forEach(function (slug) {
       parSlug[slug] = Moteur.chargesDeTravailDe(faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug],
-        optionsDeConsigne(slug, index[slug]));
+        optionsDeConsigne(slug, index[slug], instantBilan));
     });
     return Moteur.bilanDuBloc(bloc, parSlug, parisDeConsigneConnus());
   }
@@ -2216,7 +2217,8 @@
   // Mutuels seulement ; jamais de vainqueur, de couronne ni de rouge ; le coach et les bilans n'en lisent rien. Les
   // chiffres d'un ami viennent de la base (`social_series_exercice`, `social_periode`), les miens de
   // `faits.seriesComptees` — et les deux passent par les MÊMES fonctions de `social.js`.
-  function serieTexte(s) { return s ? Modele.nombreTexte(s.charge) + ' × ' + s.reps : '—'; }
+  // 179 (B-B11) — l'unité sur la charge (VOIX-V1 principe 1) : « 62,5 kg × 8 », « 8 reps » sans charge.
+  function serieTexte(s) { return s ? Modele.serieFaite(s.charge, s.reps) : '—'; }
   function resumeAffiche(r) {
     return r ? { charge: kgSocial(r.meilleureCharge), serie: serieTexte(r.meilleureSerie), seances: String(r.seances),
       mois: r.mois } : null;
@@ -3012,12 +3014,12 @@
       vue.invitant = i.invitant;
       vue.surPasMaintenant = fermerVueGroupe;
       if (seance) {
-        vue.choix = [{ cle: 'en-cours', titre: 'Avec ma séance en cours', sous: (seance.titre || 'Séance') + ' · tes charges, proposées par ton coach',
+        vue.choix = [{ cle: 'en-cours', titre: 'Avec ma séance en cours', sous: (seance.titre || 'Séance') + ' · tes charges, que je te propose',
                        sur: function () { rejoindreAvec(i, null); } }];
       } else {
         vue.choix = [];
         if ((i.exercices || []).length) {
-          vue.choix.push({ cle: 'suivre', titre: 'Suivre la séance de ' + i.invitant, sous: 'Mêmes exercices · tes charges, proposées par ton coach',
+          vue.choix.push({ cle: 'suivre', titre: 'Suivre la séance de ' + i.invitant, sous: 'Mêmes exercices · tes charges, que je te propose',
                            sur: function () { rejoindreAvec(i, { suivre: true }); } });
         }
         var mesRoutines = routines.filter(function (r) { return r && !r.archivee_a; });
@@ -5638,7 +5640,7 @@
         consignes.index = Modele.indexerExercices(local.exercices);
         exo = consignes.index[slug];
       }
-      var options = optionsDeConsigne(slug, exo);
+      var options = optionsDeConsigne(slug, exo, seance.debut);
       // MOTEUR §13.6 (49-U20) — LES FRÈRES, à la demande : le moteur ne les
       // demande (et ne rejoue leur compteur) que si celui de l'exercice est à 4
       // ou plus. Seule la consigne de la séance les reçoit, figés avec elle —
@@ -5694,7 +5696,7 @@
   // les MÊMES entrées que leur propre consigne (`optionsDeConsigne`).
   function freresPourLeMoteur(slug, index) {
     return Modele.freresDe(index, slug).map(function (f) {
-      var o = optionsDeConsigne(f, index[f]), g = groupesDuMoteur(f, o.salle);
+      var o = optionsDeConsigne(f, index[f], seance ? seance.debut : new Date().toISOString()), g = groupesDuMoteur(f, o.salle);
       return { slug: f, nom: Modele.nommer(index, f), groupes: g, etat: etatDuMoteur(f, o.salle, g), options: o };
     });
   }
@@ -5764,7 +5766,9 @@
     if (!estSalleElastique(salle)) return etatsExercices[slug];
     return Palier.etatsExercices((groupes || []).map(function (x) { return { slug: slug, series: x.series }; }))[slug];
   }
-  function optionsDeConsigne(slug, exo) {
+  // 179 (B-B7) — `instant` (ISO) : l'instant AUQUEL la consigne se calcule (début de la séance, instant rejoué, « maintenant » de
+  // l'écran qui n'a pas de séance) ; il décide quelles lignes de zone sont déjà en vigueur. Jamais l'horloge lue ici.
+  function optionsDeConsigne(slug, exo, instant) {
     var g = Modele.gabaritDe(exo);
     var index = catalogueIndexe();
     var libreDuLeste = Modele.parentDe(index, slug);
@@ -5816,7 +5820,7 @@
       // avec la zone en vigueur ce jour-là, pas celle d'aujourd'hui.
       // §9.22 (53-2) — sans les lignes pas encore en vigueur (un bloc à venir).
       correctionsDeZone: zonesLues().filter(function (l) {
-        return l && l.exercise_slug === slug && !(Date.parse(l.corrigee_a) > Date.now());
+        return l && l.exercise_slug === slug && !(Date.parse(l.corrigee_a) > Date.parse(instant));
       }),
       // §14.4 (49-U14) — les semaines allégées acceptées : leurs séances ne
       // sont ni comptées ni jugées par le compteur.
@@ -6842,8 +6846,9 @@
   function consigneDeLExercice(slug) {
     if (seance && !enEdition()) return consigneDe(slug);
     var exo = Modele.indexerExercices(local.exercices)[slug] || null;
-    var o = Object.assign(optionsDeConsigne(slug, exo), { edition: false }), g = groupesDuMoteur(slug, o.salle);
-    return Moteur.consigneDExercice(g, etatDuMoteur(slug, o.salle, g), seance ? seance.debut : new Date().toISOString(), o);
+    var instant = seance ? seance.debut : new Date().toISOString();
+    var o = Object.assign(optionsDeConsigne(slug, exo, instant), { edition: false }), g = groupesDuMoteur(slug, o.salle);
+    return Moteur.consigneDExercice(g, etatDuMoteur(slug, o.salle, g), instant, o);
   }
 
   // §3.12 (49-U1) — l'en-tête LU SUR LE PLAN : il décrit les lignes de la
@@ -6963,7 +6968,7 @@
     if (!constats || constats.cle !== cle) constats = { cle: cle, parSlug: {} };
     var exo = catalogueIndexe()[slug];
     // Les MÊMES options que la consigne de la séance (49-U18).
-    var options = optionsDeConsigne(slug, exo);
+    var options = optionsDeConsigne(slug, exo, seance.debut);
     var cleOptions = JSON.stringify(options);
     var vu = constats.parSlug[slug];
     if (!vu || vu.options !== cleOptions) {
@@ -11631,7 +11636,7 @@
       var il6 = new Date(maintenant.getTime()); il6.setMonth(il6.getMonth() - 6);
       var il12 = new Date(maintenant.getTime()); il12.setFullYear(il12.getFullYear() - 1);
       var travail = null;
-      Moteur.chargesDeTravailDe(faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug], optionsDeConsigne(slug, exo))
+      Moteur.chargesDeTravailDe(faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug], optionsDeConsigne(slug, exo, maintenant.toISOString()))
         .forEach(function (x) { if (!travail || String(x.date) > String(travail.date)) travail = x; });
       teteRecords = {
         douzeMois: recordsExo.douzeMois,
@@ -11792,7 +11797,7 @@
       var k = consigneDeLExercice(s);
       var z = k && k.consigne ? Moteur.zoneParCle(k.consigne.zone) : null;
       if (z) zonesHaut[s] = z.haut;
-      actifs[s] = intentionDeLExercice(s) !== 'entretien';
+      actifs[s] = !Moteur.coachSeTait(profil && profil.intention, modeDe(s));
     });
     // La phrase se tait en carnet (le profil) ; en Entretenir (l'exercice de départ), `phraseDe` le sait.
     var phraseDe = function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { reglage: Profil.rythmeDe(profil) })); };
@@ -11808,9 +11813,9 @@
   // (`Moteur.rondsDeLaSuivante`, sur le fondement de la consigne : `deuxSeances`). `[]` sans exercice d'échelle travaillé
   // cette semaine-là (une barre seule n'en est pas un). En « Juste un carnet » : les marches et les séries, ni phrase ni
   // ronds (`Modele.vueEchellesDeLaSemaine`).
-  function deuxSeancesDeLExercice(slug, exo) {
-    var o = Object.assign(optionsDeConsigne(slug, exo), { edition: false, echelle: true }), g = groupesDuMoteur(slug, o.salle);
-    var k = Moteur.consigneDExercice(g, etatDuMoteur(slug, o.salle, g), new Date().toISOString(), o);
+  function deuxSeancesDeLExercice(slug, exo, instant) {
+    var o = Object.assign(optionsDeConsigne(slug, exo, instant), { edition: false, echelle: true }), g = groupesDuMoteur(slug, o.salle);
+    var k = Moteur.consigneDExercice(g, etatDuMoteur(slug, o.salle, g), instant, o);
     var ds = k && k.consigne && k.consigne.fondement ? k.consigne.fondement.deuxSeances : null;
     return Array.isArray(ds) ? ds : null;
   }
@@ -11842,7 +11847,7 @@
         var k = consigneDeLExercice(s);
         var z = k && k.consigne ? Moteur.zoneParCle(k.consigne.zone) : null;
         if (z) zonesHaut[s] = z.haut;
-        actifs[s] = intentionDeLExercice(s) !== 'entretien';
+        actifs[s] = !Moteur.coachSeTait(profil && profil.intention, modeDe(s));
       });
     });
     var items = semaine.map(function (it) {
@@ -11871,7 +11876,7 @@
           var tn = faits.tenuesDeLExercice(corpus(), slug).map(function (t) { return { niveau: t.max, charge: 0 }; });
           return tn.length ? Moteur.rondsDeLaSuivante({ seuil: e.seuil, seances: tn, reglage: Profil.rythmeDe(profil) }) : null;
         }
-        var ds = deuxSeancesDeLExercice(slug, index[slug]);
+        var ds = deuxSeancesDeLExercice(slug, index[slug], new Date(maintenant).toISOString());
         return ds ? Moteur.rondsDeLaSuivante({ haut: e.haut, aide: e.aide, seances: ds, reglage: Profil.rythmeDe(profil) }) : null;
       }
     });

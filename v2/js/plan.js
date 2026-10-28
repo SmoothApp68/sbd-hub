@@ -233,6 +233,14 @@
 
     // La phrase du coach : sur la ligne `message.rang` (une POSITION).
     var m = reaction.message;
+    // 175 — « ≈ » : la charge de la série est celle d'une ligne (ou du test) que la consigne marque approchée (163) ; la
+    // réaction l'écrit comme elle, sans rien recalculer.
+    if (m && consigne) {
+      var marqueeM = [consigne.ligne, consigne.haut].some(function (l) {
+        return !!l && l.approchee === true && nombre(l.charge) !== null && nombre(m.charge) !== null && memeChargeOuVides(nombre(m.charge), nombre(l.charge));
+      });
+      if (marqueeM) m = Object.assign({}, m, { approchee: true });
+    }
     // §20 bis (49-U19) — la phrase se rédige sous capture : ses chiffres
     // déclarés restent à côté du plan (`citationsMessage`), pour I26.
     var dite = m ? Voix().capturer(function () { return M.phraseReaction(m, consigne.zone); }) : null;

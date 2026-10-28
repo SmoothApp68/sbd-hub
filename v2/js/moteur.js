@@ -2988,7 +2988,9 @@
     var m = message || null;
     if (m === null) return null;
     var z = typeof zone === 'string' ? zoneParCle(zone) : (zone || null);
-    var fait = chargeFois(m.charge, m.reps, cite(FAIT, { quoi: 'du_jour' }));
+    // 175 — une charge jamais faite (« ≈ », 163) : la réaction l'écrit comme la consigne (`message.approchee`, posé par le plan
+    // quand la charge de la série est la ligne ou le test marqués approchés).
+    var fait = chargeFois(m.charge, m.reps, cite(FAIT, { quoi: 'du_jour' }), m.approchee === true);
     switch (m.type) {
       case 'propose': {
         if (z === null) return null;
@@ -3166,7 +3168,7 @@
   function regle(cle) { return cite(REGLE, { regle: cle }); }
   function nombreFr(v, c) { return Modele().nombre(v, undefined, c); }
   function enKg(v, c) { return Modele().charge(v, undefined, c); }
-  function chargeFois(kg, reps, c) { return Modele().chargeFois(kg, reps, undefined, c); }
+  function chargeFois(kg, reps, c, approchee) { return Modele().chargeFois(kg, reps, undefined, c, approchee === true); }
   function serieFr(kg, reps, c) { return Modele().serie(kg, reps, undefined, c); }
   // « mardi », « aujourd'hui », « le 13 sept. » — contre la RÉFÉRENCE, une
   // entrée (la date de la séance), jamais l'horloge.

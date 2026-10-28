@@ -43,9 +43,8 @@ describe('66B — le rendu de la relecture, sur les onze sorties du fichier de c
       const n = (h.ratio && h.ratio.proposition ? 1 : 0) + sem.propositions.length;
       expect(c.querySelectorAll('.rl-oui').length).toBe(n);
       expect(c.querySelectorAll('.rl-non').length).toBe(n);
-      // « en retard sur ton couché » : exactement les lignes `retard`.
-      expect(Array.from(c.querySelectorAll('.rl-barre')).filter((b) => /en retard sur ton couché/.test(b.textContent))
-        .map((b) => b.dataset.slug)).toEqual(h.barres.filter((b) => b.retard).map((b) => b.slug));
+      // 179 (D1) — jamais l'étiquette « en retard » : le rapport est un fait, dit dans la carte du ratio.
+      expect(Array.from(c.querySelectorAll('.rl-barre')).filter((b) => /en retard/.test(b.textContent))).toEqual([]);
       // La légende de la jauge : à partir de deux barres.
       expect(!!c.querySelector('.rl-legende')).toBe(h.barres.length >= 2);
       // La section « Ton historique » : absente sans barre, sans ratio, sans muscle peu travaillé.

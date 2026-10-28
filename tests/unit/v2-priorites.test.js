@@ -140,7 +140,8 @@ const muscles = (cles) => cles.map((c) => ({ cle: c, libelle: Sm.libelleMuscle(c
 const MEILLEUR = { palier: 27, niveau: 12 };
 
 describe('§14.7 — la phrase de la priorité', () => {
-  const base = 'Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus. ';
+  // 179 (C-F8) — sans le nombre de séries de la routine, la phrase ne chiffre rien ; avec, elle calcule 1/n.
+  const base = 'Sur cet exercice, une série de plus aide souvent : du travail en plus. ';
   test('sans priorité : la phrase d’avant, inchangée', () => {
     expect(M.carteSerieDePlus(MEILLEUR, 4, true, muscles(['pectoraux'])).detail)
       .toBe(base + 'Tes pectoraux restent sous leur volume habituel.');
@@ -190,9 +191,9 @@ function decor(o) {
   if (opt.priorites !== undefined) e.priorites = opt.priorites;
   return { e, p: T.planDeSeance(e) };
 }
-const PRIORITE = 'Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus. ' +
+const PRIORITE = 'Sur cet exercice, une série de plus aide souvent : environ 33 % de travail en plus. ' +
   'Tes pectoraux sont ta priorité : je te laisse aller jusqu\'à ton plus haut volume.';
-const NORMALE = 'Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus. ' +
+const NORMALE = 'Sur cet exercice, une série de plus aide souvent : environ 33 % de travail en plus. ' +
   'Tes pectoraux restent sous leur volume habituel.';
 
 describe('§14.6, §14.7 — le plan, cas A (entre le troisième quartile et le plus haut volume)', () => {
@@ -269,7 +270,7 @@ describe('§14.6 — un exercice à deux muscles primaires', () => {
     const x = p.exercices[0];
     expect(x.placeSerieDePlus).toBe(true);
     expect(x.escalier.carte.detail).toBe(
-      'Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus. ' +
+      'Sur cet exercice, une série de plus aide souvent : environ 33 % de travail en plus. ' +
       'Tes pectoraux sont ta priorité : je te laisse aller jusqu\'à ton plus haut volume.');
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
@@ -277,7 +278,7 @@ describe('§14.6 — un exercice à deux muscles primaires', () => {
   test('les deux muscles prioritaires par `max` : « sont tes priorités »', () => {
     const { p } = decor({ catalogue: CAT2, volume: { pectoraux: sousMax, biceps: sousMax }, priorites: ['poitrine', 'bras'] });
     expect(p.exercices[0].escalier.carte.detail).toBe(
-      'Sur cet exercice, une série de plus aide souvent : environ 20 % de travail en plus. ' +
+      'Sur cet exercice, une série de plus aide souvent : environ 33 % de travail en plus. ' +
       'Tes pectoraux et tes biceps sont tes priorités : je te laisse aller jusqu\'à ton plus haut volume.');
   });
 });

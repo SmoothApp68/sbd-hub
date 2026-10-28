@@ -147,9 +147,9 @@ def historique(e):
                 expo += ' (+ %d en variante)' % b['variantes']
             detail.append(expo)
         lignes.append({'slug': s, 'nom': nom, 'record': r['charge'], 'detail': ' · '.join(detail),
-                       'jauge': arrondi(r['charge'] / plus_lourd, 2), 'retard': False})
+                       'jauge': arrondi(r['charge'] / plus_lourd, 2)})
     sortie_h = {'barres': lignes, 'ratio': None, 'peu_travailles': None}
-    # La barre en retard (Force, Les deux) : squat ÷ couché sous le repère de son sexe.
+    # 179 (D1) : un fait, jamais « en retard » — squat ÷ couché sous le repère de son sexe.
     sq, co = barres.get('squat_barre') or {}, barres.get('developpe_couche_barre') or {}
     sexe = prof.get('sexe')
     if (prof.get('objectif') in DISCIPLINES_RATIO and sexe in REPERE_SQUAT_COUCHE and sq.get('record') and co.get('record')
@@ -158,16 +158,12 @@ def historique(e):
         ref = REPERE_SQUAT_COUCHE[sexe]
         # parcours.js, `lectureDe` : le rapport par son écriture décimale la plus courte, en fraction exacte.
         if Fraction(repr(ratio)) * 10000 < SOUS * ref:
-            for l in lignes:
-                if l['slug'] == 'squat_barre':
-                    l['retard'] = True
             deja = 'squat_barre' in (e.get('priorites') or [])
             pleines = not deja and len(e.get('priorites') or []) >= PRIORITES_MAX
             gris = ('Ces repères viennent de carnets d\'entraînement, et ta morphologie peut jouer. Ce qu\'on voit chez toi : '
                     'le couché %d semaines sur 26, le squat %d.' % (co['semaines'], sq['semaines']))
             sortie_h['ratio'] = {
-                'phrase': 'Ton squat vaut %s fois ton couché. Chez les pratiquants, le squat vaut environ %s fois '
-                          'le couché.' % (nombre(ratio, 2), nombre(ref / 100, 2)),
+                'phrase': 'Ton squat vaut %s × ton couché ; repère de pratiquants %s.' % (nombre(ratio, 2), nombre(ref / 100, 2)),
                 'gris': gris + (' C\'est déjà ta priorité.' if deja else
                                 (' Tes trois priorités sont déjà prises : tu peux en changer dans ton profil.' if pleines else '')),
                 'proposition': None if (deja or pleines) else proposition_priorite(e)}
@@ -193,9 +189,9 @@ def proposition_priorite(e):
         if k is not None and k > 0:
             deplacements.append({'routine_id': r['id'], 'exercise_slug': ex[k]['exercise_slug'],
                                  'avant': ex[0]['exercise_slug']})
-    phrase = 'Faire du squat ta priorité ?'
+    phrase = 'En faire une priorité ?'
     if deplacements:
-        phrase += ' Il passe en premier dans ses séances.'
+        phrase += ' Le squat passerait en premier dans ses séances.'
     return {'type': 'priorite', 'slug': 'squat_barre', 'phrase': phrase, 'deplacements': deplacements,
             'oui': 'En faire ma priorité', 'non': 'Non merci'}
 

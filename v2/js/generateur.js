@@ -619,8 +619,9 @@
         for (var i = 0; i < ex.length; i++) if (familleDe(ex[i].exercise_slug, cat) === SQUAT) { k = i; break; }
         if (k > 0) deplacements.push({ routine_id: r.id, exercise_slug: ex[k].exercise_slug, avant: ex[0].exercise_slug });
       });
-      var phrase = 'Faire du squat ta priorité ?';
-      if (deplacements.length) phrase += ' Il passe en premier dans ses séances.';
+      // 179 (D1, décision d'Aurélien du 28/10/2026) — une proposition, pas un verdict : « En faire une priorité ? ».
+      var phrase = 'En faire une priorité ?';
+      if (deplacements.length) phrase += ' Le squat passerait en premier dans ses séances.';
       return { type: 'priorite', slug: SQUAT, phrase: phrase, deplacements: deplacements,
                oui: 'En faire ma priorité', non: 'Non merci' };
     }
@@ -643,16 +644,16 @@
           detail.push(expo);
         }
         return { slug: bn[0], nom: bn[1], record: r.charge, detail: detail.join(' · '),
-                 jauge: Modele.arrondi(r.charge / plusLourd, 2), retard: false };
+                 jauge: Modele.arrondi(r.charge / plusLourd, 2) };
       });
       var sortie = { barres: lignes, ratio: null, peu_travailles: null };
-      // La barre en retard (Force, Les deux) : squat ÷ couché sous le repère de son sexe.
+      // Le rapport squat ÷ couché sous le repère de son sexe (Force, Les deux). 179 (D1) : un FAIT et une proposition, jamais
+      // l'étiquette « en retard » (un avancé fort au développé n'est pas en retard sur sa barre la plus lourde).
       var sq = barres[SQUAT] || {}, co = barres[COUCHE] || {}, sexe = prof.sexe;
       if (contient(DISCIPLINES_RATIO, prof.objectif) && sq.record && co.record && sq.semaines && co.semaines) {
         var ratio = sq.record.charge / co.record.charge;
         var rp = racine.THParcours.repereSquatCouche(ratio, sexe);
         if (rp.lecture === 'en dessous') {
-          lignes.forEach(function (l) { if (l.slug === SQUAT) l.retard = true; });
           var deja = contient(liste(e.priorites), SQUAT);
           // Trois priorités déjà prises (66B, E1) : la base en refuse une quatrième et `Profil.basculerPriorite` rendrait
           // la liste inchangée — un « oui » qui ne ferait rien. Pas de proposition ; le gris renvoie au profil.
@@ -660,8 +661,8 @@
           var gris = 'Ces repères viennent de carnets d\'entraînement, et ta morphologie peut jouer. Ce qu\'on voit chez toi : ' +
             'le couché ' + co.semaines + ' semaines sur 26, le squat ' + sq.semaines + '.';
           sortie.ratio = {
-            phrase: 'Ton squat vaut ' + Modele.nombre(ratio, 2) + ' fois ton couché. Chez les pratiquants, le squat ' +
-              'vaut environ ' + Modele.nombre(rp.repere, 2) + ' fois le couché.',
+            phrase: 'Ton squat vaut ' + Modele.nombre(ratio, 2) + ' × ton couché ; repère de pratiquants ' +
+              Modele.nombre(rp.repere, 2) + '.',
             gris: gris + (deja ? ' C\'est déjà ta priorité.'
               : (pleines ? ' Tes trois priorités sont déjà prises : tu peux en changer dans ton profil.' : '')),
             proposition: (deja || pleines) ? null : propositionPriorite(e)

@@ -57,9 +57,10 @@ describe('66A — relireSemaine : les onze cas de la référence, à l’identiq
     expect(p[0].phrase).toBe('En sèche, tes mollets dépassent ton plus haut volume habituel : 9 séries par semaine pour 6,4.');
     expect(p[0].question).toBe('Retirer 3 séries ? Tes barres ne bougent pas.');
     expect(p[0].lignes.map((l) => [l.de, l.a])).toEqual([[4, 2], [3, 2]]);
-    // Son squat vaut 1,04 fois son couché : en retard.
-    expect(s.historique.barres.filter((b) => b.retard).map((b) => b.slug)).toEqual(['squat_barre']);
-    expect(s.historique.ratio.phrase).toMatch(/^Ton squat vaut 1,04 fois ton couché\./);
+    // Son squat vaut 1,04 fois son couché : un fait et une proposition, jamais l'étiquette « en retard » (179, D1).
+    expect(s.historique.barres.filter((b) => b.retard)).toEqual([]);
+    expect(s.historique.ratio).not.toBeNull();
+    expect(s.historique.ratio.phrase).toMatch(/^Ton squat vaut 1,04 × ton couché ; repère de pratiquants 1,21\.$/);
     // Ses trois priorités (dos, jambes, épaules) sont prises (66B) : pas de bouton de priorité, le gris le dit.
     expect(s.historique.ratio.proposition).toBeNull();
     expect(s.historique.ratio.gris).toMatch(/ Tes trois priorités sont déjà prises : tu peux en changer dans ton profil\.$/);
@@ -215,7 +216,7 @@ describe('76 — la relecture et le parcours donnent la même lecture du squat �
     e.profil.sexe = sexe;
     e.barres.squat_barre.record.charge = squat;
     const h = G.relireSemaine(e).historique;
-    return { retard: h.barres.filter((l) => l.slug === 'squat_barre')[0].retard, ratio: h.ratio };
+    return { retard: h.ratio !== null, ratio: h.ratio };   // 179 (D1) : plus d'étiquette `retard` — la lecture « en dessous » est le ratio présent
   };
 
   test('homme 1,14 → en dessous, 1,15 → proche ; femme 1,44 → en dessous, 1,45 → proche — dans les deux modules', () => {
@@ -229,9 +230,9 @@ describe('76 — la relecture et le parcours donnent la même lecture du squat �
 
   test('les phrases : « environ 1,21 » (homme), « environ 1,52 » (femme), et les carnets d’entraînement', () => {
     expect(relecture('homme', 114).ratio.phrase)
-      .toBe('Ton squat vaut 1,14 fois ton couché. Chez les pratiquants, le squat vaut environ 1,21 fois le couché.');
+      .toBe('Ton squat vaut 1,14 × ton couché ; repère de pratiquants 1,21.');
     expect(relecture('femme', 144).ratio.phrase)
-      .toBe('Ton squat vaut 1,44 fois ton couché. Chez les pratiquants, le squat vaut environ 1,52 fois le couché.');
+      .toBe('Ton squat vaut 1,44 × ton couché ; repère de pratiquants 1,52.');
     expect(relecture('homme', 114).ratio.gris).toMatch(/^Ces repères viennent de carnets d'entraînement, et ta morphologie peut jouer\. Ce qu'on voit chez toi : /);
   });
 

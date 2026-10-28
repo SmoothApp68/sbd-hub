@@ -44,7 +44,7 @@ C'est la borne mère. Si l'algo simulé fait progresser un profil hors de ces fo
 
 ### 1.1 Données de référence
 
-**Latella et al. 2024, *Sports Medicine*** (DOI 10.1007/s40279-023-01962-6) — la meilleure source disponible, et de loin.
+**Latella et al. 2024, *Sports Medicine*** (DOI 10.1007/s40279-023-01962-6) — la meilleure source disponible, et de loin. *(28/10/2026, audit C-F10 : titre de la notice, « Using powerlifting athletes to determine strength adaptations across ages in males and females: a longitudinal growth modelling approach » ; les effectifs ci-dessous n'ont pas été retrouvés dans la notice lue — à revérifier.)*
 Modélisation de croissance à effets mixtes sur la base IPF (OpenPowerlifting), filtrée raw + open : **9 259 athlètes uniques, 46 066 observations, jusqu'à ~17 ans de carrière**, minimum 3 compétitions par athlète.
 
 - Gains les plus forts en tout début de participation : **+7,5 à +12,5 % au-dessus du niveau initial sur la 1ʳᵉ année**
@@ -62,7 +62,7 @@ Modélisation de croissance à effets mixtes sur la base IPF (OpenPowerlifting),
 
 | Profil | Fenêtre | Gain plausible | `HORS-LITTÉRATURE` si | Confiance |
 |---|---|---|---|---|
-| Non-entraîné (<1 an de charge progressive) | 12 sem. | +15 à +30 % | > +40 % | **A** |
+| Non-entraîné (<1 an de charge progressive) | 12 sem. | +15 à +30 % | > +40 % | **B** *(28/10/2026, audit C-F10 : « A » était trop haut — la source de cette ligne est une synthèse de Barbell Medicine, seconde main, non académique)* |
 | Entraîné, 1ʳᵉ année structurée | 12 mois | +7,5 à +12,5 % | > +20 % | **A** |
 | Entraîné confirmé (2-5 ans) | 12 mois | +2 à +6 % | > +15 % | **A** |
 | Avancé (≥10 ans) | 12 mois | +0,3 à +2 % | > +8 % | **B** |
@@ -174,7 +174,7 @@ L'e1RM n'est pas une donnée, c'est une **mesure bruitée**. Le référentiel d�
 **Biais systématique : les gens se sous-estiment.**
 Steele et al. 2017 (141 participants) : sous-prédiction systématique des reps jusqu'à l'échec — **~1 à 2 reps** chez les expérimentés, **~4 à 5 reps** chez les moins expérimentés. Autrement dit, quand un débutant dit « je suis à l'échec », il lui reste souvent 4-5 reps.
 
-Méta-analyse exploratoire Halperin et al. 2022 (12 études, 414 participants) : sous-estimation moyenne d'environ 1 rep.
+Méta-analyse exploratoire Halperin et al. 2022 (*Sports Medicine*, en ligne en 2021, volume 2022 — la spec MOTEUR §9.26 écrit « 2021 » : c'est le même article) (12 études, 414 participants) : sous-estimation moyenne d'environ 1 rep.
 
 **L'exactitude dépend de la proximité de l'échec.**
 Hackett et al. : nettement meilleure entre 0 et 5 RIR (optimale autour de 1 RIR) qu'entre 7 et 10 RIR.
@@ -210,7 +210,7 @@ C'est la borne la plus sous-estimée, et celle qui a déjà mordu : le 122,5 kg 
 
 ### 4.1 Ce que dit la littérature
 
-**Nuzzo et al. 2023, *Sports Medicine*** (PMID 37792272) — méta-régression, **962 tests de reps-jusqu'à-l'échec, >7 000 individus, 92 études**. C'est la première mise à jour rigoureuse d'un tableau de charges qui datait de la fin des années 80 et reposait sur deux études d'un seul groupe.
+**Nuzzo et al. 2023, *Sports Medicine*** (PMID 37792272, DOI 10.1007/s40279-023-01937-7) — méta-régression, **952 tests de reps-jusqu'à-l'échec, 7 289 individus, 269 études** *(corrigé le 28/10/2026, audit C-F10 : « 962 tests, >7 000 individus, 92 études » ne correspondait pas à la page de l'article)*. C'est la première mise à jour rigoureuse d'un tableau de charges qui datait de la fin des années 80 et reposait sur deux études d'un seul groupe.
 
 Résultats clés :
 - **À 70 % du 1RM : ~14,8 reps en moyenne, tous exercices confondus** (le tableau classique dit 12)
@@ -252,7 +252,7 @@ Point de méthode : la pente %1RM→reps de Nuzzo sert à **extrapoler** la tabl
 |---|---|---|---|
 | Zones de reps | Lourd 3-5, Mix 6-8, Hypertrophie 8-10, Volume 10-12, Séries longues 15-20 | NSCA ; Schoenfeld 2017, 2021 ; 97 habitudes sur 100 (5 profils) | choix produit appuyé |
 | Plafond d'une zone étirée | 30 reps | banc M15 | choix produit |
-| Fenêtre de l'habitude | 8 dernières séances du couple exercice-format | Williams et al. 2017 ; mésocycles de 3 à 6 semaines | choix produit appuyé |
+| Fenêtre de l'habitude | 8 dernières séances du couple exercice-format | mesure maison (banc M12 : 7 exercices sur 23 mal rangés) ; mésocycles de 3 à 6 semaines | **choix produit, mesuré** *(28/10/2026, audit C-F1 : Williams et al. 2017 est retiré de cette ligne — il traite du ratio aigu:chronique, classé INTERDIT au §6, pas d'une fenêtre d'habitude)* |
 | Saut par montée | 1 cran ; 2 en Franc avec preuve, si deux crans restent sous 10 % de la charge | ACSM 2009 : +2 à 10 %, plus faible pour les petits groupes musculaires ; APRE (Mann 2010) | convention publiée |
 | Reprise après coupure | jusqu'à 12 semaines : même charge, sans rep de plus ; au-delà : un cran dessous | Izquierdo et al. 2007 ; Mujika & Padilla 2000 ; banc M14 | choix produit appuyé |
 

@@ -248,6 +248,58 @@ describe('64B — faitsDuJeu avec la séance en cours (« comme si elle était t
   });
 });
 
+// ── 182 — L'ÉTAT « AVANT » EXCLUT LA SÉANCE EN COURS (l'XP du groupe valait 0) ──
+// Rechargée pendant la séance, l'app relit la séance et ses séries validées dans le cache : l'état « avant »
+// les comptait déjà, et `Jeu.apport(avant, apres).xp` valait 0 (12 séries chacun, `xp: 0` publié, 28/10).
+describe('182 — faitsDuJeu(c, aujourd’hui, null, idSeance) : l’état « avant » sans la séance en cours', () => {
+  const Jeu = require('../../v2/js/jeu.js');
+  // Une séance sans record, la première de sa semaine (celle du 5 au 11 octobre) : son XP est celui de la semaine
+  // qu'elle active — celui que l'« avant » qui la contient déjà fait disparaître.
+  function cacheRechargeeEnSeance() {
+    const c = corpus([
+      { debut: jourDe(10), series: [s('developpe_militaire_barre', 60, 5)] },
+      { debut: jourDe(8), series: [s('squat_barre', 140, 10)] }
+    ], []);
+    const ec = enCoursDe(brouillon([{ slug: 'squat_barre', series: [{ charge_kg: 120, reps: 3 }, { charge_kg: 120, reps: 3 }] }]));
+    // Ce que la relecture laisse dans le cache : la ligne de la séance et ses séries validées.
+    c.seances.unshift({ id: 'cur', debut: ec.seance.debut, fin: null });
+    ec.lignes.forEach((x) => c.series.push(x));
+    const parSeance = c.seriesDe;
+    c.seriesDe = (id) => (id === 'cur' ? ec.lignes : parSeance(id));
+    return { c, ec };
+  }
+  test('⚠️ la cause : « avant » contient déjà la séance → apport nul ; sans elle → l’XP de la séance', () => {
+    const { c, ec } = cacheRechargeeEnSeance();
+    // La fixture porte bien la séance et ses séries dans le cache : sinon ce test ne prouverait rien.
+    expect(c.seances.some((x) => x.id === 'cur')).toBe(true);
+    expect(c.series.filter((x) => x.session_id === 'cur').length).toBe(2);
+    const apres = Jeu.etatDuJeu(Faits.creer().faitsDuJeu(c, SOIR, ec));
+    const avantFaux = Jeu.etatDuJeu(Faits.creer().faitsDuJeu(c, SOIR));
+    expect(Jeu.apport(avantFaux, apres).xp).toBe(0);
+    const avant = Jeu.etatDuJeu(Faits.creer().faitsDuJeu(c, SOIR, null, 'cur'));
+    expect(Jeu.apport(avant, apres).xp).toBeGreaterThan(0);
+  });
+  test('l’apport est le même, la séance étant dans le cache ou non', () => {
+    const { c, ec } = cacheRechargeeEnSeance();
+    const propre = corpus([
+      { debut: jourDe(10), series: [s('developpe_militaire_barre', 60, 5)] },
+      { debut: jourDe(8), series: [s('squat_barre', 140, 10)] }
+    ], []);
+    const ref = Jeu.apport(Jeu.etatDuJeu(Faits.creer().faitsDuJeu(propre, SOIR)),
+      Jeu.etatDuJeu(Faits.creer().faitsDuJeu(propre, SOIR, ec)));
+    const apport = Jeu.apport(Jeu.etatDuJeu(Faits.creer().faitsDuJeu(c, SOIR, null, 'cur')),
+      Jeu.etatDuJeu(Faits.creer().faitsDuJeu(c, SOIR, ec)));
+    expect(apport).toEqual(ref);
+    expect(ref.xp).toBeGreaterThan(0);
+  });
+  test('sans séance à exclure, ou une séance absente du cache : la sortie est identique', () => {
+    const c = historique();
+    const ref = Faits.creer().faitsDuJeu(c, SOIR);
+    expect(Faits.creer().faitsDuJeu(c, SOIR, null, null)).toEqual(ref);
+    expect(Faits.creer().faitsDuJeu(c, SOIR, null, 'absente')).toEqual(ref);
+  });
+});
+
 describe('153 (D) — les caps de distance du jeu (JEU-V1 §5)', () => {
   const Jeu = require('../../v2/js/jeu.js');
   // La course (tapis compris), la nage et le vélo, en plus de la randonnée.

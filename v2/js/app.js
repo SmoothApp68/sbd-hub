@@ -1686,7 +1686,11 @@
     if (!seance || !jeuAllume()) return null;
     try {
       var c = corpus(), maintenant = new Date();
-      var avant = etatDuJeuCourant();
+      // 182 — la séance déjà dans le cache (relue après un rechargement en pleine séance) ne compte pas dans « avant » :
+      // sinon l'apport, donc l'XP du récap perso et celle publiée au groupe, vaut 0.
+      var dedans = (c.seances || []).some(function (s) { return s && s.id === seance.id; }) ||
+        (c.series || []).some(function (x) { return x && x.session_id === seance.id; });
+      var avant = dedans ? Jeu.etatDuJeu(faits.faitsDuJeu(c, maintenant, null, seance.id)) : etatDuJeuCourant();
       var validees = Seance.toutesLesSeries(seance).filter(function (x) { return Seance.partEnBase(x.serie); })
         .map(function (x) { return x.serie.id + '@' + (x.serie.validee_a || ''); });
       var cle = seance.id + '|' + validees.join(',') + '|' + (c.journal || []).length + '|' +

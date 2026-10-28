@@ -513,3 +513,13 @@ la file** : le groupe est du temps réel, fait réseau présent, et le direct es
 
 ## Refonte « Vivant » — Amis / Groupe / Jeu (173, 25/10/2026)
 Seulement les jetons, aucune structure : les chiffres en Condensed, `--donnees` pour les graphiques (la courbe de l'autre, la jauge), `--record` pour les records (la médaille du fil, le récap de séance).
+
+## 28/10/2026, décision d'Aurélien (177) — l'invitation se voit ; on peut quitter le groupe
+**Le défaut** : Aurélien invite Alexis ; 12 s plus tard Alexis, qui n'a jamais vu l'invitation, crée SON groupe et invite Aurélien : deux groupes d'une personne. Et la base refusait de rejoindre un autre groupe tant que sa propre séance était en cours, même seul.
+- **Côté base (v2_114)** : `groupe_liberer` laisse partir quelqu'un qui est **seul** dans son groupe, même séance en cours ; son groupe vide se fige et disparaît. Avec un autre membre actif, le refus `groupe_deja_dans_un` reste.
+- **L'invitation reçue se voit** : sur l'écran « S'entraîner ensemble » **avant** la création, dans un groupe où je suis seul (en tête de la carte du groupe), et pendant une séance (en haut de la séance, avec le relevé périodique existant : aucun second minuteur). Deux gestes : « Rejoindre » et « Non merci » (`groupe_repondre` sans rejoindre). Avec un autre membre actif, la carte n'est pas montrée (le refus serait certain).
+- **« Rejoindre » en séance** : ma séance rejoint, **même identifiant, mes séries restent** ; l'écran passe au groupe rejoint. Sans séance, « Rejoindre » ouvre le choix de ma séance (suivre, routine, vide).
+- **Créer quand une invitation attend** : la carte passe d'abord ; créer quand même ne change rien.
+- **Les refus se disent** (une phrase, jamais en silence) : `groupe_deja_dans_un` « Tu es déjà dans un groupe avec quelqu'un : quitte-le d'abord. » · `groupe_sans_invitation` « Cette invitation n'est plus valable. » · `groupe_eteint` « Ce groupe est terminé. » · `groupe_plein`, `groupe_bloque` inchangés.
+- **« Quitter » le groupe** (la spec n'avait prévu que la séance abandonnée, d'où l'absence de bouton) : un bouton dans la carte du groupe (en séance) et sur la carte du groupe de l'accueil, avec une confirmation **dans la page** (« Ta séance continue, seule : tes séries restent les tiennes. » · « Oui, quitter le groupe » / « Non »). « Oui » appelle `groupe_quitter` en direct ; l'écran revient à « S'entraîner ensemble ». Un refus ou le réseau absent se dit.
+- **Hors périmètre** : les notifications sur le téléphone (il n'y en a pas) — l'invitation se voit à l'ouverture et au relevé de 20 s.

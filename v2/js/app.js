@@ -1127,9 +1127,15 @@
         if (!generationValide(g)) return;
       }
       if (choixSemaine) {
+        // 178 — lu AVANT la fusion : ce que l'appareil a et que le serveur n'a pas repart dans la file.
+        var absents = Deraille.choixAReposer(local.semaineChoix, choixSemaine, protegeesEtEnVol(Attente.SEMAINE_CHOIX),
+          Deraille.lundiDe(Moteur.jourCivil(new Date(Date.now() - 7 * 864e5))), idUtilisateur());
         local.semaineChoix = fondreChoix(local.semaineChoix, choixSemaine);
         await Cache.ecrireBrouillon(CLE_SEMAINE, local.semaineChoix).catch(function () {});
         if (!generationValide(g)) return;
+        for (var ia = 0; ia < absents.length; ia++) {
+          await poser({ table: Attente.SEMAINE_CHOIX, op: Attente.UPSERT, id: cleDuChoix(absents[ia]), donnees: absents[ia] });
+        }
       }
       if (parisDuCompte) {
         await Cache.ecrireBrouillon(CLE_SOUS_CONSIGNE, local.sousConsigne).catch(function () {});
@@ -2678,7 +2684,7 @@
   //     sienne (`groupeDeLaSeance`) : une séance suivante n'en hérite rien — ni carte, ni liste publiée, ni XP, ni départ.
   var grp = { moi: null, etat: [], direct: [], messages: [], invitations: [], envoyees: [], lu: 0, enCours: false,
               muet: false, ouvert: false, ecrire: false, file: [], envoi: null, message: null, publie: null, vue: null,
-              aRejoindre: null, recapAuto: false, traces: {} };
+              aRejoindre: null, recapAuto: false, traces: {}, quitterDemande: false };
   var CLE_FILE_GROUPE = 'groupe-messages';
   // 121 (05 #12) — les traces « Faite en groupe avec … » de mes séances, gardées sur l'appareil (les 200 dernières).
   var CLE_TRACES_GROUPE = 'groupe-traces', TRACES_GROUPE_MAX = 200;
@@ -2694,8 +2700,10 @@
     if (/groupe_plein/.test(m)) return 'Le groupe est complet : 6 personnes.';
     if (/groupe_invite_non_mutuel/.test(m)) return 'On n’invite qu’un abonné mutuel.';
     if (/groupe_bloque/.test(m)) return 'Ce groupe n’est pas possible.';
-    if (/groupe_deja_dans_un|groupe_membres_un_a_la_fois/.test(m)) return 'Tu es déjà dans un groupe.';
-    if (/groupe_eteint|groupe_sans_invitation/.test(m)) return 'Ce groupe est terminé.';
+    // 177 — les refus de « Rejoindre » se disent en une phrase, jamais en silence.
+    if (/groupe_deja_dans_un|groupe_membres_un_a_la_fois/.test(m)) return 'Tu es déjà dans un groupe avec quelqu’un : quitte-le d’abord.';
+    if (/groupe_sans_invitation/.test(m)) return 'Cette invitation n’est plus valable.';
+    if (/groupe_eteint/.test(m)) return 'Ce groupe est terminé.';
     if (/groupe_messages_texte/.test(m)) return 'Un message fait de 1 à 140 caractères.';
     console.warn('Groupe :', texteErreur(e));
     return phraseDuReseau(action || 's’entraîner ensemble');
@@ -2733,11 +2741,22 @@
   function libreDuGroupe() {
     return !grp.moi || Social.libreDuGroupe(grp.etat, seance ? seance.id : null, new Date().toISOString());
   }
+  // 177 — une invitation reçue se VOIT aussi quand je suis seul dans mon groupe (même séance en cours) : la base me laisse
+  // partir (`groupe_liberer`, v2_114). Avec un autre membre actif, elle reste cachée (le refus de la base serait certain).
+  function invitationsVisibles() {
+    return libreDuGroupe() || Social.seulDansMonGroupe(grp.etat, new Date().toISOString());
+  }
+  // La carte d'une invitation : « Rejoindre » (ma séance en cours continue ; sans séance, je choisis ma séance), « Non merci ».
+  function cartesDInvitations() {
+    return (grp.invitations || []).map(function (i) {
+      return { invitant: i.invitant, surRejoindre: function () { rejoindreInvitation(i); }, surRefuser: function () { refuserInvitation(i); } };
+    });
+  }
   // 106 — tout ce que le groupe sait du compte qui part (« Quitter », un autre compte qui entre).
   function oublierGroupe() {
     grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.invitations = []; grp.envoyees = [];
     grp.file = []; grp.envoi = null; grp.message = null; grp.publie = null; grp.lu = 0; grp.recapAuto = false;
-    grp.aRejoindre = null; grp.traces = {};
+    grp.aRejoindre = null; grp.traces = {}; grp.quitterDemande = false;
   }
 
   // UNE LECTURE : mon groupe, l'état des séances, le direct, les messages — et, libre (sans groupe, ou ma séance du
@@ -2758,7 +2777,7 @@
         grp.etat = []; grp.direct = []; grp.messages = []; grp.envoyees = [];
       }
       // 106 — libre (ma séance du groupe finie), les invitations d'un autre groupe se montrent déjà.
-      grp.invitations = libreDuGroupe() ? await Donnees.groupeInvitationsRecues() : [];
+      grp.invitations = invitationsVisibles() ? await Donnees.groupeInvitationsRecues() : [];
       grp.lu = Date.now();
     } catch (e) {
       console.warn('Le groupe attend le réseau :', texteErreur(e));
@@ -2780,6 +2799,7 @@
     chargerGroupe();
   }
   function redessinerGroupe() {
+    if (ecranCourant === 'groupe' && grp.vue && grp.vue.mode === 'inviter') dessinerVueGroupe();
     if (ecranCourant === 'seance') dessinerGroupeSeance();
     if (ecranCourant === 'liste' || ecranCourant === 'saisie') dessinerGroupeAccueil();
   }
@@ -2843,6 +2863,28 @@
       grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.publie = null;
     }
   }
+  // 177 (28/10/2026, « je n'arrive pas à quitter le groupe ») — il n'existait AUCUN bouton : `groupe_quitter` ne partait que
+  // d'une séance abandonnée. « Quitter » dans la carte du groupe : en direct (le réseau, une réponse), ma séance continue
+  // seule — mêmes séries, même identifiant. Un refus ou le réseau absent se dit ; jamais en silence.
+  function confirmationDeDepart() {
+    return { texte: 'Ta séance continue, seule : tes séries restent les tiennes.', surOui: quitterLeGroupe,
+             surNon: function () { grp.quitterDemande = false; redessinerGroupe(); } };
+  }
+  async function quitterLeGroupe() {
+    grp.quitterDemande = false;
+    if (!grp.moi) return;
+    try {
+      await Donnees.groupeQuitter();
+      grp.message = null;
+    } catch (e) {
+      grp.message = messageGroupe(e);   // « pas membre » : déjà parti, rien à dire
+      if (grp.message) return redessinerGroupe();
+    }
+    grp.moi = null; grp.etat = []; grp.direct = []; grp.messages = []; grp.envoyees = []; grp.publie = null;
+    grp.lu = 0;
+    redessinerGroupe();
+    await chargerGroupe();
+  }
   // Poser un geste de fin dans la file du groupe : gardé sur l'appareil AVANT le premier essai (comme un message),
   // puis envoyé ; le réseau absent, il attend — la boucle du groupe et le retour du réseau le renvoient.
   function poserGesteDuGroupe(geste) {
@@ -2888,12 +2930,9 @@
     Rendu.rendreGroupeSeance(cible, vueDuGroupeSeance());
   }
   function vueDuGroupeSeance() {
-    var v = { message: grp.message };
+    var v = { message: grp.message, invitations: cartesDInvitations() };
     // 106 — le groupe d'une AUTRE séance (la mienne y est finie) ne se montre pas ici : je suis libre d'en lancer un.
     if (!groupeDeLaSeance()) {
-      v.invitations = (grp.invitations || []).map(function (i) {
-        return { invitant: i.invitant, surVoir: function () { ouvrirRejoindre(i); } };
-      });
       v.surLancer = function () { ouvrirInviter(); };
       return v;
     }
@@ -2904,6 +2943,8 @@
       titre: 'Groupe · ' + n,
       muet: grp.muet, ouvert: grp.ouvert,
       surMuet: function () { grp.muet = !grp.muet; dessinerGroupeSeance(); },
+      surQuitter: function () { grp.quitterDemande = true; dessinerGroupeSeance(); },
+      confirmerQuitter: grp.quitterDemande ? confirmationDeDepart() : null,
       surInviter: n < Social.GROUPE_MAX ? function () { ouvrirInviter(); } : null,
       pastilles: Social.pastillesDuGroupe(grp.etat, maintenant, maDerniereSerie()),
       lignes: grp.ouvert ? lignes : lignes.slice(0, Social.LIGNES_DU_DIRECT),
@@ -2958,9 +2999,7 @@
     var id = ecranCourant === 'liste' ? 'groupe-accueil' : null;
     if (!id) return;
     if (!userId()) return Rendu.rendreGroupeAccueil($(id), null);
-    var v = { invitations: (grp.invitations || []).map(function (i) {
-      return { invitant: i.invitant, surVoir: function () { ouvrirRejoindre(i); } };
-    }) };
+    var v = { invitations: cartesDInvitations() };
     if (grp.moi && !seance) {
       var maintenant = new Date().toISOString();
       if (Social.groupeFini(grp.etat, maintenant)) {
@@ -2968,7 +3007,9 @@
       } else {
         var encore = Social.encoreEnSeance(grp.etat, maintenant);
         v.fin = { titre: 'Groupe · ' + (encore.length ? encore.join(', ') + (encore.length > 1 ? ' s’entraînent encore' : ' s’entraîne encore') : 'en cours'),
-                  sous: 'Le récap du groupe s’ouvrira quand toutes les séances seront terminées.' };
+                  sous: 'Le récap du groupe s’ouvrira quand toutes les séances seront terminées.',
+                  surQuitter: function () { grp.quitterDemande = true; redessinerGroupe(); },
+                  confirmerQuitter: grp.quitterDemande ? confirmationDeDepart() : null };
       }
     }
     Rendu.rendreGroupeAccueil($(id), v.invitations.length || v.fin ? v : null);
@@ -3000,6 +3041,8 @@
     if (ecranCourant !== 'groupe' || !grp.vue) return;
     var v = grp.vue, vue = { mode: v.mode, message: v.message || null };
     if (v.mode === 'inviter') {
+      // 177 — l'invitation reçue passe AVANT la création : on la voit avant d'inviter à son tour.
+      vue.invitations = cartesDInvitations();
       vue.sous = seance ? (seance.titre || 'Séance') + ' · en cours' : null;
       // 121 (05 #12) — la lecture des amis a échoué (hors ligne) : la phrase seule, jamais « Chargement… » sans fin.
       if (!social.liens) vue.mode = v.message ? 'erreur' : 'charge';
@@ -3091,6 +3134,32 @@
 
   // REJOINDRE : l'invitation, puis MA séance (suivre celle de X, une routine, vide — ou celle en cours).
   function ouvrirRejoindre(invitation) { ouvrirVueGroupe({ mode: 'rejoindre', invitation: invitation }); }
+  // 177 — « Rejoindre » sur la carte. Une séance en cours : c'est elle qui rejoint, sans écran de choix (même identifiant,
+  // les séries restent) ; la base me laisse partir de mon groupe si j'y suis seul. Sans séance : le choix de ma séance.
+  async function rejoindreInvitation(invitation) {
+    if (!seance) return ouvrirRejoindre(invitation);
+    var v = grp.vue;
+    await rejoindre(invitation);
+    if (v && grp.vue === v) {
+      if (grp.message) { v.message = grp.message; dessinerVueGroupe(); } else fermerVueGroupe();
+    }
+  }
+  // 177 — « Non merci » : l'invitation s'efface. Un refus de la base se dit.
+  async function refuserInvitation(invitation) {
+    var v = grp.vue;
+    try {
+      await Donnees.groupeRefuser(invitation.groupe_id);
+      grp.message = null;
+      if (v) v.message = null;
+    } catch (e) {
+      grp.message = messageGroupe(e);
+      if (v) v.message = grp.message;
+    }
+    grp.invitations = (grp.invitations || []).filter(function (i) { return i.groupe_id !== invitation.groupe_id; });
+    grp.lu = 0;
+    await chargerGroupe();
+    if (v && grp.vue === v) dessinerVueGroupe();
+  }
   function rejoindreAvec(invitation, depart) {
     if (!depart) return rejoindre(invitation).then(fermerVueGroupe);
     quitterVueGroupe();
@@ -14429,10 +14498,13 @@
 
   async function poserChoixDeSemaine(lignes) {
     local.semaineChoix = fondreChoix(local.semaineChoix, lignes);
-    await Cache.ecrireBrouillon(CLE_SEMAINE, local.semaineChoix).catch(function () {});
+    // 178 (diagnostic « Répartir ») — L'ENVOI D'ABORD. La file est la promesse d'envoi ; le brouillon de l'appareil n'est
+    // qu'une copie de lecture. Posé dans l'autre sens, une page tuée entre les deux transactions gardait le choix
+    // sur l'appareil mais ne l'envoyait jamais. Le rattrapage au démarrage (`choixAReposer`) couvre le reste.
     for (var i = 0; i < lignes.length; i++) {
       await poser({ table: Attente.SEMAINE_CHOIX, op: Attente.UPSERT, id: cleDuChoix(lignes[i]), donnees: lignes[i] });
     }
+    await Cache.ecrireBrouillon(CLE_SEMAINE, local.semaineChoix).catch(function () {});
   }
 
   function entreeDeLaSemaine(jour) {

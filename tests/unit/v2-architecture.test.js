@@ -2693,6 +2693,7 @@ const REGISTRE_ECRITURES = [
   { fn: 'groupeInviter', chemin: 'liste-blanche', appelants: ['app.js:inviterAuGroupe'], raison: RAISON_GROUPE },
   { fn: 'groupeAnnulerInvitation', chemin: 'liste-blanche', appelants: ['app.js:annulerInvitation'], raison: RAISON_GROUPE },
   { fn: 'groupeRejoindre', chemin: 'liste-blanche', appelants: ['app.js:rejoindre'], raison: RAISON_GROUPE },
+  { fn: 'groupeRefuser', chemin: 'liste-blanche', appelants: ['app.js:refuserInvitation'], raison: RAISON_GROUPE },
   // 136 (audit du 16/10, 06 #14) — l'XP de fin et le départ à l'abandon passent par la file du groupe (`grp.file`,
   // `envoyerFileGroupe` → `envoyerGesteDuGroupe`), gardée sur l'appareil et renvoyée : plus d'envoi unique sans retour.
   { fn: 'groupePublier', chemin: 'liste-blanche', appelants: ['app.js:publierMesExercices', 'app.js:envoyerGesteDuGroupe'],
@@ -2704,7 +2705,7 @@ const REGISTRE_ECRITURES = [
   { fn: 'groupeEnvoyer', chemin: 'liste-blanche', appelants: ['app.js:envoyerFileGroupe'],
     raison: RAISON_GROUPE + ' ; un message écrit hors ligne attend dans la file du groupe (`grp.file`), sur l’appareil' },
   { fn: 'groupeFermer', chemin: 'liste-blanche', appelants: ['app.js:fermerRecapGroupe'], raison: RAISON_GROUPE },
-  { fn: 'groupeQuitter', chemin: 'liste-blanche', appelants: ['app.js:envoyerGesteDuGroupe'],
+  { fn: 'groupeQuitter', chemin: 'liste-blanche', appelants: ['app.js:envoyerGesteDuGroupe', 'app.js:quitterLeGroupe'],
     raison: RAISON_GROUPE + ' ; le départ à l’abandon attend dans la file du groupe (`grp.file`), sur l’appareil' },
   // ── 89 (SOCIAL-V1 « Étage 2 ») — mes scores de force (`scores_force`, v2_079) : le score et la charge, jamais le poids.
   { fn: 'publierScores', chemin: 'liste-blanche', appelants: ['app.js:publierScoresForce'], raison: RAISON_PUBLICATION },

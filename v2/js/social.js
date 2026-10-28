@@ -558,6 +558,14 @@
     if (seanceId) return moi.session_id !== seanceId;
     return membreTermine(moi, maintenantIso);
   }
+  // 177 (28/10/2026, décision d'Aurélien) — SEUL DANS MON GROUPE : personne d'autre n'y est encore en séance. La base laisse
+  // alors partir (`groupe_liberer`, v2_114) même séance en cours : une invitation reçue se voit et se rejoint. Avec un autre
+  // membre actif, le refus `groupe_deja_dans_un` reste. Sans place dans un groupe : pas « seul dans mon groupe ».
+  function seulDansMonGroupe(membres, maintenantIso) {
+    var l = membres || [];
+    if (!l.some(function (m) { return m && m.moi; })) return false;
+    return !l.some(function (m) { return m && !m.moi && !membreTermine(m, maintenantIso); });
+  }
   // 106 — LES MESSAGES GARDÉS HORS LIGNE (décision d'Aurélien du 15/10/2026) : une entrée par message — son identifiant
   // (fabriqué par l'app : renvoyé, il ne se double pas), le groupe où il a été écrit (il ne part jamais dans un autre),
   // le texte. Relue du cache au démarrage : seulement des entrées complètes ; un cache abîmé ne casse rien.
@@ -1050,6 +1058,7 @@
     groupeFini: groupeFini,
     // 106 — la fin du groupe, et les messages gardés hors ligne
     libreDuGroupe: libreDuGroupe,
+    seulDansMonGroupe: seulDansMonGroupe,
     fileDeMessages: fileDeMessages,
     GESTES_DU_GROUPE: GESTES_DU_GROUPE,
     tracesDuGroupe: tracesDuGroupe,

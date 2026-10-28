@@ -233,6 +233,14 @@
 
     // La phrase du coach : sur la ligne `message.rang` (une POSITION).
     var m = reaction.message;
+    // 175 — « ≈ » : la charge de la série est celle d'une ligne (ou du test) que la consigne marque approchée (163) ; la
+    // réaction l'écrit comme elle, sans rien recalculer.
+    if (m && consigne) {
+      var marqueeM = [consigne.ligne, consigne.haut].some(function (l) {
+        return !!l && l.approchee === true && nombre(l.charge) !== null && nombre(m.charge) !== null && memeChargeOuVides(nombre(m.charge), nombre(l.charge));
+      });
+      if (marqueeM) m = Object.assign({}, m, { approchee: true });
+    }
     // §20 bis (49-U19) — la phrase se rédige sous capture : ses chiffres
     // déclarés restent à côté du plan (`citationsMessage`), pour I26.
     var dite = m ? Voix().capturer(function () { return M.phraseReaction(m, consigne.zone); }) : null;
@@ -1326,6 +1334,33 @@
         // `entrees.volume`. Un fait, rien d'affiché : la série de plus (PR 2c)
         // le lira. `null` sans entrée de volume.
         x.placeSerieDePlus = placeDeLExercice(e, slug, phase);
+        // 175 (MOTEUR §10 bis) — LE TEMPO LENT EN COURS : le levier « Tempo lent » accepté, pas de progrès depuis — la consigne le
+        // dit (« 3 s en descente, jusqu'à ton prochain progrès »), même charge, même zone. Le coach actif seulement.
+        x.tempo = null;
+        if (coachee && c && c.consigne && c.compteur && typeof c.compteur.compteur === 'number' && e.escalier &&
+            !seance.edition && !esc.allegee && intentionX !== 'entretien' && slug) {
+          var Mt = Moteur(), jT = Mt.jourCivil(seance.debut);
+          if (jT && Mt.levierActif(slug, jT, c.compteur.compteur, e.escalier.marches || [], e.escalier.compteurs || [], Mt.LEVIER_TEMPO)) {
+            var capT = Voix().capturer(function () { return Mt.grisTempo(); });
+            x.tempo = { descente: Mt.TEMPO_DESCENTE_S, phrase: capT.texte };
+            x.entete.tempo = capT.texte;
+            x.phrases.push({ ou: 'entete.tempo', texte: capT.texte, citations: capT.citations });
+          }
+        }
+        // 175 — LES LEVIERS GARDÉS pour la page de l'exercice (« Pour continuer à monter ») : à la plus lourde de la salle, une fois
+        // la carte des leviers montrée (répondue ou non) depuis le dernier progrès. `null` sinon.
+        x.leviersGardes = null;
+        if (coachee && c && c.consigne && c.compteur && typeof c.compteur.compteur === 'number' && e.escalier &&
+            !seance.edition && !esc.allegee && intentionX !== 'entretien' && slug && auPlafond(c)) {
+          var Ml = Moteur(), jL = Ml.jourCivil(seance.debut), pl = Ml.plafondDeLaConsigne(c.consigne, c.salle);
+          var vue = jL && pl ? Ml.marcheProposee(slug, jL, c.compteur.compteur, e.escalier.marches || [], e.escalier.compteurs || [], Ml.MARCHE_LEVIERS) : null;
+          if (vue || (x.escalier && x.escalier.marche === Ml.MARCHE_LEVIERS)) {
+            var remp = Ml.remplacantAuPlafond(remplacantsDe(e, slug), pl.charge);
+            x.leviersGardes = { plafond: { charge: pl.charge, reps: pl.reps },
+                                leviers: leviersDe(remp ? { slug: remp.slug, nom: remp.nom || remp.slug, mesure: remp.mesure, salle: remp.salle || null } : null,
+                                                   pl, slug, jL, c.compteur.compteur, e.escalier.marches || [], e.escalier.compteurs || []) };
+          }
+        }
         // §14 (111) — ce que la dégressive proposée lit, porté pour I48 : la
         // classe de l'exercice (`null` hors catalogue), la ligne dégressive de
         // la routine (figée à l'ouverture), la dégressive en cours.
@@ -1340,6 +1375,8 @@
         var rvX = aUnPari(x) && !seance.edition && Moteur().effortViseEligible(x.consigne.palier) && (x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps')
           ? Moteur().reserveVisee({ zone: x.consigne.zone, role: roleDeLaVisee(x), reglage: reglagePlan }) : null;
         x.reserveVisee = rvX;
+        // 175 — « un cran de moins » : le recul de la règle de bord (174) se dit à côté du chiffre du jour, d'un badge. Le plan le dit, l'écran le dessine.
+        x.cranDeMoins = x.consigne && (x.consigne.etat === 'bord_recul' || x.consigne.etat === 'bord_vague') ? 'un cran de moins' : null;
         x.effortVise = rvX === null ? null : effortViseDuPlan(exo, rvX, suite, Seance().exerciceFini(seance, slug));
         // §9.17 — LA CARTE DU LEST : UNE SEULE, en tête de l'exercice (le composant
         // des propositions d'exercice). Quand le moteur la dit (`carte_lest`) et
@@ -1372,12 +1409,18 @@
         if (!carteLestPosee && fl && kl.etat === 'carte_lest' && !kl.allegee) {
           carteLestPosee = true;
           var M2 = Moteur(), V2 = Voix();
-          var entreeLest = { niveau: Math.min.apply(null, fl.niveaux), bas: fl.bas, reglage: reglagePlan === 'franc' ? 'franc' : null };
+          // 175 — la variante sans matériel (le catalogue la lit, `Modele.marcheSuivante`) : la carte propose les deux.
+          var varianteLest = cat && cat.variante && cat.variante.slug ? cat.variante : null;
+          var entreeLest = { niveau: Math.min.apply(null, fl.niveaux), bas: fl.bas, reglage: reglagePlan === 'franc' ? 'franc' : null,
+                             variante: varianteLest ? (varianteLest.nom || varianteLest.slug) : null };
           var capLT = V2.capturer(function () { return M2.carteLestTitre(entreeLest); });
           var capLD = V2.capturer(function () { return M2.carteLestDetail(entreeLest); });
-          x.carteLest = { titre: capLT.texte, detail: capLD.texte, oui: M2.OUI_LEST, non: M2.NON_LEST,
+          x.carteLest = { titre: capLT.texte, detail: capLD.texte,
+                          oui: varianteLest ? M2.OUI_LEST_VARIANTE : M2.OUI_LEST,
+                          non: varianteLest ? M2.nonLestVariante(cat && cat.nom ? cat.nom : slug) : M2.NON_LEST,
                           niveaux: fl.niveaux.slice(), bas: fl.bas, haut: fl.haut,
                           leste: cat && cat.leste ? cat.leste : null };
+          if (varianteLest) x.carteLest.variante = { slug: varianteLest.slug, nom: varianteLest.nom || varianteLest.slug };
           // §20 bis — le titre et le détail se vérifient comme toute phrase du coach.
           x.phrases.push({ ou: 'lest.titre', texte: capLT.texte, citations: capLT.citations });
           x.phrases.push({ ou: 'lest.detail', texte: capLD.texte, citations: capLD.citations });
@@ -1805,6 +1848,11 @@
         if (mp) sortie[slug] = mp;
         return;
       }
+      // 175 (MOTEUR §9.7 / §10.2) — LE GROS CRAN SANS ISSUE : deux essais ratés au plancher, ou la cible d'étirement au plafond
+      // (haut + 6) : la carte des leviers sans « Viser plus de reps », une fois par blocage. Une fois proposée, l'escalier ordinaire
+      // reprend (la marche ne bloque rien).
+      var mg = marcheDuGrosCran(e, seance, slug, c, zone, jour, marches, compteurs);
+      if (mg) { sortie[slug] = mg; return; }
       var n = M.nIsole(k, M.declenchementsRepondus(slug, jour, k, cartes, compteurs));
       // §14.7 (49-U17) — la place sur chacun des muscles primaires (§14.6), et
       // une série de plus déjà proposée depuis le dernier progrès.
@@ -1925,6 +1973,50 @@
     return m;
   }
 
+  // 175 — LA CARTE DU GROS CRAN. Le fondement de la consigne porte `cranGros.carte` (le moteur décide : deux essais ratés, ou la
+  // cible au plafond). La marche est celle des leviers, sa réponse un pari `leviers` (gardé ou non) ; proposée, elle ne revient
+  // pas avant le prochain progrès (`marcheProposee`), et l'escalier ordinaire reprend la main.
+  function marcheDuGrosCran(e, seance, slug, c, zone, jour, marches, compteurs) {
+    var M = Moteur();
+    var f = c.consigne && c.consigne.fondement;
+    var g = f && f.cranGros;
+    if (!g || g.carte !== true || !c.compteur || !c.compteur.meilleur) return null;
+    var k = c.compteur.compteur;
+    var deja = marches.filter(function (x) {
+      return x && x.seance === seance.id && x.exercice === slug && x.marche === M.MARCHE_LEVIERS;
+    })[0] || M.marcheProposee(slug, jour, k, marches, compteurs, M.MARCHE_LEVIERS);
+    var cat = e.catalogue && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
+    var nom = cat && cat.nom ? cat.nom : slug;
+    var remplacant = M.remplacantAuPlafond(remplacantsDe(e, slug), g.de);
+    var m = { marche: M.MARCHE_LEVIERS, n: 1, compteur: k, declenchement: false, zone: zone === undefined ? null : zone,
+              plafond: { charge: g.de, reps: c.compteur.meilleur.niveau }, gros: true, objets: {}, proposees: {} };
+    if (remplacant) {
+      m.remplacant = { slug: remplacant.slug, nom: remplacant.nom || remplacant.slug, mesure: remplacant.mesure,
+                       salle: remplacant.salle || null };
+    }
+    var leviers = M.leviersDuGros({ nom: nom, remplacant: m.remplacant || null,
+      detail: remplacant ? M.detailRemplacement(remplacant) : null,
+      tempoActif: !!M.levierActif(slug, jour, k, marches, compteurs, M.LEVIER_TEMPO) });
+    m.leviers = leviers;
+    if (deja) { m.reponse = deja.reponse; return m; }
+    var cap = Voix().capturer(function () { return M.carteLeviersGros(c.compteur.meilleur, g); });
+    m.carte = cap.texte;
+    if (!m.carte) return null;
+    m.carte.leviers = leviers;
+    retenirCitationsDeCarte(m.carte, cap.citations);
+    return m;
+  }
+
+  // 175 — LES LEVIERS d'un exercice à la plus lourde de sa salle (une donnée du moteur, rédigée hors capture). Le remplaçant
+  // est celui de `remplacantAuPlafond` ; le tempo déjà en cours depuis le dernier progrès n'y revient pas.
+  function leviersDe(remplacant, plafond, slug, jour, k, marches, compteurs) {
+    var M = Moteur();
+    return M.leviersDuPlafond({
+      remplacant: remplacant, detail: remplacant ? M.detailRemplacement(remplacant) : null,
+      charge: plafond.charge, reps: plafond.reps,
+      tempoActif: !!M.levierActif(slug, jour, k, marches, compteurs, M.LEVIER_TEMPO) });
+  }
+
   // §10 bis (113, décidé le 16/10/2026) — L'ESCALIER AU PLAFOND DE LA SALLE. Une marche par déclenchement, dans cet
   // ordre : la série de plus (si la règle de volume du §14.6 laisse de la place, hors sèche, hors zone force — §14.7),
   // la dégressive (aux conditions du §14.8), un frère plus chargeable dans la salle déclarée (le remplacement) ; une
@@ -1935,7 +2027,9 @@
     var M = Moteur();
     var k = c.compteur.compteur;
     var plafond = M.plafondDeLaConsigne(c.consigne, c.salle);
-    if (!plafond || !M.estDeclenchement(k)) return null;
+    // 175 — la carte des leviers part dès la première séance au plafond, sans attendre un déclenchement : `marcheAuPlafond`
+    // décide (les leviers d'abord, puis la série de plus et la dégressive aux déclenchements).
+    if (!plafond) return null;
     var proposees = {};
     M.MARCHES_PLAFOND.forEach(function (mk) {
       proposees[mk] = marches.filter(function (x) {
@@ -1950,31 +2044,48 @@
       placeDeLExercice(e, slug, phase) === true;
     objets[M.MARCHE_DEGRESSIVE] = charge &&
       M.degressivePossible(conditionsDegressive(e, seance, slug, zone, phase, esc, intentionProfil));
-    objets[M.MARCHE_REMPLACEMENT] = remplacant !== null;
+    // 175 — la carte des leviers a toujours un objet (« Ajouter une charge dans Ma salle ») ; le frère plus chargeable en est
+    // le premier levier (le remplacement n'est plus une marche à part).
+    // Sauf quand la personne vient de choisir « Plus léger » (D11, 120) : la consigne porte son repli, et une carte de plus
+    // s'ajouterait à un choix qu'elle vient de faire (I21 : jamais une carte et un repli ensemble).
+    var repriseLegere = !!(seance.reprises && Object.prototype.hasOwnProperty.call(seance.reprises, slug) &&
+      seance.reprises[slug] && seance.reprises[slug].choix === 'leger');
+    objets[M.MARCHE_LEVIERS] = !c.consigne.repli && !repriseLegere;
     var choix = M.marcheAuPlafond(k, proposees, objets);
     if (!choix) return null;
     var dejaVues = {};
     M.MARCHES_PLAFOND.forEach(function (mk) { dejaVues[mk] = !!proposees[mk]; });
     var m = { marche: choix.marche, n: M.nIsole(k, M.declenchementsRepondus(slug, jour, k, cartes, compteurs)),
-              compteur: k, declenchement: true, zone: zone === undefined ? null : zone,
+              compteur: k, declenchement: M.estDeclenchement(k), zone: zone === undefined ? null : zone,
               plafond: { charge: plafond.charge, reps: plafond.reps }, objets: objets, proposees: dejaVues };
+    if (choix.marche === M.MARCHE_LEVIERS && remplacant) {
+      m.remplacant = { slug: remplacant.slug, nom: remplacant.nom || remplacant.slug, mesure: remplacant.mesure,
+                       salle: remplacant.salle || null };
+    }
+    // 175 — LES LEVIERS SE GARDENT : refusée (« Garder ») ou non, la page de l'exercice les relit (« Pour continuer à monter »).
+    // Une donnée du plan, rédigée hors capture ; le tempo déjà en cours n'y revient pas.
+    // Un exercice noté par nom (132) : la carte se dit par les NOMS (« Noir × 20, ton élastique le plus fort. »), au formateur.
+    var salleEl = salleElastiqueDuPlan(e, slug);
+    var sensEl = salleEl && c.consigne.fondement && c.consigne.fondement.salle ? c.consigne.fondement.salle.sens || null : null;
+    var enNomsEl = function (fn) { return Voix().avecNoms(salleEl ? salleEl.noms : null, fn); };
+    if (choix.marche === M.MARCHE_LEVIERS) {
+      m.leviers = enNomsEl(function () { return leviersDe(m.remplacant || null, plafond, slug, jour, k, marches, compteurs); });
+    }
     if (choix.deja) {
       m.reponse = choix.deja.reponse;
       return m;
     }
-    if (choix.marche === M.MARCHE_REMPLACEMENT) {
-      m.remplacant = { slug: remplacant.slug, nom: remplacant.nom || remplacant.slug, mesure: remplacant.mesure,
-                       salle: remplacant.salle || null };
-    }
-    // Le détail du remplacement se rédige HORS de la capture : il ne cite rien du plan.
-    var detail = choix.marche === M.MARCHE_REMPLACEMENT ? M.detailRemplacement(m.remplacant) : null;
-    var capCarte = Voix().capturer(function () {
-      return M.cartePlafond(choix.marche, c.compteur.meilleur, k, {
-        muscles: musclesPrimaires(e, slug), parPriorite: musclesParPriorite(e, slug, phase),
-        remplacant: m.remplacant || null, detail: detail });
+    var capCarte = enNomsEl(function () {
+      return Voix().capturer(function () {
+        return M.cartePlafond(choix.marche, c.compteur.meilleur, k, {
+          muscles: musclesPrimaires(e, slug), parPriorite: musclesParPriorite(e, slug, phase), sens: sensEl });
+      });
     });
     m.carte = capCarte.texte;
     if (!m.carte) return null;
+    // 175 — les leviers de la carte : une donnée du moteur, rédigée HORS de la capture (la phrase seule se vérifie, §20 bis).
+    // Le détail du remplacement (« … : ta salle va jusqu'à … ») aussi.
+    if (choix.marche === M.MARCHE_LEVIERS) m.carte.leviers = m.leviers;
     retenirCitationsDeCarte(m.carte, capCarte.citations);
     return m;
   }
@@ -3409,6 +3520,11 @@
           err('I29', 'une carte du lest sans deux séances au haut de la zone (' + JSON.stringify(nv) + ')');
         }
         if (!x.carteLest.leste) err('I29', 'une carte du lest sans version lestée à poser');
+        // 175 (§9.17 bis) — la variante sans matériel : un autre exercice que le lest, jamais seul sur la carte.
+        if (x.carteLest.variante !== undefined && (!x.carteLest.variante || !x.carteLest.variante.slug ||
+            x.carteLest.variante.slug === x.carteLest.leste || x.slug === x.carteLest.variante.slug)) {
+          err('I29', 'la variante de la carte du lest est absente, ou c’est le lest ou l’exercice lui-même');
+        }
         if (/\?/.test(String(x.carteLest.titre) + String(x.carteLest.detail))) err('I29', 'un point d’interrogation dans la carte du lest (§20.2)');
         if (k && k.allegee) err('I29', 'la carte du lest pendant une semaine allégée');
         // I50 (§9.17 bis, 127) — la carte du lest jamais sous 8 reps sur les deux séances : le seuil est le haut de
@@ -3906,7 +4022,13 @@
       'lest.saut': { charge: M.SAUT_LEST },
       // §9.17 bis (127) — la carte « marche suivante » : le niveau et l'aide de la dernière des deux séances.
       'marche.niveau': x.carteMarche ? { valeur: x.carteMarche.niveau } : null,
-      'marche.aide': x.carteMarche ? { charge: x.carteMarche.charge } : null
+      'marche.aide': x.carteMarche ? { charge: x.carteMarche.charge } : null,
+      // 175 — le gros cran : le pourcentage, les reps d'écart et le plancher que le moteur seul écrit.
+      'cran.de': f.cranGros ? { valeur: f.cranGros.de } : null,
+      'cran.vers': f.cranGros ? { charge: f.cranGros.vers } : null,
+      'cran.pct': f.cranGros ? { valeur: f.cranGros.pct } : null,
+      'cran.reps': f.cranGros ? { valeur: f.cranGros.reps } : null,
+      'cran.plancher': f.cranGros ? { valeur: f.cranGros.plancher } : null
     };
     var msg = x.reaction && x.reaction.message;
     return { lignes: lignes, jour: jour, fait: fait, regle: regle, suite: suite,
@@ -4129,6 +4251,8 @@
     verifierReserve(plan, entrees, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
     verifierBord(plan, erreurs);
+    verifierLeviers(plan, erreurs);
+    verifierGrosCran(plan, erreurs);
     verifierAlleger(plan, erreurs);
     verifierApprochee(plan, erreurs);
     verifierApresLaDecharge(plan, entrees, erreurs);
@@ -4351,6 +4475,92 @@
     verifierBordSchema(plan, erreurs);
   }
 
+  // I68 (MOTEUR §9.7 / §10.2, 175) — LE GROS CRAN : un cran n'est gros que si (T − P) / P dépasse (haut − bas) × 2,5 % ; son test
+  // se valide au plancher max(bas − 2, 8 sur une isolation, 4 sinon), jamais au-dessus du bas ni sous 8 sur une isolation ;
+  // la cible d'étirement va de haut + 2 à haut + 6, jamais au-delà de 30 ; la carte des leviers ne vient qu'après deux essais
+  // ratés ou au plafond de la cible, et ne porte jamais de réserve ni d'échec.
+  function verifierGrosCran(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.consigne;
+      var g = k && k.fondement && k.fondement.cranGros;
+      if (!g) return;
+      var nom = 'I68 — exercice ' + i + ' (' + x.slug + ') : ';
+      var z = k.zone ? M.zoneParCle(k.zone) : null;
+      if (!z) { erreurs.push(nom + 'un gros cran sans zone'); return; }
+      var delta = g.de > 0 ? (g.vers - g.de) / g.de * 100 : 0;
+      if (!(delta > (z.haut - z.bas) * M.GROS_CRAN_PAR_REP)) erreurs.push(nom + 'un cran de ' + Math.round(delta) + ' % dit gros, la zone ' + z.bas + '-' + z.haut + ' l’absorbe');
+      if (g.pct !== Math.round(delta)) erreurs.push(nom + 'le pourcentage dit ' + g.pct + ' pour un écart de ' + Math.round(delta));
+      var iso = g.isolation === true;   // ce que la règle a lu à son calcul (figé avec la consigne), pas le catalogue de l'instant
+      var plancher = Math.min(z.bas, Math.max(z.bas - 2, iso ? M.GROS_PLANCHER_ISOLATION : M.GROS_PLANCHER));
+      if (g.plancher !== plancher) erreurs.push(nom + 'le plancher est ' + g.plancher + ', attendu ' + plancher);
+      if (g.plancher > z.bas) erreurs.push(nom + 'le plancher ' + g.plancher + ' au-dessus du bas ' + z.bas);
+      if (iso && g.plancher < Math.min(z.bas, M.GROS_PLANCHER_ISOLATION)) erreurs.push(nom + 'le test d’une isolation validé sous ' + M.GROS_PLANCHER_ISOLATION + ' reps');
+      if (k.etat === 'test_propose' && k.haut && k.haut.vise !== g.plancher) erreurs.push(nom + 'le test du gros cran vise ' + k.haut.vise + ', pas le plancher ' + g.plancher);
+      if (g.ratees !== undefined) {
+        var cible = k.fondement.cible;
+        var max = M.cibleMaxDuGros(z);
+        if (typeof cible === 'number' && (cible > max || cible > 30 || cible < z.haut + M.GROS_RECUL_REPS)) {
+          erreurs.push(nom + 'la cible d’étirement ' + cible + ' hors de ' + (z.haut + M.GROS_RECUL_REPS) + '-' + max);
+        }
+        var carte = x.escalier && x.escalier.gros === true;
+        if (carte && !(g.carte === true)) erreurs.push(nom + 'la carte des leviers du gros cran sans deux essais ratés ni cible au plafond');
+      }
+    });
+  }
+
+  // I69 (MOTEUR §10 bis, 175) — LA CARTE DES LEVIERS, à la plus lourde de la salle : les leviers dans l'ordre (un frère plus
+  // chargeable, le tempo lent, plus de reps, une charge dans Ma salle), chacun une fois, « Ma salle » toujours le dernier ;
+  // le remplacement vers un frère qui se charge plus (I47) ; le tempo absent quand il est déjà en cours ; « Viser N reps » à
+  // N = plafond + 3, au plus 30, au plus 8 quand le plafond est de 5 reps ou moins ; jamais un mot de réserve ou d'échec —
+  // aller à l'échec n'est pas un motif.
+  var ORDRE_LEVIERS = ['remplacement', 'tempo', 'reps', 'salle'];
+  function verifierLeviers(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var m = x && x.escalier;
+      var nom = 'I69 — exercice ' + i + ' (' + (x && x.slug) + ') : ';
+      if (x && x.leviersGardes && !(x.leviersGardes.leviers || []).length) erreurs.push(nom + 'des leviers gardés sans levier');
+      if (!m || m.marche !== M.MARCHE_LEVIERS) return;
+      var carte = m.carte || {};
+      var cles = (carte.leviers || []).map(function (lv) { return lv && lv.cle; });
+      // 175 — la carte du GROS CRAN : « Ma salle » en tête, jamais « Viser N reps » (monter en reps ne rapproche pas du cran).
+      if (m.gros === true) {
+        var ordreG = ['salle', 'remplacement', 'tempo'];
+        var rg = cles.map(function (c) { return ordreG.indexOf(c); });
+        if (!cles.length || cles[0] !== 'salle') erreurs.push(nom + 'la carte du gros cran ne s’ouvre pas sur les poids d’appoint de Ma salle');
+        if (cles.indexOf('reps') >= 0) erreurs.push(nom + 'la carte du gros cran propose « Viser plus de reps »');
+        if (rg.some(function (r) { return r < 0; }) || rg.some(function (r, j) { return j && r <= rg[j - 1]; })) {
+          erreurs.push(nom + 'les leviers du gros cran hors de l’ordre ou répétés (' + cles.join(', ') + ')');
+        }
+        if (/réserve|échec/i.test(String(carte.phrase) + ' ' + (carte.leviers || []).map(function (lv) { return lv && lv.texte; }).join(' '))) {
+          erreurs.push(nom + 'la carte parle de réserve ou d’échec : jamais un motif');
+        }
+        return;
+      }
+      var rangs = cles.map(function (c) { return ORDRE_LEVIERS.indexOf(c); });
+      if (!cles.length) erreurs.push(nom + 'la carte des leviers sans levier');
+      if (rangs.some(function (r) { return r < 0; })) erreurs.push(nom + 'un levier inconnu (' + cles.join(', ') + ')');
+      if (rangs.some(function (r, j) { return j && r <= rangs[j - 1]; })) erreurs.push(nom + 'les leviers hors de l’ordre ou répétés (' + cles.join(', ') + ')');
+      if (cles.length && cles[cles.length - 1] !== 'salle') erreurs.push(nom + '« Ma salle » n’est pas le dernier levier');
+      if (x.tempo && cles.indexOf('tempo') >= 0) erreurs.push(nom + 'le tempo lent proposé alors qu’il est déjà en cours');
+      var pl = m.plafond || null;
+      (carte.leviers || []).forEach(function (lv) {
+        if (!lv || lv.cle !== 'reps') return;
+        var v = nombre(lv.visee);
+        var attendu = pl ? M.viseeDuLevier(pl.reps) : null;
+        if (v === null || attendu === null || v !== attendu) {
+          erreurs.push(nom + 'viser ' + lv.visee + ' reps, la visée du plafond est ' + attendu);
+        }
+        if (v !== null && v > 30) erreurs.push(nom + 'viser ' + v + ' reps, au-delà de 30');
+        if (v !== null && pl && nombre(pl.reps) <= 5 && v > 8) erreurs.push(nom + 'viser ' + v + ' reps en zone de force, au-delà de 8');
+      });
+      if (/réserve|échec/i.test(String(carte.phrase) + ' ' + (carte.leviers || []).map(function (lv) { return lv && lv.texte; }).join(' '))) {
+        erreurs.push(nom + 'la carte parle de réserve ou d’échec : jamais un motif');
+      }
+    });
+  }
+
   // I67 (MOTEUR §9.1.2, 174 3/3) — LA ZONE 3-5 PROPOSÉE SOUS 3 REPS : jamais avant six séances sans monter, jamais à un exercice
   // qui a une zone (ni à un poids du corps), jamais en semaine allégée ni dans un bloc de programme en cours (I21, I39), et elle
   // ne change que la zone vers 3-5 ; elle ne cite que le compte et le record, jamais une réserve ni un effort.
@@ -4500,10 +4710,15 @@
         }
       }
       if (m.objets[m.marche] !== true) erreurs.push(nom + 'la marche ' + m.marche + ' proposée sans objet');
-      if (m.marche === M.MARCHE_REMPLACEMENT &&
-          !(m.remplacant && m.carte.vers === m.remplacant.slug && M.plusChargeableALaSalle(m.remplacant, m.plafond.charge))) {
-        erreurs.push(nom + 'un remplacement vers un exercice qui ne se charge pas plus que le plafond (' +
-          (m.remplacant ? m.remplacant.slug : 'aucun') + ')');
+      // 175 — le remplacement est le premier levier de la carte des leviers : vers un exercice plus chargeable que le plafond.
+      if (m.marche === M.MARCHE_LEVIERS) {
+        (m.carte.leviers || []).forEach(function (lv) {
+          if (lv && lv.cle === M.LEVIER_REMPLACEMENT &&
+              !(m.remplacant && lv.vers === m.remplacant.slug && M.plusChargeableALaSalle(m.remplacant, m.plafond.charge))) {
+            erreurs.push(nom + 'un remplacement vers un exercice qui ne se charge pas plus que le plafond (' +
+              (lv.vers || 'aucun') + ')');
+          }
+        });
       }
     });
   }

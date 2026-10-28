@@ -1141,16 +1141,16 @@ describe('§9.13 — la consigne, en calcul pur', () => {
     // l'atteint DÉJÀ — donc on reteste. Sans plafond : 30 < 45, la zone
     // continuerait de s'étirer, `etirement` et « vise 31 ».
     const s = [
-      seance('2026-08-30T18:00:00+00:00', 20, ...auPalier(20, 30, 3)),
-      seance('2026-09-06T18:00:00+00:00', 20, ...auPalier(20, 30, 3)),
-      seance('2026-09-13T18:00:00+00:00', 20, ...auPalier(20, 30, 3),
-             serie(40, 5, 'exploration'))
+      seance('2026-08-30T18:00:00+00:00', 200, ...auPalier(200, 30, 3)),
+      seance('2026-09-06T18:00:00+00:00', 200, ...auPalier(200, 30, 3)),
+      seance('2026-09-13T18:00:00+00:00', 200, ...auPalier(200, 30, 3),
+             serie(205, 5, 'exploration'))
     ];
     const r = pour(s, 'normal', 'machine');
     expect(r.zone).toBe('series_longues');
     expect(r.etat).toBe('retest');
-    expect(r.ligne).toEqual({ charge: 20, vise: 30 });
-    expect(r.haut).toEqual({ charge: 40, vise: 15, k: 1 });
+    expect(r.ligne).toEqual({ charge: 200, vise: 30 });
+    expect(r.haut).toEqual({ charge: 205, vise: 15, k: 1 });
   });
 
   test('DISCRIMINANT — Prudent exige les deux séances AU MÊME palier', () => {
@@ -1190,7 +1190,7 @@ describe('§9.13 — la consigne, en calcul pur', () => {
     ];
     expect(pour(s, 'normal', 'machine')).toMatchObject({
       etat: 'test_propose', zone: 'volume',
-      ligne: { charge: 100, vise: 12 }, haut: { charge: 110, vise: 10, k: 1 }
+      ligne: { charge: 100, vise: 12 }, haut: { charge: 110, vise: 8, k: 1 }
     });
   });
 

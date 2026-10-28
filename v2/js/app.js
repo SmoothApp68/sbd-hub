@@ -662,6 +662,23 @@
     var v = profil && profil.lest_reponse;
     return v === 'oui' || v === 'non' ? v : null;
   }
+  // 175 (MOTEUR §9.17 bis) — LA VARIANTE SANS MATÉRIEL de la marche lestée d'un exercice (`Modele.marcheSuivante`, la seule
+  // définition), `{ slug, nom }`, ou `null`. La carte du lest la propose avec le lest.
+  function varianteDe(index, slug) {
+    var m = index && slug ? Modele.marcheSuivante(index, slug) : null;
+    if (!m || m.type !== 'lest' || !m.variante || !index[m.variante]) return null;
+    return { slug: m.variante, nom: index[m.variante].nom || m.variante };
+  }
+  // 175 — LA RÉPONSE AU LEST D'UN EXERCICE : celle du profil ; sinon, sur un exercice dont la carte du lest proposait aussi
+  // la variante, une réponse à cette carte (`marche_reponses[slug]` : la variante ajoutée, ou « Rester aux … ») vaut « pas de
+  // lest » pour lui seul — la carte du lest ne revient pas, et les reps continuent. Le profil, lui, n'est pas touché.
+  function lestReponseDeLExercice(slug) {
+    var g = lestReponseDe();
+    if (g !== null) return g;
+    var r = slug ? marcheReponsesDe()[slug] : null;
+    if (r && typeof r === 'object' && (r.r === 'oui' || r.r === 'non') && varianteDe(catalogueIndexe(), slug)) return 'non';
+    return null;
+  }
 
   // MOTEUR §9.17 bis (127) — les réponses à la carte « marche suivante », lues au profil (`marche_reponses`, v2_099) :
   // `{ [slug de départ]: { r, le, aide } }`, ou `{}` (pas de réponse, colonne absente). La démonstration (`demoMarche`)
@@ -5600,9 +5617,20 @@
     var seriesFigees;
     var attendait = consignes.parSlug[slug];
     if (attendait && attendait.consigne && attendait.consigne.etat === 'carte_lest' &&
-        lestReponseDe() !== null) {
+        lestReponseDeLExercice(slug) !== null) {
       seriesFigees = attendait.seriesRoutine;
       delete consignes.parSlug[slug];
+    }
+    // 175 (MOTEUR §10 bis) — DE MÊME, LE LEVIER « VISER N REPS » : une consigne figée au maintien (la plus lourde, au plafond
+    // des reps) se recalcule une fois la visée acceptée, à cette charge, plus haute que son plafond. Les séries de sa
+    // routine restent celles figées à l'ouverture.
+    else if (attendait && attendait.consigne && attendait.consigne.etat === 'salle_max' && attendait.consigne.fondement &&
+             attendait.consigne.fondement.salle && attendait.consigne.fondement.salle.maintien === true) {
+      var rl = rallongeDe(slug), fs = attendait.consigne.fondement.salle;
+      if (Moteur.rallongeChangeLePlafond(rl, fs)) {
+        seriesFigees = attendait.seriesRoutine;
+        delete consignes.parSlug[slug];
+      }
     }
     if (!Object.prototype.hasOwnProperty.call(consignes.parSlug, slug)) {
       var exo = consignes.index[slug];
@@ -5647,10 +5675,17 @@
     return consignes.parSlug[slug];
   }
 
+  // 175 (MOTEUR §10 bis) — la visée acceptée d'un exercice (le levier « Viser N reps »), `{ charge, visee }`, ou `null` :
+  // elle rallonge le plafond de sa plus lourde (`Moteur.avecRallonge`), dans les options de la consigne.
+  function rallongeDe(slug) {
+    return Moteur.rallongeAcceptee(slug, Moteur.marchesDesParis(parisEscalierConnus()));
+  }
+
   // §9.17 bis (127) — la marche suivante d'un exercice, quand le coach peut la proposer (`Modele.marcheSuivante`,
   // la seule définition), sinon `null`.
   function marcheAProposer(index, slug) {
-    var m = Modele.marcheSuivante(index, slug);
+    // 175 — « Pas de lest » (le profil, ou la réponse de l'exercice) : la variante sans matériel devient la marche.
+    var m = Modele.marcheSuivante(index, slug, { lestRefuse: lestReponseDeLExercice(slug) === 'non' });
     return m && m.proposable ? m : null;
   }
 
@@ -5745,8 +5780,14 @@
       intention: intentionDeLExercice(slug),
       // §9.17 — la réponse à la carte du lest (profil), et ce que le catalogue
       // sait livrer : sans version lestée, la carte ne se pose pas.
-      lestReponse: lestReponseDe(),
+      lestReponse: lestReponseDeLExercice(slug),
       lestPossible: exo ? Modele.lesteDe(index, slug) !== null : false,
+      // 175 (MOTEUR §10 bis) — la visée acceptée (le levier « Viser N reps »), qui rallonge le plafond de la plus lourde.
+      rallonge: rallongeDe(slug),
+      // 175 (MOTEUR §9.7) — l'exercice est-il une ISOLATION (la définition du moteur) ? Le plancher d'un gros cran ne descend
+      // pas sous 8 reps.
+      isolation: exo ? Moteur.estIsolation({ prim: exo.muscles_primaires || [], sec: exo.muscles_secondaires || [],
+                                             stab: exo.muscles_stabilisateurs || [] }) === true : false,
       // §9.17 bis (127) — l'exercice est sur une échelle avec une marche à proposer : le fondement porte alors ses
       // deux dernières séances (`deuxSeances`), que lit la carte « marche suivante ».
       echelle: exo ? marcheAProposer(index, slug) !== null : false,
@@ -6340,6 +6381,8 @@
                             mesure: gc.inconnue ? null : (estSalleElastique(Profil.salleDeLExercice(profil, slug, index))
                               ? 'charge_reps' : gc.mesure),
                             leste: Modele.lesteDe(index, slug),
+                            // 175 (MOTEUR §9.17 bis) — la variante sans matériel que la carte du lest propose avec le lest.
+                            variante: varianteDe(index, slug),
                             // MOTEUR §10 bis (108) — la salle déclarée (chauffes et
                             // dégressive d'un exercice sans consigne), ou `null`.
                             salle: Profil.salleDeLExercice(profil, slug, index) };
@@ -6813,6 +6856,7 @@
     var x = planDuSlug(slug);
     return x ? { jaune: x.entete.jaune, gris: x.entete.gris, compteur: x.entete.compteur || null,
                  frere: x.entete.frere || null, plus: x.entete.plus || null, alleger: x.entete.alleger || null,
+                 tempo: x.entete.tempo || null,
                  approchee: x.approchee ? x.approchee.phrase : null } : c.libelles;
   }
 
@@ -7281,6 +7325,45 @@
     if (seance && acceptee && alleger) await appliquerAllegee();
   }
 
+  // 175 (MOTEUR §10 bis) — LA CARTE DES LEVIERS, LA RÉPONSE : un geste par levier, ou « Garder ». UNE réponse par carte, gardée :
+  //   · `remplacement` : le frère prend la place (`remplacerAuPlafond`, le geste d'avant), sans pari — l'ancien exercice sort ;
+  //   · `tempo`, `reps`, `salle` : un pari accepté (`marche : leviers`, `levier`, le plafond au moment du choix, la visée de
+  //     « reps ») SANS `origine` : il s'observe comme toute marche, par le progrès avant le prochain déclenchement ;
+  //   · `garder` : un pari refusé — la phrase de maintien reste, les leviers restent sur la page de l'exercice, et la série de
+  //     plus puis la dégressive continuent aux déclenchements.
+  // « salle » ouvre ensuite Ma salle. La démonstration garde la réponse en mémoire : aucun pari.
+  async function repondreLevier(iExo, cle) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var p = planActuel();
+    var x = p && p.exercices[iExo];
+    var m = x && x.escalier;
+    if (!m || !m.carte || m.carte.type !== Moteur.MARCHE_LEVIERS) return;
+    var levier = (m.carte.leviers || []).filter(function (lv) { return lv.cle === cle; })[0] || null;
+    if (cle !== 'garder' && !levier) return;
+    if (cle === Moteur.LEVIER_REMPLACEMENT) {
+      return remplacerAuPlafond(iExo, x.slug, levier.vers);
+    }
+    var acceptee = cle !== 'garder';
+    var extra = { levier: acceptee ? cle : null, debut: seance.debut,
+                  plafond: { charge: m.plafond.charge, reps: m.plafond.reps } };
+    if (cle === Moteur.LEVIER_REPS) extra.visee = levier.visee;
+    reponseEnCours = true;
+    try {
+      if (demoEscalier()) {
+        demoMarches = demoMarches.concat([{ seance: seance.id, jour: Moteur.jourCivil(seance.debut), exercice: x.slug,
+          marche: Moteur.MARCHE_LEVIERS, reponse: acceptee ? 'acceptee' : 'refusee', levier: extra.levier,
+          compteur: m.compteur, debut: seance.debut, n: null, plafond: extra.plafond, visee: extra.visee || null }]);
+      } else {
+        var id = await Moteur.idDEscalier(seance.id, x.slug, Moteur.MARCHE_LEVIERS);
+        await ecrirePariDeMarche(pariDeMarche(id, x, Moteur.MARCHE_LEVIERS, acceptee ? 'acceptee' : 'refusee', p, extra));
+      }
+    } finally {
+      reponseEnCours = false;
+    }
+    if (seance) rendreSeance();
+    if (seance && cle === Moteur.LEVIER_SALLE) ouvrirSalleProfil();
+  }
+
   // MOTEUR §10 bis (113) — « CHANGER D'EXERCICE » : le frère prend la place de l'exercice DANS LA ROUTINE DE LA
   // SÉANCE (le geste de « Remplacer » de l'éditeur, `Routines.exerciceRemplace` : même rang, même superset, mêmes
   // séries et repos, sans charge de départ ; écrit par la file, `poserRoutineVoulue`, comme « Le coach relit ta
@@ -7344,6 +7427,12 @@
     var x = planDeLExercice(iExo);
     var carte = x && x.carteLest;
     if (!carte) return;
+    // 175 (MOTEUR §9.17 bis) — la carte du lest qui propose aussi la variante sans matériel : « Pompes Déclinées » s'ajoute
+    // comme une marche (`marche_reponses[slug]`, `oui`), « Rester aux … » est un refus gardé (`non`) ; ni l'un ni l'autre
+    // n'écrit « Pas de lest » au profil (`lestReponseDeLExercice`). « Ajouter du lest » est le `oui` d'avant.
+    if (carte.variante && (reponse === 'variante' || reponse === 'non')) {
+      return repondreMarche(iExo, reponse === 'variante' ? 'oui' : 'non', { cible: carte.variante.slug, aide: false });
+    }
     var oui = reponse === 'oui';
     var leste = carte.leste;
     reponseEnCours = true;
@@ -7376,10 +7465,11 @@
   //   · « Pas maintenant » : `{ r: 'non', le, aide }` — `aide`, la charge de la dernière séance quand l'exercice est
   //     une aide (la carte revient à une aide plus légère). La séance ne change pas.
   // La démonstration (`demoEscalier`) garde la réponse EN MÉMOIRE (`demoMarche`) : rien ne s'écrit.
-  async function repondreMarche(iExo, reponse) {
+  async function repondreMarche(iExo, reponse, carteLest) {
     if (!seance || enEdition() || reponseEnCours) return;
     var x = planDeLExercice(iExo);
-    var carte = x && x.carteMarche;
+    // 175 — `carteLest` : la réponse vient de la carte du lest (la variante sans matériel), pas de la carte « marche suivante ».
+    var carte = carteLest || (x && x.carteMarche);
     if (!carte) return;
     var oui = reponse === 'oui';
     var slug = x.slug;
@@ -8137,6 +8227,11 @@
         var x = planDeLExercice(iExo);
         return x && x.reserveVisee !== undefined ? x.reserveVisee : null;
       },
+      // 175 — « un cran de moins » : le badge du recul (174), à côté du chiffre du jour.
+      cranDeMoins: function (iExo) {
+        var x = planDeLExercice(iExo);
+        return x && x.cranDeMoins ? x.cranDeMoins : null;
+      },
       effortVise: effortViseSurLigne,
       // MOTEUR §9.23 (55-1) — la médaille, sous la rangée d'une série validée.
       medaille: medailleSurLigne,
@@ -8180,6 +8275,7 @@
         return x && x.escalier && x.escalier.carte ? x.escalier.carte : null;
       },
       surSchema: function (i, reponse) { return repondreSchema(i, reponse); },
+      surLevier: function (i, cle) { return repondreLevier(i, cle); },
       // MOTEUR §9.17 (50-1) — la carte du lest : UNE, en tête de l'exercice,
       // lue sur le plan ; ses deux gestes écrivent la réponse au profil.
       propositionLest: function (i) {
@@ -11605,6 +11701,15 @@
       teteRecords: teteRecords,
       objectif: carteObjectif,
       tonEchelle: echelle,
+      // 175 (MOTEUR §10 bis) — « Pour continuer à monter » : les leviers du plafond, relus du plan (jamais recalculés ici).
+      leviers: xPlan && xPlan.leviersGardes ? {
+        liste: xPlan.leviersGardes.leviers,
+        surLevier: (function () {
+          var iL = seance ? (seance.exercices || []).findIndex(function (z) { return z && z.exercise_slug === slug; }) : -1;
+          return iL >= 0 && xPlan.escalier && xPlan.escalier.carte && xPlan.escalier.carte.type === Moteur.MARCHE_LEVIERS
+            ? function (cle) { afficherSaisie(); repondreLevier(iL, cle); } : null;
+        })()
+      } : null,
       surMarche: function (s) { afficherExercice(s); },
       volume: {
         nbSeries: Semaine.compteSeriesTravail(toutes, local.exercices),
@@ -11691,7 +11796,8 @@
     });
     // La phrase se tait en carnet (le profil) ; en Entretenir (l'exercice de départ), `phraseDe` le sait.
     var phraseDe = function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { reglage: Profil.rythmeDe(profil) })); };
-    return Modele.vueEchelle(index, slug, faites, zonesHaut, !Moteur.coachSeTait(profil && profil.intention), phraseDe);
+    return Modele.vueEchelle(index, slug, faites, zonesHaut, !Moteur.coachSeTait(profil && profil.intention), phraseDe,
+      { lestRefuse: lestReponseDe() === 'non' });
   }
 
   // 145 (ECRAN-SAISIE §7 quater.7, maquette `maquette-semaine-echelles-v1.html`, validée le 23/10/2026) — « TES ÉCHELLES
@@ -11756,6 +11862,7 @@
                                                          texte: meilleurTexte(n.ancienne.slug, n.ancienne.series) } } : null };
     });
     var cartes = Modele.vueEchellesDeLaSemaine(index, items, {
+      lestRefuse: lestReponseDe() === 'non',
       faites: faites, zonesHaut: zonesHaut, coachActif: !Moteur.coachSeTait(profil && profil.intention),
       phraseDe: function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { court: true, reglage: Profil.rythmeDe(profil) })); },
       rondsDe: function (slug, e) {

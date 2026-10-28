@@ -400,6 +400,8 @@ describe('5 — répondre à la carte du lest ne recalcule que l’exercice qui 
     // 132 : l'historique et l'état que le moteur lit (`groupesDuMoteur`, `etatDuMoteur` : tels quels sans élastiques).
     ['estSalleElastique', 'groupesDuMoteur', 'etatDuMoteur', 'lestReponseDe', 'cleConsignes', 'cleSauveeValable', 'consigneDe']
       .forEach((n) => vm.runInContext(extraire(n), ctx));
+    // 175 : la réponse au lest d'un exercice (`lestReponseDeLExercice`) est celle du profil tant qu'aucune variante n'a été répondue.
+    vm.runInContext('function lestReponseDeLExercice(slug) { return lestReponseDe(); }', ctx);
     vm.runInContext('function optionsDeConsigne(slug) { return { lestReponse: lestReponseDe() }; }', ctx);
     return ctx;
   }

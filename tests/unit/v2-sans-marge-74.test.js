@@ -82,8 +82,16 @@ describe('74 — la concordance sur les 79 séance-exercices réels', () => {
     'u1|squat_barre#24': { etat: 'progression', zone: 'lourd', palier: 105, niveau: 8, ligne: { charge: 105, vise: 5 }, haut: null },
     'u2|kickbacks_poulie#9': { etat: 'progression', zone: 'series_longues', palier: 15, niveau: 20, ligne: { charge: 15, vise: 20 }, haut: null }
   };
+  // 175 (28/10/2026, décision d'Aurélien du 26/10) — LE GROS CRAN (MOTEUR §9.7 bis) : un test dont le cran dépasse
+  // (haut − bas) × 2,5 % se valide au plancher, et son « Si ça passe » vise ce plancher (et non le bas de la zone). Trois cas du
+  // fichier perdent leurs reps visées au test ; le fichier de référence ne se retouche pas, les écarts sont nommés à leur valeur exacte.
+  const GROS_175 = {
+    'u1|elevation_laterale_poulie#6': { etat: 'test_propose', zone: 'series_longues', palier: 4.6, niveau: 16, ligne: { charge: 4.6, vise: 17 }, haut: { charge: 6.8, vise: 13, k: 1 } },
+    'u1|developpe_couche_incline_haltere#9': { etat: 'test_propose', zone: 'volume', palier: 64, niveau: 11, ligne: { charge: 64, vise: 12 }, haut: { charge: 72, vise: 8, k: 1 } },
+    'u1|curl_marteau_haltere#9': { etat: 'test_propose', zone: 'volume', palier: 32, niveau: 12, ligne: { charge: 32, vise: 12 }, haut: { charge: 36, vise: 8, k: 1 } }
+  };
   test('0 écart avec `aujourdhui_74` (état, zone, palier, niveau, ligne, haut)', () => {
-    const attendu = (c) => EFFORT_154[c.cle + '#' + c.jusqua] || ECHEC_152[c.cle + '#' + c.jusqua] || FRANC_149[c.cle + '#' + c.jusqua] || c.aujourdhui_74;
+    const attendu = (c) => GROS_175[c.cle + '#' + c.jusqua] || EFFORT_154[c.cle + '#' + c.jusqua] || ECHEC_152[c.cle + '#' + c.jusqua] || FRANC_149[c.cle + '#' + c.jusqua] || c.aujourdhui_74;
     const ecarts = D.cas
       .map((c) => ({ c, r: consigneDuCas(c) }))
       .filter(({ c, r }) => JSON.stringify(r) !== JSON.stringify(attendu(c)))

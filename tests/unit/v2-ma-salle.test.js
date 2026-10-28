@@ -451,8 +451,12 @@ describe('§10 bis (16/10/2026, 113) — au plafond plusieurs séances : l’esc
     return Object.assign(e, { phase: opt.phase || 'maintien',
       volume: { biceps: { place: true, moyenne: 8, seuil: 10, fenetres: 12 } },
       escalier: { cartes: [], compteurs: opt.compteurs || [], noms: {}, seriesRoutine: { [SLUG]: 3 },
-                  marches: opt.marches || [] } });
+                  marches: (opt.sansLeviers ? [] : [LEV0]).concat(opt.marches || []) } });
   }
+  // 175 — au plafond, la carte des leviers vient d'abord (dès la première séance) ; ici elle est répondue d'avance (refusée au
+  // compteur 1) pour que la série de plus et la dégressive se lisent comme avant (`v2-plafond-propose.test.js` : les leviers).
+  const LEV0 = { id: null, seance: 'L0', jour: '2026-11-01', exercice: SLUG, marche: 'leviers', reponse: 'refusee', compteur: 1,
+    debut: '2026-11-01T10:00:00+00:00', n: null, levier: null };
   const sansSalleCat = (opt) => (opt.sansSalle ? null : { materiel: 'barre_ez', charges: [10, 15, 20, 25, 30], isolation: true });
   // Deux autres exercices bloqués (compteur 4) dans les 7 jours : de quoi une semaine allégée.
   const AUTRES = [{ exercice: 'a', jour: '2026-11-03', compteur: 4, seance: 'X1' }, { exercice: 'b', jour: '2026-11-03', compteur: 4, seance: 'X1' }];
@@ -469,6 +473,8 @@ describe('§10 bis (16/10/2026, 113) — au plafond plusieurs séances : l’esc
     const c = auPlafond(false);
     expect(M.aLaPlusLourdeDeLaSalle(c.consigne, c.salle)).toBe(true);
     expect(M.auPlafondDeLaSalle(c.consigne, c.salle)).toBe(true);
+    // 175 — prémisse : la carte des leviers passe en premier tant qu'elle n'a pas de réponse.
+    expect(T.planDeSeance(entreesEscalier(c, { sansLeviers: true })).exercices[0].escalier.marche).toBe('leviers');
     const e = entreesEscalier(c);
     const p = T.planDeSeance(e);
     const x = p.exercices[0];

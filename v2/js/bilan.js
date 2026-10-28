@@ -221,7 +221,7 @@
 
   // Le volume tel que l'écrit la tuile du récap : en tonnes, au dixième (« 10,1 t »).
   function tonnesDuRecap(kg) {
-    return Mo().nombreSigne(Math.round((Number(kg) || 0) / 100) / 10) + '\u00a0t';
+    return Mo().nombreGroupe(Mo().nombreSigne(Math.round((Number(kg) || 0) / 100) / 10)) + '\u00a0t';
   }
 
   // « 10,1 t soulevées : à peu près un tricératops. » ; au-delà de 50 t,

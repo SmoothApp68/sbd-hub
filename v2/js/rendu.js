@@ -17,6 +17,9 @@
   // ⚠️ LES NOMBRES ET LES DATES S'ÉCRIVENT DANS `modele.js`, LE FORMATEUR
   // UNIQUE (consolidation, PR 7). Ces noms ne sont plus que des appels.
   function nombreFr(n) { return M().nombreSigne(n); }
+  // 175 — « 1 265 » : l'espace fine insécable des milliers (le formateur de `Modele.nombreGroupe`, jamais un second), pour les
+  // nombres que Progression AFFICHE (les champs de saisie gardent `nombreFr`, que `lireNombre` relit à l'identique).
+  function grand(n) { return M().nombreGroupe(nombreFr(n)); }
   function dateCourte(iso) { return M().dateCourte(iso); }
   function dateLongue(iso) { return M().dateLongue(iso); }
   function mmss(secondes) { return M().mmss(secondes); }
@@ -628,6 +631,30 @@
     cible.appendChild(carte);
   }
 
+  // 175 (MOTEUR §10 bis) — « POUR CONTINUER À MONTER » : les leviers de la carte du plafond, gardés sur la page de l'exercice
+  // (refusés ou non). Le dessin seulement : tout arrive fait (`plan.exercices[i].leviersGardes`). Un geste par levier quand la
+  // séance est ouverte (`surLevier`), sinon la liste se lit.
+  function rendreLeviersGardes(cible, v) {
+    if (!v || !(v.liste || []).length) return;
+    var carte = el('section', 'pour-monter');
+    carte.appendChild(el('h3', 'te-titre', 'Pour continuer à monter'));
+    var ul = el('ul', 'pm-leviers');
+    v.liste.forEach(function (lv) {
+      var li = el('li', 'pm-levier pm-' + lv.cle);
+      if (v.surLevier) {
+        var b = el('button', 'pm-geste', lv.texte);
+        b.type = 'button';
+        b.addEventListener('click', function () { v.surLevier(lv.cle); });
+        li.appendChild(b);
+      } else {
+        li.appendChild(doc.createTextNode(lv.texte));
+      }
+      ul.appendChild(li);
+    });
+    carte.appendChild(ul);
+    cible.appendChild(carte);
+  }
+
   // 145 (ECRAN-SAISIE §7 quater.7, maquette `maquette-semaine-echelles-v1.html`, validée le 23/10/2026) — « TES ÉCHELLES
   // CETTE SEMAINE », en tête de Saisie. Le dessin seulement : tout arrive fait (`Modele.vueEchellesDeLaSemaine`, l'app).
   // La carte s'ouvre sur la page « Ton échelle » (`vue.surOuvrir(slug)`, celle de la première échelle). Ni flèche, ni
@@ -682,6 +709,7 @@
 
   function rendreResumeExo(cible, vue) {
     if (vue.tonEchelle) rendreTonEchelle(cible, vue.tonEchelle, vue.surMarche);
+    if (vue.leviers) rendreLeviersGardes(cible, vue.leviers);
     if (vue.objectif) rendreCarteObjectif(cible, vue.objectif);
     if (vue.teteRecords) rendreTeteRecords(cible, vue.teteRecords);
     cible.appendChild(el('div', 'section-t', 'RECORDS'));
@@ -1283,7 +1311,7 @@
         barre.style.width = (plusGrand > 0 ? Math.round((Number(z.series) || 0) / plusGrand * 100) : 0) + '%';
         piste.appendChild(barre);
         item.appendChild(piste);
-        item.appendChild(el('b', null, nombreFr(z.series)));
+        item.appendChild(el('b', null, grand(z.series)));
         grille.appendChild(item);
       });
       bloc.appendChild(grille);
@@ -1377,16 +1405,16 @@
     // pompes, dips), le mois dit ses séries de travail ; « Pas encore » seulement quand il n'en a aucune (les sorties
     // seules n'en sont pas, comme la story du mois).
     bouts.push(v.kg ? tonnes(v.kg) + ' soulevées'
-      : (v.series ? v.series + ' série' + (v.series > 1 ? 's' : '') + ' de travail' : 'Pas encore de série de travail'));
+      : (v.series ? grand(v.series) + ' série' + (v.series > 1 ? 's' : '') + ' de travail' : 'Pas encore de série de travail'));
     if (v.records) bouts.push(pluriel(v.records, 'record'));
-    if (v.paris && v.paris.verifies) bouts.push(v.paris.tenus + ' pari' + (v.paris.tenus > 1 ? 's' : '') +
-      ' tenu' + (v.paris.tenus > 1 ? 's' : '') + ' sur ' + v.paris.verifies);
+    if (v.paris && v.paris.verifies) bouts.push(grand(v.paris.tenus) + ' pari' + (v.paris.tenus > 1 ? 's' : '') +
+      ' tenu' + (v.paris.tenus > 1 ? 's' : '') + ' sur ' + grand(v.paris.verifies));
     // 173 (« Vivant ») — le chiffre en héros : « 13 t » (puis « soulevées »), « 14 » (puis « records ») ; le texte, lui, ne change pas.
     var ligneM = el('div', 'bloc-ligne bloc-heros');
     bouts.forEach(function (b, i) {
       // Le « · » reste dans le texte lu (banc, lecteurs) mais ne se dessine pas : l'espace (gap) sépare les blocs, rien ne pend en fin de ligne.
       if (i > 0) { var sepM = el('span', 'bh-sep', ' \u00b7 '); sepM.setAttribute('aria-hidden', 'true'); ligneM.appendChild(sepM); }
-      var m = /^(\d[\d,.\u00a0]*?(?:\u00a0t)?)(\s.*)$/.exec(b);
+      var m = /^(\d[\d,.\u00a0\u202f]*?(?:\u00a0t)?)( .*)$/.exec(b);
       var bout = el('span', 'bh-bout' + (i === 0 ? ' bh-premier' : ''));
       if (m) { bout.appendChild(el('span', 'bh-n', m[1])); bout.appendChild(doc.createTextNode(m[2])); }
       else bout.appendChild(doc.createTextNode(b));
@@ -1675,7 +1703,7 @@
   }
   function tonnes(kg) {
     var t = (Number(kg) || 0) / 1000;
-    return nombreFr(Math.round(t * (t < 10 ? 10 : 1)) / (t < 10 ? 10 : 1)) + '\u00a0t';
+    return grand(Math.round(t * (t < 10 ? 10 : 1)) / (t < 10 ? 10 : 1)) + '\u00a0t';
   }
   // 98 (BILANS-V1) — l'ancien bilan du mois (`rendreBilanMois`) n'existe plus : la story du mois le remplace
   // (`annee.js`), et en reprend les records et les paris.
@@ -2838,6 +2866,14 @@
           var ligneJ = consigneVivante(l, iJ);
           // Un attribut, rendu par CSS (`::after`) : le texte de la consigne reste celui du moteur, mot pour mot.
           if (iJ === 0 && gardeEn !== null && gardeEn !== undefined) ligneJ.setAttribute('data-garde', 'garde-en\u00a0' + gardeEn);
+          // 175 — « un cran de moins » : le badge du recul, au bout du chiffre du jour (couleur --donnees) ; la phrase lue le dit aussi.
+          if (iJ === 0 && !vue.programme && typeof vue.cranDeMoins === 'function') {
+            var recul = vue.cranDeMoins(x._iExo);
+            if (recul && ligneJ.classList.contains('consigne-heros')) {
+              ligneJ.appendChild(el('span', 'badge-recul', recul));
+              ligneJ.setAttribute('aria-label', (ligneJ.getAttribute('aria-label') || '') + ' ' + recul);
+            }
+          }
           entree.appendChild(tapable(ligneJ));
         });
         if (lib.gris) entree.appendChild(tapable(el('div', 'consigne-dit', lib.gris)));
@@ -2854,6 +2890,8 @@
         if (lib.plus) entree.appendChild(tapable(el('div', 'consigne-dit serie-de-plus', lib.plus)));
         // 174 — la 4e marche : « une série de moins, sans dégressive, jusqu'à ton prochain progrès », ou le rappel d'une marche refusée.
         if (lib.alleger) entree.appendChild(tapable(el('div', 'consigne-dit alleger-en-cours', lib.alleger)));
+        // 175 — le tempo lent en cours (le levier accepté au plafond) : « 3 s en descente, jusqu'à ton prochain progrès ».
+        if (lib.tempo) entree.appendChild(tapable(el('div', 'consigne-dit tempo-en-cours', lib.tempo)));
       }
       // 99 (MOTEUR §9.24) — un exercice ajouté pour cette semaine seulement : « ajouté : séance manquée de mardi ».
       if (x.ajout) entree.appendChild(el('div', 'consigne-dit ajout-semaine', 'ajouté : ' + x.ajout));
@@ -3187,6 +3225,17 @@
   // « Pas de lest ». Le MÊME composant que les chauffes et le schéma — aucune
   // seconde carte.
   function propositionDeLest(carte, iExo, vue) {
+    // 175 (MOTEUR §9.17 bis) — la variante sans matériel : trois gestes, la même carte (le composant de la reprise).
+    if (carte.variante) {
+      return propositionDExercice({
+        classe: 'proposition-lest', texte: carte.titre, detail: carte.detail,
+        gestes: [
+          { texte: carte.oui, classe: 'pl-oui', surClic: function () { vue.surLest(iExo, 'oui'); } },
+          { texte: carte.variante.nom, classe: 'pl-variante', surClic: function () { vue.surLest(iExo, 'variante'); } },
+          { texte: carte.non, classe: 'pl-non', surClic: function () { vue.surLest(iExo, 'non'); } }
+        ]
+      }, iExo);
+    }
     return propositionDExercice({
       classe: 'proposition-lest', texte: carte.titre, detail: carte.detail,
       oui: carte.oui, non: carte.non, classeOui: 'pl-oui', classeNon: 'pl-non',
@@ -3216,6 +3265,16 @@
     // le même geste que la série de plus, « Ajouter une dégressive » / « Non merci ».
     // MOTEUR §10 bis (113) — AU PLAFOND DE LA SALLE, la troisième marche : un frère plus chargeable, « Changer
     // d'exercice » / « Non merci ». La même carte, la même réponse (`vue.surSchema`).
+    // 175 (MOTEUR §10 bis) — À LA PLUS LOURDE DE LA SALLE, LA CARTE DES LEVIERS : « 30 kg × 15, la plus lourde de ta salle. Pour
+    // continuer à monter : » puis un geste par levier (un frère plus chargeable, le tempo lent, plus de reps, une charge dans
+    // Ma salle) et « Garder ». Le composant des choix de la carte de reprise ; la réponse est `vue.surLevier(iExo, cle)`.
+    if (carte.type === 'leviers') {
+      var gestesL = (carte.leviers || []).map(function (lv) {
+        return { texte: lv.texte, classe: 'pl-levier pl-' + lv.cle, surClic: function () { vue.surLevier(iExo, lv.cle); } };
+      });
+      gestesL.push({ texte: carte.non, classe: 'pl-garder', surClic: function () { vue.surLevier(iExo, 'garder'); } });
+      return propositionDExercice({ classe: 'proposition-leviers', texte: carte.phrase, detail: carte.detail, gestes: gestesL }, iExo);
+    }
     if (carte.type === 'remplacement') {
       return propositionDExercice({
         classe: 'proposition-remplacement', texte: carte.phrase, detail: carte.detail,
@@ -4356,7 +4415,7 @@
   // le nom de `THRoutines.nomLibre` : ici, on ne pose que des mots sur ce qu'on
   // reçoit. Les repos sont des valeurs par défaut et leur origine se dit.
 
-  function pluriel(n, mot) { return n + ' ' + mot + (n > 1 ? 's' : ''); }
+  function pluriel(n, mot) { return grand(n) + ' ' + mot + (n > 1 ? 's' : ''); }
 
   // L'origine d'un repos, en français : « par défaut », ou la routine d'où il
   // vient. Dans un superset, le repos est porté par le dernier exercice : les

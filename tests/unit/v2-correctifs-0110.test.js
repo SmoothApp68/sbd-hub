@@ -85,7 +85,7 @@ describe('49-U18 — le fichier de cas', () => {
     expect(k.haut.charge).toBe(37);
     expect(k.haut.approchee).toBe(true);
     const l = M.libellesConsigne(k, c.avant);
-    expect(l.jaune[1]).toBe('puis \u2248' + NB + '37' + NB + 'kg' + NB + '×' + NB + '8 sur la dernière série');
+    expect(l.jaune[1]).toBe('puis \u2248' + NB + '37' + NB + 'kg' + NB + '×' + NB + '6 sur la dernière série');
   });
 });
 
@@ -310,10 +310,10 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
       Modele: { indexerExercices: (l) => ({ curl: l[0] }), gabaritDe: () => ({ mesure: 'charge_reps' }), lesteDe: () => null, parentDe: () => null },
       Profil: { rythmeDe: () => 'normal', salleDeLExercice: () => null },   // 108 — la salle (aucune ici)
       Seance: { partEnBase: () => true },
-      Moteur: { suiteDExercice: (g, j, e, a, o) => { vus.push(o); return null; },
+      Moteur: { estIsolation: () => false, suiteDExercice: (g, j, e, a, o) => { vus.push(o); return null; },
                 equipementEffectif: (e) => (e ? e.equipement || null : null) },
       // 50-1 : les deux lectures du profil et des modes que `optionsDeConsigne` appelle.
-      intentionDeLExercice: () => 'progresser', lestReponseDe: () => null,
+      intentionDeLExercice: () => 'progresser', lestReponseDe: () => null, lestReponseDeLExercice: () => null, rallongeDe: () => null,
       // `suiteDe` lit le catalogue indexé de l'app (PR 2 de la consolidation).
       catalogueIndexe: () => ({ curl: { slug: 'curl', equipement: 'barre' } }),
       cleConsignes: () => 'k', empreinteValidations: () => 'e', exerciceFini: () => true,

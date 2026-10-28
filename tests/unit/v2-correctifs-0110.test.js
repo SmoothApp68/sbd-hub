@@ -308,7 +308,7 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
       local: { exercices: [{ slug: 'curl', equipement: 'barre' }], zones: [] },
       constats: null, etatsExercices: {}, rejeuEnCours: null,
       Modele: { indexerExercices: (l) => ({ curl: l[0] }), gabaritDe: () => ({ mesure: 'charge_reps' }), lesteDe: () => null, parentDe: () => null },
-      Profil: { rythmeDe: () => 'normal', salleDeLExercice: () => null },   // 108 — la salle (aucune ici)
+      Profil: { rythmeDe: () => 'normal', salleDeLExercice: () => null, estDebutant: () => false },   // 108 — la salle (aucune ici)
       Seance: { partEnBase: () => true },
       Moteur: { estIsolation: () => false, suiteDExercice: (g, j, e, a, o) => { vus.push(o); return null; },
                 equipementEffectif: (e) => (e ? e.equipement || null : null) },

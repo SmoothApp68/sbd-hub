@@ -701,7 +701,7 @@ const NOTIONS = [
       'marque : posée sur l’occurrence, tenue de ses séries quand la séance est relue.' },
   { notion: 'la reprise après une séance douloureuse (la carte, la zone suivante, le repli)', pr: '51-U3',
     module: 'moteur.js', fonction: 'reprisePour', lecteurs: [],
-    par: ['consigneDExercice'],
+    par: ['consigneDExerciceCalcul'],
     raison: 'MOTEUR §9.20 : la carte se décide sur la dernière séance, figée avec la consigne ; « Plus ' +
       'léger » passe par la zone suivante et le report (§9.10, 53-1), sinon les replis existants, ' +
       'jamais une charge à part.' },
@@ -769,7 +769,7 @@ const NOTIONS = [
       'même définition : sans elle, l’éditeur promettrait un départ que le coach ignore.' },
   { notion: 'la consigne de la charge de départ, la première fois (MOTEUR §9.21)', pr: '52-U1',
     module: 'moteur.js', fonction: 'departDeRoutine', lecteurs: [],
-    par: ['consigneDExercice'],
+    par: ['consigneDExerciceCalcul'],
     raison: 'seulement sur « Première fois ici », en charge × reps : la routine donne un point de départ, ' +
       'et dès qu’il y a des données le coach décide seul.' },
   { notion: 'le report de charge au changement de zone (MOTEUR §9.10 : la plus basse de la charge tenue et de l’estimation, au bas de la zone)', pr: '53-U1',
@@ -790,7 +790,7 @@ const NOTIONS = [
       '(`chargeVoisine`) : la charge proposée à la carte est celle que la consigne pose ensuite (I35).' },
   { notion: 'la consigne d’une nouvelle zone (l’état `nouvelle_zone`)', pr: '53-U1',
     module: 'moteur.js', fonction: 'consigneNouvelleZone', lecteurs: [],
-    par: ['consigneDExercice'],
+    par: ['consigneDExerciceCalcul'],
     raison: 'une étape de la consigne, une seule fois, comme les départs : tout ce qui suit (le plan, ' +
       'la réaction, la suite, le repli) lit la consigne reportée, jamais une charge à part.' },
   // 53-2 (MOTEUR §9.22) — les programmes à cycles : une fonction par notion.
@@ -828,7 +828,7 @@ const NOTIONS = [
       'programme (`lignesDArret`, 53-2 ter) lisent la même ligne.' },
   { notion: 'la consigne d’une séance passée, lue à sa fin (la zone qu’elle a vraiment eue)', pr: '54-U1',
     module: 'moteur.js', fonction: 'consigneDeLaSeance', lecteurs: [],
-    par: ['zoneDeLaSeance', 'compteurDe'],
+    par: ['zoneDeLaSeance', 'compteurDeCalcul'],
     interdit: { motif: /correctionAu\([^)]*\.debut\b/,
                 raison: 'la zone d’une séance passée relue à son début (une zone changée pendant la séance ' +
                   'n’y serait pas, 54-0 E)' },
@@ -836,7 +836,7 @@ const NOTIONS = [
       'le compteur et la zone d’une séance la lisent au même instant, sa fin.' },
   { notion: 'la zone d’une séance passée (report, compteur, repli de l’escalier)', pr: '54-U1',
     module: 'moteur.js', fonction: 'zoneDeLaSeance', lecteurs: [],
-    par: ['zoneDeLaDerniere', 'consigneDExercice'],
+    par: ['zoneDeLaDerniere', 'consigneDExerciceCalcul'],
     raison: 'le report de §9.10 et le repli de §14.5 lisaient la zone au début, le compteur à la fin : ' +
       'trois lectures, une règle à deux endroits — une seule fonction désormais.' },
   { notion: 'le bloc suivant (une règle fixe : Mix ↔ Lourd, mêmes durée et exercices, une décharge)', pr: '53-U2',

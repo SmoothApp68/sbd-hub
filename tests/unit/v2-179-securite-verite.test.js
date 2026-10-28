@@ -74,3 +74,34 @@ describe('179 (D1) — « en retard » ne s\'écrit plus, le fait reste', () => 
     expect(src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n')).not.toMatch(/en retard/);
   });
 });
+
+describe('179 (A-F-06) — le constat ne dit rien de faux', () => {
+  const dateJour = '2026-10-11T10:00:00Z';
+  const sp = (t) => String(t || '').replace(/[  ]/g, ' ');
+  const consigne = (palier, over) => Object.assign({ etat: 'bord', palier: palier, zone: null, ligne: { charge: palier, vise: 1 }, haut: null,
+    n: 3, niveau: 1, fondement: { date: dateJour, reps: [1], test: null } }, over || {});
+  test('règle de bord (aucune zone) : jamais « null » dans le verdict d\'un test', () => {
+    const test = { charge: 34, reps: 1, niveau: 1, date: dateJour };
+    const av = consigne(34, { fondement: { date: '2026-10-04T10:00:00Z', reps: [1], test: null } });
+    const ap = consigne(34, { fondement: { date: dateJour, reps: [1], test: test } });
+    const c = M.constatDuJour(av, ap, 'normal', 36, { series: [{ charge_kg: 34, reps: 1 }], montee: null }, dateJour, false);
+    expect(sp(c.verdict)).toBe('34 kg : 1 aujourd\'hui.');
+    expect(c.verdict).not.toMatch(/null|undefined|NaN/);
+  });
+  test('premier repère : le chiffre cité est celui de la charge faite, pas les reps d\'une autre charge', () => {
+    const av = consigne(24, { etat: 'silence', fondement: { date: '2026-10-04T10:00:00Z', reps: [], test: null } });
+    const ap = consigne(26, { fondement: { date: dateJour, reps: [5], test: null } });
+    const jour = { series: [{ charge_kg: 24, reps: 5 }, { charge_kg: 22, reps: 4 }, { charge_kg: 26, reps: 1 }], montee: null };
+    const c = M.constatDuJour(av, ap, 'normal', 28, jour, dateJour, false);
+    expect(sp(c.verdict)).toContain('26 kg × 1');
+    expect(sp(c.verdict)).not.toContain('26 kg × 5');
+  });
+  test('palier absent : les séries faites, jamais « le cran au-dessus × . »', () => {
+    const av = consigne(null, { etat: 'silence', fondement: { date: '2026-10-04T10:00:00Z', reps: [], test: null } });
+    const ap = consigne(null, { fondement: { date: dateJour, reps: [12], test: null } });
+    const jour = { series: [{ charge_kg: 30, reps: 12 }, { charge_kg: 28, reps: 12 }, { charge_kg: 32, reps: 5 }], montee: null };
+    const c = M.constatDuJour(av, ap, 'normal', 34, jour, dateJour, false);
+    expect(sp(c.verdict)).toBe('Premier repère : 30 kg × 12, 28 kg × 12, 32 kg × 5.');
+    expect(c.verdict).not.toMatch(/× \.|null/);
+  });
+});

@@ -1114,7 +1114,25 @@
         journal: c.journal
       };
     }
-    function faitsDuJeu(c, aujourdhui, enCours) {
+    // 182 — `sans` (facultatif) : l'identifiant d'une séance que le cache porte déjà (relue après un rechargement en
+    // pleine séance) et que l'état « avant » ne doit PAS compter : sinon « avant » la contient, et l'apport de la séance
+    // (`Jeu.apport(avant, apres).xp`) vaut 0. Une INSTANCE À PART, sur un corpus sans la séance, ses séries ni ses records.
+    function corpusSansLaSeance(c, id) {
+      return {
+        seances: (c.seances || []).filter(function (s) { return s && s.id !== id; }),
+        series: (c.series || []).filter(function (x) { return x && x.session_id !== id; }),
+        exercices: c.exercices,
+        seriesDe: function (sid) { return sid === id ? [] : c.seriesDe(sid); },
+        catalogue: c.catalogue,
+        journal: (c.journal || []).filter(function (l) { return !l || l.session_id !== id; })
+      };
+    }
+    function faitsDuJeu(c, aujourdhui, enCours, sans) {
+      if (sans && !(enCours && enCours.seance)) {
+        var dedans = (c.seances || []).some(function (s) { return s && s.id === sans; }) ||
+          (c.series || []).some(function (x) { return x && x.session_id === sans; });
+        if (dedans) return creer().faitsDuJeu(corpusSansLaSeance(c, sans), aujourdhui);
+      }
       var ici = enCours && enCours.seance ? enCours : null;
       var idIci = ici ? ici.seance.id : null;
       var seances = (c.seances || []).filter(function (s) { return s && (!ici || s.id !== idIci); })

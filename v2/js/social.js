@@ -717,6 +717,124 @@
       x.records + ' record' + (x.records > 1 ? 's' : '');
   }
 
+  // ══ 182 — LE RÉCAP DE GROUPE RACONTE LA SÉANCE (maquette « Proposé » du 28/10/2026) ═══════════════════════════════
+  //
+  // Chaque membre du récap porte `detail` (v2_115) : `{ debut, fin, exercices: [{ slug, series, charge_kg, reps, duree_s,
+  // distance_m }] dans l'ordre de sa séance (la meilleure série : la plus lourde, puis le plus de reps), records: [{ slug,
+  // type, valeur, reps, charge, unite }] }`. Un récap figé AVANT v2_115 n'en a pas : `recapDetaille` rend alors `null`,
+  // l'écran garde l'ancien affichage (`recapDuGroupe`), sans rien inventer.
+  //
+  // ⚠️ AUCUN CLASSEMENT. L'ordre des exercices est celui de MA séance (puis ceux que je n'ai pas faits, dans l'ordre
+  // d'arrivée des autres) ; sur chaque exercice, « toi » d'abord, puis les autres dans l'ordre d'arrivée. Jamais d'ordre,
+  // de gras ni de couleur selon « le plus fort ». Un exercice qu'un membre n'a pas fait n'a pas de ligne pour lui.
+  // Une seule phrase du coach, un fait : « les N mêmes exercices », ou « N exercices en commun », sinon rien.
+  function detailDuMembre(x) {
+    var d = x && x.detail;
+    return d && typeof d === 'object' && Array.isArray(d.exercices) ? d : null;
+  }
+  function slugsDuMembre(d) {
+    var out = [];
+    d.exercices.forEach(function (e) { if (e && e.slug && out.indexOf(e.slug) < 0) out.push(e.slug); });
+    return out;
+  }
+  // Les exercices des membres : l'ordre de MA séance, puis les autres (dans l'ordre d'arrivée). `membres` : au moins un
+  // détail. Rend `[{ slug, parts: [{ index, moi, serie }] }]` — `parts` : « toi » d'abord, puis les autres dans l'ordre.
+  function exercicesDuGroupe(membres) {
+    var ordreDesMembres = membres.map(function (m, i) { return i; })
+      .sort(function (a, b) { return (membres[b].moi ? 1 : 0) - (membres[a].moi ? 1 : 0) || a - b; });
+    var slugs = [];
+    ordreDesMembres.forEach(function (i) {
+      slugsDuMembre(detailDuMembre(membres[i])).forEach(function (s) { if (slugs.indexOf(s) < 0) slugs.push(s); });
+    });
+    return slugs.map(function (slug) {
+      var parts = [];
+      ordreDesMembres.forEach(function (i) {
+        var e = detailDuMembre(membres[i]).exercices.filter(function (x) { return x && x.slug === slug; })[0];
+        if (e) parts.push({ index: i, moi: !!membres[i].moi, serie: e });
+      });
+      return { slug: slug, parts: parts };
+    });
+  }
+  // La phrase du coach : « Vous avez fait les 6 mêmes exercices. » (tous ont le même ensemble), sinon « 2 exercices en
+  // commun. » (au moins un), sinon rien. Un fait, jamais un « bravo » ni une comparaison.
+  function phraseDesExercicesCommuns(ensembles) {
+    if (ensembles.length < 2) return null;
+    var communs = ensembles[0].filter(function (s) {
+      return ensembles.every(function (e) { return e.indexOf(s) >= 0; });
+    });
+    var memes = ensembles.every(function (e) { return e.length === communs.length; });
+    if (!communs.length) return null;
+    if (memes) return communs.length === 1 ? 'Vous avez fait le même exercice.' : 'Vous avez fait les ' + communs.length + ' mêmes exercices.';
+    return communs.length + ' exercice' + (communs.length > 1 ? 's' : '') + ' en commun.';
+  }
+  // Le temps où au moins DEUX séances se recouvrent, en secondes (balayage des débuts et des fins). Une séance sans
+  // début ou sans fin lisible ne compte pas. `0` : pas de recouvrement.
+  function secondesEnsemble(plages) {
+    var evts = [];
+    plages.forEach(function (p) {
+      var d = Date.parse(p.debut), f = Date.parse(p.fin);
+      if (isNaN(d) || isNaN(f) || f <= d) return;
+      evts.push([d, 1]); evts.push([f, -1]);
+    });
+    evts.sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+    var actifs = 0, depuis = 0, total = 0;
+    evts.forEach(function (e) {
+      if (actifs >= 2) total += e[0] - depuis;
+      actifs += e[1];
+      depuis = e[0];
+    });
+    return Math.round(total / 1000);
+  }
+  // `outils` (lus par l'app, qui garde le catalogue et les formateurs) : `nomDe(slug)`, `mesure(serie)` (le formateur de
+  // l'app : « 135 kg × 2 »), `record(r)` → `{ nom, phrase }` (la phrase de la médaille), `tonnes(kg)`, `duree(s)`,
+  // `nombre(n)`, `jour(iso)`, `heure(iso)`.
+  function recapDetaille(membres, outils) {
+    var l = (membres || []).filter(Boolean);
+    if (l.length < 2 || !l.every(detailDuMembre)) return null;
+    var o = outils || {};
+    var base = recapDuGroupe(l);
+    var nom = function (m) { return m.moi ? 'toi' : pseudoDuRecap(m); };
+    var debuts = l.map(function (m) { return detailDuMembre(m).debut; }).filter(function (x) { return !isNaN(Date.parse(x)); });
+    var fins = l.map(function (m) { return detailDuMembre(m).fin; }).filter(function (x) { return !isNaN(Date.parse(x)); });
+    var debut = debuts.length ? debuts.reduce(function (a, b) { return Date.parse(b) < Date.parse(a) ? b : a; }) : null;
+    var fin = fins.length ? fins.reduce(function (a, b) { return Date.parse(b) > Date.parse(a) ? b : a; }) : null;
+    var autres = l.filter(function (m) { return !m.moi; }).map(pseudoDuRecap);
+    var exercices = exercicesDuGroupe(l);
+    var ensemble = secondesEnsemble(l.map(function (m) { var d = detailDuMembre(m); return { debut: d.debut, fin: d.fin }; }));
+    var tuiles = [
+      { cle: 'volume', valeur: o.tonnes(base.tonnage_kg), libelle: 'volume' },
+      { cle: 'series', valeur: String(base.series), libelle: 'séries' },
+      { cle: 'exercices', valeur: String(exercices.length), libelle: 'exercices' }
+    ];
+    if (ensemble >= 60) tuiles.push({ cle: 'ensemble', valeur: o.duree(Math.round(ensemble / 60) * 60), libelle: 'ensemble' });
+    var records = [];
+    l.forEach(function (m) {
+      detailDuMembre(m).records && detailDuMembre(m).records.forEach(function (r) {
+        var dit = r ? o.record(r) : null;
+        if (dit && dit.phrase) records.push({ pseudo: nom(m), moi: !!m.moi, texte: dit.nom + ' \u00b7 ' + dit.phrase });
+      });
+    });
+    return {
+      titre: 'Séance en groupe',
+      qui: ['avec ' + autres.join(', '), debut ? o.jour(debut) : null,
+            debut ? o.heure(debut) + (fin ? ' \u2013 ' + o.heure(fin) : '') : null].filter(Boolean).join(' \u00b7 '),
+      tuiles: tuiles,
+      phrase: phraseDesExercicesCommuns(l.map(function (m) { return slugsDuMembre(detailDuMembre(m)); })),
+      exercices: exercices.map(function (e) {
+        return { slug: e.slug, nom: o.nomDe(e.slug), lignes: e.parts.map(function (p) {
+          return { pseudo: p.moi ? 'toi' : pseudoDuRecap(l[p.index]), moi: p.moi,
+                   texte: o.mesure(p.serie) + ' \u00b7 ' + p.serie.series + ' série' + (Number(p.serie.series) > 1 ? 's' : '') };
+        }) };
+      }),
+      records: records,
+      chacun: base.membres.map(function (m) {
+        return { pseudo: m.moi ? 'toi' : m.pseudo, moi: m.moi,
+                 texte: o.tonnes(m.tonnage_kg) + ' \u00b7 ' + m.series + ' série' + (m.series > 1 ? 's' : ''),
+                 xp: m.xp === null ? null : '+' + o.nombre(m.xp) + ' XP' };
+      })
+    };
+  }
+
   // ══ 107 — UN GESTE SOCIAL FAIT HORS LIGNE N'EST PLUS PERDU (SOCIAL-V1 §8, décision d'Aurélien du 15/10/2026) ══════
   //
   // « Un geste social fait hors ligne est gardé sur le téléphone et part au retour du réseau, comme les séances ; il
@@ -1073,6 +1191,10 @@
     recapDuGroupe: recapDuGroupe,
     faiteEnGroupeAvec: faiteEnGroupeAvec,
     partDe: partDe,
+    recapDetaille: recapDetaille,
+    exercicesDuGroupe: exercicesDuGroupe,
+    secondesEnsemble: secondesEnsemble,
+    phraseDesExercicesCommuns: phraseDesExercicesCommuns,
     // 107 — les gestes hors ligne
     GESTES: GESTES,
     GESTES_DE_GUILDE: GESTES_DE_GUILDE,

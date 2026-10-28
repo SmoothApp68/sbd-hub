@@ -8222,6 +8222,8 @@
       cible.appendChild(boutonSocial('Pas maintenant', 's-b3 s-large', vue.surPasMaintenant, 'groupe-pas-maintenant'));
       return;
     }
+    // 182 — le récap qui raconte la séance (chacun porte son `detail`) ; sans lui (ancien récap figé), l'affichage d'avant.
+    if (vue.detaille) return rendreRecapDeGroupe(cible, vue);
     // Le récap du « combat » : la part de chacun en faits, sans classement ni vainqueur.
     var r0 = vue.recap;
     var tete = el('div', 's-prof g-ensemble');
@@ -8250,6 +8252,61 @@
     });
     if (vue.surFermer) cible.appendChild(boutonSocial('Fermer', 's-b1 s-large g-fermer', vue.surFermer, 'groupe-fermer'));
     if (r0.note) cible.appendChild(el('p', 's-gris s-cache', r0.note));
+  }
+  // 182 — LE RÉCAP DE GROUPE QUI RACONTE LA SÉANCE. Ce rendu ne calcule rien : `vue.detaille` vient de
+  // `Social.recapDetaille`. AUCUN CLASSEMENT : sur chaque exercice, « toi » puis les autres dans l'ordre d'arrivée, tous
+  // du même poids (ni gras, ni couleur pour « le plus fort »).
+  function rendreRecapDeGroupe(cible, vue) {
+    var d = vue.detaille;
+    var tete = el('div', 's-prof g-ensemble');
+    tete.appendChild(el('b', null, d.titre));
+    tete.appendChild(el('small', null, d.qui));
+    cible.appendChild(tete);
+    var tuiles = el('div', 'recap-tuiles g-tuiles g-tuiles-' + d.tuiles.length);
+    d.tuiles.forEach(function (t) {
+      var x = el('div', 'recap-tuile g-tuile-' + t.cle);
+      x.appendChild(el('b', null, t.valeur));
+      x.appendChild(el('span', null, t.libelle));
+      tuiles.appendChild(x);
+    });
+    cible.appendChild(tuiles);
+    if (d.phrase) cible.appendChild(el('p', 'recap-voix g-phrase', d.phrase));
+    cible.appendChild(el('p', 's-gris g-titre-s', 'Exercice par exercice'));
+    d.exercices.forEach(function (e) {
+      var c = el('div', 's-carte g-exo');
+      c.setAttribute('data-slug', e.slug);
+      c.appendChild(el('div', 'g-exo-nom', e.nom));
+      e.lignes.forEach(function (l) {
+        var ligne = el('div', 'g-exo-ligne');
+        ligne.appendChild(el('span', 'g-exo-qui', l.pseudo));
+        ligne.appendChild(el('span', 'g-exo-val', l.texte));
+        c.appendChild(ligne);
+      });
+      cible.appendChild(c);
+    });
+    cible.appendChild(el('p', 's-gris g-titre-s', 'Records du jour'));
+    if (d.records.length) {
+      d.records.forEach(function (x) {
+        var l = el('div', 'recap-rec g-record');
+        l.appendChild(el('div', 'l1', x.texte));
+        l.appendChild(el('div', 'l2', x.pseudo));
+        cible.appendChild(l);
+      });
+    } else {
+      cible.appendChild(el('p', 's-gris s-cache g-aucun-record', 'Pas de record aujourd’hui.'));
+    }
+    cible.appendChild(el('p', 's-gris g-titre-s', 'Chacun'));
+    var carte = el('div', 's-carte g-chacun');
+    d.chacun.forEach(function (m) {
+      var l = el('div', 'g-chacun-ligne g-part');
+      l.appendChild(el('span', 'g-exo-qui', m.pseudo));
+      l.appendChild(el('span', 'g-exo-val', m.texte));
+      if (m.xp) l.appendChild(el('span', 'g-xp-part', m.xp));
+      carte.appendChild(l);
+    });
+    cible.appendChild(carte);
+    if (vue.surFermer) cible.appendChild(boutonSocial('Fermer', 's-b1 s-large g-fermer', vue.surFermer, 'groupe-fermer'));
+    if (vue.recap && vue.recap.note) cible.appendChild(el('p', 's-gris s-cache', vue.recap.note));
   }
   // Le détail d'une séance faite en groupe : « Faite en groupe avec jordan, lea », qui rouvre le récap figé.
   function rendreGroupeDuDetail(cible, vue) {

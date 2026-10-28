@@ -40,6 +40,11 @@ describe('180 A — A-F-01 : la frontière de la chauffe, la règle de bord', ()
     expect(a.palier).toBe(100);
     expect(a.series[2].role).toBe('descente_choisie');
   });
+  test('DISCRIMINANT — sans charge répétée, aucune série n’est une chauffe parce qu’elle suit la plus lourde : pas de palier de 7,5 kg × 1', () => {
+    const a = P.analyser([brute(7.5, 1), brute(5, 17), brute(6, 12)], null, { mesure: 'charge_reps' });
+    expect(a.series.map((d) => d.role)).toEqual(['travail', 'travail', 'travail']);
+    expect(a.palier).toBeNull();
+  });
   test('une montée de chauffe (20, 60, 100, 140) reste une chauffe', () => {
     const a = P.analyser([brute(20, 5), brute(60, 5), brute(100, 5), brute(140, 5)], null, { mesure: 'charge_reps' });
     expect(a.series[0].role).toBe('chauffe_probable');
@@ -146,8 +151,9 @@ describe('180 C — D4 : le poids du corps, le compteur et la marche d’en dess
     expect(esp(x.escalier.carte.phrase)).toMatch(/^Poids du corps × 2 depuis 4 séances\.$/);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
-  test('à 3 séances : pas de carte (le pas est 4)', () => {
+  test('à 0 et à 3 séances : pas de carte (le pas est 4)', () => {
     expect(planDe(3).x.escalier).toBeFalsy();
+    expect(planDe(0).x.escalier).toBeFalsy();
   });
   test('I70 DISCRIMINANT — hors du poids du corps, avant le pas, sans exercice du dessous, une carte qui cible ailleurs', () => {
     const { p, e } = planDe(4);

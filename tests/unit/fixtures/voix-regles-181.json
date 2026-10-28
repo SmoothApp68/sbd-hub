@@ -1,0 +1,198 @@
+{
+ "generePar": "agent B, tête d0a5122d",
+ "note": "Les motifs se lisent sur le TEXTE VISIBLE (DOM) ou sur les phrases du plan, jamais sur le source ; 'exemple_reel' cite un littéral qui le déclenche, 'sauf' liste les faux positifs réels relevés.",
+ "interdits": [
+  {
+   "motif": "\\bpalier\\b",
+   "drapeaux": "i",
+   "regle": "VOIX-V1 §3 ; MOTEUR §20.2 règle 3 ; tests/unit/v2-voix.test.js:91",
+   "gravite": "moyenne",
+   "sauf": "messages d'invariant (plan.js, err(...)) et clés de données (role:'palier') : ne matcher que le texte VISIBLE",
+   "exemple_reel": "AUCUN gabarit visible ne le contient aujourd'hui (les 19 occurrences de littéraux sont des clés de données role:'palier' / quoi:'palier' ou des messages d'invariant) ; faux positif réel : moteur.js:4288 role === 'palier' → affiché « ta charge de travail »",
+   "occurrences_litteraux_v2": 19
+  },
+  {
+   "motif": "\\ble moteur\\b",
+   "drapeaux": "i",
+   "regle": "VOIX-V1 ; MOTEUR §20.2 règle 3 ; v2-voix.test.js:92",
+   "gravite": "moyenne",
+   "sauf": null,
+   "exemple_reel": null,
+   "occurrences_litteraux_v2": 0
+  },
+  {
+   "motif": "\\b(bravo|f[ée]licit\\w*|bien jou[ée]|excellent|g[ée]nial|chapeau|incroyable)\\b",
+   "drapeaux": "i",
+   "regle": "VOIX-V1 principe 5 : un fait, jamais un « bravo »",
+   "gravite": "moyenne",
+   "sauf": null,
+   "exemple_reel": null,
+   "occurrences_litteraux_v2": 0
+  },
+  {
+   "motif": "\\b(rampe|bascule|[ée]tirement|niveau valid[ée])\\b",
+   "drapeaux": "i",
+   "regle": "VOIX-V1 principe 3 (jargon du moteur interdit en phrase affichée)",
+   "gravite": "moyenne",
+   "sauf": "classes CSS (btn-bascule-entree) ; la bascule RPE/ressenti du réglage d'effort (rendu.js:3774) est un contrôle, pas une phrase du coach",
+   "exemple_reel": "moteur.js:4287 « rampe, ne compte pas » (feuille Pourquoi, rôle d'une série de la dernière séance) — vrai positif",
+   "occurrences_litteraux_v2": 13
+  },
+  {
+   "motif": "\\bcrans?\\b",
+   "drapeaux": "i",
+   "regle": "VOIX-V1 principe 3 « jamais cran » — CONTREDIT par MOTEUR §20.2 règle 7 et ~35 gabarits ; décision à prendre (B-fil-voix-ecrans.md, finding « cran »)",
+   "gravite": "basse",
+   "sauf": "à COMPTER, pas à signaler un par un : tant que la décision n'est pas prise, 'cran' est l'usage du produit",
+   "exemple_reel": "moteur.js:1327 « cran.vers »",
+   "occurrences_litteraux_v2": 48
+  },
+  {
+   "motif": "\\b(assidu\\w*|r[ée]gularit[ée]|absent\\w*|pas venu|depuis \\d+ jours|s[ée]ances? manqu[ée]es?|jours sans s[ée]ance|inactif)\\b",
+   "drapeaux": "i",
+   "regle": "CADRAGE §3.1 bis : jamais l'assiduité ni la durée d'une absence",
+   "gravite": "haute",
+   "sauf": "traces de développement (app.js:6229 « absente (ligne ajoutée) », garde/rejeu) ; écrans de jeu et de guilde (jeu.js, social.js : « une semaine sans séance » du gel, rendu.js:7231 — voir finding assiduité-jeu) ; « tentative manquée » (rendu.js:3690) parle d'une série, pas d'une séance : le motif ne la prend pas",
+   "exemple_reel": "app.js:6229 « absente (ligne ajoutée) »",
+   "occurrences_litteraux_v2": 3
+  },
+  {
+   "motif": "\\b(il faut|tu dois|tu devrais|tu aurais d[uû]|ne rate pas|tu as [ée]chou[ée])\\b",
+   "drapeaux": "i",
+   "regle": "VOIX-V1 principe 4-5 ; CADRAGE : descriptif, jamais prescriptif ni reproche",
+   "gravite": "haute",
+   "sauf": "messages système hors coach : « Il faut le réseau pour voir le social. » (app.js:1793, rendu.js:7365)",
+   "exemple_reel": "rendu.js:7365 « Il faut le réseau pour voir le social. »",
+   "occurrences_litteraux_v2": 2
+  },
+  {
+   "motif": "\\bvous\\b|\\bvotre\\b|\\bvos\\b",
+   "drapeaux": "i",
+   "regle": "VOIX-V1 principe 4 : « tu », jamais « vous »",
+   "gravite": "moyenne",
+   "sauf": "écrans de guilde/mutuels (social.js:43 « Vous vous suivez », app.js:2206-2296, 2965, social.js:396-478) où le groupe est visé : ne pas signaler sur sélecteur social",
+   "exemple_reel": "rendu.js:7919 « Tes abonnés mutuels (vous vous suivez l’un l’autre). »",
+   "occurrences_litteraux_v2": 11
+  },
+  {
+   "motif": "\\b\\d+\\.\\d+[\\s\\u00a0\\u202f]?(kg|reps?|%|s)\\b",
+   "drapeaux": "i",
+   "regle": "MOTEUR §20.2 règle 1 : virgule décimale",
+   "gravite": "moyenne",
+   "sauf": null,
+   "exemple_reel": null,
+   "occurrences_litteraux_v2": 0
+  },
+  {
+   "motif": "(?<!kg)(?<!kg[\\s\\u00a0\\u202f])(?<!Poids du corps[\\s\\u00a0\\u202f])(?<!du corps)[\\s\\u00a0\\u202f]\\u00d7[\\s\\u00a0\\u202f]\\d",
+   "drapeaux": "",
+   "regle": "VOIX-V1 principe 1 ; v2-voix.test.js:101-106 (« × » précédé de kg)",
+   "gravite": "moyenne",
+   "sauf": "séries × reps des cartes de routine (rendu.js:4449 « 3 × 8 », app.js:12117, 12465) ; noms d'élastique (« Rouge × 15 ») ; colonnes du social (app.js:2219 « 62,5 × 8 », sans kg — signalé)",
+   "exemple_reel": "rendu.js:1564 «  × 5+ »",
+   "occurrences_litteraux_v2": 1
+  },
+  {
+   "motif": "\\?[\\s\\u00a0\\u202f]*$",
+   "drapeaux": "",
+   "regle": "MOTEUR §20.2 règle 5 (« ? » seulement pour le choix entre deux charges) vs VOIX-V1 principe 6 (« une question quand le coach propose »)",
+   "gravite": "basse",
+   "sauf": "« , si tu te sens bien ? » (seconde charge) ; « Il t'en restait combien ? » (rendu.js:3069) ; « Une série de plus ? » (moteur.js:6968) ; « Une dégressive après ta dernière série ? » (moteur.js:6770) : questions de PROPOSITION admises par VOIX-V1 §6 mais pas par le test (qui ne balaie pas les cartes)",
+   "exemple_reel": "moteur.js:6770 «  Une dégressive après ta dernière série ? »",
+   "occurrences_litteraux_v2": 86
+  },
+  {
+   "motif": "\\b(1\\s?RM|e1RM|maximum|maximale?)\\b",
+   "drapeaux": "i",
+   "regle": "v2-voix.test.js:98 ; MOTEUR §9.23 (120 D1) : plus aucun 1RM affiché",
+   "gravite": "moyenne",
+   "sauf": "profil.js:829 « C'est mon maximum » (durée de séance, réglage) ; rendu.js:7146 « niveau maximal » (jeu)",
+   "exemple_reel": "rendu.js:7146 « niveau maximal »",
+   "occurrences_litteraux_v2": 3
+  },
+  {
+   "motif": "\\bmax\\b",
+   "drapeaux": "i",
+   "regle": "v2-voix.test.js:98 (le test interdit « max »)",
+   "gravite": "basse",
+   "sauf": "« Ton max la dernière fois : 20 s » (moteur.js:7521, tenue max des figures, 149) et « Nouvelles charges max » (annee.js:136, 166) : le test de voix ne les balaie pas — contradiction à trancher, pas à signaler en série",
+   "exemple_reel": "moteur.js:7521 « Ton max la dernière fois :  »",
+   "occurrences_litteraux_v2": 4
+  },
+  {
+   "motif": "\\b(que les autres|la moyenne des|des utilisateurs|mieux que|plus fort que|pour ton [âa]ge|classement|percentile|top \\d+)\\b",
+   "drapeaux": "i",
+   "regle": "CADRAGE §3 / V8 : aucune comparaison à une autre personne hors guilde et mutuels",
+   "gravite": "haute",
+   "sauf": "écrans de guilde/mutuels (social.js, app.js 2206-2300) ; aucun gabarit hors social ne le contient à ce jour (grep, 0 résultat)",
+   "exemple_reel": null,
+   "occurrences_litteraux_v2": 0
+  },
+  {
+   "motif": "\\b(la science|les [ée]tudes|il est prouv[ée]|scientifiquement)\\b",
+   "drapeaux": "i",
+   "regle": "doctrine : chaque chiffre a son pourquoi, honnête ; un réglage produit n'est pas « la science »",
+   "gravite": "haute",
+   "sauf": "aucun gabarit à ce jour (grep, 0 résultat) — mais « les coachs travaillent la marche d'en dessous » (moteur.js, phraseDesTenues) est une autorité sans source : voir C",
+   "exemple_reel": null,
+   "occurrences_litteraux_v2": 0
+  }
+ ],
+ "zonesCoach": [
+  {
+   "ecran": "seance",
+   "selecteur": ".consigne, .consigne-heros, .consigne-grande, .si-ca-passe",
+   "source": "entete"
+  },
+  {
+   "ecran": "seance",
+   "selecteur": ".consigne-dit, .consigne-dit.compteur, .consigne-dit.frere, .consigne-dit.serie-de-plus, .consigne-dit.alleger-en-cours, .consigne-dit.tempo-en-cours, .consigne-dit.approchee",
+   "source": "phrase"
+  },
+  {
+   "ecran": "seance",
+   "selecteur": ".charge-programme",
+   "source": "entete"
+  },
+  {
+   "ecran": "seance",
+   "selecteur": ".constat, .constat-suite, .constat-escalier",
+   "source": "constat"
+  },
+  {
+   "ecran": "seance",
+   "selecteur": ".carte-escalier .ce-phrase, .carte-escalier .ce-detail, .bandeau-allegee",
+   "source": "carte"
+  },
+  {
+   "ecran": "seance",
+   "selecteur": ".effort-vise-q, .effort-vise-dit",
+   "source": "phrase"
+  },
+  {
+   "ecran": "seance",
+   "selecteur": ".bandeau-reprise .reprise-t, .bandeau-reprise .reprise-quoi",
+   "source": "carte"
+  },
+  {
+   "ecran": "seance",
+   "selecteur": ".cr-phrase, .douleur-phrase",
+   "source": "phrase"
+  },
+  {
+   "ecran": "feuille-pourquoi",
+   "selecteur": ".pq-p, .pq-p.fort, .pq-ligne .pq-quoi, .pq-ligne .pq-role",
+   "source": "phrase"
+  },
+  {
+   "ecran": "saisie",
+   "selecteur": ".carte-semaine, .ce-phrase, .manque-phrase",
+   "source": "carte"
+  },
+  {
+   "ecran": "relecture-semaine",
+   "selecteur": ".rl-phrase, .rl-gris, .rl-constat, .rl-coach",
+   "source": "carte"
+  }
+ ]
+}

@@ -183,6 +183,23 @@ describe('le décor du banc ne dépend plus du jour de la semaine', () => {
     });
   });
 
+  test('DISCRIMINANT (176) — des jours entiers se comptent au calendrier : même jour de semaine, même heure locale, autour des changements d\u2019heure', () => {
+    // 25/10/2026 23:55 (fin de l'heure d'été, la nuit des échecs du banc) et 29/03/2026 23:55 (début de l'heure d'été).
+    [new Date(2026, 9, 25, 23, 55), new Date(2026, 2, 29, 23, 55), new Date(2026, 9, 26, 0, 5), new Date(2026, 9, 28, 12, 0)]
+      .forEach((maintenant) => {
+        const t = maintenant.getTime();
+        [1, 7, 14, 21, 35].forEach((j) => {
+          const d = Decor.ilYa(j * Decor.JOUR, t);
+          const attendu = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate() - j,
+            maintenant.getHours(), maintenant.getMinutes());
+          expect([maintenant.toISOString(), j, d.getTime()]).toEqual([maintenant.toISOString(), j, attendu.getTime()]);
+          if (j % 7 === 0) expect(d.getDay()).toBe(maintenant.getDay());
+        });
+        // Une durée qui n'est pas un nombre de jours reste une soustraction en millisecondes.
+        expect(Decor.ilYa(90 * 60000, t).getTime()).toBe(t - 90 * 60000);
+      });
+  });
+
   test('DISCRIMINANT (145) — les mercredis de la semaine écoulée : dans le passé, dans SA semaine, tous les jours', () => {
     const { mercrediEcoule } = require('../banc/decor-dates.js');
     const lundiDe = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));

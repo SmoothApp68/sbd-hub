@@ -193,7 +193,17 @@ describe('91 — le faux serveur imite v2_082', () => {
     const f = decor();
     const g = lancer(f);
     expect(g).toBeTruthy();
+    // 177 (v2_114) — avec un autre membre actif, le refus reste ; SEUL, je pars (mon groupe vide disparaît).
+    entrer(f, 'jordan');
     expect(refus(f.rpc('u-moi', 'groupe_creer', { p_session: 's-moi', p_exercices: [] }))).toMatch(/groupe_deja_dans_un/);
+  });
+
+  test('177 (v2_114) — seul dans mon groupe, je peux en créer ou en rejoindre un autre, même séance en cours', () => {
+    const f = decor();
+    const g = lancer(f);
+    f.rpc('u-moi', 'groupe_inviter', { p_user: 'u-jordan' });
+    expect(refus(f.rpc('u-moi', 'groupe_creer', { p_session: 's-moi', p_exercices: [] }))).toBeNull();
+    expect(f.groupeDe('u-moi')).not.toBe(g);
   });
 
   test('on n’invite qu’un abonné mutuel (alexis, que je suis sans qu’il me suive : refusé)', () => {

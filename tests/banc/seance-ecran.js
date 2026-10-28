@@ -19492,6 +19492,97 @@ const SETS_IMPORTES = [
       JSON.stringify([finG3, messagesG3, messagesG3Apres, h3, h4.parts]));
     console.log('  durée H : ' + Math.round((Date.now() - ta) / 1000) + ' s');
 
+    // ── I (177, 28/10/2026, décision d'Aurélien). L'INVITATION SE VOIT (avant « Créer », dans un groupe SEUL, en pleine séance) ;
+    // « Rejoindre » garde MA séance et mes séries ; un refus se dit ; « Quitter le groupe » existe, avec sa confirmation dans la page.
+    // Le cas réel : deux groupes d'une personne, chacun invitant l'autre sans avoir vu l'invitation.
+    ta = Date.now();
+    {
+      ab('u-banc', 'u-alexis'); ab('u-alexis', 'u-banc');
+      S.ginvitations = [];
+      await seanceVide();
+      await ajouterExoSeance('Tractions');
+      await validerToutes();
+      const SB = enCours();
+      const seriesAvant = base.sets.filter((t) => t.session_id === SB).length;
+      // Mon groupe, depuis ma séance : « S'entraîner ensemble », j'invite alexis.
+      await page.click('#groupe-lancer');
+      await attendreQue(async () => (await compter('#groupe-corps .g-ami[data-pseudo="alexis"] button')) === 1);
+      await page.click('#groupe-corps .g-ami[data-pseudo="alexis"] button');
+      await attendreQue(async () => !!fauxSocial.groupeDe('u-banc') && S.ginvitations.some((i) => i.invite === 'u-alexis'));
+      const GB = fauxSocial.groupeDe('u-banc');
+      await page.click('#btn-retour-groupe');
+      // 12 s plus tard, alexis, qui n'a jamais vu mon invitation, crée SON groupe et m'invite.
+      const SA = 'a0000000-0000-4000-9100-0000000000d1';
+      S.sessions.push({ id: SA, user_id: 'u-alexis', titre: 'Pecs', debut: iso(ilYa(5 * 60000)), statut: 'en_cours', visibilite: 'mutuels' });
+      S.sets.push({ id: 'ga-1', session_id: SA, user_id: 'u-alexis', exercise_slug: 'dc-barre', rang: 1, charge_kg: 80, reps: 8, type_serie: 'travail',
+        validee_a: iso(ilYa(60000)) });
+      const GA = fauxSocial.rpc('u-alexis', 'groupe_creer', { p_session: SA, p_exercices: ['dc-barre'] });
+      fauxSocial.rpc('u-alexis', 'groupe_inviter', { p_user: 'u-banc' });
+      await aller('/saisie');
+      await attendreQue(async () => (await compter('#groupe-seance .g-invitation[data-invitant="alexis"]')) === 1);
+      const i0 = await carte();
+      ok('[groupe] 177 — DISCRIMINANT — seul dans mon groupe, EN PLEINE SÉANCE, l’invitation d’alexis se voit (« Rejoindre », « Non merci »), au-dessus de ma carte',
+        i0.titre === 'Groupe · 1' && JSON.stringify(i0.invitations) === JSON.stringify(['alexis']) && /Rejoindre/.test(i0.texte) && /Non merci/.test(i0.texte) &&
+          (await page.evaluate(() => { const r = document.getElementById('groupe-seance'); return r.firstElementChild.classList.contains('g-invitation'); })),
+        JSON.stringify(i0));
+      // Créer son groupe quand une invitation attend : l'écran « S'entraîner ensemble » montre d'abord la carte ; inviter quand même ne change rien.
+      await page.click('#groupe-seance #groupe-inviter');
+      await attendreQue(async () => (await compter('#groupe-corps .g-inviter-carte')) === 1);
+      const ordre = await page.evaluate(() => Array.from(document.getElementById('groupe-corps').children).map((n) => n.className.split(' ').filter((c) => /^g-(invitation|inviter-carte)$/.test(c))[0] || ''));
+      await page.click('#groupe-corps .g-ami[data-pseudo="lea"] button');
+      await attendreQue(async () => S.ginvitations.some((i) => i.invite === 'u-lea' && i.groupe_id === GB));
+      ok('[groupe] 177 — l’invitation reçue passe AVANT « S’entraîner ensemble » ; inviter quand même ne change rien (je reste dans mon groupe, l’invitation attend)',
+        ordre.indexOf('g-invitation') >= 0 && ordre.indexOf('g-invitation') < ordre.indexOf('g-inviter-carte') &&
+          fauxSocial.groupeDe('u-banc') === GB && S.ginvitations.some((i) => i.invite === 'u-banc' && i.groupe_id === GA), JSON.stringify(ordre));
+      await page.click('#btn-retour-groupe');
+      // REFUS DIT : alexis retire son invitation avant mon geste ; la carte est encore là, « Rejoindre » dit pourquoi.
+      const invAlexis = S.ginvitations.filter((i) => i.invite === 'u-banc');
+      S.ginvitations = S.ginvitations.filter((i) => i.invite !== 'u-banc');
+      await page.click('#groupe-seance .g-invitation .g-rejoindre');
+      await attendreQue(async () => /Cette invitation n’est plus valable\./.test((await carte()).message || ''));
+      ok('[groupe] 177 — MUTATION (b) — le refus de la base se DIT en une phrase (« Cette invitation n’est plus valable. »), jamais en silence ; je reste dans mon groupe, ma séance intacte',
+        fauxSocial.groupeDe('u-banc') === GB && base.sets.filter((t) => t.session_id === SB).length === seriesAvant, JSON.stringify(await carte()));
+      // « Rejoindre » : l'invitation revient ; MA séance rejoint le groupe d'alexis, mêmes séries, même identifiant.
+      S.ginvitations = S.ginvitations.concat(invAlexis);
+      await aller('/saisie');
+      await attendreQue(async () => (await compter('#groupe-seance .g-invitation')) === 1);
+      await page.click('#groupe-seance .g-invitation .g-rejoindre');
+      await attendreQue(async () => fauxSocial.groupeDe('u-banc') === GA && (await carte()) && (await carte()).titre === 'Groupe · 2', 12000);
+      const placeA = S.gmembres.filter((m) => m.groupe_id === GA && m.user_id === 'u-banc')[0];
+      const c1 = await carte();
+      ok('[groupe] 177 — DISCRIMINANT — MUTATION (c) — « Rejoindre » depuis mon groupe seul : MA séance continue (même identifiant, séries gardées), je suis dans le groupe d’alexis, ' +
+        'mon groupe vide a disparu, plus de carte d’invitation',
+        !!placeA && placeA.session_id === SB && base.sets.filter((t) => t.session_id === SB).length === seriesAvant && enCours() === SB &&
+          !S.groupes.some((g) => g.id === GB) && c1.invitations.length === 0 && JSON.stringify(c1.pastilles) === JSON.stringify(['alexis+', 'banc+']),
+        JSON.stringify([placeA, SB, c1]));
+      // Avec un autre membre ACTIF, la base refuse de partir ailleurs : le serveur imité garde le refus (invitation de lea).
+      fauxSocial.rpc('u-lea', 'groupe_inviter', { p_user: 'u-banc' });
+      const refusDeja = fauxSocial.rpc('u-banc', 'groupe_repondre', { p_groupe: G4, p_rejoindre: true, p_session: SB, p_exercices: [] });
+      ok('[groupe] 177 — avec un autre membre actif (alexis), partir ailleurs reste refusé par la base (groupe_deja_dans_un) ; l’app ne montre pas la carte',
+        /groupe_deja_dans_un/.test(refusDeja && refusDeja.message) && fauxSocial.groupeDe('u-banc') === GA, JSON.stringify(refusDeja));
+      // QUITTER LE GROUPE, en pleine séance : la confirmation dans la page, puis la séance continue seule.
+      await aller('/saisie');
+      await attendreQue(async () => (await compter('#groupe-seance #groupe-quitter')) === 1);
+      await page.click('#groupe-seance #groupe-quitter');
+      await attendreQue(async () => (await compter('#groupe-seance #groupe-quitter-oui')) === 1);
+      const q0 = await texte('#groupe-seance .g-confirmer');
+      const encoreDedans = fauxSocial.groupeDe('u-banc') === GA;
+      await page.click('#groupe-seance #groupe-quitter-non');
+      const apresNon = fauxSocial.groupeDe('u-banc') === GA && (await compter('#groupe-seance #groupe-quitter-oui')) === 0;
+      await page.click('#groupe-seance #groupe-quitter');
+      await page.click('#groupe-seance #groupe-quitter-oui');
+      await attendreQue(async () => !fauxSocial.groupeDe('u-banc') && (await compter('#groupe-seance #groupe-lancer')) === 1, 12000);
+      ok('[groupe] 177 — DISCRIMINANT — MUTATION (d) — « Quitter » demande dans la page (« Ta séance continue, seule : tes séries restent les tiennes. »), « Non » ne fait rien ; ' +
+        '« Oui » appelle groupe_quitter : je ne suis plus dans le groupe, l’écran revient à « S’entraîner ensemble », la séance continue avec ses séries',
+        /Ta séance continue, seule : tes séries restent les tiennes\./.test(q0) && encoreDedans && apresNon && !fauxSocial.groupeDe('u-banc') &&
+          enCours() === SB && base.sets.filter((t) => t.session_id === SB).length === seriesAvant &&
+          (await page.evaluate(() => !document.getElementById('vue-seance').hidden)) && fauxSocial.groupeDe('u-alexis') === GA,
+        JSON.stringify([q0, encoreDedans, apresNon]));
+      await abandonner();
+      S.ginvitations = []; 
+      console.log('  durée I : ' + Math.round((Date.now() - ta) / 1000) + ' s');
+    }
+
     // ── 142 (v2_107) — LE BLOCAGE DANS LE GROUPE : on ne se voit plus (membre à la place fermée ; invitation d'un tiers).
     {
       ['x1', 'x2', 'x3', 'x4'].forEach((p) => S.profils.push({ id: 'u-' + p, username: p, compte_prive: true, jeu_actif: true, deleted_at: null }));
@@ -19528,14 +19619,14 @@ const SETS_IMPORTES = [
     // ── LA REMISE EN ÉTAT.
     ['profils', 'sessions', 'sets', 'records', 'abonnements', 'blocages', 'reactions', 'groupes', 'gmembres', 'ginvitations', 'gmessages',
       'grecaps'].forEach((k) => { S[k] = []; });
-    const miennes = [maSeance, maSeance3, maSeance4];
+    const miennes = [maSeance, maSeance3, maSeance4, enCours()].filter(Boolean);
     for (let k = base.sets.length - 1; k >= 0; k--) if (miennes.indexOf(base.sets[k].session_id) >= 0) base.sets.splice(k, 1);
     for (let k = base.sessions.length - 1; k >= 0; k--) if (miennes.indexOf(base.sessions[k].id) >= 0) base.sessions.splice(k, 1);
-    const refusAttendus = ['groupe_plein'];
+    const refusAttendus = ['groupe_plein', 'groupe_sans_invitation', 'groupe_deja_dans_un'];
     const refusVus = S.journal.filter((j) => j.op === 'refus').map((j) => j.message);
     await aller('/saisie');
-    ok('[groupe] seul le refus voulu (le 7e membre) ; la garde de l’app n’a rien signalé, aucune erreur de page',
-      gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant && refusVus.length === 1 &&
+    ok('[groupe] seuls les refus voulus (le 7e membre ; 177 : invitation retirée, déjà dans un groupe) ; la garde de l’app n’a rien signalé, aucune erreur de page',
+      gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant && refusVus.length === refusAttendus.length &&
         refusAttendus.every((r, i) => new RegExp(r).test(refusVus[i])),
       JSON.stringify([refusVus, erreurs.slice(erreursAvant), base.journal.filter((j) => j.op === 'refus').slice(refusAvant)]));
     S.journal = [];

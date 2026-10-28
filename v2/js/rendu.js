@@ -8062,8 +8062,11 @@
     var droite = el('div', 'g-tete-actions');
     if (g.surInviter) droite.appendChild(boutonSocial('Inviter', 's-b3 g-inviter', g.surInviter, 'groupe-inviter'));
     droite.appendChild(boutonSocial(g.muet ? 'Son' : 'Muet', 's-b2 g-muet', g.surMuet, 'groupe-muet'));
+    // 177 — quitter le groupe en pleine séance : la séance continue, seule.
+    if (g.surQuitter) droite.appendChild(boutonSocial('Quitter', 's-b3 g-quitter', g.surQuitter, 'groupe-quitter'));
     tete.appendChild(droite);
     c.appendChild(tete);
+    if (g.confirmerQuitter) c.appendChild(confirmationQuitterGroupe(g.confirmerQuitter));
     var past = el('div', 'g-pastilles');
     g.pastilles.forEach(function (p) {
       var d = el('div', 'g-p' + (p.actif ? ' g-actif' : '') + (p.moi ? ' g-moi' : ''), p.initiale);
@@ -8121,6 +8124,16 @@
     }
     cible.appendChild(c);
   }
+  // 177 — la confirmation de « Quitter le groupe », dans la page (jamais confirm()).
+  function confirmationQuitterGroupe(q) {
+    var d = el('div', 'g-confirmer');
+    d.appendChild(el('p', 's-gris s-note', q.texte));
+    var b = el('div', 'g-invitation-gestes');
+    b.appendChild(boutonSocial('Oui, quitter le groupe', 's-b1 g-quitter-oui', q.surOui, 'groupe-quitter-oui'));
+    b.appendChild(boutonSocial('Non', 's-b3 g-quitter-non', q.surNon, 'groupe-quitter-non'));
+    d.appendChild(b);
+    return d;
+  }
   function carteInvitationGroupe(i) {
     var r = el('div', 's-demande g-invitation');
     r.setAttribute('data-invitant', i.invitant);
@@ -8128,7 +8141,11 @@
     t.appendChild(el('b', null, i.invitant));
     t.appendChild(el('small', null, 't’invite à t’entraîner ensemble'));
     r.appendChild(t);
-    r.appendChild(boutonSocial('Voir', 's-b1 g-voir-invitation', i.surVoir));
+    // 177 — « Rejoindre » / « Non merci » (la classe `g-voir-invitation` reste : les bancs et la vue la visent).
+    var b = el('div', 'g-invitation-gestes');
+    b.appendChild(boutonSocial('Rejoindre', 's-b1 g-voir-invitation g-rejoindre', i.surRejoindre));
+    if (i.surRefuser) b.appendChild(boutonSocial('Non merci', 's-b3 g-refuser', i.surRefuser));
+    r.appendChild(b);
     return r;
   }
   // L'accueil (Séances, Saisie) : les invitations reçues, et le groupe qui finit (« s'entraîne encore », puis « Le récap
@@ -8146,7 +8163,9 @@
       if (vue.fin.sous) t.appendChild(el('small', null, vue.fin.sous));
       r.appendChild(t);
       if (vue.fin.surVoir) r.appendChild(boutonSocial('Voir', 's-b1 g-voir-recap', vue.fin.surVoir, 'groupe-voir-recap'));
+      if (vue.fin.surQuitter) r.appendChild(boutonSocial('Quitter', 's-b3 g-quitter', vue.fin.surQuitter, 'groupe-quitter'));
       cible.appendChild(r);
+      if (vue.fin.confirmerQuitter) cible.appendChild(confirmationQuitterGroupe(vue.fin.confirmerQuitter));
     }
   }
   // La vue du groupe, plein écran : lancer (inviter), rejoindre, le récap du « combat ».
@@ -8159,6 +8178,7 @@
     if (vue.mode === 'erreur') return;
     if (vue.mode === 'inviter') {
       if (vue.sous) cible.appendChild(el('p', 's-gris s-cache', vue.sous));
+      (vue.invitations || []).forEach(function (i) { cible.appendChild(carteInvitationGroupe(i)); });
       var c = el('div', 's-carte g-inviter-carte');
       c.appendChild(el('b', null, 'S’entraîner ensemble'));
       c.appendChild(el('p', 's-gris s-cache', 'Invite tes amis : chacun garde sa séance, vous voyez ce que font les autres.'));

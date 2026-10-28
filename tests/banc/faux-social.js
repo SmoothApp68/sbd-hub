@@ -230,7 +230,10 @@ function creer(base, options) {
     const gid = groupeDe(user);
     if (!gid) return;
     const m = etat.gmembres.filter((x) => x.groupe_id === gid && x.user_id === user)[0];
-    if (finDeSeance(m) === null) leve('23505', 'groupe_deja_dans_un');
+    // 177 (v2_114) — SEUL dans mon groupe, je pars même séance en cours (le groupe vide se fige et s'éteint) ; avec un autre
+    // membre dont la place est ouverte, le refus reste.
+    const autresActifs = etat.gmembres.filter((x) => x.groupe_id === gid && x.user_id !== user && !x.ferme).length;
+    if (finDeSeance(m) === null && autresActifs > 0) leve('23505', 'groupe_deja_dans_un');
     m.ferme = true;
     eteindreSiFini(gid);
   }

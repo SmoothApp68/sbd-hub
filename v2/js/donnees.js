@@ -1135,6 +1135,10 @@
   function groupeRejoindre(groupe, session, exercices) {
     return groupeGeste('groupe_repondre', { p_groupe: groupe, p_rejoindre: true, p_session: session, p_exercices: exercices || [] });
   }
+  // 177 — « Non merci » : l'invitation s'efface, rien d'autre (`groupe_repondre` sans rejoindre).
+  function groupeRefuser(groupe) {
+    return groupeGeste('groupe_repondre', { p_groupe: groupe, p_rejoindre: false, p_session: null, p_exercices: null });
+  }
   function groupePublier(exercices, xp) {
     return groupeGeste('groupe_publier', { p_exercices: exercices || null, p_xp: xp === undefined ? null : xp });
   }
@@ -1276,7 +1280,7 @@
     groupeMoi: groupeMoi, groupeEtat: groupeEtat, groupeDirect: groupeDirect, groupeMessages: groupeMessages,
     groupeInvitationsRecues: groupeInvitationsRecues, groupeInvitationsEnvoyees: groupeInvitationsEnvoyees,
     groupeRecap: groupeRecap, groupeRecapSeance: groupeRecapSeance, groupeCreer: groupeCreer, groupeInviter: groupeInviter,
-    groupeAnnulerInvitation: groupeAnnulerInvitation, groupeRejoindre: groupeRejoindre, groupePublier: groupePublier,
+    groupeAnnulerInvitation: groupeAnnulerInvitation, groupeRejoindre: groupeRejoindre, groupeRefuser: groupeRefuser, groupePublier: groupePublier,
     groupeEnvoyer: groupeEnvoyer, groupeFermer: groupeFermer, groupeQuitter: groupeQuitter,
     // Exposée pour les tests : c'est la logique de pagination qu'il faut
     // pouvoir exercer sans réseau, pas les requêtes qui l'utilisent.

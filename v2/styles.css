@@ -2262,6 +2262,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .s-demande{background:var(--panneau-2);border-radius:16px;padding:10px 12px;margin-bottom:var(--e3)}
 .s-demande .s-t,.s-ligne .s-t{flex:1;min-width:0;overflow-wrap:anywhere}
 .s-demande small,.s-ligne small{display:block;color:var(--texte-2)}
+.g-invitation{flex-wrap:wrap}
+.g-invitation-gestes{display:flex;gap:8px;flex-wrap:wrap}
 .s-ligne{padding:10px 0;border-top:1px solid var(--trait)}
 .s-carte{background:var(--panneau);border:1px solid var(--trait);border-radius:18px;padding:14px;margin-bottom:10px}
 .s-tete{display:flex;gap:10px;align-items:center;margin-bottom:10px;min-width:0}

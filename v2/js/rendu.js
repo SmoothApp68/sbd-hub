@@ -2852,6 +2852,8 @@
         if (lib.frere) entree.appendChild(tapable(el('div', 'consigne-dit frere', lib.frere)));
         // MOTEUR §14.7 (49-U17) — « une série de plus, jusqu'à ton prochain progrès ».
         if (lib.plus) entree.appendChild(tapable(el('div', 'consigne-dit serie-de-plus', lib.plus)));
+        // 174 — la 4e marche : « une série de moins, sans dégressive, jusqu'à ton prochain progrès », ou le rappel d'une marche refusée.
+        if (lib.alleger) entree.appendChild(tapable(el('div', 'consigne-dit alleger-en-cours', lib.alleger)));
       }
       // 99 (MOTEUR §9.24) — un exercice ajouté pour cette semaine seulement : « ajouté : séance manquée de mardi ».
       if (x.ajout) entree.appendChild(el('div', 'consigne-dit ajout-semaine', 'ajouté : ' + x.ajout));
@@ -3218,6 +3220,15 @@
       return propositionDExercice({
         classe: 'proposition-remplacement', texte: carte.phrase, detail: carte.detail,
         oui: carte.oui, non: carte.non, classeOui: 'prp-oui', classeNon: 'prp-non',
+        surOui: function () { vue.surSchema(iExo, 'acceptee'); },
+        surNon: function () { vue.surSchema(iExo, 'refusee'); }
+      }, iExo);
+    }
+    // 174 — la 4e marche : « Alléger » / « Garder N séries » (« Garder la charge » en force). La même réponse.
+    if (carte.type === 'alleger') {
+      return propositionDExercice({
+        classe: 'proposition-alleger', texte: carte.phrase, detail: carte.detail,
+        oui: carte.oui, non: carte.non, classeOui: 'pal-oui', classeNon: 'pal-non',
         surOui: function () { vue.surSchema(iExo, 'acceptee'); },
         surNon: function () { vue.surSchema(iExo, 'refusee'); }
       }, iExo);

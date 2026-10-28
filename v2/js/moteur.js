@@ -71,6 +71,22 @@
   // squat passé de 7 reps à 5 le 31/08 restait ignoré cinq séances. Deux sur
   // trois tient les deux bouts : une séance isolée ne fait jamais basculer, un
   // nouveau bloc est suivi dès sa 2ᵉ séance.
+  // 174 — la règle de bord qui recule : combien de séances d'historique elle remonte, combien de séances sans monter font
+  // repartir plus bas, et de combien (× 0,95, arrondi au cran).
+  var BORD_PROFONDEUR = 10;
+  var BORD_SEANCES_SANS_MONTER = 3;
+  var BORD_VAGUE = 0.95;
+  // 174 — le cran sous P le plus proche de `cible` (x 0,95 : une vague de bord, une marche « alléger » en force), au plus bas
+  // le cran en dessous. `voisineFn(charge, sens)` : le cran de l'exercice, salle comprise. `null` : rien de plus léger.
+  function cranSousProcheDe(voisineFn, P, cible) {
+    var cur = voisineFn(P, -1);
+    if (cur === null) return null;
+    for (var t = 0; t < 12; t++) {
+      var nxt = voisineFn(cur, -1);
+      if (nxt !== null && nxt < cur && Math.abs(nxt - cible) < Math.abs(cur - cible)) cur = nxt; else break;
+    }
+    return cur;
+  }
   var FENETRE_COUPLE = 3;
   var MAJORITE_COUPLE = 2;
 
@@ -1713,6 +1729,87 @@
       var r = Palier().reserveDeSerie(d), n = comptees(d);
       return r !== null && n !== null && n >= haut && r < visee;
     }
+    // 174 — LA RÈGLE DE BORD AVEC CHARGE (MOTEUR §9.1.2). Rend la consigne ; son état (`bord`, `bord_garde`, `bord_recul`,
+    // `bord_vague`) et ce qu'elle porte pour la suite (`_bord`, non énumérable : ni le fondement ni les cas de fichier ne le
+    // voient) : le meilleur palier de la série de séances sous 3 reps, le nombre de séances sans monter, un recul en cours.
+    function consigneDeBord() {
+      var prof = nombre(opt.bordProf) || 0;
+      // La consigne que L a REÇUE (sa visée, son état). Au-delà de BORD_PROFONDEUR séances d'historique, on cesse de
+      // remonter : la ratée ne se juge plus, la série repart de L (le coût reste borné).
+      var rk = null;
+      if (prof < BORD_PROFONDEUR) {
+        var brute = anterieures(seances, avant), iL = -1;
+        for (var q = brute.length - 1; q >= 0; q--) {
+          if (instant(brute[q].debut) === instant(L.debut)) { iL = q; break; }
+        }
+        if (iL >= 0) {
+          rk = consigneDeLaSeance(brute, iL, avant, { reglage: reglage, equipement: equipement, correction: correction,
+            salle: salleDeclaree, bordProf: prof + 1 });
+        }
+      }
+      var visees = rk && rk.ligne ? nombre(rk.ligne.vise) : null;
+      var faites = A.map(function (s) { return nombre(s.reps); }).filter(function (r) { return r !== null; });
+      var plusBas = faites.length ? Math.min.apply(null, faites) : null;
+      // ⚠️ SUR LES REPS SAISIES, pas les comptées : « à fond » compte une rep de moins (§17.4), et ce n'est pas une barre ratée.
+      var ratee = visees !== null && plusBas !== null && plusBas < visees;
+      var prec = rk && rk._bord ? rk._bord : null;
+      var meilleur, sans, recul;
+      if (prec === null || rk.etat === 'bord_vague') {
+        meilleur = ratee ? null : P; sans = 0; recul = ratee;
+      } else if (!ratee && (prec.meilleur === null || (P > prec.meilleur && !memeCharge(P, prec.meilleur)))) {
+        meilleur = P; sans = 0; recul = false;
+      } else if (!ratee && prec.recul && (memeCharge(P, prec.meilleur) || P > prec.meilleur)) {
+        // Retrouver son meilleur après un recul n'est pas une séance qui stagne.
+        meilleur = prec.meilleur; sans = 0; recul = false;
+      } else {
+        meilleur = prec.meilleur; sans = prec.sans + 1; recul = prec.recul || ratee;
+      }
+      // Le COMPTE LONG (commit 3 de 174) : les séances de la série sans dépasser son record, que la « vague » ne remet pas à
+      // zéro (`sans` repart à chaque vague). `record` : la charge la plus haute de la série ; `aRecule` : un recul ou une
+      // vague a eu lieu depuis le dernier record. Retrouver son record après un recul ne compte pas, comme pour `sans`.
+      var record, total, aRecule, repsRecord, depuisRecord;
+      if (prec === null) {
+        record = P; total = 0; aRecule = ratee; repsRecord = niv; depuisRecord = L.debut;
+      } else if (!ratee && P > prec.record && !memeCharge(P, prec.record)) {
+        record = P; total = 0; aRecule = false; repsRecord = niv; depuisRecord = L.debut;
+      } else if (!ratee && prec.recul && memeCharge(P, prec.record)) {
+        record = prec.record; total = prec.total; aRecule = prec.aRecule;
+        repsRecord = prec.repsRecord; depuisRecord = prec.depuisRecord;
+      } else {
+        record = prec.record; total = prec.total + 1; repsRecord = prec.repsRecord; depuisRecord = prec.depuisRecord;
+        aRecule = prec.aRecule || ratee || rk.etat === 'bord_vague' || rk.etat === 'bord_recul';
+      }
+      var etatSuite = { meilleur: meilleur, sans: sans, recul: recul, record: record, total: total, aRecule: aRecule,
+                        repsRecord: repsRecord, depuisRecord: depuisRecord };
+      function fin(etat, ligne, plus) {
+        var r = rendre(etat, ligne, null, plus);
+        if (r && typeof r === 'object') Object.defineProperty(r, '_bord', { value: etatSuite, enumerable: false });
+        return r;
+      }
+      var vise = ratee ? visees : niv;
+      // Trois séances de suite sans monter au-dessus du meilleur : on repart du cran le plus proche de P × 0,95, au plus
+      // bas le cran en dessous.
+      if (sans >= BORD_SEANCES_SANS_MONTER) {
+        var cur = cranSousProcheDe(voisine, P, P * BORD_VAGUE);
+        if (cur === null) cur = P;
+        return fin('bord_vague', ligneDe(cur, vise), { bord: { charge: P, reps: niv, depuis: sans, vers: cur } });
+      }
+      if (ratee) {
+        var bas = voisine(P, -1);
+        if (bas === null) bas = P;
+        return fin('bord_recul', ligneDe(bas, visees), { bord: { charge: P, faites: plusBas, visees: visees } });
+      }
+      // Toutes les reps visées avec une réserve notée sous la visée : on garde la charge, UNE séance (la 169, même sortie).
+      var derniere = L.retenues && L.retenues.length ? L.retenues[L.retenues.length - 1] : null;
+      if (derniere !== null && A.length && A[A.length - 1] === derniere && effortViseEligible(P)) {
+        var Rb = Palier().reserveDeSerie(derniere);
+        var Vb = reserveVisee({ zone: 'lourd', role: 'ligne', reglage: reglage });
+        if (Rb !== null && Vb !== null && Rb < Vb && !precedenteAuHautSansMarge(precedente, P, vise, Vb)) {
+          return fin('bord_garde', ligneDe(P, vise), { bord: { charge: P, reps: nombre(derniere.reps), reserve: Rb } });
+        }
+      }
+      return fin('bord', ligneDe(voisine(P, 1), niv), null);
+    }
     function auMoins(series, seuil) {
       return series.some(function (s) { var r = comptees(s); return r !== null && r >= seuil; });
     }
@@ -1755,6 +1852,11 @@
     // continuent, comme l'étirement (une de plus, sans zone ni ligne haute).
     if (zone === null) {
       if (poidsDuCorps) return rendre('etirement_reps', ligneDe(P, cible(niv + 1)), null);
+      // 174 (26/10/2026, décision d'Aurélien, MOTEUR §9.1.2) — LE COACH SAIT RECULER : une barre ratée (des reps faites sous
+      // les reps visées par la consigne reçue) fait reculer d'un cran, aux reps visées ; trois séances sans monter font
+      // repartir plus bas ; une réserve notée sous la visée garde la charge une séance. Le 0 en réserve seul ne fait jamais
+      // reculer : la ratée se lit sur les reps SAISIES, jamais sur les reps comptées. Une aide garde la règle d'avant.
+      if (!aide) return consigneDeBord();
       return rendre('bord', ligneDe(voisine(P, 1), niv), null);
     }
 
@@ -1977,7 +2079,7 @@
   // charge avec 3 reps de marge montre que la prudence n'était pas nécessaire,
   // et le coach le dit (mesure R1 : retour à 98 % en médiane).
   var ETATS_MUETS_REACTION = {
-    silence: true, bord: true
+    silence: true, bord: true, bord_garde: true, bord_recul: true, bord_vague: true
   };
 
   // §9.9 (delta 49-13, 27/09/2026) — LE REPLI DE LA REPRISE LONGUE, PLAFONNÉ.
@@ -3678,6 +3780,26 @@
     return !!t && z !== null && t.niveauFait !== undefined && t.niveauFait !== null &&
       t.niveau !== null && t.niveau < z.bas && t.niveauFait >= z.bas;
   }
+  // 174 (MOTEUR §9.1.2) — LES TROIS PHRASES DE LA RÈGLE DE BORD QUI RECULE. Le fait : `f.bord`.
+  //   recul  : « 140 kg × 1 sur 2 visées. On repart d'un cran plus bas, aux mêmes reps ; on remonte dès que les deux passent. »
+  //   garde  : « 140 kg × 2, sans marge. On garde 140 kg ; la prochaine fois, on retente au-dessus. »
+  //   vague  : « 140 kg × 2 depuis 3 séances. On repart de 132,5 kg pour reprendre de l'élan. »
+  function phraseDeBord(etat, b) {
+    var cF = cite(FAIT, { quoi: 'bord' });
+    if (etat === 'bord_recul') {
+      var v = b.visees;
+      return chargeFois(b.charge, b.faites, cF) + ' sur ' + nombreFr(v, cite(FAIT, { quoi: 'bord.visees' })) +
+        ' visées. On repart d\'un cran plus bas, aux mêmes reps ; on remonte dès ' +
+        (v === 1 ? 'que la rep passe.' : v === 2 ? 'que les deux passent.' : 'que les ' + nombreFr(v, cite(FAIT, { quoi: 'bord.visees' })) + ' passent.');
+    }
+    if (etat === 'bord_garde') {
+      return chargeFois(b.charge, b.reps, cF) +
+        (b.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(b.reserve, cite(FAIT, { quoi: 'bord.reserve' })) + ' en réserve') +
+        '. On garde ' + enKg(b.charge, cite(FAIT, { quoi: 'bord.charge' })) + ' ; la prochaine fois, on retente au-dessus.';
+    }
+    return chargeFois(b.charge, b.reps, cF) + ' depuis ' + nombreFr(b.depuis, cite(FAIT, { quoi: 'bord.depuis' })) +
+      ' séances. On repart de ' + enKg(b.vers, cite(FAIT, { quoi: 'bord.vers' })) + ' pour reprendre de l\'élan.';
+  }
   // 154 — « 130 kg × 5, sans marge. On garde 130 kg la prochaine fois. » (R < V, la montée n'a pas lieu).
   function phraseDeLaGarde(e) {
     var cF = cite(FAIT, { quoi: 'effort_vise' });
@@ -3866,6 +3988,11 @@
       case 'bord':
         return 'Sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) + ' reps, pas de rep de plus' + DEUX_POINTS +
                'le cran au-dessus, aux mêmes reps.';
+
+      case 'bord_recul':
+      case 'bord_garde':
+      case 'bord_vague':
+        return f.bord ? phraseDeBord(c.etat, f.bord) : '';
 
       // §9.17 — AU POIDS DU CORPS, au haut de la zone, deux séances de suite :
       // la ligne tient, et la carte du lest parle (une fois). Le coach ne dit
@@ -4143,6 +4270,11 @@
              (d ? ' ' + d.charAt(0).toUpperCase() + d.slice(1) + '.' : '');
     }
     if (c.repli) return phraseRepli(c.repli, reference);
+    // 174 — la marche « alléger » en cours : la feuille dit ce que la ligne fait, pas « une rep de plus ».
+    if (c.alleger) {
+      var ga = grisAlleger(c.alleger);
+      return ga.charAt(0).toUpperCase() + ga.slice(1) + '. La fatigue redescend, la charge remontera.';
+    }
     var e = etatBrutDuPourquoi(c, reglage);
     if (c.serieDePlus && e) {
       return e + ' ' + GRIS_SERIE_DE_PLUS.charAt(0).toUpperCase() + GRIS_SERIE_DE_PLUS.slice(1) + '.';
@@ -4335,6 +4467,17 @@
       case 'bord':
         return 'Tu travailles sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) + ' reps' + DEUX_POINTS +
                'je ne te demande jamais une rep de plus, je propose le plus petit cran de charge.';
+
+      // 174 — la même phrase que l'en-tête, puis la règle qui la porte.
+      case 'bord_recul':
+        return !f.bord ? '' : phraseDeBord(c.etat, f.bord) + ' Sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) +
+          ' reps, je ne demande jamais une rep de plus : une barre ratée fait reculer d\'un cran.';
+      case 'bord_garde':
+        return !f.bord ? '' : phraseDeBord(c.etat, f.bord) + ' Sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) +
+          ' reps, une réserve sous ma visée garde la charge une séance.';
+      case 'bord_vague':
+        return !f.bord ? '' : phraseDeBord(c.etat, f.bord) + ' Trois séances sans passer au-dessus de ton meilleur : je baisse d\'environ ' +
+          nombreFr(Math.round((1 - BORD_VAGUE) * 100), regle('constante')) + INSECABLE + '%.';
     }
     return '';
   }
@@ -5128,7 +5271,8 @@
     // §10 bis (16/10/2026) — la salle déclarée aussi : la zone d'une séance passée à la plus lourde est la zone gelée,
     // la même que celle d'aujourd'hui (sinon le report verrait une « nouvelle zone » que le gel a empêchée).
     return consignePour(liste.slice(0, i), se.debut,
-      { reglage: o.reglage, equipement: o.equipement, correction: correction, salle: o.salle || null });
+      { reglage: o.reglage, equipement: o.equipement, correction: correction, salle: o.salle || null,
+        bordProf: o.bordProf });
   }
   function zoneDeLaSeance(liste, i, avant, o) {
     var k = consigneDeLaSeance(liste, i, avant, o);
@@ -6029,6 +6173,9 @@
   var MARCHE_REMPLACEMENT = 'remplacement';
   var ORIGINE_SALLE_MAX = 'salle_max';
   var MARCHE_SILENCE = 'silence';
+  // 174 (MOTEUR §14.5, §14.7) — LA 4e MARCHE : ALLÉGER au lieu de se taire. Là où l'escalier n'avait plus rien à dire (la
+  // série de plus et la dégressive ont eu leur tour), le coach propose une fois d'alléger l'exercice, jusqu'au prochain progrès.
+  var MARCHE_ALLEGER = 'alleger';
   // Lourd → Mix, Mix → Lourd : le schéma voisin, et les deux libellés.
   var SCHEMAS = {
     lourd: { vers: 'mix', oui: 'Passer à 6-8 reps', non: 'Garder 3-5' },
@@ -6248,7 +6395,7 @@
       return l && l.module === MODULE_ESCALIER && l.fondement &&
         (l.fondement.marche === MARCHE_SCHEMA || l.fondement.marche === MARCHE_REPLI ||
          l.fondement.marche === MARCHE_SERIE_DE_PLUS || l.fondement.marche === MARCHE_DEGRESSIVE ||
-         l.fondement.marche === MARCHE_REMPLACEMENT);
+         l.fondement.marche === MARCHE_REMPLACEMENT || l.fondement.marche === MARCHE_ALLEGER);
     }).map(function (l) {
       var f = l.fondement;
       var m = { id: l.id || null, seance: f.seance || null, jour: f.jour || null,
@@ -6486,6 +6633,149 @@
       detail: DETAIL_DEGRESSIVE,
       oui: 'Ajouter une dégressive', non: 'Non merci'
     };
+  }
+
+  // ══ §14.5, §14.7 (174, 26/10/2026) — L'ESCALIER, LA 4e MARCHE : ALLÉGER ═════════
+  //
+  // « Après la série de plus et la dégressive, un exercice bloqué n'entend plus rien » : désormais, là où la marche serait
+  // le SILENCE (à partir du 3e déclenchement isolé), le coach propose d'alléger, une fois par blocage (« une marche proposée
+  // ne revient pas »). Aller à l'échec n'est jamais un motif : la marche ne lit que le compteur et la routine.
+  //
+  //   zone muscle (haut > 5), 3 séries ou plus  une série de moins, dégressive retirée, même charge, mêmes reps ;
+  //   zone muscle, 2 séries ou moins            séries gardées, dégressive retirée, le cran en dessous, au bas de la zone ;
+  //   zone force (haut <= 5)                    séries gardées, dégressive retirée, l'arrondi au cran de P x 0,95 ;
+  //   poids du corps, aide (palier <= 0)        une série de moins si la routine en compte 3 ou plus, sinon le silence.
+  //
+  // Les crans (`cran`, `cinq`) se lisent sur l'historique : `consigneDExercice` les fige avec la consigne, comme le repli.
+  var ALLEGER_DES = 3 * PAS_ESCALIER;      // le 3e déclenchement : compteur 12
+  var ALLEGER_PART = 0.95;
+  function crans(seances, avant, palier, equipement, salle) {
+    var P = nombre(palier);
+    if (P === null || P <= 0) return null;
+    var voisineFn = function (charge, sens) { return voisineSalleComprise(seances, avant, charge, equipement, sens, salle || null); };
+    return { cran: voisineFn(P, -1), cinq: cranSousProcheDe(voisineFn, P, P * ALLEGER_PART) };
+  }
+  function allegerForce(zone) { var z = zoneParCle(zone); return z !== null && z.haut <= 5; }
+  // La proposition : `{ mode, routine, series, charge, vise }` ou `null` (le silence). `env` : `{ cran, cinq }` figés avec
+  // la consigne ; `nRoutine` : les séries de travail de la routine.
+  function propositionAlleger(consigne, env, nRoutine) {
+    var c = consigne || null;
+    var z = c ? zoneParCle(c.zone) : null;
+    var N = nombre(nRoutine), P = c ? nombre(c.palier) : null;
+    if (!c || c.etat === 'silence' || !c.ligne || z === null || P === null || N === null || N < 1) return null;
+    var e = env || {};
+    if (P <= 0) return N >= 3 ? { mode: 'serie', routine: N, series: N - 1, charge: null, vise: nombre(c.ligne.vise) } : null;
+    if (allegerForce(c.zone)) {
+      var cinq = nombre(e.cinq);
+      return cinq === null || cinq >= P - 1e-9 ? null
+        : { mode: 'force', routine: N, series: N, charge: cinq, vise: nombre(c.ligne.vise) };
+    }
+    if (N >= 3) return { mode: 'serie', routine: N, series: N - 1, charge: null, vise: nombre(c.ligne.vise) };
+    var cran = nombre(e.cran);
+    return cran === null || cran >= P - 1e-9 ? null : { mode: 'cran', routine: N, series: N, charge: cran, vise: z.bas };
+  }
+  // LA CONSIGNE ALLÉGÉE D'UN EXERCICE (pas la semaine allégée, §14.4) : sans ligne haute, la charge de la proposition, le
+  // nombre de séries qu'elle couvre (`couvre`, seulement quand une série part). `alleger` dit de quoi écrire l'en-tête et I66.
+  function consigneAlleger(consigne, prop) {
+    var c = consigne || null;
+    if (!c || !prop || c.etat === 'silence' || !c.ligne) return c;
+    var ligne = prop.charge === null ? c.ligne : { charge: prop.charge, vise: prop.vise };
+    var sortie = Object.assign({}, c, {
+      ligne: ligne, haut: null,
+      // I61 : « approchée » ne reste au fondement que si la ligne gardée l'est (la ligne haute, souvent la seule approchée, part).
+      fondement: fondementApproche(c, !!ligne && ligne.approchee === true),
+      alleger: { mode: prop.mode, routine: prop.routine, series: prop.series, charge: prop.charge, palier: nombre(c.palier) }
+    });
+    if (prop.mode === 'serie') { sortie.n = prop.series; sortie.couvre = prop.series; }
+    return sortie;
+  }
+  var ALLEGER_QUI = { serie: 'une série de moins', cran: 'un cran plus bas', force: 'moins lourd' };
+  function grisAlleger(a) {
+    var m = a && ALLEGER_QUI[a.mode];
+    return m ? m + ', sans dégressive, jusqu\'à ton prochain progrès' : null;
+  }
+  // « 107 kg × 10 depuis 13 séances. Une série de moins reste la sortie. » — le rappel d'une marche refusée.
+  function phraseRappelAlleger(meilleur, compteur, mode) {
+    var q = ALLEGER_QUI[mode];
+    if (!meilleur || meilleur.niveau === null || meilleur.niveau === undefined || !q) return null;
+    return Modele().charge(meilleur.palier, undefined, cite(FAIT, { quoi: 'meilleur' })) + ' × ' +
+      nombreFr(meilleur.niveau, cite(FAIT, { quoi: 'meilleur', champ: 'reps' })) +
+      ' depuis ' + nombreFr(compteur, regle('compteur')) + ' séances. ' + q.charAt(0).toUpperCase() + q.slice(1) +
+      ' reste la sortie.';
+  }
+  // LA CARTE : le titre (le meilleur et le compteur) ; le détail se rédige à part, hors capture (`detailAlleger`).
+  function carteAlleger(meilleur, compteur, prop) {
+    if (!meilleur || meilleur.niveau === null || meilleur.niveau === undefined || !prop) return null;
+    return {
+      type: MARCHE_ALLEGER, mode: prop.mode,
+      phrase: Modele().charge(meilleur.palier, undefined, cite(FAIT, { quoi: 'meilleur' })) + ' × ' +
+        nombreFr(meilleur.niveau, cite(FAIT, { quoi: 'meilleur', champ: 'reps' })) +
+        ' depuis ' + nombreFr(compteur, regle('compteur')) + ' séances',
+      oui: 'Alléger',
+      non: prop.mode === 'serie' ? 'Garder ' + prop.routine + ' séries' : prop.mode === 'force' ? 'Garder la charge' : 'Non merci',
+      gris_apres: grisAlleger(prop)
+    };
+  }
+  // « Une série de plus, puis la dégressive, n'ont rien changé. On allège : 2 séries au lieu de 3, sans dégressive, même
+  // charge. La fatigue redescend, la charge remontera. » `avant` : `{ serie, degressive }`, les marches déjà proposées.
+  function detailAlleger(prop, avant, palier) {
+    if (!prop) return null;
+    var a = avant || {};
+    var debut = a.serie && a.degressive ? 'Une série de plus, puis la dégressive, n\'ont rien changé.'
+      : a.serie ? 'Une série de plus n\'a rien changé.' : a.degressive ? 'La dégressive n\'a rien changé.'
+      : 'Rien n\'a changé depuis le début de ce blocage.';
+    var fin = ' La fatigue redescend, la charge remontera.';
+    if (prop.mode === 'serie') {
+      return debut + ' On allège : ' + Modele().nombre(prop.series) + ' séries au lieu de ' + Modele().nombre(prop.routine) +
+        ', sans dégressive, même charge.' + fin;
+    }
+    if (prop.mode === 'cran') {
+      return debut + ' On allège : un cran plus bas, ' + Modele().chargeFois(prop.charge, prop.vise) +
+        ' (le bas de ta zone), sans dégressive.' + fin;
+    }
+    return debut + ' On allège : ' + Modele().charge(prop.charge) + ' au lieu de ' + Modele().charge(palier) +
+      ', environ 5 % de moins, mêmes séries, sans dégressive.' + fin;
+  }
+  // ══ 174 (3/3, décidé le 26/10/2026) — SOUS 3 REPS, SIX SÉANCES SANS MONTER : LA ZONE 3-5 EST PROPOSÉE ══════════
+  //
+  // « Quand le compte des séances de bord sans monter atteint 6, le coach PROPOSE de passer l'exercice en zone 3-5 quelques
+  // semaines. Il ne change rien sans accord. » Le compte est le COMPTE LONG de la règle de bord (`_bord.total`, que la vague
+  // ne remet pas à zéro) ; la marche est celle du schéma (`MARCHE_SCHEMA`) : la même carte, la même réponse, la même zone
+  // posée (`poserZone`) à l'acceptation, le même silence dans un bloc de programme en cours (I39). Elle part d'une
+  // consigne SANS ZONE : `bord` est figé avec la consigne (`consigneDExercice`) et dit ce que la carte écrit. Aller à
+  // l'échec n'est jamais un motif : seul le compte parle.
+  var BORD_PROPOSE_DES = 6;
+  var DETAIL_BORD_SCHEMA = 'Quelques semaines en 3-5 reps relancent souvent la barre, avant d\'y revenir.';
+  // `{ total, charge, reps, aRecule, depuis }` à partir de la sixième séance sans dépasser le record ; sinon `null`.
+  function bordSansMonter(consigne) {
+    var b = consigne && consigne._bord;
+    if (!b || (consigne.zone !== null && consigne.zone !== undefined)) return null;
+    if (nombre(b.total) === null || b.total < BORD_PROPOSE_DES) return null;
+    return { total: b.total, charge: b.record, reps: b.repsRecord, aRecule: b.aRecule === true, depuis: b.depuisRecord || null };
+  }
+  // « 140 kg × 2 depuis 6 séances, malgré le recul. » — le détail se lit à part (hors capture : il écrit « 3-5 »).
+  function carteBordSchema(bord) {
+    if (!bord || nombre(bord.charge) === null || nombre(bord.reps) === null) return null;
+    var cB = cite(FAIT, { quoi: 'bord.record' });
+    var r = nombre(bord.reps);
+    return {
+      zone: null, nouvelle_zone: 'lourd',
+      phrase: Modele().charge(bord.charge, undefined, cB) + ' × ' + nombreFr(r, cite(FAIT, { quoi: 'bord.record', champ: 'reps' })) +
+        ' depuis ' + nombreFr(bord.total, cite(FAIT, { quoi: 'bord.long' })) + ' séances' +
+        (bord.aRecule ? ', malgré le recul.' : '.'),
+      detail: DETAIL_BORD_SCHEMA, oui: 'Passer à 3-5 reps',
+      non: r === 1 ? 'Garder les simples' : r === 2 ? 'Garder les doubles' : 'Garder ' + Modele().nombre(r) + ' reps'
+    };
+  }
+
+  // La marche proposée (acceptée ou refusée) depuis le dernier progrès, ou l'acceptée en cours.
+  function allegerProposee(exercice, jour, compteur, marches, compteurs) {
+    return marcheProposee(exercice, jour, compteur, marches, compteurs, MARCHE_ALLEGER);
+  }
+  function allegerActive(exercice, jour, compteur, marches, compteurs) {
+    var a = marchesDepuisProgres(exercice, jour, compteur, marches, compteurs, MARCHE_ALLEGER, ['acceptee']);
+    if (!a.length) return null;
+    return a.slice().sort(function (x, y) { return avantAlpha(String(y.jour), String(x.jour)); })[0];
   }
 
   // ══ §10 bis (113, décidé le 16/10/2026) — AU PLAFOND DE LA SALLE, LE COACH PROPOSE ══
@@ -7209,7 +7499,7 @@
   // La ligne part de la charge reportée, au bas de la zone, sans ligne haute ;
   // le fondement garde ce que la phrase grise et la feuille diront, rien de
   // l'estimation.
-  var SANS_REPORT = { silence: true, bord: true, reprise_courte: true, reprise_longue: true };
+  var SANS_REPORT = { silence: true, bord: true, bord_garde: true, bord_recul: true, bord_vague: true, reprise_courte: true, reprise_longue: true };
   // §9.10 (53-2 bis, D1) — l'origine de la ligne de zone en vigueur, en
   // paramètre de la phrase (`o.ligneDeZone` : la ligne en vigueur QUAND elle
   // commence un bloc, `ligneDeDebutDeBloc` ; `null` sinon) : `bloc` pour une
@@ -7376,7 +7666,13 @@
     var V = seriesAFondDeLaDerniere(seances, avant);
     if (V === null) return consigne;
     var prudente = enPrudent(function () { return consignePour(seances, avant, options); });
-    return plafonnerAFond(consigne, prudente, V);
+    var plafonnee = plafonnerAFond(consigne, prudente, V);
+    // 174 (3/3) — le compte long de la règle de bord (`_bord`, non énumérable) suit la consigne plafonnée : une série à fond
+    // (0 en réserve) ne le fait ni naître ni disparaître.
+    if (plafonnee && plafonnee !== consigne && consigne && consigne._bord && !plafonnee._bord) {
+      Object.defineProperty(plafonnee, '_bord', { value: consigne._bord, enumerable: false });
+    }
+    return plafonnee;
   }
 
   // La consigne d'UN exercice de la séance ouverte, silences compris. Pure :
@@ -7486,6 +7782,11 @@
              // plan décide s'il s'applique (la marche dépend des cartes). La
              // zone de chaque séance candidate est celle de la consigne qu'elle
              // a reçue (la zone choisie en vigueur ce jour-là).
+             // 174 — LES CRANS DE LA MARCHE « ALLÉGER », figés avec la consigne : le cran en dessous et l'arrondi de P x 0,95.
+             // 174 (3/3) — SIX SÉANCES DE BORD SANS MONTER : de quoi proposer la zone 3-5, figé avec la consigne.
+             bord: bordSansMonter(consigne),
+             alleger: compteur.compteur >= ALLEGER_DES && consigne && consigne.zone
+               ? crans(seances, avant, consigne.palier, o.equipement, salle) : null,
              repli: compteur.compteur >= PAS_ESCALIER && consigne && consigne.zone
                ? repliDansLaSalle(repliEscalier(marquees, avant, compteur.meilleur, consigne.zone,
                                                 { zoneAu: zoneAu, actuel: consigne.palier }), salle)
@@ -8087,6 +8388,18 @@
     MARCHE_SECHE: MARCHE_SECHE,
     MARCHE_SERIE_DE_PLUS: MARCHE_SERIE_DE_PLUS,
     MARCHE_DEGRESSIVE: MARCHE_DEGRESSIVE,
+    MARCHE_ALLEGER: MARCHE_ALLEGER,
+    propositionAlleger: propositionAlleger,
+    consigneAlleger: consigneAlleger,
+    carteAlleger: carteAlleger,
+    carteBordSchema: carteBordSchema,
+    BORD_PROPOSE_DES: BORD_PROPOSE_DES,
+    detailAlleger: detailAlleger,
+    grisAlleger: grisAlleger,
+    phraseRappelAlleger: phraseRappelAlleger,
+    allegerProposee: allegerProposee,
+    allegerActive: allegerActive,
+    cransDAlleger: crans,
     MARCHE_SILENCE: MARCHE_SILENCE,
     FENETRE_REPLI_JOURS: FENETRE_REPLI_JOURS,
     nIsole: nIsole,

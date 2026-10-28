@@ -64,12 +64,20 @@
   // ── La santé : une douleur ne part JAMAIS (166, D4) ─────────────────────
   // Le motif exige une PARTIE du corps ou « ça » : « tirage », « tirer la barre », « tire-bouchon » ne sont pas des douleurs.
   var PARTIES = 'dos|genou|genoux|epaule|epaules|coude|coudes|poignet|poignets|hanche|hanches|cheville|chevilles|cou|nuque|tete|ventre|coeur|poitrine|thorax|cuisse|cuisses|mollet|mollets|biceps|triceps|pied|pieds|main|mains|bras|jambe|jambes|lombaires|cote|cotes|pec|pecs|fesse|fesses|aine|tendon|tendons|articulation|articulations|ischio|ischios|quadriceps';
+  // 179 (B-H1) — DEUX ENSEMBLES : une partie du corps × (un symptôme | autre chose qu'un mot de séance), plus des expressions qui
+  // coupent seules. Le nom d'un exercice (« développé épaules », « extension mollets ») n'est pas une partie du corps nommée.
+  var PARTIES_CORPS = 'dos|genou|genoux|epaule|epaules|coude|coudes|poignet|poignets|hanche|hanches|cheville|chevilles|cou|nuque|tete|ventre|coeur|poitrine|thorax|cuisse|cuisses|mollet|mollets|biceps|triceps|pied|pieds|main|mains|bras|jambe|jambes|lombaires|lombes|pec|pecs|pectoraux|fesse|fesses|aine|tendon|tendons|articulation|articulations|ischio|ischios|quadriceps|trapeze|trapezes|doigt|doigts|pouce|rotule|rotules|menisque|ligament|ligaments|cervicales|abdos|sternum|tibia|talon|talons|orteil|orteils|machoire|gorge|clavicule|omoplate|omoplates|adducteurs?|rhomboides|deltoide|deltoides';
+  var NOMS_EXERCICES = '(?:developpes?|elevations?|curls?|extensions?|presse|releves?|leg|rowing|tirages?|tractions?|ecartes?|oiseau|shrugs?|pull-?over|dips?|fentes?|souleves?|squats?|crunch|hip thrust|pompes?|gainage|kickbacks?|face pull)';
+  var LIENS_EXERCICES = 'de|du|des|d|a|au|aux|la|le|les|l|en|sur|debout|assis|assise|couche|incline|inclines|decline|machine|poulie|barre|haltere|halteres|ez|unilateral|vertical|horizontal|serre|large|neutre|supination|pronation|laterale|laterales|frontale|frontales|arriere|avant|libre|smith|bulgare|roumain|' + PARTIES_CORPS;
+  var SYMPTOMES = "(?:tue|fourmi\\w*|fourmillements?|engourdi\\w*|raide|raideur|crispe\\w*|crispation|crampes?|tiraille\\w*|sensibles?|souci|soucis|probleme|problemes|gene|genent|bloque\\w*|craque\\w*|claque\\w*|coince\\w*|brule\\w*|pique|piquent|lance|lancent|pince|pincent|gonfle\\w*|enfle\\w*|grince\\w*|cede|faible|faiblit|tremble\\w*|inquiet\\w*|peur|bizarre|etrange|anormal\\w*|fatigue\\w*|souffre|chaud|mou|lache|lachent|(?:qui|ca|me|m') ?(?:tire|tirent)|tire (?:dans|a|au|aux|sur)|pas bien|va pas|pas normal)";
+  var MOTS_DE_SEANCE = "(?:kg|kilos?|charges?|reps?|repetitions?|series?|palier|cran|crans|barre|disques?|poids|lourds?|lourde|legers?|legere|monter|monte|baisser|baisse|augmenter|garder|garde|tester|teste|consigne|zone|volume|seances?|echauffements?|exercices?|programme|routine|entrainements?|travail\\w*|progress\\w*|intensite|rpe|rir|reserve|marche|escalier|deload|decharge|echec|machine|halteres?|elastiques?|lest|pourquoi|combien|1rm)";
   var MOTIFS_SANTE = [
     '\\b(?:douleurs?|douloureu[xs]e?s?|blessures?|blesse|blessee|tendinites?|tendinopathies?|claquage|claquages|claque|claquee|dechirures?|dechire|dechiree|entorses?|luxations?|fractures?|hernies?|lumbago|sciatique|contractures?|elongations?|inflammations?|vertiges?|malaises?|nausees?|palpitations?|elancements?|pincements?|picotements?|souffrances?|souffre)\\b',
     "\\bj'?ai (?:tres |vraiment |super |trop )?mal\\b",
     '\\bavoir (?:tres |vraiment )?mal\\b',
     '\\bme sens (?:tres |vraiment )?mal\\b',
     '\\bfai(?:t|ts) (?:tres |vraiment |super |trop )?mal\\b',
+    "\\b(?:me|se|te|m') ?fai(?:s|re|t) mal\\b",
     '\\bmal (?:au|aux)\\b',
     "\\bmal a (?:l'|la |le |les |mon |ma |mes |ton |ta |tes |son |sa |ses )",
     '\\bmal (?:de |du |des )(?:' + PARTIES + ')\\b',
@@ -80,16 +88,35 @@
     "\\b(?:pince|pincement|tire|tirent|lance|elancement|brulure|picotement|gene) (?:dans|a|au|aux|sur) (?:le |la |les |l'|mon |ma |mes )?(?:" + PARTIES + ')\\b',
     "\\bca (?:me |m')?(?:fait souffrir|lance|pince|coince|tire|brule|craque|claque|elance|gene|picote)\\b",
     '\\b(?:une |la |ma |cette |de la )?gene (?:a |au |aux |dans |sur |autour |sous )',
-    "\\bj'?ai (?:une |un )?(?:legere |petite |vague |grosse )?gene\\b"
+    "\\bj'?ai (?:une |un )?(?:legere |petite |vague |grosse )?gene\\b",
+    // 179 : les expressions qui coupent seules, sans partie du corps nommée
+    '\\bme tue(?:nt)?\\b',
+    '\\bfourmi(?:s|llements?|llent)?\\b',
+    '\\bengourdi\\w*',
+    '\\bcrispe\\w*|\\bcrispations?\\b',
+    '\\bcrampes?\\b|\\braideurs?\\b',
+    "\\b(?:ca|qui) (?:me |m')?(?:tire|tirent|tiraille|tiraillent|lache|lachent|bloque|brule|pique|lance|pince)\\b",
+    "\\b(?:me|m') ?(?:lache|lachent|gene|genent|bloque|brule|pique|pince|tiraille)\\b",
+    '\\bsouci (?:physique|de sante|medical)\\b',
+    '\\bje boite\\b|\\bje boitille\\b'
   ];
   function normaliser(texte) {
     return String(texte || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[\u2019\u2018`\u00b4]/g, "'").replace(/\s+/g, ' ');
   }
   var REGEX_SANTE = MOTIFS_SANTE.map(function (m) { return new RegExp(m); });
+  var RE_CORPS = new RegExp('\\b(?:' + PARTIES_CORPS + ')\\b');
+  var RE_NOM_EXERCICE = new RegExp('\\b' + NOMS_EXERCICES + '\\b(?:[ \']+(?:' + LIENS_EXERCICES + ')\\b){0,5}', 'g');
+  var RE_SYMPTOMES = new RegExp('\\b' + SYMPTOMES + '\\b');
+  var RE_SEANCE = new RegExp('\\b' + MOTS_DE_SEANCE + '\\b');
+  // Une douleur ne part jamais : un motif, OU une partie du corps nommée hors d'un nom d'exercice avec un symptôme, OU une partie
+  // du corps nommée sans aucun mot de séance (« mon épaule ? »). « Pourquoi 20 kg au développé épaules ? » n'en est pas une.
   function estSante(question) {
     var q = normaliser(question);
-    return REGEX_SANTE.some(function (re) { return re.test(q); });
+    if (REGEX_SANTE.some(function (re) { return re.test(q); })) return true;
+    var sansExercice = q.replace(RE_NOM_EXERCICE, ' ');
+    if (!RE_CORPS.test(sansExercice)) return false;
+    return RE_SYMPTOMES.test(sansExercice) || !RE_SEANCE.test(sansExercice);
   }
 
   // ── Le contexte reçu : liste blanche, longueurs bornées, aucune date ─────
@@ -187,7 +214,7 @@
   var api = {
     nombresDe: nombresDe, phrasesDe: phrasesDe, controlerReponse: controlerReponse, estSante: estSante,
     verifierContexte: verifierContexte, origineAutorisee: origineAutorisee, normaliser: normaliser,
-    MOTIFS_SANTE: MOTIFS_SANTE, MOTIFS_DATE: MOTIFS_DATE, sansDate: sansDate, contientDate: contientDate,
+    MOTIFS_SANTE: MOTIFS_SANTE, PARTIES_CORPS: PARTIES_CORPS, SYMPTOMES: SYMPTOMES, MOTS_DE_SEANCE: MOTS_DE_SEANCE, NOMS_EXERCICES: NOMS_EXERCICES, MOTIFS_DATE: MOTIFS_DATE, sansDate: sansDate, contientDate: contientDate,
     nettoyerQuestion: nettoyerQuestion, nettoyerContexte: nettoyerContexte, corpsTropGros: corpsTropGros, MAX_CORPS: MAX_CORPS, MAX_QUESTION: MAX_QUESTION, MAX_PHRASES: MAX_PHRASES
   };
   racine.THControle = api;

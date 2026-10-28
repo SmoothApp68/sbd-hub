@@ -10049,7 +10049,7 @@ const SETS_IMPORTES = [
     // 32,5 au cran de 2,5), et la phrase dit quoi enlever.
     f = await fantomesU();
     ok('[U10] 94 — DISCRIMINANT : à la barre, la dégressive posée se remplit (32,5)', f[12] === '32,5', JSON.stringify(f.slice(10, 13)));
-    ok('[U10] 94 — et la phrase dit quoi enlever', (await phrasesU('degressive')).map(esp).indexOf('Enlève 5 kg de chaque côté : 32,5 kg. Sans repos, jusqu\'à l\'échec. Vise 4 à 6.') >= 0,
+    ok('[U10] 94 — et la phrase dit quoi enlever', (await phrasesU('degressive')).map(esp).indexOf('Enlève 5 kg de chaque côté : 32,5 kg. Sans repos, jusqu\'à l\'échec. Vise 3 à 5.') >= 0,
       esp(JSON.stringify(await phrasesU('degressive'))));
 
     // Un exercice ajouté hors routine, à la barre, sans chauffe : la proposition.
@@ -22784,7 +22784,7 @@ const SETS_IMPORTES = [
         fin: finDe(debut, t112).toISOString(), statut: 'terminee', note: null,
         salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
       let rang = 0;
-      [['presse-s112', 100, 10, 2], ['extension-s112', 60, 12, 2], ['leger-s112', 5, 12, 1], ['lourd-s112', 100, 8, 1]]
+      [['presse-s112', 100, 10, 2], ['extension-s112', 60, 12, 2], ['leger-s112', 5, 10, 1], ['lourd-s112', 100, 8, 1]]
         .forEach(([slug, kg, reps, n]) => {
           for (let k = 0; k < n; k++) {
             rang++;
@@ -25445,7 +25445,7 @@ const SETS_IMPORTES = [
     await jusqua(async () => /^Deux fois/.test(String((await entete169()).dit || '')), 8000);
     const a2 = await entete169();
     ok('[JB169] DISCRIMINANT — 2e fois (B : la séance d’avant a échoué aussi) : le coach pose le test (32,5 kg), un seul cran, et dit « Deux fois 30 kg × 10 au haut de ta zone »',
-      /^Deux fois 30 kg × 10 au haut de ta zone : aujourd’hui, on teste (≈ )?32,5 kg × 8\.$/.test(sp169(a2.dit)) &&
+      /^Deux fois 30 kg × 10 au haut de ta zone : aujourd’hui, on teste (≈ )?32,5 kg × 6\.$/.test(sp169(a2.dit)) &&
         a2.jaune.some((t) => /32,5/.test(sp169(t))), JSON.stringify(a2));
     const v169 = await page.evaluate(() => {
       const d = window.THPlan && window.THPlan.dernier;

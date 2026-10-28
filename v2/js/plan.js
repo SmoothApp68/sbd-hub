@@ -4491,7 +4491,7 @@
       var delta = g.de > 0 ? (g.vers - g.de) / g.de * 100 : 0;
       if (!(delta > (z.haut - z.bas) * M.GROS_CRAN_PAR_REP)) erreurs.push(nom + 'un cran de ' + Math.round(delta) + ' % dit gros, la zone ' + z.bas + '-' + z.haut + ' l’absorbe');
       if (g.pct !== Math.round(delta)) erreurs.push(nom + 'le pourcentage dit ' + g.pct + ' pour un écart de ' + Math.round(delta));
-      var iso = x.polyarticulaire === false;
+      var iso = g.isolation === true;   // ce que la règle a lu à son calcul (figé avec la consigne), pas le catalogue de l'instant
       var plancher = Math.min(z.bas, Math.max(z.bas - 2, iso ? M.GROS_PLANCHER_ISOLATION : M.GROS_PLANCHER));
       if (g.plancher !== plancher) erreurs.push(nom + 'le plancher est ' + g.plancher + ', attendu ' + plancher);
       if (g.plancher > z.bas) erreurs.push(nom + 'le plancher ' + g.plancher + ' au-dessus du bas ' + z.bas);

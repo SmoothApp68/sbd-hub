@@ -1316,7 +1316,7 @@
     var delta = (t - p) / p * 100;
     if (!(delta > (nombre(zone.haut) - nombre(zone.bas)) * GROS_CRAN_PAR_REP + 1e-9)) return null;
     return { de: p, vers: t, pct: Math.round(delta), reps: Math.round(delta / GROS_CRAN_PAR_REP),
-             plancher: plancherDuGros(zone, isolation) };
+             plancher: plancherDuGros(zone, isolation), isolation: isolation === true };
   }
   // « De 9 à 11,5 kg, c'est +28 % : environ 11 reps d'écart. À 11,5 kg, 10 reps suffisent pour t'y installer. » — le test d'un
   // gros cran, avant. Le pourcentage arrondi, les reps d'écart (écart ÷ 2,5 %) et le plancher sont des règles du moteur ;

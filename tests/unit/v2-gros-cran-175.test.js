@@ -32,7 +32,7 @@ const essai = (reps, debut) => seance(debut, 9, ...auPalier(9, 12, 2), serie(11.
 describe('175 / 3 — grosCran : la définition', () => {
   const VOLUME = M.zoneParCle('volume');
   test('9 → 11,5 kg en Volume : +28 %, ~11 reps d’écart, le plancher à 8', () => {
-    expect(M.grosCran(9, 11.5, VOLUME, false)).toEqual({ de: 9, vers: 11.5, pct: 28, reps: 11, plancher: 8 });
+    expect(M.grosCran(9, 11.5, VOLUME, false)).toEqual({ de: 9, vers: 11.5, pct: 28, reps: 11, plancher: 8, isolation: false });
   });
   test('DISCRIMINANT — un cran de 2,5 % n’est pas gros : le seuil est (haut − bas) × 2,5 %', () => {
     expect(M.grosCran(100, 102.5, VOLUME, false)).toBeNull();
@@ -63,7 +63,7 @@ describe('175 / 3 — le test d’un gros cran', () => {
   test('proposé au plancher, pas au bas de la zone', () => {
     const r = pour(trois());
     expect(r).toMatchObject({ etat: 'test_propose', ligne: { charge: 9 }, haut: { charge: 11.5, vise: 8, k: 1 } });
-    expect(r.fondement.cranGros).toEqual({ de: 9, vers: 11.5, pct: 28, reps: 11, plancher: 8 });
+    expect(r.fondement.cranGros).toEqual({ de: 9, vers: 11.5, pct: 28, reps: 11, plancher: 8, isolation: false });
   });
   test('la phrase dit l’écart et ce qui suffit', () => {
     const r = pour(trois());

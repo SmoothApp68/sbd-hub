@@ -2407,6 +2407,23 @@ const SETS_IMPORTES = [
   // au moins une requête partie DEPUIS le geste, plus rien en vol, la file des séries revenue à ce qu'elle était
   // (ou, si une entrée reste, le réseau muet depuis 700 ms : un refus n'est pas une file qui se vide). Hors ligne :
   // l'entrée est dans la file. Une réponse RETENUE exprès (`lenteur…`) : le délai d'avant est ici la mesure.
+  // 185 — UNE SAISIE PEUT POSER UNE QUESTION (ECRAN-SAISIE « La question de vraisemblance ») avant d'écrire la série. Les sections qui
+  // tapent des valeurs sans rapport avec l'historique du faux serveur (80 × 10 sur un exercice fait à 50, un 100 kg d'essai)
+  // veulent la série TELLE QUE TAPÉE : `serieMontee` répond « Oui » (ce qui a été tapé) à la question de la hausse, de la baisse
+  // ou des reps, « par les deux ensemble » à celle des haltères — jamais au 0 rep (« manquée » change la série) ni au record
+  // (la série est déjà écrite). La section `saisie-verifiee` joue ces questions pour de bon et n'utilise pas cette aide.
+  const repondreOuiSiQuestion = (i) => page.evaluate((k) => {
+    const l = document.querySelectorAll('.ligne-serie')[k];
+    let q = l ? l.nextElementSibling : null;
+    while (q && !q.classList.contains('question-saisie') && !q.classList.contains('ligne-serie')) q = q.nextElementSibling;
+    if (!q || !q.classList.contains('question-saisie') || q.classList.contains('record') || q.classList.contains('refus')) return false;
+    const genre = q.getAttribute('data-genre');
+    if (genre === 'zero') return false;
+    const bs = Array.from(q.querySelectorAll('button'));
+    const b = genre === 'double_halteres' ? bs[bs.length - 1] : bs.filter((x) => /^Oui/.test(x.textContent))[0] || (genre === 'reps_haut' || genre === 'reps_bas' ? bs[bs.length - 1] : null);
+    if (b) b.click();
+    return !!b;
+  }, i).catch(() => false);
   const serieMontee = async (i, depart, cochee) => {
     if (retenueEnCours()) { statAller.fixes++; await attendre(450); return true; }   // VOULU : une réponse retenue exprès
     const voulue = cochee !== false;
@@ -2423,6 +2440,7 @@ const SETS_IMPORTES = [
     const stable = suivreEcran();
     const monte = await jusqua(async () => {
       const ecran = await stable();   // lu à chaque tour, pour voir ses changements
+      if (voulue && typeof i === 'number') await repondreOuiSiQuestion(i);
       const etat = await lireCochee().catch(() => null);
       vu = 'cochée=' + etat + ' voulue=' + voulue + ' requêtes=' + (reseauBanc.compte - d.c0) + ' en vol=' + reseauBanc.enVol + ' écran stable=' + ecran;
       if (etat !== voulue) return voulue && !!depart && typeof i === 'number' && !depart.refus0 && await refusVisible(i);

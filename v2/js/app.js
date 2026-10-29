@@ -1956,6 +1956,17 @@
     recalculerLiens();
     return social.liens;
   }
+  // 184 (D5, Soc-demande-invisible) — LES DEMANDES D'ABONNEMENT S'ALLUMENT DÈS L'ACCUEIL : les liens se lisent à
+  // l'ouverture, une fois le premier écran posé, SANS être attendus (hors ligne ou en erreur : le point reste éteint,
+  // rien ne se dit). Sans cela, le point de l'onglet n'apparaissait qu'après un passage par un écran social.
+  function lireLiensALOuverture(userId) {
+    // L'outil de rejeu (développement) ne parle jamais au réseau : rien à lire.
+    if (!jeuAllume() || rejeuDemande) return;
+    chargerLiens().catch(function () {}).then(function () {
+      // Le compte a changé pendant la lecture : ses liens ne sont plus ceux de l'écran.
+      if (!sessionActive || idDeSession(sessionActive) !== userId) oublierSocial();
+    });
+  }
   // Un badge sur l'onglet pour les demandes reçues (pas de notification push).
   function majBadgeSocial() {
     var b = $('onglet-jeu');
@@ -5212,6 +5223,19 @@
   }
 
   // ── Les gestes de saisie ────────────────────────────────────────────────
+  // 184 (S-double-tap-devalide) — L'ANTI-REBOND DU ✓. Un second toucher sur la MÊME case dans les 500 ms est un
+  // double toucher, pas un geste : il ne dévalide pas la série qu'on vient de valider (30 % des validations du
+  // testeur 7). Le toucher écarté ne relance pas la fenêtre ; le suivant, passé 500 ms, est un vrai geste
+  // (dévalider reste possible). Aucune règle du coach : seulement le geste.
+  var ANTI_REBOND_OK_MS = 500;
+  var dernierToucherOk = { cle: null, quand: 0 };
+  function validerSerieSansRebond(iExo, iSerie) {
+    var cle = iExo + ':' + iSerie, maintenant = Date.now();
+    if (dernierToucherOk.cle === cle && maintenant - dernierToucherOk.quand < ANTI_REBOND_OK_MS) return Promise.resolve();
+    dernierToucherOk = { cle: cle, quand: maintenant };
+    return validerSerie(iExo, iSerie);
+  }
+
   async function validerSerie(iExo, iSerie) {
     var exo = seance.exercices[iExo];
     var serie = exo.series[iSerie];
@@ -8389,7 +8413,7 @@
         // suit, ou se retire si la charge ne correspond plus.
         await observerSerie(i, j);
       },
-      surValider: validerSerie,
+      surValider: validerSerieSansRebond,
       // §9.14 (49-R2) — la phrase du coach et la ligne proposée.
       reaction: reactionSurLigne,
       // 154 (MOTEUR §9.26) — l'effort visé : « garde-en N » dans l'en-tête, les puces sous la dernière série.
@@ -13494,6 +13518,8 @@
     // vérification ci-dessus a précédé la synchronisation. Et si elle a échoué,
     // le conflit se résout à la vidange elle-même.
     vidanger();   // le réseau vient de répondre : c'est le moment d'envoyer
+    // 184 (D5) — les demandes d'abonnement s'allument dès l'accueil : les liens se lisent à l'ouverture, sans attendre.
+    lireLiensALOuverture(userId);
     // L'outil de rejeu (développement seulement) : après la synchronisation,
     // l'historique est là.
     if (rejeuDemande) ouvrirRejeu();

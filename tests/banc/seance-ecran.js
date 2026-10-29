@@ -7855,6 +7855,47 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await abandonner();
 
+    // ── 184 · LE DOUBLE TOUCHER SUR ✓ (S-double-tap-devalide) ───────────────
+    // Un second toucher dans les 500 ms sur la même case ne dévalide pas la série ; passé 500 ms, il la dévalide.
+    // Les touchers sont de vrais clics, séparés de 150 ms (la case a eu le temps d'être redessinée).
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    {
+      const champs184 = page.locator('.ligne-serie').nth(0).locator('input');
+      await champs184.nth(0).fill(String(planOuvert[0][0]));
+      await champs184.nth(1).fill(String(planOuvert[0][1]));
+      const toucherOk = () => page.evaluate(() => document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click());
+      const cochee184 = () => page.evaluate(() => !!document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie.cochee'));
+      // Une séance laissée par la section d'avant peut rouvrir sa première série déjà validée : on part d'une série NON validée.
+      if (await cochee184()) {
+        await toucherOk();
+        await jusqua(async () => (await cochee184()) === false, 10000);
+        // VOULU : le délai est la mesure — laisser passer la fenêtre de 500 ms de ce toucher de remise à zéro.
+        await attendre(700 * RALENTI);
+      }
+      // Les deux touchers partent DANS la page, à 150 ms l'un de l'autre mesurés là où l'app les compte (sous charge,
+      // un aller-retour du banc entre eux pouvait dépasser la fenêtre de 500 ms).
+      await page.evaluate(() => new Promise((fin) => {
+        const toucher = () => document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click();
+        toucher();
+        // VOULU : le délai est la mesure — l'écart entre les deux touchers (150 ms), sous la fenêtre de 500 ms.
+        setTimeout(() => { toucher(); fin(); }, 150);
+      }));
+      // La validation du premier toucher arrive (l'état que lit le contrôle), puis on laisse au second le temps de nuire.
+      await jusqua(async () => (await cochee184()) === true, 10000);
+      // VOULU : l'absence d'un évènement (une dévalidation qui ne vient pas) ne se prouve par aucun état.
+      await attendre(450 * RALENTI);
+      ok('[184] un double toucher sur ✓ (150 ms) : la série RESTE validée', (await cochee184()) === true,
+        String(await cochee184()));
+      // VOULU : le délai est la mesure — passer la fenêtre de 500 ms avant le toucher franc.
+      await attendre(700 * RALENTI);
+      await toucherOk();
+      await jusqua(async () => (await cochee184()) === false, 10000);
+      ok('[184] un toucher franc, passé 500 ms, DÉVALIDE toujours', (await cochee184()) === false,
+        String(await cochee184()));
+    }
+    await abandonner();
+
     ok('[P] aucune erreur de page pendant toute l’écriture',
       erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
@@ -18162,6 +18203,13 @@ const SETS_IMPORTES = [
 
     // ── C. LEA DEMANDE À SON TOUR : la demande dans le fil (et le badge), « Accepter » → MUTUEL : le détail.
     fauxSocial.appeler('u-lea', 'POST', 'abonnements', { suiveur: 'u-lea', suivi: 'u-banc' });
+    // 184 (D5) — DÈS L'ACCUEIL : un chargement neuf sur « Séances », aucun écran social ouvert, et le point de l'onglet
+    // « Jeu » dit déjà qu'une demande attend (les liens se lisent à l'ouverture, sans bloquer).
+    await aller('/');
+    await attendreQue(async () => (await page.evaluate(() => document.getElementById('onglet-jeu').getAttribute('data-demandes'))) === '1');
+    ok('[184] une demande d\u2019abonnement reçue allume le point de l\u2019onglet dès l\u2019accueil, sans passer par un écran social',
+      (await page.evaluate(() => document.getElementById('onglet-jeu').getAttribute('data-demandes'))) === '1' &&
+        (await page.evaluate(() => location.pathname)) === '/', await page.evaluate(() => location.pathname));
     await aller('/jeu/fil');
     await attendreQue(async () => (await fil()).demandes.length > 0);
     const c0 = await fil();
@@ -18215,8 +18263,19 @@ const SETS_IMPORTES = [
       e0.length === 1 && /alexis/.test(e0[0]) && /Niveau 8/.test(e0[0]) && /compte privé/.test(e0[0]) && /S’abonner/.test(e0[0]) &&
         /\/a\/banc$/.test(await texte('.s-lien-invit code')) && prive0 === 'true', JSON.stringify([e0, prive0]));
     await mesurer('trouver des amis');
+    // 184 (V-reglage-incomplet) — le texte de « Compte privé » dit ce que voient l'inconnu, l'abonné, le mutuel et la guilde.
+    const texteReglage = () => texte('.s-reglage small');
+    const dit184 = await texteReglage();
+    ok('[184] « Compte privé » (activé) dit : accord à donner, ce que voient l’inconnu, l’abonné, le mutuel, et la guilde',
+      /attend ton accord/.test(dit184) && /inconnu voit ton pseudo et ton niveau/.test(dit184) && /abonné ton fil/.test(dit184) &&
+        /mutuel tes séries et tes charges/.test(dit184) && /guilde ne voit tes séances qu’une fois son abonnement accepté/.test(dit184), dit184);
     await page.click('#social-compte-prive');
     await attendreQue(async () => base.profiles[0].compte_prive === false);
+    await attendreQue(async () => /sans demande/.test(await texteReglage()));
+    const dit184b = await texteReglage();
+    ok('[184] « Compte privé » (coupé) dit : suivi sans demande, le fil, la guilde voit les séances, le mutuel le détail',
+      /sans demande/.test(dit184b) && /voit ton fil/.test(dit184b) && /guilde voit tes séances/.test(dit184b) &&
+        /mutuel voit aussi tes séries et tes charges/.test(dit184b), dit184b);
     ok('[social] « Compte privé » coupé : écrit sur le profil (`compte_prive: false`), jamais `null`',
       base.profiles[0].compte_prive === false && base.journal.filter((j) => j.op === 'profil' && j.champs.compte_prive === null).length === 0,
       JSON.stringify(base.profiles[0].compte_prive));

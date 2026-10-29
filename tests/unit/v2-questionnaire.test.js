@@ -648,6 +648,14 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     expect(v.voix).toBe('À ta première séance, je te propose tes charges. Tu peux toujours taper autre chose.');
   });
 
+  test('184 (C1) : sans séance, le récapitulatif ne promet pas de charge ; avec séances, il la promet', () => {
+    const rep = Object.assign(Q.reponsesInitiales({}, {}), { coach: 'franc', programme: 'construis' });
+    expect(vue('recap', { rep, aDesSeances: false }).voix).toBe('À ta première séance, tu choisis tes charges ; je les suis ensuite.');
+    expect(vue('recap', { rep, aDesSeances: true }).voix).toBe('À ta première séance, je te propose tes charges. Tu peux toujours taper autre chose.');
+    expect(vue('recap', { rep: Object.assign({}, rep, { coach: 'carnet' }), aDesSeances: false }).voix)
+      .toBe('Je me tais. Un geste dans Profil si tu veux mes propositions.');
+  });
+
   test('ce que j’ai compris : en carnet, la voix se tait ; une ligne sans réponse dit « — »', () => {
     const v = vue('recap', { rep: Object.assign(Q.reponsesInitiales({}, {}), { coach: 'carnet' }) });
     expect(v.voix).toBe('Je me tais. Un geste dans Profil si tu veux mes propositions.');

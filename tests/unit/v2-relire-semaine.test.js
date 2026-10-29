@@ -32,6 +32,26 @@ const cas = (nom) => DONNEES.cas.filter((c) => c.nom === nom)[0];
 const relu = (nom) => { const e = entreeDe(cas(nom)); return { e, s: G.relireSemaine(e) }; };
 const copie = (x) => JSON.parse(JSON.stringify(x));
 
+describe('184 (B6) — le militaire aux haltères est une poussée dans la relecture', () => {
+  const pousseeDe = (e) => /(\d+) séries? de tirage pour (\d+) de poussée/.exec(G.relireSemaine(e).semaine.verifs.join(' | '));
+  test('le même militaire, à la barre ou aux haltères : la même poussée comptée', () => {
+    const e = entreeDe(cas('alexis-maintien'));
+    const nb = (x) => e.routines.reduce((t, r) => t + r.exercices.filter((y) => y.exercise_slug === x).reduce((u, y) => u + y.series.length, 0), 0);
+    // On pose un militaire à la barre dans une routine, puis on le remplace par son frère aux haltères.
+    e.routines[0].exercices.push({ exercise_slug: 'developpe_militaire_barre', groupe_superset: null,
+      series: [{ type_serie: 'travail' }, { type_serie: 'travail' }, { type_serie: 'travail' }] });
+    const barre = pousseeDe(copie(e));
+    e.routines[0].exercices[e.routines[0].exercices.length - 1].exercise_slug = 'developpe_militaire_haltere';
+    expect(nb('developpe_militaire_haltere')).toBe(3);
+    const halteres = pousseeDe(copie(e));
+    expect(barre).not.toBeNull();
+    expect(halteres[2]).toBe(barre[2]);
+    // Et sans le militaire, il y a trois séries de poussée de moins : le test compte bien quelque chose.
+    e.routines[0].exercices.pop();
+    expect(Number(barre[2]) - Number(pousseeDe(copie(e))[2])).toBe(3);
+  });
+});
+
 describe('66A — relireSemaine : les onze cas de la référence, à l’identique', () => {
   test('le fichier a onze cas (le 11ᵉ, `trois-priorites`, depuis 66B), chacun avec son nom, son pourquoi, son entrée et son attendu', () => {
     expect(DONNEES.reference).toBe('relire66.py');

@@ -87,7 +87,7 @@ describe('`entrer` : une entrée en vol n’absorbe que la session de SON compte
       // La synchronisation de la PREMIÈRE entrée attend : c'est « l'entrée en vol ».
       synchroniser: () => { journal.syncs.push(ctx.sessionActive && ctx.sessionActive.user.id);
         return journal.syncs.length === 1 ? new Promise((r) => { liberer = r; }) : Promise.resolve(); },
-      vidanger: () => {}, rejeuDemande: null, ouvrirRejeu: () => {}, apresSynchroAnnee: () => {}
+      vidanger: () => {}, lireLiensALOuverture: () => {}, rejeuDemande: null, ouvrirRejeu: () => {}, apresSynchroAnnee: () => {}
     };
     vm.createContext(ctx);
     ['idDeSession', 'entrer', 'reentrer', 'entrerVraiment', 'chargerCache', 'chargerSeanceLocale', 'chargerBrouillonLocal']

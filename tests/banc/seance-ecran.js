@@ -2471,7 +2471,15 @@ const SETS_IMPORTES = [
   const seanceSortie = async () => {
     // 143-bis — une prémisse NOMMÉE : si la séance ne quitte pas l'écran, c'est ce contrôle qui échoue (et dit pourquoi).
     const sortie = await jusqua(() => page.evaluate(() => document.getElementById('vue-seance').hidden).catch(() => false), 10000, 'seanceSortie');
-    if (!sortie) ok('[prémisse] « Terminer » fait sortir de la séance : le récap s’ouvre', false, 'la séance est encore à l’écran après 10 s');
+    if (!sortie) {
+      // 185 — ce que l'écran montrait quand la séance n'est pas sortie : une question de saisie en attente, une feuille ouverte.
+      const vu = await page.evaluate(() => ({
+        questions: Array.from(document.querySelectorAll('.question-saisie')).map((q) => q.textContent.slice(0, 80)),
+        feuille: document.getElementById('feuille-seance') && !document.getElementById('feuille-seance').hidden
+          ? (document.getElementById('feuille-contenu') || {}).textContent.slice(0, 120) : null,
+        lignes: document.querySelectorAll('.ligne-serie').length })).catch(() => null);
+      ok('[prémisse] « Terminer » fait sortir de la séance : le récap s’ouvre', false, 'la séance est encore à l’écran après 10 s · ' + JSON.stringify(vu));
+    }
     await reseauCalme();
   };
 
@@ -9838,7 +9846,8 @@ const SETS_IMPORTES = [
       // 185 — la valeur tapée (le placeholder, ou 20 par défaut) peut sortir de l'historique de l'exercice : la question de
       // saisie se pose, et cette section veut la série TELLE QUE TAPÉE — on répond « Oui » après le geste (un état lu, pas un délai).
       const repondre185 = async () => {
-        if (await repondreOuiSiQuestion(i)) await attendre(1200);
+        const departQ = await departGeste();
+        if (await repondreOuiSiQuestion(i)) await calmeApres(departQ, 0);
       };
       if (i % 2 === 0) {
         armees++;

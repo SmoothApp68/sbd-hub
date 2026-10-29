@@ -1527,7 +1527,7 @@
   // La phrase du « Pourquoi » : le nom (single, double, sinon série de test), puis le fait, jamais un jugement.
   function phraseHorsPalier(h) {
     var nom = h.reps === 1 ? 'Ton single' : h.reps === 2 ? 'Ton double' : 'Ta série de test';
-    return nom + ' à ' + enKg(h.charge, cite(FAIT, { quoi: 'seance', champ: 'charge' })) +
+    return nom + ' à ' + enKg(h.charge, cite(FAIT, { quoi: 'hors_palier' })) +
       (h.record ? ' est un record' + ' ; il ne compte pas dans ta charge de travail.' : ' ne compte pas dans ta charge de travail.');
   }
 

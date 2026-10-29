@@ -4050,6 +4050,7 @@
       fait['bord.record'] = { charge: eb.charge, reps: [eb.reps] };
       fait['bord.long'] = { valeur: eb.total };
     }
+    if (f.horsPalier) fait.hors_palier = { charge: f.horsPalier.charge, reps: [f.horsPalier.reps] };
     var ed = x.escalier && x.escalier.depassement;
     if (ed) {
       fait.depassement = { charge: ed.charge, reps: [ed.niveau] };

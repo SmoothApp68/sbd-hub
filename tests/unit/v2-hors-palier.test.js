@@ -63,3 +63,27 @@ describe('186 — le cran du barre et des haltères est le pas du matériel (A4)
     expect(JSON.stringify(r.consigne.ligne)).not.toMatch(/190/);
   });
 });
+
+describe('186 - le Pourquoi du hors-palier dans un plan (I26 : le nombre se retrouve dans les faits)', () => {
+  const S = require('../../v2/js/seance.js');
+  const T = require('../../v2/js/plan.js');
+  const jourN = (i) => new Date(Date.UTC(2026, 8, 1 + i * 3, 18)).toISOString();
+  test('32,5 x 4 puis un single a 40 : la phrase est dite, le plan ne trahit aucune citation', () => {
+    const L = [[[32.5, 8], [32.5, 8], [32.5, 8], [32.5, 8], [40, 1]], [[32.5, 8], [32.5, 8], [32.5, 8], [32.5, 8], [40, 1]]];
+    const g = L.map((ser, i) => ({ seance: { id: 'H' + i, debut: jourN(i) },
+      series: ser.map(([kg, r]) => b(kg, r, { exercise_slug: 'dc' })) }));
+    const avant = new Date(Date.parse(jourN(1)) + 3 * 864e5).toISOString();
+    const c = M.consigneDExercice(g, undefined, avant, { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser', reglage: 'normal', edition: false });
+    let i = 0;
+    const id = () => 's' + (++i);
+    let se = S.creer({ id: 'S1', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, 'dc', id, { series: 3 });
+    const e = { seance: { id: 'S1', debut: avant, edition: false, exercices: se.exercices }, consignes: { dc: c }, reglage: 'normal',
+      paris: [], suites: {}, phase: 'maintien', catalogue: null,
+      escalier: { cartes: [], compteurs: [], noms: { dc: 'Developpe' }, seriesRoutine: { dc: 3 }, marches: [] } };
+    const p = T.planDeSeance(e);
+    const txt = JSON.stringify(p.exercices[0].pourquoi).replace(/[\u00a0\u202f]/g, ' ');
+    expect(txt).toMatch(/Ton single à 40 kg/);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+});

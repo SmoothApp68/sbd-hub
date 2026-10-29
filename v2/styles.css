@@ -1148,7 +1148,11 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .eff-serie[data-fait]:empty::before{content:attr(data-fait);font-family:var(--pile);font-size:10.5px;font-weight:700;
   letter-spacing:.08em;font-variant:small-caps;text-transform:lowercase;color:var(--reussi)}
 .eff-serie[data-fait]{border-style:solid;border-color:transparent}
-.serie.faite .ch-serie,.serie.faite .rp-serie{background:transparent;border-color:transparent}
+/* 184 (D2) — une série validée S'ÉDITE SUR PLACE (banc 7-quinvicies) : sa case doit se lire comme un champ. Le fond et
+   le cadre restent éteints (le vert dit « fait »), mais un filet --texte-3 souligne la valeur et le curseur dit « texte ». */
+.serie.faite .ch-serie,.serie.faite .rp-serie{background:transparent;border-color:transparent;
+  border-bottom-color:var(--texte-3);border-radius:0;cursor:text}
+.serie.faite .ch-serie input,.serie.faite .rp-serie input{cursor:text}
 /* ⚠️ LA COCHE PORTE SON PROPRE ÉTAT DEPUIS LE CHANTIER 27, et il le fallait :
    le fond vert dit désormais « le TOUR est fait » (§2.6), pas « cette ligne est
    validée ». Dans un superset, A2 validé pendant que B2 ne l'est pas reste sur

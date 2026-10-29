@@ -630,7 +630,7 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
 
   test('ton coach : les libellés et les phrases du PROFIL, puis « Juste un carnet »', () => {
     const o = blocs(vue('coach'), 'options')[0].options;
-    expect(o.map((x) => x.libelle)).toEqual(['Prudent', 'Normal', 'Franc', 'Juste un carnet']);
+    expect(o.map((x) => x.libelle)).toEqual(['Me ménager', 'Normal', 'Me pousser', 'Juste un carnet']);
     expect(o[0].sous).toBe('Monte quand toutes tes séries touchent le haut de ta zone, deux séances de suite.');
     expect(o[3]).toEqual({ cle: 'carnet', libelle: 'Juste un carnet', sous: 'Je me tais : aucune proposition, aucune phrase.' });
   });
@@ -642,7 +642,7 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     const lignes = blocs(v, 'resume')[0].lignes;
     expect(lignes.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Coach']);
     expect(lignes.map((l) => l.valeur)).toEqual(['Force', 'Sèche', 'Squat, Dos', '60 min · j’ai moins de temps en ce moment',
-      'Maison, minimum', 'Franc']);
+      'Maison, minimum', 'Me pousser']);
     expect(lignes.map((l) => l.ecran)).toEqual(['but', 'but', 'priorites', 'temps', 'temps', 'coach']);
     expect(v.bouton).toEqual({ libelle: 'Commencer', actif: true });
     expect(v.voix).toBe('À ta première séance, je te propose tes charges. Tu peux toujours taper autre chose.');

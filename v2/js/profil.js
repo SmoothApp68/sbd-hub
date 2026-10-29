@@ -180,12 +180,12 @@
   // moteur, jamais un argument à l'écran (CADRAGE §2 terdecies). Chaque phrase
   // dit CE QUE FAIT le réglage, et rien d'autre.
   var RYTHMES = [
-    { cle: 'prudent', libelle: 'Prudent',
+    { cle: 'prudent', libelle: 'Me ménager',
       phrase: 'Monte quand toutes tes séries touchent le haut de ta zone, ' +
               'deux séances de suite.' },
     { cle: 'normal', libelle: 'Normal',
       phrase: 'Monte quand tes deux premières séries touchent le haut de ta zone.' },
-    { cle: 'franc', libelle: 'Franc',
+    { cle: 'franc', libelle: 'Me pousser',
       phrase: 'Dès qu\u2019une série touche le haut de ta zone, la charge monte, ' +
               'et deux crans d\u2019un coup quand tu dépasses nettement.' }
   ];

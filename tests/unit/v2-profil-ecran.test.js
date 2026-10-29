@@ -616,7 +616,7 @@ describe('48b-4 — le réglage de rythme, dans Profil', () => {
     R().rendreProfil(c, vueProfil(avec({ rythme_progression: undefined })));
     const g = groupeRythme(c);
     expect(g).not.toBeNull();
-    expect(boutons(g).map((b) => b.textContent)).toEqual(['Prudent', 'Normal', 'Franc']);
+    expect(boutons(g).map((b) => b.textContent)).toEqual(['Me ménager', 'Normal', 'Me pousser']);
     expect(actif(g)).toBe('Normal');
     expect(note(g)).toContain('Monte quand tes deux premières séries touchent le haut de ta zone.');
     expect(note(g)).toContain('La prochaine consigne en tient compte.');
@@ -626,7 +626,7 @@ describe('48b-4 — le réglage de rythme, dans Profil', () => {
     const c = cible();
     R().rendreProfil(c, vueProfil(avec({ rythme_progression: 'prudent' })));
     const g = groupeRythme(c);
-    expect(actif(g)).toBe('Prudent');
+    expect(actif(g)).toBe('Me ménager');
     expect(note(g)).toContain('Monte quand toutes tes séries touchent le haut de ta zone, deux séances de suite.');
     // Et pas celle d'un autre : deux phrases permutées passeraient sans ça.
     expect(note(g)).not.toContain('deux premières séries');
@@ -637,7 +637,7 @@ describe('48b-4 — le réglage de rythme, dans Profil', () => {
     const c = cible();
     R().rendreProfil(c, vueProfil(avec({ rythme_progression: 'franc' })));
     const g = groupeRythme(c);
-    expect(actif(g)).toBe('Franc');
+    expect(actif(g)).toBe('Me pousser');
     expect(note(g)).toContain('Dès qu\u2019une série touche le haut de ta zone, la charge monte, et deux crans d\u2019un coup quand tu dépasses nettement.');
     expect(note(g)).not.toContain('deux premières séries');
     expect(note(g)).not.toContain('deux séances de suite');
@@ -649,7 +649,7 @@ describe('48b-4 — le réglage de rythme, dans Profil', () => {
     expect(titres(c)).not.toContain('TON RYTHME');
     expect(groupeRythme(c)).toBeNull();
     // Elle ne se grise pas : aucun bouton de rythme nulle part sur l'écran.
-    expect(c.textContent).not.toContain('Prudent');
+    expect(c.textContent).not.toContain('Me ménager');
     // Contre-épreuve : en Progresser, elle est là.
     const c2 = cible();
     R().rendreProfil(c2, vueProfil(avec({ intention: 'progresser' })));
@@ -664,7 +664,7 @@ describe('48b-4 — le réglage de rythme, dans Profil', () => {
     const c = cible();
     R().rendreProfil(c, vueProfil(avec({ rythme_progression: 'normal' }),
       { surRythme: (champs) => ecrits.push(champs) }));
-    boutons(groupeRythme(c)).find((b) => b.textContent === 'Prudent').click();
+    boutons(groupeRythme(c)).find((b) => b.textContent === 'Me ménager').click();
     expect(ecrits).toEqual([{ rythme_progression: 'prudent' }]);
   });
 

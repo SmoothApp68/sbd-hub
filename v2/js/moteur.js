@@ -4664,7 +4664,7 @@
           return testPuis(c, 'le bas de ta zone' + DEUX_POINTS + 'il tient. ' +
                  'On le garde sur la dernière série ; à ' + nombreFr(z.bas + 1, regle('zone.bas+1')) + ' reps, il gagnera une série.');
         }
-        return testPuis(c, 'dans ta zone. En Prudent, il reste sur la dernière ' +
+        return testPuis(c, 'dans ta zone. Avec Me ménager, il reste sur la dernière ' +
                'série jusqu\'à ' + nombreFr(z.haut, regle('zone.haut')) + ' reps ; alors la série d\'avant le rejoindra.');
 
       case 'etend':
@@ -4673,7 +4673,7 @@
                'de la dernière à la première.');
 
       case 'tout_passe':
-        var fin = DEUX_POINTS + 'en Franc, toutes tes séries passent à ' +
+        var fin = DEUX_POINTS + 'avec Me pousser, toutes tes séries passent à ' +
                   enKg(c.haut.charge, cH) + '.';
         if (t !== null) {
           return testPuis(c, niveauDansPhrase(niveauDitDuTest(t), z) + fin);

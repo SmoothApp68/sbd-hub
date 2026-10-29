@@ -200,7 +200,7 @@
   // part : elle va dans `body_weight_log`, par la file.
   //
   // « Me ménager · Normal · Me pousser » sont les rythmes du Profil, sous leurs
-  // noms du Profil (Prudent · Normal · Franc) — un seul langage ; « Juste un
+  // noms du Profil (Me ménager · Normal · Me pousser) — un seul langage ; « Juste un
   // carnet » est `intention = 'entretien'`, le rythme est gardé.
   function coachEnChamps(coach) {
     if (coach === 'carnet') return { intention: 'entretien' };

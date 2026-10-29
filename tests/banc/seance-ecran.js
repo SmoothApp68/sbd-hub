@@ -726,6 +726,8 @@ const SETS_IMPORTES = [
     if (['app', 'hevy', 'import', 'collage'].indexOf(l.source) < 0) return refus('23514', 'sets_source_ok');
     // GÉNÉRÉE : Postgres refuse toute valeur, même NULL — comme `salle_norme`.
     if ('elastique_norme' in l) return refus('428C9', 'elastique_norme est générée');
+    // 185 (v2_116) — `sets.hors_calcul` boolean NOT NULL DEFAULT false : un null ou un non-booléen est refusé.
+    if ('hors_calcul' in l && typeof l.hors_calcul !== 'boolean') return refus('23502', 'sets.hors_calcul NOT NULL');
     // ⚠️ `sets.id` EST uuid NOT NULL (chantier 33). Ce banc ne le vérifiait pas :
     // il acceptait `id: null`, et son upsert par `findIndex` écrasait alors
     // toutes les lignes nulles les unes sur les autres — six séries devenaient
@@ -1934,7 +1936,9 @@ const SETS_IMPORTES = [
         const e = verifierSet(l);
         if (e) { base.sets = avant; return json(e, 400); }
         const i = base.sets.findIndex((s) => s.id === l.id);
-        if (i >= 0) base.sets[i] = Object.assign({}, l); else base.sets.push(Object.assign({}, l));
+        // 185 (v2_116) — le défaut de la colonne : une ligne sans `hors_calcul` le reçoit à false, et il se rend.
+        const ecrite = Object.assign({ hors_calcul: false }, l);
+        if (i >= 0) base.sets[i] = ecrite; else base.sets.push(ecrite);
       }
       // La contrainte est DIFFÉRÉE : vérifiée à la fin de la transaction.
       const vus = new Set();
@@ -2403,6 +2407,23 @@ const SETS_IMPORTES = [
   // au moins une requête partie DEPUIS le geste, plus rien en vol, la file des séries revenue à ce qu'elle était
   // (ou, si une entrée reste, le réseau muet depuis 700 ms : un refus n'est pas une file qui se vide). Hors ligne :
   // l'entrée est dans la file. Une réponse RETENUE exprès (`lenteur…`) : le délai d'avant est ici la mesure.
+  // 185 — UNE SAISIE PEUT POSER UNE QUESTION (ECRAN-SAISIE « La question de vraisemblance ») avant d'écrire la série. Les sections qui
+  // tapent des valeurs sans rapport avec l'historique du faux serveur (80 × 10 sur un exercice fait à 50, un 100 kg d'essai)
+  // veulent la série TELLE QUE TAPÉE : `serieMontee` répond « Oui » (ce qui a été tapé) à la question de la hausse, de la baisse
+  // ou des reps, « par les deux ensemble » à celle des haltères — jamais au 0 rep (« manquée » change la série) ni au record
+  // (la série est déjà écrite). La section `saisie-verifiee` joue ces questions pour de bon et n'utilise pas cette aide.
+  const repondreOuiSiQuestion = (i) => page.evaluate((k) => {
+    const l = document.querySelectorAll('.ligne-serie')[k];
+    let q = l ? l.nextElementSibling : null;
+    while (q && !q.classList.contains('question-saisie') && !q.classList.contains('ligne-serie')) q = q.nextElementSibling;
+    if (!q || !q.classList.contains('question-saisie') || q.classList.contains('record') || q.classList.contains('refus')) return false;
+    const genre = q.getAttribute('data-genre');
+    if (genre === 'zero') return false;
+    const bs = Array.from(q.querySelectorAll('button'));
+    const b = genre === 'double_halteres' ? bs[bs.length - 1] : bs.filter((x) => /^Oui/.test(x.textContent))[0] || (genre === 'reps_haut' || genre === 'reps_bas' ? bs[bs.length - 1] : null);
+    if (b) b.click();
+    return !!b;
+  }, i).catch(() => false);
   const serieMontee = async (i, depart, cochee) => {
     if (retenueEnCours()) { statAller.fixes++; await attendre(450); return true; }   // VOULU : une réponse retenue exprès
     const voulue = cochee !== false;
@@ -2419,6 +2440,7 @@ const SETS_IMPORTES = [
     const stable = suivreEcran();
     const monte = await jusqua(async () => {
       const ecran = await stable();   // lu à chaque tour, pour voir ses changements
+      if (voulue && typeof i === 'number') await repondreOuiSiQuestion(i);
       const etat = await lireCochee().catch(() => null);
       vu = 'cochée=' + etat + ' voulue=' + voulue + ' requêtes=' + (reseauBanc.compte - d.c0) + ' en vol=' + reseauBanc.enVol + ' écran stable=' + ecran;
       if (etat !== voulue) return voulue && !!depart && typeof i === 'number' && !depart.refus0 && await refusVisible(i);
@@ -2449,7 +2471,15 @@ const SETS_IMPORTES = [
   const seanceSortie = async () => {
     // 143-bis — une prémisse NOMMÉE : si la séance ne quitte pas l'écran, c'est ce contrôle qui échoue (et dit pourquoi).
     const sortie = await jusqua(() => page.evaluate(() => document.getElementById('vue-seance').hidden).catch(() => false), 10000, 'seanceSortie');
-    if (!sortie) ok('[prémisse] « Terminer » fait sortir de la séance : le récap s’ouvre', false, 'la séance est encore à l’écran après 10 s');
+    if (!sortie) {
+      // 185 — ce que l'écran montrait quand la séance n'est pas sortie : une question de saisie en attente, une feuille ouverte.
+      const vu = await page.evaluate(() => ({
+        questions: Array.from(document.querySelectorAll('.question-saisie')).map((q) => q.textContent.slice(0, 80)),
+        feuille: document.getElementById('feuille-seance') && !document.getElementById('feuille-seance').hidden
+          ? (document.getElementById('feuille-contenu') || {}).textContent.slice(0, 120) : null,
+        lignes: document.querySelectorAll('.ligne-serie').length })).catch(() => null);
+      ok('[prémisse] « Terminer » fait sortir de la séance : le récap s’ouvre', false, 'la séance est encore à l’écran après 10 s · ' + JSON.stringify(vu));
+    }
     await reseauCalme();
   };
 
@@ -5853,7 +5883,12 @@ const SETS_IMPORTES = [
     i.dispatchEvent(new Event('change', { bubbles: true }));
   }, '99999999999');
   await attendre(300);
+  const departD6 = await departGeste();
   await page.evaluate(() => document.querySelector('.ligne-serie .ok-serie').click());
+  await calmeApres(departD6, 0);
+  // 185 — 99 999 999 999 reps sont une saisie douteuse : la question de vraisemblance se pose AVANT l'écriture. Cette section
+  // éprouve ce qui monte quand on VEUT ce nombre-là (le rabot `int4`) : on répond « Oui » à la question, puis la série part.
+  await repondreOuiSiQuestion(0);
   await attendre(1800);
   ok('[D6] AUCUN refus — c’était `22003`, puis `22P02` au-delà de 1e21',
     refusDepuis(repereD6).length === 0,
@@ -9808,6 +9843,12 @@ const SETS_IMPORTES = [
         await casesSiVides(l);
       }
       // Une validation sur deux après un déverrouillage, l'autre normalement.
+      // 185 — la valeur tapée (le placeholder, ou 20 par défaut) peut sortir de l'historique de l'exercice : la question de
+      // saisie se pose, et cette section veut la série TELLE QUE TAPÉE — on répond « Oui » après le geste (un état lu, pas un délai).
+      const repondre185 = async () => {
+        const departQ = await departGeste();
+        if (await repondreOuiSiQuestion(i)) await calmeApres(departQ, 0);
+      };
       if (i % 2 === 0) {
         armees++;
         await page.evaluate((k) => {
@@ -9816,9 +9857,11 @@ const SETS_IMPORTES = [
           document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
         }, i);
         await attendre(4000);
+        await repondre185();
       } else {
         await l.$eval('.ok-serie', (b) => b.click());
         await attendre(1200);
+        await repondre185();
       }
     }
     const reentrees = await page.evaluate(() => window.__reentrees);
@@ -26679,6 +26722,248 @@ const SETS_IMPORTES = [
     ok('[SA171] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ saisie-verifiee. UNE SAISIE N’EST PAS FORCÉMENT VRAIE : LA QUESTION SOUS LA SÉRIE, AVANT QU’ELLE SOIT ÉCRITE — LES CINQ CAS DE LA MAQUETTE (185, ECRAN-SAISIE « La question de vraisemblance ») ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : quatre exercices faits trois fois (le seuil de la règle), une séance du jour ouverte. Le banc
+  // joue chaque cas PAR L'ÉCRAN : il tape, touche ✓, lit la question sous la série, touche un bouton, et lit ce que le faux
+  // serveur a reçu — une série qui n'est PAS écrite tant que la question attend se prouve par la base, jamais par la page.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length, recordsAvant = base.records;
+    const t185 = Date.now();
+    const sp185 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const mus185 = (m) => ({ muscles_primaires: [m], muscles_secondaires: [] });
+    CATALOGUE.push(Object.assign({ slug: 'sv185-squat', nom: 'Squat SV185 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre' }, mus185('quadriceps')));
+    CATALOGUE.push(Object.assign({ slug: 'sv185-dev', nom: 'Développé SV185 (Haltère)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere' }, mus185('pectoraux')));
+    CATALOGUE.push(Object.assign({ slug: 'sv185-row', nom: 'Rowing SV185 (Poulie)', mesure: 'charge_reps', charge: 'externe', equipement: 'poulie' }, mus185('dos')));
+    CATALOGUE.push(Object.assign({ slug: 'sv185-curl', nom: 'Curl SV185 (Barre EZ)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre' }, mus185('biceps')));
+    base.sessions = base.sessions.slice();
+    base.sets = base.sets.slice();
+    base.records = base.records.slice();
+    // L'historique : trois séances par exercice (le seuil), jamais plus lourd que le meilleur ci-dessous.
+    const histo185 = { 'sv185-squat': [[125, 5], [127.5, 5], [125, 5]], 'sv185-dev': [[22, 10], [22, 10], [20, 10]],
+      'sv185-row': [[25, 8], [25, 8], [22.5, 8]], 'sv185-curl': [[30, 8], [30, 8], [27.5, 8]] };
+    [21, 14, 7].forEach((j, n) => {
+      const id = 'sv185-h' + j;
+      const debut = ilYa(j * 86400000, t185).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'SV185 — ' + id, debut, fin: finDe(debut, t185).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      let rang = 0;
+      Object.keys(histo185).forEach((slug) => {
+        const [kg, reps] = histo185[slug][n];
+        [1, 2, 3].forEach(() => base.sets.push({ id: id + '-s' + (++rang), session_id: id, user_id: 'u-banc', exercise_slug: slug,
+          charge_kg: kg, reps, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null,
+          type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null,
+          note: null, source: 'app', created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false }));
+      });
+    });
+    const ex185 = (slug, rang, n) => ({ id: 'r-sv185-' + rang, routine_id: 'r-sv185', exercise_slug: slug, rang,
+      routine_sets: progr(n), repos_cible_s: 0, groupe_superset: null, note: null });
+    ROUTINES.push({ id: 'r-sv185', nom: 'Saisie vérifiée SV185', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [ex185('sv185-squat', 0, 3), ex185('sv185-dev', 1, 2), ex185('sv185-row', 2, 3), ex185('sv185-curl', 3, 4)] });
+    // Les lignes de la page : squat 0-2, développé 3-4, rowing 5-7, curl 8-11.
+    const monte185 = (slug) => base.sets.filter((s) => s.exercise_slug === slug && s.session_id.indexOf('sv185-h') !== 0)
+      .sort((a, b) => a.rang - b.rang);
+    const question185 = (i) => page.evaluate((k) => {
+      const l = document.querySelectorAll('.ligne-serie')[k];
+      let q = l ? l.nextElementSibling : null;
+      while (q && !q.classList.contains('question-saisie') && !q.classList.contains('ligne-serie')) q = q.nextElementSibling;
+      if (!q || !q.classList.contains('question-saisie')) return null;
+      const bs = Array.from(q.querySelectorAll('button')).map((b) => ({ t: b.textContent, h: Math.round(b.getBoundingClientRect().height),
+        principal: b.classList.contains('principal') }));
+      const a = document.activeElement;
+      const doute = l ? Array.from(l.querySelectorAll('.doute')).map((c) => c.getAttribute('data-champ')) : [];
+      return { texte: (q.querySelector('.qs-texte') || {}).textContent || '', genre: q.getAttribute('data-genre'),
+        record: q.classList.contains('record'), refus: q.classList.contains('refus'), boutons: bs, doute,
+        dansLaSeance: !!q.closest('#vue-seance'), dansUneFeuille: !!q.closest('#feuille-seance'),
+        focus: a && a.closest && a.closest('[data-champ]') ? a.closest('[data-champ]').getAttribute('data-champ') : null };
+    }, i);
+    // Aucun délai fixe : un geste attend que l'écran et le réseau du faux serveur se calment (`calmeApres`), une frappe, que la page ait traité l'évènement.
+    const taper185 = async (i, champ, v) => {
+      const inp = await champsDe(i, champ);
+      await inp[0].fill(String(v));
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    };
+    // L'app ignore un second ✓ sur la même ligne dans les 500 ms (anti-rebond, `validerSerieSansRebond`) : on attend que CETTE
+    // fenêtre soit passée (une condition lue sur l'horloge du dernier toucher), jamais un délai posé au hasard.
+    const dernierOk185 = {};
+    const valider185 = async (i) => {
+      await jusqua(() => Date.now() - (dernierOk185[i] || 0) > 520 * RALENTI, 3000, 'anti-rebond185');
+      const depart = await departGeste();
+      dernierOk185[i] = Date.now();
+      await page.evaluate((k) => document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), i);
+      await calmeApres(depart, 0);
+    };
+    const toucher185 = async (i, texte) => {
+      const depart = await departGeste();
+      const ok185 = await page.evaluate(([k, t]) => {
+        const l = document.querySelectorAll('.ligne-serie')[k];
+        let q = l ? l.nextElementSibling : null;
+        while (q && !q.classList.contains('question-saisie') && !q.classList.contains('ligne-serie')) q = q.nextElementSibling;
+        const b = q && Array.from(q.querySelectorAll('button')).filter((x) => x.textContent === t)[0];
+        if (b) b.click();
+        return !!b;
+      }, [i, texte]);
+      await calmeApres(depart, 0);
+      return ok185;
+    };
+    const serie185 = (i, kg, reps) => async () => { await taper185(i, 'charge_kg', kg); await taper185(i, 'reps', reps); };
+    // L'ÉCRITURE d'une série validée sans question part après le geste : on attend qu'elle soit en base (état), pas un délai.
+    const ecrite185 = (slug, n) => jusqua(() => monte185(slug).length >= n, 5000, 'écriture185 ' + slug);
+    const nb185 = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
+
+    await aller('/saisie');
+    await demarrerRoutine('Saisie vérifiée SV185');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.ligne-serie').length >= 12), 8000);
+
+    // ── CAS 1. UNE CHARGE TRÈS AU-DESSUS DU MEILLEUR : 152 au lieu de 125 ───────────────────────────────────────
+    await serie185(0, 125, 5)(); await valider185(0); await ecrite185('sv185-squat', 1);
+    ok('[SV185] cas 1 — le décor : 125 kg × 5 passe sans question et part en base',
+      (await question185(0)) === null && monte185('sv185-squat').length === 1, nb185(monte185('sv185-squat').map((s) => [s.charge_kg, s.reps])));
+    await serie185(1, 152, 5)(); await valider185(1);
+    const q1 = await question185(1);
+    ok('[SV185] cas 1 — DISCRIMINANT : 152 kg ? la question vient SOUS la série, « Ton meilleur ici : 127,5 kg. », et RIEN n’est écrit',
+      !!q1 && sp185(q1.texte) === '152 kg ? Ton meilleur ici : 127,5 kg.' && monte185('sv185-squat').length === 1, nb185(q1));
+    ok('[SV185] cas 1 — deux boutons, « Oui, 152 » (ambre) et « Corriger », de 44 px au moins ; la case de la charge est cernée ; jamais une fenêtre',
+      !!q1 && nb185(q1.boutons.map((b) => b.t)) === nb185(['Oui, 152', 'Corriger']) && q1.boutons[0].principal && !q1.boutons[1].principal &&
+        q1.boutons.every((b) => b.h >= 44) && q1.doute.indexOf('charge_kg') >= 0 && q1.dansLaSeance && !q1.dansUneFeuille, nb185(q1));
+    await toucher185(1, 'Corriger');
+    const q1b = await question185(1);
+    ok('[SV185] cas 1 — « Corriger » : la question part, le curseur revient dans la CHARGE, rien n’est écrit',
+      q1b === null && monte185('sv185-squat').length === 1 &&
+        (await page.evaluate(() => { const a = document.activeElement; const c = a && a.closest ? a.closest('[data-champ]') : null; return c ? c.getAttribute('data-champ') : null; })) === 'charge_kg',
+      nb185([q1b, monte185('sv185-squat').length]));
+    await taper185(1, 'charge_kg', 125); await valider185(1);
+    ok('[SV185] cas 1 — la charge corrigée (125) passe sans question et part en base',
+      (await question185(1)) === null && monte185('sv185-squat').length === 2 && Number(monte185('sv185-squat')[1].charge_kg) === 125,
+      nb185(monte185('sv185-squat').map((s) => [s.charge_kg, s.reps])));
+
+    // ── CAS 5. SI TU CONFIRMES UN ÉCART ÉNORME : LA SÉRIE S'ÉCRIT TELLE QUELLE, LE RECORD DEMANDE UN MOT DE PLUS ──
+    // (155 kg : +21,6 % sur 127,5 — au-delà des 20 % ; 152 n'en fait que +19,2 %.)
+    await serie185(2, 155, 5)(); await valider185(2);
+    const q5a = await question185(2);
+    ok('[SV185] cas 5 — 155 kg : d’abord la question de la hausse, rien d’écrit',
+      !!q5a && q5a.genre === 'hausse' && sp185(q5a.texte) === '155 kg ? Ton meilleur ici : 127,5 kg.' && monte185('sv185-squat').length === 2, nb185(q5a));
+    await toucher185(2, 'Oui, 155');
+    const q5 = await question185(2);
+    ok('[SV185] cas 5 — « Oui, 155 » : la série est ÉCRITE telle quelle, et la question du record vient dessous (violet), avec ses deux boutons',
+      monte185('sv185-squat').length === 3 && Number(monte185('sv185-squat')[2].charge_kg) === 155 && !!q5 && q5.genre === 'record' && q5.record &&
+        sp185(q5.texte) === 'Record à 155 kg × 5, 27,5 kg de plus que ton meilleur. Je l’inscris ?' &&
+        nb185(q5.boutons.map((b) => b.t)) === nb185(['Oui, c’est un record', 'Non, ne compte pas']) && q5.boutons.every((b) => b.h >= 44), nb185(q5));
+    ok('[SV185] cas 5 — le journal des records ne s’écrit qu’à « Terminer » : rien de cette série n’y est encore',
+      base.records.filter((r) => r.exercise_slug === 'sv185-squat' && r.session_id.indexOf('sv185-h') !== 0).length === 0,
+      nb185(base.records.filter((r) => r.exercise_slug === 'sv185-squat' && r.session_id.indexOf('sv185-h') !== 0).length));
+    await toucher185(2, 'Non, ne compte pas');
+    const horsCalcul = monte185('sv185-squat')[2];
+    ok('[SV185] cas 5 — « Non, ne compte pas » : la série RESTE en base (le journal ne perd rien) avec hors_calcul = true ; la question part',
+      !!horsCalcul && horsCalcul.hors_calcul === true && Number(horsCalcul.charge_kg) === 155 && (await question185(2)) === null &&
+        monte185('sv185-squat').filter((s) => s.hors_calcul === true).length === 1 && monte185('sv185-squat')[0].hors_calcul === false, nb185(monte185('sv185-squat').map((s) => [s.charge_kg, s.hors_calcul])));
+    ok('[SV185] cas 5 — la série reste VISIBLE sur l’écran, à part : la mention « hors calcul »',
+      /hors calcul/.test(await page.evaluate(() => document.querySelectorAll('.ligne-serie')[2].textContent)), '');
+
+    // ── CAS 2. LES HALTÈRES : UNE PAIRE OU LES DEUX ? ──────────────────────────────────────────────────────────
+    await serie185(3, 44, 10)(); await valider185(3);
+    const q2 = await question185(3);
+    ok('[SV185] cas 2 — 44 kg aux haltères (habitude 22) : « par haltère, ou les deux ensemble ? », deux boutons, rien d’écrit',
+      !!q2 && q2.genre === 'double_halteres' && sp185(q2.texte) === '44 kg : par haltère, ou les deux ensemble ?' &&
+        nb185(q2.boutons.map((b) => b.t)) === nb185(['22 par haltère', '44 par haltère']) && q2.boutons[0].principal &&
+        monte185('sv185-dev').length === 0, nb185(q2));
+    await toucher185(3, '22 par haltère');
+    ok('[SV185] cas 2 — « 22 par haltère » corrige la charge SUR PLACE : la série part à 22 kg × 10',
+      monte185('sv185-dev').length === 1 && Number(monte185('sv185-dev')[0].charge_kg) === 22 && monte185('sv185-dev')[0].reps === 10 &&
+        (await question185(3)) === null, nb185(monte185('sv185-dev').map((s) => [s.charge_kg, s.reps])));
+    // Des reps décimales ou négatives : refusées sur place, sans question, rien d’écrit.
+    await taper185(4, 'charge_kg', 22); await taper185(4, 'reps', '6,5');
+    const qr = await question185(4);
+    ok('[SV185] reps décimales — refusées sur place, sans bouton : « Les reps sont un nombre entier. »',
+      !!qr && qr.refus && qr.boutons.length === 0 && sp185(qr.texte) === 'Les reps sont un nombre entier.', nb185(qr));
+    await valider185(4);
+    ok('[SV185] reps décimales — ✓ n’écrit rien tant qu’elles ne sont pas un entier',
+      monte185('sv185-dev').length === 1, nb185(monte185('sv185-dev').length));
+    await taper185(4, 'reps', 10);
+    ok('[SV185] reps décimales — l’entier retapé retire le refus', (await question185(4)) === null, nb185(await question185(4)));
+    await valider185(4); await ecrite185('sv185-dev', 2);
+    ok('[SV185] reps décimales — puis la série part, 22 kg × 10', monte185('sv185-dev').length === 2, nb185(monte185('sv185-dev').length));
+
+    // ── CAS 3. LE 0 REP ────────────────────────────────────────────────────────────────────────────────────────
+    await serie185(5, 25, 8)(); await valider185(5);
+    await serie185(6, 25, 0)(); await valider185(6);
+    const q3 = await question185(6);
+    ok('[SV185] cas 3 — 0 rep : « tu l’as manquée ? », trois boutons dont « J’ai eu mal », rien d’écrit',
+      !!q3 && q3.genre === 'zero' && sp185(q3.texte) === '0 rep : tu l’as manquée ?' &&
+        nb185(q3.boutons.map((b) => b.t)) === nb185(['Oui, manquée', 'J’ai eu mal', 'Corriger']) && monte185('sv185-row').length === 1, nb185(q3));
+    await toucher185(6, 'Oui, manquée');
+    const manquee = monte185('sv185-row')[1];
+    ok('[SV185] cas 3 — « Oui, manquée » écrit la série comme une TENTATIVE MANQUÉE (type échec, 0 rep), pas comme un travail à 0',
+      !!manquee && manquee.type_serie === 'echec' && manquee.reps === 0 && Number(manquee.charge_kg) === 25, nb185(monte185('sv185-row').map((s) => [s.type_serie, s.charge_kg, s.reps])));
+    ok('[SV185] cas 3 — l’écran la dit « manquée »',
+      /manquée/.test(await page.evaluate(() => document.querySelectorAll('.ligne-serie')[6].textContent)), '');
+    await serie185(7, 25, 0)(); await valider185(7);
+    await toucher185(7, 'J’ai eu mal');
+    const mal = monte185('sv185-row')[2];
+    ok('[SV185] cas 3 — « J’ai eu mal » écrit aussi une série manquée, et OUVRE le geste « J’ai mal » de l’exercice',
+      !!mal && mal.type_serie === 'echec' && mal.reps === 0 &&
+        await jusqua(() => page.evaluate(() => { const f = document.getElementById('feuille-seance'); return !!f && !f.hidden && !!f.querySelector('.douleur-phrase, .douleur-securite, .feuille-douleur'); }).catch(() => false), 6000),
+      nb185(mal));
+    await page.keyboard.press('Escape').catch(() => {});
+    await page.evaluate(() => { const v = document.querySelector('#feuille-seance .voile, #feuille-seance .fermer, #feuille-seance [data-fermer]'); if (v) v.click(); });
+    await jusqua(() => page.evaluate(() => { const f = document.getElementById('feuille-seance'); return !f || f.hidden; }).catch(() => true), 4000);
+
+    // ── CAS 4. DES REPS IMPOSSIBLES, PUIS L’APPRENTISSAGE ───────────────────────────────────────────────────────
+    await serie185(8, 30, 100)(); await valider185(8);
+    const q4 = await question185(8);
+    ok('[SV185] cas 4 — 100 reps : « 100 reps ? La cible : N. », trois boutons, la correction en un toucher (10) en ambre',
+      !!q4 && q4.genre === 'reps_haut' && /^100 reps \? La cible : \d+\.$/.test(sp185(q4.texte)) &&
+        nb185(q4.boutons.map((b) => b.t)) === nb185(['Oui, 100', '10', 'Corriger']) && q4.boutons[1].principal && !q4.boutons[0].principal &&
+        q4.doute.indexOf('reps') >= 0 && monte185('sv185-curl').length === 0, nb185(q4));
+    await toucher185(8, '10');
+    ok('[SV185] cas 4 — « 10 » corrige les reps sur place : la série part à 30 kg × 10',
+      monte185('sv185-curl').length === 1 && monte185('sv185-curl')[0].reps === 10, nb185(monte185('sv185-curl').map((s) => [s.charge_kg, s.reps])));
+    // Deux « Oui » au même genre sur le même exercice : on ne le demande plus.
+    await serie185(9, 30, 100)(); await valider185(9);
+    ok('[SV185] apprentissage — la deuxième fois, la question revient', !!(await question185(9)), '');
+    await toucher185(9, 'Oui, 100');
+    await serie185(10, 30, 100)(); await valider185(10);
+    ok('[SV185] apprentissage — un premier « Oui » ne suffit pas : la question revient', !!(await question185(10)), nb185(await question185(10)));
+    await toucher185(10, 'Oui, 100');
+    await serie185(11, 30, 100)(); await valider185(11);
+    ok('[SV185] apprentissage — DISCRIMINANT : après deux « Oui » au même genre sur cet exercice, plus de question, la série part',
+      (await question185(11)) === null && monte185('sv185-curl').length === 4 && monte185('sv185-curl')[3].reps === 100,
+      nb185(monte185('sv185-curl').map((s) => [s.charge_kg, s.reps])));
+    const appris = await page.evaluate(() => new Promise((res) => {
+      const r = indexedDB.open('trainhub-v2');
+      r.onerror = () => res(null);
+      r.onsuccess = () => {
+        try {
+          const g = r.result.transaction(['meta'], 'readonly').objectStore('meta').get('reponsesSaisie');
+          g.onsuccess = () => res(g.result ? g.result.valeur : null);
+          g.onerror = () => res(null);
+        } catch (e) { res(null); }
+      };
+    }));
+    ok('[SV185] apprentissage — gardé sur l’appareil : deux « Oui » au genre « reps_haut » du curl',
+      !!appris && appris['sv185-curl|reps_haut'] === 2, nb185(appris));
+
+    // « Terminer » : la série « Non, ne compte pas » n’entre pas au journal des records.
+    await terminer();
+    await jusqua(() => base.records.length >= 0, 2000);
+    const recSquat = base.records.filter((r) => r.exercise_slug === 'sv185-squat' && r.session_id.indexOf('sv185-h') !== 0);
+    ok('[SV185] cas 5 — « Terminer » : aucune ligne du journal des records pour la série hors calcul (155 kg)',
+      recSquat.every((r) => r.set_id !== horsCalcul.id), nb185(recSquat.map((r) => [r.set_id, r.type, r.valeur])));
+
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant; base.sets = setsAvant; base.records = recordsAvant;
+    await aller('/saisie');
+    ok('[SV185] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb185([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

@@ -226,6 +226,7 @@
     "gros-cran": 40.0,
     "plafond-salle": 70.0,
     "plafond-echelle": 60.0,
-    "saisie-avis": 60.0
+    "saisie-avis": 60.0,
+    "saisie-verifiee": 60.0
   }
 }

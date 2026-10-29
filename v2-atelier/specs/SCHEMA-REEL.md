@@ -1,7 +1,7 @@
 # Schéma réel — état au 24 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_114`** (groupe : partir quand on est seul, 177). Prochain numéro libre : **`v2_115`** (`v2_113` : voir le dépôt/la base avant de s'y fier).
+Dernière migration appliquée : **`v2_116`** (`sets.hors_calcul`, 185). Prochain numéro libre : **`v2_117`** (`v2_113` et `v2_115` : voir le dépôt/la base avant de s'y fier).
 ⚠️ **`v2_106` n'a jamais été lancée** (décision du 22/10 : le volume reste un record) : le numéro reste vide.
 
 **Volumétrie (24/10, 2 h 30)** : 1 288 séances · 29 673 séries · 860 exercices (848 actifs) · 961 alias
@@ -28,6 +28,7 @@ Dernière migration appliquée : **`v2_114`** (groupe : partir quand on est seul
 | `v2_111` (barre chargée, 159) | `profiles.ma_salle` accepte deux clés booléennes, **`barre_ez_chargee`** et **`barre_droite_chargee`** (absentes = non) ; contraintes `profiles_ma_salle_ok` (liste des clés) et `profiles_ma_salle_chargees_ok` (type) |
 | `v2_112` (assistant IA, 160) | **`assistant_questions`** (id, cree_a, exercise_slug, etat, question ≤ 500, reponse ≤ 2000, contexte jsonb, bloquee, `raison` ∈ nombre_absent · sante · erreur_modele · vide, modele — **aucun `user_id`** : les questions se gardent 30 jours sans lien avec le compte) ; **`assistant_quota`** (user_id, jour, n) ; **`profiles.assistant_accord_a`** (timestamptz, écrite par l'app, facultative en lecture/écriture) ; RPC **`assistant_prendre_question(p_user, p_max) → int`** (le reste, −1 au quota ; jour en heure de Paris ; `service_role` seulement). RLS active sur les deux tables, **aucune règle** : seule la fonction y accède. **Écart : la fonction SQL ne purge pas** — la purge (questions de plus de 30 jours, quota de plus de 2 jours) est faite par la fonction Edge `demander-coach` (24/10/2026, décision d'Aurélien) |
 | `v2_114` (groupe seul, 177, 28/10/2026) | **`groupe_liberer`** : quelqu'un qui est SEUL dans son groupe peut en partir (créer ou rejoindre un autre) même séance en cours ; son groupe vide se fige et disparaît. Avec un autre membre actif, `groupe_deja_dans_un` reste. Appliquée par Claude.ai ; aucune table ni colonne ajoutée |
+| `v2_116` (saisie vérifiée, 185, 29/10/2026) | **`sets.hors_calcul`** boolean NOT NULL DEFAULT false : « série gardée au journal, mais exclue des records, des crans et du moteur ». Posée par la réponse « Non, ne compte pas » à la question de vraisemblance (ECRAN-SAISIE, « La question de vraisemblance ») ; lue ET écrite par l'app (`COLONNES_SET`, `lignes()`, toujours envoyée, `false` compris). Appliquée par Claude.ai avant la PR 185 |
 
 **Reste noté** : `pseudo_libre` ouverte à `anon` (voulu) ; 57 fonctions SECURITY DEFINER (l'API sociale) ; pas de FK
 `groupe_recaps.groupe_id` (abandonnée) ni `objectifs.pari_id` (à reprendre) ; « Leaked password protection » (tableau
@@ -163,7 +164,7 @@ contre la vraie base ; aucune donnée v2 ; suite archivée par #380).
 
 | Table | Colonnes |
 |---|---|
-| `sets` | `douleur` boolean NOT NULL = false · `occurrence` uuid (déjà présentes et non décrites plus bas : `source` text NOT NULL = 'app', `repos_s`, `elastique`, `elastique_norme`, `tempo_descente`, `tempo_pause`, `tempo_montee`, `modifie_a`, `note`, `rpe`) |
+| `sets` | **`hors_calcul` boolean NOT NULL = false** (`v2_116`, 185) · `douleur` boolean NOT NULL = false · `occurrence` uuid (déjà présentes et non décrites plus bas : `source` text NOT NULL = 'app', `repos_s`, `elastique`, `elastique_norme`, `tempo_descente`, `tempo_pause`, `tempo_montee`, `modifie_a`, `note`, `rpe`) |
 | `profiles` | `phase` text (CHECK) · `phase_depuis` timestamptz · `lest_reponse` text (CHECK `oui`/`non`) · `lest_reponse_le` timestamptz · **`v2_065`** : `objectif` · `objectif_depuis` · `priorites` text[] · `temps_reponse` · `historique_declare` · `programme_choix` (CHECK `deduit` · `moi` · `construis` — relevé au schéma par Claude Code le 08/10/2026, 60-3) · `zones_a_menager` text[] · `zone_force_reponse` · `zone_force_reponse_le` · `phase_confirmee_le` · `questionnaire_fait_le` timestamptz |
 | `exercises` | `mouvement` text |
 | `routines` | `dossier` text (CHECK `routines_dossier_ok`) |
@@ -528,6 +529,7 @@ collision, plutôt que de les renuméroter en place.
 | `tempo_descente`, `tempo_pause`, `tempo_montee` | smallint | |
 | `repos_s` | integer | **`v2_040`** — repos RÉEL avant cette série, 0 à 3600 s, mesuré à partir de la validation de la série précédente. NULL sur les séries importées : l'export Hevy ne porte pas le repos |
 | `douleur`, `occurrence` | | voir « Colonnes ajoutées » |
+| `hors_calcul` | boolean | **`v2_116`** (185) — NOT NULL, défaut `false`. `true` : la série reste au journal et au détail de la séance, et n'entre ni dans les records, ni dans le palier, le niveau et les crans voisins, ni dans les paris et le jeu |
 
 ## `exercises` — 237 lignes
 

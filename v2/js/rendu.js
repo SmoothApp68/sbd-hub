@@ -177,7 +177,7 @@
       // la distinction se fait par le style.
       var ligne = el('div', 'serie' + (s.estTravail ? '' : ' hors-travail') +
         (s.debutTour ? ' debut-tour' : ''));
-      var t = s.estTravail ? null : ETIQUETTE_TYPE[s.type_serie];
+      var t = s.estTravail ? null : ETIQUETTE_TYPE[typeAffiche(s)];
       // Hors superset, `etiquette` est vide sur une série qui n'est pas du
       // travail : elle n'a pas de lettre à porter. On retombe alors sur le
       // libellé de type — `W` pour une chauffe — plutôt que sur un badge nu.
@@ -1994,8 +1994,12 @@
   var ETIQUETTE_TYPE = {
     echauffement: { texte: 'W', classe: 'c' },
     degressive: { texte: 'D', classe: 'd' },
-    echec: { texte: '✕', classe: 'x' }
+    echec: { texte: '✕', classe: 'x' },
+    // 185 (v2_116) — « Non, ne compte pas » : gardée au journal, hors du calcul.
+    hors_calcul: { texte: '–', classe: 'h' }
   };
+  // Le type qui s'AFFICHE : une série hors calcul garde son type en base (travail), mais se montre à part.
+  function typeAffiche(s) { return s && s.horsCalcul ? 'hors_calcul' : (s && s.type_serie); }
 
   function etiquetteSerie(type, nTravail) {
     var e = ETIQUETTE_TYPE[type];
@@ -2658,7 +2662,18 @@
       if (info && info.message && info.message.gestes && typeof vue.surDegressiveVide === 'function') {
         noeud.appendChild(propositionDeDegressiveVide(info.message, s._iExo, s._iSerie, vue));
       } else if (info && info.message) noeud.appendChild(phraseDeReaction(info.message, s.debutTour));
-      noeud.appendChild(rangeeDeSerie(bloc, s, complets, vue, info));
+      var rangee = rangeeDeSerie(bloc, s, complets, vue, info);
+      noeud.appendChild(rangee);
+      // 185 — LA QUESTION DE VRAISEMBLANCE, sous la série, avant qu'elle soit écrite (ou, pour un record énorme, après) : une
+      // ligne et ses boutons, jamais une fenêtre. Lue sur l'app (`vue.questionSaisie`), la règle n'est pas ici.
+      var qs = !vue.programme && typeof vue.questionSaisie === 'function' ? vue.questionSaisie(s._iExo, s._iSerie) : null;
+      if (qs) {
+        if (qs.champ) {
+          var douteux = rangee.querySelector('[data-champ="' + qs.champ + '"]');
+          if (douteux && qs.mode !== 'record') douteux.classList.add('doute');
+        }
+        noeud.appendChild(questionDeSaisie(qs, s._iExo, s._iSerie, vue.surQuestion));
+      }
       // 149 (MOTEUR §9.17 ter) — UNE FIGURE EN SECONDES : l'étiquette de la ligne (« max », « après ton max ») et, la tenue
       // max validée, la phrase du coach sous elle. Lues sur le plan (`info`), jamais recomposées.
       if (info && info.etiquette) noeud.appendChild(el('div', 'fig-eti', info.etiquette));
@@ -3091,6 +3106,65 @@
     m.setAttribute('aria-hidden', 'true');
     return m;
   }
+  // 185 — LA QUESTION SOUS LA SÉRIE (maquette-saisie-vraisemblance-v1) : le texte de la règle, ses boutons (44 px au moins, le
+  // principal en ambre), jamais une fenêtre. `qs` : `{ texte, genre, mode, refus, boutons: [{ texte, principal }] }`.
+  function questionDeSaisie(qs, iExo, iSerie, surBouton) {
+    var n = el('div', 'question-saisie' + (qs.mode === 'record' ? ' record' : '') + (qs.refus ? ' refus' : ''));
+    n.setAttribute('role', qs.refus ? 'alert' : 'group');
+    n.setAttribute('data-iexo', iExo);
+    n.setAttribute('data-iserie', iSerie);
+    n.setAttribute('data-genre', qs.genre);
+    n.appendChild(el('p', 'qs-texte', qs.texte));
+    if (qs.boutons && qs.boutons.length) {
+      var bs = el('div', 'qs-boutons');
+      qs.boutons.forEach(function (b, k) {
+        var bt = el('button', 'qs-bouton' + (b.principal ? ' principal' : ''), b.texte);
+        bt.type = 'button';
+        bt.addEventListener('click', function () { if (typeof surBouton === 'function') surBouton(iExo, iSerie, k); });
+        bs.appendChild(bt);
+      });
+      n.appendChild(bs);
+    }
+    return n;
+  }
+  // La LIGNE de la série (`.ligne-serie`, qui porte la rangée et son fond de glissement) : la question s'insère après elle.
+  function ligneDeSerie(racine, iExo, iSerie) {
+    var r = racine ? racine.querySelector('.serie[data-iexo="' + iExo + '"][data-iserie="' + iSerie + '"]') : null;
+    return r ? (r.closest('.ligne-serie') || r) : null;
+  }
+  function retirerQuestion(racine, iExo, iSerie) {
+    var r = ligneDeSerie(racine, iExo, iSerie);
+    if (!r) return;
+    var champs = r.querySelectorAll('.doute');
+    for (var i = 0; i < champs.length; i++) champs[i].classList.remove('doute');
+    var q = r.nextSibling;
+    while (q && q.nodeType === 1 && q.classList.contains('question-saisie')) {
+      var suivant = q.nextSibling;
+      q.parentNode.removeChild(q);
+      q = suivant;
+    }
+  }
+  // Sans redessiner : le refus des reps se pose pendant la frappe, le focus reste dans le champ.
+  function montrerQuestion(racine, iExo, iSerie, qs, surBouton) {
+    var r = ligneDeSerie(racine, iExo, iSerie);
+    if (!r || !qs) return false;
+    retirerQuestion(racine, iExo, iSerie);
+    r.parentNode.insertBefore(questionDeSaisie(qs, iExo, iSerie, surBouton), r.nextSibling);
+    var champ = qs.champ ? r.querySelector('[data-champ="' + qs.champ + '"]') : null;
+    if (champ) champ.classList.add('doute');
+    return true;
+  }
+  // « Corriger » : le curseur revient dans le champ.
+  function focusChamp(racine, iExo, iSerie, nom) {
+    var r = ligneDeSerie(racine, iExo, iSerie);
+    var champ = r && r.querySelector('[data-champ="' + nom + '"]');
+    var input = champ && champ.querySelector('input');
+    if (!input) return false;
+    input.focus();
+    if (typeof input.select === 'function') input.select();
+    return true;
+  }
+
   function medailleDeSerie(phrase) {
     var n = el('div', 'record-serie');
     n.appendChild(pastilleMedaille());
@@ -3560,8 +3634,8 @@
   // exactement comme au détail de séance. Hors superset, rien ne change — `C`,
   // `D`, `✕`, ou le numéro de la série de travail.
   function etiquetteDeSerie(bloc, s) {
-    if (!bloc.superset) return etiquetteSerie(s.estTravail ? 'travail' : s.type_serie, s.tour);
-    var e = s.estTravail ? null : ETIQUETTE_TYPE[s.type_serie];
+    if (!bloc.superset) return etiquetteSerie(s.estTravail ? 'travail' : typeAffiche(s), s.tour);
+    var e = s.estTravail ? null : ETIQUETTE_TYPE[typeAffiche(s)];
     return { texte: s.etiquette, classe: e ? e.classe : '' };
   }
 
@@ -8357,6 +8431,9 @@
     majConstat: majConstat,
     demanderReps: demanderReps,
     demanderCases: demanderCases,
+    montrerQuestion: montrerQuestion,
+    retirerQuestion: retirerQuestion,
+    focusChamp: focusChamp,
     rendreRepos: rendreRepos,
     rendreFeuilleSerie: rendreFeuilleSerie,
     rendreFeuilleNote: rendreFeuilleNote,

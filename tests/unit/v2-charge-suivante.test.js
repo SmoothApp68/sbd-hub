@@ -215,3 +215,55 @@ describe('163 + 165 — la consigne allégée garde le « ≈ » (I61) et porte 
     expect(b.fondement.approchee).toBeUndefined();
   });
 });
+
+// ═══ 185 — LE TEST « HORS CALCUL » N'A PLUS DE LIGNE ═══════════════════════
+// Le test (35 kg, approchée) tombe sur la 3e ligne. Si la personne dit « Non, ne compte pas » à la série qui l'occupait, il ne reste
+// aucune ligne qui porte la charge approchée : la phrase « ≈ 35 kg : vise… » citerait une cible qu'aucune ligne n'affiche (I26).
+describe('185 — la charge approchée sans ligne qui la porte', () => {
+  // Deux lignes : la ligne du jour, puis le test (35 kg, approchée) — la routine n'a pas de 3e série à donner au test.
+  const avecTroisieme = (kg, horsCalcul) => {
+    const c = M.consigneDExercice(HIST(), undefined, AVANT, O('machine'));
+    const e = entrees(c, 'machine');
+    let se = { id: 'S1', userId: 'u', exercices: e.seance.exercices.map((x) => Object.assign({}, x, { series: x.series.slice(0, 2) })) };
+    se = S.modifierSerie(se, 0, 0, { charge_kg: 30, reps: 12 }); se = S.valider(se, 0, 0, new Date('2026-10-20T10:01:00Z'));
+    se = S.modifierSerie(se, 0, 1, { charge_kg: kg, reps: 12 }); se = S.valider(se, 0, 1, new Date('2026-10-20T10:03:00Z'));
+    if (horsCalcul) se = S.marquerHorsCalcul(se, 0, 1, true);
+    e.seance = Object.assign({}, e.seance, { exercices: se.exercices });
+    const p = T.planDeSeance(e);
+    return { e, p, x: p.exercices[0] };
+  };
+  // Le plan produit : tant qu'un segment de l'en-tête porte la charge approchée, la phrase reste et `approcheeSansLigne` est faux.
+  test('un segment de l’en-tête porte encore la charge approchée : la phrase reste, plan vert (la série hors calcul n’y change rien)', () => {
+    const { e, p, x } = avecTroisieme(40, true);
+    expect(x.entete.segments.some((sg) => sg.approchee === true)).toBe(true);
+    expect(x.approchee).not.toBeNull();
+    expect(x.approcheeSansLigne).toBe(false);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+  // I61 : le plan qui se tait parce qu'AUCUNE ligne ne porte plus la charge approchée (le cas du banc `saisie-verifiee`, cas 5 :
+  // la série du test est « hors calcul », la routine n'a pas d'autre ligne). La forge retire le segment, la phrase et le « ≈ » de
+  // l'en-tête, comme le plan le fait quand la ligne du test n'existe plus.
+  const sansLigne = (p) => {
+    const q = JSON.parse(JSON.stringify(p));
+    const x = q.exercices[0];
+    x.entete.segments = x.entete.segments.filter((sg) => sg.approchee !== true);
+    x.entete.jaune = x.entete.jaune.map((t) => String(t).replace(/≈\s?/g, ''));
+    x.approchee = null;
+    return q;
+  };
+  test('⚠️ DISCRIMINANT — I61 accepte le silence quand le plan dit « approcheeSansLigne »', () => {
+    const { e, p } = avecTroisieme(40, true);
+    const q = sansLigne(p); q.exercices[0].approcheeSansLigne = true;
+    expect(T.verifierPlan(q, e).erreurs.filter((m) => /^I61/.test(m))).toEqual([]);
+  });
+  test('I61 reste armé : le même silence SANS « approcheeSansLigne » est refusé', () => {
+    const { e, p } = avecTroisieme(40, true);
+    const q = sansLigne(p); q.exercices[0].approcheeSansLigne = false;
+    expect(T.verifierPlan(q, e).erreurs.filter((m) => /^I61/.test(m))).not.toEqual([]);
+  });
+  test('I61 reste armé : « approcheeSansLigne » ne permet pas de taire une phrase dont un segment porte encore la charge', () => {
+    const { e, p } = avecTroisieme(40, true);
+    const q = JSON.parse(JSON.stringify(p)); q.exercices[0].approchee = null; q.exercices[0].approcheeSansLigne = true;
+    expect(T.verifierPlan(q, e).erreurs.filter((m) => /^I61/.test(m))).not.toEqual([]);
+  });
+});

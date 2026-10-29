@@ -5875,7 +5875,12 @@ const SETS_IMPORTES = [
     i.dispatchEvent(new Event('change', { bubbles: true }));
   }, '99999999999');
   await attendre(300);
+  const departD6 = await departGeste();
   await page.evaluate(() => document.querySelector('.ligne-serie .ok-serie').click());
+  await calmeApres(departD6, 0);
+  // 185 — 99 999 999 999 reps sont une saisie douteuse : la question de vraisemblance se pose AVANT l'écriture. Cette section
+  // éprouve ce qui monte quand on VEUT ce nombre-là (le rabot `int4`) : on répond « Oui » à la question, puis la série part.
+  await repondreOuiSiQuestion(0);
   await attendre(1800);
   ok('[D6] AUCUN refus — c’était `22003`, puis `22P02` au-delà de 1e21',
     refusDepuis(repereD6).length === 0,
@@ -9830,6 +9835,11 @@ const SETS_IMPORTES = [
         await casesSiVides(l);
       }
       // Une validation sur deux après un déverrouillage, l'autre normalement.
+      // 185 — la valeur tapée (le placeholder, ou 20 par défaut) peut sortir de l'historique de l'exercice : la question de
+      // saisie se pose, et cette section veut la série TELLE QUE TAPÉE — on répond « Oui » après le geste (un état lu, pas un délai).
+      const repondre185 = async () => {
+        if (await repondreOuiSiQuestion(i)) await attendre(1200);
+      };
       if (i % 2 === 0) {
         armees++;
         await page.evaluate((k) => {
@@ -9838,9 +9848,11 @@ const SETS_IMPORTES = [
           document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
         }, i);
         await attendre(4000);
+        await repondre185();
       } else {
         await l.$eval('.ok-serie', (b) => b.click());
         await attendre(1200);
+        await repondre185();
       }
     }
     const reentrees = await page.evaluate(() => window.__reentrees);

@@ -4320,6 +4320,7 @@
     verifierEffortVise(plan, entrees, erreurs);
     verifierBord(plan, erreurs);
     verifierLeviers(plan, erreurs);
+    verifierHorsCalcul(plan, entrees, erreurs);
     verifierDessous(plan, erreurs);
     verifierGrosCran(plan, erreurs);
     verifierAlleger(plan, erreurs);
@@ -4582,6 +4583,33 @@
         var carte = x.escalier && x.escalier.gros === true;
         if (carte && !(g.carte === true)) erreurs.push(nom + 'la carte des leviers du gros cran sans deux essais ratés ni cible au plafond');
       }
+    });
+  }
+
+  // I70 (MOTEUR §9.2, 185) — UNE SÉRIE « NON, NE COMPTE PAS » (`sets.hors_calcul`) N'APPARAÎT DANS AUCUNE ENTRÉE DU PLAN : sa ligne est
+  // `hors` (comme une chauffe : visible, jamais comptée), elle ne porte ni `faite` ni pari, elle n'est pas dans les `indices`
+  // d'où le coach lit le palier, le niveau et les crans voisins, et sa charge ne se retrouve ni dans les séries retenues
+  // (`faites`) ni dans le fantôme de la ligne suivante. Elle reste au journal et au détail : seul le plan l'ignore.
+  function verifierHorsCalcul(plan, entrees, erreurs) {
+    var exos = entrees && entrees.seance && entrees.seance.exercices ? entrees.seance.exercices : null;
+    if (!exos) return;
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var series = exos[i] && exos[i].series ? exos[i].series : [];
+      series.forEach(function (s, j) {
+        if (!s || s.hors_calcul !== true) return;
+        var nom = 'I70 — exercice ' + i + ' (' + (x && x.slug) + '), série ' + j + ' hors calcul : ';
+        var l = x && x.lignes ? x.lignes[j] : null;
+        if (l && l.role !== 'hors') erreurs.push(nom + 'sa ligne n’est pas « hors » (rôle ' + l.role + ')');
+        if (l && (l.faite !== undefined && l.faite !== null)) erreurs.push(nom + 'sa ligne porte une série faite');
+        if (x && Array.isArray(x.indices) && x.indices.indexOf(j) >= 0) erreurs.push(nom + 'elle est parmi les séries lues par le coach');
+        if (x && Array.isArray(x.paris) && x.paris[j]) erreurs.push(nom + 'elle porte un pari');
+        var kg = nombre(s.charge_kg), rp = nombre(s.reps);
+        if (x && Array.isArray(x.faites) && kg !== null && x.faites.some(function (f) {
+          return f && nombre(f.charge_kg) === kg && nombre(f.reps) === rp && (series.every(function (t, k) {
+            return k === j || !t || t.hors_calcul === true || !(nombre(t.charge_kg) === kg && nombre(t.reps) === rp);
+          }));
+        })) erreurs.push(nom + 'sa charge est comptée parmi les séries faites');
+      });
     });
   }
 

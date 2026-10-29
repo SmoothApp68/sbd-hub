@@ -40,11 +40,14 @@
   var CHAUFFE = 'echauffement';
   var DEGRESSIVE = 'degressive';
   var ECHEC = 'echec';
+  // 185 (v2_116) — « Non, ne compte pas » : un quatrième rôle écarté du palier, déclaré par la personne (`sets.hors_calcul`).
+  var HORS_CALCUL = 'hors_calcul';
 
   var ROLE_DU_TAG = {};
   ROLE_DU_TAG[CHAUFFE] = 'chauffe';
   ROLE_DU_TAG[DEGRESSIVE] = 'degressive';   // §6.3 — descente choisie, déclarée
   ROLE_DU_TAG[ECHEC] = 'echec';             // §6.3 — descente subie, déclarée
+  ROLE_DU_TAG[HORS_CALCUL] = 'hors_calcul'; // 185 — « Non, ne compte pas » : jamais une série de travail
 
   // 152 — UNE SÉRIE `echec` À 1 REP OU PLUS EST UNE SÉRIE DE TRAVAIL À FOND, pas un tag
   // qui écarte : la lecture est UNE (`THModele.estAEchec`, chargé avant ce module). À
@@ -54,6 +57,8 @@
   }
 
   function roleDuTag(s) {
+    // 185 — la marque `hors_calcul` PRIME sur tout type : une série « Non, ne compte pas » ne vote jamais, quel que soit son tag.
+    if (s && s.hors_calcul === true) return ROLE_DU_TAG[HORS_CALCUL];
     if (aEchec(s)) return null;
     return Object.prototype.hasOwnProperty.call(ROLE_DU_TAG, s && s.type_serie)
       ? ROLE_DU_TAG[s.type_serie] : null;
@@ -698,7 +703,7 @@
     AUCUNE_SERIE: AUCUNE_SERIE,
     TOUT_CHAUFFE: TOUT_CHAUFFE,
     MESURES_SANS_CHARGE: MESURES_SANS_CHARGE,
-    CHAUFFE: CHAUFFE, DEGRESSIVE: DEGRESSIVE, ECHEC: ECHEC,
+    CHAUFFE: CHAUFFE, DEGRESSIVE: DEGRESSIVE, ECHEC: ECHEC, HORS_CALCUL: HORS_CALCUL,
     ROLE_DU_TAG: ROLE_DU_TAG,
     roleDuTag: roleDuTag,
     trier: trier,

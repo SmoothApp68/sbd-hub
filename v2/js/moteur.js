@@ -455,6 +455,13 @@
     // §9.2 bis — la chute ne tire pas le niveau : il se calcule sans elle.
     if (chuteDe(liste) !== null) liste = liste.slice(0, -1);
 
+    // 185 (A1, A6, décision d'Aurélien du 29/10/2026) — UN 0 REP NE FAIT JAMAIS UN NIVEAU VALIDÉ 0. Une série de travail à 0 rep est
+    // une tentative manquée, pas une mesure : elle sort du niveau (sans elle `25 × 8, 0, 6` donnait « niveau 0 », donc « 25 kg × 1 », puis
+    // la boucle de singles A1 : 27,5, 30, 32,5… kg × 1 sans issue). Lue sur les reps brutes : une rep faite à fond (le calcul prudent
+    // la compte 0) reste une mesure. Le tag `echec` à 0 rep n'arrive jamais ici (le palier l'écarte, `palier.js` §4).
+    liste = liste.filter(function (s) { return nombre(s && s.reps) !== 0; });
+    if (!liste.length) return null;
+
     var comptees = [];
     for (var i = 0; i < liste.length; i++) {
       var r = compter(liste[i]);
@@ -5303,9 +5310,13 @@
   // `consignePour`.
   function contratDe(groupes, etat, mesure, options) {
     var seances = (groupes || []).map(function (g) {
+      // 185 (v2_116) — UNE SÉRIE « NON, NE COMPTE PAS » N'ENTRE PAS DANS LE CONTRAT : ni le palier, ni le niveau, ni les crans voisins
+      // (`chargesDe`), ni le fondement d'une consigne, ni le compteur ne la voient. La séance qui la porte garde sa date (une
+      // présence pour le rythme). Elle reste au journal et au détail : seul le calcul l'ignore.
+      var series = ((g && g.series) || []).filter(function (x) { return !(x && x.hors_calcul === true); });
       var r = mesure === 'reps'
-        ? Palier().analyserPoidsDuCorps((g && g.series) || [])
-        : Palier().analyser((g && g.series) || [], etat, { mesure: mesure });
+        ? Palier().analyserPoidsDuCorps(series)
+        : Palier().analyser(series, etat, { mesure: mesure });
       var se = seanceDuContrat(g && g.seance ? g.seance.debut : null, r);
       // §9.10 (53-1) — la fin de la séance, si elle en a une (la zone choisie
       // pendant la séance est la sienne). Absente, la clé n'existe pas.
@@ -5603,6 +5614,13 @@
       var tenu = t !== null && t.niveau !== null && z !== null && t.niveau >= z.bas;
       var propose = chargeProposee(k);
       var suivie = P !== null && propose !== null && (P > propose || memeCharge(P, propose));
+      // 185 (décision d'Aurélien du 29/10/2026, MOTEUR §9.2) — UNE TENTATIVE MANQUÉE COMPTE DANS LA STAGNATION si sa charge est au
+      // plus la charge de travail : on a échoué une série à la charge qu'on tient, la séance ne peut pas se lire comme un gain de
+      // niveau ni de test. Au-dessus de la charge de travail (une exploration ratée), le palier l'ignore, comme avant.
+      var manqueAuTravail = P !== null && (v.series || []).some(function (x) {
+        var kg = x && x.origine === 'echec' && nombre(x.reps) === 0 ? nombre(x.charge_kg) : null;
+        return kg !== null && (kg < P || memeCharge(kg, P));
+      });
       var rz = premiere || repriseEnAttente || k.etat === 'reprise_courte' || k.etat === 'reprise_longue' ||
                k.zone !== zonePrecedente;
       repriseEnAttente = false;
@@ -5621,10 +5639,10 @@
         if (testMieux) meilleurTest = { charge: t.charge, niveau: t.niveau };
         if (P !== null && (meilleur === null ||
             (P > meilleur.palier && !memeCharge(P, meilleur.palier)) ||
-            (memeCharge(P, meilleur.palier) && n !== null && (meilleur.niveau === null || n > meilleur.niveau)))) {
+            (!manqueAuTravail && memeCharge(P, meilleur.palier) && n !== null && (meilleur.niveau === null || n > meilleur.niveau)))) {
           progres = true;
           meilleur = { palier: P, niveau: n };
-        } else if (testMieux) {
+        } else if (testMieux && !manqueAuTravail) {
           progres = true;
         }
         if (progres) {

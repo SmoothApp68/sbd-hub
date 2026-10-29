@@ -46,10 +46,16 @@
   }
   // Le mot de l'étiquette d'une ligne : « à l'échec » (ambre) ou « manquée » ; `null` sinon.
   function motDEchec(serie) {
+    if (estHorsCalcul(serie)) return 'hors calcul';   // 185 — la série « Non, ne compte pas » se dit, à part
     return estAEchec(serie) ? 'à l’échec' : (estManquee(serie) ? 'manquée' : null);
   }
+  // ⚠️ 185 (v2_116, décision d'Aurélien du 29/10/2026) — « NON, NE COMPTE PAS » : UNE LECTURE, ICI. Une série `hors_calcul` reste
+  // au journal et au détail de la séance (elle existe, elle a été faite ou tapée), mais n'est PAS une série de travail : ni
+  // record, ni palier, ni niveau, ni cran voisin, ni pari, ni jeu — tout ce qui demande « est-ce du travail ? » passe par
+  // `estTravail`, et le palier par `roleDuTag` (`palier.js`), qui lit la même marque. La personne l'a dit ; rien ne la déduit.
+  function estHorsCalcul(serie) { return !!serie && serie.hors_calcul === true; }
   function estTravail(serie) {
-    return !!serie && (typeDe(serie) === 'travail' || estAEchec(serie));
+    return !!serie && !estHorsCalcul(serie) && (typeDe(serie) === 'travail' || estAEchec(serie));
   }
   // Le type TEL QU'ON LE LIT : `travail` pour une série à l'échec (1 rep et +), le type de la base sinon. Le plan
   // (`plan.js`) l'écrit sur chacune de ses lignes : aucun invariant ne compare `type_serie` à `'echec'`.
@@ -1555,6 +1561,8 @@
             estTravail: travail,
             // 152 : « à l'échec » (1 rep et +) ou « manquée » (0 rep) ; la lecture unique.
             motEchec: motDEchec(brute),
+            // 185 — « Non, ne compte pas » : visible, mais hors du calcul (l'écran la montre à part).
+            horsCalcul: estHorsCalcul(brute),
             // Ce que l'écran doit montrer comme fait — coché, vert, compté.
             faite: faiteEnBase(brute),
             // Le tour d'une série de travail est son rang parmi les séries de
@@ -2731,6 +2739,7 @@
     formatChrono: formatChrono,
     formatPrecedent: formatPrecedent,
     estTravail: estTravail,
+    estHorsCalcul: estHorsCalcul,
     estAEchec: estAEchec,
     estManquee: estManquee,
     motDEchec: motDEchec,

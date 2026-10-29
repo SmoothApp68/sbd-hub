@@ -1586,7 +1586,7 @@
 
       if (charge !== null && charge > 0) {
         // Les haltères à environ deux fois l'habitude : le total tapé à la place de la charge par haltère.
-        if (haltere && type !== 'echauffement') {
+        if (haltere && type !== 'echauffement' && type !== 'test') {
           var refs = [habitude, meilleur].filter(function (r) { return r !== null && r > 0; });
           var estDouble = refs.some(function (r) {
             var q = charge / r;
@@ -1602,7 +1602,7 @@
           }
         }
         // Une charge très au-dessus du meilleur : plus de 15 % ET plus de 10 kg (4 kg par haltère).
-        if (meilleur !== null && type !== 'echauffement') {
+        if (meilleur !== null && type !== 'echauffement' && type !== 'test') {   // 186 — un test déclaré se sait au-dessus du meilleur
           var seuilAbsolu = haltere ? HAUSSE_ABSOLUE_HALTERE_KG : HAUSSE_ABSOLUE_KG;
           if (charge > meilleur * (1 + HAUSSE_RELATIVE) + EPSILON && charge - meilleur > seuilAbsolu + EPSILON) {
             return question('hausse', Modele.charge(charge) + ' ? Ton meilleur ici : ' + Modele.charge(meilleur) + '.', [

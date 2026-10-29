@@ -664,7 +664,12 @@
       titre: 'Voici ce que j’ai compris.',
       voix: rep.coach === 'carnet'
         ? 'Je me tais. Un geste dans Profil si tu veux mes propositions.'
-        : 'À ta première séance, je te propose tes charges. Tu peux toujours taper autre chose.',
+        : (etat.aDesSeances
+          // 184 (C1) : « je te propose tes charges » n'est vrai que s'il existe un historique (séances,
+          // import, carnet) d'où le coach peut les tirer. Sans lui, la première séance n'a aucune charge à
+          // proposer : le coach le dit tel quel.
+          ? 'À ta première séance, je te propose tes charges. Tu peux toujours taper autre chose.'
+          : 'À ta première séance, tu choisis tes charges ; je les suis ensuite.'),
       blocs: [{ type: 'resume', lignes: [
         { libelle: 'But d’entraînement', valeur: (rep.objectif && P.libelleDe(P.OBJECTIFS, rep.objectif)) || tiret, ecran: BUT },
         { libelle: 'Phase', valeur: phase || tiret, ecran: BUT },

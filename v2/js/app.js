@@ -5310,6 +5310,13 @@
     // ajoutée en rouvrant une séance d'avant-hier porterait sinon la date
     // d'aujourd'hui : un fait faux en base, dans la colonne même qui dit
     // quand la série a été faite.
+    //
+    // 183 — LA GARDE DE DÉVELOPPEMENT ATTEND L'OBSERVATION. Dès la validation, la ligne n'est pas encore figée (`set_observe`
+    // manque) : le repos (`reposApres`) et `apresGeste` calculent un plan où I7 lisait « 0 pari de sa révision ». Les plans se
+    // calculent comme avant (même ordre, mêmes écritures) ; seule leur VÉRIFICATION passe après `observerSerie`.
+    // (Le bloc `try` court jusqu'à la fin de la fonction.)
+    var reprendreGarde = suspendreGarde();
+    try {
     seance = Seance.valider(seance, iExo, iSerie,
       enEdition() ? new Date(seance.fin || seance.debut) : new Date());
     // §2.7 — le tour avance ICI, au geste, et jamais au rendu : une marque qui
@@ -5336,17 +5343,12 @@
     // ⚠️ L'OBSERVATION VIENT APRÈS `apresGeste`, ET C'EST L'ORDRE QUI COMPTE :
     // `poserSeries` y pose l'entrée des séries, donc avec un `seq` plus petit
     // que celui de la prédiction. `set_observe` trouve alors toujours sa série.
-    // 183 — la garde de développement attend l'observation : entre `apresGeste` et `observerSerie`, la ligne qui vient d'être
-    // validée n'est pas encore figée (`set_observe` manque), et I7 y lisait « 0 pari de sa révision ». Le plan, lui, se
-    // calcule comme avant (même ordre, mêmes écritures) ; seule la VÉRIFICATION passe après l'observation.
-    var reprendreGarde = suspendreGarde();
-    try {
-      await apresGeste();
-      // §9.11 (49-C) — le pari de CETTE série, AVANT son observation : il doit
-      // exister pour être observé. C'est aussi lui qui la fige (§9.13). Déjà sur
-      // l'appareil ; il entre dans la file ICI, derrière les séries.
-      if (pariProvisoire) await poserPari(await finirPari(pariProvisoire));
-      await observerSerie(iExo, iSerie);
+    await apresGeste();
+    // §9.11 (49-C) — le pari de CETTE série, AVANT son observation : il doit
+    // exister pour être observé. C'est aussi lui qui la fige (§9.13). Déjà sur
+    // l'appareil ; il entre dans la file ICI, derrière les séries.
+    if (pariProvisoire) await poserPari(await finirPari(pariProvisoire));
+    await observerSerie(iExo, iSerie);
     } finally {
       reprendreGarde();
     }

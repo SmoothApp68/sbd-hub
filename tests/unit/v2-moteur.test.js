@@ -1392,6 +1392,8 @@ describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases e
       // 163 — la clé `approchee` du fondement (une charge jamais faite, « ≈ ») est testée à part.
       const fond = Object.assign({}, rendu.fondement);
       delete fond.approchee;
+      // 186 — un saut de plusieurs crans dit combien (crans), de combien le haut est dépassé (depasse), son plafond et le matériel.
+      if (fond.preuve) { delete fond.crans; delete fond.depasse; delete fond.plafond; delete fond.materiel; }
       expect(Object.keys(fond).sort()).toEqual(Object.keys(c.fondement).sort());
       expect(fond).toEqual(c.fondement);
       // §20.2 (49-U9) — la référence des dates est `avant`, comme dans l'app.

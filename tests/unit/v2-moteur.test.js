@@ -1397,6 +1397,37 @@ describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases e
 
   // ── Ce que le fichier ne couvre pas ──────────────────────────────────────
 
+  // 184 (B4) — LE MOT DU MATÉRIEL : « Ta barre / Tes haltères / Ta machine ne permet(tent) pas un plus petit cran ».
+  // La condition de la phrase ne change pas (le cas N8 reste un étirement) ; seul le mot suit le matériel de l'exercice.
+  describe('184 — le mot du matériel dans la phrase de l’étirement', () => {
+    const N8 = CAS.filter((c) => c.id === 'N8')[0];
+    const MOTS = [['barre', 'Ta barre ne permet', 'ta barre ne permet'],
+                  ['haltere', 'Tes haltères ne permettent', 'tes haltères ne permettent'],
+                  ['machine', 'Ta machine ne permet', 'ta machine ne permet'],
+                  ['poulie', 'Ta machine ne permet', 'ta machine ne permet'],
+                  [undefined, 'Ta machine ne permet', 'ta machine ne permet']];
+    MOTS.forEach(([equipement, maj, min]) => {
+      test(`${equipement}`, () => {
+        const rendu = pour(Object.assign({}, N8, { equipement: 'haltere' }));
+        expect(rendu.etat).toBe('etirement');
+        const c = JSON.parse(JSON.stringify(rendu));
+        c.fondement.equipement = equipement;
+        const grise = [M.libellesConsigne(c, N8.avant), M.pourquoiConsigne(c, N8.reglage, N8.avant)]
+          .map((x) => JSON.stringify(x)).join(' ');
+        expect(grise).toContain(maj);
+        expect(grise).not.toMatch(equipement === 'haltere' ? /Ta machine ne permet|Ta barre ne permet/
+          : equipement === 'barre' ? /Ta machine ne permet|Tes haltères/ : /Ta barre ne permet|Tes haltères/);
+      });
+    });
+    test('de bout en bout : le matériel de l’exercice arrive dans le fondement', () => {
+      expect(pour(Object.assign({}, N8, { equipement: 'haltere' })).fondement.equipement).toBe('haltere');
+      ['barre', 'machine'].forEach((e) => {
+        const r = pour(Object.assign({}, N8, { equipement: e }));
+        if (r.etat === 'etirement') expect(r.fondement.equipement).toBe(e);
+      });
+    });
+  });
+
   test('DISCRIMINANT — les mois abrégés suivent `Calendrier.MOIS`, un pour un', () => {
     // Seconde liste assumée (l'abréviation ne se dérive pas : « mars » n'a pas
     // de point, « févr. » en a un). Ce qui est interdit, c'est qu'elles

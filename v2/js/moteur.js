@@ -669,6 +669,19 @@
   var EQUIPEMENT_LEST = 'lest';
   var SAUT_LEST = 2.5;
 
+  // 184 (B4) — LE MOT DU MATÉRIEL dans « ... ne permet pas un plus petit cran » : la barre, les haltères, sinon la
+  // machine (machine, poulie, Smith, kettlebell, disque...). Il se lit sur le matériel de l'exercice, que le moteur
+  // connaît déjà (`opt.equipement`, porté par le fondement de l'étirement) : la condition de la phrase ne change pas.
+  function motDuMateriel(equipement, majuscule) {
+    var m = equipement === 'barre' ? 'ta barre' : equipement === 'haltere' ? 'tes haltères' : 'ta machine';
+    return majuscule ? m.charAt(0).toUpperCase() + m.slice(1) : m;
+  }
+  // « Ta barre ne permet pas un plus petit cran » — « Tes haltères ne permettent pas… » (le verbe suit le mot).
+  function ditPasDePlusPetitCran(equipement, majuscule) {
+    return motDuMateriel(equipement, majuscule) + (equipement === 'haltere' ? ' ne permettent' : ' ne permet') +
+           ' pas un plus petit cran';
+  }
+
   // 163 (24/10/2026, décision d'Aurélien) — LE PAS PAR MATÉRIEL EST COMPLET : plus jamais une charge « sans chiffre » pour
   // un exercice en kg. Machine 5, poulie 2,5, kettlebell 4 (la série 8 · 12 · 16 · 20 · 24), en plus de la barre et du
   // Smith 2,5 et des haltères (la PAIRE : +2 jusqu'à 20 kg, +4 au-delà, soit 1 kg par haltère jusqu'à 10 kg, puis 2).
@@ -1709,6 +1722,8 @@
           if (niv >= pl) f.salle.maintien = true;
         }
       }
+      // 184 (B4) — le matériel, seulement pour la phrase de l'étirement (« Ta barre ne permet pas... »).
+      if (etat === 'etirement') f.equipement = equipement === undefined ? null : equipement;
       if (chute !== null) f.chute = { rang: chute };
       // §9.13, enrichi le 20/09/2026 (48b-6a) : de quoi écrire la feuille
       // « Pourquoi » sans jamais rejouer une règle du moteur.
@@ -4124,7 +4139,7 @@
                'on tient ' + chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })) + '.';
 
       case 'etirement':
-        return 'Ta machine ne permet pas un plus petit cran' + DEUX_POINTS + 'ta zone s\'étire. ' +
+        return ditPasDePlusPetitCran(f.equipement, true) + DEUX_POINTS + 'ta zone s\'étire. ' +
                'On retestera ' + enKg(t.charge, cite(FAIT, { quoi: 'test' })) + ' quand tu feras ' + nombreFr(f.cible, regle('cible')) +
                ' reps à ' + enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + '.';
 
@@ -4587,10 +4602,10 @@
                'on reteste d\'un seul cran, à ' + enKg(c.haut.charge, cH) + '.';
 
       case 'etirement':
-        return (tSansMarge ? testSansMargeDit() + ' Ta machine ne permet pas un plus petit cran. '
+        return (tSansMarge ? testSansMargeDit() + ' ' + ditPasDePlusPetitCran(f.equipement, true) + '. '
                  : 'Ton test à ' + enKg(t.charge, cT) + ' a fait ' +
                    nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps' + DEUX_POINTS +
-                   'pas encore dans ta zone, et ta machine ne permet pas un plus petit cran. ') +
+                   'pas encore dans ta zone, et ' + ditPasDePlusPetitCran(f.equipement, false) + '. ') +
                'Ta zone s\'étire' + DEUX_POINTS + 'à ' + enKg(c.ligne.charge, cL) + ', tu vises une rep ' +
                'de plus au-delà du haut, jusqu\'à ' + nombreFr(f.cible, regle('cible')) + '. Alors on retestera ' +
                enKg(t.charge, cT) + '.';
@@ -5163,7 +5178,7 @@
     var prochaine = function () { return 'Prochaine séance' + DEUX_POINTS + lignesJaunes(cApres, SUIVANTE).join(', ') + '.'; };
 
     if (cApres.etat === 'etirement') {
-      return 'Ta machine ne permet pas un plus petit cran' + DEUX_POINTS + 'ta zone s\'étire. ' +
+      return ditPasDePlusPetitCran(cApres.fondement.equipement, true) + DEUX_POINTS + 'ta zone s\'étire. ' +
              prochaine() + ' On retestera ' + enKg(cApres.fondement.test.charge, cite(FAIT, { quoi: 'test_du_jour' })) +
              ' quand tu feras ' + nombreFr(cApres.fondement.cible, regle('suite.cible')) + ' reps à ' +
              enKg(cApres.ligne.charge, cite(SUIVANTE, { role: 'ligne' })) + '.';

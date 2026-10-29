@@ -66,7 +66,8 @@ def poussee(slug, cat):
     if 'pectoraux' in (f.get('muscles_primaires') or []):
         return True
     mil = (cat.get('developpe_militaire_barre') or {}).get('mouvement')
-    return slug == 'developpe_militaire_barre' or (f.get('equipement') == 'barre' and mil and f.get('mouvement') == mil)
+    # 184 (B6) : le militaire à tout matériel (haltères…) est une poussée, comme à la barre.
+    return slug == 'developpe_militaire_barre' or bool(mil and f.get('mouvement') == mil)
 
 
 def completer(e):

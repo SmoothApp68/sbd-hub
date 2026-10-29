@@ -579,10 +579,13 @@
   function estBarreLourde(slug, cat) { return familleDeBarre(slug, cat) !== null; }
   // Une série directe de TIRAGE : un principal grand dorsal ou haut du dos.
   function estTirage(fiche) { return liste(fiche && fiche.muscles_primaires).some(function (m) { return contient(TIRAGE, m); }); }
-  // Une série directe de POUSSÉE : un principal pectoraux, ou le militaire et ses variantes à la barre.
+  // Une série directe de POUSSÉE : un principal pectoraux, ou le militaire et ses variantes (barre, haltères…).
+  // 184 (B6) : le militaire AUX HALTÈRES (ou à tout autre matériel) est une poussée comme le militaire à la barre — il
+  // partage son `mouvement` (`Modele.freresDe`), quel que soit le matériel ; la relecture l'oubliait.
   function estPoussee(slug, cat) {
     var f = ficheDu(cat, slug);
-    return contient(liste(f && f.muscles_primaires), 'pectoraux') || familleDeBarre(slug, cat) === MILITAIRE;
+    return contient(liste(f && f.muscles_primaires), 'pectoraux') || familleDeBarre(slug, cat) === MILITAIRE ||
+           slug === MILITAIRE || contient(racine.THModele.freresDe(cat, MILITAIRE), slug);
   }
 
   // Les définitions des autres modules, lues À L'APPEL (ils se chargent avant celui-ci ; un test charge les siens).

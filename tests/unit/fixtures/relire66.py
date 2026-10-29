@@ -264,7 +264,9 @@ def semaine(e):
                  if set((cat.get(x['exercise_slug']) or {}).get('muscles_primaires') or []) & TIRAGE)
     pousse = sum(x['n'] for r in routines for x in r['exercices']
                  if 'pectoraux' in ((cat.get(x['exercise_slug']) or {}).get('muscles_primaires') or [])
-                 or (famille(x['exercise_slug'], cat) == 'developpe_militaire_barre'))
+                 or (famille(x['exercise_slug'], cat) == 'developpe_militaire_barre')
+                 # 184 (B6) : le militaire à tout matériel est une poussée, comme à la barre.
+                 or ((cat.get(x['exercise_slug']) or {}).get('mouvement') and (cat.get(x['exercise_slug']) or {}).get('mouvement') == (cat.get('developpe_militaire_barre') or {}).get('mouvement')))
     if tirage or pousse:
         verifs.append('%d série%s de tirage pour %d de poussée' % (tirage, pl(tirage), pousse))
     # En sèche : un muscle nettement au-dessus de son plus haut volume → retirer des séries d'isolation (N3).

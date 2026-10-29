@@ -1693,7 +1693,17 @@ const NOTIONS = [
   { notion: 'la médiane d’une liste de nombres', pr: '124-U1',
     module: 'moteur.js', fonction: 'mediane', lecteurs: ['faits.js', 'routines.js'],
     raison: 'MOTEUR §8.2, §9.1.2 : la moyenne des deux du milieu pour une longueur paire ; les habitudes et le programme ' +
-      'déduit la lisent, puis arrondissent par `Routines.arrondiDeduit`.' }
+      'déduit la lisent, puis arrondissent par `Routines.arrondiDeduit`.' },
+  // 185 (ECRAN-SAISIE « La question de vraisemblance », MOTEUR §9.2) — une saisie n'est pas forcément vraie.
+  { notion: 'la vraisemblance d’une série saisie (la question « 152 kg ? Ton meilleur ici : 127,5 kg. »)', pr: '185-U1',
+    module: 'faits.js', fonction: 'vraisemblanceDeLaSerie', lecteurs: ['app.js'],
+    raison: 'ECRAN-SAISIE (185) : une fonction PURE compare la série tapée à l’historique de l’exercice, à la consigne du jour ' +
+      'et à la série d’avant ; elle rend `null` ou une question dont chaque bouton dit ce que l’écran écrit. L’écran ' +
+      'l’appelle avant d’écrire la série et n’en décide rien ; aucun seuil n’est écrit ailleurs.' },
+  { notion: 'la question du record confirmé (plus de 20 % au-dessus du meilleur, avant le journal immuable)', pr: '185-U1',
+    module: 'faits.js', fonction: 'questionDuRecord', lecteurs: ['app.js'],
+    raison: 'ECRAN-SAISIE (185, cas 5) : le journal des records est immuable ; une hausse confirmée de plus de 20 % demande ' +
+      'un mot de plus avant d’y entrer. La règle vit avec la vraisemblance, l’écran n’en lit que la question.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -2218,7 +2228,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : quarante et un (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126, ce qui manque aux séances en 131, les échelles de la semaine en 145), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : quarante-trois (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126, ce qui manque aux séances en 131, les échelles de la semaine en 145, la vraisemblance d’une série et la question du record en 185), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -2229,7 +2239,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(41);
+    expect(FAITS.length).toBe(43);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

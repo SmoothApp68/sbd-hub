@@ -1471,6 +1471,203 @@
       return liste;
     }
 
+    // ── 185 — LA VRAISEMBLANCE D'UNE SÉRIE (décision d'Aurélien du 29/10/2026) ───────────────────────────────────────
+    //
+    // « Une saisie n'est pas forcément vraie. » AVANT qu'une série s'écrive, une fonction PURE regarde ce qui vient d'être
+    // tapé contre ce que l'exercice a toujours été (son historique), la consigne du jour et la série d'avant, et rend
+    // `null` (rien à dire) ou UNE question : `{ genre, texte, boutons }`. Elle ne bloque jamais : chaque bouton dit
+    // ce que l'écran écrit ensuite (`action`) — l'écran exécute, il ne décide rien. Les seuils sont ceux de la maquette
+    // validée (maquette-saisie-vraisemblance-v1.html) ; ils sont des constantes nommées, une fois.
+    //
+    //   saisie    { charge, reps, type, equipement }   — ce qui est tapé (ou grisé par le coach), type = `type_serie`
+    //   contexte  { historique : [{ series }]          — les séances d'AVANT de l'exercice (`seancesDeLExercice`)
+    //               seance     : [serie]               — les séries déjà VALIDÉES de l'exercice dans la séance du jour
+    //               cible      : reps visées | null    — la consigne du jour (reps)
+    //               chargeVisee: kg | null             — la consigne du jour (charge)
+    //               confirmations : { genre : n }      — les « Oui » déjà donnés sur CET exercice (apprentissage)
+    //             }
+    var SEUIL_SEANCES_VRAISEMBLANCE = 3;     // avant 3 séances de l'exercice : seulement l'absurde
+    var HAUSSE_RELATIVE = 0.15, HAUSSE_ABSOLUE_KG = 10, HAUSSE_ABSOLUE_HALTERE_KG = 4;
+    var DOUBLE_HALTERES_MIN = 1.8, DOUBLE_HALTERES_MAX = 2.2;
+    var BAISSE_RELATIVE = 0.35, BAISSE_ABSOLUE_KG = 10;
+    var REPS_PLAFOND_CIBLE = 2.5, REPS_MOITIE = 0.5;
+    var RECORD_ECART_RELATIF = 0.20;          // la question du record : plus de 20 % au-dessus du meilleur
+    var CONFIRMATIONS_POUR_APPRENDRE = 2;     // deux « Oui » au même genre sur le même exercice : on ne le demande plus
+    var EPSILON = 1e-9;                       // 100 × 1,15 vaut 114,99999… : une borne PILE n'est pas dépassée
+    var GENRES_DE_QUESTION = ['hausse', 'double_halteres', 'baisse', 'zero', 'reps_haut', 'reps_bas'];
+
+    function nombreOuNul(v) {
+      if (v === null || v === undefined || v === '') return null;
+      var n = Number(v);
+      return isFinite(n) ? n : null;
+    }
+    function bouton(texte, action, principal, valeur) {
+      var b = { texte: texte, action: action, principal: principal === true };
+      if (valeur !== undefined) b.valeur = valeur;
+      return b;
+    }
+    // Les séries d'un exercice qui font une référence : du travail, une charge, hors des séries « Non, ne compte pas »
+    // (`estTravail` les écarte).
+    function seriesDeReference(liste) {
+      return (liste || []).filter(function (x) {
+        var kg = x ? nombreOuNul(x.charge_kg) : null;
+        return !!x && Modele.estTravail(x) && kg !== null && kg > 0;
+      });
+    }
+    // Le meilleur de l'exercice : la plus lourde charge de travail de l'historique ET des séries déjà validées du jour
+    // (une charge confirmée plus tôt dans la séance n'est plus une surprise).
+    function meilleurDeLExercice(historique, deLaSeance) {
+      var meilleur = null;
+      (historique || []).forEach(function (g) {
+        seriesDeReference(g && g.series).forEach(function (x) {
+          var kg = Number(x.charge_kg);
+          if (meilleur === null || kg > meilleur) meilleur = kg;
+        });
+      });
+      seriesDeReference(deLaSeance).forEach(function (x) {
+        var kg = Number(x.charge_kg);
+        if (meilleur === null || kg > meilleur) meilleur = kg;
+      });
+      return meilleur;
+    }
+    function seancesFaites(historique) {
+      return (historique || []).filter(function (g) { return seriesDeReference(g && g.series).length > 0; }).length;
+    }
+    // L'habitude : la charge la plus lourde de la dernière séance de l'exercice qui a du travail (l'historique arrive de
+    // la plus récente à la plus ancienne, comme `seancesDeLExercice`).
+    function habitudeDeLExercice(historique) {
+      for (var i = 0; i < (historique || []).length; i++) {
+        var l = seriesDeReference(historique[i] && historique[i].series);
+        if (l.length) return Math.max.apply(null, l.map(function (x) { return Number(x.charge_kg); }));
+      }
+      return null;
+    }
+    // Une correction plausible pour des reps démesurées : le dernier chiffre en trop (100 -> 10, 30 -> 3), tant qu'elle
+    // reste dans la fourchette crédible. Sinon, rien : seuls « Oui » et « Corriger » restent.
+    function repsPlausible(reps, plafond) {
+      var c = Math.floor(reps / 10);
+      return reps >= 20 && c >= 1 && c <= plafond ? c : null;
+    }
+
+    function vraisemblanceDeLaSerie(saisie, contexte) {
+      var s = saisie || {}, c = contexte || {};
+      var reps = nombreOuNul(s.reps), charge = nombreOuNul(s.charge);
+      var type = s.type || 'travail';
+
+      // Des reps négatives ou décimales : refusées sur place, sans question, à tout moment.
+      if (reps !== null && (reps < 0 || Math.floor(reps) !== reps)) {
+        return { genre: 'reps_invalides', refus: true,
+                 texte: reps < 0 ? 'Les reps ne peuvent pas être négatives.' : 'Les reps sont un nombre entier.', boutons: [] };
+      }
+
+      var historique = c.historique || [];
+      var aSesHabitudes = seancesFaites(historique) >= SEUIL_SEANCES_VRAISEMBLANCE;
+      var confirmations = c.confirmations || {};
+      var question = function (genre, texte, boutons) {
+        if ((nombreOuNul(confirmations[genre]) || 0) >= CONFIRMATIONS_POUR_APPRENDRE) return null;
+        return { genre: genre, texte: texte, boutons: boutons };
+      };
+      var cible = nombreOuNul(c.cible);
+
+      // L'absurde, pour tous : des reps au-delà de 2,5 fois la cible (la cible d'une série de travail).
+      var travaille = Modele.estTravail({ type_serie: type, reps: reps });   // la lecture UNE : un échec à 1 rep ou plus est du travail
+      if (reps !== null && travaille && cible !== null && cible > 0 && reps > REPS_PLAFOND_CIBLE * cible) {
+        var corrige = repsPlausible(reps, Math.floor(REPS_PLAFOND_CIBLE * cible));
+        var bs = [bouton('Oui, ' + Modele.nombreTexte(reps), 'garder', corrige === null)];
+        if (corrige !== null) bs.push(bouton(Modele.nombreTexte(corrige), 'reps', true, corrige));
+        bs.push(bouton('Corriger', 'corriger'));
+        return question('reps_haut', Modele.nombreTexte(reps) + ' reps ? La cible : ' + Modele.nombreTexte(cible) + '.', bs);
+      }
+      if (!aSesHabitudes) return null;
+
+      var haltere = s.equipement === 'haltere';
+      var meilleur = meilleurDeLExercice(historique, c.seance);
+      var habitude = habitudeDeLExercice(historique);
+
+      if (charge !== null && charge > 0) {
+        // Les haltères à environ deux fois l'habitude : le total tapé à la place de la charge par haltère.
+        if (haltere && type !== 'echauffement') {
+          var refs = [habitude, meilleur].filter(function (r) { return r !== null && r > 0; });
+          var estDouble = refs.some(function (r) {
+            var q = charge / r;
+            return q >= DOUBLE_HALTERES_MIN - EPSILON && q <= DOUBLE_HALTERES_MAX + EPSILON && charge - r > HAUSSE_ABSOLUE_HALTERE_KG + EPSILON;
+          });
+          if (estDouble) {
+            var moitie = Math.round(charge / 2 * 100) / 100;
+            // Appris : on ne redemande pas, et la hausse ci-dessous dirait la même chose.
+            return question('double_halteres', Modele.charge(charge) + ' : par haltère, ou les deux ensemble ?', [
+              bouton(Modele.nombreTexte(moitie) + ' par haltère', 'charge', true, moitie),
+              bouton(Modele.nombreTexte(charge) + ' par haltère', 'garder')
+            ]);
+          }
+        }
+        // Une charge très au-dessus du meilleur : plus de 15 % ET plus de 10 kg (4 kg par haltère).
+        if (meilleur !== null && type !== 'echauffement') {
+          var seuilAbsolu = haltere ? HAUSSE_ABSOLUE_HALTERE_KG : HAUSSE_ABSOLUE_KG;
+          if (charge > meilleur * (1 + HAUSSE_RELATIVE) + EPSILON && charge - meilleur > seuilAbsolu + EPSILON) {
+            return question('hausse', Modele.charge(charge) + ' ? Ton meilleur ici : ' + Modele.charge(meilleur) + '.', [
+              bouton('Oui, ' + Modele.nombreTexte(charge), 'garder', true),
+              bouton('Corriger', 'corriger')
+            ]);
+          }
+        }
+        // Une baisse : plus de 35 % ET plus de 10 kg sous la consigne du jour (à défaut, la série d'avant) ; jamais pour
+        // une chauffe ni une dégressive, qui descendent exprès.
+        if (type !== 'echauffement' && type !== 'degressive') {
+          var ref = nombreOuNul(c.chargeVisee), origine = 'consigne';
+          if (ref === null || ref <= 0) {
+            var avant = seriesDeReference(c.seance), derniere = avant.length ? avant[avant.length - 1] : null;
+            ref = derniere ? Number(derniere.charge_kg) : null;
+            origine = 'avant';
+          }
+          if (ref !== null && ref > 0 && charge < ref * (1 - BAISSE_RELATIVE) - EPSILON && ref - charge > BAISSE_ABSOLUE_KG + EPSILON) {
+            return question('baisse', Modele.charge(charge) + ' ? ' + (origine === 'consigne' ? 'Ta consigne : ' : 'Ta série d’avant : ') +
+              Modele.charge(ref) + '.', [bouton('Oui, ' + Modele.nombreTexte(charge), 'garder', true), bouton('Corriger', 'corriger')]);
+          }
+        }
+      }
+
+      if (reps !== null) {
+        // 0 rep : une tentative manquée, jamais « ton niveau est 0 ».
+        if (reps === 0 && Modele.estTravail({ type_serie: type, reps: 0 })) {   // un 0 déjà tagué « échec » est déjà une tentative manquée
+          return question('zero', '0 rep : tu l’as manquée ?', [
+            bouton('Oui, manquée', 'manquee', true), bouton('J’ai eu mal', 'mal'), bouton('Corriger', 'corriger')]);
+        }
+        // Moins de la moitié de la série d'avant du même exercice, à la même charge.
+        if (reps > 0 && travaille && charge !== null) {
+          var memes = seriesDeReference(c.seance).filter(function (x) {
+            return Math.abs(Number(x.charge_kg) - charge) < 0.005 && nombreOuNul(x.reps) !== null && Number(x.reps) > 0;
+          });
+          var prec = memes.length ? memes[memes.length - 1] : null;
+          if (prec && reps < REPS_MOITIE * Number(prec.reps)) {
+            return question('reps_bas', Modele.nombreTexte(reps) + ' reps ? Ta série d’avant : ' + Modele.nombreTexte(Number(prec.reps)) + '.',
+              [bouton('Oui, ' + Modele.nombreTexte(reps), 'garder', true), bouton('Corriger', 'corriger')]);
+          }
+        }
+      }
+      return null;
+    }
+
+    // Le cas 5 de la maquette : une hausse CONFIRMÉE qui dépasse le meilleur de plus de 20 % ne s'inscrit pas au journal
+    // des records (immuable) sans un mot de plus. Rend `null` ou `{ genre: 'record', texte, boutons, ecart }`. Le meilleur
+    // est celui d'AVANT cette série (l'historique et les séries validées du jour qui la précèdent).
+    function questionDuRecord(serie, contexte) {
+      var s = serie || {}, c = contexte || {};
+      var charge = nombreOuNul(s.charge), reps = nombreOuNul(s.reps);
+      if (charge === null || charge <= 0 || reps === null || reps < 1) return null;
+      if (!Modele.estTravail({ type_serie: s.type, reps: reps })) return null;
+      var historique = c.historique || [];
+      if (seancesFaites(historique) < SEUIL_SEANCES_VRAISEMBLANCE) return null;
+      var meilleur = meilleurDeLExercice(historique, c.seance);
+      if (meilleur === null) return null;
+      var haltere = s.equipement === 'haltere';
+      if (!(charge > meilleur * (1 + RECORD_ECART_RELATIF) + EPSILON && charge - meilleur > (haltere ? HAUSSE_ABSOLUE_HALTERE_KG : HAUSSE_ABSOLUE_KG) + EPSILON)) return null;
+      var ecart = Math.round((charge - meilleur) * 100) / 100;
+      return { genre: 'record', ecart: ecart,
+               texte: 'Record à ' + Modele.charge(charge) + ' × ' + Modele.nombreTexte(reps) + ', ' + Modele.charge(ecart) + ' de plus que ton meilleur. Je l’inscris ?',
+               boutons: [bouton('Oui, c’est un record', 'garder', true), bouton('Non, ne compte pas', 'hors_calcul')] };
+    }
+
     return {
       entreeDuBilan: entreeDuBilan,
       tempsALaSalle: tempsALaSalle,
@@ -1499,6 +1696,10 @@
       journalDuJour: journalDuJour,
       journalDeLaSeance: journalDeLaSeance,
       recordsDuJournal: recordsDuJournal,
+      vraisemblanceDeLaSerie: vraisemblanceDeLaSerie,
+      questionDuRecord: questionDuRecord,
+      GENRES_DE_QUESTION: GENRES_DE_QUESTION,
+      CONFIRMATIONS_POUR_APPRENDRE: CONFIRMATIONS_POUR_APPRENDRE,
       medaillesDuSocial: medaillesDuSocial,
       semaineDe: semaineDe,
       echellesDeLaSemaine: echellesDeLaSemaine,

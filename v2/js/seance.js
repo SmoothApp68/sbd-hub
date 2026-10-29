@@ -90,7 +90,10 @@
     'denivele_m', 'etages',
     // 132 (MOTEUR §10 ter, ECRAN-SAISIE §3 ter.6, v2_034) — le NOM de l'élastique d'une série notée par nom, lu ET écrit
     // (audit 130 #12 : `sets.elastique` n'était ni écrit ni relu). Il part toujours, à null compris, comme la note.
-    'elastique'
+    'elastique',
+    // 185 (v2_116) — « série gardée au journal, mais exclue des records, des crans et du moteur » : la réponse « Non, ne
+    // compte pas » à la question de vraisemblance. NOT NULL, défaut false ; lue ET écrite, toujours envoyée.
+    'hors_calcul'
   ];
   // Lues, jamais écrites : le serveur les pose lui-même.
   var COLONNES_SET_EN_PLUS = ['created_at', 'modifie_a'];
@@ -1888,7 +1891,10 @@
           // validées et à venir) : une donnée de la série, la charge et les reps
           // ne changent pas. Toujours envoyée : `false` efface une marque.
           douleur: occurrenceDouloureuse(p.exo),
-          occurrence: uuidDOccurrence(p.exo.occurrence)
+          occurrence: uuidDOccurrence(p.exo.occurrence),
+          // 185 (v2_116) — la série « Non, ne compte pas » : gardée au journal, exclue du calcul. Toujours envoyée, `false` compris
+          // (la colonne est NOT NULL) ; jamais déduite d'autre chose que de ce que l'utilisateur a répondu.
+          hors_calcul: p.serie.hors_calcul === true
         };
       });
   }

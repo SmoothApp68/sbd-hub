@@ -726,6 +726,8 @@ const SETS_IMPORTES = [
     if (['app', 'hevy', 'import', 'collage'].indexOf(l.source) < 0) return refus('23514', 'sets_source_ok');
     // GÉNÉRÉE : Postgres refuse toute valeur, même NULL — comme `salle_norme`.
     if ('elastique_norme' in l) return refus('428C9', 'elastique_norme est générée');
+    // 185 (v2_116) — `sets.hors_calcul` boolean NOT NULL DEFAULT false : un null ou un non-booléen est refusé.
+    if ('hors_calcul' in l && typeof l.hors_calcul !== 'boolean') return refus('23502', 'sets.hors_calcul NOT NULL');
     // ⚠️ `sets.id` EST uuid NOT NULL (chantier 33). Ce banc ne le vérifiait pas :
     // il acceptait `id: null`, et son upsert par `findIndex` écrasait alors
     // toutes les lignes nulles les unes sur les autres — six séries devenaient
@@ -1934,7 +1936,9 @@ const SETS_IMPORTES = [
         const e = verifierSet(l);
         if (e) { base.sets = avant; return json(e, 400); }
         const i = base.sets.findIndex((s) => s.id === l.id);
-        if (i >= 0) base.sets[i] = Object.assign({}, l); else base.sets.push(Object.assign({}, l));
+        // 185 (v2_116) — le défaut de la colonne : une ligne sans `hors_calcul` le reçoit à false, et il se rend.
+        const ecrite = Object.assign({ hors_calcul: false }, l);
+        if (i >= 0) base.sets[i] = ecrite; else base.sets.push(ecrite);
       }
       // La contrainte est DIFFÉRÉE : vérifiée à la fin de la transaction.
       const vus = new Set();

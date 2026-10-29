@@ -318,7 +318,9 @@
               ressenti: ligne.ressenti === undefined ? null : ligne.ressenti,
               note: commune === null ? texteOuNul(ligne.note) : null,
               validee_a: ligne.validee_a || null,
-              repos_s: ligne.repos_s === undefined ? null : ligne.repos_s
+              repos_s: ligne.repos_s === undefined ? null : ligne.repos_s,
+              // 185 (v2_116) — « Non, ne compte pas » relu de la base : rouvrir une séance ne le perd pas.
+              hors_calcul: ligne.hors_calcul === true
             });
           })
         }, occ ? { occurrence: 'o-' + occ } : {}, marque ? { douleur: true } : {}));
@@ -1155,6 +1157,13 @@
     // 132 — le nom de l'élastique : un texte non vide (une liste de Ma salle le donne), sinon rien.
     if ('elastique' in champs) c.elastique = typeof champs.elastique === 'string' && champs.elastique ? champs.elastique : null;
     return avecSerie(seance, iExo, iSerie, c);
+  }
+
+  // 185 (v2_116) — « Non, ne compte pas » : la série reste au journal et au détail, mais n'entre ni dans les records, ni dans le
+  // palier, le niveau et les crans voisins, ni dans les paris et le jeu (`THModele.estTravail` la lit). Posée par UNE réponse de
+  // la personne à la question de vraisemblance, jamais déduite.
+  function marquerHorsCalcul(seance, iExo, iSerie, horsCalcul) {
+    return avecSerie(seance, iExo, iSerie, { hors_calcul: horsCalcul !== false });
   }
 
   function changerType(seance, iExo, iSerie, type) {
@@ -3001,6 +3010,7 @@
     retirerSerie: retirerSerie,
     modifierSerie: modifierSerie,
     changerType: changerType,
+    marquerHorsCalcul: marquerHorsCalcul,
     definirEffort: definirEffort,
     definirNoteExercice: definirNoteExercice,
     definirNoteSerie: definirNoteSerie,

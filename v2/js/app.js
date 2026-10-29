@@ -793,6 +793,9 @@
     catch (e) { local.records = []; }
     try { journalDecide = !!(await Cache.lireMeta(CLE_JOURNAL)); }
     catch (e) { journalDecide = false; }
+    // 185 — ce que la saisie vérifiée a appris (deux « Oui » au même genre, sur le même exercice : plus de question).
+    try { reponsesDeSaisie = (await Cache.lireMeta(CLE_REPONSES_SAISIE)) || {}; }
+    catch (e) { reponsesDeSaisie = {}; }
     // 106 — les messages du groupe écrits hors ligne, gardés sur le téléphone : ils partiront au retour du réseau.
     try { grp.file = Social.fileDeMessages(await Cache.lireBrouillon(CLE_FILE_GROUPE)); }
     catch (e) { grp.file = []; }
@@ -5236,7 +5239,136 @@
     return validerSerie(iExo, iSerie);
   }
 
-  async function validerSerie(iExo, iSerie) {
+  // ══ 185 — LA SAISIE VÉRIFIÉE (ECRAN-SAISIE « La question de vraisemblance ») ══════════════════════════════════════
+  //
+  // Une saisie n'est pas forcément vraie. Quand on valide une série dont la charge ou les reps sortent de ce que l'exercice a
+  // toujours été, UNE ligne apparaît SOUS la série, AVANT qu'elle soit écrite : la question et ses boutons. Jamais une fenêtre,
+  // jamais un blocage : « Oui » écrit ce qui a été tapé. La règle est `faits.vraisemblanceDeLaSerie` (aucun seuil ici) ; l'app
+  // pose la question, exécute le bouton touché, et garde de quoi apprendre (deux « Oui » au même genre, sur le même exercice :
+  // on ne le demande plus). L'apprentissage est gardé SUR L'APPAREIL (meta `reponsesSaisie`) : une table en base demande une
+  // migration, que Claude.ai écrit — signalé dans la PR 185.
+  var CLE_REPONSES_SAISIE = 'reponsesSaisie';
+  var reponsesDeSaisie = {};                       // { 'slug|genre' : nombre de « Oui » }
+  var questionsDeSaisie = { seance: null, liste: {} };   // 'iExo:iSerie' -> { mode, q, champ }
+  var CHAMP_DE_LA_QUESTION = { hausse: 'charge_kg', double_halteres: 'charge_kg', baisse: 'charge_kg', zero: 'reps',
+    reps_haut: 'reps', reps_bas: 'reps', reps_invalides: 'reps', record: 'charge_kg' };
+
+  // Une question tient à UNE série, par son identifiant : les indices bougent (série ajoutée, supprimée), pas l'identifiant.
+  function cleDeQuestion(iExo, iSerie) {
+    var exo = seance && (seance.exercices || [])[iExo];
+    var s = exo && (exo.series || [])[iSerie];
+    return s && s.id ? s.id : null;
+  }
+  function questionDe(iExo, iSerie) {
+    var cle = cleDeQuestion(iExo, iSerie);
+    if (!cle || questionsDeSaisie.seance !== seance.id) return null;
+    return questionsDeSaisie.liste[cle] || null;
+  }
+  function poserQuestionDeSaisie(iExo, iSerie, mode, q) {
+    semerSeance();       // une série n'a son identifiant qu'une fois semé : la question s'y accroche
+    var cle = cleDeQuestion(iExo, iSerie);
+    if (!cle) return;
+    if (questionsDeSaisie.seance !== seance.id) questionsDeSaisie = { seance: seance.id, liste: {} };
+    questionsDeSaisie.liste[cle] = { mode: mode, q: q, champ: CHAMP_DE_LA_QUESTION[q.genre] || null };
+  }
+  function retirerQuestionDeSaisie(iExo, iSerie) {
+    var cle = cleDeQuestion(iExo, iSerie);
+    if (cle && questionsDeSaisie.liste) delete questionsDeSaisie.liste[cle];
+  }
+  // Ce que l'écran lit : la question et ses boutons (le texte vient de la règle), rien d'autre.
+  function questionSurLigne(iExo, iSerie) {
+    var e = questionDe(iExo, iSerie);
+    if (!e) return null;
+    return { texte: e.q.texte, genre: e.q.genre, mode: e.mode, champ: e.champ, refus: e.q.refus === true,
+             boutons: e.q.boutons.map(function (b) { return { texte: b.texte, principal: b.principal === true }; }) };
+  }
+
+  function confirmationsDe(slug) {
+    var out = {};
+    faits.GENRES_DE_QUESTION.forEach(function (g) { out[g] = Number(reponsesDeSaisie[slug + '|' + g]) || 0; });
+    return out;
+  }
+  async function compterUnOui(slug, genre) {
+    var cle = slug + '|' + genre;
+    reponsesDeSaisie[cle] = (Number(reponsesDeSaisie[cle]) || 0) + 1;
+    try { await Cache.ecrireMeta(CLE_REPONSES_SAISIE, reponsesDeSaisie); } catch (e) { /* l'apprentissage est un confort */ }
+  }
+
+  // L'historique de l'exercice AVANT cette séance, les séries déjà validées du jour, la consigne du jour.
+  function contexteDeVraisemblance(iExo, iSerie) {
+    var exo = seance.exercices[iExo];
+    var slug = exo.exercise_slug;
+    var debut = String(seance.debut || '');
+    var historique = faits.seancesDeLExercice(corpus(), slug).filter(function (g) {
+      return g.seance.id !== seance.id && String(g.seance.debut || '') < debut;
+    }).map(function (g) { return { series: g.series }; });
+    var duJour = (exo.series || []).filter(function (x, k) { return k !== iSerie && Seance.partEnBase(x); });
+    var ligne = (planDeLExercice(iExo) || { lignes: [] }).lignes[iSerie];
+    var charge = ligne && ligne.role !== 'hors' ? Number(ligne.charge) : NaN;
+    var cible = ligne ? Number(ligne.vise) : NaN;
+    return { historique: historique, seance: duJour, confirmations: confirmationsDe(slug),
+             chargeVisee: isFinite(charge) && ligne.charge !== null ? charge : null,
+             cible: isFinite(cible) && ligne && ligne.vise !== null ? cible : null };
+  }
+  function saisieDeLaSerie(iExo, iSerie) {
+    var exo = seance.exercices[iExo], s = exo.series[iSerie];
+    var def = catalogueIndexe()[exo.exercise_slug];
+    return { charge: s.charge_kg, reps: s.reps, type: s.type_serie || 'travail', equipement: def ? def.equipement || null : null };
+  }
+  // Avant l'écriture : `null`, ou la question (et rien n'est écrit). Un exercice noté par nom (élastique) n'a pas de charge à
+  // comparer.
+  function questionAvantEcriture(iExo, iSerie) {
+    var exo = seance.exercices[iExo];
+    if (elastiqueDeLaGrille(exo.exercise_slug)) return null;
+    return faits.vraisemblanceDeLaSerie(saisieDeLaSerie(iExo, iSerie), contexteDeVraisemblance(iExo, iSerie));
+  }
+  // Après l'écriture : le record qui dépasse le meilleur de plus de 20 % demande un mot de plus, avant le journal (immuable).
+  function questionDuRecordApres(iExo, iSerie) {
+    var exo = seance.exercices[iExo];
+    if (elastiqueDeLaGrille(exo.exercise_slug)) return null;
+    return faits.questionDuRecord(saisieDeLaSerie(iExo, iSerie), contexteDeVraisemblance(iExo, iSerie));
+  }
+
+  // Le toucher d'un bouton de la question. `k` : l'index du bouton dans `q.boutons`.
+  async function repondreQuestionDeSaisie(iExo, iSerie, k) {
+    var e = questionDe(iExo, iSerie);
+    if (!e || !seance) return;
+    var b = e.q.boutons[k];
+    if (!b) return;
+    var slug = seance.exercices[iExo].exercise_slug;
+    retirerQuestionDeSaisie(iExo, iSerie);
+    if (e.mode === 'record') {
+      // Après l'écriture : « Non, ne compte pas » garde la série au journal et la sort du calcul ; « Oui » ne change rien.
+      if (b.action === 'hors_calcul') {
+        seance = Seance.marquerHorsCalcul(seance, iExo, iSerie, true);
+        var vidage = oublierObservationDe(iExo, iSerie);
+        await apresGeste();
+        await vidage;
+      } else {
+        await apresGeste({ structure: false });
+      }
+      return;
+    }
+    if (b.action === 'corriger') {
+      await apresGeste({ structure: false });
+      Rendu.focusChamp($('blocs-seance'), iExo, iSerie, e.champ || 'charge_kg');
+      return;
+    }
+    if (b.action === 'garder') await compterUnOui(slug, e.q.genre);
+    if (b.action === 'charge') seance = Seance.modifierSerie(seance, iExo, iSerie, { charge_kg: b.valeur });
+    if (b.action === 'reps') seance = Seance.modifierSerie(seance, iExo, iSerie, { reps: b.valeur });
+    // 0 rep : « manquée » écrit la série comme une tentative manquée (le chemin de `echec` à 0 rep, `palier.js`), « J'ai eu mal »
+    // aussi, et ouvre le geste « J'ai mal » de l'exercice.
+    if (b.action === 'manquee' || b.action === 'mal') seance = Seance.changerType(seance, iExo, iSerie, 'echec');
+    await validerSerie(iExo, iSerie, { sansQuestion: true });
+    if (b.action === 'mal') {
+      var iBloc = -1;
+      Modele.blocsDeSeance(seance, local.exercices).forEach(function (bl, n) { if (iBloc < 0 && indicesDe(bl).indexOf(iExo) >= 0) iBloc = n; });
+      if (iBloc >= 0) ouvrirFeuilleBloc('douleur', iBloc, iExo);
+    }
+  }
+
+  async function validerSerie(iExo, iSerie, options) {
     var exo = seance.exercices[iExo];
     var serie = exo.series[iSerie];
     // ⚠️ `partEnBase`, PAS `validee_a` (chantier 35, D3). La case affichée cochée
@@ -5247,6 +5379,8 @@
     if (Seance.partEnBase(serie)) {
       // Dévalider RETIRE la ligne : une série non validée ne peut pas exister
       // en base (`sets_validee_si_saisie`).
+      // 185 — dévalider emporte la question du record posée sur cette série.
+      retirerQuestionDeSaisie(iExo, iSerie);
       seance = Seance.devalider(seance, iExo, iSerie);
       // R2 (49-18) — l'observation se vide SUR L'APPAREIL AVANT LE REDESSIN,
       // comme pour A et B : la partie synchrone d'`oublierObservationDe` est
@@ -5329,6 +5463,18 @@
       }
     });
     if (Object.keys(champs).length) seance = Seance.modifierSerie(seance, iExo, iSerie, champs);
+    // 185 — UNE SAISIE N'EST PAS FORCÉMENT VRAIE : la question vient SOUS la série, AVANT qu'elle soit écrite ; elle ne bloque
+    // jamais (« Oui » écrit ce qui est tapé, ci-dessous, par `repondreQuestionDeSaisie`).
+    var enAttente = questionDe(iExo, iSerie);
+    if (enAttente && enAttente.q.refus) return;     // des reps refusées sur place : rien ne s'écrit tant qu'elles ne sont pas un entier
+    if (!(options && options.sansQuestion)) {
+      var qv = questionAvantEcriture(iExo, iSerie);
+      if (qv) {
+        poserQuestionDeSaisie(iExo, iSerie, 'avant', qv);
+        await apresGeste({ structure: false });
+        return;
+      }
+    }
 
     // ⚠️ EN CORRECTION, ON HORODATE LA SÉANCE, PAS L'INSTANT. Une ligne
     // ajoutée en rouvrant une séance d'avant-hier porterait sinon la date
@@ -5373,6 +5519,13 @@
     // l'appareil ; il entre dans la file ICI, derrière les séries.
     if (pariProvisoire) await poserPari(await finirPari(pariProvisoire));
     await observerSerie(iExo, iSerie);
+    // 185 — le record qui dépasse le meilleur de plus de 20 % : un mot de plus, AVANT le journal des records (il ne s'écrit
+    // qu'à « Terminer », par `ecrireJournalDeSeance` : « Non, ne compte pas » passe par là avant lui).
+    var qr = questionDuRecordApres(iExo, iSerie);
+    if (qr) {
+      poserQuestionDeSaisie(iExo, iSerie, 'record', qr);
+      await apresGeste({ structure: false });
+    }
     } finally {
       reprendreGarde();
     }
@@ -8406,6 +8559,22 @@
       // §3.9 — et quand l'exercice est fini, le constat prend sa place.
       constat: constatPour,
       surChamp: async function (i, j, champ, valeur) {
+        // 185 — des reps négatives ou décimales sont REFUSÉES sur place, sans question : rien n'est écrit, la ligne le dit
+        // (sans redessiner, le focus reste dans le champ). Un entier retire le refus.
+        if (champ === 'reps') {
+          var lu = Modele.lireNombre(valeur);
+          var refus = lu !== null && (lu < 0 || Math.floor(lu) !== lu) ? faits.vraisemblanceDeLaSerie({ reps: lu }, {}) : null;
+          if (refus) {
+            poserQuestionDeSaisie(i, j, 'avant', refus);
+            Rendu.montrerQuestion($('blocs-seance'), i, j, questionSurLigne(i, j), function () {});
+            return;
+          }
+        }
+        // Une valeur retapée périme la question posée sur cette série (elle se repose à la validation).
+        if (questionDe(i, j)) {
+          retirerQuestionDeSaisie(i, j);
+          Rendu.retirerQuestion($('blocs-seance'), i, j);
+        }
         seance = Seance.modifierSerie(seance, i, j, defObjet(champ, valeur));
         rafraichirConstats();
         await apresGeste({ rendre: false });
@@ -8414,6 +8583,9 @@
         await observerSerie(i, j);
       },
       surValider: validerSerieSansRebond,
+      // 185 — la question de vraisemblance, sous la série : lue ici, répondue par `repondreQuestionDeSaisie`.
+      questionSaisie: questionSurLigne,
+      surQuestion: repondreQuestionDeSaisie,
       // §9.14 (49-R2) — la phrase du coach et la ligne proposée.
       reaction: reactionSurLigne,
       // 154 (MOTEUR §9.26) — l'effort visé : « garde-en N » dans l'en-tête, les puces sous la dernière série.

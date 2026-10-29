@@ -1073,6 +1073,22 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 @media (prefers-reduced-motion: no-preference){
   .record-serie{animation:pose-medaille .35s ease-out}
   @keyframes pose-medaille{from{transform:translateY(-4px);opacity:.6}to{transform:none;opacity:1}}}
+/* 185 — LA QUESTION DE VRAISEMBLANCE (maquette-saisie-vraisemblance-v1) : une ligne sous la série et ses boutons, jamais une
+   fenêtre. Les cibles font 44 px au moins ; l'ambre est la voix du coach ; le record garde le violet des records. */
+.question-saisie{margin:4px 0 8px 35px;padding:9px 10px;background:#2a2110;border-left:3px solid var(--accent);
+  border-radius:0 10px 10px 0}
+.question-saisie .qs-texte{margin:0 0 8px;font-size:15px;line-height:1.35;color:var(--texte)}
+.question-saisie.record .qs-texte{color:var(--record)}
+.question-saisie.refus{padding-bottom:7px}
+.question-saisie.refus .qs-texte{margin:0}
+.qs-boutons{display:flex;gap:8px;flex-wrap:wrap}
+.qs-bouton{min-height:44px;padding:10px 14px;border:0;border-radius:10px;font:inherit;font-size:15px;font-weight:600;
+  background:var(--panneau-2);color:var(--texte);cursor:pointer}
+.qs-bouton.principal{background:var(--accent);color:var(--sur-accent)}
+.ch-serie.doute,.rp-serie.doute{outline:2px solid var(--accent);outline-offset:-2px}
+.serie.hors-travail .tag.h{color:var(--texte-3)}
+@media (prefers-reduced-motion: no-preference){
+  .question-saisie{animation:pose-medaille .25s ease-out}}
 /* La feuille « Terminer » : les records du jour, sous le compte. */
 .records-fin{display:flex;flex-direction:column;gap:6px;padding:10px 0;margin-bottom:8px;
   border-bottom:1px solid var(--trait);font-variant-numeric:tabular-nums}

@@ -18263,8 +18263,19 @@ const SETS_IMPORTES = [
       e0.length === 1 && /alexis/.test(e0[0]) && /Niveau 8/.test(e0[0]) && /compte privé/.test(e0[0]) && /S’abonner/.test(e0[0]) &&
         /\/a\/banc$/.test(await texte('.s-lien-invit code')) && prive0 === 'true', JSON.stringify([e0, prive0]));
     await mesurer('trouver des amis');
+    // 184 (V-reglage-incomplet) — le texte de « Compte privé » dit ce que voient l'inconnu, l'abonné, le mutuel et la guilde.
+    const texteReglage = () => texte('.s-reglage small');
+    const dit184 = await texteReglage();
+    ok('[184] « Compte privé » (activé) dit : accord à donner, ce que voient l’inconnu, l’abonné, le mutuel, et la guilde',
+      /attend ton accord/.test(dit184) && /inconnu voit ton pseudo et ton niveau/.test(dit184) && /abonné ton fil/.test(dit184) &&
+        /mutuel tes séries et tes charges/.test(dit184) && /guilde ne voit tes séances qu’une fois son abonnement accepté/.test(dit184), dit184);
     await page.click('#social-compte-prive');
     await attendreQue(async () => base.profiles[0].compte_prive === false);
+    await attendreQue(async () => /sans demande/.test(await texteReglage()));
+    const dit184b = await texteReglage();
+    ok('[184] « Compte privé » (coupé) dit : suivi sans demande, le fil, la guilde voit les séances, le mutuel le détail',
+      /sans demande/.test(dit184b) && /voit ton fil/.test(dit184b) && /guilde voit tes séances/.test(dit184b) &&
+        /mutuel voit aussi tes séries et tes charges/.test(dit184b), dit184b);
     ok('[social] « Compte privé » coupé : écrit sur le profil (`compte_prive: false`), jamais `null`',
       base.profiles[0].compte_prive === false && base.journal.filter((j) => j.op === 'profil' && j.champs.compte_prive === null).length === 0,
       JSON.stringify(base.profiles[0].compte_prive));

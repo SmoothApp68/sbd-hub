@@ -8002,9 +8002,13 @@
     var reg = el('div', 's-reglage');
     var txt = el('div');
     txt.appendChild(el('b', null, 'Compte privé'));
+    // 184 (V-reglage-incomplet) — le texte dit ce que la base fait (`social_profil`, `social_rechercher`, SOCIAL-V1 §1) :
+    // le seul réglage lu est `compte_prive` (les colonnes `visibility_*` du v1 ne sont lues nulle part).
     txt.appendChild(el('small', 's-gris', vue.prive
-      ? 'Tu acceptes chaque abonnement.'
-      : 'Coupé : n’importe qui peut te suivre et voir ton fil.'));
+      ? 'Chaque abonnement attend ton accord. Un inconnu voit ton pseudo et ton niveau, un abonné ton fil, un mutuel tes séries ' +
+        'et tes charges ; ta guilde ne voit tes séances qu’une fois son abonnement accepté.'
+      : 'Coupé : n’importe qui peut te suivre, sans demande, et voit ton fil ; ta guilde voit tes séances. Un mutuel voit aussi ' +
+        'tes séries et tes charges.'));
     reg.appendChild(txt);
     var inter = el('button', 's-inter' + (vue.prive ? ' s-on' : ''));
     inter.type = 'button';

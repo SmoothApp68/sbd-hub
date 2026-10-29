@@ -605,6 +605,7 @@
     if (!lus.length) return null;
 
     lus.sort(function (a, b) { return a.instant - b.instant; });
+    poserPlafonds(lus);
 
     // ⚠️ LE COUPLE SE DÉSIGNE SUR TROIS SÉANCES, PAS SUR LA DERNIÈRE (corrigé
     // le 19/09/2026, 48b-5a). La dernière séance seule était trop nerveuse :
@@ -633,10 +634,33 @@
   // La médiane des reps au palier sur les 8 dernières séances DÉJÀ RÉDUITES au
   // couple, arrondie au-dessus. Prise à part parce que le gel de la zone
   // pendant un étirement (§9.7) la rejoue sur un PRÉFIXE de ces séances.
+  // 186 (décision d'Aurélien du 29/10/2026, MOTEUR §9.1.2) — LES REPS AU-DESSUS DU HAUT DE LA ZONE NE COMPTENT DANS L'HABITUDE
+  // QUE JUSQU'AU HAUT. La zone en vigueur à chaque séance est celle que l'habitude des séances d'avant range, TOUS FORMATS CONFONDUS
+  // (la première séance, sans passé, ne se plafonne pas) : 17-16-15 en Volume (10-12) comptent 12-12-12. Seules les séances qui ont
+  // REÇU une consigne (`sousConsigne`) sont plafonnées : une habitude installée sans consigne se compte entière. La zone ne bascule
+  // plus seule sur un dépassement ; elle change par un choix de la personne (la carte « Passer en… », `poserZone`).
+  function reposPlafonne(x, plafond) {
+    var recue = !!x.seance && x.seance.sousConsigne === true;
+    return repsDe(x.auPalier).map(function (r) { return recue && plafond !== null && plafond !== undefined && r > plafond ? plafond : r; });
+  }
+  // Le haut de la zone en vigueur AVANT chaque séance lue (`plafond`), posé une fois par `lectureDuCouple`.
+  function poserPlafonds(lus) {
+    var parSeance = [];
+    var habitude = null;
+    lus.forEach(function (x) {
+      var z = habitude === null ? null : zoneDe(habitude);
+      x.plafond = z === null || parSeance.length < FENETRE_COUPLE ? null : nombre(z.haut);
+      parSeance.push(reposPlafonne(x, x.plafond));
+      var tout = [];
+      parSeance.slice(-FENETRE_HABITUDE).forEach(function (l) { tout = tout.concat(l); });
+      var m = mediane(tout);
+      habitude = m === null ? null : Math.ceil(m);
+    });
+  }
   function habitudeSur(duCouple) {
     var reps = [];
     (duCouple || []).slice(-FENETRE_HABITUDE).forEach(function (x) {
-      reps = reps.concat(repsDe(x.auPalier));
+      reps = reps.concat(reposPlafonne(x, x.plafond));
     });
     var m = mediane(reps);
     return m === null ? null : Math.ceil(m);
@@ -684,6 +708,8 @@
     return majuscule ? m.charAt(0).toUpperCase() + m.slice(1) : m;
   }
   // « Ta barre ne permet pas un plus petit cran » — « Tes haltères ne permettent pas… » (le verbe suit le mot).
+  // 186 — « deux crans », « trois crans » : le nombre de crans d'un saut, en mots.
+  function motCrans(n) { return n >= 3 ? 'trois crans' : n === 2 ? 'deux crans' : 'un cran'; }
   function ditPasDePlusPetitCran(equipement, majuscule) {
     return motDuMateriel(equipement, majuscule) + (equipement === 'haltere' ? ' ne permettent' : ' ne permet') +
            ' pas un plus petit cran';
@@ -711,6 +737,18 @@
   function equipementEffectif(exo) {
     if (!exo) return null;
     return exo.charge === 'ajoutee' ? EQUIPEMENT_LEST : (exo.equipement === undefined ? null : exo.equipement);
+  }
+
+  // 186 (MOTEUR §10.2) — LE MATÉRIEL AU PAS CONNU : la barre (disques de 1,25 kg, donc 2,5 kg) et les haltères (la paire : +2 kg sous
+  // 20 kg, +4 au-delà). Leur cran est celui de `REPLI_MATERIEL`, jamais une charge déjà notée (`chargeVoisine`) ; l'étirement
+  // « faute de cran » ne s'ouvre que si le test EST ce cran-là (`episodeEtirement`). Les machines et poulies, aux crans irréguliers,
+  // gardent le rang 2. Le Smith, le kettlebell et le lest gardent aussi la règle d'avant : la décision nomme la barre et les haltères.
+  var MATERIEL_AU_PAS_CONNU = { barre: true, haltere: true };
+  // 186 — le plus grand pas du matériel (haltères : la bande lourde), ou `null` : le garde-fou du single hors palier (`palier.js`).
+  function pasMaxDuMateriel(equipement) {
+    if (!Object.prototype.hasOwnProperty.call(REPLI_MATERIEL, equipement)) return null;
+    var r = REPLI_MATERIEL[equipement];
+    return r.pasLourd !== undefined ? r.pasLourd : r.pas;
   }
 
   // ⚠️ LA BASCULE APPARTIENT À LA BANDE LÉGÈRE, et l'asymétrie est voulue : on
@@ -1050,15 +1088,23 @@
     // +0,2 kg. D'une salle à l'autre, les piles et les haltères changent ; à la
     // barre, les disques sont les mêmes partout (sans limite), et vers le bas
     // le repli a sa propre limite de 10 % (sans limite non plus).
-    var plancher = dir > 0 ? plancherDuMateriel(equipement, avant) : null;
+    //
+    // 186 (MOTEUR §10.2, décision d'Aurélien du 29/10/2026) — UNE BARRE ET DES HALTÈRES ONT UN PAS CONNU : le cran est le pas réel
+    // du matériel (le rang 3, ci-dessous), JAMAIS une charge déjà notée. Le rang 2 ne vaut plus que pour les machines aux crans
+    // irréguliers. Sur une barre, la charge « déjà utilisée juste au-dessus » prenait un single de test (150 × 5, puis 190 × 1) ou
+    // une faute de frappe pour un cran : 190 kg, +27 % — et l'étirement concluait « ta machine ne permet pas un plus petit
+    // cran », six séances de suite (A4 de la contre-vérification).
     var voisine = null;
-    anterieures(seances, avant).forEach(function (se) {
-      if (plancher !== null && instant(se.debut) < plancher) return;
-      chargesDe(se).forEach(function (c) {
-        if (dir > 0 ? c <= p : c >= p) return;
-        if (voisine === null || (dir > 0 ? c < voisine : c > voisine)) voisine = c;
+    if (!MATERIEL_AU_PAS_CONNU[equipement]) {
+      var plancher = dir > 0 ? plancherDuMateriel(equipement, avant) : null;
+      anterieures(seances, avant).forEach(function (se) {
+        if (plancher !== null && instant(se.debut) < plancher) return;
+        chargesDe(se).forEach(function (c) {
+          if (dir > 0 ? c <= p : c >= p) return;
+          if (voisine === null || (dir > 0 ? c < voisine : c > voisine)) voisine = c;
+        });
       });
-    });
+    }
     if (voisine !== null) return voisine;
 
     var repli = repliDe(equipement, p, dir);
@@ -1221,6 +1267,11 @@
   var MARGE_DOUBLE_SAUT = 0.10;
   // §9.8 — « le haut dépassé de 3 reps » : l'une des deux preuves.
   var PREUVE_DEPASSEMENT = 3;
+  // 186 — les crans d'un dépassement : Normal, deux crans dès 6 reps ou 50 % au-dessus du haut ; le plafond d'un saut de plusieurs crans.
+  var DEPASSEMENT_NORMAL_REPS = 6;
+  var DEPASSEMENT_NORMAL_PART = 0.5;
+  var PLAFOND_SAUT = 0.15;
+  var PLAFOND_SAUT_DEBUTANT = 0.10;
 
   // ── §9.26 (154) — L'EFFORT VISÉ : « garde-en N » ─────────────────────────────────────────────────────────────────
   //
@@ -1289,6 +1340,8 @@
     // §9.10 (53-1) — la FIN de la séance, quand on la connaît : la zone choisie
     // pendant une séance est celle de la séance (`zoneDeLaDerniere`).
     if (se && se.fin) vue.fin = se.fin;
+    // 186 — la séance a reçu une consigne (un pari) : ses reps au-dessus du haut ne comptent que jusqu au haut (`reposPlafonne`).
+    if (se && se.sousConsigne === true) vue.sousConsigne = true;
     return vue;
   }
 
@@ -1400,6 +1453,9 @@
       // 175 — un gros cran se valide au plancher : un test à `plancher` reps ou plus a passé.
       var gg = grosCran(P, t.charge, z, isolation);
       if (t.niveau >= (gg ? gg.plancher : z.bas)) break;
+      // 186 — « faute de cran » : sur une barre ou des haltères au pas connu, `c1` est le pas réel du matériel (jamais une charge
+      // déjà notée) : le test d'un single à +27 % n'est plus « sans cran plus petit » (c1 < 190), et l'étirement ne s'ouvre que
+      // si le test EST le plus petit cran (le curl marteau à 32 kg × 8 : la paire de 28 → 32, le pas des haltères au-delà de 20).
       var c1 = voisineSalleComprise(vues, avant, P, equipement, 1, salle || null);
       if (c1 !== null && c1 < t.charge) break;
       rates.push({ rang: i, test: t, auPalier: x.auPalier, debut: x.seance.debut });
@@ -1448,6 +1504,33 @@
   // nulle part ailleurs. On PROJETTE les six colonnes plutôt que de rendre les
   // objets d'entrée : le fondement est un contrat, pas une fenêtre ouverte sur
   // ce que l'appelant a bien voulu mettre dans ses séries.
+  // 186 (MOTEUR §9.2, décision d'Aurélien du 29/10/2026) — LA SÉRIE HORS PALIER DE LA DERNIÈRE SÉANCE (un single à +15 % ou une série
+  // de test), la plus lourde : de quoi dire « Ton single à 190 kg est un record ; il ne compte pas dans ta charge de travail. ».
+  // `record` : plus lourde que toute charge notée sur l'exercice avant cette séance (un fait, pas une estimation). `null` sans elle.
+  function horsPalierDeLaDerniere(L, ant) {
+    var plus = null;
+    ((L && L.series) || []).forEach(function (s) {
+      if (!s || s.origine !== 'hors_palier') return;
+      var kg = nombre(s.charge_kg);
+      if (kg !== null && (plus === null || kg > nombre(plus.charge_kg))) plus = s;
+    });
+    if (plus === null) return null;
+    var kgP = nombre(plus.charge_kg);
+    var record = kgP > 0 && (ant || []).every(function (se) {
+      return se === L || ((se && se.series) || []).every(function (s) {
+        var c = nombre(s && s.charge_kg);
+        return c === null || (c < kgP && !memeCharge(c, kgP));
+      });
+    });
+    return { charge: kgP, reps: nombre(plus.reps), record: record };
+  }
+  // La phrase du « Pourquoi » : le nom (single, double, sinon série de test), puis le fait, jamais un jugement.
+  function phraseHorsPalier(h) {
+    var nom = h.reps === 1 ? 'Ton single' : h.reps === 2 ? 'Ton double' : 'Ta série de test';
+    return nom + ' à ' + enKg(h.charge, cite(FAIT, { quoi: 'hors_palier' })) +
+      (h.record ? ' est un record' + ' ; il ne compte pas dans ta charge de travail.' : ' ne compte pas dans ta charge de travail.');
+  }
+
   function seanceDuFondement(vue) {
     return ((vue && vue.series) || []).map(function (s) {
       return {
@@ -1786,6 +1869,10 @@
       if (etat === 'etirement_reps' && poidsDuCorps && ligne && nombre(ligne.vise) !== null && ligne.vise >= PLAFOND_CIBLE) {
         f.plafondReps = nombre(niv) !== null && niv >= PLAFOND_CIBLE ? 'atteint' : 'vise';
       }
+      // 186 — la série hors palier de la dernière séance (single à +15 %, série de test) : le « Pourquoi » la dit. Une clé qui n'est là
+      // que si elle a un sens.
+      var hp = horsPalierDeLaDerniere(L, ant);
+      if (hp !== null) f.horsPalier = hp;
       // 163 — UNE CHARGE JAMAIS FAITE SE DIT APPROCHÉE : la ligne ou le test dont la charge sort du repli du matériel
       // porte `approchee: true`, et le fondement aussi (I51 les lit ensemble). Jamais avec une salle (les élastiques).
       if (!salle && !poidsDuCorps) {
@@ -2185,25 +2272,39 @@
     // 132 (§10 ter) — sur un élastique noté par nom, la borne des 10 % ne laisse jamais passer deux crans : au plus 10
     // élastiques, des charges virtuelles de 1 à 10, et deux crans font toujours plus de 10 % (rapporté, prompt 132 —
     // aucune garde à ajouter : elle ne pourrait rien changer).
-    if (reglage === 'franc' && c1 !== null && !aide) {
-      // La preuve du double saut : le haut dépassé de 3 reps, ou un effort dit
-      // « facile » (§17.3, logique APRE).
-      var preuve = auMoins(A, hi + PREUVE_DEPASSEMENT) || A.some(function (s) {
-        return Palier().cranDeSerie(s) === 'facile';
-      }) || (effortVise !== null && effortVise.effet === 'test' && effortVise.sortie !== true);
-      if (preuve) {
-        // ⚠️ DEUX CRANS SEULEMENT S'ILS RESTENT SOUS 10 % DE LA CHARGE —
-        // corrigé le 19/09/2026 : l'ancienne limite « un cran au plus sur les
-        // grosses barres » était à l'envers. Au couché à 125 kg, deux crans
-        // font 4 % : permis ; au curl EZ à 30 kg, 17 % : un seul.
-        var c2 = voisine(c1, 1);
-        if (c2 !== null && auCentieme(c2 - P) <= auCentieme(P * MARGE_DOUBLE_SAUT)) {
-          saut = c2;
-          preuveRetenue = auMoins(A, hi + PREUVE_DEPASSEMENT) ? 'haut' : 'facile';
-        }
+    // 186 (décision d'Aurélien du 29/10/2026, MOTEUR §9.1.2 / §9.8) — LE DÉPASSEMENT : de combien le niveau tenu passe le haut de
+    // la zone décide du nombre de crans. +1 à +2 reps : un cran. Franc : deux crans dès +3 (ou l'effort « facile » / une réserve
+    // plus grande que visée, la preuve d'avant). Normal : deux crans dès +6 reps ou +50 % au-dessus du haut. Au double du haut,
+    // trois crans au plus (Franc et Normal). Prudent : un cran. TOUT saut de plusieurs crans est plafonné à +15 % de la
+    // charge de travail (+10 % pour un débutant, `moins_1_an` ; le profil ne dit pas « sénior » : aucun plafond à part pour lui).
+    // Remplace la borne des 10 % de Franc (« deux crans seulement s'ils restent sous 10 % », 19/09/2026).
+    var depasse = niv !== null && niv > hi ? niv - hi : 0;
+    var cransVoulus = 1, preuveDe = null;
+    if (c1 !== null && !aide && reglage !== 'prudent') {
+      if (reglage === 'franc') {
+        var haut3 = depasse >= PREUVE_DEPASSEMENT || auMoins(A, hi + PREUVE_DEPASSEMENT);
+        var facile = A.some(function (s) { return Palier().cranDeSerie(s) === 'facile'; }) ||
+          (effortVise !== null && effortVise.effet === 'test' && effortVise.sortie !== true);
+        if (haut3 || facile) { cransVoulus = 2; preuveDe = haut3 ? 'haut' : 'facile'; }
+      } else if (depasse >= DEPASSEMENT_NORMAL_REPS || (niv !== null && niv >= hi * (1 + DEPASSEMENT_NORMAL_PART))) {
+        cransVoulus = 2; preuveDe = 'haut';
+      }
+      if (niv !== null && niv >= 2 * hi) { cransVoulus = 3; preuveDe = 'haut'; }
+    }
+    var plafondSaut = debutant ? PLAFOND_SAUT_DEBUTANT : PLAFOND_SAUT;
+    var cransPris = 1;
+    if (cransVoulus > 1) {
+      var chaine = [c1];
+      for (var kc = 2; kc <= cransVoulus; kc++) {
+        var suiv = chaine[chaine.length - 1] === null ? null : voisine(chaine[chaine.length - 1], 1);
+        if (suiv === null) break;
+        chaine.push(suiv);
+      }
+      for (var kp = chaine.length; kp >= 2; kp--) {
+        if (auCentieme(chaine[kp - 1] - P) <= auCentieme(P * plafondSaut)) { saut = chaine[kp - 1]; cransPris = kp; preuveRetenue = preuveDe; break; }
       }
     }
-    var plusTest = preuveRetenue === null ? {} : { preuve: preuveRetenue };
+    var plusTest = preuveRetenue === null ? {} : { preuve: preuveRetenue, crans: cransPris, depasse: depasse, plafond: plafondSaut, materiel: equipement };
     if (effortVise !== null && effortVise.effet === 'test') plusTest.effortVise = effortVise;
     // 175 — LE GROS CRAN : le test du plus petit cran (une seule marche, jamais un double saut) se joue au plancher.
     var grosPropose = saut !== null && saut === c1 && preuveRetenue === null ? grosCran(P, saut, zone, isolation) : null;
@@ -4087,10 +4188,11 @@
         // 175 — un gros cran : l'écart dit, et ce qui suffit pour s'y installer.
         if (f.cranGros && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) return phraseGrosCran(f.cranGros);
         return jour() + DEUX_POINTS + auPalier() + ', ' +
-               (f.preuve === 'haut' ? nombreFr(PREUVE_DEPASSEMENT, regle('constante')) + ' reps au-dessus du haut'
+               (f.preuve === 'haut' ? (f.depasse >= 1 ? nombreFr(f.depasse, cite(FAIT, { quoi: 'depasse' })) : nombreFr(PREUVE_DEPASSEMENT, regle('constante'))) +
+                   ' reps au-dessus du haut'
                 : f.preuve === 'facile' ? 'avec de la marge'
                 : 'le haut de ta zone') + '. ' +
-               (f.preuve ? 'On teste deux crans au-dessus' : 'On teste le cran au-dessus') + '.';
+               (f.preuve ? 'On teste ' + motCrans(f.crans) + ' au-dessus' : 'On teste le cran au-dessus') + '.';
 
       case 'garde':
         // 175 — validé au plancher d'un gros cran : « ça suffit pour t'y installer », la rep de plus par séance jusqu'au bas.
@@ -4322,7 +4424,9 @@
   var ROLES_LIGNE = {
     degressive: 'dégressive, ne compte pas',
     descente_choisie: 'descente, ne compte pas',
-    echec: 'série arrêtée, ne compte pas'
+    echec: 'série arrêtée, ne compte pas',
+    // 186 — le single ou la série de test : faite, un record possible, hors de la charge de travail.
+    hors_palier: 'hors de ta charge de travail'
   };
 
   // La dernière séance, telle que la feuille la relit : les chauffes en UNE
@@ -4536,14 +4640,15 @@
         if (f.preuve) {
           var ecart = c.haut.charge === null ? null : c.haut.charge - c.ligne.charge;
           var pourcent = ecart === null ? null : Math.round(ecart / c.ligne.charge * 1000) / 10;
-          // « dans la limite de 10 % » : l'égalité est permise (§9.8), « sous »
-          // disait le contraire.
+          // « dans la limite de 15 % » (10 % pour un débutant) : l'égalité est permise (§9.8), « sous » disait le contraire.
+          // 186 — « ta barre / tes haltères / ta machine » : le mot du matériel, pas « un cran » dans l'abstrait.
           dit += ' ' + (f.preuve === 'haut'
-              ? 'Tu as dépassé le haut de ' + nombreFr(PREUVE_DEPASSEMENT, regle('constante')) + ' reps'
+              ? 'Tu as dépassé le haut de ' + (f.depasse >= 1 ? nombreFr(f.depasse, cite(FAIT, { quoi: 'depasse' }))
+                                                              : nombreFr(PREUVE_DEPASSEMENT, regle('constante'))) + ' reps'
               : 'Tu avais de la marge') +
-            DEUX_POINTS + 'deux crans, ' + enKg(ecart, regle('ecart')) + ', soit ' +
+            DEUX_POINTS + motCrans(f.crans) + ' sur ' + motDuMateriel(f.materiel) + ', ' + enKg(ecart, regle('ecart')) + ', soit ' +
             nombreFr(pourcent, regle('ecart.pourcent')) + INSECABLE + '% de plus, ' +
-            'dans la limite de ' + nombreFr(Math.round(MARGE_DOUBLE_SAUT * 100), regle('constante')) + INSECABLE + '%.';
+            'dans la limite de ' + nombreFr(Math.round((f.plafond || MARGE_DOUBLE_SAUT) * 100), regle('constante')) + INSECABLE + '%.';
         }
         // 175 — un gros cran : l'écart dit, et ce qui suffit pour s'y installer.
         if (f.cranGros && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) dit += ' ' + phraseGrosCran(f.cranGros);
@@ -4714,11 +4819,14 @@
     var o = options || {};
     var jaune = o.sansDonc ? [] : lignesJaunes(consigne);
     var muet = consigne.etat === 'silence';
+    var etat = etatDuPourquoi(consigne, reglage || 'normal', reference);
+    // 186 — la série hors palier ne compte pas dans la charge de travail, et le « Pourquoi » le dit.
+    if (!muet && etat && consigne.fondement && consigne.fondement.horsPalier) etat += ' ' + phraseHorsPalier(consigne.fondement.horsPalier);
     return {
       seance: seanceDuPourquoi(consigne, reference),
       zone: muet ? null : zoneDuPourquoi(consigne, reference),
       palier: muet ? null : palierDuPourquoi(consigne),
-      etat: etatDuPourquoi(consigne, reglage || 'normal', reference),
+      etat: etat,
       donc: jaune.length ? 'Donc ' + jaune.join(', ') + '.' : null,
       reglage: muet ? null
         : 'Ton réglage' + DEUX_POINTS + libelleRythme(reglage || 'normal') +
@@ -5316,7 +5424,7 @@
       var series = ((g && g.series) || []).filter(function (x) { return !(x && x.hors_calcul === true); });
       var r = mesure === 'reps'
         ? Palier().analyserPoidsDuCorps(series)
-        : Palier().analyser(series, etat, { mesure: mesure });
+        : Palier().analyser(series, etat, { mesure: mesure, cran: pasMaxDuMateriel(options && options.equipement) });
       var se = seanceDuContrat(g && g.seance ? g.seance.debut : null, r);
       // §9.10 (53-1) — la fin de la séance, si elle en a une (la zone choisie
       // pendant la séance est la sienne). Absente, la clé n'existe pas.
@@ -7106,6 +7214,55 @@
     };
   }
 
+  // ══ 186 (décision d'Aurélien du 29/10/2026, MOTEUR §9.1.2) — « PASSER EN <ZONE SUIVANTE> » APRÈS TROIS SÉANCES AU-DESSUS DU HAUT ══
+  //
+  // La zone ne bascule plus seule sur un dépassement (`repsPlafonnees`). Quand la personne, trois séances de suite, reste à la même
+  // charge de travail (sous ce que la consigne proposait) alors que son niveau passe le haut de sa zone, le coach PROPOSE la zone
+  // suivante (Volume -> Séries longues). Même carte et même réponse que le schéma (`MARCHE_SCHEMA`, `poserZone` à l'acceptation) ;
+  // « Garder <zone> » est écrit (un pari refusé) et se tait six séances.
+  var DEPASSEMENT_PROPOSE_DES = 3;
+  var DEPASSEMENT_SILENCE = 6;
+  // `{ n, charge, niveau, zone, vers, jours }` ou `null`. `jours` : les jours civils des six dernières séances lues (le plan compte
+  // celles qui suivent un refus).
+  function depassementLong(seances, avant, consigne) {
+    var z = consigne && consigne.zone ? zoneParCle(consigne.zone.cle || consigne.zone) : null;
+    if (z === null) return null;
+    var i = -1;
+    for (var k = 0; k < ZONES.length; k++) if (ZONES[k].cle === z.cle) i = k;
+    var suivante = i >= 0 && i + 1 < ZONES.length ? ZONES[i + 1] : null;
+    if (suivante === null || estZoneForce(z.cle)) return null;
+    var lecture = lectureDuCouple((seances || []).map(vueDeSeance), avant);
+    if (lecture === null || lecture.duCouple.length < DEPASSEMENT_PROPOSE_DES) return null;
+    var dernieres = lecture.duCouple.slice(-DEPASSEMENT_PROPOSE_DES);
+    var P = nombre(dernieres[dernieres.length - 1].seance.palier);
+    if (P === null) return null;
+    var niveaux = [];
+    var ok = dernieres.every(function (x) {
+      var p = nombre(x.seance.palier);
+      var n = niveauValide(x.auPalier);
+      if (p === null || !memeCharge(p, P) || n === null || !(n > z.haut)) return false;
+      niveaux.push(n);
+      return true;
+    });
+    if (!ok) return null;
+    return { n: DEPASSEMENT_PROPOSE_DES, charge: P, niveau: Math.min.apply(null, niveaux), zone: z.cle, vers: suivante.cle,
+             jours: lecture.duCouple.slice(-DEPASSEMENT_SILENCE).map(function (x) { return jourCivil(x.seance.debut); }) };
+  }
+  function carteDepassement(d) {
+    if (!d || nombre(d.charge) === null || nombre(d.niveau) === null) return null;
+    var de = zoneParCle(d.zone), vers = zoneParCle(d.vers);
+    if (de === null || vers === null) return null;
+    var cD = cite(FAIT, { quoi: 'depassement' });
+    return {
+      zone: d.zone, nouvelle_zone: d.vers,
+      phrase: Modele().charge(d.charge, undefined, cD) + ' × ' + nombreFr(d.niveau, cite(FAIT, { quoi: 'depassement', champ: 'reps' })) +
+        ' depuis ' + nombreFr(d.n, cite(FAIT, { quoi: 'depassement.n' })) + ' séances, au-dessus du haut de ta zone.',
+      detail: 'Tu fais plus de reps que ta zone n\'en vise. ' + vers.libelle + ' te les compte : tu restes à ' +
+        'la même charge, ta zone suit tes reps.',
+      oui: 'Passer en ' + vers.libelle, non: 'Garder ' + de.libelle
+    };
+  }
+
   // 180 (A-F-02, D4) — LA CARTE DE LA MARCHE D'EN DESSOUS : un fait (« Poids du corps × 1 depuis 4 séances »), la marche du rang
   // juste en dessous de l'échelle, « Ajouter <nom> » / « Pas maintenant ». Elle s'ajoute avant l'exercice comme la carte « marche
   // suivante » (2 séries, autant de reps que possible) ; l'exercice reste. Descriptive, jamais un verdict.
@@ -8231,6 +8388,17 @@
     var seances = sansLesAllegees(contratDe(groupes, etat, o.mesure,
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null }),
       o.periodesAllegees);
+    // 186 — les séances qui ont REÇU une consigne (un pari) portent la marque : le plafond des reps de l'habitude (`repsPlafonnees`)
+    // ne vaut que pour elles. Sans liste (les historiques qui n'en ont jamais reçu), rien n'est plafonné.
+    if (o.seancesSousConsigne && o.seancesSousConsigne.length) {
+      var recues = {};
+      o.seancesSousConsigne.forEach(function (id) { recues[id] = true; });
+      seances = seances.map(function (se, i) {
+        var g = groupes[i];
+        var id = g && g.seance ? g.seance.id : null;
+        return id !== null && id !== undefined && recues[id] === true ? Object.assign({}, se, { sousConsigne: true }) : se;
+      });
+    }
     // §9.1.1 (48b-7) — LE RANG 2 EST BRANCHÉ. Il attendait ici depuis
     // 48b-5b-2, câblé à `null` faute d'un endroit où lire la zone choisie.
     // §9.17 — `lestReponse` : la réponse à la carte du lest, une ENTRÉE du
@@ -8310,6 +8478,8 @@
              // 174 — LES CRANS DE LA MARCHE « ALLÉGER », figés avec la consigne : le cran en dessous et l'arrondi de P x 0,95.
              // 174 (3/3) — SIX SÉANCES DE BORD SANS MONTER : de quoi proposer la zone 3-5, figé avec la consigne.
              bord: bordSansMonter(consigne),
+             // 186 — TROIS SÉANCES AU-DESSUS DU HAUT : de quoi proposer la zone suivante, figé avec la consigne.
+             depassement: depassementLong(seances, avant, consigne),
              alleger: compteur.compteur >= ALLEGER_DES && consigne && consigne.zone
                ? crans(seances, avant, consigne.palier, o.equipement, salle) : null,
              repli: compteur.compteur >= PAS_ESCALIER && consigne && consigne.zone
@@ -8922,6 +9092,8 @@
     consigneAlleger: consigneAlleger,
     carteAlleger: carteAlleger,
     carteBordSchema: carteBordSchema,
+    carteDepassement: carteDepassement,
+    DEPASSEMENT_SILENCE: DEPASSEMENT_SILENCE,
     BORD_PROPOSE_DES: BORD_PROPOSE_DES,
     detailAlleger: detailAlleger,
     grisAlleger: grisAlleger,

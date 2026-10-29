@@ -94,11 +94,21 @@ describe('74 — la concordance sur les 79 séance-exercices réels', () => {
   // SÉRIE PROBABLE DE TRAVAIL : une série plus légère APRÈS la plus lourde n'est pas une chauffe. La pyramide du squat du 22/04/2026
   // (60 × 10, 80 × 5, 100 × 2, 80 × 5, 60 × 10) gardait 100 × 2 pour palier — une exploration devenue la charge de travail, parce que
   // les séries qui suivaient avaient été jetées comme chauffes. Elle garde 80 (deux séries), et le 100 × 2 est l'exploration.
+  // 186 (29/10/2026, décision d'Aurélien, MOTEUR §9.2) — LE SINGLE HORS PALIER : une série de 1 ou 2 reps à +15 % et plus de la charge de
+  // travail (et à plus de deux crans) ne décide pas de la charge ; elle n'est plus l'exploration que la consigne teste. Deux cas du
+  // fichier portent une telle série à l'échec — couché #9 : 140 × 1 après 120 × 5 (+17 %) ; militaire #9 : 70 × 2 après 52,5 × 10 (+33 %).
+  // Le couché garde son test à 125 × 3 mais ne le lit plus comme le retest d'un test à 140 : `test_propose` au lieu de
+  // `retest_un_cran` ; le militaire (nouvelle zone Volume) reporte 50 × 10, la charge réellement tenue à 10 reps, et non 47,5.
+  // Le fichier de référence ne se retouche pas ; les écarts sont nommés à leur valeur exacte.
+  const HORS_PALIER_186 = {
+    'u1|developpe_couche_barre#9': { etat: 'test_propose', zone: 'lourd', palier: 120, niveau: 5, ligne: { charge: 120, vise: 5 }, haut: { charge: 125, vise: 3, k: 1 } },
+    'u1|developpe_militaire_barre#9': { etat: 'nouvelle_zone', zone: 'volume', palier: 52.5, niveau: 9, ligne: { charge: 50, vise: 10 }, haut: null }
+  };
   const FRONTIERE_180 = {
     'u2|squat_barre#9': { etat: 'progression', zone: 'volume', palier: 80, niveau: 5, ligne: { charge: 80, vise: 6 }, haut: null }
   };
   test('0 écart avec `aujourdhui_74` (état, zone, palier, niveau, ligne, haut)', () => {
-    const attendu = (c) => FRONTIERE_180[c.cle + '#' + c.jusqua] || GROS_175[c.cle + '#' + c.jusqua] || EFFORT_154[c.cle + '#' + c.jusqua] || ECHEC_152[c.cle + '#' + c.jusqua] || FRANC_149[c.cle + '#' + c.jusqua] || c.aujourdhui_74;
+    const attendu = (c) => HORS_PALIER_186[c.cle + '#' + c.jusqua] || FRONTIERE_180[c.cle + '#' + c.jusqua] || GROS_175[c.cle + '#' + c.jusqua] || EFFORT_154[c.cle + '#' + c.jusqua] || ECHEC_152[c.cle + '#' + c.jusqua] || FRANC_149[c.cle + '#' + c.jusqua] || c.aujourdhui_74;
     const ecarts = D.cas
       .map((c) => ({ c, r: consigneDuCas(c) }))
       .filter(({ c, r }) => JSON.stringify(r) !== JSON.stringify(attendu(c)))

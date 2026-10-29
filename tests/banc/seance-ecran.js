@@ -737,7 +737,7 @@ const SETS_IMPORTES = [
     if (l.id === null || l.id === undefined) return refus('23502', 'sets.id NOT NULL');
     if (l.source === 'app' && !l.validee_a) return refus('23514', 'sets_validee_si_saisie');
     if (!(l.rang >= 1)) return refus('23514', 'sets_rang_positif');
-    if (['echauffement', 'travail', 'degressive', 'echec'].indexOf(l.type_serie) < 0) return refus('23514', 'sets_type_serie_ok');
+    if (['echauffement', 'travail', 'degressive', 'echec', 'test'].indexOf(l.type_serie) < 0) return refus('23514', 'sets_type_serie_ok');   // + 'test' : v2_117 (186)
     if (l.ressenti && ['reste_3_plus', 'reste_2', 'reste_1', 'reste_0'].indexOf(l.ressenti) < 0) return refus('23514', 'sets_ressenti_ok');
     if (l.rpe !== null && l.rpe !== undefined && !(l.rpe > 0 && l.rpe <= 10)) return refus('23514', 'sets_rpe_ok');
     if (l.repos_s !== null && l.repos_s !== undefined && !(l.repos_s >= 0 && l.repos_s <= 3600)) return refus('23514', 'sets_repos_borne');

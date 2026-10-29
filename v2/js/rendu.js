@@ -3758,7 +3758,9 @@
     ['travail', 'Série de travail'],
     ['echauffement', 'Échauffement'],
     ['degressive', 'Dégressive'],
-    ['echec', 'À l’échec', 'Tes reps comptent, sans marge. À 0 rep : une tentative manquée.']
+    ['echec', 'À l’échec', 'Tes reps comptent, sans marge. À 0 rep : une tentative manquée.'],
+    // 186 (v2_117) — la série de test : un max, un single. Un record possible ; elle ne décide pas de la charge de travail.
+    ['test', 'Série de test', 'Un max tenté : un record possible, mais elle ne décide pas de ta charge de travail.']
   ];
 
   var LIBELLE_RESSENTI = [

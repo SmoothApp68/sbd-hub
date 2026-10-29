@@ -1,7 +1,7 @@
 # Schéma réel — état au 24 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_116`** (`sets.hors_calcul`, 185). Prochain numéro libre : **`v2_117`** (`v2_113` et `v2_115` : voir le dépôt/la base avant de s'y fier).
+Dernière migration appliquée : **`v2_117`** (`sets_type_serie_ok` accepte `test`, 186 ; appliquée par Claude.ai avant la PR). Prochain numéro libre : **`v2_118`** (`v2_113` et `v2_115` : voir le dépôt/la base avant de s'y fier).
 ⚠️ **`v2_106` n'a jamais été lancée** (décision du 22/10 : le volume reste un record) : le numéro reste vide.
 
 **Volumétrie (24/10, 2 h 30)** : 1 288 séances · 29 673 séries · 860 exercices (848 actifs) · 961 alias
@@ -29,6 +29,7 @@ Dernière migration appliquée : **`v2_116`** (`sets.hors_calcul`, 185). Prochai
 | `v2_112` (assistant IA, 160) | **`assistant_questions`** (id, cree_a, exercise_slug, etat, question ≤ 500, reponse ≤ 2000, contexte jsonb, bloquee, `raison` ∈ nombre_absent · sante · erreur_modele · vide, modele — **aucun `user_id`** : les questions se gardent 30 jours sans lien avec le compte) ; **`assistant_quota`** (user_id, jour, n) ; **`profiles.assistant_accord_a`** (timestamptz, écrite par l'app, facultative en lecture/écriture) ; RPC **`assistant_prendre_question(p_user, p_max) → int`** (le reste, −1 au quota ; jour en heure de Paris ; `service_role` seulement). RLS active sur les deux tables, **aucune règle** : seule la fonction y accède. **Écart : la fonction SQL ne purge pas** — la purge (questions de plus de 30 jours, quota de plus de 2 jours) est faite par la fonction Edge `demander-coach` (24/10/2026, décision d'Aurélien) |
 | `v2_114` (groupe seul, 177, 28/10/2026) | **`groupe_liberer`** : quelqu'un qui est SEUL dans son groupe peut en partir (créer ou rejoindre un autre) même séance en cours ; son groupe vide se fige et disparaît. Avec un autre membre actif, `groupe_deja_dans_un` reste. Appliquée par Claude.ai ; aucune table ni colonne ajoutée |
 | `v2_116` (saisie vérifiée, 185, 29/10/2026) | **`sets.hors_calcul`** boolean NOT NULL DEFAULT false : « série gardée au journal, mais exclue des records, des crans et du moteur ». Posée par la réponse « Non, ne compte pas » à la question de vraisemblance (ECRAN-SAISIE, « La question de vraisemblance ») ; lue ET écrite par l'app (`COLONNES_SET`, `lignes()`, toujours envoyée, `false` compris). Appliquée par Claude.ai avant la PR 185 |
+| `v2_117` (cran et dépassement, 186, 29/10/2026) | **`sets_type_serie_ok`** accepte un cinquième type, **`test`** (`travail` · `echauffement` · `degressive` · `echec` · `test`) : la « Série de test » du menu ⋯ de la série. Aucune colonne nouvelle ; `routine_sets.type_serie` ne change pas. |
 
 **Reste noté** : `pseudo_libre` ouverte à `anon` (voulu) ; 57 fonctions SECURITY DEFINER (l'API sociale) ; pas de FK
 `groupe_recaps.groupe_id` (abandonnée) ni `objectifs.pari_id` (à reprendre) ; « Leaked password protection » (tableau
@@ -515,7 +516,7 @@ collision, plutôt que de les renuméroter en place.
 | `reps` | integer | |
 | `duree_s` | integer | gainages, cardio, randos |
 | `distance_m` | numeric | randos |
-| `type_serie` | text NOT NULL | `travail` · `echauffement` · `degressive` · `echec` |
+| `type_serie` | text NOT NULL | `travail` · `echauffement` · `degressive` · `echec` · **`test`** (`v2_117`, 186 : la CHECK `sets_type_serie_ok` l'accepte ; une série de test est un max tenté, déclaré par la personne — un record possible, jamais une charge de travail) |
 | `validee_a` | timestamptz | **aucun défaut** — voir ci-dessus |
 | `rang` | integer NOT NULL | ordre d'affichage |
 | `groupe_superset` | integer | bloc |

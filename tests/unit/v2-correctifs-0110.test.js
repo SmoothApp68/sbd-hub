@@ -63,9 +63,13 @@ describe('49-U18 — le fichier de cas', () => {
     });
   });
 
+  // 186 (29/10/2026, décision d'Aurélien, MOTEUR §10.2) — LE CRAN D'UNE BARRE EST SON PAS, JAMAIS UNE CHARGE DÉJÀ NOTÉE : la reprise
+  // longue de B01 (couché décliné, barre) repart « un cran sous le dernier palier » — 65 − 2,5 = 62,5, et non plus le 60 d'une
+  // charge attestée plus bas. Le fichier de cas ne se retouche pas ; l'écart est nommé ici, à sa valeur exacte.
+  const BARRE_186 = { B01: { etat: 'reprise_longue', zone: ['mix', 6, 8], ligne: [62.5, 8], haut: null } };
   F.cas.forEach((c) => {
     test(c.id + ' — ' + c.titre, () => {
-      expect(forme(consigneDuCas(c))).toEqual(c.attendu);
+      expect(forme(consigneDuCas(c))).toEqual(BARRE_186[c.id] || c.attendu);
     });
   });
 
@@ -159,14 +163,17 @@ describe('49-U18 — la charge déjà utilisée plus lourde, 12 mois hors barre 
   // Le tirage visage du 01/10 : un 25 kg vieux de 17 mois, un 27 récent.
   const visage = [une(25, 520), une(22.5, 60), une(27, 40), une(24.8, 26), une(24.8, 12)];
 
-  test('poulie, machine, haltères : la charge de plus d’un an ne compte plus — 27, pas 25', () => {
-    ['poulie', 'machine', 'haltere'].forEach((eq) => {
+  test('poulie, machine : la charge de plus d’un an ne compte plus — 27, pas 25', () => {
+    ['poulie', 'machine'].forEach((eq) => {
       expect(M.chargeVoisine(visage, COUPURE, 24.8, eq, 1)).toBe(27);
     });
   });
 
-  test('à la barre, sans limite de date (les disques sont les mêmes partout)', () => {
-    expect(M.chargeVoisine(visage, COUPURE, 24.8, 'barre', 1)).toBe(25);
+  // 186 (MOTEUR §10.2) — INVERSÉ : une barre et des haltères ont un pas connu, leur cran est le pas du matériel, jamais une charge
+  // déjà notée (avant : la barre rendait 25, « sans limite de date » ; les haltères 27).
+  test('186 — à la barre et aux haltères, le pas du matériel : ni 25 ni 27, jamais une charge déjà notée', () => {
+    expect(M.chargeVoisine(visage, COUPURE, 24.8, 'barre', 1)).toBe(27.3);
+    expect(M.chargeVoisine(visage, COUPURE, 24.8, 'haltere', 1)).toBe(28.8);
   });
 
   test('vers le bas, sans limite de date (le repli a sa propre limite de 10 %)', () => {

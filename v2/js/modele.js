@@ -19,9 +19,9 @@
 
   var LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-  // Les quatre valeurs réellement présentes en base (28 103 lignes) :
-  // travail 26 132 · echauffement 1 458 · degressive 387 · echec 126.
-  var TYPES_CONNUS = ['travail', 'echauffement', 'degressive', 'echec'];
+  // Les quatre valeurs présentes en base à l'origine (28 103 lignes) :
+  // travail 26 132 · echauffement 1 458 · degressive 387 · echec 126 — et `test` depuis v2_117 (186).
+  var TYPES_CONNUS = ['travail', 'echauffement', 'degressive', 'echec', 'test'];
 
   // ⚠️ LA SÉRIE DE TRAVAIL : UNE DÉFINITION, ICI (PR 6 de la consolidation,
   // 02/10/2026). Le type d'une série, et `travail` quand il manque : c'est le
@@ -47,6 +47,7 @@
   // Le mot de l'étiquette d'une ligne : « à l'échec » (ambre) ou « manquée » ; `null` sinon.
   function motDEchec(serie) {
     if (estHorsCalcul(serie)) return 'hors calcul';   // 185 — la série « Non, ne compte pas » se dit, à part
+    if (estTest(serie)) return 'test';                // 186 — la série de test se dit aussi
     return estAEchec(serie) ? 'à l’échec' : (estManquee(serie) ? 'manquée' : null);
   }
   // ⚠️ 185 (v2_116, décision d'Aurélien du 29/10/2026) — « NON, NE COMPTE PAS » : UNE LECTURE, ICI. Une série `hors_calcul` reste
@@ -54,8 +55,13 @@
   // record, ni palier, ni niveau, ni cran voisin, ni pari, ni jeu — tout ce qui demande « est-ce du travail ? » passe par
   // `estTravail`, et le palier par `roleDuTag` (`palier.js`), qui lit la même marque. La personne l'a dit ; rien ne la déduit.
   function estHorsCalcul(serie) { return !!serie && serie.hors_calcul === true; }
+  // ⚠️ 186 (v2_117, décision d'Aurélien du 29/10/2026) — « SÉRIE DE TEST » : UNE LECTURE, ICI. Un max tenté, un single de test : la
+  // personne le dit (menu ⋯ de la série, type `test`), rien ne le déduit. C'est UNE SÉRIE DE TRAVAIL pour tout ce qui compte ce qui
+  // a été fait (records, maximum estimé, volume, jeu : `estTravail` reste vrai, « comme aujourd'hui »), mais elle ne décide JAMAIS
+  // de la charge de travail : ni palier, ni habitude, ni cran voisin (`palier.js`, rôle `hors_palier`).
+  function estTest(serie) { return !!serie && !estHorsCalcul(serie) && typeDe(serie) === 'test'; }
   function estTravail(serie) {
-    return !!serie && !estHorsCalcul(serie) && (typeDe(serie) === 'travail' || estAEchec(serie));
+    return !!serie && !estHorsCalcul(serie) && (typeDe(serie) === 'travail' || typeDe(serie) === 'test' || estAEchec(serie));
   }
   // Le type TEL QU'ON LE LIT : `travail` pour une série à l'échec (1 rep et +), le type de la base sinon. Le plan
   // (`plan.js`) l'écrit sur chacune de ses lignes : aucun invariant ne compare `type_serie` à `'echec'`.
@@ -2739,6 +2745,7 @@
     formatChrono: formatChrono,
     formatPrecedent: formatPrecedent,
     estTravail: estTravail,
+    estTest: estTest,
     estHorsCalcul: estHorsCalcul,
     estAEchec: estAEchec,
     estManquee: estManquee,

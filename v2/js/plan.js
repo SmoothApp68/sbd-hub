@@ -1982,6 +1982,17 @@
       }
       sortie[slug] = m;
     });
+    // 186 — TROIS SÉANCES AU-DESSUS DU HAUT : la zone suivante est proposée là où l'escalier ordinaire n'a rien à dire (aucune
+    // marche, ou le silence), jamais au plafond de la salle, au gros cran, ni sous 3 reps (la carte de bord est la sienne).
+    Object.keys(consignes).forEach(function (slug) {
+      var c = consignes[slug];
+      if (pris[slug] || !c || !c.consigne || !c.depassement || c.bord || auPlafond(c)) return;
+      if (c.consigne.fondement && c.consigne.fondement.cranGros && c.consigne.fondement.cranGros.carte === true) return;
+      var deja = sortie[slug];
+      if (deja && deja.marche !== M.MARCHE_SILENCE) return;
+      var mDep = marcheDuDepassement(seance, slug, c, jour, marches, enBloc, esc);
+      if (mDep) sortie[slug] = mDep;
+    });
     return sortie;
   }
 
@@ -2006,6 +2017,33 @@
       return m;
     }
     var cap = Voix().capturer(function () { return M.carteBordSchema(b); });
+    if (!cap.texte) return null;
+    m.carte = cap.texte;
+    retenirCitationsDeCarte(m.carte, cap.citations);
+    return m;
+  }
+
+  // 186 (MOTEUR §9.1.2) — « PASSER EN SÉRIES LONGUES » : `c.depassement` (figé avec la consigne) dit trois séances de suite au-dessus
+  // du haut de la zone, à la même charge. La marche est celle du schéma : la même carte, la même réponse (`poserZone`). Un refus
+  // (« Garder Volume ») est un pari écrit ; la carte se tait six séances après lui. Un bloc de programme en cours se tait (I39) ;
+  // une semaine allégée aussi (I21).
+  function marcheDuDepassement(seance, slug, c, jour, marches, enBloc, esc) {
+    var M = Moteur();
+    var d = c.depassement;
+    if (!d || enBloc[slug] || (c.consigne && c.consigne.allegee)) return null;
+    var ici = marches.filter(function (x) {
+      return x && x.exercice === slug && x.marche === M.MARCHE_SCHEMA && x.seance === seance.id;
+    })[0];
+    var refus = marches.filter(function (x) {
+      return x && x.exercice === slug && x.marche === M.MARCHE_SCHEMA && x.reponse === 'refusee' && !!x.jour && x.seance !== seance.id;
+    }).sort(function (a, b) { return a.jour < b.jour ? 1 : a.jour > b.jour ? -1 : 0; })[0];
+    var m = { marche: M.MARCHE_SCHEMA, n: 1, compteur: d.n, declenchement: true, zone: c.consigne ? c.consigne.zone : null, depassement: d };
+    if (ici) { m.reponse = ici.reponse; return m; }
+    if (refus) {
+      var apres = (d.jours || []).filter(function (j) { return !!j && j > refus.jour; }).length;
+      if (apres < M.DEPASSEMENT_SILENCE) return null;
+    }
+    var cap = Voix().capturer(function () { return M.carteDepassement(d); });
     if (!cap.texte) return null;
     m.carte = cap.texte;
     retenirCitationsDeCarte(m.carte, cap.citations);
@@ -3985,6 +4023,7 @@
       if (!g) seanceParCharge.push(g = { charge: c, reps: [] });
       g.reps.push(sr.reps);
     });
+    if (f.depasse !== undefined && f.depasse !== null) fait.depasse = { valeur: f.depasse };
     if (f.palierPrecedent !== undefined && f.palierPrecedent !== null) fait.reste = { charge: f.palierPrecedent };
     if (f.serieAFond) fait.a_fond = { charge: f.serieAFond.charge, reps: [f.serieAFond.reps] };
     // 154 (§9.26) — l'effort visé : la série (charge × reps), la réserve notée, la visée, la charge gardée ou du test.
@@ -4010,6 +4049,12 @@
     if (eb) {
       fait['bord.record'] = { charge: eb.charge, reps: [eb.reps] };
       fait['bord.long'] = { valeur: eb.total };
+    }
+    if (f.horsPalier) fait.hors_palier = { charge: f.horsPalier.charge, reps: [f.horsPalier.reps] };
+    var ed = x.escalier && x.escalier.depassement;
+    if (ed) {
+      fait.depassement = { charge: ed.charge, reps: [ed.niveau] };
+      fait['depassement.n'] = { valeur: ed.n };
     }
     var meilleur = x.compteur && x.compteur.meilleur;
     if (meilleur) fait.meilleur = { charge: meilleur.palier, reps: [meilleur.niveau] };
@@ -4329,6 +4374,7 @@
     verifierBord(plan, erreurs);
     verifierLeviers(plan, erreurs);
     verifierHorsCalcul(plan, entrees, erreurs);
+    verifierDepassement(plan, erreurs);
     verifierDessous(plan, erreurs);
     verifierGrosCran(plan, erreurs);
     verifierAlleger(plan, erreurs);
@@ -4618,6 +4664,52 @@
           }));
         })) erreurs.push(nom + 'sa charge est comptée parmi les séries faites');
       });
+    });
+  }
+
+  // I71 (MOTEUR §9.1.2 / §9.7 / §10.2, 186) — LE CRAN, LE DÉPASSEMENT, LA ZONE :
+  //   · aucune consigne n'a pour cran (ligne ou haut) la charge d'une série hors palier de la dernière séance (un single n'est jamais
+  //     un pas du matériel) ;
+  //   · un saut de plusieurs crans (`fondement.crans` > 1) ne dépasse jamais +15 % de la charge de travail (+10 % pour un débutant,
+  //     `fondement.plafond`), ni trois crans ;
+  //   · la zone ne change que par un choix : la carte « Passer en <zone suivante> » ne vient qu'après trois séances au-dessus du
+  //     haut, vers la zone d'à côté, jamais d'une zone de force, jamais seule (elle se pose à l'acceptation, `poserZone`).
+  function verifierDepassement(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.consigne;
+      var nom = 'I71 — exercice ' + i + ' (' + (x && x.slug) + ') : ';
+      if (k && k.fondement) {
+        var f = k.fondement;
+        var hp = f.horsPalier ? nombre(f.horsPalier.charge) : null;
+        var cL = k.ligne ? nombre(k.ligne.charge) : null;
+        var cH = k.haut ? nombre(k.haut.charge) : null;
+        if (hp !== null && ((cL !== null && cL === hp) || (cH !== null && cH === hp))) {
+          erreurs.push(nom + 'la charge hors palier ' + hp + ' kg sert de cran à la consigne');
+        }
+        if (f.crans > 1 && cL !== null && cH !== null && cL > 0) {
+          var plafond = nombre(f.plafond) !== null ? nombre(f.plafond) : 0.15;
+          if (f.crans > 3) erreurs.push(nom + 'un saut de ' + f.crans + ' crans, trois au plus');
+          if (plafond > 0.15 + 1e-9) erreurs.push(nom + 'un plafond de saut de ' + plafond + ', quinze pour cent au plus');
+          if ((cH - cL) / cL > plafond + 1e-6) {
+            erreurs.push(nom + 'un saut de ' + f.crans + ' crans de ' + cL + ' à ' + cH + ' kg dépasse ' + Math.round(plafond * 100) + ' %');
+          }
+        }
+      }
+      var m = x && x.escalier;
+      if (m && m.depassement) {
+        var d = m.depassement;
+        var ordre = M.ZONES.map(function (z) { return z.cle; });
+        if (!(d.n >= 3)) erreurs.push(nom + 'la zone suivante proposée après ' + d.n + ' séance(s) au-dessus du haut, sous 3');
+        if (ordre.indexOf(d.zone) < 0 || ordre.indexOf(d.vers) !== ordre.indexOf(d.zone) + 1) {
+          erreurs.push(nom + 'la zone proposée (' + d.vers + ') n\'est pas la zone suivante de ' + d.zone);
+        }
+        if (M.estZoneForce(d.zone)) erreurs.push(nom + 'la zone suivante proposée à un exercice en zone de force (' + d.zone + ')');
+        if (m.marche !== M.MARCHE_SCHEMA) erreurs.push(nom + 'la marche est « ' + m.marche + ' », pas le schéma');
+        if (m.carte && m.carte.nouvelle_zone !== d.vers) erreurs.push(nom + 'la carte propose « ' + m.carte.nouvelle_zone + ' », le compte dit « ' + d.vers + ' »');
+        if (plan.allegee) erreurs.push(nom + 'la zone suivante proposée pendant une semaine allégée');
+        if (k && k.zone !== d.zone) erreurs.push(nom + 'la carte part de la zone ' + d.zone + ', la consigne est en ' + k.zone);
+      }
     });
   }
 

@@ -57,6 +57,20 @@
     try { return calcul(); } finally { prudent = avant; }
   }
 
+  // 180 (C-F5, 28/10/2026, décision d'Aurélien D3) — LE DÉBUTANT (`profiles.anciennete = moins_1_an`), un drapeau du module comme
+  // `prudent`, pour la même raison : la garde par réserve (R < V) est lue sur des chemins que la consigne traverse en profondeur
+  // (le rejeu du compteur, la consigne de chaque séance passée). L'app le donne une fois (`options.debutant`) à
+  // `consigneDExercice`, `suiteDExercice` et `compteurDe` ; une option absente laisse le drapeau tel qu'il est. Un débutant
+  // sous-estime sa réserve (son « 0 » vaut souvent 3-4, Steele 2017) : sa réserve HAUTE reste un signal sûr (le test), sa
+  // réserve BASSE n'arrête pas la montée.
+  var debutantEnCours = false;
+  function avecDebutant(options, calcul) {
+    if (!options || typeof options.debutant !== 'boolean') return calcul();
+    var avant = debutantEnCours;
+    debutantEnCours = options.debutant;
+    try { return calcul(); } finally { debutantEnCours = avant; }
+  }
+
   // §9.1.2 — 8 séances avant de conclure. Mesuré (banc M12) : sur tout
   // l'historique, 7 des 23 exercices actifs d'Aurélien étaient mal rangés par
   // une fenêtre plus longue. La science pondère le récent (Williams 2017) et
@@ -592,8 +606,21 @@
 
     return {
       couple: couple,
-      duCouple: lus.filter(function (x) { return x.format === couple; })
+      duCouple: lus.filter(function (x) { return x.format === couple; }),
+      // 180 — toutes les séances lues, tous formats : la fenêtre de repli de `habitudeBordee` (une séance seule ne ferme pas la zone).
+      toutes: lus
     };
+  }
+
+  // 180 (A-F-01 b, 28/10/2026, décision d'Aurélien, MOTEUR §9.1.2) — LA RÈGLE DE BORD NE S'OUVRE PAS SUR UNE SEULE SÉANCE.
+  // « Sous 3 reps d'habitude » est une habitude : quand le couple ne compte qu'UNE séance (trois formats différents, la
+  // plus récente l'emporte) et qu'elle est sous 3 reps, l'habitude se lit sur la fenêtre entière des 8 dernières séances,
+  // tous formats. Deux séances ou plus au même format sous 3 reps, ou une histoire qui n'a que cette séance : inchangé.
+  function habitudeBordee(lecture, fondantes, habitude) {
+    if (habitude === null || habitude >= 3 || !lecture || fondantes.length >= 2) return habitude;
+    if (!lecture.toutes || lecture.toutes.length < 2) return habitude;
+    var large = habitudeSur(lecture.toutes);
+    return large === null ? habitude : large;
   }
 
   // La médiane des reps au palier sur les 8 dernières séances DÉJÀ RÉDUITES au
@@ -610,7 +637,7 @@
 
   function habitudeDe(seances, avant) {
     var lecture = lectureDuCouple(seances, avant);
-    return lecture === null ? null : habitudeSur(lecture.duCouple);
+    return lecture === null ? null : habitudeBordee(lecture, lecture.duCouple, habitudeSur(lecture.duCouple));
   }
 
   // ── §10.2 — LE REPLI DU MATÉRIEL ─────────────────────────────────────────
@@ -1438,6 +1465,7 @@
   function consignePour(seances, avant, options) {
     var opt = options || {};
     var reglage = opt.reglage || 'normal';
+    var debutant = debutantEnCours || opt.debutant === true;
     var equipement = opt.equipement;
     var correction = opt.correction;
     // §9.17 — la réponse à la carte du lest (`oui`, `non`), ou `null` : pas
@@ -1521,8 +1549,8 @@
     // fichier les sépare.
     var fondantes = rates.length
       ? duCouple.slice(0, rates[rates.length - 1].rang + 1) : duCouple;
-    var habitude = habitudeSur(fondantes);
-    var habitudeVraie = habitudeSur(duCouple);
+    var habitude = habitudeBordee(lecture, fondantes, habitudeSur(fondantes));
+    var habitudeVraie = habitudeBordee(lecture, duCouple, habitudeSur(duCouple));
     // Le PREMIER test raté de l'épisode — `rates` va du plus récent au plus
     // ancien, donc c'est le dernier. C'est sa zone qui reste figée (§9.7).
     var figee = rates.length ? rates[rates.length - 1] : null;
@@ -1891,7 +1919,7 @@
       if (derniere !== null && A.length && A[A.length - 1] === derniere && effortViseEligible(P)) {
         var Rb = Palier().reserveDeSerie(derniere);
         var Vb = reserveVisee({ zone: 'lourd', role: 'ligne', reglage: reglage });
-        if (Rb !== null && Vb !== null && Rb < Vb && !precedenteAuHautSansMarge(precedente, P, vise, Vb)) {
+        if (Rb !== null && Vb !== null && Rb < Vb && !debutant && !precedenteAuHautSansMarge(precedente, P, vise, Vb)) {
           return fin('bord_garde', ligneDe(P, vise), { bord: { charge: P, reps: nombre(derniere.reps), reserve: Rb } });
         }
       }
@@ -2085,7 +2113,7 @@
       if (Rn !== null && Vn !== null && repsN !== null && repsN >= lo) {
         if (Rn >= Vn + RESERVE_ECART) {
           effortVise = { effet: 'test', charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, visee: Vn };
-        } else if (Rn < Vn) {
+        } else if (Rn < Vn && !debutant) {
           // 169 — LA SORTIE : la garde ne dure qu'une séance au haut de la zone. Si la séance d'avant, à la même charge,
           // finissait déjà au haut avec R < V, la garde a déjà eu lieu : le coach pose le test, quelle que soit la réserve.
           var deja = repsN >= hi && precedenteAuHautSansMarge(precedente, P, hi, Vn);
@@ -4171,6 +4199,11 @@
 
       // §9.21 (52-1) — la charge de départ de la routine, la première fois.
       case 'depart_routine':
+        // 180 (A-F-09) — au poids du corps, les reps de la routine : « Première fois ici : on part des reps de ta routine, 12. »
+        if (f.departRoutine && nombre(f.departRoutine.reps) !== null) {
+          return 'Première fois ici' + DEUX_POINTS + chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })) +
+                 ', les reps de ta routine.';
+        }
         return 'Première fois ici' + DEUX_POINTS + 'on part de ta charge de départ, ' +
                enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + '.';
 
@@ -4593,6 +4626,10 @@
                ', au bas de ta zone.';
 
       case 'depart_routine':
+        if (f.departRoutine && nombre(f.departRoutine.reps) !== null) {
+          return 'Rien avant aujourd\'hui' + DEUX_POINTS + 'on part des reps de ta routine, ' +
+                 chargeFois(c.ligne.charge, c.ligne.vise, cL) + '. Ensuite, je décide d\'après tes séances.';
+        }
         return 'Rien avant aujourd\'hui' + DEUX_POINTS + 'on part de la charge de départ de ta routine, ' +
                enKg(c.ligne.charge, cL) + '. Ensuite, je décide d\'après tes séances.';
 
@@ -5319,7 +5356,29 @@
         faites.push(se);
         return;
       }
-      if (nombre(se.palier) === null) {
+      // 180 (A-F-01, 28/10/2026, décision d'Aurélien, MOTEUR §7.5) — UNE EXPLORATION RATÉE N'EST JAMAIS LE PALIER. Une
+      // séance dont la SEULE série à la charge du palier reste sous le bas de la zone, alors qu'une série plus légère
+      // l'a tenu, n'a pas de palier : elle suit le §7.6 (la plus lourde charge tenue dans la zone) et la série plus
+      // lourde devient l'exploration, c'est-à-dire le test (7,5 kg × 1 après 5 kg × 17 : le palier reste 5 kg).
+      var exploRatee = false;
+      if (nombre(se.palier) !== null) {
+        var auPalier = parRole(se.series, { palier: true });
+        if (auPalier.length === 1 && parRole(se.series, { travail: true }).length > 0) {
+          var zEssai = zoneParCle((consignePour(faites, se.debut, opts) || {}).zone);
+          var rPalier = compter(auPalier[0]);
+          if (zEssai !== null && rPalier !== null && rPalier < zEssai.bas) {
+            // Tentée PUIS ABANDONNÉE : la plus légère tenue vient APRÈS la tentative. Une pyramide qui finit à sa plus
+            // lourde (24, 24, 28 × 8) est une montée, pas une exploration ratée.
+            var iPalier = se.series.indexOf(auPalier[0]);
+            exploRatee = se.series.some(function (s, q) {
+              var r = compter(s);
+              return q > iPalier && estRole(s, { travail: true }) && nombre(s.charge_kg) < nombre(se.palier) &&
+                r !== null && r >= zEssai.bas;
+            });
+          }
+        }
+      }
+      if (nombre(se.palier) === null || exploRatee) {
         var avant = consignePour(faites, se.debut, opts);
         var z = zoneParCle(avant && avant.zone);
         var C = null;
@@ -5340,10 +5399,13 @@
         se = {
           debut: se.debut, palier: C,
           series: (se.series || []).map(function (s) {
-            if (!estRole(s, { travail: true }) || nombre(s.charge_kg) !== C) return s;
+            var devient = null;
+            if (estRole(s, { travail: true }) && nombre(s.charge_kg) === C) devient = 'palier';
+            else if (exploRatee && estRole(s, { palier: true })) devient = 'exploration';
+            if (devient === null) return s;
             var copie = {};
             for (var k in s) if (Object.prototype.hasOwnProperty.call(s, k)) copie[k] = s[k];
-            copie.role = 'palier';
+            copie.role = devient;
             return copie;
           })
         };
@@ -5477,6 +5539,9 @@
   }
 
   function compteurDe(seances, avant, options) {
+    return avecDebutant(options, function () { return compteurDeCalcul(seances, avant, options); });
+  }
+  function compteurDeCalcul(seances, avant, options) {
     var o = options || {};
     var liste = anterieures(seances || [], avant);
     var meilleur = null, meilleurTest = null, compteur = 0, derniere = null;
@@ -5505,7 +5570,12 @@
       // §14.4 (49-U14) — une séance d'une SEMAINE ALLÉGÉE acceptée (`decharge`)
       // n'est ni comptée ni jugée, comme une séance neutre ; elle reste une
       // présence pour la reprise (§9.9) : aucune coupure.
-      if (se.neutre === true || se.decharge === true || !k || k.etat === 'silence' || k.zone === null || k.zone === undefined || P === null) {
+      // 180 (A-F-02, D4, 28/10/2026) — LE POIDS DU CORPS SANS ZONE COMPTE : `etirement_reps` (les reps continuent, une de plus que la
+      // dernière fois) n'a pas de zone, et le compteur ne le comptait jamais — une personne qui rate sa cible en reps à chaque
+      // séance n'avait aucune sortie (30 séances sur 30, compteur 0). Un progrès en reps (le niveau monte) le remet à zéro.
+      var sansZoneMaisCompte = !!k && k.etat === 'etirement_reps' && nombre(k.palier) === 0;
+      if (se.neutre === true || se.decharge === true || !k || k.etat === 'silence' ||
+          ((k.zone === null || k.zone === undefined) && !sansZoneMaisCompte) || P === null) {
         if (!premiere && k && repriseDe(liste.slice(0, i), se.debut) !== AUCUNE_REPRISE) repriseEnAttente = true;
         return;
       }
@@ -6375,6 +6445,9 @@
   // 174 (MOTEUR §14.5, §14.7) — LA 4e MARCHE : ALLÉGER au lieu de se taire. Là où l'escalier n'avait plus rien à dire (la
   // série de plus et la dégressive ont eu leur tour), le coach propose une fois d'alléger l'exercice, jusqu'au prochain progrès.
   var MARCHE_ALLEGER = 'alleger';
+  // 180 (A-F-02, D4, 28/10/2026) — LA MARCHE D'EN DESSOUS, au poids du corps : 4 séances sans progrès en reps, la carte propose la marche
+  // du rang juste en dessous de l'échelle de l'exercice (négatives, assistance). Elle s'ajoute avant, comme toute marche d'échelle.
+  var MARCHE_DESSOUS = 'dessous';
   // 175 (MOTEUR §10 bis, décision du 26/10/2026) — LES LEVIERS DU PLAFOND : à la plus lourde de la salle, UNE carte qui
   // propose tout ce qui permet de continuer à monter (un frère plus chargeable, le tempo lent, plus de reps, une charge de
   // plus dans Ma salle) — la première marche de l'escalier du plafond. Le pari d'une réponse porte `levier`.
@@ -6608,7 +6681,7 @@
         (l.fondement.marche === MARCHE_SCHEMA || l.fondement.marche === MARCHE_REPLI ||
          l.fondement.marche === MARCHE_SERIE_DE_PLUS || l.fondement.marche === MARCHE_DEGRESSIVE ||
          l.fondement.marche === MARCHE_REMPLACEMENT || l.fondement.marche === MARCHE_ALLEGER ||
-         l.fondement.marche === MARCHE_LEVIERS);
+         l.fondement.marche === MARCHE_LEVIERS || l.fondement.marche === MARCHE_DESSOUS);
     }).map(function (l) {
       var f = l.fondement;
       var m = { id: l.id || null, seance: f.seance || null, jour: f.jour || null,
@@ -6996,6 +7069,25 @@
       detail: DETAIL_BORD_SCHEMA, oui: 'Passer à 3-5 reps',
       non: r === 1 ? 'Garder les simples' : r === 2 ? 'Garder les doubles' : 'Garder ' + Modele().nombre(r) + ' reps'
     };
+  }
+
+  // 180 (A-F-02, D4) — LA CARTE DE LA MARCHE D'EN DESSOUS : un fait (« Poids du corps × 1 depuis 4 séances »), la marche du rang
+  // juste en dessous de l'échelle, « Ajouter <nom> » / « Pas maintenant ». Elle s'ajoute avant l'exercice comme la carte « marche
+  // suivante » (2 séries, autant de reps que possible) ; l'exercice reste. Descriptive, jamais un verdict.
+  function carteDessous(meilleur, compteur, nom) {
+    if (!meilleur || meilleur.niveau === null || meilleur.niveau === undefined || !nom) return null;
+    return {
+      type: MARCHE_DESSOUS, nom: nom,
+      phrase: Modele().charge(meilleur.palier, undefined, cite(FAIT, { quoi: 'meilleur' })) + ' × ' +
+        nombreFr(meilleur.niveau, cite(FAIT, { quoi: 'meilleur', champ: 'reps' })) +
+        ' depuis ' + nombreFr(compteur, regle('compteur')) + ' séances.',
+      oui: ouiMarche(nom), non: NON_MARCHE
+    };
+  }
+  // Le détail s'écrit hors de la capture de la phrase (comme `detailAlleger`) : il n'est pas une phrase vérifiée par I26.
+  function detailDessous(nom) {
+    return 'La marche d\'en dessous : ' + nom + '. Je te propose d\'en faire ' + nombreFr(SERIES_MARCHE, regle('constante')) +
+      ' séries avant, autant de reps que tu peux. Ton exercice reste.';
   }
 
   // La marche proposée (acceptée ou refusée) depuis le dernier progrès, ou l'acceptée en cours.
@@ -7666,9 +7758,28 @@
     };
   }
 
+  // 180 (A-F-09, 28/10/2026, décision d'Aurélien D4) — LA PREMIÈRE FOIS AU POIDS DU CORPS PART DES REPS DE LA ROUTINE : « 12 reps ».
+  // Un exercice en `reps` n'a pas de charge de départ, mais sa routine porte les reps visées ; le §10.4 (163) veut toujours un chiffre.
+  // La ligne est celle d'un corps (charge 0) ; la phrase le dit (« Première fois ici : on part des reps de ta routine, 12. »).
+  function consigneDepartReps(depart) {
+    var vise = nombre(depart && depart.reps);
+    if (vise === null || vise < 1) return null;
+    var cDepart = nombre(depart.charge);
+    if (cDepart !== null && cDepart > 0) return null;   // une charge posée n'est pas du poids du corps
+    var n = nombre(depart.n);
+    return {
+      etat: 'depart_routine', zone: null, palier: null, niveau: null,
+      n: n !== null && n >= 1 ? n : 1,
+      ligne: { charge: 0, vise: vise }, haut: null,
+      fondement: { departRoutine: { charge: 0, reps: vise } }
+    };
+  }
+
   function departDeRoutine(consigne, o) {
     if (!consigne || consigne.etat !== 'silence' || consigne.raison !== 'premiere_fois') return null;
-    if (o.mesure !== 'charge_reps' || !o.depart) return null;
+    if (!o.depart) return null;
+    if (o.mesure === 'reps') return consigneDepartReps(o.depart);
+    if (o.mesure !== 'charge_reps') return null;
     return consigneDepartRoutine(o.depart);
   }
 
@@ -8001,6 +8112,33 @@
         r.fondement = fondementPrudent();
       }
     }
+    // 180 (A-F-07, 28/10/2026, décision d'Aurélien, MOTEUR §9.7 bis) — UN SEUL PLANCHER, CELUI DE LA ZONE EN VIGUEUR : celle que la
+    // consigne affiche (`r.zone`, la zone des reps faites). Quand le calcul prudent fournit l'état (`etatPrudent`), son fondement
+    // a pu être calculé dans une autre zone (Volume au lieu d'Hypertrophie : une rep de moins change l'habitude) ; le plancher
+    // du gros cran se relit alors sur `r.zone`. Et la borne « pas de rep de plus à fond » (3.) ne descend jamais un test de gros
+    // cran sous son plancher : 64 kg × 3 à fond, plancher 4, le test vise 4 — un test visé sous le plancher ne se valide jamais.
+    var gc = r.fondement && r.fondement.cranGros;
+    var zr = gc ? zoneParCle(r.zone) : null;
+    if (gc && zr) {
+      var plancherZ = plancherDuGros(zr, gc.isolation === true);
+      if (plancherZ !== null && plancherZ !== gc.plancher) {
+        var vieux = gc.plancher;
+        r.fondement = Object.assign({}, r.fondement, { cranGros: Object.assign({}, gc, { plancher: plancherZ }) });
+        if (r.haut && nombre(r.haut.vise) === vieux) r.haut = Object.assign({}, r.haut, { vise: plancherZ });
+      }
+      var plancherF = r.fondement.cranGros.plancher;
+      if (r.haut && r.etat === 'test_propose' && nombre(r.haut.vise) !== null && nombre(plancherF) !== null &&
+          r.haut.vise < plancherF) {
+        r.haut = Object.assign({}, r.haut, { vise: plancherF });
+      }
+    }
+    // 180 — UN FONDEMENT QUI DIT « APPROCHÉE » ne la dit que si une ligne marquée la porte (I61) : le test plafonné à la charge faite
+    // (2.) vient du calcul prudent, dont le fondement parlait d'un cran au-dessus qui n'est plus proposé.
+    if (r.fondement && r.fondement.approchee === true && !(r.ligne && r.ligne.approchee === true) && !(r.haut && r.haut.approchee === true)) {
+      var sansApprochee = {};
+      Object.keys(r.fondement).forEach(function (k) { if (k !== 'approchee') sansApprochee[k] = r.fondement[k]; });
+      r.fondement = sansApprochee;
+    }
     r.niveau = faite.niveau;
     r.palier = faite.palier;
     return r;
@@ -8048,6 +8186,9 @@
   // Les silences DU moteur (première fois, pas de palier) sont autre chose :
   // une consigne à l'état `silence`, avec sa seule phrase grise.
   function consigneDExercice(groupes, etat, avant, options) {
+    return avecDebutant(options, function () { return consigneDExerciceCalcul(groupes, etat, avant, options); });
+  }
+  function consigneDExerciceCalcul(groupes, etat, avant, options) {
     var o = options || {};
     if (o.edition) return null;
     if ((o.intention || 'progresser') === 'entretien') return null;
@@ -8288,6 +8429,9 @@
   // il n'a pas l'historique. Le VERDICT, lui, se lit sur le plan
   // (`constatDuJour`) — une seconde règle ne le recalcule plus.
   function suiteDExercice(groupes, groupeDuJour, etat, apres, options) {
+    return avecDebutant(options, function () { return suiteDExerciceCalcul(groupes, groupeDuJour, etat, apres, options); });
+  }
+  function suiteDExerciceCalcul(groupes, groupeDuJour, etat, apres, options) {
     var o = options || {};
     var tous = (groupes || []).concat([groupeDuJour]);
     var cApres = consigneDExercice(tous, etat, apres, o);
@@ -8793,6 +8937,9 @@
     MARCHE_REMPLACEMENT: MARCHE_REMPLACEMENT,
     // 175 — les leviers du plafond.
     MARCHE_LEVIERS: MARCHE_LEVIERS,
+    MARCHE_DESSOUS: MARCHE_DESSOUS,
+    carteDessous: carteDessous,
+    detailDessous: detailDessous,
     LEVIER_REMPLACEMENT: LEVIER_REMPLACEMENT,
     LEVIER_TEMPO: LEVIER_TEMPO,
     LEVIER_REPS: LEVIER_REPS,

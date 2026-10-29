@@ -302,6 +302,15 @@
       for (var i = 0; i < travail.length; i++) {
         if (nombre(travail[i].charge_kg) === palierProvisoire) { indexPalier = i; break; }
       }
+    } else {
+      // 180 (A-F-01, 28/10/2026, décision d'Aurélien) — SANS CHARGE RÉPÉTÉE, LA FRONTIÈRE EST LA PREMIÈRE SÉRIE DE TRAVAIL
+      // PROBABLE (plus de 75 % de la plus lourde). Elle valait « toutes les séries » : une série légère APRÈS la
+      // plus lourde (5 kg × 17 après 7,5 kg × 1) était lue comme une chauffe, et la seule série qui restait, une
+      // exploration ratée, devenait le palier (MOTEUR §7.5 : « elle ne change jamais le palier du jour »). Une
+      // montée de chauffe (20, 60, 100, 140, 180) reste une chauffe : elle précède la première série lourde.
+      for (var j = 0; j < travail.length; j++) {
+        if (nombre(travail[j].charge_kg) > SEUIL_CHAUFFE_PROBABLE * plusLourde) { indexPalier = j; break; }
+      }
     }
 
     // §4.1 — chauffe probable : <= 75 % de la plus lourde ET AVANT la première
@@ -373,7 +382,17 @@
             if (repsRef === null || r > repsRef) repsRef = r;
           });
         }
-        if (repsRef !== null && nombre(avant.reps) >= repsRef) {
+        // 180 (A-F-01, 28/10/2026) — UNE DESCENTE NE SE DÉDUIT QUE D'UN PALIER RÉEL : une charge tenue sur au moins deux séries
+        // d'avant la dernière. Sans cela, 4 kg × 9, 6 kg × 1, 4 kg × 5 faisait de la tentative à 6 kg × 1 le « palier » (le
+        // plus lourd gagne à deux voix) et de la reprise à 4 kg une « descente choisie » : un palier à 1 rep, qui nourrissait
+        // la règle de bord. Ici la charge répétée (4 kg) reste le palier, la tentative une exploration.
+        var repetee = false;
+        if (palierRef !== null) {
+          var nbRef = 0;
+          sansDerniere.forEach(function (s) { if (nombre(s.charge_kg) === palierRef) nbRef++; });
+          repetee = nbRef >= 2;
+        }
+        if (repetee && repsRef !== null && nombre(avant.reps) >= repsRef) {
           roles.set(derniere, 'descente_choisie');
           retenues = sansDerniere;
         }

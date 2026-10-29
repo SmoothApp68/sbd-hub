@@ -1868,6 +1868,10 @@
         if (mBord) sortie[slug] = mBord;
         return;
       }
+      // 180 (A-F-02, D4, 28/10/2026) — AU POIDS DU CORPS, LA MARCHE D'EN DESSOUS : quatre séances sans progrès en reps, la carte de la
+      // marche du rang juste en dessous de l'échelle de l'exercice. Là où l'escalier de la charge n'a rien à proposer (ni cran, ni repli).
+      var mDessous = marcheDuDessous(e, seance, slug, c, jour, marches, compteurs);
+      if (mDessous) { sortie[slug] = mDessous; return; }
       // §10 bis (113, 16/10/2026) — AU PLAFOND DE SA SALLE : l'escalier du plafond (la série de plus, la dégressive,
       // un frère plus chargeable, puis le maintien) ; jamais le schéma ni le repli — c'est la salle qui bloque.
       if (auPlafond(c)) {
@@ -1996,6 +2000,36 @@
     var cap = Voix().capturer(function () { return M.carteBordSchema(b); });
     if (!cap.texte) return null;
     m.carte = cap.texte;
+    retenirCitationsDeCarte(m.carte, cap.citations);
+    return m;
+  }
+
+  // 180 (A-F-02, D4) — LA MARCHE D'EN DESSOUS, au poids du corps. Le moteur a compté (`etirement_reps` compte, le compteur monte quand
+  // le niveau en reps ne monte pas) ; le plan décide : la consigne est un corps qui continue en reps (`etirement_reps`, palier 0), le
+  // compteur est à un déclenchement (4, 8, …), l'app a lu au catalogue une marche du rang juste en dessous (`escalier.dessous[slug]`).
+  // Une marche proposée ne revient pas avant le prochain progrès (`marcheProposee`) ; même réponse que les autres marches (un pari).
+  function marcheDuDessous(e, seance, slug, c, jour, marches, compteurs) {
+    var M = Moteur();
+    var k = c.consigne;
+    var E = e.escalier;
+    if (!k || k.etat !== 'etirement_reps' || Number(k.palier) !== 0 || !c.compteur || !c.compteur.meilleur) return null;
+    var d = E && E.dessous && Object.prototype.hasOwnProperty.call(E.dessous, slug) ? E.dessous[slug] : null;
+    if (!d || !d.slug || !d.nom) return null;
+    var cpt = c.compteur.compteur;
+    if (typeof cpt !== 'number' || cpt < M.PAS_ESCALIER) return null;
+    var deja = marches.filter(function (x) {
+      return x && x.seance === seance.id && x.exercice === slug && x.marche === M.MARCHE_DESSOUS;
+    })[0] || M.marcheProposee(slug, jour, cpt, marches, compteurs || [], M.MARCHE_DESSOUS);
+    var declenche = M.estDeclenchement(cpt);
+    if (!deja && !declenche) return null;
+    var m = { marche: M.MARCHE_DESSOUS, n: 1, compteur: cpt, declenchement: declenche, zone: null,
+              dessous: { slug: d.slug, nom: d.nom } };
+    if (deja) { m.reponse = deja.reponse; return m; }
+    var cap = Voix().capturer(function () { return M.carteDessous(c.compteur.meilleur, cpt, d.nom); });
+    if (!cap.texte) return null;
+    m.carte = cap.texte;
+    m.carte.cible = d.slug;
+    m.carte.detail = M.detailDessous(d.nom);
     retenirCitationsDeCarte(m.carte, cap.citations);
     return m;
   }
@@ -4286,6 +4320,7 @@
     verifierEffortVise(plan, entrees, erreurs);
     verifierBord(plan, erreurs);
     verifierLeviers(plan, erreurs);
+    verifierDessous(plan, erreurs);
     verifierGrosCran(plan, erreurs);
     verifierAlleger(plan, erreurs);
     verifierApprochee(plan, erreurs);
@@ -4599,6 +4634,25 @@
       if (/réserve|échec/i.test(String(carte.phrase) + ' ' + (carte.leviers || []).map(function (lv) { return lv && lv.texte; }).join(' '))) {
         erreurs.push(nom + 'la carte parle de réserve ou d’échec : jamais un motif');
       }
+    });
+  }
+
+  // I70 (MOTEUR §14.10, 180, D4) — LA MARCHE D'EN DESSOUS : proposée seulement à un exercice au poids du corps (palier 0, états
+  // `etirement_reps`), à un compteur multiple du pas (4, 8, …) ou déjà répondue ; jamais une marche de plus à l'exercice (I21 la
+  // tient) ; sa carte nomme l'exercice du dessous et le cible ; la phrase ne parle ni de réserve ni d'échec.
+  function verifierDessous(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var m = x && x.escalier;
+      if (!m || m.marche !== M.MARCHE_DESSOUS) return;
+      var nom = 'I70 — exercice ' + i + ' (' + x.slug + ') : ';
+      var k = x.consigne || {};
+      if (k.etat !== 'etirement_reps' || Number(k.palier) !== 0) erreurs.push(nom + 'la marche d’en dessous hors d’un exercice au poids du corps');
+      if (typeof m.compteur !== 'number' || m.compteur < M.PAS_ESCALIER) erreurs.push(nom + 'la marche d’en dessous avant ' + M.PAS_ESCALIER + ' séances sans progrès');
+      if (m.declenchement === true && !M.estDeclenchement(m.compteur)) erreurs.push(nom + 'déclenchée à ' + m.compteur + ', pas un multiple de ' + M.PAS_ESCALIER);
+      if (!m.dessous || !m.dessous.slug) erreurs.push(nom + 'la marche d’en dessous sans exercice du dessous');
+      else if (m.carte && m.carte.cible !== m.dessous.slug) erreurs.push(nom + 'la carte cible ' + m.carte.cible + ', pas ' + m.dessous.slug);
+      if (m.carte && /réserve|échec/i.test(String(m.carte.phrase))) erreurs.push(nom + 'la carte parle de réserve ou d’échec : jamais un motif');
     });
   }
 

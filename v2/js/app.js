@@ -5911,6 +5911,8 @@
                             reglage: Profil.rythmeDe(profil), correction: zoneDe(libreDuLeste) } };
       } : null,
       reglage: Profil.rythmeDe(profil),
+      // 180 (C-F5, D3) — le débutant (`anciennete = moins_1_an`) : sa réserve basse (R < V) n'arrête pas la montée (le moteur).
+      debutant: Profil.estDebutant(profil),
       // §9.1.1 — la zone choisie, ou `null`. Le mémo ne la porte pas dans
       // sa clé : `poserZone` le remet à zéro, et la synchronisation passe
       // par `recalculerEtats`, qui fait déjà de même.
@@ -6861,8 +6863,18 @@
         { exercice: 'demo-b', jour: jour, compteur: 4, seance: 'demo', debut: seance.debut }]);
       if (demoReponse) cartes = cartes.concat([demoReponse]);
     }
+    // 180 (A-F-02, D4) — LA MARCHE D'EN DESSOUS d'un exercice au poids du corps qui continue en reps : le catalogue la lit
+    // (`Modele.marcheDEnDessous`, le rang juste en dessous de l'échelle), jamais une marche déjà dans la séance. Le plan décide.
+    var dessous = {};
+    var presentsD = seance ? (seance.exercices || []).map(function (x) { return x && x.exercise_slug; }) : [];
+    Object.keys(cs).forEach(function (s) {
+      var k = cs[s] && cs[s].consigne;
+      if (!k || k.etat !== 'etirement_reps' || Number(k.palier) !== 0) return;
+      var mD = Modele.marcheDEnDessous(index, s);
+      if (mD && presentsD.indexOf(mD.slug) < 0) dessous[s] = { slug: mD.slug, nom: Modele.nommer(index, mD.slug) };
+    });
     return { cartes: cartes, compteurs: compteurs, noms: noms, seriesRoutine: seriesRoutine, marches: marches,
-             degressivesRoutine: degressivesRoutine, remplacants: remplacantsDesEntrees(cs, index),
+             degressivesRoutine: degressivesRoutine, remplacants: remplacantsDesEntrees(cs, index), dessous: dessous,
              carteSuspendue: demoModeEscalier() === 'isole' || demoModeEscalier() === 'degressive' ||
                demoModeEscalier() === 'plafond' };
   }
@@ -7405,10 +7417,14 @@
     // 174 — LA 4e MARCHE, « ALLÉGER » : la même réponse ; son pari porte les séries de la routine et le début de la séance ;
     // acceptée, les lignes en trop partent (`appliquerAllegee`, jamais une série validée).
     var alleger = marche === Moteur.MARCHE_ALLEGER;
+    // 180 (A-F-02, D4) — LA MARCHE D'EN DESSOUS, au poids du corps : la même réponse ; son pari porte la marche proposée ; acceptée,
+    // elle s'ajoute avant l'exercice (2 séries), comme toute marche d'échelle — l'exercice reste.
+    var dessous = marche === Moteur.MARCHE_DESSOUS;
     var auPlafond = !!m.plafond;
     var nRoutine = nombreDeSeriesRoutine(x.slug);
     var extra = plus || alleger ? { n_routine: nRoutine, debut: seance.debut }
       : deg ? { debut: seance.debut } : rempl ? { debut: seance.debut, vers: m.carte.vers }
+      : dessous ? { debut: seance.debut, vers: m.carte.cible }
       : { nouvelle_zone: m.carte.nouvelle_zone };
     if (auPlafond) {
       extra.origine = Moteur.ORIGINE_SALLE_MAX;
@@ -7425,12 +7441,20 @@
       } else if (!(rempl && acceptee)) {
         var id = await Moteur.idDEscalier(seance.id, x.slug, marche);
         await ecrirePariDeMarche(pariDeMarche(id, x, marche, acceptee ? 'acceptee' : 'refusee', p, extra));
-        if (acceptee && !plus && !deg && !rempl && !alleger) await poserZone(x.slug, m.carte.nouvelle_zone);
+        if (acceptee && !plus && !deg && !rempl && !alleger && !dessous) await poserZone(x.slug, m.carte.nouvelle_zone);
       }
     } finally {
       reponseEnCours = false;
     }
     if (seance && acceptee && rempl) return remplacerAuPlafond(iExo, x.slug, m.carte.vers);
+    if (seance && acceptee && dessous && !demoEscalier()) {
+      var avantAjoutD = seance.exercices;
+      seance = Seance.insererExercice(seance, iExo, m.carte.cible, uuid, { series: Moteur.SERIES_MARCHE });
+      await apresStructure();
+      await allegeePourAjout(avantAjoutD, m.carte.cible);
+      await ligneDePlusPourAjout(avantAjoutD, m.carte.cible);
+      return;
+    }
     if (seance) rendreSeance();
     if (seance && acceptee && plus) await appliquerSerieDePlus();
     if (seance && acceptee && deg) await appliquerDegressive();
@@ -11153,10 +11177,19 @@
   // reps visées, et les séries de travail de l'exercice. Seulement sur un
   // exercice jamais fait : déjà fait, le coach décide seul.
   function chargeDeDepartDe(slug) {
-    if (!chargeSimple(slug)) return null;
     var exo = ((seance && seance.exercices) || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
     if (!exo) return null;
     var travail = (exo.series || []).filter(function (x) { return Modele.estTravail(x); });
+    // 180 (A-F-09, D4) — AU POIDS DU CORPS, le départ est fait des reps de la routine (pas de charge) : la première série de
+    // travail qui les porte, sur un exercice jamais fait.
+    var cat = catalogueIndexe()[slug];
+    var gab = cat ? Modele.gabaritDe(cat) : null;
+    if (gab && !gab.inconnue && gab.mesure === 'reps') {
+      var avecReps = travail.filter(function (x) { return x.reps_visees !== null && x.reps_visees !== undefined && x.reps_visees >= 1; })[0];
+      if (!avecReps || !jamaisFait(slug)) return null;
+      return { charge: null, reps: avecReps.reps_visees, n: travail.length };
+    }
+    if (!chargeSimple(slug)) return null;
     var avec = travail.filter(function (x) { return x.charge_cible_kg !== null && x.charge_cible_kg !== undefined; })[0];
     // L'historique ne se lit que s'il y a une charge de départ à donner.
     if (!avec || !jamaisFait(slug)) return null;

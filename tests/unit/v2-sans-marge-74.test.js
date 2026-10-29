@@ -90,8 +90,15 @@ describe('74 — la concordance sur les 79 séance-exercices réels', () => {
     'u1|developpe_couche_incline_haltere#9': { etat: 'test_propose', zone: 'volume', palier: 64, niveau: 11, ligne: { charge: 64, vise: 12 }, haut: { charge: 72, vise: 8, k: 1 } },
     'u1|curl_marteau_haltere#9': { etat: 'test_propose', zone: 'volume', palier: 32, niveau: 12, ligne: { charge: 32, vise: 12 }, haut: { charge: 36, vise: 8, k: 1 } }
   };
+  // 180 (28/10/2026, décision d'Aurélien, MOTEUR §7.5, audit A-F-01) — SANS CHARGE RÉPÉTÉE, LA FRONTIÈRE DE CHAUFFE EST LA PREMIÈRE
+  // SÉRIE PROBABLE DE TRAVAIL : une série plus légère APRÈS la plus lourde n'est pas une chauffe. La pyramide du squat du 22/04/2026
+  // (60 × 10, 80 × 5, 100 × 2, 80 × 5, 60 × 10) gardait 100 × 2 pour palier — une exploration devenue la charge de travail, parce que
+  // les séries qui suivaient avaient été jetées comme chauffes. Elle garde 80 (deux séries), et le 100 × 2 est l'exploration.
+  const FRONTIERE_180 = {
+    'u2|squat_barre#9': { etat: 'progression', zone: 'volume', palier: 80, niveau: 5, ligne: { charge: 80, vise: 6 }, haut: null }
+  };
   test('0 écart avec `aujourdhui_74` (état, zone, palier, niveau, ligne, haut)', () => {
-    const attendu = (c) => GROS_175[c.cle + '#' + c.jusqua] || EFFORT_154[c.cle + '#' + c.jusqua] || ECHEC_152[c.cle + '#' + c.jusqua] || FRANC_149[c.cle + '#' + c.jusqua] || c.aujourdhui_74;
+    const attendu = (c) => FRONTIERE_180[c.cle + '#' + c.jusqua] || GROS_175[c.cle + '#' + c.jusqua] || EFFORT_154[c.cle + '#' + c.jusqua] || ECHEC_152[c.cle + '#' + c.jusqua] || FRANC_149[c.cle + '#' + c.jusqua] || c.aujourdhui_74;
     const ecarts = D.cas
       .map((c) => ({ c, r: consigneDuCas(c) }))
       .filter(({ c, r }) => JSON.stringify(r) !== JSON.stringify(attendu(c)))

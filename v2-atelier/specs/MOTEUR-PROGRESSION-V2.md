@@ -456,6 +456,8 @@ Sans cette règle, `n = 4` et `k = 3` — le palier était déjà reconnu ici, m
 
 Toute série plus lourde que le palier est enregistrée comme **exploration**. Elle est conservée, affichée, elle nourrit l'estimation du maximum. **Elle sert de test** (§9.7, tranché le 19/09/2026) : si elle atterrit au moins au bas de la zone, la charge testée avance à la séance suivante ; en dessous, le test est noté, sans effet sur le palier. Elle ne change jamais le palier du jour, qui reste défini par le §7.2.
 
+
+**Sans charge répétée, la frontière de la chauffe est la première série de travail probable — 28/10/2026, décision d'Aurélien (180) (A-F-01).** La frontière valait « toutes les séries » : 7,5 kg × 1 puis 5 kg × 17 lisait la série légère comme une chauffe, et la seule série qui restait, la tentative ratée, devenait le palier. Désormais la frontière est la première série **au-dessus de 75 % de la plus lourde** : une montée de chauffe (20, 60, 100, 140) reste une chauffe, une série légère après la plus lourde non. **Une descente ne se déduit que d'un palier réel** (§6.3, §6.5) : une charge tenue sur au moins deux séries d'avant la dernière ; 4 kg × 9, 6 kg × 1, 4 kg × 5 garde 4 kg pour palier, 6 kg × 1 est une exploration. **La règle de bord (§9.1.2, « moins de 3 reps ») ne s'ouvre que sur l'habitude des huit dernières séances**, jamais sur une seule : une séance à 1 rep sur huit ne change pas la zone.
 ---
 
 ### 7.6 Une séance sans charge répétée — décidé le 28/09/2026 (chantier 49)
@@ -870,6 +872,9 @@ Un cran est **gros** quand l'écart Δ = (T − P) / P dépasse (haut − bas) �
 
 Un cran qui n'est pas gros ne change rien. **I68** (nouveau, 175 ; le « I67 » du prompt est pris par la zone 3-5) : un cran dit gros l'est (Δ au-dessus du seuil), le pourcentage est l'écart arrondi, le plancher est celui de la formule (jamais au-dessus du bas, jamais sous 8 sur une isolation), le test proposé vise le plancher, la cible d'étirement reste entre haut + 2 et haut + 6 (au plus 30), la carte du gros cran n'a ni « Viser N reps », ni réserve, ni échec, et s'ouvre sur Ma salle (I69).
 
+
+**Un seul plancher, celui de la zone en vigueur — 28/10/2026, décision d'Aurélien (180) (A-F-07, I68).** Quand l'état vient du calcul prudent (série à fond, §17.4), son fondement a pu être calculé dans une autre zone (Volume au lieu d'Hypertrophie : une rep de moins change l'habitude). Le plancher du gros cran se relit sur la zone que la consigne affiche ; la borne « pas de rep de plus à fond » ne descend jamais le test sous ce plancher (64 kg × 3 à fond, plancher 4 : le test vise 4). Un fondement ne dit « approchée » que si une ligne marquée la porte (I61).
+
 ### 9.8 Les réglages de rythme — tranchés le 19/09/2026
 
 > **Le réglage agit sur trois choses : quand la charge monte, de combien, et ce que devient un test réussi. Jamais sur le vocabulaire** (CADRAGE §2 terdecies).
@@ -1264,6 +1269,9 @@ Pas de chauffe ni de dégressive au poids du corps. Pas de repli ni de changemen
 
 **Référence** : `coach49.py` (`consigne_pdc`, `carte_lest`, `depart_leste`, `aide_saisie`, `aide_affichee`) ; cas `cas_pdc49.json`.
 
+
+**La première fois, les reps de la routine — 28/10/2026, décision d'Aurélien (180) (A-F-09).** Sans historique, un exercice au poids du corps part des reps visées de la routine (« Poids du corps × 12 », état `depart_routine`), jamais de « Première fois ici » sans chiffre ; une charge posée n'est pas du poids du corps. **Le compteur compte l'état `etirement_reps`** (palier 0, sans zone) : un progrès en reps le remet à zéro, sinon il monte, et l'escalier (§14) s'applique (A-F-02, §14.10).
+
 ### 9.17 bis L'échelle des variantes — décidée le 17/10/2026, précisée le 21/10/2026 (chantier B, prompt 127)
 
 > **Le catalogue range les variantes d'un mouvement au poids du corps en échelle ; le coach propose la marche au-dessus
@@ -1636,6 +1644,9 @@ Une ligne de **test** : celle de sa zone **moins 1** ; bornée à [0, 3]. `null`
 **La voix** (VOIX-DU-COACH, 24/10/2026) — jamais « bravo », jamais un reproche quand il n'en restait pas assez. L'en-tête : « garde-en 1 ». Après la réponse : R ≥ V + 2 → « 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais : la prochaine fois, on essaie 36 kg. » ; R < V, au haut de la zone → « 30 kg × 10, sans marge. On garde 30 kg : encore une fois au haut de ta zone et je teste plus lourd. » (avec R > 0 : « 100 kg × 5, avec 1 en réserve. On garde 100 kg : encore une fois au haut de ta zone et je teste plus lourd. ») ; R < V sous le haut de la zone → « 130 kg × 4, sans marge. On garde 130 kg la prochaine fois. » ; **la sortie** (169), à la fin de la séance : « Deux fois 30 kg × 10 au haut de ta zone. Prochaine fois : on teste 32,5 kg × 8. » (« ≈ » devant une charge jamais faite, §10.2 bis) et, en tête de la séance du test : « Deux fois 30 kg × 10 au haut de ta zone : aujourd'hui, on teste ≈ 32,5 kg × 8. » ; le « Pourquoi » dit la même chose sans jargon (« Deux séances de suite, 30 kg × 10 au haut de ta zone, sans la marge visée : on teste le cran au-dessus sur la dernière série. ») ; sinon : rien. À la séance suivante, le « pourquoi » du test : « On essaie 36 kg : la dernière fois, 34 kg × 9 avec 3 en réserve. »
 
 **Écarté.** Une grandeur « réserve » dans `predictions` (seulement si un bilan prouve qu'il le faut) ; la visée d'une ligne gardée sur la série (le bas de la zone en tient lieu).
+
+
+**Le débutant n'est pas arrêté par la garde — 28/10/2026, décision d'Aurélien (180) (D3, C-F5).** Pour une personne dont l'ancienneté est « moins d'un an », la garde R < V (« pas de montée sur sa foi ») est neutralisée : une estimation de réserve y est trop bruitée pour retenir une progression facile. Le test R ≥ V + 2 est inchangé, la question et l'affichage restent. L'ancienneté est gelée avec la séance (`Profil.estDebutant`, option `debutant` de la consigne).
 
 ## 10. L'incrément
 
@@ -2392,6 +2403,11 @@ Pourquoi : les méta-analyses ne montrent pas plus de croissance qu'en séries c
 *La semaine allégée reste neutre* (§14.4) : rien n'est remis à zéro, la marche atteinte est gardée.
 *Les crans* (`voisine(P, −1)`, P × 0,95 arrondi) sont figés avec la consigne (`consigneDExercice`, clé `alleger`, comme le repli), à partir du compteur 12.
 **Invariant I66** : la marche « alléger » ne propose jamais plus de séries ni plus de charge que la séance d'avant (la routine, le palier), jamais de ligne haute, jamais pendant une semaine allégée ; « une série de moins » retire vraiment une série (et pas en zone force, ni sous 3 séries) ; la charge allégée est strictement sous le palier, et seulement en zone force ou au cran de la zone muscle à 2 séries.
+
+
+### 14.10 La marche d'en dessous : l'exercice plus facile — 28/10/2026, décision d'Aurélien (180) (D4, A-F-02, A-F-09, I70)
+
+Au poids du corps, une personne qui ne gagne pas de rep n'avait aucune sortie : le compteur ne comptait pas l'état `etirement_reps` (30 séances sur 30, compteur 0). Il le compte désormais. **À 4 séances sans progrès (PAS_ESCALIER, puis 8, 12…), la carte de la marche d'en dessous** : « Poids du corps × N depuis K séances. », l'exercice du dessous nommé (`Modele.marcheDEnDessous`, la même échelle que §9.17 bis), deux séries de cet exercice insérées avant l'exercice, qui reste. Ni troisième mécanisme ni nouvelle carte : c'est une marche des cartes de l'escalier (I21 : une marche par exercice), décidée dans `planDeSeance` (`marcheDuDessous`), lue par l'écran. Un refus se retient comme les autres paris de l'escalier. **I70** : la marche d'en dessous ne vient qu'à un exercice au poids du corps (palier 0, `etirement_reps`), à un compteur d'au moins 4 (multiple du pas quand elle se déclenche), avec un exercice du dessous que la carte cible, sans mot de réserve ni d'échec.
 
 ## 15. Forme et constantes
 

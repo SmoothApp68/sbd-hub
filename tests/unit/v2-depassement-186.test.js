@@ -45,6 +45,11 @@ describe('186 — le plafond des reps de l\'habitude', () => {
     const c = envelope(SERIES);
     expect(c.consigne.zone).toBe('series_longues');
   });
+  test('DISCRIMINANT — une habitude pas encore installée (moins de trois séances) ne se plafonne pas : une première séance à 5 reps ne bloque pas la zone en Lourd', () => {
+    const l = [[80, [5, 5, 5]], [80, [10, 10, 10]], [80, [10, 10, 10]], [80, [10, 10, 10]], [80, [10, 10, 10]], [80, [10, 10, 10]]];
+    const c = envelope(l, { seancesSousConsigne: toutes(l) });
+    expect(c.consigne.zone).not.toBe('lourd');
+  });
   test('A7 — 40 kg x 17, 16, 15 en Franc : 45 kg, la zone reste Volume', () => {
     const l = VOLUME.concat([[40, [17, 16, 15]]]);
     const c = envelope(l, { reglage: 'franc', seancesSousConsigne: toutes(l) });

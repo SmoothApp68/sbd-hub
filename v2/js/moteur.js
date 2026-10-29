@@ -649,7 +649,7 @@
     var habitude = null;
     lus.forEach(function (x) {
       var z = habitude === null ? null : zoneDe(habitude);
-      x.plafond = z === null ? null : nombre(z.haut);
+      x.plafond = z === null || parSeance.length < FENETRE_COUPLE ? null : nombre(z.haut);
       parSeance.push(reposPlafonne(x, x.plafond));
       var tout = [];
       parSeance.slice(-FENETRE_HABITUDE).forEach(function (l) { tout = tout.concat(l); });

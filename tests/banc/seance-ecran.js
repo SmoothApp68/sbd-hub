@@ -7855,6 +7855,47 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await abandonner();
 
+    // ── 184 · LE DOUBLE TOUCHER SUR ✓ (S-double-tap-devalide) ───────────────
+    // Un second toucher dans les 500 ms sur la même case ne dévalide pas la série ; passé 500 ms, il la dévalide.
+    // Les touchers sont de vrais clics, séparés de 150 ms (la case a eu le temps d'être redessinée).
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    {
+      const champs184 = page.locator('.ligne-serie').nth(0).locator('input');
+      await champs184.nth(0).fill(String(planOuvert[0][0]));
+      await champs184.nth(1).fill(String(planOuvert[0][1]));
+      const toucherOk = () => page.evaluate(() => document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click());
+      const cochee184 = () => page.evaluate(() => !!document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie.cochee'));
+      // Une séance laissée par la section d'avant peut rouvrir sa première série déjà validée : on part d'une série NON validée.
+      if (await cochee184()) {
+        await toucherOk();
+        await jusqua(async () => (await cochee184()) === false, 10000);
+        // VOULU : le délai est la mesure — laisser passer la fenêtre de 500 ms de ce toucher de remise à zéro.
+        await attendre(700 * RALENTI);
+      }
+      // Les deux touchers partent DANS la page, à 150 ms l'un de l'autre mesurés là où l'app les compte (sous charge,
+      // un aller-retour du banc entre eux pouvait dépasser la fenêtre de 500 ms).
+      await page.evaluate(() => new Promise((fin) => {
+        const toucher = () => document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click();
+        toucher();
+        // VOULU : le délai est la mesure — l'écart entre les deux touchers (150 ms), sous la fenêtre de 500 ms.
+        setTimeout(() => { toucher(); fin(); }, 150);
+      }));
+      // La validation du premier toucher arrive (l'état que lit le contrôle), puis on laisse au second le temps de nuire.
+      await jusqua(async () => (await cochee184()) === true, 10000);
+      // VOULU : l'absence d'un évènement (une dévalidation qui ne vient pas) ne se prouve par aucun état.
+      await attendre(450 * RALENTI);
+      ok('[184] un double toucher sur ✓ (150 ms) : la série RESTE validée', (await cochee184()) === true,
+        String(await cochee184()));
+      // VOULU : le délai est la mesure — passer la fenêtre de 500 ms avant le toucher franc.
+      await attendre(700 * RALENTI);
+      await toucherOk();
+      await jusqua(async () => (await cochee184()) === false, 10000);
+      ok('[184] un toucher franc, passé 500 ms, DÉVALIDE toujours', (await cochee184()) === false,
+        String(await cochee184()));
+    }
+    await abandonner();
+
     ok('[P] aucune erreur de page pendant toute l’écriture',
       erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }

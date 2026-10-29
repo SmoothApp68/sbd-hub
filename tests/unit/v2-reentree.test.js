@@ -76,7 +76,7 @@ function bac() {
     // 155 — la relecture des routines au retour : hors du sujet ici (son banc est routines-ecran).
     relireRoutinesAuRetour: () => Promise.resolve(false),
     // L'outil de rejeu (développement) : rien demandé ici.
-    rejeuDemande: null, ouvrirRejeu: () => {}, apresSynchroAnnee: () => {}
+    lireLiensALOuverture: () => {}, rejeuDemande: null, ouvrirRejeu: () => {}, apresSynchroAnnee: () => {}
   };
   vm.createContext(ctx);
   ['idDeSession', 'entrer', 'reentrer', 'entrerVraiment', 'chargerCache',

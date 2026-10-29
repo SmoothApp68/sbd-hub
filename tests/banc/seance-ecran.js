@@ -18203,6 +18203,13 @@ const SETS_IMPORTES = [
 
     // ── C. LEA DEMANDE À SON TOUR : la demande dans le fil (et le badge), « Accepter » → MUTUEL : le détail.
     fauxSocial.appeler('u-lea', 'POST', 'abonnements', { suiveur: 'u-lea', suivi: 'u-banc' });
+    // 184 (D5) — DÈS L'ACCUEIL : un chargement neuf sur « Séances », aucun écran social ouvert, et le point de l'onglet
+    // « Jeu » dit déjà qu'une demande attend (les liens se lisent à l'ouverture, sans bloquer).
+    await aller('/');
+    await attendreQue(async () => (await page.evaluate(() => document.getElementById('onglet-jeu').getAttribute('data-demandes'))) === '1');
+    ok('[184] une demande d\u2019abonnement reçue allume le point de l\u2019onglet dès l\u2019accueil, sans passer par un écran social',
+      (await page.evaluate(() => document.getElementById('onglet-jeu').getAttribute('data-demandes'))) === '1' &&
+        (await page.evaluate(() => location.pathname)) === '/', await page.evaluate(() => location.pathname));
     await aller('/jeu/fil');
     await attendreQue(async () => (await fil()).demandes.length > 0);
     const c0 = await fil();

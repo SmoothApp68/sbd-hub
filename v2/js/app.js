@@ -1956,6 +1956,17 @@
     recalculerLiens();
     return social.liens;
   }
+  // 184 (D5, Soc-demande-invisible) — LES DEMANDES D'ABONNEMENT S'ALLUMENT DÈS L'ACCUEIL : les liens se lisent à
+  // l'ouverture, une fois le premier écran posé, SANS être attendus (hors ligne ou en erreur : le point reste éteint,
+  // rien ne se dit). Sans cela, le point de l'onglet n'apparaissait qu'après un passage par un écran social.
+  function lireLiensALOuverture(userId) {
+    // L'outil de rejeu (développement) ne parle jamais au réseau : rien à lire.
+    if (!jeuAllume() || rejeuDemande) return;
+    chargerLiens().catch(function () {}).then(function () {
+      // Le compte a changé pendant la lecture : ses liens ne sont plus ceux de l'écran.
+      if (!sessionActive || idDeSession(sessionActive) !== userId) oublierSocial();
+    });
+  }
   // Un badge sur l'onglet pour les demandes reçues (pas de notification push).
   function majBadgeSocial() {
     var b = $('onglet-jeu');
@@ -13507,6 +13518,8 @@
     // vérification ci-dessus a précédé la synchronisation. Et si elle a échoué,
     // le conflit se résout à la vidange elle-même.
     vidanger();   // le réseau vient de répondre : c'est le moment d'envoyer
+    // 184 (D5) — les demandes d'abonnement s'allument dès l'accueil : les liens se lisent à l'ouverture, sans attendre.
+    lireLiensALOuverture(userId);
     // L'outil de rejeu (développement seulement) : après la synchronisation,
     // l'historique est là.
     if (rejeuDemande) ouvrirRejeu();

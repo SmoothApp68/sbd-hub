@@ -713,6 +713,18 @@
     return exo.charge === 'ajoutee' ? EQUIPEMENT_LEST : (exo.equipement === undefined ? null : exo.equipement);
   }
 
+  // 186 (MOTEUR §10.2) — LE MATÉRIEL AU PAS CONNU : la barre (disques de 1,25 kg, donc 2,5 kg) et les haltères (la paire : +2 kg sous
+  // 20 kg, +4 au-delà). Leur cran est celui de `REPLI_MATERIEL`, jamais une charge déjà notée (`chargeVoisine`) ; l'étirement
+  // « faute de cran » ne s'ouvre que si le test EST ce cran-là (`episodeEtirement`). Les machines et poulies, aux crans irréguliers,
+  // gardent le rang 2. Le Smith, le kettlebell et le lest gardent aussi la règle d'avant : la décision nomme la barre et les haltères.
+  var MATERIEL_AU_PAS_CONNU = { barre: true, haltere: true };
+  // 186 — le plus grand pas du matériel (haltères : la bande lourde), ou `null` : le garde-fou du single hors palier (`palier.js`).
+  function pasMaxDuMateriel(equipement) {
+    if (!Object.prototype.hasOwnProperty.call(REPLI_MATERIEL, equipement)) return null;
+    var r = REPLI_MATERIEL[equipement];
+    return r.pasLourd !== undefined ? r.pasLourd : r.pas;
+  }
+
   // ⚠️ LA BASCULE APPARTIENT À LA BANDE LÉGÈRE, et l'asymétrie est voulue : on
   // SORT de la bande en montant depuis 20 (20 -> 24), on y RESTE en descendant
   // depuis 20 (20 -> 18). Les deux sens décrivent le même plan de charges.
@@ -1050,15 +1062,23 @@
     // +0,2 kg. D'une salle à l'autre, les piles et les haltères changent ; à la
     // barre, les disques sont les mêmes partout (sans limite), et vers le bas
     // le repli a sa propre limite de 10 % (sans limite non plus).
-    var plancher = dir > 0 ? plancherDuMateriel(equipement, avant) : null;
+    //
+    // 186 (MOTEUR §10.2, décision d'Aurélien du 29/10/2026) — UNE BARRE ET DES HALTÈRES ONT UN PAS CONNU : le cran est le pas réel
+    // du matériel (le rang 3, ci-dessous), JAMAIS une charge déjà notée. Le rang 2 ne vaut plus que pour les machines aux crans
+    // irréguliers. Sur une barre, la charge « déjà utilisée juste au-dessus » prenait un single de test (150 × 5, puis 190 × 1) ou
+    // une faute de frappe pour un cran : 190 kg, +27 % — et l'étirement concluait « ta machine ne permet pas un plus petit
+    // cran », six séances de suite (A4 de la contre-vérification).
     var voisine = null;
-    anterieures(seances, avant).forEach(function (se) {
-      if (plancher !== null && instant(se.debut) < plancher) return;
-      chargesDe(se).forEach(function (c) {
-        if (dir > 0 ? c <= p : c >= p) return;
-        if (voisine === null || (dir > 0 ? c < voisine : c > voisine)) voisine = c;
+    if (!MATERIEL_AU_PAS_CONNU[equipement]) {
+      var plancher = dir > 0 ? plancherDuMateriel(equipement, avant) : null;
+      anterieures(seances, avant).forEach(function (se) {
+        if (plancher !== null && instant(se.debut) < plancher) return;
+        chargesDe(se).forEach(function (c) {
+          if (dir > 0 ? c <= p : c >= p) return;
+          if (voisine === null || (dir > 0 ? c < voisine : c > voisine)) voisine = c;
+        });
       });
-    });
+    }
     if (voisine !== null) return voisine;
 
     var repli = repliDe(equipement, p, dir);
@@ -1400,6 +1420,9 @@
       // 175 — un gros cran se valide au plancher : un test à `plancher` reps ou plus a passé.
       var gg = grosCran(P, t.charge, z, isolation);
       if (t.niveau >= (gg ? gg.plancher : z.bas)) break;
+      // 186 — « faute de cran » : sur une barre ou des haltères au pas connu, `c1` est le pas réel du matériel (jamais une charge
+      // déjà notée) : le test d'un single à +27 % n'est plus « sans cran plus petit » (c1 < 190), et l'étirement ne s'ouvre que
+      // si le test EST le plus petit cran (le curl marteau à 32 kg × 8 : la paire de 28 → 32, le pas des haltères au-delà de 20).
       var c1 = voisineSalleComprise(vues, avant, P, equipement, 1, salle || null);
       if (c1 !== null && c1 < t.charge) break;
       rates.push({ rang: i, test: t, auPalier: x.auPalier, debut: x.seance.debut });
@@ -1448,6 +1471,33 @@
   // nulle part ailleurs. On PROJETTE les six colonnes plutôt que de rendre les
   // objets d'entrée : le fondement est un contrat, pas une fenêtre ouverte sur
   // ce que l'appelant a bien voulu mettre dans ses séries.
+  // 186 (MOTEUR §9.2, décision d'Aurélien du 29/10/2026) — LA SÉRIE HORS PALIER DE LA DERNIÈRE SÉANCE (un single à +15 % ou une série
+  // de test), la plus lourde : de quoi dire « Ton single à 190 kg est un record ; il ne compte pas dans ta charge de travail. ».
+  // `record` : plus lourde que toute charge notée sur l'exercice avant cette séance (un fait, pas une estimation). `null` sans elle.
+  function horsPalierDeLaDerniere(L, ant) {
+    var plus = null;
+    ((L && L.series) || []).forEach(function (s) {
+      if (!s || s.origine !== 'hors_palier') return;
+      var kg = nombre(s.charge_kg);
+      if (kg !== null && (plus === null || kg > nombre(plus.charge_kg))) plus = s;
+    });
+    if (plus === null) return null;
+    var kgP = nombre(plus.charge_kg);
+    var record = kgP > 0 && (ant || []).every(function (se) {
+      return se === L || ((se && se.series) || []).every(function (s) {
+        var c = nombre(s && s.charge_kg);
+        return c === null || (c < kgP && !memeCharge(c, kgP));
+      });
+    });
+    return { charge: kgP, reps: nombre(plus.reps), record: record };
+  }
+  // La phrase du « Pourquoi » : le nom (single, double, sinon série de test), puis le fait, jamais un jugement.
+  function phraseHorsPalier(h) {
+    var nom = h.reps === 1 ? 'Ton single' : h.reps === 2 ? 'Ton double' : 'Ta série de test';
+    return nom + ' à ' + enKg(h.charge, cite(FAIT, { quoi: 'seance', champ: 'charge' })) +
+      (h.record ? ' est un record' + ' ; il ne compte pas dans ta charge de travail.' : ' ne compte pas dans ta charge de travail.');
+  }
+
   function seanceDuFondement(vue) {
     return ((vue && vue.series) || []).map(function (s) {
       return {
@@ -1786,6 +1836,10 @@
       if (etat === 'etirement_reps' && poidsDuCorps && ligne && nombre(ligne.vise) !== null && ligne.vise >= PLAFOND_CIBLE) {
         f.plafondReps = nombre(niv) !== null && niv >= PLAFOND_CIBLE ? 'atteint' : 'vise';
       }
+      // 186 — la série hors palier de la dernière séance (single à +15 %, série de test) : le « Pourquoi » la dit. Une clé qui n'est là
+      // que si elle a un sens.
+      var hp = horsPalierDeLaDerniere(L, ant);
+      if (hp !== null) f.horsPalier = hp;
       // 163 — UNE CHARGE JAMAIS FAITE SE DIT APPROCHÉE : la ligne ou le test dont la charge sort du repli du matériel
       // porte `approchee: true`, et le fondement aussi (I51 les lit ensemble). Jamais avec une salle (les élastiques).
       if (!salle && !poidsDuCorps) {
@@ -4322,7 +4376,9 @@
   var ROLES_LIGNE = {
     degressive: 'dégressive, ne compte pas',
     descente_choisie: 'descente, ne compte pas',
-    echec: 'série arrêtée, ne compte pas'
+    echec: 'série arrêtée, ne compte pas',
+    // 186 — le single ou la série de test : faite, un record possible, hors de la charge de travail.
+    hors_palier: 'hors de ta charge de travail'
   };
 
   // La dernière séance, telle que la feuille la relit : les chauffes en UNE
@@ -4714,11 +4770,14 @@
     var o = options || {};
     var jaune = o.sansDonc ? [] : lignesJaunes(consigne);
     var muet = consigne.etat === 'silence';
+    var etat = etatDuPourquoi(consigne, reglage || 'normal', reference);
+    // 186 — la série hors palier ne compte pas dans la charge de travail, et le « Pourquoi » le dit.
+    if (!muet && etat && consigne.fondement && consigne.fondement.horsPalier) etat += ' ' + phraseHorsPalier(consigne.fondement.horsPalier);
     return {
       seance: seanceDuPourquoi(consigne, reference),
       zone: muet ? null : zoneDuPourquoi(consigne, reference),
       palier: muet ? null : palierDuPourquoi(consigne),
-      etat: etatDuPourquoi(consigne, reglage || 'normal', reference),
+      etat: etat,
       donc: jaune.length ? 'Donc ' + jaune.join(', ') + '.' : null,
       reglage: muet ? null
         : 'Ton réglage' + DEUX_POINTS + libelleRythme(reglage || 'normal') +
@@ -5316,7 +5375,7 @@
       var series = ((g && g.series) || []).filter(function (x) { return !(x && x.hors_calcul === true); });
       var r = mesure === 'reps'
         ? Palier().analyserPoidsDuCorps(series)
-        : Palier().analyser(series, etat, { mesure: mesure });
+        : Palier().analyser(series, etat, { mesure: mesure, cran: pasMaxDuMateriel(options && options.equipement) });
       var se = seanceDuContrat(g && g.seance ? g.seance.debut : null, r);
       // §9.10 (53-1) — la fin de la séance, si elle en a une (la zone choisie
       // pendant la séance est la sienne). Absente, la clé n'existe pas.

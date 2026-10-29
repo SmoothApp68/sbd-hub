@@ -42,12 +42,18 @@
   var ECHEC = 'echec';
   // 185 (v2_116) — « Non, ne compte pas » : un quatrième rôle écarté du palier, déclaré par la personne (`sets.hors_calcul`).
   var HORS_CALCUL = 'hors_calcul';
+  // 186 (v2_117, décision d'Aurélien du 29/10/2026) — HORS PALIER : une série qui reste une série de travail faite (un record
+  // possible, le maximum estimé) mais qui ne décide JAMAIS de la charge de travail — ni le palier, ni l'habitude, ni les crans
+  // voisins, ni l'exploration qu'un test lirait. Deux portes : la personne la dit (type `test`), ou le single (cf. `horsPalierAuto`).
+  var HORS_PALIER = 'hors_palier';
+  var TEST = 'test';
 
   var ROLE_DU_TAG = {};
   ROLE_DU_TAG[CHAUFFE] = 'chauffe';
   ROLE_DU_TAG[DEGRESSIVE] = 'degressive';   // §6.3 — descente choisie, déclarée
   ROLE_DU_TAG[ECHEC] = 'echec';             // §6.3 — descente subie, déclarée
   ROLE_DU_TAG[HORS_CALCUL] = 'hors_calcul'; // 185 — « Non, ne compte pas » : jamais une série de travail
+  ROLE_DU_TAG[TEST] = HORS_PALIER;          // 186 — « Série de test » : déclarée, hors palier (un record possible)
 
   // 152 — UNE SÉRIE `echec` À 1 REP OU PLUS EST UNE SÉRIE DE TRAVAIL À FOND, pas un tag
   // qui écarte : la lecture est UNE (`THModele.estAEchec`, chargé avant ce module). À
@@ -62,6 +68,48 @@
     if (aEchec(s)) return null;
     return Object.prototype.hasOwnProperty.call(ROLE_DU_TAG, s && s.type_serie)
       ? ROLE_DU_TAG[s.type_serie] : null;
+  }
+
+  // ── 186 — LE SINGLE HORS PALIER (MOTEUR §9.2, décision d'Aurélien du 29/10/2026) ───────────────────────────────────────────
+  //
+  // Une série de 1 ou 2 reps à au moins +15 % de la charge de travail, quand la zone vise 5 reps ou plus, ne dit rien de la charge
+  // qu'on tient en séries : c'est un test de max, un single de fin de séance (190 kg × 1 après 150 kg × 5). Elle reste une série
+  // de travail FAITE (record possible, maximum estimé, volume) ; elle ne vote ni pour le palier, ni pour l'habitude, ni pour le
+  // cran voisin (`chargesDe` lit les votantes). C'est ce qui rendait A4 (« ta barre ne permet pas un plus petit cran », sept
+  // séances) : le 190 kg × 1 était le cran « déjà utilisé » juste au-dessus du palier.
+  //
+  // ⚠️ « LA ZONE VISE 5 REPS OU PLUS » SE LIT SUR LA SÉANCE, PAS SUR UNE CONSIGNE. Ce module ne connaît pas la zone (il est pur et
+  // précède la consigne : la zone se déduit de l'habitude, qui se déduit du palier — une circularité). Toute zone a un haut d'au
+  // moins 5 reps ; la seule absence de zone est l'habitude sous 3 reps (les maximaux, §9.1.2). Le garde-fou est donc : la charge
+  // de travail de la séance se tient sur 3 reps ou plus. Une séance de doubles et de singles n'a pas de « charge de travail
+  // en séries » dont un single puisse s'écarter.
+  //
+  // La charge de travail W est le palier des SEULES séries de 3 reps et plus (les candidates ne s'y comptent pas : à deux séries,
+  // `150 × 5, 190 × 1`, le §7.2 rendrait 190 — la majorité d'une série).
+  //
+  // ⚠️ MAIS PAS UN TEST QUE LE COACH A PROPOSÉ. Sur une charge légère, un cran vaut plus de 15 % (7,5 kg × 1 après 5 kg × 17 : +50 %,
+  // un cran de 2,5 kg — la tentative du §7.5 que 180 garde pour exploration, A-F-01), et un test d'un gros cran de machine (9 → 11,5 kg,
+  // +28 %) raté à 2 reps est un test raté, pas un single (§9.7 bis). Le single hors palier est donc AU-DELÀ DE DEUX CRANS du matériel
+  // (`options.cran`, le pas du matériel : le moteur le donne ; sans lui, 2,5 kg, le plus petit pas du dépôt) : 190 kg après 150 kg
+  // (+40 kg pour un cran de 2,5), jamais 152,5 ni 155. Deux crans restent un test (Franc teste deux crans).
+  var SEUIL_HORS_PALIER = 0.15;
+  var REPS_HORS_PALIER_MAX = 2;
+  var REPS_CHARGE_DE_TRAVAIL_MIN = 3;
+  var CRAN_PAR_DEFAUT = 2.5;
+  var CRANS_HORS_PALIER = 2;
+  function horsPalierAuto(travail, cran) {
+    var liste = travail || [];
+    var base = liste.filter(function (s) { return nombre(s.reps) !== null && nombre(s.reps) >= REPS_CHARGE_DE_TRAVAIL_MIN; });
+    if (!base.length) return [];
+    var W = calculerPalier(base);
+    if (W === null || !(W > 0)) return [];
+    var c = nombre(cran);
+    if (c === null || !(c > 0)) c = CRAN_PAR_DEFAUT;
+    return liste.filter(function (s) {
+      var r = nombre(s.reps), kg = nombre(s.charge_kg);
+      return r !== null && r >= 1 && r <= REPS_HORS_PALIER_MAX && kg !== null &&
+             kg >= W * (1 + SEUIL_HORS_PALIER) - 1e-9 && kg - W > CRANS_HORS_PALIER * c + 1e-9;
+    });
   }
 
   var ETAT_MONTE = 'monte';
@@ -294,6 +342,13 @@
       var tag = roleDuTag(s);
       if (tag) roles.set(s, tag); else travail.push(s);
     });
+
+    // 186 — le single hors palier sort du travail AVANT toute frontière de chauffe, palier provisoire ou définitif : il ne vote pour rien.
+    var horsPalier = horsPalierAuto(travail, options && options.cran);
+    if (horsPalier.length) {
+      horsPalier.forEach(function (s) { roles.set(s, HORS_PALIER); });
+      travail = travail.filter(function (s) { return horsPalier.indexOf(s) < 0; });
+    }
 
     if (!travail.length) return sortie(series, roles, null, AUCUNE_SERIE, []);
 
@@ -703,7 +758,8 @@
     AUCUNE_SERIE: AUCUNE_SERIE,
     TOUT_CHAUFFE: TOUT_CHAUFFE,
     MESURES_SANS_CHARGE: MESURES_SANS_CHARGE,
-    CHAUFFE: CHAUFFE, DEGRESSIVE: DEGRESSIVE, ECHEC: ECHEC, HORS_CALCUL: HORS_CALCUL,
+    CHAUFFE: CHAUFFE, DEGRESSIVE: DEGRESSIVE, ECHEC: ECHEC, HORS_CALCUL: HORS_CALCUL, HORS_PALIER: HORS_PALIER,
+    horsPalierAuto: horsPalierAuto, SEUIL_HORS_PALIER: SEUIL_HORS_PALIER,
     ROLE_DU_TAG: ROLE_DU_TAG,
     roleDuTag: roleDuTag,
     trier: trier,

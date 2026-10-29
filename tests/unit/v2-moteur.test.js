@@ -622,7 +622,12 @@ describe('§10.2 — le pas de la salle, et quelle charge proposer', () => {
     // 60 · 65 · 70, un seul écart de 5 : pas de pas. La charge 70 est attestée.
     // Si le repli de la barre passait d'abord : 67,5 — jamais soulevé.
     const P4 = jeu(60, 65, 70);
-    expect(dessus(P4, 'barre', 65)).toBe(70);
+    // 186 (MOTEUR §10.2, décision d'Aurélien du 29/10/2026) — LE RANG 2 NE VAUT PLUS POUR LA BARRE NI LES HALTÈRES : leur cran est le pas
+    // du matériel, jamais une charge déjà notée (A4 : un single de test à 190 kg était pris pour le cran). Il reste pour les machines.
+    expect(dessus(P4, 'poulie', 65)).toBe(70);
+    expect(dessus(P4, 'machine', 65)).toBe(70);
+    expect(dessus(P4, 'barre', 65)).toBe(67.5);
+    expect(dessus(P4, 'haltere', 65)).toBe(69);
   });
 
   test('P5 — DISCRIMINANT : le repli de la barre vaut 2,5 kg, pas 5', () => {
@@ -710,11 +715,11 @@ describe('§10.2 — le pas de la salle, et quelle charge proposer', () => {
     expect(M.pasDeSalle(P9b, COUPURE)).toEqual({ pas: 5, nature: 'approche' });
     // 163 — INVERSÉ (avant : `toBeNull`) : rien au-dessus sur 12 mois, le repli de la machine (5 kg) répond.
     expect(dessus(P9b, 'machine', 45)).toBe(50);
-    // Contre-épreuve du rang 2 (§10.2, delta 49-36) : À LA BARRE il n'a PAS
-    // de limite de date, et depuis 22 il retrouve la charge de 22,5 faite il
-    // y a deux ans et demi ; sur une MACHINE, seulement les 12 derniers mois
+    // Contre-épreuve du rang 2 (§10.2, delta 49-36) : sur une MACHINE, seulement les 12 derniers mois
     // en montant — c'est 40 (il y a 20 jours). Vers le bas, sans limite.
-    expect(dessus(P9b, 'barre', 22)).toBe(22.5);
+    // 186 — INVERSÉ pour la barre : elle n'a plus de rang 2 (son pas est celui du matériel), 22 + 2,5, et non la charge de 22,5 d'il y a
+    // deux ans et demi.
+    expect(dessus(P9b, 'barre', 22)).toBe(24.5);
     expect(dessus(P9b, 'machine', 22)).toBe(40);
     expect(dessous(P9b, 'machine', 26)).toBe(25);
   });

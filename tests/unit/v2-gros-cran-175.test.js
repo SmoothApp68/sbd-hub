@@ -192,6 +192,18 @@ describe('175 / 3 — le plan : la carte des leviers du gros cran, I68, I69', ()
     expect(x.escalier).toMatchObject({ marche: 'leviers', gros: true, reponse: 'refusee' });
     expect(x.escalier.carte).toBeUndefined();
   });
+  test('183 — I69 DISCRIMINANT : la réponse à la carte du gros cran ne déclenche pas de fausse alerte (les leviers sont ceux de la marche)', () => {
+    const rep = { id: null, seance: 'S1', jour: '2026-10-21', exercice: SLUG, marche: 'leviers', reponse: 'refusee', compteur: 3,
+      debut: FIN, n: null, levier: null };
+    const { p, e, x } = planDe(DEUX_RATES, { marches: [rep] });
+    expect(x.escalier.carte).toBeUndefined();
+    expect(x.escalier.leviers[0].cle).toBe('salle');
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+    // Le garde-fou reste vivant : des leviers qui ne s'ouvrent plus sur Ma salle sont toujours refusés.
+    const a = JSON.parse(JSON.stringify(p));
+    a.exercices[0].escalier.leviers = a.exercices[0].escalier.leviers.slice().reverse();
+    expect(T.verifierPlan(a, e).erreurs.join('|')).toMatch(/I69/);
+  });
   test('I68 DISCRIMINANT — un plancher faux, un « Viser plus de reps » sur la carte, une cible hors borne font échouer le plan', () => {
     const { p, e } = planDe(DEUX_RATES);
     const a = JSON.parse(JSON.stringify(p));

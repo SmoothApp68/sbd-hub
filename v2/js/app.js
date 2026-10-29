@@ -84,6 +84,7 @@
   var sessionActive = null;  // sans elle, aucune vue authentifiée n'est rendue
   var zoneOuverte = null;    // une seule zone dépliée à la fois (§7 bis.10)
   var moisCalendrier = null; // le mois affiché par le calendrier
+  var gardeSuspendue = 0, planNonVerifie = null;   // 183 — voir `suspendreGarde`
   var gardeOverlay = null;   // la garde qui rend le retour d'Android fermant
   var periodeRadar = Periode.PERIODE_DEFAUT;   // fenêtre comparée du radar
   var periodePoids = Poids.PERIODE_DEFAUT;     // fenêtre de la courbe de poids
@@ -5309,6 +5310,13 @@
     // ajoutée en rouvrant une séance d'avant-hier porterait sinon la date
     // d'aujourd'hui : un fait faux en base, dans la colonne même qui dit
     // quand la série a été faite.
+    //
+    // 183 — LA GARDE DE DÉVELOPPEMENT ATTEND L'OBSERVATION. Dès la validation, la ligne n'est pas encore figée (`set_observe`
+    // manque) : le repos (`reposApres`) et `apresGeste` calculent un plan où I7 lisait « 0 pari de sa révision ». Les plans se
+    // calculent comme avant (même ordre, mêmes écritures) ; seule leur VÉRIFICATION passe après `observerSerie`.
+    // (Le bloc `try` court jusqu'à la fin de la fonction.)
+    var reprendreGarde = suspendreGarde();
+    try {
     seance = Seance.valider(seance, iExo, iSerie,
       enEdition() ? new Date(seance.fin || seance.debut) : new Date());
     // §2.7 — le tour avance ICI, au geste, et jamais au rendu : une marque qui
@@ -5341,6 +5349,31 @@
     // l'appareil ; il entre dans la file ICI, derrière les séries.
     if (pariProvisoire) await poserPari(await finirPari(pariProvisoire));
     await observerSerie(iExo, iSerie);
+    } finally {
+      reprendreGarde();
+    }
+  }
+
+  // 183 — SUSPENDRE LA VÉRIFICATION d'un plan le temps d'un geste en deux temps. Rien ne s'écrit ici : `planActuel` calcule
+  // et mémorise le plan comme toujours, la garde (développement seulement) garde en attente le dernier plan non vérifié ;
+  // `reprendre()` le vérifie, avec les paris tels que l'observation les a laissés. Plusieurs gestes peuvent se croiser.
+  function suspendreGarde() {
+    gardeSuspendue += 1;
+    var rendue = false;
+    return function reprendre() {
+      if (rendue) return;
+      rendue = true;
+      gardeSuspendue -= 1;
+      if (gardeSuspendue > 0 || !planNonVerifie) return;
+      var attente = planNonVerifie;
+      planNonVerifie = null;
+      if (!garde.active || rejeuEnCours) return;
+      try {
+        // Un plan recalculé depuis (l'observation a changé les paris) a déjà été vérifié par `planActuel` lui-même.
+        var plan = planActuel();
+        if (plan === attente.plan) garde.verifier(plan, entreesDuPlan());
+      } catch (e) { /* la garde ne casse jamais un geste */ }
+    };
   }
 
   // Le retour haptique : aucun pixel, et il confirme la validation même avec
@@ -6932,7 +6965,8 @@
     // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.
     if (!rejeuEnCours) {
       Plan.dernier = { entrees: entrees, plan: plan };
-      garde.verifier(plan, entrees);
+      if (gardeSuspendue > 0) planNonVerifie = { plan: plan };   // 183 — vérifié à la reprise (`suspendreGarde`)
+      else garde.verifier(plan, entrees);
     }
     return plan;
   }

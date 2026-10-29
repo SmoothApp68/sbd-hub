@@ -5040,12 +5040,14 @@
   // d'écrire un mot que le coach n'a pas.
   function phraseExtension(e, z) {
     var tete = serieFr(e.charge, e.series.map(function (s) { return s.reps; }), cite(FAIT, { quoi: 'du_jour' })) + DEUX_POINTS;
-    var combien = e.toutes ? 'toutes tes séries' : nombreFr(e.k, regle('series')) + ' séries';
     var dit = niveauDuTest(e.niveau, z);
     if (z !== null && e.niveau !== null && e.niveau < z.bas) {
       return tete + dit + '.';
     }
     if (e.toutes) return tete + 'ta nouvelle charge tient sur toutes tes séries.';
+    // 183 (I26) — rédigé à la demande (§20 bis) : le compte « 2 » n'est déclaré que par la branche qui l'écrit. Avant, il se
+    // calculait en tête et restait déclaré sans être écrit (sous le bas de la zone, ou sur toutes les séries).
+    var combien = nombreFr(e.k, regle('series')) + ' séries';
     return tete + 'ta nouvelle charge tient sur ' + combien + (dit ? ', ' + dit : '') + '.';
   }
 

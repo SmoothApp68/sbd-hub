@@ -20612,6 +20612,16 @@ const SETS_IMPORTES = [
       nbB(g1.slice(1)) === nbB(['79×11', '79×12', '81,3×11']), nbB(g1));
     ok('[C68B] la phrase « 79 kg × 12 à fond : la suivante vise 11. »',
       nbB(await phrasesB()) === nbB(['a_fond_suite | 79 kg × 12 à fond : la suivante vise 11.']), nbB(await phrasesB()));
+    // 183 — LA SÉRIE QUE « À FOND » A RÉÉCRITE, VALIDÉE : le pari porte la révision 2 ; la garde de l'app ne doit pas crier
+    // « 0 pari de sa révision » (I7) entre le plan et l'observation. La garde lit les violations de l'app (crochetPlan) ET ici.
+    const gardeAvant183 = await page.evaluate(() => window.THPlan.garde.etat().violations.length);
+    const depart183 = await departGeste();
+    await saisirSerie(1, 79, 11);
+    await calmeApres(depart183);   // le pari écrit, la série observée : la garde a tout vu
+    const gardeApres183 = await page.evaluate((n) => window.THPlan.garde.etat().violations.slice(n), gardeAvant183);
+    ok('[C68B] 183 DISCRIMINANT — la série réécrite par « à fond », validée : la garde de l’app ne voit aucune violation (I7)',
+      gardeApres183.length === 0, nbB(gardeApres183.slice(0, 2)));
+    await invariantsB('79 × 11 validée après « à fond »');
     await abandonner();
 
     // ── 2. LA PROPOSITION PRISE, PUIS « À FOND » NOTÉ ─────────────────────

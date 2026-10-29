@@ -4599,7 +4599,9 @@
       if (x && x.leviersGardes && !(x.leviersGardes.leviers || []).length) erreurs.push(nom + 'des leviers gardés sans levier');
       if (!m || m.marche !== M.MARCHE_LEVIERS) return;
       var carte = m.carte || {};
-      var cles = (carte.leviers || []).map(function (lv) { return lv && lv.cle; });
+      // 183 — une carte répondue n'a plus de `carte` : ses leviers sont ceux de la marche (`m.leviers`).
+      var liste = carte.leviers || m.leviers || [];
+      var cles = liste.map(function (lv) { return lv && lv.cle; });
       // 175 — la carte du GROS CRAN : « Ma salle » en tête, jamais « Viser N reps » (monter en reps ne rapproche pas du cran).
       if (m.gros === true) {
         var ordreG = ['salle', 'remplacement', 'tempo'];
@@ -4609,7 +4611,7 @@
         if (rg.some(function (r) { return r < 0; }) || rg.some(function (r, j) { return j && r <= rg[j - 1]; })) {
           erreurs.push(nom + 'les leviers du gros cran hors de l’ordre ou répétés (' + cles.join(', ') + ')');
         }
-        if (/réserve|échec/i.test(String(carte.phrase) + ' ' + (carte.leviers || []).map(function (lv) { return lv && lv.texte; }).join(' '))) {
+        if (/réserve|échec/i.test(String(carte.phrase) + ' ' + liste.map(function (lv) { return lv && lv.texte; }).join(' '))) {
           erreurs.push(nom + 'la carte parle de réserve ou d’échec : jamais un motif');
         }
         return;
@@ -4621,7 +4623,7 @@
       if (cles.length && cles[cles.length - 1] !== 'salle') erreurs.push(nom + '« Ma salle » n’est pas le dernier levier');
       if (x.tempo && cles.indexOf('tempo') >= 0) erreurs.push(nom + 'le tempo lent proposé alors qu’il est déjà en cours');
       var pl = m.plafond || null;
-      (carte.leviers || []).forEach(function (lv) {
+      liste.forEach(function (lv) {
         if (!lv || lv.cle !== 'reps') return;
         var v = nombre(lv.visee);
         var attendu = pl ? M.viseeDuLevier(pl.reps) : null;
@@ -4631,7 +4633,7 @@
         if (v !== null && v > 30) erreurs.push(nom + 'viser ' + v + ' reps, au-delà de 30');
         if (v !== null && pl && nombre(pl.reps) <= 5 && v > 8) erreurs.push(nom + 'viser ' + v + ' reps en zone de force, au-delà de 8');
       });
-      if (/réserve|échec/i.test(String(carte.phrase) + ' ' + (carte.leviers || []).map(function (lv) { return lv && lv.texte; }).join(' '))) {
+      if (/réserve|échec/i.test(String(carte.phrase) + ' ' + liste.map(function (lv) { return lv && lv.texte; }).join(' '))) {
         erreurs.push(nom + 'la carte parle de réserve ou d’échec : jamais un motif');
       }
     });

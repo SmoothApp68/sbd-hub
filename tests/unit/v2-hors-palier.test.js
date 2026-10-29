@@ -87,3 +87,20 @@ describe('186 - le Pourquoi du hors-palier dans un plan (I26 : le nombre se retr
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
 });
+
+describe('186 - le rang 2 ne sert que la ou le pas ne se devine pas', () => {
+  const jour = (i) => new Date(Date.UTC(2026, 8, 1 + i * 3, 18)).toISOString();
+  const S0 = [[155, 5], [155, 5], [155, 5]];
+  const S1 = [[150, 5], [150, 5], [150, 5]];
+  const hist = [0, 1, 2, 3, 4].map((i) => ({ seance: { id: 'H' + i, debut: jour(i) },
+    series: (i < 2 ? S0 : S1).map(([kg, r]) => b(kg, r, { exercise_slug: 'dc' })) }));
+  const avant = new Date(Date.parse(jour(4)) + 3 * 864e5).toISOString();
+  const haut = (eq) => M.consigneDExercice(hist, undefined, avant,
+    { mesure: 'charge_reps', equipement: eq, intention: 'progresser', reglage: 'normal', edition: false }).consigne.haut.charge;
+  test('DISCRIMINANT - barre : le cran est le pas du materiel (152,5), pas la charge deja utilisee a 155', () => {
+    expect(haut('barre')).toBe(152.5);
+  });
+  test('DISCRIMINANT - machine : la charge deja utilisee (155) reste le cran voisin (rang 2)', () => {
+    expect(haut('machine')).toBe(155);
+  });
+});

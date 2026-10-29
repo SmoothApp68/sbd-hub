@@ -979,7 +979,14 @@
     // 163 (MOTEUR §10.2 bis) — UNE CHARGE JAMAIS FAITE SE DIT APPROCHÉE : le plan porte la phrase (par matériel) ;
     // l'écran la lit sous la ligne, il ne la rédige pas. I61 relit le fondement, les charges marquées et la phrase.
     var approchee = null;
-    if (consigne && consigne.fondement && consigne.fondement.approchee === true) {
+    // 185 — UN TEST DONT LA LIGNE EST « HORS CALCUL » N'A PLUS DE LIGNE : la personne a dit « Non, ne compte pas » à la série qui
+    // portait la charge approchée (le test à ≈ 127,5 kg), il ne reste aucune ligne à l'écran qui la porte. La phrase « ≈ … vise la
+    // barre au-dessus » citerait alors une cible qu'aucune ligne n'affiche (I26) : on la tait, et le plan le dit (`approcheeSansLigne`,
+    // relu par I61). Tant qu'un segment de l'en-tête porte la charge approchée, rien ne change.
+    var porteuse = !!(entete && Array.isArray(entete.segments) && entete.segments.some(function (sg) { return sg && sg.approchee === true; }));
+    var horsCalculDuExo = !!(exo && Array.isArray(exo.series) && exo.series.some(function (sx) { return sx && sx.hors_calcul === true; }));
+    var approcheeSansLigne = !!(consigne && consigne.fondement && consigne.fondement.approchee === true) && !porteuse && horsCalculDuExo;
+    if (!approcheeSansLigne && consigne && consigne.fondement && consigne.fondement.approchee === true) {
       var capAp = V.capturer(function () { return M.phraseApprochee(materiel ? materiel.equipement : null, consigne); });
       approchee = { materiel: materiel ? materiel.equipement || null : null, phrase: capAp.texte };
       dire('entete.approchee', capAp.texte, capAp.citations);
@@ -1011,6 +1018,7 @@
       materiel: materiel ? materiel.equipement || null : null,
       // 163 — la charge approchée et sa phrase, ou `null` : I61 la relit.
       approchee: approchee,
+      approcheeSansLigne: approcheeSansLigne,
       // §10 bis (108) — la salle de l'exercice, ou `null` : I46 la relit.
       salle: materiel ? materiel.salle || null : (c.salle || null),
       chauffes: autour.chauffes, proposition: autour.proposition, degressive: autour.degressive,
@@ -4730,7 +4738,12 @@
         if (x.salle) erreurs.push(nom + m[0] + ' approchée alors qu’une salle est en vigueur');
       });
       if (fond !== (marquees.length > 0)) erreurs.push(nom + 'le fondement ' + (fond ? 'dit' : 'ne dit pas') + ' « approchée » pour ' + marquees.length + ' charge(s) marquée(s)');
-      if ((marquees.length > 0) !== !!x.approchee) erreurs.push(nom + 'la charge approchée et la clé « approchee » du plan ne vont pas ensemble');
+      // 185 — seule exception : la ligne qui portait la charge approchée est « hors calcul » (`approcheeSansLigne`), et aucun segment
+      // de l'en-tête ne la porte plus : le plan se tait, il ne cite pas une cible qu'aucune ligne n'affiche.
+      var segsI61 = x.entete && Array.isArray(x.entete.segments) ? x.entete.segments : [];
+      var sansLigne = x.approcheeSansLigne === true && !x.approchee && marquees.length > 0 &&
+        !segsI61.some(function (sg) { return sg && sg.approchee === true; });
+      if (!sansLigne && (marquees.length > 0) !== !!x.approchee) erreurs.push(nom + 'la charge approchée et la clé « approchee » du plan ne vont pas ensemble');
       if (x.approchee && (!x.approchee.phrase || !/vise/.test(String(x.approchee.phrase)))) erreurs.push(nom + 'une charge approchée sans sa phrase');
       // L'en-tête dit « ≈ » devant chaque charge approchée qu'il décrit (ses segments), et seulement elles.
       var segs = x.entete && Array.isArray(x.entete.segments) ? x.entete.segments : [];

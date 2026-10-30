@@ -21475,9 +21475,9 @@ const SETS_IMPORTES = [
         levier: (c.querySelector('.pc-levier') || {}).textContent,
         large: document.documentElement.scrollWidth > window.innerWidth };
     });
-    ok('[P75] la page : /progression/parcours, la phrase en tête, puis les sections dans l’ordre de M1',
+    ok('[P75] la page : /progression/parcours, la phrase en tête, puis les sections dans l’ordre de M1 (188-1 : « Ta semaine et tes équilibres » en tête, sous la phrase)',
       pageP.chemin === '/progression/parcours' && pageP.visible && sp(pageP.phrase) === PHRASE &&
-        JSON.stringify(pageP.sections) === JSON.stringify(['Tes grands mouvements', 'Par muscle · 6 derniers mois',
+        JSON.stringify(pageP.sections) === JSON.stringify(['Ta semaine et tes équilibres', 'Tes grands mouvements', 'Par muscle · 6 derniers mois',
           'Tes équilibres', 'Ton levier', 'Ta phase', 'Tous tes exercices']) && pageP.courbes === 2,
       JSON.stringify(pageP));
     ok('[P75] les six groupes, fermés ; jambes « ↑ progresse », poitrine « ↗ le plus lent », épaules sans verdict',
@@ -26976,6 +26976,120 @@ const SETS_IMPORTES = [
     ok('[SV185] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       nb185([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ equilibres-188. TA SEMAINE ET TES ÉQUILIBRES — LA CARTE, SES CAUSES, « PAS MAINTENANT », UNE PROPOSITION QUI SE VOIT ET S’ANNULE (188-1) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : quatorze semaines de haut du corps SANS aucun tirage (le rapport tirage/poussée est à 0, sous
+  // 0,60) et des jambes sans chaîne postérieure ; la routine du programme ne porte aucun tirage. Le banc joue par l'ÉCRAN et lit
+  // ce que le faux serveur a reçu : « Pas maintenant » s'écrit dans `profiles.cartes_semaine` (par la file), une proposition
+  // acceptée écrit la routine, se voit (« Fait : … ») et s'annule — jamais rien au rendu seul.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbSessionsAvant = base.sessions.length, nbSetsAvant = base.sets.length, nbCatAvant = CATALOGUE.length, nbRoutinesAvant = ROUTINES.length;
+    const t188 = Date.now();
+    const nb188 = (x) => JSON.stringify(x === undefined ? null : x);
+    const sp188 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const fiche188 = (slug, nom, prim, schema, equipement) => ({ slug, nom, mesure: 'charge_reps', charge: 'externe', equipement,
+      muscles_primaires: prim, muscles_secondaires: [], schema_mouvement: schema });
+    CATALOGUE.push(fiche188('eq188-dev', 'Développé EQ188 (Barre)', ['pectoraux'], 'pousser_horizontal', 'barre'));
+    CATALOGUE.push(fiche188('eq188-mil', 'Militaire EQ188 (Barre)', ['deltoide_anterieur'], 'pousser_vertical', 'barre'));
+    CATALOGUE.push(fiche188('eq188-squat', 'Squat EQ188 (Barre)', ['quadriceps', 'fessiers'], 'accroupir', 'barre'));
+    CATALOGUE.push(fiche188('eq188-lat', 'Latérales EQ188 (Haltère)', ['deltoide_lateral'], 'epaules_cote', 'haltere'));
+    CATALOGUE.push(fiche188('eq188-arr', 'Oiseau EQ188 (Haltère)', ['deltoide_posterieur'], 'epaules_arriere', 'haltere'));
+    CATALOGUE.push(fiche188('eq188-row', 'Rowing EQ188 (Poulie)', ['grand_dorsal'], 'tirer_horizontal', 'poulie'));
+    base.sessions = base.sessions.slice();
+    base.sets = base.sets.slice();
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    for (let w = 1; w <= 14; w++) {
+      [7 * w + 1, 7 * w + 3].forEach((j, n) => {
+        const id = 'eq188-' + w + '-' + n;
+        const debut = ilYa(j * 86400000, t188).toISOString();
+        base.sessions.push({ id, user_id: 'u-banc', titre: 'EQ188 — ' + id, debut, fin: finDe(debut, t188).toISOString(),
+          statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-eq188', source: 'app', created_at: debut,
+          gestes: [] });
+        let rang = 0;
+        // Un seul tirage, dans la plus vieille séance : l'app sait ce que tu as déjà fait (jamais un exercice deviné).
+        [['eq188-dev', 4], ['eq188-mil', 3], ['eq188-squat', 3]].concat(w === 10 && n === 0 ? [['eq188-row', 3], ['eq188-lat', 3], ['eq188-arr', 3]] : []).forEach(([slug, nb]) => {
+          for (let k = 0; k < nb; k++) base.sets.push({ id: id + '-s' + (++rang), session_id: id, user_id: 'u-banc', exercise_slug: slug,
+            charge_kg: 60, reps: 8, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null,
+            type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null,
+            note: null, source: 'app', created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false });
+        });
+      });
+    }
+    ROUTINES.push({ id: 'r-eq188', nom: 'Haut EQ188', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z',
+      updated_at: '2026-01-05T10:00:00.000Z',
+      routine_exercises: [['eq188-dev', 0, 4], ['eq188-mil', 1, 3], ['eq188-squat', 2, 3]].map(([slug, rang, n]) => ({
+        id: 're-eq188-' + rang, routine_id: 'r-eq188', exercise_slug: slug, rang, routine_sets: progr(n, 8),
+        repos_cible_s: 0, groupe_superset: null, note: null })) });
+    const lireParcours188 = () => page.evaluate(() => {
+      const sec = document.querySelector('#parcours [data-equilibres]');
+      const cartes = Array.from(document.querySelectorAll('#parcours [data-equilibre]')).map((c) => ({
+        cle: c.getAttribute('data-equilibre'), calme: c.classList.contains('eq-calme') || c.classList.contains('eq-constat'), texte: c.textContent,
+        boutons: Array.from(c.querySelectorAll('button')).map((b) => ({ t: b.textContent, prop: b.getAttribute('data-proposition'),
+          pm: b.getAttribute('data-pas-maintenant'), h: Math.round(b.getBoundingClientRect().height) })) }));
+      const fait = document.querySelector('#parcours .eq-fait-pose');
+      return { etat: sec ? sec.getAttribute('data-equilibres') : null, cartes, fait: fait ? fait.textContent : null,
+        haut: sec && sec.getBoundingClientRect().top < window.innerHeight * 2 };
+    });
+    await aller('/progression/parcours');
+    await attendreQue(async () => (await lireParcours188()).cartes.some((c) => /D’où ça vient/.test(c.texte)), 15000, 'cartes188');
+    const v1 = await lireParcours188();
+        const vives = v1.cartes.filter((c) => !c.calme);
+    ok('[EQ188] la carte parle : tirage sous 0,60 (le haut du corps n’a aucun tirage), avec « D’où ça vient »',
+      vives.length > 0 && vives.some((c) => /D’où ça vient/.test(sp188(c.texte))),
+      nb188(v1.cartes.map((c) => [c.cle, sp188(c.texte).slice(0, 160)])));
+    ok('[EQ188] la section est en tête de « Ton parcours » et chaque bouton se touche (44 px)',
+      v1.etat !== null && vives.every((c) => c.boutons.every((b) => b.h >= 44)), nb188([v1.etat, vives.map((c) => c.boutons.map((b) => b.h))]));
+    ok('[EQ188] la voix : un fait, jamais un reproche, un total ni un point d’exclamation',
+      vives.every((c) => !/bravo|!|honte|tu dois|il faut|danger|blessure/i.test(c.texte)), nb188(vives.map((c) => sp188(c.texte).slice(0, 200))));
+    ok('[EQ188] le rendu seul n’écrit rien : aucune réponse en base avant un geste',
+      !base.profiles[0].cartes_semaine || Object.keys(base.profiles[0].cartes_semaine).length === 0, nb188(base.profiles[0].cartes_semaine));
+
+    // Une proposition d'ajout : elle s'applique par le chemin des routines, se voit, s'annule.
+    const avecAjout = vives.filter((c) => c.boutons.some((b) => b.prop === 'ajouter'))[0];
+    if (avecAjout) {
+      const exosAvant = ROUTINES.filter((r) => r.id === 'r-eq188')[0].routine_exercises.length;
+      await page.evaluate((cle) => document.querySelector('[data-equilibre="' + cle + '"] [data-proposition="ajouter"]').click(), avecAjout.cle);
+      await attendreQue(() => ROUTINES.filter((r) => r.id === 'r-eq188')[0].routine_exercises.length > exosAvant, 8000, 'ajout188');
+      await attendreQue(async () => /^Fait :/.test(sp188((await lireParcours188()).fait)), 8000, 'fait188');
+      const vf = await lireParcours188();
+      ok('[EQ188] la proposition acceptée écrit la routine ET se voit (« Fait : … »)',
+        ROUTINES.filter((r) => r.id === 'r-eq188')[0].routine_exercises.length === exosAvant + 1 && /^Fait :/.test(sp188(vf.fait)), nb188(vf.fait));
+      await page.evaluate(() => Array.from(document.querySelectorAll('#parcours .eq-fait-pose button')).filter((b) => /annuler/i.test(b.textContent))[0].click());
+      await attendreQue(() => ROUTINES.filter((r) => r.id === 'r-eq188')[0].routine_exercises.length === exosAvant, 8000, 'annule188');
+      ok('[EQ188] « Annuler » rend la routine d’avant', ROUTINES.filter((r) => r.id === 'r-eq188')[0].routine_exercises.length === exosAvant, '');
+    } else {
+      ok('[EQ188] une carte propose d’ajouter un exercice', false, nb188(vives.map((c) => c.boutons.map((b) => b.prop))));
+    }
+
+    // « Pas maintenant » : la carte se tait, la réponse part par la file dans `profiles.cartes_semaine`.
+    await aller('/progression/parcours');
+    await attendreQue(async () => (await lireParcours188()).cartes.some((c) => !c.calme), 15000, 'cartes188b');
+    const v2 = await lireParcours188();
+    const cible = v2.cartes.filter((c) => !c.calme && c.boutons.some((b) => b.pm))[0];
+    if (cible) {
+      await page.evaluate((cle) => document.querySelector('[data-pas-maintenant="' + cle + '"]').click(), cible.cle);
+      await attendreQue(() => base.profiles[0].cartes_semaine && base.profiles[0].cartes_semaine[cible.cle], 8000, 'pm188');
+      const rep = base.profiles[0].cartes_semaine[cible.cle];
+      await attendreQue(async () => !(await lireParcours188()).cartes.some((c) => c.cle === cible.cle && !c.calme), 8000, 'tue188').catch(() => {});
+      const apres188 = await lireParcours188();
+      ok('[EQ188] « Pas maintenant » est écrit par la file et fait taire la carte', !!rep && !apres188.cartes.some((c) => c.cle === cible.cle && !c.calme), nb188([cible.cle, base.profiles[0].cartes_semaine, apres188.cartes.map((c) => [c.cle, c.calme])]));
+    } else {
+      ok('[EQ188] une carte porte « Pas maintenant »', false, nb188(v2.cartes.map((c) => [c.cle, c.boutons.map((b) => b.t)])));
+    }
+    ok('[EQ188] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb188([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    // On rend l'état.
+    base.sessions = base.sessions.slice(0, nbSessionsAvant);
+    base.sets = base.sets.slice(0, nbSetsAvant);
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = nbRoutinesAvant;
+    base.profiles[0] = profilAvant;
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

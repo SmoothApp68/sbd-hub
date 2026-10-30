@@ -1065,6 +1065,16 @@
     }).sort();
   }
 
+  // 188-1 (MOTEUR §9.27) — LE SENS D'UN TIRAGE OU D'UNE POUSSÉE : `'horizontal'` ou `'vertical'` d'après le
+  // `schema_mouvement` du catalogue (`pousser_horizontal`, `tirer_vertical`…), ou `null` (un autre schéma, une colonne
+  // absente, une habileté). Avec `cousinsDe`, la SEULE lecture de `schema_mouvement` : les cartes d'équilibre de la
+  // semaine (`equilibres.js`) comparent le tirage et la poussée à l'horizontale, puis à la verticale.
+  function sensDuMouvement(fiche) {
+    var m = fiche && !fiche.habilete && typeof fiche.schema_mouvement === 'string' ? fiche.schema_mouvement : '';
+    var r = /^(?:pousser|tirer)_(horizontal|vertical)$/.exec(m);
+    return r ? r[1] : null;
+  }
+
   // MOTEUR §9.17 (50-1) — LA VERSION LESTÉE d'un exercice libre : l'exercice du
   // catalogue dont `parent` EST lui et dont la charge est ajoutée
   // (`charge = ajoutee` : `tractions_leste` pour `tractions`). C'est un AUTRE
@@ -2816,6 +2826,7 @@
     nommer: nommer,
     freresDe: freresDe,
     cousinsDe: cousinsDe,
+    sensDuMouvement: sensDuMouvement,
     lesteDe: lesteDe,
     parentDe: parentDe,
     // MOTEUR §9.17 bis (127) — l'échelle des variantes.

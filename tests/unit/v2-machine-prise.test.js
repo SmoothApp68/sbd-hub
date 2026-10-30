@@ -253,7 +253,7 @@ describe('51-2 — le fait sous un frère est « Dernière séance », et le fr�
 
   test('le catalogue et le frère remplacent par le même chemin (`remplacerDansLaSeance`)', () => {
     expect(extraire('rendreCatalogue')).toMatch(/remplacerDansLaSeance\(intentionCatalogue\.remplace, exo\.slug\)/);
-    expect(extraire('vueMachinePrise')).toMatch(/remplacerDansLaSeance\(iExo, f\.slug\)/);
+    expect(extraire('vueMachinePrise')).toMatch(/remplacerDansLaSeance\(iExo, f\.slug, 'machine_prise'\)/);
     expect(extraire('remplacerDansLaSeance')).toMatch(/heriterRoutine\(iExo, slug\)[\s\S]*Seance\.remplacerExercice\(/);
   });
 

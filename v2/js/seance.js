@@ -103,7 +103,10 @@
   // reconnaîtrait pas au prochain import, et sa correction l'effacerait.
   var COLONNES_SESSION = [
     'id', 'user_id', 'debut', 'fin', 'titre', 'note', 'salle', 'routine_id',
-    'source', 'source_ref', 'statut'
+    'source', 'source_ref', 'statut',
+    // 188-1 (v2_118) — les gestes de la séance (« J'ai peu de temps », « Machine prise », remplacement à la main, série
+    // ajoutée, exercice retiré) : `[{ geste, slug, vers?, n?, retires? }]`, NOT NULL DEFAULT '[]'. Lue ET écrite, toujours envoyée.
+    'gestes'
   ];
   // `salle_norme` est GÉNÉRÉE : lue pour l'affichage, jamais envoyée.
   var COLONNES_SESSION_EN_PLUS = ['created_at', 'salle_norme'];
@@ -186,6 +189,7 @@
       titre: o.titre || null,
       routine_id: (o.routine && o.routine.id) || null,
       statut: EN_COURS,
+      gestes: [],
       // La structure vient de la routine, JAMAIS les charges (ECRAN-SAISIE §1.1).
       exercices: ((o.routine && o.routine.exercices) || []).map(function (e) {
         return exerciceDepuisRoutine(e, o.idSerie);
@@ -349,6 +353,7 @@
       salle: session.salle || null,
       note: session.note || null,
       statut: session.statut || TERMINEE,
+      gestes: gestesPropres(session.gestes),
       exercices: exercicesDepuisBlocs(blocs)
     }), session);
   }
@@ -381,6 +386,7 @@
       // sensé à comparer.
       routine_id: null,
       statut: EN_COURS,
+      gestes: [],
       exercices: exercicesDepuisBlocs(o.blocs, { vider: true, idSerie: o.idSerie })
     });
   }
@@ -1990,7 +1996,7 @@
   function verifierColonnes() {
     var sonde = {
       id: 's', user_id: 'u', debut: 'd', fin: null, titre: null, note: null,
-      salle: null, routine_id: null, statut: EN_COURS, source: 'hevy', source_ref: 'hevy:sonde',
+      salle: null, routine_id: null, statut: EN_COURS, source: 'hevy', source_ref: 'hevy:sonde', gestes: [],
       exercices: [{
         exercise_slug: 'x', groupe_superset: null, note: null,
         series: [Object.assign(serieVide('sonde'), {
@@ -2039,8 +2045,47 @@
       // reconnaît encore la séance à la minute de son début.
       source_ref: seance.source_ref === undefined ? null : seance.source_ref,
       // Toujours explicite : le défaut de la colonne est 'terminee'.
-      statut: seance.statut || EN_COURS
+      statut: seance.statut || EN_COURS,
+      // 188-1 — les gestes, toujours envoyés (NOT NULL) : une séance sans geste part avec `[]`.
+      gestes: gestesPropres(seance.gestes)
     };
+  }
+
+  // ══ 188-1 — LES GESTES DE LA SÉANCE (`sessions.gestes`, v2_118) ═══════════════════════════════════════════
+  //
+  // Ce que la personne a fait pour dévier de la routine, écrit AVEC la séance : le coach de la semaine
+  // (`equilibres.js`) en tire ses causes en faits. Cinq gestes, et rien d'autre :
+  //   · `raccourci`      — « J'ai peu de temps » : `{ geste, retires: [slugs] }` (les exercices retirés) ;
+  //   · `machine_prise`  — « Machine prise » : `{ geste, slug, vers? }` (`vers` : le remplaçant, absent s'il n'y en a pas) ;
+  //   · `remplacement`   — un remplacement à la main : `{ geste, slug, vers }` ;
+  //   · `ajout_serie`    — une série ajoutée à la main : `{ geste, slug, n }` ;
+  //   · `retrait`        — un exercice retiré à la main : `{ geste, slug }`.
+  // Une liste, jamais deux fois le même geste fusionné : l'ordre des gestes est celui de la séance. Un geste mal formé
+  // ne s'écrit pas (la colonne est un tableau, `CHECK jsonb_typeof = 'array'`).
+  var GESTES = ['raccourci', 'machine_prise', 'remplacement', 'ajout_serie', 'retrait'];
+  function gestePropre(g) {
+    if (!g || typeof g !== 'object' || GESTES.indexOf(g.geste) < 0) return null;
+    var o = { geste: g.geste };
+    var slug = function (x) { return typeof x === 'string' && x ? x : null; };
+    if (g.geste === 'raccourci') {
+      o.retires = Array.isArray(g.retires) ? g.retires.filter(function (x) { return slug(x); }) : [];
+      return o;
+    }
+    if (!slug(g.slug)) return null;
+    o.slug = g.slug;
+    if ((g.geste === 'remplacement') && !slug(g.vers)) return null;
+    if (slug(g.vers)) o.vers = g.vers;
+    if (g.geste === 'ajout_serie') o.n = g.n > 0 ? Math.floor(g.n) : 1;
+    return o;
+  }
+  function gestesPropres(liste) {
+    return (Array.isArray(liste) ? liste : []).map(gestePropre).filter(function (g) { return g !== null; });
+  }
+  // Ajoute un geste à la séance (une copie, jamais en place). Un geste mal formé est ignoré.
+  function noterGeste(seance, geste) {
+    var g = gestePropre(geste);
+    if (!g || !seance) return seance;
+    return Object.assign({}, seance, { gestes: gestesPropres(seance.gestes).concat([g]) });
   }
 
   // ── Le précédent, et les valeurs fantômes ───────────────────────────────
@@ -3087,6 +3132,9 @@
     delaiProchaineMinute: delaiProchaineMinute,
     lignes: lignes,
     ligneSession: ligneSession,
+    noterGeste: noterGeste,
+    gestesPropres: gestesPropres,
+    GESTES: GESTES,
     precedent: precedent,
     correspondant: correspondant,
     derniereSaisie: derniereSaisie,

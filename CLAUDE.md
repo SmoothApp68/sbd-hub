@@ -170,6 +170,7 @@ trappe `/__sw-off` pendrait avec lui.
   aussi échouer le test : la liste dit ce qui est. **Depuis le 17/10/2026 (124, audit 06 #5)**, toute
   fonction de `moteur.js` lue hors du moteur et du plan doit être inscrite — dans `GARDEES` (une décision
   du coach) ou au registre `NOTIONS` (un fait, un format, avec ses lecteurs) : sinon la garde échoue.
+- **Ta semaine et tes équilibres** (188-1, MOTEUR §9.27) : `v2/js/equilibres.js` (`THEquilibres`) est pur, sur le modèle de `deraille.js` ; l'écran lit l'analyse et ne calcule rien. Les gestes d'une séance (`sessions.gestes`) s'écrivent par `Seance.noterGeste`, jamais ailleurs ; les réponses aux cartes, dans `profiles.cartes_semaine` par la file (`poserProfil`). Aucune cause n'est devinée, aucune règle ne fixe un nombre de séries ou d'exercices, une proposition passe par le chemin des routines et s'annule.
 - **Le module des faits** (58-1) : l'assemblage des faits (séances et séries, records d'une séance,
   d'un mois, du jour, le dernier record, la semaine affichée, les exercices faits) vit dans
   `v2/js/faits.js`, avec ses mémos ; les écrans — et le jeu — le **lisent**, aucun autre fichier ne

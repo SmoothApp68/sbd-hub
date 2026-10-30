@@ -37,6 +37,7 @@
   var Reserve = racine.THReserve;
   // 99 — la semaine qui déraille (MOTEUR §9.24) : la règle dans `deraille.js` ; d'ici, son entrée et ses gestes.
   var Deraille = racine.THDeraille;
+  var Equilibres = racine.THEquilibres;
   // 109 (MOTEUR §9.25) — l'objectif posé par la personne, à l'essai.
   var Objectif = racine.THObjectif;
   // 59-2 — « Quitter » : la fenêtre des séances pas encore envoyées, et ce qu'on efface.
@@ -1322,6 +1323,7 @@
     rendreProchaineSeance();
     demanderLesRoutinesDeLAccueil();
     Rendu.rendreBarreSemaine($('barre-seances'), barrePour(sem, true));
+    rendreLigneDesEquilibres();
     Rendu.rendreRappel($('rappel-zones'), sem.zones, function () {
       // Un rappel DE VOLUME ouvre le volume, pas le sommaire : passer par une
       // table des matières pour retrouver ce qu'on vient de toucher serait un
@@ -1422,8 +1424,159 @@
     if (ecranCourant === 'progression') rendreProgression();
     else rendreParcours();
   }
+  // ══ 188-1 — « TA SEMAINE ET TES ÉQUILIBRES » (MOTEUR §9.27) ═══════════════════════════════════════════════════
+  //
+  // ⚠️ L'ÉCRAN NE CALCULE RIEN. `Equilibres.analyser` (pur) lit les séances, leurs gestes (`sessions.gestes`), les routines
+  // du programme et les réponses déjà données (`profiles.cartes_semaine`) ; l'app lui passe ces faits, il rend les cartes.
+  // Rien ne s'écrit au rendu. Un geste écrit :
+  //   · « Pas maintenant » / un « oui » : `profiles.cartes_semaine[cle]` par `poserProfil` (la file, comme `marche_reponses`) ;
+  //   · une proposition acceptée : la routine, par `poserRoutineVoulue` (le chemin des routines, la file), puis elle SE VOIT
+  //     (« Fait : … ») et S'ANNULE (la routine d'avant, et les réponses d'avant) ;
+  //   · « remplacer » et « fusionner » n'ont pas de chemin d'écriture : ils OUVRENT l'éditeur de la routine, rien n'est écrit ;
+  //   · « corriger » (le programme du coach, mal construit) rouvre « Refaire mon programme ».
+  var faitEquilibre = null;          // { texte, surAnnuler } : la dernière proposition acceptée, jusqu'au prochain rendu
+  var memoEquilibres = null;         // { cle, analyse }
+
+  // Les routines du PROGRAMME : le dossier du programme construit par le coach (`programme_construit_dossier`), sinon le
+  // dossier de la routine de la dernière séance, sinon toutes les routines visibles. `coach` : le programme vient du coach.
+  function routinesDuProgramme() {
+    var visibles = Routines.visibles(routines).filter(function (r) { return r && !r.archivee_a; });
+    var p = profil || {};
+    var dossierCoach = Profil.dossierDuProgrammeValide(p.programme_construit_dossier);
+    if (dossierCoach) {
+      var rc = visibles.filter(function (r) { return Routines.dossierPropre(r.dossier) === dossierCoach; });
+      if (rc.length) return { routines: rc, coach: true };
+    }
+    var derniere = null, parId = {};
+    visibles.forEach(function (r) { parId[r.id] = r; });
+    (local.seances || []).forEach(function (s) {
+      if (s && s.routine_id && parId[s.routine_id] && s.debut && (!derniere || s.debut > derniere.debut)) derniere = s;
+    });
+    if (derniere) {
+      var d = Routines.dossierPropre(parId[derniere.routine_id].dossier);
+      return { routines: visibles.filter(function (r) { return Routines.dossierPropre(r.dossier) === d; }), coach: false };
+    }
+    return { routines: visibles, coach: false };
+  }
+
+  function reponsesDesCartes() {
+    var c = profil && profil.cartes_semaine;
+    return c && typeof c === 'object' && !Array.isArray(c) ? c : {};
+  }
+
+  function entreeDesEquilibres() {
+    var maintenant = new Date();
+    var prog = routinesDuProgramme();
+    var p = profil || {};
+    return {
+      jour: Moteur.jourCivil(maintenant),
+      reglage: Profil.rythmeDe(p),
+      intention: p.intention || null,
+      catalogue: catalogueIndexe(),
+      seances: local.seances, series: local.series,
+      routines: prog.routines.map(function (r) { return { id: r.id, nom: r.nom, exercices: r.exercices }; }),
+      programmeDuCoach: prog.coach,
+      programmeRefaitLe: p.programme_construit_le ? Moteur.jourCivil(new Date(p.programme_construit_le)) : null,
+      priorites: Profil.prioritesDe(p),
+      volume: function () { return volumeDuCoach(maintenant.toISOString()); },
+      ecartes: Profil.ecartesDe(p),
+      cartes: reponsesDesCartes()
+    };
+  }
+
+  // L'analyse, gardée tant que rien de ce qu'elle lit n'a changé (les séances, les séries, les routines, le réglage, les
+  // priorités, les réponses, le jour).
+  function equilibres() {
+    var p = profil || {};
+    var cle = [(local.seances || []).length, (local.series || []).length, Moteur.jourCivil(new Date()), p.rythme_progression || '',
+               p.intention || '', JSON.stringify(Profil.prioritesDe(p)), JSON.stringify(reponsesDesCartes()),
+               p.programme_construit_dossier || '', p.programme_construit_le || '', etatRoutines.code, signatureDesRoutines(routines)].join('|');
+    if (memoEquilibres && memoEquilibres.cle === cle) return memoEquilibres.analyse;
+    var analyse = Equilibres.analyser(entreeDesEquilibres());
+    memoEquilibres = { cle: cle, analyse: analyse };
+    return analyse;
+  }
+
+  async function repondreALaCarte(cle, r) {
+    var toutes = Object.assign({}, reponsesDesCartes());
+    toutes[cle] = Equilibres.reponse(toutes, cle, r, Moteur.jourCivil(new Date()));
+    await poserProfil({ cartes_semaine: toutes });
+  }
+
+  function repeindreLesEquilibres() {
+    if (!vues.parcours.hidden) rendreParcours();
+    if (!vues.liste.hidden) rendreLigneDesEquilibres();
+  }
+
+  function pasMaintenantEquilibre(carte) {
+    faitEquilibre = null;
+    // La carte se tait quand la réponse est posée dans le profil (pas avant : le rendu relirait l'ancienne réponse).
+    repondreALaCarte(carte.cle, 'non').catch(function (e) { console.warn('Carte de la semaine non écrite :', texteErreur(e)); })
+      .then(function () { repeindreLesEquilibres(); });
+  }
+
+  async function accepterUneProposition(carte, p) {
+    var rt = routines.filter(function (r) { return r.id === p.routine_id; })[0];
+    // Sans chemin d'écriture : l'éditeur s'ouvre sur la bonne routine, rien n'est écrit en silence.
+    if (p.type === 'remplacer' || p.type === 'fusionner') {
+      if (rt) ouvrirRoutine(rt.id);
+      return;
+    }
+    if (p.type === 'corriger') { ouvrirQuestionnaire({ refaire: true }); return; }
+    var voulues = null, fait = null;
+    if (rt && p.type === 'deplacer') { voulues = Routines.miseEnTete(rt, p.slug, p.avant); fait = 'Fait : ' + Modele.nommer(catalogueIndexe(), p.slug) + ' est plus tôt dans « ' + rt.nom + ' ».'; }
+    if (rt && p.type === 'ajouter') { voulues = Routines.ajoutDExercice(rt, p.slug, p.series || 1); fait = 'Fait : ' + Modele.nommer(catalogueIndexe(), p.slug) + ' est dans « ' + rt.nom + ' ».'; }
+    if (rt && p.type === 'serie') { voulues = Routines.ajoutDeSerie(rt, p.slug); fait = 'Fait : une série de plus sur ' + Modele.nommer(catalogueIndexe(), p.slug) + ' dans « ' + rt.nom + ' ».'; }
+    if (!voulues) {
+      // La routine a changé depuis la carte : rien n'est écrit, la carte se recalcule.
+      faitEquilibre = { texte: 'Ta routine a changé depuis : je recalcule.', surAnnuler: function () { faitEquilibre = null; repeindreLesEquilibres(); } };
+      memoEquilibres = null;
+      return repeindreLesEquilibres();
+    }
+    var avantRoutine = JSON.parse(JSON.stringify(rt.exercices));
+    var avantReponses = JSON.parse(JSON.stringify(reponsesDesCartes()));
+    var idRoutine = rt.id;
+    await poserRoutineVoulue(rt, voulues);
+    await repondreALaCarte(carte.cle, 'oui');
+    faitEquilibre = {
+      texte: fait,
+      surAnnuler: async function () {
+        var r2 = routines.filter(function (r) { return r.id === idRoutine; })[0];
+        faitEquilibre = null;
+        if (r2) await poserRoutineVoulue(r2, avantRoutine);
+        await poserProfil({ cartes_semaine: avantReponses });
+        memoEquilibres = null;
+        repeindreLesEquilibres();
+      }
+    };
+    memoEquilibres = null;
+    repeindreLesEquilibres();
+  }
+
+  // La vue de « Ta semaine et tes équilibres » pour « Ton parcours » : l'analyse, la dernière proposition acceptée, les gestes.
+  function vueDesEquilibres() {
+    var a = equilibres();
+    if (!a) return null;
+    return {
+      analyse: a, fait: faitEquilibre,
+      surProposition: function (carte, p) {
+        accepterUneProposition(carte, p).catch(function (e) { console.warn('Proposition non appliquée :', texteErreur(e)); });
+      },
+      surPlusTard: pasMaintenantEquilibre
+    };
+  }
+
+  // La ligne de l'écran Séances : UNE seule, quand une carte d'équilibre parle.
+  function rendreLigneDesEquilibres() {
+    var noeud = $('ligne-equilibre');
+    if (!noeud) return;
+    var a = seance ? null : equilibres();
+    Rendu.rendreLigneEquilibre(noeud, a && a.ligne ? { texte: a.ligne.texte, surOuvrir: afficherParcours } : null);
+  }
+
   function afficherParcours() {
     allerA(Routeur.PARCOURS, {});
+    demanderLesRoutinesDeLAccueil();   // une LECTURE, au montage de la vue, jamais dans le rendu
     rendreParcours();
   }
   function rendreParcours() {
@@ -1439,6 +1592,8 @@
       priorites: Profil.prioritesDe(profil).filter(function (c) { return libelles[c]; }).map(function (c) { return libelles[c]; }),
       phase: Profil.phraseRappelDePhase(profil) || Profil.LIBELLE_PHASE_VIDE,
       pesees: { nombre: pesees, assez: pesees >= PESEES_SUFFISANTES },
+      // 188-1 — « Ta semaine et tes équilibres », en tête.
+      equilibres: vueDesEquilibres(),
       // « Tous tes exercices » : chacun ouvre sa page par la porte commune (§7 quater).
       surExercice: function (slug) { afficherExercice(slug); }
     });
@@ -4006,6 +4161,13 @@
       seance = Object.assign({}, seance, { raccourcie: {
         cible: raccourci.cible, complet: raccourci.complet,
         raccourcie: raccourci.resultat.exercices, retires: applique.retires } });
+      // 188-1 — le geste s'écrit AVEC la séance (`sessions.gestes`) : les exercices retirés, par leur slug.
+      var retiresSlugs = [];
+      (routine.exercices || []).forEach(function (e, i) {
+        var x = raccourci.resultat.exercices[i];
+        if (x && x.ch + x.tr + x.deg === 0 && e && e.exercise_slug) retiresSlugs.push(e.exercise_slug);
+      });
+      seance = Seance.noterGeste(seance, { geste: 'raccourci', retires: retiresSlugs });
     }
     chrono = null;
     await sauverSeance();
@@ -7791,7 +7953,7 @@
         await poserRoutineVoulue(routine, voulues);
       }
     }
-    await remplacerDansLaSeance(iExo, vers);
+    await remplacerDansLaSeance(iExo, vers, 'plafond');
     if (idLigne && seance) {
       var exos = (seance.exercices || []).slice();
       for (var n = 0; n < exos.length; n++) {
@@ -8670,6 +8832,8 @@
       surNote: function (i) { ouvrirFeuille('note', i, null); },
       surRepos: function (i) { ouvrirFeuille('repos', i, null); },
       surAjoutSerie: async function (i) {
+        // 188-1 — « + Série » à la main, un geste de la séance (`sessions.gestes`) ; la série du coach n'en est pas un.
+        seance = Seance.noterGeste(seance, { geste: 'ajout_serie', slug: seance.exercices[i] && seance.exercices[i].exercise_slug, n: 1 });
         seance = Seance.ajouterSerie(seance, i, uuid());
         await apresGeste({ structure: false });
       },
@@ -9082,6 +9246,7 @@
           var quoi = cibleExo === null ? indicesDe(bloc) : [cibleExo];
           fermerVoile();
           oublierObservationsDesExercices(quoi).catch(function () {});
+          noterRetraits(quoi);
           seance = Seance.retirerExercices(seance, quoi);
           apresStructure();
         },
@@ -9201,12 +9366,21 @@
     if (!aEffacer.lignes) {
       fermerVoile();
       oublierObservationsDesExercices(quoi).catch(function () {});
+      noterRetraits(quoi);
       seance = Seance.retirerExercices(seance, quoi);
       return apresStructure();
     }
     feuille = { quoi: 'supprimer', iBloc: iBloc, cibleExo: cibleExo,
                 lignes: aEffacer.lignes, chauffes: aEffacer.chauffes };
     rendreFeuille();
+  }
+
+  // 188-1 — un exercice retiré à la main : un geste de la séance, par exercice (`sessions.gestes`).
+  function noterRetraits(indices) {
+    (indices || []).forEach(function (i) {
+      var e = seance.exercices[i];
+      if (e && e.exercise_slug) seance = Seance.noterGeste(seance, { geste: 'retrait', slug: e.exercise_slug });
+    });
   }
 
   function demanderRemplacement(iExo) {
@@ -9220,9 +9394,12 @@
   // (`heriterRoutine`). UN chemin pour le catalogue et pour le frère de
   // « Machine prise » (§9.19) : un frère n'est qu'un remplaçant choisi plus vite.
   // §14.7 (49-U17) — et sa ligne de plus, comme à l'ouverture.
-  function remplacerDansLaSeance(iExo, slug) {
+  // 188-1 — `geste` : le geste noté avec la séance (`remplacement` par défaut ; « Machine prise » passe `machine_prise`).
+  function remplacerDansLaSeance(iExo, slug, geste) {
     var avant = seance.exercices;
+    var ancien = seance.exercices[iExo] && seance.exercices[iExo].exercise_slug;
     heriterRoutine(iExo, slug);
+    seance = Seance.noterGeste(seance, { geste: geste || 'remplacement', slug: ancien, vers: slug });
     seance = Seance.remplacerExercice(seance, iExo, slug, uuid);
     return apresStructure().then(function () { return ligneDePlusPourAjout(avant, slug); });
   }
@@ -9301,7 +9478,7 @@
     var choix = function (f) {
       return {
         nom: Modele.nommer(index, f.slug), fait: f.fait, ecarte: f.ecarte,
-        surChoisir: function () { fermerVoile(); remplacerDansLaSeance(iExo, f.slug); }
+        surChoisir: function () { fermerVoile(); remplacerDansLaSeance(iExo, f.slug, 'machine_prise'); }
       };
     };
     return {
@@ -9310,6 +9487,8 @@
         apres: suivant.exercices.map(function (x) { return x.nom; }).join(' et '),
         surChoisir: function () {
           fermerVoile();
+          // 188-1 — « Plus tard » : « Machine prise » sans remplaçant.
+          seance = Seance.noterGeste(seance, { geste: 'machine_prise', slug: seance.exercices[iExo].exercise_slug });
           seance = Seance.reordonnerBlocs(seance, plus.ordre.map(function (k) { return indicesDe(blocs[k]); }));
           apresStructure();
         }
@@ -10355,7 +10534,9 @@
     if (etatRoutines.code === 'ok' || routinesDeLAccueilDemandees) return;
     routinesDeLAccueilDemandees = true;
     chargerRoutines().then(function () {
-      if (etatRoutines.code === 'ok' && ecranCourant === 'liste') rendreProchaineSeance();
+      if (etatRoutines.code === 'ok' && ecranCourant === 'liste') { rendreProchaineSeance(); rendreLigneDesEquilibres(); }
+      // « Ton parcours » ouvert d'emblée : les causes lisent les routines, elles arrivent après le premier rendu.
+      else if (etatRoutines.code === 'ok' && !vues.parcours.hidden) rendreParcours();
     }).catch(function () { /* hors ligne : pas de carte */ }).then(function () { routinesDeLAccueilDemandees = false; });
   }
 
@@ -16544,7 +16725,7 @@
     if (cible.vue === Routeur.POIDS) return rendrePoids();
     if (cible.vue === Routeur.MOIS) return rendreMois(cible.params.mois || null);
     if (cible.vue === Routeur.RECORDS) return rendreRecordsDuMois(cible.params.mois || null);
-    if (cible.vue === Routeur.PARCOURS) return rendreParcours();
+    if (cible.vue === Routeur.PARCOURS) { demanderLesRoutinesDeLAccueil(); return rendreParcours(); }
     if (VUES_ONGLET[cible.vue]) return montrer(VUES_ONGLET[cible.vue], cible.vue);
     if (cible.vue === Routeur.EXERCICE) {
       return rendreExercice(cible.params.slug, cible.params.onglet);

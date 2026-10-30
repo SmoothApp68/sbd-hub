@@ -74,6 +74,7 @@ const SHELL = [
   './js/reserve.js',
   './js/assistant.js',
   './js/deraille.js',
+  './js/equilibres.js',
   './js/objectif.js',
   './js/plan.js',
   './js/periode.js',

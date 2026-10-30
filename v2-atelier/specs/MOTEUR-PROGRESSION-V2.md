@@ -1675,6 +1675,34 @@ Une ligne de **test** : celle de sa zone **moins 1** ; bornée à [0, 3]. `null`
 
 **Le débutant n'est pas arrêté par la garde — 28/10/2026, décision d'Aurélien (180) (D3, C-F5).** Pour une personne dont l'ancienneté est « moins d'un an », la garde R < V (« pas de montée sur sa foi ») est neutralisée : une estimation de réserve y est trop bruitée pour retenir une progression facile. Le test R ≥ V + 2 est inchangé, la question et l'affichage restent. L'ancienneté est gelée avec la séance (`Profil.estDebutant`, option `debutant` de la consigne).
 
+### 9.27 Ta semaine et tes équilibres — le socle et les équilibres — décidé le 29/10/2026 (chantier 188-1)
+
+Module pur `v2/js/equilibres.js` (`THEquilibres`), sur le modèle de `deraille.js` : il lit des faits (séances, séries, gestes, routines, réponses) et rend des cartes ; il n'écrit rien. L'écran lit et dessine (`rendreEquilibres`, `rendreLigneEquilibre`). Sources : Gemini S1-S8 du 29/10/2026 ; maquette `v2-atelier/maquettes/maquette-semaine-equilibres-v6.html`. La fréquence (Grgic 2018) et les deux jours sont en 188-2.
+
+**Les gestes** (`sessions.gestes`, `v2_118`). Une séance enregistre ce que la personne a fait pendant qu'elle la menait : `raccourci` (« J'ai peu de temps », `retires: [slugs]`), `machine_prise` (`slug`, `vers` ou absent), `remplacement` (`slug` → `vers`), `ajout_serie` (`slug`, `n`), `retrait`. Les séances d'avant valent `[]` : une cause s'en déduit quand c'est possible (exercice sauté, remplaçant hors routine du même mouvement, un seul), sinon elle est absente. **Jamais une cause devinée.**
+
+**Fenêtre.** Les 12 dernières semaines NON NULLES (une semaine sans séance de musculation n'existe pas : une coupure ne défait rien), au moins 4 semaines et 12 séances ; en dessous, aucune carte (« Pas assez de recul »). Semaines du lundi, volume fractionnaire (poids 1, ½, ¼).
+
+**Seuils** (au-dessous : une carte ; au-dessus : « Équilibré · rien à signaler »).
+- Tirage / poussée, à l'horizontale et à la verticale : rapport sous **0,60**. Le sens vient de `sensDuMouvement` (seule lecture de `schema_mouvement`, avec `cousinsDe`).
+- Chaîne postérieure / quadriceps : rapport sous **0,40**.
+- Un muscle principal à **0 série sur 4 semaines** (les deltoïdes postérieur et latéral compris). Le rapport deltoïde postérieur / antérieur est abandonné.
+- « Tes priorités, faites ou non » : une priorité déclarée dont le travail prévu n'a pas eu lieu ; un constat, jamais un reproche.
+
+Chaque carte donne le fait (« Aucune série de tirage pour 88 de poussée »), le repère d'une pratique (« En musculation, beaucoup de coachs visent… » : une pratique de coaching, jamais un risque de blessure), la tendance sur l'année quand une fenêtre valide existe.
+
+**D'où ça vient.** Des faits, chacun avec sa proposition : ce que les routines prévoient (ajouter), l'exercice sauté et sa place (avancer), « J'ai peu de temps » (fusionner), machine prise (remplacer), remplacement (remplacer), retrait à la main, séance non faite — **jamais** une séance non faite qui ne porte pas le muscle —, « J'ai mal » marqué, séries ajoutées en séance. Programme construit par le coach : prévu contre fait, puis « Je l'ai mal construit : je corrige ton programme ? ». Une proposition passe par le chemin d'écriture existant des routines (`poserRoutineVoulue`, la file), se voit (« Fait : … ») et s'annule ; « remplacer » et « fusionner » ouvrent l'éditeur de la routine, rien n'est écrit en silence. Aucun nombre de séries ni d'exercices n'est fixé par une règle.
+
+**Mécanique des cartes** (`profiles.cartes_semaine`, `{cle: {r, le, refus}}`, écrit par la file).
+| Réglage | Habitude (semaines de 8) | Cartes | Silence |
+|---|---|---|---|
+| Prudent | 6 | 1 | 12 semaines |
+| Normal | 5 | 2 | 8 semaines |
+| Franc | 4 | 3 | 4 semaines |
+Deux « Pas maintenant » de suite doublent le silence. Ordre : jours > temps > équilibres/fréquence > ordre. Une proposition acceptée qui refait le programme périme les autres cartes (elles repartent d'une habitude neuve). « Juste un carnet » (`intention = 'entretien'`) : aucune carte ni ligne ; les constats restent lisibles. Une carte qui se tait s'affiche en constat, sans bouton.
+
+**Placement.** Tête de « Ton parcours » (section « Ta semaine et tes équilibres » ; l'ancienne « Tes équilibres » reste dessous) et une ligne sous la barre de la semaine de l'écran Séances. Le rendu est pur ; rien ne s'applique sans un geste.
+
 ## 10. L'incrément
 
 ### 10.1 Règle

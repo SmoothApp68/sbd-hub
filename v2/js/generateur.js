@@ -1382,6 +1382,10 @@
   }
 
   var api = {
+    // 188-1 — tirage et poussée : UNE définition, lue par les cartes d'équilibre de la semaine (`equilibres.js`).
+    estTirage: estTirage,
+    estPoussee: estPoussee,
+    familleDeBarre: familleDeBarre,
     MOTIFS: MOTIFS,
     GABARITS: GABARITS,
     VOISIN: VOISIN,

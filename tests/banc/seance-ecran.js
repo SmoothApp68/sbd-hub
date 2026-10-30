@@ -2886,6 +2886,7 @@ const SETS_IMPORTES = [
   await toucher(0, '.no-serie');
   await page.click('#feuille-contenu .feuille-menu button:nth-child(2)');   // Échauffement
   await jusqua(async () => observesB().length === 0, 6000);   // 192 — l'état (plus 700 ms fixes devant)
+  await fileVide(null, 10000, 'file vide après la chauffe');   // 192 — le contrôle suivant lit la FILE : c'est elle qu'on attend
   ok('[B] DISCRIMINANT — passée en chauffe, elle perd son observation : plus aucun pari observé sur elle en base',
     observesB().length === 0, JSON.stringify(observesB().map((l) => [l.fondement.rang, l.valeur_observee])));
   const fileB = await page.evaluate(() => window.THCache.lireAttente());
@@ -20727,6 +20728,7 @@ const SETS_IMPORTES = [
       const departFond = await departGeste();
       await page.click('#feuille-contenu .grille-rir button:nth-child(4)');   // « 0 », à fond
       await calmeApres(departFond, 300);   // 192 — le réseau calme, l'écran posé, plus 1 200 ms fixes
+      await fileVide(null, 10000, 'file vide après « à fond »');   // 192 — l'effort écrit, la file vidée
     };
 
     await aller('/saisie');
@@ -20793,6 +20795,7 @@ const SETS_IMPORTES = [
     await aFond(1);
     await toucher(1, '.ok-serie');
     await calmeApres(await departGeste());   // 192 — la série écrite (serieMontee) puis le calme, plus 1 800 ms fixes
+    await fileVide(null, 10000, 'file vide après la validation');   // 192 — le pari lu en base suit la file
     await invariantsB('81,3 × 12 à fond, validée');
     const idSeanceB = base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0];
     const pariB = base.predictions.filter((q) => q.exercise_slug === 'rowing-c68b' && q.fondement &&

@@ -3417,10 +3417,25 @@
   function estIsolation(e) {
     return !!e && aDesMuscles(e) && !estPolyarticulaire(e);
   }
-  // 188-2 — UN GRAND MOUVEMENT (squat, soulevé, poussée, tirage) : un polyarticulaire à la barre ou au poids du corps. La compression
-  // ne lui retire jamais une série ni son repos ; un polyarticulaire à la machine ou aux haltères reste un exercice secondaire.
+  // 191 (décision d'Aurélien du 30/10/2026) — LES MOUVEMENTS AU POIDS DU CORPS qui comptent comme de grands mouvements : les
+  // tractions, les dips, les pompes et le rowing inversé, avec toutes leurs variantes (lestées, assistées, à l'élastique,
+  // en supination, déclinées…). Le catalogue n'a pas de colonne qui le dise : le slug, lu par ses mots, comme
+  // `THProfil.demandeUneBarreDeTraction`. Raison : la compression retire d'abord les isolations (Iversen 2021), et couper les
+  // tractions creuse le tirage, l'équilibre le plus souvent en défaut (188-1).
+  var MOTS_DU_POIDS_DU_CORPS = ['traction', 'tractions', 'dip', 'dips', 'pompe', 'pompes'];
+  function estUnMouvementAuPoidsDuCorps(slug) {
+    var t = String(slug || '').split('_');
+    if (t.some(function (m) { return MOTS_DU_POIDS_DU_CORPS.indexOf(m) >= 0; })) return true;
+    for (var i = 0; i + 1 < t.length; i++) if (t[i] === 'rowing' && t[i + 1] === 'inverse') return true;
+    return false;
+  }
+  // UN GRAND MOUVEMENT (squat, soulevé, poussée, tirage) — UNE SEULE DÉFINITION (188-2, élargie en 191) : un polyarticulaire
+  // à la barre OU au poids du corps (tractions, dips, pompes, rowing inversé et leurs variantes lestées ou assistées). La
+  // compression ne lui retire jamais une série ni son repos ; la carte de l'ordre le place en premier ; la ligne du repos long
+  // le nomme. Un polyarticulaire à la machine ou aux haltères reste un exercice secondaire : compressible, après toutes les
+  // isolations. `e` : `{ prim, sec, stab, equipement, slug }`.
   function estGrandMouvement(e) {
-    return !!e && estPolyarticulaire(e) && EQUIPEMENTS_DES_GRANDS.indexOf(e.equipement) >= 0;
+    return !!e && estPolyarticulaire(e) && (EQUIPEMENTS_DES_GRANDS.indexOf(e.equipement) >= 0 || estUnMouvementAuPoidsDuCorps(e.slug));
   }
   // Le premier critère qui diffère départage (priorité, puis séries, puis rang).
   function avantDans(a, b) {
@@ -9310,6 +9325,7 @@
     structureDeRoutine: structureDeRoutine,
     estPolyarticulaire: estPolyarticulaire,
     estGrandMouvement: estGrandMouvement,
+    estUnMouvementAuPoidsDuCorps: estUnMouvementAuPoidsDuCorps,
     reposAConseiller: reposAConseiller, phraseReposLong: phraseReposLong,
     CHUTE_DE_REPS: CHUTE_DE_REPS, SEANCES_DE_CHUTE: SEANCES_DE_CHUTE, REPOS_COURT_S: REPOS_COURT_S,
     consigneDepartRoutine: consigneDepartRoutine,

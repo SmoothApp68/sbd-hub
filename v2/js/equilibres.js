@@ -1049,7 +1049,10 @@
   // ── L'ORDRE : où se place une priorité dans la séance ──────────────────────────────────────────────────────────
   function estGros(slug, cat) {
     var f = cat[slug];
-    return !!f && Moteur().estPolyarticulaire({ prim: liste(f.muscles_primaires), sec: liste(f.muscles_secondaires), stab: liste(f.muscles_stabilisateurs) });
+    // 191 — UN GRAND MOUVEMENT, la définition du moteur (`Moteur.estGrandMouvement`) : à la barre ou au poids du corps. Elle
+    // avait ici la sienne (tout polyarticulaire, machines comprises) : une presse passait « en premier » avant des tractions.
+    return !!f && Moteur().estGrandMouvement({ slug: slug, prim: liste(f.muscles_primaires), sec: liste(f.muscles_secondaires),
+                                               stab: liste(f.muscles_stabilisateurs), equipement: f.equipement });
   }
   // Les exercices qu'une priorité désigne : ses mouvements (une barre, les tractions) ou, pour un muscle, les exercices qui le
   // travaillent en principal.

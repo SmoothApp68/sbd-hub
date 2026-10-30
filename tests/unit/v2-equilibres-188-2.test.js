@@ -27,6 +27,7 @@ const CAT = {
   souleve_de_terre_barre: fiche('Soulevé de Terre (Barre)', ['bas_du_dos', 'fessiers', 'ischio_jambiers'], ['quadriceps'], [], 'pencher', 'souleve', 'barre'),
   souleve_de_terre_roumain: fiche('Soulevé de Terre Roumain', ['ischio_jambiers', 'fessiers'], ['bas_du_dos'], [], 'pencher', null, 'barre'),
   hip_thrust: fiche('Hip Thrust', ['fessiers'], ['ischio_jambiers', 'quadriceps'], [], 'fessiers', null, 'barre'),
+  presse_machine: fiche('Presse à Cuisses', ['quadriceps', 'fessiers'], ['ischio_jambiers'], [], 'accroupir', null, 'machine'),
   leg_curl: fiche('Leg Curl Assis', ['ischio_jambiers'], [], [], 'ischios', null, 'machine'),
   leg_extension: fiche('Leg Extension', ['quadriceps'], [], [], 'quadriceps', null, 'machine'),
   curl: fiche('Curl Biceps', ['biceps'], [], [], 'biceps', null, 'haltere'),
@@ -411,6 +412,16 @@ describe('188-2 — L’ordre dans tes séances', () => {
     const p = c.propositions.filter((x) => x.slug === 'releves_mollets')[0];
     expect(p).toMatchObject({ type: 'deplacer', avant: 'squat_barre' });
     expect(p.libelle).toBe('La mettre en premier dans « Bas B »');
+  });
+  test('191 — une presse (machine polyarticulaire) n’est pas un grand mouvement : l’extension de jambes qui la suit n’est plus « juste après les gros mouvements »', () => {
+    const A = { developpe_couche_barre: 4, rowing_barre: 4, tractions: 3 };
+    const Bas = { presse_machine: 4, leg_curl: 3, releves_mollets: 3, leg_extension: 3 };
+    const RA = routine('r-a', 'Haut A', A), RB = routine('r-b', 'Bas B', Bas);
+    const c = constat(Eq.analyser(entree(bati(sem(A, Bas)), { routines: [RA, RB], priorites: ['jambes'] })), 'ordre');
+    const ext = c.items.filter((x) => x.slug === 'leg_extension')[0];
+    // Avant 191 la presse comptait pour un gros mouvement : la cible était « synergiste » (juste après la presse).
+    expect(ext.cas).toBe('sans_lien');
+    expect(c.propositions.filter((x) => x.slug === 'leg_extension')[0].libelle).toBe('La mettre en premier dans « Bas B »');
   });
   test('sinon la ligne calme « Bien placées »', () => {
     const A = { tractions: 3, developpe_couche_barre: 4, rowing_barre: 4, developpe_militaire_barre: 3 };

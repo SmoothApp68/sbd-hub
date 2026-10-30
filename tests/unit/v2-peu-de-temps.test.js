@@ -45,11 +45,13 @@ const vue = (r) => r.map((e) => ({ slug: e.slug, ch: e.ch, tr: e.tr, deg: e.deg,
 describe('51-1 — la durée estimée et le raccourci, sur les 25 cas de la référence', () => {
   // 188-2 : l'ordre de compression (Iversen 2021) ne touche plus un grand mouvement ni ne descend sous 2 séries : des cibles qui
   // tenaient à 1 série par isolation ne tiennent plus, la carte dit alors « Au plus court » (attendus recalés).
-  test('prémisse : 25 cas, dont 5 estimations, 12 raccourcis qui tiennent et 8 inatteignables', () => {
+  // 191 : un grand mouvement comprend aussi le poids du corps (tractions, dips, pompes, rowing inversé) : C06, C15 et L21 (des
+  // tractions qu'on coupait) passent de « tient » à « Au plus court » ; 12 raccourcis qui tenaient, 9 tiennent encore.
+  test('prémisse : 25 cas, dont 5 estimations, 9 raccourcis qui tiennent et 11 inatteignables', () => {
     expect(CAS.cas).toHaveLength(25);
     expect(CAS.cas.filter((c) => c.cible_min === null)).toHaveLength(5);
-    expect(CAS.cas.filter((c) => c.cible_min !== null && c.attendu.tient === true)).toHaveLength(12);
-    expect(CAS.cas.filter((c) => c.attendu.tient === false).map((c) => c.id)).toEqual(['C07', 'C09', 'C11', 'C12', 'C13', 'L16', 'L20', 'L25']);
+    expect(CAS.cas.filter((c) => c.cible_min !== null && c.attendu.tient === true)).toHaveLength(9);
+    expect(CAS.cas.filter((c) => c.attendu.tient === false).map((c) => c.id)).toEqual(['C06', 'C07', 'C09', 'C11', 'C12', 'C13', 'C15', 'L16', 'L20', 'L21', 'L25']);
   });
 
   CAS.cas.forEach((c) => {
@@ -281,26 +283,26 @@ describe('51-1 — la carte, et la cible inatteignable qui ne se promet pas', ()
     tirage_vers_visage: 'Face pull' };
   const nommer = (s) => noms[s] || s;
   const sp = (t) => String(t).replace(/[\u00a0\u202f]/g, ' ');
-  test('elle tient : « Pour tenir en 45 min (estimation) », ce qui change (dont un superset et un repos raccourci), la phrase, Raccourcir / Garder la séance', () => {
-    const c = CAS.cas.find((x) => x.id === 'C15');
-    const carte = M.carteRaccourcir(c.routine, M.raccourcirRoutine(c.routine, 45), 45, (s) => s);
-    expect(sp(carte.titre)).toBe('Pour tenir en 45 min (estimation)');
+  test('elle tient : « Pour tenir en 60 min (estimation) », ce qui change (dont un superset et un repos raccourci), la phrase, Raccourcir / Garder la séance', () => {
+    const c = CAS.cas.find((x) => x.id === 'C08');
+    const carte = M.carteRaccourcir(c.routine, M.raccourcirRoutine(c.routine, 60), 60, (s) => s);
+    expect(sp(carte.titre)).toBe('Pour tenir en 60 min (estimation)');
     expect(carte.lignes.map(sp)).toEqual([
-      'tapis_roulant 7 → 3 min', 'tractions 4 → 2 séries', 'rowing_assis_machine 3 → 2 séries', 'tirage_poitrine_un_bras 3 → 2 séries',
-      'elevation_laterale_poulie 3 → 2 séries', 'elevation_laterale_poulie : en superset avec shrug_barre', 'shrug_barre 3 → 2 séries',
-      'shrug_barre : repos 90 s → 60 s', 'curl_marteau_haltere : sans dégressive', 'extension_triceps_poulie_haute : sans dégressive',
-      'tapis_roulant : mis à part pour aujourd’hui']);
+      'tapis_roulant 7 → 3 min', 'leg_curl_assis 4 → 2 séries', 'leg_curl_assis : en superset avec extension_jambes',
+      'extension_jambes 3 → 2 séries', 'extension_jambes : repos 90 s → 60 s', 'extension_jambes : sans dégressive',
+      'extension_mollets_debout_machine 4 → 2 séries', 'extension_mollets_debout_machine : repos 90 s → 60 s',
+      'releve_de_genoux_suspendu 3 → 2 séries']);
     expect(carte.phrase).toBe('Tous tes muscles du jour gardent leurs premières séries : ce sont celles qui comptent le plus. ' +
       'Les charges ne changent pas.');
     expect([carte.oui, carte.non, carte.tient]).toEqual(['Raccourcir', 'Garder la séance', true]);
   });
-  test('⚠️ DISCRIMINANT (g) — inatteignable : « Au plus court : 57 min (estimation) », « Raccourcir à 57 min », jamais la cible', () => {
+  test('⚠️ DISCRIMINANT (g) — inatteignable : « Au plus court : 63 min (estimation) », « Raccourcir à 63 min », jamais la cible', () => {
     const c = CAS.cas.find((x) => x.id === 'L25');
     const r = M.raccourcirRoutine(c.routine, 20);
     const carte = M.carteRaccourcir(c.routine, r, 20, nommer);
     expect(r.tient).toBe(false);
-    expect(sp(carte.titre)).toBe('Au plus court : 57 min (estimation)');
-    expect(sp(carte.oui)).toBe('Raccourcir à 57 min');
+    expect(sp(carte.titre)).toBe('Au plus court : 63 min (estimation)');
+    expect(sp(carte.oui)).toBe('Raccourcir à 63 min');
     expect(carte.titre + carte.oui).not.toMatch(/20/);
   });
   test('le cardio de début dit ses vraies minutes (L21 : 10 → 3 min), et une dégressive retirée se dit', () => {

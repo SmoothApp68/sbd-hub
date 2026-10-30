@@ -39,11 +39,12 @@
   var INSECABLE = ' ';
 
   // ── Les écrans, dans l'ordre ─────────────────────────────────────────────
-  var BIENVENUE = 'bienvenue', DONNEES = 'donnees', SAIT = 'sait', SANS_HISTORIQUE = 'sans_historique';
+  var BIENVENUE = 'bienvenue', ANCIENNETE = 'anciennete', SAIT = 'sait';
+  var SALLE = 'salle', ZONE = 'zone', RECENTE = 'recente';   // 187 : où tu t'entraînes, une zone à ménager, une série récente
   var TOI = 'toi', BUT = 'but', PRIORITES = 'priorites', TEMPS = 'temps', PROGRAMME = 'programme';
   var CONSTRUIT = 'construit';   // l'écran 8b (60-4) : « Construis-le-moi »
   var COACH = 'coach', RECAP = 'recap';
-  var ECRANS = [BIENVENUE, DONNEES, SAIT, SANS_HISTORIQUE, TOI, BUT, PRIORITES, TEMPS, PROGRAMME, CONSTRUIT,
+  var ECRANS = [BIENVENUE, ANCIENNETE, SAIT, SALLE, ZONE, RECENTE, TOI, BUT, PRIORITES, TEMPS, PROGRAMME, CONSTRUIT,
                 COACH, RECAP];
 
   // L'écran 3a (« Ce que je sais ») ET l'écran 3b (« Sans historique ») : l'un
@@ -64,11 +65,15 @@
     return !!c.aDesSeances && c.historique !== 'debutant';
   }
 
+  // 187 (A5) — « Une série récente ? » : pour qui s'entraîne depuis un an ou plus et n'a aucune séance en base.
+  var DEPUIS_UN_AN = ['1_a_3_ans', '3_a_5_ans', 'plus_5_ans'];
+  function aUneAnnee(contexte) { return !!contexte && DEPUIS_UN_AN.indexOf(contexte.depuis) >= 0; }
+
   function ecransVisibles(contexte) {
     var avec = aUnHistorique(contexte);
     return ECRANS.filter(function (id) {
       if (id === SAIT) return avec;
-      if (id === SANS_HISTORIQUE) return !avec;
+      if (id === RECENTE) return aUneAnnee(contexte) && !(contexte && contexte.aDesSeances);
       if (id === PROGRAMME) return !!contexte && contexte.aDesRoutines === false;
       if (id === CONSTRUIT) return !!contexte && contexte.aDesRoutines === false && contexte.programme === 'construis';
       return true;
@@ -119,6 +124,41 @@
     return profil && profil.phase_confirmee_le ? 'inconnue' : null;
   }
 
+  // 187 (A1, A2) — UNE question d'ancienneté : « Je commence » (`historique_declare = debutant`,
+  // `anciennete = moins_1_an`) ou une fourchette d'`anciennete`. Une question de plus : les séances sont-elles notées
+  // quelque part ? « Hevy ou Strong » = `import`, « Non » = `non_note` ; « Dans mes notes » n'est pas encore une réponse.
+  var COMMENCE = 'commence', NOTEES_IMPORT = 'import', NOTEES_NON = 'non';
+  function depuisDe(p) {
+    if (p.historique_declare === 'debutant') return COMMENCE;
+    return Profil().libelleDe(Profil().ANCIENNETES, p.anciennete) ? p.anciennete : null;
+  }
+  function noteesDe(p) {
+    if (p.historique_declare === 'import') return NOTEES_IMPORT;
+    return p.historique_declare === 'non_note' ? NOTEES_NON : null;
+  }
+  // Les colonnes suivent la réponse : une seule vérité (`depuis`, `notees`), les deux colonnes en sont déduites.
+  function synchroniserAnciennete(r) {
+    if (r.depuis === COMMENCE) { r.anciennete = Profil().ANCIENNETE_DEBUTANT; r.historique = 'debutant'; r.notees = null; }
+    else if (r.depuis) {
+      r.anciennete = r.depuis;
+      r.historique = r.notees === NOTEES_IMPORT ? 'import' : r.notees === NOTEES_NON ? 'non_note' : null;
+    }
+    return r;
+  }
+
+  // 187 (A3) — les haltères de Ma salle, quand ils tiennent en UNE tranche (« jusqu'à 40 kg, de 2 en 2 ») ; plusieurs
+  // tranches se règlent dans le Profil, et le questionnaire n'y touche pas.
+  function halteresDe(profil) {
+    var salle = Profil().salleDe(profil), h = salle && salle.halteres;
+    if (!h) return { max: null, pas: null };
+    if (Array.isArray(h)) return h.length === 1 ? { max: h[0].jusqua, pas: h[0].pas } : { max: null, pas: null };
+    return { max: h.max, pas: h.pas };
+  }
+  function salleASeulesTranches(profil) {
+    var h = Profil().salleDe(profil), x = h && h.halteres;
+    return !!(x && Array.isArray(x) && x.length > 1);
+  }
+
   // `contexte.poids` : la dernière pesée (un nombre), ou `null`.
   function reponsesInitiales(profil, contexte) {
     var p = profil || {}, c = contexte || {};
@@ -126,6 +166,8 @@
     return {
       historique: nul(p.historique_declare),
       anciennete: nul(p.anciennete),
+      depuis: depuisDe(p),
+      notees: noteesDe(p),
       seances: nul(p.seances_par_semaine),
       duree: nul(p.duree_seance_min),
       sexe: nul(p.sexe),
@@ -137,6 +179,8 @@
       priorites: Array.isArray(p.priorites) ? p.priorites.slice() : null,
       temps: nul(p.temps_reponse),
       materiel: nul(p.materiel),
+      halteresMax: halteresDe(p).max,
+      halteresPas: halteresDe(p).pas,
       programme: Profil().libelleDe(Profil().PROGRAMMES, p.programme_choix) ? p.programme_choix : null,
       menager: Profil().zonesAMenagerValides(p.zones_a_menager) || [],
       coach: coachDe(p)
@@ -184,7 +228,8 @@
   // « Construis-le-moi ») et 9 (le coach). Tout le reste est facultatif : sans réponse, rien n'est écrit.
   function ecranPret(id, rep) {
     var r = rep || {};
-    if (id === DONNEES) return !!r.historique;
+    if (id === ANCIENNETE) return !!r.depuis && (r.depuis === COMMENCE || !!r.notees);
+    if (id === SALLE) return true;
     if (id === BUT) return !!r.objectif && !!r.phase;
     if (id === PROGRAMME) return !!r.programme;
     if (id === CONSTRUIT) return joursValides(r.seances);
@@ -200,7 +245,7 @@
   // part : elle va dans `body_weight_log`, par la file.
   //
   // « Me ménager · Normal · Me pousser » sont les rythmes du Profil, sous leurs
-  // noms du Profil (Prudent · Normal · Franc) — un seul langage ; « Juste un
+  // noms du Profil (Me ménager · Normal · Me pousser) — un seul langage ; « Juste un
   // carnet » est `intention = 'entretien'`, le rythme est gardé.
   function coachEnChamps(coach) {
     if (coach === 'carnet') return { intention: 'entretien' };
@@ -215,11 +260,9 @@
   // écrire (un objet vide : rien à écrire) et la pesée à poser, ou `null`.
   function champsDeLEcran(id, rep, profil, contexte) {
     var r = rep || {}, c = contexte || {};
-    var entrees = null, pesee = null;
-    if (id === DONNEES) entrees = { historique_declare: r.historique };
-    else if (id === SANS_HISTORIQUE) {
-      entrees = { anciennete: r.anciennete, seances_par_semaine: seancesAEcrire(r), duree_seance_min: r.duree };
-    } else if (id === TOI) {
+    var entrees = null, pesee = null, extra = {};
+    if (id === ANCIENNETE) entrees = { anciennete: r.anciennete, historique_declare: r.historique };
+    else if (id === TOI) {
       entrees = { sexe: r.sexe, annee_naissance: r.annee, taille_cm: r.taille };
       pesee = Poids().peseeAEcrire(c.pesees, r.poids, c.jour);
     } else if (id === BUT) entrees = { objectif: r.objectif, phase: r.phase };
@@ -229,16 +272,36 @@
       // qu'on lui montre n'est pas une réponse.
       // 60-2c : « Moins en ce moment » demande combien — la puce touchée EST la durée visée
       // (même colonne, même écriture) ; sans puce, la durée reste ce qu'elle était.
-      entrees = { temps_reponse: r.temps, materiel: r.materiel,
+      entrees = { temps_reponse: r.temps,
                   duree_seance_min: r.temps === 'moins' && r.dureeMoins ? r.dureeMoins : r.duree };
     } else if (id === PROGRAMME) entrees = { programme_choix: r.programme };
-    else if (id === CONSTRUIT) entrees = { seances_par_semaine: seancesAEcrire(r), zones_a_menager: r.menager };
+    else if (id === SALLE) {
+      entrees = { materiel: r.materiel };
+      var salle = salleAEcrire(r, profil);
+      if (salle) extra.ma_salle = salle;
+    } else if (id === ZONE) entrees = { zones_a_menager: r.menager };
+    else if (id === RECENTE) entrees = null;   // rien en base : les séries partent au programme construit (`seriesRecentes`)
+    else if (id === CONSTRUIT) entrees = { seances_par_semaine: seancesAEcrire(r) };
     else if (id === COACH) entrees = coachEnChamps(r.coach);
     else if (id === RECAP) entrees = { fait: true };
     return {
-      champs: entrees ? Profil().preparerChamps(profil, entrees, c.maintenant) : {},
+      champs: entrees ? Object.assign(Profil().preparerChamps(profil, entrees, c.maintenant), extra) : {},
       pesee: pesee
     };
+  }
+
+  // 187 (A3) — « Ajuster Ma salle » : les haltères (jusqu'à, de … en …), écrits dans `profiles.ma_salle` PAR la
+  // fonction du Profil (`champsSalle`) — les barres, les élastiques déjà déclarés ne sont pas touchés. Rien quand rien
+  // n'est dit, quand la salle a plusieurs tranches, ou quand la salle écrite serait la même.
+  function salleAEcrire(r, profil) {
+    if (!(r.halteresMax > 0) || !(r.halteresPas > 0)) return null;
+    if (salleASeulesTranches(profil)) return null;
+    var P = Profil(), b = P.brouillonSalle(profil);
+    b.halteres = [{ jusqua: r.halteresMax, pas: r.halteresPas, pasChoisi: true }];
+    var champs = P.champsSalle(b);
+    if (!champs || !champs.ma_salle) return null;
+    var avant = P.salleDe(profil);
+    return JSON.stringify(avant) === JSON.stringify(champs.ma_salle) ? null : champs.ma_salle;
   }
 
   // Ce qui vient d'être ÉCRIT est la durée visée : le brouillon la rejoint (60-2c). « Moins en ce moment »
@@ -260,8 +323,8 @@
   // Un choix touché, appliqué aux réponses en cours (une COPIE) : les noms de
   // réponse que l'écran connaît, et rien d'autre — un geste qui vise une clé
   // inconnue est sans effet.
-  var CHOIX = ['historique', 'anciennete', 'seances', 'duree', 'dureeMoins', 'sexe', 'objectif', 'phase',
-               'temps', 'materiel', 'programme', 'coach'];
+  var CHOIX = ['depuis', 'notees', 'seances', 'duree', 'dureeMoins', 'sexe', 'objectif', 'phase',
+               'temps', 'materiel', 'programme', 'coach', 'halteresMax', 'halteresPas', 'salleOuverte'];
 
   function appliquerChoix(rep, cle, valeur) {
     var r = Object.assign({}, rep);
@@ -275,8 +338,12 @@
         r.dureePlus = true;
         if (!(typeof r.duree === 'number' && r.duree >= DUREE_PLUS_MIN)) r.duree = null;
       } else { r.duree = valeur; r.dureePlus = false; }
+    } else if (cle === 'notees' && valeur !== NOTEES_IMPORT && valeur !== NOTEES_NON) {
+      // 187 — « Dans mes notes » est annoncé (« Bientôt »), ce n'est pas encore une réponse : sans effet.
+      return r;
     } else if (CHOIX.indexOf(cle) >= 0) {
       r[cle] = valeur;
+      if (cle === 'depuis' || cle === 'notees') synchroniserAnciennete(r);
       if (cle === 'seances') delete r.joursBornes;   // 116 — une puce touchée : la valeur est une réponse
     }
     return r;
@@ -293,6 +360,15 @@
     if (t === '') return { valeur: null, erreur: null };
     var n = lireNombre(t);
     var P = Profil();
+    var rec = /^rec_(sq|co|so|mi)_(kg|reps)$/.exec(cle);
+    if (rec) {
+      if (rec[2] === 'kg') {
+        var kg = n !== null && n > 0 && n <= RECENTE_KG_MAX ? Math.round(n * 100) / 100 : null;
+        return { valeur: kg, erreur: kg === null ? 'Une charge entre 0 et ' + RECENTE_KG_MAX + ' kg.' : null };
+      }
+      var reps = n !== null && Math.floor(n) === n && n >= 1 && n <= RECENTE_REPS_MAX ? n : null;
+      return { valeur: reps, erreur: reps === null ? 'Un nombre de reps entre 1 et ' + RECENTE_REPS_MAX + '.' : null };
+    }
     if (cle === 'annee') {
       var annee = n !== null && Math.floor(n) === n && P.naissanceValide(n + '-01-01', aujourdhui) !== null ? n : null;
       return { valeur: annee, erreur: annee === null ? 'Une année de naissance plausible.' : null };
@@ -400,11 +476,17 @@
     return blocs;
   }
 
-  var SOUS_HISTORIQUE = {
-    import: 'Hevy, Strong',
-    non_note: 'Trois questions de plus',
-    debutant: 'Je pars de zéro avec toi, prudemment'
+  var SOUS_NOTEES = {
+    import: 'J’importe ton fichier ici : je connaîtrai tes charges dès la première séance.',
+    notes: 'Bientôt : colle tes notes, je te propose les séances à valider une par une.'
   };
+  var DEPUIS = [
+    { cle: COMMENCE, libelle: 'Je commence' },
+    { cle: 'moins_1_an', libelle: 'Moins d’un an' },
+    { cle: '1_a_3_ans', libelle: '1 à 3 ans' },
+    { cle: '3_a_5_ans', libelle: '3 à 5 ans' },
+    { cle: 'plus_5_ans', libelle: 'Plus de 5 ans' }
+  ];
   var SOUS_TEMPS = {
     moins: 'Je te proposerai des séances plus courtes',
     varie: 'Je te montrerai la durée des longues séances'
@@ -441,7 +523,8 @@
       voix: 'Je te propose la charge de chaque série et je te dis pourquoi. Tu décides toujours.',
       blocs: [
         { type: 'faits', lignes: [
-          { libelle: 'Tes données', valeur: 'ce que je sais déjà' },
+          { libelle: 'Tes données', valeur: 'depuis quand, et ce que je sais déjà' },
+          { libelle: 'Ta salle', valeur: 'où, et ta zone à ménager' },
           { libelle: 'Toi', valeur: '4 réponses, facultatives' },
           { libelle: 'Ton but', valeur: 'objectif, phase, priorités' },
           { libelle: 'Ton coach', valeur: 'comment je te parle' }
@@ -451,13 +534,22 @@
     };
   }
 
-  function ecranDonnees(etat) {
+  function ecranAnciennete(etat) {
+    var rep = etat.rep;
+    var blocs = [{ type: 'puces', cle: 'depuis', valeur: rep.depuis, options: DEPUIS }];
+    if (rep.depuis && rep.depuis !== COMMENCE) {
+      blocs.push({ type: 'options', cle: 'notees', titre: 'Tes séances sont notées quelque part ?', valeur: rep.notees,
+        options: [
+          { cle: NOTEES_IMPORT, libelle: 'Oui, dans Hevy ou Strong', sous: SOUS_NOTEES.import },
+          { cle: 'notes', libelle: 'Dans mes notes', sous: SOUS_NOTEES.notes, desactive: true, pastille: 'Bientôt' },
+          { cle: NOTEES_NON, libelle: 'Non' }
+        ] });
+    }
     return {
-      id: DONNEES, etape: 'Tes données',
-      titre: 'Tu as déjà un historique d’entraînement ?',
-      voix: 'C’est lui qui me dit le plus de choses sur toi.',
-      blocs: [{ type: 'options', cle: 'historique', valeur: etat.rep.historique,
-                options: avecSous(Profil().HISTORIQUES, SOUS_HISTORIQUE) }]
+      id: ANCIENNETE, etape: 'Tes données',
+      titre: 'Tu t’entraînes depuis combien de temps ?',
+      voix: null,
+      blocs: blocs
     };
   }
 
@@ -470,19 +562,95 @@
     };
   }
 
-  function ecranSansHistorique(etat) {
+
+  // ── 187 (A3) — « Où tu t'entraînes ? » ────────────────────────────────────────
+  // Chaque salle avec sa sous-ligne, reprise du Profil (`MATERIELS`). « Ajuster Ma salle », replié, donne les crans
+  // des haltères (`profiles.ma_salle`, écrit par `Profil.champsSalle`). Les petits disques et la barre de traction n'ont
+  // pas de clé dans `ma_salle` (`profiles_ma_salle_ok`) : ils attendent une migration (voir le rapport).
+  var PUCES_HALTERES_MAX = [10, 20, 30, 40, 50, 60];
+  var PUCES_HALTERES_PAS = [1, 2, 2.5, 5];
+  function pucesDe(valeurs, unite) {
+    return valeurs.map(function (v) { return { cle: v, libelle: Modele().nombreSigne(v) + (unite ? INSECABLE + unite : '') }; });
+  }
+  function phraseDeLaSalle(rep) {
+    if (!(rep.halteresMax > 0) || !(rep.halteresPas > 0)) return 'Haltères : pas encore dit.';
+    return 'Haltères jusqu’à ' + en(rep.halteresMax, 'kg') + ', de ' + Modele().nombreSigne(rep.halteresPas) + ' en ' +
+           Modele().nombreSigne(rep.halteresPas) + '.';
+  }
+  function ecranSalle(etat) {
     var rep = etat.rep;
-    var sansSeance = rep.historique === 'import' && !etat.aDesSeances;
+    var plusieurs = salleASeulesTranches(etat.profil);
+    var ajuster = plusieurs
+      ? [{ type: 'note', texte: 'Tes haltères ont plusieurs séries de tranches : ils se règlent dans Profil, Ma salle.' }]
+      : [{ type: 'puces', cle: 'halteresMax', titre: 'Haltères jusqu’à', valeur: rep.halteresMax, options: pucesDe(PUCES_HALTERES_MAX, 'kg') },
+         { type: 'puces', cle: 'halteresPas', titre: 'De combien en combien', valeur: rep.halteresPas, options: pucesDe(PUCES_HALTERES_PAS, 'kg') }];
+    ajuster.push({ type: 'note', texte: 'Je note la charge des haltères par haltère.' });
     return {
-      id: SANS_HISTORIQUE, etape: 'Tes données',
-      titre: 'Depuis quand t’entraînes-tu régulièrement ?',
-      // 69 (K2) — l'import existe : la phrase dit où le trouver (ECRAN-PROFIL §2.4 quater).
-      voix: sansSeance ? 'Tu pourras importer tes séances depuis Profil, « Importer depuis Hevy ». Ces trois réponses suffisent pour commencer.' : null,
+      id: SALLE, etape: 'Ta salle',
+      titre: 'Où tu t’entraînes ?',
+      voix: null,
       blocs: [
-        { type: 'options', cle: 'anciennete', valeur: rep.anciennete, options: Profil().ANCIENNETES },
-        { type: 'puces', cle: 'seances', titre: 'Combien de séances par semaine ?',
-          valeur: rep.seances, options: PUCES_SEANCES }
-      ].concat(blocsDeLaDuree(etat, 'Combien de temps par séance ?'))
+        { type: 'options', cle: 'materiel', valeur: rep.materiel,
+          options: Profil().MATERIELS.map(function (m) { return { cle: m.cle, libelle: m.libelle, sous: m.sous }; }) },
+        { type: 'replie', cle: 'salleOuverte', libelle: 'Ajuster Ma salle', ouvert: !!rep.salleOuverte,
+          resume: phraseDeLaSalle(rep), blocs: ajuster }
+      ]
+    };
+  }
+
+  // ── 187 (A4) — « Une zone à ménager ? », posée à tout le monde ────────────────
+  function ecranZone(etat) {
+    var rep = etat.rep;
+    var zones = Profil().ZONES_A_MENAGER.concat([{ cle: 'aucune', libelle: 'Aucune' }]);
+    var choisies = Array.isArray(rep.menager) ? rep.menager : [];
+    return {
+      id: ZONE, etape: 'Ton corps · facultatif',
+      titre: 'Une zone à ménager ?',
+      voix: 'Je ne te proposerai pas de série lourde dessus, et « J’ai mal » sera à portée de main.',
+      blocs: [{ type: 'puces', cle: 'zone', multiple: true, valeurs: choisies.length ? choisies : ['aucune'], options: zones }]
+    };
+  }
+
+  // ── 187 (A5) — « Une série récente ? », facultative ───────────────────────────
+  // Une série, pas un « max » : charge × reps, pour chacune des quatre barres. Elle devient la charge de départ de la
+  // barre (`charge_cible_kg`, MOTEUR §9.21) ; sans elle, la première séance la trouve avec la personne (§9.21, calage).
+  var RECENTES = [
+    { cle: 'sq', slug: 'squat_barre', nom: 'Squat' },
+    { cle: 'co', slug: 'developpe_couche_barre', nom: 'Couché' },
+    { cle: 'so', slug: 'souleve_de_terre_barre', nom: 'Soulevé' },
+    { cle: 'mi', slug: 'developpe_militaire_barre', nom: 'Militaire' }
+  ];
+  var RECENTE_KG_MAX = 600, RECENTE_REPS_MAX = 30;
+  // Les séries données EN ENTIER (charge ET reps), dans l'ordre des barres : `[{ slug, nom, kg, reps }]`.
+  // `depart` : la charge de départ de la barre — la charge de la série récente, ramenée au cran de la barre en dessous
+  // (2,5 kg ; jamais au-dessus de ce que la personne a fait). Ni 1RM estimé, ni pourcentage, ni poids du corps : une série
+  // faite, rien de deviné. Dès la première série validée, le coach décide seul (MOTEUR §9.21).
+  var CRAN_BARRE = 2.5;
+  function departDeLaSerie(kg) { return Math.floor(kg / CRAN_BARRE + 1e-9) * CRAN_BARRE; }
+  function seriesRecentes(rep) {
+    var r = rep || {};
+    return RECENTES.filter(function (x) { return r['rec_' + x.cle + '_kg'] > 0 && r['rec_' + x.cle + '_reps'] >= 1; })
+      .map(function (x) {
+        return { slug: x.slug, nom: x.nom, kg: r['rec_' + x.cle + '_kg'], reps: r['rec_' + x.cle + '_reps'],
+                 depart: departDeLaSerie(r['rec_' + x.cle + '_kg']) };
+      });
+  }
+  function ecranRecente(etat) {
+    var rep = etat.rep, erreurs = etat.erreurs || {};
+    var champs = [];
+    RECENTES.forEach(function (x) {
+      champs.push({ cle: 'rec_' + x.cle + '_kg', libelle: x.nom, unite: 'kg', mode: 'decimal',
+        valeur: texteDe(etat, 'rec_' + x.cle + '_kg', rep['rec_' + x.cle + '_kg'] || null, true),
+        erreur: erreurs['rec_' + x.cle + '_kg'] || null, aide: null });
+      champs.push({ cle: 'rec_' + x.cle + '_reps', libelle: x.nom + ', reps', unite: 'reps', mode: 'numeric',
+        valeur: texteDe(etat, 'rec_' + x.cle + '_reps', rep['rec_' + x.cle + '_reps'] || null),
+        erreur: erreurs['rec_' + x.cle + '_reps'] || null, aide: null });
+    });
+    return {
+      id: RECENTE, etape: 'Ta force · facultatif',
+      titre: 'Une série récente ?',
+      voix: 'Si tu t’en souviens, ta première séance aura de vraies charges. Sinon, on les trouve ensemble.',
+      blocs: [{ type: 'champs', champs: champs }]
     };
   }
 
@@ -554,15 +722,10 @@
     var habituelle = dureeHabituelle(etat.faits);
     var visee = dureeMontree(rep, etat.faits);
     var blocs = [];
-    var titre;
-    if (habituelle || visee) {
-      // Avec des séances, le titre dit ce qu'elles montrent ; sans, ce que la
-      // personne a déjà répondu (« jamais les deux »).
-      titre = 'Tes séances durent environ ' + en(habituelle || visee, 'min') + '.';
-    } else {
-      titre = 'Combien de temps dure une séance, en général ?';
-      blocsDeLaDuree(etat, null).forEach(function (b) { blocs.push(b); });
-    }
+    // 187 (A6) — la durée n'est plus rendue comme un fait : le titre est la question. Sans durée connue (ni
+    // séances ni réponse), les puces de la durée la demandent d'abord.
+    var titre = 'Combien de temps pour t’entraîner, en ce moment ?';
+    if (!habituelle && !visee) blocsDeLaDuree(etat, 'Une séance dure en général').forEach(function (b) { blocs.push(b); });
     // 60-2c : « Moins en ce moment », choisi, demande combien JUSTE DESSOUS — quatre puces, la
     // même fonction que la feuille du Profil. Les autres réponses gardent la ligne « Durée visée ».
     var options = avecSous(Profil().TEMPS_REPONSES, SOUS_TEMPS);
@@ -576,11 +739,7 @@
     // La durée VISÉE : celle du Profil (`duree_seance_min`), ou l'habituelle tant
     // que la personne n'a rien dit. Elle ouvre la feuille du Profil.
     if (visee && !moins) blocs.push({ type: 'ligne', cle: 'duree', libelle: 'Durée visée', valeur: en(visee, 'min') });
-    blocs.push({ type: 'puces', cle: 'materiel', titre: 'Où t’entraînes-tu ?',
-                 valeur: rep.materiel, options: Profil().MATERIELS.map(function (m) {
-                   return { cle: m.cle, libelle: m.libelle };
-                 }) });
-    return { id: TEMPS, etape: 'Temps et matériel', titre: titre, voix: null, blocs: blocs };
+    return { id: TEMPS, etape: 'Ton temps', titre: titre, voix: null, blocs: blocs };
   }
 
   // L'écran 8 (60-3) : les trois chemins. « Garder ce que je fais » n'est proposé qu'avec au moins une
@@ -602,18 +761,13 @@
   function ecranConstruit(etat) {
     var rep = etat.rep, G = Generateur(), jours = [];
     for (var n = G.JOURS_MIN; n <= G.JOURS_MAX; n++) jours.push({ cle: n, libelle: String(n) });
-    var zones = Profil().ZONES_A_MENAGER.concat([{ cle: 'aucune', libelle: 'Aucune' }]);
-    var choisies = Array.isArray(rep.menager) ? rep.menager : [];
     return {
       id: CONSTRUIT, etape: 'Ton programme',
       titre: 'Combien de jours par semaine, réalistement ?',
       voix: null,
       blocs: [
         { type: 'puces', cle: 'seances', valeur: rep.seances, options: jours },
-        { type: 'puces', cle: 'zone', titre: 'Une zone à ménager ?', multiple: true,
-          valeurs: choisies.length ? choisies : ['aucune'], options: zones },
-        { type: 'voix', texte: 'Je garde l’exercice et toutes ses séries, sans série lourde. Rien en séance : ' +
-                                'si ça fait mal, « J’ai mal » est là.' }
+        { type: 'voix', texte: 'Ta zone à ménager, je la garde : l’exercice et toutes ses séries, sans série lourde.' }
       ]
     };
   }
@@ -650,7 +804,7 @@
     var tiret = '—';
     // La ligne « Programme » : seulement si l'écran 8 est du parcours (60-3).
     var visibles = etat.visibles || ecransVisibles({ aDesSeances: etat.aDesSeances, historique: rep.historique,
-                                                    programme: rep.programme });
+                                                    programme: rep.programme, depuis: rep.depuis });
     var choixProgramme = (rep.programme && P.libelleDe(P.PROGRAMMES, rep.programme)) || tiret;
     // « Construis-le-moi · 4 jours » : les jours de l'écran 8b suivent le choix.
     if (rep.programme === 'construis' && visibles.indexOf(CONSTRUIT) >= 0 && joursValides(rep.seances)) {
@@ -669,27 +823,62 @@
           // import, carnet) d'où le coach peut les tirer. Sans lui, la première séance n'a aucune charge à
           // proposer : le coach le dit tel quel.
           ? 'À ta première séance, je te propose tes charges. Tu peux toujours taper autre chose.'
-          : 'À ta première séance, tu choisis tes charges ; je les suis ensuite.'),
+          : 'À ta première séance, on trouve ta charge ensemble. Tu peux toujours taper autre chose.'),
       blocs: [{ type: 'resume', lignes: [
         { libelle: 'But d’entraînement', valeur: (rep.objectif && P.libelleDe(P.OBJECTIFS, rep.objectif)) || tiret, ecran: BUT },
         { libelle: 'Phase', valeur: phase || tiret, ecran: BUT },
         { libelle: 'Priorités', valeur: priorites || tiret, ecran: PRIORITES },
         { libelle: 'Temps', valeur: tempsTexte || tiret, ecran: TEMPS },
-        { libelle: 'Matériel', valeur: (rep.materiel && P.libelleDe(P.MATERIELS, rep.materiel)) || tiret, ecran: TEMPS }
+        { libelle: 'Matériel', valeur: (rep.materiel && P.libelleDe(P.MATERIELS, rep.materiel)) || tiret, ecran: SALLE },
+        { libelle: 'Zone à ménager', valeur: zonesTexte(rep.menager), ecran: ZONE }
       ].concat(programme, [
         { libelle: 'Coach', valeur: coach || tiret, ecran: COACH }
-      ]) }]
+      ]) }].concat(premiereSeance(rep, etat))
     };
+  }
+
+  // 187 (A7) — « Ta première séance » : le récapitulatif DIT VRAI, exercice par exercice. Des charges proposées quand
+  // on en a (un historique, ou une série récente donnée), « on la trouve ensemble » pour le reste, et la zone à ménager.
+  var TON_ARTICLE = { epaule: 'Ton épaule', dos: 'Ton dos', genou: 'Ton genou', coude: 'Ton coude', hanche: 'Ta hanche' };
+  function zonesTexte(menager) {
+    var l = Array.isArray(menager) ? menager : [];
+    if (!l.length) return 'Aucune';
+    return l.map(function (z) { return Profil().libelleDe(Profil().ZONES_A_MENAGER, z) || z; }).join(', ');
+  }
+  function listeEt(noms) {
+    return noms.length < 2 ? noms.join('') : noms.slice(0, -1).join(', ') + ' et ' + noms[noms.length - 1];
+  }
+  function premiereSeance(rep, etat) {
+    if (rep.coach === 'carnet') return [];
+    var lignes = [];
+    var recentes = seriesRecentes(rep);
+    var sansSeance = !etat.aDesSeances;
+    if (!sansSeance) {
+      lignes.push({ libelle: 'Tes exercices', valeur: 'je te propose tes charges, d’après tes séances.' });
+    } else {
+      if (recentes.length) {
+        lignes.push({ libelle: majuscule(listeEt(recentes.map(function (x) { return x.nom.toLowerCase(); }))),
+                      valeur: 'je te propose tes charges, à partir de tes séries récentes.' });
+      }
+      lignes.push({ libelle: recentes.length ? 'Les autres exercices' : 'Tous les exercices',
+                    valeur: 'on trouve ta charge ensemble à la première séance, en 2 ou 3 séries qui comptent.' });
+    }
+    (Array.isArray(rep.menager) ? rep.menager : []).forEach(function (z) {
+      lignes.push({ libelle: TON_ARTICLE[z] || z, valeur: 'pas de série lourde dessus.' });
+    });
+    return [{ type: 'faits', titre: 'Ta première séance', lignes: lignes }];
   }
 
   function libelleDePriorite(cle) { return Profil().libelleDePriorite(cle); }
 
   var FABRIQUES = {};
   FABRIQUES[BIENVENUE] = ecranBienvenue;
-  FABRIQUES[DONNEES] = ecranDonnees;
+  FABRIQUES[ANCIENNETE] = ecranAnciennete;
   FABRIQUES[SAIT] = ecranSait;
-  FABRIQUES[SANS_HISTORIQUE] = ecranSansHistorique;
-  FABRIQUES[TOI] = ecranToi;
+  FABRIQUES[SALLE] = ecranSalle;
+  FABRIQUES[ZONE] = ecranZone;
+  FABRIQUES[RECENTE] = ecranRecente;
+    FABRIQUES[TOI] = ecranToi;
   FABRIQUES[BUT] = ecranBut;
   FABRIQUES[PRIORITES] = ecranPriorites;
   FABRIQUES[TEMPS] = ecranTemps;
@@ -708,12 +897,13 @@
     if (!fabrique) return null;
     var vue = fabrique(e);
     var visibles = e.visibles || ecransVisibles({ aDesSeances: e.aDesSeances, historique: e.rep && e.rep.historique,
-                                                 programme: e.rep && e.rep.programme });
+                                                 programme: e.rep && e.rep.programme, depuis: e.rep && e.rep.depuis });
     var rang = visibles.indexOf(id);
     vue.progression = progression(visibles, id);
     vue.retour = rang > 0;
     vue.bouton = {
-      libelle: rang === 0 ? 'C’est parti' : rang === visibles.length - 1 ? 'Commencer' : 'Continuer',
+      libelle: rang === 0 ? 'C’est parti' : rang === visibles.length - 1 ? 'Commencer'
+        : id === ANCIENNETE && e.rep && e.rep.notees === NOTEES_IMPORT && e.rep.depuis !== COMMENCE ? 'Importer mon fichier' : 'Continuer',
       actif: ecranPret(id, e.rep)
     };
     // 60-4 — « Refaire mon programme » (Profil) rejoue l'écran 8b SEUL : pas de barre, pas de « Plus tard », un
@@ -728,7 +918,8 @@
   }
 
   var api = {
-    ECRANS: ECRANS, BIENVENUE: BIENVENUE, DONNEES: DONNEES, SAIT: SAIT, SANS_HISTORIQUE: SANS_HISTORIQUE,
+    ECRANS: ECRANS, BIENVENUE: BIENVENUE, ANCIENNETE: ANCIENNETE, SAIT: SAIT, COMMENCE: COMMENCE, DEPUIS: DEPUIS, SALLE: SALLE, ZONE: ZONE, RECENTE: RECENTE, RECENTES: RECENTES,
+    seriesRecentes: seriesRecentes, phraseDeLaSalle: phraseDeLaSalle,
     TOI: TOI, BUT: BUT, PRIORITES: PRIORITES, TEMPS: TEMPS, PROGRAMME: PROGRAMME, CONSTRUIT: CONSTRUIT,
     COACH: COACH, RECAP: RECAP,
     BARRES: BARRES, PUCES_SEANCES: PUCES_SEANCES, get PUCES_DUREES() { return pucesDeDuree(); }, DUREE_PLUS_MIN: DUREE_PLUS_MIN, plusChoisie: plusChoisie,

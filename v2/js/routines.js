@@ -1225,7 +1225,17 @@
         lignes.push({ exercise_slug: e.exercise_slug, rang: ++rang, type_serie: 'travail', reps: e.reps, groupe_superset: g });
       }
     });
-    return routineDepuisSeance(lignes, Object.assign({}, options, { titre: d.nom }));
+    var routine = routineDepuisSeance(lignes, Object.assign({}, options, { titre: d.nom }));
+    // 187 (A5) — une CHARGE DE DÉPART donnée (`charge_cible_kg`, MOTEUR §9.21) va sur les séries de travail de l'exercice.
+    // Sans elle, rien ne change : une routine déduite ne porte jamais de charge.
+    (d.exercices || []).forEach(function (e) {
+      if (!(e.charge_cible_kg > 0)) return;
+      routine.exercices.forEach(function (x) {
+        if (x.exercise_slug !== e.exercise_slug) return;
+        x.series.forEach(function (sr) { if (racine.THModele.estTravail(sr)) sr.charge_cible_kg = e.charge_cible_kg; });
+      });
+    });
+    return routine;
   }
 
   // ══ « REMPLACER » DANS L'ÉDITEUR (ECRAN-SAISIE §7 quindecies.8, 60-3) ═════

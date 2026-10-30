@@ -52,6 +52,12 @@ peut-être s'entraîner 4 h » ; 120 min serait inventé. Sans minutes tapées, 
 | 9 | **Ton coach** | Me ménager · Normal · Me pousser · Juste un carnet | `rythme_progression` (prudent / normal / franc) ; « Juste un carnet » = `intention = 'entretien'` rendu silencieux (§4) |
 | 10 | **Ce que j'ai compris** | récapitulatif, chaque ligne modifiable | `questionnaire_fait_le` |
 
+## 3 bis. Le premier jour — décidé le 29/10/2026 (187)
+
+Le parcours devient : Bienvenue · **Tu t'entraînes depuis combien de temps ?** (Je commence · Moins d'un an · 1 à 3 ans · 3 à 5 ans · Plus de 5 ans ; « Je commence » écrit `anciennete = moins_1_an` et `historique_declare = debutant`) · **Tes séances sont notées quelque part ?** (dès qu'on n'est plus débutant : « Oui, dans Hevy ou Strong » importe en place, avec le code d'import existant, puis reprend à « Ce que je sais » ; « Dans mes notes » : *Bientôt* ; « Non ») · Ce que je sais (si historique en base) · **Où tu t'entraînes ?** (les salles et leur sous-ligne ; « Ajuster Ma salle », replié : les crans des haltères, `profiles.ma_salle` — les petits disques et la barre de traction n'ont pas encore de clé, voir le rapport 187) · **Une zone à ménager ?** (pour tout le monde, `zones_a_menager`) · **Une série récente ?** (facultatif, si 1 an ou plus et aucune séance en base : squat · couché · soulevé · militaire en charge × reps, qui devient la charge de départ des barres du programme) · Toi · Ton but · Priorités · **Ton temps** (une seule fois : la durée n'est plus dite comme un fait ; les jours ne sont plus demandés deux fois) · Ton programme · Ton coach (**Me ménager · Normal · Me pousser**, les valeurs en base restent prudent / normal / franc) · Ce que j'ai compris.
+
+Le récapitulatif dit vrai, exercice par exercice : « je te propose tes charges » s'il existe un historique ou une série récente ; sinon « **à ta première séance, on trouve ta charge ensemble** » (le calage, MOTEUR §9.21). Les anciens écrans « Tes données » (trois réponses) et « Sans historique » disparaissent.
+
 ## 4. Les lecteurs : qui lit quelle réponse
 
 | Réponse | Lue par | Quand |

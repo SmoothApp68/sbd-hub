@@ -78,7 +78,7 @@ describe('PR 1 — le plan pose la feuille « Pourquoi » entière', () => {
     const p = T.planDeSeance({ seance: { id: 'S1', debut: DEBUT, edition: false,
       exercices: S.ajouterExercice(S.creer({ id: 'S1', userId: 'u', idSerie: () => 'a' }), 'x', (() => { let i = 0; return () => 'z' + (++i); })(), { series: 3 }).exercices },
       consignes: { x: { consigne: K125 } }, reglage: 'prudent', paris: [], suites: {} });
-    expect(esp(p.exercices[0].pourquoi.reglage)).toBe('Ton réglage : Prudent. Il se change dans Profil.');
+    expect(esp(p.exercices[0].pourquoi.reglage)).toBe('Ton réglage : Me ménager. Il se change dans Profil.');
   });
 });
 

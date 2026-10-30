@@ -317,6 +317,7 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
       Modele: { indexerExercices: (l) => ({ curl: l[0] }), gabaritDe: () => ({ mesure: 'charge_reps' }), lesteDe: () => null, parentDe: () => null },
       Profil: { rythmeDe: () => 'normal', salleDeLExercice: () => null, estDebutant: () => false },   // 108 — la salle (aucune ici)
       Seance: { partEnBase: () => true },
+      Generateur: require('../../v2/js/generateur.js'),   // 187 : `optionsDeConsigne` lit la zone à ménager (A4)
       Moteur: { estIsolation: () => false, suiteDExercice: (g, j, e, a, o) => { vus.push(o); return null; },
                 equipementEffectif: (e) => (e ? e.equipement || null : null) },
       // 50-1 : les deux lectures du profil et des modes que `optionsDeConsigne` appelle.

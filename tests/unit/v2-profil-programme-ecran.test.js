@@ -330,14 +330,14 @@ describe('les gestes : « Refaire mon programme »', () => {
     expect(b.ctx.questionnaire.rep.seances).toBe(3);                       // 3,4 → 3
   });
 
-  test('« Voir mon programme » : écrit les jours et la zone (chemin du profil), ferme, Saisie, puis l’aperçu — dans cet ordre', async () => {
+  test('« Voir mon programme » : écrit les jours (chemin du profil ; la zone a son écran, 187), ferme, Saisie, puis l’aperçu — dans cet ordre', async () => {
     const b = bac({ profil: { seances_par_semaine: 3, zones_a_menager: null } });
     b.appel('refaireMonProgramme()');
     b.ctx.questionnaire.rep.seances = 5;
     b.ctx.questionnaire.rep.menager = ['dos'];
     b.ctx.continuerQuestionnaire();
     await new Promise((r) => setTimeout(r, 0));
-    expect(b.journal.poses).toEqual([{ seances_par_semaine: 5, zones_a_menager: ['dos'] }]);
+    expect(b.journal.poses).toEqual([{ seances_par_semaine: 5 }]);
     expect(b.ctx.questionnaire).toBeNull();
     expect(b.journal.ordre.filter((x) => x === 'saisie' || x === 'apercu')).toEqual(['saisie', 'apercu']);
     expect(b.journal.apercus).toBe(1);

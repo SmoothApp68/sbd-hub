@@ -15680,11 +15680,11 @@ const SETS_IMPORTES = [
     let e = await ecranQ();
     ok('[Q60] A — DISCRIMINANT : `questionnaire_fait_le` vide (onboarding_completed vrai) → le questionnaire s’ouvre de lui-même, seul à l’écran, barre d’onglets cachée',
       JSON.stringify(e.vues) === '["vue-questionnaire"]' && e.onglets === false && e.ecran === 'bienvenue', JSON.stringify(e));
-    ok('[Q60] A — l’écran 1, mot pour mot : étape, titre, voix, « C’est parti », « Plus tard », pas de retour, progression 1 sur 9',
+    ok('[Q60] A — l’écran 1, mot pour mot : étape, titre, voix, « C’est parti », « Plus tard », pas de retour, progression 1 sur 11 (187 : + ancienneté, salle, zone)',
       e.etape === 'Bienvenue' && e.titre === 'Je suis ton coach. Deux minutes pour te connaître.' &&
         e.voix === 'Je te propose la charge de chaque série et je te dis pourquoi. Tu décides toujours.' &&
         e.bouton === 'C’est parti' && e.plusTard === 'Plus tard' && e.retour === false && e.actif === true &&
-        JSON.stringify(e.progression) === '["1","9"]', JSON.stringify(e));
+        JSON.stringify(e.progression) === '["1","11"]', JSON.stringify(e));
     ok('[Q60] A — marqué « ouvert sur cet appareil » : une clé locale, par compte',
       (await clesVues()).length === 1, JSON.stringify(await clesVues()));
 
@@ -15692,18 +15692,22 @@ const SETS_IMPORTES = [
     let ecritsAvant = ecritsProfil();
     await continuerQ();
     e = await ecranQ();
-    ok('[Q60] écran 2 — « Tu as déjà un historique d’entraînement ? » : « Continuer » éteint tant que rien n’est choisi ; rien n’a été écrit',
-      e.ecran === 'donnees' && e.titre === 'Tu as déjà un historique d’entraînement ?' && e.actif === false && e.retour === true &&
+    ok('[Q60] écran 2 (187) — « Tu t’entraînes depuis combien de temps ? » : « Continuer » éteint tant que rien n’est choisi ; rien n’a été écrit',
+      e.ecran === 'anciennete' && e.titre === 'Tu t’entraînes depuis combien de temps ?' && e.actif === false && e.retour === true &&
         ecritsProfil() === ecritsAvant, JSON.stringify([e, ecritsProfil() - ecritsAvant]));
-    await cliquerQ('.q-opt[data-cle="import"]');
+    await cliquerQ('.q-puce[data-cle="1_a_3_ans"]');
     e = await ecranQ();
-    ok('[Q60] écran 2 — « Importer » choisi : « Continuer » s’allume (rien n’est encore écrit : c’est « Continuer » qui écrit)',
-      e.actif === true && e.choisis.indexOf('import') >= 0 && ecritsProfil() === ecritsAvant, JSON.stringify([e.choisis, e.actif]));
+    ok('[Q60] écran 2 — une durée choisie : la question « Tes séances sont notées quelque part ? » arrive, « Continuer » reste éteint',
+      e.actif === false && e.choisis.indexOf('1_a_3_ans') >= 0 && ecritsProfil() === ecritsAvant, JSON.stringify([e.choisis, e.actif]));
+    await cliquerQ('.q-opt[data-cle="non"]');
+    e = await ecranQ();
+    ok('[Q60] écran 2 — « Non » choisi : « Continuer » s’allume (rien n’est encore écrit : c’est « Continuer » qui écrit)',
+      e.actif === true && e.choisis.indexOf('non') >= 0 && ecritsProfil() === ecritsAvant, JSON.stringify([e.choisis, e.actif]));
     await continuerQ();
     await attendre(600);
-    ok('[Q60] écran 2 — « Continuer » écrit UNE fois, par le chemin du profil : `historique_declare` = import',
-      ecritsProfil() === ecritsAvant + 1 && profilBase().historique_declare === 'import' && profilBase().questionnaire_fait_le === null,
-      JSON.stringify([ecritsProfil() - ecritsAvant, profilBase().historique_declare, profilBase().questionnaire_fait_le]));
+    ok('[Q60] écran 2 — « Continuer » écrit UNE fois, par le chemin du profil : `anciennete` = 1_a_3_ans, `historique_declare` = non_note',
+      ecritsProfil() === ecritsAvant + 1 && profilBase().anciennete === '1_a_3_ans' && profilBase().historique_declare === 'non_note' && profilBase().questionnaire_fait_le === null,
+      JSON.stringify([ecritsProfil() - ecritsAvant, profilBase().anciennete, profilBase().historique_declare, profilBase().questionnaire_fait_le]));
 
     // ── L'écran 3a : des chiffres RÉELS, ceux des séances de la base.
     e = await ecranQ();
@@ -15716,6 +15720,15 @@ const SETS_IMPORTES = [
     ecritsAvant = ecritsProfil();
     await continuerQ();
     ok('[Q60] écran 3a — « Continuer » n’écrit rien (c’est une lecture)', ecritsProfil() === ecritsAvant, JSON.stringify(ecritsProfil() - ecritsAvant));
+    // 187 — « Où tu t’entraînes ? » puis « Une zone à ménager ? » : sans réponse, rien n’est écrit.
+    e = await ecranQ();
+    ok('[Q60] écran 3b (187) — « Où tu t’entraînes ? »', e.ecran === 'salle' && e.titre === 'Où tu t’entraînes ?', JSON.stringify(e));
+    await continuerQ();
+    e = await ecranQ();
+    ok('[Q60] écran 3c (187) — « Une zone à ménager ? » pour tout le monde', e.ecran === 'zone' && e.titre === 'Une zone à ménager ?', JSON.stringify(e));
+    ecritsAvant = ecritsProfil();
+    await continuerQ();
+    ok('[Q60] écrans 3b et 3c — sans réponse, rien n’est écrit', ecritsProfil() === ecritsAvant, JSON.stringify(ecritsProfil() - ecritsAvant));
 
     // ── L'écran 4 : « Toi ». Tout est pré-rempli ; l'année ne réécrit pas la date entière.
     e = await ecranQ();
@@ -15758,7 +15771,7 @@ const SETS_IMPORTES = [
     ok('[Q60] B — le bandeau de Saisie : « Ton questionnaire n’est pas terminé. » et un seul bouton, « Le terminer »',
       bq.visible && bq.texte.indexOf('Ton questionnaire n’est pas terminé.') >= 0 && JSON.stringify(bq.boutons) === '["Le terminer"]', JSON.stringify(bq));
     ok('[Q60] B — ce qui était validé est écrit (historique, sexe, taille) ; `questionnaire_fait_le` reste vide',
-      profilBase().historique_declare === 'import' && profilBase().sexe === 'homme' && profilBase().questionnaire_fait_le === null,
+      profilBase().historique_declare === 'non_note' && profilBase().sexe === 'homme' && profilBase().questionnaire_fait_le === null,
       JSON.stringify(profilBase()));
 
     // ── B'. UN RECHARGEMENT NE LE ROUVRE PAS : il s'est déjà ouvert ici. Le bandeau reste.
@@ -15788,7 +15801,7 @@ const SETS_IMPORTES = [
     ok('[Q60] C — « Le terminer » rouvre au PREMIER écran', e.ecran === 'bienvenue' && e.retour === false, JSON.stringify(e));
     await continuerQ();
     e = await ecranQ();
-    ok('[Q60] C — écran 2 : la réponse déjà donnée (import) est pré-remplie', e.ecran === 'donnees' && e.choisis.indexOf('import') >= 0 && e.actif === true, JSON.stringify(e));
+    ok('[Q60] C — écran 2 : la réponse déjà donnée (1 à 3 ans, non notées) est pré-remplie', e.ecran === 'anciennete' && e.choisis.indexOf('1_a_3_ans') >= 0 && e.choisis.indexOf('non') >= 0 && e.actif === true, JSON.stringify(e));
     // Le retour d'Android recule d'UN écran (il ne quitte pas l'app, il ne recharge rien).
     await page.goBack().catch(() => {});
     await attendre(900);
@@ -15797,6 +15810,8 @@ const SETS_IMPORTES = [
       e.ecran === 'bienvenue' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
     await continuerQ();
     await continuerQ();
+    await continuerQ();
+    await continuerQ();                                               // 187 : + « Où tu t’entraînes ? », « Une zone à ménager ? »
     await continuerQ();
     e = await ecranQ();
     ok('[Q60] C — écran 4 : sexe, année, taille et POIDS pré-remplis (98,4 : la dernière pesée)',
@@ -15838,7 +15853,7 @@ const SETS_IMPORTES = [
 
     // ── Temps et matériel : la durée montrée n'est pas une réponse.
     e = await ecranQ();
-    ok('[Q60] écran 7 — « Temps et matériel »', e.ecran === 'temps' && e.etape === 'Temps et matériel', JSON.stringify(e));
+    ok('[Q60] écran 7 — « Temps et matériel »', e.ecran === 'temps' && e.etape === 'Ton temps', JSON.stringify(e));
     const dureeAvant = profilBase().duree_seance_min;
     // ── 60-2c : « Moins en ce moment » DEMANDE COMBIEN — quatre durées JUSTE DESSOUS, rien d'écrit en les touchant.
     const colonneQ = () => page.evaluate(() => Array.from(document.querySelectorAll('#questionnaire-corps .q-options > *'))
@@ -15872,12 +15887,11 @@ const SETS_IMPORTES = [
       dMarge.libelles.length === 0 && dMarge.ligneDuree === true && JSON.stringify(await colonneQ()) === JSON.stringify(colAvant),
       JSON.stringify([dMarge, await colonneQ()]));
     await cliquerQ('.q-opt[data-cle="marge"]');
-    await cliquerQ('.q-puce[data-cle="salle_complete"]');
     await continuerQ();
     await attendre(500);
-    ok('[Q60] écran 7 — écrit : temps_reponse = marge, matériel = salle complète ; DISCRIMINANT : la durée MONTRÉE (la médiane des séances) n’est pas écrite comme une réponse',
-      profilBase().temps_reponse === 'marge' && profilBase().materiel === 'salle_complete' && profilBase().duree_seance_min === dureeAvant,
-      JSON.stringify([profilBase().temps_reponse, profilBase().materiel, profilBase().duree_seance_min, dureeAvant]));
+    ok('[Q60] écran 7 — écrit : temps_reponse = marge (le matériel se répond à « Où tu t’entraînes ? », 187) ; DISCRIMINANT : la durée MONTRÉE (la médiane des séances) n’est pas écrite comme une réponse',
+      profilBase().temps_reponse === 'marge' && profilBase().duree_seance_min === dureeAvant,
+      JSON.stringify([profilBase().temps_reponse, profilBase().duree_seance_min, dureeAvant]));
 
     // ── Ton coach, puis le récapitulatif.
     e = await ecranQ();
@@ -15889,10 +15903,10 @@ const SETS_IMPORTES = [
     ok('[Q60] écran 8 — écrit : intention = progresser, rythme = franc',
       profilBase().intention === 'progresser' && profilBase().rythme_progression === 'franc', JSON.stringify([profilBase().intention, profilBase().rythme_progression]));
     e = await ecranQ();
-    ok('[Q60] écran 9 — « Voici ce que j’ai compris. » : les six lignes, avec ce qui vient d’être répondu ; « Commencer »',
-      e.ecran === 'recap' && e.bouton === 'Commencer' && e.lignes.length === 6 &&
-        /But d’entraînement.*Muscle/.test(e.lignes[0]) && /Phase.*Maintien/.test(e.lignes[1]) && /Matériel.*Salle complète/.test(e.lignes[4]) &&
-        /Coach.*Franc/.test(e.lignes[5]), JSON.stringify(e));
+    ok('[Q60] écran 9 — « Voici ce que j’ai compris. » : les sept lignes (187 : + la zone), avec ce qui vient d’être répondu ; « Commencer »',
+      e.ecran === 'recap' && e.bouton === 'Commencer' && e.lignes.length === 8 && /^Tes exercices/.test(e.lignes[7]) &&
+        /But d’entraînement.*Muscle/.test(e.lignes[0]) && /Phase.*Maintien/.test(e.lignes[1]) && /^Matériel/.test(e.lignes[4]) && /^Zone à ménager/.test(e.lignes[5]) &&
+        /Coach.*Me pousser/.test(e.lignes[6]), JSON.stringify(e));
     ok('[Q60] écran 9 — rien ne dit « fait » avant « Commencer » : `questionnaire_fait_le` est encore vide',
       profilBase().questionnaire_fait_le === null, JSON.stringify(profilBase().questionnaire_fait_le));
     await cliquerQ('.q-mod[data-ecran="but"]', 500);
@@ -15952,7 +15966,7 @@ const SETS_IMPORTES = [
       titre: (document.querySelector('#questionnaire-corps .q-titre') || {}).textContent,
       visee: (document.querySelector('#questionnaire-corps .q-lc-val') || {}).textContent }));
     ok('[Q60] écran 7 — DISCRIMINANT : la durée choisie dans la feuille SE VOIT (« Durée visée 90 min »), le titre garde le fait (la médiane)',
-      e.ecran === 'temps' && /^Tes séances durent environ \d+.min\.$/.test(titreMed) && titreMed === apresDuree.titre &&
+      e.ecran === 'temps' && /^Combien de temps pour t’entraîner, en ce moment \?$/.test(titreMed) && titreMed === apresDuree.titre &&
         /^90.min$/.test(apresDuree.visee), JSON.stringify([titreMed, apresDuree]));
     await continuerQ();
     await attendre(500);
@@ -16141,9 +16155,9 @@ const SETS_IMPORTES = [
     const ecrituresK0 = base.ecrituresPesees.length;
     const peseesK0 = JSON.stringify(base.pesees);
     await continuerQ();
-    await cliquerQ('.q-opt[data-cle="import"]');
+    await cliquerQ('.q-puce[data-cle="1_a_3_ans"]'); await cliquerQ('.q-opt[data-cle="non"]');
     await continuerQ();
-    await continuerQ();
+    await continuerQ(); await continuerQ(); await continuerQ();      // 3a, « Où tu t’entraînes ? », « Une zone à ménager ? »
     e = await ecranQ();
     ok('[Q60] K — hors ligne, on avance quand même : l’écran « Toi » est atteint', e.ecran === 'toi', JSON.stringify(e));
     await cliquerQ('.q-puce[data-cle="femme"]');
@@ -16157,15 +16171,15 @@ const SETS_IMPORTES = [
       profilBase().historique_declare === null && profilBase().sexe !== 'femme' && base.ecrituresPesees.length === ecrituresK0 &&
         JSON.stringify(base.pesees) === peseesK0 && fileK.indexOf('body_weight_log:pesee-' + (await aujourdhuiLocal())) >= 0 &&
         // 116 (audit du 16/10/2026) — ce qui attend, ce sont les COLONNES des gestes (jamais la ligne entière).
-        !!aEnvoyerK && JSON.stringify(Object.keys(aEnvoyerK).sort()) === '["historique_declare","sexe"]' &&
-        aEnvoyerK.historique_declare === 'import' && aEnvoyerK.sexe === 'femme',
+        !!aEnvoyerK && JSON.stringify(Object.keys(aEnvoyerK).sort()) === '["anciennete","historique_declare","sexe"]' &&
+        aEnvoyerK.historique_declare === 'non_note' && aEnvoyerK.sexe === 'femme',
       JSON.stringify([fileK, aEnvoyerK, profilBase().historique_declare]));
     base.reseau = true;
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
     let partiK = false;
     for (let n = 0; n < 40 && !partiK; n++) {
       await attendre(250);
-      partiK = profilBase().historique_declare === 'import' && base.pesees.some((x) => x.poids_kg === 71.3);
+      partiK = profilBase().historique_declare === 'non_note' && base.pesees.some((x) => x.poids_kg === 71.3);
     }
     const fileK2 = await page.evaluate(() => THCache.lireAttente().then((f) => (f || []).length));
     ok('[Q60] K — le réseau revient : le profil (historique, sexe) et la pesée du jour partent ; la file se vide ; la pesée FUSIONNE (une ligne par jour)',
@@ -16521,10 +16535,13 @@ const SETS_IMPORTES = [
       return false;
     };
     // Jusqu'à l'écran « Temps » : les réponses obligatoires, rien d'autre.
-    const jusquAuTemps = async () => {
+    const jusquAuTemps = async (zone) => {
       await continuerR();
-      await cliquerR('.q-opt[data-cle="import"]'); await continuerR();
-      for (let n = 0; n < 4 && (await ecranR()).ecran !== 'but'; n++) await continuerR();
+      await cliquerR('.q-puce[data-cle="1_a_3_ans"]'); await cliquerR('.q-opt[data-cle="non"]'); await continuerR();
+      for (let n = 0; n < 6 && (await ecranR()).ecran !== 'but'; n++) {
+        if (zone && (await ecranR()).ecran === 'zone') await cliquerR('.q-puce[data-cle="' + zone + '"]');   // 187 : la zone a son écran
+        await continuerR();
+      }
       await cliquerR('.q-puce[data-cle="force"]'); await cliquerR('.q-opt[data-cle="maintien"]'); await continuerR();
       for (let n = 0; n < 3 && (await ecranR()).ecran !== 'temps'; n++) await continuerR();
       return ecranR();
@@ -16558,7 +16575,7 @@ const SETS_IMPORTES = [
     let e = await jusquAuTemps();
     ok('[R60] prémisse : aucune routine en base, le questionnaire s’ouvre et arrive à « Temps et matériel »',
       ouvert && ROUTINES.length === 0 && e.ecran === 'temps', JSON.stringify([ouvert, ROUTINES.length, e.ecran]));
-    ok('[R60] A — sans routine, la barre compte l’écran 8 : 10 écrans', e.total === '10', JSON.stringify(e.total));
+    ok('[R60] A — sans routine, la barre compte l’écran 8 : 12 écrans', e.total === '12', JSON.stringify(e.total));
     await continuerR();
     e = await ecranR();
     ok('[R60] A — « Temps » mène à « Ton programme » : « Comment veux-tu t’entraîner ? », trois chemins et leurs sous-lignes, « Continuer » éteint',
@@ -16645,7 +16662,7 @@ const SETS_IMPORTES = [
       JSON.stringify(ROUTINES.length));
     await ouvrirLeQuestionnaire();
     e = await jusquAuTemps();
-    ok('[R60] D — ⚠️ DISCRIMINANT : avec des routines, la barre ne compte PAS l’écran 8 (9 écrans)', e.total === '9', JSON.stringify(e.total));
+    ok('[R60] D — ⚠️ DISCRIMINANT : avec des routines, la barre ne compte PAS l’écran 8 (11 écrans)', e.total === '11', JSON.stringify(e.total));
     await continuerR();
     e = await ecranR();
     ok('[R60] D — ⚠️ DISCRIMINANT : avec des routines, « Temps » mène directement à « Ton coach »', e.ecran === 'coach', JSON.stringify(e.ecran));
@@ -16660,9 +16677,9 @@ const SETS_IMPORTES = [
     Object.assign(profilBase(), { questionnaire_fait_le: profilAvant.questionnaire_fait_le });
     await aller('/saisie');
     await ouvrirLeQuestionnaire();
-    e = await jusquAuTemps();
-    ok('[R60] E — ⚠️ DISCRIMINANT (60-4) : aucune routine et AUCUNE séance : la barre compte l’écran 8 (10 écrans)',
-      e.ecran === 'temps' && e.total === '10', JSON.stringify(e));
+    e = await jusquAuTemps('dos');
+    ok('[R60] E — ⚠️ DISCRIMINANT (60-4) : aucune routine et AUCUNE séance : la barre compte l’écran 8 (12 écrans)',
+      e.ecran === 'temps' && e.total === '12', JSON.stringify(e));
     await continuerR();
     e = await ecranR();
     ok('[R60] E — ⚠️ DISCRIMINANT (60-4) : « Temps » mène à « Ton programme » avec DEUX choix, jamais « Garder ce que je fais »',
@@ -16671,7 +16688,7 @@ const SETS_IMPORTES = [
     // ── F. 60-4 : « CONSTRUIS-LE-MOI » → l'écran 8b : les jours, une zone à ménager.
     await cliquerR('.q-opt[data-cle="construis"]');
     e = await ecranR();
-    ok('[R60] F — choisir « Construis-le-moi » : la barre compte l’écran 8b (11 écrans)', e.total === '11', JSON.stringify(e.total));
+    ok('[R60] F — choisir « Construis-le-moi » : la barre compte l’écran 8b (13 écrans)', e.total === '13', JSON.stringify(e.total));
     await continuerR();
     await attendre(400);
     const huitB = () => page.evaluate(() => ({
@@ -16679,33 +16696,24 @@ const SETS_IMPORTES = [
       titre: (document.querySelector('#questionnaire-corps .q-titre') || {}).textContent,
       jours: Array.from(document.querySelectorAll('#questionnaire-corps .q-puces')[0].querySelectorAll('.q-puce'))
         .map((b) => [b.dataset.cle, b.getAttribute('aria-pressed') === 'true']),
-      zones: Array.from(document.querySelectorAll('#questionnaire-corps .q-puces')[1].querySelectorAll('.q-puce'))
-        .map((b) => [b.dataset.cle, b.textContent, b.getAttribute('aria-pressed') === 'true']),
-      sousTitre: (document.querySelector('#questionnaire-corps .q-sous-titre') || {}).textContent,
+      nbPuces: document.querySelectorAll('#questionnaire-corps .q-puces').length,
       voix: (document.querySelector('#questionnaire-corps .q-corps > .q-voix:last-of-type, #questionnaire-corps .q-corps .q-voix') || {}).textContent,
       actif: !document.querySelector('#questionnaire-corps .q-continuer').disabled }));
     let h = await huitB();
     ok('[R60] F — l’écran 8b : « Combien de jours par semaine, réalistement ? », 2 à 6, aucun pré-coché (aucune séance, aucun rythme), « Continuer » éteint',
       h.ecran === 'construit' && h.titre === 'Combien de jours par semaine, réalistement ?' &&
         JSON.stringify(h.jours) === '[["2",false],["3",false],["4",false],["5",false],["6",false]]' && h.actif === false, JSON.stringify(h));
-    ok('[R60] F — « Une zone à ménager ? » : Épaule · Dos · Genou · Coude · Hanche · Aucune (« Aucune » cochée), et la voix du coach',
-      h.sousTitre === 'Une zone à ménager ?' &&
-        JSON.stringify(h.zones.map((z) => z[1])) === '["Épaule","Dos","Genou","Coude","Hanche","Aucune"]' &&
-        JSON.stringify(h.zones.filter((z) => z[2]).map((z) => z[0])) === '["aucune"]' &&
-        /^Je garde l’exercice et toutes ses séries, sans série lourde\. Rien en séance : si ça fait mal, « J’ai mal » est là\.$/.test(sp(h.voix)),
-      JSON.stringify([h.sousTitre, h.zones, h.voix]));
+    ok('[R60] F — l’écran 8b ne porte plus la zone (187 : elle a son écran) : une seule rangée de puces, et la voix du coach',
+      h.nbPuces === 1 && /^Ta zone à ménager, je la garde : l’exercice et toutes ses séries, sans série lourde\.$/.test(sp(h.voix)),
+      JSON.stringify([h.nbPuces, h.voix]));
     await cliquerR('.q-puce[data-cle="4"]');
-    await cliquerR('.q-puce[data-cle="genou"]');
-    await cliquerR('.q-puce[data-cle="dos"]');
-    await cliquerR('.q-puce[data-cle="genou"]');                       // retoucher retire
     h = await huitB();
-    ok('[R60] F — 4 jours, « Dos » : « Aucune » se décoche, « Genou » retiré',
-      JSON.stringify(h.jours.filter((x) => x[1]).map((x) => x[0])) === '["4"]' &&
-        JSON.stringify(h.zones.filter((z) => z[2]).map((z) => z[0])) === '["dos"]' && h.actif === true, JSON.stringify(h));
+    ok('[R60] F — 4 jours choisis, « Continuer » allumé',
+      JSON.stringify(h.jours.filter((x) => x[1]).map((x) => x[0])) === '["4"]' && h.actif === true, JSON.stringify(h));
     await continuerR();
     await attendre(500);
     e = await ecranR();
-    ok('[R60] F — « Continuer » écrit `seances_par_semaine` et `zones_a_menager`, par le chemin du profil ; puis « Ton coach »',
+    ok('[R60] F — « Continuer » écrit `seances_par_semaine` ; la zone (« Dos ») a été écrite à son écran ; puis « Ton coach »',
       profilBase().seances_par_semaine === 4 && JSON.stringify(profilBase().zones_a_menager) === '["dos"]' &&
         profilBase().programme_choix === 'construis' && e.ecran === 'coach',
       JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, profilBase().programme_choix, e.ecran]));
@@ -16972,11 +16980,15 @@ const SETS_IMPORTES = [
         JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ROUTINES.length]) === avantRefaire,
       JSON.stringify([vuesRetour, avantRefaire]));
     // Refaire : 3 jours, genou → l'aperçu → « Créer » : un NOUVEAU dossier, l'ancien reste.
+    // 187 — la zone ne se répond plus à l'écran des jours : elle se pose dans le Profil (« Zone à ménager »), que le programme lit.
+    await toucherH('Zone à ménager');
+    await page.click('#feuille-contenu button[data-cle="genou"]');
+    await page.click('#feuille-contenu .feuille-pied .pri');
+    await attendreQue(() => JSON.stringify(profilBase().zones_a_menager) === '["genou"]', 8000);
     await toucherH('Refaire mon programme');
     await cliquerR('.q-puce[data-cle="3"]');
-    await cliquerR('.q-puce[data-cle="genou"]');
-    ok('[R60] H — rien n’est écrit avant « Voir mon programme »',
-      profilBase().seances_par_semaine === 4 && profilBase().zones_a_menager === null, JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager]));
+    ok('[R60] H — rien n’est écrit avant « Voir mon programme » (les jours restent à 4)',
+      profilBase().seances_par_semaine === 4 && JSON.stringify(profilBase().zones_a_menager) === '["genou"]', JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager]));
     await continuerR();
     await attendre(2000);
     ap = await apercuR();

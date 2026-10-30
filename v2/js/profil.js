@@ -180,12 +180,12 @@
   // moteur, jamais un argument à l'écran (CADRAGE §2 terdecies). Chaque phrase
   // dit CE QUE FAIT le réglage, et rien d'autre.
   var RYTHMES = [
-    { cle: 'prudent', libelle: 'Prudent',
+    { cle: 'prudent', libelle: 'Me ménager',
       phrase: 'Monte quand toutes tes séries touchent le haut de ta zone, ' +
               'deux séances de suite.' },
     { cle: 'normal', libelle: 'Normal',
       phrase: 'Monte quand tes deux premières séries touchent le haut de ta zone.' },
-    { cle: 'franc', libelle: 'Franc',
+    { cle: 'franc', libelle: 'Me pousser',
       phrase: 'Dès qu\u2019une série touche le haut de ta zone, la charge monte, ' +
               'et deux crans d\u2019un coup quand tu dépasses nettement.' }
   ];
@@ -2085,7 +2085,7 @@
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     PHASES: PHASES, RAPPEL_PHASE_JOURS: RAPPEL_PHASE_JOURS,
     rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, PHASES_EN_BASE: PHASES_EN_BASE, LIBELLE_PHASE_VIDE: LIBELLE_PHASE_VIDE,
-    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, estDebutant: estDebutant, phaseGelee: phaseGelee, sectionPhase: sectionPhase,
+    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, estDebutant: estDebutant, phaseGelee: phaseGelee, sectionPhase: sectionPhase, ANCIENNETE_DEBUTANT: ANCIENNETE_DEBUTANT,
     objectifDe: objectifDe, objectifGele: objectifGele,
     prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,

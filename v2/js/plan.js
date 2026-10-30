@@ -740,6 +740,80 @@
   }
 
   // ── LE PLAN D'UN EXERCICE ───────────────────────────────────────────────
+  // ── 187 — LE CALAGE DE LA PREMIÈRE SÉANCE (MOTEUR §9.21 bis) ─────────────────────────────────────────
+  //
+  // S'ouvre SEULEMENT sur une consigne « première fois » (aucune séance de l'exercice) qui n'a pas de charge de départ
+  // (sinon la consigne est `depart_routine`), pour une charge × reps au matériel connu. Le plan lit les séries de travail
+  // déjà validées (leur charge, leurs reps, leur réserve), appelle `Moteur.calagePremiereFois` et PROPOSE la suivante en
+  // gris sur la première ligne de travail non validée (`prerempli`, jamais une série écrite) ; une série validée est figée.
+  // `x.calage` : le résultat, ses mots, la ligne qui porte la proposition (`iSerie`), la série dont on demande la réserve
+  // (`question`), la charge habituelle déclarée. Aucune charge devinée par le poids du corps, le sexe ou la machine.
+  var REPS_SANS_LOURD = 6;     // Mix (6-8) : au-dessus de la zone Lourd (3-5), MOTEUR §9.1
+  function calageDuPlan(x, exo, c, e, slug, seance) {
+    var M = Moteur(), S = Seance();
+    var cs = c && c.consigne;
+    if (!cs || cs.etat !== 'silence' || cs.raison !== 'premiere_fois') return null;
+    var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
+    if (!cat || !cat.equipement || (cat.mesure && cat.mesure !== 'charge_reps')) return null;
+    var series = (exo && exo.series) || [];
+    // La structure VIVANTE de la séance : les séries de travail et les chauffes de l'exercice à cet instant (routine, personne
+    // ou coach, en plus ou en moins). Le calage n'en crée, n'en ajoute ni n'en retire aucune.
+    var travail = [], faites = [], porteuse = null, prochain = null;
+    series.forEach(function (sr, j) {
+      var chauffe = S.typeDe(sr) === 'echauffement';
+      var tr = racine.THModele.estTravail(sr);
+      if (!chauffe && !tr) return;
+      if (tr) travail.push(j);
+      if (S.partEnBase(sr)) faites.push({ j: j, chauffe: chauffe });
+      else if (porteuse === null) { porteuse = j; prochain = chauffe ? 'chauffe' : 'travail'; }
+    });
+    if (!travail.length) return null;
+    var reps = null;
+    travail.forEach(function (j) {
+      var v = nombre(series[j].reps_visees);
+      if (reps === null && v !== null && v >= 1) reps = v;
+    });
+    // 187 (A4) — un exercice qui charge une zone à ménager ne reçoit pas de série lourde : jamais moins de 6 reps (Mix).
+    var zmCal = e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, slug);
+    if (zmCal && (reps === null || reps < REPS_SANS_LOURD)) reps = REPS_SANS_LOURD;
+    var habs = e.habituelles && typeof e.habituelles === 'object' ? e.habituelles : {};
+    var habituelle = Object.prototype.hasOwnProperty.call(habs, slug) ? nombre(habs[slug]) : null;
+    var r = M.calagePremiereFois({
+      debutant: e.debutant === true, equipement: cat.equipement, salle: c.salle || null, mesure: cat.mesure || 'charge_reps',
+      reps: reps, habituelle: habituelle, prochain: prochain,
+      series: faites.map(function (f) {
+        var sr = series[f.j];
+        return { charge: nombre(sr.charge_kg), reps: nombre(sr.reps), ressenti: sr.ressenti || null, chauffe: f.chauffe };
+      })
+    });
+    if (!r) return null;
+    // Rien à proposer quand toutes les lignes sont validées : la personne a la main, le calage se tait.
+    if (porteuse === null) { r.suivante = null; r.question = false; }
+    r.libelles = M.libellesCalage(r);
+    // La ligne qui porte la proposition : la première ligne (chauffe ou travail) non validée ; la série dont on demande la
+    // réserve : la dernière validée, quand la personne n'a pas encore répondu.
+    r.iSerie = r.suivante && porteuse !== null ? porteuse : null;
+    r.question = r.question && faites.length ? faites[faites.length - 1].j : null;
+    // « Ta charge habituelle ? » : posée d'abord à qui n'est pas débutant, tant qu'il n'a ni répondu ni dit « je ne sais pas »
+    // (`habituelles[slug] = 0`). En attendant, rien n'est proposé : on ne devine pas.
+    var declinee = Object.prototype.hasOwnProperty.call(habs, slug) && habs[slug] === 0;
+    r.demandeHabituelle = e.debutant !== true && r.faites === 0 && r.habituelle === null && !declinee;
+    if (r.demandeHabituelle) { r.suivante = null; r.iSerie = null; r.libelles = Object.assign({}, r.libelles, {
+      question: 'Ta charge habituelle ?', pour: 'Pour ' + r.n + ' reps environ', passer: 'Je ne sais pas : on la trouve ensemble' }); }
+    return r;
+  }
+
+  // Le gris du calage : posé APRÈS `preremplir`, sur la ligne porteuse seulement — la proposition, jamais une série.
+  function poserLeCalage(x) {
+    var k = x && x.calage;
+    if (!k || k.iSerie === null || !k.suivante) return;
+    (x.lignes || []).forEach(function (l) {
+      if (l.iSerie !== k.iSerie) return;
+      l.prerempli = Object.assign({}, l.prerempli || {}, { charge_kg: k.suivante.charge, reps: k.suivante.reps });
+      l.calage = true;
+    });
+  }
+
   function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
@@ -1391,6 +1465,14 @@
                                                    pl, slug, jL, c.compteur.compteur, e.escalier.marches || [], e.escalier.compteurs || []) };
           }
         }
+        // 187 (MOTEUR §9.21 bis) — LE CALAGE DE LA PREMIÈRE SÉANCE : un exercice sans historique ni charge de départ.
+        // 187 (A4) — UNE ZONE À MÉNAGER : l'exercice qui la charge ne reçoit aucune série lourde (le moteur prend Mix quand la zone
+        // aurait été Lourd, sauf zone choisie par la personne). Le plan porte le fait pour I75.
+        var zm = e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, slug) ? e.zonesMenagees[slug] : null;
+        x.menagee = zm && coachee && !douloureuse ? { zones: (zm.zones || []).slice(), choisie: zm.choisie || null } : null;
+        x.calage = coachee && !douloureuse && !salleEl && intentionX !== 'entretien' && !seance.edition
+          ? calageDuPlan(x, exo, c, e, slug, seance) : null;
+        poserLeCalage(x);
         // §14 (111) — ce que la dégressive proposée lit, porté pour I48 : la
         // classe de l'exercice (`null` hors catalogue), la ligne dégressive de
         // la routine (figée à l'ouverture), la dégressive en cours.
@@ -4370,6 +4452,8 @@
     if (entrees && entrees.raccourci) verifierRaccourci(plan, entrees, erreurs);
     verifierDouleur(plan, entrees, erreurs);
     verifierReserve(plan, entrees, erreurs);
+    verifierCalage(plan, entrees, erreurs);
+    verifierZoneMenagee(plan, entrees, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
     verifierBord(plan, erreurs);
     verifierLeviers(plan, erreurs);
@@ -4407,6 +4491,78 @@
     var ecartsPhrases = verifierPhrases(plan, null);
     ecartsPhrases.forEach(function (e) { erreurs.push(texteI26(e)); });
     return { ok: erreurs.length === 0, erreurs: erreurs, ecartsPhrases: ecartsPhrases };
+  }
+
+  // I72 à I74 (MOTEUR §9.21 bis, 187) — LE CALAGE DE LA PREMIÈRE SÉANCE.
+  //   I72  il ne s'ouvre que sur une consigne « première fois » sans charge de départ (ni historique, ni routine qui en porte),
+  //        pour une charge × reps ; jamais en Édition ni en « Juste un carnet » ;
+  //   I73  il ne propose jamais plus que le plafond : au plus +15 % (+10 % pour un débutant) de la série qu'on vient de faire,
+  //        sauf la première montée depuis le plus petit cran (deux crans au plus) ; jamais moins que la série d'avant ; trois
+  //        séries au plus, et plus aucune proposition après la troisième ;
+  //   I74  une proposition n'est JAMAIS une série : elle porte sur une ligne non validée, une seule par exercice, et la série
+  //        qu'elle porte n'a ni charge ni reps écrites par le plan.
+  // Les nombres sont lus tels que le plan les porte : cette garde ne rappelle pas la règle, elle la contrôle.
+  var I73_CRANS_DEPUIS_LE_PLANCHER = 2;
+  function verifierCalage(plan, entrees, erreurs) {
+    var exos = entrees && entrees.seance && entrees.seance.exercices ? entrees.seance.exercices : null;
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.calage;
+      var nom = ' — exercice ' + i + ' (' + (x && x.slug) + ') : ';
+      if (!k) return;
+      var c = x.consigne || {};
+      if (c.etat !== 'silence' || c.raison !== 'premiere_fois') erreurs.push('I72' + nom + 'un calage sans « première fois »');
+      if (plan.edition) erreurs.push('I72' + nom + 'un calage en Édition');
+      if (plan.intention === 'entretien' || x.intention === 'entretien') erreurs.push('I72' + nom + 'un calage en « Juste un carnet »');
+      if (x.mesure && x.mesure !== 'charge_reps') erreurs.push('I72' + nom + 'un calage sur une mesure sans charge');
+      if (c.fondement && c.fondement.departRoutine) erreurs.push('I72' + nom + 'un calage malgré une charge de départ');
+      // Le nombre de séries vient de la séance vivante (routine, personne, coach) : I73 ne le compare jamais à un nombre fixe ; le
+      // calage ne crée, n'ajoute ni ne retire aucune série.
+      var s = k.suivante;
+      if (s) {
+        if (s.role !== 'approche' && s.reps !== k.n) erreurs.push('I73' + nom + 'des reps proposées différentes des ' + k.n + ' de la routine');
+        if (s.depuis !== undefined && s.depuis !== null) {
+          if (!(s.charge >= s.depuis - 1e-9)) erreurs.push('I73' + nom + 'une proposition plus légère que la série d’avant');
+          var surLePlancher = s.depuis <= k.plancher + 1e-9;
+          if (!surLePlancher && s.crans > 1 && s.charge > s.depuis * (1 + k.plafond) + 1e-9) {
+            erreurs.push('I73' + nom + s.charge + ' kg dépasse le plafond de ' + Math.round(k.plafond * 100) + ' % sur ' + s.depuis + ' kg');
+          }
+          if (surLePlancher && s.crans > I73_CRANS_DEPUIS_LE_PLANCHER) erreurs.push('I73' + nom + 'plus de deux crans depuis le plus petit');
+        } else if (s.pourquoi === 'plancher' && Math.abs(s.charge - k.plancher) > 1e-9) {
+          erreurs.push('I73' + nom + 'la première série n’est pas au plus petit cran');
+        }
+        // I74 — une proposition est portée par UNE ligne non validée, jamais écrite.
+        var porteuses = (x.lignes || []).filter(function (l) { return l.calage === true; });
+        if (porteuses.length > 1) erreurs.push('I74' + nom + 'la proposition sur ' + porteuses.length + ' lignes');
+        porteuses.forEach(function (l) {
+          if (l.validee) erreurs.push('I74' + nom + 'une proposition sur une série validée');
+          var brute = exos && exos[i] && exos[i].series ? exos[i].series[l.iSerie] : null;
+          if (brute && Seance().partEnBase(brute)) erreurs.push('I74' + nom + 'une proposition écrite dans une série validée');
+        });
+        if (k.iSerie !== null && k.iSerie !== undefined && !porteuses.length) erreurs.push('I74' + nom + 'une proposition sans ligne');
+      } else if ((x.lignes || []).some(function (l) { return l.calage === true; })) {
+        erreurs.push('I74' + nom + 'une ligne de calage sans proposition');
+      }
+    });
+  }
+
+  // I75 (MOTEUR §9.1, 187) — UNE ZONE À MÉNAGER SE LIT EN SÉANCE : un exercice qui charge la zone (le profil + la table du
+  // générateur) ne reçoit AUCUNE série lourde — ni zone Lourd (3-5 reps), ni ligne à 5 reps ou moins —, sauf une zone que la
+  // personne a choisie elle-même (le moteur propose, elle décide). Les approches du calage sont des séries de travail à 6 reps au moins.
+  var REPS_LOURDES_MAX = 5;
+  function verifierZoneMenagee(plan, entrees, erreurs) {
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var m = x && x.menagee;
+      if (!m || m.choisie || !x.consigne) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      if (x.consigne.zone === 'lourd') erreurs.push('I75' + nom + 'la zone Lourd sur un exercice qui charge ' + (m.zones || []).join(', '));
+      (x.lignes || []).forEach(function (l) {
+        if (l.validee || l.role === 'hors') return;
+        var v = nombre(l.vise);
+        if (v !== null && v <= REPS_LOURDES_MAX) erreurs.push('I75' + nom + 'une série lourde proposée (' + v + ' reps) sur un exercice qui charge ' + (m.zones || []).join(', '));
+      });
+      var k = x.calage && x.calage.suivante;
+      if (k && k.reps <= REPS_LOURDES_MAX) erreurs.push('I75' + nom + 'un calage à ' + k.reps + ' reps sur un exercice qui charge ' + (m.zones || []).join(', '));
+    });
   }
 
   // I45 (MOTEUR §17.2 bis, 78) — LA QUESTION DE RÉSERVE : posée seulement sur la dernière série de travail d'un

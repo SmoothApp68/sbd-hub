@@ -121,12 +121,12 @@ describe('l’écran 7 : les puces s’ouvrent juste sous « Moins en ce moment 
     expect(coche({ duree: 60, dureeMoins: 45 })).toBe(45);
   });
 
-  test('le titre garde le FAIT (l’habituelle) : une puce touchée ne devient pas « Tes séances durent environ 45 min »', () => {
-    expect(sp(vue({ temps: 'moins', dureeMoins: 45 }).titre)).toBe('Tes séances durent environ 75 min.');
-    // Sans historique, le titre pose sa propre question — la puce de « Moins » ne le change pas.
+  test('187 (A6) — le titre est la question, jamais la durée dite comme un fait : une puce touchée ne le change pas', () => {
+    expect(sp(vue({ temps: 'moins', dureeMoins: 45 }).titre)).toBe('Combien de temps pour t’entraîner, en ce moment ?');
+    // Sans historique, les puces de la durée viennent d'abord ; la matière (le matériel) se répond à « Où tu t’entraînes ? ».
     const sans = vue({ temps: 'moins', dureeMoins: 45 }, null);
-    expect(sans.titre).toBe('Combien de temps dure une séance, en général ?');
-    expect(puces(sans)).toEqual(['duree', 'materiel']);
+    expect(sans.titre).toBe('Combien de temps pour t’entraîner, en ce moment ?');
+    expect(puces(sans)).toEqual(['duree']);
   });
 
   test('« Continuer » reste actif avec ou sans puce (la réponse n’a simplement pas de durée)', () => {
@@ -154,7 +154,7 @@ describe('l’écriture : une puce écrit `duree_seance_min` avec `temps_reponse
 
   test('⚠️ DISCRIMINANT — « Moins » + une puce : la réponse ET la durée, dans la même écriture', () => {
     expect(ecrit({ temps: 'moins', dureeMoins: 60, materiel: 'salle_complete' }))
-      .toEqual({ temps_reponse: 'moins', duree_seance_min: 60, materiel: 'salle_complete' });
+      .toEqual({ temps_reponse: 'moins', duree_seance_min: 60 });          // 187 : le matériel s'écrit à l'écran « Où tu t’entraînes ? »
   });
 
   test('⚠️ DISCRIMINANT — « Moins » sans puce : la réponse seule, AUCUNE durée (même quand une habituelle de 75 est montrée)', () => {
@@ -182,7 +182,7 @@ describe('l’écriture : une puce écrit `duree_seance_min` avec `temps_reponse
     const rep = Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'dureeMoins', 60);
     expect(rep.dureeMoins).toBe(60);
     // L'état de départ n'a pas de clé de plus (14 réponses, `programme` depuis 60-3, `menager` depuis 60-4).
-    expect(Object.keys(Q.reponsesInitiales({}, {})).length).toBe(16);
+    expect(Object.keys(Q.reponsesInitiales({}, {})).length).toBe(20);   // 187 : + depuis, notees, halteresMax, halteresPas
     expect('dureeMoins' in Q.reponsesInitiales({}, {})).toBe(false);
   });
 });

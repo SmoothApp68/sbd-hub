@@ -163,9 +163,9 @@ describe('60-2a — QUAND il s’ouvre de lui-même', () => {
   test('déjà ouvert : un second appel ne rouvre pas et ne remet pas à zéro', () => {
     const b = bac();
     b.appel('ouvrirQuestionnaireSiDu()');
-    b.actions().surChoix('historique', 'import');
+    b.actions().surChoix('depuis', '1_a_3_ans');
     expect(b.appel('ouvrirQuestionnaireSiDu()')).toBe(false);
-    expect(b.ctx.questionnaire.rep.historique).toBe('import');
+    expect(b.ctx.questionnaire.rep.depuis).toBe('1_a_3_ans');
   });
 
   test('le retour d’Android : une garde, qui se tait sous une feuille', () => {
@@ -191,16 +191,20 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
     const choix = (c, v) => b.actions().surChoix(c, v);
 
     cont();                                                          // bienvenue : rien
-    expect(b.ecran()).toBe('donnees');
+    expect(b.ecran()).toBe('anciennete');
     expect(b.journal.profil).toEqual([]);
 
     cont();                                                          // « Continuer » éteint sans réponse
-    expect(b.ecran()).toBe('donnees');
-    choix('historique', 'import'); cont();
-    expect(b.journal.profil.pop()).toEqual({ historique_declare: 'import' });
+    expect(b.ecran()).toBe('anciennete');
+    choix('depuis', '1_a_3_ans'); choix('notees', 'non'); cont();
+    expect(b.journal.profil.pop()).toEqual({ anciennete: '1_a_3_ans', historique_declare: 'non_note' });
     expect(b.ecran()).toBe('sait');                                  // des séances : 3a
 
     cont();                                                          // 3a : rien à écrire
+    expect(b.ecran()).toBe('salle');
+    cont();                                                          // « Où tu t’entraînes ? » : rien de dit, rien d’écrit
+    expect(b.ecran()).toBe('zone');
+    cont();
     expect(b.ecran()).toBe('toi');
     expect(b.journal.profil).toEqual([]);
 
@@ -217,8 +221,8 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
     expect(b.journal.profil.pop()).toEqual({ priorites: ['squat_barre', 'dos'] });
     expect(b.ecran()).toBe('temps');
 
-    choix('temps', 'moins'); choix('materiel', 'salle_basique'); cont();
-    expect(b.journal.profil.pop()).toEqual({ temps_reponse: 'moins', materiel: 'salle_basique' });
+    choix('temps', 'moins'); cont();
+    expect(b.journal.profil.pop()).toEqual({ temps_reponse: 'moins' });
     expect(b.ecran()).toBe('coach');
 
     choix('coach', 'carnet'); cont();
@@ -239,7 +243,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
     b.appel('ouvrirQuestionnaireSiDu()');
     const cont = () => b.actions().surContinuer();
     const choix = (c, v) => b.actions().surChoix(c, v);
-    cont(); choix('historique', 'import'); cont(); cont(); choix('sexe', 'homme'); cont();
+    cont(); choix('depuis', '1_a_3_ans'); choix('notees', 'non'); cont(); cont(); cont(); cont(); choix('sexe', 'homme'); cont();
     expect(b.ecran()).toBe('but');
     b.journal.profil.length = 0;
     choix('objectif', 'force'); choix('phase', 'inconnue'); cont();
@@ -274,7 +278,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
     const b = bac();
     b.appel('ouvrirQuestionnaireSiDu()');
     b.actions().surContinuer();
-    b.actions().surChoix('historique', 'non_note');
+    b.actions().surChoix('depuis', '1_a_3_ans');
     b.actions().surRetour();
     expect(b.ecran()).toBe('bienvenue');
     expect(b.journal.profil).toEqual([]);
@@ -288,33 +292,34 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
     const b = bac();
     b.appel('ouvrirQuestionnaireSiDu()');
     b.actions().surContinuer();
-    b.actions().surChoix('historique', 'import');
+    b.actions().surChoix('depuis', '1_a_3_ans');
     b.actions().surPlusTard();
     expect(b.journal.profil).toEqual([]);
     expect(b.ctx.questionnaire).toBeNull();
     expect(b.journal.saisie).toBe(1);
   });
 
-  test('« je débute » avec des séances : l’écran 3b, pas 3a — l’historique répondu décide', () => {
+  test('« Je commence » avec des séances : pas de 3a (l’ancienneté répondue décide), et `moins_1_an` s’écrit', () => {
     const b = bac();
     b.appel('ouvrirQuestionnaireSiDu()');
     b.actions().surContinuer();
-    b.actions().surChoix('historique', 'debutant');
+    b.actions().surChoix('depuis', 'commence');
     b.actions().surContinuer();
-    expect(b.ecran()).toBe('sans_historique');
-    b.actions().surChoix('anciennete', '1_a_3_ans'); b.actions().surChoix('seances', 4); b.actions().surChoix('duree', 75);
-    b.actions().surContinuer();
-    expect(b.journal.profil.pop()).toEqual({ anciennete: '1_a_3_ans', seances_par_semaine: 4, duree_seance_min: 75 });
+    expect(b.journal.profil.pop()).toEqual({ anciennete: 'moins_1_an', historique_declare: 'debutant' });
+    expect(b.ecran()).toBe('salle');
   });
 
-  test('sans séance en base : 3b, même pour « dans une autre app »', () => {
+  test('sans séance en base, depuis un an ou plus : « Une série récente ? » vient après la zone', () => {
     const b = bac({ seances: [] });
     b.appel('ouvrirQuestionnaireSiDu()');
     b.actions().surContinuer();
-    b.actions().surChoix('historique', 'import');
+    b.actions().surChoix('depuis', '1_a_3_ans'); b.actions().surChoix('notees', 'non');
     b.actions().surContinuer();
-    expect(b.ecran()).toBe('sans_historique');
-    expect(b.vueCourante().voix).toBe('Tu pourras importer tes séances depuis Profil, « Importer depuis Hevy ». Ces trois réponses suffisent pour commencer.');
+    expect(b.ecran()).toBe('salle');
+    b.actions().surContinuer(); b.actions().surContinuer();
+    expect(b.ecran()).toBe('recente');
+    b.actions().surContinuer();
+    expect(b.ecran()).toBe('toi');
   });
 
   test('« changer » au récapitulatif : l’écran concerné, puis on REVIENT au récapitulatif — et « Retour » aussi', () => {
@@ -334,11 +339,11 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
 
   test('un écran pré-rempli depuis la base : on vérifie, on ne retape pas (rien d’écrit si rien ne change)', () => {
     const b = bac({ profil: { id: 'u1', questionnaire_fait_le: null, objectif: 'force', phase: 'seche',
-      phase_depuis: '2026-09-01T00:00:00Z', historique_declare: 'import', intention: 'progresser', rythme_progression: 'franc' } });
+      phase_depuis: '2026-09-01T00:00:00Z', anciennete: '1_a_3_ans', historique_declare: 'non_note', intention: 'progresser', rythme_progression: 'franc' } });
     b.appel('ouvrirQuestionnaireSiDu()');
     expect(b.ctx.questionnaire.rep.objectif).toBe('force');
     expect(b.ctx.questionnaire.rep.coach).toBe('franc');
-    b.actions().surContinuer(); b.actions().surContinuer();         // bienvenue, données (déjà répondu)
+    b.actions().surContinuer(); b.actions().surContinuer();         // bienvenue, ancienneté (déjà répondue)
     expect(b.journal.profil).toEqual([]);                           // rien n'a changé : rien n'est écrit
   });
 });
@@ -347,8 +352,8 @@ describe('60-2a — la pesée de l’écran « Toi »', () => {
   function versToi(b) {
     b.appel('ouvrirQuestionnaireSiDu()');
     b.actions().surContinuer();
-    b.actions().surChoix('historique', 'import'); b.actions().surContinuer();
-    b.actions().surContinuer();                                       // 3a
+    b.actions().surChoix('depuis', '1_a_3_ans'); b.actions().surChoix('notees', 'non'); b.actions().surContinuer();
+    b.actions().surContinuer(); b.actions().surContinuer(); b.actions().surContinuer();   // 3a, salle, zone
     expect(b.ecran()).toBe('toi');
   }
 
@@ -365,8 +370,8 @@ describe('60-2a — la pesée de l’écran « Toi »', () => {
     b.appel('ouvrirQuestionnaireSiDu()');                               // ouvert depuis le cache : 84
     b.ctx.local.pesees = [{ id: 'a', date: '2026-09-01', poids_kg: 84 }, { id: 'b', date: '2026-10-06', poids_kg: 82.5 }];   // la synchro apporte 82,5
     b.actions().surContinuer();
-    b.actions().surChoix('historique', 'import'); b.actions().surContinuer();
-    b.actions().surContinuer();                                         // 3a → « Toi »
+    b.actions().surChoix('depuis', '1_a_3_ans'); b.actions().surChoix('notees', 'non'); b.actions().surContinuer();
+    b.actions().surContinuer(); b.actions().surContinuer(); b.actions().surContinuer();   // 3a, salle, zone → « Toi »
     expect(b.ecran()).toBe('toi');
     expect(b.ctx.questionnaire.rep.poids).toBe(82.5);
     b.actions().surContinuer();                                         // rien de tapé : rien d'écrit
@@ -667,8 +672,8 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
     const cont = () => b.actions().surContinuer();
     const choix = (c, v) => b.actions().surChoix(c, v);
     cont();
-    choix('historique', 'import'); cont();
-    while (b.ecran() !== 'but') cont();
+    choix('depuis', '1_a_3_ans'); choix('notees', 'non'); cont();
+    for (let n = 0; b.ecran() !== 'but' && n < 12; n++) cont();
     choix('objectif', 'force'); choix('phase', 'maintien'); cont();
     while (b.ecran() !== 'temps') cont();
     return { cont, choix };
@@ -687,7 +692,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
     const b = bac({ routines: [] });
     b.appel('ouvrirQuestionnaireSiDu()');
     const { cont, choix } = jusquAuTemps(b);
-    expect(b.vueCourante().progression.total).toBe(10);
+    expect(b.vueCourante().progression.total).toBe(12);
     cont();
     expect(b.ecran()).toBe('programme');
     expect(b.vueCourante().blocs[0].options.map((o) => o.cle)).toEqual(['deduit', 'moi', 'construis']);
@@ -724,7 +729,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
                     profil: { id: 'u1', questionnaire_fait_le: null, programme_choix: 'deduit' } });
     b.appel('ouvrirQuestionnaireSiDu()');
     const { cont, choix } = jusquAuTemps(b);
-    expect(b.vueCourante().progression.total).toBe(9);
+    expect(b.vueCourante().progression.total).toBe(11);
     cont();
     expect(b.ecran()).toBe('coach');
     choix('coach', 'normal'); cont();
@@ -737,7 +742,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
     const b = bac({ routines: [], seances: [] });
     b.appel('ouvrirQuestionnaireSiDu()');
     const { cont, choix } = jusquAuTemps(b);
-    expect(b.vueCourante().progression.total).toBe(10);
+    expect(b.vueCourante().progression.total).toBe(12);
     cont();
     expect(b.ecran()).toBe('programme');
     expect(b.vueCourante().blocs[0].options.map((o) => o.cle)).toEqual(['moi', 'construis']);
@@ -771,18 +776,17 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
     const { cont, choix } = jusquAuTemps(b);
     cont();
     expect(b.ecran()).toBe('programme');
-    expect(b.vueCourante().progression.total).toBe(10);
+    expect(b.vueCourante().progression.total).toBe(12);
     choix('programme', 'construis');
-    expect(b.vueCourante().progression.total).toBe(11);                    // la barre compte 8b dès le choix
+    expect(b.vueCourante().progression.total).toBe(13);                    // la barre compte 8b dès le choix
     cont();
     expect(b.journal.profil.pop()).toEqual({ programme_choix: 'construis' });
     expect(b.ecran()).toBe('construit');
     expect(b.ctx.questionnaire.rep.seances).toBe(3);                       // le rythme montré à l'écran 3a, arrondi
     expect(b.vueCourante().bouton.actif).toBe(true);
-    choix('zone', 'genou');
     choix('seances', 4);
     cont();
-    expect(b.journal.profil.pop()).toEqual({ seances_par_semaine: 4, zones_a_menager: ['genou'] });
+    expect(b.journal.profil.pop()).toEqual({ seances_par_semaine: 4 });          // la zone se répond à son écran (187)
     expect(b.ecran()).toBe('coach');
     choix('coach', 'normal'); cont();
     expect(b.ecran()).toBe('recap');

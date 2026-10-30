@@ -15,7 +15,7 @@
 
 process.env.TZ = 'Europe/Paris';
 
-require('../../v2/js/modele.js');
+const Modele = require('../../v2/js/modele.js');
 const Semaine = require('../../v2/js/semaine.js');
 const Periode = require('../../v2/js/periode.js');
 const Poids = require('../../v2/js/poids.js');
@@ -255,32 +255,43 @@ describe('60-2a — les ÉCRANS visibles, dans l’ordre', () => {
 
   test('avec des séances en base : 3a (« Ce que je sais »), jamais 3b', () => {
     expect(ids({ aDesSeances: true, historique: 'import' })).toEqual(
-      ['bienvenue', 'donnees', 'sait', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);
+      ['bienvenue', 'anciennete', 'sait', 'salle', 'zone', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);
     expect(ids({ aDesSeances: true, historique: null })).toContain('sait');
     expect(ids({ aDesSeances: true, historique: 'non_note' })).toContain('sait');
   });
-  test('sans séance : 3b (« Sans historique »), jamais 3a', () => {
+  test('sans séance : jamais 3a (187 : la question des jours et de la durée a quitté l’écran 3b)', () => {
     expect(ids({ aDesSeances: false, historique: 'debutant' })).toEqual(
-      ['bienvenue', 'donnees', 'sans_historique', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);
-    expect(ids({ aDesSeances: false, historique: 'import' })).toContain('sans_historique');
+      ['bienvenue', 'anciennete', 'salle', 'zone', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);
     expect(ids({ aDesSeances: false, historique: 'import' })).not.toContain('sait');
+    expect(ids({ aDesSeances: false, historique: 'import' })).not.toContain('sans_historique');
   });
-  test('DISCRIMINANT : des séances MAIS « je débute » : 3b, pas 3a', () => {
-    expect(ids({ aDesSeances: true, historique: 'debutant' })).toContain('sans_historique');
+  test('DISCRIMINANT : des séances MAIS « je commence » : pas 3a', () => {
     expect(ids({ aDesSeances: true, historique: 'debutant' })).not.toContain('sait');
+  });
+  test('187 (A5) — « Une série récente ? » : un an ou plus ET aucune séance en base, sinon jamais', () => {
+    ['1_a_3_ans', '3_a_5_ans', 'plus_5_ans'].forEach((depuis) => {
+      expect(ids({ aDesSeances: false, historique: 'non_note', depuis })).toContain('recente');
+      // DISCRIMINANT — des séances en base : le coach a déjà de quoi proposer.
+      expect(ids({ aDesSeances: true, historique: 'import', depuis })).not.toContain('recente');
+    });
+    ['commence', 'moins_1_an', null, undefined].forEach((depuis) => {
+      expect(ids({ aDesSeances: false, historique: 'non_note', depuis })).not.toContain('recente');
+    });
+    expect(ids({ aDesSeances: false, historique: 'non_note', depuis: '1_a_3_ans' })).toEqual(
+      ['bienvenue', 'anciennete', 'salle', 'zone', 'recente', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);
   });
   test('60-3 — l’écran 8 (« Ton programme ») seulement quand on SAIT qu’il n’y a aucune routine', () => {
     expect(Q.ECRANS.join(',')).toMatch(/temps,programme,construit,coach/);
     // Les routines pas encore lues (hors ligne) : l'écran n'existe pas.
-    expect(ids({ aDesSeances: true, historique: 'import' })).toHaveLength(9);
+    expect(ids({ aDesSeances: true, historique: 'import' })).toHaveLength(11);
     expect(ids({ aDesSeances: true, historique: 'import', aDesRoutines: null })).not.toContain('programme');
     // ⚠️ DISCRIMINANT — une routine, et l'écran n'existe pas.
     expect(ids({ aDesSeances: true, historique: 'import', aDesRoutines: true })).not.toContain('programme');
     expect(ids({ aDesSeances: true, historique: 'import', aDesRoutines: false })).toEqual(
-      ['bienvenue', 'donnees', 'sait', 'toi', 'but', 'priorites', 'temps', 'programme', 'coach', 'recap']);
+      ['bienvenue', 'anciennete', 'sait', 'salle', 'zone', 'toi', 'but', 'priorites', 'temps', 'programme', 'coach', 'recap']);
     // La barre le compte quand il est là, et seulement alors.
     const v = ids({ aDesSeances: true, historique: 'import', aDesRoutines: false });
-    expect(Q.progression(v, 'recap')).toEqual({ rang: 9, total: 10, pourcent: 100 });
+    expect(Q.progression(v, 'recap')).toEqual({ rang: 11, total: 12, pourcent: 100 });
     expect(Q.ecranSuivant(v, 'temps')).toBe('programme');
     expect(Q.ecranPrecedent(v, 'coach')).toBe('programme');
   });
@@ -298,8 +309,8 @@ describe('60-2a — les ÉCRANS visibles, dans l’ordre', () => {
     expect(programme({ aDesSeances: true, historique: 'import', aDesRoutines: false })).toBe(true);
     expect(programme({ aDesSeances: true, historique: 'debutant', aDesRoutines: false })).toBe(true);
     const sans = ids({ aDesSeances: false, historique: 'import', aDesRoutines: false });
-    expect(sans).toEqual(['bienvenue', 'donnees', 'sans_historique', 'toi', 'but', 'priorites', 'temps', 'programme', 'coach', 'recap']);
-    expect(Q.progression(sans, 'recap')).toEqual({ rang: 9, total: 10, pourcent: 100 });
+    expect(sans).toEqual(['bienvenue', 'anciennete', 'salle', 'zone', 'toi', 'but', 'priorites', 'temps', 'programme', 'coach', 'recap']);
+    expect(Q.progression(sans, 'recap')).toEqual({ rang: 10, total: 11, pourcent: 100 });
     expect(Q.ecranSuivant(sans, 'temps')).toBe('programme');
     // Les routines pas encore lues (hors ligne) : l'écran n'existe toujours pas.
     expect(programme({ aDesSeances: false, historique: 'import', aDesRoutines: null })).toBe(false);
@@ -310,20 +321,20 @@ describe('60-2a — les ÉCRANS visibles, dans l’ordre', () => {
       expect(ids(Object.assign({ programme }, base))).not.toContain('construit');
     });
     const v = ids(Object.assign({ programme: 'construis' }, base));
-    expect(v).toEqual(['bienvenue', 'donnees', 'sait', 'toi', 'but', 'priorites', 'temps', 'programme', 'construit', 'coach', 'recap']);
+    expect(v).toEqual(['bienvenue', 'anciennete', 'sait', 'salle', 'zone', 'toi', 'but', 'priorites', 'temps', 'programme', 'construit', 'coach', 'recap']);
     expect(Q.ecranSuivant(v, 'programme')).toBe('construit');
     expect(Q.ecranSuivant(v, 'construit')).toBe('coach');
-    expect(Q.progression(v, 'recap')).toEqual({ rang: 10, total: 11, pourcent: 100 });
+    expect(Q.progression(v, 'recap')).toEqual({ rang: 12, total: 13, pourcent: 100 });
     // Une routine : ni l'écran 8 ni le 8b, quel que soit le choix déjà en base.
     expect(ids(Object.assign({}, base, { programme: 'construis', aDesRoutines: true }))).not.toContain('construit');
     expect(ids(Object.assign({}, base, { programme: 'construis', aDesRoutines: null }))).not.toContain('construit');
   });
   test('la barre compte les écrans visibles : 0 % au premier, 100 % au dernier', () => {
     const v = ids({ aDesSeances: true, historique: 'import' });
-    expect(Q.progression(v, 'bienvenue')).toEqual({ rang: 0, total: 9, pourcent: 0 });
-    expect(Q.progression(v, 'recap')).toEqual({ rang: 8, total: 9, pourcent: 100 });
-    expect(Q.ecranSuivant(v, 'donnees')).toBe('sait');
-    expect(Q.ecranPrecedent(v, 'toi')).toBe('sait');
+    expect(Q.progression(v, 'bienvenue')).toEqual({ rang: 0, total: 11, pourcent: 0 });
+    expect(Q.progression(v, 'recap')).toEqual({ rang: 10, total: 11, pourcent: 100 });
+    expect(Q.ecranSuivant(v, 'anciennete')).toBe('sait');
+    expect(Q.ecranPrecedent(v, 'salle')).toBe('sait');
     expect(Q.ecranSuivant(v, 'recap')).toBeNull();
     expect(Q.ecranPrecedent(v, 'bienvenue')).toBeNull();
   });
@@ -331,8 +342,11 @@ describe('60-2a — les ÉCRANS visibles, dans l’ordre', () => {
 
 describe('60-2a — « Continuer » : obligatoire aux écrans 2, 5 et 9, actif ailleurs', () => {
   test('2 (historique), 5 (objectif ET phase), 9 (coach)', () => {
-    expect(Q.ecranPret('donnees', {})).toBe(false);
-    expect(Q.ecranPret('donnees', { historique: 'import' })).toBe(true);
+    expect(Q.ecranPret('anciennete', {})).toBe(false);
+    expect(Q.ecranPret('anciennete', { depuis: 'commence' })).toBe(true);
+    // 187 — une fourchette d'ancienneté demande aussi si les séances sont notées quelque part.
+    expect(Q.ecranPret('anciennete', { depuis: '1_a_3_ans' })).toBe(false);
+    expect(Q.ecranPret('anciennete', { depuis: '1_a_3_ans', notees: 'non' })).toBe(true);
     expect(Q.ecranPret('but', { objectif: 'force' })).toBe(false);
     expect(Q.ecranPret('but', { phase: 'seche' })).toBe(false);
     expect(Q.ecranPret('but', { objectif: 'force', phase: 'seche' })).toBe(true);
@@ -340,7 +354,7 @@ describe('60-2a — « Continuer » : obligatoire aux écrans 2, 5 et 9, actif a
     expect(Q.ecranPret('coach', { coach: 'carnet' })).toBe(true);
   });
   test('tous les autres : actif sans réponse (priorités et temps comprises)', () => {
-    ['bienvenue', 'sait', 'sans_historique', 'toi', 'priorites', 'temps', 'recap'].forEach((id) => {
+    ['bienvenue', 'sait', 'salle', 'zone', 'recente', 'toi', 'priorites', 'temps', 'recap'].forEach((id) => {
       expect(Q.ecranPret(id, {})).toBe(true);
     });
   });
@@ -350,14 +364,48 @@ describe('60-2a — ce que chaque écran ÉCRIT', () => {
   const ecrit = (id, rep, profil, ctx) => Q.champsDeLEcran(id, rep, profil || {}, Object.assign(
     { pesees: [], jour: '2026-10-07', maintenant: MAINTENANT }, ctx || {}));
 
-  test('2 → historique_declare ; 3a, 1 → rien', () => {
-    expect(ecrit('donnees', { historique: 'import' })).toEqual({ champs: { historique_declare: 'import' }, pesee: null });
+  // 187 (A1) — UNE question : « Tu t'entraînes depuis combien de temps ? », et « Tes séances sont notées quelque part ? ».
+  const choisi = (rep, cle, v) => Q.appliquerChoix(rep, cle, v);
+  test('2 → anciennete ET historique_declare ; 3a, 1 → rien', () => {
+    expect(ecrit('anciennete', choisi(choisi({}, 'depuis', '1_a_3_ans'), 'notees', 'import')))
+      .toEqual({ champs: { anciennete: '1_a_3_ans', historique_declare: 'import' }, pesee: null });
+    expect(ecrit('anciennete', choisi(choisi({}, 'depuis', 'plus_5_ans'), 'notees', 'non')).champs)
+      .toEqual({ anciennete: 'plus_5_ans', historique_declare: 'non_note' });
     expect(ecrit('sait', {}).champs).toEqual({});
     expect(ecrit('bienvenue', {}).champs).toEqual({});
   });
-  test('3b → ancienneté, séances par semaine, durée', () => {
-    expect(ecrit('sans_historique', { anciennete: '1_a_3_ans', seances: 4, duree: 75 }).champs)
-      .toEqual({ anciennete: '1_a_3_ans', seances_par_semaine: 4, duree_seance_min: 75 });
+  test('⚠️ 187 (A1) — « Je commence » écrit anciennete = moins_1_an ET historique_declare = debutant (les lecteurs restent d’accord)', () => {
+    expect(ecrit('anciennete', choisi({}, 'depuis', 'commence')).champs)
+      .toEqual({ anciennete: 'moins_1_an', historique_declare: 'debutant' });
+    // DISCRIMINANT — « Moins d'un an » écrit la même ancienneté, mais PAS « débutant » : on a déjà commencé.
+    expect(ecrit('anciennete', choisi(choisi({}, 'depuis', 'moins_1_an'), 'notees', 'non')).champs)
+      .toEqual({ anciennete: 'moins_1_an', historique_declare: 'non_note' });
+    // Revenir de « Je commence » à une fourchette réécrit l'historique déclaré.
+    const apres = choisi(choisi(choisi({}, 'depuis', 'commence'), 'depuis', '3_a_5_ans'), 'notees', 'non');
+    expect(ecrit('anciennete', apres, { anciennete: 'moins_1_an', historique_declare: 'debutant' }).champs)
+      .toEqual({ anciennete: '3_a_5_ans', historique_declare: 'non_note' });
+  });
+  test('187 (A3) — « Où tu t’entraînes ? » → matériel ; « Ajuster Ma salle » → les haltères de ma_salle, par la fonction du Profil', () => {
+    expect(ecrit('salle', { materiel: 'salle_basique' }).champs).toEqual({ materiel: 'salle_basique' });
+    const r = ecrit('salle', { materiel: 'salle_basique', halteresMax: 40, halteresPas: 2 }).champs;
+    expect(r).toEqual({ materiel: 'salle_basique', ma_salle: { barres_ez: [], barres_droites: [], halteres: { max: 40, pas: 2 } } });
+    // Rien d'inchangé n'est écrit, et les barres déjà déclarées ne sont pas touchées.
+    expect(ecrit('salle', { materiel: 'salle_basique', halteresMax: 40, halteresPas: 2 },
+      { materiel: 'salle_basique', ma_salle: { barres_ez: [], barres_droites: [], halteres: { max: 40, pas: 2 } } }).champs).toEqual({});
+    const avecBarres = ecrit('salle', { halteresMax: 30, halteresPas: 2.5 },
+      { ma_salle: { barres_ez: [10], barres_droites: [15], halteres: null } }).champs;
+    expect(avecBarres.ma_salle).toEqual({ barres_ez: [10], barres_droites: [15], halteres: { max: 30, pas: 2.5 } });
+    // Des haltères à plusieurs paliers (Profil) ne sont pas réécrits par le questionnaire.
+    expect(ecrit('salle', { halteresMax: 30, halteresPas: 2 },
+      { ma_salle: { barres_ez: [], barres_droites: [], halteres: [{ jusqua: 20, pas: 1 }, { jusqua: 40, pas: 2 }] } }).champs).toEqual({});
+  });
+  test('187 (A4) — « Une zone à ménager ? » → zones_a_menager (vide = NULL, rien d’inchangé)', () => {
+    expect(ecrit('zone', { menager: ['genou', 'dos'] }).champs).toEqual({ zones_a_menager: ['dos', 'genou'] });
+    expect(ecrit('zone', { menager: [] }).champs).toEqual({});
+    expect(ecrit('zone', { menager: [] }, { zones_a_menager: ['genou'] }).champs).toEqual({ zones_a_menager: null });
+  });
+  test('187 (A5) — « Une série récente ? » n’écrit rien en base (la charge de départ part avec les routines)', () => {
+    expect(ecrit('recente', { rec_sq_kg: 100, rec_sq_reps: 6 })).toEqual({ champs: {}, pesee: null });
   });
   test('4 → sexe, année, taille ET la pesée, à part', () => {
     const r = ecrit('toi', { sexe: 'homme', annee: 1997, taille: 182, poids: 98.4 }, {}, { pesees: [{ date: '2026-09-20', poids_kg: 98 }] });
@@ -386,9 +434,9 @@ describe('60-2a — ce que chaque écran ÉCRIT', () => {
     expect(ecrit('priorites', { priorites: [] }).champs).toEqual({ priorites: [] });
     expect(ecrit('priorites', { priorites: null }).champs).toEqual({});
   });
-  test('7 → temps, matériel ; la durée SEULEMENT si la personne l’a changée (la médiane montrée n’est pas une réponse)', () => {
+  test('7 → temps ; la durée SEULEMENT si la personne l’a changée (la médiane montrée n’est pas une réponse)', () => {
     expect(ecrit('temps', { temps: 'moins', materiel: 'salle_basique', duree: null }, { duree_seance_min: 90 }).champs)
-      .toEqual({ temps_reponse: 'moins', materiel: 'salle_basique' });
+      .toEqual({ temps_reponse: 'moins' });
     expect(ecrit('temps', { temps: 'moins', duree: 60 }, { duree_seance_min: 90 }).champs)
       .toEqual({ temps_reponse: 'moins', duree_seance_min: 60 });
     expect(ecrit('temps', { duree: 90 }, { duree_seance_min: 90 }).champs).toEqual({});
@@ -404,7 +452,8 @@ describe('60-2a — ce que chaque écran ÉCRIT', () => {
   });
   test('toute colonne écrite passe la liste blanche du profil', () => {
     const tout = [
-      ecrit('donnees', { historique: 'debutant' }), ecrit('sans_historique', { anciennete: 'plus_5_ans', seances: 5, duree: 90 }),
+      ecrit('anciennete', choisi({}, 'depuis', 'commence')), ecrit('salle', { materiel: 'salle_basique', halteresMax: 40, halteresPas: 2 }),
+      ecrit('zone', { menager: ['genou'] }),
       ecrit('toi', { sexe: 'femme', annee: 1990, taille: 170 }), ecrit('but', { objectif: 'muscle', phase: 'seche' }),
       ecrit('priorites', { priorites: ['dos'] }), ecrit('temps', { temps: 'max', materiel: 'maison_equipee', duree: 60 }),
       ecrit('coach', { coach: 'prudent' }), ecrit('recap', {})];
@@ -422,9 +471,9 @@ describe('60-2a — les réponses de départ sont ce qui est DÉJÀ en base', ()
     expect(rep.programme).toBeNull();
     delete rep.programme;
     expect(rep).toEqual({
-      historique: 'import', anciennete: '3_a_5_ans', seances: 5, duree: 90, sexe: 'homme', annee: 1997,
+      historique: 'import', anciennete: '3_a_5_ans', depuis: '3_a_5_ans', notees: 'import', seances: 5, duree: 90, sexe: 'homme', annee: 1997,
       taille: 182, poids: 98, objectif: 'force', phase: 'seche', priorites: ['squat_barre'], temps: 'max',
-      materiel: 'salle_complete', menager: [], coach: 'franc' });
+      materiel: 'salle_complete', halteresMax: null, halteresPas: null, menager: [], coach: 'franc' });
   });
   test('un profil neuf : rien de répondu, sauf le rythme par défaut et la phase vide', () => {
     const rep = Q.reponsesInitiales({}, {});
@@ -474,38 +523,115 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
   test('bienvenue : sans la ligne « Ton programme » ; « C’est parti »', () => {
     const v = vue('bienvenue');
     expect(v.titre).toBe('Je suis ton coach. Deux minutes pour te connaître.');
-    expect(blocs(v, 'faits')[0].lignes.map((l) => l.libelle)).toEqual(['Tes données', 'Toi', 'Ton but', 'Ton coach']);
+    expect(blocs(v, 'faits')[0].lignes.map((l) => l.libelle)).toEqual(['Tes données', 'Ta salle', 'Toi', 'Ton but', 'Ton coach']);
     expect(v.bouton).toEqual({ libelle: 'C’est parti', actif: true });
     expect(v.retour).toBe(false);
   });
 
-  test('tes données : trois réponses avec leurs sous-lignes ; « Continuer » éteint tant qu’on n’a pas répondu', () => {
-    const v = vue('donnees');
-    expect(blocs(v, 'options')[0].options.map((o) => [o.libelle, o.sous])).toEqual([
-      ['Oui, dans une autre app', 'Hevy, Strong'],
-      ['Oui, mais je ne l’ai pas noté', 'Trois questions de plus'],
-      ['Non, je débute', 'Je pars de zéro avec toi, prudemment']]);
-    expect(v.voix).toBe('C’est lui qui me dit le plus de choses sur toi.');
+  test('187 (A1, A2) — « Tu t’entraînes depuis combien de temps ? » : cinq puces ; « Tes séances sont notées quelque part ? » : trois réponses', () => {
+    const v = vue('anciennete');
+    expect(v.titre).toBe('Tu t’entraînes depuis combien de temps ?');
+    expect(blocs(v, 'puces')[0].options.map((o) => [o.cle, o.libelle])).toEqual([
+      ['commence', 'Je commence'], ['moins_1_an', 'Moins d’un an'], ['1_a_3_ans', '1 à 3 ans'],
+      ['3_a_5_ans', '3 à 5 ans'], ['plus_5_ans', 'Plus de 5 ans']]);
+    // Rien de répondu : « Continuer » éteint, et la question des séances ne se pose pas encore.
     expect(v.bouton.actif).toBe(false);
-    expect(vue('donnees', { rep: Object.assign(Q.reponsesInitiales({}, {}), { historique: 'import' }) }).bouton.actif).toBe(true);
+    expect(blocs(v, 'options')).toEqual([]);
+    // « Je commence » : rien à importer, la question n'est pas posée, « Continuer » s'allume.
+    const commence = vue('anciennete', { rep: Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'depuis', 'commence') });
+    expect(blocs(commence, 'options')).toEqual([]);
+    expect(commence.bouton).toEqual({ libelle: 'Continuer', actif: true });
+    // Une fourchette : la question des séances, avec ses sous-lignes et « Dans mes notes » désactivé (« Bientôt »).
+    const depuis = vue('anciennete', { rep: Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'depuis', '1_a_3_ans') });
+    const q = blocs(depuis, 'options')[0];
+    expect(q.titre).toBe('Tes séances sont notées quelque part ?');
+    expect(q.options.map((o) => [o.libelle, o.desactive === true, o.pastille || null])).toEqual([
+      ['Oui, dans Hevy ou Strong', false, null], ['Dans mes notes', true, 'Bientôt'], ['Non', false, null]]);
+    expect(q.options[0].sous).toBe('J’importe ton fichier ici : je connaîtrai tes charges dès la première séance.');
+    expect(depuis.bouton.actif).toBe(false);
   });
-
-  // 69 (K2) — l'import existe : la phrase dit où le trouver, toujours pour le seul « dans une autre app » sans séance.
-  test('sans historique : « Importer depuis Hevy » SEULEMENT pour « dans une autre app » sans séance', () => {
-    const rep = (h) => Object.assign(Q.reponsesInitiales({}, {}), { historique: h });
-    const dit = 'Tu pourras importer tes séances depuis Profil, « Importer depuis Hevy ». Ces trois réponses suffisent pour commencer.';
-    expect(vue('sans_historique', { rep: rep('import'), aDesSeances: false }).voix).toBe(dit);
-    expect(vue('sans_historique', { rep: rep('non_note'), aDesSeances: false }).voix).toBeNull();
-    expect(vue('sans_historique', { rep: rep('debutant'), aDesSeances: true }).voix).toBeNull();
+  test('187 (A2) — « Oui, dans Hevy ou Strong » : le bouton devient « Importer mon fichier » ; « Dans mes notes » n’est pas une réponse', () => {
+    const r0 = Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'depuis', '3_a_5_ans');
+    const hevy = vue('anciennete', { rep: Q.appliquerChoix(r0, 'notees', 'import') });
+    expect(hevy.bouton).toEqual({ libelle: 'Importer mon fichier', actif: true });
+    expect(vue('anciennete', { rep: Q.appliquerChoix(r0, 'notees', 'non') }).bouton).toEqual({ libelle: 'Continuer', actif: true });
+    // DISCRIMINANT — « Dans mes notes » n'est pas un choix du code : la valeur 'notes' n'allume rien ni n'écrit rien.
+    expect(Q.ecranPret('anciennete', Q.appliquerChoix(r0, 'notees', 'notes'))).toBe(false);
+    expect(Q.champsDeLEcran('anciennete', Q.appliquerChoix(r0, 'notees', 'notes'), {}, { maintenant: MAINTENANT }).champs.historique_declare)
+      .toBeUndefined();
   });
-
-  test('sans historique : ancienneté à QUATRE valeurs (celles de la colonne), séances 2 à 6+, durée 45 à « Plus »', () => {
-    const v = vue('sans_historique');
-    expect(blocs(v, 'options')[0].options.map((o) => o.cle)).toEqual(['moins_1_an', '1_a_3_ans', '3_a_5_ans', 'plus_5_ans']);
-    expect(blocs(v, 'puces')[0].options.map((o) => [o.cle, o.libelle])).toEqual(
-      [[2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6+']]);
-    expect(blocs(v, 'puces')[1].options.map((o) => [o.cle, o.libelle])).toEqual(
-      [[45, '45 min'], [60, '60 min'], [75, '75 min'], [90, '90 min'], ['plus', 'Plus']]);
+  test('187 (A1) — un profil déjà rempli : « Je commence » se relit de `debutant`, la fourchette de `anciennete`', () => {
+    expect(Q.reponsesInitiales({ historique_declare: 'debutant', anciennete: 'moins_1_an' }, {}).depuis).toBe('commence');
+    expect(Q.reponsesInitiales({ historique_declare: 'non_note', anciennete: 'moins_1_an' }, {}).depuis).toBe('moins_1_an');
+    expect(Q.reponsesInitiales({ historique_declare: 'import', anciennete: '1_a_3_ans' }, {})).toMatchObject({ depuis: '1_a_3_ans', notees: 'import' });
+    expect(Q.reponsesInitiales({ historique_declare: 'non_note', anciennete: '1_a_3_ans' }, {}).notees).toBe('non');
+    expect(Q.reponsesInitiales({}, {})).toMatchObject({ depuis: null, notees: null });
+  });
+  test('187 (A3) — « Où tu t’entraînes ? » : chaque salle avec sa sous-ligne du Profil ; « Ajuster Ma salle » est replié, puis ouvre les haltères', () => {
+    const v = vue('salle');
+    expect(v.titre).toBe('Où tu t’entraînes ?');
+    expect(blocs(v, 'options')[0].options.map((o) => [o.libelle, o.sous])).toEqual(
+      Profil.MATERIELS.map((m) => [m.libelle, m.sous]));
+    const replie = blocs(v, 'replie')[0];
+    expect(replie).toMatchObject({ libelle: 'Ajuster Ma salle', ouvert: false, cle: 'salleOuverte' });
+    const ouvert = blocs(vue('salle', { rep: Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'salleOuverte', true) }), 'replie')[0];
+    expect(ouvert.ouvert).toBe(true);
+    expect(ouvert.blocs.filter((b) => b.type === 'puces').map((b) => b.cle)).toEqual(['halteresMax', 'halteresPas']);
+    expect(ouvert.blocs.filter((b) => b.type === 'note').map((b) => b.texte)).toEqual(['Je note la charge des haltères par haltère.']);
+    // La phrase repliée dit ce qui est réglé.
+    const rep = Object.assign(Q.reponsesInitiales({}, {}), { halteresMax: 40, halteresPas: 2 });
+    expect(sp(blocs(vue('salle', { rep }), 'replie')[0].resume)).toBe('Haltères jusqu’à 40 kg, de 2 en 2.');
+    expect(vue('salle').bouton.actif).toBe(true);
+  });
+  test('187 (A3) — les haltères d’un profil se relisent (une tranche) ; plusieurs paliers : le questionnaire n’y touche pas', () => {
+    const une = Q.reponsesInitiales({ ma_salle: { barres_ez: [], barres_droites: [], halteres: { max: 40, pas: 2 } } }, {});
+    expect([une.halteresMax, une.halteresPas]).toEqual([40, 2]);
+    const deux = Q.reponsesInitiales({ ma_salle: { barres_ez: [], barres_droites: [], halteres: [{ jusqua: 20, pas: 1 }, { jusqua: 40, pas: 2 }] } }, {});
+    expect([deux.halteresMax, deux.halteresPas]).toEqual([null, null]);
+    const profil = { ma_salle: { barres_ez: [], barres_droites: [], halteres: [{ jusqua: 20, pas: 1 }, { jusqua: 40, pas: 2 }] } };
+    const note = blocs(vue('salle', { profil, rep: Q.appliquerChoix(deux, 'salleOuverte', true) }), 'replie')[0].blocs;
+    expect(note.map((b) => b.type)).toEqual(['note', 'note']);
+  });
+  test('187 (A4) — « Une zone à ménager ? » : cinq zones et « Aucune », posée à tout le monde', () => {
+    const v = vue('zone');
+    expect(v.titre).toBe('Une zone à ménager ?');
+    expect(v.voix).toBe('Je ne te proposerai pas de série lourde dessus, et « J’ai mal » sera à portée de main.');
+    const puces = blocs(v, 'puces')[0];
+    expect(puces.options.map((o) => o.libelle)).toEqual(['Épaule', 'Dos', 'Genou', 'Coude', 'Hanche', 'Aucune']);
+    expect(puces.valeurs).toEqual(['aucune']);
+    const genou = Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'zone', 'genou');
+    expect(blocs(vue('zone', { rep: genou }), 'puces')[0].valeurs).toEqual(['genou']);
+    expect(blocs(vue('zone', { rep: Q.appliquerChoix(genou, 'zone', 'aucune') }), 'puces')[0].valeurs).toEqual(['aucune']);
+    expect(vue('zone').bouton.actif).toBe(true);
+  });
+  test('187 (A5) — « Une série récente ? » : quatre barres en charge × reps ; une série complète devient la charge de départ, au cran de la barre', () => {
+    const v = vue('recente');
+    expect(v.titre).toBe('Une série récente ?');
+    expect(v.voix).toBe('Si tu t’en souviens, ta première séance aura de vraies charges. Sinon, on les trouve ensemble.');
+    const champs = blocs(v, 'champs')[0].champs;
+    expect(champs.map((c) => c.libelle)).toEqual(['Squat', 'Squat, reps', 'Couché', 'Couché, reps', 'Soulevé', 'Soulevé, reps', 'Militaire', 'Militaire, reps']);
+    expect(v.bouton.actif).toBe(true);                          // facultatif
+    const lu = (cle, t) => Q.lireChamp(cle, t, Modele.lireNombre, MAINTENANT);
+    expect(lu('rec_sq_kg', '102,5')).toEqual({ valeur: 102.5, erreur: null });
+    expect(lu('rec_sq_kg', '0').valeur).toBeNull();
+    expect(lu('rec_sq_kg', '900').valeur).toBeNull();
+    expect(lu('rec_sq_reps', '6')).toEqual({ valeur: 6, erreur: null });
+    expect(lu('rec_sq_reps', '5,5').valeur).toBeNull();
+    expect(lu('rec_sq_reps', '').valeur).toBeNull();
+    // DISCRIMINANT — une charge SANS ses reps n'est pas une série : rien n'est retenu.
+    expect(Q.seriesRecentes({ rec_sq_kg: 100 })).toEqual([]);
+    expect(Q.seriesRecentes({ rec_sq_kg: 100, rec_sq_reps: 6, rec_co_kg: 82.5, rec_co_reps: 8 })).toEqual([
+      { slug: 'squat_barre', nom: 'Squat', kg: 100, reps: 6, depart: 100 },
+      { slug: 'developpe_couche_barre', nom: 'Couché', kg: 82.5, reps: 8, depart: 82.5 }]);
+    // Le départ ne dépasse jamais ce qui a été fait : 101 kg -> 100 kg (le cran de la barre en dessous).
+    expect(Q.seriesRecentes({ rec_sq_kg: 101, rec_sq_reps: 6 })[0].depart).toBe(100);
+  });
+  test('187 (A6) — plus de question des jours ni d’écran « Sans historique » : les jours se demandent UNE fois (8b), la durée au temps', () => {
+    expect(Q.ECRANS).not.toContain('sans_historique');
+    expect(Q.ECRANS).not.toContain('donnees');
+    expect(Q.vueDe('sans_historique', { rep: Q.reponsesInitiales({}, {}) })).toBeNull();
+    // Les cinq puces de l'ancienneté sont celles de la colonne, plus « Je commence » (qui écrit moins_1_an).
+    expect(Q.DEPUIS.map((o) => o.cle).filter((c) => c !== 'commence')).toEqual(Profil.ANCIENNETES.map((a) => a.cle));
   });
 
   test('toi : les libellés du profil, l’ANNÉE (pas l’âge), les phrases au futur', () => {
@@ -568,7 +694,9 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
 
   test('temps : la durée habituelle est MONTRÉE ; les quatre réponses, sous-lignes au futur ; la durée visée ouvre le Profil', () => {
     const v = vue('temps', { faits: { dureeMin: 75 } });
-    expect(v.titre).toBe('Tes séances durent environ 75 min.');
+    // 187 (A6) — la durée n'est plus rendue comme un fait : le titre est la question.
+    expect(v.titre).toBe('Combien de temps pour t’entraîner, en ce moment ?');
+    expect(JSON.stringify(v)).not.toMatch(/durent environ/);
     const reponses = blocs(v, 'options')[0].options;
     expect(reponses.map((o) => [o.libelle, o.sous || null])).toEqual([
       ['C’est mon maximum', null],
@@ -576,19 +704,20 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
       ['J’ai moins de temps en ce moment', 'Je te proposerai des séances plus courtes'],
       ['Ça varie beaucoup', 'Je te montrerai la durée des longues séances']]);
     expect(blocs(v, 'ligne')).toEqual([{ type: 'ligne', cle: 'duree', libelle: 'Durée visée', valeur: '75 min' }]);
-    expect(blocs(v, 'puces').map((b) => b.cle)).toEqual(['materiel']);
-    expect(blocs(v, 'puces')[0].options.map((o) => o.libelle)).toEqual(
-      ['Salle complète', 'Salle basique', 'Maison équipée', 'Maison, minimum', 'Poids du corps']);
+    // 187 (A3) — le matériel a quitté cet écran (« Où tu t'entraînes ? »).
+    expect(blocs(v, 'puces')).toEqual([]);
   });
 
   test('temps : SANS durée connue, on la demande (les puces de 3b) ; la durée du profil sert quand il n’y a pas de médiane', () => {
     const sans = vue('temps', { faits: { dureeMin: null } });
-    expect(sans.titre).toBe('Combien de temps dure une séance, en général ?');
+    expect(sans.titre).toBe('Combien de temps pour t’entraîner, en ce moment ?');
     expect(blocs(sans, 'puces')[0].cle).toBe('duree');
+    expect(blocs(sans, 'puces')[0].titre).toBe('Une séance dure en général');
     expect(blocs(sans, 'ligne')).toEqual([]);
     const rep = Object.assign(Q.reponsesInitiales({}, {}), { duree: 60 });
     const profil = vue('temps', { faits: { dureeMin: null }, rep });
-    expect(profil.titre).toBe('Tes séances durent environ 60 min.');
+    expect(profil.titre).toBe('Combien de temps pour t’entraîner, en ce moment ?');
+    expect(sp(blocs(profil, 'ligne')[0].valeur)).toBe('60 min');
     // La durée VISÉE (la ligne, la feuille, le récapitulatif) : la réponse de la personne
     // d'abord, sinon la médiane. (Inversé le 07/10 : la médiane masquait la réponse.)
     expect(Q.dureeMontree(rep, { dureeMin: 75 })).toBe(60);
@@ -601,16 +730,16 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
   });
 
   const sp = (t) => String(t).replace(/[\u00a0\u202f]/g, ' ');
-  test('⚠️ DISCRIMINANT — temps : la durée choisie dans la feuille se VOIT (la ligne, le récapitulatif) ; le titre garde le fait (la médiane)', () => {
+  test('⚠️ DISCRIMINANT — temps : la durée choisie dans la feuille se VOIT (la ligne, le récapitulatif) ; le titre ne rend plus aucun fait', () => {
     // Avec 75 min de médiane et 45 min déjà en base : la ligne dit 45, le titre 75.
     const rep45 = Object.assign(Q.reponsesInitiales({ duree_seance_min: 45 }, {}), {});
     const v = vue('temps', { faits: { dureeMin: 75 }, rep: rep45 });
-    expect(sp(v.titre)).toBe('Tes séances durent environ 75 min.');
+    expect(sp(v.titre)).toBe('Combien de temps pour t’entraîner, en ce moment ?');
     expect(sp(blocs(v, 'ligne')[0].valeur)).toBe('45 min');
     // La personne choisit 60 : la ligne et le récapitulatif disent 60, jamais 75.
     const rep60 = Q.appliquerChoix(rep45, 'duree', 60);
     const v2 = vue('temps', { faits: { dureeMin: 75 }, rep: rep60 });
-    expect(sp(v2.titre)).toBe('Tes séances durent environ 75 min.');
+    expect(sp(v2.titre)).toBe('Combien de temps pour t’entraîner, en ce moment ?');
     expect(sp(blocs(v2, 'ligne')[0].valeur)).toBe('60 min');
     const lignes = blocs(vue('recap', { faits: { dureeMin: 75 }, rep: Object.assign({}, rep60, { temps: 'max' }) }), 'resume')[0].lignes;
     expect(sp(lignes[3].valeur)).toBe('60 min · c’est mon maximum');
@@ -630,7 +759,7 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
 
   test('ton coach : les libellés et les phrases du PROFIL, puis « Juste un carnet »', () => {
     const o = blocs(vue('coach'), 'options')[0].options;
-    expect(o.map((x) => x.libelle)).toEqual(['Prudent', 'Normal', 'Franc', 'Juste un carnet']);
+    expect(o.map((x) => x.libelle)).toEqual(['Me ménager', 'Normal', 'Me pousser', 'Juste un carnet']);
     expect(o[0].sous).toBe('Monte quand toutes tes séries touchent le haut de ta zone, deux séances de suite.');
     expect(o[3]).toEqual({ cle: 'carnet', libelle: 'Juste un carnet', sous: 'Je me tais : aucune proposition, aucune phrase.' });
   });
@@ -640,17 +769,18 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
       temps: 'moins', materiel: 'maison_minimal', coach: 'franc', duree: 60 });
     const v = vue('recap', { rep });
     const lignes = blocs(v, 'resume')[0].lignes;
-    expect(lignes.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Coach']);
+    expect(lignes.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Zone à ménager', 'Coach']);
     expect(lignes.map((l) => l.valeur)).toEqual(['Force', 'Sèche', 'Squat, Dos', '60 min · j’ai moins de temps en ce moment',
-      'Maison, minimum', 'Franc']);
-    expect(lignes.map((l) => l.ecran)).toEqual(['but', 'but', 'priorites', 'temps', 'temps', 'coach']);
+      'Maison, minimum', 'Aucune', 'Me pousser']);
+    expect(lignes.map((l) => l.ecran)).toEqual(['but', 'but', 'priorites', 'temps', 'salle', 'zone', 'coach']);
     expect(v.bouton).toEqual({ libelle: 'Commencer', actif: true });
     expect(v.voix).toBe('À ta première séance, je te propose tes charges. Tu peux toujours taper autre chose.');
   });
 
   test('184 (C1) : sans séance, le récapitulatif ne promet pas de charge ; avec séances, il la promet', () => {
     const rep = Object.assign(Q.reponsesInitiales({}, {}), { coach: 'franc', programme: 'construis' });
-    expect(vue('recap', { rep, aDesSeances: false }).voix).toBe('À ta première séance, tu choisis tes charges ; je les suis ensuite.');
+    // 187 — « on la trouve ensemble à la première séance » (la règle du calage, MOTEUR §9.21 bis).
+    expect(vue('recap', { rep, aDesSeances: false }).voix).toBe('À ta première séance, on trouve ta charge ensemble. Tu peux toujours taper autre chose.');
     expect(vue('recap', { rep, aDesSeances: true }).voix).toBe('À ta première séance, je te propose tes charges. Tu peux toujours taper autre chose.');
     expect(vue('recap', { rep: Object.assign({}, rep, { coach: 'carnet' }), aDesSeances: false }).voix)
       .toBe('Je me tais. Un geste dans Profil si tu veux mes propositions.');
@@ -660,7 +790,7 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     const v = vue('recap', { rep: Object.assign(Q.reponsesInitiales({}, {}), { coach: 'carnet' }) });
     expect(v.voix).toBe('Je me tais. Un geste dans Profil si tu veux mes propositions.');
     expect(blocs(v, 'resume')[0].lignes[0].valeur).toBe('—');
-    expect(blocs(v, 'resume')[0].lignes[5].valeur).toBe('Juste un carnet');
+    expect(blocs(v, 'resume')[0].lignes[6].valeur).toBe('Juste un carnet');
   });
 
   test('chaque écran visible a une vue, un bouton, une progression ; « Retour » existe sauf au premier', () => {
@@ -755,8 +885,8 @@ describe('60-3 — l’écran 8 : « Ton programme », sans routine', () => {
     const rep = Object.assign(Q.reponsesInitiales({}, {}), { programme: 'deduit' });
     const lignes = (visibles) => vue('recap', { rep, visibles }).blocs[0].lignes;
     const avec = lignes(Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: false }));
-    expect(avec.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Programme', 'Coach']);
-    expect(avec[5]).toEqual({ libelle: 'Programme', valeur: 'Garder ce que je fais', ecran: 'programme' });
+    expect(avec.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Zone à ménager', 'Programme', 'Coach']);
+    expect(avec[6]).toEqual({ libelle: 'Programme', valeur: 'Garder ce que je fais', ecran: 'programme' });
     const sans = lignes(Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: true }));
     expect(sans.map((l) => l.libelle)).not.toContain('Programme');
     // 60-4 — aucune routine et aucune séance : l'écran 8 est du parcours, la ligne « Programme » aussi.
@@ -771,32 +901,33 @@ describe('60-4 — l’écran 8b : les jours et la zone à ménager', () => {
   const rep0 = (profil) => Q.reponsesInitiales(profil || {}, {});
   const vue = (rep, etat) => Q.vueDe('construit', Object.assign({ rep, aDesSeances: true, faits: null, visibles: Q.ecransVisibles(ctx) }, etat || {}));
 
-  test('le titre, les cinq jours, les six puces de zone, la voix du coach (maquette)', () => {
+  test('le titre, les cinq jours, la voix du coach (la zone se répond à son écran, 187)', () => {
     const v = vue(rep0());
     expect(v.etape).toBe('Ton programme');
     expect(v.titre).toBe('Combien de jours par semaine, réalistement ?');
     expect(v.blocs[0]).toMatchObject({ type: 'puces', cle: 'seances' });
     expect(v.blocs[0].options).toEqual([2, 3, 4, 5, 6].map((n) => ({ cle: n, libelle: String(n) })));
-    expect(v.blocs[1]).toMatchObject({ type: 'puces', cle: 'zone', titre: 'Une zone à ménager ?', multiple: true });
-    expect(v.blocs[1].options.map((o) => o.libelle)).toEqual(['Épaule', 'Dos', 'Genou', 'Coude', 'Hanche', 'Aucune']);
-    expect(v.blocs[2]).toEqual({ type: 'voix',
-      texte: 'Je garde l’exercice et toutes ses séries, sans série lourde. Rien en séance : si ça fait mal, « J’ai mal » est là.' });
+    expect(v.blocs[1]).toEqual({ type: 'voix',
+      texte: 'Ta zone à ménager, je la garde : l’exercice et toutes ses séries, sans série lourde.' });
     expect(v.bouton).toEqual({ libelle: 'Continuer', actif: false });
   });
 
-  test('« Aucune » est cochée tant qu’aucune zone ne l’est ; en choisir une la décoche, « Aucune » les retire toutes', () => {
-    expect(vue(rep0()).blocs[1].valeurs).toEqual(['aucune']);
+  test('la zone : « Aucune » est cochée tant qu’aucune zone ne l’est ; en choisir une la décoche, « Aucune » les retire toutes', () => {
+    const vz = (rep) => Q.vueDe('zone', { rep, aDesSeances: true, faits: null, visibles: Q.ecransVisibles(ctx) });
+    const bz = (rep) => vz(rep).blocs.find((b) => b.cle === 'zone');
+    expect(bz(rep0()).valeurs).toEqual(['aucune']);
+    expect(bz(rep0()).options.map((o) => o.libelle)).toEqual(['Épaule', 'Dos', 'Genou', 'Coude', 'Hanche', 'Aucune']);
     let r = Q.appliquerChoix(rep0(), 'zone', 'genou');
     expect(r.menager).toEqual(['genou']);
-    expect(vue(r).blocs[1].valeurs).toEqual(['genou']);
+    expect(bz(r).valeurs).toEqual(['genou']);
     r = Q.appliquerChoix(r, 'zone', 'dos');
-    expect(r.menager).toEqual(['dos', 'genou']);                          // l'ordre de la liste, pas celui des touches
+    expect(r.menager).toEqual(['dos', 'genou']);
     r = Q.appliquerChoix(r, 'zone', 'genou');
-    expect(r.menager).toEqual(['dos']);                                   // retoucher retire
+    expect(r.menager).toEqual(['dos']);
     r = Q.appliquerChoix(r, 'zone', 'aucune');
     expect(r.menager).toEqual([]);
-    expect(vue(r).blocs[1].valeurs).toEqual(['aucune']);
-    expect(Q.appliquerChoix(rep0(), 'zone', 'nuque').menager).toEqual([]); // une zone inconnue est sans effet
+    expect(bz(r).valeurs).toEqual(['aucune']);
+    expect(Q.appliquerChoix(rep0(), 'zone', 'nuque').menager).toEqual([]);
   });
 
   test('les zones en base se relisent ; une valeur hors liste n’en est pas une', () => {
@@ -859,16 +990,15 @@ describe('60-4 — l’écran 8b : les jours et la zone à ménager', () => {
     expect(Q.precocherJours({ seances: null }, null)).toEqual({ seances: null });
   });
 
-  test('⚠️ l’écran écrit `seances_par_semaine` et `zones_a_menager` (vide = NULL), par preparerChamps — rien d’inchangé', () => {
-    const ecrit = (rep, profil) => Q.champsDeLEcran('construit', rep, profil || {}, { maintenant: MAINTENANT }).champs;
-    expect(ecrit({ seances: 4, menager: ['genou'] })).toEqual({ seances_par_semaine: 4, zones_a_menager: ['genou'] });
-    expect(ecrit({ seances: 4, menager: [] })).toEqual({ seances_par_semaine: 4 });          // aucune sur colonne vide : rien
-    // Aucune zone sur une zone déjà en base : le VIDE s'écrit NULL.
-    expect(ecrit({ seances: 4, menager: [] }, { seances_par_semaine: 4, zones_a_menager: ['dos'] }))
-      .toEqual({ zones_a_menager: null });
-    expect(ecrit({ seances: 4, menager: ['dos'] }, { seances_par_semaine: 4, zones_a_menager: ['dos'] })).toEqual({});
-    // NULL et [] se valent : aucune écriture pour rien.
-    expect(ecrit({ seances: 4, menager: [] }, { seances_par_semaine: 4, zones_a_menager: [] })).toEqual({});
+  test('⚠️ l’écran des jours écrit `seances_par_semaine`, l’écran de la zone `zones_a_menager` (vide = NULL) — rien d’inchangé', () => {
+    const jours = (rep, profil) => Q.champsDeLEcran('construit', rep, profil || {}, { maintenant: MAINTENANT }).champs;
+    const zone = (rep, profil) => Q.champsDeLEcran('zone', rep, profil || {}, { maintenant: MAINTENANT }).champs;
+    expect(jours({ seances: 4, menager: ['genou'] })).toEqual({ seances_par_semaine: 4 });
+    expect(zone({ menager: ['genou'] })).toEqual({ zones_a_menager: ['genou'] });
+    expect(zone({ menager: [] })).toEqual({});
+    expect(zone({ menager: [] }, { zones_a_menager: ['dos'] })).toEqual({ zones_a_menager: null });
+    expect(zone({ menager: ['dos'] }, { zones_a_menager: ['dos'] })).toEqual({});
+    expect(zone({ menager: [] }, { zones_a_menager: [] })).toEqual({});
   });
 
   test('le récapitulatif dit « Construis-le-moi · 4 jours » ; sans l’écran 8b, le choix seul', () => {
@@ -891,7 +1021,7 @@ describe('60-4 — l’écran 8b : les jours et la zone à ménager', () => {
 
 describe('137 — 03 #11 : « Plus » demande les minutes (QUESTIONNAIRE §2, écran 3b)', () => {
   const rep0 = () => Q.reponsesInitiales({}, {});
-  const vue = (rep, textes, erreurs) => Q.vueDe('sans_historique', { rep, aDesSeances: false, faits: null,
+  const vue = (rep, textes, erreurs) => Q.vueDe('temps', { rep, aDesSeances: false, faits: null,
     textes: textes || {}, erreurs: erreurs || {} });
   const champsDuree = (v) => v.blocs.filter((b) => b.type === 'champs');
   const plus = (rep) => Q.appliquerChoix(rep, 'duree', 'plus');
@@ -917,14 +1047,14 @@ describe('137 — 03 #11 : « Plus » demande les minutes (QUESTIONNAIRE §2, é
   test('240 s’écrit dans duree_seance_min ; la durée ne vaut jamais 120 d’office', () => {
     const { rep, erreur } = tape(plus(rep0()), '240');
     expect(erreur).toBeNull();
-    expect(Q.champsDeLEcran('sans_historique', rep, {}, { maintenant: MAINTENANT }).champs.duree_seance_min).toBe(240);
+    expect(Q.champsDeLEcran('temps', rep, {}, { maintenant: MAINTENANT }).champs.duree_seance_min).toBe(240);
     expect(plus(rep0()).duree).not.toBe(120);
   });
   test('94 et 301 sont refusés : la phrase, et rien n’est écrit', () => {
     [['94', 94], ['301', 301], ['abc', null]].forEach(([t]) => {
       const { rep, erreur } = tape(plus(rep0()), t);
       expect(erreur).toBe('Une durée entre 95 et 300 min.');
-      expect(Q.champsDeLEcran('sans_historique', rep, {}, { maintenant: MAINTENANT }).champs.duree_seance_min).toBeUndefined();
+      expect(Q.champsDeLEcran('temps', rep, {}, { maintenant: MAINTENANT }).champs.duree_seance_min).toBeUndefined();
     });
   });
   test('95 et 300 sont les bornes, comprises', () => {
@@ -934,14 +1064,14 @@ describe('137 — 03 #11 : « Plus » demande les minutes (QUESTIONNAIRE §2, é
   test('« Plus » sans minutes : rien n’est écrit pour la durée, « Continuer » reste actif', () => {
     const rep = plus(Q.appliquerChoix(rep0(), 'duree', 60));
     expect(rep.duree).toBeNull();
-    expect(Q.champsDeLEcran('sans_historique', rep, {}, { maintenant: MAINTENANT }).champs.duree_seance_min).toBeUndefined();
-    expect(Q.ecranPret('sans_historique', rep)).toBe(true);
+    expect(Q.champsDeLEcran('temps', rep, {}, { maintenant: MAINTENANT }).champs.duree_seance_min).toBeUndefined();
+    expect(Q.ecranPret('temps', rep)).toBe(true);
   });
   test('une durée déjà au-delà des puces (240 en base) : « Plus » est cochée et le champ la montre', () => {
     const rep = Object.assign(rep0(), { duree: 240 });
     const v = vue(rep);
-    expect(v.blocs.find((b) => b.type === 'puces' && b.cle === 'duree').valeur).toBe('plus');
-    expect(champsDuree(v)[0].champs[0].valeur).toBe('240');
+    // 187 : une durée connue n'est plus demandée, elle est montrée (« Durée visée »), jamais plafonnée.
+    expect(v.blocs.find((b) => b.type === 'ligne' && b.cle === 'duree').valeur).toMatch(/240/);
   });
   test('l’écran 7 sans durée connue : même comportement', () => {
     const v = Q.vueDe('temps', { rep: plus(rep0()), aDesSeances: false, faits: null, textes: {}, erreurs: {} });

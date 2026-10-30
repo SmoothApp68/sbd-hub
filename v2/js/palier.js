@@ -47,12 +47,17 @@
   // voisins, ni l'exploration qu'un test lirait. Deux portes : la personne la dit (type `test`), ou le single (cf. `horsPalierAuto`).
   var HORS_PALIER = 'hors_palier';
   var TEST = 'test';
+  // 193-1 (v2_120, MOTEUR §9.28) — « SÉRIE DE RECUL » : déclarée, une série de travail FAITE (volume, records, maximum estimé) qui ne
+  // vote JAMAIS : ni pour le palier, ni pour l'habitude, ni pour les crans voisins, ni comme test. Le palier se lit sur la ou les
+  // grosses séries. Un rôle à elle (et non `hors_palier`) : le « Pourquoi » et la charge des reculs la distinguent d'un test.
+  var RECUL = 'recul';
 
   var ROLE_DU_TAG = {};
   ROLE_DU_TAG[CHAUFFE] = 'chauffe';
   ROLE_DU_TAG[DEGRESSIVE] = 'degressive';   // §6.3 — descente choisie, déclarée
   ROLE_DU_TAG[ECHEC] = 'echec';             // §6.3 — descente subie, déclarée
   ROLE_DU_TAG[HORS_CALCUL] = 'hors_calcul'; // 185 — « Non, ne compte pas » : jamais une série de travail
+  ROLE_DU_TAG[RECUL] = 'recul';             // 193-1 — « Série de recul » : déclarée, ne vote pour rien
   ROLE_DU_TAG[TEST] = HORS_PALIER;          // 186 — « Série de test » : déclarée, hors palier (un record possible)
 
   // 152 — UNE SÉRIE `echec` À 1 REP OU PLUS EST UNE SÉRIE DE TRAVAIL À FOND, pas un tag
@@ -288,7 +293,8 @@
   // celle-ci ne sert qu'à `etatsExercices`, et son nom ne peut pas la faire
   // passer pour l'autre.
   function seriesHorsChauffe(series) {
-    return (series || []).filter(function (s) { return s.type_serie !== CHAUFFE; });
+    // 193-1 — ni la série de recul : elle n'est pas une série de montée, et une séance à reculs ne dilue pas la part « monte ».
+    return (series || []).filter(function (s) { return s.type_serie !== CHAUFFE && s.type_serie !== RECUL; });
   }
 
   function etatsExercices(listeSeanceExercices) {
@@ -758,7 +764,7 @@
     AUCUNE_SERIE: AUCUNE_SERIE,
     TOUT_CHAUFFE: TOUT_CHAUFFE,
     MESURES_SANS_CHARGE: MESURES_SANS_CHARGE,
-    CHAUFFE: CHAUFFE, DEGRESSIVE: DEGRESSIVE, ECHEC: ECHEC, HORS_CALCUL: HORS_CALCUL, HORS_PALIER: HORS_PALIER,
+    CHAUFFE: CHAUFFE, DEGRESSIVE: DEGRESSIVE, ECHEC: ECHEC, HORS_CALCUL: HORS_CALCUL, HORS_PALIER: HORS_PALIER, RECUL: RECUL,
     horsPalierAuto: horsPalierAuto, SEUIL_HORS_PALIER: SEUIL_HORS_PALIER,
     ROLE_DU_TAG: ROLE_DU_TAG,
     roleDuTag: roleDuTag,

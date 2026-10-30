@@ -4601,7 +4601,9 @@
     descente_choisie: 'descente, ne compte pas',
     echec: 'série arrêtée, ne compte pas',
     // 186 — le single ou la série de test : faite, un record possible, hors de la charge de travail.
-    hors_palier: 'hors de ta charge de travail'
+    hors_palier: 'hors de ta charge de travail',
+    // 193-1 — la série de recul : faite, elle compte au volume et aux records ; sa charge suit la grosse série.
+    recul: 'recul, suit ta grosse série'
   };
 
   // La dernière séance, telle que la feuille la relit : les chauffes en UNE
@@ -6434,7 +6436,8 @@
   // (échauffement, dégressive, test, hors calcul, hors de 1 à 12 reps, sans charge).
   function valeurDeFatigue(serie) {
     var M = Modele();
-    if (!serie || !M.estTravail(serie) || M.estTest(serie)) return null;
+    // 193-1 — ni une série de recul : la baisse générale ne lit que les grosses séries (un recul plus léger n'est jamais une baisse).
+    if (!serie || !M.estTravail(serie) || M.estTest(serie) || M.estRecul(serie)) return null;
     var charge = nombre(serie.charge_kg), reps = nombre(serie.reps);
     if (charge === null || charge <= 0 || reps === null || reps < 1 || reps > FATIGUE_REPS_MAX) return null;
     var reserve = Palier().reserveDeSerie(serie);

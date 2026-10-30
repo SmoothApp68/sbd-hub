@@ -1728,6 +1728,28 @@ const NOTIONS = [
     module: 'generateur.js', fonction: 'familleDeBarre', lecteurs: ['equilibres.js'],
     raison: 'La carte « Tes priorités, faites ou non » compte les séries d’une barre (et de ses variantes à la barre) par la ' +
       'définition de la relecture (66A), pas par une seconde liste.' },
+  // ── 190 — « MA SALLE : LE PLUS PETIT DISQUE ET LA BARRE DE TRACTION » (MOTEUR §10.2) ──
+  { notion: 'le pas de la barre (2 × le plus petit disque de la salle, sinon le repli de 2,5 kg)', pr: '190-U1',
+    module: 'moteur.js', fonction: 'pasDeLaBarre', lecteurs: ['questionnaire.js'],
+    par: ['repliDe', 'pasMaxDuMateriel', 'pasDeChauffe'],
+    raison: 'Le cran de la consigne, du test, de la réaction, de la reprise, du calage, du dépassement, du hors-palier et des ' +
+      'chauffes est LE MÊME pas de barre ; l’écran du questionnaire l’appelle pour la charge de départ au lieu d’un 2,5 écrit à ' +
+      'part. Un nombre de plus (un 2,5 dans un autre fichier) dirait deux crans pour la même barre.' },
+  { notion: 'la lecture du plus petit disque par le moteur (branchée par l’app au démarrage)', pr: '190-U1',
+    module: 'moteur.js', fonction: 'brancherPlusPetitDisque', lecteurs: ['app.js'],
+    raison: 'Le moteur ne lit pas le profil : l’app lui branche UNE lecture (`Profil.plusPetitDisqueDe`), appelée à chaque calcul, ' +
+      'si bien que le profil à jour est toujours celui qui décide du pas de la barre.' },
+  { notion: 'un exercice qui demande une barre de traction (tractions et variantes, relevés suspendus, rowing inversé…)', pr: '190-U1',
+    module: 'profil.js', fonction: 'demandeUneBarreDeTraction', lecteurs: ['generateur.js', 'app.js'],
+    parAilleurs: { 'generateur.js': ['demandeUneBarreFixe'] },
+    raison: 'Le générateur, la mention « demande une barre fixe », les échanges d’exercice, la recherche et les marches d’échelle ' +
+      'lisent UNE définition (le catalogue n’a pas de colonne qui le dise) : une liste de deux slugs laissait passer le relevé ' +
+      'de genoux suspendu à la maison (G-maison-suspendu du bêta-test).' },
+  { notion: '« hors de ma salle » (le matériel déclaré, ou la barre de traction dite absente)', pr: '190-U1',
+    module: 'profil.js', fonction: 'estHorsDeMaSalle', lecteurs: ['app.js', 'routines.js'],
+    parAilleurs: { 'routines.js': ['horsMateriel'], 'app.js': ['horsDuMateriel'] },
+    raison: 'Les frères, les cousins, la recherche et ses mentions rangent après ce que ta salle n’a pas : la règle du matériel ' +
+      '(60-1) et celle de la barre de traction passent par la même fonction, jamais par deux tests écrits côte à côte.' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

@@ -747,8 +747,31 @@
   // 186 — le plus grand pas du matériel (haltères : la bande lourde), ou `null` : le garde-fou du single hors palier (`palier.js`).
   function pasMaxDuMateriel(equipement) {
     if (!Object.prototype.hasOwnProperty.call(REPLI_MATERIEL, equipement)) return null;
+    if (equipement === 'barre') return pasDeLaBarre(plusPetitDisqueConnu());   // 190 — le même pas
     var r = REPLI_MATERIEL[equipement];
     return r.pasLourd !== undefined ? r.pasLourd : r.pas;
+  }
+
+  // 190 (MOTEUR §10.2, décision d'Aurélien du 30/10/2026) — LE PLUS PETIT DISQUE DE LA SALLE : `profiles.ma_salle.plus_petit_disque`,
+  // en kg PAR CÔTÉ. Une barre se charge de deux disques égaux : son plus petit cran est 2 × ce disque (1,25 kg → 2,5 kg ; 2,5 kg →
+  // 5 kg ; 0,5 kg → 1 kg). Inconnu (ou illisible) : le repli de `REPLI_MATERIEL` (2,5 kg), inchangé. UNE SEULE FONCTION, le pas de
+  // la barre (`pasDeLaBarre`) : le cran de la consigne, du test, de la réaction, de la reprise, du calage de la première séance,
+  // du dépassement (qui compte en crans), l'arrondi des chauffes, le garde-fou du single hors palier et la dégressive à la barre
+  // (les disques qu'on retire) la lisent ; l'écran du questionnaire l'appelle pour la charge de départ. Le moteur ne lit pas le
+  // profil : l'app lui BRANCHE la lecture (`brancherPlusPetitDisque`, une fois, au démarrage) ; sans branchement, le repli.
+  // Le Smith garde son pas : son poids n'est pas celui de la barre de la salle (voir le rapport du 190).
+  function pasDeLaBarre(plusPetitDisque) {
+    var d = nombre(plusPetitDisque);
+    return d !== null && d > 0 ? auCentieme(2 * d) : REPLI_MATERIEL.barre.pas;
+  }
+  var sourceDuDisque = null;
+  function brancherPlusPetitDisque(lecture) {
+    sourceDuDisque = typeof lecture === 'function' ? lecture : null;
+  }
+  function plusPetitDisqueConnu() {
+    if (!sourceDuDisque) return null;
+    var d = nombre(sourceDuDisque());
+    return d !== null && d > 0 ? d : null;
   }
 
   // ⚠️ LA BASCULE APPARTIENT À LA BANDE LÉGÈRE, et l'asymétrie est voulue : on
@@ -756,6 +779,7 @@
   // depuis 20 (20 -> 18). Les deux sens décrivent le même plan de charges.
   function repliDe(equipement, palier, sens) {
     if (!Object.prototype.hasOwnProperty.call(REPLI_MATERIEL, equipement)) return null;
+    if (equipement === 'barre') return pasDeLaBarre(plusPetitDisqueConnu());
     var r = REPLI_MATERIEL[equipement];
     if (r.pasLourd === undefined) return r.pas;
     return (sens > 0 ? palier >= r.bascule : palier > r.bascule) ? r.pasLourd : r.pas;
@@ -1139,11 +1163,14 @@
     poulie: 'vise la plaque au-dessus, ou un petit disque si ta poulie en a. Note ce que tu as mis.',
     kettlebell: 'vise le kettlebell au-dessus. Note ce que tu as mis.'
   };
+  var PHRASE_APPROCHEE_BARRE_CONNUE = 'vise la barre au-dessus, avec ton plus petit disque de chaque côté. Note ce que tu as mis.';
   // La phrase, avec la charge approchée en tête (« ≈ 35 kg : vise la charge la plus proche… ») quand la consigne est
   // donnée : les charges passent par le formateur de la voix (citations I26, mêmes rôles que l'en-tête).
   function phraseApprochee(equipement, consigne) {
     var base = Object.prototype.hasOwnProperty.call(PHRASES_APPROCHEE, equipement) && equipement !== 'defaut'
       ? PHRASES_APPROCHEE[equipement] : PHRASES_APPROCHEE.defaut;
+    // 190 — le plus petit disque est connu : « des petits disques si ta barre se charge » promettrait un cran que ta salle n'a pas.
+    if (equipement === 'barre' && plusPetitDisqueConnu() !== null) base = PHRASE_APPROCHEE_BARRE_CONNUE;
     var morceaux = [];
     ['ligne', 'haut'].forEach(function (r) {
       var l = consigne && consigne[r];
@@ -9027,7 +9054,10 @@
   // Le pas d'arrondi : à la dizaine sur une barre dès 100 kg de référence, à
   // 5 kg en dessous ; au cran du matériel ailleurs.
   function pasDeChauffe(entree) {
-    if (estBarre(entree.equipement)) return nombre(entree.reference) >= SEUIL_DIZAINE ? 10 : 5;
+    // 190 — jamais sous le pas de la barre : avec des disques de 5 kg (pas de 10 kg), une chauffe à 5 kg près n'existe pas.
+    if (estBarre(entree.equipement)) {
+      return Math.max(nombre(entree.reference) >= SEUIL_DIZAINE ? 10 : 5, pasDeLaBarre(plusPetitDisqueConnu()));
+    }
     var c = nombre(entree.cran);
     return c !== null && c > 0 ? c : CRAN_PAR_DEFAUT;
   }
@@ -9157,13 +9187,16 @@
     var bas = der * BAISSE_MIN_BARRE / 2 - 1e-9, haut = der * BAISSE_MAX_BARRE / 2 + 1e-9;
     var cible = der * (baisse || BAISSE_DEGRESSIVE) / 2;
     var dans = function (v) { return v >= bas && v <= haut; };
-    var seul = DISQUES.filter(dans).sort(function (a, b) {
+    // 190 — jamais un disque plus petit que le plus petit de la salle.
+    var plusPetit = plusPetitDisqueConnu();
+    var disques = DISQUES.filter(function (d) { return plusPetit === null || d >= plusPetit - 1e-9; });
+    var seul = disques.filter(dans).sort(function (a, b) {
       var da = Math.abs(a - cible), db = Math.abs(b - cible);
       return da !== db ? da - db : a - b;
     });
     if (seul.length) return seul[0];
     var paires = [];
-    DISQUES.forEach(function (a, i) { DISQUES.slice(i).forEach(function (b) { if (dans(a + b)) paires.push(auCentieme(a + b)); }); });
+    disques.forEach(function (a, i) { disques.slice(i).forEach(function (b) { if (dans(a + b)) paires.push(auCentieme(a + b)); }); });
     paires.sort(function (a, b) { return a - b; });
     return paires.length ? paires[0] : null;
   }
@@ -9445,6 +9478,8 @@
     REPRISE_COURTE: REPRISE_COURTE,
     REPRISE_LONGUE: REPRISE_LONGUE,
     REPLI_MATERIEL: REPLI_MATERIEL,
+    pasDeLaBarre: pasDeLaBarre,
+    brancherPlusPetitDisque: brancherPlusPetitDisque,
     RANGEMENT: RANGEMENT,
     mediane: mediane,
     zoneParCle: zoneParCle,

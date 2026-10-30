@@ -85,12 +85,11 @@ describe('l’écran Profil : la section du matériel porte le programme constru
     expect(e.section('CE QUE JE FAIS').lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Ma salle', 'Zone à ménager', 'Refaire mon programme']);
   });
 
-  // 163 (24/10/2026, décision d'Aurélien) — NEUF : sans exercice à l'élastique, « Ma salle » n'apparaît pas.
-  test('163 — sans exercice à l’élastique : pas de « Ma salle » dans le Profil', () => {
+  // 190 — « Ma salle » est toujours dans le Profil (le plus petit disque, la barre de traction) ; 163 la cachait sans élastique.
+  test('190 — sans exercice à l’élastique : « Ma salle » est quand même dans le Profil', () => {
     const e = profilEcran({ id: 'u1' });
-    expect(e.section('CE QUE JE FAIS').lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Zone à ménager', 'Refaire mon programme']);
-    expect(Profil.ligneSalle({ ma_salle: { elastiques: [{ nom: 'Noir' }] } }, () => {}, false)).toBeNull();
-    expect(Profil.ligneSalle({}, () => {}, true).libelle).toBe('Ma salle');
+    expect(e.section('CE QUE JE FAIS').lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Ma salle', 'Zone à ménager', 'Refaire mon programme']);
+    expect(Profil.ligneSalle({}, () => {}).libelle).toBe('Ma salle');
   });
 
   test('le rendu réel : la phrase d’aide sous chaque libellé, « à renseigner » jamais pour « Refaire »', () => {

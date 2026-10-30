@@ -119,6 +119,9 @@ dernières dates sont en base. Tri par dernière utilisation, recherche par nom.
 
 ### 2.4 quinquies Ma salle — décidé le 15/10/2026 (prompt 108) — **barres fixes, haltères et « barre chargée » REMPLACÉS le 24/10/2026 (163)**
 
+> **30/10/2026, décision d'Aurélien (190) — Ma salle gagne deux lignes, et la ligne du Profil est toujours là.** Sous les élastiques (quand il y en a), la même feuille — celle du questionnaire « Ajuster Ma salle » et celle du Profil, un seul éditeur — porte : **« Le plus petit disque »** (puces 0,5 · 1,25 · 2,5 kg · Je ne sais pas ; kg par côté) et **« Une barre de traction »** (Oui · Non · Je ne sais pas). « Je ne sais pas » retire la clé. La ligne **Profil → Ma salle** est toujours affichée et dit ce qui est réglé (« Disque de 1,25 kg, barre de traction » ; rien tant que rien n'est réglé). Le cran de la barre et la barre de traction : MOTEUR §10.2 (delta 30/10/2026). Aucune phrase ne promet un cran que le matériel n'a pas : « avec ton plus petit disque » ne se dit que le disque connu.
+
+
 > **24/10/2026, décision d'Aurélien.** « Ma salle » ne garde que les élastiques (§2.4 sexies) : les sections barres fixes, haltères (par tranches) et la bascule « barre chargée » sont retirées de la feuille. La ligne n'est dans le Profil que si un exercice à l'élastique est dans une routine, l'historique ou la séance en cours ; sa valeur dit « Élastiques » / « mini-bandes ». La phrase de la feuille : « Tes élastiques, du plus fort au plus léger. Rien d'autre à déclarer : le coach lit tes charges dans ton historique. » Ce qui suit est **remplacé**, gardé pour l'historique.
 
 

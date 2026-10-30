@@ -1,7 +1,7 @@
 # Schéma réel — état au 24 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_117`** (`sets_type_serie_ok` accepte `test`, 186 ; appliquée par Claude.ai avant la PR). Prochain numéro libre : **`v2_118`** (`v2_113` et `v2_115` : voir le dépôt/la base avant de s'y fier).
+Dernière migration appliquée : **`v2_119`** (`profiles.ma_salle` : le plus petit disque et la barre de traction, 190 ; appliquée par Claude.ai avant la PR). Prochain numéro libre : **`v2_120`** (`v2_113` et `v2_115` : voir le dépôt/la base avant de s'y fier).
 ⚠️ **`v2_106` n'a jamais été lancée** (décision du 22/10 : le volume reste un record) : le numéro reste vide.
 
 **Volumétrie (24/10, 2 h 30)** : 1 288 séances · 29 673 séries · 860 exercices (848 actifs) · 961 alias
@@ -31,6 +31,7 @@ Dernière migration appliquée : **`v2_117`** (`sets_type_serie_ok` accepte `tes
 | `v2_116` (saisie vérifiée, 185, 29/10/2026) | **`sets.hors_calcul`** boolean NOT NULL DEFAULT false : « série gardée au journal, mais exclue des records, des crans et du moteur ». Posée par la réponse « Non, ne compte pas » à la question de vraisemblance (ECRAN-SAISIE, « La question de vraisemblance ») ; lue ET écrite par l'app (`COLONNES_SET`, `lignes()`, toujours envoyée, `false` compris). Appliquée par Claude.ai avant la PR 185 |
 | `v2_117` (cran et dépassement, 186, 29/10/2026) | **`sets_type_serie_ok`** accepte un cinquième type, **`test`** (`travail` · `echauffement` · `degressive` · `echec` · `test`) : la « Série de test » du menu ⋯ de la série. Aucune colonne nouvelle ; `routine_sets.type_serie` ne change pas. |
 | `v2_118` (ta semaine et tes équilibres, 188-1, 29/10/2026) | **`sessions.gestes`** jsonb NOT NULL DEFAULT `'[]'` (CHECK tableau) : `[{geste, slug, vers?, n?, retires?}]`, `geste` ∈ `raccourci` · `machine_prise` · `remplacement` · `ajout_serie` · `retrait`, écrit par l'app à l'enregistrement de la séance (`COLONNES_SEANCE`, toujours envoyé). **`profiles.cartes_semaine`** jsonb NOT NULL DEFAULT `'{}'` (CHECK objet) : `{cle: {r: 'oui'\|'non', le: 'AAAA-MM-JJ', refus: n}}`, colonne FACULTATIVE à la lecture (`COLONNES_FACULTATIVES`), écrite par la file du profil. Appliquée par Claude.ai avant la PR 188-1 |
+| `v2_119` (Ma salle : le plus petit disque et la barre de traction, 190, 30/10/2026) | `profiles.ma_salle` accepte deux clés de plus (liste blanche de `profiles_ma_salle_ok` élargie ; contrainte séparée `profiles_ma_salle_equipement_ok`) : **`plus_petit_disque`** — le plus petit disque de la salle, en kg **par côté**, de 0,25 à 5 au pas de 0,25, `null` ou absent = inconnu ; **`barre_traction`** — booléen, absent = inconnu. L'app lit le disque pour le cran de la barre (2 × le disque, `THMoteur.pasDeLaBarre`) et la barre de traction pour le générateur, les échanges et les marches d'échelle (`THProfil.demandeUneBarreDeTraction`). « Je ne sais pas » écrit `null` / retire la clé (jamais `false`, jamais 0). Appliquée par Claude.ai avant la PR 190 |
 
 **Reste noté** : `pseudo_libre` ouverte à `anon` (voulu) ; 57 fonctions SECURITY DEFINER (l'API sociale) ; pas de FK
 `groupe_recaps.groupe_id` (abandonnée) ni `objectifs.pari_id` (à reprendre) ; « Leaked password protection » (tableau

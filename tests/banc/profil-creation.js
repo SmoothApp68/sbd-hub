@@ -134,7 +134,12 @@ function salleConforme(v, avantV2095) {
   if (typeof v !== 'object' || Array.isArray(v)) return false;
   // 132 (`v2_099`, `v2_102`) — les élastiques : `elastiques` [{nom, kg?}], `mini_bandes` [{nom}], `elastiques_par_nom`.
   if (Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres', 'elastiques', 'elastiques_par_nom',
-    'mini_bandes'].indexOf(k) < 0)) return false;
+    'mini_bandes', 'plus_petit_disque', 'barre_traction'].indexOf(k) < 0)) return false;
+  // 190 (`v2_119`, `profiles_ma_salle_equipement_ok`) — le plus petit disque (kg par côté, 0,25 à 5 au pas de 0,25, ou null) et la
+  // barre de traction (un booléen) ; absents ou null = inconnu.
+  const dq = v.plus_petit_disque;
+  if (dq !== undefined && dq !== null && !(typeof dq === 'number' && dq >= 0.25 && dq <= 5 && Math.floor(dq * 4) === dq * 4)) return false;
+  if (v.barre_traction !== undefined && v.barre_traction !== null && typeof v.barre_traction !== 'boolean') return false;
   const demi = (x) => typeof x === 'number' && Math.floor(x * 2) === x * 2;
   const liste = (x, cles) => x === undefined || (Array.isArray(x) && x.length <= 10 && x.every((e) => e &&
     typeof e === 'object' && !Array.isArray(e) && Object.keys(e).every((k) => cles.indexOf(k) >= 0) &&
@@ -1587,14 +1592,23 @@ function ok(nom, cond, detail) {
     // Les barres fixes, les haltères et la « barre chargée » sont retirés (anciennes sections 108 et 123 : la feuille de
     // la barre EZ et des haltères par tranches). La ligne n'est dans le Profil que si un exercice à l'élastique est dans
     // une routine, l'historique ou la séance ; la feuille ne porte que les élastiques.
-    console.log('\n══ 163. « Ma salle » : absente sans exercice à l’élastique, élastiques seulement avec ══');
+    console.log('\n══ 163. « Ma salle » : sans exercice à l’élastique, les deux réglages seulement ; avec, les élastiques aussi ══');
     {
       const bd = baseSansPseudo();
       bd.exElastique = null;
       const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
       const ligne = () => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
         .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0).length);
-      ok('DISCRIMINANT [163] — sans exercice à l’élastique, « Ma salle » n’est pas dans le Profil', (await ligne()) === 0, String(await ligne()));
+      // 190 — « Ma salle » est toujours dans le Profil (le plus petit disque et la barre de traction se règlent pour tous) ;
+      // sans exercice à l'élastique, la feuille ne porte que ces deux lignes.
+      ok('DISCRIMINANT [190] — sans exercice à l’élastique, « Ma salle » est quand même dans le Profil', (await ligne()) === 1, String(await ligne()));
+      await cliquerLigne(page, 'Ma salle');
+      await feuilleOuverte(page);
+      const sans = await page.evaluate(() => ({
+        reglages: Array.from(document.querySelectorAll('#feuille-contenu [data-reglage]')).map((x) => x.dataset.reglage),
+        listes: document.querySelectorAll('#feuille-contenu [data-liste]').length }));
+      ok('[190] la feuille ne porte que « Le plus petit disque » et « Une barre de traction » (pas d’élastique)',
+        JSON.stringify(sans.reglages) === JSON.stringify(['plus_petit_disque', 'barre_traction']) && sans.listes === 0, JSON.stringify(sans));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }
@@ -1639,7 +1653,7 @@ function ok(nom, cond, detail) {
       const noms = (liste) => page.evaluate((l) => Array.from(document.querySelectorAll('#feuille-contenu .el-carte[data-liste="' + l + '"] .el-rang'))
         .map((r) => r.querySelector('.el-nom').textContent + '|' + r.querySelector('.el-kg').textContent), liste);
       ok('[132] la feuille montre « Grands élastiques », « Mini-bandes » et le choix « en kg / par son nom »',
-        (await page.evaluate(() => document.querySelectorAll('#feuille-contenu .el-carte').length)) === 3);
+        (await page.evaluate(() => document.querySelectorAll('#feuille-contenu .el-carte:not([data-reglage])').length)) === 3);
       await ajouter('elastiques', 'Vert', '');
       await ajouter('elastiques', 'Rouge', '25');
       await ajouter('elastiques', 'Noir', '35');
@@ -1699,6 +1713,46 @@ function ok(nom, cond, detail) {
         (bd.profils[B].ma_salle.elastiques || []).length === 2, 10000);
       ok('[132] retirer un élastique et revenir « en kg » : la base suit', suivi, JSON.stringify(bd.profils[B].ma_salle));
       ok('[132] aucune écriture refusée par la contrainte imitée', bd.requetes.every((q) => q.statut !== 400), JSON.stringify(bd.requetes));
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
+    // ══ 190. « MA SALLE » : LE PLUS PETIT DISQUE ET LA BARRE DE TRACTION (v2_119) ═══════════════════════════════════
+    // Deux lignes de puces dans la feuille du Profil. Un disque touché s'écrit en kg par côté ; « Je ne sais pas » écrit
+    // `null` (la clé n'est jamais `false`) ; la contrainte imitée (`salleConforme`) accepte les deux clés.
+    console.log('\n══ 190. « Ma salle » : le plus petit disque et la barre de traction partent en base, « Je ne sais pas » écrit null ══');
+    {
+      const bd = baseSansPseudo();
+      bd.exElastique = null;
+      const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
+      await cliquerLigne(page, 'Ma salle');
+      await feuilleOuverte(page);
+      const toucher = async (cle, texte) => {
+        await page.evaluate(([c, t]) => Array.from(document.querySelectorAll('#feuille-contenu [data-reglage="' + c + '"] button'))
+          .filter((b) => b.textContent.replace(/\s/g, ' ').trim() === t)[0].click(), [cle, texte]);
+        await rendu(page);
+      };
+      const valider = () => page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());
+      await toucher('plus_petit_disque', '1,25 kg');
+      await toucher('barre_traction', 'Non');
+      await valider();
+      const ecrit = await attendreQue(page, () => !!bd.profils[B].ma_salle && bd.profils[B].ma_salle.plus_petit_disque === 1.25, 10000);
+      ok('DISCRIMINANT [190] — un disque de 1,25 et « Non » partent en base (1,25 ; false)', ecrit && bd.profils[B].ma_salle.barre_traction === false,
+        JSON.stringify(bd.profils[B].ma_salle));
+      const ligneP = await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Ma salle') === 0).map((x) => x.textContent.replace(/\s+/g, ' ')).join('|'));
+      ok('[190] la ligne du Profil dit ce qui est réglé', /1,25/.test(ligneP) && /Sans barre de traction/i.test(ligneP), ligneP);
+      await cliquerLigne(page, 'Ma salle');
+      await feuilleOuverte(page);
+      await toucher('plus_petit_disque', 'Je ne sais pas');
+      await toucher('barre_traction', 'Je ne sais pas');
+      await valider();
+      // Rien d'autre n'est déclaré : la salle redevient « non renseignée » (null), sans clé à `false`.
+      const sansCle = () => { const m = bd.profils[B].ma_salle; return m === null || (m.plus_petit_disque == null && m.barre_traction == null); };
+      const inconnu = await attendreQue(page, () => sansCle(), 10000);
+      ok('DISCRIMINANT [190] — « Je ne sais pas » retire les clés (la salle redevient null), jamais false', inconnu && sansCle() &&
+        !(bd.profils[B].ma_salle && bd.profils[B].ma_salle.barre_traction === false), JSON.stringify(bd.profils[B].ma_salle));
+      ok('[190] aucune écriture refusée par la contrainte imitée', bd.requetes.every((q) => q.statut !== 400), JSON.stringify(bd.requetes));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }

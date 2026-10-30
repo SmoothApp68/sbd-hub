@@ -1638,8 +1638,10 @@
 
   // LE MATÉRIEL : la règle de « Ma salle » (60-1), `Profil.estHorsMateriel` — appelée, jamais recopiée.
   // `equipements` : les équipements du matériel déclaré (`Profil.equipementsDe`), `null` sans matériel à ranger.
-  function horsMateriel(e, equipements) {
-    return !!equipements && racine.THProfil.estHorsMateriel(e && e.equipement, equipements);
+  // 190 — `sansBarre` : Ma salle dit « pas de barre de traction » ; ce qui en demande une passe après aussi (`estHorsDeMaSalle`).
+  function horsMateriel(e, equipements, sansBarre) {
+    if (!equipements && sansBarre !== true) return false;
+    return racine.THProfil.estHorsDeMaSalle(e && e.slug, e, equipements, sansBarre);
   }
   // La force (la musculation) ; une fiche SANS `nature` (cache d'avant 125, faux serveur) compte comme la force :
   // on ne rétrograde pas ce qu'on ne sait pas.
@@ -1665,7 +1667,7 @@
     var c = mots.length ? commence(ix, s, mots) : 0;
     var g = (n || estForce(e)) && !(!n && e.hors_salle) ? 0 : (e.hors_salle ? 2 : 1);
     return [o.ecartes.indexOf(s) >= 0 ? 1 : 0, c < 2 ? 0 : 1, g, c, -n, vaAvec(e, s, o.contexte),
-            !n && horsMateriel(e, o.equipements) ? 1 : 0, ix.replie[s]];
+            !n && horsMateriel(e, o.equipements, o.sansBarre) ? 1 : 0, ix.replie[s]];
   }
   // Les noms repliés se comparent PAR CODES DE CARACTÈRES (`a < b`), comme la référence — pas `localeCompare`, qui
   // rangerait autrement les espaces et les chiffres.
@@ -1736,7 +1738,7 @@
     var cles = {};
     l.forEach(function (s) {
       var f = nombre(o.faits, s);
-      cles[s] = [-f, !f && horsMateriel(ix.ex[s], o.equipements) ? 1 : 0, ix.replie[s]];
+      cles[s] = [-f, !f && horsMateriel(ix.ex[s], o.equipements, o.sansBarre) ? 1 : 0, ix.replie[s]];
     });
     return l.sort(function (a, b) { return comparerCles(cles[a], cles[b]); }).slice(0, n);
   }

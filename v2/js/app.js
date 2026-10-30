@@ -6278,7 +6278,15 @@
   function marcheAProposer(index, slug) {
     // 175 — « Pas de lest » (le profil, ou la réponse de l'exercice) : la variante sans matériel devient la marche.
     var m = Modele.marcheSuivante(index, slug, { lestRefuse: lestReponseDeLExercice(slug) === 'non' });
-    return m && m.proposable ? m : null;
+    if (!m || !m.proposable) return null;
+    // 190 — Ma salle dit « pas de barre de traction » : une marche qui en demande une (la stricte, l'archer, le muscle-up…) ne se
+    // propose pas ; les marches qui n'en demandent pas restent.
+    if (Profil.sansBarreDeTraction(profil)) {
+      var sans = m.cible.filter(function (c) { return !Profil.demandeUneBarreDeTraction(c, index[c]); });
+      if (!sans.length) return null;
+      if (sans.length < m.cible.length) m = Object.assign({}, m, { cible: sans });
+    }
+    return m;
   }
 
   // §13.6 (49-U20) — les frères d'un exercice (`Modele.freresDe`, le même
@@ -7425,14 +7433,14 @@
         planMemo.demo === demoReponse && planMemo.demoMarches === demoMarches &&
         planMemo.modes === local.modes && planMemo.lest === lestReponseDe() && planMemo.demoLest === demoLest &&
         planMemo.marches === (profil && profil.marche_reponses) && planMemo.demoMarche === demoMarche &&
-        planMemo.blocs === local.blocs) return planMemo.plan;
+        planMemo.blocs === local.blocs && planMemo.disque === Profil.plusPetitDisqueDe(profil)) return planMemo.plan;
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
                  edition: edition, constats: constats, catalogue: local.exercices,
                  refus: refusChauffes, escalier: local.escalier, legers: local.parisLegers,
                  seances: local.seances, demo: demoReponse, demoMarches: demoMarches,
                  modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, blocs: local.blocs, plan: plan,
-                 marches: profil && profil.marche_reponses, demoMarche: demoMarche };
+                 marches: profil && profil.marche_reponses, demoMarche: demoMarche, disque: Profil.plusPetitDisqueDe(profil) };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit. Un plan du
     // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.
@@ -9522,10 +9530,12 @@
   // 60-1 (QUESTIONNAIRE-COACH-V2 §4) — LE MATÉRIEL RANGE, IL NE CACHE JAMAIS.
   // Le prédicat « ce frère sort du matériel du profil » : `null` sans matériel
   // renseigné (rien ne change). La règle est `Profil.estHorsMateriel`.
+  // 190 — et sans barre de traction (Ma salle : « Non »), ce qui en demande une passe après aussi : `Profil.estHorsDeMaSalle`.
   function horsDuMateriel(index) {
     var autorises = Profil.equipementsDe(profil && profil.materiel);
-    if (!autorises) return null;
-    return function (s) { return Profil.estHorsMateriel(index[s] && index[s].equipement, autorises); };
+    var sansBarre = Profil.sansBarreDeTraction(profil);
+    if (!autorises && !sansBarre) return null;
+    return function (s) { return Profil.estHorsDeMaSalle(s, index[s], autorises, sansBarre); };
   }
 
   // 60-4 (ES §7 quindecies.9, MOTEUR §9.19) — LES FRÈRES D'UN EXERCICE, UNE SEULE LISTE : celle de « Machine prise »,
@@ -11911,6 +11921,7 @@
     if (faitsDuCatalogue === null) faitsDuCatalogue = faits.seancesParExercice(corpus());
     var c = ctx || {};
     return { alias: local.alias, faits: faitsDuCatalogue, equipements: Profil.equipementsDe(profil && profil.materiel),
+             sansBarre: Profil.sansBarreDeTraction(profil),
              ecartes: Profil.ecartesDe(profil), contexte: c.va || {}, exclu: c.type === 'remplacer' ? c.remplace : null };
   }
 
@@ -11919,7 +11930,7 @@
   function mentionsExo(o, ctx) {
     return function (e) {
       var m = [];
-      if (!(o.faits[e.slug] > 0) && o.equipements && Profil.estHorsMateriel(e.equipement, o.equipements)) m.push('Pas dans Ma salle');
+      if (!(o.faits[e.slug] > 0) && Profil.estHorsDeMaSalle(e.slug, e, o.equipements, o.sansBarre)) m.push('Pas dans Ma salle');
       if (ctx.type === 'routine' && ctx.dans.indexOf(e.slug) >= 0) m.push('Déjà dans la routine');
       return m;
     };
@@ -12974,6 +12985,7 @@
       objectif: Profil.objectifDe(p),
       phase: Profil.phaseDe(p),
       materiel: p.materiel,
+      barre_traction: Profil.barreTractionDe(p),   // 190 — Ma salle : `true`, `false`, ou `null` (inconnue)
       anciennete: p.anciennete,               // 60-6 : « moins d'un an » = débutant (le profil en cache, rien de lu en plus)
       priorites: Profil.prioritesDe(p),
       menager: Profil.zonesAMenagerValides(p.zones_a_menager) || [],
@@ -14181,6 +14193,9 @@
   // dont on peut sortir tout de suite.
 
   var profil = null;            // la ligne `profiles`, telle qu'on la connaît
+  // 190 (MOTEUR §10.2) — LE MOTEUR LIT LE PLUS PETIT DISQUE DU PROFIL, à chaque calcul : le pas de la barre est 2 × ce disque
+  // (`Moteur.pasDeLaBarre`). Un seul branchement ; le profil à jour est toujours celui qu'il lit.
+  Moteur.brancherPlusPetitDisque(function () { return Profil.plusPetitDisqueDe(profil); });
   // Ce qui attend d'être envoyé (116, audit du 16/10/2026) : `false` (rien), les COLONNES des gestes pas encore partis
   // (`{ colonne: valeur }`, fusionnées par `Profil.fusionnerEnAttente`), ou `true` — la forme d'avant 116, relue sur
   // un appareil qui attendait déjà : la ligne entière part, une fois. Vrai ou faux s'y lit comme avant.
@@ -15558,6 +15573,9 @@
     feuilleProfil = function (cible) {
       Rendu.rendreFeuilleSalle(cible, {
         brouillon: brouillon, erreur: erreur, declaree: !!Profil.salleDe(profil),
+        // 190 — le plus petit disque et la barre de traction (les lignes du questionnaire) ; les élastiques seulement s'il y en a.
+        avecElastiques: unExerciceALElastique(),
+        surReglage: function (cle, valeur) { brouillon = Profil.poserReglageMateriel(brouillon, cle, valeur); erreur = null; redessiner(); },
         surBasculer: function (type, kg) { brouillon = Profil.basculerBarre(brouillon, type, kg); erreur = null; redessiner(); },
         surAjouter: function (type, texte) {
           var v = Modele.lireNombre(texte);
@@ -15925,7 +15943,7 @@
             ligneChoix('materiel', 'Matériel'),
             // 108 (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies) — Ma salle ; 163 : les élastiques seulement, et seulement si un
             // exercice à l'élastique est dans une routine, l'historique ou la séance en cours.
-            Profil.ligneSalle(p, ouvrirSalleProfil, unExerciceALElastique())
+            Profil.ligneSalle(p, ouvrirSalleProfil)
           ].filter(Boolean).concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil)) }
         ]),
         dansLeGroupe('Moi', [

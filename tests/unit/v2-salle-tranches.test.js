@@ -187,6 +187,7 @@ function feuille(profil) {
   const ctx = {
     Profil, Modele: global.THModele, profil, feuilleProfil: null,
     $: () => ({}),
+    unExerciceALElastique: () => true,
     Rendu: { rendreFeuilleSalle: (cible, vue) => { etat.vue = vue; } },
     ouvrirFeuilleProfil: () => ctx.feuilleProfil({}),
     fermerVoile: () => { etat.fermes++; },

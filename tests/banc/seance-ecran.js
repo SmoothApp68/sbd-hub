@@ -1571,9 +1571,15 @@ const SETS_IMPORTES = [
             (v.elastiques_par_nom === undefined || typeof v.elastiques_par_nom === 'boolean');
           // 159 (`v2_111`) — `barre_ez_chargee`, `barre_droite_chargee` : deux booléens (`profiles_ma_salle_chargees_ok`).
           const okC = ['barre_ez_chargee', 'barre_droite_chargee'].every((k) => v[k] === undefined || typeof v[k] === 'boolean');
-          if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH || !okE || !okC ||
+          // 190 (`v2_119`, `profiles_ma_salle_equipement_ok`) — le plus petit disque (kg par côté, 0,25 à 5 au pas de 0,25, ou
+          // null) et la barre de traction (un booléen) ; absents ou null = inconnu.
+          const okQ = (v.plus_petit_disque === undefined || v.plus_petit_disque === null ||
+              (typeof v.plus_petit_disque === 'number' && v.plus_petit_disque >= 0.25 && v.plus_petit_disque <= 5 &&
+               Math.floor(v.plus_petit_disque * 4) === v.plus_petit_disque * 4)) &&
+            (v.barre_traction === undefined || v.barre_traction === null || typeof v.barre_traction === 'boolean');
+          if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH || !okE || !okC || !okQ ||
               Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres', 'elastiques', 'elastiques_par_nom',
-                'mini_bandes', 'barre_ez_chargee', 'barre_droite_chargee'].indexOf(k) < 0)) {
+                'mini_bandes', 'barre_ez_chargee', 'barre_droite_chargee', 'plus_petit_disque', 'barre_traction'].indexOf(k) < 0)) {
             return json(refus('23514', 'profiles_ma_salle_ok'), 400);
           }
         }
@@ -10251,7 +10257,8 @@ const SETS_IMPORTES = [
     // 1. « Ma salle » est absente du Profil tant qu'aucun exercice à l'élastique n'existe (ni routine, ni historique).
     await aller('/profil');
     await jusqua(() => page.evaluate(() => document.querySelectorAll('#profil-corps .p-ligne').length > 3), 8000);
-    ok('[163] DISCRIMINANT — sans exercice à l’élastique : pas de « Ma salle » dans le Profil', !(await ligneSalle()), '');
+    // 190 — « Ma salle » est toujours dans le Profil (le plus petit disque, la barre de traction) ; les élastiques, eux, restent conditionnels.
+    ok('[190] DISCRIMINANT — sans exercice à l’élastique, « Ma salle » est quand même dans le Profil (disque, barre de traction)', !!(await ligneSalle()), '');
 
     // 2. La machine jamais montée : « ≈ 35 kg », la phrase sous la ligne, la case préremplie à 35 (modifiable).
     await aller('/saisie');
@@ -15907,10 +15914,11 @@ const SETS_IMPORTES = [
     ok('[Q60] écran 8 — écrit : intention = progresser, rythme = franc',
       profilBase().intention === 'progresser' && profilBase().rythme_progression === 'franc', JSON.stringify([profilBase().intention, profilBase().rythme_progression]));
     e = await ecranQ();
-    ok('[Q60] écran 9 — « Voici ce que j’ai compris. » : les sept lignes (187 : + la zone), avec ce qui vient d’être répondu ; « Commencer »',
-      e.ecran === 'recap' && e.bouton === 'Commencer' && e.lignes.length === 8 && /^Tes exercices/.test(e.lignes[7]) &&
-        /But d’entraînement.*Muscle/.test(e.lignes[0]) && /Phase.*Maintien/.test(e.lignes[1]) && /^Matériel/.test(e.lignes[4]) && /^Zone à ménager/.test(e.lignes[5]) &&
-        /Coach.*Me pousser/.test(e.lignes[6]), JSON.stringify(e));
+    ok('[Q60] écran 9 — « Voici ce que j’ai compris. » : les neuf lignes (187 : + la zone ; 190 : + le plus petit disque et la barre de traction), avec ce qui vient d’être répondu ; « Commencer »',
+      e.ecran === 'recap' && e.bouton === 'Commencer' && e.lignes.length === 10 && /^Tes exercices/.test(e.lignes[9]) &&
+        /But d’entraînement.*Muscle/.test(e.lignes[0]) && /Phase.*Maintien/.test(e.lignes[1]) && /^Matériel/.test(e.lignes[4]) &&
+        /^Plus petit disque/.test(e.lignes[5]) && /^Barre de traction/.test(e.lignes[6]) && /^Zone à ménager/.test(e.lignes[7]) &&
+        /Coach.*Me pousser/.test(e.lignes[8]), JSON.stringify(e));
     ok('[Q60] écran 9 — rien ne dit « fait » avant « Commencer » : `questionnaire_fait_le` est encore vide',
       profilBase().questionnaire_fait_le === null, JSON.stringify(profilBase().questionnaire_fait_le));
     await cliquerQ('.q-mod[data-ecran="but"]', 500);

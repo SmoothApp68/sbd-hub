@@ -20109,7 +20109,7 @@ const SETS_IMPORTES = [
     const paireHaut = 'Rowing Poulie Assis et développé Couché (Haltère) en superset dans Haut U66D : ≈ 5 min de moins.';
     const paireBras = 'Curl Biceps (Haltère) et extension Triceps (Poulie Haute) en superset dans Haut U66D : ≈ 4 min de moins.';
     // 66D bis : le nombre d'un ajout est celui de la CARTE, après le raccourci (2 séries ajoutées, une coupée).
-    const elev = 'Élévation Latérale (Haltère) 1 × 15 dans Haut U66D.';
+    const elev = 'Élévation Latérale (Haltère) 2 × 15 dans Haut U66D.';
     // 66D bis — chaque ligne d'ajout (« {exercice} {n} × {reps} dans {séance}. ») et de séries (« {exercice} : {de} →
     // {a} séries dans {séance}. ») dit le nombre de la carte de sa séance. Rend les écarts (vide : cohérent) et le
     // nombre de lignes lues.
@@ -20140,13 +20140,13 @@ const SETS_IMPORTES = [
           ['Superset', 'Curl Biceps (Haltère)', 'Extension Triceps (Poulie Haute)']]) &&
         ap.cartes[0].exos[0][0] === 'Développé Couché (Barre)' && ap.cartes[0].exos[0][3] === false,
       JSON.stringify(ap.cartes.map((k) => [k.reprise, k.paires, k.exos.map((x) => x[0])])));
-    // Puis le raccourci (MOTEUR §9.18, après les supersets, inchangé) : les deux paires ne suffisent pas à tenir 45 min,
-    // il coupe les DERNIÈRES séries — le curl, l'extension, l'élévation — jamais un exercice ni une paire.
+    // Puis le raccourci (MOTEUR §9.18, 188-2 : supersets, repos, une série de moins — jamais sous 2 —, puis une isolation) : les deux
+    // paires ne suffisent pas à tenir 45 min, il coupe les séries des isolations, au plus bas 2 — jamais un exercice ni une paire.
     ok('[R66D] l’ajout est marqué ◆ (`.neuf`) et rangé à son rang — une isolation, à la fin ; aucun autre exercice n’est marqué ; le raccourci joue APRÈS',
       JSON.stringify(ap.cartes[0].exos.map((x) => [x[0], x[1], x[2]])) === JSON.stringify([
         ['Développé Couché (Barre)', '4 × 6', false], ['Rowing Poulie Assis', '3 × 10', false],
-        ['Développé Couché (Haltère)', '3 × 10', false], ['Curl Biceps (Haltère)', '2 × 12', false],
-        ['Extension Triceps (Poulie Haute)', '1 × 12', false], ['Élévation Latérale (Haltère)', '1 × 15', true]]) &&
+        ['Développé Couché (Haltère)', '2 × 10', false], ['Curl Biceps (Haltère)', '2 × 12', false],
+        ['Extension Triceps (Poulie Haute)', '2 × 12', false], ['Élévation Latérale (Haltère)', '2 × 15', true]]) &&
         ap.cartes[1].exos.every((x) => x[2] === false), JSON.stringify(ap.cartes.map((k) => k.exos)));
     ok('[R66D] rien n’est écrit à l’ouverture (aucune routine, aucun écarté)',
       ROUTINES.length === 0 && !profilBase().exercices_ecartes, JSON.stringify([ROUTINES.length, profilBase().exercices_ecartes]));

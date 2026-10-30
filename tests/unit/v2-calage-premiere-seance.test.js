@@ -177,6 +177,18 @@ describe('187 — le nombre de séries vient de la séance : routines à 1, 2, 4
     expect(x.calage.question).toBe(0);
   });
 
+  test('⚠️ les approches VALIDÉES restent des chauffes : la première série de travail monte au-dessus d’elles, sans demander leur réserve', () => {
+    let se = S.insererChauffes(seanceDe(2), 0, [[null, 5], [null, 5]], id);
+    se = fait(se, 0, 20, 5, null);
+    se = fait(se, 1, 25, 5, null);
+    const x = planDe(se, { debutant: false, habituelles: { rowing: 0 } }).exercices[0];
+    expect(x.calage.question).toBeNull();                                  // la réserve d'une approche n'est pas demandée
+    expect(x.calage.plusLourdeReussie).toBeNull();                         // une approche n'est pas une série de travail réussie
+    expect(propositions(x)).toEqual([null, null, 27.5, null]);             // au-dessus de la dernière approche (25), sur le travail
+    expect(x.lignes).toHaveLength(4);                                      // 2 chauffes + 2 séries de travail, rien de plus
+    expect(verifier(planDe(se, { debutant: false, habituelles: { rowing: 0 } }), se)).toEqual([]);
+  });
+
   test('⚠️ l’intermédiaire sans charge habituelle : les approches sont des chauffes et laissent intact le nombre de séries de travail', () => {
     let se = seanceDe(3);
     const travailAvant = se.exercices[0].series.length;

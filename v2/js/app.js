@@ -5931,7 +5931,8 @@
     if (!seance || !consignes || rejeuEnCours) return;
     consignesSauvees = { seanceId: seance.id, cle: consignes.cle, parSlug: consignes.parSlug,
                          phase: phaseDeLaSeance(), objectif: objectifDeLaSeance(),
-                         priorites: prioritesDeLaSeance(), debutant: debutantDeLaSeance() };
+                         priorites: prioritesDeLaSeance(), debutant: debutantDeLaSeance(),
+                         prudence: prudenceDeLaSeance() };
     Cache.ecrireBrouillon(CLE_CONSIGNES, consignesSauvees)
       .catch(function (e) { console.warn('Consignes non sauvées :', texteErreur(e)); });
   }
@@ -5942,6 +5943,7 @@
     objectifGele = null;
     prioritesGelees = null;
     debutantGele = null;
+    prudenceGelee = null;
     await Cache.ecrireBrouillon(CLE_CONSIGNES, null).catch(function () {});
   }
 
@@ -5970,6 +5972,10 @@
   // dégressive proposée ne lui est jamais faite ; une carte ne doit ni apparaître
   // ni disparaître parce qu'on a changé son ancienneté en pleine séance.
   var debutantGele = null;   // { seanceId, debutant }
+  // 191 (MOTEUR §9.1.2 bis) — LA PRUDENCE DE MONTÉE (le plafond du saut, « un cran à la fois »), gelée de la même façon : l'âge et
+  // l'ancienneté lus UNE fois, au moment où la consigne se fige — changer sa date de naissance ou son ancienneté en pleine séance ne
+  // change ni la séance en cours ni ses paris. Le plan, le calage, le dépassement et I71/I73 lisent cette même valeur.
+  var prudenceGelee = null;   // { seanceId, prudence }
 
   // MOTEUR §14.6 (49-U16) — LA RÈGLE DE VOLUME, UNE FOIS PAR SÉANCE, à côté
   // de la phase : le volume de chaque semaine par muscle sur TOUT l'historique
@@ -6050,6 +6056,16 @@
       typeof consignesSauvees.debutant === 'boolean' ? consignesSauvees.debutant : null;
     debutantGele = { seanceId: seance.id, debutant: sauve !== null ? sauve : Profil.estDebutant(profil) };
     return debutantGele.debutant;
+  }
+
+  // `undefined` à la relecture (gelée avant 191) : le profil d'aujourd'hui, au jour de la séance.
+  function prudenceDeLaSeance() {
+    if (!seance) return Profil.prudenceDuProfil(profil, new Date(instantDuCalcul()));
+    if (prudenceGelee && prudenceGelee.seanceId === seance.id) return prudenceGelee.prudence;
+    var sauve = consignesSauvees && consignesSauvees.seanceId === seance.id &&
+      consignesSauvees.prudence && typeof consignesSauvees.prudence === 'object' ? consignesSauvees.prudence : null;
+    prudenceGelee = { seanceId: seance.id, prudence: sauve !== null ? sauve : Profil.prudenceDuProfil(profil, new Date(instantDuCalcul())) };
+    return prudenceGelee.prudence;
   }
 
   // §12.9 (49-U13) — « sous consigne », dans l'app : une séance qui porte au
@@ -6409,6 +6425,8 @@
       reglage: Profil.rythmeDe(profil),
       // 180 (C-F5, D3) — le débutant (`anciennete = moins_1_an`) : sa réserve basse (R < V) n'arrête pas la montée (le moteur).
       debutant: Profil.estDebutant(profil),
+      // 191 — la prudence de montée (le plafond d'un saut ; « un cran à la fois »), au jour du calcul.
+      prudence: Profil.prudenceDuProfil(profil, new Date(instant)),
       // 187 (A4) — l'exercice charge une zone à ménager (profil + la table du générateur) : aucune série lourde.
       menagee: Generateur.zonesQueChargeLExercice(slug, profil && profil.zones_a_menager).length > 0,
       // §9.1.1 — la zone choisie, ou `null`. Le mémo ne la porte pas dans
@@ -7069,6 +7087,8 @@
       priorites: prioritesDeLaSeance(),
       // MOTEUR §14 (111) — le débutant GELÉ, avec la phase.
       debutant: debutantDeLaSeance(),
+      // 191 — la prudence de montée GELÉE, avec le débutant (I71, I73, le calage).
+      prudence: prudenceDeLaSeance(),
       // 187 (MOTEUR §9.21 bis) — « Ta charge habituelle ? » : la réponse de la séance, par exercice (un nombre, ou 0).
       habituelles: seance.habituelles || null,
       // 187 (A4) — les zones à ménager que charge chaque exercice de la séance, et la zone que la personne a choisie.
@@ -15693,7 +15713,7 @@
     },
     date_naissance: {
       titre: 'Date de naissance', type: 'date', etiquette: 'Jour de naissance',
-      aide: 'Il n’est jamais affiché à personne d’autre.',
+      aide: 'Il n’est jamais affiché à personne d’autre. Il règle la prudence de tes montées de charge, jamais ta charge de départ.',
       lire: function (p) { return p.date_naissance; },
       valider: function (v) {
         if (!String(v).trim()) return { champs: { date_naissance: null } };

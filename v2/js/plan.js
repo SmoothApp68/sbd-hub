@@ -779,7 +779,7 @@
     var habs = e.habituelles && typeof e.habituelles === 'object' ? e.habituelles : {};
     var habituelle = Object.prototype.hasOwnProperty.call(habs, slug) ? nombre(habs[slug]) : null;
     var r = M.calagePremiereFois({
-      debutant: e.debutant === true, equipement: cat.equipement, salle: c.salle || null, mesure: cat.mesure || 'charge_reps',
+      debutant: e.debutant === true, prudence: prudenceDuPlan(e), equipement: cat.equipement, salle: c.salle || null, mesure: cat.mesure || 'charge_reps',
       reps: reps, habituelle: habituelle, prochain: prochain,
       series: faites.map(function (f) {
         var sr = series[f.j];
@@ -802,6 +802,10 @@
       question: 'Ta charge habituelle ?', pour: 'Pour ' + r.n + ' reps environ', passer: 'Je ne sais pas : on la trouve ensemble' }); }
     return r;
   }
+
+  // 191 — LA PRUDENCE DE MONTÉE du plan : celle que l'app a gelée avec la séance (`e.prudence`, âge et ancienneté lus UNE fois), sinon
+  // celle du seul débutant. Une seule lecture, pour le calage, le dépassement et les invariants (I71, I73).
+  function prudenceDuPlan(e) { return Moteur().prudenceEffective(e && e.debutant === true, e && e.prudence); }
 
   // Le gris du calage : posé APRÈS `preremplir`, sur la ligne porteuse seulement — la proposition, jamais une série.
   function poserLeCalage(x) {
@@ -1389,6 +1393,8 @@
       edition: !!seance.edition,
       intention: intentionProfil,
       debutant: debutant,
+      // 191 — la prudence de montée (plafond, un cran à la fois), lue par les invariants I71 et I73.
+      prudence: prudenceDuPlan(e),
       lestReponse: lestReponse,
       marcheReponses: marcheReponses,
       // 149 — le réglage de rythme, pour que les invariants (I29, I49, I50, I52 à I55) le relisent.
@@ -4520,7 +4526,7 @@
   // I72 à I74 (MOTEUR §9.21 bis, 187) — LE CALAGE DE LA PREMIÈRE SÉANCE.
   //   I72  il ne s'ouvre que sur une consigne « première fois » sans charge de départ (ni historique, ni routine qui en porte),
   //        pour une charge × reps ; jamais en Édition ni en « Juste un carnet » ;
-  //   I73  il ne propose jamais plus que le plafond : au plus +15 % (+10 % pour un débutant) de la série qu'on vient de faire,
+  //   I73  il ne propose jamais plus que le plafond : au plus +15 % (+10 % pour un débutant ou 65 ans et plus, 191) de la série qu'on vient de faire,
   //        sauf la première montée depuis le plus petit cran (deux crans au plus) ; jamais moins que la série d'avant ; trois
   //        séries au plus, et plus aucune proposition après la troisième ;
   //   I74  une proposition n'est JAMAIS une série : elle porte sur une ligne non validée, une seule par exercice, et la série
@@ -4542,6 +4548,13 @@
       // Le nombre de séries vient de la séance vivante (routine, personne, coach) : I73 ne le compare jamais à un nombre fixe ; le
       // calage ne crée, n'ajoute ni ne retire aucune série.
       var s = k.suivante;
+      // 191 — la prudence de montée du plan (âge et ancienneté, gelés avec la séance) : le plafond du calage n'est jamais plus haut
+      // que le sien, et « un cran à la fois » ne laisse passer ni deux crans ni trois (sauf les approches, qui ne sont pas une montée).
+      var pru = plan.prudence || null;
+      if (pru && nombre(k.plafond) !== null && k.plafond > pru.plafond + 1e-9) {
+        erreurs.push('I73' + nom + 'un plafond de ' + Math.round(k.plafond * 100) + ' %, la prudence de montée dit ' + Math.round(pru.plafond * 100) + ' %');
+      }
+      if (pru && pru.unCran && s && s.crans > 1 && s.pourquoi !== 'en_montant') erreurs.push('I73' + nom + s.crans + ' crans, un seul à la fois');
       if (s) {
         if (s.role !== 'approche' && s.reps !== k.n) erreurs.push('I73' + nom + 'des reps proposées différentes des ' + k.n + ' de la routine');
         if (s.depuis !== undefined && s.depuis !== null) {
@@ -4876,8 +4889,9 @@
   // I71 (MOTEUR §9.1.2 / §9.7 / §10.2, 186) — LE CRAN, LE DÉPASSEMENT, LA ZONE :
   //   · aucune consigne n'a pour cran (ligne ou haut) la charge d'une série hors palier de la dernière séance (un single n'est jamais
   //     un pas du matériel) ;
-  //   · un saut de plusieurs crans (`fondement.crans` > 1) ne dépasse jamais +15 % de la charge de travail (+10 % pour un débutant,
-  //     `fondement.plafond`), ni trois crans ;
+  //   · un saut de plusieurs crans (`fondement.crans` > 1) ne dépasse jamais +15 % de la charge de travail (+10 % pour un débutant
+  //     ou 65 ans et plus, `fondement.plafond`, 191), ni trois crans ; aucun saut de plusieurs crans pour un débutant de 50 ans et
+  //     plus (« un cran à la fois », `plan.prudence`) ;
   //   · la zone ne change que par un choix : la carte « Passer en <zone suivante> » ne vient qu'après trois séances au-dessus du
   //     haut, vers la zone d'à côté, jamais d'une zone de force, jamais seule (elle se pose à l'acceptation, `poserZone`).
   function verifierDepassement(plan, erreurs) {
@@ -4895,6 +4909,11 @@
         }
         if (f.crans > 1 && cL !== null && cH !== null && cL > 0) {
           var plafond = nombre(f.plafond) !== null ? nombre(f.plafond) : 0.15;
+          // 191 — jamais au-dessus du plafond de la prudence de montée, jamais plusieurs crans quand elle dit « un cran à la fois ».
+          if (plan && plan.prudence && plafond > plan.prudence.plafond + 1e-9) {
+            erreurs.push(nom + 'un plafond de saut de ' + plafond + ', la prudence de montée dit ' + plan.prudence.plafond);
+          }
+          if (plan && plan.prudence && plan.prudence.unCran) erreurs.push(nom + 'un saut de ' + f.crans + ' crans, un cran à la fois');
           if (f.crans > 3) erreurs.push(nom + 'un saut de ' + f.crans + ' crans, trois au plus');
           if (plafond > 0.15 + 1e-9) erreurs.push(nom + 'un plafond de saut de ' + plafond + ', quinze pour cent au plus');
           if ((cH - cL) / cL > plafond + 1e-6) {

@@ -746,7 +746,15 @@ const NOTIONS = [
       '16/10/2026) : la salle d’un exercice d’isolation, dont la fourchette s’étend à 15 reps à la plus lourde. 111 : la dégressive ' +
       'proposée (MOTEUR §14), en isolation seulement — le plan la lit (`polyarticulaireDe`), et la démonstration ' +
       '`?escalier=degressive` de l’app y choisit son exercice (`degressiveDeDemo`).' },
-  { notion: 'un grand mouvement (un polyarticulaire à la barre ou au poids du corps : tractions, dips, pompes, rowing inversé)', pr: '191',
+  { notion: 'la prudence de montée (le plafond d’un saut à 10 % : débutant ou 65 ans et plus ; un cran à la fois : débutant de 50 ans et plus)', pr: '191-U1',
+    module: 'moteur.js', fonction: 'prudenceDeMontee', lecteurs: ['profil.js'],
+    par: ['prudenceEffective'],
+    parAilleurs: { 'profil.js': ['prudenceDuProfil'] },
+    raison: '191 (décision d’Aurélien du 30/10/2026) : UN prédicat, lu par le plafond d’un saut (186), le calage de la première séance (187), ' +
+      'le dépassement et les invariants I71 et I73 (plan.js). Le profil ne fait que lui donner l’ancienneté et l’âge (`date_naissance`) ; ' +
+      'année absente, aucune règle d’âge — jamais un âge deviné. Les lecteurs de moteur.js lisent `prudenceEffective` (un `prudence` donné, ' +
+      'sinon le seul débutant).' },
+  { notion: 'un grand mouvement (un polyarticulaire à la barre ou au poids du corps : tractions, dips, pompes, rowing inversé)', pr: '191-U1',
     module: 'moteur.js', fonction: 'estGrandMouvement', lecteurs: ['plan.js', 'equilibres.js'],
     par: ['raccourcirRoutine'],
     parAilleurs: { 'plan.js': ['reposDuPlan'], 'equilibres.js': ['estGros'] },

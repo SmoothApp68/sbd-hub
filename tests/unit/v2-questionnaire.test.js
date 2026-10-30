@@ -644,8 +644,8 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     expect(blocs(v, 'puces')[0].options.map((o) => o.libelle)).toEqual(['Homme', 'Femme', 'Non précisé']);
     const champs = blocs(v, 'champs')[0].champs;
     expect(champs.map((c) => c.libelle)).toEqual(['Année de naissance', 'Taille', 'Poids']);
-    // 116 (audit du 16/10/2026, 03 #9) — aucun lecteur de l'âge ni de la taille : la phrase ne le promet plus.
-    expect(champs[0].aide).toBe('Je ne m’en sers pas encore. Elle pourra régler la prudence de tes charges de départ.');
+    // 116 (audit du 16/10/2026, 03 #9) : la taille n'a aucun lecteur, la phrase ne le promet plus ; 191 : l'année en a un (la prudence de montée).
+    expect(champs[0].aide).toBe('Elle règle la prudence de tes montées de charge, jamais ta charge de départ.');
     expect(champs[1].aide).toBe('Je ne m’en sers pas encore. Avec ton poids, elle pourra aider à choisir tes charges de départ.');
     expect(champs[2].aide).toBe('Tractions, dips et pompes, et ta force rapportée à ton poids.');
     expect(v.etape).toBe('Toi · facultatif');

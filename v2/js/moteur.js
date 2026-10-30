@@ -64,11 +64,16 @@
   // sous-estime sa réserve (son « 0 » vaut souvent 3-4, Steele 2017) : sa réserve HAUTE reste un signal sûr (le test), sa
   // réserve BASSE n'arrête pas la montée.
   var debutantEnCours = false;
+  // 191 — LA PRUDENCE DE MONTÉE, donnée avec le débutant (`options.prudence`, cf. `prudenceDeMontee`), même drapeau de module, même raison.
+  var prudenceEnCours = null;
   function avecDebutant(options, calcul) {
-    if (!options || typeof options.debutant !== 'boolean') return calcul();
-    var avant = debutantEnCours;
-    debutantEnCours = options.debutant;
-    try { return calcul(); } finally { debutantEnCours = avant; }
+    var aDeb = !!options && typeof options.debutant === 'boolean';
+    var aPru = !!options && !!options.prudence && typeof options.prudence === 'object';
+    if (!aDeb && !aPru) return calcul();
+    var avant = debutantEnCours, avantPru = prudenceEnCours;
+    if (aDeb) debutantEnCours = options.debutant;
+    if (aPru) prudenceEnCours = options.prudence;
+    try { return calcul(); } finally { debutantEnCours = avant; prudenceEnCours = avantPru; }
   }
 
   // §9.1.2 — 8 séances avant de conclure. Mesuré (banc M12) : sur tout
@@ -1300,6 +1305,43 @@
   var PLAFOND_SAUT = 0.15;
   var PLAFOND_SAUT_DEBUTANT = 0.10;
 
+  // ══ 191 (MOTEUR §9.1.2 bis, décision d'Aurélien du 30/10/2026) — LA PRUDENCE DE MONTÉE, SELON L'ÂGE ET L'EXPÉRIENCE ═══════════
+  //
+  // UN SEUL PRÉDICAT, lu par le plafond d'un saut (186), le calage de la première séance (187), le dépassement et les invariants
+  // (I71, I73) : rien ne se recopie.
+  //   · PLAFOND À +10 % (au lieu de +15 %) pour les sauts de plusieurs crans : le débutant (`anciennete = moins_1_an`) OU
+  //     65 ans et plus, quelle que soit l'expérience ;
+  //   · UN CRAN À LA FOIS (calage : réserve 3 ou plus → +1 cran ; dépassement : jamais deux ni trois crans) pour le débutant de
+  //     50 ans et plus.
+  //   · Un cran seul reste TOUJOURS permis : la prudence ne bloque jamais la montée, elle la ralentit.
+  //   · L'âge est celui du profil (`date_naissance`). ABSENT (`null`) : aucune de ces règles, jamais un âge deviné. Rien ne change
+  //     sur la charge de départ : ce n'est pas une estimation de force par population.
+  // Raison : les tendons s'adaptent plus lentement que les muscles, et plus encore avec l'âge (Magnusson et Kjaer) ; l'ACSM
+  // recommande une progression prudente chez les plus âgés (position stand 2009).
+  var AGE_PLAFOND_BAS = 65, AGE_UN_CRAN = 50;
+  var RAISON_PRUDENCE = { debutant: 'debutant', age: 'age', debutantAge: 'debutant_age' };
+  // `o` : `{ debutant: booléen, age: années révolues ou null }`. Rend `{ plafond, unCran, raison }` ; `raison` est `null` sans prudence.
+  function prudenceDeMontee(o) {
+    var debutant = !!o && o.debutant === true;
+    var a = o ? nombre(o.age) : null;
+    var age = a !== null && a >= 0 && a < 130 ? a : null;
+    var senior = age !== null && age >= AGE_PLAFOND_BAS;
+    var unCran = debutant && age !== null && age >= AGE_UN_CRAN;
+    return { plafond: debutant || senior ? PLAFOND_SAUT_DEBUTANT : PLAFOND_SAUT, unCran: unCran,
+             raison: unCran ? RAISON_PRUDENCE.debutantAge : senior ? RAISON_PRUDENCE.age : debutant ? RAISON_PRUDENCE.debutant : null };
+  }
+  // La prudence EN VIGUEUR : celle qu'on donne (une prudence valide), sinon celle du seul débutant (sans âge : rien de deviné).
+  function prudenceEffective(debutant, prudence) {
+    if (prudence && typeof prudence === 'object' && nombre(prudence.plafond) !== null) {
+      return { plafond: nombre(prudence.plafond), unCran: prudence.unCran === true, raison: prudence.raison || null };
+    }
+    return prudenceDeMontee({ debutant: debutant === true, age: null });
+  }
+  // Une phrase du « Pourquoi » quand la prudence a changé ce que le coach propose. Un fait, pas de nombre.
+  var PHRASE_UN_CRAN = 'Un cran à la fois : les tendons s’adaptent plus lentement que les muscles.';
+  var PHRASE_PLAFOND = 'Le saut reste limité : les tendons s’adaptent plus lentement que les muscles.';
+  function phrasePrudence(quoi) { return quoi === 'un_cran' ? PHRASE_UN_CRAN : quoi === 'plafond' ? PHRASE_PLAFOND : null; }
+
   // ── §9.26 (154) — L'EFFORT VISÉ : « garde-en N » ─────────────────────────────────────────────────────────────────
   //
   // La réserve que le coach vise sur la dernière série de travail d'un exercice, en reps. Une table, un seul endroit :
@@ -1596,6 +1638,7 @@
     var opt = options || {};
     var reglage = opt.reglage || 'normal';
     var debutant = debutantEnCours || opt.debutant === true;
+    var prudence = prudenceEffective(debutant, prudenceEnCours || opt.prudence);
     var equipement = opt.equipement;
     var correction = opt.correction;
     // §9.17 — la réponse à la carte du lest (`oui`, `non`), ou `null` : pas
@@ -2318,8 +2361,26 @@
       }
       if (niv !== null && niv >= 2 * hi) { cransVoulus = 3; preuveDe = 'haut'; }
     }
-    var plafondSaut = debutant ? PLAFOND_SAUT_DEBUTANT : PLAFOND_SAUT;
+    // 191 — LA PRUDENCE DE MONTÉE : le plafond (10 % au lieu de 15 %) et, pour le débutant de 50 ans et plus, UN CRAN À LA FOIS.
+    var plafondSaut = prudence.plafond;
     var cransPris = 1;
+    var prudenceDit = null;
+    // Le saut que la prudence a empêché : ce que le plafond ordinaire (15 %) et deux ou trois crans auraient permis.
+    var sautSansPrudence = function (voulus) {
+      var ch = [c1];
+      for (var k0 = 2; k0 <= voulus; k0++) {
+        var sv = ch[ch.length - 1] === null ? null : voisine(ch[ch.length - 1], 1);
+        if (sv === null) break;
+        ch.push(sv);
+      }
+      for (var k1 = ch.length; k1 >= 2; k1--) if (auCentieme(ch[k1 - 1] - P) <= auCentieme(P * PLAFOND_SAUT)) return k1;
+      return 1;
+    };
+    if (cransVoulus > 1 && prudence.unCran) {
+      // Un cran seul reste permis : la prudence ralentit la montée, elle ne la bloque pas.
+      if (sautSansPrudence(cransVoulus) > 1) prudenceDit = 'un_cran';
+      cransVoulus = 1; preuveDe = null;
+    }
     if (cransVoulus > 1) {
       var chaine = [c1];
       for (var kc = 2; kc <= cransVoulus; kc++) {
@@ -2330,8 +2391,10 @@
       for (var kp = chaine.length; kp >= 2; kp--) {
         if (auCentieme(chaine[kp - 1] - P) <= auCentieme(P * plafondSaut)) { saut = chaine[kp - 1]; cransPris = kp; preuveRetenue = preuveDe; break; }
       }
+      if (plafondSaut < PLAFOND_SAUT && cransPris < sautSansPrudence(cransVoulus)) prudenceDit = 'plafond';
     }
     var plusTest = preuveRetenue === null ? {} : { preuve: preuveRetenue, crans: cransPris, depasse: depasse, plafond: plafondSaut, materiel: equipement };
+    if (prudenceDit !== null) plusTest.prudence = { quoi: prudenceDit, raison: prudence.raison };
     if (effortVise !== null && effortVise.effet === 'test') plusTest.effortVise = effortVise;
     // 175 — LE GROS CRAN : le test du plus petit cran (une seule marche, jamais un double saut) se joue au plancher.
     var grosPropose = saut !== null && saut === c1 && preuveRetenue === null ? grosCran(P, saut, zone, isolation) : null;
@@ -2339,7 +2402,7 @@
       plusTest.cranGros = grosPropose;
       return rendre('test_propose', ligneDe(P, vise), hautDe(saut, grosPropose.plancher, 1), plusTest);
     }
-    return rendre('test_propose', ligneDe(P, vise), hautDe(saut, lo, 1), plusTest.preuve || plusTest.effortVise ? plusTest : null);
+    return rendre('test_propose', ligneDe(P, vise), hautDe(saut, lo, 1), plusTest.preuve || plusTest.effortVise || plusTest.prudence ? plusTest : null);
   }
 
   // ── §9.14 — LA RÉACTION SÉRIE PAR SÉRIE (chantier 49, 49-R1) ─────────────
@@ -4762,6 +4825,8 @@
             nombreFr(pourcent, regle('ecart.pourcent')) + INSECABLE + '% de plus, ' +
             'dans la limite de ' + nombreFr(Math.round((f.plafond || MARGE_DOUBLE_SAUT) * 100), regle('constante')) + INSECABLE + '%.';
         }
+        // 191 — la prudence de montée a ralenti ce saut : une phrase, un fait.
+        if (f.prudence && phrasePrudence(f.prudence.quoi)) dit += ' ' + phrasePrudence(f.prudence.quoi);
         // 175 — un gros cran : l'écart dit, et ce qui suffit pour s'y installer.
         if (f.cranGros && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) dit += ' ' + phraseGrosCran(f.cranGros);
         return dit;
@@ -8149,12 +8214,16 @@
     var pas = repliDe(equipement, 0, 1);
     return pas === null || pas === undefined ? null : pas;
   }
-  function plafondDuCalage(debutant) { return debutant ? PLAFOND_SAUT_DEBUTANT : PLAFOND_SAUT; }
+  // 191 — le plafond du calage est celui de la prudence de montée (le débutant, ou 65 ans et plus : +10 % ; sinon +15 %).
+  // (`debutant` booléen accepté : le plafond du seul débutant, comme avant 191.)
+  function plafondDuCalage(prudence) {
+    return prudenceEffective(prudence === true, prudence && typeof prudence === 'object' ? prudence : undefined).plafond;
+  }
 
   // La charge d'après : `crans` crans au-dessus de `charge`, sans dépasser le plafond (sauf la première montée depuis le
   // plancher), sans jamais descendre.
   function monteeDuCalage(o, charge, crans) {
-    var plafond = charge * (1 + plafondDuCalage(o.debutant)) + 1e-9;
+    var plafond = charge * (1 + plafondDuCalage(o.prudence)) + 1e-9;
     var depuisLePlancher = charge <= o.plancher + 1e-9;
     var c = charge, pris = 0;
     for (var k = 0; k < crans; k++) {
@@ -8182,9 +8251,11 @@
     var faites = (o.series || []).filter(function (s) { return s && nombre(s.charge) !== null; });
     var k = faites.length;
     var debutant = o.debutant === true;
+    var prudence = prudenceEffective(debutant, o.prudence);
+    o.prudence = prudence;
     var mode = debutant ? 'debutant' : hab !== null ? 'habituelle' : 'approches';
     var chauffeProchaine = o.prochain === 'chauffe';
-    var r = { mode: mode, n: n, faites: k, plancher: o.plancher, equipement: o.equipement || null, plafond: plafondDuCalage(debutant),
+    var r = { mode: mode, n: n, faites: k, plancher: o.plancher, equipement: o.equipement || null, plafond: plafondDuCalage(prudence), unCran: prudence.unCran, prudence: null,
               habituelle: hab, suivante: null, question: false, plusLourdeReussie: null };
     var travaillees = faites.filter(function (s) { return !s.chauffe; });
     var reussies = travaillees.filter(function (s) { return nombre(s.reps) !== null && nombre(s.reps) >= n; });
@@ -8207,9 +8278,18 @@
     if (derniere.chauffe) { crans = 2; pourquoi = 'en_montant'; }          // les approches montent ; leur réserve n'est pas demandée
     else {
       crans = reserve === null ? 0 : reserve >= 3 ? 2 : reserve === 2 ? 1 : 0;
+      // 191 — UN CRAN À LA FOIS (le débutant de 50 ans et plus) : « 3 ou plus » monte d'un cran, pas de deux.
+      var cranVoulu = crans;
+      if (prudence.unCran && crans > 1) crans = 1;
       pourquoi = reserve === null ? 'sans_reponse' : crans === 2 ? 'facile' : crans === 1 ? 'un_cran' : 'tenue';
+      if (cranVoulu > crans) { pourquoi = 'facile_un_cran'; r.prudence = { quoi: 'un_cran', raison: prudence.raison }; }
     }
     var mont = monteeDuCalage(o, charge, crans);
+    // 191 — le plafond de la prudence (10 %) a ramené la montée à moins de crans que le plafond ordinaire (15 %) n'en aurait permis.
+    if (prudence.plafond < PLAFOND_SAUT && !r.prudence && crans > 1 && !derniere.chauffe) {
+      var ord = monteeDuCalage(Object.assign({}, o, { prudence: { plafond: PLAFOND_SAUT, unCran: false } }), charge, crans);
+      if (ord.crans > mont.crans) { pourquoi = 'plafonne'; r.prudence = { quoi: 'plafond', raison: prudence.raison }; }
+    }
     r.suivante = { charge: mont.charge, reps: reps, role: role, pourquoi: pourquoi, crans: mont.crans, depuis: charge };
     return r;
   }
@@ -8231,6 +8311,8 @@
       if (s.pourquoi === 'plancher') pourquoi = c.equipement === 'barre' ? 'Commence à la barre vide.' : 'Commence au plus petit cran.';
       else if (s.pourquoi === 'en_montant') pourquoi = 'Je monte de deux crans.';
       else if (s.pourquoi === 'facile') pourquoi = 'Facile : je monte de deux crans.';
+      else if (s.pourquoi === 'facile_un_cran') pourquoi = 'Facile : je monte d’un cran. ' + PHRASE_UN_CRAN;
+      else if (s.pourquoi === 'plafonne') pourquoi = 'Facile : je monte aussi haut que le plafond le permet. ' + PHRASE_PLAFOND;
       else if (s.pourquoi === 'un_cran') pourquoi = 'Il t’en restait 2 : je monte d’un cran.';
       else if (s.pourquoi === 'tenue') pourquoi = 'Il t’en restait peu : je garde cette charge.';
       else if (s.pourquoi === 'sans_reponse') pourquoi = 'Sans ta réponse, je garde cette charge.';
@@ -9324,6 +9406,9 @@
     raccourcirRoutine: raccourcirRoutine,
     structureDeRoutine: structureDeRoutine,
     estPolyarticulaire: estPolyarticulaire,
+    prudenceDeMontee: prudenceDeMontee,
+    prudenceEffective: prudenceEffective,
+    phrasePrudence: phrasePrudence,
     estGrandMouvement: estGrandMouvement,
     estUnMouvementAuPoidsDuCorps: estUnMouvementAuPoidsDuCorps,
     reposAConseiller: reposAConseiller, phraseReposLong: phraseReposLong,

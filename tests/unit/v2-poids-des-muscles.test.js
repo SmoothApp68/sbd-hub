@@ -135,8 +135,9 @@ describe('le polyarticulaire compte ses muscles dans les trois listes', () => {
     const r = Moteur.raccourcirRoutine(structure(['abdominaux', 'bas_du_dos']), 1);
     expect(r.exercices[1].tr).toBe(2);
     expect(r.exercices[1].stab).toEqual(['abdominaux', 'bas_du_dos']);       // la copie garde `stab`
-    // Le témoin : sans stabilisateurs, le même exercice est une isolation et descend à 1.
-    expect(Moteur.raccourcirRoutine(structure(undefined), 1).exercices[1].tr).toBe(1);
+    // 188-2 : le plancher d'une isolation passe à 2 aussi (jamais sous 2 séries). Le témoin sans stabilisateurs (une isolation) s'arrête
+    // au même plancher ; la différence qui reste est la priorité (un polyarticulaire se réduit après une isolation).
+    expect(Moteur.raccourcirRoutine(structure(undefined), 1).exercices[1].tr).toBe(2);
   });
 
   test('la structure d’une routine de l’app porte `stab` (le catalogue, absent = vide)', () => {

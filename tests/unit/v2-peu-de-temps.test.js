@@ -489,7 +489,7 @@ describe('51-1 ter — la séance raccourcie : la semaine allégée et la série
       Seance: S, Moteur: M, routinesHeritees: {}, seance: null, chrono: null,
       uuid: () => 'id-' + (++n), sessionActive: null,
       sauverSeance: async () => {}, poserSeance: async () => {}, allerA: () => {}, rendreSeance: () => {},
-      appliquerAllegee: async () => {}, ecrireReplis: async () => {}, appliquerSerieDePlus: async () => {},
+      appliquerAllegee: async () => {}, appliquerSerieDeMoins: async () => {}, ecrireReplis: async () => {}, appliquerSerieDePlus: async () => {},
       // 111 — la dégressive proposée en cours : rien ici.
       appliquerDegressive: async () => {},
       // 91 — une séance commencée pour rejoindre un groupe : rien ici.

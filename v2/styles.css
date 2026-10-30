@@ -1120,6 +1120,18 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .carte-escalier button{min-height:40px;padding:0 14px;border-radius:var(--r-bouton);font:inherit;font-size:14px}
 .carte-escalier .ce-alleger{background:var(--accent);color:var(--sur-accent);border:0;font-weight:620}
 .carte-escalier .ce-refuser{background:transparent;color:var(--texte-2);border:1px solid var(--trait)}
+.carte-escalier .ce-gestes{flex-wrap:wrap}
+.carte-escalier .ce-moins{background:var(--panneau-2,transparent);color:var(--texte);border:1px solid var(--trait);text-align:left}
+.carte-escalier .ce-titre{margin:0 0 6px;font-weight:700;font-size:16px}
+.carte-escalier .ce-pourquoi{margin-top:10px;font-size:13.5px}
+.carte-escalier .ce-pourquoi summary{min-height:40px;display:flex;align-items:center;color:var(--texte-2);cursor:pointer}
+.carte-escalier .ce-pq-titre{margin:8px 0 4px;font-size:15px}
+.carte-escalier .ce-pq-table{width:100%;border-collapse:collapse;font-size:14px}
+.carte-escalier .ce-pq-table td{padding:6px 0;border-bottom:1px solid var(--trait)}
+.carte-escalier .ce-pq-table td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+.carte-escalier .ce-pq-tete td,.carte-escalier .ce-pq-note td{color:var(--texte-2)}
+.carte-escalier .ce-pq-bas{color:var(--manque,var(--texte))}
+.bandeau-moins .ce-revenir{min-height:40px;padding:0 4px;background:transparent;border:0;color:var(--texte);text-decoration:underline;font:inherit;font-size:13.5px}
 .bandeau-allegee{padding:8px 12px;border-left:3px solid var(--accent);color:var(--texte-2);font-size:13.5px;line-height:1.35}
 .reaction-serie .coche-verte{width:14px;height:14px;margin:0 6px -2px 0;fill:none;
   stroke:var(--reussi);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}

@@ -1760,6 +1760,22 @@ const NOTIONS = [
     raison: 'Le générateur, la mention « demande une barre fixe », les échanges d’exercice, la recherche et les marches d’échelle ' +
       'lisent UNE définition (le catalogue n’a pas de colonne qui le dise) : une liste de deux slugs laissait passer le relevé ' +
       'de genoux suspendu à la maison (G-maison-suspendu du bêta-test).' },
+  // ── 189 — « LA FATIGUE SUR PLUSIEURS SEMAINES » (MOTEUR §14.11) ──
+  { notion: 'le constat de la baisse générale, sans carte (« Juste un carnet », une ligne du Parcours)', pr: '189-U1',
+    module: 'moteur.js', fonction: 'constatDeBaisse', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['constatDeFatigue'] },
+    raison: 'Le Parcours dit en une ligne ce que la carte dirait, par la MÊME mesure (`baisseGenerale`) et les mêmes mots ' +
+      '(`phraseBaisse`) ; « Juste un carnet » n’a ni carte ni pari, l’écran ne mesure rien lui-même.' },
+  { notion: 'le jugement du pari d’une carte de baisse (« tes séries reviennent au niveau d’avant dans les 3 semaines »)', pr: '189-U1',
+    module: 'moteur.js', fonction: 'observationBaisse', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['observerEscalier'] },
+    raison: 'L’observation d’un pari se pose par la file, à l’app ; la règle (la valeur du milieu de la fenêtre suivante, 98 % de ' +
+      'celle d’avant) est au moteur, sur la même matière que la carte (`faits.entreeFatigue`).' },
+  { notion: 'la décision « une série de moins » est-elle encore valable (la sèche où elle a été donnée dure)', pr: '189-U1',
+    module: 'moteur.js', fonction: 'serieDeMoinsValable', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['serieDeMoinsActive'] },
+    raison: 'Une réponse du profil (`cartes_semaine.fatigue_seche`) vaut pour UNE sèche : une autre sèche (un autre « depuis ») ne la ' +
+      'rallume jamais en silence. L’app donne au plan le fait, le plan décide des lignes.' },
   { notion: '« hors de ma salle » (le matériel déclaré, ou la barre de traction dite absente)', pr: '190-U1',
     module: 'profil.js', fonction: 'estHorsDeMaSalle', lecteurs: ['app.js', 'routines.js'],
     parAilleurs: { 'routines.js': ['horsMateriel'], 'app.js': ['horsDuMateriel'] },

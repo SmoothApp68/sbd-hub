@@ -1650,6 +1650,12 @@
     Rendu.rendreLigneEquilibre(noeud, a && a.ligne ? { texte: a.ligne.texte, surOuvrir: afficherParcours } : null);
   }
 
+  // 189 (MOTEUR §14.11) — le constat de la baisse en « Juste un carnet » : le coach se tait, la ligne se lit.
+  function constatDeFatigue() {
+    if (!Moteur.coachSeTait(profil && profil.intention)) return null;
+    return Moteur.constatDeBaisse(entreeDeLaFatigue(Moteur.jourCivil(new Date())));
+  }
+
   function afficherParcours() {
     allerA(Routeur.PARCOURS, {});
     demanderLesRoutinesDeLAccueil();   // une LECTURE, au montage de la vue, jamais dans le rendu
@@ -1670,6 +1676,9 @@
       pesees: { nombre: pesees, assez: pesees >= PESEES_SUFFISANTES },
       // 188-1 — « Ta semaine et tes équilibres », en tête.
       equilibres: vueDesEquilibres(),
+      // 189 — « Juste un carnet » : aucune carte, le constat de la baisse se lit ici, en une ligne.
+      fatigue: constatDeFatigue(),
+      noteDePhase: seriesRevenues ? Moteur.PHRASE_SERIES_REVENUES : null,
       // « Tous tes exercices » : chacun ouvre sa page par la porte commune (§7 quater).
       surExercice: function (slug) { afficherExercice(slug); }
     });
@@ -4253,6 +4262,8 @@
     // §14.4 (49-U14) — une séance créée PENDANT une semaine allégée ne garde
     // que ses lignes allégées.
     await appliquerAllegee();
+    // 189 — « une série de moins jusqu'à la fin de ta sèche » en cours : une ligne de moins par exercice.
+    await appliquerSerieDeMoins();
     // §14.5 (49-U15) — le repli s'écrit à l'ouverture.
     await ecrireReplis();
     // §14.7 (49-U17) — une série de plus en cours : la ligne en plus.
@@ -7409,6 +7420,11 @@
     });
     return { cartes: cartes, compteurs: compteurs, noms: noms, seriesRoutine: seriesRoutine, marches: marches,
              degressivesRoutine: degressivesRoutine, remplacants: remplacantsDesEntrees(cs, index), dessous: dessous,
+             // 189 (MOTEUR §14.11) — la baisse générale (lue À LA DEMANDE : le plan la demande si une carte est possible), la
+             // « série de moins » en cours et les priorités de la séance, que cette réponse ne touche jamais.
+             baisse: function (jourDemande) { return entreeDeLaFatigue(jourDemande || Moteur.jourCivil(seance && seance.debut)); },
+             serieDeMoins: { active: serieDeMoinsActive() },
+             prioritaires: prioritairesDeLaSeance(),
              carteSuspendue: demoModeEscalier() === 'isole' || demoModeEscalier() === 'degressive' ||
                demoModeEscalier() === 'plafond' };
   }
@@ -7453,14 +7469,16 @@
         planMemo.demo === demoReponse && planMemo.demoMarches === demoMarches &&
         planMemo.modes === local.modes && planMemo.lest === lestReponseDe() && planMemo.demoLest === demoLest &&
         planMemo.marches === (profil && profil.marche_reponses) && planMemo.demoMarche === demoMarche &&
-        planMemo.blocs === local.blocs && planMemo.disque === Profil.plusPetitDisqueDe(profil)) return planMemo.plan;
+        planMemo.blocs === local.blocs && planMemo.disque === Profil.plusPetitDisqueDe(profil) &&
+        planMemo.moins === serieDeMoinsActive()) return planMemo.plan;
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
                  edition: edition, constats: constats, catalogue: local.exercices,
                  refus: refusChauffes, escalier: local.escalier, legers: local.parisLegers,
                  seances: local.seances, demo: demoReponse, demoMarches: demoMarches,
                  modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, blocs: local.blocs, plan: plan,
-                 marches: profil && profil.marche_reponses, demoMarche: demoMarche, disque: Profil.plusPetitDisqueDe(profil) };
+                 marches: profil && profil.marche_reponses, demoMarche: demoMarche, disque: Profil.plusPetitDisqueDe(profil),
+                 moins: serieDeMoinsActive() };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit. Un plan du
     // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.
@@ -7517,10 +7535,10 @@
     if (x && x.calage && x.calage.libelles) {
       var lc = x.calage.libelles;
       return { jaune: [lc.titre], gris: [lc.consigne, lc.pourquoi].filter(Boolean).join(' '), compteur: null, frere: null,
-               plus: null, alleger: null, tempo: null, approchee: null };
+               plus: null, moins: null, alleger: null, tempo: null, approchee: null };
     }
     return x ? { jaune: x.entete.jaune, gris: x.entete.gris, compteur: x.entete.compteur || null,
-                 frere: x.entete.frere || null, plus: x.entete.plus || null, alleger: x.entete.alleger || null,
+                 frere: x.entete.frere || null, plus: x.entete.plus || null, moins: x.entete.moins || null, alleger: x.entete.alleger || null,
                  tempo: x.entete.tempo || null,
                  approchee: x.approchee ? x.approchee.phrase : null } : c.libelles;
   }
@@ -7851,6 +7869,45 @@
     }, DUREE_BANDEAU_REFUS);
   }
 
+  // ── 189 (MOTEUR §14.11) — LA FATIGUE SUR PLUSIEURS SEMAINES : ce que l'app donne au plan ────────────────────────────
+  //
+  // La matière de la baisse générale, assemblée par `faits.entreeFatigue` et gardée tant que l'historique, les zones, les
+  // pesées et les semaines allégées ne changent pas (les tableaux sont remplacés, jamais modifiés en place : leur identité
+  // est la clé). Aucune décision ici : le plan la demande, le moteur tranche.
+  var memoFatigue = null;
+  function entreeDeLaFatigue(jour) {
+    var allegees = periodesAllegees();
+    var cle = [jour, JSON.stringify(allegees)].join('|');
+    if (memoFatigue && memoFatigue.cle === cle && memoFatigue.seances === local.seances && memoFatigue.series === local.series &&
+        memoFatigue.zones === local.zones && memoFatigue.pesees === local.pesees && memoFatigue.catalogue === local.exercices) {
+      return memoFatigue.entree;
+    }
+    var index = catalogueIndexe();
+    var entree = faits.entreeFatigue(corpus(), {
+      jour: jour, periodesAllegees: allegees, zones: zonesLues(),
+      nom: function (slug) { return Modele.nommer(index, slug); },
+      pesees: (local.pesees || []).map(function (x) { return { date: x.date, poids: x.poids_kg !== undefined ? x.poids_kg : x.poids }; })
+    });
+    memoFatigue = { cle: cle, seances: local.seances, series: local.series, zones: local.zones, pesees: local.pesees,
+                    catalogue: local.exercices, entree: entree };
+    return entree;
+  }
+
+  // La réponse « une série de moins » du profil, valable tant que la sèche où elle a été donnée dure.
+  function reponseSerieDeMoins() {
+    var r = reponsesDesCartes()[Moteur.CLE_SERIE_DE_MOINS];
+    return r && typeof r === 'object' ? r : null;
+  }
+  function serieDeMoinsActive() {
+    return Moteur.serieDeMoinsValable(reponseSerieDeMoins(), Profil.phaseDe(profil), profil && profil.phase_depuis);
+  }
+  // Les priorités de la séance : les exercices qu'une priorité du profil désigne (la définition du raccourci, une seule).
+  function prioritairesDeLaSeance() {
+    if (!seance) return [];
+    var slugs = (seance.exercices || []).map(function (x) { return x && x.exercise_slug; }).filter(Boolean);
+    return Generateur.exemptsDesPriorites(slugs, Profil.prioritesDe(profil), catalogueIndexe());
+  }
+
   async function repondreCarte(reponse) {
     if (!seance || enEdition() || reponseEnCours) return;
     var p = planActuel();
@@ -7859,6 +7916,7 @@
     reponseEnCours = true;
     try {
       var acceptee = reponse === 'acceptee';
+      var moins = reponse === Moteur.REPONSE_SERIE_DE_MOINS;
       if (demoEscalier()) {
         // La démonstration : la réponse reste en mémoire, rien ne s'écrit.
         demoReponse = { seance: seance.id, jour: carte.jour, declencheur: carte.declencheur, compteur: carte.compteur,
@@ -7879,22 +7937,56 @@
         valeur_predite: 1, borne_basse: null, borne_haute: null,
         fondement: {
           seance: seance.id, jour: carte.jour, marche: Moteur.MARCHE_SEMAINE_ALLEGEE,
-          reponse: acceptee ? 'acceptee' : 'refusee',
+          reponse: moins ? Moteur.REPONSE_SERIE_DE_MOINS : (acceptee ? 'acceptee' : 'refusee'),
           declencheur: carte.declencheur, compteur: carte.compteur, cites: carte.cites.slice(),
           debut: acceptee ? carte.jour : null, fin: acceptee ? Moteur.finAllegee(carte.jour) : null,
           phase: p.phase, objectif: p.objectif
         },
         valeur_observee: null, observee_a: null, set_observe: null
       };
+      // 189 — une carte de BAISSE dit d'où elle vient et la valeur d'avant de chaque exercice cité : le pari se juge dessus.
+      if (carte.source === Moteur.SOURCE_BAISSE) {
+        pari.fondement.source = Moteur.SOURCE_BAISSE;
+        pari.fondement.avant = Object.assign({}, carte.avant || {});
+        pari.fondement.baisse_moyenne = carte.moyenne === undefined ? null : carte.moyenne;
+      }
       local.predictions = (local.predictions || []).concat([pari]);
       await Cache.ecrireLot('predictions', [pari]).catch(function () {});
       await poserPari(pari);
-      if (!acceptee) montrerRefus();
+      // 189 — « Une série de moins jusqu'à la fin de ta sèche » : la décision vit dans le profil (`cartes_semaine.fatigue_seche`),
+      // par la file, avec la sèche où elle a été donnée ; « Revenir à mes séries » ou la fin de la sèche l'efface.
+      if (moins) {
+        var toutes = Object.assign({}, reponsesDesCartes());
+        toutes[Moteur.CLE_SERIE_DE_MOINS] = { r: 'oui', le: carte.jour, depuis: (profil && profil.phase_depuis) || null };
+        await poserProfil({ cartes_semaine: toutes });
+      }
+      if (!acceptee && !moins) montrerRefus();
     } finally {
       reponseEnCours = false;
     }
     if (seance) rendreSeance();
     if (seance && reponse === 'acceptee') await appliquerAllegee();
+    if (seance && reponse === Moteur.REPONSE_SERIE_DE_MOINS) await appliquerSerieDeMoins();
+  }
+
+  // 189 — « REVENIR À MES SÉRIES » : la décision s'annule par un geste visible, jamais en silence. La séance en cours garde les
+  // lignes qu'elle a ; les prochaines repartent de la routine. Le pari de la carte reste tel quel (il a été posé, et se juge).
+  async function revenirAuxSeries() {
+    if (!serieDeMoinsActive()) return;
+    var toutes = Object.assign({}, reponsesDesCartes());
+    delete toutes[Moteur.CLE_SERIE_DE_MOINS];
+    await poserProfil({ cartes_semaine: toutes });
+    if (seance) rendreSeance();
+  }
+
+  // LA LIGNE EN MOINS, une fois : à la réponse et à la création d'une séance pendant la sèche (`Plan.lignesAEnlever`, jamais une
+  // série validée). Jamais au rendu : une ligne remise par « + Série » reste.
+  async function appliquerSerieDeMoins() {
+    if (!seance || enEdition()) return;
+    var aEnlever = Plan.lignesAEnlever(planActuel());
+    if (!aEnlever.length) return;
+    aEnlever.forEach(function (r) { seance = Seance.retirerSerie(seance, r.iExo, r.iSerie); });
+    await apresGeste();
   }
 
   // ── MOTEUR §14.5 (49-U15) — LES MARCHES ISOLÉES : SCHÉMA ET REPLI ───────
@@ -8320,6 +8412,25 @@
       if (!l || !l.id || escalierObserves[l.id]) continue;
       if (l.valeur_observee !== null && l.valeur_observee !== undefined) continue;
       var carte = Moteur.cartesDesParis([l])[0];
+      // 189 — une carte de BAISSE (acceptée, ou « une série de moins ») se juge sur les séries elles-mêmes, 3 semaines après.
+      if (carte && carte.source === Moteur.SOURCE_BAISSE) {
+        var obsB = Moteur.observationBaisse(carte, entreeDeLaFatigue(Moteur.jourCivil(new Date())));
+        if (!obsB) continue;
+        escalierObserves[l.id] = true;
+        var majB = Object.assign({}, l, { valeur_observee: obsB.valeur,
+          observee_a: obsB.debut || new Date().toISOString(), set_observe: null });
+        var iciB = false;
+        local.predictions = (local.predictions || []).map(function (x) {
+          if (!x || x.id !== majB.id) return x;
+          iciB = true;
+          return majB;
+        });
+        if (iciB) await Cache.ecrireLot('predictions', [majB]).catch(function () {});
+        local.escalier = (local.escalier || []).map(function (x) { return x && x.id === majB.id ? majB : x; });
+        await poser({ table: Attente.OBSERVATIONS, op: Attente.OBSERVER, id: majB.id,
+                      depend: carte.seance, alaFin: true, donnees: donneesObservation(majB) });
+        continue;
+      }
       // §14.5 (49-U15) — une marche isolée (schéma accepté, repli) s'observe
       // de même, sur les compteurs de SON exercice.
       var marche = carte ? null : Moteur.marchesDesParis([l])[0];
@@ -8840,7 +8951,11 @@
       allegee: planEsc ? planEsc.allegee : null,
       refus: refusMontre === seance.id ? Moteur.PHRASE_REFUS : null,
       surAlleger: function () { repondreCarte('acceptee'); },
-      surRefuser: function () { repondreCarte('refusee'); }
+      surRefuser: function () { repondreCarte('refusee'); },
+      // 189 — la 3ᵉ réponse (en sèche) et le bandeau de la décision en cours, avec son geste.
+      surSerieDeMoins: function () { repondreCarte(Moteur.REPONSE_SERIE_DE_MOINS); },
+      serieDeMoins: planEsc ? planEsc.serieDeMoins : null,
+      surRevenir: function () { revenirAuxSeries().catch(function (e) { console.warn('Séries non rétablies :', texteErreur(e)); }); }
     });
     var blocs = Modele.blocsDeSeance(seance, local.exercices);
     Rendu.rendreBlocsSeance($('blocs-seance'), seance, {
@@ -14542,8 +14657,21 @@
   // qu'on vient de quitter (le défaut de l'ancien `marquerProfilVu`, retiré au 136).
   // Un écran qui se rouvre tout seul quand on en sort est exactement le genre de
   // défaut qu'aucun test unitaire ne voit.
+  // 189 — la fin d'une « série de moins » (la phase quitte la sèche) se dit à l'écran de la phase, jusqu'à ce qu'on le quitte.
+  var seriesRevenues = false;
   async function poserProfil(champs) {
     var ecrits = Profil.champsEcrits(champs);
+    // 189 — la phase quitte la sèche : la « série de moins » s'arrête, par un geste visible (la phrase de l'écran de la phase),
+    // jamais en silence. La réponse part dans la MÊME écriture que la phase.
+    if (Object.prototype.hasOwnProperty.call(ecrits, 'phase') && Profil.phaseDe({ phase: ecrits.phase }) !== 'seche' &&
+        reponseSerieDeMoins()) {
+      var restantes = Object.assign({}, ecrits.cartes_semaine || reponsesDesCartes());
+      delete restantes[Moteur.CLE_SERIE_DE_MOINS];
+      ecrits.cartes_semaine = restantes;
+      seriesRevenues = true;
+    } else if (Object.prototype.hasOwnProperty.call(ecrits, 'phase') && Profil.phaseDe({ phase: ecrits.phase }) === 'seche') {
+      seriesRevenues = false;
+    }
     var avant = profil;
     profil = Object.assign({}, profil || {}, ecrits);
     objectifsSuiventLeProfil(avant);
@@ -15942,7 +16070,7 @@
               surChoix: ouvrirPeseeProfil }
           ] },
           // MOTEUR §9.16 (49-U11) — « TA PHASE » : le même sélecteur, la même écriture (`ecrireProfil`, par la file du profil).
-          Profil.sectionPhase(p, ecrireProfil),
+          Profil.sectionPhase(p, ecrireProfil, undefined, seriesRevenues ? Moteur.PHRASE_SERIES_REVENUES : null),
           // 60-2a — « TON BUT » (le but d'entraînement, les priorités) : les réponses du questionnaire, une ligne à la fois.
           Profil.sectionBut(p, ouvrirReponseProfil),
           // ⚠️ « TA SEMAINE », ET PLUS « RYTHME VISÉ » (ECRAN-PROFIL §2.4, renommé le 19/09) : « rythme » désigne le réglage de progression.

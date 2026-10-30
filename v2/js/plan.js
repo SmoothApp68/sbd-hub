@@ -837,7 +837,7 @@
     return { grand: true, stagne: true, chutes: chutes.slice(0, M.SEANCES_DE_CHUTE), reposS: reposS, phrase: cap.texte };
   }
 
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege, moins) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -893,6 +893,9 @@
     // l'emporte sur la série de plus acceptée avant elle (une série de moins n'ajoute pas de ligne).
     if (allege && !consigne.allegee && !consigne.repli && consigne.etat !== 'silence') consigne = M.consigneAlleger(consigne, allege);
     if (routinePlus && !consigne.allegee && !consigne.alleger) consigne = M.consigneSerieDePlus(consigne, routinePlus);
+    // 189 (MOTEUR §14.11) — « UNE SÉRIE DE MOINS JUSQU'À LA FIN DE TA SÈCHE », acceptée : la consigne sait que la routine compte
+    // `moins` séries et que la séance en garde une de moins (jamais sous 2) ; les charges suivent leur cours.
+    if (moins && !consigne.allegee) consigne = M.consigneSerieDeMoins(consigne, moins);
     var siens = (paris || []).filter(function (l) {
       return l && l.exercise_slug === base.slug && l.fondement && l.fondement.seance === seanceId;
     });
@@ -963,6 +966,9 @@
     }
     // §14.7 — « une série de plus, jusqu'à ton prochain progrès », en gris.
     var grisPlus = consigne.serieDePlus ? M.GRIS_SERIE_DE_PLUS : null;
+    // 189 — « 3 séries au lieu de 4, pendant ta sèche » ; « 2 séries, comme ta routine ».
+    var capMoins = consigne.serieDeMoins ? V.capturer(function () { return M.grisSerieDeMoins(consigne.serieDeMoins); }) : null;
+    var grisMoins = capMoins ? capMoins.texte : null;
     // 174 — LA 4e MARCHE DIT CE QU'ELLE FAIT : en cours (acceptée), « une série de moins, sans dégressive, jusqu'à ton prochain
     // progrès » ; refusée, le rappel « 107 kg × 10 depuis 13 séances. Une série de moins reste la sortie. » (au lieu de rien).
     // Quand la CHARGE change, la phrase grise de l'état (« une rep de plus… », qui cite l'ancienne ligne) cède la place.
@@ -1054,6 +1060,7 @@
     dire('entete.compteur', phraseDuCompteur, citesCompteur);
     dire('entete.frere', phraseDuFrere, citesFrere);
     dire('entete.plus', grisPlus, []);
+    dire('entete.moins', grisMoins, capMoins ? capMoins.citations : []);
     dire('entete.alleger', enteteAlleger, citesAlleger);
     dire('message', r.message ? r.message.phrase : null, r.citationsMessage);
     dire('donc', donc, citesDonc);
@@ -1100,7 +1107,7 @@
       planInitial: r.planInitial, faites: r.faites, reaction: r.reaction,
       lignes: r.lignes, message: r.message, paris: r.paris,
       constat: constat,
-      entete: Object.assign({ jaune: entete.jaune, gris: gris, segments: entete.segments, compteur: phraseDuCompteur, plus: grisPlus },
+      entete: Object.assign({ jaune: entete.jaune, gris: gris, segments: entete.segments, compteur: phraseDuCompteur, plus: grisPlus, moins: grisMoins },
                             phraseDuFrere ? { frere: phraseDuFrere } : {}, enteteAlleger ? { alleger: enteteAlleger } : {}),
       // §14.5 (49-U15) — la marche de l'escalier de cet exercice, ou `null` :
       // `{ marche, n, compteur, declenchement, zone, carte?, repli?, reponse? }`.
@@ -1374,7 +1381,16 @@
     // PR 3 (relevé du 01/10) — la dernière séance de chaque exercice, pour le
     // pré-remplissage des lignes que le plan ne couvre pas.
     var precedents = e.precedents || {};
-    var plus = seriesDePlusActives(e, seance, consignes, esc, phase);
+    // 189 — « UNE SÉRIE DE MOINS » EN COURS (la réponse à la carte, tant que la sèche dure) : l'escalier ne propose plus de
+    // série de plus, et la dégressive proposée n'ajoute rien non plus.
+    var moinsActive = serieDeMoinsEnCours(e, seance, intentionProfil) && !esc.allegee;
+    var moins = moinsActive ? seriesDeMoinsActives(e, seance, consignes) : {};
+    if (moinsActive) {
+      Object.keys(isoles).forEach(function (sl) {
+        if (isoles[sl] && isoles[sl].marche === Moteur().MARCHE_SERIE_DE_PLUS) delete isoles[sl];
+      });
+    }
+    var plus = moinsActive ? {} : seriesDePlusActives(e, seance, consignes, esc, phase);
     var degPlus = degressivesActives(e, seance, consignes, esc, phase, intentionProfil);
     // 174 — la 4e marche en cours ; la dégressive est retirée tant qu'elle dure.
     var alleges = allegementsActifs(e, seance, consignes, esc, phase);
@@ -1401,6 +1417,8 @@
       reglage: reglagePlan,
       allegee: esc.allegee,
       carte: esc.carte,
+      // 189 — la série de moins en cours, ou `null` : de quoi dire le bandeau et son geste « Revenir à mes séries ».
+      serieDeMoins: moinsActive ? serieDeMoinsDuPlan() : null,
       // §9.22 (53-2) — les exercices d'un bloc en cours ce jour-là (I39).
       programme: { enBloc: enBlocDuJour(e, seance) },
       exercices: questionsDuPlan(exos.map(function (exoBrut, i) {
@@ -1456,7 +1474,8 @@
           Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null,
           Seance().exerciceFini(seance, slug),
           precedentPourLeMoteur(Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null, salleEl),
-          objectif, Object.prototype.hasOwnProperty.call(alleges, slug) ? alleges[slug] : null);
+          objectif, Object.prototype.hasOwnProperty.call(alleges, slug) ? alleges[slug] : null,
+          coachee && Object.prototype.hasOwnProperty.call(moins, slug) ? moins[slug] : null);
         if (x.escalier && x.escalier.copie) x.escalier = null;
         // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
@@ -2507,6 +2526,53 @@
       .map(function (c) { return c.fin; });
   }
 
+  // ══ 189 (MOTEUR §14.11) — « UNE SÉRIE DE MOINS JUSQU'À LA FIN DE TA SÈCHE » ═════════════════════════════════════════
+  //
+  // La troisième réponse de la carte, en sèche : la décision dure ; elle se montre à chaque séance et s'annule. L'app donne
+  // `escalier.serieDeMoins = { active }` (la réponse du profil, valable tant que la sèche de la réponse dure) ; le plan lit
+  // la structure VIVANTE de la séance : rien n'est écrit dans la routine.
+  function serieDeMoinsEnCours(e, seance, intentionProfil) {
+    var E = e.escalier;
+    return !!E && !!E.serieDeMoins && E.serieDeMoins.active === true && !seance.edition && intentionProfil !== 'entretien';
+  }
+  // Rend `{ [slug]: n }` : les exercices qui gardent une série de moins — ceux qui ont une consigne, ne sont pas une priorité
+  // (jamais touchée), et dont la routine compte au moins une série. `n` : les séries de la routine, figées avec la consigne.
+  function seriesDeMoinsActives(e, seance, consignes) {
+    var sortie = {};
+    var E = e.escalier;
+    if (!E) return sortie;
+    var routine = E.seriesRoutine || {};
+    var prioritaires = Array.isArray(E.prioritaires) ? E.prioritaires : [];
+    Object.keys(consignes).forEach(function (slug) {
+      var c = consignes[slug];
+      if (!c || !c.consigne || prioritaires.indexOf(slug) >= 0) return;
+      var n = Object.prototype.hasOwnProperty.call(routine, slug) ? Number(routine[slug]) : NaN;
+      if (isFinite(n) && n >= 1) sortie[slug] = n;
+    });
+    return sortie;
+  }
+  function serieDeMoinsDuPlan() {
+    var M = Moteur();
+    return { bandeau: M.bandeauSerieDeMoins(), libelle: M.libelleRevenirAuxSeries() };
+  }
+
+  // 189 — LA LIGNE EN MOINS, une fois : à l'acceptation et à la création d'une séance pendant la sèche (comme la série de plus,
+  // jamais au rendu : une ligne remise par « + Série » reste). La DERNIÈRE ligne de travail non validée d'un exercice dont la
+  // séance compte encore toutes les séries de sa routine. Jamais une série validée, jamais sous 2. Rend `[{ iExo, iSerie }]`.
+  function lignesAEnlever(plan, iExo) {
+    var sortie = [];
+    ((plan && plan.exercices) || []).forEach(function (x) {
+      var m = x && x.consigne && x.consigne.serieDeMoins;
+      if (!m || (typeof iExo === 'number' && x.iExo !== iExo)) return;
+      var travail = (x.lignes || []).filter(function (l) { return l.type === 'travail'; });
+      if (travail.length !== m.routine || m.series >= m.routine) return;
+      var libres = travail.filter(function (l) { return !l.validee; });
+      if (!libres.length) return;
+      sortie.push({ iExo: x.iExo, iSerie: libres[libres.length - 1].iSerie });
+    });
+    return sortie;
+  }
+
   function escalierDuPlan(e, seance, consignes) {
     var vide = { allegee: null, carte: null };
     var esc = e.escalier;
@@ -2538,12 +2604,45 @@
     if (esc.carteSuspendue === true) return vide;
     var J = joursDesCompteurs(esc, seance, consignes, jour);
     var b = M.blocageGeneralise(J.jours, jour, esc.noms || null, J.ouverts);
-    if (!b || !M.carteAutorisee(b.declencheur, jour, cartes, esc.compteurs || [], blocs)) return vide;
+    // 189 — UNE FOIS PAR ÉPISODE : aucune carte de fatigue dans les 4 semaines d'une autre, quel que soit son déclencheur
+    // (elle s'ajoute à la mémoire du déclencheur, §14.3, sans la remplacer).
+    if (b && (!M.carteAutorisee(b.declencheur, jour, cartes, esc.compteurs || [], blocs) || !M.fatigueAutorisee(cartes, jour))) b = null;
+    // 189 (MOTEUR §14.11) — LE SECOND DÉCLENCHEUR, LA MÊME CARTE : tes séries baissent depuis 3 semaines. Aucune carte de fatigue
+    // dans les 4 semaines d'une autre, ni pendant une semaine allégée ou une décharge planifiée (déjà rendues plus haut), ni
+    // pendant une « série de moins » en cours. Les deux déclencheurs la même séance : une seule carte, le texte de la baisse.
+    var baisse = null;
+    var moinsPose = !!(esc.serieDeMoins && esc.serieDeMoins.active === true);
+    if (e.escalier.baisse && !moinsPose && M.baisseAutorisee(cartes, jour, blocs)) {
+      var donnees = typeof e.escalier.baisse === 'function' ? e.escalier.baisse(jour) : e.escalier.baisse;
+      var r = donnees ? M.baisseGenerale(donnees) : null;
+      if (r && r.declenche) baisse = r;
+    }
+    if (!b && !baisse) return vide;
     var nom = function (s) { return esc.noms && esc.noms[s] ? esc.noms[s] : s; };
+    if (!baisse) {
+      return {
+        allegee: null,
+        carte: { jour: jour, declencheur: b.declencheur, compteur: b.compteur, cites: b.cites.slice(), source: 'blocage', titre: null,
+                 phrase: M.phraseCarte(b.cites.map(nom)), detail: M.detailCarte(), oui: M.libelleAlleger() }
+      };
+    }
+    var seche = phaseDuPlan(e.phase) === 'seche';
+    var nomsBaisse = baisse.lignes.filter(function (l) { return baisse.baissent.indexOf(l.slug) >= 0; }).map(function (l) { return l.nom; });
+    var cites = baisse.baissent.slice();
+    (b ? b.cites : []).forEach(function (s) { if (cites.indexOf(s) < 0) cites.push(s); });
+    var avant = {};
+    baisse.lignes.forEach(function (l) { if (baisse.baissent.indexOf(l.slug) >= 0) avant[l.slug] = l.avant; });
     return {
       allegee: null,
-      carte: { jour: jour, declencheur: b.declencheur, compteur: b.compteur, cites: b.cites.slice(),
-               phrase: M.phraseCarte(b.cites.map(nom)), detail: M.detailCarte(), oui: M.libelleAlleger() }
+      carte: { jour: jour, declencheur: b ? b.declencheur : baisse.baissent[0], compteur: b ? b.compteur : null, cites: cites,
+               source: M.SOURCE_BAISSE, titre: M.titreBaisse(),
+               phrase: M.phraseBaisse(nomsBaisse, baisse.moyenne, baisse.reserve, seche ? baisse.poids : null),
+               detail: M.detailBaisse(seche), oui: M.libelleAlleger(),
+               // La troisième réponse, en sèche seulement.
+               serieDeMoins: seche ? M.libelleSerieDeMoins() : null,
+               pourquoi: M.pourquoiBaisse(baisse), avant: avant, moyenne: baisse.moyenne,
+               // De quoi refaire la phrase (I26 la relit) : les noms, la moyenne, la réserve et le poids dits.
+               fait: { noms: nomsBaisse, moyenne: baisse.moyenne, reserve: baisse.reserve, poids: seche ? baisse.poids : null, seche: seche } }
     };
   }
 
@@ -4196,6 +4295,7 @@
     structure(k.n, k.haut ? k.haut.k : null);
     if (suite) structure(suite.n, suite.k);
     if (k.alleger) { nbSeries.push(k.alleger.series); nbSeries.push(k.alleger.routine); }
+    if (k.serieDeMoins) { nbSeries.push(k.serieDeMoins.series); nbSeries.push(k.serieDeMoins.routine); }
     ((x.entete && x.entete.segments) || []).forEach(function (sg) { nbSeries.push(sg.nombre); });
     // Et les séries faites aujourd'hui à une même charge (« ta nouvelle charge
     // tient sur 2 séries »).
@@ -4327,14 +4427,28 @@
     }
     if (plan && plan.carte) {
       var ca = plan.carte;
-      if (ca.phrase) {
-        refaite('carte.phrase', ca.phrase, function () { return Moteur().phraseCarte(ca.cites || []); },
-                function (t) { return queue(t) === queue(ca.phrase); });
-      }
-      if (ca.detail) {
-        refaite('carte.detail', ca.detail, function () { return Moteur().detailCarte(); },
+      if (ca.source === Moteur().SOURCE_BAISSE && ca.fait) {
+        // 189 — la carte de baisse : titre, fait et détail se refont de ce que la carte porte.
+        refaite('carte.titre', ca.titre, function () { return Moteur().titreBaisse(); }, function (t) { return t === ca.titre; });
+        refaite('carte.phrase', ca.phrase, function () { return Moteur().phraseBaisse(ca.fait.noms, ca.fait.moyenne, ca.fait.reserve, ca.fait.poids); },
+                function (t) { return t === ca.phrase; });
+        refaite('carte.detail', ca.detail, function () { return Moteur().detailBaisse(ca.fait.seche); },
                 function (t) { return t === ca.detail; });
+      } else {
+        if (ca.phrase) {
+          refaite('carte.phrase', ca.phrase, function () { return Moteur().phraseCarte(ca.cites || []); },
+                  function (t) { return queue(t) === queue(ca.phrase); });
+        }
+        if (ca.detail) {
+          refaite('carte.detail', ca.detail, function () { return Moteur().detailCarte(); },
+                  function (t) { return t === ca.detail; });
+        }
       }
+    }
+    // 189 — le bandeau de la « série de moins » se refait de la règle.
+    if (plan && plan.serieDeMoins && plan.serieDeMoins.bandeau) {
+      var bm = plan.serieDeMoins.bandeau;
+      refaite('serieDeMoins.bandeau', bm, function () { return Moteur().bandeauSerieDeMoins(); }, function (t) { return t === bm; });
     }
     duPlan.forEach(function (p) { verifierTexte(null, p, ajouter); });
 
@@ -4492,6 +4606,7 @@
     verifierDessous(plan, erreurs);
     verifierGrosCran(plan, erreurs);
     verifierAlleger(plan, erreurs);
+    verifierFatigue(plan, entrees, erreurs);
     verifierApprochee(plan, erreurs);
     verifierApresLaDecharge(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
@@ -4831,6 +4946,55 @@
         if (carte && !(g.carte === true)) erreurs.push(nom + 'la carte des leviers du gros cran sans deux essais ratés ni cible au plafond');
       }
     });
+  }
+
+  // I77 (MOTEUR §14.11, 189) — LA FATIGUE SUR PLUSIEURS SEMAINES :
+  //   · une seule carte de fatigue par séance, et aucune dans les 4 semaines d'une autre carte (acceptée ou refusée, quel que
+  //     soit son déclencheur), ni pendant une semaine allégée, ni pendant une « série de moins » ; jamais en « Juste un carnet » ;
+  //   · une carte de baisse cite au moins 4 exercices, porte son « Pourquoi » et la valeur d'avant de chacun ;
+  //   · la 3ᵉ réponse (« une série de moins ») n'existe qu'en sèche ;
+  //   · la série de moins ne descend jamais sous 2 séries (un exercice à 2 séries ou moins ne bouge pas), ne touche jamais une
+  //     priorité, ne se combine pas avec la semaine allégée, et aucune « série de plus » de l'escalier n'existe tant qu'elle dure.
+  function verifierFatigue(plan, entrees, erreurs) {
+    if (!plan) return;
+    var M = Moteur();
+    var E = (entrees && entrees.escalier) || {};
+    var k = plan.carte;
+    var moins = plan.serieDeMoins;
+    var pose = function (t) { erreurs.push('I77 — ' + t); };
+    if (k) {
+      if (plan.allegee) pose('une carte de fatigue pendant une semaine allégée');
+      if (moins) pose('une carte de fatigue pendant une « série de moins »');
+      if (plan.intention === 'entretien') pose('une carte de fatigue en « Juste un carnet »');
+      var seance = entrees && entrees.seance;
+      var jour = seance ? M.jourCivil(seance.debut) : null;
+      if (jour && !M.fatigueAutorisee(E.cartes || [], jour)) pose('une carte de fatigue dans les ' + M.FATIGUE_REFRACTAIRE_JOURS + ' jours d\u2019une autre');
+      if (k.source === M.SOURCE_BAISSE) {
+        if (!Array.isArray(k.cites) || k.cites.length < 4) pose('une carte de baisse qui cite moins de 4 exercices');
+        if (!k.pourquoi || !k.avant) pose('une carte de baisse sans son « Pourquoi » ni la valeur d\u2019avant');
+        if (k.serieDeMoins && plan.phase !== 'seche') pose('la réponse « une série de moins » hors sèche');
+      } else if (k.serieDeMoins) {
+        pose('la réponse « une série de moins » sur une carte qui n\u2019est pas une baisse');
+      }
+    }
+    var prioritaires = Array.isArray(E.prioritaires) ? E.prioritaires : [];
+    ((plan.exercices) || []).forEach(function (x, i) {
+      var nom = 'exercice ' + i + ' (' + (x && x.slug) + ') : ';
+      var m = x && x.consigne && x.consigne.serieDeMoins;
+      if (!m) return;
+      if (!moins) pose(nom + 'une série de moins sans la décision en cours');
+      if (m.series < Math.min(M.FATIGUE_SERIES_MIN, m.routine)) pose(nom + 'une série de moins sous ' + M.FATIGUE_SERIES_MIN + ' séries (' + m.series + ' sur ' + m.routine + ')');
+      if (m.series < m.routine - 1) pose(nom + 'plus d\u2019une série de moins (' + m.series + ' sur ' + m.routine + ')');
+      if (prioritaires.indexOf(x.slug) >= 0) pose(nom + 'une série de moins sur une priorité');
+      if (x.consigne.allegee) pose(nom + 'une série de moins pendant une semaine allégée');
+    });
+    if (moins) {
+      ((plan.exercices) || []).forEach(function (x, i) {
+        var nom = 'exercice ' + i + ' (' + (x && x.slug) + ') : ';
+        if (x && x.consigne && x.consigne.serieDePlus) pose(nom + 'une série de plus pendant la série de moins');
+        if (x && x.escalier && x.escalier.marche === M.MARCHE_SERIE_DE_PLUS) pose(nom + 'une carte de série de plus pendant la série de moins');
+      });
+    }
   }
 
   // I76 (MOTEUR §9.27 bis, 188-2) — LE REPOS D'UN GROS MOUVEMENT QUI STAGNE EST UNE LIGNE DU « POURQUOI », JAMAIS UNE CARTE :
@@ -5388,6 +5552,7 @@
   var api = {
     planDeSeance: planDeSeance,
     lignesARetirer: lignesARetirer,
+    lignesAEnlever: lignesAEnlever,
     lignesAAjouter: lignesAAjouter,
     degressivesAAjouter: degressivesAAjouter,
     planDesLignes: planDesLignes,

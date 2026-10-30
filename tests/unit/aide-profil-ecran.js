@@ -74,7 +74,7 @@ function profilEcran(profil, options) {
     // 60-3b — « pris entre-temps » : l'état retenu en local par compte (`pseudoPrisSignale`, app.js).
     pseudoPrisSignale: () => !!opt.pseudoPris,
     // 70 — la phrase en tête du Profil après un changement de mot de passe (aucune ici).
-    noteProfil: null,
+    noteProfil: null, seriesRevenues: false,   // 189 — la phrase de fin de « série de moins » (aucune ici)
     // 138 — iPhone, hors de l'app : la ligne « Installer sur l'écran d'accueil » (`options.iphone`), le bandeau du mot de passe.
     surIphone: () => !!opt.iphone, bandeauMotDePasse: false,
     Auth: { PHRASES_IPHONE: { ligne: 'Installer sur l’écran d’accueil', motDePasse: { quoi: 'q', sujet: 's' } } },

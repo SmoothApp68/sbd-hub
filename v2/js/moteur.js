@@ -6124,7 +6124,11 @@
   // Les trois constantes de la semaine allégée, écrites PAR LE FORMATEUR et
   // déclarées comme règles : le texte ne les recopie pas.
   function detailCarte() {
-    return 'Quand tout cale en même temps, c\'est souvent de la fatigue. Je te propose une ' +
+    return 'Quand tout cale en même temps, c\'est souvent de la fatigue. ' + detailAllegeeProposee();
+  }
+  // 189 — la proposition de la semaine allégée, dite UNE fois : le blocage généralisé et la baisse générale la lisent.
+  function detailAllegeeProposee() {
+    return 'Je te propose une ' +
       'semaine allégée : mêmes exercices, mêmes charges, ' +
       nombreFr(Math.round(PART_ALLEGEE * 100), regle('constante')) + ' % des séries, ' +
       nombreFr(REPS_EN_MOINS, regle('constante')) + ' reps de moins, pendant ' +
@@ -6316,7 +6320,11 @@
                debut: f.debut || null, fin: f.fin || null,
                // §14.5 (49-U15) — les exercices cités : une carte répondue dans
                // la séance les garde de toute marche isolée (I21).
-               cites: Array.isArray(f.cites) ? f.cites.slice() : [] };
+               cites: Array.isArray(f.cites) ? f.cites.slice() : [],
+               // 189 — d'où vient la carte (`baisse` : la baisse générale) et, pour elle, la valeur d'avant la baisse
+               // de chaque exercice cité, figée dans le pari (le pari se juge dessus).
+               source: f.source === SOURCE_BAISSE ? SOURCE_BAISSE : 'blocage',
+               avant: f.avant && typeof f.avant === 'object' && !Array.isArray(f.avant) ? Object.assign({}, f.avant) : null };
     });
   }
 
@@ -6361,7 +6369,7 @@
   // `null` (pas encore tranché) ou `{ valeur, jour, seance }` — la séance qui
   // tranche, la première dans l'ordre du temps.
   function observationSemaineAllegee(carte, compteurs) {
-    if (!carte || carte.reponse !== 'acceptee') return null;
+    if (!carte || carte.reponse !== 'acceptee' || carte.source === SOURCE_BAISSE) return null;
     var c0 = nombre(carte.compteur);
     if (c0 === null) return null;
     var prochain = c0 - (c0 % PAS_ESCALIER) + PAS_ESCALIER;
@@ -6374,6 +6382,322 @@
       if (v >= prochain) return { valeur: 0, jour: apres[i].jour, seance: apres[i].seance || null, debut: apres[i].debut || null };
     }
     return null;
+  }
+
+  // ══ §14.11 (189) — LA FATIGUE SUR PLUSIEURS SEMAINES ═══════════════════════
+  //
+  // « Tes séries baissent depuis 3 semaines. » Un second déclencheur de la MÊME carte que le blocage généralisé (§14.4) :
+  // jamais deux cartes. Tout est pur : l'entrée est un fait assemblé par `faits.js` (`entreeFatigue`), la date de la séance
+  // qui s'ouvre vient de l'appelant. Décidé par Aurélien le 30/10/2026 (maquette `maquette-fatigue-v2`), lecture de Gemini S6.
+  //
+  //   · fenêtre récente = les 3 dernières semaines ACTIVES (au moins une séance), fenêtre d'avant = les 3 précédentes ;
+  //   · par exercice suivi : la meilleure série de chaque séance, estimée (Epley, `unRMEpley`), séries de travail de 1 à 12
+  //     reps, puis la VALEUR DU MILIEU (médiane) de chaque fenêtre — jamais le maximum (il baisse tout seul quand il y a
+  //     moins de séances) ; la réserve notée s'ajoute aux reps (`Palier().reserveDeSerie`, la même lecture que partout) ;
+  //   · compté seulement avec au moins 2 séances dans chaque fenêtre ;
+  //   · exclus : chauffes, séries `test` et `hors_calcul` (la définition de la série de travail), séances allégées, un exercice
+  //     dont la zone ou le bloc a changé, un exercice marqué « J'ai mal » (`sets.douleur`) dans les 6 semaines, et toute
+  //     évaluation dont les 6 semaines contiennent une coupure (§9.9) ou les 3 semaines qui la suivent ;
+  //   · déclenche si au moins 4 exercices suivis baissent de plus de 5 % ET forment au moins 40 % des exercices suivis.
+  var FATIGUE_SEMAINES = 3;
+  var FATIGUE_BAISSE_MIN = 5;          // en pourcent, strictement au-dessus
+  var FATIGUE_EXERCICES_MIN = 4;
+  var FATIGUE_PART_MIN = 40;           // en pourcent, au moins
+  var FATIGUE_SEANCES_MIN = 2;         // par fenêtre
+  var FATIGUE_REPS_MAX = 12;
+  var FATIGUE_APRES_COUPURE_JOURS = 21;
+  var FATIGUE_REFRACTAIRE_JOURS = 28;  // « une fois par épisode » : aucune carte de fatigue pendant 4 semaines
+  var FATIGUE_RETOUR_JOURS = 21;       // le pari : « tes séries reviennent au niveau d'avant dans les 3 semaines »
+  var FATIGUE_RETOUR_PART = 98;        // en pourcent de la valeur d'avant la baisse
+  var FATIGUE_NOMS_MAX = 4;            // au-delà, les 3 premiers puis « et N autres exercices »
+  var FATIGUE_SERIES_MIN = 2;          // « une série de moins » ne descend jamais sous 2
+  var SOURCE_BAISSE = 'baisse';
+  var REPONSE_SERIE_DE_MOINS = 'serie_de_moins';
+  var CLE_SERIE_DE_MOINS = 'fatigue_seche';
+
+  // Le lundi (numéro de jour) de la semaine d'un jour, et un numéro de semaine : deux jours de la même semaine ont le même.
+  function numeroDeSemaine(jour) {
+    var n = numeroDuJour(jourCivil(jour));
+    return n === null ? null : Math.floor((n + 3) / 7);
+  }
+  function lundiDeSemaine(numero) { return jourDuNumero(numero * 7 - 3); }
+  function dimancheDeSemaine(numero) { return jourDuNumero(numero * 7 + 3); }
+  function dansPeriodes(periodes, jour) {
+    var k = numeroDuJour(jourCivil(jour));
+    return k !== null && (periodes || []).some(function (p) {
+      var a = p ? numeroDuJour(p.debut) : null, b = p ? numeroDuJour(p.fin) : null;
+      return a !== null && b !== null && a <= k && k <= b;
+    });
+  }
+
+  // La valeur d'UNE série : son maximum estimé, avec la réserve quand elle est notée. `null` : pas une série de la mesure
+  // (échauffement, dégressive, test, hors calcul, hors de 1 à 12 reps, sans charge).
+  function valeurDeFatigue(serie) {
+    var M = Modele();
+    if (!serie || !M.estTravail(serie) || M.estTest(serie)) return null;
+    var charge = nombre(serie.charge_kg), reps = nombre(serie.reps);
+    if (charge === null || charge <= 0 || reps === null || reps < 1 || reps > FATIGUE_REPS_MAX) return null;
+    var reserve = Palier().reserveDeSerie(serie);
+    return { valeur: unRMEpley(charge, reps + (reserve === null ? 0 : reserve)), reserve: reserve !== null };
+  }
+
+  // La meilleure série de CHAQUE séance d'un exercice, dans une liste de jours : `[{ jour, valeur, reserve }]`.
+  function meilleuresDeFatigue(exercice, retenue) {
+    var sortie = [];
+    ((exercice && exercice.seances) || []).forEach(function (s) {
+      if (!s || !retenue(s.jour)) return;
+      var best = null;
+      (s.series || []).forEach(function (x) {
+        var v = valeurDeFatigue(x);
+        if (v !== null && (best === null || v.valeur > best.valeur)) best = v;
+      });
+      if (best !== null) sortie.push({ jour: s.jour, valeur: best.valeur, reserve: best.reserve });
+    });
+    return sortie;
+  }
+
+  // LES SIX SEMAINES ACTIVES : les 3 dernières et les 3 d'avant (les semaines sans séance ne comptent pas). `jours` : les jours
+  // de toutes les séances, hors séances allégées ; `avant` : strictement avant ce jour. `null` : moins de six semaines.
+  function fenetresDeFatigue(jours, avant) {
+    var k = numeroDuJour(avant), vues = {};
+    (jours || []).forEach(function (j) {
+      var n = numeroDuJour(j);
+      if (n === null || k === null || n >= k) return;
+      vues[numeroDeSemaine(j)] = true;
+    });
+    var semaines = Object.keys(vues).map(Number).sort(function (a, b) { return a - b; });
+    var n = FATIGUE_SEMAINES;
+    if (semaines.length < 2 * n) return null;
+    var recent = semaines.slice(-n), ancien = semaines.slice(-2 * n, -n);
+    return {
+      recent: { semaines: recent, debut: lundiDeSemaine(recent[0]), fin: dimancheDeSemaine(recent[n - 1]) },
+      ancien: { semaines: ancien, debut: lundiDeSemaine(ancien[0]), fin: dimancheDeSemaine(ancien[n - 1]) }
+    };
+  }
+
+  // UNE COUPURE (§9.9) dans l'évaluation : une séance qui reprend après plus de 3 fois l'écart habituel, dans les 6 semaines
+  // ou les 3 semaines qui les précèdent. `debuts` : le début de TOUTES les séances (une séance allégée est une présence).
+  function coupureDansLaFatigue(debuts, depuisLe, jusquAu) {
+    var liste = (debuts || []).map(function (d) { return { debut: d }; })
+      .filter(function (s) { return instant(s.debut) !== null; })
+      .sort(function (a, b) { return instant(a.debut) - instant(b.debut); });
+    var borne = numeroDuJour(depuisLe) - FATIGUE_APRES_COUPURE_JOURS, fin = numeroDuJour(jusquAu);
+    for (var i = 1; i < liste.length; i++) {
+      var k = numeroDuJour(jourCivil(liste[i].debut));
+      if (k === null || k < borne || k > fin) continue;
+      if (repriseDe(liste.slice(0, i), liste[i].debut) !== AUCUNE_REPRISE) return true;
+    }
+    return false;
+  }
+
+  function medianeDeFatigue(valeurs) { return mediane(valeurs.map(function (v) { return v.valeur; })); }
+
+  // LE POIDS, dit seulement s'il y a au moins une pesée dans chaque fenêtre (la valeur du milieu de chacune).
+  function poidsDeFatigue(pesees, f) {
+    var lire = function (p) {
+      var a = numeroDuJour(p.debut), b = numeroDuJour(p.fin);
+      return (pesees || []).filter(function (x) {
+        var k = x ? numeroDuJour(jourCivil(x.date)) : null, kg = x ? nombre(x.poids) : null;
+        return k !== null && kg !== null && kg > 0 && k >= a && k <= b;
+      }).map(function (x) { return nombre(x.poids); });
+    };
+    var av = lire(f.ancien), ap = lire(f.recent);
+    return av.length && ap.length ? { avant: mediane(av), apres: mediane(ap) } : null;
+  }
+
+  // LA DÉTECTION. `d` : `{ jour, seances: [début ISO de toutes les séances], periodesAllegees: [{ debut, fin }],
+  // exercices: [{ slug, nom, seances: [{ jour, series }], douleurs: [jour], zones: [jour], blocs: [jour] }], pesees }`.
+  // Rend toujours un objet : `declenche` dit si la carte se pose ; le reste est la matière du « Pourquoi ».
+  function baisseGenerale(d) {
+    var e = d || {};
+    var J = jourCivil(e.jour);
+    var sortie = { declenche: false, raison: null, jour: J, ancien: null, recent: null, suivis: 0, lignes: [], baissent: [],
+                   stables: 0, nonComptes: [], moyenne: null, reserve: false, poids: null };
+    if (!J) { sortie.raison = 'jour'; return sortie; }
+    var allegees = e.periodesAllegees || [];
+    var jours = (e.seances || []).map(function (s) { return jourCivil(s); })
+      .filter(function (j) { return j && !dansPeriodes(allegees, j); });
+    var f = fenetresDeFatigue(jours, J);
+    if (!f) { sortie.raison = 'semaines'; return sortie; }
+    sortie.ancien = { debut: f.ancien.debut, fin: f.ancien.fin };
+    sortie.recent = { debut: f.recent.debut, fin: f.recent.fin };
+    if (coupureDansLaFatigue(e.seances, f.ancien.debut, J)) { sortie.raison = 'coupure'; return sortie; }
+    var dans = function (fenetre) {
+      return function (jr) { return !dansPeriodes(allegees, jr) && fenetre.semaines.indexOf(numeroDeSemaine(jr)) >= 0; };
+    };
+    var aD = numeroDuJour(f.ancien.debut), aJ = numeroDuJour(J);
+    var dedans = function (liste) {
+      return (liste || []).some(function (j) { var k = numeroDuJour(jourCivil(j)); return k !== null && k >= aD && k < aJ; });
+    };
+    var baisses = [];
+    (e.exercices || []).forEach(function (x) {
+      if (!x || !x.slug) return;
+      var avant = meilleuresDeFatigue(x, dans(f.ancien)), apres = meilleuresDeFatigue(x, dans(f.recent));
+      if (avant.length < FATIGUE_SEANCES_MIN || apres.length < FATIGUE_SEANCES_MIN) return;
+      var nom = x.nom || x.slug;
+      var raison = dedans(x.douleurs) ? 'douleur' : (dedans(x.zones) ? 'zone' : (dedans(x.blocs) ? 'bloc' : null));
+      if (raison) { sortie.nonComptes.push({ slug: x.slug, nom: nom, raison: raison }); return; }
+      var a = medianeDeFatigue(avant), b = medianeDeFatigue(apres);
+      var baisse = a > 0 ? (a - b) / a * 100 : 0;
+      sortie.suivis++;
+      if (avant.concat(apres).some(function (v) { return v.reserve; })) sortie.reserve = true;
+      var ligne = { slug: x.slug, nom: nom, avant: a, apres: b, baisse: baisse };
+      sortie.lignes.push(ligne);
+      if (baisse > FATIGUE_BAISSE_MIN + 1e-9) baisses.push(ligne); else sortie.stables++;
+    });
+    var parBaisse = function (a, b) { return b.baisse - a.baisse || avantAlpha(a.nom, b.nom); };
+    baisses.sort(parBaisse);
+    sortie.lignes.sort(parBaisse);
+    sortie.baissent = baisses.map(function (l) { return l.slug; });
+    sortie.moyenne = baisses.length
+      ? Math.round(baisses.reduce(function (t, l) { return t + l.baisse; }, 0) / baisses.length) : null;
+    sortie.poids = poidsDeFatigue(e.pesees, f);
+    // Au moins 4 exercices ET au moins 40 % des exercices suivis (produit croisé : 39 % ne passe pas, 40 % passe).
+    sortie.declenche = baisses.length >= FATIGUE_EXERCICES_MIN && baisses.length * 100 >= sortie.suivis * FATIGUE_PART_MIN;
+    sortie.raison = sortie.declenche ? null : 'seuil';
+    return sortie;
+  }
+
+  // LE CONSTAT SANS CARTE (« Juste un carnet ») : la même mesure, dite en une ligne dans le Parcours. `null` : rien à dire.
+  function constatDeBaisse(d) {
+    var b = baisseGenerale(d);
+    if (!b || !b.declenche) return null;
+    var noms = b.lignes.filter(function (l) { return b.baissent.indexOf(l.slug) >= 0; }).map(function (l) { return l.nom; });
+    return { titre: titreBaisse(), texte: phraseBaisse(noms, b.moyenne, b.reserve, null) };
+  }
+
+  // « UNE FOIS PAR ÉPISODE » : après une carte de fatigue (acceptée ou refusée, quel que soit son déclencheur), aucune carte
+  // de fatigue pendant 4 semaines. Ajouté à la mémoire du déclencheur (§14.3), sans la remplacer.
+  function fatigueAutorisee(cartes, jour) {
+    var k = numeroDuJour(jourCivil(jour));
+    if (k === null) return false;
+    return !(cartes || []).some(function (c) {
+      var j = c ? numeroDuJour(jourCivil(c.jour)) : null;
+      return j !== null && j <= k && k - j < FATIGUE_REFRACTAIRE_JOURS;
+    });
+  }
+
+  // LA CARTE DE BAISSE : la mémoire des 4 semaines, et le « pas de cumul » avec la décharge planifiée (§9.22, 53-2) — une seule
+  // règle, la même que celle du blocage généralisé pour la décharge.
+  function baisseAutorisee(cartes, jour, blocs) {
+    return fatigueAutorisee(cartes, jour) && carteAllegeeAutorisee(blocs, jour);
+  }
+
+  // L'OBSERVATION DU PARI D'UNE CARTE DE BAISSE : « tes séries reviennent au niveau d'avant dans les 3 semaines » — la valeur du
+  // milieu de la fenêtre suivante (3 semaines après la référence : la fin de la semaine allégée, ou le jour de la réponse « une
+  // série de moins ») est au moins à 98 % de celle d'avant la baisse (figée dans le pari), sur les exercices cités ; le milieu
+  // des rapports tranche. 1 ou 0 ; `null` tant qu'aucune séance n'a refermé la fenêtre, ou qu'aucun exercice cité n'a ses 2 séances.
+  // Une carte refusée n'est jamais observée.
+  function observationBaisse(carte, d) {
+    var c = carte || {}, e = d || {};
+    if (c.source !== SOURCE_BAISSE || (c.reponse !== 'acceptee' && c.reponse !== REPONSE_SERIE_DE_MOINS) || !c.avant) return null;
+    var ref = numeroDuJour(jourCivil(c.reponse === 'acceptee' && c.fin ? c.fin : c.jour));
+    if (ref === null) return null;
+    var fermee = null;
+    (e.seances || []).forEach(function (s) {
+      var k = numeroDuJour(jourCivil(s));
+      if (k !== null && k >= ref + FATIGUE_RETOUR_JOURS && (fermee === null || instant(s) < instant(fermee))) fermee = s;
+    });
+    if (fermee === null) return null;
+    var dedans = function (jr) {
+      var k = numeroDuJour(jourCivil(jr));
+      return k !== null && k > ref && k <= ref + FATIGUE_RETOUR_JOURS && !dansPeriodes(e.periodesAllegees, jr);
+    };
+    var rapports = [];
+    (e.exercices || []).forEach(function (x) {
+      var a = x && Object.prototype.hasOwnProperty.call(c.avant, x.slug) ? nombre(c.avant[x.slug]) : null;
+      if (a === null || a <= 0) return;
+      var apres = meilleuresDeFatigue(x, dedans);
+      if (apres.length >= FATIGUE_SEANCES_MIN) rapports.push(medianeDeFatigue(apres) / a * 100);
+    });
+    if (!rapports.length) return null;
+    return { valeur: mediane(rapports) >= FATIGUE_RETOUR_PART - 1e-9 ? 1 : 0, jour: jourCivil(fermee), seance: null, debut: fermee };
+  }
+
+  // ── « UNE SÉRIE DE MOINS JUSQU'À LA FIN DE TA SÈCHE » (la 3ᵉ réponse, en sèche) ──
+  // Chaque exercice : les séries de travail de la séance moins une, JAMAIS sous 2 (un exercice à 2 séries ou moins ne bouge
+  // pas) ; une priorité n'est jamais touchée (le plan ne la donne pas) ; les charges suivent leur cours.
+  function seriesDeMoins(n) {
+    var k = nombre(n);
+    if (k === null || k < 1) return 1;
+    return k <= FATIGUE_SERIES_MIN ? k : k - 1;
+  }
+  function consigneSerieDeMoins(consigne, n) {
+    var c = consigne || null;
+    var k = nombre(n);
+    if (!c || c.etat === 'silence' || k === null || k < 1 || !(c.ligne || c.haut)) return c;
+    return Object.assign({}, c, { serieDeMoins: { routine: k, series: seriesDeMoins(k) } });
+  }
+  // « 3 séries au lieu de 4, pendant ta sèche » ; « 2 séries, comme ta routine ».
+  function grisSerieDeMoins(m) {
+    if (!m) return null;
+    if (m.series >= m.routine) return nombreFr(m.series, regle('series')) + (m.series > 1 ? ' séries' : ' série') + ', comme ta routine';
+    return nombreFr(m.series, regle('series')) + (m.series > 1 ? ' séries' : ' série') + ' au lieu de ' +
+      nombreFr(m.routine, regle('series')) + ', pendant ta sèche';
+  }
+  function bandeauSerieDeMoins() {
+    return 'Pendant ta sèche' + DEUX_POINTS + 'une série de moins par exercice (jamais sous ' + nombreFr(FATIGUE_SERIES_MIN, regle('constante')) +
+      '). Les charges suivent leur cours.';
+  }
+  function libelleRevenirAuxSeries() { return 'Revenir à mes séries'; }
+  var PHRASE_SERIES_REVENUES = 'Tes séries reviennent à ta routine.';
+  // La réponse du profil (`cartes_semaine.fatigue_seche`) est valable tant que la sèche où elle a été donnée dure : une autre
+  // sèche (un autre « depuis ») ne la rallume jamais en silence.
+  function serieDeMoinsValable(reponse, phase, phaseDepuis) {
+    var r = reponse && typeof reponse === 'object' ? reponse : null;
+    if (!r || r.r !== 'oui' || phase !== 'seche') return false;
+    return (r.depuis || null) === (phaseDepuis || null);
+  }
+
+  // ── Les mots de la carte (maquette `maquette-fatigue-v2`, ses textes font foi) ──
+  var MOINS = '−';
+  function titreBaisse() {
+    return 'Tes séries baissent depuis ' + nombreFr(FATIGUE_SEMAINES, regle('constante')) + ' semaines';
+  }
+  // « Squat, couché, rowing et 2 autres exercices sont plus bas que les 3 semaines d'avant : −6 % en moyenne, à réserve égale. »
+  function phraseBaisse(noms, moyenne, reserve, poids) {
+    var l = (noms || []).map(String), liste;
+    if (l.length > FATIGUE_NOMS_MAX) {
+      liste = l.slice(0, 3).join(', ') + ' et ' + nombreFr(l.length - 3, regle('carte.autres')) + ' autres exercices';
+    } else if (l.length > 1) {
+      liste = l.slice(0, -1).join(', ') + ' et ' + l[l.length - 1];
+    } else {
+      liste = l.join('');
+    }
+    var t = liste + ' sont plus bas que les ' + nombreFr(FATIGUE_SEMAINES, regle('constante')) + ' semaines d’avant' + DEUX_POINTS +
+      MOINS + nombreFr(moyenne, regle('fatigue.moyenne')) + ' % en moyenne' + (reserve ? ', à réserve égale' : '') + '.';
+    if (poids) {
+      t += ' Pendant ce temps, ton poids est passé de ' + nombreFr(poids.avant, regle('fatigue.poids')) + ' à ' +
+        nombreFr(poids.apres, regle('fatigue.poids')) + ' kg.';
+    }
+    return t;
+  }
+  // Le détail : hors sèche, la proposition de la semaine allégée ; en sèche, « deux façons d'y répondre ».
+  function detailBaisse(seche) {
+    var debut = 'Quand plusieurs exercices baissent ensemble, c’est souvent de la fatigue';
+    if (seche) return debut + ', et une sèche en ajoute. Deux façons d’y répondre' + INSECABLE + ':';
+    return debut + '. ' + detailAllegeeProposee();
+  }
+  function libelleSerieDeMoins() { return 'Une série de moins jusqu’à la fin de ta sèche'; }
+  // La table du « Pourquoi », au toucher : chaque chiffre a son origine.
+  var RAISONS_NON_COMPTE = { douleur: 'J’ai mal', zone: 'zone changée', bloc: 'bloc changé' };
+  function pourquoiBaisse(b) {
+    var cles = RAISONS_NON_COMPTE;
+    var lignes = (b.lignes || []).filter(function (l) { return b.baissent.indexOf(l.slug) >= 0; }).map(function (l) {
+      return { nom: l.nom, avant: enKg(Math.round(l.avant), regle('fatigue.charge')), apres: enKg(Math.round(l.apres), regle('fatigue.charge')) };
+    });
+    var stables = (b.stables || 0) > 0
+      ? nombreFr(b.stables, regle('fatigue.stables')) + ' ' + (b.stables > 1 ? 'exercices' : 'exercice') + ' sur ' + nombreFr(b.suivis, regle('fatigue.suivis')) : null;
+    var pas = (b.nonComptes || []).map(function (x) { return x.nom + ' (' + (x.raison === 'douleur' ? '« J’ai mal »' : cles[x.raison]) + ')'; });
+    var n = nombreFr(FATIGUE_SEMAINES, regle('constante'));
+    var methode = 'Pour chaque exercice, je prends la meilleure série de chaque séance (de ' + nombreFr(1, regle('constante')) + ' à ' +
+      nombreFr(FATIGUE_REPS_MAX, regle('constante')) + ' reps), puis la valeur du milieu sur ' + n + ' semaines : une séance de moins ne fait pas baisser le chiffre. ' +
+      'Ta réserve compte quand tu l’as notée : ' + chargeFois(100, 7, regle('fatigue.exemple')) + ' avec ' + nombreFr(3, regle('fatigue.exemple')) +
+      ' en réserve vaut ' + nombreFr(10, regle('fatigue.exemple')) + ' reps. Il faut au moins ' + nombreFr(FATIGUE_SEANCES_MIN, regle('constante')) +
+      ' séances de l’exercice de chaque côté. Une semaine sans séance ne compte pas. Je ne repropose pas avant ' +
+      nombreFr(Math.round(FATIGUE_REFRACTAIRE_JOURS / 7), regle('constante')) + ' semaines.';
+    return { titre: 'Pourquoi cette carte', entete: ['Ta série type, estimée', n + ' sem. d’avant', n + ' dernières'],
+             lignes: lignes, stables: stables, pasComptes: pas.length ? pas.join(', ') : null, methode: methode };
   }
 
   // ══ §9.22 (53-2) — LES PROGRAMMES À CYCLES ════════════════════════════════
@@ -9458,6 +9782,30 @@
     periodeAllegee: periodeAllegee,
     carteAutorisee: carteAutorisee,
     observationSemaineAllegee: observationSemaineAllegee,
+    // 189 — la fatigue sur plusieurs semaines (§14.11).
+    SOURCE_BAISSE: SOURCE_BAISSE,
+    REPONSE_SERIE_DE_MOINS: REPONSE_SERIE_DE_MOINS,
+    CLE_SERIE_DE_MOINS: CLE_SERIE_DE_MOINS,
+    FATIGUE_SERIES_MIN: FATIGUE_SERIES_MIN,
+    FATIGUE_REFRACTAIRE_JOURS: FATIGUE_REFRACTAIRE_JOURS,
+    baisseGenerale: baisseGenerale,
+    constatDeBaisse: constatDeBaisse,
+    fatigueAutorisee: fatigueAutorisee,
+    baisseAutorisee: baisseAutorisee,
+    observationBaisse: observationBaisse,
+    valeurDeFatigue: valeurDeFatigue,
+    titreBaisse: titreBaisse,
+    phraseBaisse: phraseBaisse,
+    detailBaisse: detailBaisse,
+    libelleSerieDeMoins: libelleSerieDeMoins,
+    pourquoiBaisse: pourquoiBaisse,
+    seriesDeMoins: seriesDeMoins,
+    consigneSerieDeMoins: consigneSerieDeMoins,
+    grisSerieDeMoins: grisSerieDeMoins,
+    bandeauSerieDeMoins: bandeauSerieDeMoins,
+    libelleRevenirAuxSeries: libelleRevenirAuxSeries,
+    PHRASE_SERIES_REVENUES: PHRASE_SERIES_REVENUES,
+    serieDeMoinsValable: serieDeMoinsValable,
     MARCHE_SCHEMA: MARCHE_SCHEMA,
     MARCHE_REPLI: MARCHE_REPLI,
     MARCHE_SECHE: MARCHE_SECHE,

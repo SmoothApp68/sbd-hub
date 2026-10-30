@@ -296,7 +296,7 @@ const CATALOGUE = [
   { slug: 'rowing-u51b', nom: 'Dos Délai U51', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_hdd', 'u51_dos'], muscles_secondaires: ['u51_bi', 'u51_dp', 'u51_ab', 'u51_trap'] },
   { slug: 'elev-u51b', nom: 'Épaule Délai U51', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_dl'], muscles_secondaires: ['u51_trap'] },
   { slug: 'face-u51b', nom: 'Arrière Délai U51', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_dp'], muscles_secondaires: ['u51_trap', 'u51_hdd'] },
-  { slug: 'premier-u51c', nom: 'Tête Délai U51c (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u51_p1'], muscles_secondaires: [] },
+  { slug: 'premier-u51c', nom: 'Tête Délai U51c (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['u51_p1'], muscles_secondaires: ['u51_p1b', 'u51_p1c'] },
   { slug: 'iso-u51c-1', nom: 'Seul Délai U51c Un', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i1'], muscles_secondaires: [] },
   { slug: 'iso-u51c-2', nom: 'Seul Délai U51c Deux', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i2'], muscles_secondaires: [] },
   { slug: 'iso-u51c-3', nom: 'Seul Délai U51c Trois', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['u51_i3'], muscles_secondaires: [] },
@@ -12714,7 +12714,7 @@ const SETS_IMPORTES = [
         exoR('r-u51b', 7, 'tapis-u51b', ['travail'], null, null, { reps_visees: null, duree_cible_s: 1800 })] });
     ROUTINES.push({ id: 'r-u51c', nom: 'Trop long U51', note: null, archivee_a: null,
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
-      routine_exercises: [exoR('r-u51c', 0, 'premier-u51c', ['echauffement', 'echauffement', 'echauffement', 'echauffement'].concat(T4), 300, null)]
+      routine_exercises: [exoR('r-u51c', 0, 'premier-u51c', ['echauffement', 'echauffement', 'echauffement', 'echauffement'].concat(T4, T4, T4, T4, T4, T4), 300, null)]
         .concat([1, 2, 3, 4].map((n) => exoR('r-u51c', n, 'iso-u51c-' + n, T3, 300, null))) });
 
     // L'attendu, par le moteur, sur la structure que l'app tirera de la routine.
@@ -12788,12 +12788,16 @@ const SETS_IMPORTES = [
       JSON.stringify(b0));
     await entree('^45 min$');
     const b1 = await feuilleR();
-    ok('[T51] DISCRIMINANT — la carte : « Pour tenir en 45 min (estimation) », ce qui change (le moteur, ligne par ligne), la phrase, les deux boutons',
-      sp(b1.titre) === 'Pour tenir en 45 min (estimation)' && sp(b1.titre) === sp(carte45.titre) &&
+    // 188-2 (Iversen 2021) : la compression ne retire plus un exercice avant d'avoir réduit les séries (jamais sous 2) et ne touche
+    // jamais un grand mouvement ; la cible de 45 min n'est plus atteinte par cette routine : la carte dit « Au plus court » (la
+    // promesse ne se fait pas), les séries d'isolation à 2, le cardio 7 → 3 min.
+    ok('[T51] DISCRIMINANT — la carte : « Au plus court : … (estimation) » (45 min ne tient plus), ce qui change (le moteur, ligne par ligne), la phrase, les deux boutons',
+      !res45.tient && sp(b1.titre) === sp(carte45.titre) && /^Au plus court : \d+ min \(estimation\)$/.test(sp(b1.titre)) &&
         JSON.stringify(b1.lignes.map(sp)) === JSON.stringify(carte45.lignes.map(sp)) &&
-        b1.lignes.some((l) => /Poussée Haute Délai U51 \(Haltères\) : retiré, ses muscles sont déjà travaillés/.test(sp(l))) &&
+        b1.lignes.some((l) => /Poussée Haute Délai U51 \(Haltères\) 3 → 2 séries/.test(sp(l))) &&
         b1.lignes.some((l) => /Cardio Délai U51 7 → 3 min/.test(sp(l))) &&
-        sp(b1.phrase) === sp(carte45.phrase) && JSON.stringify(b1.boutons) === JSON.stringify(['Raccourcir', 'Garder la séance']),
+        sp(b1.phrase) === sp(carte45.phrase) && JSON.stringify(b1.boutons.map(sp)) === JSON.stringify([sp(carte45.oui), 'Garder la séance']) &&
+        /^Raccourcir à \d+ min$/.test(sp(carte45.oui)),
       JSON.stringify(b1));
     await entree('^Garder la séance$');
     await attendre(900);
@@ -12809,11 +12813,11 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await peuDeTemps('Peu de temps U51');
     await entree('^45 min$');
-    await entree('^Raccourcir$');
+    await entree('^Raccourcir');
     await attendre(1200);
     const c1 = await structureR();
     const attenduC = res45.exercices.map((e) => [e.slug, e.ch, e.tr, e.deg]).filter((e) => e[1] + e[2] + e[3] > 0);
-    ok('[T51] DISCRIMINANT — « Raccourcir » démarre la séance avec la structure de la carte (l’incliné et le cardio de fin en moins, les dernières séries coupées, toutes les chauffes du couché)',
+    ok('[T51] DISCRIMINANT — « Raccourcir » démarre la séance avec la structure de la carte (les séries d’isolation à 2 au plus bas, le cardio raccourci, toutes les chauffes du couché)',
       JSON.stringify(c1.ex) === JSON.stringify(attenduC) && c1.raccourci, JSON.stringify([c1.ex, attenduC]));
     ok('[T51] DISCRIMINANT — les charges habituelles : la consigne du couché est celle de la séance complète, et lit les 4 séries de la routine (pas les 2 de la séance)',
       JSON.stringify(c1.consigne) === JSON.stringify(b2.consigne) && c1.seriesRoutine === 4,
@@ -27090,6 +27094,177 @@ const SETS_IMPORTES = [
     CATALOGUE.length = nbCatAvant;
     ROUTINES.length = nbRoutinesAvant;
     base.profiles[0] = profilAvant;
+  }
+
+  console.log('\n══ equilibres-188-2. TA SEMAINE : LES JOURS, LE TEMPS, « J’AI PEU DE TEMPS » QUI GARDE UNE PRIORITÉ ENTIÈRE, LA LIGNE DU REPOS (188-2) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : dix semaines de DEUX séances (deux jours), une routine de cinq exercices à 20 séries dont chaque
+  // séance n'en fait que 12 (60 % : écourtée), d'une heure chacune ; le profil dit 4 jours par semaine et 90 min. Le banc joue par
+  // l'ÉCRAN : « Refaire mon programme sur 2 jours » ouvre le générateur sans rien remplacer ; « Régler mes séances sur 60 min » écrit
+  // `duree_seance_min` par le Profil ; un exercice prioritaire reste entier dans « J'ai peu de temps » ; un gros mouvement qui
+  // stagne (reps −33 % de la série 1 à la 3, repos réglé à 75 s) porte la ligne du repos au « Pourquoi ».
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbSessionsAvant = base.sessions.length, nbSetsAvant = base.sets.length, nbCatAvant = CATALOGUE.length, nbRoutinesAvant = ROUTINES.length;
+    const t1882 = Date.now();
+    const nb1882 = (x) => JSON.stringify(x === undefined ? null : x);
+    const sp1882 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const fiche1882 = (slug, nom, prim, schema, equipement) => ({ slug, nom, mesure: 'charge_reps', charge: 'externe', equipement,
+      muscles_primaires: prim, muscles_secondaires: [], schema_mouvement: schema });
+    CATALOGUE.push(Object.assign(fiche1882('eq1882-dev', 'Développé EQ1882 (Barre)', ['pectoraux'], 'pousser_horizontal', 'barre'), { muscles_secondaires: ['triceps', 'deltoide_anterieur'] }));
+    CATALOGUE.push(Object.assign(fiche1882('eq1882-mil', 'Militaire EQ1882 (Barre)', ['deltoide_anterieur'], 'pousser_vertical', 'barre'), { muscles_secondaires: ['triceps', 'pectoraux'] }));
+    CATALOGUE.push(Object.assign(fiche1882('eq1882-squat', 'Squat EQ1882 (Barre)', ['quadriceps', 'fessiers'], 'accroupir', 'barre'), { muscles_secondaires: ['adducteurs', 'bas_du_dos'] }));
+    CATALOGUE.push(Object.assign(fiche1882('eq1882-sq2', 'Flexion EQ1882 (Barre)', ['quadriceps', 'fessiers'], 'accroupir', 'barre'), { muscles_secondaires: ['adducteurs', 'bas_du_dos'] }));
+    CATALOGUE.push(fiche1882('eq1882-lat', 'Latérales EQ1882 (Haltère)', ['deltoide_lateral'], 'epaules_cote', 'haltere'));
+    CATALOGUE.push(fiche1882('eq1882-arr', 'Oiseau EQ1882 (Haltère)', ['deltoide_posterieur'], 'epaules_arriere', 'haltere'));
+    CATALOGUE.push(fiche1882('eq1882-curl', 'Curl EQ1882 (Haltère)', ['biceps'], 'tirer_vertical', 'haltere'));
+    CATALOGUE.push(fiche1882('eq1882-ext', 'Extension EQ1882 (Poulie)', ['triceps'], 'pousser_vertical', 'poulie'));
+    base.sessions = base.sessions.slice();
+    base.sets = base.sets.slice();
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    const ligne1882 = (id, slug, rang, kg, reps, debut) => ({ id, session_id: id.replace(/-s\d+$/, ''), user_id: 'u-banc', exercise_slug: slug,
+      charge_kg: kg, reps, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null,
+      type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null,
+      note: null, source: 'app', created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false });
+    for (let w = 1; w <= 10; w++) {
+      [7 * w + 1, 7 * w + 3].forEach((j, n) => {
+        const id = 'eq1882-' + w + '-' + n;
+        const debut = ilYa(j * 86400000, t1882).toISOString();
+        base.sessions.push({ id, user_id: 'u-banc', titre: 'EQ1882 — ' + id, debut, fin: finDe(debut, t1882).toISOString(),
+          statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-eq1882', source: 'app', created_at: debut, gestes: [] });
+        let rang = 0;
+        [['eq1882-dev', 4], ['eq1882-mil', 4], ['eq1882-squat', 4]].forEach(([slug, nb]) => {
+          for (let k = 0; k < nb; k++) base.sets.push(ligne1882(id + '-s' + (++rang), slug, rang, 60, 8, debut));
+        });
+      });
+    }
+    // Le gros mouvement qui stagne : le squat à 100 kg, 12 · 9 · 8 (−33 %) en 7 séances de suite — une routine à part, à 75 s de repos.
+    for (let w = 1; w <= 7; w++) {
+      const id = 'eq1882-st-' + w;
+      const debut = ilYa((7 * w + 1) * 86400000, t1882).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'EQ1882 stagne — ' + id, debut, fin: finDe(debut, t1882).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-eq1882s', source: 'app', created_at: debut, gestes: [] });
+      [12, 9, 8].forEach((r, k) => base.sets.push(ligne1882(id + '-s' + (k + 1), 'eq1882-sq2', k + 1, 100, r, debut)));
+      // Un pari sur la première série (comme l'app l'écrit) fait de la séance une séance SOUS CONSIGNE ; la plus vieille n'en a pas (le départ).
+      if (w < 7) base.predictions.push({ id: '00000000-0000-5000-8188-' + String(w).padStart(12, '0'), user_id: 'u-banc', module: 'moteur.consigne',
+        module_version: 4, emise_a: debut, exercise_slug: 'eq1882-sq2', grandeur: 'reps', horizon_jours: null, valeur_predite: 12,
+        borne_basse: 10, borne_haute: 12, fondement: { rang: 1, charge: 100, etat: 'progression', zone: 'volume', reglage: 'normal', palier: 100,
+          niveau: 12, seance: id, role: 'ligne', phase: 'maintien' }, valeur_observee: 12, observee_a: debut, set_observe: id + '-s1', created_at: debut });
+    }
+    const exo1882 = (rid, slug, rang, n, repos) => ({ id: 're-' + rid + '-' + rang, routine_id: rid, exercise_slug: slug, rang,
+      routine_sets: progr(n, 8), repos_cible_s: repos, groupe_superset: null, note: null });
+    ROUTINES.push({ id: 'r-eq1882', nom: 'Haut EQ1882', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z',
+      updated_at: '2026-01-05T10:00:00.000Z',
+      routine_exercises: [['eq1882-dev', 4], ['eq1882-mil', 4], ['eq1882-squat', 4], ['eq1882-lat', 4], ['eq1882-arr', 4]]
+        .map(([slug, n], rang) => exo1882('r-eq1882', slug, rang, n, 120)) });
+    ROUTINES.push({ id: 'r-eq1882s', nom: 'Squat EQ1882', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z',
+      updated_at: '2026-01-05T10:00:00.000Z', routine_exercises: [exo1882('r-eq1882s', 'eq1882-sq2', 0, 3, 75)] });
+    ROUTINES.push({ id: 'r-eq1882p', nom: 'Peu de temps EQ1882', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z',
+      updated_at: '2026-01-05T10:00:00.000Z',
+      routine_exercises: [['eq1882-dev', 4, 180], ['eq1882-lat', 4, 90], ['eq1882-curl', 4, 90], ['eq1882-ext', 4, 90], ['eq1882-arr', 4, 90]]
+        .map(([slug, n, repos], rang) => exo1882('r-eq1882p', slug, rang, n, repos)) });
+    const routinesAvant1882 = JSON.stringify(ROUTINES.filter((r) => r.id === 'r-eq1882'));
+    Object.assign(base.profiles[0], { seances_par_semaine: 4, duree_seance_min: 90, rythme_progression: 'normal', intention: 'progresser' });
+    const lire1882 = () => page.evaluate(() => {
+      const sec = document.querySelector('#parcours [data-equilibres]');
+      const cartes = Array.from(document.querySelectorAll('#parcours [data-equilibre]')).map((c) => ({
+        cle: c.getAttribute('data-equilibre'), calme: c.classList.contains('eq-calme') || c.classList.contains('eq-constat'), texte: c.textContent,
+        boutons: Array.from(c.querySelectorAll('button')).map((b) => ({ t: b.textContent, prop: b.getAttribute('data-proposition'),
+          pm: b.getAttribute('data-pas-maintenant'), h: Math.round(b.getBoundingClientRect().height) })) }));
+      const fait = document.querySelector('#parcours .eq-fait-pose');
+      return { etat: sec ? sec.getAttribute('data-equilibres') : null, cartes, fait: fait ? fait.textContent : null,
+        suite: !!document.querySelector('#parcours [data-suite-equilibre]') };
+    });
+
+    // ── A. LES JOURS : 4 prévus, 2 faits chaque semaine. (Le profil arrive après le premier rendu : un second chargement le montre.)
+    await aller('/saisie');
+    await aller('/progression/parcours');
+    await attendreQue(async () => (await lire1882()).cartes.some((c) => c.cle === 'jours'), 15000, 'jours1882');
+    const v1 = await lire1882();
+    const cj = v1.cartes.filter((c) => c.cle === 'jours')[0];
+    ok('[EQ1882] la carte des jours : le fait (4 prévus, 2 en moyenne), « Refaire mon programme sur 2 jours » et « Garder 4 jours »',
+      !!cj && /prévu pour 4 jours/.test(sp1882(cj.texte)) && /en comptent 2(,\d)? en moyenne/.test(sp1882(cj.texte)) &&
+        cj.boutons.some((b) => b.prop === 'refaire_jours' && /^Refaire mon programme sur 2 jours$/.test(sp1882(b.t))) &&
+        cj.boutons.some((b) => /^Garder 4 jours$/.test(sp1882(b.t))) && cj.boutons.every((b) => b.h >= 44),
+      nb1882(v1.cartes.map((c) => [c.cle, sp1882(c.texte).slice(0, 140), c.boutons.map((b) => b.t)])));
+    ok('[EQ1882] le rendu seul n’écrit rien : aucune réponse en base, aucune routine touchée',
+      (!base.profiles[0].cartes_semaine || Object.keys(base.profiles[0].cartes_semaine).length === 0) &&
+        JSON.stringify(ROUTINES.filter((r) => r.id === 'r-eq1882')) === routinesAvant1882, nb1882(base.profiles[0].cartes_semaine));
+    const patchsAvant1882 = base.patchs.length;
+    await page.evaluate(() => document.querySelector('[data-equilibre="jours"] [data-proposition="refaire_jours"]').click());
+    await attendreQue(() => page.evaluate(() => !document.getElementById('vue-questionnaire').hidden), 8000, 'refaire1882');
+    ok('[EQ1882] DISCRIMINANT — « Refaire mon programme sur 2 jours » ouvre le générateur, et rien n’est remplacé ni écrit avant sa confirmation',
+      JSON.stringify(ROUTINES.filter((r) => r.id === 'r-eq1882')) === routinesAvant1882 && base.patchs.length === patchsAvant1882 &&
+        base.profiles[0].seances_par_semaine === 4, nb1882([base.patchs.length - patchsAvant1882, base.profiles[0].seances_par_semaine]));
+
+    // ── B. LE TEMPS : 12 séries sur 20 (60 %), une heure — la médiane réelle, 60 min.
+    await aller('/progression/parcours');
+    await attendreQue(async () => (await lire1882()).cartes.some((c) => c.cle === 'temps'), 15000, 'temps1882');
+    const v2 = await lire1882();
+    const ct = v2.cartes.filter((c) => c.cle === 'temps')[0];
+    ok('[EQ1882] la carte du temps : la durée réglée (90 min), les séances écourtées, « Régler mes séances sur 60 min » et « Garder 90 min » — aucun pourcentage de stimulus',
+      !!ct && /réglée sur 90 min/.test(sp1882(ct.texte)) && /écourtées/.test(sp1882(ct.texte)) && !/stimulus/i.test(ct.texte) &&
+        ct.boutons.some((b) => b.prop === 'duree' && /^Régler mes séances sur 60 min$/.test(sp1882(b.t))) &&
+        ct.boutons.some((b) => /^Garder 90 min$/.test(sp1882(b.t))),
+      nb1882(v2.cartes.map((c) => [c.cle, sp1882(c.texte).slice(0, 200), c.boutons.map((b) => b.t)])));
+    await page.evaluate(() => document.querySelector('[data-equilibre="temps"] [data-proposition="duree"]').click());
+    await attendreQue(() => base.profiles[0].duree_seance_min === 60, 8000, 'duree1882');
+    await attendreQue(async () => /^Fait :/.test(sp1882((await lire1882()).fait)), 8000, 'faitduree1882');
+    const v3 = await lire1882();
+    ok('[EQ1882] DISCRIMINANT — « Régler mes séances sur 60 min » écrit `duree_seance_min` = 60 par le Profil, se voit (« Fait : … »), propose de refaire le programme, ne touche à aucune routine',
+      base.profiles[0].duree_seance_min === 60 && /^Fait :/.test(sp1882(v3.fait)) && v3.suite &&
+        JSON.stringify(ROUTINES.filter((r) => r.id === 'r-eq1882')) === routinesAvant1882, nb1882([v3.fait, v3.suite, base.profiles[0].duree_seance_min]));
+
+    // ── C. « J'AI PEU DE TEMPS » : une priorité reste entière (les épaules sont prioritaires : latérales et oiseau ne bougent pas).
+    base.profiles[0].priorites = ['epaules'];
+    base.profiles[0].duree_seance_min = 40;
+    await aller('/saisie');
+    await attendreQue(() => page.evaluate(() => Array.from(document.querySelectorAll('.routine-rangee'))
+      .some((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Peu de temps EQ1882')), 15000, 'rangee1882');
+    await page.evaluate(() => Array.from(document.querySelectorAll('.routine-rangee'))
+      .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Peu de temps EQ1882')[0].querySelector('.peu-de-temps').click());
+    await attendreQue(() => page.evaluate(() => /^Tenir en 40 min/.test(((document.querySelector('#feuille-contenu .feuille-menu button') || {}).textContent) || '')), 8000, 'feuille1882');
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button')).filter((b) => /^Tenir en 40 min/.test(b.textContent))[0].click());
+    await attendreQue(() => page.evaluate(() => document.querySelectorAll('#feuille-contenu .cr-lignes li').length > 0), 8000, 'carte1882');
+    const carte1882 = await page.evaluate(() => ({ titre: (document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || '',
+      lignes: Array.from(document.querySelectorAll('#feuille-contenu .cr-lignes li')).map((l) => l.textContent) }));
+    ok('[EQ1882] DISCRIMINANT — « J’ai peu de temps » : la carte réduit des exercices (le curl, l’extension), mais ni Latérales ni Oiseau (les épaules sont prioritaires) ni le Développé (barre)',
+      carte1882.lignes.length > 0 && carte1882.lignes.some((l) => /Curl EQ1882|Extension EQ1882/.test(l)) &&
+        !carte1882.lignes.some((l) => /Latérales EQ1882|Oiseau EQ1882|Développé EQ1882/.test(l)), nb1882(carte1882));
+    ok('[EQ1882] …et jamais sous 2 séries', carte1882.lignes.every((l) => !/→ [01] séries?/.test(l)), nb1882(carte1882.lignes));
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button')).filter((b) => /^Garder la séance|^Annuler/.test(b.textContent))[0].click());
+    base.profiles[0].priorites = null;
+
+    // ── D. LA LIGNE DU REPOS : un gros mouvement qui stagne, reps −33 % de la série 1 à la 3, repos réglé à 75 s.
+    await aller('/saisie');
+    await attendreQue(() => page.evaluate(() => Array.from(document.querySelectorAll('.routine-rangee'))
+      .some((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Squat EQ1882')), 15000, 'rangeeS1882');
+    await page.evaluate(() => Array.from(document.querySelectorAll('.routine-rangee'))
+      .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Squat EQ1882')[0].querySelector('.demarrer').click());
+    await attendreQue(() => page.evaluate(() => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan &&
+      window.THPlan.dernier.plan.exercices.some((x) => x.slug === 'eq1882-sq2'))), 15000, 'planS1882');
+    const repos1882 = await page.evaluate(() => {
+      const x = window.THPlan.dernier.plan.exercices.filter((q) => q.slug === 'eq1882-sq2')[0];
+      return { ligne: x.pourquoi && x.pourquoi.repos || null, long: x.reposLong ? x.reposLong.reposS : null,
+               compteur: x.compteur ? x.compteur.compteur : null, etat: x.consigne ? x.consigne.etat : null };
+    });
+    ok('[EQ1882] DISCRIMINANT — le « Pourquoi » du squat qui stagne porte « Sur un gros mouvement, 2 min 30 à 3 min de repos aident. » (repos réglé 75 s)',
+      repos1882.ligne === 'Sur un gros mouvement, 2 min 30 à 3 min de repos aident.' && repos1882.long === 75, nb1882(repos1882));
+    ok('[EQ1882] la garde de l’app (I76 compris) n’a rien vu', gardeBanc.violations === violationsAvant, nb1882(gardeBanc.liste.slice(-2)));
+    await abandonner();
+
+    ok('[EQ1882] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb1882([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    // On rend l'état.
+    base.sessions = base.sessions.slice(0, nbSessionsAvant);
+    base.sets = base.sets.slice(0, nbSetsAvant);
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = nbRoutinesAvant;
+    base.profiles[0] = profilAvant;
+    await aller('/saisie');
   }
 
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');

@@ -27114,6 +27114,9 @@ const SETS_IMPORTES = [
     const sessionsAvant = base.sessions, setsAvant = base.sets, paris1882Avant = base.predictions;
     const routinesAvant1882Liste = ROUTINES.splice(0, ROUTINES.length);
     base.sessions = []; base.sets = []; base.predictions = [];
+    // Les blocs de « cycles » restent sur l'appareil au séquentiel (leur semaine de décharge n'est ni comptée ni jugée par le compteur) :
+    // retirés de l'appareil comme le font les sections qui comptent des séances, rendus à la fin.
+    const rendreLesBlocs1882 = await retirerBlocsDeLAppareil();
     const t1882 = Date.now();
     const nb1882 = (x) => JSON.stringify(x === undefined ? null : x);
     const sp1882 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -27172,8 +27175,10 @@ const SETS_IMPORTES = [
       routine_exercises: [['eq1882-dev', 4, 180], ['eq1882-lat', 4, 90], ['eq1882-curl', 4, 90], ['eq1882-ext', 4, 90], ['eq1882-arr', 4, 90]]
         .map(([slug, n, repos], rang) => exo1882('r-eq1882p', slug, rang, n, repos)) });
     const routinesAvant1882 = JSON.stringify(ROUTINES.filter((r) => r.id === 'r-eq1882'));
-    Object.assign(base.profiles[0], { seances_par_semaine: 4, duree_seance_min: 90, rythme_progression: 'normal', intention: 'progresser',
-      phase: 'maintien', phase_depuis: null, cartes_semaine: null, priorites: null, jours_vises: null });
+    // Le profil ENTIER est celui du banc (`PROFIL_BANC`), pas celui qu'une section d'avant a laissé (ancienneté « moins d'un an » : le
+    // débutant ne stagne pas comme les autres ; zones à ménager, salle, objectif, phase…) ; on n'y pose que ce dont la section a besoin.
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { seances_par_semaine: 4, duree_seance_min: 90, rythme_progression: 'normal',
+      intention: 'progresser', phase: 'maintien', phase_depuis: null, cartes_semaine: null, priorites: null, jours_vises: null });
     const lire1882 = () => page.evaluate(() => {
       const sec = document.querySelector('#parcours [data-equilibres]');
       const cartes = Array.from(document.querySelectorAll('#parcours [data-equilibre]')).map((c) => ({
@@ -27273,6 +27278,7 @@ const SETS_IMPORTES = [
     ROUTINES.length = 0;
     routinesAvant1882Liste.forEach((r) => ROUTINES.push(r));
     base.profiles[0] = profilAvant;
+    rendreLesBlocs1882();
     await aller('/saisie');
   }
 

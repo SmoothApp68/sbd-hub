@@ -570,6 +570,14 @@ describe('188-2 — « Sur un gros mouvement, 2 min 30 à 3 min de repos aident.
     };
     const c = { seances: [seance(1, [10, 8, 7]), seance(8, [10, 8, 6]), seance(15, [10, 7, 5])], seriesDe: (id) => jeu[id] };
     expect(F.chutesDeReps(c, 'squat_barre', 3)).toEqual([0.5, 0.4, 0.3]);
+    // Une série corrigée APRÈS COUP (mêmes comptes de séances et de séries) : la chute est recalculée, pas servie d'un mémo.
+    jeu.s15[2].reps = 9;
+    expect(F.chutesDeReps(c, 'squat_barre', 3)).toEqual([0.1, 0.4, 0.3]);
+    jeu.s15[2].reps = 5;
+    // Une séance ajoutée : recalculée aussi.
+    c.seances.push(seance(22, [10, 10, 5]));
+    expect(F.chutesDeReps(c, 'squat_barre', 3)).toEqual([0.5, 0.5, 0.4]);
+    c.seances.pop();
     jeu.s8[2].charge_kg = 90;                       // une charge différente à la série 3 : la séance n’est pas comparable
     expect(F.chutesDeReps(c, 'squat_barre', 3)).toEqual([0.5, 0.3]);
   });

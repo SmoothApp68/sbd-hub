@@ -865,10 +865,13 @@
     // perdue de la série 1 à la série 3, `(reps1 − reps3) / reps1`. Les plus récentes d'abord. Une série « ne compte pas » est
     // écartée. Un fait : la règle du repos (`Moteur.reposAConseiller`) le lit, elle ne le recalcule pas.
     function chutesDeReps(c, slug, n) {
-      var datees = seancesDatees(c).slice().sort(function (a, b) { return new Date(b.debut) - new Date(a.debut); });
+      // Lu SANS le mémo des séances (`seancesAvecSeries`, clé = nombre de séances et de séries) : une série corrigée après coup
+      // (mêmes comptes) doit changer la chute. On lit les séances de la plus récente à la plus ancienne, et on s'arrête à `n`.
+      var datees = (c.seances || []).filter(function (s) { return s && s.debut && !isNaN(new Date(s.debut).getTime()); })
+        .sort(function (a, b) { return new Date(b.debut) - new Date(a.debut); });
       var sortie = [];
       for (var i = 0; i < datees.length && sortie.length < n; i++) {
-        var travail = (datees[i].series || []).filter(function (x) {
+        var travail = Modele.trierParRang(c.seriesDe(datees[i].id) || []).filter(function (x) {
           return x && x.exercise_slug === slug && Modele.estTravail(x) && x.hors_calcul !== true && Number(x.reps) > 0;
         });
         if (travail.length < 3) continue;

@@ -7975,6 +7975,142 @@
     return consigneDepartRoutine(o.depart);
   }
 
+  // ══ 187 — LE CALAGE DE LA PREMIÈRE SÉANCE (MOTEUR §9.21 bis, 29/10/2026, décision d'Aurélien) ══
+  //
+  // « Un exercice sans historique ni charge de départ ne reçoit pas une charge DEVINÉE : on la trouve ensemble. »
+  // Aucune charge n'est tirée du poids du corps, du sexe ou du type de machine. UNE fonction pure, lue par le plan
+  // (`planDeSeance`, qui pose le résultat sur l'exercice : `x.calage`, I72 à I74) ; l'écran ne décide rien.
+  //
+  //   · DÉBUTANT (`anciennete = moins_1_an`) — « On trouve ta charge · 3 séries de N » : la série 1 au plus petit cran du
+  //     matériel (la barre vide pour une barre) ; après chaque série, « Il t'en restait combien ? » décide de la suivante :
+  //     3 ou plus → +2 crans, 2 → +1 cran, 1 ou 0 → la charge reste ; sans réponse, elle reste aussi. Trois séries au plus,
+  //     et elles COMPTENT comme la séance (ce sont des séries de travail ordinaires, validées par la personne).
+  //   · INTERMÉDIAIRE ET PLUS — d'abord « Ta charge habituelle ? » (facultatif, pour ~N reps) : donnée, elle est la charge
+  //     de départ de la série 1. Sinon, 2 approches de 5 reps en montant, puis 1 série de N reps à 2 reps de réserve.
+  //   · LES SÉRIES SUIVANTES SONT PROPOSÉES (en gris), jamais écrites. La séance d'après repart de la série la plus lourde
+  //     réussie (`plusLourdeReussie`), lue par le coach ordinaire dès que l'historique existe.
+  //   · LE SAUT est plafonné comme au §9.1.2 (186) : +15 % (+10 % pour un débutant) de la charge de la série qu'on vient de
+  //     faire. SEULE la première montée depuis le plus petit cran (la barre vide n'est pas une charge de travail) n'est pas
+  //     comptée en pourcentage : deux crans au plus. Un cran qui dépasserait le plafond n'est pas pris : la charge reste.
+  var CALAGE_SERIES = 3, CALAGE_REPS_DEFAUT = 10, CALAGE_REPS_APPROCHE = 5, CALAGE_APPROCHES = 2;
+  var CALAGE_RESERVE = { reste_0: 0, reste_1: 1, reste_2: 2, reste_3_plus: 3 };
+  var CALAGE_ROLE_CIBLE = 'cible', CALAGE_ROLE_APPROCHE = 'approche', CALAGE_ROLE_DEPART = 'depart',
+      CALAGE_ROLE_MONTEE = 'montee', CALAGE_ROLE_HABITUELLE = 'habituelle';
+
+  function cranDuCalage(equipement, salle, charge) {
+    var l = chargesDeLaSalle(salle);
+    if (l.length) {
+      for (var i = 0; i < l.length; i++) if (l[i] > charge + 1e-9) return l[i];
+      return null;                                           // la salle n'a rien de plus lourd
+    }
+    var pas = repliDe(equipement, charge, 1);
+    return pas === null || pas === undefined ? null : Math.round((charge + pas) * 100) / 100;
+  }
+  // Le plus petit cran du matériel : la barre vide à la barre ; la plus légère charge de la salle déclarée ; sinon le
+  // premier cran du repli (une machine : 5 kg, une poulie : 2,5 kg…). Matériel inconnu : `null`, le calage se tait.
+  function plancherDuCalage(equipement, salle) {
+    var l = chargesDeLaSalle(salle);
+    if (l.length) return l[0];
+    if (equipement === 'barre') return BARRE_VIDE;
+    var pas = repliDe(equipement, 0, 1);
+    return pas === null || pas === undefined ? null : pas;
+  }
+  function plafondDuCalage(debutant) { return debutant ? PLAFOND_SAUT_DEBUTANT : PLAFOND_SAUT; }
+
+  // La charge d'après : `crans` crans au-dessus de `charge`, sans dépasser le plafond (sauf la première montée depuis le
+  // plancher), sans jamais descendre.
+  function monteeDuCalage(o, charge, crans) {
+    var plafond = charge * (1 + plafondDuCalage(o.debutant)) + 1e-9;
+    var depuisLePlancher = charge <= o.plancher + 1e-9;
+    var c = charge;
+    for (var k = 0; k < crans; k++) {
+      var n = cranDuCalage(o.equipement, o.salle, c);
+      if (n === null || (!depuisLePlancher && n > plafond)) break;
+      c = n;
+    }
+    return c;
+  }
+
+  function calagePremiereFois(entree) {
+    var o = Object.assign({}, entree || {});
+    var mesure = o.mesure === undefined || o.mesure === null ? 'charge_reps' : o.mesure;
+    o.plancher = plancherDuCalage(o.equipement, o.salle);
+    if (mesure !== 'charge_reps' || o.plancher === null) return null;
+    var n = nombre(o.reps);
+    n = n !== null && n >= 1 ? Math.round(n) : CALAGE_REPS_DEFAUT;
+    var hab = nombre(o.habituelle);
+    hab = hab !== null && hab > 0 ? hab : null;
+    var faites = (o.series || []).filter(function (s) { return s && nombre(s.charge) !== null; });
+    var k = faites.length;
+    var debutant = o.debutant === true;
+    var mode = debutant ? 'debutant' : hab !== null ? 'habituelle' : 'approches';
+    var r = { mode: mode, n: n, nSeries: CALAGE_SERIES, faites: k, plancher: o.plancher, equipement: o.equipement || null, plafond: plafondDuCalage(debutant),
+              habituelle: hab, suivante: null, termine: false, question: false };
+    var derniere = k ? faites[k - 1] : null;
+    var reserve = derniere && derniere.ressenti && Object.prototype.hasOwnProperty.call(CALAGE_RESERVE, derniere.ressenti)
+      ? CALAGE_RESERVE[derniere.ressenti] : null;
+    if (mode === 'habituelle') {
+      // La charge donnée est la série 1 ; ensuite le coach ordinaire (la fois d'après) et la saisie font foi.
+      r.termine = k >= 1;
+      if (k === 0) r.suivante = { charge: hab, reps: n, role: CALAGE_ROLE_HABITUELLE, pourquoi: 'habituelle' };
+      return r;
+    }
+    if (k >= CALAGE_SERIES) {
+      r.termine = true;
+      var reussies = faites.filter(function (s) { return nombre(s.reps) !== null && nombre(s.reps) >= n; });
+      var lourde = reussies.reduce(function (m, s) { return Math.max(m, nombre(s.charge)); }, 0);
+      r.plusLourdeReussie = lourde > 0 ? lourde : null;
+      return r;
+    }
+    r.question = k >= 1 && reserve === null;
+    var role, reps;
+    if (mode === 'approches') {
+      role = k < CALAGE_APPROCHES ? CALAGE_ROLE_APPROCHE : CALAGE_ROLE_CIBLE;
+      reps = k < CALAGE_APPROCHES ? CALAGE_REPS_APPROCHE : n;
+    } else {
+      role = k === 0 ? CALAGE_ROLE_DEPART : CALAGE_ROLE_MONTEE;
+      reps = n;
+    }
+    if (k === 0) {
+      r.suivante = { charge: o.plancher, reps: reps, role: role, pourquoi: 'plancher' };
+      return r;
+    }
+    var charge = nombre(derniere.charge);
+    var crans = reserve === null ? 0 : reserve >= 3 ? 2 : reserve === 2 ? 1 : 0;
+    var suivante = monteeDuCalage(o, charge, crans);
+    r.suivante = { charge: suivante, reps: reps, role: role,
+                   pourquoi: reserve === null ? 'sans_reponse' : crans === 2 ? 'facile' : crans === 1 ? 'un_cran' : 'tenue',
+                   crans: crans, depuis: charge };
+    return r;
+  }
+
+  // Les mots du calage (VOIX-DU-COACH : un fait, « tu », jamais un bravo).
+  function libellesCalage(c) {
+    if (!c) return null;
+    var n = c.n;
+    var titre = c.mode === 'approches' ? 'On trouve ta charge · 2 approches puis 1 série'
+      : 'On trouve ta charge · ' + CALAGE_SERIES + ' séries de ' + n;
+    if (c.mode === 'habituelle') {
+      return { titre: 'Ta charge habituelle', consigne: 'Je pars de là, et je m’ajuste à ce que tu fais.',
+               question: 'Ta charge habituelle ?', pour: 'Pour ' + n + ' reps environ', passer: 'Je ne sais pas : on la trouve ensemble',
+               pourquoi: null };
+    }
+    var consigne = c.mode === 'approches'
+      ? 'Deux séries courtes de ' + CALAGE_REPS_APPROCHE + ', en montant ; puis une série de ' + n + ' où il te reste 2 reps. Je te propose les suivantes à partir d’elle.'
+      : 'Après chaque série, dis-moi ce qu’il te restait : je te propose la suivante.';
+    var s = c.suivante, pourquoi = null;
+    if (s) {
+      if (s.pourquoi === 'plancher') pourquoi = c.equipement === 'barre' ? 'Commence à la barre vide.' : 'Commence au plus petit cran.';
+      else if (s.pourquoi === 'facile') pourquoi = 'Facile : je monte de deux crans.';
+      else if (s.pourquoi === 'un_cran') pourquoi = 'Il t’en restait 2 : je monte d’un cran.';
+      else if (s.pourquoi === 'tenue') pourquoi = 'Il t’en restait peu : je garde cette charge.';
+      else if (s.pourquoi === 'sans_reponse') pourquoi = 'Sans ta réponse, je garde cette charge.';
+    } else if (c.termine) {
+      pourquoi = 'Trois séries : ta charge est trouvée. La prochaine fois, je pars de la plus lourde que tu as tenue.';
+    }
+    return { titre: titre, consigne: consigne, question: 'Il t’en restait combien ?', pour: null, passer: null, pourquoi: pourquoi };
+  }
+
   // ══ §9.10 (53-1) — LE REPORT DE CHARGE AU CHANGEMENT DE ZONE ══════════════
   //
   // « Quand la zone retenue pour la séance diffère de la zone de la dernière
@@ -8378,8 +8514,23 @@
   // Les silences DU moteur (première fois, pas de palier) sont autre chose :
   // une consigne à l'état `silence`, avec sa seule phrase grise.
   function consigneDExercice(groupes, etat, avant, options) {
-    return avecDebutant(options, function () { return consigneDExerciceCalcul(groupes, etat, avant, options); });
+    var r = avecDebutant(options, function () { return consigneDExerciceCalcul(groupes, etat, avant, options); });
+    // 187 (A4) — UNE ZONE À MÉNAGER : l'exercice qui la charge (`options.menagee`, lue par l'app dans le profil et la table du
+    // générateur) ne reçoit AUCUNE série lourde. Quand la zone qu'il aurait est Lourd (3-5 reps) et que la personne n'en a
+    // pas choisi une autre (`options.correction`), il prend Mix (6-8) — par le chemin d'une zone choisie (le report de
+    // charge, §9.10), et le fondement le dit (`menagee`). Une zone choisie par la personne reste la sienne : le moteur
+    // propose, elle décide.
+    if (options && options.menagee === true && !options.correction && r && r.consigne && r.consigne.zone === 'lourd') {
+      var o2 = Object.assign({}, options, { correction: ZONE_SANS_LOURD, menagee: false });
+      var r2 = avecDebutant(o2, function () { return consigneDExerciceCalcul(groupes, etat, avant, o2); });
+      if (r2 && r2.consigne && r2.consigne.zone && r2.consigne.zone !== 'lourd') {
+        r2.consigne = Object.assign({}, r2.consigne, { fondement: Object.assign({}, r2.consigne.fondement, { menagee: true }) });
+        return r2;
+      }
+    }
+    return r;
   }
+  var ZONE_SANS_LOURD = 'mix';
   function consigneDExerciceCalcul(groupes, etat, avant, options) {
     var o = options || {};
     if (o.edition) return null;
@@ -9041,6 +9192,9 @@
     structureDeRoutine: structureDeRoutine,
     estPolyarticulaire: estPolyarticulaire,
     consigneDepartRoutine: consigneDepartRoutine,
+    ZONE_SANS_LOURD: ZONE_SANS_LOURD, calagePremiereFois: calagePremiereFois, libellesCalage: libellesCalage, plancherDuCalage: plancherDuCalage,
+    plafondDuCalage: plafondDuCalage, CALAGE_SERIES: CALAGE_SERIES, CALAGE_REPS_DEFAUT: CALAGE_REPS_DEFAUT,
+    CALAGE_REPS_APPROCHE: CALAGE_REPS_APPROCHE, CALAGE_APPROCHES: CALAGE_APPROCHES,
     aDesMuscles: aDesMuscles,
     structureAllegee: structureAllegee,
     appliquerRaccourci: appliquerRaccourci,

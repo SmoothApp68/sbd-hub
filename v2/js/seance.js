@@ -1941,6 +1941,16 @@
     return Object.assign({}, seance, { reprises: r });
   }
 
+  // 187 (MOTEUR §9.21 bis) — « Ta charge habituelle ? » : la réponse de CETTE séance, par exercice — un nombre de kg, ou `0`
+  // (« Je ne sais pas : on la trouve ensemble »). Elle vit dans le brouillon, comme le choix de la carte de reprise : ce
+  // n'est pas une série, rien n'en est écrit en base ; le plan la lit pour PROPOSER (en gris) la première série.
+  function poserHabituelle(seance, slug, valeur) {
+    var h = {};
+    Object.keys(seance.habituelles || {}).forEach(function (k) { h[k] = seance.habituelles[k]; });
+    h[slug] = valeur;
+    return Object.assign({}, seance, { habituelles: h });
+  }
+
   // L'identifiant d'occurrence de l'app est `o-<uuid>` (l'identifiant de sa
   // première série) ; la colonne `sets.occurrence` est un uuid. On écrit le
   // uuid, et NULL pour une occurrence qui n'en porte pas (un exercice posé sans
@@ -3030,6 +3040,7 @@
     occurrenceDouloureuse: occurrenceDouloureuse,
     marquerDouleur: marquerDouleur,
     choisirReprise: choisirReprise,
+    poserHabituelle: poserHabituelle,
     uuidDOccurrence: uuidDOccurrence,
     freresProposes: freresProposes,
     exercicesProposes: exercicesProposes,

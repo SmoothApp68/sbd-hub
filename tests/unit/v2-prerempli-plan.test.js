@@ -152,6 +152,9 @@ describe('PR 3 — l’équivalence avec l’ancien `fantomeDe`', () => {
           }
           const x = plan(se, slug, k, { precedents: { [slug]: prec } }).exercices[0];
           x.lignes.forEach((l, i) => {
+            // 187 — la ligne que PORTE le calage de la première séance (« On trouve ta charge ») est proposée par le calage,
+            // pas par l'ancien fantôme : elle a ses tests (v2-calage-premiere-seance).
+            if (l.calage === true) return;
             lignes++;
             const avant = ancienFantome(se, 0, i, prec, x);
             const apres = l.prerempli;

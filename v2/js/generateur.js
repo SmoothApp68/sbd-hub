@@ -448,6 +448,15 @@
     return liste(menager).filter(function (z) { return possede(CHARGE_ZONE, z) && contient(CHARGE_ZONE[z], l.motif); });
   }
 
+  // 187 (A4) — LA ZONE LUE EN SÉANCE : les zones à ménager que charge CET EXERCICE (son slug, tous les motifs qui le
+  // contiennent — la même table `MOTIFS`/`CHARGE_ZONE` que le gabarit, jamais une seconde). Dans l'ordre de `menager`.
+  function zonesQueChargeLExercice(slug, menager) {
+    var motifs = Object.keys(MOTIFS).filter(function (m) { return contient(MOTIFS[m], slug); });
+    return liste(menager).filter(function (z) {
+      return possede(CHARGE_ZONE, z) && motifs.some(function (m) { return contient(CHARGE_ZONE[z], m); });
+    });
+  }
+
   // Sous un exercice : « sans série lourde · ton genou », « demande une barre fixe ». Une liste (parfois les deux).
   function mentionsDeLigne(l, entree) {
     var e = entree || {}, m = [];
@@ -1392,6 +1401,7 @@
     remplacePar: remplacePar,
     pourquoi: pourquoi,
     mentionsDeLigne: mentionsDeLigne,
+    zonesQueChargeLExercice: zonesQueChargeLExercice,
     phrasesDeLApercu: phrasesDeLApercu,
     exemptsDuRaccourci: exemptsDuRaccourci,
     carteCycles: carteCycles,

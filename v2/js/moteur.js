@@ -3361,7 +3361,11 @@
   // déplacé 176 secondaires vers les stabilisateurs sans changer le total d'aucun exercice : en les comptant,
   // aucun exercice ne change de classe ; sans eux, 26 passeraient de polyarticulaire à isolation.
   var MUSCLES_POLYARTICULAIRE = 3;
-  var PLANCHER_ISOLATION = 1, PLANCHER_COMPOSE = 2;   // ~2 séries portent presque tout le gain
+  // 188-2 (Iversen 2021) — JAMAIS SOUS 2 SÉRIES : une isolation ne descend plus à 1 (le raccourci d'avant l'y réduisait).
+  var PLANCHER_ISOLATION = 2, PLANCHER_COMPOSE = 2;
+  // 188-2 — LES REPOS DES ISOLATIONS, étape 2 de l'ordre de compression : d'abord à 90 s, puis à 60 s.
+  var REPOS_ISOLATION_HAUT = 90, REPOS_ISOLATION_BAS = 60;
+  var EQUIPEMENTS_DES_GRANDS = ['barre'];
 
   function musclesDe(v) {
     if (Array.isArray(v)) return v.filter(Boolean);
@@ -3385,6 +3389,11 @@
   // (la salle l'excluait déjà, le plan le traitait en isolation).
   function estIsolation(e) {
     return !!e && aDesMuscles(e) && !estPolyarticulaire(e);
+  }
+  // 188-2 — UN GRAND MOUVEMENT (squat, soulevé, poussée, tirage) : un polyarticulaire à la barre ou au poids du corps. La compression
+  // ne lui retire jamais une série ni son repos ; un polyarticulaire à la machine ou aux haltères reste un exercice secondaire.
+  function estGrandMouvement(e) {
+    return !!e && estPolyarticulaire(e) && EQUIPEMENTS_DES_GRANDS.indexOf(e.equipement) >= 0;
   }
   // Le premier critère qui diffère départage (priorité, puis séries, puis rang).
   function avantDans(a, b) {
@@ -3419,7 +3428,9 @@
                repos: e.repos === undefined ? null : e.repos,
                ch: compteDe(e.ch), tr: compteDe(e.tr), deg: compteDe(e.deg),
                duree: e.duree === undefined ? null : e.duree,
-               prim: musclesDe(e.prim), sec: musclesDe(e.sec), stab: musclesDe(e.stab) };
+               prim: musclesDe(e.prim), sec: musclesDe(e.sec), stab: musclesDe(e.stab),
+               equipement: e.equipement === undefined ? null : e.equipement,
+               groupe: e.groupe === undefined ? null : e.groupe };
     });
   }
 
@@ -3478,14 +3489,55 @@
       if (tient()) return fin();
     }
 
-    // 4. une série de travail en moins, à chaque tour : la plus basse priorité,
-    // puis le plus de séries, puis le plus loin. Planchers : 2 séries, 1 pour
-    // l'isolation. Un exercice sans muscle n'est jamais coupé.
+    // 188-2 — L'ORDRE DE COMPRESSION (Iversen 2021), aux étapes 4 à 7 :
+    //   4. grouper des exercices en supersets (deux isolations voisines, sans muscle en commun) ;
+    //   5. raccourcir les repos des isolations : à 90 s, puis à 60 s ;
+    //   6. une série de moins aux exercices secondaires, JAMAIS sous 2 ;
+    //   7. seulement ensuite, retirer une isolation redondante.
+    // Jamais un grand mouvement (squat, soulevé, poussée, tirage), jamais un exempté (une priorité, une zone à ménager).
+    var libre = function (e) { return !intouchable(e) && !estGrandMouvement(e); };
+    var isolationLibre = function (e) { return libre(e) && estIsolation(e) && !enDuree(e) && e.tr > 0; };
+
+    // 4. les supersets : la paire de voisins qui économise le plus (le premier membre perd son repos).
+    for (;;) {
+      if (tient()) return fin();
+      var paire = -1, gain = 0;
+      for (var a = 0; a + 1 < r.length; a++) {
+        var x = r[a], y = r[a + 1];
+        if (!isolationLibre(x) || !isolationLibre(y)) continue;
+        if (x.groupe !== null || y.groupe !== null || x.repos === null || x.repos === undefined) continue;
+        if (x.prim.some(function (m) { return y.prim.indexOf(m) >= 0; })) continue;
+        var g = x.tr * (x.repos - DUREE_PAR_DEFAUT.reposSuperset);
+        if (g > gain) { paire = a; gain = g; }
+      }
+      if (paire < 0) break;
+      var numeros = r.map(function (e) { return Number(e.groupe) || 0; });
+      var groupe = Math.max.apply(null, numeros.concat([0])) + 1;
+      r[paire].groupe = groupe; r[paire + 1].groupe = groupe;
+      journal.push({ quoi: 'superset', i: paire, j: paire + 1, slug: r[paire].slug, avec: r[paire + 1].slug, groupe: groupe,
+                     avant: r[paire].repos });
+      r[paire].repos = null;
+    }
+
+    // 5. les repos des isolations : 90 s, puis 60 s (un repos porté par un superset ou sans réglage ne bouge pas).
+    [REPOS_ISOLATION_HAUT, REPOS_ISOLATION_BAS].forEach(function (plafond) {
+      for (var k2 = 0; k2 < r.length; k2++) {
+        if (tient()) return;
+        var ex = r[k2];
+        if (!isolationLibre(ex) || ex.repos === null || ex.repos === undefined || !(Number(ex.repos) > plafond)) continue;
+        journal.push({ quoi: 'repos', i: k2, slug: ex.slug, avant: Number(ex.repos), apres: plafond });
+        ex.repos = plafond;
+      }
+    });
+    if (tient()) return fin();
+
+    // 6. une série de travail en moins, à chaque tour : la plus basse priorité, puis le plus de séries, puis le plus loin.
+    // Plancher : 2 séries. Un exercice sans muscle n'est jamais coupé, ni un grand mouvement.
     for (;;) {
       if (tient()) return fin();
       var choix = -1, cle = null;
       r.forEach(function (e, i) {
-        if (!aDesMuscles(e) || intouchable(e)) return;
+        if (!aDesMuscles(e) || !libre(e)) return;
         var p = priorite(e, i);
         if (e.tr <= (p === PRIORITE_ISOLATION ? PLANCHER_ISOLATION : PLANCHER_COMPOSE)) return;
         var c = [p, -e.tr, -i];
@@ -3496,14 +3548,13 @@
       journal.push({ quoi: 'serie', i: choix, slug: r[choix].slug });
     }
 
-    // 5. un exercice entier (avec ses chauffes), seulement si chacun de ses
-    // muscles principaux est muscle principal d'un autre exercice gardé ;
-    // jamais le premier, jamais un exercice sans muscle principal.
+    // 7. une ISOLATION redondante (avec ses chauffes), seulement si chacun de ses muscles principaux est muscle principal d'un
+    // autre exercice gardé ; jamais le premier, jamais un exercice sans muscle principal, jamais un polyarticulaire.
     for (;;) {
       if (tient()) return fin();
       var retire = -1, cleR = null;
       r.forEach(function (e, i) {
-        if (i === premier || !e.prim.length || e.ch + e.tr + e.deg === 0 || intouchable(e)) return;
+        if (i === premier || !e.prim.length || e.ch + e.tr + e.deg === 0 || !libre(e) || estPolyarticulaire(e)) return;
         var couvert = e.prim.every(function (m) {
           return r.some(function (f, j) { return j !== i && f.tr > 0 && f.prim.indexOf(m) >= 0; });
         });
@@ -3540,7 +3591,8 @@
       return { slug: e.exercise_slug, mesure: cat.mesure || null, repos: repos,
                ch: nb('echauffement'), tr: nb('travail') + nb('echec'), deg: nb('degressive'),
                duree: d, prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [],
-               stab: cat.muscles_stabilisateurs || [] };
+               stab: cat.muscles_stabilisateurs || [], equipement: cat.equipement || null,
+               groupe: g === undefined ? null : g };
     });
   }
 
@@ -3579,7 +3631,17 @@
         vus[t] = (vus[t] || 0) + 1;
         return vus[t] <= (garde[t] || 0);
       });
-      exercices.push(Object.assign({}, e, { series: series }));
+      // 188-2 — les deux premiers pas de la compression s'écrivent sur la ligne : un superset (les deux membres prennent le même
+      // groupe, le premier perd son repos) et un repos d'isolation raccourci.
+      var plus = {};
+      ((resultat && resultat.journal) || []).forEach(function (t) {
+        if (t.quoi === 'superset' && (t.i === i || t.j === i)) {
+          plus.groupe_superset = t.groupe;
+          if (t.i === i) plus.repos_cible_s = null;
+        }
+        if (t.quoi === 'repos' && t.i === i) plus.repos_cible_s = t.apres;
+      });
+      exercices.push(Object.assign({}, e, { series: series }, plus));
     });
     return { routine: Object.assign({}, routine, { exercices: exercices }), retires: retires };
   }
@@ -3618,6 +3680,14 @@
       if (ta !== b.tr) {
         lignes.push(nom(a.slug) + ' ' + nombreFr(ta, regle('series.avant')) + ' → ' +
           nombreFr(b.tr, regle('series.apres')) + (b.tr > 1 ? ' séries' : ' série'));
+      }
+      // 188-2 — un repos d'isolation raccourci, un superset : dits, comme le reste.
+      if (b.repos !== a.repos && b.repos !== null && b.repos !== undefined && a.repos !== null && a.repos !== undefined && b.tr > 0) {
+        lignes.push(nom(a.slug) + ' : repos ' + nombreFr(a.repos, regle('repos.avant')) + ' s → ' + nombreFr(b.repos, regle('repos.apres')) + ' s');
+      }
+      if (b.groupe !== null && b.groupe !== undefined && (a.groupe === null || a.groupe === undefined) && b.repos === null) {
+        var suivant = apres[i + 1];
+        lignes.push(nom(a.slug) + ' : en superset avec ' + nom(suivant ? suivant.slug : a.slug));
       }
       if (da > 0 && b.deg < da) lignes.push(nom(a.slug) + ' : sans dégressive');
     });
@@ -5806,6 +5876,26 @@
     return Modele().charge(c.meilleur.palier, undefined, cM) + ' × ' + nombreFr(c.meilleur.niveau, cR) +
       ' reste ta meilleure charge de travail depuis ' + nombreFr(c.compteur, regle('compteur')) + ' séances' +
       (plusLong ? ' : c\'est plus long que d\'habitude pour toi.' : '.');
+  }
+
+  // ══ 188-2 (MOTEUR §9.27 bis) — LE REPOS D'UN GROS MOUVEMENT QUI STAGNE ══════════════════════════════════════
+  //
+  // Aucune carte : l'écart entre deux validations ne mesure pas le vrai repos (une série validée après coup, un oubli). Une seule
+  // ligne, dans le « Pourquoi » d'un gros mouvement qui stagne : les reps chutent d'au moins 30 % de la série 1 à la série 3 sur
+  // 3 séances de suite, et le repos RÉGLÉ (`repos_cible_s`) est de 90 s ou moins.
+  var CHUTE_DE_REPS = 0.30, SEANCES_DE_CHUTE = 3, REPOS_COURT_S = 90;
+  function reposAConseiller(o) {
+    var x = o || {};
+    if (x.grand !== true || x.stagne !== true) return false;
+    var r = Number(x.reposS);
+    if (!(r > 0) || r > REPOS_COURT_S) return false;       // pas de repos réglé : rien à dire, on ne devine pas
+    var ch = Array.isArray(x.chutes) ? x.chutes : [];
+    if (ch.length < SEANCES_DE_CHUTE) return false;
+    return ch.slice(0, SEANCES_DE_CHUTE).every(function (v) { return typeof v === 'number' && v >= CHUTE_DE_REPS; });
+  }
+  function phraseReposLong() {
+    var c = function (v) { return nombreFr(v, regle('constante')); };
+    return 'Sur un gros mouvement, ' + c(2) + ' min ' + c(30) + ' à ' + c(3) + ' min de repos aident.';
   }
 
   // ══ §13.6 (49-U20) — LES FRÈRES : CÔTE À CÔTE, SANS CONCLURE ════════════
@@ -9186,6 +9276,9 @@
     raccourcirRoutine: raccourcirRoutine,
     structureDeRoutine: structureDeRoutine,
     estPolyarticulaire: estPolyarticulaire,
+    estGrandMouvement: estGrandMouvement,
+    reposAConseiller: reposAConseiller, phraseReposLong: phraseReposLong,
+    CHUTE_DE_REPS: CHUTE_DE_REPS, SEANCES_DE_CHUTE: SEANCES_DE_CHUTE, REPOS_COURT_S: REPOS_COURT_S,
     consigneDepartRoutine: consigneDepartRoutine,
     ZONE_SANS_LOURD: ZONE_SANS_LOURD, calagePremiereFois: calagePremiereFois, libellesCalage: libellesCalage, plancherDuCalage: plancherDuCalage,
     plafondDuCalage: plafondDuCalage, CALAGE_REPS_DEFAUT: CALAGE_REPS_DEFAUT,

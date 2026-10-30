@@ -814,6 +814,25 @@
     });
   }
 
+  // 188-2 (I76) — le fait du repos d'un gros mouvement : `{ chutes, reposS, phrase }` ou `null`. La phrase passe par la voix (sous
+  // capture, I26) et entre dans le « Pourquoi » (`x.pourquoi.repos`).
+  function reposDuPlan(x, exo, c, e, slug, actif) {
+    if (!actif || !c || !c.compteur || typeof c.compteur.compteur !== 'number') return null;
+    var chutes = e.chutesDeReps && Object.prototype.hasOwnProperty.call(e.chutesDeReps, slug) ? e.chutesDeReps[slug] : null;
+    var cat = (e.catalogue || {})[slug];
+    if (!chutes || !cat) return null;
+    var M = Moteur();
+    var reposS = exo && exo.repos_cible_s !== null && exo.repos_cible_s !== undefined ? Number(exo.repos_cible_s) : null;
+    var fait = { grand: M.estGrandMouvement({ prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [], stab: cat.muscles_stabilisateurs || [],
+                                             equipement: cat.equipement }),
+                 stagne: c.compteur.compteur >= M.SEUIL_COMPTEUR, chutes: chutes, reposS: reposS };
+    if (!M.reposAConseiller(fait)) return null;
+    var cap = Voix().capturer(function () { return M.phraseReposLong(); });
+    if (x.pourquoi) x.pourquoi.repos = cap.texte;
+    x.phrases.push({ ou: 'pourquoi.repos', texte: cap.texte, citations: cap.citations });
+    return { grand: true, stagne: true, chutes: chutes.slice(0, M.SEANCES_DE_CHUTE), reposS: reposS, phrase: cap.texte };
+  }
+
   function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
@@ -1473,6 +1492,10 @@
         x.calage = coachee && !douloureuse && !salleEl && intentionX !== 'entretien' && !seance.edition
           ? calageDuPlan(x, exo, c, e, slug, seance) : null;
         poserLeCalage(x);
+        // 188-2 (MOTEUR §9.27 bis, I76) — LE REPOS D'UN GROS MOUVEMENT QUI STAGNE : une seule ligne dans le « Pourquoi », jamais une
+        // carte. Les reps chutent d'au moins 30 % de la série 1 à la série 3 sur 3 séances (un fait, `entrees.chutesDeReps`), le
+        // repos RÉGLÉ de l'exercice est de 90 s ou moins, l'exercice est un gros mouvement et le compteur de stagnation parle.
+        x.reposLong = reposDuPlan(x, exo, c, e, slug, coachee && !douloureuse && intentionX !== 'entretien' && !seance.edition && !esc.allegee);
         // §14 (111) — ce que la dégressive proposée lit, porté pour I48 : la
         // classe de l'exercice (`null` hors catalogue), la ligne dégressive de
         // la routine (figée à l'ouverture), la dégressive en cours.
@@ -4458,6 +4481,7 @@
     verifierBord(plan, erreurs);
     verifierLeviers(plan, erreurs);
     verifierHorsCalcul(plan, entrees, erreurs);
+    verifierReposLong(plan, erreurs);
     verifierDepassement(plan, erreurs);
     verifierDessous(plan, erreurs);
     verifierGrosCran(plan, erreurs);
@@ -4793,6 +4817,32 @@
         var carte = x.escalier && x.escalier.gros === true;
         if (carte && !(g.carte === true)) erreurs.push(nom + 'la carte des leviers du gros cran sans deux essais ratés ni cible au plafond');
       }
+    });
+  }
+
+  // I76 (MOTEUR §9.27 bis, 188-2) — LE REPOS D'UN GROS MOUVEMENT QUI STAGNE EST UNE LIGNE DU « POURQUOI », JAMAIS UNE CARTE :
+  //   elle n'existe que si les reps ont chuté d'au moins 30 % de la série 1 à la série 3 sur 3 séances, que le repos RÉGLÉ de
+  //   l'exercice est de 90 s ou moins, que c'est un gros mouvement dont le compteur de stagnation parle, que le coach est actif
+  //   (ni « Juste un carnet », ni Édition, ni semaine allégée) ; et, quand elle existe, elle est au « Pourquoi », une seule fois.
+  function verifierReposLong(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var nom = 'I76 — exercice ' + i + ' (' + (x && x.slug) + ') : ';
+      var r = x && x.reposLong;
+      if (!r) {
+        if (x && x.pourquoi && x.pourquoi.repos) erreurs.push(nom + 'la ligne du repos sans son fait');
+        return;
+      }
+      if (!(r.reposS > 0 && r.reposS <= M.REPOS_COURT_S)) erreurs.push(nom + 'un repos réglé de ' + r.reposS + ' s : absent ou au-delà de ' + M.REPOS_COURT_S + ' s');
+      if (!Array.isArray(r.chutes) || r.chutes.length < M.SEANCES_DE_CHUTE || r.chutes.some(function (v) { return !(v >= M.CHUTE_DE_REPS); })) {
+        erreurs.push(nom + 'des reps qui ne chutent pas d’au moins ' + Math.round(M.CHUTE_DE_REPS * 100) + ' % sur ' + M.SEANCES_DE_CHUTE + ' séances');
+      }
+      if (r.grand !== true) erreurs.push(nom + 'un exercice qui n’est pas un gros mouvement');
+      if (!(x.compteur && x.compteur.compteur >= M.SEUIL_COMPTEUR)) erreurs.push(nom + 'un exercice dont le compteur de stagnation ne parle pas');
+      if (plan.intention === 'entretien') erreurs.push(nom + 'en « Juste un carnet »');
+      if (plan.edition) erreurs.push(nom + 'en Édition');
+      if (plan.allegee) erreurs.push(nom + 'pendant une semaine allégée');
+      if (!x.pourquoi || x.pourquoi.repos !== r.phrase) erreurs.push(nom + 'la ligne n’est pas au « Pourquoi »');
     });
   }
 

@@ -43,11 +43,13 @@ const vue = (r) => r.map((e) => ({ slug: e.slug, ch: e.ch, tr: e.tr, deg: e.deg,
 // ══ 1. LES 25 CAS ════════════════════════════════════════════════════════════
 
 describe('51-1 — la durée estimée et le raccourci, sur les 25 cas de la référence', () => {
-  test('prémisse : 25 cas, dont 5 estimations, 19 raccourcis qui tiennent et 1 inatteignable', () => {
+  // 188-2 : l'ordre de compression (Iversen 2021) ne touche plus un grand mouvement ni ne descend sous 2 séries : des cibles qui
+  // tenaient à 1 série par isolation ne tiennent plus, la carte dit alors « Au plus court » (attendus recalés).
+  test('prémisse : 25 cas, dont 5 estimations, 12 raccourcis qui tiennent et 8 inatteignables', () => {
     expect(CAS.cas).toHaveLength(25);
     expect(CAS.cas.filter((c) => c.cible_min === null)).toHaveLength(5);
-    expect(CAS.cas.filter((c) => c.cible_min !== null && c.attendu.tient === true)).toHaveLength(19);
-    expect(CAS.cas.filter((c) => c.attendu.tient === false).map((c) => c.id)).toEqual(['L25']);
+    expect(CAS.cas.filter((c) => c.cible_min !== null && c.attendu.tient === true)).toHaveLength(12);
+    expect(CAS.cas.filter((c) => c.attendu.tient === false).map((c) => c.id)).toEqual(['C07', 'C09', 'C11', 'C12', 'C13', 'L16', 'L20', 'L25']);
   });
 
   CAS.cas.forEach((c) => {
@@ -74,11 +76,11 @@ describe('51-1 — la durée estimée et le raccourci, sur les 25 cas de la réf
     expect(M.dureeEstimee([{ slug: 't', mesure: 'distance_temps', repos: null, ch: 0, tr: 0, deg: 0, duree: 0 }])).toBe(0);
   });
 
-  test('le journal dit les étapes dans l’ordre de §9.18 (cardio de fin, cardio de début, séries, retraits)', () => {
-    const r = M.raccourcirRoutine(CAS.cas.find((x) => x.id === 'C07').routine, 45);
+  test('le journal dit les étapes dans l’ordre de §9.18 et de la compression d’Iversen (cardio, dégressives, supersets, repos, séries, retraits)', () => {
+    const r = M.raccourcirRoutine(CAS.cas.find((x) => x.id === 'C09').routine, 45);
     const etapes = r.journal.map((j) => j.quoi).filter((q, i, a) => a.indexOf(q) === i);
-    expect(etapes).toEqual(['cardio_fin', 'cardio_debut', 'serie', 'retire']);
-    expect(r.journal.filter((j) => j.quoi === 'retire').map((j) => j.slug)).toEqual(['developpe_couche_incline_haltere']);
+    expect(etapes).toEqual(['cardio_debut', 'degressive', 'superset', 'repos', 'serie', 'retire']);
+    expect(r.journal.filter((j) => j.quoi === 'retire').map((j) => j.slug)).toEqual(['extension_jambes']);
   });
 });
 
@@ -109,7 +111,7 @@ describe('60-5 (R6) — raccourcirRoutine(structure, cible, exemptes) : les exer
   test('⚠️ DISCRIMINANT — durée visée courte : le squat et la presse gardent TOUTES leurs séries, les autres coupent', () => {
     const r = M.raccourcirRoutine(GENOU(), 40, EXEMPTES);
     expect(intact(r, EXEMPTES)).toBe(true);
-    expect(r.exercices.map((e) => [e.slug, e.tr])).toEqual([['squat', 4], ['presse', 3], ['leg_curl', 2], ['mollets', 2], ['abdos', 2]]);
+    expect(r.exercices.map((e) => [e.slug, e.tr])).toEqual([['squat', 4], ['presse', 3], ['leg_curl', 3], ['mollets', 3], ['abdos', 2]]);
     expect(r.tient).toBe(true);
     expect(r.duree_s).toBeLessThanOrEqual(40 * 60);
   });
@@ -120,8 +122,8 @@ describe('60-5 (R6) — raccourcirRoutine(structure, cible, exemptes) : les exer
     expect(r.tient).toBe(false);
     expect(r.duree_s).toBe(M.dureeEstimee(r.exercices));            // la durée rendue est celle de la structure, pas la cible
     expect(r.duree_s).toBeGreaterThan(30 * 60);
-    // Les autres sont coupées jusqu'à leurs planchers (1 série pour une isolation).
-    expect(r.exercices.filter((e) => EXEMPTES.indexOf(e.slug) < 0).map((e) => e.tr)).toEqual([1, 1, 1]);
+    // Les autres sont coupées jusqu'à leur plancher : 2 séries, jamais 1 (188-2, Iversen 2021).
+    expect(r.exercices.filter((e) => EXEMPTES.indexOf(e.slug) < 0).map((e) => e.tr)).toEqual([2, 2, 2]);
     // Une cible encore plus basse ne change rien de plus.
     expect(vue(M.raccourcirRoutine(GENOU(), 10, EXEMPTES).exercices)).toEqual(vue(r.exercices));
   });
@@ -211,7 +213,8 @@ describe('51-1 bis — les constantes de l’estimation sont des valeurs par dé
 const CATALOGUE = {
   tapis: { slug: 'tapis', mesure: 'distance_temps', muscles_primaires: [], muscles_secondaires: [] },
   couche: { slug: 'couche', mesure: 'charge_reps', muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps', 'deltoide_anterieur'] },
-  incline: { slug: 'incline', mesure: 'charge_reps', muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps', 'deltoide_anterieur'] },
+  // 188-2 : l'incliné est ICI une isolation (moins de trois muscles) — seule une isolation redondante peut être retirée entière.
+  incline: { slug: 'incline', mesure: 'charge_reps', muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps'] },
   elev: { slug: 'elev', mesure: 'charge_reps', muscles_primaires: ['deltoide_lateral'], muscles_secondaires: ['trapezes'] },
   oiseau: { slug: 'oiseau', mesure: 'charge_reps', muscles_primaires: ['deltoide_posterieur'], muscles_secondaires: ['trapezes', 'haut_du_dos'] }
 };
@@ -249,7 +252,7 @@ describe('51-1 — la routine raccourcie est une COPIE ; la routine ne change pa
   const a = M.appliquerRaccourci(ROUTINE, resultat);
   test('prémisse : à 20 min, l’incliné tombe (ses pectoraux restent au couché), le cardio de fin est mis à part ; l’oiseau (3 muscles, polyarticulaire) garde 2 séries', () => {
     expect(vue(resultat.exercices).map((e) => [e.slug, e.ch, e.tr, e.deg])).toEqual([
-      ['tapis', 0, 1, 0], ['couche', 2, 2, 0], ['incline', 0, 0, 0], ['elev', 0, 1, 0], ['oiseau', 0, 2, 0], ['tapis', 0, 0, 0]]);
+      ['tapis', 0, 1, 0], ['couche', 2, 2, 0], ['incline', 0, 0, 0], ['elev', 0, 2, 0], ['oiseau', 0, 2, 0], ['tapis', 0, 0, 0]]);
   });
   test('⚠️ DISCRIMINANT — la routine n’est jamais modifiée (ECRAN-SAISIE §6.3)', () => {
     expect(JSON.stringify(ROUTINE)).toBe(avant);
@@ -265,7 +268,7 @@ describe('51-1 — la routine raccourcie est une COPIE ; la routine ne change pa
   test('la séance démarrée sur la copie a la structure raccourcie, superset compris', () => {
     let k = 0;
     const se = S.creer({ id: 'S', userId: 'u', routine: a.routine, idSerie: () => 'p' + (++k) });
-    expect(se.exercices.map((e) => [e.exercise_slug, e.series.length])).toEqual([['tapis', 1], ['couche', 4], ['elev', 1], ['oiseau', 2]]);
+    expect(se.exercices.map((e) => [e.exercise_slug, e.series.length])).toEqual([['tapis', 1], ['couche', 4], ['elev', 2], ['oiseau', 2]]);
     expect(se.exercices.map((e) => e.routine_exercise_id)).toEqual(['re-tapis', 're-couche', 're-elev', 're-oiseau']);
   });
 });
@@ -278,25 +281,26 @@ describe('51-1 — la carte, et la cible inatteignable qui ne se promet pas', ()
     tirage_vers_visage: 'Face pull' };
   const nommer = (s) => noms[s] || s;
   const sp = (t) => String(t).replace(/[\u00a0\u202f]/g, ' ');
-  test('elle tient : « Pour tenir en 45 min (estimation) », ce qui change, la phrase, Raccourcir / Garder la séance', () => {
-    const c = CAS.cas.find((x) => x.id === 'C07');
-    const carte = M.carteRaccourcir(c.routine, M.raccourcirRoutine(c.routine, 45), 45, nommer);
+  test('elle tient : « Pour tenir en 45 min (estimation) », ce qui change (dont un superset et un repos raccourci), la phrase, Raccourcir / Garder la séance', () => {
+    const c = CAS.cas.find((x) => x.id === 'C15');
+    const carte = M.carteRaccourcir(c.routine, M.raccourcirRoutine(c.routine, 45), 45, (s) => s);
     expect(sp(carte.titre)).toBe('Pour tenir en 45 min (estimation)');
     expect(carte.lignes.map(sp)).toEqual([
-      'Tapis 7 → 3 min', 'Développé couché 4 → 2 séries', 'Tractions 4 → 2 séries',
-      'Incliné : retiré, ses muscles sont déjà travaillés', 'Rowing 3 → 2 séries', 'Élévations 4 → 1 série',
-      'Face pull 3 → 2 séries', 'Tapis : mis à part pour aujourd’hui']);
+      'tapis_roulant 7 → 3 min', 'tractions 4 → 2 séries', 'rowing_assis_machine 3 → 2 séries', 'tirage_poitrine_un_bras 3 → 2 séries',
+      'elevation_laterale_poulie 3 → 2 séries', 'elevation_laterale_poulie : en superset avec shrug_barre', 'shrug_barre 3 → 2 séries',
+      'shrug_barre : repos 90 s → 60 s', 'curl_marteau_haltere : sans dégressive', 'extension_triceps_poulie_haute : sans dégressive',
+      'tapis_roulant : mis à part pour aujourd’hui']);
     expect(carte.phrase).toBe('Tous tes muscles du jour gardent leurs premières séries : ce sont celles qui comptent le plus. ' +
       'Les charges ne changent pas.');
     expect([carte.oui, carte.non, carte.tient]).toEqual(['Raccourcir', 'Garder la séance', true]);
   });
-  test('⚠️ DISCRIMINANT (g) — inatteignable : « Au plus court : 34 min (estimation) », « Raccourcir à 34 min », jamais la cible', () => {
+  test('⚠️ DISCRIMINANT (g) — inatteignable : « Au plus court : 57 min (estimation) », « Raccourcir à 57 min », jamais la cible', () => {
     const c = CAS.cas.find((x) => x.id === 'L25');
     const r = M.raccourcirRoutine(c.routine, 20);
     const carte = M.carteRaccourcir(c.routine, r, 20, nommer);
     expect(r.tient).toBe(false);
-    expect(sp(carte.titre)).toBe('Au plus court : 34 min (estimation)');
-    expect(sp(carte.oui)).toBe('Raccourcir à 34 min');
+    expect(sp(carte.titre)).toBe('Au plus court : 57 min (estimation)');
+    expect(sp(carte.oui)).toBe('Raccourcir à 57 min');
     expect(carte.titre + carte.oui).not.toMatch(/20/);
   });
   test('le cardio de début dit ses vraies minutes (L21 : 10 → 3 min), et une dégressive retirée se dit', () => {
@@ -341,7 +345,7 @@ describe('51-1 — I32 : une séance raccourcie garde chaque muscle, son premier
   const copie = (x) => JSON.parse(JSON.stringify(x));
 
   test('prémisse : le raccourci coupe des séries, et le plan juste passe I32', () => {
-    expect(vue(resultat.exercices).map((e) => [e.slug, e.ch, e.tr])).toEqual([['x', 1, 2], ['y', 0, 1]]);
+    expect(vue(resultat.exercices).map((e) => [e.slug, e.ch, e.tr])).toEqual([['x', 1, 3], ['y', 0, 2]]);
     const e = entrees();
     expect(i32(T.verifierPlan(T.planDeSeance(e), e))).toEqual([]);
   });

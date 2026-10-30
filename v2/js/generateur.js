@@ -512,6 +512,20 @@
     return liste(routine && routine.exercices).filter(function (l) { return l.menage; })
       .map(function (l) { return l.exercise_slug; });
   }
+  // 188-2 — LES PRIORITÉS NE SE RACCOURCISSENT JAMAIS : parmi des exercices, ceux qu'une priorité désigne (une des quatre barres et
+  // ses variantes à la barre, les tractions et leurs frères, ou un exercice dont un muscle principal est dans la zone prioritaire).
+  // Le raccourci (`Moteur.raccourcirRoutine`, « J'ai peu de temps » comme le programme construit) les reçoit en exemptés.
+  function exemptsDesPriorites(slugs, priorites, cat) {
+    var M = racine.THModele, S = racine.THSemaine;
+    return liste(slugs).filter(function (sl) {
+      return liste(priorites).some(function (p) {
+        if (p === 'tractions') return sl === 'tractions' || contient(M.freresDe(cat, 'tractions'), sl);
+        if (BARRES.some(function (b) { return b[0] === p; })) return familleDeBarre(sl, cat) === p;
+        var z = S.ZONES.filter(function (x) { return x.cle === p; })[0];
+        return !!z && liste((ficheDu(cat, sl) || {}).muscles_primaires).some(function (m) { return contient(z.muscles, m); });
+      });
+    });
+  }
 
   // ── La carte « Passer en cycles » ────────────────────────────────────────────────
   // MOTEUR §9.22 (décidée le 08/10/2026, question 4) : Force ou Les deux, 21 jours après la création du dossier et au
@@ -1408,6 +1422,7 @@
     zonesQueChargeLExercice: zonesQueChargeLExercice,
     phrasesDeLApercu: phrasesDeLApercu,
     exemptsDuRaccourci: exemptsDuRaccourci,
+    exemptsDesPriorites: exemptsDesPriorites,
     carteCycles: carteCycles,
     // 66A — la relecture de la semaine (QUESTIONNAIRE-COACH-V2 §5 ter)
     BARRES: BARRES,

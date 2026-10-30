@@ -1548,7 +1548,7 @@
     var carte = el('div', 'carte-mois eq-carte' + (parle ? '' : ' eq-constat'));
     carte.setAttribute('data-equilibre', c.cle);
     carte.appendChild(el('div', 'eq-titre', c.titre));
-    if (c.kind === 'priorites') {
+    if (c.kind === 'priorites' || c.kind === 'frequence') {
       if (c.fait) { /* le fait vient après le tableau */ }
       var tab = el('div', 'eq-tab');
       (c.lignes || []).forEach(function (l) {
@@ -1559,6 +1559,8 @@
       });
       carte.appendChild(tab);
       if (c.fait) carte.appendChild(el('p', 'pc-note', c.fait));
+      // 188-2 : le repère de la fréquence vient sous le tableau.
+      if (c.kind === 'frequence' && c.repere) carte.appendChild(el('p', 'pc-note', c.repere));
     } else {
       carte.appendChild(el('div', 'eq-fait', c.fait));
       if (c.kind === 'rapport' && c.barre) {
@@ -1572,7 +1574,9 @@
         et.appendChild(el('span', null, c.etiquettes.b));
         carte.appendChild(et);
       }
-      if (c.repere) carte.appendChild(el('p', 'pc-note', c.repere + (c.tendance ? ' ' + c.tendance : '')));
+      // 188-2 : un repère ou plusieurs (la carte du temps en a deux : la durée et la règle).
+      if (c.reperes && c.reperes.length && parle) c.reperes.forEach(function (t) { carte.appendChild(el('p', 'pc-note', t)); });
+      else if (c.repere) carte.appendChild(el('p', 'pc-note', c.repere + (c.tendance ? ' ' + c.tendance : '')));
     }
     if (parle) {
       if ((c.causes || []).length) {
@@ -1589,7 +1593,8 @@
         bt.addEventListener('click', function () { vue.surProposition(c, p); });
         actions.appendChild(bt);
       });
-      var pm = el('button', 'discret', 'Pas maintenant');
+      // 188-2 : « Garder 6 jours », « Garder 90 min » — la même réponse que « Pas maintenant », dite avec les mots de la carte.
+      var pm = el('button', 'discret', c.libelleRefus || 'Pas maintenant');
       pm.type = 'button';
       pm.setAttribute('data-pas-maintenant', c.cle);
       pm.addEventListener('click', function () { vue.surPlusTard(c); });
@@ -1609,6 +1614,14 @@
     if (vue.fait) {
       var f = el('div', 'eq-fait-pose');
       f.appendChild(el('span', null, vue.fait.texte));
+      // 188-2 : une suite proposée, jamais faite d'office (« Refaire mon programme pour 70 min »).
+      if (vue.fait.suite) {
+        var su = el('button', 'principal', vue.fait.suite.libelle);
+        su.type = 'button';
+        su.setAttribute('data-suite-equilibre', '1');
+        su.addEventListener('click', function () { vue.fait.suite.surClic(); });
+        f.appendChild(su);
+      }
       var an = el('button', 'discret', 'Annuler');
       an.type = 'button';
       an.setAttribute('data-annuler-equilibre', '1');
@@ -4055,6 +4068,8 @@
     if (p.compteur) cible.appendChild(el('p', 'pq-p', p.compteur));
     // MOTEUR §13.6 (49-U20) — le frère qui progresse, après le compteur.
     if (p.frere) cible.appendChild(el('p', 'pq-p', p.frere));
+    // 188-2 — le repos d'un gros mouvement qui stagne : une ligne, jamais une carte.
+    if (p.repos) cible.appendChild(el('p', 'pq-p', p.repos));
     // MOTEUR §9.15.1 (49-U10) — une routine qui prévoit plus de chauffes que
     // la table : les lignes en trop ne sont pas remplies, et la feuille le dit.
     if (p.chauffes) cible.appendChild(el('p', 'pq-p', p.chauffes));
@@ -4633,6 +4648,7 @@
   function texteOrigine(o) {
     if (!o || o === R().ORIGINE_SUPERSET) return '';
     if (o === R().ORIGINE_DEFAUT) return 'par défaut';
+    if (o === R().ORIGINE_RACCOURCI) return 'raccourci pour tenir ta durée';
     return 'ta routine « ' + o + ' »';
   }
 

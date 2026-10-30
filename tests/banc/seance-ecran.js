@@ -20506,7 +20506,7 @@ const SETS_IMPORTES = [
     ok('[C67] F — le choix filtré remplace la ligne de « Remplacer » (pas d’ajout) ; rien n’est écrit',
       noms.length === 1 && /Tirage Convergent U67B/.test(noms[0]) && JSON.stringify(routineC()) === avant, JSON.stringify(noms));
     await page.click('#btn-enregistrer-routine');
-    await enBase(() => routineF().routine_exercises.some((e) => e.exercise_slug === 'mollets-assis-u67'), 15000, 'routine enregistrée');   // 192 — l'écriture, plus 2 400 ms fixes
+    await enBase(() => routineC().routine_exercises.some((e) => e.exercise_slug === 'tirage-convergent-u67b'), 15000, 'routine C enregistrée');   // 192 — l'écriture de CETTE routine (elle change : le choix filtré remplace la ligne), plus 2 400 ms fixes
     ok('[C67] F — « Enregistrer » l’écrit',
       routineC().routine_exercises.map((e) => e.exercise_slug).join() === 'tirage-convergent-u67b',
       JSON.stringify(routineC().routine_exercises.map((e) => e.exercise_slug)));

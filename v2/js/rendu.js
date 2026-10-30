@@ -2889,6 +2889,9 @@
           entree.appendChild(tapable(ligneJ));
         });
         if (lib.gris) entree.appendChild(tapable(el('div', 'consigne-dit', lib.gris)));
+        // 187 (MOTEUR §9.21 bis) — « Ta charge habituelle ? » : une réponse facultative, ou « Je ne sais pas ».
+        var hab = !vue.programme && typeof vue.habituelle === 'function' ? vue.habituelle(x._iExo) : null;
+        if (hab) entree.appendChild(blocHabituelle(hab));
         // 163 (MOTEUR §10.2 bis) — UNE CHARGE JAMAIS FAITE : « ≈ 35 kg : vise la charge la plus proche que ta machine
         // permet… », sous la ligne, lue sur le plan (jamais rédigée ici).
         if (lib.approchee) entree.appendChild(tapable(el('div', 'consigne-dit approchee', lib.approchee)));
@@ -2912,6 +2915,30 @@
       tete.appendChild(entree);
     });
     return tete;
+  }
+
+  function blocHabituelle(hab) {
+    var b = el('div', 'habituelle');
+    b.appendChild(el('div', 'habituelle-q', hab.question));
+    var champ = el('input', 'habituelle-champ');
+    champ.type = 'text';
+    champ.setAttribute('inputmode', 'decimal');
+    champ.setAttribute('autocomplete', 'off');
+    champ.setAttribute('aria-label', hab.question);
+    var ligne = el('div', 'habituelle-saisie');
+    ligne.appendChild(champ);
+    ligne.appendChild(el('span', 'habituelle-unite', 'kg'));
+    var ok = el('button', 'principal habituelle-ok', 'Valider');
+    ok.type = 'button';
+    ok.addEventListener('click', function () { hab.surValider(champ.value); });
+    ligne.appendChild(ok);
+    b.appendChild(ligne);
+    if (hab.pour) b.appendChild(el('div', 'consigne-dit', hab.pour));
+    var passer = el('button', 'discret habituelle-passer', hab.passer);
+    passer.type = 'button';
+    passer.addEventListener('click', function () { hab.surPasser(); });
+    b.appendChild(passer);
+    return b;
   }
 
   // 173 (refonte « Vivant », 25/10/2026) — LA CONSIGNE EN HÉROS. Le texte du coach ne change pas d'un mot : « Aujourd'hui : 105 kg × 5. »
@@ -6209,7 +6236,14 @@
       n.setAttribute('aria-pressed', on ? 'true' : 'false');
       n.appendChild(el('span', 'q-opt-t', o.libelle));
       if (o.sous) n.appendChild(el('span', 'q-sous', o.sous));
-      n.addEventListener('click', function () { a.surChoix(b.cle, o.cle); });
+      // 187 — une réponse annoncée mais pas encore faite : grisée, inerte, avec sa pastille.
+      if (o.desactive) {
+        n.disabled = true;
+        n.classList.add('desactive');
+        n.setAttribute('aria-disabled', 'true');
+        if (o.pastille) n.appendChild(el('span', 'q-pastille', o.pastille));
+      }
+      n.addEventListener('click', function () { if (!o.desactive) a.surChoix(b.cle, o.cle); });
       g.appendChild(n);
       // Une réponse qui DEMANDE combien (60-2c, « Moins en ce moment ») : ses puces s'ouvrent
       // JUSTE DESSOUS, dans la même colonne, avec leur question.
@@ -6272,6 +6306,52 @@
     return g;
   }
 
+  // Un bloc du questionnaire, posé dans `cible` (le corps de l'écran, ou le contenu d'une section repliée).
+  function dessinerBlocDuQuestionnaire(cible, b, a) {
+    if (b.titre) cible.appendChild(el('div', 'q-sous-titre', b.titre));
+    if (b.type === 'options') cible.appendChild(blocOptions(b, a));
+    else if (b.type === 'puces') cible.appendChild(blocPuces(b, a));
+    else if (b.type === 'champs') cible.appendChild(blocChamps(b, a));
+    else if (b.type === 'resume') cible.appendChild(blocResume(b, a));
+    else if (b.type === 'faits') {
+      var f = el('div', 'q-faits');
+      b.lignes.forEach(function (l) {
+        var r = el('div', 'q-ligne');
+        r.appendChild(el('span', 'q-g', l.libelle));
+        r.appendChild(el('span', 'q-c', l.valeur));
+        f.appendChild(r);
+      });
+      cible.appendChild(f);
+    } else if (b.type === 'ligne') {
+      var ligne = el('button', 'q-ligne-choix');
+      ligne.type = 'button';
+      ligne.dataset.cle = b.cle;
+      ligne.appendChild(el('span', 'q-lc-lib', b.libelle));
+      ligne.appendChild(el('span', 'q-lc-val', b.valeur));
+      ligne.appendChild(el('span', 'q-lc-fl', '›'));
+      ligne.addEventListener('click', function () { a.surLigne(b.cle); });
+      cible.appendChild(ligne);
+    } else if (b.type === 'note') cible.appendChild(el('p', 'q-note', b.texte));
+    else if (b.type === 'voix') cible.appendChild(el('p', 'q-voix', b.texte));
+    if (b.type === 'replie') {
+      // 187 — « Ajuster Ma salle » : une section repliée par défaut. Son état est une réponse de l'écran (`b.cle`).
+      var sec = el('div', 'q-replie' + (b.ouvert ? ' ouvert' : ''));
+      var tete = el('button', 'q-replie-tete');
+      tete.type = 'button';
+      tete.setAttribute('aria-expanded', b.ouvert ? 'true' : 'false');
+      tete.appendChild(el('span', 'q-replie-lib', b.libelle + (b.ouvert ? ' ▴' : ' ▾')));
+      if (b.resume) tete.appendChild(el('span', 'q-sous', b.resume));
+      tete.addEventListener('click', function () { a.surChoix(b.cle, !b.ouvert); });
+      sec.appendChild(tete);
+      if (b.ouvert) {
+        var dedans = el('div', 'q-replie-corps');
+        (b.blocs || []).forEach(function (x) { dessinerBlocDuQuestionnaire(dedans, x, a); });
+        sec.appendChild(dedans);
+      }
+      cible.appendChild(sec);
+    }
+  }
+
   function rendreQuestionnaire(cible, vue, actions) {
     if (!cible || !vue) return cible;
     vider(cible);
@@ -6311,33 +6391,7 @@
     corps.appendChild(el('p', 'q-etape', vue.etape));
     corps.appendChild(el('h2', 'q-titre', vue.titre));
     if (vue.voix) corps.appendChild(el('p', 'q-voix', vue.voix));
-    (vue.blocs || []).forEach(function (b) {
-      if (b.titre) corps.appendChild(el('div', 'q-sous-titre', b.titre));
-      if (b.type === 'options') corps.appendChild(blocOptions(b, a));
-      else if (b.type === 'puces') corps.appendChild(blocPuces(b, a));
-      else if (b.type === 'champs') corps.appendChild(blocChamps(b, a));
-      else if (b.type === 'resume') corps.appendChild(blocResume(b, a));
-      else if (b.type === 'faits') {
-        var f = el('div', 'q-faits');
-        b.lignes.forEach(function (l) {
-          var r = el('div', 'q-ligne');
-          r.appendChild(el('span', 'q-g', l.libelle));
-          r.appendChild(el('span', 'q-c', l.valeur));
-          f.appendChild(r);
-        });
-        corps.appendChild(f);
-      } else if (b.type === 'ligne') {
-        var ligne = el('button', 'q-ligne-choix');
-        ligne.type = 'button';
-        ligne.dataset.cle = b.cle;
-        ligne.appendChild(el('span', 'q-lc-lib', b.libelle));
-        ligne.appendChild(el('span', 'q-lc-val', b.valeur));
-        ligne.appendChild(el('span', 'q-lc-fl', '›'));
-        ligne.addEventListener('click', function () { a.surLigne(b.cle); });
-        corps.appendChild(ligne);
-      } else if (b.type === 'note') corps.appendChild(el('p', 'q-note', b.texte));
-      else if (b.type === 'voix') corps.appendChild(el('p', 'q-voix', b.texte));
-    });
+    (vue.blocs || []).forEach(function (b) { dessinerBlocDuQuestionnaire(corps, b, a); });
     page.appendChild(corps);
 
     var bas = el('div', 'q-bas');
@@ -6886,7 +6940,7 @@
       if (vue.fin.connexion) cible.appendChild(el('p', 'imp-ok imp-erreur', vue.fin.connexion));
       var phrase = [vue.fin.detail, vue.fin.suite].filter(Boolean).join(' ');
       if (phrase) cible.appendChild(el('p', 'imp-ok', phrase));
-      cible.appendChild(bouton('Voir l\u2019historique', 'discret imp-bouton', vue.surHistorique));
+      cible.appendChild(bouton(vue.libelleFin || 'Voir l\u2019historique', 'discret imp-bouton', vue.surHistorique));
       return cible;
     }
     if (vue.etape === 'apercu') {
@@ -6962,6 +7016,8 @@
     c2.appendChild(el('div', 'imp-aide', 'L\u2019export des séances (.csv), dans les paramètres de Hevy. Tout ton historique d\u2019un coup.'));
     c2.appendChild(bouton('Choisir le fichier', 'discret imp-bouton imp-fichier', vue.surChoisirFichier, !vue.occupe));
     cible.appendChild(c2);
+    // 187 (A2) — depuis le questionnaire : on peut y revenir sans rien importer.
+    if (vue.surReprendre) cible.appendChild(bouton(vue.libelleFin, 'discret imp-bouton imp-reprendre', vue.surReprendre));
     return cible;
   }
 

@@ -371,7 +371,7 @@ const FONCTIONS = ['freresDe', 'cousinsDe', 'brouillonDeStructure', 'creerRoutin
   'rangSuivantBibliotheque', 'nomsReserves', 'messageVerdict',
   'entreeDuProgramme', 'aUnHistorique', 'cibleDuProgrammeConstruit', 'structureDuProgramme', 'assemblerLeProgramme',
   'basculerChangement', 'ligneDeRetouche', 'deduiteDuProgramme', 'fondreLesVoisins', 'raccourcirLeProgramme', 'lectureDuProgramme',
-  'seriesFois', 'rendreApercuDuProgramme', 'ouvrirApercuProgramme', 'ouvrirExerciceDuProgramme',
+  'departRecentDe', 'seriesFois', 'rendreApercuDuProgramme', 'ouvrirApercuProgramme', 'ouvrirExerciceDuProgramme',
   'ecarterDansLeProgramme', 'remplacerDansLeProgramme', 'poserDansLeProgramme', 'versLeCatalogueDuProgramme',
   'creerLeProgramme'];
 
@@ -454,6 +454,7 @@ function bac(options) {
     rendreSaisie: () => { journal.rendreSaisie++; },
     vues: { saisie: { hidden: false } },
     seance: null,
+    chargesDeDepartDuQuestionnaire: [],
     Date, Math, Promise, Object
   };
   vm.createContext(ctx);

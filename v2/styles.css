@@ -1990,6 +1990,14 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   font-size:15px;font-weight:600}
 .q-opt .q-sous{display:block;font-size:13px;font-weight:400;color:var(--texte-2);margin-top:2px}
 .q-opt.on{border-color:var(--accent);background:#2a2214}
+.q-opt.desactive{cursor:default;border-style:dashed}
+.q-opt.desactive .q-opt-t{color:var(--texte-2)}
+.q-replie{margin-top:var(--e3);border:1px solid var(--trait);border-radius:var(--r-grand);background:var(--panneau)}
+.q-replie-tete{display:block;width:100%;text-align:left;background:none;border:0;padding:var(--e3);font:inherit;color:var(--texte);cursor:pointer}
+.q-replie-lib{display:block;font-weight:700}
+.q-replie-tete .q-sous{display:block;font-size:13px;font-weight:400;color:var(--texte-2);margin-top:2px}
+.q-replie-corps{padding:0 var(--e3) var(--e3)}
+.q-pastille{display:inline-block;margin-top:4px;font-size:12px;font-weight:700;color:var(--texte-2);border:1px solid var(--texte-2);border-radius:999px;padding:1px 8px}
 .q-puces{display:flex;flex-wrap:wrap;gap:var(--e2)}
 .q-puce{background:var(--panneau);border:1.5px solid var(--trait);border-radius:999px;
   padding:8px 13px;color:var(--texte);font-size:14px;font-weight:500}

@@ -4819,11 +4819,47 @@
   // pas déjà noté (une série notée par la feuille d'effort ne se redemande pas).
   function questionDuRepos(iExo, iSerie) {
     var x = planDeLExercice(iExo);
-    if (!x || !x.questionReserve || x.serieReserve !== iSerie) return null;
+    // 187 — le calage pose la même question après chaque série (sauf la dernière), sans pari : le plan dit sur quelle série.
+    var duCalage = !!(x && x.calage && x.calage.question === iSerie);
+    if (!x || (!duCalage && (!x.questionReserve || x.serieReserve !== iSerie))) return null;
     var s = seance && seance.exercices[iExo] && seance.exercices[iExo].series[iSerie];
     if (!s || !Seance.partEnBase(s)) return null;
     if ((s.rpe !== null && s.rpe !== undefined) || s.ressenti) return null;
     return { iExo: iExo, iSerie: iSerie, id: s.id };
+  }
+
+  // 187 (A4) — les zones à ménager que charge chaque exercice de la séance : `{ slug: { zones, choisie } }`. `choisie` : la zone
+  // que la PERSONNE a posée (le moteur ne la remplace jamais). Lu sur le profil et la table du générateur.
+  function zonesMenageesDeLaSeance(exos) {
+    var sortie = {};
+    (exos || []).forEach(function (x) {
+      var slug = x && x.exercise_slug;
+      if (!slug || Object.prototype.hasOwnProperty.call(sortie, slug)) return;
+      var zones = Generateur.zonesQueChargeLExercice(slug, profil && profil.zones_a_menager);
+      if (zones.length) sortie[slug] = { zones: zones, choisie: zoneDe(slug) || null };
+    });
+    return Object.keys(sortie).length ? sortie : null;
+  }
+
+  // 187 (MOTEUR §9.21 bis) — « Ta charge habituelle ? » : ce que l'écran en lit sur le plan, et les deux gestes.
+  function habituelleDe(iExo) {
+    var x = planDeLExercice(iExo);
+    var k = x && x.calage;
+    if (!k || !k.demandeHabituelle || !k.libelles) return null;
+    return {
+      question: k.libelles.question, pour: k.libelles.pour, passer: k.libelles.passer,
+      surValider: async function (texte) {
+        var v = Modele.lireNombre(texte);
+        if (v === null || !(v > 0) || v > 600) return false;
+        seance = Seance.poserHabituelle(seance, x.slug, v);
+        await apresGeste({ structure: false });
+        return true;
+      },
+      surPasser: async function () {
+        seance = Seance.poserHabituelle(seance, x.slug, 0);
+        await apresGeste({ structure: false });
+      }
+    };
   }
 
   // 154 (MOTEUR §9.26) — LES PUCES DE L'EFFORT VISÉ. Le plan dit sur quelle série (`x.effortVise.serie`), si elles se
@@ -6123,6 +6159,8 @@
       reglage: Profil.rythmeDe(profil),
       // 180 (C-F5, D3) — le débutant (`anciennete = moins_1_an`) : sa réserve basse (R < V) n'arrête pas la montée (le moteur).
       debutant: Profil.estDebutant(profil),
+      // 187 (A4) — l'exercice charge une zone à ménager (profil + la table du générateur) : aucune série lourde.
+      menagee: Generateur.zonesQueChargeLExercice(slug, profil && profil.zones_a_menager).length > 0,
       // §9.1.1 — la zone choisie, ou `null`. Le mémo ne la porte pas dans
       // sa clé : `poserZone` le remet à zéro, et la synchronisation passe
       // par `recalculerEtats`, qui fait déjà de même.
@@ -6772,6 +6810,10 @@
       priorites: prioritesDeLaSeance(),
       // MOTEUR §14 (111) — le débutant GELÉ, avec la phase.
       debutant: debutantDeLaSeance(),
+      // 187 (MOTEUR §9.21 bis) — « Ta charge habituelle ? » : la réponse de la séance, par exercice (un nombre, ou 0).
+      habituelles: seance.habituelles || null,
+      // 187 (A4) — les zones à ménager que charge chaque exercice de la séance, et la zone que la personne a choisie.
+      zonesMenagees: zonesMenageesDeLaSeance(exos),
       // MOTEUR §14.6 (49-U16) — la règle de volume, gelée pour la séance.
       volume: volumeDeDemo(volumeDeLaSeance(), catalogue),
       catalogue: catalogue,
@@ -7189,6 +7231,12 @@
     var c = consigneDe(slug);
     if (!c) return null;
     var x = planDuSlug(slug);
+    // 187 — le calage de la première séance : « On trouve ta charge · 3 séries de 10 », lu sur le plan.
+    if (x && x.calage && x.calage.libelles) {
+      var lc = x.calage.libelles;
+      return { jaune: [lc.titre], gris: [lc.consigne, lc.pourquoi].filter(Boolean).join(' '), compteur: null, frere: null,
+               plus: null, alleger: null, tempo: null, approchee: null };
+    }
     return x ? { jaune: x.entete.jaune, gris: x.entete.gris, compteur: x.entete.compteur || null,
                  frere: x.entete.frere || null, plus: x.entete.plus || null, alleger: x.entete.alleger || null,
                  tempo: x.entete.tempo || null,
@@ -8550,6 +8598,7 @@
       // §3.1 — la voix du moteur dans l'en-tête : les lignes jaunes et la
       // phrase grise, ou rien (Édition, Entretenir, mesure sans charge).
       libelles: libellesDe,
+      habituelle: habituelleDe,
       // §3.8 — l'étiquette de zone, à côté du nom, et son menu (48b-7).
       etiquette: etiquetteDe,
       zoneChoisie: function (slug) { return !!zoneDe(slug); },
@@ -12768,10 +12817,19 @@
   // La séance du programme, au vocabulaire de `routineDeduite`. 66D (§5 quater.5) : ses chauffes (celles de la
   // personne, avec un historique ; le gabarit n'en a aucune) et son superset (`groupe_superset`, posé par `associer`)
   // vont jusqu'à la routine écrite.
+  // 187 (A5) — la charge de départ d'une barre, donnée par une série récente au questionnaire (sinon `null`).
+  var chargesDeDepartDuQuestionnaire = [];
+  function departRecentDe(slug) {
+    var x = chargesDeDepartDuQuestionnaire.filter(function (y) { return y.slug === slug; })[0];
+    return x ? x.depart : null;
+  }
   function deduiteDuProgramme(rt) {
     return { nom: rt.nom, exercices: rt.exercices.map(function (l) {
-      return { exercise_slug: l.exercise_slug, series: l.series, reps: l.reps, chauffes: l.chauffes || 0,
-               groupe_superset: l.groupe_superset === undefined ? null : l.groupe_superset };
+      var depart = departRecentDe(l.exercise_slug);
+      var x = { exercise_slug: l.exercise_slug, series: l.series, reps: l.reps, chauffes: l.chauffes || 0,
+                groupe_superset: l.groupe_superset === undefined ? null : l.groupe_superset };
+      if (depart !== null) x.charge_cible_kg = depart;
+      return x;
     }) };
   }
 
@@ -14267,15 +14325,18 @@
     return Questionnaire.ecransVisibles({ aDesSeances: questionnaire.aDesSeances,
                                           historique: questionnaire.rep.historique,
                                           programme: questionnaire.rep.programme,
+                                          depuis: questionnaire.rep.depuis,
                                           aDesRoutines: aDesRoutinesConnu() });
   }
 
   function ouvrirQuestionnaire(options) {
     if (questionnaire) return;
+    var reprise = options && options.ecran ? options : null;
     // 60-4 — « Refaire mon programme » (Profil) rejoue l'écran 8b SEUL : le même écran, les mêmes écritures, puis
     // l'aperçu. Ce n'est pas le questionnaire : il ne se marque pas « vu ici ».
     var refaire = !!(options && options.refaire);
     var pesee = Poids.resume(local.pesees);
+    if (!(options && options.ecran)) chargesDeDepartDuQuestionnaire = [];
     questionnaire = {
       ecran: refaire ? Questionnaire.CONSTRUIT : Questionnaire.BIENVENUE,
       rep: Questionnaire.reponsesInitiales(profil, { poids: pesee ? pesee.poids : null }),
@@ -14297,6 +14358,12 @@
       return { raison: 'questionnaire', afficher: reculerQuestionnaire };
     };
     ajouterGarde(gardeQuestionnaire);
+    // 187 (A2) — le retour de l'import : les réponses sont celles d'avant (déjà écrites), l'écran celui qui suit.
+    if (reprise) {
+      questionnaire.rep = reprise.rep;
+      questionnaire.ecran = reprise.ecran;
+      actualiserFaitsDuQuestionnaire();
+    }
     rendreQuestionnaire();
   }
 
@@ -14309,7 +14376,7 @@
     var q = questionnaire;
     if (!q) return;
     montrer('questionnaire');
-    var vue = Questionnaire.vueDe(q.ecran, { rep: q.rep, faits: q.faits, aDesSeances: q.aDesSeances,
+    var vue = Questionnaire.vueDe(q.ecran, { rep: q.rep, faits: q.faits, aDesSeances: q.aDesSeances, profil: profil,
       textes: q.textes, erreurs: q.erreurs, visibles: ecransDuQuestionnaire(), refaire: !!q.refaire });
     Rendu.rendreQuestionnaire($('questionnaire-corps'), vue, {
       surChoix: choisirDansQuestionnaire,
@@ -14386,6 +14453,14 @@
     q.rep = Questionnaire.apresEcriture(q.rep, ecrit.champs);   // la durée écrite est la durée visée
     if (ecrit.pesee) poserPesee(ecrit.pesee).catch(function () {});
     if (q.ecran === Questionnaire.RECAP) return terminerQuestionnaire();
+    // 187 (A5) — les séries récentes donnent la charge de départ des barres du programme construit (jamais en base
+    // avant la création de la routine : `charge_cible_kg`, MOTEUR §9.21). Un brouillon de la session.
+    if (q.ecran === Questionnaire.RECENTE) chargesDeDepartDuQuestionnaire = Questionnaire.seriesRecentes(q.rep);
+    // 187 (A2) — « Oui, dans Hevy ou Strong » : l'import se fait ICI (l'écran et le code de l'import du Profil), puis
+    // le questionnaire reprend à l'écran suivant. Les réponses de cet écran sont déjà écrites (ci-dessus).
+    if (q.ecran === Questionnaire.ANCIENNETE && q.rep.notees === 'import' && q.rep.depuis !== Questionnaire.COMMENCE) {
+      return ouvrirImportDepuisLeQuestionnaire();
+    }
     var visibles = ecransDuQuestionnaire();
     // 60-4 — « Programme », changé depuis le récapitulatif vers « Construis-le-moi » : l'écran 8b d'abord
     // (les jours, la zone), PUIS le récapitulatif — sans lui, la ligne dirait « Construis-le-moi » sans
@@ -15770,8 +15845,33 @@
   function importNeuf() { return { etape: 'choix', texte: '', erreur: null, occupe: false }; }
 
   function ouvrirImport() {
+    importDuQuestionnaire = null;
     if (!importHevy || importHevy.etape !== 'en_cours') importHevy = importNeuf();
     rendreImportEcran();
+  }
+
+  // 187 (A2) — L'IMPORT DEPUIS LE QUESTIONNAIRE. Le même écran, le même code ; seuls le retour et le bouton de fin
+  // changent. `importDuQuestionnaire` garde les réponses (déjà écrites) : « Reprendre » rouvre le questionnaire à
+  // l'écran 3a si des séances sont arrivées, sinon à celui qui suit. Rien n'est dupliqué.
+  var importDuQuestionnaire = null;
+  function ouvrirImportDepuisLeQuestionnaire() {
+    var q = questionnaire;
+    if (!q) return;
+    importDuQuestionnaire = { rep: q.rep };
+    if (!importHevy || importHevy.etape !== 'en_cours') importHevy = importNeuf();
+    rendreImportEcran();
+  }
+
+  function reprendreLeQuestionnaire() {
+    var p = importDuQuestionnaire;
+    importDuQuestionnaire = null;
+    if (importHevy && importHevy.etape !== 'en_cours') importHevy = null;
+    if (!p) return;
+    var avec = local.seances.length > 0 && p.rep.historique !== 'debutant';
+    var visibles = Questionnaire.ecransVisibles({ aDesSeances: local.seances.length > 0, historique: p.rep.historique,
+      programme: p.rep.programme, depuis: p.rep.depuis, aDesRoutines: aDesRoutinesConnu() });
+    var ecran = avec ? Questionnaire.SAIT : Questionnaire.ecranSuivant(visibles, Questionnaire.ANCIENNETE);
+    ouvrirQuestionnaire({ ecran: ecran || Questionnaire.RECAP, rep: p.rep });
   }
 
   function importEnLigne() {
@@ -16054,11 +16154,17 @@
         f.click();
       },
       surHistorique: function () {
+        if (importDuQuestionnaire) return reprendreLeQuestionnaire();
         importHevy = null;
         allerA(Routeur.RACINE, {});
         rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
       }
     };
+    // 187 — depuis le questionnaire : « Reprendre le questionnaire », à la fin comme au premier écran de l'import.
+    if (importDuQuestionnaire) {
+      v.libelleFin = 'Reprendre le questionnaire';
+      v.surReprendre = reprendreLeQuestionnaire;
+    }
     if (imp.etape === 'en_cours') {
       v.progression = { fait: imp.progression.fait, total: imp.progression.total,
         texte: imp.progression.fait + ' séances sur ' + imp.progression.total };

@@ -956,7 +956,7 @@
   // repos_origine, series: [{ type_serie, reps_visees, duree_cible_s,
   // distance_cible_m }] }] }` — au vocabulaire de `routine_sets`.
   var REPOS_PAR_DEFAUT = { premier: 180, poly: 120, isolation: 90 };
-  var ORIGINE_DEFAUT = 'par défaut', ORIGINE_SUPERSET = 'superset';
+  var ORIGINE_DEFAUT = 'par défaut', ORIGINE_SUPERSET = 'superset', ORIGINE_RACCOURCI = 'raccourci';
 
   function reposDansLesRoutines(slug, routines) {
     var recentes = (routines || []).filter(Boolean).slice().sort(function (a, b) {
@@ -1258,6 +1258,17 @@
       }
     });
     var routine = routineDepuisSeance(lignes, Object.assign({}, options, { titre: d.nom }));
+    // 188-2 — un repos RACCOURCI pour tenir la durée (l'ordre de compression, étape 2) : posé sur la ligne, son origine le dit.
+    (d.exercices || []).forEach(function (e) {
+      if (!(e.repos_raccourci_s > 0)) return;
+      var rs = reposEcrit(e.repos_raccourci_s);
+      if (rs === null) return;
+      routine.exercices.forEach(function (x) {
+        if (x.exercise_slug === e.exercise_slug && x.groupe_superset === (e.groupe_superset === undefined ? null : e.groupe_superset)) {
+          x.repos_cible_s = rs; x.repos_origine = ORIGINE_RACCOURCI;
+        }
+      });
+    });
     // 187 (A5) — une CHARGE DE DÉPART donnée (`charge_cible_kg`, MOTEUR §9.21) va sur les séries de travail de l'exercice.
     // Sans elle, rien ne change : une routine déduite ne porte jamais de charge.
     (d.exercices || []).forEach(function (e) {
@@ -2004,6 +2015,7 @@
     REPOS_PAR_DEFAUT: REPOS_PAR_DEFAUT,
     ORIGINE_DEFAUT: ORIGINE_DEFAUT,
     ORIGINE_SUPERSET: ORIGINE_SUPERSET,
+    ORIGINE_RACCOURCI: ORIGINE_RACCOURCI,
     dossierPropre: dossierPropre,
     dossierValide: dossierValide,
     planRenommageDossier: planRenommageDossier,

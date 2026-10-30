@@ -67,4 +67,41 @@ describe('188-1 — le rendu des équilibres', () => {
     Rendu.rendreLigneEquilibre(n, null);
     expect(n.hidden).toBe(true);
   });
+
+  // 188-2 — les cartes des jours, du temps, de la fréquence et de l'ordre : le même rendu, rien d'écrit, la voix du coach.
+  function carteFabriquee(extra) {
+    return Object.assign({
+      cle: 'jours', famille: 'jours', kind: 'jours', titre: 'Ta semaine prévue et ta semaine réelle', fait: 'Ton programme est prévu pour 4 jours. Tes 8 dernières semaines d’entraînement en comptent 2 en moyenne.',
+      repere: 'Les semaines sans aucune séance ne comptent pas.', causes: [{ texte: 'Un programme en 2 jours répartirait tout sur les jours que tu fais vraiment.', proposition: null }],
+      propositions: [{ type: 'refaire_jours', cle: 'refaire_jours|2', libelle: 'Refaire mon programme sur 2 jours', jours: 2, refait: true }], libelleRefus: 'Garder 4 jours'
+    }, extra || {});
+  }
+  test('188-2 — une carte des jours : sa proposition, son refus « Garder 4 jours », aucun geste au rendu', () => {
+    const a = { etat: 'cartes', cartes: [carteFabriquee()], constats: [], calmes: [], ligne: null };
+    const { c, ecrit } = rendre(a);
+    expect(ecrit).toEqual([]);
+    const t = texte(c);
+    expect(t).toMatch(/Refaire mon programme sur 2 jours/);
+    expect(t).toMatch(/Garder 4 jours/);
+    expect(t).not.toMatch(/Pas maintenant/);
+    c.querySelector('[data-pas-maintenant]').click();
+    expect(ecrit).toEqual(['plus-tard']);
+  });
+  test('188-2 — une carte du temps : les deux repères, la durée, aucun pourcentage', () => {
+    const k = carteFabriquee({ cle: 'temps', famille: 'temps', kind: 'temps', fait: 'Ta durée est réglée sur 90 min. Depuis 8 semaines, 12 de tes 16 séances ont été écourtées.',
+      reperes: ['70 min : la durée réelle de tes séances écourtées.', 'Une séance longue ne déclenche rien.'],
+      propositions: [{ type: 'duree', cle: 'duree|70', libelle: 'Régler mes séances sur 70 min', minutes: 70 }], libelleRefus: 'Garder 90 min' });
+    const { c } = rendre({ etat: 'cartes', cartes: [k], constats: [], calmes: [], ligne: null });
+    const t = texte(c);
+    expect(t).toMatch(/Régler mes séances sur 70 min/);
+    expect(t).toMatch(/Une séance longue ne déclenche rien/);
+    expect(t).toMatch(/Garder 90 min/);
+    expect(t).not.toMatch(/%|stimulus/);
+  });
+  test('188-2 — la suite d’un fait : un bouton, pas d’écriture au rendu', () => {
+    const a = { etat: 'cartes', cartes: [], constats: [], calmes: [], ligne: null };
+    const { c, ecrit } = rendre(a, { fait: { texte: 'Fait : 70 min.', suite: { libelle: 'Refaire mon programme pour 70 min' } } });
+    expect(texte(c)).toMatch(/Refaire mon programme pour 70 min/);
+    expect(ecrit).toEqual([]);
+  });
 });

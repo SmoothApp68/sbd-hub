@@ -860,6 +860,32 @@
       return compte;
     }
 
+    // 188-2 (MOTEUR §9.27 bis) — LES CHUTES DE REPS d'un exercice : pour chacune de ses `n` dernières séances qui ont au moins trois
+    // séries de travail à la MÊME charge pour la 1re et la 3e (sinon la baisse n'est pas celle de la fatigue), la part de reps
+    // perdue de la série 1 à la série 3, `(reps1 − reps3) / reps1`. Les plus récentes d'abord. Une série « ne compte pas » est
+    // écartée. Un fait : la règle du repos (`Moteur.reposAConseiller`) le lit, elle ne le recalcule pas.
+    function chutesDeReps(c, slug, n) {
+      // Lu SANS le mémo des séances (`seancesAvecSeries`, clé = nombre de séances et de séries) : une série corrigée après coup
+      // (mêmes comptes) doit changer la chute. On lit les séances de la plus récente à la plus ancienne, et on s'arrête à `n`.
+      var datees = (c.seances || []).filter(function (s) { return s && s.debut && !isNaN(new Date(s.debut).getTime()); })
+        .sort(function (a, b) { return new Date(b.debut) - new Date(a.debut); });
+      var sortie = [];
+      for (var i = 0; i < datees.length && sortie.length < n; i++) {
+        var travail = Modele.trierParRang(c.seriesDe(datees[i].id) || []).filter(function (x) {
+          return x && x.exercise_slug === slug && Modele.estTravail(x) && x.hors_calcul !== true && Number(x.reps) > 0;
+        });
+        if (travail.length < 3) continue;
+        travail = travail.map(function (x, k) { return { x: x, k: k }; }).sort(function (a, b) {
+          var ra = typeof a.x.rang === 'number' ? a.x.rang : a.k, rb = typeof b.x.rang === 'number' ? b.x.rang : b.k;
+          return ra - rb;
+        }).map(function (o) { return o.x; });
+        var s1 = travail[0], s3 = travail[2];
+        if (Math.abs((Number(s3.charge_kg) || 0) - (Number(s1.charge_kg) || 0)) > 1e-9) continue;
+        sortie.push(Math.round((Number(s1.reps) - Number(s3.reps)) / Number(s1.reps) * 10000) / 10000);
+      }
+      return sortie;
+    }
+
     // ── Les habitudes (66C, QUESTIONNAIRE-COACH-V2 §5 quater.2) ──
     //
     // Sur la fenêtre du programme déduit (`Routines.fenetreDeLaPersonne` : les 84 jours qui finissent à la DERNIÈRE
@@ -1712,6 +1738,7 @@
       ceQueJeSais: ceQueJeSais,
       programmeDeduit: programmeDeduit,
       historiqueDesExercices: historiqueDesExercices,
+      chutesDeReps: chutesDeReps,
       habitudes: habitudes,
       derniereSeance: derniereSeance,
       seancesDesRoutines: seancesDesRoutines,

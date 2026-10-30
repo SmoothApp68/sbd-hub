@@ -1474,8 +1474,12 @@
       intention: p.intention || null,
       catalogue: catalogueIndexe(),
       seances: local.seances, series: local.series,
-      routines: prog.routines.map(function (r) { return { id: r.id, nom: r.nom, exercices: r.exercices }; }),
+      routines: prog.routines.map(function (r) { return { id: r.id, nom: r.nom, jours: r.jours, exercices: r.exercices }; }),
       programmeDuCoach: prog.coach,
+      // 188-2 — les jours prévus, la durée réglée, les semaines allégées (ni comptées ni jugées).
+      seancesParSemaine: p.seances_par_semaine,
+      dureeSeanceMin: p.duree_seance_min,
+      periodesAllegees: periodesAllegees(),
       programmeRefaitLe: p.programme_construit_le ? Moteur.jourCivil(new Date(p.programme_construit_le)) : null,
       priorites: Profil.prioritesDe(p),
       volume: function () { return volumeDuCoach(maintenant.toISOString()); },
@@ -1490,7 +1494,8 @@
     var p = profil || {};
     var cle = [(local.seances || []).length, (local.series || []).length, Moteur.jourCivil(new Date()), p.rythme_progression || '',
                p.intention || '', JSON.stringify(Profil.prioritesDe(p)), JSON.stringify(reponsesDesCartes()),
-               p.programme_construit_dossier || '', p.programme_construit_le || '', etatRoutines.code, signatureDesRoutines(routines)].join('|');
+               p.programme_construit_dossier || '', p.programme_construit_le || '', etatRoutines.code, signatureDesRoutines(routines),
+               p.seances_par_semaine || '', p.duree_seance_min || ''].join('|');
     if (memoEquilibres && memoEquilibres.cle === cle) return memoEquilibres.analyse;
     var analyse = Equilibres.analyser(entreeDesEquilibres());
     memoEquilibres = { cle: cle, analyse: analyse };
@@ -1523,6 +1528,11 @@
       return;
     }
     if (p.type === 'corriger') { ouvrirQuestionnaire({ refaire: true }); return; }
+    // 188-2 — « Refaire mon programme sur N jours » : le générateur s'ouvre pré-rempli avec N ; rien n'est remplacé avant la
+    // confirmation habituelle (l'aperçu, puis « Créer »), un NOUVEAU dossier, l'ancien reste tel quel.
+    if (p.type === 'refaire_jours') { faitEquilibre = null; ouvrirQuestionnaire({ refaire: true, jours: p.jours }); return; }
+    if (p.type === 'duree') { await regleLaDureeEquilibre(carte, p); return; }
+    if (p.type === 'repartir') { await repartirLesPriorites(carte, p); return; }
     var voulues = null, fait = null;
     if (rt && p.type === 'deplacer') { voulues = Routines.miseEnTete(rt, p.slug, p.avant); fait = 'Fait : ' + Modele.nommer(catalogueIndexe(), p.slug) + ' est plus tôt dans « ' + rt.nom + ' ».'; }
     if (rt && p.type === 'ajouter') { voulues = Routines.ajoutDExercice(rt, p.slug, p.series || 1); fait = 'Fait : ' + Modele.nommer(catalogueIndexe(), p.slug) + ' est dans « ' + rt.nom + ' ».'; }
@@ -1544,6 +1554,72 @@
         var r2 = routines.filter(function (r) { return r.id === idRoutine; })[0];
         faitEquilibre = null;
         if (r2) await poserRoutineVoulue(r2, avantRoutine);
+        await poserProfil({ cartes_semaine: avantReponses });
+        memoEquilibres = null;
+        repeindreLesEquilibres();
+      }
+    };
+    memoEquilibres = null;
+    repeindreLesEquilibres();
+  }
+
+  // 188-2 — « RÉGLER MES SÉANCES SUR N MIN » : la durée s'écrit par le chemin du Profil (`Profil.preparerChamps`, la même fonction
+  // que le Profil et le questionnaire), la carte repart de zéro, et le coach PROPOSE de reconstruire le programme pour cette durée
+  // (jamais d'office). Le geste se voit et s'annule : la durée et la réponse de temps d'avant, et les réponses d'avant.
+  async function regleLaDureeEquilibre(carte, p) {
+    var p0 = profil || {};
+    var avantChamps = { duree_seance_min: p0.duree_seance_min === undefined ? null : p0.duree_seance_min,
+                        temps_reponse: p0.temps_reponse === undefined ? null : p0.temps_reponse };
+    var avantReponses = JSON.parse(JSON.stringify(reponsesDesCartes()));
+    var entrees = { duree_seance_min: p.minutes };
+    // « Juste la durée » : la réponse de temps ne change que si elle ne dit rien de la durée à tenir.
+    if (['max', 'moins', 'varie'].indexOf(p0.temps_reponse) < 0) entrees.temps_reponse = 'moins';
+    var champs = Profil.preparerChamps(profil, entrees, new Date());
+    if (Object.keys(champs).length) await poserProfil(champs);
+    await repondreALaCarte(carte.cle, 'oui');
+    faitEquilibre = {
+      texte: 'Fait : tes séances sont réglées sur ' + p.minutes + ' min.',
+      suite: { libelle: 'Refaire mon programme pour ' + p.minutes + ' min', surClic: function () { faitEquilibre = null; refaireMonProgramme(); } },
+      surAnnuler: async function () {
+        faitEquilibre = null;
+        await poserProfil(avantChamps);
+        await poserProfil({ cartes_semaine: avantReponses });
+        memoEquilibres = null;
+        repeindreLesEquilibres();
+      }
+    };
+    memoEquilibres = null;
+    repeindreLesEquilibres();
+  }
+
+  // 188-2 — « RÉPARTIR MES PRIORITÉS SUR DEUX JOURS » : chaque priorité en retard gagne son exercice dans une routine qui ne le
+  // porte pas encore (le chemin des routines, la file). Se voit, s'annule : chaque routine reprend son état d'avant.
+  async function repartirLesPriorites(carte, p) {
+    var avant = [];
+    var ajoutsFaits = [];
+    (p.ajouts || []).forEach(function (a) {
+      var rt = routines.filter(function (r) { return r.id === a.routine_id; })[0];
+      var voulues = rt ? Routines.ajoutDExercice(rt, a.slug, a.series || 1) : null;
+      if (!rt || !voulues) return;
+      avant.push({ id: rt.id, exercices: JSON.parse(JSON.stringify(rt.exercices)) });
+      ajoutsFaits.push({ rt: rt, voulues: voulues, texte: Modele.nommer(catalogueIndexe(), a.slug) + ' dans « ' + rt.nom + ' »' });
+    });
+    if (!ajoutsFaits.length) {
+      faitEquilibre = { texte: 'Ta routine a changé depuis : je recalcule.', surAnnuler: function () { faitEquilibre = null; repeindreLesEquilibres(); } };
+      memoEquilibres = null;
+      return repeindreLesEquilibres();
+    }
+    var avantReponses = JSON.parse(JSON.stringify(reponsesDesCartes()));
+    for (var i = 0; i < ajoutsFaits.length; i++) await poserRoutineVoulue(ajoutsFaits[i].rt, ajoutsFaits[i].voulues);
+    await repondreALaCarte(carte.cle, 'oui');
+    faitEquilibre = {
+      texte: 'Fait : ' + ajoutsFaits.map(function (f) { return f.texte; }).join(' · ') + '.',
+      surAnnuler: async function () {
+        faitEquilibre = null;
+        for (var k = 0; k < avant.length; k++) {
+          var r2 = routines.filter(function (r) { return r.id === avant[k].id; })[0];
+          if (r2) await poserRoutineVoulue(r2, avant[k].exercices);
+        }
         await poserProfil({ cartes_semaine: avantReponses });
         memoEquilibres = null;
         repeindreLesEquilibres();
@@ -6870,6 +6946,15 @@
 
   // Les entrées du plan de la séance ouverte. Les consignes et les suites se
   // lisent D'ABORD : leur mémo peut changer `versionConsignes`.
+  function chutesDeRepsDeLaSeance(exos) {
+    var sortie = {}, c = corpus();
+    (exos || []).forEach(function (x) {
+      var slug = x && x.exercise_slug;
+      if (slug && !Object.prototype.hasOwnProperty.call(sortie, slug)) sortie[slug] = faits.chutesDeReps(c, slug, Moteur.SEANCES_DE_CHUTE);
+    });
+    return sortie;
+  }
+
   function entreesDuPlan() {
     var edition = enEdition();
     var exos = seance.exercices || [];
@@ -7005,6 +7090,9 @@
       periodesAllegees: periodesAllegees(),
       suites: suites,
       precedents: precedents,
+      // 188-2 (I76) — les chutes de reps de chaque exercice de la séance (les 3 dernières séances, un fait de `faits.js`) : le plan
+      // décide de la ligne du repos, il ne relit pas l'historique.
+      chutesDeReps: chutesDeRepsDeLaSeance(exos),
       paris: (local.predictions || []).filter(function (l) {
         return l && l.fondement && l.fondement.seance === seance.id;
       }),
@@ -10900,7 +10988,10 @@
   function montrerCarteRaccourci(routine, cible) {
     var index = catalogueIndexe();
     var complet = Moteur.structureDeRoutine(routine.exercices, index);
-    var resultat = Moteur.raccourcirRoutine(complet, cible);
+    // 188-2 — jamais une priorité : exemptée du raccourci.
+    var exemptes = Generateur.exemptsDesPriorites((routine.exercices || []).map(function (l) { return l.exercise_slug; }),
+      Profil.prioritesDe(profil), index);
+    var resultat = Moteur.raccourcirRoutine(complet, cible, exemptes);
     Rendu.rendreCarteRaccourci($('feuille-contenu'), {
       carte: Moteur.carteRaccourcir(complet, resultat, cible, function (slug) { return Modele.nommer(index, slug); }),
       surRaccourcir: function () {
@@ -13013,6 +13104,8 @@
       var depart = departRecentDe(l.exercise_slug);
       var x = { exercise_slug: l.exercise_slug, series: l.series, reps: l.reps, chauffes: l.chauffes || 0,
                 groupe_superset: l.groupe_superset === undefined ? null : l.groupe_superset };
+      // 188-2 — un repos d'isolation raccourci par la compression (étape 2) se porte jusqu'à la routine créée.
+      if (l.repos_raccourci_s > 0) x.repos_raccourci_s = l.repos_raccourci_s;
       if (depart !== null) x.charge_cible_kg = depart;
       return x;
     }) };
@@ -13048,12 +13141,21 @@
     var cible = cibleDuProgrammeConstruit();
     if (cible === null) return routinesDuProgramme;
     return routinesDuProgramme.map(function (rt) {
-      var r = Moteur.raccourcirRoutine(structureDuProgramme(rt), cible, Generateur.exemptsDuRaccourci(rt));
+      // 188-2 — jamais une priorité (la personne l'a choisie) ni une zone à ménager : exemptées.
+      var exemptes = Generateur.exemptsDuRaccourci(rt).concat(Generateur.exemptsDesPriorites(
+        rt.exercices.map(function (l) { return l.exercise_slug; }), Profil.prioritesDe(profil), catalogueIndexe()));
+      var r = Moteur.raccourcirRoutine(structureDuProgramme(rt), cible, exemptes);
       var lignes = [];
       rt.exercices.forEach(function (l, j) {
         var tr = r.exercices[j] ? r.exercices[j].tr : l.series;
         // `raccourcie` : cet exercice a perdu des séries pour tenir la durée (l'aperçu ne promet plus « toutes leurs séries »).
-        if (tr > 0) lignes.push(Object.assign({}, l, { series: tr }, tr < l.series ? { raccourcie: true } : {}));
+        var nl = Object.assign({}, l, { series: tr }, tr < l.series ? { raccourcie: true } : {});
+        // 188-2 — les deux premiers pas de la compression : un superset de plus, un repos d'isolation raccourci.
+        r.journal.forEach(function (t) {
+          if (t.quoi === 'superset' && (t.i === j || t.j === j)) nl.groupe_superset = t.groupe;
+          if (t.quoi === 'repos' && t.i === j) nl.repos_raccourci_s = t.apres;
+        });
+        if (tr > 0) lignes.push(nl);
       });
       var membres = {};
       lignes.forEach(function (l) {
@@ -14532,6 +14634,8 @@
       // Les jours déjà dits (bornés), sinon le rythme que les séances montrent, comme à l'écran 8b. 116 — une valeur
       // déclarée hors 2-6 est pré-cochée bornée, sans être réécrite (`Questionnaire.precocherJours`).
       questionnaire.rep = Questionnaire.precocherJours(questionnaire.rep, questionnaire.faits);
+      // 188-2 — la carte « Ta semaine prévue et ta semaine réelle » ouvre l'écran avec le nombre de jours qu'elle propose.
+      if (options && Questionnaire.joursValides(options.jours)) questionnaire.rep = Object.assign({}, questionnaire.rep, { seances: options.jours });
     } else marquerQuestionnaireVuIci();
     // 60-3 — les routines vivent en ligne et ne sont pas dans le cache : on les
     // lit dès l'ouverture, pour savoir avant l'écran 8 s'il a lieu d'être.

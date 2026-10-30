@@ -225,6 +225,13 @@ const LE_COACH = 'plan.js';
 // (29/09/2026) et sont RAPPORTÉES dans sa PR pour décision : elles ne sont pas
 // forcées dans le plan par ce commit.
 const AUTORISATIONS = {
+  // 188-1 (MOTEUR §9.27) — la carte « Tes priorités, faites ou non » propose « Ajouter une série de … à ta routine ? » en
+  // passant par la règle EXISTANTE de la série de plus d'un muscle prioritaire (§14.6) : la place sur chacun des muscles
+  // primaires de l'exercice. `equilibres.js` la lit telle quelle, sans règle nouvelle.
+  placePourExercice: {
+    'equilibres.js': '188-1 (MOTEUR §9.27) : la carte des priorités ne propose une série de plus que s\u2019il y a de la place ' +
+      'pour elle (§14.6), par la même fonction que le plan ; aucune règle nouvelle dans le moteur.'
+  },
   phraseDeLaSuivante: {
     'app.js': 'ECRAN-SAISIE §7 quater.6 (127) : « Ton échelle » vit sur la page d’exercice, hors séance — donc sans plan ; ' +
       'l’app passe la fonction à `Modele.vueEchelle`, qui lui donne la marche suivante (`Modele.marcheSuivante`), le ' +
@@ -515,7 +522,7 @@ const NOTIONS = [
     raison: 'aucun écran ne lit le palier brut : les faits passent par `Modele`, les mots du ' +
       'coach par la consigne. La page et Progression l’appelaient chacune à part.' },
   { notion: 'la série de travail (le type, `travail` quand il manque)', pr: 'PR 6',
-    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js', 'reserve.js', 'bilans.js', 'deraille.js', 'objectif.js', 'moteur.js'],
+    module: 'modele.js', fonction: 'estTravail', lecteurs: ['seance.js', 'semaine.js', 'plan.js', 'app.js', 'bilan.js', 'faits.js', 'routines.js', 'jeu.js', 'generateur.js', 'reserve.js', 'bilans.js', 'deraille.js', 'objectif.js', 'moteur.js', 'equilibres.js'],
     motif: /\.\s*estTravail\s*\(/g,
     par: ['exercicesFaits', 'tableParReps', 'construireBlocs'],
     interditAilleurs: { motif: /type_serie\s*[!=]==?\s*(['"])travail\1|typeDe\([^()]*\)\s*[!=]==?\s*(['"])travail\2|\|\|\s*(['"])travail\3\s*\)\s*[!=]==?/,
@@ -592,7 +599,7 @@ const NOTIONS = [
       'charge et les reps d’un objectif tapées dans sa feuille (`objectif.js`, `lireSaisie`). 131 : la borne d’un champ ' +
       'de série (`rendu.js`, `champSerie` : au-delà de 400 km, le chiffre n’entre pas).' },
   { notion: 'les frères d’un exercice (même `mouvement` au catalogue, MOTEUR §13.6)', pr: '49-U20',
-    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js', 'parcours.js', 'deraille.js', 'routines.js'],
+    module: 'modele.js', fonction: 'freresDe', lecteurs: ['app.js', 'seance.js', 'faits.js', 'generateur.js', 'parcours.js', 'deraille.js', 'routines.js', 'equilibres.js'],
     parAilleurs: { 'app.js': ['freresPourLeMoteur', 'faitsDesFreres'], 'seance.js': ['freresProposes'],
                    'faits.js': ['barresDuBilan'], 'generateur.js': ['familleDeBarre'], 'parcours.js': ['parcours'] },
     interditAilleurs: { motif: /\.\s*mouvement\b|\[\s*(['"`])mouvement\1\s*\]/,
@@ -864,7 +871,7 @@ const NOTIONS = [
     raison: 'lourd → mix → hypertrophie → volume → séries longues, dans l’ordre de la table des ' +
       'zones : une définition, que la carte et la correction de zone lisent.' },
   { notion: 'les séries par muscle (un principal la série entière, un secondaire pour moitié, un stabilisateur pour un quart)', pr: '55-U1',
-    module: 'semaine.js', fonction: 'volumeParMuscle', lecteurs: ['bilan.js', 'faits.js', 'bilans.js', 'deraille.js'],
+    module: 'semaine.js', fonction: 'volumeParMuscle', lecteurs: ['bilan.js', 'faits.js', 'bilans.js', 'deraille.js', 'equilibres.js'],
     par: ['semainesDeVolume', 'volumeParZone'],
     parAilleurs: { 'bilan.js': ['bilanDuMois'], 'faits.js': ['recapDeLaSeance'] },
     raison: 'REGLE-VOLUME et MOTEUR §9.23 (H2, #371) : le bloc Volume et le bilan du mois comptent les séries ' +
@@ -873,7 +880,7 @@ const NOTIONS = [
       '(la semaine qui déraille, `deraille.js`) se compte par la même fonction que le volume fait (`faits.semaineDuProgramme`).' },
   // ── 65 — LE POIDS D'UN MUSCLE (REGLE-VOLUME §1 bis, v2_069) : une table, lue par le coach et le jeu ──
   { notion: 'le poids d’un muscle dans une série (principal 1, secondaire ½, stabilisateur ¼)', pr: '65-U1',
-    module: 'semaine.js', fonction: 'musclesPonderes', lecteurs: ['jeu.js', 'generateur.js'],
+    module: 'semaine.js', fonction: 'musclesPonderes', lecteurs: ['jeu.js', 'generateur.js', 'equilibres.js'],
     par: ['volumeParMuscle', 'apportsParMuscle'],
     raison: 'REGLE-VOLUME §1 bis (65) : UNE table de poids (`POIDS_DES_MUSCLES`), lue par le coach (le volume, la fenêtre ' +
       '« d’où vient ce chiffre ») et par le jeu (les points des muscles) ; une seconde table finirait par dire autre chose. ' +
@@ -1334,7 +1341,7 @@ const NOTIONS = [
       'musculation (`Semaine.estSeanceDeMusculation`).' },
   // ── 119 — LES MESURES EN DURÉE ET EN DISTANCE (audit du 16/10/2026) ──
   { notion: 'la série de musculation (une série de travail d’un exercice qui porte du volume ; inconnu : comptée)', pr: '119-U1',
-    module: 'semaine.js', fonction: 'estSerieDeMusculation', lecteurs: ['bilans.js', 'seance.js', 'faits.js'],
+    module: 'semaine.js', fonction: 'estSerieDeMusculation', lecteurs: ['bilans.js', 'seance.js', 'faits.js', 'equilibres.js'],
     par: ['compteSeriesTravail', 'estSeanceDeMusculation'],
     parAilleurs: { 'bilans.js': ['bilanDeLaPeriode'], 'seance.js': ['compter'], 'faits.js': ['scoresDeGuilde'] },
     raison: 'BILANS-V1 (16/10/2026) : la règle que `compteSeriesTravail` comptait sans la nommer ; une période de seules ' +
@@ -1342,7 +1349,7 @@ const NOTIONS = [
       'séance de cardio dit ce qui part hors musculation (E12, `Seance.compter`). 120 (D3) : le défi de guilde par ' +
       'défaut compte les séries de travail par cette même règle (`faits.scoresDeGuilde`, `series_semaine`).' },
   { notion: 'la séance de musculation (au moins une série de musculation : ni une randonnée, ni un tapis seul)', pr: '119-U1',
-    module: 'semaine.js', fonction: 'estSeanceDeMusculation', lecteurs: ['faits.js'],
+    module: 'semaine.js', fonction: 'estSeanceDeMusculation', lecteurs: ['faits.js', 'equilibres.js'],
     parAilleurs: { 'faits.js': ['tempsALaSalle'] },
     raison: 'BILANS-V1 (décision du 15/10 complétée le 16/10/2026) : « à la salle » (heures et jours) ne compte que les ' +
       'séances de musculation ; CADRAGE §2 ter : une séance mixte en est une.' },
@@ -1703,7 +1710,23 @@ const NOTIONS = [
   { notion: 'la question du record confirmé (plus de 20 % au-dessus du meilleur, avant le journal immuable)', pr: '185-U1',
     module: 'faits.js', fonction: 'questionDuRecord', lecteurs: ['app.js'],
     raison: 'ECRAN-SAISIE (185, cas 5) : le journal des records est immuable ; une hausse confirmée de plus de 20 % demande ' +
-      'un mot de plus avant d’y entrer. La règle vit avec la vraisemblance, l’écran n’en lit que la question.' }
+      'un mot de plus avant d’y entrer. La règle vit avec la vraisemblance, l’écran n’en lit que la question.' },
+  // ── 188-1 — « TA SEMAINE ET TES ÉQUILIBRES » (MOTEUR §9.27) ──
+  { notion: 'le sens d’un tirage ou d’une poussée (horizontal, vertical : le `schema_mouvement` du catalogue)', pr: '188-U1',
+    module: 'modele.js', fonction: 'sensDuMouvement', lecteurs: ['equilibres.js'],
+    raison: 'Les cartes d’équilibre comparent le tirage et la poussée à l’horizontale, puis à la verticale : UNE lecture de ' +
+      '`schema_mouvement` (avec `cousinsDe`), jamais lue à la main ailleurs (la garde `interditAilleurs` de la famille).' },
+  { notion: 'une série directe de tirage (grand dorsal ou haut du dos en principal)', pr: '188-U1',
+    module: 'generateur.js', fonction: 'estTirage', lecteurs: ['equilibres.js'],
+    raison: 'La relecture de la semaine (66A) et les cartes d’équilibre (188-1) comptent le tirage par la même définition : ' +
+      'deux listes de « tirage » diraient deux rapports différents pour la même semaine.' },
+  { notion: 'une série directe de poussée (pectoraux en principal, ou le militaire et ses variantes)', pr: '188-U1',
+    module: 'generateur.js', fonction: 'estPoussee', lecteurs: ['equilibres.js'],
+    raison: 'La relecture de la semaine (66A) et les cartes d’équilibre (188-1) comptent la poussée par la même définition.' },
+  { notion: 'la barre d’un exercice (elle-même, ou une variante à la barre)', pr: '188-U1',
+    module: 'generateur.js', fonction: 'familleDeBarre', lecteurs: ['equilibres.js'],
+    raison: 'La carte « Tes priorités, faites ou non » compte les séries d’une barre (et de ses variantes à la barre) par la ' +
+      'définition de la relecture (66A), pas par une seconde liste.' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

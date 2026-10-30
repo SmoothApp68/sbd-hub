@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ta semaine v6</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--fond:#0A0C10;--panneau:#171C25;--panneau-2:#222A37;--trait:#2B3442;--texte:#F2F4F7;--texte-2:#A9B3C1;--texte-3:#8C97A6;--accent:#FFB938;--sur-accent:#1A1200;--donnees:#6AA8FF;--reussi:#4ADE80}
+*{box-sizing:border-box}
+body{margin:0;background:#05070a;color:var(--texte);font-family:"Barlow",system-ui,sans-serif;padding:24px 16px;display:flex;flex-wrap:wrap;gap:28px;justify-content:center}
+.col{max-width:380px;width:100%}
+.leg{font-size:13px;color:var(--texte-2);margin:0 0 10px;line-height:1.4}.leg b{color:var(--texte)}
+.tel{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:18px 14px 20px}
+h2{font-family:"Barlow Condensed",sans-serif;font-size:24px;margin:0 0 2px}
+.quand{color:var(--texte-3);font-size:13px;margin-bottom:12px}
+.carte{background:var(--panneau);border-radius:14px;padding:12px;margin-bottom:10px}
+.titre{font-weight:700;font-size:16px;margin-bottom:6px}
+.fait{font-size:15px;line-height:1.45}
+.barre{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:9px 0 5px}
+.barre i{display:block}
+.a{background:var(--donnees)}.b{background:#3a4658}
+.etiq{display:flex;justify-content:space-between;font-size:13px;color:var(--texte-2)}
+.repere{font-size:13px;color:var(--texte-3);margin-top:7px;line-height:1.4}
+.prop{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.btn{border-radius:10px;padding:10px 13px;font-size:14px;font-weight:600;background:var(--panneau-2);min-height:44px}
+.btn.p{background:var(--accent);color:var(--sur-accent)}
+.causes{margin:4px 0 0;padding-left:18px;font-size:14px;line-height:1.45;color:var(--texte-2)}.causes li{margin-bottom:5px}.causes b{color:var(--texte)}
+.calme{color:var(--texte-2);font-size:14px}
+.ok{color:var(--reussi);font-weight:600}
+.tab{width:100%;border-collapse:collapse;font-size:14px;margin-top:4px}
+.tab td{padding:6px 0;border-bottom:1px solid var(--trait)}.tab td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.notes{max-width:380px;font-size:14px;color:var(--texte-2);line-height:1.5}.notes h3{color:var(--texte);font-size:15px;margin:14px 0 6px}.notes li{margin-bottom:6px}
+</style>
+</head>
+<body>
+
+<div class="col">
+  <p class="leg"><b>Parcours — « Tes équilibres »</b><br>Exemple avec ton historique réel (12 dernières semaines). Les faits seulement ; une proposition, jamais un verdict.</p>
+  <div class="tel">
+    <h2>Ta semaine et tes équilibres</h2>
+    <div class="quand">Tes 12 dernières semaines · 46 séances</div>
+
+    <div class="carte">
+      <div class="titre">Tirage et poussée, à l'horizontale</div>
+      <div class="fait">1 série de tirage pour 1,8 de poussée.</div>
+      <div class="barre"><i class="a" style="width:36%"></i><i class="b" style="width:64%"></i></div>
+      <div class="etiq"><span>Tirage · 104 séries</span><span>Poussée · 187 séries</span></div>
+      <div class="repere">En musculation, beaucoup de coachs visent un volume de tirage proche de celui de poussée. Sur l'année : 0,33 en hiver, 0,56 aujourd'hui.</div>
+      <div class="titre" style="margin-top:12px;font-size:14px">D'où ça vient</div>
+      <ul class="causes">
+        <li><b>Tes routines</b> prévoient 3 séries de tirage horizontal pour 6 de poussée par semaine.</li>
+        <li><b>Le rowing</b> est en dernier dans « Haut A » ; il a sauté 3 fois sur 8.</li>
+        <li><b>« J'ai peu de temps »</b> l'a raccourci 2 fois.</li>
+      </ul>
+      <div class="prop"><span class="btn p">Ajouter un rowing à « Haut B »</span><span class="btn">Le placer plus tôt dans « Haut A »</span><span class="btn">Pas maintenant</span></div>
+    </div>
+
+    <div class="carte">
+      <div class="titre">Tes priorités, faites ou non</div>
+      <table class="tab">
+        <tr><td>Tractions</td><td>2,5 séries / sem.</td></tr>
+        <tr><td>Développé militaire barre</td><td>1,8 série / sem.</td></tr>
+        <tr><td>Jambes (toutes)</td><td>49 séries / sem.</td></tr>
+        <tr><td style="color:#8C97A6">Pour comparer : couché</td><td style="color:#8C97A6">5,2 séries / sem.</td></tr>
+      </table>
+      <div class="repere">Tu as choisi tractions et militaire comme priorités : ce sont deux de tes mouvements les moins travaillés.</div>
+      <div class="prop"><span class="btn p">Ajouter une série de tractions à ta routine ?</span></div>
+    </div>
+
+    <div class="carte">
+      <div class="titre">Chaîne postérieure et quadriceps</div>
+      <div class="fait">1 série de chaîne postérieure pour 2,8 de quadriceps.</div>
+      <div class="barre"><i class="a" style="width:26%"></i><i class="b" style="width:74%"></i></div>
+      <div class="etiq"><span>Postérieure · 36 séries</span><span>Quadriceps · 101 séries</span></div>
+      <div class="titre" style="margin-top:12px;font-size:14px">D'où ça vient</div>
+      <ul class="causes">
+        <li><b>« Bas B »</b> n'a pas été faite 4 semaines sur 12 : c'est elle qui porte ton soulevé et ton leg curl.</li>
+        <li>« Bas A », faite chaque semaine, est surtout quadriceps (squat, presse, extension).</li>
+      </ul>
+      <div class="prop"><span class="btn p">Mettre un leg curl dans « Bas A »</span><span class="btn">Fusionner Bas A et Bas B</span><span class="btn">Pas maintenant</span></div>
+    </div>
+
+    <div class="carte">
+      <div class="titre">Ta semaine prévue et ta semaine réelle</div>
+      <div class="fait">Ton programme est prévu pour 6 jours. Tes 8 dernières semaines d'entraînement en comptent 4 en moyenne.</div>
+      <div class="titre" style="margin-top:10px;font-size:14px">Ce que ça change</div>
+      <ul class="causes">
+        <li>Les séances qui sautent sont surtout <b>« Bas B »</b> et <b>« Épaules »</b> : ce sont elles qui portent tes ischios et ton militaire.</li>
+        <li>Un programme en 4 jours répartirait tout sur les jours que tu fais vraiment.</li>
+      </ul>
+      <div class="prop"><span class="btn p">Refaire mon programme sur 4 jours</span><span class="btn">Garder 6 jours</span></div>
+      <div class="repere">Les semaines sans aucune séance (vacances, coupure) ne comptent pas dans la moyenne. Si tu gardes 6 jours, je ne repose pas la question avant 8 semaines.</div>
+    </div>
+
+    <div class="carte">
+      <div class="titre">Le temps de tes séances</div>
+      <div class="fait"><span style="color:#8C97A6">(Exemple : chez toi, la carte ne viendrait pas, avec 3 séances écourtées sur 20.)</span><br>Ta durée est réglée sur 90 min. Depuis 8 semaines, 9 de tes 14 séances ont été écourtées, chaque semaine ou presque.</div>
+      <div class="titre" style="margin-top:10px;font-size:14px">Ce que ça change</div>
+      <ul class="causes"><li>Ce sont les derniers exercices qui sautent : <b>leg curl</b> et <b>mollets</b>.</li>
+        <li>Un programme bâti pour 70 min garderait l'essentiel, au lieu d'être coupé à la fin.</li></ul>
+      <div class="prop"><span class="btn p">Régler mes séances sur 70 min</span><span class="btn">Garder 90 min</span></div>
+      <div class="repere">70 min : la durée réelle de tes séances écourtées. Pour tenir dedans, je groupe d'abord des exercices en supersets, puis je raccourcis les repos des isolations, puis je retire une série aux exercices secondaires (jamais sous 2), et seulement ensuite une isolation en double. Jamais une priorité ni un grand mouvement (squat, soulevé, poussée, tirage).</div>
+      <div class="repere">Une séance longue ne déclenche rien ; seule une séance écourtée compte. Les semaines allégées ne comptent pas.</div>
+    </div>
+
+    <div class="carte">
+      <div class="titre">Tes priorités, combien de fois par semaine</div>
+      <table class="tab">
+        <tr><td>Tractions</td><td>0,9 fois / sem.</td></tr>
+        <tr><td>Développé militaire barre</td><td>0,7 fois / sem.</td></tr>
+        <tr><td>Squat (jambes)</td><td>0,7 fois / sem.</td></tr>
+      </table>
+      <div class="repere">Pour progresser en force sur un mouvement, deux fois par semaine font mieux qu'une (Grgic, 2018). Tes trois priorités reviennent une fois ou moins.</div>
+      <div class="prop"><span class="btn p">Répartir mes priorités sur deux jours</span><span class="btn">Pas maintenant</span></div>
+    </div>
+
+    <div class="carte">
+      <div class="titre">L'ordre dans tes séances</div>
+      <div class="calme"><span class="ok">Bien placées</span> · tes priorités sont dans le premier tiers de tes séances.</div>
+    </div>
+
+    <div class="carte">
+      <div class="titre">Un muscle sans série</div>
+      <div class="calme"><span class="ok">Aucun</span> sur les 4 dernières semaines.</div>
+    </div>
+  </div>
+</div>
+
+<div class="col">
+  <p class="leg"><b>Si le programme vient du coach</b> (« Construis-le-moi »)<br>Le programme est équilibré ; l'écart vient de ce qui a sauté. La carte le dit.</p>
+  <div class="tel">
+    <div class="carte">
+      <div class="titre">Tirage et poussée, à l'horizontale</div>
+      <div class="fait">Ton programme prévoit 1 série de tirage pour 1 de poussée. Tu en as fait 1 pour 1,6.</div>
+      <div class="barre"><i class="a" style="width:38%"></i><i class="b" style="width:62%"></i></div>
+      <div class="etiq"><span>Tirage · 58 séries faites sur 96 prévues</span><span>Poussée · 93 sur 96</span></div>
+      <div class="titre" style="margin-top:12px;font-size:14px">D'où ça vient</div>
+      <ul class="causes">
+        <li><b>Le rowing poulie</b> a sauté 5 fois sur 12, toujours en fin de séance.</li>
+        <li><b>« Machine prise »</b> : 3 fois sur le tirage poitrine, sans remplaçant.</li>
+      </ul>
+      <div class="prop"><span class="btn p">Placer le rowing plus tôt</span><span class="btn">Un remplaçant pour la poulie</span><span class="btn">Pas maintenant</span></div>
+    </div>
+    <div class="repere" style="padding:0 4px">Si c'est le programme du coach lui-même qui sort déséquilibré, c'est un défaut à corriger de notre côté, pas un écart de ta part. La carte le dit : « Je l'ai mal construit : je corrige ton programme ? »</div>
+  </div>
+</div>
+
+<div class="col">
+  <p class="leg"><b>La relecture de la semaine, quand un écart apparaît</b><br>Une ligne, au même endroit que le reste de la relecture.</p>
+  <div class="tel">
+    <h2>Ta semaine</h2>
+    <div class="quand">Du 20 au 26 octobre</div>
+    <div class="carte">
+      <div class="fait">4 séances · 78 séries · tes charges montent sur 9 exercices sur 14.</div>
+    </div>
+    <div class="carte">
+      <div class="titre">Un équilibre</div>
+      <div class="fait">0 série d'ischios cette semaine et la précédente.</div>
+      <div class="prop"><span class="btn">Voir mes équilibres</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <h3>Les règles derrière (à valider)</h3>
+  <ul>
+    <li><b>Ce qui est mesuré</b>, en séries réelles par muscle (le comptage existant, séries fractionnelles) :
+      <ul>
+        <li>tirage contre poussée, horizontale et verticale ;</li>
+        <li>chaîne postérieure (soulevés, RDL, hip thrust, leg curl) contre quadriceps ;</li>
+        <li>un muscle principal à 0 série sur 4 semaines ;</li>
+        <li>épaule arrière et côté à 0 ;</li>
+        <li>tes priorités contre ce que tu fais.</li>
+      </ul></li>
+    <li><b>Quand c'est dit</b> : sur au moins 4 semaines et 12 séances. Tirage sur poussée sous 0,60, chaîne postérieure sur quadriceps sous 0,40, ou un muscle à zéro. Au-dessus des seuils : « Équilibré ».</li>
+    <li><b>Comment c'est dit</b> : le fait en séries, puis le repère présenté comme une pratique de coach, jamais comme un risque de blessure. Une proposition (« En faire une priorité ? »), jamais d'office. « Pas maintenant » est retenu, et la carte se tait 4 semaines.</li>
+    <li><b>Le ratio épaule arrière / épaule avant est écarté</b> (avis de Gemini, que je partage) : les développés saturent l'épaule avant, et ce ratio ne veut rien dire.</li>
+    <li><b>« D'où ça vient »</b> : seulement des faits tirés de tes séances et de tes routines. Ce que tes routines prévoient, les exercices sautés et leur place dans la séance, les raccourcis « J'ai peu de temps » et « Machine prise ». Et, <b>quand c'est la cause d'un écart</b>, une séance de ta routine qui n'a pas été faite (« Bas B n'a pas été faite 4 semaines sur 12 : c'est elle qui porte ton soulevé »). Décision d'Aurélien du 29/10 : la doctrine change pour ce seul cas. La séance est nommée parce qu'elle explique l'écart, jamais pour compter ton assiduité : pas de total de séances, pas de série de semaines, pas de durée d'absence, pas de « tu as manqué », et rien quand aucun écart n'en découle. Chaque cause a sa proposition : ajouter, déplacer, fusionner, remplacer.</li>
+    <li><b>La semaine prévue et la semaine réelle</b> (décision d'Aurélien du 29/10) : quand le nombre de jours prévus (ton questionnaire ou ton programme) dépasse d'au moins 1 jour la médiane réelle de tes 8 dernières semaines d'entraînement, et que l'écart se répète (5 semaines sur 8 en Normal), la carte propose de refaire le programme sur le nombre de jours que tu fais vraiment. Les semaines à zéro ne comptent pas (une coupure n'est pas un retard). Le constat donne le nombre de jours et les séances qui sautent, jamais un reproche. « Garder » fait taire la carte pendant 8 semaines.</li>
+    <li><b>Le temps</b> (décision du 29/10) : manquer de temps parfois est normal, seule une habitude compte. La carte vient quand <b>au moins la moitié</b> des séances des <b>8 dernières semaines</b> ont été écourtées (moins de 75 % des séries prévues, ou « J'ai peu de temps »), sur <b>au moins 5 semaines différentes</b>, hors semaine allégée. Elle propose de régler la durée sur ce que tu tiens vraiment, et le programme se reconstruit pour cette durée. Une séance plus longue que prévu ne déclenche rien.</li>
+    <li><b>La fréquence</b> : une priorité faite moins de 1,5 fois par semaine sur 8 semaines. Le seuil évite de déclencher quand la 2ᵉ séance a sauté une seule fois. Proposition : la répartir sur deux jours. <b>Exception pour le soulevé de terre</b> : une fois par semaine suffit si un 2ᵉ jour contient une variante plus légère (RDL, hip thrust) ; sinon, on propose d'ajouter cette variante, jamais un second soulevé lourd.</li>
+    <li><b>L'ordre</b> : une priorité placée en moyenne dans le dernier tiers des séances. Si c'est un gros mouvement : « La mettre en premier » (Simão 2012). Si c'est une isolation d'un muscle qui travaille aussi dans les gros mouvements du jour (biceps et tirage, triceps et poussée, ischios et squat) : « La placer juste après les gros mouvements », jamais avant, pour ne pas les pré-fatiguer. Si c'est une isolation sans lien (mollets, abdos) : « La mettre en premier ».</li>
+    <li><b>Ton réglage décide quand le coach parle</b> (décision du 29/10). Me ménager : une habitude sur 6 semaines sur 8, une carte à la fois, silence de 12 semaines après « Pas maintenant ». Normal : 5 sur 8, deux cartes au plus, 8 semaines. Me pousser : 4 sur 8, trois cartes au plus, 4 semaines. Deux « Pas maintenant » de suite sur la même carte doublent le silence. Les cartes passent dans l'ordre : les jours, puis le temps, puis les équilibres et la fréquence, puis l'ordre. Une carte acceptée qui refait le programme efface les autres, qui seraient périmées. Juste un carnet : aucune carte, les constats restent lisibles dans le Parcours. <b>Les faits ne changent jamais</b>, et la sécurité (fatigue, douleur, saisie aberrante) réagit pareil pour tous.</li>
+    <li><b>Les repos</b> : aucune carte, parce que l'écart entre deux validations ne mesure pas le vrai repos (une série validée après coup, un oubli). Ils servent au chrono et à estimer la durée. Une seule ligne, dans le « Pourquoi » d'un gros mouvement qui stagne : quand les reps chutent d'au moins 30 % de la série 1 à la série 3 sur 3 séances avec un repos réglé à 90 s ou moins, le coach dit que 2 min 30 à 3 min aident sur un gros mouvement.</li>
+    <li><b>Les causes ajoutées</b> (« D'où ça vient ») : un exercice écarté pour une gêne signalée (« J'ai mal »), auquel cas le coach propose une variante appuyée, jamais plus de séries sur ce qui fait mal ; des séries ajoutées en séance d'un côté plus que de l'autre ; un exercice remplacé à la main au profit d'un autre.</li>
+    <li><b>Les jours, pour 5 ou 6 jours prévus</b> : la carte ne vient que si la même séance de la routine a sauté au moins 4 fois sur 8 semaines, ou si la médiane tombe d'au moins 1,5 jour. Un pratiquant qui fait tourner ses séances sans trou n'a rien à changer.</li>
+    <li><b>Le nombre de séries</b> : un chantier à part, plus tard (gestion du volume par muscle, selon la phase et les priorités) ; il est trop subtil pour une carte.</li>
+    <li><b>La fatigue</b> (baisse sur plusieurs exercices à la fois) : chantier 189, dans le moteur, avec la semaine allégée.</li>
+    <li><b>« Ajouter une série à ta routine »</b> passe par la règle existante de la série de plus d'un muscle prioritaire (§14.6) ; rien de nouveau dans le moteur.</li>
+  </ul>
+</div>
+
+</body>
+</html>

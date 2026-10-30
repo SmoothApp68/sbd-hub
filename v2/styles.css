@@ -2742,3 +2742,34 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .pm-leviers{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
 .pm-levier{color:var(--texte)}
 .pm-geste{min-height:44px;width:100%;text-align:left;background:transparent;color:var(--texte);border:1px solid var(--bordure,currentColor);border-radius:var(--r-grand);padding:0 12px;font:inherit}
+
+/* 188-1 — « Ta semaine et tes équilibres » (maquette-semaine-equilibres-v6) : des cartes, un fait, une barre, les causes
+   en faits, des gestes à 44 px. Les données (barres) sont bleues, l'ambre est la voix du coach. */
+.eq-section{margin-bottom:var(--e3)}
+.eq-quand{color:var(--texte-3);font-size:13px;margin:0 0 var(--e2)}
+.eq-carte .eq-titre{font-weight:700;font-size:16px;margin-bottom:6px}
+.eq-carte .eq-fait{font-size:15px;line-height:1.45}
+.eq-barre{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:9px 0 5px}
+.eq-barre i{display:block}
+.eq-barre .eq-a{background:var(--donnees,#6AA8FF)}
+.eq-barre .eq-b{background:#3a4658}
+.eq-etiq{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--texte-2)}
+.eq-sous{font-weight:700;font-size:14px;margin-top:12px}
+.eq-causes{margin:4px 0 0;padding-left:18px;font-size:14px;line-height:1.45;color:var(--texte-2)}
+.eq-causes li{margin-bottom:5px}
+.eq-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.eq-actions button{min-height:44px}
+.eq-constat{opacity:.92}
+.eq-calme .eq-titre{font-size:15px;margin-bottom:2px}
+.eq-calme-texte{color:var(--texte-2);font-size:14px}
+.eq-tab .eq-ligne-tab{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--trait);font-size:14px}
+.eq-tab .eq-ligne-tab.gris{color:var(--texte-3)}
+.eq-tab .eq-val{font-variant-numeric:tabular-nums}
+.eq-fait-pose{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#2a2110;border-left:3px solid var(--accent);
+  border-radius:0 10px 10px 0;padding:9px 10px;margin-bottom:var(--e3);font-size:14px}
+.eq-fait-pose button{min-height:44px}
+/* La ligne de l'écran Séances : une seule, sous la barre de la semaine. */
+.eq-ligne{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panneau);border-radius:var(--r-grand);
+  padding:8px 12px;margin:0 0 var(--e3);font-size:14px}
+.eq-ligne .eq-ligne-texte{flex:1;color:var(--texte-2);line-height:1.35}
+.eq-ligne button{min-height:44px;flex:none}

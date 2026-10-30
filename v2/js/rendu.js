@@ -1538,6 +1538,113 @@
     return l;
   }
 
+  // ══ 188-1 — « TA SEMAINE ET TES ÉQUILIBRES » (MOTEUR §9.27, maquette-semaine-equilibres-v6) ═══════════════════════════
+  //
+  // ⚠️ LE RENDU NE DÉCIDE RIEN. `vue.analyse` est la sortie de `THEquilibres.analyser` : les cartes qui parlent, les
+  // constats, les mesures calmes. Il dessine, il ne compte pas. Les gestes (une proposition, « Pas maintenant »,
+  // « Annuler ») sont des rappels : rien ne s'écrit ici. `vue.fait` : `{ texte, surAnnuler }`, ce que la dernière
+  // proposition acceptée vient de faire — elle se voit et s'annule.
+  function carteDEquilibre(c, vue, parle) {
+    var carte = el('div', 'carte-mois eq-carte' + (parle ? '' : ' eq-constat'));
+    carte.setAttribute('data-equilibre', c.cle);
+    carte.appendChild(el('div', 'eq-titre', c.titre));
+    if (c.kind === 'priorites') {
+      if (c.fait) { /* le fait vient après le tableau */ }
+      var tab = el('div', 'eq-tab');
+      (c.lignes || []).forEach(function (l) {
+        var r = el('div', 'eq-ligne-tab' + (l.gris ? ' gris' : ''));
+        r.appendChild(el('span', null, l.libelle));
+        r.appendChild(el('span', 'eq-val', l.texte));
+        tab.appendChild(r);
+      });
+      carte.appendChild(tab);
+      if (c.fait) carte.appendChild(el('p', 'pc-note', c.fait));
+    } else {
+      carte.appendChild(el('div', 'eq-fait', c.fait));
+      if (c.kind === 'rapport' && c.barre) {
+        var barre = el('div', 'eq-barre');
+        var a = el('i', 'eq-a'); a.style.width = c.barre.a + '%';
+        var b = el('i', 'eq-b'); b.style.width = c.barre.b + '%';
+        barre.appendChild(a); barre.appendChild(b);
+        carte.appendChild(barre);
+        var et = el('div', 'eq-etiq');
+        et.appendChild(el('span', null, c.etiquettes.a));
+        et.appendChild(el('span', null, c.etiquettes.b));
+        carte.appendChild(et);
+      }
+      if (c.repere) carte.appendChild(el('p', 'pc-note', c.repere + (c.tendance ? ' ' + c.tendance : '')));
+    }
+    if (parle) {
+      if ((c.causes || []).length) {
+        carte.appendChild(el('div', 'eq-sous', 'D’où ça vient'));
+        var ul = el('ul', 'eq-causes');
+        c.causes.forEach(function (x) { ul.appendChild(el('li', null, x.texte)); });
+        carte.appendChild(ul);
+      }
+      var actions = el('div', 'eq-actions');
+      (c.propositions || []).forEach(function (p, i) {
+        var bt = el('button', i === 0 ? 'principal' : 'discret', p.libelle);
+        bt.type = 'button';
+        bt.setAttribute('data-proposition', p.type);
+        bt.addEventListener('click', function () { vue.surProposition(c, p); });
+        actions.appendChild(bt);
+      });
+      var pm = el('button', 'discret', 'Pas maintenant');
+      pm.type = 'button';
+      pm.setAttribute('data-pas-maintenant', c.cle);
+      pm.addEventListener('click', function () { vue.surPlusTard(c); });
+      actions.appendChild(pm);
+      carte.appendChild(actions);
+    }
+    return carte;
+  }
+
+  function rendreEquilibres(parent, vue) {
+    var a = vue && vue.analyse;
+    if (!a || a.etat === 'peu') return;
+    parent.appendChild(el('div', 'section-t', 'Ta semaine et tes équilibres'));
+    var section = el('div', 'eq-section');
+    section.setAttribute('data-equilibres', a.etat);
+    if (a.quand) section.appendChild(el('div', 'eq-quand', a.quand));
+    if (vue.fait) {
+      var f = el('div', 'eq-fait-pose');
+      f.appendChild(el('span', null, vue.fait.texte));
+      var an = el('button', 'discret', 'Annuler');
+      an.type = 'button';
+      an.setAttribute('data-annuler-equilibre', '1');
+      an.addEventListener('click', function () { vue.fait.surAnnuler(); });
+      f.appendChild(an);
+      section.appendChild(f);
+    }
+    var parlent = {};
+    (a.cartes || []).forEach(function (c) { parlent[c.cle] = true; section.appendChild(carteDEquilibre(c, vue, true)); });
+    (a.constats || []).forEach(function (c) { if (!parlent[c.cle]) section.appendChild(carteDEquilibre(c, vue, false)); });
+    (a.calmes || []).forEach(function (c) {
+      var k = el('div', 'carte-mois eq-carte eq-calme');
+      k.setAttribute('data-equilibre', c.cle);
+      k.appendChild(el('div', 'eq-titre', c.titre));
+      k.appendChild(el('div', 'eq-calme-texte', c.texte));
+      section.appendChild(k);
+    });
+    parent.appendChild(section);
+  }
+
+  // La ligne de l'écran Séances, sous la barre de la semaine : UNE seule, quand une carte d'équilibre parle.
+  function rendreLigneEquilibre(cible, vue) {
+    if (!cible) return cible;
+    vider(cible);
+    if (!vue || !vue.texte) { cible.hidden = true; return cible; }
+    cible.hidden = false;
+    var l = el('div', 'eq-ligne');
+    l.appendChild(el('span', 'eq-ligne-texte', vue.texte));
+    var b = el('button', 'discret', 'Voir mes équilibres');
+    b.type = 'button';
+    b.addEventListener('click', function () { vue.surOuvrir(); });
+    l.appendChild(b);
+    cible.appendChild(l);
+    return cible;
+  }
+
   function rendreParcours(cible, vue) {
     if (!cible) return;
     vider(cible);
@@ -1548,6 +1655,9 @@
 
     // La phrase.
     cible.appendChild(el('div', 'pc-phrase', p.phrase || PHRASE_VIDE));
+
+    // 188-1 — « Ta semaine et tes équilibres » : en tête, au-dessus de « Tes équilibres » (les barres sur douze mois).
+    rendreEquilibres(cible, vue.equilibres);
 
     // Les courbes des grands mouvements.
     if (p.courbes.length) {
@@ -8559,6 +8669,8 @@
     rendreBandeauReprise: rendreBandeauReprise,
     rendreFeuilleInstaller: rendreFeuilleInstaller,
     rendreCarteSemaine: rendreCarteSemaine,
+    rendreLigneEquilibre: rendreLigneEquilibre,
+    rendreEquilibres: rendreEquilibres,
     rendreCarteEchelles: rendreCarteEchelles,
     rendreCarteManque: rendreCarteManque,
     rendreFinsDeCycleSaisie: rendreFinsDeCycleSaisie,

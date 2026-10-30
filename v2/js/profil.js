@@ -634,7 +634,10 @@
                        // la migration n'est pas lancée (`COLONNES_FACULTATIVES`, donnees.js).
                        'ma_salle',
                        // 160 (v2_112) — l'accord à « Demander au coach » (timestamptz) : écrit une fois, relu. FACULTATIVE.
-                       'assistant_accord_a'];
+                       'assistant_accord_a',
+                       // 188-1 (v2_118, NOT NULL DEFAULT '{}', un objet) — les réponses aux cartes de la semaine :
+                       // `{ cle: { r: 'oui'|'non', le: 'AAAA-MM-JJ', refus: n } }`. FACULTATIVE (comme `marche_reponses`).
+                       'cartes_semaine'];
   // 136 (audit du 16/10, 03 #18) — `onboarding_completed` n'est plus écrite (ni lue) : plus rien ne la décide depuis
   // 60-2a (`questionnaire_fait_le`). La colonne reste en base.
 
@@ -658,6 +661,12 @@
       if (c === 'marche_reponses') {
         var mr = src[c];
         if (mr === null || (mr && typeof mr === 'object' && !Array.isArray(mr))) sortie[c] = mr;
+        return;
+      }
+      // 188-1 — les réponses aux cartes de la semaine : un objet (NOT NULL côté base), jamais une liste ni un scalaire.
+      if (c === 'cartes_semaine') {
+        var cs = src[c];
+        if (cs && typeof cs === 'object' && !Array.isArray(cs)) sortie[c] = cs;
         return;
       }
       // 131 — les refus de « Ce qui manque » : une liste de « slug:colonne », jamais autre chose.
@@ -738,7 +747,7 @@
     duree_seance_min: 'Durée d’une séance', objectif: 'But d’entraînement', priorites: 'Priorités', temps_reponse: 'Ton temps',
     historique_declare: 'Historique', programme_choix: 'Ton programme', zones_a_menager: 'Zone à ménager',
     exercices_ecartes: 'Exercices écartés', jeu_actif: 'Le jeu', compte_prive: 'Compte privé', ma_salle: 'Ma salle',
-    marche_reponses: 'Marche suivante', completer_refus: 'Ce qui manque à tes séances', assistant_accord_a: 'Demander au coach'
+    marche_reponses: 'Marche suivante', completer_refus: 'Ce qui manque à tes séances', assistant_accord_a: 'Demander au coach', cartes_semaine: 'Les cartes de ta semaine'
   };
   // « Pas enregistré : Bio. La base a refusé cette valeur ; celle d'avant est gardée. » — `null` sans colonne.
   function phraseRefusProfil(colonnes) {

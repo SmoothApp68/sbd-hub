@@ -794,6 +794,38 @@
     return renumeroter(reste.slice(0, cible.debut).concat(bloc, reste.slice(cible.debut)));
   }
 
+  // ══ 188-1 — LES GESTES DES CARTES D'ÉQUILIBRE (MOTEUR §9.27) ═══════════════════════════════════════════════════════
+  //
+  // Deux fonctions pures de plus, sur le modèle de `retraitDeSeries` et `miseEnTete` : chacune rend la liste VOULUE
+  // complète de la routine (la forme que `poserRoutineVoulue` envoie par la file), ou `null` si la routine ne correspond
+  // plus à la proposition. Une copie, toujours. AUCUN NOMBRE FIXE : le nombre de séries d'un exercice ajouté est celui que
+  // l'appelant donne (l'habitude de la personne), la série ajoutée copie la dernière série de travail de l'exercice.
+
+  // L'AJOUT d'un exercice, en fin de routine, avec `nSeries` séries de travail (au moins une). Déjà là : `null`.
+  function ajoutDExercice(routine, slug, nSeries) {
+    var exercices = ((routine && routine.exercices) || []).map(copieExercice);
+    if (!slug || indexDuSlug(exercices, slug) >= 0) return null;
+    var n = nSeries >= 1 ? Math.floor(nSeries) : 1;
+    var series = [];
+    for (var i = 0; i < n; i++) series.push(enSaisie({ type_serie: 'travail' }));
+    exercices.push({ exercise_slug: slug, series: series, repos_cible_s: null, groupe_superset: null, note: null });
+    return renumeroter(exercices);
+  }
+
+  // LA SÉRIE DE PLUS d'un exercice de la routine : une copie de sa dernière série de travail, posée juste après. Sans
+  // série de travail, ou exercice absent : `null`.
+  function ajoutDeSerie(routine, slug) {
+    var M = racine.THModele;
+    var exercices = ((routine && routine.exercices) || []).map(copieExercice);
+    var i = indexDuSlug(exercices, slug);
+    if (i < 0) return null;
+    var series = exercices[i].series, dernier = -1;
+    for (var j = 0; j < series.length; j++) if (M.estTravail(series[j])) dernier = j;
+    if (dernier < 0) return null;
+    series.splice(dernier + 1, 0, Object.assign({}, series[dernier], { id: null }));
+    return renumeroter(exercices);
+  }
+
   // ── Appliquer un plan d'écritures ───────────────────────────────────────
   //
   // ⚠️ L'ORDRE EST IMPOSÉ : suppressions, puis majs, puis insertions. Les
@@ -2016,6 +2048,8 @@
     degrouper: degrouper,
     estGroupe: estGroupe,
     peutGrouper: peutGrouper,
+    ajoutDExercice: ajoutDExercice,
+    ajoutDeSerie: ajoutDeSerie,
     renumeroter: renumeroter,
     retraitDeSeries: retraitDeSeries,
     miseEnTete: miseEnTete,

@@ -30,16 +30,16 @@ describe('60-4 — les fichiers embarqués, octet pour octet', () => {
 // `gen60b.py` = `gen60.py` + quatre règles ; `cas-60-6-generateur.json` a remplacé `cas-60-4-generateur.json` (quinze
 // de ses dix-sept programmes sortent à l'identique, les deux de 2 jours changent exprès : le rejeu le montre).
 describe('60-6 — les fichiers embarqués, octet pour octet', () => {
-  test('la référence gen60b.py est celle reçue de Claude.ai', () => {
+  test('la référence gen60b.py est celle reçue de Claude.ai, revue en 190 (la barre de traction)', () => {
     const brut = lire('tests/unit/fixtures/gen60b.py');
-    expect(brut.length).toBe(16095);
-    expect(sha(brut)).toBe('9aa3051a21a26c9864ec03275cec321fdd9e61381768d4e921be5e678f7f40a3');
+    expect(brut.length).toBe(17308);
+    expect(sha(brut)).toBe('4e5db26072155af71da8c17b407a04fdba841b53ba990204a3194103a21a110e');
   });
 
   test('le fichier de cas cas-60-6-generateur.json est celui reçu de Claude.ai', () => {
     const brut = lire('tests/unit/fixtures/cas-60-6-generateur.json');
-    expect(brut.length).toBe(123175);
-    expect(sha(brut)).toBe('bf617bbf6c99c4943e1601200b201b6fc759494022a34b6e6cbe30daa66da7e9');
+    expect(brut.length).toBe(122887);
+    expect(sha(brut)).toBe('258a1948754ad1ac6753f8a6c166741def0f6587ab88ed4739208b8588760fa6');
     expect(brut[brut.length - 1]).not.toBe(10);                             // une seule ligne, sans saut de ligne final
   });
 

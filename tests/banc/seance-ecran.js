@@ -1571,9 +1571,15 @@ const SETS_IMPORTES = [
             (v.elastiques_par_nom === undefined || typeof v.elastiques_par_nom === 'boolean');
           // 159 (`v2_111`) — `barre_ez_chargee`, `barre_droite_chargee` : deux booléens (`profiles_ma_salle_chargees_ok`).
           const okC = ['barre_ez_chargee', 'barre_droite_chargee'].every((k) => v[k] === undefined || typeof v[k] === 'boolean');
-          if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH || !okE || !okC ||
+          // 190 (`v2_119`, `profiles_ma_salle_equipement_ok`) — le plus petit disque (kg par côté, 0,25 à 5 au pas de 0,25, ou
+          // null) et la barre de traction (un booléen) ; absents ou null = inconnu.
+          const okQ = (v.plus_petit_disque === undefined || v.plus_petit_disque === null ||
+              (typeof v.plus_petit_disque === 'number' && v.plus_petit_disque >= 0.25 && v.plus_petit_disque <= 5 &&
+               Math.floor(v.plus_petit_disque * 4) === v.plus_petit_disque * 4)) &&
+            (v.barre_traction === undefined || v.barre_traction === null || typeof v.barre_traction === 'boolean');
+          if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH || !okE || !okC || !okQ ||
               Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres', 'elastiques', 'elastiques_par_nom',
-                'mini_bandes', 'barre_ez_chargee', 'barre_droite_chargee'].indexOf(k) < 0)) {
+                'mini_bandes', 'barre_ez_chargee', 'barre_droite_chargee', 'plus_petit_disque', 'barre_traction'].indexOf(k) < 0)) {
             return json(refus('23514', 'profiles_ma_salle_ok'), 400);
           }
         }
@@ -10251,7 +10257,8 @@ const SETS_IMPORTES = [
     // 1. « Ma salle » est absente du Profil tant qu'aucun exercice à l'élastique n'existe (ni routine, ni historique).
     await aller('/profil');
     await jusqua(() => page.evaluate(() => document.querySelectorAll('#profil-corps .p-ligne').length > 3), 8000);
-    ok('[163] DISCRIMINANT — sans exercice à l’élastique : pas de « Ma salle » dans le Profil', !(await ligneSalle()), '');
+    // 190 — « Ma salle » est toujours dans le Profil (le plus petit disque, la barre de traction) ; les élastiques, eux, restent conditionnels.
+    ok('[190] DISCRIMINANT — sans exercice à l’élastique, « Ma salle » est quand même dans le Profil (disque, barre de traction)', !!(await ligneSalle()), '');
 
     // 2. La machine jamais montée : « ≈ 35 kg », la phrase sous la ligne, la case préremplie à 35 (modifiable).
     await aller('/saisie');
@@ -15907,10 +15914,11 @@ const SETS_IMPORTES = [
     ok('[Q60] écran 8 — écrit : intention = progresser, rythme = franc',
       profilBase().intention === 'progresser' && profilBase().rythme_progression === 'franc', JSON.stringify([profilBase().intention, profilBase().rythme_progression]));
     e = await ecranQ();
-    ok('[Q60] écran 9 — « Voici ce que j’ai compris. » : les sept lignes (187 : + la zone), avec ce qui vient d’être répondu ; « Commencer »',
-      e.ecran === 'recap' && e.bouton === 'Commencer' && e.lignes.length === 8 && /^Tes exercices/.test(e.lignes[7]) &&
-        /But d’entraînement.*Muscle/.test(e.lignes[0]) && /Phase.*Maintien/.test(e.lignes[1]) && /^Matériel/.test(e.lignes[4]) && /^Zone à ménager/.test(e.lignes[5]) &&
-        /Coach.*Me pousser/.test(e.lignes[6]), JSON.stringify(e));
+    ok('[Q60] écran 9 — « Voici ce que j’ai compris. » : les neuf lignes (187 : + la zone ; 190 : + le plus petit disque et la barre de traction), avec ce qui vient d’être répondu ; « Commencer »',
+      e.ecran === 'recap' && e.bouton === 'Commencer' && e.lignes.length === 10 && /^Tes exercices/.test(e.lignes[9]) &&
+        /But d’entraînement.*Muscle/.test(e.lignes[0]) && /Phase.*Maintien/.test(e.lignes[1]) && /^Matériel/.test(e.lignes[4]) &&
+        /^Plus petit disque/.test(e.lignes[5]) && /^Barre de traction/.test(e.lignes[6]) && /^Zone à ménager/.test(e.lignes[7]) &&
+        /Coach.*Me pousser/.test(e.lignes[8]), JSON.stringify(e));
     ok('[Q60] écran 9 — rien ne dit « fait » avant « Commencer » : `questionnaire_fait_le` est encore vide',
       profilBase().questionnaire_fait_le === null, JSON.stringify(profilBase().questionnaire_fait_le));
     await cliquerQ('.q-mod[data-ecran="but"]', 500);
@@ -16913,14 +16921,16 @@ const SETS_IMPORTES = [
     };
     await aller('/profil');
     let sh = await sectionH();
-    // 108 — « Ma salle » (ECRAN-PROFIL 2.4 quinquies) se range sous « Matériel ».
-    ok('[R60] H — « CE QUE JE FAIS » : Matériel, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
-      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Exercices écartés|Refaire mon programme' &&
-        sh[1].val === 'Dos' && sh[2].val === '1' && sh[3].val === null, JSON.stringify(sh));
+    // Les lignes se lisent PAR LIBELLÉ, jamais par position (30/10/2026, 190 : « Ma salle » est toujours là et décale tout).
+    const lh = (rows, lib) => (rows || []).filter((l) => l.lib === lib)[0] || {};
+    // 108 — « Ma salle » (ECRAN-PROFIL 2.4 quinquies) se range sous « Matériel » ; 190 : toujours visible.
+    ok('[R60] H — « CE QUE JE FAIS » : Matériel, Ma salle, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
+      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Exercices écartés|Refaire mon programme' &&
+        lh(sh, 'Zone à ménager').val === 'Dos' && lh(sh, 'Exercices écartés').val === '1' && lh(sh, 'Refaire mon programme').val === null, JSON.stringify(sh));
     ok('[R60] H — les phrases de la spec (G10), au mot près',
-      !!sh && sh[1].sous === 'Ton programme construit la garde sans série lourde. Rien ne change en séance.' &&
-        sh[2].sous === 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.' &&
-        sh[3].sous === 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.', JSON.stringify(sh));
+      !!sh && lh(sh, 'Zone à ménager').sous === 'Je ne te propose pas de série lourde dessus, ni dans ton programme ni en séance.' &&
+        lh(sh, 'Exercices écartés').sous === 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.' &&
+        lh(sh, 'Refaire mon programme').sous === 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.', JSON.stringify(sh));
     // Zone à ménager : une feuille à puces.
     await toucherH('Zone à ménager');
     const puces = () => page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
@@ -16936,15 +16946,15 @@ const SETS_IMPORTES = [
     await attendre(900);
     sh = await sectionH();
     ok('[R60] H — « Valider » : Dos et Genou écrits (dans l’ordre de la liste), la ligne dit « Dos, Genou »',
-      JSON.stringify(profilBase().zones_a_menager) === '["dos","genou"]' && sh[1].val === 'Dos, Genou',
-      JSON.stringify([profilBase().zones_a_menager, sh[1].val]));
+      JSON.stringify(profilBase().zones_a_menager) === '["dos","genou"]' && lh(sh, 'Zone à ménager').val === 'Dos, Genou',
+      JSON.stringify([profilBase().zones_a_menager, lh(sh, 'Zone à ménager').val]));
     await toucherH('Zone à ménager');
     await page.click('#feuille-contenu button[data-cle="aucune"]');
     await page.click('#feuille-contenu .feuille-pied .pri');
     await attendre(900);
     sh = await sectionH();
     ok('[R60] H — « Aucune » écrit le vide (NULL) ; la ligne dit « Aucune »',
-      profilBase().zones_a_menager === null && sh[1].val === 'Aucune', JSON.stringify([profilBase().zones_a_menager, sh[1].val]));
+      profilBase().zones_a_menager === null && lh(sh, 'Zone à ménager').val === 'Aucune', JSON.stringify([profilBase().zones_a_menager, lh(sh, 'Zone à ménager').val]));
     // Exercices écartés : la liste, « Reprendre ».
     await toucherH('Exercices écartés');
     const liste = () => page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
@@ -16958,7 +16968,7 @@ const SETS_IMPORTES = [
     li = await liste();
     sh = await sectionH();
     ok('[R60] H — « Reprendre » : l’exercice n’est plus écarté (NULL), la feuille se ferme, la ligne « Exercices écartés » s’efface',
-      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Refaire mon programme',
+      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Refaire mon programme',
       JSON.stringify([profilBase().exercices_ecartes, li.ouverte, sh && sh.map((l) => l.lib)]));
     // Refaire mon programme : « Retour » ramène au Profil sans rien écrire.
     const avantRefaire = JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ROUTINES.length]);

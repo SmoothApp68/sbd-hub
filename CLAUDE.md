@@ -71,6 +71,7 @@ Deux Claude, rôles séparés :
 - **Diagnostic-first** : jamais « diagnostiquer ET fixer » d'un coup. Phase 1 = diagnostic **read-only** (aucune modif) → valider la cause → Phase 2 = fix **minimal**. Un diagnostic qui finit par STOP ne modifie rien.
 - **1 prompt = 1 commit atomique.** Commits séparés si un prompt demande plusieurs changements distincts. Push après chaque commit.
 - **Grep les vrais noms avant d'écrire du code** — audits et mémoire dérivent. Le code réel fait foi.
+- **Penser en arborescence** (règle d'Aurélien, 30/10/2026) : quand un prompt touche une notion, trouver par grep tous ses lecteurs (écrans, règles du coach, phrases, invariants, générateur, bancs, specs) et les traiter, ou dire pourquoi non ; une notion = une seule fonction câblée partout, jamais une copie.
 - **Ne touche JAMAIS aux RLS.**
 - **Render pur** : le rendu du Coach ne produit **aucune écriture** en base (`db` identique après deux renders). Invariante. (Dette connue : `blockStartDate` muté au render, préexistant v230.)
 - **Ne génère PAS de prompt/PR non demandé.** Un chantier à la fois ; noter-pour-plus-tard plutôt que scope-creep. Signale les problèmes hors-scope sans les corriger.

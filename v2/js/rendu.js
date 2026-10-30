@@ -6666,7 +6666,11 @@
     // 163 (24/10/2026, décision d'Aurélien) — « Ma salle » ne garde que les élastiques : plus de barres fixes, plus de
     // haltères, plus de bascule « barre chargée ». Le coach lit ces charges dans l'historique (MOTEUR §10.2 bis).
     // 132 (ECRAN-PROFIL §2.4 sexies, maquette `maquette-elastiques-v2.html`, écran 1) — LES DEUX LISTES et le choix.
-    if (vue.surAjouterElastique) elastiquesDeLaSalle(cible, b, vue);
+    // 190 (MOTEUR §10.2) — LES DEUX LIGNES DU MATÉRIEL, les mêmes que celles du questionnaire (« Ajuster Ma salle »,
+    // `THProfil.lignesMateriel`) : le plus petit disque, une barre de traction. Elles se montrent à tout le monde ;
+    // les élastiques, seulement quand un exercice à l'élastique existe (`vue.avecElastiques`).
+    if (vue.surReglage) lignesDuMateriel(cible, b, vue);
+    if (vue.surAjouterElastique && vue.avecElastiques !== false) elastiquesDeLaSalle(cible, b, vue);
     cible.appendChild(el('p', 'feuille-err', vue.erreur || ''));
     // « Effacer » seulement quand une salle est déjà déclarée : il écrit le vide (non renseignée).
     piedFeuille(cible, [
@@ -6675,6 +6679,20 @@
       { classe: 'pri', texte: 'Valider', surClic: vue.surValider }
     ]);
     return cible;
+  }
+
+  // 190 — « Le plus petit disque » et « Une barre de traction » : un titre, sa phrase, des puces (`blocPuces`, celles du
+  // questionnaire). Le geste est `vue.surReglage(cle, valeur)` ; la feuille ne décide rien.
+  function lignesDuMateriel(cible, b, vue) {
+    racine.THProfil.lignesMateriel(b).forEach(function (l) {
+      var carte = el('div', 'el-carte');
+      carte.dataset.reglage = l.cle;
+      carte.appendChild(el('div', 'choix-groupe salle-titre', l.titre));
+      carte.appendChild(el('p', 'feuille-aide', l.aide));
+      carte.appendChild(blocPuces({ cle: l.cle, valeur: l.valeur, options: l.options },
+        { surChoix: function (c, v) { vue.surReglage(c, v); } }));
+      cible.appendChild(carte);
+    });
   }
 
   // 132 — UNE PASTILLE : la couleur que le nom dit (`THModele.pastilleElastique`), ou neutre.

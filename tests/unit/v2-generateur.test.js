@@ -183,8 +183,10 @@ describe('60-4 — chaque chemin de la règle est joué par un cas du fichier', 
     const minimal = exercices(programme('neuf_3j_forme_maison_minimal')).map((x) => x.exercise_slug);
     expect(minimal).not.toContain('tractions');
     expect(minimal).not.toContain('rowing_inverse');
+    // 190 (G-maison-suspendu du bêta-test) — ni le relevé de genoux SUSPENDU : il demande la même barre.
+    expect(minimal).not.toContain('releve_de_genoux_suspendu');
     const corps = exercices(programme('neuf_3j_poids_du_corps'));
-    expect(corps.filter((x) => x.barre_fixe).map((x) => x.exercise_slug)).toEqual(['rowing_inverse']);
+    expect(corps.filter((x) => x.barre_fixe).map((x) => x.exercise_slug)).toEqual(['releve_de_genoux_suspendu', 'rowing_inverse']);
   });
 
   test('L’EXERCICE DÉJÀ FAIT HORS MATÉRIEL est gardé (la presse d’une maison équipée), jamais rétrogradé', () => {

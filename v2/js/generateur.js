@@ -94,8 +94,11 @@
 
   var JOURS_MIN = 2, JOURS_MAX = 6, JOURS_DEFAUT = 3;
 
-  // Les exercices qui demandent une barre fixe : la maison minimale n'en a pas.
-  var BARRE_FIXE = ['tractions', 'rowing_inverse'];
+  // 190 (décision d'Aurélien du 30/10/2026) — LES EXERCICES QUI DEMANDENT UNE BARRE (de traction, fixe, en hauteur) : une seule
+  // définition, celle du profil (`THProfil.demandeUneBarreDeTraction`, lue sur le slug et l'équipement de la fiche du catalogue
+  // — il n'y a pas de colonne qui le dise). Elle remplace la liste à la main (`tractions`, `rowing_inverse`) qui laissait passer
+  // le relevé de genoux suspendu à la maison (le défaut G-maison-suspendu du bêta-test) et toutes les variantes de tractions.
+  function demandeUneBarreFixe(slug, fiche) { return racine.THProfil.demandeUneBarreDeTraction(slug, fiche); }
 
   // Le poids du corps lourd (60-6, S3) : pour qui a moins d'un an de pratique et ne l'a jamais fait, ces trois exercices
   // ne sont proposés qu'en dernier recours — quand ni le motif, ni son voisin, ni un exercice déjà pris ailleurs dans la
@@ -165,14 +168,19 @@
   // ── Ce que le matériel permet ───────────────────────────────────────────────
   // LA TABLE EST CELLE DE 60-1 (`Profil.equipementsDe`) : lue ici, jamais recopiée. `null` : tout le matériel (Salle
   // complète, ou « pas renseigné »).
-  function faisable(catalogue, materiel, faits) {
+  // 190 — `barreTraction` : la réponse de Ma salle (`true`, `false`, ou inconnue). « Non » : ni tractions ni exercice suspendu,
+  // PARTOUT et même fait avant (une déclaration passe avant l'historique) ; « Oui » : permis même à la maison ; inconnue : la
+  // maison minimale n'en a pas, comme avant.
+  function faisable(catalogue, materiel, faits, barreTraction) {
     var autorises = racine.THProfil.equipementsDe(materiel);
-    // La maison minimale n'a pas de barre fixe : ni tractions, ni rowing inversé (elle a ses rowings aux haltères).
-    var sansBarreFixe = materiel === 'maison_minimal';
+    var sansBarre = barreTraction === false;
+    var maisonSansBarre = barreTraction !== true && materiel === 'maison_minimal';
     return function (slug) {
       if (!possede(catalogue, slug)) return false;          // absent du catalogue de la personne : la place l'ignore
+      var suspendu = demandeUneBarreFixe(slug, catalogue[slug]);
+      if (sansBarre && suspendu) return false;
       if (possede(faits, slug)) return true;                // un exercice déjà fait n'est jamais rétrogradé (60-1)
-      if (sansBarreFixe && contient(BARRE_FIXE, slug)) return false;
+      if (maisonSansBarre && suspendu) return false;
       return autorises === null || contient(autorises, catalogue[slug].equipement);
     };
   }
@@ -276,7 +284,7 @@
     var menage = estMenagee(motif, menager);
     reps = repsDeLaPlace(reps, motif, menage, objectif);
     return { exercise_slug: slug, motif: motif, role: role, series: n, reps: reps,
-             prioritaire: prioEx, menage: menage, barre_fixe: contient(BARRE_FIXE, slug) };
+             prioritaire: prioEx, menage: menage, barre_fixe: demandeUneBarreFixe(slug, fiche) };
   }
 
   // ── Le programme ────────────────────────────────────────────────────────────
@@ -286,7 +294,7 @@
     var p = entree || {};
     var faits = p.faits || {};
     var ecartes = liste(p.ecartes);
-    var ok = faisable(catalogue, p.materiel, faits);
+    var ok = faisable(catalogue, p.materiel, faits, p.barre_traction);
     var debutant = racine.THProfil.estDebutant(p);
     var gabarit = GABARITS[bornerJours(p.jours)];
     // Les principaux de la semaine d'abord (ils prennent la barre), puis les secondaires, puis le reste ; un exercice
@@ -352,7 +360,7 @@
     var pris = {};
     nouveau[r].exercices.forEach(function (x) { pris[x.exercise_slug] = true; });
     // `pris` = les exercices de CETTE séance : le repli ne les reprend jamais (60-6, S6) ; le débutant reste débutant.
-    var s = choisir(vieux.motif, faisable(catalogue, p.materiel, faits), ecartes, pris, p.menager, faits, p.materiel,
+    var s = choisir(vieux.motif, faisable(catalogue, p.materiel, faits, p.barre_traction), ecartes, pris, p.menager, faits, p.materiel,
                     racine.THProfil.estDebutant(p), pris);
     if (s === null) {
       nouveau[r].exercices.splice(k, 1);                    // rien au catalogue : la place disparaît
@@ -428,8 +436,9 @@
   // ainsi que `faisable` le traite (aucune restriction) — donc pas de phrase (60-6, S5).
   var SALLES = ['salle_complete', 'salle_basique'];
 
-  function barreFixeAVerifier(materiel) {
-    return typeof materiel === 'string' && materiel !== '' && !contient(SALLES, materiel);
+  // 190 — « Oui, j'ai une barre de traction » : rien à vérifier, la phrase ne se dit pas.
+  function barreFixeAVerifier(materiel, barreTraction) {
+    return barreTraction !== true && typeof materiel === 'string' && materiel !== '' && !contient(SALLES, materiel);
   }
 
   function joindre(noms) {
@@ -462,7 +471,7 @@
     var e = entree || {}, m = [];
     var zones = zonesDeLigne(l, e.menager);
     if (zones.length) m.push('sans série lourde \u00b7 ' + joindre(zones.map(function (z) { return POSSESSIF[z]; })));
-    if (l.barre_fixe && barreFixeAVerifier(e.materiel)) m.push('demande une barre fixe');
+    if (l.barre_fixe && barreFixeAVerifier(e.materiel, e.barre_traction)) m.push('demande une barre fixe');
     return m;
   }
 
@@ -492,7 +501,7 @@
       zones.push(phrase);
     });
     var barre = '';
-    if (barreFixeAVerifier(e.materiel)) {
+    if (barreFixeAVerifier(e.materiel, e.barre_traction)) {
       var fixes = uniques(lignes.filter(function (l) { return l.barre_fixe; }).map(function (l) { return nommer(l.exercise_slug); }));
       if (fixes.length) {
         barre = joindre(fixes) + (fixes.length > 1 ? ' demandent' : ' demande') +
@@ -1314,7 +1323,7 @@
     var menage = estMenagee(motif, p.menager);
     return { exercise_slug: slug, motif: motif, role: rang === null ? null : ROLES.charAt(rang), series: x.series,
              reps: repsDeLaPlace(x.reps, motif, menage, p.objectif), prioritaire: contient(liste(p.priorites), slug),
-             menage: menage, barre_fixe: contient(BARRE_FIXE, slug), chauffes: x.chauffes || 0 };
+             menage: menage, barre_fixe: demandeUneBarreFixe(slug, (catalogue || {})[slug]), chauffes: x.chauffes || 0 };
   }
 
   // « CE QUE J'AI CHANGÉ » (§5 quater.5) — des faits, sans « parce que » (VOIX). `journalCompl` : celui de
@@ -1403,7 +1412,7 @@
     MOTIFS: MOTIFS,
     GABARITS: GABARITS,
     VOISIN: VOISIN,
-    BARRE_FIXE: BARRE_FIXE,
+    demandeUneBarreFixe: demandeUneBarreFixe,
     PDC_LOURD: PDC_LOURD,
     CHARGE_ZONE: CHARGE_ZONE,
     DOUX: DOUX,

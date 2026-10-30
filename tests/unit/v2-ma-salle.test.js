@@ -92,7 +92,8 @@ describe('Profil — la déclaration « Ma salle » (profiles.ma_salle, v2_088)'
     let b = Profil.brouillonSalle({});
     // 132 — le brouillon porte aussi les élastiques (vides : rien de déclaré).
     expect(b).toEqual({ barres_ez: [], barres_droites: [], halteres: null, elastiques: [], mini_bandes: [],
-                        elastiques_par_nom: false, barre_ez_chargee: false, barre_droite_chargee: false });
+                        elastiques_par_nom: false, barre_ez_chargee: false, barre_droite_chargee: false,
+                        plus_petit_disque: null, barre_traction: null });   // 190 — inconnus : `null`
     [10, 15, 20, 25, 30].forEach((kg) => { b = Profil.basculerBarre(b, 'barres_ez', kg); });
     b = Profil.basculerBarre(b, 'barres_ez', 15);
     b = Profil.basculerBarre(b, 'barres_ez', 12.5);   // « ＋ »
@@ -109,19 +110,23 @@ describe('Profil — la déclaration « Ma salle » (profiles.ma_salle, v2_088)'
     expect(Profil.champsSalle(Profil.poserMaxHalteres(Profil.brouillonSalle({}), 500))).toBeNull();
   });
 
-  // 163 (24/10/2026, décision d'Aurélien) — INVERSÉ : « Ma salle » ne garde que les élastiques ; la ligne du Profil
-  // n'apparaît que si un exercice à l'élastique est dans une routine, l'historique ou la séance (`visible`), et le
-  // résumé ne nomme plus les barres ni les haltères (ils restent permis en base, l'app ne les lit plus).
-  test('la ligne du Profil : « Ma salle » seulement si un exercice à l’élastique existe ; le résumé ne nomme que les élastiques', () => {
-    expect(Profil.ligneSalle({ ma_salle: SALLE_AUREL }, () => {})).toBeNull();
-    expect(Profil.ligneSalle({ ma_salle: SALLE_AUREL }, () => {}, false)).toBeNull();
-    const l = Profil.ligneSalle({ ma_salle: SALLE_AUREL }, () => {}, true);
+  // 163 (24/10/2026, décision d'Aurélien) — « Ma salle » ne garde que les élastiques ; le résumé ne nomme plus les barres ni les
+  // haltères (ils restent permis en base, l'app ne les lit plus). 190 — la ligne est TOUJOURS dans le Profil : le plus petit
+  // disque et la barre de traction se règlent pour tout le monde ; les élastiques ne se montrent dans la feuille qu'avec un
+  // exercice à l'élastique.
+  test('la ligne du Profil : « Ma salle » toujours là ; le résumé dit ce qui est réglé (élastiques, disque, barre de traction)', () => {
+    const l = Profil.ligneSalle({ ma_salle: SALLE_AUREL }, () => {});
     expect(l.libelle).toBe('Ma salle');
     expect(l.sous).toBe(Profil.PHRASE_SALLE);
     expect(l.valeur).toBeNull();                  // les barres et les haltères ne se résument plus
-    expect(Profil.ligneSalle({}, () => {}, true).valeur).toBeNull();
+    expect(Profil.ligneSalle({}, () => {}).valeur).toBeNull();
     expect(Profil.resumeSalle({ ma_salle: { halteres: { max: 20, pas: 1 } } })).toBeNull();
     expect(Profil.resumeSalle({ ma_salle: { elastiques: [{ nom: 'Noir' }], mini_bandes: [{ nom: 'Rose' }] } })).toBe('Élastiques, mini-bandes');
+    const sp = (t) => String(t).replace(/[\u00a0\u202f]/g, ' ');
+    expect(sp(Profil.resumeSalle({ ma_salle: { plus_petit_disque: 1.25 } }))).toBe('Disque de 1,25 kg');
+    expect(Profil.resumeSalle({ ma_salle: { barre_traction: false } })).toBe('Sans barre de traction');
+    expect(sp(Profil.resumeSalle({ ma_salle: { elastiques: [{ nom: 'Noir' }], plus_petit_disque: 2.5, barre_traction: true } })))
+      .toBe('Élastiques, disque de 2,5 kg, barre de traction');
   });
 });
 
@@ -673,7 +678,7 @@ describe('116 — Ma salle : un « jusqu’à » vidé ou illisible garde les ha
     const etat = { vue: null, fermes: 0, ecrits: [] };
     const ctx = {
       Profil, Modele: global.THModele, profil, feuilleProfil: null,
-      $: () => ({}),
+      $: () => ({}), unExerciceALElastique: () => true,
       Rendu: { rendreFeuilleSalle: (cible, vue) => { etat.vue = vue; } },
       ouvrirFeuilleProfil: () => ctx.feuilleProfil({}),
       fermerVoile: () => { etat.fermes++; },

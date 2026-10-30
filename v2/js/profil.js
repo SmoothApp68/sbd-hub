@@ -1229,7 +1229,7 @@
   // liste, « Reprendre » sur chacun ; vide : la ligne ne s'affiche pas) et « Refaire mon programme » (les deux
   // questions de l'écran 8b, puis l'aperçu ; un NOUVEAU dossier, l'ancien reste). Chaque phrase dit ce qui est
   // branché : le programme construit lit la zone et les écartés, rien d'autre.
-  var PHRASE_ZONES = 'Ton programme construit la garde sans série lourde. Rien ne change en séance.';
+  var PHRASE_ZONES = 'Je ne te propose pas de série lourde dessus, ni dans ton programme ni en séance.';
   var PHRASE_ECARTES = 'Un exercice écarté n\u2019est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.';
   var PHRASE_REFAIRE = 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.';
 
@@ -1272,7 +1272,7 @@
   // Les puces de la maquette validée (15/10/2026) ; « ＋ » ajoute un autre poids.
   var SALLE_BARRES_PROPOSEES = { barres_ez: [10, 15, 20, 25, 30, 35, 40], barres_droites: [10, 15, 20, 25, 30] };
   var SALLE_PAS_PROPOSES = [1, 2, 2.5, 5];
-  var PHRASE_SALLE = 'Tes élastiques, du plus fort au plus léger. Rien d’autre à déclarer : tes charges se lisent dans ton historique.';
+  var PHRASE_SALLE = 'Le matériel que ta salle a. Tes charges, elles, se lisent dans ton historique.';
   var PHRASE_BARRES_FIXES = 'Les barres déjà chargées de ta salle. Seules ces charges-là seront proposées.';
 
   // Un nombre (jamais une chaîne : la contrainte refuse « "10" »), au demi-kilo.
@@ -1390,6 +1390,20 @@
     return sortie;
   }
 
+  // 190 (MOTEUR §10.2, décision d'Aurélien du 30/10/2026) — « LE PLUS PETIT DISQUE » et « UNE BARRE DE TRACTION » : les deux
+  // lignes de Ma salle que lisent le cran de la barre (`THMoteur.pasDeLaBarre`) et le générateur (`demandeUneBarreDeTraction`).
+  // En base (v2_119) : `plus_petit_disque`, kg PAR CÔTÉ, de 0,25 à 5 au pas de 0,25 ; `barre_traction`, un booléen. Absents =
+  // inconnu : « Je ne sais pas » RETIRE la clé (jamais `false`, jamais 0). Les bornes DOUBLENT `profiles_ma_salle_equipement_ok`.
+  var SALLE_DISQUE_MIN = 0.25, SALLE_DISQUE_MAX = 5, SALLE_DISQUE_PAS = 0.25;
+  var DISQUES_PROPOSES = [0.5, 1.25, 2.5];
+  var INCONNU = 'inconnu';
+  // `undefined` : hors bornes (refusé) ; `null` : inconnu ; sinon le nombre.
+  function disqueValide(v) {
+    if (v === null || v === undefined) return null;
+    if (typeof v !== 'number' || !isFinite(v) || v < SALLE_DISQUE_MIN || v > SALLE_DISQUE_MAX) return undefined;
+    return Math.abs(v / SALLE_DISQUE_PAS - Math.round(v / SALLE_DISQUE_PAS)) < 1e-9 ? v : undefined;
+  }
+
   // LA DÉCLARATION, normalisée : l'objet tel qu'il s'écrit, `null` quand rien n'est déclaré (non renseigné), ou
   // `undefined` quand une valeur est hors bornes (refusée : rien ne s'écrit).
   // 132 — les élastiques n'y figurent que déclarés : une salle sans élastique s'écrit exactement comme avant
@@ -1407,9 +1421,15 @@
     var chEz = v.barre_ez_chargee, chDr = v.barre_droite_chargee;
     if ((chEz !== undefined && chEz !== null && typeof chEz !== 'boolean') ||
         (chDr !== undefined && chDr !== null && typeof chDr !== 'boolean')) return undefined;
+    // 190 — le plus petit disque et la barre de traction (v2_119, `profiles_ma_salle_equipement_ok`).
+    var dq = disqueValide(v.plus_petit_disque), bt = v.barre_traction;
+    if (dq === undefined) return undefined;
+    if (bt !== undefined && bt !== null && typeof bt !== 'boolean') return undefined;
     if (!ez.length && !droites.length && h === null && !el.length && !mini.length && parNom !== true &&
-        chEz !== true && chDr !== true) return null;
+        chEz !== true && chDr !== true && dq === null && typeof bt !== 'boolean') return null;
     var s = { barres_ez: ez, barres_droites: droites, halteres: h };
+    if (dq !== null) s.plus_petit_disque = dq;
+    if (typeof bt === 'boolean') s.barre_traction = bt;
     if (el.length) s.elastiques = el;
     if (mini.length) s.mini_bandes = mini;
     if (parNom === true) s.elastiques_par_nom = true;
@@ -1435,9 +1455,96 @@
                  elastiques: (s.elastiques || []).map(function (e) { return Object.assign({}, e); }),
                  mini_bandes: (s.mini_bandes || []).map(function (e) { return Object.assign({}, e); }),
                  elastiques_par_nom: s.elastiques_par_nom === true,
-                 barre_ez_chargee: s.barre_ez_chargee === true, barre_droite_chargee: s.barre_droite_chargee === true }
+                 barre_ez_chargee: s.barre_ez_chargee === true, barre_droite_chargee: s.barre_droite_chargee === true,
+                 plus_petit_disque: s.plus_petit_disque === undefined ? null : s.plus_petit_disque,
+                 barre_traction: typeof s.barre_traction === 'boolean' ? s.barre_traction : null }
              : { barres_ez: [], barres_droites: [], halteres: null, elastiques: [], mini_bandes: [], elastiques_par_nom: false,
-                 barre_ez_chargee: false, barre_droite_chargee: false };
+                 barre_ez_chargee: false, barre_droite_chargee: false, plus_petit_disque: null, barre_traction: null };
+  }
+  // 190 — LES DEUX LIGNES, UN SEUL ÉDITEUR : le questionnaire (« Ajuster Ma salle ») et la feuille « Ma salle » du Profil
+  // dessinent ces mêmes lignes (puces) et passent par les mêmes gestes. `valeur` d'une ligne : la clé de la puce choisie —
+  // « Je ne sais pas » (`inconnu`) quand rien n'est déclaré.
+  var LIGNES_MATERIEL = {
+    plus_petit_disque: { titre: 'Le plus petit disque', unite: 'kg',
+      aide: 'Par côté. Je m’en sers pour le cran de ta barre ; sans réponse, je suppose des disques de 1,25 kg.' },
+    barre_traction: { titre: 'Une barre de traction',
+      aide: 'Sans barre de traction, je ne te propose ni tractions ni exercices suspendus.' }
+  };
+  function libelleDisque(kg) {
+    var M = racine.THModele;
+    return (M ? M.nombreSigne(kg) : String(kg)) + '\u00a0kg';
+  }
+  function optionsDeLaLigne(cle) {
+    var inconnu = { cle: INCONNU, libelle: 'Je ne sais pas' };
+    if (cle === 'plus_petit_disque') {
+      return DISQUES_PROPOSES.map(function (kg) { return { cle: kg, libelle: libelleDisque(kg) }; }).concat([inconnu]);
+    }
+    return [{ cle: 'oui', libelle: 'Oui' }, { cle: 'non', libelle: 'Non' }, inconnu];
+  }
+  // La clé de puce d'une valeur du brouillon (un disque qui n'est pas dans les puces — 0,75 — n'a pas de puce : aucune ne s'allume).
+  function valeurDeLaLigne(brouillon, cle) {
+    var b = brouillon || {};
+    if (cle === 'plus_petit_disque') return typeof b.plus_petit_disque === 'number' ? b.plus_petit_disque : INCONNU;
+    return b.barre_traction === true ? 'oui' : b.barre_traction === false ? 'non' : INCONNU;
+  }
+  function lignesMateriel(brouillon) {
+    return ['plus_petit_disque', 'barre_traction'].map(function (cle) {
+      var l = LIGNES_MATERIEL[cle];
+      return { cle: cle, titre: l.titre, aide: l.aide, valeur: valeurDeLaLigne(brouillon, cle), options: optionsDeLaLigne(cle) };
+    });
+  }
+  // Le geste : une puce touchée. `inconnu` écrit `null` (la clé part de la base) ; une clé ou une valeur inconnue est sans effet.
+  function poserReglageMateriel(brouillon, cle, valeur) {
+    var b = Object.assign({}, brouillon || {});
+    if (cle === 'plus_petit_disque') {
+      if (valeur === INCONNU) b.plus_petit_disque = null;
+      else if (DISQUES_PROPOSES.indexOf(valeur) >= 0) b.plus_petit_disque = valeur;
+    } else if (cle === 'barre_traction') {
+      if (valeur === INCONNU) b.barre_traction = null;
+      else if (valeur === 'oui') b.barre_traction = true;
+      else if (valeur === 'non') b.barre_traction = false;
+    }
+    return b;
+  }
+  // Les lecteurs : le plus petit disque (kg par côté) ou `null` ; la barre de traction (`true`, `false`) ou `null` (inconnue).
+  function plusPetitDisqueDe(profil) {
+    var s = salleDe(profil);
+    return s && typeof s.plus_petit_disque === 'number' ? s.plus_petit_disque : null;
+  }
+  function barreTractionDe(profil) {
+    var s = salleDe(profil);
+    return s && typeof s.barre_traction === 'boolean' ? s.barre_traction : null;
+  }
+  // Les exercices qui demandent une barre de traction (une barre fixe, en hauteur), lus sur le catalogue : le SLUG et l'ÉQUIPEMENT
+  // de la fiche — le catalogue n'a pas de colonne qui le dise (l'équipement des tractions est `aucun`), et c'est la seule liste. Les
+  // tractions et toutes leurs variantes (supination, archer, lestées, négatives, à l'élastique), le muscle-up, les levers, les relevés
+  // suspendus (genoux, jambes), le rowing inversé, les toes-to-bar. Sur une machine ou une poulie (tractions assistées à la machine),
+  // pas de barre. `fiche` : `{ equipement }` (facultatif).
+  function demandeUneBarreDeTraction(slug, fiche) {
+    var eq = fiche && fiche.equipement;
+    if (eq === 'machine' || eq === 'poulie' || eq === 'machine_smith') return false;
+    var t = String(slug || '').split('_');
+    function suite(a) {
+      for (var i = 0; i + a.length <= t.length; i++) {
+        var tout = true;
+        for (var j = 0; j < a.length; j++) if (t[i + j] !== a[j]) { tout = false; break; }
+        if (tout) return true;
+      }
+      return false;
+    }
+    return t.indexOf('traction') >= 0 || t.indexOf('tractions') >= 0 || t.indexOf('suspendu') >= 0 ||
+      t.indexOf('suspendue') >= 0 || t.indexOf('suspendus') >= 0 || suite(['rowing', 'inverse']) ||
+      suite(['muscle', 'up']) || suite(['front', 'lever']) || suite(['back', 'lever']) || suite(['toes', 'to', 'bar']);
+  }
+  // La barre de traction que la personne a dite absente : ce qui la demande sort du matériel (rangé, jamais caché, hors le
+  // générateur qui ne le propose pas). `true` ou inconnue : rien ne sort.
+  function sansBarreDeTraction(profil) { return barreTractionDe(profil) === false; }
+  // LA RÈGLE « HORS DE MA SALLE » d'un exercice : son équipement sort du matériel déclaré (`estHorsMateriel`), ou il demande une
+  // barre de traction que la personne a dite absente. Une seule fonction pour la recherche, les frères et les mentions : elle
+  // RANGE (après), elle ne cache jamais (60-1). `autorises` : `equipementsDe(materiel)` ; `sansBarre` : `sansBarreDeTraction`.
+  function estHorsDeMaSalle(slug, fiche, autorises, sansBarre) {
+    return (!!autorises && estHorsMateriel(fiche && fiche.equipement, autorises)) ||
+      (sansBarre === true && demandeUneBarreDeTraction(slug, fiche));
   }
   function basculerBarre(brouillon, type, kg) {
     var b = Object.assign({}, brouillon);
@@ -1643,12 +1750,16 @@
     var t = [];
     if (s.elastiques) t.push('Élastiques');
     if (s.mini_bandes) t.push(t.length ? 'mini-bandes' : 'Mini-bandes');
+    // 190 — ce qui est réglé, dit tel quel : jamais un cran ni une barre que la salle n'a pas.
+    if (typeof s.plus_petit_disque === 'number') t.push((t.length ? 'disque de ' : 'Disque de ') + libelleDisque(s.plus_petit_disque));
+    if (typeof s.barre_traction === 'boolean') {
+      t.push(s.barre_traction ? (t.length ? 'barre de traction' : 'Barre de traction') : (t.length ? 'sans barre de traction' : 'Sans barre de traction'));
+    }
     return t.length ? t.join(', ') : null;
   }
-  // 163 — « Ma salle » n'apparaît dans le Profil que si un exercice à l'élastique est dans une routine, l'historique
-  // ou la séance en cours (`visible`, décidé par l'app). Sinon : `null`, la ligne ne s'affiche pas.
-  function ligneSalle(profil, ouvrir, visible) {
-    if (visible !== true) return null;
+  // 190 — « Ma salle » est toujours dans le Profil : le plus petit disque et la barre de traction se règlent pour tout le monde
+  // (avant, 163 : seulement avec un exercice à l'élastique). Les listes d'élastiques, elles, ne se montrent que dans ce cas.
+  function ligneSalle(profil, ouvrir) {
     return { libelle: 'Ma salle', sous: PHRASE_SALLE, valeur: resumeSalle(profil), surChoix: ouvrir };
   }
 
@@ -2149,6 +2260,10 @@
     SALLE_PAS_MIN: SALLE_PAS_MIN, SALLE_PAS_MAX: SALLE_PAS_MAX,
     PHRASE_SALLE: PHRASE_SALLE, PHRASE_BARRES_FIXES: PHRASE_BARRES_FIXES,
     salleValide: salleValide, salleDe: salleDe, brouillonSalle: brouillonSalle, basculerBarre: basculerBarre,
+    // 190 — le plus petit disque et la barre de traction.
+    SALLE_DISQUE_MIN: SALLE_DISQUE_MIN, SALLE_DISQUE_MAX: SALLE_DISQUE_MAX, DISQUES_PROPOSES: DISQUES_PROPOSES,
+    lignesMateriel: lignesMateriel, poserReglageMateriel: poserReglageMateriel, plusPetitDisqueDe: plusPetitDisqueDe,
+    barreTractionDe: barreTractionDe, sansBarreDeTraction: sansBarreDeTraction, estHorsDeMaSalle: estHorsDeMaSalle, demandeUneBarreDeTraction: demandeUneBarreDeTraction,
     // 132 (ECRAN-PROFIL §2.4 sexies) — les deux listes d'élastiques.
     ELASTIQUES_MAX: ELASTIQUES_MAX, peutAjouterElastique: peutAjouterElastique, ajouterElastique: ajouterElastique,
     retirerElastique: retirerElastique, deplacerElastique: deplacerElastique, poserParNom: poserParNom, poserBarreChargee: poserBarreChargee, barreChargee: barreChargee,

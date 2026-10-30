@@ -45,7 +45,7 @@ describe('Profil.lignesProgramme — trois lignes, leurs phrases au mot près', 
 
   test('les phrases d’aide, telles que la spec les écrit (G10)', () => {
     const l = lignes({ exercices_ecartes: ['a'] });
-    expect(l[0].sous).toBe('Ton programme construit la garde sans série lourde. Rien ne change en séance.');
+    expect(l[0].sous).toBe('Je ne te propose pas de série lourde dessus, ni dans ton programme ni en séance.');
     expect(l[1].sous).toBe('Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.');
     expect(l[2].sous).toBe('Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.');
   });
@@ -85,12 +85,11 @@ describe('l’écran Profil : la section du matériel porte le programme constru
     expect(e.section('CE QUE JE FAIS').lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Ma salle', 'Zone à ménager', 'Refaire mon programme']);
   });
 
-  // 163 (24/10/2026, décision d'Aurélien) — NEUF : sans exercice à l'élastique, « Ma salle » n'apparaît pas.
-  test('163 — sans exercice à l’élastique : pas de « Ma salle » dans le Profil', () => {
+  // 190 — « Ma salle » est toujours dans le Profil (le plus petit disque, la barre de traction) ; 163 la cachait sans élastique.
+  test('190 — sans exercice à l’élastique : « Ma salle » est quand même dans le Profil', () => {
     const e = profilEcran({ id: 'u1' });
-    expect(e.section('CE QUE JE FAIS').lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Zone à ménager', 'Refaire mon programme']);
-    expect(Profil.ligneSalle({ ma_salle: { elastiques: [{ nom: 'Noir' }] } }, () => {}, false)).toBeNull();
-    expect(Profil.ligneSalle({}, () => {}, true).libelle).toBe('Ma salle');
+    expect(e.section('CE QUE JE FAIS').lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Ma salle', 'Zone à ménager', 'Refaire mon programme']);
+    expect(Profil.ligneSalle({}, () => {}).libelle).toBe('Ma salle');
   });
 
   test('le rendu réel : la phrase d’aide sous chaque libellé, « à renseigner » jamais pour « Refaire »', () => {
@@ -99,7 +98,7 @@ describe('l’écran Profil : la section du matériel porte le programme constru
       lignes: Profil.lignesProgramme({ zones_a_menager: ['dos'], exercices_ecartes: ['a', 'b'] }, () => {}) }] });
     const l = Array.from(cible.querySelectorAll('.p-ligne'));
     expect(l.map((n) => [n.querySelector('.p-lib').firstChild.textContent, texte(n.querySelector('.p-lib small'))])).toEqual([
-      ['Zone à ménager', 'Ton programme construit la garde sans série lourde. Rien ne change en séance.'],
+      ['Zone à ménager', 'Je ne te propose pas de série lourde dessus, ni dans ton programme ni en séance.'],
       ['Exercices écartés', 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.'],
       ['Refaire mon programme', 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.']]);
     expect(texte(l[0].querySelector('.p-val'))).toBe('Dos');

@@ -162,6 +162,10 @@ function bac(options) {
     // 60-1 — le matériel du profil RANGE les frères (`horsDuMateriel`) : `o.equipements` le pose.
     Profil: { equipementsDe: () => o.equipements || null,
               estHorsMateriel: (eq, autorises) => autorises.indexOf(eq) < 0,
+              // 190 — « hors de ma salle » : la vraie règle (le matériel, puis la barre de traction).
+              sansBarreDeTraction: () => !!o.sansBarre, estHorsDeMaSalle: (slug, fiche, autorises, sans) => (!!autorises && !!fiche && autorises.indexOf(fiche.equipement) < 0) ||
+                (sans === true && ProfilReel.demandeUneBarreDeTraction(slug, fiche)),
+              demandeUneBarreDeTraction: ProfilReel.demandeUneBarreDeTraction,
               // 60-4 — les écartés en fin de liste : les VRAIES fonctions du profil.
               ecartesDe: ProfilReel.ecartesDe, ecartesALaFin: ProfilReel.ecartesALaFin, preparerChamps: ProfilReel.preparerChamps },
     // `derniereSeanceDe` : le fait du frère, la fonction de « Dernière séance ».

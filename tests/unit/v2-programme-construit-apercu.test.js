@@ -164,11 +164,13 @@ describe('le générateur : « Remplacer », les mentions et les phrases', () =>
   });
 
   // ═══ R3 (60-5) : LA BARRE FIXE SE DIT SELON L'EXERCICE, PAS SELON LE MATÉRIEL ══════════════════════════════
-  // « tractions » et « rowing_inverse » (`BARRE_FIXE`) : la phrase et la mention s'affichent dès que le programme en
-  // contient un, pour tout matériel sauf les deux salles.
+  // Les exercices qui demandent une barre (`demandeUneBarreFixe` : tractions, rowing inversé, et — 190 — le relevé de genoux
+  // suspendu) : la phrase et la mention s'affichent dès que le programme en contient un, pour tout matériel sauf les deux
+  // salles. Ces tests suivent les tractions : le relevé suspendu est écarté d'office (`SANS_RELEVE`), sauf là où il est le sujet.
   describe('la barre fixe : l’exercice présent décide, jamais l’étiquette du matériel (R3)', () => {
+    const SANS_RELEVE = 'releve_de_genoux_suspendu';
     const avec = (materiel, extra) => {
-      const e = Object.assign(clone(cas('neuf_4j_les_deux').entree), { faits: {}, priorites: [], menager: [], ecartes: [] }, extra || {}, { materiel });
+      const e = Object.assign(clone(cas('neuf_4j_les_deux').entree), { faits: {}, priorites: [], menager: [], ecartes: [SANS_RELEVE] }, extra || {}, { materiel });
       return { e, rts: Generateur.generer(cat(), e) };
     };
     const fixes = (rts) => [].concat.apply([], rts.map((rt) => rt.exercices.filter((x) => x.barre_fixe).map((x) => x.exercise_slug)));
@@ -183,7 +185,7 @@ describe('le générateur : « Remplacer », les mentions et les phrases', () =>
     });
 
     test('⚠️ DISCRIMINANT — maison équipée SANS traction (rowing aux haltères) : pas de phrase, pas de mention', () => {
-      const { e, rts } = avec('maison_equipee', { ecartes: ['tractions', 'rowing_inverse'] });
+      const { e, rts } = avec('maison_equipee', { ecartes: ['tractions', 'rowing_inverse', 'releve_de_genoux_suspendu'] });
       expect(fixes(rts)).toEqual([]);
       expect(Generateur.phrasesDeLApercu(rts, e, nom).barreFixe).toBe('');
       rts.forEach((rt) => rt.exercices.forEach((x) => expect(Generateur.mentionsDeLigne(x, e)).toEqual([])));
@@ -227,7 +229,7 @@ describe('le générateur : « Remplacer », les mentions et les phrases', () =>
     });
 
     test('une traction posée par « Remplacer » en maison équipée : la mention suit (l’exercice, pas la place)', () => {
-      const { e, rts } = avec('maison_equipee', { ecartes: ['tractions'] });
+      const { e, rts } = avec('maison_equipee', { ecartes: ['tractions', 'releve_de_genoux_suspendu'] });
       const i = rts[0].exercices.findIndex((x) => x.motif === 'tirage_vertical');
       const apres = Generateur.remplacePar(cat(), rts, e, 0, i, 'tractions');
       expect(apres[0].exercices[i].barre_fixe).toBe(true);

@@ -12,9 +12,9 @@ const PROFIL = {
   zones_a_menager: ['dos'], exercices_ecartes: ['x'], username: 'aurel', bio: 'b', taille_cm: 180, objectif: 'muscle'
 };
 
-// Les lignes du Profil AVANT 173 (liste relevée sur l'écran de main, dans l'ordre de l'écran), « Objectif » devenu « But d’entraînement ».
+// Les lignes du Profil AVANT 173 (liste relevée sur l'écran de main, dans l'ordre de l'écran), « Objectif » devenu « But d’entraînement » ; 190 : + « Ma salle ».
 const LIGNES_D_AVANT = [
-  'Matériel', 'Zone à ménager', 'Exercices écartés', 'Refaire mon programme',
+  'Matériel', 'Ma salle', 'Zone à ménager', 'Exercices écartés', 'Refaire mon programme',   // 190 : « Ma salle » toujours là
   'But d’entraînement', 'Priorités', 'Entraînement régulier', 'Tous mes exercices', 'Importer depuis Hevy',
   'Poids', 'Taille', 'Date de naissance', 'Sexe', 'Séances par semaine', 'Durée d’une séance', 'Ton temps',
   'Pseudo', 'Bio', 'E-mail de connexion', 'Mot de passe', 'Activer le jeu'

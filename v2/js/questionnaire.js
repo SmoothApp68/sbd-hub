@@ -35,6 +35,7 @@
   function Poids() { return racine.THPoids; }
   function Modele() { return racine.THModele; }
   function Generateur() { return racine.THGenerateur; }
+  function Moteur() { return racine.THMoteur; }
 
   var INSECABLE = ' ';
 
@@ -181,6 +182,9 @@
       materiel: nul(p.materiel),
       halteresMax: halteresDe(p).max,
       halteresPas: halteresDe(p).pas,
+      // 190 — le plus petit disque (kg par côté) et la barre de traction (`true`, `false`), `null` : pas dit / « Je ne sais pas ».
+      plusPetitDisque: Profil().plusPetitDisqueDe(p),
+      barreTraction: Profil().barreTractionDe(p),
       programme: Profil().libelleDe(Profil().PROGRAMMES, p.programme_choix) ? p.programme_choix : null,
       menager: Profil().zonesAMenagerValides(p.zones_a_menager) || [],
       coach: coachDe(p)
@@ -278,7 +282,7 @@
     else if (id === SALLE) {
       entrees = { materiel: r.materiel };
       var salle = salleAEcrire(r, profil);
-      if (salle) extra.ma_salle = salle;
+      if (salle !== undefined) extra.ma_salle = salle;
     } else if (id === ZONE) entrees = { zones_a_menager: r.menager };
     else if (id === RECENTE) entrees = null;   // rien en base : les séries partent au programme construit (`seriesRecentes`)
     else if (id === CONSTRUIT) entrees = { seances_par_semaine: seancesAEcrire(r) };
@@ -293,15 +297,21 @@
   // 187 (A3) — « Ajuster Ma salle » : les haltères (jusqu'à, de … en …), écrits dans `profiles.ma_salle` PAR la
   // fonction du Profil (`champsSalle`) — les barres, les élastiques déjà déclarés ne sont pas touchés. Rien quand rien
   // n'est dit, quand la salle a plusieurs tranches, ou quand la salle écrite serait la même.
+  // 190 — AVEC LE PLUS PETIT DISQUE ET LA BARRE DE TRACTION (les deux lignes de `Profil.lignesMateriel`, le même éditeur que la
+  // feuille « Ma salle » du Profil) : le brouillon part de la salle écrite, reçoit les trois réponses, et la salle est celle que
+  // `champsSalle` normalise. « Je ne sais pas » (`null`) RETIRE la clé : si c'était la seule chose déclarée, la salle redevient
+  // `NULL`. Rend `undefined` quand rien ne change (rien à écrire), sinon la salle à écrire (un objet, ou `null`).
   function salleAEcrire(r, profil) {
-    if (!(r.halteresMax > 0) || !(r.halteresPas > 0)) return null;
-    if (salleASeulesTranches(profil)) return null;
     var P = Profil(), b = P.brouillonSalle(profil);
-    b.halteres = [{ jusqua: r.halteresMax, pas: r.halteresPas, pasChoisi: true }];
+    if (r.halteresMax > 0 && r.halteresPas > 0 && !salleASeulesTranches(profil)) {
+      b.halteres = [{ jusqua: r.halteresMax, pas: r.halteresPas, pasChoisi: true }];
+    }
+    b.plus_petit_disque = typeof r.plusPetitDisque === 'number' ? r.plusPetitDisque : null;
+    b.barre_traction = typeof r.barreTraction === 'boolean' ? r.barreTraction : null;
     var champs = P.champsSalle(b);
-    if (!champs || !champs.ma_salle) return null;
+    if (!champs) return undefined;
     var avant = P.salleDe(profil);
-    return JSON.stringify(avant) === JSON.stringify(champs.ma_salle) ? null : champs.ma_salle;
+    return JSON.stringify(avant) === JSON.stringify(champs.ma_salle) ? undefined : champs.ma_salle;
   }
 
   // Ce qui vient d'être ÉCRIT est la durée visée : le brouillon la rejoint (60-2c). « Moins en ce moment »
@@ -341,6 +351,11 @@
     } else if (cle === 'notees' && valeur !== NOTEES_IMPORT && valeur !== NOTEES_NON) {
       // 187 — « Dans mes notes » est annoncé (« Bientôt »), ce n'est pas encore une réponse : sans effet.
       return r;
+    } else if (cle === 'plus_petit_disque' || cle === 'barre_traction') {
+      // 190 — les deux lignes de Ma salle : le geste du Profil (`poserReglageMateriel`), sur les réponses en cours.
+      var b = Profil().poserReglageMateriel({ plus_petit_disque: r.plusPetitDisque, barre_traction: r.barreTraction }, cle, valeur);
+      r.plusPetitDisque = b.plus_petit_disque;
+      r.barreTraction = b.barre_traction;
     } else if (CHOIX.indexOf(cle) >= 0) {
       r[cle] = valeur;
       if (cle === 'depuis' || cle === 'notees') synchroniserAnciennete(r);
@@ -565,17 +580,22 @@
 
   // ── 187 (A3) — « Où tu t'entraînes ? » ────────────────────────────────────────
   // Chaque salle avec sa sous-ligne, reprise du Profil (`MATERIELS`). « Ajuster Ma salle », replié, donne les crans
-  // des haltères (`profiles.ma_salle`, écrit par `Profil.champsSalle`). Les petits disques et la barre de traction n'ont
-  // pas de clé dans `ma_salle` (`profiles_ma_salle_ok`) : ils attendent une migration (voir le rapport).
+  // des haltères, le plus petit disque et la barre de traction (190, v2_119 : `profiles.ma_salle`, écrit par `Profil.champsSalle`).
   var PUCES_HALTERES_MAX = [10, 20, 30, 40, 50, 60];
   var PUCES_HALTERES_PAS = [1, 2, 2.5, 5];
   function pucesDe(valeurs, unite) {
     return valeurs.map(function (v) { return { cle: v, libelle: Modele().nombreSigne(v) + (unite ? INSECABLE + unite : '') }; });
   }
   function phraseDeLaSalle(rep) {
-    if (!(rep.halteresMax > 0) || !(rep.halteresPas > 0)) return 'Haltères : pas encore dit.';
-    return 'Haltères jusqu’à ' + en(rep.halteresMax, 'kg') + ', de ' + Modele().nombreSigne(rep.halteresPas) + ' en ' +
-           Modele().nombreSigne(rep.halteresPas) + '.';
+    var dit = [];
+    if (rep.halteresMax > 0 && rep.halteresPas > 0) {
+      dit.push('Haltères jusqu’à ' + en(rep.halteresMax, 'kg') + ', de ' + Modele().nombreSigne(rep.halteresPas) + ' en ' +
+               Modele().nombreSigne(rep.halteresPas));
+    }
+    // 190 — ce qui est réglé, tel quel (le même résumé que le Profil).
+    var materiel = Profil().resumeSalle({ ma_salle: { plus_petit_disque: rep.plusPetitDisque, barre_traction: rep.barreTraction } });
+    if (materiel) dit.push(materiel);
+    return dit.length ? dit.join('. ') + '.' : 'Rien de réglé : je pars de disques de 1,25 kg.';
   }
   function ecranSalle(etat) {
     var rep = etat.rep;
@@ -585,6 +605,11 @@
       : [{ type: 'puces', cle: 'halteresMax', titre: 'Haltères jusqu’à', valeur: rep.halteresMax, options: pucesDe(PUCES_HALTERES_MAX, 'kg') },
          { type: 'puces', cle: 'halteresPas', titre: 'De combien en combien', valeur: rep.halteresPas, options: pucesDe(PUCES_HALTERES_PAS, 'kg') }];
     ajuster.push({ type: 'note', texte: 'Je note la charge des haltères par haltère.' });
+    // 190 — le plus petit disque et la barre de traction : les lignes de `Profil.lignesMateriel`, comme dans « Ma salle ».
+    Profil().lignesMateriel({ plus_petit_disque: rep.plusPetitDisque, barre_traction: rep.barreTraction }).forEach(function (l) {
+      ajuster.push({ type: 'puces', cle: l.cle, titre: l.titre, valeur: l.valeur, options: l.options });
+      ajuster.push({ type: 'note', texte: l.aide });
+    });
     return {
       id: SALLE, etape: 'Ta salle',
       titre: 'Où tu t’entraînes ?',
@@ -623,16 +648,20 @@
   var RECENTE_KG_MAX = 600, RECENTE_REPS_MAX = 30;
   // Les séries données EN ENTIER (charge ET reps), dans l'ordre des barres : `[{ slug, nom, kg, reps }]`.
   // `depart` : la charge de départ de la barre — la charge de la série récente, ramenée au cran de la barre en dessous
-  // (2,5 kg ; jamais au-dessus de ce que la personne a fait). Ni 1RM estimé, ni pourcentage, ni poids du corps : une série
+  // (le pas de la barre, `Moteur.pasDeLaBarre` : 2,5 kg sans disque déclaré ; jamais au-dessus de ce que la personne a fait). Ni 1RM estimé, ni pourcentage, ni poids du corps : une série
   // faite, rien de deviné. Dès la première série validée, le coach décide seul (MOTEUR §9.21).
-  var CRAN_BARRE = 2.5;
-  function departDeLaSerie(kg) { return Math.floor(kg / CRAN_BARRE + 1e-9) * CRAN_BARRE; }
+  // 190 — le cran de la barre est celui du moteur, jamais une valeur écrite ici : `plusPetitDisque` (kg par côté) est la réponse
+  // en cours de l'écran « Où tu t'entraînes ? », pas encore forcément écrite en base.
+  function departDeLaSerie(kg, plusPetitDisque) {
+    var pas = Moteur().pasDeLaBarre(plusPetitDisque);
+    return Math.round(Math.floor(kg / pas + 1e-9) * pas * 100) / 100;
+  }
   function seriesRecentes(rep) {
     var r = rep || {};
     return RECENTES.filter(function (x) { return r['rec_' + x.cle + '_kg'] > 0 && r['rec_' + x.cle + '_reps'] >= 1; })
       .map(function (x) {
         return { slug: x.slug, nom: x.nom, kg: r['rec_' + x.cle + '_kg'], reps: r['rec_' + x.cle + '_reps'],
-                 depart: departDeLaSerie(r['rec_' + x.cle + '_kg']) };
+                 depart: departDeLaSerie(r['rec_' + x.cle + '_kg'], r.plusPetitDisque) };
       });
   }
   function ecranRecente(etat) {
@@ -830,6 +859,10 @@
         { libelle: 'Priorités', valeur: priorites || tiret, ecran: PRIORITES },
         { libelle: 'Temps', valeur: tempsTexte || tiret, ecran: TEMPS },
         { libelle: 'Matériel', valeur: (rep.materiel && P.libelleDe(P.MATERIELS, rep.materiel)) || tiret, ecran: SALLE },
+        // 190 — ce qui est réglé dans « Ajuster Ma salle » ; « — » quand c'est « Je ne sais pas ».
+        { libelle: 'Plus petit disque', valeur: typeof rep.plusPetitDisque === 'number'
+            ? Modele().nombreSigne(rep.plusPetitDisque) + INSECABLE + 'kg' : tiret, ecran: SALLE },
+        { libelle: 'Barre de traction', valeur: rep.barreTraction === true ? 'Oui' : rep.barreTraction === false ? 'Non' : tiret, ecran: SALLE },
         { libelle: 'Zone à ménager', valeur: zonesTexte(rep.menager), ecran: ZONE }
       ].concat(programme, [
         { libelle: 'Coach', valeur: coach || tiret, ecran: COACH }

@@ -67,7 +67,18 @@ MATERIEL = {
  'maison_minimal': {'haltere', 'kettlebell', 'elastique', 'aucun'},
  'poids_du_corps': {'aucun', 'elastique'},
 }
-BARRE_FIXE = ('tractions', 'rowing_inverse')
+# 190 (30/10/2026, décision d'Aurélien) — les exercices qui demandent une barre (de traction) se lisent sur le slug et
+# l'équipement de la fiche, plus sur une liste de deux : les tractions et leurs variantes, le muscle-up, les levers, les
+# relevés suspendus, le rowing inversé, les toes-to-bar. Une machine ou une poulie n'en demande pas.
+def demande_barre(slug, equipement):
+    if equipement in ('machine', 'poulie', 'machine_smith'):
+        return False
+    t = slug.split('_')
+    def suite(a):
+        return any(t[i:i + len(a)] == a for i in range(len(t) - len(a) + 1))
+    return ('traction' in t or 'tractions' in t or 'suspendu' in t or 'suspendue' in t or 'suspendus' in t
+            or suite(['rowing', 'inverse']) or suite(['muscle', 'up']) or suite(['front', 'lever'])
+            or suite(['back', 'lever']) or suite(['toes', 'to', 'bar']))
 # Le poids du corps lourd (60-6) : pour qui a moins d'un an de pratique et ne l'a jamais fait, ces trois exercices ne
 # sont proposés qu'en dernier recours — quand ni le motif, ni son voisin, ni un exercice déjà pris ailleurs dans la
 # semaine ne donne autre chose (jamais retirés pour de bon : la place ne reste pas vide à cause d'eux).
@@ -107,18 +118,23 @@ def series_de(role, objectif):
     return 2 if role == 'T' else 3
 
 
-def _ok(cat, materiel, faits):
+def _ok(cat, materiel, faits, barre_traction=None):
     permis = MATERIEL.get(materiel)
     # La maison minimale n'a pas de barre fixe (le catalogue range tractions et rowing inversé en « aucun ») : elle a
     # ses rowings aux haltères. Au poids du corps, ils restent, après les élastiques, avec la mention (question 3).
-    sans_barre_fixe = materiel == 'maison_minimal'
+    # 190 — `barre_traction` (Ma salle) : « non » exclut ces exercices partout, même faits ; « oui » les permet à la maison.
+    sans_barre = barre_traction is False
+    sans_barre_fixe = barre_traction is not True and materiel == 'maison_minimal'
 
     def ok(s):
         if s not in cat:
             return False                                  # absent du catalogue de la personne : la place l'ignore
+        suspendu = demande_barre(s, cat[s][0])
+        if sans_barre and suspendu:
+            return False
         if s in faits:
             return True                                   # un exercice déjà fait n'est jamais rétrogradé (60-1)
-        if sans_barre_fixe and s in BARRE_FIXE:
+        if sans_barre_fixe and suspendu:
             return False
         return permis is None or cat[s][0] in permis
     return ok
@@ -176,13 +192,13 @@ def _ligne(cat, slug, motif, role, p, solo=()):
     if motif == 'charniere':
         reps = min(reps, CHARNIERE_MAX)
     return {'exercise_slug': slug, 'motif': motif, 'role': role, 'series': n, 'reps': reps,
-            'prioritaire': prio_ex, 'menage': menage, 'barre_fixe': slug in BARRE_FIXE}
+            'prioritaire': prio_ex, 'menage': menage, 'barre_fixe': demande_barre(slug, cat[slug][0])}
 
 
 def generer(cat, p):
     """p : jours, objectif, phase, materiel, priorites, menager, ecartes, faits ({slug: séances sur 12 semaines})."""
     faits = p.get('faits') or {}
-    ok = _ok(cat, p.get('materiel'), faits)
+    ok = _ok(cat, p.get('materiel'), faits, p.get('barre_traction'))
     debutant = p.get('anciennete') == 'moins_1_an'
     gabarit = GABARITS[max(2, min(6, p['jours']))]
     # Les principaux de la semaine d'abord (ils prennent la barre), puis les secondaires, puis le reste ; un exercice
@@ -216,7 +232,7 @@ def ne_veux_pas(cat, routines, p, r, k):
     ecartes = tuple(p.get('ecartes', ())) + (vieux['exercise_slug'],)
     faits = p.get('faits') or {}
     pris = {x['exercise_slug'] for x in routines[r]['exercices']}
-    s = _choisir(vieux['motif'], _ok(cat, p.get('materiel'), faits), ecartes, pris, p.get('menager', ()), faits, p.get('materiel'),
+    s = _choisir(vieux['motif'], _ok(cat, p.get('materiel'), faits, p.get('barre_traction')), ecartes, pris, p.get('menager', ()), faits, p.get('materiel'),
                  p.get('anciennete') == 'moins_1_an', pris)
     nouveau = [dict(rt, exercices=[dict(x) for x in rt['exercices']]) for rt in routines]
     if s is None:

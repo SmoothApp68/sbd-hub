@@ -21,6 +21,7 @@ const Periode = require('../../v2/js/periode.js');
 const Poids = require('../../v2/js/poids.js');
 const Profil = require('../../v2/js/profil.js');
 require('../../v2/js/generateur.js');
+require('../../v2/js/moteur.js');            // 190 — le pas de la barre (`Moteur.pasDeLaBarre`) : la charge de départ le lit
 const Q = require('../../v2/js/questionnaire.js');
 const FIXTURE = require('./fixtures/cas-51-1-peu-de-temps.json');
 
@@ -473,7 +474,8 @@ describe('60-2a — les réponses de départ sont ce qui est DÉJÀ en base', ()
     expect(rep).toEqual({
       historique: 'import', anciennete: '3_a_5_ans', depuis: '3_a_5_ans', notees: 'import', seances: 5, duree: 90, sexe: 'homme', annee: 1997,
       taille: 182, poids: 98, objectif: 'force', phase: 'seche', priorites: ['squat_barre'], temps: 'max',
-      materiel: 'salle_complete', halteresMax: null, halteresPas: null, menager: [], coach: 'franc' });
+      materiel: 'salle_complete', halteresMax: null, halteresPas: null, plusPetitDisque: null, barreTraction: null,
+      menager: [], coach: 'franc' });
   });
   test('un profil neuf : rien de répondu, sauf le rythme par défaut et la phase vide', () => {
     const rep = Q.reponsesInitiales({}, {});
@@ -576,11 +578,14 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     expect(replie).toMatchObject({ libelle: 'Ajuster Ma salle', ouvert: false, cle: 'salleOuverte' });
     const ouvert = blocs(vue('salle', { rep: Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'salleOuverte', true) }), 'replie')[0];
     expect(ouvert.ouvert).toBe(true);
-    expect(ouvert.blocs.filter((b) => b.type === 'puces').map((b) => b.cle)).toEqual(['halteresMax', 'halteresPas']);
-    expect(ouvert.blocs.filter((b) => b.type === 'note').map((b) => b.texte)).toEqual(['Je note la charge des haltères par haltère.']);
+    // 190 — + le plus petit disque et la barre de traction (les lignes de `Profil.lignesMateriel`), chacune avec sa phrase.
+    expect(ouvert.blocs.filter((b) => b.type === 'puces').map((b) => b.cle)).toEqual(['halteresMax', 'halteresPas', 'plus_petit_disque', 'barre_traction']);
+    expect(ouvert.blocs.filter((b) => b.type === 'note').map((b) => b.texte)).toEqual(['Je note la charge des haltères par haltère.',
+      Profil.lignesMateriel({})[0].aide, Profil.lignesMateriel({})[1].aide]);
     // La phrase repliée dit ce qui est réglé.
     const rep = Object.assign(Q.reponsesInitiales({}, {}), { halteresMax: 40, halteresPas: 2 });
     expect(sp(blocs(vue('salle', { rep }), 'replie')[0].resume)).toBe('Haltères jusqu’à 40 kg, de 2 en 2.');
+    expect(sp(blocs(vue('salle'), 'replie')[0].resume)).toBe('Rien de réglé : je pars de disques de 1,25 kg.');
     expect(vue('salle').bouton.actif).toBe(true);
   });
   test('187 (A3) — les haltères d’un profil se relisent (une tranche) ; plusieurs paliers : le questionnaire n’y touche pas', () => {
@@ -590,7 +595,7 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     expect([deux.halteresMax, deux.halteresPas]).toEqual([null, null]);
     const profil = { ma_salle: { barres_ez: [], barres_droites: [], halteres: [{ jusqua: 20, pas: 1 }, { jusqua: 40, pas: 2 }] } };
     const note = blocs(vue('salle', { profil, rep: Q.appliquerChoix(deux, 'salleOuverte', true) }), 'replie')[0].blocs;
-    expect(note.map((b) => b.type)).toEqual(['note', 'note']);
+    expect(note.map((b) => b.type)).toEqual(['note', 'note', 'puces', 'note', 'puces', 'note']);   // + 190 : disque, barre
   });
   test('187 (A4) — « Une zone à ménager ? » : cinq zones et « Aucune », posée à tout le monde', () => {
     const v = vue('zone');
@@ -766,13 +771,13 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
 
   test('ce que j’ai compris : sans la ligne Programme, chaque ligne ramène à son écran ; « Commencer »', () => {
     const rep = Object.assign(Q.reponsesInitiales({}, {}), { objectif: 'force', phase: 'seche', priorites: ['squat_barre', 'dos'],
-      temps: 'moins', materiel: 'maison_minimal', coach: 'franc', duree: 60 });
+      temps: 'moins', materiel: 'maison_minimal', coach: 'franc', duree: 60, plusPetitDisque: 2.5, barreTraction: false });
     const v = vue('recap', { rep });
     const lignes = blocs(v, 'resume')[0].lignes;
-    expect(lignes.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Zone à ménager', 'Coach']);
+    expect(lignes.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Plus petit disque', 'Barre de traction', 'Zone à ménager', 'Coach']);
     expect(lignes.map((l) => l.valeur)).toEqual(['Force', 'Sèche', 'Squat, Dos', '60 min · j’ai moins de temps en ce moment',
-      'Maison, minimum', 'Aucune', 'Me pousser']);
-    expect(lignes.map((l) => l.ecran)).toEqual(['but', 'but', 'priorites', 'temps', 'salle', 'zone', 'coach']);
+      'Maison, minimum', '2,5\u00a0kg', 'Non', 'Aucune', 'Me pousser']);
+    expect(lignes.map((l) => l.ecran)).toEqual(['but', 'but', 'priorites', 'temps', 'salle', 'salle', 'salle', 'zone', 'coach']);
     expect(v.bouton).toEqual({ libelle: 'Commencer', actif: true });
     expect(v.voix).toBe('À ta première séance, je te propose tes charges. Tu peux toujours taper autre chose.');
   });
@@ -790,7 +795,7 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     const v = vue('recap', { rep: Object.assign(Q.reponsesInitiales({}, {}), { coach: 'carnet' }) });
     expect(v.voix).toBe('Je me tais. Un geste dans Profil si tu veux mes propositions.');
     expect(blocs(v, 'resume')[0].lignes[0].valeur).toBe('—');
-    expect(blocs(v, 'resume')[0].lignes[6].valeur).toBe('Juste un carnet');
+    expect(blocs(v, 'resume')[0].lignes[8].valeur).toBe('Juste un carnet');
   });
 
   test('chaque écran visible a une vue, un bouton, une progression ; « Retour » existe sauf au premier', () => {
@@ -885,8 +890,8 @@ describe('60-3 — l’écran 8 : « Ton programme », sans routine', () => {
     const rep = Object.assign(Q.reponsesInitiales({}, {}), { programme: 'deduit' });
     const lignes = (visibles) => vue('recap', { rep, visibles }).blocs[0].lignes;
     const avec = lignes(Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: false }));
-    expect(avec.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Zone à ménager', 'Programme', 'Coach']);
-    expect(avec[6]).toEqual({ libelle: 'Programme', valeur: 'Garder ce que je fais', ecran: 'programme' });
+    expect(avec.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Plus petit disque', 'Barre de traction', 'Zone à ménager', 'Programme', 'Coach']);
+    expect(avec[8]).toEqual({ libelle: 'Programme', valeur: 'Garder ce que je fais', ecran: 'programme' });
     const sans = lignes(Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: true }));
     expect(sans.map((l) => l.libelle)).not.toContain('Programme');
     // 60-4 — aucune routine et aucune séance : l'écran 8 est du parcours, la ligne « Programme » aussi.

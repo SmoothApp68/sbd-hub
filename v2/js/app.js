@@ -1576,11 +1576,11 @@
 
   function afficherParcours() {
     allerA(Routeur.PARCOURS, {});
+    demanderLesRoutinesDeLAccueil();   // une LECTURE, au montage de la vue, jamais dans le rendu
     rendreParcours();
   }
   function rendreParcours() {
     montrer('parcours', Routeur.PARCOURS);
-    demanderLesRoutinesDeLAccueil();
     var p = faits.parcoursDe(corpus(), new Date(), profil);
     profilDuParcours = cleDuParcoursDuProfil(profil);
     var libelles = {};
@@ -16725,7 +16725,7 @@
     if (cible.vue === Routeur.POIDS) return rendrePoids();
     if (cible.vue === Routeur.MOIS) return rendreMois(cible.params.mois || null);
     if (cible.vue === Routeur.RECORDS) return rendreRecordsDuMois(cible.params.mois || null);
-    if (cible.vue === Routeur.PARCOURS) return rendreParcours();
+    if (cible.vue === Routeur.PARCOURS) { demanderLesRoutinesDeLAccueil(); return rendreParcours(); }
     if (VUES_ONGLET[cible.vue]) return montrer(VUES_ONGLET[cible.vue], cible.vue);
     if (cible.vue === Routeur.EXERCICE) {
       return rendreExercice(cible.params.slug, cible.params.onglet);

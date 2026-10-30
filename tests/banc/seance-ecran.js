@@ -21475,9 +21475,9 @@ const SETS_IMPORTES = [
         levier: (c.querySelector('.pc-levier') || {}).textContent,
         large: document.documentElement.scrollWidth > window.innerWidth };
     });
-    ok('[P75] la page : /progression/parcours, la phrase en tête, puis les sections dans l’ordre de M1',
+    ok('[P75] la page : /progression/parcours, la phrase en tête, puis les sections dans l’ordre de M1 (188-1 : « Ta semaine et tes équilibres » en tête, sous la phrase)',
       pageP.chemin === '/progression/parcours' && pageP.visible && sp(pageP.phrase) === PHRASE &&
-        JSON.stringify(pageP.sections) === JSON.stringify(['Tes grands mouvements', 'Par muscle · 6 derniers mois',
+        JSON.stringify(pageP.sections) === JSON.stringify(['Ta semaine et tes équilibres', 'Tes grands mouvements', 'Par muscle · 6 derniers mois',
           'Tes équilibres', 'Ton levier', 'Ta phase', 'Tous tes exercices']) && pageP.courbes === 2,
       JSON.stringify(pageP));
     ok('[P75] les six groupes, fermés ; jambes « ↑ progresse », poitrine « ↗ le plus lent », épaules sans verdict',

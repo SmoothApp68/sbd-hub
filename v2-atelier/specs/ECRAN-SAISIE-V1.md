@@ -1203,6 +1203,8 @@ et les records ne le sont pas. Elle vit dans la vue Volume.
 
 ### 7 bis.14 ter « Ton parcours » — décidé le 11/10/2026 (chantier 75)
 
+> **Delta du 30/10/2026 (188-1) — l'ordre des sections.** La page garde sa phrase en tête, puis s'ouvre sur « Ta semaine et tes équilibres » (MOTEUR §9.27, maquette `maquette-semaine-equilibres-v6.html`), puis le reste dans l'ordre d'origine : Tes grands mouvements · Par muscle · 6 derniers mois · Tes équilibres (les barres sur douze mois, inchangée) · Ton levier · Ta phase · Tous tes exercices. Le rendu reste pur : la section lit, n'écrit rien.
+
 > **Le bilan de toute ta progression, pas du mois.** Un bloc du sommaire de Progression, juste après « Le mois
 > écoulé » : sa phrase en deux lignes, et il s'ouvre sur la page « Ton parcours ». Il se recalcule à chaque
 > ouverture, sur tout le corpus ; il n'écrit rien.

@@ -27107,7 +27107,13 @@ const SETS_IMPORTES = [
     const erreursAvant = erreurs.length;
     const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
     const violationsAvant = gardeBanc.violations;
-    const nbSessionsAvant = base.sessions.length, nbSetsAvant = base.sets.length, nbCatAvant = CATALOGUE.length, nbRoutinesAvant = ROUTINES.length;
+    const nbCatAvant = CATALOGUE.length;
+    // ⚠️ SON PROPRE ÉTAT (en séquentiel, les sections d'avant laissent des séances, des paris, des routines et une phase qui changeraient les
+    // jours moyens — 6,5 au lieu de 2 — et le compteur de stagnation) : la base est vidée de ces trois listes et rendue à la fin ;
+    // la phase est posée (jamais celle qu'une section d'avant a laissée) et les réponses aux cartes remises à zéro.
+    const sessionsAvant = base.sessions, setsAvant = base.sets, paris1882Avant = base.predictions;
+    const routinesAvant1882Liste = ROUTINES.splice(0, ROUTINES.length);
+    base.sessions = []; base.sets = []; base.predictions = [];
     const t1882 = Date.now();
     const nb1882 = (x) => JSON.stringify(x === undefined ? null : x);
     const sp1882 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -27166,7 +27172,8 @@ const SETS_IMPORTES = [
       routine_exercises: [['eq1882-dev', 4, 180], ['eq1882-lat', 4, 90], ['eq1882-curl', 4, 90], ['eq1882-ext', 4, 90], ['eq1882-arr', 4, 90]]
         .map(([slug, n, repos], rang) => exo1882('r-eq1882p', slug, rang, n, repos)) });
     const routinesAvant1882 = JSON.stringify(ROUTINES.filter((r) => r.id === 'r-eq1882'));
-    Object.assign(base.profiles[0], { seances_par_semaine: 4, duree_seance_min: 90, rythme_progression: 'normal', intention: 'progresser' });
+    Object.assign(base.profiles[0], { seances_par_semaine: 4, duree_seance_min: 90, rythme_progression: 'normal', intention: 'progresser',
+      phase: 'maintien', phase_depuis: null, cartes_semaine: null, priorites: null, jours_vises: null });
     const lire1882 = () => page.evaluate(() => {
       const sec = document.querySelector('#parcours [data-equilibres]');
       const cartes = Array.from(document.querySelectorAll('#parcours [data-equilibre]')).map((c) => ({
@@ -27259,10 +27266,12 @@ const SETS_IMPORTES = [
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       nb1882([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
     // On rend l'état.
-    base.sessions = base.sessions.slice(0, nbSessionsAvant);
-    base.sets = base.sets.slice(0, nbSetsAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = paris1882Avant;
     CATALOGUE.length = nbCatAvant;
-    ROUTINES.length = nbRoutinesAvant;
+    ROUTINES.length = 0;
+    routinesAvant1882Liste.forEach((r) => ROUTINES.push(r));
     base.profiles[0] = profilAvant;
     await aller('/saisie');
   }

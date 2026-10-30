@@ -91,6 +91,13 @@ describe('188-2 — Ta semaine prévue et ta semaine réelle', () => {
     expect(c.libelleRefus).toBe('Garder 4 jours');
     expect(c.repere).toMatch(/Les semaines sans aucune séance .* ne comptent pas/);
   });
+  test('⚠️ un jour d’entraînement est un JOUR distinct : deux séances le même jour comptent pour un seul', () => {
+    const sem = {};
+    for (let k = 0; k < 8; k++) sem[k] = [SEANCE('r1', 0), SEANCE('r2', 0), SEANCE('r3', 2), SEANCE('r4', 2)];       // 4 séances, 2 jours
+    const a = Eq.analyser(entree(bati(sem), { seancesParSemaine: 4, routines: R(4) }));
+    expect(constat(a, 'jours').reel).toBe(2);
+    expect(carte(a, 'jours')).not.toBeNull();
+  });
   test('la médiane inférieure d’au moins 1 jour : 3 pour 4 prévus déclenche ; 4 pour 4 non', () => {
     expect(carte(Eq.analyser(entree(bati(semainesDeJours(huit(3))), { seancesParSemaine: 4, routines: R(4) })), 'jours')).not.toBeNull();
     expect(constat(Eq.analyser(entree(bati(semainesDeJours(huit(4))), { seancesParSemaine: 4, routines: R(4) })), 'jours')).toBeNull();

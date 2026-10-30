@@ -4514,7 +4514,7 @@
         if (s.depuis !== undefined && s.depuis !== null) {
           if (!(s.charge >= s.depuis - 1e-9)) erreurs.push('I73' + nom + 'une proposition plus légère que la série d’avant');
           var surLePlancher = s.depuis <= k.plancher + 1e-9;
-          if (!surLePlancher && s.charge > s.depuis * (1 + k.plafond) + 1e-9) {
+          if (!surLePlancher && s.crans > 1 && s.charge > s.depuis * (1 + k.plafond) + 1e-9) {
             erreurs.push('I73' + nom + s.charge + ' kg dépasse le plafond de ' + Math.round(k.plafond * 100) + ' % sur ' + s.depuis + ' kg');
           }
           if (surLePlancher && s.crans > I73_CRANS_DEPUIS_LE_PLANCHER) erreurs.push('I73' + nom + 'plus de deux crans depuis le plus petit');

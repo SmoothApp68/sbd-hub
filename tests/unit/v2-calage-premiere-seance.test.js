@@ -41,6 +41,22 @@ describe('187 — le calage : un débutant, 3 séries de N', () => {
     expect(M.plafondDuCalage(true)).toBe(0.10);
     expect(M.plafondDuCalage(false)).toBe(0.15);
   });
+  test('⚠️ (Q2) un seul cran reste toujours permis : machine à 10 kg, cran de 5 (+50 %) — la charge monte quand même d’un cran', () => {
+    const m = M.calagePremiereFois({ equipement: 'machine', reps: 10, debutant: true, series: [faite(10, 10, 'reste_2')] });
+    expect(m.suivante.charge).toBe(15);
+    expect(m.suivante.crans).toBe(1);
+    // « 3 ou plus » : deux crans demandés, ramenés à ce qui tient sous le plafond, jamais moins d’un.
+    const f = M.calagePremiereFois({ equipement: 'machine', reps: 10, debutant: true, series: [faite(10, 10, 'reste_3_plus')] });
+    expect(f.suivante.charge).toBe(15);
+    expect(f.suivante.crans).toBe(1);
+  });
+  test('⚠️ (Q2) côté barre : 100 kg, +10 % = 110 : deux crans de 2,5 passent (105) ; à 20 kg depuis la barre vide, 2 crans comptés hors pourcentage', () => {
+    const b = barre({ series: [faite(100, 8, 'reste_3_plus')] });
+    expect(b.suivante.charge).toBe(105);
+    expect(b.suivante.crans).toBe(2);
+    const v = barre({ series: [faite(20, 8, 'reste_3_plus')] });
+    expect(v.suivante.crans).toBe(2);
+  });
   test('trois séries au plus : après la troisième, plus de proposition ; la plus lourde réussie est retenue', () => {
     const c = barre({ series: [faite(20, 8, 'reste_3_plus'), faite(25, 8, 'reste_2'), faite(27.5, 6, 'reste_0')] });
     expect(c.termine).toBe(true);

@@ -7991,7 +7991,7 @@
   //     réussie (`plusLourdeReussie`), lue par le coach ordinaire dès que l'historique existe.
   //   · LE SAUT est plafonné comme au §9.1.2 (186) : +15 % (+10 % pour un débutant) de la charge de la série qu'on vient de
   //     faire. SEULE la première montée depuis le plus petit cran (la barre vide n'est pas une charge de travail) n'est pas
-  //     comptée en pourcentage : deux crans au plus. Un cran qui dépasserait le plafond n'est pas pris : la charge reste.
+  //     comptée en pourcentage : deux crans au plus. Le plafond ne vise que les sauts de PLUSIEURS crans : un seul cran (le plus petit pas du matériel) reste toujours permis, la montée à deux crans est ramenée à ce qui tient sous le plafond, jamais sous un cran.
   var CALAGE_SERIES = 3, CALAGE_REPS_DEFAUT = 10, CALAGE_REPS_APPROCHE = 5, CALAGE_APPROCHES = 2;
   var CALAGE_RESERVE = { reste_0: 0, reste_1: 1, reste_2: 2, reste_3_plus: 3 };
   var CALAGE_ROLE_CIBLE = 'cible', CALAGE_ROLE_APPROCHE = 'approche', CALAGE_ROLE_DEPART = 'depart',
@@ -8022,13 +8022,14 @@
   function monteeDuCalage(o, charge, crans) {
     var plafond = charge * (1 + plafondDuCalage(o.debutant)) + 1e-9;
     var depuisLePlancher = charge <= o.plancher + 1e-9;
-    var c = charge;
+    var c = charge, pris = 0;
     for (var k = 0; k < crans; k++) {
       var n = cranDuCalage(o.equipement, o.salle, c);
-      if (n === null || (!depuisLePlancher && n > plafond)) break;
-      c = n;
+      // Le plafond protège des SAUTS de plusieurs crans : un seul cran, le plus petit pas du matériel, reste toujours permis.
+      if (n === null || (!depuisLePlancher && k > 0 && n > plafond)) break;
+      c = n; pris++;
     }
-    return c;
+    return { charge: c, crans: pris };
   }
 
   function calagePremiereFois(entree) {
@@ -8077,10 +8078,10 @@
     }
     var charge = nombre(derniere.charge);
     var crans = reserve === null ? 0 : reserve >= 3 ? 2 : reserve === 2 ? 1 : 0;
-    var suivante = monteeDuCalage(o, charge, crans);
-    r.suivante = { charge: suivante, reps: reps, role: role,
+    var mont = monteeDuCalage(o, charge, crans);
+    r.suivante = { charge: mont.charge, reps: reps, role: role,
                    pourquoi: reserve === null ? 'sans_reponse' : crans === 2 ? 'facile' : crans === 1 ? 'un_cran' : 'tenue',
-                   crans: crans, depuis: charge };
+                   crans: mont.crans, depuis: charge };
     return r;
   }
 

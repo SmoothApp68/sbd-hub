@@ -2885,8 +2885,8 @@ const SETS_IMPORTES = [
     JSON.stringify({ serie: serieB && serieB.id, observes: observesB().length }));
   await toucher(0, '.no-serie');
   await page.click('#feuille-contenu .feuille-menu button:nth-child(2)');   // Échauffement
-  await attendre(700);
-  await jusqua(async () => observesB().length === 0, 6000);
+  await jusqua(async () => observesB().length === 0, 6000);   // 192 — l'état (plus 700 ms fixes devant)
+  await fileVide(null, 10000, 'file vide après la chauffe');   // 192 — le contrôle suivant lit la FILE : c'est elle qu'on attend
   ok('[B] DISCRIMINANT — passée en chauffe, elle perd son observation : plus aucun pari observé sur elle en base',
     observesB().length === 0, JSON.stringify(observesB().map((l) => [l.fondement.rang, l.valeur_observee])));
   const fileB = await page.evaluate(() => window.THCache.lireAttente());
@@ -2905,19 +2905,20 @@ const SETS_IMPORTES = [
   ok('la feuille pose la question en langage courant', /combien te restait/.test(feuilleEffort),
     feuilleEffort.replace(/\s+/g, ' ').slice(0, 60));
   await page.click('#feuille-contenu .grille-rir button:nth-child(3)');   // « 1 »
-  await attendre(600);
+  await enBase(() => sets().some((s) => s.ressenti === 'reste_1'), 10000, 'ressenti écrit en base');   // 192 — l'écriture, plus 600 ms fixes
   ok('le ressenti est enregistré', sets().some((s) => s.ressenti === 'reste_1'),
     JSON.stringify(sets().map((s) => s.ressenti)));
 
   await toucher(1, '.eff-serie');
   await page.click('#feuille-contenu .bascule button');
-  await attendre(300);
+  await enBase(async () => (await compter('#feuille-contenu .grille-rpe button')) === 8, 10000, 'grille RPE affichée');   // 192
   ok('la bascule vers le RPE donne une GRILLE, pas un curseur',
     (await compter('#feuille-contenu .grille-rpe button')) === 8 &&
     (await compter('#feuille-contenu input[type=range]')) === 0,
     (await compter('#feuille-contenu .grille-rpe button')) + ' boutons');
   await page.click('#feuille-contenu .grille-rpe button:nth-child(6)');   // RPE 9
-  await attendre(600);
+  // 192 — l'ÉCRITURE : le RPE posé ET le ressenti effacé, dans la même ligne de la base (le faux rouge lisait la ligne d'avant)
+  await enBase(() => sets().some((s) => s.rpe === 9 && s.ressenti === null), 10000, 'RPE 9 écrit, ressenti effacé');
   const ligneEffort = sets().filter((s) => s.rpe !== null && s.rpe !== undefined)[0];
   ok('RPE et ressenti sont EXCLUSIFS : choisir l’un efface l’autre',
     !!ligneEffort && ligneEffort.rpe === 9 && ligneEffort.ressenti === null,
@@ -5376,6 +5377,8 @@ const SETS_IMPORTES = [
     base.reseau = true; base.ecrituresSocialesCoupees = false; base.ecrituresSocialesLentes = 0;
     base.lenteur = 0; base.lenteurProfil = 0; base.lenteurObjectifs = 0; base.lenteurRecords = 0; base.lenteurPredictions = 0;
     base.enCoursEnPanne = false;
+    // 192 — le dernier plan calculé d'une section plantée n'est pas celui de la suivante (a-fond lisait un plan sans consigne).
+    await page.evaluate(() => { if (window.THPlan) window.THPlan.dernier = null; }).catch(() => {});
     const feuilleOuverteMaintenant = () => page.evaluate(() => { const f = document.getElementById('feuille-seance'); return !!f && !f.hidden; }).catch(() => false);
     const seanceOuverte = () => page.evaluate(() => { const v = document.getElementById('vue-seance'); return !!v && !v.hidden; }).catch(() => false);
     if (await feuilleOuverteMaintenant()) {
@@ -18305,7 +18308,7 @@ const SETS_IMPORTES = [
     await attendreQue(async () => (await fil()).cartes.length > 0);
     await page.click('#social-fil .s-carte .s-reag');
     await attendreQue(async () => S.reactions.length === 1);
-    await attendre(400);
+    await attendreQue(async () => (await fil()).cartes.length > 0 && (await fil()).cartes[0].reag === '🔥 Tu as réagi');   // 192 — l'écran dit « Tu as réagi », plus 400 ms fixes
     const d0 = await fil();
     ok('[social] « Réagir » : une réaction en base, « Tu as réagi » — et AUCUN nombre de réactions sur la séance d’une autre',
       S.reactions.length === 1 && S.reactions[0].user_id === 'u-banc' && d0.cartes[0].reag === '🔥 Tu as réagi' &&
@@ -18360,8 +18363,7 @@ const SETS_IMPORTES = [
     await page.click('#social-menu');
     await page.click('#social-ami [data-geste="bloquer"]');
     await page.click('#social-ami [data-geste="bloquer"]');
-    await attendreQue(async () => S.blocages.length === 1);
-    await attendre(600);
+    await attendreQue(async () => S.blocages.length === 1 && !lien('u-banc', 'u-lea') && !lien('u-lea', 'u-banc'));   // 192 — les liens effacés, plus 600 ms fixes
     ok('[social] DISCRIMINANT — bloquer efface tout lien : plus aucun abonnement entre eux, dans un sens comme dans l’autre, ni réaction croisée',
       S.blocages.length === 1 && !lien('u-banc', 'u-lea') && !lien('u-lea', 'u-banc') &&
         S.reactions.filter((r) => r.user_id === 'u-banc' || r.user_id === 'u-lea').length === 0, JSON.stringify([S.abonnements, S.reactions]));
@@ -18583,6 +18585,10 @@ const SETS_IMPORTES = [
     await attendreQue(async () => (await compter('#social-ami .s-introuvable')) === 1);
     await sansChargement('#social-ami');   // 161 — le profil relu après le retour passe un instant par « Chargement… »
     await attendreQue(async () => (await compter('#social-ami .s-introuvable')) === 1);
+    // 192 — l'état FINAL : la phrase de refus ET la file vide (le faux rouge lisait « Demande envoyée · en attente du réseau »,
+    // l'état transitoire d'avant le retour du réseau, dans #etat-sync ou dans la fiche).
+    await attendreQue(async () => /Ce profil n’existe pas, ou n’est pas visible\./.test(await texte('#social-ami')) &&
+      !/en attente du réseau/.test(await texte('#social-ami')) && !/en attente/.test(await texte('#etat-sync')) && (await fileSociale()).length === 0);
     const h3b = { texte: await texte('#social-ami'), sync: (await texte('#etat-sync')).trim() };
     ok('[social 107] H3 — DISCRIMINANT — refusé au retour (olga m’a bloqué entre-temps) : l’écran le dit en une phrase, puis l’état RÉEL ' +
       '(son profil n’est plus visible) — pas « Demande envoyée », pas son profil d’avant ; la file est vide, rien n’est « refusé » en attente',
@@ -20278,12 +20284,13 @@ const SETS_IMPORTES = [
       .map((n) => n.textContent.replace(/\s+/g, ' ').trim()));
     const menuExo = async (i) => {
       await page.evaluate((k) => document.querySelectorAll('#exos-routine .menu-pts')[k].click(), i);
-      await attendre(450);
+      await feuilleOuverte('.feuille-menu button');   // 192 — la feuille ouverte, plus 450 ms fixes
     };
     const entreeF = async (texte) => {
+      const signature = await signatureFeuille();
       await page.evaluate((x) => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .filter((b) => ((b.querySelector('.mp-titre') || b).textContent) === x)[0].click(), texte);
-      await attendre(600);
+      await jusqua(async () => (await signatureFeuille()) !== signature, 6000, 'entreeF ' + texte);   // 192 — la feuille a changé, plus 600 ms fixes
     };
     // La feuille de haut en bas : les choix (titre et sous-ligne), la phrase sans frère, l'intitulé, les actions.
     const feuilleF = () => page.evaluate(() => {
@@ -20298,7 +20305,8 @@ const SETS_IMPORTES = [
 
     await aller('/saisie');
     await aller('/routine/' + ID_F);
-    for (let n = 0; n < 60 && JSON.stringify(await nomsEditeur()).indexOf('Muscle Up U67') < 0; n++) await attendre(250);
+    // 192 — le catalogue d'abord : tant que l'éditeur montre des slugs, les noms ne sont pas arrivés
+    await enBase(async () => { const t = JSON.stringify(await nomsEditeur()); return ['Mollets Debout U67', 'Tirage vers Visage U67', 'Muscle Up U67'].every((n) => t.indexOf(n) >= 0); }, 15000, 'catalogue arrivé dans l’éditeur (les trois noms)');
     const avant = JSON.stringify(routineF());
     ok('[F67] prémisse : l’éditeur montre les trois exercices de la routine',
       JSON.stringify(await nomsEditeur()).indexOf('Muscle Up U67') >= 0, JSON.stringify(await nomsEditeur()));
@@ -20330,7 +20338,7 @@ const SETS_IMPORTES = [
           JSON.stringify(['Rowing 1 U67', 'Rowing 2 U67', 'Rowing 3 U67', 'Rowing 4 U67', 'Rowing 5 U67']) &&
         f.lu[f.lu.length - 1] === 'Chercher dans le catalogue', JSON.stringify(f));
     await page.click('#btn-fermer-feuille');
-    await attendre(500);
+    await feuilleFermee();   // 192 — plus 500 ms fixes
 
     // ── C. Un muscle-up (une habileté) : ni frère ni famille — la feuille d'avant.
     await menuExo(2);
@@ -20340,11 +20348,11 @@ const SETS_IMPORTES = [
       f.sujet === 'Muscle Up U67' && f.cousins === 0 && JSON.stringify(f.lu) ===
         JSON.stringify(['Pas de frère au catalogue pour cet exercice.', 'Chercher dans le catalogue']), JSON.stringify(f));
     await page.click('#btn-fermer-feuille');
-    await attendre(500);
+    await feuilleFermee();   // 192 — plus 500 ms fixes
 
     // ── D. « Enregistrer » écrit le cousin choisi, à sa place.
     await page.click('#btn-enregistrer-routine');
-    await attendre(2400);
+    await enBase(() => routineF().routine_exercises.some((e) => e.exercise_slug === 'mollets-assis-u67'), 15000, 'routine enregistrée');   // 192 — l'écriture, plus 2 400 ms fixes
     const forme = routineF().routine_exercises.slice().sort((a, b) => a.rang - b.rang).map((e) => e.exercise_slug);
     ok('[F67] D — « Enregistrer » écrit le cousin à la place de l’exercice',
       JSON.stringify(forme) === '["mollets-assis-u67","tirage-visage-u67","muscle-up-u67"]', JSON.stringify(forme));
@@ -20499,7 +20507,7 @@ const SETS_IMPORTES = [
     ok('[C67] F — le choix filtré remplace la ligne de « Remplacer » (pas d’ajout) ; rien n’est écrit',
       noms.length === 1 && /Tirage Convergent U67B/.test(noms[0]) && JSON.stringify(routineC()) === avant, JSON.stringify(noms));
     await page.click('#btn-enregistrer-routine');
-    await attendre(2400);
+    await enBase(() => routineC().routine_exercises.some((e) => e.exercise_slug === 'tirage-convergent-u67b'), 15000, 'routine C enregistrée');   // 192 — l'écriture de CETTE routine (elle change : le choix filtré remplace la ligne), plus 2 400 ms fixes
     ok('[C67] F — « Enregistrer » l’écrit',
       routineC().routine_exercises.map((e) => e.exercise_slug).join() === 'tirage-convergent-u67b',
       JSON.stringify(routineC().routine_exercises.map((e) => e.exercise_slug)));
@@ -20700,7 +20708,7 @@ const SETS_IMPORTES = [
     const consigneB = () => page.evaluate(() => {
       const d = window.THPlan && window.THPlan.dernier;
       const x = d && d.plan.exercices.filter((e) => e.slug === 'rowing-c68b')[0];
-      return x ? { etat: x.consigne.etat, ligne: x.consigne.ligne, haut: x.consigne.haut } : null;
+      return x && x.consigne ? { etat: x.consigne.etat, ligne: x.consigne.ligne, haut: x.consigne.haut } : null;   // 192 — un plan sans consigne n'est pas un plan arrivé
     });
     const invariantsB = async (geste) => {
       const v = await page.evaluate(() => {
@@ -20715,22 +20723,24 @@ const SETS_IMPORTES = [
       await toucher(i, '.eff-serie');
       if ((await compter('#feuille-contenu .grille-rpe')) > 0) {
         await page.click('#feuille-contenu .bascule button');
-        await attendre(400);
+        await feuilleOuverte('.grille-rir');   // 192 — la grille RIR affichée, plus 400 ms fixes
       }
+      const departFond = await departGeste();
       await page.click('#feuille-contenu .grille-rir button:nth-child(4)');   // « 0 », à fond
-      await attendre(1200);
+      await calmeApres(departFond, 300);   // 192 — le réseau calme, l'écran posé, plus 1 200 ms fixes
+      await fileVide(null, 10000, 'file vide après « à fond »');   // 192 — l'effort écrit, la file vidée
     };
 
     await aller('/saisie');
     await demarrerRoutine('Rowing C68B ×4');
-    await attendre(900);
+    await enBase(async () => !!(await consigneB()), 10000, 'consigne du rowing calculée');   // 192 — le plan arrivé, plus 900 ms fixes
     ok('[C68B] prémisse : la consigne — 79 × 12 sur trois séries, puis le test à 81,3',
       nbB(await consigneB()) === nbB({ etat: 'garde', ligne: { charge: 79, vise: 12 }, haut: { charge: 81.3, vise: 11, k: 1 } }),
       nbB(await consigneB()));
 
     // ── 1. 79 × 12 VALIDÉE, PUIS « À FOND » NOTÉ SUR CETTE SÉRIE ──────────
     await saisirSerie(0, 79, 12);
-    await attendre(700);
+    await calmeApres(await departGeste());   // 192 — plus 700 ms fixes
     ok('[C68B] témoin : 79 × 12 validée sans effort — la série 2 vise toujours 12, aucune phrase',
       (await grilleB())[1] === '79×12' && (await phrasesB()).length === 0, nbB([await grilleB(), await phrasesB()]));
     await aFond(0);
@@ -20755,11 +20765,11 @@ const SETS_IMPORTES = [
     // ── 2. LA PROPOSITION PRISE, PUIS « À FOND » NOTÉ ─────────────────────
     await demarrerRoutine('Rowing C68B ×4');
     await saisirSerie(0, 79, 15);
-    await attendre(800);
+    await calmeApres(await departGeste());   // 192 — plus 800 ms fixes
     ok('[C68B] prémisse : 79 × 15, le coach propose 81,3 sur la série 2', (await phrasesB()).some((x) => /^propose \|/.test(x)),
       nbB(await phrasesB()));
     await saisirSerie(1, 81.3, 12);
-    await attendre(800);
+    await calmeApres(await departGeste());   // 192 — plus 800 ms fixes
     const tenue = await grilleB();
     ok('[C68B] témoin : 81,3 × 12 sans effort — la montée tient, la suite reste à 81,3',
       /^81,3×/.test(tenue[2]), nbB(tenue));
@@ -20777,14 +20787,15 @@ const SETS_IMPORTES = [
     // noté après coup, le pari est déjà observé, et l'observation ne change plus.
     await demarrerRoutine('Rowing C68B ×4');
     await saisirSerie(0, 79, 15);
-    await attendre(800);
+    await calmeApres(await departGeste());   // 192 — plus 800 ms fixes
     const champsB = [0, 1, 2, 3].map((k) => page.locator('.ligne-serie').nth(1).locator('input').nth(k));  // 158 — localisateurs
     await champsB[0].fill('81.3');
     await champsB[1].fill('12');
-    await attendre(450);
+    await calmeApres(await departGeste());   // 192 — plus 450 ms fixes
     await aFond(1);
     await toucher(1, '.ok-serie');
-    await attendre(1800);
+    await calmeApres(await departGeste());   // 192 — la série écrite (serieMontee) puis le calme, plus 1 800 ms fixes
+    await fileVide(null, 10000, 'file vide après la validation');   // 192 — le pari lu en base suit la file
     await invariantsB('81,3 × 12 à fond, validée');
     const idSeanceB = base.sessions.filter((x) => x.statut === 'en_cours').map((x) => x.id)[0];
     const pariB = base.predictions.filter((q) => q.exercise_slug === 'rowing-c68b' && q.fondement &&

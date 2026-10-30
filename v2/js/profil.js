@@ -294,6 +294,13 @@
   function estDebutant(profil) {
     return !!profil && profil.anciennete === ANCIENNETE_DEBUTANT;
   }
+  // 191 — LA PRUDENCE DE MONTÉE du profil : l'ancienneté (le débutant) et l'âge (`date_naissance`, l'année qu'on donne au
+  // questionnaire), donnés au prédicat du moteur (`THMoteur.prudenceDeMontee`) — la seule définition ; le profil ne fait que lui
+  // fournir les faits. Sans année de naissance, l'âge reste inconnu (`null`) : aucune règle d'âge, jamais un âge deviné.
+  function prudenceDuProfil(profil, aujourdhui) {
+    var p = profil || {};
+    return racine.THMoteur.prudenceDeMontee({ debutant: estDebutant(p), age: age(p.date_naissance, aujourdhui) });
+  }
 
   // « Depuis le 29 sept. » : la date de la dernière déclaration, au format de
   // la voix (`THModele.quand` sans référence : toujours la date, jamais
@@ -2205,7 +2212,7 @@
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     PHASES: PHASES, RAPPEL_PHASE_JOURS: RAPPEL_PHASE_JOURS,
     rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, PHASES_EN_BASE: PHASES_EN_BASE, LIBELLE_PHASE_VIDE: LIBELLE_PHASE_VIDE,
-    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, estDebutant: estDebutant, phaseGelee: phaseGelee, sectionPhase: sectionPhase, ANCIENNETE_DEBUTANT: ANCIENNETE_DEBUTANT,
+    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, estDebutant: estDebutant, prudenceDuProfil: prudenceDuProfil, phaseGelee: phaseGelee, sectionPhase: sectionPhase, ANCIENNETE_DEBUTANT: ANCIENNETE_DEBUTANT,
     objectifDe: objectifDe, objectifGele: objectifGele,
     prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,

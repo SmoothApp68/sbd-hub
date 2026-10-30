@@ -108,7 +108,7 @@ describe('PR 2 — la suite du constat suit la zone en vigueur', () => {
       local: { exercices: [{ slug: 'couche', equipement: 'haltere' }], zones: [] },
       constats: null, etatsExercices: {}, rejeuEnCours: null,
       Modele: { gabaritDe: () => ({ mesure: 'charge_reps' }), lesteDe: () => null, parentDe: () => null },
-      Profil: { rythmeDe: () => 'normal', salleDeLExercice: () => null, estDebutant: () => false },   // 108 — la salle (aucune ici)
+      Profil: { rythmeDe: () => 'normal', salleDeLExercice: () => null, estDebutant: () => false, prudenceDuProfil: () => ({ plafond: 0.15, unCran: false, raison: null }) },   // 108 — la salle (aucune ici)
       Seance: { partEnBase: () => true },
       Generateur: require('../../v2/js/generateur.js'),   // 187 : `optionsDeConsigne` lit la zone à ménager (A4)
       Moteur: { estIsolation: () => false, suiteDExercice: (g, j, e, a, o) => { appels.push(o.correction); return { apres: { consigne: { zone: o.correction } }, cranSuivant: null }; },

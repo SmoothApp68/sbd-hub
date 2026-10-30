@@ -1049,6 +1049,10 @@
   // ── L'ORDRE : où se place une priorité dans la séance ──────────────────────────────────────────────────────────
   function estGros(slug, cat) {
     var f = cat[slug];
+    // 191 — DEUX NOTIONS, pas une. « Grand mouvement » (`Moteur.estGrandMouvement`) : ce que la compression protège (barre ou poids du
+    // corps). « Polyarticulaire » (`Moteur.estPolyarticulaire`) : ce que l'ORDRE met en premier — la science de l'ordre (Simão 2012,
+    // Nunes 2021) oppose polyarticulaire et isolation, quel que soit le matériel : une presse ou un développé haltères passent avant
+    // leurs isolations. La carte de l'ordre lit donc la fonction polyarticulaire, jamais une définition à elle ni `estGrandMouvement`.
     return !!f && Moteur().estPolyarticulaire({ prim: liste(f.muscles_primaires), sec: liste(f.muscles_secondaires), stab: liste(f.muscles_stabilisateurs) });
   }
   // Les exercices qu'une priorité désigne : ses mouvements (une barre, les tractions) ou, pour un muscle, les exercices qui le

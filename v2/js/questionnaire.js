@@ -694,9 +694,9 @@
         { type: 'champs', champs: [
           { cle: 'annee', libelle: 'Année de naissance', unite: null, mode: 'numeric',
             valeur: texteDe(etat, 'annee', rep.annee), erreur: erreurs.annee || null,
-            // 116 (audit du 16/10/2026, 03 #9) — rien ne lit l'âge ni la taille (le programme construit ne pose jamais
-            // de charge, QUESTIONNAIRE §5 bis) : la phrase dit ce qui est vrai, sans promettre.
-            aide: 'Je ne m’en sers pas encore. Elle pourra régler la prudence de tes charges de départ.' },
+            // 116 (audit du 16/10/2026, 03 #9), puis 191 (30/10/2026) : l'année a un lecteur — la prudence de montée
+            // (`THMoteur.prudenceDeMontee`, QUESTIONNAIRE §1.3). Elle ne change JAMAIS la charge de départ : la phrase le dit.
+            aide: 'Elle règle la prudence de tes montées de charge, jamais ta charge de départ.' },
           { cle: 'taille', libelle: 'Taille', unite: 'cm', mode: 'numeric',
             valeur: texteDe(etat, 'taille', rep.taille), erreur: erreurs.taille || null,
             aide: 'Je ne m’en sers pas encore. Avec ton poids, elle pourra aider à choisir tes charges de départ.' },

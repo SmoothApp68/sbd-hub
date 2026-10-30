@@ -101,11 +101,12 @@ describe('191 — la compression ne touche jamais un grand mouvement au poids du
 
 describe('191 — aucun lecteur ne garde sa propre définition du grand mouvement', () => {
   const lire = (f) => fs.readFileSync(path.join(__dirname, '../../v2/js', f), 'utf8');
-  test('la carte de l’ordre (equilibres.js) et la ligne du repos long (plan.js) lisent `estGrandMouvement`', () => {
+  test('la ligne du repos long (plan.js) lit `estGrandMouvement` ; la carte de l’ordre (equilibres.js) lit « polyarticulaire », pas une définition locale', () => {
     const eq = lire('equilibres.js'), plan = lire('plan.js');
-    const estGros = eq.match(/function estGros\b[\s\S]*?\n  }/)[0];
-    expect(estGros).toMatch(/estGrandMouvement/);
-    expect(estGros).not.toMatch(/estPolyarticulaire/);
+    const estGros = eq.match(/function estGros\b[\s\S]*?\n  }/)[0].split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+    expect(estGros).toMatch(/Moteur\(\)\.estPolyarticulaire\(/);
+    expect(estGros).not.toMatch(/estGrandMouvement/);
+    expect(estGros).not.toMatch(/equipement|length >= 3|MUSCLES_POLYARTICULAIRE/);
     expect(plan).toMatch(/M\.estGrandMouvement\(\{ slug: slug,/);
   });
   test('la compression l’appelle (une fois par exercice, jamais une liste d’équipements recopiée)', () => {

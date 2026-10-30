@@ -739,7 +739,7 @@ const NOTIONS = [
     par: ['raccourcirRoutine', 'estIsolation'],
     parAilleurs: { 'routines.js': ['routineDepuisSeance'], 'generateur.js': ['relecture'],
                    'plan.js': ['polyarticulaireDe'], 'app.js': ['degressiveDeDemo'],
-                   'equilibres.js': ['estCharniereLegere'] },
+                   'equilibres.js': ['estCharniereLegere', 'estGros'] },
     raison: 'les repos par défaut d’« En faire une routine » sont les classes de « J’ai peu de temps » : ' +
       'une définition, lue aux deux endroits. 66A : la relecture de la semaine (§5 ter.4) la lit aussi — l’isolation ' +
       'avant la barre, et les séries que la sèche peut retirer (jamais un polyarticulaire). 108 (MOTEUR §10 bis, ' +
@@ -755,12 +755,12 @@ const NOTIONS = [
       'année absente, aucune règle d’âge — jamais un âge deviné. Les lecteurs de moteur.js lisent `prudenceEffective` (un `prudence` donné, ' +
       'sinon le seul débutant).' },
   { notion: 'un grand mouvement (un polyarticulaire à la barre ou au poids du corps : tractions, dips, pompes, rowing inversé)', pr: '191-U1',
-    module: 'moteur.js', fonction: 'estGrandMouvement', lecteurs: ['plan.js', 'equilibres.js'],
+    module: 'moteur.js', fonction: 'estGrandMouvement', lecteurs: ['plan.js'],
     par: ['raccourcirRoutine'],
-    parAilleurs: { 'plan.js': ['reposDuPlan'], 'equilibres.js': ['estGros'] },
-    raison: '191 (décision d’Aurélien du 30/10/2026) : une seule définition — la compression (« J’ai peu de temps », le générateur), ' +
-      'la carte de l’ordre (« La mettre en premier ») et la ligne du repos long au « Pourquoi » la lisent. La carte de l’ordre avait ' +
-      'la sienne (tout polyarticulaire, machines comprises) : elle est câblée sur celle-ci.' },
+    parAilleurs: { 'plan.js': ['reposDuPlan'] },
+    raison: '191 (décision d’Aurélien du 30/10/2026) : une seule définition — la compression (« J’ai peu de temps », le générateur) et la ' +
+      'ligne du repos long au « Pourquoi » la lisent. La carte de l’ordre NE la lit PAS : elle lit « polyarticulaire » (MOTEUR §9.27 bis, ' +
+      'delta 191 : deux notions, deux lecteurs).' },
   { notion: 'l’isolation (des muscles au catalogue, moins de trois ; sans muscle connu : ni l’un ni l’autre)', pr: '124-U3',
     module: 'moteur.js', fonction: 'estIsolation', lecteurs: ['profil.js', 'plan.js', 'app.js'],
     parAilleurs: { 'profil.js': ['avecIsolation'], 'plan.js': ['polyarticulaireDe'], 'app.js': ['optionsDeConsigne'] },

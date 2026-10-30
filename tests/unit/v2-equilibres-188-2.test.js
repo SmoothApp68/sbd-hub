@@ -413,15 +413,14 @@ describe('188-2 — L’ordre dans tes séances', () => {
     expect(p).toMatchObject({ type: 'deplacer', avant: 'squat_barre' });
     expect(p.libelle).toBe('La mettre en premier dans « Bas B »');
   });
-  test('191 — une presse (machine polyarticulaire) n’est pas un grand mouvement : l’extension de jambes qui la suit n’est plus « juste après les gros mouvements »', () => {
+  test('191 — « polyarticulaire », pas « grand mouvement » : une presse (machine) passe avant ses isolations, l’extension de jambes qui la suit est « synergiste »', () => {
     const A = { developpe_couche_barre: 4, rowing_barre: 4, tractions: 3 };
     const Bas = { presse_machine: 4, leg_curl: 3, releves_mollets: 3, leg_extension: 3 };
     const RA = routine('r-a', 'Haut A', A), RB = routine('r-b', 'Bas B', Bas);
     const c = constat(Eq.analyser(entree(bati(sem(A, Bas)), { routines: [RA, RB], priorites: ['jambes'] })), 'ordre');
     const ext = c.items.filter((x) => x.slug === 'leg_extension')[0];
-    // Avant 191 la presse comptait pour un gros mouvement : la cible était « synergiste » (juste après la presse).
-    expect(ext.cas).toBe('sans_lien');
-    expect(c.propositions.filter((x) => x.slug === 'leg_extension')[0].libelle).toBe('La mettre en premier dans « Bas B »');
+    expect(ext.cas).toBe('synergiste');
+    expect(c.propositions.filter((x) => x.slug === 'leg_extension')[0].libelle).toBe('La placer juste après les gros mouvements de « Bas B »');
   });
   test('sinon la ligne calme « Bien placées »', () => {
     const A = { tractions: 3, developpe_couche_barre: 4, rowing_barre: 4, developpe_militaire_barre: 3 };

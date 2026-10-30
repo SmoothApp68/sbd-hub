@@ -209,10 +209,16 @@ describe('§14.4 — la carte, dans le plan', () => {
     expect(decor({ cartes: [refus] }).p.carte).toBeNull();
   });
   test('la mémoire : refusée, la carte ne revient pas tant que le déclencheur n’a pas progressé', () => {
-    const refus = { seance: 'S0', jour: '2026-09-24', declencheur: 'couche', compteur: 4, reponse: 'refusee' };
+    // 189 — plus de 4 semaines après la carte : sinon la réfractarité (« une fois par épisode ») tait la carte d'abord.
+    const refus = { seance: 'S0', jour: '2026-08-24', declencheur: 'couche', compteur: 4, reponse: 'refusee' };
     expect(decor({ compteur: 8, cartes: [refus] }).p.carte).toBeNull();
-    const progres = AUTRES.concat([{ exercice: 'couche', jour: '2026-09-26', compteur: 0, seance: 'X0' }]);
+    const progres = AUTRES.concat([{ exercice: 'couche', jour: '2026-08-26', compteur: 0, seance: 'X0' }]);
     expect(decor({ compteur: 4, cartes: [refus], compteurs: progres }).p.carte).not.toBeNull();
+  });
+  test('189 — même après un progrès du déclencheur, aucune carte dans les 4 semaines d\u2019une autre', () => {
+    const refus = { seance: 'S0', jour: '2026-09-24', declencheur: 'couche', compteur: 4, reponse: 'refusee' };
+    const progres = AUTRES.concat([{ exercice: 'couche', jour: '2026-09-26', compteur: 0, seance: 'X0' }]);
+    expect(decor({ compteur: 4, cartes: [refus], compteurs: progres }).p.carte).toBeNull();
   });
 });
 

@@ -1671,6 +1671,14 @@
 
     // 188-1 — « Ta semaine et tes équilibres » : en tête, au-dessus de « Tes équilibres » (les barres sur douze mois).
     rendreEquilibres(cible, vue.equilibres);
+    // 189 — « Juste un carnet » : le constat de la baisse, une carte sans proposition (aucune section de plus).
+    if (vue.fatigue) {
+      var kf = el('div', 'carte-mois eq-carte eq-fatigue');
+      kf.setAttribute('data-fatigue', '1');
+      kf.appendChild(el('div', 'eq-titre', vue.fatigue.titre));
+      kf.appendChild(el('div', 'eq-fait', vue.fatigue.texte));
+      cible.appendChild(kf);
+    }
 
     // Les courbes des grands mouvements.
     if (p.courbes.length) {
@@ -1758,6 +1766,7 @@
     cible.appendChild(el('div', 'section-t', 'Ta phase'));
     var phase = el('div', 'carte-mois pc-phase');
     phase.appendChild(el('div', null, vue.phase));
+    if (vue.noteDePhase) phase.appendChild(el('p', 'pc-note', vue.noteDePhase));   // 189 : « Tes séries reviennent à ta routine. »
     phase.appendChild(el('p', 'pc-note', vue.pesees.assez
       ? vue.pesees.nombre + ' pesées en huit semaines.'
       : 'Pas assez de pesées : ' + vue.pesees.nombre + ' en huit semaines. Une par semaine suffit.'));
@@ -3026,6 +3035,8 @@
         if (lib.frere) entree.appendChild(tapable(el('div', 'consigne-dit frere', lib.frere)));
         // MOTEUR §14.7 (49-U17) — « une série de plus, jusqu'à ton prochain progrès ».
         if (lib.plus) entree.appendChild(tapable(el('div', 'consigne-dit serie-de-plus', lib.plus)));
+        // 189 — « 3 séries au lieu de 4, pendant ta sèche » (ou « 2 séries, comme ta routine »).
+        if (lib.moins) entree.appendChild(tapable(el('div', 'consigne-dit serie-de-moins', lib.moins)));
         // 174 — la 4e marche : « une série de moins, sans dégressive, jusqu'à ton prochain progrès », ou le rappel d'une marche refusée.
         if (lib.alleger) entree.appendChild(tapable(el('div', 'consigne-dit alleger-en-cours', lib.alleger)));
         // 175 — le tempo lent en cours (le levier accepté au plafond) : « 3 s en descente, jusqu'à ton prochain progrès ».
@@ -3349,21 +3360,77 @@
     var v = vue || {};
     if (v.carte) {
       var c = el('div', 'carte-escalier');
+      // 189 (MOTEUR §14.11) — la carte de BAISSE a un titre ; le blocage généralisé n'en a pas.
+      if (v.carte.titre) c.appendChild(el('p', 'ce-titre', v.carte.titre));
       c.appendChild(el('p', 'ce-phrase', v.carte.phrase));
       c.appendChild(el('p', 'ce-detail', v.carte.detail));
       var gestes = el('div', 'ce-gestes');
       var oui = el('button', 'ce-alleger', v.carte.oui || 'Alléger');   // 179 (B-B4) : le libellé vient du plan, avec la durée de la règle
       oui.type = 'button';
       oui.addEventListener('click', function () { v.surAlleger(); });
+      gestes.appendChild(oui);
+      // 189 — en sèche, une 3ᵉ réponse : garder un peu moins de volume jusqu'à la fin de la sèche.
+      if (v.carte.serieDeMoins) {
+        var moins = el('button', 'ce-moins', v.carte.serieDeMoins);
+        moins.type = 'button';
+        moins.addEventListener('click', function () { v.surSerieDeMoins(); });
+        gestes.appendChild(moins);
+      }
       var non = el('button', 'ce-refuser', 'Non merci');
       non.type = 'button';
       non.addEventListener('click', function () { v.surRefuser(); });
-      gestes.appendChild(oui);
       gestes.appendChild(non);
       c.appendChild(gestes);
+      // 189 — « Pourquoi ? » : la table par exercice, les stables, les exercices pas comptés et la méthode, au toucher.
+      var pq = v.carte.pourquoi;
+      if (pq) {
+        var det = el('details', 'ce-pourquoi');
+        det.appendChild(el('summary', null, 'Pourquoi ?'));
+        det.appendChild(el('h3', 'ce-pq-titre', pq.titre));
+        var tab = el('table', 'ce-pq-table');
+        var tr0 = el('tr', 'ce-pq-tete');
+        (pq.entete || []).forEach(function (t, i) { tr0.appendChild(el(i === 0 ? 'td' : 'td', null, t)); });
+        tab.appendChild(tr0);
+        (pq.lignes || []).forEach(function (l) {
+          var tr = el('tr');
+          tr.setAttribute('data-exercice', l.nom);
+          tr.appendChild(el('td', null, l.nom));
+          tr.appendChild(el('td', null, l.avant));
+          tr.appendChild(el('td', 'ce-pq-bas', l.apres));
+          tab.appendChild(tr);
+        });
+        if (pq.stables) {
+          var trS = el('tr', 'ce-pq-note');
+          trS.appendChild(el('td', null, 'Stables ou en hausse'));
+          var tdS = el('td', null, pq.stables);
+          tdS.colSpan = 2;
+          trS.appendChild(tdS);
+          tab.appendChild(trS);
+        }
+        if (pq.pasComptes) {
+          var trP = el('tr', 'ce-pq-note');
+          trP.appendChild(el('td', null, 'Pas comptés'));
+          var tdP = el('td', null, pq.pasComptes);
+          tdP.colSpan = 2;
+          trP.appendChild(tdP);
+          tab.appendChild(trP);
+        }
+        det.appendChild(tab);
+        det.appendChild(el('p', 'ce-detail', pq.methode));
+        c.appendChild(det);
+      }
       cible.appendChild(c);
     } else if (v.allegee && v.allegee.bandeau) {
       cible.appendChild(el('div', 'bandeau-allegee', v.allegee.bandeau));
+    } else if (v.serieDeMoins) {
+      // 189 — « Pendant ta sèche : une série de moins par exercice… » et son geste, qui l'arrête.
+      var bm = el('div', 'bandeau-allegee bandeau-moins');
+      bm.appendChild(doc.createTextNode(v.serieDeMoins.bandeau + ' '));
+      var rev = el('button', 'discret ce-revenir', v.serieDeMoins.libelle);
+      rev.type = 'button';
+      rev.addEventListener('click', function () { v.surRevenir(); });
+      bm.appendChild(rev);
+      cible.appendChild(bm);
     } else if (v.refus) {
       cible.appendChild(el('div', 'bandeau-allegee refus', v.refus));
     }

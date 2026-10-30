@@ -1694,7 +1694,60 @@
                boutons: [bouton('Oui, c’est un record', 'garder', true), bouton('Non, ne compte pas', 'hors_calcul')] };
     }
 
+    // ── 189 (MOTEUR §14.11) — LA MATIÈRE DE « TES SÉRIES BAISSENT » ──────────────────────────────────────────────────
+    //
+    // L'entrée de `Moteur.baisseGenerale` : les séances (leur début), et, par exercice chargé, ses séances du dernier an avec
+    // leurs séries, les jours « J'ai mal » (`sets.douleur`), les jours où sa zone a changé et ceux où un bloc a posé la sienne
+    // (les lignes de zone en vigueur, `o.zones`), et les pesées. Un fait : rien n'est jugé ici, la règle est au moteur.
+    // `o` : `{ jour, nom(slug), zones: lignes de zones_exercice, periodesAllegees, pesees }`.
+    var JOURS_DE_LA_FATIGUE = 366;
+    function entreeFatigue(c, o) {
+      var opt = o || {};
+      var J = Moteur.jourCivil(opt.jour);
+      var debuts = (c.seances || []).filter(function (s) { return s && s.debut; }).map(function (s) { return s.debut; });
+      var sortie = { jour: J, seances: debuts, periodesAllegees: opt.periodesAllegees || [], exercices: [], pesees: opt.pesees || [] };
+      if (!J) return sortie;
+      var plancher = Moteur.jourCivil(new Date(Date.parse(J + 'T12:00:00') - JOURS_DE_LA_FATIGUE * 86400000));
+      var parSlug = {};
+      (c.seances || []).forEach(function (s) {
+        var jr = s && s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
+        if (!jr || jr < plancher || jr > J) return;
+        var vues = {};
+        (c.seriesDe(s.id) || []).forEach(function (x) {
+          if (!x || !x.exercise_slug) return;
+          var e = parSlug[x.exercise_slug] || (parSlug[x.exercise_slug] = { slug: x.exercise_slug, seances: [], douleurs: [] });
+          var g = vues[x.exercise_slug];
+          if (!g) { g = vues[x.exercise_slug] = { jour: jr, series: [] }; e.seances.push(g); }
+          g.series.push({ charge_kg: x.charge_kg, reps: x.reps, rpe: x.rpe, ressenti: x.ressenti, type_serie: x.type_serie,
+                          hors_calcul: x.hors_calcul === true });
+          if (x.douleur === true && e.douleurs.indexOf(jr) < 0) e.douleurs.push(jr);
+        });
+      });
+      // Les jours de changement de zone, par exercice : une ligne dont la zone diffère de la précédente (la première compte).
+      var lignes = (opt.zones || []).filter(function (l) { return l && l.exercise_slug && l.corrigee_a; })
+        .sort(function (a, b) { return Date.parse(a.corrigee_a) - Date.parse(b.corrigee_a); });
+      var derniere = {};
+      lignes.forEach(function (l) {
+        var e = parSlug[l.exercise_slug];
+        var z = l.zone || null, avant = Object.prototype.hasOwnProperty.call(derniere, l.exercise_slug) ? derniere[l.exercise_slug] : undefined;
+        derniere[l.exercise_slug] = z;
+        if (!e || z === avant) return;
+        var jr = Moteur.jourCivil(new Date(l.corrigee_a));
+        var cle = l.origine === 'bloc' ? 'blocs' : 'zones';
+        (e[cle] = e[cle] || []).push(jr);
+      });
+      Object.keys(parSlug).forEach(function (slug) {
+        var e = parSlug[slug];
+        e.nom = typeof opt.nom === 'function' ? opt.nom(slug) : slug;
+        e.zones = e.zones || [];
+        e.blocs = e.blocs || [];
+        sortie.exercices.push(e);
+      });
+      return sortie;
+    }
+
     return {
+      entreeFatigue: entreeFatigue,
       entreeDuBilan: entreeDuBilan,
       tempsALaSalle: tempsALaSalle,
       bilanDePeriode: bilanDePeriode,

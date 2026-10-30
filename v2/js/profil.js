@@ -415,7 +415,7 @@
   // en Entretenir : la phase est un fait sur l'utilisateur, pas un réglage du
   // moteur de charge. Choisir écrit `phase`, `phase_depuis` ET `phase_confirmee_le` (maintenant).
   // `maintenant` : l'horloge, passée pour les tests.
-  function sectionPhase(profil, ecrire, maintenant) {
+  function sectionPhase(profil, ecrire, maintenant, note) {
     var p = profil || {};
     var valeur = PHASES_EN_BASE.indexOf(p.phase) >= 0 ? p.phase : 'inconnue';
     return {
@@ -436,7 +436,8 @@
         }
       },
       // Une phase vide ne dit pas « depuis » : elle dit ce que le coach en fait.
-      pied: PHASES_EN_BASE.indexOf(p.phase) >= 0 ? depuisPhase(p) : LIBELLE_PHASE_VIDE
+      // 189 — la fin d'une « série de moins » se dit ici : « Tes séries reviennent à ta routine. »
+      pied: (PHASES_EN_BASE.indexOf(p.phase) >= 0 ? depuisPhase(p) : LIBELLE_PHASE_VIDE) + (note ? ' ' + note : '')
     };
   }
 

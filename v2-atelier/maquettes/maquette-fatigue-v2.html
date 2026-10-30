@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fatigue v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--fond:#0A0C10;--panneau:#171C25;--panneau-2:#222A37;--trait:#2B3442;--texte:#F2F4F7;--texte-2:#A9B3C1;--texte-3:#8C97A6;--accent:#FFB938;--sur-accent:#1A1200;--donnees:#6AA8FF;--manque:#FF7B72}
+*{box-sizing:border-box}
+body{margin:0;background:#05070a;color:var(--texte);font-family:"Barlow",system-ui,sans-serif;padding:24px 16px;display:flex;flex-wrap:wrap;gap:28px;justify-content:center}
+.col{max-width:380px;width:100%}
+.leg{font-size:13px;color:var(--texte-2);margin:0 0 10px;line-height:1.4}.leg b{color:var(--texte)}
+.tel{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:18px 14px 20px}
+h2{font-family:"Barlow Condensed",sans-serif;font-size:24px;margin:0 0 10px}
+.carte{background:var(--panneau);border-radius:14px;padding:12px;margin-bottom:10px;border-left:3px solid var(--accent)}
+.titre{font-weight:700;font-size:16px;margin-bottom:6px}
+.fait{font-size:15px;line-height:1.45}
+.repere{font-size:13px;color:var(--texte-3);margin-top:8px;line-height:1.4}
+.prop{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.btn{border-radius:10px;padding:10px 13px;font-size:14px;font-weight:600;background:var(--panneau-2);min-height:44px;display:inline-flex;align-items:center}
+.btn.p{background:var(--accent);color:var(--sur-accent)}
+.tab{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+.tab td{padding:6px 0;border-bottom:1px solid var(--trait)}.tab td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+.bas{color:var(--manque)}
+.bandeau{background:#2a2110;border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.4;margin-bottom:10px}
+.exo{background:var(--panneau);border-radius:14px;padding:12px;margin-bottom:10px}
+.nom{font-weight:700;font-size:17px}.consigne{color:var(--accent);font-weight:600;margin:3px 0}
+.gris{color:var(--texte-2);font-size:14px}
+.notes{max-width:380px;font-size:14px;color:var(--texte-2);line-height:1.5}.notes h3{color:var(--texte);font-size:15px;margin:14px 0 6px}.notes li{margin-bottom:6px}.notes b{color:var(--texte)}
+</style>
+</head>
+<body>
+
+<div class="col">
+  <p class="leg"><b>1 — La carte, en tête de la séance</b><br>Le nouveau déclencheur : tes séries baissent sur plusieurs exercices depuis 3 semaines. La même carte que le blocage généralisé d'aujourd'hui, jamais deux.</p>
+  <div class="tel">
+    <div class="carte">
+      <div class="titre">Tes séries baissent depuis 3 semaines</div>
+      <div class="fait">Squat, couché, rowing et 2 autres exercices sont plus bas que les 3 semaines d'avant : −6 % en moyenne, à réserve égale.</div>
+      <div class="repere">Quand plusieurs exercices baissent ensemble, c'est souvent de la fatigue. Je te propose une semaine allégée : mêmes exercices, mêmes charges, 60 % des séries, 2 reps de moins, pendant 7 jours. Rien ne monte.</div>
+      <div class="prop"><span class="btn p">Alléger 7 jours</span><span class="btn">Non merci</span></div>
+      <div class="repere"><u>Pourquoi ?</u></div>
+    </div>
+  </div>
+</div>
+
+<div class="col">
+  <p class="leg"><b>2 — Le « Pourquoi », au toucher</b><br>Chaque chiffre a son origine. La réserve notée entre dans le calcul : lever le pied volontairement n'est pas de la fatigue.</p>
+  <div class="tel">
+    <h2>Pourquoi cette carte</h2>
+    <table class="tab">
+      <tr><td style="color:#8C97A6">Ta série type, estimée</td><td style="color:#8C97A6">3 sem. d'avant</td><td style="color:#8C97A6">3 dernières</td></tr>
+      <tr><td>Squat</td><td>158 kg</td><td class="bas">148 kg</td></tr>
+      <tr><td>Développé couché</td><td>112 kg</td><td class="bas">106 kg</td></tr>
+      <tr><td>Rowing barre</td><td>98 kg</td><td class="bas">93 kg</td></tr>
+      <tr><td>Développé militaire</td><td>66 kg</td><td class="bas">62 kg</td></tr>
+      <tr><td>Hip thrust</td><td>170 kg</td><td class="bas">160 kg</td></tr>
+      <tr><td style="color:#8C97A6">Stables ou en hausse</td><td colspan="2" style="color:#8C97A6">4 exercices sur 9</td></tr>
+      <tr><td style="color:#8C97A6">Pas comptés</td><td colspan="2" style="color:#8C97A6">leg curl (« J'ai mal »), curl (zone changée)</td></tr>
+    </table>
+    <div class="repere">Pour chaque exercice, je prends la meilleure série de chaque séance (de 1 à 12 reps), puis la valeur du milieu sur 3 semaines : une séance de moins ne fait pas baisser le chiffre. Ta réserve compte quand tu l'as notée : 100 kg × 7 avec 3 en réserve vaut 10 reps. Il faut au moins 2 séances de l'exercice de chaque côté. Une semaine sans séance ne compte pas. Je ne repropose pas avant 4 semaines.</div>
+  </div>
+</div>
+
+<div class="col">
+  <p class="leg"><b>3 — En sèche, un choix de plus</b><br>Le fait est dit tel quel, sans excuse ni alarme. La sèche ouvre une 3ᵉ réponse : garder un peu moins de volume pendant toute la sèche.</p>
+  <div class="tel">
+    <div class="carte">
+      <div class="titre">Tes séries baissent depuis 3 semaines</div>
+      <div class="fait">Squat, couché, rowing et 2 autres exercices sont plus bas que les 3 semaines d'avant : −6 % en moyenne, à réserve égale. Pendant ce temps, ton poids est passé de 84,2 à 82,6 kg.</div>
+      <div class="repere">Quand plusieurs exercices baissent ensemble, c'est souvent de la fatigue, et une sèche en ajoute. Deux façons d'y répondre :</div>
+      <div class="prop"><span class="btn p">Alléger 7 jours</span><span class="btn">Une série de moins jusqu'à la fin de ta sèche</span><span class="btn">Non merci</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="col">
+  <p class="leg"><b>4 — « Une série de moins pendant ta sèche », acceptée</b><br>Une décision qui dure se montre à chaque séance et s'annule. Jamais sous 2 séries, aucun grand mouvement touché en dessous de 2.</p>
+  <div class="tel">
+    <div class="bandeau">Pendant ta sèche : une série de moins par exercice (jamais sous 2). Les charges suivent leur cours. <u>Revenir à mes séries</u></div>
+    <div class="exo">
+      <div class="nom">Squat</div>
+      <div class="consigne">130 kg × 5</div>
+      <div class="gris">3 séries au lieu de 4, pendant ta sèche</div>
+    </div>
+    <div class="exo">
+      <div class="nom">Leg curl assis</div>
+      <div class="consigne">45 kg × 10</div>
+      <div class="gris">2 séries, comme ta routine</div>
+    </div>
+    <div class="repere" style="padding:0 4px">Quand tu quittes la sèche (Profil → Ta phase), je te le rappelle : « Tes séries reviennent à ta routine. »</div>
+  </div>
+</div>
+
+<div class="notes">
+  <h3>Les règles derrière (à valider)</h3>
+  <ul>
+    <li><b>Deux déclencheurs, une seule carte.</b> Le blocage généralisé d'aujourd'hui (au moins 3 exercices à 4 séances sans progrès, §14) reste. S'y ajoute la baisse générale : sur les 3 dernières semaines d'entraînement contre les 3 d'avant, au moins 4 exercices suivis baissent de plus de 5 %, et ils forment au moins 40 % des exercices suivis. Si les deux se déclenchent, une seule carte.</li>
+    <li><b>La mesure</b> (corrigée en v2, casquette du statisticien). Par exercice : la meilleure série de chaque séance, estimée (1 à 12 reps), puis la <b>valeur du milieu</b> de chaque fenêtre de 3 semaines, jamais le maximum (un maximum baisse tout seul quand il y a moins de séances). Au moins 2 séances de l'exercice dans chaque fenêtre. Exclus : chauffes, séries de test et hors calcul, séances allégées, semaines sans séance, les 3 semaines qui suivent une coupure (§9.9), <b>un exercice dont la zone a changé</b> entre les deux fenêtres (l'estimation se biaise d'une zone à l'autre, §14 mesure) ou <b>qui a changé de bloc</b> dans un programme à cycles (casquette du coach de force), et <b>un exercice marqué « J'ai mal »</b> dans la fenêtre : une douleur n'est pas de la fatigue, elle a son propre chemin (§9.20, casquette du kiné). Pourquoi 5 % : la variation d'un jour à l'autre est de 2 à 4 % ; 5 % tenus 3 semaines sur 40 % des exercices n'est plus du bruit.</li>
+    <li><b>La réserve, quand elle est notée</b> (avis de Gemini, Zourdos 2016, Helms 2018) : les reps comptent avec la réserve (100 kg × 7 avec 3 en réserve = 10). Sans réserve notée : la règle brute.</li>
+    <li><b>Une fois par épisode</b> : après une carte (acceptée ou non), aucune carte de fatigue pendant 4 semaines, quel que soit le déclencheur. Mesure attendue : 2 à 3 cartes par an chez un avancé, aucune pour la plupart (à rejouer sur les 5 historiques avant le code).</li>
+    <li><b>La semaine allégée ne change pas</b> (décidée le 25/09) : mêmes charges, 60 % des séries, 2 reps de moins, rien ne monte. Je n'adopte pas la baisse de charge de 5 à 10 % (Bell 2023 la cite aussi) : garder l'intensité garde la force (Spiering 2021).</li>
+    <li><b>En sèche</b>, une 3ᵉ réponse : une série de moins par exercice jusqu'à la fin de la sèche, jamais sous 2, une priorité jamais touchée. Tant qu'elle dure, <b>aucune « série de plus »</b> de l'escalier (§14.6) : le coach ne se contredit pas. Le pari se vérifie à 3 semaines, comme la semaine allégée ; s'il est perdu, la carte peut revenir après la réfractarité, avec la semaine allégée. Le volume réduit d'un tiers garde la masse maigre quand l'intensité reste (Bickel 2011, Spiering 2021). Le poids se dit seulement s'il y a au moins une pesée dans chaque fenêtre ; aucune excuse : en sèche, le déficit freine surtout la prise de muscle, pas la force (Murphy et Koehler 2022).</li>
+    <li><b>Le réglage ne change rien ici</b> : la fatigue est de la sécurité, elle parle pareil pour tous. <b>Juste un carnet</b> : pas de carte ; le constat reste lisible dans le Parcours.</li>
+    <li><b>Chaque carte est un pari</b> (comme aujourd'hui) : acceptée, il dit « tes séries reviennent au niveau d'avant dans les 3 semaines qui suivent » ; observé 1 ou 0. Refusée, il s'écrit, jamais observé.</li>
+  </ul>
+</div>
+
+</body>
+</html>

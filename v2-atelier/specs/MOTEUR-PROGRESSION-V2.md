@@ -2492,6 +2492,24 @@ Pourquoi : les méta-analyses ne montrent pas plus de croissance qu'en séries c
 
 Au poids du corps, une personne qui ne gagne pas de rep n'avait aucune sortie : le compteur ne comptait pas l'état `etirement_reps` (30 séances sur 30, compteur 0). Il le compte désormais. **À 4 séances sans progrès (PAS_ESCALIER, puis 8, 12…), la carte de la marche d'en dessous** : « Poids du corps × N depuis K séances. », l'exercice du dessous nommé (`Modele.marcheDEnDessous`, la même échelle que §9.17 bis), deux séries de cet exercice insérées avant l'exercice, qui reste. Ni troisième mécanisme ni nouvelle carte : c'est une marche des cartes de l'escalier (I21 : une marche par exercice), décidée dans `planDeSeance` (`marcheDuDessous`), lue par l'écran. Un refus se retient comme les autres paris de l'escalier. **I70** : la marche d'en dessous ne vient qu'à un exercice au poids du corps (palier 0, `etirement_reps`), à un compteur d'au moins 4 (multiple du pas quand elle se déclenche), avec un exercice du dessous que la carte cible, sans mot de réserve ni d'échec.
 
+### 14.11 La fatigue sur plusieurs semaines — 30/10/2026, décision d'Aurélien (189) (I77)
+
+Maquette : `v2-atelier/maquettes/maquette-fatigue-v2.html` (« ok v2 »), lecture de Gemini du 29/10/2026.
+
+**Un second déclencheur de la MÊME carte** (jamais deux cartes) : « baisse générale », évalué à l'ouverture de la séance. Les 3 dernières semaines actives contre les 3 d'avant ; par exercice, la **valeur du milieu** (jamais le maximum) de la meilleure série estimée de chaque séance (1 à 12 reps, Epley, réserve ajoutée quand elle est notée). Compté à partir de 2 séances par fenêtre. Exclus : échauffements, séries `test` et `hors_calcul`, séances allégées, exercices dont la zone a changé, exercices qui ont changé de bloc dans un programme à cycles, exercices marqués « J'ai mal » dans les 6 semaines, toute évaluation dont les 6 semaines contiennent une coupure (§9.9) ou dont les 3 semaines d'avant en contiennent une. Déclenche si au moins **4** exercices baissent de plus de **5 %** ET qu'ils sont au moins **40 %** des suivis. Les deux déclencheurs le même jour : une carte, le texte de la baisse.
+
+**Une fois par épisode** : 4 semaines sans carte de fatigue après n'importe laquelle (acceptée ou refusée, l'un ou l'autre déclencheur, lue dans les paris `module='escalier'`). Aucune pendant une semaine allégée ni pendant la « série de moins ».
+
+**La carte** : jusqu'à 3 noms puis « et N autres exercices », « −6 % en moyenne, à réserve égale ». Le « Pourquoi » : le tableau, les exercices stables, ceux qui ne comptent pas (avec la raison), la phrase de méthode. En sèche, le poids n'est dit qu'avec une pesée par fenêtre, sans excuse. Le réglage ne change rien. « Juste un carnet » : aucune carte, le constat se lit au Parcours.
+
+**La 3e réponse, en sèche** : « Une série de moins jusqu'à la fin de ta sèche ». Séries moins 1 par exercice, jamais sous 2, une priorité jamais touchée ; lue dans la structure vivante de la séance, rien n'est écrit à la routine ; les charges suivent leur cours ; aucune série de plus tant qu'elle dure ; un bandeau à chaque séance avec « Revenir à mes séries ». Elle s'arrête quand la phase quitte la sèche (« Tes séries reviennent à ta routine. »). Elle vit dans `profiles.cartes_semaine.fatigue_seche` (`{ r: 'oui', le, depuis }`) : aucune colonne nouvelle.
+
+**Le pari** : « tes séries reviennent au niveau d'avant dans les 3 semaines » (valeur du milieu de la fenêtre suivante ≥ 98 % de celle d'avant la baisse, sur les exercices cités), observé 1 ou 0 ; refusé, écrit, jamais observé.
+
+**I77** : une série de moins ne descend jamais sous 2, ne touche pas une priorité, n'est jamais accompagnée d'une série de plus ; aucune carte de fatigue dans les 4 semaines d'une autre ; une carte de baisse cite au moins 4 exercices ; la 3e réponse n'existe qu'en sèche.
+
+Code : `moteur.js` (`baisseGenerale`, `baisseAutorisee`, `observationBaisse`, `consigneSerieDeMoins`), `faits.js` (`entreeFatigue`), `plan.js` (`escalierDuPlan`, `verifierFatigue`). Mesure : `tests/unit/v2-fatigue-189-mesure.test.js`.
+
 ## 15. Forme et constantes
 
 Rôle du modèle : **proposer une charge de départ** quand la double progression n'a pas de séance précédente à lire — premier passage, reprise après interruption, changement de matériel. Ce n'est pas le cœur du moteur, c'est son filet.

@@ -454,6 +454,12 @@ describe('§14.11 — une série de moins jusqu\'à la fin de ta sèche', () => 
     e.escalier.compteurs = [{ exercice: 'couche', jour: jourN(6 * 7 - 3), compteur: 4, seance: 'X1' }];
     e.consignes.couche.compteur.compteur = 4;
     e.volume = null;
+    // Une série de plus ACCEPTÉE avant la décision : sans la série de moins elle s'appliquerait (le témoin), avec elle non.
+    e.escalier.marches = [{ exercice: 'couche', marche: 'serie_de_plus', reponse: 'acceptee', jour: jourN(6 * 7 - 3),
+      debut: jourN(6 * 7 - 3) + 'T10:00:00+02:00', compteur: 4, n: 4 }];
+    const temoin = JSON.parse(JSON.stringify(e));
+    temoin.escalier.serieDeMoins = { active: false };
+    expect(T.planDeSeance(temoin).exercices[0].consigne.serieDePlus).toBeDefined();
     const p = T.planDeSeance(e);
     expect(p.exercices[0].consigne.serieDePlus).toBeUndefined();
     expect(p.exercices[0].escalier && p.exercices[0].escalier.marche).not.toBe('serie_de_plus');

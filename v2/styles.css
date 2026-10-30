@@ -1096,7 +1096,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .records-fin-l{display:flex;flex-direction:column;gap:2px;padding-left:26px;font-size:13.5px;color:var(--texte-2)}
 /* MOTEUR §9.15 (49-U10) — les chauffes et la dégressive : la voix du coach, en
    retrait (elles ne comptent pas), et la proposition de chauffes à accepter. */
-.reaction-serie.chauffe,.reaction-serie.degressive{color:var(--texte-2);font-weight:500}
+.reaction-serie.chauffe,.reaction-serie.degressive,.reaction-serie.recul{color:var(--texte-2);font-weight:500}
 /* La proposition d'exercice (49-U10, généralisée en 49-U15) : les chauffes,
    la carte de schéma. */
 .proposition-exercice{margin:6px 0 4px;padding:8px 10px;border:1px dashed var(--trait);border-radius:8px}

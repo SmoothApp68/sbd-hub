@@ -3511,13 +3511,15 @@
   // changement d'exercice (delta 51-1 ter).
   function dureeExercice(e) {
     var D = DUREE_PAR_DEFAUT;
-    var ch = compteDe(e.ch), tr = compteDe(e.tr), deg = compteDe(e.deg);
-    if (ch + tr + deg === 0) return 0;
+    var ch = compteDe(e.ch), tr = compteDe(e.tr), deg = compteDe(e.deg), rec = compteDe(e.rec);
+    if (ch + tr + deg + rec === 0) return 0;
     var repos = e.repos === null || e.repos === undefined ? null : Number(e.repos);
     var t = D.changement;
     if (enDuree(e)) return t + (Number(e.duree) || 0) * tr + (repos || 0) * Math.max(0, tr - 1);
     if (ch > 0) t += ch * D.serie + (ch - 1) * REPOS_ENTRE_CHAUFFES + REPOS_APRES_CHAUFFES;
     t += tr * (D.serie + (repos === null ? D.reposSuperset : repos));
+    // 193-1 — une série de recul se fait et se repose comme une série de travail (le repos de l'exercice).
+    t += rec * (D.serie + (repos === null ? D.reposSuperset : repos));
     t += deg * D.degressive;
     return t;
   }
@@ -3531,7 +3533,7 @@
     return (structure || []).map(function (e) {
       return { slug: e.slug, mesure: e.mesure === undefined ? null : e.mesure,
                repos: e.repos === undefined ? null : e.repos,
-               ch: compteDe(e.ch), tr: compteDe(e.tr), deg: compteDe(e.deg),
+               ch: compteDe(e.ch), tr: compteDe(e.tr), deg: compteDe(e.deg), rec: compteDe(e.rec),
                duree: e.duree === undefined ? null : e.duree,
                prim: musclesDe(e.prim), sec: musclesDe(e.sec), stab: musclesDe(e.stab),
                equipement: e.equipement === undefined ? null : e.equipement,
@@ -3570,9 +3572,9 @@
 
     // 1. le cardio de fin (sans muscle, après le premier rang) : mis à part.
     r.forEach(function (e, i) {
-      if (i === 0 || aDesMuscles(e) || e.ch + e.tr + e.deg === 0 || intouchable(e)) return;
+      if (i === 0 || aDesMuscles(e) || e.ch + e.tr + e.deg + e.rec === 0 || intouchable(e)) return;
       journal.push({ quoi: 'cardio_fin', i: i, slug: e.slug });
-      e.ch = 0; e.tr = 0; e.deg = 0; e.duree = 0;
+      e.ch = 0; e.tr = 0; e.deg = 0; e.rec = 0; e.duree = 0;
     });
     if (tient()) return fin();
 
@@ -3590,6 +3592,17 @@
       while (r[k].deg > 0 && !tient()) {
         r[k].deg--;
         journal.push({ quoi: 'degressive', i: k, slug: r[k].slug });
+      }
+      if (tient()) return fin();
+    }
+
+    // 3 bis. 193-1 — les séries de recul, juste après les dégressives et AVANT toute grosse série : une de moins par exercice, dans
+    // l'ordre de la séance, jamais la dernière (le recul le plus léger de la séance reste ; on ne les retire pas tous d'office).
+    for (var kr = 0; kr < r.length; kr++) {
+      if (intouchable(r[kr])) continue;
+      while (r[kr].rec > 1 && !tient()) {
+        r[kr].rec--;
+        journal.push({ quoi: 'recul', i: kr, slug: r[kr].slug });
       }
       if (tient()) return fin();
     }
@@ -3659,7 +3672,7 @@
       if (tient()) return fin();
       var retire = -1, cleR = null;
       r.forEach(function (e, i) {
-        if (i === premier || !e.prim.length || e.ch + e.tr + e.deg === 0 || !libre(e) || estPolyarticulaire(e)) return;
+        if (i === premier || !e.prim.length || e.ch + e.tr + e.deg + e.rec === 0 || !libre(e) || estPolyarticulaire(e)) return;
         var couvert = e.prim.every(function (m) {
           return r.some(function (f, j) { return j !== i && f.tr > 0 && f.prim.indexOf(m) >= 0; });
         });
@@ -3668,7 +3681,7 @@
         if (avantDans(c, cleR)) { retire = i; cleR = c; }
       });
       if (retire < 0) break;
-      r[retire].ch = 0; r[retire].tr = 0; r[retire].deg = 0;
+      r[retire].ch = 0; r[retire].tr = 0; r[retire].deg = 0; r[retire].rec = 0;
       journal.push({ quoi: 'retire', i: retire, slug: r[retire].slug });
     }
     return fin();
@@ -3694,7 +3707,7 @@
       var d = null;
       series.forEach(function (s) { if (d === null && s && s.duree_s !== null && s.duree_s !== undefined) d = Number(s.duree_s); });
       return { slug: e.exercise_slug, mesure: cat.mesure || null, repos: repos,
-               ch: nb('echauffement'), tr: nb('travail') + nb('echec'), deg: nb('degressive'),
+               ch: nb('echauffement'), tr: nb('travail') + nb('echec'), deg: nb('degressive'), rec: nb('recul'),
                duree: d, prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [],
                stab: cat.muscles_stabilisateurs || [], equipement: cat.equipement || null,
                groupe: g === undefined ? null : g };
@@ -3727,9 +3740,9 @@
     ((routine && routine.exercices) || []).forEach(function (e, i) {
       var x = r[i];
       if (!x) { exercices.push(e); return; }
-      if (x.ch + x.tr + x.deg === 0) { if (e.id !== undefined && e.id !== null) retires.push(e.id); return; }
-      var garde = { echauffement: x.ch, travail: x.tr, echec: 0, degressive: x.deg };
-      var vus = { echauffement: 0, travail: 0, echec: 0, degressive: 0 };
+      if (x.ch + x.tr + x.deg + compteDe(x.rec) === 0) { if (e.id !== undefined && e.id !== null) retires.push(e.id); return; }
+      var garde = { echauffement: x.ch, travail: x.tr, echec: 0, degressive: x.deg, recul: compteDe(x.rec) };
+      var vus = { echauffement: 0, travail: 0, echec: 0, degressive: 0, recul: 0 };
       var series = (e.series || []).filter(function (s) {
         var t = Modele().typeDe(s);
         if (t === 'echec') t = 'travail';
@@ -3772,8 +3785,8 @@
     (avant || []).forEach(function (a, i) {
       var b = apres[i];
       if (!b) return;
-      var ta = compteDe(a.tr), ca = compteDe(a.ch), da = compteDe(a.deg);
-      if (ta + ca + da > 0 && b.ch + b.tr + b.deg === 0) {
+      var ta = compteDe(a.tr), ca = compteDe(a.ch), da = compteDe(a.deg), ra = compteDe(a.rec);
+      if (ta + ca + da + ra > 0 && b.ch + b.tr + b.deg + compteDe(b.rec) === 0) {
         lignes.push(aDesMuscles(a) ? nom(a.slug) + ' : retiré, ses muscles sont déjà travaillés'
                                    : nom(a.slug) + ' : mis à part pour aujourd’hui');
         return;
@@ -3795,6 +3808,11 @@
         lignes.push(nom(a.slug) + ' : en superset avec ' + nom(suivant ? suivant.slug : a.slug));
       }
       if (da > 0 && b.deg < da) lignes.push(nom(a.slug) + ' : sans dégressive');
+      // 193-1 — « Squat : 3 → 2 reculs » : un recul de moins, dit.
+      if (ra > compteDe(b.rec) && compteDe(b.rec) > 0) {
+        lignes.push(nom(a.slug) + ' : ' + nombreFr(ra, regle('series.avant')) + ' → ' + nombreFr(compteDe(b.rec), regle('series.apres')) +
+          (compteDe(b.rec) > 1 ? ' reculs' : ' recul'));
+      }
     });
     var tient = !!(resultat && resultat.tient);
     var court = resultat ? resultat.duree_s : 0;

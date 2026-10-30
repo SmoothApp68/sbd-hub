@@ -2022,6 +2022,8 @@
       (x.lignes || []).filter(function (l) {
         if (l.validee) return false;
         if (l.role === 'hors' && l.type === 'travail') return true;
+        // 193-1 — la semaine allégée retire aussi les reculs non validés : sans grosse série pleine, pas de séries de recul.
+        if (semaine && l.type === 'recul') return true;
         return alleger && l.type === 'degressive';
       }).map(function (l) { return l.iSerie; }).sort(function (a, b) { return b - a; })
         .forEach(function (i) { sortie.push({ iExo: x.iExo, iSerie: i }); });

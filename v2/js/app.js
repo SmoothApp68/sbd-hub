@@ -4250,7 +4250,7 @@
       var retiresSlugs = [];
       (routine.exercices || []).forEach(function (e, i) {
         var x = raccourci.resultat.exercices[i];
-        if (x && x.ch + x.tr + x.deg === 0 && e && e.exercise_slug) retiresSlugs.push(e.exercise_slug);
+        if (x && x.ch + x.tr + x.deg + (x.rec || 0) === 0 && e && e.exercise_slug) retiresSlugs.push(e.exercise_slug);
       });
       seance = Seance.noterGeste(seance, { geste: 'raccourci', retires: retiresSlugs });
     }
@@ -6187,7 +6187,7 @@
 
   function nombreDeSeriesDeTravail(slug) {
     var exo = ((seance && seance.exercices) || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
-    return exo ? (exo.series || []).filter(function (s) { return Modele.estTravail(s); }).length : 0;
+    return exo ? (exo.series || []).filter(function (s) { return Modele.estTravail(s) && !Modele.estRecul(s); }).length : 0;
   }
 
   // §14.4 (consolidation 4/7, décision du 02/10/2026) — UN REMPLACEMENT
@@ -7710,7 +7710,9 @@
   function constatPour(slug, iExo) {
     if (!seance || occurrenceLibre(iExo) || !blocFini(slug)) return null;
     var x = planDuSlug(slug);
-    return x && x.constat ? x.constat : null;
+    if (!x || !x.constat) return null;
+    // 193-1 — « Tes reculs tiennent 6-6-6. » : une ligne de plus sous le constat, du plan.
+    return x.reculs && x.reculs.constat ? Object.assign({}, x.constat, { reculs: x.reculs.constat }) : x.constat;
   }
 
   // Taper dans un champ ne redessine pas la séance — le champ perdrait le
@@ -8880,6 +8882,10 @@
     var x = planDeLExercice(iExo);
     if (x && x.chauffes && x.chauffes.phrase && x.chauffes.iSerie === iSerie) {
       return { message: { type: 'chauffe', phrase: x.chauffes.phrase }, proposee: false, fourchette: null };
+    }
+    // 193-1 (MOTEUR §9.28) — la phrase des reculs, au-dessus du premier recul tant qu'il reste un recul à faire ; du plan.
+    if (x && x.reculs && x.reculs.phrase && x.reculs.iSerie === iSerie && x.lignes && x.lignes[iSerie] && !x.lignes[iSerie].validee) {
+      return { message: { type: 'recul', phrase: x.reculs.phrase }, proposee: false, fourchette: null };
     }
     // 151 (MOTEUR §9.15.3) — la chaîne des baisses : la première, puis la seconde (« 2ᵉ baisse »), puis les lignes en trop.
     var chaineDeg = x ? (x.degressive ? [x.degressive] : []).concat(x.degressivesPlus || []) : [];
@@ -11914,7 +11920,8 @@
   function chargeDeDepartDe(slug) {
     var exo = ((seance && seance.exercices) || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
     if (!exo) return null;
-    var travail = (exo.series || []).filter(function (x) { return Modele.estTravail(x); });
+    // 193-1 — un recul n'est pas un départ : sa charge suit la grosse série, qui n'existe pas encore.
+    var travail = (exo.series || []).filter(function (x) { return Modele.estTravail(x) && !Modele.estRecul(x); });
     // 180 (A-F-09, D4) — AU POIDS DU CORPS, le départ est fait des reps de la routine (pas de charge) : la première série de
     // travail qui les porte, sur un exercice jamais fait.
     var cat = catalogueIndexe()[slug];

@@ -820,7 +820,8 @@
     var i = indexDuSlug(exercices, slug);
     if (i < 0) return null;
     var series = exercices[i].series, dernier = -1;
-    for (var j = 0; j < series.length; j++) if (M.estTravail(series[j])) dernier = j;
+    // 193-1 — la série de plus est une grosse série : elle suit la dernière série de travail qui n'est pas un recul, et la copie.
+    for (var j = 0; j < series.length; j++) if (M.estTravail(series[j]) && !M.estRecul(series[j])) dernier = j;
     if (dernier < 0) return null;
     series.splice(dernier + 1, 0, Object.assign({}, series[dernier], { id: null }));
     return renumeroter(exercices);

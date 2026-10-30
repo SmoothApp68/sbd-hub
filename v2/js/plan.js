@@ -593,7 +593,8 @@
     // dernière série de travail. Sa référence : cette série, faite (sa charge
     // et ses reps) ou à faire (la charge et la visée de sa ligne).
     var derniere = -1;
-    lignes.forEach(function (l, i) { if (l.type === 'travail') derniere = i; });
+    // 193-1 — la référence de la dégressive : la dernière série de travail OU de recul (la dernière faite ou proposée).
+    lignes.forEach(function (l, i) { if (l.type === 'travail' || l.type === 'recul') derniere = i; });
     if (derniere < 0) return sortie;
     var deg = null, suivantes = [];
     for (var i = derniere + 1; i < lignes.length; i++) {
@@ -761,7 +762,8 @@
     var travail = [], faites = [], porteuse = null, prochain = null;
     series.forEach(function (sr, j) {
       var chauffe = S.typeDe(sr) === 'echauffement';
-      var tr = racine.THModele.estTravail(sr);
+      // 193-1 — un recul n'est pas une série de travail du calage (il suit une grosse série qui n'existe pas encore).
+      var tr = racine.THModele.estTravail(sr) && !racine.THModele.estRecul(sr);
       if (!chauffe && !tr) return;
       if (tr) travail.push(j);
       if (S.partEnBase(sr)) faites.push({ j: j, chauffe: chauffe });
@@ -837,7 +839,104 @@
     return { grand: true, stagne: true, chutes: chutes.slice(0, M.SEANCES_DE_CHUTE), reposS: reposS, phrase: cap.texte };
   }
 
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege, moins) {
+  // ── 193-1 (MOTEUR §9.28) — LES SÉRIES DE RECUL ─────────────────────────────
+  //
+  // Une ligne de recul (`type === 'recul'`, rôle `hors`) n'est jamais couverte par la consigne : sa charge est celle de la GROSSE
+  // série du jour (la plus lourde série de travail de l'exercice, faite ou proposée), moins un écart — lu sur la dernière séance de
+  // l'exercice qui avait des reculs (`prec`, `Seance.precedentAReculs`), 10 % sans elle — arrondi au cran le plus proche (vers le
+  // bas à égalité). Elle gagne : `recul: { charge, ecart, vise, phrase }` ; non validée et remplie, son fantôme (`source: 'recul'`) ;
+  // et un pari (rôle `recul`, rang `r1`, `r2`… — jamais un rang de la couverture : I1, I7, I78). Sans grosse série, la ligne reste
+  // vide et dit pourquoi. Jamais une proposition écrite dans une série.
+  //
+  // `prec` : `{ series, routine_id?, cible? }` — `cible` : les reps visées d'un recul DE LA SÉANCE D'ALORS (la routine d'alors, quand
+  // l'app la retrouve) ; sans elle, celles d'aujourd'hui (une approximation : la routine a pu changer entre-temps).
+  function reculsDuPlan(lignes, series, consigne, materiel, prec, o) {
+    var sortie = { reculs: null, paris: {}, citations: {} };
+    var rec = (lignes || []).filter(function (l) { return l.type === 'recul'; });
+    if (!rec.length) return sortie;
+    var M = Moteur(), V = Voix();
+    var liste = series || [];
+    var grosse = null;
+    (lignes || []).forEach(function (l) {
+      if (l.type !== 'travail') return;
+      var sr = liste[l.iSerie] || {};
+      var kg;
+      if (l.validee) kg = nombre(sr.charge_kg);
+      else {
+        kg = l.fantome ? nombre(l.fantome.charge) : nombre(l.charge);
+        if (kg === null) kg = nombre(sr.charge_kg);
+      }
+      if (kg !== null && kg > 0 && (grosse === null || kg > grosse)) grosse = kg;
+    });
+    var viseDe = function (l) {
+      var v = nombre((liste[l.iSerie] || {}).reps_visees);
+      return v === null || v < 1 ? null : v;
+    };
+    var aujourdhui = null;
+    rec.forEach(function (l) { if (aujourdhui === null) aujourdhui = viseDe(l); });
+    var cible = prec && nombre(prec.cible) !== null ? nombre(prec.cible) : aujourdhui;
+    var lu = M.ecartDeRecul(prec || null, cible);
+    var cran = materiel ? materiel.pas : undefined;
+    var salle = (materiel && materiel.salle) || (consigne && consigne.salle) || null;
+    var capR = V.capturer(function () {
+      return M.reculDe({ grosse: grosse, ecart: lu.ecart, cran: cran, salle: salle, reps: aujourdhui });
+    });
+    var d = capR.texte;
+    var pourquoi = null, citesP = [];
+    // La phrase s'écrit sous capture (I26) : un recul rempli la dit, un recul vide dit pourquoi.
+    var capF = V.capturer(function () {
+      return d.charge !== null ? M.phraseRecul(d.charge, d.ecart) : d.phrase;
+    });
+    var phrase = capF.texte;
+    if (d.charge !== null) {
+      var capQ = V.capturer(function () {
+        return M.pourquoiRecul({ grosse: grosse, charge: d.charge, ecart: d.ecart, depart: lu.depart, sens: lu.sens, reel: lu.reel,
+                                 reps: lu.reps, cible: lu.cible });
+      });
+      pourquoi = capQ.texte;
+      citesP = capQ.citations;
+    }
+    var fait = [], k = 0;
+    rec.forEach(function (l) {
+      k += 1;
+      var vise = viseDe(l);
+      l.recul = { charge: d.charge, ecart: d.ecart, vise: vise, phrase: d.charge === null ? d.phrase : null, rang: 'r' + k };
+      if (d.charge !== null && !l.validee) l.fantome = { charge: d.charge, reps: null, source: 'recul' };
+      if (l.validee) {
+        var f = liste[l.iSerie] || {};
+        if (nombre(f.reps) !== null) fait.push(nombre(f.reps));
+      }
+      // Le pari : la visée de la ligne, à la charge qu'elle proposait. Sans visée ni charge, rien à parier.
+      if (d.charge !== null && vise !== null && consigne && consigne.etat !== 'silence') {
+        var fondement = {
+          rang: 'r' + k, charge: d.charge, etat: consigne.etat, zone: consigne.zone === undefined ? null : consigne.zone,
+          reglage: o.reglage === undefined ? null : o.reglage, palier: consigne.palier === undefined ? null : consigne.palier,
+          niveau: consigne.niveau === undefined ? null : consigne.niveau, seance: o.seance === undefined ? null : o.seance,
+          role: 'recul', grosse: grosse, ecart: d.ecart
+        };
+        if (o.phase !== undefined) fondement.phase = o.phase;
+        if (o.objectif !== undefined) fondement.objectif = o.objectif;
+        if (o.occurrence) fondement.occurrence = o.occurrence;
+        sortie.paris[l.iSerie] = { module: 'moteur.consigne', exercise_slug: o.slug === undefined ? null : o.slug, grandeur: 'reps',
+                                   valeur_predite: vise, borne_basse: null, borne_haute: null, fondement: fondement };
+      }
+    });
+    var constat = null, citesC = [];
+    if (fait.length && d.charge !== null) {
+      var capC = V.capturer(function () { return M.phraseConstatReculs(fait, cible); });
+      constat = capC.texte;
+      citesC = capC.citations;
+    }
+    sortie.reculs = {
+      iSerie: rec[0].iSerie, lignes: rec.map(function (l) { return l.iSerie; }), grosse: grosse, charge: d.charge, ecart: d.ecart,
+      depart: lu.depart, sens: lu.sens, reel: lu.reel, reps: lu.reps, cible: lu.cible === null ? cible : lu.cible,
+      vise: aujourdhui, phrase: phrase, pourquoi: pourquoi, constat: constat, faites: fait
+    };
+    sortie.citations = { phrase: capF.citations, pourquoi: citesP, constat: citesC };
+    return sortie;
+  }
+
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege, moins, reculPrec) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -987,11 +1086,19 @@
       citesAlleger = capAl.citations;
     }
     var donc = jauneDonc.length ? 'Donc ' + jauneDonc.join(', ') + '.' : null;
+    // 193-1 — les reculs : leur charge, leur fantôme et leur pari (jamais un rang de la couverture). AVANT la dégressive, qui
+    // se cale sur la dernière série de travail OU de recul.
+    var rec = reculsDuPlan(r.lignes, series, consigne, materiel || null, reculPrec || null, {
+      slug: base.slug, seance: seanceId === undefined ? null : seanceId, reglage: reglage === undefined ? null : reglage,
+      phase: phase, objectif: objectif, occurrence: base.occurrence || undefined
+    });
+    Object.keys(rec.paris).forEach(function (i) { r.paris[Number(i)] = rec.paris[i]; });
     var autour = chauffesEtDegressive(r.lignes, series, consigne, materiel || null);
     var capP = V.capturer(function () { return pourquoiDuPlan(consigne, r.lignes, donc); });
     var pourquoi = capP.texte;
     var note = noteDesChauffes(autour.chauffes);
     if (pourquoi && note) pourquoi.chauffes = note;
+    if (pourquoi && rec.reculs && rec.reculs.pourquoi) pourquoi.recul = rec.reculs.pourquoi;
     // §12.9 (49-U13) — le compteur de stagnation, calculé avec la consigne
     // figée (`consigneDExercice`) ; sa phrase, à 4 séances ou plus, s'écrit en
     // gris dans l'en-tête et en une ligne de la feuille « Pourquoi ».
@@ -1078,6 +1185,11 @@
     if (autour.proposition) dire('proposition', autour.proposition.phrase, autour.citations.proposition || []);
     if (autour.degressive) dire('degressive', autour.degressive.phrase, autour.citations.degressive || []);
     (autour.degressivesPlus || []).forEach(function (q) { if (q.phrase) dire('degressive', q.phrase, q.citations || []); });
+    if (rec.reculs) {
+      dire('recul', rec.reculs.phrase, rec.citations.phrase || []);
+      if (rec.reculs.pourquoi) dire('pourquoi.recul', rec.reculs.pourquoi, rec.citations.pourquoi || []);
+      if (rec.reculs.constat) dire('constat.reculs', rec.reculs.constat, rec.citations.constat || []);
+    }
     if (marche && marche.carte) dire('escalier.carte', marche.carte.phrase, citationsDeCarte(marche.carte));
 
     // 163 (MOTEUR §10.2 bis) — UNE CHARGE JAMAIS FAITE SE DIT APPROCHÉE : le plan porte la phrase (par matériel) ;
@@ -1127,6 +1239,8 @@
       salle: materiel ? materiel.salle || null : (c.salle || null),
       chauffes: autour.chauffes, proposition: autour.proposition, degressive: autour.degressive,
       degressivesPlus: autour.degressivesPlus || null,
+      // 193-1 — les séries de recul, ou `null` : I78 la relit.
+      reculs: rec.reculs,
       phrases: phrases
     };
   }
@@ -1164,6 +1278,10 @@
       if (f && f.source === 'chauffe') {
         p.charge_kg = f.charge === undefined ? null : f.charge;
         // §9.15.5 (94) — sans reps à la routine, celles de la règle.
+        if (f.reps !== null && f.reps !== undefined) p.reps = f.reps;
+      } else if (f && f.source === 'recul') {
+        // 193-1 — la charge du recul ; ses reps, celles de la routine ou de la fois d'avant (la cascade), jamais une visée du coach.
+        p.charge_kg = f.charge === undefined ? null : f.charge;
         if (f.reps !== null && f.reps !== undefined) p.reps = f.reps;
       } else if (f && f.source === 'degressive') {
         p.charge_kg = f.charge === undefined ? null : f.charge;
@@ -1206,7 +1324,7 @@
     var v = Number(c ? c.n : null);
     if (c && isFinite(v) && v >= 1 && Math.floor(v) === v) return v;
     var faites = prec && prec.series
-      ? prec.series.filter(function (s) { return Voix().estTravail(s); }).length : 0;
+      ? prec.series.filter(function (s) { return Voix().estTravail(s) && !racine.THModele.estRecul(s); }).length : 0;
     if (faites >= 1) return faites;
     return intention === 'entretien' ? SERIES_DEPART_ENTRETIEN : SERIES_DEPART_PROGRESSER;
   }
@@ -1475,7 +1593,8 @@
           Seance().exerciceFini(seance, slug),
           precedentPourLeMoteur(Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null, salleEl),
           objectif, Object.prototype.hasOwnProperty.call(alleges, slug) ? alleges[slug] : null,
-          coachee && Object.prototype.hasOwnProperty.call(moins, slug) ? moins[slug] : null);
+          coachee && Object.prototype.hasOwnProperty.call(moins, slug) ? moins[slug] : null,
+          e.reculs && Object.prototype.hasOwnProperty.call(e.reculs, slug) ? e.reculs[slug] : null);
         if (x.escalier && x.escalier.copie) x.escalier = null;
         // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
@@ -1806,7 +1925,8 @@
   function derniereSerieDeTravail(exo) {
     var series = (exo && exo.series) || [];
     for (var j = series.length - 1; j >= 0; j--) {
-      if (racine.THModele.estTravail(series[j])) return j;
+      // 193-1 — la question d'effort se pose sur la grosse série, pas sur un recul.
+      if (racine.THModele.estTravail(series[j]) && !racine.THModele.estRecul(series[j])) return j;
     }
     return null;
   }
@@ -2872,6 +2992,57 @@
     });
   }
 
+  // I78 (193-1, MOTEUR §9.28) — LES SÉRIES DE RECUL. Une ligne de recul n'est jamais couverte (rôle `hors`, I1) et ne vote nulle
+  // part : sa charge est celle de la grosse série du jour moins un écart borné (5 à 20 %), strictement sous elle ; son fantôme, la
+  // charge du recul ; son pari, un seul par recul, de rôle `recul` et de rang `r1`, `r2`… (jamais un rang de la couverture).
+  function verifierReculs(x, err) {
+    var lignes = x.lignes || [];
+    var rec = lignes.filter(function (l) { return l.type === 'recul'; });
+    rec.forEach(function (l) {
+      if (l.role !== 'hors') err('I78', 'série ' + l.iSerie + ' : un recul couvert (rôle ' + l.role + ')');
+      if (l.figee) err('I78', 'série ' + l.iSerie + ' : un recul figé comme une ligne de la consigne');
+      var q = x.paris && x.paris[l.iSerie];
+      if (q && (q.fondement.role !== 'recul' || typeof q.fondement.rang !== 'string')) {
+        err('I78', 'série ' + l.iSerie + ' : le pari d\u2019un recul doit dire « recul » et porter un rang texte (' + q.fondement.role + ', ' + q.fondement.rang + ')');
+      }
+    });
+    var R = x.reculs;
+    if (!R) {
+      rec.forEach(function (l) { if (l.fantome) err('I78', 'série ' + l.iSerie + ' : un fantôme de recul sans plan de reculs'); });
+      return;
+    }
+    var g = nombre(R.grosse), c = nombre(R.charge), e = nombre(R.ecart);
+    if (c !== null) {
+      if (g === null || !(c > 0) || !(c < g)) err('I78', 'le recul à ' + c + ' kg n\u2019est pas sous la grosse série (' + g + ' kg)');
+      if (e === null || e < 0.05 - 1e-9 || e > 0.2 + 1e-9) err('I78', 'l\u2019écart des reculs (' + e + ') sort des bornes 5 à 20 %');
+      rec.forEach(function (l) {
+        if (l.validee) return;
+        if (!l.fantome || l.fantome.source !== 'recul' || !memeChargeOuVides(l.fantome.charge, c)) {
+          err('I78', 'série ' + l.iSerie + ' : le fantôme du recul n\u2019est pas la charge du plan (' + c + ' kg)');
+        }
+      });
+    } else {
+      rec.forEach(function (l) {
+        if (l.fantome) err('I78', 'série ' + l.iSerie + ' : un fantôme de recul alors que le plan n\u2019a pas de charge à proposer');
+      });
+    }
+  }
+
+  // Les paris d'un recul écrits (la séance) : un seul par rang, observé sur une série de recul validée.
+  function verifierParisDeRecul(x, err, parisRecul) {
+    var vus = {};
+    (parisRecul || []).forEach(function (q) {
+      var r = String(q.fondement.rang);
+      if (!/^r[0-9]+$/.test(r)) err('I78', 'un pari de recul au rang « ' + r + ' » : le rang d\u2019un recul est « r1 », « r2 »…');
+      var cle = r + '|' + (Number(q.fondement.revision) || 0);
+      if (vus[cle]) err('I78', 'deux paris de recul pour le rang ' + r);
+      vus[cle] = true;
+      if (!q.set_observe) return;
+      var l = (x.lignes || []).filter(function (c) { return c.id === q.set_observe; })[0];
+      if (!l || !l.validee || l.type !== 'recul') err('I78', 'un pari de recul (rang ' + r + ') est observé sur une série qui n\u2019est pas un recul validé');
+    });
+  }
+
   // `avantX` (facultatif) : le même exercice dans le plan d'avant (I7, G2).
   function verifierExercice(x, erreurs, parisSeance, avantX) {
     var nom = 'exercice ' + x.iExo + ' (' + x.slug + ')';
@@ -2884,9 +3055,11 @@
       if (l.role !== 'hors' && l.type !== 'travail') err('I1', 'série ' + l.iSerie + ' couverte mais de type ' + l.type);
       // Une ligne hors couverture (chauffe, dégressive, échec) n'a jamais de
       // pari (§9.15.4).
-      if (l.role === 'hors' && x.paris && x.paris[l.iSerie]) err('I1', 'série ' + l.iSerie + ' hors couverture, avec un pari');
+      // 193-1 — la SEULE ligne hors couverture qui parie est le recul (rang `r1`…, rôle `recul` : I78).
+      if (l.role === 'hors' && l.type !== 'recul' && x.paris && x.paris[l.iSerie]) err('I1', 'série ' + l.iSerie + ' hors couverture, avec un pari');
     });
     verifierAutour(x, err);
+    verifierReculs(x, err);
     // I27 (relevé du 01/10/2026, PR 2) — LA SUITE DU CONSTAT EST CALCULÉE AVEC
     // LA ZONE EN VIGUEUR : la zone choisie de la consigne suivante est celle de
     // la consigne du jour (ou aucune des deux). Une suite gardée en cache après
@@ -3228,8 +3401,12 @@
         return !!avantX && !!l.id && valideeAvant[l.id] === false;
       };
       var siens = parisSeance.filter(function (q) {
-        return q && q.exercise_slug === x.slug && q.fondement;
+        return q && q.exercise_slug === x.slug && q.fondement && q.fondement.role !== 'recul';
       });
+      // 193-1 — I7 amendé : le pari d'un recul (rôle `recul`, rang `r1`…) n'est pas un pari de la couverture ; I78 le relit.
+      verifierParisDeRecul(x, err, parisSeance.filter(function (q) {
+        return q && q.exercise_slug === x.slug && q.fondement && q.fondement.role === 'recul';
+      }));
       var revisionsI7 = racine.THMoteur.revisionsDuPlan(cour);
       couvertes.forEach(function (l) {
         if (!l.validee) return;
@@ -4119,7 +4296,9 @@
                           'regle|degressive.vise': true, 'regle|degressive': true, 'regle|degressive.enleve': true, 'fait_passe|seance': true, 'regle|constante': true,
                           // Les nombres de séries de chaque segment (PR 7) : « sur les 2
                           // dernières » et « sur les 3 d'avant » disent deux segments.
-                          'regle|series': true };
+                          'regle|series': true,
+                          // 193-1 — l'écart d'aujourd'hui et l'écart d'avant ; les reps de la fois d'avant, de la cible, du jour.
+                          'regle|recul.ecart': true, 'regle|recul.reps': true };
 
   function texteDuChiffre(v) {
     return v === null || v === undefined ? String(v) : (typeof v === 'number' ? Voix().nombre(v) || String(v) : String(v));
@@ -4360,7 +4539,13 @@
       'cran.vers': f.cranGros ? { charge: f.cranGros.vers } : null,
       'cran.pct': f.cranGros ? { valeur: f.cranGros.pct } : null,
       'cran.reps': f.cranGros ? { valeur: f.cranGros.reps } : null,
-      'cran.plancher': f.cranGros ? { valeur: f.cranGros.plancher } : null
+      'cran.plancher': f.cranGros ? { valeur: f.cranGros.plancher } : null,
+      // 193-1 (§9.28) — les reculs : la charge du recul, la grosse série, l'écart (d'aujourd'hui et d'avant, en %), les reps.
+      recul: x.reculs && x.reculs.charge !== null && x.reculs.charge !== undefined ? { charge: x.reculs.charge } : null,
+      'recul.grosse': x.reculs && x.reculs.grosse !== null ? { charge: x.reculs.grosse } : null,
+      'recul.ecart': x.reculs ? { valeurs: [x.reculs.ecart, x.reculs.reel].filter(function (v) { return nombre(v) !== null; })
+        .map(function (v) { return Math.round(v * 1000) / 10; }) } : null,
+      'recul.reps': x.reculs ? { valeurs: (x.reculs.reps || []).concat(x.reculs.faites || [], [x.reculs.cible]).filter(function (v) { return nombre(v) !== null; }) } : null
     };
     var msg = x.reaction && x.reaction.message;
     return { lignes: lignes, jour: jour, fait: fait, regle: regle, suite: suite,

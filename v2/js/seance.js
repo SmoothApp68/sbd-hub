@@ -2118,6 +2118,27 @@
     return null;
   }
 
+  // 193-1 (MOTEUR §9.28) — LA DERNIÈRE SÉANCE DE L'EXERCICE QUI AVAIT DES RECULS (l'écart des reculs se lit dessus) : même forme que
+  // `precedent`, plus le `routine_id` de la séance (les reps visées de la routine d'alors, quand l'app la retrouve). `null` sans elle.
+  function precedentAReculs(slug, seances, seriesDe, saufId) {
+    for (var i = 0; i < (seances || []).length; i++) {
+      var s = seances[i];
+      if (!s || s.id === saufId) continue;
+      var series = (seriesDe(s.id) || [])
+        .filter(function (x) { return x && x.exercise_slug === slug; })
+        .sort(function (a, b) { return (a.rang || 0) - (b.rang || 0); });
+      if (series.some(function (x) { return racine.THModele.estRecul(x); })) {
+        return {
+          seance: s, routine_id: s.routine_id || null,
+          series: series.map(function (x) {
+            return { charge_kg: x.charge_kg, reps: x.reps, type_serie: x.type_serie, hors_calcul: x.hors_calcul === true };
+          })
+        };
+      }
+    }
+    return null;
+  }
+
   // Ce qui s'affiche en gris dans un champ vide. DEUX sources, toutes deux
   // FACTUELLES — rien n'est prédit ici, le moteur parlera au chantier 5 :
   //
@@ -2365,7 +2386,9 @@
     if (!consigne || !consigne.n) return sortie;
     var gel = figees || {};
     var travail = [];
-    liste.forEach(function (s, i) { if (estTravail(s)) travail.push(i); });
+    // 193-1 (MOTEUR §9.28) — LA SÉRIE DE RECUL N'EST PAS COUVERTE : sa charge suit la grosse série du jour (`THPlan`, étape des reculs),
+    // jamais la ligne ou le test de la consigne. Elle reste une série de travail pour tout le reste (`estTravail`).
+    liste.forEach(function (s, i) { if (estTravail(s) && !racine.THModele.estRecul(s)) travail.push(i); });
     var figeeDe = function (i) {
       var s = liste[i];
       return s && s.id && partEnBase(s) && gel[s.id] ? gel[s.id] : null;
@@ -2773,7 +2796,7 @@
     // à la barre il la laisse vide (« Pas de dégressive à la barre »). Le
     // curl EZ du 01/10 reprenait les 15 kg de la fois d'avant là où le plan ne
     // plaçait pas la dégressive.
-    if (charge === null && ligne && typeDe(propre) !== 'degressive') charge = ligne.charge_kg;
+    if (charge === null && ligne && typeDe(propre) !== 'degressive' && typeDe(propre) !== 'recul') charge = ligne.charge_kg;
     // §7 quindecies.3 (52-1) — « jamais fait » : aucune séance de l'historique
     // ne porte cet exercice (`prec` nul). Déjà fait, la charge de départ se tait,
     // même sans séance au même rang : c'est le coach qui décide.
@@ -3123,6 +3146,7 @@
     idsRetires: idsRetires,
     semerIdentifiants: semerIdentifiants,
     toutesLesSeries: toutesLesSeries,
+    precedentAReculs: precedentAReculs,
     compter: compter,
     rempliesNonValidees: rempliesNonValidees,
     remettreSerie: remettreSerie,

@@ -85,6 +85,12 @@ const GARDEES = [
   { fn: 'situationChauffe', module: 'moteur.js' },
   { fn: 'chauffesDe', module: 'moteur.js' },
   { fn: 'degressiveDe', module: 'moteur.js' },
+  // moteur.js — les séries de recul (193-1, §9.28)
+  { fn: 'reculDe', module: 'moteur.js' },
+  { fn: 'ecartDeRecul', module: 'moteur.js' },
+  { fn: 'phraseRecul', module: 'moteur.js' },
+  { fn: 'pourquoiRecul', module: 'moteur.js' },
+  { fn: 'phraseConstatReculs', module: 'moteur.js' },
   // moteur.js — la chute de fin de séance (§9.2 bis, 49-U12)
   { fn: 'chuteDe', module: 'moteur.js' },
   // moteur.js — le compteur de stagnation (§12.9, 49-U13)
@@ -104,6 +110,7 @@ const GARDEES = [
   { fn: 'carteAutorisee', module: 'moteur.js' },
   { fn: 'observationSemaineAllegee', module: 'moteur.js' },
   { fn: 'idDEscalier', module: 'moteur.js' },
+  { fn: 'idDeRecul', module: 'moteur.js' },
   // 69 — l'identifiant d'une séance importée et de ses séries (ECRAN-PROFIL §2.4 quater)
   { fn: 'idDImport', module: 'moteur.js' },
   // moteur.js — l'escalier, le blocage isolé (§14.5, 49-U15)
@@ -327,6 +334,10 @@ const AUTORISATIONS = {
     'app.js': 'l’identifiant déterministe du pari de l’escalier au moment de l’écrire en base : ' +
       'de la persistance, la carte (ou la marche isolée, 49-U15) vient du plan (app.js, ' +
       '`repondreCarte`, `repondreSchema`, `ecrireReplis`).'
+  },
+  idDeRecul: {
+    'app.js': 'l’identifiant déterministe du pari d’une série de recul au moment de l’écrire en base : de la ' +
+      'persistance, le pari vient du plan (193-1, app.js, `finirPari`).'
   },
   observationMarche: {
     'app.js': 'l’observation SANS SÉRIE du pari d’une marche isolée (schéma accepté, repli), au ' +

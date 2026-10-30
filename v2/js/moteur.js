@@ -5143,6 +5143,13 @@
     return uuidDuNom('escalier|' + String(seance) + '|' + (exercice ? String(exercice) : '') + '|' + String(marche));
   }
 
+  // 193-1 (MOTEUR §9.28) — L'IDENTIFIANT DU PARI D'UNE SÉRIE DE RECUL, dans un espace de noms à part, sur le modèle de l'escalier :
+  // `recul|séance|exercice|rang|occurrence` (le rang est un texte, « r1 »…). Un nom de consigne commence par l'identifiant de la
+  // séance : les deux ne peuvent jamais se rencontrer.
+  async function idDeRecul(seance, exercice, rang, occurrence) {
+    return uuidDuNom('recul|' + String(seance) + '|' + String(exercice) + '|' + String(rang) + (occurrence ? '|o=' + String(occurrence) : ''));
+  }
+
   // 109 (MOTEUR §9.25) — L'IDENTIFIANT DU PARI D'UN OBJECTIF, dans un espace de noms à part :
   // `objectif|exercice|instant de la pose` (l'instant ISO tel que posé, pas le jour : deux objectifs posés le même
   // jour sur un exercice sont deux paris). Un nom de consigne commence par une séance, un nom d'escalier par
@@ -9799,6 +9806,47 @@
     return { charge: charge, ecart: ecart, vise: nombre(e.reps), phrase: null };
   }
 
+  // Les PHRASES du recul (VOIX-DU-COACH : un fait, « tu », jamais un « bravo »). Chaque chiffre est cité (I26) : la charge, l'écart
+  // en % et les reps ont chacun leur source dans le plan (`regle|recul`, `recul.ecart`, `recul.reps`).
+  function pctDeRecul(ecart) { return Math.round(ecart * 1000) / 10; }
+  function phraseRecul(charge, ecart) {
+    return 'Recul' + DEUX_POINTS + enKg(charge, regle('recul')) + ', ' + nombreFr(pctDeRecul(ecart), regle('recul.ecart')) +
+      INSECABLE + '% sous ta grosse série.';
+  }
+  // « puis 135 kg × 6 » : la suite de la consigne du jour, à côté de la grosse série.
+  function puisRecul(charge, vise) {
+    return 'puis ' + (nombre(vise) === null ? enKg(charge, regle('recul')) : chargeFois(charge, vise, regle('recul')));
+  }
+  function repsDeRecul(reps) {
+    return reps.map(function (r) { return nombreFr(r, regle('recul.reps')); });
+  }
+  function listeDeRecul(reps) {
+    var t = repsDeRecul(reps);
+    return t.length < 2 ? t.join('') : t.slice(0, -1).join(', ') + ' et ' + t[t.length - 1];
+  }
+  // Le paragraphe du « Pourquoi ». `f` : `{ grosse, charge, ecart, depart, sens, reel, reps, cible }`.
+  function pourquoiRecul(f) {
+    var t = 'Tes séries de recul suivent ta grosse série' + DEUX_POINTS + nombreFr(pctDeRecul(f.ecart), regle('recul.ecart')) + INSECABLE +
+      '% en dessous de ' + enKg(f.grosse, regle('recul.grosse')) + ', arrondi au cran le plus proche de ton matériel, ' +
+      enKg(f.charge, regle('recul')) + '. Elles comptent dans ton volume et tes records, jamais comme un test.';
+    if (f.sens && f.reps && f.reps.length) {
+      t += ' La dernière fois, tes séries de recul ont fait ' + listeDeRecul(f.reps) + ' pour une cible de ' + nombreFr(f.cible, regle('recul.reps')) + '. ' +
+        (f.sens === 'rapproche'
+          ? 'Je les rapproche' + DEUX_POINTS + nombreFr(pctDeRecul(f.ecart), regle('recul.ecart')) + INSECABLE + '% sous ta grosse série au lieu de ' +
+            nombreFr(pctDeRecul(f.reel), regle('recul.ecart')) + INSECABLE + '%.'
+          : 'Je les éloigne' + DEUX_POINTS + nombreFr(pctDeRecul(f.ecart), regle('recul.ecart')) + INSECABLE + '% sous ta grosse série au lieu de ' +
+            nombreFr(pctDeRecul(f.reel), regle('recul.ecart')) + INSECABLE + '%.');
+    }
+    return t;
+  }
+  // Le constat : un fait. `cible` peut manquer (pas de routine, pas de dernière fois).
+  function phraseConstatReculs(reps, cible) {
+    var c = nombre(cible);
+    var tiennent = c !== null && reps.every(function (r) { return r >= c; });
+    if (tiennent) return 'Tes reculs tiennent ' + repsDeRecul(reps).join('-') + '.';
+    return 'Tes reculs' + DEUX_POINTS + listeDeRecul(reps) + (c !== null ? ' pour une cible de ' + nombreFr(c, regle('recul.reps')) : '') + '.';
+  }
+
   var api = {
     // §10 bis (108) — le matériel de la salle.
     SALLE_BARRES: SALLE_BARRES,
@@ -10009,6 +10057,10 @@
     reculDe: reculDe,
     ecartDeRecul: ecartDeRecul,
     cranLePlusProche: cranLePlusProche,
+    phraseRecul: phraseRecul,
+    puisRecul: puisRecul,
+    pourquoiRecul: pourquoiRecul,
+    phraseConstatReculs: phraseConstatReculs,
     RECUL_ECART_DEPART: RECUL_ECART_DEPART,
     FENETRE_HABITUDE: FENETRE_HABITUDE,
     FENETRE_COUPLE: FENETRE_COUPLE,
@@ -10114,6 +10166,7 @@
     REPORT_FENETRE_JOURS: REPORT_FENETRE_JOURS,
     idDePrediction: idDePrediction,
     idDEscalier: idDEscalier,
+    idDeRecul: idDeRecul,
     idDObjectif: idDObjectif,
     MODULE_OBJECTIF: MODULE_OBJECTIF,
     idDImport: idDImport,

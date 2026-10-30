@@ -7981,18 +7981,20 @@
   // Aucune charge n'est tirée du poids du corps, du sexe ou du type de machine. UNE fonction pure, lue par le plan
   // (`planDeSeance`, qui pose le résultat sur l'exercice : `x.calage`, I72 à I74) ; l'écran ne décide rien.
   //
-  //   · DÉBUTANT (`anciennete = moins_1_an`) — « On trouve ta charge · 3 séries de N » : la série 1 au plus petit cran du
-  //     matériel (la barre vide pour une barre) ; après chaque série, « Il t'en restait combien ? » décide de la suivante :
-  //     3 ou plus → +2 crans, 2 → +1 cran, 1 ou 0 → la charge reste ; sans réponse, elle reste aussi. Trois séries au plus,
-  //     et elles COMPTENT comme la séance (ce sont des séries de travail ordinaires, validées par la personne).
-  //   · INTERMÉDIAIRE ET PLUS — d'abord « Ta charge habituelle ? » (facultatif, pour ~N reps) : donnée, elle est la charge
-  //     de départ de la série 1. Sinon, 2 approches de 5 reps en montant, puis 1 série de N reps à 2 reps de réserve.
-  //   · LES SÉRIES SUIVANTES SONT PROPOSÉES (en gris), jamais écrites. La séance d'après repart de la série la plus lourde
-  //     réussie (`plusLourdeReussie`), lue par le coach ordinaire dès que l'historique existe.
+  //   · LE NOMBRE DE SÉRIES NE VIENT JAMAIS DU CALAGE : il vient de la séance vivante (routine, personne, coach), en plus ou en
+  //     moins. Le calage est de l'AUTORÉGULATION série par série : sur la première séance d'un exercice sans historique ni charge
+  //     de départ, chaque série de travail validée et sa réponse de réserve décident de la charge proposée (en gris) sur la
+  //     SUIVANTE : 3 ou plus → +2 crans, 2 → +1 cran, 1 ou 0 → la même, sans réponse → la même. Aucun compte de séries de calage.
+  //   · DÉBUTANT (`anciennete = moins_1_an`) : la première série de travail au plus petit cran du matériel (la barre vide).
+  //   · INTERMÉDIAIRE ET PLUS : d'abord « Ta charge habituelle ? » (facultatif, pour ~N reps) : donnée, elle est la charge de la
+  //     première série de travail. Sinon, 2 approches de 5 en montant, qui sont des CHAUFFES (mécanisme du chantier 49, aucune
+  //     série de travail prise), puis la première série de travail.
+  //   · LES SÉRIES SUIVANTES SONT PROPOSÉES (en gris), jamais écrites. La séance d'après repart de la série de travail la plus
+  //     lourde réussie (`plusLourdeReussie`), lue par le coach ordinaire dès que l'historique existe.
   //   · LE SAUT est plafonné comme au §9.1.2 (186) : +15 % (+10 % pour un débutant) de la charge de la série qu'on vient de
   //     faire. SEULE la première montée depuis le plus petit cran (la barre vide n'est pas une charge de travail) n'est pas
   //     comptée en pourcentage : deux crans au plus. Le plafond ne vise que les sauts de PLUSIEURS crans : un seul cran (le plus petit pas du matériel) reste toujours permis, la montée à deux crans est ramenée à ce qui tient sous le plafond, jamais sous un cran.
-  var CALAGE_SERIES = 3, CALAGE_REPS_DEFAUT = 10, CALAGE_REPS_APPROCHE = 5, CALAGE_APPROCHES = 2;
+  var CALAGE_REPS_DEFAUT = 10, CALAGE_REPS_APPROCHE = 5;
   var CALAGE_RESERVE = { reste_0: 0, reste_1: 1, reste_2: 2, reste_3_plus: 3 };
   var CALAGE_ROLE_CIBLE = 'cible', CALAGE_ROLE_APPROCHE = 'approche', CALAGE_ROLE_DEPART = 'depart',
       CALAGE_ROLE_MONTEE = 'montee', CALAGE_ROLE_HABITUELLE = 'habituelle';
@@ -8032,6 +8034,10 @@
     return { charge: c, crans: pris };
   }
 
+  // `entree` : { equipement, salle, mesure, reps (celles de la routine), debutant, habituelle, prochain: 'travail' | 'chauffe',
+  //   series: [{ charge, reps, ressenti, chauffe }] } — les séries DÉJÀ VALIDÉES de l'exercice, dans l'ordre. Le nombre de séries
+  // vient de la séance vivante (routine, personne, coach) : le calage n'en crée, n'en ajoute ni n'en retire jamais ; il propose
+  // la charge de la SUIVANTE. Autorégulation série par série (Helms 2016 ; Zourdos 2016) : la réserve de la série faite décide.
   function calagePremiereFois(entree) {
     var o = Object.assign({}, entree || {});
     var mesure = o.mesure === undefined || o.mesure === null ? 'charge_reps' : o.mesure;
@@ -8045,71 +8051,59 @@
     var k = faites.length;
     var debutant = o.debutant === true;
     var mode = debutant ? 'debutant' : hab !== null ? 'habituelle' : 'approches';
-    var r = { mode: mode, n: n, nSeries: CALAGE_SERIES, faites: k, plancher: o.plancher, equipement: o.equipement || null, plafond: plafondDuCalage(debutant),
-              habituelle: hab, suivante: null, termine: false, question: false };
-    var derniere = k ? faites[k - 1] : null;
-    var reserve = derniere && derniere.ressenti && Object.prototype.hasOwnProperty.call(CALAGE_RESERVE, derniere.ressenti)
-      ? CALAGE_RESERVE[derniere.ressenti] : null;
-    if (mode === 'habituelle') {
-      // La charge donnée est la série 1 ; ensuite le coach ordinaire (la fois d'après) et la saisie font foi.
-      r.termine = k >= 1;
-      if (k === 0) r.suivante = { charge: hab, reps: n, role: CALAGE_ROLE_HABITUELLE, pourquoi: 'habituelle' };
-      return r;
-    }
-    if (k >= CALAGE_SERIES) {
-      r.termine = true;
-      var reussies = faites.filter(function (s) { return nombre(s.reps) !== null && nombre(s.reps) >= n; });
-      var lourde = reussies.reduce(function (m, s) { return Math.max(m, nombre(s.charge)); }, 0);
-      r.plusLourdeReussie = lourde > 0 ? lourde : null;
-      return r;
-    }
-    r.question = k >= 1 && reserve === null;
-    var role, reps;
-    if (mode === 'approches') {
-      role = k < CALAGE_APPROCHES ? CALAGE_ROLE_APPROCHE : CALAGE_ROLE_CIBLE;
-      reps = k < CALAGE_APPROCHES ? CALAGE_REPS_APPROCHE : n;
-    } else {
-      role = k === 0 ? CALAGE_ROLE_DEPART : CALAGE_ROLE_MONTEE;
-      reps = n;
-    }
+    var chauffeProchaine = o.prochain === 'chauffe';
+    var r = { mode: mode, n: n, faites: k, plancher: o.plancher, equipement: o.equipement || null, plafond: plafondDuCalage(debutant),
+              habituelle: hab, suivante: null, question: false, plusLourdeReussie: null };
+    var travaillees = faites.filter(function (s) { return !s.chauffe; });
+    var reussies = travaillees.filter(function (s) { return nombre(s.reps) !== null && nombre(s.reps) >= n; });
+    var lourde = reussies.reduce(function (m, s) { return Math.max(m, nombre(s.charge)); }, 0);
+    r.plusLourdeReussie = lourde > 0 ? lourde : null;
+    var role = chauffeProchaine ? CALAGE_ROLE_APPROCHE : (k === 0 ? CALAGE_ROLE_DEPART : CALAGE_ROLE_MONTEE);
+    var reps = chauffeProchaine ? CALAGE_REPS_APPROCHE : n;
     if (k === 0) {
-      r.suivante = { charge: o.plancher, reps: reps, role: role, pourquoi: 'plancher' };
+      // La première série : la charge habituelle donnée (série de travail), sinon le plus petit cran du matériel.
+      if (hab !== null && !chauffeProchaine) r.suivante = { charge: hab, reps: reps, role: CALAGE_ROLE_HABITUELLE, pourquoi: 'habituelle' };
+      else r.suivante = { charge: o.plancher, reps: reps, role: role, pourquoi: 'plancher' };
       return r;
     }
+    var derniere = faites[k - 1];
     var charge = nombre(derniere.charge);
-    var crans = reserve === null ? 0 : reserve >= 3 ? 2 : reserve === 2 ? 1 : 0;
+    var reserve = derniere.ressenti && Object.prototype.hasOwnProperty.call(CALAGE_RESERVE, derniere.ressenti)
+      ? CALAGE_RESERVE[derniere.ressenti] : null;
+    r.question = !derniere.chauffe && reserve === null;
+    var crans, pourquoi;
+    if (derniere.chauffe) { crans = 2; pourquoi = 'en_montant'; }          // les approches montent ; leur réserve n'est pas demandée
+    else {
+      crans = reserve === null ? 0 : reserve >= 3 ? 2 : reserve === 2 ? 1 : 0;
+      pourquoi = reserve === null ? 'sans_reponse' : crans === 2 ? 'facile' : crans === 1 ? 'un_cran' : 'tenue';
+    }
     var mont = monteeDuCalage(o, charge, crans);
-    r.suivante = { charge: mont.charge, reps: reps, role: role,
-                   pourquoi: reserve === null ? 'sans_reponse' : crans === 2 ? 'facile' : crans === 1 ? 'un_cran' : 'tenue',
-                   crans: mont.crans, depuis: charge };
+    r.suivante = { charge: mont.charge, reps: reps, role: role, pourquoi: pourquoi, crans: mont.crans, depuis: charge };
     return r;
   }
 
-  // Les mots du calage (VOIX-DU-COACH : un fait, « tu », jamais un bravo).
+  // Les mots du calage (VOIX-DU-COACH : un fait, « tu », jamais un bravo). Aucun nombre de séries : la proposition suit ta réserve.
   function libellesCalage(c) {
     if (!c) return null;
     var n = c.n;
-    var titre = c.mode === 'approches' ? 'On trouve ta charge · 2 approches puis 1 série'
-      : 'On trouve ta charge · ' + CALAGE_SERIES + ' séries de ' + n;
-    if (c.mode === 'habituelle') {
+    if (c.mode === 'habituelle' && c.faites === 0) {
       return { titre: 'Ta charge habituelle', consigne: 'Je pars de là, et je m’ajuste à ce que tu fais.',
                question: 'Ta charge habituelle ?', pour: 'Pour ' + n + ' reps environ', passer: 'Je ne sais pas : on la trouve ensemble',
                pourquoi: null };
     }
     var consigne = c.mode === 'approches'
-      ? 'Deux séries courtes de ' + CALAGE_REPS_APPROCHE + ', en montant ; puis une série de ' + n + ' où il te reste 2 reps. Je te propose les suivantes à partir d’elle.'
+      ? 'Deux séries de chauffe de ' + CALAGE_REPS_APPROCHE + ', en montant ; puis, après chaque série, dis-moi ce qu’il te restait : je te propose la suivante.'
       : 'Après chaque série, dis-moi ce qu’il te restait : je te propose la suivante.';
     var s = c.suivante, pourquoi = null;
     if (s) {
       if (s.pourquoi === 'plancher') pourquoi = c.equipement === 'barre' ? 'Commence à la barre vide.' : 'Commence au plus petit cran.';
+      else if (s.pourquoi === 'en_montant') pourquoi = 'Je monte de deux crans.';
       else if (s.pourquoi === 'facile') pourquoi = 'Facile : je monte de deux crans.';
       else if (s.pourquoi === 'un_cran') pourquoi = 'Il t’en restait 2 : je monte d’un cran.';
       else if (s.pourquoi === 'tenue') pourquoi = 'Il t’en restait peu : je garde cette charge.';
       else if (s.pourquoi === 'sans_reponse') pourquoi = 'Sans ta réponse, je garde cette charge.';
-    } else if (c.termine) {
-      pourquoi = 'Trois séries : ta charge est trouvée. La prochaine fois, je pars de la plus lourde que tu as tenue.';
     }
-    return { titre: titre, consigne: consigne, question: 'Il t’en restait combien ?', pour: null, passer: null, pourquoi: pourquoi };
+    return { titre: 'On trouve ta charge', consigne: consigne, question: 'Il t’en restait combien ?', pour: null, passer: null, pourquoi: pourquoi };
   }
 
   // ══ §9.10 (53-1) — LE REPORT DE CHARGE AU CHANGEMENT DE ZONE ══════════════
@@ -9194,8 +9188,8 @@
     estPolyarticulaire: estPolyarticulaire,
     consigneDepartRoutine: consigneDepartRoutine,
     ZONE_SANS_LOURD: ZONE_SANS_LOURD, calagePremiereFois: calagePremiereFois, libellesCalage: libellesCalage, plancherDuCalage: plancherDuCalage,
-    plafondDuCalage: plafondDuCalage, CALAGE_SERIES: CALAGE_SERIES, CALAGE_REPS_DEFAUT: CALAGE_REPS_DEFAUT,
-    CALAGE_REPS_APPROCHE: CALAGE_REPS_APPROCHE, CALAGE_APPROCHES: CALAGE_APPROCHES,
+    plafondDuCalage: plafondDuCalage, CALAGE_REPS_DEFAUT: CALAGE_REPS_DEFAUT,
+    CALAGE_REPS_APPROCHE: CALAGE_REPS_APPROCHE,
     aDesMuscles: aDesMuscles,
     structureAllegee: structureAllegee,
     appliquerRaccourci: appliquerRaccourci,

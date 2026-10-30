@@ -756,10 +756,18 @@
     var cat = e.catalogue && slug && Object.prototype.hasOwnProperty.call(e.catalogue, slug) ? e.catalogue[slug] : null;
     if (!cat || !cat.equipement || (cat.mesure && cat.mesure !== 'charge_reps')) return null;
     var series = (exo && exo.series) || [];
-    var travail = [];
-    series.forEach(function (sr, j) { if (racine.THModele.estTravail(sr)) travail.push(j); });
+    // La structure VIVANTE de la séance : les séries de travail et les chauffes de l'exercice à cet instant (routine, personne
+    // ou coach, en plus ou en moins). Le calage n'en crée, n'en ajoute ni n'en retire aucune.
+    var travail = [], faites = [], porteuse = null, prochain = null;
+    series.forEach(function (sr, j) {
+      var chauffe = S.typeDe(sr) === 'echauffement';
+      var tr = racine.THModele.estTravail(sr);
+      if (!chauffe && !tr) return;
+      if (tr) travail.push(j);
+      if (S.partEnBase(sr)) faites.push({ j: j, chauffe: chauffe });
+      else if (porteuse === null) { porteuse = j; prochain = chauffe ? 'chauffe' : 'travail'; }
+    });
     if (!travail.length) return null;
-    var faites = travail.filter(function (j) { return S.partEnBase(series[j]); });
     var reps = null;
     travail.forEach(function (j) {
       var v = nombre(series[j].reps_visees);
@@ -772,19 +780,20 @@
     var habituelle = Object.prototype.hasOwnProperty.call(habs, slug) ? nombre(habs[slug]) : null;
     var r = M.calagePremiereFois({
       debutant: e.debutant === true, equipement: cat.equipement, salle: c.salle || null, mesure: cat.mesure || 'charge_reps',
-      reps: reps, habituelle: habituelle,
-      series: faites.map(function (j) {
-        return { charge: nombre(series[j].charge_kg), reps: nombre(series[j].reps), ressenti: series[j].ressenti || null };
+      reps: reps, habituelle: habituelle, prochain: prochain,
+      series: faites.map(function (f) {
+        var sr = series[f.j];
+        return { charge: nombre(sr.charge_kg), reps: nombre(sr.reps), ressenti: sr.ressenti || null, chauffe: f.chauffe };
       })
     });
     if (!r) return null;
+    // Rien à proposer quand toutes les lignes sont validées : la personne a la main, le calage se tait.
+    if (porteuse === null) { r.suivante = null; r.question = false; }
     r.libelles = M.libellesCalage(r);
-    // La ligne qui porte la proposition : la première série de travail non validée ; la série dont on demande la réserve :
-    // la dernière validée, quand la personne n'a pas encore répondu.
-    var porteuse = null;
-    travail.forEach(function (j) { if (porteuse === null && !S.partEnBase(series[j])) porteuse = j; });
+    // La ligne qui porte la proposition : la première ligne (chauffe ou travail) non validée ; la série dont on demande la
+    // réserve : la dernière validée, quand la personne n'a pas encore répondu.
     r.iSerie = r.suivante && porteuse !== null ? porteuse : null;
-    r.question = r.question && faites.length ? faites[faites.length - 1] : null;
+    r.question = r.question && faites.length ? faites[faites.length - 1].j : null;
     // « Ta charge habituelle ? » : posée d'abord à qui n'est pas débutant, tant qu'il n'a ni répondu ni dit « je ne sais pas »
     // (`habituelles[slug] = 0`). En attendant, rien n'est proposé : on ne devine pas.
     var declinee = Object.prototype.hasOwnProperty.call(habs, slug) && habs[slug] === 0;
@@ -4506,11 +4515,11 @@
       if (plan.intention === 'entretien' || x.intention === 'entretien') erreurs.push('I72' + nom + 'un calage en « Juste un carnet »');
       if (x.mesure && x.mesure !== 'charge_reps') erreurs.push('I72' + nom + 'un calage sur une mesure sans charge');
       if (c.fondement && c.fondement.departRoutine) erreurs.push('I72' + nom + 'un calage malgré une charge de départ');
-      if (k.faites > k.nSeries) erreurs.push('I73' + nom + k.faites + ' séries au-delà des ' + k.nSeries + ' du calage');
+      // Le nombre de séries vient de la séance vivante (routine, personne, coach) : I73 ne le compare jamais à un nombre fixe ; le
+      // calage ne crée, n'ajoute ni ne retire aucune série.
       var s = k.suivante;
       if (s) {
-        if (k.faites >= k.nSeries) erreurs.push('I73' + nom + 'une proposition après la dernière série du calage');
-        if (k.mode === 'debutant' && s.reps !== k.n) erreurs.push('I73' + nom + 'des reps proposées différentes des ' + k.n + ' du calage');
+        if (s.role !== 'approche' && s.reps !== k.n) erreurs.push('I73' + nom + 'des reps proposées différentes des ' + k.n + ' de la routine');
         if (s.depuis !== undefined && s.depuis !== null) {
           if (!(s.charge >= s.depuis - 1e-9)) erreurs.push('I73' + nom + 'une proposition plus légère que la série d’avant');
           var surLePlancher = s.depuis <= k.plancher + 1e-9;

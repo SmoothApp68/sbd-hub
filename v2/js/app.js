@@ -4841,7 +4841,7 @@
     return Object.keys(sortie).length ? sortie : null;
   }
 
-  // 187 (MOTEUR §9.21 bis) — « Ta charge habituelle ? » : ce que l'écran en lit sur le plan, et les deux gestes.
+  // 187 (MOTEUR §9.21) — « Ta charge habituelle ? » : ce que l'écran en lit sur le plan, et les deux gestes.
   function habituelleDe(iExo) {
     var x = planDeLExercice(iExo);
     var k = x && x.calage;
@@ -4857,7 +4857,11 @@
       },
       surPasser: async function () {
         seance = Seance.poserHabituelle(seance, x.slug, 0);
-        await apresGeste({ structure: false });
+        // « Je ne sais pas » : 2 approches de 5 en montant, des CHAUFFES (mécanisme du chantier 49) — aucune série de travail
+        // prise, aucune retirée. Si l'exercice a déjà ses chauffes, on n'en ajoute pas.
+        var deja = seance.exercices[iExo].series.some(function (sr) { return Seance.typeDe(sr) === 'echauffement'; });
+        if (!deja) seance = Seance.insererChauffes(seance, iExo, [[null, 5], [null, 5]], uuid);
+        await apresGeste({ structure: true });
       }
     };
   }
@@ -7231,7 +7235,7 @@
     var c = consigneDe(slug);
     if (!c) return null;
     var x = planDuSlug(slug);
-    // 187 — le calage de la première séance : « On trouve ta charge · 3 séries de 10 », lu sur le plan.
+    // 187 — le calage de la première séance : « On trouve ta charge » et la consigne de la suivante, lus sur le plan.
     if (x && x.calage && x.calage.libelles) {
       var lc = x.calage.libelles;
       return { jaune: [lc.titre], gris: [lc.consigne, lc.pourquoi].filter(Boolean).join(' '), compteur: null, frere: null,

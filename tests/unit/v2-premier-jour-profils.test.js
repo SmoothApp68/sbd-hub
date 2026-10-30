@@ -57,7 +57,7 @@ const PROFILS = [
   ['P4 1 à 3 ans, rien noté : « Une série récente ? » est proposée', [['depuis', '1_a_3_ans'], ['notees', 'non']], {}, (j, c) => {
     expect(j.ecrans).toContain('recente');
     expect(c.mode).toBe('approches');
-    expect(c.suivante).toMatchObject({ charge: 20, reps: 5 });
+    expect(calage(j.profil, { prochain: 'chauffe' }).suivante).toMatchObject({ charge: 20, reps: 5 });   // les approches sont des chauffes
   }],
   ['P5 3 à 5 ans avec une série récente de squat : charge de départ donnée, pas de devinette',
     [['depuis', '3_a_5_ans'], ['notees', 'non'], ['rec_sq_kg', 100], ['rec_sq_reps', 5]], {}, (j) => {

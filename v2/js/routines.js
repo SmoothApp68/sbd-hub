@@ -45,7 +45,7 @@
   // DE LA TABLE PARENTE, et les confondre donne un 23514 à chaque première
   // série : le rang y commence à **1**, là où celui d'un exercice accepte 0.
   //   routine_sets_rang_positif                 rang >= 1
-  //   type_serie          'travail'|'echauffement'|'degressive'|'echec'
+  //   type_serie          'travail'|'echauffement'|'degressive'|'echec'|'recul' (v2_120, 193-1)
   //   reps_visees                          NULL ou 1 à 100
   //   duree_cible_s                        NULL ou 1 à 35999
   //   distance_cible_m                     NULL ou 0 à 100000
@@ -88,7 +88,7 @@
   // comme celui de `routine_exercises`. Relevé sur les CHECK, pas supposé.
   var CHAMPS_SERIE = ['routine_exercise_id', 'user_id', 'rang', 'type_serie',
                       'reps_visees', 'charge_cible_kg', 'duree_cible_s', 'distance_cible_m'];
-  var TYPES_SERIE = ['travail', 'echauffement', 'degressive', 'echec'];
+  var TYPES_SERIE = ['travail', 'echauffement', 'degressive', 'echec', 'recul'];   // `recul` : v2_120 (193-1) ; `test` n'est pas un type de routine
   var DUREE_MIN = 1, DUREE_MAX = 35999;
   var DISTANCE_MIN = 0, DISTANCE_MAX = 100000;
 

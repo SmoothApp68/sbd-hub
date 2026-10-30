@@ -15,7 +15,7 @@
 //
 //   sets_rang_positif        rang >= 1        (et non 0)
 //   sets_rang_unique         UNIQUE (session_id, rang) DEFERRABLE INITIALLY DEFERRED
-//   sets_type_serie_ok       echauffement | travail | degressive | echec | test (v2_117, 186)
+//   sets_type_serie_ok       echauffement | travail | degressive | echec | test (v2_117, 186) | recul (v2_120, 193-1)
 //   sets_ressenti_ok         reste_3_plus | reste_2 | reste_1 | reste_0
 //   sets_rpe_ok              rpe > 0 AND rpe <= 10
 //   sets_repos_borne         repos_s BETWEEN 0 AND 3600
@@ -29,7 +29,7 @@
 (function (racine) {
   'use strict';
 
-  var TYPES = ['travail', 'echauffement', 'degressive', 'echec', 'test'];   // `test` : v2_117 (186)
+  var TYPES = ['travail', 'echauffement', 'degressive', 'echec', 'test', 'recul'];   // `test` : v2_117 (186) ; `recul` : v2_120 (193-1)
   var RESSENTIS = ['reste_3_plus', 'reste_2', 'reste_1', 'reste_0'];
   var EN_COURS = 'en_cours', TERMINEE = 'terminee';
   var REPOS_MAX = 3600;

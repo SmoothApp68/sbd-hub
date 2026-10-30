@@ -1,0 +1,138 @@
+<title>Série de recul v2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Mise en page : des écrans de téléphone côte à côte (380 px), puis les règles à valider — mêmes jetons que l'app (thème sombre). */
+:root{--fond-page:#05070a;--fond:#0A0C10;--panneau:#171C25;--panneau-2:#222A37;--trait:#2B3442;--texte:#F2F4F7;--texte-2:#A9B3C1;--texte-3:#8C97A6;--accent:#FFB938;--sur-accent:#1A1200;--carte:#2a2110;--reussi:#4ADE80;--manque:#FF7B72;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fond-page);color:var(--texte);font-family:"Barlow",system-ui,sans-serif;padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;gap:28px;justify-content:center}
+h1{width:100%;max-width:1240px;margin:0;font-size:22px;text-wrap:balance}
+.intro{width:100%;max-width:1240px;margin:-14px 0 0;color:var(--texte-2);font-size:15px;line-height:1.5}
+.col{max-width:380px;width:100%;min-width:0}
+.leg{font-size:13px;color:var(--texte-2);margin:0 0 10px;line-height:1.4}.leg b{color:var(--texte)}
+.tel{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:16px 14px 20px}
+.exo{background:var(--panneau);border-radius:14px;padding:12px;margin-bottom:10px}
+.tete{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.nom{font-weight:700;font-size:17px}
+.zone{border:1px solid var(--trait);border-radius:999px;padding:1px 9px;font-size:12px;color:var(--texte-2)}
+.consigne{color:var(--accent);font-size:15px;margin:6px 0 2px;font-weight:600;font-variant-numeric:tabular-nums}
+.gris{color:var(--texte-2);font-size:14px;line-height:1.45}
+.lignes{margin-top:10px;display:grid;gap:6px}
+.ligne{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:8px;background:var(--panneau-2);border-radius:9px;padding:8px 10px;font-variant-numeric:tabular-nums;font-size:15px}
+.ligne .t{font-size:12px;color:var(--texte-3);text-transform:uppercase;letter-spacing:.04em}
+.ligne .t.h{color:var(--accent)}
+.ligne .v{font-weight:600}
+.ligne .v.gr{color:var(--texte-3);font-weight:500}
+.ligne .ok{color:var(--reussi);font-size:14px}
+.ligne.chauffe{opacity:.6}
+.pq{background:var(--panneau-2);border-radius:10px;padding:10px;margin-top:10px;font-size:14px;line-height:1.5}
+.pq b{color:var(--texte)}
+.constat{border-top:1px solid var(--trait);margin-top:10px;padding-top:9px;font-size:14px;line-height:1.5}
+.constat .j{color:var(--accent)}
+.menu{background:var(--panneau-2);border:1px solid var(--trait);border-radius:12px;overflow:hidden;margin-top:10px}
+.menu div{padding:12px 14px;font-size:15px;border-bottom:1px solid var(--trait)}
+.menu div:last-child{border-bottom:0}
+.menu .choisi{color:var(--accent);font-weight:600}
+.menu .aide{font-size:13px;color:var(--texte-2);line-height:1.4}
+.notes{max-width:780px;width:100%;font-size:14px;color:var(--texte-2);line-height:1.55}
+.notes h3{color:var(--texte);font-size:16px;margin:18px 0 6px}
+.notes li{margin-bottom:7px}.notes b{color:var(--texte)}
+.notes .q{background:var(--panneau);border-radius:12px;padding:10px 14px;margin-top:8px}
+.schema{overflow-x:auto;background:var(--panneau);border-radius:12px;padding:12px 14px;font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.55;color:var(--texte);white-space:pre}
+</style>
+
+<h1>Série de recul — maquette v2 (193-1), validée</h1>
+<p class="intro">Ta séance de squat en powerbuilding : une grosse série lourde, puis des séries plus légères, avec un repos normal. Aujourd'hui le moteur prend la grosse série pour un test et s'ancre sur les séries légères ; ici, il s'ancre sur la grosse série et propose les séries de recul à partir d'elle.</p>
+
+<div class="col">
+  <p class="leg"><b>1. En séance</b><br>Ta routine dit : 1 grosse série de 3 à 5, puis 3 séries de recul de 6. Dernière fois : 150 kg × 4, puis 135 kg × 6-6-6.</p>
+  <div class="tel"><div class="exo">
+    <div class="tete"><span class="nom">Squat</span><span class="zone">Lourd · 3-5</span></div>
+    <div class="consigne">150 kg × 5 · puis 135 kg × 6</div>
+    <div class="gris">Ta grosse série vise une rep de plus. Tes séries de recul restent à 10 % en dessous.</div>
+    <div class="lignes">
+      <div class="ligne chauffe"><span class="t">Chauffe</span><span class="v gr">60 × 8 · 100 × 4 · 130 × 1</span><span></span></div>
+      <div class="ligne"><span class="t h">Grosse</span><span class="v">150 kg × 5</span><span class="ok"></span></div>
+      <div class="ligne"><span class="t">Recul</span><span class="v gr">135 kg × 6</span><span></span></div>
+      <div class="ligne"><span class="t">Recul</span><span class="v gr">135 kg × 6</span><span></span></div>
+      <div class="ligne"><span class="t">Recul</span><span class="v gr">135 kg × 6</span><span></span></div>
+    </div>
+    <div class="pq"><b>Pourquoi</b> · Ta grosse série décide de ta charge : 150 kg × 4 la dernière fois, dans ta zone Lourd (3 à 5), donc je vise 5. Tes séries de recul suivent ta grosse série : 10 % en dessous, arrondi à ta barre, 135 kg. Elles comptent dans ton volume et tes records, jamais comme un test.</div>
+  </div></div>
+</div>
+
+<div class="col">
+  <p class="leg"><b>2. Ta grosse série touche le haut</b><br>Tu fais 150 × 5, puis 135 × 6-6-6. Le constat, puis la séance suivante.</p>
+  <div class="tel"><div class="exo">
+    <div class="tete"><span class="nom">Squat</span><span class="zone">Lourd · 3-5</span></div>
+    <div class="lignes">
+      <div class="ligne"><span class="t h">Grosse</span><span class="v">150 kg × 5</span><span class="ok">✓</span></div>
+      <div class="ligne"><span class="t">Recul</span><span class="v">135 kg × 6</span><span class="ok">✓</span></div>
+      <div class="ligne"><span class="t">Recul</span><span class="v">135 kg × 6</span><span class="ok">✓</span></div>
+      <div class="ligne"><span class="t">Recul</span><span class="v">135 kg × 6</span><span class="ok">✓</span></div>
+    </div>
+    <div class="constat">150 kg × 5 : ta grosse série touche le haut de ta zone. Tes reculs tiennent 6-6-6.<br><span class="j">Prochaine séance : 152,5 kg × 3, puis 137,5 kg × 6 (10 % sous 152,5, au pas de ta barre le plus proche).</span></div>
+  </div></div>
+  <p class="leg" style="margin-top:10px">La grosse série suit les règles que tu connais (le test, le cran, ton réglage). Les reculs suivent la grosse série, sans règle à eux pour la charge.</p>
+</div>
+
+<div class="col">
+  <p class="leg"><b>3. Tes reculs sont trop faciles</b><br>Tu fais 150 × 4, puis 135 × 9-8-8 alors que la cible est 6.</p>
+  <div class="tel"><div class="exo">
+    <div class="tete"><span class="nom">Squat</span><span class="zone">Lourd · 3-5</span></div>
+    <div class="consigne">150 kg × 5 · puis 137,5 kg × 6</div>
+    <div class="gris">Tes reculs ont dépassé de 2 reps ou plus : ils se rapprochent de ta grosse série.</div>
+    <div class="pq"><b>Pourquoi</b> · La dernière fois, tes séries de recul à 135 kg ont fait 9, 8 et 8 pour une cible de 6. Je les rapproche : 7,5 % sous ta grosse série au lieu de 10 %, donc 137,5 kg (au pas de ta barre le plus proche). Si une série de recul passe sous sa cible, je les éloigne de 2,5 %.</div>
+  </div></div>
+</div>
+
+<div class="col">
+  <p class="leg"><b>4. Le dire soi-même</b><br>Une séance sans routine : tu as noté 140 × 3 puis 125 × 6. Menu ⋯ de la série à 125.</p>
+  <div class="tel"><div class="exo">
+    <div class="tete"><span class="nom">Développé couché</span></div>
+    <div class="lignes">
+      <div class="ligne"><span class="t">Travail</span><span class="v">140 kg × 3</span><span class="ok">✓</span></div>
+      <div class="ligne"><span class="t">Travail</span><span class="v">125 kg × 6</span><span class="ok">⋯</span></div>
+    </div>
+    <div class="menu">
+      <div>Série d'échauffement</div>
+      <div class="choisi">Série de recul<br><span class="aide">Plus légère que ta grosse série, avec un repos normal. Ta charge se décide sur la grosse série.</span></div>
+      <div>Série dégressive<br><span class="aide">Enchaînée sans repos, juste après la précédente.</span></div>
+      <div>Série de test</div>
+    </div>
+  </div></div>
+  <p class="leg" style="margin-top:10px">Dans l'éditeur de routine : « + Série de recul » sous la grosse série. Rien n'est deviné sur tes séances passées : elles restent lues comme aujourd'hui.</p>
+</div>
+
+<div class="notes">
+  <h3>Avant / après, ce que lit le coach</h3>
+  <div class="schema">TA SÉANCE          150×4     135×6   135×6   135×6
+AUJOURD'HUI        "test"    palier  palier  palier   → ancré sur 135, zone Mix, il veut 150 partout
+APRÈS 193-1        grosse    recul   recul   recul    → ancré sur 150, zone Lourd, reculs à −10 %</div>
+
+  <h3>Les règles derrière (à valider)</h3>
+  <ul>
+    <li><b>Le palier, c'est la grosse série.</b> Une seule série au palier : son propre compte fait ton niveau (règle existante, §9.2). Ta zone se lit sur elle. Test, cran, réglage, stagnation, escalier : tout se juge sur la grosse série, rien ne change pour eux.</li>
+    <li><b>La charge de recul suit la grosse série</b> : la charge de ta grosse série du jour, moins un écart, arrondie au pas de ton matériel le plus proche (vers le bas en cas d'égalité) : quand ta grosse série monte, tes reculs suivent. <b>Écart de départ : 10 %.</b> Toutes les séries de recul à 2 reps ou plus au-dessus de leur cible : l'écart baisse de 2,5 points (jamais sous 5 %). Une série de recul sous sa cible : il monte de 2,5 points (jamais au-dessus de 20 %). Source : pratique des coachs (RTS, powerbuilding : 10 à 15 %) ; en powerlifting, les séries qui suivent un single se font vers 80 % de ce single (Androulakis-Korakakis 2021). Les chiffres 2,5 et 5-20 % sont une convention, dite comme telle.</li>
+    <li><b>Les reps de recul</b> viennent de la routine (l'ordre des reps qu'on connaît) ; sans routine, celles de ta dernière fois.</li>
+    <li><b>Ce qu'elles comptent</b> : ton volume, tes records, un pari en reps par série de recul. <b>Jamais</b> un test, jamais le palier, jamais le compteur de stagnation.</li>
+    <li><b>Pas une dégressive</b> : la dégressive s'enchaîne sans repos ; la série de recul prend le repos de l'exercice. Deux notions, deux fonctions. Le calcul de la charge réutilise le mécanisme qui propose déjà la charge d'une dégressive à partir de la série d'avant.</li>
+    <li><b>Qui la déclare</b> : ta routine, le générateur (193-2), ou le menu ⋯. L'import Hevy reste en séries de travail (Hevy ne connaît pas ce type). Rien n'est deviné.</li>
+    <li><b>Base</b> : un type de série de plus, « recul » (migration v2_120, que je prépare).</li>
+  </ul>
+
+  <h3>Deux questions, avec ma recommandation</h3>
+  <div class="q"><b>Les noms.</b> « Grosse série » et « Série de recul » (je recommande : du français simple, et « recul » est le mot des coachs francophones pour back-off). Le risque : « Le coach sait reculer » (174) parle d'une charge qui baisse. Autre choix possible : « Série allégée », mais il se confond avec la semaine allégée.</div>
+  <div class="q"><b>Plusieurs grosses séries</b> (2 × 150 × 3 puis des reculs) : la règle reste la même, le palier se lit sur les séries à la charge la plus lourde. Je recommande de l'accepter dès la 193-1.</div>
+  <h3>Revue toutes casquettes (30/10, 23 h 35) — ce qui change de la v1</h3>
+  <ul>
+    <li><b>Pratiquant</b> : en v1, l'arrondi vers le bas laissait les reculs à 135 kg quand la grosse série passait à 152,5 (10 % de 152,5 = 137,25). « Ma grosse série monte, mes reculs non » : incompréhensible. → <b>arrondi au plus proche</b>.</li>
+    <li><b>Coach de force</b> : avec une seule grosse série, le test du cran du dessus, c'est la grosse série elle-même (152,5 × 3 vise le bas de ta zone) ; si elle entre dans ta zone, c'est ton nouveau palier. Pas d'« extension » série par série : il n'y a qu'une série au palier. Avec plusieurs grosses séries, l'échelle actuelle s'applique entre elles.</li>
+    <li><b>Préparateur</b> : la baisse générale (189) se lit sur les grosses séries seulement ; un recul plus léger n'est jamais une baisse. Le repos d'un recul est celui de l'exercice, jamais celui d'une dégressive.</li>
+    <li><b>Statisticien</b> : l'écart ne bouge que si <b>toutes</b> les séries de recul dépassent de 2 reps ou plus (une seule série facile, c'est du bruit). Un pari en reps par recul, à sa charge proposée.</li>
+    <li><b>Kiné</b> : rien de plus lourd que la grosse série, jamais ; les plafonds de saut (+15 %, +10 % débutant ou senior) s'appliquent à la grosse série, le recul ne fait que suivre.</li>
+    <li><b>Ergonome</b> : un seul mot de plus à l'écran (« Grosse », « Recul ») ; la ligne de la grosse série porte la couleur de la consigne.</li>
+    <li><b>Transition</b> : tes séances passées restent lues comme aujourd'hui (rien n'est deviné). Ta zone peut rester « Mix » quelques séances par l'habitude : l'étiquette de zone se corrige d'un toucher.</li>
+    <li><b>Les deux questions</b> : « Grosse série » et « Série de recul » gardés ; plusieurs grosses séries acceptées dès la 193-1.</li>
+  </ul>
+</div>

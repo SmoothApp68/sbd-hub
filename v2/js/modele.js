@@ -21,7 +21,7 @@
 
   // Les quatre valeurs présentes en base à l'origine (28 103 lignes) :
   // travail 26 132 · echauffement 1 458 · degressive 387 · echec 126 — et `test` depuis v2_117 (186).
-  var TYPES_CONNUS = ['travail', 'echauffement', 'degressive', 'echec', 'test'];
+  var TYPES_CONNUS = ['travail', 'echauffement', 'degressive', 'echec', 'test', 'recul'];   // `recul` : v2_120 (193-1)
 
   // ⚠️ LA SÉRIE DE TRAVAIL : UNE DÉFINITION, ICI (PR 6 de la consolidation,
   // 02/10/2026). Le type d'une série, et `travail` quand il manque : c'est le
@@ -48,6 +48,7 @@
   function motDEchec(serie) {
     if (estHorsCalcul(serie)) return 'hors calcul';   // 185 — la série « Non, ne compte pas » se dit, à part
     if (estTest(serie)) return 'test';                // 186 — la série de test se dit aussi
+    if (estRecul(serie)) return 'recul';              // 193-1 — la série de recul se dit aussi
     return estAEchec(serie) ? 'à l’échec' : (estManquee(serie) ? 'manquée' : null);
   }
   // ⚠️ 185 (v2_116, décision d'Aurélien du 29/10/2026) — « NON, NE COMPTE PAS » : UNE LECTURE, ICI. Une série `hors_calcul` reste
@@ -60,12 +61,19 @@
   // a été fait (records, maximum estimé, volume, jeu : `estTravail` reste vrai, « comme aujourd'hui »), mais elle ne décide JAMAIS
   // de la charge de travail : ni palier, ni habitude, ni cran voisin (`palier.js`, rôle `hors_palier`).
   function estTest(serie) { return !!serie && !estHorsCalcul(serie) && typeDe(serie) === 'test'; }
+  // ⚠️ 193-1 (v2_120, MOTEUR §9.28) — « SÉRIE DE RECUL » : UNE LECTURE, ICI. Une série plus légère que la grosse série du jour, au repos
+  // normal (powerbuilding : 150 × 4, puis 135 × 6-6-6). La personne la dit (routine, menu ⋯, plus tard le générateur) ; rien ne la
+  // déduit. C'est UNE SÉRIE DE TRAVAIL pour tout ce qui compte ce qui a été fait (volume, records, maximum estimé, jeu, récap :
+  // `estTravail` reste vrai), mais elle ne décide JAMAIS de la charge : ni palier, ni habitude, ni cran voisin, ni test
+  // (`palier.js`, rôle `recul`), et la consigne ne la couvre pas (`seance.js` `couvertureSeance`).
+  function estRecul(serie) { return !!serie && !estHorsCalcul(serie) && typeDe(serie) === 'recul'; }
   function estTravail(serie) {
-    return !!serie && !estHorsCalcul(serie) && (typeDe(serie) === 'travail' || typeDe(serie) === 'test' || estAEchec(serie));
+    return !!serie && !estHorsCalcul(serie) && (typeDe(serie) === 'travail' || typeDe(serie) === 'test' || typeDe(serie) === 'recul' || estAEchec(serie));
   }
   // Le type TEL QU'ON LE LIT : `travail` pour une série à l'échec (1 rep et +), le type de la base sinon. Le plan
   // (`plan.js`) l'écrit sur chacune de ses lignes : aucun invariant ne compare `type_serie` à `'echec'`.
-  function typeLu(serie) { return estTravail(serie) ? 'travail' : typeDe(serie); }
+  // 193-1 : une série de recul se lit `recul` (elle est du travail, mais la consigne ne la couvre pas : ligne `hors`, comme une dégressive).
+  function typeLu(serie) { return estRecul(serie) ? 'recul' : (estTravail(serie) ? 'travail' : typeDe(serie)); }
 
   // UN EXERCICE « FAIT » (PR 6, décision du 02/10/2026) : au moins une série
   // de travail, cardio compris — le tapis est un exercice fait. Un exercice où
@@ -2756,6 +2764,7 @@
     formatPrecedent: formatPrecedent,
     estTravail: estTravail,
     estTest: estTest,
+    estRecul: estRecul,
     estHorsCalcul: estHorsCalcul,
     estAEchec: estAEchec,
     estManquee: estManquee,

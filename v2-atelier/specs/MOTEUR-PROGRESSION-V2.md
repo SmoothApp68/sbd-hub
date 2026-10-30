@@ -1727,6 +1727,28 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 
 **Réglage.** Me ménager 6 semaines / 1 carte / silence 12 ; Normal 5 / 2 / 8 ; Me pousser 4 / 3 / 4. Les faits ne changent pas selon le réglage, seul « quand » change. Juste un carnet : aucune carte.
 
+### 9.28 La série de recul — décidé le 31/10/2026 (chantier 193-1) (I78)
+
+**Un type de série de plus : `recul`** (`sets.type_serie`, `routine_sets.type_serie`, migration v2_120). Une série plus légère que la grosse série du jour, faite après elle, au repos de l'exercice. Une seule lecture, `THModele.estRecul` (sur le modèle de `estTest`) ; `typeLu` rend `'recul'`. **Une série de recul reste du travail** pour tout ce qui compte ce qui a été fait (`estTravail` : volume, records, e1RM, jeu) et **n'est jamais** ce qui décide d'une charge ou d'un palier. « Non, ne compte pas » (`hors_calcul`) l'emporte, comme partout. Aucun mappage d'import (Hevy) ne produit un recul : un type inconnu n'est jamais deviné.
+
+**La grosse série décide.** Le palier (`palier.js`) ne lit pas le recul : rôle `recul`, qui ne vote nulle part (ni palier, ni habitude, ni crans, ni test). Une seule grosse série est son propre niveau (§9.2) ; la consigne a `n = 1`, la ligne haute du test tombe sur cette série (152,5 × 3 après 150 × 5). `seriesHorsChauffe` exclut le recul ; `couvertureSeance` ne le couvre pas (rôle de ligne `hors`, type `recul`, comme une dégressive).
+
+**La charge d'un recul** (`reculDe`, `ecartDeRecul`, `cranLePlusProche`) : la **grosse série du jour** (la plus lourde série de travail de l'exercice dans la séance, faite sinon proposée) moins un **écart**, arrondie au cran le plus proche du matériel de la consigne (la salle déclarée, §10 bis), **vers le bas à égalité** (137,25 → 137,5 ; 138,75 → 137,5 ; 123,75 → 122,5) ; jamais la grosse série ni plus lourd. Sans grosse série : la ligne reste vide, avec la phrase « Pas de grosse série pour caler tes reculs. ».
+
+**L'écart se lit, il ne se replie pas sur 8 séances** : sur la dernière séance de l'exercice qui avait des reculs (`THSeance.precedentAReculs`), écart réel = 1 − (charge des reculs ÷ charge de la grosse série), arrondi au demi-point, **borné 5 à 20 %**, puis ±2,5 points selon les reps (au moins un recul sous la cible : on s'éloigne ; tous au moins 2 reps au-dessus : on se rapproche). La cible est celle de la routine de CETTE séance (`routine_id`) quand elle est chargée et porte encore des reculs ; sinon celle d'aujourd'hui — une **approximation**, dite dans le code (la routine a pu changer entre-temps). Sans séance antérieure à reculs : **10 %**.
+
+**Pari.** Un pari par recul : module `moteur.consigne`, grandeur `reps`, valeur prédite = les reps visées de la ligne, `fondement.role = 'recul'`, `fondement.rang = 'r1'`, `'r2'`… (un **rang texte**, jamais un rang de la couverture ; `dejaNote` et `figeesDe` ne le croisent pas), sans compteur (la stagnation l'ignore). Identifiant dans l'espace de noms `recul|séance|exercice|rang|occurrence` (`idDeRecul`, sur le modèle d'`idDEscalier`). La table `predictions` reste immuable.
+
+**Autour du recul.** La dégressive se cale sur la dernière série de travail **ou de recul**. Le calage de la première séance, le nombre de séries de départ, la question d'effort (la grosse série) et la charge de départ ignorent le recul. « + Série » est inchangé. La **semaine allégée** retire aussi les reculs non validés (jamais un recul validé). **« J'ai peu de temps »** : compteur `rec`, durée comptée comme une série de travail ; après les dégressives et **avant toute grosse série**, un recul de moins par exercice, **jamais le dernier**. La fatigue (§14.11, I77) ne lit que les grosses séries (`valeurDeFatigue`).
+
+**Phrases** (VOIX-DU-COACH, un fait, « tu »). Sous le premier recul : « Recul : 135 kg, 10 % sous ta grosse série. » ; dans le « Pourquoi » : l'écart, l'arrondi, ce que la dernière fois a fait et, le cas échéant, « Je les rapproche / Je les éloigne » ; au constat : « Tes reculs tiennent 6-6-6. » ou « Tes reculs : 6, 5 et 5 pour une cible de 6. ». Chaque chiffre est cité (I26 : `regle|recul`, `recul.grosse`, `recul.ecart`, `recul.reps`).
+
+**I78** : une ligne de recul n'est jamais couverte (rôle `hors`, jamais figée) ; la charge du recul est strictement sous la grosse série du jour, l'écart reste dans 5 à 20 % ; le fantôme d'un recul non validé est la charge du plan (`source: 'recul'`), et la ligne reste vide sans grosse série ; le pari d'un recul porte le rôle `recul` et un rang texte, un seul par rang, observé sur un recul validé. **I1 amendé** : le recul est la seule ligne hors couverture qui parie. **I7 amendé** : les paris de rôle `recul` ne sont pas des paris de la couverture.
+
+**Reste à décider (non codé en 193-1).** Une grosse série unique, plus lourde que le palier précédent et dont les reps comptées sont sous le bas de la zone, doit se lire comme un test raté (palier inchangé, retest d'un cran / étirement). Le crochet le plus étroit (`sansPalierRetenues`, `contratDe`) rend la séance neutre ; les conséquences d'un test raté (épisode d'étirement, retest) demandent une refonte de `consignePour`. À trancher avec Claude.ai.
+
+**Serveur.** Le récap de groupe, la guilde et les défis (v2_121) lisent `type_serie` côté SQL : hors du dépôt.
+
 ## 10. L'incrément
 
 ### 10.1 Règle

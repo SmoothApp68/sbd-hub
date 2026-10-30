@@ -9711,6 +9711,94 @@
                ', sans repos, jusqu\'à l\'échec. ' + phraseViseeDegressive(vise) };
   }
 
+  // ══ 193-1 (MOTEUR §9.28) — LA SÉRIE DE RECUL : SA CHARGE, SON ÉCART ═══════════════════════════════════════════════════════
+  //
+  // Une grosse série lourde (150 kg × 4), puis des séries plus légères (135 kg × 6-6-6) au repos de l'exercice. La grosse série décide
+  // de la charge (le palier, le test, le cran : rien ne change pour elle) ; les reculs la SUIVENT, sans règle de charge à eux.
+  //   charge d'un recul = la charge de la grosse série DU JOUR − un écart, arrondie au cran le PLUS PROCHE du matériel, vers le BAS
+  //   en cas d'égalité (150 × 0,925 = 138,75 → 137,5, pas 140), jamais au niveau de la grosse (le cran de départ est celui d'en dessous).
+  //   écart : 10 % au départ (convention des coachs : RTS, powerbuilding, 10 à 15 % ; en powerlifting, les séries qui suivent un single
+  //   se font vers 80 % de ce single — Androulakis-Korakakis 2021). Il se LIT sur la dernière séance de l'exercice qui avait des
+  //   reculs : l'écart réel (1 − charge des reculs ÷ charge de la grosse), borné 5 % à 20 %, puis ± 2,5 points selon les reps —
+  //   TOUS les reculs à la cible + 2 ou plus : il baisse ; UN recul sous la cible : il monte. Les chiffres 2,5 et 5-20 % sont une
+  //   convention, dite comme telle. Une fonction pure, sous la garde, appelée par `planDeSeance`.
+  var RECUL_ECART_DEPART = 0.10;
+  var RECUL_ECART_PAS = 0.025;
+  var RECUL_ECART_MIN = 0.05;
+  var RECUL_ECART_MAX = 0.20;
+  var RECUL_MARGE_REPS = 2;
+  function bornerEcartDeRecul(v) {
+    return Math.min(RECUL_ECART_MAX, Math.max(RECUL_ECART_MIN, Math.round(v * 1e6) / 1e6));
+  }
+  // Le cran sous P le plus proche de `cible`, VERS LE BAS à égalité (contrairement à `cranSousProcheDe`, qui garde le plus lourd :
+  // il sert aux vagues de bord). Départ : le cran en dessous de P, donc jamais P ni plus lourd. `null` : rien de plus léger.
+  function cranLePlusProche(voisineFn, P, cible) {
+    var cur = voisineFn(P, -1);
+    if (cur === null) return null;
+    for (var t = 0; t < 40; t++) {
+      var nxt = voisineFn(cur, -1);
+      if (nxt !== null && nxt < cur && Math.abs(nxt - cible) <= Math.abs(cur - cible) + 1e-9) cur = nxt; else break;
+    }
+    return cur;
+  }
+  // L'ÉCART d'UNE séance : `precedent` = `{ series: [{ charge_kg, reps, type_serie }] }`, la dernière séance de l'exercice qui avait des
+  // reculs (`THSeance.precedentAReculs`), ou `null`. `cible` : les reps visées d'un recul — celles de la routine de CETTE séance
+  // (`routine_id`) quand l'app les a, sinon celles d'aujourd'hui : une APPROXIMATION (la routine a pu changer entre-temps), dite
+  // telle. Sans cible, l'écart réel est gardé tel quel. L'écart réel est arrondi au demi-point (135 ÷ 150 et 137,5 ÷ 152,5 sont « 10 % »).
+  // Rend `{ ecart, depart, reel, sens, reps, cible }` ; `sens` : 'rapproche' | 'eloigne' | null.
+  function ecartDeRecul(precedent, cible) {
+    var serie = (precedent && precedent.series) || [];
+    var M = Modele();
+    var grosse = null, reculs = [];
+    serie.forEach(function (x) {
+      var kg = nombre(x && x.charge_kg), r = nombre(x && x.reps);
+      if (kg === null || kg <= 0 || r === null) return;
+      if (M.estRecul(x)) reculs.push({ charge: kg, reps: r });
+      else if (M.estTravail(x) && (grosse === null || kg > grosse)) grosse = kg;
+    });
+    if (grosse === null || !reculs.length) {
+      return { ecart: RECUL_ECART_DEPART, depart: true, reel: null, sens: null, reps: [], cible: null };
+    }
+    var reel = bornerEcartDeRecul(Math.round((1 - reculs[0].charge / grosse) * 200) / 200);
+    var c = nombre(cible);
+    var reps = reculs.map(function (x) { return x.reps; });
+    var ecart = reel, sens = null;
+    if (c !== null && c >= 1) {
+      if (reps.some(function (r) { return r < c; })) { ecart = bornerEcartDeRecul(reel + RECUL_ECART_PAS); sens = 'eloigne'; }
+      else if (reps.every(function (r) { return r >= c + RECUL_MARGE_REPS; })) { ecart = bornerEcartDeRecul(reel - RECUL_ECART_PAS); sens = 'rapproche'; }
+    }
+    return { ecart: ecart, depart: false, reel: reel, sens: sens, reps: reps, cible: c !== null && c >= 1 ? c : null };
+  }
+  // La charge d'un recul. `entree` : `{ grosse, ecart, cran, salle, reps }` — `grosse` : la plus lourde série de travail de l'exercice
+  // dans la séance (validée ou proposée), `cran` : le pas du matériel de la consigne, `salle` : la salle déclarée (§10 bis). Rend
+  // `{ charge, ecart, vise, phrase }` ; une ligne qu'il ne peut pas remplir rend `{ charge: null, phrase }` (jamais une charge devinée).
+  var PHRASE_RECUL_SANS_GROSSE = 'Pas de grosse série pour caler tes reculs.';
+  var PHRASE_RECUL_TROP_LEGER = 'Rien de plus léger que ta grosse série pour un recul.';
+  function reculDe(entree) {
+    var e = entree || {};
+    var g = nombre(e.grosse);
+    var vide = function (phrase) { return { charge: null, ecart: null, vise: nombre(e.reps), phrase: phrase }; };
+    if (g === null || g <= 0) return vide(PHRASE_RECUL_SANS_GROSSE);
+    var ecart = nombre(e.ecart);
+    if (ecart === null) ecart = RECUL_ECART_DEPART;
+    ecart = bornerEcartDeRecul(ecart);
+    var salle = e.salle ? salleEnVigueur(e.salle, g) : null;
+    var cran = nombre(e.cran);
+    if (cran === null || cran <= 0) cran = CRAN_PAR_DEFAUT;
+    var voisine = salle
+      ? function (c, sens) { return voisineDeLaSalle(salle, c, sens); }
+      : function (c, sens) {
+          // Le plus grand multiple du cran STRICTEMENT sous c (sens −1).
+          var k = Math.ceil(c / cran - 1e-9) - 1;
+          var v = auCentieme(k * cran);
+          return sens < 0 && v > 0 && v < c ? v : null;
+        };
+    var cible = auCentieme(g * (1 - ecart));
+    var charge = cranLePlusProche(voisine, g, cible);
+    if (charge === null || !(charge > 0) || charge >= g) return vide(PHRASE_RECUL_TROP_LEGER);
+    return { charge: charge, ecart: ecart, vise: nombre(e.reps), phrase: null };
+  }
+
   var api = {
     // §10 bis (108) — le matériel de la salle.
     SALLE_BARRES: SALLE_BARRES,
@@ -9917,6 +10005,11 @@
     situationChauffe: situationChauffe,
     chauffesDe: chauffesDe,
     degressiveDe: degressiveDe,
+    // 193-1 (§9.28) — la série de recul.
+    reculDe: reculDe,
+    ecartDeRecul: ecartDeRecul,
+    cranLePlusProche: cranLePlusProche,
+    RECUL_ECART_DEPART: RECUL_ECART_DEPART,
     FENETRE_HABITUDE: FENETRE_HABITUDE,
     FENETRE_COUPLE: FENETRE_COUPLE,
     MAJORITE_COUPLE: MAJORITE_COUPLE,

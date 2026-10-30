@@ -45,7 +45,7 @@ describe('Profil.lignesProgramme — trois lignes, leurs phrases au mot près', 
 
   test('les phrases d’aide, telles que la spec les écrit (G10)', () => {
     const l = lignes({ exercices_ecartes: ['a'] });
-    expect(l[0].sous).toBe('Ton programme construit la garde sans série lourde. Rien ne change en séance.');
+    expect(l[0].sous).toBe('Je ne te propose pas de série lourde dessus, ni dans ton programme ni en séance.');
     expect(l[1].sous).toBe('Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.');
     expect(l[2].sous).toBe('Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.');
   });
@@ -98,7 +98,7 @@ describe('l’écran Profil : la section du matériel porte le programme constru
       lignes: Profil.lignesProgramme({ zones_a_menager: ['dos'], exercices_ecartes: ['a', 'b'] }, () => {}) }] });
     const l = Array.from(cible.querySelectorAll('.p-ligne'));
     expect(l.map((n) => [n.querySelector('.p-lib').firstChild.textContent, texte(n.querySelector('.p-lib small'))])).toEqual([
-      ['Zone à ménager', 'Ton programme construit la garde sans série lourde. Rien ne change en séance.'],
+      ['Zone à ménager', 'Je ne te propose pas de série lourde dessus, ni dans ton programme ni en séance.'],
       ['Exercices écartés', 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.'],
       ['Refaire mon programme', 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.']]);
     expect(texte(l[0].querySelector('.p-val'))).toBe('Dos');

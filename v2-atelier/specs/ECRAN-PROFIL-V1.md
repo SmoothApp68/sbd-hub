@@ -518,11 +518,12 @@ maquette `maquette-questionnaire-v4.html`).
   montre à côté de « J'ai peu de temps ». » ; « C'est mon maximum », « J'ai de la marge » : pas de phrase (le
   programme construit les lit, QUESTIONNAIRE-COACH-V2 §5 bis).
 - **Le programme construit (08/10/2026, 60-4)** — trois lignes, dans la section du matériel : « **Zone à ménager** »
-  (épaule · dos · genou · coude · hanche · aucune ; phrase : « Ton programme construit la garde sans série lourde.
-  Rien ne change en séance. ») ; « **Exercices écartés** » (la liste, « Reprendre » sur chacun ; vide : la ligne ne
+  (épaule · dos · genou · coude · hanche · aucune ; phrase : « Je ne te propose pas de série lourde dessus, ni dans ton
+  programme ni en séance. ») ; « **Exercices écartés** » (la liste, « Reprendre » sur chacun ; vide : la ligne ne
   s'affiche pas ; phrase : « Un exercice écarté n'est plus proposé dans tes programmes. Il reste au catalogue, en fin
   de liste. ») ; « **Refaire mon programme** » (« Je te pose deux questions et je te construis un nouveau dossier.
   Le tien reste tel quel. »).
+  **Delta 30/10/2026 (190, G10)** : (1) la section « Ce que je fais » compte maintenant « Ma salle » juste sous « Matériel » (la ligne est toujours visible, §2.4 quinquies) : l'ordre est *Matériel, Ma salle, Zone à ménager, Exercices écartés, Refaire mon programme* ; le banc lit ces lignes **par libellé**, jamais par position. (2) La phrase de « Zone à ménager » ne dit plus « Rien ne change en séance » : c'est faux depuis la 187 (I75, aucune série lourde proposée en séance sur la zone).
 
 ---
 

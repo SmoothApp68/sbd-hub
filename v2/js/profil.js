@@ -1229,7 +1229,7 @@
   // liste, « Reprendre » sur chacun ; vide : la ligne ne s'affiche pas) et « Refaire mon programme » (les deux
   // questions de l'écran 8b, puis l'aperçu ; un NOUVEAU dossier, l'ancien reste). Chaque phrase dit ce qui est
   // branché : le programme construit lit la zone et les écartés, rien d'autre.
-  var PHRASE_ZONES = 'Ton programme construit la garde sans série lourde. Rien ne change en séance.';
+  var PHRASE_ZONES = 'Je ne te propose pas de série lourde dessus, ni dans ton programme ni en séance.';
   var PHRASE_ECARTES = 'Un exercice écarté n\u2019est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.';
   var PHRASE_REFAIRE = 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.';
 

@@ -1759,9 +1759,10 @@ const NOTIONS = [
     module: 'generateur.js', fonction: 'estPoussee', lecteurs: ['equilibres.js'],
     raison: 'La relecture de la semaine (66A) et les cartes d’équilibre (188-1) comptent la poussée par la même définition.' },
   { notion: 'la barre d’un exercice (elle-même, ou une variante à la barre)', pr: '188-U1',
-    module: 'generateur.js', fonction: 'familleDeBarre', lecteurs: ['equilibres.js'],
+    module: 'generateur.js', fonction: 'familleDeBarre', lecteurs: ['equilibres.js', 'plan.js'],
     raison: 'La carte « Tes priorités, faites ou non » compte les séries d’une barre (et de ses variantes à la barre) par la ' +
-      'définition de la relecture (66A), pas par une seconde liste.' },
+      'définition de la relecture (66A), pas par une seconde liste. 193-6 : le plan lit la même famille pour la dernière série ' +
+      '« Au max » (squat, couché, soulevé, militaire et leurs variantes à la barre), jamais une liste à part.' },
   // ── 190 — « MA SALLE : LE PLUS PETIT DISQUE ET LA BARRE DE TRACTION » (MOTEUR §10.2) ──
   { notion: 'le pas de la barre (2 × le plus petit disque de la salle, sinon le repli de 2,5 kg)', pr: '190-U1',
     module: 'moteur.js', fonction: 'pasDeLaBarre', lecteurs: ['questionnaire.js'],

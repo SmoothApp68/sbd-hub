@@ -10492,6 +10492,7 @@
     maxDuJour: maxDuJour,
     reculAuMax: reculAuMax,
     auMaxDe: auMaxDe,
+    AU_MAX_RESERVE_PAR_DEFAUT: AU_MAX_RESERVE_PAR_DEFAUT,
     niveauHorsAuMax: niveauHorsAuMax,
     consigneAuMax: consigneAuMax,
     pourquoiAuMaxSouleve: pourquoiAuMaxSouleve,

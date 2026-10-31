@@ -13773,9 +13773,13 @@
       menager: Profil.zonesAMenagerValides(p.zones_a_menager) || [],
       ecartes: Profil.ecartesValides(p.exercices_ecartes) || [],
       faits: faits.historiqueDesExercices(corpus()),
-      depart_calisthenie: p.depart_calisthenie || null   // 195 : les quatre chiffres du questionnaire
+      depart_calisthenie: p.depart_calisthenie || null,   // 195 : les quatre chiffres du questionnaire
+      // 199 (MOTEUR §9.37) — les jours de cardio réguliers (lundi = 0), lus dans les séances : rien n'est demandé.
+      cardioJours: cardioReguliers().jours,
+      cardioSemaines: cardioReguliers().semaines
     };
   }
+  function cardioReguliers() { return faits.joursDeCardioReguliers(corpus(), new Date()); }
 
   // 66D (G1, §5 quater.5) — LA PERSONNE A UN HISTORIQUE quand elle a des habitudes (`faits.habitudes`), au moins une
   // séance au programme déduit, et au moins un muscle qui a son fait du coach (MOTEUR §14.6) lu jusqu'à la semaine de
@@ -13924,7 +13928,7 @@
             (avant.groupe_superset || null) === (l.groupe_superset || null)) avant.series += l.series;
         else sortie.push(Object.assign({}, l));
       });
-      return { nom: rt.nom, exercices: sortie };
+      return Object.assign({ nom: rt.nom, exercices: sortie }, rt.hybride ? { hybride: rt.hybride } : {});
     });
   }
 
@@ -13971,7 +13975,7 @@
         var g = l.groupe_superset;
         return g !== null && g !== undefined && membres[g] < 2 ? Object.assign({}, l, { groupe_superset: null }) : l;
       });
-      return { nom: rt.nom, exercices: lignes };
+      return Object.assign({ nom: rt.nom, exercices: lignes }, rt.hybride ? { hybride: rt.hybride } : {});
     });
   }
 
@@ -14012,6 +14016,7 @@
     if (phrases.barreFixe) voix.push(phrases.barreFixe);
     // 195 — sans barre de traction, le coach le dit (calisthénie) : « Pour progresser en tirage, il te faut une barre ou des anneaux. »
     Generateur.avertissementsCalisthenie(c.entree).forEach(function (t) { voix.push(t); });
+    (phrases.hybride || []).forEach(function (t) { voix.push(t); });
     if (c.annonce) voix.push(c.annonce);
     var changements = h ? (c.changements || []) : [];
     Rendu.rendreApercuProgramme($('feuille-contenu'), {

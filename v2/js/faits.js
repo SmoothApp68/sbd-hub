@@ -1868,8 +1868,46 @@
       return sortie;
     }
 
+    // 199 (MOTEUR §9.37) — LES JOURS DE CARDIO RÉGULIERS : un FAIT lu dans les séances, rien n'est demandé. Un jour de la semaine (lundi = 0)
+    // est régulier quand, sur les QUATRE semaines pleines (lundi au dimanche) qui précèdent la semaine de `jour`, il porte un jour de cardio
+    // au moins 3 fois. Un jour de cardio : les séries de travail des exercices de nature `cardio` de ce jour civil durent plus de 30 min en tout,
+    // ou l'une est intense (RPE de 8 ou plus, `Moteur.CARDIO_RPE_INTENSE`). Rend `{ jours: [lundi = 0…], semaines: { jour: n sur 4 } }`.
+    var CARDIO_LONG_S = 30 * 60, CARDIO_SEMAINES = 4, CARDIO_REGULIER_MIN = 3;
+    function joursDeCardioReguliers(c, jour) {
+      var vide = { jours: [], semaines: {} }, J = Moteur.jourCivil(jour);
+      if (!J) return vide;
+      var b = Semaine.bornesSemaine(new Date(J + 'T12:00:00'));
+      var lundi = b ? b.lundi : null;
+      if (!lundi) return vide;
+      var debut = Moteur.jourCivil(Semaine.decalerSemaine(lundi, -CARDIO_SEMAINES).lundi), fin = Moteur.jourCivil(lundi);
+      var index = (c.catalogue && c.catalogue()) || {}, parJour = {};
+      (c.seances || []).forEach(function (s) {
+        var jr = s && s.debut && s.statut !== 'en_cours' ? Moteur.jourCivil(new Date(s.debut)) : null;
+        if (!jr || jr < debut || jr >= fin) return;
+        (c.seriesDe(s.id) || []).forEach(function (x) {
+          var f = x && index[x.exercise_slug], d = Number(x && x.duree_s);
+          if (!f || f.nature !== 'cardio' || !Modele.estTravail(x) || x.hors_calcul === true || !(d > 0)) return;
+          var o = parJour[jr] || (parJour[jr] = { s: 0, intense: false });
+          o.s += d;
+          if (Number(x.rpe) >= Moteur.CARDIO_RPE_INTENSE) o.intense = true;
+        });
+      });
+      var semaines = {};
+      Object.keys(parJour).forEach(function (jr) {
+        var o = parJour[jr];
+        if (!(o.s > CARDIO_LONG_S || o.intense)) return;
+        var d = new Date(jr + 'T12:00:00'), wd = (d.getDay() + 6) % 7;
+        semaines[wd] = (semaines[wd] || 0) + 1;
+      });
+      var jours = Object.keys(semaines).map(Number).filter(function (wd) { return semaines[wd] >= CARDIO_REGULIER_MIN; }).sort(function (a, b2) { return a - b2; });
+      var reguliers = {};
+      jours.forEach(function (wd) { reguliers[wd] = semaines[wd]; });
+      return { jours: jours, semaines: reguliers };
+    }
+
     return {
       semaineDeForme: semaineDeForme,
+      joursDeCardioReguliers: joursDeCardioReguliers,
       minutesDeMobiliteParZone: minutesDeMobiliteParZone,
       douleursParExercice: douleursParExercice,
       echecsDeBarre: echecsDeBarre,

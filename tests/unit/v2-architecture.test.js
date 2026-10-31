@@ -1789,7 +1789,7 @@ const NOTIONS = [
     raison: 'audit du 16/10/2026 (01 #14) : deux `memeCharge`, deux sémantiques (le plan rendait vrai pour deux vides, le ' +
       'moteur faux) ; une arithmétique, au moteur, et la règle des vides nommée dans le plan (`memeChargeOuVides`).' },
   { notion: 'la zone force (Lourd, Mix)', pr: '124-U2',
-    module: 'moteur.js', fonction: 'estZoneForce', lecteurs: ['plan.js', 'app.js'],
+    module: 'moteur.js', fonction: 'estZoneForce', lecteurs: ['plan.js', 'app.js', 'generateur.js'],
     par: ['marcheIsoleeBrute', 'degressivePossible'],
     interditAilleurs: { motif: /(['"])lourd\1\s*,\s*(['"])mix\2|===\s*(['"])lourd\3\s*\|\|[^;]*===\s*(['"])mix\4|!==\s*(['"])lourd\5\s*&&[^;]*!==\s*(['"])mix\6/,
       raison: 'la zone force écrite en dur (« lourd », « mix ») : passer par `Moteur.estZoneForce`' },

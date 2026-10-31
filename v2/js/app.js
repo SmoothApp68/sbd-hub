@@ -11238,7 +11238,10 @@
           series: (e.series || []).map(function (l) { return Object.assign({}, l); }),
           repos_cible_s: e.repos_cible_s,
           groupe_superset: e.groupe_superset === undefined ? null : e.groupe_superset,
-          note: e.note === undefined ? null : e.note
+          note: e.note === undefined ? null : e.note,
+          // 193-3 — la zone de la routine est transportée par le brouillon : l'oublier la ferait partir à `null` au premier
+          // enregistrement (renommer la routine effacerait la zone du jeudi).
+          zone: Routines.zoneValide(e.zone)
         };
       })),
       existantes: routine.exercices.slice()
@@ -12194,7 +12197,7 @@
       brouillon.exercices.push({
         id: null, exercise_slug: exo.slug,
         series: [Routines.enSaisie(null)],
-        repos_cible_s: null, groupe_superset: null, note: null
+        repos_cible_s: null, groupe_superset: null, note: null, zone: null
       });
       apresEditeur();
     };
@@ -12923,7 +12926,7 @@
       id: null, nom: nom, nomChange: true, dossier: dossier, existantes: [], jours: jours || null,
       exercices: Routines.renumeroter(structure.exercices.map(function (e) {
         return { id: null, exercise_slug: e.exercise_slug, series: e.series.map(Routines.enSaisie),
-                 repos_cible_s: e.repos_cible_s, groupe_superset: e.groupe_superset, note: null };
+                 repos_cible_s: e.repos_cible_s, groupe_superset: e.groupe_superset, note: null, zone: null };
       }))
     };
   }

@@ -81,8 +81,17 @@
   // pour une même information sont ce que `CADRAGE-V2` §2 undecies interdit.
   // Les colonnes restent en base le temps de la conversion — ce code ne les
   // touche plus, ni en lecture ni en écriture.
+  // 193-3 (v2_122) — `zone` : la zone que la routine fixe à cet exercice pour ce jour (NULL = Automatique : le coach la
+  // lit dans les séances, comme avant). Un choix EXPLICITE de la personne (l'éditeur, le générateur) : elle ne se déduit
+  // jamais des reps visées.
   var CHAMPS_EXERCICE = ['routine_id', 'exercise_slug', 'rang',
-                         'repos_cible_s', 'groupe_superset', 'note'];
+                         'repos_cible_s', 'groupe_superset', 'note', 'zone'];
+  // `routine_exercises_zone_ok` : NULL ou l'une des cinq clés — LA table des zones est celle du moteur (`THMoteur.zoneParCle`,
+  // lu à l'appel) : une autre valeur ne part pas en base, elle devient NULL.
+  function zoneValide(v) {
+    var Mo = racine.THMoteur;
+    return typeof v === 'string' && Mo && Mo.zoneParCle(v) ? v : null;
+  }
 
   // Le miroir de `sets`. Mêmes quatre types, et `rang` commence à 1 — pas à 0
   // comme celui de `routine_exercises`. Relevé sur les CHECK, pas supposé.
@@ -518,7 +527,8 @@
       var vieux = parId[v.id];
       var change = {};
       ['repos_cible_s', 'exercise_slug',
-       'groupe_superset', 'note'].forEach(function (c) {
+       'groupe_superset', 'note', 'zone'].forEach(function (c) {
+        if (c === 'zone' && champs.zone === undefined) return;
         // `vieux` vient de la base, où une colonne vide vaut NULL ; `champs` est
         // normalisé pareil. On compare donc deux formes identiques, et non
         // `undefined` contre `null` — qui différeraient à chaque tour.
@@ -626,6 +636,9 @@
       groupe_superset: groupeValide(e && e.groupe_superset),
       note: texteOuNul(e && e.note)
     };
+    // 193-3 — la zone ne part que si l'appelant la porte : une intention posée avant la 193-3 (sans la clé) n'efface pas la
+    // zone d'une ligne qui en a une.
+    if (e && e.zone !== undefined) o.zone = zoneValide(e.zone);
     if (routineId) o.routine_id = routineId;
     // ⚠️ L'IDENTIFIANT, QUAND L'APPELANT EN FOURNIT UN. `routine_exercises.id`
     // a `gen_random_uuid()` en défaut : l'app peut donc fabriquer le sien, et
@@ -808,7 +821,7 @@
     var n = nSeries >= 1 ? Math.floor(nSeries) : 1;
     var series = [];
     for (var i = 0; i < n; i++) series.push(enSaisie({ type_serie: 'travail' }));
-    exercices.push({ exercise_slug: slug, series: series, repos_cible_s: null, groupe_superset: null, note: null });
+    exercices.push({ exercise_slug: slug, series: series, repos_cible_s: null, groupe_superset: null, note: null, zone: null });
     return renumeroter(exercices);
   }
 
@@ -919,7 +932,8 @@
           series: (e.series || []).map(function (l) { return Object.assign({}, l, { id: null }); }),
           repos_cible_s: e.repos_cible_s === undefined ? null : e.repos_cible_s,
           groupe_superset: e.groupe_superset === undefined ? null : e.groupe_superset,
-          note: e.note === undefined ? null : e.note
+          note: e.note === undefined ? null : e.note,
+          zone: zoneValide(e.zone)
         };
       }))
     };
@@ -2013,6 +2027,7 @@
     REPS_MIN: REPS_MIN, REPS_MAX: REPS_MAX,
     REPOS_MIN: REPOS_MIN, REPOS_MAX: REPOS_MAX,
     CHAMPS_EXERCICE: CHAMPS_EXERCICE,
+    zoneValide: zoneValide,
     CHAMPS_ROUTINE: CHAMPS_ROUTINE,
     DOSSIER_MAX: DOSSIER_MAX,
     REPOS_PAR_DEFAUT: REPOS_PAR_DEFAUT,

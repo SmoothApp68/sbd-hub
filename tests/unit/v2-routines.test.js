@@ -457,7 +457,7 @@ describe('7. la routine ne porte AUCUNE charge', () => {
     // désormais son groupement et sa note, toujours AUCUNE charge.
     expect(Routines.CHAMPS_EXERCICE).toEqual(
       ['routine_id', 'exercise_slug', 'rang',
-       'repos_cible_s', 'groupe_superset', 'note']);
+       'repos_cible_s', 'groupe_superset', 'note', 'zone']);   // 193-3 (v2_122) : la zone de la routine
     // Et celle des séries programmées, tout aussi explicite.
     expect(Routines.CHAMPS_SERIE).toEqual(
       ['routine_exercise_id', 'user_id', 'rang', 'type_serie', 'reps_visees',

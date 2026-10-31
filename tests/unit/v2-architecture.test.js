@@ -1612,8 +1612,10 @@ const NOTIONS = [
     module: 'modele.js', fonction: 'libelleDeLaSemaine', lecteurs: ['app.js'],
     raison: 'ECRAN-SAISIE §7 quater.7 : les mois et les chiffres des dates ne s’écrivent que dans `modele.js`.' },
   { notion: 'une zone par sa clé (bornes, libellé)', pr: '124-U1',
-    module: 'moteur.js', fonction: 'zoneParCle', lecteurs: ['app.js', 'plan.js'],
-    raison: 'les bornes d’une zone sont écrites une fois (`ZONES`) ; le plan et la démonstration les lisent par la clé.' },
+    module: 'moteur.js', fonction: 'zoneParCle', lecteurs: ['app.js', 'plan.js', 'routines.js', 'seance.js'],
+    raison: 'les bornes d’une zone sont écrites une fois (`ZONES`) ; le plan et la démonstration les lisent par la clé. 193-3 : ' +
+      'la zone d’une ligne de routine (`routines.zoneValide`) et la zone de plan copiée dans la séance (`seance.zoneDePlanValide`) ' +
+      'se valident par la même table, jamais par une seconde liste de clés.' },
   { notion: 'les charges de travail d’un exercice, séance par séance', pr: '124-U1',
     module: 'moteur.js', fonction: 'chargesDeTravailDe', lecteurs: ['app.js'],
     raison: 'MOTEUR §9.22 : le bilan du bloc et la tête des records de la page d’exercice lisent les charges de travail ' +

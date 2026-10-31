@@ -336,7 +336,7 @@
   // interdit. Les colonnes restent en base le temps de la conversion ; ce code
   // ne les lit plus et ne les écrit plus.
   var COLONNES_ROUTINE_EXO =
-    'id, routine_id, exercise_slug, rang, repos_cible_s, note, groupe_superset';
+    'id, routine_id, exercise_slug, rang, repos_cible_s, note, groupe_superset, zone';
 
   // Le miroir de `sets` pour les routines. Même forme, donc même rendu.
   var COLONNES_ROUTINE_SET =

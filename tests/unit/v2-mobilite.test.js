@@ -145,6 +145,28 @@ describe('194-1 — une zone à ménager ne reçoit aucun étirement (I96)', () 
     avec.fin.zones[0].exercices.forEach((x) => { expect(M.MOBILITE_CHARGE[x.slug] || []).not.toContain('genou'); });
     expect(avec.fin.zones[0].exercices[0].slug).toBe('hanches_90_90');
   });
+  test('genou à ménager : les quadriceps ne reçoivent aucun étirement (flexion complète), phrase du kiné', () => {
+    const b = M.blocDeMobilite({ zones: ['quadriceps'], faites: {}, muscles: ['quadriceps'], slugs: [SQ], menager: ['genou'], douleurs: [] });
+    expect(b.fin.zones).toEqual([]);
+    expect(b.fin.kine).toEqual(['Tes quadriceps sont à ménager : pour l’étirer, demande l’avis d’un kiné.']);
+    const e = entrees(seanceDe([SQ]), { zonesRaides: ['quadriceps'], menagerProfil: ['genou'] });
+    const p = T.planDeSeance(e);
+    expect(erreurs(p, e)).toEqual([]);
+    p.mobilite.fin.zones = [{ zone: 'quadriceps', libelle: 'Quadriceps', fait: 0, minutes: 1, apres: 1, exercices: [{ slug: 'etirement_quadriceps_debout', series: 2, duree_s: 45, minutes: 1 }] }];
+    expect(erreurs(p, e).some((x) => /^I96/.test(x))).toBe(true);
+  });
+  test('dos à ménager : les ischios seulement couché, dos neutre, jamais penché en avant', () => {
+    const b = M.blocDeMobilite({ zones: ['ischios'], faites: {}, muscles: [], slugs: [], menager: ['dos'], douleurs: [] });
+    const slugs = b.fin.zones[0].exercices.map((x) => x.slug);
+    expect(slugs).toEqual(['etirement_ischios_allonge_elastique']);
+    const sans = M.blocDeMobilite({ zones: ['ischios'], faites: {}, muscles: [], slugs: [], menager: [], douleurs: [] });
+    expect(sans.fin.zones[0].exercices[0].slug).toBe('etirement_ischios');
+    const e = entrees(seanceDe([SQ]), { zonesRaides: ['ischios'], menagerProfil: ['dos'] });
+    const p = T.planDeSeance(e);
+    expect(erreurs(p, e)).toEqual([]);
+    p.mobilite.fin.zones[0].exercices = [{ slug: 'etirement_ischios', series: 2, duree_s: 45, minutes: 1.5 }];
+    expect(erreurs(p, e).some((x) => /^I96.*dos/.test(x))).toBe(true);
+  });
 });
 
 describe('194-1 — le plan : proposé, jamais imposé (I94 à I98)', () => {

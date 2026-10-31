@@ -10306,7 +10306,7 @@
       enMouvement: ['rotations_controlees_hanche', 'cercles_hanches', 'accroupi_profond'], sert: [{ re: /^squat/, nom: 'squat' }, { re: /^souleve_de_terre/, nom: 'soulevé' }] },
     ischios: { libelle: 'Ischios', accord: 'Tes ischios', menagee: null, muscles: ['ischio_jambiers'],
       tenus: ['etirement_ischios', 'etirement_ischios_allonge_elastique'], enMouvement: ['balances_jambe'], sert: [] },
-    quadriceps: { libelle: 'Quadriceps', accord: 'Tes quadriceps', menagee: null, muscles: ['quadriceps'],
+    quadriceps: { libelle: 'Quadriceps', accord: 'Tes quadriceps', menagee: 'genou', muscles: ['quadriceps'],
       tenus: ['etirement_quadriceps_debout', 'etirement_quadriceps_mur'], enMouvement: ['fente_rotation_worlds_greatest'], sert: [] },
     epaules: { libelle: 'Épaules', accord: 'Tes épaules', menagee: 'epaule', muscles: ['deltoide_anterieur', 'deltoide_lateral', 'deltoide_posterieur', 'pectoraux'],
       tenus: ['etirement_epaule_bras_croise', 'etirement_dormeur', 'etirement_pectoraux_porte', 'etirement_triceps'],
@@ -10317,7 +10317,7 @@
   };
   // Les articulations qu'un exercice charge (les clés des zones à ménager) : le choix passe au suivant de la liste de la zone.
   var MOBILITE_CHARGE = {
-    pigeon: ['genou', 'hanche'], papillon: ['genou'], etirement_flechisseurs_hanche: ['genou'], etirement_quadriceps_mur: ['genou'],
+    pigeon: ['genou', 'hanche'], etirement_ischios: ['dos'], papillon: ['genou'], etirement_flechisseurs_hanche: ['genou'], etirement_quadriceps_mur: ['genou'],
     etirement_quadriceps_debout: ['genou'], accroupi_profond: ['genou'], fente_rotation_worlds_greatest: ['genou'],
     etirement_dormeur: ['epaule'], etirement_pectoraux_porte: ['epaule'], etirement_epaule_bras_croise: ['epaule'],
     etirement_triceps: ['epaule', 'coude'], passage_epaules_baton: ['epaule'], passage_epaules_elastique: ['epaule'],

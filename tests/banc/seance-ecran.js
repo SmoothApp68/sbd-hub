@@ -1591,7 +1591,7 @@ const SETS_IMPORTES = [
         // 87 (`v2_078`) — `compte_prive` NOT NULL, lui aussi.
         if (l.compte_prive === null) return json(refus('23502', 'profiles.compte_prive NOT NULL'), 400);
         const horsListe = (col, liste) => l[col] !== undefined && l[col] !== null && liste.indexOf(l[col]) < 0;
-        if (horsListe('objectif', ['force', 'muscle', 'les_deux', 'forme'])) return json(refus('23514', 'profiles_objectif_ok'), 400);
+        if (horsListe('objectif', ['force', 'muscle', 'les_deux', 'forme', 'calisthenie'])) return json(refus('23514', 'profiles_objectif_ok'), 400);
         if (horsListe('temps_reponse', ['max', 'marge', 'moins', 'varie'])) return json(refus('23514', 'profiles_temps_reponse_ok'), 400);
         if (horsListe('historique_declare', ['import', 'non_note', 'debutant'])) return json(refus('23514', 'profiles_historique_declare_ok'), 400);
         // 60-3 — l'écran 8 : la contrainte relevée au schéma le 08/10.

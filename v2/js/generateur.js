@@ -1640,7 +1640,32 @@
     return lignes;
   }
 
+  // ── 195-2 — LE DÉPART DE LA CALISTHÉNIE ───────────────────────────────────────────────────────────────────────────
+  // Les quatre chiffres du questionnaire (`profiles.depart_calisthenie`) -> les marches où l'on commence. Table pure, la
+  // maquette (31/10) : aucun calcul, aucune décision de séance (le générateur et le plan la lisent). Un chiffre inconnu
+  // (`null`, « Je ne sais pas ») -> une marche prudente, ajustée en deux séances par le moteur. Les slugs sont ceux du catalogue.
+  // Chaque entrée : `{ slugs: [exercices], reps: 'zone' }`.
+  var DEPART_PRUDENT = { tractions: ['traction_negative', 'rowing_inverse'], pompes: ['pompes_genoux'], dips: ['dips_negatif'],
+                         jambes: ['split_squat_bulgare_poids_du_corps'] };
+  function departDeCalisthenie(d) {
+    var x = d || {};
+    var n = function (v) { return typeof v === 'number' && isFinite(v) && v >= 0 ? v : null; };
+    var t = n(x.tractions), p = n(x.pompes), di = n(x.dips);
+    return {
+      tractions: t === null ? DEPART_PRUDENT.tractions
+        : t === 0 ? ['traction_negative', 'rowing_inverse']
+        : t <= 4 ? ['tractions', 'traction_negative']
+        : t <= 11 ? ['tractions'] : ['tractions_leste'],
+      pompes: p === null ? DEPART_PRUDENT.pompes
+        : p <= 4 ? ['pompes_inclinees'] : p <= 14 ? ['pompes_genoux'] : p <= 29 ? ['pompes'] : ['pompes_declinees'],
+      dips: di === null ? DEPART_PRUDENT.dips
+        : di === 0 ? ['dips_negatif'] : di <= 14 ? ['dips_torse'] : ['dips_torse_lestes'],
+      jambes: x.pistol === true ? ['pistol_squat'] : DEPART_PRUDENT.jambes
+    };
+  }
+
   var api = {
+    departDeCalisthenie: departDeCalisthenie,
     // 188-1 — tirage et poussée : UNE définition, lue par les cartes d'équilibre de la semaine (`equilibres.js`).
     estTirage: estTirage,
     estPoussee: estPoussee,

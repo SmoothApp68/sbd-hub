@@ -15109,6 +15109,7 @@
                                           historique: questionnaire.rep.historique,
                                           programme: questionnaire.rep.programme,
                                           depuis: questionnaire.rep.depuis,
+                                          objectif: questionnaire.rep.objectif,
                                           aDesRoutines: aDesRoutinesConnu() });
   }
 
@@ -15162,7 +15163,8 @@
     if (!q) return;
     montrer('questionnaire');
     var vue = Questionnaire.vueDe(q.ecran, { rep: q.rep, faits: q.faits, aDesSeances: q.aDesSeances, profil: profil,
-      textes: q.textes, erreurs: q.erreurs, visibles: ecransDuQuestionnaire(), refaire: !!q.refaire });
+      textes: q.textes, erreurs: q.erreurs, visibles: ecransDuQuestionnaire(), refaire: !!q.refaire,
+      catalogue: q.ecran === Questionnaire.DEPART ? catalogueIndexe() : null });
     Rendu.rendreQuestionnaire($('questionnaire-corps'), vue, {
       surChoix: choisirDansQuestionnaire,
       surSaisie: saisirDansQuestionnaire,
@@ -16657,7 +16659,7 @@
     if (!p) return;
     var avec = local.seances.length > 0 && p.rep.historique !== 'debutant';
     var visibles = Questionnaire.ecransVisibles({ aDesSeances: local.seances.length > 0, historique: p.rep.historique,
-      programme: p.rep.programme, depuis: p.rep.depuis, aDesRoutines: aDesRoutinesConnu() });
+      programme: p.rep.programme, depuis: p.rep.depuis, objectif: p.rep.objectif, aDesRoutines: aDesRoutinesConnu() });
     var ecran = avec ? Questionnaire.SAIT : Questionnaire.ecranSuivant(visibles, Questionnaire.ANCIENNETE);
     ouvrirQuestionnaire({ ecran: ecran || Questionnaire.RECAP, rep: p.rep });
   }

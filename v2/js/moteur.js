@@ -10030,7 +10030,7 @@
   // DEMANDÉE (0 = jusqu'à l'échec, 1 à 3 = en gardant N reps), jamais un type de série : l'échec se lit dans `au_max_reserve`.
   var AU_MAX_JOURS_DE_DOULEUR = 42;     // « J'ai mal » récent : six semaines civiles (même durée que la 189, sans la toucher)
   var AU_MAX_RESERVE_PAR_DEFAUT = 2;    // ce que la personne obtient quand elle pose « Au max » là où la table n'en met pas
-  var OBJECTIFS_AU_MAX = ['force', 'muscle', 'les_deux', 'forme'];
+  var OBJECTIFS_AU_MAX = ['force', 'muscle', 'les_deux', 'forme', 'calisthenie'];   // 195 : la table « Au max » de la calisthénie vient avec le générateur (195-3)
   // Un exercice « J'ai mal » dans les 42 jours avant `jour`. `jours` : les jours (ou instants) des séries marquées.
   function douleurRecente(jours, jour) {
     var k = numeroDuJour(jourCivil(jour));

@@ -14,7 +14,7 @@ const M = require('../../v2/js/moteur.js');
 const S = require('../../v2/js/seance.js');
 const T = require('../../v2/js/plan.js');
 
-const CONSIGNE = { etat: 'progression', zone: 'lourd', palier: 150, n: 1, ligne: { charge: 150, vise: 4 }, haut: null };
+const CONSIGNE = { etat: 'progression', zone: 'lourd', palier: 150, n: 1, ligne: { charge: 150, vise: 6 }, haut: null };
 
 function seance(reculs, nbGrosses) {
   let k = 0;
@@ -22,7 +22,7 @@ function seance(reculs, nbGrosses) {
   let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
   se = S.ajouterExercice(se, 'sq', id, { series: (nbGrosses === undefined ? 1 : nbGrosses) + reculs });
   se.exercices[0].series.forEach((s, i) => {
-    if (i >= (nbGrosses === undefined ? 1 : nbGrosses)) { s.type_serie = 'recul'; s.reps_visees = 6; } else s.reps_visees = 4;
+    if (i >= (nbGrosses === undefined ? 1 : nbGrosses)) { s.type_serie = 'recul'; s.reps_visees = 6; } else s.reps_visees = 6;
   });
   return se;
 }
@@ -76,7 +76,7 @@ describe('193-1 — le plan des reculs', () => {
   });
 
   test('l’écart se LIT sur la dernière séance à reculs : 127,5 sur 150 (15 %), 5 reps pour une cible de 6 → éloigne de 2,5 points (17,5 %)', () => {
-    const prec = { cible: 6, series: [{ charge_kg: 150, reps: 4, type_serie: 'travail' },
+    const prec = { cible: 6, series: [{ charge_kg: 150, reps: 6, type_serie: 'travail' },
       { charge_kg: 127.5, reps: 5, type_serie: 'recul' }, { charge_kg: 127.5, reps: 5, type_serie: 'recul' }] };
     const e = entrees(seance(2), { reculs: { sq: prec } });
     const p = T.planDeSeance(e);
@@ -91,7 +91,7 @@ describe('193-1 — le plan des reculs', () => {
   });
 
   test('la borne : un écart lu de 2 % est relevé à 5 % (142,5 sur 150)', () => {
-    const prec = { cible: 6, series: [{ charge_kg: 150, reps: 4, type_serie: 'travail' }, { charge_kg: 147.5, reps: 6, type_serie: 'recul' }] };
+    const prec = { cible: 6, series: [{ charge_kg: 150, reps: 6, type_serie: 'travail' }, { charge_kg: 147.5, reps: 6, type_serie: 'recul' }] };
     const R = T.planDeSeance(entrees(seance(1), { reculs: { sq: prec } })).exercices[0].reculs;
     expect(R.ecart).toBeCloseTo(0.05, 6);
     expect(R.charge).toBe(142.5);

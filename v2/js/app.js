@@ -473,12 +473,13 @@
     var jour = jourDuJour();
     var b = Moteur.blocEnCours(local.blocs, dossier);
     if (!b) return { creer: exercicesDuDossier(dossier).length > 0 };
-    var badge = Moteur.badgeDuBloc(b, jour);
+    var phases = Moteur.blocAPhases(b, routines);       // 193-2 : « Phase », jamais « Bloc Lourd » pour un programme de force
+    var badge = Moteur.badgeDuBloc(b, jour, phases);
     if (!Moteur.blocTermine(b, jour)) return { badge: badge };
     var bilan = bilanDe(b);
     var pari = pariDuBloc(b);
     return { badge: badge, fin: Moteur.carteFinDeBloc(b, bilan, nomsDuCatalogue(),
-      pari ? { predite: pari.valeur_predite, observee: Moteur.progresDuBilan(bilan) } : null) };
+      pari ? { predite: pari.valeur_predite, observee: Moteur.progresDuBilan(bilan) } : null, phases) };
   }
 
   // 118 (audit du 16/10, 03 #5) — les dossiers qui portent un bloc en cours, dans l'ordre des blocs : la
@@ -562,7 +563,8 @@
                  semaines: o.semaines, decharge: !!o.decharge, exercices: o.exercices.slice(), statut: 'en_cours',
                  precedent: o.precedent ? o.precedent.id : null, created_at: t, modifie_a: t };
     await poserBloc(bloc);
-    await poserLignesDeZone(Moteur.zonesPosees(bloc, uuid, idUtilisateur()), bloc.id);
+    // 193-2 — une PHASE (`sansZones`) n'écrit aucune ligne de zone : ses zones sont celles des routines (`routine_exercises.zone`).
+    if (!o.sansZones) await poserLignesDeZone(Moteur.zonesPosees(bloc, uuid, idUtilisateur()), bloc.id);
     if (o.precedent && o.telQuel === true) await poserPariDeProgramme(bloc, o.precedent);
     return bloc;
   }
@@ -608,10 +610,10 @@
   // Les trois gestes de la fin du bloc, et l'arrêt en plein bloc.
   async function commencerBlocSuivant(dossier) {
     var b = Moteur.blocEnCours(local.blocs, dossier);
-    var s = b ? Moteur.blocSuivant(b) : null;
+    var s = b ? Moteur.blocSuivant(b, Moteur.blocAPhases(b, routines)) : null;
     if (!s) return;
     await creerBloc({ dossier: dossier, zone: s.zone, semaines: s.semaines, decharge: s.decharge, debut: jourDuJour(),
-                      exercices: s.exercices, precedent: b, telQuel: true });
+                      exercices: s.exercices, precedent: b, telQuel: true, sansZones: s.sansZones === true });
     rendreSaisie();
   }
   // L'ARRÊT (§9.22, delta 53-2 ter) rend à chaque exercice du bloc LA ZONE
@@ -633,7 +635,7 @@
     var b = Moteur.blocEnCours(local.blocs, dossier);
     if (!b) return;
     Rendu.rendreFeuilleBlocEnCours($('feuille-contenu'), {
-      dossier: dossier, badge: Moteur.badgeDuBloc(b, jourDuJour()),
+      dossier: dossier, badge: Moteur.badgeDuBloc(b, jourDuJour(), Moteur.blocAPhases(b, routines)),
       exercices: (b.exercices || []).map(function (s) { return nomsDuCatalogue()[s] || s; }),
       surArreter: function () { fermerVoile(); arreterProgramme(dossier); },
       surFermer: fermerVoile
@@ -13868,8 +13870,33 @@
       if (creees && !vues.saisie.hidden && !seance) rendreSaisie();
       return rendreApercuDuProgramme();
     }
+    await creerLaPhaseDuProgramme(c);
     fermerVoile();
     await ouvrirBibliothequeSur(c.dossier);
+  }
+
+  // 193-2 — LA PHASE du programme construit : Force et Les deux, par les familles, hors débutant (qui n'a ni zone ni reculs), sans
+  // historique (193-2b). Un bloc de 5 semaines, la dernière allégée, nommant les barres lourdes (les lignes à zone Lourd) ; ni ligne
+  // de zone (`sansZones`) ni pari : le coach n'a rien changé aux zones, elles sont celles des routines. Après la DERNIÈRE routine écrite
+  // (jamais pendant une panne : `c.erreur` vide) ; une reprise ne recrée pas un bloc qui existe. Une panne du bloc ne défait pas les
+  // routines : la phase manque, rien d'autre.
+  async function creerLaPhaseDuProgramme(c) {
+    if (!c || c.historique || (c.entree && c.entree.famille === false)) return;
+    if (Moteur.coachSeTait(profil && profil.intention)) return;
+    if (!c.routines.every(function (rt, i) { return c.faites[i]; })) return;
+    if (!Generateur.familleApplicable(catalogueIndexe(), c.entree) || Profil.estDebutant(c.entree)) return;
+    if (Moteur.blocEnCours(local.blocs, c.dossier)) return;
+    var vus = {}, barres = [];
+    c.routines.forEach(function (rt) {
+      rt.exercices.forEach(function (l) {
+        if (l.zone === 'lourd' && !vus[l.exercise_slug]) { vus[l.exercise_slug] = true; barres.push(l.exercise_slug); }
+      });
+    });
+    if (!barres.length) return;
+    try {
+      await creerBloc({ dossier: c.dossier, zone: 'lourd', semaines: Moteur.SEMAINES_PHASE, decharge: true, debut: jourDuJour(),
+                        exercices: barres, sansZones: true });
+    } catch (e) { /* la phase manque ; les routines sont écrites */ }
   }
 
   function choisirRoutineAMettreAJour(ligne) {

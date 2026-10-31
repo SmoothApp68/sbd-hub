@@ -377,12 +377,12 @@ const FONCTIONS = ['freresDe', 'cousinsDe', 'brouillonDeStructure', 'creerRoutin
   'basculerChangement', 'ligneDeRetouche', 'deduiteDuProgramme', 'fondreLesVoisins', 'raccourcirLeProgramme', 'lectureDuProgramme',
   'departRecentDe', 'seriesFois', 'rendreApercuDuProgramme', 'ouvrirApercuProgramme', 'ouvrirExerciceDuProgramme',
   'ecarterDansLeProgramme', 'remplacerDansLeProgramme', 'poserDansLeProgramme', 'versLeCatalogueDuProgramme',
-  'creerLeProgramme'];
+  'creerLeProgramme', 'creerLaPhaseDuProgramme'];
 
 function bac(options) {
   const o = options || {};
   const journal = { routines: [], exercices: [], series: [], feuilles: [], voile: 0, ferme: 0, saisie: 0, chargements: 0,
-                    profil: [], catalogue: [], confirmer: [], choix: [], machine: [], rendreSaisie: 0, seriesDe: {}, supprimees: [] };
+                    profil: [], catalogue: [], confirmer: [], choix: [], machine: [], rendreSaisie: 0, seriesDe: {}, supprimees: [], blocs: [] };
   let n = 0;
   const Donnees = {
     creerRoutine: async (ligne) => {
@@ -421,7 +421,9 @@ function bac(options) {
     volumeDuCoach: () => o.volume || {},
     corpus: () => ({}),
     catalogueIndexe: () => INDEX,
-    local: { exercices: o.catalogueVide ? [] : CATALOGUE },
+    local: { exercices: o.catalogueVide ? [] : CATALOGUE, blocs: o.blocs || [] },
+    jourDuJour: () => '2026-11-02',
+    creerBloc: async (b) => { if (o.panneBloc) throw new Error('Failed to fetch'); journal.blocs.push(b); },
     profil,
     // Le vrai `poserProfil` met `profil` à jour AVANT son premier `await` et ne rejette jamais : hors ligne, l'envoi
     // échoue et le drapeau reste levé, mais l'état local garde le geste.
@@ -1404,6 +1406,51 @@ describe('193-2 — les familles jusqu’à la routine écrite', () => {
     await court.vue().surCreer();
     const ecrites = [].concat.apply([], court.journal.series).filter((s) => s.type_serie === 'recul').length;
     expect(ecrites).toBe(c.reduce((x, y) => x + y, 0));
+  });
+
+  test('la PHASE : Les deux 4 jours créent UN bloc de 5 semaines, la dernière allégée, sur les barres lourdes, sans zone de bloc', async () => {
+    const b = famille();
+    await b.appel('ouvrirApercuProgramme()');
+    const lourdes = [];
+    b.ctx.construit.routines.forEach((rt) => rt.exercices.forEach((x) => { if (x.zone === 'lourd' && lourdes.indexOf(x.exercise_slug) < 0) lourdes.push(x.exercise_slug); }));
+    await b.vue().surCreer();
+    expect(b.journal.blocs.length).toBe(1);
+    const bloc = b.journal.blocs[0];
+    expect(bloc).toMatchObject({ dossier: 'Mon programme', semaines: 5, decharge: true, sansZones: true, debut: '2026-11-02' });
+    expect(bloc.exercices).toEqual(lourdes);
+    expect(bloc.exercices.length).toBeGreaterThan(0);
+    // créé APRÈS la dernière routine écrite
+    expect(b.journal.routines.length).toBe(4);
+  });
+
+  test('Force 4 jours aussi ; Muscle et Forme : aucune phase', async () => {
+    const f = famille({ profil: { objectif: 'force' } });
+    await f.appel('ouvrirApercuProgramme()');
+    await f.vue().surCreer();
+    expect(f.journal.blocs.length).toBe(1);
+    for (const objectif of ['muscle', 'forme']) {
+      const m = famille({ profil: { objectif } });
+      await m.appel('ouvrirApercuProgramme()');
+      await m.vue().surCreer();
+      expect(m.journal.blocs.length).toBe(0);
+    }
+  });
+
+  test('pas de phase : débutant, bloc déjà en cours, « Juste un carnet », panne pendant les routines, sans le générateur de familles', async () => {
+    const cas0 = async (o) => { const b = famille(o); await b.appel('ouvrirApercuProgramme()'); await b.vue().surCreer(); return b.journal.blocs.length; };
+    expect([1, await cas0({ profil: { anciennete: 'moins_1_an' } })]).toEqual([1, 0]);
+    expect([2, await cas0({ blocs: [{ id: 'x', dossier: 'Mon programme', statut: 'en_cours', zone: 'lourd', debut: '2026-10-01', semaines: 5, exercices: ['squat_barre'] }] })]).toEqual([2, 0]);
+    expect([3, await cas0({ profil: { intention: 'entretien' } })]).toEqual([3, 0]);
+    expect([4, await cas0({ generateur: GENERATEUR_D_AVANT })]).toEqual([4, 0]);
+    expect([5, await cas0({ panne: (n) => n === 2 })]).toEqual([5, 0]);
+  });
+
+  test('une panne du bloc ne défait pas les routines écrites', async () => {
+    const b = famille({ panneBloc: true });
+    await b.appel('ouvrirApercuProgramme()');
+    await b.vue().surCreer();
+    expect(b.journal.routines.length).toBe(4);
+    expect(b.ctx.construit).toBeNull();
   });
 
   test('« Je n’en veux pas » sur une barre : ses deux places changent ensemble', async () => {

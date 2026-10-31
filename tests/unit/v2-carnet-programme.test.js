@@ -127,6 +127,7 @@ describe('60-2a — `programmeDuDossier` : programme en cours, profil en carnet 
     const ctx = {
       Moteur: M, Date, Object, JSON,
       profil: o.profil,
+      routines: [],
       local: { blocs: [BLOC], modes: o.modes || [] },
       jourDuJour: () => o.jour,
       exercicesDuDossier: o.exercicesDuDossier || (() => ['squat_barre']),

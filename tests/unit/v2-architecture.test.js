@@ -885,6 +885,11 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['ouvrirProgramme', 'commencerBlocSuivant'] },
     raison: 'MOTEUR §9.22 : jamais déduit du bloc passé (§20.1) — la carte, « Commencer » et « Ajuster » proposent ' +
       'le même bloc.' },
+  { notion: 'un bloc est une PHASE (programme de force : zones portées par les routines, aucune zone de bloc)', pr: '193-U2',
+    module: 'moteur.js', fonction: 'blocAPhases', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['programmeDuDossierCalcule', 'commencerBlocSuivant', 'ouvrirBlocEnCours'] },
+    raison: 'MOTEUR §9.22 / §9.29 : le badge, la carte de fin et « Commencer » lisent la même reconnaissance — sans colonne, sur les ' +
+      'lignes à zone du jour des routines du dossier. Une phase ne repose jamais sur une alternance Mix ↔ Lourd.' },
   { notion: 'les exercices d’un bloc par défaut (les barres polyarticulaires du dossier)', pr: '53-U2',
     module: 'moteur.js', fonction: 'exercicesParDefaut', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['ouvrirProgramme'] },

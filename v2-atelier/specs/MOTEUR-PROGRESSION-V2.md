@@ -1753,7 +1753,7 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 
 **Reste à décider (option B).** Retest d'un cran et étirement après ce test raté : ils passent par des épisodes qui supposent des séries au palier et un test lu par `testDe` — une refonte de `consignePour`.
 
-**Dans le programme construit (193-2).** Pour **Les deux** seulement (l'écart de départ de 10 % n'est pas réglable : en Force, les jours lourds sont en séries égales), le générateur écrit **une grosse série suivie de ses reculs** : la ligne porte `reculs` et `reps_recul`, la routine créée `1` série de travail puis `N` séries `recul` (`routineDeduite`), aux reps du recul. **La charge de départ** d'un exercice (§9.21) ne va jamais sur un recul (`estTravail` est vrai pour lui : il faut l'exclure à la main). Le raccourci (§9.18) retire des reculs, jamais le dernier ; la grosse série n'est jamais coupée. Une priorité sur la barre ajoute **un recul**, jamais une seconde grosse série. Une zone à ménager sur la place : grosse série et reculs redeviennent des séries égales.
+**Dans le programme construit (193-2).** Pour **Les deux** seulement (en Force, les jours lourds sont en séries égales : un recul à mêmes reps a toujours −10 %, non réglable), le générateur écrit **une grosse série suivie de 2 reculs à plus de reps** (couché et militaire × 8, squat × 6, soulevé × 5 : la condition de la 193-5, leur charge se cale sur le max du jour) : la ligne porte `reculs` et `reps_recul`, la routine créée `1` série de travail puis `N` séries `recul` (`routineDeduite`), aux reps du recul. **La charge de départ** d'un exercice (§9.21) ne va jamais sur un recul (`estTravail` est vrai pour lui : il faut l'exclure à la main). Le raccourci (§9.18) retire des reculs, jamais le dernier ; la grosse série n'est jamais coupée. Une priorité sur la barre ajoute **un recul**, jamais une seconde grosse série. Une zone à ménager sur la place : grosse série et reculs redeviennent des séries égales.
 
 **Serveur.** Le récap de groupe, la guilde et les défis (v2_121) lisent `type_serie` côté SQL : hors du dépôt.
 
@@ -1802,7 +1802,7 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 
 **La notion.** « Au max » est un **drapeau** sur la dernière série de travail (ou de recul) d'un exercice, pas un type : la série reste `travail` ou `recul`, aucun `echec` n'est écrit automatiquement. Ligne de routine `routine_sets.au_max` ; série faite `sets.au_max_reserve` (smallint 0 à 3, migration `v2_123`) = la réserve **demandée** : 0 jusqu'à l'échec, 1 à 3 « en gardant N reps », NULL hors « Au max ». Une intention écrite à la validation depuis la ligne du plan, comme `repos_s`.
 
-**Une seule fonction de décision : `Moteur.auMaxDe(entree)`** (pure) rend `{ pose: 'defaut'|'main'|null, reserve, sorte: 'echec'|'garde', avecPareur, classe }`. Le générateur (193-2) la lira ; il n'est pas câblé ici.
+**Une seule fonction de décision : `Moteur.auMaxDe(entree)`** (pure) rend `{ pose: 'defaut'|'main'|null, reserve, sorte: 'echec'|'garde', avecPareur, classe }`. Le générateur (193-2, `marquerAuMax`) la lit pour poser la marque par défaut sur la dernière série de travail ou de recul de chaque ligne qu'il écrit (`routineDeduite`) ; il n'a aucune table à lui.
 
 1. **Objectif muscle ou les_deux** : squat et couché, réserve 0 avec pareur ou sécurités ; soulevé 2 ; militaire 1 ; accessoires 0.
 2. **Objectif force** : barres, rien ; accessoires 1. **Forme** : rien. Objectif inconnu : rien (on ne devine pas).

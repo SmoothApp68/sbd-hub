@@ -236,8 +236,10 @@ catalogue ; « Je n'en veux pas » ne l'enlève pas, il se remplace). Sinon le g
 sans objectif. `Generateur.FAMILLES[objectif][jours]` (2 à 6 jours) ; `famille: false` en entrée rejoue l'ancien gabarit (les tests de 60-6).
 
 **Couche 1 — le schéma, par ligne.** **Force : des séries égales** (squat et couché Lourd 4 × 4, soulevé Lourd 3 × 3) : l'écart de départ
-des reculs (10 %, MOTEUR §9.28) n'est pas réglable, le réglage « force » (≈ −5 %, mêmes reps) viendra plus tard. **Les deux : une grosse
-série puis des reculs** (« 1 × 4 · 3 reculs », reps du recul 6 ; soulevé 2 reculs de 5), le reste en hypertrophie (séries égales). Une
+des reculs à mêmes reps (10 %, MOTEUR §9.28) n'est pas réglable, le réglage « force » (≈ −5 %, mêmes reps) viendra plus tard. **Les deux : une grosse
+série puis 2 reculs à PLUS de reps** (couché et militaire « 1 × 4 · 2 reculs × 8 », squat « × 6 », soulevé « × 5 »), le reste en hypertrophie
+(séries égales). **Delta du 31/10/2026 (193-2 reprise, après 193-5)** : des reculs à plus de reps que la grosse série se calent sur le **max du
+jour**, pas sur −10 % (MOTEUR §9.28, delta 193-5) : c'est ce qui rend « 1 × 4 puis 2 × 8 » juste dès la première séance. Une
 ligne porte **un nombre de reps visées** (Lourd 4, Mix 6, Hypertrophie 9), jamais une fourchette : la fourchette vient de la zone posée
 sur la ligne et s'affiche dessous (« zone Lourd (3-5) »).
 
@@ -272,16 +274,29 @@ jour a sa zone : la même barre passe de Lourd à Mix ou à Hypertrophie. » ; L
 jour en hypertrophie, des séries égales. » ; à deux séances et une fois chaque barre : « Avec 2 séances, chaque barre passe une fois. » ;
 « Une semaine allégée toutes les 5 semaines : mêmes charges, moins de séries. » ; dès qu'une barre passe deux fois : « Fréquence : environ
 3 % de force de plus par séance hebdomadaire ajoutée sur un mouvement (Pelland 2026). » Chaque ligne : « zone Lourd (3-5) » dessous,
-« 1 × 4 · 3 reculs » à droite ; la ligne « pourquoi » compte les reculs dans le volume. Aucune de ces phrases pour Muscle, Forme, un
+« 1 × 4 · 2 reculs × 8 » à droite ; la ligne « pourquoi » compte les reculs dans le volume. Aucune de ces phrases pour Muscle, Forme, un
 débutant, ni une maison sans barre.
 
 **Les deux, 2 et 3 jours** (hors maquette, validés avec les règles : squat et couché 2 fois dès 3 jours, une fois chacun à 2 jours, dit dans l'en-tête ; le squat Lourd et le soulevé Lourd jamais le même jour).
 
 | | Les deux · 2 jours | Les deux · 3 jours |
 |---|---|---|
-| A | Squat Lourd 1 × 4 · 3 reculs ; tractions 3 × 9 ; militaire 3 × 9 ; leg curl 3 × 12 | Squat Lourd 1 × 4 · 3 reculs ; couché Hyper. 3 × 9 ; tractions 3 × 9 ; élévation latérale 3 × 15 |
-| B | Couché Lourd 1 × 4 · 3 reculs ; soulevé Lourd 1 × 4 · 2 reculs ; rowing poulie 3 × 10 ; curl EZ 3 × 12 | Couché Lourd 1 × 4 · 3 reculs ; squat Hyper. 3 × 9 ; roumain Hyper. 3 × 8 ; rowing poulie 3 × 10 |
-| C | — | Soulevé Lourd 1 × 4 · 2 reculs ; militaire 3 × 9 ; curl EZ 3 × 12 ; relevé de genoux suspendu 3 × 15 |
+| A | Squat Lourd 1 × 4 · 2 reculs × 6 ; tractions 3 × 9 ; militaire 3 × 9 ; leg curl 3 × 12 | Squat Lourd 1 × 4 · 2 reculs × 6 ; couché Hyper. 3 × 9 ; tractions 3 × 9 ; élévation latérale 3 × 15 |
+| B | Couché Lourd 1 × 4 · 2 reculs × 8 ; soulevé Lourd 1 × 4 · 2 reculs × 5 ; rowing poulie 3 × 10 ; curl EZ 3 × 12 | Couché Lourd 1 × 4 · 2 reculs × 8 ; squat Hyper. 3 × 9 ; roumain Hyper. 3 × 8 ; rowing poulie 3 × 10 |
+| C | — | Soulevé Lourd 1 × 4 · 2 reculs × 5 ; militaire 3 × 9 ; curl EZ 3 × 12 ; relevé de genoux suspendu 3 × 15 |
+
+**Les deux, 4 jours.** Haut A : couché Lourd 1 × 4 · 2 reculs × 8, militaire Hyper. 3 × 9, tirage vertical 3 × 9, élévation latérale 3 × 15 ·
+Bas A : squat Lourd 1 × 4 · 2 reculs × 6, roumain 3 × 8, leg curl 3 × 12, mollets 3 × 15 · Haut B : militaire Lourd 1 × 4 · 2 reculs × 8
+(pas une barre lourde : le raccourci peut la couper), couché Hyper. 3 × 9, rowing 3 × 10, curl 3 × 12 · Bas B : soulevé Lourd 1 × 4 · 2 reculs × 5,
+squat Hyper. 3 × 9, presse 3 × 12, abdos 3 × 15.
+
+**La dernière série « Au max » (193-6, MOTEUR §9.30).** Le programme construit pose par défaut `routine_sets.au_max = true` sur la **dernière
+série de travail ou de recul** de chaque exercice dont `Moteur.auMaxDe` dit « oui » pour l'objectif : **Muscle et Les deux** — partout, selon sa
+table (squat et couché à l'échec avec pareur ou sécurités, soulevé en gardant 2 reps, militaire 1, accessoires à l'échec) ; **Force** — les
+accessoires seulement (réserve 1), jamais une barre ; **Forme, objectif absent ou inconnu** — rien (on ne devine pas). Le débutant, la zone à
+ménager et le squat suivi d'une autre barre lourde de jambes sont réglés dans `auMaxDe`, pas dans le générateur : **aucune table en double**.
+Un remplacement (« Je n'en veux pas », « Remplacer ») décide de nouveau pour la ligne neuve. **Delta de sortie** : la sortie de Muscle
+change (voulu) ; Forme, sans objectif et maison sans barre restent identiques octet pour octet.
 
 **Doutes tranchés.** Les citations (Pelland 2026, Williams 2017, Helms 2018, Zourdos 2016, Moesgaard 2022, Bell 2023) ont été relues le 31/10/2026 ;
 les charges ne sont jamais des pourcentages prévus (Helms 2018 : au moins aussi bien que les %), le coach règle chaque jour sur les

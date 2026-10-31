@@ -67,9 +67,11 @@ describe('193-2 — les équilibres d’un programme de famille, 8 semaines fait
       expect(r.constats.filter((x) => x.parle).map((x) => x.cle)).toEqual([]);
     });
 
-    test(objectif + ' 4 jours, les trois barres en priorité : seule la carte « priorités » parle', () => {
+    // Force : le soulevé (3 séries) est sous la moitié du couché ou du squat (7) → la carte parle. Les deux (193-5) : « 1 × 4 puis 2 reculs » au lieu de 3,
+    // le soulevé fait 3 séries pour 6 au squat et au couché : la MOITIÉ exactement, pas moins → aucune carte.
+    test(objectif + ' 4 jours, les trois barres en priorité : ' + (objectif === 'force' ? 'seule la carte « priorités » parle' : 'le soulevé est à la moitié, aucune carte ne parle'), () => {
       const r = huitSemaines(rts, TROIS_BARRES, cat);
-      expect(r.cartes.map((x) => x.cle)).toEqual(['priorites']);
+      expect(r.cartes.map((x) => x.cle)).toEqual(objectif === 'force' ? ['priorites'] : []);
     });
   });
 

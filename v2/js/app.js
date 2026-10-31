@@ -13527,6 +13527,7 @@
       // 193-2 — une grosse série et ses reculs (193-1), la zone du jour (193-3) : portées jusqu'à la routine créée.
       if (l.reculs > 0) { x.reculs = l.reculs; x.reps_recul = l.reps_recul; }
       if (l.zone) x.zone = l.zone;
+      if (l.au_max === true) x.au_max = true;       // 193-6 : la dernière série « Au max »
       // 188-2 — un repos d'isolation raccourci par la compression (étape 2) se porte jusqu'à la routine créée.
       if (l.repos_raccourci_s > 0) x.repos_raccourci_s = l.repos_raccourci_s;
       if (depart !== null) x.charge_cible_kg = depart;
@@ -13611,9 +13612,9 @@
     });
   }
 
-  // 193-2 — « 1 × 4 · 3 reculs » : la grosse série, puis ses reculs (la même forme que la routine écrite, `resumeStructure`).
+  // 193-2 — « 1 × 4 · 2 reculs × 8 » : la grosse série, puis ses reculs (la même forme que la routine écrite, `resumeStructure`).
   function seriesFois(l) {
-    return l.series + '\u00a0\u00d7\u00a0' + l.reps + (l.reculs > 0 ? ' \u00b7 ' + l.reculs + (l.reculs > 1 ? ' reculs' : ' recul') : '');
+    return l.series + '\u00a0\u00d7\u00a0' + l.reps + (l.reculs > 0 ? ' \u00b7 ' + l.reculs + (l.reculs > 1 ? ' reculs' : ' recul') + (l.reps_recul > 0 ? ' \u00d7 ' + l.reps_recul : '') : '');
   }
 
   function rendreApercuDuProgramme() {

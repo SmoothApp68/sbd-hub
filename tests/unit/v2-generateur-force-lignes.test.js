@@ -195,7 +195,7 @@ describe('193-2 (commit 4) — l’aperçu dit le programme de famille', () => {
 
   test('pourquoi : les reculs comptent dans les séries d’une zone du radar', () => {
     const { rs } = dit('les_deux', 4);
-    // Bas A : squat 1 + 3 reculs, roumain 3, leg curl 3, mollets 3 → Jambes 13
-    expect(G.pourquoi(cat, rs[1])).toMatch(/^Jambes 13 séries$/);
+    // Bas A : squat 1 + 2 reculs, roumain 3, leg curl 3, mollets 3 → Jambes 12
+    expect(G.pourquoi(cat, rs[1])).toMatch(/^Jambes 12 séries$/);
   });
 });

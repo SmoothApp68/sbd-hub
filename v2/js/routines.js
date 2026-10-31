@@ -1315,6 +1315,17 @@
         if (x.exercise_slug === e.exercise_slug && x.groupe_superset === (e.groupe_superset === undefined ? null : e.groupe_superset)) x.zone = e.zone;
       });
     });
+    // 193-6 — la dernière série « Au max » (MOTEUR §9.30) : posée par le générateur (`Moteur.auMaxDe`) sur la DERNIÈRE série de travail ou
+    // de recul de l'exercice. Sans `au_max` donné, rien ne change.
+    (d.exercices || []).forEach(function (e) {
+      if (e.au_max !== true) return;
+      routine.exercices.forEach(function (x) {
+        if (x.exercise_slug !== e.exercise_slug || x.groupe_superset !== (e.groupe_superset === undefined ? null : e.groupe_superset)) return;
+        var dernier = -1;
+        x.series.forEach(function (sr, j) { if (racine.THModele.estTravail(sr)) dernier = j; });
+        if (dernier >= 0) x.series[dernier].au_max = true;
+      });
+    });
     // 187 (A5) — une CHARGE DE DÉPART donnée (`charge_cible_kg`, MOTEUR §9.21) va sur les séries de travail de l'exercice.
     // Sans elle, rien ne change : une routine déduite ne porte jamais de charge.
     (d.exercices || []).forEach(function (e) {

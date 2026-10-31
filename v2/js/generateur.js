@@ -98,7 +98,8 @@
   // Le même mouvement revient dans la semaine DANS UNE AUTRE ZONE (l'ondulation, MOTEUR §9.29) : la zone est écrite dans
   // `routine_exercises.zone` de la ligne (193-3). Une place est `[motif, rôle, surcharge]`. Surcharge : `id` / `lie` (deux places
   // liées : la même barre, deux zones, toujours le MÊME exercice), `zone`, `n` (séries), `reps`, `reculs` + `repsRecul` (une
-  // grosse série puis des reculs, 193-1 : Les deux seulement — l'écart de départ de 10 % n'est pas réglable, MOTEUR §9.28),
+  // grosse série puis des reculs, 193-1 : Les deux seulement ; à PLUS de reps que la grosse série (193-5, MOTEUR §9.28), leur charge
+  // se cale sur le max du jour — « 1 × 4 puis 2 × 8 »),
   // `lourd` (une barre lourde : jamais coupée par le raccourci, elle porte la phase). Pur table : aucun calcul.
   var FAMILLE_OBJECTIFS = ['force', 'les_deux'];
   function pl(motif, role, o) { return [motif, role, o || {}]; }
@@ -121,9 +122,9 @@
     ['Jour D', [reprise('s', 'mix', 4, 6), acc('militaire', 'S', 3, 6), acc('rowing', 'S', 3, 10), acc('abdos', 'T', 2, 10)]]
   ];
   var D_QUATRE = [
-    ['Haut A', [grosse('couche', 'c', 4, 3, 6), reprise('m', 'hypertrophie', 3, 9), acc('tirage_vertical', 'S', 3, 9), acc('elev_lat', 'I', 3, 15)]],
-    ['Bas A', [grosse('squat', 's', 4, 3, 6), ROUMAIN(3), acc('leg_curl', 'I', 3, 12), acc('mollets', 'I', 3, 15)]],
-    ['Haut B', [grosse('militaire', 'm', 5, 3, 6, false), reprise('c', 'hypertrophie', 3, 9), acc('rowing', 'S', 3, 10), acc('curl', 'I', 3, 12)]],
+    ['Haut A', [grosse('couche', 'c', 4, 2, 8), reprise('m', 'hypertrophie', 3, 9), acc('tirage_vertical', 'S', 3, 9), acc('elev_lat', 'I', 3, 15)]],
+    ['Bas A', [grosse('squat', 's', 4, 2, 6), ROUMAIN(3), acc('leg_curl', 'I', 3, 12), acc('mollets', 'I', 3, 15)]],
+    ['Haut B', [grosse('militaire', 'm', 4, 2, 8, false), reprise('c', 'hypertrophie', 3, 9), acc('rowing', 'S', 3, 10), acc('curl', 'I', 3, 12)]],
     ['Bas B', [grosse('charniere', 'd', 4, 2, 5), reprise('s', 'hypertrophie', 3, 9), acc('presse', 'S', 3, 12), acc('abdos', 'T', 3, 15)]]
   ];
   var FAMILLES = {
@@ -138,10 +139,10 @@
       6: F_QUATRE.concat([HAUT_DU_CORPS, BAS_DU_CORPS])
     },
     les_deux: {
-      2: [['Jour A', [grosse('squat', 's', 4, 3, 6), acc('tirage_vertical', 'S', 3, 9), acc('militaire', 'S', 3, 9), acc('leg_curl', 'I', 3, 12)]],
-          ['Jour B', [grosse('couche', 'c', 4, 3, 6), grosse('charniere', 'd', 4, 2, 5), acc('rowing', 'S', 3, 10), acc('curl', 'I', 3, 12)]]],
-      3: [['Jour A', [grosse('squat', 's', 4, 3, 6), reprise('c', 'hypertrophie', 3, 9), acc('tirage_vertical', 'S', 3, 9), acc('elev_lat', 'I', 3, 15)]],
-          ['Jour B', [grosse('couche', 'c', 4, 3, 6), reprise('s', 'hypertrophie', 3, 9), ROUMAIN(3), acc('rowing', 'S', 3, 10)]],
+      2: [['Jour A', [grosse('squat', 's', 4, 2, 6), acc('tirage_vertical', 'S', 3, 9), acc('militaire', 'S', 3, 9), acc('leg_curl', 'I', 3, 12)]],
+          ['Jour B', [grosse('couche', 'c', 4, 2, 8), grosse('charniere', 'd', 4, 2, 5), acc('rowing', 'S', 3, 10), acc('curl', 'I', 3, 12)]]],
+      3: [['Jour A', [grosse('squat', 's', 4, 2, 6), reprise('c', 'hypertrophie', 3, 9), acc('tirage_vertical', 'S', 3, 9), acc('elev_lat', 'I', 3, 15)]],
+          ['Jour B', [grosse('couche', 'c', 4, 2, 8), reprise('s', 'hypertrophie', 3, 9), ROUMAIN(3), acc('rowing', 'S', 3, 10)]],
           ['Jour C', [grosse('charniere', 'd', 4, 2, 5), acc('militaire', 'S', 3, 9), acc('curl', 'I', 3, 12), acc('abdos', 'T', 3, 15)]]],
       4: D_QUATRE,
       5: D_QUATRE.concat([HAUT_DU_CORPS]),
@@ -375,6 +376,35 @@
   }
 
 
+  // ── 193-6 — LA DERNIÈRE SÉRIE « AU MAX », posée par défaut (MOTEUR §9.30) ─────────────────────────────────────────────
+  // UNE SEULE FONCTION DE DÉCISION : `Moteur.auMaxDe` (pure). Le générateur la LIT pour chaque ligne d'une séance, dans l'ordre de la
+  // séance (un squat suivi d'une autre barre lourde de jambes ne va pas à l'échec) : aucune table ici. Elle dit oui (muscle, les_deux),
+  // oui aux accessoires seulement (force), non (forme, objectif absent) ; le débutant, la zone à ménager sont dans la fonction.
+  // `au_max: true` sur la ligne = la dernière série de travail ou de recul de l'exercice (posée à l'écriture, `routineDeduite`).
+  function marquerAuMax(catalogue, exercices, p, seuls) {
+    var Moteur = racine.THMoteur, Modele = racine.THModele, B = Modele.BARRES;
+    var debutant = racine.THProfil.estDebutant(p);
+    var lignes = liste(exercices);
+    lignes.forEach(function (l, i) {
+      if (seuls && seuls.indexOf(i) < 0) return;      // un remplacement ne touche que la ligne neuve
+      delete l.au_max;
+      var fiche = ficheDu(catalogue, l.exercise_slug);
+      if (!fiche) return;
+      var jambesApres = lignes.slice(i + 1).some(function (a) {
+        var fam = familleDeBarre(a.exercise_slug, catalogue);
+        return fam === B[0] || fam === B[2];
+      });
+      var a = Moteur.auMaxDe({
+        objectif: p.objectif, debutant: debutant, famille: familleDeBarre(l.exercise_slug, catalogue),
+        equipement: fiche.equipement || null,
+        isolation: Moteur.estIsolation({ prim: liste(fiche.muscles_primaires), sec: liste(fiche.muscles_secondaires), stab: liste(fiche.muscles_stabilisateurs) }),
+        allegee: false, menagee: !!l.menage, douleurRecente: false, barreDeJambesApres: jambesApres
+      });
+      if (a && a.pose === 'defaut') l.au_max = true;
+    });
+    return lignes;
+  }
+
   // ── 193-2 — QUELLE FAMILLE ? ───────────────────────────────────────────────────────────────────────────────────────
   // Force et Les deux, avec une barre à disposition (le squat ET le couché à la barre sont faisables : matériel, catalogue ; un
   // exercice « Je n'en veux pas » ne l'enlève pas, il se remplace) : `FAMILLES[objectif][jours]`. Sinon `null` : le gabarit d'avant,
@@ -475,7 +505,7 @@
       ex = trier(ex, function (x, y) {
         return (x.prioritaire ? 0 : 1) - (y.prioritaire ? 0 : 1) || ROLES.indexOf(x.role) - ROLES.indexOf(y.role);
       });
-      return { nom: rt[0], exercices: ex };
+      return { nom: rt[0], exercices: marquerAuMax(catalogue, ex, p) };
     });
   }
 
@@ -538,6 +568,7 @@
         nouveau[c[0]].exercices[c[1]] = ligneNeuve(catalogue, s, place.motif, place, p);
       });
     }
+    if (s !== null) liees.forEach(function (c) { marquerAuMax(catalogue, nouveau[c[0]].exercices, p, [c[1]]); });
     return { routines: nouveau, ecartes: ecartes };
   }
 
@@ -570,6 +601,7 @@
       var place = nouveau[c[0]].exercices[c[1]];
       nouveau[c[0]].exercices[c[1]] = ligneNeuve(catalogue, slug, motif, place, p);
     });
+    lieesDe(nouveau, r, k).forEach(function (c) { marquerAuMax(catalogue, nouveau[c[0]].exercices, p, [c[1]]); });
     return nouveau;
   }
 

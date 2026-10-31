@@ -14,6 +14,8 @@ const CAS = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/cas-60-6-g
 
 require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
+require('../../v2/js/palier.js');
+require('../../v2/js/moteur.js');
 require('../../v2/js/profil.js');
 const G = require('../../v2/js/generateur.js');
 
@@ -31,7 +33,7 @@ const catalogue = () => {
 };
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const champs = (x) => [x.exercise_slug, x.motif, x.role, x.series, x.reps, x.zone || null, x.reculs || 0, x.reps_recul || null,
-  !!x.lourd, x.lien || null, x.prioritaire, x.menage, x.barre_fixe];
+  !!x.lourd, x.lien || null, x.prioritaire, x.menage, x.barre_fixe, !!x.au_max];
 const vue = (cat, rs) => rs.map((rt) => ({ nom: rt.nom, pourquoi: G.pourquoi(cat, rt), exercices: rt.exercices.map(champs) }));
 const BASE = { materiel: 'salle_complete', anciennete: '3_a_5_ans', phase: 'maintien', priorites: [], menager: [], ecartes: [], faits: {} };
 const entree = (o) => Object.assign(clone(BASE), o);
@@ -39,9 +41,9 @@ const lignes = (rs) => [].concat.apply([], rs.map((rt) => rt.exercices));
 const SQUAT = 'squat_barre', COUCHE = 'developpe_couche_barre', SOULEVE = 'souleve_de_terre_barre';
 
 describe('193-2 — le format du fichier de cas', () => {
-  test('les 13 champs sont ceux que le module rend, dans cet ordre', () => {
+  test('les 14 champs sont ceux que le module rend, dans cet ordre', () => {
     expect(F.format_exercice).toEqual(['exercise_slug', 'motif', 'role', 'series', 'reps', 'zone', 'reculs', 'reps_recul', 'lourd', 'lien',
-      'prioritaire', 'menage', 'barre_fixe']);
+      'prioritaire', 'menage', 'barre_fixe', 'au_max']);
   });
 });
 
@@ -205,7 +207,7 @@ describe('193-2 — les règles, sur chaque famille de 2 à 6 jours', () => {
     expect(f.map((x) => x.series).sort()).toEqual([5, 5]);
     const d = lignes(programme('les_deux', 4, { priorites: [SQUAT] })).filter((x) => x.exercise_slug === SQUAT && x.zone === 'lourd')[0];
     expect(d.series).toBe(1);
-    expect(d.reculs).toBe(4);
+    expect(d.reculs).toBe(3);                                  // 2 reculs de la table + 1
   });
 
   test('la zone à ménager : plus de série lourde ; zone Mix (Force) ou Hypertrophie (Les deux), reculs → séries égales, reps au moins celles d’un secondaire', () => {
@@ -217,7 +219,7 @@ describe('193-2 — les règles, sur chaque famille de 2 à 6 jours', () => {
     expect(sq[0].exercise_slug).toBe('belt_squat_machine');
     const d = lignes(programme('les_deux', 4, { menager: ['genou'] })).filter((x) => x.motif === 'squat');
     d.forEach((x) => { expect(x.zone).toBe('hypertrophie'); expect(x.reculs).toBeUndefined(); expect(x.reps).toBeGreaterThanOrEqual(9); });
-    expect(d.filter((x) => x.series === 4).length).toBe(1);                              // la grosse série + 3 reculs : 4 séries égales
+    expect(d.filter((x) => x.series === 3).length).toBe(1);                              // la grosse série + 2 reculs : 3 séries égales
   });
 
   test('un exercice écarté : le lourd ET sa reprise prennent le même remplaçant ; la prise serrée écartée → Larsen → la barre en Hypertrophie', () => {

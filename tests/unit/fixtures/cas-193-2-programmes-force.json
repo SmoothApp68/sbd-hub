@@ -13,7 +13,8 @@
   "lien",
   "prioritaire",
   "menage",
-  "barre_fixe"
+  "barre_fixe",
+  "au_max"
  ],
  "catalogue_ajouts": {
   "developpe_couche_prise_serree": [
@@ -102,6 +103,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -115,6 +117,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -132,7 +135,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -147,7 +151,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -162,6 +167,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -183,6 +189,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -196,6 +203,7 @@
        null,
        true,
        "d",
+       false,
        false,
        false,
        false
@@ -213,6 +221,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -228,7 +237,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -266,6 +276,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -279,6 +290,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -296,7 +308,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -311,7 +324,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -332,6 +346,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -345,6 +360,7 @@
        null,
        false,
        "s",
+       false,
        false,
        false,
        false
@@ -362,7 +378,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -377,6 +394,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -398,6 +416,7 @@
        "d",
        false,
        false,
+       false,
        false
       ],
       [
@@ -413,7 +432,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_vers_visage",
@@ -428,7 +448,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_poulie_haute",
@@ -443,7 +464,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -481,6 +503,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -494,6 +517,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -511,7 +535,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -526,7 +551,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -547,6 +573,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -562,7 +589,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -577,6 +605,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -592,7 +621,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -613,6 +643,7 @@
        "d",
        false,
        false,
+       false,
        false
       ],
       [
@@ -628,7 +659,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_vers_visage",
@@ -643,7 +675,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -664,6 +697,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -677,6 +711,7 @@
        null,
        false,
        null,
+       false,
        false,
        false,
        false
@@ -694,7 +729,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -709,6 +745,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -747,6 +784,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -760,6 +798,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -777,7 +816,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -792,7 +832,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -813,6 +854,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -828,7 +870,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -843,6 +886,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -858,7 +902,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -879,6 +924,7 @@
        "d",
        false,
        false,
+       false,
        false
       ],
       [
@@ -894,7 +940,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_vers_visage",
@@ -909,7 +956,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -930,6 +978,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -943,6 +992,7 @@
        null,
        false,
        null,
+       false,
        false,
        false,
        false
@@ -960,7 +1010,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -975,6 +1026,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -996,7 +1048,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_haltere",
@@ -1011,7 +1064,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_haltere",
@@ -1026,7 +1080,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "ecarte_machine",
@@ -1041,7 +1096,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -1056,7 +1112,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_des_triceps_au_dessus_de_la_tete_cable",
@@ -1071,7 +1128,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -1109,6 +1167,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -1122,6 +1181,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -1139,7 +1199,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -1154,7 +1215,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -1175,6 +1237,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -1190,7 +1253,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -1205,6 +1269,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -1220,7 +1285,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -1241,6 +1307,7 @@
        "d",
        false,
        false,
+       false,
        false
       ],
       [
@@ -1256,7 +1323,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_vers_visage",
@@ -1271,7 +1339,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -1292,6 +1361,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -1305,6 +1375,7 @@
        null,
        false,
        null,
+       false,
        false,
        false,
        false
@@ -1322,7 +1393,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -1337,6 +1409,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -1358,7 +1431,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_haltere",
@@ -1373,7 +1447,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_haltere",
@@ -1388,7 +1463,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "ecarte_machine",
@@ -1403,7 +1479,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -1418,7 +1495,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_des_triceps_au_dessus_de_la_tete_cable",
@@ -1433,7 +1511,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -1454,7 +1533,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "split_squat_bulgare",
@@ -1469,7 +1549,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "hip_thrust_barre",
@@ -1484,7 +1565,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "leg_curl_assis",
@@ -1499,7 +1581,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_mollets_debout_machine",
@@ -1514,7 +1597,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -1537,7 +1621,7 @@
    "attendu": [
     {
      "nom": "Jour A",
-     "pourquoi": "Jambes 7 · Dos 3 · Épaules 3 séries",
+     "pourquoi": "Jambes 6 · Dos 3 · Épaules 3 séries",
      "exercices": [
       [
        "squat_barre",
@@ -1546,13 +1630,14 @@
        1,
        4,
        "lourd",
-       3,
+       2,
        6,
        true,
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -1567,6 +1652,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -1582,7 +1668,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "leg_curl_assis",
@@ -1597,13 +1684,14 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Jour B",
-     "pourquoi": "Poitrine 4 · Jambes 3 · Dos 3 · Bras 3 séries",
+     "pourquoi": "Jambes 3 · Dos 3 · Bras 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -1612,13 +1700,14 @@
        1,
        4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        true,
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_barre",
@@ -1633,7 +1722,8 @@
        "d",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -1648,7 +1738,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -1663,7 +1754,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -1686,7 +1778,7 @@
    "attendu": [
     {
      "nom": "Jour A",
-     "pourquoi": "Jambes 4 · Dos 3 · Épaules 3 · Poitrine 3 séries",
+     "pourquoi": "Jambes 3 · Dos 3 · Épaules 3 · Poitrine 3 séries",
      "exercices": [
       [
        "squat_barre",
@@ -1695,13 +1787,14 @@
        1,
        4,
        "lourd",
-       3,
+       2,
        6,
        true,
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_barre",
@@ -1716,7 +1809,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -1731,6 +1825,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -1746,13 +1841,14 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Jour B",
-     "pourquoi": "Jambes 6 · Poitrine 4 · Dos 3 séries",
+     "pourquoi": "Jambes 6 · Dos 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -1761,13 +1857,14 @@
        1,
        4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        true,
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "squat_barre",
@@ -1782,7 +1879,8 @@
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_barre",
@@ -1797,7 +1895,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -1812,7 +1911,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -1833,7 +1933,8 @@
        "d",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_militaire_barre",
@@ -1848,7 +1949,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -1863,7 +1965,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -1878,6 +1981,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -1901,7 +2005,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
+     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -1910,13 +2014,14 @@
        1,
        4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        true,
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_militaire_barre",
@@ -1931,7 +2036,8 @@
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -1946,6 +2052,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -1961,13 +2068,14 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 13 séries",
+     "pourquoi": "Jambes 12 séries",
      "exercices": [
       [
        "squat_barre",
@@ -1976,13 +2084,14 @@
        1,
        4,
        "lourd",
-       3,
+       2,
        6,
        true,
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_barre",
@@ -1997,7 +2106,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "leg_curl_assis",
@@ -2012,7 +2122,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_mollets_debout_machine",
@@ -2027,28 +2138,30 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
+     "pourquoi": "Dos 3 · Bras 3 · Épaules 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
        "militaire",
        "P",
        1,
-       5,
+       4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        false,
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_barre",
@@ -2063,7 +2176,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -2078,7 +2192,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -2093,7 +2208,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -2114,7 +2230,8 @@
        "d",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "squat_barre",
@@ -2129,7 +2246,8 @@
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "presse_a_cuisses",
@@ -2144,7 +2262,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -2159,6 +2278,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -2182,7 +2302,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
+     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -2191,13 +2311,14 @@
        1,
        4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        true,
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_militaire_barre",
@@ -2212,7 +2333,8 @@
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -2227,6 +2349,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -2242,13 +2365,14 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 13 séries",
+     "pourquoi": "Jambes 12 séries",
      "exercices": [
       [
        "squat_barre",
@@ -2257,13 +2381,14 @@
        1,
        4,
        "lourd",
-       3,
+       2,
        6,
        true,
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_barre",
@@ -2278,7 +2403,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "leg_curl_assis",
@@ -2293,7 +2419,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_mollets_debout_machine",
@@ -2308,28 +2435,30 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
+     "pourquoi": "Dos 3 · Bras 3 · Épaules 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
        "militaire",
        "P",
        1,
-       5,
+       4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        false,
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_barre",
@@ -2344,7 +2473,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -2359,7 +2489,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -2374,7 +2505,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -2395,7 +2527,8 @@
        "d",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "squat_barre",
@@ -2410,7 +2543,8 @@
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "presse_a_cuisses",
@@ -2425,7 +2559,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -2440,6 +2575,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -2461,7 +2597,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_penche_barre",
@@ -2476,7 +2613,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_haltere",
@@ -2491,7 +2629,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "ecarte_machine",
@@ -2506,7 +2645,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_haltere",
@@ -2521,7 +2661,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_poulie_haute",
@@ -2536,7 +2677,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -2559,7 +2701,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
+     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -2568,13 +2710,14 @@
        1,
        4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        true,
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_militaire_barre",
@@ -2589,7 +2732,8 @@
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -2604,6 +2748,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -2619,13 +2764,14 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 13 séries",
+     "pourquoi": "Jambes 12 séries",
      "exercices": [
       [
        "squat_barre",
@@ -2634,13 +2780,14 @@
        1,
        4,
        "lourd",
-       3,
+       2,
        6,
        true,
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_barre",
@@ -2655,7 +2802,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "leg_curl_assis",
@@ -2670,7 +2818,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_mollets_debout_machine",
@@ -2685,28 +2834,30 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
+     "pourquoi": "Dos 3 · Bras 3 · Épaules 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
        "militaire",
        "P",
        1,
-       5,
+       4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        false,
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_barre",
@@ -2721,7 +2872,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -2736,7 +2888,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -2751,7 +2904,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -2772,7 +2926,8 @@
        "d",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "squat_barre",
@@ -2787,7 +2942,8 @@
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "presse_a_cuisses",
@@ -2802,7 +2958,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -2817,6 +2974,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -2838,7 +2996,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_penche_barre",
@@ -2853,7 +3012,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_haltere",
@@ -2868,7 +3028,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "ecarte_machine",
@@ -2883,7 +3044,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_haltere",
@@ -2898,7 +3060,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_poulie_haute",
@@ -2913,7 +3076,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -2934,7 +3098,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "step_up_haltere",
@@ -2949,7 +3114,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "hip_thrust_barre",
@@ -2964,7 +3130,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "leg_curl_allonge_machine",
@@ -2979,7 +3146,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_mollets_assis",
@@ -2994,7 +3162,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -3032,6 +3201,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -3045,6 +3215,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -3062,7 +3233,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -3077,7 +3249,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -3098,6 +3271,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -3111,6 +3285,7 @@
        null,
        false,
        "s",
+       false,
        false,
        false,
        false
@@ -3128,7 +3303,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_poitrine_poulie",
@@ -3143,7 +3319,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -3164,6 +3341,7 @@
        "d",
        false,
        false,
+       false,
        false
       ],
       [
@@ -3179,7 +3357,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_poulie_haute",
@@ -3194,7 +3373,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -3232,6 +3412,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -3245,6 +3426,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -3262,7 +3444,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -3277,7 +3460,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -3298,6 +3482,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -3313,7 +3498,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_poitrine_poulie",
@@ -3328,7 +3514,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_poulie_haute",
@@ -3343,7 +3530,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -3364,6 +3552,7 @@
        "d",
        false,
        false,
+       false,
        false
       ],
       [
@@ -3379,7 +3568,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -3400,6 +3590,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -3413,6 +3604,7 @@
        null,
        false,
        null,
+       false,
        false,
        false,
        false
@@ -3430,7 +3622,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "crunch_poulie",
@@ -3445,7 +3638,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -3483,7 +3677,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_militaire_barre",
@@ -3498,7 +3693,8 @@
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_poitrine_poulie",
@@ -3513,7 +3709,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -3528,7 +3725,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -3549,7 +3747,8 @@
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_barre",
@@ -3564,7 +3763,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "leg_curl_assis",
@@ -3579,7 +3779,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_mollets_debout_machine",
@@ -3594,7 +3795,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -3615,7 +3817,8 @@
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_barre",
@@ -3630,7 +3833,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -3645,7 +3849,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -3660,7 +3865,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -3681,7 +3887,8 @@
        "d",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "squat_barre",
@@ -3696,7 +3903,8 @@
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "presse_a_cuisses",
@@ -3711,7 +3919,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "crunch_poulie",
@@ -3726,7 +3935,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -3766,7 +3976,8 @@
        "s",
        false,
        true,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_barre",
@@ -3779,6 +3990,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -3796,7 +4008,8 @@
        null,
        false,
        true,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -3811,7 +4024,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -3832,6 +4046,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -3847,7 +4062,8 @@
        "s",
        false,
        true,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_barre",
@@ -3862,7 +4078,8 @@
        null,
        false,
        true,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -3877,6 +4094,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -3898,7 +4116,8 @@
        "d",
        false,
        true,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_prise_serree",
@@ -3913,7 +4132,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_vers_visage",
@@ -3928,7 +4148,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_poulie_haute",
@@ -3943,7 +4164,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -3968,7 +4190,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
+     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -3977,13 +4199,14 @@
        1,
        4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        true,
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_militaire_barre",
@@ -3998,7 +4221,8 @@
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -4013,6 +4237,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -4028,19 +4253,20 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 13 séries",
+     "pourquoi": "Jambes 12 séries",
      "exercices": [
       [
        "squat_barre",
        "squat",
        "P",
-       4,
+       3,
        9,
        "hypertrophie",
        0,
@@ -4049,7 +4275,8 @@
        "s",
        false,
        true,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_barre",
@@ -4064,7 +4291,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "leg_curl_assis",
@@ -4079,7 +4307,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_mollets_debout_machine",
@@ -4094,28 +4323,30 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
+     "pourquoi": "Dos 3 · Bras 3 · Épaules 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
        "militaire",
        "P",
        1,
-       5,
+       4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        false,
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_barre",
@@ -4130,7 +4361,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -4145,7 +4377,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -4160,7 +4393,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -4181,7 +4415,8 @@
        "d",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "squat_barre",
@@ -4196,7 +4431,8 @@
        "s",
        false,
        true,
-       false
+       false,
+       true
       ],
       [
        "presse_a_cuisses",
@@ -4211,7 +4447,8 @@
        null,
        false,
        true,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -4226,6 +4463,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -4266,6 +4504,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -4281,7 +4520,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -4296,7 +4536,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -4311,7 +4552,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -4332,7 +4574,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "squat_barre",
@@ -4345,6 +4588,7 @@
        null,
        false,
        "s",
+       false,
        false,
        false,
        false
@@ -4362,7 +4606,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -4377,6 +4622,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -4398,6 +4644,7 @@
        "d",
        false,
        false,
+       false,
        false
       ],
       [
@@ -4413,7 +4660,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_vers_visage",
@@ -4428,7 +4676,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_poulie_haute",
@@ -4443,7 +4692,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -4483,6 +4733,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -4496,6 +4747,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -4513,7 +4765,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -4528,7 +4781,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -4549,6 +4803,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -4562,6 +4817,7 @@
        null,
        false,
        "s",
+       false,
        false,
        false,
        false
@@ -4579,7 +4835,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -4594,6 +4851,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -4615,6 +4873,7 @@
        "d",
        false,
        false,
+       false,
        false
       ],
       [
@@ -4630,7 +4889,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_vers_visage",
@@ -4645,7 +4905,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_poulie_haute",
@@ -4660,7 +4921,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -4701,6 +4963,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -4714,6 +4977,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -4731,7 +4995,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -4746,7 +5011,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -4767,6 +5033,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -4780,6 +5047,7 @@
        null,
        false,
        "s",
+       false,
        false,
        false,
        false
@@ -4797,7 +5065,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -4812,6 +5081,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -4833,6 +5103,7 @@
        "d",
        false,
        false,
+       false,
        false
       ],
       [
@@ -4846,6 +5117,7 @@
        null,
        false,
        null,
+       false,
        false,
        false,
        false
@@ -4863,7 +5135,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_poulie_haute",
@@ -4878,7 +5151,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -4918,6 +5192,7 @@
        "s",
        true,
        false,
+       false,
        false
       ],
       [
@@ -4931,6 +5206,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -4948,7 +5224,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -4963,7 +5240,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -4984,6 +5262,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -4999,7 +5278,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -5014,6 +5294,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -5029,7 +5310,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -5050,6 +5332,7 @@
        "d",
        false,
        false,
+       false,
        false
       ],
       [
@@ -5065,7 +5348,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_vers_visage",
@@ -5080,7 +5364,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -5101,6 +5386,7 @@
        "s",
        true,
        false,
+       false,
        false
       ],
       [
@@ -5114,6 +5400,7 @@
        null,
        false,
        null,
+       false,
        false,
        false,
        false
@@ -5131,7 +5418,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -5146,6 +5434,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -5171,7 +5460,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
+     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -5180,13 +5469,14 @@
        1,
        4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        true,
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_militaire_barre",
@@ -5201,7 +5491,8 @@
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -5216,6 +5507,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -5231,13 +5523,14 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 14 séries",
+     "pourquoi": "Jambes 13 séries",
      "exercices": [
       [
        "squat_barre",
@@ -5246,13 +5539,14 @@
        1,
        4,
        "lourd",
-       4,
+       3,
        6,
        true,
        "s",
        true,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_barre",
@@ -5267,7 +5561,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "leg_curl_assis",
@@ -5282,7 +5577,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_mollets_debout_machine",
@@ -5297,28 +5593,30 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
+     "pourquoi": "Dos 3 · Bras 3 · Épaules 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
        "militaire",
        "P",
        1,
-       5,
+       4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        false,
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_barre",
@@ -5333,7 +5631,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -5348,7 +5647,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -5363,7 +5663,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -5384,7 +5685,8 @@
        "s",
        true,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_barre",
@@ -5399,7 +5701,8 @@
        "d",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "presse_a_cuisses",
@@ -5414,7 +5717,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -5429,6 +5733,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -5467,7 +5772,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_haltere",
@@ -5482,7 +5788,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_haltere",
@@ -5497,7 +5804,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_haltere",
@@ -5512,7 +5820,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_haltere",
@@ -5527,7 +5836,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "crunch",
@@ -5542,7 +5852,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -5563,7 +5874,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_militaire_haltere",
@@ -5578,7 +5890,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_vertical_elastique",
@@ -5593,7 +5906,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "step_up_haltere",
@@ -5608,7 +5922,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_haltere",
@@ -5623,7 +5938,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -5644,7 +5960,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_incline_haltere",
@@ -5659,7 +5976,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_incline_poitrine_haltere",
@@ -5674,7 +5992,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "step_up",
@@ -5689,7 +6008,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_haltere",
@@ -5704,7 +6024,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "ecarte_haltere",
@@ -5719,7 +6040,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -5757,7 +6079,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_vertical_elastique",
@@ -5772,7 +6095,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "pompes_declinees",
@@ -5787,7 +6111,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_elastique",
@@ -5802,7 +6127,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "pompes_diamant",
@@ -5817,7 +6143,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -5838,7 +6165,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "step_up",
@@ -5853,7 +6181,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -5868,6 +6197,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -5889,7 +6219,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_inverse",
@@ -5904,6 +6235,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -5919,7 +6251,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -5934,6 +6267,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -5955,7 +6289,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "crunch",
@@ -5970,7 +6305,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -6048,7 +6384,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
+     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -6057,13 +6393,14 @@
        1,
        4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        true,
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_militaire_barre",
@@ -6078,7 +6415,8 @@
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -6093,6 +6431,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -6108,13 +6447,14 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 14 séries",
+     "pourquoi": "Jambes 13 séries",
      "exercices": [
       [
        "squat_barre",
@@ -6123,13 +6463,14 @@
        1,
        4,
        "lourd",
-       4,
+       3,
        6,
        true,
        "s",
        true,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_barre",
@@ -6144,7 +6485,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "leg_curl_assis",
@@ -6159,7 +6501,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_mollets_debout_machine",
@@ -6174,28 +6517,30 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
+     "pourquoi": "Dos 3 · Bras 3 · Épaules 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
        "militaire",
        "P",
        1,
-       5,
+       4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        false,
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_barre",
@@ -6210,7 +6555,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -6225,7 +6571,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -6240,7 +6587,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -6261,7 +6609,8 @@
        "s",
        true,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_barre",
@@ -6276,7 +6625,8 @@
        "d",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "presse_a_cuisses",
@@ -6291,7 +6641,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -6306,6 +6657,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -6327,7 +6679,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_assis_machine",
@@ -6342,7 +6695,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_haltere",
@@ -6357,7 +6711,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "ecarte_machine",
@@ -6372,7 +6727,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_marteau_haltere",
@@ -6387,7 +6743,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_poulie_haute",
@@ -6402,7 +6759,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -6469,6 +6827,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -6482,6 +6841,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -6499,7 +6859,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -6514,7 +6875,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -6535,6 +6897,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -6548,6 +6911,7 @@
        null,
        false,
        "s",
+       false,
        false,
        false,
        false
@@ -6565,7 +6929,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -6580,6 +6945,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -6601,6 +6967,7 @@
        "d",
        true,
        false,
+       false,
        false
       ],
       [
@@ -6616,7 +6983,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_vers_visage",
@@ -6631,7 +6999,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_poulie_haute",
@@ -6646,7 +7015,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -6663,7 +7033,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
+     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -6672,13 +7042,14 @@
        1,
        4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        true,
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_militaire_barre",
@@ -6693,7 +7064,8 @@
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -6708,6 +7080,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -6723,13 +7096,14 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 13 séries",
+     "pourquoi": "Jambes 12 séries",
      "exercices": [
       [
        "squat_barre",
@@ -6738,13 +7112,14 @@
        1,
        4,
        "lourd",
-       3,
+       2,
        6,
        true,
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_barre",
@@ -6759,7 +7134,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "leg_curl_assis",
@@ -6774,7 +7150,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_mollets_debout_machine",
@@ -6789,28 +7166,30 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
+     "pourquoi": "Dos 3 · Bras 3 · Épaules 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
        "militaire",
        "P",
        1,
-       5,
+       4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        false,
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_barre",
@@ -6825,7 +7204,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -6840,7 +7220,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -6855,7 +7236,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -6876,7 +7258,8 @@
        "d",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "squat_barre",
@@ -6891,7 +7274,8 @@
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "presse_a_cuisses",
@@ -6906,7 +7290,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -6921,6 +7306,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -6941,7 +7327,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
+     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -6950,13 +7336,14 @@
        1,
        4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        true,
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_militaire_barre",
@@ -6971,7 +7358,8 @@
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -6986,6 +7374,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -7001,19 +7390,20 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 13 séries",
+     "pourquoi": "Jambes 12 séries",
      "exercices": [
       [
        "belt_squat_machine",
        "squat",
        "P",
-       4,
+       3,
        9,
        "hypertrophie",
        0,
@@ -7022,7 +7412,8 @@
        "s",
        false,
        true,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_barre",
@@ -7037,7 +7428,8 @@
        null,
        false,
        true,
-       false
+       false,
+       true
       ],
       [
        "leg_curl_assis",
@@ -7052,7 +7444,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_mollets_debout_machine",
@@ -7067,28 +7460,30 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
+     "pourquoi": "Dos 3 · Bras 3 · Épaules 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
        "militaire",
        "P",
        1,
-       5,
+       4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        false,
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_barre",
@@ -7103,7 +7498,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_incline_poitrine_haltere",
@@ -7118,7 +7514,8 @@
        null,
        false,
        true,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -7133,7 +7530,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -7154,7 +7552,8 @@
        "d",
        false,
        true,
-       false
+       false,
+       true
       ],
       [
        "belt_squat_machine",
@@ -7169,7 +7568,8 @@
        "s",
        false,
        true,
-       false
+       false,
+       true
       ],
       [
        "presse_a_cuisses",
@@ -7184,7 +7584,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -7199,6 +7600,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -7216,7 +7618,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
+     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -7225,13 +7627,14 @@
        1,
        4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        true,
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_militaire_barre",
@@ -7246,7 +7649,8 @@
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -7261,6 +7665,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -7276,13 +7681,14 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 10 séries",
+     "pourquoi": "Jambes 9 séries",
      "exercices": [
       [
        "squat_barre",
@@ -7291,13 +7697,14 @@
        1,
        4,
        "lourd",
-       3,
+       2,
        6,
        true,
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_barre",
@@ -7312,7 +7719,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_haltere",
@@ -7327,28 +7735,30 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
+     "pourquoi": "Dos 3 · Bras 3 · Épaules 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
        "militaire",
        "P",
        1,
-       5,
+       4,
        "lourd",
-       3,
-       6,
+       2,
+       8,
        false,
        "m",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_barre",
@@ -7363,7 +7773,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -7378,7 +7789,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -7393,7 +7805,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -7414,7 +7827,8 @@
        "d",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "squat_barre",
@@ -7429,7 +7843,8 @@
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "split_squat_bulgare",
@@ -7444,7 +7859,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -7459,6 +7875,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -7480,7 +7897,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_penche_barre",
@@ -7495,7 +7913,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_haltere",
@@ -7510,7 +7929,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "ecartes_poulie",
@@ -7525,7 +7945,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_haltere",
@@ -7540,7 +7961,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_poulie_haute",
@@ -7555,7 +7977,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -7576,7 +7999,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "step_up",
@@ -7591,7 +8015,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "hip_thrust_barre",
@@ -7606,7 +8031,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_haltere",
@@ -7621,7 +8047,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -7656,6 +8083,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -7669,6 +8097,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -7686,7 +8115,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_haltere",
@@ -7701,7 +8131,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -7722,6 +8153,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -7737,7 +8169,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -7752,6 +8185,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -7767,7 +8201,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -7788,6 +8223,7 @@
        "d",
        false,
        false,
+       false,
        false
       ],
       [
@@ -7803,7 +8239,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "oiseau_haltere",
@@ -7818,7 +8255,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -7839,6 +8277,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -7852,6 +8291,7 @@
        null,
        false,
        null,
+       false,
        false,
        false,
        false
@@ -7869,7 +8309,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -7884,6 +8325,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -7916,6 +8358,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -7929,6 +8372,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -7946,7 +8390,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -7961,7 +8406,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -7976,6 +8422,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -7997,6 +8444,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -8010,6 +8458,7 @@
        null,
        true,
        "d",
+       false,
        false,
        false,
        false
@@ -8027,6 +8476,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -8042,7 +8492,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -8075,7 +8526,8 @@
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_couche_barre",
@@ -8090,7 +8542,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_poitrine_poulie",
@@ -8105,7 +8558,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -8120,7 +8574,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -8141,7 +8596,8 @@
        "c",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "squat_barre",
@@ -8156,7 +8612,8 @@
        "s",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "souleve_de_terre_roumain_barre",
@@ -8171,7 +8628,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -8186,7 +8644,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -8207,7 +8666,8 @@
        "d",
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "developpe_militaire_barre",
@@ -8222,7 +8682,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "curl_biceps_barre_ez",
@@ -8237,7 +8698,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "crunch_poulie",
@@ -8252,7 +8714,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -8285,6 +8748,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -8298,6 +8762,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -8315,7 +8780,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_haltere",
@@ -8330,7 +8796,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -8351,6 +8818,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -8366,7 +8834,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_vertical_elastique",
@@ -8381,7 +8850,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_haltere",
@@ -8396,7 +8866,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -8417,6 +8888,7 @@
        "d",
        false,
        false,
+       false,
        false
       ],
       [
@@ -8432,7 +8904,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -8453,6 +8926,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -8466,6 +8940,7 @@
        null,
        false,
        null,
+       false,
        false,
        false,
        false
@@ -8483,7 +8958,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "crunch",
@@ -8498,7 +8974,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -8530,6 +9007,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -8543,6 +9021,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -8560,7 +9039,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "rowing_poulie_assis",
@@ -8575,7 +9055,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "releve_de_genoux_suspendu",
@@ -8590,6 +9071,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -8611,6 +9093,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -8624,6 +9107,7 @@
        null,
        true,
        "d",
+       false,
        false,
        false,
        false
@@ -8641,6 +9125,7 @@
        null,
        false,
        false,
+       true,
        true
       ],
       [
@@ -8656,7 +9141,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }
@@ -8692,6 +9178,7 @@
        "s",
        false,
        false,
+       false,
        false
       ],
       [
@@ -8705,6 +9192,7 @@
        null,
        false,
        "c",
+       false,
        false,
        false,
        false
@@ -8722,7 +9210,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "elevation_laterale_poulie",
@@ -8737,7 +9226,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     },
@@ -8758,6 +9248,7 @@
        "c",
        false,
        false,
+       false,
        false
       ],
       [
@@ -8771,6 +9262,7 @@
        null,
        false,
        "s",
+       false,
        false,
        false,
        false
@@ -8788,7 +9280,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tractions",
@@ -8803,6 +9296,7 @@
        null,
        false,
        false,
+       true,
        true
       ]
      ]
@@ -8824,6 +9318,7 @@
        "d",
        false,
        false,
+       false,
        false
       ],
       [
@@ -8839,7 +9334,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "tirage_vers_visage",
@@ -8854,7 +9350,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ],
       [
        "extension_triceps_poulie_haute",
@@ -8869,7 +9366,8 @@
        null,
        false,
        false,
-       false
+       false,
+       true
       ]
      ]
     }

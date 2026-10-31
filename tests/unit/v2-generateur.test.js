@@ -17,6 +17,8 @@ let G, Profil;
 beforeAll(() => {
   require('../../v2/js/modele.js');
   require('../../v2/js/semaine.js');
+  require('../../v2/js/palier.js');
+  require('../../v2/js/moteur.js');
   Profil = require('../../v2/js/profil.js');
   G = require('../../v2/js/generateur.js');
 });
@@ -402,7 +404,10 @@ describe('60-4 — generer ne lève jamais devant une entrée inattendue', () =>
 
   test('un objectif inconnu prend les reps de « Muscle » ; une zone à ménager inconnue ne retire rien', () => {
     const muscle = G.generer(cat, { jours: 4, objectif: 'muscle', materiel: 'salle_complete' });
-    expect(G.generer(cat, { jours: 4, objectif: 'inconnu', materiel: 'salle_complete' })).toEqual(muscle);
+    // 193-2 : `Moteur.auMaxDe` ne devine pas un objectif — « Muscle » pose la dernière série « Au max », un objectif inconnu non ; le reste est identique
+    const sansAuMax = (rs) => JSON.parse(JSON.stringify(rs, (k, v) => (k === 'au_max' ? undefined : v)));
+    expect(G.generer(cat, { jours: 4, objectif: 'inconnu', materiel: 'salle_complete' })).toEqual(sansAuMax(muscle));
+    expect(JSON.stringify(G.generer(cat, { jours: 4, objectif: 'inconnu', materiel: 'salle_complete' }))).not.toMatch(/au_max/);
     expect(G.generer(cat, { jours: 4, objectif: 'muscle', materiel: 'salle_complete', menager: ['nuque'] })).toEqual(muscle);
   });
 

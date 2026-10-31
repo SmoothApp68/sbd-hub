@@ -27380,6 +27380,17 @@ const SETS_IMPORTES = [
         suite: !!document.querySelector('#parcours [data-suite-equilibre]') };
     });
 
+    // La ligne d'une routine sur Saisie : on l'attend ; si elle n'est pas venue après la première attente (déclarée attendue : ce n'est pas
+    // un échec en soi, la page vient d'être rechargée), on recharge Saisie UNE fois et on l'attend pour de bon, plafond compté. Une intention
+    // inchangée (la routine est là, on la touche) ; plus de clic sur une ligne introuvable (c'était l'exception du séquentiel de GitHub).
+    const rangeePrete1882 = async (nom, id) => {
+      const la = () => page.evaluate((n) => Array.from(document.querySelectorAll('.routine-rangee'))
+        .some((x) => (x.querySelector('.routine-nom') || {}).textContent === n), nom);
+      if (await attendreQue(la, 15000, { nom: id, attendu: 'rechargement de Saisie à suivre' })) return;
+      await aller('/saisie');
+      await attendreQue(la, 15000, id + '-apres-rechargement');
+    };
+
     // ── A. LES JOURS : 4 prévus, 2 faits chaque semaine. (Le profil arrive après le premier rendu : un second chargement le montre.)
     await aller('/saisie');
     await aller('/progression/parcours');
@@ -27423,10 +27434,10 @@ const SETS_IMPORTES = [
     base.profiles[0].priorites = ['epaules'];
     base.profiles[0].duree_seance_min = 40;
     await aller('/saisie');
-    await attendreQue(() => page.evaluate(() => Array.from(document.querySelectorAll('.routine-rangee'))
-      .some((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Peu de temps EQ1882')), 15000, 'rangee1882');
-    await page.evaluate(() => Array.from(document.querySelectorAll('.routine-rangee'))
-      .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Peu de temps EQ1882')[0].querySelector('.peu-de-temps').click());
+    await rangeePrete1882('Peu de temps EQ1882', 'rangee1882');
+    await page.evaluate(() => (Array.from(document.querySelectorAll('.routine-rangee'))
+      .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Peu de temps EQ1882')[0] || document.createElement('div'))
+      .querySelector('.peu-de-temps')?.click());
     await attendreQue(() => page.evaluate(() => /^Tenir en 40 min/.test(((document.querySelector('#feuille-contenu .feuille-menu button') || {}).textContent) || '')), 8000, 'feuille1882');
     await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button')).filter((b) => /^Tenir en 40 min/.test(b.textContent))[0].click());
     await attendreQue(() => page.evaluate(() => document.querySelectorAll('#feuille-contenu .cr-lignes li').length > 0), 8000, 'carte1882');
@@ -27441,10 +27452,10 @@ const SETS_IMPORTES = [
 
     // ── D. LA LIGNE DU REPOS : un gros mouvement qui stagne, reps −33 % de la série 1 à la 3, repos réglé à 75 s.
     await aller('/saisie');
-    await attendreQue(() => page.evaluate(() => Array.from(document.querySelectorAll('.routine-rangee'))
-      .some((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Squat EQ1882')), 15000, 'rangeeS1882');
-    await page.evaluate(() => Array.from(document.querySelectorAll('.routine-rangee'))
-      .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Squat EQ1882')[0].querySelector('.demarrer').click());
+    await rangeePrete1882('Squat EQ1882', 'rangeeS1882');
+    await page.evaluate(() => (Array.from(document.querySelectorAll('.routine-rangee'))
+      .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Squat EQ1882')[0] || document.createElement('div'))
+      .querySelector('.demarrer')?.click());
     await attendreQue(() => page.evaluate(() => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan &&
       window.THPlan.dernier.plan.exercices.some((x) => x.slug === 'eq1882-sq2'))), 15000, 'planS1882');
     const repos1882 = await page.evaluate(() => {

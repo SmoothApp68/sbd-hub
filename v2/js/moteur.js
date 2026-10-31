@@ -9941,10 +9941,19 @@
     var ecart = nombre(e.ecart);
     if (ecart === null) ecart = RECUL_ECART_DEPART;
     ecart = bornerEcartDeRecul(ecart);
-    var salle = e.salle ? salleEnVigueur(e.salle, g) : null;
-    var cran = nombre(e.cran);
+    var voisine = voisineDuRecul(e.salle, g, e.cran);
+    var cible = auCentieme(g * (1 - ecart));
+    var charge = cranLePlusProche(voisine, g, cible);
+    if (charge === null || !(charge > 0) || charge >= g) return vide(PHRASE_RECUL_TROP_LEGER);
+    return { charge: charge, ecart: ecart, vise: nombre(e.reps), phrase: null };
+  }
+  // Le cran voisin d'une charge : la salle déclarée (§10 bis) ou le pas du matériel. Une seule fonction pour les deux manières de
+  // caler un recul (l'écart de la 193-1, le max du jour de la 193-5).
+  function voisineDuRecul(salleBrute, g, pas) {
+    var salle = salleBrute ? salleEnVigueur(salleBrute, g) : null;
+    var cran = nombre(pas);
     if (cran === null || cran <= 0) cran = CRAN_PAR_DEFAUT;
-    var voisine = salle
+    return salle
       ? function (c, sens) { return voisineDeLaSalle(salle, c, sens); }
       : function (c, sens) {
           // Le plus grand multiple du cran STRICTEMENT sous c (sens −1).
@@ -9952,10 +9961,112 @@
           var v = auCentieme(k * cran);
           return sens < 0 && v > 0 && v < c ? v : null;
         };
-    var cible = auCentieme(g * (1 - ecart));
-    var charge = cranLePlusProche(voisine, g, cible);
-    if (charge === null || !(charge > 0) || charge >= g) return vide(PHRASE_RECUL_TROP_LEGER);
-    return { charge: charge, ecart: ecart, vise: nombre(e.reps), phrase: null };
+  }
+
+  // ══ 193-5 (MOTEUR §9.28, delta du 31/10/2026) — LES RECULS À PLUS DE REPS SE CALENT SUR LE MAX DU JOUR ══════════════════════
+  //
+  // Seulement quand les reps visées des reculs DÉPASSENT celles de la grosse série (« 1 × 4 puis 2 reculs × 8 ») : l'écart de 10 %
+  // y est trop lourd. La grosse série dit un max du jour (sa charge ÷ le pourcentage que la table donne à ses reps, marge comprise) ;
+  // le recul en est le pourcentage de ses propres reps, marge 2, corrigé de ce que la personne a montré. Reculs aux mêmes reps (ou
+  // moins) : la 193-1, inchangée. La table est celle de Tuchscherer (RPE 10 = marge 0), une CONVENTION dite comme telle ; elle
+  // COEXISTE avec Epley (`unRMEpley`, records et bilans) : deux usages, deux lectures, aucune ne remplace l'autre.
+  var PCT_MAX_PAR_REPS = [100, 95.5, 92.2, 89.2, 86.3, 83.7, 81.1, 78.6, 76.2, 73.9, 70.7, 68.0];
+  var RECUL_MARGE_VISEE = 2;            // la marge d'un recul : on en garde 2
+  var RECUL_CORRECTION_PAS = 0.025;
+  var RECUL_CORRECTION_MAX = 0.10;
+  var RECUL_CORRECTION_SEANCES = 4;
+  var RECUL_CORRECTION_ECART = 2;       // reps faites ≥ prévision + 2 : un vrai signal
+  // Le pourcentage du max pour `reps` reps en en gardant `marge` : décaler de `marge` reps (pct(r, m) = pct(r + m, 0)). Une marge
+  // fractionnaire (RPE 8,5) s'interpole. `null` au-delà de 12 : pas de règle, la 193-1 reste.
+  function pctDuMax(reps, marge) {
+    var r = nombre(reps), m = nombre(marge);
+    if (r === null || m === null || r < 1 || m < 0) return null;
+    var t = r + m;
+    if (t > PCT_MAX_PAR_REPS.length + 1e-9) return null;
+    var lo = Math.floor(t + 1e-9);
+    if (lo >= PCT_MAX_PAR_REPS.length) return PCT_MAX_PAR_REPS[PCT_MAX_PAR_REPS.length - 1];
+    return PCT_MAX_PAR_REPS[lo - 1] + (t - lo) * (PCT_MAX_PAR_REPS[lo] - PCT_MAX_PAR_REPS[lo - 1]);
+  }
+  // L'inverse : combien de reps (marge comprise) la table donne à ce pourcentage. `null` hors de la table.
+  function repsDeLaTable(pct) {
+    var p = nombre(pct);
+    var T = PCT_MAX_PAR_REPS;
+    if (p === null || p > T[0] + 1e-9 || p < T[T.length - 1] - 1e-9) return null;
+    for (var i = 0; i < T.length - 1; i++) {
+      if (p <= T[i] + 1e-9 && p >= T[i + 1] - 1e-9) return (i + 1) + (T[i] - p) / (T[i] - T[i + 1]);
+    }
+    return T.length;
+  }
+  function maxDuJour(charge, reps, marge) {
+    var c = nombre(charge), p = pctDuMax(reps, marge === null || marge === undefined ? 0 : marge);
+    return c === null || c <= 0 || p === null ? null : c / (p / 100);
+  }
+  // Une séance passée à reculs, lue : sa grosse série (la plus lourde série de travail), ses reculs dans l'ordre, la cible de ses reculs.
+  function lectureDeReculs(precedent) {
+    var M = Modele();
+    var grosse = null, reculs = [];
+    ((precedent && precedent.series) || []).forEach(function (x) {
+      var kg = nombre(x && x.charge_kg), r = nombre(x && x.reps);
+      if (kg === null || kg <= 0 || r === null) return;
+      if (M.estRecul(x)) reculs.push({ charge: kg, reps: r, serie: x });
+      else if (M.estTravail(x) && (grosse === null || kg > grosse.charge)) grosse = { charge: kg, reps: r, serie: x };
+    });
+    var c = nombre(precedent && precedent.cible);
+    return { grosse: grosse, reculs: reculs, cible: c !== null && c >= 1 ? c : null };
+  }
+  // Cette séance avait-elle des reculs à PLUS de reps que sa grosse série ? La cible de sa routine quand on l'a, sinon les reps faites.
+  function reculDePlusDeReps(precedent) {
+    var l = lectureDeReculs(precedent);
+    if (l.grosse === null || !l.reculs.length) return false;
+    return (l.cible !== null ? l.cible : l.reculs[0].reps) > l.grosse.reps;
+  }
+  // La CORRECTION PERSONNELLE, rejouée (rien n'est écrit en base) sur les 4 dernières séances de l'exercice dont les reculs étaient à
+  // plus de reps, du plus ancien au plus récent, un pas par séance, cumulée et bornée à ± 10 %. `pool` : les séances à reculs, la plus
+  // récente d'abord (`{ series, cible }`). La prévision d'une séance : les reps que la table donne à la charge de son dernier recul, à
+  // partir de son max du jour d'alors (même fonction), pour la marge de CE recul tel qu'il a été fait (`reserveDeSerie`, échec = 0 ;
+  // sans note : la marge visée). Fait ≥ prévision + 2 : +2,5 % ; fait sous la cible : −2,5 % ; sinon 0.
+  function correctionDeRecul(pool) {
+    var P = Palier();
+    var retenues = (pool || []).filter(reculDePlusDeReps).slice(0, RECUL_CORRECTION_SEANCES).reverse();
+    var total = 0, pas = [];
+    retenues.forEach(function (p) {
+      var l = lectureDeReculs(p);
+      var mg = P.reserveDeSerie(l.grosse.serie);
+      var max = maxDuJour(l.grosse.charge, l.grosse.reps, mg === null ? 0 : mg);
+      if (max === null) return;
+      var d = l.reculs[l.reculs.length - 1];
+      var mr = P.reserveDeSerie(d.serie);
+      if (mr === null) mr = RECUL_MARGE_VISEE;
+      var rt = repsDeLaTable(d.charge / max * 100);
+      if (rt === null) return;
+      var prevision = Math.max(1, Math.round(rt - mr));
+      var delta = 0;
+      if (d.reps >= prevision + RECUL_CORRECTION_ECART) delta = RECUL_CORRECTION_PAS;
+      else if (l.cible !== null && d.reps < l.cible) delta = -RECUL_CORRECTION_PAS;
+      total = Math.round(Math.min(RECUL_CORRECTION_MAX, Math.max(-RECUL_CORRECTION_MAX, total + delta)) * 1e6) / 1e6;
+      pas.push({ charge: d.charge, faites: d.reps, prevision: prevision, cible: l.cible, delta: delta });
+    });
+    return { valeur: total, pas: pas };
+  }
+  // La charge d'un recul à plus de reps. `entree` : `{ grosse, grosseReps, marge, reps, correction, cran, salle }` — `marge` : celle de
+  // la grosse série (notée, sinon la visée de la consigne, sinon 0). Rend `{ charge, max, pct, marge, correction, ecart, vise }`, ou
+  // `null` quand la règle ne s'applique pas (reps du recul pas plus hautes, reps inconnues, au-delà de 12, rien de plus léger) : la
+  // 193-1 reste alors, inchangée.
+  function reculAuMax(entree) {
+    var e = entree || {};
+    var g = nombre(e.grosse), gr = nombre(e.grosseReps), rr = nombre(e.reps);
+    if (g === null || g <= 0 || gr === null || gr < 1 || rr === null || !(rr > gr)) return null;
+    var marge = nombre(e.marge);
+    if (marge === null) marge = 0;
+    var corr = nombre(e.correction);
+    if (corr === null) corr = 0;
+    var pG = pctDuMax(gr, marge), pR = pctDuMax(rr, RECUL_MARGE_VISEE);
+    if (pG === null || pR === null) return null;
+    var max = g / (pG / 100);
+    var cible = auCentieme(max * (pR / 100) * (1 + corr));
+    var charge = cranLePlusProche(voisineDuRecul(e.salle, g, e.cran), g, cible);
+    if (charge === null || !(charge > 0) || charge >= g) return null;
+    return { charge: charge, max: max, pct: pR, marge: marge, correction: corr, ecart: Math.round((1 - charge / g) * 1e6) / 1e6, vise: rr };
   }
 
   // Les PHRASES du recul (VOIX-DU-COACH : un fait, « tu », jamais un « bravo »). Chaque chiffre est cité (I26) : la charge, l'écart
@@ -9988,6 +10099,38 @@
             nombreFr(pctDeRecul(f.reel), regle('recul.ecart')) + INSECABLE + '%.'
           : 'Je les éloigne' + DEUX_POINTS + nombreFr(pctDeRecul(f.ecart), regle('recul.ecart')) + INSECABLE + '% sous ta grosse série au lieu de ' +
             nombreFr(pctDeRecul(f.reel), regle('recul.ecart')) + INSECABLE + '%.');
+    }
+    return t;
+  }
+  // 193-5 — les phrases du recul calé sur le max du jour. Chaque chiffre est cité (I26) : `recul`, `recul.grosse`, `recul.max`,
+  // `recul.pct`, `recul.marge`, `recul.reps`, `recul.correction`, `recul.derniere`.
+  function phraseReculAuMax(charge, pct) {
+    return 'Recul' + DEUX_POINTS + enKg(charge, regle('recul')) + ', ' + nombreFr(Math.round(pct), regle('recul.pct')) + INSECABLE +
+      '% de ton max du jour.';
+  }
+  function gardantMarge(m) {
+    return nombre(m) === 0 ? 'sans marge' : 'en gardant ' + nombreFr(m, regle('recul.marge')) + ' rep' + (m > 1 ? 's' : '');
+  }
+  // `f` : `{ grosse, grosseReps, marge, max, reps, pct, charge, correction, pas }` — `max` arrondi à l'entier, `pas` : les pas de la correction.
+  function pourquoiReculAuMax(f) {
+    var t = 'Ta grosse série, ' + enKg(f.grosse, regle('recul.grosse')) + ' × ' + nombreFr(f.grosseReps, regle('recul.reps')) + ' ' +
+      gardantMarge(f.marge) + ', dit que ton max du jour est d’environ ' + enKg(f.max, regle('recul.max')) + '. Pour ' +
+      nombreFr(f.reps, regle('recul.reps')) + ' reps en en gardant ' + nombreFr(RECUL_MARGE_VISEE, regle('recul.marge')) + ', c’est ' +
+      nombreFr(Math.round(f.pct), regle('recul.pct')) + INSECABLE + '% : ' + enKg(f.charge, regle('recul')) + '.';
+    var corr = nombre(f.correction);
+    if (corr !== null && corr !== 0) {
+      var pas = (f.pas || []).length ? f.pas[f.pas.length - 1] : null;
+      var ampleur = nombreFr(Math.round(Math.abs(corr) * 1000) / 10, regle('recul.correction')) + INSECABLE + '% ' + (corr > 0 ? 'de plus' : 'de moins');
+      if (pas && pas.delta > 0) {
+        t += ' Ta dernière série à ' + enKg(pas.charge, regle('recul.derniere')) + ' a fait ' + nombreFr(pas.faites, regle('recul.reps')) +
+          ' reps, ' + nombreFr(pas.faites - pas.prevision, regle('recul.reps')) + ' de plus que la table ne le prévoyait pour toi' +
+          DEUX_POINTS + 'je te compte ' + ampleur + '.';
+      } else if (pas && pas.delta < 0) {
+        t += ' Ta dernière série à ' + enKg(pas.charge, regle('recul.derniere')) + ' a fait ' + nombreFr(pas.faites, regle('recul.reps')) +
+          ' reps pour une cible de ' + nombreFr(pas.cible, regle('recul.reps')) + DEUX_POINTS + 'je te compte ' + ampleur + '.';
+      } else {
+        t += ' Tes dernières séances à reculs me font te compter ' + ampleur + '.';
+      }
     }
     return t;
   }
@@ -10230,6 +10373,17 @@
     degressiveDe: degressiveDe,
     // 193-1 (§9.28) — la série de recul.
     reculDe: reculDe,
+    // 193-5 — les reculs à plus de reps, calés sur le max du jour (§9.28)
+    PCT_MAX_PAR_REPS: PCT_MAX_PAR_REPS,
+    RECUL_MARGE_VISEE: RECUL_MARGE_VISEE,
+    pctDuMax: pctDuMax,
+    repsDeLaTable: repsDeLaTable,
+    maxDuJour: maxDuJour,
+    reculAuMax: reculAuMax,
+    reculDePlusDeReps: reculDePlusDeReps,
+    correctionDeRecul: correctionDeRecul,
+    phraseReculAuMax: phraseReculAuMax,
+    pourquoiReculAuMax: pourquoiReculAuMax,
     ecartDeRecul: ecartDeRecul,
     cranLePlusProche: cranLePlusProche,
     phraseRecul: phraseRecul,

@@ -2666,7 +2666,9 @@
       var liste = el('ol', 'cm-liste');
       zones.forEach(function (z) {
         (z.exercices || []).forEach(function (x) {
+          // 200-1 — le catalogue d'abord, puis le nom français du plan ; jamais l'identifiant.
           var nom = typeof vue.nomMobilite === 'function' ? vue.nomMobilite(x.slug) : x.slug;
+          if (!nom || nom === x.slug || /^[a-z0-9]+(_[a-z0-9]+)+$/.test(nom)) nom = x.nom || 'Exercice de mobilit\u00e9';
           var ligne = el('li', 'cm-ligne');
           ligne.appendChild(el('span', 'cm-nom', nom));
           ligne.appendChild(el('span', 'cm-dose', x.series + '\u00a0\u00d7\u00a0' + x.duree_s + '\u00a0s' + (x.cote ? ' par c\u00f4t\u00e9' : '')));

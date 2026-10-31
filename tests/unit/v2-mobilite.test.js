@@ -303,3 +303,25 @@ describe('194-1 — le fait de la semaine et les records', () => {
     expect(Faits.creer().recordsDeLaSeance(c, { id: 'b', debut: seances[0].debut, series: par.b })).toEqual([]);
   });
 });
+
+// 200-1 — jamais un identifiant à l'écran : chaque exercice de mobilité du moteur porte son nom français, et la ligne du plan le transporte.
+describe('200-1 — le nom d’un exercice de mobilité', () => {
+  const tous = [];
+  Object.keys(M.MOBILITE_ZONES).forEach((z) => M.MOBILITE_ZONES[z].tenus.concat(M.MOBILITE_ZONES[z].enMouvement).forEach((s) => tous.push(s)));
+  test('chaque exercice des zones a un nom lisible (ni slug, ni vide)', () => {
+    tous.forEach((slug) => {
+      const nom = M.MOBILITE_NOMS[slug];
+      expect(typeof nom).toBe('string');
+      expect(nom.length).toBeGreaterThan(2);
+      expect(nom).not.toMatch(/_/);
+      expect(nom).not.toBe(slug);
+    });
+  });
+  test('les lignes du bloc portent leur nom, même sans catalogue (épaules : bras croisé)', () => {
+    const b = M.blocDeMobilite({ zones: ['epaules'], faites: {}, muscles: [], slugs: [], menager: [], douleurs: [] });
+    const lignes = [].concat.apply([], b.fin.zones.map((z) => z.exercices));
+    expect(lignes.length).toBeGreaterThan(0);
+    lignes.forEach((x) => { expect(x.nom).toBe(M.MOBILITE_NOMS[x.slug]); expect(x.nom).not.toMatch(/_/); });
+    expect(lignes.map((x) => x.slug)).toContain('etirement_epaule_bras_croise');
+  });
+});

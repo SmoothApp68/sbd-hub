@@ -10504,8 +10504,22 @@
       return (deja || []).indexOf(s) < 0 && !(MOBILITE_CHARGE[s] || []).some(function (a) { return (evite || []).indexOf(a) >= 0; });
     });
   }
+  // 200-1 — le nom français de chaque exercice de mobilité : le repli quand le catalogue local ne le porte pas (jamais un identifiant à l'écran).
+  var MOBILITE_NOMS = {
+    etirement_mollet_mur: 'Étirement du mollet au mur', etirement_soleaire: 'Étirement du soléaire', flexion_cheville_genou_mur: 'Flexion de cheville, genou au mur',
+    mobilite_cheville_elastique: 'Mobilité de cheville à l\u2019élastique', pigeon: 'Pigeon', hanches_90_90: 'Hanches 90/90', etirement_fessier_4: 'Étirement du fessier en 4',
+    etirement_flechisseurs_hanche: 'Étirement des fléchisseurs de hanche', papillon: 'Papillon', rotations_controlees_hanche: 'Rotations contrôlées de hanche',
+    cercles_hanches: 'Cercles de hanches', accroupi_profond: 'Accroupi profond', etirement_ischios: 'Étirement des ischios',
+    etirement_ischios_allonge_elastique: 'Étirement des ischios allongé, élastique', balances_jambe: 'Balancés de jambe',
+    etirement_quadriceps_debout: 'Étirement du quadriceps debout', etirement_quadriceps_mur: 'Étirement du quadriceps au mur',
+    fente_rotation_worlds_greatest: 'Fente avec rotation', etirement_epaule_bras_croise: 'Étirement de l\u2019épaule, bras croisé', etirement_dormeur: 'Étirement du dormeur',
+    etirement_pectoraux_porte: 'Étirement des pectoraux à la porte', etirement_triceps: 'Étirement du triceps', rotations_controlees_epaule: 'Rotations contrôlées d\u2019épaule',
+    passage_epaules_baton: 'Passage d\u2019épaules au bâton', passage_epaules_elastique: 'Passage d\u2019épaules à l\u2019élastique',
+    etirement_grand_dorsal: 'Étirement du grand dorsal', etirement_grand_dorsal_banc: 'Étirement du grand dorsal au banc', sphinx: 'Sphinx',
+    rotation_thoracique_livre_ouvert: 'Rotation thoracique, livre ouvert', rotation_thoracique_quatre_pattes: 'Rotation thoracique à quatre pattes', chat_vache: 'Chat-vache'
+  };
   function ligneDeMobilite(slug, series) {
-    return { slug: slug, series: series, duree_s: dureeDeMobilite(slug), cote: MOBILITE_UNILATERAL.indexOf(slug) >= 0,
+    return { slug: slug, nom: MOBILITE_NOMS[slug] || null, series: series, duree_s: dureeDeMobilite(slug), cote: MOBILITE_UNILATERAL.indexOf(slug) >= 0,
              minutes: arrondiMin(series * minutesUneSerie(slug)) };
   }
 
@@ -10892,7 +10906,7 @@
     FORME_REPERES_PHRASE: FORME_REPERES_PHRASE, plusDe65Ans: plusDe65Ans, exerciceDePuissance: exerciceDePuissance,
     // 194-1 (§9.31) — la mobilité en fin de séance : une table, un bloc, des phrases.
     ZONES_RAIDES: ZONES_RAIDES, MOBILITE_ZONES: MOBILITE_ZONES, MOBILITE_CIBLE_MIN: MOBILITE_CIBLE_MIN, MOBILITE_CONSIGNE: MOBILITE_CONSIGNE,
-    MOBILITE_REFUS_CLE: MOBILITE_REFUS_CLE, MOBILITE_POURQUOI_AVANT: MOBILITE_POURQUOI_AVANT, MOBILITE_CHARGE: MOBILITE_CHARGE,
+    MOBILITE_REFUS_CLE: MOBILITE_REFUS_CLE, MOBILITE_POURQUOI_AVANT: MOBILITE_POURQUOI_AVANT, MOBILITE_CHARGE: MOBILITE_CHARGE, MOBILITE_NOMS: MOBILITE_NOMS,
     MOBILITE_TENUE_MIN_S: MOBILITE_TENUE_MIN_S, MOBILITE_TENUE_MAX_S: MOBILITE_TENUE_MAX_S,
     zonesRaidesConnues: zonesRaidesConnues, exerciceDeMobilite: exerciceDeMobilite, zoneDeMobilite: zoneDeMobilite,
     dureeDeMobilite: dureeDeMobilite, coteDeMobilite: coteDeMobilite, blocDeMobilite: blocDeMobilite, mobiliteTitre: mobiliteTitre,

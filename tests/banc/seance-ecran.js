@@ -17180,8 +17180,11 @@ const SETS_IMPORTES = [
     const routinesDuProgramme = ROUTINES.filter((r) => r.dossier === nouveauDossier);
     // 193-2 — un programme de famille a déjà sa phase (un bloc) : la carte « Passer en cycles » ne vient pas. Puis l'état est FORGÉ comme avant
     // la 193-2 (un programme sans phase : les phases du dossier sont retirées) : la carte reste celle des programmes d'avant, jouée en entier.
-    ok('[R60] I — 193-2 : le dossier du nouveau programme a sa phase (2 blocs au total, un par dossier), les blocs sont en cours',
-      base.blocs.filter((b) => b.dossier === nouveauDossier).length === 1 && base.blocs.length === 2 && base.blocs.every((b) => b.statut === 'en_cours'),
+    // (Au banc séquentiel, les blocs d'autres sections restent sur le serveur : on ne lit que ceux de « Mon programme ».)
+    const phasesR60 = base.blocs.filter((b) => /^Mon programme/.test(b.dossier));
+    ok('[R60] I — 193-2 : le dossier du nouveau programme a sa phase (2 phases au total, une par dossier), de 5 semaines, en cours',
+      base.blocs.filter((b) => b.dossier === nouveauDossier).length === 1 && phasesR60.length === 2 &&
+        phasesR60.every((b) => b.statut === 'en_cours' && b.semaines === 5 && b.decharge === true),
       JSON.stringify(base.blocs.map((b) => [b.dossier, b.semaines, b.statut])));
     const t0I = Date.now();
     profilBase().programme_construit_le = new Date(t0I - 25 * JOUR).toISOString();

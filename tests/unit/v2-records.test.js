@@ -198,7 +198,7 @@ describe('§9.23 — les options d\'un exercice et son nom court', () => {
     expect(Mo.optionsDeRecord({ equipement: 'aucun', mesure: 'reps' }).corps).toBe(true);
     expect(Mo.optionsDeRecord({ equipement: 'disque', mesure: 'charge_reps', charge: 'ajoutee' }).corps).toBe(true);
     expect(Mo.optionsDeRecord({ equipement: 'machine', mesure: 'charge_reps', charge: 'assistance' }).corps).toBe(false);
-    expect(Mo.optionsDeRecord(null)).toEqual({ equipement: null, corps: false });
+    expect(Mo.optionsDeRecord(null)).toEqual({ equipement: null, corps: false, sansRecord: false });
   });
   test('le nom court suit « au » : sans parenthèses, en minuscules', () => {
     expect(Mo.nomCourt('Squat (Barre)')).toBe('squat');

@@ -16144,8 +16144,8 @@ const SETS_IMPORTES = [
     const depuisP0 = profilBase().objectif_depuis;
     await toucherP('But d’entraînement');
     let fp = await feuilleChoixP();
-    ok('[Q60] P — « But d’entraînement » : la feuille des quatre objectifs, Muscle coché, sa phrase d’aide (60-2b), sans « Effacer »',
-      fp.ouverte && fp.titre === 'But d’entraînement' && JSON.stringify(fp.options) === '["force","muscle","les_deux","forme"]' &&
+    ok('[Q60] P — « But d’entraînement » : la feuille des cinq objectifs (195 : calisthénie), Muscle coché, sa phrase d’aide (60-2b), sans « Effacer »',
+      fp.ouverte && fp.titre === 'But d’entraînement' && JSON.stringify(fp.options) === '["force","muscle","les_deux","forme","calisthenie"]' &&
         JSON.stringify(fp.coches) === '["muscle"]' && fp.aide === true &&
         fp.aideTexte === 'Il choisit la zone de ton premier bloc de programme : Lourd pour la force, Mix pour le muscle.' &&
         fp.pied.indexOf('Effacer') < 0, JSON.stringify(fp));

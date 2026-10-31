@@ -2294,7 +2294,7 @@
     input.inputMode = 'decimal';
     input.value = vide ? '' : nombreFr(valeur);
     if (vide && fantomeVal !== null && fantomeVal !== undefined) {
-      input.placeholder = nombreFr(fantomeVal);
+      input.placeholder = nombreFr(fantomeVal) + (o.plus ? '+' : '');   // 193-6 : « 8+ », la ligne « Au max »
     } else if (indication) {
       input.placeholder = indication;
     }
@@ -2784,6 +2784,9 @@
         if (ps) noeud.appendChild(propositionDeSchema(ps, s._iExo, vue));
         var pc = typeof vue.propositionChauffes === 'function' ? vue.propositionChauffes(s._iExo) : null;
         if (pc) noeud.appendChild(propositionDeChauffes(pc, s._iExo, vue));
+        // 193-6 (MOTEUR §9.30) — « Dernière série au max ? » : une fois par exercice, du plan ; trois gestes.
+        var pa = typeof vue.propositionAuMax === 'function' ? vue.propositionAuMax(s._iExo) : null;
+        if (pa) noeud.appendChild(propositionDAuMax(pa, s._iExo, vue));
       }
       // §9.14 (49-R2) — LA RÉACTION PARLE DANS LA GRILLE, au-dessus de la
       // ligne qu'elle concerne (ECRAN §3.2, maquette variante A). Une ligne de
@@ -2989,6 +2992,7 @@
         if (constat.escalier) entree.appendChild(el('div', 'constat-suite constat-escalier', constat.escalier));
         // 193-1 — « Tes reculs tiennent 6-6-6. » (un fait, du plan).
         if (constat.reculs) entree.appendChild(el('div', 'constat-suite constat-reculs', constat.reculs));
+        if (constat.auMax) entree.appendChild(el('div', 'constat-suite constat-au-max', constat.auMax));
       }
       // §7 quindecies.3 (52-1) — DANS L'ÉDITEUR, CE QUE DEVIENT LA CHARGE, en
       // gris : un point de départ la première fois, le coach seul ensuite.
@@ -3502,6 +3506,18 @@
     }, iExo);
   }
 
+  // 193-6 (MOTEUR §9.30) — la carte « Dernière série au max ? » : le titre et la phrase viennent du plan, les trois gestes aussi
+  // (« Oui, dans ma routine », « Juste aujourd’hui », « Non merci »). Le MÊME composant que la reprise.
+  var CLES_AU_MAX = ['routine', 'aujourdhui', 'non'];
+  function propositionDAuMax(carte, iExo, vue) {
+    return propositionDExercice({
+      classe: 'proposition-au-max', texte: carte.titre, detail: carte.phrase,
+      gestes: (carte.boutons || []).map(function (texte, k) {
+        return { texte: texte, classe: 'pam-' + CLES_AU_MAX[k], surClic: function () { vue.surAuMax(iExo, CLES_AU_MAX[k]); } };
+      })
+    }, iExo);
+  }
+
   // MOTEUR §9.15.3 (94) — « En faire une série normale » / « La retirer ».
   var TEXTES_GESTES_DEGRESSIVE = { serie_normale: 'En faire une série normale', retirer: 'La retirer' };
   function propositionDeDegressiveVide(m, iExo, iSerie, vue) {
@@ -3826,7 +3842,7 @@
         versChamp(enUniteDeSaisie(f[c.cle], c.facteur)),
         c.unite,
         function (v) { vue.surChamp(iExo, iSerie, nom, aide && !vue.programme ? M().rangerAide(v) : v); },
-        { indication: fourchette, max: M().maxDeSaisie(nom),
+        { indication: fourchette, max: M().maxDeSaisie(nom), plus: s.au_max === true && c.cle === 'reps',
           surQuitte: typeof vue.surChampQuitte === 'function'
             ? function () { vue.surChampQuitte(iExo, iSerie); } : null });
       caseSerie.setAttribute('data-champ', nom);
@@ -4023,6 +4039,18 @@
         menu.appendChild(b);
       });
       cible.appendChild(menu);
+
+      // 193-6 (MOTEUR §9.30) — « Au max » : un interrupteur, pas un type (une série de recul peut l'être aussi). Seulement sur la
+      // dernière série de travail ; en séance il ne vaut que pour aujourd'hui, la routine ne change pas.
+      if (vue.auMax && vue.auMax.possible) {
+        var menuAu = el('div', 'feuille-menu');
+        var bAu = el('button', vue.auMax.actif ? 'sel' : '', vue.auMax.actif ? 'Retirer « Au max »' : 'Au max');
+        bAu.appendChild(el('small', 'aide-type', vue.auMax.aide));
+        bAu.type = 'button';
+        bAu.addEventListener('click', function () { vue.surAuMax(!vue.auMax.actif); });
+        menuAu.appendChild(bAu);
+        cible.appendChild(menuAu);
+      }
 
       // ⚠️ LA NOTE DE SÉRIE EXISTE, ET ELLE RESTE (§7 septies.1).
       //

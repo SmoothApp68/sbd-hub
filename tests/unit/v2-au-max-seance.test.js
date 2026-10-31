@@ -71,6 +71,34 @@ describe('routines : la marque passe par le chemin des routines', () => {
   });
 });
 
+describe('routines : poser la marque, la série de plus, le mot de la ligne', () => {
+  const rt = (marque) => ({ id: 'R', exercices: [{ id: 'RE', exercise_slug: 'x', series: [
+    { type_serie: 'echauffement', reps: 10 }, { type_serie: 'travail', reps: 8 }, { type_serie: 'travail', reps: 8 },
+    { type_serie: 'recul', reps: 10, au_max: marque }] }] });
+  test('marquerAuMax : la dernière série de travail ou de recul, une seule, et on la retire', () => {
+    const v = R.marquerAuMax(rt(false), 'x', true);
+    expect(v[0].series.map((q) => !!q.au_max)).toEqual([false, false, false, true]);
+    const w = R.marquerAuMax({ id: 'R', exercices: [{ id: 'RE', exercise_slug: 'x', series: [
+      { type_serie: 'travail', reps: 8, au_max: true }, { type_serie: 'travail', reps: 8 }] }] }, 'x', true);
+    expect(w[0].series.map((q) => !!q.au_max)).toEqual([false, true]);
+    expect(R.marquerAuMax(rt(true), 'x', false)[0].series.some((q) => q.au_max)).toBe(false);
+    expect(R.marquerAuMax(rt(true), 'absent', true)).toBeNull();
+  });
+  test('la série de plus se place AVANT la ligne « Au max » et ne la copie pas', () => {
+    const r = { id: 'R', exercices: [{ id: 'RE', exercise_slug: 'x', series: [
+      { type_serie: 'travail', reps: 8 }, { type_serie: 'travail', reps: 8, au_max: true }] }] };
+    const v = R.ajoutDeSerie(r, 'x');
+    expect(v[0].series.map((q) => !!q.au_max)).toEqual([false, false, true]);
+  });
+  test('le mot de la ligne : « Au max », « recul · au max »', () => {
+    const Mo = require('../../v2/js/modele.js');
+    expect(Mo.motDEchec({ type_serie: 'travail', au_max: true })).toBe('Au max');
+    expect(Mo.motDEchec({ type_serie: 'recul', au_max_reserve: 0 })).toBe('recul · au max');
+    expect(Mo.motDEchec({ type_serie: 'recul' })).toBe('recul');
+    expect(Mo.motDEchec({ type_serie: 'travail' })).toBeNull();
+  });
+});
+
 describe('une série de moins (189) garde la ligne « Au max »', () => {
   test('la ligne du milieu part', () => {
     const lignes = [{ iSerie: 0, type: 'travail', validee: false }, { iSerie: 1, type: 'travail', validee: false },

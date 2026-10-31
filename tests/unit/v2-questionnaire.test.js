@@ -256,13 +256,13 @@ describe('60-2a — les ÉCRANS visibles, dans l’ordre', () => {
 
   test('avec des séances en base : 3a (« Ce que je sais »), jamais 3b', () => {
     expect(ids({ aDesSeances: true, historique: 'import' })).toEqual(
-      ['bienvenue', 'anciennete', 'sait', 'salle', 'zone', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);
+      ['bienvenue', 'anciennete', 'sait', 'salle', 'zone', 'raides', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);
     expect(ids({ aDesSeances: true, historique: null })).toContain('sait');
     expect(ids({ aDesSeances: true, historique: 'non_note' })).toContain('sait');
   });
   test('sans séance : jamais 3a (187 : la question des jours et de la durée a quitté l’écran 3b)', () => {
     expect(ids({ aDesSeances: false, historique: 'debutant' })).toEqual(
-      ['bienvenue', 'anciennete', 'salle', 'zone', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);
+      ['bienvenue', 'anciennete', 'salle', 'zone', 'raides', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);
     expect(ids({ aDesSeances: false, historique: 'import' })).not.toContain('sait');
     expect(ids({ aDesSeances: false, historique: 'import' })).not.toContain('sans_historique');
   });
@@ -279,20 +279,20 @@ describe('60-2a — les ÉCRANS visibles, dans l’ordre', () => {
       expect(ids({ aDesSeances: false, historique: 'non_note', depuis })).not.toContain('recente');
     });
     expect(ids({ aDesSeances: false, historique: 'non_note', depuis: '1_a_3_ans' })).toEqual(
-      ['bienvenue', 'anciennete', 'salle', 'zone', 'recente', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);
+      ['bienvenue', 'anciennete', 'salle', 'zone', 'raides', 'recente', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);
   });
   test('60-3 — l’écran 8 (« Ton programme ») seulement quand on SAIT qu’il n’y a aucune routine', () => {
     expect(Q.ECRANS.join(',')).toMatch(/temps,programme,construit,coach/);
     // Les routines pas encore lues (hors ligne) : l'écran n'existe pas.
-    expect(ids({ aDesSeances: true, historique: 'import' })).toHaveLength(11);
+    expect(ids({ aDesSeances: true, historique: 'import' })).toHaveLength(12);
     expect(ids({ aDesSeances: true, historique: 'import', aDesRoutines: null })).not.toContain('programme');
     // ⚠️ DISCRIMINANT — une routine, et l'écran n'existe pas.
     expect(ids({ aDesSeances: true, historique: 'import', aDesRoutines: true })).not.toContain('programme');
     expect(ids({ aDesSeances: true, historique: 'import', aDesRoutines: false })).toEqual(
-      ['bienvenue', 'anciennete', 'sait', 'salle', 'zone', 'toi', 'but', 'priorites', 'temps', 'programme', 'coach', 'recap']);
+      ['bienvenue', 'anciennete', 'sait', 'salle', 'zone', 'raides', 'toi', 'but', 'priorites', 'temps', 'programme', 'coach', 'recap']);
     // La barre le compte quand il est là, et seulement alors.
     const v = ids({ aDesSeances: true, historique: 'import', aDesRoutines: false });
-    expect(Q.progression(v, 'recap')).toEqual({ rang: 11, total: 12, pourcent: 100 });
+    expect(Q.progression(v, 'recap')).toEqual({ rang: 12, total: 13, pourcent: 100 });
     expect(Q.ecranSuivant(v, 'temps')).toBe('programme');
     expect(Q.ecranPrecedent(v, 'coach')).toBe('programme');
   });
@@ -310,8 +310,8 @@ describe('60-2a — les ÉCRANS visibles, dans l’ordre', () => {
     expect(programme({ aDesSeances: true, historique: 'import', aDesRoutines: false })).toBe(true);
     expect(programme({ aDesSeances: true, historique: 'debutant', aDesRoutines: false })).toBe(true);
     const sans = ids({ aDesSeances: false, historique: 'import', aDesRoutines: false });
-    expect(sans).toEqual(['bienvenue', 'anciennete', 'salle', 'zone', 'toi', 'but', 'priorites', 'temps', 'programme', 'coach', 'recap']);
-    expect(Q.progression(sans, 'recap')).toEqual({ rang: 10, total: 11, pourcent: 100 });
+    expect(sans).toEqual(['bienvenue', 'anciennete', 'salle', 'zone', 'raides', 'toi', 'but', 'priorites', 'temps', 'programme', 'coach', 'recap']);
+    expect(Q.progression(sans, 'recap')).toEqual({ rang: 11, total: 12, pourcent: 100 });
     expect(Q.ecranSuivant(sans, 'temps')).toBe('programme');
     // Les routines pas encore lues (hors ligne) : l'écran n'existe toujours pas.
     expect(programme({ aDesSeances: false, historique: 'import', aDesRoutines: null })).toBe(false);
@@ -322,18 +322,18 @@ describe('60-2a — les ÉCRANS visibles, dans l’ordre', () => {
       expect(ids(Object.assign({ programme }, base))).not.toContain('construit');
     });
     const v = ids(Object.assign({ programme: 'construis' }, base));
-    expect(v).toEqual(['bienvenue', 'anciennete', 'sait', 'salle', 'zone', 'toi', 'but', 'priorites', 'temps', 'programme', 'construit', 'coach', 'recap']);
+    expect(v).toEqual(['bienvenue', 'anciennete', 'sait', 'salle', 'zone', 'raides', 'toi', 'but', 'priorites', 'temps', 'programme', 'construit', 'coach', 'recap']);
     expect(Q.ecranSuivant(v, 'programme')).toBe('construit');
     expect(Q.ecranSuivant(v, 'construit')).toBe('coach');
-    expect(Q.progression(v, 'recap')).toEqual({ rang: 12, total: 13, pourcent: 100 });
+    expect(Q.progression(v, 'recap')).toEqual({ rang: 13, total: 14, pourcent: 100 });
     // Une routine : ni l'écran 8 ni le 8b, quel que soit le choix déjà en base.
     expect(ids(Object.assign({}, base, { programme: 'construis', aDesRoutines: true }))).not.toContain('construit');
     expect(ids(Object.assign({}, base, { programme: 'construis', aDesRoutines: null }))).not.toContain('construit');
   });
   test('la barre compte les écrans visibles : 0 % au premier, 100 % au dernier', () => {
     const v = ids({ aDesSeances: true, historique: 'import' });
-    expect(Q.progression(v, 'bienvenue')).toEqual({ rang: 0, total: 11, pourcent: 0 });
-    expect(Q.progression(v, 'recap')).toEqual({ rang: 10, total: 11, pourcent: 100 });
+    expect(Q.progression(v, 'bienvenue')).toEqual({ rang: 0, total: 12, pourcent: 0 });
+    expect(Q.progression(v, 'recap')).toEqual({ rang: 11, total: 12, pourcent: 100 });
     expect(Q.ecranSuivant(v, 'anciennete')).toBe('sait');
     expect(Q.ecranPrecedent(v, 'salle')).toBe('sait');
     expect(Q.ecranSuivant(v, 'recap')).toBeNull();
@@ -355,7 +355,7 @@ describe('60-2a — « Continuer » : obligatoire aux écrans 2, 5 et 9, actif a
     expect(Q.ecranPret('coach', { coach: 'carnet' })).toBe(true);
   });
   test('tous les autres : actif sans réponse (priorités et temps comprises)', () => {
-    ['bienvenue', 'sait', 'salle', 'zone', 'recente', 'toi', 'priorites', 'temps', 'recap'].forEach((id) => {
+    ['bienvenue', 'sait', 'salle', 'zone', 'raides', 'recente', 'toi', 'priorites', 'temps', 'recap'].forEach((id) => {
       expect(Q.ecranPret(id, {})).toBe(true);
     });
   });
@@ -475,7 +475,7 @@ describe('60-2a — les réponses de départ sont ce qui est DÉJÀ en base', ()
       historique: 'import', anciennete: '3_a_5_ans', depuis: '3_a_5_ans', notees: 'import', seances: 5, duree: 90, sexe: 'homme', annee: 1997,
       taille: 182, poids: 98, objectif: 'force', phase: 'seche', priorites: ['squat_barre'], temps: 'max',
       materiel: 'salle_complete', halteresMax: null, halteresPas: null, plusPetitDisque: null, barreTraction: null,
-      menager: [], coach: 'franc' });
+      menager: [], raides: null, coach: 'franc' });
   });
   test('un profil neuf : rien de répondu, sauf le rythme par défaut et la phase vide', () => {
     const rep = Q.reponsesInitiales({}, {});
@@ -774,10 +774,10 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
       temps: 'moins', materiel: 'maison_minimal', coach: 'franc', duree: 60, plusPetitDisque: 2.5, barreTraction: false });
     const v = vue('recap', { rep });
     const lignes = blocs(v, 'resume')[0].lignes;
-    expect(lignes.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Plus petit disque', 'Barre de traction', 'Zone à ménager', 'Coach']);
+    expect(lignes.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Plus petit disque', 'Barre de traction', 'Zone à ménager', 'Zones raides', 'Coach']);
     expect(lignes.map((l) => l.valeur)).toEqual(['Force', 'Sèche', 'Squat, Dos', '60 min · j’ai moins de temps en ce moment',
-      'Maison, minimum', '2,5\u00a0kg', 'Non', 'Aucune', 'Me pousser']);
-    expect(lignes.map((l) => l.ecran)).toEqual(['but', 'but', 'priorites', 'temps', 'salle', 'salle', 'salle', 'zone', 'coach']);
+      'Maison, minimum', '2,5\u00a0kg', 'Non', 'Aucune', '—', 'Me pousser']);
+    expect(lignes.map((l) => l.ecran)).toEqual(['but', 'but', 'priorites', 'temps', 'salle', 'salle', 'salle', 'zone', 'raides', 'coach']);
     expect(v.bouton).toEqual({ libelle: 'Commencer', actif: true });
     expect(v.voix).toBe('À ta première séance, je te propose tes charges. Tu peux toujours taper autre chose.');
   });
@@ -795,7 +795,7 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     const v = vue('recap', { rep: Object.assign(Q.reponsesInitiales({}, {}), { coach: 'carnet' }) });
     expect(v.voix).toBe('Je me tais. Un geste dans Profil si tu veux mes propositions.');
     expect(blocs(v, 'resume')[0].lignes[0].valeur).toBe('—');
-    expect(blocs(v, 'resume')[0].lignes[8].valeur).toBe('Juste un carnet');
+    expect(blocs(v, 'resume')[0].lignes[9].valeur).toBe('Juste un carnet');
   });
 
   test('chaque écran visible a une vue, un bouton, une progression ; « Retour » existe sauf au premier', () => {
@@ -890,8 +890,8 @@ describe('60-3 — l’écran 8 : « Ton programme », sans routine', () => {
     const rep = Object.assign(Q.reponsesInitiales({}, {}), { programme: 'deduit' });
     const lignes = (visibles) => vue('recap', { rep, visibles }).blocs[0].lignes;
     const avec = lignes(Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: false }));
-    expect(avec.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Plus petit disque', 'Barre de traction', 'Zone à ménager', 'Programme', 'Coach']);
-    expect(avec[8]).toEqual({ libelle: 'Programme', valeur: 'Garder ce que je fais', ecran: 'programme' });
+    expect(avec.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Plus petit disque', 'Barre de traction', 'Zone à ménager', 'Zones raides', 'Programme', 'Coach']);
+    expect(avec[9]).toEqual({ libelle: 'Programme', valeur: 'Garder ce que je fais', ecran: 'programme' });
     const sans = lignes(Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: true }));
     expect(sans.map((l) => l.libelle)).not.toContain('Programme');
     // 60-4 — aucune routine et aucune séance : l'écran 8 est du parcours, la ligne « Programme » aussi.
@@ -1002,6 +1002,14 @@ describe('60-4 — l’écran 8b : les jours et la zone à ménager', () => {
     expect(zone({ menager: ['genou'] })).toEqual({ zones_a_menager: ['genou'] });
     expect(zone({ menager: [] })).toEqual({});
     expect(zone({ menager: [] }, { zones_a_menager: ['dos'] })).toEqual({ zones_a_menager: null });
+    // 194-1 — les zones raides : pas répondu n'écrit rien ; « aucune » écrit la liste vide ; la même réponse n'écrit rien.
+    const raides = (rep, profil) => Q.champsDeLEcran('raides', rep, profil || {}, { maintenant: MAINTENANT }).champs;
+    expect(raides({ raides: null })).toEqual({});
+    expect(raides({ raides: [] })).toEqual({ zones_raides: [] });
+    expect(raides({ raides: ['ischios', 'hanches'] })).toEqual({ zones_raides: ['hanches', 'ischios'] });
+    expect(raides({ raides: [] }, { zones_raides: [] })).toEqual({});
+    expect(Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'raide', 'hanches').raides).toEqual(['hanches']);
+    expect(Q.appliquerChoix(Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'raide', 'hanches'), 'raide', 'aucune').raides).toEqual([]);
     expect(zone({ menager: ['dos'] }, { zones_a_menager: ['dos'] })).toEqual({});
     expect(zone({ menager: [] }, { zones_a_menager: [] })).toEqual({});
   });

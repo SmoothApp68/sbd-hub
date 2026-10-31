@@ -2603,6 +2603,9 @@
       cible.appendChild(el('p', 'vide', 'Aucun exercice. Ajoute le premier ci-dessous.'));
       return;
     }
+    // 194-1 (MOTEUR §9.31) — la préparation avant la séance, en mouvement seulement : lue sur le plan, jamais calculée ici.
+    var mob = !vue.modifier && typeof vue.propositionMobilite === 'function' ? vue.propositionMobilite() : null;
+    if (mob && mob.avant) cible.appendChild(carteDeMobilite(mob.avant, 'avant', vue));
     blocs.forEach(function (bloc, iBloc) {
       // §5.3 — le mode Modifier replie TOUT sur une ligne par bloc. Deux
       // poignées à 360 px, l'une déplaçant six lignes et l'autre une seule, se
@@ -2611,6 +2614,47 @@
         ? blocReplie(bloc, iBloc, blocs.length, vue)
         : rendreBlocSaisie(bloc, iBloc, vue));
     });
+    if (mob && mob.fin) cible.appendChild(carteDeMobilite(mob.fin, 'fin', vue));
+  }
+
+  // 194-1 — LA CARTE DU BLOC DE MOBILITÉ (maquette-mobilite-v1) : le titre, les exercices avec leurs séries et leurs tenues, la consigne,
+  // « Ajouter » / « Non merci » (le composant des chauffes), le « Pourquoi ». `ou` : 'avant' (préparation) ou 'fin'. Une fin sans zone
+  // (toutes à ménager) ne montre que la phrase du kiné, sans geste.
+  function carteDeMobilite(b, ou, vue) {
+    var n = el('section', 'carte-mobilite carte-mobilite-' + ou);
+    n.setAttribute('data-mobilite', ou);
+    var zones = b.zones ? b.zones : [b];
+    if (b.titre) {
+      n.appendChild(el('h3', 'cm-titre', b.titre));
+      n.appendChild(el('div', 'cm-sous', b.sousTitre));
+      var liste = el('ol', 'cm-liste');
+      zones.forEach(function (z) {
+        (z.exercices || []).forEach(function (x) {
+          var nom = typeof vue.nomMobilite === 'function' ? vue.nomMobilite(x.slug) : x.slug;
+          var ligne = el('li', 'cm-ligne');
+          ligne.appendChild(el('span', 'cm-nom', nom));
+          ligne.appendChild(el('span', 'cm-dose', x.series + '\u00a0\u00d7\u00a0' + x.duree_s + '\u00a0s' + (x.cote ? ' par c\u00f4t\u00e9' : '')));
+          ligne.appendChild(el('span', 'cm-zone', z.libelle));
+          liste.appendChild(ligne);
+        });
+      });
+      n.appendChild(liste);
+      n.appendChild(el('div', 'cm-consigne', b.consigne));
+    }
+    (b.kine || []).forEach(function (k) { n.appendChild(el('div', 'cm-kine', k)); });
+    if (b.titre) {
+      var p = propositionDExercice({
+        classe: 'proposition-mobilite', texte: ou === 'avant' ? 'Ajouter la préparation\u00a0?' : 'Ajouter le bloc de mobilité\u00a0?', oui: 'Ajouter', non: 'Non merci',
+        surOui: function () { vue.surAjouterMobilite(ou); },
+        surNon: function () { vue.surRefuserMobilite(); }
+      }, -1);
+      n.appendChild(p);
+      var det = el('details', 'cm-pourquoi');
+      det.appendChild(el('summary', null, 'Pourquoi\u00a0?'));
+      det.appendChild(el('p', null, b.pourquoi));
+      n.appendChild(det);
+    }
+    return n;
   }
 
   // ⚠️ LE MODE SÉLECTION DU §5.7. Grouper est une opération sur une PAIRE :
@@ -8809,7 +8853,7 @@
     rendreBandeauSeance: rendreBandeauSeance,
     majDureeBandeau: majDureeBandeau,
     libelleDuree: libelleDuree,
-    rendreBlocsSeance: rendreBlocsSeance,
+    rendreBlocsSeance: rendreBlocsSeance, carteDeMobilite: carteDeMobilite,
     majConstat: majConstat,
     demanderReps: demanderReps,
     demanderCases: demanderCases,

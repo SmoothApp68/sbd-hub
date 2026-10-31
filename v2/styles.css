@@ -2788,3 +2788,15 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   padding:8px 12px;margin:0 0 var(--e3);font-size:14px}
 .eq-ligne .eq-ligne-texte{flex:1;color:var(--texte-2);line-height:1.35}
 .eq-ligne button{min-height:44px;flex:none}
+
+/* 194-1 — le bloc de mobilité (maquette-mobilite-v1) : une carte avant la liste (préparation) et une après (fin de séance). */
+.carte-mobilite{margin:12px 0;padding:12px;border:1px solid var(--trait);border-radius:12px}
+.carte-mobilite .cm-titre{margin:0;font-size:16px}
+.carte-mobilite .cm-sous{margin:2px 0 8px;color:var(--texte-2);font-size:13px;line-height:1.4}
+.carte-mobilite .cm-liste{list-style:decimal inside;margin:0;padding:0}
+.carte-mobilite .cm-ligne{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:6px 0;border-top:1px solid var(--trait);font-size:15px}
+.carte-mobilite .cm-dose{font-variant-numeric:tabular-nums}
+.carte-mobilite .cm-zone{grid-column:1 / -1;color:var(--texte-2);font-size:12px}
+.carte-mobilite .cm-consigne,.carte-mobilite .cm-kine{margin-top:8px;color:var(--texte-2);font-size:13px;line-height:1.4}
+.carte-mobilite .cm-pourquoi{margin-top:6px;color:var(--texte-2);font-size:13px;line-height:1.5}
+.carte-mobilite .cm-pourquoi summary{cursor:pointer}

@@ -2335,7 +2335,7 @@
     var se = seance || {};
     var series = se.series || [];
     var s = series[indice];
-    if (!s || !estTravail(s)) return [];
+    if (!s || !estTravail(s) || o.sansRecord === true) return [];
     // 132 (MOTEUR §10 ter, I51) — UNE SÉRIE NOTÉE PAR NOM NE FAIT AUCUN RECORD (ni médaille, ni ligne du journal) :
     // un record est immuable, et l'ordre d'une liste d'élastiques peut changer. Elle ne sert pas non plus de base à
     // battre (ci-dessous, `siennes`). Le meilleur d'un tel exercice se lit à l'affichage (`THProfil.meilleurElastique`).
@@ -2515,7 +2515,9 @@
   function optionsDeRecord(exo) {
     var e = exo || {};
     return { equipement: e.equipement || null,
-             corps: e.mesure === 'reps' || natureDeCharge(e) === 'lest' || e.equipement === 'aucun' };
+             corps: e.mesure === 'reps' || natureDeCharge(e) === 'lest' || e.equipement === 'aucun',
+             // 194-1 (MOTEUR §9.31) — une série de mobilité (étirement, mobilité en mouvement) ne fait AUCUN record : une tenue plus longue n'est pas un progrès.
+             sansRecord: e.nature === 'mobilite' };
   }
 
   // LE NOM COURT d'un exercice, celui qui suit « au » (« Premier 150 kg au

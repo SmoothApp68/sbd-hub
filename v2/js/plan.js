@@ -1663,6 +1663,55 @@
   //     séance sur tout l'historique (`Moteur.placeDeVolume`) ; facultatif.
   //
   // Pure : mêmes entrées, même plan ; les entrées ne sont jamais modifiées.
+  // ── 194-1 (MOTEUR §9.31) — LA MOBILITÉ EN FIN DE SÉANCE, dans le plan ─────────────────────────────────────────────────
+  // Facultative, jamais imposée : rien n'est écrit dans la séance sans le geste « Ajouter » (`Seance.insererMobilite`). Le plan se tait
+  // en Édition, en « Juste un carnet », après trois « Non merci » de suite (la mémoire des chauffes, la clé `Moteur.MOBILITE_REFUS_CLE`)
+  // et quand « J'ai peu de temps » est accepté (`entrees.raccourci` : le bloc part d'abord, avant toute série).
+  function mobiliteDuPlan(e, seance, exos, intentionProfil) {
+    var M = Moteur();
+    var zones = M.zonesRaidesConnues(e.zonesRaides);
+    if (!zones || !zones.length || seance.edition || intentionProfil === 'entretien') return null;
+    if (e.raccourci) return { retiree: 'peu_de_temps', avant: null, fin: null };
+    if ((e.refusChauffes || {})[M.MOBILITE_REFUS_CLE]) return null;
+    var cat = e.catalogue || {};
+    var slugs = exos.map(function (x) { return x && x.exercise_slug; }).filter(Boolean);
+    var muscles = [];
+    slugs.forEach(function (s) { ((cat[s] && cat[s].muscles_primaires) || []).forEach(function (m) { if (muscles.indexOf(m) < 0) muscles.push(m); }); });
+    var G = racine.THGenerateur, jour = M.jourCivil(seance.debut);
+    var cles = ['genou', 'dos', 'epaule', 'coude', 'hanche'], douleurs = [];
+    Object.keys(e.douleurs || {}).forEach(function (s) {
+      if (!G || !jour || !M.douleurRecente(e.douleurs[s], jour)) return;
+      G.zonesQueChargeLExercice(s, cles).forEach(function (z) { if (douleurs.indexOf(z) < 0) douleurs.push(z); });
+    });
+    var debutee = exos.some(function (x) { return (x.series || []).some(function (sr) { return sr && sr.validee_a; }); });
+    var b = M.blocDeMobilite({ zones: zones, faites: e.mobiliteFaite || {}, muscles: muscles, slugs: slugs,
+      menager: Array.isArray(e.menagerProfil) ? e.menagerProfil : [], douleurs: douleurs, debutee: debutee });
+    var premier = slugs[0], dernier = slugs[slugs.length - 1];
+    var fin = b.fin && !(dernier && M.exerciceDeMobilite(dernier) && slugs.length > 0) ? b.fin : null;
+    var avant = b.avant && !(premier && M.exerciceDeMobilite(premier)) ? b.avant : null;
+    if (!fin && !avant) return null;
+    var out = { retiree: null, avant: null, fin: null };
+    if (avant) out.avant = Object.assign({}, avant, { titre: 'Préparation \u00b7 ' + Math.round(avant.minutes) + ' min',
+      sousTitre: avant.accord + (/^Tes /.test(avant.accord) ? ' servent' : ' sert') + ' ton ' + avant.sert + ' aujourd\u2019hui \u00b7 en mouvement, jamais tenu',
+      pourquoi: M.MOBILITE_POURQUOI_AVANT });
+    if (fin) out.fin = Object.assign({}, fin, { titre: fin.zones.length ? M.mobiliteTitre(fin.minutes) : null,
+      sousTitre: fin.zones.length ? M.mobiliteSousTitre(fin.zones) : null,
+      pourquoi: fin.zones.map(M.mobilitePourquoi).join(' ') });
+    return out;
+  }
+
+  // Une ligne d'un exercice de mobilité (le bloc accepté, ou posé à la main) se pré-remplit de sa durée : le plan propose, la série reste vide.
+  function avecDureeDeMobilite(x, slug) {
+    var M = Moteur(), d = slug ? M.dureeDeMobilite(slug) : null;
+    if (!x || !d || !Array.isArray(x.lignes)) return x;
+    x.lignes.forEach(function (l) {
+      if (!l || l.validee) return;
+      var p = l.prerempli || {};
+      if (p.duree_s === null || p.duree_s === undefined) l.prerempli = Object.assign({}, p, { duree_s: d });
+    });
+    return x;
+  }
+
   function planDeSeance(entrees) {
     var e = entrees || {};
     var seance = e.seance || {};
@@ -1749,6 +1798,8 @@
       serieDeMoins: moinsActive ? serieDeMoinsDuPlan() : null,
       // §9.22 (53-2) — les exercices d'un bloc en cours ce jour-là (I39).
       programme: { enBloc: enBlocDuJour(e, seance) },
+      // 194-1 (MOTEUR §9.31) — la mobilité : le bloc d'avant et celui de fin, ou `null` ; le plan le décide, l'écran le dessine.
+      mobilite: mobiliteDuPlan(e, seance, exos, intentionProfil),
       exercices: questionsDuPlan(exos.map(function (exoBrut, i) {
         // 132 (MOTEUR §10 ter) — UN EXERCICE NOTÉ PAR NOM : sa salle est la liste de ses élastiques (`cat.salle`,
         // `materiel: 'elastique'`). Ses séries entrent avec leur charge VIRTUELLE (`THProfil.seriesPourLeMoteur` :
@@ -1758,7 +1809,7 @@
         var salleEl = salleElastiqueDuPlan(e, exoBrut && exoBrut.exercise_slug);
         return Voix().avecNoms(salleEl ? salleEl.noms : null, function () {
           var exo = salleEl ? exoPourLeMoteur(exoBrut, salleEl) : exoBrut;
-          return sansParis(enNoms(planDeLOccurrence(exo, i, salleEl), salleEl), salleEl);
+          return avecDureeDeMobilite(sansParis(enNoms(planDeLOccurrence(exo, i, salleEl), salleEl), salleEl), exoBrut && exoBrut.exercise_slug);
         });
       }), e.reserve, seance)
     };
@@ -5087,6 +5138,7 @@
     verifierAlleger(plan, erreurs);
     verifierFatigue(plan, entrees, erreurs);
     verifierAuMax(plan, erreurs);
+    verifierMobilite(plan, entrees, erreurs);
     verifierApprochee(plan, erreurs);
     verifierApresLaDecharge(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
@@ -5428,6 +5480,83 @@
     });
   }
 
+
+  // I94 à I98 (MOTEUR §9.31, 194-1) — LA MOBILITÉ EN FIN DE SÉANCE :
+  //   · I94 — avant la séance, jamais un étirement tenu : la préparation ne porte que de la mobilité EN MOUVEMENT, pour une zone raide
+  //     qu'un exercice du jour sert, 2 minutes au plus ; et le bloc de fin ne porte que des étirements tenus du catalogue ;
+  //   · I95 — le bloc de fin : deux zones au plus, des zones déclarées raides, aucune qui a déjà ses 10 minutes de la semaine ; des
+  //     tenues de 30 à 60 s, 3 séries au plus par exercice ; le bloc ne dépasse pas ce qui manque à la zone (10 minutes) ;
+  //   · I96 — une zone raide qui est aussi à ménager (profil, ou « J'ai mal » récent sur un exercice qui la charge) ne reçoit aucun
+  //     exercice : le plan dit à la place « … à ménager : pour l'étirer, demande l'avis d'un kiné. » ; aucun exercice choisi ne charge une
+  //     articulation à ménager ;
+  //   · I97 — « J'ai peu de temps » retire le bloc d'abord : aucun bloc, avant ni fin, dans une séance raccourcie ;
+  //   · I98 — la consigne du bloc est « Sans douleur : une tension nette, pas plus. » ; jamais « récupération », « courbatures » ni
+  //     « prévention » ; le plan se tait sans zones raides, en Édition, en « Juste un carnet » et après trois « Non merci » de suite.
+  function verifierMobilite(plan, entrees, erreurs) {
+    var M = Moteur(), e = entrees || {}, mob = plan && plan.mobilite;
+    if (!mob) return;
+    var zonesRaides = M.zonesRaidesConnues(e.zonesRaides) || [];
+    if (!zonesRaides.length) erreurs.push('I98 — un bloc de mobilité sans zone raide déclarée');
+    if (plan.edition) erreurs.push('I98 — un bloc de mobilité en Édition');
+    if (plan.intention === 'entretien') erreurs.push('I98 — un bloc de mobilité en « Juste un carnet »');
+    if ((e.refusChauffes || {})[M.MOBILITE_REFUS_CLE]) erreurs.push('I98 — un bloc de mobilité après trois « Non merci » de suite');
+    if (mob.retiree) {
+      if (!e.raccourci) erreurs.push('I97 — un bloc retiré sans « J\u2019ai peu de temps »');
+      if (mob.avant || mob.fin) erreurs.push('I97 — un bloc de mobilité dans une séance raccourcie');
+      return;
+    }
+    if (e.raccourci) erreurs.push('I97 — un bloc de mobilité dans une séance raccourcie');
+    var interdit = /récupération|recuperation|courbature|prévention|prevention/i;
+    var menager = (Array.isArray(e.menagerProfil) ? e.menagerProfil : []).slice();
+    var G = racine.THGenerateur, jour = M.jourCivil(plan && e.seance && e.seance.debut);
+    Object.keys(e.douleurs || {}).forEach(function (s) {
+      if (!G || !jour || !M.douleurRecente(e.douleurs[s], jour)) return;
+      G.zonesQueChargeLExercice(s, ['genou', 'dos', 'epaule', 'coude', 'hanche']).forEach(function (z) { if (menager.indexOf(z) < 0) menager.push(z); });
+    });
+    var exercicesDe = function (b) { var l = []; (b.zones || []).forEach(function (z) { (z.exercices || []).forEach(function (x) { l.push(x); }); }); return l; };
+    var dit = function (t) { if (t && interdit.test(String(t))) erreurs.push('I98 — un mot que le coach ne dit pas : « ' + t + ' »'); };
+    if (mob.avant) {
+      var a = mob.avant, t = M.MOBILITE_ZONES[a.zone];
+      if (!t || zonesRaides.indexOf(a.zone) < 0) erreurs.push('I94 — la préparation pour une zone non déclarée raide (' + a.zone + ')');
+      if (t && a.sert === undefined) erreurs.push('I94 — la préparation sans l\u2019exercice du jour qu\u2019elle sert');
+      if (a.minutes > 2.05) erreurs.push('I94 — la préparation dure ' + a.minutes + ' min (2 au plus)');
+      exercicesDe({ zones: [a] }).forEach(function (x) {
+        if (!t || t.enMouvement.indexOf(x.slug) < 0) erreurs.push('I94 — « ' + x.slug + ' » avant la séance n\u2019est pas de la mobilité en mouvement');
+        if (t && t.tenus.indexOf(x.slug) >= 0 && t.enMouvement.indexOf(x.slug) < 0) erreurs.push('I94 — un étirement tenu avant la charge : ' + x.slug);
+      });
+      if (a.consigne !== M.MOBILITE_CONSIGNE) erreurs.push('I98 — la consigne de la préparation n\u2019est pas la consigne du bloc');
+      dit(a.pourquoi); dit(a.sousTitre);
+    }
+    if (mob.fin) {
+      var f = mob.fin;
+      if ((f.zones || []).length > 2) erreurs.push('I95 — ' + f.zones.length + ' zones dans le bloc de fin (2 au plus)');
+      (f.zones || []).forEach(function (z) {
+        var tz = M.MOBILITE_ZONES[z.zone];
+        if (!tz || zonesRaides.indexOf(z.zone) < 0) erreurs.push('I95 — une zone non déclarée raide dans le bloc : ' + z.zone);
+        var deja = Number((e.mobiliteFaite || {})[z.zone]) || 0;
+        if (deja >= M.MOBILITE_CIBLE_MIN) erreurs.push('I95 — la zone ' + z.zone + ' a déjà ses ' + M.MOBILITE_CIBLE_MIN + ' minutes de la semaine');
+        if (deja + z.minutes > M.MOBILITE_CIBLE_MIN + 0.05) erreurs.push('I95 — la zone ' + z.zone + ' dépasse ses ' + M.MOBILITE_CIBLE_MIN + ' minutes (' + (deja + z.minutes) + ')');
+        if (Math.abs(z.fait - deja) > 0.05) erreurs.push('I95 — les minutes déjà faites de ' + z.zone + ' ne sont pas celles des faits');
+        (z.exercices || []).forEach(function (x) {
+          if (!tz || tz.tenus.indexOf(x.slug) < 0) erreurs.push('I95 — « ' + x.slug + ' » n\u2019est pas un étirement de la zone ' + z.zone);
+          if (!(x.duree_s >= M.MOBILITE_TENUE_MIN_S && x.duree_s <= M.MOBILITE_TENUE_MAX_S)) erreurs.push('I95 — une tenue de ' + x.duree_s + ' s (30 à 60 s)');
+          if (!(x.series >= 1 && x.series <= 3)) erreurs.push('I95 — ' + x.series + ' séries pour ' + x.slug + ' (1 à 3)');
+          var charge = M.MOBILITE_CHARGE[x.slug] || [];
+          if (charge.some(function (c) { return menager.indexOf(c) >= 0; })) erreurs.push('I96 — « ' + x.slug + ' » charge une articulation à ménager (' + charge.join(', ') + ')');
+          if (tz && tz.menagee && menager.indexOf(tz.menagee) >= 0) erreurs.push('I96 — un étirement pour une zone à ménager : ' + z.zone);
+        });
+      });
+      // I96 — la phrase du kiné pour chaque zone raide aussi à ménager, et seulement pour elles.
+      zonesRaides.forEach(function (zr) {
+        var tz = M.MOBILITE_ZONES[zr], aMenager = !!(tz && tz.menagee && menager.indexOf(tz.menagee) >= 0);
+        var phrase = (f.kine || []).some(function (k) { return k.indexOf(tz.accord) === 0 && /avis d\u2019un kiné/.test(k); });
+        if (aMenager && !phrase) erreurs.push('I96 — la zone ' + zr + ' est à ménager : la phrase du kiné manque');
+        if (!aMenager && phrase) erreurs.push('I96 — la phrase du kiné pour une zone qui n\u2019est pas à ménager : ' + zr);
+      });
+      if (f.consigne !== M.MOBILITE_CONSIGNE) erreurs.push('I98 — la consigne du bloc n\u2019est pas « ' + M.MOBILITE_CONSIGNE + ' »');
+      dit(f.pourquoi); dit(f.sousTitre); dit(f.titre); (f.kine || []).forEach(dit);
+    }
+  }
 
   // I83 à I86 (MOTEUR §9.30, 193-6) — LA DERNIÈRE SÉRIE « AU MAX » :
   //   · I83 — au plus une ligne « Au max » par exercice, et c'est la dernière ligne de travail ou de recul ;

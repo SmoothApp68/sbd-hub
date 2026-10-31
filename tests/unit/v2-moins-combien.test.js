@@ -182,7 +182,7 @@ describe('l’écriture : une puce écrit `duree_seance_min` avec `temps_reponse
     const rep = Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'dureeMoins', 60);
     expect(rep.dureeMoins).toBe(60);
     // L'état de départ n'a pas de clé de plus (14 réponses, `programme` depuis 60-3, `menager` depuis 60-4).
-    expect(Object.keys(Q.reponsesInitiales({}, {})).length).toBe(22);   // 187 : + depuis, notees, halteresMax, halteresPas ; 190 : + plusPetitDisque, barreTraction
+    expect(Object.keys(Q.reponsesInitiales({}, {})).length).toBe(23);   // 194-1 : + raides ; 187 : + depuis, notees, halteresMax, halteresPas ; 190 : + plusPetitDisque, barreTraction
     expect('dureeMoins' in Q.reponsesInitiales({}, {})).toBe(false);
   });
 });

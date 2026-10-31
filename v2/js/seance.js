@@ -623,6 +623,21 @@
     return avecExercices(seance, exos);
   }
 
+  // 194-1 (MOTEUR §9.31) — « AJOUTER » LE BLOC DE MOBILITÉ : les exercices du bloc, chacun avec ses séries VIDES (la durée est une
+  // proposition du plan, jamais écrite dans une série), à la fin de la séance ou, pour la préparation, avant le premier exercice. Le
+  // geste seul écrit ; la note de l'exercice porte la consigne. `lignes` : `[{ slug, series }]`.
+  function insererMobilite(seance, lignes, idSerie, ou, note) {
+    var neufs = (lignes || []).map(function (l) {
+      var nb = Math.max(1, Math.min(6, Number(l.series) || 1));
+      var series = [];
+      for (var i = 0; i < nb; i++) series.push(serieVide(idSerie()));
+      return { exercise_slug: l.slug, routine_exercise_id: null, repos_cible_s: null, note: texteOuNul(note, 60),
+               groupe_superset: null, series: series };
+    });
+    var exos = ou === 'avant' ? neufs.concat(seance.exercices) : seance.exercices.concat(neufs);
+    return avecExercices(seance, exos);
+  }
+
   function retirerSerie(seance, iExo, iSerie) {
     var exos = seance.exercices.slice();
     var exo = copie(exos[iExo]);
@@ -3174,6 +3189,7 @@
     creer: creer,
     serieVide: serieVide,
     ajouterExercice: ajouterExercice,
+    insererMobilite: insererMobilite,
     ajouterSerie: ajouterSerie,
     ajouterDegressive: ajouterDegressive,
     insererChauffes: insererChauffes,

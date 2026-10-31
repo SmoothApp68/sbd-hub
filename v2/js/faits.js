@@ -1775,6 +1775,30 @@
       return sortie;
     }
 
+    // 193-6b — L'ÉCHEC PAR BARRE : les jours des 6 jours civils précédant `jour` où une série à l'échec a été faite sur chaque barre
+    // (la famille de barre du slug, `THGenerateur.familleDeBarre` sur le catalogue du corpus, ou `null`). À l'échec : `au_max_reserve = 0`, un type `echec`, ou une réserve
+    // notée 0 (`Palier.reserveDeSerie`). Un fait ; la règle (`Moteur.echecRecentDeBarre`, `auMaxDe`) est au moteur.
+    function echecsDeBarre(c, jour) {
+      var J = Moteur.jourCivil(jour), sortie = {};
+      var G = racine.THGenerateur, cat = typeof c.catalogue === 'function' ? c.catalogue() : null;
+      if (!J || !G || !cat) return sortie;
+      var plancher = Moteur.jourCivil(new Date(Date.parse(J + 'T12:00:00') - 6 * 86400000));
+      (c.seances || []).forEach(function (s) {
+        var jr = s && s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
+        if (!jr || jr < plancher || jr >= J) return;
+        (c.seriesDe(s.id) || []).forEach(function (x) {
+          if (!x || !x.exercise_slug || x.hors_calcul === true) return;
+          var echec = Modele.reserveDemandee(x) === 0 || Modele.estAEchec(x) || racine.THPalier.reserveDeSerie(x) === 0;
+          if (!echec) return;
+          var fam = G.familleDeBarre(x.exercise_slug, cat);
+          if (!fam) return;
+          var l = sortie[fam] || (sortie[fam] = []);
+          if (l.indexOf(jr) < 0) l.push(jr);
+        });
+      });
+      return sortie;
+    }
+
     // 194-1 (MOTEUR §9.31) — LES MINUTES DE MOBILITÉ DE LA SEMAINE, par zone raide : les séries de travail des exercices de la table
     // du moteur (`Moteur.zoneDeMobilite`), de la semaine de `jour` (lundi au jour compris), tenues de chaque côté comptées deux fois.
     // Un fait ; la règle (10 minutes par zone) est au moteur.
@@ -1800,6 +1824,7 @@
     return {
       minutesDeMobiliteParZone: minutesDeMobiliteParZone,
       douleursParExercice: douleursParExercice,
+      echecsDeBarre: echecsDeBarre,
       entreeFatigue: entreeFatigue,
       entreeDuBilan: entreeDuBilan,
       tempsALaSalle: tempsALaSalle,

@@ -1019,6 +1019,9 @@
     var zm = e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, slug) ? e.zonesMenagees[slug] : null;
     var jour = M.jourCivil(seance.debut);
     var douleurs = e.douleurs && Object.prototype.hasOwnProperty.call(e.douleurs, slug) ? e.douleurs[slug] : [];
+    // 193-6b — le jour le plus récent où cette barre est allée à l'échec dans les 6 jours précédents, ou null
+    var echecs = famille && e.echecsDeBarre && Object.prototype.hasOwnProperty.call(e.echecsDeBarre, famille) ? e.echecsDeBarre[famille] : [];
+    var jourEchec = M.echecRecentDeBarre(echecs, jour);
     var reps = e.auMaxReponses && Object.prototype.hasOwnProperty.call(e.auMaxReponses, slug) ? e.auMaxReponses[slug] : null;
     return {
       nom: fiche && fiche.nom ? fiche.nom : null,
@@ -1027,8 +1030,9 @@
         objectif: objectifDuPlan(e.objectif), debutant: e.debutant === true, famille: famille,
         equipement: fiche ? fiche.equipement || null : null, isolation: fiche ? M.estIsolation(musclesDe(fiche)) : false,
         allegee: false, menagee: !!(zm && !zm.choisie), douleurRecente: M.douleurRecente(douleurs, jour),
-        barreDeJambesApres: jambesApres
-      }
+        barreDeJambesApres: jambesApres, echecRecent: jourEchec !== null
+      },
+      jourEchec: jourEchec
     };
   }
 
@@ -1052,7 +1056,8 @@
     if (dernier === null) return vide;
     var sr = liste[dernier.iSerie] || {};
     var marquee = Mo.estAuMax(sr);
-    var dec = M.auMaxDe(Object.assign({}, faits.entree, { main: marquee }));
+    var zdp = consigne.plan && consigne.plan.zone ? (consigne.plan.zone.cle || consigne.plan.zone) : null;
+    var dec = M.auMaxDe(Object.assign({}, faits.entree, { main: marquee, zoneDePlan: zdp }));
     if (!marquee) {
       // La proposition : la table pose « Au max » par défaut, la personne n'a rien dit, aucune décision n'est enregistrée.
       if (!faits.propose || dec.pose !== 'defaut' || dernier.validee) return vide;
@@ -1075,7 +1080,14 @@
     var capC = V.capturer(function () { return M.consigneAuMax(a); });
     var phrases = [{ ou: 'au_max.consigne', texte: capC.texte, citations: capC.citations }];
     var pourquoi = null;
-    if (dec.classe === 'souleve') {
+    // 193-6b — la barre est allée à l'échec il y a moins de 7 jours et rien (zone de plan) ne l'autorise : garde 1, et le Pourquoi le dit
+    var sansEchec = !zdp && faits.entree.echecRecent === true && reserve === 1 && faits.jourEchec &&
+      M.auMaxDe(Object.assign({}, faits.entree, { main: marquee, zoneDePlan: null, echecRecent: false })).reserve === 0;
+    if (sansEchec) {
+      var capE = V.capturer(function () { return M.pourquoiAuMaxEchecRecent(dec.classe, faits.jourEchec, reserve); });
+      pourquoi = capE.texte;
+      phrases.push({ ou: 'pourquoi.au_max', texte: capE.texte, citations: capE.citations });
+    } else if (dec.classe === 'souleve') {
       var capS = V.capturer(function () { return M.pourquoiAuMaxSouleve(); });
       pourquoi = capS.texte;
       phrases.push({ ou: 'pourquoi.au_max', texte: capS.texte, citations: capS.citations });
@@ -1109,6 +1121,7 @@
     }
     return { proposition: null, pari: pari, phrases: phrases,
              auMax: { iSerie: dernier.iSerie, reserve: reserve, sorte: a.sorte, avecPareur: a.avecPareur, classe: dec.classe, pose: dec.pose,
+                      zoneDePlan: zdp, echecRecent: faits.entree.echecRecent === true,
                       consigne: capC.texte, pourquoi: pourquoi, constat: constat, prevu: prevu, max: max === null ? null : Math.round(max),
                       pari: pari !== null } };
   }
@@ -5551,6 +5564,7 @@
   //     barre, en Force sur une barre, en Forme ; la réserve demandée est un entier de 0 à 3 ; la consigne dite est celle de la réserve ;
   //   · I85 — le pari d'une ligne « Au max » vaut les reps de la table (1 à 12), jamais moins que la visée ; sa visée reste celle de
   //     la consigne ;
+  //   · I99 (193-6b) — sur une barre, l’échec n’est demandé que le jour Lourd, ou sans zone de plan si la barre n’est pas allée à l’échec dans les 6 jours ;
   //   · I86 — aucun dépassement (« Passer en… ») sur un exercice dont la seule série de travail est « Au max ».
   // (I87, la fatigue, vit dans `faits.entreeFatigue` : l'arrivée ou le retrait de « Au max » exclut l'exercice des fenêtres.)
   function verifierAuMax(plan, erreurs) {
@@ -5571,6 +5585,12 @@
         if (plan.allegee) erreurs.push('I84' + nom + 'l’échec demandé pendant une semaine allégée');
         if (x.menagee && !x.menagee.choisie) erreurs.push('I84' + nom + 'l’échec demandé sur une zone à ménager');
         if (plan.debutant && (classe === 'squat' || classe === 'couche')) erreurs.push('I84' + nom + 'l’échec demandé à un débutant sur une barre');
+        // I99 (193-6b, MOTEUR §9.30 bis) — sur une barre, l'échec n'est demandé que le jour Lourd (zone de plan) ou, sans zone de plan, si la
+        // barre n'est pas allée à l'échec dans les 6 jours précédents.
+        if (x.auMax && (classe === 'squat' || classe === 'couche' || classe === 'militaire')) {
+          if (x.auMax.zoneDePlan ? x.auMax.zoneDePlan !== 'lourd' : x.auMax.echecRecent === true)
+            erreurs.push('I99' + nom + 'l’échec demandé sur une barre ' + (x.auMax.zoneDePlan ? 'un jour ' + x.auMax.zoneDePlan : 'déjà allée à l’échec dans les 6 jours'));
+        }
       }
       var texte = x.auMax ? x.auMax.consigne : null;
       if (texte && (a.reserve === 0) !== /^Jusqu/.test(texte)) erreurs.push('I84' + nom + 'la consigne « ' + texte + ' » ne dit pas la réserve ' + a.reserve);

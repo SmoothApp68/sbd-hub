@@ -177,7 +177,7 @@ const ALIAS_COMMUNS = [
     anciennete: ['moins_1_an', '1_a_3_ans', '3_a_5_ans', 'plus_5_ans'],
     niveau_declare: ['debutant', 'intermediaire', 'avance', 'expert'],
     // 60-2a (`v2_065`, valeurs relevées par Claude.ai le 07/10/2026).
-    objectif: ['force', 'muscle', 'les_deux', 'forme'],
+    objectif: ['force', 'muscle', 'les_deux', 'forme', 'calisthenie'],   // v2_125 (195)
     temps_reponse: ['max', 'marge', 'moins', 'varie'],
     historique_declare: ['import', 'non_note', 'debutant']
   };

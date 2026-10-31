@@ -16709,7 +16709,7 @@ const SETS_IMPORTES = [
     let e = await jusquAuTemps();
     ok('[R60] prémisse : aucune routine en base, le questionnaire s’ouvre et arrive à « Temps et matériel »',
       ouvert && ROUTINES.length === 0 && e.ecran === 'temps', JSON.stringify([ouvert, ROUTINES.length, e.ecran]));
-    ok('[R60] A — sans routine, la barre compte l’écran 8 : 12 écrans', e.total === '12', JSON.stringify(e.total));
+    ok('[R60] A — sans routine, la barre compte l’écran 8 : 13 écrans', e.total === '13', JSON.stringify(e.total));
     await continuerR();
     e = await ecranR();
     ok('[R60] A — « Temps » mène à « Ton programme » : « Comment veux-tu t’entraîner ? », trois chemins et leurs sous-lignes, « Continuer » éteint',
@@ -16796,7 +16796,7 @@ const SETS_IMPORTES = [
       JSON.stringify(ROUTINES.length));
     await ouvrirLeQuestionnaire();
     e = await jusquAuTemps();
-    ok('[R60] D — ⚠️ DISCRIMINANT : avec des routines, la barre ne compte PAS l’écran 8 (11 écrans)', e.total === '11', JSON.stringify(e.total));
+    ok('[R60] D — ⚠️ DISCRIMINANT : avec des routines, la barre ne compte PAS l’écran 8 (12 écrans)', e.total === '12', JSON.stringify(e.total));
     await continuerR();
     e = await ecranR();
     ok('[R60] D — ⚠️ DISCRIMINANT : avec des routines, « Temps » mène directement à « Ton coach »', e.ecran === 'coach', JSON.stringify(e.ecran));
@@ -16812,8 +16812,8 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await ouvrirLeQuestionnaire();
     e = await jusquAuTemps('dos');
-    ok('[R60] E — ⚠️ DISCRIMINANT (60-4) : aucune routine et AUCUNE séance : la barre compte l’écran 8 (12 écrans)',
-      e.ecran === 'temps' && e.total === '12', JSON.stringify(e));
+    ok('[R60] E — ⚠️ DISCRIMINANT (60-4) : aucune routine et AUCUNE séance : la barre compte l’écran 8 (13 écrans)',
+      e.ecran === 'temps' && e.total === '13', JSON.stringify(e));
     await continuerR();
     e = await ecranR();
     ok('[R60] E — ⚠️ DISCRIMINANT (60-4) : « Temps » mène à « Ton programme » avec DEUX choix, jamais « Garder ce que je fais »',
@@ -16822,7 +16822,7 @@ const SETS_IMPORTES = [
     // ── F. 60-4 : « CONSTRUIS-LE-MOI » → l'écran 8b : les jours, une zone à ménager.
     await cliquerR('.q-opt[data-cle="construis"]');
     e = await ecranR();
-    ok('[R60] F — choisir « Construis-le-moi » : la barre compte l’écran 8b (13 écrans)', e.total === '13', JSON.stringify(e.total));
+    ok('[R60] F — choisir « Construis-le-moi » : la barre compte l’écran 8b (14 écrans)', e.total === '14', JSON.stringify(e.total));
     await continuerR();
     await attendre(400);
     const huitB = () => page.evaluate(() => ({
@@ -17047,7 +17047,7 @@ const SETS_IMPORTES = [
     const lh = (rows, lib) => (rows || []).filter((l) => l.lib === lib)[0] || {};
     // 108 — « Ma salle » (ECRAN-PROFIL 2.4 quinquies) se range sous « Matériel » ; 190 : toujours visible.
     ok('[R60] H — « CE QUE JE FAIS » : Matériel, Ma salle, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
-      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Exercices écartés|Refaire mon programme' &&
+      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Exercices écartés|Refaire mon programme|Zones raides' &&
         lh(sh, 'Zone à ménager').val === 'Dos' && lh(sh, 'Exercices écartés').val === '1' && lh(sh, 'Refaire mon programme').val === null, JSON.stringify(sh));
     ok('[R60] H — les phrases de la spec (G10), au mot près',
       !!sh && lh(sh, 'Zone à ménager').sous === 'Je ne te propose pas de série lourde dessus, ni dans ton programme ni en séance.' &&
@@ -17090,7 +17090,7 @@ const SETS_IMPORTES = [
     li = await liste();
     sh = await sectionH();
     ok('[R60] H — « Reprendre » : l’exercice n’est plus écarté (NULL), la feuille se ferme, la ligne « Exercices écartés » s’efface',
-      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Refaire mon programme',
+      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Refaire mon programme|Zones raides',
       JSON.stringify([profilBase().exercices_ecartes, li.ouverte, sh && sh.map((l) => l.lib)]));
     // Refaire mon programme : « Retour » ramène au Profil sans rien écrire.
     const avantRefaire = JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ROUTINES.length]);

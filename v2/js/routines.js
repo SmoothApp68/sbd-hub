@@ -1291,6 +1291,10 @@
       for (k = 0; k < (e.series || 0); k++) {
         lignes.push({ exercise_slug: e.exercise_slug, rang: ++rang, type_serie: 'travail', reps: e.reps, groupe_superset: g });
       }
+      // 193-2 — une grosse série est suivie de ses reculs (193-1) : `reculs` séries de type `recul`, à `reps_recul` reps.
+      for (k = 0; k < (e.reculs || 0); k++) {
+        lignes.push({ exercise_slug: e.exercise_slug, rang: ++rang, type_serie: 'recul', reps: e.reps_recul, groupe_superset: g });
+      }
     });
     var routine = routineDepuisSeance(lignes, Object.assign({}, options, { titre: d.nom }));
     // 188-2 — un repos RACCOURCI pour tenir la durée (l'ordre de compression, étape 2) : posé sur la ligne, son origine le dit.
@@ -1304,13 +1308,20 @@
         }
       });
     });
+    // 193-2 — la ZONE du jour (193-3) : posée sur l'exercice, jamais devinée. Sans zone donnée, rien ne change.
+    (d.exercices || []).forEach(function (e) {
+      if (!e.zone) return;
+      routine.exercices.forEach(function (x) {
+        if (x.exercise_slug === e.exercise_slug && x.groupe_superset === (e.groupe_superset === undefined ? null : e.groupe_superset)) x.zone = e.zone;
+      });
+    });
     // 187 (A5) — une CHARGE DE DÉPART donnée (`charge_cible_kg`, MOTEUR §9.21) va sur les séries de travail de l'exercice.
     // Sans elle, rien ne change : une routine déduite ne porte jamais de charge.
     (d.exercices || []).forEach(function (e) {
       if (!(e.charge_cible_kg > 0)) return;
       routine.exercices.forEach(function (x) {
         if (x.exercise_slug !== e.exercise_slug) return;
-        x.series.forEach(function (sr) { if (racine.THModele.estTravail(sr)) sr.charge_cible_kg = e.charge_cible_kg; });
+        x.series.forEach(function (sr) { if (racine.THModele.estTravail(sr) && sr.type_serie !== 'recul') sr.charge_cible_kg = e.charge_cible_kg; });
       });
     });
     return routine;

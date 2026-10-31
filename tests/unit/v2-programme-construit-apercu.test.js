@@ -1351,3 +1351,69 @@ describe('66D — « Construis-le-moi » avec un historique : le choix, l’aper
     expect(b.journal.seriesDe[couche.id].filter((s) => s.type_serie === 'echauffement').length).toBe(2);
   });
 });
+
+// 193-2 (commit 2) — la famille (Les deux, 4 jours) jusqu'à la routine écrite : la zone du jour sur la ligne, la grosse série puis
+// ses reculs en séries de type `recul`, et JAMAIS une charge. Le générateur est le vrai (pas celui d'avant).
+describe('193-2 — les familles jusqu’à la routine écrite', () => {
+  const famille = (o) => bac(Object.assign({ generateur: Generateur }, o || {}));
+
+  test('Les deux 4 jours : chaque barre lourde porte sa zone, la grosse série est suivie de ses reculs, aucune charge', async () => {
+    const b = famille();
+    await b.appel('ouvrirApercuProgramme()');
+    await b.vue().surCreer();
+    expect(b.journal.routines.length).toBe(4);
+    const lignes = [].concat.apply([], b.journal.exercices);
+    expect(lignes.some((l) => l.zone === 'lourd')).toBe(true);
+    expect(lignes.every((l) => l.zone === null || ['lourd', 'mix', 'hypertrophie'].indexOf(l.zone) >= 0)).toBe(true);
+    const series = [].concat.apply([], b.journal.series);
+    expect(series.some((s) => s.type_serie === 'recul')).toBe(true);
+    expect(series.every((s) => s.charge_cible_kg === null)).toBe(true);
+    // Un recul suit toujours une série de travail du même exercice (jamais en tête d'un exercice).
+    Object.keys(b.journal.seriesDe).forEach((id) => {
+      const s = b.journal.seriesDe[id];
+      const rangs = s.map((x) => x.type_serie);
+      const premierRecul = rangs.indexOf('recul');
+      if (premierRecul >= 0) expect(rangs.slice(0, premierRecul).length).toBeGreaterThan(0);
+    });
+  });
+
+  test('« Remplacer » sur une barre : ses deux places changent, dans deux séances, avec leurs zones', async () => {
+    const b = famille();
+    await b.appel('ouvrirApercuProgramme()');
+    const rs = b.ctx.construit.routines;
+    const places = [];
+    rs.forEach((rt, i) => rt.exercices.forEach((x, k) => { if (x.exercise_slug === 'squat_barre') places.push([i, k]); }));
+    expect(places.length).toBe(2);
+    await b.appel('poserDansLeProgramme(' + places[0][0] + ',' + places[0][1] + ",'belt_squat_machine')");
+    const apres = b.ctx.construit.routines;
+    expect(JSON.stringify(apres)).not.toContain('squat_barre');
+    expect(JSON.stringify(apres).split('belt_squat_machine').length - 1).toBe(2);
+  });
+
+  test('le raccourci retire des reculs (jamais le dernier), jamais la grosse série ; la ligne écrite suit', async () => {
+    const plein = famille();
+    await plein.appel('ouvrirApercuProgramme()');
+    const court = famille({ profil: { temps_reponse: 'max', duree_seance_min: 40 } });
+    await court.appel('ouvrirApercuProgramme()');
+    const reculs = (b) => [].concat.apply([], b.ctx.construit.routines.map((rt) => rt.exercices.map((x) => x.reculs || 0)));
+    const a = reculs(plein), c = reculs(court);
+    expect(c.reduce((x, y) => x + y, 0)).toBeLessThan(a.reduce((x, y) => x + y, 0));
+    court.ctx.construit.routines.forEach((rt) => rt.exercices.forEach((x) => {
+      if (x.zone === 'lourd' && x.spec && x.spec.reculs) { expect(x.reculs).toBeGreaterThanOrEqual(1); expect(x.series).toBe(1); }
+    }));
+    await court.vue().surCreer();
+    const ecrites = [].concat.apply([], court.journal.series).filter((s) => s.type_serie === 'recul').length;
+    expect(ecrites).toBe(c.reduce((x, y) => x + y, 0));
+  });
+
+  test('« Je n’en veux pas » sur une barre : ses deux places changent ensemble', async () => {
+    const b = famille();
+    await b.appel('ouvrirApercuProgramme()');
+    const rs = b.ctx.construit.routines;
+    const places = [];
+    rs.forEach((rt, i) => rt.exercices.forEach((x, k) => { if (x.exercise_slug === 'squat_barre') places.push([i, k]); }));
+    await b.appel('ecarterDansLeProgramme(' + places[0][0] + ',' + places[0][1] + ')');
+    expect(JSON.stringify(b.ctx.construit.routines)).not.toContain('squat_barre');
+    expect(b.ctx.construit.routines.length).toBe(4);
+  });
+});

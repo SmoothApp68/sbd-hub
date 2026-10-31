@@ -1775,6 +1775,30 @@
       return sortie;
     }
 
+    // 193-6b — L'ÉCHEC PAR BARRE : les jours des 6 jours civils précédant `jour` où une série à l'échec a été faite sur chaque barre
+    // (la famille de barre du slug, `THGenerateur.familleDeBarre` sur le catalogue du corpus, ou `null`). À l'échec : `au_max_reserve = 0`, un type `echec`, ou une réserve
+    // notée 0 (`Palier.reserveDeSerie`). Un fait ; la règle (`Moteur.echecRecentDeBarre`, `auMaxDe`) est au moteur.
+    function echecsDeBarre(c, jour) {
+      var J = Moteur.jourCivil(jour), sortie = {};
+      var G = racine.THGenerateur, cat = typeof c.catalogue === 'function' ? c.catalogue() : null;
+      if (!J || !G || !cat) return sortie;
+      var plancher = Moteur.jourCivil(new Date(Date.parse(J + 'T12:00:00') - 6 * 86400000));
+      (c.seances || []).forEach(function (s) {
+        var jr = s && s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
+        if (!jr || jr < plancher || jr >= J) return;
+        (c.seriesDe(s.id) || []).forEach(function (x) {
+          if (!x || !x.exercise_slug || x.hors_calcul === true) return;
+          var echec = Modele.reserveDemandee(x) === 0 || Modele.estAEchec(x) || racine.THPalier.reserveDeSerie(x) === 0;
+          if (!echec) return;
+          var fam = G.familleDeBarre(x.exercise_slug, cat);
+          if (!fam) return;
+          var l = sortie[fam] || (sortie[fam] = []);
+          if (l.indexOf(jr) < 0) l.push(jr);
+        });
+      });
+      return sortie;
+    }
+
     // 194-1 (MOTEUR §9.31) — LES MINUTES DE MOBILITÉ DE LA SEMAINE, par zone raide : les séries de travail des exercices de la table
     // du moteur (`Moteur.zoneDeMobilite`), de la semaine de `jour` (lundi au jour compris), tenues de chaque côté comptées deux fois.
     // Un fait ; la règle (10 minutes par zone) est au moteur.
@@ -1797,9 +1821,97 @@
       return sortie;
     }
 
+    // 193-4 (MOTEUR §9.32) — LE MAX ESTIMÉ D'AVANT LA SEMAINE DE TEST, par exercice : la force estimée (`Modele.recordsDeLExercice(...).unRM`,
+    // Epley) sur les séances STRICTEMENT avant le jour du début de la semaine — figée, elle ne bouge pas pendant les essais. `null` : aucune
+    // série de travail estimable. `debut` : le jour civil `AAAA-MM-JJ`.
+    function maxEstimesAvantLeTest(c, slugs, debut) {
+      var avant = new Date(String(debut) + 'T00:00:00');
+      var sortie = {};
+      (slugs || []).forEach(function (slug) {
+        var u = isNaN(avant.getTime()) ? null
+          : Modele.recordsDeLExercice(seancesDuSlug(c, slug), avant, optionsDesRecords(c, slug)).unRM;
+        sortie[slug] = u && u.valeur > 0 ? Math.round(u.valeur * 10) / 10 : null;
+      });
+      return sortie;
+    }
+
+    // 197 (MOTEUR §9.36) — LA SEMAINE « FORME ET SANTÉ » (lundi au jour compris) : un FAIT, jamais un reproche.
+    //   · le renforcement : les jours de la semaine qui ont une séance de musculation (`Semaine.estSeanceDeMusculation`) ;
+    //   · le cardio : les minutes des séries de travail des exercices de nature `cardio` (durée), l'intense comptant double. L'intensité est
+    //     lue sur ce qui existe : le RPE de la série (8 ou plus = intense, convention) ; sans RPE, tout est modéré.
+    // Rend `{ renforcement: { faites, cible }, cardio: { minutes, equivalent, cible, reste, intenses } }` ; `minutes` est la durée réelle,
+    // `equivalent` les minutes de cardio modéré (l'intense x2), `reste` ce qui manque à la cible (jamais négatif).
+    function semaineDeForme(c, jour) {
+      var J = Moteur.jourCivil(jour), sortie = { renforcement: { faites: 0, cible: Moteur.FORME_RENFORCEMENT_CIBLE },
+        cardio: { minutes: 0, equivalent: 0, cible: Moteur.FORME_CARDIO_CIBLE_MIN, reste: Moteur.FORME_CARDIO_CIBLE_MIN, intenses: 0 } };
+      if (!J) return sortie;
+      var b = Semaine.bornesSemaine(new Date(J + 'T12:00:00'));
+      var lundi = b ? Moteur.jourCivil(b.lundi) : null;
+      if (!lundi) return sortie;
+      var index = (c.catalogue && c.catalogue()) || {}, jours = {}, min = 0, eq = 0, intenses = 0;
+      (c.seances || []).forEach(function (s) {
+        var jr = s && s.debut && s.statut !== 'en_cours' ? Moteur.jourCivil(new Date(s.debut)) : null;
+        if (!jr || jr < lundi || jr > J) return;
+        var series = c.seriesDe(s.id) || [];
+        if (Semaine.estSeanceDeMusculation(series, index)) jours[jr] = true;
+        series.forEach(function (x) {
+          var f = x && index[x.exercise_slug], d = Number(x && x.duree_s);
+          if (!f || f.nature !== 'cardio' || !Modele.estTravail(x) || x.hors_calcul === true || !(d > 0)) return;
+          var intense = Number(x.rpe) >= Moteur.CARDIO_RPE_INTENSE;
+          min += d / 60; eq += d / 60 * (intense ? Moteur.FORME_INTENSE_FACTEUR : 1);
+          if (intense) intenses += d / 60;
+        });
+      });
+      sortie.renforcement.faites = Object.keys(jours).length;
+      sortie.cardio = { minutes: Math.round(min), equivalent: Math.round(eq), cible: Moteur.FORME_CARDIO_CIBLE_MIN,
+        reste: Math.max(0, Moteur.FORME_CARDIO_CIBLE_MIN - Math.round(eq)), intenses: Math.round(intenses) };
+      return sortie;
+    }
+
+    // 199 (MOTEUR §9.37) — LES JOURS DE CARDIO RÉGULIERS : un FAIT lu dans les séances, rien n'est demandé. Un jour de la semaine (lundi = 0)
+    // est régulier quand, sur les QUATRE semaines pleines (lundi au dimanche) qui précèdent la semaine de `jour`, il porte un jour de cardio
+    // au moins 3 fois. Un jour de cardio : les séries de travail des exercices de nature `cardio` de ce jour civil durent plus de 30 min en tout,
+    // ou l'une est intense (RPE de 8 ou plus, `Moteur.CARDIO_RPE_INTENSE`). Rend `{ jours: [lundi = 0…], semaines: { jour: n sur 4 } }`.
+    var CARDIO_LONG_S = 30 * 60, CARDIO_SEMAINES = 4, CARDIO_REGULIER_MIN = 3;
+    function joursDeCardioReguliers(c, jour) {
+      var vide = { jours: [], semaines: {} }, J = Moteur.jourCivil(jour);
+      if (!J) return vide;
+      var b = Semaine.bornesSemaine(new Date(J + 'T12:00:00'));
+      var lundi = b ? b.lundi : null;
+      if (!lundi) return vide;
+      var debut = Moteur.jourCivil(Semaine.decalerSemaine(lundi, -CARDIO_SEMAINES).lundi), fin = Moteur.jourCivil(lundi);
+      var index = (c.catalogue && c.catalogue()) || {}, parJour = {};
+      (c.seances || []).forEach(function (s) {
+        var jr = s && s.debut && s.statut !== 'en_cours' ? Moteur.jourCivil(new Date(s.debut)) : null;
+        if (!jr || jr < debut || jr >= fin) return;
+        (c.seriesDe(s.id) || []).forEach(function (x) {
+          var f = x && index[x.exercise_slug], d = Number(x && x.duree_s);
+          if (!f || f.nature !== 'cardio' || !Modele.estTravail(x) || x.hors_calcul === true || !(d > 0)) return;
+          var o = parJour[jr] || (parJour[jr] = { s: 0, intense: false });
+          o.s += d;
+          if (Number(x.rpe) >= Moteur.CARDIO_RPE_INTENSE) o.intense = true;
+        });
+      });
+      var semaines = {};
+      Object.keys(parJour).forEach(function (jr) {
+        var o = parJour[jr];
+        if (!(o.s > CARDIO_LONG_S || o.intense)) return;
+        var d = new Date(jr + 'T12:00:00'), wd = (d.getDay() + 6) % 7;
+        semaines[wd] = (semaines[wd] || 0) + 1;
+      });
+      var jours = Object.keys(semaines).map(Number).filter(function (wd) { return semaines[wd] >= CARDIO_REGULIER_MIN; }).sort(function (a, b2) { return a - b2; });
+      var reguliers = {};
+      jours.forEach(function (wd) { reguliers[wd] = semaines[wd]; });
+      return { jours: jours, semaines: reguliers };
+    }
+
     return {
+      semaineDeForme: semaineDeForme,
+      joursDeCardioReguliers: joursDeCardioReguliers,
       minutesDeMobiliteParZone: minutesDeMobiliteParZone,
       douleursParExercice: douleursParExercice,
+      echecsDeBarre: echecsDeBarre,
+      maxEstimesAvantLeTest: maxEstimesAvantLeTest,
       entreeFatigue: entreeFatigue,
       entreeDuBilan: entreeDuBilan,
       tempsALaSalle: tempsALaSalle,

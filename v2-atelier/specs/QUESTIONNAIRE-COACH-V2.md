@@ -635,3 +635,18 @@ l'écran (les valeurs restent en base, aucune n'est lue). Les quatre phrases qui
   demandé a un lecteur ».
 - ECRAN-PROFIL §4 : le questionnaire est l'ordre et la mise en avant des sections du profil.
 - MOTEUR §9.16 : le rappel de phase à 6 semaines n'est plus « au chantier du questionnaire ».
+
+### 8.x Delta du 31/10/2026 — l'objectif Calisthénie et l'écran « Où tu en es » (chantier 195)
+
+- **But d'entraînement** : une cinquième puce, **Calisthénie** (`profiles.objectif = 'calisthenie'`, `v2_125`). Elle n'a pas de zone de départ propre (la zone
+  `mix`, seuil de marche à 8) ; son générateur est celui de MOTEUR §9.35.
+- **Un écran de plus, seulement en Calisthénie : « Où tu en es »**, juste après « Ton but ». Quatre chiffres, facultatifs : tractions strictes d'affilée,
+  pompes d'affilée, dips aux barres d'affilée (0 est une réponse), et le squat sur une jambe (pistol : oui / non). Un champ vide est « Je ne sais pas » :
+  le coach part d'une marche prudente et ajuste en deux séances. L'écran écrit `profiles.depart_calisthenie` (`{ tractions, pompes, dips, pistol, le }`,
+  jsonb, par la file) seulement si un chiffre est donné et qu'il diffère de la base ; tout effacé : l'ancienne valeur reste. Une ligne « Où tu en es »
+  au récapitulatif, qui renvoie à l'écran.
+- **La table de départ** (`Generateur.departDeCalisthenie`, pure) : tractions 0 → négatives + rowing inversé ; 1-4 → tractions (3 × 3-5) + négatives ;
+  5-11 → tractions ; 12 et plus → tractions lestées. Pompes 0-4 → inclinées ; 5-14 → genoux ; 15-29 → pompes ; 30 et plus → déclinées (l'archer, une
+  habileté, se propose ensuite par l'échelle). Dips 0 → négatifs ; 1-14 → dips ; 15 et plus → lestés. Pistol non → squat bulgare ; oui → pistol.
+  Inconnu : tractions négatives + rowing inversé, pompes aux genoux, dips négatifs, squat bulgare.
+

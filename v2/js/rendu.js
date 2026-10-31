@@ -193,6 +193,8 @@
       }
       // 152 — « à l'échec » (ambre) ou « manquée » : le mot vient de la lecture unique (`Modele.motDEchec`).
       if (s.motEchec) mesure.appendChild(el('span', 'etq' + (s.estTravail ? ' fond' : ''), s.motEchec));
+      // 196 — rest-pause : les reps de la série et de ses mini-séries, cumulées, dites à part.
+      if (s.repsCumulees) mesure.appendChild(el('span', 'etq', s.repsCumulees + ' reps avec les mini-séries'));
       ligne.appendChild(mesure);
       section.appendChild(ligne);
     });
@@ -505,8 +507,14 @@
     // qui la donne. Pas de courbe : la page n'en a pas (une courbe demanderait une maquette).
     if (t.unRM) {
       var force = el('div', 'exo-fiche exo-force');
-      ligneFiche(force, 'Force estimée', 'd\u2019après ' + M().chargeFois(t.unRM.charge, t.unRM.reps),
-        '\u2248\u00a0' + nombreFr(Math.round(t.unRM.valeur)) + '\u00a0kg');
+      // 193-4 : un max MESURÉ par une semaine de test se dit mesuré, sans « ≈ » (c'est une mesure, pas une estimation).
+      if (t.unRM.mesure) {
+        ligneFiche(force, 'Max mesuré', 'à ta semaine de test, ' + M().chargeFois(t.unRM.charge, t.unRM.reps),
+          nombreFr(Math.round(t.unRM.valeur * 10) / 10) + '\u00a0kg');
+      } else {
+        ligneFiche(force, 'Force estimée', 'd\u2019après ' + M().chargeFois(t.unRM.charge, t.unRM.reps),
+          '\u2248\u00a0' + nombreFr(Math.round(t.unRM.valeur)) + '\u00a0kg');
+      }
       cible.appendChild(force);
     }
   }
@@ -1644,6 +1652,33 @@
     parent.appendChild(section);
   }
 
+  // 197 (MOTEUR §9.36) — « Ta semaine » en Forme et santé. Les textes viennent de l'app (qui lit `faits.semaineDeForme`) ; ici on dessine.
+  function rendreSemaineForme(parent, vue) {
+    if (!vue) return;
+    var k = el('div', 'carte-mois eq-carte forme-semaine');
+    k.setAttribute('data-forme-semaine', '1');
+    k.appendChild(el('div', 'eq-titre', 'Ta semaine'));
+    [vue.renforcement, vue.cardio].forEach(function (x) {
+      var l = el('div', 'forme-ligne');
+      l.appendChild(el('span', 'forme-libelle', x.libelle));
+      l.appendChild(el('span', 'forme-texte', x.texte));
+      k.appendChild(l);
+    });
+    k.appendChild(el('div', 'eq-calme-texte', vue.cardio.reste));
+    if (vue.cardio.intense) k.appendChild(el('div', 'eq-calme-texte', vue.cardio.intense));
+    var d = el('details', 'forme-pourquoi');
+    d.appendChild(el('summary', null, 'Pourquoi ces chiffres ?'));
+    d.appendChild(el('p', null, vue.pourquoi));
+    d.appendChild(el('p', null, vue.douleur));
+    k.appendChild(d);
+    var m = el('button', 'discret', 'Masquer cette carte');
+    m.type = 'button';
+    m.setAttribute('data-masquer-forme', '1');
+    m.addEventListener('click', function () { vue.surMasquer(); });
+    k.appendChild(m);
+    parent.appendChild(k);
+  }
+
   // La ligne de l'écran Séances, sous la barre de la semaine : UNE seule, quand une carte d'équilibre parle.
   function rendreLigneEquilibre(cible, vue) {
     if (!cible) return cible;
@@ -1672,6 +1707,7 @@
     cible.appendChild(el('div', 'pc-phrase', p.phrase || PHRASE_VIDE));
 
     // 188-1 — « Ta semaine et tes équilibres » : en tête, au-dessus de « Tes équilibres » (les barres sur douze mois).
+    rendreSemaineForme(cible, vue.forme);
     rendreEquilibres(cible, vue.equilibres);
     // 189 — « Juste un carnet » : le constat de la baisse, une carte sans proposition (aucune section de plus).
     if (vue.fatigue) {
@@ -2831,6 +2867,9 @@
         // 193-6 (MOTEUR §9.30) — « Dernière série au max ? » : une fois par exercice, du plan ; trois gestes.
         var pa = typeof vue.propositionAuMax === 'function' ? vue.propositionAuMax(s._iExo) : null;
         if (pa) noeud.appendChild(propositionDAuMax(pa, s._iExo, vue));
+        // 193-4 (MOTEUR §9.32) — la semaine de test : la barre testée aujourd'hui, ou la note d'un accessoire.
+        var pt = typeof vue.semaineDeTest === 'function' ? vue.semaineDeTest(s._iExo) : null;
+        if (pt) { var ct = carteDeTest(pt, s._iExo, vue); if (ct) noeud.appendChild(ct); }
       }
       // §9.14 (49-R2) — LA RÉACTION PARLE DANS LA GRILLE, au-dessus de la
       // ligne qu'elle concerne (ECRAN §3.2, maquette variante A). Une ligne de
@@ -3042,6 +3081,14 @@
       // gris : un point de départ la première fois, le coach seul ensuite.
       var cpx = vue.programme && vue.chargeProgramme ? vue.chargeProgramme(x.slug) : null;
       if (cpx) entree.appendChild(el('div', 'consigne-dit charge-programme', texteChargeProgramme(cpx)));
+      // 197 (MOTEUR §9.36) — la consigne de puissance des 65 ans et plus, posée par le plan (un fait du plan, pas un calcul d'écran).
+      var pu = !vue.programme && vue.puissance ? vue.puissance(x.slug) : null;
+      if (pu) {
+        var lp = el('div', 'consigne-dit puissance', pu.texte);
+        lp.setAttribute('data-puissance', '1');
+        if (pu.pourquoi) lp.title = pu.pourquoi;
+        entree.appendChild(lp);
+      }
       var lib = constat ? null : (!vue.programme && vue.libelles ? vue.libelles(x.slug, x._iExo) : null);
       if (lib) {
         // §3.10 — TOUCHER LA CONSIGNE OUVRE LE CALCUL. Les lignes jaunes comme
@@ -3421,6 +3468,13 @@
     if (!cible) return cible;
     vider(cible);
     var v = vue || {};
+    // 198 (MOTEUR §9.34) — la baisse attendue en sèche : une phrase, sans geste, quand aucune carte ne parle.
+    if (v.attendue && !v.carte) {
+      var att = el('div', 'carte-escalier ce-attendue');
+      att.appendChild(el('p', 'ce-titre', v.attendue.titre));
+      att.appendChild(el('p', 'ce-phrase', v.attendue.phrase));
+      cible.appendChild(att);
+    }
     if (v.carte) {
       var c = el('div', 'carte-escalier');
       // 189 (MOTEUR §14.11) — la carte de BAISSE a un titre ; le blocage généralisé n'en a pas.
@@ -3560,6 +3614,86 @@
         return { texte: texte, classe: 'pam-' + CLES_AU_MAX[k], surClic: function () { vue.surAuMax(iExo, CLES_AU_MAX[k]); } };
       })
     }, iExo);
+  }
+
+  // 193-4 (MOTEUR §9.32) — LA SEMAINE DE TEST dans la séance : la barre testée aujourd'hui (la montée, la consigne, le « Pourquoi », la
+  // mesure, les gestes) et, sur un accessoire, une ligne. Tout vient du plan (`vue.semaineDeTest`) ; rien n'est recalculé ici.
+  var ARRETS_DU_TEST = { mal: 'Tu as mal : on ne teste pas ce mouvement.', sans_marge: 'Ton premier essai n’a rien laissé : on s’arrête là, ton max du jour est lu sur lui.',
+    rate: 'Un essai raté : on s’arrête là.', technique: 'La technique lâche : on s’arrête là.', sans_cran: 'Rien de plus lourd à ta salle : on s’arrête là.' };
+  function carteDeTest(t, iExo, vue) {
+    var M = function () { return racine.THModele; };
+    if (t.accessoire) {
+      return el('div', 'proposition-exercice proposition-test-acc', t.garde
+        ? 'Semaine de test : cet accessoire reste léger, sans aller au bout.' : 'Semaine de test : tu peux passer cet accessoire.');
+    }
+    var n = el('div', 'proposition-exercice proposition-test');
+    n.setAttribute('data-iexo', String(iExo));
+    n.appendChild(el('div', 'pc-texte', 'Semaine de test · ' + (t.mode === 'max' ? 'viser ton max' : 'série au max')));
+    if (t.etat === 'sans_max') {
+      n.appendChild(el('div', 'pc-detail', 'Pas assez de séries pour estimer ton max : ce mouvement se fait comme d’habitude.'));
+      return n;
+    }
+    if (t.montee && t.montee.length && t.etat === 'a_faire') {
+      n.appendChild(el('div', 'pc-detail test-montee', 'Montée : ' + t.montee.map(function (m) { return M().chargeFois(m.charge, m.reps); }).join(' · ')));
+    }
+    if (t.consigne) n.appendChild(el('div', 'pc-detail test-consigne', t.consigne.texte));
+    if (t.arret) n.appendChild(el('div', 'pc-detail test-arret', ARRETS_DU_TEST[t.arret] || 'On s’arrête là.'));
+    if (t.mesure) n.appendChild(el('div', 'pc-detail test-mesure', 'Mesuré : ' + M().chargeFois(t.mesure.charge, t.mesure.reps) +
+      (t.mesure.vrai ? '' : ', max lu ' + nombreFr(Math.round(t.mesure.valeur)) + ' kg') + '.'));
+    if (t.pourquoi && t.etat === 'a_faire') n.appendChild(el('div', 'pc-detail test-pourquoi', t.pourquoi.texte));
+    var gestes = el('div', 'pc-gestes pc-choix');
+    var bouton = function (classe, texte, cle) {
+      var b = el('button', 'pc-refuser ' + classe, texte);
+      b.type = 'button';
+      b.addEventListener('click', function () { vue.surTest(iExo, cle); });
+      gestes.appendChild(b);
+    };
+    var enCours = t.etat === 'a_faire' || t.etat === 'en_cours';
+    if (t.ajout) bouton('pt-ajouter', t.ajout.suite ? 'Ajouter l’essai suivant' : 'Ajouter ces lignes', 'ajouter');
+    if (t.videsPosees) bouton('pt-annuler', 'Annuler les lignes', 'annuler_lignes');
+    if (enCours && !(t.essais && t.essais.length)) {
+      bouton('pt-mode', t.mode === 'max' ? 'Plutôt une série au max' : 'Plutôt viser mon max', t.mode === 'max' ? 'mode_serie' : 'mode_max');
+    }
+    if (enCours && t.mode === 'max' && t.essais && t.essais.length) bouton('pt-arret', 'Arrêter le test', 'arret');
+    if (enCours && !(t.essais && t.essais.length)) bouton('pt-pas', 'Pas aujourd’hui', 'pas_aujourdhui');
+    if (gestes.childNodes.length) n.appendChild(gestes);
+    return n;
+  }
+
+  // 193-4 — LA FEUILLE « SEMAINE DE TEST » du Profil : l'état, la façon barre par barre, lancer / annuler.
+  function rendreFeuilleSemaineDeTest(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', 'Semaine de test'));
+    if (vue.phrase) cible.appendChild(el('p', 'feuille-aide', vue.phrase));
+    var menu = el('div', 'feuille-menu');
+    (vue.barres || []).forEach(function (b) {
+      var autre = b.mode === 'max' ? 'serie' : 'max';
+      var etat = b.mesure ? (b.mesure.valeur !== null && b.mesure.valeur !== undefined
+        ? 'mesuré ' + nombreFr(Math.round(b.mesure.valeur * 10) / 10) + ' kg' : 'pas testé') : (b.mode === 'max' ? 'viser mon max' : 'série au max');
+      entreeMenu(menu, b.nom + ' · ' + etat, b.mesure ? { desactive: true } : { surClic: function () { vue.surMode(b.slug, autre); } });
+    });
+    if (vue.peutLancer) entreeMenu(menu, vue.libelleLancer || 'Faire une semaine de test', { surClic: vue.surLancer });
+    if (vue.actif) entreeMenu(menu, 'Annuler la semaine de test', { surClic: vue.surAnnuler });
+    entreeMenu(menu, 'Fermer', { surClic: vue.surFermer });
+    cible.appendChild(menu);
+    return cible;
+  }
+
+  // 193-4 — LE BILAN DE FIN DE SEMAINE en tête de Saisie : « avant → mesuré », l'objectif « Pas encore », « Compris ».
+  function carteBilanTest(k, v) {
+    var c = el('div', 'carte-fin-bloc carte-bilan-test');
+    c.appendChild(el('p', 'cfb-titre', k.titre));
+    var l = el('div', 'cfb-bilan');
+    k.lignes.forEach(function (x) { l.appendChild(el('p', 'cfb-ligne', x)); });
+    c.appendChild(l);
+    (k.objectifs || []).forEach(function (x) { c.appendChild(el('p', 'cfb-paris', x)); });
+    var gestes = el('div', 'cfb-gestes');
+    var b = el('button', 'cfb-commencer', 'Compris');
+    b.type = 'button';
+    b.addEventListener('click', function () { if (v.surCompris) v.surCompris(); });
+    gestes.appendChild(b);
+    c.appendChild(gestes);
+    return c;
   }
 
   // MOTEUR §9.15.3 (94) — « En faire une série normale » / « La retirer ».
@@ -4094,6 +4228,17 @@
         bAu.addEventListener('click', function () { vue.surAuMax(!vue.auMax.actif); });
         menuAu.appendChild(bAu);
         cible.appendChild(menuAu);
+      }
+
+      // 196 (MOTEUR §9.33) — « Rest-pause » : deux mini-séries à la même charge, une seule série de travail.
+      if (vue.restPause && vue.restPause.possible) {
+        var menuRp = el('div', 'feuille-menu');
+        var bRp = el('button', '', 'Rest-pause');
+        bRp.appendChild(el('small', 'aide-type', vue.restPause.aide));
+        bRp.type = 'button';
+        bRp.addEventListener('click', function () { vue.surRestPause(); });
+        menuRp.appendChild(bRp);
+        cible.appendChild(menuRp);
       }
 
       // ⚠️ LA NOTE DE SÉRIE EXISTE, ET ELLE RESTE (§7 septies.1).
@@ -6096,6 +6241,9 @@
       b.addEventListener('click', function () { if (fn) fn(dossier); });
       gestes.appendChild(b);
     };
+    // 193-4 — la proposition de la semaine de test (la phrase vient du moteur, la proposition de l'app).
+    if (k.test) c.appendChild(el('p', 'cfb-suivant cfb-test', k.test.phrase));
+    if (k.test) bouton('cfb-faire-test', k.test.faire, v.surFaireTest);
     if (k.commencer) bouton('cfb-commencer', k.commencer, v.surCommencerBloc);
     if (k.ajuster) bouton('cfb-ajuster', k.ajuster, v.surAjusterBloc);       // 193-2 : une phase ne s'ajuste pas (pas de zone de bloc)
     bouton('cfb-arreter', k.arreter, v.surArreterProgramme);
@@ -6110,7 +6258,7 @@
     vider(cible);
     if (!items || !items.length) { cible.hidden = true; return cible; }
     cible.hidden = false;
-    items.forEach(function (x) { cible.appendChild(carteFinDeBloc(x.dossier, x.fin, v)); });
+    items.forEach(function (x) { cible.appendChild(x.bilanTest ? carteBilanTest(x.bilanTest, v) : carteFinDeBloc(x.dossier, x.fin, v)); });
     return cible;
   }
 
@@ -8875,6 +9023,7 @@
     rendreFeuilleEnFaireUneRoutine: rendreFeuilleEnFaireUneRoutine,
     rendreApercuRoutine: rendreApercuRoutine,
     rendreFeuilleChoixRoutine: rendreFeuilleChoixRoutine,
+    rendreFeuilleSemaineDeTest: rendreFeuilleSemaineDeTest,
     rendreFeuilleMajRoutine: rendreFeuilleMajRoutine,
     rendreFeuilleDossier: rendreFeuilleDossier,
     rendreFeuilleProgramme: rendreFeuilleProgramme,

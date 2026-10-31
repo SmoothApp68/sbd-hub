@@ -461,6 +461,7 @@ function bac(options) {
     vues: { saisie: { hidden: false } },
     seance: null,
     chargesDeDepartDuQuestionnaire: [],
+    cardioReguliers: () => ({ jours: [], semaines: {} }),   // 199 : un fait lu dans les séances ; ce harnais n'en a pas
     Date, Math, Promise, Object
   };
   vm.createContext(ctx);

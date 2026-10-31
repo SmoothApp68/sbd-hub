@@ -231,6 +231,8 @@
       ligne.type_serie = (p && p.type_serie) || 'travail';
       // 193-6 — la marque « Au max » vient de la ligne de routine (`routine_sets.au_max`), jamais du plan.
       ligne.au_max = !!p && p.au_max === true;
+      // 196 — une mini-série de rest-pause posée par « J'ai peu de temps » : sa charge se cale sur la série de travail qui la précède.
+      if (p && p.rest_pause === true) ligne.rest_pause = true;
       // ⚠️ `p.reps`, PAS `p.reps_visees` — ET LES DEUX NOMS SONT JUSTES.
       // La ligne de routine arrive au vocabulaire de la SAISIE
       // (`THRoutines.enSaisie`), parce que l'éditeur de routine est l'écran de
@@ -600,22 +602,61 @@
     return avecExercices(seance, exos);
   }
 
+  // 196 (MOTEUR §9.33) — « REST-PAUSE » : deux mini-séries (des lignes dégressives, à la MÊME charge que la série de travail) posées
+  // juste après la série choisie et ses mini-séries éventuelles. Rien n'est stocké de plus que l'observé : la lecture « rest-pause »
+  // est `THModele.restPauseDe`. La charge est celle de la série (rien ne la propose) ; sans charge, le geste n'existe pas.
+  function ajouterRestPause(seance, iExo, iSerie, ids) {
+    var exo0 = seance.exercices[iExo];
+    var s0 = exo0 && exo0.series[iSerie];
+    if (!s0 || !estTravail(s0)) return seance;
+    var charge = Number(s0.charge_kg);
+    if (!isFinite(charge) || !(charge > 0)) return seance;
+    var exos = seance.exercices.slice();
+    var exo = copie(exo0);
+    var fin = iSerie + 1;
+    var deja = racine.THModele.restPauseDe(exo.series);
+    while (fin < exo.series.length && deja[fin] && deja[fin].role === 'mini') fin++;
+    var minis = [0, 1].map(function (k) {
+      var m = serieVide(typeof ids === 'function' ? ids : (ids && ids[k]) || ids);
+      m.type_serie = 'degressive';
+      m.charge_kg = charge;
+      m.rest_pause = true;
+      return m;
+    });
+    exo.series = exo.series.slice(0, fin).concat(minis, exo.series.slice(fin));
+    exos[iExo] = exo;
+    return avecExercices(seance, exos);
+  }
+
   // MOTEUR §9.15.2 (49-U10) — « Ajouter » : les chauffes proposées par le
   // coach, typées échauffement, AU-DESSUS des séries de travail (avant la
   // première ; en tête s'il n'y en a pas). Une ligne par marche, avec ses reps
   // visées ; la charge reste vide : le plan la remplit, comme pour une routine.
   // `lignes` : `[[charge, reps]]`, la proposition telle que le plan la porte.
-  function insererChauffes(seance, iExo, lignes, idSerie) {
+  function insererChauffes(seance, iExo, lignes, idSerie, apres) {
     var exos = seance.exercices.slice();
     var exo = copie(exos[iExo]);
     var series = exo.series.slice();
     var a = 0;
     while (a < series.length && !estTravail(series[a])) a++;
     if (a === series.length) a = 0;
+    // 193-4 — la suite d'une semaine de test (`apres` : « test ») : juste après la dernière ligne que le test a posée.
+    if (apres === 'test') {
+      var dernier = -1;
+      series.forEach(function (q, j) { if (q && q.test_pose === true) dernier = j; });
+      if (dernier >= 0) a = dernier + 1;
+    }
     var neuves = (lignes || []).map(function (q) {
       var s = serieVide(idSerie);
       s.type_serie = 'echauffement';
       s.reps_visees = q && q[1] !== undefined ? q[1] : null;
+      // 193-4 (MOTEUR §9.32) — une ligne de la semaine de test porte sa charge, son type et sa marque (`test_pose`, pour « Annuler »).
+      if (q && q.test === true) {
+        s.type_serie = q.type || 'echauffement';
+        s.test_pose = true;
+        if (q[0] !== null && q[0] !== undefined) s.charge_kg = q[0];
+        if (q.reserve !== undefined && q.reserve !== null) { s.au_max_reserve = q.reserve; s.au_max = true; }
+      }
       return s;
     });
     exo.series = series.slice(0, a).concat(neuves, series.slice(a));
@@ -635,6 +676,16 @@
                groupe_superset: null, series: series };
     });
     var exos = ou === 'avant' ? neufs.concat(seance.exercices) : seance.exercices.concat(neufs);
+    return avecExercices(seance, exos);
+
+  }
+
+  // 193-4 — « Annuler » la semaine de test dans la séance : retire les lignes que le test a posées et que personne n'a validées.
+  function retirerLignesDeTest(seance, iExo) {
+    var exos = seance.exercices.slice();
+    var exo = copie(exos[iExo]);
+    exo.series = (exo.series || []).filter(function (q) { return !(q && q.test_pose === true && !q.validee_a); });
+    exos[iExo] = exo;
     return avecExercices(seance, exos);
   }
 
@@ -955,6 +1006,10 @@
       if (a.deja_dans_la_seance !== b.deja_dans_la_seance) return a.deja_dans_la_seance ? 1 : -1;
       if (!a.fait !== !b.fait) return a.fait ? -1 : 1;
       if (hors[a.slug] !== hors[b.slug]) return hors[a.slug] ? 1 : -1;
+      // 196 — à égalité (même état « fait », même matériel), l'exercice qui charge le muscle ÉTIRÉ passe en premier ; l'historique
+      // reste plus fort (ci-dessus), et rien n'est retiré.
+      var ea = racine.THModele.estAccentAllonge(index[a.slug]), eb = racine.THModele.estAccentAllonge(index[b.slug]);
+      if (ea !== eb) return ea ? -1 : 1;
       if (a.fait && b.fait && quand(a.fait) !== quand(b.fait)) return quand(b.fait) - quand(a.fait);
       return nom(a.slug).localeCompare(nom(b.slug), 'fr') || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
     });
@@ -3192,7 +3247,9 @@
     insererMobilite: insererMobilite,
     ajouterSerie: ajouterSerie,
     ajouterDegressive: ajouterDegressive,
+    ajouterRestPause: ajouterRestPause,
     insererChauffes: insererChauffes,
+    retirerLignesDeTest: retirerLignesDeTest,
     retirerSerie: retirerSerie,
     modifierSerie: modifierSerie,
     changerType: changerType,

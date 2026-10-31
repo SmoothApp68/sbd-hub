@@ -46,7 +46,8 @@
   var TOI = 'toi', BUT = 'but', PRIORITES = 'priorites', TEMPS = 'temps', PROGRAMME = 'programme';
   var CONSTRUIT = 'construit';   // l'écran 8b (60-4) : « Construis-le-moi »
   var COACH = 'coach', RECAP = 'recap';
-  var ECRANS = [BIENVENUE, ANCIENNETE, SAIT, SALLE, ZONE, RAIDES, RECENTE, TOI, BUT, PRIORITES, TEMPS, PROGRAMME, CONSTRUIT,
+  var DEPART = 'depart';   // 195 : « Où tu en es » — quatre chiffres, seulement en objectif Calisthénie
+  var ECRANS = [BIENVENUE, ANCIENNETE, SAIT, SALLE, ZONE, RAIDES, RECENTE, TOI, BUT, DEPART, PRIORITES, TEMPS, PROGRAMME, CONSTRUIT,
                 COACH, RECAP];
 
   // L'écran 3a (« Ce que je sais ») ET l'écran 3b (« Sans historique ») : l'un
@@ -75,6 +76,7 @@
     var avec = aUnHistorique(contexte);
     return ECRANS.filter(function (id) {
       if (id === SAIT) return avec;
+      if (id === DEPART) return !!contexte && contexte.objectif === 'calisthenie';
       if (id === RECENTE) return aUneAnnee(contexte) && !(contexte && contexte.aDesSeances);
       if (id === PROGRAMME) return !!contexte && contexte.aDesRoutines === false;
       if (id === CONSTRUIT) return !!contexte && contexte.aDesRoutines === false && contexte.programme === 'construis';
@@ -161,6 +163,10 @@
     return !!(x && Array.isArray(x) && x.length > 1);
   }
 
+  function departDe(p, k) {
+    var d = Profil().departCalisthenieValide(p && p.depart_calisthenie);
+    return d && d[k] !== undefined ? d[k] : null;
+  }
   // `contexte.poids` : la dernière pesée (un nombre), ou `null`.
   function reponsesInitiales(profil, contexte) {
     var p = profil || {}, c = contexte || {};
@@ -177,6 +183,9 @@
       taille: nul(p.taille_cm),
       poids: nul(c.poids),
       objectif: nul(p.objectif),
+      // 195 — le départ déjà écrit (`depart_calisthenie`) : un chiffre par champ, `null` = pas dit.
+      dep_tractions: departDe(p, 'tractions'), dep_pompes: departDe(p, 'pompes'), dep_dips: departDe(p, 'dips'),
+      dep_pistol: departDe(p, 'pistol'),
       phase: phaseSaisie(p),
       priorites: Array.isArray(p.priorites) ? p.priorites.slice() : null,
       temps: nul(p.temps_reponse),
@@ -273,6 +282,9 @@
       entrees = { sexe: r.sexe, annee_naissance: r.annee, taille_cm: r.taille };
       pesee = Poids().peseeAEcrire(c.pesees, r.poids, c.jour);
     } else if (id === BUT) entrees = { objectif: r.objectif, phase: r.phase };
+    else if (id === DEPART) {
+      entrees = { depart_calisthenie: { tractions: r.dep_tractions, pompes: r.dep_pompes, dips: r.dep_dips, pistol: r.dep_pistol } };
+    }
     else if (id === PRIORITES) entrees = { priorites: r.priorites };
     else if (id === TEMPS) {
       // `duree_seance_min` : seulement si la personne l'a CHANGÉE — la médiane
@@ -338,7 +350,7 @@
   // réponse que l'écran connaît, et rien d'autre — un geste qui vise une clé
   // inconnue est sans effet.
   var CHOIX = ['depuis', 'notees', 'seances', 'duree', 'dureeMoins', 'sexe', 'objectif', 'phase',
-               'temps', 'materiel', 'programme', 'coach', 'halteresMax', 'halteresPas', 'salleOuverte'];
+               'temps', 'materiel', 'programme', 'coach', 'halteresMax', 'halteresPas', 'salleOuverte', 'dep_pistol'];
 
   function appliquerChoix(rep, cle, valeur) {
     var r = Object.assign({}, rep);
@@ -388,6 +400,12 @@
       }
       var reps = n !== null && Math.floor(n) === n && n >= 1 && n <= RECENTE_REPS_MAX ? n : null;
       return { valeur: reps, erreur: reps === null ? 'Un nombre de reps entre 1 et ' + RECENTE_REPS_MAX + '.' : null };
+    }
+    var dep = /^dep_(tractions|pompes|dips)$/.exec(cle);
+    if (dep) {
+      var bm = { tractions: 100, pompes: 300, dips: 100 }[dep[1]];
+      var dv = n !== null && Math.floor(n) === n && n >= 0 && n <= bm ? n : null;
+      return { valeur: dv, erreur: dv === null ? 'Un nombre entre 0 et ' + bm + '.' : null };
     }
     if (cle === 'annee') {
       var annee = n !== null && Math.floor(n) === n && P.naissanceValide(n + '-01-01', aujourdhui) !== null ? n : null;
@@ -740,6 +758,34 @@
     };
   }
 
+  // 195 — « Où tu en es » : quatre chiffres, pas une séance de test. Un champ laissé vide ou « Je ne sais pas » : le coach part d'une
+  // marche prudente et ajuste en deux séances. Les marches de départ se lisent sur la table du générateur, jamais ici.
+  var PISTOL = [{ cle: true, libelle: 'Oui' }, { cle: false, libelle: 'Non' }];
+  function ecranDepart(etat) {
+    var rep = etat.rep, erreurs = etat.erreurs || {};
+    var champ = function (cle, libelle) {
+      return { cle: cle, libelle: libelle, unite: 'reps', mode: 'numeric', valeur: texteDe(etat, cle, rep[cle]),
+               erreur: erreurs[cle] || null, aide: null };
+    };
+    var marches = Generateur().departDeCalisthenie({ tractions: rep.dep_tractions, pompes: rep.dep_pompes, dips: rep.dep_dips, pistol: rep.dep_pistol });
+    var nom = function (s) { return (etat.catalogue && etat.catalogue[s] && etat.catalogue[s].nom) || s; };
+    return {
+      id: DEPART, etape: 'Où tu en es · facultatif',
+      titre: 'Où tu en es ?',
+      voix: 'Quatre chiffres, pas une séance de test. « Je ne sais pas » : je pars d’une marche prudente et je t’ajuste en deux séances.',
+      blocs: [
+        { type: 'champs', champs: [champ('dep_tractions', 'Tractions strictes, d’affilée'), champ('dep_pompes', 'Pompes, d’affilée'),
+                                    champ('dep_dips', 'Dips aux barres, d’affilée')] },
+        { type: 'puces', cle: 'dep_pistol', titre: 'Squat sur une jambe (pistol)', valeur: rep.dep_pistol, options: PISTOL },
+        { type: 'faits', titre: 'Tes marches de départ', lignes: [
+          { libelle: 'Tractions', valeur: marches.tractions.map(nom).join(' · ') },
+          { libelle: 'Pompes', valeur: marches.pompes.map(nom).join(' · ') },
+          { libelle: 'Dips', valeur: marches.dips.map(nom).join(' · ') },
+          { libelle: 'Jambes', valeur: marches.jambes.map(nom).join(' · ') } ] }
+      ]
+    };
+  }
+
   function ecranPriorites(etat) {
     var rep = etat.rep;
     var choix = Array.isArray(rep.priorites) ? rep.priorites : [];
@@ -857,6 +903,13 @@
     if (rep.programme === 'construis' && visibles.indexOf(CONSTRUIT) >= 0 && joursValides(rep.seances)) {
       choixProgramme += ' · ' + en(rep.seances, 'jours');
     }
+    // 195 — « Où tu en es » : seulement si l'écran est du parcours (objectif Calisthénie) ; « — » pour ce qui n'est pas dit.
+    var ou = function (v, unite) { return typeof v === 'number' ? v + INSECABLE + unite : null; };
+    var departTexte = [ou(rep.dep_tractions, 'tractions'), ou(rep.dep_pompes, 'pompes'), ou(rep.dep_dips, 'dips'),
+      rep.dep_pistol === true ? 'pistol : oui' : rep.dep_pistol === false ? 'pistol : non' : null].filter(Boolean).join(' · ');
+    var depart = visibles.indexOf(DEPART) >= 0
+      ? [{ libelle: 'Où tu en es', valeur: departTexte || tiret, ecran: DEPART }]
+      : [];
     var programme = visibles.indexOf(PROGRAMME) >= 0
       ? [{ libelle: 'Programme', valeur: choixProgramme, ecran: PROGRAMME }]
       : [];
@@ -873,7 +926,8 @@
           : 'À ta première séance, on trouve ta charge ensemble. Tu peux toujours taper autre chose.'),
       blocs: [{ type: 'resume', lignes: [
         { libelle: 'But d’entraînement', valeur: (rep.objectif && P.libelleDe(P.OBJECTIFS, rep.objectif)) || tiret, ecran: BUT },
-        { libelle: 'Phase', valeur: phase || tiret, ecran: BUT },
+        { libelle: 'Phase', valeur: phase || tiret, ecran: BUT }
+      ].concat(depart, [
         { libelle: 'Priorités', valeur: priorites || tiret, ecran: PRIORITES },
         { libelle: 'Temps', valeur: tempsTexte || tiret, ecran: TEMPS },
         { libelle: 'Matériel', valeur: (rep.materiel && P.libelleDe(P.MATERIELS, rep.materiel)) || tiret, ecran: SALLE },
@@ -883,7 +937,7 @@
         { libelle: 'Barre de traction', valeur: rep.barreTraction === true ? 'Oui' : rep.barreTraction === false ? 'Non' : tiret, ecran: SALLE },
         { libelle: 'Zone à ménager', valeur: zonesTexte(rep.menager), ecran: ZONE },
         { libelle: 'Zones raides', valeur: Array.isArray(rep.raides) ? (rep.raides.length ? rep.raides.map(function (z) { return Profil().libelleDe(Profil().ZONES_RAIDES, z) || z; }).join(', ') : 'Aucune') : tiret, ecran: RAIDES }
-      ].concat(programme, [
+      ]).concat(programme, [
         { libelle: 'Coach', valeur: coach || tiret, ecran: COACH }
       ]) }].concat(premiereSeance(rep, etat))
     };
@@ -933,6 +987,7 @@
   FABRIQUES[RECENTE] = ecranRecente;
     FABRIQUES[TOI] = ecranToi;
   FABRIQUES[BUT] = ecranBut;
+  FABRIQUES[DEPART] = ecranDepart;
   FABRIQUES[PRIORITES] = ecranPriorites;
   FABRIQUES[TEMPS] = ecranTemps;
   FABRIQUES[PROGRAMME] = ecranProgramme;
@@ -950,7 +1005,7 @@
     if (!fabrique) return null;
     var vue = fabrique(e);
     var visibles = e.visibles || ecransVisibles({ aDesSeances: e.aDesSeances, historique: e.rep && e.rep.historique,
-                                                 programme: e.rep && e.rep.programme, depuis: e.rep && e.rep.depuis });
+                                                 programme: e.rep && e.rep.programme, depuis: e.rep && e.rep.depuis, objectif: e.rep && e.rep.objectif });
     var rang = visibles.indexOf(id);
     vue.progression = progression(visibles, id);
     vue.retour = rang > 0;
@@ -973,7 +1028,7 @@
   var api = {
     ECRANS: ECRANS, BIENVENUE: BIENVENUE, ANCIENNETE: ANCIENNETE, SAIT: SAIT, COMMENCE: COMMENCE, DEPUIS: DEPUIS, SALLE: SALLE, ZONE: ZONE, RAIDES: RAIDES, RECENTE: RECENTE, RECENTES: RECENTES,
     seriesRecentes: seriesRecentes, phraseDeLaSalle: phraseDeLaSalle,
-    TOI: TOI, BUT: BUT, PRIORITES: PRIORITES, TEMPS: TEMPS, PROGRAMME: PROGRAMME, CONSTRUIT: CONSTRUIT,
+    TOI: TOI, BUT: BUT, DEPART: DEPART, PRIORITES: PRIORITES, TEMPS: TEMPS, PROGRAMME: PROGRAMME, CONSTRUIT: CONSTRUIT,
     COACH: COACH, RECAP: RECAP,
     BARRES: BARRES, PUCES_SEANCES: PUCES_SEANCES, get PUCES_DUREES() { return pucesDeDuree(); }, DUREE_PLUS_MIN: DUREE_PLUS_MIN, plusChoisie: plusChoisie,
     aUnHistorique: aUnHistorique,

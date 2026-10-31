@@ -1,11 +1,15 @@
 # Schéma réel — état au 24 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_123`** (la dernière série « Au max », 193-6 ; `v2_122` : l'ondulation, 193-3) ; avant elles **`v2_120`** (la série de recul, 193-1) ; avant elle **`v2_119`** (`profiles.ma_salle` : le plus petit disque et la barre de traction, 190 ; appliquée par Claude.ai avant la PR). Prochain numéro libre : **`v2_120`** (`v2_113` et `v2_115` : voir le dépôt/la base avant de s'y fier).
+Dernière migration appliquée : **`v2_125`** (la calisthénie, 195) ; avant elle **`v2_124`** (`zones_raides`) puis **`v2_123`** (la dernière série « Au max », 193-6 ; `v2_122` : l'ondulation, 193-3) ; avant elles **`v2_120`** (la série de recul, 193-1) ; avant elle **`v2_119`** (`profiles.ma_salle` : le plus petit disque et la barre de traction, 190 ; appliquée par Claude.ai avant la PR). Prochain numéro libre : **`v2_120`** (`v2_113` et `v2_115` : voir le dépôt/la base avant de s'y fier).
 ⚠️ **`v2_106` n'a jamais été lancée** (décision du 22/10 : le volume reste un record) : le numéro reste vide.
 
 **Volumétrie (24/10, 2 h 30)** : 1 288 séances · 29 673 séries · 860 exercices (848 actifs) · 961 alias
 (`exercise_alias`) · 361 prédictions · 3 647 records · 9 profils · 36 règles d'accès.
+
+## Le 31/10/2026 — `v2_125` (la calisthénie, 195)
+
+**`v2_125_calisthenie`** (appliquée par Claude.ai avant la PR) : `profiles_objectif_ok` accepte une cinquième valeur, **`calisthenie`** ; **`profiles.depart_calisthenie jsonb NULL`** (`{tractions, pompes, dips, pistol, le}` ; NULL = « je ne sais pas » ; écrite par la file du profil) ; deux exercices ajoutés, **`pompes_pike`** et **`pompes_pike_surelevees`** (`push_v`, `pousser_vertical`, `nature = force`, `mouvement` NULL : pas de « frère » du développé militaire) ; quatre échelles posées (15 marches, la clé est le slug du rang 1, nom affiché de la carte) : `squat_poids_du_corps` (squat PDC, squat bulgare PDC, pistol, pistol lesté), `pont_fessier` (pont, une jambe, soulevé une jambe, nordique assisté élastique, nordique), `rowing_inverse` (rowing inversé, pieds surélevés), `pompes_pike` (pike, pike surélevées, équilibre mur, équilibre libre). **Aucun changement de `nature`** : pistol, pistol lesté et les deux pompes en équilibre restent des habiletés ; le code les propose seulement en objectif `calisthenie` (`Modele.marcheSuivante`, option `objectif`).
 
 ## Le 31/10/2026 — `v2_123` (la dernière série « Au max », 193-6)
 
@@ -46,6 +50,7 @@ générateur), jamais déduit de `routine_sets.reps_visees`. RLS inchangé (la p
 | `v2_124` (la mobilité, 194-1, 31/10/2026) | **`profiles.zones_raides`** text[] NULL, CHECK sur chevilles · hanches · ischios · quadriceps · epaules · haut_du_dos ; `NULL` = pas répondu, `{}` = aucune. Lue et écrite par l'app (colonne facultative), jamais par une règle autre que `Moteur.blocDeMobilite`. |
 | `v2_119` (Ma salle : le plus petit disque et la barre de traction, 190, 30/10/2026) | `profiles.ma_salle` accepte deux clés de plus (liste blanche de `profiles_ma_salle_ok` élargie ; contrainte séparée `profiles_ma_salle_equipement_ok`) : **`plus_petit_disque`** — le plus petit disque de la salle, en kg **par côté**, de 0,25 à 5 au pas de 0,25, `null` ou absent = inconnu ; **`barre_traction`** — booléen, absent = inconnu. L'app lit le disque pour le cran de la barre (2 × le disque, `THMoteur.pasDeLaBarre`) et la barre de traction pour le générateur, les échanges et les marches d'échelle (`THProfil.demandeUneBarreDeTraction`). « Je ne sais pas » écrit `null` / retire la clé (jamais `false`, jamais 0). Appliquée par Claude.ai avant la PR 190 |
 | `v2_120` (la série de recul, 193-1, 30/10/2026) | **`sets_type_serie_ok`** et **`routine_sets_type_ok`** acceptent un sixième type, **`recul`** (`travail` · `echauffement` · `degressive` · `echec` · `test` · `recul` pour `sets` ; `routine_sets` n'accepte pas `test`). Une série plus légère que la grosse série du jour, au repos normal : déclarée par la personne (routine, menu ⋯), jamais déduite ; une série de travail pour le volume et les records, jamais le palier. Aucune colonne nouvelle. |
+| `v2_126` (le muscle étiré, 196, 31/10/2026) | **`exercises.accent_allonge`** boolean NOT NULL DEFAULT false : l'exercice charge le muscle étiré (23 exercices marqués). Lu par `donnees.js` (`tousLesExercices`, `false` si la colonne manque), le générateur et l'échange d'exercice (préférence à égalité). Aucune autre colonne : le rest-pause n'est pas stocké (dégressives à charge égale, lues par `Modele.restPauseDe`). Appliquée par Claude.ai avant la PR 196 |
 
 **Reste noté** : `pseudo_libre` ouverte à `anon` (voulu) ; 57 fonctions SECURITY DEFINER (l'API sociale) ; pas de FK
 `groupe_recaps.groupe_id` (abandonnée) ni `objectifs.pari_id` (à reprendre) ; « Leaked password protection » (tableau

@@ -81,6 +81,40 @@
   function estAuMax(serie) {
     return !!serie && !estHorsCalcul(serie) && (reserveDemandee(serie) !== null || serie.au_max === true);
   }
+  // ⚠️ 196 (MOTEUR §9.33) — « REST-PAUSE » : UNE LECTURE, ICI, SANS COLONNE NI TYPE (« on ne stocke que l'observé »,
+  // MODIFICATEURS-SERIE §2.2). Une série de travail suivie de lignes `degressive` à la MÊME charge : la première partie est la
+  // série de travail (elle seule décide du palier : une mini-série à bout de souffle n'est pas une mesure de ta charge), les
+  // mini-séries sont des dégressives (hors travail : le rest-pause compte pour UNE série), et l'écran les dit « rest-pause » avec
+  // les reps cumulées à part. Rend, par index, `null` | `{ role: 'tete', cumul, parties }` | `{ role: 'mini' }`.
+  function restPauseDe(series) {
+    var liste = series || [], out = liste.map(function () { return null; });
+    var tete = -1, cumul = 0, parties = 0;
+    var fermer = function () {
+      if (tete >= 0 && parties > 1) out[tete] = { role: 'tete', cumul: cumul, parties: parties };
+      tete = -1; cumul = 0; parties = 0;
+    };
+    liste.forEach(function (s, i) {
+      var c = s ? lireNombre(s.charge_kg) : null;
+      if (estTravail(s)) {
+        fermer();
+        tete = i; cumul = lireNombre(s.reps) || 0; parties = 1;
+        return;
+      }
+      if (tete >= 0 && s && typeDe(s) === 'degressive' && !estHorsCalcul(s) &&
+          (s.rest_pause === true || (c !== null && c > 0 && c === lireNombre(liste[tete].charge_kg)))) {
+        out[i] = { role: 'mini' };
+        cumul += lireNombre(s.reps) || 0; parties++;
+        return;
+      }
+      fermer();
+    });
+    fermer();
+    return out;
+  }
+  // 196 (v2_126, MOTEUR §9.33) — « ACCENT ALLONGÉ » : l'exercice charge le muscle ÉTIRÉ (leg curl assis, extension au-dessus de la tête,
+  // curl incliné…). Une préférence, jamais une obligation : le générateur et l'échange d'exercice la préfèrent à égalité, aucune
+  // routine existante ne change. Une seule lecture, ici.
+  function estAccentAllonge(fiche) { return !!fiche && fiche.accent_allonge === true; }
   function estTravail(serie) {
     return !!serie && !estHorsCalcul(serie) && (typeDe(serie) === 'travail' || typeDe(serie) === 'test' || typeDe(serie) === 'recul' || estAEchec(serie));
   }
@@ -1151,6 +1185,12 @@
   function estDeForce(x) {
     return x.nature ? x.nature === 'force' : x.habilete !== true;
   }
+  // 195-3 — les marches d'une échelle, de la plus facile à la plus dure (à rang égal : par slug), et le rang d'une marche : la
+  // seule lecture de `echelle_rang` pour le générateur de calisthénie, qui ne la lit pas lui-même.
+  function marchesTriees(index, echelle) {
+    return marchesDe(index, echelle).slice().sort(function (a, b) { return a.echelle_rang - b.echelle_rang || parSlug(a, b); });
+  }
+  function rangDeLEchelle(x) { return echelleDe(x) !== null ? x.echelle_rang : null; }
   function parSlug(a, b) { return a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0; }
   function marchesDe(index, echelle) {
     return Object.keys(index || {}).map(function (s) { return index[s]; })
@@ -1244,7 +1284,10 @@
     // 149 — DANS UNE ÉCHELLE DE FIGURES, une habileté est proposable : la règle « une habileté n'est jamais proposée »
     // vise le saut d'une échelle de force vers une habileté (les tractions vers l'archer), pas l'intérieur d'une figure
     // (déjà dit le 17/10 pour le muscle-up, qui reste inchangé).
-    var force = estEchelleDeFigures(index, E) ? cible : cible.filter(estDeForce);
+    // 195 — EN OBJECTIF CALISTHÉNIE, une habileté d'une échelle (pistol, équilibre, archer) se propose : c'est le but de la personne.
+    // `o.objectif` est l'objectif GELÉ du plan ; partout ailleurs la règle ci-dessus tient (le générateur n'en propose jamais).
+    var calisthenie = !!o && o.objectif === 'calisthenie';
+    var force = estEchelleDeFigures(index, E) || calisthenie ? cible : cible.filter(estDeForce);
     if (!force.length) return { type: 'habilete', cible: cible.map(function (x) { return x.slug; }), proposable: false };
     return { type: type, cible: force.map(function (x) { return x.slug; }), proposable: type !== 'lest' };
   }
@@ -1350,7 +1393,7 @@
       var ligne = it.nouvelle && ex[it.nouvelle.slug] && ex[it.nouvelle.slug].semaine ? it.nouvelle.slug
         : ex[depart.slug] && ex[depart.slug].semaine ? depart.slug
         : travailles.sort(function (a, b) { return index[b].echelle_rang - index[a].echelle_rang || parSlug(index[a], index[b]); })[0] || null;
-      var m = marcheSuivante(index, depart.slug, { lestRefuse: opt.lestRefuse === true });
+      var m = marcheSuivante(index, depart.slug, { lestRefuse: opt.lestRefuse === true, objectif: opt.objectif });
       var suite = null;
       if (opt.coachActif === true && m) {
         var haut = opt.zonesHaut && Object.prototype.hasOwnProperty.call(opt.zonesHaut, depart.slug) ? opt.zonesHaut[depart.slug] : null;
@@ -1592,13 +1635,16 @@
       bloc.exercices.forEach(function (exo, i) {
         exo.lettre = bloc.superset ? (LETTRES[i] || '?') : '';
         var tour = 0;
-        exo.series = exo.series.map(function (brute) {
+        var rp = restPauseDe(exo.series);
+        exo.series = exo.series.map(function (brute, k) {
           var travail = estTravail(brute);
           if (travail) tour++;
           return Object.assign({}, brute, {
             estTravail: travail,
             // 152 : « à l'échec » (1 rep et +) ou « manquée » (0 rep) ; la lecture unique.
-            motEchec: motDEchec(brute),
+            motEchec: rp[k] && rp[k].role === 'mini' ? 'rest-pause' : motDEchec(brute),
+            // 196 — la série de travail qui porte des mini-séries : les reps cumulées se disent à part.
+            repsCumulees: rp[k] && rp[k].role === 'tete' ? rp[k].cumul : null,
             // 185 — « Non, ne compte pas » : visible, mais hors du calcul (l'écran la montre à part).
             horsCalcul: estHorsCalcul(brute),
             // Ce que l'écran doit montrer comme fait — coché, vert, compté.
@@ -2237,6 +2283,12 @@
         unRM = { valeur: e, charge: c, reps: r, date: x._debut };
       }
     });
+    // 193-4 (MOTEUR §9.32) — LE MAX MESURÉ PAR UNE SEMAINE DE TEST prime sur l'estimation pendant 90 jours : `o.mesures`
+    // (`[{ valeur, date, charge, reps }]`, ce que le profil a rangé), jamais une ligne du journal des records.
+    if (Array.isArray(o.mesures) && o.mesures.length) {
+      var mv = racine.THMoteur.testMesureValable(o.mesures, aDate);
+      if (mv) unRM = { valeur: Number(mv.valeur), charge: Number(mv.charge), reps: Number(mv.reps), date: mv.date, mesure: true };
+    }
     return { table: table, lourde: recordDeLaTable(table), unRM: unRM,
              douzeMois: racine.THMoteur.plancherDuMateriel(o.equipement, aDate) !== null };
   }
@@ -2791,6 +2843,8 @@
     estAEchec: estAEchec,
     estManquee: estManquee,
     motDEchec: motDEchec,
+    restPauseDe: restPauseDe,
+    estAccentAllonge: estAccentAllonge,
     typeDe: typeDe,
     typeLu: typeLu,
     exercicesFaits: exercicesFaits,
@@ -2863,6 +2917,8 @@
     // MOTEUR §9.17 bis (127) — l'échelle des variantes.
     echelleDe: echelleDe,
     marcheSuivante: marcheSuivante,
+    marchesTriees: marchesTriees,
+    rangDeLEchelle: rangDeLEchelle,
     estEchelleDeFigures: estEchelleDeFigures,
     estUneFigure: estUneFigure,
     marcheDEnDessous: marcheDEnDessous,

@@ -65,7 +65,8 @@
 
   // Rien de faisable dans un motif : son voisin (même muscle, autre angle).
   var VOISIN = { tirage_vertical: 'rowing', rowing: 'tirage_vertical', quad_iso: 'presse', leg_curl: 'jambes_tendues',
-                 incline: 'couche', couche: 'incline', ecarte: 'incline' };
+                 incline: 'couche', couche: 'incline', ecarte: 'incline',
+                 forme_tirage_vertical: 'forme_tirage', forme_tirage: 'forme_tirage_vertical' };   // 197 : la place du tirage ne reste pas vide
 
   // +3 reps en isolation : les petits muscles se travaillent long.
   var PETITS = ['elev_lat', 'arriere', 'mollets', 'abdos'];
@@ -311,6 +312,12 @@
     }
     if (!cand.length) {
       src = candidatsDe(motif);
+      cand = candidats(src, false);
+    }
+    // 197 : le tirage de Forme alterne ; sans tirage vertical au catalogue, la séance verticale reprend l'horizontal (et inversement)
+    // plutôt que de perdre sa place. Les autres motifs gardent leur comportement (pas de reprise par le voisin).
+    if (!cand.length && /^forme_tirage/.test(motif) && possede(VOISIN, motif)) {
+      src = MOTIFS[VOISIN[motif]];
       cand = candidats(src, false);
     }
     if (!cand.length) return null;

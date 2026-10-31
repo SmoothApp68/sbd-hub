@@ -7034,16 +7034,19 @@
       var slug = x && x.exercise_slug;
       if (!slug || Object.prototype.hasOwnProperty.call(sortie, slug)) return;
       if (!(x.series || []).some(function (s) { return Modele.estRecul(s); })) return;
-      var prec = Seance.precedentAReculs(slug, local.seances, seriesDe, seance ? seance.id : null);
-      if (!prec) return;
-      var cible = null;
-      var rt = prec.routine_id ? (routines || []).filter(function (r) { return r && r.id === prec.routine_id; })[0] : null;
-      var dans = rt ? (rt.exercices || []).filter(function (e) { return e && e.exercise_slug === slug; })[0] : null;
-      ((dans && dans.series) || []).forEach(function (r) {
-        var v = r && r.type_serie === 'recul' ? Number(r.reps) : NaN;
-        if (cible === null && isFinite(v) && v >= 1) cible = v;
+      var liste = Seance.seancesAReculs(slug, local.seances, seriesDe, seance ? seance.id : null, 12).map(function (prec) {
+        var cible = null;
+        var rt = prec.routine_id ? (routines || []).filter(function (r) { return r && r.id === prec.routine_id; })[0] : null;
+        var dans = rt ? (rt.exercices || []).filter(function (e) { return e && e.exercise_slug === slug; })[0] : null;
+        ((dans && dans.series) || []).forEach(function (r) {
+          var v = r && r.type_serie === 'recul' ? Number(r.reps) : NaN;
+          if (cible === null && isFinite(v) && v >= 1) cible = v;
+        });
+        return Object.assign({}, prec, { cible: cible });
       });
-      sortie[slug] = Object.assign({}, prec, { cible: cible });
+      if (!liste.length) return;
+      // 193-5 — la plus récente en tête, et toutes derrière (`historique`) : l'écart de la 193-1 et la correction du max du jour y lisent.
+      sortie[slug] = Object.assign({}, liste[0], { historique: liste });
     });
     return sortie;
   }

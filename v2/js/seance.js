@@ -2162,6 +2162,29 @@
     return null;
   }
 
+  // 193-5 (MOTEUR §9.28) — LES SÉANCES À RECULS de l'exercice, la plus récente d'abord (jusqu'à `max`) : la correction du max du jour se
+  // rejoue sur elles. Même forme que `precedentAReculs`, plus l'effort noté de chaque série (`rpe`, `ressenti`), que la marge lit.
+  function seancesAReculs(slug, seances, seriesDe, saufId, max) {
+    var sortie = [];
+    for (var i = 0; i < (seances || []).length && sortie.length < (max || 6); i++) {
+      var s = seances[i];
+      if (!s || s.id === saufId) continue;
+      var series = (seriesDe(s.id) || [])
+        .filter(function (x) { return x && x.exercise_slug === slug; })
+        .sort(function (a, b) { return (a.rang || 0) - (b.rang || 0); });
+      if (series.some(function (x) { return racine.THModele.estRecul(x); })) {
+        sortie.push({
+          seance: s, routine_id: s.routine_id || null,
+          series: series.map(function (x) {
+            return { charge_kg: x.charge_kg, reps: x.reps, type_serie: x.type_serie, hors_calcul: x.hors_calcul === true,
+                     rpe: x.rpe === undefined ? null : x.rpe, ressenti: x.ressenti === undefined ? null : x.ressenti };
+          })
+        });
+      }
+    }
+    return sortie;
+  }
+
   // Ce qui s'affiche en gris dans un champ vide. DEUX sources, toutes deux
   // FACTUELLES — rien n'est prédit ici, le moteur parlera au chantier 5 :
   //
@@ -3171,6 +3194,7 @@
     semerIdentifiants: semerIdentifiants,
     toutesLesSeries: toutesLesSeries,
     precedentAReculs: precedentAReculs,
+    seancesAReculs: seancesAReculs,
     compter: compter,
     rempliesNonValidees: rempliesNonValidees,
     remettreSerie: remettreSerie,

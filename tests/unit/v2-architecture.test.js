@@ -91,6 +91,12 @@ const GARDEES = [
   { fn: 'phraseRecul', module: 'moteur.js' },
   { fn: 'pourquoiRecul', module: 'moteur.js' },
   { fn: 'phraseConstatReculs', module: 'moteur.js' },
+  // moteur.js — les reculs à plus de reps, calés sur le max du jour (193-5, §9.28, I82)
+  { fn: 'reculAuMax', module: 'moteur.js' },
+  { fn: 'reculDePlusDeReps', module: 'moteur.js' },
+  { fn: 'correctionDeRecul', module: 'moteur.js' },
+  { fn: 'phraseReculAuMax', module: 'moteur.js' },
+  { fn: 'pourquoiReculAuMax', module: 'moteur.js' },
   // moteur.js — la chute de fin de séance (§9.2 bis, 49-U12)
   { fn: 'chuteDe', module: 'moteur.js' },
   // moteur.js — le compteur de stagnation (§12.9, 49-U13)

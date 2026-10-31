@@ -856,7 +856,7 @@
     if (!rec.length) return sortie;
     var M = Moteur(), V = Voix();
     var liste = series || [];
-    var grosse = null;
+    var grosse = null, ligneGrosse = null;
     (lignes || []).forEach(function (l) {
       if (l.type !== 'travail') return;
       var sr = liste[l.iSerie] || {};
@@ -866,7 +866,7 @@
         kg = l.fantome ? nombre(l.fantome.charge) : nombre(l.charge);
         if (kg === null) kg = nombre(sr.charge_kg);
       }
-      if (kg !== null && kg > 0 && (grosse === null || kg > grosse)) grosse = kg;
+      if (kg !== null && kg > 0 && (grosse === null || kg > grosse)) { grosse = kg; ligneGrosse = l; }
     });
     var viseDe = function (l) {
       var v = nombre((liste[l.iSerie] || {}).reps_visees);
@@ -874,22 +874,57 @@
     };
     var aujourdhui = null;
     rec.forEach(function (l) { if (aujourdhui === null) aujourdhui = viseDe(l); });
-    var cible = prec && nombre(prec.cible) !== null ? nombre(prec.cible) : aujourdhui;
-    var lu = M.ecartDeRecul(prec || null, cible);
+    // 193-5 — l'écart de la 193-1 ne se lit que sur une séance dont les reculs avaient les mêmes reps que la grosse série ; la
+    // correction du max du jour, sur les séances dont les reculs en avaient plus (`prec.historique` : les séances à reculs, la plus
+    // récente d'abord ; sans lui, `prec` seule).
+    var pool = prec ? (Array.isArray(prec.historique) ? prec.historique : [prec]) : [];
+    var precEcart = null;
+    for (var ip = 0; ip < pool.length && precEcart === null; ip++) { if (!M.reculDePlusDeReps(pool[ip])) precEcart = pool[ip]; }
+    var cible = precEcart && nombre(precEcart.cible) !== null ? nombre(precEcart.cible) : aujourdhui;
+    var lu = M.ecartDeRecul(precEcart, cible);
     var cran = materiel ? materiel.pas : undefined;
     var salle = (materiel && materiel.salle) || (consigne && consigne.salle) || null;
+    // 193-5 — les reculs à PLUS de reps que la grosse série : le max du jour. Les reps de la grosse série : faites, sinon proposées
+    // ou visées ; sa marge : notée, sinon la visée de la consigne, sinon 0. Rien de connu : la 193-1.
+    var grosseReps = null, margeGrosse = null;
+    if (ligneGrosse !== null) {
+      var srG = liste[ligneGrosse.iSerie] || {};
+      if (ligneGrosse.validee) grosseReps = nombre(srG.reps);
+      else {
+        grosseReps = nombre(ligneGrosse.vise);
+        if (grosseReps === null && ligneGrosse.fantome) grosseReps = nombre(ligneGrosse.fantome.reps);
+        if (grosseReps === null) grosseReps = nombre(srG.reps_visees);
+      }
+      if (ligneGrosse.validee) margeGrosse = Palier().reserveDeSerie(srG);
+      if (margeGrosse === null && consigne) {
+        margeGrosse = M.reserveVisee({ zone: consigne.zone, role: roleDeLaVisee({ lignes: lignes }), reglage: o.reglage });
+      }
+      if (margeGrosse === null) margeGrosse = 0;
+    }
+    var correction = M.correctionDeRecul(pool);
+    var capM = V.capturer(function () {
+      return M.reculAuMax({ grosse: grosse, grosseReps: grosseReps, marge: margeGrosse, reps: aujourdhui, correction: correction.valeur,
+                            cran: cran, salle: salle });
+    });
+    var auMax = capM.texte;
     var capR = V.capturer(function () {
-      return M.reculDe({ grosse: grosse, ecart: lu.ecart, cran: cran, salle: salle, reps: aujourdhui });
+      return auMax !== null ? { charge: auMax.charge, ecart: auMax.ecart, vise: aujourdhui, phrase: null }
+        : M.reculDe({ grosse: grosse, ecart: lu.ecart, cran: cran, salle: salle, reps: aujourdhui });
     });
     var d = capR.texte;
     var pourquoi = null, citesP = [];
     // La phrase s'écrit sous capture (I26) : un recul rempli la dit, un recul vide dit pourquoi.
     var capF = V.capturer(function () {
-      return d.charge !== null ? M.phraseRecul(d.charge, d.ecart) : d.phrase;
+      if (d.charge === null) return d.phrase;
+      return auMax !== null ? M.phraseReculAuMax(d.charge, auMax.pct) : M.phraseRecul(d.charge, d.ecart);
     });
     var phrase = capF.texte;
     if (d.charge !== null) {
       var capQ = V.capturer(function () {
+        if (auMax !== null) {
+          return M.pourquoiReculAuMax({ grosse: grosse, grosseReps: grosseReps, marge: auMax.marge, max: Math.round(auMax.max), reps: aujourdhui,
+                                        pct: auMax.pct, charge: d.charge, correction: auMax.correction, pas: correction.pas });
+        }
         return M.pourquoiRecul({ grosse: grosse, charge: d.charge, ecart: d.ecart, depart: lu.depart, sens: lu.sens, reel: lu.reel,
                                  reps: lu.reps, cible: lu.cible });
       });
@@ -914,6 +949,9 @@
           niveau: consigne.niveau === undefined ? null : consigne.niveau, seance: o.seance === undefined ? null : o.seance,
           role: 'recul', grosse: grosse, ecart: d.ecart
         };
+        if (auMax !== null) {
+          fondement.max_du_jour = Math.round(auMax.max); fondement.marge = auMax.marge; fondement.correction = auMax.correction;
+        }
         if (o.phase !== undefined) fondement.phase = o.phase;
         if (o.objectif !== undefined) fondement.objectif = o.objectif;
         if (o.occurrence) fondement.occurrence = o.occurrence;
@@ -932,6 +970,19 @@
       depart: lu.depart, sens: lu.sens, reel: lu.reel, reps: lu.reps, cible: lu.cible === null ? cible : lu.cible,
       vise: aujourdhui, phrase: phrase, pourquoi: pourquoi, constat: constat, faites: fait
     };
+    // 193-5 — le recul calé sur le max du jour (`null` : la 193-1). `max_du_jour` arrondi à l'entier, `marge` celle de la grosse série.
+    if (auMax !== null && d.charge !== null) {
+      var dernierPas = correction.pas.length ? correction.pas[correction.pas.length - 1] : null;
+      sortie.reculs.mode = 'max_du_jour';
+      sortie.reculs.max_du_jour = Math.round(auMax.max);
+      sortie.reculs.pct = Math.round(auMax.pct);
+      sortie.reculs.marge = auMax.marge;
+      sortie.reculs.correction = auMax.correction;
+      sortie.reculs.grosseReps = grosseReps;
+      sortie.reculs.derniere = dernierPas;
+      sortie.reculs.cran = cran === undefined ? null : cran;
+      sortie.reculs.surSalle = !!salle;
+    }
     sortie.citations = { phrase: capF.citations, pourquoi: citesP, constat: citesC };
     return sortie;
   }
@@ -3029,9 +3080,27 @@
       return;
     }
     var g = nombre(R.grosse), c = nombre(R.charge), e = nombre(R.ecart);
+    // I82 (193-5, MOTEUR §9.28) — LE RECUL SUR LE MAX DU JOUR. Seulement quand les reps visées des reculs dépassent celles de la grosse
+    // série (connues) ; la charge est celle que la table donne (max du jour × pourcentage des reps du recul, marge 2, × (1 + correction)),
+    // arrondie au cran le plus proche, strictement sous la grosse série ; la correction reste dans ± 10 %, un pas de 2,5 %. Sinon : 193-1.
+    if (R.mode === 'max_du_jour') {
+      var M = Moteur();
+      var gr = nombre(R.grosseReps), vi = nombre(R.vise), co = nombre(R.correction), mg = nombre(R.marge);
+      if (c === null || gr === null || vi === null || !(vi > gr)) err('I82', 'un recul sur le max du jour sans reps plus hautes que la grosse série (' + vi + ' contre ' + gr + ')');
+      else {
+        if (mg === null || mg < 0 || co === null || Math.abs(co) > 0.10 + 1e-9 || Math.abs(Math.round(co / 0.025) * 0.025 - co) > 1e-6) {
+          err('I82', 'la marge (' + mg + ') ou la correction (' + co + ') des reculs sort de ses bornes (± 10 %, par pas de 2,5 %)');
+        } else if (!R.surSalle) {
+          var attendu = M.reculAuMax({ grosse: g, grosseReps: gr, marge: mg, reps: vi, correction: co, cran: R.cran === null ? undefined : R.cran });
+          if (attendu === null || attendu.charge !== c) err('I82', 'le recul à ' + c + ' kg n\u2019est pas celui de la table (' + (attendu === null ? 'aucun' : attendu.charge) + ' kg)');
+        }
+        if (Math.abs(R.max_du_jour - (g / (M.pctDuMax(gr, mg) / 100))) > 0.5 + 1e-9) err('I82', 'le max du jour (' + R.max_du_jour + ' kg) n\u2019est pas celui de la grosse série');
+      }
+    }
     if (c !== null) {
       if (g === null || !(c > 0) || !(c < g)) err('I78', 'le recul à ' + c + ' kg n\u2019est pas sous la grosse série (' + g + ' kg)');
-      if (e === null || e < 0.05 - 1e-9 || e > 0.2 + 1e-9) err('I78', 'l\u2019écart des reculs (' + e + ') sort des bornes 5 à 20 %');
+      // I78 amendé (193-5) : les bornes 5 à 20 % valent pour la 193-1 ; sur le max du jour, l'écart est un fait descriptif (I82).
+      if (R.mode !== 'max_du_jour' && (e === null || e < 0.05 - 1e-9 || e > 0.2 + 1e-9)) err('I78', 'l\u2019écart des reculs (' + e + ') sort des bornes 5 à 20 %');
       rec.forEach(function (l) {
         if (l.validee) return;
         if (!l.fantome || l.fantome.source !== 'recul' || !memeChargeOuVides(l.fantome.charge, c)) {
@@ -4349,7 +4418,7 @@
                           // dernières » et « sur les 3 d'avant » disent deux segments.
                           'regle|series': true,
                           // 193-1 — l'écart d'aujourd'hui et l'écart d'avant ; les reps de la fois d'avant, de la cible, du jour.
-                          'regle|recul.ecart': true, 'regle|recul.reps': true };
+                          'regle|recul.ecart': true, 'regle|recul.reps': true, 'regle|recul.marge': true };
 
   function texteDuChiffre(v) {
     return v === null || v === undefined ? String(v) : (typeof v === 'number' ? Voix().nombre(v) || String(v) : String(v));
@@ -4596,7 +4665,15 @@
       'recul.grosse': x.reculs && x.reculs.grosse !== null ? { charge: x.reculs.grosse } : null,
       'recul.ecart': x.reculs ? { valeurs: [x.reculs.ecart, x.reculs.reel].filter(function (v) { return nombre(v) !== null; })
         .map(function (v) { return Math.round(v * 1000) / 10; }) } : null,
-      'recul.reps': x.reculs ? { valeurs: (x.reculs.reps || []).concat(x.reculs.faites || [], [x.reculs.cible]).filter(function (v) { return nombre(v) !== null; }) } : null
+      'recul.reps': x.reculs ? { valeurs: (x.reculs.reps || []).concat(x.reculs.faites || [], [x.reculs.cible], x.reculs.mode === 'max_du_jour'
+        ? [x.reculs.grosseReps, x.reculs.vise].concat(x.reculs.derniere ? [x.reculs.derniere.faites, x.reculs.derniere.faites - x.reculs.derniere.prevision, x.reculs.derniere.cible] : [])
+        : []).filter(function (v) { return nombre(v) !== null; }) } : null,
+      // 193-5 — le recul sur le max du jour : le max (entier), son pourcentage, la marge de la grosse série et celle du recul (2), la correction, la dernière série.
+      'recul.max': x.reculs && x.reculs.mode === 'max_du_jour' ? { charge: x.reculs.max_du_jour } : null,
+      'recul.pct': x.reculs && x.reculs.mode === 'max_du_jour' ? { valeur: x.reculs.pct } : null,
+      'recul.marge': x.reculs && x.reculs.mode === 'max_du_jour' ? { valeurs: [x.reculs.marge, Moteur().RECUL_MARGE_VISEE] } : null,
+      'recul.correction': x.reculs && x.reculs.mode === 'max_du_jour' ? { valeur: Math.round(Math.abs(x.reculs.correction) * 1000) / 10 } : null,
+      'recul.derniere': x.reculs && x.reculs.derniere ? { charge: x.reculs.derniere.charge } : null
     };
     var msg = x.reaction && x.reaction.message;
     return { lignes: lignes, jour: jour, fait: fait, regle: regle, suite: suite,

@@ -27422,6 +27422,95 @@ const SETS_IMPORTES = [
     await aller('/saisie');
   }
 
+  console.log('\n══ recul-max. LES RECULS À PLUS DE REPS SE CALENT SUR LE MAX DU JOUR, ET SUIVENT LA GROSSE SÉRIE DÈS QU’ELLE EST VALIDÉE (193-5, MOTEUR §9.28, I82) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une routine « 1 × 4 puis 2 reculs × 8 » (les reculs ont PLUS de reps que la grosse série), un
+  // historique de six séances à 130 kg × 4, le réglage Franc (visée du Lourd : marge 1). Le banc joue par l'ÉCRAN : la séance démarre, le
+  // plan pose les reculs sur le max du jour (pas à 10 % de la grosse série) ; la grosse série est validée à 140 × 4 par le geste, et les
+  // reculs non validés SUIVENT (le recalcul dans la séance), à la charge que la table donne, lue sur la ligne à l'écran.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbCatAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, paris193Avant = base.predictions;
+    const routinesAvant193 = ROUTINES.splice(0, ROUTINES.length);
+    base.sessions = []; base.sets = []; base.predictions = [];
+    const rendreLesBlocs193 = await retirerBlocsDeLAppareil();
+    const t193 = Date.now();
+    const nb193 = (x) => JSON.stringify(x === undefined ? null : x);
+    const sp193 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    CATALOGUE.push({ slug: 'rm193-sq', nom: 'Squat RM193 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['adducteurs', 'bas_du_dos'], schema_mouvement: 'accroupir' });
+    const profilAvant193 = Object.assign({}, base.profiles[0]);
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { rythme_progression: 'franc', intention: 'progresser', phase: 'maintien', phase_depuis: null,
+      cartes_semaine: null, priorites: null, jours_vises: null });
+    const ligne193 = (id, rang, kg, reps, debut) => ({ id, session_id: id.replace(/-s\d+$/, ''), user_id: 'u-banc', exercise_slug: 'rm193-sq',
+      charge_kg: kg, reps, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null,
+      type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null,
+      note: null, source: 'app', created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false });
+    for (let w = 1; w <= 6; w++) {
+      const id = 'rm193-' + w;
+      const debut = ilYa((7 * w + 1) * 86400000, t193).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'RM193 — ' + id, debut, fin: finDe(debut, t193).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-rm193', source: 'app', created_at: debut, gestes: [] });
+      base.sets.push(ligne193(id + '-s1', 1, 130, 4, debut));
+    }
+    const sets193 = [['travail', 4], ['recul', 8], ['recul', 8]].map(([type, reps], i) => ({ id: 'pr-rm193-' + i, rang: i + 1, type_serie: type,
+      reps_visees: reps, charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null }));
+    ROUTINES.push({ id: 'r-rm193', nom: 'Reculs RM193', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z',
+      updated_at: '2026-01-05T10:00:00.000Z', routine_exercises: [{ id: 're-rm193-0', routine_id: 'r-rm193', exercise_slug: 'rm193-sq', rang: 0,
+        routine_sets: sets193, repos_cible_s: 180, groupe_superset: null, note: null }] });
+    await aller('/saisie');
+    await demarrerRoutine('Reculs RM193');
+    await attendreQue(() => page.evaluate(() => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan &&
+      window.THPlan.dernier.plan.exercices.some((x) => x.slug === 'rm193-sq' && x.reculs))), 15000, 'planRM193');
+    const lirePlan193 = () => page.evaluate(() => {
+      const x = window.THPlan.dernier.plan.exercices.filter((q) => q.slug === 'rm193-sq')[0];
+      const R = x.reculs;
+      return { mode: R.mode || null, grosse: R.grosse, charge: R.charge, max: R.max_du_jour || null, marge: R.marge === undefined ? null : R.marge,
+               phrase: R.phrase, fantomes: x.lignes.filter((l) => l.type === 'recul').map((l) => l.fantome ? l.fantome.charge : null),
+               grosseReps: R.grosseReps === undefined ? null : R.grosseReps };
+    });
+    const attendu193 = (grosse, reps) => page.evaluate(([g, r]) => window.THMoteur.reculAuMax({ grosse: g, grosseReps: r, marge: 1, reps: 8, cran: 2.5 }), [grosse, reps]);
+    const avant193 = await lirePlan193();
+    const exAvant = await attendu193(avant193.grosse, avant193.grosseReps);
+    ok('[RM193] DISCRIMINANT — les reculs ×8 après une grosse série ×4 sont sur le MAX DU JOUR, pas à 10 % de la grosse série',
+      avant193.mode === 'max_du_jour' && exAvant && avant193.charge === exAvant.charge && avant193.charge !== Math.round(avant193.grosse * 0.9 / 2.5) * 2.5,
+      nb193([avant193, exAvant && exAvant.charge]));
+    ok('[RM193] la phrase sous le recul dit le pourcentage du max du jour', /^Recul : [\d,]+ kg, \d+ % de ton max du jour\.$/.test(sp193(avant193.phrase)), nb193(avant193.phrase));
+    const placeholders193 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) => {
+      const i = l.querySelector('input'); return i ? (i.value || i.placeholder || '') : null; }));
+    const phAvant = await placeholders193();
+    ok('[RM193] les deux lignes de recul montrent la charge du plan à l’écran', avant193.fantomes.length === 2 &&
+      avant193.fantomes.every((c) => String(c).replace('.', ',') === String(phAvant[1]).replace(/\s/g, '') ), nb193([avant193.fantomes, phAvant]));
+    // Le geste : la grosse série à 140 × 4. Les reculs suivent.
+    await saisirSerie(0, 140, 4);
+    await attendreQue(() => lirePlan193().then((p) => p.grosse === 140), 15000, 'grosse140RM193');
+    const apres193 = await lirePlan193();
+    const exApres = await attendu193(140, 4);
+    ok('[RM193] RECALCUL — la grosse série validée à 140 × 4, les reculs non validés suivent la table (charge du plan)',
+      apres193.grosse === 140 && exApres && apres193.charge === exApres.charge && apres193.charge !== avant193.charge &&
+      apres193.fantomes.every((c) => c === exApres.charge), nb193([apres193, exApres && exApres.charge]));
+    const phApres = await placeholders193();
+    ok('[RM193] …et l’écran montre la nouvelle charge sur les lignes de recul', String(phApres[1]).replace(/\s/g, '') === String(apres193.charge).replace('.', ','),
+      nb193([phApres, apres193.charge]));
+    ok('[RM193] la garde de l’app (I78, I82, I26) n’a rien vu', gardeBanc.violations === violationsAvant, nb193(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    ok('[RM193] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb193([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = paris193Avant;
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = 0;
+    routinesAvant193.forEach((r) => ROUTINES.push(r));
+    base.profiles[0] = profilAvant193;
+    rendreLesBlocs193();
+    await aller('/saisie');
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

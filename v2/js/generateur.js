@@ -439,6 +439,90 @@
     return gabaritDeForce(catalogue, p, ok, racine.THProfil.estDebutant(p)) !== null;
   }
 
+  // ── 199 (MOTEUR §9.37) — HYBRIDE : LES JAMBES LOURDES, LOIN DU CARDIO RÉGULIER ───────────────────────────────────────────────────────
+  // Le coach lit les jours de cardio réguliers de la personne dans ses séances (`faits.joursDeCardioReguliers` : rien n'est demandé). Le générateur
+  // place le jour de jambes lourdes (un squat ou un soulevé en zone Lourd ou Mix) À DEUX JOURS AU MOINS d'un jour de cardio régulier — ni la
+  // veille, ni le lendemain, ni le jour même. Convention de coachs (plans Hyrox, Tactical Barbell), dite comme telle ; la science (Schumann 2022)
+  // ne l'exige pas : elle dit seulement que l'explosivité baisse un peu si les deux sont à moins de 3 h d'écart.
+  // Le programme ne connaît pas les jours de la semaine : sauf `entree.joursSeances` (lundi = 0), ses séances tombent sur les jours TYPES ci-dessous
+  // (convention : réparties dans la semaine). Impossible de les écarter toutes : l'ordre reste, et le générateur le dit.
+  var NOMS_DES_JOURS = racine.THModele.JOURS_DEPUIS_LUNDI;       // lundi = 0 (le formateur, une seule liste)
+  var JOURS_TYPES = { 1: [0], 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 4, 5], 6: [0, 1, 2, 3, 4, 5] };
+  var HYBRIDE_ECART_MIN = 2;
+  var HYBRIDE_SCIENCE = 'Courir ne te fait pas perdre de force : 43 études, ni force maximale ni muscle en moins quand on mélange les deux. Seule l\u2019explosivité baisse un peu si les deux sont à moins de 3 h d\u2019écart (Schumann 2022).';
+  var HYBRIDE_CONVENTION = 'Éviter les jambes lourdes la veille et le lendemain d\u2019un cardio dur est une convention de coachs (plans Hyrox, Tactical Barbell), pas une règle prouvée.';
+
+  function joursDeCardio(x) {
+    var vus = {}, sortie = [];
+    liste(x).forEach(function (j) { var n = Number(j); if (n % 1 === 0 && n >= 0 && n <= 6 && !possede(vus, n)) { vus[n] = true; sortie.push(n); } });
+    return sortie;
+  }
+  function ecartDeJours(a, b) { var d = Math.abs(a - b); return Math.min(d, 7 - d); }
+  // Une séance de jambes lourdes : un squat ou un soulevé (la place, `motif`) en zone Lourd ou Mix.
+  function aDesJambesLourdes(rt) {
+    return liste(rt && rt.exercices).some(function (l) { return racine.THMoteur.estZoneForce(l.zone) && contient(['squat', 'charniere'], l.motif); });
+  }
+  function joursDuProgramme(n, e) {
+    var vises = liste(e && e.joursSeances).map(Number).filter(function (j) { return j % 1 === 0 && j >= 0 && j <= 6; });
+    if (vises.length === n && new Set(vises).size === n) return vises.slice().sort(function (a, b) { return a - b; });
+    return possede(JOURS_TYPES, n) ? JOURS_TYPES[n] : null;
+  }
+  function permutations(n) {
+    var sortie = [];
+    (function rec(pref, reste) {
+      if (!reste.length) { sortie.push(pref); return; }
+      reste.forEach(function (r, i) { rec(pref.concat([r]), reste.slice(0, i).concat(reste.slice(i + 1))); });
+    })([], Array.apply(null, Array(n)).map(function (_, i) { return i; }));
+    return sortie;
+  }
+  // Rend les routines dans l'ordre de la semaine (les jours TYPES ou `joursSeances`), chacune de jambes lourdes portant `hybride` :
+  // `{ jour, jourAvant, deplace, impossible }`. Sans jour de cardio régulier, sans jambes lourdes ou au-delà de 6 séances : rien ne change.
+  function placerLesJambesLourdes(routines, entree) {
+    var rts = liste(routines), cardio = joursDeCardio((entree || {}).cardioJours);
+    var jours = rts.length >= 1 && rts.length <= 6 ? joursDuProgramme(rts.length, entree) : null;
+    if (!cardio.length || !jours) return rts;
+    var lourdes = rts.map(aDesJambesLourdes);
+    if (!lourdes.some(Boolean)) return rts;
+    function proche(jour) { return cardio.some(function (c) { return ecartDeJours(jour, c) < HYBRIDE_ECART_MIN; }); }
+    function fautes(perm) {
+      var n = 0;
+      perm.forEach(function (r, k) { if (lourdes[r] && proche(jours[k])) n++; });
+      return n;
+    }
+    // La meilleure semaine : le moins de jours de jambes lourdes trop près du cardio, puis le moins de séances déplacées (la première en cas d'égalité).
+    var meilleure = null, f0 = 99, d0 = 99;
+    permutations(rts.length).forEach(function (perm) {
+      var f = fautes(perm), d = perm.filter(function (r, k) { return r !== k; }).length;
+      if (f < f0 || (f === f0 && d < d0)) { meilleure = perm; f0 = f; d0 = d; }
+    });
+    return meilleure.map(function (r, k) {
+      var rt = Object.assign({}, rts[r]);
+      if (lourdes[r]) rt.hybride = { jour: jours[k], jourAvant: jours[r], deplace: r !== k, impossible: proche(jours[k]) };
+      return rt;
+    });
+  }
+  // Ce que le coach DIT de la place des jambes lourdes (l'aperçu du programme) : `[]` quand rien ne change et que rien n'est impossible.
+  // `entree.cardioSemaines` : `{ jour: nombre de semaines sur 4 }` (le fait de `faits.joursDeCardioReguliers`).
+  function phrasesHybrides(routines, entree) {
+    var e = entree || {}, cardio = joursDeCardio(e.cardioJours);
+    var lourdes = liste(routines).filter(function (rt) { return rt && rt.hybride; });
+    if (!cardio.length || !lourdes.length) return [];
+    var deplacees = lourdes.filter(function (rt) { return rt.hybride.deplace; });
+    var restent = lourdes.filter(function (rt) { return rt.hybride.impossible; });
+    var sem = e.cardioSemaines || {};
+    var qui = joindre(cardio.map(function (j) { return NOMS_DES_JOURS[j] + (sem[j] > 0 ? ' (' + sem[j] + ' des 4 dernières semaines)' : ''); }));
+    var phrases = [];
+    deplacees.forEach(function (rt) {
+      phrases.push('Tu fais du cardio le ' + qui + '. Ton jour de jambes lourdes (' + rt.nom + ') passe au ' + NOMS_DES_JOURS[rt.hybride.jour] +
+        ', pas au ' + NOMS_DES_JOURS[rt.hybride.jourAvant] + ' : la veille ou le lendemain d\u2019un cardio dur, tes jambes sont moins fraîches.');
+    });
+    if (restent.length) {
+      phrases.push((deplacees.length ? '' : 'Tu fais du cardio le ' + qui + '. ') + 'Je n\u2019ai pas pu écarter de ton cardio ' +
+        joindre(restent.map(function (rt) { return rt.nom; })) + ' : ' + (restent.length > 1 ? 'elles restent' : 'elle reste') + ' à moins de deux jours.');
+    }
+    return phrases.concat([HYBRIDE_SCIENCE, HYBRIDE_CONVENTION]);
+  }
+
   // ── Le programme ────────────────────────────────────────────────────────────
   // `entree` : { jours, objectif, phase, materiel, anciennete, priorites, menager, ecartes, faits }. Rend des routines
   // { nom, exercices: [{ exercise_slug, motif, role, series, reps, prioritaire, menage, barre_fixe }] }.
@@ -489,7 +573,7 @@
       (gabarit[Number(parts[0])][1][Number(parts[1])][1] === 'P' ? zonesP : zonesAutres)[cleDeZone(fiche)] = true;
     });
     Object.keys(zonesP).forEach(function (cle) { if (!possede(zonesAutres, cle)) solo[cle] = true; });
-    return gabarit.map(function (rt, r) {
+    return placerLesJambesLourdes(gabarit.map(function (rt, r) {
       var ex = [];
       rt[1].forEach(function (pl, j) {
         var s = choix[r + '-' + j];
@@ -506,7 +590,7 @@
         return (x.prioritaire ? 0 : 1) - (y.prioritaire ? 0 : 1) || ROLES.indexOf(x.role) - ROLES.indexOf(y.role);
       });
       return { nom: rt[0], exercices: marquerAuMax(catalogue, ex, p) };
-    });
+    }), p);
   }
 
   // ── « Je n'en veux pas » ──────────────────────────────────────────────────────
@@ -747,7 +831,7 @@
     // 66D : avec un historique, une seule séance est possible (« 1 séance par semaine. »).
     var n = total === undefined ? rts.length : total;
     return { titre: n + (n > 1 ? ' séances' : ' séance') + ' par semaine.', zones: zones, barreFixe: barre,
-             famille: phrasesDeFamille(lignes, n) };
+             famille: phrasesDeFamille(lignes, n), hybride: phrasesHybrides(rts, e) };
   }
 
   // ── Ce que le raccourci de la durée ne touche pas (R4/R6, 60-5) ──────────────────────
@@ -1668,6 +1752,7 @@
     pourquoi: pourquoi,
     mentionsDeLigne: mentionsDeLigne,
     zonesQueChargeLExercice: zonesQueChargeLExercice,
+    placerLesJambesLourdes: placerLesJambesLourdes, phrasesHybrides: phrasesHybrides, NOMS_DES_JOURS: NOMS_DES_JOURS,
     phrasesDeLApercu: phrasesDeLApercu,
     exemptsDuRaccourci: exemptsDuRaccourci,
     exemptsDesPriorites: exemptsDesPriorites,

@@ -7210,7 +7210,12 @@
       escalier: escalierDesEntrees(cs),
       // §9.18 (51-1) — la séance raccourcie : la structure complète, la
       // raccourcie et les exercices retirés, pour I32.
-      raccourci: seance.raccourcie || null
+      raccourci: seance.raccourcie || null,
+      // 194-1 (MOTEUR §9.31) — la mobilité : les zones raides du profil (`null` : pas répondu, `[]` : aucune), les minutes de la semaine par
+      // zone (un fait de `faits.js`) et les zones à ménager du profil. Le plan décide du bloc ; il ne relit rien.
+      zonesRaides: Array.isArray(profil && profil.zones_raides) ? profil.zones_raides : null,
+      mobiliteFaite: faits.minutesDeMobiliteParZone(corpus(), seance.debut),
+      menagerProfil: Profil.zonesAMenagerValides(profil && profil.zones_a_menager) || []
     };
   }
 
@@ -7539,7 +7544,8 @@
         planMemo.modes === local.modes && planMemo.lest === lestReponseDe() && planMemo.demoLest === demoLest &&
         planMemo.marches === (profil && profil.marche_reponses) && planMemo.demoMarche === demoMarche &&
         planMemo.blocs === local.blocs && planMemo.disque === Profil.plusPetitDisqueDe(profil) &&
-        planMemo.moins === serieDeMoinsActive() && planMemo.cartes === (profil && profil.cartes_semaine)) return planMemo.plan;
+        planMemo.moins === serieDeMoinsActive() && planMemo.cartes === (profil && profil.cartes_semaine) &&
+        planMemo.raides === (profil && profil.zones_raides) && planMemo.menager === (profil && profil.zones_a_menager)) return planMemo.plan;
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
                  edition: edition, constats: constats, catalogue: local.exercices,
@@ -7547,7 +7553,8 @@
                  seances: local.seances, demo: demoReponse, demoMarches: demoMarches,
                  modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, blocs: local.blocs, plan: plan,
                  marches: profil && profil.marche_reponses, demoMarche: demoMarche, disque: Profil.plusPetitDisqueDe(profil),
-                 moins: serieDeMoinsActive(), cartes: profil && profil.cartes_semaine };
+                 moins: serieDeMoinsActive(), cartes: profil && profil.cartes_semaine,
+                 raides: profil && profil.zones_raides, menager: profil && profil.zones_a_menager };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit. Un plan du
     // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.
@@ -9224,6 +9231,27 @@
         if (!x || !x.proposition) return;
         accepterChauffes(x.slug);
         seance = Seance.insererChauffes(seance, i, x.proposition.lignes, uuid);
+        await apresGeste({ structure: false });
+      },
+      // 194-1 (MOTEUR §9.31) — le bloc de mobilité, lu sur le plan : « avant » et « fin ». « Ajouter » écrit les exercices (séries vides) ;
+      // « Non merci » compte dans la mémoire des chauffes (trois de suite : silence) ; rien n'est écrit sans geste.
+      propositionMobilite: function () {
+        if (enEdition() || !seance) return null;
+        var p = planActuel();
+        return p && p.mobilite && (p.mobilite.avant || p.mobilite.fin) ? p.mobilite : null;
+      },
+      nomMobilite: function (slug) { return Modele.nommer(catalogueIndexe(), slug); },
+      surAjouterMobilite: async function (ou) {
+        var p = planActuel(), m = p && p.mobilite, b = m && (ou === 'avant' ? m.avant : m.fin);
+        if (!b) return;
+        accepterChauffes(Moteur.MOBILITE_REFUS_CLE);
+        var lignes = [];
+        (b.zones ? b.zones : [b]).forEach(function (z) { (z.exercices || []).forEach(function (x) { lignes.push({ slug: x.slug, series: x.series }); }); });
+        seance = Seance.insererMobilite(seance, lignes, uuid, ou === 'avant' ? 'avant' : 'fin', Moteur.MOBILITE_CONSIGNE);
+        await apresGeste({ structure: true });
+      },
+      surRefuserMobilite: async function () {
+        refuserChauffes(Moteur.MOBILITE_REFUS_CLE);
         await apresGeste({ structure: false });
       },
       // MOTEUR §14.5 (49-U15) — la carte de schéma, sous l'exercice, lue sur
@@ -11373,7 +11401,8 @@
       Profil.prioritesDe(profil), index);
     var resultat = Moteur.raccourcirRoutine(complet, cible, exemptes);
     Rendu.rendreCarteRaccourci($('feuille-contenu'), {
-      carte: Moteur.carteRaccourcir(complet, resultat, cible, function (slug) { return Modele.nommer(index, slug); }),
+      carte: Moteur.carteRaccourcir(complet, resultat, cible, function (slug) { return Modele.nommer(index, slug); },
+        (Moteur.zonesRaidesConnues(profil && profil.zones_raides) || []).length > 0),
       surRaccourcir: function () {
         fermerVoile();
         demarrerSeance(routine, { cible: cible, complet: complet, resultat: resultat });
@@ -15957,6 +15986,7 @@
   // ── LE PROGRAMME CONSTRUIT, AU PROFIL (60-4, ECRAN-PROFIL §4 bis) ───────────
   function ouvrirProgrammeProfil(quoi) {
     if (quoi === 'zones') return ouvrirZonesProfil();
+    if (quoi === 'raides') return ouvrirRaidesProfil();
     if (quoi === 'ecartes') return ouvrirEcartesProfil();
     if (quoi === 'refaire') return refaireMonProgramme();
   }
@@ -15976,6 +16006,34 @@
         surBasculer: function (c) { liste = Profil.basculerZone(liste, c); redessiner(); },
         surAucune: function () { liste = []; redessiner(); },
         surValider: function () { fermerVoile(); ecrireReponse({ zones_a_menager: liste }); },
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // 194-1 — « Zones raides » : la même feuille à puces ; « Aucune » écrit la liste vide (une réponse). Valider remet à zéro les « Non merci »
+  // du bloc de mobilité (le retrouver ici, MOTEUR §9.31).
+  function ouvrirRaidesProfil() {
+    var liste = Profil.zonesRaidesValides(profil && profil.zones_raides);
+    var repondu = liste !== null;
+    liste = liste || [];
+    var redessiner = function () { feuilleProfil($('feuille-contenu')); };
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleChoixMultiple(cible, {
+        titre: 'Zones raides',
+        aide: Profil.PHRASE_RAIDES,
+        groupes: [{ options: Profil.ZONES_RAIDES }],
+        valeurs: liste,
+        aucune: { libelle: 'Aucune', actif: repondu && liste.length === 0 },
+        surBasculer: function (c) { liste = Profil.basculerZoneRaide(liste, c); repondu = true; redessiner(); },
+        surAucune: function () { liste = []; repondu = true; redessiner(); },
+        surValider: function () {
+          fermerVoile();
+          if (!repondu) return;
+          ecrireRefusChauffes(Plan.accepterChauffes(lireRefusChauffes(), Moteur.MOBILITE_REFUS_CLE));
+          ecrireReponse({ zones_raides: liste });
+        },
         surAnnuler: fermerVoile
       });
     };

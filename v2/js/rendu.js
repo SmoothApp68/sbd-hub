@@ -4369,7 +4369,7 @@
       b.appendChild(el('span', 'oz-rond'));
       b.appendChild(el('span', 'oz-nom', z.libelle));
       b.appendChild(el('span', 'oz-reps', z.bas + ' à ' + z.haut + ' reps'));
-      if (actif) b.appendChild(el('span', 'oz-sous', 'Ce jour-là, cet exercice a son propre palier, séparé de tes autres jours.'));
+      if (actif) b.appendChild(el('span', 'oz-sous', 'Ce jour-là, cet exercice se suit à part, séparé de tes autres jours.'));
       b.addEventListener('click', function () { vue.surChoix(z.cle); });
       cible.appendChild(b);
     });

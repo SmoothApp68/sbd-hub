@@ -1792,6 +1792,30 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 
 **Limites connues.** La 1re séance d'une zone n'est pas comptée au compteur (rejouée sur sous-histoire vide) ; le compteur démarre à la 2e. Un exercice qui n'a que des maximaux (< 3 reps) n'a pas de zone d'avant : une zone de plan posée lui donne la consigne de cette zone depuis son palier, comme une correction posée à la main. Le même exercice deux fois dans une routine avec deux zones : la première ligne.
 
+### 9.30 La dernière série « Au max » — décidé le 31/10/2026 (chantier 193-6) (I83 à I87)
+
+**La notion.** « Au max » est un **drapeau** sur la dernière série de travail (ou de recul) d'un exercice, pas un type : la série reste `travail` ou `recul`, aucun `echec` n'est écrit automatiquement. Ligne de routine `routine_sets.au_max` ; série faite `sets.au_max_reserve` (smallint 0 à 3, migration `v2_123`) = la réserve **demandée** : 0 jusqu'à l'échec, 1 à 3 « en gardant N reps », NULL hors « Au max ». Une intention écrite à la validation depuis la ligne du plan, comme `repos_s`.
+
+**Une seule fonction de décision : `Moteur.auMaxDe(entree)`** (pure) rend `{ pose: 'defaut'|'main'|null, reserve, sorte: 'echec'|'garde', avecPareur, classe }`. Le générateur (193-2) la lira ; il n'est pas câblé ici.
+
+1. **Objectif muscle ou les_deux** : squat et couché, réserve 0 avec pareur ou sécurités ; soulevé 2 ; militaire 1 ; accessoires 0.
+2. **Objectif force** : barres, rien ; accessoires 1. **Forme** : rien. Objectif inconnu : rien (on ne devine pas).
+3. **Posé à la main** là où la table ne dit rien : 2.
+4. **Débutant** : squat et couché 1 ; accessoire à l'échec seulement à la machine ou à l'isolation, sinon 1.
+5. **Semaine allégée** : aucun « Au max ». **Zone à ménager** ou « J'ai mal » sur cet exercice dans les 42 derniers jours (`Moteur.douleurRecente`, `faits.douleursParExercice`) : au moins 2, jamais d'échec. **Squat avec une autre barre lourde de jambes après** (`barreDeJambesApres`) : 1.
+
+**Le cran.** Une série « Au max » demandée à la réserve r n'est pas « à fond » (`Palier.cranDeSerie`) sauf si la réserve notée est **inférieure** à la demandée : l'échec demandé ne déclenche pas les plafonds du §17.4 et de la 154.
+
+**Les lecteurs.** L'habitude (`reposPlafonne`) ignore les séries « Au max » sauf si toutes le sont ; `depassementLong` lit `niveauHorsAuMax` (une série au max au-delà du haut ne propose jamais de changer de zone) ; la correction de recul de la 193-5 lit le dernier recul « Au max » (marge = réserve notée, sinon demandée, sinon 2) ; la fatigue 189 voit l'échec par `entreeFatigue` (I87) ; le raccourci (`appliquerRaccourci`) et `lignesAEnlever` gardent la ligne « Au max » (une ligne du milieu part) ; « + Série » et la série de plus en routine s'insèrent **avant** elle.
+
+**Le pari.** La ligne « Au max » a son pari : max(reps visées, reps de la table `prevoirRepsAuMax` pour le max du jour, à la réserve demandée), avec `fondement.au_max`. Le constat de fin d'exercice est un fait : « Ta dernière série me dit où tu en es : 12 reps à 112,5 kg, 2 de plus que prévu. » (chiffres cités : `au_max.reserve`, `au_max.reps`, `au_max.charge`, `au_max.ecart`). Au soulevé : « l'échec veut dire des reps arrachées dos rond ».
+
+**La proposition.** Un exercice éligible sans marque reçoit `propositionAuMax` : carte « Dernière série au max ? » en séance, trois gestes : « Oui, dans ma routine » (marque la dernière série de la routine par `Routines.marquerAuMax`), « Juste aujourd'hui » (`Seance.definirAuMax`), « Non merci » (mémorisé dans `profiles.cartes_semaine.au_max[slug] = { r: 'oui'|'non', le }` : on ne redemande pas). Le menu ⋯ de la série et l'éditeur de routine posent et retirent la marque. Étiquette « Au max » (« recul · au max »), reps « 8+ ».
+
+**Invariants.** I83 : au plus une ligne « Au max » par exercice, et c'est la dernière série de travail. I84 : réserve de 0 à 3 ; jamais d'échec au soulevé ni au militaire, en semaine allégée, sur une zone à ménager non choisie, ni pour un débutant sur une barre ; la consigne dit la réserve. I85 : la prévision de la table est de 1 à 12 reps et le pari n'est pas sous la visée. I86 : aucun dépassement (« Passer en… ») lu sur un exercice dont la seule série de travail est « Au max ». I87 (dans `faits.entreeFatigue`, test unitaire) : un échec demandé nouveau fait entrer le jour dans les blocs de fatigue.
+
+**Limites connues.** La question de réserve après la dernière série (I45) peut être redondante à la réserve 0 ; un exercice jamais fait sans consigne n'affiche pas de « Au max » ; l'import Hevy ne pose aucune marque.
+
 ## 10. L'incrément
 
 ### 10.1 Règle

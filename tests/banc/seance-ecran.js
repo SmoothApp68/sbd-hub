@@ -25554,13 +25554,12 @@ const SETS_IMPORTES = [
     await remplir153(0, 'distance_km', 1);
     await valider153(0);
     // 200-8 — UNE SEULE CARTE à la fois : aucune médaille sous les rangées ; les trois records se disent au récap (D, plus bas).
-    await attendre(600);
     await remplir153(1, 'duree', 3000);
     await remplir153(1, 'distance_km', 5);
     await valider153(1);
     await remplir153(2, 'reps', 1);
     await valider153(2);
-    await attendre(900);
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.ligne-serie .ok-serie.cochee').length >= 3), 8000);
     ok('[H153] DISCRIMINANT (200-8) — 1 000 m en 7:00, 5 km en 30:00, Muscle-Up : aucune médaille sous les rangées (elles passent au récap)',
       (await medaille153(0)) === null && (await medaille153(1)) === null && (await medaille153(2)) === null,
       JSON.stringify([await medaille153(0), await medaille153(1), await medaille153(2), dateAvant153]));

@@ -478,8 +478,27 @@
     if (!Moteur.blocTermine(b, jour)) return { badge: badge };
     var bilan = bilanDe(b);
     var pari = pariDuBloc(b);
-    return { badge: badge, fin: Moteur.carteFinDeBloc(b, bilan, nomsDuCatalogue(),
-      pari ? { predite: pari.valeur_predite, observee: Moteur.progresDuBilan(bilan) } : null, phases) };
+    var fin = Moteur.carteFinDeBloc(b, bilan, nomsDuCatalogue(),
+      pari ? { predite: pari.valeur_predite, observee: Moteur.progresDuBilan(bilan) } : null, phases);
+    // 193-4 — la proposition de la semaine de test, à la fin de la 2ᵉ phase (la chaîne `precedent` des phases du dossier).
+    if (fin && phases) {
+      var prop = proposerSemaineDeTestDuProgramme(b);
+      if (prop.propose) fin.test = { phrase: Moteur.phraseProposeTest(prop), faire: 'Faire la semaine de test' };
+    }
+    return { badge: badge, fin: fin };
+  }
+  function proposerSemaineDeTestDuProgramme(b) {
+    var n = 0, manque = false, cur = b, vus = {};
+    while (cur && !vus[cur.id]) {
+      vus[cur.id] = true; n += 1;
+      if (!cur.precedent) break;
+      var prec = (local.blocs || []).filter(function (x) { return x && x.id === cur.precedent; })[0];
+      if (!prec) { manque = true; break; }
+      cur = prec;
+    }
+    var T = reponsesDesCartes().test;
+    return Moteur.testProposable({ programme: true, phasesFaites: n, maillonManquant: manque,
+                                   allegeeTerminee: b.decharge === true && Moteur.blocTermine(b, jourDuJour()), deja: !!(T && T.bloc === b.id) });
   }
 
   // 118 (audit du 16/10, 03 #5) — les dossiers qui portent un bloc en cours, dans l'ordre des blocs : la
@@ -4132,6 +4151,8 @@
     // §14.5 (49-U15) — un exercice ajouté en cours de séance peut ouvrir sur
     // un repli : son pari s'écrit à sa première apparition (une fois).
     if (o.structure !== false) ecrireReplis().catch(function () {});
+    // 193-4 — une barre dont le test est fini range sa mesure (une fois).
+    if (o.structure !== false) rangerLesMesuresDeTest().catch(function () {});
   }
 
   // ⚠️ 83 (12/10/2026) — L'ENVOI NE SUPPRIME QUE CE QUE CET APPAREIL CONNAÎT
@@ -7202,6 +7223,8 @@
       // 193-6b — les jours d'échec de chaque barre dans les 6 jours précédents (un fait de `faits.js`, par famille de barre).
       echecsDeBarre: faits.echecsDeBarre(corpus(), seance.debut),
       auMaxReponses: (reponsesDesCartes().au_max && typeof reponsesDesCartes().au_max === 'object') ? reponsesDesCartes().au_max : {},
+      // 193-4 (MOTEUR §9.32) — la semaine de test (`profiles.cartes_semaine.test`) et le max estimé d'avant, par exercice : le plan décide.
+      semaineDeTest: semaineDeTestDesEntrees(exos),
       // 188-2 (I76) — les chutes de reps de chaque exercice de la séance (les 3 dernières séances, un fait de `faits.js`) : le plan
       // décide de la ligne du repos, il ne relit pas l'historique.
       chutesDeReps: chutesDeRepsDeLaSeance(exos),
@@ -8417,6 +8440,219 @@
     await apresGeste();
   }
 
+  // ══ 193-4 (MOTEUR §9.32) — LA SEMAINE DE TEST ══════════════════════════════════════════════════════════════════════
+  //
+  // La réponse vit dans `profiles.cartes_semaine.test` (par `poserProfil`, la file), sans colonne :
+  //   { r: 'oui', debut, fin, le, bloc, modes: { slug: 'max' | 'serie' }, mesures: { slug: { valeur, charge, reps, source, vrai, avant, le,
+  //     seance, date, arret? } }, refus: { slug: jour }, arrets: { slug: jour }, vu }
+  // L'app n'y calcule rien : le plan décide (`x.semaineDeTest`), le moteur propose (`Moteur.testProposable`), le fait vient de `faits.js`
+  // (`maxEstimesAvantLeTest`). Ici : poser la réponse, écrire les paris, ranger les mesures, annuler.
+  function testDesCartes() {
+    var t = reponsesDesCartes().test;
+    return t && typeof t === 'object' && t.r === 'oui' && t.debut && t.fin ? t : null;
+  }
+  function jourPlus(jour, n) { return Moteur.jourCivil(new Date(Date.parse(jour + 'T12:00:00Z') + n * 86400000)); }
+  var maxTestMemo = { cle: '', val: {} };
+  function semaineDeTestDesEntrees(exos) {
+    var T = testDesCartes();
+    if (!T) return null;
+    var slugs = (exos || []).map(function (x) { return x && x.exercise_slug; }).filter(Boolean);
+    var cle = T.debut + '|' + slugs.join(',') + '|' + (local.series || []).length;
+    if (maxTestMemo.cle !== cle) maxTestMemo = { cle: cle, val: faits.maxEstimesAvantLeTest(corpus(), slugs, T.debut) };
+    return { debut: T.debut, fin: T.fin, modes: T.modes || {}, mesures: T.mesures || {}, refus: T.refus || {}, arrets: T.arrets || {},
+             maxEstimes: maxTestMemo.val };
+  }
+  async function ecrireTest(test) {
+    var toutes = Object.assign({}, reponsesDesCartes());
+    if (test === null) delete toutes.test; else toutes.test = test;
+    await poserProfil({ cartes_semaine: toutes });
+  }
+  // Un pari par barre, posé AVANT toute série de la semaine : « ton max tombera vers X kg » (`predictions.module = 'test'`).
+  async function poserLesParisDeTest(test) {
+    var maxs = faits.maxEstimesAvantLeTest(corpus(), Modele.BARRES, test.debut);
+    var index = catalogueIndexe();
+    for (var i = 0; i < Modele.BARRES.length; i++) {
+      var slug = Modele.BARRES[i];
+      var deja = (local.predictions || []).some(function (l) {
+        return l && l.module === Moteur.MODULE_TEST && l.exercise_slug === slug && l.fondement && l.fondement.debut === test.debut;
+      });
+      var valeur = Moteur.testPari(maxs[slug], { cran: index[slug] && index[slug].pas ? index[slug].pas : undefined });
+      if (deja || valeur === null) continue;
+      var pari = {
+        id: uuid(), user_id: idUtilisateur(), module: Moteur.MODULE_TEST, module_version: '1', emise_a: instantDuJour(), exercise_slug: slug,
+        grandeur: Moteur.GRANDEUR_TEST, horizon_jours: 7, valeur_predite: valeur, borne_basse: null, borne_haute: null,
+        fondement: { debut: test.debut, fin: test.fin, max_estime: maxs[slug] }, valeur_observee: null, observee_a: null, set_observe: null
+      };
+      local.predictions = (local.predictions || []).concat([pari]);
+      await Cache.ecrireLot('predictions', [pari]).catch(function () {});
+      await poser({ table: Attente.PREDICTIONS, op: Attente.UPSERT, id: pari.id, depend: pari.id, donnees: pari });
+    }
+  }
+  async function observerLePariDeTest(slug, test, mesure, serieId) {
+    var pari = (local.predictions || []).filter(function (l) {
+      return l && l.module === Moteur.MODULE_TEST && l.exercise_slug === slug && l.fondement && l.fondement.debut === test.debut;
+    })[0];
+    if (!pari || (pari.valeur_observee !== null && pari.valeur_observee !== undefined) || !serieId) return;
+    var ligne = Object.assign({}, pari, { valeur_observee: mesure.valeur, observee_a: instantDuJour(), set_observe: serieId });
+    local.predictions = local.predictions.map(function (l) { return l && l.id === ligne.id ? ligne : l; });
+    await Cache.ecrireLot('predictions', [ligne]).catch(function () {});
+    await poser({ table: Attente.OBSERVATIONS, op: Attente.OBSERVER, id: ligne.id, depend: seance ? seance.id : ligne.id, alaFin: true,
+                  donnees: { valeur_observee: ligne.valeur_observee, observee_a: ligne.observee_a, set_observe: ligne.set_observe } });
+  }
+  // « Faire la semaine de test » — depuis la carte de fin de phase (`dossier`) ou le Profil (sans dossier). Annulable (`annulerLaSemaineDeTest`).
+  async function lancerLaSemaineDeTest(dossier) {
+    if (testDesCartes() && testDesCartes().fin >= jourDuJour()) return;
+    var jour = jourDuJour();
+    var b = dossier ? Moteur.blocEnCours(local.blocs, dossier) : null;
+    var test = { r: 'oui', debut: jour, fin: jourPlus(jour, 6), le: jour, bloc: b ? b.id : null, modes: {}, mesures: {}, refus: {}, arrets: {} };
+    await ecrireTest(test);
+    await poserLesParisDeTest(test);
+    if (b) {
+      // la phase suivante recule d'une semaine : allégée → test → phase suivante
+      var s = Moteur.blocSuivant(b, Moteur.blocAPhases(b, routines));
+      if (s) {
+        await creerBloc({ dossier: dossier, zone: s.zone, semaines: s.semaines, decharge: s.decharge, debut: jourPlus(jour, 7),
+                          exercices: s.exercices, precedent: b, telQuel: true, sansZones: s.sansZones === true });
+      }
+    }
+    rendreSaisie();
+  }
+  async function annulerLaSemaineDeTest() {
+    await ecrireTest(null);
+    rendreSaisie();
+  }
+  // Les gestes sur la barre testée : sa façon, « Pas aujourd'hui », « Arrêter ». Rien ne s'écrit dans une série.
+  // « Ajouter ces lignes » / « Annuler » : par le chemin d'insertion des chauffes (`Seance.insererChauffes`), aux charges du plan. Rien en silence.
+  async function ajouterLesLignesDeTest(iExo, annuler) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var x = planDeLExercice(iExo);
+    var t = x && x.semaineDeTest;
+    if (!t || !t.testee) return;
+    if (annuler) {
+      seance = Seance.retirerLignesDeTest(seance, iExo);
+    } else {
+      if (!t.ajout) return;
+      var lignes = t.ajout.lignes.map(function (q) {
+        return Object.assign([q.charge, q.reps], { test: true, type: q.type, reserve: q.reserve });
+      });
+      seance = Seance.insererChauffes(seance, iExo, lignes, uuid, t.ajout.suite ? 'test' : undefined);
+    }
+    await apresGeste({ structure: false });
+  }
+  async function repondreTest(iExo, cle) {
+    if (cle === 'ajouter') return ajouterLesLignesDeTest(iExo, false);
+    if (cle === 'annuler_lignes') return ajouterLesLignesDeTest(iExo, true);
+    if (!seance || enEdition() || reponseEnCours) return;
+    var x = planDeLExercice(iExo);
+    var t = x && x.semaineDeTest;
+    var T = testDesCartes();
+    if (!t || !t.testee || !T) return;
+    reponseEnCours = true;
+    try {
+      var neuf = Object.assign({}, T);
+      var jour = jourDuJour();
+      if (cle === 'mode_max' || cle === 'mode_serie') {
+        if (t.essais.length) return;                       // jusqu'à l'échauffement : une fois les essais commencés, la façon ne change plus
+        neuf.modes = Object.assign({}, T.modes, {}); neuf.modes[t.slug] = cle === 'mode_max' ? Moteur.TEST_MODE_MAX : Moteur.TEST_MODE_SERIE;
+      } else if (cle === 'pas_aujourdhui') {
+        neuf.refus = Object.assign({}, T.refus); neuf.refus[t.slug] = jour;
+      } else if (cle === 'arret') {
+        neuf.arrets = Object.assign({}, T.arrets); neuf.arrets[t.slug] = jour;
+      } else return;
+      await ecrireTest(neuf);
+    } finally {
+      reponseEnCours = false;
+    }
+    await apresGeste();
+  }
+  // Après chaque geste : une barre dont le test est fini (ou arrêté) range sa mesure — une fois. Le plan l'a calculée (`x.semaineDeTest.mesure`).
+  async function rangerLesMesuresDeTest() {
+    var T = testDesCartes();
+    if (!T || !seance || enEdition()) return;
+    var plan = planActuel();
+    var mesures = null;
+    ((plan && plan.exercices) || []).forEach(function (x) {
+      var t = x && x.semaineDeTest;
+      if (!t || !t.testee || (t.etat !== 'fini' && t.etat !== 'arret')) return;
+      var deja = T.mesures && T.mesures[t.slug];
+      if (deja && deja.seance === seance.id && (deja.valeur === (t.mesure ? t.mesure.valeur : null))) return;
+      if (deja && deja.seance !== seance.id) return;
+      if (t.etat === 'arret' && !t.mesure && t.essais.length === 0 && t.arret !== 'mal') return;
+      mesures = mesures || Object.assign({}, T.mesures);
+      mesures[t.slug] = {
+        valeur: t.mesure ? t.mesure.valeur : null, charge: t.mesure ? t.mesure.charge : null, reps: t.mesure ? t.mesure.reps : null,
+        source: t.mesure ? t.mesure.source : null, vrai: t.mesure ? t.mesure.vrai === true : false, avant: t.max, arret: t.arret || null,
+        le: jourDuJour(), date: instantDuJour(), seance: seance.id
+      };
+    });
+    if (!mesures) return;
+    var neuf = Object.assign({}, T, { mesures: mesures });
+    await ecrireTest(neuf);
+    var cles = Object.keys(mesures);
+    for (var i = 0; i < cles.length; i++) {
+      var m = mesures[cles[i]];
+      if (m && m.valeur !== null && (!T.mesures || !T.mesures[cles[i]])) {
+        var x = ((plan && plan.exercices) || []).filter(function (q) { return q && q.slug === cles[i]; })[0];
+        await observerLePariDeTest(cles[i], neuf, m, x && x.semaineDeTest ? x.semaineDeTest.mesureSerieId : null);
+      }
+    }
+  }
+  // Le Profil : « Semaine de test » — son état, la proposition (hors programme), l'annulation.
+  function ligneSemaineDeTest() {
+    if (Moteur.coachSeTait(profil && profil.intention)) return null;
+    var T = testDesCartes();
+    var jour = jourDuJour();
+    if (T && T.fin >= jour) {
+      return { libelle: 'Semaine de test', valeur: 'Jusqu’au ' + Rendu.dateCourte(T.fin), surChoix: ouvrirSemaineDeTest };
+    }
+    // la ligne n'existe que s'il y a quelque chose à dire : une semaine en cours, ou une proposition possible (4 semaines, pas avant une décharge)
+    var prop = proposerSemaineDeTestHorsProgramme();
+    return prop.propose ? { libelle: 'Semaine de test', valeur: null, surChoix: ouvrirSemaineDeTest } : null;
+  }
+  function proposerSemaineDeTestHorsProgramme() {
+    var jour = jourDuJour();
+    var debuts = (local.seances || []).map(function (s) { return s && s.debut ? Moteur.jourCivil(s.debut) : null; }).filter(Boolean).sort();
+    var semaines = debuts.length ? Math.floor((Date.parse(jour + 'T12:00:00Z') - Date.parse(debuts[0] + 'T12:00:00Z')) / (7 * 86400000)) : 0;
+    // la semaine précédente allégée (une allégée acceptée ou une décharge de bloc, finie dans les 8 derniers jours) ; la prochaine décharge
+    var allegees = periodesAllegees();
+    var precedente = allegees.some(function (p) { return p.fin < jour && p.fin >= jourPlus(jour, -8); });
+    var jours = null;
+    allegees.forEach(function (p) {
+      if (p.debut < jour) return;
+      var n = Math.round((Date.parse(p.debut + 'T12:00:00Z') - Date.parse(jour + 'T12:00:00Z')) / 86400000);
+      if (jours === null || n < jours) jours = n;
+    });
+    var T = testDesCartes();
+    return Moteur.testProposable({ programme: false, semainesEntrainement: semaines, semainePrecedenteAllegee: precedente,
+                                   dechargeDansJours: jours, deja: !!T && T.fin >= jour });
+  }
+  function ouvrirSemaineDeTest() {
+    var T = testDesCartes();
+    var jour = jourDuJour();
+    var actif = !!T && T.fin >= jour;
+    var prop = actif ? null : proposerSemaineDeTestHorsProgramme();
+    var barres = actif ? Modele.BARRES.map(function (slug) {
+      var mode = Moteur.testModeValide(T.modes && T.modes[slug]) || Moteur.testModeParDefaut(Profil.estDebutant(profil));
+      return { slug: slug, nom: nomsDuCatalogue()[slug] || slug, mode: mode,
+               mesure: T.mesures && T.mesures[slug] ? T.mesures[slug] : null };
+    }) : [];
+    Rendu.rendreFeuilleSemaineDeTest($('feuille-contenu'), {
+      actif: actif,
+      phrase: actif ? Moteur.phraseTestEnCours() : Moteur.phraseTestPropose(prop),
+      peutLancer: !actif && !!prop && prop.propose,
+      libelleLancer: prop && prop.voie === 'alleger' ? 'Faire quand même la semaine de test' : 'Faire une semaine de test',
+      barres: barres,
+      surMode: function (slug, mode) {
+        var modes = Object.assign({}, T.modes || {}); modes[slug] = mode;
+        return ecrireTest(Object.assign({}, T, { modes: modes })).then(ouvrirSemaineDeTest);
+      },
+      surFermer: fermerVoile,
+      surLancer: function () { fermerVoile(); return lancerLaSemaineDeTest(null); },
+      surAnnuler: function () { fermerVoile(); return annulerLaSemaineDeTest(); }
+    });
+    ouvrirVoile($('feuille-seance'), function () {});
+  }
+
   async function repondreReprise(iExo, cle) {
     if (!seance || enEdition() || reponseEnCours) return;
     var x = planDeLExercice(iExo);
@@ -9297,6 +9533,13 @@
         return x && x.propositionAuMax ? x.propositionAuMax : null;
       },
       surAuMax: function (i, cle) { return repondreAuMax(i, cle); },
+      // 193-4 (MOTEUR §9.32) — la barre testée aujourd'hui : lue sur le plan ; ses gestes (façon, « Pas aujourd'hui », « Arrêter »).
+      semaineDeTest: function (i) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.semaineDeTest && (x.semaineDeTest.testee || x.semaineDeTest.accessoire) ? x.semaineDeTest : null;
+      },
+      surTest: function (i, cle) { return repondreTest(i, cle); },
       // §9.17 — l'exercice est en Entretenir PAR SON PROPRE choix : l'étiquette
       // devient « Entretien », la porte vers le mode (le profil n'y gagne rien).
       modeEntretien: function (slug) { return modeDe(slug) === 'entretien'; },
@@ -10894,12 +11137,32 @@
   // 171 — les trois gestes de la carte de fin de cycle : les MÊMES dans la bibliothèque et en tête de Saisie.
   var gestesFinDeCycle = {
     surCommencerBloc: function (d) { return commencerBlocSuivant(d); },
+    surFaireTest: function (d) { return lancerLaSemaineDeTest(d); },
     surAjusterBloc: function (d) {
       var b = Moteur.blocEnCours(local.blocs, d);
       if (b) ouvrirProgramme(d, b);
     },
     surArreterProgramme: function (d) { return arreterProgramme(d); }
   };
+
+  // 193-4 — le bilan : lignes « Couché : 154 kg → 157,5 kg. » et l'objectif de la barre (1 rep) « Pas encore ». Les phrases sont du moteur.
+  function bilanDeLaSemaineDeTest() {
+    var T = testDesCartes();
+    if (!T || T.vu === true || T.fin >= jourDuJour() || !T.mesures || !Object.keys(T.mesures).length) return null;
+    var noms = nomsDuCatalogue();
+    var lignes = [], objectifs = [];
+    Object.keys(T.mesures).forEach(function (slug) {
+      var m = T.mesures[slug];
+      if (!m) return;
+      lignes.push(Moteur.phraseBilanTest(noms[slug] || slug, m.avant, m.valeur));
+      (local.objectifs || []).forEach(function (o) {
+        if (!o || o.exercise_slug !== slug || o.reps !== 1 || m.valeur === null) return;
+        var p = Moteur.phraseObjectifTest(m.valeur, o.charge_kg);
+        if (p) objectifs.push(p);
+      });
+    });
+    return { titre: 'Ta semaine de test est finie.', lignes: lignes, objectifs: objectifs };
+  }
 
   // 171 (famille A) — la fin de cycle en tête de Saisie. Mêmes dossiers, même règle (`programmeDuDossier`) que la
   // bibliothèque : on lit la vue, on ne la recalcule pas. Rien n'est écrit.
@@ -10917,7 +11180,13 @@
         if (pr && pr.fin) items.push({ dossier: d, fin: pr.fin });
       });
     }
-    Rendu.rendreFinsDeCycleSaisie(noeud, items, gestesFinDeCycle);
+    // 193-4 — le bilan de la semaine de test, une fois la semaine finie : « avant → mesuré », l'objectif « Pas encore ».
+    var bilanTest = !seance && etatRoutines.code === 'ok' ? bilanDeLaSemaineDeTest() : null;
+    if (bilanTest) items.unshift({ dossier: null, bilanTest: bilanTest });
+    Rendu.rendreFinsDeCycleSaisie(noeud, items, Object.assign({}, gestesFinDeCycle, { surCompris: function () {
+      var T = testDesCartes();
+      if (T) ecrireTest(Object.assign({}, T, { vu: true })).then(rendreSaisie);
+    } }));
   }
 
   // ══ 171 — « LE COACH TE DIT (n) » : les avis de Saisie sur une ligne ═══════════════════════════════════
@@ -11114,6 +11383,7 @@
       // 155 — le menu « \u22ef » du dossier.
       surMenuDossier: ouvrirMenuDossier,
       surCommencerBloc: gestesFinDeCycle.surCommencerBloc,
+      surFaireTest: gestesFinDeCycle.surFaireTest,
       surAjusterBloc: gestesFinDeCycle.surAjusterBloc,
       surArreterProgramme: gestesFinDeCycle.surArreterProgramme,
       surChoix: ouvrirRoutine,
@@ -12901,6 +13171,11 @@
     // §9.23 (55-1) — LE PÉRIMÈTRE D'UN RECORD : celui de la médaille (12 mois pour un matériel de salle, toute la
     // vie ailleurs).
     var optionsRecords = Modele.optionsDeRecord(exo);
+    // 193-4 (MOTEUR §9.32) — le max MESURÉ par une semaine de test prime sur l'estimation (90 jours) ; jamais une ligne du journal des records.
+    var mesureDeTest = testDesCartes() && testDesCartes().mesures ? testDesCartes().mesures[slug] : null;
+    if (mesureDeTest && mesureDeTest.valeur !== null && mesureDeTest.valeur !== undefined) {
+      optionsRecords = Object.assign({}, optionsRecords, { mesures: [mesureDeTest] });
+    }
     var pourRecords = groupes.map(function (g) { return { debut: g.seance.debut, series: g.series }; });
     var recordsExo = Modele.recordsDeLExercice(pourRecords, maintenant, optionsRecords);
     // 132 (MOTEUR §10 ter) — un exercice noté par nom : son meilleur se calcule à l'affichage, sur l'ordre de Ma salle
@@ -16481,7 +16756,9 @@
             ligneChoix('materiel', 'Matériel'),
             // 108 (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies) — Ma salle ; 163 : les élastiques seulement, et seulement si un
             // exercice à l'élastique est dans une routine, l'historique ou la séance en cours.
-            Profil.ligneSalle(p, ouvrirSalleProfil)
+            Profil.ligneSalle(p, ouvrirSalleProfil),
+            // 193-4 (MOTEUR §9.32) — « Semaine de test » : son état, la proposition hors programme, l'annulation.
+            ligneSemaineDeTest()
           ].filter(Boolean).concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil)) }
         ]),
         dansLeGroupe('Moi', [

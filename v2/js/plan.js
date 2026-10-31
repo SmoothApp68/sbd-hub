@@ -989,6 +989,133 @@
 
 
 
+  // ── 193-4 (MOTEUR §9.32) — LA SEMAINE DE TEST ──────────────────────────────
+  //
+  // Les décisions sont celles du moteur (`Moteur.test*`, une seule fois) ; le plan les LIT, séance par séance, et n'écrit rien. L'app
+  // lui passe `entrees.semaineDeTest` (la réponse à la carte, rangée dans `profiles.cartes_semaine.test`, et ce que `faits.js` a lu) :
+  //   { debut, fin, modes: { slug: 'max' | 'serie' }, mesures: { slug: { valeur, le, seance } }, refus: { slug: jour },
+  //     maxEstimes: { slug: kg } }
+  // Ce que le plan en fait : UN SEUL mouvement testé par séance (le premier non mesuré, ni refusé aujourd'hui) ; le squat et le soulevé
+  // jamais le même jour (le second reste en séance normale) ; les accessoires sans « Au max » ; la montée, les essais ou la série au max
+  // de la barre testée, son « Pourquoi », son pari. La structure de la séance reste celle de la routine : le plan PROPOSE des lignes, il
+  // n'en écrit aucune.
+  function semaineDeTestDuJour(e, seance, exos) {
+    var T = e && e.semaineDeTest;
+    if (!T || typeof T !== 'object' || !T.debut || !T.fin) return null;
+    var M = Moteur(), G = racine.THGenerateur;
+    if (seance.edition) return null;
+    var jour = M.jourCivil(seance.debut);
+    if (!jour || jour < T.debut || jour > T.fin) return null;
+    var cat = e.catalogue || {};
+    var barres = [];
+    (exos || []).forEach(function (exo, i) {
+      var slug = exo && exo.exercise_slug;
+      if (!slug || barres.some(function (b) { return b.slug === slug; })) return;
+      var famille = G && G.familleDeBarre ? G.familleDeBarre(slug, cat) : null;
+      if (famille) barres.push({ slug: slug, i: i, famille: famille, classe: M.testClasse(famille) });
+    });
+    var faites = {}, refusees = {};
+    Object.keys(T.mesures || {}).forEach(function (s) {
+      var m = T.mesures[s];
+      if (m && m.le >= T.debut && m.seance !== seance.id) faites[s] = true;
+    });
+    Object.keys(T.refus || {}).forEach(function (s) { if (T.refus[s] === jour) refusees[s] = true; });
+    var testee = M.testBarreDuJour(barres, faites, refusees);
+    return { debut: T.debut, fin: T.fin, jour: jour, barres: barres, testee: testee,
+             conflits: testee ? M.testBarresEnConflit(barres, testee) : [], faites: Object.keys(faites), accessoires: 0 };
+  }
+
+  // Les séries de l'exercice, lues comme des FAITS (les lignes validées), jamais des propositions.
+  function faitsDeTest(x, series) {
+    var S = Seance(), P = Palier();
+    var essais = [], serie = null;
+    (x.lignes || []).forEach(function (l) {
+      if (!l || !l.validee) return;
+      var s = series[l.iSerie];
+      if (!s) return;
+      var charge = nombre(s.charge_kg), reps = nombre(s.reps);
+      if (charge === null) return;
+      var reserve = P.reserveDeSerie(s);
+      if (S.typeDe(s) === 'test') essais.push({ charge: charge, reps: reps === null ? 0 : reps, reserve: reserve, douleur: s.douleur === true, id: s.id === undefined ? null : s.id });
+      else if (racine.THModele.estAuMax(s)) serie = { charge: charge, reps: reps === null ? 0 : reps, reserve: reserve === null ? 0 : reserve, id: s.id === undefined ? null : s.id };
+    });
+    return { essais: essais, serie: serie };
+  }
+
+  function semaineDeTestDExercice(jt, e, seance, exos, i, x, materiel, intentionX, coachee, douloureuse) {
+    if (!jt || !x || !x.slug) return null;
+    var M = Moteur(), T = e.semaineDeTest;
+    var b = jt.barres.filter(function (q) { return q.slug === x.slug; })[0] || null;
+    if (!b) {
+      // un accessoire : 1 à 2 au plus, légers, sans « Au max » ni échec (`auMaxFaitsDe` se tait pendant la semaine)
+      jt.accessoires += 1;
+      return { accessoire: true, garde: jt.accessoires <= M.TEST_ACCESSOIRES_MAX, rang: jt.accessoires };
+    }
+    if (b.slug !== jt.testee) return { barre: true, testee: false, conflit: jt.conflits.indexOf(b.slug) >= 0, etat: 'ailleurs' };
+    if (!coachee || intentionX === 'entretien') return { barre: true, testee: false, etat: 'sans_coach' };
+    var modes = T.modes || {};
+    var mode = M.testModeValide(modes[b.slug]) || M.testModeParDefaut(e.debutant === true);
+    var maxEstime = nombre(T.maxEstimes && T.maxEstimes[b.slug]);
+    var o = { famille: b.famille, cran: materiel ? nombre(materiel.pas) : null, salle: materiel ? materiel.salle || null : null,
+              debutant: e.debutant === true };
+    var out = { barre: true, testee: true, slug: b.slug, mode: mode, famille: b.famille, classe: b.classe, max: null, etat: 'a_faire',
+                montee: [], prochain: null, serie: null, essais: [], mesure: null, arret: null, consigne: null, pourquoi: null, pari: null,
+                charge: null, surLesSecurites: b.classe === 'squat' || b.classe === 'couche', arrondi: o.cran };
+    if (maxEstime === null || maxEstime <= 0) { out.etat = 'sans_max'; return out; }
+    var max = Math.round(maxEstime);
+    out.max = max;
+    var series = (exos[i] && exos[i].series) || [];
+    var f = faitsDeTest(x, series);
+    out.essais = f.essais;
+    out.montee = M.testMontee(maxEstime, o);
+    // « J'ai mal » : noté sur l'exercice dans cette séance, ou récent (42 jours) — le test ne se propose pas.
+    var dejaMal = douloureuse === true || M.douleurRecente((e.douleurs && e.douleurs[b.slug]) || [], M.jourCivil(seance.debut));
+    if (mode === M.TEST_MODE_MAX) {
+      var essai = M.testEssai(maxEstime, f.essais, Object.assign({}, o, { arret: (T.arrets || {})[b.slug] === jt.jour }));
+      if (dejaMal && !f.essais.length) essai = M.testEssai(maxEstime, [{ charge: 0, reps: 1, douleur: true }], o);
+      out.prochain = essai.etat === 'propose' ? essai : null;
+      out.arret = essai.etat === 'arret' ? essai.raison : null;
+      out.etat = essai.etat === 'propose' ? (f.essais.length ? 'en_cours' : 'a_faire') : (essai.etat === 'fini' ? 'fini' : 'arret');
+      out.mesure = M.testMesure({ mode: mode, essais: f.essais });
+    } else {
+      out.serie = M.testSerieAuMax(maxEstime, o);
+      out.mesure = f.serie ? M.testMesure({ mode: mode, serie: f.serie }) : null;
+      out.etat = f.serie ? 'fini' : (dejaMal ? 'arret' : 'a_faire');
+      if (dejaMal && !f.serie) { out.arret = 'mal'; out.serie = null; }
+    }
+    out.mesureSerieId = mode === M.TEST_MODE_SERIE ? (f.serie ? f.serie.id : null)
+      : (out.mesure && out.mesure.rang ? (f.essais[out.mesure.rang - 1] || {}).id || null : null);
+    out.charge = out.prochain ? out.prochain.charge : (out.serie ? out.serie.charge : null);
+    // « Ajouter ces lignes » (geste de la personne, rien en silence) : la montée (échauffements) puis le 1ᵉʳ essai en type `test` (ou la
+    // « Série au max » avec sa réserve) ; les essais suivants un à un, quand les lignes posées sont toutes validées. « Annuler » retire les vides.
+    var posees = series.filter(function (q) { return q && q.test_pose === true; });
+    out.posees = posees.length;
+    out.videsPosees = posees.filter(function (q) { return !q.validee_a; }).length;
+    out.ajout = null;
+    if ((out.etat === 'a_faire' || out.etat === 'en_cours') && out.videsPosees === 0) {
+      var aj = [];
+      if (posees.length === 0) out.montee.forEach(function (m) { aj.push({ charge: m.charge, reps: m.reps, type: 'echauffement' }); });
+      if (out.prochain) aj.push({ charge: out.prochain.charge, reps: out.prochain.reps, type: 'test', essai: out.prochain.rang });
+      else if (out.serie && !f.serie) aj.push({ charge: out.serie.charge, reps: out.serie.vise, type: 'travail', reserve: out.serie.reserve });
+      if (aj.length) out.ajout = { lignes: aj, suite: posees.length > 0 };
+    }
+    var pari = M.testPari(maxEstime, o);
+    out.pari = pari === null ? null : { module: M.MODULE_TEST, exercise_slug: b.slug, grandeur: M.GRANDEUR_TEST, valeur_predite: pari,
+                                        fondement: { mode: mode, max_estime: max, debut: jt.debut, seance: seance.id === undefined ? null : seance.id } };
+    var V = Voix();
+    if (out.prochain) out.consigne = V.capturer(function () { return M.testConsigneEssai(out.prochain); });
+    else if (out.serie) out.consigne = V.capturer(function () { return M.testConsigneSerie(out.serie); });
+    if (out.consigne) out.consigne = { texte: out.consigne.texte, citations: out.consigne.citations };
+    var capP = V.capturer(function () {
+      return M.pourquoiTest({ mode: mode, max: max, pariCharge: pari, serie: out.serie });
+    });
+    out.pourquoi = { texte: capP.texte, citations: capP.citations };
+    // I26 : chaque chiffre dit a sa source (`test`, `test.max`, `test.pct`, `test.reps`, `test.reserve`, `test.pari`, `test.rang`).
+    if (out.consigne) x.phrases.push({ ou: 'test.consigne', texte: out.consigne.texte, citations: out.consigne.citations });
+    x.phrases.push({ ou: 'test.pourquoi', texte: out.pourquoi.texte, citations: out.pourquoi.citations });
+    return out;
+  }
+
   // 193-6 — les faits que `Moteur.auMaxDe` lit pour l'exercice `i` de la séance. `null` : le coach n'a rien à dire de cet exercice
   // (pas coaché, « J'ai mal », « Juste un carnet », édition, semaine allégée). `propose` : la carte peut se poser (séance venue d'une
   // routine, aucune décision enregistrée dans `entrees.auMaxReponses`).
@@ -1776,8 +1903,11 @@
     // séance ne la porte que sur sa première occurrence ; le repli, lui, est la
     // consigne de l'exercice — les deux occurrences la lisent.
     var portee = {};
+    // 193-4 — la semaine de test de ce jour, ou `null` : la barre testée, les barres qui restent normales.
+    var jourDeTest = intentionProfil === 'entretien' ? null : semaineDeTestDuJour(e, seance, exos);
     return {
       seance: seance.id === undefined ? null : seance.id,
+      semaineDeTest: jourDeTest ? { debut: jourDeTest.debut, fin: jourDeTest.fin, jour: jourDeTest.jour, testee: jourDeTest.testee, conflits: jourDeTest.conflits, barres: jourDeTest.barres.map(function (q) { return q.slug; }) } : null,
       phase: phase,
       objectif: objectif,
       priorites: priorites,
@@ -1856,7 +1986,9 @@
           objectif, Object.prototype.hasOwnProperty.call(alleges, slug) ? alleges[slug] : null,
           coachee && Object.prototype.hasOwnProperty.call(moins, slug) ? moins[slug] : null,
           e.reculs && Object.prototype.hasOwnProperty.call(e.reculs, slug) ? e.reculs[slug] : null,
-          auMaxFaitsDe(e, seance, exos, i, coachee, douloureuse, intentionX, !!esc.allegee, consignes));
+          auMaxFaitsDe(e, seance, exos, i, coachee, douloureuse, intentionX, !!esc.allegee || !!jourDeTest, consignes));
+        x.semaineDeTest = semaineDeTestDExercice(jourDeTest, e, seance, exos, i, x,
+          intentionX === 'entretien' || salleEl ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), intentionX, coachee, douloureuse);
         if (x.escalier && x.escalier.copie) x.escalier = null;
         // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
@@ -4889,7 +5021,21 @@
         ? { valeurs: [x.auMax ? x.auMax.reserve : null, x.propositionAuMax ? x.propositionAuMax.reserve : null, Moteur().AU_MAX_RESERVE_PAR_DEFAUT].filter(function (v) { return nombre(v) !== null; }) } : null,
       'au_max.reps': x.auMax && x.auMax.constat ? { valeur: x.auMax.constat.reps } : null,
       'au_max.charge': x.auMax && x.auMax.constat ? { charge: x.auMax.constat.charge } : null,
-      'au_max.ecart': x.auMax && x.auMax.constat && x.auMax.constat.prevu !== null ? { valeur: Math.abs(x.auMax.constat.reps - x.auMax.constat.prevu) } : null
+      'au_max.ecart': x.auMax && x.auMax.constat && x.auMax.constat.prevu !== null ? { valeur: Math.abs(x.auMax.constat.reps - x.auMax.constat.prevu) } : null,
+      // 193-4 — la semaine de test : la charge proposée (l'essai ou la série), le rang de l'essai, les reps, les pourcentages, le max, la réserve, le pari.
+      test: x.semaineDeTest && x.semaineDeTest.charge !== null && x.semaineDeTest.charge !== undefined ? { charge: x.semaineDeTest.charge } : null,
+      'test.rang': x.semaineDeTest && x.semaineDeTest.prochain ? { valeur: x.semaineDeTest.prochain.rang } : null,
+      'test.reps': x.semaineDeTest && x.semaineDeTest.prochain ? { valeur: x.semaineDeTest.prochain.reps } : null,
+      'test.visee_bas': x.semaineDeTest && x.semaineDeTest.serie ? { valeur: x.semaineDeTest.serie.visee[0] } : null,
+      'test.visee_haut': x.semaineDeTest && x.semaineDeTest.serie ? { valeur: x.semaineDeTest.serie.visee[1] } : null,
+      'test.plafond': x.semaineDeTest && x.semaineDeTest.serie ? { valeur: x.semaineDeTest.serie.plafond } : null,
+      'test.pct1': x.semaineDeTest && x.semaineDeTest.testee ? { valeur: Moteur().TEST_ESSAI_1 } : null,
+      'test.pct2': x.semaineDeTest && x.semaineDeTest.testee ? { valeur: Moteur().TEST_ESSAI_2 } : null,
+      'test.pct_serie': x.semaineDeTest && x.semaineDeTest.serie ? { valeur: x.semaineDeTest.serie.pct } : null,
+      'test.max': x.semaineDeTest && x.semaineDeTest.max !== null && x.semaineDeTest.max !== undefined ? { charge: x.semaineDeTest.max } : null,
+      'test.reserve': x.semaineDeTest && x.semaineDeTest.prochain ? { valeur: x.semaineDeTest.prochain.reserve }
+        : x.semaineDeTest && x.semaineDeTest.serie ? { valeur: x.semaineDeTest.serie.reserve } : null,
+      'test.pari': x.semaineDeTest && x.semaineDeTest.pari ? { charge: x.semaineDeTest.pari.valeur_predite } : null
     };
     var msg = x.reaction && x.reaction.message;
     return { lignes: lignes, jour: jour, fait: fait, regle: regle, suite: suite,
@@ -5139,6 +5285,7 @@
     verifierFatigue(plan, entrees, erreurs);
     verifierAuMax(plan, erreurs);
     verifierMobilite(plan, entrees, erreurs);
+    verifierSemaineDeTest(plan, erreurs);
     verifierApprochee(plan, erreurs);
     verifierApresLaDecharge(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
@@ -5605,6 +5752,84 @@
         if (x.consigne && x.consigne.depassement && travail.length === 1) erreurs.push('I86' + nom + 'un dépassement lu sur la seule série « Au max »');
       }
     });
+  }
+
+  // I88 à I93 (MOTEUR §9.32, 193-4) — LA SEMAINE DE TEST :
+  //   · I88 — jamais plus de trois essais, jamais de 4ᵉ ; le 3ᵉ est plus lourd que le 2ᵉ ;
+  //   · I89 — une seule barre testée par séance ; le squat et le soulevé jamais le même jour (le second reste normal) ;
+  //   · I90 — la montée (50/60/70/80/87 %) et les charges des essais (≈ 92 %, ≈ 97 %) ou de la série (≈ 85 %, ≈ 80 % au débutant) sont
+  //     celles du max estimé, à un cran près ; la série au soulevé : en gardant 1, 6 reps au plus ;
+  //   · I91 — aucun « Au max » en semaine de test, ni sur un accessoire ni sur la barre ; au plus deux accessoires gardés ;
+  //   · I92 — un arrêt (« J'ai mal », un 1ᵉʳ essai sans marge, 0 rep) ne propose plus rien : ni essai, ni série ;
+  //   · I93 — le max mesuré n'est jamais sous le plus lourd essai réussi à RPE 10, et le pari est le max estimé au cran, module `test`.
+  function verifierSemaineDeTest(plan, erreurs) {
+    var jt = plan && plan.semaineDeTest;
+    if (!jt) {
+      ((plan && plan.exercices) || []).forEach(function (x, i) {
+        if (x && x.semaineDeTest) erreurs.push('I89 — exercice ' + i + ' : une semaine de test hors de sa semaine');
+      });
+      return;
+    }
+    var M = Moteur();
+    var testees = [];
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      if (!x) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      if (x.auMax || x.propositionAuMax) erreurs.push('I91' + nom + 'un « Au max » pendant la semaine de test');
+      var t = x.semaineDeTest;
+      if (!t) return;
+      if (t.accessoire) {
+        if (t.garde !== (t.rang <= M.TEST_ACCESSOIRES_MAX)) erreurs.push('I91' + nom + 'le rang ' + t.rang + ' d’accessoire ' + (t.garde ? 'gardé' : 'écarté') + ' contre la limite de ' + M.TEST_ACCESSOIRES_MAX);
+        return;
+      }
+      if (!t.testee) return;
+      testees.push({ slug: x.slug, classe: t.classe });
+      var max = nombre(t.max);
+      var cran = nombre(t.arrondi) !== null && nombre(t.arrondi) > 0 ? nombre(t.arrondi) : 2.5;
+      var pres = function (charge, pct, large) {
+        if (max === null || nombre(charge) === null) return true;
+        return Math.abs(charge - max * pct / 100) <= cran + max * (large || 0) / 100 + 1e-9;
+      };
+      if (t.essais && t.essais.length > M.TEST_ESSAIS_MAX) erreurs.push('I88' + nom + t.essais.length + ' essais (jamais plus de ' + M.TEST_ESSAIS_MAX + ')');
+      if (t.ajout) {
+        var essaisAjoutes = t.ajout.lignes.filter(function (q) { return q.type === 'test'; }).length;
+        if (essaisAjoutes > 1 || t.essais.length + essaisAjoutes > M.TEST_ESSAIS_MAX) erreurs.push('I88' + nom + 'l’ajout porterait à ' + (t.essais.length + essaisAjoutes) + ' essais');
+        if (t.ajout.lignes.some(function (q) { return q.type === 'test' && t.prochain && q.charge !== t.prochain.charge; })) erreurs.push('I90' + nom + 'l’essai ajouté n’est pas à la charge du plan');
+      }
+      if (t.prochain) {
+        if (t.prochain.rang > M.TEST_ESSAIS_MAX || t.essais.length >= M.TEST_ESSAIS_MAX) erreurs.push('I88' + nom + 'un ' + t.prochain.rang + 'ᵉ essai proposé');
+        if (t.prochain.rang === 3 && t.essais[1] && !(t.prochain.charge > t.essais[1].charge)) erreurs.push('I88' + nom + 'le 3ᵉ essai (' + t.prochain.charge + ') n’est pas plus lourd que le 2ᵉ (' + t.essais[1].charge + ')');
+        if (t.prochain.rang === 1 && !pres(t.prochain.charge, M.TEST_ESSAI_1)) erreurs.push('I90' + nom + 'le 1ᵉʳ essai (' + t.prochain.charge + ') n’est pas à ' + M.TEST_ESSAI_1 + ' % du max estimé (' + max + ')');
+        if (t.prochain.rang === 2 && !pres(t.prochain.charge, M.TEST_ESSAI_2)) erreurs.push('I90' + nom + 'le 2ᵉ essai (' + t.prochain.charge + ') n’est pas à ' + M.TEST_ESSAI_2 + ' % du max estimé (' + max + ')');
+        if (t.mode !== M.TEST_MODE_MAX) erreurs.push('I90' + nom + 'un essai proposé en mode « série au max »');
+      }
+      if (t.serie) {
+        var pc = plan.debutant ? M.TEST_SERIE_PCT_DEBUTANT : M.TEST_SERIE_PCT;
+        if (!pres(t.serie.charge, pc)) erreurs.push('I90' + nom + 'la série au max (' + t.serie.charge + ') n’est pas à ' + pc + ' % du max estimé (' + max + ')');
+        if (t.classe === 'souleve' && !(t.serie.reserve === 1 && t.serie.plafond <= M.TEST_SERIE_PLAFOND_SOULEVE)) erreurs.push('I90' + nom + 'la série au soulevé doit garder 1 rep, ' + M.TEST_SERIE_PLAFOND_SOULEVE + ' reps au plus');
+        if (t.mode !== M.TEST_MODE_SERIE) erreurs.push('I90' + nom + 'une série au max proposée en mode « viser mon max »');
+      }
+      (t.montee || []).forEach(function (m, k) {
+        if (!pres(m.charge, M.TEST_MONTEE[k][0])) erreurs.push('I90' + nom + 'la montée ' + (k + 1) + ' (' + m.charge + ') n’est pas à ' + M.TEST_MONTEE[k][0] + ' % du max estimé (' + max + ')');
+        if (k > 0 && !(m.charge >= t.montee[k - 1].charge)) erreurs.push('I90' + nom + 'la montée ne croît pas');
+      });
+      if (t.etat === 'arret' && (t.prochain || t.serie)) erreurs.push('I92' + nom + 'un arrêt (' + t.arret + ') qui propose encore une charge');
+      if ((t.essais || []).some(function (q) { return q.douleur === true; }) && t.prochain) erreurs.push('I92' + nom + '« J’ai mal » noté et un essai de plus proposé');
+      if (t.essais && t.essais[0] && t.essais[0].reserve === 0 && t.prochain) erreurs.push('I92' + nom + 'un 1ᵉʳ essai sans marge et un 2ᵉ proposé');
+      if (t.essais && t.essais.length && !(nombre(t.essais[t.essais.length - 1].reps) >= 1) && t.prochain) erreurs.push('I92' + nom + 'un essai raté et un essai de plus proposé');
+      if (t.mesure && t.mode === M.TEST_MODE_MAX) {
+        var reussis = t.essais.filter(function (q) { return nombre(q.reps) >= 1 && (q.reserve === null || q.reserve === 0); });
+        reussis.forEach(function (q) { if (t.mesure.valeur + 1e-9 < q.charge) erreurs.push('I93' + nom + 'le max mesuré (' + t.mesure.valeur + ') est sous un essai réussi à RPE 10 (' + q.charge + ')'); });
+      }
+      if (t.pari) {
+        if (t.pari.module !== M.MODULE_TEST) erreurs.push('I93' + nom + 'le pari n’est pas du module « test »');
+        if (max !== null && Math.abs(t.pari.valeur_predite - max) > cran + 0.5 + 1e-9) erreurs.push('I93' + nom + 'le pari (' + t.pari.valeur_predite + ') n’est pas le max estimé (' + max + ') au cran');
+      }
+    });
+    if (testees.length > 1) erreurs.push('I89 — ' + testees.length + ' barres testées dans la même séance');
+    var sol = testees.filter(function (q) { return q.classe === 'squat' || q.classe === 'souleve'; });
+    if (sol.length > 1) erreurs.push('I89 — le squat et le soulevé testés le même jour');
+    if (jt.testee && (jt.conflits || []).indexOf(jt.testee) >= 0) erreurs.push('I89 — la barre testée est aussi une barre en conflit');
   }
 
   // I77 (MOTEUR §14.11, 189) — LA FATIGUE SUR PLUSIEURS SEMAINES :

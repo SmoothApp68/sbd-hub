@@ -605,17 +605,30 @@
   // première ; en tête s'il n'y en a pas). Une ligne par marche, avec ses reps
   // visées ; la charge reste vide : le plan la remplit, comme pour une routine.
   // `lignes` : `[[charge, reps]]`, la proposition telle que le plan la porte.
-  function insererChauffes(seance, iExo, lignes, idSerie) {
+  function insererChauffes(seance, iExo, lignes, idSerie, apres) {
     var exos = seance.exercices.slice();
     var exo = copie(exos[iExo]);
     var series = exo.series.slice();
     var a = 0;
     while (a < series.length && !estTravail(series[a])) a++;
     if (a === series.length) a = 0;
+    // 193-4 — la suite d'une semaine de test (`apres` : « test ») : juste après la dernière ligne que le test a posée.
+    if (apres === 'test') {
+      var dernier = -1;
+      series.forEach(function (q, j) { if (q && q.test_pose === true) dernier = j; });
+      if (dernier >= 0) a = dernier + 1;
+    }
     var neuves = (lignes || []).map(function (q) {
       var s = serieVide(idSerie);
       s.type_serie = 'echauffement';
       s.reps_visees = q && q[1] !== undefined ? q[1] : null;
+      // 193-4 (MOTEUR §9.32) — une ligne de la semaine de test porte sa charge, son type et sa marque (`test_pose`, pour « Annuler »).
+      if (q && q.test === true) {
+        s.type_serie = q.type || 'echauffement';
+        s.test_pose = true;
+        if (q[0] !== null && q[0] !== undefined) s.charge_kg = q[0];
+        if (q.reserve !== undefined && q.reserve !== null) { s.au_max_reserve = q.reserve; s.au_max = true; }
+      }
       return s;
     });
     exo.series = series.slice(0, a).concat(neuves, series.slice(a));
@@ -635,6 +648,16 @@
                groupe_superset: null, series: series };
     });
     var exos = ou === 'avant' ? neufs.concat(seance.exercices) : seance.exercices.concat(neufs);
+    return avecExercices(seance, exos);
+
+  }
+
+  // 193-4 — « Annuler » la semaine de test dans la séance : retire les lignes que le test a posées et que personne n'a validées.
+  function retirerLignesDeTest(seance, iExo) {
+    var exos = seance.exercices.slice();
+    var exo = copie(exos[iExo]);
+    exo.series = (exo.series || []).filter(function (q) { return !(q && q.test_pose === true && !q.validee_a); });
+    exos[iExo] = exo;
     return avecExercices(seance, exos);
   }
 
@@ -3193,6 +3216,7 @@
     ajouterSerie: ajouterSerie,
     ajouterDegressive: ajouterDegressive,
     insererChauffes: insererChauffes,
+    retirerLignesDeTest: retirerLignesDeTest,
     retirerSerie: retirerSerie,
     modifierSerie: modifierSerie,
     changerType: changerType,

@@ -7431,7 +7431,7 @@ const SETS_IMPORTES = [
     await page.click('#feuille-contenu .option-zone[data-cle="mix"]');
     await attendreQue(async () => (await puceO()).texte === '6-8\u00a0reps · garde\u00a02', 6000);
     ok('[O] « Juste pour aujourd’hui » : la consigne se recalcule, l’étiquette le dit',
-      JSON.stringify(await enTeteO()) !== JSON.stringify(avecPlan) && (await puceO()).texte === 'Mix · aujourd’hui',
+      JSON.stringify(await enTeteO()) !== JSON.stringify(avecPlan) && (await puceO()).texte === '6-8\u00a0reps · garde\u00a02',
       JSON.stringify(await puceO()) + ' ' + JSON.stringify(await enTeteO()));
     ok('[O] …sans rien écrire : ni correction d’exercice, ni ligne de routine',
       JSON.stringify(base.zones) === zonesAvant && ligneTerre.zone === 'volume' &&
@@ -10274,6 +10274,14 @@ const SETS_IMPORTES = [
     const prop1 = await propositionU(3);
     ok('[U10] DISCRIMINANT — ajouté sans chauffe : le coach PROPOSE la montée (80 kg : 20 · 40 · 55 · 70)',
       esp(prop1) === 'Chauffe : 20 kg × 10 · 40 kg × 6 · 55 kg × 3 · 70 kg × 1', esp(prop1));
+    const replie200 = await page.evaluate(() => {
+      const d = document.querySelector('.ligne-repliee.lr-chauffes:has(.proposition-chauffes[data-iexo="3"])');
+      const r = d ? d.querySelector('summary') : null;
+      const b = d ? d.querySelector('.pc-ajouter') : null;
+      return d ? { resume: r.textContent.replace(/\s+/g, ' ').trim(), ouvert: d.open, ajouterVu: b.checkVisibility() } : null;
+    });
+    ok('[U10] 200-5 — DISCRIMINANT : la chauffe est UNE ligne repliée « Chauffe · 4 séries › », « Ajouter » caché jusqu’à l’ouverture',
+      !!replie200 && replie200.resume === 'Chauffe · 4 séries ›' && replie200.ouvert === false && replie200.ajouterVu === false, JSON.stringify(replie200));
     const nAvant = await compter('.ligne-serie');
     await page.click('.ligne-repliee:has(.proposition-chauffes[data-iexo="3"]) > summary');   // 200-5 : la ligne repliée s'ouvre avant « Non merci »
     await page.click('.proposition-chauffes[data-iexo="3"] .pc-refuser');
@@ -12066,12 +12074,13 @@ const SETS_IMPORTES = [
       return { puce: (document.querySelector('.legende-exo .puce-zone') || {}).textContent || null,
         vise: k ? (k.ligne || k.haut || {}).vise : null };
     });
+    const bornesE = (t) => ((String(t).match(/\d+-\d+/) || [null])[0]);
     await aller('/exercice/ecrans-u5');
     const puceAvec = await puceE();
     const tB = await tableE();
     const cible = tB.filter((l) => l.cible).map((l) => l.reps);
     ok('[E] l’étiquette de la page est celle de la séance ouverte (une seule consigne)',
-      !!enSeance.puce && sp(puceAvec) === sp(enSeance.puce) && sp(puceSans) === sp(enSeance.puce),
+      !!enSeance.puce && bornesE(puceAvec) === bornesE(enSeance.puce) && bornesE(puceSans) === bornesE(enSeance.puce),   // 200-3 : la puce de la séance dit les reps de la zone, la page son nom et ses bornes
       JSON.stringify([enSeance.puce, puceAvec, puceSans]));
     ok('[E] DISCRIMINANT — la ligne mise en avant est la visée de l’en-tête (pas les 10 reps du palier)',
       typeof enSeance.vise === 'number' && enSeance.vise !== 10 &&
@@ -12094,7 +12103,7 @@ const SETS_IMPORTES = [
       return t ? t.entrees.seance.id : null;
     });
     ok('[E] DISCRIMINANT — après une synchronisation en pleine séance, l’étiquette de la page reste celle de la séance',
-      sp(puceApresSync) === sp(enSeance.puce), JSON.stringify([enSeance.puce, puceApresSync, neuve]));
+      bornesE(puceApresSync) === bornesE(enSeance.puce), JSON.stringify([enSeance.puce, puceApresSync, neuve]));
     await aller('/saisie');
     await abandonner();
     // Sans séance, la page lit l'historique à jour : la zone suit les cinq
@@ -14404,7 +14413,7 @@ const SETS_IMPORTES = [
       return n ? { texte: n.textContent, choisie: n.classList.contains('choisie') } : null;
     });
     ok('[C53] DISCRIMINANT — une correction de la personne en plein bloc l’emporte (la plus récente) : Lourd',
-      d1 && d1.x.zone === 'lourd' && puceD && puceD.texte === 'Lourd 3-5' && puceD.choisie &&
+      d1 && d1.x.zone === 'lourd' && puceD && /^3-5\u00a0reps/.test(puceD.texte) && puceD.choisie &&
         base.zones[base.zones.length - 1].origine === 'personne', JSON.stringify([d1 && d1.x, puceD]));
     await abandonner();
     const d2 = await dossier('Alpha U53');
@@ -14572,7 +14581,7 @@ const SETS_IMPORTES = [
       return n ? { texte: n.textContent, choisie: n.classList.contains('choisie') } : null;
     });
     ok('[C53] DISCRIMINANT (53-2 ter) — en séance, la barre corrigée avant le programme retrouve SA zone (Lourd, choisie), sans « bloc »',
-      l1 && l1.x.zone === 'lourd' && puceL && puceL.texte === 'Lourd 3-5' && puceL.choisie,
+      l1 && l1.x.zone === 'lourd' && puceL && /^3-5\u00a0reps/.test(puceL.texte) && puceL.choisie,
       JSON.stringify([l1 && l1.x, puceL]));
     await abandonner();
 
@@ -14600,7 +14609,7 @@ const SETS_IMPORTES = [
     const m1 = [await planC('cyc-couche-u53'), await planC('cyc-squat-u53')];
     const etiqM = [await puceC('cyc-couche-u53'), await puceC('cyc-squat-u53')];
     ok('[C53] après l’arrêt : la correction tient (Mix, sans « bloc »), l’autre barre retrouve sa zone d’après ses séances',
-      m1[0] && m1[0].x.zone === 'mix' && sp(etiqM[0]) === 'Mix 6-8' && m1[1] &&
+      m1[0] && m1[0].x.zone === 'mix' && /^6-8 reps/.test(sp(etiqM[0])) && m1[1] &&
         !/bloc/.test(etiqM[1] || '') && m1[1].enBloc && Object.keys(m1[1].enBloc).length === 0,
       JSON.stringify([m1.map((x) => x && x.x), etiqM]));
     await abandonner();
@@ -14640,7 +14649,7 @@ const SETS_IMPORTES = [
     // 53-2 ter : la ligne du bloc arrêté est IGNORÉE, pas lue « sans zone » —
     // la zone en vigueur reste celle que la personne a choisie (Lourd, choisie).
     ok('[C53] DISCRIMINANT (D3, 53-2 ter) — le lundi passé, le bloc arrêté avant son début n’a rien changé : la zone choisie tient (Lourd, choisie)',
-      n2 && n2.x.zone === 'lourd' && etiqN2 && etiqN2.texte === 'Lourd 3-5' && etiqN2.choisie &&
+      n2 && n2.x.zone === 'lourd' && etiqN2 && /^3-5\u00a0reps/.test(etiqN2.texte) && etiqN2.choisie &&
         n2.enBloc && !n2.enBloc['cyc-terre-u53'], JSON.stringify([n2 && n2.x, etiqN2]));
     await abandonner();
 
@@ -15572,9 +15581,9 @@ const SETS_IMPORTES = [
     await saisirSerie(await indice(1), 105, 8);
     await attendre(900);
     const seance56 = await bloc56();
-    ok('[forge] prémisse : la séance porte la ligne jaune, la ligne grise, deux séries validées et une médaille',
+    ok('[forge] prémisse : la séance porte la ligne jaune, la ligne grise, deux séries validées (la médaille est au récap, plus sous la rangée)',
       lignes === 3 && avant56 && avant56.jaune.length >= 1 && seance56 && seance56.jaune.length >= 1 &&
-        seance56.gris.length >= 1 && seance56.validees === 2 && seance56.medailles === 1,
+        seance56.gris.length >= 1 && seance56.validees === 2 && seance56.medailles === 0,   // 200-8 : la médaille passe au récap
       JSON.stringify([lignes, avant56, seance56]));
     await relever('seance', '1-seance');
 
@@ -25544,26 +25553,17 @@ const SETS_IMPORTES = [
     await remplir153(0, 'duree', 700);
     await remplir153(0, 'distance_km', 1);
     await valider153(0);
-    await jusqua(async () => !!(await medaille153(0)), 6000);
-    const mA = await medaille153(0);
-    ok('[H153] DISCRIMINANT — 1 000 m en 7:00 contre 7:13 : « Record d’allure sur 1 km ou plus : 7:00 /km. », « Avant : 7:13 /km, … »',
-      !!mA && sp153(mA[0]) === 'Record d’allure sur 1 km ou plus : 7:00 /km.' &&
-        sp153(mA[1]) === sp153('Avant : 7:13 /km, ' + dateAvant153 + (/\.$/.test(dateAvant153) ? '' : '.')), JSON.stringify([mA, dateAvant153]));
-    // B. 5 km en 30:00 : rien à battre à ce palier (pas d'allure), mais la plus longue distance.
+    // 200-8 — UNE SEULE CARTE à la fois : aucune médaille sous les rangées ; les trois records se disent au récap (D, plus bas).
+    await attendre(600);
     await remplir153(1, 'duree', 3000);
     await remplir153(1, 'distance_km', 5);
     await valider153(1);
-    await jusqua(async () => !!(await medaille153(1)), 6000);
-    const mB = await medaille153(1);
-    ok('[H153] DISCRIMINANT — 5 km en 30:00 : la plus longue distance, et PAS d’allure (aucune série passée d’au moins 5 km)',
-      !!mB && /Plus longue distance : 5 km/.test(sp153(mB[0])) && !/allure/.test(mB[0]), JSON.stringify(mB));
-    // C. LE MUSCLE-UP : une habileté, première fois — même sans marche d'avant.
     await remplir153(2, 'reps', 1);
     await valider153(2);
-    await jusqua(async () => !!(await medaille153(2)), 6000);
-    const mC = await medaille153(2);
-    ok('[H153] DISCRIMINANT — Muscle-Up, première fois : « Première fois : Muscle-Up. », gris « Une habileté. »',
-      !!mC && sp153(mC[0]) === 'Première fois : Muscle-Up.' && sp153(mC[1]) === 'Une habileté.', JSON.stringify(mC));
+    await attendre(900);
+    ok('[H153] DISCRIMINANT (200-8) — 1 000 m en 7:00, 5 km en 30:00, Muscle-Up : aucune médaille sous les rangées (elles passent au récap)',
+      (await medaille153(0)) === null && (await medaille153(1)) === null && (await medaille153(2)) === null,
+      JSON.stringify([await medaille153(0), await medaille153(1), await medaille153(2), dateAvant153]));
     // D. LE RÉCAP : les trois médailles, et le bloc « Le jeu » avec le cap de 5 km.
     await garderRecap(true);
     await page.click('#bandeau-seance .bandeau-fin');
@@ -25576,7 +25576,9 @@ const SETS_IMPORTES = [
       jeu: Array.from(document.querySelectorAll('#jeu-fin .j-ligne')).map((x) => x.textContent) }));
     ok('[H153] le récap : les trois médailles (allure, distance, première fois)',
       recap153.lignes.length === 3 && /Record d.allure sur 1 km ou plus/.test(sp153(recap153.lignes.join(' '))) &&
-        /Première fois : Muscle-Up/.test(sp153(recap153.lignes.join(' '))), JSON.stringify(recap153.lignes.map(sp153)));
+        /Première fois : Muscle-Up/.test(sp153(recap153.lignes.join(' '))) &&
+        /Record d.allure sur 1 km ou plus : 7:00 \/km\./.test(sp153(recap153.lignes.join(' '))) &&
+        /Plus longue distance : 5 km/.test(sp153(recap153.lignes.join(' '))), JSON.stringify(recap153.lignes.map(sp153)));
     ok('[H153] le bloc « Le jeu » porte le succès « Premier 5 km de course »',
       recap153.jeu.some((t) => /Premier 5 km de course/.test(sp153(t))), JSON.stringify(recap153.jeu.map(sp153)));
     await fermerRecapBanc();

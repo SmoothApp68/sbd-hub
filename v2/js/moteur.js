@@ -5632,7 +5632,7 @@
     var z = zoneParCle(consigne.zone);
     if (z === null) return null;
     // 193-3 — la zone vient de la routine : « Mix · ta routine » (la maquette de l'ondulation).
-    if (plan && plan.zone === consigne.zone) return z.libelle + ' · ta routine';
+    if (plan && plan.zone === consigne.zone) return z.libelle + (plan.origine === 'aujourdhui' ? ' \u00b7 aujourd\u2019hui' : ' \u00b7 ta routine');
     var bloc = origineDeLaLigne(ligne) === LIGNE_BLOC && ligne.zone === consigne.zone;
     return z.libelle + ' ' + z.bas + '-' + z.haut + (bloc ? ' · bloc' : '');
   }
@@ -9208,7 +9208,7 @@
       // le passé garde sa vraie zone (`correctionsDeZone` vide), sinon le report ne verrait aucun changement de zone.
       o = Object.assign({}, o, { correction: zp, correctionsDeZone: sh.mode === 'zone' ? null : [] });
       if (sh.mode === 'premiere') o.zoneAvantDuPlan = sh.zoneAvant;
-      plan = { zone: zp, mode: sh.mode, n: sh.n, perimee: sh.perimee === true };
+      plan = { zone: zp, mode: sh.mode, n: sh.n, perimee: sh.perimee === true, origine: o.zonePlanOrigine === 'aujourdhui' ? 'aujourdhui' : 'routine' };
       if (sh.mode === 'premiere') plan.zoneAvant = sh.zoneAvant;
     }
     var seances = sansLesAllegees(contratDe(groupes, etat, o.mesure,
@@ -9980,7 +9980,9 @@
   function pourquoiPlan(plan) {
     var z = plan ? zoneParCle(plan.zone) : null;
     if (z === null) return null;
-    var tete = 'Ta routine fixe cet exercice en ' + z.libelle + '.';
+    var tete = plan.origine === 'aujourdhui'
+      ? 'Tu as choisi ' + z.libelle + ' pour aujourd\u2019hui seulement\u00a0; ta routine ne change pas.'
+      : 'Ta routine fixe cet exercice en ' + z.libelle + '.';
     if (plan.mode === 'zone') {
       return tete + ' Je ne lis que tes séances en ' + z.libelle + ' : ton palier d\u2019ici est le sien, tes autres jours avancent de leur côté.';
     }

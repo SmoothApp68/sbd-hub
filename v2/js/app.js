@@ -6405,6 +6405,15 @@
     var exo = (seance.exercices || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
     return exo && exo.zone_plan ? exo.zone_plan : null;
   }
+  // 193-3 — « juste pour aujourd'hui » : la zone de plan de la séance n'est plus celle de la ligne de routine.
+  function zonePlanOrigineDe(slug) {
+    var zp = zonePlanDe(slug);
+    if (!zp) return null;
+    var exo = (seance.exercices || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
+    var rt = routineDeLaSeance();
+    var ligne = rt && exo && exo.routine_exercise_id ? (rt.exercices || []).filter(function (e) { return e && e.id === exo.routine_exercise_id; })[0] : null;
+    return ligne && ligne.zone === zp ? 'routine' : 'aujourdhui';
+  }
   // 193-3 — pour chaque routine, la zone de la ligne de cet exercice (la première qui en porte une) : { routine_id: zone }.
   function zonesDeRoutineDe(slug) {
     var sortie = {};
@@ -6465,6 +6474,7 @@
       // correction de l'exercice et le bloc ; `zonesDeRoutine` dit la zone de la ligne de chaque routine pour cet exercice
       // (l'appartenance d'une séance passée, C1).
       zonePlan: zonePlanDe(slug),
+      zonePlanOrigine: zonePlanOrigineDe(slug),
       zonesDeRoutine: zonePlanDe(slug) ? zonesDeRoutineDe(slug) : null,
       // §9.10 (53-2 bis, D1) — la ligne qui pose cette zone : son origine
       // fait dire « Nouveau bloc » au lieu de « Nouvelle zone ».
@@ -9062,7 +9072,12 @@
       // §3.8 — l'étiquette de zone, à côté du nom, et son menu (48b-7).
       etiquette: etiquetteDe,
       zoneChoisie: function (slug) { return !!zoneDe(slug); },
-      surZone: function (slug) { if (etiquetteDe(slug) || modeDe(slug) === 'entretien') ouvrirZone(slug); },
+      // 193-3 — un exercice dont la zone vient de la routine ouvre les DEUX choix (jamais `poserZone` : une correction durable
+      // n'efface pas en silence la zone du plan) ; les autres, la feuille de zone d'avant.
+      surZone: function (slug) {
+        if (zonePlanDe(slug) && !enEdition()) ouvrirZonePlan(slug);
+        else if (etiquetteDe(slug) || modeDe(slug) === 'entretien') ouvrirZone(slug);
+      },
       // §3.10 — toucher la consigne ouvre le calcul.
       surPourquoi: ouvrirPourquoi,
       // §3.9 — et quand l'exercice est fini, le constat prend sa place.
@@ -9944,6 +9959,81 @@
         rendreFeuille();
       }
     });
+  }
+
+  // ── 193-3 (maquette de l'ondulation, écran 4) — LA ZONE QUI VIENT DE LA ROUTINE ──────────────────────────────────
+  //
+  // Toucher l'étiquette « Mix · ta routine » : « Changer la zone de cette routine » (la ligne de la routine, par le chemin qui écrit
+  // une routine — la file, hors ligne comme les autres) ou « Juste pour aujourd'hui » (la séance seulement : `zone_plan` de
+  // l'exercice, dans le brouillon de l'appareil, rien en base). Dans les deux cas la consigne de l'exercice se recalcule, comme
+  // après `poserZone`, et ses séries validées restent figées par leurs paris.
+  function ouvrirZonePlan(slug) {
+    var i = (seance.exercices || []).map(function (x) { return x.exercise_slug; }).indexOf(slug);
+    var exo = i >= 0 ? seance.exercices[i] : null;
+    var z = exo ? Moteur.zoneParCle(exo.zone_plan) : null;
+    if (!z) return;
+    var nom = Modele.nommer(Modele.indexerExercices(local.exercices), slug);
+    var choisir = function (portee) {
+      Rendu.rendreFeuilleZoneRoutine($('feuille-contenu'), {
+        titre: portee === 'routine' ? 'Changer la zone de cette routine' : 'Juste pour aujourd\u2019hui',
+        sous: nom + (portee === 'routine' ? ', dans ' + ((routineDeLaSeance() || {}).nom || 'ta routine') : ''),
+        zones: Moteur.ZONES,
+        choisie: exo.zone_plan,
+        aide: portee === 'routine' ? 'La routine change pour les prochaines fois ; la consigne se recalcule dès maintenant.'
+                                   : 'Ta routine ne change pas.',
+        surChoix: async function (cle) {
+          fermerVoile();
+          await poserZoneDePlanDe(slug, cle, portee === 'routine');
+        },
+        surFermer: fermerVoile
+      });
+    };
+    Rendu.rendreFeuilleZonePlan($('feuille-contenu'), {
+      nom: nom, libelle: z.libelle,
+      surRoutine: function () { choisir('routine'); },
+      surAujourdhui: function () { choisir('aujourdhui'); },
+      surFermer: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'), function () {
+      feuille = null;
+      if (seance && !vues.seance.hidden) rendreSeance();
+    });
+  }
+
+  async function poserZoneDePlanDe(slug, cle, dansLaRoutine) {
+    var i = (seance.exercices || []).map(function (x) { return x.exercise_slug; }).indexOf(slug);
+    if (i < 0) return;
+    var zone = Moteur.zoneParCle(cle) ? cle : null;
+    if (dansLaRoutine) {
+      var routine = routineDeLaSeance();
+      var idLigne = seance.exercices[i].routine_exercise_id;
+      var ligne = routine && idLigne ? (routine.exercices || []).filter(function (e) { return e && e.id === idLigne; })[0] : null;
+      if (ligne) {
+        await poserRoutineVoulue(routine, routine.exercices.map(function (e) {
+          return e.id === idLigne ? Object.assign({}, e, { zone: zone }) : e;
+        }));
+      }
+    }
+    seance = Seance.poserZoneDePlan(seance, i, zone);
+    // La consigne de CET exercice se recalcule, lui seul (la seule exception au gel, comme `poserZone`).
+    if (consignes && consignes.parSlug) {
+      delete consignes.parSlug[slug];
+      versionConsignes++;
+      sauverConsignes();
+    }
+    await apresGeste({ structure: false });
+  }
+
+  // 193-3 (D3) — la page d'exercice dit les zones que les routines fixent à cet exercice : « Ta routine « Jeudi » fixe cet exercice en
+  // Mix. » Un fait ; le menu de zone de la page reste celui de l'exercice (il vaut pour les jours sans zone de routine).
+  function zonesDeRoutinesDe(slug) {
+    var lignes = [];
+    Routines.visibles(routines || []).forEach(function (r) {
+      var l = r && (r.exercices || []).filter(function (e) { return e && e.exercise_slug === slug; })[0];
+      var z = l && l.zone ? Moteur.zoneParCle(l.zone) : null;
+      if (z) lignes.push('Ta routine \u00ab\u00a0' + (r.nom || 'sans nom') + '\u00a0\u00bb fixe cet exercice en ' + z.libelle + '.');
+    });
+    return lignes;
   }
 
   // ── §3.8 — LE MENU DES ZONES, ET SA PROPRE PORTE ────────────────────────
@@ -12607,6 +12697,7 @@
       nom: exo ? exo.nom : slug,
       etiquette: consigneExo ? consigneExo.etiquette : null,
       zoneChoisie: !!zoneDe(slug),
+      lignesDeRoutine: zonesDeRoutinesDe(slug),
       // §9.17 — en Entretenir par son propre choix, la page montre « Entretien »
       // et garde la porte vers le mode.
       modeEntretien: modeDe(slug) === 'entretien',

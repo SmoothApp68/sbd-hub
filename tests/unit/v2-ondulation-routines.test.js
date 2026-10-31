@@ -71,3 +71,21 @@ describe('la zone dans la séance', () => {
     expect(v.voulues[v.voulues.length - 1].zone).toBeNull();
   });
 });
+
+describe('« Juste pour aujourd\u2019hui » (la séance seulement)', () => {
+  const routine = { id: 'r1', nom: 'Jeudi', exercices: [ligne('a', 'squat_barre', 'mix'), ligne('b', 'presse', null)] };
+  const depart = () => S.creer({ id: 's1', routine, idSerie: () => 'x' + Math.random() });
+  test('poserZoneDePlan réécrit la zone de CET exercice, sans toucher la séance d\u2019origine ni les autres', () => {
+    const s = depart();
+    const t = S.poserZoneDePlan(s, 0, 'lourd');
+    expect(t.exercices.map((e) => e.zone_plan)).toEqual(['lourd', null]);
+    expect(s.exercices.map((e) => e.zone_plan)).toEqual(['mix', null]);
+    expect(S.poserZoneDePlan(t, 0, null).exercices[0].zone_plan).toBeNull();
+    expect(S.poserZoneDePlan(t, 0, 'inconnue').exercices[0].zone_plan).toBeNull();
+    expect(S.poserZoneDePlan(t, 9, 'mix')).toBe(t);
+  });
+  test('rien ne part en base : ni les séries ni la séance n\u2019ont de zone', () => {
+    const t = S.poserZoneDePlan(depart(), 0, 'lourd');
+    expect(JSON.stringify(S.lignes(t))).not.toMatch(/zone/);
+  });
+});

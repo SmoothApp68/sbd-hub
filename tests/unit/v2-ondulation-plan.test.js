@@ -81,6 +81,16 @@ describe('la ligne du « Pourquoi » et l\'étiquette', () => {
   });
 });
 
+describe('juste pour aujourd\u2019hui', () => {
+  test('l\u2019étiquette et la phrase le disent ; ce n\u2019est plus « ta routine »', () => {
+    const c = M.consigneDExercice(grp(dup(6)), undefined, new Date(J(9, 22)).toISOString(),
+      Object.assign({}, OPT, { zonePlan: 'lourd', zonePlanOrigine: 'aujourdhui' }));
+    expect(c.etiquette).toBe('Lourd · aujourd\u2019hui');
+    expect(M.pourquoiPlan(c.plan)).toMatch(/^Tu as choisi Lourd pour aujourd.hui seulement/);
+    expect(c.plan.origine).toBe('aujourdhui');
+  });
+});
+
 describe('I79, I80, I81', () => {
   test('I79 forgée : la consigne porte une autre zone que celle de la routine', () => {
     const { e, p } = jeudi();

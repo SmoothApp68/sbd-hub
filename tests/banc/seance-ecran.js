@@ -7344,6 +7344,93 @@ const SETS_IMPORTES = [
       erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
+  console.log('\n══ ondulation. LA ZONE QUI VIENT DE LA ROUTINE ══');
+  //
+  // 193-3 (maquette de l'ondulation, écran 4) — la ligne de routine du soulevé de terre fixe sa zone (Volume). En séance :
+  //   · l'étiquette dit « Volume · ta routine » et la consigne est celle de la zone du plan ;
+  //   · une correction d'exercice (les lignes `zones_exercice` posées plus haut, Mix) ne l'efface pas ;
+  //   · toucher l'étiquette ouvre DEUX choix, jamais la feuille des cinq zones, et n'écrit aucune correction ;
+  //   · « Juste pour aujourd'hui » ne touche ni la routine ni `zones_exercice` ; la séance suivante retrouve la zone de la routine ;
+  //   · « Changer la zone de cette routine » écrit la ligne de routine (la file) et recalcule la consigne.
+  {
+    // ⚠️ une relecture à chaque fois : le faux serveur REMPLACE la ligne à chaque PATCH (une référence gardée serait périmée).
+    const ligneTerre = { get zone() { return ROUTINE_TERRE.routine_exercises[0].zone; }, set zone(v) { ROUTINE_TERRE.routine_exercises[0].zone = v; } };
+    const enTeteO = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('.legende-exo .consigne')).map((e) => e.textContent));
+    const puceO = () => page.evaluate(() => {
+      const n = document.querySelector('.legende-exo .puce-zone');
+      return n ? { balise: n.tagName, texte: n.textContent } : null;
+    });
+    const boutonsO = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll('#feuille-contenu button')).map((b) => b.textContent.replace(/\s+/g, ' ').trim()));
+    const zonesAvant = JSON.stringify(base.zones);
+    delete ROUTINE_TERRE.routine_exercises[0].zone;
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    const sansPlan = await enTeteO();
+    const puceSansPlan = await puceO();
+    await abandonner();
+
+    ligneTerre.zone = 'volume';
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    const avecPlan = await enTeteO();
+    ok('[O] l’étiquette dit d’où vient la zone : « Volume · ta routine »',
+      (await puceO()) && (await puceO()).texte === 'Volume · ta routine' && (await puceO()).balise === 'BUTTON',
+      JSON.stringify(await puceO()) + ' (sans plan : ' + JSON.stringify(puceSansPlan) + ')');
+    ok('[O] la consigne est celle de la zone du plan, pas celle de la correction d’exercice',
+      JSON.stringify(avecPlan) !== JSON.stringify(sansPlan) && avecPlan.length > 0,
+      JSON.stringify(sansPlan) + ' → ' + JSON.stringify(avecPlan));
+
+    await page.click('.legende-exo .puce-zone');
+    await attendre(700);
+    const deux = await boutonsO();
+    ok('[O] toucher l’étiquette ouvre DEUX choix — « Changer la zone de cette routine » et « Juste pour aujourd’hui »',
+      deux.some((t) => /^Changer la zone de cette routine/.test(t)) && deux.some((t) => /^Juste pour aujourd.hui/.test(t)),
+      JSON.stringify(deux));
+    ok('[O] et jamais la feuille des cinq zones : aucune correction d’exercice ne se pose d’ici',
+      (await page.evaluate(() => document.querySelectorAll('#feuille-contenu .option-zone[data-cle]').length)) === 0);
+
+    // ── JUSTE POUR AUJOURD'HUI : rien d'écrit au-delà de la séance ───────────
+    const reperePatchs = base.journal.length;
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .option-zone'))
+      .filter((b) => /Juste pour/.test(b.textContent))[0].click());
+    await attendre(700);
+    await page.click('#feuille-contenu .option-zone[data-cle="mix"]');
+    await attendre(1600);
+    ok('[O] « Juste pour aujourd’hui » : la consigne se recalcule, l’étiquette le dit',
+      JSON.stringify(await enTeteO()) !== JSON.stringify(avecPlan) && (await puceO()).texte === 'Mix · aujourd’hui',
+      JSON.stringify(await puceO()) + ' ' + JSON.stringify(await enTeteO()));
+    ok('[O] …sans rien écrire : ni correction d’exercice, ni ligne de routine',
+      JSON.stringify(base.zones) === zonesAvant && ligneTerre.zone === 'volume' &&
+      base.journal.slice(reperePatchs).filter((j) => /routine|zone/.test(j.op || '')).length === 0,
+      JSON.stringify(base.journal.slice(reperePatchs).map((j) => j.op)));
+    await abandonner();
+    await aller('/saisie');
+    await demarrerRoutine('Terre');
+    ok('[O] la séance suivante retrouve la zone de la routine',
+      (await puceO()).texte === 'Volume · ta routine' && JSON.stringify(await enTeteO()) === JSON.stringify(avecPlan),
+      JSON.stringify(await puceO()));
+
+    // ── CHANGER LA ZONE DE LA ROUTINE : la ligne de routine est écrite ───────
+    await page.click('.legende-exo .puce-zone');
+    await attendre(700);
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .option-zone'))
+      .filter((b) => /Changer la zone/.test(b.textContent))[0].click());
+    await attendre(700);
+    await page.click('#feuille-contenu .option-zone[data-cle="hypertrophie"]');
+    await attendre(2400);
+    ok('[O] « Changer la zone de cette routine » écrit la ligne de routine (hypertrophie)',
+      ligneTerre.zone === 'hypertrophie', 'zone = ' + ligneTerre.zone);
+    ok('[O] et la consigne suit aussitôt : « Hypertrophie · ta routine »',
+      (await puceO()).texte === 'Hypertrophie · ta routine', JSON.stringify(await puceO()));
+    ok('[O] aucune correction d’exercice écrite non plus',
+      JSON.stringify(base.zones) === zonesAvant, JSON.stringify(base.zones));
+    await abandonner();
+    delete ROUTINE_TERRE.routine_exercises[0].zone;
+    await aller('/saisie');
+  }
+
   console.log('\n══ 7 quatervicies. LE CONSTAT DE FIN DE BLOC ══');
   //
   // ⚠️ CE QUE SEUL CE BANC PROUVE : la CONDITION. Les 14 cas du fichier

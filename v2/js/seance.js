@@ -2063,6 +2063,17 @@
     };
   }
 
+  // 193-3 — « JUSTE POUR AUJOURD'HUI » : la zone de plan d'UN exercice de la séance en cours (`null` : Automatique pour la journée). Une
+  // copie, jamais en place ; rien n'est écrit en base (ni `sets`, ni `sessions` n'ont de colonne pour elle) : le brouillon de
+  // l'appareil la garde jusqu'à la fin de la séance, qui alimente alors la sous-histoire de la zone FAITE. Une zone inconnue
+  // vaut Automatique.
+  function poserZoneDePlan(seance, iExo, zone) {
+    if (!seance || !seance.exercices || !seance.exercices[iExo]) return seance;
+    var exos = seance.exercices.slice();
+    exos[iExo] = Object.assign({}, exos[iExo], { zone_plan: zoneDePlanValide(zone) });
+    return Object.assign({}, seance, { exercices: exos });
+  }
+
   // ══ 188-1 — LES GESTES DE LA SÉANCE (`sessions.gestes`, v2_118) ═══════════════════════════════════════════
   //
   // Ce que la personne a fait pour dévier de la routine, écrit AVEC la séance : le coach de la semaine
@@ -3107,6 +3118,7 @@
     definirReposCible: definirReposCible,
     decrire: decrire,
     ecartsRoutine: ecartsRoutine,
+    poserZoneDePlan: poserZoneDePlan,
     avancerTours: avancerTours,
     tourAtteint: tourAtteint,
     normaliserGroupes: normaliserGroupes,

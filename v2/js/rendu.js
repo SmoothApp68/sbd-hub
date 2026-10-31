@@ -851,6 +851,8 @@
       tete.appendChild(pe);
     }
     if (vue.sousTitre) tete.appendChild(el('div', 'exo-meta num', vue.sousTitre));
+    // 193-3 (D3) — les zones que les routines fixent à cet exercice, une ligne chacune.
+    (vue.lignesDeRoutine || []).forEach(function (t) { tete.appendChild(el('div', 'exo-meta', t)); });
     cible.appendChild(tete);
 
     cible.appendChild(sousOngletsExo(vue));

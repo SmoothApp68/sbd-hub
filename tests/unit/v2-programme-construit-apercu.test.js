@@ -1390,6 +1390,7 @@ describe('193-2 — les familles jusqu’à la routine écrite', () => {
     const apres = b.ctx.construit.routines;
     expect(JSON.stringify(apres)).not.toContain('squat_barre');
     expect(JSON.stringify(apres).split('belt_squat_machine').length - 1).toBe(2);
+    expect(Object.keys(b.ctx.construit.neuf).length).toBe(2);
   });
 
   test('le raccourci retire des reculs (jamais le dernier), jamais la grosse série ; la ligne écrite suit', async () => {
@@ -1481,5 +1482,7 @@ describe('193-2 — les familles jusqu’à la routine écrite', () => {
     await b.appel('ecarterDansLeProgramme(' + places[0][0] + ',' + places[0][1] + ')');
     expect(JSON.stringify(b.ctx.construit.routines)).not.toContain('squat_barre');
     expect(b.ctx.construit.routines.length).toBe(4);
+    // les DEUX places sont marquées « neuf » (une par séance concernée)
+    expect(Object.keys(b.ctx.construit.neuf).length).toBe(2);
   });
 });

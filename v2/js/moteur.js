@@ -5718,6 +5718,22 @@
           }
         }
       }
+      // 193-1 (MOTEUR §9.28, décision du 31/10/2026) — UN TEST RATÉ À UNE SEULE GROSSE SÉRIE. Avec des reculs, la grosse série est seule à
+      // sa charge : plus lourde que le palier d'avant et sous le bas de la zone (152,5 × 2 après 150 × 4, zone Lourd 3-5), elle n'est pas
+      // un nouveau palier. La séance est NEUTRE : palier inchangé, même test reproposé la fois suivante. Pas de retest d'un cran ni
+      // d'étirement ici (option B, à décider). Sans recul, une série unique garde son comportement d'avant.
+      if (!exploRatee && nombre(se.palier) !== null && parRole(se.series, { palier: true }).length === 1 &&
+          parRole(se.series, { travail: true }).length === 0 && (se.series || []).some(function (x) { return x && x.origine === 'recul'; })) {
+        var cAvant = consignePour(faites, se.debut, opts) || {};
+        var zUne = zoneParCle(cAvant.zone), pAvant = nombre(cAvant.palier);
+        var rUne = compter(parRole(se.series, { palier: true })[0]);
+        if (zUne !== null && pAvant !== null && rUne !== null && rUne < zUne.bas && nombre(se.palier) > pAvant) {
+          se = { debut: se.debut, palier: null, neutre: true, series: se.series || [] };
+          sortie[i] = se;
+          faites.push(se);
+          return;
+        }
+      }
       if (nombre(se.palier) === null || exploRatee) {
         var avant = consignePour(faites, se.debut, opts);
         var z = zoneParCle(avant && avant.zone);

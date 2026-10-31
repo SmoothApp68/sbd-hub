@@ -1745,7 +1745,9 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 
 **I78** : une ligne de recul n'est jamais couverte (rôle `hors`, jamais figée) ; la charge du recul est strictement sous la grosse série du jour, l'écart reste dans 5 à 20 % ; le fantôme d'un recul non validé est la charge du plan (`source: 'recul'`), et la ligne reste vide sans grosse série ; le pari d'un recul porte le rôle `recul` et un rang texte, un seul par rang, observé sur un recul validé. **I1 amendé** : le recul est la seule ligne hors couverture qui parie. **I7 amendé** : les paris de rôle `recul` ne sont pas des paris de la couverture.
 
-**Reste à décider (non codé en 193-1).** Une grosse série unique, plus lourde que le palier précédent et dont les reps comptées sont sous le bas de la zone, doit se lire comme un test raté (palier inchangé, retest d'un cran / étirement). Le crochet le plus étroit (`sansPalierRetenues`, `contratDe`) rend la séance neutre ; les conséquences d'un test raté (épisode d'étirement, retest) demandent une refonte de `consignePour`. À trancher avec Claude.ai.
+**Un test raté à une seule grosse série (option A, décidée le 31/10/2026).** Avec des reculs, une grosse série seule à sa charge, plus lourde que le palier d'avant et dont les reps comptées sont sous le bas de la zone (152,5 × 2 après 150 × 5, zone Lourd), n'est pas un nouveau palier : la séance est **neutre** (`sansPalierRetenues`) — palier inchangé, le même test est reproposé la fois suivante. Une série unique **sans recul** garde son comportement d'avant (la règle ne s'étend pas sans décision).
+
+**Reste à décider (option B).** Retest d'un cran et étirement après ce test raté : ils passent par des épisodes qui supposent des séries au palier et un test lu par `testDe` — une refonte de `consignePour`.
 
 **Serveur.** Le récap de groupe, la guilde et les défis (v2_121) lisent `type_serie` côté SQL : hors du dépôt.
 

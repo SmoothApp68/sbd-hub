@@ -398,7 +398,8 @@
         objectif: p.objectif, debutant: debutant, famille: familleDeBarre(l.exercise_slug, catalogue),
         equipement: fiche.equipement || null,
         isolation: Moteur.estIsolation({ prim: liste(fiche.muscles_primaires), sec: liste(fiche.muscles_secondaires), stab: liste(fiche.muscles_stabilisateurs) }),
-        allegee: false, menagee: !!l.menage, douleurRecente: false, barreDeJambesApres: jambesApres
+        allegee: false, menagee: !!l.menage, douleurRecente: false, barreDeJambesApres: jambesApres,
+        zoneDePlan: l.zone || null     // 193-6b : jour Lourd → échec ; une autre zone de la même barre → garde 1
       });
       if (a && a.pose === 'defaut') l.au_max = true;
     });

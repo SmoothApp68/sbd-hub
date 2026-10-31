@@ -1797,7 +1797,41 @@
       return sortie;
     }
 
+    // 197 (MOTEUR §9.36) — LA SEMAINE « FORME ET SANTÉ » (lundi au jour compris) : un FAIT, jamais un reproche.
+    //   · le renforcement : les jours de la semaine qui ont une séance de musculation (`Semaine.estSeanceDeMusculation`) ;
+    //   · le cardio : les minutes des séries de travail des exercices de nature `cardio` (durée), l'intense comptant double. L'intensité est
+    //     lue sur ce qui existe : le RPE de la série (8 ou plus = intense, convention) ; sans RPE, tout est modéré.
+    // Rend `{ renforcement: { faites, cible }, cardio: { minutes, equivalent, cible, reste, intenses } }` ; `minutes` est la durée réelle,
+    // `equivalent` les minutes de cardio modéré (l'intense x2), `reste` ce qui manque à la cible (jamais négatif).
+    function semaineDeForme(c, jour) {
+      var J = Moteur.jourCivil(jour), sortie = { renforcement: { faites: 0, cible: Moteur.FORME_RENFORCEMENT_CIBLE },
+        cardio: { minutes: 0, equivalent: 0, cible: Moteur.FORME_CARDIO_CIBLE_MIN, reste: Moteur.FORME_CARDIO_CIBLE_MIN, intenses: 0 } };
+      if (!J) return sortie;
+      var b = Semaine.bornesSemaine(new Date(J + 'T12:00:00'));
+      var lundi = b ? Moteur.jourCivil(b.lundi) : null;
+      if (!lundi) return sortie;
+      var index = (c.catalogue && c.catalogue()) || {}, jours = {}, min = 0, eq = 0, intenses = 0;
+      (c.seances || []).forEach(function (s) {
+        var jr = s && s.debut && s.statut !== 'en_cours' ? Moteur.jourCivil(new Date(s.debut)) : null;
+        if (!jr || jr < lundi || jr > J) return;
+        var series = c.seriesDe(s.id) || [];
+        if (Semaine.estSeanceDeMusculation(series, index)) jours[jr] = true;
+        series.forEach(function (x) {
+          var f = x && index[x.exercise_slug], d = Number(x && x.duree_s);
+          if (!f || f.nature !== 'cardio' || !Modele.estTravail(x) || x.hors_calcul === true || !(d > 0)) return;
+          var intense = Number(x.rpe) >= Moteur.CARDIO_RPE_INTENSE;
+          min += d / 60; eq += d / 60 * (intense ? Moteur.FORME_INTENSE_FACTEUR : 1);
+          if (intense) intenses += d / 60;
+        });
+      });
+      sortie.renforcement.faites = Object.keys(jours).length;
+      sortie.cardio = { minutes: Math.round(min), equivalent: Math.round(eq), cible: Moteur.FORME_CARDIO_CIBLE_MIN,
+        reste: Math.max(0, Moteur.FORME_CARDIO_CIBLE_MIN - Math.round(eq)), intenses: Math.round(intenses) };
+      return sortie;
+    }
+
     return {
+      semaineDeForme: semaineDeForme,
       minutesDeMobiliteParZone: minutesDeMobiliteParZone,
       douleursParExercice: douleursParExercice,
       entreeFatigue: entreeFatigue,

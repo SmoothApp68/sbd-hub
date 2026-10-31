@@ -302,6 +302,11 @@
     return racine.THMoteur.prudenceDeMontee({ debutant: estDebutant(p), age: age(p.date_naissance, aujourdhui) });
   }
 
+  // 197 — 65 ans et plus, lu sur `date_naissance` : `true`, `false`, ou `null` (pas de date : rien de deviné). La borne est celle du moteur.
+  function plus65DuProfil(profil, aujourdhui) {
+    return racine.THMoteur.plusDe65Ans(age((profil || {}).date_naissance, aujourdhui));
+  }
+
   // « Depuis le 29 sept. » : la date de la dernière déclaration, au format de
   // la voix (`THModele.quand` sans référence : toujours la date, jamais
   // « mardi » — la ligne se relit des semaines plus tard).
@@ -2259,7 +2264,7 @@
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     PHASES: PHASES, RAPPEL_PHASE_JOURS: RAPPEL_PHASE_JOURS,
     rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, PHASES_EN_BASE: PHASES_EN_BASE, LIBELLE_PHASE_VIDE: LIBELLE_PHASE_VIDE,
-    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, estDebutant: estDebutant, prudenceDuProfil: prudenceDuProfil, phaseGelee: phaseGelee, sectionPhase: sectionPhase, ANCIENNETE_DEBUTANT: ANCIENNETE_DEBUTANT,
+    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, estDebutant: estDebutant, prudenceDuProfil: prudenceDuProfil, plus65DuProfil: plus65DuProfil, phaseGelee: phaseGelee, sectionPhase: sectionPhase, ANCIENNETE_DEBUTANT: ANCIENNETE_DEBUTANT,
     objectifDe: objectifDe, objectifGele: objectifGele,
     prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,

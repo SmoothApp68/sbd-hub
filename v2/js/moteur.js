@@ -10472,7 +10472,41 @@
   }
   var MOBILITE_POURQUOI_AVANT = 'Tenu longtemps juste avant de soulever, un étirement baisse ta force. Avant la séance, seulement du mouvement.';
 
+  // ── 197 (MOTEUR §9.36) — FORME ET SANTÉ : la semaine (renforcement, cardio) et la puissance des 65 ans et plus ──────────────────────
+  // Repères généraux de l'OMS (2020) et de l'ANSES pour l'adulte, dits comme des repères, jamais une prescription ni une promesse médicale.
+  var FORME_RENFORCEMENT_CIBLE = 2, FORME_CARDIO_CIBLE_MIN = 150, FORME_INTENSE_FACTEUR = 2;
+  // Une série de cardio est INTENSE à partir de ce RPE (convention de l'app : aucune donnée publiée ne la fixe) — lue par la semaine (197) et par le cardio régulier (199).
+  var CARDIO_RPE_INTENSE = 8;
+  // 65 ans et plus : la MÊME borne que la prudence de montée (`AGE_PLAFOND_BAS`). `null` : l'âge est inconnu, rien n'est deviné.
+  function plusDe65Ans(age) {
+    var a = nombre(age);
+    if (a === null || a < 0 || a >= 130) return null;
+    return a >= AGE_PLAFOND_BAS;
+  }
+  var FORME_PUISSANCE_PHRASE = 'Monte vite, descends en contrôlant.';
+  var FORME_PUISSANCE_POURQUOI = 'À partir de 65 ans, la puissance protège des chutes (ACSM 2026) : une charge légère, montée vite, descendue en contrôlant.';
+  var FORME_DOULEUR_PHRASE = 'Si une douleur dure, demande l’avis d’un médecin ou d’un kiné.';
+  var FORME_REPERES_PHRASE = 'Les repères de l’OMS et de l’ANSES pour l’adulte : du renforcement au moins 2 fois par semaine, 150 min de cardio modéré (ou 75 min intense). Ce sont des repères généraux, pas une prescription.';
+  // UN exercice de puissance par séance : le premier, dans l'ordre de la séance, qui est polyarticulaire, léger (jamais une barre), mesuré en
+  // reps, et qui ne charge ni une zone à ménager ni une douleur récente. `exercices` : [{ slug, prim, sec, stab, equipement, mesure,
+  // aMenager }]. Rend le slug ou `null`.
+  function exerciceDePuissance(exercices) {
+    var r = null;
+    (exercices || []).some(function (x) {
+      if (!x || !x.slug || x.aMenager === true || x.equipement === 'barre') return false;
+      if (x.mesure !== 'charge_reps' && x.mesure !== 'reps') return false;
+      if (!estPolyarticulaire({ prim: x.prim || [], sec: x.sec || [], stab: x.stab || [] })) return false;
+      r = x.slug;
+      return true;
+    });
+    return r;
+  }
+
   var api = {
+    // 197 (§9.36) — forme et santé.
+    FORME_RENFORCEMENT_CIBLE: FORME_RENFORCEMENT_CIBLE, FORME_CARDIO_CIBLE_MIN: FORME_CARDIO_CIBLE_MIN, FORME_INTENSE_FACTEUR: FORME_INTENSE_FACTEUR, CARDIO_RPE_INTENSE: CARDIO_RPE_INTENSE,
+    FORME_PUISSANCE_PHRASE: FORME_PUISSANCE_PHRASE, FORME_PUISSANCE_POURQUOI: FORME_PUISSANCE_POURQUOI, FORME_DOULEUR_PHRASE: FORME_DOULEUR_PHRASE,
+    FORME_REPERES_PHRASE: FORME_REPERES_PHRASE, plusDe65Ans: plusDe65Ans, exerciceDePuissance: exerciceDePuissance,
     // 194-1 (§9.31) — la mobilité en fin de séance : une table, un bloc, des phrases.
     ZONES_RAIDES: ZONES_RAIDES, MOBILITE_ZONES: MOBILITE_ZONES, MOBILITE_CIBLE_MIN: MOBILITE_CIBLE_MIN, MOBILITE_CONSIGNE: MOBILITE_CONSIGNE,
     MOBILITE_REFUS_CLE: MOBILITE_REFUS_CLE, MOBILITE_POURQUOI_AVANT: MOBILITE_POURQUOI_AVANT, MOBILITE_CHARGE: MOBILITE_CHARGE,

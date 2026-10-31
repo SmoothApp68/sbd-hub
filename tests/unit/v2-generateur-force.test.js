@@ -66,7 +66,8 @@ describe('193-2 — Muscle et Forme sont inchangés, octet pour octet', () => {
   test('aucun objectif hors Force / Les deux n’a de famille : même sortie avec ou sans l’interrupteur, sur tous les jours et les matériels', () => {
     const cat = catalogue();
     let n = 0;
-    ['muscle', 'forme', undefined, null].forEach((objectif) => {
+    // 197 : « forme » a son propre gabarit corps entier (tests/unit/v2-forme-sante.test.js) ; `famille: false` le rend inchangé.
+    ['muscle', undefined, null].forEach((objectif) => {
       ['salle_complete', 'salle_basique', 'maison_equipee', 'maison_minimal', 'poids_du_corps', null].forEach((materiel) => {
         [1, 2, 3, 4, 5, 6, 7].forEach((jours) => {
           ['moins_1_an', '3_a_5_ans'].forEach((anciennete) => {
@@ -78,7 +79,7 @@ describe('193-2 — Muscle et Forme sont inchangés, octet pour octet', () => {
         });
       });
     });
-    expect(n).toBeGreaterThan(300);
+    expect(n).toBeGreaterThan(200);
   });
 
   test('les 32 programmes de 60-6 qui ne sont ni Force ni Les deux (avec barre) sont ceux du fichier de 60-6', () => {
@@ -86,7 +87,7 @@ describe('193-2 — Muscle et Forme sont inchangés, octet pour octet', () => {
     const autres = CAS.generer.filter((c) => !G.familleApplicable(cat, c.entree));
     expect(autres.length).toBe(CAS.generer.length - F.reprises_de_60_6.length);
     autres.forEach((c) => {
-      const rs = G.generer(cat, clone(c.entree));
+      const rs = G.generer(cat, Object.assign(clone(c.entree), { famille: false }));
       expect(rs.map((rt) => ({ nom: rt.nom, pourquoi: G.pourquoi(cat, rt),
         exercices: rt.exercices.map((x) => [x.exercise_slug, x.motif, x.role, x.series, x.reps, x.prioritaire, x.menage, x.barre_fixe]) })))
         .toEqual(c.attendu);

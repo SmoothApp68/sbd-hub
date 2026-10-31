@@ -1289,7 +1289,9 @@
         lignes.push({ exercise_slug: e.exercise_slug, rang: ++rang, type_serie: 'echauffement', reps: null, groupe_superset: g });
       }
       for (k = 0; k < (e.series || 0); k++) {
-        lignes.push({ exercise_slug: e.exercise_slug, rang: ++rang, type_serie: 'travail', reps: e.reps, groupe_superset: g });
+        // 195 — une figure se tient en secondes : `duree_s` (la cible `duree_cible_s`), et pas de reps.
+        if (e.duree_s > 0) lignes.push({ exercise_slug: e.exercise_slug, rang: ++rang, type_serie: 'travail', reps: null, duree_s: e.duree_s, groupe_superset: g });
+        else lignes.push({ exercise_slug: e.exercise_slug, rang: ++rang, type_serie: 'travail', reps: e.reps, groupe_superset: g });
       }
       // 193-2 — une grosse série est suivie de ses reculs (193-1) : `reculs` séries de type `recul`, à `reps_recul` reps.
       for (k = 0; k < (e.reculs || 0); k++) {

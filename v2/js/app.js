@@ -13401,7 +13401,8 @@
       priorites: Profil.prioritesDe(p),
       menager: Profil.zonesAMenagerValides(p.zones_a_menager) || [],
       ecartes: Profil.ecartesValides(p.exercices_ecartes) || [],
-      faits: faits.historiqueDesExercices(corpus())
+      faits: faits.historiqueDesExercices(corpus()),
+      depart_calisthenie: p.depart_calisthenie || null   // 195 : les quatre chiffres du questionnaire
     };
   }
 
@@ -13531,6 +13532,7 @@
       if (l.reculs > 0) { x.reculs = l.reculs; x.reps_recul = l.reps_recul; }
       if (l.zone) x.zone = l.zone;
       if (l.au_max === true) x.au_max = true;       // 193-6 : la dernière série « Au max »
+      if (l.duree_s > 0) x.duree_s = l.duree_s;     // 195 : une figure se tient en secondes (`duree_cible_s`), jamais en reps
       // 188-2 — un repos d'isolation raccourci par la compression (étape 2) se porte jusqu'à la routine créée.
       if (l.repos_raccourci_s > 0) x.repos_raccourci_s = l.repos_raccourci_s;
       if (depart !== null) x.charge_cible_kg = depart;
@@ -13617,7 +13619,7 @@
 
   // 193-2 — « 1 × 4 · 2 reculs × 8 » : la grosse série, puis ses reculs (la même forme que la routine écrite, `resumeStructure`).
   function seriesFois(l) {
-    return l.series + '\u00a0\u00d7\u00a0' + l.reps + (l.reculs > 0 ? ' \u00b7 ' + l.reculs + (l.reculs > 1 ? ' reculs' : ' recul') + (l.reps_recul > 0 ? ' \u00d7 ' + l.reps_recul : '') : '');
+    return l.series + '\u00a0\u00d7\u00a0' + (l.duree_s > 0 ? l.duree_s + '\u00a0s' : l.reps) + (l.reculs > 0 ? ' \u00b7 ' + l.reculs + (l.reculs > 1 ? ' reculs' : ' recul') + (l.reps_recul > 0 ? ' \u00d7 ' + l.reps_recul : '') : '');
   }
 
   function rendreApercuDuProgramme() {
@@ -13637,6 +13639,8 @@
       .concat(['Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']).concat(phrases.famille || [])
       .concat(phrases.zones);
     if (phrases.barreFixe) voix.push(phrases.barreFixe);
+    // 195 — sans barre de traction, le coach le dit (calisthénie) : « Pour progresser en tirage, il te faut une barre ou des anneaux. »
+    Generateur.avertissementsCalisthenie(c.entree).forEach(function (t) { voix.push(t); });
     if (c.annonce) voix.push(c.annonce);
     var changements = h ? (c.changements || []) : [];
     Rendu.rendreApercuProgramme($('feuille-contenu'), {
@@ -13673,7 +13677,8 @@
   async function ouvrirApercuProgramme() {
     if (etatRoutines.code !== 'ok') await chargerRoutines();
     var entree = entreeDuProgramme();
-    var historique = local.exercices.length ? aUnHistorique() : null;
+    // 195 — la calisthénie a son propre gabarit : l'historique de barre ne l'assemble pas.
+    var historique = local.exercices.length && entree.objectif !== 'calisthenie' ? aUnHistorique() : null;
     var rts = [];
     construit = null;
     if (historique) {

@@ -10054,6 +10054,7 @@
     var x = e || {};
     var rien = { pose: null, reserve: null, sorte: null, avecPareur: false, classe: null };
     if (x.allegee) return rien;                                   // semaine allégée, décharge : aucun « Au max »
+    if (x.figure === true) return rien;                           // 195 : une figure (une tenue en secondes) ne va jamais à l'échec
     var objectif = OBJECTIFS_AU_MAX.indexOf(x.objectif) >= 0 ? x.objectif : null;
     var main = x.main === true;
     if (objectif === null && !main) return rien;                  // on ne devine pas un objectif
@@ -10064,7 +10065,7 @@
       if (gros) {
         // le débutant : l'échec seulement aux machines et aux isolations
         reserve = x.debutant === true && !(x.equipement === 'machine' || x.isolation === true) ? 1 : 0;
-      } else if (objectif === 'force') reserve = 1;
+      } else if (objectif === 'force' || objectif === 'calisthenie') reserve = 1;   // 195 : « Au max, en gardant 1 » (la Recommended Routine évite l'échec)
     } else if (classe === 'squat' || classe === 'couche') {
       if (gros) reserve = x.debutant === true ? 1 : 0;
     } else if (classe === 'militaire') {

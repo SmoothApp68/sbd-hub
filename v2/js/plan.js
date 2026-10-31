@@ -1027,7 +1027,8 @@
         objectif: objectifDuPlan(e.objectif), debutant: e.debutant === true, famille: famille,
         equipement: fiche ? fiche.equipement || null : null, isolation: fiche ? M.estIsolation(musclesDe(fiche)) : false,
         allegee: false, menagee: !!(zm && !zm.choisie), douleurRecente: M.douleurRecente(douleurs, jour),
-        barreDeJambesApres: jambesApres
+        barreDeJambesApres: jambesApres,
+        figure: !!fiche && fiche.mesure === 'temps'   // 195 : jamais d'échec sur une figure
       }
     };
   }
@@ -5074,6 +5075,7 @@
     verifierAlleger(plan, erreurs);
     verifierFatigue(plan, entrees, erreurs);
     verifierAuMax(plan, erreurs);
+    verifierCalisthenie(plan, erreurs);
     verifierApprochee(plan, erreurs);
     verifierApresLaDecharge(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
@@ -5454,6 +5456,25 @@
           if (nombre(l.vise) !== null && nombre(p.valeur_predite) < nombre(l.vise)) erreurs.push('I85' + nom + 'le pari (' + p.valeur_predite + ') sous la visée (' + l.vise + ')');
         }
         if (x.consigne && x.consigne.depassement && travail.length === 1) erreurs.push('I86' + nom + 'un dépassement lu sur la seule série « Au max »');
+      }
+    });
+  }
+
+  // I100 et I104 (195-3) — LA CALISTHÉNIE :
+  //   · I100 — une marche d'habileté (pistol, équilibre, archer : `cibleHabilete`) ne se propose qu'en objectif calisthénie ;
+  //   · I104 — jamais « Au max » sur une figure (une tenue en secondes) : ni ligne marquée, ni proposition.
+  // (I101 à I103, les figures de bras tendus par semaine, la zone coude/épaule et la barre de traction, sont ceux du programme :
+  //  `Generateur.verifierCalisthenie`.)
+  function verifierCalisthenie(plan, erreurs) {
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      if (!x) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var c = x.carteMarche;
+      if (c && c.cibleHabilete === true && c.proposable === true && plan.objectif !== 'calisthenie') {
+        erreurs.push('I100' + nom + 'une marche d’habileté proposée hors objectif calisthénie (' + c.cible + ')');
+      }
+      if (x.figure && (x.auMax || x.propositionAuMax || (x.lignes || []).some(function (l) { return l && l.auMax; }))) {
+        erreurs.push('I104' + nom + '« Au max » sur une figure');
       }
     });
   }
@@ -6068,6 +6089,7 @@
     planDesLignes: planDesLignes,
     rejouer: rejouer,
     verifierPlan: verifierPlan,
+    verifierCalisthenie: verifierCalisthenie,
     verifierOndulation: verifierOndulation,
     verifierSilenceDuProgramme: verifierSilenceDuProgramme,
     verifierPhrases: verifierPhrases,

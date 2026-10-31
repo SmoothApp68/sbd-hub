@@ -1663,6 +1663,30 @@
     };
   }
 
+  // 197 (MOTEUR §9.36) — « TA SEMAINE » en Forme et santé : le renforcement et le cardio modéré de la semaine, un fait de `faits.js` (jamais
+  // « en retard », jamais l'assiduité reprochée). Seulement en objectif Forme, jamais en « Juste un carnet », cachable
+  // (`cartes_semaine.forme_semaine = { masquee: true }`, par la file). Rien n'est écrit au rendu.
+  function vueDeLaSemaineForme() {
+    if (Profil.objectifDe(profil) !== 'forme' || Moteur.coachSeTait(profil && profil.intention)) return null;
+    var r = reponsesDesCartes().forme_semaine;
+    if (r && r.masquee === true) return null;
+    var f = faits.semaineDeForme(corpus(), new Date());
+    var s = f.renforcement.faites, e = f.cardio.equivalent;
+    return {
+      renforcement: { libelle: 'Renforcement', texte: s + (s > 1 ? ' séances' : ' séance') + ' sur ' + f.renforcement.cible },
+      cardio: { libelle: 'Cardio modéré', texte: e + ' min sur ' + f.cardio.cible,
+                reste: f.cardio.reste > 0 ? 'Il te reste ' + f.cardio.reste + ' min cette semaine.' : 'Tes ' + f.cardio.cible + ' min de la semaine sont faites.',
+                intense: f.cardio.intenses > 0 ? 'Dont ' + f.cardio.intenses + ' min intenses, comptées double.' : null },
+      pourquoi: Moteur.FORME_REPERES_PHRASE,
+      douleur: Moteur.FORME_DOULEUR_PHRASE,
+      surMasquer: function () {
+        var toutes = Object.assign({}, reponsesDesCartes());
+        toutes.forme_semaine = { masquee: true };
+        poserProfil({ cartes_semaine: toutes }).then(rendreParcours).catch(function (x) { console.warn('Carte non masquée :', texteErreur(x)); });
+      }
+    };
+  }
+
   // La ligne de l'écran Séances : UNE seule, quand une carte d'équilibre parle.
   function rendreLigneDesEquilibres() {
     var noeud = $('ligne-equilibre');
@@ -1697,6 +1721,8 @@
       pesees: { nombre: pesees, assez: pesees >= PESEES_SUFFISANTES },
       // 188-1 — « Ta semaine et tes équilibres », en tête.
       equilibres: vueDesEquilibres(),
+      // 197 — « Ta semaine » en Forme et santé (renforcement, cardio modéré), cachable.
+      forme: vueDeLaSemaineForme(),
       // 189 — « Juste un carnet » : aucune carte, le constat de la baisse se lit ici, en une ligne.
       fatigue: constatDeFatigue(),
       noteDePhase: seriesRevenues ? Moteur.PHRASE_SERIES_REVENUES : null,
@@ -7244,6 +7270,8 @@
       // 194-1 (MOTEUR §9.31) — la mobilité : les zones raides du profil (`null` : pas répondu, `[]` : aucune), les minutes de la semaine par
       // zone (un fait de `faits.js`) et les zones à ménager du profil. Le plan décide du bloc ; il ne relit rien.
       zonesRaides: Array.isArray(profil && profil.zones_raides) ? profil.zones_raides : null,
+      // 197 (MOTEUR §9.36) — 65 ans et plus (`true`), moins (`false`) ou inconnu (`null`) : le plan pose la consigne de puissance, il ne relit pas le profil.
+      plus65: Profil.plus65DuProfil(profil, new Date(instantDuCalcul())),
       mobiliteFaite: faits.minutesDeMobiliteParZone(corpus(), seance.debut),
       menagerProfil: Profil.zonesAMenagerValides(profil && profil.zones_a_menager) || []
     };
@@ -9505,6 +9533,11 @@
         if (enEdition() || !seance) return null;
         var p = planActuel();
         return p && p.mobilite && (p.mobilite.avant || p.mobilite.fin) ? p.mobilite : null;
+      },
+      // 197 — la consigne de puissance (65 ans et plus), lue sur le plan : `{ texte, pourquoi }` pour l'exercice, sinon `null`.
+      puissance: function (slug) {
+        var p = seance && !enEdition() ? planActuel() : null;
+        return p && p.puissance && p.puissance.slug === slug ? p.puissance : null;
       },
       nomMobilite: function (slug) { return Modele.nommer(catalogueIndexe(), slug); },
       surAjouterMobilite: async function (ou) {
@@ -13734,6 +13767,7 @@
       phase: Profil.phaseDe(p),
       materiel: p.materiel,
       barre_traction: Profil.barreTractionDe(p),   // 190 — Ma salle : `true`, `false`, ou `null` (inconnue)
+      plus65: Profil.plus65DuProfil(p, new Date()),   // 197 : `true` / `false` / `null` (pas de date de naissance : rien de deviné)
       anciennete: p.anciennete,               // 60-6 : « moins d'un an » = débutant (le profil en cache, rien de lu en plus)
       priorites: Profil.prioritesDe(p),
       menager: Profil.zonesAMenagerValides(p.zones_a_menager) || [],
@@ -13956,7 +13990,7 @@
 
   // 193-2 — « 1 × 4 · 2 reculs × 8 » : la grosse série, puis ses reculs (la même forme que la routine écrite, `resumeStructure`).
   function seriesFois(l) {
-    return l.series + '\u00a0\u00d7\u00a0' + (l.duree_s > 0 ? l.duree_s + '\u00a0s' : l.reps) + (l.reculs > 0 ? ' \u00b7 ' + l.reculs + (l.reculs > 1 ? ' reculs' : ' recul') + (l.reps_recul > 0 ? ' \u00d7 ' + l.reps_recul : '') : '');
+    return l.series + '\u00a0\u00d7\u00a0' + (l.reps === null && l.duree_s > 0 ? l.duree_s + '\u00a0s' : l.reps) + (l.reculs > 0 ? ' \u00b7 ' + l.reculs + (l.reculs > 1 ? ' reculs' : ' recul') + (l.reps_recul > 0 ? ' \u00d7 ' + l.reps_recul : '') : '');
   }
 
   function rendreApercuDuProgramme() {

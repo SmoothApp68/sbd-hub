@@ -1882,6 +1882,10 @@ const NOTIONS = [
   { notion: 'les deux côtés d’une tenue (étirement fait de chaque côté, 194-1)', pr: '194-U1',
     module: 'moteur.js', fonction: 'coteDeMobilite', lecteurs: ['faits.js'],
     raison: 'les minutes du bloc proposé et celles de la semaine comptent une tenue unilatérale deux fois, par la même fonction.' },
+  // 197 (MOTEUR §9.36) — Forme et santé : la borne des 65 ans est celle de la prudence de montée, une seule définition.
+  { notion: 'l’âge de 65 ans et plus (équilibre au générateur, puissance au plan, prudence de montée)', pr: '197-U1',
+    module: 'moteur.js', fonction: 'plusDe65Ans', lecteurs: ['profil.js'],
+    raison: 'le profil lit `date_naissance` et donne l’âge ; la borne (`AGE_PLAFOND_BAS`) est celle de `prudenceDeMontee` : jamais deux 65 écrits côte à côte.' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

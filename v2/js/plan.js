@@ -1809,6 +1809,28 @@
   //     séance sur tout l'historique (`Moteur.placeDeVolume`) ; facultatif.
   //
   // Pure : mêmes entrées, même plan ; les entrées ne sont jamais modifiées.
+  // ── 197 (MOTEUR §9.36) — LA PUISSANCE DES 65 ANS ET PLUS, posée par le plan ──────────────────────────────────────────────────────────
+  // « Monte vite, descends en contrôlant » sur UN polyarticulaire léger de la séance (le premier dans l'ordre : `Moteur.exerciceDePuissance`), jamais
+  // une barre, jamais un exercice qui charge une zone à ménager ou une douleur récente. `e.plus65` : `true` seulement (inconnu ou faux : rien).
+  // Le plan se tait en Édition et en « Juste un carnet ». L'écran lit `plan.puissance` ; il ne choisit rien.
+  function puissanceDuPlan(e, seance, exos, intentionProfil) {
+    var M = Moteur();
+    if (e.plus65 !== true || seance.edition || intentionProfil === 'entretien') return null;
+    var cat = e.catalogue || {}, G = racine.THGenerateur, jour = M.jourCivil(seance.debut);
+    var cles = ['genou', 'dos', 'epaule', 'coude', 'hanche'];
+    var menager = Array.isArray(e.menagerProfil) ? e.menagerProfil : [];
+    var liste = exos.map(function (x) {
+      var slug = x && x.exercise_slug, f = (slug && cat[slug]) || null;
+      if (!f) return null;
+      var zones = G ? G.zonesQueChargeLExercice(slug, cles) : [];
+      var mal = !!(G && jour && e.douleurs && e.douleurs[slug] && M.douleurRecente(e.douleurs[slug], jour));
+      return { slug: slug, prim: f.muscles_primaires, sec: f.muscles_secondaires, stab: f.muscles_stabilisateurs, equipement: f.equipement,
+               mesure: f.mesure || 'charge_reps', aMenager: mal || zones.some(function (z) { return menager.indexOf(z) >= 0; }) };
+    });
+    var slug = M.exerciceDePuissance(liste);
+    return slug ? { slug: slug, texte: M.FORME_PUISSANCE_PHRASE, pourquoi: M.FORME_PUISSANCE_POURQUOI } : null;
+  }
+
   // ── 194-1 (MOTEUR §9.31) — LA MOBILITÉ EN FIN DE SÉANCE, dans le plan ─────────────────────────────────────────────────
   // Facultative, jamais imposée : rien n'est écrit dans la séance sans le geste « Ajouter » (`Seance.insererMobilite`). Le plan se tait
   // en Édition, en « Juste un carnet », après trois « Non merci » de suite (la mémoire des chauffes, la clé `Moteur.MOBILITE_REFUS_CLE`)
@@ -1951,6 +1973,8 @@
       programme: { enBloc: enBlocDuJour(e, seance) },
       // 194-1 (MOTEUR §9.31) — la mobilité : le bloc d'avant et celui de fin, ou `null` ; le plan le décide, l'écran le dessine.
       mobilite: mobiliteDuPlan(e, seance, exos, intentionProfil),
+      // 197 (MOTEUR §9.36) — la puissance des 65 ans et plus : un exercice et sa phrase, ou `null`.
+      puissance: puissanceDuPlan(e, seance, exos, intentionProfil),
       exercices: questionsDuPlan(exos.map(function (exoBrut, i) {
         // 132 (MOTEUR §10 ter) — UN EXERCICE NOTÉ PAR NOM : sa salle est la liste de ses élastiques (`cat.salle`,
         // `materiel: 'elastique'`). Ses séries entrent avec leur charge VIRTUELLE (`THProfil.seriesPourLeMoteur` :
@@ -5316,6 +5340,7 @@
     verifierMobilite(plan, entrees, erreurs);
     verifierSemaineDeTest(plan, erreurs);
     verifierCalisthenie(plan, erreurs);
+    verifierForme(plan, entrees, erreurs);
     verifierApprochee(plan, erreurs);
     verifierApresLaDecharge(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
@@ -5708,6 +5733,37 @@
     });
   }
 
+
+  // I110 à I112 (MOTEUR §9.36, 197) — LA PUISSANCE DES 65 ANS ET PLUS :
+  //   · I110 — la puissance ne paraît que si l'âge est connu et de 65 ans ou plus (`entrees.plus65 === true`), jamais en Édition ni en « Juste un
+  //     carnet » ; jamais deux exercices ; la phrase est celle du moteur ;
+  //   · I111 — l'exercice est dans la séance, polyarticulaire, léger (jamais une barre), mesuré en reps, hors zone à ménager et douleur récente ;
+  //   · I112 — aucune promesse médicale dans la phrase ni dans son « pourquoi » (guérir, soigner, prévenir une maladie, ostéoporose, diabète).
+  function verifierForme(plan, entrees, erreurs) {
+    var M = Moteur(), e = entrees || {}, pu = plan && plan.puissance;
+    if (!pu) return;
+    if (e.plus65 !== true) erreurs.push('I110 — la consigne de puissance sans âge de 65 ans ou plus connu');
+    if (plan.edition) erreurs.push('I110 — la consigne de puissance en Édition');
+    if (plan.intention === 'entretien') erreurs.push('I110 — la consigne de puissance en « Juste un carnet »');
+    if (pu.texte !== M.FORME_PUISSANCE_PHRASE) erreurs.push('I110 — la phrase de puissance n\u2019est pas celle du moteur');
+    var x = (plan.exercices || []).filter(function (y) { return y && y.slug === pu.slug; })[0];
+    if (!x) { erreurs.push('I111 — l\u2019exercice de puissance n\u2019est pas dans la séance : ' + pu.slug); return; }
+    var f = (e.catalogue || {})[pu.slug] || {};
+    if (f.equipement === 'barre') erreurs.push('I111 — la puissance sur une barre : ' + pu.slug);
+    if (f.mesure && f.mesure !== 'charge_reps' && f.mesure !== 'reps') erreurs.push('I111 — la puissance sur un exercice tenu : ' + pu.slug);
+    if (!M.estPolyarticulaire({ prim: f.muscles_primaires || [], sec: f.muscles_secondaires || [], stab: f.muscles_stabilisateurs || [] })) {
+      erreurs.push('I111 — la puissance sur une isolation : ' + pu.slug);
+    }
+    var G = racine.THGenerateur, jour = M.jourCivil(e.seance && e.seance.debut);
+    var menager = Array.isArray(e.menagerProfil) ? e.menagerProfil : [];
+    if (G && G.zonesQueChargeLExercice(pu.slug, ['genou', 'dos', 'epaule', 'coude', 'hanche']).some(function (z) { return menager.indexOf(z) >= 0; })) {
+      erreurs.push('I111 — la puissance sur une zone à ménager : ' + pu.slug);
+    }
+    if (G && jour && e.douleurs && e.douleurs[pu.slug] && M.douleurRecente(e.douleurs[pu.slug], jour)) erreurs.push('I111 — la puissance sur un exercice douloureux : ' + pu.slug);
+    if (/gu[ée]ri|soign|ost[ée]opor|diab[èe]t|thérap|therap|maladie|médic(?!in)/i.test(String(pu.texte) + ' ' + String(pu.pourquoi))) {
+      erreurs.push('I112 — une promesse médicale dans la phrase de puissance');
+    }
+  }
 
   // I94 à I98 (MOTEUR §9.31, 194-1) — LA MOBILITÉ EN FIN DE SÉANCE :
   //   · I94 — avant la séance, jamais un étirement tenu : la préparation ne porte que de la mobilité EN MOUVEMENT, pour une zone raide

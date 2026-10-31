@@ -81,6 +81,40 @@
   function estAuMax(serie) {
     return !!serie && !estHorsCalcul(serie) && (reserveDemandee(serie) !== null || serie.au_max === true);
   }
+  // ⚠️ 196 (MOTEUR §9.33) — « REST-PAUSE » : UNE LECTURE, ICI, SANS COLONNE NI TYPE (« on ne stocke que l'observé »,
+  // MODIFICATEURS-SERIE §2.2). Une série de travail suivie de lignes `degressive` à la MÊME charge : la première partie est la
+  // série de travail (elle seule décide du palier : une mini-série à bout de souffle n'est pas une mesure de ta charge), les
+  // mini-séries sont des dégressives (hors travail : le rest-pause compte pour UNE série), et l'écran les dit « rest-pause » avec
+  // les reps cumulées à part. Rend, par index, `null` | `{ role: 'tete', cumul, parties }` | `{ role: 'mini' }`.
+  function restPauseDe(series) {
+    var liste = series || [], out = liste.map(function () { return null; });
+    var tete = -1, cumul = 0, parties = 0;
+    var fermer = function () {
+      if (tete >= 0 && parties > 1) out[tete] = { role: 'tete', cumul: cumul, parties: parties };
+      tete = -1; cumul = 0; parties = 0;
+    };
+    liste.forEach(function (s, i) {
+      var c = s ? lireNombre(s.charge_kg) : null;
+      if (estTravail(s)) {
+        fermer();
+        tete = i; cumul = lireNombre(s.reps) || 0; parties = 1;
+        return;
+      }
+      if (tete >= 0 && s && typeDe(s) === 'degressive' && !estHorsCalcul(s) &&
+          (s.rest_pause === true || (c !== null && c > 0 && c === lireNombre(liste[tete].charge_kg)))) {
+        out[i] = { role: 'mini' };
+        cumul += lireNombre(s.reps) || 0; parties++;
+        return;
+      }
+      fermer();
+    });
+    fermer();
+    return out;
+  }
+  // 196 (v2_126, MOTEUR §9.33) — « ACCENT ALLONGÉ » : l'exercice charge le muscle ÉTIRÉ (leg curl assis, extension au-dessus de la tête,
+  // curl incliné…). Une préférence, jamais une obligation : le générateur et l'échange d'exercice la préfèrent à égalité, aucune
+  // routine existante ne change. Une seule lecture, ici.
+  function estAccentAllonge(fiche) { return !!fiche && fiche.accent_allonge === true; }
   function estTravail(serie) {
     return !!serie && !estHorsCalcul(serie) && (typeDe(serie) === 'travail' || typeDe(serie) === 'test' || typeDe(serie) === 'recul' || estAEchec(serie));
   }
@@ -1592,13 +1626,16 @@
       bloc.exercices.forEach(function (exo, i) {
         exo.lettre = bloc.superset ? (LETTRES[i] || '?') : '';
         var tour = 0;
-        exo.series = exo.series.map(function (brute) {
+        var rp = restPauseDe(exo.series);
+        exo.series = exo.series.map(function (brute, k) {
           var travail = estTravail(brute);
           if (travail) tour++;
           return Object.assign({}, brute, {
             estTravail: travail,
             // 152 : « à l'échec » (1 rep et +) ou « manquée » (0 rep) ; la lecture unique.
-            motEchec: motDEchec(brute),
+            motEchec: rp[k] && rp[k].role === 'mini' ? 'rest-pause' : motDEchec(brute),
+            // 196 — la série de travail qui porte des mini-séries : les reps cumulées se disent à part.
+            repsCumulees: rp[k] && rp[k].role === 'tete' ? rp[k].cumul : null,
             // 185 — « Non, ne compte pas » : visible, mais hors du calcul (l'écran la montre à part).
             horsCalcul: estHorsCalcul(brute),
             // Ce que l'écran doit montrer comme fait — coché, vert, compté.
@@ -2791,6 +2828,8 @@
     estAEchec: estAEchec,
     estManquee: estManquee,
     motDEchec: motDEchec,
+    restPauseDe: restPauseDe,
+    estAccentAllonge: estAccentAllonge,
     typeDe: typeDe,
     typeLu: typeLu,
     exercicesFaits: exercicesFaits,

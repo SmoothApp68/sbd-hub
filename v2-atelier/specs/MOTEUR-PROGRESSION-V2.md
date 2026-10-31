@@ -1838,6 +1838,16 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 - **Lecteurs** : une série de mobilité (aucun muscle primaire) est hors volume, équilibres, fatigue, palier, jeu (`porteDuVolume`) ; hors records (`optionsDeRecord.sansRecord`, `recordsBattus`) ; `serie_de_travail` (serveur) n'a aucun lecteur par muscle qui la voie — aucun SQL.
 - **Invariants** : I94 (rien de tenu avant, 2 min au plus) · I95 (2 zones, 10 minutes, tenues 30-60 s, 3 séries) · I96 (zone à ménager) · I97 (séance raccourcie) · I98 (consigne, voix, silences).
 
+### 9.33 Le rest-pause et le muscle étiré — décidé le 31/10/2026 (chantier 196) (I105, I106)
+
+*Delta daté du 31/10/2026. Maquette : `maquette-muscle-et-phase-v1` (4 passes de casquettes). Colonne : `exercises.accent_allonge` (`v2_126`, passée, 23 exercices marqués). Aucun SQL de plus : le rest-pause n'a ni type ni colonne.*
+
+- **Une seule notion, sans stockage** : « on ne stocke que l'observé » (MODIFICATEURS-SERIE §2.2). Un rest-pause est une série de travail suivie de lignes `degressive` à la MÊME charge ; `Modele.restPauseDe` le lit (une mini-série marquée `rest_pause` en séance, pas encore chargée, en est une aussi). La première partie est LA série de travail : elle seule décide du palier (une mini-série à bout de souffle ne mesure pas ta charge), les mini-séries sont des dégressives donc hors travail : le rest-pause compte pour UNE série. Les reps cumulées se disent à part sur la ligne (« N reps avec les mini-séries »).
+- **Le geste** : « Rest-pause » au menu ⋯ d'une série de travail chargée, sur une isolation ou une machine (`Moteur.peutRestPause` : isolation, ou machine/poulie ; jamais une barre, jamais un soulevé, jamais une mesure en durée), hors semaine allégée, hors zone à ménager. Il pose deux mini-séries à la charge de la série (`Seance.ajouterRestPause`) : jusqu'à l'échec, 15 s, encore, 15 s, encore. Le plan ne les traite jamais en dégressives du coach (pas de baisse de 22,5 %, pas de phrase) : leur fantôme est la charge de la série de travail (`source: 'rest_pause'`).
+- **« J'ai peu de temps », objectif Muscle** : après le retrait du bloc de mobilité (I97) et avant toute autre coupe, les 2 dernières séries d'UNE isolation/machine (3 séries de travail au moins, ni exemptée, ni grand mouvement, ni dégressive ou recul) deviennent UNE série rest-pause (3 → 2, la dernière en rest-pause) ; l'exercice qui y gagne le plus de temps, un seul. La carte le dit et porte son « Pourquoi » (Enes 2021, Sodal 2023 : autant de muscle en moins de temps). La routine n'est jamais touchée.
+- **Le muscle étiré** (`accent_allonge`, `Modele.estAccentAllonge`) : à égalité, le générateur (`choisirBrut`, `unExercice`) préfère l'exercice qui charge le muscle étiré (Maeo 2021 : leg curl assis +14 % contre +9 % couché), et l'échange d'exercice le propose en premier, après l'historique (un exercice déjà fait n'est jamais rétrogradé). Jamais de changement d'une routine existante.
+- **Invariants** : I105 (la mini-série reprend la charge de sa série de travail, sans dégressive ni phrase du coach) · I106 (hors couverture, sans pari : une série rest-pause = une série de travail).
+
 ## 10. L'incrément
 
 ### 10.1 Règle

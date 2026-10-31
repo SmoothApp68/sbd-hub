@@ -5696,9 +5696,10 @@
       // différentes, et les distinguer après coup serait rejouer `analyser`.
       // 193-6 : `au_max_reserve` suit la série dans le contrat — sans lui l'habitude (`reposPlafonne`) et le dépassement
       // (`depassementLong`) ne reconnaîtraient jamais une série « Au max » (le test du dépassement l'a montré).
-      return { charge_kg: s.charge_kg, reps: s.reps, rpe: s.rpe, ressenti: s.ressenti,
-               au_max_reserve: s.au_max_reserve === undefined ? null : s.au_max_reserve,
-               role: role, origine: d && d.role === undefined ? null : d.role };
+      var vue = { charge_kg: s.charge_kg, reps: s.reps, rpe: s.rpe, ressenti: s.ressenti,
+                  role: role, origine: d && d.role === undefined ? null : d.role };
+      if (s.au_max_reserve !== undefined && s.au_max_reserve !== null) vue.au_max_reserve = s.au_max_reserve;   // seulement quand elle existe
+      return vue;
     });
     return { debut: debut, palier: r.palier === undefined ? null : r.palier, series: series };
   }

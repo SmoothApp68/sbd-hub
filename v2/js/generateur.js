@@ -48,12 +48,25 @@
     curl: ['curl_biceps_barre_ez', 'curl_biceps_haltere', 'curl_marteau_haltere'],
     triceps: ['extension_triceps_poulie_haute', 'extension_des_triceps_au_dessus_de_la_tete_cable',
               'extension_triceps_haltere', 'pompes_diamant'],
-    ecarte: ['ecarte_machine', 'ecartes_poulie', 'ecarte_haltere']
+    ecarte: ['ecarte_machine', 'ecartes_poulie', 'ecarte_haltere'],
+    // 197 (MOTEUR §9.36) — LES MOTIFS DE « FORME ET SANTÉ » : le geste d'abord, le matériel léger d'abord (haltère, poids du corps).
+    forme_jambes: ['squat_goblet_haltere', 'squat_goblet_kettlebell', 'squat_poids_du_corps', 'fente_arriere_haltere', 'fente_arriere'],
+    forme_charniere: ['souleve_de_terre_roumain_haltere', 'souleve_de_terre_haltere', 'hip_thrust_une_jambe_poids_corps'],
+    forme_poussee: ['pompes_inclinees', 'developpe_couche_haltere', 'chest_press_machine', 'pompes'],
+    // Le tirage ALTERNE d'une séance à l'autre (décision du 31/10/2026) : vertical (A, C), horizontal (B). La règle du débutant
+    // s'applique au vertical : la poulie, les tractions dès « 1 à 3 ans » ou déjà faites.
+    forme_tirage_vertical: ['tractions', 'tirage_poitrine_poulie', 'tirage_poitrine_machine', 'tirage_vertical_elastique'],
+    forme_tirage: ['rowing_haltere', 'rowing_poulie_assis', 'rowing_elastique', 'rowing_inverse'],
+    // Le porté : AUCUN exercice du catalogue (relevé du 31/10/2026) — la place saute tant qu'il n'y en a pas (rapport du 197).
+    forme_porte: [],
+    forme_gainage: ['planche', 'gainage_rkc', 'gainage_dorsal'],
+    forme_equilibre: ['equilibre_une_jambe']
   };
 
   // Rien de faisable dans un motif : son voisin (même muscle, autre angle).
   var VOISIN = { tirage_vertical: 'rowing', rowing: 'tirage_vertical', quad_iso: 'presse', leg_curl: 'jambes_tendues',
-                 incline: 'couche', couche: 'incline', ecarte: 'incline' };
+                 incline: 'couche', couche: 'incline', ecarte: 'incline',
+                 forme_tirage_vertical: 'forme_tirage', forme_tirage: 'forme_tirage_vertical' };   // 197 : la place du tirage ne reste pas vide
 
   // +3 reps en isolation : les petits muscles se travaillent long.
   var PETITS = ['elev_lat', 'arriere', 'mollets', 'abdos'];
@@ -93,6 +106,27 @@
   };
 
   var JOURS_MIN = 2, JOURS_MAX = 6, JOURS_DEFAUT = 3;
+
+  // ── 197 (MOTEUR §9.36) — « FORME ET SANTÉ » : 2 à 3 séances corps entier, six mouvements (squat ou fente, charnière, poussée,
+  // tirage, porté, gainage), 2-3 séries « en gardant 2 à 3 reps » (OMS 2020, ANSES : du renforcement au moins 2 fois par semaine).
+  // Pas de figure, pas d'échec (`auMaxDe` forme = rien). La durée de séance du profil raccourcit comme pour les autres objectifs.
+  // 65 ans et plus (`entree.plus65 === true`, lu sur `date_naissance` ; inconnue : rien de deviné) : un exercice d'équilibre en plus.
+  var FORME_JOURS_MAX = 3;
+  function tenue(motif, role, n, secondes) { return pl(motif, role, { n: n, reps: null, duree: secondes }); }
+  function forme(nom, i) {
+    return [nom, [acc('forme_jambes', 'P', 3, 10), acc(i % 2 === 0 ? 'forme_tirage_vertical' : 'forme_tirage', 'S', 3, 10), acc('forme_poussee', 'S', 3, 10),
+                  acc('forme_charniere', 'S', 2, 10), tenue('forme_porte', 'T', 2, 30), tenue('forme_gainage', 'T', 2, 30)]];
+  }
+  function gabaritDeForme(p) {
+    if (p.objectif !== 'forme' || p.famille === false) return null;     // `famille: false` : le gabarit d'avant (les cas de 60-6 le rejouent)
+    var n = Math.min(bornerJours(p.jours), FORME_JOURS_MAX);
+    var noms = ['Corps entier A', 'Corps entier B', 'Corps entier C'].slice(0, n);
+    return noms.map(function (nom, i) {
+      var rt = forme(nom, i);
+      if (p.plus65 === true) rt[1].push(tenue('forme_equilibre', 'T', 2, 30));
+      return rt;
+    });
+  }
 
   // ── 193-2 — LES FAMILLES DE FORCE (Force = powerlifting, Les deux = powerbuilding), 2 à 6 jours ──────────────
   // Le même mouvement revient dans la semaine DANS UNE AUTRE ZONE (l'ondulation, MOTEUR §9.29) : la zone est écrite dans
@@ -172,11 +206,11 @@
   // ── La zone à ménager (décidé le 08/10/2026, question 1) ─────────────────────
   // Une place dont le motif charge la zone GARDE son exercice et toutes ses séries, SANS série lourde.
   var CHARGE_ZONE = {
-    genou: ['squat', 'presse', 'quad_iso'],
-    dos: ['charniere', 'jambes_tendues', 'squat', 'rowing'],
-    epaule: ['militaire', 'couche', 'couche_serre', 'elev_lat'],
+    genou: ['squat', 'presse', 'quad_iso', 'forme_jambes'],
+    dos: ['charniere', 'jambes_tendues', 'squat', 'rowing', 'forme_charniere', 'forme_jambes', 'forme_tirage', 'forme_tirage_vertical'],
+    epaule: ['militaire', 'couche', 'couche_serre', 'elev_lat', 'forme_poussee'],
     coude: ['triceps', 'curl'],
-    hanche: ['hip_thrust', 'squat', 'charniere']
+    hanche: ['hip_thrust', 'squat', 'charniere', 'forme_jambes', 'forme_charniere']
   };
 
   // La variante plus tolérée, seulement les cas évidents : le dos prend le belt squat (la charge est à la ceinture),
@@ -252,18 +286,18 @@
   // `session` : les exercices DÉJÀ DANS cette séance (60-6, S2/S6). Le repli « un exercice déjà pris » les exclut : le
   // même exercice deux fois dans une séance n'a pas de sens, la place saute plutôt. `debutant` (S3) : on cherche
   // d'abord SANS les trois exercices de poids du corps lourd qui ne sont pas dans l'historique, puis, si rien, avec.
-  function choisir(motif, ok, ecartes, pris, menager, faits, materiel, debutant, session) {
+  function choisir(motif, ok, ecartes, pris, menager, faits, materiel, debutant, session, allonge) {
     if (debutant) {
       var sans = function (s) { return !(contient(PDC_LOURD, s) && !(possede(faits, s) ? Number(faits[s]) || 0 : 0)); };
-      var r = choisirBrut(motif, function (s) { return ok(s) && sans(s); }, ecartes, pris, menager, faits, materiel, session);
+      var r = choisirBrut(motif, function (s) { return ok(s) && sans(s); }, ecartes, pris, menager, faits, materiel, session, allonge);
       if (r) return r;
     }
-    return choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session);
+    return choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session, allonge);
   }
 
   function candidatsDe(motif) { return liste(possede(MOTIFS, motif) ? MOTIFS[motif] : VARIANTES[motif]); }
 
-  function choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session) {
+  function choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session, allonge) {
     function candidats(src, sansPris) {
       return src.filter(function (s) {
         return !contient(ecartes, s) && ok(s) && !(sansPris && possede(pris, s)) && !(!sansPris && possede(session, s));
@@ -280,6 +314,12 @@
       src = candidatsDe(motif);
       cand = candidats(src, false);
     }
+    // 197 : le tirage de Forme alterne ; sans tirage vertical au catalogue, la séance verticale reprend l'horizontal (et inversement)
+    // plutôt que de perdre sa place. Les autres motifs gardent leur comportement (pas de reprise par le voisin).
+    if (!cand.length && /^forme_tirage/.test(motif) && possede(VOISIN, motif)) {
+      src = MOTIFS[VOISIN[motif]];
+      cand = candidats(src, false);
+    }
     if (!cand.length) return null;
     var doux = null;
     liste(menager).some(function (z) {
@@ -289,7 +329,9 @@
     var corps = materiel === 'poids_du_corps';
     var tries = trier(cand, function (x, y) {
       function cle(s) {
-        return [s !== doux ? 1 : 0, -(possede(faits, s) ? Number(faits[s]) || 0 : 0),
+        // 196 — à égalité de pratique, l'exercice qui charge le muscle ÉTIRÉ (`accent_allonge`) passe devant : une préférence, la liste
+        // des candidats ne change pas (`allonge` absent : rien ne change).
+        return [s !== doux ? 1 : 0, -(possede(faits, s) ? Number(faits[s]) || 0 : 0), typeof allonge === 'function' && allonge(s) ? 0 : 1,
                 corps && contient(ELASTIQUES, s) ? 0 : 1, src.indexOf(s)];
       }
       var kx = cle(x), ky = cle(y);
@@ -369,6 +411,8 @@
     var l = { exercise_slug: slug, motif: motif, role: role, series: n, reps: reps, prioritaire: prioEx, menage: menage,
               barre_fixe: demandeUneBarreFixe(slug, fiche), spec: spec };
     if (zone) l.zone = zone;
+    // 197 — une place TENUE (gainage, équilibre) : une durée, pas de reps.
+    if (spec.duree && fiche.mesure === 'temps') { l.reps = null; l.duree_s = spec.duree; }
     if (reculs) { l.reculs = reculs; l.reps_recul = repsRecul; }
     if (spec.lourd) l.lourd = true;
     if (spec.id || spec.lie) l.lien = spec.id || spec.lie;
@@ -398,7 +442,9 @@
         objectif: p.objectif, debutant: debutant, famille: familleDeBarre(l.exercise_slug, catalogue),
         equipement: fiche.equipement || null,
         isolation: Moteur.estIsolation({ prim: liste(fiche.muscles_primaires), sec: liste(fiche.muscles_secondaires), stab: liste(fiche.muscles_stabilisateurs) }),
-        allegee: false, menagee: !!l.menage, douleurRecente: false, barreDeJambesApres: jambesApres
+        allegee: false, menagee: !!l.menage, douleurRecente: false, barreDeJambesApres: jambesApres,
+        zoneDePlan: l.zone || null,     // 193-6b : jour Lourd → échec ; une autre zone de la même barre → garde 1
+        figure: fiche.mesure === 'temps'
       });
       if (a && a.pose === 'defaut') l.au_max = true;
     });
@@ -439,16 +485,101 @@
     return gabaritDeForce(catalogue, p, ok, racine.THProfil.estDebutant(p)) !== null;
   }
 
+  // ── 199 (MOTEUR §9.37) — HYBRIDE : LES JAMBES LOURDES, LOIN DU CARDIO RÉGULIER ───────────────────────────────────────────────────────
+  // Le coach lit les jours de cardio réguliers de la personne dans ses séances (`faits.joursDeCardioReguliers` : rien n'est demandé). Le générateur
+  // place le jour de jambes lourdes (un squat ou un soulevé en zone Lourd ou Mix) À DEUX JOURS AU MOINS d'un jour de cardio régulier — ni la
+  // veille, ni le lendemain, ni le jour même. Convention de coachs (plans Hyrox, Tactical Barbell), dite comme telle ; la science (Schumann 2022)
+  // ne l'exige pas : elle dit seulement que l'explosivité baisse un peu si les deux sont à moins de 3 h d'écart.
+  // Le programme ne connaît pas les jours de la semaine : sauf `entree.joursSeances` (lundi = 0), ses séances tombent sur les jours TYPES ci-dessous
+  // (convention : réparties dans la semaine). Impossible de les écarter toutes : l'ordre reste, et le générateur le dit.
+  var NOMS_DES_JOURS = racine.THModele.JOURS_DEPUIS_LUNDI;       // lundi = 0 (le formateur, une seule liste)
+  var JOURS_TYPES = { 1: [0], 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 4, 5], 6: [0, 1, 2, 3, 4, 5] };
+  var HYBRIDE_ECART_MIN = 2;
+  var HYBRIDE_SCIENCE = 'Courir ne te fait pas perdre de force : 43 études, ni force maximale ni muscle en moins quand on mélange les deux. Seule l\u2019explosivité baisse un peu si les deux sont à moins de 3 h d\u2019écart (Schumann 2022).';
+  var HYBRIDE_CONVENTION = 'Éviter les jambes lourdes la veille et le lendemain d\u2019un cardio dur est une convention de coachs (plans Hyrox, Tactical Barbell), pas une règle prouvée.';
+
+  function joursDeCardio(x) {
+    var vus = {}, sortie = [];
+    liste(x).forEach(function (j) { var n = Number(j); if (n % 1 === 0 && n >= 0 && n <= 6 && !possede(vus, n)) { vus[n] = true; sortie.push(n); } });
+    return sortie;
+  }
+  function ecartDeJours(a, b) { var d = Math.abs(a - b); return Math.min(d, 7 - d); }
+  // Une séance de jambes lourdes : un squat ou un soulevé (la place, `motif`) en zone Lourd ou Mix.
+  function aDesJambesLourdes(rt) {
+    return liste(rt && rt.exercices).some(function (l) { return racine.THMoteur.estZoneForce(l.zone) && contient(['squat', 'charniere'], l.motif); });
+  }
+  function joursDuProgramme(n, e) {
+    var vises = liste(e && e.joursSeances).map(Number).filter(function (j) { return j % 1 === 0 && j >= 0 && j <= 6; });
+    if (vises.length === n && new Set(vises).size === n) return vises.slice().sort(function (a, b) { return a - b; });
+    return possede(JOURS_TYPES, n) ? JOURS_TYPES[n] : null;
+  }
+  function permutations(n) {
+    var sortie = [];
+    (function rec(pref, reste) {
+      if (!reste.length) { sortie.push(pref); return; }
+      reste.forEach(function (r, i) { rec(pref.concat([r]), reste.slice(0, i).concat(reste.slice(i + 1))); });
+    })([], Array.apply(null, Array(n)).map(function (_, i) { return i; }));
+    return sortie;
+  }
+  // Rend les routines dans l'ordre de la semaine (les jours TYPES ou `joursSeances`), chacune de jambes lourdes portant `hybride` :
+  // `{ jour, jourAvant, deplace, impossible }`. Sans jour de cardio régulier, sans jambes lourdes ou au-delà de 6 séances : rien ne change.
+  function placerLesJambesLourdes(routines, entree) {
+    var rts = liste(routines), cardio = joursDeCardio((entree || {}).cardioJours);
+    var jours = rts.length >= 1 && rts.length <= 6 ? joursDuProgramme(rts.length, entree) : null;
+    if (!cardio.length || !jours) return rts;
+    var lourdes = rts.map(aDesJambesLourdes);
+    if (!lourdes.some(Boolean)) return rts;
+    function proche(jour) { return cardio.some(function (c) { return ecartDeJours(jour, c) < HYBRIDE_ECART_MIN; }); }
+    function fautes(perm) {
+      var n = 0;
+      perm.forEach(function (r, k) { if (lourdes[r] && proche(jours[k])) n++; });
+      return n;
+    }
+    // La meilleure semaine : le moins de jours de jambes lourdes trop près du cardio, puis le moins de séances déplacées (la première en cas d'égalité).
+    var meilleure = null, f0 = 99, d0 = 99;
+    permutations(rts.length).forEach(function (perm) {
+      var f = fautes(perm), d = perm.filter(function (r, k) { return r !== k; }).length;
+      if (f < f0 || (f === f0 && d < d0)) { meilleure = perm; f0 = f; d0 = d; }
+    });
+    return meilleure.map(function (r, k) {
+      var rt = Object.assign({}, rts[r]);
+      if (lourdes[r]) rt.hybride = { jour: jours[k], jourAvant: jours[r], deplace: r !== k, impossible: proche(jours[k]) };
+      return rt;
+    });
+  }
+  // Ce que le coach DIT de la place des jambes lourdes (l'aperçu du programme) : `[]` quand rien ne change et que rien n'est impossible.
+  // `entree.cardioSemaines` : `{ jour: nombre de semaines sur 4 }` (le fait de `faits.joursDeCardioReguliers`).
+  function phrasesHybrides(routines, entree) {
+    var e = entree || {}, cardio = joursDeCardio(e.cardioJours);
+    var lourdes = liste(routines).filter(function (rt) { return rt && rt.hybride; });
+    if (!cardio.length || !lourdes.length) return [];
+    var deplacees = lourdes.filter(function (rt) { return rt.hybride.deplace; });
+    var restent = lourdes.filter(function (rt) { return rt.hybride.impossible; });
+    var sem = e.cardioSemaines || {};
+    var qui = joindre(cardio.map(function (j) { return NOMS_DES_JOURS[j] + (sem[j] > 0 ? ' (' + sem[j] + ' des 4 dernières semaines)' : ''); }));
+    var phrases = [];
+    deplacees.forEach(function (rt) {
+      phrases.push('Tu fais du cardio le ' + qui + '. Ton jour de jambes lourdes (' + rt.nom + ') passe au ' + NOMS_DES_JOURS[rt.hybride.jour] +
+        ', pas au ' + NOMS_DES_JOURS[rt.hybride.jourAvant] + ' : la veille ou le lendemain d\u2019un cardio dur, tes jambes sont moins fraîches.');
+    });
+    if (restent.length) {
+      phrases.push((deplacees.length ? '' : 'Tu fais du cardio le ' + qui + '. ') + 'Je n\u2019ai pas pu écarter de ton cardio ' +
+        joindre(restent.map(function (rt) { return rt.nom; })) + ' : ' + (restent.length > 1 ? 'elles restent' : 'elle reste') + ' à moins de deux jours.');
+    }
+    return phrases.concat([HYBRIDE_SCIENCE, HYBRIDE_CONVENTION]);
+  }
+
   // ── Le programme ────────────────────────────────────────────────────────────
   // `entree` : { jours, objectif, phase, materiel, anciennete, priorites, menager, ecartes, faits }. Rend des routines
   // { nom, exercices: [{ exercise_slug, motif, role, series, reps, prioritaire, menage, barre_fixe }] }.
   function generer(catalogue, entree) {
     var p = entree || {};
+    if (p.objectif === 'calisthenie') return genererCalisthenie(catalogue, p);   // 195-3 : son propre gabarit, sans barre chargée
     var faits = p.faits || {};
     var ecartes = liste(p.ecartes);
     var ok = faisable(catalogue, p.materiel, faits, p.barre_traction);
     var debutant = racine.THProfil.estDebutant(p);
-    var gabarit = gabaritDeForce(catalogue, p, ok, debutant) || GABARITS[bornerJours(p.jours)];
+    var gabarit = gabaritDeForme(p) || gabaritDeForce(catalogue, p, ok, debutant) || GABARITS[bornerJours(p.jours)];
     // 193-2 — les places liées (la même barre, deux zones) : `id` → clé de la place ; une liée prend l'exercice de sa principale.
     var ids = {};
     gabarit.forEach(function (rt, r) {
@@ -477,7 +608,8 @@
         var deja = choix[pl.r + '-' + jj];
         if (deja) session[deja] = true;
       });
-      var s = choisir(pl.motif, ok, ecartes, pris, p.menager, faits, p.materiel, debutant, session);
+      var s = choisir(pl.motif, ok, ecartes, pris, p.menager, faits, p.materiel, debutant, session,
+                      function (x) { return racine.THModele.estAccentAllonge(catalogue[x]); });
       if (s) { choix[pl.r + '-' + pl.j] = s; pris[s] = true; }
     });
     // Les zones dont toutes les places du programme sont des principaux : la priorité de zone n'y aurait aucun effet.
@@ -489,7 +621,7 @@
       (gabarit[Number(parts[0])][1][Number(parts[1])][1] === 'P' ? zonesP : zonesAutres)[cleDeZone(fiche)] = true;
     });
     Object.keys(zonesP).forEach(function (cle) { if (!possede(zonesAutres, cle)) solo[cle] = true; });
-    return gabarit.map(function (rt, r) {
+    return placerLesJambesLourdes(gabarit.map(function (rt, r) {
       var ex = [];
       rt[1].forEach(function (pl, j) {
         var s = choix[r + '-' + j];
@@ -506,7 +638,7 @@
         return (x.prioritaire ? 0 : 1) - (y.prioritaire ? 0 : 1) || ROLES.indexOf(x.role) - ROLES.indexOf(y.role);
       });
       return { nom: rt[0], exercices: marquerAuMax(catalogue, ex, p) };
-    });
+    }), p);
   }
 
   // ── « Je n'en veux pas » ──────────────────────────────────────────────────────
@@ -558,7 +690,7 @@
     liees.forEach(function (c) { nouveau[c[0]].exercices.forEach(function (x) { pris[x.exercise_slug] = true; }); });
     // `pris` = les exercices de CETTE séance : le repli ne les reprend jamais (60-6, S6) ; le débutant reste débutant.
     var s = choisir(vieux.motif, faisable(catalogue, p.materiel, faits, p.barre_traction), ecartes, pris, p.menager, faits, p.materiel,
-                    racine.THProfil.estDebutant(p), pris);
+                    racine.THProfil.estDebutant(p), pris, function (x) { return racine.THModele.estAccentAllonge(catalogue[x]); });
     if (s === null) {
       // rien au catalogue : la place disparaît (ses places liées avec elle, de la dernière à la première pour garder les rangs)
       liees.slice().sort(function (a, b) { return b[1] - a[1]; }).forEach(function (c) { nouveau[c[0]].exercices.splice(c[1], 1); });
@@ -747,7 +879,7 @@
     // 66D : avec un historique, une seule séance est possible (« 1 séance par semaine. »).
     var n = total === undefined ? rts.length : total;
     return { titre: n + (n > 1 ? ' séances' : ' séance') + ' par semaine.', zones: zones, barreFixe: barre,
-             famille: phrasesDeFamille(lignes, n) };
+             famille: phrasesDeFamille(lignes, n), hybride: phrasesHybrides(rts, e) };
   }
 
   // ── Ce que le raccourci de la durée ne touche pas (R4/R6, 60-5) ──────────────────────
@@ -1266,7 +1398,11 @@
       rs.forEach(function (r) { r.exercices.forEach(function (x) { dedans[x.exercise_slug] = true; }); });
       var cands = Object.keys(fois).filter(function (s) {
         return !dedans[s] && !contient(ecartes, s) && possede(cat, s) && comblable(s, cat) && contient(primaires(s), m);
-      }).sort(function (a, b) { return (fois[b] - fois[a]) || (a < b ? -1 : (a > b ? 1 : 0)); });
+      }).sort(function (a, b) {
+        // 196 — à égalité de pratique, l'exercice qui charge le muscle ÉTIRÉ (`accent_allonge`) passe devant.
+        var ea = racine.THModele.estAccentAllonge(cat[a]), eb = racine.THModele.estAccentAllonge(cat[b]);
+        return (fois[b] - fois[a]) || (ea === eb ? 0 : (ea ? -1 : 1)) || (a < b ? -1 : (a > b ? 1 : 0));
+      });
       var seriesHab = hab.series || {}, repsHab = hab.reps || {};
       for (var c = 0; c < cands.length; c++) {
         var s = cands[c];
@@ -1640,7 +1776,165 @@
     return lignes;
   }
 
+  // ── 195-2 — LE DÉPART DE LA CALISTHÉNIE ───────────────────────────────────────────────────────────────────────────
+  // Les quatre chiffres du questionnaire (`profiles.depart_calisthenie`) -> les marches où l'on commence. Table pure, la
+  // maquette (31/10) : aucun calcul, aucune décision de séance (le générateur et le plan la lisent). Un chiffre inconnu
+  // (`null`, « Je ne sais pas ») -> une marche prudente, ajustée en deux séances par le moteur. Les slugs sont ceux du catalogue.
+  // Chaque entrée : `{ slugs: [exercices], reps: 'zone' }`.
+  var DEPART_PRUDENT = { tractions: ['traction_negative', 'rowing_inverse'], pompes: ['pompes_genoux'], dips: ['dips_negatif'],
+                         jambes: ['split_squat_bulgare_poids_du_corps'] };
+  function departDeCalisthenie(d) {
+    var x = d || {};
+    var n = function (v) { return typeof v === 'number' && isFinite(v) && v >= 0 ? v : null; };
+    var t = n(x.tractions), p = n(x.pompes), di = n(x.dips);
+    return {
+      tractions: t === null ? DEPART_PRUDENT.tractions
+        : t === 0 ? ['traction_negative', 'rowing_inverse']
+        : t <= 4 ? ['tractions', 'traction_negative']
+        : t <= 11 ? ['tractions'] : ['tractions_leste'],
+      pompes: p === null ? DEPART_PRUDENT.pompes
+        : p <= 4 ? ['pompes_inclinees'] : p <= 14 ? ['pompes_genoux'] : p <= 29 ? ['pompes'] : ['pompes_declinees'],
+      dips: di === null ? DEPART_PRUDENT.dips
+        : di === 0 ? ['dips_negatif'] : di <= 14 ? ['dips_torse'] : ['dips_torse_lestes'],
+      jambes: x.pistol === true ? ['pistol_squat'] : DEPART_PRUDENT.jambes
+    };
+  }
+
+  // ── 195-3 — LE PROGRAMME DE CALISTHÉNIE ──────────────────────────────────────────────────────────────────────────────
+  // Corps entier, 2 à 4 séances par semaine (la Recommended Routine) : trois supersets par séance — tirage + jambes, poussée +
+  // charnière, tirage + poussée — et, en tête, UNE figure (tête fraîche) sur au plus trois séances (bras tendus : tendons du biceps
+  // et du coude, jamais plus de 3 jours par semaine). Chaque exercice est la MARCHE de la personne sur son échelle (le catalogue :
+  // `echelle`, `echelle_rang`) : le plus haut rang déjà fait, sinon la marche de départ (`departDeCalisthenie`) ; jamais une
+  // décision de charge (le plan décide). Table pure.
+  var CAL_PAIRES = [
+    [['cal_tirage', 'tractions'], ['cal_jambes', 'squat_poids_du_corps']],
+    [['cal_poussee', 'dips_torse'], ['cal_charniere', 'pont_fessier']],
+    [['cal_rowing', 'rowing_inverse'], ['cal_pompes', 'pompes']]
+  ];
+  var CAL_SERIES = 3, CAL_REPS = 8, CAL_REPS_DEPART = 5, CAL_FIGURE_JOURS = 3, CAL_SEANCES_MAX = 4, CAL_FIGURE_SECONDES = 10;
+  var CAL_FIGURE_PAR_DEFAUT = 'front_lever';
+  var CAL_ZONES_BRAS_TENDUS = ['coude', 'epaule'];
+  var PHRASE_SANS_BARRE = 'Pour progresser en tirage, il te faut une barre ou des anneaux.';
+  function marchesDeLEchelle(catalogue, echelle) {
+    return racine.THModele.marchesTriees(catalogue || {}, echelle);
+  }
+  function faitsDe(faits, s) { return possede(faits, s) ? Number(faits[s]) || 0 : 0; }
+  // La marche d'une échelle : `{ slug, depart }` ou `null`. Un exercice écarté ou impossible (barre) descend d'un rang.
+  function marcheDeLaPersonne(catalogue, echelle, faits, departs, ecartes, ok) {
+    var Mo = racine.THModele;
+    var rungs = marchesDeLEchelle(catalogue, echelle);
+    var libre = function (s) { return !contient(ecartes, s) && ok(s); };
+    var tienne = rungs.filter(function (f) { return faitsDe(faits, f.slug) > 0 && libre(f.slug); })
+      .sort(function (a, b) { return Mo.rangDeLEchelle(b) - Mo.rangDeLEchelle(a) || faitsDe(faits, b.slug) - faitsDe(faits, a.slug); })[0];
+    if (tienne) return { slug: tienne.slug, depart: false };
+    var d = liste(departs).filter(function (s) { return possede(catalogue, s) && libre(s); })[0];
+    if (d) return { slug: d, depart: true };
+    // la marche de départ écartée ou impossible : la plus facile qui reste sur l'échelle
+    var r = rungs.filter(function (f) { return libre(f.slug); })[0];
+    return r ? { slug: r.slug, depart: true } : null;
+  }
+  function figureDeLaPersonne(catalogue, faits, ecartes, ok) {
+    var Mo = racine.THModele;
+    var figs = Object.keys(catalogue || {}).map(function (s) { return catalogue[s]; })
+      .filter(function (f) { return f && f.mesure === 'temps' && Mo.echelleDe(f) !== null && ok(f.slug) && !contient(ecartes, f.slug); });
+    var faite = figs.filter(function (f) { return faitsDe(faits, f.slug) > 0; })
+      .sort(function (a, b) { return faitsDe(faits, b.slug) - faitsDe(faits, a.slug) || Mo.rangDeLEchelle(b) - Mo.rangDeLEchelle(a); })[0];
+    if (faite) return faite;
+    return Mo.marchesTriees(catalogue, CAL_FIGURE_PAR_DEFAUT).filter(function (f) { return f.mesure === 'temps' && ok(f.slug) && !contient(ecartes, f.slug); })[0] || null;
+  }
+  function ligneCalisthenie(catalogue, slug, motif, role, series, reps) {
+    return { exercise_slug: slug, motif: motif, role: role, series: series, reps: reps, prioritaire: false, menage: false,
+             barre_fixe: demandeUneBarreFixe(slug, catalogue[slug]), groupe_superset: null };
+  }
+  function genererCalisthenie(catalogue, entree) {
+    var p = entree || {};
+    var faits = p.faits || {}, ecartes = liste(p.ecartes);
+    var ok = faisable(catalogue, p.materiel, faits, p.barre_traction);
+    var departs = departDeCalisthenie(p.depart_calisthenie);
+    var bras = liste(p.menager).some(function (z) { return contient(CAL_ZONES_BRAS_TENDUS, z); });
+    var n = Math.max(2, Math.min(CAL_SEANCES_MAX, bornerJours(p.jours)));
+    var figure = bras ? null : figureDeLaPersonne(catalogue, faits, ecartes, ok);
+    var marches = {}, complements = [];
+    CAL_PAIRES.forEach(function (paire) {
+      paire.forEach(function (m) {
+        var echelle = m[1];
+        var dep = echelle === 'tractions' ? departs.tractions : echelle === 'pompes' ? departs.pompes : echelle === 'dips_torse' ? departs.dips
+          : echelle === 'squat_poids_du_corps' ? departs.jambes : [];
+        var mc = marcheDeLaPersonne(catalogue, echelle, faits, dep, ecartes, ok);
+        if (mc) marches[m[0]] = mc;
+        // « tractions 3 × 3-5 plus des négatives » : la marche de départ qui en porte deux, la seconde en complément
+        if (mc && mc.depart && dep.length > 1 && dep[0] === mc.slug) {
+          var b = dep[1];
+          if (possede(catalogue, b) && ok(b) && !contient(ecartes, b) && b !== (marches.cal_rowing || {}).slug) complements.push({ motif: m[0], slug: b });
+        }
+      });
+    });
+    var routines = [];
+    for (var k = 0; k < n; k++) {
+      var ex = [];
+      // Jamais deux séances de suite (dans l'ordre de la semaine) : une séance sur deux, et au plus 3 par semaine. Avec 3 ou 4 séances,
+      // deux figures ; avec 2, une. Les jours exacts de la personne ne sont pas connus : l'ordre des séances est ce qui se lit.
+      if (figure && k % 2 === 0 && k < CAL_FIGURE_JOURS * 2) {
+        var lf = ligneCalisthenie(catalogue, figure.slug, 'cal_figure', 'T', CAL_SERIES, null);
+        lf.duree_s = figure.echelle_seuil_s || CAL_FIGURE_SECONDES;   // une tenue en secondes : `duree_cible_s`, jamais `reps`
+        ex.push(lf);
+      }
+      var groupe = 0;
+      for (var i = 0; i < CAL_PAIRES.length; i++) {
+        var paire = CAL_PAIRES[(i + k) % CAL_PAIRES.length];
+        var lignes = paire.map(function (m) {
+          var mc = marches[m[0]];
+          return mc ? ligneCalisthenie(catalogue, mc.slug, m[0], 'S', CAL_SERIES, mc.depart ? CAL_REPS_DEPART : CAL_REPS) : null;
+        }).filter(Boolean);
+        if (lignes.length === 2) { groupe += 1; lignes[0].groupe_superset = lignes[1].groupe_superset = groupe; }
+        lignes.forEach(function (l) { ex.push(l); });
+      }
+      complements.forEach(function (c) {
+        if (ex.some(function (l) { return l.exercise_slug === c.slug; })) return;
+        ex.push(ligneCalisthenie(catalogue, c.slug, c.motif, 'T', 2, 3));
+      });
+      var rt = { nom: 'Corps entier ' + 'ABCD'.charAt(k), exercices: marquerAuMax(catalogue, ex, p) };
+      routines.push(rt);
+    }
+    return routines;
+  }
+  // Ce que le coach dit en tête de l'aperçu du programme de calisthénie : sans barre de traction, il le dit (la promesse d'honnêteté de
+  // la maquette). `[]` ailleurs. Lue par l'aperçu, jamais recalculée.
+  function avertissementsCalisthenie(entree) {
+    var p = entree || {};
+    return p.objectif === 'calisthenie' && p.barre_traction === false ? [PHRASE_SANS_BARRE] : [];
+  }
+  // I101 à I103 (195-3) — le programme de calisthénie : au plus 3 séances avec une figure (bras tendus) ; aucune figure avec une zone
+  // à ménager coude ou épaule ; aucun exercice qui demande une barre de traction quand la personne dit qu'elle n'en a pas.
+  function verifierCalisthenie(entree, routines) {
+    var p = entree || {}, cat = p.catalogue || {}, fautes = [];
+    var estFigure = function (l) { var f = cat[l.exercise_slug]; return !!f && f.mesure === 'temps' && racine.THModele.echelleDe(f) !== null; };
+    var avecFigure = liste(routines).filter(function (rt) { return liste(rt.exercices).some(estFigure); });
+    if (avecFigure.length > CAL_FIGURE_JOURS) fautes.push('I101 ' + avecFigure.length + ' séances avec une figure (au plus ' + CAL_FIGURE_JOURS + ')');
+    for (var i = 1; i < liste(routines).length; i++) {
+      if (liste(routines[i - 1].exercices).some(estFigure) && liste(routines[i].exercices).some(estFigure)) {
+        fautes.push('I101 deux séances de suite avec une figure (' + (i) + ' et ' + (i + 1) + ')');
+      }
+    }
+    if (liste(p.menager).some(function (z) { return contient(CAL_ZONES_BRAS_TENDUS, z); }) && avecFigure.length) {
+      fautes.push('I102 une figure malgré une zone à ménager (coude ou épaule)');
+    }
+    if (p.barre_traction === false) {
+      liste(routines).forEach(function (rt) {
+        liste(rt.exercices).forEach(function (l) {
+          if (demandeUneBarreFixe(l.exercise_slug, cat[l.exercise_slug])) fautes.push('I103 ' + l.exercise_slug + ' demande une barre de traction, déclarée absente');
+        });
+      });
+    }
+    return fautes;
+  }
+
   var api = {
+    genererCalisthenie: genererCalisthenie,
+    verifierCalisthenie: verifierCalisthenie,
+    PHRASE_SANS_BARRE: PHRASE_SANS_BARRE,
+    avertissementsCalisthenie: avertissementsCalisthenie,
+    departDeCalisthenie: departDeCalisthenie,
     // 188-1 — tirage et poussée : UNE définition, lue par les cartes d'équilibre de la semaine (`equilibres.js`).
     estTirage: estTirage,
     estPoussee: estPoussee,
@@ -1668,6 +1962,7 @@
     pourquoi: pourquoi,
     mentionsDeLigne: mentionsDeLigne,
     zonesQueChargeLExercice: zonesQueChargeLExercice,
+    placerLesJambesLourdes: placerLesJambesLourdes, phrasesHybrides: phrasesHybrides, NOMS_DES_JOURS: NOMS_DES_JOURS,
     phrasesDeLApercu: phrasesDeLApercu,
     exemptsDuRaccourci: exemptsDuRaccourci,
     exemptsDesPriorites: exemptsDesPriorites,

@@ -259,7 +259,7 @@
       return client().from('exercises')
         .select('slug, nom, mesure, charge, parent, equipement, muscles_primaires, muscles_secondaires, ' +
                 'muscles_stabilisateurs, mouvement, habilete, schema_mouvement, nature, description, actif, hors_salle, ' +
-                'echelle, echelle_rang, echelle_seuil_s, barre_charge_fixe, champs_series, type_elastique');
+                'echelle, echelle_rang, echelle_seuil_s, barre_charge_fixe, champs_series, type_elastique, accent_allonge');
     }, 'slug'), 'slug').then(function (lignes) {
       // ⚠️ `champs_series` DEPUIS 131 (v2_101, ECRAN §3 ter.5) — DANS LE `select` PRINCIPAL : la migration passe
       // avant la fusion (décision du prompt 131). Un tableau, `[]` par défaut : une ligne sans la colonne (cache
@@ -271,6 +271,8 @@
       return lignes.filter(function (e) { return !e || e.actif !== false; }).map(sansColonnesVides).map(function (e) {
         if (!e) return e;
         var x = !Array.isArray(e.champs_series) ? Object.assign({}, e, { champs_series: [] }) : e;
+        // 196 (v2_126) — « le muscle travaille étiré » : un booléen, `false` pour une ligne sans la colonne (cache d'avant, faux serveur).
+        if (x.accent_allonge !== true && x.accent_allonge !== false) x = Object.assign(x === e ? Object.assign({}, e) : x, { accent_allonge: false });
         var t = x.type_elastique === 'grand' || x.type_elastique === 'mini' ? x.type_elastique : null;
         return x.type_elastique === t ? x : Object.assign(x === e ? Object.assign({}, e) : x, { type_elastique: t });
       });
@@ -917,7 +919,9 @@
     // 188-1 (`v2_118`) — les réponses aux cartes de la semaine. FACULTATIVE : absente, le profil se lit sans elle.
     'cartes_semaine, ' +
     // 194-1 (`v2_124`) — les zones raides (NULL : pas répondu, `{}` : aucune). FACULTATIVE : absente, le profil se lit sans elle.
-    'zones_raides';
+    'zones_raides, ' +
+    // 195 (`v2_125`) — le départ de la calisthénie. FACULTATIVE : absente, le profil se lit sans elle.
+    'depart_calisthenie';
 
   // ⚠️ 104 — UNE COLONNE FACULTATIVE NE CASSE JAMAIS LE PROFIL (le défaut de #418). Nommer une colonne que la base
   // n'a pas encore (migration pas lancée) fait échouer la lecture ENTIÈRE (`42703`, « column … does not exist ») et
@@ -925,7 +929,7 @@
   // Une colonne de cette liste n'est qu'un confort (l'appareil garde sa propre mémoire) : si la base dit qu'elle
   // n'existe pas, elle quitte la lecture et l'écriture POUR LA SESSION, et la même requête repart une fois sans elle.
   // La migration lancée, le prochain démarrage la reprend. Une colonne obligatoire n'entre JAMAIS ici.
-  var COLONNES_FACULTATIVES = ['bilans_annonces', 'ma_salle', 'marche_reponses', 'assistant_accord_a', 'cartes_semaine', 'zones_raides'];
+  var COLONNES_FACULTATIVES = ['bilans_annonces', 'ma_salle', 'marche_reponses', 'assistant_accord_a', 'cartes_semaine', 'zones_raides', 'depart_calisthenie'];
   var facultativesAbsentes = {};
   function colonnesProfil() {
     return COLONNES_PROFIL.split(', ').filter(function (c) { return !facultativesAbsentes[c]; }).join(', ');

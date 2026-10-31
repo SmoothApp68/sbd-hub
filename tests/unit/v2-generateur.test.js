@@ -503,3 +503,27 @@ describe('60-4 — le module lit la table du matériel et les zones du radar, il
     });
   });
 });
+
+describe('197 — Forme : le tirage alterne, vertical puis horizontal', () => {
+  const forme = (anciennete, faits) => {
+    const cat = catalogue();
+    const e = Object.assign(entreeDeSans('un_an_3j_forme_salle_complete'), { objectif: 'forme', famille: true, jours: 3, anciennete });
+    if (faits) e.faits = faits;
+    return G.generer(cat, e).map((rt) => rt.exercices.map((x) => x.exercise_slug));
+  };
+  test('A et C : tirage vertical ; B : horizontal', () => {
+    const r = forme('1_a_3_ans');
+    expect(r[0]).toContain('tractions');
+    // C reprend un tirage vertical, mais pas le même exercice que A tant qu'il y a le choix (la variété de la semaine).
+    expect(r[2].some((x) => ['tirage_poitrine_poulie', 'tirage_poitrine_machine', 'tirage_vertical_elastique'].includes(x))).toBe(true);
+    expect(r[1].some((s) => /^rowing/.test(s))).toBe(true);
+    expect(r[1]).not.toContain('tractions');
+  });
+  test('le débutant a la poulie (jamais les tractions) aux séances verticales ; l’historique des tractions l’emporte', () => {
+    const d = forme('moins_1_an');
+    expect([].concat(...d)).not.toContain('tractions');
+    expect(d[0]).toContain('tirage_poitrine_poulie');
+    expect(d[1].some((s) => /^rowing/.test(s))).toBe(true);
+    expect([].concat(...forme('moins_1_an', { tractions: true }))).toContain('tractions');
+  });
+});

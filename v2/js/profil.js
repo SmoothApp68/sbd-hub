@@ -302,6 +302,11 @@
     return racine.THMoteur.prudenceDeMontee({ debutant: estDebutant(p), age: age(p.date_naissance, aujourdhui) });
   }
 
+  // 197 — 65 ans et plus, lu sur `date_naissance` : `true`, `false`, ou `null` (pas de date : rien de deviné). La borne est celle du moteur.
+  function plus65DuProfil(profil, aujourdhui) {
+    return racine.THMoteur.plusDe65Ans(age((profil || {}).date_naissance, aujourdhui));
+  }
+
   // « Depuis le 29 sept. » : la date de la dernière déclaration, au format de
   // la voix (`THModele.quand` sans référence : toujours la date, jamais
   // « mardi » — la ligne se relit des semaines plus tard).
@@ -645,7 +650,9 @@
                        'assistant_accord_a',
                        // 188-1 (v2_118, NOT NULL DEFAULT '{}', un objet) — les réponses aux cartes de la semaine :
                        // `{ cle: { r: 'oui'|'non', le: 'AAAA-MM-JJ', refus: n } }`. FACULTATIVE (comme `marche_reponses`).
-                       'cartes_semaine'];
+                       'cartes_semaine',
+                       // 195 (v2_125, jsonb NULL) — le départ de la calisthénie : `{ tractions, pompes, dips, pistol, le }`. FACULTATIVE.
+                       'depart_calisthenie'];
   // 136 (audit du 16/10, 03 #18) — `onboarding_completed` n'est plus écrite (ni lue) : plus rien ne la décide depuis
   // 60-2a (`questionnaire_fait_le`). La colonne reste en base.
 
@@ -653,6 +660,28 @@
   // en ligne ENTIÈRE à chaque envoi, il bloquerait tout. Seul un booléen part ; absent ou nul, il n'est pas envoyé (la
   // base garde sa valeur, `true` par défaut).
   var BOOLEENS_NON_NULS = ['jeu_actif', 'compte_prive'];
+  // 195 — LE DÉPART DE LA CALISTHÉNIE (`profiles.depart_calisthenie`) : les quatre chiffres du questionnaire, chacun `null` quand la
+  // personne ne sait pas. Tractions 0-100, pompes 0-300, dips 0-100, pistol booléen ; `le` (AAAA-MM-JJ) si présent. `null` si
+  // rien d'utilisable : tout est inconnu, ou l'objet n'en est pas un.
+  var DEPART_BORNES = { tractions: 100, pompes: 300, dips: 100 };
+  function departCalisthenieValide(d) {
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return null;
+    var o = {}, un = false;
+    Object.keys(DEPART_BORNES).forEach(function (k) {
+      var v = d[k];
+      o[k] = typeof v === 'number' && Math.floor(v) === v && v >= 0 && v <= DEPART_BORNES[k] ? v : null;
+      if (o[k] !== null) un = true;
+    });
+    o.pistol = typeof d.pistol === 'boolean' ? d.pistol : null;
+    if (o.pistol !== null) un = true;
+    o.le = typeof d.le === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.le) ? d.le : null;
+    return un ? o : null;
+  }
+  function memeDepart(a, b) {
+    var x = departCalisthenieValide(a), y = departCalisthenieValide(b);
+    if (x === null || y === null) return x === y;
+    return ['tractions', 'pompes', 'dips', 'pistol'].every(function (k) { return x[k] === y[k]; });
+  }
   function champsEcrits(champs) {
     var src = champs || {}, sortie = {};
     CHAMPS_ECRITS.forEach(function (c) {
@@ -681,6 +710,13 @@
       if (c === 'cartes_semaine') {
         var cs = src[c];
         if (cs && typeof cs === 'object' && !Array.isArray(cs)) sortie[c] = cs;
+        return;
+      }
+      // 195 — le départ de la calisthénie : un objet borné (`departCalisthenieValide`), sinon rien ne part.
+      if (c === 'depart_calisthenie') {
+        var dc = src[c];
+        if (dc === null) sortie[c] = null;
+        else { var dv = departCalisthenieValide(dc); if (dv !== null) sortie[c] = dv; }
         return;
       }
       // 131 — les refus de « Ce qui manque » : une liste de « slug:colonne », jamais autre chose.
@@ -841,7 +877,8 @@
     { cle: 'force', libelle: 'Force' },
     { cle: 'muscle', libelle: 'Muscle' },
     { cle: 'les_deux', libelle: 'Les deux' },
-    { cle: 'forme', libelle: 'Forme et santé' }
+    { cle: 'forme', libelle: 'Forme et santé' },
+    { cle: 'calisthenie', libelle: 'Calisthénie' }   // 195 (v2_125)
   ];
 
   // Les quatre réponses de l'écran « Temps et matériel ». Les sous-lignes du
@@ -1186,6 +1223,12 @@
       var t = e[cle] instanceof Date ? e[cle] : new Date(e[cle]);
       if (!isNaN(t.getTime()) && differe(cle, t.toISOString())) sortie[cle] = t.toISOString();
     });
+
+    // 195 — le départ de la calisthénie : seulement si au moins un chiffre est donné et qu'il diffère de ce que la base porte.
+    if (e.depart_calisthenie !== undefined && e.depart_calisthenie !== null) {
+      var dep = departCalisthenieValide(Object.assign({}, e.depart_calisthenie, { le: quand.slice(0, 10) }));
+      if (dep !== null && !memeDepart(dep, p.depart_calisthenie)) sortie.depart_calisthenie = dep;
+    }
 
     if (e.fait === true) sortie.questionnaire_fait_le = quand;
     return sortie;
@@ -2259,7 +2302,7 @@
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     PHASES: PHASES, RAPPEL_PHASE_JOURS: RAPPEL_PHASE_JOURS,
     rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, PHASES_EN_BASE: PHASES_EN_BASE, LIBELLE_PHASE_VIDE: LIBELLE_PHASE_VIDE,
-    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, estDebutant: estDebutant, prudenceDuProfil: prudenceDuProfil, phaseGelee: phaseGelee, sectionPhase: sectionPhase, ANCIENNETE_DEBUTANT: ANCIENNETE_DEBUTANT,
+    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, estDebutant: estDebutant, prudenceDuProfil: prudenceDuProfil, plus65DuProfil: plus65DuProfil, phaseGelee: phaseGelee, sectionPhase: sectionPhase, ANCIENNETE_DEBUTANT: ANCIENNETE_DEBUTANT,
     objectifDe: objectifDe, objectifGele: objectifGele,
     prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,
@@ -2278,7 +2321,7 @@
     statsDe: statsDe,
     libelleAnciennete: libelleAnciennete,
     manquants: manquants,
-    OBJECTIFS: OBJECTIFS, TEMPS_REPONSES: TEMPS_REPONSES, HISTORIQUES: HISTORIQUES, PROGRAMMES: PROGRAMMES,
+    departCalisthenieValide: departCalisthenieValide, OBJECTIFS: OBJECTIFS, TEMPS_REPONSES: TEMPS_REPONSES, HISTORIQUES: HISTORIQUES, PROGRAMMES: PROGRAMMES,
     ZONES_A_MENAGER: ZONES_A_MENAGER, zonesAMenagerValides: zonesAMenagerValides, basculerZone: basculerZone,
     ZONES_RAIDES: ZONES_RAIDES, zonesRaidesValides: zonesRaidesValides, basculerZoneRaide: basculerZoneRaide,
     libelleDesZonesRaides: libelleDesZonesRaides, PHRASE_RAIDES: PHRASE_RAIDES,

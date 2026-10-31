@@ -1591,7 +1591,7 @@ const SETS_IMPORTES = [
         // 87 (`v2_078`) — `compte_prive` NOT NULL, lui aussi.
         if (l.compte_prive === null) return json(refus('23502', 'profiles.compte_prive NOT NULL'), 400);
         const horsListe = (col, liste) => l[col] !== undefined && l[col] !== null && liste.indexOf(l[col]) < 0;
-        if (horsListe('objectif', ['force', 'muscle', 'les_deux', 'forme'])) return json(refus('23514', 'profiles_objectif_ok'), 400);
+        if (horsListe('objectif', ['force', 'muscle', 'les_deux', 'forme', 'calisthenie'])) return json(refus('23514', 'profiles_objectif_ok'), 400);
         if (horsListe('temps_reponse', ['max', 'marge', 'moins', 'varie'])) return json(refus('23514', 'profiles_temps_reponse_ok'), 400);
         if (horsListe('historique_declare', ['import', 'non_note', 'debutant'])) return json(refus('23514', 'profiles_historique_declare_ok'), 400);
         // 60-3 — l'écran 8 : la contrainte relevée au schéma le 08/10.
@@ -16144,8 +16144,8 @@ const SETS_IMPORTES = [
     const depuisP0 = profilBase().objectif_depuis;
     await toucherP('But d’entraînement');
     let fp = await feuilleChoixP();
-    ok('[Q60] P — « But d’entraînement » : la feuille des quatre objectifs, Muscle coché, sa phrase d’aide (60-2b), sans « Effacer »',
-      fp.ouverte && fp.titre === 'But d’entraînement' && JSON.stringify(fp.options) === '["force","muscle","les_deux","forme"]' &&
+    ok('[Q60] P — « But d’entraînement » : la feuille des cinq objectifs (195 : calisthénie), Muscle coché, sa phrase d’aide (60-2b), sans « Effacer »',
+      fp.ouverte && fp.titre === 'But d’entraînement' && JSON.stringify(fp.options) === '["force","muscle","les_deux","forme","calisthenie"]' &&
         JSON.stringify(fp.coches) === '["muscle"]' && fp.aide === true &&
         fp.aideTexte === 'Il choisit la zone de ton premier bloc de programme : Lourd pour la force, Mix pour le muscle.' &&
         fp.pied.indexOf('Effacer') < 0, JSON.stringify(fp));
@@ -17299,8 +17299,20 @@ const SETS_IMPORTES = [
 
     ap = await apercuDe({ anciennete: '1_a_3_ans' }, 3);
     nomsJ = tousLesNoms(ap);
-    ok('[R60] J — ⚠️ le même profil en « 1 à 3 ans » : les tractions et le relevé de genoux suspendu reviennent',
+    // 197 : le gabarit Forme alterne le tirage (vertical en A et C) et n'a PAS d'abdos (le gainage, des tenues) : le relevé de genoux
+    // suspendu ne s'y trouve plus. Les tractions reviennent en Forme à « 1 à 3 ans » ; le relevé, lui, se prouve sur Muscle (qui a des abdos).
+    ok('[R60] J — ⚠️ le même profil en « 1 à 3 ans » : les tractions reviennent (Forme : le tirage vertical de la séance A)',
+      ap.ouverte && nomsJ.indexOf(nomDe('tractions')) >= 0, JSON.stringify(nomsJ));
+    await fermerApercu();
+    ap = await apercuDe({ anciennete: '1_a_3_ans', objectif: 'muscle' }, 3);
+    nomsJ = tousLesNoms(ap);
+    ok('[R60] J — ⚠️ « 1 à 3 ans », Muscle (qui a des abdos) : les tractions et le relevé de genoux suspendu reviennent',
       ap.ouverte && nomsJ.indexOf(nomDe('tractions')) >= 0 && nomsJ.indexOf(nomDe('releve_de_genoux_suspendu')) >= 0, JSON.stringify(nomsJ));
+    await fermerApercu();
+    ap = await apercuDe({ anciennete: 'moins_1_an', objectif: 'muscle' }, 3);
+    nomsJ = tousLesNoms(ap);
+    ok('[R60] J — ⚠️ « Moins d’un an », Muscle : ni tractions ni relevé de genoux suspendu',
+      ap.ouverte && nomsJ.indexOf(nomDe('tractions')) < 0 && nomsJ.indexOf(nomDe('releve_de_genoux_suspendu')) < 0, JSON.stringify(nomsJ));
     await fermerApercu();
 
     // Un débutant qui a déjà fait les tractions les garde : une séance d'il y a 5 jours avec des tractions.

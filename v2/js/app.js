@@ -13401,7 +13401,8 @@
       priorites: Profil.prioritesDe(p),
       menager: Profil.zonesAMenagerValides(p.zones_a_menager) || [],
       ecartes: Profil.ecartesValides(p.exercices_ecartes) || [],
-      faits: faits.historiqueDesExercices(corpus())
+      faits: faits.historiqueDesExercices(corpus()),
+      depart_calisthenie: p.depart_calisthenie || null   // 195 : les quatre chiffres du questionnaire
     };
   }
 
@@ -13673,7 +13674,8 @@
   async function ouvrirApercuProgramme() {
     if (etatRoutines.code !== 'ok') await chargerRoutines();
     var entree = entreeDuProgramme();
-    var historique = local.exercices.length ? aUnHistorique() : null;
+    // 195 — la calisthénie a son propre gabarit : l'historique de barre ne l'assemble pas.
+    var historique = local.exercices.length && entree.objectif !== 'calisthenie' ? aUnHistorique() : null;
     var rts = [];
     construit = null;
     if (historique) {

@@ -1151,6 +1151,12 @@
   function estDeForce(x) {
     return x.nature ? x.nature === 'force' : x.habilete !== true;
   }
+  // 195-3 — les marches d'une échelle, de la plus facile à la plus dure (à rang égal : par slug), et le rang d'une marche : la
+  // seule lecture de `echelle_rang` pour le générateur de calisthénie, qui ne la lit pas lui-même.
+  function marchesTriees(index, echelle) {
+    return marchesDe(index, echelle).slice().sort(function (a, b) { return a.echelle_rang - b.echelle_rang || parSlug(a, b); });
+  }
+  function rangDeLEchelle(x) { return echelleDe(x) !== null ? x.echelle_rang : null; }
   function parSlug(a, b) { return a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0; }
   function marchesDe(index, echelle) {
     return Object.keys(index || {}).map(function (s) { return index[s]; })
@@ -2864,6 +2870,8 @@
     // MOTEUR §9.17 bis (127) — l'échelle des variantes.
     echelleDe: echelleDe,
     marcheSuivante: marcheSuivante,
+    marchesTriees: marchesTriees,
+    rangDeLEchelle: rangDeLEchelle,
     estEchelleDeFigures: estEchelleDeFigures,
     estUneFigure: estUneFigure,
     marcheDEnDessous: marcheDEnDessous,

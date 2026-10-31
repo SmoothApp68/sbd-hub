@@ -398,7 +398,8 @@
         objectif: p.objectif, debutant: debutant, famille: familleDeBarre(l.exercise_slug, catalogue),
         equipement: fiche.equipement || null,
         isolation: Moteur.estIsolation({ prim: liste(fiche.muscles_primaires), sec: liste(fiche.muscles_secondaires), stab: liste(fiche.muscles_stabilisateurs) }),
-        allegee: false, menagee: !!l.menage, douleurRecente: false, barreDeJambesApres: jambesApres
+        allegee: false, menagee: !!l.menage, douleurRecente: false, barreDeJambesApres: jambesApres,
+        figure: fiche.mesure === 'temps'
       });
       if (a && a.pose === 'defaut') l.au_max = true;
     });
@@ -444,6 +445,7 @@
   // { nom, exercices: [{ exercise_slug, motif, role, series, reps, prioritaire, menage, barre_fixe }] }.
   function generer(catalogue, entree) {
     var p = entree || {};
+    if (p.objectif === 'calisthenie') return genererCalisthenie(catalogue, p);   // 195-3 : son propre gabarit, sans barre chargée
     var faits = p.faits || {};
     var ecartes = liste(p.ecartes);
     var ok = faisable(catalogue, p.materiel, faits, p.barre_traction);
@@ -1664,7 +1666,126 @@
     };
   }
 
+  // ── 195-3 — LE PROGRAMME DE CALISTHÉNIE ──────────────────────────────────────────────────────────────────────────────
+  // Corps entier, 2 à 4 séances par semaine (la Recommended Routine) : trois supersets par séance — tirage + jambes, poussée +
+  // charnière, tirage + poussée — et, en tête, UNE figure (tête fraîche) sur au plus trois séances (bras tendus : tendons du biceps
+  // et du coude, jamais plus de 3 jours par semaine). Chaque exercice est la MARCHE de la personne sur son échelle (le catalogue :
+  // `echelle`, `echelle_rang`) : le plus haut rang déjà fait, sinon la marche de départ (`departDeCalisthenie`) ; jamais une
+  // décision de charge (le plan décide). Table pure.
+  var CAL_PAIRES = [
+    [['cal_tirage', 'tractions'], ['cal_jambes', 'squat_poids_du_corps']],
+    [['cal_poussee', 'dips_torse'], ['cal_charniere', 'pont_fessier']],
+    [['cal_rowing', 'rowing_inverse'], ['cal_pompes', 'pompes']]
+  ];
+  var CAL_SERIES = 3, CAL_REPS = 8, CAL_REPS_DEPART = 5, CAL_FIGURE_JOURS = 3, CAL_SEANCES_MAX = 4;
+  var CAL_FIGURE_PAR_DEFAUT = 'front_lever';
+  var CAL_ZONES_BRAS_TENDUS = ['coude', 'epaule'];
+  var PHRASE_SANS_BARRE = 'Pour progresser en tirage, il te faut une barre ou des anneaux.';
+  function marchesDeLEchelle(catalogue, echelle) {
+    return racine.THModele.marchesTriees(catalogue || {}, echelle);
+  }
+  function faitsDe(faits, s) { return possede(faits, s) ? Number(faits[s]) || 0 : 0; }
+  // La marche d'une échelle : `{ slug, depart }` ou `null`. Un exercice écarté ou impossible (barre) descend d'un rang.
+  function marcheDeLaPersonne(catalogue, echelle, faits, departs, ecartes, ok) {
+    var Mo = racine.THModele;
+    var rungs = marchesDeLEchelle(catalogue, echelle);
+    var libre = function (s) { return !contient(ecartes, s) && ok(s); };
+    var tienne = rungs.filter(function (f) { return faitsDe(faits, f.slug) > 0 && libre(f.slug); })
+      .sort(function (a, b) { return Mo.rangDeLEchelle(b) - Mo.rangDeLEchelle(a) || faitsDe(faits, b.slug) - faitsDe(faits, a.slug); })[0];
+    if (tienne) return { slug: tienne.slug, depart: false };
+    var d = liste(departs).filter(function (s) { return possede(catalogue, s) && libre(s); })[0];
+    if (d) return { slug: d, depart: true };
+    // la marche de départ écartée ou impossible : la plus facile qui reste sur l'échelle
+    var r = rungs.filter(function (f) { return libre(f.slug); })[0];
+    return r ? { slug: r.slug, depart: true } : null;
+  }
+  function figureDeLaPersonne(catalogue, faits, ecartes, ok) {
+    var Mo = racine.THModele;
+    var figs = Object.keys(catalogue || {}).map(function (s) { return catalogue[s]; })
+      .filter(function (f) { return f && f.mesure === 'temps' && Mo.echelleDe(f) !== null && ok(f.slug) && !contient(ecartes, f.slug); });
+    var faite = figs.filter(function (f) { return faitsDe(faits, f.slug) > 0; })
+      .sort(function (a, b) { return faitsDe(faits, b.slug) - faitsDe(faits, a.slug) || Mo.rangDeLEchelle(b) - Mo.rangDeLEchelle(a); })[0];
+    if (faite) return faite;
+    return Mo.marchesTriees(catalogue, CAL_FIGURE_PAR_DEFAUT).filter(function (f) { return f.mesure === 'temps' && ok(f.slug) && !contient(ecartes, f.slug); })[0] || null;
+  }
+  function ligneCalisthenie(catalogue, slug, motif, role, series, reps) {
+    return { exercise_slug: slug, motif: motif, role: role, series: series, reps: reps, prioritaire: false, menage: false,
+             barre_fixe: demandeUneBarreFixe(slug, catalogue[slug]), groupe_superset: null };
+  }
+  function genererCalisthenie(catalogue, entree) {
+    var p = entree || {};
+    var faits = p.faits || {}, ecartes = liste(p.ecartes);
+    var ok = faisable(catalogue, p.materiel, faits, p.barre_traction);
+    var departs = departDeCalisthenie(p.depart_calisthenie);
+    var sansBarre = p.barre_traction === false;
+    var bras = liste(p.menager).some(function (z) { return contient(CAL_ZONES_BRAS_TENDUS, z); });
+    var n = Math.max(2, Math.min(CAL_SEANCES_MAX, bornerJours(p.jours)));
+    var figure = bras ? null : figureDeLaPersonne(catalogue, faits, ecartes, ok);
+    var marches = {}, complements = [];
+    CAL_PAIRES.forEach(function (paire) {
+      paire.forEach(function (m) {
+        var echelle = m[1];
+        var dep = echelle === 'tractions' ? departs.tractions : echelle === 'pompes' ? departs.pompes : echelle === 'dips_torse' ? departs.dips
+          : echelle === 'squat_poids_du_corps' ? departs.jambes : [];
+        var mc = marcheDeLaPersonne(catalogue, echelle, faits, dep, ecartes, ok);
+        if (mc) marches[m[0]] = mc;
+        // « tractions 3 × 3-5 plus des négatives » : la marche de départ qui en porte deux, la seconde en complément
+        if (mc && mc.depart && dep.length > 1 && dep[0] === mc.slug) {
+          var b = dep[1];
+          if (possede(catalogue, b) && ok(b) && !contient(ecartes, b) && b !== (marches.cal_rowing || {}).slug) complements.push({ motif: m[0], slug: b });
+        }
+      });
+    });
+    var routines = [];
+    for (var k = 0; k < n; k++) {
+      var ex = [];
+      if (figure && k < CAL_FIGURE_JOURS) {
+        ex.push(ligneCalisthenie(catalogue, figure.slug, 'cal_figure', 'T', CAL_SERIES, figure.echelle_seuil_s || 10));
+      }
+      var groupe = 0;
+      for (var i = 0; i < CAL_PAIRES.length; i++) {
+        var paire = CAL_PAIRES[(i + k) % CAL_PAIRES.length];
+        var lignes = paire.map(function (m) {
+          var mc = marches[m[0]];
+          return mc ? ligneCalisthenie(catalogue, mc.slug, m[0], 'S', CAL_SERIES, mc.depart ? CAL_REPS_DEPART : CAL_REPS) : null;
+        }).filter(Boolean);
+        if (lignes.length === 2) { groupe += 1; lignes[0].groupe_superset = lignes[1].groupe_superset = groupe; }
+        lignes.forEach(function (l) { ex.push(l); });
+      }
+      complements.forEach(function (c) {
+        if (ex.some(function (l) { return l.exercise_slug === c.slug; })) return;
+        ex.push(ligneCalisthenie(catalogue, c.slug, c.motif, 'T', 2, 3));
+      });
+      var rt = { nom: 'Corps entier ' + 'ABCD'.charAt(k), exercices: marquerAuMax(catalogue, ex, p) };
+      if (sansBarre) rt.avertissements = [{ cle: 'sans_barre', texte: PHRASE_SANS_BARRE }];
+      routines.push(rt);
+    }
+    return routines;
+  }
+  // I101 à I103 (195-3) — le programme de calisthénie : au plus 3 séances avec une figure (bras tendus) ; aucune figure avec une zone
+  // à ménager coude ou épaule ; aucun exercice qui demande une barre de traction quand la personne dit qu'elle n'en a pas.
+  function verifierCalisthenie(entree, routines) {
+    var p = entree || {}, cat = p.catalogue || {}, fautes = [];
+    var estFigure = function (l) { var f = cat[l.exercise_slug]; return !!f && f.mesure === 'temps' && racine.THModele.echelleDe(f) !== null; };
+    var avecFigure = liste(routines).filter(function (rt) { return liste(rt.exercices).some(estFigure); });
+    if (avecFigure.length > CAL_FIGURE_JOURS) fautes.push('I101 ' + avecFigure.length + ' séances avec une figure (au plus ' + CAL_FIGURE_JOURS + ')');
+    if (liste(p.menager).some(function (z) { return contient(CAL_ZONES_BRAS_TENDUS, z); }) && avecFigure.length) {
+      fautes.push('I102 une figure malgré une zone à ménager (coude ou épaule)');
+    }
+    if (p.barre_traction === false) {
+      liste(routines).forEach(function (rt) {
+        liste(rt.exercices).forEach(function (l) {
+          if (demandeUneBarreFixe(l.exercise_slug, cat[l.exercise_slug])) fautes.push('I103 ' + l.exercise_slug + ' demande une barre de traction, déclarée absente');
+        });
+      });
+    }
+    return fautes;
+  }
+
   var api = {
+    genererCalisthenie: genererCalisthenie,
+    verifierCalisthenie: verifierCalisthenie,
+    PHRASE_SANS_BARRE: PHRASE_SANS_BARRE,
     departDeCalisthenie: departDeCalisthenie,
     // 188-1 — tirage et poussée : UNE définition, lue par les cartes d'équilibre de la semaine (`equilibres.js`).
     estTirage: estTirage,

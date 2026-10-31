@@ -1587,10 +1587,17 @@ const NOTIONS = [
     raison: 'MOTEUR §9.17 bis : une seule fonction, lue par la carte du plan (l’app la lui passe, `entreesDuPlan`) ' +
       'et par la page d’exercice (« Ton échelle ») — aucun écran ne recalcule une marche.' },
   { notion: 'l’échelle d’un exercice (la clé, ou `null` sans les colonnes)', pr: '127-U1',
-    module: 'modele.js', fonction: 'echelleDe', lecteurs: ['app.js', 'faits.js'],
+    module: 'modele.js', fonction: 'echelleDe', lecteurs: ['app.js', 'faits.js', 'generateur.js'],
     parAilleurs: { 'app.js': ['vueEchelleDe'] },
     raison: 'ECRAN-SAISIE §7 quater.6 : la page dit « Ton échelle » sur les exercices de la même échelle, lue par la ' +
       'même fonction que la marche suivante.' },
+  { notion: 'les marches d’une échelle, de la plus facile à la plus dure, et le rang d’une marche (le générateur de calisthénie)', pr: '195-U3',
+    module: 'modele.js', fonction: 'marchesTriees', lecteurs: ['generateur.js'],
+    raison: 'MOTEUR §9.17 bis et 195 : le programme de calisthénie choisit une marche par échelle ; `echelle_rang` ne se lit que dans ' +
+      '`modele.js`, le générateur passe par cette fonction.' },
+  { notion: 'le rang d’une marche sur son échelle (`null` sans les colonnes)', pr: '195-U3',
+    module: 'modele.js', fonction: 'rangDeLEchelle', lecteurs: ['generateur.js'],
+    raison: 'MOTEUR §9.17 bis et 195 : même raison que `marchesTriees` — une seule lecture de `echelle_rang`.' },
   { notion: 'la vue de « Ton échelle » (les marches, ta marche, la suivante, sa phrase)', pr: '127-U1',
     module: 'modele.js', fonction: 'vueEchelle', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['vueEchelleDe'] },

@@ -41,11 +41,12 @@
 
   // ── Les écrans, dans l'ordre ─────────────────────────────────────────────
   var BIENVENUE = 'bienvenue', ANCIENNETE = 'anciennete', SAIT = 'sait';
-  var SALLE = 'salle', ZONE = 'zone', RECENTE = 'recente';   // 187 : où tu t'entraînes, une zone à ménager, une série récente
+  var SALLE = 'salle', ZONE = 'zone', RAIDES = 'raides', RECENTE = 'recente';   // 194-1 : RAIDES, les zones raides (facultatif)
+  //   // 187 : où tu t'entraînes, une zone à ménager, une série récente
   var TOI = 'toi', BUT = 'but', PRIORITES = 'priorites', TEMPS = 'temps', PROGRAMME = 'programme';
   var CONSTRUIT = 'construit';   // l'écran 8b (60-4) : « Construis-le-moi »
   var COACH = 'coach', RECAP = 'recap';
-  var ECRANS = [BIENVENUE, ANCIENNETE, SAIT, SALLE, ZONE, RECENTE, TOI, BUT, PRIORITES, TEMPS, PROGRAMME, CONSTRUIT,
+  var ECRANS = [BIENVENUE, ANCIENNETE, SAIT, SALLE, ZONE, RAIDES, RECENTE, TOI, BUT, PRIORITES, TEMPS, PROGRAMME, CONSTRUIT,
                 COACH, RECAP];
 
   // L'écran 3a (« Ce que je sais ») ET l'écran 3b (« Sans historique ») : l'un
@@ -187,6 +188,8 @@
       barreTraction: Profil().barreTractionDe(p),
       programme: Profil().libelleDe(Profil().PROGRAMMES, p.programme_choix) ? p.programme_choix : null,
       menager: Profil().zonesAMenagerValides(p.zones_a_menager) || [],
+      // 194-1 — `null` : pas répondu ; `[]` : aucune.
+      raides: Profil().zonesRaidesValides(p.zones_raides),
       coach: coachDe(p)
     };
   }
@@ -284,6 +287,7 @@
       var salle = salleAEcrire(r, profil);
       if (salle !== undefined) extra.ma_salle = salle;
     } else if (id === ZONE) entrees = { zones_a_menager: r.menager };
+    else if (id === RAIDES) entrees = Array.isArray(r.raides) ? { zones_raides: r.raides } : null;
     else if (id === RECENTE) entrees = null;   // rien en base : les séries partent au programme construit (`seriesRecentes`)
     else if (id === CONSTRUIT) entrees = { seances_par_semaine: seancesAEcrire(r) };
     else if (id === COACH) entrees = coachEnChamps(r.coach);
@@ -341,6 +345,7 @@
     if (cle === 'priorite') r.priorites = basculerPriorite(r.priorites, valeur);
     else if (cle === 'aucune') r.priorites = [];
     else if (cle === 'zone') r.menager = Profil().basculerZone(r.menager, valeur);
+    else if (cle === 'raide') r.raides = Profil().basculerZoneRaide(r.raides, valeur);
     else if (cle === 'duree') {
       // 137 — « Plus » ne porte pas de durée : elle ouvre le champ des minutes. Une durée déjà au-delà des
       // puces est gardée ; sinon rien n'est en réponse tant que la personne n'a pas tapé ses minutes.
@@ -636,6 +641,19 @@
     };
   }
 
+  // ── 194-1 — « Des zones raides ? », facultative ──────────────────────────────────────────────────────────────
+  function ecranRaides(etat) {
+    var rep = etat.rep;
+    var zones = Profil().ZONES_RAIDES.concat([{ cle: 'aucune', libelle: 'Aucune' }]);
+    var choisies = Array.isArray(rep.raides) ? (rep.raides.length ? rep.raides : ['aucune']) : [];
+    return {
+      id: RAIDES, etape: 'Ton corps \u00b7 facultatif',
+      titre: 'Des zones raides\u00a0?',
+      voix: 'Celles où tu manques d\u2019amplitude. Je t\u2019ajoute un bloc court en fin de séance pour elles\u00a0; deux zones au plus.',
+      blocs: [{ type: 'puces', cle: 'raide', multiple: true, valeurs: choisies, options: zones }]
+    };
+  }
+
   // ── 187 (A5) — « Une série récente ? », facultative ───────────────────────────
   // Une série, pas un « max » : charge × reps, pour chacune des quatre barres. Elle devient la charge de départ de la
   // barre (`charge_cible_kg`, MOTEUR §9.21) ; sans elle, la première séance la trouve avec la personne (§9.21, calage).
@@ -863,7 +881,8 @@
         { libelle: 'Plus petit disque', valeur: typeof rep.plusPetitDisque === 'number'
             ? Modele().nombreSigne(rep.plusPetitDisque) + INSECABLE + 'kg' : tiret, ecran: SALLE },
         { libelle: 'Barre de traction', valeur: rep.barreTraction === true ? 'Oui' : rep.barreTraction === false ? 'Non' : tiret, ecran: SALLE },
-        { libelle: 'Zone à ménager', valeur: zonesTexte(rep.menager), ecran: ZONE }
+        { libelle: 'Zone à ménager', valeur: zonesTexte(rep.menager), ecran: ZONE },
+        { libelle: 'Zones raides', valeur: Array.isArray(rep.raides) ? (rep.raides.length ? rep.raides.map(function (z) { return Profil().libelleDe(Profil().ZONES_RAIDES, z) || z; }).join(', ') : 'Aucune') : tiret, ecran: RAIDES }
       ].concat(programme, [
         { libelle: 'Coach', valeur: coach || tiret, ecran: COACH }
       ]) }].concat(premiereSeance(rep, etat))
@@ -910,6 +929,7 @@
   FABRIQUES[SAIT] = ecranSait;
   FABRIQUES[SALLE] = ecranSalle;
   FABRIQUES[ZONE] = ecranZone;
+  FABRIQUES[RAIDES] = ecranRaides;
   FABRIQUES[RECENTE] = ecranRecente;
     FABRIQUES[TOI] = ecranToi;
   FABRIQUES[BUT] = ecranBut;
@@ -951,7 +971,7 @@
   }
 
   var api = {
-    ECRANS: ECRANS, BIENVENUE: BIENVENUE, ANCIENNETE: ANCIENNETE, SAIT: SAIT, COMMENCE: COMMENCE, DEPUIS: DEPUIS, SALLE: SALLE, ZONE: ZONE, RECENTE: RECENTE, RECENTES: RECENTES,
+    ECRANS: ECRANS, BIENVENUE: BIENVENUE, ANCIENNETE: ANCIENNETE, SAIT: SAIT, COMMENCE: COMMENCE, DEPUIS: DEPUIS, SALLE: SALLE, ZONE: ZONE, RAIDES: RAIDES, RECENTE: RECENTE, RECENTES: RECENTES,
     seriesRecentes: seriesRecentes, phraseDeLaSalle: phraseDeLaSalle,
     TOI: TOI, BUT: BUT, PRIORITES: PRIORITES, TEMPS: TEMPS, PROGRAMME: PROGRAMME, CONSTRUIT: CONSTRUIT,
     COACH: COACH, RECAP: RECAP,

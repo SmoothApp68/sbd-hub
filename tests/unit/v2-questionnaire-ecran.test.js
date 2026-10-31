@@ -205,6 +205,8 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
     cont();                                                          // « Où tu t’entraînes ? » : rien de dit, rien d’écrit
     expect(b.ecran()).toBe('zone');
     cont();
+    expect(b.ecran()).toBe('raides');                                // 194-1 : « Des zones raides ? », facultative
+    cont();                                                          // pas répondu : rien d'écrit
     expect(b.ecran()).toBe('toi');
     expect(b.journal.profil).toEqual([]);
 
@@ -243,7 +245,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
     b.appel('ouvrirQuestionnaireSiDu()');
     const cont = () => b.actions().surContinuer();
     const choix = (c, v) => b.actions().surChoix(c, v);
-    cont(); choix('depuis', '1_a_3_ans'); choix('notees', 'non'); cont(); cont(); cont(); cont(); choix('sexe', 'homme'); cont();
+    cont(); choix('depuis', '1_a_3_ans'); choix('notees', 'non'); cont(); cont(); cont(); cont(); cont(); choix('sexe', 'homme'); cont();
     expect(b.ecran()).toBe('but');
     b.journal.profil.length = 0;
     choix('objectif', 'force'); choix('phase', 'inconnue'); cont();
@@ -316,7 +318,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
     b.actions().surChoix('depuis', '1_a_3_ans'); b.actions().surChoix('notees', 'non');
     b.actions().surContinuer();
     expect(b.ecran()).toBe('salle');
-    b.actions().surContinuer(); b.actions().surContinuer();
+    b.actions().surContinuer(); b.actions().surContinuer(); b.actions().surContinuer();   // salle, zone, raides
     expect(b.ecran()).toBe('recente');
     b.actions().surContinuer();
     expect(b.ecran()).toBe('toi');
@@ -353,7 +355,7 @@ describe('60-2a — la pesée de l’écran « Toi »', () => {
     b.appel('ouvrirQuestionnaireSiDu()');
     b.actions().surContinuer();
     b.actions().surChoix('depuis', '1_a_3_ans'); b.actions().surChoix('notees', 'non'); b.actions().surContinuer();
-    b.actions().surContinuer(); b.actions().surContinuer(); b.actions().surContinuer();   // 3a, salle, zone
+    b.actions().surContinuer(); b.actions().surContinuer(); b.actions().surContinuer(); b.actions().surContinuer();   // 3a, salle, zone, raides
     expect(b.ecran()).toBe('toi');
   }
 
@@ -371,7 +373,7 @@ describe('60-2a — la pesée de l’écran « Toi »', () => {
     b.ctx.local.pesees = [{ id: 'a', date: '2026-09-01', poids_kg: 84 }, { id: 'b', date: '2026-10-06', poids_kg: 82.5 }];   // la synchro apporte 82,5
     b.actions().surContinuer();
     b.actions().surChoix('depuis', '1_a_3_ans'); b.actions().surChoix('notees', 'non'); b.actions().surContinuer();
-    b.actions().surContinuer(); b.actions().surContinuer(); b.actions().surContinuer();   // 3a, salle, zone → « Toi »
+    b.actions().surContinuer(); b.actions().surContinuer(); b.actions().surContinuer(); b.actions().surContinuer();   // 3a, salle, zone, raides → « Toi »
     expect(b.ecran()).toBe('toi');
     expect(b.ctx.questionnaire.rep.poids).toBe(82.5);
     b.actions().surContinuer();                                         // rien de tapé : rien d'écrit
@@ -692,7 +694,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
     const b = bac({ routines: [] });
     b.appel('ouvrirQuestionnaireSiDu()');
     const { cont, choix } = jusquAuTemps(b);
-    expect(b.vueCourante().progression.total).toBe(12);
+    expect(b.vueCourante().progression.total).toBe(13);
     cont();
     expect(b.ecran()).toBe('programme');
     expect(b.vueCourante().blocs[0].options.map((o) => o.cle)).toEqual(['deduit', 'moi', 'construis']);
@@ -729,7 +731,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
                     profil: { id: 'u1', questionnaire_fait_le: null, programme_choix: 'deduit' } });
     b.appel('ouvrirQuestionnaireSiDu()');
     const { cont, choix } = jusquAuTemps(b);
-    expect(b.vueCourante().progression.total).toBe(11);
+    expect(b.vueCourante().progression.total).toBe(12);
     cont();
     expect(b.ecran()).toBe('coach');
     choix('coach', 'normal'); cont();
@@ -742,7 +744,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
     const b = bac({ routines: [], seances: [] });
     b.appel('ouvrirQuestionnaireSiDu()');
     const { cont, choix } = jusquAuTemps(b);
-    expect(b.vueCourante().progression.total).toBe(12);
+    expect(b.vueCourante().progression.total).toBe(13);
     cont();
     expect(b.ecran()).toBe('programme');
     expect(b.vueCourante().blocs[0].options.map((o) => o.cle)).toEqual(['moi', 'construis']);
@@ -776,9 +778,9 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
     const { cont, choix } = jusquAuTemps(b);
     cont();
     expect(b.ecran()).toBe('programme');
-    expect(b.vueCourante().progression.total).toBe(12);
+    expect(b.vueCourante().progression.total).toBe(13);
     choix('programme', 'construis');
-    expect(b.vueCourante().progression.total).toBe(13);                    // la barre compte 8b dès le choix
+    expect(b.vueCourante().progression.total).toBe(14);                    // la barre compte 8b dès le choix
     cont();
     expect(b.journal.profil.pop()).toEqual({ programme_choix: 'construis' });
     expect(b.ecran()).toBe('construit');

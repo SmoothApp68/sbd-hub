@@ -89,6 +89,13 @@ describe('198 — la baisse attendue en sèche', () => {
     expect(p.baisseAttendue).toBeNull();
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
+  test('DISCRIMINANT — une moyenne au-dessus de 5 % sans carte (3 exercices à 8 %, un à 3 %) : ni carte ni phrase « jusqu\'à 5 % »', () => {
+    const l = [exo('a', 100, 92, { nom: 'Aa' }), exo('b', 100, 92, { nom: 'Bb' }), exo('c', 100, 92, { nom: 'Cc' }),
+      exo('d', 100, 97, { nom: 'Dd' }), exo('t0', 100, 100, { nom: 'Te' }), exo('t1', 100, 100, { nom: 'Tf' })];
+    const { p } = decor({ phase: 'seche', baisse: donnees(l) });
+    expect(p.carte).toBeNull();
+    expect(p.baisseAttendue).toBeNull();
+  });
   test('hors sèche, 3 % : ni carte ni phrase', () => {
     const { p } = decor({ phase: 'recomposition', baisse: donnees(lotPct(4, 3, 2)) });
     expect(p.carte).toBeNull(); expect(p.baisseAttendue).toBeNull();

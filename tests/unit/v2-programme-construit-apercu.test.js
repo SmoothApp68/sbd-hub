@@ -30,7 +30,9 @@ require('../../v2/js/rendu.js');
 const Rendu = () => window.THRendu;
 
 const CAS = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/cas-60-6-generateur.json'), 'utf8'));
-const cas = (id) => CAS.generer.find((c) => c.id === id);
+// 193-2 : ces tests éprouvent les gestes de l'aperçu sur le gabarit D'AVANT (`famille: false`), celui des 32 cas de 60-6 ; les familles de force
+// ont les leurs (`v2-generateur-force.test.js`).
+const cas = (id) => { const c = CAS.generer.find((x) => x.id === id); return c && Object.assign({}, c, { entree: Object.assign({}, c.entree, { famille: false }) }); };
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const texte = (n) => n.textContent.replace(/\s+/g, ' ').trim();
 const NBSP = ' ';
@@ -403,7 +405,7 @@ function bac(options) {
     priorites: null, zones_a_menager: null, exercices_ecartes: null, temps_reponse: null, duree_seance_min: null,
     intention: 'progresser' }, o.profil || {});
   const ctx = {
-    Routines, Modele, Moteur, Profil, Generateur: o.generateur || Generateur, Donnees, Deraille,
+    Routines, Modele, Moteur, Profil, Generateur: o.generateur || GENERATEUR_D_AVANT, Donnees, Deraille,
     Seance: o.freres ? { freresProposes: () => o.freres.map((f) => Object.assign({ deja_dans_la_seance: false }, f)) } : { freresProposes: () => [] },
     Rendu: {
       rendreApercuProgramme: (c, v) => { journal.feuilles.push(v); ctx.__vue = v; },
@@ -463,6 +465,11 @@ function bac(options) {
   FONCTIONS.forEach((f) => vm.runInContext(extraire(f), ctx));
   return { ctx, journal, vue: () => ctx.__vue, appel: (code) => vm.runInContext(code, ctx) };
 }
+
+// 193-2 : l'app construit Force et Les deux (avec barre) par les familles ; ce harnais éprouve les gestes de l'aperçu sur le gabarit d'avant.
+const GENERATEUR_D_AVANT = Object.assign({}, Generateur, {
+  generer: (c, e) => Generateur.generer(c, Object.assign({}, e, { famille: false }))
+});
 
 const NOMS_4J = ['Haut A', 'Bas A', 'Haut B', 'Bas B'];
 
@@ -1108,7 +1115,7 @@ describe('revue adverse — la phrase de zone ne ment pas, le motif suit l’exe
     const lignes = (rts) => [].concat.apply([], rts.map((rt) => rt.exercices));
     const ouvrir = async (profil) => { const b = bac({ profil }); await b.appel('ouvrirApercuProgramme()'); return b; };
     // Le programme TEL QUE LE GÉNÉRATEUR L'ÉCRIT, avant le raccourci : la référence des séries.
-    const complet = (b) => Generateur.generer(cat(), b.ctx.construit.entree);
+    const complet = (b) => GENERATEUR_D_AVANT.generer(cat(), b.ctx.construit.entree);
     const seriesDe = (rts) => { const m = {}; rts.forEach((rt, i) => rt.exercices.forEach((x) => { m[i + ':' + x.exercise_slug] = x.series; })); return m; };
 
     test('⚠️ DISCRIMINANT — genou ménagé, durée visée courte : le squat et la presse gardent leurs séries, les autres coupent', async () => {

@@ -36,7 +36,9 @@ const vue = (cat, rt) => ({ nom: rt.nom, pourquoi: G.pourquoi(cat, rt), exercice
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
 // Ce que le fichier de cas décrit par `entree` : les noms de l'app (menager, ecartes, priorites, faits).
-const entreeDe = (c) => clone(c.entree);
+// 193-2 : les 32 programmes de 60-6 rejouent le gabarit d'AVANT (`famille: false`) ; ceux de Force et de Les deux, avec une barre, ont une
+// nouvelle sortie, dans `cas-193-2-programmes-force.json` (v2-generateur-force.test.js).
+const entreeDe = (c) => Object.assign(clone(c.entree), { famille: false });
 const entreeDeSans = (id) => entreeDe(CAS.generer.filter((x) => x.id === id)[0]);
 
 describe('60-4 — le format du fichier de cas', () => {
@@ -490,7 +492,8 @@ describe('60-4 — le module lit la table du matériel et les zones du radar, il
     const cat = catalogue();
     G.generer(cat, { jours: 5, objectif: 'les_deux', materiel: 'salle_complete' }).forEach((rt) => {
       rt.exercices.forEach((x) => {
-        expect(Object.keys(x).sort()).toEqual(['barre_fixe', 'exercise_slug', 'menage', 'motif', 'prioritaire', 'reps', 'role', 'series']);
+        expect(Object.keys(x).filter((k) => /charge|chauffe|repos/.test(k))).toEqual([]);
+        expect(Object.keys(x)).toEqual(expect.arrayContaining(['barre_fixe', 'exercise_slug', 'menage', 'motif', 'prioritaire', 'reps', 'role', 'series']));
       });
     });
   });

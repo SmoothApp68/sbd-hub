@@ -10033,6 +10033,19 @@
   var AU_MAX_JOURS_DE_DOULEUR = 42;     // « J'ai mal » récent : six semaines civiles (même durée que la 189, sans la toucher)
   var AU_MAX_RESERVE_PAR_DEFAUT = 2;    // ce que la personne obtient quand elle pose « Au max » là où la table n'en met pas
   var OBJECTIFS_AU_MAX = ['force', 'muscle', 'les_deux', 'forme'];
+  // 193-6b — L'ÉCHEC SUR UNE BARRE, UNE FOIS PAR SEMAINE (MOTEUR §9.30 bis) : 6 jours civils avant `jour`.
+  var AU_MAX_JOURS_D_ECHEC = 6;
+  // Une série à l'échec sur cette barre dans les 6 jours civils PRÉCÉDENTS (le jour même n'en fait pas partie). `jours` : les jours (ou
+  // instants) des séries à l'échec de la barre, un fait de `faits.echecsDeBarre`. Rend le jour le plus récent, ou `null`.
+  function echecRecentDeBarre(jours, jour) {
+    var k = numeroDuJour(jourCivil(jour)), meilleur = null;
+    if (k === null) return null;
+    (jours || []).forEach(function (j) {
+      var jc = jourCivil(j), n = numeroDuJour(jc);
+      if (n !== null && k - n >= 1 && k - n <= AU_MAX_JOURS_D_ECHEC && (meilleur === null || n > numeroDuJour(meilleur))) meilleur = jc;
+    });
+    return meilleur;
+  }
   // Un exercice « J'ai mal » dans les 42 jours avant `jour`. `jours` : les jours (ou instants) des séries marquées.
   function douleurRecente(jours, jour) {
     var k = numeroDuJour(jourCivil(jour));
@@ -10051,7 +10064,8 @@
     return 'accessoire';
   }
   // `e` : { objectif, debutant, famille (la barre, `familleDeBarre`), equipement, isolation, allegee, menagee, douleurRecente,
-  //         barreDeJambesApres, main }. `pose` : 'defaut' (le coach la pose), 'main' (la personne l'a posée), ou null (rien).
+  //         barreDeJambesApres, main, zoneDePlan (193-6b : la zone que la ligne porte, ou null), echecRecent (193-6b : une série à
+  //         l'échec sur cette barre dans les 6 jours précédents) }. `pose` : 'defaut' (le coach la pose), 'main' (la personne l'a posée), ou null (rien).
   function auMaxDe(e) {
     var x = e || {};
     var rien = { pose: null, reserve: null, sorte: null, avecPareur: false, classe: null };
@@ -10081,6 +10095,12 @@
     } else if (main) pose = 'main';
     // le squat ne va pas à l'échec si une autre barre lourde de jambes suit
     if (reserve === 0 && classe === 'squat' && x.barreDeJambesApres === true) reserve = 1;
+    // 193-6b — sur une barre, l'échec n'est donné que le jour Lourd (zone de plan) ou, sans zone de plan, si la barre n'est pas
+    // déjà allée à l'échec dans les 6 jours précédents. Accessoires, machines, isolations : inchangés.
+    if (reserve === 0 && (classe === 'squat' || classe === 'couche' || classe === 'militaire')) {
+      var zdp = x.zoneDePlan || null;
+      if (zdp ? zdp !== 'lourd' : x.echecRecent === true) reserve = 1;
+    }
     // une zone à ménager, un « J'ai mal » récent : jamais d'échec, au plus « en gardant 2 reps »
     if ((x.menagee || x.douleurRecente === true) && reserve < AU_MAX_RESERVE_PAR_DEFAUT) reserve = AU_MAX_RESERVE_PAR_DEFAUT;
     return { pose: pose, reserve: reserve, sorte: reserve === 0 ? 'echec' : 'garde',
@@ -10091,6 +10111,15 @@
     if (!a || a.reserve === null || a.reserve === undefined) return null;
     if (a.reserve === 0) return a.avecPareur ? 'Jusqu’à l’échec, sur les sécurités ou avec un pareur' : 'Jusqu’à l’échec';
     return 'Autant que tu peux, en gardant ' + nombreFr(a.reserve, regle('au_max.reserve')) + ' rep' + (a.reserve > 1 ? 's' : '');
+  }
+  // 193-6b — « Ton squat est déjà allé à l'échec mardi : aujourd'hui, garde 1 rep. » `classe` : celle de `auMaxDe`.
+  var NOMS_DE_BARRE_AU_MAX = { squat: 'squat', couche: 'développé couché', militaire: 'développé militaire' };
+  function pourquoiAuMaxEchecRecent(classe, jourDeLEchec, reserve) {
+    var nom = NOMS_DE_BARRE_AU_MAX[classe] || 'exercice';
+    var k = numeroDuJour(jourCivil(jourDeLEchec));
+    var quand = k === null ? '' : ' ' + Modele().JOURS[new Date(k * JOUR).getUTCDay()];
+    return 'Ton ' + nom + ' est déjà allé à l’échec' + quand + DEUX_POINTS + 'aujourd’hui, garde ' +
+      nombreFr(reserve, regle('au_max.reserve')) + ' rep' + (reserve > 1 ? 's' : '') + '.';
   }
   function pourquoiAuMaxSouleve() {
     return 'Au soulevé, l’échec veut dire des reps arrachées dos rond. Ta dernière série s’arrête quand il t’en reste ' +
@@ -10695,6 +10724,8 @@
     maxDuJour: maxDuJour,
     reculAuMax: reculAuMax,
     auMaxDe: auMaxDe,
+    echecRecentDeBarre: echecRecentDeBarre,
+    pourquoiAuMaxEchecRecent: pourquoiAuMaxEchecRecent,
     AU_MAX_RESERVE_PAR_DEFAUT: AU_MAX_RESERVE_PAR_DEFAUT,
     niveauHorsAuMax: niveauHorsAuMax,
     consigneAuMax: consigneAuMax,

@@ -7199,6 +7199,8 @@
       // 193-6 (MOTEUR §9.30) — « J'ai mal » récent de chaque exercice (42 jours, un fait de `faits.js`) et les décisions déjà prises sur la
       // carte « Dernière série au max ? » (`profiles.cartes_semaine.au_max`, par exercice) : le plan décide, il ne relit rien.
       douleurs: faits.douleursParExercice(corpus(), seance.debut),
+      // 193-6b — les jours d'échec de chaque barre dans les 6 jours précédents (un fait de `faits.js`, par famille de barre).
+      echecsDeBarre: faits.echecsDeBarre(corpus(), seance.debut),
       auMaxReponses: (reponsesDesCartes().au_max && typeof reponsesDesCartes().au_max === 'object') ? reponsesDesCartes().au_max : {},
       // 188-2 (I76) — les chutes de reps de chaque exercice de la séance (les 3 dernières séances, un fait de `faits.js`) : le plan
       // décide de la ligne du repos, il ne relit pas l'historique.

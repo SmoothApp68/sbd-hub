@@ -329,6 +329,8 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
       // 58-1 : les séances d'un exercice viennent du module des faits.
       faits: { seancesDeLExercice: () => [] }, corpus: () => ({}),
       zoneDe: () => 'mix', seancesSousConsigne: () => ['s1'],
+      // 193-3 : la zone que la routine fixe pour le jour (aucune ici : Automatique).
+      zonePlanDe: () => null, zonePlanOrigineDe: () => null, zonesDeRoutineDe: () => null,
       periodesAllegees: () => [], periodesSerieDePlusDe: () => periodes, enEdition: () => false,
       // 52-1 : la charge de départ de la routine (MOTEUR §9.21), lue par `optionsDeConsigne`.
       chargeDeDepartDe: () => null,

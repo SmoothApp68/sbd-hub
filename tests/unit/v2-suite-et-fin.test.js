@@ -121,6 +121,8 @@ describe('PR 2 — la suite du constat suit la zone en vigueur', () => {
       // 58-1 : les séances d'un exercice viennent du module des faits.
       faits: { seancesDeLExercice: () => [] }, corpus: () => ({}),
       zoneDe: () => etat.zone, seancesSousConsigne: () => [],
+      // 193-3 : la zone que la routine fixe pour le jour (aucune ici : Automatique).
+      zonePlanDe: () => null, zonePlanOrigineDe: () => null, zonesDeRoutineDe: () => null,
       periodesAllegees: () => etat.periodes, periodesSerieDePlusDe: () => [], enEdition: () => false,
       // 52-1 : la charge de départ de la routine (MOTEUR §9.21), lue par `optionsDeConsigne`.
       chargeDeDepartDe: () => null,

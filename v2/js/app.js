@@ -11464,6 +11464,9 @@
       surNumero: ouvrirTypeSerieRoutine,
       surNote: ouvrirNoteExoRoutine,
       surRepos: ouvrirReposExoRoutine,
+      // 193-3 — la zone que la routine fixe à cet exercice (maquette de l'ondulation, écran 1).
+      surZoneRoutine: ouvrirZoneExoRoutine,
+      libelleDeZone: function (cle) { var z = Moteur.zoneParCle(cle); return z ? z.libelle + ' \u00b7 ' + z.bas + ' à ' + z.haut : 'Automatique'; },
       surAjoutSerie: function (i) {
         var e = exoBrouillon(i);
         if (!e) return;
@@ -11555,6 +11558,26 @@
       surValider: poser,
       surDesactiver: function () { poser(null); },
       surAnnuler: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  // 193-3 (maquette de l'ondulation, écran 1) — « Automatique » + les cinq zones, sur chaque exercice de la routine. Un choix
+  // EXPLICITE, écrit dans le brouillon (`zone`, NULL = Automatique) : rien ne part avant « Enregistrer ». Deux lignes du même
+  // exercice avec deux zones : la séance prend la première (la consigne est par exercice) — la feuille le dit.
+  function ouvrirZoneExoRoutine(i) {
+    var e = exoBrouillon(i);
+    if (!e) return;
+    var autres = brouillon.exercices.filter(function (x, k) { return k !== i && x.exercise_slug === e.exercise_slug; });
+    var doublon = autres.length > 0;
+    Rendu.rendreFeuilleZoneRoutine($('feuille-contenu'), {
+      titre: 'Zone de cet exercice',
+      sous: nomExoBrouillon(i) + ', dans cette routine',
+      zones: Moteur.ZONES,
+      choisie: Routines.zoneValide(e.zone),
+      aide: doublon ? 'Cet exercice est deux fois dans la routine\u00a0: le coach prend la zone de la première ligne.' : null,
+      surChoix: function (cle) { e.zone = Routines.zoneValide(cle); fermerVoile(); apresEditeur(); },
+      surFermer: fermerVoile
     });
     ouvrirVoile($('feuille-seance'));
   }

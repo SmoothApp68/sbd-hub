@@ -907,6 +907,9 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
   border:1px solid var(--trait);background:transparent;color:var(--texte-3);
   font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;text-align:left}
 .repos-cible{flex:0 0 auto;white-space:nowrap}
+/* 193-3 — la zone que la routine fixe à l'exercice (éditeur de routine) : même gabarit que le repos ; jaune quand elle est fixée. */
+.zone-routine{flex:0 0 auto;white-space:nowrap}
+.zone-routine.fixee{color:var(--texte-2);border-color:#343A43;background:var(--panneau-2)}
 .note-exo{flex:1 1 140px;min-width:0;overflow:hidden;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .note-exo.pleine{color:var(--texte-2);border-color:#343A43;background:var(--panneau-2)}

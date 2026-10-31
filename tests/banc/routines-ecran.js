@@ -1020,6 +1020,53 @@ const ALIAS_COMMUNS = [
     apresEditeur.note === 'Ceinture, barre basse' && apresEditeur.repos_cible_s === 195,
     JSON.stringify({ note: apresEditeur.note, repos: apresEditeur.repos_cible_s }));
 
+  // 193-3 (maquette de l'ondulation, écran 1) — LA ZONE QUE LA ROUTINE FIXE À UNE LIGNE : « Automatique » + les cinq zones dans
+  // l'éditeur, écrite en base à « Enregistrer » (NULL = Automatique), relue à la réouverture, et qui SURVIT à une réécriture de
+  // l'éditeur qui n'y touche pas (le brouillon la transporte, comme la note).
+  const ouvrirZoneRoutine = async (i) => {
+    await page.evaluate((k) => { document.querySelectorAll('.zone-routine')[k].click(); }, i);
+    await jusqua('feuille de zone ouverte', () => page.evaluate(() => !document.getElementById('feuille-seance').hidden &&
+      document.querySelectorAll('#feuille-contenu .option-zone').length > 0));
+  };
+  await aller('/saisie');
+  await ouvrirRoutine();
+  await ouvrirZoneRoutine(0);
+  const choixZone = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .option-zone'))
+    .map((b) => b.dataset.cle));
+  ok('[193-3] la feuille de zone propose Automatique puis les cinq zones',
+    JSON.stringify(choixZone) === JSON.stringify(['', 'lourd', 'mix', 'hypertrophie', 'volume', 'series_longues']),
+    JSON.stringify(choixZone));
+  ok('[193-3] « Automatique » est le choix de départ (aucune zone fixée)',
+    (await page.evaluate(() => document.querySelector('#feuille-contenu .option-zone.active').dataset.cle)) === '');
+  await page.click('#feuille-contenu .option-zone[data-cle="mix"]');
+  await jusqua('feuille de zone refermée', () => feuilleFermee(page));
+  await rendu(page);
+  ok('[193-3] le bouton dit la zone choisie, sous le nom',
+    (await page.evaluate(() => document.querySelectorAll('.zone-routine')[0].textContent)).indexOf('Mix') >= 0);
+  await enregistrer();
+  ok('[193-3] la zone part en base avec la ligne (« mix »)',
+    base.exos.filter((e) => e.id === premierExo.id)[0].zone === 'mix',
+    'zone = ' + base.exos.filter((e) => e.id === premierExo.id)[0].zone);
+  await aller('/saisie');
+  await ouvrirRoutine();
+  ok('[193-3] rouverte, la routine montre sa zone',
+    (await page.evaluate(() => document.querySelectorAll('.zone-routine')[0].textContent)).indexOf('Mix') >= 0);
+  await remplirRepos(180);
+  await enregistrer();
+  ok('[193-3] une réécriture de l’éditeur qui ne touche pas la zone ne l’efface pas',
+    base.exos.filter((e) => e.id === premierExo.id)[0].zone === 'mix' && base.exos.filter((e) => e.id === premierExo.id)[0].repos_cible_s === 180,
+    JSON.stringify({ zone: base.exos.filter((e) => e.id === premierExo.id)[0].zone }));
+  await aller('/saisie');
+  await ouvrirRoutine();
+  await ouvrirZoneRoutine(0);
+  await page.click('#feuille-contenu .option-zone[data-cle=""]');
+  await jusqua('feuille de zone refermée (auto)', () => feuilleFermee(page));
+  await rendu(page);
+  await enregistrer();
+  ok('[193-3] « Automatique » remet la zone à NULL en base',
+    base.exos.filter((e) => e.id === premierExo.id)[0].zone === null,
+    'zone = ' + base.exos.filter((e) => e.id === premierExo.id)[0].zone);
+
   console.log('\n══ 5 quater. REPS SUR LA CARTE, REPOS EN mm:ss ══');
   //
   // §7 quaterdecies — constaté sur device après le chantier 41 : « c'est moins

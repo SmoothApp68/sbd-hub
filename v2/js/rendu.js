@@ -3154,6 +3154,17 @@
     bRepos.addEventListener('click', function () { vue.surRepos(x._iExo); });
     reglages.appendChild(bRepos);
 
+    // 193-3 (maquette de l'ondulation, écran 1) — DANS L'ÉDITEUR DE ROUTINE : la zone que la routine fixe à l'exercice ce jour-là,
+    // « Automatique » sinon (le coach la lit dans les séances). Absent en séance (`surZoneRoutine` n'y est pas posé).
+    if (typeof vue.surZoneRoutine === 'function') {
+      var nomZone = x.zone_routine && typeof vue.libelleDeZone === 'function' ? vue.libelleDeZone(x.zone_routine) : 'Automatique';
+      var bZone = el('button', 'zone-routine' + (x.zone_routine ? ' fixee' : ''), 'zone\u00a0: ' + nomZone);
+      bZone.type = 'button';
+      bZone.setAttribute('aria-label', 'Zone de ' + x.nom + ' dans cette routine\u00a0: ' + nomZone);
+      bZone.addEventListener('click', function () { vue.surZoneRoutine(x._iExo); });
+      reglages.appendChild(bZone);
+    }
+
     var bNote = el('button', 'note-exo' + (x.note ? ' pleine' : ''),
       x.note || '+ Note');
     bNote.type = 'button';
@@ -4324,6 +4335,68 @@
     }
     cible.appendChild(el('p', 'feuille-aide',
       'La consigne se recalcule dès que tu changes de zone.'));
+    var fermer = el('button', 'discret bloc-large', 'Fermer');
+    fermer.type = 'button';
+    fermer.addEventListener('click', vue.surFermer);
+    cible.appendChild(fermer);
+    return cible;
+  }
+
+  // 193-3 (maquette de l'ondulation, écrans 1 et 4) — LE CHOIX DE LA ZONE D'UNE LIGNE DE ROUTINE : « Automatique » (le coach la lit dans
+  // tes séances, comme avant) et les cinq zones. `vue` : { titre, sous, aide, zones, choisie (clé ou null), surChoix(clé | null),
+  // surFermer }. La même table de zones que la feuille de zone : aucune seconde liste.
+  function rendreFeuilleZoneRoutine(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', vue.titre || 'Zone de cet exercice'));
+    if (vue.sous) cible.appendChild(el('div', 'feuille-sous', vue.sous));
+    var auto = el('button', 'option-zone' + (!vue.choisie ? ' active' : ''));
+    auto.type = 'button';
+    auto.setAttribute('aria-pressed', !vue.choisie ? 'true' : 'false');
+    auto.dataset.cle = '';
+    auto.appendChild(el('span', 'oz-rond'));
+    auto.appendChild(el('span', 'oz-nom', 'Automatique'));
+    auto.appendChild(el('span', 'oz-sous', 'Le coach lit ta zone dans tes séances, comme aujourd\u2019hui.'));
+    auto.addEventListener('click', function () { vue.surChoix(null); });
+    cible.appendChild(auto);
+    (vue.zones || []).forEach(function (z) {
+      var actif = vue.choisie === z.cle;
+      var b = el('button', 'option-zone' + (actif ? ' active' : ''));
+      b.type = 'button';
+      b.setAttribute('aria-pressed', actif ? 'true' : 'false');
+      b.dataset.cle = z.cle;
+      b.appendChild(el('span', 'oz-rond'));
+      b.appendChild(el('span', 'oz-nom', z.libelle));
+      b.appendChild(el('span', 'oz-reps', z.bas + ' à ' + z.haut + ' reps'));
+      if (actif) b.appendChild(el('span', 'oz-sous', 'Ce jour-là, cet exercice a son propre palier, séparé de tes autres jours.'));
+      b.addEventListener('click', function () { vue.surChoix(z.cle); });
+      cible.appendChild(b);
+    });
+    if (vue.aide) cible.appendChild(el('p', 'feuille-aide', vue.aide));
+    var fermer = el('button', 'discret bloc-large', 'Fermer');
+    fermer.type = 'button';
+    fermer.addEventListener('click', vue.surFermer);
+    cible.appendChild(fermer);
+    return cible;
+  }
+
+  // 193-3 (maquette de l'ondulation, écran 4) — TOUCHER L'ÉTIQUETTE d'un exercice dont la zone vient de la routine : deux choix, ni
+  // plus ni moins. `vue` : { nom, libelle, surRoutine, surAujourdhui, surFermer }. Aucune correction d'exercice (`zones_exercice`)
+  // ne s'écrit d'ici : la zone de la routine ne s'efface jamais en silence.
+  function rendreFeuilleZonePlan(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', 'Zone de travail'));
+    cible.appendChild(el('div', 'feuille-sous', vue.nom));
+    cible.appendChild(el('p', 'feuille-aide', 'Ta zone d\u2019ici vient de ta routine\u00a0: ' + vue.libelle + '.'));
+    [['routine', 'Changer la zone de cette routine', 'Elle change pour les prochaines fois, dans la routine.', vue.surRoutine],
+     ['aujourdhui', 'Juste pour aujourd\u2019hui', 'Ta routine ne change pas.', vue.surAujourdhui]].forEach(function (c) {
+      var b = el('button', 'option-zone');
+      b.type = 'button';
+      b.dataset.choix = c[0];
+      b.appendChild(el('span', 'oz-nom', c[1]));
+      b.appendChild(el('span', 'oz-sous', c[2]));
+      b.addEventListener('click', function () { c[3](); });
+      cible.appendChild(b);
+    });
     var fermer = el('button', 'discret bloc-large', 'Fermer');
     fermer.type = 'button';
     fermer.addEventListener('click', vue.surFermer);
@@ -8717,6 +8790,8 @@
     rendreFeuilleSerie: rendreFeuilleSerie,
     rendreFeuilleNote: rendreFeuilleNote,
     rendreFeuilleRepos: rendreFeuilleRepos,
+    rendreFeuilleZoneRoutine: rendreFeuilleZoneRoutine,
+    rendreFeuilleZonePlan: rendreFeuilleZonePlan,
     VALEURS_REPOS: VALEURS_REPOS,
     rendreFeuilleConfirmer: rendreFeuilleConfirmer,
     rendreFeuilleSortie: rendreFeuilleSortie,

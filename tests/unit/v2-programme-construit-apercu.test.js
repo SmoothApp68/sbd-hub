@@ -30,7 +30,9 @@ require('../../v2/js/rendu.js');
 const Rendu = () => window.THRendu;
 
 const CAS = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/cas-60-6-generateur.json'), 'utf8'));
-const cas = (id) => CAS.generer.find((c) => c.id === id);
+// 193-2 : ces tests éprouvent les gestes de l'aperçu sur le gabarit D'AVANT (`famille: false`), celui des 32 cas de 60-6 ; les familles de force
+// ont les leurs (`v2-generateur-force.test.js`).
+const cas = (id) => { const c = CAS.generer.find((x) => x.id === id); return c && Object.assign({}, c, { entree: Object.assign({}, c.entree, { famille: false }) }); };
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const texte = (n) => n.textContent.replace(/\s+/g, ' ').trim();
 const NBSP = ' ';
@@ -375,12 +377,12 @@ const FONCTIONS = ['freresDe', 'cousinsDe', 'brouillonDeStructure', 'creerRoutin
   'basculerChangement', 'ligneDeRetouche', 'deduiteDuProgramme', 'fondreLesVoisins', 'raccourcirLeProgramme', 'lectureDuProgramme',
   'departRecentDe', 'seriesFois', 'rendreApercuDuProgramme', 'ouvrirApercuProgramme', 'ouvrirExerciceDuProgramme',
   'ecarterDansLeProgramme', 'remplacerDansLeProgramme', 'poserDansLeProgramme', 'versLeCatalogueDuProgramme',
-  'creerLeProgramme'];
+  'creerLeProgramme', 'creerLaPhaseDuProgramme'];
 
 function bac(options) {
   const o = options || {};
   const journal = { routines: [], exercices: [], series: [], feuilles: [], voile: 0, ferme: 0, saisie: 0, chargements: 0,
-                    profil: [], catalogue: [], confirmer: [], choix: [], machine: [], rendreSaisie: 0, seriesDe: {}, supprimees: [] };
+                    profil: [], catalogue: [], confirmer: [], choix: [], machine: [], rendreSaisie: 0, seriesDe: {}, supprimees: [], blocs: [] };
   let n = 0;
   const Donnees = {
     creerRoutine: async (ligne) => {
@@ -403,7 +405,7 @@ function bac(options) {
     priorites: null, zones_a_menager: null, exercices_ecartes: null, temps_reponse: null, duree_seance_min: null,
     intention: 'progresser' }, o.profil || {});
   const ctx = {
-    Routines, Modele, Moteur, Profil, Generateur: o.generateur || Generateur, Donnees, Deraille,
+    Routines, Modele, Moteur, Profil, Generateur: o.generateur || GENERATEUR_D_AVANT, Donnees, Deraille,
     Seance: o.freres ? { freresProposes: () => o.freres.map((f) => Object.assign({ deja_dans_la_seance: false }, f)) } : { freresProposes: () => [] },
     Rendu: {
       rendreApercuProgramme: (c, v) => { journal.feuilles.push(v); ctx.__vue = v; },
@@ -419,7 +421,9 @@ function bac(options) {
     volumeDuCoach: () => o.volume || {},
     corpus: () => ({}),
     catalogueIndexe: () => INDEX,
-    local: { exercices: o.catalogueVide ? [] : CATALOGUE },
+    local: { exercices: o.catalogueVide ? [] : CATALOGUE, blocs: o.blocs || [] },
+    jourDuJour: () => '2026-11-02',
+    creerBloc: async (b) => { if (o.panneBloc) throw new Error('Failed to fetch'); journal.blocs.push(b); },
     profil,
     // Le vrai `poserProfil` met `profil` à jour AVANT son premier `await` et ne rejette jamais : hors ligne, l'envoi
     // échoue et le drapeau reste levé, mais l'état local garde le geste.
@@ -463,6 +467,11 @@ function bac(options) {
   FONCTIONS.forEach((f) => vm.runInContext(extraire(f), ctx));
   return { ctx, journal, vue: () => ctx.__vue, appel: (code) => vm.runInContext(code, ctx) };
 }
+
+// 193-2 : l'app construit Force et Les deux (avec barre) par les familles ; ce harnais éprouve les gestes de l'aperçu sur le gabarit d'avant.
+const GENERATEUR_D_AVANT = Object.assign({}, Generateur, {
+  generer: (c, e) => Generateur.generer(c, Object.assign({}, e, { famille: false }))
+});
 
 const NOMS_4J = ['Haut A', 'Bas A', 'Haut B', 'Bas B'];
 
@@ -1108,7 +1117,7 @@ describe('revue adverse — la phrase de zone ne ment pas, le motif suit l’exe
     const lignes = (rts) => [].concat.apply([], rts.map((rt) => rt.exercices));
     const ouvrir = async (profil) => { const b = bac({ profil }); await b.appel('ouvrirApercuProgramme()'); return b; };
     // Le programme TEL QUE LE GÉNÉRATEUR L'ÉCRIT, avant le raccourci : la référence des séries.
-    const complet = (b) => Generateur.generer(cat(), b.ctx.construit.entree);
+    const complet = (b) => GENERATEUR_D_AVANT.generer(cat(), b.ctx.construit.entree);
     const seriesDe = (rts) => { const m = {}; rts.forEach((rt, i) => rt.exercices.forEach((x) => { m[i + ':' + x.exercise_slug] = x.series; })); return m; };
 
     test('⚠️ DISCRIMINANT — genou ménagé, durée visée courte : le squat et la presse gardent leurs séries, les autres coupent', async () => {
@@ -1342,5 +1351,138 @@ describe('66D — « Construis-le-moi » avec un historique : le choix, l’aper
     // Les chauffes de la personne restent : deux au couché à la barre.
     const couche = exos.find((e) => e.exercise_slug === 'developpe_couche_barre');
     expect(b.journal.seriesDe[couche.id].filter((s) => s.type_serie === 'echauffement').length).toBe(2);
+  });
+});
+
+// 193-2 (commit 2) — la famille (Les deux, 4 jours) jusqu'à la routine écrite : la zone du jour sur la ligne, la grosse série puis
+// ses reculs en séries de type `recul`, et JAMAIS une charge. Le générateur est le vrai (pas celui d'avant).
+describe('193-2 — les familles jusqu’à la routine écrite', () => {
+  const famille = (o) => bac(Object.assign({ generateur: Generateur }, o || {}));
+
+  test('Les deux 4 jours : chaque barre lourde porte sa zone, la grosse série est suivie de ses reculs, aucune charge', async () => {
+    const b = famille();
+    await b.appel('ouvrirApercuProgramme()');
+    await b.vue().surCreer();
+    expect(b.journal.routines.length).toBe(4);
+    const lignes = [].concat.apply([], b.journal.exercices);
+    expect(lignes.some((l) => l.zone === 'lourd')).toBe(true);
+    expect(lignes.every((l) => l.zone === null || ['lourd', 'mix', 'hypertrophie'].indexOf(l.zone) >= 0)).toBe(true);
+    const series = [].concat.apply([], b.journal.series);
+    expect(series.some((s) => s.type_serie === 'recul')).toBe(true);
+    expect(series.every((s) => s.charge_cible_kg === null)).toBe(true);
+    // Un recul suit toujours une série de travail du même exercice (jamais en tête d'un exercice).
+    Object.keys(b.journal.seriesDe).forEach((id) => {
+      const s = b.journal.seriesDe[id];
+      const rangs = s.map((x) => x.type_serie);
+      const premierRecul = rangs.indexOf('recul');
+      if (premierRecul >= 0) expect(rangs.slice(0, premierRecul).length).toBeGreaterThan(0);
+    });
+  });
+
+  test('« Remplacer » sur une barre : ses deux places changent, dans deux séances, avec leurs zones', async () => {
+    const b = famille();
+    await b.appel('ouvrirApercuProgramme()');
+    const rs = b.ctx.construit.routines;
+    const places = [];
+    rs.forEach((rt, i) => rt.exercices.forEach((x, k) => { if (x.exercise_slug === 'squat_barre') places.push([i, k]); }));
+    expect(places.length).toBe(2);
+    await b.appel('poserDansLeProgramme(' + places[0][0] + ',' + places[0][1] + ",'belt_squat_machine')");
+    const apres = b.ctx.construit.routines;
+    expect(JSON.stringify(apres)).not.toContain('squat_barre');
+    expect(JSON.stringify(apres).split('belt_squat_machine').length - 1).toBe(2);
+    expect(Object.keys(b.ctx.construit.neuf).length).toBe(2);
+  });
+
+  test('le raccourci retire des reculs (jamais le dernier), jamais la grosse série ; la ligne écrite suit', async () => {
+    const plein = famille();
+    await plein.appel('ouvrirApercuProgramme()');
+    const court = famille({ profil: { temps_reponse: 'max', duree_seance_min: 40 } });
+    await court.appel('ouvrirApercuProgramme()');
+    const reculs = (b) => [].concat.apply([], b.ctx.construit.routines.map((rt) => rt.exercices.map((x) => x.reculs || 0)));
+    const a = reculs(plein), c = reculs(court);
+    expect(c.reduce((x, y) => x + y, 0)).toBeLessThan(a.reduce((x, y) => x + y, 0));
+    court.ctx.construit.routines.forEach((rt) => rt.exercices.forEach((x) => {
+      if (x.zone === 'lourd' && x.spec && x.spec.reculs) { expect(x.reculs).toBeGreaterThanOrEqual(1); expect(x.series).toBe(1); }
+    }));
+    await court.vue().surCreer();
+    const ecrites = [].concat.apply([], court.journal.series).filter((s) => s.type_serie === 'recul').length;
+    expect(ecrites).toBe(c.reduce((x, y) => x + y, 0));
+  });
+
+  test('la PHASE : Les deux 4 jours créent UN bloc de 5 semaines, la dernière allégée, sur les barres lourdes, sans zone de bloc', async () => {
+    const b = famille();
+    await b.appel('ouvrirApercuProgramme()');
+    const lourdes = [];
+    b.ctx.construit.routines.forEach((rt) => rt.exercices.forEach((x) => { if (x.zone === 'lourd' && lourdes.indexOf(x.exercise_slug) < 0) lourdes.push(x.exercise_slug); }));
+    await b.vue().surCreer();
+    expect(b.journal.blocs.length).toBe(1);
+    const bloc = b.journal.blocs[0];
+    expect(bloc).toMatchObject({ dossier: 'Mon programme', semaines: 5, decharge: true, sansZones: true, debut: '2026-11-02' });
+    expect(bloc.exercices).toEqual(lourdes);
+    expect(bloc.exercices.length).toBeGreaterThan(0);
+    // créé APRÈS la dernière routine écrite
+    expect(b.journal.routines.length).toBe(4);
+  });
+
+  test('Force 4 jours aussi ; Muscle et Forme : aucune phase', async () => {
+    const f = famille({ profil: { objectif: 'force' } });
+    await f.appel('ouvrirApercuProgramme()');
+    await f.vue().surCreer();
+    expect(f.journal.blocs.length).toBe(1);
+    for (const objectif of ['muscle', 'forme']) {
+      const m = famille({ profil: { objectif } });
+      await m.appel('ouvrirApercuProgramme()');
+      await m.vue().surCreer();
+      expect(m.journal.blocs.length).toBe(0);
+    }
+  });
+
+  test('pas de phase : débutant, bloc déjà en cours, « Juste un carnet », panne pendant les routines, sans le générateur de familles', async () => {
+    const cas0 = async (o) => { const b = famille(o); await b.appel('ouvrirApercuProgramme()'); await b.vue().surCreer(); return b.journal.blocs.length; };
+    expect([1, await cas0({ profil: { anciennete: 'moins_1_an' } })]).toEqual([1, 0]);
+    expect([2, await cas0({ blocs: [{ id: 'x', dossier: 'Mon programme', statut: 'en_cours', zone: 'lourd', debut: '2026-10-01', semaines: 5, exercices: ['squat_barre'] }] })]).toEqual([2, 0]);
+    expect([3, await cas0({ profil: { intention: 'entretien' } })]).toEqual([3, 0]);
+    expect([4, await cas0({ generateur: GENERATEUR_D_AVANT })]).toEqual([4, 0]);
+    expect([5, await cas0({ panne: (n) => n === 2 })]).toEqual([5, 0]);
+  });
+
+  test('une panne du bloc ne défait pas les routines écrites', async () => {
+    const b = famille({ panneBloc: true });
+    await b.appel('ouvrirApercuProgramme()');
+    await b.vue().surCreer();
+    expect(b.journal.routines.length).toBe(4);
+    expect(b.ctx.construit).toBeNull();
+  });
+
+  test('l’aperçu : « 1 × 4 · 2 reculs × 8 », la zone sous la ligne, les phrases de la famille dans la voix', async () => {
+    const b = famille();
+    await b.appel('ouvrirApercuProgramme()');
+    const v = b.vue();
+    const haut = v.routines[0].exercices[0];
+    expect(haut.series).toBe('1\u00a0\u00d7\u00a04 \u00b7 2 reculs \u00d7 8');
+    expect(haut.mentions).toEqual(['zone Lourd (3-5)']);
+    expect(v.routines[1].exercices[0].series).toBe('1\u00a0\u00d7\u00a04 \u00b7 2 reculs \u00d7 6');
+    const bas = v.routines[3].exercices[0];
+    expect(bas.series).toBe('1\u00a0\u00d7\u00a04 \u00b7 2 reculs \u00d7 5');
+    expect(v.voix.some((t) => /^Dans la semaine/.test(t))).toBe(true);
+    expect(v.voix.some((t) => /grosse série puis des reculs/.test(t))).toBe(true);
+    // le haut de l'aperçu d'avant (Muscle, Forme) ne change pas
+    const m = famille({ profil: { objectif: 'muscle' } });
+    await m.appel('ouvrirApercuProgramme()');
+    expect(m.vue().voix.some((t) => /Dans la semaine/.test(t))).toBe(false);
+    m.vue().routines.forEach((r) => r.exercices.forEach((x) => expect(x.series).not.toMatch(/recul/)));
+  });
+
+  test('« Je n’en veux pas » sur une barre : ses deux places changent ensemble', async () => {
+    const b = famille();
+    await b.appel('ouvrirApercuProgramme()');
+    const rs = b.ctx.construit.routines;
+    const places = [];
+    rs.forEach((rt, i) => rt.exercices.forEach((x, k) => { if (x.exercise_slug === 'squat_barre') places.push([i, k]); }));
+    await b.appel('ecarterDansLeProgramme(' + places[0][0] + ',' + places[0][1] + ')');
+    expect(JSON.stringify(b.ctx.construit.routines)).not.toContain('squat_barre');
+    expect(b.ctx.construit.routines.length).toBe(4);
+    // les DEUX places sont marquées « neuf » (une par séance concernée)
+    expect(Object.keys(b.ctx.construit.neuf).length).toBe(2);
   });
 });

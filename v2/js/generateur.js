@@ -94,6 +94,65 @@
 
   var JOURS_MIN = 2, JOURS_MAX = 6, JOURS_DEFAUT = 3;
 
+  // ── 193-2 — LES FAMILLES DE FORCE (Force = powerlifting, Les deux = powerbuilding), 2 à 6 jours ──────────────
+  // Le même mouvement revient dans la semaine DANS UNE AUTRE ZONE (l'ondulation, MOTEUR §9.29) : la zone est écrite dans
+  // `routine_exercises.zone` de la ligne (193-3). Une place est `[motif, rôle, surcharge]`. Surcharge : `id` / `lie` (deux places
+  // liées : la même barre, deux zones, toujours le MÊME exercice), `zone`, `n` (séries), `reps`, `reculs` + `repsRecul` (une
+  // grosse série puis des reculs, 193-1 : Les deux seulement ; à PLUS de reps que la grosse série (193-5, MOTEUR §9.28), leur charge
+  // se cale sur le max du jour — « 1 × 4 puis 2 × 8 »),
+  // `lourd` (une barre lourde : jamais coupée par le raccourci, elle porte la phase). Pur table : aucun calcul.
+  var FAMILLE_OBJECTIFS = ['force', 'les_deux'];
+  function pl(motif, role, o) { return [motif, role, o || {}]; }
+  function lourde(motif, id, n, reps, lourd) { return pl(motif, 'P', { id: id, zone: 'lourd', n: n, reps: reps, lourd: lourd !== false }); }
+  function grosse(motif, id, reps, reculs, repsRecul, lourd) {
+    return pl(motif, 'P', { id: id, zone: 'lourd', n: 1, reps: reps, reculs: reculs, repsRecul: repsRecul, lourd: lourd !== false });
+  }
+  function reprise(lie, zone, n, reps) { return pl(null, 'S', { lie: lie, zone: zone, n: n, reps: reps }); }
+  function acc(motif, role, n, reps, zone) { return pl(motif, role, zone ? { n: n, reps: reps, zone: zone } : { n: n, reps: reps }); }
+  var SERREE = pl('couche_serre', 'S', { zone: 'hypertrophie', n: 3, reps: 8, variante: true });
+  var ROUMAIN = function (n) { return acc('jambes_tendues', 'S', n, 8, 'hypertrophie'); };
+
+  var HAUT_DU_CORPS = ['Haut du corps', [['incline', 'S'], ['rowing', 'S'], ['elev_lat', 'I'], ['ecarte', 'I'], ['curl', 'I'], ['triceps', 'I']]];
+  var BAS_DU_CORPS = ['Bas du corps', [['presse', 'S'], ['presse', 'S'], ['leg_curl', 'I'], ['hip_thrust', 'S'], ['mollets', 'I']]];
+
+  var F_QUATRE = [
+    ['Jour A', [lourde('squat', 's', 4, 4), reprise('c', 'mix', 4, 6), acc('rowing', 'S', 3, 8), acc('elev_lat', 'I', 2, 15)]],
+    ['Jour B', [lourde('couche', 'c', 4, 4), ROUMAIN(3), acc('tirage_vertical', 'S', 3, 7), acc('triceps', 'I', 2, 10)]],
+    ['Jour C', [lourde('charniere', 'd', 3, 3), SERREE, acc('arriere', 'I', 2, 15)]],
+    ['Jour D', [reprise('s', 'mix', 4, 6), acc('militaire', 'S', 3, 6), acc('rowing', 'S', 3, 10), acc('abdos', 'T', 2, 10)]]
+  ];
+  var D_QUATRE = [
+    ['Haut A', [grosse('couche', 'c', 4, 2, 8), reprise('m', 'hypertrophie', 3, 9), acc('tirage_vertical', 'S', 3, 9), acc('elev_lat', 'I', 3, 15)]],
+    ['Bas A', [grosse('squat', 's', 4, 2, 6), ROUMAIN(3), acc('leg_curl', 'I', 3, 12), acc('mollets', 'I', 3, 15)]],
+    ['Haut B', [grosse('militaire', 'm', 4, 2, 8, false), reprise('c', 'hypertrophie', 3, 9), acc('rowing', 'S', 3, 10), acc('curl', 'I', 3, 12)]],
+    ['Bas B', [grosse('charniere', 'd', 4, 2, 5), reprise('s', 'hypertrophie', 3, 9), acc('presse', 'S', 3, 12), acc('abdos', 'T', 3, 15)]]
+  ];
+  var FAMILLES = {
+    force: {
+      2: [['Jour A', [lourde('squat', 's', 4, 4), reprise('c', 'mix', 4, 6), ROUMAIN(3), acc('rowing', 'S', 3, 8), acc('abdos', 'T', 2, 10)]],
+          ['Jour B', [lourde('couche', 'c', 4, 4), lourde('charniere', 'd', 3, 3), acc('tirage_vertical', 'S', 3, 7), acc('triceps', 'I', 2, 10)]]],
+      3: [['Jour A', [lourde('squat', 's', 4, 4), reprise('c', 'mix', 4, 6), acc('rowing', 'S', 3, 8), acc('elev_lat', 'I', 2, 15)]],
+          ['Jour B', [lourde('couche', 'c', 4, 4), reprise('s', 'mix', 4, 6), ROUMAIN(3), acc('tirage_vertical', 'S', 3, 7)]],
+          ['Jour C', [lourde('charniere', 'd', 3, 3), SERREE, acc('arriere', 'I', 2, 15), acc('triceps', 'I', 2, 10)]]],
+      4: F_QUATRE,
+      5: F_QUATRE.concat([HAUT_DU_CORPS]),
+      6: F_QUATRE.concat([HAUT_DU_CORPS, BAS_DU_CORPS])
+    },
+    les_deux: {
+      2: [['Jour A', [grosse('squat', 's', 4, 2, 6), acc('tirage_vertical', 'S', 3, 9), acc('militaire', 'S', 3, 9), acc('leg_curl', 'I', 3, 12)]],
+          ['Jour B', [grosse('couche', 'c', 4, 2, 8), grosse('charniere', 'd', 4, 2, 5), acc('rowing', 'S', 3, 10), acc('curl', 'I', 3, 12)]]],
+      3: [['Jour A', [grosse('squat', 's', 4, 2, 6), reprise('c', 'hypertrophie', 3, 9), acc('tirage_vertical', 'S', 3, 9), acc('elev_lat', 'I', 3, 15)]],
+          ['Jour B', [grosse('couche', 'c', 4, 2, 8), reprise('s', 'hypertrophie', 3, 9), ROUMAIN(3), acc('rowing', 'S', 3, 10)]],
+          ['Jour C', [grosse('charniere', 'd', 4, 2, 5), acc('militaire', 'S', 3, 9), acc('curl', 'I', 3, 12), acc('abdos', 'T', 3, 15)]]],
+      4: D_QUATRE,
+      5: D_QUATRE.concat([HAUT_DU_CORPS]),
+      6: D_QUATRE.concat([HAUT_DU_CORPS, BAS_DU_CORPS])
+    }
+  };
+  // Les variantes qui n'ont pas de motif de remplacement dans `MOTIFS` (pour ne pas changer le programme déduit) : la prise serrée,
+  // puis Larsen, puis la barre elle-même (la dernière passe de `choisirBrut` la reprend, MOTEUR §9.29).
+  var VARIANTES = { couche_serre: ['developpe_couche_prise_serree', 'developpe_couche_larsen', 'developpe_couche_barre'] };
+
   // 190 (décision d'Aurélien du 30/10/2026) — LES EXERCICES QUI DEMANDENT UNE BARRE (de traction, fixe, en hauteur) : une seule
   // définition, celle du profil (`THProfil.demandeUneBarreDeTraction`, lue sur le slug et l'équipement de la fiche du catalogue
   // — il n'y a pas de colonne qui le dise). Elle remplace la liste à la main (`tractions`, `rowing_inverse`) qui laissait passer
@@ -115,7 +174,7 @@
   var CHARGE_ZONE = {
     genou: ['squat', 'presse', 'quad_iso'],
     dos: ['charniere', 'jambes_tendues', 'squat', 'rowing'],
-    epaule: ['militaire', 'couche', 'elev_lat'],
+    epaule: ['militaire', 'couche', 'couche_serre', 'elev_lat'],
     coude: ['triceps', 'curl'],
     hanche: ['hip_thrust', 'squat', 'charniere']
   };
@@ -202,6 +261,8 @@
     return choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session);
   }
 
+  function candidatsDe(motif) { return liste(possede(MOTIFS, motif) ? MOTIFS[motif] : VARIANTES[motif]); }
+
   function choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session) {
     function candidats(src, sansPris) {
       return src.filter(function (s) {
@@ -209,14 +270,14 @@
       });
     }
     // Un exercice hors de tout motif (une ligne déduite habillée, 66D : `motif` nul) n'a pas de candidat : la place disparaît.
-    var src = liste(MOTIFS[motif]);
+    var src = candidatsDe(motif);
     var cand = candidats(src, true);
     if (!cand.length && possede(VOISIN, motif)) {
       src = MOTIFS[VOISIN[motif]];
       cand = candidats(src, true);
     }
     if (!cand.length) {
-      src = liste(MOTIFS[motif]);
+      src = candidatsDe(motif);
       cand = candidats(src, false);
     }
     if (!cand.length) return null;
@@ -261,7 +322,7 @@
   }
 
   // `solo` : les zones dont TOUTES les places du programme sont des principaux (60-6, S4) — { cleDeZone : true }.
-  function ligne(catalogue, slug, motif, role, p, solo) {
+  function ligne(catalogue, slug, motif, role, p, solo, spec) {
     var objectif = p.objectif, phase = p.phase;
     var priorites = liste(p.priorites), menager = liste(p.menager);
     var r = repsDeObjectif(objectif);
@@ -282,9 +343,100 @@
     if (prioEx || (prioMu && (role === 'S' || role === 'I' || role === 'T' ||
                               (role === 'P' && possede(solo, cleDeZone(fiche)))))) n += 1;
     var menage = estMenagee(motif, menager);
+    if (spec) return ligneDeFamille(fiche, slug, motif, role, p, spec, n - seriesDe(role, objectif), prioEx, menage);
     reps = repsDeLaPlace(reps, motif, menage, objectif);
     return { exercise_slug: slug, motif: motif, role: role, series: n, reps: reps,
              prioritaire: prioEx, menage: menage, barre_fixe: demandeUneBarreFixe(slug, fiche) };
+  }
+
+  // 193-2 — une place de FAMILLE : séries, reps, zone et reculs viennent de la table. La priorité (un exercice prioritaire) ajoute
+  // UNE série — ou UN recul à une grosse série : jamais une seconde grosse série. Un muscle prioritaire (`bonus`) n'ajoute rien à une
+  // barre de la famille (la table fixe sa part), mais joue pour un accessoire comme avant. Une place qui charge une zone à ménager
+  // perd sa série lourde : sa zone Lourd devient Mix (Force) ou Hypertrophie (Les deux), ses reculs redeviennent des séries
+  // égales (toutes ses séries gardées), ses reps au moins celles d'un secondaire (`repsDeLaPlace`).
+  function ligneDeFamille(fiche, slug, motif, role, p, spec, bonus, prioEx, menage) {
+    var objectif = p.objectif;
+    var barreDeLaFamille = !!spec.zone;
+    var n = spec.n, reps = spec.reps, zone = spec.zone || null;
+    var reculs = spec.reculs || 0, repsRecul = reculs ? spec.repsRecul : null;
+    if (barreDeLaFamille) { if (prioEx) { if (reculs) reculs += 1; else n += 1; } }
+    else n += bonus;
+    if (menage) {
+      if (zone === 'lourd') zone = objectif === 'les_deux' ? 'hypertrophie' : 'mix';
+      if (reculs) { n += reculs; reculs = 0; repsRecul = null; }
+      reps = repsDeLaPlace(reps, motif, true, objectif);
+    } else if (motif === 'charniere') reps = Math.min(reps, CHARNIERE_MAX);
+    var l = { exercise_slug: slug, motif: motif, role: role, series: n, reps: reps, prioritaire: prioEx, menage: menage,
+              barre_fixe: demandeUneBarreFixe(slug, fiche), spec: spec };
+    if (zone) l.zone = zone;
+    if (reculs) { l.reculs = reculs; l.reps_recul = repsRecul; }
+    if (spec.lourd) l.lourd = true;
+    if (spec.id || spec.lie) l.lien = spec.id || spec.lie;
+    return l;
+  }
+
+
+  // ── 193-6 — LA DERNIÈRE SÉRIE « AU MAX », posée par défaut (MOTEUR §9.30) ─────────────────────────────────────────────
+  // UNE SEULE FONCTION DE DÉCISION : `Moteur.auMaxDe` (pure). Le générateur la LIT pour chaque ligne d'une séance, dans l'ordre de la
+  // séance (un squat suivi d'une autre barre lourde de jambes ne va pas à l'échec) : aucune table ici. Elle dit oui (muscle, les_deux),
+  // oui aux accessoires seulement (force), non (forme, objectif absent) ; le débutant, la zone à ménager sont dans la fonction.
+  // `au_max: true` sur la ligne = la dernière série de travail ou de recul de l'exercice (posée à l'écriture, `routineDeduite`).
+  function marquerAuMax(catalogue, exercices, p, seuls) {
+    var Moteur = racine.THMoteur, Modele = racine.THModele, B = Modele.BARRES;
+    var debutant = racine.THProfil.estDebutant(p);
+    var lignes = liste(exercices);
+    lignes.forEach(function (l, i) {
+      if (seuls && seuls.indexOf(i) < 0) return;      // un remplacement ne touche que la ligne neuve
+      delete l.au_max;
+      var fiche = ficheDu(catalogue, l.exercise_slug);
+      if (!fiche) return;
+      var jambesApres = lignes.slice(i + 1).some(function (a) {
+        var fam = familleDeBarre(a.exercise_slug, catalogue);
+        return fam === B[0] || fam === B[2];
+      });
+      var a = Moteur.auMaxDe({
+        objectif: p.objectif, debutant: debutant, famille: familleDeBarre(l.exercise_slug, catalogue),
+        equipement: fiche.equipement || null,
+        isolation: Moteur.estIsolation({ prim: liste(fiche.muscles_primaires), sec: liste(fiche.muscles_secondaires), stab: liste(fiche.muscles_stabilisateurs) }),
+        allegee: false, menagee: !!l.menage, douleurRecente: false, barreDeJambesApres: jambesApres
+      });
+      if (a && a.pose === 'defaut') l.au_max = true;
+    });
+    return lignes;
+  }
+
+  // ── 193-2 — QUELLE FAMILLE ? ───────────────────────────────────────────────────────────────────────────────────────
+  // Force et Les deux, avec une barre à disposition (le squat ET le couché à la barre sont faisables : matériel, catalogue ; un
+  // exercice « Je n'en veux pas » ne l'enlève pas, il se remplace) : `FAMILLES[objectif][jours]`. Sinon `null` : le gabarit d'avant,
+  // inchangé (Muscle, Forme, sans objectif, maison sans barre). Moins d'un an : la même semaine, mais 3 × 5 sans zone, sans reculs
+  // et sans prise serrée (l'apprentissage du geste ; Moesgaard 2022 : la périodisation aide surtout les entraînés).
+  function gabaritDeForce(catalogue, p, ok, debutant) {
+    if (p.famille === false || !contient(FAMILLE_OBJECTIFS, p.objectif)) return null;     // `famille: false` : le gabarit d'avant (les cas de 60-6 le rejouent)
+    if (!ok('squat_barre') || !ok('developpe_couche_barre')) return null;
+    var base = FAMILLES[p.objectif][bornerJours(p.jours)];
+    return debutant ? pourDebutant(base) : base;
+  }
+  function pourDebutant(gabarit) {
+    return gabarit.map(function (rt) {
+      var places = [];
+      rt[1].forEach(function (pl) {
+        var sp = pl[2];
+        if (!sp || !sp.zone) { places.push(pl); return; }
+        if (sp.variante) return;                                   // pas de prise serrée
+        var barre = !!(sp.id || sp.lie);                           // une barre de la famille (liée), pas le roumain
+        var o = {}; Object.keys(sp).forEach(function (k) { o[k] = sp[k]; });
+        delete o.zone; delete o.reculs; delete o.repsRecul;
+        if (barre) { o.n = 3; o.reps = 5; }
+        places.push([pl[0], pl[1], o]);
+      });
+      return [rt[0], places];
+    });
+  }
+  // Pour les tests et le chemin du profil : la famille s'applique-t-elle à cette entrée ?
+  function familleApplicable(catalogue, entree) {
+    var p = entree || {};
+    var ok = faisable(catalogue, p.materiel, p.faits || {}, p.barre_traction);
+    return gabaritDeForce(catalogue, p, ok, racine.THProfil.estDebutant(p)) !== null;
   }
 
   // ── Le programme ────────────────────────────────────────────────────────────
@@ -296,7 +448,12 @@
     var ecartes = liste(p.ecartes);
     var ok = faisable(catalogue, p.materiel, faits, p.barre_traction);
     var debutant = racine.THProfil.estDebutant(p);
-    var gabarit = GABARITS[bornerJours(p.jours)];
+    var gabarit = gabaritDeForce(catalogue, p, ok, debutant) || GABARITS[bornerJours(p.jours)];
+    // 193-2 — les places liées (la même barre, deux zones) : `id` → clé de la place ; une liée prend l'exercice de sa principale.
+    var ids = {};
+    gabarit.forEach(function (rt, r) {
+      rt[1].forEach(function (pl2, j) { if (pl2[2] && pl2[2].id) ids[pl2[2].id] = r + '-' + j; });
+    });
     // Les principaux de la semaine d'abord (ils prennent la barre), puis les secondaires, puis le reste ; un exercice
     // n'est pris qu'une fois dans la semaine tant qu'il y a le choix.
     var places = [];
@@ -308,6 +465,12 @@
     });
     var pris = {}, choix = {};
     places.forEach(function (pl) {
+      var liee = gabarit[pl.r][1][pl.j][2];
+      if (liee && liee.lie) {                      // 193-2 : la même barre, une autre zone — jamais un second choix
+        var cle = ids[liee.lie];
+        if (cle && choix[cle]) choix[pl.r + '-' + pl.j] = choix[cle];
+        return;
+      }
       // Les exercices déjà choisis DANS cette séance (les places plus prioritaires) : jamais deux fois le même.
       var session = {};
       gabarit[pl.r][1].forEach(function (autre, jj) {
@@ -330,13 +493,19 @@
       var ex = [];
       rt[1].forEach(function (pl, j) {
         var s = choix[r + '-' + j];
-        if (s) ex.push(ligne(catalogue, s, pl[0], pl[1], p, solo));
+        if (!s) return;
+        var motif = pl[0], spec = pl[2];
+        if (spec && spec.lie) {                       // le motif de la principale (la zone à ménager se lit sur lui)
+          var kp = ids[spec.lie].split('-');
+          motif = gabarit[Number(kp[0])][1][Number(kp[1])][0];
+        }
+        ex.push(ligne(catalogue, s, motif, pl[1], p, solo, spec));
       });
       // Stable : l'exercice prioritaire d'abord, puis par rôle.
       ex = trier(ex, function (x, y) {
         return (x.prioritaire ? 0 : 1) - (y.prioritaire ? 0 : 1) || ROLES.indexOf(x.role) - ROLES.indexOf(y.role);
       });
-      return { nom: rt[0], exercices: ex };
+      return { nom: rt[0], exercices: marquerAuMax(catalogue, ex, p) };
     });
   }
 
@@ -345,6 +514,32 @@
   // même motif (sinon le voisin, sinon un déjà pris), en évitant ce qui est déjà dans CETTE séance ; les séries
   // restent celles de la place (la personne a pu les changer) ; l'exercice rejoint les écartés. Rien au catalogue : la
   // place disparaît. Rend { routines, ecartes } ; rien n'est modifié en place.
+  // 193-2 — LES PLACES LIÉES (la même barre, deux zones) se remplacent ENSEMBLE : toutes les lignes qui portent le même `lien` et le
+  // même exercice que la ligne touchée (dans toutes les séances), la ligne touchée comprise. Une ligne sans lien : elle seule.
+  function lieesDe(routines, r, k) {
+    var rt = liste(routines);
+    var vieux = rt[r] && liste(rt[r].exercices)[k];
+    if (!vieux) return [];
+    var sortie = [[r, k]];
+    if (!vieux.lien) return sortie;
+    rt.forEach(function (s, i) {
+      liste(s.exercices).forEach(function (x, j) {
+        if ((i !== r || j !== k) && x.lien === vieux.lien && x.exercise_slug === vieux.exercise_slug) sortie.push([i, j]);
+      });
+    });
+    return sortie;
+  }
+
+  // La ligne neuve d'une place : celle de la FAMILLE (sa table : zone, reculs, reps) quand la place en a une — recalculée pour le
+  // nouvel exercice (il peut charger une zone à ménager) —, sinon l'ancienne façon. Les séries retouchées de la place restent, tant
+  // que la zone à ménager ne change rien à la place.
+  function ligneNeuve(catalogue, slug, motif, vieux, p) {
+    var neuve = ligne(catalogue, slug, motif, vieux.role, p, {}, vieux.spec || undefined);
+    if (!vieux.spec || neuve.menage === vieux.menage) neuve.series = vieux.series;
+    if (vieux.raccourcie) neuve.raccourcie = true;
+    return neuve;
+  }
+
   function neVeuxPas(catalogue, routines, entree, r, k) {
     var p = entree || {};
     var nouveau = liste(routines).map(function (rt) {
@@ -358,18 +553,22 @@
     if (!contient(ecartes, vieux.exercise_slug)) ecartes.push(vieux.exercise_slug);
     var faits = p.faits || {};
     var pris = {};
-    nouveau[r].exercices.forEach(function (x) { pris[x.exercise_slug] = true; });
+    var liees = lieesDe(nouveau, r, k);
+    // Les séances des places liées : l'exercice choisi ne doit être dans AUCUNE d'elles.
+    liees.forEach(function (c) { nouveau[c[0]].exercices.forEach(function (x) { pris[x.exercise_slug] = true; }); });
     // `pris` = les exercices de CETTE séance : le repli ne les reprend jamais (60-6, S6) ; le débutant reste débutant.
     var s = choisir(vieux.motif, faisable(catalogue, p.materiel, faits, p.barre_traction), ecartes, pris, p.menager, faits, p.materiel,
                     racine.THProfil.estDebutant(p), pris);
     if (s === null) {
-      nouveau[r].exercices.splice(k, 1);                    // rien au catalogue : la place disparaît
+      // rien au catalogue : la place disparaît (ses places liées avec elle, de la dernière à la première pour garder les rangs)
+      liees.slice().sort(function (a, b) { return b[1] - a[1]; }).forEach(function (c) { nouveau[c[0]].exercices.splice(c[1], 1); });
     } else {
-      var neuve = ligne(catalogue, s, vieux.motif, vieux.role, p);
-      neuve.series = vieux.series;
-      if (vieux.raccourcie) neuve.raccourcie = true;                // la place a perdu des séries pour tenir la durée
-      nouveau[r].exercices[k] = neuve;
+      liees.forEach(function (c) {
+        var place = nouveau[c[0]].exercices[c[1]];
+        nouveau[c[0]].exercices[c[1]] = ligneNeuve(catalogue, s, place.motif, place, p);
+      });
     }
+    if (s !== null) liees.forEach(function (c) { marquerAuMax(catalogue, nouveau[c[0]].exercices, p, [c[1]]); });
     return { routines: nouveau, ecartes: ecartes };
   }
 
@@ -397,10 +596,12 @@
     if (!vieux || !possede(catalogue, slug)) return nouveau;
     // Le MOTIF suit l'exercice choisi (la zone à ménager se lit sur ce que l'exercice charge, pas sur la place qu'il
     // prend) : celui de la place si l'exercice en est un candidat, sinon le premier motif qui le contient, sinon aucun.
-    var neuve = ligne(catalogue, slug, motifDe(slug, vieux.motif), vieux.role, p);
-    neuve.series = vieux.series;
-    if (vieux.raccourcie) neuve.raccourcie = true;
-    nouveau[r].exercices[k] = neuve;
+    var motif = motifDe(slug, vieux.motif);
+    lieesDe(nouveau, r, k).forEach(function (c) {
+      var place = nouveau[c[0]].exercices[c[1]];
+      nouveau[c[0]].exercices[c[1]] = ligneNeuve(catalogue, slug, motif, place, p);
+    });
+    lieesDe(nouveau, r, k).forEach(function (c) { marquerAuMax(catalogue, nouveau[c[0]].exercices, p, [c[1]]); });
     return nouveau;
   }
 
@@ -419,7 +620,7 @@
       var fiche = catalogue[x.exercise_slug];
       var z = fiche ? zoneDe(liste(fiche.muscles_primaires)[0]) : null;
       var cle = z ? z.cle : ZONE_INCONNUE.cle;
-      g[cle] = (g[cle] || 0) + x.series;
+      g[cle] = (g[cle] || 0) + x.series + (x.reculs > 0 ? x.reculs : 0);       // 193-2 : les reculs comptent dans le volume
     });
     var cles = trier(Object.keys(g), function (x, y) { return (g[y] - g[x]) || (ordre[x] - ordre[y]); });
     if (!cles.length) return '';
@@ -472,7 +673,41 @@
     var zones = zonesDeLigne(l, e.menager);
     if (zones.length) m.push('sans série lourde \u00b7 ' + joindre(zones.map(function (z) { return POSSESSIF[z]; })));
     if (l.barre_fixe && barreFixeAVerifier(e.materiel, e.barre_traction)) m.push('demande une barre fixe');
+    // 193-2 — la zone du jour que la routine portera (193-3), avec ses reps : « Lourd (3-5) ». Une place sans zone (Automatique) : rien.
+    if (l.zone && racine.THMoteur && racine.THMoteur.libelleZoneDeBloc) {
+      var zl = racine.THMoteur.libelleZoneDeBloc(l.zone, true);
+      if (zl) m.unshift('zone ' + zl);
+    }
     return m;
+  }
+
+  // 193-2 — ce que dit l'en-tête d'un programme de FAMILLE (Force, Les deux) : combien de fois chaque barre passe dans la semaine, ce
+  // que fait la zone de chaque jour, la semaine allégée, et pourquoi la fréquence. Des faits, pas des ordres. Aucune phrase sans lignes
+  // à zone (Muscle, Forme, débutant, maison sans barre : rien).
+  var MOTIFS_SQUAT = ['squat'], MOTIFS_COUCHE = ['couche', 'couche_serre'], MOTIFS_SOULEVE = ['charniere'];
+  function fois(n) { return n + ' fois'; }
+  function phrasesDeFamille(lignes, total) {
+    var zonees = lignes.filter(function (l) { return !!l.zone; });
+    if (!zonees.length) return [];
+    var compte = function (motifs, zone) {
+      return zonees.filter(function (l) { return contient(motifs, l.motif) && (!zone || l.zone === zone); }).length;
+    };
+    var sq = compte(MOTIFS_SQUAT), co = compte(MOTIFS_COUCHE), so = compte(MOTIFS_SOULEVE, 'lourd');
+    var parts = [];
+    if (sq) parts.push('squat ' + fois(sq));
+    if (co) parts.push('couché ' + fois(co));
+    if (so) parts.push('soulevé ' + fois(so) + ' lourd');
+    var phrases = [];
+    if (parts.length) phrases.push('Dans la semaine\u00a0: ' + parts.join(', ') + '.');
+    var reculs = zonees.some(function (l) { return l.reculs > 0; });
+    phrases.push(reculs ? 'Un jour lourd, une grosse série puis des reculs\u00a0; un jour en hypertrophie, des séries égales.'
+                        : 'Chaque jour a sa zone\u00a0: la même barre passe de Lourd à Mix ou à Hypertrophie.');
+    if (total <= 2 && sq <= 1 && co <= 1) phrases.push('Avec ' + total + ' séances, chaque barre passe une fois.');
+    phrases.push('Une semaine allégée toutes les 5 semaines\u00a0: mêmes charges, moins de séries.');
+    if (sq >= 2 || co >= 2) {
+      phrases.push('Fréquence\u00a0: environ 3\u00a0% de force de plus par séance hebdomadaire ajoutée sur un mouvement (Pelland 2026).');
+    }
+    return phrases;
   }
 
   // Le haut de l'aperçu : « {N} séances par semaine. », une phrase par zone à ménager, et la barre fixe.
@@ -511,7 +746,8 @@
     // `total` : le nombre de séances du programme, quand toutes ne sont pas encore à créer (une reprise après panne).
     // 66D : avec un historique, une seule séance est possible (« 1 séance par semaine. »).
     var n = total === undefined ? rts.length : total;
-    return { titre: n + (n > 1 ? ' séances' : ' séance') + ' par semaine.', zones: zones, barreFixe: barre };
+    return { titre: n + (n > 1 ? ' séances' : ' séance') + ' par semaine.', zones: zones, barreFixe: barre,
+             famille: phrasesDeFamille(lignes, n) };
   }
 
   // ── Ce que le raccourci de la durée ne touche pas (R4/R6, 60-5) ──────────────────────
@@ -1411,6 +1647,8 @@
     familleDeBarre: familleDeBarre,
     MOTIFS: MOTIFS,
     GABARITS: GABARITS,
+    FAMILLES: FAMILLES,
+    familleApplicable: familleApplicable,
     VOISIN: VOISIN,
     demandeUneBarreFixe: demandeUneBarreFixe,
     PDC_LOURD: PDC_LOURD,
@@ -1425,6 +1663,7 @@
     bornerJours: bornerJours,
     generer: generer,
     neVeuxPas: neVeuxPas,
+    lieesDe: lieesDe,
     remplacePar: remplacePar,
     pourquoi: pourquoi,
     mentionsDeLigne: mentionsDeLigne,

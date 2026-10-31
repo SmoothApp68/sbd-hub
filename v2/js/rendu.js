@@ -193,6 +193,8 @@
       }
       // 152 — « à l'échec » (ambre) ou « manquée » : le mot vient de la lecture unique (`Modele.motDEchec`).
       if (s.motEchec) mesure.appendChild(el('span', 'etq' + (s.estTravail ? ' fond' : ''), s.motEchec));
+      // 196 — rest-pause : les reps de la série et de ses mini-séries, cumulées, dites à part.
+      if (s.repsCumulees) mesure.appendChild(el('span', 'etq', s.repsCumulees + ' reps avec les mini-séries'));
       ligne.appendChild(mesure);
       section.appendChild(ligne);
     });
@@ -4183,6 +4185,17 @@
         bAu.addEventListener('click', function () { vue.surAuMax(!vue.auMax.actif); });
         menuAu.appendChild(bAu);
         cible.appendChild(menuAu);
+      }
+
+      // 196 (MOTEUR §9.33) — « Rest-pause » : deux mini-séries à la même charge, une seule série de travail.
+      if (vue.restPause && vue.restPause.possible) {
+        var menuRp = el('div', 'feuille-menu');
+        var bRp = el('button', '', 'Rest-pause');
+        bRp.appendChild(el('small', 'aide-type', vue.restPause.aide));
+        bRp.type = 'button';
+        bRp.addEventListener('click', function () { vue.surRestPause(); });
+        menuRp.appendChild(bRp);
+        cible.appendChild(menuRp);
       }
 
       // ⚠️ LA NOTE DE SÉRIE EXISTE, ET ELLE RESTE (§7 septies.1).

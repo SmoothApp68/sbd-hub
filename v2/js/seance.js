@@ -231,6 +231,8 @@
       ligne.type_serie = (p && p.type_serie) || 'travail';
       // 193-6 — la marque « Au max » vient de la ligne de routine (`routine_sets.au_max`), jamais du plan.
       ligne.au_max = !!p && p.au_max === true;
+      // 196 — une mini-série de rest-pause posée par « J'ai peu de temps » : sa charge se cale sur la série de travail qui la précède.
+      if (p && p.rest_pause === true) ligne.rest_pause = true;
       // ⚠️ `p.reps`, PAS `p.reps_visees` — ET LES DEUX NOMS SONT JUSTES.
       // La ligne de routine arrive au vocabulaire de la SAISIE
       // (`THRoutines.enSaisie`), parce que l'éditeur de routine est l'écran de
@@ -596,6 +598,32 @@
     var s = serieVide(idSerie);
     s.type_serie = 'degressive';
     exo.series = exo.series.concat([s]);
+    exos[iExo] = exo;
+    return avecExercices(seance, exos);
+  }
+
+  // 196 (MOTEUR §9.33) — « REST-PAUSE » : deux mini-séries (des lignes dégressives, à la MÊME charge que la série de travail) posées
+  // juste après la série choisie et ses mini-séries éventuelles. Rien n'est stocké de plus que l'observé : la lecture « rest-pause »
+  // est `THModele.restPauseDe`. La charge est celle de la série (rien ne la propose) ; sans charge, le geste n'existe pas.
+  function ajouterRestPause(seance, iExo, iSerie, ids) {
+    var exo0 = seance.exercices[iExo];
+    var s0 = exo0 && exo0.series[iSerie];
+    if (!s0 || !estTravail(s0)) return seance;
+    var charge = Number(s0.charge_kg);
+    if (!isFinite(charge) || !(charge > 0)) return seance;
+    var exos = seance.exercices.slice();
+    var exo = copie(exo0);
+    var fin = iSerie + 1;
+    var deja = racine.THModele.restPauseDe(exo.series);
+    while (fin < exo.series.length && deja[fin] && deja[fin].role === 'mini') fin++;
+    var minis = [0, 1].map(function (k) {
+      var m = serieVide(typeof ids === 'function' ? ids : (ids && ids[k]) || ids);
+      m.type_serie = 'degressive';
+      m.charge_kg = charge;
+      m.rest_pause = true;
+      return m;
+    });
+    exo.series = exo.series.slice(0, fin).concat(minis, exo.series.slice(fin));
     exos[iExo] = exo;
     return avecExercices(seance, exos);
   }
@@ -978,6 +1006,10 @@
       if (a.deja_dans_la_seance !== b.deja_dans_la_seance) return a.deja_dans_la_seance ? 1 : -1;
       if (!a.fait !== !b.fait) return a.fait ? -1 : 1;
       if (hors[a.slug] !== hors[b.slug]) return hors[a.slug] ? 1 : -1;
+      // 196 — à égalité (même état « fait », même matériel), l'exercice qui charge le muscle ÉTIRÉ passe en premier ; l'historique
+      // reste plus fort (ci-dessus), et rien n'est retiré.
+      var ea = racine.THModele.estAccentAllonge(index[a.slug]), eb = racine.THModele.estAccentAllonge(index[b.slug]);
+      if (ea !== eb) return ea ? -1 : 1;
       if (a.fait && b.fait && quand(a.fait) !== quand(b.fait)) return quand(b.fait) - quand(a.fait);
       return nom(a.slug).localeCompare(nom(b.slug), 'fr') || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
     });
@@ -3215,6 +3247,7 @@
     insererMobilite: insererMobilite,
     ajouterSerie: ajouterSerie,
     ajouterDegressive: ajouterDegressive,
+    ajouterRestPause: ajouterRestPause,
     insererChauffes: insererChauffes,
     retirerLignesDeTest: retirerLignesDeTest,
     retirerSerie: retirerSerie,

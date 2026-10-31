@@ -252,18 +252,18 @@
   // `session` : les exercices DÉJÀ DANS cette séance (60-6, S2/S6). Le repli « un exercice déjà pris » les exclut : le
   // même exercice deux fois dans une séance n'a pas de sens, la place saute plutôt. `debutant` (S3) : on cherche
   // d'abord SANS les trois exercices de poids du corps lourd qui ne sont pas dans l'historique, puis, si rien, avec.
-  function choisir(motif, ok, ecartes, pris, menager, faits, materiel, debutant, session) {
+  function choisir(motif, ok, ecartes, pris, menager, faits, materiel, debutant, session, allonge) {
     if (debutant) {
       var sans = function (s) { return !(contient(PDC_LOURD, s) && !(possede(faits, s) ? Number(faits[s]) || 0 : 0)); };
-      var r = choisirBrut(motif, function (s) { return ok(s) && sans(s); }, ecartes, pris, menager, faits, materiel, session);
+      var r = choisirBrut(motif, function (s) { return ok(s) && sans(s); }, ecartes, pris, menager, faits, materiel, session, allonge);
       if (r) return r;
     }
-    return choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session);
+    return choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session, allonge);
   }
 
   function candidatsDe(motif) { return liste(possede(MOTIFS, motif) ? MOTIFS[motif] : VARIANTES[motif]); }
 
-  function choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session) {
+  function choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session, allonge) {
     function candidats(src, sansPris) {
       return src.filter(function (s) {
         return !contient(ecartes, s) && ok(s) && !(sansPris && possede(pris, s)) && !(!sansPris && possede(session, s));
@@ -289,7 +289,9 @@
     var corps = materiel === 'poids_du_corps';
     var tries = trier(cand, function (x, y) {
       function cle(s) {
-        return [s !== doux ? 1 : 0, -(possede(faits, s) ? Number(faits[s]) || 0 : 0),
+        // 196 — à égalité de pratique, l'exercice qui charge le muscle ÉTIRÉ (`accent_allonge`) passe devant : une préférence, la liste
+        // des candidats ne change pas (`allonge` absent : rien ne change).
+        return [s !== doux ? 1 : 0, -(possede(faits, s) ? Number(faits[s]) || 0 : 0), typeof allonge === 'function' && allonge(s) ? 0 : 1,
                 corps && contient(ELASTIQUES, s) ? 0 : 1, src.indexOf(s)];
       }
       var kx = cle(x), ky = cle(y);
@@ -480,7 +482,8 @@
         var deja = choix[pl.r + '-' + jj];
         if (deja) session[deja] = true;
       });
-      var s = choisir(pl.motif, ok, ecartes, pris, p.menager, faits, p.materiel, debutant, session);
+      var s = choisir(pl.motif, ok, ecartes, pris, p.menager, faits, p.materiel, debutant, session,
+                      function (x) { return racine.THModele.estAccentAllonge(catalogue[x]); });
       if (s) { choix[pl.r + '-' + pl.j] = s; pris[s] = true; }
     });
     // Les zones dont toutes les places du programme sont des principaux : la priorité de zone n'y aurait aucun effet.
@@ -561,7 +564,7 @@
     liees.forEach(function (c) { nouveau[c[0]].exercices.forEach(function (x) { pris[x.exercise_slug] = true; }); });
     // `pris` = les exercices de CETTE séance : le repli ne les reprend jamais (60-6, S6) ; le débutant reste débutant.
     var s = choisir(vieux.motif, faisable(catalogue, p.materiel, faits, p.barre_traction), ecartes, pris, p.menager, faits, p.materiel,
-                    racine.THProfil.estDebutant(p), pris);
+                    racine.THProfil.estDebutant(p), pris, function (x) { return racine.THModele.estAccentAllonge(catalogue[x]); });
     if (s === null) {
       // rien au catalogue : la place disparaît (ses places liées avec elle, de la dernière à la première pour garder les rangs)
       liees.slice().sort(function (a, b) { return b[1] - a[1]; }).forEach(function (c) { nouveau[c[0]].exercices.splice(c[1], 1); });
@@ -1269,7 +1272,11 @@
       rs.forEach(function (r) { r.exercices.forEach(function (x) { dedans[x.exercise_slug] = true; }); });
       var cands = Object.keys(fois).filter(function (s) {
         return !dedans[s] && !contient(ecartes, s) && possede(cat, s) && comblable(s, cat) && contient(primaires(s), m);
-      }).sort(function (a, b) { return (fois[b] - fois[a]) || (a < b ? -1 : (a > b ? 1 : 0)); });
+      }).sort(function (a, b) {
+        // 196 — à égalité de pratique, l'exercice qui charge le muscle ÉTIRÉ (`accent_allonge`) passe devant.
+        var ea = racine.THModele.estAccentAllonge(cat[a]), eb = racine.THModele.estAccentAllonge(cat[b]);
+        return (fois[b] - fois[a]) || (ea === eb ? 0 : (ea ? -1 : 1)) || (a < b ? -1 : (a > b ? 1 : 0));
+      });
       var seriesHab = hab.series || {}, repsHab = hab.reps || {};
       for (var c = 0; c < cands.length; c++) {
         var s = cands[c];

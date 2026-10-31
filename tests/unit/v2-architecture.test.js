@@ -823,6 +823,11 @@ const NOTIONS = [
     raison: '191 (décision d’Aurélien du 30/10/2026) : une seule définition — la compression (« J’ai peu de temps », le générateur) et la ' +
       'ligne du repos long au « Pourquoi » la lisent. La carte de l’ordre NE la lit PAS : elle lit « polyarticulaire » (MOTEUR §9.27 bis, ' +
       'delta 191 : deux notions, deux lecteurs).' },
+  { notion: 'le rest-pause permis (isolation ou machine, jamais une barre ni un soulevé)', pr: '196-U1',
+    module: 'moteur.js', fonction: 'peutRestPause', lecteurs: ['app.js'],
+    par: ['raccourcirRoutine'],
+    parAilleurs: { 'app.js': ['restPauseDeLaFeuille'] },
+    raison: '196 (MOTEUR §9.33) : une définition, lue par le menu ⋯ d’une série et par « J’ai peu de temps » en objectif Muscle.' },
   { notion: 'l’isolation (des muscles au catalogue, moins de trois ; sans muscle connu : ni l’un ni l’autre)', pr: '124-U3',
     module: 'moteur.js', fonction: 'estIsolation', lecteurs: ['profil.js', 'plan.js', 'app.js', 'generateur.js'],
     parAilleurs: { 'profil.js': ['avecIsolation'], 'plan.js': ['polyarticulaireDe'], 'app.js': ['optionsDeConsigne'], 'generateur.js': ['marquerAuMax'] },

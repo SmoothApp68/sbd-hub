@@ -1612,8 +1612,10 @@ const NOTIONS = [
     module: 'modele.js', fonction: 'libelleDeLaSemaine', lecteurs: ['app.js'],
     raison: 'ECRAN-SAISIE §7 quater.7 : les mois et les chiffres des dates ne s’écrivent que dans `modele.js`.' },
   { notion: 'une zone par sa clé (bornes, libellé)', pr: '124-U1',
-    module: 'moteur.js', fonction: 'zoneParCle', lecteurs: ['app.js', 'plan.js'],
-    raison: 'les bornes d’une zone sont écrites une fois (`ZONES`) ; le plan et la démonstration les lisent par la clé.' },
+    module: 'moteur.js', fonction: 'zoneParCle', lecteurs: ['app.js', 'plan.js', 'routines.js', 'seance.js'],
+    raison: 'les bornes d’une zone sont écrites une fois (`ZONES`) ; le plan et la démonstration les lisent par la clé. 193-3 : ' +
+      'la zone d’une ligne de routine (`routines.zoneValide`) et la zone de plan copiée dans la séance (`seance.zoneDePlanValide`) ' +
+      'se valident par la même table, jamais par une seconde liste de clés.' },
   { notion: 'les charges de travail d’un exercice, séance par séance', pr: '124-U1',
     module: 'moteur.js', fonction: 'chargesDeTravailDe', lecteurs: ['app.js'],
     raison: 'MOTEUR §9.22 : le bilan du bloc et la tête des records de la page d’exercice lisent les charges de travail ' +
@@ -2049,10 +2051,11 @@ describe('architecture — un seul coach, un seul câblage', () => {
     poserZone: 1,           // la personne change sa zone : la consigne se recalcule dans la séance en cours
     poserLignesDeZone: 1,   // une correction de zone datée arrive à échéance
     poserMode: 1,           // la personne change le mode d'un exercice
+    poserZoneDePlanDe: 1,   // 193-3 : la personne change la zone du jour (routine ou « juste pour aujourd'hui »)
     consigneDe: 2,          // la réponse au lest (`carte_lest`) et la salle qui change le plafond (`salle_max`)
     calculerRejeu: 1        // le rejeu d'une séance reprise
   };
-  test('⚠️ B-M3 — les dégels de consigne d’app.js sont six, tous inscrits : un septième échoue', () => {
+  test('⚠️ B-M3 — les dégels de consigne d’app.js sont sept, tous inscrits : un huitième échoue', () => {
     const app = FICHIERS.filter((f) => f.nom === 'app.js')[0];
     const code = nettoyer(app.src, false);
     const re = /delete\s+[\w.]*parSlug\s*\[/g;
@@ -2062,7 +2065,7 @@ describe('architecture — un seul coach, un seul câblage', () => {
     const vus = {};
     idx.forEach((i) => { const n = dans[i] || '(hors fonction)'; vus[n] = (vus[n] || 0) + 1; });
     expect(vus).toEqual(DEGELS);
-    expect(idx).toHaveLength(6);
+    expect(idx).toHaveLength(7);
     // aucun autre fichier servi ne dégèle une consigne
     FICHIERS.filter((f) => f.nom !== 'app.js').forEach((f) =>
       expect([f.nom, /delete\s+[\w.]*parSlug\s*\[/.test(nettoyer(f.src, false))]).toEqual([f.nom, false]));

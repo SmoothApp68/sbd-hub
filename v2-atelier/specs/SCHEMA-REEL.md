@@ -7,6 +7,14 @@ Dernière migration appliquée : **`v2_120`** (la série de recul, 193-1) ; avan
 **Volumétrie (24/10, 2 h 30)** : 1 288 séances · 29 673 séries · 860 exercices (848 actifs) · 961 alias
 (`exercise_alias`) · 361 prédictions · 3 647 records · 9 profils · 36 règles d'accès.
 
+## Le 31/10/2026 — `v2_122` (l'ondulation, 193-3)
+
+**`v2_122_routine_exercises_zone`** (appliquée par Claude.ai avant la PR) : `routine_exercises.zone text NULL` et la contrainte
+`routine_exercises_zone_ok` (`zone IS NULL OR zone IN ('lourd','mix','hypertrophie','volume','series_longues')`). NULL =
+« Automatique » : le coach lit la zone dans les séances, comme avant. Un choix **explicite** (l'éditeur de routine, plus tard le
+générateur), jamais déduit de `routine_sets.reps_visees`. RLS inchangé (la propriété s'hérite de `routines`). Lue par
+`COLONNES_ROUTINE_EXO` (`donnees.js`), écrite par `routines.js` (`CHAMPS_EXERCICE`, `normaliserExercice`) et la file (op `plan`).
+
 ## Depuis le 22/10 — migrations `v2_101` à `v2_109` (régénéré depuis la base par Claude.ai le 24/10/2026)
 
 > v2_101 à v2_105 et v2_107 lancées par Aurélien dans l'éditeur SQL le 23/10 au matin ; v2_108 et v2_109 lancées par
@@ -565,6 +573,7 @@ collision, plutôt que de les renuméroter en place.
 > remplace depuis le chantier 41. `archivee_a` reste en base mais **n'est plus écrite**.
 
 `routine_exercises` : `routine_id`, `exercise_slug`, `rang` (unique par routine, ≥ 0),
+**`zone`** (`v2_122`, 193-3 : NULL ou l'une des cinq clés de zone — la zone que la routine fixe à cet exercice ce jour-là),
 `groupe_superset` (même mécanisme que `sets`), **`repos_cible_s`** (`v2_040` — repos
 **prescrit**, 5 à 1800 s, **NULL = désactivé**).
 

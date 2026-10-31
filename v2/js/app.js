@@ -6398,6 +6398,31 @@
     var i = rejeuEnCours && rejeuEnCours.instant ? Date.parse(rejeuEnCours.instant) : NaN;
     return new Date(isFinite(i) ? i : Date.now()).toISOString();
   }
+  // 193-3 — la zone de plan du jour pour cet exercice : celle de sa PREMIÈRE ligne dans la séance en cours (la consigne est par
+  // exercice, D6), `null` sans séance, sans ligne de routine ou en Automatique. Rien n'est lu dans une séance terminée.
+  function zonePlanDe(slug) {
+    if (!seance || rejeuEnCours) return null;
+    var exo = (seance.exercices || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
+    return exo && exo.zone_plan ? exo.zone_plan : null;
+  }
+  // 193-3 — « juste pour aujourd'hui » : la zone de plan de la séance n'est plus celle de la ligne de routine.
+  function zonePlanOrigineDe(slug) {
+    var zp = zonePlanDe(slug);
+    if (!zp) return null;
+    var exo = (seance.exercices || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
+    var rt = routineDeLaSeance();
+    var ligne = rt && exo && exo.routine_exercise_id ? (rt.exercices || []).filter(function (e) { return e && e.id === exo.routine_exercise_id; })[0] : null;
+    return ligne && ligne.zone === zp ? 'routine' : 'aujourdhui';
+  }
+  // 193-3 — pour chaque routine, la zone de la ligne de cet exercice (la première qui en porte une) : { routine_id: zone }.
+  function zonesDeRoutineDe(slug) {
+    var sortie = {};
+    (routines || []).forEach(function (r) {
+      var l = r && (r.exercices || []).filter(function (e) { return e && e.exercise_slug === slug; })[0];
+      if (l && l.zone) sortie[r.id] = l.zone;
+    });
+    return sortie;
+  }
   function optionsDeConsigne(slug, exo, instant) {
     var g = Modele.gabaritDe(exo);
     var index = catalogueIndexe();
@@ -6444,6 +6469,13 @@
       // sa clé : `poserZone` le remet à zéro, et la synchronisation passe
       // par `recalculerEtats`, qui fait déjà de même.
       correction: zoneDe(slug),
+      // 193-3 (MOTEUR §9.29) — LA ZONE QUE LA ROUTINE FIXE pour ce jour (`zone_plan` de l'exercice de la séance en cours, copiée de
+      // la ligne de routine au démarrage, ou réécrite par « Juste pour aujourd'hui »), `null` : Automatique. Elle passe avant la
+      // correction de l'exercice et le bloc ; `zonesDeRoutine` dit la zone de la ligne de chaque routine pour cet exercice
+      // (l'appartenance d'une séance passée, C1).
+      zonePlan: zonePlanDe(slug),
+      zonePlanOrigine: zonePlanOrigineDe(slug),
+      zonesDeRoutine: zonePlanDe(slug) ? zonesDeRoutineDe(slug) : null,
       // §9.10 (53-2 bis, D1) — la ligne qui pose cette zone : son origine
       // fait dire « Nouveau bloc » au lieu de « Nouvelle zone ».
       ligneDeZone: ligneDeZoneDe(slug),
@@ -9040,7 +9072,12 @@
       // §3.8 — l'étiquette de zone, à côté du nom, et son menu (48b-7).
       etiquette: etiquetteDe,
       zoneChoisie: function (slug) { return !!zoneDe(slug); },
-      surZone: function (slug) { if (etiquetteDe(slug) || modeDe(slug) === 'entretien') ouvrirZone(slug); },
+      // 193-3 — un exercice dont la zone vient de la routine ouvre les DEUX choix (jamais `poserZone` : une correction durable
+      // n'efface pas en silence la zone du plan) ; les autres, la feuille de zone d'avant.
+      surZone: function (slug) {
+        if (zonePlanDe(slug) && !enEdition()) ouvrirZonePlan(slug);
+        else if (etiquetteDe(slug) || modeDe(slug) === 'entretien') ouvrirZone(slug);
+      },
       // §3.10 — toucher la consigne ouvre le calcul.
       surPourquoi: ouvrirPourquoi,
       // §3.9 — et quand l'exercice est fini, le constat prend sa place.
@@ -9922,6 +9959,81 @@
         rendreFeuille();
       }
     });
+  }
+
+  // ── 193-3 (maquette de l'ondulation, écran 4) — LA ZONE QUI VIENT DE LA ROUTINE ──────────────────────────────────
+  //
+  // Toucher l'étiquette « Mix · ta routine » : « Changer la zone de cette routine » (la ligne de la routine, par le chemin qui écrit
+  // une routine — la file, hors ligne comme les autres) ou « Juste pour aujourd'hui » (la séance seulement : `zone_plan` de
+  // l'exercice, dans le brouillon de l'appareil, rien en base). Dans les deux cas la consigne de l'exercice se recalcule, comme
+  // après `poserZone`, et ses séries validées restent figées par leurs paris.
+  function ouvrirZonePlan(slug) {
+    var i = (seance.exercices || []).map(function (x) { return x.exercise_slug; }).indexOf(slug);
+    var exo = i >= 0 ? seance.exercices[i] : null;
+    var z = exo ? Moteur.zoneParCle(exo.zone_plan) : null;
+    if (!z) return;
+    var nom = Modele.nommer(Modele.indexerExercices(local.exercices), slug);
+    var choisir = function (portee) {
+      Rendu.rendreFeuilleZoneRoutine($('feuille-contenu'), {
+        titre: portee === 'routine' ? 'Changer la zone de cette routine' : 'Juste pour aujourd\u2019hui',
+        sous: nom + (portee === 'routine' ? ', dans ' + ((routineDeLaSeance() || {}).nom || 'ta routine') : ''),
+        zones: Moteur.ZONES,
+        choisie: exo.zone_plan,
+        aide: portee === 'routine' ? 'La routine change pour les prochaines fois ; la consigne se recalcule dès maintenant.'
+                                   : 'Ta routine ne change pas.',
+        surChoix: async function (cle) {
+          fermerVoile();
+          await poserZoneDePlanDe(slug, cle, portee === 'routine');
+        },
+        surFermer: fermerVoile
+      });
+    };
+    Rendu.rendreFeuilleZonePlan($('feuille-contenu'), {
+      nom: nom, libelle: z.libelle,
+      surRoutine: function () { choisir('routine'); },
+      surAujourdhui: function () { choisir('aujourdhui'); },
+      surFermer: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'), function () {
+      feuille = null;
+      if (seance && !vues.seance.hidden) rendreSeance();
+    });
+  }
+
+  async function poserZoneDePlanDe(slug, cle, dansLaRoutine) {
+    var i = (seance.exercices || []).map(function (x) { return x.exercise_slug; }).indexOf(slug);
+    if (i < 0) return;
+    var zone = Moteur.zoneParCle(cle) ? cle : null;
+    if (dansLaRoutine) {
+      var routine = routineDeLaSeance();
+      var idLigne = seance.exercices[i].routine_exercise_id;
+      var ligne = routine && idLigne ? (routine.exercices || []).filter(function (e) { return e && e.id === idLigne; })[0] : null;
+      if (ligne) {
+        await poserRoutineVoulue(routine, routine.exercices.map(function (e) {
+          return e.id === idLigne ? Object.assign({}, e, { zone: zone }) : e;
+        }));
+      }
+    }
+    seance = Seance.poserZoneDePlan(seance, i, zone);
+    // La consigne de CET exercice se recalcule, lui seul (la seule exception au gel, comme `poserZone`).
+    if (consignes && consignes.parSlug) {
+      delete consignes.parSlug[slug];
+      versionConsignes++;
+      sauverConsignes();
+    }
+    await apresGeste({ structure: false });
+  }
+
+  // 193-3 (D3) — la page d'exercice dit les zones que les routines fixent à cet exercice : « Ta routine « Jeudi » fixe cet exercice en
+  // Mix. » Un fait ; le menu de zone de la page reste celui de l'exercice (il vaut pour les jours sans zone de routine).
+  function zonesDeRoutinesDe(slug) {
+    var lignes = [];
+    Routines.visibles(routines || []).forEach(function (r) {
+      var l = r && (r.exercices || []).filter(function (e) { return e && e.exercise_slug === slug; })[0];
+      var z = l && l.zone ? Moteur.zoneParCle(l.zone) : null;
+      if (z) lignes.push('Ta routine \u00ab\u00a0' + (r.nom || 'sans nom') + '\u00a0\u00bb fixe cet exercice en ' + z.libelle + '.');
+    });
+    return lignes;
   }
 
   // ── §3.8 — LE MENU DES ZONES, ET SA PROPRE PORTE ────────────────────────
@@ -11238,7 +11350,10 @@
           series: (e.series || []).map(function (l) { return Object.assign({}, l); }),
           repos_cible_s: e.repos_cible_s,
           groupe_superset: e.groupe_superset === undefined ? null : e.groupe_superset,
-          note: e.note === undefined ? null : e.note
+          note: e.note === undefined ? null : e.note,
+          // 193-3 — la zone de la routine est transportée par le brouillon : l'oublier la ferait partir à `null` au premier
+          // enregistrement (renommer la routine effacerait la zone du jeudi).
+          zone: Routines.zoneValide(e.zone)
         };
       })),
       existantes: routine.exercices.slice()
@@ -11439,6 +11554,9 @@
       surNumero: ouvrirTypeSerieRoutine,
       surNote: ouvrirNoteExoRoutine,
       surRepos: ouvrirReposExoRoutine,
+      // 193-3 — la zone que la routine fixe à cet exercice (maquette de l'ondulation, écran 1).
+      surZoneRoutine: ouvrirZoneExoRoutine,
+      libelleDeZone: function (cle) { var z = Moteur.zoneParCle(cle); return z ? z.libelle + ' \u00b7 ' + z.bas + ' à ' + z.haut : 'Automatique'; },
       surAjoutSerie: function (i) {
         var e = exoBrouillon(i);
         if (!e) return;
@@ -11530,6 +11648,26 @@
       surValider: poser,
       surDesactiver: function () { poser(null); },
       surAnnuler: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+
+  // 193-3 (maquette de l'ondulation, écran 1) — « Automatique » + les cinq zones, sur chaque exercice de la routine. Un choix
+  // EXPLICITE, écrit dans le brouillon (`zone`, NULL = Automatique) : rien ne part avant « Enregistrer ». Deux lignes du même
+  // exercice avec deux zones : la séance prend la première (la consigne est par exercice) — la feuille le dit.
+  function ouvrirZoneExoRoutine(i) {
+    var e = exoBrouillon(i);
+    if (!e) return;
+    var autres = brouillon.exercices.filter(function (x, k) { return k !== i && x.exercise_slug === e.exercise_slug; });
+    var doublon = autres.length > 0;
+    Rendu.rendreFeuilleZoneRoutine($('feuille-contenu'), {
+      titre: 'Zone de cet exercice',
+      sous: nomExoBrouillon(i) + ', dans cette routine',
+      zones: Moteur.ZONES,
+      choisie: Routines.zoneValide(e.zone),
+      aide: doublon ? 'Cet exercice est deux fois dans la routine\u00a0: le coach prend la zone de la première ligne.' : null,
+      surChoix: function (cle) { e.zone = Routines.zoneValide(cle); fermerVoile(); apresEditeur(); },
+      surFermer: fermerVoile
     });
     ouvrirVoile($('feuille-seance'));
   }
@@ -12194,7 +12332,7 @@
       brouillon.exercices.push({
         id: null, exercise_slug: exo.slug,
         series: [Routines.enSaisie(null)],
-        repos_cible_s: null, groupe_superset: null, note: null
+        repos_cible_s: null, groupe_superset: null, note: null, zone: null
       });
       apresEditeur();
     };
@@ -12559,6 +12697,7 @@
       nom: exo ? exo.nom : slug,
       etiquette: consigneExo ? consigneExo.etiquette : null,
       zoneChoisie: !!zoneDe(slug),
+      lignesDeRoutine: zonesDeRoutinesDe(slug),
       // §9.17 — en Entretenir par son propre choix, la page montre « Entretien »
       // et garde la porte vers le mode.
       modeEntretien: modeDe(slug) === 'entretien',
@@ -12923,7 +13062,7 @@
       id: null, nom: nom, nomChange: true, dossier: dossier, existantes: [], jours: jours || null,
       exercices: Routines.renumeroter(structure.exercices.map(function (e) {
         return { id: null, exercise_slug: e.exercise_slug, series: e.series.map(Routines.enSaisie),
-                 repos_cible_s: e.repos_cible_s, groupe_superset: e.groupe_superset, note: null };
+                 repos_cible_s: e.repos_cible_s, groupe_superset: e.groupe_superset, note: null, zone: null };
       }))
     };
   }

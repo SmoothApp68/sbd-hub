@@ -3671,3 +3671,16 @@ Une saisie n'est pas forcément vraie : un doigt qui glisse (152 pour 125), des 
 **La série « hors calcul »** reste au journal et au détail (mention « hors calcul »), mais ni les records, ni le palier, ni le niveau, ni les crans voisins, ni les paris, ni le jeu ne la voient (MOTEUR §9.2, I70).
 
 > **Delta du 31/10/2026 (193-1) — la série de recul.** Le type « Série de recul » est dans la feuille du type d'une série (« Plus légère que ta grosse série, avec un repos normal. Ta charge se décide sur la grosse série. »), à l'écran de séance comme dans l'éditeur de routine : « + Série » reprend le type de la dernière série, donc trois reculs se programment en trois taps. La ligne porte la mention « recul » (comme « à l'échec »), son fantôme est la charge du plan (gris, jamais écrite avant la validation), et une phrase de coach au-dessus du premier recul : « Recul : 135 kg, 10 % sous ta grosse série. ». La feuille « Pourquoi » ajoute un paragraphe sur l'écart ; le constat ajoute « Tes reculs tiennent 6-6-6. ». L'aperçu d'une routine compte « 1 × 4 · 3 reculs ». Une semaine allégée retire les reculs non validés ; « J'ai peu de temps » en retire un par exercice avant toute grosse série, jamais le dernier. MOTEUR §9.28.
+
+## 7 quindecies.12 La zone de la routine — l'éditeur et l'étiquette — décidé le 31/10/2026 (chantier 193-3)
+
+*(Maquette `v2-atelier/maquettes/maquette-ondulation-v1.html`, validée le 31/10 à 01 h 05 ; MOTEUR §9.29.)*
+
+**L'éditeur de routine** (écran 1). Sous le nom de chaque exercice, à côté du repos : « zone : Automatique » (ou « zone : Mix · 6 à 8 »). Le toucher ouvre « Automatique » (« Le coach lit ta zone dans tes séances, comme aujourd'hui », le défaut) et les cinq zones, avec leurs bornes ; la zone choisie dit « Ce jour-là, cet exercice a son propre palier, séparé de tes autres jours. » Le choix va dans le brouillon et ne part qu'à « Enregistrer » (`routine_exercises.zone`, NULL = Automatique). Le même exercice deux fois dans la routine : la feuille dit que le coach prend la zone de la première ligne.
+
+**En séance** (écrans 2 et 4). L'étiquette d'un exercice dont la zone vient de la routine dit « Mix · ta routine » ; le « Pourquoi » ouvre sur « Ta routine fixe cet exercice en Mix. Je ne lis que tes séances en Mix… ». Toucher l'étiquette ouvre DEUX choix, jamais la feuille des cinq zones : « Changer la zone de cette routine » (« Elle change pour les prochaines fois, dans la routine ») et « Juste pour aujourd'hui » (« Ta routine ne change pas » ; l'étiquette devient « Mix · aujourd'hui »). Aucune correction d'exercice (`zones_exercice`) ne s'écrit d'ici. Un exercice sans zone de routine garde la feuille des cinq zones.
+
+**Première fois dans une zone** (écran 3) : « Première fois en Mix : je pars de ton squat Lourd. » — le report de zone du §9.10, une seule fois ; ensuite, l'historique de la zone.
+
+**La page d'exercice** dit les zones que les routines lui fixent : « Ta routine « Jeudi » fixe cet exercice en Mix. »
+

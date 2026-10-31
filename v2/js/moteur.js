@@ -372,12 +372,89 @@
     return intentionDe(intentionProfil, modeExercice === undefined ? null : modeExercice) === 'entretien';
   }
 
-  function zoneRetenue(correction, habitude) {
+  // 193-3 — LE RANG 1 EST BRANCHÉ : `plan`, la zone que la routine fixe pour CE jour (`routine_exercises.zone`, un choix
+  // explicite, jamais déduit des reps visées). Elle passe avant la correction de l'exercice : une correction
+  // (`zones_exercice`, un bloc) ne l'efface pas en silence — elle vaut pour les jours sans zone de plan.
+  function zoneRetenue(correction, habitude, plan) {
     // `zoneParCle` ne lit que les cinq clés de la table : une valeur inventée,
     // ou `constructor` venu d'une ligne de base, n'y trouve rien et retombe sur
     // la déduction plutôt que de rendre un objet qui n'est pas une zone.
+    var duPlan = zoneParCle(plan);
+    if (duPlan) return duPlan;
     var choisie = zoneParCle(correction);
     return choisie || zoneDe(habitude);
+  }
+
+  // ── 193-3 (MOTEUR §9.29) — L'ONDULATION : UNE ZONE PAR JOUR, UNE SOUS-HISTOIRE PAR ZONE ──────────────────
+  //
+  // La même barre deux fois dans la semaine à deux zones (lundi Lourd, jeudi Mix) : lue en un seul morceau, la dernière
+  // séance est toujours celle de l'autre zone, le coach propose l'inverse du plan (`nouvelle_zone`, 11 fois sur 11) et la
+  // stagnation reste à 0. Quand la routine pose une zone pour le jour (`zonePlan`), le coach ne relit que les séances de
+  // l'exercice faites dans cette zone : palier, habitude, test, report, compteur et escalier deviennent ceux de ce jour.
+  //
+  // UNE SEULE FONCTION DE FILTRE (`sousHistoireDeZone`), appelée par `consigneDExerciceCalcul` et par personne d'autre.
+  // L'APPARTENANCE d'une séance passée (`zonesDeLaSeanceDePlan`), dans cet ordre :
+  //   1. la séance vient d'une routine (`sessions.routine_id`) dont la ligne de cet exercice porte une zone : cette zone ;
+  //   2. sinon la zone FAITE : la médiane des reps des séries de travail est dans les bornes d'une zone, OU rangée par
+  //      `RANGEMENT` (le OU garde un jeudi Mix à 8 reps, que `RANGEMENT` seul range en Hypertrophie) ;
+  //   3. une médiane sous 3 reps (des maximaux) n'est dans aucune zone.
+  // Jamais la zone « reçue » : rejouée sans le plan, elle décale les zones d'un cran (mesuré au diagnostic).
+  var ZONE_PERIMEE_JOURS = 56;   // 8 semaines : au-delà, la force a assez bougé (décision d'Aurélien, 31/10/2026)
+
+  function zonesDeLaSeanceDePlan(vue, groupe, zonesDeRoutine) {
+    var rid = groupe && groupe.seance ? groupe.seance.routine_id : null;
+    var dePlan = rid !== null && rid !== undefined && zonesDeRoutine ? zonesDeRoutine[rid] : null;
+    if (zoneParCle(dePlan)) return [dePlan];
+    var reps = ((vue && vue.retenues) || []).map(function (s) { return nombre(s && s.reps); })
+      .filter(function (r) { return r !== null && r > 0; });
+    if (!reps.length) return [];
+    var m = Math.ceil(mediane(reps));
+    var cles = {};
+    var rangee = zoneDe(m);
+    if (rangee) cles[rangee.cle] = true;
+    ZONES.forEach(function (z) { if (m >= z.bas && m <= z.haut) cles[z.cle] = true; });
+    return Object.keys(cles);
+  }
+
+  // `seances` : le contrat (construit SANS la zone du plan, comme aujourd'hui), `groupes` : les mêmes séances brutes, dans
+  // le même ordre. Rend `{ mode, groupes, seances, n }` : `zone` (la sous-histoire), ou `premiere` (rien de récent dans la
+  // zone : l'historique complet, que le report §9.10 existant lit une seule fois). `null` sans zone de plan valide.
+  function sousHistoireDeZone(groupes, seances, avant, zonePlan, zonesDeRoutine) {
+    if (!zoneParCle(zonePlan)) return null;
+    var t = instant(avant);
+    var membres = [], tDerniere = null, autreDepuis = false;
+    var infos = (seances || []).map(function (se, i) {
+      var vue = vueDeSeance(se);
+      var d = instant(se && se.debut);
+      var zs = zonesDeLaSeanceDePlan(vue, (groupes || [])[i], zonesDeRoutine);
+      return { i: i, d: d, zs: zs, membre: zs.indexOf(zonePlan) >= 0, compte: se.neutre !== true && vue.retenues.length > 0 };
+    }).filter(function (x) { return x.d !== null && (t === null || x.d < t); });
+    infos.forEach(function (x) {
+      if (x.membre) { membres.push(x.i); if (x.compte && (tDerniere === null || x.d > tDerniere)) tDerniere = x.d; }
+    });
+    if (tDerniere !== null) {
+      infos.forEach(function (x) { if (!x.membre && x.compte && x.d > tDerniere) autreDepuis = true; });
+    }
+    var perimee = tDerniere !== null && t !== null && autreDepuis && (t - tDerniere) / JOUR > ZONE_PERIMEE_JOURS;
+    if (!membres.length || perimee) {
+      // La zone d'AVANT, pour le report : celle de la dernière séance de l'exercice, lue sur ce qui a été fait (ou sur sa routine),
+      // jamais rejouée — une habitude mêlée d'anciennes séances Mix y lirait « Mix » et le report ne partirait pas.
+      var derniere = null;
+      infos.forEach(function (x) { if (x.compte && (derniere === null || x.d >= derniere.d)) derniere = x; });
+      var zoneAvant = null;
+      if (derniere !== null) {
+        zoneAvant = derniere.zs.filter(function (c) { return c !== zonePlan; })[0] || null;
+      }
+      return { mode: 'premiere', groupes: groupes, seances: seances, n: 0, perimee: perimee, zoneAvant: zoneAvant };
+    }
+    // Les séances de la zone, et les AUTRES séances à venir ne comptent pas : seules celles d'avant `avant` filtrent.
+    var gardes = {};
+    membres.forEach(function (i) { gardes[i] = true; });
+    var gs = [], ss = [];
+    (seances || []).forEach(function (se, i) {
+      if (gardes[i]) { gs.push(groupes[i]); ss.push(se); }
+    });
+    return { mode: 'zone', groupes: gs, seances: ss, n: membres.length, perimee: false };
   }
 
   // ── §9.2 — LE NIVEAU VALIDÉ ──────────────────────────────────────────────
@@ -1734,7 +1811,7 @@
     if (gelSalle !== null && (figee === null || instant(gelSalle.debut) <= instant(figee.debut))) {
       habitude = gelSalle.habitude;
     }
-    var zone = zoneRetenue(correction, habitude);
+    var zone = zoneRetenue(correction, habitude, opt.zonePlan);
 
     // Le palier de l'avant-dernière séance du couple : il sert à reconnaître
     // les séries RESTÉES à l'ancien palier après une bascule (§7.2), et le
@@ -5550,10 +5627,13 @@
   // §9.22 (53-2 bis, D3) — `ligne` : la ligne de zone en vigueur. Posée par
   // un bloc, et pour la zone affichée, l'étiquette porte l'origine :
   // « Mix 6-8 · bloc ».
-  function etiquetteZone(consigne, ligne) {
+  function etiquetteZone(consigne, ligne, plan) {
     if (!consigne) return null;
     var z = zoneParCle(consigne.zone);
     if (z === null) return null;
+    // 193-3 — la zone vient de la routine : « Mix · ta routine » (la maquette de l'ondulation).
+    if (plan && plan.suspendue === true) return z.libelle + ' \u00b7 zone \u00e0 m\u00e9nager';
+    if (plan && plan.zone === consigne.zone) return z.libelle + (plan.origine === 'aujourdhui' ? ' \u00b7 aujourd\u2019hui' : ' \u00b7 ta routine');
     var bloc = origineDeLaLigne(ligne) === LIGNE_BLOC && ligne.zone === consigne.zone;
     return z.libelle + ' ' + z.bas + '-' + z.haut + (bloc ? ' · bloc' : '');
   }
@@ -8869,7 +8949,8 @@
   function consigneNouvelleZone(consigne, seances, avant, o) {
     if (!consigne || SANS_REPORT[consigne.etat] === true || !zoneParCle(consigne.zone)) return null;
     if (o.mesure !== 'charge_reps') return null;
-    var zoneAvant = zoneDeLaDerniere(seances, avant, o);
+    // 193-3 — en « première fois » dans la zone du plan, la zone d'avant est celle que la dernière séance a FAITE (`zoneAvantDuPlan`).
+    var zoneAvant = o.zoneAvantDuPlan !== undefined ? o.zoneAvantDuPlan : zoneDeLaDerniere(seances, avant, o);
     var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement);
     if (r === null) return null;
     var f = consigne.fondement || {};
@@ -9091,13 +9172,29 @@
   // Les silences DU moteur (première fois, pas de palier) sont autre chose :
   // une consigne à l'état `silence`, avec sa seule phrase grise.
   function consigneDExercice(groupes, etat, avant, options) {
+    // 193-3 (MOTEUR §9.29) — UNE ZONE À MÉNAGER PRIME SUR LA ZONE DE LA ROUTINE, comme sur une correction ou une déduction : un
+    // exercice qui charge une zone à ménager dont la ligne de routine dit Lourd garde la règle de ménagement (aucune série lourde).
+    // La zone de plan est suspendue (rien n'est écrit : la ligne de routine reste Lourd) ; le plan le dit (`suspendue`).
+    var planSuspendu = null;
+    if (options && options.menagee === true && options.zonePlan === 'lourd') {
+      planSuspendu = { zone: 'lourd', mode: 'suspendue', n: 0, perimee: false, suspendue: true,
+        origine: options.zonePlanOrigine === 'aujourdhui' ? 'aujourdhui' : 'routine' };
+      options = Object.assign({}, options, { zonePlan: null });
+    }
+    var r = consigneDExerciceMenagee(groupes, etat, avant, options);
+    if (planSuspendu !== null && r && r.consigne) {
+      r = Object.assign({}, r, { plan: planSuspendu, etiquette: etiquetteZone(r.consigne, options.ligneDeZone, planSuspendu) });
+    }
+    return r;
+  }
+  function consigneDExerciceMenagee(groupes, etat, avant, options) {
     var r = avecDebutant(options, function () { return consigneDExerciceCalcul(groupes, etat, avant, options); });
     // 187 (A4) — UNE ZONE À MÉNAGER : l'exercice qui la charge (`options.menagee`, lue par l'app dans le profil et la table du
     // générateur) ne reçoit AUCUNE série lourde. Quand la zone qu'il aurait est Lourd (3-5 reps) et que la personne n'en a
     // pas choisi une autre (`options.correction`), il prend Mix (6-8) — par le chemin d'une zone choisie (le report de
     // charge, §9.10), et le fondement le dit (`menagee`). Une zone choisie par la personne reste la sienne : le moteur
     // propose, elle décide.
-    if (options && options.menagee === true && !options.correction && r && r.consigne && r.consigne.zone === 'lourd') {
+    if (options && options.menagee === true && !options.correction && !options.zonePlan && r && r.consigne && r.consigne.zone === 'lourd') {
       var o2 = Object.assign({}, options, { correction: ZONE_SANS_LOURD, menagee: false });
       var r2 = avecDebutant(o2, function () { return consigneDExerciceCalcul(groupes, etat, avant, o2); });
       if (r2 && r2.consigne && r2.consigne.zone && r2.consigne.zone !== 'lourd') {
@@ -9113,6 +9210,24 @@
     if (o.edition) return null;
     if ((o.intention || 'progresser') === 'entretien') return null;
     if (o.mesure !== 'charge_reps' && o.mesure !== 'reps') return null;
+    // 193-3 (MOTEUR §9.29) — UNE ZONE DE PLAN POSÉE : le coach ne relit que les séances de cette zone (ou, la première fois
+    // dans la zone ou si la dernière date de plus de 8 semaines alors que l'exercice a été fait ailleurs depuis,
+    // l'historique complet, que le report §9.10 existant lit une seule fois). Sans zone de plan : aucune ligne ne s'exécute.
+    var plan = null;
+    var zp = zoneParCle(o.zonePlan) ? o.zonePlan : null;
+    if (zp !== null && o.mesure === 'charge_reps') {
+      var base = sansLesAllegees(contratDe(groupes, etat, o.mesure,
+        { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null }),
+        o.periodesAllegees);
+      var sh = sousHistoireDeZone(groupes, base, avant, zp, o.zonesDeRoutine || null);
+      groupes = sh.groupes;
+      // Sous-histoire : chaque séance se rejoue DANS la zone du plan (aucune correction datée ne la déplace). Première fois :
+      // le passé garde sa vraie zone (`correctionsDeZone` vide), sinon le report ne verrait aucun changement de zone.
+      o = Object.assign({}, o, { correction: zp, correctionsDeZone: sh.mode === 'zone' ? null : [] });
+      if (sh.mode === 'premiere') o.zoneAvantDuPlan = sh.zoneAvant;
+      plan = { zone: zp, mode: sh.mode, n: sh.n, perimee: sh.perimee === true, origine: o.zonePlanOrigine === 'aujourdhui' ? 'aujourdhui' : 'routine' };
+      if (sh.mode === 'premiere') plan.zoneAvant = sh.zoneAvant;
+    }
     var seances = sansLesAllegees(contratDe(groupes, etat, o.mesure,
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null }),
       o.periodesAllegees);
@@ -9176,9 +9291,9 @@
     // 132 (MOTEUR §10 ter) — les libellés d'un exercice noté par nom disent ses élastiques par leur nom : le formateur
     // traduit la charge virtuelle (`THModele.avecNoms`), au seul endroit de l'affichage.
     var nomsDesCrans = salleDElastiques(o.salle) ? o.salle.noms || null : null;
-    return { consigne: consigne,
+    var resultat = { consigne: consigne,
              libelles: Modele().avecNoms(nomsDesCrans, function () { return libellesConsigne(consigne, avant); }),
-             etiquette: etiquetteZone(consigne, o.ligneDeZone),
+             etiquette: etiquetteZone(consigne, o.ligneDeZone, plan),
              // La feuille « Pourquoi » n'est PLUS ici (relevé du 01/10, PR 1) :
              // elle décrit la consigne que le plan applique (figée, allégée,
              // repli, série de plus) — le plan la pose (`x.pourquoi`). Celle-ci,
@@ -9226,6 +9341,9 @@
              // fonction) et rejoués que si le compteur est à 4 ou plus.
              frere: compteur.compteur >= SEUIL_COMPTEUR && typeof o.freres === 'function'
                ? frereDuBlocage(rejeu.complet.verdicts, o.freres, avant, o.mesure) : null };
+    // 193-3 — la clé n'existe que pour une zone de plan : sans elle, la sortie est celle d'avant, octet pour octet.
+    if (plan !== null) resultat.plan = plan;
+    return resultat;
   }
 
   // LE REJEU DU COMPTEUR, le même pour l'exercice et pour ses frères : les
@@ -9873,6 +9991,29 @@
     }
     return t;
   }
+  // 193-3 (MOTEUR §9.29) — LA LIGNE « TA ROUTINE FIXE… » du « Pourquoi » : la zone vient de la routine, et le coach ne lit que
+  // les séances de cette zone. Aucun chiffre (la garde I26 en exige l'origine) : les bornes sont celles de l'étiquette : un fait,
+  // jamais un « bravo ». `plan` : `{ zone, mode, n, perimee }` (le fondement de la consigne, `consigneDExercice`).
+  function pourquoiPlan(plan) {
+    var z = plan ? zoneParCle(plan.zone) : null;
+    if (z === null) return null;
+    if (plan.suspendue === true) {
+      return (plan.origine === 'aujourdhui' ? 'Tu as choisi ' + z.libelle + ' pour aujourd\u2019hui\u00a0; ' : 'Ta routine fixe cet exercice en ' + z.libelle + '\u00a0; ') +
+        'il charge une zone que tu m\u2019as demandé de ménager, alors je la mets en pause\u00a0: pas de série lourde. Rien n\u2019est changé dans ta routine.';
+    }
+    var tete = plan.origine === 'aujourdhui'
+      ? 'Tu as choisi ' + z.libelle + ' pour aujourd\u2019hui seulement\u00a0; ta routine ne change pas.'
+      : 'Ta routine fixe cet exercice en ' + z.libelle + '.';
+    if (plan.mode === 'zone') {
+      return tete + ' Je ne lis que tes séances en ' + z.libelle + ' : ton palier d\u2019ici est le sien, tes autres jours avancent de leur côté.';
+    }
+    if (plan.perimee === true) {
+      return tete + ' Ta dernière séance en ' + z.libelle + ' est ancienne et tu as travaillé cet exercice depuis : je pars de ta séance la plus récente, ' +
+        'avec le report de zone que tu connais, une seule fois. Ensuite, ton historique ' + z.libelle + '.';
+    }
+    return tete + ' Pas encore de séance en ' + z.libelle + ' : je pars de ta dernière séance, avec le report de zone que tu connais, une seule fois. ' +
+      'Ensuite, ton historique ' + z.libelle + '.';
+  }
   // Le constat : un fait. `cible` peut manquer (pas de routine, pas de dernière fois).
   function phraseConstatReculs(reps, cible) {
     var c = nombre(cible);
@@ -10116,6 +10257,10 @@
     zoneParCle: zoneParCle,
     zoneDe: zoneDe,
     zoneRetenue: zoneRetenue,
+    sousHistoireDeZone: sousHistoireDeZone,
+    pourquoiPlan: pourquoiPlan,
+    zonesDeLaSeanceDePlan: zonesDeLaSeanceDePlan,
+    ZONE_PERIMEE_JOURS: ZONE_PERIMEE_JOURS,
     niveauValide: niveauValide,
     reserveVisee: reserveVisee,
     phraseEffortVise: phraseEffortVise,

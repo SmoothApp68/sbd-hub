@@ -254,8 +254,16 @@
       // Le superset VIENT de la routine, il ne se crée pas en séance (§5 du
       // chantier 27 : grouper appartient au chantier de la déviation).
       groupe_superset: e.groupe_superset === undefined ? null : e.groupe_superset,
+      // 193-3 — LA ZONE QUE LA ROUTINE FIXE pour ce jour, copiée au démarrage : la séance en cours fait foi, une édition de la
+      // routine pendant la séance ne la change pas. « Juste pour aujourd'hui » la réécrit ICI (brouillon de l'appareil, rien
+      // en base) ; `null` : Automatique. Le moteur la lit par `optionsDeConsigne` (`zonePlan`).
+      zone_plan: zoneDePlanValide(e.zone),
       series: series
     };
+  }
+  function zoneDePlanValide(z) {
+    var Mo = racine.THMoteur;
+    return typeof z === 'string' && Mo && Mo.zoneParCle(z) ? z : null;   // la table des zones est celle du moteur
   }
 
   // ══ LES GESTES SUR UNE SÉANCE TERMINÉE (§7 octies) ═══════════════════════
@@ -1334,7 +1342,10 @@
           }),
         repos_cible_s: exo.repos_cible_s === undefined ? null : exo.repos_cible_s,
         note: texteOuNul(exo.note),
-        groupe_superset: exo.groupe_superset === undefined ? null : exo.groupe_superset
+        groupe_superset: exo.groupe_superset === undefined ? null : exo.groupe_superset,
+        // 193-3 — LA ZONE DE LA ROUTINE PASSE, elle ne s'efface pas : c'est celle de la LIGNE (pas `zone_plan`, qui peut
+        // porter un « juste pour aujourd'hui »). Un exercice ajouté en séance n'a pas de zone de routine.
+        zone: ligne && ligne.zone !== undefined ? ligne.zone : null
       };
     });
 
@@ -1471,7 +1482,8 @@
         id: l.id, exercise_slug: l.exercise_slug, series: l.series || [],
         repos_cible_s: l.repos_cible_s === undefined ? null : l.repos_cible_s,
         note: texteOuNul(l.note),
-        groupe_superset: l.groupe_superset === undefined ? null : l.groupe_superset
+        groupe_superset: l.groupe_superset === undefined ? null : l.groupe_superset,
+        zone: l.zone === undefined ? null : l.zone
       }, cle: cleDe(l, null) });
     });
     var n = 0, i = 0, sortie = [];
@@ -2049,6 +2061,17 @@
       // 188-1 — les gestes, toujours envoyés (NOT NULL) : une séance sans geste part avec `[]`.
       gestes: gestesPropres(seance.gestes)
     };
+  }
+
+  // 193-3 — « JUSTE POUR AUJOURD'HUI » : la zone de plan d'UN exercice de la séance en cours (`null` : Automatique pour la journée). Une
+  // copie, jamais en place ; rien n'est écrit en base (ni `sets`, ni `sessions` n'ont de colonne pour elle) : le brouillon de
+  // l'appareil la garde jusqu'à la fin de la séance, qui alimente alors la sous-histoire de la zone FAITE. Une zone inconnue
+  // vaut Automatique.
+  function poserZoneDePlan(seance, iExo, zone) {
+    if (!seance || !seance.exercices || !seance.exercices[iExo]) return seance;
+    var exos = seance.exercices.slice();
+    exos[iExo] = Object.assign({}, exos[iExo], { zone_plan: zoneDePlanValide(zone) });
+    return Object.assign({}, seance, { exercices: exos });
   }
 
   // ══ 188-1 — LES GESTES DE LA SÉANCE (`sessions.gestes`, v2_118) ═══════════════════════════════════════════
@@ -3095,6 +3118,7 @@
     definirReposCible: definirReposCible,
     decrire: decrire,
     ecartsRoutine: ecartsRoutine,
+    poserZoneDePlan: poserZoneDePlan,
     avancerTours: avancerTours,
     tourAtteint: tourAtteint,
     normaliserGroupes: normaliserGroupes,

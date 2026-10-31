@@ -1720,6 +1720,10 @@
     e._iExo = i;
     e.repos_cible_s = (src && src.repos_cible_s !== undefined) ? src.repos_cible_s : null;
     e.note = (src && src.note !== undefined) ? src.note : null;
+    // 193-3 — la zone que la ROUTINE fixe à l'exercice (l'éditeur la montre et la change) et la zone de plan de la séance en
+    // cours (l'étiquette « ta routine »). Deux champs, deux sources : jamais l'un pour l'autre.
+    e.zone_routine = (src && src.zone) ? src.zone : null;
+    e.zone_plan = (src && src.zone_plan) ? src.zone_plan : null;
     // 99 (MOTEUR §9.24) — la mention d'un exercice ajouté pour cette semaine seulement.
     e.ajout = (src && src.ajout) ? src.ajout : null;
     return e;

@@ -6469,7 +6469,7 @@
       // sa clé : `poserZone` le remet à zéro, et la synchronisation passe
       // par `recalculerEtats`, qui fait déjà de même.
       correction: zoneDe(slug),
-      // 193-3 (MOTEUR §9.1.3) — LA ZONE QUE LA ROUTINE FIXE pour ce jour (`zone_plan` de l'exercice de la séance en cours, copiée de
+      // 193-3 (MOTEUR §9.29) — LA ZONE QUE LA ROUTINE FIXE pour ce jour (`zone_plan` de l'exercice de la séance en cours, copiée de
       // la ligne de routine au démarrage, ou réécrite par « Juste pour aujourd'hui »), `null` : Automatique. Elle passe avant la
       // correction de l'exercice et le bloc ; `zonesDeRoutine` dit la zone de la ligne de chaque routine pour cet exercice
       // (l'appartenance d'une séance passée, C1).

@@ -1,6 +1,6 @@
 /** @jest-environment node */
 //
-// 193-3 (commit 2) — L'ONDULATION DANS LE MOTEUR (MOTEUR §9.1.3) : une zone de plan posée, le coach ne relit que les séances de
+// 193-3 (commit 2) — L'ONDULATION DANS LE MOTEUR (MOTEUR §9.29) : une zone de plan posée, le coach ne relit que les séances de
 // cette zone. Chaque branche de `consigneDExerciceCalcul` a son test : sous-histoire, première fois, périmée, zone de routine.
 //
 // ⚠️ LE BANC DE COMPARAISON EXACTE : sans zone de plan (absente, `null`, `undefined`), la sortie complète de

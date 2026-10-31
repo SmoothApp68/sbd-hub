@@ -1,0 +1,114 @@
+<title>Ondulation v1</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Mise en page : écrans de téléphone côte à côte (380 px), puis le schéma avant/après et les règles. */
+:root{--fond-page:#05070a;--fond:#0A0C10;--panneau:#171C25;--panneau-2:#222A37;--trait:#2B3442;--texte:#F2F4F7;--texte-2:#A9B3C1;--texte-3:#8C97A6;--accent:#FFB938;--manque:#FF7B72;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fond-page);color:var(--texte);font-family:"Barlow",system-ui,sans-serif;padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;gap:28px;justify-content:center}
+h1{width:100%;max-width:1240px;margin:0;font-size:22px;text-wrap:balance}
+.intro{width:100%;max-width:1240px;margin:-14px 0 0;color:var(--texte-2);font-size:15px;line-height:1.5}
+.col{max-width:380px;width:100%;min-width:0}
+.leg{font-size:13px;color:var(--texte-2);margin:0 0 10px;line-height:1.4}.leg b{color:var(--texte)}
+.tel{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:16px 14px 20px;display:grid;gap:10px}
+.exo{background:var(--panneau);border-radius:14px;padding:12px}
+.tete{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.nom{font-weight:700;font-size:17px}
+.zone{border:1px solid var(--trait);border-radius:999px;padding:1px 9px;font-size:12px;color:var(--texte-2)}
+.consigne{color:var(--accent);font-size:15px;margin:6px 0 2px;font-weight:600;font-variant-numeric:tabular-nums}
+.avant{color:var(--manque);font-size:13px;text-decoration:line-through;margin-bottom:4px}
+.gris{color:var(--texte-2);font-size:14px;line-height:1.45}
+.pq{background:var(--panneau-2);border-radius:10px;padding:10px;margin-top:8px;font-size:14px;line-height:1.5}.pq b{color:var(--texte)}
+.choix{display:grid;gap:6px;margin-top:8px}
+.opt{background:var(--panneau-2);border-radius:10px;padding:10px 12px;font-size:15px}
+.opt.on{outline:2px solid var(--accent)}
+.opt small{display:block;color:var(--texte-2);font-size:13px;margin-top:2px}
+.notes{max-width:900px;width:100%;font-size:14px;color:var(--texte-2);line-height:1.55}
+.notes h3{color:var(--texte);font-size:16px;margin:18px 0 6px}
+.notes li{margin-bottom:7px}.notes b{color:var(--texte)}
+.schema{overflow-x:auto;background:var(--panneau);border-radius:12px;padding:12px 14px;font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.55;white-space:pre;color:var(--texte)}
+</style>
+
+<h1>Ondulation — maquette v1 (193-3)</h1>
+<p class="intro">La même barre plusieurs jours dans la semaine, avec une zone par jour : le squat lourd le lundi, en volume le jeudi. Aujourd'hui le coach mélange les deux et propose l'inverse du plan. Ici, chaque jour a son palier, son test et sa stagnation.</p>
+
+<div class="col">
+  <p class="leg"><b>1. Dans l'éditeur de routine</b><br>Toucher l'étiquette de zone d'un exercice de la routine.</p>
+  <div class="tel"><div class="exo">
+    <div class="tete"><span class="nom">Squat</span><span class="zone">Automatique</span></div>
+    <div class="gris">Routine « Jeudi — Bas B »</div>
+    <div class="choix">
+      <div class="opt">Automatique<small>Le coach lit ta zone dans tes séances, comme aujourd'hui.</small></div>
+      <div class="opt">Lourd · 3 à 5</div>
+      <div class="opt on">Mix · 6 à 8<small>Ce jour-là, ton squat a son propre palier, séparé de tes autres jours.</small></div>
+      <div class="opt">Hypertrophie · 8 à 10</div>
+      <div class="opt">Volume · 10 à 12</div>
+      <div class="opt">Séries longues · 15 à 20</div>
+    </div>
+  </div></div>
+</div>
+
+<div class="col">
+  <p class="leg"><b>2. Le lundi (Lourd) et le jeudi (Mix)</b><br>Dernier lundi 130 × 4-4-4-4, dernier jeudi 110 × 7-7-7-6.</p>
+  <div class="tel">
+    <div class="exo">
+      <div class="tete"><span class="nom">Squat · lundi</span><span class="zone">Lourd · ta routine</span></div>
+      <div class="avant">Aujourd'hui : « Nouvelle zone : Mix » · 110 kg × 6</div>
+      <div class="consigne">130 kg × 5 · 4 séries</div>
+      <div class="gris">Ton palier du lundi : 130 × 4. Je vise une rep de plus.</div>
+    </div>
+    <div class="exo">
+      <div class="tete"><span class="nom">Squat · jeudi</span><span class="zone">Mix · ta routine</span></div>
+      <div class="avant">Aujourd'hui : « Nouvelle zone : Lourd » · 130 kg × 3</div>
+      <div class="consigne">110 kg × 7 · 4 séries</div>
+      <div class="gris">Ton palier du jeudi : 110 × 7-7-7-6. Je vise 7 sur toutes.</div>
+      <div class="pq"><b>Pourquoi</b> · Ta routine du jeudi fixe ton squat en Mix (6 à 8). Je ne lis que tes squats en Mix : 110 × 7-7-7-6 la dernière fois. Ton squat Lourd du lundi avance de son côté.</div>
+    </div>
+  </div>
+</div>
+
+<div class="col">
+  <p class="leg"><b>3. La première fois dans une zone</b><br>Tu ajoutes un jeudi en Mix ; tu n'as jamais fait de squat en Mix récemment.</p>
+  <div class="tel"><div class="exo">
+    <div class="tete"><span class="nom">Squat · jeudi</span><span class="zone">Mix · ta routine</span></div>
+    <div class="consigne">120 kg × 6 · 4 séries</div>
+    <div class="gris">Première fois en Mix : je pars de ton squat Lourd.</div>
+    <div class="pq"><b>Pourquoi</b> · Pas encore de squat en Mix. Ton lundi : 130 × 4. Pour 6 reps, le report de zone que tu connais donne environ 120 kg (chiffre d'illustration : le calcul exact est celui du report existant). Ensuite, ton jeudi a son propre palier.</div>
+  </div></div>
+</div>
+
+<div class="col">
+  <p class="leg"><b>4. Toucher l'étiquette en séance</b><br>Le jeudi, l'étiquette « Mix · ta routine ».</p>
+  <div class="tel"><div class="exo">
+    <div class="tete"><span class="nom">Squat · jeudi</span><span class="zone">Mix · ta routine</span></div>
+    <div class="gris" style="margin-top:8px">Ta zone du jeudi vient de ta routine.</div>
+    <div class="choix">
+      <div class="opt">Changer la zone de cette routine<small>Le jeudi passera en Lourd, Hypertrophie… pour les prochaines fois.</small></div>
+      <div class="opt">Juste pour aujourd'hui<small>Ta routine ne change pas.</small></div>
+    </div>
+  </div></div>
+</div>
+
+<div class="notes">
+  <h3>Avant / après (simulation dans le vrai moteur, 6 semaines)</h3>
+  <div class="schema">PLAN               lun Lourd 130×4      jeu Mix 110×7
+AUJOURD'HUI        lun « Mix » 110×6     jeu « Lourd » 130×3     ← l'inverse, 11 fois sur 11 ; stagnation bloquée
+APRÈS 193-3        lun Lourd 130×5       jeu Mix 110×7           ← deux paliers, deux compteurs</div>
+
+  <h3>Les règles (validées toutes casquettes le 31/10, 01 h 40)</h3>
+  <ul>
+    <li><b>La zone du jour vient seulement d'un choix explicite</b> : la routine (cet écran, ou le générateur à la 193-2). Je ne la déduis <b>jamais</b> des reps visées des routines existantes : tes routines actuelles restent en « Automatique », et le coach se comporte exactement comme aujourd'hui (prouvé par un banc, séance par séance).</li>
+    <li><b>Quand une zone est posée</b>, le coach ne relit que les séances de cet exercice faites dans cette zone : palier, habitude, test, stagnation et escalier deviennent ceux de ce jour. Le moteur prévoyait ces « deux paliers en parallèle » depuis le 19/09 ; ils n'avaient jamais été construits.</li>
+    <li><b>La première fois dans une zone</b> : le report de zone existant (§9.10), une seule fois ; ensuite, l'historique de la zone.</li>
+    <li><b>Ta routine fixe la zone, ta correction ne l'efface pas en silence</b> : en séance, l'étiquette propose de changer la routine ou juste pour aujourd'hui. « Juste pour aujourd'hui » ne laisse aucune trace au-delà de la séance.</li>
+    <li><b>Les blocs</b> (Mix ↔ Lourd sur quelques semaines) <b>ne touchent pas</b> un exercice dont la zone est fixée par la routine ce jour-là ; le phrasé du bloc le dit. La périodisation d'un programme ondulé (tous les jours qui glissent ensemble) viendra avec le générateur (193-2).</li>
+    <li><b>Les paris, les records, la fatigue (189)</b> ne changent pas : ils lisent la séance et la consigne du jour.</li>
+    <li><b>Base</b> : une colonne <code>routine_exercises.zone</code> (vide = Automatique), migration v2_122.</li>
+  </ul>
+  <h3>Pourquoi (science et coachs)</h3>
+  <ul>
+    <li>Pour la force, l'ondulation dans la semaine fait mieux que la progression linéaire, surtout chez les entraînés (Williams 2017 ; Moesgaard 2022) ; pour le muscle, ni mieux ni moins bien (Grgic 2017).</li>
+    <li>Les programmes de force classiques ondulent : Texas Method (volume / léger / intensité), DUP de Zourdos (hypertrophie / puissance / force), la plupart des programmes intermédiaires.</li>
+    <li>À l'intérieur de chaque jour, le coach reste réactif (ressenti, reps faites) : régler la charge au ressenti fait au moins aussi bien que des pourcentages prévus (Helms 2018).</li>
+  </ul>
+</div>

@@ -385,7 +385,7 @@
     return choisie || zoneDe(habitude);
   }
 
-  // ── 193-3 (MOTEUR §9.1.3) — L'ONDULATION : UNE ZONE PAR JOUR, UNE SOUS-HISTOIRE PAR ZONE ──────────────────
+  // ── 193-3 (MOTEUR §9.29) — L'ONDULATION : UNE ZONE PAR JOUR, UNE SOUS-HISTOIRE PAR ZONE ──────────────────
   //
   // La même barre deux fois dans la semaine à deux zones (lundi Lourd, jeudi Mix) : lue en un seul morceau, la dernière
   // séance est toujours celle de l'autre zone, le coach propose l'inverse du plan (`nouvelle_zone`, 11 fois sur 11) et la
@@ -9193,7 +9193,7 @@
     if (o.edition) return null;
     if ((o.intention || 'progresser') === 'entretien') return null;
     if (o.mesure !== 'charge_reps' && o.mesure !== 'reps') return null;
-    // 193-3 (MOTEUR §9.1.3) — UNE ZONE DE PLAN POSÉE : le coach ne relit que les séances de cette zone (ou, la première fois
+    // 193-3 (MOTEUR §9.29) — UNE ZONE DE PLAN POSÉE : le coach ne relit que les séances de cette zone (ou, la première fois
     // dans la zone ou si la dernière date de plus de 8 semaines alors que l'exercice a été fait ailleurs depuis,
     // l'historique complet, que le report §9.10 existant lit une seule fois). Sans zone de plan : aucune ligne ne s'exécute.
     var plan = null;
@@ -9974,7 +9974,7 @@
     }
     return t;
   }
-  // 193-3 (MOTEUR §9.1.3) — LA LIGNE « TA ROUTINE FIXE… » du « Pourquoi » : la zone vient de la routine, et le coach ne lit que
+  // 193-3 (MOTEUR §9.29) — LA LIGNE « TA ROUTINE FIXE… » du « Pourquoi » : la zone vient de la routine, et le coach ne lit que
   // les séances de cette zone. Aucun chiffre (la garde I26 en exige l'origine) : les bornes sont celles de l'étiquette : un fait,
   // jamais un « bravo ». `plan` : `{ zone, mode, n, perimee }` (le fondement de la consigne, `consigneDExercice`).
   function pourquoiPlan(plan) {

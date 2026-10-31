@@ -4189,7 +4189,7 @@
     });
   }
 
-  // ══ I79 à I81 — L'ONDULATION (193-3, MOTEUR §9.1.3) ═════════════════════════════
+  // ══ I79 à I81 — L'ONDULATION (193-3, MOTEUR §9.29) ═════════════════════════════
   //   · I79 — une zone de plan n'est jamais remplacée en silence : la consigne d'un exercice à zone de plan porte cette zone
   //     (ni la correction de l'exercice, ni un bloc, ni l'habitude ne la déplacent) ;
   //   · I80 — une sous-histoire vide ou périmée donne le report de zone ou « première fois », jamais un palier d'une autre

@@ -603,6 +603,8 @@ Le format (§8) se **déduit** d'une séance passée pour savoir à quoi la comp
 3. l'**habitude observée**, dès la première séance avec un palier (§9.1.2), calculée sur les séances postérieures au dernier changement de profil déclaré (§8.5.3) ;
 4. le **profil de travail déclaré**, pour un exercice jamais fait (§8.5).
 
+> **Delta du 31/10/2026 (193-3) — le rang 1 est branché** : la zone que la routine fixe pour le jour (`routine_exercises.zone`) passe avant la correction (§9.29).
+
 **Dans le code, au 19/09/2026 : seuls les rangs 2 et 3 existent.** Le plan (rang 1) viendra avec les programmes ; le profil de travail déclaré (rang 4) n'est encore ni stocké ni calculé. Sans correction ni habitude, un exercice n'a pas de zone, et le moteur se tait.
 
 **Le rang 2 est branché — 20/09/2026 (48b-7).** La correction est la ligne la plus récente de `zones_exercice` pour l'exercice (par `corrigee_a`) ; une zone vide ramène à la déduction. **Elle l'emporte sur tout**, zone figée d'un étirement comprise, et sur la règle de bord : une zone choisie sous 3 reps d'habitude suit la règle de sa zone. Elle tient jusqu'à ce que l'utilisateur la change. Le fondement porte alors `correction.zoneDeduite` — la zone d'après l'habitude, ou rien — pour que la feuille « Pourquoi » la dise.
@@ -1750,6 +1752,32 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 **Reste à décider (option B).** Retest d'un cran et étirement après ce test raté : ils passent par des épisodes qui supposent des séries au palier et un test lu par `testDe` — une refonte de `consignePour`.
 
 **Serveur.** Le récap de groupe, la guilde et les défis (v2_121) lisent `type_serie` côté SQL : hors du dépôt.
+
+### 9.29 L'ondulation — une zone par jour dans la routine — décidé le 31/10/2026 (chantier 193-3) (I79 à I81)
+
+**Le problème.** La même barre deux fois dans la semaine à deux zones (lundi squat Lourd 130 × 4, jeudi squat Mix 110 × 7) : le moteur lisait l'historique par exercice seul. La dernière séance était toujours celle de l'autre zone : il proposait l'inverse du plan (`nouvelle_zone`, 11 fois sur 11 dans la simulation de six semaines), et le compteur de stagnation restait à 0 (il se remet à zéro à chaque changement de zone). Les « deux paliers en parallèle » que le §12.9 annonçait n'étaient pas réalisés.
+
+**La zone du jour ne vient que d'un choix explicite** : `routine_exercises.zone` (migration `v2_122`, NULL = Automatique ; l'éditeur de routine, plus tard le générateur). **Jamais déduite** de `routine_sets.reps_visees` : une routine existante reste en Automatique et le code se comporte exactement comme avant (banc de comparaison exacte contre main après la 193-1). La séance démarrée copie la zone de la ligne dans `zone_plan` de l'exercice (figée : la séance en cours fait foi).
+
+**Rang 1 (§9.1.1).** `zoneRetenue(correction, habitude, plan)` : la zone du plan pour CE jour passe avant la correction de l'exercice (`zones_exercice`, un bloc), qui passe avant l'habitude. Une correction ou un bloc ne l'efface jamais en silence : ils valent pour les jours sans zone de plan.
+
+**Le filtre.** Quand `zonePlan` est posée, `consigneDExerciceCalcul` ne relit que les séances de l'exercice de cette zone (`sousHistoireDeZone`, la SEULE fonction de filtre), avant `contratDe` : palier, habitude, couple, test, report, compteur, repli et escalier se calculent sur cette sous-histoire. L'appartenance d'une séance passée, dans cet ordre : (1) la séance vient d'une routine (`sessions.routine_id`) dont la ligne de cet exercice porte une zone : cette zone ; (2) sinon la zone FAITE : la médiane (arrondie au-dessus) des reps des séries retenues est dans les bornes d'une zone OU rangée par `RANGEMENT` (le OU garde un jeudi Mix à 8 reps, que `RANGEMENT` seul range en Hypertrophie) ; (3) sous 3 reps (des maximaux) : aucune zone. **Jamais la zone « reçue »** (rejouée sans le plan, elle décale les zones d'un cran — mesuré). Si l'utilisateur change plus tard la zone de sa routine, ses séances passées de cette routine changent d'étiquette : une routine changée est un plan changé. La sous-histoire se rejoue DANS la zone du plan (`correction = zonePlan`, sans les lignes de zone datées) : sans cela un jeudi Mix à 8 reps serait lu « Hypertrophie » et déclencherait un faux `nouvelle_zone` à chaque séance.
+
+**La première fois dans une zone** (sous-histoire vide) **et la sous-histoire périmée** : la dernière séance de la zone date de plus de **56 jours** (8 semaines, convention d'Aurélien : au-delà, la force a assez bougé pour qu'un calcul depuis la séance la plus récente soit plus juste) ET l'exercice a été fait depuis dans une autre zone. Alors l'historique COMPLET est lu, le passé garde sa vraie zone (`correctionsDeZone` vide) et le report de zone du §9.10 s'applique, UNE SEULE FOIS, depuis la dernière séance de l'exercice ; la zone d'avant du report est celle que cette séance a faite (pas son rejeu : une habitude mêlée d'anciennes séances Mix la lirait « Mix »). Dès qu'une séance est faite dans la zone, elle devient la dernière de la sous-histoire. Cas du couché : Mix en juin (100 × 7), Lourd en octobre (132,5 × 3) → `nouvelle_zone` Mix à ~125 kg, jamais 97,5 kg ni une reprise longue.
+
+**Reprise (§9.9).** La règle périmée passe avant elle et (56 j < 84 j) la sous-histoire d'un exercice actif ailleurs ne produit jamais de reprise longue ; une reprise courte reste possible (écart > 3 × l'écart habituel de la zone, jusqu'à 56 j : « pas de rep de plus » au retour dans la zone, sans commentaire sur la durée). Un exercice à l'arrêt partout joue la reprise §9.9 comme avant.
+
+**Étiquette et phrase.** « Mix · ta routine » ; « Mix · aujourd'hui » après « Juste pour aujourd'hui ». Le « Pourquoi » dit « Ta routine fixe cet exercice en Mix. Je ne lis que tes séances en Mix… » (aucun chiffre : la garde I26 en exige l'origine ; les bornes sont dans l'étiquette).
+
+**Plan contre correction.** Toucher l'étiquette d'un exercice à zone de plan ouvre deux choix : « Changer la zone de cette routine » (écrit la ligne de routine par la file ; la consigne se recalcule) ou « Juste pour aujourd'hui » (`zone_plan` de l'exercice de la séance, dans le brouillon de l'appareil : rien en base ; la séance faite rejoint la sous-histoire de la zone FAITE). `poserZone` n'est jamais appelé pour lui. La page d'exercice dit les zones que les routines lui fixent.
+
+**Blocs (§9.22).** Un exercice dont la ligne de routine du jour a une zone de plan est HORS du bloc ce jour-là (`enBlocDuJour`) ; il y reste les autres jours. Le bilan de fin de bloc lit tout l'historique du slug : on avertit, on ne filtre pas (cas rare).
+
+**Inchangés** : les paris (un par ligne couverte), les records (par exercice et reps), la fatigue 189, les reculs 193-1 (ils suivent la grosse série de la consigne du jour).
+
+**Invariants.** I79 : une zone de plan n'est jamais remplacée en silence (la consigne d'un exercice à zone de plan porte cette zone). I80 : sous-histoire vide ou périmée (zone d'avant connue) : le report ou « première fois », jamais un palier d'une autre zone. I81 : un exercice à zone de plan n'est pas dans `programme.enBloc`.
+
+**Limites connues.** La 1re séance d'une zone n'est pas comptée au compteur (rejouée sur sous-histoire vide) ; le compteur démarre à la 2e. Un exercice qui n'a que des maximaux (< 3 reps) n'a pas de zone d'avant : une zone de plan posée lui donne la consigne de cette zone depuis son palier, comme une correction posée à la main. Le même exercice deux fois dans une routine avec deux zones : la première ligne.
 
 ## 10. L'incrément
 

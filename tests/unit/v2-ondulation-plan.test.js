@@ -1,6 +1,6 @@
 /** @jest-environment node */
 //
-// 193-3 (commit 3) — L'ONDULATION DANS LE PLAN (MOTEUR §9.1.3, §9.22) : la ligne « Ta routine fixe… » du « Pourquoi », l'étiquette,
+// 193-3 (commit 3) — L'ONDULATION DANS LE PLAN (MOTEUR §9.29, §9.22) : la ligne « Ta routine fixe… » du « Pourquoi », l'étiquette,
 // I79 (une zone de plan n'est jamais remplacée en silence), I80 (première fois : le report, jamais un palier d'une autre zone),
 // I81 (un exercice à zone de plan est hors bloc ce jour-là) ; et ce que la 193-3 ne change pas (paris, records, fatigue, reculs).
 

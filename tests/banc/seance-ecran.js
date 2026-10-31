@@ -5333,7 +5333,14 @@ const SETS_IMPORTES = [
     await brouillonPose();
     await calmeApres(depart);
   };
-  const validerToutes = async () => {
+  // 193-3 — LA FIN DE VALIDATION ATTEND L'ÉTAT, pas 2 600 ms : on lit les séries ARRIVÉES en base de la séance qu'on a validée.
+  // `arriveeDesSeries` porte le délai mesuré (ms) de la dernière série, de la fin des clics à son arrivée ; `strict` (le contrôle
+  // « TOUTES arrivent ») compte un plafond atteint comme un échec — une série perdue fait toujours échouer ; les autres
+  // appelants le déclarent « attendu » (leur contrôle suivant lit l'état lui-même).
+  let arriveeDesSeries = null;
+  const validerToutes = async (o) => {
+    const strict = !!(o && o.strict);
+    const idV = (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
     const n = await compter('.ligne-serie');
     for (let i = 0; i < n; i++) {
       const l = await ligne(i);
@@ -5341,9 +5348,13 @@ const SETS_IMPORTES = [
       await l.$eval('.ok-serie', (b) => b.click());
       await attendre(200);   // rapprochées, comme un pouce sur l'appareil
     }
-    await attendre(2600);
+    const t0 = Date.now();
+    const ici = () => base.sets.filter((x) => x.session_id === idV).length;
+    const venues = idV ? await jusqua(() => ici() >= n, 15000, strict ? 'validerToutes : séries arrivées' : { nom: 'validerToutes', attendu: true }) : (await attendre(2600), true);   // VOULU : séance déjà sortie de `en_cours`, aucun état à lire
+    arriveeDesSeries = { ms: Date.now() - t0, venues: venues, n: ici(), attendu: n };
     return n;
   };
+  const arriveeTexte = () => arriveeDesSeries ? ' · arrivée de la dernière : ' + arriveeDesSeries.ms + ' ms' + (arriveeDesSeries.venues ? '' : ' (PERDUE : plafond atteint)') : '';
   const seriesDe = (id) => base.sets.filter((x) => x.session_id === id).length;
   const enCoursId = () => (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
   // 135 — chaque pas attend son état : la feuille de fin ouverte (son bouton là), puis la séance sortie de
@@ -5465,7 +5476,7 @@ const SETS_IMPORTES = [
   await plusSerie(0); await plusSerie(0);
   await plusSerie(1); await plusSerie(1);
   const idVide = enCoursId();
-  const nVide = await validerToutes();
+  const nVide = await validerToutes({ strict: true });
   ok('six séries à l’écran, dont quatre ajoutées à la main', nVide === 6, nVide + ' ligne(s)');
   // ⚠️ DEPUIS UN REPÈRE, pas depuis le début. Le journal est global et porte
   // les refus de toutes les sections précédentes : sans repère, cette ligne
@@ -5475,7 +5486,7 @@ const SETS_IMPORTES = [
     JSON.stringify(base.journal.slice(repereVide).filter((j) => j.op === 'refus').slice(0, 3)));
   ok('les SIX arrivent en base — c’est le cas qui en perdait quatre',
     seriesDe(idVide) === 6 && seriesDe(idVide) === nVide,
-    seriesDe(idVide) + '/' + nVide + ' série(s)');
+    seriesDe(idVide) + '/' + nVide + ' série(s)' + arriveeTexte());
 
   // ── 7. Fin de séance : plus de fantôme ─────────────────────────────────
   await terminer();
@@ -5497,7 +5508,7 @@ const SETS_IMPORTES = [
   await demarrerRoutine('Push');
   await plusSerie(0);
   const idRoutine = enCoursId();
-  const nRoutine = await validerToutes();
+  const nRoutine = await validerToutes({ strict: true });
   // ⚠️ ON COMPARE À L'ÉCRAN, PAS À UN NOMBRE EN DUR. La routine « Push » a été
   // remaniée par les sections précédentes (report de déviation) : figer « 6 »
   // ici ferait échouer le banc pour une raison étrangère au défaut testé. Ce
@@ -5506,7 +5517,7 @@ const SETS_IMPORTES = [
     nRoutine >= 2, nRoutine + ' ligne(s)');
   ok('TOUTES arrivent — la série ajoutée ne bloque plus les autres',
     seriesDe(idRoutine) === nRoutine,
-    seriesDe(idRoutine) + '/' + nRoutine + ' série(s)');
+    seriesDe(idRoutine) + '/' + nRoutine + ' série(s)' + arriveeTexte());
   await terminer();
   ok('et cette séance-là se termine aussi',
     (sessions().filter((x) => x.id === idRoutine)[0] || {}).statut === 'terminee',

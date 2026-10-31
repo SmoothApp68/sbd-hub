@@ -173,3 +173,21 @@ describe('186 — « Passer en Séries longues »', () => {
     expect(T.verifierPlan(g, d.e).erreurs.filter((x) => /^I71/.test(x)).length).toBe(1);
   });
 });
+
+describe('193-6 — une série « Au max » ne propose jamais de changer de zone', () => {
+  const avecAuMax = () => VOLUME.concat([0, 1, 2].map(() => [40, [16]]));
+  const groupesAu = (marque) => groupes(avecAuMax(marque)).map((g, i) => {
+    if (i >= VOLUME.length && marque) g.series[g.series.length - 1].au_max_reserve = 0;
+    return g;
+  });
+  const lire = (marque) => {
+    const l = avecAuMax(marque);
+    return M.consigneDExercice(groupesAu(marque), undefined, avantDe(l), Object.assign({}, OPTIONS, { seancesSousConsigne: toutes(l) })).depassement;
+  };
+  test('DISCRIMINANT — la même dernière série, sans marque, déclenche la carte', () => {
+    expect(lire(false)).toMatchObject({ n: 3, zone: 'volume', vers: 'series_longues' });
+  });
+  test('DISCRIMINANT — marquée « Au max » : aucune carte', () => {
+    expect(lire(true)).toBeNull();
+  });
+});

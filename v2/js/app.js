@@ -13427,9 +13427,13 @@
       priorites: Profil.prioritesDe(p),
       menager: Profil.zonesAMenagerValides(p.zones_a_menager) || [],
       ecartes: Profil.ecartesValides(p.exercices_ecartes) || [],
-      faits: faits.historiqueDesExercices(corpus())
+      faits: faits.historiqueDesExercices(corpus()),
+      // 199 (MOTEUR §9.37) — les jours de cardio réguliers (lundi = 0), lus dans les séances : rien n'est demandé.
+      cardioJours: cardioReguliers().jours,
+      cardioSemaines: cardioReguliers().semaines
     };
   }
+  function cardioReguliers() { return faits.joursDeCardioReguliers(corpus(), new Date()); }
 
   // 66D (G1, §5 quater.5) — LA PERSONNE A UN HISTORIQUE quand elle a des habitudes (`faits.habitudes`), au moins une
   // séance au programme déduit, et au moins un muscle qui a son fait du coach (MOTEUR §14.6) lu jusqu'à la semaine de
@@ -13577,7 +13581,7 @@
             (avant.groupe_superset || null) === (l.groupe_superset || null)) avant.series += l.series;
         else sortie.push(Object.assign({}, l));
       });
-      return { nom: rt.nom, exercices: sortie };
+      return Object.assign({ nom: rt.nom, exercices: sortie }, rt.hybride ? { hybride: rt.hybride } : {});
     });
   }
 
@@ -13624,7 +13628,7 @@
         var g = l.groupe_superset;
         return g !== null && g !== undefined && membres[g] < 2 ? Object.assign({}, l, { groupe_superset: null }) : l;
       });
-      return { nom: rt.nom, exercices: lignes };
+      return Object.assign({ nom: rt.nom, exercices: lignes }, rt.hybride ? { hybride: rt.hybride } : {});
     });
   }
 
@@ -13663,6 +13667,7 @@
       .concat(['Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']).concat(phrases.famille || [])
       .concat(phrases.zones);
     if (phrases.barreFixe) voix.push(phrases.barreFixe);
+    (phrases.hybride || []).forEach(function (t) { voix.push(t); });
     if (c.annonce) voix.push(c.annonce);
     var changements = h ? (c.changements || []) : [];
     Rendu.rendreApercuProgramme($('feuille-contenu'), {

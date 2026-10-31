@@ -10472,7 +10472,12 @@
   }
   var MOBILITE_POURQUOI_AVANT = 'Tenu longtemps juste avant de soulever, un étirement baisse ta force. Avant la séance, seulement du mouvement.';
 
+  // 199 (§9.37) — une série de cardio est INTENSE à partir de ce RPE (convention de l'app) ; lu par le fait des jours de cardio réguliers.
+  var CARDIO_RPE_INTENSE = 8;
+
   var api = {
+    // 199 (§9.37) — hybride.
+    CARDIO_RPE_INTENSE: CARDIO_RPE_INTENSE,
     // 194-1 (§9.31) — la mobilité en fin de séance : une table, un bloc, des phrases.
     ZONES_RAIDES: ZONES_RAIDES, MOBILITE_ZONES: MOBILITE_ZONES, MOBILITE_CIBLE_MIN: MOBILITE_CIBLE_MIN, MOBILITE_CONSIGNE: MOBILITE_CONSIGNE,
     MOBILITE_REFUS_CLE: MOBILITE_REFUS_CLE, MOBILITE_POURQUOI_AVANT: MOBILITE_POURQUOI_AVANT, MOBILITE_CHARGE: MOBILITE_CHARGE,

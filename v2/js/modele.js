@@ -1244,7 +1244,10 @@
     // 149 — DANS UNE ÉCHELLE DE FIGURES, une habileté est proposable : la règle « une habileté n'est jamais proposée »
     // vise le saut d'une échelle de force vers une habileté (les tractions vers l'archer), pas l'intérieur d'une figure
     // (déjà dit le 17/10 pour le muscle-up, qui reste inchangé).
-    var force = estEchelleDeFigures(index, E) ? cible : cible.filter(estDeForce);
+    // 195 — EN OBJECTIF CALISTHÉNIE, une habileté d'une échelle (pistol, équilibre, archer) se propose : c'est le but de la personne.
+    // `o.objectif` est l'objectif GELÉ du plan ; partout ailleurs la règle ci-dessus tient (le générateur n'en propose jamais).
+    var calisthenie = !!o && o.objectif === 'calisthenie';
+    var force = estEchelleDeFigures(index, E) || calisthenie ? cible : cible.filter(estDeForce);
     if (!force.length) return { type: 'habilete', cible: cible.map(function (x) { return x.slug; }), proposable: false };
     return { type: type, cible: force.map(function (x) { return x.slug; }), proposable: type !== 'lest' };
   }
@@ -1350,7 +1353,7 @@
       var ligne = it.nouvelle && ex[it.nouvelle.slug] && ex[it.nouvelle.slug].semaine ? it.nouvelle.slug
         : ex[depart.slug] && ex[depart.slug].semaine ? depart.slug
         : travailles.sort(function (a, b) { return index[b].echelle_rang - index[a].echelle_rang || parSlug(index[a], index[b]); })[0] || null;
-      var m = marcheSuivante(index, depart.slug, { lestRefuse: opt.lestRefuse === true });
+      var m = marcheSuivante(index, depart.slug, { lestRefuse: opt.lestRefuse === true, objectif: opt.objectif });
       var suite = null;
       if (opt.coachActif === true && m) {
         var haut = opt.zonesHaut && Object.prototype.hasOwnProperty.call(opt.zonesHaut, depart.slug) ? opt.zonesHaut[depart.slug] : null;

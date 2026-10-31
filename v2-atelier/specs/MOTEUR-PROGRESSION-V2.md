@@ -1822,6 +1822,10 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 
 **Limites connues.** La question de réserve après la dernière série (I45) peut être redondante à la réserve 0 ; un exercice jamais fait sans consigne n'affiche pas de « Au max » ; l'import Hevy ne pose aucune marque.
 
+### 9.30 bis L'échec sur une barre, une fois par semaine — décidé le 31/10/2026 (chantier 193-6b) (I99)
+
+Sur une **barre** (squat, couché, militaire — `familleDeBarre`), la consigne « jusqu'à l'échec » de la dernière série « Au max » n'est donnée que (a) le jour où la ligne porte la **zone de plan Lourd** (193-3, `zoneDePlan`), ou (b) **sans zone de plan**, si aucune série à l'échec (`au_max_reserve = 0`, type `echec`, ou réserve notée 0) n'a été faite sur cette barre dans les **6 jours civils précédents** (le jour même exclu ; fait assemblé par `faits.echecsDeBarre`, règle `Moteur.echecRecentDeBarre`). Sinon : « Autant que tu peux, en gardant 1 rep » (réserve 1). Accessoires, machines, isolations, soulevé : inchangés (le militaire ne va déjà jamais à l'échec, I84). Une seule fonction : `Moteur.auMaxDe`, deux entrées de plus (`zoneDePlan`, `echecRecent`) ; le générateur (193-2) passe la zone de la ligne (jour Lourd → échec, jour Hypertrophie ou Mix de la même barre → garde 1), le plan passe la zone de la consigne et l'échec récent. Pourquoi : « Ton squat est déjà allé à l'échec mardi : aujourd'hui, garde 1 rep. » (`pourquoiAuMaxEchecRecent`). **I99** : aucune ligne « Au max » à la réserve 0 sur une barre un jour de zone autre que Lourd, ni, sans zone de plan, avec un échec dans les 6 jours. Science : Morán-Navarro 2017 (l'échec ajoute 24 à 48 h de récupération), Robinson 2024 (gain minime de l'échec systématique).
+
 ## 10. L'incrément
 
 ### 10.1 Règle

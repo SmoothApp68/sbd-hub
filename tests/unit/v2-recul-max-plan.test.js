@@ -46,8 +46,8 @@ describe('193-5 — le plan : le recul sur le max du jour', () => {
     expect(R.max_du_jour).toBe(154);
     expect(R.marge).toBe(1);
     expect(R.correction).toBe(0);
-    expect(sp(R.phrase)).toBe('Recul : 112,5 kg, 74 % de ton max du jour.');
-    expect(sp(R.pourquoi)).toBe('Ta grosse série, 132,5 kg × 4 en gardant 1 rep, dit que ton max du jour est d’environ 154 kg. ' +
+    expect(sp(R.phrase)).toBe('Recul : 112,5 kg, 74 % de ton max aujourd’hui.');
+    expect(sp(R.pourquoi)).toBe('Ta grosse série, 132,5 kg × 4 en gardant 1 rep, dit que ton max aujourd’hui est d’environ 154 kg. ' +
       'Pour 8 reps en en gardant 2, c’est 74 % : 112,5 kg.');
     x.lignes.slice(1).forEach((l) => expect(l.fantome).toEqual({ charge: 112.5, reps: null, source: 'recul' }));
     const f = x.paris[1].fondement;

@@ -147,7 +147,7 @@ describe('⚠️ l’éditeur rend les rangées de la séance, moins `PRÉC.` et
   test('la MÊME structure, rendue en séance, les porte toutes les trois', () => {
     const c = rendreEnSeance([RAMPE()]);
     expect(txt(c.querySelectorAll('.cols-seance span')))
-      .toEqual(['', 'PRÉC.', 'KG', 'REPS', 'EFFORT', '']);
+      .toEqual(['', 'PRÉC.', 'KG', 'REPS', '', '']);   // 200-9 : la colonne tient sa place, l'en-tête attend une série validée
     expect(c.querySelectorAll('.prec').length).toBe(6);
     expect(c.querySelectorAll('.ok-serie').length).toBe(6);
     expect(c.querySelectorAll('.eff-serie').length).toBe(6);

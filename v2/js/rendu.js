@@ -2331,6 +2331,7 @@
     input.value = vide ? '' : nombreFr(valeur);
     if (vide && fantomeVal !== null && fantomeVal !== undefined) {
       input.placeholder = nombreFr(fantomeVal) + (o.plus ? '+' : '');   // 193-6 : « 8+ », la ligne « Au max »
+      if (o.plus) input.setAttribute('aria-label', 'Reps\u00a0: ' + nombreFr(fantomeVal) + ' ou plus');   // 200-4 : « 5+ » se lit « 5 ou plus »
     } else if (indication) {
       input.placeholder = indication;
     }
@@ -2660,7 +2661,10 @@
     var n = el('section', 'carte-mobilite carte-mobilite-' + ou);
     n.setAttribute('data-mobilite', ou);
     var zones = b.zones ? b.zones : [b];
+    // 200-6 — repliée sur une ligne : « Mobilité · 6 min · Hanches et épaules · facultatif › » ; le reste à l'ouverture.
+    var racineM = n;
     if (b.titre) {
+      n = el('div', 'cm-corps');
       n.appendChild(el('h3', 'cm-titre', b.titre));
       n.appendChild(el('div', 'cm-sous', b.sousTitre));
       var liste = el('ol', 'cm-liste');
@@ -2691,6 +2695,11 @@
       det.appendChild(el('summary', null, 'Pourquoi\u00a0?'));
       det.appendChild(el('p', null, b.pourquoi));
       n.appendChild(det);
+    }
+    if (b.titre) {
+      var resumeM = b.titre + ' \u00b7 ' + (b.zones ? b.sousTitre : b.libelle + ' \u00b7 facultatif');
+      racineM.appendChild(ligneRepliee('lr-mobilite', resumeM + '\u00a0\u203a', n));
+      return racineM;
     }
     return n;
   }
@@ -2832,7 +2841,8 @@
     var cleCharge = function (cp) { return cp ? (cp.depart ? 'depart' : 'coach') : ''; };
     var memeCharge = !charges || charges.every(function (cp) { return cleCharge(cp) === cleCharge(charges[0]); });
     if (memeGabarit && memeCharge) {
-      noeud.appendChild(enTetesColonnes(gabarits[0], vue.programme, charges && charges.length ? charges[0] : null));
+      noeud.appendChild(enTetesColonnes(gabarits[0], vue.programme, charges && charges.length ? charges[0] : null,
+        bloc.series.some(function (q) { return q.faite; })));
     }
 
     // §2.6 — l'éclairage porte sur le TOUR entier, pas sur une ligne isolée.
@@ -2865,7 +2875,9 @@
         var ps = typeof vue.propositionSchema === 'function' ? vue.propositionSchema(s._iExo) : null;
         if (ps) noeud.appendChild(propositionDeSchema(ps, s._iExo, vue));
         var pc = typeof vue.propositionChauffes === 'function' ? vue.propositionChauffes(s._iExo) : null;
-        if (pc) noeud.appendChild(propositionDeChauffes(pc, s._iExo, vue));
+        // 200-5 — la chauffe se replie sur une ligne : « Chauffe · 4 séries › » ; « Ajouter » et « Non merci » à l'ouverture.
+        if (pc) noeud.appendChild(ligneRepliee('lr-chauffes', 'Chauffe \u00b7 ' + pc.lignes.length + ' s\u00e9rie' + (pc.lignes.length > 1 ? 's' : '') + '\u00a0\u203a',
+          propositionDeChauffes(pc, s._iExo, vue)));
         // 193-6 (MOTEUR §9.30) — « Dernière série au max ? » : une fois par exercice, du plan ; trois gestes.
         var pa = typeof vue.propositionAuMax === 'function' ? vue.propositionAuMax(s._iExo) : null;
         if (pa) noeud.appendChild(propositionDAuMax(pa, s._iExo, vue));
@@ -2913,7 +2925,9 @@
       // au-dessus de la ligne suivante : elle parle de la suite, la médaille
       // de cette série). Lue sur l'app, jamais calculée ici.
       var med = !vue.programme && typeof vue.medaille === 'function' ? vue.medaille(s._iExo, s._iSerie) : null;
-      if (med) noeud.appendChild(medailleDeSerie(med));
+      // 200-8 — UNE SEULE CARTE à la fois sous la série : la question de réserve d'abord ; la médaille passe au récap de fin de séance
+      // (`rendreRecap`, « Les records du jour »), où elle reste dite. `med` n'est plus posé ici.
+      void med;
       // 154 (MOTEUR §9.26) — L'EFFORT VISÉ : sous la dernière série de travail, les puces « Il t'en restait combien ? » ;
       // une fois la réponse donnée, la phrase du coach. Lu sur le plan (`vue.effortVise`), jamais décidé ici.
       var ef = !vue.programme && typeof vue.effortVise === 'function' ? vue.effortVise(s._iExo, s._iSerie) : null;
@@ -3028,8 +3042,14 @@
       // sous 3 reps d'habitude, pas en Entretenir, pas sur une mesure sans
       // charge, jamais en mode programme.
       var eti = !vue.programme && vue.etiquette ? vue.etiquette(x.slug, x._iExo) : null;
-      if (eti) nom.appendChild(puceZone(eti, vue.zoneChoisie && vue.zoneChoisie(x.slug),
-        vue.surZone && function () { vue.surZone(x.slug); }));
+      // 200-3 — UNE PUCE : « 6-8 reps · garde 1 » ; le nom de la zone et son origine sont dans la feuille qu'elle ouvre.
+      var pi = eti && typeof vue.puceIntention === 'function' ? vue.puceIntention(x.slug, x._iExo) : null;
+      if (eti) {
+        var puce = puceZone(pi ? pi.texte : eti, vue.zoneChoisie && vue.zoneChoisie(x.slug),
+          vue.surZone && function () { vue.surZone(x.slug); });
+        if (pi) { puce.setAttribute('aria-label', pi.aria + '\u00a0: la zone de cet exercice'); entree.classList.add('a-puce-intention'); }
+        nom.appendChild(puce);
+      }
       // §9.17 — UN EXERCICE EN ENTRETENIR PAR SON PROPRE CHOIX n'a plus de
       // consigne, donc plus de zone : sans cette puce, le seul chemin du retour
       // à « Progresser » aurait disparu avec la zone. Elle ne se montre pas
@@ -3280,7 +3300,7 @@
   // la seconde ce qui vient d'être fait — deux observations, et une routine
   // n'observe rien. `EFFORT` tombe avec elles pour la même raison, et parce
   // que `routine_sets` n'a pas de colonne où le mettre.
-  function enTetesColonnes(g, programme, chargeProgramme) {
+  function enTetesColonnes(g, programme, chargeProgramme, effortVu) {
     var noms = colonnesDe(g);
     var champs = noms.map(function (n) { return M().champDeMesure(n); });
     var cp = programme ? chargeProgramme : null;
@@ -3297,7 +3317,8 @@
       if (!surcharge && cp && cp.depart && noms[i] === 'charge_kg') surcharge = 'DÉPART (KG)';
       entetes.appendChild(el('span', 'centre', surcharge || c.entete));
     });
-    if (g.effort && !programme) entetes.appendChild(el('span', 'centre', 'EFFORT'));
+    // 200-9 — « EFFORT » n'apparaît qu'une fois une série validée de l'exercice (la place reste tenue : rien ne saute à la validation).
+    if (g.effort && !programme) entetes.appendChild(el('span', 'centre', effortVu ? 'EFFORT' : ''));
     entetes.appendChild(el('span', 'centre', ''));
     return entetes;
   }
@@ -3563,6 +3584,18 @@
   // la carte de schéma (§14.5) en sont deux usages. Les textes viennent du
   // plan ; ce composant n'en écrit aucun.
   // `p` : `{ classe, texte, detail, oui, non, classeOui, classeNon, surOui, surNon }`.
+  // 200-5/6 — UNE LIGNE REPLIÉE : le résumé tient sur une ligne (« Chauffe · 4 séries › »), le reste s'ouvre d'un toucher. Rien ne disparaît.
+  // Le composant `details` : accessible au clavier, l'état ouvert se garde tant que l'écran ne se redessine pas.
+  function ligneRepliee(classe, resume, contenu) {
+    var d = el('details', 'ligne-repliee ' + classe);
+    var r = el('summary', 'lr-resume', resume);
+    d.appendChild(r);
+    var c = el('div', 'lr-contenu');
+    c.appendChild(contenu);
+    d.appendChild(c);
+    return d;
+  }
+
   function propositionDExercice(p, iExo) {
     var n = el('div', 'proposition-exercice ' + (p.classe || ''));
     n.setAttribute('data-iexo', String(iExo));
@@ -3620,7 +3653,7 @@
 
   // 193-4 (MOTEUR §9.32) — LA SEMAINE DE TEST dans la séance : la barre testée aujourd'hui (la montée, la consigne, le « Pourquoi », la
   // mesure, les gestes) et, sur un accessoire, une ligne. Tout vient du plan (`vue.semaineDeTest`) ; rien n'est recalculé ici.
-  var ARRETS_DU_TEST = { mal: 'Tu as mal : on ne teste pas ce mouvement.', sans_marge: 'Ton premier essai n’a rien laissé : on s’arrête là, ton max du jour est lu sur lui.',
+  var ARRETS_DU_TEST = { mal: 'Tu as mal : on ne teste pas ce mouvement.', sans_marge: 'Ton premier essai n’a rien laissé : on s’arrête là, ton max aujourd’hui est lu sur lui.',
     rate: 'Un essai raté : on s’arrête là.', technique: 'La technique lâche : on s’arrête là.', sans_cran: 'Rien de plus lourd à ta salle : on s’arrête là.' };
   function carteDeTest(t, iExo, vue) {
     var M = function () { return racine.THModele; };
@@ -4032,7 +4065,7 @@
     });
 
     if (g.effort && !vue.programme) {
-      var eff = el('button', 'eff-serie num' + (texteEffort(s) ? ' plein' : ''), texteEffort(s));
+      var eff = el('button', 'eff-serie num' + (texteEffort(s) ? ' plein' : '') + (s.faite ? '' : ' eff-attente'), texteEffort(s));
       eff.type = 'button';
       // 173 — le mot « fait » d'une série validée sans effort : dessiné par CSS depuis cet attribut (le contenu du bouton reste vide).
       if (s.faite && !texteEffort(s)) eff.setAttribute('data-fait', 'fait');
@@ -4053,7 +4086,14 @@
 
     ligne.appendChild(rangee);
     // 152 — le mot d'une série `echec` : « à l'échec » (ambre) à 1 rep et plus, « manquée » à 0.
-    if (s.motEchec) ligne.appendChild(el('div', 'etq-ligne etq' + (s.estTravail ? ' fond' : ''), s.motEchec));
+    // 200-4 — « 5+ · garde 1 » à la place d'« Au max » quand la consigne garde N reps (lu sur le plan).
+    var motLigne = s.motEchec, ea = motLigne && !vue.programme && typeof vue.etiquetteAuMax === 'function' && /(^|· )Au max$|au max$/.test(motLigne) ? vue.etiquetteAuMax(iExo, iSerie) : null;
+    if (ea) motLigne = (/^recul/.test(motLigne) ? 'recul · ' : '') + ea.texte;
+    if (motLigne) {
+      var etqL = el('div', 'etq-ligne etq' + (s.estTravail ? ' fond' : ''), motLigne);
+      if (ea) etqL.setAttribute('aria-label', ea.aria);
+      ligne.appendChild(etqL);
+    }
     ligne.appendChild(fond);
     brancherGlissement(ligne, function () { vue.surSupprimerSerie(iExo, iSerie); });
     return ligne;
@@ -4378,6 +4418,7 @@
     // 188-2 — le repos d'un gros mouvement qui stagne : une ligne, jamais une carte.
     if (p.repos) cible.appendChild(el('p', 'pq-p', p.repos));
     // 193-1 — comment les séries de recul suivent la grosse série (du plan).
+    if (p.reculPhrase) cible.appendChild(el('p', 'pq-p pq-recul-phrase', p.reculPhrase));   // 200-7
     if (p.recul) cible.appendChild(el('p', 'pq-p', p.recul));
     // MOTEUR §9.15.1 (49-U10) — une routine qui prévoit plus de chauffes que
     // la table : les lignes en trop ne sont pas remplies, et la feuille le dit.
@@ -4609,7 +4650,7 @@
     vider(cible);
     cible.appendChild(el('div', 'feuille-t', 'Zone de travail'));
     cible.appendChild(el('div', 'feuille-sous', vue.nom));
-    cible.appendChild(el('p', 'feuille-aide', 'Ta zone d\u2019ici vient de ta routine\u00a0: ' + vue.libelle + '.'));
+    cible.appendChild(el('p', 'feuille-aide', 'Ta zone d\u2019ici vient de ta routine\u00a0: ' + vue.libelle + (vue.bornes ? ' (' + vue.bornes + ' reps)' : '') + '.'));
     [['routine', 'Changer la zone de cette routine', 'Elle change pour les prochaines fois, dans la routine.', vue.surRoutine],
      ['aujourdhui', 'Juste pour aujourd\u2019hui', 'Ta routine ne change pas.', vue.surAujourdhui]].forEach(function (c) {
       var b = el('button', 'option-zone');

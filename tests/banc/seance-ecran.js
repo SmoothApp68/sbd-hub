@@ -27558,7 +27558,7 @@ const SETS_IMPORTES = [
     ok('[RM193] DISCRIMINANT — les reculs ×8 après une grosse série ×4 sont sur le MAX DU JOUR, pas à 10 % de la grosse série',
       avant193.mode === 'max_du_jour' && exAvant && avant193.charge === exAvant.charge && avant193.charge !== Math.round(avant193.grosse * 0.9 / 2.5) * 2.5,
       nb193([avant193, exAvant && exAvant.charge]));
-    ok('[RM193] la phrase sous le recul dit le pourcentage du max du jour', /^Recul : [\d,]+ kg, \d+ % de ton max du jour\.$/.test(sp193(avant193.phrase)), nb193(avant193.phrase));
+    ok('[RM193] la phrase sous le recul dit le pourcentage du max du jour', /^Recul : [\d,]+ kg, \d+ % de ton max aujourd’hui\.$/.test(sp193(avant193.phrase)), nb193(avant193.phrase));
     const placeholders193 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) => {
       const i = l.querySelector('input'); return i ? (i.value || i.placeholder || '') : null; }));
     const phAvant = await placeholders193();

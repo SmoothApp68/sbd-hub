@@ -1442,6 +1442,9 @@
     var note = noteDesChauffes(autour.chauffes);
     if (pourquoi && note) pourquoi.chauffes = note;
     if (pourquoi && rec.reculs && rec.reculs.pourquoi) pourquoi.recul = rec.reculs.pourquoi;
+    // 200-7 — la phrase du recul (« Recul : 115 kg, 74 % de ton max aujourd'hui. ») ne s'étale plus au-dessus de la ligne : elle ouvre le
+    // paragraphe du recul dans le « Pourquoi ». Le même texte, déjà cité plus bas (`dire('recul', …)`, I26).
+    if (pourquoi && rec.reculs && rec.reculs.pourquoi && rec.reculs.phrase) pourquoi.reculPhrase = rec.reculs.phrase;
     // 193-3 — la zone vient de la routine : une ligne du « Pourquoi », sans chiffre (la zone et ses bornes sont l'étiquette).
     var phraseDuPlan = c.plan ? M.pourquoiPlan(c.plan) : null;
     if (pourquoi && phraseDuPlan) pourquoi.plan = phraseDuPlan;

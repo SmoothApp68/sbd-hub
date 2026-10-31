@@ -10366,7 +10366,7 @@
   // `recul.pct`, `recul.marge`, `recul.reps`, `recul.correction`, `recul.derniere`.
   function phraseReculAuMax(charge, pct) {
     return 'Recul' + DEUX_POINTS + enKg(charge, regle('recul')) + ', ' + nombreFr(Math.round(pct), regle('recul.pct')) + INSECABLE +
-      '% de ton max du jour.';
+      '% de ton max aujourd’hui.';
   }
   function gardantMarge(m) {
     return nombre(m) === 0 ? 'sans marge' : 'en gardant ' + nombreFr(m, regle('recul.marge')) + ' rep' + (m > 1 ? 's' : '');
@@ -10374,7 +10374,7 @@
   // `f` : `{ grosse, grosseReps, marge, max, reps, pct, charge, correction, pas }` — `max` arrondi à l'entier, `pas` : les pas de la correction.
   function pourquoiReculAuMax(f) {
     var t = 'Ta grosse série, ' + enKg(f.grosse, regle('recul.grosse')) + ' × ' + nombreFr(f.grosseReps, regle('recul.reps')) + ' ' +
-      gardantMarge(f.marge) + ', dit que ton max du jour est d’environ ' + enKg(f.max, regle('recul.max')) + '. Pour ' +
+      gardantMarge(f.marge) + ', dit que ton max aujourd’hui est d’environ ' + enKg(f.max, regle('recul.max')) + '. Pour ' +
       nombreFr(f.reps, regle('recul.reps')) + ' reps en en gardant ' + nombreFr(RECUL_MARGE_VISEE, regle('recul.marge')) + ', c’est ' +
       nombreFr(Math.round(f.pct), regle('recul.pct')) + INSECABLE + '% : ' + enKg(f.charge, regle('recul')) + '.';
     var corr = nombre(f.correction);

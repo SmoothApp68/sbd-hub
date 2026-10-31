@@ -17299,8 +17299,20 @@ const SETS_IMPORTES = [
 
     ap = await apercuDe({ anciennete: '1_a_3_ans' }, 3);
     nomsJ = tousLesNoms(ap);
-    ok('[R60] J — ⚠️ le même profil en « 1 à 3 ans » : les tractions et le relevé de genoux suspendu reviennent',
+    // 197 : le gabarit Forme alterne le tirage (vertical en A et C) et n'a PAS d'abdos (le gainage, des tenues) : le relevé de genoux
+    // suspendu ne s'y trouve plus. Les tractions reviennent en Forme à « 1 à 3 ans » ; le relevé, lui, se prouve sur Muscle (qui a des abdos).
+    ok('[R60] J — ⚠️ le même profil en « 1 à 3 ans » : les tractions reviennent (Forme : le tirage vertical de la séance A)',
+      ap.ouverte && nomsJ.indexOf(nomDe('tractions')) >= 0, JSON.stringify(nomsJ));
+    await fermerApercu();
+    ap = await apercuDe({ anciennete: '1_a_3_ans', objectif: 'muscle' }, 3);
+    nomsJ = tousLesNoms(ap);
+    ok('[R60] J — ⚠️ « 1 à 3 ans », Muscle (qui a des abdos) : les tractions et le relevé de genoux suspendu reviennent',
       ap.ouverte && nomsJ.indexOf(nomDe('tractions')) >= 0 && nomsJ.indexOf(nomDe('releve_de_genoux_suspendu')) >= 0, JSON.stringify(nomsJ));
+    await fermerApercu();
+    ap = await apercuDe({ anciennete: 'moins_1_an', objectif: 'muscle' }, 3);
+    nomsJ = tousLesNoms(ap);
+    ok('[R60] J — ⚠️ « Moins d’un an », Muscle : ni tractions ni relevé de genoux suspendu',
+      ap.ouverte && nomsJ.indexOf(nomDe('tractions')) < 0 && nomsJ.indexOf(nomDe('releve_de_genoux_suspendu')) < 0, JSON.stringify(nomsJ));
     await fermerApercu();
 
     // Un débutant qui a déjà fait les tractions les garde : une séance d'il y a 5 jours avec des tractions.

@@ -53,6 +53,9 @@
     forme_jambes: ['squat_goblet_haltere', 'squat_goblet_kettlebell', 'squat_poids_du_corps', 'fente_arriere_haltere', 'fente_arriere'],
     forme_charniere: ['souleve_de_terre_roumain_haltere', 'souleve_de_terre_haltere', 'hip_thrust_une_jambe_poids_corps'],
     forme_poussee: ['pompes_inclinees', 'developpe_couche_haltere', 'chest_press_machine', 'pompes'],
+    // Le tirage ALTERNE d'une séance à l'autre (décision du 31/10/2026) : vertical (A, C), horizontal (B). La règle du débutant
+    // s'applique au vertical : la poulie, les tractions dès « 1 à 3 ans » ou déjà faites.
+    forme_tirage_vertical: ['tractions', 'tirage_poitrine_poulie', 'tirage_poitrine_machine', 'tirage_vertical_elastique'],
     forme_tirage: ['rowing_haltere', 'rowing_poulie_assis', 'rowing_elastique', 'rowing_inverse'],
     // Le porté : AUCUN exercice du catalogue (relevé du 31/10/2026) — la place saute tant qu'il n'y en a pas (rapport du 197).
     forme_porte: [],
@@ -109,16 +112,16 @@
   // 65 ans et plus (`entree.plus65 === true`, lu sur `date_naissance` ; inconnue : rien de deviné) : un exercice d'équilibre en plus.
   var FORME_JOURS_MAX = 3;
   function tenue(motif, role, n, secondes) { return pl(motif, role, { n: n, reps: null, duree: secondes }); }
-  function forme(nom) {
-    return [nom, [acc('forme_jambes', 'P', 3, 10), acc('forme_tirage', 'S', 3, 10), acc('forme_poussee', 'S', 3, 10),
+  function forme(nom, i) {
+    return [nom, [acc('forme_jambes', 'P', 3, 10), acc(i % 2 === 0 ? 'forme_tirage_vertical' : 'forme_tirage', 'S', 3, 10), acc('forme_poussee', 'S', 3, 10),
                   acc('forme_charniere', 'S', 2, 10), tenue('forme_porte', 'T', 2, 30), tenue('forme_gainage', 'T', 2, 30)]];
   }
   function gabaritDeForme(p) {
     if (p.objectif !== 'forme' || p.famille === false) return null;     // `famille: false` : le gabarit d'avant (les cas de 60-6 le rejouent)
     var n = Math.min(bornerJours(p.jours), FORME_JOURS_MAX);
     var noms = ['Corps entier A', 'Corps entier B', 'Corps entier C'].slice(0, n);
-    return noms.map(function (nom) {
-      var rt = forme(nom);
+    return noms.map(function (nom, i) {
+      var rt = forme(nom, i);
       if (p.plus65 === true) rt[1].push(tenue('forme_equilibre', 'T', 2, 30));
       return rt;
     });
@@ -203,7 +206,7 @@
   // Une place dont le motif charge la zone GARDE son exercice et toutes ses séries, SANS série lourde.
   var CHARGE_ZONE = {
     genou: ['squat', 'presse', 'quad_iso', 'forme_jambes'],
-    dos: ['charniere', 'jambes_tendues', 'squat', 'rowing', 'forme_charniere', 'forme_jambes', 'forme_tirage'],
+    dos: ['charniere', 'jambes_tendues', 'squat', 'rowing', 'forme_charniere', 'forme_jambes', 'forme_tirage', 'forme_tirage_vertical'],
     epaule: ['militaire', 'couche', 'couche_serre', 'elev_lat', 'forme_poussee'],
     coude: ['triceps', 'curl'],
     hanche: ['hip_thrust', 'squat', 'charniere', 'forme_jambes', 'forme_charniere']

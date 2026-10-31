@@ -16881,13 +16881,19 @@ const SETS_IMPORTES = [
     ok('[R60] G — « Commencer » : le questionnaire se termine, Saisie s’ouvre, et l’aperçu arrive PAR-DESSUS',
       vuesG.indexOf('vue-saisie') >= 0 && vuesG.indexOf('vue-questionnaire') < 0 && ap.ouverte && ap.titre === 'Ton programme de départ : 4 séances par semaine.',
       JSON.stringify([vuesG, ap.ouverte, ap.titre]));
-    ok('[R60] G — la voix du coach : « Je te propose tes charges à chaque séance. Touche un exercice pour le changer. » puis la phrase du dos',
+    // 193-2 — Force avec une barre : les phrases de la famille (combien de fois chaque barre, la zone de chaque jour, la semaine allégée, la
+    // fréquence) s'ajoutent entre la première phrase et celle de la zone à ménager. Un soulevé à ménager (dos) n'est plus « lourd » : il n'est pas dit.
+    ok('[R60] G — la voix du coach : « Je te propose tes charges… », puis la famille de force (squat 2 fois, couché 3 fois…), puis la phrase du dos',
       ap.voix[0] === 'Je te propose tes charges à chaque séance. Touche un exercice pour le changer.' &&
-        /^Tu ménages ton dos : .+, sans série lourde\. Toutes leurs séries restent ; 8 répétitions au plus au soulevé\.$/.test(ap.voix[1] || ''),
+        ap.voix[1] === 'Dans la semaine : squat 2 fois, couché 3 fois.' &&
+        ap.voix[2] === 'Chaque jour a sa zone : la même barre passe de Lourd à Mix ou à Hypertrophie.' &&
+        ap.voix[3] === 'Une semaine allégée toutes les 5 semaines : mêmes charges, moins de séries.' &&
+        /^Fréquence : environ 3 % de force de plus par séance hebdomadaire ajoutée sur un mouvement \(Pelland 2026\)\.$/.test(ap.voix[4] || '') &&
+        /^Tu ménages ton dos : .+, sans série lourde\. Toutes leurs séries restent ; 8 répétitions au plus au soulevé\.$/.test(ap.voix[5] || ''),
       JSON.stringify(ap.voix));
     ok('[R60] G — quatre séances, chacune avec son nom, « ≈ N min », sa ligne « pourquoi » (séries par zone) et ses exercices en séries × reps',
-      ap.cartes.map((k) => k.nom).join('|') === 'Haut A|Bas A|Haut B|Bas B' &&
-        ap.cartes.every((k) => /^≈ \d+ min$/.test(k.duree) && /séries$/.test(k.pourquoi || '') && k.exos.length >= 4 &&
+      ap.cartes.map((k) => k.nom).join('|') === 'Jour A|Jour B|Jour C|Jour D' &&
+        ap.cartes.every((k) => /^≈ \d+ min$/.test(k.duree) && /séries$/.test(k.pourquoi || '') && k.exos.length >= 3 &&
           k.exos.every((x) => /^\d+ × \d+$/.test(x.series))), JSON.stringify(ap.cartes.map((k) => [k.nom, k.duree, k.pourquoi, k.exos.length])));
     const menage = [].concat.apply([], ap.cartes.map((k) => k.exos.filter((x) => x.mentions.indexOf('sans série lourde · ton dos') >= 0)));
     ok('[R60] G — sous un exercice qui charge le dos : « sans série lourde · ton dos »', menage.length >= 2, JSON.stringify(menage.map((x) => x.nom)));
@@ -16918,7 +16924,7 @@ const SETS_IMPORTES = [
         ROUTINES.length === 0 && !profilBase().exercices_ecartes && !profilBase().programme_construit_dossier,
       JSON.stringify([ap.boutons, ROUTINES.length, profilBase().exercices_ecartes]));
 
-    // « Je n'en veux pas » sur le premier exercice de Haut A (le couché barre).
+    // « Je n'en veux pas » sur le premier exercice de Jour A (193-2 : le squat, ici le belt squat, la zone à ménager est le dos).
     const premierNom = ap.cartes[0].exos[0].nom, autresHautB = JSON.stringify(ap.cartes[2]);
     const toucher = async (i, k) => { await page.evaluate(([a, b]) => document.querySelectorAll('#feuille-contenu .ap-routine')[a]
       .querySelectorAll('.ap-ex')[b].click(), [i, k]); await attendre(400); };
@@ -16931,7 +16937,7 @@ const SETS_IMPORTES = [
     await toucher(0, 0);
     let fc = await feuilleChoix();
     ok('[R60] G — toucher un exercice ouvre sa feuille : « Je n’en veux pas » (et sa phrase), « Remplacer », « Annuler »',
-      fc.titre.indexOf(premierNom) === 0 && /^Haut A · \d+ × \d+$/.test(fc.aide) &&
+      fc.titre.indexOf(premierNom) === 0 && /^Jour A · \d+ × \d+$/.test(fc.aide) &&
         fc.options.length === 2 && fc.options[0][0] === 'refuser' &&
         fc.options[0][1] === 'Je n’en veux pasJe le remplace par un exercice du même mouvement, et je ne te le proposerai plus.' &&
         fc.options[1][0] === 'remplacer' && fc.options[1][1] === 'RemplacerTu choisis dans le catalogue. La ligne de la séance se met à jour.' &&
@@ -16947,12 +16953,15 @@ const SETS_IMPORTES = [
     await attendre(900);
     ap = await apercuR();
     const neuvNom = ap.cartes[0].exos[0].nom;
-    ok('[R60] G — « Je n’en veux pas » : SEULE la place touchée change, la phrase du coach le dit, l’exercice neuf est marqué',
+    // 193-2 — le squat passe deux fois dans la semaine (Lourd le jour A, Mix le jour D) : ses deux places sont LIÉES, elles changent ENSEMBLE
+    // (la fréquence ne casse pas), chacune garde sa zone. Rien d'autre ne bouge : le jour C reste tel quel.
+    ok('[R60] G — « Je n’en veux pas » : la place touchée ET sa place liée changent (le même remplaçant), la phrase du coach le dit, les autres lignes restent',
       neuvNom !== premierNom && ap.cartes[0].exos[0].neuf === true && ap.cartes[0].exos.slice(1).every((x) => !x.neuf) &&
+        ap.cartes[3].exos[0].nom === neuvNom && ap.cartes[3].exos[0].neuf === true && ap.cartes[3].exos.slice(1).every((x) => !x.neuf) &&
         ap.voix[ap.voix.length - 1] === premierNom + ' est remplacé par ' + neuvNom + '. Je ne te le proposerai plus.' &&
-        JSON.stringify(ap.cartes[2]) === autresHautB, JSON.stringify([premierNom, neuvNom, ap.voix[ap.voix.length - 1]]));
+        JSON.stringify(ap.cartes[2]) === autresHautB, JSON.stringify([premierNom, neuvNom, ap.voix[ap.voix.length - 1], ap.cartes.map((k) => k.exos.map((x) => [x.nom, x.neuf]))]));
     ok('[R60] G — l’écarté est écrit AU GESTE (le profil, `exercices_ecartes`), rien d’autre n’est écrit',
-      JSON.stringify(profilBase().exercices_ecartes) === '["developpe_couche_barre"]' && ROUTINES.length === 0,
+      JSON.stringify(profilBase().exercices_ecartes) === '["belt_squat_machine"]' && ROUTINES.length === 0,
       JSON.stringify([profilBase().exercices_ecartes, ROUTINES.length]));
 
     // « Remplacer » → « Chercher dans le catalogue » : le catalogue est un autre voile ; l'aperçu y reste en mémoire.
@@ -16987,12 +16996,13 @@ const SETS_IMPORTES = [
     await page.click('#resultats-exo .resultat');
     await attendre(800);
     ap = await apercuR();
-    ok('[R60] G — choisir un exercice dans le catalogue : il prend la place (mêmes séries), l’aperçu est rouvert, marqué',
+    ok('[R60] G — choisir un exercice dans le catalogue : il prend la place (mêmes séries) ET celle de la place liée (le couché du jour A), l’aperçu est rouvert, marqué',
       ap.ouverte && ap.cartes[1].exos[0].nom === 'Hip thrust machine' && ap.cartes[1].exos[0].neuf === true &&
+        ap.cartes[0].exos[1].nom === 'Hip thrust machine' && ap.cartes[0].exos[1].neuf === true &&
         /^\d+ × \d+$/.test(ap.cartes[1].exos[0].series) && ap.cartes[1].exos[0].series.split(' × ')[0] === avantRemp.series.split(' × ')[0],
       JSON.stringify([avantRemp, ap.cartes[1].exos[0]]));
     ok('[R60] G — « Remplacer » n’écarte rien : la liste des écartés est toujours celle du seul refus',
-      JSON.stringify(profilBase().exercices_ecartes) === '["developpe_couche_barre"]', JSON.stringify(profilBase().exercices_ecartes));
+      JSON.stringify(profilBase().exercices_ecartes) === '["belt_squat_machine"]', JSON.stringify(profilBase().exercices_ecartes));
 
     // « Créer ces 4 routines » : le chemin de la feuille de 8a. Deux taps dans le même instant.
     const nomsApercu = ap.cartes.map((k) => [k.nom, k.exos.map((x) => x.nom)]);
@@ -17003,7 +17013,7 @@ const SETS_IMPORTES = [
       .map((x) => [x.exercise_slug, x.repos_cible_s, (x.routine_sets || []).map((l) => [l.type_serie, l.charge_cible_kg === null])]);
     const rg = ROUTINES.slice().sort((a, b) => a.rang - b.rang);
     ok('[R60] G — « Créer ces 4 routines » : QUATRE routines (deux taps n’écrivent pas deux fois), dans « Mon programme », dans l’ordre',
-      rg.length === 4 && rg.every((r) => r.dossier === 'Mon programme') && rg.map((r) => r.nom).join('|') === 'Haut A|Bas A|Haut B|Bas B',
+      rg.length === 4 && rg.every((r) => r.dossier === 'Mon programme') && rg.map((r) => r.nom).join('|') === 'Jour A|Jour B|Jour C|Jour D',
       JSON.stringify(ROUTINES.map((r) => [r.nom, r.dossier, r.rang])));
     ok('[R60] G — la forme écrite : des séries de travail seulement (ni chauffe, ni charge), le premier exercice à 180 s de repos',
       rg.every((r) => formeG(r).every((x) => x[2].length >= 2 && x[2].every((l) => l[0] === 'travail' && l[1] === true))) &&
@@ -17011,12 +17021,12 @@ const SETS_IMPORTES = [
     ok('[R60] G — ce qui est écrit est ce qui était montré (les exercices, dans l’ordre) ; l’écarté n’y est pas',
       rg.every((r, i) => JSON.stringify(r.routine_exercises.slice().sort((a, b) => a.rang - b.rang)
         .map((x) => (CATALOGUE.filter((c) => c.slug === x.exercise_slug)[0] || {}).nom)) === JSON.stringify(nomsApercu[i][1])) &&
-        !rg.some((r) => r.routine_exercises.some((x) => x.exercise_slug === 'developpe_couche_barre')),
+        !rg.some((r) => r.routine_exercises.some((x) => x.exercise_slug === 'belt_squat_machine')),
       JSON.stringify([nomsApercu, rg.map((r) => r.routine_exercises.map((x) => x.exercise_slug))]));
     ok('[R60] G — le profil porte le dossier réel et la date de création ; les écartés sont intacts',
       profilBase().programme_construit_dossier === 'Mon programme' && !!profilBase().programme_construit_le &&
         Math.abs(Date.now() - new Date(profilBase().programme_construit_le).getTime()) < 300000 &&
-        JSON.stringify(profilBase().exercices_ecartes) === '["developpe_couche_barre"]',
+        JSON.stringify(profilBase().exercices_ecartes) === '["belt_squat_machine"]',
       JSON.stringify([profilBase().programme_construit_dossier, profilBase().programme_construit_le]));
     const biblioG = await page.evaluate(() => ({
       vues: Array.from(document.querySelectorAll('main > section')).filter((x) => !x.hidden).map((x) => x.id),
@@ -17024,7 +17034,26 @@ const SETS_IMPORTES = [
       routines: Array.from(document.querySelectorAll('#liste-routines .routine-nom')).map((n) => n.textContent) }));
     ok('[R60] G — puis la bibliothèque s’ouvre sur « Mon programme », avec ses quatre routines',
       biblioG.vues.indexOf('vue-saisie') >= 0 && biblioG.dossiers.indexOf('Mon programme') >= 0 &&
-        ['Haut A', 'Bas A', 'Haut B', 'Bas B'].every((n) => biblioG.routines.indexOf(n) >= 0), JSON.stringify(biblioG));
+        ['Jour A', 'Jour B', 'Jour C', 'Jour D'].every((n) => biblioG.routines.indexOf(n) >= 0), JSON.stringify(biblioG));
+
+    // 193-2 — LA PHASE : le programme de Force crée UN bloc de 5 semaines, la dernière allégée, SANS ligne de zone ; la zone du jour est écrite
+    // sur la ligne de la routine ; le badge dit « Phase », jamais « Bloc » ; la carte « Passer en cycles » ne vient pas (le dossier est déjà un programme).
+    const blocsG = base.blocs.filter((b) => b.dossier === 'Mon programme');
+    ok('[R60] G — 193-2 : UN bloc de 5 semaines, décharge, sur « Mon programme », et AUCUNE ligne de zone écrite',
+      blocsG.length === 1 && blocsG[0].semaines === 5 && blocsG[0].decharge === true && blocsG[0].statut === 'en_cours' &&
+        blocsG[0].exercices.length >= 1 && !base.zones.some((z) => z.bloc_id === blocsG[0].id),
+      JSON.stringify([blocsG, base.zones.length]));
+    ok('[R60] G — 193-2 : la zone du jour est écrite sur les lignes de routine de la barre (`routine_exercises.zone`), les accessoires restent en Automatique',
+      rg.some((r) => r.routine_exercises.some((x) => x.zone === 'mix' || x.zone === 'lourd')) &&
+        rg.every((r) => r.routine_exercises.every((x) => x.zone === null || x.zone === undefined || ['lourd', 'mix', 'hypertrophie'].indexOf(x.zone) >= 0)) &&
+        blocsG[0].exercices.every((sl) => rg.some((r) => r.routine_exercises.some((x) => x.exercise_slug === sl && x.zone))),
+      JSON.stringify(rg.map((r) => r.routine_exercises.map((x) => [x.exercise_slug, x.zone]))));
+    const badgeG = await page.evaluate(() => {
+      const l = Array.from(document.querySelectorAll('#liste-routines .dossier-ligne')).filter((x) => x.getAttribute('data-dossier') === 'Mon programme')[0];
+      return l ? ((l.querySelector('.dossier-badge') || {}).textContent || null) : null;
+    });
+    ok('[R60] G — 193-2 : le badge du dossier dit « Phase · semaine 1 sur 5 », jamais « Bloc »',
+      !!badgeG && /^Phase\s*·\s*semaine\s*1\s*sur\s*5$/.test(badgeG.replace(/[\u00a0\u202f]/g, ' ')), JSON.stringify(badgeG));
 
     // ── H. 60-4 (6/7, ECRAN-PROFIL §4 bis) : LE PROGRAMME CONSTRUIT AU PROFIL — zone à ménager, exercices écartés,
     // « Refaire mon programme ».
@@ -17083,8 +17112,8 @@ const SETS_IMPORTES = [
       noms: Array.from(document.querySelectorAll('#feuille-contenu .ecarte-nom')).map((n) => n.textContent),
       ouverte: !document.getElementById('feuille-seance').hidden }));
     let li = await liste();
-    ok('[R60] H — « Exercices écartés » : la liste (le couché barre refusé plus haut), « Reprendre » sur chacun',
-      li.ouverte && li.titre === 'Exercices écartés' && li.noms.join('|') === 'Developpe couche barre', JSON.stringify(li));
+    ok('[R60] H — « Exercices écartés » : la liste (le belt squat refusé plus haut), « Reprendre » sur chacun',
+      li.ouverte && li.titre === 'Exercices écartés' && li.noms.join('|') === 'Belt squat machine', JSON.stringify(li));
     await page.click('#feuille-contenu .ecarte-reprendre');
     await attendre(900);
     li = await liste();
@@ -17130,7 +17159,7 @@ const SETS_IMPORTES = [
     ap = await apercuR();
     ok('[R60] H — « Voir mon programme » : 3 jours et Genou écrits, puis l’aperçu de 3 séances par-dessus Saisie',
       profilBase().seances_par_semaine === 3 && JSON.stringify(profilBase().zones_a_menager) === '["genou"]' &&
-        ap.ouverte && ap.titre === 'Ton programme de départ : 3 séances par semaine.' && ap.cartes.length === 3 && /^Tu ménages ton genou/.test(ap.voix[1] || ''),
+        ap.ouverte && ap.titre === 'Ton programme de départ : 3 séances par semaine.' && ap.cartes.length === 3 && ap.voix.some((v) => /^Tu ménages ton genou/.test(v)),
       JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ap.titre, ap.cartes.length]));
     await page.evaluate(() => document.querySelector('#feuille-contenu .apercu-creer').click());
     for (let n = 0; n < 60 && (await apercuR()).ouverte; n++) await attendre(250);
@@ -17149,6 +17178,14 @@ const SETS_IMPORTES = [
     // le programme a 25 jours, six séances l'ont fait depuis ses routines, l'objectif est Force.
     const nouveauDossier = 'Mon programme (2)';
     const routinesDuProgramme = ROUTINES.filter((r) => r.dossier === nouveauDossier);
+    // 193-2 — un programme de famille a déjà sa phase (un bloc) : la carte « Passer en cycles » ne vient pas. Puis l'état est FORGÉ comme avant
+    // la 193-2 (un programme sans phase : les phases du dossier sont retirées) : la carte reste celle des programmes d'avant, jouée en entier.
+    // (Au banc séquentiel, les blocs d'autres sections restent sur le serveur : on ne lit que ceux de « Mon programme ».)
+    const phasesR60 = base.blocs.filter((b) => /^Mon programme/.test(b.dossier));
+    ok('[R60] I — 193-2 : le dossier du nouveau programme a sa phase (2 phases au total, une par dossier), de 5 semaines, en cours',
+      base.blocs.filter((b) => b.dossier === nouveauDossier).length === 1 && phasesR60.length === 2 &&
+        phasesR60.every((b) => b.statut === 'en_cours' && b.semaines === 5 && b.decharge === true),
+      JSON.stringify(base.blocs.map((b) => [b.dossier, b.semaines, b.statut])));
     const t0I = Date.now();
     profilBase().programme_construit_le = new Date(t0I - 25 * JOUR).toISOString();
     profilBase().carte_cycles_le = null;
@@ -17172,6 +17209,9 @@ const SETS_IMPORTES = [
     const opsProfil = () => base.journal.filter((j) => j.op === 'profil').length;
     await aller('/saisie');
     let carte = await carteI();
+    ok('[R60] I — 193-2 : avec la phase, la carte « Passer en cycles » ne vient pas (le dossier est déjà un programme)', !carte.visible, JSON.stringify(carte));
+    await retirerBlocsDeLAppareil();                                  // l'état d'avant la 193-2 : les phases sont retirées du serveur ET de l'appareil
+    carte = await carteI();
     ok('[R60] I — la carte « Passer en cycles » est sur Saisie : « Tu as fait 6 séances de ton programme. » (R5), le corps au mot près, deux boutons',
       carte.visible && carte.quoi === 'Tu as fait 6 séances de ton programme.' &&
         carte.sujet === 'Un bloc de 4 semaines en Lourd sur tes barres, la dernière plus légère : c’est là que la force se gagne. On passe en cycles ?' &&
@@ -17273,7 +17313,17 @@ const SETS_IMPORTES = [
     base.sessions = base.sessions.filter((x) => x.id !== idT);
     base.sets = base.sets.filter((x) => x.session_id !== idT);
 
+    // 193-2 — Force a ses familles (deux jours : « Jour A » et « Jour B », le squat une fois, le soulevé lourd, le couché deux fois) ;
+    // le gabarit à deux jours de 60-6 est celui de Muscle, que ce qui suit joue.
     ap = await apercuDe({ anciennete: '1_a_3_ans', objectif: 'force' }, 2);
+    ok('[R60] J — 193-2 : Force, 2 jours : « Jour A » et « Jour B » (la famille), le couché dans les deux, le squat une fois, le soulevé une fois',
+      ap.ouverte && ap.cartes.map((k) => k.nom.replace(/ \(\d+\)$/, '')).join('|') === 'Jour A|Jour B' &&
+        ap.cartes.every((k) => k.exos.some((x) => /^Developpe couche /.test(x.nom) && !/incline/i.test(x.nom))) &&
+        tousLesNoms(ap).filter((n) => n === nomDe('squat_barre')).length === 1 &&
+        tousLesNoms(ap).filter((n) => n === nomDe('souleve_de_terre_barre')).length === 1,
+      JSON.stringify(ap.cartes.map((k) => [k.nom, k.exos.map((x) => x.nom)])));
+    await fermerApercu();
+    ap = await apercuDe({ anciennete: '1_a_3_ans', objectif: 'muscle' }, 2);
     // (Les noms déjà pris par le programme de la section H reçoivent leur « (2) » : le nom de base est celui du gabarit.)
     ok('[R60] J — 2 jours : deux routines « Corps entier A » et « Corps entier B », du couché dans les deux',
       ap.ouverte && ap.cartes.map((k) => k.nom.replace(/ \(\d+\)$/, '')).join('|') === 'Corps entier A|Corps entier B' &&
@@ -27330,6 +27380,17 @@ const SETS_IMPORTES = [
         suite: !!document.querySelector('#parcours [data-suite-equilibre]') };
     });
 
+    // La ligne d'une routine sur Saisie : on l'attend ; si elle n'est pas venue après la première attente (déclarée attendue : ce n'est pas
+    // un échec en soi, la page vient d'être rechargée), on recharge Saisie UNE fois et on l'attend pour de bon, plafond compté. Une intention
+    // inchangée (la routine est là, on la touche) ; plus de clic sur une ligne introuvable (c'était l'exception du séquentiel de GitHub).
+    const rangeePrete1882 = async (nom, id) => {
+      const la = () => page.evaluate((n) => Array.from(document.querySelectorAll('.routine-rangee'))
+        .some((x) => (x.querySelector('.routine-nom') || {}).textContent === n), nom);
+      if (await attendreQue(la, 15000, { nom: id, attendu: 'rechargement de Saisie à suivre' })) return;
+      await aller('/saisie');
+      await attendreQue(la, 15000, id + '-apres-rechargement');
+    };
+
     // ── A. LES JOURS : 4 prévus, 2 faits chaque semaine. (Le profil arrive après le premier rendu : un second chargement le montre.)
     await aller('/saisie');
     await aller('/progression/parcours');
@@ -27373,10 +27434,10 @@ const SETS_IMPORTES = [
     base.profiles[0].priorites = ['epaules'];
     base.profiles[0].duree_seance_min = 40;
     await aller('/saisie');
-    await attendreQue(() => page.evaluate(() => Array.from(document.querySelectorAll('.routine-rangee'))
-      .some((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Peu de temps EQ1882')), 15000, 'rangee1882');
-    await page.evaluate(() => Array.from(document.querySelectorAll('.routine-rangee'))
-      .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Peu de temps EQ1882')[0].querySelector('.peu-de-temps').click());
+    await rangeePrete1882('Peu de temps EQ1882', 'rangee1882');
+    await page.evaluate(() => (Array.from(document.querySelectorAll('.routine-rangee'))
+      .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Peu de temps EQ1882')[0] || document.createElement('div'))
+      .querySelector('.peu-de-temps')?.click());
     await attendreQue(() => page.evaluate(() => /^Tenir en 40 min/.test(((document.querySelector('#feuille-contenu .feuille-menu button') || {}).textContent) || '')), 8000, 'feuille1882');
     await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button')).filter((b) => /^Tenir en 40 min/.test(b.textContent))[0].click());
     await attendreQue(() => page.evaluate(() => document.querySelectorAll('#feuille-contenu .cr-lignes li').length > 0), 8000, 'carte1882');
@@ -27391,10 +27452,10 @@ const SETS_IMPORTES = [
 
     // ── D. LA LIGNE DU REPOS : un gros mouvement qui stagne, reps −33 % de la série 1 à la 3, repos réglé à 75 s.
     await aller('/saisie');
-    await attendreQue(() => page.evaluate(() => Array.from(document.querySelectorAll('.routine-rangee'))
-      .some((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Squat EQ1882')), 15000, 'rangeeS1882');
-    await page.evaluate(() => Array.from(document.querySelectorAll('.routine-rangee'))
-      .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Squat EQ1882')[0].querySelector('.demarrer').click());
+    await rangeePrete1882('Squat EQ1882', 'rangeeS1882');
+    await page.evaluate(() => (Array.from(document.querySelectorAll('.routine-rangee'))
+      .filter((x) => (x.querySelector('.routine-nom') || {}).textContent === 'Squat EQ1882')[0] || document.createElement('div'))
+      .querySelector('.demarrer')?.click());
     await attendreQue(() => page.evaluate(() => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan &&
       window.THPlan.dernier.plan.exercices.some((x) => x.slug === 'eq1882-sq2'))), 15000, 'planS1882');
     const repos1882 = await page.evaluate(() => {

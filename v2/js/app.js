@@ -473,12 +473,13 @@
     var jour = jourDuJour();
     var b = Moteur.blocEnCours(local.blocs, dossier);
     if (!b) return { creer: exercicesDuDossier(dossier).length > 0 };
-    var badge = Moteur.badgeDuBloc(b, jour);
+    var phases = Moteur.blocAPhases(b, routines);       // 193-2 : « Phase », jamais « Bloc Lourd » pour un programme de force
+    var badge = Moteur.badgeDuBloc(b, jour, phases);
     if (!Moteur.blocTermine(b, jour)) return { badge: badge };
     var bilan = bilanDe(b);
     var pari = pariDuBloc(b);
     return { badge: badge, fin: Moteur.carteFinDeBloc(b, bilan, nomsDuCatalogue(),
-      pari ? { predite: pari.valeur_predite, observee: Moteur.progresDuBilan(bilan) } : null) };
+      pari ? { predite: pari.valeur_predite, observee: Moteur.progresDuBilan(bilan) } : null, phases) };
   }
 
   // 118 (audit du 16/10, 03 #5) — les dossiers qui portent un bloc en cours, dans l'ordre des blocs : la
@@ -562,7 +563,8 @@
                  semaines: o.semaines, decharge: !!o.decharge, exercices: o.exercices.slice(), statut: 'en_cours',
                  precedent: o.precedent ? o.precedent.id : null, created_at: t, modifie_a: t };
     await poserBloc(bloc);
-    await poserLignesDeZone(Moteur.zonesPosees(bloc, uuid, idUtilisateur()), bloc.id);
+    // 193-2 — une PHASE (`sansZones`) n'écrit aucune ligne de zone : ses zones sont celles des routines (`routine_exercises.zone`).
+    if (!o.sansZones) await poserLignesDeZone(Moteur.zonesPosees(bloc, uuid, idUtilisateur()), bloc.id);
     if (o.precedent && o.telQuel === true) await poserPariDeProgramme(bloc, o.precedent);
     return bloc;
   }
@@ -608,10 +610,10 @@
   // Les trois gestes de la fin du bloc, et l'arrêt en plein bloc.
   async function commencerBlocSuivant(dossier) {
     var b = Moteur.blocEnCours(local.blocs, dossier);
-    var s = b ? Moteur.blocSuivant(b) : null;
+    var s = b ? Moteur.blocSuivant(b, Moteur.blocAPhases(b, routines)) : null;
     if (!s) return;
     await creerBloc({ dossier: dossier, zone: s.zone, semaines: s.semaines, decharge: s.decharge, debut: jourDuJour(),
-                      exercices: s.exercices, precedent: b, telQuel: true });
+                      exercices: s.exercices, precedent: b, telQuel: true, sansZones: s.sansZones === true });
     rendreSaisie();
   }
   // L'ARRÊT (§9.22, delta 53-2 ter) rend à chaque exercice du bloc LA ZONE
@@ -633,7 +635,7 @@
     var b = Moteur.blocEnCours(local.blocs, dossier);
     if (!b) return;
     Rendu.rendreFeuilleBlocEnCours($('feuille-contenu'), {
-      dossier: dossier, badge: Moteur.badgeDuBloc(b, jourDuJour()),
+      dossier: dossier, badge: Moteur.badgeDuBloc(b, jourDuJour(), Moteur.blocAPhases(b, routines)),
       exercices: (b.exercices || []).map(function (s) { return nomsDuCatalogue()[s] || s; }),
       surArreter: function () { fermerVoile(); arreterProgramme(dossier); },
       surFermer: fermerVoile
@@ -13152,7 +13154,7 @@
       id: null, nom: nom, nomChange: true, dossier: dossier, existantes: [], jours: jours || null,
       exercices: Routines.renumeroter(structure.exercices.map(function (e) {
         return { id: null, exercise_slug: e.exercise_slug, series: e.series.map(Routines.enSaisie),
-                 repos_cible_s: e.repos_cible_s, groupe_superset: e.groupe_superset, note: null, zone: null };
+                 repos_cible_s: e.repos_cible_s, groupe_superset: e.groupe_superset, note: null, zone: e.zone || null };
       }))
     };
   }
@@ -13522,6 +13524,10 @@
       var depart = departRecentDe(l.exercise_slug);
       var x = { exercise_slug: l.exercise_slug, series: l.series, reps: l.reps, chauffes: l.chauffes || 0,
                 groupe_superset: l.groupe_superset === undefined ? null : l.groupe_superset };
+      // 193-2 — une grosse série et ses reculs (193-1), la zone du jour (193-3) : portées jusqu'à la routine créée.
+      if (l.reculs > 0) { x.reculs = l.reculs; x.reps_recul = l.reps_recul; }
+      if (l.zone) x.zone = l.zone;
+      if (l.au_max === true) x.au_max = true;       // 193-6 : la dernière série « Au max »
       // 188-2 — un repos d'isolation raccourci par la compression (étape 2) se porte jusqu'à la routine créée.
       if (l.repos_raccourci_s > 0) x.repos_raccourci_s = l.repos_raccourci_s;
       if (depart !== null) x.charge_cible_kg = depart;
@@ -13537,7 +13543,8 @@
       rt.exercices.forEach(function (l) {
         var avant = sortie[sortie.length - 1];
         // Seulement dans le même superset (ou hors de tout superset) : `memeBloc` ne les joindrait pas sinon.
-        if (avant && avant.exercise_slug === l.exercise_slug &&
+        // 193-2 — jamais deux lignes qui portent des reculs ou des zones : ce sont deux places (la même barre, deux zones).
+        if (avant && avant.exercise_slug === l.exercise_slug && !avant.reculs && !l.reculs && !avant.zone && !l.zone &&
             (avant.groupe_superset || null) === (l.groupe_superset || null)) avant.series += l.series;
         else sortie.push(Object.assign({}, l));
       });
@@ -13568,6 +13575,11 @@
         var tr = r.exercices[j] ? r.exercices[j].tr : l.series;
         // `raccourcie` : cet exercice a perdu des séries pour tenir la durée (l'aperçu ne promet plus « toutes leurs séries »).
         var nl = Object.assign({}, l, { series: tr }, tr < l.series ? { raccourcie: true } : {});
+        // 193-2 — les reculs que le raccourci a retirés (étape 3 bis) : le nombre qui reste est celui de la ligne.
+        if (l.reculs > 0 && r.exercices[j] && r.exercices[j].rec < l.reculs) {
+          nl.raccourcie = true;
+          if (r.exercices[j].rec > 0) nl.reculs = r.exercices[j].rec; else { delete nl.reculs; delete nl.reps_recul; }
+        }
         // 188-2 — les deux premiers pas de la compression : un superset de plus, un repos d'isolation raccourci.
         r.journal.forEach(function (t) {
           if (t.quoi === 'superset' && (t.i === j || t.j === j)) nl.groupe_superset = t.groupe;
@@ -13600,7 +13612,10 @@
     });
   }
 
-  function seriesFois(l) { return l.series + '\u00a0\u00d7\u00a0' + l.reps; }
+  // 193-2 — « 1 × 4 · 2 reculs × 8 » : la grosse série, puis ses reculs (la même forme que la routine écrite, `resumeStructure`).
+  function seriesFois(l) {
+    return l.series + '\u00a0\u00d7\u00a0' + l.reps + (l.reculs > 0 ? ' \u00b7 ' + l.reculs + (l.reculs > 1 ? ' reculs' : ' recul') + (l.reps_recul > 0 ? ' \u00d7 ' + l.reps_recul : '') : '');
+  }
 
   function rendreApercuDuProgramme() {
     var c = construit;
@@ -13616,7 +13631,8 @@
     // `Routines.DEDUIT`) ; sans, le titre dit que c'est un point de départ.
     var h = c.historique;
     var voix = (h ? ['Ce sont tes séances des ' + (Routines.DEDUIT.jours / 7) + ' dernières semaines.'] : [])
-      .concat(['Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']).concat(phrases.zones);
+      .concat(['Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']).concat(phrases.famille || [])
+      .concat(phrases.zones);
     if (phrases.barreFixe) voix.push(phrases.barreFixe);
     if (c.annonce) voix.push(c.annonce);
     var changements = h ? (c.changements || []) : [];
@@ -13731,7 +13747,14 @@
     var ancien = Modele.nommer(index, vieux.exercise_slug);
     // Le remplaçant RÉEL, lu avant la fusion des voisins (un remplaçant déjà dans la séance y absorbe ses séries).
     var neuve = !retiree && res.routines[i].exercices[k];
-    var marque = function (j) { var o = {}; if (neuve && j >= 0) o[j + ':' + neuve.exercise_slug] = true; return o; };
+    // 193-2 — les places liées changent avec elle : chacune de leurs séances marque le remplaçant.
+    var seancesLiees = Generateur.lieesDe(c.routines, i, k).map(function (p) { return p[0]; });
+    var marque = function (j) {
+      var o = {};
+      if (neuve && j >= 0) o[j + ':' + neuve.exercise_slug] = true;
+      if (neuve && !c.historique) seancesLiees.forEach(function (r) { o[r + ':' + neuve.exercise_slug] = true; });
+      return o;
+    };
     if (c.historique) {
       // 66D — avec un historique, le geste devient une RETOUCHE, réappliquée à chaque assemblage (un « Retirer »
       // recalcule tout : elle y survit), et l'exercice rejoint les écartés que le complément n'ajoute jamais.
@@ -13742,7 +13765,10 @@
       c.routines = fondreLesVoisins(res.routines);
       c.neuf = marque(i);
       // Une séance vidée par les refus n'a plus rien à écrire : elle sort du programme (et de `faites`, qui la suit).
-      if (!c.routines[i].exercices.length) { c.routines.splice(i, 1); c.faites.splice(i, 1); c.neuf = {}; }
+      // 193-2 — les places liées s'en vont avec elle : toute séance vidée sort, de la dernière à la première.
+      for (var v = c.routines.length - 1; v >= 0; v--) {
+        if (!c.routines[v].exercices.length) { c.routines.splice(v, 1); c.faites.splice(v, 1); c.neuf = {}; }
+      }
     }
     if (!c.routines.length) { fermerVoile(); return; }
     c.annonce = neuve
@@ -13780,7 +13806,14 @@
     if (!c || !c.routines[i] || !c.routines[i].exercices[k] || !slug) return;
     // Un exercice déjà dans CETTE séance ne la prend pas deux fois (les voisins identiques n'en feraient qu'un bloc, et
     // les séries s'additionneraient en silence) : le coach le dit, rien ne change.
-    var dejaLa = c.routines[i].exercices.some(function (x, j) { return j !== k && x.exercise_slug === slug; });
+    // 193-2 — les places liées (la même barre, deux zones) se remplacent ensemble : l'exercice ne doit être dans aucune de leurs séances.
+    var places = Generateur.lieesDe(c.routines, i, k);
+    var dejaLa = places.some(function (cc) {
+      return c.routines[cc[0]].exercices.some(function (x, jj) {
+        var estUnePlace = places.some(function (d) { return d[0] === cc[0] && d[1] === jj; });
+        return !estUnePlace && x.exercise_slug === slug;
+      });
+    });
     if (dejaLa) {
       c.neuf = {};
       c.annonce = Modele.nommer(catalogueIndexe(), slug) + ' est déjà dans cette séance.';
@@ -13797,6 +13830,7 @@
       j = c.routines.map(function (x) { return x.nom; }).indexOf(nomRt);
     } else c.routines = fondreLesVoisins(remplacees);
     if (j >= 0) o[j + ':' + slug] = true;
+    if (!c.historique) places.forEach(function (cc) { o[cc[0] + ':' + slug] = true; });       // 193-2 : les places liées aussi
     c.neuf = o;
     c.annonce = null;
     c.erreur = '';
@@ -13849,8 +13883,33 @@
       if (creees && !vues.saisie.hidden && !seance) rendreSaisie();
       return rendreApercuDuProgramme();
     }
+    await creerLaPhaseDuProgramme(c);
     fermerVoile();
     await ouvrirBibliothequeSur(c.dossier);
+  }
+
+  // 193-2 — LA PHASE du programme construit : Force et Les deux, par les familles, hors débutant (qui n'a ni zone ni reculs), sans
+  // historique (193-2b). Un bloc de 5 semaines, la dernière allégée, nommant les barres lourdes (les lignes à zone Lourd) ; ni ligne
+  // de zone (`sansZones`) ni pari : le coach n'a rien changé aux zones, elles sont celles des routines. Après la DERNIÈRE routine écrite
+  // (jamais pendant une panne : `c.erreur` vide) ; une reprise ne recrée pas un bloc qui existe. Une panne du bloc ne défait pas les
+  // routines : la phase manque, rien d'autre.
+  async function creerLaPhaseDuProgramme(c) {
+    if (!c || c.historique || (c.entree && c.entree.famille === false)) return;
+    if (Moteur.coachSeTait(profil && profil.intention)) return;
+    if (!c.routines.every(function (rt, i) { return c.faites[i]; })) return;
+    if (!Generateur.familleApplicable(catalogueIndexe(), c.entree) || Profil.estDebutant(c.entree)) return;
+    if (Moteur.blocEnCours(local.blocs, c.dossier)) return;
+    var vus = {}, barres = [];
+    c.routines.forEach(function (rt) {
+      rt.exercices.forEach(function (l) {
+        if (l.zone === 'lourd' && !vus[l.exercise_slug]) { vus[l.exercise_slug] = true; barres.push(l.exercise_slug); }
+      });
+    });
+    if (!barres.length) return;
+    try {
+      await creerBloc({ dossier: c.dossier, zone: 'lourd', semaines: Moteur.SEMAINES_PHASE, decharge: true, debut: jourDuJour(),
+                        exercices: barres, sansZones: true });
+    } catch (e) { /* la phase manque ; les routines sont écrites */ }
   }
 
   function choisirRoutineAMettreAJour(ligne) {

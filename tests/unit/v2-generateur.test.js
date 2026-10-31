@@ -17,6 +17,8 @@ let G, Profil;
 beforeAll(() => {
   require('../../v2/js/modele.js');
   require('../../v2/js/semaine.js');
+  require('../../v2/js/palier.js');
+  require('../../v2/js/moteur.js');
   Profil = require('../../v2/js/profil.js');
   G = require('../../v2/js/generateur.js');
 });
@@ -36,7 +38,9 @@ const vue = (cat, rt) => ({ nom: rt.nom, pourquoi: G.pourquoi(cat, rt), exercice
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
 // Ce que le fichier de cas décrit par `entree` : les noms de l'app (menager, ecartes, priorites, faits).
-const entreeDe = (c) => clone(c.entree);
+// 193-2 : les 32 programmes de 60-6 rejouent le gabarit d'AVANT (`famille: false`) ; ceux de Force et de Les deux, avec une barre, ont une
+// nouvelle sortie, dans `cas-193-2-programmes-force.json` (v2-generateur-force.test.js).
+const entreeDe = (c) => Object.assign(clone(c.entree), { famille: false });
 const entreeDeSans = (id) => entreeDe(CAS.generer.filter((x) => x.id === id)[0]);
 
 describe('60-4 — le format du fichier de cas', () => {
@@ -400,7 +404,10 @@ describe('60-4 — generer ne lève jamais devant une entrée inattendue', () =>
 
   test('un objectif inconnu prend les reps de « Muscle » ; une zone à ménager inconnue ne retire rien', () => {
     const muscle = G.generer(cat, { jours: 4, objectif: 'muscle', materiel: 'salle_complete' });
-    expect(G.generer(cat, { jours: 4, objectif: 'inconnu', materiel: 'salle_complete' })).toEqual(muscle);
+    // 193-2 : `Moteur.auMaxDe` ne devine pas un objectif — « Muscle » pose la dernière série « Au max », un objectif inconnu non ; le reste est identique
+    const sansAuMax = (rs) => JSON.parse(JSON.stringify(rs, (k, v) => (k === 'au_max' ? undefined : v)));
+    expect(G.generer(cat, { jours: 4, objectif: 'inconnu', materiel: 'salle_complete' })).toEqual(sansAuMax(muscle));
+    expect(JSON.stringify(G.generer(cat, { jours: 4, objectif: 'inconnu', materiel: 'salle_complete' }))).not.toMatch(/au_max/);
     expect(G.generer(cat, { jours: 4, objectif: 'muscle', materiel: 'salle_complete', menager: ['nuque'] })).toEqual(muscle);
   });
 
@@ -490,7 +497,8 @@ describe('60-4 — le module lit la table du matériel et les zones du radar, il
     const cat = catalogue();
     G.generer(cat, { jours: 5, objectif: 'les_deux', materiel: 'salle_complete' }).forEach((rt) => {
       rt.exercices.forEach((x) => {
-        expect(Object.keys(x).sort()).toEqual(['barre_fixe', 'exercise_slug', 'menage', 'motif', 'prioritaire', 'reps', 'role', 'series']);
+        expect(Object.keys(x).filter((k) => /charge|chauffe|repos/.test(k))).toEqual([]);
+        expect(Object.keys(x)).toEqual(expect.arrayContaining(['barre_fixe', 'exercise_slug', 'menage', 'motif', 'prioritaire', 'reps', 'role', 'series']));
       });
     });
   });

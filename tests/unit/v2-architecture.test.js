@@ -58,6 +58,8 @@ const GARDEES = [
   { fn: 'chargeVoisine', module: 'moteur.js' },
   { fn: 'pasDeSalle', module: 'moteur.js' },
   { fn: 'repriseDe', module: 'moteur.js' },
+  // moteur.js — la dernière série « Au max » (193-6, MOTEUR §9.30) : une seule fonction de décision, lue par le plan et le générateur
+  { fn: 'auMaxDe', module: 'moteur.js' },
   { fn: 'ecartHabituel', module: 'moteur.js' },
   // moteur.js — la réaction, la seconde charge, la couverture, les paris
   { fn: 'reactionPour', module: 'moteur.js' },
@@ -238,6 +240,12 @@ const LE_COACH = 'plan.js';
 // (29/09/2026) et sont RAPPORTÉES dans sa PR pour décision : elles ne sont pas
 // forcées dans le plan par ce commit.
 const AUTORISATIONS = {
+  // 193-2 (MOTEUR §9.30) — le générateur pose la dernière série « Au max » par défaut en lisant la décision du moteur.
+  auMaxDe: {
+    'generateur.js': '193-2 (MOTEUR §9.30, QUESTIONNAIRE-COACH §5 bis.1) : le programme construit marque la dernière série de travail ou de ' +
+      'recul d\u2019un exercice « Au max » quand `Moteur.auMaxDe` le dit pour l\u2019objectif (muscle, les_deux : oui ; force : accessoires ; ' +
+      'forme, objectif absent : rien) ; aucune table en double — le générateur ne décide pas, il lit (generateur.js, `marquerAuMax`).'
+  },
   // 188-1 (MOTEUR §9.27) — la carte « Tes priorités, faites ou non » propose « Ajouter une série de … à ta routine ? » en
   // passant par la règle EXISTANTE de la série de plus d'un muscle prioritaire (§14.6) : la place sur chacun des muscles
   // primaires de l'exercice. `equilibres.js` la lit telle quelle, sans règle nouvelle.
@@ -779,12 +787,13 @@ const NOTIONS = [
       'ligne du repos long au « Pourquoi » la lisent. La carte de l’ordre NE la lit PAS : elle lit « polyarticulaire » (MOTEUR §9.27 bis, ' +
       'delta 191 : deux notions, deux lecteurs).' },
   { notion: 'l’isolation (des muscles au catalogue, moins de trois ; sans muscle connu : ni l’un ni l’autre)', pr: '124-U3',
-    module: 'moteur.js', fonction: 'estIsolation', lecteurs: ['profil.js', 'plan.js', 'app.js'],
-    parAilleurs: { 'profil.js': ['avecIsolation'], 'plan.js': ['polyarticulaireDe'], 'app.js': ['optionsDeConsigne'] },
+    module: 'moteur.js', fonction: 'estIsolation', lecteurs: ['profil.js', 'plan.js', 'app.js', 'generateur.js'],
+    parAilleurs: { 'profil.js': ['avecIsolation'], 'plan.js': ['polyarticulaireDe'], 'app.js': ['optionsDeConsigne'], 'generateur.js': ['marquerAuMax'] },
     raison: 'audit du 16/10/2026 (01 #15) : pour un exercice sans muscle connu, la salle (`avecIsolation`) n’en faisait pas ' +
       'une isolation, la dégressive du plan si ; une définition, lue aux deux endroits (MOTEUR §10 bis et §14 : « la ' +
       'même définition que la salle »). 175 (MOTEUR §9.7 bis) : le gros cran — le plancher de son test ne descend pas sous 8 reps ' +
-      'sur une isolation — la lit pour la donner au moteur (`optionsDeConsigne`, l\'option `isolation`).' },
+      'sur une isolation — la lit pour la donner au moteur (`optionsDeConsigne`, l\'option `isolation`). 193-2 : le générateur la donne à ' +
+      '`auMaxDe` (l\u2019accessoire à l\u2019isolation va à l\u2019échec, le débutant sur une barre non, `marquerAuMax`).' },
   { notion: 'le débutant (« Moins d’un an » d’ancienneté)', pr: '111-U1',
     module: 'profil.js', fonction: 'estDebutant', lecteurs: ['app.js', 'generateur.js'],
     parAilleurs: { 'app.js': ['entreeDeLaSemaine', 'debutantDeLaSeance'], 'generateur.js': ['generer', 'neVeuxPas'] },
@@ -885,6 +894,11 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['ouvrirProgramme', 'commencerBlocSuivant'] },
     raison: 'MOTEUR §9.22 : jamais déduit du bloc passé (§20.1) — la carte, « Commencer » et « Ajuster » proposent ' +
       'le même bloc.' },
+  { notion: 'un bloc est une PHASE (programme de force : zones portées par les routines, aucune zone de bloc)', pr: '193-U2',
+    module: 'moteur.js', fonction: 'blocAPhases', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['programmeDuDossierCalcule', 'commencerBlocSuivant', 'ouvrirBlocEnCours'] },
+    raison: 'MOTEUR §9.22 / §9.29 : le badge, la carte de fin et « Commencer » lisent la même reconnaissance — sans colonne, sur les ' +
+      'lignes à zone du jour des routines du dossier. Une phase ne repose jamais sur une alternance Mix ↔ Lourd.' },
   { notion: 'les exercices d’un bloc par défaut (les barres polyarticulaires du dossier)', pr: '53-U2',
     module: 'moteur.js', fonction: 'exercicesParDefaut', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['ouvrirProgramme'] },
@@ -1641,8 +1655,8 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'badgeDuBloc', lecteurs: ['app.js'],
     raison: 'un format, sur la semaine du bloc (`semaineDuBloc`) : le coach ne commente pas l’assiduité.' },
   { notion: 'le libellé d’une zone de bloc (« Mix », « Mix (6-8) »)', pr: '124-U1',
-    module: 'moteur.js', fonction: 'libelleZoneDeBloc', lecteurs: ['app.js'],
-    raison: 'un format : la feuille du programme et la carte de fin de bloc nomment la zone de la même façon.' },
+    module: 'moteur.js', fonction: 'libelleZoneDeBloc', lecteurs: ['app.js', 'generateur.js'],
+    raison: 'un format : la feuille du programme et la carte de fin de bloc nomment la zone de la même façon (193-2 : et la zone du jour sous la ligne de l’aperçu).' },
   { notion: 'le bloc terminé (sa fin passée, jusqu’au choix de la personne)', pr: '124-U1',
     module: 'moteur.js', fonction: 'blocTermine', lecteurs: ['app.js'],
     raison: 'MOTEUR §9.22 : la carte de fin de bloc et l’arrêt (fini ou arrêté) lisent la même fin.' },

@@ -6053,7 +6053,7 @@
       gestes.appendChild(b);
     };
     if (k.commencer) bouton('cfb-commencer', k.commencer, v.surCommencerBloc);
-    bouton('cfb-ajuster', k.ajuster, v.surAjusterBloc);
+    if (k.ajuster) bouton('cfb-ajuster', k.ajuster, v.surAjusterBloc);       // 193-2 : une phase ne s'ajuste pas (pas de zone de bloc)
     bouton('cfb-arreter', k.arreter, v.surArreterProgramme);
     c.appendChild(gestes);
     return c;

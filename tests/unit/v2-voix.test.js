@@ -397,6 +397,29 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     });
   });
 
+  // 193-2 — le programme de famille (Force, Les deux) : l'en-tête de l'aperçu, la zone sous la ligne, le badge et la carte de fin
+  // d'une PHASE. Des faits (« squat 2 fois »), jamais un ordre ni un compliment.
+  {
+    const G = require('../../v2/js/generateur.js');
+    const CAS60 = require('./fixtures/cas-60-6-generateur.json');
+    const F193 = require('./fixtures/cas-193-2-programmes-force.json');
+    const cat = {};
+    Object.keys(CAS60.catalogue).forEach((sl) => { const [e, p1, p2] = CAS60.catalogue[sl]; cat[sl] = { equipement: e, muscles_primaires: p1, muscles_secondaires: p2 }; });
+    Object.keys(F193.catalogue_ajouts).forEach((sl) => { const [e, p1, p2, mv] = F193.catalogue_ajouts[sl]; cat[sl] = { equipement: e, muscles_primaires: p1, muscles_secondaires: p2, mouvement: mv }; });
+    ['force', 'les_deux'].forEach((objectif) => [2, 3, 4, 5, 6].forEach((jours) => {
+      const e = { objectif, jours, materiel: 'salle_complete', anciennete: '3_a_5_ans', phase: 'maintien', priorites: [], menager: [], ecartes: [], faits: {} };
+      const rs = G.generer(cat, e);
+      const ph = G.phrasesDeLApercu(rs, e, (sl) => sl, rs.length);
+      noter('aperçu', 'famille ' + objectif + ' ' + jours + ' jours', ph.famille.concat(ph.zones));
+      rs.forEach((rt) => rt.exercices.forEach((x) => noter('aperçu', 'mention ' + objectif + ' ' + jours, G.mentionsDeLigne(x, e))));
+    }));
+    const bloc = { id: 'b', dossier: 'Mon programme', zone: 'lourd', debut: '2026-11-02', semaines: 5, decharge: true, exercices: ['squat_barre'], statut: 'en_cours' };
+    ['2026-10-30', '2026-11-10', '2026-12-20'].forEach((j) => noter('phase', 'badge ' + j, M.badgeDuBloc(bloc, j, true)));
+    const fin = M.carteFinDeBloc(bloc, { exercices: { squat_barre: { premiere: [100, 5], derniere: [105, 5], change: true } }, paris: 2, tenus: 1 },
+      { squat_barre: 'Squat' }, { predite: 1, observee: 1 }, true);
+    noter('phase', 'carte de fin', textesDe([fin.titre, fin.entete, fin.paris, fin.pari, fin.suivant, fin.commencer, fin.arreter]));
+  }
+
   // 52-1 (§9.21) — la charge de départ, la première fois : l'en-tête (jaune
   // et gris) et la feuille, sur trois charges dont une décimale et une sans
   // reps de routine.

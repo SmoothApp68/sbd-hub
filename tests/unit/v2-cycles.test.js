@@ -391,6 +391,7 @@ describe('53-2 bis — les gestes : le pari, l’arrêt', () => {
     const releve = { paris: [], blocs: [], lignes: [], observes: [] };
     const ctx = {
       Moteur: M, Date, Object, JSON,
+      routines: (o.routines || []).slice(),
       local: { blocs: (o.blocs || []).slice(), zones: (o.zones || []).slice() },
       programmeEnCours: o.programme || null,
       uuid: () => 'id' + (++n), idUtilisateur: () => 'u',
@@ -422,6 +423,35 @@ describe('53-2 bis — les gestes : le pari, l’arrêt', () => {
     expect(b.releve.paris).toEqual([{ bloc: 'id1', precedent: 'b1' }]);
     expect(b.ctx.local.blocs.find((x) => x.id === 'id1').zone).toBe('lourd');
     expect(b.ctx.local.blocs.find((x) => x.id === 'b1').statut).toBe('termine');
+  });
+  // 193-2 — une PHASE (programme de force : zones portées par les routines) : la même phase, sans aucune ligne de zone.
+  const PHASE = { id: 'p1', user_id: 'u', dossier: 'Force', zone: 'lourd', debut: '2026-10-12', semaines: 5, decharge: true,
+    exercices: ['squat', 'couche'], statut: 'en_cours', precedent: null };
+  const ROUTINES_PHASE = [{ dossier: 'Force', exercices: [{ exercise_slug: 'squat', zone: 'lourd' }, { exercise_slug: 'couche', zone: 'lourd' }] }];
+  test('193-2 — « Commencer une phase » : la même phase, aucune ligne de zone écrite, jamais Mix ; le pari du programme y est', async () => {
+    const b = bac({ blocs: [PHASE], routines: ROUTINES_PHASE, instant: '2026-11-17T18:00:00.000Z' });
+    await b.run('commencerBlocSuivant("Force")');
+    const neuf = b.ctx.local.blocs.find((x) => x.id === 'id1');
+    expect(neuf).toMatchObject({ zone: 'lourd', semaines: 5, decharge: true, exercices: ['squat', 'couche'], precedent: 'p1' });
+    expect(b.releve.lignes).toEqual([]);
+    expect(b.releve.paris).toEqual([{ bloc: 'id1', precedent: 'p1' }]);
+    expect(b.ctx.local.blocs.find((x) => x.id === 'p1').statut).toBe('termine');
+  });
+  test('193-2 — le même bloc SANS ligne à zone dans les routines est un bloc classique : le suivant alterne et pose ses zones', async () => {
+    const b = bac({ blocs: [PHASE], routines: [{ dossier: 'Force', exercices: [{ exercise_slug: 'squat', zone: null }, { exercise_slug: 'couche', zone: 'lourd' }] }],
+      instant: '2026-11-17T18:00:00.000Z' });
+    await b.run('commencerBlocSuivant("Force")');
+    expect(b.ctx.local.blocs.find((x) => x.id === 'id1').zone).toBe('mix');
+    expect(b.releve.lignes.length).toBe(2);
+  });
+  test('193-2 — creerBloc(sansZones) écrit le bloc, jamais une ligne de zone', async () => {
+    const b = bac({ instant: '2026-11-02T08:00:00.000Z' });
+    await b.run('creerBloc({ dossier: "Force", zone: "lourd", semaines: 5, decharge: true, debut: "2026-11-02", exercices: ["squat"], sansZones: true })');
+    expect(b.releve.blocs.length).toBe(1);
+    expect(b.releve.lignes).toEqual([]);
+    const c = bac({ instant: '2026-11-02T08:00:00.000Z' });
+    await c.run('creerBloc({ dossier: "Force", zone: "lourd", semaines: 5, decharge: true, debut: "2026-11-02", exercices: ["squat"] })');
+    expect(c.releve.lignes.length).toBe(1);
   });
   test('⚠️ DISCRIMINANT — « Ajuster le bloc » : un bloc ajusté ne porte pas de pari', async () => {
     const programme = { dossier: 'Force', precedent: MIX, zone: 'lourd', semaines: 4, decharge: true, debut: 'aujourdhui',

@@ -1,0 +1,115 @@
+<title>Programmes de force v2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Mise en page : les trois couches en tête, puis deux semaines types côte à côte (380 px), puis les règles. */
+:root{--fond-page:#05070a;--fond:#0A0C10;--panneau:#171C25;--panneau-2:#222A37;--trait:#2B3442;--texte:#F2F4F7;--texte-2:#A9B3C1;--texte-3:#8C97A6;--accent:#FFB938;--mix:#7CC4FF;--hyp:#B9A6FF;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fond-page);color:var(--texte);font-family:"Barlow",system-ui,sans-serif;padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;gap:28px;justify-content:center}
+h1{width:100%;max-width:1240px;margin:0;font-size:22px;text-wrap:balance}
+.intro{width:100%;max-width:1240px;margin:-14px 0 0;color:var(--texte-2);font-size:15px;line-height:1.5}
+.schema{width:100%;max-width:1240px;overflow-x:auto;background:var(--panneau);border-radius:12px;padding:12px 14px;font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.55;white-space:pre;color:var(--texte)}
+.col{max-width:380px;width:100%;min-width:0}
+.leg{font-size:13px;color:var(--texte-2);margin:0 0 10px;line-height:1.4}.leg b{color:var(--texte)}
+.tel{background:var(--fond);border:1px solid var(--trait);border-radius:22px;padding:16px 14px 20px;display:grid;gap:10px}
+.entete{font-size:15px;line-height:1.45}.entete b{color:var(--accent)}
+.jour{background:var(--panneau);border-radius:14px;padding:10px 12px}
+.jour h3{margin:0 0 6px;font-size:15px}
+.ex{display:grid;grid-template-columns:1fr auto;gap:8px;font-size:14px;padding:4px 0;border-top:1px solid var(--trait);font-variant-numeric:tabular-nums}
+.ex:first-of-type{border-top:0}
+.ex .s{color:var(--texte-2)}
+.z{font-size:11px;letter-spacing:.04em;text-transform:uppercase;margin-left:6px}
+.z.l{color:var(--accent)}.z.m{color:var(--mix)}.z.h{color:var(--hyp)}.z.a{color:var(--texte-3)}
+.notes{max-width:900px;width:100%;font-size:14px;color:var(--texte-2);line-height:1.55}
+.notes h3{color:var(--texte);font-size:16px;margin:18px 0 6px}
+.notes li{margin-bottom:7px}.notes b{color:var(--texte)}
+.tab{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:13px}
+th,td{border-bottom:1px solid var(--trait);padding:7px 8px;text-align:left;vertical-align:top}
+th{color:var(--texte)}
+</style>
+
+<h1>Programmes de force — maquette v2 (193-2), en trois couches</h1>
+<p class="intro">« Construis-le-moi » avec l'objectif Force (powerlifting) ou Les deux (powerbuilding). La v1 n'avait qu'une méthode et contournait l'ondulation par des variantes ; la v2 utilise les trois couches des coachs, dont l'ondulation que la 193-3 rend possible.</p>
+
+<div class="schema">COUCHE 1 — LE SCHÉMA (par ligne)   séries égales 4×4 · grosse + reculs · (puissance : plus tard)
+COUCHE 2 — LA SEMAINE (par jour)    la même barre, une zone par jour (193-3) : lundi Lourd, jeudi Mix
+COUCHE 3 — LES PHASES (semaines)    4 semaines de travail → 1 semaine allégée ; toutes les 2 phases, une semaine de test</div>
+
+<div class="col">
+  <p class="leg"><b>1. Force · 4 jours · intermédiaire</b> — powerlifting, ondulation</p>
+  <div class="tel">
+    <div class="entete">Ton programme : <b>squat 2 fois, couché 3 fois, soulevé 1 fois lourd</b>. Chaque jour a sa zone ; chaque zone son palier. Semaine allégée toutes les 5 semaines.</div>
+    <div class="jour"><h3>Jour A</h3>
+      <div class="ex"><span>Squat <span class="z l">Lourd</span></span><span class="s">4 × 4</span></div>
+      <div class="ex"><span>Développé couché <span class="z m">Mix</span></span><span class="s">4 × 6</span></div>
+      <div class="ex"><span>Rowing penché (Barre)</span><span class="s">3 × 8</span></div>
+      <div class="ex"><span>Élévation latérale (Poulie)</span><span class="s">2 × 15</span></div></div>
+    <div class="jour"><h3>Jour B</h3>
+      <div class="ex"><span>Développé couché <span class="z l">Lourd</span></span><span class="s">4 × 3</span></div>
+      <div class="ex"><span>Soulevé de terre roumain <span class="z h">Hyper.</span></span><span class="s">3 × 8</span></div>
+      <div class="ex"><span>Tractions</span><span class="s">3 × 6-8</span></div>
+      <div class="ex"><span>Extension triceps (Poulie haute)</span><span class="s">2 × 10</span></div></div>
+    <div class="jour"><h3>Jour C</h3>
+      <div class="ex"><span>Soulevé de terre <span class="z l">Lourd</span></span><span class="s">3 × 3</span></div>
+      <div class="ex"><span>Développé couché prise serrée <span class="z h">Hyper.</span></span><span class="s">3 × 8</span></div>
+      <div class="ex"><span>Tirage vers le visage</span><span class="s">2 × 15</span></div></div>
+    <div class="jour"><h3>Jour D</h3>
+      <div class="ex"><span>Squat <span class="z m">Mix</span></span><span class="s">4 × 6</span></div>
+      <div class="ex"><span>Développé militaire <span class="z m">Mix</span></span><span class="s">3 × 6</span></div>
+      <div class="ex"><span>Rowing poulie assis</span><span class="s">3 × 10</span></div>
+      <div class="ex"><span>Relevé de genoux suspendu</span><span class="s">2 × 10</span></div></div>
+  </div>
+</div>
+
+<div class="col">
+  <p class="leg"><b>2. Les deux · 4 jours</b> — powerbuilding, ondulation</p>
+  <div class="tel">
+    <div class="entete">Ton programme : <b>chaque barre 2 fois</b>, un jour lourd (grosse série puis reculs) et un jour hypertrophie. Le reste en hypertrophie. Semaine allégée toutes les 5 semaines.</div>
+    <div class="jour"><h3>Haut A</h3>
+      <div class="ex"><span>Développé couché <span class="z l">Lourd</span></span><span class="s">1 × 4 · 3 reculs</span></div>
+      <div class="ex"><span>Tractions</span><span class="s">3 × 8-10</span></div>
+      <div class="ex"><span>Développé militaire <span class="z h">Hyper.</span></span><span class="s">3 × 9</span></div>
+      <div class="ex"><span>Élévation latérale (Poulie)</span><span class="s">3 × 15</span></div></div>
+    <div class="jour"><h3>Bas A</h3>
+      <div class="ex"><span>Squat <span class="z l">Lourd</span></span><span class="s">1 × 4 · 3 reculs</span></div>
+      <div class="ex"><span>Soulevé de terre roumain <span class="z h">Hyper.</span></span><span class="s">3 × 8</span></div>
+      <div class="ex"><span>Leg curl assis</span><span class="s">3 × 12</span></div>
+      <div class="ex"><span>Mollets debout (Machine)</span><span class="s">3 × 15</span></div></div>
+    <div class="jour"><h3>Haut B</h3>
+      <div class="ex"><span>Développé militaire <span class="z l">Lourd</span></span><span class="s">1 × 5 · 3 reculs</span></div>
+      <div class="ex"><span>Développé couché <span class="z h">Hyper.</span></span><span class="s">3 × 9</span></div>
+      <div class="ex"><span>Rowing poulie assis</span><span class="s">3 × 10</span></div>
+      <div class="ex"><span>Curl biceps (Barre EZ)</span><span class="s">3 × 12</span></div></div>
+    <div class="jour"><h3>Bas B</h3>
+      <div class="ex"><span>Soulevé de terre <span class="z l">Lourd</span></span><span class="s">1 × 4 · 2 reculs</span></div>
+      <div class="ex"><span>Squat <span class="z h">Hyper.</span></span><span class="s">3 × 9</span></div>
+      <div class="ex"><span>Presse à cuisses</span><span class="s">3 × 12</span></div>
+      <div class="ex"><span>Crunch (Poulie)</span><span class="s">3 × 15</span></div></div>
+  </div>
+</div>
+
+<div class="notes">
+  <h3>Les règles (validées toutes casquettes le 31/10, 02 h 45)</h3>
+  <div class="tab"><table>
+    <tr><th></th><th>Force (powerlifting)</th><th>Les deux (powerbuilding)</th><th>Débutant (moins d'un an)</th></tr>
+    <tr><td>Semaine</td><td>squat 2 (Lourd + Mix), couché 2 à 2 jours, 3 dès 3 jours (Lourd, Mix, variante), soulevé 1 Lourd + roumain</td><td>chaque barre 2 fois : Lourd (grosse + reculs) + Hypertrophie (séries égales)</td><td>chaque barre 2 fois, même zone (Lourd 5 reps), séries égales 3 × 5</td></tr>
+    <tr><td>Schéma du jour lourd</td><td>séries égales 4 × 3-5 (le réglage force des reculs, ≈ −5 % aux mêmes reps, viendra plus tard)</td><td>grosse + reculs <b>réglage powerbuilding</b> (−10 %, reps de la routine)</td><td>séries égales</td></tr>
+    <tr><td>Zone portée par la routine</td><td colspan="2">oui, pour chaque ligne de barre (193-3) ; accessoires en Automatique</td><td>non (Automatique partout) : la progression linéaire suffit</td></tr>
+    <tr><td>Accessoires</td><td>1 à 3 par séance, 8-12 reps, dos d'abord</td><td>le générateur actuel (volume par muscle, priorités)</td><td>le générateur actuel, réduit</td></tr>
+    <tr><td>Phases</td><td colspan="2">4 semaines de travail, puis 1 semaine allégée planifiée (−40 % des séries, mêmes charges ; Bell 2023 : toutes les 4 à 6 semaines). Toutes les 2 phases, la semaine allégée devient une <b>semaine de test</b> (193-4, plus tard)</td><td>pas de phase planifiée (Moesgaard 2022) ; la semaine allégée sur blocage reste</td></tr>
+  </table></div>
+  <h3>Pourquoi ce choix</h3>
+  <ul>
+    <li><b>Ondulation plutôt que blocs Mix ↔ Lourd pour un programme construit</b> : à volume égal, l'ondulation fait gagner un peu plus de force que la progression linéaire chez les entraînés (Williams 2017 ; Moesgaard 2022), et autant de muscle (Grgic 2017). Les blocs restent pour les routines en Automatique.</li>
+    <li><b>Fréquence</b> : environ +3 % de force par séance hebdomadaire de plus sur un mouvement (Pelland 2026).</li>
+    <li><b>Ordre dans la semaine</b> : on ne cherche pas l'ordre « idéal » (Zourdos 2016 : petit effet, 18 personnes) ; seule contrainte, squat lourd et soulevé lourd jamais dans deux séances consécutives.</li>
+    <li><b>Charges</b> : jamais en pourcentage prévu à l'avance ; le coach règle chaque jour sur ses séries et ton ressenti (Helms 2018 : au moins aussi bien que les %).</li>
+    <li><b>Variantes</b> : pour la 3ᵉ séance du couché, ou quand une zone à ménager ou le matériel empêche la barre.</li>
+  </ul>
+  <h3>Hors de cette PR (noté)</h3>
+  <ul>
+    <li>193-2b : les comptes avec historique (`completer`), changements dits et retirables.</li>
+    <li>193-4 : la semaine de test. La puissance (6 × 2 léger) attend l'effort visé.</li>
+  </ul>
+</div>

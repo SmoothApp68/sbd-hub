@@ -427,7 +427,7 @@
       var vue = vueDeSeance(se);
       var d = instant(se && se.debut);
       var zs = zonesDeLaSeanceDePlan(vue, (groupes || [])[i], zonesDeRoutine);
-      return { i: i, d: d, membre: zs.indexOf(zonePlan) >= 0, compte: se.neutre !== true && vue.retenues.length > 0 };
+      return { i: i, d: d, zs: zs, membre: zs.indexOf(zonePlan) >= 0, compte: se.neutre !== true && vue.retenues.length > 0 };
     }).filter(function (x) { return x.d !== null && (t === null || x.d < t); });
     infos.forEach(function (x) {
       if (x.membre) { membres.push(x.i); if (x.compte && (tDerniere === null || x.d > tDerniere)) tDerniere = x.d; }
@@ -437,7 +437,15 @@
     }
     var perimee = tDerniere !== null && t !== null && autreDepuis && (t - tDerniere) / JOUR > ZONE_PERIMEE_JOURS;
     if (!membres.length || perimee) {
-      return { mode: 'premiere', groupes: groupes, seances: seances, n: 0, perimee: perimee };
+      // La zone d'AVANT, pour le report : celle de la dernière séance de l'exercice, lue sur ce qui a été fait (ou sur sa routine),
+      // jamais rejouée — une habitude mêlée d'anciennes séances Mix y lirait « Mix » et le report ne partirait pas.
+      var derniere = null;
+      infos.forEach(function (x) { if (x.compte && (derniere === null || x.d >= derniere.d)) derniere = x; });
+      var zoneAvant = null;
+      if (derniere !== null) {
+        zoneAvant = derniere.zs.filter(function (c) { return c !== zonePlan; })[0] || null;
+      }
+      return { mode: 'premiere', groupes: groupes, seances: seances, n: 0, perimee: perimee, zoneAvant: zoneAvant };
     }
     // Les séances de la zone, et les AUTRES séances à venir ne comptent pas : seules celles d'avant `avant` filtrent.
     var gardes = {};
@@ -8940,7 +8948,8 @@
   function consigneNouvelleZone(consigne, seances, avant, o) {
     if (!consigne || SANS_REPORT[consigne.etat] === true || !zoneParCle(consigne.zone)) return null;
     if (o.mesure !== 'charge_reps') return null;
-    var zoneAvant = zoneDeLaDerniere(seances, avant, o);
+    // 193-3 — en « première fois » dans la zone du plan, la zone d'avant est celle que la dernière séance a FAITE (`zoneAvantDuPlan`).
+    var zoneAvant = o.zoneAvantDuPlan !== undefined ? o.zoneAvantDuPlan : zoneDeLaDerniere(seances, avant, o);
     var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement);
     if (r === null) return null;
     var f = consigne.fondement || {};
@@ -9198,7 +9207,9 @@
       // Sous-histoire : chaque séance se rejoue DANS la zone du plan (aucune correction datée ne la déplace). Première fois :
       // le passé garde sa vraie zone (`correctionsDeZone` vide), sinon le report ne verrait aucun changement de zone.
       o = Object.assign({}, o, { correction: zp, correctionsDeZone: sh.mode === 'zone' ? null : [] });
+      if (sh.mode === 'premiere') o.zoneAvantDuPlan = sh.zoneAvant;
       plan = { zone: zp, mode: sh.mode, n: sh.n, perimee: sh.perimee === true };
+      if (sh.mode === 'premiere') plan.zoneAvant = sh.zoneAvant;
     }
     var seances = sansLesAllegees(contratDe(groupes, etat, o.mesure,
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null }),
@@ -9963,6 +9974,23 @@
     }
     return t;
   }
+  // 193-3 (MOTEUR §9.1.3) — LA LIGNE « TA ROUTINE FIXE… » du « Pourquoi » : la zone vient de la routine, et le coach ne lit que
+  // les séances de cette zone. Aucun chiffre (la garde I26 en exige l'origine) : les bornes sont celles de l'étiquette : un fait,
+  // jamais un « bravo ». `plan` : `{ zone, mode, n, perimee }` (le fondement de la consigne, `consigneDExercice`).
+  function pourquoiPlan(plan) {
+    var z = plan ? zoneParCle(plan.zone) : null;
+    if (z === null) return null;
+    var tete = 'Ta routine fixe cet exercice en ' + z.libelle + '.';
+    if (plan.mode === 'zone') {
+      return tete + ' Je ne lis que tes séances en ' + z.libelle + ' : ton palier d\u2019ici est le sien, tes autres jours avancent de leur côté.';
+    }
+    if (plan.perimee === true) {
+      return tete + ' Ta dernière séance en ' + z.libelle + ' est ancienne et tu as travaillé cet exercice depuis : je pars de ta séance la plus récente, ' +
+        'avec le report de zone que tu connais, une seule fois. Ensuite, ton historique ' + z.libelle + '.';
+    }
+    return tete + ' Pas encore de séance en ' + z.libelle + ' : je pars de ta dernière séance, avec le report de zone que tu connais, une seule fois. ' +
+      'Ensuite, ton historique ' + z.libelle + '.';
+  }
   // Le constat : un fait. `cible` peut manquer (pas de routine, pas de dernière fois).
   function phraseConstatReculs(reps, cible) {
     var c = nombre(cible);
@@ -10207,6 +10235,7 @@
     zoneDe: zoneDe,
     zoneRetenue: zoneRetenue,
     sousHistoireDeZone: sousHistoireDeZone,
+    pourquoiPlan: pourquoiPlan,
     zonesDeLaSeanceDePlan: zonesDeLaSeanceDePlan,
     ZONE_PERIMEE_JOURS: ZONE_PERIMEE_JOURS,
     niveauValide: niveauValide,

@@ -6398,6 +6398,22 @@
     var i = rejeuEnCours && rejeuEnCours.instant ? Date.parse(rejeuEnCours.instant) : NaN;
     return new Date(isFinite(i) ? i : Date.now()).toISOString();
   }
+  // 193-3 — la zone de plan du jour pour cet exercice : celle de sa PREMIÈRE ligne dans la séance en cours (la consigne est par
+  // exercice, D6), `null` sans séance, sans ligne de routine ou en Automatique. Rien n'est lu dans une séance terminée.
+  function zonePlanDe(slug) {
+    if (!seance || rejeuEnCours) return null;
+    var exo = (seance.exercices || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
+    return exo && exo.zone_plan ? exo.zone_plan : null;
+  }
+  // 193-3 — pour chaque routine, la zone de la ligne de cet exercice (la première qui en porte une) : { routine_id: zone }.
+  function zonesDeRoutineDe(slug) {
+    var sortie = {};
+    (routines || []).forEach(function (r) {
+      var l = r && (r.exercices || []).filter(function (e) { return e && e.exercise_slug === slug; })[0];
+      if (l && l.zone) sortie[r.id] = l.zone;
+    });
+    return sortie;
+  }
   function optionsDeConsigne(slug, exo, instant) {
     var g = Modele.gabaritDe(exo);
     var index = catalogueIndexe();
@@ -6444,6 +6460,12 @@
       // sa clé : `poserZone` le remet à zéro, et la synchronisation passe
       // par `recalculerEtats`, qui fait déjà de même.
       correction: zoneDe(slug),
+      // 193-3 (MOTEUR §9.1.3) — LA ZONE QUE LA ROUTINE FIXE pour ce jour (`zone_plan` de l'exercice de la séance en cours, copiée de
+      // la ligne de routine au démarrage, ou réécrite par « Juste pour aujourd'hui »), `null` : Automatique. Elle passe avant la
+      // correction de l'exercice et le bloc ; `zonesDeRoutine` dit la zone de la ligne de chaque routine pour cet exercice
+      // (l'appartenance d'une séance passée, C1).
+      zonePlan: zonePlanDe(slug),
+      zonesDeRoutine: zonePlanDe(slug) ? zonesDeRoutineDe(slug) : null,
       // §9.10 (53-2 bis, D1) — la ligne qui pose cette zone : son origine
       // fait dire « Nouveau bloc » au lieu de « Nouvelle zone ».
       ligneDeZone: ligneDeZoneDe(slug),

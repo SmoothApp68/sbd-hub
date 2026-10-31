@@ -4121,6 +4121,8 @@
         cible.appendChild(n);
       });
     }
+    // 193-3 — la zone vient de la routine : la première ligne, avant le détail de la zone.
+    if (p.plan) cible.appendChild(el('p', 'pq-p', p.plan));
     ['zone', 'palier', 'etat'].forEach(function (k) {
       if (p[k]) cible.appendChild(el('p', 'pq-p', p[k]));
     });

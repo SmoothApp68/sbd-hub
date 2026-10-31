@@ -1099,6 +1099,9 @@
     var note = noteDesChauffes(autour.chauffes);
     if (pourquoi && note) pourquoi.chauffes = note;
     if (pourquoi && rec.reculs && rec.reculs.pourquoi) pourquoi.recul = rec.reculs.pourquoi;
+    // 193-3 — la zone vient de la routine : une ligne du « Pourquoi », sans chiffre (la zone et ses bornes sont l'étiquette).
+    var phraseDuPlan = c.plan ? M.pourquoiPlan(c.plan) : null;
+    if (pourquoi && phraseDuPlan) pourquoi.plan = phraseDuPlan;
     // §12.9 (49-U13) — le compteur de stagnation, calculé avec la consigne
     // figée (`consigneDExercice`) ; sa phrase, à 4 séances ou plus, s'écrit en
     // gris dans l'en-tête et en une ligne de la feuille « Pourquoi ».
@@ -1177,6 +1180,7 @@
       }).join(' | '), capP.citations);
       if (capF && capF.texte) dire('pourquoi.paragraphes', texteDesParagraphes(capF.texte), capF.citations);
     }
+    if (pourquoi && phraseDuPlan) dire('pourquoi.plan', phraseDuPlan, []);
     if (constat) {
       dire('constat', [constat.verdict, constat.suite].filter(Boolean).join(' '), capC.citations);
       dire('constat.escalier', constat.escalier, citesEscalier);
@@ -1213,6 +1217,8 @@
     return {
       iExo: iExo, slug: base.slug, occurrence: base.occurrence,
       consigne: consigne, contexte: c.contexte || null,
+      // 193-3 — la zone que la routine fixe pour ce jour (`{ zone, mode, n, perimee }`), ou `null` : I79 à I81 la relisent.
+      zonePlan: c.plan || null,
       // I8 (122) — les rangs quittés par des séries faites : aucune ligne non figée ne les porte.
       rangsQuittes: exo && Array.isArray(exo.rangsQuittes) ? exo.rangsQuittes.slice() : [],
       indices: r.indices, rangs: r.rangs, roles: r.roles, figees: figees,
@@ -2640,7 +2646,16 @@
   function enBlocDuJour(e, seance) {
     var M = Moteur();
     var jour = M.jourCivil(seance && seance.debut);
-    return jour ? M.exercicesEnBloc(blocsDuProgramme(e), jour) : {};
+    var enBloc = jour ? M.exercicesEnBloc(blocsDuProgramme(e), jour) : {};
+    // 193-3 (MOTEUR §9.22) — UN EXERCICE DONT LA LIGNE DE ROUTINE DU JOUR A UNE ZONE DE PLAN EST HORS DU BLOC CE JOUR-LÀ : la
+    // routine a fixé sa zone, le bloc ne la déplace pas (I81). Il reste dans le bloc les autres jours.
+    var vus = {};
+    ((seance && seance.exercices) || []).forEach(function (x) {
+      if (!x || vus[x.exercise_slug]) return;
+      vus[x.exercise_slug] = true;
+      if (x.zone_plan && enBloc[x.exercise_slug]) { enBloc = Object.assign({}, enBloc); delete enBloc[x.exercise_slug]; }
+    });
+    return enBloc;
   }
   function blocsDuProgramme(e) { return (e && e.programme && e.programme.blocs) || []; }
   function finsAllegees(cartes) {
@@ -4174,6 +4189,31 @@
     });
   }
 
+  // ══ I79 à I81 — L'ONDULATION (193-3, MOTEUR §9.1.3) ═════════════════════════════
+  //   · I79 — une zone de plan n'est jamais remplacée en silence : la consigne d'un exercice à zone de plan porte cette zone
+  //     (ni la correction de l'exercice, ni un bloc, ni l'habitude ne la déplacent) ;
+  //   · I80 — une sous-histoire vide ou périmée donne le report de zone ou « première fois », jamais un palier d'une autre
+  //     zone qui se présente comme celui de la zone ;
+  //   · I81 — un exercice à zone de plan est hors du bloc ce jour-là.
+  var ETATS_SANS_PALIER_DE_ZONE = { nouvelle_zone: true, silence: true, bord: true, bord_garde: true, bord_recul: true, bord_vague: true,
+                                    reprise_courte: true, reprise_longue: true };
+  function verifierOndulation(plan, erreurs) {
+    if (!plan) return;
+    var enBloc = (plan.programme && plan.programme.enBloc) || {};
+    (plan.exercices || []).forEach(function (x) {
+      var zp = x && x.zonePlan;
+      if (!zp || !x.consigne) return;
+      var nom = 'exercice ' + x.iExo + ' (' + x.slug + ') : ';
+      if (x.consigne.zone !== undefined && x.consigne.zone !== null && x.consigne.zone !== zp.zone) {
+        erreurs.push('I79 — ' + nom + 'la routine fixe ' + zp.zone + ', la consigne porte ' + x.consigne.zone);
+      }
+      if (zp.mode === 'premiere' && zp.zoneAvant && !ETATS_SANS_PALIER_DE_ZONE[x.consigne.etat]) {
+        erreurs.push('I80 — ' + nom + 'première fois en ' + zp.zone + ' mais l\u2019état est « ' + x.consigne.etat + ' » : un palier d\u2019une autre zone');
+      }
+      if (enBloc[x.slug]) erreurs.push('I81 — ' + nom + 'dans un bloc en cours alors que la routine fixe sa zone');
+    });
+  }
+
   // ══ I36 à I39 — LES PROGRAMMES À CYCLES (MOTEUR §9.22, 53-2) ═══════════════
   //
   // Sur `entrees.programme` : `{ blocs, lignes }` — les blocs (table `blocs`) et
@@ -4777,6 +4817,7 @@
     verifierObjectif(plan, parisSeance, erreurs);
     verifierEscalier(plan, entrees, erreurs);
     verifierProgramme(plan, entrees, erreurs);
+    verifierOndulation(plan, erreurs);
     verifierMarches(plan, erreurs);
     verifierPoidsDuCorps(plan, erreurs, entrees);
     if (entrees && entrees.raccourci) verifierRaccourci(plan, entrees, erreurs);
@@ -5745,6 +5786,7 @@
     planDesLignes: planDesLignes,
     rejouer: rejouer,
     verifierPlan: verifierPlan,
+    verifierOndulation: verifierOndulation,
     verifierSilenceDuProgramme: verifierSilenceDuProgramme,
     verifierPhrases: verifierPhrases,
     gardeActive: gardeActive,

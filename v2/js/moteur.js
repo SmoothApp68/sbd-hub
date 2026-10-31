@@ -6955,8 +6955,12 @@
 
   // LE BLOC SUIVANT, PAR UNE RÈGLE FIXE (Mix → Lourd → Mix…, mêmes durée et
   // exercices, une décharge à chaque fin) — JAMAIS DÉDUITE DU BLOC PASSÉ (§20.1).
-  function blocSuivant(bloc) {
+  function blocSuivant(bloc, phases) {
     if (!bloc || ZONES_DE_BLOC.indexOf(bloc.zone) < 0) return null;
+    // 193-2 — une PHASE (voir `blocAPhases`) recommence la même : mêmes semaines, mêmes barres, la dernière allégée — et aucune zone
+    // posée, jamais d'alternance Mix ↔ Lourd : les zones sont celles des routines.
+    if (phases) return { zone: bloc.zone, semaines: nombre(bloc.semaines) || SEMAINES_PHASE, decharge: true,
+                         exercices: (bloc.exercices || []).slice(), sansZones: true };
     return { zone: bloc.zone === 'mix' ? 'lourd' : 'mix', semaines: nombre(bloc.semaines),
              decharge: true, exercices: (bloc.exercices || []).slice() };
   }
@@ -7137,6 +7141,22 @@
 
   // ── Ce que le programme dit — par le formateur unique ──
   // `bornes` : « Mix (6-8) » — la feuille et la phrase du bloc suivant.
+  // 193-2 — UNE PHASE : le programme construit pour Force et Les deux (5 semaines, la dernière allégée, MOTEUR §9.22 pour la décharge)
+  // sans zone de bloc. Aucune colonne : un bloc est une phase quand CHAQUE exercice qu'il nomme a, dans une routine de son dossier, une
+  // ligne à zone du jour (`routine_exercises.zone`, 193-3). La zone du bloc n'est alors qu'un placeholder exigé par la base. Si la
+  // personne repasse une de ces lignes en Automatique, le bloc redevient un bloc classique : c'est cohérent. Pure.
+  // `routines` : `[{ dossier, exercices: [{ exercise_slug, zone }] }]`.
+  var SEMAINES_PHASE = 5;
+  function blocAPhases(bloc, routines) {
+    if (!bloc || !Array.isArray(bloc.exercices) || !bloc.exercices.length) return false;
+    var rs = (Array.isArray(routines) ? routines : []).filter(function (r) { return r && r.dossier === bloc.dossier; });
+    return bloc.exercices.every(function (slug) {
+      return rs.some(function (r) {
+        return (Array.isArray(r.exercices) ? r.exercices : []).some(function (x) { return !!x && x.exercise_slug === slug && !!zoneParCle(x.zone); });
+      });
+    });
+  }
+
   function libelleZoneDeBloc(zone, bornes) {
     var z = zoneParCle(zone);
     if (!z) return '';
@@ -7145,9 +7165,9 @@
   }
   // « Bloc Mix · semaine 2 sur 4 » ; avant le début, « Bloc Mix · dès le lundi
   // 12 oct. » ; après la fin, « Bloc Mix terminé » — jusqu'au choix (§9.22).
-  function badgeDuBloc(bloc, jour) {
+  function badgeDuBloc(bloc, jour, phases) {
     if (!bloc) return null;
-    var tete = 'Bloc ' + libelleZoneDeBloc(bloc.zone);
+    var tete = phases ? 'Phase' : 'Bloc ' + libelleZoneDeBloc(bloc.zone);
     var k = semaineDuBloc(bloc, jour);
     if (k !== null) {
       return tete + ' · semaine ' + nombreFr(k, regle('bloc.semaine')) + ' sur ' +
@@ -7155,7 +7175,7 @@
     }
     var j = numeroDuJour(jourCivil(jour)), d = numeroDuJour(jourCivil(bloc.debut));
     if (j !== null && d !== null && j < d) return tete + ' · dès le ' + Modele().jourNomme(jourCivil(bloc.debut), regle('bloc.debut'));
-    return tete + ' terminé';
+    return phases ? 'Phase terminée' : tete + ' terminé';
   }
   function blocTermine(bloc, jour) {
     var j = numeroDuJour(jourCivil(jour)), f = numeroDuJour(finDuBloc(bloc));
@@ -7171,7 +7191,7 @@
   // La carte de fin de bloc, en faits : le titre, une ligne par exercice
   // (`{ nom, valeur }` : deux colonnes, maquette cycles v1), les paris, le pari de programme s'il y en avait un, et le bloc suivant.
   // `noms` : `{ [slug]: nom }` ; `pari` : `{ predite, observee }` ou `null`.
-  function carteFinDeBloc(bloc, bilan, noms, pari) {
+  function carteFinDeBloc(bloc, bilan, noms, pari, phases) {
     if (!bloc || !bilan) return null;
     var nom = function (s) { return noms && noms[s] ? noms[s] : s; };
     var cP = cite(FAIT, { quoi: 'bilan' });
@@ -7181,8 +7201,9 @@
         (x.change ? ' → ' + chargeFois(x.derniere[0], x.derniere[1], cP) : ', inchangé') };
     });
     var p = bilan.paris, t = bilan.tenus;
-    var phraseParis = p === 0 ? 'Le coach n’avait fait aucun pari sur ce bloc.'
-      : 'Le coach avait fait ' + nombreFr(p, regle('bilan.paris')) + (p > 1 ? ' paris' : ' pari') + ' sur ce bloc' +
+    var ce = phases ? 'cette phase' : 'ce bloc';
+    var phraseParis = p === 0 ? 'Le coach n’avait fait aucun pari sur ' + ce + '.'
+      : 'Le coach avait fait ' + nombreFr(p, regle('bilan.paris')) + (p > 1 ? ' paris' : ' pari') + ' sur ' + ce +
         DEUX_POINTS + nombreFr(t, regle('bilan.tenus')) + (t > 1 ? ' ont tenu.' : ' a tenu.');
     var phrasePari = null;
     if (pari && nombre(pari.predite) !== null && nombre(pari.observee) !== null) {
@@ -7190,7 +7211,20 @@
       phrasePari = 'Le coach avait parié que tes ' + nombreFr(pp, regle('programme.predite')) + ' exercices progresseraient' +
         DEUX_POINTS + nombreFr(po, regle('programme.observee')) + (po > 1 ? ' ont progressé.' : ' a progressé.');
     }
-    var suivant = blocSuivant(bloc);
+    var suivant = blocSuivant(bloc, phases);
+    if (phases) {
+      var nS = suivant ? nombreFr(suivant.semaines, regle('bloc.semaines')) : null;
+      return {
+        titre: 'Ta phase est terminée.',
+        entete: 'Pendant cette phase',
+        lignes: lignes, paris: phraseParis, pari: phrasePari,
+        suivant: suivant ? 'La suivante' + DEUX_POINTS + nS + ' semaines, la dernière allégée. Tes zones restent celles de tes routines.' : null,
+        suivantZone: null,
+        commencer: suivant ? 'Commencer une phase de ' + nS + ' semaines' : null,
+        ajuster: null,
+        arreter: 'Arrêter le programme'
+      };
+    }
     // §9.22 (53-2 bis, D3) — la règle, sans jargon : « Le suivant, comme le
     // font les programmes de force : Lourd (3-5) sur tes mouvements à la barre,
     // 4 semaines, décharge la dernière semaine. Les autres exercices gardent
@@ -10314,6 +10348,8 @@
     zonesPosees: zonesPosees,
     zoneDuPremierBloc: zoneDuPremierBloc,
     blocSuivant: blocSuivant,
+    blocAPhases: blocAPhases,
+    SEMAINES_PHASE: SEMAINES_PHASE,
     exercicesParDefaut: exercicesParDefaut,
     bilanDuBloc: bilanDuBloc,
     progresDuBilan: progresDuBilan,

@@ -219,7 +219,7 @@ describe('193-2 — les règles, sur chaque famille de 2 à 6 jours', () => {
     expect(sq[0].exercise_slug).toBe('belt_squat_machine');
     const d = lignes(programme('les_deux', 4, { menager: ['genou'] })).filter((x) => x.motif === 'squat');
     d.forEach((x) => { expect(x.zone).toBe('hypertrophie'); expect(x.reculs).toBeUndefined(); expect(x.reps).toBeGreaterThanOrEqual(9); });
-    expect(d.filter((x) => x.series === 3).length).toBe(1);                              // la grosse série + 2 reculs : 3 séries égales
+    expect(d.map((x) => x.series)).toEqual([3, 3]);                                      // la grosse série + 2 reculs : 3 séries égales (la reprise en a 3)
   });
 
   test('un exercice écarté : le lourd ET sa reprise prennent le même remplaçant ; la prise serrée écartée → Larsen → la barre en Hypertrophie', () => {

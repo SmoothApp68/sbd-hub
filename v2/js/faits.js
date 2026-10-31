@@ -1719,7 +1719,7 @@
           var g = vues[x.exercise_slug];
           if (!g) { g = vues[x.exercise_slug] = { jour: jr, series: [] }; e.seances.push(g); }
           g.series.push({ charge_kg: x.charge_kg, reps: x.reps, rpe: x.rpe, ressenti: x.ressenti, type_serie: x.type_serie,
-                          hors_calcul: x.hors_calcul === true });
+                          hors_calcul: x.hors_calcul === true, au_max_reserve: x.au_max_reserve === undefined ? null : x.au_max_reserve });
           if (x.douleur === true && e.douleurs.indexOf(jr) < 0) e.douleurs.push(jr);
         });
       });
@@ -1736,6 +1736,17 @@
         var cle = l.origine === 'bloc' ? 'blocs' : 'zones';
         (e[cle] = e[cle] || []).push(jr);
       });
+      // 193-6 (I87) — L'ARRIVÉE OU LE RETRAIT DE « AU MAX » sur un exercice compte comme un changement de bloc : la meilleure série de la
+      // séance saute (une série à l'échec, plus de reps), ce qui masquerait ou inventerait une baisse. Le jour de la séance où la
+      // présence de la marque bascule (la première séance n'est pas une bascule) entre dans `blocs`, exclu des fenêtres.
+      Object.keys(parSlug).forEach(function (slug) {
+        var e = parSlug[slug], avant = null;
+        e.seances.slice().sort(function (a, b) { return a.jour < b.jour ? -1 : a.jour > b.jour ? 1 : 0; }).forEach(function (g) {
+          var a = g.series.some(function (t) { return Modele.estAuMax(t); });
+          if (avant !== null && a !== avant) { e.blocs = e.blocs || []; if (e.blocs.indexOf(g.jour) < 0) e.blocs.push(g.jour); }
+          avant = a;
+        });
+      });
       Object.keys(parSlug).forEach(function (slug) {
         var e = parSlug[slug];
         e.nom = typeof opt.nom === 'function' ? opt.nom(slug) : slug;
@@ -1746,7 +1757,26 @@
       return sortie;
     }
 
+    // 193-6 — « J'AI MAL » RÉCENT, par exercice : les jours des 42 dernières journées où une série de l'exercice porte `sets.douleur`
+    // (la même marque que la 189). Un fait ; la règle (`Moteur.douleurRecente`) est au moteur.
+    function douleursParExercice(c, jour) {
+      var J = Moteur.jourCivil(jour), sortie = {};
+      if (!J) return sortie;
+      var plancher = Moteur.jourCivil(new Date(Date.parse(J + 'T12:00:00') - 42 * 86400000));
+      (c.seances || []).forEach(function (s) {
+        var jr = s && s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
+        if (!jr || jr < plancher || jr > J) return;
+        (c.seriesDe(s.id) || []).forEach(function (x) {
+          if (!x || !x.exercise_slug || x.douleur !== true) return;
+          var l = sortie[x.exercise_slug] || (sortie[x.exercise_slug] = []);
+          if (l.indexOf(jr) < 0) l.push(jr);
+        });
+      });
+      return sortie;
+    }
+
     return {
+      douleursParExercice: douleursParExercice,
       entreeFatigue: entreeFatigue,
       entreeDuBilan: entreeDuBilan,
       tempsALaSalle: tempsALaSalle,

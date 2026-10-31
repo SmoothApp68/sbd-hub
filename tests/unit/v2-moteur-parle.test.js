@@ -811,7 +811,8 @@ describe('la proposition n’est jamais écrite (§7 septendecies.3)', () => {
     // 19 depuis 51-3 : `douleur` et `occurrence` (migration `v2_056`, MOTEUR §9.20).
     // 131 : `denivele_m` et `etages` (v2_101, ECRAN §3 ter.5). 132 : `elastique` (v2_034, MOTEUR §10 ter).
     // 23 depuis 185 : `hors_calcul` (v2_116, « Non, ne compte pas »).
-    expect(Seance.COLONNES_SET).toHaveLength(23);
+    // 24 depuis 193-6 : `au_max_reserve` (v2_123, la réserve demandée à la dernière série « Au max »).
+    expect(Seance.COLONNES_SET).toHaveLength(24);
   });
 });
 

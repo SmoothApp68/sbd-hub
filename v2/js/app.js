@@ -5776,6 +5776,10 @@
     // (Le bloc `try` court jusqu'à la fin de la fonction.)
     var reprendreGarde = suspendreGarde();
     try {
+    // 193-6 — la série « Au max » écrit la réserve qui lui était DEMANDÉE (la ligne du plan la porte) : un fait d'intention, comme `repos_s`.
+    var lAuMax = planDeLExercice(iExo);
+    lAuMax = lAuMax && lAuMax.lignes && lAuMax.lignes[iSerie] ? lAuMax.lignes[iSerie].auMax : null;
+    if (lAuMax) seance = Seance.poserAuMaxReserve(seance, iExo, iSerie, lAuMax.reserve);
     seance = Seance.valider(seance, iExo, iSerie,
       enEdition() ? new Date(seance.fin || seance.debut) : new Date());
     // §2.7 — le tour avance ICI, au geste, et jamais au rendu : une marque qui
@@ -7190,6 +7194,10 @@
       precedents: precedents,
       // 193-1 — la dernière séance à reculs de chaque exercice qui en porte, et la cible de reps de sa routine.
       reculs: reculsDeLaSeance(exos),
+      // 193-6 (MOTEUR §9.30) — « J'ai mal » récent de chaque exercice (42 jours, un fait de `faits.js`) et les décisions déjà prises sur la
+      // carte « Dernière série au max ? » (`profiles.cartes_semaine.au_max`, par exercice) : le plan décide, il ne relit rien.
+      douleurs: faits.douleursParExercice(corpus(), seance.debut),
+      auMaxReponses: (reponsesDesCartes().au_max && typeof reponsesDesCartes().au_max === 'object') ? reponsesDesCartes().au_max : {},
       // 188-2 (I76) — les chutes de reps de chaque exercice de la séance (les 3 dernières séances, un fait de `faits.js`) : le plan
       // décide de la ligne du repos, il ne relit pas l'historique.
       chutesDeReps: chutesDeRepsDeLaSeance(exos),
@@ -7531,7 +7539,7 @@
         planMemo.modes === local.modes && planMemo.lest === lestReponseDe() && planMemo.demoLest === demoLest &&
         planMemo.marches === (profil && profil.marche_reponses) && planMemo.demoMarche === demoMarche &&
         planMemo.blocs === local.blocs && planMemo.disque === Profil.plusPetitDisqueDe(profil) &&
-        planMemo.moins === serieDeMoinsActive()) return planMemo.plan;
+        planMemo.moins === serieDeMoinsActive() && planMemo.cartes === (profil && profil.cartes_semaine)) return planMemo.plan;
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
                  edition: edition, constats: constats, catalogue: local.exercices,
@@ -7539,7 +7547,7 @@
                  seances: local.seances, demo: demoReponse, demoMarches: demoMarches,
                  modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, blocs: local.blocs, plan: plan,
                  marches: profil && profil.marche_reponses, demoMarche: demoMarche, disque: Profil.plusPetitDisqueDe(profil),
-                 moins: serieDeMoinsActive() };
+                 moins: serieDeMoinsActive(), cartes: profil && profil.cartes_semaine };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit. Un plan du
     // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.
@@ -7747,7 +7755,11 @@
     var x = planDuSlug(slug);
     if (!x || !x.constat) return null;
     // 193-1 — « Tes reculs tiennent 6-6-6. » : une ligne de plus sous le constat, du plan.
-    return x.reculs && x.reculs.constat ? Object.assign({}, x.constat, { reculs: x.reculs.constat }) : x.constat;
+    var plus = {};
+    if (x.reculs && x.reculs.constat) plus.reculs = x.reculs.constat;
+    // 193-6 — « Ta dernière série me dit où tu en es : 12 reps à 112,5 kg, 2 de plus que prévu. » : une ligne de plus, du plan.
+    if (x.auMax && x.auMax.constat) plus.auMax = x.auMax.constat.texte;
+    return Object.keys(plus).length ? Object.assign({}, x.constat, plus) : x.constat;
   }
 
   // Taper dans un champ ne redessine pas la séance — le champ perdrait le
@@ -8346,6 +8358,54 @@
   //     suivante (le geste de l'étiquette, `poserZone`) et le REPLI figé dans
   //     la carte (§14.5) — le plan l'applique (`consigneRepli`), I35 le vérifie ;
   //   · « Sans coach cette fois » : la marque, comme « J'ai mal ».
+  // 193-6 — l'index de la dernière série de travail ou de recul d'un exercice (`Modele.estTravail` : une chauffe et une dégressive
+  // n'en sont pas), ou -1. Une seule définition pour les deux feuilles (séance, éditeur de routine).
+  function derniereSerieDeTravail(series) {
+    var k = -1;
+    (series || []).forEach(function (q, j) { if (Modele.estTravail(q)) k = j; });
+    return k;
+  }
+
+  // 193-6 (MOTEUR §9.30) — LA CARTE « DERNIÈRE SÉRIE AU MAX ? », trois gestes, aucun calcul ici :
+  //   · « Oui, dans ma routine » : la marque s'écrit sur la dernière série de la routine (le chemin des routines, `poserRoutineVoulue`),
+  //     se voit et s'annule ; la décision se range dans `cartes_semaine.au_max` ; la ligne de la séance porte la marque ;
+  //   · « Juste aujourd'hui » : la ligne de la séance seulement (rien en base) ; la carte ne revient pas aujourd'hui ;
+  //   · « Non merci » : la décision se range, elle ne revient pas pour cet exercice.
+  var auMaxAujourdhui = {};
+  async function repondreAuMax(iExo, cle) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var x = planDeLExercice(iExo);
+    var carte = x && x.propositionAuMax;
+    if (!carte) return;
+    reponseEnCours = true;
+    try {
+      var toutes = Object.assign({}, reponsesDesCartes());
+      var memoire = Object.assign({}, toutes.au_max && typeof toutes.au_max === 'object' ? toutes.au_max : {});
+      var jour = Moteur.jourCivil(new Date());
+      if (cle === 'non') {
+        memoire[x.slug] = { r: 'non', le: jour };
+      } else if (cle === 'aujourdhui') {
+        seance = Seance.definirAuMax(seance, iExo, carte.iSerie, true);
+        // la carte ne revient pas aujourd'hui : la marque est sur la ligne, `propositionAuMax` se tait d'elle-même
+      } else {
+        var rt = seance.routine_id ? routines.filter(function (r) { return r.id === seance.routine_id; })[0] : null;
+        var voulues = rt ? Routines.marquerAuMax(rt, x.slug, true) : null;
+        if (voulues) {
+          await poserRoutineVoulue(rt, voulues);
+          memoire[x.slug] = { r: 'oui', le: jour };
+        }
+        seance = Seance.definirAuMax(seance, iExo, carte.iSerie, true);
+      }
+      if (cle !== 'aujourdhui' && Object.keys(memoire).length) {
+        toutes.au_max = memoire;
+        await poserProfil({ cartes_semaine: toutes });
+      }
+    } finally {
+      reponseEnCours = false;
+    }
+    await apresGeste();
+  }
+
   async function repondreReprise(iExo, cle) {
     if (!seance || enEdition() || reponseEnCours) return;
     var x = planDeLExercice(iExo);
@@ -8918,6 +8978,10 @@
     if (x && x.chauffes && x.chauffes.phrase && x.chauffes.iSerie === iSerie) {
       return { message: { type: 'chauffe', phrase: x.chauffes.phrase }, proposee: false, fourchette: null };
     }
+    // 193-6 (MOTEUR §9.30) — la consigne de la dernière série « Au max », au-dessus d'elle tant qu'elle n'est pas faite ; du plan.
+    if (x && x.auMax && x.auMax.iSerie === iSerie && x.lignes && x.lignes[iSerie] && !x.lignes[iSerie].validee) {
+      return { message: { type: 'au_max', phrase: x.auMax.consigne }, proposee: false, fourchette: null };
+    }
     // 193-1 (MOTEUR §9.28) — la phrase des reculs, au-dessus du premier recul tant qu'il reste un recul à faire ; du plan.
     if (x && x.reculs && x.reculs.phrase && x.reculs.iSerie === iSerie && x.lignes && x.lignes[iSerie] && !x.lignes[iSerie].validee) {
       return { message: { type: 'recul', phrase: x.reculs.phrase }, proposee: false, fourchette: null };
@@ -9194,6 +9258,13 @@
         return x && x.carteReprise ? x.carteReprise : null;
       },
       surReprise: function (i, cle) { return repondreReprise(i, cle); },
+      // 193-6 (MOTEUR §9.30) — la carte « Dernière série au max ? » : lue sur le plan, trois gestes.
+      propositionAuMax: function (i) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.propositionAuMax ? x.propositionAuMax : null;
+      },
+      surAuMax: function (i, cle) { return repondreAuMax(i, cle); },
       // §9.17 — l'exercice est en Entretenir PAR SON PROPRE choix : l'étiquette
       // devient « Entretien », la porte vers le mode (le profil n'y gagne rien).
       modeEntretien: function (slug) { return modeDe(slug) === 'entretien'; },
@@ -10229,6 +10300,14 @@
       // Ce que porterait la série faute de note propre : le placeholder dit
       // donc ce qui s'écrira si on ne tape rien.
       noteExercice: exo.note,
+      // 193-6 — « Au max » pour aujourd'hui : la dernière série de travail, pas encore validée ; la routine ne change pas.
+      auMax: { possible: derniereSerieDeTravail(exo.series) === feuille.iSerie && !serie.validee_a, actif: Modele.estAuMax(serie),
+               aide: 'Pour aujourd’hui seulement : ta routine ne change pas.' },
+      surAuMax: function (actif) {
+        seance = Seance.definirAuMax(seance, feuille.iExo, feuille.iSerie, actif);
+        fermerVoile();
+        apresGeste();
+      },
       surNoteSerie: function (v) {
         seance = Seance.definirNoteSerie(seance, feuille.iExo, feuille.iSerie, v);
         apresGeste({ rendre: false });
@@ -11607,6 +11686,14 @@
       numero: j + 1,
       exercice: nomExoBrouillon(i),
       serie: l,
+      // 193-6 — « Au max » dans la routine : sur la dernière série de travail seulement ; une seule par exercice.
+      auMax: { possible: derniereSerieDeTravail((exoBrouillon(i) || {}).series) === j, actif: l.au_max === true,
+               aide: 'Dans ta routine : le coach la lit à chaque séance, et te dit comment la mener.' },
+      surAuMax: function (actif) {
+        var e = exoBrouillon(i);
+        (e ? e.series : []).forEach(function (q, k) { q.au_max = actif && k === j; });
+        fermerVoile(); apresEditeur();
+      },
       surType: function (t) { l.type_serie = t; fermerVoile(); apresEditeur(); },
       surSupprimer: function () {
         fermerVoile();

@@ -987,7 +987,133 @@
     return sortie;
   }
 
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege, moins, reculPrec) {
+
+
+  // 193-6 — les faits que `Moteur.auMaxDe` lit pour l'exercice `i` de la séance. `null` : le coach n'a rien à dire de cet exercice
+  // (pas coaché, « J'ai mal », « Juste un carnet », édition, semaine allégée). `propose` : la carte peut se poser (séance venue d'une
+  // routine, aucune décision enregistrée dans `entrees.auMaxReponses`).
+  var MUSCLES_DE_JAMBES = ['quadriceps', 'fessiers', 'ischio_jambiers'];
+  function auMaxFaitsDe(e, seance, exos, i, coachee, douloureuse, intentionX, allegee, consignes) {
+    var M = Moteur(), G = racine.THGenerateur;
+    var slug = exos[i] && exos[i].exercise_slug;
+    if (!slug || !coachee || douloureuse || seance.edition || intentionX === 'entretien' || allegee) return null;
+    var cat = e.catalogue || {};
+    var fiche = Object.prototype.hasOwnProperty.call(cat, slug) ? cat[slug] : null;
+    var famille = G && G.familleDeBarre ? G.familleDeBarre(slug, cat) : null;
+    var musclesDe = function (f) { return { prim: (f && f.muscles_primaires) || [], sec: (f && f.muscles_secondaires) || [], stab: (f && f.muscles_stabilisateurs) || [] }; };
+    // Une barre lourde de jambes (ou une presse lourde) PLUS LOIN dans la séance : un squat n'ira pas à l'échec avant elle.
+    var jambesApres = false;
+    for (var j = i + 1; j < exos.length && !jambesApres; j++) {
+      var sj = exos[j] && exos[j].exercise_slug;
+      var fj = sj && Object.prototype.hasOwnProperty.call(cat, sj) ? cat[sj] : null;
+      if (!fj) continue;
+      var fam = G && G.familleDeBarre ? G.familleDeBarre(sj, cat) : null;
+      var B = racine.THModele.BARRES;
+      if (fam === B[0] || fam === B[2]) { jambesApres = true; continue; }
+      var mj = musclesDe(fj);
+      var jambes = mj.prim.some(function (m) { return MUSCLES_DE_JAMBES.indexOf(m) >= 0; });
+      var cj = Object.prototype.hasOwnProperty.call(consignes, sj) && consignes[sj] && consignes[sj].consigne ? consignes[sj].consigne : null;
+      var zj = cj && cj.zone ? (cj.zone.cle || cj.zone) : null;
+      if (jambes && M.estPolyarticulaire(mj) && fj.equipement === 'machine' && (M.estZoneForce(zj))) jambesApres = true;
+    }
+    var zm = e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, slug) ? e.zonesMenagees[slug] : null;
+    var jour = M.jourCivil(seance.debut);
+    var douleurs = e.douleurs && Object.prototype.hasOwnProperty.call(e.douleurs, slug) ? e.douleurs[slug] : [];
+    var reps = e.auMaxReponses && Object.prototype.hasOwnProperty.call(e.auMaxReponses, slug) ? e.auMaxReponses[slug] : null;
+    return {
+      nom: fiche && fiche.nom ? fiche.nom : null,
+      propose: !!seance.routine_id && !reps,
+      entree: {
+        objectif: objectifDuPlan(e.objectif), debutant: e.debutant === true, famille: famille,
+        equipement: fiche ? fiche.equipement || null : null, isolation: fiche ? M.estIsolation(musclesDe(fiche)) : false,
+        allegee: false, menagee: !!(zm && !zm.choisie), douleurRecente: M.douleurRecente(douleurs, jour),
+        barreDeJambesApres: jambesApres
+      }
+    };
+  }
+
+  // ── 193-6 (MOTEUR §9.30) — LA DERNIÈRE SÉRIE « AU MAX » ────────────────────
+  //
+  // La décision est `Moteur.auMaxDe` (une seule fonction) ; le plan la LIT sur la dernière ligne de travail ou de recul de l'exercice
+  // quand elle porte la marque (la routine, le menu ⋯ de la série), et PROPOSE la marque une fois par exercice quand la table la
+  // pose par défaut et que rien n'est décidé. Il n'écrit rien. Le pari de la ligne vaut les reps de la table 193-5 à la charge de
+  // la ligne et à la réserve demandée (`prevoirRepsAuMax`), jamais moins que la visée ; la réserve demandée part avec la ligne
+  // (`au_max_reserve`, écrite à la validation). `faits` : `{ facts de auMaxDe, propose: bool, nom }`, ou `null`.
+  function auMaxDuPlan(lignes, series, consigne, faits, o) {
+    var vide = { auMax: null, proposition: null, pari: null, phrases: [] };
+    if (!faits || !consigne || consigne.etat === 'silence' || consigne.allegee) return vide;
+    var M = Moteur(), V = Voix(), Mo = racine.THModele;
+    var liste = series || [];
+    var dernier = null;
+    (lignes || []).forEach(function (l) {
+      var t = l.type;
+      if (t === 'travail' || t === 'recul') dernier = l;
+    });
+    if (dernier === null) return vide;
+    var sr = liste[dernier.iSerie] || {};
+    var marquee = Mo.estAuMax(sr);
+    var dec = M.auMaxDe(Object.assign({}, faits.entree, { main: marquee }));
+    if (!marquee) {
+      // La proposition : la table pose « Au max » par défaut, la personne n'a rien dit, aucune décision n'est enregistrée.
+      if (!faits.propose || dec.pose !== 'defaut' || dernier.validee) return vide;
+      var capP = V.capturer(function () {
+        return 'Va au bout de ta dernière série de ' + (faits.nom || 'cet exercice') + ' : ' + M.consigneAuMax(dec).charAt(0).toLowerCase() +
+          M.consigneAuMax(dec).slice(1) + '.';
+      });
+      return { auMax: null, pari: null, phrases: [{ ou: 'au_max.proposition', texte: capP.texte, citations: capP.citations }],
+               proposition: { iSerie: dernier.iSerie, reserve: dec.reserve, sorte: dec.sorte, avecPareur: dec.avecPareur, titre: 'Dernière série au max ?',
+                              phrase: capP.texte, boutons: ['Oui, dans ma routine', 'Juste aujourd’hui', 'Non merci'] } };
+    }
+    // Une marque sur une exercice où la table ne dit rien : garde 2 (la personne l'a posée). `pose` null ne se produit pas (main).
+    var reserve = Mo.reserveDemandee(sr);
+    if (reserve === null) reserve = dec.reserve;
+    if (reserve === null || reserve === undefined) return vide;
+    // Jamais d'échec là où la décision l'interdit (zone à ménager, allégée…) : la réserve demandée est celle de la décision.
+    if (dec.reserve !== null && reserve < dec.reserve && !dernier.validee) reserve = dec.reserve;
+    var a = Object.assign({}, dec, { reserve: reserve, sorte: reserve === 0 ? 'echec' : 'garde',
+                                     avecPareur: reserve === 0 && (dec.classe === 'squat' || dec.classe === 'couche') });
+    var capC = V.capturer(function () { return M.consigneAuMax(a); });
+    var phrases = [{ ou: 'au_max.consigne', texte: capC.texte, citations: capC.citations }];
+    var pourquoi = null;
+    if (dec.classe === 'souleve') {
+      var capS = V.capturer(function () { return M.pourquoiAuMaxSouleve(); });
+      pourquoi = capS.texte;
+      phrases.push({ ou: 'pourquoi.au_max', texte: capS.texte, citations: capS.citations });
+    }
+    // Le pari : les reps de la table à la charge de la ligne, à la réserve demandée, depuis le max du jour de la première série de
+    // travail (ou de la ligne elle-même, à la réserve visée).
+    var charge = dernier.validee ? nombre(sr.charge_kg) : (dernier.fantome ? nombre(dernier.fantome.charge) : nombre(dernier.charge));
+    if (charge === null && !dernier.validee) charge = nombre(sr.charge_kg);
+    var ref = null;
+    (lignes || []).forEach(function (l) {
+      if (ref === null && l.type === 'travail' && l.role !== 'hors') ref = l;
+    });
+    if (ref === null) ref = dernier;
+    var srRef = liste[ref.iSerie] || {};
+    var chRef = ref.validee ? nombre(srRef.charge_kg) : (ref.fantome ? nombre(ref.fantome.charge) : nombre(ref.charge));
+    var repsRef = ref.validee ? nombre(srRef.reps) : (nombre(ref.vise) !== null ? nombre(ref.vise) : nombre(srRef.reps_visees));
+    var margeRef = ref.validee ? Palier().reserveDeSerie(srRef) : null;
+    if (margeRef === null) margeRef = M.reserveVisee({ zone: consigne.zone, role: roleDeLaVisee({ lignes: lignes }), reglage: o.reglage });
+    if (margeRef === null) margeRef = 0;
+    var max = chRef !== null && repsRef !== null ? M.maxDuJour(chRef, repsRef, margeRef) : null;
+    var prevu = max !== null && charge !== null ? M.prevoirRepsAuMax(charge, max, reserve) : null;
+    var vise = nombre(dernier.vise);
+    if (vise === null) vise = nombre(sr.reps_visees);
+    var pari = null;
+    if (prevu !== null) pari = { valeur: vise !== null ? Math.max(vise, prevu) : prevu, prevu: prevu, max: Math.round(max), reserve: reserve };
+    var constat = null;
+    if (dernier.validee && nombre(sr.reps) !== null && charge !== null) {
+      var capK = V.capturer(function () { return M.constatAuMax(charge, nombre(sr.reps), prevu); });
+      constat = { texte: capK.texte, charge: charge, reps: nombre(sr.reps), prevu: prevu };
+      phrases.push({ ou: 'constat.au_max', texte: capK.texte, citations: capK.citations });
+    }
+    return { proposition: null, pari: pari, phrases: phrases,
+             auMax: { iSerie: dernier.iSerie, reserve: reserve, sorte: a.sorte, avecPareur: a.avecPareur, classe: dec.classe, pose: dec.pose,
+                      consigne: capC.texte, pourquoi: pourquoi, constat: constat, prevu: prevu, max: max === null ? null : Math.round(max),
+                      pari: pari !== null } };
+  }
+
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege, moins, reculPrec, auMaxFaits) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -1144,6 +1270,17 @@
       phase: phase, objectif: objectif, occurrence: base.occurrence || undefined
     });
     Object.keys(rec.paris).forEach(function (i) { r.paris[Number(i)] = rec.paris[i]; });
+    // 193-6 — la dernière série « Au max » : sa consigne, son pari (les reps de la table), sa proposition.
+    var au = auMaxDuPlan(r.lignes, series, consigne, auMaxFaits || null, { reglage: reglage });
+    if (au.auMax) {
+      var lAu = r.lignes[au.auMax.iSerie];
+      if (lAu) lAu.auMax = { reserve: au.auMax.reserve, sorte: au.auMax.sorte, avecPareur: au.auMax.avecPareur, consigne: au.auMax.consigne };
+      var pAu = r.paris[au.auMax.iSerie];
+      if (pAu && au.pari) {
+        pAu.valeur_predite = au.pari.valeur;
+        pAu.fondement = Object.assign({}, pAu.fondement, { au_max: { reserve: au.pari.reserve, max_du_jour: au.pari.max, prevu: au.pari.prevu } });
+      }
+    }
     var autour = chauffesEtDegressive(r.lignes, series, consigne, materiel || null);
     var capP = V.capturer(function () { return pourquoiDuPlan(consigne, r.lignes, donc); });
     var pourquoi = capP.texte;
@@ -1246,6 +1383,7 @@
       if (rec.reculs.constat) dire('constat.reculs', rec.reculs.constat, rec.citations.constat || []);
     }
     if (marche && marche.carte) dire('escalier.carte', marche.carte.phrase, citationsDeCarte(marche.carte));
+    au.phrases.forEach(function (q) { dire(q.ou, q.texte, q.citations); });
 
     // 163 (MOTEUR §10.2 bis) — UNE CHARGE JAMAIS FAITE SE DIT APPROCHÉE : le plan porte la phrase (par matériel) ;
     // l'écran la lit sous la ligne, il ne la rédige pas. I61 relit le fondement, les charges marquées et la phrase.
@@ -1298,6 +1436,8 @@
       degressivesPlus: autour.degressivesPlus || null,
       // 193-1 — les séries de recul, ou `null` : I78 la relit.
       reculs: rec.reculs,
+      // 193-6 — la dernière série « Au max » (réserve demandée, consigne, constat) et la carte qui la propose, ou `null` : I83 à I87 les relisent.
+      auMax: au.auMax, propositionAuMax: au.proposition,
       phrases: phrases
     };
   }
@@ -1651,7 +1791,8 @@
           precedentPourLeMoteur(Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null, salleEl),
           objectif, Object.prototype.hasOwnProperty.call(alleges, slug) ? alleges[slug] : null,
           coachee && Object.prototype.hasOwnProperty.call(moins, slug) ? moins[slug] : null,
-          e.reculs && Object.prototype.hasOwnProperty.call(e.reculs, slug) ? e.reculs[slug] : null);
+          e.reculs && Object.prototype.hasOwnProperty.call(e.reculs, slug) ? e.reculs[slug] : null,
+          auMaxFaitsDe(e, seance, exos, i, coachee, douloureuse, intentionX, !!esc.allegee, consignes));
         if (x.escalier && x.escalier.copie) x.escalier = null;
         // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
@@ -2756,7 +2897,10 @@
       if (travail.length !== m.routine || m.series >= m.routine) return;
       var libres = travail.filter(function (l) { return !l.validee; });
       if (!libres.length) return;
-      sortie.push({ iExo: x.iExo, iSerie: libres[libres.length - 1].iSerie });
+      // 193-6 — la ligne « Au max » reste : c'est une ligne du milieu qui part.
+      var cible = libres[libres.length - 1];
+      if (cible.auMax && libres.length > 1) cible = libres[libres.length - 2];
+      sortie.push({ iExo: x.iExo, iSerie: cible.iSerie });
     });
     return sortie;
   }
@@ -4418,7 +4562,9 @@
                           // dernières » et « sur les 3 d'avant » disent deux segments.
                           'regle|series': true,
                           // 193-1 — l'écart d'aujourd'hui et l'écart d'avant ; les reps de la fois d'avant, de la cible, du jour.
-                          'regle|recul.ecart': true, 'regle|recul.reps': true, 'regle|recul.marge': true };
+                          'regle|recul.ecart': true, 'regle|recul.reps': true, 'regle|recul.marge': true,
+                          // 193-6 — la réserve demandée de la ligne et de la carte.
+                          'regle|au_max.reserve': true };
 
   function texteDuChiffre(v) {
     return v === null || v === undefined ? String(v) : (typeof v === 'number' ? Voix().nombre(v) || String(v) : String(v));
@@ -4673,7 +4819,13 @@
       'recul.pct': x.reculs && x.reculs.mode === 'max_du_jour' ? { valeur: x.reculs.pct } : null,
       'recul.marge': x.reculs && x.reculs.mode === 'max_du_jour' ? { valeurs: [x.reculs.marge, Moteur().RECUL_MARGE_VISEE] } : null,
       'recul.correction': x.reculs && x.reculs.mode === 'max_du_jour' ? { valeur: Math.round(Math.abs(x.reculs.correction) * 1000) / 10 } : null,
-      'recul.derniere': x.reculs && x.reculs.derniere ? { charge: x.reculs.derniere.charge } : null
+      'recul.derniere': x.reculs && x.reculs.derniere ? { charge: x.reculs.derniere.charge } : null,
+      // 193-6 — « Au max » : la réserve demandée (de la ligne, de la carte), les reps et la charge de la dernière série, l'écart à la table.
+      'au_max.reserve': x.auMax || x.propositionAuMax
+        ? { valeurs: [x.auMax ? x.auMax.reserve : null, x.propositionAuMax ? x.propositionAuMax.reserve : null, Moteur().AU_MAX_RESERVE_PAR_DEFAUT].filter(function (v) { return nombre(v) !== null; }) } : null,
+      'au_max.reps': x.auMax && x.auMax.constat ? { valeur: x.auMax.constat.reps } : null,
+      'au_max.charge': x.auMax && x.auMax.constat ? { charge: x.auMax.constat.charge } : null,
+      'au_max.ecart': x.auMax && x.auMax.constat && x.auMax.constat.prevu !== null ? { valeur: Math.abs(x.auMax.constat.reps - x.auMax.constat.prevu) } : null
     };
     var msg = x.reaction && x.reaction.message;
     return { lignes: lignes, jour: jour, fait: fait, regle: regle, suite: suite,
@@ -4921,6 +5073,7 @@
     verifierGrosCran(plan, erreurs);
     verifierAlleger(plan, erreurs);
     verifierFatigue(plan, entrees, erreurs);
+    verifierAuMax(plan, erreurs);
     verifierApprochee(plan, erreurs);
     verifierApresLaDecharge(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
@@ -5258,6 +5411,49 @@
         }
         var carte = x.escalier && x.escalier.gros === true;
         if (carte && !(g.carte === true)) erreurs.push(nom + 'la carte des leviers du gros cran sans deux essais ratés ni cible au plafond');
+      }
+    });
+  }
+
+
+  // I83 à I86 (MOTEUR §9.30, 193-6) — LA DERNIÈRE SÉRIE « AU MAX » :
+  //   · I83 — au plus une ligne « Au max » par exercice, et c'est la dernière ligne de travail ou de recul ;
+  //   · I84 — jamais d'échec demandé : au soulevé ni au militaire, en semaine allégée, sur une zone à ménager, au débutant sur une
+  //     barre, en Force sur une barre, en Forme ; la réserve demandée est un entier de 0 à 3 ; la consigne dite est celle de la réserve ;
+  //   · I85 — le pari d'une ligne « Au max » vaut les reps de la table (1 à 12), jamais moins que la visée ; sa visée reste celle de
+  //     la consigne ;
+  //   · I86 — aucun dépassement (« Passer en… ») sur un exercice dont la seule série de travail est « Au max ».
+  // (I87, la fatigue, vit dans `faits.entreeFatigue` : l'arrivée ou le retrait de « Au max » exclut l'exercice des fenêtres.)
+  function verifierAuMax(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      if (!x) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var marquees = (x.lignes || []).filter(function (l) { return l && l.auMax; });
+      var travail = (x.lignes || []).filter(function (l) { return l && (l.type === 'travail' || l.type === 'recul'); });
+      if (marquees.length > 1) erreurs.push('I83' + nom + marquees.length + ' lignes « Au max »');
+      if (marquees.length && travail[travail.length - 1] !== marquees[0]) erreurs.push('I83' + nom + 'la ligne « Au max » n’est pas la dernière série de travail');
+      var a = x.auMax || x.propositionAuMax;
+      if (!a) return;
+      if (!(a.reserve === 0 || a.reserve === 1 || a.reserve === 2 || a.reserve === 3)) erreurs.push('I84' + nom + 'une réserve demandée hors de 0 à 3 (' + a.reserve + ')');
+      if (a.reserve === 0) {
+        var classe = x.auMax ? x.auMax.classe : null;
+        if (classe === 'souleve' || classe === 'militaire') erreurs.push('I84' + nom + 'l’échec demandé au ' + classe);
+        if (plan.allegee) erreurs.push('I84' + nom + 'l’échec demandé pendant une semaine allégée');
+        if (x.menagee && !x.menagee.choisie) erreurs.push('I84' + nom + 'l’échec demandé sur une zone à ménager');
+        if (plan.debutant && (classe === 'squat' || classe === 'couche')) erreurs.push('I84' + nom + 'l’échec demandé à un débutant sur une barre');
+      }
+      var texte = x.auMax ? x.auMax.consigne : null;
+      if (texte && (a.reserve === 0) !== /^Jusqu/.test(texte)) erreurs.push('I84' + nom + 'la consigne « ' + texte + ' » ne dit pas la réserve ' + a.reserve);
+      if (x.auMax) {
+        var l = marquees[0];
+        var p = l ? x.paris && x.paris[l.iSerie] : null;
+        var au = p && p.fondement ? p.fondement.au_max : null;
+        if (au) {
+          if (!(au.prevu >= 1 && au.prevu <= 12)) erreurs.push('I85' + nom + 'la prévision de la table (' + au.prevu + ') hors de 1 à 12');
+          if (nombre(l.vise) !== null && nombre(p.valeur_predite) < nombre(l.vise)) erreurs.push('I85' + nom + 'le pari (' + p.valeur_predite + ') sous la visée (' + l.vise + ')');
+        }
+        if (x.consigne && x.consigne.depassement && travail.length === 1) erreurs.push('I86' + nom + 'un dépassement lu sur la seule série « Au max »');
       }
     });
   }

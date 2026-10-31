@@ -461,7 +461,7 @@ describe('7. la routine ne porte AUCUNE charge', () => {
     // Et celle des séries programmées, tout aussi explicite.
     expect(Routines.CHAMPS_SERIE).toEqual(
       ['routine_exercise_id', 'user_id', 'rang', 'type_serie', 'reps_visees',
-       'charge_cible_kg', 'duree_cible_s', 'distance_cible_m']);
+       'charge_cible_kg', 'duree_cible_s', 'distance_cible_m', 'au_max']);   // 193-6 (v2_123)
     // Deux listes blanches, parce qu'il y a deux tables. Aucune clé envoyée
     // n'est hors de leur union — et l'union reste énumérée, pas devinée.
     const hors = Array.from(cles).filter(function (k) {

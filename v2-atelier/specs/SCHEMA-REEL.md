@@ -1,11 +1,15 @@
 # Schéma réel — état au 24 octobre 2026
 
 **Régénéré depuis la base**, projet Supabase `swwygywahfdenyzotrce` (eu-west-1).
-Dernière migration appliquée : **`v2_120`** (la série de recul, 193-1) ; avant elle **`v2_119`** (`profiles.ma_salle` : le plus petit disque et la barre de traction, 190 ; appliquée par Claude.ai avant la PR). Prochain numéro libre : **`v2_120`** (`v2_113` et `v2_115` : voir le dépôt/la base avant de s'y fier).
+Dernière migration appliquée : **`v2_123`** (la dernière série « Au max », 193-6 ; `v2_122` : l'ondulation, 193-3) ; avant elles **`v2_120`** (la série de recul, 193-1) ; avant elle **`v2_119`** (`profiles.ma_salle` : le plus petit disque et la barre de traction, 190 ; appliquée par Claude.ai avant la PR). Prochain numéro libre : **`v2_120`** (`v2_113` et `v2_115` : voir le dépôt/la base avant de s'y fier).
 ⚠️ **`v2_106` n'a jamais été lancée** (décision du 22/10 : le volume reste un record) : le numéro reste vide.
 
 **Volumétrie (24/10, 2 h 30)** : 1 288 séances · 29 673 séries · 860 exercices (848 actifs) · 961 alias
 (`exercise_alias`) · 361 prédictions · 3 647 records · 9 profils · 36 règles d'accès.
+
+## Le 31/10/2026 — `v2_123` (la dernière série « Au max », 193-6)
+
+**`v2_123`** (appliquée par Claude.ai avant la PR) : **`routine_sets.au_max boolean NOT NULL DEFAULT false`** (la ligne de routine est marquée « Au max » ; au plus une par exercice, la dernière série de travail ou de recul) et **`sets.au_max_reserve smallint NULL`** avec la contrainte `sets_au_max_reserve_ok` (`au_max_reserve IS NULL OR au_max_reserve BETWEEN 0 AND 3`). `au_max_reserve` est la réserve **DEMANDÉE** à cette série : 0 = jusqu'à l'échec, 1 à 3 = « en gardant N reps » ; NULL = pas une série « Au max ». C'est une intention écrite à la validation depuis la ligne du plan (comme `repos_s`), jamais une mesure ; la réserve **faite** reste `rpe`/`reserve_reps`. Aucun nouveau type de série : « Au max » est un drapeau, la série reste `travail` ou `recul` (jamais un `echec` écrit automatiquement). Lues par `COLONNES_SET` (`seance.js`) et `COLONNES_ROUTINE_SET` (`donnees.js`). RLS inchangé. Le refus ou l'accord d'une proposition vit dans `profiles.cartes_semaine.au_max` (jsonb existant, pas de SQL).
 
 ## Le 31/10/2026 — `v2_122` (l'ondulation, 193-3)
 
@@ -486,6 +490,7 @@ rendu (`CADRAGE-V2` §2 undecies).
 | `user_id` | **NOT NULL → `profiles(id)`, sans défaut** — ⚠️ contrairement à `routine_exercises`, qui n'en a pas |
 | `rang` | NOT NULL, **≥ 1** — ⚠️ pas ≥ 0 comme `routine_exercises.rang` |
 | `type_serie` | défaut `'travail'` · `travail` \| `echauffement` \| `degressive` \| `echec` \| **`recul`** (`v2_120`, 193-1) ; pas `test` |
+| `au_max` | `boolean` NOT NULL défaut `false` — **`v2_123`** (193-6) : la ligne « Au max » de l'exercice (au plus une, la dernière série de travail ou de recul) |
 | `reps_visees` | NULL ou 1–100 |
 | `charge_cible_kg` | `numeric` NULL — **une charge de départ, lue seulement la première fois** (MOTEUR §9.21), jamais une charge observée |
 | `duree_cible_s` | NULL ou 1–35999 |
@@ -539,6 +544,7 @@ collision, plutôt que de les renuméroter en place.
 | `elastique` | text | |
 | `elastique_norme` | text | **GÉNÉRÉE** |
 | `tempo_descente`, `tempo_pause`, `tempo_montee` | smallint | |
+| `au_max_reserve` | smallint | **`v2_123`** (193-6) — réserve DEMANDÉE à cette série : 0 (jusqu'à l'échec) à 3 (en gardant 3 reps) ; NULL = pas « Au max ». Écrite à la validation depuis la ligne du plan |
 | `repos_s` | integer | **`v2_040`** — repos RÉEL avant cette série, 0 à 3600 s, mesuré à partir de la validation de la série précédente. NULL sur les séries importées : l'export Hevy ne porte pas le repos |
 | `douleur`, `occurrence` | | voir « Colonnes ajoutées » |
 | `hors_calcul` | boolean | **`v2_116`** (185) — NOT NULL, défaut `false`. `true` : la série reste au journal et au détail de la séance, et n'entre ni dans les records, ni dans le palier, le niveau et les crans voisins, ni dans les paris et le jeu |

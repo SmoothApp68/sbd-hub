@@ -48,6 +48,8 @@
   function motDEchec(serie) {
     if (estHorsCalcul(serie)) return 'hors calcul';   // 185 — la série « Non, ne compte pas » se dit, à part
     if (estTest(serie)) return 'test';                // 186 — la série de test se dit aussi
+    // 193-6 — « Au max » se dit aussi, à côté du mot du type (« recul · au max »).
+    if (estAuMax(serie)) return estRecul(serie) ? 'recul · au max' : 'Au max';
     if (estRecul(serie)) return 'recul';              // 193-1 — la série de recul se dit aussi
     return estAEchec(serie) ? 'à l’échec' : (estManquee(serie) ? 'manquée' : null);
   }
@@ -67,6 +69,18 @@
   // `estTravail` reste vrai), mais elle ne décide JAMAIS de la charge : ni palier, ni habitude, ni cran voisin, ni test
   // (`palier.js`, rôle `recul`), et la consigne ne la couvre pas (`seance.js` `couvertureSeance`).
   function estRecul(serie) { return !!serie && !estHorsCalcul(serie) && typeDe(serie) === 'recul'; }
+  // ⚠️ 193-6 (v2_123, MOTEUR §9.30) — « AU MAX » : UNE LECTURE, ICI. La dernière série d'un exercice peut être « Au max » : un DRAPEAU,
+  // pas un type (une série de recul peut l'être aussi). Dans la base : `sets.au_max_reserve` (0 = jusqu'à l'échec, 1 à 3 = en gardant N
+  // reps, la réserve DEMANDÉE) ; dans la séance en cours : `au_max` (booléen) sur la ligne, la réserve s'écrit à la validation.
+  // L'échec n'est PAS un type ici (le type reste `travail` ou `recul`) : il se lit dans la réserve demandée.
+  function reserveDemandee(serie) {
+    if (!serie) return null;
+    var r = lireNombre(serie.au_max_reserve);
+    return r !== null && r >= 0 && r <= 3 ? r : null;
+  }
+  function estAuMax(serie) {
+    return !!serie && !estHorsCalcul(serie) && (reserveDemandee(serie) !== null || serie.au_max === true);
+  }
   function estTravail(serie) {
     return !!serie && !estHorsCalcul(serie) && (typeDe(serie) === 'travail' || typeDe(serie) === 'test' || typeDe(serie) === 'recul' || estAEchec(serie));
   }
@@ -2769,6 +2783,8 @@
     estTravail: estTravail,
     estTest: estTest,
     estRecul: estRecul,
+    estAuMax: estAuMax,
+    reserveDemandee: reserveDemandee,
     estHorsCalcul: estHorsCalcul,
     estAEchec: estAEchec,
     estManquee: estManquee,

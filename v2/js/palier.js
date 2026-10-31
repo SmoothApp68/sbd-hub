@@ -675,6 +675,19 @@
   function cranDeSerie(serie) {
     if (!serie) return null;
     // 152 : « à l'échec » (1 rep et +) = plus rien en réserve, comme `reste_0` — le même cran, la même conséquence (68B).
+    var c = cranBrut(serie);
+    // 193-6 (MOTEUR §9.30) — UNE SÉRIE « AU MAX » DEMANDÉE À FOND N'EST PAS « À FOND » : l'échec était la consigne, pas un dépassement.
+    // Le cran `max` ne reste que si la réserve notée est SOUS la réserve demandée (garde 2, RPE 10). Sinon la charge ne serait jamais
+    // montée « sur sa foi » (154, §17.4) : aller à l'échec serait pénalisé.
+    if (c === 'max' && racine.THModele && racine.THModele.estAuMax(serie)) {
+      var dem = racine.THModele.reserveDemandee(serie);
+      var rs = reserveDeSerie(serie);
+      if (dem !== null && rs !== null && rs >= dem) return null;
+    }
+    return c;
+  }
+  function cranBrut(serie) {
+    // 152 : « à l'échec » (1 rep et +) = plus rien en réserve, comme `reste_0` — le même cran, la même conséquence (68B).
     if (aEchec(serie)) return 'max';
     var parRPE = cranEffort(serie.rpe);
     if (parRPE !== null) return parRPE;

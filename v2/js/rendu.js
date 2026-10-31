@@ -3421,6 +3421,13 @@
     if (!cible) return cible;
     vider(cible);
     var v = vue || {};
+    // 198 (MOTEUR §9.34) — la baisse attendue en sèche : une phrase, sans geste, quand aucune carte ne parle.
+    if (v.attendue && !v.carte) {
+      var att = el('div', 'carte-escalier ce-attendue');
+      att.appendChild(el('p', 'ce-titre', v.attendue.titre));
+      att.appendChild(el('p', 'ce-phrase', v.attendue.phrase));
+      cible.appendChild(att);
+    }
     if (v.carte) {
       var c = el('div', 'carte-escalier');
       // 189 (MOTEUR §14.11) — la carte de BAISSE a un titre ; le blocage généralisé n'en a pas.

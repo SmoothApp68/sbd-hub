@@ -1822,6 +1822,35 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 
 **Limites connues.** La question de réserve après la dernière série (I45) peut être redondante à la réserve 0 ; un exercice jamais fait sans consigne n'affiche pas de « Au max » ; l'import Hevy ne pose aucune marque.
 
+### 9.31 La semaine de test — décidé le 31/10/2026 (chantier 193-4) (I88 à I93)
+
+**Delta v2 / v2 bis / v2 ter du 31/10/2026 (15 h 10, 15 h 32, 16 h 55), qui priment sur la première rédaction du prompt.** Pas de « rep lourde + contrôle » : deux façons, au choix barre par barre, et la semaine de test **suit** la semaine allégée.
+
+**Quand.** Dans un programme du coach (phases de 5 semaines, 193-2), à la fin de la **2ᵉ** phase — comptée par la chaîne `blocs.precedent` du dossier, un maillon manquant = rien — **et** la semaine allégée qui la clôt terminée : allégée → test → phase suivante (la phase suivante commence une semaine plus tard). Hors programme : « Faire une semaine de test » dans le Profil (« Mon programme »), après 4 semaines d'entraînement au moins ; la semaine précédente allégée, sinon on propose d'alléger d'abord (le geste « Faire quand même » reste) ; pas dans les 14 jours qui précèdent une décharge planifiée. Une seule fonction : `Moteur.testProposable` (pure). Le coach propose, la personne décide ; la réponse vit dans `profiles.cartes_semaine.test` (par `poserProfil`, la file, sans colonne), elle s'annule (« Annuler la semaine de test »).
+
+**Deux façons**, barre par barre (par défaut : « Viser mon max » dès un an de pratique, « Série au max » pour le débutant — `Moteur.testModeParDefaut`) ; la façon se change à la carte (Profil) ou en séance, **jusqu'au premier essai**.
+
+1. **La montée**, commune : 50 % × 5, 60 % × 3, 70 % × 2, 80 % × 1, 87 % × 1 du max estimé, au cran de la salle (`Moteur.testMontee`).
+2. **Viser mon max (1 rep)** : trois essais, jamais de 4ᵉ (`Moteur.testEssai`). 1ᵉʳ ≈ 92 % « en gardant 2 » ; 2ᵉ ≈ 97 % ; 3ᵉ réglé sur le 2ᵉ : facile (réserve notée ≥ 1) → ≈ 101 %, sans marge (ou non noté) → un cran de plus, raté (0 rep) → arrêt. Repos 4-5 min. Squat et couché « sur les sécurités ou avec un pareur ». Un 1ᵉʳ essai sans marge (alors qu'il devait garder 2) arrête : le max estimé était haut.
+3. **Série au max** (`Moteur.testSerieAuMax`) : ≈ 85 % du max estimé, visée 5 reps, autant que possible, arrêt à la technique ou à 10 reps ; soulevé « en gardant 1 », 6 reps au plus ; débutant ≈ 80 %, visée 6 à 8. Pas de rep lourde ni de contrôle dans ce mode.
+4. **Un seul mouvement testé par séance** (le premier non mesuré, ni refusé aujourd'hui — `Moteur.testBarreDuJour`) ; **squat et soulevé jamais le même jour** (le second reste en séance normale, `testBarresEnConflit`) ; **accessoires** : un ou deux gardés (`TEST_ACCESSOIRES_MAX`), légers, **sans « Au max »** (le plan passe la semaine de test à `auMaxFaitsDe` comme une allégée).
+
+**Le max estimé** est la force estimée (Epley, `Modele.recordsDeLExercice(...).unRM`) sur les séances **strictement avant** le début de la semaine (`faits.maxEstimesAvantLeTest`) : il est figé, un essai ne déplace pas le suivant.
+
+**Le max mesuré** (`Moteur.testMesure`) : un essai réussi à RPE 10 (réserve 0 ou non notée) **est** le max (record s'il bat l'ancien : l'essai est une série `test` comme les autres, le journal des records habituel) ; sinon l'essai lu à sa réserve (table 193-5, `maxDuJour`). Série au max : ses reps, lues à la réserve notée (0 sinon). Il est rangé dans `cartes_semaine.test.mesures[slug]` à la fin du test, et **prime sur l'estimation pendant 90 jours** (`Moteur.testMesureValable`, lu par `recordsDeLExercice` : `unRM` daté « mesuré », affiché « Max mesuré » sur la page de l'exercice). **Il n'entre jamais au journal des records** (`un_rm_estime` reste exclu, 120/D1) et **ne touche ni aux paliers ni aux consignes de travail** (I71 : un test reste hors palier ).
+
+**Le pari.** Un par barre, posé **au lancement de la semaine, avant toute série** (`predictions.module = 'test'`, `grandeur = 'charge_kg'`, `valeur_predite` = le max estimé au cran, « ton max tombera vers X kg »). Observé à la mesure (`valeur_observee` = le max mesuré, `set_observe` = la série qui le donne ; la cohérence de la base l'exige). Aucun SQL : `predictions.module` n'a pas de CHECK.
+
+**L'arrêt.** « J'ai mal » (sur l'exercice, ou récent : 42 jours), un essai raté, un 1ᵉʳ essai sans marge, « Arrêter le test » (la technique lâche, le dos s'arrondit ; au militaire, le bas du dos se cambre) : aucune charge de plus n'est proposée. « Pas aujourd'hui » : la barre est écartée aujourd'hui et se teste au jour suivant où elle est travaillée ; la semaine passée, elle est retirée et le bilan dit « pas testé ».
+
+**Les écrans.** La carte de fin de phase (« Faire la semaine de test »), la feuille « Semaine de test » du Profil (façon barre par barre, lancer, annuler), la carte de la barre testée en séance (montée, consigne, « Pourquoi », mesure), le bilan en tête de Saisie à la fin (« Couché : 154 kg → 157,5 kg. », l'objectif à 1 rep « Pas encore »). Le plan **propose** des lignes, il n'en écrit aucune : la structure de la séance reste celle de la routine.
+
+**Invariants.** I88 : jamais plus de trois essais, le 3ᵉ plus lourd que le 2ᵉ. I89 : une seule barre testée par séance, squat et soulevé jamais ensemble, aucune semaine de test hors de sa semaine. I90 : la montée, les essais et la série sont aux pourcentages du max estimé (à un cran près) ; la série au soulevé garde 1 rep, 6 au plus ; la façon proposée est celle choisie. I91 : aucun « Au max » en semaine de test ; au plus deux accessoires gardés. I92 : un arrêt ne propose plus rien. I93 : le max mesuré n'est jamais sous un essai réussi à RPE 10 ; le pari est du module `test` et vaut le max estimé au cran.
+
+**Lecteurs traités.** Plan (`semaineDeTestDuJour`, `semaineDeTestDExercice`), `verifierSemaineDeTest`, `auMaxFaitsDe`, page de l'exercice (`recordsDeLExercice`), carte de fin de phase, Profil, Saisie (bilan), paris. **Non touchés, avec la raison** : les paliers, la consigne de travail et le compteur de stagnation (le test reste hors palier) ; le journal des records (immuable, pas d'estimation) ; l'objectif et sa projection (ils lisent la table cumulée des records, que les essais alimentent déjà : un vrai max la fait monter) ; le générateur (il ne sait rien de la semaine de test).
+
+**Limites connues.** La structure de la séance n'est pas réécrite : les lignes de la montée et des essais sont proposées, la personne les ajoute (type `test` pour un essai, « Au max » pour la série). Un essai noté sans RPE compte comme sans marge. Le bilan n'indique pas « record » (le journal des records le dit à son heure).
+
 ## 10. L'incrément
 
 ### 10.1 Règle

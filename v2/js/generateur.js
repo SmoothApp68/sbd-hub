@@ -446,7 +446,7 @@
   // ne l'exige pas : elle dit seulement que l'explosivité baisse un peu si les deux sont à moins de 3 h d'écart.
   // Le programme ne connaît pas les jours de la semaine : sauf `entree.joursSeances` (lundi = 0), ses séances tombent sur les jours TYPES ci-dessous
   // (convention : réparties dans la semaine). Impossible de les écarter toutes : l'ordre reste, et le générateur le dit.
-  var NOMS_DES_JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+  var NOMS_DES_JOURS = racine.THModele.JOURS_DEPUIS_LUNDI;       // lundi = 0 (le formateur, une seule liste)
   var JOURS_TYPES = { 1: [0], 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 4, 5], 6: [0, 1, 2, 3, 4, 5] };
   var HYBRIDE_ECART_MIN = 2;
   var HYBRIDE_SCIENCE = 'Courir ne te fait pas perdre de force : 43 études, ni force maximale ni muscle en moins quand on mélange les deux. Seule l\u2019explosivité baisse un peu si les deux sont à moins de 3 h d\u2019écart (Schumann 2022).';
@@ -460,7 +460,7 @@
   function ecartDeJours(a, b) { var d = Math.abs(a - b); return Math.min(d, 7 - d); }
   // Une séance de jambes lourdes : un squat ou un soulevé (la place, `motif`) en zone Lourd ou Mix.
   function aDesJambesLourdes(rt) {
-    return liste(rt && rt.exercices).some(function (l) { return (l.zone === 'lourd' || l.zone === 'mix') && contient(['squat', 'charniere'], l.motif); });
+    return liste(rt && rt.exercices).some(function (l) { return racine.THMoteur.estZoneForce(l.zone) && contient(['squat', 'charniere'], l.motif); });
   }
   function joursDuProgramme(n, e) {
     var vises = liste(e && e.joursSeances).map(Number).filter(function (j) { return j % 1 === 0 && j >= 0 && j <= 6; });

@@ -1,6 +1,6 @@
 /** @jest-environment node */
 //
-// 193-4 (MOTEUR §9.31) — LE PLAN DE LA SEMAINE DE TEST : le vrai chemin (`seance.js`, `planDeSeance`, `verifierPlan` I88 à I93,
+// 193-4 (MOTEUR §9.32) — LE PLAN DE LA SEMAINE DE TEST : le vrai chemin (`seance.js`, `planDeSeance`, `verifierPlan` I88 à I93,
 // `verifierPhrases` I26).
 
 process.env.TZ = 'Europe/Paris';
@@ -200,5 +200,59 @@ describe('193-4 — le plan : la barre testée', () => {
     const p2 = T.planDeSeance(e2);
     p2.exercices[1].semaineDeTest = Object.assign({}, p2.exercices[0].semaineDeTest, { slug: SDT, classe: 'souleve' });
     expect(T.verifierPlan(p2, e2).erreurs.join('\n')).toMatch(/I89/);
+  });
+});
+
+describe('193-4 — « Ajouter ces lignes » : la montée, puis les essais un à un', () => {
+  test('au début : la montée (échauffements) et le 1ᵉʳ essai en type test, aux charges du plan', () => {
+    const e = entrees(seance([DC]));
+    const aj = T.planDeSeance(e).exercices[0].semaineDeTest.ajout;
+    expect(aj.suite).toBe(false);
+    expect(aj.lignes.map((l) => [l.type, l.charge, l.reps])).toEqual([
+      ['echauffement', 77.5, 5], ['echauffement', 92.5, 3], ['echauffement', 107.5, 2], ['echauffement', 122.5, 1], ['echauffement', 135, 1], ['test', 142.5, 1]]);
+  });
+
+  test('posées par Seance.insererChauffes : avant le travail, marquées ; rien de plus tant qu’elles sont vides ; Annuler les retire', () => {
+    let se = seance([DC], 3);
+    const aj = T.planDeSeance(entrees(se)).exercices[0].semaineDeTest.ajout;
+    const lignes = aj.lignes.map((q) => Object.assign([q.charge, q.reps], { test: true, type: q.type, reserve: q.reserve }));
+    let k = 100; se = S.insererChauffes(se, 0, lignes, () => 'n' + (++k));
+    const types = se.exercices[0].series.map((s) => s.type_serie);
+    expect(types).toEqual(['echauffement', 'echauffement', 'echauffement', 'echauffement', 'echauffement', 'test', 'travail', 'travail', 'travail']);
+    expect(se.exercices[0].series[5].charge_kg).toBe(142.5);
+    const p = T.planDeSeance(entrees(se));
+    expect(p.exercices[0].semaineDeTest.ajout).toBeNull();
+    expect(p.exercices[0].semaineDeTest.videsPosees).toBe(6);
+    expect(S.retirerLignesDeTest(se, 0).exercices[0].series).toHaveLength(3);
+  });
+
+  test('l’essai suivant s’ajoute quand le précédent est validé, juste après lui', () => {
+    let se = seance([DC], 3);
+    const aj = T.planDeSeance(entrees(se)).exercices[0].semaineDeTest.ajout;
+    let k = 100; se = S.insererChauffes(se, 0, aj.lignes.map((q) => Object.assign([q.charge, q.reps], { test: true, type: q.type })), () => 'n' + (++k));
+    for (let j = 0; j < 6; j++) {
+      se = S.modifierSerie(se, 0, j, { charge_kg: se.exercices[0].series[j].charge_kg, reps: j === 5 ? 1 : se.exercices[0].series[j].reps_visees });
+      if (j === 5) se = S.definirEffort(se, 0, j, { rpe: 8 });
+      se = S.valider(se, 0, j, new Date('2026-11-03T10:' + (10 + j) + ':00Z'));
+    }
+    const e = entrees(se);
+    const p = T.planDeSeance(e);
+    const t = p.exercices[0].semaineDeTest;
+    expect(t.ajout.suite).toBe(true);
+    expect(t.ajout.lignes).toEqual([expect.objectContaining({ type: 'test', charge: 150 })]);
+    propre(p, e);
+    se = S.insererChauffes(se, 0, [Object.assign([150, 1], { test: true, type: 'test' })], () => 'z1', 'test');
+    expect(se.exercices[0].series.map((s) => s.type_serie).slice(5, 8)).toEqual(['test', 'test', 'travail']);
+  });
+
+  test('série au max : une ligne de travail marquée avec sa réserve demandée', () => {
+    const e = entrees(seance([SDT]), { modes: { [SDT]: 'serie' } });
+    const aj = T.planDeSeance(e).exercices[0].semaineDeTest.ajout;
+    const derniere = aj.lignes[aj.lignes.length - 1];
+    expect(derniere).toMatchObject({ type: 'travail', reserve: 1 });
+    let se = seance([SDT], 3);
+    se = S.insererChauffes(se, 0, aj.lignes.map((q) => Object.assign([q.charge, q.reps], { test: true, type: q.type, reserve: q.reserve })), () => 'q' + Math.random());
+    const posee = se.exercices[0].series.filter((s) => s.test_pose && s.type_serie === 'travail')[0];
+    expect(posee).toMatchObject({ au_max: true, au_max_reserve: 1 });
   });
 });

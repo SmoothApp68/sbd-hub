@@ -10315,7 +10315,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-  // 193-4 (MOTEUR §9.31) — LA SEMAINE DE TEST. Une seule fois, ici : la montée, les essais, la série au max, le max mesuré, l'arrêt,
+  // 193-4 (MOTEUR §9.32) — LA SEMAINE DE TEST. Une seule fois, ici : la montée, les essais, la série au max, le max mesuré, l'arrêt,
   // le jour de chaque barre, le calendrier de la proposition. Pures, sans séance ni horloge : le plan les LIT (`plan.js`), l'app ne
   // calcule rien. Deux façons, au choix barre par barre :
   //   · « Viser mon max (1 rep) » : la montée, puis trois essais — 1ᵉʳ ≈ 92 % du max estimé (« en gardant 2 »), 2ᵉ ≈ 97 %, 3ᵉ réglé sur le
@@ -10588,7 +10588,7 @@
   }
 
   var api = {
-    // 193-4 (MOTEUR §9.31) — la semaine de test.
+    // 193-4 (MOTEUR §9.32) — la semaine de test.
     MODULE_TEST: MODULE_TEST, GRANDEUR_TEST: GRANDEUR_TEST,
     TEST_MODE_MAX: TEST_MODE_MAX, TEST_MODE_SERIE: TEST_MODE_SERIE, TEST_MONTEE: TEST_MONTEE, TEST_ESSAIS_MAX: TEST_ESSAIS_MAX,
     TEST_ACCESSOIRES_MAX: TEST_ACCESSOIRES_MAX, TEST_SEMAINES_MIN: TEST_SEMAINES_MIN, TEST_VALIDITE_JOURS: TEST_VALIDITE_JOURS,

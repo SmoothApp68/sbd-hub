@@ -1,4 +1,4 @@
-// 193-4 (MOTEUR §9.31) — la semaine de test : la montée, les essais, la série au max, le max mesuré, l'arrêt, le calendrier.
+// 193-4 (MOTEUR §9.32) — la semaine de test : la montée, les essais, la série au max, le max mesuré, l'arrêt, le calendrier.
 process.env.TZ = 'Europe/Paris';
 const Modele = require('../../v2/js/modele.js');
 require('../../v2/js/palier.js');

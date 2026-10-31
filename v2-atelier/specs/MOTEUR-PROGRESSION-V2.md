@@ -1822,7 +1822,7 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 
 **Limites connues.** La question de réserve après la dernière série (I45) peut être redondante à la réserve 0 ; un exercice jamais fait sans consigne n'affiche pas de « Au max » ; l'import Hevy ne pose aucune marque.
 
-### 9.31 La semaine de test — décidé le 31/10/2026 (chantier 193-4) (I88 à I93)
+### 9.32 La semaine de test — décidé le 31/10/2026 (chantier 193-4) (I88 à I93)
 
 **Delta v2 / v2 bis / v2 ter du 31/10/2026 (15 h 10, 15 h 32, 16 h 55), qui priment sur la première rédaction du prompt.** Pas de « rep lourde + contrôle » : deux façons, au choix barre par barre, et la semaine de test **suit** la semaine allégée.
 
@@ -1849,7 +1849,9 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 
 **Lecteurs traités.** Plan (`semaineDeTestDuJour`, `semaineDeTestDExercice`), `verifierSemaineDeTest`, `auMaxFaitsDe`, page de l'exercice (`recordsDeLExercice`), carte de fin de phase, Profil, Saisie (bilan), paris. **Non touchés, avec la raison** : les paliers, la consigne de travail et le compteur de stagnation (le test reste hors palier) ; le journal des records (immuable, pas d'estimation) ; l'objectif et sa projection (ils lisent la table cumulée des records, que les essais alimentent déjà : un vrai max la fait monter) ; le générateur (il ne sait rien de la semaine de test).
 
-**Limites connues.** La structure de la séance n'est pas réécrite : les lignes de la montée et des essais sont proposées, la personne les ajoute (type `test` pour un essai, « Au max » pour la série). Un essai noté sans RPE compte comme sans marge. Le bilan n'indique pas « record » (le journal des records le dit à son heure).
+**Les lignes.** Sur la carte de la barre testée, « Ajouter ces lignes » (un geste, rien en silence) pose, par le chemin d'insertion des chauffes (`Seance.insererChauffes`), la montée (échauffements) puis le 1ᵉʳ essai en type `test` — ou la « Série au max » avec sa `au_max_reserve` — aux charges du plan ; « Ajouter l'essai suivant » pose les suivants un à un, quand les lignes posées sont validées ; « Annuler les lignes » retire celles que personne n'a validées (`test_pose`). Le plan ne pose jamais plus d'un essai à la fois (I88).
+
+**Limites connues.** Un essai noté sans RPE compte comme sans marge. Le bilan n'indique pas « record » (le journal des records le dit à son heure).
 
 ## 10. L'incrément
 

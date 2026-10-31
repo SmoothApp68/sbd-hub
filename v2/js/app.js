@@ -7221,7 +7221,7 @@
       // carte « Dernière série au max ? » (`profiles.cartes_semaine.au_max`, par exercice) : le plan décide, il ne relit rien.
       douleurs: faits.douleursParExercice(corpus(), seance.debut),
       auMaxReponses: (reponsesDesCartes().au_max && typeof reponsesDesCartes().au_max === 'object') ? reponsesDesCartes().au_max : {},
-      // 193-4 (MOTEUR §9.31) — la semaine de test (`profiles.cartes_semaine.test`) et le max estimé d'avant, par exercice : le plan décide.
+      // 193-4 (MOTEUR §9.32) — la semaine de test (`profiles.cartes_semaine.test`) et le max estimé d'avant, par exercice : le plan décide.
       semaineDeTest: semaineDeTestDesEntrees(exos),
       // 188-2 (I76) — les chutes de reps de chaque exercice de la séance (les 3 dernières séances, un fait de `faits.js`) : le plan
       // décide de la ligne du repos, il ne relit pas l'historique.
@@ -8431,7 +8431,7 @@
     await apresGeste();
   }
 
-  // ══ 193-4 (MOTEUR §9.31) — LA SEMAINE DE TEST ══════════════════════════════════════════════════════════════════════
+  // ══ 193-4 (MOTEUR §9.32) — LA SEMAINE DE TEST ══════════════════════════════════════════════════════════════════════
   //
   // La réponse vit dans `profiles.cartes_semaine.test` (par `poserProfil`, la file), sans colonne :
   //   { r: 'oui', debut, fin, le, bloc, modes: { slug: 'max' | 'serie' }, mesures: { slug: { valeur, charge, reps, source, vrai, avant, le,
@@ -8513,7 +8513,26 @@
     rendreSaisie();
   }
   // Les gestes sur la barre testée : sa façon, « Pas aujourd'hui », « Arrêter ». Rien ne s'écrit dans une série.
+  // « Ajouter ces lignes » / « Annuler » : par le chemin d'insertion des chauffes (`Seance.insererChauffes`), aux charges du plan. Rien en silence.
+  async function ajouterLesLignesDeTest(iExo, annuler) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var x = planDeLExercice(iExo);
+    var t = x && x.semaineDeTest;
+    if (!t || !t.testee) return;
+    if (annuler) {
+      seance = Seance.retirerLignesDeTest(seance, iExo);
+    } else {
+      if (!t.ajout) return;
+      var lignes = t.ajout.lignes.map(function (q) {
+        return Object.assign([q.charge, q.reps], { test: true, type: q.type, reserve: q.reserve });
+      });
+      seance = Seance.insererChauffes(seance, iExo, lignes, uuid, t.ajout.suite ? 'test' : undefined);
+    }
+    await apresGeste({ structure: false });
+  }
   async function repondreTest(iExo, cle) {
+    if (cle === 'ajouter') return ajouterLesLignesDeTest(iExo, false);
+    if (cle === 'annuler_lignes') return ajouterLesLignesDeTest(iExo, true);
     if (!seance || enEdition() || reponseEnCours) return;
     var x = planDeLExercice(iExo);
     var t = x && x.semaineDeTest;
@@ -9484,7 +9503,7 @@
         return x && x.propositionAuMax ? x.propositionAuMax : null;
       },
       surAuMax: function (i, cle) { return repondreAuMax(i, cle); },
-      // 193-4 (MOTEUR §9.31) — la barre testée aujourd'hui : lue sur le plan ; ses gestes (façon, « Pas aujourd'hui », « Arrêter »).
+      // 193-4 (MOTEUR §9.32) — la barre testée aujourd'hui : lue sur le plan ; ses gestes (façon, « Pas aujourd'hui », « Arrêter »).
       semaineDeTest: function (i) {
         if (enEdition()) return null;
         var x = planDeLExercice(i);
@@ -13121,7 +13140,7 @@
     // §9.23 (55-1) — LE PÉRIMÈTRE D'UN RECORD : celui de la médaille (12 mois pour un matériel de salle, toute la
     // vie ailleurs).
     var optionsRecords = Modele.optionsDeRecord(exo);
-    // 193-4 (MOTEUR §9.31) — le max MESURÉ par une semaine de test prime sur l'estimation (90 jours) ; jamais une ligne du journal des records.
+    // 193-4 (MOTEUR §9.32) — le max MESURÉ par une semaine de test prime sur l'estimation (90 jours) ; jamais une ligne du journal des records.
     var mesureDeTest = testDesCartes() && testDesCartes().mesures ? testDesCartes().mesures[slug] : null;
     if (mesureDeTest && mesureDeTest.valeur !== null && mesureDeTest.valeur !== undefined) {
       optionsRecords = Object.assign({}, optionsRecords, { mesures: [mesureDeTest] });
@@ -16678,7 +16697,7 @@
             // 108 (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies) — Ma salle ; 163 : les élastiques seulement, et seulement si un
             // exercice à l'élastique est dans une routine, l'historique ou la séance en cours.
             Profil.ligneSalle(p, ouvrirSalleProfil),
-            // 193-4 (MOTEUR §9.31) — « Semaine de test » : son état, la proposition hors programme, l'annulation.
+            // 193-4 (MOTEUR §9.32) — « Semaine de test » : son état, la proposition hors programme, l'annulation.
             ligneSemaineDeTest()
           ].filter(Boolean).concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil)) }
         ]),

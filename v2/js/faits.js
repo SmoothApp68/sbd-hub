@@ -1776,7 +1776,7 @@
     }
 
 
-    // 193-4 (MOTEUR §9.31) — LE MAX ESTIMÉ D'AVANT LA SEMAINE DE TEST, par exercice : la force estimée (`Modele.recordsDeLExercice(...).unRM`,
+    // 193-4 (MOTEUR §9.32) — LE MAX ESTIMÉ D'AVANT LA SEMAINE DE TEST, par exercice : la force estimée (`Modele.recordsDeLExercice(...).unRM`,
     // Epley) sur les séances STRICTEMENT avant le jour du début de la semaine — figée, elle ne bouge pas pendant les essais. `null` : aucune
     // série de travail estimable. `debut` : le jour civil `AAAA-MM-JJ`.
     function maxEstimesAvantLeTest(c, slugs, debut) {

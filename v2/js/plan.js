@@ -989,7 +989,7 @@
 
 
 
-  // ── 193-4 (MOTEUR §9.31) — LA SEMAINE DE TEST ──────────────────────────────
+  // ── 193-4 (MOTEUR §9.32) — LA SEMAINE DE TEST ──────────────────────────────
   //
   // Les décisions sont celles du moteur (`Moteur.test*`, une seule fois) ; le plan les LIT, séance par séance, et n'écrit rien. L'app
   // lui passe `entrees.semaineDeTest` (la réponse à la carte, rangée dans `profiles.cartes_semaine.test`, et ce que `faits.js` a lu) :
@@ -1086,6 +1086,19 @@
     out.mesureSerieId = mode === M.TEST_MODE_SERIE ? (f.serie ? f.serie.id : null)
       : (out.mesure && out.mesure.rang ? (f.essais[out.mesure.rang - 1] || {}).id || null : null);
     out.charge = out.prochain ? out.prochain.charge : (out.serie ? out.serie.charge : null);
+    // « Ajouter ces lignes » (geste de la personne, rien en silence) : la montée (échauffements) puis le 1ᵉʳ essai en type `test` (ou la
+    // « Série au max » avec sa réserve) ; les essais suivants un à un, quand les lignes posées sont toutes validées. « Annuler » retire les vides.
+    var posees = series.filter(function (q) { return q && q.test_pose === true; });
+    out.posees = posees.length;
+    out.videsPosees = posees.filter(function (q) { return !q.validee_a; }).length;
+    out.ajout = null;
+    if ((out.etat === 'a_faire' || out.etat === 'en_cours') && out.videsPosees === 0) {
+      var aj = [];
+      if (posees.length === 0) out.montee.forEach(function (m) { aj.push({ charge: m.charge, reps: m.reps, type: 'echauffement' }); });
+      if (out.prochain) aj.push({ charge: out.prochain.charge, reps: out.prochain.reps, type: 'test', essai: out.prochain.rang });
+      else if (out.serie && !f.serie) aj.push({ charge: out.serie.charge, reps: out.serie.vise, type: 'travail', reserve: out.serie.reserve });
+      if (aj.length) out.ajout = { lignes: aj, suite: posees.length > 0 };
+    }
     var pari = M.testPari(maxEstime, o);
     out.pari = pari === null ? null : { module: M.MODULE_TEST, exercise_slug: b.slug, grandeur: M.GRANDEUR_TEST, valeur_predite: pari,
                                         fondement: { mode: mode, max_estime: max, debut: jt.debut, seance: seance.id === undefined ? null : seance.id } };
@@ -5592,7 +5605,7 @@
     });
   }
 
-  // I88 à I93 (MOTEUR §9.31, 193-4) — LA SEMAINE DE TEST :
+  // I88 à I93 (MOTEUR §9.32, 193-4) — LA SEMAINE DE TEST :
   //   · I88 — jamais plus de trois essais, jamais de 4ᵉ ; le 3ᵉ est plus lourd que le 2ᵉ ;
   //   · I89 — une seule barre testée par séance ; le squat et le soulevé jamais le même jour (le second reste normal) ;
   //   · I90 — la montée (50/60/70/80/87 %) et les charges des essais (≈ 92 %, ≈ 97 %) ou de la série (≈ 85 %, ≈ 80 % au débutant) sont
@@ -5629,6 +5642,11 @@
         return Math.abs(charge - max * pct / 100) <= cran + max * (large || 0) / 100 + 1e-9;
       };
       if (t.essais && t.essais.length > M.TEST_ESSAIS_MAX) erreurs.push('I88' + nom + t.essais.length + ' essais (jamais plus de ' + M.TEST_ESSAIS_MAX + ')');
+      if (t.ajout) {
+        var essaisAjoutes = t.ajout.lignes.filter(function (q) { return q.type === 'test'; }).length;
+        if (essaisAjoutes > 1 || t.essais.length + essaisAjoutes > M.TEST_ESSAIS_MAX) erreurs.push('I88' + nom + 'l’ajout porterait à ' + (t.essais.length + essaisAjoutes) + ' essais');
+        if (t.ajout.lignes.some(function (q) { return q.type === 'test' && t.prochain && q.charge !== t.prochain.charge; })) erreurs.push('I90' + nom + 'l’essai ajouté n’est pas à la charge du plan');
+      }
       if (t.prochain) {
         if (t.prochain.rang > M.TEST_ESSAIS_MAX || t.essais.length >= M.TEST_ESSAIS_MAX) erreurs.push('I88' + nom + 'un ' + t.prochain.rang + 'ᵉ essai proposé');
         if (t.prochain.rang === 3 && t.essais[1] && !(t.prochain.charge > t.essais[1].charge)) erreurs.push('I88' + nom + 'le 3ᵉ essai (' + t.prochain.charge + ') n’est pas plus lourd que le 2ᵉ (' + t.essais[1].charge + ')');

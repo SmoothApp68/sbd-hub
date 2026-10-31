@@ -2793,7 +2793,7 @@
         // 193-6 (MOTEUR §9.30) — « Dernière série au max ? » : une fois par exercice, du plan ; trois gestes.
         var pa = typeof vue.propositionAuMax === 'function' ? vue.propositionAuMax(s._iExo) : null;
         if (pa) noeud.appendChild(propositionDAuMax(pa, s._iExo, vue));
-        // 193-4 (MOTEUR §9.31) — la semaine de test : la barre testée aujourd'hui, ou la note d'un accessoire.
+        // 193-4 (MOTEUR §9.32) — la semaine de test : la barre testée aujourd'hui, ou la note d'un accessoire.
         var pt = typeof vue.semaineDeTest === 'function' ? vue.semaineDeTest(s._iExo) : null;
         if (pt) { var ct = carteDeTest(pt, s._iExo, vue); if (ct) noeud.appendChild(ct); }
       }
@@ -3527,7 +3527,7 @@
     }, iExo);
   }
 
-  // 193-4 (MOTEUR §9.31) — LA SEMAINE DE TEST dans la séance : la barre testée aujourd'hui (la montée, la consigne, le « Pourquoi », la
+  // 193-4 (MOTEUR §9.32) — LA SEMAINE DE TEST dans la séance : la barre testée aujourd'hui (la montée, la consigne, le « Pourquoi », la
   // mesure, les gestes) et, sur un accessoire, une ligne. Tout vient du plan (`vue.semaineDeTest`) ; rien n'est recalculé ici.
   var ARRETS_DU_TEST = { mal: 'Tu as mal : on ne teste pas ce mouvement.', sans_marge: 'Ton premier essai n’a rien laissé : on s’arrête là, ton max du jour est lu sur lui.',
     rate: 'Un essai raté : on s’arrête là.', technique: 'La technique lâche : on s’arrête là.', sans_cran: 'Rien de plus lourd à ta salle : on s’arrête là.' };
@@ -3560,6 +3560,8 @@
       gestes.appendChild(b);
     };
     var enCours = t.etat === 'a_faire' || t.etat === 'en_cours';
+    if (t.ajout) bouton('pt-ajouter', t.ajout.suite ? 'Ajouter l’essai suivant' : 'Ajouter ces lignes', 'ajouter');
+    if (t.videsPosees) bouton('pt-annuler', 'Annuler les lignes', 'annuler_lignes');
     if (enCours && !(t.essais && t.essais.length)) {
       bouton('pt-mode', t.mode === 'max' ? 'Plutôt une série au max' : 'Plutôt viser mon max', t.mode === 'max' ? 'mode_serie' : 'mode_max');
     }

@@ -7383,7 +7383,7 @@ const SETS_IMPORTES = [
       JSON.stringify(sansPlan) + ' → ' + JSON.stringify(avecPlan));
 
     await page.click('.legende-exo .puce-zone');
-    await attendre(700);
+    await attendreQue(() => page.evaluate(() => !!document.querySelector('#feuille-contenu .option-zone')), 6000);
     const deux = await boutonsO();
     ok('[O] toucher l’étiquette ouvre DEUX choix — « Changer la zone de cette routine » et « Juste pour aujourd’hui »',
       deux.some((t) => /^Changer la zone de cette routine/.test(t)) && deux.some((t) => /^Juste pour aujourd.hui/.test(t)),
@@ -7395,9 +7395,9 @@ const SETS_IMPORTES = [
     const reperePatchs = base.journal.length;
     await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .option-zone'))
       .filter((b) => /Juste pour/.test(b.textContent))[0].click());
-    await attendre(700);
+    await attendreQue(() => page.evaluate(() => !!document.querySelector('#feuille-contenu .option-zone[data-cle="mix"]')), 6000);
     await page.click('#feuille-contenu .option-zone[data-cle="mix"]');
-    await attendre(1600);
+    await attendreQue(async () => (await puceO()).texte === 'Mix · aujourd’hui', 6000);
     ok('[O] « Juste pour aujourd’hui » : la consigne se recalcule, l’étiquette le dit',
       JSON.stringify(await enTeteO()) !== JSON.stringify(avecPlan) && (await puceO()).texte === 'Mix · aujourd’hui',
       JSON.stringify(await puceO()) + ' ' + JSON.stringify(await enTeteO()));
@@ -7414,12 +7414,12 @@ const SETS_IMPORTES = [
 
     // ── CHANGER LA ZONE DE LA ROUTINE : la ligne de routine est écrite ───────
     await page.click('.legende-exo .puce-zone');
-    await attendre(700);
+    await attendreQue(() => page.evaluate(() => !!document.querySelector('#feuille-contenu .option-zone')), 6000);
     await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .option-zone'))
       .filter((b) => /Changer la zone/.test(b.textContent))[0].click());
-    await attendre(700);
+    await attendreQue(() => page.evaluate(() => !!document.querySelector('#feuille-contenu .option-zone[data-cle="hypertrophie"]')), 6000);
     await page.click('#feuille-contenu .option-zone[data-cle="hypertrophie"]');
-    await attendre(2400);
+    await attendreQue(() => ligneTerre.zone === 'hypertrophie', 6000);
     ok('[O] « Changer la zone de cette routine » écrit la ligne de routine (hypertrophie)',
       ligneTerre.zone === 'hypertrophie', 'zone = ' + ligneTerre.zone);
     ok('[O] et la consigne suit aussitôt : « Hypertrophie · ta routine »',
@@ -7463,12 +7463,12 @@ const SETS_IMPORTES = [
     // revient à la déduction pour que le constat se lise sur la zone d'origine.
     await aller('/exercice/souleve-terre');
     await page.click('#page-exercice .puce-zone');
-    await attendre(700);
+    await attendreQue(() => page.evaluate(() => !!document.querySelector('#feuille-contenu button')), 6000);
     await page.evaluate(() => {
       Array.from(document.querySelectorAll('#feuille-contenu button'))
         .filter((b) => /Revenir/.test(b.textContent))[0].click();
     });
-    await attendre(1600);
+    await feuilleFermee();
 
     const idsAvantC6 = new Set(base.sets.map((x) => x.id));   // 143-bis — ce que la séance ajoute
     await aller('/saisie');

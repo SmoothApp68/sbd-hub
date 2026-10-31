@@ -138,3 +138,64 @@ describe('les places liées se remplacent ensemble', () => {
     });
   });
 });
+
+describe('193-2 (commit 4) — l’aperçu dit le programme de famille', () => {
+  const cat = catalogue();
+  const nommer = (s) => s;
+  const dit = (objectif, jours, o) => {
+    const e = entree(Object.assign({ objectif, jours }, o || {}));
+    const rs = G.generer(cat, clone(e));
+    return { e, rs, p: G.phrasesDeLApercu(rs, e, nommer, rs.length) };
+  };
+
+  test('Force 4 jours : combien de fois chaque barre, la zone de chaque jour, la semaine allégée, la fréquence', () => {
+    const { p } = dit('force', 4);
+    expect(p.famille).toEqual([
+      'Dans la semaine : squat 2 fois, couché 3 fois, soulevé 1 fois lourd.',
+      'Chaque jour a sa zone : la même barre passe de Lourd à Mix ou à Hypertrophie.',
+      'Une semaine allégée toutes les 5 semaines : mêmes charges, moins de séries.',
+      'Fréquence : environ 3 % de force de plus par séance hebdomadaire ajoutée sur un mouvement (Pelland 2026).']);
+  });
+
+  test('Les deux 4 jours : la grosse série et ses reculs sont dits', () => {
+    const { p } = dit('les_deux', 4);
+    expect(p.famille[0]).toBe('Dans la semaine : squat 2 fois, couché 2 fois, soulevé 1 fois lourd.');
+    expect(p.famille[1]).toMatch(/grosse série puis des reculs/);
+  });
+
+  test('Les deux 2 jours : chaque barre une fois, et l’en-tête le dit', () => {
+    const { p } = dit('les_deux', 2);
+    expect(p.famille[0]).toBe('Dans la semaine : squat 1 fois, couché 1 fois, soulevé 1 fois lourd.');
+    expect(p.famille).toContain('Avec 2 séances, chaque barre passe une fois.');
+    expect(p.famille.join(' ')).not.toMatch(/Fréquence/);
+  });
+
+  test('Muscle, Forme, débutant, maison sans barre : aucune phrase de famille', () => {
+    expect(dit('muscle', 4).p.famille).toEqual([]);
+    expect(dit('forme', 3).p.famille).toEqual([]);
+    expect(dit('force', 3, { anciennete: 'moins_1_an' }).p.famille).toEqual([]);
+    expect(dit('les_deux', 3, { materiel: 'maison_minimal' }).p.famille).toEqual([]);
+  });
+
+  test('les phrases ne sont pas plus faibles qu’un fait : pas d’ordre, pas de « palier », pas de « bravo »', () => {
+    ['force', 'les_deux'].forEach((o) => [2, 3, 4, 5, 6].forEach((j) => {
+      dit(o, j).p.famille.forEach((t) => expect(t).not.toMatch(/palier|bravo|il faut|tu dois|assidu|la science|les études/i));
+    }));
+  });
+
+  test('mentionsDeLigne : la zone du jour avec ses reps, avant le reste ; une place sans zone n’en dit rien', () => {
+    const { e, rs } = dit('les_deux', 4);
+    const lourde = rs[0].exercices.find((x) => x.zone === 'lourd');
+    expect(G.mentionsDeLigne(lourde, e)).toEqual(['zone Lourd (3-5)']);
+    const hyper = rs[0].exercices.find((x) => x.zone === 'hypertrophie');
+    expect(G.mentionsDeLigne(hyper, e)).toEqual(['zone Hypertrophie (8-10)']);
+    const libre = rs[0].exercices.find((x) => !x.zone);
+    expect(G.mentionsDeLigne(libre, e).join(' ')).not.toMatch(/zone/);
+  });
+
+  test('pourquoi : les reculs comptent dans les séries d’une zone du radar', () => {
+    const { rs } = dit('les_deux', 4);
+    // Bas A : squat 1 + 3 reculs, roumain 3, leg curl 3, mollets 3 → Jambes 13
+    expect(G.pourquoi(cat, rs[1])).toMatch(/^Jambes 13 séries$/);
+  });
+});

@@ -588,7 +588,7 @@
       var fiche = catalogue[x.exercise_slug];
       var z = fiche ? zoneDe(liste(fiche.muscles_primaires)[0]) : null;
       var cle = z ? z.cle : ZONE_INCONNUE.cle;
-      g[cle] = (g[cle] || 0) + x.series;
+      g[cle] = (g[cle] || 0) + x.series + (x.reculs > 0 ? x.reculs : 0);       // 193-2 : les reculs comptent dans le volume
     });
     var cles = trier(Object.keys(g), function (x, y) { return (g[y] - g[x]) || (ordre[x] - ordre[y]); });
     if (!cles.length) return '';
@@ -641,7 +641,41 @@
     var zones = zonesDeLigne(l, e.menager);
     if (zones.length) m.push('sans série lourde \u00b7 ' + joindre(zones.map(function (z) { return POSSESSIF[z]; })));
     if (l.barre_fixe && barreFixeAVerifier(e.materiel, e.barre_traction)) m.push('demande une barre fixe');
+    // 193-2 — la zone du jour que la routine portera (193-3), avec ses reps : « Lourd (3-5) ». Une place sans zone (Automatique) : rien.
+    if (l.zone && racine.THMoteur && racine.THMoteur.libelleZoneDeBloc) {
+      var zl = racine.THMoteur.libelleZoneDeBloc(l.zone, true);
+      if (zl) m.unshift('zone ' + zl);
+    }
     return m;
+  }
+
+  // 193-2 — ce que dit l'en-tête d'un programme de FAMILLE (Force, Les deux) : combien de fois chaque barre passe dans la semaine, ce
+  // que fait la zone de chaque jour, la semaine allégée, et pourquoi la fréquence. Des faits, pas des ordres. Aucune phrase sans lignes
+  // à zone (Muscle, Forme, débutant, maison sans barre : rien).
+  var MOTIFS_SQUAT = ['squat'], MOTIFS_COUCHE = ['couche', 'couche_serre'], MOTIFS_SOULEVE = ['charniere'];
+  function fois(n) { return n + ' fois'; }
+  function phrasesDeFamille(lignes, total) {
+    var zonees = lignes.filter(function (l) { return !!l.zone; });
+    if (!zonees.length) return [];
+    var compte = function (motifs, zone) {
+      return zonees.filter(function (l) { return contient(motifs, l.motif) && (!zone || l.zone === zone); }).length;
+    };
+    var sq = compte(MOTIFS_SQUAT), co = compte(MOTIFS_COUCHE), so = compte(MOTIFS_SOULEVE, 'lourd');
+    var parts = [];
+    if (sq) parts.push('squat ' + fois(sq));
+    if (co) parts.push('couché ' + fois(co));
+    if (so) parts.push('soulevé ' + fois(so) + ' lourd');
+    var phrases = [];
+    if (parts.length) phrases.push('Dans la semaine\u00a0: ' + parts.join(', ') + '.');
+    var reculs = zonees.some(function (l) { return l.reculs > 0; });
+    phrases.push(reculs ? 'Un jour lourd, une grosse série puis des reculs\u00a0; un jour en hypertrophie, des séries égales.'
+                        : 'Chaque jour a sa zone\u00a0: la même barre passe de Lourd à Mix ou à Hypertrophie.');
+    if (total <= 2 && sq <= 1 && co <= 1) phrases.push('Avec ' + total + ' séances, chaque barre passe une fois.');
+    phrases.push('Une semaine allégée toutes les 5 semaines\u00a0: mêmes charges, moins de séries.');
+    if (sq >= 2 || co >= 2) {
+      phrases.push('Fréquence\u00a0: environ 3\u00a0% de force de plus par séance hebdomadaire ajoutée sur un mouvement (Pelland 2026).');
+    }
+    return phrases;
   }
 
   // Le haut de l'aperçu : « {N} séances par semaine. », une phrase par zone à ménager, et la barre fixe.
@@ -680,7 +714,8 @@
     // `total` : le nombre de séances du programme, quand toutes ne sont pas encore à créer (une reprise après panne).
     // 66D : avec un historique, une seule séance est possible (« 1 séance par semaine. »).
     var n = total === undefined ? rts.length : total;
-    return { titre: n + (n > 1 ? ' séances' : ' séance') + ' par semaine.', zones: zones, barreFixe: barre };
+    return { titre: n + (n > 1 ? ' séances' : ' séance') + ' par semaine.', zones: zones, barreFixe: barre,
+             famille: phrasesDeFamille(lignes, n) };
   }
 
   // ── Ce que le raccourci de la durée ne touche pas (R4/R6, 60-5) ──────────────────────

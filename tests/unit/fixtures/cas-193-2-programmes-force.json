@@ -1537,7 +1537,7 @@
    "attendu": [
     {
      "nom": "Jour A",
-     "pourquoi": "Jambes 4 · Dos 3 · Épaules 3 séries",
+     "pourquoi": "Jambes 7 · Dos 3 · Épaules 3 séries",
      "exercices": [
       [
        "squat_barre",
@@ -1603,7 +1603,7 @@
     },
     {
      "nom": "Jour B",
-     "pourquoi": "Dos 3 · Bras 3 · Jambes 1 · Poitrine 1 séries",
+     "pourquoi": "Poitrine 4 · Jambes 3 · Dos 3 · Bras 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -1686,7 +1686,7 @@
    "attendu": [
     {
      "nom": "Jour A",
-     "pourquoi": "Dos 3 · Épaules 3 · Poitrine 3 · Jambes 1 séries",
+     "pourquoi": "Jambes 4 · Dos 3 · Épaules 3 · Poitrine 3 séries",
      "exercices": [
       [
        "squat_barre",
@@ -1752,7 +1752,7 @@
     },
     {
      "nom": "Jour B",
-     "pourquoi": "Jambes 6 · Dos 3 · Poitrine 1 séries",
+     "pourquoi": "Jambes 6 · Poitrine 4 · Dos 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -1818,7 +1818,7 @@
     },
     {
      "nom": "Jour C",
-     "pourquoi": "Bras 3 · Épaules 3 · Tronc 3 · Jambes 1 séries",
+     "pourquoi": "Jambes 3 · Bras 3 · Épaules 3 · Tronc 3 séries",
      "exercices": [
       [
        "souleve_de_terre_barre",
@@ -1901,7 +1901,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 1 séries",
+     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -1967,7 +1967,7 @@
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 10 séries",
+     "pourquoi": "Jambes 13 séries",
      "exercices": [
       [
        "squat_barre",
@@ -2033,7 +2033,7 @@
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Dos 3 · Bras 3 · Poitrine 3 · Épaules 1 séries",
+     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
@@ -2099,7 +2099,7 @@
     },
     {
      "nom": "Bas B",
-     "pourquoi": "Jambes 7 · Tronc 3 séries",
+     "pourquoi": "Jambes 9 · Tronc 3 séries",
      "exercices": [
       [
        "souleve_de_terre_barre",
@@ -2182,7 +2182,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 1 séries",
+     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -2248,7 +2248,7 @@
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 10 séries",
+     "pourquoi": "Jambes 13 séries",
      "exercices": [
       [
        "squat_barre",
@@ -2314,7 +2314,7 @@
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Dos 3 · Bras 3 · Poitrine 3 · Épaules 1 séries",
+     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
@@ -2380,7 +2380,7 @@
     },
     {
      "nom": "Bas B",
-     "pourquoi": "Jambes 7 · Tronc 3 séries",
+     "pourquoi": "Jambes 9 · Tronc 3 séries",
      "exercices": [
       [
        "souleve_de_terre_barre",
@@ -2559,7 +2559,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 1 séries",
+     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -2625,7 +2625,7 @@
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 10 séries",
+     "pourquoi": "Jambes 13 séries",
      "exercices": [
       [
        "squat_barre",
@@ -2691,7 +2691,7 @@
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Dos 3 · Bras 3 · Poitrine 3 · Épaules 1 séries",
+     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
@@ -2757,7 +2757,7 @@
     },
     {
      "nom": "Bas B",
-     "pourquoi": "Jambes 7 · Tronc 3 séries",
+     "pourquoi": "Jambes 9 · Tronc 3 séries",
      "exercices": [
       [
        "souleve_de_terre_barre",
@@ -3968,7 +3968,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 1 séries",
+     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -4100,7 +4100,7 @@
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Dos 3 · Bras 3 · Poitrine 3 · Épaules 1 séries",
+     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
@@ -4166,7 +4166,7 @@
     },
     {
      "nom": "Bas B",
-     "pourquoi": "Jambes 7 · Tronc 3 séries",
+     "pourquoi": "Jambes 9 · Tronc 3 séries",
      "exercices": [
       [
        "souleve_de_terre_barre",
@@ -5171,7 +5171,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 1 séries",
+     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -5237,7 +5237,7 @@
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 10 séries",
+     "pourquoi": "Jambes 14 séries",
      "exercices": [
       [
        "squat_barre",
@@ -5303,7 +5303,7 @@
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Dos 3 · Bras 3 · Poitrine 3 · Épaules 1 séries",
+     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
@@ -5369,7 +5369,7 @@
     },
     {
      "nom": "Bas B",
-     "pourquoi": "Jambes 8 · Tronc 3 séries",
+     "pourquoi": "Jambes 10 · Tronc 3 séries",
      "exercices": [
       [
        "squat_barre",
@@ -6048,7 +6048,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 1 séries",
+     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -6114,7 +6114,7 @@
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 10 séries",
+     "pourquoi": "Jambes 14 séries",
      "exercices": [
       [
        "squat_barre",
@@ -6180,7 +6180,7 @@
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Dos 3 · Bras 3 · Poitrine 3 · Épaules 1 séries",
+     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
@@ -6246,7 +6246,7 @@
     },
     {
      "nom": "Bas B",
-     "pourquoi": "Jambes 8 · Tronc 3 séries",
+     "pourquoi": "Jambes 10 · Tronc 3 séries",
      "exercices": [
       [
        "squat_barre",
@@ -6663,7 +6663,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 1 séries",
+     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -6729,7 +6729,7 @@
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 10 séries",
+     "pourquoi": "Jambes 13 séries",
      "exercices": [
       [
        "squat_barre",
@@ -6795,7 +6795,7 @@
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Dos 3 · Bras 3 · Poitrine 3 · Épaules 1 séries",
+     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
@@ -6861,7 +6861,7 @@
     },
     {
      "nom": "Bas B",
-     "pourquoi": "Jambes 7 · Tronc 3 séries",
+     "pourquoi": "Jambes 9 · Tronc 3 séries",
      "exercices": [
       [
        "souleve_de_terre_barre",
@@ -6941,7 +6941,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 1 séries",
+     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -7073,7 +7073,7 @@
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Dos 3 · Bras 3 · Poitrine 3 · Épaules 1 séries",
+     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
@@ -7216,7 +7216,7 @@
    "attendu": [
     {
      "nom": "Haut A",
-     "pourquoi": "Épaules 6 · Dos 3 · Poitrine 1 séries",
+     "pourquoi": "Épaules 6 · Poitrine 4 · Dos 3 séries",
      "exercices": [
       [
        "developpe_couche_barre",
@@ -7282,7 +7282,7 @@
     },
     {
      "nom": "Bas A",
-     "pourquoi": "Jambes 7 séries",
+     "pourquoi": "Jambes 10 séries",
      "exercices": [
       [
        "squat_barre",
@@ -7333,7 +7333,7 @@
     },
     {
      "nom": "Haut B",
-     "pourquoi": "Dos 3 · Bras 3 · Poitrine 3 · Épaules 1 séries",
+     "pourquoi": "Épaules 4 · Dos 3 · Bras 3 · Poitrine 3 séries",
      "exercices": [
       [
        "developpe_militaire_barre",
@@ -7399,7 +7399,7 @@
     },
     {
      "nom": "Bas B",
-     "pourquoi": "Jambes 7 · Tronc 3 séries",
+     "pourquoi": "Jambes 9 · Tronc 3 séries",
      "exercices": [
       [
        "souleve_de_terre_barre",

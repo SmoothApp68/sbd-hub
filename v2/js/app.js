@@ -13611,7 +13611,10 @@
     });
   }
 
-  function seriesFois(l) { return l.series + '\u00a0\u00d7\u00a0' + l.reps; }
+  // 193-2 — « 1 × 4 · 3 reculs » : la grosse série, puis ses reculs (la même forme que la routine écrite, `resumeStructure`).
+  function seriesFois(l) {
+    return l.series + '\u00a0\u00d7\u00a0' + l.reps + (l.reculs > 0 ? ' \u00b7 ' + l.reculs + (l.reculs > 1 ? ' reculs' : ' recul') : '');
+  }
 
   function rendreApercuDuProgramme() {
     var c = construit;
@@ -13627,7 +13630,8 @@
     // `Routines.DEDUIT`) ; sans, le titre dit que c'est un point de départ.
     var h = c.historique;
     var voix = (h ? ['Ce sont tes séances des ' + (Routines.DEDUIT.jours / 7) + ' dernières semaines.'] : [])
-      .concat(['Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']).concat(phrases.zones);
+      .concat(['Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']).concat(phrases.famille || [])
+      .concat(phrases.zones);
     if (phrases.barreFixe) voix.push(phrases.barreFixe);
     if (c.annonce) voix.push(c.annonce);
     var changements = h ? (c.changements || []) : [];

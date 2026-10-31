@@ -6543,6 +6543,7 @@
   //   · déclenche si au moins 4 exercices suivis baissent de plus de 5 % ET forment au moins 40 % des exercices suivis.
   var FATIGUE_SEMAINES = 3;
   var FATIGUE_BAISSE_MIN = 5;          // en pourcent, strictement au-dessus
+  var FATIGUE_BAISSE_ATTENDUE_MIN = 2; // 198 : en sèche, sous ce seuil la baisse est du bruit de mesure (médiane d'estimations), pas un constat
   var FATIGUE_EXERCICES_MIN = 4;
   var FATIGUE_PART_MIN = 40;           // en pourcent, au moins
   var FATIGUE_SEANCES_MIN = 2;         // par fenêtre
@@ -6699,6 +6700,36 @@
     sortie.declenche = baisses.length >= FATIGUE_EXERCICES_MIN && baisses.length * 100 >= sortie.suivis * FATIGUE_PART_MIN;
     sortie.raison = sortie.declenche ? null : 'seuil';
     return sortie;
+  }
+
+  // 198 (MOTEUR §9.34, décidé le 31/10/2026) — EN SÈCHE, UNE BAISSE JUSQU'À 5 % EST ATTENDUE : tu manges moins. La carte de fatigue ne
+  // se pose pas (elle exige plus de 5 % par exercice) ; à la place, une phrase descriptive, sans geste. Même ampleur que la carte
+  // (au moins 4 exercices ET 40 % des exercices suivis) mais des baisses de 2 à 5 % : on n'invente pas un constat sur du bruit. Au-delà de
+  // 5 %, la carte habituelle revient (`baisseGenerale`). Le coach ne baisse jamais le volume d'office en sèche. `b` : une sortie de
+  // `baisseGenerale` ; rend `{ noms, moyenne, reserve }` ou `null`.
+  function baisseAttendue(b) {
+    if (!b || b.declenche || b.raison !== 'seuil') return null;
+    var petites = (b.lignes || []).filter(function (l) { return l.baisse >= FATIGUE_BAISSE_ATTENDUE_MIN - 1e-9; });
+    if (petites.length < FATIGUE_EXERCICES_MIN || petites.length * 100 < b.suivis * FATIGUE_PART_MIN) return null;
+    var moyenne = Math.round(petites.reduce(function (t, l) { return t + l.baisse; }, 0) / petites.length);
+    if (moyenne > FATIGUE_BAISSE_MIN) return null;
+    return { noms: petites.map(function (l) { return l.nom; }), moyenne: moyenne, reserve: !!b.reserve };
+  }
+  function titreBaisseAttendue() { return 'Tes séries baissent un peu'; }
+  // « Couché, squat, rowing : −3 % en moyenne depuis 3 semaines. En sèche, une baisse jusqu'à 5 % est attendue : tu manges moins, pas
+  // encore de quoi alléger. Garde tes charges. » — « en sèche » une seule fois.
+  function phraseBaisseAttendue(noms, moyenne, reserve) {
+    var l = (noms || []).map(String), liste;
+    if (l.length > FATIGUE_NOMS_MAX) {
+      liste = l.slice(0, 3).join(', ') + ' et ' + nombreFr(l.length - 3, regle('carte.autres')) + ' autres exercices';
+    } else if (l.length > 1) {
+      liste = l.slice(0, -1).join(', ') + ' et ' + l[l.length - 1];
+    } else {
+      liste = l.join('');
+    }
+    return liste + DEUX_POINTS + MOINS + nombreFr(moyenne, regle('fatigue.moyenne')) + ' % en moyenne depuis ' +
+      nombreFr(FATIGUE_SEMAINES, regle('constante')) + ' semaines' + (reserve ? ', à réserve égale' : '') + '. En sèche, une baisse jusqu’à ' +
+      nombreFr(FATIGUE_BAISSE_MIN, regle('constante')) + ' % est attendue' + DEUX_POINTS + 'tu manges moins, pas encore de quoi alléger. Garde tes charges.';
   }
 
   // LE CONSTAT SANS CARTE (« Juste un carnet ») : la même mesure, dite en une ligne dans le Parcours. `null` : rien à dire.
@@ -10566,6 +10597,10 @@
     observationBaisse: observationBaisse,
     valeurDeFatigue: valeurDeFatigue,
     titreBaisse: titreBaisse,
+    baisseAttendue: baisseAttendue,
+    titreBaisseAttendue: titreBaisseAttendue,
+    phraseBaisseAttendue: phraseBaisseAttendue,
+    FATIGUE_BAISSE_MIN: FATIGUE_BAISSE_MIN,
     phraseBaisse: phraseBaisse,
     detailBaisse: detailBaisse,
     libelleSerieDeMoins: libelleSerieDeMoins,

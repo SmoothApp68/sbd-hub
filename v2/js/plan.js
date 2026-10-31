@@ -1781,6 +1781,8 @@
       reglage: reglagePlan,
       allegee: esc.allegee,
       carte: esc.carte,
+      // 198 — en sèche, sous 5 % : la phrase descriptive (sans carte, sans geste), ou `null`.
+      baisseAttendue: esc.attendue || null,
       // 189 — la série de moins en cours, ou `null` : de quoi dire le bandeau et son geste « Revenir à mes séries ».
       serieDeMoins: moinsActive ? serieDeMoinsDuPlan() : null,
       // §9.22 (53-2) — les exercices d'un bloc en cours ce jour-là (I39).
@@ -2993,14 +2995,20 @@
     // 189 (MOTEUR §14.11) — LE SECOND DÉCLENCHEUR, LA MÊME CARTE : tes séries baissent depuis 3 semaines. Aucune carte de fatigue
     // dans les 4 semaines d'une autre, ni pendant une semaine allégée ou une décharge planifiée (déjà rendues plus haut), ni
     // pendant une « série de moins » en cours. Les deux déclencheurs la même séance : une seule carte, le texte de la baisse.
-    var baisse = null;
+    var baisse = null, attendue = null;
     var moinsPose = !!(esc.serieDeMoins && esc.serieDeMoins.active === true);
     if (e.escalier.baisse && !moinsPose && M.baisseAutorisee(cartes, jour, blocs)) {
       var donnees = typeof e.escalier.baisse === 'function' ? e.escalier.baisse(jour) : e.escalier.baisse;
       var r = donnees ? M.baisseGenerale(donnees) : null;
       if (r && r.declenche) baisse = r;
+      // 198 — en sèche, sous 5 % : pas de carte, une phrase descriptive (MOTEUR §9.34).
+      else if (r && phaseDuPlan(e.phase) === 'seche') {
+        var att = M.baisseAttendue(r);
+        if (att) attendue = { titre: M.titreBaisseAttendue(), phrase: M.phraseBaisseAttendue(att.noms, att.moyenne, att.reserve),
+                              fait: { noms: att.noms, moyenne: att.moyenne, reserve: att.reserve } };
+      }
     }
-    if (!b && !baisse) return vide;
+    if (!b && !baisse) return attendue ? { allegee: null, carte: null, attendue: attendue } : vide;
     var nom = function (s) { return esc.noms && esc.noms[s] ? esc.noms[s] : s; };
     if (!baisse) {
       return {
@@ -5114,6 +5122,7 @@
     verifierReserve(plan, entrees, erreurs);
     verifierCalage(plan, entrees, erreurs);
     verifierZoneMenagee(plan, entrees, erreurs);
+    verifierBaisseAttendue(plan, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
     verifierBord(plan, erreurs);
     verifierLeviers(plan, erreurs);
@@ -5220,6 +5229,29 @@
   // générateur) ne reçoit AUCUNE série lourde — ni zone Lourd (3-5 reps), ni ligne à 5 reps ou moins —, sauf une zone que la
   // personne a choisie elle-même (le moteur propose, elle décide). Les approches du calage sont des séries de travail à 6 reps au moins.
   var REPS_LOURDES_MAX = 5;
+  // I107 et I108 (MOTEUR §9.34, 198) — LA BAISSE ATTENDUE EN SÈCHE.
+  //   · I107 — la phrase « baisse attendue » n'existe qu'en sèche, jamais avec une carte de fatigue ni une semaine allégée, annonce
+  //     2 à 5 % en moyenne, se refait de la règle et dit « sèche » une seule fois ;
+  //   · I108 — une carte de baisse en sèche annonce plus de 5 % (en dessous, c'est la phrase, pas la carte).
+  function verifierBaisseAttendue(plan, erreurs) {
+    if (!plan) return;
+    var M = Moteur(), a = plan.baisseAttendue;
+    if (a) {
+      if (plan.phase !== 'seche') erreurs.push('I107 — la baisse attendue hors sèche');
+      if (plan.carte) erreurs.push('I107 — la baisse attendue avec une carte de fatigue');
+      if (plan.allegee) erreurs.push('I107 — la baisse attendue pendant une semaine allégée');
+      var f = a.fait || {};
+      if (!(f.moyenne >= 0 && f.moyenne <= M.FATIGUE_BAISSE_MIN)) erreurs.push('I107 — la baisse attendue annonce ' + f.moyenne + ' % en moyenne');
+      if (a.phrase !== M.phraseBaisseAttendue(f.noms, f.moyenne, f.reserve)) erreurs.push('I107 — la phrase de la baisse attendue ne se refait pas de la règle');
+      if ((String(a.phrase).match(/sèche/g) || []).length !== 1) erreurs.push('I107 — « sèche » doit être dit une seule fois');
+      if (a.titre !== M.titreBaisseAttendue()) erreurs.push('I107 — le titre de la baisse attendue');
+    }
+    var c = plan.carte;
+    if (c && c.source === M.SOURCE_BAISSE && plan.phase === 'seche' && c.fait && c.fait.moyenne < M.FATIGUE_BAISSE_MIN) {
+      erreurs.push('I108 — une carte de baisse en sèche à ' + c.fait.moyenne + ' % (la phrase attendue suffit sous 5 %)');
+    }
+  }
+
   function verifierZoneMenagee(plan, entrees, erreurs) {
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var m = x && x.menagee;
@@ -6198,6 +6230,7 @@
     rejouer: rejouer,
     verifierPlan: verifierPlan,
     verifierOndulation: verifierOndulation,
+    verifierBaisseAttendue: verifierBaisseAttendue,
     verifierSilenceDuProgramme: verifierSilenceDuProgramme,
     verifierPhrases: verifierPhrases,
     gardeActive: gardeActive,

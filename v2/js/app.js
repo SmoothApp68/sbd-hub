@@ -9097,6 +9097,7 @@
     var planEsc = planActuel();
     Rendu.rendreEscalier($('escalier-seance'), {
       carte: planEsc ? planEsc.carte : null,
+      attendue: planEsc ? planEsc.baisseAttendue : null,   // 198 : la phrase de la baisse attendue en sèche (sans geste)
       allegee: planEsc ? planEsc.allegee : null,
       refus: refusMontre === seance.id ? Moteur.PHRASE_REFUS : null,
       surAlleger: function () { repondreCarte('acceptee'); },

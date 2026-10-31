@@ -13656,7 +13656,14 @@
     var ancien = Modele.nommer(index, vieux.exercise_slug);
     // Le remplaçant RÉEL, lu avant la fusion des voisins (un remplaçant déjà dans la séance y absorbe ses séries).
     var neuve = !retiree && res.routines[i].exercices[k];
-    var marque = function (j) { var o = {}; if (neuve && j >= 0) o[j + ':' + neuve.exercise_slug] = true; return o; };
+    // 193-2 — les places liées changent avec elle : chacune de leurs séances marque le remplaçant.
+    var seancesLiees = Generateur.lieesDe(c.routines, i, k).map(function (p) { return p[0]; });
+    var marque = function (j) {
+      var o = {};
+      if (neuve && j >= 0) o[j + ':' + neuve.exercise_slug] = true;
+      if (neuve && !c.historique) seancesLiees.forEach(function (r) { o[r + ':' + neuve.exercise_slug] = true; });
+      return o;
+    };
     if (c.historique) {
       // 66D — avec un historique, le geste devient une RETOUCHE, réappliquée à chaque assemblage (un « Retirer »
       // recalcule tout : elle y survit), et l'exercice rejoint les écartés que le complément n'ajoute jamais.
@@ -13732,6 +13739,7 @@
       j = c.routines.map(function (x) { return x.nom; }).indexOf(nomRt);
     } else c.routines = fondreLesVoisins(remplacees);
     if (j >= 0) o[j + ':' + slug] = true;
+    if (!c.historique) places.forEach(function (cc) { o[cc[0] + ':' + slug] = true; });       // 193-2 : les places liées aussi
     c.neuf = o;
     c.annonce = null;
     c.erreur = '';

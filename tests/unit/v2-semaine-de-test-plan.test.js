@@ -156,6 +156,17 @@ describe('193-4 — le plan : la barre testée', () => {
     propre(p, e);
   });
 
+  test('200-2 — une barre non testée aujourd’hui porte « pas de test », jamais « accessoire »', () => {
+    const e = entrees(seance([DC, SQ]));
+    const p = T.planDeSeance(e);
+    expect(p.exercices[0].semaineDeTest.testee).toBe(true);
+    expect(p.exercices[1].semaineDeTest).toMatchObject({ testee: false, pasDeTest: true });
+    expect(p.exercices[1].semaineDeTest.accessoire).toBeUndefined();
+    const acc = T.planDeSeance(entrees(seance([DC, ACC]))).exercices[1].semaineDeTest;
+    expect(acc.accessoire).toBe(true); expect(acc.pasDeTest).toBeUndefined();
+    propre(p, e);
+  });
+
   test('une barre déjà mesurée cette semaine n’est plus testée (sauf la séance qui l’a mesurée)', () => {
     const a = T.planDeSeance(entrees(seance([DC, DM]), { mesures: { [DC]: { valeur: 157.5, le: '2026-11-02', seance: 'autre' } } }));
     expect(a.exercices[0].semaineDeTest.testee).toBe(false);

@@ -1065,7 +1065,7 @@
       jt.accessoires += 1;
       return { accessoire: true, garde: jt.accessoires <= M.TEST_ACCESSOIRES_MAX, rang: jt.accessoires };
     }
-    if (b.slug !== jt.testee) return { barre: true, testee: false, conflit: jt.conflits.indexOf(b.slug) >= 0, etat: 'ailleurs' };
+    if (b.slug !== jt.testee) return { barre: true, testee: false, conflit: jt.conflits.indexOf(b.slug) >= 0, etat: 'ailleurs', pasDeTest: true };
     if (!coachee || intentionX === 'entretien') return { barre: true, testee: false, etat: 'sans_coach' };
     var modes = T.modes || {};
     var mode = M.testModeValide(modes[b.slug]) || M.testModeParDefaut(e.debutant === true);

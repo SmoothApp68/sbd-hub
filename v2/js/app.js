@@ -9596,7 +9596,7 @@
       semaineDeTest: function (i) {
         if (enEdition()) return null;
         var x = planDeLExercice(i);
-        return x && x.semaineDeTest && (x.semaineDeTest.testee || x.semaineDeTest.accessoire) ? x.semaineDeTest : null;
+        return x && x.semaineDeTest && (x.semaineDeTest.testee || x.semaineDeTest.accessoire || x.semaineDeTest.pasDeTest) ? x.semaineDeTest : null;
       },
       surTest: function (i, cle) { return repondreTest(i, cle); },
       // §9.17 — l'exercice est en Entretenir PAR SON PROPRE choix : l'étiquette

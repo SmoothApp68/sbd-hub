@@ -3624,6 +3624,8 @@
     rate: 'Un essai raté : on s’arrête là.', technique: 'La technique lâche : on s’arrête là.', sans_cran: 'Rien de plus lourd à ta salle : on s’arrête là.' };
   function carteDeTest(t, iExo, vue) {
     var M = function () { return racine.THModele; };
+    // 200-2 — une barre que la semaine de test ne mesure pas CE JOUR-LÀ (une autre barre l'est) : ni « accessoire » ni test.
+    if (t.pasDeTest) return el('div', 'proposition-exercice proposition-test-acc', 'Pas de test pour ce mouvement aujourd\u2019hui\u00a0: s\u00e9ance l\u00e9g\u00e8re.');
     if (t.accessoire) {
       return el('div', 'proposition-exercice proposition-test-acc', t.garde
         ? 'Semaine de test : cet accessoire reste léger, sans aller au bout.' : 'Semaine de test : tu peux passer cet accessoire.');

@@ -8577,8 +8577,9 @@
     if (T && T.fin >= jour) {
       return { libelle: 'Semaine de test', valeur: 'Jusqu’au ' + Rendu.dateCourte(T.fin), surChoix: ouvrirSemaineDeTest };
     }
+    // la ligne n'existe que s'il y a quelque chose à dire : une semaine en cours, ou une proposition possible (4 semaines, pas avant une décharge)
     var prop = proposerSemaineDeTestHorsProgramme();
-    return { libelle: 'Semaine de test', valeur: prop.propose ? null : 'Pas encore', surChoix: ouvrirSemaineDeTest };
+    return prop.propose ? { libelle: 'Semaine de test', valeur: null, surChoix: ouvrirSemaineDeTest } : null;
   }
   function proposerSemaineDeTestHorsProgramme() {
     var jour = jourDuJour();

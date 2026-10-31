@@ -1604,7 +1604,7 @@
 
   // MOTEUR §9.16 (60-2b) — les objectifs qu'un pari peut porter. Vide ou inconnu :
   // `null`, SANS défaut — contrairement à la phase, « sans réponse » est une réponse.
-  var OBJECTIFS_DU_PLAN = ['force', 'muscle', 'les_deux', 'forme'];
+  var OBJECTIFS_DU_PLAN = ['force', 'muscle', 'les_deux', 'forme', 'calisthenie'];
   function objectifDuPlan(v) { return OBJECTIFS_DU_PLAN.indexOf(v) >= 0 ? v : null; }
 
   // MOTEUR §14.6 (60-2b) — les priorités du questionnaire (`profiles.priorites` :

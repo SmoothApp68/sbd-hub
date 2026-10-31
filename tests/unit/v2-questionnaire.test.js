@@ -52,13 +52,13 @@ describe('60-2a — QUAND le questionnaire s’ouvre (la ligne de profil est con
 
 describe('60-2a — les LISTES sont celles de la base (relevées par Claude.ai le 07/10)', () => {
   test('objectif, temps, historique : les clés des CHECK de v2_065', () => {
-    expect(Profil.OBJECTIFS.map((o) => o.cle)).toEqual(['force', 'muscle', 'les_deux', 'forme']);
+    expect(Profil.OBJECTIFS.map((o) => o.cle)).toEqual(['force', 'muscle', 'les_deux', 'forme', 'calisthenie']);
     expect(Profil.TEMPS_REPONSES.map((o) => o.cle)).toEqual(['max', 'marge', 'moins', 'varie']);
     expect(Profil.HISTORIQUES.map((o) => o.cle)).toEqual(['import', 'non_note', 'debutant']);
   });
 
   test('un libellé par valeur : ceux du questionnaire sont ceux du Profil', () => {
-    expect(Profil.OBJECTIFS.map((o) => o.libelle)).toEqual(['Force', 'Muscle', 'Les deux', 'Forme et santé']);
+    expect(Profil.OBJECTIFS.map((o) => o.libelle)).toEqual(['Force', 'Muscle', 'Les deux', 'Forme et santé', 'Calisthénie']);
     expect(Profil.HISTORIQUES.map((o) => o.libelle)).toEqual([
       'Oui, dans une autre app', 'Oui, mais je ne l’ai pas noté', 'Non, je débute']);
   });
@@ -475,6 +475,7 @@ describe('60-2a — les réponses de départ sont ce qui est DÉJÀ en base', ()
       historique: 'import', anciennete: '3_a_5_ans', depuis: '3_a_5_ans', notees: 'import', seances: 5, duree: 90, sexe: 'homme', annee: 1997,
       taille: 182, poids: 98, objectif: 'force', phase: 'seche', priorites: ['squat_barre'], temps: 'max',
       materiel: 'salle_complete', halteresMax: null, halteresPas: null, plusPetitDisque: null, barreTraction: null,
+      dep_tractions: null, dep_pompes: null, dep_dips: null, dep_pistol: null,
       menager: [], coach: 'franc' });
   });
   test('un profil neuf : rien de répondu, sauf le rythme par défaut et la phase vide', () => {
@@ -663,7 +664,7 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
 
   test('ton but : objectif, puis la phase avec « Je compte comme maintien » ; il faut les DEUX', () => {
     const v = vue('but');
-    expect(blocs(v, 'puces')[0].options.map((o) => o.libelle)).toEqual(['Force', 'Muscle', 'Les deux', 'Forme et santé']);
+    expect(blocs(v, 'puces')[0].options.map((o) => o.libelle)).toEqual(['Force', 'Muscle', 'Les deux', 'Forme et santé', 'Calisthénie']);
     const phases = blocs(v, 'options')[0];
     expect(phases.titre).toBe('Et en ce moment, côté alimentation ?');
     expect(phases.options.map((o) => [o.libelle, o.sous || null])).toEqual([

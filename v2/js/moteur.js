@@ -3868,10 +3868,12 @@
   // structure complète ; `resultat` : `raccourcirRoutine` ; `nommer(slug)`.
   // Une cible inatteignable ne se promet pas (51-1 bis, T4) : « Au plus court :
   // 35 min (estimation) », bouton « Raccourcir à 35 min ».
-  function carteRaccourcir(avant, resultat, cibleMin, nommer) {
+  function carteRaccourcir(avant, resultat, cibleMin, nommer, avecMobilite) {
     var nom = function (slug) { return nommer ? nommer(slug) : slug; };
     var apres = (resultat && resultat.exercices) || [];
     var lignes = [];
+    // 194-1 — le bloc de mobilité part en PREMIER, avant toute série (MOTEUR §9.31) : la première ligne le dit.
+    if (avecMobilite) lignes.push('Bloc de mobilité : retiré en premier, avant toute série');
     (avant || []).forEach(function (a, i) {
       var b = apres[i];
       if (!b) return;
@@ -10314,7 +10316,170 @@
     return 'Tes reculs' + DEUX_POINTS + listeDeRecul(reps) + (c !== null ? ' pour une cible de ' + nombreFr(c, regle('recul.reps')) : '') + '.';
   }
 
+  // ── 194-1 — LA MOBILITÉ EN FIN DE SÉANCE (MOTEUR §9.31) ───────────────────────────────────────────────────────────────
+  // UNE table, ici : zone raide -> étirements tenus (fin de séance), mobilité en mouvement (avant), muscles que la séance
+  // doit avoir travaillés pour que la zone passe en premier, exercices du jour qu'elle sert, zone à ménager qui lui répond.
+  // Les clés sont celles du CHECK de `profiles.zones_raides` (v2_124). Aucun étirement tenu AVANT la charge (invariant I94).
+  var ZONES_RAIDES = Object.freeze(['chevilles', 'hanches', 'ischios', 'quadriceps', 'epaules', 'haut_du_dos']);
+  var MOBILITE_CIBLE_MIN = 10;          // les minutes de la semaine où le gain plafonne (Ingram 2024)
+  var MOBILITE_ZONE_MIN = 3;            // un bloc donne ~3-4 minutes à une zone
+  var MOBILITE_ZONES_MAX = 2;           // deux zones au plus par séance
+  var MOBILITE_TENUE_S = 45;            // tenues de 30 à 60 s
+  var MOBILITE_TENUE_MIN_S = 30, MOBILITE_TENUE_MAX_S = 60;
+  var MOBILITE_SERIES_MAX = 3;
+  var MOBILITE_AVANT_MIN = 2;           // la préparation d'avant : 2 minutes, en mouvement
+  var MOBILITE_AVANT_S = 30;
+  var MOBILITE_CONSIGNE = 'Sans douleur : une tension nette, pas plus.';
+  var MOBILITE_REFUS_CLE = '__mobilite';   // la clé de la mémoire des « Non merci » (celle des chauffes, `Plan.refuserChauffes`)
+  var MOBILITE_ZONES = {
+    chevilles: { libelle: 'Chevilles', accord: 'Ta cheville', menagee: null, muscles: ['mollets'],
+      tenus: ['etirement_mollet_mur', 'etirement_soleaire'], enMouvement: ['flexion_cheville_genou_mur', 'mobilite_cheville_elastique'],
+      sert: [{ re: /^squat/, nom: 'squat' }] },
+    hanches: { libelle: 'Hanches', accord: 'Ta hanche', menagee: 'hanche', muscles: ['fessiers', 'adducteurs', 'abducteurs'],
+      tenus: ['pigeon', 'hanches_90_90', 'etirement_fessier_4', 'etirement_flechisseurs_hanche', 'papillon'],
+      enMouvement: ['rotations_controlees_hanche', 'cercles_hanches', 'accroupi_profond'], sert: [{ re: /^squat/, nom: 'squat' }, { re: /^souleve_de_terre/, nom: 'soulevé' }] },
+    ischios: { libelle: 'Ischios', accord: 'Tes ischios', menagee: null, muscles: ['ischio_jambiers'],
+      tenus: ['etirement_ischios', 'etirement_ischios_allonge_elastique'], enMouvement: ['balances_jambe'], sert: [] },
+    quadriceps: { libelle: 'Quadriceps', accord: 'Tes quadriceps', menagee: 'genou', muscles: ['quadriceps'],
+      tenus: ['etirement_quadriceps_debout', 'etirement_quadriceps_mur'], enMouvement: ['fente_rotation_worlds_greatest'], sert: [] },
+    epaules: { libelle: 'Épaules', accord: 'Tes épaules', menagee: 'epaule', muscles: ['deltoide_anterieur', 'deltoide_lateral', 'deltoide_posterieur', 'pectoraux'],
+      tenus: ['etirement_epaule_bras_croise', 'etirement_dormeur', 'etirement_pectoraux_porte', 'etirement_triceps'],
+      enMouvement: ['rotations_controlees_epaule', 'passage_epaules_baton', 'passage_epaules_elastique'], sert: [{ re: /^developpe_militaire/, nom: 'militaire' }, { re: /^traction/, nom: 'tractions' }] },
+    haut_du_dos: { libelle: 'Haut du dos', accord: 'Ton haut du dos', menagee: 'dos', muscles: ['haut_du_dos', 'trapezes', 'grand_dorsal'],
+      tenus: ['etirement_grand_dorsal', 'etirement_grand_dorsal_banc', 'sphinx'],
+      enMouvement: ['rotation_thoracique_livre_ouvert', 'rotation_thoracique_quatre_pattes', 'chat_vache'], sert: [{ re: /^squat/, nom: 'squat' }, { re: /^developpe_militaire/, nom: 'militaire' }] }
+  };
+  // Les articulations qu'un exercice charge (les clés des zones à ménager) : le choix passe au suivant de la liste de la zone.
+  var MOBILITE_CHARGE = {
+    pigeon: ['genou', 'hanche'], etirement_ischios: ['dos'], papillon: ['genou'], etirement_flechisseurs_hanche: ['genou'], etirement_quadriceps_mur: ['genou'],
+    etirement_quadriceps_debout: ['genou'], accroupi_profond: ['genou'], fente_rotation_worlds_greatest: ['genou'],
+    etirement_dormeur: ['epaule'], etirement_pectoraux_porte: ['epaule'], etirement_epaule_bras_croise: ['epaule'],
+    etirement_triceps: ['epaule', 'coude'], passage_epaules_baton: ['epaule'], passage_epaules_elastique: ['epaule'],
+    rotations_controlees_epaule: ['epaule'], sphinx: ['dos']
+  };
+  var MOBILITE_UNILATERAL = ['pigeon', 'etirement_flechisseurs_hanche', 'etirement_quadriceps_debout', 'etirement_quadriceps_mur',
+    'etirement_mollet_mur', 'etirement_soleaire', 'etirement_ischios', 'etirement_fessier_4', 'etirement_dormeur',
+    'etirement_epaule_bras_croise', 'etirement_triceps', 'etirement_pectoraux_porte', 'flexion_cheville_genou_mur'];
+
+  function zonesRaidesConnues(l) {
+    if (!Array.isArray(l)) return null;
+    return ZONES_RAIDES.filter(function (z) { return l.indexOf(z) >= 0; });
+  }
+  function exerciceDeMobilite(slug) {
+    return ZONES_RAIDES.some(function (z) {
+      var t = MOBILITE_ZONES[z];
+      return t.tenus.indexOf(slug) >= 0 || t.enMouvement.indexOf(slug) >= 0;
+    });
+  }
+  // La zone d'un exercice de mobilité (la première qui le porte), ou `null`.
+  function zoneDeMobilite(slug) {
+    for (var i = 0; i < ZONES_RAIDES.length; i++) {
+      var t = MOBILITE_ZONES[ZONES_RAIDES[i]];
+      if (t.tenus.indexOf(slug) >= 0 || t.enMouvement.indexOf(slug) >= 0) return ZONES_RAIDES[i];
+    }
+    return null;
+  }
+  function dureeDeMobilite(slug) {
+    var z = zoneDeMobilite(slug);
+    if (!z) return null;
+    return MOBILITE_ZONES[z].tenus.indexOf(slug) >= 0 ? MOBILITE_TENUE_S : MOBILITE_AVANT_S;
+  }
+  function coteDeMobilite(slug) { return MOBILITE_UNILATERAL.indexOf(slug) >= 0 ? 2 : 1; }
+  function minutesUneSerie(slug) { return dureeDeMobilite(slug) * (MOBILITE_UNILATERAL.indexOf(slug) >= 0 ? 2 : 1) / 60; }
+  function arrondiMin(x) { return Math.round(x * 10) / 10; }
+
+  // Le choix d'un exercice pour une zone : le premier de la liste qui ne charge aucune articulation à ménager.
+  function exercicesDeLaZone(zone, liste, evite, deja) {
+    var t = MOBILITE_ZONES[zone];
+    return (liste === 'enMouvement' ? t.enMouvement : t.tenus).filter(function (s) {
+      return (deja || []).indexOf(s) < 0 && !(MOBILITE_CHARGE[s] || []).some(function (a) { return (evite || []).indexOf(a) >= 0; });
+    });
+  }
+  function ligneDeMobilite(slug, series) {
+    return { slug: slug, series: series, duree_s: dureeDeMobilite(slug), cote: MOBILITE_UNILATERAL.indexOf(slug) >= 0,
+             minutes: arrondiMin(series * minutesUneSerie(slug)) };
+  }
+
+  // Le bloc de mobilité d'une séance (§9.31). Pur ; appelé par `planDeSeance` seulement.
+  //   entree : { zones (profiles.zones_raides : `null` = pas répondu, `[]` = aucune), faites ({ zone: minutes de la semaine }),
+  //              muscles (les primaires de la séance), slugs (ceux de la séance), menager (zones à ménager du profil),
+  //              douleurs (zones à ménager touchées par un « J'ai mal » récent), debutee (une série est déjà faite) }
+  //   sortie : { fin: { zones, minutes, consigne, kine } | null, avant: { zones, minutes, consigne } | null }
+  function blocDeMobilite(entree) {
+    var e = entree || {};
+    var zones = zonesRaidesConnues(e.zones);
+    var vide = { fin: null, avant: null };
+    if (!zones || !zones.length) return vide;
+    var menager = (e.menager || []).concat(e.douleurs || []);
+    var faites = e.faites || {};
+    var muscles = e.muscles || [], slugs = e.slugs || [];
+    var kine = [], retenues = [];
+    zones.forEach(function (z) {
+      var t = MOBILITE_ZONES[z];
+      if (t.menagee && menager.indexOf(t.menagee) >= 0) { kine.push(t.accord + (/^Tes /.test(t.accord) ? ' sont' : ' est') + ' à ménager : pour l’étirer, demande l’avis d’un kiné.'); return; }
+      var fait = Number(faites[z]) > 0 ? Number(faites[z]) : 0;
+      if (fait >= MOBILITE_CIBLE_MIN) return;
+      var servie = t.muscles.some(function (m) { return muscles.indexOf(m) >= 0; });
+      retenues.push({ zone: z, fait: fait, servie: servie, rang: ZONES_RAIDES.indexOf(z) });
+    });
+    // celles que la séance a travaillées d'abord, puis celles qui ont reçu le moins cette semaine
+    retenues.sort(function (a, b) { return (a.servie === b.servie ? 0 : a.servie ? -1 : 1) || a.fait - b.fait || a.rang - b.rang; });
+    var fin = [];
+    retenues.slice(0, MOBILITE_ZONES_MAX).forEach(function (r) {
+      var reste = MOBILITE_CIBLE_MIN - r.fait;
+      var cible = Math.min(MOBILITE_ZONE_MIN, reste);
+      var lignes = [], total = 0, pris = [];
+      var choix = exercicesDeLaZone(r.zone, 'tenus', menager, pris);
+      for (var k = 0; k < choix.length && total < cible - 0.05 && lignes.length < 2; k++) {
+        var un = minutesUneSerie(choix[k]);
+        var n = Math.max(1, Math.min(MOBILITE_SERIES_MAX, Math.ceil((cible - total) / un - 1e-9)));
+        if (lignes.length === 0 && n < 2 && 2 * un <= cible + 0.05) n = 2;
+        var l = ligneDeMobilite(choix[k], n);
+        lignes.push(l); total += l.minutes;
+      }
+      if (!lignes.length) return;
+      fin.push({ zone: r.zone, libelle: MOBILITE_ZONES[r.zone].libelle, exercices: lignes, minutes: arrondiMin(total),
+                 fait: r.fait, apres: arrondiMin(r.fait + total), cible: MOBILITE_CIBLE_MIN });
+    });
+    var sortie = { fin: null, avant: null };
+    if (fin.length || kine.length) {
+      sortie.fin = { zones: fin, minutes: arrondiMin(fin.reduce(function (a, z) { return a + z.minutes; }, 0)), consigne: MOBILITE_CONSIGNE, kine: kine };
+    }
+    // Avant la séance : du mouvement seulement, pour une zone raide qui sert un exercice du jour (jamais une zone à ménager).
+    if (!e.debutee) {
+      for (var i = 0; i < zones.length && !sortie.avant; i++) {
+        var t2 = MOBILITE_ZONES[zones[i]];
+        if (t2.menagee && menager.indexOf(t2.menagee) >= 0) continue;
+        var sert = null;
+        slugs.forEach(function (s) { t2.sert.forEach(function (x) { if (!sert && x.re.test(s)) sert = x.nom; }); });
+        if (!sert) continue;
+        var ch = exercicesDeLaZone(zones[i], 'enMouvement', menager, [])[0];
+        if (!ch) continue;
+        var nSeries = Math.max(1, Math.round(MOBILITE_AVANT_MIN * 60 / (MOBILITE_AVANT_S * (MOBILITE_UNILATERAL.indexOf(ch) >= 0 ? 2 : 1))));
+        var ligne = ligneDeMobilite(ch, Math.min(nSeries, 2));
+        sortie.avant = { zone: zones[i], libelle: t2.libelle, accord: t2.accord, sert: sert, exercices: [ligne], minutes: ligne.minutes, consigne: MOBILITE_CONSIGNE };
+      }
+    }
+    return sortie;
+  }
+
+  // Les phrases du bloc (la voix : « amplitude », « souplesse » ; jamais « récupération », « courbatures », « prévention »).
+  function mobiliteTitre(minutes) { return 'Mobilité · ' + String(Math.round(minutes)) + ' min'; }
+  function mobiliteSousTitre(zones) { return zones.map(function (z) { return z.libelle; }).join(' et ').toLowerCase().replace(/^./, function (c) { return c.toUpperCase(); }) + ' · facultatif'; }
+  function mobilitePourquoi(z) {
+    return z.libelle + ' : ' + String(Math.round(z.minutes)) + ' min aujourd’hui, ' + String(Math.round(z.apres)) +
+      ' cette semaine sur ' + MOBILITE_CIBLE_MIN + '. Tenir longtemps ou très fort n’apporte rien de plus ; le total de la semaine compte.';
+  }
+  var MOBILITE_POURQUOI_AVANT = 'Tenu longtemps juste avant de soulever, un étirement baisse ta force. Avant la séance, seulement du mouvement.';
+
   var api = {
+    // 194-1 (§9.31) — la mobilité en fin de séance : une table, un bloc, des phrases.
+    ZONES_RAIDES: ZONES_RAIDES, MOBILITE_ZONES: MOBILITE_ZONES, MOBILITE_CIBLE_MIN: MOBILITE_CIBLE_MIN, MOBILITE_CONSIGNE: MOBILITE_CONSIGNE,
+    MOBILITE_REFUS_CLE: MOBILITE_REFUS_CLE, MOBILITE_POURQUOI_AVANT: MOBILITE_POURQUOI_AVANT, MOBILITE_CHARGE: MOBILITE_CHARGE,
+    MOBILITE_TENUE_MIN_S: MOBILITE_TENUE_MIN_S, MOBILITE_TENUE_MAX_S: MOBILITE_TENUE_MAX_S,
+    zonesRaidesConnues: zonesRaidesConnues, exerciceDeMobilite: exerciceDeMobilite, zoneDeMobilite: zoneDeMobilite,
+    dureeDeMobilite: dureeDeMobilite, coteDeMobilite: coteDeMobilite, blocDeMobilite: blocDeMobilite, mobiliteTitre: mobiliteTitre,
+    mobiliteSousTitre: mobiliteSousTitre, mobilitePourquoi: mobilitePourquoi,
     // §10 bis (108) — le matériel de la salle.
     SALLE_BARRES: SALLE_BARRES,
     salleEnVigueur: salleEnVigueur,

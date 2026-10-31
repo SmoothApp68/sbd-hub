@@ -1775,7 +1775,30 @@
       return sortie;
     }
 
+    // 194-1 (MOTEUR §9.31) — LES MINUTES DE MOBILITÉ DE LA SEMAINE, par zone raide : les séries de travail des exercices de la table
+    // du moteur (`Moteur.zoneDeMobilite`), de la semaine de `jour` (lundi au jour compris), tenues de chaque côté comptées deux fois.
+    // Un fait ; la règle (10 minutes par zone) est au moteur.
+    function minutesDeMobiliteParZone(c, jour) {
+      var J = Moteur.jourCivil(jour), sortie = {};
+      if (!J) return sortie;
+      var b = Semaine.bornesSemaine(new Date(J + 'T12:00:00'));
+      var lundi = b ? Moteur.jourCivil(b.lundi) : null;
+      if (!lundi) return sortie;
+      (c.seances || []).forEach(function (s) {
+        var jr = s && s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
+        if (!jr || jr < lundi || jr > J) return;
+        (c.seriesDe(s.id) || []).forEach(function (x) {
+          if (!x || !x.exercise_slug || !Modele.estTravail(x) || x.hors_calcul === true) return;
+          var z = Moteur.zoneDeMobilite(x.exercise_slug), d = Number(x.duree_s);
+          if (!z || !(d > 0)) return;
+          sortie[z] = (sortie[z] || 0) + d * Moteur.coteDeMobilite(x.exercise_slug) / 60;
+        });
+      });
+      return sortie;
+    }
+
     return {
+      minutesDeMobiliteParZone: minutesDeMobiliteParZone,
       douleursParExercice: douleursParExercice,
       entreeFatigue: entreeFatigue,
       entreeDuBilan: entreeDuBilan,

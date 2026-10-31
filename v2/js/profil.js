@@ -627,7 +627,7 @@
                        // dossier du programme construit et sa date, la date de la carte « Passer en
                        // cycles ». Leurs bornes sont celles des CHECK (`preparerChamps`) : un 23514
                        // bloquerait l'envoi de TOUT le profil.
-                       'zones_a_menager', 'exercices_ecartes', 'programme_construit_dossier',
+                       'zones_a_menager', 'zones_raides', 'exercices_ecartes', 'programme_construit_dossier',
                        'programme_construit_le', 'carte_cycles_le',
                        // 64B (v2_068) — l'interrupteur du jeu (JEU-V1 §9.1).
                        'jeu_actif',
@@ -669,6 +669,12 @@
       if (c === 'marche_reponses') {
         var mr = src[c];
         if (mr === null || (mr && typeof mr === 'object' && !Array.isArray(mr))) sortie[c] = mr;
+        return;
+      }
+      // 194-1 — les zones raides : une liste de clés connues (`{}` = aucune) ; jamais autre chose (le CHECK refuserait la ligne entière).
+      if (c === 'zones_raides') {
+        var zr = zonesRaidesValides(src[c]);
+        if (zr !== null) sortie[c] = zr;
         return;
       }
       // 188-1 — les réponses aux cartes de la semaine : un objet (NOT NULL côté base), jamais une liste ni un scalaire.
@@ -753,7 +759,7 @@
     anciennete: 'Ancienneté', intention: 'Progresser ou carnet', rythme_progression: 'Ton rythme', phase: 'Ta phase',
     phase_depuis: 'Ta phase', lest_reponse: 'Lest', materiel: 'Matériel', seances_par_semaine: 'Séances par semaine',
     duree_seance_min: 'Durée d’une séance', objectif: 'But d’entraînement', priorites: 'Priorités', temps_reponse: 'Ton temps',
-    historique_declare: 'Historique', programme_choix: 'Ton programme', zones_a_menager: 'Zone à ménager',
+    historique_declare: 'Historique', programme_choix: 'Ton programme', zones_a_menager: 'Zone à ménager', zones_raides: 'Zones raides',
     exercices_ecartes: 'Exercices écartés', jeu_actif: 'Le jeu', compte_prive: 'Compte privé', ma_salle: 'Ma salle',
     marche_reponses: 'Marche suivante', completer_refus: 'Ce qui manque à tes séances', assistant_accord_a: 'Demander au coach', cartes_semaine: 'Les cartes de ta semaine'
   };
@@ -897,6 +903,38 @@
     if (i >= 0) l.splice(i, 1);
     else l.push(cle);
     return zonesAMenagerValides(l);
+  }
+
+  // ── 194-1 — LES ZONES RAIDES (`profiles.zones_raides`, v2_124) : celles où la personne manque d'amplitude ──────────────────────────
+  // Six clés, celles du CHECK de la base ET de la table du moteur (`Moteur.ZONES_RAIDES`, un test les rapproche). Contrairement aux
+  // zones à ménager, « aucune » EST une réponse : `{}` (la liste vide), distincte de `NULL` (pas répondu).
+  var ZONES_RAIDES = [
+    { cle: 'chevilles', libelle: 'Chevilles' },
+    { cle: 'hanches', libelle: 'Hanches' },
+    { cle: 'ischios', libelle: 'Ischios' },
+    { cle: 'quadriceps', libelle: 'Quadriceps' },
+    { cle: 'epaules', libelle: 'Épaules' },
+    { cle: 'haut_du_dos', libelle: 'Haut du dos' }
+  ];
+  var PHRASE_RAIDES = 'Celles où tu manques d\u2019amplitude. Je t\u2019ajoute un bloc court en fin de séance pour elles, deux zones au plus par séance. Après trois « Non merci » de suite, je ne le propose plus\u00a0: tu le retrouves ici.';
+  function zonesRaidesValides(liste) {
+    if (!Array.isArray(liste)) return null;
+    return ZONES_RAIDES.filter(function (z) { return liste.indexOf(z.cle) >= 0; }).map(function (z) { return z.cle; });
+  }
+  function basculerZoneRaide(liste, cle) {
+    if (cle === 'aucune') return [];
+    var l = zonesRaidesValides(liste) || [];
+    if (ZONES_RAIDES.every(function (z) { return z.cle !== cle; })) return l;
+    var i = l.indexOf(cle);
+    if (i >= 0) l.splice(i, 1); else l.push(cle);
+    return zonesRaidesValides(l);
+  }
+  // « Hanches, Ischios » ; « Aucune » (une réponse) ; « Pas répondu » (le trou).
+  function libelleDesZonesRaides(profil) {
+    var zones = zonesRaidesValides(profil && profil.zones_raides);
+    if (zones === null) return 'Pas répondu';
+    if (!zones.length) return 'Aucune';
+    return ZONES_RAIDES.filter(function (z) { return zones.indexOf(z.cle) >= 0; }).map(function (z) { return z.libelle; }).join(', ');
   }
 
   // LES EXERCICES ÉCARTÉS (`profiles.exercices_ecartes`, ECRAN-SAISIE §7 quindecies.9) : des slugs du catalogue,
@@ -1127,6 +1165,12 @@
         sortie.zones_a_menager = zones.length ? zones : null;
       }
     }
+    // 194-1 — les zones raides : `[]` s'écrit `{}` (« aucune »), `NULL` reste « pas répondu » ; une liste identique n'écrit rien.
+    if (e.zones_raides !== undefined && e.zones_raides !== null) {
+      var raides = zonesRaidesValides(e.zones_raides);
+      var avant = zonesRaidesValides(p.zones_raides);
+      if (raides !== null && (avant === null || !memeListe(raides, avant))) sortie.zones_raides = raides;
+    }
     if (e.exercices_ecartes !== undefined && e.exercices_ecartes !== null) {
       var ecartes = ecartesValides(e.exercices_ecartes);
       if (ecartes !== null && !memeListe(ecartes, ecartesValides(p.exercices_ecartes) || [])) {
@@ -1260,6 +1304,8 @@
     }
     lignes.push({ libelle: 'Refaire mon programme', sous: PHRASE_REFAIRE, sansValeur: true,
                   surChoix: function () { ouvrir('refaire'); } });
+    // 194-1 — le bloc de mobilité se retrouve ici (zones raides ; après trois « Non merci », valider les zones le remet).
+    lignes.push({ libelle: 'Zones raides', sous: PHRASE_RAIDES, valeur: libelleDesZonesRaides(profil), surChoix: function () { ouvrir('raides'); } });
     return lignes;
   }
 
@@ -2234,6 +2280,8 @@
     manquants: manquants,
     OBJECTIFS: OBJECTIFS, TEMPS_REPONSES: TEMPS_REPONSES, HISTORIQUES: HISTORIQUES, PROGRAMMES: PROGRAMMES,
     ZONES_A_MENAGER: ZONES_A_MENAGER, zonesAMenagerValides: zonesAMenagerValides, basculerZone: basculerZone,
+    ZONES_RAIDES: ZONES_RAIDES, zonesRaidesValides: zonesRaidesValides, basculerZoneRaide: basculerZoneRaide,
+    libelleDesZonesRaides: libelleDesZonesRaides, PHRASE_RAIDES: PHRASE_RAIDES,
     ECARTES_MAX: ECARTES_MAX, ecartesValides: ecartesValides, ecartesDe: ecartesDe, ecartesALaFin: ecartesALaFin,
     DOSSIER_PROGRAMME_MAX: DOSSIER_PROGRAMME_MAX, dossierDuProgrammeValide: dossierDuProgrammeValide,
     PHRASE_PSEUDO_PRIS: PHRASE_PSEUDO_PRIS, pseudoDeLInscription: pseudoDeLInscription, lignePseudo: lignePseudo,

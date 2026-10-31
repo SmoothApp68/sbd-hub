@@ -34,12 +34,12 @@ describe('Profil.lignesProgramme — trois lignes, leurs phrases au mot près', 
 
   test('« Zone à ménager », « Exercices écartés » (si non vide), « Refaire mon programme », dans cet ordre', () => {
     expect(lignes({ exercices_ecartes: ['squat_barre'] }).map((l) => l.libelle))
-      .toEqual(['Zone à ménager', 'Exercices écartés', 'Refaire mon programme']);
+      .toEqual(['Zone à ménager', 'Exercices écartés', 'Refaire mon programme', 'Zones raides']);
   });
 
   test('⚠️ DISCRIMINANT — la liste vide : la ligne « Exercices écartés » ne s’affiche pas (null, [] ou absente)', () => {
     [{}, { exercices_ecartes: null }, { exercices_ecartes: [] }, { exercices_ecartes: 'x' }].forEach((p) => {
-      expect(lignes(p).map((l) => l.libelle)).toEqual(['Zone à ménager', 'Refaire mon programme']);
+      expect(lignes(p).map((l) => l.libelle)).toEqual(['Zone à ménager', 'Refaire mon programme', 'Zones raides']);
     });
   });
 
@@ -63,7 +63,7 @@ describe('Profil.lignesProgramme — trois lignes, leurs phrases au mot près', 
   test('chaque ligne ouvre SA feuille : zones, ecartes, refaire', () => {
     ouvertes.length = 0;
     lignes({ exercices_ecartes: ['a'] }).forEach((l) => l.surChoix());
-    expect(ouvertes).toEqual(['zones', 'ecartes', 'refaire']);
+    expect(ouvertes).toEqual(['zones', 'ecartes', 'refaire', 'raides']);
   });
 });
 
@@ -73,22 +73,22 @@ describe('l’écran Profil : la section du matériel porte le programme constru
     // 163 — « Ma salle » n'est là que si un exercice à l'élastique est dans une routine, l'historique ou la séance.
     const e = profilEcran({ id: 'u1', exercices_ecartes: ['squat_barre'] }, { elastique: true });
     const s = e.section('CE QUE JE FAIS');
-    expect(s.lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Ma salle', 'Zone à ménager', 'Exercices écartés', 'Refaire mon programme']);
+    expect(s.lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Ma salle', 'Zone à ménager', 'Exercices écartés', 'Refaire mon programme', 'Zones raides']);
     s.lignes.slice(2).forEach((l) => l.surChoix());
-    expect(e.programmesOuverts).toEqual(['zones', 'ecartes', 'refaire']);
+    expect(e.programmesOuverts).toEqual(['zones', 'ecartes', 'refaire', 'raides']);
     s.lignes[1].surChoix();
     expect(e.sallesOuvertes).toEqual([true]);
   });
 
   test('sans écarté : trois lignes seulement (et Ma salle, avec un exercice à l’élastique)', () => {
     const e = profilEcran({ id: 'u1' }, { elastique: true });
-    expect(e.section('CE QUE JE FAIS').lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Ma salle', 'Zone à ménager', 'Refaire mon programme']);
+    expect(e.section('CE QUE JE FAIS').lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Ma salle', 'Zone à ménager', 'Refaire mon programme', 'Zones raides']);
   });
 
   // 190 — « Ma salle » est toujours dans le Profil (le plus petit disque, la barre de traction) ; 163 la cachait sans élastique.
   test('190 — sans exercice à l’élastique : « Ma salle » est quand même dans le Profil', () => {
     const e = profilEcran({ id: 'u1' });
-    expect(e.section('CE QUE JE FAIS').lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Ma salle', 'Zone à ménager', 'Refaire mon programme']);
+    expect(e.section('CE QUE JE FAIS').lignes.map((l) => l.libelle)).toEqual(['Matériel', 'Ma salle', 'Zone à ménager', 'Refaire mon programme', 'Zones raides']);
     expect(Profil.ligneSalle({}, () => {}).libelle).toBe('Ma salle');
   });
 
@@ -100,7 +100,8 @@ describe('l’écran Profil : la section du matériel porte le programme constru
     expect(l.map((n) => [n.querySelector('.p-lib').firstChild.textContent, texte(n.querySelector('.p-lib small'))])).toEqual([
       ['Zone à ménager', 'Je ne te propose pas de série lourde dessus, ni dans ton programme ni en séance.'],
       ['Exercices écartés', 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.'],
-      ['Refaire mon programme', 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.']]);
+      ['Refaire mon programme', 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.'],
+      ['Zones raides', Profil.PHRASE_RAIDES.replace(/\u00a0/g, ' ')]]);
     expect(texte(l[0].querySelector('.p-val'))).toBe('Dos');
     expect(texte(l[1].querySelector('.p-val'))).toBe('2');
     expect(l[2].querySelector('.p-val')).toBeNull();
@@ -293,7 +294,7 @@ describe('les gestes : « Exercices écartés »', () => {
     b.ctx.__ecartes.exercices[0].surReprendre();
     expect(b.journal.ecrits).toEqual([{ exercices_ecartes: null }]);
     expect(b.journal.ferme).toBe(1);
-    expect(Profil.lignesProgramme(b.ctx.profil, () => {}).map((l) => l.libelle)).toEqual(['Zone à ménager', 'Refaire mon programme']);
+    expect(Profil.lignesProgramme(b.ctx.profil, () => {}).map((l) => l.libelle)).toEqual(['Zone à ménager', 'Refaire mon programme', 'Zones raides']);
   });
 
   test('un slug qui n’est plus au catalogue se lit quand même (son nom de repli)', () => {

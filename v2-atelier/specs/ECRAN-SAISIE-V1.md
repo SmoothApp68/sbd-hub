@@ -2991,6 +2991,8 @@ matériel, « range, ne cache jamais »). Il se reprend dans Profil (« Exercice
 le contient déjà le garde : écarter ne touche à rien d'existant.
 
 
+**Les places liées (193-2).** Dans l'aperçu d'un programme de Force ou Les deux, une barre passe deux fois dans la semaine, à deux zones : ses deux lignes sont **liées**. « Je n'en veux pas » et « Remplacer » les changent **ensemble** (le même remplaçant, chacune garde sa zone, ses séries et ses reculs recalculés si le remplaçant charge une zone à ménager) : la fréquence ne casse pas. C'est l'exception assumée à « seule la place touchée change » ; un remplaçant déjà présent dans une des séances concernées est refusé (« {exercice} est déjà dans cette séance. »). Une séance vidée par ce geste sort du programme. L'aperçu montre la zone sous la ligne (« zone Lourd (3-5) ») et « 1 × 4 · 3 reculs » à droite.
+
 ## 7 quindecies.10 Chercher un exercice par matériel et par muscle — décidé le 11/10/2026 (chantier 67B)
 
 > **Sous le champ de recherche, deux filtres : le matériel et le muscle principal, combinables entre eux et avec le

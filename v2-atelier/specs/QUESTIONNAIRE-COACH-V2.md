@@ -206,7 +206,7 @@ disparaît.
 **Refaire mon programme** (Profil). Les questions de 8b, puis l'aperçu ; **un nouveau dossier**, l'ancien reste — une
 décision ne s'efface jamais en silence.
 
-**La carte « Passer en cycles »** (décidée le 08/10/2026, question 4 ; MOTEUR §9.22). Le générateur crée des routines
+**La carte « Passer en cycles »** (décidée le 08/10/2026, question 4 ; MOTEUR §9.22). *(193-2 : un programme de Force ou Les deux construit par les familles, §5 bis.1, crée sa phase à la création — son dossier est déjà un programme, la carte ne vient pas.)* Le générateur crée des routines
 simples. Pour **Force** et **Les deux** seulement : **une fois**, **21 jours** après la création du programme et
 après **au moins 6 séances** faites depuis ses routines, ni en « Juste un carnet », ni si le dossier est déjà un
 programme : « Tu as fait {N} séances de ton programme. » ({N} : les séances faites depuis ses routines, le fait de
@@ -222,6 +222,70 @@ l'abdo reprend le même exercice sur deux séances quand il n'y en a pas d'autre
 équipée sans machine, une séance peut porter deux soulevés roumains (barre et haltères). Noté : le mini-chantier
 « maison et poids du corps », et « la gestion de la douleur » (la douleur dans le temps, le lien avec la zone à
 ménager).
+
+### 5 bis.1 Les familles de force — décidé le 31/10/2026 (chantier 193-2)
+
+> **Force et Les deux ne se construisent plus avec le gabarit des autres objectifs. Trois couches : le schéma de chaque ligne,
+> la semaine (la même barre, une zone par jour), les phases (cinq semaines, la dernière allégée).** Maquette
+> `maquette-programmes-force-v2.html`. Cas : `tests/unit/fixtures/cas-193-2-programmes-force.json` (22 programmes, 11 cas de 60-6
+> rejoués avec leur raison) ; test `v2-generateur-force.test.js`. Le gabarit seul (comptes **sans historique**) : le chemin
+> historique (`completer`) est la 193-2b.
+
+**Quand.** `objectif` = `force` ou `les_deux`, **une barre à disposition** (le squat ET le couché à la barre sont faisables : matériel,
+catalogue ; « Je n'en veux pas » ne l'enlève pas, il se remplace). Sinon le gabarit d'avant, inchangé — comme pour Muscle, Forme et
+sans objectif. `Generateur.FAMILLES[objectif][jours]` (2 à 6 jours) ; `famille: false` en entrée rejoue l'ancien gabarit (les tests de 60-6).
+
+**Couche 1 — le schéma, par ligne.** **Force : des séries égales** (squat et couché Lourd 4 × 4, soulevé Lourd 3 × 3) : l'écart de départ
+des reculs (10 %, MOTEUR §9.28) n'est pas réglable, le réglage « force » (≈ −5 %, mêmes reps) viendra plus tard. **Les deux : une grosse
+série puis des reculs** (« 1 × 4 · 3 reculs », reps du recul 6 ; soulevé 2 reculs de 5), le reste en hypertrophie (séries égales). Une
+ligne porte **un nombre de reps visées** (Lourd 4, Mix 6, Hypertrophie 9), jamais une fourchette : la fourchette vient de la zone posée
+sur la ligne et s'affiche dessous (« zone Lourd (3-5) »).
+
+**Couche 2 — la semaine.** La **même barre** passe deux fois (Force : le squat 2 fois, le couché 3 fois dès 3 jours, le soulevé 1 fois
+lourd + le roumain ; Les deux : chaque barre 2 fois, le soulevé 1 fois lourd + le roumain), **à deux zones** : la zone du jour est
+écrite sur la ligne de la routine (`routine_exercises.zone`, MOTEUR §9.29). Les accessoires restent en Automatique. Deux contraintes
+d'ordre seulement : le squat Lourd et le soulevé Lourd ne tombent jamais dans la même séance, ni, dès 4 jours, dans deux séances qui se suivent (Zourdos 2016 : petit effet,
+on ne cherche pas l'ordre « idéal »). Le militaire n'est pas une barre de compétition : Force, une fois (Mix, jour D) ; Les deux, deux
+fois (Hypertrophie, puis Lourd avec reculs).
+
+**Places liées.** Les deux lignes d'une même barre sont **liées** (`lien`) : même exercice, deux zones. **« Je n'en veux pas » et
+« Remplacer » les changent ensemble** (le même remplaçant, chacune garde sa zone) : sinon la fréquence casserait. **Exception assumée à
+S6** (une seule place change). Le remplaçant ne doit être dans aucune des séances concernées. La **prise serrée** est la troisième
+séance de couché de Force (Hypertrophie), jamais une barre liée ; écartée, Larsen, puis la barre elle-même.
+
+**Une zone à ménager prime** (MOTEUR §9.29) : la place qui charge la zone garde son exercice et toutes ses séries, **sans série lourde** :
+Lourd devient Mix (Force) ou Hypertrophie (Les deux), la grosse série et ses reculs redeviennent des séries égales. **Une priorité**
+ajoute UNE série à une barre prioritaire — ou UN recul à une grosse série : jamais une seconde grosse série.
+
+**Moins d'un an de pratique** : la même semaine, mais **3 × 5, sans zone, sans reculs, sans prise serrée** (la progression linéaire suffit ;
+Moesgaard 2022 : la périodisation aide surtout les entraînés) ; **aucune phase**.
+
+**Couche 3 — la phase.** Après la dernière routine écrite, un bloc de **5 semaines, la dernière allégée** (MOTEUR §9.22), sur les barres
+lourdes ; **aucune ligne de zone** (`creerBloc` option `sansZones`) : les zones sont celles des routines. Voir MOTEUR §9.22, « Une phase ».
+La carte « Passer en cycles » (ci-dessous) ne concerne pas ces programmes : leur dossier est déjà un programme.
+
+**Le temps.** Le raccourci de la durée (MOTEUR §9.18) retire des reculs avant tout (jamais le dernier), ne coupe **jamais** une grosse
+série ni une barre Lourd, ni une zone à ménager, ni une priorité.
+
+**L'aperçu.** Sous « {N} séances par semaine. » : « Dans la semaine : squat 2 fois, couché 3 fois, soulevé 1 fois lourd. » ; Force : « Chaque
+jour a sa zone : la même barre passe de Lourd à Mix ou à Hypertrophie. » ; Les deux : « Un jour lourd, une grosse série puis des reculs ; un
+jour en hypertrophie, des séries égales. » ; à deux séances et une fois chaque barre : « Avec 2 séances, chaque barre passe une fois. » ;
+« Une semaine allégée toutes les 5 semaines : mêmes charges, moins de séries. » ; dès qu'une barre passe deux fois : « Fréquence : environ
+3 % de force de plus par séance hebdomadaire ajoutée sur un mouvement (Pelland 2026). » Chaque ligne : « zone Lourd (3-5) » dessous,
+« 1 × 4 · 3 reculs » à droite ; la ligne « pourquoi » compte les reculs dans le volume. Aucune de ces phrases pour Muscle, Forme, un
+débutant, ni une maison sans barre.
+
+**Les deux, 2 et 3 jours** (hors maquette, validés avec les règles : squat et couché 2 fois dès 3 jours, une fois chacun à 2 jours, dit dans l'en-tête ; le squat Lourd et le soulevé Lourd jamais le même jour).
+
+| | Les deux · 2 jours | Les deux · 3 jours |
+|---|---|---|
+| A | Squat Lourd 1 × 4 · 3 reculs ; tractions 3 × 9 ; militaire 3 × 9 ; leg curl 3 × 12 | Squat Lourd 1 × 4 · 3 reculs ; couché Hyper. 3 × 9 ; tractions 3 × 9 ; élévation latérale 3 × 15 |
+| B | Couché Lourd 1 × 4 · 3 reculs ; soulevé Lourd 1 × 4 · 2 reculs ; rowing poulie 3 × 10 ; curl EZ 3 × 12 | Couché Lourd 1 × 4 · 3 reculs ; squat Hyper. 3 × 9 ; roumain Hyper. 3 × 8 ; rowing poulie 3 × 10 |
+| C | — | Soulevé Lourd 1 × 4 · 2 reculs ; militaire 3 × 9 ; curl EZ 3 × 12 ; relevé de genoux suspendu 3 × 15 |
+
+**Doutes tranchés.** Les citations (Pelland 2026, Williams 2017, Helms 2018, Zourdos 2016, Moesgaard 2022, Bell 2023) ont été relues le 31/10/2026 ;
+les charges ne sont jamais des pourcentages prévus (Helms 2018 : au moins aussi bien que les %), le coach règle chaque jour sur les
+séries et le ressenti. Hors de cette PR : 193-2b (les comptes avec historique), 193-4 (la semaine de test toutes les 2 phases), la puissance.
 
 ## 5 ter. Le coach relit ta semaine — décidé le 10/10/2026 (66)
 

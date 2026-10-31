@@ -462,16 +462,6 @@
   function aDesJambesLourdes(rt) {
     return liste(rt && rt.exercices).some(function (l) { return racine.THMoteur.estZoneForce(l.zone) && contient(['squat', 'charniere'], l.motif); });
   }
-  // `profiles.jours_vises` (text[] : lun, mar, mer, jeu, ven, sam, dim) -> indices (lundi = 0), sans doublon ni valeur inconnue ; `[]` si absente.
-  var ABREGES_DES_JOURS = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
-  function joursVises(texte) {
-    var vus = {}, sortie = [];
-    liste(texte).forEach(function (t) {
-      var i = ABREGES_DES_JOURS.indexOf(String(t).toLowerCase());
-      if (i >= 0 && !possede(vus, i)) { vus[i] = true; sortie.push(i); }
-    });
-    return sortie;
-  }
   function joursDuProgramme(n, e) {
     var vises = liste(e && e.joursSeances).map(Number).filter(function (j) { return j % 1 === 0 && j >= 0 && j <= 6; });
     if (vises.length === n && new Set(vises).size === n) return vises.slice().sort(function (a, b) { return a - b; });
@@ -1762,7 +1752,7 @@
     pourquoi: pourquoi,
     mentionsDeLigne: mentionsDeLigne,
     zonesQueChargeLExercice: zonesQueChargeLExercice,
-    placerLesJambesLourdes: placerLesJambesLourdes, joursVises: joursVises, phrasesHybrides: phrasesHybrides, NOMS_DES_JOURS: NOMS_DES_JOURS,
+    placerLesJambesLourdes: placerLesJambesLourdes, phrasesHybrides: phrasesHybrides, NOMS_DES_JOURS: NOMS_DES_JOURS,
     phrasesDeLApercu: phrasesDeLApercu,
     exemptsDuRaccourci: exemptsDuRaccourci,
     exemptsDesPriorites: exemptsDesPriorites,

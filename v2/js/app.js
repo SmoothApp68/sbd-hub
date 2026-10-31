@@ -13429,8 +13429,6 @@
       ecartes: Profil.ecartesValides(p.exercices_ecartes) || [],
       faits: faits.historiqueDesExercices(corpus()),
       // 199 (MOTEUR §9.37) — les jours de cardio réguliers (lundi = 0), lus dans les séances : rien n'est demandé.
-      // `jours_vises` (les vrais jours de la personne) quand il est renseigné et de la taille du programme ; sinon les jours types du générateur.
-      joursSeances: Generateur.joursVises(profil && profil.jours_vises),
       cardioJours: cardioReguliers().jours,
       cardioSemaines: cardioReguliers().semaines
     };

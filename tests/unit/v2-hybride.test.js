@@ -85,14 +85,6 @@ describe('199 — le générateur place les jambes lourdes loin du cardio régul
     const rts = G.generer(cat, e);
     rts.filter(lourde).forEach((rt) => { expect([0, 3, 5]).toContain(rt.hybride.jour); expect(ecart(rt.hybride.jour, 1)).toBeGreaterThanOrEqual(2); });
   });
-  test('`jours_vises` (lun…dim) donne les jours réels ; de mauvaise taille ou absent : les jours types', () => {
-    expect(G.joursVises(['lun', 'JEU', 'sam', 'xx', 'lun'])).toEqual([0, 3, 5]);
-    expect(G.joursVises(null)).toEqual([]);
-    const reel = entree({ objectif: 'les_deux', cardioJours: [1], joursSeances: G.joursVises(['lun', 'jeu', 'sam']) });
-    G.generer(cat, reel).filter(lourde).forEach((rt) => expect([0, 3, 5]).toContain(rt.hybride.jour));
-    const faux = G.generer(cat, entree({ objectif: 'les_deux', cardioJours: [1], joursSeances: G.joursVises(['lun', 'jeu']) }));
-    faux.filter(lourde).forEach((rt) => expect([0, 2, 4]).toContain(rt.hybride.jour));
-  });
   test('une séance de jambes sans zone lourde (Muscle) n’est jamais déplacée', () => {
     const rts = G.generer(cat, entree({ objectif: 'muscle', cardioJours: [2] }));
     rts.forEach((rt) => expect(rt.hybride).toBeUndefined());

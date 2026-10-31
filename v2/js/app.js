@@ -4250,7 +4250,7 @@
       var retiresSlugs = [];
       (routine.exercices || []).forEach(function (e, i) {
         var x = raccourci.resultat.exercices[i];
-        if (x && x.ch + x.tr + x.deg === 0 && e && e.exercise_slug) retiresSlugs.push(e.exercise_slug);
+        if (x && x.ch + x.tr + x.deg + (x.rec || 0) === 0 && e && e.exercise_slug) retiresSlugs.push(e.exercise_slug);
       });
       seance = Seance.noterGeste(seance, { geste: 'raccourci', retires: retiresSlugs });
     }
@@ -6187,7 +6187,7 @@
 
   function nombreDeSeriesDeTravail(slug) {
     var exo = ((seance && seance.exercices) || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
-    return exo ? (exo.series || []).filter(function (s) { return Modele.estTravail(s); }).length : 0;
+    return exo ? (exo.series || []).filter(function (s) { return Modele.estTravail(s) && !Modele.estRecul(s); }).length : 0;
   }
 
   // §14.4 (consolidation 4/7, décision du 02/10/2026) — UN REMPLACEMENT
@@ -6992,6 +6992,30 @@
     return sortie;
   }
 
+  // 193-1 (MOTEUR §9.28) — LES RECULS DE CHAQUE EXERCICE de la séance qui en porte : la dernière séance de l'exercice qui avait des
+  // reculs (`Seance.precedentAReculs`) et la cible de reps de CETTE séance — celle des reculs de sa routine (`routine_id`) quand
+  // elle est chargée et les porte encore, sinon `null` (le plan prend alors celle d'aujourd'hui : une approximation, la routine a pu
+  // changer depuis). Un fait lu sur l'historique ; le plan décide de l'écart.
+  function reculsDeLaSeance(exos) {
+    var sortie = {};
+    (exos || []).forEach(function (x) {
+      var slug = x && x.exercise_slug;
+      if (!slug || Object.prototype.hasOwnProperty.call(sortie, slug)) return;
+      if (!(x.series || []).some(function (s) { return Modele.estRecul(s); })) return;
+      var prec = Seance.precedentAReculs(slug, local.seances, seriesDe, seance ? seance.id : null);
+      if (!prec) return;
+      var cible = null;
+      var rt = prec.routine_id ? (routines || []).filter(function (r) { return r && r.id === prec.routine_id; })[0] : null;
+      var dans = rt ? (rt.exercices || []).filter(function (e) { return e && e.exercise_slug === slug; })[0] : null;
+      ((dans && dans.series) || []).forEach(function (r) {
+        var v = r && r.type_serie === 'recul' ? Number(r.reps) : NaN;
+        if (cible === null && isFinite(v) && v >= 1) cible = v;
+      });
+      sortie[slug] = Object.assign({}, prec, { cible: cible });
+    });
+    return sortie;
+  }
+
   function entreesDuPlan() {
     var edition = enEdition();
     var exos = seance.exercices || [];
@@ -7129,6 +7153,8 @@
       periodesAllegees: periodesAllegees(),
       suites: suites,
       precedents: precedents,
+      // 193-1 — la dernière séance à reculs de chaque exercice qui en porte, et la cible de reps de sa routine.
+      reculs: reculsDeLaSeance(exos),
       // 188-2 (I76) — les chutes de reps de chaque exercice de la séance (les 3 dernières séances, un fait de `faits.js`) : le plan
       // décide de la ligne du repos, il ne relit pas l'historique.
       chutesDeReps: chutesDeRepsDeLaSeance(exos),
@@ -7684,7 +7710,9 @@
   function constatPour(slug, iExo) {
     if (!seance || occurrenceLibre(iExo) || !blocFini(slug)) return null;
     var x = planDuSlug(slug);
-    return x && x.constat ? x.constat : null;
+    if (!x || !x.constat) return null;
+    // 193-1 — « Tes reculs tiennent 6-6-6. » : une ligne de plus sous le constat, du plan.
+    return x.reculs && x.reculs.constat ? Object.assign({}, x.constat, { reculs: x.reculs.constat }) : x.constat;
   }
 
   // Taper dans un champ ne redessine pas la séance — le champ perdrait le
@@ -7827,9 +7855,12 @@
   async function finirPari(provisoire) {
     // L'occurrence entre dans le nom (`Moteur.idDePrediction`) : sans elle — un
     // pari d'une séance d'avant la règle —, l'identifiant d'avant, inchangé.
-    var calcule = await Moteur.idDePrediction(seance.id, provisoire.exercise_slug,
-      provisoire.fondement.rang, revisionDe(provisoire),
-      provisoire.fondement.occurrence);
+    // 193-1 — le pari d'un recul a son espace de noms (`recul|…`), comme l'escalier : son rang est un texte.
+    var calcule = provisoire.fondement.role === 'recul'
+      ? await Moteur.idDeRecul(seance.id, provisoire.exercise_slug, provisoire.fondement.rang, provisoire.fondement.occurrence)
+      : await Moteur.idDePrediction(seance.id, provisoire.exercise_slug,
+        provisoire.fondement.rang, revisionDe(provisoire),
+        provisoire.fondement.occurrence);
     var ligne = Object.assign({}, provisoire, { id: calcule });
     delete ligne._provisoire;
     var trouve = false;
@@ -8492,6 +8523,12 @@
     if (!r) return;
     var j = r.indices.indexOf(iSerie);
     var rang = j < 0 ? null : r.rangs[j];
+    // 193-1 — le rang d'un recul est « r1 », « r2 »… (son ordre parmi les reculs de l'exercice), jamais un rang de la couverture.
+    if (Modele.estRecul(serie)) {
+      var kr = 0;
+      for (var ir = 0; ir <= iSerie; ir++) if (Modele.estRecul(exo.series[ir])) kr += 1;
+      rang = 'r' + kr;
+    }
     // ⚠️ TOUS LES PARIS DU RANG, jamais le premier trouvé (§9.11, P7). Après
     // un rechargement, les lignes se relisent dans l'ordre de leur identifiant
     // haché : « le premier » serait un pari au hasard. Chacun se juge sur SES
@@ -8845,6 +8882,10 @@
     var x = planDeLExercice(iExo);
     if (x && x.chauffes && x.chauffes.phrase && x.chauffes.iSerie === iSerie) {
       return { message: { type: 'chauffe', phrase: x.chauffes.phrase }, proposee: false, fourchette: null };
+    }
+    // 193-1 (MOTEUR §9.28) — la phrase des reculs, au-dessus du premier recul tant qu'il reste un recul à faire ; du plan.
+    if (x && x.reculs && x.reculs.phrase && x.reculs.iSerie === iSerie && x.lignes && x.lignes[iSerie] && !x.lignes[iSerie].validee) {
+      return { message: { type: 'recul', phrase: x.reculs.phrase }, proposee: false, fourchette: null };
     }
     // 151 (MOTEUR §9.15.3) — la chaîne des baisses : la première, puis la seconde (« 2ᵉ baisse »), puis les lignes en trop.
     var chaineDeg = x ? (x.degressive ? [x.degressive] : []).concat(x.degressivesPlus || []) : [];
@@ -11879,7 +11920,8 @@
   function chargeDeDepartDe(slug) {
     var exo = ((seance && seance.exercices) || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
     if (!exo) return null;
-    var travail = (exo.series || []).filter(function (x) { return Modele.estTravail(x); });
+    // 193-1 — un recul n'est pas un départ : sa charge suit la grosse série, qui n'existe pas encore.
+    var travail = (exo.series || []).filter(function (x) { return Modele.estTravail(x) && !Modele.estRecul(x); });
     // 180 (A-F-09, D4) — AU POIDS DU CORPS, le départ est fait des reps de la routine (pas de charge) : la première série de
     // travail qui les porte, sur un exercice jamais fait.
     var cat = catalogueIndexe()[slug];

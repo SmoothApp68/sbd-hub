@@ -2985,6 +2985,8 @@
         // MOTEUR §14.5 (49-U15) — au silence de l'escalier, la phrase du
         // compteur, une fois, dans le constat — sans alarme.
         if (constat.escalier) entree.appendChild(el('div', 'constat-suite constat-escalier', constat.escalier));
+        // 193-1 — « Tes reculs tiennent 6-6-6. » (un fait, du plan).
+        if (constat.reculs) entree.appendChild(el('div', 'constat-suite constat-reculs', constat.reculs));
       }
       // §7 quindecies.3 (52-1) — DANS L'ÉDITEUR, CE QUE DEVIENT LA CHARGE, en
       // gris : un point de départ la première fois, le coach seul ensuite.
@@ -3977,7 +3979,9 @@
     ['degressive', 'Dégressive'],
     ['echec', 'À l’échec', 'Tes reps comptent, sans marge. À 0 rep : une tentative manquée.'],
     // 186 (v2_117) — la série de test : un max, un single. Un record possible ; elle ne décide pas de la charge de travail.
-    ['test', 'Série de test', 'Un max tenté : un record possible, mais elle ne décide pas de ta charge de travail.']
+    ['test', 'Série de test', 'Un max tenté : un record possible, mais elle ne décide pas de ta charge de travail.'],
+    // 193-1 (v2_120) — la série de recul : plus légère que la grosse série, qui décide de la charge ; elle compte dans le volume.
+    ['recul', 'Série de recul', 'Plus légère que ta grosse série, avec un repos normal. Ta charge se décide sur la grosse série.']
   ];
 
   var LIBELLE_RESSENTI = [
@@ -4137,6 +4141,8 @@
     if (p.frere) cible.appendChild(el('p', 'pq-p', p.frere));
     // 188-2 — le repos d'un gros mouvement qui stagne : une ligne, jamais une carte.
     if (p.repos) cible.appendChild(el('p', 'pq-p', p.repos));
+    // 193-1 — comment les séries de recul suivent la grosse série (du plan).
+    if (p.recul) cible.appendChild(el('p', 'pq-p', p.recul));
     // MOTEUR §9.15.1 (49-U10) — une routine qui prévoit plus de chauffes que
     // la table : les lignes en trop ne sont pas remplies, et la feuille le dit.
     if (p.chauffes) cible.appendChild(el('p', 'pq-p', p.chauffes));
@@ -4723,11 +4729,12 @@
   // dégressives — ou la durée d'un cardio), puis le repos et son origine.
   // `series` au vocabulaire de la saisie (`reps`) ou de la cible (`reps_visees`).
   function resumeStructure(series, repos, origine) {
-    var ch = 0, deg = 0, travail = [], duree = null;
+    var ch = 0, deg = 0, rec = 0, travail = [], duree = null;
     (series || []).forEach(function (x) {
       var t = (x && x.type_serie) || 'travail';
       if (t === 'echauffement') { ch++; return; }
       if (t === 'degressive') { deg++; return; }
+      if (t === 'recul') { rec++; return; }   // 193-1 — « 1 × 4 · 3 reculs » : la grosse série, puis ses reculs
       var r = x.reps !== undefined ? x.reps : x.reps_visees;
       travail.push(r === undefined ? null : r);
       var d = x.duree_s !== undefined ? x.duree_s : x.duree_cible_s;
@@ -4741,6 +4748,7 @@
       if (duree !== null && travail.length === 1) parts.push(M().formatDuree(duree));
       else parts.push(memes ? travail.length + ' \u00d7 ' + travail[0] : pluriel(travail.length, 'série'));
     }
+    if (rec) parts.push(pluriel(rec, 'recul'));
     if (deg) parts.push(pluriel(deg, 'dégressive'));
     if (repos !== null && repos !== undefined) {
       var o = texteOrigine(origine);

@@ -3511,13 +3511,15 @@
   // changement d'exercice (delta 51-1 ter).
   function dureeExercice(e) {
     var D = DUREE_PAR_DEFAUT;
-    var ch = compteDe(e.ch), tr = compteDe(e.tr), deg = compteDe(e.deg);
-    if (ch + tr + deg === 0) return 0;
+    var ch = compteDe(e.ch), tr = compteDe(e.tr), deg = compteDe(e.deg), rec = compteDe(e.rec);
+    if (ch + tr + deg + rec === 0) return 0;
     var repos = e.repos === null || e.repos === undefined ? null : Number(e.repos);
     var t = D.changement;
     if (enDuree(e)) return t + (Number(e.duree) || 0) * tr + (repos || 0) * Math.max(0, tr - 1);
     if (ch > 0) t += ch * D.serie + (ch - 1) * REPOS_ENTRE_CHAUFFES + REPOS_APRES_CHAUFFES;
     t += tr * (D.serie + (repos === null ? D.reposSuperset : repos));
+    // 193-1 — une série de recul se fait et se repose comme une série de travail (le repos de l'exercice).
+    t += rec * (D.serie + (repos === null ? D.reposSuperset : repos));
     t += deg * D.degressive;
     return t;
   }
@@ -3531,7 +3533,7 @@
     return (structure || []).map(function (e) {
       return { slug: e.slug, mesure: e.mesure === undefined ? null : e.mesure,
                repos: e.repos === undefined ? null : e.repos,
-               ch: compteDe(e.ch), tr: compteDe(e.tr), deg: compteDe(e.deg),
+               ch: compteDe(e.ch), tr: compteDe(e.tr), deg: compteDe(e.deg), rec: compteDe(e.rec),
                duree: e.duree === undefined ? null : e.duree,
                prim: musclesDe(e.prim), sec: musclesDe(e.sec), stab: musclesDe(e.stab),
                equipement: e.equipement === undefined ? null : e.equipement,
@@ -3570,9 +3572,9 @@
 
     // 1. le cardio de fin (sans muscle, après le premier rang) : mis à part.
     r.forEach(function (e, i) {
-      if (i === 0 || aDesMuscles(e) || e.ch + e.tr + e.deg === 0 || intouchable(e)) return;
+      if (i === 0 || aDesMuscles(e) || e.ch + e.tr + e.deg + e.rec === 0 || intouchable(e)) return;
       journal.push({ quoi: 'cardio_fin', i: i, slug: e.slug });
-      e.ch = 0; e.tr = 0; e.deg = 0; e.duree = 0;
+      e.ch = 0; e.tr = 0; e.deg = 0; e.rec = 0; e.duree = 0;
     });
     if (tient()) return fin();
 
@@ -3590,6 +3592,17 @@
       while (r[k].deg > 0 && !tient()) {
         r[k].deg--;
         journal.push({ quoi: 'degressive', i: k, slug: r[k].slug });
+      }
+      if (tient()) return fin();
+    }
+
+    // 3 bis. 193-1 — les séries de recul, juste après les dégressives et AVANT toute grosse série : une de moins par exercice, dans
+    // l'ordre de la séance, jamais la dernière (le recul le plus léger de la séance reste ; on ne les retire pas tous d'office).
+    for (var kr = 0; kr < r.length; kr++) {
+      if (intouchable(r[kr])) continue;
+      while (r[kr].rec > 1 && !tient()) {
+        r[kr].rec--;
+        journal.push({ quoi: 'recul', i: kr, slug: r[kr].slug });
       }
       if (tient()) return fin();
     }
@@ -3659,7 +3672,7 @@
       if (tient()) return fin();
       var retire = -1, cleR = null;
       r.forEach(function (e, i) {
-        if (i === premier || !e.prim.length || e.ch + e.tr + e.deg === 0 || !libre(e) || estPolyarticulaire(e)) return;
+        if (i === premier || !e.prim.length || e.ch + e.tr + e.deg + e.rec === 0 || !libre(e) || estPolyarticulaire(e)) return;
         var couvert = e.prim.every(function (m) {
           return r.some(function (f, j) { return j !== i && f.tr > 0 && f.prim.indexOf(m) >= 0; });
         });
@@ -3668,7 +3681,7 @@
         if (avantDans(c, cleR)) { retire = i; cleR = c; }
       });
       if (retire < 0) break;
-      r[retire].ch = 0; r[retire].tr = 0; r[retire].deg = 0;
+      r[retire].ch = 0; r[retire].tr = 0; r[retire].deg = 0; r[retire].rec = 0;
       journal.push({ quoi: 'retire', i: retire, slug: r[retire].slug });
     }
     return fin();
@@ -3694,7 +3707,7 @@
       var d = null;
       series.forEach(function (s) { if (d === null && s && s.duree_s !== null && s.duree_s !== undefined) d = Number(s.duree_s); });
       return { slug: e.exercise_slug, mesure: cat.mesure || null, repos: repos,
-               ch: nb('echauffement'), tr: nb('travail') + nb('echec'), deg: nb('degressive'),
+               ch: nb('echauffement'), tr: nb('travail') + nb('echec'), deg: nb('degressive'), rec: nb('recul'),
                duree: d, prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [],
                stab: cat.muscles_stabilisateurs || [], equipement: cat.equipement || null,
                groupe: g === undefined ? null : g };
@@ -3727,9 +3740,9 @@
     ((routine && routine.exercices) || []).forEach(function (e, i) {
       var x = r[i];
       if (!x) { exercices.push(e); return; }
-      if (x.ch + x.tr + x.deg === 0) { if (e.id !== undefined && e.id !== null) retires.push(e.id); return; }
-      var garde = { echauffement: x.ch, travail: x.tr, echec: 0, degressive: x.deg };
-      var vus = { echauffement: 0, travail: 0, echec: 0, degressive: 0 };
+      if (x.ch + x.tr + x.deg + compteDe(x.rec) === 0) { if (e.id !== undefined && e.id !== null) retires.push(e.id); return; }
+      var garde = { echauffement: x.ch, travail: x.tr, echec: 0, degressive: x.deg, recul: compteDe(x.rec) };
+      var vus = { echauffement: 0, travail: 0, echec: 0, degressive: 0, recul: 0 };
       var series = (e.series || []).filter(function (s) {
         var t = Modele().typeDe(s);
         if (t === 'echec') t = 'travail';
@@ -3772,8 +3785,8 @@
     (avant || []).forEach(function (a, i) {
       var b = apres[i];
       if (!b) return;
-      var ta = compteDe(a.tr), ca = compteDe(a.ch), da = compteDe(a.deg);
-      if (ta + ca + da > 0 && b.ch + b.tr + b.deg === 0) {
+      var ta = compteDe(a.tr), ca = compteDe(a.ch), da = compteDe(a.deg), ra = compteDe(a.rec);
+      if (ta + ca + da + ra > 0 && b.ch + b.tr + b.deg + compteDe(b.rec) === 0) {
         lignes.push(aDesMuscles(a) ? nom(a.slug) + ' : retiré, ses muscles sont déjà travaillés'
                                    : nom(a.slug) + ' : mis à part pour aujourd’hui');
         return;
@@ -3795,6 +3808,11 @@
         lignes.push(nom(a.slug) + ' : en superset avec ' + nom(suivant ? suivant.slug : a.slug));
       }
       if (da > 0 && b.deg < da) lignes.push(nom(a.slug) + ' : sans dégressive');
+      // 193-1 — « Squat : 3 → 2 reculs » : un recul de moins, dit.
+      if (ra > compteDe(b.rec) && compteDe(b.rec) > 0) {
+        lignes.push(nom(a.slug) + ' : ' + nombreFr(ra, regle('series.avant')) + ' → ' + nombreFr(compteDe(b.rec), regle('series.apres')) +
+          (compteDe(b.rec) > 1 ? ' reculs' : ' recul'));
+      }
     });
     var tient = !!(resultat && resultat.tient);
     var court = resultat ? resultat.duree_s : 0;
@@ -4601,7 +4619,9 @@
     descente_choisie: 'descente, ne compte pas',
     echec: 'série arrêtée, ne compte pas',
     // 186 — le single ou la série de test : faite, un record possible, hors de la charge de travail.
-    hors_palier: 'hors de ta charge de travail'
+    hors_palier: 'hors de ta charge de travail',
+    // 193-1 — la série de recul : faite, elle compte au volume et aux records ; sa charge suit la grosse série.
+    recul: 'recul, suit ta grosse série'
   };
 
   // La dernière séance, telle que la feuille la relit : les chauffes en UNE
@@ -5139,6 +5159,13 @@
   // la séance : les deux ne peuvent jamais se rencontrer.
   async function idDEscalier(seance, exercice, marche) {
     return uuidDuNom('escalier|' + String(seance) + '|' + (exercice ? String(exercice) : '') + '|' + String(marche));
+  }
+
+  // 193-1 (MOTEUR §9.28) — L'IDENTIFIANT DU PARI D'UNE SÉRIE DE RECUL, dans un espace de noms à part, sur le modèle de l'escalier :
+  // `recul|séance|exercice|rang|occurrence` (le rang est un texte, « r1 »…). Un nom de consigne commence par l'identifiant de la
+  // séance : les deux ne peuvent jamais se rencontrer.
+  async function idDeRecul(seance, exercice, rang, occurrence) {
+    return uuidDuNom('recul|' + String(seance) + '|' + String(exercice) + '|' + String(rang) + (occurrence ? '|o=' + String(occurrence) : ''));
   }
 
   // 109 (MOTEUR §9.25) — L'IDENTIFIANT DU PARI D'UN OBJECTIF, dans un espace de noms à part :
@@ -5689,6 +5716,22 @@
                 r !== null && r >= zEssai.bas;
             });
           }
+        }
+      }
+      // 193-1 (MOTEUR §9.28, décision du 31/10/2026) — UN TEST RATÉ À UNE SEULE GROSSE SÉRIE. Avec des reculs, la grosse série est seule à
+      // sa charge : plus lourde que le palier d'avant et sous le bas de la zone (152,5 × 2 après 150 × 4, zone Lourd 3-5), elle n'est pas
+      // un nouveau palier. La séance est NEUTRE : palier inchangé, même test reproposé la fois suivante. Pas de retest d'un cran ni
+      // d'étirement ici (option B, à décider). Sans recul, une série unique garde son comportement d'avant.
+      if (!exploRatee && nombre(se.palier) !== null && parRole(se.series, { palier: true }).length === 1 &&
+          parRole(se.series, { travail: true }).length === 0 && (se.series || []).some(function (x) { return x && x.origine === 'recul'; })) {
+        var cAvant = consignePour(faites, se.debut, opts) || {};
+        var zUne = zoneParCle(cAvant.zone), pAvant = nombre(cAvant.palier);
+        var rUne = compter(parRole(se.series, { palier: true })[0]);
+        if (zUne !== null && pAvant !== null && rUne !== null && rUne < zUne.bas && nombre(se.palier) > pAvant) {
+          se = { debut: se.debut, palier: null, neutre: true, series: se.series || [] };
+          sortie[i] = se;
+          faites.push(se);
+          return;
         }
       }
       if (nombre(se.palier) === null || exploRatee) {
@@ -6434,7 +6477,8 @@
   // (échauffement, dégressive, test, hors calcul, hors de 1 à 12 reps, sans charge).
   function valeurDeFatigue(serie) {
     var M = Modele();
-    if (!serie || !M.estTravail(serie) || M.estTest(serie)) return null;
+    // 193-1 — ni une série de recul : la baisse générale ne lit que les grosses séries (un recul plus léger n'est jamais une baisse).
+    if (!serie || !M.estTravail(serie) || M.estTest(serie) || M.estRecul(serie)) return null;
     var charge = nombre(serie.charge_kg), reps = nombre(serie.reps);
     if (charge === null || charge <= 0 || reps === null || reps < 1 || reps > FATIGUE_REPS_MAX) return null;
     var reserve = Palier().reserveDeSerie(serie);
@@ -9708,6 +9752,135 @@
                ', sans repos, jusqu\'à l\'échec. ' + phraseViseeDegressive(vise) };
   }
 
+  // ══ 193-1 (MOTEUR §9.28) — LA SÉRIE DE RECUL : SA CHARGE, SON ÉCART ═══════════════════════════════════════════════════════
+  //
+  // Une grosse série lourde (150 kg × 4), puis des séries plus légères (135 kg × 6-6-6) au repos de l'exercice. La grosse série décide
+  // de la charge (le palier, le test, le cran : rien ne change pour elle) ; les reculs la SUIVENT, sans règle de charge à eux.
+  //   charge d'un recul = la charge de la grosse série DU JOUR − un écart, arrondie au cran le PLUS PROCHE du matériel, vers le BAS
+  //   en cas d'égalité (150 × 0,925 = 138,75 → 137,5, pas 140), jamais au niveau de la grosse (le cran de départ est celui d'en dessous).
+  //   écart : 10 % au départ (convention des coachs : RTS, powerbuilding, 10 à 15 % ; en powerlifting, les séries qui suivent un single
+  //   se font vers 80 % de ce single — Androulakis-Korakakis 2021). Il se LIT sur la dernière séance de l'exercice qui avait des
+  //   reculs : l'écart réel (1 − charge des reculs ÷ charge de la grosse), borné 5 % à 20 %, puis ± 2,5 points selon les reps —
+  //   TOUS les reculs à la cible + 2 ou plus : il baisse ; UN recul sous la cible : il monte. Les chiffres 2,5 et 5-20 % sont une
+  //   convention, dite comme telle. Une fonction pure, sous la garde, appelée par `planDeSeance`.
+  var RECUL_ECART_DEPART = 0.10;
+  var RECUL_ECART_PAS = 0.025;
+  var RECUL_ECART_MIN = 0.05;
+  var RECUL_ECART_MAX = 0.20;
+  var RECUL_MARGE_REPS = 2;
+  function bornerEcartDeRecul(v) {
+    return Math.min(RECUL_ECART_MAX, Math.max(RECUL_ECART_MIN, Math.round(v * 1e6) / 1e6));
+  }
+  // Le cran sous P le plus proche de `cible`, VERS LE BAS à égalité (contrairement à `cranSousProcheDe`, qui garde le plus lourd :
+  // il sert aux vagues de bord). Départ : le cran en dessous de P, donc jamais P ni plus lourd. `null` : rien de plus léger.
+  function cranLePlusProche(voisineFn, P, cible) {
+    var cur = voisineFn(P, -1);
+    if (cur === null) return null;
+    for (var t = 0; t < 40; t++) {
+      var nxt = voisineFn(cur, -1);
+      if (nxt !== null && nxt < cur && Math.abs(nxt - cible) <= Math.abs(cur - cible) + 1e-9) cur = nxt; else break;
+    }
+    return cur;
+  }
+  // L'ÉCART d'UNE séance : `precedent` = `{ series: [{ charge_kg, reps, type_serie }] }`, la dernière séance de l'exercice qui avait des
+  // reculs (`THSeance.precedentAReculs`), ou `null`. `cible` : les reps visées d'un recul — celles de la routine de CETTE séance
+  // (`routine_id`) quand l'app les a, sinon celles d'aujourd'hui : une APPROXIMATION (la routine a pu changer entre-temps), dite
+  // telle. Sans cible, l'écart réel est gardé tel quel. L'écart réel est arrondi au demi-point (135 ÷ 150 et 137,5 ÷ 152,5 sont « 10 % »).
+  // Rend `{ ecart, depart, reel, sens, reps, cible }` ; `sens` : 'rapproche' | 'eloigne' | null.
+  function ecartDeRecul(precedent, cible) {
+    var serie = (precedent && precedent.series) || [];
+    var M = Modele();
+    var grosse = null, reculs = [];
+    serie.forEach(function (x) {
+      var kg = nombre(x && x.charge_kg), r = nombre(x && x.reps);
+      if (kg === null || kg <= 0 || r === null) return;
+      if (M.estRecul(x)) reculs.push({ charge: kg, reps: r });
+      else if (M.estTravail(x) && (grosse === null || kg > grosse)) grosse = kg;
+    });
+    if (grosse === null || !reculs.length) {
+      return { ecart: RECUL_ECART_DEPART, depart: true, reel: null, sens: null, reps: [], cible: null };
+    }
+    var reel = bornerEcartDeRecul(Math.round((1 - reculs[0].charge / grosse) * 200) / 200);
+    var c = nombre(cible);
+    var reps = reculs.map(function (x) { return x.reps; });
+    var ecart = reel, sens = null;
+    if (c !== null && c >= 1) {
+      if (reps.some(function (r) { return r < c; })) { ecart = bornerEcartDeRecul(reel + RECUL_ECART_PAS); sens = 'eloigne'; }
+      else if (reps.every(function (r) { return r >= c + RECUL_MARGE_REPS; })) { ecart = bornerEcartDeRecul(reel - RECUL_ECART_PAS); sens = 'rapproche'; }
+    }
+    return { ecart: ecart, depart: false, reel: reel, sens: sens, reps: reps, cible: c !== null && c >= 1 ? c : null };
+  }
+  // La charge d'un recul. `entree` : `{ grosse, ecart, cran, salle, reps }` — `grosse` : la plus lourde série de travail de l'exercice
+  // dans la séance (validée ou proposée), `cran` : le pas du matériel de la consigne, `salle` : la salle déclarée (§10 bis). Rend
+  // `{ charge, ecart, vise, phrase }` ; une ligne qu'il ne peut pas remplir rend `{ charge: null, phrase }` (jamais une charge devinée).
+  var PHRASE_RECUL_SANS_GROSSE = 'Pas de grosse série pour caler tes reculs.';
+  var PHRASE_RECUL_TROP_LEGER = 'Rien de plus léger que ta grosse série pour un recul.';
+  function reculDe(entree) {
+    var e = entree || {};
+    var g = nombre(e.grosse);
+    var vide = function (phrase) { return { charge: null, ecart: null, vise: nombre(e.reps), phrase: phrase }; };
+    if (g === null || g <= 0) return vide(PHRASE_RECUL_SANS_GROSSE);
+    var ecart = nombre(e.ecart);
+    if (ecart === null) ecart = RECUL_ECART_DEPART;
+    ecart = bornerEcartDeRecul(ecart);
+    var salle = e.salle ? salleEnVigueur(e.salle, g) : null;
+    var cran = nombre(e.cran);
+    if (cran === null || cran <= 0) cran = CRAN_PAR_DEFAUT;
+    var voisine = salle
+      ? function (c, sens) { return voisineDeLaSalle(salle, c, sens); }
+      : function (c, sens) {
+          // Le plus grand multiple du cran STRICTEMENT sous c (sens −1).
+          var k = Math.ceil(c / cran - 1e-9) - 1;
+          var v = auCentieme(k * cran);
+          return sens < 0 && v > 0 && v < c ? v : null;
+        };
+    var cible = auCentieme(g * (1 - ecart));
+    var charge = cranLePlusProche(voisine, g, cible);
+    if (charge === null || !(charge > 0) || charge >= g) return vide(PHRASE_RECUL_TROP_LEGER);
+    return { charge: charge, ecart: ecart, vise: nombre(e.reps), phrase: null };
+  }
+
+  // Les PHRASES du recul (VOIX-DU-COACH : un fait, « tu », jamais un « bravo »). Chaque chiffre est cité (I26) : la charge, l'écart
+  // en % et les reps ont chacun leur source dans le plan (`regle|recul`, `recul.ecart`, `recul.reps`).
+  function pctDeRecul(ecart) { return Math.round(ecart * 1000) / 10; }
+  function phraseRecul(charge, ecart) {
+    return 'Recul' + DEUX_POINTS + enKg(charge, regle('recul')) + ', ' + nombreFr(pctDeRecul(ecart), regle('recul.ecart')) +
+      INSECABLE + '% sous ta grosse série.';
+  }
+  // « puis 135 kg × 6 » : la suite de la consigne du jour, à côté de la grosse série.
+  function puisRecul(charge, vise) {
+    return 'puis ' + (nombre(vise) === null ? enKg(charge, regle('recul')) : chargeFois(charge, vise, regle('recul')));
+  }
+  function repsDeRecul(reps) {
+    return reps.map(function (r) { return nombreFr(r, regle('recul.reps')); });
+  }
+  function listeDeRecul(reps) {
+    var t = repsDeRecul(reps);
+    return t.length < 2 ? t.join('') : t.slice(0, -1).join(', ') + ' et ' + t[t.length - 1];
+  }
+  // Le paragraphe du « Pourquoi ». `f` : `{ grosse, charge, ecart, depart, sens, reel, reps, cible }`.
+  function pourquoiRecul(f) {
+    var t = 'Tes séries de recul suivent ta grosse série' + DEUX_POINTS + nombreFr(pctDeRecul(f.ecart), regle('recul.ecart')) + INSECABLE +
+      '% en dessous de ' + enKg(f.grosse, regle('recul.grosse')) + ', arrondi au cran le plus proche de ton matériel, ' +
+      enKg(f.charge, regle('recul')) + '. Elles comptent dans ton volume et tes records, jamais comme un test.';
+    if (f.sens && f.reps && f.reps.length) {
+      t += ' La dernière fois, tes séries de recul ont fait ' + listeDeRecul(f.reps) + ' pour une cible de ' + nombreFr(f.cible, regle('recul.reps')) + '. ' +
+        (f.sens === 'rapproche'
+          ? 'Je les rapproche' + DEUX_POINTS + nombreFr(pctDeRecul(f.ecart), regle('recul.ecart')) + INSECABLE + '% sous ta grosse série au lieu de ' +
+            nombreFr(pctDeRecul(f.reel), regle('recul.ecart')) + INSECABLE + '%.'
+          : 'Je les éloigne' + DEUX_POINTS + nombreFr(pctDeRecul(f.ecart), regle('recul.ecart')) + INSECABLE + '% sous ta grosse série au lieu de ' +
+            nombreFr(pctDeRecul(f.reel), regle('recul.ecart')) + INSECABLE + '%.');
+    }
+    return t;
+  }
+  // Le constat : un fait. `cible` peut manquer (pas de routine, pas de dernière fois).
+  function phraseConstatReculs(reps, cible) {
+    var c = nombre(cible);
+    var tiennent = c !== null && reps.every(function (r) { return r >= c; });
+    if (tiennent) return 'Tes reculs tiennent ' + repsDeRecul(reps).join('-') + '.';
+    return 'Tes reculs' + DEUX_POINTS + listeDeRecul(reps) + (c !== null ? ' pour une cible de ' + nombreFr(c, regle('recul.reps')) : '') + '.';
+  }
+
   var api = {
     // §10 bis (108) — le matériel de la salle.
     SALLE_BARRES: SALLE_BARRES,
@@ -9914,6 +10087,15 @@
     situationChauffe: situationChauffe,
     chauffesDe: chauffesDe,
     degressiveDe: degressiveDe,
+    // 193-1 (§9.28) — la série de recul.
+    reculDe: reculDe,
+    ecartDeRecul: ecartDeRecul,
+    cranLePlusProche: cranLePlusProche,
+    phraseRecul: phraseRecul,
+    puisRecul: puisRecul,
+    pourquoiRecul: pourquoiRecul,
+    phraseConstatReculs: phraseConstatReculs,
+    RECUL_ECART_DEPART: RECUL_ECART_DEPART,
     FENETRE_HABITUDE: FENETRE_HABITUDE,
     FENETRE_COUPLE: FENETRE_COUPLE,
     MAJORITE_COUPLE: MAJORITE_COUPLE,
@@ -10018,6 +10200,7 @@
     REPORT_FENETRE_JOURS: REPORT_FENETRE_JOURS,
     idDePrediction: idDePrediction,
     idDEscalier: idDEscalier,
+    idDeRecul: idDeRecul,
     idDObjectif: idDObjectif,
     MODULE_OBJECTIF: MODULE_OBJECTIF,
     idDImport: idDImport,

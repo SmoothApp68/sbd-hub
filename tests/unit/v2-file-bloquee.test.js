@@ -93,8 +93,8 @@ describe('D5 — le report de fin de séance', () => {
     const lignes = Routines.seriesEcrites(
       { series: [{ type_serie: 'nawak' }, { type_serie: 'degressive' }] }, 're1', 'u1');
     expect(lignes.map((l) => l.type_serie)).toEqual(['travail', 'degressive']);
-    // `routine_sets_type_serie_check` n'accepte que ces quatre-là.
-    expect(Routines.TYPES_SERIE).toEqual(['travail', 'echauffement', 'degressive', 'echec']);
+    // `routine_sets_type_serie_check` n'accepte que ces cinq-là (`recul` depuis v2_120, 193-1 ; `test` n'est pas un type de routine).
+    expect(Routines.TYPES_SERIE).toEqual(['travail', 'echauffement', 'degressive', 'echec', 'recul']);
   });
 
   test('le rang des lignes commence à 1 — `routine_sets` l’exige, contrairement aux exercices', () => {

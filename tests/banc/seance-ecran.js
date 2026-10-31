@@ -5344,17 +5344,38 @@ const SETS_IMPORTES = [
     const n = await compter('.ligne-serie');
     for (let i = 0; i < n; i++) {
       const l = await ligne(i);
-      await casesSiVides(l);
+      // 193-3 — UNE LIGNE DONT LA CHARGE EST VIDE (la ligne de test du coach : « le cran au-dessus × 3 », sans chiffre) reçoit la
+      // charge de la ligne juste au-dessus, dans le même bloc (sa valeur, sinon son gris), JAMAIS 40 kg en dur : 40 kg au squat
+      // est une « baisse » (185), la question de saisie retient l'écriture et la série n'arrive pas. Sans ligne au-dessus : 40.
+      const chargeDuDessus = await page.evaluate((k) => {
+        const lignes = Array.from(document.querySelectorAll('.ligne-serie'));
+        const cette = lignes[k];
+        const champ = (x) => x && x.querySelector('[data-champ="charge_kg"] input');
+        const c = champ(cette);
+        if (!c || c.value !== '' || /\d/.test(c.placeholder || '')) return null;
+        const bloc = cette.closest('.bloc-seance');
+        for (let j = k - 1; j >= 0; j--) {
+          if (lignes[j].closest('.bloc-seance') !== bloc) break;
+          const d = champ(lignes[j]);
+          const v = d && (d.value !== '' ? d.value : (/\d/.test(d.placeholder || '') ? d.placeholder : ''));
+          if (v !== '' && v !== undefined && v !== null) return String(v).replace(',', '.');
+        }
+        return null;
+      }, i);
+      await casesSiVides(l, chargeDuDessus ? Number(chargeDuDessus) : undefined);
       await l.$eval('.ok-serie', (b) => b.click());
       await attendre(200);   // rapprochées, comme un pouce sur l'appareil
     }
     const t0 = Date.now();
     const ici = () => base.sets.filter((x) => x.session_id === idV).length;
     const venues = idV ? await jusqua(() => ici() >= n, 15000, strict ? 'validerToutes : séries arrivées' : { nom: 'validerToutes', attendu: true }) : (await attendre(2600), true);   // VOULU : séance déjà sortie de `en_cours`, aucun état à lire
-    arriveeDesSeries = { ms: Date.now() - t0, venues: venues, n: ici(), attendu: n };
+    // Une question de saisie restée ouverte dit pourquoi la série n'est pas écrite (185) : la CI lit le motif, pas « PERDUE » seul.
+    const questionOuverte = venues ? '' : await page.evaluate(() => Array.from(document.querySelectorAll('.question-saisie'))
+      .map((q) => q.textContent.replace(/\s+/g, ' ').trim().slice(0, 140)).join(' | ')).catch(() => '');
+    arriveeDesSeries = { ms: Date.now() - t0, venues: venues, n: ici(), attendu: n, question: questionOuverte };
     return n;
   };
-  const arriveeTexte = () => arriveeDesSeries ? ' · arrivée de la dernière : ' + arriveeDesSeries.ms + ' ms' + (arriveeDesSeries.venues ? '' : ' (PERDUE : plafond atteint)') : '';
+  const arriveeTexte = () => arriveeDesSeries ? ' · arrivée de la dernière : ' + arriveeDesSeries.ms + ' ms' + (arriveeDesSeries.venues ? '' : ' (PERDUE : plafond atteint' + (arriveeDesSeries.question ? ' · question de saisie ouverte : « ' + arriveeDesSeries.question + ' »' : ' · aucune question de saisie ouverte') + ')') : '';
   const seriesDe = (id) => base.sets.filter((x) => x.session_id === id).length;
   const enCoursId = () => (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
   // 135 — chaque pas attend son état : la feuille de fin ouverte (son bouton là), puis la séance sortie de

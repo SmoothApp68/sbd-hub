@@ -917,7 +917,9 @@
     // 188-1 (`v2_118`) — les réponses aux cartes de la semaine. FACULTATIVE : absente, le profil se lit sans elle.
     'cartes_semaine, ' +
     // 194-1 (`v2_124`) — les zones raides (NULL : pas répondu, `{}` : aucune). FACULTATIVE : absente, le profil se lit sans elle.
-    'zones_raides';
+    'zones_raides, ' +
+    // 195 (`v2_125`) — le départ de la calisthénie. FACULTATIVE : absente, le profil se lit sans elle.
+    'depart_calisthenie';
 
   // ⚠️ 104 — UNE COLONNE FACULTATIVE NE CASSE JAMAIS LE PROFIL (le défaut de #418). Nommer une colonne que la base
   // n'a pas encore (migration pas lancée) fait échouer la lecture ENTIÈRE (`42703`, « column … does not exist ») et
@@ -925,7 +927,7 @@
   // Une colonne de cette liste n'est qu'un confort (l'appareil garde sa propre mémoire) : si la base dit qu'elle
   // n'existe pas, elle quitte la lecture et l'écriture POUR LA SESSION, et la même requête repart une fois sans elle.
   // La migration lancée, le prochain démarrage la reprend. Une colonne obligatoire n'entre JAMAIS ici.
-  var COLONNES_FACULTATIVES = ['bilans_annonces', 'ma_salle', 'marche_reponses', 'assistant_accord_a', 'cartes_semaine', 'zones_raides'];
+  var COLONNES_FACULTATIVES = ['bilans_annonces', 'ma_salle', 'marche_reponses', 'assistant_accord_a', 'cartes_semaine', 'zones_raides', 'depart_calisthenie'];
   var facultativesAbsentes = {};
   function colonnesProfil() {
     return COLONNES_PROFIL.split(', ').filter(function (c) { return !facultativesAbsentes[c]; }).join(', ');

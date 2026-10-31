@@ -6329,9 +6329,12 @@
 
   // §9.17 bis (127) — la marche suivante d'un exercice, quand le coach peut la proposer (`Modele.marcheSuivante`,
   // la seule définition), sinon `null`.
+  // 195 — l'objectif qui ouvre les marches d'habileté : celui, gelé, de la séance ; hors séance (la page d'exercice, la semaine),
+  // celui du profil. Un `calisthenie` seulement : toute autre valeur laisse la règle d'avant.
+  function objectifDeLEchelle() { return seance ? objectifDeLaSeance() : Profil.objectifDe(profil); }
   function marcheAProposer(index, slug) {
     // 175 — « Pas de lest » (le profil, ou la réponse de l'exercice) : la variante sans matériel devient la marche.
-    var m = Modele.marcheSuivante(index, slug, { lestRefuse: lestReponseDeLExercice(slug) === 'non' });
+    var m = Modele.marcheSuivante(index, slug, { lestRefuse: lestReponseDeLExercice(slug) === 'non', objectif: objectifDeLEchelle() });
     if (!m || !m.proposable) return null;
     // 190 — Ma salle dit « pas de barre de traction » : une marche qui en demande une (la stricte, l'archer, le muscle-up…) ne se
     // propose pas ; les marches qui n'en demandent pas restent.
@@ -13222,7 +13225,7 @@
     // La phrase se tait en carnet (le profil) ; en Entretenir (l'exercice de départ), `phraseDe` le sait.
     var phraseDe = function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { reglage: Profil.rythmeDe(profil) })); };
     return Modele.vueEchelle(index, slug, faites, zonesHaut, !Moteur.coachSeTait(profil && profil.intention), phraseDe,
-      { lestRefuse: lestReponseDe() === 'non' });
+      { lestRefuse: lestReponseDe() === 'non', objectif: objectifDeLEchelle() });
   }
 
   // 145 (ECRAN-SAISIE §7 quater.7, maquette `maquette-semaine-echelles-v1.html`, validée le 23/10/2026) — « TES ÉCHELLES
@@ -13287,7 +13290,7 @@
                                                          texte: meilleurTexte(n.ancienne.slug, n.ancienne.series) } } : null };
     });
     var cartes = Modele.vueEchellesDeLaSemaine(index, items, {
-      lestRefuse: lestReponseDe() === 'non',
+      lestRefuse: lestReponseDe() === 'non', objectif: objectifDeLEchelle(),
       faites: faites, zonesHaut: zonesHaut, coachActif: !Moteur.coachSeTait(profil && profil.intention),
       phraseDe: function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { court: true, reglage: Profil.rythmeDe(profil) })); },
       rondsDe: function (slug, e) {
@@ -13704,7 +13707,8 @@
       priorites: Profil.prioritesDe(p),
       menager: Profil.zonesAMenagerValides(p.zones_a_menager) || [],
       ecartes: Profil.ecartesValides(p.exercices_ecartes) || [],
-      faits: faits.historiqueDesExercices(corpus())
+      faits: faits.historiqueDesExercices(corpus()),
+      depart_calisthenie: p.depart_calisthenie || null   // 195 : les quatre chiffres du questionnaire
     };
   }
 
@@ -13834,6 +13838,7 @@
       if (l.reculs > 0) { x.reculs = l.reculs; x.reps_recul = l.reps_recul; }
       if (l.zone) x.zone = l.zone;
       if (l.au_max === true) x.au_max = true;       // 193-6 : la dernière série « Au max »
+      if (l.duree_s > 0) x.duree_s = l.duree_s;     // 195 : une figure se tient en secondes (`duree_cible_s`), jamais en reps
       // 188-2 — un repos d'isolation raccourci par la compression (étape 2) se porte jusqu'à la routine créée.
       if (l.repos_raccourci_s > 0) x.repos_raccourci_s = l.repos_raccourci_s;
       if (depart !== null) x.charge_cible_kg = depart;
@@ -13920,7 +13925,7 @@
 
   // 193-2 — « 1 × 4 · 2 reculs × 8 » : la grosse série, puis ses reculs (la même forme que la routine écrite, `resumeStructure`).
   function seriesFois(l) {
-    return l.series + '\u00a0\u00d7\u00a0' + l.reps + (l.reculs > 0 ? ' \u00b7 ' + l.reculs + (l.reculs > 1 ? ' reculs' : ' recul') + (l.reps_recul > 0 ? ' \u00d7 ' + l.reps_recul : '') : '');
+    return l.series + '\u00a0\u00d7\u00a0' + (l.duree_s > 0 ? l.duree_s + '\u00a0s' : l.reps) + (l.reculs > 0 ? ' \u00b7 ' + l.reculs + (l.reculs > 1 ? ' reculs' : ' recul') + (l.reps_recul > 0 ? ' \u00d7 ' + l.reps_recul : '') : '');
   }
 
   function rendreApercuDuProgramme() {
@@ -13940,6 +13945,8 @@
       .concat(['Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']).concat(phrases.famille || [])
       .concat(phrases.zones);
     if (phrases.barreFixe) voix.push(phrases.barreFixe);
+    // 195 — sans barre de traction, le coach le dit (calisthénie) : « Pour progresser en tirage, il te faut une barre ou des anneaux. »
+    Generateur.avertissementsCalisthenie(c.entree).forEach(function (t) { voix.push(t); });
     if (c.annonce) voix.push(c.annonce);
     var changements = h ? (c.changements || []) : [];
     Rendu.rendreApercuProgramme($('feuille-contenu'), {
@@ -13976,7 +13983,8 @@
   async function ouvrirApercuProgramme() {
     if (etatRoutines.code !== 'ok') await chargerRoutines();
     var entree = entreeDuProgramme();
-    var historique = local.exercices.length ? aUnHistorique() : null;
+    // 195 — la calisthénie a son propre gabarit : l'historique de barre ne l'assemble pas.
+    var historique = local.exercices.length && entree.objectif !== 'calisthenie' ? aUnHistorique() : null;
     var rts = [];
     construit = null;
     if (historique) {
@@ -15412,6 +15420,7 @@
                                           historique: questionnaire.rep.historique,
                                           programme: questionnaire.rep.programme,
                                           depuis: questionnaire.rep.depuis,
+                                          objectif: questionnaire.rep.objectif,
                                           aDesRoutines: aDesRoutinesConnu() });
   }
 
@@ -15465,7 +15474,8 @@
     if (!q) return;
     montrer('questionnaire');
     var vue = Questionnaire.vueDe(q.ecran, { rep: q.rep, faits: q.faits, aDesSeances: q.aDesSeances, profil: profil,
-      textes: q.textes, erreurs: q.erreurs, visibles: ecransDuQuestionnaire(), refaire: !!q.refaire });
+      textes: q.textes, erreurs: q.erreurs, visibles: ecransDuQuestionnaire(), refaire: !!q.refaire,
+      catalogue: q.ecran === Questionnaire.DEPART ? catalogueIndexe() : null });
     Rendu.rendreQuestionnaire($('questionnaire-corps'), vue, {
       surChoix: choisirDansQuestionnaire,
       surSaisie: saisirDansQuestionnaire,
@@ -16991,7 +17001,7 @@
     if (!p) return;
     var avec = local.seances.length > 0 && p.rep.historique !== 'debutant';
     var visibles = Questionnaire.ecransVisibles({ aDesSeances: local.seances.length > 0, historique: p.rep.historique,
-      programme: p.rep.programme, depuis: p.rep.depuis, aDesRoutines: aDesRoutinesConnu() });
+      programme: p.rep.programme, depuis: p.rep.depuis, objectif: p.rep.objectif, aDesRoutines: aDesRoutinesConnu() });
     var ecran = avec ? Questionnaire.SAIT : Questionnaire.ecranSuivant(visibles, Questionnaire.ANCIENNETE);
     ouvrirQuestionnaire({ ecran: ecran || Questionnaire.RECAP, rep: p.rep });
   }

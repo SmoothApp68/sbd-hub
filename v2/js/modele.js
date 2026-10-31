@@ -1151,6 +1151,12 @@
   function estDeForce(x) {
     return x.nature ? x.nature === 'force' : x.habilete !== true;
   }
+  // 195-3 — les marches d'une échelle, de la plus facile à la plus dure (à rang égal : par slug), et le rang d'une marche : la
+  // seule lecture de `echelle_rang` pour le générateur de calisthénie, qui ne la lit pas lui-même.
+  function marchesTriees(index, echelle) {
+    return marchesDe(index, echelle).slice().sort(function (a, b) { return a.echelle_rang - b.echelle_rang || parSlug(a, b); });
+  }
+  function rangDeLEchelle(x) { return echelleDe(x) !== null ? x.echelle_rang : null; }
   function parSlug(a, b) { return a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0; }
   function marchesDe(index, echelle) {
     return Object.keys(index || {}).map(function (s) { return index[s]; })
@@ -1244,7 +1250,10 @@
     // 149 — DANS UNE ÉCHELLE DE FIGURES, une habileté est proposable : la règle « une habileté n'est jamais proposée »
     // vise le saut d'une échelle de force vers une habileté (les tractions vers l'archer), pas l'intérieur d'une figure
     // (déjà dit le 17/10 pour le muscle-up, qui reste inchangé).
-    var force = estEchelleDeFigures(index, E) ? cible : cible.filter(estDeForce);
+    // 195 — EN OBJECTIF CALISTHÉNIE, une habileté d'une échelle (pistol, équilibre, archer) se propose : c'est le but de la personne.
+    // `o.objectif` est l'objectif GELÉ du plan ; partout ailleurs la règle ci-dessus tient (le générateur n'en propose jamais).
+    var calisthenie = !!o && o.objectif === 'calisthenie';
+    var force = estEchelleDeFigures(index, E) || calisthenie ? cible : cible.filter(estDeForce);
     if (!force.length) return { type: 'habilete', cible: cible.map(function (x) { return x.slug; }), proposable: false };
     return { type: type, cible: force.map(function (x) { return x.slug; }), proposable: type !== 'lest' };
   }
@@ -1350,7 +1359,7 @@
       var ligne = it.nouvelle && ex[it.nouvelle.slug] && ex[it.nouvelle.slug].semaine ? it.nouvelle.slug
         : ex[depart.slug] && ex[depart.slug].semaine ? depart.slug
         : travailles.sort(function (a, b) { return index[b].echelle_rang - index[a].echelle_rang || parSlug(index[a], index[b]); })[0] || null;
-      var m = marcheSuivante(index, depart.slug, { lestRefuse: opt.lestRefuse === true });
+      var m = marcheSuivante(index, depart.slug, { lestRefuse: opt.lestRefuse === true, objectif: opt.objectif });
       var suite = null;
       if (opt.coachActif === true && m) {
         var haut = opt.zonesHaut && Object.prototype.hasOwnProperty.call(opt.zonesHaut, depart.slug) ? opt.zonesHaut[depart.slug] : null;
@@ -2869,6 +2878,8 @@
     // MOTEUR §9.17 bis (127) — l'échelle des variantes.
     echelleDe: echelleDe,
     marcheSuivante: marcheSuivante,
+    marchesTriees: marchesTriees,
+    rangDeLEchelle: rangDeLEchelle,
     estEchelleDeFigures: estEchelleDeFigures,
     estUneFigure: estUneFigure,
     marcheDEnDessous: marcheDEnDessous,

@@ -1157,7 +1157,8 @@
         objectif: objectifDuPlan(e.objectif), debutant: e.debutant === true, famille: famille,
         equipement: fiche ? fiche.equipement || null : null, isolation: fiche ? M.estIsolation(musclesDe(fiche)) : false,
         allegee: false, menagee: !!(zm && !zm.choisie), douleurRecente: M.douleurRecente(douleurs, jour),
-        barreDeJambesApres: jambesApres, echecRecent: jourEchec !== null
+        barreDeJambesApres: jambesApres, echecRecent: jourEchec !== null,
+        figure: !!fiche && fiche.mesure === 'temps'   // 195 : jamais d'échec sur une figure
       },
       jourEchec: jourEchec
     };
@@ -1744,7 +1745,7 @@
 
   // MOTEUR §9.16 (60-2b) — les objectifs qu'un pari peut porter. Vide ou inconnu :
   // `null`, SANS défaut — contrairement à la phase, « sans réponse » est une réponse.
-  var OBJECTIFS_DU_PLAN = ['force', 'muscle', 'les_deux', 'forme'];
+  var OBJECTIFS_DU_PLAN = ['force', 'muscle', 'les_deux', 'forme', 'calisthenie'];
   function objectifDuPlan(v) { return OBJECTIFS_DU_PLAN.indexOf(v) >= 0 ? v : null; }
 
   // MOTEUR §14.6 (60-2b) — les priorités du questionnaire (`profiles.priorites` :
@@ -5286,6 +5287,7 @@
     verifierAuMax(plan, erreurs);
     verifierMobilite(plan, entrees, erreurs);
     verifierSemaineDeTest(plan, erreurs);
+    verifierCalisthenie(plan, erreurs);
     verifierApprochee(plan, erreurs);
     verifierApresLaDecharge(plan, entrees, erreurs);
     verifierSalle(plan, erreurs);
@@ -5830,6 +5832,25 @@
     var sol = testees.filter(function (q) { return q.classe === 'squat' || q.classe === 'souleve'; });
     if (sol.length > 1) erreurs.push('I89 — le squat et le soulevé testés le même jour');
     if (jt.testee && (jt.conflits || []).indexOf(jt.testee) >= 0) erreurs.push('I89 — la barre testée est aussi une barre en conflit');
+  }
+
+  // I100 et I104 (195-3) — LA CALISTHÉNIE :
+  //   · I100 — une marche d'habileté (pistol, équilibre, archer : `cibleHabilete`) ne se propose qu'en objectif calisthénie ;
+  //   · I104 — jamais « Au max » sur une figure (une tenue en secondes) : ni ligne marquée, ni proposition.
+  // (I101 à I103, les figures de bras tendus par semaine, la zone coude/épaule et la barre de traction, sont ceux du programme :
+  //  `Generateur.verifierCalisthenie`.)
+  function verifierCalisthenie(plan, erreurs) {
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      if (!x) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var c = x.carteMarche;
+      if (c && c.cibleHabilete === true && c.proposable === true && plan.objectif !== 'calisthenie') {
+        erreurs.push('I100' + nom + 'une marche d’habileté proposée hors objectif calisthénie (' + c.cible + ')');
+      }
+      if (x.figure && (x.auMax || x.propositionAuMax || (x.lignes || []).some(function (l) { return l && l.auMax; }))) {
+        erreurs.push('I104' + nom + '« Au max » sur une figure');
+      }
+    });
   }
 
   // I77 (MOTEUR §14.11, 189) — LA FATIGUE SUR PLUSIEURS SEMAINES :
@@ -6442,6 +6463,7 @@
     planDesLignes: planDesLignes,
     rejouer: rejouer,
     verifierPlan: verifierPlan,
+    verifierCalisthenie: verifierCalisthenie,
     verifierOndulation: verifierOndulation,
     verifierSilenceDuProgramme: verifierSilenceDuProgramme,
     verifierPhrases: verifierPhrases,

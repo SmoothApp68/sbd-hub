@@ -1872,6 +1872,25 @@ Sur une **barre** (squat, couché, militaire — `familleDeBarre`), la consigne 
 **Les lignes.** Sur la carte de la barre testée, « Ajouter ces lignes » (un geste, rien en silence) pose, par le chemin d'insertion des chauffes (`Seance.insererChauffes`), la montée (échauffements) puis le 1ᵉʳ essai en type `test` — ou la « Série au max » avec sa `au_max_reserve` — aux charges du plan ; « Ajouter l'essai suivant » pose les suivants un à un, quand les lignes posées sont validées ; « Annuler les lignes » retire celles que personne n'a validées (`test_pose`). Le plan ne pose jamais plus d'un essai à la fois (I88).
 
 **Limites connues.** Un essai noté sans RPE compte comme sans marge. Le bilan n'indique pas « record » (le journal des records le dit à son heure).
+### 9.35 La calisthénie, cinquième objectif — décidé le 31/10/2026 (chantier 195) (I100 à I104)
+
+**Delta daté du 31/10/2026.** `profiles.objectif` accepte `calisthenie` (`v2_125`). Ce que le moteur et le plan en font :
+
+- **La marche d'habileté (I100).** `Modele.marcheSuivante(index, slug, { objectif })` : un rang au-dessus fait seulement d'habiletés (pistol, pistol lesté,
+  pompes en équilibre mur et libre, archer, un bras) ne se propose QUE si l'objectif gelé du plan est `calisthenie`. Partout ailleurs la règle du
+  17/10 tient (jamais proposée) : le générateur ne propose jamais un pistol à qui ne fait pas de calisthénie. Quatre échelles de plus (`v2_125`) :
+  `squat_poids_du_corps` (squat, squat bulgare, pistol, pistol lesté), `pont_fessier` (pont, une jambe, soulevé une jambe, nordique assisté, nordique),
+  `rowing_inverse` (rowing inversé, pieds surélevés), `pompes_pike` (pike, pike surélevées, équilibre mur, équilibre libre). La clé d'une échelle est le
+  slug de son rang 1 (le nom que montre la carte « Tes échelles »). Le passage de marche est celui de §9.17 bis (8 reps, deux séances ; une en Franc).
+- **Au max (§9.30).** `Moteur.auMaxDe` en calisthénie : un exercice de poids du corps = « Au max, en gardant 1 » (réserve 1, la Recommended Routine évite
+  l'échec) ; une figure (mesure en secondes) : rien, jamais d'échec (`figure: true`).
+- **Invariants.** I100 : une marche d'habileté proposée hors objectif calisthénie est refusée. I104 : jamais « Au max » (ligne marquée ou proposition) sur
+  une figure. I101 à I103 sont ceux du programme (`Generateur.verifierCalisthenie`) : I101 au plus 3 séances avec une figure par semaine et jamais deux séances
+  de suite (une séance sur deux) ; I102 aucune figure avec une zone à ménager coude ou épaule ; I103 aucun exercice qui demande une barre de traction quand
+  Ma salle la dit absente.
+- **Le programme.** Corps entier, 2 à 4 séances, trois supersets par séance (tirage + jambes, poussée + charnière, tirage + poussée), une figure en tête de
+  séance (tête fraîche, en secondes : `duree_cible_s`, jamais `reps`). Chaque exercice est la marche de la personne sur son échelle (la plus haute déjà faite,
+  sinon la marche de départ du questionnaire). Sans barre de traction, le coach dit : « Pour progresser en tirage, il te faut une barre ou des anneaux. »
 
 ## 10. L'incrément
 

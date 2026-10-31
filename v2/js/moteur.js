@@ -10032,7 +10032,7 @@
   // DEMANDÉE (0 = jusqu'à l'échec, 1 à 3 = en gardant N reps), jamais un type de série : l'échec se lit dans `au_max_reserve`.
   var AU_MAX_JOURS_DE_DOULEUR = 42;     // « J'ai mal » récent : six semaines civiles (même durée que la 189, sans la toucher)
   var AU_MAX_RESERVE_PAR_DEFAUT = 2;    // ce que la personne obtient quand elle pose « Au max » là où la table n'en met pas
-  var OBJECTIFS_AU_MAX = ['force', 'muscle', 'les_deux', 'forme'];
+  var OBJECTIFS_AU_MAX = ['force', 'muscle', 'les_deux', 'forme', 'calisthenie'];
   // 193-6b — L'ÉCHEC SUR UNE BARRE, UNE FOIS PAR SEMAINE (MOTEUR §9.30 bis) : 6 jours civils avant `jour`.
   var AU_MAX_JOURS_D_ECHEC = 6;
   // Une série à l'échec sur cette barre dans les 6 jours civils PRÉCÉDENTS (le jour même n'en fait pas partie). `jours` : les jours (ou
@@ -10070,6 +10070,7 @@
     var x = e || {};
     var rien = { pose: null, reserve: null, sorte: null, avecPareur: false, classe: null };
     if (x.allegee) return rien;                                   // semaine allégée, décharge : aucun « Au max »
+    if (x.figure === true) return rien;                           // 195 : une figure (une tenue en secondes) ne va jamais à l'échec
     var objectif = OBJECTIFS_AU_MAX.indexOf(x.objectif) >= 0 ? x.objectif : null;
     var main = x.main === true;
     if (objectif === null && !main) return rien;                  // on ne devine pas un objectif
@@ -10080,7 +10081,7 @@
       if (gros) {
         // le débutant : l'échec seulement aux machines et aux isolations
         reserve = x.debutant === true && !(x.equipement === 'machine' || x.isolation === true) ? 1 : 0;
-      } else if (objectif === 'force') reserve = 1;
+      } else if (objectif === 'force' || objectif === 'calisthenie') reserve = 1;   // 195 : « Au max, en gardant 1 » (la Recommended Routine évite l'échec)
     } else if (classe === 'squat' || classe === 'couche') {
       if (gros) reserve = x.debutant === true ? 1 : 0;
     } else if (classe === 'militaire') {

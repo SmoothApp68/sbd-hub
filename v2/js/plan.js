@@ -527,6 +527,20 @@
     if (materiel.mesure && materiel.mesure !== 'charge_reps') return sortie;
     var M = Moteur(), S = Seance();
     var liste = series || [];
+    // 196 (MOTEUR §9.33) — LES MINI-SÉRIES DU REST-PAUSE ne sont jamais des dégressives du coach (pas de baisse de charge, pas de
+    // phrase) : la charge est celle de la série de travail qui les précède, en fantôme tant qu'elles ne sont pas faites.
+    var rp = racine.THModele.restPauseDe(liste);
+    lignes.forEach(function (l, i) {
+      if (!rp[i] || rp[i].role !== 'mini') return;
+      l.restPause = true;
+      var j = i - 1;
+      while (j > 0 && rp[j] && rp[j].role === 'mini') j--;
+      var tete = lignes[j];
+      if (!tete || l.validee) return;
+      var c = tete.validee ? nombre((liste[j] || {}).charge_kg) : (tete.fantome ? nombre(tete.fantome.charge) : nombre(tete.charge));
+      if (c === null) c = nombre((liste[j] || {}).charge_kg);
+      if (c !== null && c > 0) l.fantome = { charge: c, reps: null, source: 'rest_pause' };
+    });
     // §9.17 — LE LEST N'A NI CHAUFFES NI DÉGRESSIVE : 2,5 kg de lest, 22,5 % de
     // moins, c'est « 0 kg » — des chiffres que la ceinture ne fait pas. La
     // montée se fait sur l'exercice libre, qui est une chauffe en soi.
@@ -598,7 +612,7 @@
     if (derniere < 0) return sortie;
     var deg = null, suivantes = [];
     for (var i = derniere + 1; i < lignes.length; i++) {
-      if (lignes[i].type !== 'degressive') continue;
+      if (lignes[i].type !== 'degressive' || (rp[i] && rp[i].role === 'mini')) continue;
       if (!deg) deg = lignes[i]; else suivantes.push(lignes[i]);
     }
     if (!deg) return sortie;
@@ -1480,6 +1494,10 @@
         // 193-1 — la charge du recul ; ses reps, celles de la routine ou de la fois d'avant (la cascade), jamais une visée du coach.
         p.charge_kg = f.charge === undefined ? null : f.charge;
         if (f.reps !== null && f.reps !== undefined) p.reps = f.reps;
+      } else if (f && f.source === 'rest_pause') {
+        // 196 — la mini-série : la charge de la série de travail, aucune rep proposée.
+        p.charge_kg = f.charge === undefined ? null : f.charge;
+        p.reps = null;
       } else if (f && f.source === 'degressive') {
         p.charge_kg = f.charge === undefined ? null : f.charge;
         p.reps = repsDeLaDegressive(l.degressive);
@@ -5114,6 +5132,7 @@
     verifierReserve(plan, entrees, erreurs);
     verifierCalage(plan, entrees, erreurs);
     verifierZoneMenagee(plan, entrees, erreurs);
+    verifierRestPause(plan, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
     verifierBord(plan, erreurs);
     verifierLeviers(plan, erreurs);
@@ -5220,6 +5239,34 @@
   // générateur) ne reçoit AUCUNE série lourde — ni zone Lourd (3-5 reps), ni ligne à 5 reps ou moins —, sauf une zone que la
   // personne a choisie elle-même (le moteur propose, elle décide). Les approches du calage sont des séries de travail à 6 reps au moins.
   var REPS_LOURDES_MAX = 5;
+  // I105 et I106 (MOTEUR §9.33, 196) — LE REST-PAUSE : une mini-série (une ligne dégressive à la charge de la série de travail qui la
+  // précède) n'est jamais une dégressive du coach ni une série de travail.
+  //   · I105 — sa charge proposée est CELLE de la série de travail qui la précède (jamais une baisse de 22,5 %), sans phrase ni
+  //     dégressive du coach sur elle ;
+  //   · I106 — elle est hors couverture (rôle `hors`), sans pari, et ne compte pas : une série rest-pause = UNE série de travail.
+  function verifierRestPause(plan, erreurs) {
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var nom = ' — exercice ' + i + ' (' + (x && x.slug) + ') : ';
+      var lignes = (x && x.lignes) || [];
+      lignes.forEach(function (l, k) {
+        if (!l || !l.restPause) return;
+        if (l.role !== 'hors') erreurs.push('I106' + nom + 'la mini-série ' + l.iSerie + ' est couverte par la consigne');
+        if (x.paris && x.paris[l.iSerie]) erreurs.push('I106' + nom + 'un pari sur la mini-série ' + l.iSerie);
+        if (x.degressive && x.degressive.iSerie === l.iSerie) erreurs.push('I105' + nom + 'la dégressive du coach est posée sur la mini-série ' + l.iSerie);
+        if (l.degressive) erreurs.push('I105' + nom + 'une phrase de dégressive sur la mini-série ' + l.iSerie);
+        if (l.fantome) {
+          var j = k - 1;
+          while (j > 0 && lignes[j] && lignes[j].restPause) j--;
+          var t = lignes[j];
+          var ref = t ? (t.validee ? nombre(t.faite && t.faite.charge) : (t.fantome ? nombre(t.fantome.charge) : nombre(t.charge))) : null;
+          if (l.fantome.source !== 'rest_pause' || (ref !== null && nombre(l.fantome.charge) !== ref)) {
+            erreurs.push('I105' + nom + 'la mini-série ' + l.iSerie + ' ne reprend pas la charge de sa série de travail (' + l.fantome.charge + ' pour ' + ref + ')');
+          }
+        }
+      });
+    });
+  }
+
   function verifierZoneMenagee(plan, entrees, erreurs) {
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var m = x && x.menagee;
@@ -6198,6 +6245,7 @@
     rejouer: rejouer,
     verifierPlan: verifierPlan,
     verifierOndulation: verifierOndulation,
+    verifierRestPause: verifierRestPause,
     verifierSilenceDuProgramme: verifierSilenceDuProgramme,
     verifierPhrases: verifierPhrases,
     gardeActive: gardeActive,

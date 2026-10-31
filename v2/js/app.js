@@ -8369,6 +8369,28 @@
   //   · « Sans coach cette fois » : la marque, comme « J'ai mal ».
   // 193-6 — l'index de la dernière série de travail ou de recul d'un exercice (`Modele.estTravail` : une chauffe et une dégressive
   // n'en sont pas), ou -1. Une seule définition pour les deux feuilles (séance, éditeur de routine).
+  // 196 — le menu ⋯ d'une série propose-t-il « Rest-pause » ? `{ possible, aide }` ; la définition de l'exercice est celle du moteur
+  // (`peutRestPause`), la semaine allégée et la zone à ménager sont lues dans le plan.
+  function restPauseDeLaFeuille(iExo, iSerie) {
+    var exo = seance && seance.exercices[iExo], serie = exo && exo.series[iSerie];
+    var aide = 'Jusqu’à l’échec, 15 s, encore, 15 s, encore : une seule série de travail.';
+    var non = { possible: false, aide: aide };
+    if (!exo || !serie || !Modele.estTravail(serie)) return non;
+    var charge = Number(serie.charge_kg);
+    if (!(charge > 0)) return non;
+    var fiche = catalogueIndexe()[exo.exercise_slug];
+    if (!fiche || !Moteur.peutRestPause({ prim: fiche.muscles_primaires || [], sec: fiche.muscles_secondaires || [],
+        stab: fiche.muscles_stabilisateurs || [], equipement: fiche.equipement || null, mesure: fiche.mesure || null,
+        slug: exo.exercise_slug })) return non;
+    var deja = Modele.restPauseDe(exo.series);
+    if (deja[iSerie] || (exo.series[iSerie + 1] && deja[iSerie + 1])) return non;
+    var p = planActuel();
+    var x = p && (p.exercices || []).filter(function (e) { return e.iExo === iExo; })[0];
+    if (p && p.allegee) return non;
+    if (x && ((x.consigne && x.consigne.allegee) || (x.menagee && !x.menagee.choisie))) return non;
+    return { possible: true, aide: aide };
+  }
+
   function derniereSerieDeTravail(series) {
     var k = -1;
     (series || []).forEach(function (q, j) { if (Modele.estTravail(q)) k = j; });
@@ -10333,6 +10355,14 @@
       // 193-6 — « Au max » pour aujourd'hui : la dernière série de travail, pas encore validée ; la routine ne change pas.
       auMax: { possible: derniereSerieDeTravail(exo.series) === feuille.iSerie && !serie.validee_a, actif: Modele.estAuMax(serie),
                aide: 'Pour aujourd’hui seulement : ta routine ne change pas.' },
+      // 196 (MOTEUR §9.33) — « Rest-pause » : sur une isolation ou une machine, jamais une barre ni un soulevé ; hors semaine
+      // allégée, hors zone à ménager ; une série de travail avec sa charge, pas déjà prolongée.
+      restPause: restPauseDeLaFeuille(feuille.iExo, feuille.iSerie),
+      surRestPause: function () {
+        seance = Seance.ajouterRestPause(seance, feuille.iExo, feuille.iSerie, uuid);
+        fermerVoile();
+        apresGeste();
+      },
       surAuMax: function (actif) {
         seance = Seance.definirAuMax(seance, feuille.iExo, feuille.iSerie, actif);
         fermerVoile();
@@ -11401,7 +11431,7 @@
     // 188-2 — jamais une priorité : exemptée du raccourci.
     var exemptes = Generateur.exemptsDesPriorites((routine.exercices || []).map(function (l) { return l.exercise_slug; }),
       Profil.prioritesDe(profil), index);
-    var resultat = Moteur.raccourcirRoutine(complet, cible, exemptes);
+    var resultat = Moteur.raccourcirRoutine(complet, cible, exemptes, { objectif: Profil.objectifDe(profil) });
     Rendu.rendreCarteRaccourci($('feuille-contenu'), {
       carte: Moteur.carteRaccourcir(complet, resultat, cible, function (slug) { return Modele.nommer(index, slug); },
         (Moteur.zonesRaidesConnues(profil && profil.zones_raides) || []).length > 0),

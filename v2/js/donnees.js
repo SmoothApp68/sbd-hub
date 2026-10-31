@@ -259,7 +259,7 @@
       return client().from('exercises')
         .select('slug, nom, mesure, charge, parent, equipement, muscles_primaires, muscles_secondaires, ' +
                 'muscles_stabilisateurs, mouvement, habilete, schema_mouvement, nature, description, actif, hors_salle, ' +
-                'echelle, echelle_rang, echelle_seuil_s, barre_charge_fixe, champs_series, type_elastique');
+                'echelle, echelle_rang, echelle_seuil_s, barre_charge_fixe, champs_series, type_elastique, accent_allonge');
     }, 'slug'), 'slug').then(function (lignes) {
       // ⚠️ `champs_series` DEPUIS 131 (v2_101, ECRAN §3 ter.5) — DANS LE `select` PRINCIPAL : la migration passe
       // avant la fusion (décision du prompt 131). Un tableau, `[]` par défaut : une ligne sans la colonne (cache
@@ -271,6 +271,8 @@
       return lignes.filter(function (e) { return !e || e.actif !== false; }).map(sansColonnesVides).map(function (e) {
         if (!e) return e;
         var x = !Array.isArray(e.champs_series) ? Object.assign({}, e, { champs_series: [] }) : e;
+        // 196 (v2_126) — « le muscle travaille étiré » : un booléen, `false` pour une ligne sans la colonne (cache d'avant, faux serveur).
+        if (x.accent_allonge !== true && x.accent_allonge !== false) x = Object.assign(x === e ? Object.assign({}, e) : x, { accent_allonge: false });
         var t = x.type_elastique === 'grand' || x.type_elastique === 'mini' ? x.type_elastique : null;
         return x.type_elastique === t ? x : Object.assign(x === e ? Object.assign({}, e) : x, { type_elastique: t });
       });

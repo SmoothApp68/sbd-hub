@@ -1453,6 +1453,25 @@ describe('193-2 — les familles jusqu’à la routine écrite', () => {
     expect(b.ctx.construit).toBeNull();
   });
 
+  test('l’aperçu : « 1 × 4 · 3 reculs », la zone sous la ligne, les phrases de la famille dans la voix', async () => {
+    const b = famille();
+    await b.appel('ouvrirApercuProgramme()');
+    const v = b.vue();
+    const haut = v.routines[0].exercices[0];
+    expect(haut.series).toBe('1\u00a0\u00d7\u00a04 \u00b7 3 reculs');
+    expect(haut.mentions).toEqual(['zone Lourd (3-5)']);
+    expect(v.routines[1].exercices[0].series).toBe('1\u00a0\u00d7\u00a04 \u00b7 3 reculs');
+    const bas = v.routines[3].exercices[0];
+    expect(bas.series).toBe('1\u00a0\u00d7\u00a04 \u00b7 2 reculs');
+    expect(v.voix.some((t) => /^Dans la semaine/.test(t))).toBe(true);
+    expect(v.voix.some((t) => /grosse série puis des reculs/.test(t))).toBe(true);
+    // le haut de l'aperçu d'avant (Muscle, Forme) ne change pas
+    const m = famille({ profil: { objectif: 'muscle' } });
+    await m.appel('ouvrirApercuProgramme()');
+    expect(m.vue().voix.some((t) => /Dans la semaine/.test(t))).toBe(false);
+    m.vue().routines.forEach((r) => r.exercices.forEach((x) => expect(x.series).not.toMatch(/recul/)));
+  });
+
   test('« Je n’en veux pas » sur une barre : ses deux places changent ensemble', async () => {
     const b = famille();
     await b.appel('ouvrirApercuProgramme()');

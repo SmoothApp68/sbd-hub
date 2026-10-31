@@ -648,7 +648,7 @@
     var choisies = Array.isArray(rep.raides) ? (rep.raides.length ? rep.raides : ['aucune']) : [];
     return {
       id: RAIDES, etape: 'Ton corps \u00b7 facultatif',
-      titre: 'Des zones raides\u00a0?',
+      titre: 'Des zones raides ?',
       voix: 'Celles où tu manques d\u2019amplitude. Je t\u2019ajoute un bloc court en fin de séance pour elles\u00a0; deux zones au plus.',
       blocs: [{ type: 'puces', cle: 'raide', multiple: true, valeurs: choisies, options: zones }]
     };

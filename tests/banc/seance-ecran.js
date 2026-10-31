@@ -3488,7 +3488,7 @@ const SETS_IMPORTES = [
     JSON.stringify(g4.map((x) => x.colonnes)));
   ok('les en-têtes suivent la mesure',
     JSON.stringify(g4.map((x) => x.entetes)) ===
-      JSON.stringify([['PRÉC.', 'KG', 'REPS', 'EFFORT'], ['PRÉC.', 'REPS', 'EFFORT'],
+      JSON.stringify([['PRÉC.', 'KG', 'REPS'], ['PRÉC.', 'REPS'],
                       ['PRÉC.', 'DURÉE'], ['PRÉC.', 'DURÉE', 'DISTANCE']]),
     JSON.stringify(g4.map((x) => x.entetes)));
   // Depuis le chantier 25, la DURÉE ne porte plus d'unité écrite : c'est la
@@ -7257,7 +7257,7 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Terre');
     const avantCorrection = await enTete();
     ok('[Z] l’étiquette est un BOUTON, au contour, et dit la zone déduite',
-      JSON.stringify(await puce()) === JSON.stringify({ balise: 'BUTTON', texte: 'Lourd 3-5', choisie: false }),
+      JSON.stringify(await puce()) === JSON.stringify({ balise: 'BUTTON', texte: '3-5\u00a0reps · garde\u00a01', choisie: false }),
       JSON.stringify(await puce()));
 
     await ouvrirMenu();
@@ -7278,7 +7278,7 @@ const SETS_IMPORTES = [
       (await enTete()).length > 0,
       JSON.stringify(avantCorrection) + ' → ' + JSON.stringify(await enTete()));
     ok('[Z] et l’étiquette passe au fond plein : Volume 10-12, choisie',
-      JSON.stringify(await puce()) === JSON.stringify({ balise: 'BUTTON', texte: 'Volume 10-12', choisie: true }),
+      JSON.stringify(await puce()) === JSON.stringify({ balise: 'BUTTON', texte: '10-12\u00a0reps · garde\u00a01', choisie: true }),
       JSON.stringify(await puce()));
     ok('[Z] une ligne est montée en base, avec son identifiant et sa date',
       base.zones.length === 1 && base.zones[0].exercise_slug === 'souleve-terre' &&
@@ -7314,7 +7314,7 @@ const SETS_IMPORTES = [
     await ouvrirMenu();
     await choisirZone('mix');
     ok('[Z] HORS LIGNE, le choix s’affiche quand même',
-      (await puce()).texte === 'Mix 6-8' && (await puce()).choisie === true,
+      (await puce()).texte === '6-8\u00a0reps · garde\u00a02' && (await puce()).choisie === true,
       JSON.stringify(await puce()));
     ok('[Z] …et il attend dans la file, rien n’est monté',
       (await enFileZones()).length === 1 && base.zones.length === 2,
@@ -7323,7 +7323,7 @@ const SETS_IMPORTES = [
     // ── L'APP RECHARGÉE, TOUJOURS HORS LIGNE : le choix tient ─────────────
     await aller('/saisie');
     ok('[Z] l’app rechargée garde le choix, sans réseau',
-      (await puce()).texte === 'Mix 6-8' && (await puce()).choisie === true,
+      (await puce()).texte === '6-8\u00a0reps · garde\u00a02' && (await puce()).choisie === true,
       JSON.stringify(await puce()));
 
     // ── LE RÉSEAU REVIENT : la ligne monte, et UNE SEULE FOIS ────────────
@@ -7408,7 +7408,7 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Terre');
     const avecPlan = await enTeteO();
     ok('[O] l’étiquette dit d’où vient la zone : « Volume · ta routine »',
-      (await puceO()) && (await puceO()).texte === 'Volume · ta routine' && (await puceO()).balise === 'BUTTON',
+      (await puceO()) && (await puceO()).texte === '10-12\u00a0reps · garde\u00a01' && (await puceO()).balise === 'BUTTON',   // 200-3 : une puce, le nom de la zone est dans la feuille
       JSON.stringify(await puceO()) + ' (sans plan : ' + JSON.stringify(puceSansPlan) + ')');
     ok('[O] la consigne est celle de la zone du plan, pas celle de la correction d’exercice',
       JSON.stringify(avecPlan) !== JSON.stringify(sansPlan) && avecPlan.length > 0,
@@ -7429,7 +7429,7 @@ const SETS_IMPORTES = [
       .filter((b) => /Juste pour/.test(b.textContent))[0].click());
     await attendreQue(() => page.evaluate(() => !!document.querySelector('#feuille-contenu .option-zone[data-cle="mix"]')), 6000);
     await page.click('#feuille-contenu .option-zone[data-cle="mix"]');
-    await attendreQue(async () => (await puceO()).texte === 'Mix · aujourd’hui', 6000);
+    await attendreQue(async () => (await puceO()).texte === '6-8\u00a0reps · garde\u00a02', 6000);
     ok('[O] « Juste pour aujourd’hui » : la consigne se recalcule, l’étiquette le dit',
       JSON.stringify(await enTeteO()) !== JSON.stringify(avecPlan) && (await puceO()).texte === 'Mix · aujourd’hui',
       JSON.stringify(await puceO()) + ' ' + JSON.stringify(await enTeteO()));
@@ -7441,7 +7441,7 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await demarrerRoutine('Terre');
     ok('[O] la séance suivante retrouve la zone de la routine',
-      (await puceO()).texte === 'Volume · ta routine' && JSON.stringify(await enTeteO()) === JSON.stringify(avecPlan),
+      (await puceO()).texte === '10-12\u00a0reps · garde\u00a01' && JSON.stringify(await enTeteO()) === JSON.stringify(avecPlan),
       JSON.stringify(await puceO()));
 
     // ── CHANGER LA ZONE DE LA ROUTINE : la ligne de routine est écrite ───────
@@ -7455,7 +7455,7 @@ const SETS_IMPORTES = [
     ok('[O] « Changer la zone de cette routine » écrit la ligne de routine (hypertrophie)',
       ligneTerre.zone === 'hypertrophie', 'zone = ' + ligneTerre.zone);
     ok('[O] et la consigne suit aussitôt : « Hypertrophie · ta routine »',
-      (await puceO()).texte === 'Hypertrophie · ta routine', JSON.stringify(await puceO()));
+      (await puceO()).texte === '8-10\u00a0reps · garde\u00a01', JSON.stringify(await puceO()));
     ok('[O] aucune correction d’exercice écrite non plus',
       JSON.stringify(base.zones) === zonesAvant, JSON.stringify(base.zones));
     await abandonner();
@@ -7543,7 +7543,7 @@ const SETS_IMPORTES = [
       !!fini.suite,
       JSON.stringify(fini).replace(/\u00a0/g, '·'));
     ok('[C6] l’étiquette de zone, elle, reste',
-      (await puceZone()) === 'Lourd 3-5', String(await puceZone()));
+      (await puceZone()) === '3-5\u00a0reps · garde\u00a01', String(await puceZone()));
 
     // ── CE QUI LE DÉFAIT ──────────────────────────────────────────────────
     await valider(2);   // dévalide : la coche est une bascule
@@ -10275,6 +10275,7 @@ const SETS_IMPORTES = [
     ok('[U10] DISCRIMINANT — ajouté sans chauffe : le coach PROPOSE la montée (80 kg : 20 · 40 · 55 · 70)',
       esp(prop1) === 'Chauffe : 20 kg × 10 · 40 kg × 6 · 55 kg × 3 · 70 kg × 1', esp(prop1));
     const nAvant = await compter('.ligne-serie');
+    await page.click('.ligne-repliee:has(.proposition-chauffes[data-iexo="3"]) > summary');   // 200-5 : la ligne repliée s'ouvre avant « Non merci »
     await page.click('.proposition-chauffes[data-iexo="3"] .pc-refuser');
     await attendre(700);
     ok('[U10] « Non merci » : la proposition disparaît, aucune série insérée',
@@ -10289,6 +10290,7 @@ const SETS_IMPORTES = [
     await ajouterExoSeance('Militaire U10');
     ok('[U10] une autre séance : la proposition revient (un refus seulement)', (await propositionU(3)) !== null, '');
     const avantAjout = await compter('.ligne-serie');
+    await page.click('.ligne-repliee:has(.proposition-chauffes[data-iexo="3"]) > summary');
     await page.click('.proposition-chauffes[data-iexo="3"] .pc-ajouter');
     await attendre(900);
     f = await fantomesU();
@@ -12390,9 +12392,9 @@ const SETS_IMPORTES = [
       !!a1 && a1.lignes.every((l) => l[0] !== 'test' && l[0] !== 'coach') && !a1.chauffes && !a1.degressive,
       JSON.stringify(a1 && a1.lignes));
     ok('[P50] la grille d’un exercice en reps n’a pas de colonne de charge',
-      JSON.stringify(await entetesCols()) === '["PRÉC.","REPS","EFFORT"]', JSON.stringify(await entetesCols()));
+      JSON.stringify(await entetesCols()) === '["PRÉC.","REPS"]', JSON.stringify(await entetesCols()));   // 200-9 : « EFFORT » n'apparaît qu'une fois une série validée
     ok('[P50] la zone choisie (Mix 6-8) est l’étiquette de l’exercice',
-      /Mix/.test(await texte('.puce-zone')), JSON.stringify(await texte('.puce-zone')));
+      /6-8\u00a0reps/.test(await texte('.puce-zone')), JSON.stringify(await texte('.puce-zone')));
 
     // ── B. « PAS DE LEST » : les reps s'étirent, la carte ne revient plus.
     const repereB = base.journal.length;
@@ -13711,7 +13713,7 @@ const SETS_IMPORTES = [
         sp(b0.gris) === 'Nouvelle zone : Mix. Estimée depuis ton 100 kg × 5, un peu en dessous pour démarrer.' &&
         eb.dit.map(sp).indexOf(sp(b0.gris)) >= 0 && !/\b1\s?RM\b|\bmax/i.test(JSON.stringify(eb)), JSON.stringify([b0, eb]));
     ok('[R53] l’étiquette dit Mix, choisie ; le jaune dit la ligne',
-      eb.puce && eb.puce.texte === 'Mix 6-8' && eb.puce.choisie && JSON.stringify((b0.jaune || []).map(sp)) === JSON.stringify(['95 kg × 6']),
+      eb.puce && eb.puce.texte === '6-8\u00a0reps · garde\u00a02' && eb.puce.choisie && JSON.stringify((b0.jaune || []).map(sp)) === JSON.stringify(['95 kg × 6']),
       JSON.stringify([eb.puce, b0.jaune]));
     ok('[R53] DISCRIMINANT — le compteur repart à zéro (§12.2 bis, déjà câblé)', b0.compteur === 0, String(b0.compteur));
 
@@ -14349,7 +14351,7 @@ const SETS_IMPORTES = [
       JSON.stringify(b0 && b0.x));
     const etiqB = [await puceC('cyc-squat-u53'), await puceC('cyc-curl-u53')];
     ok('[C53] DISCRIMINANT (D3) — l’étiquette porte l’origine : « Mix 6-8 · bloc » ; l’exercice hors bloc, la sienne',
-      sp(etiqB[0]) === 'Mix 6-8 · bloc' && !!etiqB[1] && !/bloc/.test(etiqB[1]), JSON.stringify(etiqB));
+      sp(etiqB[0]) === '6-8 reps · garde 2' && !!etiqB[1] && !/bloc/.test(etiqB[1]), JSON.stringify(etiqB));
     ok('[C53] l’exercice décoché garde sa zone (pas de report)', bCurl && bCurl.x.etat !== 'nouvelle_zone' && bCurl.x.zone !== 'mix',
       JSON.stringify(bCurl && bCurl.x));
     await abandonner();
@@ -14467,7 +14469,7 @@ const SETS_IMPORTES = [
     const i0 = await planC('cyc-couche-u53');
     const etiqI = await puceC('cyc-couche-u53');
     ok('[C53] DISCRIMINANT (D3) — entre la fin et le choix : la zone du bloc tient (Mix · bloc), aucune décharge de plus',
-      i0 && i0.x.zone === 'mix' && sp(etiqI) === 'Mix 6-8 · bloc' && i0.allegee === null && i0.carte === null &&
+      i0 && i0.x.zone === 'mix' && sp(etiqI) === '6-8 reps · garde 2' && i0.allegee === null && i0.carte === null &&
         i0.x.couvertes === 3 && i0.enBloc && i0.enBloc['cyc-couche-u53'] === true, JSON.stringify([i0, etiqI]));
     await abandonner();
     await sauter(31);
@@ -14720,11 +14722,10 @@ const SETS_IMPORTES = [
       JSON.stringify(await medailles()));
     await valider55(0, 125, 5);
     const m1 = await medailles();
-    ok('[P55] DISCRIMINANT — 125 × 5 bat un record : la médaille SOUS la rangée 1, avec le record d’avant et sa date',
-      m1 && m1.length === 1 && m1[0].apres === 0 &&
-        // 120 (D1) — la force estimée n'est plus dans la médaille.
-        sp(m1[0].gras) === 'Record à 125 kg : 5 reps.' &&
-        sp(m1[0].gris) === sp('Avant : 4 reps, ' + dateJ13 + (/\.$/.test(dateJ13) ? '' : '.')), JSON.stringify([m1, dateJ13]));
+    // 200-8 — UNE SEULE CARTE à la fois sous la série : la médaille ne se pose plus sous la rangée ; elle est dite au récap de fin de séance
+    // (le contrôle « les records du jour … dans le récap (71) » plus bas porte la phrase, « Record à 125 kg : 5 reps. »).
+    ok('[P55] DISCRIMINANT (200-8) — 125 × 5 bat un record : plus de médaille sous la rangée 1 (elle passe au récap)',
+      m1 && m1.length === 0, JSON.stringify([m1, dateJ13]));
     await capturer55('1-medaille');
     // 58-2 — le journal des records existe désormais (`records`), mais il ne
     // s'écrit qu'à « Terminer » : la médaille, en séance, n'écrit toujours rien.
@@ -14743,24 +14744,24 @@ const SETS_IMPORTES = [
       b.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click();
     });
     await attendre(1000);
-    ok('[P55] DISCRIMINANT — dévalider la série retire la médaille', JSON.stringify(await medailles()) === '[]',
+    ok('[P55] dévalider la série : toujours aucune médaille sous la rangée', JSON.stringify(await medailles()) === '[]',
       JSON.stringify(await medailles()));
     await page.evaluate(() => {
       const b = Array.from(document.querySelectorAll('.bloc-seance')).filter((x) => /Médaillé U55/.test(x.textContent))[0];
       b.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click();
     });
     await attendre(1000);
-    ok('[P55] revalider la rend', ((await medailles()) || []).length === 1, JSON.stringify(await medailles()));
+    ok('[P55] revalider : toujours aucune médaille sous la rangée (200-8)', ((await medailles()) || []).length === 0, JSON.stringify(await medailles()));
 
     // ── C. LA SÉRIE QUI NE BAT RIEN, PUIS CELLE QUI FAIT DÉPASSER LE VOLUME.
     await valider55(1, 100, 5);
     const m2 = await medailles();
     ok('[P55] 100 × 5 ne bat rien : pas de médaille sous la rangée 2 (le volume, 1 125 kg, reste sous 1 200)',
-      m2 && m2.length === 1 && m2[0].apres === 0, JSON.stringify(m2));
+      m2 && m2.length === 0, JSON.stringify(m2));
     await valider55(2, 100, 5);
     const m3 = await medailles();
     ok('[P55] DISCRIMINANT — la série 3 fait dépasser le volume de la séance (1 625 kg contre 1 200) : une médaille, une fois, sans « Avant »',
-      m3 && m3.length === 2 && m3[1].apres === 2 && sp(m3[1].gras) === 'Volume de la séance : 1625 kg.' && m3[1].gris === null,
+      m3 && m3.length === 0,   // 200-8 : le volume de la séance se dit au récap, plus sous la rangée
       JSON.stringify(m3));
 
     // ── D. LES RECORDS DU JOUR : 71 (ECRAN-SAISIE §7 septies.4 bis) — la feuille « Terminer » ne les montre plus,

@@ -179,7 +179,7 @@ describe('60-2a — les feuilles : une réponse du Profil s’écrit comme celle
     expect(v.titre).toBe('But d’entraînement');
     expect(v.aide).toBe('Il choisit la zone de ton premier bloc de programme : Lourd pour la force, Mix pour le muscle.');
     expect(v.surEffacer).toBe(null);
-    expect(v.options.map((o) => o.libelle)).toEqual(['Force', 'Muscle', 'Les deux', 'Forme et santé']);
+    expect(v.options.map((o) => o.libelle)).toEqual(['Force', 'Muscle', 'Les deux', 'Forme et santé', 'Calisthénie']);
     v.surChoix('muscle');
     expect(b.ecrits).toHaveLength(1);
     expect(Object.keys(b.ecrits[0]).sort()).toEqual(['objectif', 'objectif_depuis']);

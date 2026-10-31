@@ -4204,6 +4204,15 @@
       var zp = x && x.zonePlan;
       if (!zp || !x.consigne) return;
       var nom = 'exercice ' + x.iExo + ' (' + x.slug + ') : ';
+      // La zone à ménager prime : la zone de la routine (Lourd) est suspendue, dite, et la consigne ne porte pas Lourd
+      // (sauf une zone que la personne a choisie elle-même, I75).
+      if (zp.suspendue === true) {
+        if (x.consigne.zone === 'lourd' && !(x.menagee && x.menagee.choisie)) {
+          erreurs.push('I79 — ' + nom + 'la zone à ménager suspend la routine (Lourd), la consigne porte pourtant Lourd');
+        }
+        if (enBloc[x.slug]) erreurs.push('I81 — ' + nom + 'dans un bloc en cours alors que la routine fixe sa zone');
+        return;
+      }
       if (x.consigne.zone !== undefined && x.consigne.zone !== null && x.consigne.zone !== zp.zone) {
         erreurs.push('I79 — ' + nom + 'la routine fixe ' + zp.zone + ', la consigne porte ' + x.consigne.zone);
       }

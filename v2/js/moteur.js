@@ -5632,6 +5632,7 @@
     var z = zoneParCle(consigne.zone);
     if (z === null) return null;
     // 193-3 — la zone vient de la routine : « Mix · ta routine » (la maquette de l'ondulation).
+    if (plan && plan.suspendue === true) return z.libelle + ' \u00b7 zone \u00e0 m\u00e9nager';
     if (plan && plan.zone === consigne.zone) return z.libelle + (plan.origine === 'aujourdhui' ? ' \u00b7 aujourd\u2019hui' : ' \u00b7 ta routine');
     var bloc = origineDeLaLigne(ligne) === LIGNE_BLOC && ligne.zone === consigne.zone;
     return z.libelle + ' ' + z.bas + '-' + z.haut + (bloc ? ' · bloc' : '');
@@ -9171,6 +9172,22 @@
   // Les silences DU moteur (première fois, pas de palier) sont autre chose :
   // une consigne à l'état `silence`, avec sa seule phrase grise.
   function consigneDExercice(groupes, etat, avant, options) {
+    // 193-3 (MOTEUR §9.29) — UNE ZONE À MÉNAGER PRIME SUR LA ZONE DE LA ROUTINE, comme sur une correction ou une déduction : un
+    // exercice qui charge une zone à ménager dont la ligne de routine dit Lourd garde la règle de ménagement (aucune série lourde).
+    // La zone de plan est suspendue (rien n'est écrit : la ligne de routine reste Lourd) ; le plan le dit (`suspendue`).
+    var planSuspendu = null;
+    if (options && options.menagee === true && options.zonePlan === 'lourd') {
+      planSuspendu = { zone: 'lourd', mode: 'suspendue', n: 0, perimee: false, suspendue: true,
+        origine: options.zonePlanOrigine === 'aujourdhui' ? 'aujourdhui' : 'routine' };
+      options = Object.assign({}, options, { zonePlan: null });
+    }
+    var r = consigneDExerciceMenagee(groupes, etat, avant, options);
+    if (planSuspendu !== null && r && r.consigne) {
+      r = Object.assign({}, r, { plan: planSuspendu, etiquette: etiquetteZone(r.consigne, options.ligneDeZone, planSuspendu) });
+    }
+    return r;
+  }
+  function consigneDExerciceMenagee(groupes, etat, avant, options) {
     var r = avecDebutant(options, function () { return consigneDExerciceCalcul(groupes, etat, avant, options); });
     // 187 (A4) — UNE ZONE À MÉNAGER : l'exercice qui la charge (`options.menagee`, lue par l'app dans le profil et la table du
     // générateur) ne reçoit AUCUNE série lourde. Quand la zone qu'il aurait est Lourd (3-5 reps) et que la personne n'en a
@@ -9980,6 +9997,10 @@
   function pourquoiPlan(plan) {
     var z = plan ? zoneParCle(plan.zone) : null;
     if (z === null) return null;
+    if (plan.suspendue === true) {
+      return (plan.origine === 'aujourdhui' ? 'Tu as choisi ' + z.libelle + ' pour aujourd\u2019hui\u00a0; ' : 'Ta routine fixe cet exercice en ' + z.libelle + '\u00a0; ') +
+        'il charge une zone que tu m\u2019as demandé de ménager, alors je la mets en pause\u00a0: pas de série lourde. Rien n\u2019est changé dans ta routine.';
+    }
     var tete = plan.origine === 'aujourdhui'
       ? 'Tu as choisi ' + z.libelle + ' pour aujourd\u2019hui seulement\u00a0; ta routine ne change pas.'
       : 'Ta routine fixe cet exercice en ' + z.libelle + '.';

@@ -225,3 +225,34 @@ describe('trois zones dans la semaine', () => {
     [l, m, v].forEach((c) => { expect(c.plan.mode).toBe('zone'); expect(c.consigne.etat).not.toBe('nouvelle_zone'); });
   });
 });
+
+describe('la zone à ménager prime sur la zone de la routine (MOTEUR §9.29)', () => {
+  // que des lundis Lourd : sans la zone de plan, l'habitude est Lourd et la règle de ménagement s'applique (A4, 187)
+  const histo = () => grp(dup(6).filter((x, i) => i % 2 === 0));
+  const avant = iso(J(9, 20));
+  test('squat à zone de plan Lourd + genou à ménager : aucune série lourde, la zone de plan est suspendue et le dit', () => {
+    const r = calc(histo(), avant, { zonePlan: 'lourd', menagee: true });
+    expect(r.consigne.zone).not.toBe('lourd');
+    expect(r.consigne.fondement.menagee).toBe(true);
+    expect(r.plan).toEqual(expect.objectContaining({ zone: 'lourd', suspendue: true, mode: 'suspendue', origine: 'routine' }));
+    expect(r.etiquette).toMatch(/zone à ménager/);
+    expect(M.pourquoiPlan(r.plan)).toMatch(/ménager/);
+    expect(M.pourquoiPlan(r.plan)).not.toMatch(/\d/);
+  });
+  test('la même ligne sans zone à ménager : Lourd, la sous-histoire (rien ne change)', () => {
+    const r = calc(histo(), avant, { zonePlan: 'lourd', menagee: false });
+    expect(r.consigne.zone).toBe('lourd');
+    expect(r.plan.suspendue).toBeUndefined();
+    expect(r.etiquette).toBe('Lourd · ta routine');
+  });
+  test('une zone de plan Mix + zone à ménager : le plan tient (la règle ne touche que Lourd)', () => {
+    const r = calc(histo(), avant, { zonePlan: 'mix', menagee: true });
+    expect(r.consigne.zone).toBe('mix');
+    expect(r.plan.suspendue).toBeUndefined();
+  });
+  test('« juste pour aujourd\'hui » (Lourd) + zone à ménager : suspendu aussi, et le dit', () => {
+    const r = calc(histo(), avant, { zonePlan: 'lourd', zonePlanOrigine: 'aujourdhui', menagee: true });
+    expect(r.consigne.zone).not.toBe('lourd');
+    expect(M.pourquoiPlan(r.plan)).toMatch(/aujourd/);
+  });
+});

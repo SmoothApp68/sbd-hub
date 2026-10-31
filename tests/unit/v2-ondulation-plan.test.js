@@ -35,11 +35,12 @@ function jeudi(o) {
   se = S.ajouterExercice(se, 'squat_barre', id, { series: 4 });
   se = Object.assign({}, se, { exercices: se.exercices.map((x) => Object.assign({}, x, { zone_plan: opt.zonePlan === undefined ? 'mix' : opt.zonePlan })) });
   const debut = new Date(jour).toISOString();
-  const calc = M.consigneDExercice(grp(opt.histoire || dup(6)), undefined, debut, Object.assign({}, OPT, { zonePlan: se.exercices[0].zone_plan }));
+  const calc = M.consigneDExercice(grp(opt.histoire || dup(6)), undefined, debut, Object.assign({}, OPT, { zonePlan: se.exercices[0].zone_plan, menagee: opt.menagee === true }));
   const e = { seance: { id: 'S1', debut, edition: false, exercices: se.exercices },
     consignes: { squat_barre: Object.assign({}, calc, { repli: null }) }, reglage: 'normal', paris: [], suites: {}, phase: 'maintien', catalogue: null,
     escalier: { cartes: [], compteurs: [], noms: { squat_barre: 'Squat (Barre)' }, seriesRoutine: { squat_barre: 4 }, marches: [] },
     programme: { blocs: opt.blocs || [], lignes: [] } };
+  if (opt.menagee === true) e.zonesMenagees = { squat_barre: { zones: ['genou'], choisie: null } };
   return { e, p: T.planDeSeance(e), calc };
 }
 
@@ -157,5 +158,29 @@ describe('ce que la 193-3 ne change pas', () => {
     expect(a.paris.length).toBe(b.paris.length);
     expect(a.paris.filter(Boolean).length).toBeGreaterThan(0);
     a.paris.filter(Boolean).forEach((q) => { expect(q.exercise_slug || 'squat_barre').toBe('squat_barre'); });
+  });
+});
+
+describe('la zone à ménager prime sur la zone de la routine (I79 étendu)', () => {
+  const lundis = dup(6).filter((x, i) => i % 2 === 0);
+  test('squat Lourd en routine + genou à ménager : la règle de ménagement s\'applique, rien de lourd, la phrase le dit', () => {
+    const { e, p } = jeudi({ zonePlan: 'lourd', menagee: true, histoire: lundis });
+    const x = p.exercices[0];
+    expect(x.consigne.zone).not.toBe('lourd');
+    expect(x.zonePlan.suspendue).toBe(true);
+    expect(x.pourquoi.plan).toMatch(/zone que tu m.as demandé de ménager/);
+    expect(/\d/.test(x.pourquoi.plan)).toBe(false);
+    // exactement ce que dit la règle de ménagement SANS zone de plan (le plan suspendu ne rajoute aucune erreur)
+    const sans = jeudi({ zonePlan: null, menagee: true, histoire: lundis });
+    expect(sans.p.exercices[0].consigne.zone).toBe(x.consigne.zone);
+    expect(sans.p.exercices[0].consigne.palier).toBe(x.consigne.palier);
+    expect(T.verifierPlan(p, e).erreurs).toEqual(T.verifierPlan(sans.p, sans.e).erreurs);
+    expect(T.verifierPlan(p, e).erreurs.some((m) => /^I79|^I80|^I81/.test(m))).toBe(false);
+  });
+  test('I79 forgée : suspendue mais la consigne porte Lourd', () => {
+    const { e, p } = jeudi({ zonePlan: 'lourd', menagee: true, histoire: lundis });
+    p.exercices[0].consigne = Object.assign({}, p.exercices[0].consigne, { zone: 'lourd' });
+    p.exercices[0].menagee = Object.assign({}, p.exercices[0].menagee, { choisie: null });
+    expect(T.verifierPlan(p, e).erreurs.some((x) => /^I79/.test(x))).toBe(true);
   });
 });

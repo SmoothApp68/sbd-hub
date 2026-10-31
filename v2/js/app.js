@@ -6308,9 +6308,12 @@
 
   // §9.17 bis (127) — la marche suivante d'un exercice, quand le coach peut la proposer (`Modele.marcheSuivante`,
   // la seule définition), sinon `null`.
+  // 195 — l'objectif qui ouvre les marches d'habileté : celui, gelé, de la séance ; hors séance (la page d'exercice, la semaine),
+  // celui du profil. Un `calisthenie` seulement : toute autre valeur laisse la règle d'avant.
+  function objectifDeLEchelle() { return seance ? objectifDeLaSeance() : Profil.objectifDe(profil); }
   function marcheAProposer(index, slug) {
     // 175 — « Pas de lest » (le profil, ou la réponse de l'exercice) : la variante sans matériel devient la marche.
-    var m = Modele.marcheSuivante(index, slug, { lestRefuse: lestReponseDeLExercice(slug) === 'non' });
+    var m = Modele.marcheSuivante(index, slug, { lestRefuse: lestReponseDeLExercice(slug) === 'non', objectif: objectifDeLEchelle() });
     if (!m || !m.proposable) return null;
     // 190 — Ma salle dit « pas de barre de traction » : une marche qui en demande une (la stricte, l'archer, le muscle-up…) ne se
     // propose pas ; les marches qui n'en demandent pas restent.
@@ -12916,7 +12919,7 @@
     // La phrase se tait en carnet (le profil) ; en Entretenir (l'exercice de départ), `phraseDe` le sait.
     var phraseDe = function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { reglage: Profil.rythmeDe(profil) })); };
     return Modele.vueEchelle(index, slug, faites, zonesHaut, !Moteur.coachSeTait(profil && profil.intention), phraseDe,
-      { lestRefuse: lestReponseDe() === 'non' });
+      { lestRefuse: lestReponseDe() === 'non', objectif: objectifDeLEchelle() });
   }
 
   // 145 (ECRAN-SAISIE §7 quater.7, maquette `maquette-semaine-echelles-v1.html`, validée le 23/10/2026) — « TES ÉCHELLES
@@ -12981,7 +12984,7 @@
                                                          texte: meilleurTexte(n.ancienne.slug, n.ancienne.series) } } : null };
     });
     var cartes = Modele.vueEchellesDeLaSemaine(index, items, {
-      lestRefuse: lestReponseDe() === 'non',
+      lestRefuse: lestReponseDe() === 'non', objectif: objectifDeLEchelle(),
       faites: faites, zonesHaut: zonesHaut, coachActif: !Moteur.coachSeTait(profil && profil.intention),
       phraseDe: function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { court: true, reglage: Profil.rythmeDe(profil) })); },
       rondsDe: function (slug, e) {

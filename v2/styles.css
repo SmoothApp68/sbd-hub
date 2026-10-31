@@ -2764,6 +2764,9 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .eq-quand{color:var(--texte-3);font-size:13px;margin:0 0 var(--e2)}
 .eq-carte .eq-titre{font-weight:700;font-size:16px;margin-bottom:6px}
 .eq-carte .eq-fait{font-size:15px;line-height:1.45}
+.forme-semaine .forme-ligne{display:flex;justify-content:space-between;gap:12px;font-size:15px;padding:2px 0}
+.forme-semaine .forme-libelle{color:var(--txt2,inherit)}
+.forme-semaine .forme-pourquoi{margin:8px 0;font-size:14px}
 .eq-barre{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:9px 0 5px}
 .eq-barre i{display:block}
 .eq-barre .eq-a{background:var(--donnees,#6AA8FF)}

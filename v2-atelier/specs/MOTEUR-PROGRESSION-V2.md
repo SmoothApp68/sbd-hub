@@ -1838,6 +1838,17 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 - **Lecteurs** : une série de mobilité (aucun muscle primaire) est hors volume, équilibres, fatigue, palier, jeu (`porteDuVolume`) ; hors records (`optionsDeRecord.sansRecord`, `recordsBattus`) ; `serie_de_travail` (serveur) n'a aucun lecteur par muscle qui la voie — aucun SQL.
 - **Invariants** : I94 (rien de tenu avant, 2 min au plus) · I95 (2 zones, 10 minutes, tenues 30-60 s, 3 séries) · I96 (zone à ménager) · I97 (séance raccourcie) · I98 (consigne, voix, silences).
 
+### 9.36 Forme et santé — décidé le 31/10/2026 (chantier 197) (I110 à I112)
+
+*Delta daté du 31/10/2026. Maquette : `maquette-forme-sante-hybride-v1`. Recherche : OMS 2020, ANSES, ACSM 2026. Aucune colonne nouvelle.*
+
+- **Le générateur** (objectif `forme`, `Generateur.generer`) : 2 à 3 séances « Corps entier » (jamais plus de 3, même à 5 jours déclarés) de six mouvements — squat ou fente, charnière, poussée, tirage, porté, gainage —, 2-3 séries, « en gardant 2 à 3 reps » ; pas de figure, pas d'échec (`auMaxDe` forme = rien). La durée de séance du profil raccourcit comme pour les autres objectifs (`duree_seance_min`). Les gainages et l'équilibre se visent en durée (30 s) : `duree_s` sur la ligne, `duree_cible_s` sur la série de la routine. `famille: false` rend le gabarit d'avant (les cas de 60-6). **Le porté n'a aucun exercice au catalogue** (relevé du 31/10/2026) : sa place saute tant qu'il n'y en a pas.
+- **65 ans et plus** (`Moteur.plusDe65Ans`, la borne de la prudence de montée ; lu sur `profiles.date_naissance`, inconnu = rien de deviné) : un exercice d'équilibre (`equilibre_une_jambe`) par séance du générateur ; et, posée par le PLAN (`plan.puissance`, jamais l'écran), la consigne « Monte vite, descends en contrôlant. » sur UN polyarticulaire léger de la séance (`Moteur.exerciceDePuissance` : le premier dans l'ordre, jamais une barre, mesuré en reps, hors zone à ménager et douleur récente). Raison : la puissance à 30-70 % protège des chutes (ACSM 2026). Le plan se tait en Édition et en « Juste un carnet ».
+- **« Ta semaine »** (`faits.semaineDeForme`, un fait de `faits.js`) : renforcement = les jours de la semaine avec une séance de musculation, sur 2 ; cardio modéré = les minutes des séries d'exercices de nature `cardio`, sur 150 min, **l'intense compte double** — l'intensité est lue sur ce qui existe : le RPE de la série (8 ou plus = intense, convention) ; sans RPE, tout est modéré. Descriptive : « Il te reste N min », jamais « en retard », jamais l'assiduité reprochée. Affichée sur « Ton parcours » en objectif Forme seulement, jamais en « Juste un carnet », cachable (`profiles.cartes_semaine.forme_semaine = { masquee: true }`). Les repères sont dits comme tels : « pas une prescription ».
+- **Phrases** : aucune promesse médicale (ostéoporose, dos, diabète) ; une douleur qui dure → « demande l'avis d'un médecin ou d'un kiné ». Le sport sur ordonnance relève du médecin.
+- **La mobilité en priorité** : `priorites` ne contient que des clés de zones musculaires et des exercices — pas de mobilité (relevé du 31/10/2026). Non ajoutée : la mobilité a ses `zones_raides` (§9.31).
+- **Invariants** : I110, la consigne de puissance seulement avec un âge connu de 65 ans ou plus, jamais en Édition ni en « Juste un carnet », la phrase est celle du moteur ; I111, l'exercice est dans la séance, polyarticulaire, léger, en reps, hors zone à ménager et douleur récente ; I112, aucune promesse médicale.
+
 ## 10. L'incrément
 
 ### 10.1 Règle

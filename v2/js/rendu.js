@@ -1644,6 +1644,33 @@
     parent.appendChild(section);
   }
 
+  // 197 (MOTEUR §9.36) — « Ta semaine » en Forme et santé. Les textes viennent de l'app (qui lit `faits.semaineDeForme`) ; ici on dessine.
+  function rendreSemaineForme(parent, vue) {
+    if (!vue) return;
+    var k = el('div', 'carte-mois eq-carte forme-semaine');
+    k.setAttribute('data-forme-semaine', '1');
+    k.appendChild(el('div', 'eq-titre', 'Ta semaine'));
+    [vue.renforcement, vue.cardio].forEach(function (x) {
+      var l = el('div', 'forme-ligne');
+      l.appendChild(el('span', 'forme-libelle', x.libelle));
+      l.appendChild(el('span', 'forme-texte', x.texte));
+      k.appendChild(l);
+    });
+    k.appendChild(el('div', 'eq-calme-texte', vue.cardio.reste));
+    if (vue.cardio.intense) k.appendChild(el('div', 'eq-calme-texte', vue.cardio.intense));
+    var d = el('details', 'forme-pourquoi');
+    d.appendChild(el('summary', null, 'Pourquoi ces chiffres ?'));
+    d.appendChild(el('p', null, vue.pourquoi));
+    d.appendChild(el('p', null, vue.douleur));
+    k.appendChild(d);
+    var m = el('button', 'discret', 'Masquer cette carte');
+    m.type = 'button';
+    m.setAttribute('data-masquer-forme', '1');
+    m.addEventListener('click', function () { vue.surMasquer(); });
+    k.appendChild(m);
+    parent.appendChild(k);
+  }
+
   // La ligne de l'écran Séances, sous la barre de la semaine : UNE seule, quand une carte d'équilibre parle.
   function rendreLigneEquilibre(cible, vue) {
     if (!cible) return cible;
@@ -1672,6 +1699,7 @@
     cible.appendChild(el('div', 'pc-phrase', p.phrase || PHRASE_VIDE));
 
     // 188-1 — « Ta semaine et tes équilibres » : en tête, au-dessus de « Tes équilibres » (les barres sur douze mois).
+    rendreSemaineForme(cible, vue.forme);
     rendreEquilibres(cible, vue.equilibres);
     // 189 — « Juste un carnet » : le constat de la baisse, une carte sans proposition (aucune section de plus).
     if (vue.fatigue) {
@@ -3042,6 +3070,14 @@
       // gris : un point de départ la première fois, le coach seul ensuite.
       var cpx = vue.programme && vue.chargeProgramme ? vue.chargeProgramme(x.slug) : null;
       if (cpx) entree.appendChild(el('div', 'consigne-dit charge-programme', texteChargeProgramme(cpx)));
+      // 197 (MOTEUR §9.36) — la consigne de puissance des 65 ans et plus, posée par le plan (un fait du plan, pas un calcul d'écran).
+      var pu = !vue.programme && vue.puissance ? vue.puissance(x.slug) : null;
+      if (pu) {
+        var lp = el('div', 'consigne-dit puissance', pu.texte);
+        lp.setAttribute('data-puissance', '1');
+        if (pu.pourquoi) lp.title = pu.pourquoi;
+        entree.appendChild(lp);
+      }
       var lib = constat ? null : (!vue.programme && vue.libelles ? vue.libelles(x.slug, x._iExo) : null);
       if (lib) {
         // §3.10 — TOUCHER LA CONSIGNE OUVRE LE CALCUL. Les lignes jaunes comme

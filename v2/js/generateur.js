@@ -48,7 +48,16 @@
     curl: ['curl_biceps_barre_ez', 'curl_biceps_haltere', 'curl_marteau_haltere'],
     triceps: ['extension_triceps_poulie_haute', 'extension_des_triceps_au_dessus_de_la_tete_cable',
               'extension_triceps_haltere', 'pompes_diamant'],
-    ecarte: ['ecarte_machine', 'ecartes_poulie', 'ecarte_haltere']
+    ecarte: ['ecarte_machine', 'ecartes_poulie', 'ecarte_haltere'],
+    // 197 (MOTEUR §9.36) — LES MOTIFS DE « FORME ET SANTÉ » : le geste d'abord, le matériel léger d'abord (haltère, poids du corps).
+    forme_jambes: ['squat_goblet_haltere', 'squat_goblet_kettlebell', 'squat_poids_du_corps', 'fente_arriere_haltere', 'fente_arriere'],
+    forme_charniere: ['souleve_de_terre_roumain_haltere', 'souleve_de_terre_haltere', 'hip_thrust_une_jambe_poids_corps'],
+    forme_poussee: ['pompes_inclinees', 'developpe_couche_haltere', 'chest_press_machine', 'pompes'],
+    forme_tirage: ['rowing_haltere', 'rowing_poulie_assis', 'rowing_elastique', 'rowing_inverse'],
+    // Le porté : AUCUN exercice du catalogue (relevé du 31/10/2026) — la place saute tant qu'il n'y en a pas (rapport du 197).
+    forme_porte: [],
+    forme_gainage: ['planche', 'gainage_rkc', 'gainage_dorsal'],
+    forme_equilibre: ['equilibre_une_jambe']
   };
 
   // Rien de faisable dans un motif : son voisin (même muscle, autre angle).
@@ -93,6 +102,27 @@
   };
 
   var JOURS_MIN = 2, JOURS_MAX = 6, JOURS_DEFAUT = 3;
+
+  // ── 197 (MOTEUR §9.36) — « FORME ET SANTÉ » : 2 à 3 séances corps entier, six mouvements (squat ou fente, charnière, poussée,
+  // tirage, porté, gainage), 2-3 séries « en gardant 2 à 3 reps » (OMS 2020, ANSES : du renforcement au moins 2 fois par semaine).
+  // Pas de figure, pas d'échec (`auMaxDe` forme = rien). La durée de séance du profil raccourcit comme pour les autres objectifs.
+  // 65 ans et plus (`entree.plus65 === true`, lu sur `date_naissance` ; inconnue : rien de deviné) : un exercice d'équilibre en plus.
+  var FORME_JOURS_MAX = 3;
+  function tenue(motif, role, n, secondes) { return pl(motif, role, { n: n, reps: null, duree: secondes }); }
+  function forme(nom) {
+    return [nom, [acc('forme_jambes', 'P', 3, 10), acc('forme_tirage', 'S', 3, 10), acc('forme_poussee', 'S', 3, 10),
+                  acc('forme_charniere', 'S', 2, 10), tenue('forme_porte', 'T', 2, 30), tenue('forme_gainage', 'T', 2, 30)]];
+  }
+  function gabaritDeForme(p) {
+    if (p.objectif !== 'forme' || p.famille === false) return null;     // `famille: false` : le gabarit d'avant (les cas de 60-6 le rejouent)
+    var n = Math.min(bornerJours(p.jours), FORME_JOURS_MAX);
+    var noms = ['Corps entier A', 'Corps entier B', 'Corps entier C'].slice(0, n);
+    return noms.map(function (nom) {
+      var rt = forme(nom);
+      if (p.plus65 === true) rt[1].push(tenue('forme_equilibre', 'T', 2, 30));
+      return rt;
+    });
+  }
 
   // ── 193-2 — LES FAMILLES DE FORCE (Force = powerlifting, Les deux = powerbuilding), 2 à 6 jours ──────────────
   // Le même mouvement revient dans la semaine DANS UNE AUTRE ZONE (l'ondulation, MOTEUR §9.29) : la zone est écrite dans
@@ -172,11 +202,11 @@
   // ── La zone à ménager (décidé le 08/10/2026, question 1) ─────────────────────
   // Une place dont le motif charge la zone GARDE son exercice et toutes ses séries, SANS série lourde.
   var CHARGE_ZONE = {
-    genou: ['squat', 'presse', 'quad_iso'],
-    dos: ['charniere', 'jambes_tendues', 'squat', 'rowing'],
-    epaule: ['militaire', 'couche', 'couche_serre', 'elev_lat'],
+    genou: ['squat', 'presse', 'quad_iso', 'forme_jambes'],
+    dos: ['charniere', 'jambes_tendues', 'squat', 'rowing', 'forme_charniere', 'forme_jambes', 'forme_tirage'],
+    epaule: ['militaire', 'couche', 'couche_serre', 'elev_lat', 'forme_poussee'],
     coude: ['triceps', 'curl'],
-    hanche: ['hip_thrust', 'squat', 'charniere']
+    hanche: ['hip_thrust', 'squat', 'charniere', 'forme_jambes', 'forme_charniere']
   };
 
   // La variante plus tolérée, seulement les cas évidents : le dos prend le belt squat (la charge est à la ceinture),
@@ -369,6 +399,8 @@
     var l = { exercise_slug: slug, motif: motif, role: role, series: n, reps: reps, prioritaire: prioEx, menage: menage,
               barre_fixe: demandeUneBarreFixe(slug, fiche), spec: spec };
     if (zone) l.zone = zone;
+    // 197 — une place TENUE (gainage, équilibre) : une durée, pas de reps.
+    if (spec.duree && fiche.mesure === 'temps') { l.reps = null; l.duree_s = spec.duree; }
     if (reculs) { l.reculs = reculs; l.reps_recul = repsRecul; }
     if (spec.lourd) l.lourd = true;
     if (spec.id || spec.lie) l.lien = spec.id || spec.lie;
@@ -448,7 +480,7 @@
     var ecartes = liste(p.ecartes);
     var ok = faisable(catalogue, p.materiel, faits, p.barre_traction);
     var debutant = racine.THProfil.estDebutant(p);
-    var gabarit = gabaritDeForce(catalogue, p, ok, debutant) || GABARITS[bornerJours(p.jours)];
+    var gabarit = gabaritDeForme(p) || gabaritDeForce(catalogue, p, ok, debutant) || GABARITS[bornerJours(p.jours)];
     // 193-2 — les places liées (la même barre, deux zones) : `id` → clé de la place ; une liée prend l'exercice de sa principale.
     var ids = {};
     gabarit.forEach(function (rt, r) {

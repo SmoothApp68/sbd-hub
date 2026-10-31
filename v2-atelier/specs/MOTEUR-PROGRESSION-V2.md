@@ -1882,6 +1882,14 @@ Sur une **barre** (squat, couché, militaire — `familleDeBarre`), la consigne 
 - **Le muscle étiré** (`accent_allonge`, `Modele.estAccentAllonge`) : à égalité, le générateur (`choisirBrut`, `unExercice`) préfère l'exercice qui charge le muscle étiré (Maeo 2021 : leg curl assis +14 % contre +9 % couché), et l'échange d'exercice le propose en premier, après l'historique (un exercice déjà fait n'est jamais rétrogradé). Jamais de changement d'une routine existante.
 - **Invariants** : I105 (la mini-série reprend la charge de sa série de travail, sans dégressive ni phrase du coach) · I106 (hors couverture, sans pari : une série rest-pause = une série de travail).
 
+### 9.34 La sèche : une baisse attendue n'est pas une alerte — décidé le 31/10/2026 (chantier 198) (I107, I108)
+
+*Delta daté du 31/10/2026. Maquette : `maquette-muscle-et-phase-v1`. Diagnostic : aucune règle ne baisse le volume d'office en sèche (propositions et choix de la personne seulement) ; la phase `seche` existe déjà et plusieurs règles la lisent (§14.11, I23, I48, relecture N3 du générateur).*
+
+- **Rien d'autre ne change** : la sèche garde ses règles (pas de série de plus, pas de dégressive proposée, « une série de moins » à la demande). Le coach ne baisse jamais ton volume d'office en sèche : le couper n'aide pas à garder ton muscle (revue de 15 études).
+- **La baisse générale (§14.11)** : la carte exige plus de 5 % par exercice. En sèche, quand au moins 4 exercices et 40 % des suivis baissent de 2 à 5 % (moyenne arrondie de 5 % au plus ; sous 2 % : bruit), le plan porte `baisseAttendue` à la place de la carte, sans geste : « Tes séries baissent un peu » / « Couché, squat, rowing : −3 % en moyenne depuis 3 semaines. En sèche, une baisse jusqu'à 5 % est attendue : tu manges moins, pas encore de quoi alléger. Garde tes charges. » (« en sèche » une seule fois). Mêmes garde-fous que la carte : une fois par épisode (4 semaines), ni semaine allégée ni « série de moins » en cours. Au-delà de 5 %, la carte habituelle (semaine allégée, ou une série de moins) revient.
+- **Invariants** : I107 (la phrase n'existe qu'en sèche, sans carte ni semaine allégée, 0 à 5 % en moyenne, se refait de la règle, « sèche » une fois) · I108 (une carte de baisse en sèche annonce plus de 5 %).
+
 ### 9.35 La calisthénie, cinquième objectif — décidé le 31/10/2026 (chantier 195) (I100 à I104)
 
 **Delta daté du 31/10/2026.** `profiles.objectif` accepte `calisthenie` (`v2_125`). Ce que le moteur et le plan en font :

@@ -2237,6 +2237,12 @@
         unRM = { valeur: e, charge: c, reps: r, date: x._debut };
       }
     });
+    // 193-4 (MOTEUR §9.32) — LE MAX MESURÉ PAR UNE SEMAINE DE TEST prime sur l'estimation pendant 90 jours : `o.mesures`
+    // (`[{ valeur, date, charge, reps }]`, ce que le profil a rangé), jamais une ligne du journal des records.
+    if (Array.isArray(o.mesures) && o.mesures.length) {
+      var mv = racine.THMoteur.testMesureValable(o.mesures, aDate);
+      if (mv) unRM = { valeur: Number(mv.valeur), charge: Number(mv.charge), reps: Number(mv.reps), date: mv.date, mesure: true };
+    }
     return { table: table, lourde: recordDeLaTable(table), unRM: unRM,
              douzeMois: racine.THMoteur.plancherDuMateriel(o.equipement, aDate) !== null };
   }

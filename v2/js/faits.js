@@ -1775,8 +1775,24 @@
       return sortie;
     }
 
+
+    // 193-4 (MOTEUR §9.32) — LE MAX ESTIMÉ D'AVANT LA SEMAINE DE TEST, par exercice : la force estimée (`Modele.recordsDeLExercice(...).unRM`,
+    // Epley) sur les séances STRICTEMENT avant le jour du début de la semaine — figée, elle ne bouge pas pendant les essais. `null` : aucune
+    // série de travail estimable. `debut` : le jour civil `AAAA-MM-JJ`.
+    function maxEstimesAvantLeTest(c, slugs, debut) {
+      var avant = new Date(String(debut) + 'T00:00:00');
+      var sortie = {};
+      (slugs || []).forEach(function (slug) {
+        var u = isNaN(avant.getTime()) ? null
+          : Modele.recordsDeLExercice(seancesDuSlug(c, slug), avant, optionsDesRecords(c, slug)).unRM;
+        sortie[slug] = u && u.valeur > 0 ? Math.round(u.valeur * 10) / 10 : null;
+      });
+      return sortie;
+    }
+
     return {
       douleursParExercice: douleursParExercice,
+      maxEstimesAvantLeTest: maxEstimesAvantLeTest,
       entreeFatigue: entreeFatigue,
       entreeDuBilan: entreeDuBilan,
       tempsALaSalle: tempsALaSalle,

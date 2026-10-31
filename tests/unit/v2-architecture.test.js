@@ -93,6 +93,26 @@ const GARDEES = [
   { fn: 'phraseRecul', module: 'moteur.js' },
   { fn: 'pourquoiRecul', module: 'moteur.js' },
   { fn: 'phraseConstatReculs', module: 'moteur.js' },
+  // moteur.js — la semaine de test (193-4, §9.32, I88 à I93)
+  { fn: 'testMontee', module: 'moteur.js' },
+  { fn: 'testEssai', module: 'moteur.js' },
+  { fn: 'testSerieAuMax', module: 'moteur.js' },
+  { fn: 'testMesure', module: 'moteur.js' },
+  { fn: 'testBarreDuJour', module: 'moteur.js' },
+  { fn: 'testBarresEnConflit', module: 'moteur.js' },
+  { fn: 'testProposable', module: 'moteur.js' },
+  { fn: 'testModeParDefaut', module: 'moteur.js' },
+  { fn: 'testModeValide', module: 'moteur.js' },
+  { fn: 'testPari', module: 'moteur.js' },
+  { fn: 'testClasse', module: 'moteur.js' },
+  { fn: 'testConsigneEssai', module: 'moteur.js' },
+  { fn: 'testConsigneSerie', module: 'moteur.js' },
+  { fn: 'pourquoiTest', module: 'moteur.js' },
+  { fn: 'phraseProposeTest', module: 'moteur.js' },
+  { fn: 'phraseTestPropose', module: 'moteur.js' },
+  { fn: 'phraseTestEnCours', module: 'moteur.js' },
+  { fn: 'phraseBilanTest', module: 'moteur.js' },
+  { fn: 'phraseObjectifTest', module: 'moteur.js' },
   // moteur.js — les reculs à plus de reps, calés sur le max du jour (193-5, §9.28, I82)
   { fn: 'reculAuMax', module: 'moteur.js' },
   { fn: 'reculDePlusDeReps', module: 'moteur.js' },
@@ -246,6 +266,21 @@ const AUTORISATIONS = {
       'recul d\u2019un exercice « Au max » quand `Moteur.auMaxDe` le dit pour l\u2019objectif (muscle, les_deux : oui ; force : accessoires ; ' +
       'forme, objectif absent : rien) ; aucune table en double — le générateur ne décide pas, il lit (generateur.js, `marquerAuMax`).'
   },
+  // 193-4 (MOTEUR §9.32) — la semaine de test : la décision par barre est au plan ; HORS séance (la carte de fin de phase, la feuille du
+  // Profil, le bilan en tête de Saisie, les paris posés au lancement), l'app passe les faits à la règle et montre ce qu'elle rend.
+  testProposable: {
+    'app.js': 'MOTEUR §9.32 (193-4) : la proposition vit hors séance (carte de fin de phase, feuille « Semaine de test » du Profil) — donc sans ' +
+      'plan ; l\u2019app passe les phases faites, la semaine allégée, les semaines d\u2019entraînement et la décharge à venir (app.js, ' +
+      '`proposerSemaineDeTestDuProgramme`, `proposerSemaineDeTestHorsProgramme`).'
+  },
+  phraseProposeTest: { 'app.js': 'MOTEUR §9.32 (193-4) : la phrase de la carte de fin de phase, rendue par le moteur sur la proposition.' },
+  phraseTestPropose: { 'app.js': 'MOTEUR §9.32 (193-4) : la phrase de la feuille « Semaine de test » du Profil (la proposition ou pourquoi pas).' },
+  phraseTestEnCours: { 'app.js': 'MOTEUR §9.32 (193-4) : la phrase de la feuille « Semaine de test » du Profil quand la semaine est posée.' },
+  phraseBilanTest: { 'app.js': 'MOTEUR §9.32 (193-4) : le bilan de fin de semaine en tête de Saisie, hors séance (« avant → mesuré »).' },
+  phraseObjectifTest: { 'app.js': 'MOTEUR §9.32 (193-4) : la ligne de l\u2019objectif dans le bilan de fin de semaine (« Pas encore »), hors séance.' },
+  testModeParDefaut: { 'app.js': 'MOTEUR §9.32 (193-4) : la feuille « Semaine de test » du Profil montre la façon par défaut de chaque barre (le débutant : la série au max).' },
+  testModeValide: { 'app.js': 'MOTEUR §9.32 (193-4) : la feuille du Profil lit la façon choisie barre par barre, validée par la règle.' },
+  testPari: { 'app.js': 'MOTEUR §9.32 (193-4) : les quatre paris « ton max tombera vers X kg » se posent au lancement de la semaine, AVANT toute série, hors séance.' },
   // 188-1 (MOTEUR §9.27) — la carte « Tes priorités, faites ou non » propose « Ajouter une série de … à ta routine ? » en
   // passant par la règle EXISTANTE de la série de plus d'un muscle prioritaire (§14.6) : la place sur chacun des muscles
   // primaires de l'exercice. `equilibres.js` la lit telle quelle, sans règle nouvelle.
@@ -1760,6 +1795,14 @@ const NOTIONS = [
     module: 'faits.js', fonction: 'questionDuRecord', lecteurs: ['app.js'],
     raison: 'ECRAN-SAISIE (185, cas 5) : le journal des records est immuable ; une hausse confirmée de plus de 20 % demande ' +
       'un mot de plus avant d’y entrer. La règle vit avec la vraisemblance, l’écran n’en lit que la question.' },
+  { notion: 'le max estimé d’avant la semaine de test (la force estimée, figée avant le premier jour)', pr: '193-U4',
+    module: 'faits.js', fonction: 'maxEstimesAvantLeTest', lecteurs: ['app.js'],
+    raison: '193-4 (MOTEUR §9.32) : la montée et les essais se calent sur le max estimé ; il se fige AVANT la semaine (sinon un essai ' +
+      'déplacerait le suivant). Un fait, une lecture de `Modele.recordsDeLExercice` ; l’écran le passe au plan, il ne calcule rien.' },
+  { notion: 'le max mesuré par une semaine de test (prioritaire 90 jours sur l’estimation)', pr: '193-U4',
+    module: 'moteur.js', fonction: 'testMesureValable', lecteurs: ['modele.js'],
+    raison: '193-4 (MOTEUR §9.32) : `recordsDeLExercice` expose le max mesuré comme `unRM` daté « mesuré » pendant 90 jours ; la règle de ' +
+      'validité est au moteur, `modele.js` la lit, l’écran montre « Max mesuré ». Jamais une ligne du journal des records.' },
   // ── 188-1 — « TA SEMAINE ET TES ÉQUILIBRES » (MOTEUR §9.27) ──
   { notion: 'le sens d’un tirage ou d’une poussée (horizontal, vertical : le `schema_mouvement` du catalogue)', pr: '188-U1',
     module: 'modele.js', fonction: 'sensDuMouvement', lecteurs: ['equilibres.js'],
@@ -2340,7 +2383,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : quarante-trois (treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126, ce qui manque aux séances en 131, les échelles de la semaine en 145, la vraisemblance d’une série et la question du record en 185), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : quarante-quatre (le max d’avant la semaine de test en 193-4, treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126, ce qui manque aux séances en 131, les échelles de la semaine en 145, la vraisemblance d’une série et la question du record en 185), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -2351,7 +2394,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(43);
+    expect(FAITS.length).toBe(44);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

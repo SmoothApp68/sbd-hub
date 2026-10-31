@@ -68,6 +68,8 @@ function profilEcran(profil, options) {
     ouvrirProgrammeProfil: (quoi) => { programmesOuverts.push(quoi); },
     // 108 — « Ma salle » (MOTEUR §10 bis) : la feuille qu'ouvre la ligne.
     ouvrirSalleProfil: () => { sallesOuvertes.push(true); },
+    // 193-4 — « Semaine de test » : la ligne n'existe que s'il y a quelque chose à dire (aucune ici).
+    ligneSemaineDeTest: () => null,
     // 163 — « Ma salle » n'apparaît que si un exercice à l'élastique est dans une routine, l'historique ou la séance
     // en cours : `options.elastique` le dit (absent : aucun, la ligne n'est pas là).
     unExerciceALElastique: () => !!opt.elastique,

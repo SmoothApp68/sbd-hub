@@ -13062,7 +13062,7 @@
       id: null, nom: nom, nomChange: true, dossier: dossier, existantes: [], jours: jours || null,
       exercices: Routines.renumeroter(structure.exercices.map(function (e) {
         return { id: null, exercise_slug: e.exercise_slug, series: e.series.map(Routines.enSaisie),
-                 repos_cible_s: e.repos_cible_s, groupe_superset: e.groupe_superset, note: null, zone: null };
+                 repos_cible_s: e.repos_cible_s, groupe_superset: e.groupe_superset, note: null, zone: e.zone || null };
       }))
     };
   }
@@ -13432,6 +13432,9 @@
       var depart = departRecentDe(l.exercise_slug);
       var x = { exercise_slug: l.exercise_slug, series: l.series, reps: l.reps, chauffes: l.chauffes || 0,
                 groupe_superset: l.groupe_superset === undefined ? null : l.groupe_superset };
+      // 193-2 — une grosse série et ses reculs (193-1), la zone du jour (193-3) : portées jusqu'à la routine créée.
+      if (l.reculs > 0) { x.reculs = l.reculs; x.reps_recul = l.reps_recul; }
+      if (l.zone) x.zone = l.zone;
       // 188-2 — un repos d'isolation raccourci par la compression (étape 2) se porte jusqu'à la routine créée.
       if (l.repos_raccourci_s > 0) x.repos_raccourci_s = l.repos_raccourci_s;
       if (depart !== null) x.charge_cible_kg = depart;
@@ -13447,7 +13450,8 @@
       rt.exercices.forEach(function (l) {
         var avant = sortie[sortie.length - 1];
         // Seulement dans le même superset (ou hors de tout superset) : `memeBloc` ne les joindrait pas sinon.
-        if (avant && avant.exercise_slug === l.exercise_slug &&
+        // 193-2 — jamais deux lignes qui portent des reculs ou des zones : ce sont deux places (la même barre, deux zones).
+        if (avant && avant.exercise_slug === l.exercise_slug && !avant.reculs && !l.reculs && !avant.zone && !l.zone &&
             (avant.groupe_superset || null) === (l.groupe_superset || null)) avant.series += l.series;
         else sortie.push(Object.assign({}, l));
       });
@@ -13478,6 +13482,11 @@
         var tr = r.exercices[j] ? r.exercices[j].tr : l.series;
         // `raccourcie` : cet exercice a perdu des séries pour tenir la durée (l'aperçu ne promet plus « toutes leurs séries »).
         var nl = Object.assign({}, l, { series: tr }, tr < l.series ? { raccourcie: true } : {});
+        // 193-2 — les reculs que le raccourci a retirés (étape 3 bis) : le nombre qui reste est celui de la ligne.
+        if (l.reculs > 0 && r.exercices[j] && r.exercices[j].rec < l.reculs) {
+          nl.raccourcie = true;
+          if (r.exercices[j].rec > 0) nl.reculs = r.exercices[j].rec; else { delete nl.reculs; delete nl.reps_recul; }
+        }
         // 188-2 — les deux premiers pas de la compression : un superset de plus, un repos d'isolation raccourci.
         r.journal.forEach(function (t) {
           if (t.quoi === 'superset' && (t.i === j || t.j === j)) nl.groupe_superset = t.groupe;
@@ -13652,7 +13661,10 @@
       c.routines = fondreLesVoisins(res.routines);
       c.neuf = marque(i);
       // Une séance vidée par les refus n'a plus rien à écrire : elle sort du programme (et de `faites`, qui la suit).
-      if (!c.routines[i].exercices.length) { c.routines.splice(i, 1); c.faites.splice(i, 1); c.neuf = {}; }
+      // 193-2 — les places liées s'en vont avec elle : toute séance vidée sort, de la dernière à la première.
+      for (var v = c.routines.length - 1; v >= 0; v--) {
+        if (!c.routines[v].exercices.length) { c.routines.splice(v, 1); c.faites.splice(v, 1); c.neuf = {}; }
+      }
     }
     if (!c.routines.length) { fermerVoile(); return; }
     c.annonce = neuve
@@ -13690,7 +13702,14 @@
     if (!c || !c.routines[i] || !c.routines[i].exercices[k] || !slug) return;
     // Un exercice déjà dans CETTE séance ne la prend pas deux fois (les voisins identiques n'en feraient qu'un bloc, et
     // les séries s'additionneraient en silence) : le coach le dit, rien ne change.
-    var dejaLa = c.routines[i].exercices.some(function (x, j) { return j !== k && x.exercise_slug === slug; });
+    // 193-2 — les places liées (la même barre, deux zones) se remplacent ensemble : l'exercice ne doit être dans aucune de leurs séances.
+    var places = Generateur.lieesDe(c.routines, i, k);
+    var dejaLa = places.some(function (cc) {
+      return c.routines[cc[0]].exercices.some(function (x, jj) {
+        var estUnePlace = places.some(function (d) { return d[0] === cc[0] && d[1] === jj; });
+        return !estUnePlace && x.exercise_slug === slug;
+      });
+    });
     if (dejaLa) {
       c.neuf = {};
       c.annonce = Modele.nommer(catalogueIndexe(), slug) + ' est déjà dans cette séance.';

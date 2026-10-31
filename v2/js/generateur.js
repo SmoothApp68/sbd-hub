@@ -484,6 +484,32 @@
   // même motif (sinon le voisin, sinon un déjà pris), en évitant ce qui est déjà dans CETTE séance ; les séries
   // restent celles de la place (la personne a pu les changer) ; l'exercice rejoint les écartés. Rien au catalogue : la
   // place disparaît. Rend { routines, ecartes } ; rien n'est modifié en place.
+  // 193-2 — LES PLACES LIÉES (la même barre, deux zones) se remplacent ENSEMBLE : toutes les lignes qui portent le même `lien` et le
+  // même exercice que la ligne touchée (dans toutes les séances), la ligne touchée comprise. Une ligne sans lien : elle seule.
+  function lieesDe(routines, r, k) {
+    var rt = liste(routines);
+    var vieux = rt[r] && liste(rt[r].exercices)[k];
+    if (!vieux) return [];
+    var sortie = [[r, k]];
+    if (!vieux.lien) return sortie;
+    rt.forEach(function (s, i) {
+      liste(s.exercices).forEach(function (x, j) {
+        if ((i !== r || j !== k) && x.lien === vieux.lien && x.exercise_slug === vieux.exercise_slug) sortie.push([i, j]);
+      });
+    });
+    return sortie;
+  }
+
+  // La ligne neuve d'une place : celle de la FAMILLE (sa table : zone, reculs, reps) quand la place en a une — recalculée pour le
+  // nouvel exercice (il peut charger une zone à ménager) —, sinon l'ancienne façon. Les séries retouchées de la place restent, tant
+  // que la zone à ménager ne change rien à la place.
+  function ligneNeuve(catalogue, slug, motif, vieux, p) {
+    var neuve = ligne(catalogue, slug, motif, vieux.role, p, {}, vieux.spec || undefined);
+    if (!vieux.spec || neuve.menage === vieux.menage) neuve.series = vieux.series;
+    if (vieux.raccourcie) neuve.raccourcie = true;
+    return neuve;
+  }
+
   function neVeuxPas(catalogue, routines, entree, r, k) {
     var p = entree || {};
     var nouveau = liste(routines).map(function (rt) {
@@ -497,17 +523,20 @@
     if (!contient(ecartes, vieux.exercise_slug)) ecartes.push(vieux.exercise_slug);
     var faits = p.faits || {};
     var pris = {};
-    nouveau[r].exercices.forEach(function (x) { pris[x.exercise_slug] = true; });
+    var liees = lieesDe(nouveau, r, k);
+    // Les séances des places liées : l'exercice choisi ne doit être dans AUCUNE d'elles.
+    liees.forEach(function (c) { nouveau[c[0]].exercices.forEach(function (x) { pris[x.exercise_slug] = true; }); });
     // `pris` = les exercices de CETTE séance : le repli ne les reprend jamais (60-6, S6) ; le débutant reste débutant.
     var s = choisir(vieux.motif, faisable(catalogue, p.materiel, faits, p.barre_traction), ecartes, pris, p.menager, faits, p.materiel,
                     racine.THProfil.estDebutant(p), pris);
     if (s === null) {
-      nouveau[r].exercices.splice(k, 1);                    // rien au catalogue : la place disparaît
+      // rien au catalogue : la place disparaît (ses places liées avec elle, de la dernière à la première pour garder les rangs)
+      liees.slice().sort(function (a, b) { return b[1] - a[1]; }).forEach(function (c) { nouveau[c[0]].exercices.splice(c[1], 1); });
     } else {
-      var neuve = ligne(catalogue, s, vieux.motif, vieux.role, p);
-      neuve.series = vieux.series;
-      if (vieux.raccourcie) neuve.raccourcie = true;                // la place a perdu des séries pour tenir la durée
-      nouveau[r].exercices[k] = neuve;
+      liees.forEach(function (c) {
+        var place = nouveau[c[0]].exercices[c[1]];
+        nouveau[c[0]].exercices[c[1]] = ligneNeuve(catalogue, s, place.motif, place, p);
+      });
     }
     return { routines: nouveau, ecartes: ecartes };
   }
@@ -536,10 +565,11 @@
     if (!vieux || !possede(catalogue, slug)) return nouveau;
     // Le MOTIF suit l'exercice choisi (la zone à ménager se lit sur ce que l'exercice charge, pas sur la place qu'il
     // prend) : celui de la place si l'exercice en est un candidat, sinon le premier motif qui le contient, sinon aucun.
-    var neuve = ligne(catalogue, slug, motifDe(slug, vieux.motif), vieux.role, p);
-    neuve.series = vieux.series;
-    if (vieux.raccourcie) neuve.raccourcie = true;
-    nouveau[r].exercices[k] = neuve;
+    var motif = motifDe(slug, vieux.motif);
+    lieesDe(nouveau, r, k).forEach(function (c) {
+      var place = nouveau[c[0]].exercices[c[1]];
+      nouveau[c[0]].exercices[c[1]] = ligneNeuve(catalogue, slug, motif, place, p);
+    });
     return nouveau;
   }
 
@@ -1566,6 +1596,7 @@
     bornerJours: bornerJours,
     generer: generer,
     neVeuxPas: neVeuxPas,
+    lieesDe: lieesDe,
     remplacePar: remplacePar,
     pourquoi: pourquoi,
     mentionsDeLigne: mentionsDeLigne,

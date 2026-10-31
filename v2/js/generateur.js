@@ -1677,7 +1677,7 @@
     [['cal_poussee', 'dips_torse'], ['cal_charniere', 'pont_fessier']],
     [['cal_rowing', 'rowing_inverse'], ['cal_pompes', 'pompes']]
   ];
-  var CAL_SERIES = 3, CAL_REPS = 8, CAL_REPS_DEPART = 5, CAL_FIGURE_JOURS = 3, CAL_SEANCES_MAX = 4;
+  var CAL_SERIES = 3, CAL_REPS = 8, CAL_REPS_DEPART = 5, CAL_FIGURE_JOURS = 3, CAL_SEANCES_MAX = 4, CAL_FIGURE_SECONDES = 10;
   var CAL_FIGURE_PAR_DEFAUT = 'front_lever';
   var CAL_ZONES_BRAS_TENDUS = ['coude', 'epaule'];
   var PHRASE_SANS_BARRE = 'Pour progresser en tirage, il te faut une barre ou des anneaux.';
@@ -1717,7 +1717,6 @@
     var faits = p.faits || {}, ecartes = liste(p.ecartes);
     var ok = faisable(catalogue, p.materiel, faits, p.barre_traction);
     var departs = departDeCalisthenie(p.depart_calisthenie);
-    var sansBarre = p.barre_traction === false;
     var bras = liste(p.menager).some(function (z) { return contient(CAL_ZONES_BRAS_TENDUS, z); });
     var n = Math.max(2, Math.min(CAL_SEANCES_MAX, bornerJours(p.jours)));
     var figure = bras ? null : figureDeLaPersonne(catalogue, faits, ecartes, ok);
@@ -1739,8 +1738,12 @@
     var routines = [];
     for (var k = 0; k < n; k++) {
       var ex = [];
-      if (figure && k < CAL_FIGURE_JOURS) {
-        ex.push(ligneCalisthenie(catalogue, figure.slug, 'cal_figure', 'T', CAL_SERIES, figure.echelle_seuil_s || 10));
+      // Jamais deux séances de suite (dans l'ordre de la semaine) : une séance sur deux, et au plus 3 par semaine. Avec 3 ou 4 séances,
+      // deux figures ; avec 2, une. Les jours exacts de la personne ne sont pas connus : l'ordre des séances est ce qui se lit.
+      if (figure && k % 2 === 0 && k < CAL_FIGURE_JOURS * 2) {
+        var lf = ligneCalisthenie(catalogue, figure.slug, 'cal_figure', 'T', CAL_SERIES, null);
+        lf.duree_s = figure.echelle_seuil_s || CAL_FIGURE_SECONDES;   // une tenue en secondes : `duree_cible_s`, jamais `reps`
+        ex.push(lf);
       }
       var groupe = 0;
       for (var i = 0; i < CAL_PAIRES.length; i++) {
@@ -1757,10 +1760,15 @@
         ex.push(ligneCalisthenie(catalogue, c.slug, c.motif, 'T', 2, 3));
       });
       var rt = { nom: 'Corps entier ' + 'ABCD'.charAt(k), exercices: marquerAuMax(catalogue, ex, p) };
-      if (sansBarre) rt.avertissements = [{ cle: 'sans_barre', texte: PHRASE_SANS_BARRE }];
       routines.push(rt);
     }
     return routines;
+  }
+  // Ce que le coach dit en tête de l'aperçu du programme de calisthénie : sans barre de traction, il le dit (la promesse d'honnêteté de
+  // la maquette). `[]` ailleurs. Lue par l'aperçu, jamais recalculée.
+  function avertissementsCalisthenie(entree) {
+    var p = entree || {};
+    return p.objectif === 'calisthenie' && p.barre_traction === false ? [PHRASE_SANS_BARRE] : [];
   }
   // I101 à I103 (195-3) — le programme de calisthénie : au plus 3 séances avec une figure (bras tendus) ; aucune figure avec une zone
   // à ménager coude ou épaule ; aucun exercice qui demande une barre de traction quand la personne dit qu'elle n'en a pas.
@@ -1769,6 +1777,11 @@
     var estFigure = function (l) { var f = cat[l.exercise_slug]; return !!f && f.mesure === 'temps' && racine.THModele.echelleDe(f) !== null; };
     var avecFigure = liste(routines).filter(function (rt) { return liste(rt.exercices).some(estFigure); });
     if (avecFigure.length > CAL_FIGURE_JOURS) fautes.push('I101 ' + avecFigure.length + ' séances avec une figure (au plus ' + CAL_FIGURE_JOURS + ')');
+    for (var i = 1; i < liste(routines).length; i++) {
+      if (liste(routines[i - 1].exercices).some(estFigure) && liste(routines[i].exercices).some(estFigure)) {
+        fautes.push('I101 deux séances de suite avec une figure (' + (i) + ' et ' + (i + 1) + ')');
+      }
+    }
     if (liste(p.menager).some(function (z) { return contient(CAL_ZONES_BRAS_TENDUS, z); }) && avecFigure.length) {
       fautes.push('I102 une figure malgré une zone à ménager (coude ou épaule)');
     }
@@ -1786,6 +1799,7 @@
     genererCalisthenie: genererCalisthenie,
     verifierCalisthenie: verifierCalisthenie,
     PHRASE_SANS_BARRE: PHRASE_SANS_BARRE,
+    avertissementsCalisthenie: avertissementsCalisthenie,
     departDeCalisthenie: departDeCalisthenie,
     // 188-1 — tirage et poussée : UNE définition, lue par les cartes d'équilibre de la semaine (`equilibres.js`).
     estTirage: estTirage,

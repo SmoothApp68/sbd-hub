@@ -7,6 +7,9 @@ require('../../v2/js/semaine.js');
 const G = require('../../v2/js/generateur.js');
 const M = require('../../v2/js/moteur.js');
 const T = require('../../v2/js/plan.js');
+require('../../v2/js/palier.js');
+const R = require('../../v2/js/routines.js');
+const S = require('../../v2/js/seance.js');
 
 const f = (slug, echelle, rang, o) => Object.assign({ slug, nom: slug, echelle, echelle_rang: rang, mesure: 'reps', charge: 'aucune', nature: 'force',
   equipement: 'aucun', muscles_primaires: [], muscles_secondaires: [], muscles_stabilisateurs: [] }, o || {});
@@ -37,9 +40,18 @@ describe('195-3 — corps entier, supersets, figure en premier', () => {
       Object.keys(groupes).forEach((g) => expect(groupes[g]).toHaveLength(2));
     });
   });
-  test('la figure est la première ligne de chaque séance (au plus 3 séances)', () => {
-    rts.forEach((rt) => expect(rt.exercices[0].exercise_slug).toBe('front_lever_groupe'));
-    expect(G.generer(CAT, entree({ jours: 4 })).filter((rt) => slugs(rt).indexOf('front_lever_groupe') >= 0)).toHaveLength(3);
+  test('la figure est la première ligne de sa séance, jamais deux séances de suite (I101)', () => {
+    const avec = (r) => r.map((rt) => slugs(rt).indexOf('front_lever_groupe') >= 0);
+    expect(avec(rts)).toEqual([true, false, true]);
+    rts.forEach((rt) => { if (avec([rt])[0]) expect(rt.exercices[0].exercise_slug).toBe('front_lever_groupe'); });
+    expect(avec(G.generer(CAT, entree({ jours: 4 })))).toEqual([true, false, true, false]);
+    expect(avec(G.generer(CAT, entree({ jours: 2 })))).toEqual([true, false]);
+    [2, 3, 4, 6].forEach((j) => expect(G.verifierCalisthenie({ catalogue: CAT }, G.generer(CAT, entree({ jours: j })))).toEqual([]));
+  });
+  test('I101 voit deux séances de suite avec une figure', () => {
+    const r = G.generer(CAT, entree({ jours: 4 }));
+    r[1].exercices.unshift(Object.assign({}, r[0].exercices[0]));
+    expect(G.verifierCalisthenie({ catalogue: CAT }, r).join()).toMatch(/I101 deux séances de suite/);
   });
   test('les marches de départ viennent des quatre chiffres', () => {
     const s = slugs(rts[0]);
@@ -62,7 +74,9 @@ describe('195-3 — sans barre de traction, kiné', () => {
     const r = G.generer(catalogue, entree({ barre_traction: false }));
     const s = r.reduce((a, rt) => a.concat(slugs(rt)), []);
     ['tractions', 'traction_negative', 'rowing_inverse', 'front_lever_groupe'].forEach((x) => expect(s).not.toContain(x));
-    expect(r[0].avertissements[0].texte).toBe('Pour progresser en tirage, il te faut une barre ou des anneaux.');
+    expect(G.avertissementsCalisthenie(entree({ barre_traction: false }))).toEqual(['Pour progresser en tirage, il te faut une barre ou des anneaux.']);
+    expect(G.avertissementsCalisthenie(entree({ barre_traction: true }))).toEqual([]);
+    expect(G.avertissementsCalisthenie(entree({ objectif: 'force', barre_traction: false }))).toEqual([]);
     expect(G.verifierCalisthenie({ catalogue, barre_traction: false }, r)).toEqual([]);
   });
   test('zone coude ou épaule : aucune figure', () => {
@@ -83,6 +97,32 @@ describe('195-3 — sans barre de traction, kiné', () => {
   test('un exercice écarté descend d\'un rang, jamais ne revient', () => {
     const r = G.generer(CAT, entree({ ecartes: ['pompes_genoux'], depart_calisthenie: { pompes: 10 } }));
     expect(slugs(r[0])).not.toContain('pompes_genoux');
+  });
+});
+
+describe('195-3 — une figure se tient en secondes : duree_cible_s, jamais reps', () => {
+  const ligne = G.generer(CAT, entree())[0].exercices[0];
+  test('le générateur écrit `duree_s` (le seuil du catalogue) et pas de reps', () => {
+    expect(ligne).toMatchObject({ exercise_slug: 'front_lever_groupe', duree_s: 15, reps: null });
+  });
+  test('la routine créée porte `duree_cible_s` et aucune reps visée', () => {
+    const rt = R.routineDeduite({ nom: 'Corps entier A', exercices: [{ exercise_slug: ligne.exercise_slug, series: ligne.series, reps: ligne.reps,
+      duree_s: ligne.duree_s, groupe_superset: null }] }, { exercices: Object.keys(CAT).map((x) => CAT[x]), routines: [], existants: [] });
+    const series = rt.exercices[0].series;
+    expect(series).toHaveLength(3);
+    series.forEach((sr) => { expect(sr.duree_cible_s).toBe(15); expect(sr.reps_visees).toBeNull(); });
+  });
+  test('la séance qui démarre de la routine descend la durée en cible, et aucune reps visée', () => {
+    const rt = R.routineDeduite({ nom: 'A', exercices: [{ exercise_slug: ligne.exercise_slug, series: 3, reps: null, duree_s: 15 }] },
+      { exercices: Object.keys(CAT).map((x) => CAT[x]), routines: [], existants: [] });
+    const enSaisie = { id: 'R', exercices: rt.exercices.map((e) => Object.assign({}, e, { id: 'RE', series: e.series.map((x) => R.enSaisie(x)) })) };
+    let k = 0;
+    const se = S.creer({ id: 'S', userId: 'u', idSerie: () => 'i' + (++k), routine: enSaisie });
+    se.exercices[0].series.forEach((sr) => { expect(sr.duree_cible_s).toBe(15); expect(sr.reps_visees).toBeNull(); });
+  });
+  test('une reps ordinaire n\'est pas touchée', () => {
+    const rt = R.routineDeduite({ nom: 'A', exercices: [{ exercise_slug: 'pompes', series: 3, reps: 8 }] }, { exercices: Object.keys(CAT).map((x) => CAT[x]), routines: [], existants: [] });
+    rt.exercices[0].series.forEach((sr) => { expect(sr.reps_visees).toBe(8); expect(sr.duree_cible_s).toBeNull(); });
   });
 });
 

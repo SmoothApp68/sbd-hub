@@ -1803,7 +1803,6 @@
     //     lue sur ce qui existe : le RPE de la série (8 ou plus = intense, convention) ; sans RPE, tout est modéré.
     // Rend `{ renforcement: { faites, cible }, cardio: { minutes, equivalent, cible, reste, intenses } }` ; `minutes` est la durée réelle,
     // `equivalent` les minutes de cardio modéré (l'intense x2), `reste` ce qui manque à la cible (jamais négatif).
-    var RPE_INTENSE = 8;
     function semaineDeForme(c, jour) {
       var J = Moteur.jourCivil(jour), sortie = { renforcement: { faites: 0, cible: Moteur.FORME_RENFORCEMENT_CIBLE },
         cardio: { minutes: 0, equivalent: 0, cible: Moteur.FORME_CARDIO_CIBLE_MIN, reste: Moteur.FORME_CARDIO_CIBLE_MIN, intenses: 0 } };
@@ -1820,7 +1819,7 @@
         series.forEach(function (x) {
           var f = x && index[x.exercise_slug], d = Number(x && x.duree_s);
           if (!f || f.nature !== 'cardio' || !Modele.estTravail(x) || x.hors_calcul === true || !(d > 0)) return;
-          var intense = Number(x.rpe) >= RPE_INTENSE;
+          var intense = Number(x.rpe) >= Moteur.CARDIO_RPE_INTENSE;
           min += d / 60; eq += d / 60 * (intense ? Moteur.FORME_INTENSE_FACTEUR : 1);
           if (intense) intenses += d / 60;
         });

@@ -10475,6 +10475,8 @@
   // ── 197 (MOTEUR §9.36) — FORME ET SANTÉ : la semaine (renforcement, cardio) et la puissance des 65 ans et plus ──────────────────────
   // Repères généraux de l'OMS (2020) et de l'ANSES pour l'adulte, dits comme des repères, jamais une prescription ni une promesse médicale.
   var FORME_RENFORCEMENT_CIBLE = 2, FORME_CARDIO_CIBLE_MIN = 150, FORME_INTENSE_FACTEUR = 2;
+  // Une série de cardio est INTENSE à partir de ce RPE (convention de l'app : aucune donnée publiée ne la fixe) — lue par la semaine (197) et par le cardio régulier (199).
+  var CARDIO_RPE_INTENSE = 8;
   // 65 ans et plus : la MÊME borne que la prudence de montée (`AGE_PLAFOND_BAS`). `null` : l'âge est inconnu, rien n'est deviné.
   function plusDe65Ans(age) {
     var a = nombre(age);
@@ -10502,7 +10504,7 @@
 
   var api = {
     // 197 (§9.36) — forme et santé.
-    FORME_RENFORCEMENT_CIBLE: FORME_RENFORCEMENT_CIBLE, FORME_CARDIO_CIBLE_MIN: FORME_CARDIO_CIBLE_MIN, FORME_INTENSE_FACTEUR: FORME_INTENSE_FACTEUR,
+    FORME_RENFORCEMENT_CIBLE: FORME_RENFORCEMENT_CIBLE, FORME_CARDIO_CIBLE_MIN: FORME_CARDIO_CIBLE_MIN, FORME_INTENSE_FACTEUR: FORME_INTENSE_FACTEUR, CARDIO_RPE_INTENSE: CARDIO_RPE_INTENSE,
     FORME_PUISSANCE_PHRASE: FORME_PUISSANCE_PHRASE, FORME_PUISSANCE_POURQUOI: FORME_PUISSANCE_POURQUOI, FORME_DOULEUR_PHRASE: FORME_DOULEUR_PHRASE,
     FORME_REPERES_PHRASE: FORME_REPERES_PHRASE, plusDe65Ans: plusDe65Ans, exerciceDePuissance: exerciceDePuissance,
     // 194-1 (§9.31) — la mobilité en fin de séance : une table, un bloc, des phrases.

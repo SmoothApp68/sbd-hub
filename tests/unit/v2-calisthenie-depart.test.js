@@ -81,6 +81,23 @@ describe('195-2 — l\'écran « Où tu en es »', () => {
   });
 });
 
+describe('195-2 — le récapitulatif', () => {
+  const recap = (rep, ctx) => Q.vueDe('recap', { rep, aDesSeances: false, faits: null, visibles: Q.ecransVisibles(ctx) }).blocs[0].lignes;
+  test('« Où tu en es » apparaît en calisthénie, juste après la phase, et se change d\'un tap', () => {
+    const l = recap({ objectif: 'calisthenie', dep_tractions: 3, dep_pompes: 18, dep_dips: 0, dep_pistol: false },
+      { aDesSeances: false, historique: 'debutant', objectif: 'calisthenie' });
+    const i = l.findIndex((x) => x.libelle === 'Où tu en es');
+    expect(l[i - 1].libelle).toBe('Phase');
+    expect(l[i].ecran).toBe('depart');
+    expect(l[i].valeur).toBe('3\u00a0tractions · 18\u00a0pompes · 0\u00a0dips · pistol : non');
+  });
+  test('rien de dit : un tiret ; hors calisthénie : pas de ligne', () => {
+    const l = recap({ objectif: 'calisthenie' }, { aDesSeances: false, historique: 'debutant', objectif: 'calisthenie' });
+    expect(l.filter((x) => x.libelle === 'Où tu en es')[0].valeur).toBe('—');
+    expect(recap({ objectif: 'force' }, { aDesSeances: false, historique: 'debutant', objectif: 'force' }).map((x) => x.libelle)).not.toContain('Où tu en es');
+  });
+});
+
 describe('195-2 — la colonne est bornée avant l\'envoi', () => {
   test('champsEcrits ne laisse partir qu\'un objet valide', () => {
     expect(Profil.champsEcrits({ depart_calisthenie: { tractions: 3, pompes: 999, dips: -1, pistol: 'oui', le: '2026-11-02' } }).depart_calisthenie)

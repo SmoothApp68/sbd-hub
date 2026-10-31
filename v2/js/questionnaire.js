@@ -885,6 +885,13 @@
     if (rep.programme === 'construis' && visibles.indexOf(CONSTRUIT) >= 0 && joursValides(rep.seances)) {
       choixProgramme += ' · ' + en(rep.seances, 'jours');
     }
+    // 195 — « Où tu en es » : seulement si l'écran est du parcours (objectif Calisthénie) ; « — » pour ce qui n'est pas dit.
+    var ou = function (v, unite) { return typeof v === 'number' ? v + INSECABLE + unite : null; };
+    var departTexte = [ou(rep.dep_tractions, 'tractions'), ou(rep.dep_pompes, 'pompes'), ou(rep.dep_dips, 'dips'),
+      rep.dep_pistol === true ? 'pistol : oui' : rep.dep_pistol === false ? 'pistol : non' : null].filter(Boolean).join(' · ');
+    var depart = visibles.indexOf(DEPART) >= 0
+      ? [{ libelle: 'Où tu en es', valeur: departTexte || tiret, ecran: DEPART }]
+      : [];
     var programme = visibles.indexOf(PROGRAMME) >= 0
       ? [{ libelle: 'Programme', valeur: choixProgramme, ecran: PROGRAMME }]
       : [];
@@ -901,7 +908,8 @@
           : 'À ta première séance, on trouve ta charge ensemble. Tu peux toujours taper autre chose.'),
       blocs: [{ type: 'resume', lignes: [
         { libelle: 'But d’entraînement', valeur: (rep.objectif && P.libelleDe(P.OBJECTIFS, rep.objectif)) || tiret, ecran: BUT },
-        { libelle: 'Phase', valeur: phase || tiret, ecran: BUT },
+        { libelle: 'Phase', valeur: phase || tiret, ecran: BUT }
+      ].concat(depart, [
         { libelle: 'Priorités', valeur: priorites || tiret, ecran: PRIORITES },
         { libelle: 'Temps', valeur: tempsTexte || tiret, ecran: TEMPS },
         { libelle: 'Matériel', valeur: (rep.materiel && P.libelleDe(P.MATERIELS, rep.materiel)) || tiret, ecran: SALLE },
@@ -910,7 +918,7 @@
             ? Modele().nombreSigne(rep.plusPetitDisque) + INSECABLE + 'kg' : tiret, ecran: SALLE },
         { libelle: 'Barre de traction', valeur: rep.barreTraction === true ? 'Oui' : rep.barreTraction === false ? 'Non' : tiret, ecran: SALLE },
         { libelle: 'Zone à ménager', valeur: zonesTexte(rep.menager), ecran: ZONE }
-      ].concat(programme, [
+      ]).concat(programme, [
         { libelle: 'Coach', valeur: coach || tiret, ecran: COACH }
       ]) }].concat(premiereSeance(rep, etat))
     };

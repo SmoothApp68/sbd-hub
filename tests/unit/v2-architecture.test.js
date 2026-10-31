@@ -39,6 +39,8 @@ const V2 = path.join(RACINE, 'v2');
 // de la vue (`vue.fantome(i, j)` dans `rendu.js`) : on ne garde que l'appel
 // qualifié par le module.
 const GARDEES = [
+  // moteur.js — 194-1 (MOTEUR §9.31) : le bloc de mobilité (zones raides, minutes de la semaine, muscles de la séance) ; seul `planDeSeance` l'appelle
+  { fn: 'blocDeMobilite', module: 'moteur.js' },
   // moteur.js — la consigne
   { fn: 'consignePour', module: 'moteur.js' },
   { fn: 'consigneDExercice', module: 'moteur.js' },
@@ -1801,6 +1803,16 @@ const NOTIONS = [
     parAilleurs: { 'routines.js': ['horsMateriel'], 'app.js': ['horsDuMateriel'] },
     raison: 'Les frères, les cousins, la recherche et ses mentions rangent après ce que ta salle n’a pas : la règle du matériel ' +
       '(60-1) et celle de la barre de traction passent par la même fonction, jamais par deux tests écrits côte à côte.' },
+  // 194-1 (MOTEUR §9.31) — la mobilité en fin de séance : une table zone -> exercices, dans le moteur ; trois lectures de faits.
+  { notion: 'les zones raides déclarées (`profiles.zones_raides`, v2_124 ; NULL = pas répondu, [] = aucune)', pr: '194-U1',
+    module: 'moteur.js', fonction: 'zonesRaidesConnues', lecteurs: ['app.js', 'plan.js'],
+    raison: 'le profil écrit la liste (`Profil.zonesRaidesValides`, la saisie), l’app ne la passe au plan que si le moteur la reconnaît : une seule liste de clés (la table du moteur), rapprochée de celle du Profil par un test.' },
+  { notion: 'la zone raide qu’un exercice de mobilité travaille (table du moteur, 194-1)', pr: '194-U1',
+    module: 'moteur.js', fonction: 'zoneDeMobilite', lecteurs: ['faits.js'],
+    raison: 'les minutes de la semaine par zone (`faits.minutesDeMobiliteParZone`) lisent la MÊME table que le bloc : un exercice, une zone, une seule définition.' },
+  { notion: 'les deux côtés d’une tenue (étirement fait de chaque côté, 194-1)', pr: '194-U1',
+    module: 'moteur.js', fonction: 'coteDeMobilite', lecteurs: ['faits.js'],
+    raison: 'les minutes du bloc proposé et celles de la semaine comptent une tenue unilatérale deux fois, par la même fonction.' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

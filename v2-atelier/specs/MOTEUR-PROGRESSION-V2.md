@@ -1816,6 +1816,21 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 
 **Limites connues.** La question de réserve après la dernière série (I45) peut être redondante à la réserve 0 ; un exercice jamais fait sans consigne n'affiche pas de « Au max » ; l'import Hevy ne pose aucune marque.
 
+### 9.31 La mobilité en fin de séance — décidé le 31/10/2026 (chantier 194-1) (I94 à I98)
+
+*Delta daté du 31/10/2026. Maquette : `maquette-mobilite-v1`. Colonne : `profiles.zones_raides text[]` (`v2_124`, passée).*
+
+- **Les zones raides** (`profiles.zones_raides`) : chevilles, hanches, ischios, quadriceps, épaules, haut du dos. `NULL` = pas répondu, `{}` = aucune. Saisie : écran « Des zones raides ? » du questionnaire (facultatif, après « Une zone à ménager ? ») et ligne « Zones raides » du Profil (la même feuille à puces). Écriture par la file (`poserProfil`). Colonne FACULTATIVE (`COLONNES_FACULTATIVES`).
+- **Une table, dans le moteur** (`Moteur.MOBILITE_ZONES`) : par zone, les étirements tenus (famille `etirement`), la mobilité en mouvement (famille `mobilite`), les muscles que la séance doit avoir travaillés pour passer en premier, les exercices du jour qu'elle sert, la zone à ménager qui lui répond. Rapprochée de `Profil.ZONES_RAIDES` par un test.
+- **Le bloc de fin** (`Moteur.blocDeMobilite`, appelé par `planDeSeance` seulement) : deux zones au plus, celles qui ont reçu le moins cette semaine, en priorité celles que la séance a travaillées ; 3 à 4 minutes par zone ; tenues de 30 à 60 s (45 s), 2 à 3 séries ; un étirement fait de chaque côté compte deux fois ; rien pour une zone qui a ses 10 minutes de la semaine (Ingram 2024). Les minutes déjà faites sont un fait de `faits.js` (`minutesDeMobiliteParZone`).
+- **Avant la séance** : 2 minutes de mobilité EN MOUVEMENT, seulement si une zone raide sert un exercice du jour (chevilles → squat ; hanches → squat, soulevé ; épaules → militaire, tractions ; haut du dos → squat, militaire). Jamais d'étirement tenu avant la charge (I94).
+- **Facultatif** : « Ajouter » / « Non merci » comme les chauffes, la mémoire des refus étant la leur (clé `__mobilite`) : silence après trois « Non merci » de suite ; valider les zones dans le Profil remet le compte à zéro. « Ajouter » pose les exercices dans la séance avec des séries VIDES (`Seance.insererMobilite`) ; le plan pré-remplit la durée. Rien n'est écrit sans le geste.
+- **Zone à ménager** (revue des casquettes) : une zone raide qui est aussi à ménager (hanches/hanche, épaules/épaule, haut du dos/dos), ou qu'un « J'ai mal » récent touche, ne reçoit aucun étirement ; le plan dit « Ta hanche est à ménager : pour l'étirer, demande l'avis d'un kiné. » Le choix d'exercice évite une articulation à ménager (`MOBILITE_CHARGE` : genou à ménager → hanches 90/90 au lieu du pigeon) (I96).
+- **« J'ai peu de temps »** retire le bloc d'abord, avant toute série (I97) ; la carte de raccourci le dit en première ligne.
+- **Consigne** : « Sans douleur : une tension nette, pas plus. » (I98). Voix : « amplitude », « souplesse » ; jamais « récupération », « courbatures », « prévention ».
+- **Lecteurs** : une série de mobilité (aucun muscle primaire) est hors volume, équilibres, fatigue, palier, jeu (`porteDuVolume`) ; hors records (`optionsDeRecord.sansRecord`, `recordsBattus`) ; `serie_de_travail` (serveur) n'a aucun lecteur par muscle qui la voie — aucun SQL.
+- **Invariants** : I94 (rien de tenu avant, 2 min au plus) · I95 (2 zones, 10 minutes, tenues 30-60 s, 3 séries) · I96 (zone à ménager) · I97 (séance raccourcie) · I98 (consigne, voix, silences).
+
 ## 10. L'incrément
 
 ### 10.1 Règle

@@ -2897,7 +2897,10 @@
       if (travail.length !== m.routine || m.series >= m.routine) return;
       var libres = travail.filter(function (l) { return !l.validee; });
       if (!libres.length) return;
-      sortie.push({ iExo: x.iExo, iSerie: libres[libres.length - 1].iSerie });
+      // 193-6 — la ligne « Au max » reste : c'est une ligne du milieu qui part.
+      var cible = libres[libres.length - 1];
+      if (cible.auMax && libres.length > 1) cible = libres[libres.length - 2];
+      sortie.push({ iExo: x.iExo, iSerie: cible.iSerie });
     });
     return sortie;
   }

@@ -341,7 +341,7 @@
   // Le miroir de `sets` pour les routines. Même forme, donc même rendu.
   var COLONNES_ROUTINE_SET =
     'id, routine_exercise_id, rang, type_serie, reps_visees, charge_cible_kg, ' +
-    'duree_cible_s, distance_cible_m';
+    'duree_cible_s, distance_cible_m, au_max';
 
   // Les routines AVEC leurs exercices, en une requête. L'imbrication PostgREST
   // suit la clé étrangère `routine_exercises.routine_id`.

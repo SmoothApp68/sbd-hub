@@ -96,7 +96,8 @@
   // Le miroir de `sets`. Mêmes quatre types, et `rang` commence à 1 — pas à 0
   // comme celui de `routine_exercises`. Relevé sur les CHECK, pas supposé.
   var CHAMPS_SERIE = ['routine_exercise_id', 'user_id', 'rang', 'type_serie',
-                      'reps_visees', 'charge_cible_kg', 'duree_cible_s', 'distance_cible_m'];
+                      'reps_visees', 'charge_cible_kg', 'duree_cible_s', 'distance_cible_m',
+                      'au_max'];   // 193-6 (v2_123) : la dernière série « Au max »
   var TYPES_SERIE = ['travail', 'echauffement', 'degressive', 'echec', 'recul'];   // `recul` : v2_120 (193-1) ; `test` n'est pas un type de routine
   var DUREE_MIN = 1, DUREE_MAX = 35999;
   var DISTANCE_MIN = 0, DISTANCE_MAX = 100000;
@@ -367,6 +368,7 @@
     var ligne = {
       id: (set && set.id) || null,
       type_serie: typePropre(set && set.type_serie),
+      au_max: !!set && set.au_max === true,   // 193-6 (v2_123)
       note: null, rpe: null, ressenti: null, validee_a: null
     };
     CIBLES.forEach(function (c) {
@@ -388,7 +390,8 @@
       routine_exercise_id: routineExerciceId,
       user_id: userId || null,
       rang: rang,
-      type_serie: typePropre(s && s.type_serie)
+      type_serie: typePropre(s && s.type_serie),
+      au_max: !!s && s.au_max === true   // 193-6 (v2_123) : toujours envoyée, `false` compris
     };
     CIBLES.forEach(function (c) { l[c.cible] = c.borner(s ? s[c.saisie] : null); });
     return l;

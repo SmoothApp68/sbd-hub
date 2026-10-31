@@ -5776,6 +5776,10 @@
     // (Le bloc `try` court jusqu'à la fin de la fonction.)
     var reprendreGarde = suspendreGarde();
     try {
+    // 193-6 — la série « Au max » écrit la réserve qui lui était DEMANDÉE (la ligne du plan la porte) : un fait d'intention, comme `repos_s`.
+    var lAuMax = planDeLExercice(iExo);
+    lAuMax = lAuMax && lAuMax.lignes && lAuMax.lignes[iSerie] ? lAuMax.lignes[iSerie].auMax : null;
+    if (lAuMax) seance = Seance.poserAuMaxReserve(seance, iExo, iSerie, lAuMax.reserve);
     seance = Seance.valider(seance, iExo, iSerie,
       enEdition() ? new Date(seance.fin || seance.debut) : new Date());
     // §2.7 — le tour avance ICI, au geste, et jamais au rendu : une marque qui
@@ -7190,6 +7194,10 @@
       precedents: precedents,
       // 193-1 — la dernière séance à reculs de chaque exercice qui en porte, et la cible de reps de sa routine.
       reculs: reculsDeLaSeance(exos),
+      // 193-6 (MOTEUR §9.30) — « J'ai mal » récent de chaque exercice (42 jours, un fait de `faits.js`) et les décisions déjà prises sur la
+      // carte « Dernière série au max ? » (`profiles.cartes_semaine.au_max`, par exercice) : le plan décide, il ne relit rien.
+      douleurs: faits.douleursParExercice(corpus(), seance.debut),
+      auMaxReponses: (reponsesDesCartes().au_max && typeof reponsesDesCartes().au_max === 'object') ? reponsesDesCartes().au_max : {},
       // 188-2 (I76) — les chutes de reps de chaque exercice de la séance (les 3 dernières séances, un fait de `faits.js`) : le plan
       // décide de la ligne du repos, il ne relit pas l'historique.
       chutesDeReps: chutesDeRepsDeLaSeance(exos),
@@ -7531,7 +7539,7 @@
         planMemo.modes === local.modes && planMemo.lest === lestReponseDe() && planMemo.demoLest === demoLest &&
         planMemo.marches === (profil && profil.marche_reponses) && planMemo.demoMarche === demoMarche &&
         planMemo.blocs === local.blocs && planMemo.disque === Profil.plusPetitDisqueDe(profil) &&
-        planMemo.moins === serieDeMoinsActive()) return planMemo.plan;
+        planMemo.moins === serieDeMoinsActive() && planMemo.cartes === (profil && profil.cartes_semaine)) return planMemo.plan;
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
                  edition: edition, constats: constats, catalogue: local.exercices,
@@ -7539,7 +7547,7 @@
                  seances: local.seances, demo: demoReponse, demoMarches: demoMarches,
                  modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, blocs: local.blocs, plan: plan,
                  marches: profil && profil.marche_reponses, demoMarche: demoMarche, disque: Profil.plusPetitDisqueDe(profil),
-                 moins: serieDeMoinsActive() };
+                 moins: serieDeMoinsActive(), cartes: profil && profil.cartes_semaine };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit. Un plan du
     // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.

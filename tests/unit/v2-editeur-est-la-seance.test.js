@@ -673,7 +673,7 @@ describe('⚠️ `routine_exercises.series` et `reps_visees` sont hors circuit',
     expect(plan.insertions[0].reps_visees).toBeUndefined();
     expect(plan.series).toEqual([{ id: 'e1', lignes: [{
       routine_exercise_id: 'e1', user_id: 'u1', rang: 1, type_serie: 'travail',
-      reps_visees: 5, charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null
+      reps_visees: 5, charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null, au_max: false
     }] }]);
   });
 
@@ -739,7 +739,7 @@ describe('⚠️ `routine_exercises.series` et `reps_visees` sont hors circuit',
     const base = { id: 's1', type_serie: 'degressive', reps_visees: 12,
       charge_cible_kg: 82.5, duree_cible_s: 90, distance_cible_m: 400 };
     const saisie = Routines.enSaisie(base);
-    expect(saisie).toEqual({ id: 's1', type_serie: 'degressive',
+    expect(saisie).toEqual({ id: 's1', type_serie: 'degressive', au_max: false,
       note: null, rpe: null, ressenti: null, validee_a: null,
       reps: 12, charge_kg: 82.5, duree_s: 90, distance_m: 400 });
     const retour = Routines.normaliserSerie(saisie, 'e1', 1, 'u1');

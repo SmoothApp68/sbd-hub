@@ -2774,11 +2774,11 @@ const ALIAS_COMMUNS = [
   await page4.click('#btn-bascule-entree');
   await jusqua('bascule vers l’inscription', () => page4.evaluate(() => location.pathname === '/inscription'));
   await rendu(page4);
-  ok('[46 §2 ter] « Créer un compte » bascule le MÊME écran — trois champs, pas un de plus',
+  ok('[46 §2 ter] « Créer un compte » bascule le MÊME écran — trois champs et la case des 15 ans, pas un de plus',
     await page4.evaluate(() => !document.querySelector('#env-pseudo').hidden &&
       document.querySelector('#btn-oubli').hidden &&
       document.querySelector('#btn-connexion').textContent === 'Créer mon compte' &&
-      document.querySelectorAll('#form-connexion input').length === 3) &&
+      document.querySelectorAll('#form-connexion input').length === 4) &&
     (await page4.evaluate(() => location.pathname)) === '/inscription',
     await page4.evaluate(() => location.pathname));
   ok('[46 §2 ter] le bouton est éteint tant que les trois champs ne tiennent pas',

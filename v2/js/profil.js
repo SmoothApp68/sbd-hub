@@ -497,6 +497,28 @@
     return bouts.join(' · ');
   }
 
+  // ── Le résumé d'une ligne de chaque groupe du Profil (213) ───────────────
+  //
+  // Un fait d'affichage, rien d'une décision du coach : les libellés des réglages tels que le Profil les montre.
+  // `ctx` : `poids` (« 96,8 kg » ou null), `routines` (le nombre), `email`, `pages` (les titres des pages d'« À propos »).
+  function resumesDesGroupes(profil, ctx) {
+    var p = profil || {};
+    var c = ctx || {};
+    function lie(bouts) { return bouts.filter(Boolean).join(' \u00B7 '); }
+    var coach = p.intention === 'entretien'
+      ? libelleDe(INTENTIONS, 'entretien')
+      : lie([libelleDe(OBJECTIFS, objectifDe(p)), libelleDe(RYTHMES, rythmeDe(p)), libelleDe(PHASES, phaseDe(p))]);
+    var n = c.routines || 0;
+    var age_ = age(p.date_naissance, new Date());
+    return {
+      'Mon coach': coach || 'À régler',
+      'Mon programme': n ? n + (n > 1 ? ' routines' : ' routine') : 'Aucune routine',
+      'Moi': lie([p.username, c.poids, p.taille_cm ? p.taille_cm + ' cm' : null, age_ !== null ? age_ + ' ans' : null]) || 'À renseigner',
+      'Mon compte': c.email || 'Export, suppression',
+      'À propos': (c.pages || []).join(' \u00B7 ')
+    };
+  }
+
   // ── Les trois chiffres du bandeau ────────────────────────────────────────
   //
   // Séances, séries, années d'historique. Comptés sur ce qu'on a en local, donc
@@ -2377,7 +2399,7 @@
     libelleDesZonesRaides: libelleDesZonesRaides, PHRASE_RAIDES: PHRASE_RAIDES,
     ECARTES_MAX: ECARTES_MAX, ecartesValides: ecartesValides, ecartesDe: ecartesDe, ecartesALaFin: ecartesALaFin,
     DOSSIER_PROGRAMME_MAX: DOSSIER_PROGRAMME_MAX, dossierDuProgrammeValide: dossierDuProgrammeValide,
-    PHRASE_PSEUDO_PRIS: PHRASE_PSEUDO_PRIS, pseudoDeLInscription: pseudoDeLInscription, lignePseudo: lignePseudo,
+    PHRASE_PSEUDO_PRIS: PHRASE_PSEUDO_PRIS, pseudoDeLInscription: pseudoDeLInscription, lignePseudo: lignePseudo, resumesDesGroupes: resumesDesGroupes,
     get EXERCICES_PRIORITAIRES() { return exercicesPrioritaires(); }, PRIORITES_MAX: PRIORITES_MAX,
     musclesPrioritaires: musclesPrioritaires, prioritesValides: prioritesValides,
     DUREE_MIN: DUREE_MIN, DUREE_MAX: DUREE_MAX,

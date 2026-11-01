@@ -96,7 +96,7 @@ describe('60-3b — Profil.lignePseudo : « pris entre-temps »', () => {
 });
 
 describe('60-3b — la ligne « Pseudo » de l’écran Profil', () => {
-  const ligne = (e) => e.section('L’APP').lignes.filter((l) => l && l.libelle === 'Pseudo')[0];
+  const ligne = (e) => e.section('MON PROFIL').lignes.filter((l) => l && l.libelle === 'Pseudo')[0];
 
   test('⚠️ pris entre-temps et sans pseudo : l’écran porte la phrase, et un tap ouvre la saisie du pseudo', () => {
     const e = profilEcran({ id: 'B', username: null }, { pseudoPris: true });

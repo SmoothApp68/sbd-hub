@@ -99,8 +99,8 @@ describe('60-2a — l’écran Profil : où sont les sections, ce qu’elles ouv
     const t = titres(e);
     expect(t.indexOf('POURQUOI')).toBeGreaterThanOrEqual(0);
     expect(t.indexOf('TON RYTHME')).toBeGreaterThan(t.indexOf('POURQUOI'));
-    expect(t.indexOf('TON POIDS')).toBe(t.indexOf('TON RYTHME') + 1);
-    expect(t.indexOf('TA PHASE')).toBe(t.indexOf('TON POIDS') + 1);
+    // 213 — « TON POIDS » est passé dans « Moi » : la phase suit le rythme.
+    expect(t.indexOf('TA PHASE')).toBe(t.indexOf('TON RYTHME') + 1);
     expect(t.indexOf('TON BUT')).toBe(t.indexOf('TA PHASE') + 1);
     expect(t.indexOf('TA SEMAINE')).toBe(t.indexOf('TON BUT') + 1);
   });

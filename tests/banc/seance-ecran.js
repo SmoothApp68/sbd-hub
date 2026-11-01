@@ -104,6 +104,14 @@ let dernierControle = '(aucun contrôle encore)';
 // c'est ce que lit le lanceur parallèle (`seance-rapide.js`) pour fusionner
 // les groupes et prouver qu'aucun contrôle ne manque. Sans la variable, rien
 // ne change à la sortie du banc.
+// 213 — le Profil est en groupes repliés : on OUVRE le groupe de l'élément (un vrai toucher sur sa tête), puis on clique comme un utilisateur.
+const ouvrirGroupeDe = async (page, sel) => {
+  const nom = await page.evaluate((s) => { const n = document.querySelector(s); const g = n && n.closest('.p-gr');
+    return g && g.querySelector('.p-gr-tete').getAttribute('aria-expanded') !== 'true' ? g.dataset.groupe : null; }, sel);
+  if (nom) await page.click('.p-gr[data-groupe="' + nom + '"] .p-gr-tete');
+};
+const cliquerDansGroupe = async (page, sel) => { await ouvrirGroupeDe(page, sel); await page.click(sel); };
+
 const rapport = { debut: Date.now(), sections: [], controles: [] };
 let sectionRapport = '(préambule)';
 {
@@ -5513,7 +5521,7 @@ const SETS_IMPORTES = [
   // (`cleConsignes`), et l'écrire en base à la main ne le ferait pas bouger.
   const choisirIntention = async (cle) => {
     await onglet('profil');
-    await page.click('.p-seg button[data-cle="' + cle + '"]');
+    await cliquerDansGroupe(page, '.p-seg button[data-cle="' + cle + '"]');
     // 96 — l'écriture locale, puis l'aller-retour serveur : on attend que la base l'ait (plafond 8 s),
     // au lieu de 1 200 ms fixes.
     await jusqua(async () => base.profiles[0].intention === cle, 8000);
@@ -10590,7 +10598,7 @@ const SETS_IMPORTES = [
     };
     const choisirPhase = async (cle) => {
       await onglet('profil');
-      await page.click('.p-seg button[data-cle="' + cle + '"]');
+      await cliquerDansGroupe(page, '.p-seg button[data-cle="' + cle + '"]');
       await attendre(1200);
     };
     const violationsAvant = gardeBanc.violations;
@@ -15336,7 +15344,7 @@ const SETS_IMPORTES = [
       const c = getComputedStyle(i).color; i.remove(); return c;
     });
     const quitterQ = async () => {
-      await page.click('#btn-deconnexion');
+      await cliquerDansGroupe(page, '#btn-deconnexion');
       await attendre(500);
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .filter((b) => b.textContent === 'Quitter')[0].click());
@@ -15486,7 +15494,7 @@ const SETS_IMPORTES = [
     base.lenteurRecords = LENTEUR_Q;
     await aller('/profil');
     const supprimeA = Date.now();
-    await page.click('#btn-supprimer-compte');
+    await cliquerDansGroupe(page, '#btn-supprimer-compte');
     await attendre(500);
     await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
       .filter((b) => b.textContent === 'Supprimer définitivement')[0].click());
@@ -16230,7 +16238,7 @@ const SETS_IMPORTES = [
     const titresRempli = await titresP();
     // 173 (« Mon coach ») : TON RYTHME, TON POIDS, TA PHASE, TON BUT, TA SEMAINE se suivent dans cet ordre.
     ok('[Q60] P — plus de ligne en tête ; « TON BUT » vient après « TON RYTHME » (le réglage du coach), le poids et « TA PHASE » ; « TA SEMAINE » le suit',
-      (await enTeteP()) === null && titresRempli.indexOf('TA PHASE') === titresRempli.indexOf('TON RYTHME') + 2 &&
+      (await enTeteP()) === null && titresRempli.indexOf('TA PHASE') === titresRempli.indexOf('TON RYTHME') + 1   /* 213 : « TON POIDS » est dans « Moi » */ &&
         titresRempli.indexOf('TON BUT') === titresRempli.indexOf('TA PHASE') + 1 &&
         titresRempli.indexOf('TA SEMAINE') === titresRempli.indexOf('TON BUT') + 1, JSON.stringify(titresRempli));
     const [pObj, pPri, pTps] = [await ligneP('But d’entraînement'), await ligneP('Priorités'), await ligneP('Ton temps')];
@@ -16635,7 +16643,7 @@ const SETS_IMPORTES = [
     await rouvrir({ phase: 'maintien', phase_depuis: iso(60), phase_confirmee_le: iso(50) });
     ok('[PH60] prémisse : maintien confirmé il y a 50 jours, le bandeau est dû', (await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
     await onglet('profil');
-    await page.click('.p-seg button[data-cle="prise_de_masse"]');
+    await cliquerDansGroupe(page, '.p-seg button[data-cle="prise_de_masse"]');
     await attendre(1200);
     ok('[PH60] DISCRIMINANT — le segment « TA PHASE » du Profil écrit aussi `phase_confirmee_le` (maintenant)',
       profilBase().phase === 'prise_de_masse' && recent(profilBase().phase_depuis) && recent(profilBase().phase_confirmee_le),
@@ -16649,7 +16657,7 @@ const SETS_IMPORTES = [
     await rouvrir({ phase: 'seche', phase_depuis: iso(60), phase_confirmee_le: iso(50) });
     ok('[PH60c] prémisse : sèche confirmée il y a 50 jours, le bandeau est dû', (await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
     await onglet('profil');
-    await page.click('.p-seg button[data-cle="inconnue"]');
+    await cliquerDansGroupe(page, '.p-seg button[data-cle="inconnue"]');
     await attendre(1200);
     const piedVide = await page.evaluate(() => {
       const t = Array.from(document.querySelectorAll('#profil-corps .p-sect')).filter((n) => n.textContent === 'TA PHASE')[0];
@@ -17179,9 +17187,9 @@ const SETS_IMPORTES = [
     let sh = await sectionH();
     // Les lignes se lisent PAR LIBELLÉ, jamais par position (30/10/2026, 190 : « Ma salle » est toujours là et décale tout).
     const lh = (rows, lib) => (rows || []).filter((l) => l.lib === lib)[0] || {};
-    // 108 — « Ma salle » (ECRAN-PROFIL 2.4 quinquies) se range sous « Matériel » ; 190 : toujours visible.
+    // 108 — « Ma salle » (ECRAN-PROFIL 2.4 quinquies) ; 190 : toujours visible ; 213 : elle est dans « Moi », plus sous « Matériel ».
     ok('[R60] H — « CE QUE JE FAIS » : Matériel, Ma salle, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
-      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Exercices écartés|Refaire mon programme|Zones raides' &&
+      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Exercices écartés|Refaire mon programme|Zones raides' &&
         lh(sh, 'Zone à ménager').val === 'Dos' && lh(sh, 'Exercices écartés').val === '1' && lh(sh, 'Refaire mon programme').val === null, JSON.stringify(sh));
     ok('[R60] H — les phrases de la spec (G10), au mot près',
       !!sh && lh(sh, 'Zone à ménager').sous === 'Je ne te propose pas de série lourde dessus, ni dans ton programme ni en séance.' &&
@@ -17224,7 +17232,7 @@ const SETS_IMPORTES = [
     li = await liste();
     sh = await sectionH();
     ok('[R60] H — « Reprendre » : l’exercice n’est plus écarté (NULL), la feuille se ferme, la ligne « Exercices écartés » s’efface',
-      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Refaire mon programme|Zones raides',
+      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Refaire mon programme|Zones raides',
       JSON.stringify([profilBase().exercices_ecartes, li.ouverte, sh && sh.map((l) => l.lib)]));
     // Refaire mon programme : « Retour » ramène au Profil sans rien écrire.
     const avantRefaire = JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ROUTINES.length]);
@@ -18238,7 +18246,7 @@ const SETS_IMPORTES = [
       .map((s) => { const n = document.querySelector(s); return n && !n.hidden ? n.innerText.replace(/\s+/g, ' ').trim() : ''; }).join(' ¦ '));
     const basculer = async () => {
       const n = base.journal.length;
-      await page.click('#interrupteur-jeu');
+      await cliquerDansGroupe(page, '#interrupteur-jeu');
       await attendreQue(async () => ecrituresDepuis(n).length > 0 && (await page.evaluate(() =>
         THCache.lireMeta('profilAEnvoyer').catch(() => false))) !== true, 6000);
       await attendre(600);
@@ -21242,7 +21250,7 @@ const SETS_IMPORTES = [
     const sections = await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-sect'))
       .map((x) => x.textContent.trim()));
     ok('[E69] Profil : la ligne « Importer depuis Hevy », dans « MES DONNÉES », juste après « MES EXERCICES »',
-      ligneImport === 1 && sections.indexOf('MES DONNÉES') === sections.indexOf('MES EXERCICES') + 1,
+      ligneImport === 1 && sections.indexOf('MES DONNÉES') > sections.indexOf('MES EXERCICES'),   // 213 : dans « Mon compte », après « Mes exercices »
       nbE({ ligneImport, sections }));
     await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
       .filter((l) => /Importer depuis Hevy/.test(l.textContent))[0].click());
@@ -23832,9 +23840,8 @@ const SETS_IMPORTES = [
     await page.click('.onglet[data-vue="profil"]');
     // 135 — le Profil rendu, son choix « Progresser » à l'écran, avant de le toucher (900 ms fixes avant : un clic
     // tombé avant le rendu ne faisait rien, relevé un passage sur dix de la section seule, pages ×4).
-    await jusqua(() => page.evaluate(() => { const b = document.querySelector('.p-seg button[data-cle="progresser"]');
-      return !!b && b.offsetParent !== null; }).catch(() => false), 10000);
-    await page.click('.p-seg button[data-cle="progresser"]');
+    await jusqua(() => page.evaluate(() => !!document.querySelector('.p-seg button[data-cle="progresser"]')).catch(() => false), 10000);   // 213 : le groupe est fermé, on l'ouvre ensuite
+    await cliquerDansGroupe(page, '.p-seg button[data-cle="progresser"]');
     await jusqua(async () => base.profiles[0].intention === 'progresser' && (base.objectifs[0] || {}).projection === 'date' &&
       base.predictions.filter((x) => x.module === 'objectif').length === parisO7 + 1, 20000);
     const r7 = base.objectifs[0] || {};

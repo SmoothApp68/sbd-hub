@@ -89,10 +89,13 @@ function profilEcran(profil, options) {
     Auth: { PHRASES_IPHONE: { ligne: 'Installer sur l’écran d’accueil', motDePasse: { quoi: 'q', sujet: 's' } } },
     ouvrirFeuilleInstaller: () => {},
     // 116 (03 #6) — une colonne refusée pour de bon : la phrase en tête du Profil.
-    refusProfil: opt.refusProfil || null
+    refusProfil: opt.refusProfil || null,
+    // 213 — les groupes repliés : le groupe ouvert, les routines (pour le résumé de « Mon programme »).
+    groupeProfilOuvert: null, routines: [], Routines: { visibles: (l) => l }
   };
   vm.createContext(ctx);
   vm.runInContext(extraire('jeuAllume'), ctx);
+  vm.runInContext(extraire('facultative'), ctx);
   vm.runInContext(extraire('rendreProfilEcran'), ctx);
   vm.runInContext('rendreProfilEcran()', ctx);
   return { vue, bandeau, ecrits, enTete, ctx, ouverts, questionnairesOuverts, programmesOuverts, sallesOuvertes, section: (titre) => (vue.sections || []).filter((s) => s && s.titre === titre)[0] || null };

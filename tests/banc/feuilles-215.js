@@ -26,7 +26,7 @@ const PAGE = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta n
   '<div id="feuille-seance" class="voile"><div class="fen feuille" role="dialog"><div id="feuille-contenu"></div>' +
   '<button id="btn-fermer-feuille" type="button" class="fermer">Fermer</button></div></div>' +
   '<script src="/js/modele.js"></script><script src="/js/semaine.js"></script><script src="/js/moteur.js"></script>' +
-  '<script src="/js/bilan.js"></script><script src="/js/rendu.js"></script></body></html>';
+  '<script src="/js/bilan.js"></script><script src="/js/rendu.js"></script><script src="/js/profil.js"></script></body></html>';
 
 (async () => {
   const rendreVerrou = await Verrou.prendre();
@@ -39,7 +39,7 @@ const PAGE = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta n
       const page = await nav.newPage({ viewport: { width: largeur, height: 780 } });
       await page.route('**/_banc215.html', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: PAGE }));
       await page.goto(BASE + '/_banc215.html');
-      await page.waitForFunction(() => window.THRendu && window.THMoteur);
+      await page.waitForFunction(() => window.THRendu && window.THMoteur && window.THProfil);
 
       // 1. un seul « Fermer » par feuille
       const fermers = await page.evaluate(() => {
@@ -91,6 +91,28 @@ const PAGE = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta n
       ok(largeur + ' px — aucun défilement horizontal de la page', mesure.sw <= mesure.iw, mesure.sw + ' / ' + mesure.iw);
       ok(largeur + ' px — une puce de disque absente se lit « absent », barrée', mesure.puces.length === 2 && mesure.puces[0][0].includes('absent') && mesure.puces[0][2].includes('line-through') && !mesure.puces[1][0].includes('absent'), JSON.stringify(mesure.puces));
       ok(largeur + ' px — un petit disque garde son chiffre (title), sans le dessiner dedans', mesure.disques.filter((d) => !d.txt).every((d) => d.titre));
+      // 3. LE CÂBLAGE DE LA FEUILLE (comme `rendreFeuilleDisques` d'app.js) : griser le 25 depuis la feuille la RECALCULE.
+      const cycle = await page.evaluate(() => {
+        const R = window.THRendu, M = window.THMoteur, P = window.THProfil, c = document.getElementById('feuille-contenu');
+        let profil = {}; const charge = 130;
+        const dessiner = () => {
+          const barre = P.barreDe(profil), pres = P.disquesPresentsDuProfil(profil);
+          R.rendreFeuilleDisques(c, { nom: 'Squat (Barre)', charge, barre, decomposition: M.decomposerCharge(charge, barre, pres), charges: [], phraseIntrouvable: 'introuvable',
+            choixBarre: false, barresProposees: [], resumeDisques: P.resumeDisques(profil), choixDisques: true, ligneDisques: P.lignesMateriel(P.brouillonSalle(profil))[0],
+            surChoixBarre() {}, surBarre() {}, surCharge() {}, surChoixDisques() {},
+            surDisque(kg) { const ch = P.champsDisque(profil, kg); if (ch) profil = Object.assign({}, profil, ch); dessiner(); } });
+        };
+        dessiner();
+        const avant = c.querySelector('.dq-texte').textContent;
+        const libelles = [...c.querySelectorAll('.dq-disques-puces .q-puce')].map((p) => p.textContent);
+        c.querySelector('.dq-disques-puces .q-puce[data-cle="25"]').click();
+        return { avant, apres: c.querySelector('.dq-texte') ? c.querySelector('.dq-texte').textContent : '(rien)', libelles,
+                 absent25: c.querySelector('.dq-disques-puces .q-puce[data-cle="25"]').textContent, resume: c.querySelector('.dq-disques-choix .dq-val').textContent };
+      });
+      ok(largeur + ' px — avant : 130 kg passe par le 25 (' + cycle.avant + ')', /25/.test(cycle.avant), cycle.avant);
+      ok(largeur + ' px — griser le 25 depuis la feuille : la décomposition ne contient plus « 25 » et dit 20 + 20 + 15', !/25/.test(cycle.apres) && cycle.apres === '20 + 20 + 15', cycle.apres);
+      ok(largeur + ' px — la puce du 25 dit « absent », le résumé n’a plus le 25', /absent/.test(cycle.absent25) && !/^25 /.test(cycle.resume), cycle.absent25 + ' | ' + cycle.resume);
+      ok(largeur + ' px — les puces utilisent la virgule française (2,5 · 1,25), jamais le point', cycle.libelles.some((l) => /2,5/.test(l)) && cycle.libelles.every((l) => !/\d\.\d/.test(l)), cycle.libelles.join(' | '));
       await page.close();
     }
   } finally {

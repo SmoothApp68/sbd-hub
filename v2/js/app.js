@@ -25,6 +25,7 @@
   var Assistant = racine.THAssistant;
   var Questionnaire = racine.THQuestionnaire;
   var Import = racine.THImportHevy;
+  var Export = racine.THExport;
   var Generateur = racine.THGenerateur;
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
   // 64B — le jeu (JEU-V1 §9) : l'écran le LIT, il ne le refait pas ; le coach ne le lit jamais.
@@ -17074,7 +17075,9 @@
             { libelle: 'E-mail de connexion',
               valeur: (sessionActive && sessionActive.user && sessionActive.user.email) || null },
             // 70 — appelée SANS argument : le rendu passe l'événement du clic, qui n'est pas une récupération.
-            { libelle: 'Mot de passe', valeur: '••••••••', surChoix: function () { ouvrirMotDePasseProfil(false); } }
+            { libelle: 'Mot de passe', valeur: '••••••••', surChoix: function () { ouvrirMotDePasseProfil(false); } },
+            // 207 — la portabilité (RGPD art. 20) : une feuille, deux fichiers, construits sur l'appareil. Rien n'est écrit.
+            { libelle: 'Exporter mes données', sansValeur: true, surChoix: ouvrirExport }
           ]) }
         ]),
         // En bas, comme avant : mes exercices, mes données (le jeu, quitter et supprimer suivent, dans le rendu).
@@ -17196,6 +17199,61 @@
       feuilleProfil($('feuille-contenu'));
       ouvrirVoile($('feuille-seance'), function () { feuilleProfil = null; choisir('rester'); });
     });
+  }
+
+  // ── 207 — Exporter mes données ───────────────────────────────────────────
+  // Lecture seule : `Donnees.exporterTout` lit avec la session, `THExport` formate (module pur), le fichier se fabrique
+  // ici (Blob + lien ; la feuille de partage de l'appareil si elle prend un fichier — l'iPhone installé). Aucune écriture.
+  var exportEnCours = false, etatExport = '';
+  function livrerFichier(contenu, nom, type) {
+    var blob = new Blob([contenu], { type: type });
+    var File_ = window.File;
+    var fichier = File_ ? new File_([blob], nom, { type: type }) : null;
+    if (fichier && navigator.share && navigator.canShare && navigator.canShare({ files: [fichier] })) {
+      return navigator.share({ files: [fichier], title: nom }).then(function () { return 'partage'; },
+        function () { return 'annule'; });
+    }
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = nom;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    return Promise.resolve('telechargement');
+  }
+  async function lancerExport(genre) {
+    var id = userId();
+    if (!id || exportEnCours) return;
+    exportEnCours = true;
+    etatExport = 'Lecture de tes données…';
+    var rendre = function () { if (feuilleProfil) feuilleProfil($('feuille-contenu')); };
+    try {
+      var tables = await Donnees.exporterTout(id, function (nom) { etatExport = 'Lecture : ' + nom + '…'; rendre(); });
+      var contenu, type;
+      if (genre === 'csv') {
+        var noms = {};
+        (local.exercices || []).forEach(function (e) { if (e && e.slug) noms[e.slug] = e.nom; });
+        (tables.exercises || []).forEach(function (e) { if (e && e.slug) noms[e.slug] = e.nom; });
+        contenu = Export.csvSeances(tables.sessions, tables.sets, noms); type = 'text/csv;charset=utf-8';
+      } else { contenu = Export.jsonComplet(tables); type = 'application/json'; }
+      var r = await livrerFichier(contenu, Export.nomDeFichier(genre), type);
+      etatExport = r === 'annule' ? 'Partage annulé.' : 'Fichier prêt.';
+    } catch (e) {
+      etatExport = 'L’export a échoué. Réessaie avec du réseau.';
+    }
+    exportEnCours = false;
+    rendre();
+  }
+  function ouvrirExport() {
+    etatExport = '';
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleExport(cible, {
+        aide: 'Tout ce que l’app garde sur toi, dans un fichier, pour toi ou pour une autre app. Le fichier se prépare sur ton téléphone : rien n’est envoyé à un serveur de plus.',
+        libelleJson: 'Tout (JSON)', libelleCsv: 'Mes séances (CSV, pour un tableur)',
+        surJson: function () { lancerExport('json'); }, surCsv: function () { lancerExport('csv'); },
+        surFermer: fermerVoile, etat: etatExport
+      });
+    };
+    ouvrirFeuilleProfil();
   }
 
   // ⚠️ LA CONFIRMATION DIT CE QUI PART, en chiffres réels. « Es-tu sûr ? » ne

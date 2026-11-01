@@ -889,6 +889,20 @@
     return cible;
   }
 
+  // 207 — « Exporter mes données » : deux fichiers au choix, et une ligne d'état (rien n'est envoyé ailleurs).
+  function rendreFeuilleExport(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', 'Exporter mes données'));
+    cible.appendChild(el('p', 'feuille-aide', vue.aide));
+    var menu = el('div', 'feuille-menu');
+    entreeMenu(menu, vue.libelleJson, { surClic: vue.surJson });
+    entreeMenu(menu, vue.libelleCsv, { surClic: vue.surCsv });
+    entreeMenu(menu, vue.libelleFermer || 'Fermer', { surClic: vue.surFermer });
+    cible.appendChild(menu);
+    if (vue.etat) cible.appendChild(el('p', 'feuille-aide', vue.etat));
+    return cible;
+  }
+
   // 59-2 — LA FENÊTRE DE SORTIE : des séances pas encore envoyées. Elle
   // n'écrit aucune phrase : le titre, l'aide et les deux libellés viennent de
   // `THQuitter.fenetreDeSortie`. « Rester » est le bouton principal ; « Quitter
@@ -9325,6 +9339,7 @@
     rendreFeuilleZonePlan: rendreFeuilleZonePlan,
     VALEURS_REPOS: VALEURS_REPOS,
     rendreFeuilleConfirmer: rendreFeuilleConfirmer,
+    rendreFeuilleExport: rendreFeuilleExport,
     rendreFeuilleSortie: rendreFeuilleSortie,
     rendreFeuilleTemps: rendreFeuilleTemps,
     rendreCarteRaccourci: rendreCarteRaccourci,

@@ -29,6 +29,14 @@
 // Sortie : une ligne par vérification, code de retour non nul si l'une échoue —
 // pour qu'une campagne de mutation puisse s'en servir.
 
+// 213 — le Profil est en groupes repliés : on OUVRE le groupe de l'élément (un vrai toucher sur sa tête), puis on clique comme un utilisateur.
+const ouvrirGroupeDe = async (page, sel) => {
+  const nom = await page.evaluate((s) => { const n = document.querySelector(s); const g = n && n.closest('.p-gr');
+    return g && g.querySelector('.p-gr-tete').getAttribute('aria-expanded') !== 'true' ? g.dataset.groupe : null; }, sel);
+  if (nom) await page.click('.p-gr[data-groupe="' + nom + '"] .p-gr-tete');
+};
+const cliquerDansGroupe = async (page, sel) => { await ouvrirGroupeDe(page, sel); await page.click(sel); };
+
 const path = require('path');
 const R = path.join(__dirname, '../..');
 const { chromium } = require(path.join(R, 'node_modules/playwright-core'));
@@ -2654,7 +2662,7 @@ const ALIAS_COMMUNS = [
       const q = document.querySelector('#btn-deconnexion'), s = document.querySelector('#btn-supprimer-compte');
       return !!q && !!s && !!(q.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING);
     }), 'Quitter puis Supprimer');
-  await page3.evaluate(() => document.querySelector('#btn-supprimer-compte').click());
+  await cliquerDansGroupe(page3, '#btn-supprimer-compte');
   await jusqua('confirmation de suppression du compte', () => page3.evaluate(() => !document.getElementById('feuille-seance').hidden &&
     document.querySelectorAll('#feuille-contenu .feuille-menu button').length > 0));
   const phraseSuppr = await txt3('#feuille-contenu .feuille-aide');
@@ -2694,7 +2702,7 @@ const ALIAS_COMMUNS = [
   // L'ÉCHEC D'ABORD (la base refuse) : rien n'est effacé, et l'écran le dit.
   const avantEchec = await etatAppareil();
   base.refuserSuppression = true;
-  await page3.evaluate(() => document.querySelector('#btn-supprimer-compte').click());
+  await cliquerDansGroupe(page3, '#btn-supprimer-compte');
   await jusqua('confirmation de suppression du compte', () => page3.evaluate(() => !document.getElementById('feuille-seance').hidden &&
     document.querySelectorAll('#feuille-contenu .feuille-menu button').length > 0));
   await page3.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
@@ -2717,7 +2725,7 @@ const ALIAS_COMMUNS = [
   base.refuserSuppression = false;
 
   const avantSuppression = base.envois.length;
-  await page3.evaluate(() => document.querySelector('#btn-supprimer-compte').click());
+  await cliquerDansGroupe(page3, '#btn-supprimer-compte');
   await jusqua('confirmation de suppression du compte', () => page3.evaluate(() => !document.getElementById('feuille-seance').hidden &&
     document.querySelectorAll('#feuille-contenu .feuille-menu button').length > 0));
   await page3.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))

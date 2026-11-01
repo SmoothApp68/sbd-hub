@@ -476,6 +476,14 @@ const ouvrirProfilDe = async (nav, bd) => {
   return { ctx, page, erreurs };
 };
 
+// 213 — le Profil est en groupes repliés : on OUVRE le groupe de l'élément (un vrai toucher sur sa tête), puis on clique comme un utilisateur.
+const ouvrirGroupeDe = async (page, sel) => {
+  const nom = await page.evaluate((s) => { const n = document.querySelector(s); const g = n && n.closest('.p-gr');
+    return g && g.querySelector('.p-gr-tete').getAttribute('aria-expanded') !== 'true' ? g.dataset.groupe : null; }, sel);
+  if (nom) await page.click('.p-gr[data-groupe="' + nom + '"] .p-gr-tete');
+};
+const cliquerDansGroupe = async (page, sel) => { await ouvrirGroupeDe(page, sel); await page.click(sel); };
+
 const rapport = { controles: 0, echecs: [] };
 function ok(nom, cond, detail) {
   rapport.controles++;
@@ -501,7 +509,7 @@ function ok(nom, cond, detail) {
       await page.goto(BASE + '/profil', { waitUntil: 'domcontentloaded' });
       const surProfil = await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#btn-deconnexion')), 15000);
       ok('prémisse — A est connecté, son profil s’affiche', surProfil);
-      await page.evaluate(() => document.querySelector('#btn-deconnexion').click());
+      await cliquerDansGroupe(page, '#btn-deconnexion');
       await feuilleOuverte(page);
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .filter((b) => b.textContent === 'Quitter')[0].click());

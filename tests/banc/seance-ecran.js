@@ -104,6 +104,14 @@ let dernierControle = '(aucun contrôle encore)';
 // c'est ce que lit le lanceur parallèle (`seance-rapide.js`) pour fusionner
 // les groupes et prouver qu'aucun contrôle ne manque. Sans la variable, rien
 // ne change à la sortie du banc.
+// 213 — le Profil est en groupes repliés : on OUVRE le groupe de l'élément (un vrai toucher sur sa tête), puis on clique comme un utilisateur.
+const ouvrirGroupeDe = async (page, sel) => {
+  const nom = await page.evaluate((s) => { const n = document.querySelector(s); const g = n && n.closest('.p-gr');
+    return g && g.querySelector('.p-gr-tete').getAttribute('aria-expanded') !== 'true' ? g.dataset.groupe : null; }, sel);
+  if (nom) await page.click('.p-gr[data-groupe="' + nom + '"] .p-gr-tete');
+};
+const cliquerDansGroupe = async (page, sel) => { await ouvrirGroupeDe(page, sel); await page.click(sel); };
+
 const rapport = { debut: Date.now(), sections: [], controles: [] };
 let sectionRapport = '(préambule)';
 {
@@ -5513,7 +5521,7 @@ const SETS_IMPORTES = [
   // (`cleConsignes`), et l'écrire en base à la main ne le ferait pas bouger.
   const choisirIntention = async (cle) => {
     await onglet('profil');
-    await page.click('.p-seg button[data-cle="' + cle + '"]');
+    await cliquerDansGroupe(page, '.p-seg button[data-cle="' + cle + '"]');
     // 96 — l'écriture locale, puis l'aller-retour serveur : on attend que la base l'ait (plafond 8 s),
     // au lieu de 1 200 ms fixes.
     await jusqua(async () => base.profiles[0].intention === cle, 8000);
@@ -10590,7 +10598,7 @@ const SETS_IMPORTES = [
     };
     const choisirPhase = async (cle) => {
       await onglet('profil');
-      await page.click('.p-seg button[data-cle="' + cle + '"]');
+      await cliquerDansGroupe(page, '.p-seg button[data-cle="' + cle + '"]');
       await attendre(1200);
     };
     const violationsAvant = gardeBanc.violations;
@@ -15336,7 +15344,7 @@ const SETS_IMPORTES = [
       const c = getComputedStyle(i).color; i.remove(); return c;
     });
     const quitterQ = async () => {
-      await page.evaluate(() => document.querySelector('#btn-deconnexion').click());
+      await cliquerDansGroupe(page, '#btn-deconnexion');
       await attendre(500);
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .filter((b) => b.textContent === 'Quitter')[0].click());
@@ -15486,7 +15494,7 @@ const SETS_IMPORTES = [
     base.lenteurRecords = LENTEUR_Q;
     await aller('/profil');
     const supprimeA = Date.now();
-    await page.evaluate(() => document.querySelector('#btn-supprimer-compte').click());
+    await cliquerDansGroupe(page, '#btn-supprimer-compte');
     await attendre(500);
     await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
       .filter((b) => b.textContent === 'Supprimer définitivement')[0].click());
@@ -16635,7 +16643,7 @@ const SETS_IMPORTES = [
     await rouvrir({ phase: 'maintien', phase_depuis: iso(60), phase_confirmee_le: iso(50) });
     ok('[PH60] prémisse : maintien confirmé il y a 50 jours, le bandeau est dû', (await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
     await onglet('profil');
-    await page.click('.p-seg button[data-cle="prise_de_masse"]');
+    await cliquerDansGroupe(page, '.p-seg button[data-cle="prise_de_masse"]');
     await attendre(1200);
     ok('[PH60] DISCRIMINANT — le segment « TA PHASE » du Profil écrit aussi `phase_confirmee_le` (maintenant)',
       profilBase().phase === 'prise_de_masse' && recent(profilBase().phase_depuis) && recent(profilBase().phase_confirmee_le),
@@ -16649,7 +16657,7 @@ const SETS_IMPORTES = [
     await rouvrir({ phase: 'seche', phase_depuis: iso(60), phase_confirmee_le: iso(50) });
     ok('[PH60c] prémisse : sèche confirmée il y a 50 jours, le bandeau est dû', (await bandeauPh()).visible, JSON.stringify(await bandeauPh()));
     await onglet('profil');
-    await page.click('.p-seg button[data-cle="inconnue"]');
+    await cliquerDansGroupe(page, '.p-seg button[data-cle="inconnue"]');
     await attendre(1200);
     const piedVide = await page.evaluate(() => {
       const t = Array.from(document.querySelectorAll('#profil-corps .p-sect')).filter((n) => n.textContent === 'TA PHASE')[0];
@@ -23834,7 +23842,7 @@ const SETS_IMPORTES = [
     // tombé avant le rendu ne faisait rien, relevé un passage sur dix de la section seule, pages ×4).
     await jusqua(() => page.evaluate(() => { const b = document.querySelector('.p-seg button[data-cle="progresser"]');
       return !!b && b.offsetParent !== null; }).catch(() => false), 10000);
-    await page.click('.p-seg button[data-cle="progresser"]');
+    await cliquerDansGroupe(page, '.p-seg button[data-cle="progresser"]');
     await jusqua(async () => base.profiles[0].intention === 'progresser' && (base.objectifs[0] || {}).projection === 'date' &&
       base.predictions.filter((x) => x.module === 'objectif').length === parisO7 + 1, 20000);
     const r7 = base.objectifs[0] || {};

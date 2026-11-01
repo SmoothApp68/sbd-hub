@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const css = fs.readFileSync(path.join(__dirname, '..', '..', 'v2', 'styles.css'), 'utf8');
-const PLAFOND = 102; // relevé après 210
+const PLAFOND = 103; // relevé après 210 ; +1 en 211 : le point du « Pourquoi ? » jamais ouvert (un signal voulu)
 
 const lignes = css.split('\n');
 const usages = lignes.filter((l) => /var\(--accent\)/.test(l));

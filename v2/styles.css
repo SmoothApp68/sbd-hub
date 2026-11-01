@@ -2912,7 +2912,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 
 /* 211 — les premières minutes : le point du « Pourquoi » (jusqu'à la première ouverture) et le premier pari. */
 .consigne-dit.pourquoi-neuf[data-pourquoi]::before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--accent);vertical-align:middle}
-.consigne-dit.premier-pari{color:var(--accent)}
+.consigne-dit.premier-pari{color:var(--texte)}
 .recap-depart,.recap-premier{line-height:1.45}
 
 /* 212 — mentions, confidentialité, santé ; case « 15 ans ou plus » et ligne des conditions à l'inscription */

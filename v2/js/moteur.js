@@ -847,6 +847,66 @@
     var d = nombre(plusPetitDisque);
     return d !== null && d > 0 ? auCentieme(2 * d) : REPLI_MATERIEL.barre.pas;
   }
+  // 205 (MOTEUR §10.2, décision d'Aurélien du 01/11/2026) — LES DISQUES PRÉSENTS. `ma_salle.disques_absents` (les disques que la salle
+  // n'a pas, tableau ⊂ DISQUES_STANDARD) remplace la ligne « Le plus petit disque » : le plus petit disque PRÉSENT donne le cran de
+  // la barre (`plusPetitDisquePresent`, UNE fonction, lue par `Profil.plusPetitDisqueDe` qui alimente `brancherPlusPetitDisque`).
+  // À défaut de `disques_absents`, l'ancien `plus_petit_disque` (kg par côté) : tous les disques plus petits sont absents. Rien de
+  // déclaré : `null` (le repli de 2,5 kg, soit l'hypothèse « 1,25 »), et les disques 1, 0,5 et 0,25 sont supposés absents.
+  var DISQUES_STANDARD = [25, 20, 15, 10, 5, 2.5, 1.25, 1, 0.5, 0.25];
+  var DISQUES_ABSENTS_DEFAUT = [1, 0.5, 0.25];
+  var BARRES_PROPOSEES = [25, 20, 15, 10];
+  var BARRE_DEFAUT = 20;
+  function disquesDeclares(salle) {
+    var s = salle || {};
+    if (Array.isArray(s.disques_absents)) return s.disques_absents;
+    var d = nombre(s.plus_petit_disque);
+    return d !== null && d > 0 ? DISQUES_STANDARD.filter(function (k) { return k < d - 1e-9; }) : null;
+  }
+  function disquesAbsentsDe(salle) {
+    var dec = disquesDeclares(salle);
+    return (dec === null ? DISQUES_ABSENTS_DEFAUT : dec).filter(function (k) { return DISQUES_STANDARD.indexOf(k) >= 0; });
+  }
+  function disquesPresentsDe(salle) {
+    var absents = disquesAbsentsDe(salle);
+    return DISQUES_STANDARD.filter(function (k) { return absents.indexOf(k) < 0; });
+  }
+  function plusPetitDisquePresent(salle) {
+    if (disquesDeclares(salle) === null) return null;
+    var p = disquesPresentsDe(salle);
+    return p.length ? p[p.length - 1] : null;
+  }
+  function barreDeLaSalle(salle) {
+    var b = nombre((salle || {}).barre_kg);
+    return b !== null && BARRES_PROPOSEES.indexOf(b) >= 0 ? b : BARRE_DEFAUT;
+  }
+  // La charge décomposée en disques PAR CÔTÉ, du plus lourd au plus léger, avec les disques présents (autant de paires qu'il en faut).
+  // `{ ok: true, parCote: [25, 25, 5] }`, ou `{ ok: false }` quand aucune combinaison ne tombe juste : JAMAIS un arrondi.
+  function decomposerCharge(charge, barre, presents) {
+    var c = nombre(charge), b = nombre(barre);
+    if (c === null || b === null || c < b - 1e-9) return { ok: false };
+    var reste = Math.round((c - b) / 2 * 100);
+    if (Math.abs((c - b) / 2 * 100 - reste) > 1e-6 * Math.max(1, reste)) return { ok: false };
+    var ds = (presents || []).map(function (k) { return Math.round(k * 100); }).sort(function (x, y) { return y - x; });
+    var echecs = {};
+    function chercher(r, i) {
+      if (r === 0) return [];
+      if (i >= ds.length) return null;
+      var cle = r + ':' + i;
+      if (echecs[cle]) return null;
+      for (var n = Math.floor(r / ds[i]); n >= 0; n--) {
+        var suite = chercher(r - n * ds[i], i + 1);
+        if (suite !== null) {
+          var t = [];
+          for (var k = 0; k < n; k++) t.push(ds[i] / 100);
+          return t.concat(suite);
+        }
+      }
+      echecs[cle] = true;
+      return null;
+    }
+    var r = chercher(reste, 0);
+    return r === null ? { ok: false } : { ok: true, parCote: r };
+  }
   var sourceDuDisque = null;
   function brancherPlusPetitDisque(lecture) {
     sourceDuDisque = typeof lecture === 'function' ? lecture : null;
@@ -11059,6 +11119,8 @@
       phrase: 'Les séries plus légères qui suivent ta grosse série.' },
     { cle: 'max_du_jour', mot: 'Ton max aujourd’hui', source: 'recul.max',
       phrase: 'Ce que ta grosse série dit de ta force du jour.' },
+    { cle: 'max_estime', mot: 'Max estimé',
+      phrase: 'Ce que ta meilleure série dit de ta force, calculé ; un record est ce que tu as vraiment soulevé.' },
     { cle: 'au_max', mot: 'Au max', source: 'au_max',
       phrase: 'La dernière série, poussée jusqu’à l’échec, ou en gardant les reps que le coach te donne.' },
     { cle: 'cinq_plus', mot: '5+', source: 'au_max',
@@ -11381,6 +11443,9 @@
     REPLI_MATERIEL: REPLI_MATERIEL,
     pasDeLaBarre: pasDeLaBarre,
     brancherPlusPetitDisque: brancherPlusPetitDisque,
+    DISQUES_STANDARD: DISQUES_STANDARD, DISQUES_ABSENTS_DEFAUT: DISQUES_ABSENTS_DEFAUT, BARRES_PROPOSEES: BARRES_PROPOSEES,
+    disquesAbsentsDe: disquesAbsentsDe, disquesPresentsDe: disquesPresentsDe, plusPetitDisquePresent: plusPetitDisquePresent,
+    barreDeLaSalle: barreDeLaSalle, decomposerCharge: decomposerCharge,
     RANGEMENT: RANGEMENT,
     mediane: mediane,
     zoneParCle: zoneParCle,

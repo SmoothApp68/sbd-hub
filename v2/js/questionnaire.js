@@ -193,7 +193,10 @@
       halteresMax: halteresDe(p).max,
       halteresPas: halteresDe(p).pas,
       // 190 — le plus petit disque (kg par côté) et la barre de traction (`true`, `false`), `null` : pas dit / « Je ne sais pas ».
-      plusPetitDisque: Profil().plusPetitDisqueDe(p),
+      // 205 — la salle telle que déclarée (l'ancien disque, les disques absents, la barre) : le brouillon du Profil, jamais une copie.
+      plusPetitDisque: Profil().brouillonSalle(p).plus_petit_disque,
+      disquesAbsents: Profil().brouillonSalle(p).disques_absents,
+      barreKg: Profil().brouillonSalle(p).barre_kg,
       barreTraction: Profil().barreTractionDe(p),
       programme: Profil().libelleDe(Profil().PROGRAMMES, p.programme_choix) ? p.programme_choix : null,
       menager: Profil().zonesAMenagerValides(p.zones_a_menager) || [],
@@ -322,7 +325,10 @@
     if (r.halteresMax > 0 && r.halteresPas > 0 && !salleASeulesTranches(profil)) {
       b.halteres = [{ jusqua: r.halteresMax, pas: r.halteresPas, pasChoisi: true }];
     }
-    b.plus_petit_disque = typeof r.plusPetitDisque === 'number' ? r.plusPetitDisque : null;
+    var m = materielDe(r);
+    b.plus_petit_disque = m.plus_petit_disque;
+    b.disques_absents = m.disques_absents;
+    b.barre_kg = m.barre_kg;
     b.barre_traction = typeof r.barreTraction === 'boolean' ? r.barreTraction : null;
     var champs = P.champsSalle(b);
     if (!champs) return undefined;
@@ -368,10 +374,12 @@
     } else if (cle === 'notees' && valeur !== NOTEES_IMPORT && valeur !== NOTEES_NON) {
       // 187 — « Dans mes notes » est annoncé (« Bientôt »), ce n'est pas encore une réponse : sans effet.
       return r;
-    } else if (cle === 'plus_petit_disque' || cle === 'barre_traction') {
+    } else if (cle === 'disques' || cle === 'barre_kg' || cle === 'barre_traction') {
       // 190 — les deux lignes de Ma salle : le geste du Profil (`poserReglageMateriel`), sur les réponses en cours.
-      var b = Profil().poserReglageMateriel({ plus_petit_disque: r.plusPetitDisque, barre_traction: r.barreTraction }, cle, valeur);
+      var b = Profil().poserReglageMateriel(materielDe(r), cle, valeur);
       r.plusPetitDisque = b.plus_petit_disque;
+      r.disquesAbsents = b.disques_absents;
+      r.barreKg = b.barre_kg;
       r.barreTraction = b.barre_traction;
     } else if (CHOIX.indexOf(cle) >= 0) {
       r[cle] = valeur;
@@ -616,9 +624,16 @@
                Modele().nombreSigne(rep.halteresPas));
     }
     // 190 — ce qui est réglé, tel quel (le même résumé que le Profil).
-    var materiel = Profil().resumeSalle({ ma_salle: { plus_petit_disque: rep.plusPetitDisque, barre_traction: rep.barreTraction } });
+    var materiel = Profil().resumeSalle({ ma_salle: materielDe(rep) });
     if (materiel) dit.push(materiel);
     return dit.length ? dit.join('. ') + '.' : 'Rien de réglé : je pars de disques de 1,25 kg.';
+  }
+  // 205 — les réponses du matériel, au format de la salle du profil (ce que lisent `lignesMateriel`, `resumeSalle`, le moteur).
+  function materielDe(r) {
+    return { plus_petit_disque: typeof r.plusPetitDisque === 'number' ? r.plusPetitDisque : null,
+             disques_absents: Array.isArray(r.disquesAbsents) ? r.disquesAbsents : null,
+             barre_kg: typeof r.barreKg === 'number' ? r.barreKg : null,
+             barre_traction: typeof r.barreTraction === 'boolean' ? r.barreTraction : null };
   }
   function ecranSalle(etat) {
     var rep = etat.rep;
@@ -629,8 +644,8 @@
          { type: 'puces', cle: 'halteresPas', titre: 'De combien en combien', valeur: rep.halteresPas, options: pucesDe(PUCES_HALTERES_PAS, 'kg') }];
     ajuster.push({ type: 'note', texte: 'Je note la charge des haltères par haltère.' });
     // 190 — le plus petit disque et la barre de traction : les lignes de `Profil.lignesMateriel`, comme dans « Ma salle ».
-    Profil().lignesMateriel({ plus_petit_disque: rep.plusPetitDisque, barre_traction: rep.barreTraction }).forEach(function (l) {
-      ajuster.push({ type: 'puces', cle: l.cle, titre: l.titre, valeur: l.valeur, options: l.options });
+    Profil().lignesMateriel(materielDe(rep)).forEach(function (l) {
+      ajuster.push({ type: 'puces', cle: l.cle, titre: l.titre, valeur: l.valeur, multiple: l.multiple, valeurs: l.valeurs, options: l.options });
       ajuster.push({ type: 'note', texte: l.aide });
     });
     return {
@@ -697,7 +712,7 @@
     return RECENTES.filter(function (x) { return r['rec_' + x.cle + '_kg'] > 0 && r['rec_' + x.cle + '_reps'] >= 1; })
       .map(function (x) {
         return { slug: x.slug, nom: x.nom, kg: r['rec_' + x.cle + '_kg'], reps: r['rec_' + x.cle + '_reps'],
-                 depart: departDeLaSerie(r['rec_' + x.cle + '_kg'], r.plusPetitDisque) };
+                 depart: departDeLaSerie(r['rec_' + x.cle + '_kg'], Moteur().plusPetitDisquePresent(materielDe(r))) };
       });
   }
   function ecranRecente(etat) {
@@ -932,8 +947,8 @@
         { libelle: 'Temps', valeur: tempsTexte || tiret, ecran: TEMPS },
         { libelle: 'Matériel', valeur: (rep.materiel && P.libelleDe(P.MATERIELS, rep.materiel)) || tiret, ecran: SALLE },
         // 190 — ce qui est réglé dans « Ajuster Ma salle » ; « — » quand c'est « Je ne sais pas ».
-        { libelle: 'Plus petit disque', valeur: typeof rep.plusPetitDisque === 'number'
-            ? Modele().nombreSigne(rep.plusPetitDisque) + INSECABLE + 'kg' : tiret, ecran: SALLE },
+        { libelle: 'Plus petit disque', valeur: Moteur().plusPetitDisquePresent(materielDe(rep)) !== null
+            ? Modele().nombreSigne(Moteur().plusPetitDisquePresent(materielDe(rep))) + INSECABLE + 'kg' : tiret, ecran: SALLE },
         { libelle: 'Barre de traction', valeur: rep.barreTraction === true ? 'Oui' : rep.barreTraction === false ? 'Non' : tiret, ecran: SALLE },
         { libelle: 'Zone à ménager', valeur: zonesTexte(rep.menager), ecran: ZONE },
         { libelle: 'Zones raides', valeur: Array.isArray(rep.raides) ? (rep.raides.length ? rep.raides.map(function (z) { return Profil().libelleDe(Profil().ZONES_RAIDES, z) || z; }).join(', ') : 'Aucune') : tiret, ecran: RAIDES }

@@ -4984,6 +4984,24 @@
     allerA(Routeur.SEANCE, { id: id });
     rendreDetail(id);
   }
+  // 214 — PARTAGER le récap : le texte court de `Modele.texteDePartage`, par la feuille de partage du téléphone ;
+  // à défaut (ordinateur, refus d'accès), copié dans le presse-papiers. Une annulation de la feuille n'est pas une erreur.
+  function partagerLeRecap() {
+    var r = recap && faits.recapDeLaSeance(corpus(), recap.seance, parisDeConsigneConnus(), parisDeConsigneDuCompte());
+    var texte = Modele.texteDePartage(r);
+    if (!texte) return Promise.resolve(null);
+    var nav = racine.navigator;
+    var copier = function () {
+      try {
+        return nav.clipboard.writeText(texte).then(function () { return 'copie'; }, function () { return null; });
+      } catch (e) { return Promise.resolve(null); }
+    };
+    if (nav && typeof nav.share === 'function') {
+      return nav.share({ title: r.titre || 'Séance', text: texte }).then(function () { return 'partage'; },
+        function (e) { return e && e.name === 'AbortError' ? null : copier(); });
+    }
+    return copier();
+  }
   function rendreRecap() {
     if (!recap) return;
     var r = faits.recapDeLaSeance(corpus(), recap.seance, parisDeConsigneConnus(), parisDeConsigneDuCompte());
@@ -4992,7 +5010,8 @@
       recap: r,
       jeu: recap.jeu,
       surFermer: fermerRecap,
-      surVoir: voirLaSeanceDuRecap
+      surVoir: voirLaSeanceDuRecap,
+      surPartager: partagerLeRecap
     });
   }
 

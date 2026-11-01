@@ -21618,7 +21618,7 @@ const SETS_IMPORTES = [
     ok('[R71] (a) 211 — « Mon premier pari : … kg × … » une fois sous la consigne, aux chiffres du plan ; le « Pourquoi ? » porte son point',
       pv.lignes.length === 1 && /^Mon premier pari\u00a0: .+\u00a0kg\u00a0×\u00a0\d+\. Je te dirai après la série si j’avais vu juste\.$/.test(pv.lignes[0]) && pv.points >= 1, nbR(pv));
     await saisirSerie(0, 80, 12);
-    await attendre(1200);
+    await jusqua(async () => (await premierVu()).lignes.length === 0, 8000);
     ok('[R71] (a) 211 — la première série validée a écrit le pari : la ligne « Mon premier pari » ne revient plus',
       (await premierVu()).lignes.length === 0, nbR(await premierVu()));
     for (let i = 1; i < 4; i++) await saisirSerie(i, 80, 12);

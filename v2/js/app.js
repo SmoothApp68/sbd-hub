@@ -26,6 +26,7 @@
   var Questionnaire = racine.THQuestionnaire;
   var Import = racine.THImportHevy;
   var Export = racine.THExport;
+  var Mentions = racine.THMentions;   // 212
   var Generateur = racine.THGenerateur;
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
   // 64B — le jeu (JEU-V1 §9) : l'écran le LIT, il ne le refait pas ; le coach ne le lit jamais.
@@ -17025,7 +17026,7 @@
             surChoix: function () { allerA(Routeur.IMPORT, {}); ouvrirImport(); } }
         ] },
         // 212 — « À propos » : les trois pages de textes, en bas.
-        { titre: 'À PROPOS', lignes: racine.THMentions.pages().map(function (pg) {
+        { titre: 'À PROPOS', lignes: Mentions.pages().map(function (pg) {
           return { libelle: pg.titre, sansValeur: true, surChoix: function () { ouvrirMentions(pg.cle); } };
         }) }]
       ),
@@ -17052,7 +17053,7 @@
 
   // 212 — Mentions légales, Confidentialité, Santé : depuis Profil › À propos et le pied de l'inscription.
   function ouvrirMentions(cle) {
-    var p = racine.THMentions.page(cle);
+    var p = Mentions.page(cle);
     if (!p) return;
     feuilleProfil = function (cible) {
       Rendu.rendreFeuilleMentions(cible, { titre: p.titre, blocs: p.blocs, surFermer: fermerVoile });

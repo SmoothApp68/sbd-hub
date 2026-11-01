@@ -19,6 +19,9 @@
 // pas EXACTEMENT une fois, si `SHELL` est introuvable ou vide, ou si un fichier de `SHELL` manque. Un échec de
 // construction laisse l'ancien déploiement en ligne : jamais un service worker estampillé à moitié.
 //
+// 203-2 : AVANT l'empreinte, le script minifie js/*.js et styles.css du dossier (minifier.js, esbuild, échec fermé :
+// code 1 si esbuild manque). Ordre : minifier -> estamper. `empreinte()` seule ne modifie rien.
+//
 // Le fichier du dépôt reste valide SANS le script (local, bancs, tests) : son littéral est la valeur de repli.
 //
 // Usage : node v2-atelier/outils/estamper-sw.js [dossier-publié]     (défaut : v2/ à la racine du dépôt)
@@ -27,6 +30,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { minifier } = require('./minifier.js');
 
 const PREFIXE = 'trainhub-v2-';
 const LITTERAL = /const CACHE_V2 = '[^']*';/g;
@@ -73,7 +77,10 @@ function empreinte(dossier) {
 }
 
 // Écrit le numéro dans le service worker du dossier. Rend le numéro posé.
-function estamper(dossier) {
+// 203-2 : la minification (minifier.js) passe AVANT l'empreinte, pour que le numéro porte sur les octets servis ;
+// la commande de build Cloudflare reste celle-ci seule. `{ minifier: false }` l'écarte (tests de l'empreinte seule).
+function estamper(dossier, options) {
+  if (!options || options.minifier !== false) minifier(dossier);
   const numero = PREFIXE + empreinte(dossier);
   const sw = lireSW(dossier);
   const neuf = sw.texte.replace(LITTERAL, "const CACHE_V2 = '" + numero + "';");

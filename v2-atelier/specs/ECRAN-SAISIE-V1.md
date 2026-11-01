@@ -3688,3 +3688,16 @@ Une saisie n'est pas forcément vraie : un doigt qui glisse (152 pour 125), des 
 
 **La page d'exercice** dit les zones que les routines lui fixent : « Ta routine « Jeudi » fixe cet exercice en Mix. »
 
+
+## La séance en salle — décidé le 01/11/2026 (chantier 204, maquette `maquette-seance-en-salle-v1`)
+
+But : saisir une série d'un pouce, la tête ailleurs, sans chercher. Rien de ce que dit le coach n'est retiré (grand chiffre, phrase datée, « Pourquoi »).
+
+- **La barre d'onglets est cachée pendant une séance en cours** (pas en correction d'une séance passée). « ⌄ » (en haut à gauche) réduit la séance : les onglets reviennent, la séance reste en cours (point sur Saisie, carte « Prochaine séance » → « Reprendre »). Le minuteur de repos prend la place libérée ; ses boutons ±15 s font 48 px. La réserve du bas (`--h-onglets`) vaut 0 tant que la séance est à l'écran.
+- **Cibles au pouce** : « Terminer » est le bouton principal (ambre, 48 px) ; « ⌄ », « ⋯ » de la séance, « ⋯ » de l'exercice et le nom de l'exercice font 44 px de zone de toucher.
+- **Le « ⋯ » de la séance** porte « Modifier » (le mode réorganiser ; « Terminé » reprend la place du « ⋯ » tant qu'il est ouvert) et « S'entraîner ensemble » (tant qu'aucun groupe n'est ouvert, connecté, hors correction).
+- **Un exercice seul** : son « ⋯ » est sur la ligne du nom ; plus de « CHARGE × REPS » (sauf si l'en-tête se tait, mesures mélangées d'un superset) ; plus de rangée « repos · + Note ». Le repos est « ⏱ 3:00 » en tête de la colonne ✓, réglable au toucher (« ⏱ — » s'il n'y en a pas). Un superset garde un repos par branche.
+- **La note** de l'exercice se pose depuis son « ⋯ » (« Ajouter une note » / « Modifier la note ») ; une note posée s'affiche sous le nom (un toucher la rouvre).
+- **« Pourquoi ? »** : lien discret au bout de la phrase datée (le texte du coach reste mot pour mot ; la ligne entière ouvre la feuille).
+- **La chauffe** reste repliée AU-DESSUS des séries.
+- L'éditeur de routine ne change pas (il garde sa rangée repos / zone / note).

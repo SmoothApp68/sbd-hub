@@ -19,6 +19,7 @@ const vm = require('vm');
 const Modele = require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
 require('../../v2/js/periode.js');
+require('../../v2/js/moteur.js');
 const Poids = require('../../v2/js/poids.js');
 const Profil = require('../../v2/js/profil.js');
 require('../../v2/js/generateur.js');

@@ -3374,6 +3374,18 @@
               ligneJ.setAttribute('aria-label', (ligneJ.getAttribute('aria-label') || '') + ' ' + recul);
             }
           }
+          // 205 — la grande charge d'un exercice à la barre se touche : la feuille « Disques » (le toucher ne rouvre pas « Pourquoi »).
+          if (iJ === 0 && !vue.programme && typeof vue.surDisques === 'function' && vue.disquesPossibles && vue.disquesPossibles(x._iExo)) {
+            var chargeHero = ligneJ.querySelector('.c-charge');
+            var nbHero = chargeHero ? racine.THModele.lireNombre(chargeHero.textContent) : null;
+            if (chargeHero && nbHero !== null && /^\d/.test(chargeHero.textContent)) {
+              chargeHero.classList.add('c-charge-disques');
+              chargeHero.setAttribute('role', 'button');
+              chargeHero.tabIndex = 0;
+              chargeHero.setAttribute('aria-label', chargeHero.textContent + ' kg : voir les disques');
+              chargeHero.addEventListener('click', function (e) { e.stopPropagation(); vue.surDisques(x._iExo, nbHero); });
+            }
+          }
           entree.appendChild(tapable(ligneJ));
         });
         if (lib.gris) {
@@ -5010,6 +5022,25 @@
     return cible;
   }
 
+  // 212 — une page de textes (Mentions légales, Confidentialité, Santé) : des blocs, un « Fermer ». Aucun calcul.
+  function rendreFeuilleMentions(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', vue.titre));
+    var corps = el('div', 'mentions-page');
+    vue.blocs.forEach(function (b) {
+      var n = el('div', 'mentions-bloc');
+      if (b.titre) n.appendChild(el('b', '', b.titre));
+      n.appendChild(el('p', '', b.texte));
+      corps.appendChild(n);
+    });
+    cible.appendChild(corps);
+    var fermer = el('button', 'discret bloc-large', 'Fermer');
+    fermer.type = 'button';
+    fermer.addEventListener('click', vue.surFermer);
+    cible.appendChild(fermer);
+    return cible;
+  }
+
   function rendreFeuilleBloc(cible, vue) {
     vider(cible);
     var t = el('div', 'feuille-t', vue.superset ? 'Superset' : 'Exercice');
@@ -5029,6 +5060,7 @@
       entreeMenu(menu, 'Remplacer l’exercice', { surClic: vue.surRemplacer });
       // 204 — la note de l'exercice vit ici, plus sur une rangée de la séance : une note posée s'affiche sous le nom.
       if (vue.surNote) entreeMenu(menu, vue.note ? 'Modifier la note' : 'Ajouter une note', { classe: 'menu-note', surClic: vue.surNote });
+      if (vue.surDisques) entreeMenu(menu, 'Disques', { classe: 'menu-disques', surClic: vue.surDisques });
     }
     entreeMenu(menu, 'Grouper en superset…', {
       surClic: vue.surGrouper, desactive: !vue.peutGrouper });
@@ -5069,6 +5101,85 @@
     return cible;
   }
 
+  // 205 (maquette-disques-v1) — LA FEUILLE « DISQUES » : la charge décomposée par côté, la barre dessinée (couleurs de compétition,
+  // le chiffre écrit sur chaque disque), toutes les charges du jour de l'exercice, et « Barre 20 kg › ». Elle ne décompose que
+  // ce que `Moteur.decomposerCharge` lui donne (la vue le lui apporte) et ne corrige jamais une charge.
+  // `vue` : { nom, charge, barre, decomposition: { ok, parCote }, charges: [{ charge, libelle, decomposition }], choixBarre,
+  //           barresProposees, surCharge(kg), surBarre(kg), surChoixBarre(), phraseIntrouvable }
+  var COULEURS_DISQUES = { 25: '#E5484D', 20: '#3E63DD', 15: '#F5D90A', 10: '#30A46C', 5: '#EDEEF0' };
+  function texteDecomposition(d, M) {
+    if (!d.ok) return '';
+    return d.parCote.length ? d.parCote.map(function (k) { return M.nombreSigne(k); }).join(' + ') : 'barre vide';
+  }
+  function dessinBarre(parCote, M) {
+    var barre = el('div', 'dq-barre');
+    barre.appendChild(el('div', 'dq-manche'));
+    barre.appendChild(el('div', 'dq-butee'));
+    parCote.forEach(function (k) {
+      var d = el('div', 'dq-disque', M.nombreSigne(k));
+      d.style.width = (k >= 10 ? 22 : k >= 5 ? 14 : 9) + 'px';
+      d.style.height = Math.round(Math.min(100, Math.max(26, 28 + k * 2.9))) + 'px';
+      d.style.background = COULEURS_DISQUES[k] || '#9AA3AF';
+      barre.appendChild(d);
+    });
+    barre.appendChild(el('div', 'dq-bout'));
+    return barre;
+  }
+  function rendreFeuilleDisques(cible, vue) {
+    var M = racine.THModele;
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Disques');
+    t.appendChild(el('em', '', vue.nom));
+    cible.appendChild(t);
+    var carte = el('div', 'dq-carte');
+    carte.appendChild(el('h3', 'dq-charge', M.nombreSigne(vue.charge) + ' kg'));
+    if (vue.decomposition.ok) {
+      carte.appendChild(el('div', 'dq-aide', 'Par côté, du plus lourd au plus léger'));
+      var dessin = dessinBarre(vue.decomposition.parCote, M);
+      dessin.setAttribute('aria-label', 'Barre de ' + M.nombreSigne(vue.barre) + ' kg chargée : ' + texteDecomposition(vue.decomposition, M) + ' par côté');
+      carte.appendChild(dessin);
+      carte.appendChild(el('div', 'dq-texte', texteDecomposition(vue.decomposition, M)));
+    } else {
+      carte.appendChild(el('div', 'dq-aide dq-introuvable', vue.phraseIntrouvable));
+    }
+    var ligneBarre = el('button', 'dq-ligne dq-barre-choix', '');
+    ligneBarre.type = 'button';
+    ligneBarre.appendChild(el('span', '', 'Barre'));
+    ligneBarre.appendChild(el('span', 'dq-val', M.nombreSigne(vue.barre) + ' kg ›'));
+    ligneBarre.addEventListener('click', vue.surChoixBarre);
+    carte.appendChild(ligneBarre);
+    if (vue.choixBarre) {
+      var g = el('div', 'q-puces dq-barres');
+      vue.barresProposees.forEach(function (kg) {
+        var on = kg === vue.barre;
+        var n = el('button', 'q-puce' + (on ? ' on' : ''), M.nombreSigne(kg) + ' kg');
+        n.type = 'button';
+        n.dataset.cle = kg;
+        n.setAttribute('aria-pressed', on ? 'true' : 'false');
+        n.addEventListener('click', function () { vue.surBarre(kg); });
+        g.appendChild(n);
+      });
+      carte.appendChild(g);
+    }
+    cible.appendChild(carte);
+    if (vue.charges.length) {
+      var liste = el('div', 'dq-carte');
+      liste.appendChild(el('div', 'dq-aide', 'Aujourd’hui sur cet exercice'));
+      vue.charges.forEach(function (c) {
+        var l = el('button', 'dq-item' + (c.charge === vue.charge ? ' act' : ''));
+        l.type = 'button';
+        l.dataset.charge = c.charge;
+        l.appendChild(el('b', '', M.nombreSigne(c.charge)));
+        var dec = c.decomposition.ok ? texteDecomposition(c.decomposition, M) : 'introuvable avec tes disques';
+        l.appendChild(el('span', '', dec + (c.libelle ? ' · ' + c.libelle : '')));
+        l.addEventListener('click', function () { vue.surCharge(c.charge); });
+        liste.appendChild(l);
+      });
+      cible.appendChild(liste);
+    }
+    return cible;
+  }
+
   function rendreFeuilleExercice(cible, vue) {
     vider(cible);
     var t = el('div', 'feuille-t', 'Exercice');
@@ -5080,6 +5191,7 @@
     if (vue.surJaiMal) entreeMenu(menu, 'J’ai mal', { surClic: vue.surJaiMal });
     entreeMenu(menu, 'Remplacer l’exercice', { surClic: vue.surRemplacer });
     if (vue.surNote) entreeMenu(menu, vue.note ? 'Modifier la note' : 'Ajouter une note', { classe: 'menu-note', surClic: vue.surNote });
+    if (vue.surDisques) entreeMenu(menu, 'Disques', { classe: 'menu-disques', surClic: vue.surDisques });
     // §5.8 — sortir agit sur UN exercice, jamais sur le bloc entier, et il se
     // pose JUSTE APRÈS son bloc d'origine : il ne remonte pas en fin de séance.
     entreeMenu(menu, 'Sortir du superset', { surClic: vue.surDegrouper });
@@ -7268,7 +7380,7 @@
 
     var haut = el('div', 'q-haut');
     if (vue.retour) {
-      var retour = el('button', 'q-retour', '‹ Retour');
+      var retour = el('button', 'q-retour', '← Retour');
       retour.type = 'button';
       retour.addEventListener('click', a.surRetour);
       haut.appendChild(retour);
@@ -7471,7 +7583,7 @@
       carte.dataset.reglage = l.cle;
       carte.appendChild(el('div', 'choix-groupe salle-titre', l.titre));
       carte.appendChild(el('p', 'feuille-aide', l.aide));
-      carte.appendChild(blocPuces({ cle: l.cle, valeur: l.valeur, options: l.options },
+      carte.appendChild(blocPuces({ cle: l.cle, valeur: l.valeur, multiple: l.multiple, valeurs: l.valeurs, options: l.options },
         { surChoix: function (c, v) { vue.surReglage(c, v); } }));
       cible.appendChild(carte);
     });
@@ -8002,6 +8114,22 @@
       }
     }
     if (vue.aideMdp) vue.aideMdp.hidden = !inscription;
+    // 212 — la case « 15 ans ou plus » et la ligne des conditions n'existent qu'à l'inscription.
+    if (vue.age15) vue.age15.hidden = !inscription;
+    if (vue.conditions) {
+      vue.conditions.hidden = !inscription;
+      if (inscription && !vue.conditions.firstChild) {
+        vue.conditions.appendChild(doc.createTextNode('En créant ton compte, tu acceptes les conditions décrites dans '));
+        [['confidentialite', 'Confidentialité'], ['sante', 'Santé']].forEach(function (l, i) {
+          if (i) vue.conditions.appendChild(doc.createTextNode(' et '));
+          var b = el('button', 'entree-lien', l[1]);
+          b.type = 'button'; b.dataset.mentions = l[0];
+          b.addEventListener('click', function () { if (vue.surMentions) vue.surMentions(l[0]); });
+          vue.conditions.appendChild(b);
+        });
+        vue.conditions.appendChild(doc.createTextNode('.'));
+      }
+    }
     if (vue.bouton) vue.bouton.textContent = inscription ? 'Créer mon compte' : 'Se connecter';
     if (vue.bascule) vue.bascule.textContent = inscription ? 'Se connecter' : 'Créer un compte';
     if (vue.basculeAvant) {
@@ -9458,6 +9586,7 @@
     rendreFeuilleBloc: rendreFeuilleBloc,
     rendreFeuilleMenuSeance: rendreFeuilleMenuSeance,
     rendreFeuilleExercice: rendreFeuilleExercice,
+    rendreFeuilleDisques: rendreFeuilleDisques,
     rendreFeuilleMachinePrise: rendreFeuilleMachinePrise,
     rendreFeuilleDouleur: rendreFeuilleDouleur,
     propositionDeReprise: propositionDeReprise,
@@ -9541,7 +9670,7 @@
     rendreFeuilleCommentFaire: rendreFeuilleCommentFaire,
     rendreFeuilleChoixMultiple: rendreFeuilleChoixMultiple,
     rendreFeuilleMot: rendreFeuilleMot,
-    rendreFeuilleMots: rendreFeuilleMots,
+    rendreFeuilleMots: rendreFeuilleMots, rendreFeuilleMentions: rendreFeuilleMentions,
     rendreFeuilleSaisie: rendreFeuilleSaisie,
     rendreFeuillePesee: rendreFeuillePesee,
     rendreFeuilleObjectif: rendreFeuilleObjectif,

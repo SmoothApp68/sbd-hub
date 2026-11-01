@@ -26,6 +26,7 @@
   var Questionnaire = racine.THQuestionnaire;
   var Import = racine.THImportHevy;
   var Export = racine.THExport;
+  var Mentions = racine.THMentions;   // 212
   var Generateur = racine.THGenerateur;
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
   // 64B — le jeu (JEU-V1 §9) : l'écran le LIT, il ne le refait pas ; le coach ne le lit jamais.
@@ -2438,7 +2439,7 @@
     var a = social.ami;
     // 89 — le retour d'une sous-page ramène au profil (« ← jordan »), celui du profil au fil.
     var retour = $('btn-retour-ami');
-    if (retour) retour.textContent = a && a.sous ? '← ' + a.pseudo : '← Fil';
+    if (retour) retour.textContent = '← Retour';
     if (a && a.sous === 'exercice') return Rendu.rendreExerciceAmi($('social-ami'), vueExerciceAmi());
     if (a && a.sous === 'comparer') return Rendu.rendreComparaison($('social-ami'), vueComparaison());
     Rendu.rendreAmi($('social-ami'), vueDeLAmi());
@@ -9592,6 +9593,9 @@
         return { texte: (n !== null ? n : '') + (n !== null ? '+ \u00b7 ' : '') + 'garde\u00a0' + l.auMax.reserve,
                  aria: (n !== null ? n + ' ou plus, ' : '') + 'garde ' + l.auMax.reserve + ' en r\u00e9serve' };
       },
+      // 205 — la grande charge d'un exercice à la barre ouvre la feuille « Disques ».
+      disquesPossibles: disquesPossibles,
+      surDisques: function (iExo, charge) { ouvrirDisques(iExo, charge); },
       // 175 — « un cran de moins » : le badge du recul (174), à côté du chiffre du jour.
       cranDeMoins: function (iExo) {
         var x = planDeLExercice(iExo);
@@ -10131,6 +10135,7 @@
         surRemplacer: function () { demanderRemplacement(cibleExo); },
         note: seance.exercices[cibleExo].note || '',
         surNote: function () { fermerVoile(); ouvrirFeuille('note', cibleExo, null); },
+        surDisques: disquesPossibles(cibleExo) ? function () { fermerVoile(); ouvrirDisques(cibleExo, null); } : null,
         surDegrouper: function () {
           var indices = indicesDe(bloc);
           fermerVoile();
@@ -10154,6 +10159,7 @@
       surRemplacer: function () { demanderRemplacement(indicesDe(bloc)[0]); },
       note: bloc.superset ? '' : (seance.exercices[indicesDe(bloc)[0]].note || ''),
       surNote: bloc.superset ? null : function () { var iN = indicesDe(bloc)[0]; fermerVoile(); ouvrirFeuille('note', iN, null); },
+      surDisques: !bloc.superset && disquesPossibles(indicesDe(bloc)[0]) ? function () { var iD = indicesDe(bloc)[0]; fermerVoile(); ouvrirDisques(iD, null); } : null,
       surGrouper: function () {
         // §5.7 — on passe en SÉLECTION : les autres blocs s'allument et
         // deviennent tapables. Un tap de plus, aucune ambiguïté, et ça marche
@@ -10353,6 +10359,67 @@
     ouvrirVoile($('feuille-seance'), function () {
       feuille = null;
       if (seance) rendreSeance();
+    });
+  }
+  // 205 (MOTEUR §10.2, maquette-disques-v1) — LA FEUILLE « DISQUES » : une charge d'un exercice À LA BARRE décomposée en disques par côté.
+  // Le calcul est `Moteur.decomposerCharge` (pur), les disques présents et la barre viennent du profil (`Profil.disquesPresentsDuProfil`,
+  // `Profil.barreDe`) ; rien ne s'écrit sauf le poids de la barre choisi (`ma_salle.barre_kg`, par `ecrireProfil`).
+  function disquesPossibles(iExo) {
+    var x = seance && seance.exercices[iExo];
+    var def = x ? catalogueIndexe()[x.exercise_slug] : null;
+    return !!def && Moteur.equipementEffectif(def) === 'barre';
+  }
+  function chargesDuJourDe(iExo) {
+    var x = seance.exercices[iExo], pl = planDeLExercice(iExo), sortie = [], vus = {};
+    (x.series || []).forEach(function (s, j) {
+      var l = pl && pl.lignes ? pl.lignes[j] : null;
+      var c = Modele.lireNombre(s.charge_kg);
+      if (c === null && l && l.prerempli) c = Modele.lireNombre(l.prerempli.charge_kg);
+      if (c === null || !(c > 0)) return;
+      var type = Modele.typeLu(s);
+      var lib = type === 'chauffe' ? 'chauffe' : type === 'recul' ? 'recul' : '';
+      var cle = c + '|' + lib;
+      if (vus[cle]) return;
+      vus[cle] = true;
+      sortie.push({ charge: c, libelle: lib });
+    });
+    return sortie;
+  }
+  function ouvrirDisques(iExo, charge) {
+    var cs = chargesDuJourDe(iExo);
+    var c = charge;
+    if (c === null || c === undefined) {
+      var travail = cs.filter(function (k) { return k.libelle === ''; })[0] || cs[0];
+      c = travail ? travail.charge : null;
+    }
+    if (c === null) return;
+    feuille = { quoi: 'disques', iExo: iExo, charge: c, choixBarre: false };
+    rendreFeuille();
+    ouvrirVoile($('feuille-seance'), function () {
+      feuille = null;
+      if (seance) rendreSeance();
+    });
+  }
+  function rendreFeuilleDisques(cible, index) {
+    var iExo = feuille.iExo;
+    if (!seance || !seance.exercices[iExo]) return fermerVoile();
+    var barre = Profil.barreDe(profil), presents = Profil.disquesPresentsDuProfil(profil);
+    var dec = function (kg) { return Moteur.decomposerCharge(kg, barre, presents); };
+    var charges = chargesDuJourDe(iExo).map(function (k) { return { charge: k.charge, libelle: k.libelle, decomposition: dec(k.charge) }; });
+    return Rendu.rendreFeuilleDisques(cible, {
+      nom: Modele.nommer(index, seance.exercices[iExo].exercise_slug),
+      charge: feuille.charge, barre: barre, decomposition: dec(feuille.charge), charges: charges,
+      phraseIntrouvable: 'Je ne trouve pas ' + Modele.nombreSigne(feuille.charge) + ' kg avec tes disques et une barre de ' +
+        Modele.nombreSigne(barre) + ' kg.',
+      choixBarre: feuille.choixBarre, barresProposees: Moteur.BARRES_PROPOSEES,
+      surChoixBarre: function () { feuille.choixBarre = !feuille.choixBarre; rendreFeuille(); },
+      surBarre: function (kg) {
+        var champs = Profil.champsBarre(profil, kg);
+        feuille.choixBarre = false;
+        if (champs) poserProfil(champs);   // `profil` est à jour avant le 1er await : la feuille se redessine sur la nouvelle barre
+        rendreFeuille();
+      },
+      surCharge: function (kg) { feuille.charge = kg; rendreFeuille(); }
     });
   }
   // « S'entraîner ensemble » ne se propose que là où le bouton se montrait : connecté, hors correction, sans groupe ouvert.
@@ -10654,6 +10721,7 @@
     if (feuille.quoi === 'mot') {
       return Rendu.rendreFeuilleMot(cible, { mot: Moteur.motDuLexique(feuille.cle), surFermer: fermerVoile });
     }
+    if (feuille.quoi === 'disques') return rendreFeuilleDisques(cible, index);
     if (feuille.quoi === 'menu-seance') {
       return Rendu.rendreFeuilleMenuSeance(cible, {
         titre: seance.titre || 'Séance',
@@ -11156,7 +11224,7 @@
   function rendreRelectureRoute(dossier) {
     montrer('relecture', Routeur.RELECTURE);
     var d = dossier === undefined ? null : dossier;
-    $('btn-retour-relecture').textContent = '\u2039 Routines' + (d === null ? '' : ' \u00b7 ' + d);
+    $('btn-retour-relecture').textContent = '\u2190 Retour' + (d === null ? '' : ' \u00b7 ' + d);
     if ((etatRoutines.code === 'jamais' || etatRoutines.code === 'charge') && !routines.length) {
       Rendu.message($('relecture'), 'Chargement…');
       chargerRoutines().then(function () { if (!vues.relecture.hidden) rendreRelectureRoute(d); });
@@ -17065,7 +17133,11 @@
         { titre: 'MES DONNÉES', lignes: [
           { libelle: 'Importer depuis Hevy', sansValeur: true,
             surChoix: function () { allerA(Routeur.IMPORT, {}); ouvrirImport(); } }
-        ] }]
+        ] },
+        // 212 — « À propos » : les trois pages de textes, en bas.
+        { titre: 'À PROPOS', lignes: Mentions.pages().map(function (pg) {
+          return { libelle: pg.titre, sansValeur: true, surChoix: function () { ouvrirMentions(pg.cle); } };
+        }) }]
       ),
       // 64B — la vitrine (les trois succès les plus rares, décidés par le jeu), et en bas l'interrupteur, qui
       // écrit par le chemin du profil : local d'abord, l'écran suit tout de suite, hors ligne compris.
@@ -17086,6 +17158,16 @@
       $('profil-corps').insertBefore(Rendu.el('p', 'vide', refusProfil.texte), $('profil-corps').firstChild);
       refusProfil.vu = true;
     }
+  }
+
+  // 212 — Mentions légales, Confidentialité, Santé : depuis Profil › À propos et le pied de l'inscription.
+  function ouvrirMentions(cle) {
+    var p = Mentions.page(cle);
+    if (!p) return;
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleMentions(cible, { titre: p.titre, blocs: p.blocs, surFermer: fermerVoile });
+    };
+    ouvrirFeuilleProfil();
   }
 
   // 201 — Profil › Les mots du coach.
@@ -17721,7 +17803,8 @@
       phrase: $('entree-phrase'), pseudo: $('env-pseudo'), oubli: $('btn-oubli'),
       aideMdp: $('aide-mdp'), bouton: $('btn-connexion'),
       bascule: $('btn-bascule-entree'), basculeAvant: $('entree-bascule-avant'),
-      champEmail: $('champ-email'), champMdp: $('champ-mdp'), message: $('erreur-connexion')
+      champEmail: $('champ-email'), champMdp: $('champ-mdp'), message: $('erreur-connexion'),
+      age15: $('env-age15'), conditions: $('entree-conditions'), surMentions: ouvrirMentions
     };
   }
 
@@ -17735,6 +17818,7 @@
     $('erreur-connexion').textContent = '';
     $('aide-pseudo').textContent = '';
     $('champ-mdp').value = '';
+    $('champ-age15').checked = false;   // 212
     pseudoPris = null;
     if (sondePseudo) { racine.clearTimeout(sondePseudo); sondePseudo = null; }
     var c = champsEntree();
@@ -17749,6 +17833,7 @@
       pseudo: $('champ-pseudo').value,
       email: $('champ-email').value.trim(),
       mdp: $('champ-mdp').value,
+      age15: $('champ-age15').checked,
       pseudoPris: pseudoPris
     };
   }
@@ -18055,6 +18140,7 @@
     ['champ-email', 'champ-mdp'].forEach(function (id) {
       $(id).addEventListener('input', majBoutonEntree);
     });
+    $('champ-age15').addEventListener('change', majBoutonEntree);   // 212
     // 91 — le groupe de séance : le retour de sa vue, et le direct relu environ toutes les 20 s (en séance ou dans un
     // groupe seulement ; une lecture qui échoue ne dit rien).
     $('btn-retour-groupe').addEventListener('click', fermerVueGroupe);

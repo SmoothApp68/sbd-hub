@@ -59,7 +59,12 @@
           <em id="aide-mdp" class="entree-aide" hidden>Tu le changeras depuis ton profil.</em>
         </label>
         <button id="btn-oubli" type="button" class="entree-oubli">Mot de passe oublié ?</button>
+        <label id="env-age15" class="entree-age15" hidden>
+          <input id="champ-age15" type="checkbox" name="age15"> <span>J’ai 15 ans ou plus</span>
+        </label>
         <button id="btn-connexion" type="submit" class="principal">Se connecter</button>
+        <!-- 212 — la ligne sous le bouton (inscription seulement) ; les liens sont posés par l'app. -->
+        <p id="entree-conditions" class="entree-conditions" hidden></p>
         <p id="erreur-connexion" class="erreur" role="alert" aria-live="polite"></p>
       </form>
       <!-- 138 (ECRAN-PROFIL §3.5) — sur iPhone, hors de l'app installée : « installe TrainHub d'abord ». Le composant du
@@ -118,7 +123,7 @@
   <!-- Détail d'une séance -->
   <section id="vue-detail" hidden>
     <header class="entete">
-      <button id="btn-retour" type="button" class="discret">← Séances</button>
+      <button id="btn-retour" type="button" class="discret retour">← Retour</button>
     </header>
     <div id="detail-seance"></div>
     <!-- 91 — « Faite en groupe avec … » : le récap figé du groupe, lisible depuis la séance. -->
@@ -135,7 +140,7 @@
        rien ; un onglet vide coûte la confiance ». -->
   <section id="vue-exercice" hidden>
     <header class="entete">
-      <button id="btn-retour-exercice" type="button" class="discret">← Retour</button>
+      <button id="btn-retour-exercice" type="button" class="discret retour">← Retour</button>
     </header>
     <div id="page-exercice"></div>
     <div id="exercice-entre-amis"></div>
@@ -192,14 +197,14 @@
        rangée d'un dossier. Le libellé du retour (« ‹ Routines · {dossier} ») est posé par l'app. -->
   <section id="vue-relecture" hidden>
     <header class="entete">
-      <button id="btn-retour-relecture" type="button" class="discret">‹ Routines</button>
+      <button id="btn-retour-relecture" type="button" class="discret retour">← Retour</button>
     </header>
     <div id="relecture"></div>
   </section>
 
   <section id="vue-routine" hidden>
     <header class="entete">
-      <button id="btn-retour-routine" type="button" class="discret">← Routines</button>
+      <button id="btn-retour-routine" type="button" class="discret retour">← Retour</button>
       <div class="actions">
         <!-- §7 vicies.1 — même entrée que la bibliothèque, même mode. -->
         <button id="btn-ranger-routine" type="button" class="discret" hidden>Ranger</button>
@@ -280,7 +285,7 @@
   <!-- Vue Volume : la semaine, le relevé par zones, puis le radar. -->
   <section id="vue-volume" hidden>
     <header class="entete">
-      <button id="btn-retour-volume" type="button" class="discret">← Progression</button>
+      <button id="btn-retour-volume" type="button" class="discret retour">← Retour</button>
     </header>
     <h2 class="titre-vue">Volume par muscle</h2>
     <div id="barre-progression"></div>
@@ -298,7 +303,7 @@
        (BILANS-V1) : il s'ouvre plein écran dans #annee, il n'a plus de vue à lui. -->
   <section id="vue-records" hidden>
     <header class="entete">
-      <button id="btn-retour-records" type="button" class="discret">← Progression</button>
+      <button id="btn-retour-records" type="button" class="discret retour">← Retour</button>
     </header>
     <div id="records-mois"></div>
   </section>
@@ -306,7 +311,7 @@
        chaque ouverture, sur tout le corpus ; il n'écrit rien. Aucun rouge, aucun e1RM. -->
   <section id="vue-parcours" hidden>
     <header class="entete">
-      <button id="btn-retour-parcours" type="button" class="discret">← Progression</button>
+      <button id="btn-retour-parcours" type="button" class="discret retour">← Retour</button>
     </header>
     <div id="parcours"></div>
   </section>
@@ -315,7 +320,7 @@
        cible, aucun commentaire sur la variation. -->
   <section id="vue-poids" hidden>
     <header class="entete">
-      <button id="btn-retour-poids" type="button" class="discret">← Progression</button>
+      <button id="btn-retour-poids" type="button" class="discret retour">← Retour</button>
     </header>
     <h2 class="titre-vue">Poids de corps</h2>
     <div id="periodes-poids"></div>
@@ -348,31 +353,31 @@
   </section>
   <section id="vue-amis" hidden>
     <header class="entete">
-      <button id="btn-retour-amis" type="button" class="discret">← Fil</button>
+      <button id="btn-retour-amis" type="button" class="discret retour">← Retour</button>
     </header>
     <div id="social-amis"></div>
   </section>
   <section id="vue-ami" hidden>
     <header class="entete">
-      <button id="btn-retour-ami" type="button" class="discret">← Fil</button>
+      <button id="btn-retour-ami" type="button" class="discret retour">← Retour</button>
     </header>
     <div id="social-ami"></div>
   </section>
   <section id="vue-muscles" hidden>
     <header class="entete">
-      <button id="btn-retour-muscles" type="button" class="discret">← Jeu</button>
+      <button id="btn-retour-muscles" type="button" class="discret retour">← Retour</button>
     </header>
     <div id="jeu-muscles"></div>
   </section>
   <section id="vue-succes" hidden>
     <header class="entete">
-      <button id="btn-retour-succes" type="button" class="discret">← Jeu</button>
+      <button id="btn-retour-succes" type="button" class="discret retour">← Retour</button>
     </header>
     <div id="jeu-succes"></div>
   </section>
   <section id="vue-deblocages" hidden>
     <header class="entete">
-      <button id="btn-retour-deblocages" type="button" class="discret">← Jeu</button>
+      <button id="btn-retour-deblocages" type="button" class="discret retour">← Retour</button>
     </header>
     <div id="jeu-deblocages"></div>
   </section>
@@ -398,7 +403,7 @@
        une séance. -->
   <section id="vue-exercices" hidden>
     <header class="entete">
-      <button id="btn-retour-mes-exos" type="button" class="discret">← Profil</button>
+      <button id="btn-retour-mes-exos" type="button" class="discret retour">← Retour</button>
     </header>
     <h2 class="titre-vue">Tous mes exercices</h2>
     <input id="champ-recherche-mes-exos" type="search" autocomplete="off"
@@ -413,7 +418,7 @@
        (`Rendu.rendreImport`) depuis l'état de l'import. -->
   <section id="vue-import" hidden>
     <header class="entete">
-      <button id="btn-retour-import" type="button" class="discret">← Profil</button>
+      <button id="btn-retour-import" type="button" class="discret retour">← Retour</button>
     </header>
     <div id="import-hevy"></div>
     <input id="fichier-hevy" type="file" accept=".csv,text/csv" hidden>
@@ -432,7 +437,7 @@
   <!-- 91 — le groupe de séance, plein écran, sans route : lancer (inviter), rejoindre, le récap du « combat ». -->
   <section id="vue-groupe" hidden>
     <header class="entete">
-      <button id="btn-retour-groupe" type="button" class="discret">← Retour</button>
+      <button id="btn-retour-groupe" type="button" class="discret retour">← Retour</button>
     </header>
     <div id="groupe-corps"></div>
   </section>
@@ -565,6 +570,7 @@
 <script src="/js/questionnaire.js"></script>
 <script src="/js/importhevy.js"></script>
 <script src="/js/export.js"></script>
+<script src="/js/mentions.js"></script>
 <script src="/js/routeur.js"></script>
 <script src="/js/sortie.js"></script>
 <script src="/js/cache.js"></script>

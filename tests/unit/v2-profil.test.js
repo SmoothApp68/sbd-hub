@@ -159,7 +159,7 @@ describe('test 10 — pseudo déjà pris → deux alternatives', () => {
 });
 
 describe('le bouton d’inscription', () => {
-  const OK = { pseudo: 'melodie', email: 'm@x.fr', mdp: 'motdepasse1', pseudoPris: false };
+  const OK = { pseudo: 'melodie', email: 'm@x.fr', mdp: 'motdepasse1', pseudoPris: false, age15: true };
 
   test('s’allume quand les trois champs tiennent', () => {
     expect(Profil.inscriptionPrete(OK)).toBe(true);

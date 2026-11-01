@@ -2774,11 +2774,11 @@ const ALIAS_COMMUNS = [
   await page4.click('#btn-bascule-entree');
   await jusqua('bascule vers l’inscription', () => page4.evaluate(() => location.pathname === '/inscription'));
   await rendu(page4);
-  ok('[46 §2 ter] « Créer un compte » bascule le MÊME écran — trois champs, pas un de plus',
+  ok('[46 §2 ter] « Créer un compte » bascule le MÊME écran — trois champs et la case des 15 ans, pas un de plus',
     await page4.evaluate(() => !document.querySelector('#env-pseudo').hidden &&
       document.querySelector('#btn-oubli').hidden &&
       document.querySelector('#btn-connexion').textContent === 'Créer mon compte' &&
-      document.querySelectorAll('#form-connexion input').length === 3) &&
+      document.querySelectorAll('#form-connexion input').length === 4) &&
     (await page4.evaluate(() => location.pathname)) === '/inscription',
     await page4.evaluate(() => location.pathname));
   ok('[46 §2 ter] le bouton est éteint tant que les trois champs ne tiennent pas',
@@ -2791,6 +2791,7 @@ const ALIAS_COMMUNS = [
   await page4.fill('#champ-email', 'melodie.dupont@exemple.fr');
   const sondesAvant = base.envois.filter((e) => e.table === 'pseudo_libre').length;
   await page4.fill('#champ-mdp', 'motdepasse1');
+      await page4.check('#champ-age15');
   // 135 — la sonde du pseudo est partie (après sa temporisation) et la base a répondu « je ne sais pas »
   // (PGRST202) : c'est après cette réponse que l'écran doit se taire.
   await jusqua('sonde du pseudo répondue', () => base.envois.filter((e) => e.table === 'pseudo_libre').length > sondesAvant);

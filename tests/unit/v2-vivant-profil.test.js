@@ -18,7 +18,8 @@ const LIGNES_D_AVANT = [
   'But d’entraînement', 'Priorités', 'Entraînement régulier', 'Tous mes exercices', 'Importer depuis Hevy',
   'Poids', 'Taille', 'Date de naissance', 'Sexe', 'Séances par semaine', 'Durée d’une séance', 'Ton temps',
   'Pseudo', 'Bio', 'E-mail de connexion', 'Mot de passe', 'Activer le jeu',
-  'Les mots du coach'   // 201
+  'Les mots du coach',   // 201
+  'Mentions légales', 'Confidentialité', 'Santé'   // 212
 ];
 
 function rendu() {

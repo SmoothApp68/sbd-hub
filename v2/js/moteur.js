@@ -11059,6 +11059,8 @@
       phrase: 'Les séries plus légères qui suivent ta grosse série.' },
     { cle: 'max_du_jour', mot: 'Ton max aujourd’hui', source: 'recul.max',
       phrase: 'Ce que ta grosse série dit de ta force du jour.' },
+    { cle: 'max_estime', mot: 'Max estimé',
+      phrase: 'Ce que ta meilleure série dit de ta force, calculé ; un record est ce que tu as vraiment soulevé.' },
     { cle: 'au_max', mot: 'Au max', source: 'au_max',
       phrase: 'La dernière série, poussée jusqu’à l’échec, ou en gardant les reps que le coach te donne.' },
     { cle: 'cinq_plus', mot: '5+', source: 'au_max',

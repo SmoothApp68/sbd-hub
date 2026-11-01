@@ -216,6 +216,86 @@
       }).filter(Boolean);
     }
 
+    // 206 — LES POINTS D'UN EXERCICE, pour sa courbe : un point par séance, du plus ancien au plus récent.
+    //   · charge_reps → le MAX ESTIMÉ (Epley, `Moteur.unRMEpley`, celui des records) de la meilleure série de travail
+    //     de 1 à 10 reps (au-delà l'estimation se trompe trop, Reynolds 2006) ; une série notée par nom ou sans charge n'y est pas ;
+    //   · reps (poids du corps) → les meilleures reps ; temps / distance_temps → les meilleures secondes ;
+    //   · `record` : la séance a battu un record de cet exercice (`recordsDeLaSeance`, la médaille de la séance) ;
+    //   · `charge`, `reps` : la meilleure série elle-même (la bulle la dit).
+    // Rend `{ mesure: 'charge' | 'reps' | 'temps' | null, points: [{ seance, debut, valeur, charge, reps, record }] }`.
+    // Un fait : rien n'est lissé, formaté ni projeté ici.
+    var memoPoints = { cle: null, parSlug: {} };
+    var POINTS_REPS_MAX = 10;
+    function pointsDeLExercice(c, slug) {
+      var cle = (c.seances || []).length + '|' + (c.series || []).length;
+      if (memoPoints.cle !== cle) memoPoints = { cle: cle, parSlug: {} };
+      if (memoPoints.parSlug[slug]) return memoPoints.parSlug[slug];
+      var exo = c.catalogue()[slug] || null;
+      var m = exo ? exo.mesure : null;
+      var genre = m === 'charge_reps' ? 'charge' : m === 'reps' ? 'reps' : (m === 'temps' || m === 'distance_temps') ? 'temps' : null;
+      var avecSeries = null;
+      var points = [];
+      if (genre) {
+        seancesDeLExercice(c, slug).forEach(function (g) {
+          var meilleur = null;
+          g.series.forEach(function (x) {
+            if (!x || !Modele.estTravail(x) || x.elastique) return;
+            var ch = Number(x.charge_kg), rp = Number(x.reps), du = Number(x.duree_s);
+            var v = null;
+            if (genre === 'charge') {
+              if (!(ch > 0) || !(rp >= 1) || rp > POINTS_REPS_MAX) return;
+              v = Moteur.unRMEpley(ch, rp);
+            } else if (genre === 'reps') {
+              if (!(rp > 0)) return;
+              v = rp;
+            } else {
+              if (!(du > 0)) return;
+              v = du;
+            }
+            if (meilleur === null || v > meilleur.valeur) {
+              meilleur = { valeur: v, charge: genre === 'charge' ? ch : null, reps: rp > 0 ? rp : null };
+            }
+          });
+          if (meilleur === null) return;
+          if (avecSeries === null) {
+            avecSeries = {};
+            seancesAvecSeries(c).forEach(function (s) { avecSeries[s.id] = s; });
+          }
+          var se = avecSeries[g.seance.id];
+          var record = !!se && recordsDeLaSeance(c, se).some(function (r) { return r.slug === slug; });
+          points.push({ seance: g.seance.id, debut: g.seance.debut, valeur: meilleur.valeur,
+                        charge: meilleur.charge, reps: meilleur.reps, record: record });
+        });
+        points.reverse();
+      }
+      var out = { mesure: genre, points: points };
+      memoPoints.parSlug[slug] = out;
+      return out;
+    }
+
+    // 206 — « TES EXERCICES » : les exercices les plus faits sur les `semaines` dernières semaines (le nombre de séances qui
+    // les portent ; à égalité, le plus récent), au plus `combien`. Rend des slugs. Un fait : l'écran ne compte rien.
+    function exercicesLesPlusFaits(c, maintenant, semaines, combien) {
+      var t0 = new Date(maintenant.getTime() - semaines * 7 * 86400000).getTime();
+      var compte = {};
+      (c.seances || []).forEach(function (s, rang) {
+        var t = s && s.debut ? new Date(s.debut).getTime() : NaN;
+        if (isNaN(t) || t < t0 || t > maintenant.getTime()) return;
+        var vus = {};
+        c.seriesDe(s.id).forEach(function (x) {
+          if (!x || !x.exercise_slug || !Modele.estTravail(x) || vus[x.exercise_slug]) return;
+          vus[x.exercise_slug] = true;
+          var k = compte[x.exercise_slug] || (compte[x.exercise_slug] = { slug: x.exercise_slug, n: 0, rang: rang });
+          k.n++;
+          if (rang < k.rang) k.rang = rang;
+        });
+      });
+      return Object.keys(compte).map(function (k) { return compte[k]; }).filter(function (k) {
+        var p = pointsDeLExercice(c, k.slug);
+        return p.points.length > 0;
+      }).sort(function (a, b) { return b.n - a.n || a.rang - b.rang; }).slice(0, combien).map(function (k) { return k.slug; });
+    }
+
     // 149 (MOTEUR §9.17 ter) — LES TENUES MAX D'UNE FIGURE : pour chaque séance faite qui porte l'exercice, sa meilleure
     // tenue de TRAVAIL (la plus longue `duree_s` d'une série de travail) — « le max de la dernière fois » du coach et la
     // matière de la carte « marche suivante » en secondes. Rend `[{ seance, debut, max }]`, de la plus ancienne à la plus
@@ -1966,6 +2046,8 @@
       seancesDuSlug: seancesDuSlug,
       seancesDeLExercice: seancesDeLExercice,
       tenuesDeLExercice: tenuesDeLExercice,
+      pointsDeLExercice: pointsDeLExercice,
+      exercicesLesPlusFaits: exercicesLesPlusFaits,
       recordsDeLaSeance: recordsDeLaSeance,
       recordsDuMois: recordsDuMois,
       dernierRecord: dernierRecord,

@@ -715,7 +715,110 @@
     return cible;
   }
 
+  // 206 — LA COURBE D'UN EXERCICE, en tête du Résumé. L'app envoie la géométrie faite (THCourbe.geometrie) ; l'écran la dessine :
+  // points pâles (chaque séance), trait (moyenne glissante sur 3 séances), records en ambre. Toucher un point : la bulle dit
+  // sa date, sa meilleure série et son max estimé. Rien ne prolonge la courbe.
+  var UNITES_COURBE = { charge: 'kg', reps: 'reps', temps: 's' };
+  var ETIQUETTES_COURBE = { charge: 'max estimé', reps: 'meilleures reps', temps: 'meilleur temps' };
+  function valeurCourbe(genre, v) { return nombreFr(Math.round(v)) + '\u00a0' + UNITES_COURBE[genre]; }
+  function texteDuPoint(genre, p) {
+    var d = p.debut ? new Date(p.debut) : null;
+    var bouts = [(d && !isNaN(d.getTime()) ? 'Le ' + jour(d) : 'Séance')];
+    if (genre === 'charge') {
+      if (p.charge !== null && p.reps !== null) bouts.push(nombreFr(p.charge) + ' kg \u00d7 ' + p.reps);
+      bouts.push('max estimé ' + valeurCourbe(genre, p.valeur));
+    } else bouts.push(valeurCourbe(genre, p.valeur));
+    if (p.record) bouts.push('record');
+    return bouts.join(' \u00b7 ');
+  }
+  function rendreCourbeExo(cible, c) {
+    var carte = el('div', 'courbe-carte');
+    var geo = c.geo;
+    var tete = el('div', 'courbe-tete');
+    var fin = c.resume ? c.resume.fin : null;
+    if (fin !== null) {
+      tete.appendChild(el('span', 'courbe-val num', valeurCourbe(c.genre, fin)));
+      var sous = ETIQUETTES_COURBE[c.genre];
+      if (c.resume.ecart) sous += ' \u00b7 ' + signe(Math.round(c.resume.ecart)) + (c.genre === 'charge' ? ' kg' : c.genre === 'reps' ? ' reps' : ' s') + ' en ' + c.periodeLongue;
+      else if (c.resume.ecart === 0) sous += ' \u00b7 inchangé sur ' + c.periodeLongue;
+      tete.appendChild(el('span', 'courbe-sous', sous));
+    } else {
+      tete.appendChild(el('span', 'courbe-sous', 'Aucune séance sur cette période.'));
+    }
+    carte.appendChild(tete);
+
+    var per = el('div', 'courbe-per');
+    per.setAttribute('role', 'group');
+    per.setAttribute('aria-label', 'Période de la courbe');
+    (c.periodes || []).forEach(function (p) {
+      var b = el('button', 'courbe-per-b' + (p.cle === c.periode ? ' on' : ''), p.libelle);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', p.cle === c.periode ? 'true' : 'false');
+      b.addEventListener('click', function () { if (c.surPeriode) c.surPeriode(p.cle); });
+      per.appendChild(b);
+    });
+    carte.appendChild(per);
+
+    var bulle = el('div', 'courbe-bulle');
+    bulle.setAttribute('aria-live', 'polite');
+    if (geo.points.length > 1) {
+      var nbRec = geo.points.filter(function (p) { return p.record; }).length;
+      var dessin = svg('svg', 'courbe-svg', {
+        viewBox: '0 0 ' + geo.largeur + ' ' + geo.hauteur, role: 'img',
+        'aria-label': ETIQUETTES_COURBE[c.genre].charAt(0).toUpperCase() + ETIQUETTES_COURBE[c.genre].slice(1) + ', ' + c.nom + ', sur ' +
+          c.periodeLongue + ', de ' + valeurCourbe(c.genre, geo.points[0].valeur) + ' à ' + valeurCourbe(c.genre, geo.points[geo.points.length - 1].valeur) +
+          (nbRec ? ' ; ' + pluriel(nbRec, 'record') : '')
+      });
+      geo.graduations.forEach(function (g) {
+        dessin.appendChild(svg('line', 'courbe-grille', { x1: geo.gauche, y1: g.y, x2: geo.droite, y2: g.y }));
+        var t = svg('text', 'courbe-lib', { x: 0, y: g.y + 4 });
+        t.textContent = nombreFr(g.valeur);
+        dessin.appendChild(t);
+      });
+      geo.mois.forEach(function (m) {
+        var t = svg('text', 'courbe-lib', { x: m.x, y: geo.bas + 24 });
+        t.textContent = m.libelle;
+        dessin.appendChild(t);
+      });
+      geo.points.forEach(function (p) {
+        dessin.appendChild(svg('circle', 'courbe-pale', { cx: p.x, cy: p.y, r: 2.5 }));
+      });
+      dessin.appendChild(svg('polyline', 'courbe-trait courbe-trait-page', { points: listePoints(geo.trait) }));
+      geo.points.forEach(function (p) {
+        if (p.record) dessin.appendChild(svg('circle', 'courbe-rec', { cx: p.x, cy: p.y, r: 4.5 }));
+      });
+      var anneau = svg('circle', 'courbe-choix', { cx: -10, cy: -10, r: 7 });
+      dessin.appendChild(anneau);
+      // La cible tactile de chaque point : un disque transparent plus large que le point.
+      geo.points.forEach(function (p) {
+        var cib = svg('circle', 'courbe-cible', { cx: p.x, cy: p.y, r: 11, tabindex: 0, role: 'button',
+                                                  'aria-label': texteDuPoint(c.genre, p) });
+        var choisir = function () {
+          anneau.setAttribute('cx', p.x);
+          anneau.setAttribute('cy', p.y);
+          bulle.textContent = texteDuPoint(c.genre, p);
+          anneau.classList.add('on');
+          bulle.classList.add('on');
+        };
+        cib.addEventListener('click', choisir);
+        cib.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choisir(); } });
+        dessin.appendChild(cib);
+      });
+      carte.appendChild(dessin);
+      var note = el('div', 'courbe-note');
+      note.appendChild(el('span', 'courbe-note-rec', '\u25cf'));
+      note.appendChild(doc.createTextNode(' record \u00b7 trait : la moyenne de tes séances \u00b7 points pâles : chaque séance.' +
+        (c.genre === 'charge' ? ' Seules les séries de 10 reps ou moins comptent.' : '')));
+      carte.appendChild(note);
+    } else if (geo.points.length === 1) {
+      carte.appendChild(el('p', 'courbe-vide', 'Une seule séance sur cette période.'));
+    }
+    carte.appendChild(bulle);
+    cible.appendChild(carte);
+  }
+
   function rendreResumeExo(cible, vue) {
+    if (vue.courbe) rendreCourbeExo(cible, vue.courbe);
     if (vue.tonEchelle) rendreTonEchelle(cible, vue.tonEchelle, vue.surMarche);
     if (vue.leviers) rendreLeviersGardes(cible, vue.leviers);
     if (vue.objectif) rendreCarteObjectif(cible, vue.objectif);
@@ -762,7 +865,24 @@
       cible.appendChild(el('p', 'vide', 'Aucune séance avec cet exercice.'));
       return;
     }
+    // 206 — l'historique est replié PAR MOIS : le mois le plus récent est ouvert, les autres se déplient au toucher.
+    var moisCourant = null, groupe = null, nbOuverts = 0, titreMois = null, nbDuMois = 0;
+    var posterMois = function () { if (titreMois) titreMois.appendChild(el('span', 'exo-mois-n', ' \u00b7 ' + nbDuMois + ' séance' + (nbDuMois > 1 ? 's' : ''))); };
     liste.forEach(function (s) {
+      var dm = s.debut ? new Date(s.debut) : null;
+      var cle = dm && !isNaN(dm.getTime()) ? dm.getFullYear() + '-' + dm.getMonth() : '?';
+      if (cle !== moisCourant) {
+        posterMois();
+        nbDuMois = 0;
+        moisCourant = cle;
+        groupe = el('details', 'exo-mois');
+        if (!nbOuverts) groupe.open = true;
+        nbOuverts++;
+        titreMois = el('summary', 'exo-mois-t', dm && !isNaN(dm.getTime()) ? M().moisAnnee(dm) : 'Sans date');
+        groupe.appendChild(titreMois);
+        cible.appendChild(groupe);
+      }
+      nbDuMois++;
       var carte = el('section', 'exo-jour');
 
       var tete = el('div', 'exo-jour-tete');
@@ -785,8 +905,9 @@
       // repos (le temps d'exécution y entre, une série de superset enchaînée y vaut 45 s) : enregistré, jamais
       // affiché (MODIFICATEURS §4), tant qu'il n'est pas un vrai repos. Seule la note de séance reste.
       if (s.note) carte.appendChild(el('div', 'exo-jour-note', s.note));
-      cible.appendChild(carte);
+      groupe.appendChild(carte);
     });
+    posterMois();
 
     // « Voir plus » : 20 séances d'abord, le reste sur demande. Absent quand il
     // n'y a rien de plus — un bouton qui ne révèle rien est un mensonge.
@@ -1393,7 +1514,11 @@
   // le menu de bloc en séance. « La vue par exercice arrive » a disparu : elle
   // est arrivée.
   function blocExercices(v) {
-    var bloc = coquilleBloc('Par exercice', v.quand, true);
+    // 206 — « TES EXERCICES », en tête de Progression : les exercices les plus faits, chacun avec sa mini-courbe (la moyenne
+    // glissante, la même que sur la page d'exercice) et « 141 → 152 kg ». L'écran dessine ce qu'il reçoit (THCourbe.mini).
+    var bloc = coquilleBloc('Tes exercices', '', true);
+    bloc.classList.add('bloc-courbes');
+    if (v.legende && (v.lignes || []).length) bloc.appendChild(el('div', 'bloc-legende', v.legende));
     (v.lignes || []).forEach(function (l) {
       var cliquable = !!(v.surExercice && l.slug);
       var ligne = el(cliquable ? 'button' : 'div', 'bloc-exo');
@@ -1401,12 +1526,23 @@
         ligne.type = 'button';
         ligne.addEventListener('click', function () { v.surExercice(l.slug); });
       }
-      ligne.appendChild(el('span', 'bloc-exo-nom', l.nom));
-      ligne.appendChild(el('span', 'bloc-exo-val', l.mesure));
-      ligne.appendChild(el('span', 'bloc-exo-jour', jour(l.jour)));
+      var txt = el('span', 'bloc-exo-txt');
+      txt.appendChild(el('span', 'bloc-exo-nom', l.nom));
+      txt.appendChild(el('span', 'bloc-exo-val', l.mesure));
+      ligne.appendChild(txt);
+      if (l.mini && l.mini.trait.length > 1) {
+        var d = svg('svg', 'bloc-exo-mini', {
+          viewBox: '0 0 ' + l.mini.largeur + ' ' + l.mini.hauteur, width: l.mini.largeur, height: l.mini.hauteur,
+          role: 'img', 'aria-label': l.nom + ', ' + l.mesure
+        });
+        d.appendChild(svg('polyline', 'courbe-trait', { points: listePoints(l.mini.trait) }));
+        d.appendChild(svg('circle', l.mini.dernier.record ? 'courbe-pt record' : 'courbe-pt',
+          { cx: l.mini.dernier.x, cy: l.mini.dernier.y, r: 3 }));
+        ligne.appendChild(d);
+      }
       bloc.appendChild(ligne);
     });
-    // 173 — « Tous mes exercices » sous les trois derniers : la même destination que la porte du Profil (qui reste).
+    // 173 — « Tous les exercices » : la même destination que la porte du Profil (qui reste).
     if (v.surTous) {
       var tous = el('button', 'bloc-tous', 'Tous mes exercices \u203a');
       tous.type = 'button';
@@ -1414,6 +1550,32 @@
       bloc.appendChild(tous);
     }
     return bloc;
+  }
+
+  // 206 — « RÉTROSPECTIVES » : ton parcours, ton année, la saison, regroupés en UNE ligne qui s'ouvre sur les trois (les
+  // mêmes blocs, les mêmes destinations). Absente s'il n'y en a aucune.
+  function blocRetrospectives(blocs, noms) {
+    var env = el('div', 'bloc-retro');
+    var tete = el('button', 'bloc-som retro-tete');
+    tete.type = 'button';
+    tete.setAttribute('aria-expanded', 'false');
+    var haut = el('div', 'bloc-haut');
+    var quoi = el('span', 'bloc-quoi', 'Rétrospectives');
+    haut.appendChild(quoi);
+    haut.appendChild(el('span', 'bloc-quand', noms.join(', ')));
+    haut.appendChild(el('span', 'bloc-fl', '\u203a'));
+    tete.appendChild(haut);
+    var liste = el('div', 'retro-liste');
+    liste.hidden = true;
+    blocs.forEach(function (b) { liste.appendChild(b); });
+    tete.addEventListener('click', function () {
+      var ouvert = tete.getAttribute('aria-expanded') === 'true';
+      tete.setAttribute('aria-expanded', ouvert ? 'false' : 'true');
+      liste.hidden = ouvert;
+    });
+    env.appendChild(tete);
+    env.appendChild(liste);
+    return env;
   }
 
   // MOTEUR §9.23 (55-1) — LE MOIS ÉCOULÉ, en tête : « Septembre — 22 séances
@@ -1844,14 +2006,18 @@
   function rendreSommaire(cible, vue) {
     if (!cible) return;
     vider(cible);
+    // 206 — « Tes exercices » en tête, puis les totaux (une ligne), le dernier record, les rétrospectives (une ligne, seulement
+    // si elles ont du contenu), Volume et Poids.
+    cible.appendChild(blocExercices(vue.exercices));
     if (vue.mois) cible.appendChild(blocMois(vue.mois));
-    if (vue.parcours) cible.appendChild(blocParcours(vue.parcours));
-    if (vue.annee) cible.appendChild(blocAnnee(vue.annee));
-    if (vue.saison) cible.appendChild(blocSaison(vue.saison));
     if (vue.records) cible.appendChild(blocRecords(vue.records));
+    var retro = [], noms = [];
+    if (vue.parcours && vue.parcours.phrase) { retro.push(blocParcours(vue.parcours)); noms.push('ton parcours'); }
+    if (vue.annee) { retro.push(blocAnnee(vue.annee)); noms.push('ton année'); }
+    if (vue.saison) { retro.push(blocSaison(vue.saison)); noms.push(vue.saison.titre); }
+    if (retro.length) cible.appendChild(blocRetrospectives(retro, noms));
     cible.appendChild(blocVolume(vue.volume));
     cible.appendChild(blocPoids(vue.poids));
-    cible.appendChild(blocExercices(vue.exercices));
   }
 
   // ── MOTEUR §9.23 (55-1) — LES RECORDS D'UN MOIS, et leur navigation ─────

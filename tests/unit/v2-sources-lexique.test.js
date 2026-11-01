@@ -72,7 +72,7 @@ describe('201 — le registre SOURCES', () => {
 });
 
 describe('201 — le lexique', () => {
-  const ATTENDUS = ['zone', 'palier', 'recul', 'max_du_jour', 'au_max', 'cinq_plus', 'garde', 'allegee', 'phase', 'semaine_de_test',
+  const ATTENDUS = ['zone', 'palier', 'recul', 'max_du_jour', 'max_estime', 'au_max', 'cinq_plus', 'garde', 'allegee', 'phase', 'semaine_de_test',
     'marche', 'figure', 'rest_pause', 'zone_a_menager'];
   test('la liste fixe, une phrase chacun, dans l\'ordre', () => {
     const l = M.lexique();

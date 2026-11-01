@@ -1131,7 +1131,7 @@ describe('l’étiquette se touche, et le menu (ECRAN-SAISIE §3.8)', () => {
     // §20.2 (49-U9) — l'aide et « Fermer », figés ici aussi (Z5 ne l'était
     // que par le banc).
     expect(textes(c, '.feuille-aide')).toEqual(['La consigne se recalcule dès que tu changes de zone.']);
-    expect(textes(c, 'button').filter((x) => x === 'Fermer')).toEqual(['Fermer']);
+    expect(textes(c, 'button').filter((x) => x === 'Fermer')).toEqual([]);   // 215 : « Fermer » est celui de la feuille commune
   });
 
   test('DISCRIMINANT — la coche suit la zone CHOISIE, sinon la déduite', () => {
@@ -1159,14 +1159,14 @@ describe('l’étiquette se touche, et le menu (ECRAN-SAISIE §3.8)', () => {
       .toEqual(['Revenir à celle d\'après tes séances']);
   });
 
-  test('choisir rend la clé ; « Revenir » rend null ; « Fermer » ferme', () => {
+  test('choisir rend la clé ; « Revenir » rend null ; « Fermer » est celui de la feuille commune', () => {
     const vus = []; let ferme = 0;
     const c = menu({ choisie: 'lourd', surChoix: (v) => vus.push(v), surFermer: () => { ferme++; } });
     c.querySelector('[data-cle="volume"]').click();
     [...c.querySelectorAll('button')].filter((b) => /Revenir/.test(b.textContent))[0].click();
-    [...c.querySelectorAll('button')].filter((b) => b.textContent === 'Fermer')[0].click();
+    expect([...c.querySelectorAll('button')].filter((b) => b.textContent === 'Fermer')).toHaveLength(0);   // 215 : celui de la feuille commune
     expect(vus).toEqual(['volume', null]);
-    expect(ferme).toBe(1);
+    expect(ferme).toBe(0);
   });
 });
 

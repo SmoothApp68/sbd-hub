@@ -2094,6 +2094,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .q-puce{background:var(--panneau);border:1.5px solid var(--trait);border-radius:999px;
   padding:8px 13px;color:var(--texte);font-size:14px;font-weight:500}
 .q-puce.on{border-color:var(--accent);background:#2a2214}
+.q-puce.absent{color:var(--texte-2);text-decoration:line-through;background:transparent;border-style:dashed}
+.q-puce .q-absent{display:block;font-size:12px;font-weight:400;text-decoration:none;line-height:1.1}
 .q-opt:focus-visible,.q-puce:focus-visible,.q-ligne-choix:focus-visible,.q-mod:focus-visible,
 .q-champ-in:focus-visible,.q-retour:focus-visible,.q-plus-tard:focus-visible{
   outline:2px solid var(--accent);outline-offset:2px}
@@ -2952,10 +2954,10 @@ button[id^="btn-retour"]{padding:0 14px;font-size:14px}
 .dq-aide{font-size:13px;color:var(--texte-2);line-height:1.4}
 .dq-texte{font-size:20px;font-weight:700}
 .dq-barre{display:flex;align-items:center;height:110px;margin:8px 0 4px}
-.dq-manche{width:70px;height:10px;background:#9AA3AF;border-radius:2px}
-.dq-butee{width:8px;height:34px;background:#9AA3AF;border-radius:2px;margin-right:3px}
-.dq-disque{border-radius:4px;margin-right:3px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#111;overflow:hidden}
-.dq-bout{width:46px;height:10px;background:#9AA3AF;border-radius:0 3px 3px 0}
+.dq-manche{width:36px;flex:none;height:10px;background:#9AA3AF;border-radius:2px}
+.dq-butee{width:8px;height:34px;background:#9AA3AF;border-radius:2px;margin-right:2px;flex:none}
+.dq-disque{flex:none;border-radius:3px;margin-right:2px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#111;overflow:hidden}
+.dq-bout{width:20px;flex:none;height:10px;background:#9AA3AF;border-radius:0 3px 3px 0}
 .dq-ligne{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:44px;border:0;border-top:1px solid var(--trait);background:none;font:inherit;font-size:14px;color:var(--texte-2);padding:0}
 .dq-val{color:var(--texte)}
 .dq-barres{padding:6px 0}

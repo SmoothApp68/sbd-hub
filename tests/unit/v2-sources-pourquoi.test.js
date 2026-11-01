@@ -63,11 +63,11 @@ describe('201 — « D\'où ça vient » au Pourquoi', () => {
 
 describe('201 — Profil › Les mots du coach', () => {
   const { profilEcran } = require('./aide-profil-ecran');
-  test('la section existe sous « Mon coach », avec le compte des mots du lexique', () => {
+  test('la section existe sous « À propos », avec le compte des mots du lexique', () => {
     const r = profilEcran({ username: 'a' });
     const sec = r.section('LES MOTS DU COACH');
     expect(sec).toBeTruthy();
-    expect(sec.groupe).toBe('Mon coach');
+    expect(sec.groupe).toBe('À propos');   // 213 : « Les mots du coach » rejoint « À propos »
     expect(sec.lignes).toHaveLength(1);
     expect(sec.lignes[0].libelle).toBe('Les mots du coach');
     expect(sec.lignes[0].sous).toBe(M.lexique().length + ' mots, une phrase chacun');

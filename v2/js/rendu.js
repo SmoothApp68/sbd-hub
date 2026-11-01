@@ -5128,6 +5128,18 @@
     ligneBarre.appendChild(el('span', 'dq-val', M.nombreSigne(vue.barre) + ' kg ›'));
     ligneBarre.addEventListener('click', vue.surChoixBarre);
     carte.appendChild(ligneBarre);
+    // 215 — « Mes disques › » : le résumé, et au toucher les mêmes puces que « Ma salle » (`Profil.lignesMateriel`).
+    var ligneDisques = el('button', 'dq-ligne dq-disques-choix', '');
+    ligneDisques.type = 'button';
+    ligneDisques.appendChild(el('span', '', 'Mes disques'));
+    ligneDisques.appendChild(el('span', 'dq-val', (vue.resumeDisques || '') + ' ›'));
+    ligneDisques.addEventListener('click', vue.surChoixDisques);
+    carte.appendChild(ligneDisques);
+    if (vue.choixDisques && vue.ligneDisques) {
+      var gd = el('div', 'dq-disques-puces');
+      gd.appendChild(blocPuces(vue.ligneDisques, { surChoix: function (c, v) { vue.surDisque(v); } }));
+      carte.appendChild(gd);
+    }
     if (vue.choixBarre) {
       var g = el('div', 'q-puces dq-barres');
       vue.barresProposees.forEach(function (kg) {
@@ -7325,7 +7337,10 @@
     var valeurs = b.multiple ? (b.valeurs || []) : [b.valeur];
     b.options.forEach(function (o) {
       var on = valeurs.indexOf(o.cle) >= 0;
-      var n = el('button', 'q-puce' + (on ? ' on' : ''), o.libelle);
+      // 215 — une puce « présent / absent » : l'état se LIT (éteinte = barrée, avec le mot « absent »), pas seulement un contour.
+      var absent = !!b.absence && b.multiple && !on;
+      var n = el('button', 'q-puce' + (on ? ' on' : '') + (absent ? ' absent' : ''), o.libelle);
+      if (absent) n.appendChild(el('small', 'q-absent', 'absent'));
       n.type = 'button';
       n.dataset.cle = o.cle;
       n.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -7672,7 +7687,7 @@
       carte.dataset.reglage = l.cle;
       carte.appendChild(el('div', 'choix-groupe salle-titre', l.titre));
       carte.appendChild(el('p', 'feuille-aide', l.aide));
-      carte.appendChild(blocPuces({ cle: l.cle, valeur: l.valeur, multiple: l.multiple, valeurs: l.valeurs, options: l.options },
+      carte.appendChild(blocPuces({ cle: l.cle, valeur: l.valeur, multiple: l.multiple, valeurs: l.valeurs, absence: l.absence, options: l.options },
         { surChoix: function (c, v) { vue.surReglage(c, v); } }));
       cible.appendChild(carte);
     });

@@ -1634,7 +1634,7 @@
       var l = LIGNES_MATERIEL[cle];
       var r = { cle: cle, titre: l.titre, aide: l.aide, options: optionsDeLaLigne(cle) };
       // 205 — les disques : des puces à choix multiple, allumées = PRÉSENTS (un disque gris est un disque que la salle n'a pas).
-      if (cle === 'disques') { r.multiple = true; r.valeurs = racine.THMoteur.disquesPresentsDe(brouillon); }
+      if (cle === 'disques') { r.multiple = true; r.absence = true; r.valeurs = racine.THMoteur.disquesPresentsDe(brouillon); }   // 215 : une puce éteinte dit « absent »
       else r.valeur = valeurDeLaLigne(brouillon, cle);
       return r;
     });
@@ -1676,6 +1676,18 @@
     var b = brouillonSalle(profil);
     b.barre_kg = kg;
     return champsSalle(b);
+  }
+  // 215 — « Mes disques › » de la feuille « Disques » : LE MÊME geste que « Ma salle » (`poserReglageMateriel`), appliqué à la
+  // salle du profil ; les champs à écrire (`null` : disque inconnu).
+  function champsDisque(profil, kg) {
+    if (racine.THMoteur.DISQUES_STANDARD.indexOf(kg) < 0) return null;
+    return champsSalle(poserReglageMateriel(brouillonSalle(profil), 'disques', kg));
+  }
+  // 215 — le résumé de la ligne : les disques présents, du plus lourd au plus léger (« 25 · 20 · 15 … »).
+  function resumeDisques(profil) {
+    var M = racine.THModele;
+    return racine.THMoteur.disquesPresentsDe(salleDe(profil)).slice().sort(function (a, b) { return b - a; })
+      .map(function (k) { return M.nombreSigne(k); }).join(' \u00b7 ');
   }
   function barreTractionDe(profil) {
     var s = salleDe(profil);
@@ -2433,7 +2445,7 @@
     salleValide: salleValide, salleDe: salleDe, brouillonSalle: brouillonSalle, basculerBarre: basculerBarre,
     // 190 — le plus petit disque et la barre de traction.
     SALLE_DISQUE_MIN: SALLE_DISQUE_MIN, SALLE_DISQUE_MAX: SALLE_DISQUE_MAX, DISQUES_PROPOSES: DISQUES_PROPOSES,
-    lignesMateriel: lignesMateriel, poserReglageMateriel: poserReglageMateriel, plusPetitDisqueDe: plusPetitDisqueDe, barreDe: barreDe, disquesPresentsDuProfil: disquesPresentsDuProfil, champsBarre: champsBarre,
+    lignesMateriel: lignesMateriel, poserReglageMateriel: poserReglageMateriel, plusPetitDisqueDe: plusPetitDisqueDe, barreDe: barreDe, disquesPresentsDuProfil: disquesPresentsDuProfil, champsBarre: champsBarre, champsDisque: champsDisque, resumeDisques: resumeDisques,
     barreTractionDe: barreTractionDe, sansBarreDeTraction: sansBarreDeTraction, estHorsDeMaSalle: estHorsDeMaSalle, demandeUneBarreDeTraction: demandeUneBarreDeTraction,
     // 132 (ECRAN-PROFIL §2.4 sexies) — les deux listes d'élastiques.
     ELASTIQUES_MAX: ELASTIQUES_MAX, peutAjouterElastique: peutAjouterElastique, ajouterElastique: ajouterElastique,

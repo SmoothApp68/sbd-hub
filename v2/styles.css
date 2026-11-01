@@ -756,11 +756,16 @@ button.bloc-exo:active{background:var(--panneau-2)}
      (10), le repos (50), le pied de réorganisation (51) et toutes les feuilles (60) ;
    · elle déborde des 12 px de gouttière (marge négative, même retrait en dedans) :
      le texte ne bouge pas d'un pixel, mais rien ne passe plus à côté d'elle ;
-   · aucun jaune : l'ambre reste la voix du coach (§3.1) — « Terminer » garde son
-     contour neutre ; sa cible fait 40 px de haut, comme les autres boutons de la barre. */
+   · 204 : « Terminer » est le bouton principal de la séance (ambre, 48 px) ; les autres cibles de la barre font 44 px. */
 #bandeau-seance{position:sticky;top:0;z-index:8;background:var(--fond);
   margin:0 -12px var(--e3);padding:var(--e2) 12px}
-#bandeau-seance .discret{min-height:40px}
+#bandeau-seance .discret{min-height:44px}
+/* 204 (maquette « Séance en salle ») — LES CIBLES AU POUCE. « ⌄ » (réduire) et « ⋯ » (actions de la séance) mesurent 44 × 44 ;
+   « Terminer » est le bouton principal, 48 px de haut, à l'ambre (une action principale par écran). */
+.bandeau-pt{flex:0 0 auto;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
+  background:none;border:none;border-radius:var(--r-petit);color:var(--texte-2);font-size:20px;line-height:1;padding:0}
+.bandeau-pt:active{color:var(--texte)}
+#bandeau-seance .bandeau-fin.principal{width:auto;min-width:48px;height:48px;margin:0;padding:0 16px;flex:0 0 auto}
 /* « Rien d'interactif sous une barre » (chantier 24, étendu à la barre du HAUT) : un
    champ qui prend le focus, un bloc amené en vue ou « + Série » s'arrêtent SOUS la barre,
    pas derrière elle. `--h-barre-seance` est mesurée (`mesurerBarres`, app.js) comme
@@ -913,6 +918,27 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .note-exo{flex:1 1 140px;min-width:0;overflow:hidden;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .note-exo.pleine{color:var(--texte-2);border-color:#343A43;background:var(--panneau-2)}
+
+/* ── 204 (maquette « Séance en salle ») — LES CIBLES AU POUCE, ET CE QUI NE SERT PAS PENDANT UNE SÉRIE S'EFFACE ───────────────
+   · le « ⋯ » et le nom de l'exercice : 44 px de zone de toucher (la rangée du nom ne grandit pas : marges négatives) ;
+   · le repos, « ⏱ 3:00 », prend la tête de la colonne ✓ ; il déborde vers la gauche si la durée est longue (« ⏱ 10:00 ») ;
+   · une note posée s'affiche sous le nom (un toucher la rouvre) ;
+   · « Pourquoi ? » : un lien discret au bout de la phrase datée (rendu par CSS, le texte du coach reste mot pour mot). */
+#vue-seance .legende-haut .menu-pts{width:44px;height:44px;margin:-10px -12px -10px 0;font-size:20px;color:var(--texte-2);
+  display:inline-flex;align-items:center;justify-content:center;padding:0}
+#vue-seance .legende-haut .nom-exo.lien{min-height:44px;display:inline-flex;align-items:center;text-align:left}
+#vue-seance .legende-haut .exo-seance{align-items:center}
+.cols-seance .repos-entete{justify-self:end;white-space:nowrap;min-width:40px;height:40px;margin:-8px 0 -8px;padding:0 2px;
+  background:none;border:none;border-radius:var(--r-petit);color:var(--texte-2);font-size:11px;font-weight:600;letter-spacing:0}
+.cols-seance .repos-entete:active{color:var(--texte)}
+.note-sous-nom{display:block;width:100%;margin-top:2px;min-height:30px;padding:6px 10px;border-radius:var(--r-petit);border:1px solid #343A43;
+  background:var(--panneau-2);color:var(--texte-2);font-size:13.333333px;text-align:left;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.consigne-dit[data-pourquoi]::after{content:" " attr(data-pourquoi);color:var(--texte);border-bottom:1px dotted var(--texte-3);white-space:nowrap}
+.consigne-dit[data-pourquoi]{display:block;padding:6px 0;margin-top:0}
+/* Sans barre d'onglets (séance en cours), plus rien ne porte l'encoche du bas : le repos et le bas de page la prennent. */
+html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .repos{padding-bottom:calc(var(--e3) + env(safe-area-inset-bottom,0px))}
+html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:calc(var(--h-onglets, 68px) + var(--e6) + var(--h-repos, 0px) + var(--h-pied, 0px) + var(--h-toast, 0px) + env(safe-area-inset-bottom,0px))}
 
 /* ⚠️ LA FORGE (56-1) — LES CHIFFRES DE LA GRILLE, ET UNE DÉCLARATION QUI NE
    S'APPLIQUAIT PAS. `font:700 15px/1 inherit` est INVALIDE (`inherit` ne vit
@@ -1311,8 +1337,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 /* Arrêté à l'échéance, pas planté (§7 septies.3). */
 .repos-c{font-size:11px;color:var(--texte-3);white-space:nowrap}
 /* −15 / +15 / son : des commandes, pas des boutons d'action. Discrètes, mais
-   la cible de tap fait 30 px de haut — on les vise entre deux séries. */
-.repos-b{min-width:34px;height:30px;padding:0 6px;border-radius:var(--r-petit);
+   204 : la cible de tap fait 48 px de haut — on les vise entre deux séries, en sueur. */
+.repos-b{min-width:48px;height:48px;padding:0 6px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
   font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;flex:0 0 auto}
 .repos-b.coupe{color:var(--texte-3);border-style:dashed}

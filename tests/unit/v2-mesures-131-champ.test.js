@@ -62,7 +62,8 @@ test('Escaliers : ÉTAGES prend la colonne de la distance (grille à deux cases)
   const c = rendre131(false, []);
   const blocs = c.querySelectorAll('.bloc-seance');
   const esc = blocs[1];
-  expect([...esc.querySelectorAll('.cols-seance span')].map((x) => x.textContent)).toEqual(['', 'PRÉC.', 'DURÉE', 'ÉTAGES', '']);
+  expect([...esc.querySelectorAll('.cols-seance span')].map((x) => x.textContent)).toEqual(['', 'PRÉC.', 'DURÉE', 'ÉTAGES'])   // 204 : le repos (un bouton) a pris la place du dernier span, en tête de la colonne ✓
+  expect(esc.querySelector('.cols-seance button.repos-entete').textContent).toBe('⏱\u00a0—');
   expect(esc.querySelector('.serie').className).toContain('g-temps g-plus');
   expect(esc.querySelector('[data-champ="etages"] input').value).toBe('72');
   expect(esc.textContent).toContain('DURÉE · ÉTAGES');

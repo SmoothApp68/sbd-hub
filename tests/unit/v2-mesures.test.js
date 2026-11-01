@@ -129,8 +129,9 @@ describe('1 — chaque mesure rend ses colonnes, et SEULEMENT les siennes', () =
   });
 
   test('le type de mesure est rappelé sous le nom de l’exercice', () => {
+    // 204 : « CHARGE × REPS » est retiré en séance (le grand chiffre et l'en-tête KG · REPS se lisent seuls) ; les autres mesures le gardent.
     expect(blocs().map((b) => b.type)).toEqual([
-      'CHARGE × REPS', 'REPS SEULES', 'DURÉE', 'DURÉE · DISTANCE'
+      null, 'REPS SEULES', 'DURÉE', 'DURÉE · DISTANCE'
     ]);
   });
 });

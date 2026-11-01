@@ -525,11 +525,12 @@ describe('l’en-tête dit la consigne (ECRAN-SAISIE §3.1)', () => {
     const cible = rendre(ouverte(T(3)), () => LIB);
     expect(textes(cible, '.consigne')).toEqual(LIB.jaune);
     expect(textes(cible, '.consigne-dit')).toEqual([LIB.gris]);
-    // L'ordre dans la légende : type de mesure, jaune, jaune, gris, réglages.
+    // L'ordre dans la légende : jaune, jaune, gris. 204 : plus de « CHARGE × REPS » sous le nom, plus de rangée de réglages (le repos est
+    // en tête de la colonne ✓, la note dans le « ⋯ »).
     const legende = cible.querySelector('.legende-exo');
     // 173 : la consigne porte des classes de mise en forme en plus (consigne-grande, si-ca-passe) ; l'ordre et la classe de base restent.
     const classes = [...legende.children].map((e) => e.className.split(' ')[0]);
-    expect(classes).toEqual(['legende-haut', 'type-mesure', 'consigne', 'consigne', 'consigne-dit', 'reglages-exo']);
+    expect(classes).toEqual(['legende-haut', 'consigne', 'consigne', 'consigne-dit']);
   });
 
   test('sans libellés (Entretenir, mesure sans charge, Édition) : rien', () => {

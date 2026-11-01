@@ -182,10 +182,14 @@ describe('ce que la barre montre', () => {
     expect(lire(b.querySelector('.bandeau-ch'))).toBe('1 h 12 · 1 série de travail');
   });
 
-  test('« Terminer » reste un bouton neutre (`discret`), jamais l’ambre de la forge', () => {
+  // 204 : « Terminer » est LE bouton principal de la séance (l'ambre de la forge, 48 px) ; en correction, « Enregistrer » reste neutre.
+  test('« Terminer » est le bouton principal (`principal`) ; « Enregistrer » en correction reste neutre', () => {
     const fin = barre().querySelector('.bandeau-fin');
-    expect(fin.classList.contains('discret')).toBe(true);
-    expect(fin.classList.contains('principal')).toBe(false);
+    expect(fin.classList.contains('principal')).toBe(true);
+    expect(fin.classList.contains('discret')).toBe(false);
+    const enr = barre({ edition: true }).querySelector('.bandeau-fin');
+    expect(enr.classList.contains('discret')).toBe(true);
+    expect(enr.classList.contains('principal')).toBe(false);
   });
 
   // ⚠️ UNE SEULE PHRASE, UN SEUL NŒUD TEXTE : le relevé du texte visible compare les
@@ -572,8 +576,10 @@ describe('la barre dans la feuille de style', () => {
     expect(toutes).not.toMatch(/--accent|#f2b84b|yellow/i);
   });
 
-  test('« Terminer » et ses voisins : 40 px de haut au moins', () => {
-    expect(regle('#bandeau-seance .discret')).toMatch(/min-height:40px/);
+  test('« Terminer » : 48 px ; « ⌄ », « ⋯ » et leurs voisins : 44 px au moins (204)', () => {
+    expect(regle('#bandeau-seance .discret')).toMatch(/min-height:44px/);
+    expect(regle('#bandeau-seance .bandeau-fin.principal')).toMatch(/height:48px/);
+    expect(regle('.bandeau-pt')).toMatch(/width:44px;height:44px/);
   });
 
   // ⚠️ MUTATION (d) : `scroll-margin-top` retiré. Et la réserve du défileur, sans

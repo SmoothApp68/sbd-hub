@@ -769,6 +769,28 @@ const SETS_IMPORTES = [
   PORT = await Verrou.ecouter(serveur, PORT); BASE = 'http://127.0.0.1:' + PORT;
   const nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ['--no-sandbox'] });
   const ctx = await nav.newContext({ viewport: { width: 360, height: 760 } });
+  // ⚠️ 204 — PENDANT UNE SÉANCE EN COURS, LA BARRE D'ONGLETS EST CACHÉE : « ⌄ » (Réduire la séance) la rend. Un clic du banc sur un
+  // onglet fait donc d'abord le geste de l'utilisateur — réduire — quand la barre est cachée par la séance : l'intention des sections
+  // (« va sur Profil, puis reviens ») ne change pas, et le geste « ⌄ » a ses propres contrôles (section « salle »).
+  const reduireSiOngletsCaches = async (p) => {
+    const cache = await p.evaluate(() => {
+      const o = document.getElementById('onglets'), r = document.querySelector('#bandeau-seance .bandeau-reduire');
+      if (!o || !o.hidden || !r) return false;
+      r.click();
+      return true;
+    }).catch(() => false);
+    if (cache) await p.waitForFunction(() => !document.getElementById('onglets').hidden, null, { timeout: 5000 }).catch(() => {});
+  };
+  const nouvellePageOrigine = ctx.newPage.bind(ctx);
+  ctx.newPage = async () => {
+    const p = await nouvellePageOrigine();
+    const clicOrigine = p.click.bind(p);
+    p.click = async (sel, ...reste) => {
+      if (typeof sel === 'string' && /(^|[\s,])(\.onglet\b|#onglet-)/.test(sel)) await reduireSiOngletsCaches(p);
+      return clicOrigine(sel, ...reste);
+    };
+    return p;
+  };
 
   const SCRIPT_JETON = () => {
     const JETON = JSON.stringify({
@@ -2043,6 +2065,25 @@ const SETS_IMPORTES = [
     p.on('pageerror', (e) => erreurs.push(String(e).slice(0, 140)));
   };
   brancher(page);
+  // 204 — « Modifier » vit dans le « ⋯ » de la séance ; une fois le mode ouvert, « Terminé » reprend la place du « ⋯ ». Le geste de
+  // l'utilisateur, dans les deux sens.
+  const basculerModifier = async () => {
+    if (await page.$('#bandeau-seance .bandeau-modifier')) return page.click('#bandeau-seance .bandeau-modifier');
+    await page.click('#bandeau-seance .bandeau-menu');
+    await page.click('#feuille-contenu .menu-modifier');
+  };
+  // 204 — « S'entraîner ensemble » vit dans le « ⋯ » de la séance, plus dans un bouton de la séance.
+  const ouvrirMenuSeance = async () => {
+    await page.click('#bandeau-seance .bandeau-menu');
+    await page.waitForSelector('#feuille-contenu .menu-modifier', { timeout: 5000 });
+  };
+  const lancerEnsemble = async () => { await ouvrirMenuSeance(); await page.click('#feuille-contenu .menu-ensemble'); };
+  const ensembleProposeAuMenu = async () => {
+    await ouvrirMenuSeance();
+    const oui = !!(await page.$('#feuille-contenu .menu-ensemble'));
+    await page.click('#btn-fermer-feuille');
+    return oui;
+  };
 
   // ── 49-U7 (C6) — LA GARDE DU BANC : TOUS LES PLANS, TOUTES LES SECTIONS ──
   //
@@ -3191,7 +3232,7 @@ const SETS_IMPORTES = [
   await toucherBloc(1, '.repos-cible');
   await molette(15);
   ok('[45] la molette pose un repos sur l’exercice qui n’en avait pas',
-    /repos 0:15/.test(await lireDansBloc(1, '.repos-cible')),
+    /⏱\s0:15/.test(await lireDansBloc(1, '.repos-cible')),
     await lireDansBloc(1, '.repos-cible'));
   await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
   await attendre(600);
@@ -3231,7 +3272,7 @@ const SETS_IMPORTES = [
   // le décompte ne touche pas la consigne. Si le réglage de la barre écrivait
   // sur l'exercice, la molette afficherait « repos — » ici.
   ok('[49] …et le repos PRESCRIT de l’exercice est intact',
-    /repos 0:15/.test(await lireDansBloc(1, '.repos-cible')),
+    /⏱\s0:15/.test(await lireDansBloc(1, '.repos-cible')),
     await lireDansBloc(1, '.repos-cible'));
 
   // On réarme pour la suite : valider une série repart de la cible prescrite,
@@ -3307,7 +3348,7 @@ const SETS_IMPORTES = [
   await molette(120);
   ok('[50] régler l’exercice d’À CÔTÉ ne touche pas le repos en cours',
     (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')) &&
-    /repos 2:00/.test(await lireDansBloc(0, '.repos-cible')),
+    /⏱\s2:00/.test(await lireDansBloc(0, '.repos-cible')),
     (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 30) +
     ' · bloc 0 : ' + (await lireDansBloc(0, '.repos-cible')).trim());
 
@@ -3332,7 +3373,7 @@ const SETS_IMPORTES = [
   await toucherBloc(1, '.repos-cible');
   await molette(5);
   ok('[51] …et ramenée derrière l’écoulé, la molette éteint la barre',
-    (await barreVisible()) === false && /repos 0:05/.test(await lireDansBloc(1, '.repos-cible')),
+    (await barreVisible()) === false && /⏱\s0:05/.test(await lireDansBloc(1, '.repos-cible')),
     'barre ' + ((await barreVisible()) ? 'encore là' : 'partie') +
     ' · ' + (await lireDansBloc(1, '.repos-cible')).trim());
 
@@ -3496,9 +3537,10 @@ const SETS_IMPORTES = [
   ok('chaque champ porte son unité', JSON.stringify(g4.map((x) => x.champs)) ===
     JSON.stringify([['kg', ''], [''], [''], ['', 'km']]),
     JSON.stringify(g4.map((x) => x.champs)));
-  ok('le type de mesure est rappelé sous le nom',
+  // 204 — « CHARGE × REPS » est retiré en séance (le grand chiffre et l'en-tête KG · REPS se lisent seuls) ; les autres mesures le gardent.
+  ok('le type de mesure est rappelé sous le nom (sauf « CHARGE × REPS », retiré en séance)',
     JSON.stringify(g4.map((x) => x.type)) ===
-      '["CHARGE × REPS","REPS SEULES","DURÉE","DURÉE · DISTANCE"]',
+      '[null,"REPS SEULES","DURÉE","DURÉE · DISTANCE"]',
     JSON.stringify(g4.map((x) => x.type)));
 
   // §3 — la colonne d'effort n'existe que là où il y a des répétitions.
@@ -3711,20 +3753,31 @@ const SETS_IMPORTES = [
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await attendre(600);
 
+  if (process.env.BANC_CAPTURES_204) {
+    // 204 — capture à 380 px pour la PR, le minuteur ouvert, le défilement tout en bas.
+    await page.setViewportSize({ width: 380, height: 760 });
+    await page.waitForFunction(() => window.innerWidth === 380, null, { timeout: 5000 });
+    await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_204, 'repos-ouvert.png') });
+    await page.setViewportSize({ width: 360, height: 760 });
+    await page.waitForFunction(() => window.innerWidth === 360, null, { timeout: 5000 });
+  }
   const jetons = await page.evaluate(() => {
     const s = getComputedStyle(document.documentElement);
     return { onglets: s.getPropertyValue('--h-onglets').trim(),
              repos: s.getPropertyValue('--h-repos').trim() };
   });
-  ok('les deux hauteurs sont MESURÉES, pas devinées',
+  // 204 — la barre d'onglets est cachée par la séance : sa réserve vaut ZÉRO (mesurée, elle aussi).
+  ok('les deux hauteurs sont MESURÉES, pas devinées (onglets cachés par la séance : 0)',
     /^\d+px$/.test(jetons.onglets) && /^\d+px$/.test(jetons.repos) &&
-    parseInt(jetons.repos, 10) > 0, JSON.stringify(jetons));
+    parseInt(jetons.onglets, 10) === 0 && parseInt(jetons.repos, 10) > 0, JSON.stringify(jetons));
 
   const geometrie = await page.evaluate(() => {
     const repos = document.querySelector('#repos');
     const onglets = document.querySelector('.onglets');
     if (!repos || repos.hidden) return { ouvert: false };
     const rb = repos.getBoundingClientRect(), ro = onglets.getBoundingClientRect();
+    // 204 — la séance en cours CACHE les onglets : le sol de la barre de repos est alors le bas de l'écran.
+    const ongletsCaches = onglets.hidden;
     const chevauche = (a, b) => a.left < b.right && b.left < a.right &&
                                 a.top < b.bottom && b.top < a.bottom;
     // Tout ce qui se tape, hors des deux barres elles-mêmes.
@@ -3739,9 +3792,10 @@ const SETS_IMPORTES = [
       ouvert: true,
       nCibles: cibles.length,
       dessous: dessous,
-      barresSeChevauchent: chevauche(rb, ro),
+      ongletsCaches: ongletsCaches, fenetre: window.innerHeight,
+      barresSeChevauchent: ongletsCaches ? rb.bottom > window.innerHeight : chevauche(rb, ro),
       hautRepos: Math.round(rb.top), basRepos: Math.round(rb.bottom),
-      hautOnglets: Math.round(ro.top),
+      hautOnglets: ongletsCaches ? window.innerHeight : Math.round(ro.top),
       erreurDessous: chevauche(erreur.getBoundingClientRect(), rb),
       // Le dernier bouton du flux : « Ajouter un exercice ».
       basDuDernier: Math.round(document.querySelector('#btn-ajouter-exo-seance')
@@ -3765,6 +3819,13 @@ const SETS_IMPORTES = [
     'sous la barre : ' + geometrie.erreurDessous);
   // La barre de repos se posait à `bottom:56px` alors que les onglets font
   // ~69 px : elle mordait leurs 13 px hauts, et son z-index les recouvrait.
+  const piedRepos = await page.evaluate(() => Array.from(document.querySelectorAll('#repos .repos-b')).map((b) => {
+    const q = b.getBoundingClientRect(); return [b.textContent, Math.round(q.width), Math.round(q.height)]; }));
+  ok('[204] les boutons −15 / +15 du minuteur mesurent 48 px de haut au moins',
+    piedRepos.length >= 2 && piedRepos.every((x) => x[2] >= 48), JSON.stringify(piedRepos));
+  ok('[204] pendant la séance, la barre d’onglets est cachée : la barre de repos se pose au bas de l’écran, et ne le dépasse pas',
+    geometrie.ongletsCaches === true && geometrie.barresSeChevauchent === false && geometrie.basRepos === geometrie.fenetre,
+    'onglets cachés : ' + geometrie.ongletsCaches + ' · bas du repos ' + geometrie.basRepos + ' · fenêtre ' + geometrie.fenetre);
   ok('la barre de repos ne mord plus sur la barre d’onglets',
     geometrie.barresSeChevauchent === false,
     'bas du repos ' + geometrie.basRepos + ' · haut des onglets ' + geometrie.hautOnglets);
@@ -3826,24 +3887,29 @@ const SETS_IMPORTES = [
 
   // §7 septies.2 — le repos s'affiche MÊME ABSENT : sans tiret, il n'y aurait
   // rien à toucher pour en poser un, et le seul chemin serait l'éditeur.
-  ok('chaque exercice porte ses deux réglages sous son nom',
-    (await compter('.reglages-exo')) === 2 &&
-    (await compter('.reglages-exo .repos-cible')) === 2 &&
-    (await compter('.reglages-exo .note-exo')) === 2,
-    (await compter('.reglages-exo')) + ' tête(s)');
+  // 204 — le repos est en tête de la colonne ✓ ; la note vit dans le « ⋯ » de l'exercice (« + Note » n'existe plus).
+  ok('chaque exercice porte son repos en tête de la colonne ✓, et plus de rangée de réglages',
+    (await compter('.reglages-exo')) === 0 &&
+    (await compter('.cols-seance .repos-cible')) === 2 &&
+    (await compter('.note-exo')) === 0,
+    (await compter('.cols-seance .repos-cible')) + ' repos · ' + (await compter('.reglages-exo')) + ' rangée(s) de réglages');
   const reglages = await page.evaluate(() => Array.from(document.querySelectorAll('.bloc-seance'))
     .map((b) => b.querySelector('.repos-cible').textContent.trim()));
   ok('le repos prescrit s’affiche, et son ABSENCE aussi — pas zéro, pas deviné',
-    reglages[0] === 'repos 3:00' && reglages[1] === 'repos —', JSON.stringify(reglages));
+    reglages[0] === '⏱\u00a03:00' && reglages[1] === '⏱\u00a0—', JSON.stringify(reglages));
 
   // ── La note d'exercice ──────────────────────────────────────────────────
-  await ouvrirFeuilleBloc(0, '.note-exo');
-  ok('un appui sur « + Note » ouvre la feuille de note',
+  // 204 — la note se pose depuis le « ⋯ » de l'exercice : « Ajouter une note ».
+  await page.evaluate(() => document.querySelectorAll('.bloc-seance')[0].querySelector('.menu-pts[aria-label="Actions du bloc"]').click());
+  await page.waitForSelector('#feuille-contenu .menu-note', { timeout: 5000 });
+  await page.click('#feuille-contenu .menu-note');
+  await page.waitForSelector('#feuille-contenu textarea', { timeout: 5000 });
+  ok('« Ajouter une note » (dans le ⋯ de l’exercice) ouvre la feuille de note',
     /Note de l’exercice/.test(await texte('#feuille-contenu')),
     (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 60));
   await taperFeuille('textarea', 'Barre basse, ceinture');
   await fermerFeuille();
-  ok('la note s’affiche sous le nom, à la place du « + Note »',
+  ok('la note posée s’affiche sous le nom de l’exercice',
     /Barre basse, ceinture/.test(await lireBloc(0, '.note-exo')), await lireBloc(0, '.note-exo'));
 
   await saisirSerie(0, 100, 5);
@@ -3927,7 +3993,7 @@ const SETS_IMPORTES = [
   await reglerRepos(120);
   await sortieRepos('pri');
   ok('le repos cible change à l’écran, tout de suite',
-    /repos 2:00/.test(await lireBloc(0, '.repos-cible')), await lireBloc(0, '.repos-cible'));
+    /⏱\s2:00/.test(await lireBloc(0, '.repos-cible')), await lireBloc(0, '.repos-cible'));
   ok('et RIEN n’est écrit dans la routine au moment du geste (§7 septies.2)',
     patchsRoutine().length === patchsAvantRepos &&
     ROUTINE.routine_exercises[0].repos_cible_s === 180,
@@ -4374,7 +4440,7 @@ const SETS_IMPORTES = [
 
   const menuBloc = async (i) => {
     await page.evaluate((k) => {
-      document.querySelectorAll('.bloc-seance')[k].querySelector('.tete-haut .menu-pts').click();
+      document.querySelectorAll('.bloc-seance')[k].querySelector('.menu-pts[aria-label="Actions du bloc"]').click();
     }, i);
     await feuilleOuverte('.feuille-menu button');
   };
@@ -4383,7 +4449,7 @@ const SETS_IMPORTES = [
   // vivent sur le bloc REPLIÉ, où elles restent le chemin accessible au clavier.
   // Le banc passe donc par le mode — et sa sortie « Terminé », qui ENREGISTRE.
   const deplacerBlocParMode = async (i, sens) => {
-    await page.click('#bandeau-seance .bandeau-modifier');
+    await basculerModifier();
     await attendre(600);
     await page.evaluate(([k, d]) => {
       document.querySelectorAll('.bloc-seance.replie')[k]
@@ -4391,7 +4457,7 @@ const SETS_IMPORTES = [
         .click();
     }, [i, sens]);
     await attendre(700);
-    await page.click('#bandeau-seance .bandeau-modifier');
+    await basculerModifier();
     await attendre(900);
   };
   const menuExo = async (i, k) => {
@@ -4455,11 +4521,11 @@ const SETS_IMPORTES = [
 
   // ── §5 bis — le menu est là PENDANT qu'on saisit ────────────────────────
   ok('le menu de bloc est accessible sans passer par Modifier',
-    (await compter('.tete-haut .menu-pts')) === 2 &&
-    (await compter('.legende-haut .menu-pts')) === 3 &&
+    (await compter('.menu-pts[aria-label="Actions du bloc"]')) === 2 &&
+    (await compter('.legende-haut .menu-pts[aria-label^="Actions sur"]')) === 3 &&
     (await compter('.bloc-seance.replie')) === 0,
-    (await compter('.tete-haut .menu-pts')) + ' menu(s) de bloc · ' +
-    (await compter('.legende-haut .menu-pts')) + ' menu(s) d’exercice');
+    (await compter('.menu-pts[aria-label="Actions du bloc"]')) + ' menu(s) de bloc · ' +
+    (await compter('.legende-haut .menu-pts[aria-label^="Actions sur"]')) + ' menu(s) d’exercice');
 
   await menuBloc(1);
   ok('sur un bloc d’UN SEUL, le menu porte aussi les gestes de l’exercice',
@@ -4649,7 +4715,7 @@ const SETS_IMPORTES = [
     return toutes.indexOf(l);
   });
   await attendre(900);
-  await page.click('#bandeau-seance .bandeau-modifier');
+  await basculerModifier();
   await attendre(700);
   const deuxBarres = await page.evaluate(() => {
     const r = document.getElementById('repos');
@@ -4675,7 +4741,7 @@ const SETS_IMPORTES = [
     if (b) b.click();
   });
   await attendre(400);
-  await page.click('#bandeau-seance .bandeau-modifier');   // on ressort du mode
+  await basculerModifier();   // on ressort du mode
   await attendre(700);
   await page.evaluate((k) => {
     if (k < 0) return;
@@ -4683,7 +4749,7 @@ const SETS_IMPORTES = [
     if (l) l.querySelector('.ok-serie').click();
   }, iArmee);
   await attendre(1200);
-  await page.click('#bandeau-seance .bandeau-modifier');   // et on y rentre
+  await basculerModifier();   // et on y rentre
   await attendre(700);
   ok('Modifier replie TOUT sur une ligne par bloc',
     (await compter('.bloc-seance.replie')) === 3 &&
@@ -4761,7 +4827,7 @@ const SETS_IMPORTES = [
     JSON.stringify(await formeEcran()) === JSON.stringify(formeAvantGlisse),
     JSON.stringify(await formeEcran()));
 
-  await page.click('#bandeau-seance .bandeau-modifier');
+  await basculerModifier();
   await attendre(900);
   ok('« Terminé » rend la saisie',
     (await compter('.bloc-seance.replie')) === 0 && (await compter('.ligne-serie')) > 0 &&
@@ -5667,14 +5733,14 @@ const SETS_IMPORTES = [
   // ⚠️ ET LE COMPTEUR DU BLOC REPLIÉ (survivante M17). « Modifier » replie les
   // blocs et affiche « x / y séries » : c'est le troisième endroit qui dit ce
   // qui a été fait, et il affichait « 0 / 4 » sur une séance entièrement faite.
-  await page.click('#bandeau-seance .bandeau-modifier');
+  await basculerModifier();
   await attendre(600);
   const avancements = () => page.evaluate(() =>
     Array.from(document.querySelectorAll('.replie-avancement')).map((n) => n.textContent.trim()));
   ok('[D3] replié, le compteur du bloc compte ce qui est fait, pas « 0 / n »',
     (await avancements()).join(' · ') === '4 / 4 séries · 2 / 2 séries',
     JSON.stringify(await avancements()));
-  await page.click('#bandeau-seance .bandeau-modifier');
+  await basculerModifier();
   await attendre(600);
 
   const avantDeplacement = JSON.stringify(rangsImportee());
@@ -12700,14 +12766,14 @@ const SETS_IMPORTES = [
     await validerDansBloc(0, 0);
     await validerDansBloc(0, 1);
     await attendre(800);
-    await page.click('#bandeau-seance .bandeau-modifier');
+    await basculerModifier();
     await attendre(700);
     const avantB = await page.evaluate(() => JSON.parse(JSON.stringify(window.THPlan.dernier.plan)));
     const violB = gardeBanc.violations;
     await page.evaluate(() => document.querySelectorAll('.bloc-seance.replie')[0]
       .querySelector('.geste[aria-label="Descendre le bloc"]').click());
     await attendre(700);
-    await page.click('#bandeau-seance .bandeau-modifier');
+    await basculerModifier();
     await attendre(900);
     const b1 = await page.evaluate((avant) => {
       const P = window.THPlan;
@@ -17669,7 +17735,11 @@ const SETS_IMPORTES = [
       const r = b.getBoundingClientRect(), s = getComputedStyle(b);
       const fin = b.querySelector('.bandeau-fin');
       const rf = fin ? fin.getBoundingClientRect() : null;
-      return { position: s.position, fond: s.backgroundColor, z: s.zIndex,
+      // 204 — les cibles « ⌄ » (réduire) et « ⋯ » (actions de la séance).
+      const cibleDe = (sel) => { const n = b.querySelector(sel); if (!n) return null; const q = n.getBoundingClientRect();
+        return { l: Math.round(q.width * 10) / 10, h: Math.round(q.height * 10) / 10 }; };
+      return { reduire: cibleDe('.bandeau-reduire'), menu: cibleDe('.bandeau-menu'), principal: !!fin && fin.classList.contains('principal'),
+        position: s.position, fond: s.backgroundColor, z: s.zIndex,
         haut: Math.round(r.top * 10) / 10, bas: Math.round(r.bottom * 10) / 10, h: Math.round(r.height * 10) / 10,
         texte: b.innerText.replace(/\s+/g, ' ').trim(),
         duree: (b.querySelector('.bandeau-ch') || {}).textContent || '',
@@ -17708,14 +17778,64 @@ const SETS_IMPORTES = [
       b0.fond === 'rgb(10, 12, 16)', b0.fond);
     ok('[barre] elle est au-dessus des lignes de saisie et sous la rangée prise, les onglets, le repos et les feuilles',
       Number(b0.z) > 1 && Number(b0.z) < 9, 'z-index ' + b0.z);
-    ok('[barre] elle porte le titre, la durée, les séries de travail, Modifier et Terminer — rien d’autre',
-      /^Barre U62 \d+ min · 0 série de travail Modifier Terminer$/.test(b0.texte), b0.texte);
-    ok('[barre] « Terminer » est un bouton neutre, de 40 px de haut au moins',
-      !!b0.fin && b0.fin.h >= 40, JSON.stringify(b0.fin));
+    // 204 — « ⌄ » (réduire), le titre, la durée, « ⋯ » (Modifier, S'entraîner ensemble) et « Terminer » (bouton principal, en capitales).
+    ok('[barre] elle porte « ⌄ », le titre, la durée, les séries de travail, « ⋯ » et Terminer — rien d’autre',
+      /^⌄ Barre U62 \d+ min · 0 série de travail ⋯ Terminer$/i.test(b0.texte), b0.texte);
+    ok('[barre] 204 — « Terminer » est le bouton principal (ambre), de 48 px de haut au moins ; « ⌄ » et « ⋯ » font 44 × 44 au moins',
+      !!b0.fin && b0.principal && b0.fin.h >= 48 && !!b0.reduire && !!b0.menu &&
+        b0.reduire.l >= 44 && b0.reduire.h >= 44 && b0.menu.l >= 44 && b0.menu.h >= 44,
+      JSON.stringify([b0.fin, b0.principal, b0.reduire, b0.menu]));
     const jetonRepos = await jeton();
     ok('[barre] sa hauteur est MESURÉE (--h-barre-seance), comme celles du bas',
       /^\d+px$/.test(jetonRepos) && parseInt(jetonRepos, 10) === Math.ceil(b0.h),
       jetonRepos + ' pour une barre de ' + b0.h + ' px');
+
+    // 204 — captures à 380 px pour la PR (BANC_CAPTURES_204=<dossier>) : aucune incidence sans la variable.
+    const capture204 = async (nom) => {
+      if (!process.env.BANC_CAPTURES_204) return;
+      await page.setViewportSize({ width: 380, height: 760 });
+      await page.waitForFunction(() => window.innerWidth === 380, null, { timeout: 5000 });
+      await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_204, nom + '.png') });
+      await page.setViewportSize({ width: 360, height: 760 });
+      await page.waitForFunction(() => window.innerWidth === 360, null, { timeout: 5000 });
+    };
+    await capture204('seance-en-haut');
+    // ── B bis. 204 — LA SÉANCE EN SALLE : les onglets se cachent, « ⌄ » les rend, « Reprendre » (l'onglet Saisie) ramène.
+    const salle = () => page.evaluate(() => ({
+      ongletsCaches: document.getElementById('onglets').hidden,
+      reserve: getComputedStyle(document.documentElement).getPropertyValue('--h-onglets').trim(),
+      vues: Array.from(document.querySelectorAll('main > section')).filter((x) => !x.hidden).map((x) => x.id),
+      enCours: document.querySelector('.onglet[data-vue="saisie"]').classList.contains('en-cours')
+    }));
+    const s0 = await salle();
+    ok('[salle] 204 — pendant la séance, la barre d’onglets est cachée et sa réserve vaut 0',
+      s0.ongletsCaches === true && s0.reserve === '0px' && JSON.stringify(s0.vues) === '["vue-seance"]', JSON.stringify(s0));
+    const cibles0 = await page.evaluate(() => {
+      const bloc = document.querySelector('.bloc-seance');
+      const r = (n) => { const q = n.getBoundingClientRect(); return [Math.round(q.width), Math.round(q.height)]; };
+      return { pts: r(bloc.querySelector('.legende-haut .menu-pts')), nom: r(bloc.querySelector('.legende-haut .nom-exo.lien')),
+        repos: r(bloc.querySelector('.cols-seance .repos-cible')), type: !!bloc.querySelector('.type-mesure'),
+        reglages: bloc.querySelectorAll('.reglages-exo').length, texteRepos: bloc.querySelector('.cols-seance .repos-cible').textContent };
+    });
+    ok('[salle] 204 — le « ⋯ » et le nom de l’exercice mesurent 44 px de haut au moins ; le repos est en tête de la colonne ✓ ; ni « CHARGE × REPS » ni rangée de réglages',
+      cibles0.pts[0] >= 44 && cibles0.pts[1] >= 44 && cibles0.nom[1] >= 44 && cibles0.type === false && cibles0.reglages === 0 &&
+        /^⏱\s/.test(cibles0.texteRepos), JSON.stringify(cibles0));
+    await ouvrirMenuSeance();
+    const menuS = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button')).map((b) => b.textContent));
+    ok('[salle] 204 — le « ⋯ » de la séance propose Modifier et S’entraîner ensemble', JSON.stringify(menuS) === '["Modifier","S’entraîner ensemble"]', JSON.stringify(menuS));
+    await capture204('menu-de-la-seance');
+    await page.click('#btn-fermer-feuille');
+    await page.waitForFunction(() => document.getElementById('feuille-seance').hidden, null, { timeout: 5000 });
+    await page.click('#bandeau-seance .bandeau-reduire');
+    await jusqua(async () => (await salle()).ongletsCaches === false, 5000, 'salle: réduire');
+    await capture204('seance-reduite');
+    const s1 = await salle();
+    ok('[salle] 204 — « ⌄ » réduit la séance : les onglets reviennent, la séance reste en cours (point sur Saisie)',
+      s1.ongletsCaches === false && s1.enCours === true && JSON.stringify(s1.vues) === '["vue-liste"]', JSON.stringify(s1));
+    await page.click('.onglet[data-vue="saisie"]');
+    await jusqua(async () => (await salle()).ongletsCaches === true, 5000, 'salle: reprendre');
+    const s2 = await salle();
+    ok('[salle] 204 — l’onglet Saisie ramène à la séance, onglets de nouveau cachés', JSON.stringify(s2.vues) === '["vue-seance"]' && s2.reserve === '0px', JSON.stringify(s2));
 
     // ── C. ELLE RESTE EN HAUT QUAND ON DESCEND — au tiers, au milieu, tout en bas.
     const max0 = await maxDefilement();
@@ -17911,14 +18031,14 @@ const SETS_IMPORTES = [
       }), 'z-index de la feuille contre celui de la barre');
 
     // ── L. MODIFIER, PUIS « GROUPER AVEC… » : LA BARRE NE MONTRE JAMAIS « TERMINER » PENDANT LA SÉLECTION.
-    await page.click('#bandeau-seance .bandeau-modifier');
+    await basculerModifier();
     await attendre(500);
     const enModifier = await barre();
-    await page.click('#bandeau-seance .bandeau-modifier');
+    await basculerModifier();
     await attendre(500);
     ok('[barre] en mode Modifier la barre reste collée et garde ses boutons (« Terminé » bascule, comme avant)',
       enModifier.position === 'sticky' && /Terminé/.test(enModifier.texte), enModifier.texte);
-    await page.evaluate(() => document.querySelectorAll('.bloc-seance')[1].querySelector('.tete-haut .menu-pts').click());
+    await page.evaluate(() => document.querySelectorAll('.bloc-seance')[1].querySelector('.menu-pts[aria-label="Actions du bloc"]').click());
     await attendre(500);
     await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
       .filter((x) => /Grouper en superset/.test(x.textContent))[0].click());
@@ -17978,7 +18098,7 @@ const SETS_IMPORTES = [
     const edition = await barre();
     m = await minuteurs();
     ok('[barre] en correction : « Modification · N séries de travail », « Enregistrer », aucune durée écoulée',
-      /^Barre passée U62 Modification · 2 séries de travail Modifier Enregistrer$/.test(edition.texte) &&
+      /^Barre passée U62 Modification · 2 séries de travail ⋯ Enregistrer$/.test(edition.texte) &&
         !/\bmin\b/.test(edition.duree) && !edition.porteSuite && edition.fin && edition.fin.texte === 'Enregistrer',
       edition.texte);
     ok('[barre] et aucun réveil de durée ne tourne en correction (la barre reste collée)',
@@ -19474,7 +19594,7 @@ const SETS_IMPORTES = [
       return { texte: r.textContent, titre: t('.g-titre'), hauteur: c ? Math.round(c.getBoundingClientRect().height) : null,
         pastilles: Array.from(r.querySelectorAll('.g-p')).map((p) => p.getAttribute('data-pseudo') + (p.classList.contains('g-actif') ? '+' : '')),
         lignes: Array.from(r.querySelectorAll('.g-l')).map((x) => x.textContent), tout: t('#groupe-tout-voir'), msg: (r.querySelector('.g-msg') && r.querySelector('.g-msg').textContent.trim()) || null,
-        proposition: t('.g-proposition span'), inviter: !!r.querySelector('#groupe-inviter'), lancer: !!r.querySelector('#groupe-lancer'),
+        proposition: t('.g-proposition span'), inviter: !!r.querySelector('#groupe-inviter'),
         message: t('.g-message'), invitations: Array.from(r.querySelectorAll('.g-invitation')).map((x) => x.getAttribute('data-invitant')) };
     });
     const relire = async (cond) => { await page.click('.onglet[data-vue="saisie"]'); return attendreQue(cond); };
@@ -19865,7 +19985,7 @@ const SETS_IMPORTES = [
       const SB = enCours();
       const seriesAvant = base.sets.filter((t) => t.session_id === SB).length;
       // Mon groupe, depuis ma séance : « S'entraîner ensemble », j'invite alexis.
-      await page.click('#groupe-lancer');
+      await lancerEnsemble();
       await attendreQue(async () => (await compter('#groupe-corps .g-ami[data-pseudo="alexis"] button')) === 1);
       await page.click('#groupe-corps .g-ami[data-pseudo="alexis"] button');
       await attendreQue(async () => !!fauxSocial.groupeDe('u-banc') && S.ginvitations.some((i) => i.invite === 'u-alexis'));
@@ -19931,9 +20051,9 @@ const SETS_IMPORTES = [
       const apresNon = fauxSocial.groupeDe('u-banc') === GA && (await compter('#groupe-seance #groupe-quitter-oui')) === 0;
       await page.click('#groupe-seance #groupe-quitter');
       await page.click('#groupe-seance #groupe-quitter-oui');
-      await attendreQue(async () => !fauxSocial.groupeDe('u-banc') && (await compter('#groupe-seance #groupe-lancer')) === 1, 12000);
+      await attendreQue(async () => !fauxSocial.groupeDe('u-banc') && (await compter('#groupe-seance #groupe-direct')) === 0 && (await ensembleProposeAuMenu()), 12000);
       ok('[groupe] 177 — DISCRIMINANT — MUTATION (d) — « Quitter » demande dans la page (« Ta séance continue, seule : tes séries restent les tiennes. »), « Non » ne fait rien ; ' +
-        '« Oui » appelle groupe_quitter : je ne suis plus dans le groupe, l’écran revient à « S’entraîner ensemble », la séance continue avec ses séries',
+        '« Oui » appelle groupe_quitter : je ne suis plus dans le groupe, le ⋯ de la séance reproposé « S’entraîner ensemble », la séance continue avec ses séries',
         /Ta séance continue, seule : tes séries restent les tiennes\./.test(q0) && encoreDedans && apresNon && !fauxSocial.groupeDe('u-banc') &&
           enCours() === SB && base.sets.filter((t) => t.session_id === SB).length === seriesAvant &&
           (await page.evaluate(() => !document.getElementById('vue-seance').hidden)) && fauxSocial.groupeDe('u-alexis') === GA,
@@ -24631,7 +24751,7 @@ const SETS_IMPORTES = [
       grille131.length === 3 && JSON.stringify(grille131[0].champs) === '["duree","distance_km"]' &&
         grille131[0].plus.length === 1 && /Dénivelé \+ \(facultatif\)/.test(sp131(grille131[0].plus[0])), JSON.stringify(grille131));
     ok('[131] A — l’escalier : ÉTAGES prend la colonne de la distance ; le vélo : durée et distance ; rien ne déborde à 360 px',
-      JSON.stringify(grille131[1].entetes) === '["","PRÉC.","DURÉE","ÉTAGES",""]' &&
+      JSON.stringify(grille131[1].entetes) === '["","PRÉC.","DURÉE","ÉTAGES"]' &&   // 204 : le repos (un bouton) a pris le dernier span
         JSON.stringify(grille131[1].champs) === '["duree","etages"]' && grille131[1].plus.length === 0 &&
         JSON.stringify(grille131[2].champs) === '["duree","distance_km"]' && grille131.every((g) => !g.deborde),
       JSON.stringify(grille131));

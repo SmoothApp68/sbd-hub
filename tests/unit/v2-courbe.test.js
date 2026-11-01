@@ -88,3 +88,29 @@ describe('206 — THCourbe', () => {
     expect(C.pasRond(4, 3)).toBe(2);
   });
 });
+
+describe('206 — étendue minimale de l\'axe', () => {
+  test('charge : 133 → 134,5 couvre au moins 10 % de la médiane (13 kg), centrée sur les données', () => {
+    const g = C.geometrie([P(J(2026, 0, 1), 133), P(J(2026, 1, 1), 134.5)], null, 'charge');
+    const v = g.graduations.map((x) => x.valeur);
+    expect(v[v.length - 1] - v[0]).toBeGreaterThanOrEqual(13);
+    expect(v[0]).toBeLessThan(133);
+    expect(v[v.length - 1]).toBeGreaterThan(134.5);
+    // l'écart de 1,5 kg occupe une petite part de la hauteur
+    expect(Math.abs(g.points[1].y - g.points[0].y)).toBeLessThan((g.bas - g.haut) * 0.25);
+  });
+  test('reps : au moins 4 ; secondes : au moins 10', () => {
+    const r = C.geometrie([P(J(2026, 0, 1), 12), P(J(2026, 1, 1), 13)], null, 'reps').graduations.map((x) => x.valeur);
+    expect(r[r.length - 1] - r[0]).toBeGreaterThanOrEqual(4);
+    const t = C.geometrie([P(J(2026, 0, 1), 60), P(J(2026, 1, 1), 62)], null, 'temps').graduations.map((x) => x.valeur);
+    expect(t[t.length - 1] - t[0]).toBeGreaterThanOrEqual(10);
+  });
+  test('une grande variation garde son échelle ; la mini-courbe suit la même règle', () => {
+    const g = C.geometrie([P(J(2026, 0, 1), 100), P(J(2026, 1, 1), 150)], null, 'charge');
+    expect(g.graduations[0].valeur).toBeLessThanOrEqual(100);
+    const plat = C.mini([P(J(2026, 0, 1), 133), P(J(2026, 1, 1), 134.5)], 92, 36, 'charge');
+    expect(Math.abs(plat.trait[1].y - plat.trait[0].y)).toBeLessThan(36 * 0.25);
+    const fort = C.mini([P(J(2026, 0, 1), 100), P(J(2026, 1, 1), 150)], 92, 36, 'charge');
+    expect(Math.abs(fort.trait[1].y - fort.trait[0].y)).toBeGreaterThan(36 * 0.6);
+  });
+});

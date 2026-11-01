@@ -3823,7 +3823,7 @@
         slug: slug,
         nom: (index[slug] && index[slug].nom) || slug,
         mesure: (r.n > 1 && d !== f ? Modele.nombreTexte(d) + ' \u2192 ' : '') + Modele.nombreTexte(f) + unite,
-        mini: Courbe.mini(fenetre)
+        mini: Courbe.mini(fenetre, 92, 36, p.mesure)
       });
     });
     return { legende: 'Max estimé, 6 derniers mois', lignes: lignes, surExercice: surExercice, surTous: surTous };
@@ -13226,7 +13226,7 @@
       courbe = {
         nom: exo ? exo.nom : slug,
         genre: pts.mesure,
-        geo: Courbe.geometrie(fenetre),
+        geo: Courbe.geometrie(fenetre, null, pts.mesure),
         resume: Courbe.resume(fenetre),
         periode: per.cle,
         periodeLongue: per.long,

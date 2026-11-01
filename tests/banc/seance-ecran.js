@@ -19110,7 +19110,7 @@ const SETS_IMPORTES = [
     const c0 = await lire();
     ok('[social-2] son exercice : meilleure charge 210 kg, meilleure série 180 kg × 5 (le plus gros charge × reps), sa courbe sur 6 mois ; l’adresse /a/jordan/exercice/squat-barre',
       (await chemin()) === '/a/jordan/exercice/squat-barre' && c0.charge === '210 kg' && String(c0.serie).replace(/[\u00a0\u202f]/g, ' ') === '180 kg × 5' && c0.lui === 1 &&
-        c0.moiCourbe === 0 && c0.btnExo && c0.retour === '← jordan' && appelsDepuis(n0).indexOf('social_series_exercice') >= 0,
+        c0.moiCourbe === 0 && c0.btnExo && c0.retour === '← Retour' && appelsDepuis(n0).indexOf('social_series_exercice') >= 0,
       JSON.stringify(c0));
     await page.click('#social-comparer-exo');
     await attendreQue(async () => (await lire()).moiCourbe > 0);

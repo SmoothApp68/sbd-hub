@@ -12033,6 +12033,16 @@ const SETS_IMPORTES = [
     // en fin de ligne (« 141 → 152 kg ») : même intention (Progression dit le chiffre de la page), la grandeur est celle de la courbe.
     const valeurCourbeE = await page.evaluate(() => ((document.querySelector('#page-exercice .courbe-val') || {}).textContent || '').replace(/\s+/g, ' ').trim());
     if (process.env.BANC_CAPTURES) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'e-page-exercice.png'), fullPage: true });
+    // 206 — navigateur réel : toucher un point ouvre la bulle (date, meilleure série, max estimé) ; choisir « 3 mois » redessine la courbe.
+    await page.evaluate(() => { const c = document.querySelectorAll('#page-exercice .courbe-cible'); if (c.length) c[c.length - 1].dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    const bulleE = await page.evaluate(() => ((document.querySelector('#page-exercice .courbe-bulle') || {}).textContent || '').replace(/\s+/g, ' ').trim());
+    ok('[E] 206 — toucher un point de la courbe dit la date, la meilleure série et le max estimé',
+      /^Le \d+ .+ \u00b7 .+ kg \u00d7 \d+ \u00b7 max estimé \d+/.test(bulleE), JSON.stringify(bulleE));
+    await page.evaluate(() => Array.from(document.querySelectorAll('#page-exercice .courbe-per-b')).filter((b) => /^3 mois$/.test(b.textContent))[0].click());
+    await page.waitForFunction(() => { const b = document.querySelector('#page-exercice .courbe-per-b.on'); return !!b && b.textContent === '3 mois'; }, null, { timeout: 5000 }).catch(() => {});
+    const perE = await page.evaluate(() => (document.querySelector('#page-exercice .courbe-per-b.on') || {}).textContent || null);
+    ok('[E] 206 — la période se choisit (3 mois), et la page garde sa courbe', perE === '3 mois' &&
+      (await page.evaluate(() => !!document.querySelector('#page-exercice .courbe-carte'))), JSON.stringify(perE));
     await aller('/progression');
     const prog = await page.evaluate(() => Array.from(document.querySelectorAll('.bloc-exo'))
       .filter((l) => /Écrans U5/.test(l.textContent)).map((l) => (l.querySelector('.bloc-exo-val') || {}).textContent)[0] || null);

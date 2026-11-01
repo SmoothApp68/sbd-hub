@@ -1597,6 +1597,22 @@
 
     preremplir(exo, r.lignes, consigne, { reaction: r.reaction, figees: figees }, precedent);
 
+    // 211 — « Mon premier pari : 60 kg × 9. » : la visée de la PREMIÈRE ligne qui porte un pari de la consigne elle-même (rôle `ligne` ou `haut` : ni recul,
+    // ni retour, ni révision d'une série déjà faite), aux chiffres de la ligne (I26). Le plan la porte ; l'écran décide de la montrer, UNE fois, quand le compte n'a
+    // encore aucun pari (`app.js`, `faits.premierPariDuCompte`). Aucune charge future n'est calculée : c'est celle d'aujourd'hui.
+    var premierPari = null;
+    if (consigne && consigne.etat !== 'silence' && !approcheeSansLigne && !Object.keys(figees || {}).length) {
+      for (var ip = 0; ip < r.paris.length && !premierPari; ip++) {
+        var pq = r.paris[ip];
+        if (pq && pq.fondement && (pq.fondement.role === 'ligne' || pq.fondement.role === 'haut') && pq.fondement.charge !== undefined &&
+            pq.fondement.charge !== null && pq.valeur_predite !== null && pq.valeur_predite !== undefined) {
+          var capPP = V.capturer(function () { return M.phrasePremierPari(pq.fondement.charge, pq.valeur_predite, pq.fondement.role); });
+          premierPari = { iSerie: ip, charge: pq.fondement.charge, reps: pq.valeur_predite, phrase: capPP.texte };
+          dire('entete.premierPari', capPP.texte, capPP.citations);
+        }
+      }
+    }
+
     return {
       iExo: iExo, slug: base.slug, occurrence: base.occurrence,
       consigne: consigne, contexte: c.contexte || null,
@@ -1624,6 +1640,8 @@
       // 163 — la charge approchée et sa phrase, ou `null` : I61 la relit.
       approchee: approchee,
       approcheeSansLigne: approcheeSansLigne,
+      // 211 — le premier pari de l'exercice, dit (`{ iSerie, charge, reps, phrase }`), ou `null`.
+      premierPari: premierPari,
       // §10 bis (108) — la salle de l'exercice, ou `null` : I46 la relit.
       salle: materiel ? materiel.salle || null : (c.salle || null),
       chauffes: autour.chauffes, proposition: autour.proposition, degressive: autour.degressive,

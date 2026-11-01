@@ -458,7 +458,7 @@
     //   `paris`  : `[{ seance, exercice, predite, observee }]` — les paris de
     //              consigne connus (`app.js` `parisDeConsigneConnus`).
     var MUSCLES_DU_RECAP = 5;
-    function recapDeLaSeance(c, seance, paris) {
+    function recapDeLaSeance(c, seance, paris, premierPari) {
       if (!seance) return null;
       var exercices = c.exercices || [];
       var faites = Seance.toutesLesSeries(seance).filter(function (p) { return Seance.partEnBase(p.serie); })
@@ -520,13 +520,43 @@
           return exosFaits.indexOf(slug) < 0 && parSlug[slug].some(function (x) { return Modele.estTravail(x); });
         }).map(function (slug) { return { slug: slug, nom: nomDe(slug), fait: faitDeLExercice(parSlug[slug]) }; }),
         records: recordsDuJour(c, seance, { avecPhrase: true }),
+        // 211 — la toute première séance : « Point de départ » (et pas de bloc des paris, qui n'a pas de matière).
+        pointDeDepart: estLaPremiereSeance(c, seance) ? Bilan.PHRASE_POINT_DE_DEPART : null,
         paris: comptes.verifies ? {
           verifies: comptes.verifies, tenus: comptes.tenus,
+          // 211 — la séance du premier pari du compte : sa phrase ouvre le bloc (le plus ancien pari vérifié de la séance).
+          premier: premierPariDuCompte(c, premierPari || []) === seance.id ? Bilan.phrasePremierPari(Bilan.estTenu(siens.filter(function (q) {
+            return q.observee !== null && q.observee !== undefined && isFinite(Number(q.observee)) && isFinite(Number(q.predite));
+          }).sort(function (a, b) { var ea = String(a.emise || '~'), eb = String(b.emise || '~'); return ea < eb ? -1 : ea > eb ? 1 : 0; })[0])) : null,
           phrase: Bilan.phraseParis(comptes.verifies, comptes.tenus, { telsQuels: true }),
           lignes: lignesParis
         } : null,
         note: seance.note || null
       };
+    }
+
+    // 211 — LES PREMIÈRES MINUTES. Deux faits, lus ici et nulle part ailleurs (les écrans ne calculent rien).
+    //   · `estLaPremiereSeance(c, seance)` : aucune autre séance terminée (import compris) ne commence avant celle-ci ;
+    //   · `premierPariDuCompte(c, paris)` : l'identifiant de la séance qui porte le premier pari de consigne du compte
+    //     (la plus ancienne), ou `null` si le compte n'en a aucun. `paris` : `[{ seance }]`, déjà ceux de consigne.
+    function estLaPremiereSeance(c, seance) {
+      if (!seance || !seance.id || !seance.debut) return false;
+      var t = Date.parse(seance.debut);
+      return !(c.seances || []).some(function (s) {
+        return s && s.id && s.id !== seance.id && s.debut && s.statut !== 'en_cours' && Date.parse(s.debut) <= t;
+      });
+    }
+    function premierPariDuCompte(c, paris) {
+      var debutDe = {};
+      (c.seances || []).forEach(function (s) { if (s && s.id) debutDe[s.id] = Date.parse(s.debut); });
+      var meilleur = null;
+      (paris || []).forEach(function (q) {
+        if (!q || !q.seance) return;
+        var d = debutDe[q.seance];
+        if (d === undefined || isNaN(d)) d = Infinity;   // une séance pas encore connue du cache passe après les autres
+        if (meilleur === null || d < meilleur.d) meilleur = { d: d, seance: q.seance };
+      });
+      return meilleur ? meilleur.seance : null;
     }
 
     // Ce qui a été fait sur un exercice, ses séries de travail dans l'ordre :
@@ -2056,6 +2086,8 @@
       recordsDeLaSerie: recordsDeLaSerie,
       recordsDuJour: recordsDuJour,
       recapDeLaSeance: recapDeLaSeance,
+      estLaPremiereSeance: estLaPremiereSeance,
+      premierPariDuCompte: premierPariDuCompte,
       faitDeLExercice: faitDeLExercice,
       ceQuiManque: ceQuiManque,
       journalDuJour: journalDuJour,

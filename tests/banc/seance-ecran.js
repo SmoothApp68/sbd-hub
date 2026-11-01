@@ -16238,7 +16238,7 @@ const SETS_IMPORTES = [
     const titresRempli = await titresP();
     // 173 (« Mon coach ») : TON RYTHME, TON POIDS, TA PHASE, TON BUT, TA SEMAINE se suivent dans cet ordre.
     ok('[Q60] P — plus de ligne en tête ; « TON BUT » vient après « TON RYTHME » (le réglage du coach), le poids et « TA PHASE » ; « TA SEMAINE » le suit',
-      (await enTeteP()) === null && titresRempli.indexOf('TA PHASE') === titresRempli.indexOf('TON RYTHME') + 2 &&
+      (await enTeteP()) === null && titresRempli.indexOf('TA PHASE') === titresRempli.indexOf('TON RYTHME') + 1   /* 213 : « TON POIDS » est dans « Moi » */ &&
         titresRempli.indexOf('TON BUT') === titresRempli.indexOf('TA PHASE') + 1 &&
         titresRempli.indexOf('TA SEMAINE') === titresRempli.indexOf('TON BUT') + 1, JSON.stringify(titresRempli));
     const [pObj, pPri, pTps] = [await ligneP('But d’entraînement'), await ligneP('Priorités'), await ligneP('Ton temps')];
@@ -17187,9 +17187,9 @@ const SETS_IMPORTES = [
     let sh = await sectionH();
     // Les lignes se lisent PAR LIBELLÉ, jamais par position (30/10/2026, 190 : « Ma salle » est toujours là et décale tout).
     const lh = (rows, lib) => (rows || []).filter((l) => l.lib === lib)[0] || {};
-    // 108 — « Ma salle » (ECRAN-PROFIL 2.4 quinquies) se range sous « Matériel » ; 190 : toujours visible.
+    // 108 — « Ma salle » (ECRAN-PROFIL 2.4 quinquies) ; 190 : toujours visible ; 213 : elle est dans « Moi », plus sous « Matériel ».
     ok('[R60] H — « CE QUE JE FAIS » : Matériel, Ma salle, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
-      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Exercices écartés|Refaire mon programme|Zones raides' &&
+      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Exercices écartés|Refaire mon programme|Zones raides' &&
         lh(sh, 'Zone à ménager').val === 'Dos' && lh(sh, 'Exercices écartés').val === '1' && lh(sh, 'Refaire mon programme').val === null, JSON.stringify(sh));
     ok('[R60] H — les phrases de la spec (G10), au mot près',
       !!sh && lh(sh, 'Zone à ménager').sous === 'Je ne te propose pas de série lourde dessus, ni dans ton programme ni en séance.' &&
@@ -17232,7 +17232,7 @@ const SETS_IMPORTES = [
     li = await liste();
     sh = await sectionH();
     ok('[R60] H — « Reprendre » : l’exercice n’est plus écarté (NULL), la feuille se ferme, la ligne « Exercices écartés » s’efface',
-      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Ma salle|Zone à ménager|Refaire mon programme|Zones raides',
+      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Refaire mon programme|Zones raides',
       JSON.stringify([profilBase().exercices_ecartes, li.ouverte, sh && sh.map((l) => l.lib)]));
     // Refaire mon programme : « Retour » ramène au Profil sans rien écrire.
     const avantRefaire = JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ROUTINES.length]);
@@ -18246,7 +18246,7 @@ const SETS_IMPORTES = [
       .map((s) => { const n = document.querySelector(s); return n && !n.hidden ? n.innerText.replace(/\s+/g, ' ').trim() : ''; }).join(' ¦ '));
     const basculer = async () => {
       const n = base.journal.length;
-      await page.click('#interrupteur-jeu');
+      await cliquerDansGroupe(page, '#interrupteur-jeu');
       await attendreQue(async () => ecrituresDepuis(n).length > 0 && (await page.evaluate(() =>
         THCache.lireMeta('profilAEnvoyer').catch(() => false))) !== true, 6000);
       await attendre(600);
@@ -21250,7 +21250,7 @@ const SETS_IMPORTES = [
     const sections = await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-sect'))
       .map((x) => x.textContent.trim()));
     ok('[E69] Profil : la ligne « Importer depuis Hevy », dans « MES DONNÉES », juste après « MES EXERCICES »',
-      ligneImport === 1 && sections.indexOf('MES DONNÉES') === sections.indexOf('MES EXERCICES') + 1,
+      ligneImport === 1 && sections.indexOf('MES DONNÉES') > sections.indexOf('MES EXERCICES'),   // 213 : dans « Mon compte », après « Mes exercices »
       nbE({ ligneImport, sections }));
     await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
       .filter((l) => /Importer depuis Hevy/.test(l.textContent))[0].click());

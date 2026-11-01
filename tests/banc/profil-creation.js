@@ -644,7 +644,7 @@ function ok(nom, cond, detail) {
         const titreVu = await attendreQue(page, () => page.evaluate((t) => {
           const e = document.querySelector('#feuille-contenu .feuille-t'); return !!e && e.textContent === t; }, titre), 5000);
         ok('212 — « ' + titre + ' » s’ouvre depuis le pied de l’inscription', titreVu);
-        await page.evaluate(() => document.querySelector('#feuille-contenu .bloc-large').click());
+        await page.click('#btn-fermer-feuille'); // 215 : un seul « Fermer », celui de la feuille commune
         await attendreQue(page, () => page.evaluate(() => document.querySelector('#feuille-seance').hidden), 5000);
       }
       await page.check('#champ-age15');
@@ -1814,7 +1814,7 @@ function ok(nom, cond, detail) {
       await feuilleOuverte(page);
       const toucher = async (cle, texte) => {
         await page.evaluate(([c, t]) => Array.from(document.querySelectorAll('#feuille-contenu [data-reglage="' + c + '"] button'))
-          .filter((b) => b.textContent.replace(/\s/g, ' ').trim() === t)[0].click(), [cle, texte]);
+          .filter((b) => b.textContent.replace(/\s/g, ' ').trim().indexOf(t) === 0)[0].click(), [cle, texte]);
         await rendu(page);
       };
       const valider = () => page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => b.textContent === 'Valider')[0].click());

@@ -4,7 +4,7 @@
 // cette zone. Chaque branche de `consigneDExerciceCalcul` a son test : sous-histoire, première fois, périmée, zone de routine.
 //
 // ⚠️ LE BANC DE COMPARAISON EXACTE : sans zone de plan (absente, `null`, `undefined`), la sortie complète de
-// `consigneDExercice` est identique, octet pour octet, à celle de main après la 193-1 (19f52ae) — `fixtures/ondulation-or.json`.
+// `consigneDExercice` est identique, octet pour octet, à celle de main après la 193-1 (19f52ae), sauf la phrase « vers tes N-M » de la 200b — `fixtures/ondulation-or.json`.
 
 require('../../v2/js/modele.js');
 require('../../v2/js/palier.js');

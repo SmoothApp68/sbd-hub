@@ -1028,9 +1028,9 @@ const NOTIONS = [
     raison: 'MOTEUR §9.23 : les mots de la médaille, une fois — le cap rond, la charge pour N reps, le volume, ' +
       'la durée, et le record d’avant avec sa date (120, D1 : plus le 1RM estimé).' },
   { notion: 'le 1RM estimé (Epley)', pr: '55-U1',
-    module: 'moteur.js', fonction: 'unRMEpley', lecteurs: ['modele.js'],
+    module: 'moteur.js', fonction: 'unRMEpley', lecteurs: ['modele.js', 'faits.js'],
     par: ['reportDeZone'],
-    parAilleurs: { 'modele.js': ['recordsDeLExercice'] },
+    parAilleurs: { 'modele.js': ['recordsDeLExercice'], 'faits.js': ['pointsDeLExercice'] },
     raison: 'MOTEUR §9.10 et §9.23 : l’estimation du report et la force estimée de la page (120, D1 : une ' +
       'progression, plus un record) lisent la même formule — jamais recopiée.' },
   { notion: 'la fenêtre des 12 mois d’un matériel (machines, poulies, haltères, Smith)', pr: '55-U1',
@@ -1071,6 +1071,15 @@ const NOTIONS = [
     raison: 'la consigne, la suite, « Dernière séance » et la page d’exercice lisent le même historique ' +
       'd’un exercice ; un second assemblage dans l’écran pourrait en oublier une séance. 132 : la consigne et la ' +
       'suite le lisent par `groupesDuMoteur` (en charges virtuelles pour un exercice noté par nom, MOTEUR §10 ter).' },
+  { notion: 'les points d’un exercice, un par séance (le max estimé, les reps ou les secondes), pour ses courbes', pr: '206-U1',
+    module: 'faits.js', fonction: 'pointsDeLExercice', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['rendreExercice', 'sommaireExercices'] },
+    raison: 'La courbe de la page d’exercice et les mini-courbes de Progression disent la même série de points : ' +
+      'un second assemblage dans l’écran dirait un autre max estimé (Epley, celui des records).' },
+  { notion: 'les exercices les plus faits sur quelques semaines (« Tes exercices »)', pr: '206-U1',
+    module: 'faits.js', fonction: 'exercicesLesPlusFaits', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['sommaireExercices'] },
+    raison: 'Progression lit le classement des exercices du faits ; l’écran ne compte aucune séance.' },
   { notion: 'les records d’une séance passée (ses séries médaillées)', pr: '58-U1',
     module: 'faits.js', fonction: 'recordsDeLaSeance', lecteurs: [],
     par: ['recordsDuMois', 'dernierRecord', 'journalDeLaSeance'],
@@ -2431,7 +2440,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : quarante-six (la série du max et la douleur répétée en 202, le max d’avant la semaine de test en 193-4, treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126, ce qui manque aux séances en 131, les échelles de la semaine en 145, la vraisemblance d’une série et la question du record en 185), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : quarante-huit (les points d’un exercice et les plus faits en 206, la série du max et la douleur répétée en 202, le max d’avant la semaine de test en 193-4, treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126, ce qui manque aux séances en 131, les échelles de la semaine en 145, la vraisemblance d’une série et la question du record en 185), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -2442,7 +2451,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(46);
+    expect(FAITS.length).toBe(48);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

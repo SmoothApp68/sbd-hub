@@ -23840,8 +23840,7 @@ const SETS_IMPORTES = [
     await page.click('.onglet[data-vue="profil"]');
     // 135 — le Profil rendu, son choix « Progresser » à l'écran, avant de le toucher (900 ms fixes avant : un clic
     // tombé avant le rendu ne faisait rien, relevé un passage sur dix de la section seule, pages ×4).
-    await jusqua(() => page.evaluate(() => { const b = document.querySelector('.p-seg button[data-cle="progresser"]');
-      return !!b && b.offsetParent !== null; }).catch(() => false), 10000);
+    await jusqua(() => page.evaluate(() => !!document.querySelector('.p-seg button[data-cle="progresser"]')).catch(() => false), 10000);   // 213 : le groupe est fermé, on l'ouvre ensuite
     await cliquerDansGroupe(page, '.p-seg button[data-cle="progresser"]');
     await jusqua(async () => base.profiles[0].intention === 'progresser' && (base.objectifs[0] || {}).projection === 'date' &&
       base.predictions.filter((x) => x.module === 'objectif').length === parisO7 + 1, 20000);

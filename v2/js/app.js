@@ -9465,6 +9465,8 @@
       },
       // §3.10 — toucher la consigne ouvre le calcul.
       surPourquoi: ouvrirPourquoi,
+      // 201 — une étiquette de la ligne (« 5+ · garde 1 ») ouvre la définition de son mot.
+      surMot: ouvrirMot,
       // §3.9 — et quand l'exercice est fini, le constat prend sa place.
       constat: constatPour,
       surChamp: async function (i, j, champ, valeur) {
@@ -10404,6 +10406,24 @@
     });
   }
 
+  // ── 201 — LES MOTS DU COACH ──────────────────────────────────────────────────────────────────────────────────────
+  //
+  // Le lexique et les sources se LISENT au moteur (`motDuLexique`, `lexique`) : rien n'est calculé ici. La puce d'intention de
+  // l'exercice (« 6-8 reps · garde 1 ») ouvre sa feuille de zone, qui commence par la définition de son mot — « Garde 1 » quand
+  // le plan vise une réserve d'une rep ou plus, sinon « Zone » — avec sa source ; « 5+ · garde 1 » ouvre « Au max ».
+  function motDeLaPuce(slug) {
+    var i = seance && seance.exercices ? seance.exercices.map(function (x) { return x.exercise_slug; }).indexOf(slug) : -1;
+    var x = i >= 0 ? planDeLExercice(i) : null;
+    var g = x && x.reserveVisee !== undefined ? x.reserveVisee : null;
+    return g !== null && g >= 1 ? Moteur.motDuLexique('garde', g) : Moteur.motDuLexique('zone');
+  }
+  function ouvrirMot(cle) {
+    if (!Moteur.motDuLexique(cle)) return;
+    feuille = { quoi: 'mot', cle: cle };
+    rendreFeuille();
+    ouvrirVoile($('feuille-seance'), function () { feuille = null; if (seance) rendreSeance(); });
+  }
+
   // ── 193-3 (maquette de l'ondulation, écran 4) — LA ZONE QUI VIENT DE LA ROUTINE ──────────────────────────────────
   //
   // Toucher l'étiquette « Mix · ta routine » : « Changer la zone de cette routine » (la ligne de la routine, par le chemin qui écrit
@@ -10432,7 +10452,7 @@
       });
     };
     Rendu.rendreFeuilleZonePlan($('feuille-contenu'), {
-      nom: nom, libelle: z.libelle, bornes: z.bas + '-' + z.haut,
+      nom: nom, mot: motDeLaPuce(slug), libelle: z.libelle, bornes: z.bas + '-' + z.haut,
       surRoutine: function () { choisir('routine'); },
       surAujourdhui: function () { choisir('aujourdhui'); },
       surFermer: fermerVoile
@@ -10497,6 +10517,7 @@
     var rendre = function () {
       Rendu.rendreFeuilleZone($('feuille-contenu'), {
         nom: Modele.nommer(Modele.indexerExercices(local.exercices), slug),
+        mot: motDeLaPuce(slug),
         zones: Moteur.ZONES,
         choisie: zoneDe(slug),
         deduite: deduiteDe(slug),
@@ -10541,6 +10562,9 @@
     var index = Modele.indexerExercices(local.exercices);
     if (feuille.quoi === 'fin') return rendreFeuilleFin(cible, index);
     if (feuille.quoi === 'abandon') return rendreFeuilleAbandon(cible);
+    if (feuille.quoi === 'mot') {
+      return Rendu.rendreFeuilleMot(cible, { mot: Moteur.motDuLexique(feuille.cle), surFermer: fermerVoile });
+    }
     if (feuille.quoi === 'non-validees') return rendreFeuilleNonValidees(cible);
     if (feuille.quoi === 'duree') return rendreFeuilleDuree(cible, index);
     if (feuille.quoi === 'pourquoi' && feuille.vue === 'accord') return rendreAccordAssistant(cible);
@@ -16862,6 +16886,11 @@
               surChoix: function () { ouvrirRythmeProfil('duree_seance_min'); } },
             // 60-2a — les quatre réponses de l'écran « Temps » (leurs phrases sont dans la feuille).
             Profil.ligneTemps(p, ouvrirReponseProfil)
+          ] },
+          // 201 — « Les mots du coach » : la liste fixe du moteur, une phrase chacun, la source repliée sous son mot.
+          { titre: 'LES MOTS DU COACH', lignes: [
+            { libelle: 'Les mots du coach', sansValeur: true, sous: Moteur.lexique().length + ' mots, une phrase chacun',
+              surChoix: ouvrirMotsDuCoach }
           ] }
         ]),
         dansLeGroupe('Mon programme', [
@@ -16936,6 +16965,14 @@
       $('profil-corps').insertBefore(Rendu.el('p', 'vide', refusProfil.texte), $('profil-corps').firstChild);
       refusProfil.vu = true;
     }
+  }
+
+  // 201 — Profil › Les mots du coach.
+  function ouvrirMotsDuCoach() {
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleMots(cible, { mots: Moteur.lexique(), surFermer: fermerVoile });
+    };
+    ouvrirFeuilleProfil();
   }
 
   // ── Quitter, et supprimer ────────────────────────────────────────────────

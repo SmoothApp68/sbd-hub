@@ -6540,7 +6540,8 @@ const SETS_IMPORTES = [
     JSON.stringify(await fantomes()) === JSON.stringify(attendus),
     JSON.stringify(await fantomes()) + ' vs ' + JSON.stringify(attendus));
   const entete = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('.legende-exo .consigne, .legende-exo .consigne-dit')).map((e) => e.textContent));
+    Array.from(document.querySelectorAll('.legende-exo .consigne, .legende-exo .consigne-dit:not(.premier-pari)')).map((e) => e.textContent));
+  // 211 : la ligne « Mon premier pari » (compte sans pari) est à part de l'en-tête du moteur.
   // 68A — l'en-tête dit l'objectif du jour (deux tests sur les trois séries).
   ok('[G] l’en-tête dit la consigne en jaune — l’objectif du jour —, puis sa phrase grise',
     sansInsecables(entete) === sansInsecables(enteteAttendu(consigneDC, 3).concat([consigneDC.libelles.gris])),
@@ -21524,6 +21525,11 @@ const SETS_IMPORTES = [
     const nbR = (x) => JSON.stringify(x).replace(/[\u00a0\u202f]/g, ' ');
     base.sessions = [];
     base.sets = [];
+    // 211 — « Mon premier pari » suppose un compte sans pari : dans la chaîne, les sections d'avant en ont laissé.
+    const predsAvant71 = base.predictions;
+    base.predictions = [];
+    const cachePredsAvant71 = await page.evaluate(() => window.THCache.lireTout('predictions'));
+    await page.evaluate(() => window.THCache.remplacerTout('predictions', []));
     CATALOGUE.push({ slug: 'rowing-r71', nom: 'Rowing R71 (Machine)', mesure: 'charge_reps', charge: 'externe',
       equipement: 'machine', muscles_primaires: ['grand_dorsal'], muscles_secondaires: ['biceps'] });
     CATALOGUE.push({ slug: 'gainage-r71', nom: 'Gainage R71', mesure: 'reps', charge: 'aucune',
@@ -21556,7 +21562,10 @@ const SETS_IMPORTES = [
         groupes: q('.recap-groupe').map((g) => g.textContent),
         muscles: q('.recap-mu').map((m) => m.firstChild.textContent),
         records: q('.recap-rec .l1').map((x) => x.textContent),
-        voix: (c.querySelector('.recap-voix') || {}).textContent || null,
+        voix: (c.querySelector('.recap-voix:not(.recap-premier):not(.recap-depart)') || {}).textContent || null,
+        // 211 — « Mon premier pari tenu. » (la séance du premier pari du compte) et « Point de départ » (la toute première séance).
+        premier: (c.querySelector('.recap-premier') || {}).textContent || null,
+        depart: (c.querySelector('.recap-depart') || {}).textContent || null,
         paris: q('.recap-pari').map((x) => [x.querySelector('.n').textContent, x.querySelector('.v').textContent]),
         boutons: q('button').map((b) => b.textContent),
         ordre: Array.from(c.children).map((x) => (x.classList.contains('recap-bouton') ? 'recap-bouton' : x.className.split(' ')[0] || x.id))
@@ -21617,7 +21626,19 @@ const SETS_IMPORTES = [
     await poserEspion();
     await demarrerRoutine('Dos R71 ×4');
     await attendre(900);
-    for (let i = 0; i < 4; i++) await saisirSerie(i, 80, 12);
+    // 211 — ce compte n'a aucun pari : la consigne dit « Mon premier pari : … » UNE fois (la phrase du plan), et le « Pourquoi ? »
+    // porte son point (aucun « Pourquoi » ouvert sur cet appareil). La première série validée écrit le pari : la ligne s'en va.
+    const premierVu = () => page.evaluate(() => ({
+      lignes: Array.from(document.querySelectorAll('.premier-pari')).map((x) => x.textContent),
+      points: document.querySelectorAll('.consigne-dit.pourquoi-neuf[data-pourquoi]').length }));
+    const pv = await premierVu();
+    ok('[R71] (a) 211 — « Mon premier pari : … kg × … » une fois sous la consigne, aux chiffres du plan ; le « Pourquoi ? » porte son point',
+      pv.lignes.length === 1 && /^Mon premier pari\u00a0: .+\u00a0kg\u00a0×\u00a0\d+\. Je te dirai après la série si j’avais vu juste\.$/.test(pv.lignes[0]) && pv.points >= 1, nbR(pv));
+    await saisirSerie(0, 80, 12);
+    await jusqua(async () => (await premierVu()).lignes.length === 0, 8000);
+    ok('[R71] (a) 211 — la première série validée a écrit le pari : la ligne « Mon premier pari » ne revient plus',
+      (await premierVu()).lignes.length === 0, nbR(await premierVu()));
+    for (let i = 1; i < 4; i++) await saisirSerie(i, 80, 12);
     await attendre(1200);
     const idA = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
     const feuilleA = await terminerR();
@@ -21641,6 +21662,10 @@ const SETS_IMPORTES = [
       a.groupes.map((g) => g.trim()).slice(0, 3).join(' | ') === 'Séries par muscle | 2 records | Ce que le coach avait visé' &&
       nbR(a.muscles) === nbR(['Grand dorsal', 'Biceps']) && nbR(a.records) === nbR(['Rowing r71 : 80 kg × 12', 'Rowing r71 : 80 kg × 12']),
       nbR([a.groupes, a.muscles, a.records]));
+    // 211 — ce compte n'avait aucun pari avant cette séance : le bloc des paris s'ouvre sur « Mon premier pari », un fait ; et
+    // cette séance n'est pas la première (quatre avant elle) : pas de « Point de départ ».
+    ok('[R71] (a) 211 — le bloc des paris ouvre sur « Mon premier pari tenu. » (le premier du compte) ; aucun « Point de départ » après quatre séances',
+      /^Mon premier pari(?: tenu\.|[\u00a0 ]: pas encore\.)$/.test(a.premier || '') && a.depart === null && !/bravo/i.test(a.premier || ''), nbR([a.premier, a.depart]));
     ok('[R71] (a) la phrase des paris aux chiffres tels quels, et la ligne de l’exercice : « 80 kg × 12, 12, 12, 12 »',
       /^Sur \d+ paris? vérifiés?, le coach en a tenu \d+\.$/.test(a.voix || '') &&
       nbR(a.paris) === nbR([['Rowing r71', '80 kg × 12, 12, 12, 12']]), nbR([a.voix, a.paris]));
@@ -21745,6 +21770,8 @@ const SETS_IMPORTES = [
     const iR = ROUTINES.findIndex((r) => r.id === 'r-r71');
     if (iR >= 0) ROUTINES.splice(iR, 1);
     CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.predictions = predsAvant71;
+    await page.evaluate((l) => window.THCache.remplacerTout('predictions', l), cachePredsAvant71);
     base.sessions = sessionsAvant;
     base.sets = setsAvant;
     await aller('/saisie');

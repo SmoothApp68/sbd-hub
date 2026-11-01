@@ -3392,9 +3392,16 @@
           var ligneGris = tapable(el('div', 'consigne-dit', lib.gris));
           // 204 — « Pourquoi ? » en lien discret au bout de la phrase datée : un attribut rendu par CSS (`::after`), comme « garde-en N ».
           // Le texte du coach reste mot pour mot ; la ligne entière est déjà la porte vers la feuille « Pourquoi ».
-          if (ligneGris.getAttribute('role') === 'button') ligneGris.setAttribute('data-pourquoi', 'Pourquoi\u00a0?');
+          if (ligneGris.getAttribute('role') === 'button') {
+            ligneGris.setAttribute('data-pourquoi', 'Pourquoi\u00a0?');
+            // 211 — un petit point d'accent tant que cet appareil n'a jamais ouvert un « Pourquoi » (CSS, `::before`).
+            if (typeof vue.pourquoiNeuf === 'function' && vue.pourquoiNeuf()) ligneGris.classList.add('pourquoi-neuf');
+          }
           entree.appendChild(ligneGris);
         }
+        // 211 — « Mon premier pari : … » : la phrase du plan, une fois, sous la consigne (la ligne est déjà la porte du « Pourquoi »).
+        var phrasePari = typeof vue.premierPari === 'function' ? vue.premierPari(x._iExo) : null;
+        if (phrasePari) entree.appendChild(tapable(el('div', 'consigne-dit premier-pari', phrasePari)));
         // 187 (MOTEUR §9.21 bis) — « Ta charge habituelle ? » : une réponse facultative, ou « Je ne sais pas ».
         var hab = !vue.programme && typeof vue.habituelle === 'function' ? vue.habituelle(x._iExo) : null;
         if (hab) entree.appendChild(blocHabituelle(hab));
@@ -6009,9 +6016,15 @@
       });
     }
 
+    // 211 — la toute première séance : « Point de départ », à la place du bloc des paris (qui n'a pas de matière).
+    if (r.pointDeDepart) {
+      groupe('Point de départ', 'coach');
+      cible.appendChild(el('p', 'recap-voix recap-depart', r.pointDeDepart));
+    }
     // Ce que le coach avait visé (ambre) : la phrase aux chiffres tels quels, puis une ligne par exercice.
     if (r.paris && r.paris.verifies) {
       groupe('Ce que le coach avait visé', 'coach');
+      if (r.paris.premier) cible.appendChild(el('p', 'recap-voix recap-premier', r.paris.premier));
       cible.appendChild(el('p', 'recap-voix', r.paris.phrase));
       r.paris.lignes.forEach(function (l) {
         var ligne = el('div', 'recap-pari');

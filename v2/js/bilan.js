@@ -142,6 +142,13 @@
       ', le coach en a tenu ' + t + '.';
   }
 
+  // 211 — LES PREMIÈRES MINUTES : le coach DIT son mécanisme, sans rien prévoir. Deux phrases du récap, ici (une seule voix).
+  // « Point de départ » : la toute première séance de la personne, à la place du bloc des paris (qui n'a pas de matière).
+  // « Mon premier pari » : en tête du bloc des paris de la séance où le premier pari du compte est vérifié — un fait, jamais un « bravo ».
+  var PHRASE_POINT_DE_DEPART = 'Cette séance me sert de point de départ. À la prochaine, je te propose une charge pour chaque ' +
+    'exercice, et après chaque série je te dis si j\u2019avais vu juste.';
+  function phrasePremierPari(tenu) { return tenu ? 'Mon premier pari tenu.' : 'Mon premier pari\u00a0: pas encore.'; }
+
   // ══ LA COMPARAISON DU RÉCAP (71, ECRAN-SAISIE §7 septies.4 bis) ══════════
   //
   // « 10,1 t soulevées : à peu près un tricératops. » Règle pour règle celle de
@@ -251,6 +258,8 @@
     compterParis: compterParis,
     estTenu: estTenu,
     phraseParis: phraseParis,
+    PHRASE_POINT_DE_DEPART: PHRASE_POINT_DE_DEPART,
+    phrasePremierPari: phrasePremierPari,
     OBJETS: OBJETS,
     fnv1a: fnv1a,
     comparaison: comparaison,

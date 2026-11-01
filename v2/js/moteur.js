@@ -10511,6 +10511,13 @@
     return 'Tes reculs' + DEUX_POINTS + listeDeRecul(reps) + (c !== null ? ' pour une cible de ' + nombreFr(c, regle('recul.reps')) : '') + '.';
   }
 
+  // 211 — « Mon premier pari : 60 kg × 9. Je te dirai après la série si j'avais vu juste. » Les chiffres sont ceux de la ligne
+  // du plan (cible du jour, I26) ; le mot « premier » est dit par l'écran seulement quand le compte n'a pas encore de pari.
+  function phrasePremierPari(charge, reps, role) {
+    return 'Mon premier pari' + DEUX_POINTS + chargeFois(charge, reps, cite(CIBLE, { role: role || 'ligne' })) +
+      '. Je te dirai après la série si j\u2019avais vu juste.';
+  }
+
   // ── 194-1 — LA MOBILITÉ EN FIN DE SÉANCE (MOTEUR §9.31) ───────────────────────────────────────────────────────────────
   // UNE table, ici : zone raide -> étirements tenus (fin de séance), mobilité en mouvement (avant), muscles que la séance
   // doit avoir travaillés pour que la zone passe en premier, exercices du jour qu'elle sert, zone à ménager qui lui répond.
@@ -11427,6 +11434,7 @@
     puisRecul: puisRecul,
     pourquoiRecul: pourquoiRecul,
     phraseConstatReculs: phraseConstatReculs,
+    phrasePremierPari: phrasePremierPari,
     RECUL_ECART_DEPART: RECUL_ECART_DEPART,
     FENETRE_HABITUDE: FENETRE_HABITUDE,
     FENETRE_COUPLE: FENETRE_COUPLE,

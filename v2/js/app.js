@@ -423,9 +423,41 @@
       return x.l.module === Moteur.MODULE_CONSIGNE && x.l.valeur_observee !== null && x.l.valeur_observee !== undefined &&
         x.seance && debutDe[x.seance];
     }).map(function (x) {
-      return { date: debutDe[x.seance], seance: x.seance, exercice: x.l.exercise_slug,
+      return { date: debutDe[x.seance], seance: x.seance, exercice: x.l.exercise_slug, emise: x.l.emise_a || null,
                predite: Number(x.l.valeur_predite), observee: Number(x.l.valeur_observee) };
     });
+  }
+
+  // 211 — TOUS les paris de consigne du compte (observés ou non), `[{ seance }]` : de quoi savoir si le compte en a déjà un.
+  // Le choix du premier et la phrase sont des faits (`faits.premierPariDuCompte`), jamais calculés ici.
+  function parisDeConsigneDuCompte() {
+    var parId = {};
+    (local.parisLegers || []).forEach(function (l) { if (l && l.id) parId[l.id] = { l: l, seance: l.session_id }; });
+    (local.predictions || []).forEach(function (l) {
+      if (l && (l.id || l._provisoire)) parId[l.id || l._provisoire] = { l: l, seance: l.fondement ? l.fondement.seance : null };
+    });
+    return Object.keys(parId).map(function (k) { return parId[k]; }).filter(function (x) {
+      return x.l.module === Moteur.MODULE_CONSIGNE && x.seance;
+    }).map(function (x) { return { seance: x.seance }; });
+  }
+
+  // 211 — « Mon premier pari : 60 kg × 9. … », UNE fois : tant que le compte n'a aucun pari de consigne, sous la consigne du
+  // premier exercice du plan qui en porte un. Le plan écrit la phrase (`x.premierPari`) ; rien n'est calculé ici.
+  function premierPariDeLExercice(iExo) {
+    if (!seance || enEdition() || demoEscalier()) return null;
+    if (faits.premierPariDuCompte(corpus(), parisDeConsigneDuCompte()) !== null) return null;
+    var p = planActuel();
+    var x = p && p.exercices.filter(function (e) { return e.premierPari; })[0];
+    return x && x.iExo === iExo ? x.premierPari.phrase : null;
+  }
+
+  // 211 — le point du « Pourquoi » : tant que cet appareil n'en a jamais ouvert un (préférence locale, sans base).
+  var CLE_POURQUOI_OUVERT = 'th-v2-pourquoi-ouvert';
+  function pourquoiNeuf() {
+    try { return !racine.localStorage.getItem(CLE_POURQUOI_OUVERT); } catch (e) { return false; }
+  }
+  function pourquoiOuvert() {
+    try { racine.localStorage.setItem(CLE_POURQUOI_OUVERT, '1'); } catch (e) { /* tant pis : le point reste */ }
   }
 
   // LE BILAN D'UN BLOC : les charges de travail de chacun de ses exercices
@@ -4954,7 +4986,7 @@
   }
   function rendreRecap() {
     if (!recap) return;
-    var r = faits.recapDeLaSeance(corpus(), recap.seance, parisDeConsigneConnus());
+    var r = faits.recapDeLaSeance(corpus(), recap.seance, parisDeConsigneConnus(), parisDeConsigneDuCompte());
     montrer('recap');
     Rendu.rendreRecap($('recap-corps'), {
       recap: r,
@@ -9491,6 +9523,8 @@
       // §3.1 — la voix du moteur dans l'en-tête : les lignes jaunes et la
       // phrase grise, ou rien (Édition, Entretenir, mesure sans charge).
       libelles: libellesDe,
+      premierPari: premierPariDeLExercice,
+      pourquoiNeuf: pourquoiNeuf,
       habituelle: habituelleDe,
       // §3.8 — l'étiquette de zone, à côté du nom, et son menu (48b-7).
       etiquette: etiquetteDe,
@@ -10408,6 +10442,7 @@
   // en a une par branche.
   function ouvrirPourquoi(slug) {
     if (!pourquoiDe(slug)) return;
+    pourquoiOuvert();
     feuille = { quoi: 'pourquoi', slug: slug, vue: 'fiche', conv: { bulles: [], saisie: '', enCours: false } };
     rendreFeuille();
     ouvrirVoile($('feuille-seance'), function () {

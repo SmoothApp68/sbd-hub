@@ -232,6 +232,37 @@ describe('71 — les faits du récap, sur une séance d’exemple', () => {
     expect(Bilan.phraseParis(16, 14)).toBe('Sur 10 paris vérifiés, le coach en a tenu 9.');
   });
 
+  // 211 — les premières minutes : le coach dit son mécanisme au bon moment, sans rien prévoir.
+  test('211 — la séance 1 : « Point de départ », et pas de bloc des paris ; la séance 2, non', () => {
+    const seule = () => Object.assign(corpus(), { seances: [SEANCE] });
+    const x = faits.recapDeLaSeance(seule(), SEANCE, []);
+    expect(x.pointDeDepart).toBe(Bilan.PHRASE_POINT_DE_DEPART);
+    expect(x.pointDeDepart).toMatch(/^Cette séance me sert de point de départ\./);
+    expect(x.paris).toBeNull();
+    // Une séance terminée avant (AVANT) : ce n'est plus la première. Une séance en cours ne compte pas.
+    expect(faits.estLaPremiereSeance(corpus(), SEANCE)).toBe(false);
+    expect(r().pointDeDepart).toBeNull();
+    const enCours = Object.assign({}, AVANT, { statut: 'en_cours' });
+    expect(faits.estLaPremiereSeance(Object.assign(corpus(), { seances: [SEANCE, enCours] }), SEANCE)).toBe(true);
+  });
+
+  test('211 — le premier pari du compte : la séance la plus ancienne qui en porte un ; aucun, null', () => {
+    expect(faits.premierPariDuCompte(corpus(), [])).toBeNull();
+    expect(faits.premierPariDuCompte(corpus(), [{ seance: ID_SEANCE }, { seance: AVANT.id }])).toBe(AVANT.id);
+  });
+
+  test('211 — le récap de la séance du premier pari ouvre sur « Mon premier pari tenu. » ou « : pas encore. » ; jamais ailleurs', () => {
+    const premier = [{ seance: ID_SEANCE }];
+    expect(faits.recapDeLaSeance(corpus(), SEANCE, PARIS, premier).paris.premier).toBe('Mon premier pari tenu.');
+    const rate = PARIS.map((q) => Object.assign({}, q, q.exercice === 'tractions' && q.observee === 9 ? { observee: 3, emise: '2026-01-01T10:00:00Z' } : {}));
+    const ouvre = faits.recapDeLaSeance(corpus(), SEANCE, rate, premier).paris.premier;
+    expect(ouvre).toBe('Mon premier pari\u00a0: pas encore.');
+    expect(ouvre).not.toMatch(/bravo/i);
+    // Le compte avait déjà un pari avant : pas de « premier ».
+    expect(faits.recapDeLaSeance(corpus(), SEANCE, PARIS, [{ seance: AVANT.id }, { seance: ID_SEANCE }]).paris.premier).toBeNull();
+    expect(r().paris.premier).toBeNull();
+  });
+
   test('ce qui a été fait : une charge qui change, des reps seules, une mesure', () => {
     expect(faits.faitDeLExercice([serie('a', 32, 12), serie('b', 36, 10)])).toBe('32 kg × 12 · 36 kg × 10');
     expect(faits.faitDeLExercice([serie('a', 90, 10), serie('b', 90, 10), serie('c', 90, 10)])).toBe('90 kg × 10, 10, 10');

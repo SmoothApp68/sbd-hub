@@ -59,7 +59,12 @@
           <em id="aide-mdp" class="entree-aide" hidden>Tu le changeras depuis ton profil.</em>
         </label>
         <button id="btn-oubli" type="button" class="entree-oubli">Mot de passe oublié ?</button>
+        <label id="env-age15" class="entree-age15" hidden>
+          <input id="champ-age15" type="checkbox" name="age15"> <span>J’ai 15 ans ou plus</span>
+        </label>
         <button id="btn-connexion" type="submit" class="principal">Se connecter</button>
+        <!-- 212 — la ligne sous le bouton (inscription seulement) ; les liens sont posés par l'app. -->
+        <p id="entree-conditions" class="entree-conditions" hidden></p>
         <p id="erreur-connexion" class="erreur" role="alert" aria-live="polite"></p>
       </form>
       <!-- 138 (ECRAN-PROFIL §3.5) — sur iPhone, hors de l'app installée : « installe TrainHub d'abord ». Le composant du
@@ -565,6 +570,7 @@
 <script src="/js/questionnaire.js"></script>
 <script src="/js/importhevy.js"></script>
 <script src="/js/export.js"></script>
+<script src="/js/mentions.js"></script>
 <script src="/js/routeur.js"></script>
 <script src="/js/sortie.js"></script>
 <script src="/js/cache.js"></script>

@@ -2278,6 +2278,7 @@
     var v = verdictPseudo(e.pseudo, e.pseudoPris, e);
     if (v.code !== 'libre' && v.code !== 'inconnu') return false;
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(e.email || '').trim())) return false;
+    if (e.age15 !== true) return false;   // 212 — « J'ai 15 ans ou plus » : obligatoire à l'inscription seulement
     return mdpValide(e.mdp);
   }
 

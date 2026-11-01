@@ -23122,7 +23122,7 @@ const SETS_IMPORTES = [
 
     // Un appareil neuf, au mercredi 14 octobre 2026, 10 h (heure locale).
     const vraiMaintenant = Date.now() - (Horloge.DECALAGE || 0);
-    const mercredi = new Date(2026, 9, 14, 10, 0, 0).getTime() - (Horloge.DECALAGE || 0);
+    const mercredi = new Date(2026, 9, 14, 10, 0, 0).getTime();   // le contexte neuf n'a pas le décalage du banc : l'écart se prend sur le vrai maintenant
     const appareil99 = async (nom) => {
       const c = await nav.newContext({ viewport: { width: 360, height: 760 } });
       await c.addInitScript(SCRIPT_JETON);
@@ -23475,7 +23475,7 @@ const SETS_IMPORTES = [
     const appareilO = async (nom, quand) => {
       const c = await nav.newContext({ viewport: { width: 360, height: 760 } });
       await c.addInitScript(SCRIPT_JETON);
-      await c.addInitScript(Horloge.scriptNavigateur(quand.getTime() - (Horloge.DECALAGE || 0) - vraiMaintenant));
+      await c.addInitScript(Horloge.scriptNavigateur(quand.getTime() - vraiMaintenant));
       await c.route(/supabase\.co/, gestionnaireSuivi);   // 143 — le suivi compte aussi les requêtes de cet appareil
       const p = await c.newPage();
       p.on('pageerror', (e) => erreurs.push('[' + nom + '] ' + String(e).slice(0, 140)));
@@ -26840,7 +26840,7 @@ const SETS_IMPORTES = [
       charge_kg: 100, reps: 8, duree_s: null, distance_m: null, type_serie: 'travail', rang: i, groupe_superset: null,
       validee_a: lundi, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: lundi, modifie_a: null }));
     const vraiMaintenant = Date.now() - (Horloge.DECALAGE || 0);
-    const mercredi = new Date(2026, 9, 14, 10, 0, 0).getTime() - (Horloge.DECALAGE || 0);
+    const mercredi = new Date(2026, 9, 14, 10, 0, 0).getTime();   // le contexte neuf n'a pas le décalage du banc : l'écart se prend sur le vrai maintenant
     const appareil171 = async (nom) => {
       const c = await nav.newContext({ viewport: { width: 360, height: 760 } });
       await c.addInitScript(SCRIPT_JETON);

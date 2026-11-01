@@ -828,7 +828,7 @@ html{scroll-padding-top:var(--h-barre-seance, 0px)}
    passe à la ligne avec lui — `.exo-seance` est déjà un flex à `baseline`. */
 .puce-zone{display:inline-flex;align-items:center;flex:0 0 auto;
   padding:1px 7px;border:1px solid var(--panneau-2);border-radius:var(--r-etiquette);
-  background:var(--panneau-2);color:var(--accent);font-family:var(--pile-c);
+  background:var(--panneau-2);color:var(--texte);font-family:var(--pile-c);
   font-size:12px;font-weight:600;white-space:nowrap;letter-spacing:.02em}
 .exo-tete .puce-zone{margin-top:var(--e1)}
 
@@ -848,10 +848,10 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:12px;font-weig
 /* La forge (56-1) : le fond plein est devenu l'état de base. « Choisie » garde
    son point et prend le contour ambre — l'écart entre les deux états reste
    visible d'un coup d'œil. */
-.puce-zone.choisie{background:var(--panneau-2);border-color:var(--accent);
-  color:var(--accent)}
+.puce-zone.choisie{background:var(--panneau-2);border-color:var(--texte-2);
+  color:var(--texte)}
 .puce-zone.choisie::before{content:"";width:5px;height:5px;border-radius:50%;
-  background:var(--accent);margin-right:6px;flex:0 0 auto}
+  background:var(--texte);margin-right:6px;flex:0 0 auto}
 .puce-seule{display:inline-flex}
 
 /* Le menu des cinq zones. Une option est une ligne tapable : le rond, le nom,
@@ -1103,7 +1103,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* 149 (MOTEUR §9.17 ter) — LES FIGURES EN SECONDES : la phrase du coach, en gris (un fait, pas un bravo), et
    l'étiquette « max » / « après ton max » sous la rangée de la tenue. */
 .reaction-serie.figure{color:var(--texte-2);font-weight:500}
-.fig-eti{color:var(--accent);font-size:12px;font-weight:620;line-height:1.2;padding:0 2px 2px 35px}
+.fig-eti{color:var(--texte-2);font-size:12px;font-weight:620;line-height:1.2;padding:0 2px 2px 35px}
 /* MOTEUR §9.23 (55-1) — LA MÉDAILLE (maquette-progression-v1, « La médaille »).
    Un fait, pas la voix du coach : l'or de la médaille, jamais l'accent. Sous la
    rangée de la série, la phrase en gras, le record d'avant en gris. */
@@ -2300,7 +2300,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   margin:16px 0 6px;display:flex;gap:6px;align-items:center}
 .recap-point{display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor}
 .recap-groupe.or{color:var(--medaille)}
-.recap-groupe.coach{color:var(--accent)}
+.recap-groupe.coach{color:var(--texte-2)}
 .recap-mu{display:grid;grid-template-columns:120px 1fr 40px;gap:8px;align-items:center;font-size:13px;margin:5px 0}
 .recap-mu i{display:block;height:8px;border-radius:4px;background:var(--texte-3)}
 .recap-mu b{font-weight:600;text-align:right}
@@ -2963,3 +2963,16 @@ button[id^="btn-retour"]{padding:0 14px;font-size:14px}
 .dq-item b{font-size:16px;color:var(--texte)}
 .dq-item.act b{color:var(--accent)}
 .dq-item.act span{color:var(--texte)}
+
+/* ── 210 — L'ambre ne signale que l'action principale et l'actif ───────────────────────────────
+   Ambre gardé pour : bouton principal, onglet/période actif, cible du jour, records. Étiquettes « Au max »/« recul »,
+   titres de section du récap et puces de zone passent en texte normal / --texte-2.
+   UN SEUL bouton secondaire : contour 1 px --trait, fond transparent, 44 px mini, rayon 12 px. Les variantes
+   (Saisie, pilule du Fil/Jeu, gros contour du récap, retour, fermer) y sont fusionnées ; les tailles de texte restent
+   celles de chaque règle d'origine. Classe canonique : .btn-sec. */
+.btn-sec,.discret,.fermer,.cal-pied button,.peu-de-temps,.seance.sortie,
+.proposition-exercice .pc-refuser,.carte-escalier .ce-refuser,.carte-fin-bloc .cfb-ajuster,.carte-fin-bloc .cfb-arreter,
+.feuille-pied .sec{
+  background:transparent;border:1px solid var(--trait);border-radius:12px;min-height:44px;
+  box-sizing:border-box}
+.btn-sec{color:var(--texte-2)}

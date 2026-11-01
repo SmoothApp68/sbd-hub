@@ -12031,7 +12031,6 @@ const SETS_IMPORTES = [
       JSON.stringify([recordA, plusLourde]));
     // 206 — la page porte désormais sa courbe en tête (le max estimé, Epley) et Progression « Tes exercices » le même chiffre
     // en fin de ligne (« 141 → 152 kg ») : même intention (Progression dit le chiffre de la page), la grandeur est celle de la courbe.
-    const valeurCourbeE = await page.evaluate(() => ((document.querySelector('#page-exercice .courbe-val') || {}).textContent || '').replace(/\s+/g, ' ').trim());
     if (process.env.BANC_CAPTURES) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'e-page-exercice.png'), fullPage: true });
     // 206 — navigateur réel : toucher un point ouvre la bulle (date, meilleure série, max estimé) ; choisir « 3 mois » redessine la courbe.
     await page.evaluate(() => { const c = document.querySelectorAll('#page-exercice .courbe-cible'); if (c.length) c[c.length - 1].dispatchEvent(new MouseEvent('click', { bubbles: true })); });
@@ -12044,11 +12043,16 @@ const SETS_IMPORTES = [
     ok('[E] 206 — la période se choisit (3 mois), et la page garde sa courbe', perE === '3 mois' &&
       (await page.evaluate(() => !!document.querySelector('#page-exercice .courbe-carte'))), JSON.stringify(perE));
     await aller('/progression');
-    const prog = await page.evaluate(() => Array.from(document.querySelectorAll('.bloc-exo'))
-      .filter((l) => /Écrans U5/.test(l.textContent)).map((l) => (l.querySelector('.bloc-exo-val') || {}).textContent)[0] || null);
+    // Quel que soit l'état laissé par les sections d'avant, « Tes exercices » montre les plus faits sur 8 semaines : on prend la
+    // première ligne affichée, on l'ouvre, et sa page dit le même chiffre en fin de ligne (« 141 → 152 kg » → 152 kg).
+    const prog = await page.evaluate(() => { const l = document.querySelector('#sommaire .bloc-exo');
+      return l ? ((l.querySelector('.bloc-exo-val') || {}).textContent || null) : null; });
+    await page.evaluate(() => { const l = document.querySelector('#sommaire .bloc-exo'); if (l) l.click(); });
+    await page.waitForFunction(() => !!document.querySelector('#page-exercice .courbe-val'), null, { timeout: 5000 }).catch(() => {});
+    const valeurLigneE = await page.evaluate(() => ((document.querySelector('#page-exercice .courbe-val') || {}).textContent || '').replace(/\s+/g, ' ').trim());
     const finProg = prog === null ? null : prog.replace(/\s+/g, ' ').trim().split(' \u2192 ').pop();
     ok('[E] 206 — Progression dit le même chiffre que la courbe de la page (le max estimé)',
-      !!valeurCourbeE && finProg !== null && finProg === valeurCourbeE, JSON.stringify([prog, valeurCourbeE]));
+      !!valeurLigneE && finProg !== null && finProg === valeurLigneE, JSON.stringify([prog, valeurLigneE]));
     await aller('/');
     const carte = await page.evaluate(() => Array.from(document.querySelectorAll('.apercu-exo'))
       .filter((l) => /Écrans U5/.test(l.textContent)).map((l) => (l.querySelector('.apercu-val') || {}).textContent)[0] || null);

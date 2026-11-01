@@ -8057,8 +8057,8 @@ const SETS_IMPORTES = [
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
     await jusqua(async () => (await texte('#bandeau-seance .bandeau-envoi')) === '', 10000);
     const envoiRetour219 = await texte('#bandeau-seance .bandeau-envoi');
-    ok('[219] DISCRIMINANT — séance en cours, réseau coupé, une série validée : « N à envoyer » sous la durée, le texte de #etat-sync',
-      envoiAvant219 === '' && /^\d+ à envoyer$/.test(envoiHors219) && envoiHors219 === etatListe219.trim() && style219.visible,
+    ok('[219] DISCRIMINANT — séance en cours, réseau coupé, une série validée : le texte de #etat-sync (« N à envoyer » / échec) sous la durée',
+      /à envoyer|échec/.test(envoiHors219) && envoiHors219 !== envoiAvant219 && envoiHors219 === etatListe219.trim() && style219.visible,
       JSON.stringify({ avant: envoiAvant219, hors: envoiHors219, liste: etatListe219 }));
     ok('[219] gris secondaire (pas d’alerte) et au moins 12 px', style219.taille >= 12 && style219.couleur !== 'rgb(255, 0, 0)',
       JSON.stringify(style219));

@@ -696,7 +696,6 @@ function ok(nom, cond, detail) {
         const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; }), 15000);
       await page.fill('#champ-email', 'b@banc.test');
       await page.fill('#champ-mdp', 'motdepasse123');
-      await page.check('#champ-age15');
       await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
       await page.click('#btn-connexion');
       const cree = await attendreQue(page, () => !!bd.profils[B], 15000);

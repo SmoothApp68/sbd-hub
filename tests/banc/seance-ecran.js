@@ -3756,10 +3756,10 @@ const SETS_IMPORTES = [
   if (process.env.BANC_CAPTURES_204) {
     // 204 — capture à 380 px pour la PR, le minuteur ouvert, le défilement tout en bas.
     await page.setViewportSize({ width: 380, height: 760 });
-    await attendre(500);
+    await page.waitForFunction(() => window.innerWidth === 380, null, { timeout: 5000 });
     await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_204, 'repos-ouvert.png') });
     await page.setViewportSize({ width: 360, height: 760 });
-    await attendre(300);
+    await page.waitForFunction(() => window.innerWidth === 360, null, { timeout: 5000 });
   }
   const jetons = await page.evaluate(() => {
     const s = getComputedStyle(document.documentElement);
@@ -3901,9 +3901,9 @@ const SETS_IMPORTES = [
   // ── La note d'exercice ──────────────────────────────────────────────────
   // 204 — la note se pose depuis le « ⋯ » de l'exercice : « Ajouter une note ».
   await page.evaluate(() => document.querySelectorAll('.bloc-seance')[0].querySelector('.menu-pts[aria-label="Actions du bloc"]').click());
-  await attendre(400);
+  await page.waitForSelector('#feuille-contenu .menu-note', { timeout: 5000 });
   await page.click('#feuille-contenu .menu-note');
-  await attendre(400);
+  await page.waitForSelector('#feuille-contenu textarea', { timeout: 5000 });
   ok('« Ajouter une note » (dans le ⋯ de l’exercice) ouvre la feuille de note',
     /Note de l’exercice/.test(await texte('#feuille-contenu')),
     (await texte('#feuille-contenu')).replace(/\s+/g, ' ').slice(0, 60));
@@ -17794,10 +17794,10 @@ const SETS_IMPORTES = [
     const capture204 = async (nom) => {
       if (!process.env.BANC_CAPTURES_204) return;
       await page.setViewportSize({ width: 380, height: 760 });
-      await attendre(400);
+      await page.waitForFunction(() => window.innerWidth === 380, null, { timeout: 5000 });
       await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_204, nom + '.png') });
       await page.setViewportSize({ width: 360, height: 760 });
-      await attendre(300);
+      await page.waitForFunction(() => window.innerWidth === 360, null, { timeout: 5000 });
     };
     await capture204('seance-en-haut');
     // ── B bis. 204 — LA SÉANCE EN SALLE : les onglets se cachent, « ⌄ » les rend, « Reprendre » (l'onglet Saisie) ramène.
@@ -17825,7 +17825,7 @@ const SETS_IMPORTES = [
     ok('[salle] 204 — le « ⋯ » de la séance propose Modifier et S’entraîner ensemble', JSON.stringify(menuS) === '["Modifier","S’entraîner ensemble"]', JSON.stringify(menuS));
     await capture204('menu-de-la-seance');
     await page.click('#btn-fermer-feuille');
-    await attendre(400);
+    await page.waitForFunction(() => document.getElementById('feuille-seance').hidden, null, { timeout: 5000 });
     await page.click('#bandeau-seance .bandeau-reduire');
     await jusqua(async () => (await salle()).ongletsCaches === false, 5000, 'salle: réduire');
     await capture204('seance-reduite');

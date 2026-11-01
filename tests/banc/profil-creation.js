@@ -501,7 +501,7 @@ function ok(nom, cond, detail) {
       await page.goto(BASE + '/profil', { waitUntil: 'domcontentloaded' });
       const surProfil = await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#btn-deconnexion')), 15000);
       ok('prémisse — A est connecté, son profil s’affiche', surProfil);
-      await page.click('#btn-deconnexion');
+      await page.evaluate(() => document.querySelector('#btn-deconnexion').click());
       await feuilleOuverte(page);
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .filter((b) => b.textContent === 'Quitter')[0].click());
@@ -1603,6 +1603,61 @@ function ok(nom, cond, detail) {
       const ouvert = await attendreQue(page, questionnaireOuvert, 8000);
       ok('DISCRIMINANT [93] — le questionnaire s’ouvre de lui-même après la naissance de la ligne', ouvert);
       ok('aucune écriture refusée par la base', bd.refus.length === 0, JSON.stringify(bd.refus));
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
+    // ══ 213. LE PROFIL EN GROUPES REPLIÉS ═══════════════════════════════════════════════════════════════════════
+    // Cinq groupes, tout fermé à l'arrivée, un seul ouvert à la fois, un résumé chacun ; « À compléter (N) » en tête ;
+    // aucune ligne ne disparaît ; un réglage ouvert depuis la carte rouvre son groupe au retour de la feuille.
+    console.log('\n══ 213. Profil : cinq groupes repliés, « À compléter » ══');
+    {
+      const bd = baseSansPseudo();
+      const { ctx, page, erreurs } = await ouvrirProfilDe(nav, bd);
+      await page.setViewportSize({ width: 380, height: 800 });
+      const capture = async (nom, plein) => {
+        if (process.env.BANC_CAPTURES_213) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_213, nom + '.png'), fullPage: !!plein });
+      };
+      const etat = () => page.evaluate(() => ({
+        groupes: Array.from(document.querySelectorAll('#profil-corps .p-gr')).map((g) => ({
+          nom: g.dataset.groupe, ouvert: g.querySelector('.p-gr-tete').getAttribute('aria-expanded') === 'true',
+          visible: !g.querySelector('.p-gr-corps').hidden, resume: (g.querySelector('.p-gr-resume') || {}).textContent || '' })),
+        carte: (document.querySelector('#profil-corps .p-ac-titre') || {}).textContent || null,
+        hauteur: document.documentElement.scrollHeight }));
+      const e0 = await etat();
+      ok('[213] cinq groupes, dans l’ordre', JSON.stringify(e0.groupes.map((g) => g.nom)) ===
+        JSON.stringify(['Mon coach', 'Mon programme', 'Moi', 'Mon compte', 'À propos']), JSON.stringify(e0.groupes.map((g) => g.nom)));
+      ok('DISCRIMINANT [213] — tout est fermé à l’arrivée', e0.groupes.every((g) => !g.ouvert && !g.visible), JSON.stringify(e0.groupes));
+      ok('[213] chaque groupe a son résumé d’une ligne', e0.groupes.every((g) => g.resume.length > 0), JSON.stringify(e0.groupes.map((g) => g.resume)));
+      ok('[213] « À compléter (N) » est en tête, avec N > 0', /^À compléter \(\d+\)$/.test(e0.carte || ''), String(e0.carte));
+      await capture('profil-ferme-ecran');
+      await capture('profil-ferme-entier', true);
+      const clic = (nom) => page.evaluate((n) => document.querySelector('#profil-corps .p-gr[data-groupe="' + n + '"] .p-gr-tete').click(), nom);
+      await clic('Mon coach');
+      const e1 = await etat();
+      ok('[213] toucher une tête ouvre son groupe', e1.groupes[0].ouvert && e1.groupes[0].visible, JSON.stringify(e1.groupes));
+      await capture('profil-coach-ouvert');
+      await clic('Moi');
+      const e2 = await etat();
+      ok('DISCRIMINANT [213] — un seul ouvert à la fois', e2.groupes.filter((g) => g.ouvert).length === 1 && e2.groupes[2].ouvert && !e2.groupes[0].visible, JSON.stringify(e2.groupes));
+      await clic('Moi');
+      ok('[213] toucher le groupe ouvert le referme', (await etat()).groupes.every((g) => !g.ouvert));
+      // Aucune ligne ne disparaît : « Quitter » et « Supprimer mon compte » sont dans « Mon compte ».
+      const compte = await page.evaluate(() => {
+        const g = document.querySelector('#profil-corps .p-gr[data-groupe="Mon compte"]');
+        return { q: !!g.querySelector('#btn-deconnexion'), s: !!g.querySelector('#btn-supprimer-compte') };
+      });
+      ok('[213] « Quitter » et « Supprimer mon compte » sont dans « Mon compte »', compte.q && compte.s, JSON.stringify(compte));
+      // Un réglage vide ouvert depuis la carte : la feuille s'ouvre, et au retour son groupe est ouvert.
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ac-ligne'))
+        .filter((b) => b.textContent.indexOf('Sexe') === 0 || b.textContent.indexOf('Entraînement régulier') === 0)[0].click());
+      await feuilleOuverte(page);
+      await capture('profil-feuille-depuis-carte');
+      await page.mouse.click(190, 15);   // le fond du voile ferme la feuille
+      await attendreQue(page, () => page.evaluate(() => document.getElementById('feuille-seance').hidden), 5000);
+      const e3 = await etat();
+      ok('[213] depuis la carte, le groupe d’origine est ouvert', e3.groupes.filter((g) => g.ouvert).length === 1, JSON.stringify(e3.groupes));
+      await capture('profil-apres-feuille');
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }

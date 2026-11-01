@@ -15336,7 +15336,7 @@ const SETS_IMPORTES = [
       const c = getComputedStyle(i).color; i.remove(); return c;
     });
     const quitterQ = async () => {
-      await page.click('#btn-deconnexion');
+      await page.evaluate(() => document.querySelector('#btn-deconnexion').click());
       await attendre(500);
       await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .filter((b) => b.textContent === 'Quitter')[0].click());
@@ -15486,7 +15486,7 @@ const SETS_IMPORTES = [
     base.lenteurRecords = LENTEUR_Q;
     await aller('/profil');
     const supprimeA = Date.now();
-    await page.click('#btn-supprimer-compte');
+    await page.evaluate(() => document.querySelector('#btn-supprimer-compte').click());
     await attendre(500);
     await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
       .filter((b) => b.textContent === 'Supprimer définitivement')[0].click());

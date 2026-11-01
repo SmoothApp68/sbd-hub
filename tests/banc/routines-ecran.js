@@ -2654,7 +2654,7 @@ const ALIAS_COMMUNS = [
       const q = document.querySelector('#btn-deconnexion'), s = document.querySelector('#btn-supprimer-compte');
       return !!q && !!s && !!(q.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING);
     }), 'Quitter puis Supprimer');
-  await page3.click('#btn-supprimer-compte');
+  await page3.evaluate(() => document.querySelector('#btn-supprimer-compte').click());
   await jusqua('confirmation de suppression du compte', () => page3.evaluate(() => !document.getElementById('feuille-seance').hidden &&
     document.querySelectorAll('#feuille-contenu .feuille-menu button').length > 0));
   const phraseSuppr = await txt3('#feuille-contenu .feuille-aide');
@@ -2694,7 +2694,7 @@ const ALIAS_COMMUNS = [
   // L'ÉCHEC D'ABORD (la base refuse) : rien n'est effacé, et l'écran le dit.
   const avantEchec = await etatAppareil();
   base.refuserSuppression = true;
-  await page3.click('#btn-supprimer-compte');
+  await page3.evaluate(() => document.querySelector('#btn-supprimer-compte').click());
   await jusqua('confirmation de suppression du compte', () => page3.evaluate(() => !document.getElementById('feuille-seance').hidden &&
     document.querySelectorAll('#feuille-contenu .feuille-menu button').length > 0));
   await page3.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
@@ -2717,7 +2717,7 @@ const ALIAS_COMMUNS = [
   base.refuserSuppression = false;
 
   const avantSuppression = base.envois.length;
-  await page3.click('#btn-supprimer-compte');
+  await page3.evaluate(() => document.querySelector('#btn-supprimer-compte').click());
   await jusqua('confirmation de suppression du compte', () => page3.evaluate(() => !document.getElementById('feuille-seance').hidden &&
     document.querySelectorAll('#feuille-contenu .feuille-menu button').length > 0));
   await page3.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))

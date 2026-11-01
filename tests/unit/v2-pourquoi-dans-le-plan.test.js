@@ -61,7 +61,8 @@ const K125 = { etat: 'test_propose', zone: 'lourd', palier: 125, niveau: 5, n: 3
 describe('PR 1 — le plan pose la feuille « Pourquoi » entière', () => {
   test('« Donc », les lignes ET les paragraphes, sur la consigne du plan', () => {
     const x = planDe(K125).exercices[0];
-    expect(Object.keys(x.pourquoi).sort()).toEqual(['donc', 'etat', 'fin', 'lignes', 'palier', 'reglage', 'seance', 'zone']);
+    // 201 : + « sources » (la zone a sa convention) — la ligne repliée « D'où ça vient ».
+    expect(Object.keys(x.pourquoi).sort()).toEqual(['donc', 'etat', 'fin', 'lignes', 'palier', 'reglage', 'seance', 'sources', 'zone']);
     expect(esp(x.pourquoi.donc)).toBe('Donc 125 kg × 5, puis 130 kg × 4 sur la dernière série.');
     expect(esp(x.pourquoi.palier)).toBe('Ta charge de travail : 125 kg, validée à 5 reps. Tes séries y ont fait 5, 5, 5.');
     expect(esp(x.pourquoi.zone)).toBe('Ta zone : Lourd, 3 à 5 reps. Touche l\'étiquette pour la changer.');

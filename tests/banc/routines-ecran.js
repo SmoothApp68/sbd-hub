@@ -2791,6 +2791,7 @@ const ALIAS_COMMUNS = [
   await page4.fill('#champ-email', 'melodie.dupont@exemple.fr');
   const sondesAvant = base.envois.filter((e) => e.table === 'pseudo_libre').length;
   await page4.fill('#champ-mdp', 'motdepasse1');
+      await page4.check('#champ-age15');
   // 135 — la sonde du pseudo est partie (après sa temporisation) et la base a répondu « je ne sais pas »
   // (PGRST202) : c'est après cette réponse que l'écran doit se taire.
   await jusqua('sonde du pseudo répondue', () => base.envois.filter((e) => e.table === 'pseudo_libre').length > sondesAvant);

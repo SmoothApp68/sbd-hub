@@ -384,6 +384,7 @@ async function inscrireSansSession(nav, bd) {
   await page.fill('#champ-pseudo', PSEUDO_TAPE);
   await page.fill('#champ-email', 'b@banc.test');
   await page.fill('#champ-mdp', 'motdepasse123');
+      await page.check('#champ-age15');
   await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
   await page.click('#btn-connexion');
   await attendreQue(page, () => bd.inscriptions.length > 0, 15000);
@@ -508,6 +509,7 @@ function ok(nom, cond, detail) {
       await page.fill('#champ-pseudo', 'test_0710');
       await page.fill('#champ-email', 'b@banc.test');
       await page.fill('#champ-mdp', 'motdepasse123');
+      await page.check('#champ-age15');
       await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
       await page.click('#btn-connexion');
       const cree = await attendreQue(page, () => !!bd.profils[B], 15000);
@@ -622,6 +624,18 @@ function ok(nom, cond, detail) {
       await page.fill('#champ-pseudo', 'test_0710');
       await page.fill('#champ-email', 'b@banc.test');
       await page.fill('#champ-mdp', 'motdepasse123');
+      // 212 — la case « J'ai 15 ans ou plus » bloque l'inscription ; les pages légales s'ouvrent depuis le pied.
+      ok('212 DISCRIMINANT — case « 15 ans ou plus » décochée : le bouton reste éteint',
+        await page.evaluate(() => document.querySelector('#btn-connexion').disabled && !document.querySelector('#env-age15').hidden));
+      for (const [cle, titre] of [['confidentialite', 'Confidentialité'], ['sante', 'Santé']]) {
+        await page.click('#entree-conditions [data-mentions="' + cle + '"]');
+        const titreVu = await attendreQue(page, () => page.evaluate((t) => {
+          const e = document.querySelector('#feuille-contenu .feuille-t'); return !!e && e.textContent === t; }, titre), 5000);
+        ok('212 — « ' + titre + ' » s’ouvre depuis le pied de l’inscription', titreVu);
+        await page.evaluate(() => document.querySelector('#feuille-contenu .bloc-large').click());
+        await attendreQue(page, () => page.evaluate(() => document.querySelector('#feuille-seance').hidden), 5000);
+      }
+      await page.check('#champ-age15');
       await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
       await page.click('#btn-connexion');
       const cree = await attendreQue(page, () => !!bd.profils[B], 15000);
@@ -682,6 +696,7 @@ function ok(nom, cond, detail) {
         const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; }), 15000);
       await page.fill('#champ-email', 'b@banc.test');
       await page.fill('#champ-mdp', 'motdepasse123');
+      await page.check('#champ-age15');
       await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
       await page.click('#btn-connexion');
       const cree = await attendreQue(page, () => !!bd.profils[B], 15000);
@@ -1563,6 +1578,7 @@ function ok(nom, cond, detail) {
       await page.fill('#champ-pseudo', 'test_0710');
       await page.fill('#champ-email', 'b@banc.test');
       await page.fill('#champ-mdp', 'motdepasse123');
+      await page.check('#champ-age15');
       await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
       await page.click('#btn-connexion');
       const rate = await attendreQue(page, () => avertissements.length > 0, 15000);

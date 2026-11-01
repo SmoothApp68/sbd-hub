@@ -4837,6 +4837,25 @@
     return cible;
   }
 
+  // 212 — une page de textes (Mentions légales, Confidentialité, Santé) : des blocs, un « Fermer ». Aucun calcul.
+  function rendreFeuilleMentions(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', vue.titre));
+    var corps = el('div', 'mentions-page');
+    vue.blocs.forEach(function (b) {
+      var n = el('div', 'mentions-bloc');
+      if (b.titre) n.appendChild(el('b', '', b.titre));
+      n.appendChild(el('p', '', b.texte));
+      corps.appendChild(n);
+    });
+    cible.appendChild(corps);
+    var fermer = el('button', 'discret bloc-large', 'Fermer');
+    fermer.type = 'button';
+    fermer.addEventListener('click', vue.surFermer);
+    cible.appendChild(fermer);
+    return cible;
+  }
+
   function rendreFeuilleBloc(cible, vue) {
     vider(cible);
     var t = el('div', 'feuille-t', vue.superset ? 'Superset' : 'Exercice');
@@ -7823,6 +7842,22 @@
       }
     }
     if (vue.aideMdp) vue.aideMdp.hidden = !inscription;
+    // 212 — la case « 15 ans ou plus » et la ligne des conditions n'existent qu'à l'inscription.
+    if (vue.age15) vue.age15.hidden = !inscription;
+    if (vue.conditions) {
+      vue.conditions.hidden = !inscription;
+      if (inscription && !vue.conditions.firstChild) {
+        vue.conditions.appendChild(doc.createTextNode('En créant ton compte, tu acceptes les conditions décrites dans '));
+        [['confidentialite', 'Confidentialité'], ['sante', 'Santé']].forEach(function (l, i) {
+          if (i) vue.conditions.appendChild(doc.createTextNode(' et '));
+          var b = el('button', 'entree-lien', l[1]);
+          b.type = 'button'; b.dataset.mentions = l[0];
+          b.addEventListener('click', function () { if (vue.surMentions) vue.surMentions(l[0]); });
+          vue.conditions.appendChild(b);
+        });
+        vue.conditions.appendChild(doc.createTextNode('.'));
+      }
+    }
     if (vue.bouton) vue.bouton.textContent = inscription ? 'Créer mon compte' : 'Se connecter';
     if (vue.bascule) vue.bascule.textContent = inscription ? 'Se connecter' : 'Créer un compte';
     if (vue.basculeAvant) {
@@ -9362,7 +9397,7 @@
     rendreFeuilleCommentFaire: rendreFeuilleCommentFaire,
     rendreFeuilleChoixMultiple: rendreFeuilleChoixMultiple,
     rendreFeuilleMot: rendreFeuilleMot,
-    rendreFeuilleMots: rendreFeuilleMots,
+    rendreFeuilleMots: rendreFeuilleMots, rendreFeuilleMentions: rendreFeuilleMentions,
     rendreFeuilleSaisie: rendreFeuilleSaisie,
     rendreFeuillePesee: rendreFeuillePesee,
     rendreFeuilleObjectif: rendreFeuilleObjectif,

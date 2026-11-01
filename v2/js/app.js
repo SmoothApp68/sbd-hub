@@ -17023,7 +17023,11 @@
         { titre: 'MES DONNÉES', lignes: [
           { libelle: 'Importer depuis Hevy', sansValeur: true,
             surChoix: function () { allerA(Routeur.IMPORT, {}); ouvrirImport(); } }
-        ] }]
+        ] },
+        // 212 — « À propos » : les trois pages de textes, en bas.
+        { titre: 'À PROPOS', lignes: racine.THMentions.pages().map(function (pg) {
+          return { libelle: pg.titre, sansValeur: true, surChoix: function () { ouvrirMentions(pg.cle); } };
+        }) }]
       ),
       // 64B — la vitrine (les trois succès les plus rares, décidés par le jeu), et en bas l'interrupteur, qui
       // écrit par le chemin du profil : local d'abord, l'écran suit tout de suite, hors ligne compris.
@@ -17044,6 +17048,16 @@
       $('profil-corps').insertBefore(Rendu.el('p', 'vide', refusProfil.texte), $('profil-corps').firstChild);
       refusProfil.vu = true;
     }
+  }
+
+  // 212 — Mentions légales, Confidentialité, Santé : depuis Profil › À propos et le pied de l'inscription.
+  function ouvrirMentions(cle) {
+    var p = racine.THMentions.page(cle);
+    if (!p) return;
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleMentions(cible, { titre: p.titre, blocs: p.blocs, surFermer: fermerVoile });
+    };
+    ouvrirFeuilleProfil();
   }
 
   // 201 — Profil › Les mots du coach.
@@ -17679,7 +17693,8 @@
       phrase: $('entree-phrase'), pseudo: $('env-pseudo'), oubli: $('btn-oubli'),
       aideMdp: $('aide-mdp'), bouton: $('btn-connexion'),
       bascule: $('btn-bascule-entree'), basculeAvant: $('entree-bascule-avant'),
-      champEmail: $('champ-email'), champMdp: $('champ-mdp'), message: $('erreur-connexion')
+      champEmail: $('champ-email'), champMdp: $('champ-mdp'), message: $('erreur-connexion'),
+      age15: $('env-age15'), conditions: $('entree-conditions'), surMentions: ouvrirMentions
     };
   }
 
@@ -17693,6 +17708,7 @@
     $('erreur-connexion').textContent = '';
     $('aide-pseudo').textContent = '';
     $('champ-mdp').value = '';
+    $('champ-age15').checked = false;   // 212
     pseudoPris = null;
     if (sondePseudo) { racine.clearTimeout(sondePseudo); sondePseudo = null; }
     var c = champsEntree();
@@ -17707,6 +17723,7 @@
       pseudo: $('champ-pseudo').value,
       email: $('champ-email').value.trim(),
       mdp: $('champ-mdp').value,
+      age15: $('champ-age15').checked,
       pseudoPris: pseudoPris
     };
   }
@@ -18013,6 +18030,7 @@
     ['champ-email', 'champ-mdp'].forEach(function (id) {
       $(id).addEventListener('input', majBoutonEntree);
     });
+    $('champ-age15').addEventListener('change', majBoutonEntree);   // 212
     // 91 — le groupe de séance : le retour de sa vue, et le direct relu environ toutes les 20 s (en séance ou dans un
     // groupe seulement ; une lecture qui échoue ne dit rien).
     $('btn-retour-groupe').addEventListener('click', fermerVueGroupe);

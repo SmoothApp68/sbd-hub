@@ -81,6 +81,33 @@ describe('193-4 — le plan : la barre testée', () => {
     propre(p, e);
   });
 
+  test('202 — 65 ans et plus : le défaut est « Série au max » ; un âge inconnu ou plus jeune : « Viser mon max »', () => {
+    const e = entrees(seance([DC]), {}, { plus65: true });
+    const p = T.planDeSeance(e);
+    expect(p.exercices[0].semaineDeTest.mode).toBe('serie');
+    propre(p, e);
+    expect(T.planDeSeance(entrees(seance([DC]), {}, { plus65: null })).exercices[0].semaineDeTest.mode).toBe('max');
+    expect(T.planDeSeance(entrees(seance([DC]), {}, { plus65: false })).exercices[0].semaineDeTest.mode).toBe('max');
+  });
+
+  test('202 — un max tiré de plus de 5 reps : « Série au max » ; de 5 reps ou sans reps connues : « Viser mon max »', () => {
+    const avec = (reps) => entrees(seance([DC]), { seriesDuMax: { [DC]: reps === null ? null : { charge: 130, reps } } });
+    const mode = (e) => T.planDeSeance(e).exercices[0].semaineDeTest.mode;
+    expect([mode(avec(8)), mode(avec(6)), mode(avec(5)), mode(avec(3)), mode(avec(null))]).toEqual(['serie', 'serie', 'max', 'max', 'max']);
+    propre(T.planDeSeance(avec(8)), avec(8));
+  });
+
+  test('202 — le choix de la carte prime sur le défaut prudent, et I90 voit une façon qui n’est ni choisie ni celle du défaut', () => {
+    const e = entrees(seance([DC]), { modes: { [DC]: 'max' }, seriesDuMax: { [DC]: { charge: 130, reps: 8 } } }, { plus65: true });
+    const p = T.planDeSeance(e);
+    expect(p.exercices[0].semaineDeTest.mode).toBe('max');
+    propre(p, e);
+    const e2 = entrees(seance([DC]), { seriesDuMax: { [DC]: { charge: 130, reps: 8 } } });
+    const p2 = T.planDeSeance(e2);
+    p2.exercices[0].semaineDeTest.mode = 'max';
+    expect(T.verifierPlan(p2, e2).erreurs.join(' ')).toMatch(/I90.*n’est pas celle du défaut/);
+  });
+
   test('le choix de la carte prime sur le défaut : « Série au max » avec un an de pratique', () => {
     const e = entrees(seance([DC]), { modes: { [DC]: 'serie' } });
     const t = T.planDeSeance(e).exercices[0].semaineDeTest;

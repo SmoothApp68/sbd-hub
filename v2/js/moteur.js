@@ -4187,17 +4187,38 @@
     return (plusLeger ? 'Plus léger, plus de reps : ' : 'Plus de reps : ') +
       ligneFois(repli.ligne[0], repli.ligne[1], false, true, cite(CIBLE, { quoi: 'reprise_repli' }));
   }
-  function carteRepriseTextes(nom, consigne, reprise) {
+  // 202 (MOTEUR §9.20) — LA DOULEUR RÉPÉTÉE : à 2 séances avec douleur ou plus sur le même exercice en 42 jours (la fenêtre de
+  // `douleurRecente`), la carte de reprise met « Plus léger, plus de reps » en premier, ajoute « Un frère » s'il en existe un et dit,
+  // une fois, qu'un kiné peut chercher pourquoi. Jamais un diagnostic, jamais une zone déduite ; « Comme avant » reste proposé.
+  var DOULEUR_REPETEE_DES = 2;
+  function douleurRepetee(compte) {
+    var n = nombre(compte);
+    return n !== null && n >= DOULEUR_REPETEE_DES;
+  }
+  // « 2ᵉ séance avec douleur sur cet exercice en 6 semaines. Si ça revient, un kiné peut chercher pourquoi. » (« 3ᵉ », etc. selon le compte)
+  function phraseDouleurRepetee(compte) {
+    var n = nombre(compte);
+    if (n === null) return null;
+    return n + 'ᵉ séance avec douleur sur cet exercice en ' + (AU_MAX_JOURS_DE_DOULEUR / 7) + ' semaines. ' + PHRASE_KINE;
+  }
+  var PHRASE_KINE = 'Si ça revient, un kiné peut chercher pourquoi.';
+  // `o` : `{ compte, frere }` — le nombre de séances avec douleur, et le nom du premier frère proposé (ou rien).
+  function carteRepriseTextes(nom, consigne, reprise, o) {
     var choix = [{ cle: 'avant', texte: texteRepriseAvant(consigne) }];
     var leger = texteRepriseLeger(reprise && reprise.repli, consigne);
+    var repetee = douleurRepetee(o && o.compte);
     if (leger) choix.push({ cle: 'leger', texte: leger });
+    if (repetee && o.frere) choix.push({ cle: 'frere', texte: TEXTES_DOULEUR.frere + ' : ' + o.frere });
+    // La 2ᵉ fois ou plus : la proposition prudente passe devant, « Comme avant » reste là.
+    if (repetee) choix.sort(function (a, b) { return RANG_REPETEE[a.cle] - RANG_REPETEE[b.cle]; });
     choix.push({ cle: 'sans', texte: TEXTES_DOULEUR.sansCoach });
     return {
       titre: 'Ta dernière séance de ' + nom + ' était douloureuse.',
-      phrase: TEXTES_DOULEUR.reprisePhrase,
+      phrase: repetee ? phraseDouleurRepetee(o.compte) : TEXTES_DOULEUR.reprisePhrase,
       choix: choix
     };
   }
+  var RANG_REPETEE = { leger: 0, frere: 1, avant: 2 };
 
   // Une phrase rédigée pour COMPARER, jamais pour être dite : ses chiffres ne
   // s'inscrivent pas (une capture jetée).
@@ -10651,9 +10672,43 @@
     if (cran === null || cran <= 0) cran = CRAN_PAR_DEFAUT;
     return auCentieme(c + cran);
   }
-  // Par défaut : « Viser mon max » dès un an de pratique, « Série au max » avant (son ressenti est le moins fiable : `debutant`, le profil).
-  function testModeParDefaut(debutant) {
-    return debutant === true ? TEST_MODE_SERIE : TEST_MODE_MAX;
+  // 202 (MOTEUR §9.32) — LE DÉFAUT PRUDENT : « Série au max » quand le ressenti d'un essai est le moins fiable ou que le max est mal connu —
+  // un débutant (moins d'un an), 65 ans ou plus (`plus65`, le fait existant, pas un seuil de plus), ou un max estimé tiré d'une série de
+  // plus de 5 reps (au-delà, le calcul est moins fiable : Reynolds 2006). Sinon « Viser mon max ». `f` : `{ debutant, plus65, repsDuMax }` ;
+  // un fait inconnu (`null`, un max sans reps connues) ne compte pas. La façon choisie prime toujours (`testModeValide`).
+  var TEST_REPS_FIABLES_MAX = 5;
+  function testRaisonDuDefaut(f) {
+    var o = f && typeof f === 'object' ? f : {};
+    if (o.debutant === true) return 'debutant';
+    if (o.plus65 === true) return 'plus65';
+    var r = nombre(o.repsDuMax);
+    if (r !== null && r > TEST_REPS_FIABLES_MAX) return 'reps';
+    return null;
+  }
+  function testModeParDefaut(f) {
+    return testRaisonDuDefaut(f) === null ? TEST_MODE_MAX : TEST_MODE_SERIE;
+  }
+  // La raison du défaut, dite par le coach (la feuille « Semaine de test » du Profil), avec sa source. `null` : le défaut « Viser mon max »
+  // n'a rien à justifier. `f` : les faits de `testModeParDefaut`, plus `max` et `chargeDuMax` (la série d'où vient le max) pour la phrase.
+  function testPhraseDuDefaut(f) {
+    var raison = testRaisonDuDefaut(f);
+    if (raison === null) return null;
+    var o = f || {}, c = regle('test.defaut'), texte, cle;
+    if (raison === 'debutant') {
+      cle = null;
+      texte = 'Moins d’un an de pratique : le coach propose une série au max plutôt qu’une tentative. Tu peux viser ton max si tu le connais.';
+    } else if (raison === 'plus65') {
+      cle = 'test.defaut.age';
+      texte = 'À partir de ' + nombreFr(AGE_PLAFOND_BAS, c) + ' ans, le coach propose une série au max. Tu peux viser ton max si tu le connais.';
+    } else {
+      cle = 'test.defaut.reps';
+      var k = nombre(o.chargeDuMax), m = nombre(o.max), r = nombre(o.repsDuMax);
+      texte = (m !== null && k !== null
+        ? 'Ton max estimé, ' + enKg(m, c) + ', vient de ' + chargeFois(k, r, c) + '. '
+        : 'Ton max estimé vient d’une série de ' + nombreFr(r, c) + ' reps. ') +
+        'Au-delà de ' + nombreFr(TEST_REPS_FIABLES_MAX, c) + ' reps, ce calcul est moins fiable : le coach propose une série au max plutôt qu’une tentative.';
+    }
+    return { raison: raison, texte: texte, sources: cle ? sourcesDeRegles([cle]) : [] };
   }
   function testModeValide(m) { return m === TEST_MODE_MAX || m === TEST_MODE_SERIE ? m : null; }
 
@@ -10944,6 +10999,14 @@
     // La semaine de test.
     test: { type: 'coachs', auteur: 'Juggernaut, 5/3/1, SBS, Candito',
       texte: 'Juggernaut, 5/3/1, SBS et Candito recalent sur une série lourde ou une série au max plutôt que sur un vrai max.' },
+    // Le défaut de la semaine de test : « Série au max » quand le max vient d'une série de plus de 5 reps, ou à partir de 65 ans.
+    'test.defaut.reps': { type: 'etude', auteur: 'Reynolds', annee: 2006, effectif: '70 pratiquants',
+      texte: 'Reynolds 2006 (70 pratiquants) : le max se calcule le mieux à partir d’une série de 5 reps ou moins.' },
+    'test.defaut.age': { type: 'convention',
+      texte: 'Le défaut « série au max » à partir de 65 ans : un choix de l’app, aucune étude ne fixe d’âge.' },
+    // La baisse de force attendue en sèche (198).
+    'seche.baisse': { type: 'etude', auteur: 'Garthe', annee: 2011, effectif: '24 athlètes',
+      texte: 'Garthe 2011 (24 athlètes en sèche) : perdre 0,7 % du poids par semaine a mieux gardé la force que perdre 1,4 %.' },
     // La semaine allégée, la phase.
     allegee: { type: 'coachs', auteur: 'Calgary Barbell, Candito',
       texte: 'La semaine allégée planifiée : la pratique de Calgary Barbell et de Candito.' },
@@ -11057,7 +11120,7 @@
     TEST_ACCESSOIRES_MAX: TEST_ACCESSOIRES_MAX, TEST_SEMAINES_MIN: TEST_SEMAINES_MIN, TEST_VALIDITE_JOURS: TEST_VALIDITE_JOURS,
     TEST_PHASES_AVANT: TEST_PHASES_AVANT, TEST_SERIE_PLAFOND: TEST_SERIE_PLAFOND, TEST_SERIE_PLAFOND_SOULEVE: TEST_SERIE_PLAFOND_SOULEVE,
     TEST_ESSAI_1: TEST_ESSAI_1, TEST_ESSAI_2: TEST_ESSAI_2, TEST_SERIE_PCT: TEST_SERIE_PCT, TEST_SERIE_PCT_DEBUTANT: TEST_SERIE_PCT_DEBUTANT,
-    testModeParDefaut: testModeParDefaut, testModeValide: testModeValide, testMontee: testMontee, testEssai: testEssai,
+    testModeParDefaut: testModeParDefaut, testRaisonDuDefaut: testRaisonDuDefaut, testPhraseDuDefaut: testPhraseDuDefaut, TEST_REPS_FIABLES_MAX: TEST_REPS_FIABLES_MAX, testModeValide: testModeValide, testMontee: testMontee, testEssai: testEssai,
     testSerieAuMax: testSerieAuMax, testMesure: testMesure, testBarreDuJour: testBarreDuJour, testBarresEnConflit: testBarresEnConflit,
     testProposable: testProposable, testConsigneEssai: testConsigneEssai, testConsigneSerie: testConsigneSerie, pourquoiTest: pourquoiTest,
     phraseProposeTest: phraseProposeTest, phraseTestPropose: phraseTestPropose, phraseTestEnCours: phraseTestEnCours, phraseBilanTest: phraseBilanTest, phraseObjectifTest: phraseObjectifTest,
@@ -11195,7 +11258,8 @@
     seanceDouloureuse: seanceDouloureuse,
     zonePlusDeReps: zonePlusDeReps,
     carteReprise: carteReprise,
-    reprisePour: reprisePour,
+    reprisePour: reprisePour, douleurRepetee: douleurRepetee, phraseDouleurRepetee: phraseDouleurRepetee,
+    DOULEUR_REPETEE_DES: DOULEUR_REPETEE_DES, PHRASE_KINE: PHRASE_KINE,
     repliDeLaRepriseLongue: repliDeLaRepriseLongue,
     consignePlusLegere: consignePlusLegere,
     repliDeReprise: repliDeReprise,

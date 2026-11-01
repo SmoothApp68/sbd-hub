@@ -1037,7 +1037,7 @@
   // Les décisions sont celles du moteur (`Moteur.test*`, une seule fois) ; le plan les LIT, séance par séance, et n'écrit rien. L'app
   // lui passe `entrees.semaineDeTest` (la réponse à la carte, rangée dans `profiles.cartes_semaine.test`, et ce que `faits.js` a lu) :
   //   { debut, fin, modes: { slug: 'max' | 'serie' }, mesures: { slug: { valeur, le, seance } }, refus: { slug: jour },
-  //     maxEstimes: { slug: kg } }
+  //     maxEstimes: { slug: kg }, seriesDuMax: { slug: { charge, reps } | null } }   // 202 : la série d'où vient le max (le défaut prudent)
   // Ce que le plan en fait : UN SEUL mouvement testé par séance (le premier non mesuré, ni refusé aujourd'hui) ; le squat et le soulevé
   // jamais le même jour (le second reste en séance normale) ; les accessoires sans « Au max » ; la montée, les essais ou la série au max
   // de la barre testée, son « Pourquoi », son pari. La structure de la séance reste celle de la routine : le plan PROPOSE des lignes, il
@@ -1085,6 +1085,13 @@
     return { essais: essais, serie: serie };
   }
 
+  // 202 (MOTEUR §9.32) — LES FAITS DU DÉFAUT de la semaine de test, d'une barre : le débutant, les 65 ans et plus, les reps de la série d'où
+  // vient le max estimé (rien si elles ne sont pas connues). La feuille du Profil (app.js) lit la MÊME fonction de moteur avec les mêmes faits.
+  function defautDeTest(e, slug) {
+    var T = e.semaineDeTest || {}, s = T.seriesDuMax && T.seriesDuMax[slug];
+    return { debutant: e.debutant === true, plus65: e.plus65 === true, repsDuMax: s ? s.reps : null };
+  }
+
   function semaineDeTestDExercice(jt, e, seance, exos, i, x, materiel, intentionX, coachee, douloureuse) {
     if (!jt || !x || !x.slug) return null;
     var M = Moteur(), T = e.semaineDeTest;
@@ -1097,7 +1104,7 @@
     if (b.slug !== jt.testee) return { barre: true, testee: false, conflit: jt.conflits.indexOf(b.slug) >= 0, etat: 'ailleurs', pasDeTest: true };
     if (!coachee || intentionX === 'entretien') return { barre: true, testee: false, etat: 'sans_coach' };
     var modes = T.modes || {};
-    var mode = M.testModeValide(modes[b.slug]) || M.testModeParDefaut(e.debutant === true);
+    var mode = M.testModeValide(modes[b.slug]) || M.testModeParDefaut(defautDeTest(e, b.slug));
     var maxEstime = nombre(T.maxEstimes && T.maxEstimes[b.slug]);
     var o = { famille: b.famille, cran: materiel ? nombre(materiel.pas) : null, salle: materiel ? materiel.salle || null : null,
               debutant: e.debutant === true };
@@ -2149,9 +2156,12 @@
           // sa ligne n'est pas celle du jour tant qu'on ne l'a pas choisie ;
           // une fois choisie, I22 et I35 vérifient la charge du repli.
           var capAv = V3.capturer(function () { return M3.texteRepriseAvant(x.consigne); });
-          var textesR = M3.carteRepriseTextes(nomR, x.consigne, c.reprise);
+          // 202 — la douleur répétée : le compte des séances avec douleur (42 jours) et le premier frère proposé, lus sur les entrées.
+          var compteR = e.nbDouleurs && Object.prototype.hasOwnProperty.call(e.nbDouleurs, slug) ? e.nbDouleurs[slug] : null;
+          var frereR = e.freresDeReprise && e.freresDeReprise[slug] ? e.freresDeReprise[slug] : null;
+          var textesR = M3.carteRepriseTextes(nomR, x.consigne, c.reprise, { compte: compteR, frere: frereR });
           x.carteReprise = { titre: textesR.titre, phrase: textesR.phrase, choix: textesR.choix,
-                             zone: c.reprise.zone, repli: c.reprise.repli || null };
+                             zone: c.reprise.zone, repli: c.reprise.repli || null, compte: compteR };
           x.phrases.push({ ou: 'reprise.avant', texte: capAv.texte, citations: capAv.citations });
         }
         x.carteLest = null;
@@ -3226,7 +3236,9 @@
       else if (r && phaseDuPlan(e.phase) === 'seche') {
         var att = M.baisseAttendue(r);
         if (att) attendue = { titre: M.titreBaisseAttendue(), phrase: M.phraseBaisseAttendue(att.noms, att.moyenne, att.reserve),
-                              fait: { noms: att.noms, moyenne: att.moyenne, reserve: att.reserve } };
+                              fait: { noms: att.noms, moyenne: att.moyenne, reserve: att.reserve },
+                              // 202 — « D'où ça vient » : Garthe 2011, lu au registre (aucune règle sur le poids : l'écran Poids prime).
+                              sources: M.sourcesDeRegles(['seche.baisse']) };
       }
     }
     if (!b && !baisse) return attendue ? { allegee: null, carte: null, attendue: attendue } : vide;
@@ -4375,6 +4387,18 @@
         if (!rp || rp.douleur !== true || marquees.indexOf(rp.derniere) < 0) {
           err('I35', 'une carte de reprise sans dernière séance marquée');
         }
+        // I113 (202) — la douleur répétée : à 2 séances avec douleur ou plus, le premier choix n'est jamais « Comme avant » et la phrase du
+        // kiné est là, une fois ; en dessous, la carte est celle d'avant et ne parle pas du kiné.
+        var compteC = entrees && entrees.nbDouleurs && Object.prototype.hasOwnProperty.call(entrees.nbDouleurs, x.slug) ? entrees.nbDouleurs[x.slug] : null;
+        var kine = [x.carteReprise.titre, x.carteReprise.phrase].concat((x.carteReprise.choix || []).map(function (q) { return q.texte; }))
+          .filter(function (t) { return /kiné/.test(String(t)); }).length;
+        if (Moteur().douleurRepetee(compteC)) {
+          if (!x.carteReprise.choix || !x.carteReprise.choix.length || x.carteReprise.choix[0].cle === 'avant') err('I113', 'la ' + compteC + 'ᵉ séance avec douleur et « Comme avant » en premier');
+          if (x.carteReprise.phrase !== Moteur().phraseDouleurRepetee(compteC)) err('I113', 'la phrase du kiné ne se refait pas de la règle');
+          if (kine !== 1) err('I113', 'la phrase du kiné doit être dite une seule fois (' + kine + ')');
+        } else if (kine) {
+          err('I113', 'la phrase du kiné avant la 2ᵉ séance avec douleur');
+        }
         var textes = [x.carteReprise.titre, x.carteReprise.phrase].concat((x.carteReprise.choix || []).map(function (q) { return q.texte; }));
         if (textes.some(function (t) { return /\?/.test(String(t)); })) err('I35', 'la carte de reprise pose une question');
       }
@@ -5371,7 +5395,7 @@
     verifierFatigue(plan, entrees, erreurs);
     verifierAuMax(plan, erreurs);
     verifierMobilite(plan, entrees, erreurs);
-    verifierSemaineDeTest(plan, erreurs);
+    verifierSemaineDeTest(plan, erreurs, entrees);
     verifierCalisthenie(plan, erreurs);
     verifierForme(plan, entrees, erreurs);
     verifierApprochee(plan, erreurs);
@@ -5932,7 +5956,7 @@
   //   · I91 — aucun « Au max » en semaine de test, ni sur un accessoire ni sur la barre ; au plus deux accessoires gardés ;
   //   · I92 — un arrêt (« J'ai mal », un 1ᵉʳ essai sans marge, 0 rep) ne propose plus rien : ni essai, ni série ;
   //   · I93 — le max mesuré n'est jamais sous le plus lourd essai réussi à RPE 10, et le pari est le max estimé au cran, module `test`.
-  function verifierSemaineDeTest(plan, erreurs) {
+  function verifierSemaineDeTest(plan, erreurs, entrees) {
     var jt = plan && plan.semaineDeTest;
     if (!jt) {
       ((plan && plan.exercices) || []).forEach(function (x, i) {
@@ -5953,6 +5977,12 @@
         return;
       }
       if (!t.testee) return;
+      // I90 (202) — la façon proposée est la façon choisie, sinon le défaut prudent (débutant, 65 ans et plus, max tiré de plus de 5 reps).
+      if (entrees && entrees.semaineDeTest && x.slug) {
+        var choisie = M.testModeValide((entrees.semaineDeTest.modes || {})[x.slug]);
+        var voulue = choisie || M.testModeParDefaut(defautDeTest(entrees, x.slug));
+        if (t.mode !== voulue) erreurs.push('I90' + nom + 'la façon proposée (' + t.mode + ') n’est pas celle ' + (choisie ? 'choisie' : 'du défaut') + ' (' + voulue + ')');
+      }
       testees.push({ slug: x.slug, classe: t.classe });
       var max = nombre(t.max);
       var cran = nombre(t.arrondi) !== null && nombre(t.arrondi) > 0 ? nombre(t.arrondi) : 2.5;

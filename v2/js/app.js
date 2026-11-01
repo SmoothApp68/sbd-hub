@@ -7265,6 +7265,10 @@
       // 193-6 (MOTEUR §9.30) — « J'ai mal » récent de chaque exercice (42 jours, un fait de `faits.js`) et les décisions déjà prises sur la
       // carte « Dernière série au max ? » (`profiles.cartes_semaine.au_max`, par exercice) : le plan décide, il ne relit rien.
       douleurs: faits.douleursParExercice(corpus(), seance.debut),
+      // 202 (MOTEUR §9.20) — la douleur répétée : le nombre de séances avec douleur de chaque exercice (42 jours, un fait de `faits.js`)
+      // et, pour ceux qui en ont 2 ou plus, le premier frère proposé : le plan décide de la carte de reprise, il ne relit rien.
+      nbDouleurs: nbDouleursDesEntrees(),
+      freresDeReprise: freresDeRepriseDesEntrees(),
       // 193-6b — les jours d'échec de chaque barre dans les 6 jours précédents (un fait de `faits.js`, par famille de barre).
       echecsDeBarre: faits.echecsDeBarre(corpus(), seance.debut),
       auMaxReponses: (reponsesDesCartes().au_max && typeof reponsesDesCartes().au_max === 'object') ? reponsesDesCartes().au_max : {},
@@ -7599,6 +7603,26 @@
                  salle: Profil.salleDeLExercice(profil, fr.slug, index), ecarte: !!fr.ecarte,
                  hors: typeof hors === 'function' ? !!hors(fr.slug) : false, deja: !!fr.deja_dans_la_seance };
       });
+    });
+    return sortie;
+  }
+
+  function nbDouleursDesEntrees() { return seance ? faits.seancesAvecDouleurParExercice(corpus(), seance.debut) : {}; }
+  // Le premier frère de la feuille « Un frère » (`freresDe` : le même ordre), ni écarté, ni hors du matériel, ni déjà dans la séance.
+  function freresDeRepriseDesEntrees() {
+    var sortie = {};
+    if (!seance) return sortie;
+    var nb = nbDouleursDesEntrees();
+    var presents = (seance.exercices || []).map(function (x) { return x && x.exercise_slug; });
+    var index = Modele.indexerExercices(local.exercices);
+    var hors = horsDuMateriel(index);
+    // Les exercices de la séance qui ont eu une douleur : le plan décide s'il en fait une carte (la règle des 2 séances est au moteur).
+    Object.keys(nb).forEach(function (slug) {
+      if (presents.indexOf(slug) < 0) return;
+      var f = freresDe(slug, presents).filter(function (q) {
+        return !q.deja_dans_la_seance && !q.ecarte && !(typeof hors === 'function' && hors(q.slug));
+      })[0];
+      if (f) sortie[slug] = Modele.nommer(index, f.slug);
     });
     return sortie;
   }
@@ -8527,9 +8551,10 @@
     if (!T) return null;
     var slugs = (exos || []).map(function (x) { return x && x.exercise_slug; }).filter(Boolean);
     var cle = T.debut + '|' + slugs.join(',') + '|' + (local.series || []).length;
-    if (maxTestMemo.cle !== cle) maxTestMemo = { cle: cle, val: faits.maxEstimesAvantLeTest(corpus(), slugs, T.debut) };
+    if (maxTestMemo.cle !== cle) maxTestMemo = { cle: cle, val: faits.maxEstimesAvantLeTest(corpus(), slugs, T.debut),
+                                                  series: faits.seriesDesMaxEstimesAvantLeTest(corpus(), slugs, T.debut) };
     return { debut: T.debut, fin: T.fin, modes: T.modes || {}, mesures: T.mesures || {}, refus: T.refus || {}, arrets: T.arrets || {},
-             maxEstimes: maxTestMemo.val };
+             maxEstimes: maxTestMemo.val, seriesDuMax: maxTestMemo.series };
   }
   async function ecrireTest(test) {
     var toutes = Object.assign({}, reponsesDesCartes());
@@ -8700,9 +8725,17 @@
     var jour = jourDuJour();
     var actif = !!T && T.fin >= jour;
     var prop = actif ? null : proposerSemaineDeTestHorsProgramme();
+    // 202 — le MÊME défaut que le plan (`Moteur.testModeParDefaut`, mêmes faits) : le débutant, 65 ans et plus, les reps de la série d'où
+    // vient le max estimé. La raison du défaut se dit seulement quand la façon n'a pas été choisie.
+    var maxs = actif ? faits.maxEstimesAvantLeTest(corpus(), Modele.BARRES, T.debut) : {};
+    var series = actif ? faits.seriesDesMaxEstimesAvantLeTest(corpus(), Modele.BARRES, T.debut) : {};
     var barres = actif ? Modele.BARRES.map(function (slug) {
-      var mode = Moteur.testModeValide(T.modes && T.modes[slug]) || Moteur.testModeParDefaut(Profil.estDebutant(profil));
-      return { slug: slug, nom: nomsDuCatalogue()[slug] || slug, mode: mode,
+      var choisie = Moteur.testModeValide(T.modes && T.modes[slug]);
+      var sr = series[slug] || null;
+      var f = { debutant: Profil.estDebutant(profil), plus65: Profil.plus65DuProfil(profil, new Date()) === true, repsDuMax: sr ? sr.reps : null };
+      var mode = choisie || Moteur.testModeParDefaut(f);
+      var raison = choisie ? null : Moteur.testPhraseDuDefaut(Object.assign({ max: maxs[slug], chargeDuMax: sr ? sr.charge : null }, f));
+      return { slug: slug, nom: nomsDuCatalogue()[slug] || slug, mode: mode, raison: raison,
                mesure: T.mesures && T.mesures[slug] ? T.mesures[slug] : null };
     }) : [];
     Rendu.rendreFeuilleSemaineDeTest($('feuille-contenu'), {
@@ -8727,6 +8760,13 @@
     var x = planDeLExercice(iExo);
     var carte = x && x.carteReprise;
     if (!carte) return;
+    // 202 — « Un frère » (la douleur répétée) : la liste de §9.19, sans rien écrire ; la personne choisit.
+    if (cle === 'frere') {
+      var blocsF = Modele.blocsDeSeance(seance, local.exercices), iBlocF = -1;
+      blocsF.forEach(function (b, k) { if (iBlocF < 0 && indicesDe(b).indexOf(iExo) >= 0) iBlocF = k; });
+      if (iBlocF >= 0) ouvrirFeuilleBloc('freres', iBlocF, iExo);
+      return;
+    }
     reponseEnCours = true;
     try {
       if (cle === 'sans') {

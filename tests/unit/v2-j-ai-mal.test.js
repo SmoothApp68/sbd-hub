@@ -511,3 +511,92 @@ describe('51-3 bis — la marque se pose au choix, jamais à l’ouverture de la
     expect(surChoix.indexOf('Seance.marquerDouleur')).toBeLessThan(surChoix.indexOf("cle === 'frere'"));
   });
 });
+
+describe('202 — I113 : la douleur répétée (2 séances avec douleur en 42 jours ou plus)', () => {
+  const planAvec = (nb, frere) => {
+    const { se } = decor(['x']);
+    const e = avecReprise(entreesDe(se));
+    e.nbDouleurs = nb === undefined ? {} : { x: nb };
+    if (frere) e.freresDeReprise = { x: frere };
+    return { e, p: T.planDeSeance(e) };
+  };
+  const PHRASE = (n) => n + 'ᵉ séance avec douleur sur cet exercice en 6 semaines. Si ça revient, un kiné peut chercher pourquoi.';
+
+  test('1 marque : la carte d’avant (« Comme avant » en premier), aucune phrase du kiné', () => {
+    const { e, p } = planAvec(1, 'Développé haltères');
+    const k = p.exercices[0].carteReprise;
+    expect(k.choix.map((q) => q.cle)).toEqual(['avant', 'leger', 'sans']);
+    expect(JSON.stringify(k)).not.toMatch(/kiné/);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+
+  test('2 marques : « Plus léger » en premier, « Un frère » s’il existe, « Comme avant » reste, la phrase du kiné', () => {
+    const { e, p } = planAvec(2, 'Développé haltères');
+    const k = p.exercices[0].carteReprise;
+    expect(k.choix.map((q) => q.cle)).toEqual(['leger', 'frere', 'avant', 'sans']);
+    expect(k.choix[1].texte).toBe('Un frère : Développé haltères');
+    expect(k.phrase).toBe(PHRASE(2));
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+
+  test('2 marques sans frère : pas de « Un frère », « Plus léger » reste en premier', () => {
+    const { e, p } = planAvec(2);
+    expect(p.exercices[0].carteReprise.choix.map((q) => q.cle)).toEqual(['leger', 'avant', 'sans']);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+
+  test('3 marques : la même carte, le rang dans la phrase (« 3ᵉ »)', () => {
+    const a = planAvec(2, 'Développé haltères').p.exercices[0].carteReprise;
+    const { e, p } = planAvec(3, 'Développé haltères');
+    const k = p.exercices[0].carteReprise;
+    expect(k.choix.map((q) => q.cle)).toEqual(a.choix.map((q) => q.cle));
+    expect(k.phrase).toBe(PHRASE(3));
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+
+  test('sans compte dans les entrées : la carte d’avant', () => {
+    const { p } = planAvec(undefined);
+    expect(p.exercices[0].carteReprise.choix.map((q) => q.cle)).toEqual(['avant', 'leger', 'sans']);
+  });
+
+  test('violation forgée : 2 marques et « Comme avant » en premier → I113', () => {
+    const { e, p } = planAvec(2, 'Développé haltères');
+    const q = copie(p);
+    q.exercices[0].carteReprise.choix.sort((a, b) => (a.cle === 'avant' ? -1 : 0) - (b.cle === 'avant' ? -1 : 0));
+    expect(erreursDe(q, e, 'I113').join(' ')).toMatch(/« Comme avant » en premier/);
+  });
+
+  test('violation forgée : 2 marques sans la phrase du kiné → I113 ; 1 marque avec → I113', () => {
+    const { e, p } = planAvec(2);
+    const q = copie(p);
+    q.exercices[0].carteReprise.phrase = 'On reprend comme tu veux.';
+    expect(erreursDe(q, e, 'I113').join(' ')).toMatch(/phrase du kiné/);
+    const u = planAvec(1);
+    const r = copie(u.p);
+    r.exercices[0].carteReprise.phrase = PHRASE(2);
+    expect(erreursDe(r, u.e, 'I113').join(' ')).toMatch(/avant la 2ᵉ séance/);
+  });
+
+  test('le moteur : la règle (2 ou plus) et la phrase', () => {
+    expect([0, 1, 2, 3, null].map((n) => M.douleurRepetee(n))).toEqual([false, false, true, true, false]);
+    expect(M.phraseDouleurRepetee(2)).toBe(PHRASE(2));
+    expect(M.phraseDouleurRepetee(null)).toBe(null);
+  });
+
+  test('le fait : les séances avec douleur par exercice, 42 jours, la séance en cours exclue', () => {
+    global.self = global;
+    ['semaine', 'bilan', 'periode', 'parcours'].forEach((m) => require('../../v2/js/' + m + '.js'));
+    const F = require('../../v2/js/faits.js').creer();
+    const mk = (id, debut, slug, douleur) => ({ id, debut, serie: [{ exercise_slug: slug, douleur }] });
+    const seances = [mk('a', '2026-09-25T10:00:00Z', 'x', true), mk('b', '2026-10-10T10:00:00Z', 'x', true),
+      mk('c', '2026-10-20T10:00:00Z', 'x', false), mk('d', '2026-08-01T10:00:00Z', 'x', true),
+      mk('e', '2026-10-30T10:00:00Z', 'x', true), mk('f', '2026-10-12T10:00:00Z', 'y', true)];
+    const c = { seances, seriesDe: (id) => seances.find((s) => s.id === id).serie };
+    const f = (jour) => F.seancesAvecDouleurParExercice(c, jour);
+    expect(f('2026-10-30T12:00:00Z')).toEqual({ x: 3, y: 1 });        // d est hors fenêtre (42 j) ; c n'a pas de douleur
+    expect(f('2026-10-30T09:00:00Z')).toEqual({ x: 2, y: 1 });        // e commence après l'instant : la séance en cours ne se compte pas
+    expect(f('2026-10-11T00:00:00Z')).toEqual({ x: 2 });
+    expect(f('2026-09-26T00:00:00Z')).toEqual({ x: 1 });
+    expect(f('pas une date')).toEqual({});
+  });
+});

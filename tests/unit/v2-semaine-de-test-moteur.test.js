@@ -119,7 +119,25 @@ describe('193-4 — la proposition', () => {
     expect(M.testProposable({ semainesEntrainement: 5, semainePrecedenteAllegee: true, dechargeDansJours: 10 }).propose).toBe(false);
     expect(M.testProposable({ semainesEntrainement: 5, semainePrecedenteAllegee: true, deja: true }).propose).toBe(false);
   });
-  test('le défaut : le max dès un an de pratique, la série avant', () => {
-    expect(M.testModeParDefaut(false)).toBe('max'); expect(M.testModeParDefaut(true)).toBe('serie'); expect(M.testModeParDefaut(undefined)).toBe('max');
+  test('202 — le défaut : « Viser mon max » sauf débutant, 65 ans et plus, ou max tiré de plus de 5 reps', () => {
+    const d = (f) => M.testModeParDefaut(f);
+    expect(d({})).toBe('max'); expect(d(undefined)).toBe('max'); expect(d({ debutant: false, plus65: false, repsDuMax: 3 })).toBe('max');
+    expect(d({ debutant: true })).toBe('serie');
+    expect(d({ plus65: true })).toBe('serie');
+    expect(d({ repsDuMax: 6 })).toBe('serie');
+    expect(d({ repsDuMax: 5 })).toBe('max');                 // 5 reps : le calcul est fiable
+    expect([d({ repsDuMax: null }), d({ plus65: null }), d({ repsDuMax: undefined })]).toEqual(['max', 'max', 'max']);  // un fait inconnu ne compte pas
+  });
+  test('202 — la raison du défaut est dite par le coach, avec sa source', () => {
+    const r = M.testPhraseDuDefaut({ repsDuMax: 8, max: 160, chargeDuMax: 130 });
+    expect(r.raison).toBe('reps');
+    expect(r.texte.replace(/[\u00a0\u202f]/g, ' ')).toMatch(/^Ton max estimé, 160 kg, vient de 130 kg × 8\. Au-delà de 5 reps, ce calcul est moins fiable : le coach propose une série au max plutôt qu’une tentative\.$/);
+    expect(r.sources.map((s) => [s.type, s.auteur, s.annee])).toEqual([['etude', 'Reynolds', 2006]]);
+    const a = M.testPhraseDuDefaut({ plus65: true });
+    expect(a.texte).toBe('À partir de 65 ans, le coach propose une série au max. Tu peux viser ton max si tu le connais.');
+    expect(a.sources.map((s) => s.type)).toEqual(['convention']);
+    expect(M.testPhraseDuDefaut({ debutant: true }).sources).toEqual([]);
+    expect(M.testPhraseDuDefaut({ repsDuMax: 5 })).toBe(null);
+    expect(M.testPhraseDuDefaut({})).toBe(null);
   });
 });

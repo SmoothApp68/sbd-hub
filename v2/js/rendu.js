@@ -3496,6 +3496,8 @@
       var att = el('div', 'carte-escalier ce-attendue');
       att.appendChild(el('p', 'ce-titre', v.attendue.titre));
       att.appendChild(el('p', 'ce-phrase', v.attendue.phrase));
+      // 202 — « D'où ça vient » (Garthe 2011), replié ; les textes viennent du registre du moteur.
+      if (v.attendue.sources && v.attendue.sources.length) att.appendChild(sourcesRepliees(v.attendue.sources));
       cible.appendChild(att);
     }
     if (v.carte) {
@@ -3708,6 +3710,11 @@
       var etat = b.mesure ? (b.mesure.valeur !== null && b.mesure.valeur !== undefined
         ? 'mesuré ' + nombreFr(Math.round(b.mesure.valeur * 10) / 10) + ' kg' : 'pas testé') : (b.mode === 'max' ? 'viser mon max' : 'série au max');
       entreeMenu(menu, b.nom + ' · ' + etat, b.mesure ? { desactive: true } : { surClic: function () { vue.surMode(b.slug, autre); } });
+      // 202 — la raison du défaut prudent (la phrase du coach, sa source repliée) ; l'autre choix reste à un toucher.
+      if (b.raison && !b.mesure) {
+        menu.appendChild(el('p', 'feuille-aide test-raison', b.raison.texte));
+        if (b.raison.sources && b.raison.sources.length) menu.appendChild(sourcesRepliees(b.raison.sources));
+      }
     });
     if (vue.peutLancer) entreeMenu(menu, vue.libelleLancer || 'Faire une semaine de test', { surClic: vue.surLancer });
     if (vue.actif) entreeMenu(menu, 'Annuler la semaine de test', { surClic: vue.surAnnuler });

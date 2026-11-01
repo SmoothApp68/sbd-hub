@@ -2681,6 +2681,9 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .etq{font-size:var(--t-petit,12px);color:var(--texte-3);margin-left:8px;font-weight:500}
 .etq.fond{color:var(--accent)}
 .etq-ligne{margin:-2px 0 4px 44px}
+/* 200b — dans une rangée, la ligne d'étiquette est OPAQUE (marge → remplissage) : le fond rouge « Supprimer »
+   (.glisse-fond, inset:0 sur toute la ligne) ne se voit que sous la rangée balayée, jamais sous l'étiquette. */
+.ligne-serie > .etq-ligne{position:relative;z-index:1;background:var(--panneau);margin:-2px 0 0;padding:0 0 4px 44px}
 .feuille-menu button .aide-type{display:block;font-weight:400;font-size:12px;color:var(--texte-3);margin-top:2px}
 
 /* 154 — l'effort visé : « garde-en N » dans l'en-tête, les puces sous la dernière série, la phrase du coach. */

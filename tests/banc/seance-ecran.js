@@ -7344,9 +7344,10 @@ const SETS_IMPORTES = [
       opts.length === 5 && opts.filter((o) => o.actif).map((o) => o.cle).join() === 'lourd' &&
       opts.filter((o) => o.sous).length === 1 && /reps d’|reps d'/.test(opts.filter((o) => o.sous)[0].sous),
       JSON.stringify(opts));
-    ok('[Z] aucune zone choisie : pas de « Revenir », mais « Fermer »',
+    ok('[Z] aucune zone choisie : pas de « Revenir » ; 215 — un seul « Fermer » dans la feuille, celui de la feuille commune',
       (await boutonsMenu()).filter((x) => /Revenir/.test(x)).length === 0 &&
-      (await boutonsMenu()).indexOf('Fermer') >= 0,
+      (await boutonsMenu()).indexOf('Fermer') < 0 &&
+      (await page.evaluate(() => Array.from(document.querySelectorAll('.feuille button')).filter((b) => b.textContent.trim() === 'Fermer').length)) === 1,
       JSON.stringify(await boutonsMenu()));
 
     // ── LE CHOIX : l'écran d'abord, la base ensuite ───────────────────────
@@ -12156,8 +12157,7 @@ const SETS_IMPORTES = [
     ok('[E] DISCRIMINANT — sans séance, le menu des zones porte la zone déduite et sa raison, celle de l’étiquette',
       menuSans.filter((o) => o.actif && o.sous).length === 1 && !!puceSans,
       JSON.stringify([puceSans, menuSans.filter((o) => o.actif)]));
-    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
-      .filter((b) => /Fermer/.test(b.textContent))[0].click());
+    await page.click('#btn-fermer-feuille');   // 215 : le « Fermer » de la feuille commune
     await attendre(500);
 
     // ── B. AVEC LA SÉANCE OUVERTE : l'étiquette et la visée de l'en-tête.

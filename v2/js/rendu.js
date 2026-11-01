@@ -957,7 +957,6 @@
     var corps = el('div', 'exo-comment-feuille');
     rendreCommentExo(corps, { comment: vue.comment });
     cible.appendChild(corps);
-    piedFeuille(cible, [{ classe: 'des', texte: 'Fermer', surClic: vue.surFermer }]);
     return cible;
   }
 
@@ -1018,7 +1017,6 @@
     var menu = el('div', 'feuille-menu');
     entreeMenu(menu, vue.libelleJson, { surClic: vue.surJson });
     entreeMenu(menu, vue.libelleCsv, { surClic: vue.surCsv });
-    entreeMenu(menu, vue.libelleFermer || 'Fermer', { surClic: vue.surFermer });
     cible.appendChild(menu);
     if (vue.etat) cible.appendChild(el('p', 'feuille-aide', vue.etat));
     return cible;
@@ -3992,7 +3990,6 @@
     });
     if (vue.peutLancer) entreeMenu(menu, vue.libelleLancer || 'Faire une semaine de test', { surClic: vue.surLancer });
     if (vue.actif) entreeMenu(menu, 'Annuler la semaine de test', { surClic: vue.surAnnuler });
-    entreeMenu(menu, 'Fermer', { surClic: vue.surFermer });
     cible.appendChild(menu);
     return cible;
   }
@@ -4859,10 +4856,6 @@
       if (vue.mode === 'entretien') {
         cible.appendChild(el('p', 'feuille-aide',
           'Je me tais sur cet exercice : tu charges comme tu veux.'));
-        var fermerE = el('button', 'discret bloc-large', 'Fermer');
-        fermerE.type = 'button';
-        fermerE.addEventListener('click', vue.surFermer);
-        cible.appendChild(fermerE);
         return cible;
       }
     }
@@ -4892,10 +4885,7 @@
     }
     cible.appendChild(el('p', 'feuille-aide',
       'La consigne se recalcule dès que tu changes de zone.'));
-    var fermer = el('button', 'discret bloc-large', 'Fermer');
-    fermer.type = 'button';
-    fermer.addEventListener('click', vue.surFermer);
-    cible.appendChild(fermer);
+    // 215 : le « Fermer » est celui de la feuille commune (#btn-fermer-feuille), jamais un second.
     return cible;
   }
 
@@ -4929,10 +4919,7 @@
       cible.appendChild(b);
     });
     if (vue.aide) cible.appendChild(el('p', 'feuille-aide', vue.aide));
-    var fermer = el('button', 'discret bloc-large', 'Fermer');
-    fermer.type = 'button';
-    fermer.addEventListener('click', vue.surFermer);
-    cible.appendChild(fermer);
+    // 215 : le « Fermer » est celui de la feuille commune (#btn-fermer-feuille), jamais un second.
     return cible;
   }
 
@@ -4955,10 +4942,7 @@
       b.addEventListener('click', function () { c[3](); });
       cible.appendChild(b);
     });
-    var fermer = el('button', 'discret bloc-large', 'Fermer');
-    fermer.type = 'button';
-    fermer.addEventListener('click', vue.surFermer);
-    cible.appendChild(fermer);
+    // 215 : le « Fermer » est celui de la feuille commune (#btn-fermer-feuille), jamais un second.
     return cible;
   }
 
@@ -4993,10 +4977,7 @@
     cible.appendChild(el('div', 'feuille-t', 'Le mot du coach'));
     cible.appendChild(carteMot(vue.mot));
     cible.appendChild(el('p', 'feuille-aide', 'Tous les mots sont dans Profil \u203a Les mots du coach.'));
-    var fermer = el('button', 'discret bloc-large', 'Fermer');
-    fermer.type = 'button';
-    fermer.addEventListener('click', vue.surFermer);
-    cible.appendChild(fermer);
+    // 215 : le « Fermer » est celui de la feuille commune (#btn-fermer-feuille), jamais un second.
     return cible;
   }
 
@@ -5015,10 +4996,7 @@
       liste.appendChild(n);
     });
     cible.appendChild(liste);
-    var fermer = el('button', 'discret bloc-large', 'Fermer');
-    fermer.type = 'button';
-    fermer.addEventListener('click', vue.surFermer);
-    cible.appendChild(fermer);
+    // 215 : le « Fermer » est celui de la feuille commune (#btn-fermer-feuille), jamais un second.
     return cible;
   }
 
@@ -5034,10 +5012,7 @@
       corps.appendChild(n);
     });
     cible.appendChild(corps);
-    var fermer = el('button', 'discret bloc-large', 'Fermer');
-    fermer.type = 'button';
-    fermer.addEventListener('click', vue.surFermer);
-    cible.appendChild(fermer);
+    // 215 : le « Fermer » est celui de la feuille commune (#btn-fermer-feuille), jamais un second.
     return cible;
   }
 
@@ -5116,8 +5091,13 @@
     barre.appendChild(el('div', 'dq-manche'));
     barre.appendChild(el('div', 'dq-butee'));
     parCote.forEach(function (k) {
-      var d = el('div', 'dq-disque', M.nombreSigne(k));
-      d.style.width = (k >= 10 ? 22 : k >= 5 ? 14 : 9) + 'px';
+      // 215 — plancher typographique : le chiffre (12 px) n'est écrit DANS le disque que si celui-ci est assez large
+      // pour le contenir ; un petit disque (< 5 kg) reste mince, son chiffre se lit dans la ligne sous la barre.
+      var txt = M.nombreSigne(k);
+      var petit = k < 5;
+      var d = el('div', 'dq-disque' + (petit ? ' dq-petit' : ''), petit ? '' : txt);
+      if (petit) d.title = txt;
+      d.style.width = (petit ? 5 : Math.max(k >= 10 ? 20 : 18, txt.length * 7 + 6)) + 'px';
       d.style.height = Math.round(Math.min(100, Math.max(26, 28 + k * 2.9))) + 'px';
       d.style.background = COULEURS_DISQUES[k] || '#9AA3AF';
       barre.appendChild(d);
@@ -5668,9 +5648,6 @@
     if (!ecarts.length) {
       cible.appendChild(el('p', 'feuille-aide',
         'Cette séance a déjà la structure de cette routine : rien à mettre à jour.'));
-      var m0 = el('div', 'feuille-menu');
-      entreeMenu(m0, 'Fermer', { surClic: vue.surAnnuler });
-      cible.appendChild(m0);
       return cible;
     }
     var liste = el('div', 'apercu-routine');
@@ -6868,7 +6845,6 @@
     cible.appendChild(el('p', 'feuille-aide', 'Arrêter le programme rend à ces exercices la zone d’après tes séances.'));
     var pied = el('div', 'feuille-menu');
     entreeMenu(pied, 'Arrêter le programme', { classe: 'danger arreter-programme', surClic: vue.surArreter });
-    entreeMenu(pied, 'Fermer', { surClic: vue.surFermer });
     cible.appendChild(pied);
     return cible;
   }
@@ -7971,7 +7947,6 @@
       liste.appendChild(ligne);
     });
     cible.appendChild(liste);
-    piedFeuille(cible, [{ classe: 'sec', texte: 'Fermer', surClic: vue.surFermer }]);
     return cible;
   }
 

@@ -3966,6 +3966,7 @@
   // L'état affiché combine lecture et écriture. Tant qu'il reste quelque chose
   // à envoyer, « à jour » serait faux.
   function rendreEtatSync() {
+    Rendu.majEnvoiBandeau($('bandeau-seance'), texteEnvoiSeance());
     var noeud = $('etat-sync');
     if (!noeud) return;
     // 117 (audit du 16/10, 06 #7) — la base de l'appareil est tenue par une autre page de l'app restée ouverte
@@ -3975,6 +3976,12 @@
       return;
     }
     Rendu.rendreEtat(noeud, Attente.deciderEtat(etat, attente));
+  }
+
+  // 219 — le même état, lu par l'écran de séance en cours (rien à dire = chaîne vide).
+  function texteEnvoiSeance() {
+    if (Cache.estBloquee && Cache.estBloquee()) return '';
+    return Attente.texteEnvoi(etat, attente);
   }
 
   // ── La vidange ──────────────────────────────────────────────────────────
@@ -9457,6 +9464,7 @@
     var c = Seance.compter(seance, local.exercices);
     Rendu.rendreBandeauSeance($('bandeau-seance'), {
       titre: seance.titre || 'Séance',
+      envoi: texteEnvoiSeance(),
       debut: seance.debut,
       compte: c,
       modifier: modeModifier,

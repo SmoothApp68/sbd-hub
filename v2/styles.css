@@ -803,6 +803,8 @@ html{scroll-padding-top:var(--h-barre-seance, 0px)}
 .bandeau-nom{font-size:15px;font-weight:700;line-height:1.2;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bandeau-ch{font-size:12px;color:var(--texte-3);margin-top:2px}
+.bandeau-envoi{font-size:12px;color:var(--texte-2);margin-top:1px}
+.bandeau-envoi:empty{display:none}
 
 .bloc-seance{background:var(--panneau);border-radius:var(--r-grand);
   margin-bottom:var(--e2);overflow:hidden}

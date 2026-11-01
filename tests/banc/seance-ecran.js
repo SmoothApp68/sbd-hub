@@ -21517,6 +21517,11 @@ const SETS_IMPORTES = [
     const nbR = (x) => JSON.stringify(x).replace(/[\u00a0\u202f]/g, ' ');
     base.sessions = [];
     base.sets = [];
+    // 211 — « Mon premier pari » suppose un compte sans pari : dans la chaîne, les sections d'avant en ont laissé.
+    const predsAvant71 = base.predictions;
+    base.predictions = [];
+    const cachePredsAvant71 = await page.evaluate(() => window.THCache.lireTout('predictions'));
+    await page.evaluate(() => window.THCache.remplacerTout('predictions', []));
     CATALOGUE.push({ slug: 'rowing-r71', nom: 'Rowing R71 (Machine)', mesure: 'charge_reps', charge: 'externe',
       equipement: 'machine', muscles_primaires: ['grand_dorsal'], muscles_secondaires: ['biceps'] });
     CATALOGUE.push({ slug: 'gainage-r71', nom: 'Gainage R71', mesure: 'reps', charge: 'aucune',
@@ -21757,6 +21762,8 @@ const SETS_IMPORTES = [
     const iR = ROUTINES.findIndex((r) => r.id === 'r-r71');
     if (iR >= 0) ROUTINES.splice(iR, 1);
     CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.predictions = predsAvant71;
+    await page.evaluate((l) => window.THCache.remplacerTout('predictions', l), cachePredsAvant71);
     base.sessions = sessionsAvant;
     base.sets = setsAvant;
     await aller('/saisie');

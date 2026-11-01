@@ -6532,7 +6532,8 @@ const SETS_IMPORTES = [
     JSON.stringify(await fantomes()) === JSON.stringify(attendus),
     JSON.stringify(await fantomes()) + ' vs ' + JSON.stringify(attendus));
   const entete = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('.legende-exo .consigne, .legende-exo .consigne-dit')).map((e) => e.textContent));
+    Array.from(document.querySelectorAll('.legende-exo .consigne, .legende-exo .consigne-dit:not(.premier-pari)')).map((e) => e.textContent));
+  // 211 : la ligne « Mon premier pari » (compte sans pari) est à part de l'en-tête du moteur.
   // 68A — l'en-tête dit l'objectif du jour (deux tests sur les trois séries).
   ok('[G] l’en-tête dit la consigne en jaune — l’objectif du jour —, puis sa phrase grise',
     sansInsecables(entete) === sansInsecables(enteteAttendu(consigneDC, 3).concat([consigneDC.libelles.gris])),

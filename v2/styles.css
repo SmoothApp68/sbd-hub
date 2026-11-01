@@ -2816,3 +2816,16 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .ligne-repliee.lr-mobilite{border-style:solid}
 /* 200-9 — la colonne Effort n'apparaît qu'une fois la série validée ; sa place reste tenue. */
 .eff-serie.eff-attente{visibility:hidden}
+
+/* 201 — « D'où ça vient » (le Pourquoi, la feuille d'un mot) et « Les mots du coach » (Profil). */
+.src-replie{margin-top:var(--e2);padding-top:var(--e2);border-top:1px solid var(--trait);font-size:13px;line-height:1.45}
+.src-replie>summary{cursor:pointer;color:var(--texte-2);min-height:32px;display:flex;align-items:center}
+.src-ligne{margin-top:var(--e2);color:var(--texte-2)}
+.src-type{display:inline-block;margin-left:4px;font-size:12px;color:var(--texte-3);white-space:nowrap}
+.carte-mot{background:var(--panneau);border-radius:14px;padding:12px;margin:var(--e2) 0}
+.carte-mot-t{font-size:16px;font-weight:600;color:var(--texte)}
+.mots-coach{display:grid;gap:0}
+.mot-coach{padding:8px 0;border-top:1px solid var(--trait);font-size:14px;line-height:1.45;color:var(--texte-2)}
+.mot-coach:first-child{border-top:0}
+.mot-coach b{color:var(--texte)}
+.etq-mot{cursor:pointer}

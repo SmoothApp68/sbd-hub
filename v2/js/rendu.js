@@ -4091,7 +4091,16 @@
     if (ea) motLigne = (/^recul/.test(motLigne) ? 'recul · ' : '') + ea.texte;
     if (motLigne) {
       var etqL = el('div', 'etq-ligne etq' + (s.estTravail ? ' fond' : ''), motLigne);
-      if (ea) etqL.setAttribute('aria-label', ea.aria);
+      if (ea) {
+        etqL.setAttribute('aria-label', ea.aria);
+        // 201 — « 5+ · garde 1 » ouvre la définition de son mot.
+        if (typeof vue.surMot === 'function') {
+          etqL.setAttribute('role', 'button');
+          etqL.setAttribute('tabindex', '0');
+          etqL.classList.add('etq-mot');
+          etqL.addEventListener('click', function (ev) { ev.stopPropagation(); vue.surMot('au_max'); });
+        }
+      }
       ligne.appendChild(etqL);
     }
     ligne.appendChild(fond);
@@ -4423,6 +4432,8 @@
     // MOTEUR §9.15.1 (49-U10) — une routine qui prévoit plus de chauffes que
     // la table : les lignes en trop ne sont pas remplies, et la feuille le dit.
     if (p.chauffes) cible.appendChild(el('p', 'pq-p', p.chauffes));
+    // 201 — « D'où ça vient » : une ligne repliée, les sources des règles du « Pourquoi » (lues au registre du moteur).
+    if (p.sources && p.sources.length) cible.appendChild(sourcesRepliees(p.sources));
     if (p.reglage) {
       // « Profil » est le dernier mot de la phrase : on la coupe dessus plutôt
       // que d'en réécrire une seconde à côté du lien.
@@ -4548,6 +4559,7 @@
     vider(cible);
     cible.appendChild(el('div', 'feuille-t', 'Zone de travail'));
     cible.appendChild(el('div', 'feuille-sous', vue.nom + ', dans toutes tes routines'));
+    if (vue.mot) cible.appendChild(carteMot(vue.mot));   // 201 — la puce dit son mot, avec sa source
     // §9.17 — LE MODE DE L'EXERCICE, en tête de la feuille : « Progresser »
     // (le coach prescrit) ou « Entretenir » (il se tait, comme au profil). Le
     // choix est à CET exercice seul. En Entretenir, la feuille ne montre que lui.
@@ -4650,6 +4662,7 @@
     vider(cible);
     cible.appendChild(el('div', 'feuille-t', 'Zone de travail'));
     cible.appendChild(el('div', 'feuille-sous', vue.nom));
+    if (vue.mot) cible.appendChild(carteMot(vue.mot));   // 201
     cible.appendChild(el('p', 'feuille-aide', 'Ta zone d\u2019ici vient de ta routine\u00a0: ' + vue.libelle + (vue.bornes ? ' (' + vue.bornes + ' reps)' : '') + '.'));
     [['routine', 'Changer la zone de cette routine', 'Elle change pour les prochaines fois, dans la routine.', vue.surRoutine],
      ['aujourdhui', 'Juste pour aujourd\u2019hui', 'Ta routine ne change pas.', vue.surAujourdhui]].forEach(function (c) {
@@ -4661,6 +4674,66 @@
       b.addEventListener('click', function () { c[3](); });
       cible.appendChild(b);
     });
+    var fermer = el('button', 'discret bloc-large', 'Fermer');
+    fermer.type = 'button';
+    fermer.addEventListener('click', vue.surFermer);
+    cible.appendChild(fermer);
+    return cible;
+  }
+
+  // 201 — LES SOURCES D'UNE RÈGLE, REPLIÉES : « D'où ça vient » ; dépliée, une ligne par source avec son étiquette (Étude,
+  // Pratique de coachs, Convention). Les textes viennent du registre `SOURCES` du moteur : rien n'est composé ici.
+  function sourcesRepliees(sources, ouvert) {
+    var d = el('details', 'src-replie');
+    if (ouvert === true) d.open = true;
+    d.appendChild(el('summary', '', 'D\u2019où ça vient'));
+    sources.forEach(function (s) {
+      var l = el('div', 'src-ligne');
+      l.appendChild(doc.createTextNode(s.texte + ' '));
+      var e = el('span', 'src-type src-' + s.type, s.etiquette);
+      l.appendChild(e);
+      d.appendChild(l);
+    });
+    return d;
+  }
+
+  // 201 — LA DÉFINITION D'UN MOT du coach : le mot, sa phrase, sa source repliée. `vue.mot` : { mot, phrase, sources }.
+  function carteMot(mot) {
+    var c = el('div', 'carte-mot');
+    c.appendChild(el('div', 'carte-mot-t', mot.mot));
+    c.appendChild(el('p', 'pq-p', mot.phrase));
+    if (mot.sources && mot.sources.length) c.appendChild(sourcesRepliees(mot.sources, true));
+    return c;
+  }
+
+  // 201 — LA FEUILLE D'UN MOT (une puce de séance la touche) : sa définition, et le renvoi aux autres mots.
+  function rendreFeuilleMot(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', 'Le mot du coach'));
+    cible.appendChild(carteMot(vue.mot));
+    cible.appendChild(el('p', 'feuille-aide', 'Tous les mots sont dans Profil \u203a Les mots du coach.'));
+    var fermer = el('button', 'discret bloc-large', 'Fermer');
+    fermer.type = 'button';
+    fermer.addEventListener('click', vue.surFermer);
+    cible.appendChild(fermer);
+    return cible;
+  }
+
+  // 201 — « LES MOTS DU COACH » (Profil) : la liste fixe, une phrase chacun ; une source se déplie sous son mot.
+  function rendreFeuilleMots(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', 'Les mots du coach'));
+    var liste = el('div', 'mots-coach');
+    vue.mots.forEach(function (m) {
+      var n = el('div', 'mot-coach');
+      n.dataset.mot = m.cle;
+      var t = el('b', '', m.mot);
+      n.appendChild(t);
+      n.appendChild(doc.createTextNode(' \u2014 ' + m.phrase));
+      if (m.sources && m.sources.length) n.appendChild(sourcesRepliees(m.sources));
+      liste.appendChild(n);
+    });
+    cible.appendChild(liste);
     var fermer = el('button', 'discret bloc-large', 'Fermer');
     fermer.type = 'button';
     fermer.addEventListener('click', vue.surFermer);
@@ -9174,6 +9247,8 @@
     rendreFeuilleChoix: rendreFeuilleChoix,
     rendreFeuilleCommentFaire: rendreFeuilleCommentFaire,
     rendreFeuilleChoixMultiple: rendreFeuilleChoixMultiple,
+    rendreFeuilleMot: rendreFeuilleMot,
+    rendreFeuilleMots: rendreFeuilleMots,
     rendreFeuilleSaisie: rendreFeuilleSaisie,
     rendreFeuillePesee: rendreFeuillePesee,
     rendreFeuilleObjectif: rendreFeuilleObjectif,

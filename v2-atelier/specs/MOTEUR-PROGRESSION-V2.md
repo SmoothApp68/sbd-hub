@@ -1930,6 +1930,15 @@ Sur une **barre** (squat, couché, militaire — `familleDeBarre`), la consigne 
 - **Les phrases** (`Generateur.phrasesHybrides`, ajoutées à la voix de l'aperçu du programme) : « Tu fais du cardio le mercredi (4 des 4 dernières semaines). Ton jour de jambes lourdes (Jour A) passe au lundi, pas au jeudi : la veille ou le lendemain d'un cardio dur, tes jambes sont moins fraîches. » Puis la science, sans dramatiser : « Courir ne te fait pas perdre de force : 43 études, ni force maximale ni muscle en moins quand on mélange les deux. Seule l'explosivité baisse un peu si les deux sont à moins de 3 h d'écart (Schumann 2022). » Puis la convention, dite comme telle : « Éviter les jambes lourdes la veille et le lendemain d'un cardio dur est une convention de coachs (plans Hyrox, Tactical Barbell), pas une règle prouvée. »
 - **Une routine existante** : aucun chemin simple (les routines n'ont pas de jour de la semaine ; `jours_vises` est retiré) — limité au générateur, la proposition annulable de réordonner reste à faire.
 
+### 9.38 D'où ça vient, et les mots du coach — décidé le 31/10/2026 (chantier 201)
+
+*Delta daté du 01/11/2026. Maquette : `maquette-lexique-et-sources-v1`. Aucune colonne, aucune écriture : le registre et le lexique se LISENT.*
+
+- **Le registre** (`SOURCES`, `moteur.js`) : une entrée par clé de règle (les clés que I26 cite, `regle('…')`, plus quelques clés sans chiffre : `reserve`, `au_max`, `test`, `allegee`, `repos_long`…) : `{ texte, type, auteur?, annee?, effectif? }`, ou une liste. Trois types, dits tels à l'écran : **Étude** (auteur, année, effectif), **Pratique de coachs** (qui), **Convention** (un choix de l'app). `sourcesDeRegles(cles)` les rend sans doublon. Pas de source : pas de ligne — jamais une source devinée ; un test LISTE les règles citées sans source (rapport, pas un échec). Les textes viennent des recherches du 31/10 et de ce que §9.28 à §9.37 citent déjà.
+- **Le « Pourquoi »** : le plan (`clesDeSources`, `poserLesSources`) choisit les clés des règles que l'exercice applique (zone, garde N, recul sur le max du jour et sa correction de 2,5 %, dernière série au max, dégressive, semaine allégée, repos long, marche, semaine de test) ; `x.pourquoi.sources` porte les entrées ; l'écran dessine la ligne repliée « D'où ça vient » avec l'étiquette.
+- **Honnêteté** : jamais « prouvé », « garanti » ni « toujours » dans un texte de source ou de lexique (test) ; une étude dit ce qu'elle a trouvé, avec son effectif.
+- **Le lexique** (`LEXIQUE`, `lexique()`, `motDuLexique(cle, n?)`) : zone, palier, recul, ton max aujourd'hui, au max, 5+, garde N, semaine allégée, phase, semaine de test, marche, figure, rest-pause, zone à ménager — une phrase chacun. Profil › Les mots du coach les liste ; la feuille de zone ouverte par la puce d'intention (« 6-8 reps · garde 1 ») commence par la définition de « Garde 1 » (ou « Zone »), et « 5+ · garde 1 » ouvre « Au max », chacun avec sa source.
+
 ## 10. L'incrément
 
 ### 10.1 Règle

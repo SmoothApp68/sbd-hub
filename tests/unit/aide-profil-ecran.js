@@ -23,6 +23,9 @@ function profilEcran(profil, options) {
   require('../../v2/js/modele.js');
   require('../../v2/js/semaine.js');
   const Profil = require('../../v2/js/profil.js');
+  global.self = global;
+  require('../../v2/js/palier.js');
+  const Moteur = require('../../v2/js/moteur.js');   // 201 — « Les mots du coach » lit le lexique
   const ecrits = [];
   const ouverts = [];
   const questionnairesOuverts = [];
@@ -70,6 +73,8 @@ function profilEcran(profil, options) {
     ouvrirSalleProfil: () => { sallesOuvertes.push(true); },
     // 193-4 — « Semaine de test » : la ligne n'existe que s'il y a quelque chose à dire (aucune ici).
     ligneSemaineDeTest: () => null,
+    // 201 — « Les mots du coach » : la feuille qu'ouvre la ligne (lexique du moteur).
+    Moteur, ouvrirMotsDuCoach: () => {},
     // 163 — « Ma salle » n'apparaît que si un exercice à l'élastique est dans une routine, l'historique ou la séance
     // en cours : `options.elastique` le dit (absent : aucun, la ligne n'est pas là).
     unExerciceALElastique: () => !!opt.elastique,

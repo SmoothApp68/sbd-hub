@@ -10899,6 +10899,141 @@
     return r;
   }
 
+  // ── 201 — D'OÙ ÇA VIENT, ET LES MOTS DU COACH ────────────────────────────
+  //
+  // UN SEUL REGISTRE DES SOURCES (`SOURCES`), une entrée par clé de règle (les clés que la garde I26 cite déjà, `regle('…')`,
+  // plus quelques clés de règle qui n'ont pas de chiffre à citer). Une entrée : `{ texte, type, auteur?, annee?, effectif? }`,
+  // ou une liste d'entrées. Trois types, dits tels à l'écran : une ÉTUDE (qui, quand, sur combien de personnes), une PRATIQUE DE
+  // COACHS (qui), une CONVENTION (un choix de l'app, dit comme tel). Une règle sans entrée n'a pas de ligne « D'où ça vient » :
+  // jamais de source devinée (un test liste les règles sans source). Les textes viennent des recherches du 31/10/2026 et de ce
+  // que MOTEUR §9.28 à §9.37 cite déjà. HONNÊTETÉ : une étude dit ce qu'elle a trouvé, avec son effectif — jamais « prouvé ».
+  var TYPES_DE_SOURCE = { etude: 'Étude', coachs: 'Pratique de coachs', convention: 'Convention' };
+  var SOURCES = {
+    // L'effort visé : « garde N ».
+    reserve: [
+      { type: 'etude', auteur: 'Refalo', annee: 2024, effectif: '26 pratiquants entraînés',
+        texte: 'Refalo 2024 (26 pratiquants entraînés, quadriceps) : à 1-2 reps de l’échec, le muscle progresse presque autant qu’à l’échec.' },
+      { type: 'etude', auteur: 'Robinson', annee: 2024, effectif: '55 études',
+        texte: 'Robinson 2024 (55 études réunies) : plus près de l’échec, un peu plus de croissance musculaire, un effet qui s’aplatit au-delà de 2 reps en réserve ; pour la force, rien de plus.' }
+    ],
+    // Le recul calé sur le max du jour : la table reps × réserve, le max lu sur une série.
+    'recul.max': [
+      { type: 'coachs', auteur: 'Mike Tuchscherer (RTS) et Barbell Medicine',
+        texte: 'La table de Mike Tuchscherer (RTS) et la méthode de Barbell Medicine : monter au ressenti, puis reculer en pourcentage du max du jour.' },
+      { type: 'etude', auteur: 'Reynolds', annee: 2006, effectif: '70 personnes',
+        texte: 'Reynolds 2006 (70 personnes, couché et presse) : le max se calcule le mieux depuis une série de 5 reps (environ 3 kg d’écart au couché) ; au-delà de 10 reps, on ne le calcule plus.' }
+    ],
+    'recul.correction': { type: 'convention',
+      texte: 'Le pas de 2,5 % (corrigé par tes séries) : un choix de l’app.' },
+    // La dernière série « Au max ».
+    au_max: { type: 'coachs', auteur: '5/3/1, GZCLP, nSuns, SBS',
+      texte: 'La dernière série « au max » (le « 5+ ») vient de 5/3/1, GZCLP, nSuns et SBS.' },
+    'au_max.reserve': { type: 'etude', auteur: 'Morán-Navarro', annee: 2017, effectif: '10 personnes',
+      texte: 'Morán-Navarro 2017 (10 personnes) : l’échec au squat et au couché allonge la récupération de 24 à 48 h.' },
+    // La dégressive.
+    degressive: { type: 'etude', auteur: 'Sodal', annee: 2023, effectif: '6 études',
+      texte: 'Sodal 2023 (6 études) : les séries dégressives donnent le même résultat en 54 à 70 % de temps en moins.' },
+    // Le rest-pause.
+    rest_pause: { type: 'coachs', auteur: 'Jeff Nippard, Renaissance Periodization',
+      texte: 'Le rest-pause et les myo-reps : la pratique de Jeff Nippard et de Renaissance Periodization (Israetel).' },
+    // La semaine de test.
+    test: { type: 'coachs', auteur: 'Juggernaut, 5/3/1, SBS, Candito',
+      texte: 'Juggernaut, 5/3/1, SBS et Candito recalent sur une série lourde ou une série au max plutôt que sur un vrai max.' },
+    // La semaine allégée, la phase.
+    allegee: { type: 'coachs', auteur: 'Calgary Barbell, Candito',
+      texte: 'La semaine allégée planifiée : la pratique de Calgary Barbell et de Candito.' },
+    'bloc.semaines': { type: 'convention',
+      texte: 'La phase de 5 semaines (4 de travail, 1 allégée) : un choix de l’app.' },
+    // La zone : ses fourchettes de reps.
+    'zone.bas': { type: 'convention',
+      texte: 'Les fourchettes de reps des zones (Lourd 3-5, Mix 6-8…) : un choix de l’app.' },
+    // Le repos long d'un gros mouvement.
+    repos_long: { type: 'etude', auteur: 'Schoenfeld', annee: 2016, effectif: '21 pratiquants',
+      texte: 'Schoenfeld 2016 (21 pratiquants) : 2 à 3 min de repos sur les mouvements composés.' },
+    // La marche de l'échelle, au poids du corps.
+    'marche.seuil': { type: 'etude', auteur: 'Kotarsky', annee: 2018, effectif: '23 personnes',
+      texte: 'Kotarsky 2018 (23 personnes) : au poids du corps, une rep de plus, puis une variante plus dure après 2 séances à 3 × 8.' }
+  };
+
+  // Les entrées d'une clé, copiées, chacune avec son étiquette (« Étude », « Pratique de coachs », « Convention »).
+  function sourcesDe(cle) {
+    var v = Object.prototype.hasOwnProperty.call(SOURCES, cle) ? SOURCES[cle] : null;
+    if (!v) return [];
+    return (Array.isArray(v) ? v : [v]).map(function (s) {
+      var o = { texte: s.texte, type: s.type, etiquette: TYPES_DE_SOURCE[s.type] };
+      if (s.auteur !== undefined) o.auteur = s.auteur;
+      if (s.annee !== undefined) o.annee = s.annee;
+      if (s.effectif !== undefined) o.effectif = s.effectif;
+      return o;
+    });
+  }
+  // Les sources d'une liste de clés de règle, sans doublon, dans l'ordre des clés. Une clé sans entrée n'ajoute rien.
+  function sourcesDeRegles(cles) {
+    var vu = {}, sortie = [];
+    (cles || []).forEach(function (cle) {
+      sourcesDe(cle).forEach(function (s) {
+        if (vu[s.texte]) return;
+        vu[s.texte] = true;
+        sortie.push(s);
+      });
+    });
+    return sortie;
+  }
+
+  // LE LEXIQUE : une liste fixe de mots, une phrase chacun (la voix du coach). Il se LIT : aucun calcul, aucun chiffre qui ne soit
+  // celui de la règle (les zones sont lues sur ZONES). `source` : la clé de SOURCES du mot, s'il en a une.
+  var LEXIQUE = [
+    { cle: 'zone', mot: 'Zone', source: 'zone.bas',
+      phrase: 'La fourchette de reps du jour : ' + ZONES.map(function (z) { return z.libelle + ' ' + z.bas + '-' + z.haut; }).join(', ') + '.' },
+    { cle: 'palier', mot: 'Palier',
+      phrase: 'La charge et les reps que tu tiens : le coach monte quand tu les dépasses.' },
+    { cle: 'recul', mot: 'Recul', source: 'recul.max',
+      phrase: 'Les séries plus légères qui suivent ta grosse série.' },
+    { cle: 'max_du_jour', mot: 'Ton max aujourd’hui', source: 'recul.max',
+      phrase: 'Ce que ta grosse série dit de ta force du jour.' },
+    { cle: 'au_max', mot: 'Au max', source: 'au_max',
+      phrase: 'La dernière série, poussée jusqu’à l’échec, ou en gardant les reps que le coach te donne.' },
+    { cle: 'cinq_plus', mot: '5+', source: 'au_max',
+      phrase: '5 reps ou plus : tu t’arrêtes quand la série te le dit.' },
+    { cle: 'garde', mot: 'Garde N', source: 'reserve',
+      phrase: 'Arrête la série quand il te reste N reps possibles. C’est la marge que vise ta zone aujourd’hui.' },
+    { cle: 'allegee', mot: 'Semaine allégée', source: 'allegee',
+      phrase: 'Mêmes charges, moins de séries, pour récupérer.' },
+    { cle: 'phase', mot: 'Phase', source: 'bloc.semaines',
+      phrase: '5 semaines : 4 de travail, 1 allégée.' },
+    { cle: 'semaine_de_test', mot: 'Semaine de test', source: 'test',
+      phrase: 'Une semaine où tu testes tes barres sur une série lourde, pour recaler tes charges. Ta charge de travail ne change pas.' },
+    { cle: 'marche', mot: 'Marche', source: 'marche.seuil',
+      phrase: 'En poids du corps, l’exercice suivant de l’échelle, plus dur.' },
+    { cle: 'figure', mot: 'Figure',
+      phrase: 'Un exercice qui se tient en secondes (planche, front lever) : on compte la durée, pas les reps.' },
+    { cle: 'rest_pause', mot: 'Rest-pause', source: 'rest_pause',
+      phrase: 'Une série jusqu’à l’échec, 15 s de pause, encore, deux fois.' },
+    { cle: 'zone_a_menager', mot: 'Zone à ménager',
+      phrase: 'Une articulation que tu m’as demandé de ménager : pas de série lourde sur les exercices qui la chargent.' }
+  ];
+  // Le lexique, chaque mot avec ses sources résolues.
+  function lexique() {
+    return LEXIQUE.map(function (m) {
+      return { cle: m.cle, mot: m.mot, phrase: m.phrase, sources: m.source ? sourcesDe(m.source) : [] };
+    });
+  }
+  // `n` (facultatif) : le N de « Garde N », quand une puce le dit (« garde 1 »).
+  function motDuLexique(cle, n) {
+    var tous = lexique();
+    for (var i = 0; i < tous.length; i++) {
+      if (tous[i].cle !== cle) continue;
+      var m = tous[i];
+      if (cle === 'garde' && typeof n === 'number' && n >= 0 && Math.floor(n) === n) {
+        m.mot = 'Garde' + INSECABLE + n;
+        m.phrase = 'Arrête la série quand il te reste ' + n + ' rep' + (n > 1 ? 's' : '') + ' possible' + (n > 1 ? 's' : '') +
+          '. C\u2019est la marge que vise ta zone aujourd\u2019hui.';
+      }
+      return m;
+    }
+    return null;
+  }
+
   var api = {
     // 197 (§9.36) — forme et santé.
     FORME_RENFORCEMENT_CIBLE: FORME_RENFORCEMENT_CIBLE, FORME_CARDIO_CIBLE_MIN: FORME_CARDIO_CIBLE_MIN, FORME_INTENSE_FACTEUR: FORME_INTENSE_FACTEUR, CARDIO_RPE_INTENSE: CARDIO_RPE_INTENSE,
@@ -11324,7 +11459,15 @@
     consigneDepartLeste: consigneDepartLeste,
     seanceDuContrat: seanceDuContrat,
     consigneDExercice: consigneDExercice,
-    INSECABLE: INSECABLE
+    INSECABLE: INSECABLE,
+    // 201 — D'où ça vient, et les mots du coach.
+    TYPES_DE_SOURCE: TYPES_DE_SOURCE,
+    SOURCES: SOURCES,
+    sourcesDe: sourcesDe,
+    sourcesDeRegles: sourcesDeRegles,
+    LEXIQUE: LEXIQUE,
+    lexique: lexique,
+    motDuLexique: motDuLexique
   };
 
   // La table des mois courts vit avec le formateur (`modele.js`, §20.2) ; le

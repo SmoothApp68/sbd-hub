@@ -491,6 +491,35 @@
     return t.join(' | ');
   }
 
+  // 201 — « D'OÙ ÇA VIENT » : les sources des règles que ce « Pourquoi » applique, lues au registre `SOURCES` du moteur. Le plan
+  // choisit les CLÉS (ce qu'il applique), le moteur les dit ; une clé sans source n'ajoute rien — jamais une source devinée.
+  // Absent quand aucune règle du « Pourquoi » n'a de source ; l'écran le lit, il ne calcule rien.
+  function clesDeSources(x) {
+    var c = x.consigne, cles = [];
+    if (!c) return cles;
+    if (c.zone) cles.push('zone.bas');
+    if (c.allegee) cles.push('allegee', 'bloc.semaines');
+    if (x.reserveVisee !== null && x.reserveVisee !== undefined && x.reserveVisee >= 1) cles.push('reserve');
+    if (x.reculs && x.reculs.mode === 'max_du_jour') {
+      cles.push('recul.max');
+      if (x.reculs.derniere) cles.push('recul.correction');
+    }
+    if (x.auMax) {
+      cles.push('au_max');
+      if (x.auMax.reserve !== null && x.auMax.reserve !== undefined && x.auMax.reserve >= 1) cles.push('au_max.reserve');
+    }
+    if (x.degressive) cles.push('degressive');
+    if (x.reposLong) cles.push('repos_long');
+    if (x.escalier && x.escalier.carte) cles.push('marche.seuil');
+    if (x.semaineDeTest) cles.push('test');
+    return cles;
+  }
+  function poserLesSources(x) {
+    if (!x.pourquoi) return;
+    var s = Moteur().sourcesDeRegles(clesDeSources(x));
+    if (s.length) x.pourquoi.sources = s;
+  }
+
   function pourquoiDuPlan(consigne, lignes, donc) {
     if (!consigne) return null;
     var muet = consigne.etat === 'silence';
@@ -2099,6 +2128,7 @@
         // 175 — « un cran de moins » : le recul de la règle de bord (174) se dit à côté du chiffre du jour, d'un badge. Le plan le dit, l'écran le dessine.
         x.cranDeMoins = x.consigne && (x.consigne.etat === 'bord_recul' || x.consigne.etat === 'bord_vague') ? 'un cran de moins' : null;
         x.effortVise = rvX === null ? null : effortViseDuPlan(exo, rvX, suite, Seance().exerciceFini(seance, slug));
+        poserLesSources(x);
         // §9.17 — LA CARTE DU LEST : UNE SEULE, en tête de l'exercice (le composant
         // des propositions d'exercice). Quand le moteur la dit (`carte_lest`) et
         // qu'aucune autre carte du lest n'est déjà posée dans la séance : deux

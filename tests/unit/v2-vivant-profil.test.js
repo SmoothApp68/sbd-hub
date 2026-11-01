@@ -17,7 +17,8 @@ const LIGNES_D_AVANT = [
   'Matériel', 'Ma salle', 'Zone à ménager', 'Exercices écartés', 'Refaire mon programme', 'Zones raides',   // 190 : « Ma salle » toujours là
   'But d’entraînement', 'Priorités', 'Entraînement régulier', 'Tous mes exercices', 'Importer depuis Hevy',
   'Poids', 'Taille', 'Date de naissance', 'Sexe', 'Séances par semaine', 'Durée d’une séance', 'Ton temps',
-  'Pseudo', 'Bio', 'E-mail de connexion', 'Mot de passe', 'Activer le jeu'
+  'Pseudo', 'Bio', 'E-mail de connexion', 'Mot de passe', 'Activer le jeu',
+  'Les mots du coach'   // 201
 ];
 
 function rendu() {
@@ -39,7 +40,7 @@ describe('le Profil rangé par fréquence (173)', () => {
     expect(ordre.indexOf('MES EXERCICES') + 1).toBe(ordre.indexOf('MES DONNÉES'));
     // Les sections de chaque groupe.
     const apres = (g) => { const i = ordre.indexOf(g); const f = ordre.slice(i + 1); const j = f.findIndex((t) => groupes.concat(['MES EXERCICES']).indexOf(t) >= 0); return f.slice(0, j < 0 ? f.length : j); };
-    expect(apres('Mon coach')).toEqual(['POURQUOI', 'TON RYTHME', 'TON POIDS', 'TA PHASE', 'TON BUT', 'TA SEMAINE']);
+    expect(apres('Mon coach')).toEqual(['POURQUOI', 'TON RYTHME', 'TON POIDS', 'TA PHASE', 'TON BUT', 'TA SEMAINE', 'LES MOTS DU COACH']);   // 201 : + les mots du coach
     expect(apres('Mon programme')).toEqual(['CE QUE JE FAIS']);
     expect(apres('Moi')).toEqual(['MON CORPS', 'DEPUIS QUAND']);
     expect(apres('Mon compte')).toEqual(['L’APP']);

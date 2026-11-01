@@ -90,6 +90,7 @@ const SHELL = [
   './js/generateur.js',
   './js/questionnaire.js',
   './js/importhevy.js',
+  './js/export.js',
   './js/routeur.js',
   './js/sortie.js',
   './js/cache.js',

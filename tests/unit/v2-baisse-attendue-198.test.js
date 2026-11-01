@@ -83,6 +83,16 @@ describe('198 — la baisse attendue en sèche', () => {
     expect((p.baisseAttendue.phrase.match(/sèche/g) || []).length).toBe(1);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
+  test('202 — la baisse attendue dit d’où ça vient : Garthe 2011 (étude, 24 athlètes), et rien sur le poids', () => {
+    const { p } = seche(3);
+    const src = p.baisseAttendue.sources;
+    expect(src).toHaveLength(1);
+    expect(src[0]).toMatchObject({ type: 'etude', etiquette: 'Étude', auteur: 'Garthe', annee: 2011 });
+    expect(src[0].effectif).toMatch(/24 athlètes/);
+    expect(src[0].texte).toMatch(/0,7 %.*1,4 %/);
+    expect(p.baisseAttendue.phrase).not.toMatch(/poids/);
+  });
+
   test('DISCRIMINANT — 8 % en sèche : la carte habituelle, pas la phrase', () => {
     const { e, p } = seche(8);
     expect(p.carte.source).toBe('baisse');

@@ -1775,6 +1775,28 @@
       return sortie;
     }
 
+    // 202 (MOTEUR §9.20) — LA DOULEUR RÉPÉTÉE : le nombre de SÉANCES AVEC DOULEUR de chaque exercice dans la même fenêtre de 42 jours que
+    // `douleursParExercice`, strictement avant l'instant `jour` (la séance en cours ne se compte pas). Un fait ; la règle (2 ou plus)
+    // est au moteur (`Moteur.douleurRepetee`).
+    function seancesAvecDouleurParExercice(c, jour) {
+      var t = Date.parse(jour), J = Moteur.jourCivil(jour), sortie = {};
+      if (!J || isNaN(t)) return sortie;
+      var plancher = Moteur.jourCivil(new Date(Date.parse(J + 'T12:00:00') - 42 * 86400000));
+      (c.seances || []).forEach(function (s) {
+        var d = s && s.debut ? Date.parse(s.debut) : NaN;
+        if (isNaN(d) || d >= t) return;
+        var jr = Moteur.jourCivil(new Date(s.debut));
+        if (!jr || jr < plancher) return;
+        var vus = {};
+        (c.seriesDe(s.id) || []).forEach(function (x) {
+          if (!x || !x.exercise_slug || x.douleur !== true || vus[x.exercise_slug]) return;
+          vus[x.exercise_slug] = true;
+          sortie[x.exercise_slug] = (sortie[x.exercise_slug] || 0) + 1;
+        });
+      });
+      return sortie;
+    }
+
     // 193-6b — L'ÉCHEC PAR BARRE : les jours des 6 jours civils précédant `jour` où une série à l'échec a été faite sur chaque barre
     // (la famille de barre du slug, `THGenerateur.familleDeBarre` sur le catalogue du corpus, ou `null`). À l'échec : `au_max_reserve = 0`, un type `echec`, ou une réserve
     // notée 0 (`Palier.reserveDeSerie`). Un fait ; la règle (`Moteur.echecRecentDeBarre`, `auMaxDe`) est au moteur.
@@ -1824,13 +1846,28 @@
     // 193-4 (MOTEUR §9.32) — LE MAX ESTIMÉ D'AVANT LA SEMAINE DE TEST, par exercice : la force estimée (`Modele.recordsDeLExercice(...).unRM`,
     // Epley) sur les séances STRICTEMENT avant le jour du début de la semaine — figée, elle ne bouge pas pendant les essais. `null` : aucune
     // série de travail estimable. `debut` : le jour civil `AAAA-MM-JJ`.
-    function maxEstimesAvantLeTest(c, slugs, debut) {
+    function unRMAvantLeTest(c, slug, debut) {
       var avant = new Date(String(debut) + 'T00:00:00');
+      var u = isNaN(avant.getTime()) ? null
+        : Modele.recordsDeLExercice(seancesDuSlug(c, slug), avant, optionsDesRecords(c, slug)).unRM;
+      return u && u.valeur > 0 ? u : null;
+    }
+    function maxEstimesAvantLeTest(c, slugs, debut) {
       var sortie = {};
       (slugs || []).forEach(function (slug) {
-        var u = isNaN(avant.getTime()) ? null
-          : Modele.recordsDeLExercice(seancesDuSlug(c, slug), avant, optionsDesRecords(c, slug)).unRM;
-        sortie[slug] = u && u.valeur > 0 ? Math.round(u.valeur * 10) / 10 : null;
+        var u = unRMAvantLeTest(c, slug, debut);
+        sortie[slug] = u ? Math.round(u.valeur * 10) / 10 : null;
+      });
+      return sortie;
+    }
+    // 202 (MOTEUR §9.32) — D'OÙ VIENT CE MAX : la série (charge, reps) dont `maxEstimesAvantLeTest` tire son estimation, par exercice. Les
+    // reps ne sont plus jetées : au-delà de 5, le calcul est moins fiable et le défaut de la semaine de test devient « Série au max ».
+    // `null` : aucun max estimé, ou un max sans reps connues (un import, un ancien) — alors aucune condition sur les reps.
+    function seriesDesMaxEstimesAvantLeTest(c, slugs, debut) {
+      var sortie = {};
+      (slugs || []).forEach(function (slug) {
+        var u = unRMAvantLeTest(c, slug, debut), r = u ? Number(u.reps) : NaN, k = u ? Number(u.charge) : NaN;
+        sortie[slug] = u && r > 0 ? { charge: k > 0 ? k : null, reps: r } : null;
       });
       return sortie;
     }
@@ -1912,6 +1949,8 @@
       douleursParExercice: douleursParExercice,
       echecsDeBarre: echecsDeBarre,
       maxEstimesAvantLeTest: maxEstimesAvantLeTest,
+      seriesDesMaxEstimesAvantLeTest: seriesDesMaxEstimesAvantLeTest,
+      seancesAvecDouleurParExercice: seancesAvecDouleurParExercice,
       entreeFatigue: entreeFatigue,
       entreeDuBilan: entreeDuBilan,
       tempsALaSalle: tempsALaSalle,

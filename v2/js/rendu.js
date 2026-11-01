@@ -7348,7 +7348,7 @@
 
     var haut = el('div', 'q-haut');
     if (vue.retour) {
-      var retour = el('button', 'q-retour', '‹ Retour');
+      var retour = el('button', 'q-retour', '← Retour');
       retour.type = 'button';
       retour.addEventListener('click', a.surRetour);
       haut.appendChild(retour);

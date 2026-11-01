@@ -135,7 +135,7 @@ describe('le rendu : la feuille des écartés, et le questionnaire sans barre', 
     Rendu().rendreQuestionnaire(cible, vueQ({ progression: null, sansPlusTard: true }), {});
     expect(cible.querySelector('[role="progressbar"]')).toBeNull();
     expect(cible.querySelector('.q-plus-tard')).toBeNull();
-    expect(texte(cible.querySelector('.q-retour'))).toBe('‹ Retour');
+    expect(texte(cible.querySelector('.q-retour'))).toBe('← Retour');
     expect(cible.querySelector('.q-prog.vide')).not.toBeNull();                 // la tête garde sa place
   });
 

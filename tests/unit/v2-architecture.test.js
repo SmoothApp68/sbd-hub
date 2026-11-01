@@ -1862,6 +1862,24 @@ const NOTIONS = [
     raison: 'Le générateur, la mention « demande une barre fixe », les échanges d’exercice, la recherche et les marches d’échelle ' +
       'lisent UNE définition (le catalogue n’a pas de colonne qui le dise) : une liste de deux slugs laissait passer le relevé ' +
       'de genoux suspendu à la maison (G-maison-suspendu du bêta-test).' },
+  // ── 205 — « MES DISQUES » : LE PLUS PETIT DISQUE PRÉSENT donne le cran de la barre (MOTEUR §10.2) ──
+  { notion: 'le plus petit disque PRÉSENT de la salle (disques_absents, à défaut l’ancien plus_petit_disque)', pr: '205-U1',
+    module: 'moteur.js', fonction: 'plusPetitDisquePresent', lecteurs: ['profil.js', 'questionnaire.js'],
+    raison: 'Le cran de la barre (190) a UNE source : `Profil.plusPetitDisqueDe` (branchée au moteur) et le questionnaire (charge de ' +
+      'départ, récapitulatif) l’appellent toutes deux ici ; aucun autre fichier ne relit `ma_salle.plus_petit_disque` ni `disques_absents` ' +
+      'pour décider.' },
+  { notion: 'les disques présents d’une salle (les 10 disques standard moins ceux qu’elle n’a pas)', pr: '205-U1',
+    module: 'moteur.js', fonction: 'disquesPresentsDe', lecteurs: ['profil.js'],
+    raison: 'La feuille « Disques » et les puces de Ma salle lisent la même liste de disques présents.' },
+  { notion: 'les disques absents d’une salle (déclarés, déduits de l’ancien disque, ou le défaut 1 / 0,5 / 0,25)', pr: '205-U1',
+    module: 'moteur.js', fonction: 'disquesAbsentsDe', lecteurs: ['profil.js'],
+    raison: 'Le geste d’une puce (griser, rendre) part de la même lecture que le cran de la barre.' },
+  { notion: 'le poids de la barre de la salle (20 kg sans réponse)', pr: '205-U1',
+    module: 'moteur.js', fonction: 'barreDeLaSalle', lecteurs: ['profil.js'],
+    raison: 'Le poids de la barre (`ma_salle.barre_kg`) se lit en un seul endroit ; la feuille « Disques » le prend de `Profil.barreDe`.' },
+  { notion: 'la charge décomposée en disques par côté (calcul pur, jamais d’arrondi)', pr: '205-U1',
+    module: 'moteur.js', fonction: 'decomposerCharge', lecteurs: ['app.js'],
+    raison: 'La feuille « Disques » affiche la décomposition de la charge et de toutes les charges du jour ; l’écran ne calcule rien lui-même.' },
   // ── 189 — « LA FATIGUE SUR PLUSIEURS SEMAINES » (MOTEUR §14.11) ──
   { notion: 'le constat de la baisse générale, sans carte (« Juste un carnet », une ligne du Parcours)', pr: '189-U1',
     module: 'moteur.js', fonction: 'constatDeBaisse', lecteurs: ['app.js'],
@@ -2193,6 +2211,14 @@ describe('architecture — un seul coach, un seul câblage', () => {
   // fonction exportée par `moteur.js` et lue hors du moteur et du plan est inscrite, dans GARDEES (une décision du
   // coach, avec ses autorisations) ou au registre des notions (un fait, un format, avec ses lecteurs). Une fonction
   // nouvelle du moteur, appelée par un écran sans inscription, fait échouer la garde.
+  test('⚠️ 205 — le plus petit disque se lit en UN endroit : `ma_salle.plus_petit_disque` et `disques_absents` ne sont lus que par moteur.js (la décision), profil.js (validation, brouillon) et questionnaire.js (le geste)', () => {
+    const lecteurs = fs.readdirSync(path.join(__dirname, '../../v2/js')).filter((f) => f.endsWith('.js')).filter((f) => {
+      const src = fs.readFileSync(path.join(__dirname, '../../v2/js', f), 'utf8');
+      return /\.(plus_petit_disque|disques_absents)\b/.test(src);
+    }).sort();
+    expect(lecteurs).toEqual(['moteur.js', 'profil.js', 'questionnaire.js']);
+  });
+
   test('⚠️ 124 — une fonction de `moteur.js` lue hors du moteur et du plan est inscrite (GARDEES ou NOTIONS)', () => {
     global.self = global;
     require('../../v2/js/modele.js');

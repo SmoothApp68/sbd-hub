@@ -2858,3 +2858,22 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .mot-coach:first-child{border-top:0}
 .mot-coach b{color:var(--texte)}
 .etq-mot{cursor:pointer}
+
+/* 205 — la feuille « Disques » (maquette-disques-v1) et la grande charge qui s'y touche */
+.c-charge-disques{border-bottom:2px dotted var(--accent);cursor:pointer}
+.dq-carte{background:var(--panneau);border-radius:14px;padding:12px;margin-top:var(--e2,8px)}
+.dq-charge{margin:0 0 4px;font-size:17px}
+.dq-aide{font-size:13px;color:var(--texte-2);line-height:1.4}
+.dq-texte{font-size:20px;font-weight:700}
+.dq-barre{display:flex;align-items:center;height:110px;margin:8px 0 4px}
+.dq-manche{width:70px;height:10px;background:#9AA3AF;border-radius:2px}
+.dq-butee{width:8px;height:34px;background:#9AA3AF;border-radius:2px;margin-right:3px}
+.dq-disque{border-radius:4px;margin-right:3px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#111;overflow:hidden}
+.dq-bout{width:46px;height:10px;background:#9AA3AF;border-radius:0 3px 3px 0}
+.dq-ligne{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:44px;border:0;border-top:1px solid var(--trait);background:none;font:inherit;font-size:14px;color:var(--texte-2);padding:0}
+.dq-val{color:var(--texte)}
+.dq-barres{padding:6px 0}
+.dq-item{display:grid;grid-template-columns:70px 1fr;gap:8px;width:100%;min-height:44px;align-items:center;border:0;border-top:1px solid var(--trait);background:none;font:inherit;font-size:15px;color:var(--texte-2);text-align:left;padding:0}
+.dq-item b{font-size:16px;color:var(--texte)}
+.dq-item.act b{color:var(--accent)}
+.dq-item.act span{color:var(--texte)}

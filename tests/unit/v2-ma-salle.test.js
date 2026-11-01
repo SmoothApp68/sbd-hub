@@ -93,7 +93,7 @@ describe('Profil — la déclaration « Ma salle » (profiles.ma_salle, v2_088)'
     // 132 — le brouillon porte aussi les élastiques (vides : rien de déclaré).
     expect(b).toEqual({ barres_ez: [], barres_droites: [], halteres: null, elastiques: [], mini_bandes: [],
                         elastiques_par_nom: false, barre_ez_chargee: false, barre_droite_chargee: false,
-                        plus_petit_disque: null, barre_traction: null });   // 190 — inconnus : `null`
+                        plus_petit_disque: null, disques_absents: null, barre_kg: null, barre_traction: null });   // 190 ; 205 : + disques_absents, barre_kg — inconnus : `null`
     [10, 15, 20, 25, 30].forEach((kg) => { b = Profil.basculerBarre(b, 'barres_ez', kg); });
     b = Profil.basculerBarre(b, 'barres_ez', 15);
     b = Profil.basculerBarre(b, 'barres_ez', 12.5);   // « ＋ »

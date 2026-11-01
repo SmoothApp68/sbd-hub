@@ -207,6 +207,7 @@
     // 116 (03 #6) — « Pas enregistré : … » se dit une fois, sur le Profil : vue, elle s'efface en le quittant.
     if (nom !== 'profil' && refusProfil && refusProfil.vu) refusProfil = null;
     var onglet = Routeur.ongletDe(vue || nom);
+    if (onglet !== Routeur.PROFIL) groupeProfilOuvert = null;   // 213 — tout fermé à l'arrivée sur le Profil
     // 136 (audit du 16/10, 03 #18) — quitter le profil n'écrit plus rien (`onboarding_completed`, « vu », retiré : le
     // bandeau de bienvenue n'existe plus depuis 60-2a, et plus rien ne lisait la colonne).
     ecranCourant = nom;
@@ -17022,11 +17023,19 @@
   // Le formateur unique (`modele.js`, PR 7).
   function nombreGroupe(n) { return Modele.nombreGroupe(n); }
 
+  // 213 — une ligne dont le vide n'est pas un manque (une proposition) : elle reste hors de « À compléter ».
+  function facultative(l) {
+    return l ? Object.assign({}, l, { facultatif: true }) : l;
+  }
+
   function ligneChoix(cle, libelle, sous) {
     return { libelle: libelle, sous: sous,
       valeur: Profil.libelleDe(listeDe(cle), valeurProfil(cle)),
       surChoix: function () { ouvrirChoixProfil(cle); } };
   }
+
+  // 213 — le groupe du Profil ouvert (`null` : tous fermés) ; remis à zéro en quittant l'onglet Profil (`montrer`).
+  var groupeProfilOuvert = null;
 
   function rendreProfilEcran() {
     montrer('profil', Routeur.PROFIL);
@@ -17071,14 +17080,6 @@
           // Le MÊME sélecteur que l'intention (§2.3, tranché le 19/09). ⚠️ LA SECTION SE CONSTRUIT DANS `profil.js`, ET C'EST VOULU :
           // elle porte une RÈGLE — absente en Entretenir — et une COLONNE écrite. `null` en Entretenir : `rendreProfil` saute les absentes.
           Profil.sectionRythme(p, ecrireProfil),
-          // Le poids n'est pas un champ du profil : c'est la DERNIÈRE PESÉE, datée (« 96,8 kg · mardi »). 92 (14/10/2026) — la ligne
-          // SAISIT une pesée, par `poserPesee`, le chemin du questionnaire ; la courbe reste sous Progression.
-          { titre: 'TON POIDS', lignes: [
-            { libelle: 'Poids',
-              valeur: resumePoids ? Modele.nombreSigne(resumePoids.poids) + ' kg · ' +
-                Modele.quand(resumePoids.date, jourDuJour()) : null,
-              surChoix: ouvrirPeseeProfil }
-          ] },
           // MOTEUR §9.16 (49-U11) — « TA PHASE » : le même sélecteur, la même écriture (`ecrireProfil`, par la file du profil).
           Profil.sectionPhase(p, ecrireProfil, undefined, seriesRevenues ? Moteur.PHRASE_SERIES_REVENUES : null),
           // 60-2a — « TON BUT » (le but d'entraînement, les priorités) : les réponses du questionnaire, une ligne à la fois.
@@ -17092,11 +17093,6 @@
               surChoix: function () { ouvrirRythmeProfil('duree_seance_min'); } },
             // 60-2a — les quatre réponses de l'écran « Temps » (leurs phrases sont dans la feuille).
             Profil.ligneTemps(p, ouvrirReponseProfil)
-          ] },
-          // 201 — « Les mots du coach » : la liste fixe du moteur, une phrase chacun, la source repliée sous son mot.
-          { titre: 'LES MOTS DU COACH', lignes: [
-            { libelle: 'Les mots du coach', sansValeur: true, sous: Moteur.lexique().length + ' mots, une phrase chacun',
-              surChoix: ouvrirMotsDuCoach }
           ] }
         ]),
         dansLeGroupe('Mon programme', [
@@ -17106,12 +17102,33 @@
             ligneChoix('materiel', 'Matériel'),
             // 108 (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies) — Ma salle ; 163 : les élastiques seulement, et seulement si un
             // exercice à l'élastique est dans une routine, l'historique ou la séance en cours.
-            Profil.ligneSalle(p, ouvrirSalleProfil),
             // 193-4 (MOTEUR §9.32) — « Semaine de test » : son état, la proposition hors programme, l'annulation.
-            ligneSemaineDeTest()
-          ].filter(Boolean).concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil)) }
+            facultative(ligneSemaineDeTest())
+          ].filter(Boolean).concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil)) },
+          // 213 — « Mes exercices » rejoint le programme.
+          { titre: 'MES EXERCICES', lignes: [
+            { libelle: 'Tous mes exercices', sansValeur: true,
+              sous: exos.total + ' au catalogue · ' + exos.faits + ' déjà faits',
+              surChoix: function () { allerA(Routeur.EXERCICES, {}); rendreMesExercices(); } }
+          ] }
         ]),
         dansLeGroupe('Moi', [
+          // Le poids n'est pas un champ du profil : c'est la DERNIÈRE PESÉE, datée (« 96,8 kg · mardi »). 92 (14/10/2026) — la ligne
+          // SAISIT une pesée, par `poserPesee`, le chemin du questionnaire ; la courbe reste sous Progression.
+          { titre: 'TON POIDS', lignes: [
+            { libelle: 'Poids',
+              valeur: resumePoids ? Modele.nombreSigne(resumePoids.poids) + ' kg · ' +
+                Modele.quand(resumePoids.date, jourDuJour()) : null,
+              surChoix: ouvrirPeseeProfil }
+          ] },
+          // 213 — pseudo et bio, ici ; le pseudo et la bio ne servent pas au coach (facultatifs : hors de « À compléter »).
+          { titre: 'MON PROFIL', lignes: [
+            Object.assign(Profil.lignePseudo(p, pseudoPrisSignale(), function () { ouvrirSaisieProfil('username'); }), { facultatif: true }),
+            { libelle: 'Bio', valeur: p.bio || null, facultatif: true,
+              surChoix: function () { ouvrirSaisieProfil('bio'); } }
+          ] },
+          // 108 — Ma salle ; 163 : les élastiques seulement, et seulement si un exercice à l'élastique est dans une routine, l'historique ou la séance en cours.
+          { titre: 'MA SALLE', lignes: [Object.assign(Profil.ligneSalle(p, ouvrirSalleProfil), { facultatif: true })] },
           { titre: 'MON CORPS', lignes: [
             { libelle: 'Taille', valeur: p.taille_cm ? p.taille_cm + ' cm' : null,
               surChoix: function () { ouvrirSaisieProfil('taille_cm'); } },
@@ -17129,10 +17146,6 @@
             // 138 (§3.5) — en tête, seulement sur iPhone hors de l'app : la feuille « Comment faire ».
             { libelle: Auth.PHRASES_IPHONE.ligne, valeur: 'Comment faire', surChoix: ouvrirFeuilleInstaller }
           ] : []).concat([
-            // 60-3b — et, « pris entre-temps », la phrase qui le dit tant qu'aucun pseudo n'est posé.
-            Profil.lignePseudo(p, pseudoPrisSignale(), function () { ouvrirSaisieProfil('username'); }),
-            { libelle: 'Bio', valeur: p.bio || null,
-              surChoix: function () { ouvrirSaisieProfil('bio'); } },
             // L'e-mail se LIT, il ne se change pas d'ici : le changer demande une confirmation sur les deux adresses.
             { libelle: 'E-mail de connexion',
               valeur: (sessionActive && sessionActive.user && sessionActive.user.email) || null },
@@ -17140,24 +17153,35 @@
             { libelle: 'Mot de passe', valeur: '••••••••', surChoix: function () { ouvrirMotDePasseProfil(false); } },
             // 207 — la portabilité (RGPD art. 20) : une feuille, deux fichiers, construits sur l'appareil. Rien n'est écrit.
             { libelle: 'Exporter mes données', sansValeur: true, surChoix: ouvrirExport }
-          ]) }
+          ]) },
+          // 69 (ECRAN-PROFIL §2.4 quater) — « MES DONNÉES ». Le jeu, quitter et supprimer suivent, dans le rendu (213 : au bas de ce groupe).
+          { titre: 'MES DONNÉES', lignes: [
+            { libelle: 'Importer depuis Hevy', sansValeur: true,
+              surChoix: function () { allerA(Routeur.IMPORT, {}); ouvrirImport(); } }
+          ] }
         ]),
-        // En bas, comme avant : mes exercices, mes données (le jeu, quitter et supprimer suivent, dans le rendu).
-        [{ titre: 'MES EXERCICES', lignes: [
-          { libelle: 'Tous mes exercices', sansValeur: true,
-            sous: exos.total + ' au catalogue · ' + exos.faits + ' déjà faits',
-            surChoix: function () { allerA(Routeur.EXERCICES, {}); rendreMesExercices(); } }
-        ] },
-        // 69 (ECRAN-PROFIL §2.4 quater) — « MES DONNÉES », juste après « MES EXERCICES ».
-        { titre: 'MES DONNÉES', lignes: [
-          { libelle: 'Importer depuis Hevy', sansValeur: true,
-            surChoix: function () { allerA(Routeur.IMPORT, {}); ouvrirImport(); } }
-        ] },
-        // 212 — « À propos » : les trois pages de textes, en bas.
-        { titre: 'À PROPOS', lignes: Mentions.pages().map(function (pg) {
-          return { libelle: pg.titre, sansValeur: true, surChoix: function () { ouvrirMentions(pg.cle); } };
-        }) }]
+        dansLeGroupe('À propos', [
+          // 201 — « Les mots du coach » : la liste fixe du moteur, une phrase chacun, la source repliée sous son mot.
+          { titre: 'LES MOTS DU COACH', lignes: [
+            { libelle: 'Les mots du coach', sansValeur: true, sous: Moteur.lexique().length + ' mots, une phrase chacun',
+              surChoix: ouvrirMotsDuCoach }
+          ] },
+          // 212 — « À propos » : les trois pages de textes.
+          { titre: 'MENTIONS', lignes: Mentions.pages().map(function (pg) {
+            return { libelle: pg.titre, sansValeur: true, surChoix: function () { ouvrirMentions(pg.cle); } };
+          }) }
+        ])
       ),
+      // 213 — les groupes repliés : lequel est ouvert (aucun à l'arrivée, celui d'où l'on revient d'une feuille), et leurs résumés.
+      ouvert: groupeProfilOuvert,
+      surGroupe: function (nom) { groupeProfilOuvert = nom; },
+      groupeCompte: 'Mon compte',
+      resumes: Profil.resumesDesGroupes(p, {
+        poids: resumePoids ? Modele.nombreSigne(resumePoids.poids) + ' kg' : null,
+        routines: Routines.visibles(routines).filter(function (r) { return r && !r.archivee_a; }).length,
+        email: (sessionActive && sessionActive.user && sessionActive.user.email) || null,
+        pages: Mentions.pages().map(function (pg) { return pg.titre; })
+      }),
       // 64B — la vitrine (les trois succès les plus rares, décidés par le jeu), et en bas l'interrupteur, qui
       // écrit par le chemin du profil : local d'abord, l'écran suit tout de suite, hors ligne compris.
       vitrine: jeu ? Jeu.vitrine(jeu).map(succesDecrit) : null,

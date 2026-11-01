@@ -7173,57 +7173,159 @@
     });
     cible.appendChild(chiffres);
 
-    var groupeVu;
+    // 213 — CINQ GROUPES REPLIÉS, UN SEUL OUVERT À LA FOIS. Chaque groupe porte un résumé d'une ligne (`vue.resumes[nom]`,
+    // écrit par `profil.js`) ; rien n'est mémorisé ici : `vue.ouvert` dit lequel est ouvert (aucun à l'arrivée), `vue.surGroupe`
+    // prévient l'appelant, qui le redonne au rendu suivant (on revient d'une feuille : le groupe d'où l'on vient se rouvre).
+    var groupes = [];
     (vue.sections || []).forEach(function (sec) {
       // ⚠️ UNE SECTION ABSENTE VAUT `null`, ET C'EST ICI QU'ON LA SAUTE.
       // « Ton rythme » n'existe pas en Entretenir (ECRAN-PROFIL §2.3), et
       // d'autres suivront. Filtrer chez l'appelant demandait à chaque écran d'y
       // penser ; une garde ici le fait une fois pour toutes, et elle se teste.
       if (!sec) return;
-      // 173 (« Vivant ») — le titre du groupe (« Mon coach »…), une fois, devant la première section du groupe.
-      if (sec.groupe !== groupeVu) {
-        groupeVu = sec.groupe;
-        if (groupeVu) cible.appendChild(el('h2', 'p-grp', groupeVu));
-      }
-      cible.appendChild(el('div', 'p-sect', sec.titre));
-      var g = el('div', 'p-groupe');
-      // La voix du coach sous le titre, puis le choix, puis une ligne grise
-      // (« Depuis le 29 sept. ») — la phase (49-U11).
-      if (sec.aide) g.appendChild(el('div', 'p-aide', sec.aide));
-      if (sec.segment) g.appendChild(segmentProfil(sec.segment));
-      if (sec.pied) g.appendChild(el('div', 'p-pied', sec.pied));
-      (sec.lignes || []).forEach(function (l) { if (l) g.appendChild(ligneProfil(l)); });
-      if (sec.note) {
-        var note = el('div', 'p-note');
-        note.appendChild(el('b', '', sec.note.fort));
-        note.appendChild(doc.createTextNode(' ' + sec.note.reste));
-        g.appendChild(note);
-      }
-      cible.appendChild(g);
+      var nomG = sec.groupe || '';
+      var g = groupes.filter(function (x) { return x.nom === nomG; })[0];
+      if (!g) { g = { nom: nomG, sections: [] }; groupes.push(g); }
+      g.sections.push(sec);
     });
-
-    // ⚠️ « QUITTER » PUIS « SUPPRIMER », DANS CET ORDRE ET PAS L'INVERSE.
-    // Ce sont les deux gestes qu'on ne veut pas confondre — la v1 les avait
-    // confondus, et c'est un fix RGPD entier (CLAUDE.md v351-v362). Quitter est
-    // bordé et net ; supprimer est discret, dessous, et sa confirmation dit ce
-    // qui part.
-    // 64B — « LE JEU » en bas, allumé ou éteint : seul reste l'interrupteur quand il est éteint.
-    if (vue.jeu) {
-      cible.appendChild(el('div', 'p-sect', 'LE JEU'));
-      cible.appendChild(blocInterrupteurJeu(vue.jeu));
+    var corpsDe = {};
+    var teteDe = {};
+    function ouvrirGroupe(nom, memoriser) {
+      Object.keys(corpsDe).forEach(function (k) {
+        var on = k === nom;
+        corpsDe[k].hidden = !on;
+        teteDe[k].setAttribute('aria-expanded', on ? 'true' : 'false');
+        teteDe[k].parentNode.parentNode.classList.toggle('ouvert', on);
+      });
+      if (memoriser !== false && typeof vue.surGroupe === 'function') vue.surGroupe(nom);
     }
 
-    var q = el('button', 'p-quitter', 'Quitter');
-    q.type = 'button';
-    q.id = 'btn-deconnexion';
-    q.addEventListener('click', vue.surQuitter);
-    cible.appendChild(q);
+    // 213 — « À compléter (N) » : les réglages vides qui servent au coach (une ligne dont la valeur est vide, sauf celles qui se
+    // déclarent facultatives). Chacune ouvre sa feuille, et le groupe d'où elle vient se rouvrira au retour.
+    var acompleter = [];
+    groupes.forEach(function (g) {
+      g.sections.forEach(function (sec) {
+        (sec.lignes || []).forEach(function (l) {
+          if (!l || l.sansValeur || l.facultatif || typeof l.surChoix !== 'function') return;
+          if (l.valeur === null || l.valeur === undefined || l.valeur === '') acompleter.push({ groupe: g.nom, ligne: l });
+        });
+      });
+    });
+    if (acompleter.length) {
+      var carte = el('div', 'p-groupe p-acompleter');
+      carte.appendChild(el('div', 'p-ac-titre', 'À compléter (' + acompleter.length + ')'));
+      var REPLI = 3;
+      acompleter.forEach(function (x, k) {
+        var b = el('button', 'p-ac-ligne' + (k >= REPLI ? ' p-ac-plus' : ''));
+        if (k >= REPLI) b.hidden = true;
+        b.type = 'button';
+        b.appendChild(el('span', 'p-lib', x.ligne.libelle));
+        b.appendChild(el('span', 'p-fl', '\u203A'));
+        b.addEventListener('click', function () {
+          if (x.groupe) ouvrirGroupe(x.groupe);
+          x.ligne.surChoix();
+        });
+        carte.appendChild(b);
+      });
+      // Trois d'abord ; le reste se déplie (la carte ne chasse pas les groupes hors de l'écran).
+      if (acompleter.length > REPLI) {
+        var tout = el('button', 'p-ac-tout', 'Voir les ' + acompleter.length);
+        tout.type = 'button';
+        tout.setAttribute('aria-expanded', 'false');
+        tout.addEventListener('click', function () {
+          var ouvertes = tout.getAttribute('aria-expanded') === 'true';
+          Array.prototype.forEach.call(carte.querySelectorAll('.p-ac-plus'), function (n) { n.hidden = ouvertes; });
+          tout.setAttribute('aria-expanded', ouvertes ? 'false' : 'true');
+          tout.textContent = ouvertes ? 'Voir les ' + acompleter.length : 'Réduire';
+        });
+        carte.appendChild(tout);
+      }
+      cible.appendChild(carte);
+    }
 
-    var sup = el('button', 'p-supprimer', 'Supprimer mon compte');
-    sup.type = 'button';
-    sup.id = 'btn-supprimer-compte';
-    sup.addEventListener('click', vue.surSupprimer);
-    cible.appendChild(sup);
+    var nomCompte = vue.groupeCompte || 'Mon compte';
+    var piedPose = false;
+    function pied(corps) {
+      if (vue.jeu) {
+        corps.appendChild(el('div', 'p-sect', 'LE JEU'));
+        corps.appendChild(blocInterrupteurJeu(vue.jeu));
+      }
+      var q = el('button', 'p-quitter', 'Quitter');
+      q.type = 'button';
+      q.id = 'btn-deconnexion';
+      q.addEventListener('click', vue.surQuitter);
+      corps.appendChild(q);
+
+      var sup = el('button', 'p-supprimer', 'Supprimer mon compte');
+      sup.type = 'button';
+      sup.id = 'btn-supprimer-compte';
+      sup.addEventListener('click', vue.surSupprimer);
+      corps.appendChild(sup);
+    }
+
+    groupes.forEach(function (gr, i) {
+      var ouvert = vue.ouvert === gr.nom;
+      var racine = el('section', 'p-gr' + (ouvert ? ' ouvert' : ''));
+      racine.dataset.groupe = gr.nom;
+      var titre = el('h2', 'p-grp');
+      var tete = el('button', 'p-gr-tete');
+      tete.type = 'button';
+      tete.setAttribute('aria-expanded', ouvert ? 'true' : 'false');
+      tete.setAttribute('aria-controls', 'p-gr-corps-' + i);
+      var textes = el('span', 'p-gr-textes');
+      textes.appendChild(el('span', 'p-gr-nom', gr.nom));
+      var resume = vue.resumes && vue.resumes[gr.nom];
+      if (resume) textes.appendChild(el('span', 'p-gr-resume', resume));
+      tete.appendChild(textes);
+      tete.appendChild(el('span', 'p-fl', '\u203A'));
+      titre.appendChild(tete);
+      racine.appendChild(titre);
+      var corps = el('div', 'p-gr-corps');
+      corps.id = 'p-gr-corps-' + i;
+      corps.hidden = !ouvert;
+      corpsDe[gr.nom] = corps;
+      teteDe[gr.nom] = tete;
+      tete.addEventListener('click', function () {
+        var ferme = tete.getAttribute('aria-expanded') === 'true';
+        if (ferme) {
+          corps.hidden = true;
+          tete.setAttribute('aria-expanded', 'false');
+          racine.classList.remove('ouvert');
+          if (typeof vue.surGroupe === 'function') vue.surGroupe(null);
+        } else {
+          ouvrirGroupe(gr.nom);
+        }
+      });
+
+      gr.sections.forEach(function (sec) {
+        corps.appendChild(el('div', 'p-sect', sec.titre));
+        var g = el('div', 'p-groupe');
+        // La voix du coach sous le titre, puis le choix, puis une ligne grise
+        // (« Depuis le 29 sept. ») — la phase (49-U11).
+        if (sec.aide) g.appendChild(el('div', 'p-aide', sec.aide));
+        if (sec.segment) g.appendChild(segmentProfil(sec.segment));
+        if (sec.pied) g.appendChild(el('div', 'p-pied', sec.pied));
+        (sec.lignes || []).forEach(function (l) { if (l) g.appendChild(ligneProfil(l)); });
+        if (sec.note) {
+          var note = el('div', 'p-note');
+          note.appendChild(el('b', '', sec.note.fort));
+          note.appendChild(doc.createTextNode(' ' + sec.note.reste));
+          g.appendChild(note);
+        }
+        corps.appendChild(g);
+      });
+
+      // ⚠️ « QUITTER » PUIS « SUPPRIMER », DANS CET ORDRE ET PAS L'INVERSE.
+      // Ce sont les deux gestes qu'on ne veut pas confondre — la v1 les avait
+      // confondus, et c'est un fix RGPD entier (CLAUDE.md v351-v362). Quitter est
+      // bordé et net ; supprimer est discret, dessous, et sa confirmation dit ce
+      // qui part. 213 — ils sont au bas du groupe « Mon compte » (`vue.groupeCompte`), avec « LE JEU » (64B :
+      // allumé ou éteint, seul reste l'interrupteur quand il est éteint).
+      if (gr.nom === nomCompte) { pied(corps); piedPose = true; }
+      racine.appendChild(corps);
+      cible.appendChild(racine);
+    });
+    if (!piedPose) pied(cible);   // aucun groupe « Mon compte » (vue sans groupes) : le jeu, Quitter et Supprimer en bas, comme avant
     return cible;
   }
 

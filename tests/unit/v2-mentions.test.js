@@ -46,7 +46,7 @@ describe('212 — inscription', () => {
     expect(html).toContain('id="champ-age15"');
     expect(html).toContain('/js/mentions.js');
     expect(sw).toContain('./js/mentions.js');
-    expect(app).toMatch(/titre: 'À PROPOS'/);
+    expect(app).toMatch(/titre: 'MENTIONS'/);
     expect(app).toMatch(/surMentions: ouvrirMentions/);
     expect(lire('js/rendu.js')).toContain('En créant ton compte, tu acceptes les conditions décrites dans ');
   });

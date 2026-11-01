@@ -797,6 +797,7 @@
           anneau.setAttribute('cx', p.x);
           anneau.setAttribute('cy', p.y);
           bulle.textContent = texteDuPoint(c.genre, p);
+          anneau.classList.add('on');
           bulle.classList.add('on');
         };
         cib.addEventListener('click', choisir);

@@ -1558,7 +1558,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .courbe-pale{fill:var(--texte-3);opacity:.55}
 .courbe-trait-page{stroke-width:2.5}
 .courbe-rec{fill:var(--accent)}
-.courbe-choix{fill:none;stroke:var(--texte);stroke-width:1.5}
+.courbe-choix{fill:none;stroke:var(--texte);stroke-width:1.5;visibility:hidden}
+.courbe-choix.on{visibility:visible}
 .courbe-cible{fill:transparent;cursor:pointer;outline:none}
 .courbe-cible:focus-visible{stroke:var(--texte);stroke-width:1.5}
 .courbe-note{font-size:13px;line-height:1.4;color:var(--texte-2);margin-top:6px}

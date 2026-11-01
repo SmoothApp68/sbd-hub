@@ -864,6 +864,37 @@
     if (r.error) throw r.error;
   }
 
+  // ══ 207 — EXPORTER MES DONNÉES (lecture seule) ═══════════════════════════
+  //
+  // Tout ce que la personne a dans la base, lu avec SA session, page par page (`paginerParCle`, clé `id`). Aucun filtre
+  // `user_id` : le RLS cloisonne (relu le 01/11). Seule exception, `exercises` : le catalogue est lisible de tous, on ne
+  // garde que les exercices créés par la personne (`proprietaire`). Aucune écriture. Les noms de table sont littéraux
+  // (la garde d'architecture). `surEtape(nom, n)` : appelé après chaque table, pour dire où l'on en est.
+  async function exporterTout(userId, surEtape) {
+    var tables = {};
+    function pose(nom, lignes) { tables[nom] = lignes; if (surEtape) surEtape(nom, lignes.length); }
+    function parId(construire) { return paginerParCle(trancheur(construire, 'id'), 'id'); }
+    var p = await client().from('profiles').select('*').eq('id', userId).maybeSingle();
+    if (p.error) throw p.error;
+    pose('profiles', p.data ? [p.data] : []);
+    pose('sessions', await parId(function () { return client().from('sessions').select('*'); }));
+    pose('sets', await parId(function () { return client().from('sets').select('*'); }));
+    pose('routines', await parId(function () { return client().from('routines').select('*'); }));
+    pose('routine_exercises', await parId(function () { return client().from('routine_exercises').select('*'); }));
+    pose('routine_sets', await parId(function () { return client().from('routine_sets').select('*'); }));
+    pose('records', await parId(function () { return client().from('records').select('*'); }));
+    pose('predictions', await parId(function () { return client().from('predictions').select('*'); }));
+    pose('body_weight_log', await parId(function () { return client().from('body_weight_log').select('*'); }));
+    pose('alias_exercice', await parId(function () { return client().from('alias_exercice').select('*'); }));
+    pose('zones_exercice', await parId(function () { return client().from('zones_exercice').select('*'); }));
+    pose('modes_exercice', await parId(function () { return client().from('modes_exercice').select('*'); }));
+    pose('blocs', await parId(function () { return client().from('blocs').select('*'); }));
+    pose('exercises', await paginerParCle(trancheur(function () {
+      return client().from('exercises').select('*').eq('proprietaire', userId);
+    }, 'slug'), 'slug'));
+    return tables;
+  }
+
   // ══ LE PROFIL (chantier 46 §2) ═══════════════════════════════════════════
   //
   // Une ligne, la sienne. `profiles_select_own` est `auth.uid() = id` : ce
@@ -1236,6 +1267,7 @@
     enregistrerChoixDeSemaine: enregistrerChoixDeSemaine,
     aliasCommuns: aliasCommuns,
     mesAlias: mesAlias,
+    exporterTout: exporterTout,
     enregistrerAlias: enregistrerAlias,
     mesZones: mesZones,
     enregistrerZone: enregistrerZone,

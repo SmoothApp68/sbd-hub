@@ -144,6 +144,8 @@ npx jest tests/unit/v2-service-worker.test.js
   et lire `CACHE_V2` — il doit être `trainhub-v2-<10 hexadécimaux>`, pas le littéral du dépôt. Tests :
   `npx jest tests/unit/v2-estamper-sw.test.js`.
 
+- **Minifier puis estamper** (203-2, 01/11/2026) : au déploiement, `estamper-sw.js` appelle d'abord `v2-atelier/outils/minifier.js` (esbuild, `minify`, sans `mangleProps`, sans carte source) sur `js/*.js` et `styles.css`, EN PLACE ; ni `vendor/`, ni `service-worker.js`, ni `index.html`. Le numéro de cache porte donc sur les octets minifiés servis. La commande de build Cloudflare ne change pas. **Échec fermé** : code 1 si esbuild (devDependency racine) manque ou si une sortie est vide ; rien n'est écrit avant que toutes les sorties soient calculées. Ne pas relancer sur un dossier déjà minifié (une 2e passe renomme encore). **Vérification 3 sur la PRÉVISUALISATION** : `/js/app.js` est minifié (une ligne, sans commentaires) ET `/service-worker.js` porte `CACHE_V2 = 'trainhub-v2-<10 hex>'`. Tests : `npx jest tests/unit/v2-minifier.test.js tests/unit/v2-estamper-sw.test.js` (mêmes `TH*` et mêmes clés sur la sortie) ; mesure : `node tests/banc/ouverture.js`.
+
 - **Un cache, une version** (16/10/2026, 117, audit 06 #8) : un fichier de la coquille (`SHELL`) ne se met
   jamais à jour en arrière-plan — une nouvelle version n'arrive que par install/activate, dans SON cache. Le
   scénario 9 du banc joue l'installation ratée d'une nouvelle version, l'ancienne en place.

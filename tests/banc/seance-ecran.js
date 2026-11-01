@@ -27542,7 +27542,7 @@ const SETS_IMPORTES = [
       reps_visees: reps, charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null }));
     ROUTINES.push({ id: 'r-rm193', nom: 'Reculs RM193', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z',
       updated_at: '2026-01-05T10:00:00.000Z', routine_exercises: [{ id: 're-rm193-0', routine_id: 'r-rm193', exercise_slug: 'rm193-sq', rang: 0,
-        routine_sets: sets193, repos_cible_s: 180, groupe_superset: null, note: null }] });
+        zone: 'mix', routine_sets: sets193, repos_cible_s: 180, groupe_superset: null, note: null }] });
     await aller('/saisie');
     await demarrerRoutine('Reculs RM193');
     await attendreQue(() => page.evaluate(() => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan &&
@@ -27566,6 +27566,18 @@ const SETS_IMPORTES = [
     const phAvant = await placeholders193();
     ok('[RM193] les deux lignes de recul montrent la charge du plan à l’écran', avant193.fantomes.length === 2 &&
       avant193.fantomes.every((c) => String(c).replace('.', ',') === String(phAvant[1]).replace(/\s/g, '') ), nb193([avant193.fantomes, phAvant]));
+    // 200b — la cible (130 × 5) est sous le bas de la zone Mix (6-8) : la phrase datée le dit.
+    const grise200 = await page.evaluate(() => { const g = document.querySelector('.consigne-grise, .consigne .gris, .gris-consigne'); return g ? g.textContent : document.body.innerText; });
+    ok('[RM193] 200b — cible sous la zone : « Une rep de plus, vers tes 6-8. »', /130 kg × 4\. Une rep de plus, vers tes 6-8\./.test(sp193(grise200)), nb193(sp193(grise200).slice(0, 300)));
+    // 200b — au repos, aucun pixel du fond « Supprimer » ne se voit : sous la rangée comme sous l'étiquette, l'élément au point n'est pas le fond.
+    const fond200 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) => {
+      const r = l.getBoundingClientRect(), pts = [];
+      for (let y = Math.ceil(r.top) + 1; y < r.bottom - 1; y += 2) for (const dx of [6, 30, 60, r.width / 2, r.width - 6]) pts.push([r.left + dx, y]);
+      const vus = pts.filter(([x, y]) => { const e = document.elementFromPoint(x, y); return e && (e.classList.contains('glisse-fond') || (e.closest && e.closest('.glisse-fond'))); });
+      return { lignes: pts.length, fond: vus.length, etq: !!l.querySelector('.etq-ligne'), h: Math.round(r.height) };
+    }));
+    ok('[RM193] 200b — au repos, aucun pixel de « Supprimer » ne se voit (dont sous la ligne d’étiquette)',
+      fond200.length > 0 && fond200.some((f) => f.etq) && fond200.every((f) => f.fond === 0), nb193(fond200));
     // Le geste : la grosse série à 140 × 4. Les reculs suivent.
     await saisirSerie(0, 140, 4);
     await attendreQue(() => lirePlan193().then((p) => p.grosse === 140), 15000, 'grosse140RM193');

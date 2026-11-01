@@ -1359,8 +1359,8 @@ function ok(nom, cond, detail) {
         const { ctx, page, erreurs } = await dansLaPage(nav, bd, { agent: IPHONE, stockage: sessionDe(A) }, '/profil', profilVue);
         const l = await lignesProfil(page);
         const i = l.findIndex((x) => x[0] === 'Installer sur l’écran d’accueil');
-        ok('DISCRIMINANT [138 7] — iPhone : « Installer sur l’écran d’accueil », valeur « Comment faire », en tête de « L’APP » (avant le pseudo)',
-          i >= 0 && l[i][1] === 'Comment faire' && i + 1 < l.length && /Pseudo/.test(l[i + 1][0]), JSON.stringify(l.slice(Math.max(0, i - 1), i + 2)));
+        ok('DISCRIMINANT [138 7] — iPhone : « Installer sur l’écran d’accueil », valeur « Comment faire », en tête de « L’APP » (avant l’e-mail ; 213 : le pseudo est dans « Moi »)',
+          i >= 0 && l[i][1] === 'Comment faire' && i + 1 < l.length && /E-mail/.test(l[i + 1][0]), JSON.stringify(l.slice(Math.max(0, i - 1), i + 2)));
         await cliquerLigne(page, 'Installer sur');
         await feuilleOuverte(page);
         const f = await feuille(page);
@@ -1631,11 +1631,14 @@ function ok(nom, cond, detail) {
       ok('[213] chaque groupe a son résumé d’une ligne', e0.groupes.every((g) => g.resume.length > 0), JSON.stringify(e0.groupes.map((g) => g.resume)));
       ok('[213] « À compléter (N) » est en tête, avec N > 0', /^À compléter \(\d+\)$/.test(e0.carte || ''), String(e0.carte));
       await capture('profil-ferme-ecran');
-      await capture('profil-ferme-entier', true);
+      await page.evaluate(() => document.querySelector('#profil-corps .p-gr').scrollIntoView({ block: 'start' }));
+      await page.evaluate(() => window.scrollBy(0, -20));
+      await capture('profil-groupes-fermes');
       const clic = (nom) => page.evaluate((n) => document.querySelector('#profil-corps .p-gr[data-groupe="' + n + '"] .p-gr-tete').click(), nom);
       await clic('Mon coach');
       const e1 = await etat();
       ok('[213] toucher une tête ouvre son groupe', e1.groupes[0].ouvert && e1.groupes[0].visible, JSON.stringify(e1.groupes));
+      await page.evaluate(() => document.querySelector('#profil-corps .p-gr').scrollIntoView({ block: 'start' }));
       await capture('profil-coach-ouvert');
       await clic('Moi');
       const e2 = await etat();

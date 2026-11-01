@@ -17074,7 +17074,7 @@
               surChoix: function () { ouvrirSaisieProfil('bio'); } }
           ] },
           // 108 — Ma salle ; 163 : les élastiques seulement, et seulement si un exercice à l'élastique est dans une routine, l'historique ou la séance en cours.
-          { titre: 'MA SALLE', lignes: [Profil.ligneSalle(p, ouvrirSalleProfil)] },
+          { titre: 'MA SALLE', lignes: [Object.assign(Profil.ligneSalle(p, ouvrirSalleProfil), { facultatif: true })] },
           { titre: 'MON CORPS', lignes: [
             { libelle: 'Taille', valeur: p.taille_cm ? p.taille_cm + ' cm' : null,
               surChoix: function () { ouvrirSaisieProfil('taille_cm'); } },

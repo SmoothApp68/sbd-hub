@@ -2978,3 +2978,5 @@ button[id^="btn-retour"]{padding:0 14px;font-size:14px}
 .p-ac-ligne{display:flex;align-items:center;gap:var(--e3);width:100%;min-height:50px;padding:13px var(--e3);border:none;border-top:1px solid #212529;background:transparent;color:var(--texte);font-family:inherit;text-align:left}
 .p-ac-ligne:active{background:var(--panneau-2)}
 @media (prefers-reduced-motion:reduce){.p-gr-tete .p-fl{transition:none}}
+.p-ac-plus[hidden]{display:none}
+.p-ac-tout{display:block;width:100%;min-height:44px;padding:0 var(--e3);border:none;border-top:1px solid #212529;background:transparent;color:var(--texte-2);font-family:inherit;font-size:13px;font-weight:600;text-align:left}

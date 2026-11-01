@@ -7190,8 +7190,10 @@
     if (acompleter.length) {
       var carte = el('div', 'p-groupe p-acompleter');
       carte.appendChild(el('div', 'p-ac-titre', 'À compléter (' + acompleter.length + ')'));
-      acompleter.forEach(function (x) {
-        var b = el('button', 'p-ac-ligne');
+      var REPLI = 3;
+      acompleter.forEach(function (x, k) {
+        var b = el('button', 'p-ac-ligne' + (k >= REPLI ? ' p-ac-plus' : ''));
+        if (k >= REPLI) b.hidden = true;
         b.type = 'button';
         b.appendChild(el('span', 'p-lib', x.ligne.libelle));
         b.appendChild(el('span', 'p-fl', '\u203A'));
@@ -7201,6 +7203,19 @@
         });
         carte.appendChild(b);
       });
+      // Trois d'abord ; le reste se déplie (la carte ne chasse pas les groupes hors de l'écran).
+      if (acompleter.length > REPLI) {
+        var tout = el('button', 'p-ac-tout', 'Voir les ' + acompleter.length);
+        tout.type = 'button';
+        tout.setAttribute('aria-expanded', 'false');
+        tout.addEventListener('click', function () {
+          var ouvertes = tout.getAttribute('aria-expanded') === 'true';
+          Array.prototype.forEach.call(carte.querySelectorAll('.p-ac-plus'), function (n) { n.hidden = ouvertes; });
+          tout.setAttribute('aria-expanded', ouvertes ? 'false' : 'true');
+          tout.textContent = ouvertes ? 'Voir les ' + acompleter.length : 'Réduire';
+        });
+        carte.appendChild(tout);
+      }
       cible.appendChild(carte);
     }
 

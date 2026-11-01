@@ -1501,6 +1501,15 @@
     return Math.abs(v / SALLE_DISQUE_PAS - Math.round(v / SALLE_DISQUE_PAS)) < 1e-9 ? v : undefined;
   }
 
+  // 205 — `null` : pas déclaré ; `undefined` : illisible (un disque hors de la liste, un doublon) ; sinon le tableau, du plus lourd au plus léger.
+  function disquesAbsentsValides(v) {
+    if (v === null || v === undefined) return null;
+    var tous = racine.THMoteur.DISQUES_STANDARD;
+    if (!Array.isArray(v)) return undefined;
+    for (var i = 0; i < v.length; i++) if (tous.indexOf(v[i]) < 0 || v.indexOf(v[i]) !== i) return undefined;
+    return tous.filter(function (k) { return v.indexOf(k) >= 0; });
+  }
+
   // LA DÉCLARATION, normalisée : l'objet tel qu'il s'écrit, `null` quand rien n'est déclaré (non renseigné), ou
   // `undefined` quand une valeur est hors bornes (refusée : rien ne s'écrit).
   // 132 — les élastiques n'y figurent que déclarés : une salle sans élastique s'écrit exactement comme avant
@@ -1521,11 +1530,18 @@
     // 190 — le plus petit disque et la barre de traction (v2_119, `profiles_ma_salle_equipement_ok`).
     var dq = disqueValide(v.plus_petit_disque), bt = v.barre_traction;
     if (dq === undefined) return undefined;
+    // 205 — les disques que la salle n'a pas (v2_127, `profiles_ma_salle_disques_ok`) et le poids de la barre.
+    var absents = disquesAbsentsValides(v.disques_absents), barreKg = v.barre_kg;
+    if (absents === undefined) return undefined;
+    if (barreKg !== undefined && barreKg !== null && racine.THMoteur.BARRES_PROPOSEES.indexOf(barreKg) < 0) return undefined;
+    if (barreKg === undefined) barreKg = null;
     if (bt !== undefined && bt !== null && typeof bt !== 'boolean') return undefined;
     if (!ez.length && !droites.length && h === null && !el.length && !mini.length && parNom !== true &&
-        chEz !== true && chDr !== true && dq === null && typeof bt !== 'boolean') return null;
+        chEz !== true && chDr !== true && dq === null && absents === null && barreKg === null && typeof bt !== 'boolean') return null;
     var s = { barres_ez: ez, barres_droites: droites, halteres: h };
-    if (dq !== null) s.plus_petit_disque = dq;
+    if (dq !== null && absents === null) s.plus_petit_disque = dq;   // 205 — les disques déclarés prennent la place de l'ancienne ligne
+    if (absents !== null) s.disques_absents = absents;
+    if (barreKg !== null) s.barre_kg = barreKg;
     if (typeof bt === 'boolean') s.barre_traction = bt;
     if (el.length) s.elastiques = el;
     if (mini.length) s.mini_bandes = mini;
@@ -1554,16 +1570,20 @@
                  elastiques_par_nom: s.elastiques_par_nom === true,
                  barre_ez_chargee: s.barre_ez_chargee === true, barre_droite_chargee: s.barre_droite_chargee === true,
                  plus_petit_disque: s.plus_petit_disque === undefined ? null : s.plus_petit_disque,
+                 disques_absents: s.disques_absents === undefined ? null : s.disques_absents.slice(),
+                 barre_kg: s.barre_kg === undefined ? null : s.barre_kg,
                  barre_traction: typeof s.barre_traction === 'boolean' ? s.barre_traction : null }
              : { barres_ez: [], barres_droites: [], halteres: null, elastiques: [], mini_bandes: [], elastiques_par_nom: false,
-                 barre_ez_chargee: false, barre_droite_chargee: false, plus_petit_disque: null, barre_traction: null };
+                 barre_ez_chargee: false, barre_droite_chargee: false, plus_petit_disque: null, disques_absents: null, barre_kg: null, barre_traction: null };
   }
   // 190 — LES DEUX LIGNES, UN SEUL ÉDITEUR : le questionnaire (« Ajuster Ma salle ») et la feuille « Ma salle » du Profil
   // dessinent ces mêmes lignes (puces) et passent par les mêmes gestes. `valeur` d'une ligne : la clé de la puce choisie —
   // « Je ne sais pas » (`inconnu`) quand rien n'est déclaré.
   var LIGNES_MATERIEL = {
-    plus_petit_disque: { titre: 'Le plus petit disque', unite: 'kg',
-      aide: 'Par côté. Je m’en sers pour le cran de ta barre ; sans réponse, je suppose des disques de 1,25 kg.' },
+    disques: { titre: 'Mes disques', multiple: true,
+      aide: 'Touche un disque que ta salle n’a pas pour le griser. Le plus petit qui reste donne le cran de ta barre ; sans réponse, je suppose 1,25 kg.' },
+    barre_kg: { titre: 'Ta barre', unite: 'kg',
+      aide: 'Le poids de la barre sert à la feuille « Disques » ; 20 kg sans réponse.' },
     barre_traction: { titre: 'Une barre de traction',
       aide: 'Sans barre de traction, je ne te propose ni tractions ni exercices suspendus.' }
   };
@@ -1573,27 +1593,44 @@
   }
   function optionsDeLaLigne(cle) {
     var inconnu = { cle: INCONNU, libelle: 'Je ne sais pas' };
-    if (cle === 'plus_petit_disque') {
-      return DISQUES_PROPOSES.map(function (kg) { return { cle: kg, libelle: libelleDisque(kg) }; }).concat([inconnu]);
+    if (cle === 'disques') {
+      return racine.THMoteur.DISQUES_STANDARD.map(function (kg) { return { cle: kg, libelle: libelleDisque(kg) }; });
+    }
+    if (cle === 'barre_kg') {
+      return racine.THMoteur.BARRES_PROPOSEES.map(function (kg) { return { cle: kg, libelle: libelleDisque(kg) }; });
     }
     return [{ cle: 'oui', libelle: 'Oui' }, { cle: 'non', libelle: 'Non' }, inconnu];
   }
   // La clé de puce d'une valeur du brouillon (un disque qui n'est pas dans les puces — 0,75 — n'a pas de puce : aucune ne s'allume).
   function valeurDeLaLigne(brouillon, cle) {
     var b = brouillon || {};
-    if (cle === 'plus_petit_disque') return typeof b.plus_petit_disque === 'number' ? b.plus_petit_disque : INCONNU;
+    if (cle === 'barre_kg') return racine.THMoteur.barreDeLaSalle(b);
     return b.barre_traction === true ? 'oui' : b.barre_traction === false ? 'non' : INCONNU;
   }
   function lignesMateriel(brouillon) {
-    return ['plus_petit_disque', 'barre_traction'].map(function (cle) {
+    return ['disques', 'barre_kg', 'barre_traction'].map(function (cle) {
       var l = LIGNES_MATERIEL[cle];
-      return { cle: cle, titre: l.titre, aide: l.aide, valeur: valeurDeLaLigne(brouillon, cle), options: optionsDeLaLigne(cle) };
+      var r = { cle: cle, titre: l.titre, aide: l.aide, options: optionsDeLaLigne(cle) };
+      // 205 — les disques : des puces à choix multiple, allumées = PRÉSENTS (un disque gris est un disque que la salle n'a pas).
+      if (cle === 'disques') { r.multiple = true; r.valeurs = racine.THMoteur.disquesPresentsDe(brouillon); }
+      else r.valeur = valeurDeLaLigne(brouillon, cle);
+      return r;
     });
   }
   // Le geste : une puce touchée. `inconnu` écrit `null` (la clé part de la base) ; une clé ou une valeur inconnue est sans effet.
   function poserReglageMateriel(brouillon, cle, valeur) {
     var b = Object.assign({}, brouillon || {});
-    if (cle === 'plus_petit_disque') {
+    if (cle === 'disques') {
+      // 205 — un toucher grise un disque, un autre le rend ; la liste part de ce qui est lu (déclaré, ancien disque, ou défaut).
+      var Mo = racine.THMoteur;
+      if (Mo.DISQUES_STANDARD.indexOf(valeur) < 0) return b;
+      var abs = Mo.disquesAbsentsDe(b);
+      abs = abs.indexOf(valeur) >= 0 ? abs.filter(function (k) { return k !== valeur; }) : abs.concat([valeur]);
+      b.disques_absents = Mo.DISQUES_STANDARD.filter(function (k) { return abs.indexOf(k) >= 0; });
+      b.plus_petit_disque = null;
+    } else if (cle === 'barre_kg') {
+      if (racine.THMoteur.BARRES_PROPOSEES.indexOf(valeur) >= 0) b.barre_kg = valeur;
+    } else if (cle === 'plus_petit_disque') {
       if (valeur === INCONNU) b.plus_petit_disque = null;
       else if (DISQUES_PROPOSES.indexOf(valeur) >= 0) b.plus_petit_disque = valeur;
     } else if (cle === 'barre_traction') {
@@ -1605,8 +1642,18 @@
   }
   // Les lecteurs : le plus petit disque (kg par côté) ou `null` ; la barre de traction (`true`, `false`) ou `null` (inconnue).
   function plusPetitDisqueDe(profil) {
-    var s = salleDe(profil);
-    return s && typeof s.plus_petit_disque === 'number' ? s.plus_petit_disque : null;
+    // 205 — LE PLUS PETIT DISQUE PRÉSENT : la fonction unique est celle du moteur (`plusPetitDisquePresent`).
+    return racine.THMoteur.plusPetitDisquePresent(salleDe(profil));
+  }
+  // 205 — le poids de la barre (20 kg sans réponse) et les disques présents, lus sur la salle du profil.
+  function barreDe(profil) { return racine.THMoteur.barreDeLaSalle(salleDe(profil)); }
+  function disquesPresentsDuProfil(profil) { return racine.THMoteur.disquesPresentsDe(salleDe(profil)); }
+  // 205 — « Barre 20 kg › » de la feuille « Disques » : les champs à écrire pour ce poids de barre (`null` : poids refusé).
+  function champsBarre(profil, kg) {
+    if (racine.THMoteur.BARRES_PROPOSEES.indexOf(kg) < 0) return null;
+    var b = brouillonSalle(profil);
+    b.barre_kg = kg;
+    return champsSalle(b);
   }
   function barreTractionDe(profil) {
     var s = salleDe(profil);
@@ -1848,7 +1895,9 @@
     if (s.elastiques) t.push('Élastiques');
     if (s.mini_bandes) t.push(t.length ? 'mini-bandes' : 'Mini-bandes');
     // 190 — ce qui est réglé, dit tel quel : jamais un cran ni une barre que la salle n'a pas.
-    if (typeof s.plus_petit_disque === 'number') t.push((t.length ? 'disque de ' : 'Disque de ') + libelleDisque(s.plus_petit_disque));
+    var petit = racine.THMoteur.plusPetitDisquePresent(s);
+    if (petit !== null) t.push((t.length ? 'disque de ' : 'Disque de ') + libelleDisque(petit));
+    if (typeof s.barre_kg === 'number') t.push((t.length ? 'barre de ' : 'Barre de ') + libelleDisque(s.barre_kg));
     if (typeof s.barre_traction === 'boolean') {
       t.push(s.barre_traction ? (t.length ? 'barre de traction' : 'Barre de traction') : (t.length ? 'sans barre de traction' : 'Sans barre de traction'));
     }
@@ -2362,7 +2411,7 @@
     salleValide: salleValide, salleDe: salleDe, brouillonSalle: brouillonSalle, basculerBarre: basculerBarre,
     // 190 — le plus petit disque et la barre de traction.
     SALLE_DISQUE_MIN: SALLE_DISQUE_MIN, SALLE_DISQUE_MAX: SALLE_DISQUE_MAX, DISQUES_PROPOSES: DISQUES_PROPOSES,
-    lignesMateriel: lignesMateriel, poserReglageMateriel: poserReglageMateriel, plusPetitDisqueDe: plusPetitDisqueDe,
+    lignesMateriel: lignesMateriel, poserReglageMateriel: poserReglageMateriel, plusPetitDisqueDe: plusPetitDisqueDe, barreDe: barreDe, disquesPresentsDuProfil: disquesPresentsDuProfil, champsBarre: champsBarre,
     barreTractionDe: barreTractionDe, sansBarreDeTraction: sansBarreDeTraction, estHorsDeMaSalle: estHorsDeMaSalle, demandeUneBarreDeTraction: demandeUneBarreDeTraction,
     // 132 (ECRAN-PROFIL §2.4 sexies) — les deux listes d'élastiques.
     ELASTIQUES_MAX: ELASTIQUES_MAX, peutAjouterElastique: peutAjouterElastique, ajouterElastique: ajouterElastique,

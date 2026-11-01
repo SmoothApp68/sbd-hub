@@ -17,7 +17,7 @@
   var Cache = racine.THCache, Sync = racine.THSync, Semaine = racine.THSemaine;
   var Routeur = racine.THRouteur, Sortie = racine.THSortie;
   var Calendrier = racine.THCalendrier;
-  var Periode = racine.THPeriode, Poids = racine.THPoids;
+  var Periode = racine.THPeriode, Poids = racine.THPoids, Courbe = racine.THCourbe;
   var Palier = racine.THPalier, Routines = racine.THRoutines;
   var Seance = racine.THSeance, Attente = racine.THAttente;
   var Profil = racine.THProfil, Moteur = racine.THMoteur, Plan = racine.THPlan;
@@ -2407,7 +2407,7 @@
     var a = social.ami;
     // 89 — le retour d'une sous-page ramène au profil (« ← jordan »), celui du profil au fil.
     var retour = $('btn-retour-ami');
-    if (retour) retour.textContent = a && a.sous ? '← ' + a.pseudo : '← Fil';
+    if (retour) retour.textContent = '← Retour';
     if (a && a.sous === 'exercice') return Rendu.rendreExerciceAmi($('social-ami'), vueExerciceAmi());
     if (a && a.sous === 'comparer') return Rendu.rendreComparaison($('social-ami'), vueComparaison());
     Rendu.rendreAmi($('social-ami'), vueDeLAmi());
@@ -3808,42 +3808,27 @@
   // l'audit v1 a cataloguée. Un exercice sans meilleure série n'affiche pas de
   // valeur : rien ne s'invente.
   function sommaireExercices(surExercice, surTous) {
+    // 206 — « TES EXERCICES » : les exercices les plus faits sur 8 semaines (`faits.exercicesLesPlusFaits`), chacun avec ses
+    // points des 6 derniers mois (`faits.pointsDeLExercice`, le max estimé des records) et sa mini-courbe (`THCourbe.mini`).
+    // Un exercice sans point sur les 6 mois n'a pas de ligne : rien ne s'invente.
+    var c = corpus(), maintenant = new Date();
     var index = Modele.indexerExercices(local.exercices);
-    var vus = {}, lignes = [];
-    for (var i = 0; i < local.seances.length && lignes.length < 3; i++) {
-      var seance = local.seances[i];
-      var d = seance.debut ? new Date(seance.debut) : null;
-      var duJour = seriesDe(seance.id);
-      Palier.trier(duJour).forEach(function (serie) {
-        if (!serie.exercise_slug || vus[serie.exercise_slug]) return;
-        vus[serie.exercise_slug] = true;
-        if (lignes.length >= 3) return;
-        // PR 5 de la consolidation — LA MÊME FONCTION que la carte de séance
-        // et que « Dernière séance » sur la page d'exercice
-        // (`Modele.meilleureSerieDe`) : elle appelait le moteur de palier à
-        // part. Seule la charge s'affiche ici, comme avant.
-        var m = Modele.meilleureSerieDe(serie.exercise_slug, duJour, local.exercices, Palier, etatsExercices, meilleurNomme);
-        var r = { meilleure: m.charge === null || m.charge === undefined ? null : { charge: m.charge, reps: m.reps } };
-        lignes.push({
-          // Le slug voyage avec la ligne : c'est lui qui ouvre la page
-          // d'exercice (§7 quater), et le nom ne sert qu'à l'affichage.
-          slug: serie.exercise_slug,
-          nom: (index[serie.exercise_slug] && index[serie.exercise_slug].nom) || serie.exercise_slug,
-          // 132 — une série notée par nom : « Rouge × 10 » (`valeur`).
-          mesure: r.meilleure === null ? (m.valeur && m.charge === null ? m.valeur : '')
-            : Modele.formatMesure({ charge_kg: r.meilleure.charge, reps: r.meilleure.reps }),
-          jour: d && !isNaN(d.getTime()) ? d : null
-        });
+    var lignes = [];
+    faits.exercicesLesPlusFaits(c, maintenant, 8, 4).forEach(function (slug) {
+      var p = faits.pointsDeLExercice(c, slug);
+      var fenetre = Courbe.dansLaPeriode(p.points, '6m', maintenant);
+      var r = Courbe.resume(fenetre);
+      if (!r) return;
+      var unite = p.mesure === 'charge' ? ' kg' : p.mesure === 'reps' ? ' reps' : ' s';
+      var d = Math.round(r.debut), f = Math.round(r.fin);
+      lignes.push({
+        slug: slug,
+        nom: (index[slug] && index[slug].nom) || slug,
+        mesure: (r.n > 1 && d !== f ? Modele.nombreTexte(d) + ' \u2192 ' : '') + Modele.nombreTexte(f) + unite,
+        mini: Courbe.mini(fenetre, 92, 36, p.mesure)
       });
-    }
-
-    // Le compte d'exercices distincts porte sur TOUT l'historique : c'est ce
-    // que le bloc annonce, et il ne doit pas dépendre des trois séances lues.
-    // PR 6 — « fait » a UNE définition (`Modele.exercicesFaits`), celle du
-    // profil et de Mes exercices. Et « 1 exercice » prend le singulier.
-    var n = Object.keys(Modele.exercicesFaits(local.series)).length;
-
-    return { quand: n ? n + ' exercice' + (n > 1 ? 's' : '') : '', lignes: lignes, surExercice: surExercice, surTous: surTous };
+    });
+    return { legende: 'Max estimé, 6 derniers mois', lignes: lignes, surExercice: surExercice, surTous: surTous };
   }
 
   // ══ LA SÉANCE EN COURS ═══════════════════════════════════════════════════
@@ -9574,6 +9559,9 @@
         return { texte: (n !== null ? n : '') + (n !== null ? '+ \u00b7 ' : '') + 'garde\u00a0' + l.auMax.reserve,
                  aria: (n !== null ? n + ' ou plus, ' : '') + 'garde ' + l.auMax.reserve + ' en r\u00e9serve' };
       },
+      // 205 — la grande charge d'un exercice à la barre ouvre la feuille « Disques ».
+      disquesPossibles: disquesPossibles,
+      surDisques: function (iExo, charge) { ouvrirDisques(iExo, charge); },
       // 175 — « un cran de moins » : le badge du recul (174), à côté du chiffre du jour.
       cranDeMoins: function (iExo) {
         var x = planDeLExercice(iExo);
@@ -10113,6 +10101,7 @@
         surRemplacer: function () { demanderRemplacement(cibleExo); },
         note: seance.exercices[cibleExo].note || '',
         surNote: function () { fermerVoile(); ouvrirFeuille('note', cibleExo, null); },
+        surDisques: disquesPossibles(cibleExo) ? function () { fermerVoile(); ouvrirDisques(cibleExo, null); } : null,
         surDegrouper: function () {
           var indices = indicesDe(bloc);
           fermerVoile();
@@ -10136,6 +10125,7 @@
       surRemplacer: function () { demanderRemplacement(indicesDe(bloc)[0]); },
       note: bloc.superset ? '' : (seance.exercices[indicesDe(bloc)[0]].note || ''),
       surNote: bloc.superset ? null : function () { var iN = indicesDe(bloc)[0]; fermerVoile(); ouvrirFeuille('note', iN, null); },
+      surDisques: !bloc.superset && disquesPossibles(indicesDe(bloc)[0]) ? function () { var iD = indicesDe(bloc)[0]; fermerVoile(); ouvrirDisques(iD, null); } : null,
       surGrouper: function () {
         // §5.7 — on passe en SÉLECTION : les autres blocs s'allument et
         // deviennent tapables. Un tap de plus, aucune ambiguïté, et ça marche
@@ -10335,6 +10325,67 @@
     ouvrirVoile($('feuille-seance'), function () {
       feuille = null;
       if (seance) rendreSeance();
+    });
+  }
+  // 205 (MOTEUR §10.2, maquette-disques-v1) — LA FEUILLE « DISQUES » : une charge d'un exercice À LA BARRE décomposée en disques par côté.
+  // Le calcul est `Moteur.decomposerCharge` (pur), les disques présents et la barre viennent du profil (`Profil.disquesPresentsDuProfil`,
+  // `Profil.barreDe`) ; rien ne s'écrit sauf le poids de la barre choisi (`ma_salle.barre_kg`, par `ecrireProfil`).
+  function disquesPossibles(iExo) {
+    var x = seance && seance.exercices[iExo];
+    var def = x ? catalogueIndexe()[x.exercise_slug] : null;
+    return !!def && Moteur.equipementEffectif(def) === 'barre';
+  }
+  function chargesDuJourDe(iExo) {
+    var x = seance.exercices[iExo], pl = planDeLExercice(iExo), sortie = [], vus = {};
+    (x.series || []).forEach(function (s, j) {
+      var l = pl && pl.lignes ? pl.lignes[j] : null;
+      var c = Modele.lireNombre(s.charge_kg);
+      if (c === null && l && l.prerempli) c = Modele.lireNombre(l.prerempli.charge_kg);
+      if (c === null || !(c > 0)) return;
+      var type = Modele.typeLu(s);
+      var lib = type === 'chauffe' ? 'chauffe' : type === 'recul' ? 'recul' : '';
+      var cle = c + '|' + lib;
+      if (vus[cle]) return;
+      vus[cle] = true;
+      sortie.push({ charge: c, libelle: lib });
+    });
+    return sortie;
+  }
+  function ouvrirDisques(iExo, charge) {
+    var cs = chargesDuJourDe(iExo);
+    var c = charge;
+    if (c === null || c === undefined) {
+      var travail = cs.filter(function (k) { return k.libelle === ''; })[0] || cs[0];
+      c = travail ? travail.charge : null;
+    }
+    if (c === null) return;
+    feuille = { quoi: 'disques', iExo: iExo, charge: c, choixBarre: false };
+    rendreFeuille();
+    ouvrirVoile($('feuille-seance'), function () {
+      feuille = null;
+      if (seance) rendreSeance();
+    });
+  }
+  function rendreFeuilleDisques(cible, index) {
+    var iExo = feuille.iExo;
+    if (!seance || !seance.exercices[iExo]) return fermerVoile();
+    var barre = Profil.barreDe(profil), presents = Profil.disquesPresentsDuProfil(profil);
+    var dec = function (kg) { return Moteur.decomposerCharge(kg, barre, presents); };
+    var charges = chargesDuJourDe(iExo).map(function (k) { return { charge: k.charge, libelle: k.libelle, decomposition: dec(k.charge) }; });
+    return Rendu.rendreFeuilleDisques(cible, {
+      nom: Modele.nommer(index, seance.exercices[iExo].exercise_slug),
+      charge: feuille.charge, barre: barre, decomposition: dec(feuille.charge), charges: charges,
+      phraseIntrouvable: 'Je ne trouve pas ' + Modele.nombreSigne(feuille.charge) + ' kg avec tes disques et une barre de ' +
+        Modele.nombreSigne(barre) + ' kg.',
+      choixBarre: feuille.choixBarre, barresProposees: Moteur.BARRES_PROPOSEES,
+      surChoixBarre: function () { feuille.choixBarre = !feuille.choixBarre; rendreFeuille(); },
+      surBarre: function (kg) {
+        var champs = Profil.champsBarre(profil, kg);
+        feuille.choixBarre = false;
+        if (champs) poserProfil(champs);   // `profil` est à jour avant le 1er await : la feuille se redessine sur la nouvelle barre
+        rendreFeuille();
+      },
+      surCharge: function (kg) { feuille.charge = kg; rendreFeuille(); }
     });
   }
   // « S'entraîner ensemble » ne se propose que là où le bouton se montrait : connecté, hors correction, sans groupe ouvert.
@@ -10635,6 +10686,7 @@
     if (feuille.quoi === 'mot') {
       return Rendu.rendreFeuilleMot(cible, { mot: Moteur.motDuLexique(feuille.cle), surFermer: fermerVoile });
     }
+    if (feuille.quoi === 'disques') return rendreFeuilleDisques(cible, index);
     if (feuille.quoi === 'menu-seance') {
       return Rendu.rendreFeuilleMenuSeance(cible, {
         titre: seance.titre || 'Séance',
@@ -11137,7 +11189,7 @@
   function rendreRelectureRoute(dossier) {
     montrer('relecture', Routeur.RELECTURE);
     var d = dossier === undefined ? null : dossier;
-    $('btn-retour-relecture').textContent = '\u2039 Routines' + (d === null ? '' : ' \u00b7 ' + d);
+    $('btn-retour-relecture').textContent = '\u2190 Retour' + (d === null ? '' : ' \u00b7 ' + d);
     if ((etatRoutines.code === 'jamais' || etatRoutines.code === 'charge') && !routines.length) {
       Rendu.message($('relecture'), 'Chargement…');
       chargerRoutines().then(function () { if (!vues.relecture.hidden) rendreRelectureRoute(d); });
@@ -13157,6 +13209,8 @@
   // vient de l'URL à chaque rendu : le garder ici en ferait une seconde source
   // — un champ écrit que personne ne lit, exactement le défaut C1 du chantier 39.
   var exoAffiche = null;       // { slug, combien }
+  // 206 — la période de la courbe d'un exercice (3 mois, 6 mois, 1 an, tout) : un choix de lecture, jamais écrit.
+  var periodeCourbe = Courbe ? Courbe.PERIODE_PAR_DEFAUT : '6m';
 
   // 58-1 — les séances d'un exercice (`faits.seancesDeLExercice`) : le module des faits.
 
@@ -13267,6 +13321,25 @@
       };
     }
 
+    // 206 — LA COURBE EN TÊTE : les points sont un fait (`faits.pointsDeLExercice`), la géométrie est pure (`THCourbe`), la
+    // période choisie ne vit que le temps de la page. Elle ne dit pas un autre chiffre que la fiche : même Epley que les records.
+    var pts = faits.pointsDeLExercice(corpus(), slug);
+    var courbe = null;
+    if (pts.mesure && pts.points.length) {
+      var per = Courbe.periodeDe(periodeCourbe);
+      var fenetre = Courbe.dansLaPeriode(pts.points, per.cle, maintenant);
+      courbe = {
+        nom: exo ? exo.nom : slug,
+        genre: pts.mesure,
+        geo: Courbe.geometrie(fenetre, null, pts.mesure),
+        resume: Courbe.resume(fenetre),
+        periode: per.cle,
+        periodeLongue: per.long,
+        periodes: Courbe.PERIODES,
+        surPeriode: function (cle) { periodeCourbe = cle; rendreExercice(slug, vueOnglet); }
+      };
+    }
+
     var visibles = groupes.slice(0, exoAffiche.combien);
     // 127 (ECRAN-SAISIE §7 quater.6) — « TON ÉCHELLE », en tête du Résumé d'un exercice d'échelle (`null` sinon).
     var echelle = vueEchelleDe(slug, maintenant);
@@ -13339,6 +13412,7 @@
         nbSeries: Semaine.compteSeriesTravail(toutes, local.exercices),
         nbSeances: groupes.length
       },
+      courbe: courbe,
       table: table,
       // H3 — la table d'un matériel de salle se lit sur 12 mois, et le dit.
       tableSurDouzeMois: recordsExo.douzeMois,

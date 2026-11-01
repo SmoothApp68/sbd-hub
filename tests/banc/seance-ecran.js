@@ -1601,7 +1601,7 @@ const SETS_IMPORTES = [
             (v.barre_traction === undefined || v.barre_traction === null || typeof v.barre_traction === 'boolean');
           if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH || !okE || !okC || !okQ ||
               Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres', 'elastiques', 'elastiques_par_nom',
-                'mini_bandes', 'barre_ez_chargee', 'barre_droite_chargee', 'plus_petit_disque', 'barre_traction'].indexOf(k) < 0)) {
+                'mini_bandes', 'barre_ez_chargee', 'barre_droite_chargee', 'plus_petit_disque', 'barre_traction', 'disques_absents', 'barre_kg'].indexOf(k) < 0)) {
             return json(refus('23514', 'profiles_ma_salle_ok'), 400);
           }
         }
@@ -7094,6 +7094,9 @@ const SETS_IMPORTES = [
   await attendre(900);
   const h49Detail = await page.evaluate(() => history.length);
   const libelle49 = (await texte('#btn-retour')).trim();
+  // 209 — « ← Retour » : une zone de toucher d'au moins 44 px de haut (360 px de large ici ; 380 mesuré en captures).
+  const haut209 = await page.evaluate(() => Math.round(document.getElementById('btn-retour').getBoundingClientRect().height));
+  ok('[209] « ← Retour » mesure 44 px de haut au moins', haut209 >= 44, haut209 + ' px');
 
   await page.evaluate(() => {
     Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
@@ -7112,7 +7115,7 @@ const SETS_IMPORTES = [
   // passer. On vérifie donc le mot AVANT le saut — et qu'il n'a pas changé après
   // l'aller-retour par la saisie, là où Aurélien a lu autre chose sur device.
   ok('[49] le détail annonce « ← Séances », avant comme après l’édition',
-    libelle49 === '← Séances' && (await texte('#btn-retour')).trim() === '← Séances',
+    libelle49 === '← Retour' && (await texte('#btn-retour')).trim() === '← Retour',
     libelle49 + ' → ' + (await texte('#btn-retour')).trim());
 
   ok('[49] …et l’édition n’a ajouté aucune entrée d’historique',
@@ -12095,11 +12098,30 @@ const SETS_IMPORTES = [
     ok('[E] DISCRIMINANT — « Record de charge » : la ligne la plus lourde de la table, 130 kg × 1 (l’exploration comprise)',
       ck(recordA) === '130×1' && plusLourde && plusLourde.c === 130 && plusLourde.reps === 1,
       JSON.stringify([recordA, plusLourde]));
+    // 206 — la page porte désormais sa courbe en tête (le max estimé, Epley) et Progression « Tes exercices » le même chiffre
+    // en fin de ligne (« 141 → 152 kg ») : même intention (Progression dit le chiffre de la page), la grandeur est celle de la courbe.
+    if (process.env.BANC_CAPTURES) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'e-page-exercice.png'), fullPage: true });
+    // 206 — navigateur réel : toucher un point ouvre la bulle (date, meilleure série, max estimé) ; choisir « 3 mois » redessine la courbe.
+    await page.evaluate(() => { const c = document.querySelectorAll('#page-exercice .courbe-cible'); if (c.length) c[c.length - 1].dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    const bulleE = await page.evaluate(() => ((document.querySelector('#page-exercice .courbe-bulle') || {}).textContent || '').replace(/\s+/g, ' ').trim());
+    ok('[E] 206 — toucher un point de la courbe dit la date, la meilleure série et le max estimé',
+      /^Le \d+ .+ \u00b7 .+ kg \u00d7 \d+ \u00b7 max estimé \d+/.test(bulleE), JSON.stringify(bulleE));
+    await page.evaluate(() => Array.from(document.querySelectorAll('#page-exercice .courbe-per-b')).filter((b) => /^3 mois$/.test(b.textContent))[0].click());
+    await page.waitForFunction(() => { const b = document.querySelector('#page-exercice .courbe-per-b.on'); return !!b && b.textContent === '3 mois'; }, null, { timeout: 5000 }).catch(() => {});
+    const perE = await page.evaluate(() => (document.querySelector('#page-exercice .courbe-per-b.on') || {}).textContent || null);
+    ok('[E] 206 — la période se choisit (3 mois), et la page garde sa courbe', perE === '3 mois' &&
+      (await page.evaluate(() => !!document.querySelector('#page-exercice .courbe-carte'))), JSON.stringify(perE));
     await aller('/progression');
-    const prog = await page.evaluate(() => Array.from(document.querySelectorAll('.bloc-exo'))
-      .filter((l) => /Écrans U5/.test(l.textContent)).map((l) => (l.querySelector('.bloc-exo-val') || {}).textContent)[0] || null);
-    ok('[E] Progression dit le même chiffre que la page', ck(prog) !== null && ck(prog) === ck(derniereA),
-      JSON.stringify([prog, derniereA]));
+    // Quel que soit l'état laissé par les sections d'avant, « Tes exercices » montre les plus faits sur 8 semaines : on prend la
+    // première ligne affichée, on l'ouvre, et sa page dit le même chiffre en fin de ligne (« 141 → 152 kg » → 152 kg).
+    const prog = await page.evaluate(() => { const l = document.querySelector('#sommaire .bloc-exo');
+      return l ? ((l.querySelector('.bloc-exo-val') || {}).textContent || null) : null; });
+    await page.evaluate(() => { const l = document.querySelector('#sommaire .bloc-exo'); if (l) l.click(); });
+    await page.waitForFunction(() => !!document.querySelector('#page-exercice .courbe-val'), null, { timeout: 5000 }).catch(() => {});
+    const valeurLigneE = await page.evaluate(() => ((document.querySelector('#page-exercice .courbe-val') || {}).textContent || '').replace(/\s+/g, ' ').trim());
+    const finProg = prog === null ? null : prog.replace(/\s+/g, ' ').trim().split(' \u2192 ').pop();
+    ok('[E] 206 — Progression dit le même chiffre que la courbe de la page (le max estimé)',
+      !!valeurLigneE && finProg !== null && finProg === valeurLigneE, JSON.stringify([prog, valeurLigneE]));
     await aller('/');
     const carte = await page.evaluate(() => Array.from(document.querySelectorAll('.apercu-exo'))
       .filter((l) => /Écrans U5/.test(l.textContent)).map((l) => (l.querySelector('.apercu-val') || {}).textContent)[0] || null);
@@ -14868,7 +14890,8 @@ const SETS_IMPORTES = [
     // 95 — le bloc « Ton année » (l'année écoulée, toute l'année suivante ; hors production, l'année en cours) a sa
     // propre section ([A95]) : l'ordre contrôlé ici est celui des six blocs de 55-1 et 75. 98 — de même pour le bloc de la
     // saison ([B98]).
-    const som = (await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
+    // 206 — « Rétrospectives » regroupe parcours, année et saison : leurs blocs, repliés dans la ligne, ne sont pas des blocs de tête.
+    const som = (await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).filter((b) => !b.closest('.retro-liste')).map((b) => ({
       quoi: b.querySelector('.bloc-quoi').textContent, ligne: (b.querySelector('.bloc-ligne') || {}).textContent || null,
       neuf: b.classList.contains('neuf'), saison: b.classList.contains('bloc-saison') })))).filter((b) => !/^Ton année \d{4}$/.test(b.quoi) && !b.saison)
       .map((b) => ({ quoi: b.quoi, ligne: b.ligne, neuf: b.neuf }));
@@ -14876,11 +14899,10 @@ const SETS_IMPORTES = [
     const ici = new Date(tP);
     const ecoule = new Date(ici.getFullYear(), ici.getMonth() - 1, 1);
     await capturer55('3-sommaire');
-    ok('[P55] DISCRIMINANT — en tête : le mois écoulé, « Ton parcours » (75), puis les records ; Volume, Poids, Par exercice ensuite',
-      som.length === 6 && som[0].neuf && som[0].quoi === MOIS_L[ecoule.getMonth()] && som[1].neuf &&
-        som[1].quoi === 'Ton parcours' && som[2].neuf &&
-        /Records$/.test(som[2].quoi) && /^Volume par muscle/.test(som[3].quoi) && /^Poids de corps/.test(som[4].quoi) &&
-        /^Par exercice/.test(som[5].quoi), JSON.stringify(som));
+    ok('[P55] DISCRIMINANT — 206 : « Tes exercices » en tête, puis le mois écoulé, les records, « Rétrospectives » (parcours, année, saison) ; Volume, Poids ensuite',
+      som.length === 6 && /^Tes exercices/.test(som[0].quoi) && som[1].neuf && som[1].quoi === MOIS_L[ecoule.getMonth()] && som[2].neuf &&
+        /Records$/.test(som[2].quoi) && som[3].quoi === 'Rétrospectives' && /^Volume par muscle/.test(som[4].quoi) &&
+        /^Poids de corps/.test(som[5].quoi), JSON.stringify(som));
     ok('[P55] le bloc Records dit le dernier, « Médaillé u55 100 kg × 5 », daté d’aujourd’hui',
       som[2] && sp(som[2].ligne) === sp('Le dernier : Médaillé u55 100 kg × 5, le ' + ici.getDate() + ' ' + MOIS_C[ici.getMonth()] +
         (/\.$/.test(MOIS_C[ici.getMonth()]) ? '' : '.')),
@@ -14895,7 +14917,7 @@ const SETS_IMPORTES = [
         cles: h ? Array.from(h.querySelectorAll('.s')).map((x) => x.dataset.cle) : [],
         ancien: document.querySelectorAll('#bilan-mois, #vue-mois, .tuiles-mois').length };
     });
-    await page.evaluate(() => document.querySelectorAll('#sommaire .bloc-som')[0].click());
+    await page.evaluate(() => document.querySelectorAll('#sommaire .bloc-som.neuf')[0].click());   // 206 : le mois est le premier bloc « neuf » (Tes exercices passe en tête)
     await attendre(900);
     const routeMois = await page.evaluate(() => location.pathname);
     const ouvertEcoule = await story55();
@@ -19088,7 +19110,7 @@ const SETS_IMPORTES = [
     const c0 = await lire();
     ok('[social-2] son exercice : meilleure charge 210 kg, meilleure série 180 kg × 5 (le plus gros charge × reps), sa courbe sur 6 mois ; l’adresse /a/jordan/exercice/squat-barre',
       (await chemin()) === '/a/jordan/exercice/squat-barre' && c0.charge === '210 kg' && String(c0.serie).replace(/[\u00a0\u202f]/g, ' ') === '180 kg × 5' && c0.lui === 1 &&
-        c0.moiCourbe === 0 && c0.btnExo && c0.retour === '← jordan' && appelsDepuis(n0).indexOf('social_series_exercice') >= 0,
+        c0.moiCourbe === 0 && c0.btnExo && c0.retour === '← Retour' && appelsDepuis(n0).indexOf('social_series_exercice') >= 0,
       JSON.stringify(c0));
     await page.click('#social-comparer-exo');
     await attendreQue(async () => (await lire()).moiCourbe > 0);
@@ -19102,7 +19124,7 @@ const SETS_IMPORTES = [
     await attendreQue(async () => (await lire()).exos.length > 0);
     await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     ok('[social-2] le retour d’une sous-page ramène à son profil (« ← jordan » → /a/jordan, « ← Fil »)',
-      (await chemin()) === '/a/jordan' && (await lire()).retour === '← Fil', await chemin());
+      (await chemin()) === '/a/jordan' && (await lire()).retour === '← Retour', await chemin());
 
     // ── D. SE COMPARER SUR LA PÉRIODE.
     await page.click('#social-comparer');
@@ -20222,7 +20244,7 @@ const SETS_IMPORTES = [
     }
     ok('[relecture] la rangée ouvre la vue : son chemin (dossier encodé), l’onglet Saisie, le retour « ‹ Routines · ' + DOSSIER + ' »',
       JSON.stringify(await visible()) === '["vue-relecture"]' && (await chemin()) === '/saisie/relecture/' + encodeURIComponent(DOSSIER) &&
-        (await texte('#btn-retour-relecture')) === '‹ Routines · ' + DOSSIER,
+        (await texte('#btn-retour-relecture')) === '← Retour · ' + DOSSIER,
       JSON.stringify([await visible(), await chemin(), await texte('#btn-retour-relecture')]));
     ok('[relecture] DISCRIMINANT — les deux cartes sont là AVANT tout clic : la priorité (squat ÷ couché sous 1,2) et le retrait des abducteurs (sèche)',
       e0.ratio && e0.priorite && JSON.stringify(e0.retraits) === '["abducteurs:oui"]' && e0.lignes.length === 1 &&
@@ -21792,7 +21814,7 @@ const SETS_IMPORTES = [
     // ── A. LE BLOC DU SOMMAIRE.
     await aller('/progression');
     // 86 — attendre la phrase attendue (plafond 15 s), pas 800 ms fixes.
-    await page.waitForFunction((P) => { const b = document.querySelectorAll('#sommaire .bloc-som')[1];
+    await page.waitForFunction((P) => { const b = document.querySelector('#sommaire .bloc-parcours');
       const l = b && b.querySelector('.bloc-ligne');
       return !!l && l.textContent.replace(/\s+/g, ' ').trim() === P; }, PHRASE, { timeout: 15000 })
       .catch(() => console.log('   (plafond de 15 s atteint : la phrase du parcours n’est jamais apparue)'));
@@ -21800,11 +21822,21 @@ const SETS_IMPORTES = [
     const blocs = await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
       quoi: b.querySelector('.bloc-quoi').textContent, ligne: (b.querySelector('.bloc-ligne') || {}).textContent || null })));
     await capturer75('1-sommaire');
-    ok('[P75] DISCRIMINANT — le bloc « Ton parcours », juste après le mois écoulé, dit la phrase de la référence',
-      blocs[1] && blocs[1].quoi === 'Ton parcours' && sp(blocs[1].ligne) === PHRASE, JSON.stringify(blocs.slice(0, 3)));
+    // 206 — « Ton parcours » est rangé sous « Rétrospectives » (une ligne qui s'ouvre au toucher) : la ligne le nomme, l'ouvrir le montre.
+    const retro75 = await page.evaluate(() => {
+      const t = document.querySelector('#sommaire .retro-tete');
+      return { nom: t ? t.querySelector('.bloc-quand').textContent : null, ferme: t ? t.getAttribute('aria-expanded') : null };
+    });
+    await page.evaluate(() => document.querySelector('#sommaire .retro-tete').click());
+    await page.waitForFunction(() => { const b = document.querySelector('#sommaire .retro-liste .bloc-parcours'); return !!b && b.offsetParent !== null; }, null, { timeout: 5000 }).catch(() => {});
+    const parcours75 = await page.evaluate(() => { const b = document.querySelector('#sommaire .retro-liste .bloc-parcours');
+      return b ? { quoi: b.querySelector('.bloc-quoi').textContent, ligne: b.querySelector('.bloc-ligne').textContent, visible: b.offsetParent !== null } : null; });
+    ok('[P75] DISCRIMINANT — 206 : « Rétrospectives » nomme « ton parcours » ; l\u2019ouvrir montre le bloc « Ton parcours », qui dit la phrase de la référence',
+      retro75.ferme === 'false' && /ton parcours/.test(retro75.nom) && parcours75 && parcours75.visible && parcours75.quoi === 'Ton parcours' &&
+        sp(parcours75.ligne) === PHRASE, JSON.stringify([retro75, parcours75, blocs.slice(0, 4)]));
 
     // ── B. LA PAGE ET SES SECTIONS, DANS L'ORDRE DE M1.
-    await page.evaluate(() => document.querySelectorAll('#sommaire .bloc-som')[1].click());
+    await page.evaluate(() => document.querySelector('#sommaire .retro-liste .bloc-parcours').click());
     await attendre(900);
     const pageP = await page.evaluate(() => {
       const c = document.getElementById('parcours');

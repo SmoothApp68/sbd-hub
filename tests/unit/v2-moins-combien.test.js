@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 require('../../v2/js/modele.js');
+require('../../v2/js/moteur.js');
 require('../../v2/js/rendu.js');
 const Profil = require('../../v2/js/profil.js');
 const Q = require('../../v2/js/questionnaire.js');
@@ -182,7 +183,7 @@ describe('l’écriture : une puce écrit `duree_seance_min` avec `temps_reponse
     const rep = Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'dureeMoins', 60);
     expect(rep.dureeMoins).toBe(60);
     // L'état de départ n'a pas de clé de plus (14 réponses, `programme` depuis 60-3, `menager` depuis 60-4).
-    expect(Object.keys(Q.reponsesInitiales({}, {})).length).toBe(27);   // 195 : + 4 dep ; 194-1 : + raides ; + dep_tractions, dep_pompes, dep_dips, dep_pistol ; 187 : + depuis, notees, halteresMax, halteresPas ; 190 : + plusPetitDisque, barreTraction
+    expect(Object.keys(Q.reponsesInitiales({}, {})).length).toBe(29);   // 195 : + 4 dep ; 194-1 : + raides ; + dep_tractions, dep_pompes, dep_dips, dep_pistol ; 187 : + depuis, notees, halteresMax, halteresPas ; 190 : + plusPetitDisque, barreTraction
     expect('dureeMoins' in Q.reponsesInitiales({}, {})).toBe(false);
   });
 });

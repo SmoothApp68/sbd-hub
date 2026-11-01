@@ -79,6 +79,7 @@ const SHELL = [
   './js/plan.js',
   './js/periode.js',
   './js/poids.js',
+  './js/courbe.js',
   './js/bilan.js',
   './js/parcours.js',
   './js/bilans.js',

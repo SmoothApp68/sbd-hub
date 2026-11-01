@@ -7094,6 +7094,9 @@ const SETS_IMPORTES = [
   await attendre(900);
   const h49Detail = await page.evaluate(() => history.length);
   const libelle49 = (await texte('#btn-retour')).trim();
+  // 209 — « ← Retour » : une zone de toucher d'au moins 44 px de haut (360 px de large ici ; 380 mesuré en captures).
+  const haut209 = await page.evaluate(() => Math.round(document.getElementById('btn-retour').getBoundingClientRect().height));
+  ok('[209] « ← Retour » mesure 44 px de haut au moins', haut209 >= 44, haut209 + ' px');
 
   await page.evaluate(() => {
     Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
@@ -7112,7 +7115,7 @@ const SETS_IMPORTES = [
   // passer. On vérifie donc le mot AVANT le saut — et qu'il n'a pas changé après
   // l'aller-retour par la saisie, là où Aurélien a lu autre chose sur device.
   ok('[49] le détail annonce « ← Séances », avant comme après l’édition',
-    libelle49 === '← Séances' && (await texte('#btn-retour')).trim() === '← Séances',
+    libelle49 === '← Retour' && (await texte('#btn-retour')).trim() === '← Retour',
     libelle49 + ' → ' + (await texte('#btn-retour')).trim());
 
   ok('[49] …et l’édition n’a ajouté aucune entrée d’historique',
@@ -19102,7 +19105,7 @@ const SETS_IMPORTES = [
     await attendreQue(async () => (await lire()).exos.length > 0);
     await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     ok('[social-2] le retour d’une sous-page ramène à son profil (« ← jordan » → /a/jordan, « ← Fil »)',
-      (await chemin()) === '/a/jordan' && (await lire()).retour === '← Fil', await chemin());
+      (await chemin()) === '/a/jordan' && (await lire()).retour === '← Retour', await chemin());
 
     // ── D. SE COMPARER SUR LA PÉRIODE.
     await page.click('#social-comparer');
@@ -20222,7 +20225,7 @@ const SETS_IMPORTES = [
     }
     ok('[relecture] la rangée ouvre la vue : son chemin (dossier encodé), l’onglet Saisie, le retour « ‹ Routines · ' + DOSSIER + ' »',
       JSON.stringify(await visible()) === '["vue-relecture"]' && (await chemin()) === '/saisie/relecture/' + encodeURIComponent(DOSSIER) &&
-        (await texte('#btn-retour-relecture')) === '‹ Routines · ' + DOSSIER,
+        (await texte('#btn-retour-relecture')) === '← Retour · ' + DOSSIER,
       JSON.stringify([await visible(), await chemin(), await texte('#btn-retour-relecture')]));
     ok('[relecture] DISCRIMINANT — les deux cartes sont là AVANT tout clic : la priorité (squat ÷ couché sous 1,2) et le retrait des abducteurs (sèche)',
       e0.ratio && e0.priorite && JSON.stringify(e0.retraits) === '["abducteurs:oui"]' && e0.lignes.length === 1 &&

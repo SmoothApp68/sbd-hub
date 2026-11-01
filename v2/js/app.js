@@ -2406,7 +2406,7 @@
     var a = social.ami;
     // 89 — le retour d'une sous-page ramène au profil (« ← jordan »), celui du profil au fil.
     var retour = $('btn-retour-ami');
-    if (retour) retour.textContent = a && a.sous ? '← ' + a.pseudo : '← Fil';
+    if (retour) retour.textContent = '← Retour';
     if (a && a.sous === 'exercice') return Rendu.rendreExerciceAmi($('social-ami'), vueExerciceAmi());
     if (a && a.sous === 'comparer') return Rendu.rendreComparaison($('social-ami'), vueComparaison());
     Rendu.rendreAmi($('social-ami'), vueDeLAmi());
@@ -11136,7 +11136,7 @@
   function rendreRelectureRoute(dossier) {
     montrer('relecture', Routeur.RELECTURE);
     var d = dossier === undefined ? null : dossier;
-    $('btn-retour-relecture').textContent = '\u2039 Routines' + (d === null ? '' : ' \u00b7 ' + d);
+    $('btn-retour-relecture').textContent = '\u2190 Retour' + (d === null ? '' : ' \u00b7 ' + d);
     if ((etatRoutines.code === 'jamais' || etatRoutines.code === 'charge') && !routines.length) {
       Rendu.message($('relecture'), 'Chargement…');
       chargerRoutines().then(function () { if (!vues.relecture.hidden) rendreRelectureRoute(d); });

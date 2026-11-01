@@ -536,6 +536,25 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .bloc-exo-jour{font-size:11px;line-height:1.4;color:var(--texte-3);white-space:nowrap;
   min-width:52px;text-align:right;font-variant-numeric:tabular-nums}
 
+/* 206 — « Tes exercices » : une ligne = le nom, son « 141 → 152 kg », et la mini-courbe à droite. */
+.bloc-courbes .bloc-exo{align-items:center;min-height:56px;padding:6px 0}
+.bloc-exo-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.bloc-courbes .bloc-exo-nom{flex:none;font-size:15px;font-weight:600;color:var(--texte)}
+.bloc-courbes .bloc-exo-val{font-size:13px;font-weight:400;color:var(--texte-2)}
+.bloc-legende{font-size:13px;line-height:1.4;color:var(--texte-2);margin:-2px 0 4px}
+.bloc-exo-mini{flex:none;width:92px;height:36px;display:block;overflow:visible}
+.bloc-exo-mini .courbe-trait{stroke-width:2}
+.courbe-pt.record{fill:var(--accent)}
+.bloc-retro{margin-bottom:var(--e3)}
+.bloc-retro > .retro-tete{margin-bottom:0}
+.bloc-retro .retro-tete[aria-expanded="true"]{border-radius:var(--r-grand) var(--r-grand) 0 0}
+.bloc-retro .retro-tete .bloc-haut{margin-bottom:0;align-items:center;min-height:24px}
+.bloc-retro .retro-tete .bloc-quand{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bloc-retro .retro-tete[aria-expanded="true"] .bloc-fl{transform:rotate(90deg)}
+.retro-liste{background:var(--panneau);border-radius:0 0 var(--r-grand) var(--r-grand);padding:0 var(--e2) var(--e2)}
+.retro-liste[hidden]{display:none}
+.retro-liste .bloc-som{background:var(--panneau-2);margin-bottom:var(--e2)}
+
 /* ── Sélecteur de période, en pastilles ───────────────────────────────────── */
 .periodes{display:flex;gap:var(--e1);margin-bottom:var(--e3)}
 .periode{flex:1;padding:7px 0;border-radius:var(--r-petit);border:1px solid var(--trait);
@@ -1524,6 +1543,37 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .tr-ligne.cible .tr-jauge i{background:var(--accent)}
 
 /* ── Historique : un jour, une carte ─────────────────────────────────────── */
+/* 206 — La courbe d'un exercice, en tête de son Résumé (maquette « Progression en courbes »). */
+.courbe-carte{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3);margin-bottom:var(--e3)}
+.courbe-tete{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--e2)}
+.courbe-val{font-size:28px;font-weight:700;line-height:1.1}
+.courbe-sous{font-size:14px;line-height:1.3;color:var(--texte-2)}
+.courbe-per{display:flex;gap:6px;margin:var(--e2) 0}
+.courbe-per-b{flex:1;min-height:44px;border:1px solid var(--trait);border-radius:var(--r-bouton);background:transparent;
+  color:var(--texte-2);font:500 14px/1 var(--pile);padding:0}
+.courbe-per-b.on{border-color:var(--accent);color:var(--accent)}
+.courbe-svg{display:block;width:100%;height:auto;overflow:visible}
+.courbe-grille{stroke:var(--trait);stroke-width:1}
+.courbe-lib{fill:var(--texte-3);font-size:11px;font-family:var(--pile)}
+.courbe-pale{fill:var(--texte-3);opacity:.55}
+.courbe-trait-page{stroke-width:2.5}
+.courbe-rec{fill:var(--accent)}
+.courbe-choix{fill:none;stroke:var(--texte);stroke-width:1.5}
+.courbe-cible{fill:transparent;cursor:pointer;outline:none}
+.courbe-cible:focus-visible{stroke:var(--texte);stroke-width:1.5}
+.courbe-note{font-size:13px;line-height:1.4;color:var(--texte-2);margin-top:6px}
+.courbe-note-rec{color:var(--accent)}
+.courbe-vide{font-size:13px;color:var(--texte-2);margin:var(--e2) 0}
+.courbe-bulle{display:none;margin-top:var(--e2);padding-top:var(--e2);border-top:1px solid var(--trait);font-size:15px;line-height:1.4}
+.courbe-bulle.on{display:block}
+/* L'historique d'un exercice, replié par mois. */
+.exo-mois{margin-bottom:var(--e2)}
+.exo-mois > summary{min-height:44px;display:flex;align-items:center;gap:var(--e1);cursor:pointer;list-style:none;
+  font-size:14px;font-weight:600;color:var(--texte);text-transform:capitalize}
+.exo-mois > summary::-webkit-details-marker{display:none}
+.exo-mois > summary::after{content:'\203a';margin-left:auto;color:var(--texte-3);transition:transform .15s}
+.exo-mois[open] > summary::after{transform:rotate(90deg)}
+.exo-mois-n{font-weight:400;color:var(--texte-3);text-transform:none}
 .exo-jour{background:var(--panneau);border-radius:var(--r-grand);
   padding:var(--e3);margin-bottom:var(--e2)}
 .exo-jour-tete{display:flex;align-items:baseline;gap:var(--e2);margin-bottom:var(--e2)}

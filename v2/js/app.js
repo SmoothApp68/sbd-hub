@@ -17,7 +17,7 @@
   var Cache = racine.THCache, Sync = racine.THSync, Semaine = racine.THSemaine;
   var Routeur = racine.THRouteur, Sortie = racine.THSortie;
   var Calendrier = racine.THCalendrier;
-  var Periode = racine.THPeriode, Poids = racine.THPoids;
+  var Periode = racine.THPeriode, Poids = racine.THPoids, Courbe = racine.THCourbe;
   var Palier = racine.THPalier, Routines = racine.THRoutines;
   var Seance = racine.THSeance, Attente = racine.THAttente;
   var Profil = racine.THProfil, Moteur = racine.THMoteur, Plan = racine.THPlan;
@@ -3806,42 +3806,27 @@
   // l'audit v1 a cataloguée. Un exercice sans meilleure série n'affiche pas de
   // valeur : rien ne s'invente.
   function sommaireExercices(surExercice, surTous) {
+    // 206 — « TES EXERCICES » : les exercices les plus faits sur 8 semaines (`faits.exercicesLesPlusFaits`), chacun avec ses
+    // points des 6 derniers mois (`faits.pointsDeLExercice`, le max estimé des records) et sa mini-courbe (`THCourbe.mini`).
+    // Un exercice sans point sur les 6 mois n'a pas de ligne : rien ne s'invente.
+    var c = corpus(), maintenant = new Date();
     var index = Modele.indexerExercices(local.exercices);
-    var vus = {}, lignes = [];
-    for (var i = 0; i < local.seances.length && lignes.length < 3; i++) {
-      var seance = local.seances[i];
-      var d = seance.debut ? new Date(seance.debut) : null;
-      var duJour = seriesDe(seance.id);
-      Palier.trier(duJour).forEach(function (serie) {
-        if (!serie.exercise_slug || vus[serie.exercise_slug]) return;
-        vus[serie.exercise_slug] = true;
-        if (lignes.length >= 3) return;
-        // PR 5 de la consolidation — LA MÊME FONCTION que la carte de séance
-        // et que « Dernière séance » sur la page d'exercice
-        // (`Modele.meilleureSerieDe`) : elle appelait le moteur de palier à
-        // part. Seule la charge s'affiche ici, comme avant.
-        var m = Modele.meilleureSerieDe(serie.exercise_slug, duJour, local.exercices, Palier, etatsExercices, meilleurNomme);
-        var r = { meilleure: m.charge === null || m.charge === undefined ? null : { charge: m.charge, reps: m.reps } };
-        lignes.push({
-          // Le slug voyage avec la ligne : c'est lui qui ouvre la page
-          // d'exercice (§7 quater), et le nom ne sert qu'à l'affichage.
-          slug: serie.exercise_slug,
-          nom: (index[serie.exercise_slug] && index[serie.exercise_slug].nom) || serie.exercise_slug,
-          // 132 — une série notée par nom : « Rouge × 10 » (`valeur`).
-          mesure: r.meilleure === null ? (m.valeur && m.charge === null ? m.valeur : '')
-            : Modele.formatMesure({ charge_kg: r.meilleure.charge, reps: r.meilleure.reps }),
-          jour: d && !isNaN(d.getTime()) ? d : null
-        });
+    var lignes = [];
+    faits.exercicesLesPlusFaits(c, maintenant, 8, 4).forEach(function (slug) {
+      var p = faits.pointsDeLExercice(c, slug);
+      var fenetre = Courbe.dansLaPeriode(p.points, '6m', maintenant);
+      var r = Courbe.resume(fenetre);
+      if (!r) return;
+      var unite = p.mesure === 'charge' ? ' kg' : p.mesure === 'reps' ? ' reps' : ' s';
+      var d = Math.round(r.debut), f = Math.round(r.fin);
+      lignes.push({
+        slug: slug,
+        nom: (index[slug] && index[slug].nom) || slug,
+        mesure: (r.n > 1 && d !== f ? Modele.nombreTexte(d) + ' \u2192 ' : '') + Modele.nombreTexte(f) + unite,
+        mini: Courbe.mini(fenetre)
       });
-    }
-
-    // Le compte d'exercices distincts porte sur TOUT l'historique : c'est ce
-    // que le bloc annonce, et il ne doit pas dépendre des trois séances lues.
-    // PR 6 — « fait » a UNE définition (`Modele.exercicesFaits`), celle du
-    // profil et de Mes exercices. Et « 1 exercice » prend le singulier.
-    var n = Object.keys(Modele.exercicesFaits(local.series)).length;
-
-    return { quand: n ? n + ' exercice' + (n > 1 ? 's' : '') : '', lignes: lignes, surExercice: surExercice, surTous: surTous };
+    });
+    return { legende: 'Max estimé, 6 derniers mois', lignes: lignes, surExercice: surExercice, surTous: surTous };
   }
 
   // ══ LA SÉANCE EN COURS ═══════════════════════════════════════════════════
@@ -13119,6 +13104,8 @@
   // vient de l'URL à chaque rendu : le garder ici en ferait une seconde source
   // — un champ écrit que personne ne lit, exactement le défaut C1 du chantier 39.
   var exoAffiche = null;       // { slug, combien }
+  // 206 — la période de la courbe d'un exercice (3 mois, 6 mois, 1 an, tout) : un choix de lecture, jamais écrit.
+  var periodeCourbe = Courbe ? Courbe.PERIODE_PAR_DEFAUT : '6m';
 
   // 58-1 — les séances d'un exercice (`faits.seancesDeLExercice`) : le module des faits.
 
@@ -13229,6 +13216,25 @@
       };
     }
 
+    // 206 — LA COURBE EN TÊTE : les points sont un fait (`faits.pointsDeLExercice`), la géométrie est pure (`THCourbe`), la
+    // période choisie ne vit que le temps de la page. Elle ne dit pas un autre chiffre que la fiche : même Epley que les records.
+    var pts = faits.pointsDeLExercice(corpus(), slug);
+    var courbe = null;
+    if (pts.mesure && pts.points.length) {
+      var per = Courbe.periodeDe(periodeCourbe);
+      var fenetre = Courbe.dansLaPeriode(pts.points, per.cle, maintenant);
+      courbe = {
+        nom: exo ? exo.nom : slug,
+        genre: pts.mesure,
+        geo: Courbe.geometrie(fenetre),
+        resume: Courbe.resume(fenetre),
+        periode: per.cle,
+        periodeLongue: per.long,
+        periodes: Courbe.PERIODES,
+        surPeriode: function (cle) { periodeCourbe = cle; rendreExercice(slug, vueOnglet); }
+      };
+    }
+
     var visibles = groupes.slice(0, exoAffiche.combien);
     // 127 (ECRAN-SAISIE §7 quater.6) — « TON ÉCHELLE », en tête du Résumé d'un exercice d'échelle (`null` sinon).
     var echelle = vueEchelleDe(slug, maintenant);
@@ -13301,6 +13307,7 @@
         nbSeries: Semaine.compteSeriesTravail(toutes, local.exercices),
         nbSeances: groupes.length
       },
+      courbe: courbe,
       table: table,
       // H3 — la table d'un matériel de salle se lit sur 12 mois, et le dit.
       tableSurDouzeMois: recordsExo.douzeMois,

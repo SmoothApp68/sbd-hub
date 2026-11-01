@@ -50,6 +50,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -68,7 +69,13 @@ function creer(options) {
   // ce fichier vit dans `v2-atelier/banc/` depuis 59-1, hors du dossier publié.
   const racine = path.resolve(opts.racine || path.join(__dirname, '../../v2'));
   const canonicalise = opts.canonicalise !== false;
+  // 203 — `gzip: true` compresse le texte comme Cloudflare (Accept-Encoding: gzip). Désactivé par défaut : les
+  // bancs existants servent les octets tels quels. La compression est faite UNE fois par fichier (mémo sur
+  // l'horodatage), pour que le temps du serveur ne bruite pas une mesure de chargement.
+  const gzip = opts.gzip === true;
+  const memoGzip = {};
   const journal = [];
+  let octets = 0;
 
   const serveur = http.createServer((req, res) => {
     const chemin = decodeURIComponent(String(req.url).split('?')[0]);
@@ -96,19 +103,41 @@ function creer(options) {
       repli = true;
     }
     journal.push((repli ? 'REPLI ' : '200   ') + chemin);
-    res.writeHead(200, {
-      'Content-Type': TYPES[path.extname(fichier)] || 'application/octet-stream',
+    const type = TYPES[path.extname(fichier)] || 'application/octet-stream';
+    const entetes = {
+      'Content-Type': type,
       // Le service worker est servi avec un cache long DÉLIBÉRÉMENT : c'est le
       // cas défavorable, et il est vérifié (chantier 19) que la mise à jour
       // passe quand même — `updateViaCache` vaut 'imports' par défaut, ce qui
       // fait contourner le cache HTTP pour le script principal.
       'Cache-Control': chemin === '/service-worker.js'
         ? 'public, max-age=86400' : 'no-cache'
-    });
+    };
+    if (gzip && /^(text\/|application\/(json|manifest))|image\/svg/.test(type) &&
+        /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''))) {
+      const m = fs.statSync(fichier).mtimeMs;
+      let e = memoGzip[fichier];
+      if (!e || e.m !== m) e = memoGzip[fichier] = { m: m, corps: zlib.gzipSync(fs.readFileSync(fichier), { level: 6 }) };
+      entetes['Content-Encoding'] = 'gzip';
+      entetes['Content-Length'] = e.corps.length;
+      entetes['Vary'] = 'Accept-Encoding';
+      res.writeHead(200, entetes);
+      octets += e.corps.length;
+      return res.end(e.corps);
+    }
+    if (gzip) {
+      const brut = fs.readFileSync(fichier);
+      octets += brut.length;
+      entetes['Content-Length'] = brut.length;
+      res.writeHead(200, entetes);
+      return res.end(brut);
+    }
+    res.writeHead(200, entetes);
     fs.createReadStream(fichier).pipe(res);
   });
 
   serveur.journal = journal;
+  serveur.octetsEnvoyes = () => octets;   // 203 — le total des corps envoyés (compressés si gzip)
   return serveur;
 }
 

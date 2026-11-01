@@ -1567,9 +1567,10 @@ const NOTIONS = [
     raison: 'les trois listes du catalogue comptées une fois (`nombreDeMuscles`) : le raccourci, Ma salle, le générateur ' +
       'et « En faire une routine » disent la même chose d’un exercice sans muscles.' },
   { notion: 'le jour civil d’un instant ou d’une date (AAAA-MM-JJ, heure locale)', pr: '124-U1',
-    module: 'moteur.js', fonction: 'jourCivil', lecteurs: ['app.js', 'faits.js', 'generateur.js', 'plan.js', 'reserve.js', 'objectif.js'],
+    module: 'moteur.js', fonction: 'jourCivil', lecteurs: ['app.js', 'faits.js', 'generateur.js', 'plan.js', 'reserve.js', 'objectif.js', 'social.js', 'assistant.js'],
     raison: 'un seul passage d’un instant au jour du calendrier de la personne : les faits, le plan, la réserve, le ' +
-      'générateur, l’objectif (124 : sa copie retirée, 01 #14) et l’app comptent les mêmes jours.' },
+      'générateur, l’objectif (124 : sa copie retirée, 01 #14) et l’app comptent les mêmes jours ; 208 : le social ' +
+      '(bornes et calendrier) et le quota de l’assistant lisent la même clé, leurs copies retirées.' },
   { notion: 'le numéro d’un jour civil (la différence de deux numéros compte les jours du calendrier)', pr: '124-U2',
     module: 'moteur.js', fonction: 'numeroDuJour', lecteurs: ['objectif.js', 'deraille.js'],
     parAilleurs: { 'objectif.js': ['numeroDuJour'], 'deraille.js': ['numero'] },

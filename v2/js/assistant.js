@@ -236,10 +236,9 @@
 
   // ── Le nombre de questions qui restent aujourd'hui (mémoire seulement) ──
   var memoire = { jour: null, reste: null };
-  function jourLocal(d) {
-    var t = d || new Date();
-    return t.getFullYear() + '-' + (t.getMonth() + 1) + '-' + t.getDate();
-  }
+  // 208 — la clé de jour local est UNE fonction, `Moteur.jourCivil`. L'ancienne clé (« 2026-1-5 », sans zéro) ne vivait
+  // que dans `memoire`, en mémoire du processus : jamais écrite en base ni en cache, comparée seulement à elle-même.
+  function jourLocal(d) { return racine.THMoteur.jourCivil(d || new Date()); }
   function resteDuJour() {
     return memoire.jour === jourLocal() ? memoire.reste : null;
   }

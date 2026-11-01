@@ -525,6 +525,24 @@
     return jour + ' \u00b7 ' + heureMinute(debut) + (jourLocal(fin) ? ' \u2192 ' + heureMinute(fin) : '');
   }
 
+  // 214 — LE TEXTE QU'ON PARTAGE d'un récap de séance (`faits.recapDeLaSeance`) : titre, durée, séries de travail, tonnage,
+  // records en « nom : 130 kg × 5 ». Pur : ni autre personne, ni coach, ni lien. Les chiffres sont ceux du récap.
+  function texteDePartage(r) {
+    if (!r) return '';
+    var dm = r.duree_min;
+    var tete = [r.titre || 'Séance'];
+    if (dm !== null && dm !== undefined) tete.push(dm < 60 ? dm + ' min' : formatDuree(dm * 60));
+    var lignes = [tete.join(' \u00b7 ')];
+    var n = r.series || 0;
+    lignes.push(n + (n > 1 ? ' séries' : ' série') + ' de travail \u00b7 ' + (r.volume_texte || ''));
+    var recs = (r.records || []).filter(function (x) { return x && x.nom && x.mesure; });
+    if (recs.length) {
+      lignes.push(recs.length + (recs.length > 1 ? ' records' : ' record') + ' :');
+      recs.forEach(function (x) { lignes.push('\u2022 ' + x.nom + ' : ' + x.mesure); });
+    }
+    return lignes.join('\n');
+  }
+
   // « septembre 2026 ».
   function moisAnnee(d) {
     if (!(d instanceof Date) || isNaN(d.getTime())) return '';
@@ -2864,6 +2882,7 @@
     MOIS_COURTS: MOIS_COURTS,
     heureMinute: heureMinute,
     plageDeSeance: plageDeSeance,
+    texteDePartage: texteDePartage,
     MOIS_LONGS: MOIS_LONGS,
     arrondi: arrondi,
     nombreFixe: nombreFixe,

@@ -6055,6 +6055,17 @@
     v.type = 'button';
     v.addEventListener('click', vue.surVoir);
     cible.appendChild(v);
+    // 214 — « Partager » : secondaire (jamais l'ambre), sans lien externe ; l'app dit ce qui est parti.
+    if (vue.surPartager) {
+      var pa = el('button', 'discret recap-bouton recap-partager', 'Partager');
+      pa.type = 'button';
+      pa.addEventListener('click', function () {
+        Promise.resolve(vue.surPartager()).then(function (res) {
+          if (res === 'copie') { pa.textContent = 'Copié'; }
+        }, function () {});
+      });
+      cible.appendChild(pa);
+    }
     return cible;
   }
 

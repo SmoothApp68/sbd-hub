@@ -21656,10 +21656,31 @@ const SETS_IMPORTES = [
       /^Sur \d+ paris? vérifiés?, le coach en a tenu \d+\.$/.test(a.voix || '') &&
       nbR(a.paris) === nbR([['Rowing r71', '80 kg × 12, 12, 12, 12']]), nbR([a.voix, a.paris]));
     ok('[R71] (a) l’ordre de L1 : en-tête, chiffres, comparaison, muscles, records, coach… puis « Fermer » et « Voir la séance »',
-      nbR(a.boutons) === nbR(['Fermer', 'Voir la séance']) &&
+      nbR(a.boutons) === nbR(['Fermer', 'Voir la séance', 'Partager']) &&
       a.ordre.indexOf('recap-tuiles') < a.ordre.indexOf('recap-comp') && a.ordre.indexOf('recap-comp') < a.ordre.indexOf('recap-mu') &&
       a.ordre.indexOf('recap-mu') < a.ordre.indexOf('recap-rec') && a.ordre.indexOf('recap-rec') < a.ordre.indexOf('recap-voix') &&
       a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1, nbR(a.ordre));
+    // 214 — « Partager » : secondaire (pas l'ambre), la feuille de partage reçoit le texte court ; sans elle, le presse-papiers.
+    if (process.env.BANC_CAPTURES_214) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_214, 'recap.png'), fullPage: true });
+    const partage = await page.evaluate(async () => {
+      const b = document.querySelector('#recap-corps .recap-partager');
+      const fond = (e) => getComputedStyle(e).backgroundColor;
+      const out = { present: !!b, secondaire: !!b && !b.classList.contains('principal') && fond(b) !== fond(document.querySelector('#recap-corps .recap-fermer')) };
+      let recu = null;
+      Object.defineProperty(navigator, 'share', { configurable: true, value: (d) => { recu = d; return Promise.resolve(); } });
+      b.click(); await new Promise((r) => setTimeout(r, 300));
+      out.texte = recu && recu.text;
+      Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
+      let copie = null;
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: (t) => { copie = t; return Promise.resolve(); } } });
+      b.click(); await new Promise((r) => setTimeout(r, 300));
+      out.copie = copie; out.libelle = b.textContent;
+      return out;
+    });
+    ok('[R214] « Partager » : bouton secondaire ; le texte court (titre, séries de travail, tonnage, records) part à la feuille de partage',
+      partage.present && partage.secondaire && /^.+\n4 séries de travail · 3,8.t\n2 records :\n• Rowing r71 : 80 kg × 12\n• Rowing r71 : 80 kg × 12$/.test(partage.texte || '') &&
+      !/coach|http/i.test(partage.texte || ''), nbR(partage));
+    ok('[R214] sans feuille de partage : copié dans le presse-papiers, le bouton dit « Copié »', partage.copie === partage.texte && partage.libelle === 'Copié', nbR(partage));
     // (g) — attendre que tout soit monté, puis l'espion : rien n'a été écrit PAR le récap.
     await jusqua(async () => (await page.evaluate(() => window.THCache.lireAttente())).length === 0, 15000);
     ok('[R71] (g) DISCRIMINANT — le rendu du récap n’écrit rien : ni la file, ni le cache de l’appareil, ni le serveur',

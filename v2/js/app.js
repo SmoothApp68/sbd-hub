@@ -215,7 +215,9 @@
     if (nom !== 'seance') arreterDuree();
     Object.keys(vues).forEach(function (k) { vues[k].hidden = (k !== nom); });
     var barre = $('onglets');
-    if (barre) barre.hidden = !onglet;
+    // 204 — PENDANT UNE SÉANCE EN COURS, la barre d'onglets se cache (« ⌄ » en haut la rend, en réduisant la séance) ; le
+    // minuteur prend la place. En correction d'une séance passée, rien à réduire : les onglets restent.
+    if (barre) barre.hidden = !onglet || (nom === 'seance' && !enEdition());
     appliquerJeu();
     Rendu.rendreOnglets(barre, onglet);
     // Une séance en cours se voit depuis N'IMPORTE QUEL écran. Une PWA qui
@@ -3238,10 +3240,8 @@
   function vueDuGroupeSeance() {
     var v = { message: grp.message, invitations: cartesDInvitations() };
     // 106 — le groupe d'une AUTRE séance (la mienne y est finie) ne se montre pas ici : je suis libre d'en lancer un.
-    if (!groupeDeLaSeance()) {
-      v.surLancer = function () { ouvrirInviter(); };
-      return v;
-    }
+    // 204 — « S'entraîner ensemble » est dans le « ⋯ » de la séance (`ouvrirFeuilleMenuSeance`), plus un bouton ici.
+    if (!groupeDeLaSeance()) return v;
     var maintenant = new Date().toISOString();
     var lignes = Social.lignesDuDirect(grp.direct, maintenant, nomDuCatalogue, Modele.formatMesure);
     var n = grp.etat.length || grp.moi.membres || 1;
@@ -5282,6 +5282,9 @@
     // Une barre cachée — par elle-même ou par sa vue — rend un rectangle nul :
     // c'est le bon zéro, il n'y a rien à réserver pour ce qu'on ne voit pas.
     var hOnglets = onglets ? Math.ceil(onglets.getBoundingClientRect().height) : 0;
+    // 204 — la séance en cours cache les onglets : leur réserve vaut alors ZÉRO (et se pose, contrairement aux autres écrans
+    // où une barre cachée laisse la valeur de repli).
+    var sansOnglets = !!onglets && onglets.hidden && ecranCourant === 'seance';
     // ⚠️ LES DEUX S'EMPILENT, ILS NE SE REMPLACENT PAS (corrigé le 18/09).
     // Le premier jet posait « les deux ne coexistent jamais — on ne range pas
     // pendant un repos » : c'est faux. Valider une série arme le chronomètre,
@@ -5307,7 +5310,7 @@
     // On n'écrit QUE ce qui change. `rendreChrono` passe ici chaque seconde ;
     // réécrire la même valeur salirait le style pour rien, et une mesure suivie
     // d'une écriture qui change la mise en page est le début d'une boucle.
-    if (hOnglets && hOnglets !== barresMesurees.onglets) {
+    if ((hOnglets || sansOnglets) && hOnglets !== barresMesurees.onglets) {
       barresMesurees.onglets = hOnglets;
       style.setProperty('--h-onglets', hOnglets + 'px');
     }
@@ -5883,7 +5886,7 @@
       var n = doc.querySelector('#blocs-seance .serie[data-iexo="' + iExo + '"][data-iserie="' + (iSerie + 1) + '"]');
       var ong = doc.querySelector('.onglets');
       if (!n || !racine.scrollBy) return;
-      var haut = ong ? ong.getBoundingClientRect().top : racine.innerHeight;
+      var haut = ong && !ong.hidden ? ong.getBoundingClientRect().top : racine.innerHeight;
       var bas = n.getBoundingClientRect().bottom;
       if (bas > haut - 8) racine.scrollBy(0, Math.ceil(bas - haut + 16));
     } catch (e) { /* un confort de lecture : jamais un geste cassé */ }
@@ -9433,7 +9436,14 @@
         ouvrirReorganisation();
       },
       surAnnulerSelection: function () { selectionGroupe = null; rendreSeance(); },
-      surTerminer: function () { if (enEdition()) return enregistrerEdition(); confirmerFin(); }
+      surTerminer: function () { if (enEdition()) return enregistrerEdition(); confirmerFin(); },
+      // 204 — « ⌄ » réduit la séance : les onglets reviennent (la séance reste en cours : l'onglet Saisie, son point et la carte
+      // « Prochaine séance » y ramènent). Le « ⋯ » porte « Modifier » et « S'entraîner ensemble ».
+      surReduire: function () {
+        allerA(Routeur.RACINE, {});
+        rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
+      },
+      surMenu: function () { ouvrirFeuilleMenuSeance(); }
     });
     // 62 — la barre vient d'être (re)dessinée : sa hauteur est définitive, et la
     // durée repart de l'heure juste.
@@ -10099,6 +10109,8 @@
         surMachinePrise: machinePrise(cibleExo),
         surJaiMal: jaiMal(cibleExo),
         surRemplacer: function () { demanderRemplacement(cibleExo); },
+        note: seance.exercices[cibleExo].note || '',
+        surNote: function () { fermerVoile(); ouvrirFeuille('note', cibleExo, null); },
         surDegrouper: function () {
           var indices = indicesDe(bloc);
           fermerVoile();
@@ -10120,6 +10132,8 @@
       surMachinePrise: bloc.superset ? null : machinePrise(indicesDe(bloc)[0]),
       surJaiMal: bloc.superset ? null : jaiMal(indicesDe(bloc)[0]),
       surRemplacer: function () { demanderRemplacement(indicesDe(bloc)[0]); },
+      note: bloc.superset ? '' : (seance.exercices[indicesDe(bloc)[0]].note || ''),
+      surNote: bloc.superset ? null : function () { var iN = indicesDe(bloc)[0]; fermerVoile(); ouvrirFeuille('note', iN, null); },
       surGrouper: function () {
         // §5.7 — on passe en SÉLECTION : les autres blocs s'allument et
         // deviennent tapables. Un tap de plus, aucune ambiguïté, et ça marche
@@ -10312,6 +10326,20 @@
   // Les menus de déviation visent un BLOC, et parfois une de ses branches. Ils
   // ne parlent donc pas le même langage d'indices que les feuilles de série —
   // d'où une porte à part, plutôt qu'un troisième sens donné à `iExo`.
+  // 204 — le « ⋯ » de la séance : « Modifier » (le mode réorganiser) et « S'entraîner ensemble » (le même geste qu'avant, `ouvrirInviter`).
+  function ouvrirFeuilleMenuSeance() {
+    feuille = { quoi: 'menu-seance' };
+    rendreFeuille();
+    ouvrirVoile($('feuille-seance'), function () {
+      feuille = null;
+      if (seance) rendreSeance();
+    });
+  }
+  // « S'entraîner ensemble » ne se propose que là où le bouton se montrait : connecté, hors correction, sans groupe ouvert.
+  function ensemblePossible() {
+    return !!seance && !enEdition() && !!userId() && !groupeDeLaSeance();
+  }
+
   function ouvrirFeuilleBloc(quoi, iBloc, cibleExo) {
     feuille = { quoi: quoi, iBloc: iBloc, cibleExo: cibleExo === undefined ? null : cibleExo };
     rendreFeuille();
@@ -10604,6 +10632,14 @@
     if (feuille.quoi === 'abandon') return rendreFeuilleAbandon(cible);
     if (feuille.quoi === 'mot') {
       return Rendu.rendreFeuilleMot(cible, { mot: Moteur.motDuLexique(feuille.cle), surFermer: fermerVoile });
+    }
+    if (feuille.quoi === 'menu-seance') {
+      return Rendu.rendreFeuilleMenuSeance(cible, {
+        titre: seance.titre || 'Séance',
+        // Le mode s'ouvre APRÈS la fermeture de la feuille : `fermerVoile` redessine la séance, l'ordre inverse la ferait revenir.
+        surModifier: function () { fermerVoile(); ouvrirReorganisation(); },
+        surEnsemble: ensemblePossible() ? function () { fermerVoile(); ouvrirInviter(); } : null
+      });
     }
     if (feuille.quoi === 'non-validees') return rendreFeuilleNonValidees(cible);
     if (feuille.quoi === 'duree') return rendreFeuilleDuree(cible, index);

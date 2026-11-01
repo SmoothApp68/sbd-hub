@@ -80,7 +80,8 @@ const classesBadges = (c, i) => Array.from(c.querySelectorAll('.bloc-seance')[i]
   .querySelectorAll('.no-serie')).map((n) => n.classList.contains('c'));
 const debuts = (c, i) => Array.from(c.querySelectorAll('.bloc-seance')[i]
   .querySelectorAll('.ligne-serie')).map((l) => l.classList.contains('debut-tour'));
-const compteur = (c) => (c.querySelector('.superset-t') || {}).textContent;
+// 204 : un exercice seul n'a plus de rangée de tête (son « ⋯ » est sur la ligne du nom) : « aucun tour » se lit comme une étiquette absente.
+const compteur = (c) => (c.querySelector('.superset-t') || { textContent: '' }).textContent;
 
 // ══ 1. LE BADGE DE CHAUFFE (§7 undecies.1) ═════════════════════════════════
 

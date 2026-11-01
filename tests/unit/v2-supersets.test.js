@@ -325,7 +325,7 @@ describe('un superset peut mélanger les mesures (§3 ter)', () => {
     expect(types).toEqual(['CHARGE × REPS', 'DURÉE']);
   });
 
-  test('chaque branche porte son propre « + Série », son repos et sa note', () => {
+  test('chaque branche porte son propre « + Série » et son repos ; la note posée s’affiche sous son nom (204)', () => {
     let s = seanceDe([['dc', 2, 1], ['ec', 2, 1]]);
     s = Seance.definirNoteExercice(s, 1, 'Poulie haute');
     s = Seance.definirReposCible(s, 0, 120);
@@ -334,8 +334,9 @@ describe('un superset peut mélanger les mesures (§3 ter)', () => {
       .toEqual(['+ Série A', '+ Série B']);
     expect(Array.from(bloc.querySelectorAll('.repos-cible')).map((b) => b.textContent))
       .toEqual(['repos 2:00', 'repos —']);
+    // 204 : plus de « + Note » : la note se pose depuis le « ⋯ » de l'exercice, et une note posée s'affiche sous son nom.
     expect(Array.from(bloc.querySelectorAll('.note-exo')).map((b) => b.textContent))
-      .toEqual(['+ Note', 'Poulie haute']);
+      .toEqual(['Poulie haute']);
   });
 });
 

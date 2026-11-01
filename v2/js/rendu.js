@@ -2108,6 +2108,17 @@
       return;
     }
 
+    // 204 (maquette « Séance en salle ») — LA SÉANCE EN COURS PREND TOUT L'ÉCRAN : « ⌄ » en tête réduit la séance (les onglets
+    // reviennent), puis le titre, le « ⋯ » de la séance (Modifier, S'entraîner ensemble) et « Terminer », bouton principal de 48 px.
+    // En correction d'une séance passée (`edition`), il n'y a rien à réduire : les onglets restent.
+    if (typeof vue.surReduire === 'function' && !vue.edition) {
+      var red = el('button', 'bandeau-pt bandeau-reduire', '\u2304');
+      red.type = 'button';
+      red.setAttribute('aria-label', 'Réduire la séance');
+      red.title = 'Réduire la séance';
+      red.addEventListener('click', vue.surReduire);
+      cible.appendChild(red);
+    }
     var t = el('div', 'bandeau-t');
     t.appendChild(el('div', 'bandeau-nom', vue.titre));
     // ⚠️ ECRAN-SAISIE §7 octies bis (62) — LA DURÉE AVANCE SEULE, SANS REDESSINER.
@@ -2139,15 +2150,30 @@
 
     // §5.3 — Modifier replie la séance sur une ligne par bloc. Il ne remplace
     // pas les menus (§5 bis) : il sert au réordonnancement multiple et à la vue
-    // d'ensemble qui manque pendant qu'on s'entraîne.
-    var m = el('button', 'discret bandeau-modifier' + (vue.modifier ? ' sel' : ''),
-      vue.modifier ? 'Terminé' : 'Modifier');
-    m.type = 'button';
-    m.setAttribute('aria-pressed', vue.modifier ? 'true' : 'false');
-    m.addEventListener('click', vue.surModifier);
-    cible.appendChild(m);
+    // d'ensemble qui manque pendant qu'on s'entraîne. 204 — il vit dans le « ⋯ » de la séance ; une fois le mode
+    // ouvert, « Terminé » reprend la place du « ⋯ » (la sortie du mode doit se voir, pas se chercher).
+    if (vue.modifier) {
+      var m = el('button', 'discret bandeau-modifier sel', 'Terminé');
+      m.type = 'button';
+      m.setAttribute('aria-pressed', 'true');
+      m.addEventListener('click', vue.surModifier);
+      cible.appendChild(m);
+    } else if (typeof vue.surMenu === 'function') {
+      var pts = el('button', 'bandeau-pt bandeau-menu', '\u22ef');
+      pts.type = 'button';
+      pts.setAttribute('aria-label', 'Actions de la séance');
+      pts.title = 'Actions de la séance';
+      pts.addEventListener('click', vue.surMenu);
+      cible.appendChild(pts);
+    } else {
+      var m2 = el('button', 'discret bandeau-modifier', 'Modifier');
+      m2.type = 'button';
+      m2.setAttribute('aria-pressed', 'false');
+      m2.addEventListener('click', vue.surModifier);
+      cible.appendChild(m2);
+    }
 
-    var b = el('button', 'discret bandeau-fin', vue.edition ? 'Enregistrer' : 'Terminer');
+    var b = el('button', 'bandeau-fin ' + (vue.edition ? 'discret' : 'principal'), vue.edition ? 'Enregistrer' : 'Terminer');
     b.type = 'button';
     b.addEventListener('click', vue.surTerminer);
     cible.appendChild(b);
@@ -2828,10 +2854,7 @@
     // à mesures mélangées, une seule ligne d'en-têtes mentirait sur la moitié
     // des rangées. On la tait plutôt que de nommer KG au-dessus d'une durée ; le
     // type de mesure reste écrit sous chaque nom, dans la légende.
-    var memeGabarit = gabarits.every(function (g) {
-      return g.mesure === gabarits[0].mesure && (g.nature || null) === (gabarits[0].nature || null) &&
-        colonnesDe(g).join() === colonnesDe(gabarits[0]).join();
-    });
+    var memeGabarit = gabaritsHomogenes(gabarits);
     // §7 quindecies.3 (52-1) — dans l'éditeur, la colonne de charge dit ce
     // qu'elle est : « DÉPART » sur un exercice jamais fait, absente sinon. Des
     // exercices qui ne s'accordent pas là-dessus taisent l'en-tête, comme des
@@ -2841,8 +2864,11 @@
     var cleCharge = function (cp) { return cp ? (cp.depart ? 'depart' : 'coach') : ''; };
     var memeCharge = !charges || charges.every(function (cp) { return cleCharge(cp) === cleCharge(charges[0]); });
     if (memeGabarit && memeCharge) {
+      // 204 — le repos d'un exercice seul, « ⏱ 3:00 », en tête de la colonne ✓ (réglable au toucher). Un superset garde un repos par branche.
+      var xSeul = !vue.programme && !bloc.superset && typeof vue.surRepos === 'function' ? bloc.exercices[0] : null;
       noeud.appendChild(enTetesColonnes(gabarits[0], vue.programme, charges && charges.length ? charges[0] : null,
-        bloc.series.some(function (q) { return q.faite; })));
+        bloc.series.some(function (q) { return q.faite; }),
+        xSeul ? { secondes: xSeul.repos_cible_s, nom: xSeul.nom, sur: function () { vue.surRepos(xSeul._iExo); } } : null));
     }
 
     // §2.6 — l'éclairage porte sur le TOUR entier, pas sur une ligne isolée.
@@ -2954,6 +2980,15 @@
     return b;
   }
 
+  // Les exercices d'un bloc partagent-ils le même gabarit (mesure, nature de la charge, colonnes) ? Alors UNE en-tête de colonnes dit vrai
+  // pour toutes les rangées ; sinon elle se tait (204 : et le libellé de mesure revient sous chaque nom).
+  function gabaritsHomogenes(gabarits) {
+    return gabarits.every(function (g) {
+      return g.mesure === gabarits[0].mesure && (g.nature || null) === (gabarits[0].nature || null) &&
+        colonnesDe(g).join() === colonnesDe(gabarits[0]).join();
+    });
+  }
+
   function teteDeBloc(bloc, iBloc, gabarits, vue) {
     var tete = el('div', 'tete-seance');
 
@@ -2994,12 +3029,15 @@
     // le bloc. C'est le pendant exact de la règle d'en dessous, qui ne donne
     // un menu d'exercice QUE dans un bloc à plusieurs : les deux se complètent
     // sans jamais se recouvrir.
-    if (!enCoursDeSelection(vue) &&
+    // 204 — EN SÉANCE, le « ⋯ » d'un exercice seul est sur la ligne du nom (cible de 44 px), pas dans une rangée à lui ; un superset
+    // garde l'étiquette « Superset · tour n/N » et le « ⋯ » du bloc en tête, et un « ⋯ » par exercice sur sa ligne.
+    var menuSurLaLigne = !vue.programme && !bloc.superset;
+    if (!enCoursDeSelection(vue) && !menuSurLaLigne &&
         !(vue.programme && bloc.exercices.length > 1)) {
       haut.appendChild(menuTroisPoints('Actions du bloc',
         function () { vue.surMenuBloc(iBloc); }));
     }
-    tete.appendChild(haut);
+    if (!menuSurLaLigne) tete.appendChild(haut);
 
     bloc.exercices.forEach(function (x, i) {
       var g = gabarits[i];
@@ -3063,13 +3101,30 @@
       if (bloc.superset && !enCoursDeSelection(vue)) {
         ligne.appendChild(menuTroisPoints('Actions sur ' + x.nom,
           function () { vue.surMenuExercice(iBloc, x._iExo); }));
+      } else if (menuSurLaLigne && !enCoursDeSelection(vue)) {
+        // 204 — l'exercice seul : le menu du bloc, au bout de la ligne du nom.
+        ligne.appendChild(menuTroisPoints('Actions du bloc',
+          function () { vue.surMenuBloc(iBloc); }));
       }
       entree.appendChild(ligne);
+
+      // 204 — UNE NOTE POSÉE S'AFFICHE SOUS LE NOM (elle se pose depuis le « ⋯ » de l'exercice) ; un toucher la rouvre.
+      if (!vue.programme && x.note) {
+        var notePosee = el('button', 'note-exo pleine note-sous-nom', x.note);
+        notePosee.type = 'button';
+        notePosee.setAttribute('aria-label', 'Modifier la note de ' + x.nom);
+        if (typeof vue.surNote === 'function') notePosee.addEventListener('click', function () { vue.surNote(x._iExo); });
+        entree.appendChild(notePosee);
+      }
 
       // Le type de mesure est rappelé sous le nom : sans lui, une ligne à deux
       // colonnes au milieu de lignes à trois désoriente. Tu par prudence quand
       // la mesure est inconnue — on ne nomme pas ce qu'on ne sait pas.
-      if (g.libelle) entree.appendChild(el('div', 'type-mesure', g.libelle));
+      // 204 — sauf « CHARGE × REPS » en séance : le grand chiffre « 100 kg × 7 » et l'en-tête KG · REPS se lisent seuls. Quand
+      // l'en-tête se tait (mesures mélangées dans un superset), le libellé reste : il est alors la seule orientation.
+      if (g.libelle && (vue.programme || g.mesure !== 'charge_reps' || !gabaritsHomogenes(gabarits))) {
+        entree.appendChild(el('div', 'type-mesure', g.libelle));
+      }
 
       // §3.1 — LA VOIX DU MOTEUR, entre la ligne de mesure et les réglages : les
       // lignes jaunes de `libellesConsigne`, puis sa phrase grise. Le jaune est
@@ -3141,7 +3196,13 @@
           }
           entree.appendChild(tapable(ligneJ));
         });
-        if (lib.gris) entree.appendChild(tapable(el('div', 'consigne-dit', lib.gris)));
+        if (lib.gris) {
+          var ligneGris = tapable(el('div', 'consigne-dit', lib.gris));
+          // 204 — « Pourquoi ? » en lien discret au bout de la phrase datée : un attribut rendu par CSS (`::after`), comme « garde-en N ».
+          // Le texte du coach reste mot pour mot ; la ligne entière est déjà la porte vers la feuille « Pourquoi ».
+          if (ligneGris.getAttribute('role') === 'button') ligneGris.setAttribute('data-pourquoi', 'Pourquoi\u00a0?');
+          entree.appendChild(ligneGris);
+        }
         // 187 (MOTEUR §9.21 bis) — « Ta charge habituelle ? » : une réponse facultative, ou « Je ne sais pas ».
         var hab = !vue.programme && typeof vue.habituelle === 'function' ? vue.habituelle(x._iExo) : null;
         if (hab) entree.appendChild(blocHabituelle(hab));
@@ -3165,7 +3226,10 @@
       }
       // 99 (MOTEUR §9.24) — un exercice ajouté pour cette semaine seulement : « ajouté : séance manquée de mardi ».
       if (x.ajout) entree.appendChild(el('div', 'consigne-dit ajout-semaine', 'ajouté : ' + x.ajout));
-      entree.appendChild(reglagesExo(x, vue));
+      // 204 — EN SÉANCE, un exercice seul n'a plus de rangée de réglages : le repos est en tête de la colonne ✓ (`enTetesColonnes`),
+      // la note dans le « ⋯ ». Dans un superset, le repos reste PAR BRANCHE (une seule en-tête ne peut pas porter deux repos).
+      if (vue.programme) entree.appendChild(reglagesExo(x, vue));
+      else if (bloc.superset) entree.appendChild(reglagesExo(x, vue, true));
 
       tete.appendChild(entree);
     });
@@ -3260,7 +3324,7 @@
   // Dans un superset, ils sont PAR BRANCHE : chaque exercice a son repos et sa
   // note. Les mettre en tête de bloc aurait mélangé deux exercices sous un seul
   // réglage.
-  function reglagesExo(x, vue) {
+  function reglagesExo(x, vue, sansNote) {
     var reglages = el('div', 'reglages-exo');
 
     // Le repos s'affiche MÊME ABSENT, en tiret cadratin : sans ça, il n'y aurait
@@ -3284,6 +3348,8 @@
       reglages.appendChild(bZone);
     }
 
+    // 204 — en séance, la note vit dans le « ⋯ » de l'exercice (et sous son nom une fois posée).
+    if (sansNote) return reglages;
     var bNote = el('button', 'note-exo' + (x.note ? ' pleine' : ''),
       x.note || '+ Note');
     bNote.type = 'button';
@@ -3300,7 +3366,7 @@
   // la seconde ce qui vient d'être fait — deux observations, et une routine
   // n'observe rien. `EFFORT` tombe avec elles pour la même raison, et parce
   // que `routine_sets` n'a pas de colonne où le mettre.
-  function enTetesColonnes(g, programme, chargeProgramme, effortVu) {
+  function enTetesColonnes(g, programme, chargeProgramme, effortVu, repos) {
     var noms = colonnesDe(g);
     var champs = noms.map(function (n) { return M().champDeMesure(n); });
     var cp = programme ? chargeProgramme : null;
@@ -3319,7 +3385,16 @@
     });
     // 200-9 — « EFFORT » n'apparaît qu'une fois une série validée de l'exercice (la place reste tenue : rien ne saute à la validation).
     if (g.effort && !programme) entetes.appendChild(el('span', 'centre', effortVu ? 'EFFORT' : ''));
-    entetes.appendChild(el('span', 'centre', ''));
+    if (repos) {
+      // Le repos s'affiche MÊME ABSENT (« ⏱ — ») : sans ça, rien à toucher pour en poser un.
+      var bRepos = el('button', 'repos-cible repos-entete num', '\u23f1\u00a0' + (repos.secondes ? mmss(repos.secondes) : '\u2014'));
+      bRepos.type = 'button';
+      bRepos.setAttribute('aria-label', 'Repos cible de ' + repos.nom);
+      bRepos.addEventListener('click', repos.sur);
+      entetes.appendChild(bRepos);
+    } else {
+      entetes.appendChild(el('span', 'centre', ''));
+    }
     return entetes;
   }
 
@@ -4765,6 +4840,8 @@
       // §9.20 — « J'ai mal », juste après : les deux gestes « adapter ».
       if (vue.surJaiMal) entreeMenu(menu, 'J’ai mal', { surClic: vue.surJaiMal });
       entreeMenu(menu, 'Remplacer l’exercice', { surClic: vue.surRemplacer });
+      // 204 — la note de l'exercice vit ici, plus sur une rangée de la séance : une note posée s'affiche sous le nom.
+      if (vue.surNote) entreeMenu(menu, vue.note ? 'Modifier la note' : 'Ajouter une note', { classe: 'menu-note', surClic: vue.surNote });
     }
     entreeMenu(menu, 'Grouper en superset…', {
       surClic: vue.surGrouper, desactive: !vue.peutGrouper });
@@ -4791,6 +4868,20 @@
     return cible;
   }
 
+  // 204 — LE « ⋯ » DE LA SÉANCE : ce qui ne sert pas pendant une série. « Modifier » (réorganiser) et, tant qu'aucun groupe n'est
+  // ouvert, « S'entraîner ensemble ». `vue` : `{ titre, surModifier, surEnsemble | null }`.
+  function rendreFeuilleMenuSeance(cible, vue) {
+    vider(cible);
+    var t = el('div', 'feuille-t', 'Séance');
+    t.appendChild(el('em', '', vue.titre));
+    cible.appendChild(t);
+    var menu = el('div', 'feuille-menu');
+    entreeMenu(menu, 'Modifier', { classe: 'menu-modifier', surClic: vue.surModifier });
+    if (vue.surEnsemble) entreeMenu(menu, 'S’entraîner ensemble', { classe: 'menu-ensemble', surClic: vue.surEnsemble });
+    cible.appendChild(menu);
+    return cible;
+  }
+
   function rendreFeuilleExercice(cible, vue) {
     vider(cible);
     var t = el('div', 'feuille-t', 'Exercice');
@@ -4801,6 +4892,7 @@
     if (vue.surMachinePrise) entreeMenu(menu, 'Machine prise', { surClic: vue.surMachinePrise });
     if (vue.surJaiMal) entreeMenu(menu, 'J’ai mal', { surClic: vue.surJaiMal });
     entreeMenu(menu, 'Remplacer l’exercice', { surClic: vue.surRemplacer });
+    if (vue.surNote) entreeMenu(menu, vue.note ? 'Modifier la note' : 'Ajouter une note', { classe: 'menu-note', surClic: vue.surNote });
     // §5.8 — sortir agit sur UN exercice, jamais sur le bloc entier, et il se
     // pose JUSTE APRÈS son bloc d'origine : il ne remonte pas en fin de séance.
     entreeMenu(menu, 'Sortir du superset', { surClic: vue.surDegrouper });
@@ -8823,10 +8915,9 @@
     if (!vue) return;
     if (vue.message) cible.appendChild(el('p', 's-gris s-note s-erreur g-message', vue.message));
     (vue.invitations || []).forEach(function (i) { cible.appendChild(carteInvitationGroupe(i)); });
-    if (!vue.groupe) {
-      if (vue.surLancer) cible.appendChild(boutonSocial('S’entraîner ensemble', 's-b2 g-lancer', vue.surLancer, 'groupe-lancer'));
-      return;
-    }
+    // 204 — « S'entraîner ensemble » n'est plus un bouton de la séance : il vit dans le « ⋯ » de la séance (`rendreFeuilleMenuSeance`).
+    // Sans groupe ni invitation ni message, il n'y a rien à montrer ici.
+    if (!vue.groupe) { if (!vue.message && !(vue.invitations || []).length) cible.hidden = true; return; }
     var g = vue.groupe;
     var c = el('div', 's-carte g-direct' + (g.ouvert ? ' g-ouvert' : ''));
     c.id = 'groupe-direct';
@@ -9171,6 +9262,7 @@
     rendreFeuilleAssistant: rendreFeuilleAssistant,
     rendreFeuilleZone: rendreFeuilleZone,
     rendreFeuilleBloc: rendreFeuilleBloc,
+    rendreFeuilleMenuSeance: rendreFeuilleMenuSeance,
     rendreFeuilleExercice: rendreFeuilleExercice,
     rendreFeuilleMachinePrise: rendreFeuilleMachinePrise,
     rendreFeuilleDouleur: rendreFeuilleDouleur,

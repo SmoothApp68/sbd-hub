@@ -9558,6 +9558,9 @@
         return { texte: (n !== null ? n : '') + (n !== null ? '+ \u00b7 ' : '') + 'garde\u00a0' + l.auMax.reserve,
                  aria: (n !== null ? n + ' ou plus, ' : '') + 'garde ' + l.auMax.reserve + ' en r\u00e9serve' };
       },
+      // 205 — la grande charge d'un exercice à la barre ouvre la feuille « Disques ».
+      disquesPossibles: disquesPossibles,
+      surDisques: function (iExo, charge) { ouvrirDisques(iExo, charge); },
       // 175 — « un cran de moins » : le badge du recul (174), à côté du chiffre du jour.
       cranDeMoins: function (iExo) {
         var x = planDeLExercice(iExo);
@@ -10097,6 +10100,7 @@
         surRemplacer: function () { demanderRemplacement(cibleExo); },
         note: seance.exercices[cibleExo].note || '',
         surNote: function () { fermerVoile(); ouvrirFeuille('note', cibleExo, null); },
+        surDisques: disquesPossibles(cibleExo) ? function () { fermerVoile(); ouvrirDisques(cibleExo, null); } : null,
         surDegrouper: function () {
           var indices = indicesDe(bloc);
           fermerVoile();
@@ -10120,6 +10124,7 @@
       surRemplacer: function () { demanderRemplacement(indicesDe(bloc)[0]); },
       note: bloc.superset ? '' : (seance.exercices[indicesDe(bloc)[0]].note || ''),
       surNote: bloc.superset ? null : function () { var iN = indicesDe(bloc)[0]; fermerVoile(); ouvrirFeuille('note', iN, null); },
+      surDisques: !bloc.superset && disquesPossibles(indicesDe(bloc)[0]) ? function () { var iD = indicesDe(bloc)[0]; fermerVoile(); ouvrirDisques(iD, null); } : null,
       surGrouper: function () {
         // §5.7 — on passe en SÉLECTION : les autres blocs s'allument et
         // deviennent tapables. Un tap de plus, aucune ambiguïté, et ça marche
@@ -10319,6 +10324,67 @@
     ouvrirVoile($('feuille-seance'), function () {
       feuille = null;
       if (seance) rendreSeance();
+    });
+  }
+  // 205 (MOTEUR §10.2, maquette-disques-v1) — LA FEUILLE « DISQUES » : une charge d'un exercice À LA BARRE décomposée en disques par côté.
+  // Le calcul est `Moteur.decomposerCharge` (pur), les disques présents et la barre viennent du profil (`Profil.disquesPresentsDuProfil`,
+  // `Profil.barreDe`) ; rien ne s'écrit sauf le poids de la barre choisi (`ma_salle.barre_kg`, par `ecrireProfil`).
+  function disquesPossibles(iExo) {
+    var x = seance && seance.exercices[iExo];
+    var def = x ? catalogueIndexe()[x.exercise_slug] : null;
+    return !!def && Moteur.equipementEffectif(def) === 'barre';
+  }
+  function chargesDuJourDe(iExo) {
+    var x = seance.exercices[iExo], pl = planDeLExercice(iExo), sortie = [], vus = {};
+    (x.series || []).forEach(function (s, j) {
+      var l = pl && pl.lignes ? pl.lignes[j] : null;
+      var c = Modele.lireNombre(s.charge_kg);
+      if (c === null && l && l.prerempli) c = Modele.lireNombre(l.prerempli.charge_kg);
+      if (c === null || !(c > 0)) return;
+      var type = Modele.typeLu(s);
+      var lib = type === 'chauffe' ? 'chauffe' : type === 'recul' ? 'recul' : '';
+      var cle = c + '|' + lib;
+      if (vus[cle]) return;
+      vus[cle] = true;
+      sortie.push({ charge: c, libelle: lib });
+    });
+    return sortie;
+  }
+  function ouvrirDisques(iExo, charge) {
+    var cs = chargesDuJourDe(iExo);
+    var c = charge;
+    if (c === null || c === undefined) {
+      var travail = cs.filter(function (k) { return k.libelle === ''; })[0] || cs[0];
+      c = travail ? travail.charge : null;
+    }
+    if (c === null) return;
+    feuille = { quoi: 'disques', iExo: iExo, charge: c, choixBarre: false };
+    rendreFeuille();
+    ouvrirVoile($('feuille-seance'), function () {
+      feuille = null;
+      if (seance) rendreSeance();
+    });
+  }
+  function rendreFeuilleDisques(cible, index) {
+    var iExo = feuille.iExo;
+    if (!seance || !seance.exercices[iExo]) return fermerVoile();
+    var barre = Profil.barreDe(profil), presents = Profil.disquesPresentsDuProfil(profil);
+    var dec = function (kg) { return Moteur.decomposerCharge(kg, barre, presents); };
+    var charges = chargesDuJourDe(iExo).map(function (k) { return { charge: k.charge, libelle: k.libelle, decomposition: dec(k.charge) }; });
+    return Rendu.rendreFeuilleDisques(cible, {
+      nom: Modele.nommer(index, seance.exercices[iExo].exercise_slug),
+      charge: feuille.charge, barre: barre, decomposition: dec(feuille.charge), charges: charges,
+      phraseIntrouvable: 'Je ne trouve pas ' + Modele.nombreSigne(feuille.charge) + ' kg avec tes disques et une barre de ' +
+        Modele.nombreSigne(barre) + ' kg.',
+      choixBarre: feuille.choixBarre, barresProposees: Moteur.BARRES_PROPOSEES,
+      surChoixBarre: function () { feuille.choixBarre = !feuille.choixBarre; rendreFeuille(); },
+      surBarre: function (kg) {
+        var champs = Profil.champsBarre(profil, kg);
+        feuille.choixBarre = false;
+        if (champs) poserProfil(champs);   // `profil` est à jour avant le 1er await : la feuille se redessine sur la nouvelle barre
+        rendreFeuille();
+      },
+      surCharge: function (kg) { feuille.charge = kg; rendreFeuille(); }
     });
   }
   // « S'entraîner ensemble » ne se propose que là où le bouton se montrait : connecté, hors correction, sans groupe ouvert.
@@ -10619,6 +10685,7 @@
     if (feuille.quoi === 'mot') {
       return Rendu.rendreFeuilleMot(cible, { mot: Moteur.motDuLexique(feuille.cle), surFermer: fermerVoile });
     }
+    if (feuille.quoi === 'disques') return rendreFeuilleDisques(cible, index);
     if (feuille.quoi === 'menu-seance') {
       return Rendu.rendreFeuilleMenuSeance(cible, {
         titre: seance.titre || 'Séance',

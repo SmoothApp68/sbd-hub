@@ -1601,7 +1601,7 @@ const SETS_IMPORTES = [
             (v.barre_traction === undefined || v.barre_traction === null || typeof v.barre_traction === 'boolean');
           if (typeof v !== 'object' || Array.isArray(v) || !barres(v.barres_ez) || !barres(v.barres_droites) || !okH || !okE || !okC || !okQ ||
               Object.keys(v).some((k) => ['barres_ez', 'barres_droites', 'halteres', 'elastiques', 'elastiques_par_nom',
-                'mini_bandes', 'barre_ez_chargee', 'barre_droite_chargee', 'plus_petit_disque', 'barre_traction'].indexOf(k) < 0)) {
+                'mini_bandes', 'barre_ez_chargee', 'barre_droite_chargee', 'plus_petit_disque', 'barre_traction', 'disques_absents', 'barre_kg'].indexOf(k) < 0)) {
             return json(refus('23514', 'profiles_ma_salle_ok'), 400);
           }
         }

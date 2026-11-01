@@ -1987,6 +1987,9 @@ Sur les poulies et machines, les charges viennent d'une conversion livres → ki
 
 **Précisé le 16/10/2026 (108)** : quand la personne a déclaré sa salle (barres fixes, haltères), la salle décide du cran avant ces quatre rangs — §10 bis. **REMPLACÉ le 24/10/2026 (163) : voir §10.4 ; la déclaration des barres fixes et des haltères n'existe plus.**
 
+
+**205 — Mes disques (01/11/2026).** La ligne « Le plus petit disque » est remplacée par dix puces à griser (`ma_salle.disques_absents`, v2_127) et « Ta barre » (`ma_salle.barre_kg`, 25, 20, 15 ou 10 ; 20 par défaut). Le plus petit disque PRÉSENT donne le cran de la barre : UNE fonction, `plusPetitDisquePresent` (moteur.js), lue par `Profil.plusPetitDisqueDe` ; à défaut de `disques_absents`, l'ancien `plus_petit_disque` (tous les disques plus petits sont absents) ; rien de déclaré : 1, 0,5 et 0,25 supposés absents, cran de repli inchangé. La feuille « Disques » (grande charge d'un exercice à la barre, ou ⋯ › Disques) décompose `(charge − barre) ÷ 2` du plus lourd au plus léger (`decomposerCharge`, pur, avec retour en arrière) ; une charge introuvable le dit, jamais d'arrondi.
+
 ### 10.4 La charge suivante : toujours un chiffre — décidé le 24/10/2026 (prompt 163, décision d'Aurélien)
 
 **24/10/2026, décision d'Aurélien.** Le rang 4 (« le cran au-dessus », sans chiffre) est **aboli** pour tout exercice en kg : le pas automatique est **toujours un nombre**. Ordre : l'historique de l'exercice d'abord (rangs 1 à 2 ci-dessus), puis **le pas du matériel** (rang 3, `REPLI_MATERIEL`) :

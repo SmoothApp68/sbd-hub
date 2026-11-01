@@ -115,7 +115,7 @@ describe('190 — la saisie : une seule fonction de geste', () => {
     expect(Profil.poserReglageMateriel({}, 'cle_inconnue', 'oui')).toEqual({});
   });
   test('deux lignes, dans l’ordre', () => {
-    expect(Profil.lignesMateriel({}).map((l) => l.cle)).toEqual(['plus_petit_disque', 'barre_traction']);
+    expect(Profil.lignesMateriel({}).map((l) => l.cle)).toEqual(['disques', 'barre_kg', 'barre_traction']);
   });
   test('les lecteurs : absent ou nul = inconnu', () => {
     expect(Profil.plusPetitDisqueDe({ ma_salle: { plus_petit_disque: 1.25 } })).toBe(1.25);
@@ -185,5 +185,69 @@ describe('190 — le générateur et barre_traction', () => {
     const suspendus = Object.keys(cat).filter((s) => /suspendu|traction/.test(s) && cat[s].equipement !== 'machine');
     expect(suspendus.length).toBeGreaterThan(0);
     suspendus.forEach((s) => expect(BARRE(s)).toBe(true));
+  });
+});
+
+describe('205 — Mes disques : le plus petit disque PRÉSENT donne le cran, la feuille « Disques » décompose', () => {
+  const tous = M.DISQUES_STANDARD;
+  const sans = (...ks) => tous.filter((k) => ks.indexOf(k) < 0);
+
+  test('la décomposition : 130/20 → 25+25+5 ; sans 25 → 20+20+15 ; 101,3 → introuvable ; barre vide ; sous la barre', () => {
+    const presents = M.disquesPresentsDe({});
+    expect(M.decomposerCharge(130, 20, presents)).toEqual({ ok: true, parCote: [25, 25, 5] });
+    expect(M.decomposerCharge(130, 20, sans(25, 1, 0.5, 0.25))).toEqual({ ok: true, parCote: [20, 20, 15] });
+    expect(M.decomposerCharge(101.3, 20, presents)).toEqual({ ok: false });
+    expect(M.decomposerCharge(20, 20, presents)).toEqual({ ok: true, parCote: [] });
+    expect(M.decomposerCharge(15, 20, presents)).toEqual({ ok: false });
+    expect(M.decomposerCharge(115, 20, presents)).toEqual({ ok: true, parCote: [25, 20, 2.5] });
+    // Un jeu de disques où le plus lourd d'abord échoue : le retour en arrière trouve 15 + 15.
+    expect(M.decomposerCharge(80, 20, [20, 15])).toEqual({ ok: true, parCote: [15, 15] });
+  });
+
+  test('le défaut : 1, 0,5 et 0,25 absents ; le plus petit disque présent est « inconnu » (null) tant que rien n’est déclaré', () => {
+    expect(M.disquesAbsentsDe({})).toEqual([1, 0.5, 0.25]);
+    expect(M.plusPetitDisquePresent({})).toBeNull();
+    expect(Profil.plusPetitDisqueDe({})).toBeNull();
+    expect(M.barreDeLaSalle({})).toBe(20);
+    expect(M.barreDeLaSalle({ barre_kg: 15 })).toBe(15);
+  });
+
+  test('UNE fonction : disques_absents d’abord, sinon l’ancien plus_petit_disque ; le cran suit le disque présent', () => {
+    const salle = (ma_salle) => ({ ma_salle });
+    expect(Profil.plusPetitDisqueDe(salle({ plus_petit_disque: 0.5 }))).toBe(0.5);
+    expect(Profil.plusPetitDisqueDe(salle({ disques_absents: [2.5, 1.25, 1, 0.5, 0.25] }))).toBe(5);
+    expect(Profil.plusPetitDisqueDe(salle({ disques_absents: [1, 0.5, 0.25] }))).toBe(1.25);
+    expect(Profil.plusPetitDisqueDe(salle({ disques_absents: [], plus_petit_disque: 2.5 }))).toBe(0.25);
+    expect(M.pasDeLaBarre(Profil.plusPetitDisqueDe(salle({ disques_absents: [1.25, 1, 0.5, 0.25] })))).toBe(5);
+  });
+
+  test('la validation : un disque étranger, un doublon, une barre de 22 kg sont refusés ; la clé s’écrit triée', () => {
+    expect(Profil.salleValide({ disques_absents: [3] })).toBeUndefined();
+    expect(Profil.salleValide({ disques_absents: [1, 1] })).toBeUndefined();
+    expect(Profil.salleValide({ barre_kg: 22 })).toBeUndefined();
+    expect(Profil.salleValide({ disques_absents: [0.25, 25], barre_kg: 15 })).toMatchObject({ disques_absents: [25, 0.25], barre_kg: 15 });
+  });
+
+  test('la puce : un toucher grise, un autre rend ; la ligne « le plus petit disque » a disparu', () => {
+    const l = Profil.lignesMateriel({}).find((x) => x.cle === 'disques');
+    expect(l.multiple).toBe(true);
+    expect(l.valeurs).toEqual(sans(1, 0.5, 0.25));
+    let b = Profil.poserReglageMateriel({}, 'disques', 25);
+    expect(b.disques_absents).toEqual([25, 1, 0.5, 0.25]);
+    b = Profil.poserReglageMateriel(b, 'disques', 25);
+    expect(b.disques_absents).toEqual([1, 0.5, 0.25]);
+    // À partir de l'ancien disque : 0,5 → on rend le 0,25, jamais l'ancienne valeur ne contredit les puces.
+    b = Profil.poserReglageMateriel({ plus_petit_disque: 0.5 }, 'disques', 0.25);
+    expect(b.disques_absents).toEqual([]);
+    expect(b.plus_petit_disque).toBeNull();
+    expect(Profil.lignesMateriel({}).some((x) => x.cle === 'plus_petit_disque')).toBe(false);
+  });
+
+  test('la barre : champsBarre écrit barre_kg et garde le reste de la salle ; 22 refusé', () => {
+    const p = { ma_salle: { elastiques: [{ nom: 'Noir' }], disques_absents: [25] } };
+    const c = Profil.champsBarre(p, 15);
+    expect(c.ma_salle).toMatchObject({ barre_kg: 15, disques_absents: [25] });
+    expect(c.ma_salle.elastiques.length).toBe(1);
+    expect(Profil.champsBarre(p, 22)).toBeNull();
   });
 });

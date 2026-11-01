@@ -474,7 +474,7 @@ describe('60-2a — les réponses de départ sont ce qui est DÉJÀ en base', ()
     expect(rep).toEqual({
       historique: 'import', anciennete: '3_a_5_ans', depuis: '3_a_5_ans', notees: 'import', seances: 5, duree: 90, sexe: 'homme', annee: 1997,
       taille: 182, poids: 98, objectif: 'force', phase: 'seche', priorites: ['squat_barre'], temps: 'max',
-      materiel: 'salle_complete', halteresMax: null, halteresPas: null, plusPetitDisque: null, barreTraction: null,
+      materiel: 'salle_complete', halteresMax: null, halteresPas: null, plusPetitDisque: null, disquesAbsents: null, barreKg: null, barreTraction: null,
       dep_tractions: null, dep_pompes: null, dep_dips: null, dep_pistol: null,
       menager: [], raides: null, coach: 'franc' });
   });
@@ -580,9 +580,9 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     const ouvert = blocs(vue('salle', { rep: Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'salleOuverte', true) }), 'replie')[0];
     expect(ouvert.ouvert).toBe(true);
     // 190 — + le plus petit disque et la barre de traction (les lignes de `Profil.lignesMateriel`), chacune avec sa phrase.
-    expect(ouvert.blocs.filter((b) => b.type === 'puces').map((b) => b.cle)).toEqual(['halteresMax', 'halteresPas', 'plus_petit_disque', 'barre_traction']);
+    expect(ouvert.blocs.filter((b) => b.type === 'puces').map((b) => b.cle)).toEqual(['halteresMax', 'halteresPas', 'disques', 'barre_kg', 'barre_traction']);
     expect(ouvert.blocs.filter((b) => b.type === 'note').map((b) => b.texte)).toEqual(['Je note la charge des haltères par haltère.',
-      Profil.lignesMateriel({})[0].aide, Profil.lignesMateriel({})[1].aide]);
+      Profil.lignesMateriel({})[0].aide, Profil.lignesMateriel({})[1].aide, Profil.lignesMateriel({})[2].aide]);
     // La phrase repliée dit ce qui est réglé.
     const rep = Object.assign(Q.reponsesInitiales({}, {}), { halteresMax: 40, halteresPas: 2 });
     expect(sp(blocs(vue('salle', { rep }), 'replie')[0].resume)).toBe('Haltères jusqu’à 40 kg, de 2 en 2.');
@@ -596,7 +596,7 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     expect([deux.halteresMax, deux.halteresPas]).toEqual([null, null]);
     const profil = { ma_salle: { barres_ez: [], barres_droites: [], halteres: [{ jusqua: 20, pas: 1 }, { jusqua: 40, pas: 2 }] } };
     const note = blocs(vue('salle', { profil, rep: Q.appliquerChoix(deux, 'salleOuverte', true) }), 'replie')[0].blocs;
-    expect(note.map((b) => b.type)).toEqual(['note', 'note', 'puces', 'note', 'puces', 'note']);   // + 190 : disque, barre
+    expect(note.map((b) => b.type)).toEqual(['note', 'note', 'puces', 'note', 'puces', 'note', 'puces', 'note']);   // + 190 : disque, barre ; 205 : disques, poids de la barre, barre de traction
   });
   test('187 (A4) — « Une zone à ménager ? » : cinq zones et « Aucune », posée à tout le monde', () => {
     const v = vue('zone');

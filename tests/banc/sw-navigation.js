@@ -31,7 +31,8 @@ const Garde = require(path.join(__dirname, 'garde-reseau.js'));
 const { creer } = require(path.join(__dirname, '../../v2-atelier/banc/serveur-pages.js'));
 
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-const RACINE = path.join(__dirname, '../../v2');
+// 203 — `BANC_RACINE` : rejouer le banc sur un autre dossier publié (la copie minifiée de tests/banc/ouverture.js).
+const RACINE = process.env.BANC_RACINE ? path.resolve(process.env.BANC_RACINE) : path.join(__dirname, '../../v2');
 // 168 : pas de port fixe — posé à la première écoute, puis gardé (le scénario 7 ré-écoute le même).
 let PORT = Number(process.env.BANC_PORT || 0);
 let BASE = '';

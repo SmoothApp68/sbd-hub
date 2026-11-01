@@ -21691,7 +21691,7 @@ const SETS_IMPORTES = [
       return { nom: t ? t.querySelector('.bloc-quand').textContent : null, ferme: t ? t.getAttribute('aria-expanded') : null };
     });
     await page.evaluate(() => document.querySelector('#sommaire .retro-tete').click());
-    await attendre(150);
+    await page.waitForFunction(() => { const b = document.querySelector('#sommaire .retro-liste .bloc-parcours'); return !!b && b.offsetParent !== null; }, null, { timeout: 5000 }).catch(() => {});
     const parcours75 = await page.evaluate(() => { const b = document.querySelector('#sommaire .retro-liste .bloc-parcours');
       return b ? { quoi: b.querySelector('.bloc-quoi').textContent, ligne: b.querySelector('.bloc-ligne').textContent, visible: b.offsetParent !== null } : null; });
     ok('[P75] DISCRIMINANT — 206 : « Rétrospectives » nomme « ton parcours » ; l\u2019ouvrir montre le bloc « Ton parcours », qui dit la phrase de la référence',

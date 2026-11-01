@@ -567,7 +567,7 @@ const NOTIONS = [
       'l’exercice remplacé ; figer la routine aux lignes déjà allégées allégeait deux fois.' },
   { notion: 'la dernière séance d’un exercice (la meilleure série du jour)', pr: 'PR 5',
     module: 'modele.js', fonction: 'meilleureSerieDe', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['sommaireExercices', 'derniereSeanceDe'] },
+    parAilleurs: { 'app.js': ['derniereSeanceDe'] },
     raison: 'décision du 02/10/2026 : la page d’exercice affichait le palier, Progression la ' +
       'meilleure série — deux nombres pour le même exercice et la même date, à un tap.' },
   { notion: 'le record de charge (la ligne la plus lourde de la table)', pr: 'PR 5',
@@ -624,7 +624,7 @@ const NOTIONS = [
     // second calcul (même forme que `estTravail`).
     motif: /\.\s*exercicesFaits\s*\(/g,
     par: ['resumerSeance'],
-    parAilleurs: { 'app.js': ['sommaireExercices'], 'faits.js': ['datesDesExercices', 'exercicesFaitsParSeance'] },
+    parAilleurs: { 'faits.js': ['datesDesExercices', 'exercicesFaitsParSeance'] },
     raison: 'décision du 02/10/2026 : Progression, le profil et la carte comptaient les exercices ' +
       'de trois façons (une ligne de chauffe suffisait au profil). 126 : la recherche d’exercice compte les séances ' +
       'où chaque exercice est fait par la même définition, séance par séance (`exercicesFaitsParSeance`).' },

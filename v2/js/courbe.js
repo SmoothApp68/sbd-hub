@@ -14,7 +14,8 @@
   'use strict';
 
   var JOUR_MS = 86400000;
-  var MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  // Les noms de mois sont ceux du formateur (`modele.js`) : lus à l'usage, jamais recopiés ici.
+  function mois(i) { return racine.THModele.MOIS_COURTS[i]; }
 
   // Les quatre périodes. `jours: null` : tout l'historique.
   var PERIODES = [
@@ -118,11 +119,11 @@
     var d = new Date(new Date(t0).getFullYear(), new Date(t0).getMonth(), 1);
     if (d.getTime() < t0) d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
     while (d.getTime() <= t1) {
-      reperes.push({ t: d.getTime(), libelle: MOIS[d.getMonth()] + (d.getMonth() === 0 ? ' ' + d.getFullYear() : '') });
+      reperes.push({ t: d.getTime(), libelle: mois(d.getMonth()) + (d.getMonth() === 0 ? ' ' + d.getFullYear() : '') });
       d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
     }
     var pasM = Math.max(1, Math.ceil(reperes.length / 4));
-    var mois = reperes.filter(function (r, i) { return i % pasM === 0; }).map(function (r) {
+    var reperesMois = reperes.filter(function (r, i) { return i % pasM === 0; }).map(function (r) {
       return { x: arrondi(x(r.t), 2), libelle: r.libelle };
     });
 
@@ -130,7 +131,7 @@
       largeur: L, hauteur: H, gauche: gauche, droite: droite, haut: haut, bas: bas,
       points: pts, trait: trait,
       graduations: graduations.map(function (v) { return { valeur: v, y: arrondi(y(v), 2) }; }),
-      mois: mois, min: min, max: max
+      mois: reperesMois, min: min, max: max
     };
   }
 

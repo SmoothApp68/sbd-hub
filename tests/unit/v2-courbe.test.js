@@ -5,6 +5,7 @@
 
 process.env.TZ = 'Europe/Paris';
 global.self = global;
+require('../../v2/js/modele.js');
 const C = require('../../v2/js/courbe.js');
 
 const J = (a, m, j) => new Date(a, m, j, 18, 0, 0);

@@ -8037,6 +8037,34 @@ const SETS_IMPORTES = [
       base.journal.filter((j) => j.op === 'refus').length === refusAvant117,
       JSON.stringify({ file: fileAuRetour, etat: etatAuRetour,
         refus: base.journal.filter((j) => j.op === 'refus').slice(refusAvant117) }));
+    // ── 219 — L'ÉTAT D'ENVOI SOUS LA DURÉE, EN SÉANCE ─────────────────────────────────────────────
+    // Réseau coupé, une série validée : le texte de `#etat-sync` (même fonction) apparaît dans la barre de séance ;
+    // réseau rendu, la file part et il disparaît. Gris secondaire (jamais la couleur d'alerte), police >= 12 px.
+    await aller('/saisie');
+    base.reseau = false;
+    await demarrerRoutine('Terre');
+    const envoiAvant219 = await texte('#bandeau-seance .bandeau-envoi');
+    await saisirSerie(0, planOuvert[0][0], planOuvert[0][1]);
+    await jusqua(async () => /à envoyer|échec/.test(await texte('#bandeau-seance .bandeau-envoi')), 6000);
+    const envoiHors219 = await texte('#bandeau-seance .bandeau-envoi');
+    const etatListe219 = await page.evaluate(() => (document.getElementById('etat-sync') || {}).textContent || '');
+    const style219 = await page.evaluate(() => {
+      const n = document.querySelector('#bandeau-seance .bandeau-envoi'); const cs = getComputedStyle(n);
+      const ref = getComputedStyle(document.querySelector('#bandeau-seance .bandeau-ch'));
+      return { taille: parseFloat(cs.fontSize), couleur: cs.color, ref: ref.color, visible: n.offsetHeight > 0 };
+    });
+    base.reseau = true;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await jusqua(async () => (await texte('#bandeau-seance .bandeau-envoi')) === '', 10000);
+    const envoiRetour219 = await texte('#bandeau-seance .bandeau-envoi');
+    ok('[219] DISCRIMINANT — séance en cours, réseau coupé, une série validée : « N à envoyer » sous la durée, le texte de #etat-sync',
+      envoiAvant219 === '' && /^\d+ à envoyer$/.test(envoiHors219) && envoiHors219 === etatListe219.trim() && style219.visible,
+      JSON.stringify({ avant: envoiAvant219, hors: envoiHors219, liste: etatListe219 }));
+    ok('[219] gris secondaire (pas d’alerte) et au moins 12 px', style219.taille >= 12 && style219.couleur !== 'rgb(255, 0, 0)',
+      JSON.stringify(style219));
+    ok('[219] réseau rendu : le texte disparaît', envoiRetour219 === '', JSON.stringify({ retour: envoiRetour219 }));
+    await abandonner();
+
     // ── DEUX INSTANCES QUI NOTENT EN MÊME TEMPS (48c-2) ──────────────────
     //
     // ⚠️ LE DÉFAUT DU 21/09, dans sa configuration discriminante. Le squat a

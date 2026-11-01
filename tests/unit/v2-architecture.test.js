@@ -1886,6 +1886,16 @@ const NOTIONS = [
   { notion: 'l’âge de 65 ans et plus (équilibre au générateur, puissance au plan, prudence de montée)', pr: '197-U1',
     module: 'moteur.js', fonction: 'plusDe65Ans', lecteurs: ['profil.js'],
     raison: 'le profil lit `date_naissance` et donne l’âge ; la borne (`AGE_PLAFOND_BAS`) est celle de `prudenceDeMontee` : jamais deux 65 écrits côte à côte.' },
+  // 201 (MOTEUR §9.38) — D'où ça vient, et les mots du coach : un registre, lu partout.
+  { notion: 'les sources d’une règle (le registre `SOURCES`, la ligne « D’où ça vient » du Pourquoi)', pr: '201-U1',
+    module: 'moteur.js', fonction: 'sourcesDeRegles', lecteurs: ['plan.js'],
+    raison: 'le plan choisit les clés des règles qu’un « Pourquoi » applique, le moteur dit leurs sources : aucun écran n’écrit ni ne devine une source.' },
+  { notion: 'les mots du coach (le lexique fixe, une phrase chacun, sa source)', pr: '201-U1',
+    module: 'moteur.js', fonction: 'lexique', lecteurs: ['app.js'],
+    raison: 'l’écran Profil › Les mots du coach lit la liste ; il ne compose aucune définition.' },
+  { notion: 'la définition d’un mot du coach (la feuille d’une puce)', pr: '201-U1',
+    module: 'moteur.js', fonction: 'motDuLexique', lecteurs: ['app.js'],
+    raison: 'les puces de la séance ouvrent la définition de leur mot : la même entrée du lexique que l’écran Profil.' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

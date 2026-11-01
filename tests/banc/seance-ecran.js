@@ -3753,6 +3753,14 @@ const SETS_IMPORTES = [
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await attendre(600);
 
+  if (process.env.BANC_CAPTURES_204) {
+    // 204 — capture à 380 px pour la PR, le minuteur ouvert, le défilement tout en bas.
+    await page.setViewportSize({ width: 380, height: 760 });
+    await attendre(500);
+    await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_204, 'repos-ouvert.png') });
+    await page.setViewportSize({ width: 360, height: 760 });
+    await attendre(300);
+  }
   const jetons = await page.evaluate(() => {
     const s = getComputedStyle(document.documentElement);
     return { onglets: s.getPropertyValue('--h-onglets').trim(),
@@ -17782,6 +17790,16 @@ const SETS_IMPORTES = [
       /^\d+px$/.test(jetonRepos) && parseInt(jetonRepos, 10) === Math.ceil(b0.h),
       jetonRepos + ' pour une barre de ' + b0.h + ' px');
 
+    // 204 — captures à 380 px pour la PR (BANC_CAPTURES_204=<dossier>) : aucune incidence sans la variable.
+    const capture204 = async (nom) => {
+      if (!process.env.BANC_CAPTURES_204) return;
+      await page.setViewportSize({ width: 380, height: 760 });
+      await attendre(400);
+      await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_204, nom + '.png') });
+      await page.setViewportSize({ width: 360, height: 760 });
+      await attendre(300);
+    };
+    await capture204('seance-en-haut');
     // ── B bis. 204 — LA SÉANCE EN SALLE : les onglets se cachent, « ⌄ » les rend, « Reprendre » (l'onglet Saisie) ramène.
     const salle = () => page.evaluate(() => ({
       ongletsCaches: document.getElementById('onglets').hidden,
@@ -17805,10 +17823,12 @@ const SETS_IMPORTES = [
     await ouvrirMenuSeance();
     const menuS = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button')).map((b) => b.textContent));
     ok('[salle] 204 — le « ⋯ » de la séance propose Modifier et S’entraîner ensemble', JSON.stringify(menuS) === '["Modifier","S’entraîner ensemble"]', JSON.stringify(menuS));
+    await capture204('menu-de-la-seance');
     await page.click('#btn-fermer-feuille');
     await attendre(400);
     await page.click('#bandeau-seance .bandeau-reduire');
     await jusqua(async () => (await salle()).ongletsCaches === false, 5000, 'salle: réduire');
+    await capture204('seance-reduite');
     const s1 = await salle();
     ok('[salle] 204 — « ⌄ » réduit la séance : les onglets reviennent, la séance reste en cours (point sur Saisie)',
       s1.ongletsCaches === false && s1.enCours === true && JSON.stringify(s1.vues) === '["vue-liste"]', JSON.stringify(s1));
@@ -24731,7 +24751,7 @@ const SETS_IMPORTES = [
       grille131.length === 3 && JSON.stringify(grille131[0].champs) === '["duree","distance_km"]' &&
         grille131[0].plus.length === 1 && /Dénivelé \+ \(facultatif\)/.test(sp131(grille131[0].plus[0])), JSON.stringify(grille131));
     ok('[131] A — l’escalier : ÉTAGES prend la colonne de la distance ; le vélo : durée et distance ; rien ne déborde à 360 px',
-      JSON.stringify(grille131[1].entetes) === '["","PRÉC.","DURÉE","ÉTAGES",""]' &&
+      JSON.stringify(grille131[1].entetes) === '["","PRÉC.","DURÉE","ÉTAGES"]' &&   // 204 : le repos (un bouton) a pris le dernier span
         JSON.stringify(grille131[1].champs) === '["duree","etages"]' && grille131[1].plus.length === 0 &&
         JSON.stringify(grille131[2].champs) === '["duree","distance_km"]' && grille131.every((g) => !g.deborde),
       JSON.stringify(grille131));

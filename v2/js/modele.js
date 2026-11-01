@@ -49,7 +49,11 @@
     if (estHorsCalcul(serie)) return 'hors calcul';   // 185 — la série « Non, ne compte pas » se dit, à part
     if (estTest(serie)) return 'test';                // 186 — la série de test se dit aussi
     // 193-6 — « Au max » se dit aussi, à côté du mot du type (« recul · au max »).
-    if (estAuMax(serie)) return estRecul(serie) ? 'recul · au max' : 'Au max';
+    // 200-4 — « Au max » seulement quand la consigne est l'échec ; quand elle garde N reps, le mot dit « garde N ».
+    if (estAuMax(serie)) {
+      var rAu = reserveDemandee(serie), garde = rAu !== null && rAu >= 1;
+      return estRecul(serie) ? 'recul · ' + (garde ? 'garde ' + rAu : 'au max') : (garde ? 'garde ' + rAu : 'Au max');
+    }
     if (estRecul(serie)) return 'recul';              // 193-1 — la série de recul se dit aussi
     return estAEchec(serie) ? 'à l’échec' : (estManquee(serie) ? 'manquée' : null);
   }

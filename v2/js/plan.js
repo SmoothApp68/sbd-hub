@@ -1065,7 +1065,7 @@
       jt.accessoires += 1;
       return { accessoire: true, garde: jt.accessoires <= M.TEST_ACCESSOIRES_MAX, rang: jt.accessoires };
     }
-    if (b.slug !== jt.testee) return { barre: true, testee: false, conflit: jt.conflits.indexOf(b.slug) >= 0, etat: 'ailleurs' };
+    if (b.slug !== jt.testee) return { barre: true, testee: false, conflit: jt.conflits.indexOf(b.slug) >= 0, etat: 'ailleurs', pasDeTest: true };
     if (!coachee || intentionX === 'entretien') return { barre: true, testee: false, etat: 'sans_coach' };
     var modes = T.modes || {};
     var mode = M.testModeValide(modes[b.slug]) || M.testModeParDefaut(e.debutant === true);
@@ -1442,6 +1442,9 @@
     var note = noteDesChauffes(autour.chauffes);
     if (pourquoi && note) pourquoi.chauffes = note;
     if (pourquoi && rec.reculs && rec.reculs.pourquoi) pourquoi.recul = rec.reculs.pourquoi;
+    // 200-7 — la phrase du recul (« Recul : 115 kg, 74 % de ton max aujourd'hui. ») ne s'étale plus au-dessus de la ligne : elle ouvre le
+    // paragraphe du recul dans le « Pourquoi ». Le même texte, déjà cité plus bas (`dire('recul', …)`, I26).
+    if (pourquoi && rec.reculs && rec.reculs.pourquoi && rec.reculs.phrase) pourquoi.reculPhrase = rec.reculs.phrase;
     // 193-3 — la zone vient de la routine : une ligne du « Pourquoi », sans chiffre (la zone et ses bornes sont l'étiquette).
     var phraseDuPlan = c.plan ? M.pourquoiPlan(c.plan) : null;
     if (pourquoi && phraseDuPlan) pourquoi.plan = phraseDuPlan;

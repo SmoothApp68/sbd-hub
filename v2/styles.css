@@ -2730,6 +2730,8 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .consigne-heros[data-garde]::after{margin-left:auto;align-self:center}
 /* à 360 px, un badge qui ne tient pas à côté du chiffre passe dessous (flex-wrap), à gauche */
 .consigne-heros[data-garde]{row-gap:6px;column-gap:var(--e2)}
+/* 200-3 — la réserve visée est dans la puce d'intention du nom : le badge « garde-en N » du chiffre du jour s'efface (l'attribut reste lu). */
+.a-puce-intention .consigne[data-garde]::after{display:none}
 /* 175 — « un cran de moins » : le badge du recul (174), à côté du chiffre du jour, en --donnees ; passe dessous à 360 px (flex-wrap) */
 .consigne-heros .badge-recul{margin-left:var(--e2);align-self:center;padding:0 6px;border:1px solid var(--donnees);border-radius:var(--r-etiquette);
   font-family:var(--pile-c);font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--donnees);white-space:nowrap}
@@ -2803,3 +2805,14 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:11px;font-weig
 .carte-mobilite .cm-consigne,.carte-mobilite .cm-kine{margin-top:8px;color:var(--texte-2);font-size:13px;line-height:1.4}
 .carte-mobilite .cm-pourquoi{margin-top:6px;color:var(--texte-2);font-size:13px;line-height:1.5}
 .carte-mobilite .cm-pourquoi summary{cursor:pointer}
+
+/* 200-5/6 — les lignes repliées : un résumé d'une ligne, le détail au toucher (la règle du « Pourquoi », étendue à la chauffe et à la mobilité). */
+.ligne-repliee{margin:8px 0;border:1px dashed var(--trait);border-radius:12px}
+.ligne-repliee>summary{list-style:none;cursor:pointer;display:flex;align-items:center;min-height:44px;padding:0 12px;color:var(--texte-2);font-size:14px}
+.ligne-repliee>summary::-webkit-details-marker{display:none}
+.ligne-repliee[open]>summary{border-bottom:1px solid var(--trait)}
+.ligne-repliee .lr-contenu>.proposition-exercice,.ligne-repliee .lr-contenu>.cm-corps{margin:0;border:0}
+.carte-mobilite:has(>.ligne-repliee){padding:0;border:0}
+.ligne-repliee.lr-mobilite{border-style:solid}
+/* 200-9 — la colonne Effort n'apparaît qu'une fois la série validée ; sa place reste tenue. */
+.eff-serie.eff-attente{visibility:hidden}

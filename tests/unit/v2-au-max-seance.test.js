@@ -90,6 +90,13 @@ describe('routines : poser la marque, la série de plus, le mot de la ligne', ()
     const v = R.ajoutDeSerie(r, 'x');
     expect(v[0].series.map((q) => !!q.au_max)).toEqual([false, false, true]);
   });
+  test('200-4 — « Au max » seulement à l’échec ; en gardant N reps, le mot dit « garde N »', () => {
+    const Mo = require('../../v2/js/modele.js');
+    expect(Mo.motDEchec({ type_serie: 'travail', au_max_reserve: 0 })).toBe('Au max');
+    expect(Mo.motDEchec({ type_serie: 'travail', au_max_reserve: 1 })).toBe('garde 1');
+    expect(Mo.motDEchec({ type_serie: 'recul', au_max_reserve: 2 })).toBe('recul · garde 2');
+  });
+
   test('le mot de la ligne : « Au max », « recul · au max »', () => {
     const Mo = require('../../v2/js/modele.js');
     expect(Mo.motDEchec({ type_serie: 'travail', au_max: true })).toBe('Au max');

@@ -5868,9 +5868,25 @@
       poserQuestionDeSaisie(iExo, iSerie, 'record', qr);
       await apresGeste({ structure: false });
     }
+    montrerLeReculSuivant(iExo, iSerie);
     } finally {
       reprendreGarde();
     }
+  }
+
+  // 200-8 — après une validation, la ligne de recul qui suit reste visible au-dessus de la barre du bas : si la carte posée sous la
+  // série (la question de réserve) la pousse derrière les onglets, l'écran défile du juste nécessaire. Rien n'est calculé : une position.
+  function montrerLeReculSuivant(iExo, iSerie) {
+    try {
+      var suivante = seance && seance.exercices[iExo] && seance.exercices[iExo].series[iSerie + 1];
+      if (!suivante || Modele.typeDe(suivante) !== 'recul') return;
+      var n = doc.querySelector('#blocs-seance .serie[data-iexo="' + iExo + '"][data-iserie="' + (iSerie + 1) + '"]');
+      var ong = doc.querySelector('.onglets');
+      if (!n || !racine.scrollBy) return;
+      var haut = ong ? ong.getBoundingClientRect().top : racine.innerHeight;
+      var bas = n.getBoundingClientRect().bottom;
+      if (bas > haut - 8) racine.scrollBy(0, Math.ceil(bas - haut + 16));
+    } catch (e) { /* un confort de lecture : jamais un geste cassé */ }
   }
 
   // 183 — SUSPENDRE LA VÉRIFICATION d'un plan le temps d'un geste en deux temps. Rien ne s'écrit ici : `planActuel` calcule
@@ -9283,7 +9299,8 @@
       return { message: { type: 'au_max', phrase: x.auMax.consigne }, proposee: false, fourchette: null };
     }
     // 193-1 (MOTEUR §9.28) — la phrase des reculs, au-dessus du premier recul tant qu'il reste un recul à faire ; du plan.
-    if (x && x.reculs && x.reculs.phrase && x.reculs.iSerie === iSerie && x.lignes && x.lignes[iSerie] && !x.lignes[iSerie].validee) {
+    // 200-7 — quand le « Pourquoi » porte la phrase du recul (`pourquoi.reculPhrase`), elle ne s'affiche plus au-dessus de la ligne.
+    if (x && x.reculs && x.reculs.phrase && !(x.pourquoi && x.pourquoi.reculPhrase) && x.reculs.iSerie === iSerie && x.lignes && x.lignes[iSerie] && !x.lignes[iSerie].validee) {
       return { message: { type: 'recul', phrase: x.reculs.phrase }, proposee: false, fourchette: null };
     }
     // 151 (MOTEUR §9.15.3) — la chaîne des baisses : la première, puis la seconde (« 2ᵉ baisse »), puis les lignes en trop.
@@ -9485,6 +9502,24 @@
         var x = planDeLExercice(iExo);
         return x && x.reserveVisee !== undefined ? x.reserveVisee : null;
       },
+      // 200-3 — UNE PUCE D'INTENTION par exercice : « 6-8 reps · garde 1 » (la fourchette de la zone, la réserve visée) ; `null` quand
+      // l'étiquette de zone ne dit pas une zone chiffrée (zone à ménager, entretien). Les deux valeurs viennent de la consigne et du plan.
+      puceIntention: function (slug, iExo) {
+        var eti = etiquetteDe(slug, iExo), c = eti ? consigneDe(slug) : null;
+        var z = c && c.consigne ? Moteur.zoneParCle(c.consigne.zone) : null;
+        if (!z || /m\u00e9nager/.test(eti)) return null;
+        var x = planDeLExercice(iExo), g = x && x.reserveVisee !== undefined ? x.reserveVisee : null;
+        var reps = z.bas + '-' + z.haut + '\u00a0reps';
+        return { texte: reps + (g !== null ? ' \u00b7 garde\u00a0' + g : ''), aria: z.bas + ' \u00e0 ' + z.haut + ' reps' + (g !== null ? ', garde ' + g + ' en r\u00e9serve' : '') };
+      },
+      // 200-4 — l'étiquette d'une ligne « Au max » qui GARDE N reps : « 5+ · garde 1 » ; `null` quand la consigne est l'échec.
+      etiquetteAuMax: function (iExo, iSerie) {
+        var x = planDeLExercice(iExo), l = x && x.lignes ? x.lignes[iSerie] : null;
+        if (!l || !l.auMax || l.auMax.reserve === null || l.auMax.reserve === undefined || !(l.auMax.reserve >= 1)) return null;
+        var f = fantomeDe(iExo, iSerie).reps, n = f === null || f === undefined ? null : f;
+        return { texte: (n !== null ? n : '') + (n !== null ? '+ \u00b7 ' : '') + 'garde\u00a0' + l.auMax.reserve,
+                 aria: (n !== null ? n + ' ou plus, ' : '') + 'garde ' + l.auMax.reserve + ' en r\u00e9serve' };
+      },
       // 175 — « un cran de moins » : le badge du recul (174), à côté du chiffre du jour.
       cranDeMoins: function (iExo) {
         var x = planDeLExercice(iExo);
@@ -9596,7 +9631,7 @@
       semaineDeTest: function (i) {
         if (enEdition()) return null;
         var x = planDeLExercice(i);
-        return x && x.semaineDeTest && (x.semaineDeTest.testee || x.semaineDeTest.accessoire) ? x.semaineDeTest : null;
+        return x && x.semaineDeTest && (x.semaineDeTest.testee || x.semaineDeTest.accessoire || x.semaineDeTest.pasDeTest) ? x.semaineDeTest : null;
       },
       surTest: function (i, cle) { return repondreTest(i, cle); },
       // §9.17 — l'exercice est en Entretenir PAR SON PROPRE choix : l'étiquette
@@ -10397,7 +10432,7 @@
       });
     };
     Rendu.rendreFeuilleZonePlan($('feuille-contenu'), {
-      nom: nom, libelle: z.libelle,
+      nom: nom, libelle: z.libelle, bornes: z.bas + '-' + z.haut,
       surRoutine: function () { choisir('routine'); },
       surAujourdhui: function () { choisir('aujourdhui'); },
       surFermer: fermerVoile

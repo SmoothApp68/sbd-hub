@@ -105,8 +105,8 @@ describe('1 — chaque mesure rend ses colonnes, et SEULEMENT les siennes', () =
 
   test('les en-têtes de colonnes diffèrent d’un exercice à l’autre', () => {
     expect(blocs().map((b) => b.entetes)).toEqual([
-      ['PRÉC.', 'KG', 'REPS', 'EFFORT'],
-      ['PRÉC.', 'REPS', 'EFFORT'],
+      ['PRÉC.', 'KG', 'REPS'],      // 200-9 : « EFFORT » n'apparaît qu'une fois une série validée
+      ['PRÉC.', 'REPS'],
       ['PRÉC.', 'DURÉE'],
       ['PRÉC.', 'DURÉE', 'DISTANCE']
     ]);
@@ -437,7 +437,7 @@ describe('9 — `charge_reps` est inchangé', () => {
   test('six colonnes, kg et reps, effort, et le fantôme de la routine', () => {
     const bloc = lire(rendre(seanceQuatre()))[0];
     expect(bloc.grille).toBe('g-charge_reps');
-    expect(bloc.entetes).toEqual(['PRÉC.', 'KG', 'REPS', 'EFFORT']);
+    expect(bloc.entetes).toEqual(['PRÉC.', 'KG', 'REPS']);   // 200-9 : sans série validée, pas d'« EFFORT »
     expect(bloc.champs.length).toBe(2);
     expect(bloc.effort).toBe(1);
     // `reps_visees` de la routine sert de fantôme de reps (§3 bis.3).

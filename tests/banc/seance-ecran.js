@@ -3537,9 +3537,10 @@ const SETS_IMPORTES = [
   ok('chaque champ porte son unité', JSON.stringify(g4.map((x) => x.champs)) ===
     JSON.stringify([['kg', ''], [''], [''], ['', 'km']]),
     JSON.stringify(g4.map((x) => x.champs)));
-  ok('le type de mesure est rappelé sous le nom',
+  // 204 — « CHARGE × REPS » est retiré en séance (le grand chiffre et l'en-tête KG · REPS se lisent seuls) ; les autres mesures le gardent.
+  ok('le type de mesure est rappelé sous le nom (sauf « CHARGE × REPS », retiré en séance)',
     JSON.stringify(g4.map((x) => x.type)) ===
-      '["CHARGE × REPS","REPS SEULES","DURÉE","DURÉE · DISTANCE"]',
+      '[null,"REPS SEULES","DURÉE","DURÉE · DISTANCE"]',
     JSON.stringify(g4.map((x) => x.type)));
 
   // §3 — la colonne d'effort n'existe que là où il y a des répétitions.
@@ -3757,15 +3758,18 @@ const SETS_IMPORTES = [
     return { onglets: s.getPropertyValue('--h-onglets').trim(),
              repos: s.getPropertyValue('--h-repos').trim() };
   });
-  ok('les deux hauteurs sont MESURÉES, pas devinées',
+  // 204 — la barre d'onglets est cachée par la séance : sa réserve vaut ZÉRO (mesurée, elle aussi).
+  ok('les deux hauteurs sont MESURÉES, pas devinées (onglets cachés par la séance : 0)',
     /^\d+px$/.test(jetons.onglets) && /^\d+px$/.test(jetons.repos) &&
-    parseInt(jetons.repos, 10) > 0, JSON.stringify(jetons));
+    parseInt(jetons.onglets, 10) === 0 && parseInt(jetons.repos, 10) > 0, JSON.stringify(jetons));
 
   const geometrie = await page.evaluate(() => {
     const repos = document.querySelector('#repos');
     const onglets = document.querySelector('.onglets');
     if (!repos || repos.hidden) return { ouvert: false };
     const rb = repos.getBoundingClientRect(), ro = onglets.getBoundingClientRect();
+    // 204 — la séance en cours CACHE les onglets : le sol de la barre de repos est alors le bas de l'écran.
+    const ongletsCaches = onglets.hidden;
     const chevauche = (a, b) => a.left < b.right && b.left < a.right &&
                                 a.top < b.bottom && b.top < a.bottom;
     // Tout ce qui se tape, hors des deux barres elles-mêmes.
@@ -3780,9 +3784,10 @@ const SETS_IMPORTES = [
       ouvert: true,
       nCibles: cibles.length,
       dessous: dessous,
-      barresSeChevauchent: chevauche(rb, ro),
+      ongletsCaches: ongletsCaches, fenetre: window.innerHeight,
+      barresSeChevauchent: ongletsCaches ? rb.bottom > window.innerHeight : chevauche(rb, ro),
       hautRepos: Math.round(rb.top), basRepos: Math.round(rb.bottom),
-      hautOnglets: Math.round(ro.top),
+      hautOnglets: ongletsCaches ? window.innerHeight : Math.round(ro.top),
       erreurDessous: chevauche(erreur.getBoundingClientRect(), rb),
       // Le dernier bouton du flux : « Ajouter un exercice ».
       basDuDernier: Math.round(document.querySelector('#btn-ajouter-exo-seance')
@@ -3806,6 +3811,13 @@ const SETS_IMPORTES = [
     'sous la barre : ' + geometrie.erreurDessous);
   // La barre de repos se posait à `bottom:56px` alors que les onglets font
   // ~69 px : elle mordait leurs 13 px hauts, et son z-index les recouvrait.
+  const piedRepos = await page.evaluate(() => Array.from(document.querySelectorAll('#repos .repos-b')).map((b) => {
+    const q = b.getBoundingClientRect(); return [b.textContent, Math.round(q.width), Math.round(q.height)]; }));
+  ok('[204] les boutons −15 / +15 du minuteur mesurent 48 px de haut au moins',
+    piedRepos.length >= 2 && piedRepos.every((x) => x[2] >= 48), JSON.stringify(piedRepos));
+  ok('[204] pendant la séance, la barre d’onglets est cachée : la barre de repos se pose au bas de l’écran, et ne le dépasse pas',
+    geometrie.ongletsCaches === true && geometrie.barresSeChevauchent === false && geometrie.basRepos === geometrie.fenetre,
+    'onglets cachés : ' + geometrie.ongletsCaches + ' · bas du repos ' + geometrie.basRepos + ' · fenêtre ' + geometrie.fenetre);
   ok('la barre de repos ne mord plus sur la barre d’onglets',
     geometrie.barresSeChevauchent === false,
     'bas du repos ' + geometrie.basRepos + ' · haut des onglets ' + geometrie.hautOnglets);
@@ -4502,10 +4514,10 @@ const SETS_IMPORTES = [
   // ── §5 bis — le menu est là PENDANT qu'on saisit ────────────────────────
   ok('le menu de bloc est accessible sans passer par Modifier',
     (await compter('.menu-pts[aria-label="Actions du bloc"]')) === 2 &&
-    (await compter('.legende-haut .menu-pts')) === 3 &&
+    (await compter('.legende-haut .menu-pts[aria-label^="Actions sur"]')) === 3 &&
     (await compter('.bloc-seance.replie')) === 0,
     (await compter('.menu-pts[aria-label="Actions du bloc"]')) + ' menu(s) de bloc · ' +
-    (await compter('.legende-haut .menu-pts')) + ' menu(s) d’exercice');
+    (await compter('.legende-haut .menu-pts[aria-label^="Actions sur"]')) + ' menu(s) d’exercice');
 
   await menuBloc(1);
   ok('sur un bloc d’UN SEUL, le menu porte aussi les gestes de l’exercice',
@@ -17715,7 +17727,11 @@ const SETS_IMPORTES = [
       const r = b.getBoundingClientRect(), s = getComputedStyle(b);
       const fin = b.querySelector('.bandeau-fin');
       const rf = fin ? fin.getBoundingClientRect() : null;
-      return { position: s.position, fond: s.backgroundColor, z: s.zIndex,
+      // 204 — les cibles « ⌄ » (réduire) et « ⋯ » (actions de la séance).
+      const cibleDe = (sel) => { const n = b.querySelector(sel); if (!n) return null; const q = n.getBoundingClientRect();
+        return { l: Math.round(q.width * 10) / 10, h: Math.round(q.height * 10) / 10 }; };
+      return { reduire: cibleDe('.bandeau-reduire'), menu: cibleDe('.bandeau-menu'), principal: !!fin && fin.classList.contains('principal'),
+        position: s.position, fond: s.backgroundColor, z: s.zIndex,
         haut: Math.round(r.top * 10) / 10, bas: Math.round(r.bottom * 10) / 10, h: Math.round(r.height * 10) / 10,
         texte: b.innerText.replace(/\s+/g, ' ').trim(),
         duree: (b.querySelector('.bandeau-ch') || {}).textContent || '',
@@ -17754,14 +17770,52 @@ const SETS_IMPORTES = [
       b0.fond === 'rgb(10, 12, 16)', b0.fond);
     ok('[barre] elle est au-dessus des lignes de saisie et sous la rangée prise, les onglets, le repos et les feuilles',
       Number(b0.z) > 1 && Number(b0.z) < 9, 'z-index ' + b0.z);
-    ok('[barre] elle porte le titre, la durée, les séries de travail, Modifier et Terminer — rien d’autre',
-      /^Barre U62 \d+ min · 0 série de travail Modifier Terminer$/.test(b0.texte), b0.texte);
-    ok('[barre] « Terminer » est un bouton neutre, de 40 px de haut au moins',
-      !!b0.fin && b0.fin.h >= 40, JSON.stringify(b0.fin));
+    // 204 — « ⌄ » (réduire), le titre, la durée, « ⋯ » (Modifier, S'entraîner ensemble) et « Terminer » (bouton principal, en capitales).
+    ok('[barre] elle porte « ⌄ », le titre, la durée, les séries de travail, « ⋯ » et Terminer — rien d’autre',
+      /^⌄ Barre U62 \d+ min · 0 série de travail ⋯ Terminer$/i.test(b0.texte), b0.texte);
+    ok('[barre] 204 — « Terminer » est le bouton principal (ambre), de 48 px de haut au moins ; « ⌄ » et « ⋯ » font 44 × 44 au moins',
+      !!b0.fin && b0.principal && b0.fin.h >= 48 && !!b0.reduire && !!b0.menu &&
+        b0.reduire.l >= 44 && b0.reduire.h >= 44 && b0.menu.l >= 44 && b0.menu.h >= 44,
+      JSON.stringify([b0.fin, b0.principal, b0.reduire, b0.menu]));
     const jetonRepos = await jeton();
     ok('[barre] sa hauteur est MESURÉE (--h-barre-seance), comme celles du bas',
       /^\d+px$/.test(jetonRepos) && parseInt(jetonRepos, 10) === Math.ceil(b0.h),
       jetonRepos + ' pour une barre de ' + b0.h + ' px');
+
+    // ── B bis. 204 — LA SÉANCE EN SALLE : les onglets se cachent, « ⌄ » les rend, « Reprendre » (l'onglet Saisie) ramène.
+    const salle = () => page.evaluate(() => ({
+      ongletsCaches: document.getElementById('onglets').hidden,
+      reserve: getComputedStyle(document.documentElement).getPropertyValue('--h-onglets').trim(),
+      vues: Array.from(document.querySelectorAll('main > section')).filter((x) => !x.hidden).map((x) => x.id),
+      enCours: document.querySelector('.onglet[data-vue="saisie"]').classList.contains('en-cours')
+    }));
+    const s0 = await salle();
+    ok('[salle] 204 — pendant la séance, la barre d’onglets est cachée et sa réserve vaut 0',
+      s0.ongletsCaches === true && s0.reserve === '0px' && JSON.stringify(s0.vues) === '["vue-seance"]', JSON.stringify(s0));
+    const cibles0 = await page.evaluate(() => {
+      const bloc = document.querySelector('.bloc-seance');
+      const r = (n) => { const q = n.getBoundingClientRect(); return [Math.round(q.width), Math.round(q.height)]; };
+      return { pts: r(bloc.querySelector('.legende-haut .menu-pts')), nom: r(bloc.querySelector('.legende-haut .nom-exo.lien')),
+        repos: r(bloc.querySelector('.cols-seance .repos-cible')), type: !!bloc.querySelector('.type-mesure'),
+        reglages: bloc.querySelectorAll('.reglages-exo').length, texteRepos: bloc.querySelector('.cols-seance .repos-cible').textContent };
+    });
+    ok('[salle] 204 — le « ⋯ » et le nom de l’exercice mesurent 44 px de haut au moins ; le repos est en tête de la colonne ✓ ; ni « CHARGE × REPS » ni rangée de réglages',
+      cibles0.pts[0] >= 44 && cibles0.pts[1] >= 44 && cibles0.nom[1] >= 44 && cibles0.type === false && cibles0.reglages === 0 &&
+        /^⏱\s/.test(cibles0.texteRepos), JSON.stringify(cibles0));
+    await ouvrirMenuSeance();
+    const menuS = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button')).map((b) => b.textContent));
+    ok('[salle] 204 — le « ⋯ » de la séance propose Modifier et S’entraîner ensemble', JSON.stringify(menuS) === '["Modifier","S’entraîner ensemble"]', JSON.stringify(menuS));
+    await page.click('#btn-fermer-feuille');
+    await attendre(400);
+    await page.click('#bandeau-seance .bandeau-reduire');
+    await jusqua(async () => (await salle()).ongletsCaches === false, 5000, 'salle: réduire');
+    const s1 = await salle();
+    ok('[salle] 204 — « ⌄ » réduit la séance : les onglets reviennent, la séance reste en cours (point sur Saisie)',
+      s1.ongletsCaches === false && s1.enCours === true && JSON.stringify(s1.vues) === '["vue-liste"]', JSON.stringify(s1));
+    await page.click('.onglet[data-vue="saisie"]');
+    await jusqua(async () => (await salle()).ongletsCaches === true, 5000, 'salle: reprendre');
+    const s2 = await salle();
+    ok('[salle] 204 — l’onglet Saisie ramène à la séance, onglets de nouveau cachés', JSON.stringify(s2.vues) === '["vue-seance"]' && s2.reserve === '0px', JSON.stringify(s2));
 
     // ── C. ELLE RESTE EN HAUT QUAND ON DESCEND — au tiers, au milieu, tout en bas.
     const max0 = await maxDefilement();
@@ -18024,7 +18078,7 @@ const SETS_IMPORTES = [
     const edition = await barre();
     m = await minuteurs();
     ok('[barre] en correction : « Modification · N séries de travail », « Enregistrer », aucune durée écoulée',
-      /^Barre passée U62 Modification · 2 séries de travail Modifier Enregistrer$/.test(edition.texte) &&
+      /^Barre passée U62 Modification · 2 séries de travail ⋯ Enregistrer$/.test(edition.texte) &&
         !/\bmin\b/.test(edition.duree) && !edition.porteSuite && edition.fin && edition.fin.texte === 'Enregistrer',
       edition.texte);
     ok('[barre] et aucun réveil de durée ne tourne en correction (la barre reste collée)',

@@ -2956,9 +2956,9 @@ button[id^="btn-retour"]{padding:0 14px;font-size:14px}
    UN SEUL bouton secondaire : contour 1 px --trait, fond transparent, 44 px mini, rayon 12 px. Les variantes
    (Saisie, pilule du Fil/Jeu, gros contour du récap, retour, fermer) y sont fusionnées ; les tailles de texte restent
    celles de chaque règle d'origine. Classe canonique : .btn-sec. */
-.btn-sec,.discret,.barre-retour,.fermer,.cal-pied button,.peu-de-temps,.assistant-puce,.seance.sortie,
+.btn-sec,.discret,.fermer,.cal-pied button,.peu-de-temps,.seance.sortie,
 .proposition-exercice .pc-refuser,.carte-escalier .ce-refuser,.carte-fin-bloc .cfb-ajuster,.carte-fin-bloc .cfb-arreter,
 .feuille-pied .sec{
   background:transparent;border:1px solid var(--trait);border-radius:12px;min-height:44px;
-  box-sizing:border-box;color:var(--texte-2)}
-.carte-fin-bloc .cfb-ajuster,.carte-fin-bloc .cfb-arreter{color:var(--texte)}
+  box-sizing:border-box}
+.btn-sec{color:var(--texte-2)}

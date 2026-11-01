@@ -4509,7 +4509,7 @@
         // 200b — la cible (dernière fois + 1) est encore sous le bas de la zone : on rejoint la zone une rep à la fois, et
         // le coach le dit (VOIX, I26), pour que la puce « 6-8 reps » et la cible « × 5 » ne se contredisent pas.
         if (z !== null && c.ligne && typeof c.ligne.vise === 'number' && c.ligne.vise < z.bas) {
-          return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus, vers tes ' + z.bas + '-' + z.haut + '.';
+          return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus, vers tes ' + nombreFr(z.bas, regle('zone.bas')) + '-' + nombreFr(z.haut, regle('zone.haut')) + '.';
         }
         return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus.';
 

@@ -1,6 +1,7 @@
 // 160 — « Demander au coach » : les contrôles de la fonction (`controle.js`, pur) et le contexte de l'app (`assistant.js`).
 // L'IA explique une décision du moteur, elle n'en prend jamais : ces tests tiennent ce qu'elle n'a pas le droit de faire.
 global.THModele = require('../../v2/js/modele.js');
+global.THMoteur = require('../../v2/js/moteur.js');
 const C = require('../../supabase/functions/demander-coach/controle.js');
 const A = require('../../v2/js/assistant.js');
 

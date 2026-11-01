@@ -96,8 +96,9 @@
       .slice().sort(function (a, b) { return String(b.debut).localeCompare(String(a.debut)); });
   }
 
+  // 208 — la clé de jour local est UNE fonction, `Moteur.jourCivil` : plus de copie ici.
   function deux(n) { return (n < 10 ? '0' : '') + n; }
-  function jourIso(d) { return d.getFullYear() + '-' + deux(d.getMonth() + 1) + '-' + deux(d.getDate()); }
+  function jourIso(d) { return racine.THMoteur.jourCivil(d); }
 
   // Les bornes d'un mois pour `social_calendrier` (au plus 62 jours : un mois en a 31).
   function bornesDuMois(annee, mois) {

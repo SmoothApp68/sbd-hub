@@ -10,6 +10,7 @@
 
 global.self = global;
 require('../../v2/js/modele.js');
+require('../../v2/js/moteur.js');
 require('../../v2/js/semaine.js');
 require('../../v2/js/bilan.js');
 require('../../v2/js/calendrier.js');

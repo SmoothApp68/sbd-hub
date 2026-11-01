@@ -31,6 +31,7 @@ function dossier(extra) {
   fs.mkdirSync(path.join(d, 'js'));
   fs.writeFileSync(path.join(d, 'service-worker.js'), SW_MODELE);
   fs.writeFileSync(path.join(d, 'index.html'), '<html>accueil</html>');
+  fs.writeFileSync(path.join(d, 'styles.css'), 'body { color: red; }');   // 203-2 : le minifieur lit styles.css
   fs.writeFileSync(path.join(d, 'js', 'a.js'), 'var a = 1;');
   fs.writeFileSync(path.join(d, 'js', 'b.js'), 'var b = 2;');
   fs.writeFileSync(path.join(d, 'hors-coquille.txt'), 'rien');
@@ -51,7 +52,9 @@ describe('estamper-sw (178)', () => {
     const n = E.estamper(d1);
     expect(n).toMatch(/^trainhub-v2-[0-9a-f]{10}$/);
     expect(numeroDe(d1)).toBe(n);
-    expect(E.estamper(d1)).toBe(n);   // idempotent : le numéro posé n'entre pas dans l'empreinte
+    // idempotent : le numéro posé n'entre pas dans l'empreinte (hors minification : esbuild renomme encore à une
+    // 2e passe sur une sortie déjà minifiée ; le build part toujours d'un dépôt neuf)
+    expect(E.estamper(d1, { minifier: false })).toBe(n);
   });
 
   test('DISCRIMINANT : un octet change dans un fichier de la coquille -> un autre numéro', () => {

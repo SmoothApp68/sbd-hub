@@ -103,10 +103,10 @@ describe('193-5 — la correction personnelle (rejouée)', () => {
 });
 
 describe('193-5 — les phrases', () => {
-  test('sous le recul', () => { expect(sp(M.phraseReculAuMax(112.5, 73.9))).toBe('Recul : 112,5 kg, 74 % de ton max du jour.'); });
+  test('sous le recul', () => { expect(sp(M.phraseReculAuMax(112.5, 73.9))).toBe('Recul : 112,5 kg, 74 % de ton max aujourd’hui.'); });
   test('le Pourquoi, sans correction', () => {
     expect(sp(M.pourquoiReculAuMax({ grosse: 132.5, grosseReps: 4, marge: 1, max: 154, reps: 8, pct: 73.9, charge: 112.5, correction: 0, pas: [] })))
-      .toBe('Ta grosse série, 132,5 kg × 4 en gardant 1 rep, dit que ton max du jour est d’environ 154 kg. Pour 8 reps en en gardant 2, c’est 74 % : 112,5 kg.');
+      .toBe('Ta grosse série, 132,5 kg × 4 en gardant 1 rep, dit que ton max aujourd’hui est d’environ 154 kg. Pour 8 reps en en gardant 2, c’est 74 % : 112,5 kg.');
   });
   test('sans marge ; avec correction (la dernière série a fait plus que la table)', () => {
     const t = sp(M.pourquoiReculAuMax({ grosse: 132.5, grosseReps: 4, marge: 0, max: 148, reps: 8, pct: 73.9, charge: 112.5, correction: 0.025,

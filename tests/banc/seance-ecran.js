@@ -21662,20 +21662,23 @@ const SETS_IMPORTES = [
       a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1, nbR(a.ordre));
     // 214 — « Partager » : secondaire (pas l'ambre), la feuille de partage reçoit le texte court ; sans elle, le presse-papiers.
     if (process.env.BANC_CAPTURES_214) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_214, 'recap.png'), fullPage: true });
-    const partage = await page.evaluate(async () => {
+    await page.evaluate(() => {
+      window.__p214 = { recu: null, copie: null };
+      Object.defineProperty(navigator, 'share', { configurable: true, value: (d) => { window.__p214.recu = d; return Promise.resolve(); } });
+    });
+    await page.click('#recap-corps .recap-partager');
+    await attendreQue(() => page.evaluate(() => !!window.__p214.recu));
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: (t) => { window.__p214.copie = t; return Promise.resolve(); } } });
+    });
+    await page.click('#recap-corps .recap-partager');
+    await attendreQue(() => page.evaluate(() => window.__p214.copie !== null && document.querySelector('#recap-corps .recap-partager').textContent === 'Copié'));
+    const partage = await page.evaluate(() => {
       const b = document.querySelector('#recap-corps .recap-partager');
       const fond = (e) => getComputedStyle(e).backgroundColor;
-      const out = { present: !!b, secondaire: !!b && !b.classList.contains('principal') && fond(b) !== fond(document.querySelector('#recap-corps .recap-fermer')) };
-      let recu = null;
-      Object.defineProperty(navigator, 'share', { configurable: true, value: (d) => { recu = d; return Promise.resolve(); } });
-      b.click(); await new Promise((r) => setTimeout(r, 300));
-      out.texte = recu && recu.text;
-      Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
-      let copie = null;
-      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: (t) => { copie = t; return Promise.resolve(); } } });
-      b.click(); await new Promise((r) => setTimeout(r, 300));
-      out.copie = copie; out.libelle = b.textContent;
-      return out;
+      return { present: !!b, secondaire: !!b && !b.classList.contains('principal') && fond(b) !== fond(document.querySelector('#recap-corps .recap-fermer')),
+        texte: window.__p214.recu && window.__p214.recu.text, copie: window.__p214.copie, libelle: b.textContent };
     });
     ok('[R214] « Partager » : bouton secondaire ; le texte court (titre, séries de travail, tonnage, records) part à la feuille de partage',
       partage.present && partage.secondaire && /^.+\n4 séries de travail · 3,8.t\n2 records :\n• Rowing r71 : 80 kg × 12\n• Rowing r71 : 80 kg × 12$/.test(partage.texte || '') &&

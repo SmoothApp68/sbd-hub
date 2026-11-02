@@ -592,8 +592,9 @@
       }),
       debuts: [{ cle: 'lundi', texte: Modele.jourNomme(lundi) }, { cle: 'aujourdhui', texte: 'aujourd’hui' }],
       exercices: p.slugs.map(function (s) {
-        var z = Moteur.structureDeBloc({ zone: p.zone, grosse_serie: p.grosse === true }, famillesDeBlocs([s])[s]).zone;
-        return { slug: s, nom: noms[s] || s, coche: !!p.coches[s], zoneTexte: z ? Moteur.libelleZoneDeBloc(z) : 'sa zone' };
+        var st = Moteur.structureDeBloc({ zone: p.zone, grosse_serie: p.grosse === true }, famillesDeBlocs([s])[s]);
+        return { slug: s, nom: noms[s] || s, coche: !!p.coches[s],
+                 zoneTexte: !st.zone ? 'sa zone' : (st.grosse ? Moteur.libelleZoneDeBloc(st.zone) + ', puis ' + Moteur.libelleZoneDeBloc(st.zoneReculs, true) : Moteur.libelleZoneDeBloc(st.zone)) };
       }),
       erreur: p.erreur,
       surZone: maj('zone'), surSemaines: maj('semaines'), surDecharge: maj('decharge'), surDebut: maj('debut'),

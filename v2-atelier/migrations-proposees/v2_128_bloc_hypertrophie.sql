@@ -1,4 +1,4 @@
--- 221 — Le bloc Hypertrophie (MOTEUR §19.2, amendement 221). À APPLIQUER PAR CLAUDE.AI, jamais par Claude Code.
+-- 221 — Le bloc Hypertrophie (MOTEUR §19.2, amendement 221). APPLIQUÉE le 02/11/2026 par Claude.ai sous le nom v2_128_bloc_hypertrophie.
 -- 1. blocs.zone accepte 'hypertrophie' ; 2. blocs.grosse_serie (la case « Garder une grosse série lourde »).
 -- À vérifier avant : le nom réel du CHECK sur blocs.zone (relevé par la requête du pré-contrôle).
 DO $$

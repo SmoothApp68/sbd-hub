@@ -31,7 +31,7 @@ describe('221 — les zones proposées suivent l’objectif', () => {
 describe('221 — la structure d’un bloc Hypertrophie', () => {
   test('une barre en Les deux : grosse série Lourd (garde 1), puis la zone du bloc', () => {
     const s = M.structureDeBloc(bloc({ grosse_serie: true }), SQUAT);
-    expect(s).toEqual({ zone: 'hypertrophie', grosse: true, zoneGrosse: 'lourd', garde: 1 });
+    expect(s).toEqual({ zone: 'lourd', grosse: true, zoneGrosse: 'lourd', garde: 1, zoneReculs: 'hypertrophie' });
     expect(M.structureDeBloc(bloc({ grosse_serie: true }), COUCHE).grosse).toBe(true);
   });
   test('sans la case : pas de grosse série', () => {
@@ -54,6 +54,8 @@ describe('221 — la structure d’un bloc Hypertrophie', () => {
   test('les lignes posées : soulevé en Mix, barres en Hypertrophie, accessoire sans ligne', () => {
     const l = M.zonesPosees(bloc(), () => 'x', 'u', FAM);
     expect(l.map((x) => [x.exercise_slug, x.zone])).toEqual([[SQUAT, 'hypertrophie'], [COUCHE, 'hypertrophie'], [SOULEVE, 'mix']]);
+    const g = M.zonesPosees(bloc({ grosse_serie: true }), () => 'x', 'u', FAM);
+    expect(g.map((x) => [x.exercise_slug, x.zone])).toEqual([[SQUAT, 'lourd'], [COUCHE, 'lourd'], [SOULEVE, 'mix']]);
   });
 });
 
@@ -108,5 +110,81 @@ describe('221 — I37 et I114', () => {
     const ligne = (zone) => ({ id: 'l', exercise_slug: SOULEVE, zone, origine: 'bloc', bloc_id: 'b1', corrigee_a: new Date(2026, 10, 2).toISOString() });
     expect(verif({ blocs: [b], lignes: [ligne('hypertrophie')], objectif: 'les_deux', familles: FAM }).join()).toMatch(/I114/);
     expect(verif({ blocs: [b], lignes: [ligne('mix')], objectif: 'les_deux', familles: FAM })).toEqual([]);
+  });
+});
+
+describe('221 — grosse_serie dans les écritures (blocs_grosse_serie_ok)', () => {
+  test('passer Hypertrophie → Mix / Lourd pose grosse_serie=false', () => {
+    ['mix', 'lourd'].forEach((z) => {
+      const a = M.ajusterBlocEnCours(bloc({ grosse_serie: true }), z, true, 'les_deux', 't');
+      expect(a.zone).toBe(z);
+      expect(a.grosse_serie).toBe(false);
+    });
+  });
+  test('la case n’est jamais vraie hors Hypertrophie, quelle que soit la demande', () => {
+    expect(M.ajusterBlocEnCours(bloc({ zone: 'mix', grosse_serie: false }), 'lourd', true, 'les_deux', 't').grosse_serie).toBe(false);
+    expect(M.ajusterBlocEnCours(bloc({ zone: 'mix' }), 'hypertrophie', true, 'les_deux', 't').grosse_serie).toBe(true);
+  });
+});
+
+// ═══ LE PLAN RÉEL : planDeSeance + verifierPlan (I114) ═══════════════════════════════════════════════════════════════════════════
+describe('221 — le plan du bloc Hypertrophie (planDeSeance)', () => {
+  global.self = global;
+  const S = require('../../v2/js/seance.js');
+  const T = Plan;
+  const seance = (slug, n) => {
+    let k = 0; const id = () => 'x-s' + (++k);
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, slug, id, { series: n });
+    se.exercices[0].series.forEach((s) => { s.reps_visees = 8; });
+    return se;
+  };
+  const entrees = (se, slug, zone, b) => ({
+    seance: { id: 'S', debut: '2026-10-31T10:00:00Z', edition: false, exercices: se.exercices },
+    consignes: { [slug]: { consigne: { etat: 'progression', zone, palier: 150, n: 1, ligne: { charge: 150, vise: zone === 'lourd' ? 4 : 8 }, haut: null }, contexte: { cran: 152.5, haut: null } } },
+    reglage: 'normal', paris: [], objectif: 'les_deux',
+    programme: { blocs: [b], lignes: [], objectif: 'les_deux', familles: { [slug]: FAM[slug] || null } },
+    catalogue: { [slug]: { equipement: 'barre', mesure: 'charge_reps', pas: 2.5 } }
+  });
+  const B = (o) => bloc(Object.assign({ debut: '2026-10-26', exercices: [SQUAT, SOULEVE] }, o || {}));
+
+  test('squat en grosse série : 1 série Lourd puis des reculs, I114 tenu', () => {
+    const e = entrees(seance(SQUAT, 4), SQUAT, 'lourd', B({ grosse_serie: true }));
+    const p = T.planDeSeance(e);
+    const x = p.exercices[0];
+    expect(x.blocHypertrophie).toEqual({ zone: 'lourd', grosse: true, reculs: 3 });
+    expect(x.lignes.map((l) => l.type)).toEqual(['travail', 'recul', 'recul', 'recul']);
+    expect(x.reculs.grosse).toBe(150);
+    expect(T.verifierPhrases(p)).toEqual([]);
+    x.lignes.slice(1).forEach((l) => expect(l.recul.vise).toBe(8));
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+    // les séries de la séance, elles, ne sont pas modifiées
+    expect(e.seance.exercices[0].series.every((s) => s.type_serie !== 'recul')).toBe(true);
+  });
+  test('squat sans grosse série : tout en 8-10, aucun recul', () => {
+    const e = entrees(seance(SQUAT, 3), SQUAT, 'hypertrophie', B());
+    const p = T.planDeSeance(e);
+    expect(p.exercices[0].lignes.map((l) => l.type)).toEqual(['travail', 'travail', 'travail']);
+    expect(p.exercices[0].blocHypertrophie).toEqual({ zone: 'hypertrophie', grosse: false, reculs: 0 });
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+  test('soulevé : Mix même avec la grosse série, aucun recul ; en 8-10, I114 le voit', () => {
+    const e = entrees(seance(SOULEVE, 3), SOULEVE, 'mix', B({ grosse_serie: true }));
+    const p = T.planDeSeance(e);
+    expect(p.exercices[0].blocHypertrophie).toEqual({ zone: 'mix', grosse: false, reculs: 0 });
+    expect(p.exercices[0].lignes.map((l) => l.type)).toEqual(['travail', 'travail', 'travail']);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+    const mauvais = entrees(seance(SOULEVE, 3), SOULEVE, 'hypertrophie', B({ grosse_serie: true }));
+    expect(T.verifierPlan(T.planDeSeance(mauvais), mauvais).erreurs.join()).toMatch(/I114/);
+  });
+  test('grosse série avec une consigne en 8-10 : I114 le voit', () => {
+    const e = entrees(seance(SQUAT, 4), SQUAT, 'hypertrophie', B({ grosse_serie: true }));
+    expect(T.verifierPlan(T.planDeSeance(e), e).erreurs.join()).toMatch(/I114/);
+  });
+  test('un bloc pas encore commencé ou un exercice hors bloc : rien ne change', () => {
+    const e = entrees(seance(SQUAT, 4), SQUAT, 'lourd', B({ grosse_serie: true, debut: '2026-11-09' }));
+    expect(T.planDeSeance(e).exercices[0].blocHypertrophie).toBeNull();
+    const h = entrees(seance(SQUAT, 4), SQUAT, 'lourd', B({ grosse_serie: true, exercices: [COUCHE] }));
+    expect(T.planDeSeance(h).exercices[0].blocHypertrophie).toBeNull();
   });
 });

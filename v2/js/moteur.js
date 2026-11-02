@@ -7160,7 +7160,37 @@
     var classe = classeAuMax(famille);
     if (classe === 'souleve') return { zone: 'mix', grosse: false, zoneGrosse: null, garde: null };
     var grosse = bloc.grosse_serie === true && (classe === 'squat' || classe === 'couche');
-    return { zone: ZONE_HYPERTROPHIE, grosse: grosse, zoneGrosse: grosse ? 'lourd' : null, garde: grosse ? GROSSE_SERIE_GARDE : null };
+    // La grosse série gardée : la consigne de l'exercice est celle du LOURD (3-5, garde 1) ; ses reculs (193-1/193-5) font les reps du bloc.
+    if (grosse) return { zone: 'lourd', grosse: true, zoneGrosse: 'lourd', garde: GROSSE_SERIE_GARDE, zoneReculs: ZONE_HYPERTROPHIE };
+    return { zone: ZONE_HYPERTROPHIE, grosse: false, zoneGrosse: null, garde: null };
+  }
+  // La structure du bloc EN COURS qui porte `slug` au jour `jour` (`famille` : sa barre, ou `null`), ou `null`. Un bloc qui n'a pas commencé,
+  // ou fini, ne dit rien. Pure : le plan la lit, l'écran jamais.
+  function structureDeBlocDuJour(blocs, slug, jour, famille) {
+    var trouve = null;
+    (blocs || []).forEach(function (b) {
+      if (trouve || !b || b.statut !== BLOC_EN_COURS || (b.exercices || []).indexOf(slug) < 0) return;
+      if (semaineDuBloc(b, jour) === null) return;
+      var st = structureDeBloc(b, famille);
+      if (b.zone === ZONE_HYPERTROPHIE && st.zone) trouve = st;
+    });
+    return trouve;
+  }
+  // Les séries d'un exercice en grosse série + reculs : la première série de travail reste, les suivantes deviennent des reculs, aux reps
+  // du bloc (le bas de la zone Hypertrophie). Une routine qui a déjà des reculs, ou une seule série de travail, ne change pas. Pure ; rend
+  // une copie, jamais une série modifiée en place.
+  function seriesEnGrosseEtReculs(series, struct) {
+    if (!struct || !struct.grosse || !Array.isArray(series)) return series;
+    var T = Modele();
+    if (series.some(function (x) { return x && T.typeDe(x) === 'recul'; })) return series;
+    var travail = 0;
+    var z = zoneParCle(ZONE_HYPERTROPHIE);
+    var sortie = series.map(function (x) {
+      if (!x || T.typeDe(x) !== 'travail') return x;
+      travail += 1;
+      return travail === 1 ? x : Object.assign({}, x, { type_serie: 'recul', reps_visees: z.bas });
+    });
+    return travail >= 2 ? sortie : series;
   }
   // La phrase du « Pourquoi » (voix du coach) : les bornes viennent de ZONES.
   function phraseBlocHypertrophie(grosse) {
@@ -11600,6 +11630,8 @@
     ZONES_DE_BLOC: ZONES_DE_BLOC,
     zonesDeBloc: zonesDeBloc,
     structureDeBloc: structureDeBloc,
+    structureDeBlocDuJour: structureDeBlocDuJour,
+    seriesEnGrosseEtReculs: seriesEnGrosseEtReculs,
     grosseSerieParDefaut: grosseSerieParDefaut,
     phraseBlocHypertrophie: phraseBlocHypertrophie,
     ajusterBlocEnCours: ajusterBlocEnCours,

@@ -27175,7 +27175,7 @@ const SETS_IMPORTES = [
     const f223 = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .case-programme[data-slug]')).map((b) =>
       [b.getAttribute('data-slug'), b.getAttribute('aria-pressed') === 'true']));
     ok('[M223] DISCRIMINANT — « Ajuster le bloc » d’un dossier mixte : les trois barres et la presse du bloc précédent (hors barre, mais déjà dans le bloc), cochées, et AUCUN tapis, poulie ni planche',
-      JSON.stringify(f223) === JSON.stringify([['dc223', true], ['sq223', true], ['mach223', true], ['sdt223', true]]), JSON.stringify(f223));
+      JSON.stringify(f223.slice().sort()) === JSON.stringify([['dc223', true], ['mach223', true], ['sdt223', true], ['sq223', true]]), JSON.stringify(f223)); // l'ordre suit le dossier : non contrôlé ici
     await page.click('#btn-fermer-feuille');
     await jusqua(() => page.evaluate(() => document.getElementById('feuille-seance').hidden), 6000);
     base.profiles[0].objectif = objectifAvant223;

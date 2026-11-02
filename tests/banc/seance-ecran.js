@@ -14864,6 +14864,15 @@ const SETS_IMPORTES = [
     base.blocs.length = nBlocsAvant; base.zones.length = nZonesAvant; base.sessions.length = nSessAvant; base.sets.length = nSetsAvant;
     ROUTINES.splice(ROUTINES.findIndex((r) => r.nom === 'Squat U221'), 1);
     base.profiles[0].objectif = null;
+    // L'APPAREIL AUSSI : la synchronisation ne retire jamais un bloc (`fondreBlocs`) ; sans ce geste le bloc Hypertrophie restait sur l'appareil
+    // pour toutes les sections suivantes (I37 les voyait sans objectif). Seuls le bloc et la ligne de zone de cette section partent.
+    await page.evaluate(async () => {
+      const ID = '00000000-0000-4000-8221-000000000001';
+      const blocs = await window.THCache.lireBrouillon('blocs');
+      if (Array.isArray(blocs)) await window.THCache.ecrireBrouillon('blocs', blocs.filter((b) => b && b.id !== ID));
+      const zones = await window.THCache.lireTout('zones');
+      await window.THCache.remplacerTout('zones', (zones || []).filter((z) => z.bloc_id !== ID));
+    }).catch(() => {});
     await aller('/saisie');
     ok('[C53] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }

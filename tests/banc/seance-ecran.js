@@ -14293,8 +14293,8 @@ const SETS_IMPORTES = [
       const l = lignes.filter((x) => (x.querySelector('.dossier-nom') || {}).textContent.indexOf(n) >= 0)[0];
       if (!l) return null;
       const r = l.nextElementSibling && l.nextElementSibling.classList.contains('programme-dossier') ? l.nextElementSibling : null;
-      const k = document.querySelector('#liste-routines .carte-fin-bloc[data-dossier="' + n + '"]');
-      const premier = document.querySelector('#liste-routines').firstElementChild;
+      const k = document.querySelector('#carte-fin-saisie .carte-fin-bloc[data-dossier="' + n + '"]');
+      const premier = document.querySelector('#carte-fin-saisie').firstElementChild;
       return { badge: (l.querySelector('.dossier-badge') || {}).textContent || null,
         compte: !!l.querySelector('.dossier-compte'),
         creer: !!(r && r.querySelector('.programme-creer')), rangee: !!r && !r.querySelector('.programme-creer'),
@@ -14312,7 +14312,7 @@ const SETS_IMPORTES = [
     // feuille pas encore ouverte quand on la lisait : on attend la cible, puis la feuille (plafonds 10 s).
     const cliquerDossier = async (nom, sel) => {
       await jusqua(() => page.evaluate(([n, s]) => {
-        if (/^\.cfb-/.test(s)) return !!document.querySelector('#liste-routines .carte-fin-bloc[data-dossier="' + n + '"] ' + s);
+        if (/^\.cfb-/.test(s)) return !!document.querySelector('#carte-fin-saisie .carte-fin-bloc[data-dossier="' + n + '"] ' + s);
         const l = Array.from(document.querySelectorAll('#liste-routines .dossier-ligne'))
           .filter((x) => (x.querySelector('.dossier-nom') || {}).textContent.indexOf(n) >= 0)[0];
         return !!l && !!(l.querySelector(s) || (l.nextElementSibling && l.nextElementSibling.querySelector(s)));
@@ -14325,7 +14325,7 @@ const SETS_IMPORTES = [
     };
     const cliquerDossierBrut = (nom, sel) => page.evaluate(([n, s]) => {
       if (/^\.cfb-/.test(s)) {
-        document.querySelector('#liste-routines .carte-fin-bloc[data-dossier="' + n + '"] ' + s).click();
+        document.querySelector('#carte-fin-saisie .carte-fin-bloc[data-dossier="' + n + '"] ' + s).click();
         return;
       }
       const lignes = Array.from(document.querySelectorAll('#liste-routines .dossier-ligne'));
@@ -27037,13 +27037,14 @@ const SETS_IMPORTES = [
     const oc = await ordre171();
     const fin171 = await page.evaluate(() => {
       const t = (s, r) => ((r || document).querySelector(s) || {}).textContent || null;
-      const a = document.querySelector('#carte-fin-saisie .carte-fin-bloc'), b = document.querySelector('#liste-routines .carte-fin-bloc');
-      return { a: !!a, b: !!b, titreA: t('.cfb-titre', a), titreB: t('.cfb-titre', b),
+      const a = document.querySelector('#carte-fin-saisie .carte-fin-bloc');
+      return { a: !!a, b: document.querySelectorAll('.carte-fin-bloc').length === 1 && !document.querySelector('#liste-routines .carte-fin-bloc'),
+        titreA: t('.cfb-titre', a), titreB: t('.cfb-titre', a),
         gestesA: a ? Array.from(a.querySelectorAll('.cfb-gestes button')).map((x) => x.textContent) : [],
-        gestesB: b ? Array.from(b.querySelectorAll('.cfb-gestes button')).map((x) => x.textContent) : [],
+        gestesB: a ? Array.from(a.querySelectorAll('.cfb-gestes button')).map((x) => x.textContent) : [],
         dossier: a && a.getAttribute('data-dossier') };
     });
-    ok('[SA171] c — DISCRIMINANT : la fin de cycle est EN TÊTE de Saisie (avant les routines), et la bibliothèque la montre toujours : mêmes titre et mêmes gestes',
+    ok('[SA171] c — DISCRIMINANT : la fin de cycle est EN TÊTE de Saisie (avant les routines) et UNE SEULE carteFinDeBloc est à l’écran (220 : plus dans la bibliothèque)',
       oc[0] === 'carte-fin-saisie' && oc.indexOf('liste-routines') > 0 && fin171.a && fin171.b && fin171.titreA === fin171.titreB && !!fin171.titreA &&
         JSON.stringify(fin171.gestesA) === JSON.stringify(fin171.gestesB) && fin171.gestesA.length >= 2 && fin171.dossier === 'SA171', JSON.stringify([oc, fin171]));
     await page.click('#carte-fin-saisie .cfb-ajuster');

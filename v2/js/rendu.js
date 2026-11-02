@@ -6492,7 +6492,6 @@
       // 118 — même sans aucune routine, un programme en cours garde son dossier, son badge et « Arrêter ».
       programmesOrphelins(null, v).forEach(function (d) {
         var pr = v.programme ? v.programme(d) : null;
-        if (pr && pr.fin) cible.appendChild(carteFinDeBloc(d, pr.fin, v));
         cible.appendChild(ligneDeDossier({ dossier: d, routines: [] }, pr, false, v));
       });
       return;
@@ -6516,15 +6515,10 @@
         .concat(orphelins.map(function (d) { return { dossier: d, routines: [] }; }), sansDossier);
     }
     if (groupes) {
-      // MOTEUR §9.22 (53-2) — le programme de chaque dossier, lu sur
-      // `vue.programme`. LA CARTE DE FIN DE BLOC passe EN TÊTE de l'écran
-      // (maquette cycles v1, « Fin ») : la voix du coach, au-dessus des
-      // dossiers, jusqu'au choix de la personne.
+      // MOTEUR §9.22 (53-2) — le programme de chaque dossier, lu sur `vue.programme`. La carte de fin de bloc
+      // n'est plus ici (220) : elle vit en tête de Saisie, `#carte-fin-saisie` (171), jusqu'au choix de la personne.
       var programmes = groupes.map(function (g) {
         return v.programme && g.dossier !== null ? v.programme(g.dossier) : null;
-      });
-      groupes.forEach(function (g, i) {
-        if (programmes[i] && programmes[i].fin) cible.appendChild(carteFinDeBloc(g.dossier, programmes[i].fin, v));
       });
       if (!v.reorganiser && v.surRetrouver) cible.appendChild(ligneRetrouver(v));
       groupes.forEach(function (g, i) {

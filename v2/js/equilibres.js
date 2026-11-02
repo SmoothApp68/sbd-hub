@@ -374,18 +374,6 @@
     slugs.sort(function (a, b) { return compte[b] - compte[a] || (dernier[a] < dernier[b] ? 1 : dernier[a] > dernier[b] ? -1 : 0) || (a < b ? -1 : 1); });
     return slugs[0] || null;
   }
-  // Le nombre de séries d'un nouvel exercice : la médiane de ce que la personne en fait d'habitude (aucun nombre fixe).
-  function seriesHabituelles(prep, slug) {
-    var parSeance = {};
-    liste(prep.e.series).forEach(function (s) {
-      if (s && s.exercise_slug === slug && Modele().estTravail(s)) parSeance[s.session_id] = (parSeance[s.session_id] || 0) + 1;
-    });
-    var v = Object.keys(parSeance).map(function (k) { return parSeance[k]; }).sort(function (a, b) { return a - b; });
-    if (!v.length) return null;
-    var m = v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
-    return Math.max(1, Math.round(m));
-  }
-
   // ── LES CAUSES, EN FAITS (« D'où ça vient ») ───────────────────────────────────────────────────────────────────
   // `cote` : `{ predicat(slug), nomA, nomB, classeB }` — le côté qui manque, son nom, et l'autre côté.
   function causesDe(prep, cote, c, ctx) {
@@ -422,12 +410,12 @@
     if (!e.programmeDuCoach && routines.length && c.prevu) {
       var pa = c.prevu.a, pb = c.prevu.b;
       if (c.kind === 'rapport' && (pa > 0 || pb > 0)) {
-        var cible = cibleAjout(prep, cote, seances, routines);
+        var cible = cibleAjout(prep, cote);
         causes.push({ texte: 'Tes routines prévoient ' + nb(pa) + ' ' + pluriel(pa, 'série') + ' de ' + cote.nomA + ' pour ' + nb(pb) + ' de ' +
           cote.nomB + ' par semaine.', proposition: pa < pb * ctx.seuil || pa === 0 ? cible : null });
       } else if (c.kind === 'zero') {
         if (pa === 0) {
-          causes.push({ texte: 'Aucune de tes routines ne prévoit de série ' + de(cote.nomA) + '.', proposition: cibleAjout(prep, cote, seances, routines) });
+          causes.push({ texte: 'Aucune de tes routines ne prévoit de série ' + de(cote.nomA) + '.', proposition: cibleAjout(prep, cote) });
         } else {
           causes.push({ texte: 'Tes routines prévoient ' + nb(pa) + ' ' + pluriel(pa, 'série') + ' ' + de(cote.nomA) + ' par semaine.', proposition: null });
         }
@@ -507,13 +495,11 @@
       if (nonFaites < FOIS_MIN || nonFaites < PART_MIN * semainesF.length) return;
       var noms = porte.slice(0, 2).map(function (x) { return nom(x.exercise_slug); });
       var propose = [];
-      var rf = routines.filter(function (x) { return x.id !== r.id; });
-      var plusFaite = rf.slice().sort(function (a, b) { return semainesFaites(seancesDe(b.id)) - semainesFaites(seancesDe(a.id)); })[0];
-      if (plusFaite) {
-        var ex = porte.filter(function (x) { return !liste(plusFaite.exercices).some(function (y) { return y.exercise_slug === x.exercise_slug; }); })[0];
-        if (ex) propose.push({ type: 'ajouter', libelle: 'Ajouter ' + nom(ex.exercise_slug) + ' à « ' + plusFaite.nom + ' »', routine_id: plusFaite.id,
-                               slug: ex.exercise_slug, series: seriesDeTravailDe(ex) || null });
-        propose.push({ type: 'fusionner', libelle: 'Fusionner ' + plusFaite.nom + ' et ' + r.nom, routine_id: plusFaite.id, autre_id: r.id });
+      var ex = porte.filter(function (x) { return !!ajoutPropose(prep, x.exercise_slug); })[0];
+      var ajout = ex ? ajoutPropose(prep, ex.exercise_slug) : null;
+      if (ajout) {
+        propose.push(propositionAjouter(ajout));
+        propose.push({ type: 'fusionner', libelle: 'Fusionner ' + ajout.nomRoutine + ' et ' + r.nom, routine_id: ajout.routine_id, autre_id: r.id });
       }
       causes.push({ texte: '« ' + r.nom + ' » n’a pas été faite ' + nonFaites + ' ' + pluriel(nonFaites, 'semaine') + ' sur ' + semainesF.length +
         ' : c’est elle qui porte ' + noms.map(function (n) { return n; }).join(' et ') + '.', proposition: propose[0] || null, autres: propose.slice(1) });
@@ -557,17 +543,100 @@
     return Object.keys(v).length;
   }
 
-  // La proposition « ajouter » du côté qui manque : l'exercice le plus fait de ce côté, dans la routine la plus fréquentée
-  // qui ne l'a pas encore. `null` sans candidat ni routine.
-  function cibleAjout(prep, cote, seances, routines) {
+  // ── 224 — L'AJOUT PAR UNE CARTE : LA ROUTINE, LA PLACE, LES SÉRIES ET LEURS REPS (MOTEUR §9.27, amendé 224) ─────────────────
+  // UNE fonction (`ajoutPropose`), lue par les trois chemins qui ajoutent un exercice : la carte d'un côté qui manque
+  // (`cibleAjout`), la cause « séance non faite » et le 2ᵉ jour de la fréquence (`ajoutPourFrequence`). L'écriture
+  // (`Routines.ajoutDExercice`) relit la même place (`Routines.placeDAjout`) : le texte de la carte dit ce qui sera écrit.
+  var SERIES_D_AJOUT = 2;   // « commencer petit » : 2 séries de travail — une convention de coachs, pas une règle prouvée ; la charge reste au moteur
+
+  // Le côté d'un exercice : `bas` s'il travaille (en principal) un muscle des jambes, `haut` si ses principaux sont ailleurs,
+  // `null` sans muscle principal ou pour le tronc seul (il va dans l'un comme dans l'autre).
+  function coteDeLexercice(fiche) {
+    var prim = liste(fiche && fiche.muscles_primaires), S = Semaine();
+    if (!prim.length) return null;
+    var zones = prim.map(function (m) { var z = S.zoneDuMuscle(m); return z ? z.cle : null; });
+    if (zones.indexOf('jambes') >= 0) return 'bas';
+    return zones.every(function (z) { return z === 'tronc'; }) ? null : 'haut';
+  }
+  // Les reps visées d'un nouvel exercice : la médiane des reps de ses séries de travail dans sa DERNIÈRE séance où il en a. Aucune
+  // rep dans l'historique : `null` (aucune carte « ajouter » n'écrit une ligne sans reps).
+  function repsHabituelles(prep, slug) {
+    var e = prep.e, M = Modele(), dernier = null, debuts = {}, parSeance = {};
+    liste(e.seances).forEach(function (x) { if (x && x.id) debuts[x.id] = x.debut ? String(x.debut) : ''; });
+    liste(e.series).forEach(function (x) {
+      if (!x || x.exercise_slug !== slug || !M.estTravail(x) || !(Number(x.reps) >= 1)) return;
+      (parSeance[x.session_id] || (parSeance[x.session_id] = [])).push(Number(x.reps));
+    });
+    Object.keys(parSeance).forEach(function (id) {
+      if (dernier === null || (debuts[id] || '') > (debuts[dernier] || '')) dernier = id;
+    });
+    if (dernier === null) return null;
+    var v = parSeance[dernier].sort(function (a, b) { return a - b; });
+    var m = v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
+    return Math.max(1, Math.round(m));
+  }
+  // Les séances de la fenêtre préparée (pour la fréquence d'une routine).
+  function seancesDePrep(prep) {
+    var out = [];
+    liste(prep.semaines).forEach(function (w) { w.seances.forEach(function (x) { out.push(x); }); });
+    return out;
+  }
+  // LA ROUTINE (règle 1) : parmi celles qui n'ont pas l'exercice, du bon côté (jamais un exercice du haut dans une routine sans
+  // exercice du haut, et inversement) ; celle qui travaille déjà un de ses muscles principaux d'abord ; à égalité, la plus fréquentée.
+  // `portent(r)` : en plus, les routines qui portent déjà le mouvement (la fréquence) sont écartées. Aucune routine du bon côté,
+  // ou aucune rep connue : `null`.
+  function ajoutPropose(prep, slug, portent) {
+    var e = prep.e, cat = prep.cat, fiche = slug ? cat[slug] : null;
+    if (!fiche) return null;
+    var cote = coteDeLexercice(fiche), prim = liste(fiche.muscles_primaires);
+    var reps = repsHabituelles(prep, slug);
+    if (reps === null) return null;
+    var seances = seancesDePrep(prep);
+    var candidates = liste(e.routines).filter(function (r) {
+      if (liste(r.exercices).some(function (y) { return y.exercise_slug === slug; })) return false;
+      if (portent && portent(r)) return false;
+      if (cote === null) return true;
+      return liste(r.exercices).some(function (y) { return coteDeLexercice(cat[y.exercise_slug]) === cote; });
+    });
+    if (!candidates.length) return null;
+    var famille = function (r) {
+      return liste(r.exercices).some(function (y) {
+        var g = cat[y.exercise_slug];
+        return !!g && liste(g.muscles_primaires).some(function (m) { return prim.indexOf(m) >= 0; });
+      }) ? 1 : 0;
+    };
+    var f = function (r) { return semainesFaites(seances.filter(function (s) { return s.routine_id === r.id; })); };
+    var choisie = candidates.map(function (r, i) { return { r: r, i: i, fam: famille(r), f: f(r) }; })
+      .sort(function (a, b) { return b.fam - a.fam || b.f - a.f || a.i - b.i; })[0].r;
+    var place = Routines().placeDAjout(choisie, slug, cat);
+    var a = { routine_id: choisie.id, nomRoutine: choisie.nom, slug: slug, series: SERIES_D_AJOUT, reps: reps, apres: place.apres, avant: place.avant };
+    a.libelle = libelleDAjout(prep, a);
+    return a;
+  }
+  // Ce que le geste fera, dit avant le geste (voix du coach, I26) : l'exercice, ses séries et ses reps, la routine, la place.
+  function lieuDAjout(nom, a) { return a.apres ? ', après ' + nom(a.apres) : (a.avant ? ', avant ' + nom(a.avant) : ', en dernier'); }
+  function libelleDAjout(prep, a) {
+    var nom = function (sl) { return nomDe(prep.e, sl); };
+    return 'Ajouter ' + nom(a.slug) + ', ' + a.series + ' × ' + a.reps + ', à « ' + a.nomRoutine + ' »' + lieuDAjout(nom, a) + '.';
+  }
+  // Le « Fait : … » dit la même chose, au présent (`catalogue` : le catalogue indexé par slug).
+  function faitDAjout(catalogue, a) {
+    var nom = function (sl) { return Modele().nommer(catalogue, sl); };
+    return 'Fait : ' + nom(a.slug) + ', ' + a.series + ' × ' + a.reps + ', est dans « ' + a.nomRoutine + ' »' + lieuDAjout(nom, a) + '.';
+  }
+  // Une proposition `ajouter` complète, dans la forme que les cartes et l'écriture lisent.
+  function propositionAjouter(a) {
+    return { type: 'ajouter', libelle: a.libelle, routine_id: a.routine_id, nomRoutine: a.nomRoutine, slug: a.slug, series: a.series,
+             reps: a.reps, apres: a.apres, avant: a.avant };
+  }
+
+  // La proposition « ajouter » du côté qui manque : l'exercice le plus fait de ce côté, dans la routine choisie par `ajoutPropose`.
+  // `null` sans candidat, sans routine du bon côté ou sans reps connues.
+  function cibleAjout(prep, cote) {
     var slug = candidat(prep, cote.predicat);
     if (!slug) return null;
-    var libres = routines.filter(function (r) { return !liste(r.exercices).some(function (y) { return y.exercise_slug === slug; }); });
-    if (!libres.length) return null;
-    var f = function (r) { return semainesFaites(seances.filter(function (s) { return s.routine_id === r.id; })); };
-    var cible = libres.slice().sort(function (a, b) { return f(b) - f(a); })[0];
-    return { type: 'ajouter', libelle: 'Ajouter ' + nomDe(prep.e, slug) + ' à « ' + cible.nom + ' »', routine_id: cible.id, slug: slug,
-             series: seriesHabituelles(prep, slug) };
+    var a = ajoutPropose(prep, slug);
+    return a ? propositionAjouter(a) : null;
   }
 
   // ── Les constats et les cartes ─────────────────────────────────────────────────────────────────────────────────
@@ -1010,39 +1079,31 @@
     });
     if (ajouts.length === 1) {
       var a = ajouts[0];
-      props.push({ type: 'ajouter', cle: 'ajouter|' + a.routine_id + '|' + a.slug + '|', libelle: 'Ajouter ' + nomDe(e, a.slug) + ' à « ' + a.nomRoutine + ' »',
-                   routine_id: a.routine_id, slug: a.slug, series: a.series });
+      var pa = propositionAjouter(a);
+      pa.cle = 'ajouter|' + a.routine_id + '|' + a.slug + '|';
+      props.push(pa);
     } else if (ajouts.length) {
-      props.push({ type: 'repartir', cle: 'repartir', libelle: 'Répartir mes priorités sur deux jours', ajouts: ajouts.map(function (a) {
-        return { routine_id: a.routine_id, nomRoutine: a.nomRoutine, slug: a.slug, series: a.series }; }) });
+      props.push({ type: 'repartir', cle: 'repartir', libelle: 'Répartir mes priorités sur deux jours', ajouts: ajouts.map(propositionAjouter),
+                   details: ajouts.map(function (x) { return libelleDAjout(prep, x); }) });
     }
     c.causes = causes.map(function (x) { return { texte: x.texte, proposition: null }; });
     c.propositions = props;
     c.garni = true;
     return c;
   }
-  // Où mettre le 2ᵉ jour : la routine du programme la plus faite qui ne porte pas déjà ce mouvement ; ce qu'on y met : le
-  // mouvement le plus fait de l'historique (ou, pour le soulevé, une charnière plus légère), jamais un écarté ni un « J'ai mal ».
+  // Où mettre le 2ᵉ jour : la routine choisie par `ajoutPropose` (le bon côté, la famille, la plus faite) qui ne porte pas déjà ce
+  // mouvement ; ce qu'on y met : le mouvement le plus fait de l'historique (ou, pour le soulevé, une charnière plus légère), jamais
+  // un écarté ni un « J'ai mal ». 224 : 2 séries et leurs reps, comme toute carte qui ajoute.
   function ajoutPourFrequence(prep, cle, slugs, charniere) {
-    var e = prep.e, cat = prep.cat, routines = liste(e.routines);
+    var e = prep.e, cat = prep.cat;
     var predicat = charniere ? function (sl) { return estCharniereLegere(sl, cat, slugs); } : function (sl) { return slugs.indexOf(sl) >= 0; };
     var slug = candidat(prep, predicat);
     if (!slug && charniere) {
       slug = Object.keys(cat).sort().filter(function (sl) { return estCharniereLegere(sl, cat, slugs) && liste(e.ecartes).indexOf(sl) < 0; })[0] || null;
     }
     if (!slug) return null;
-    var portent = function (r) { return liste(r.exercices).some(function (y) { return slugs.indexOf(y.exercise_slug) >= 0 || y.exercise_slug === slug; }); };
-    var libres = routines.filter(function (r) { return !portent(r); });
-    if (!libres.length) return null;
-    var seances = [];
-    prep.semaines.forEach(function (w) { w.seances.forEach(function (s) { seances.push(s); }); });
-    var cible = libres.slice().sort(function (a, b) {
-      return semainesFaites(seances.filter(function (s) { return s.routine_id === b.id; })) - semainesFaites(seances.filter(function (s) { return s.routine_id === a.id; }));
-    })[0];
-    var h = seriesHabituelles(prep, slug);
-    // Le 2ᵉ jour porte moins que le premier : la moitié de ce que la personne fait d'habitude (au moins une série).
-    var series = h === null ? null : Math.max(1, Math.round(h / 2));
-    return { routine_id: cible.id, nomRoutine: cible.nom, slug: slug, series: series };
+    var portent = function (r) { return liste(r.exercices).some(function (y) { return slugs.indexOf(y.exercise_slug) >= 0; }); };
+    return ajoutPropose(prep, slug, portent);
   }
 
   // ── L'ORDRE : où se place une priorité dans la séance ──────────────────────────────────────────────────────────
@@ -1269,6 +1330,8 @@
     SEUIL_FREQUENCE: SEUIL_FREQUENCE,
     PART_ECOURTEE: PART_ECOURTEE,
     classesDe: classesDe,
+    faitDAjout: faitDAjout,
+    ajoutPropose: ajoutPropose,
     analyser: analyser,
     reponse: reponse,
     perimer: perimer,

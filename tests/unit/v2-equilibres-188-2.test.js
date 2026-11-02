@@ -339,17 +339,26 @@ describe('188-2 — Tes priorités, combien de fois par semaine', () => {
   test('deux fois chaque semaine : rien', () => {
     expect(constat(Eq.analyser(e(bati(sem(() => ({ tractions: 3 }))))), 'frequence')).toBeNull();
   });
-  test('la proposition : « Ajouter … à Bas B » (une priorité), ou « Répartir mes priorités sur deux jours » (plusieurs)', () => {
-    const une = carte(Eq.analyser(e(bati(sem()))), 'frequence');
-    expect(une.propositions.map((p) => [p.type, p.routine_id, p.slug])).toEqual([['ajouter', 'r-b', 'tractions']]);
-    expect(une.propositions[0].series).toBe(2);              // la moitié de ce qu’il fait d’habitude (3), jamais un nombre fixe
-    const deux = carte(Eq.analyser(e(bati(sem()), { priorites: ['tractions', 'developpe_militaire_barre'] })), 'frequence');
+  // 224 : un exercice du haut ne va jamais dans une routine sans exercice du haut. « Haut B » (non faite) reçoit les tractions.
+  const RH = routine('r-h', 'Haut B', { curl: 3, elevations_laterales: 3 });
+  test('la proposition : « Ajouter … à Haut B » (une priorité), ou « Répartir mes priorités sur deux jours » (plusieurs)', () => {
+    const une = carte(Eq.analyser(e(bati(sem()), { routines: [RA, RB, RH] })), 'frequence');
+    expect(une.propositions.map((p) => [p.type, p.routine_id, p.slug])).toEqual([['ajouter', 'r-h', 'tractions']]);
+    expect(une.propositions[0]).toMatchObject({ series: 2, reps: 8 });   // 2 séries de travail, les reps de l’historique
+    const deux = carte(Eq.analyser(e(bati(sem()), { routines: [RA, RB, RH], priorites: ['tractions', 'developpe_militaire_barre'] })), 'frequence');
     expect(deux.propositions[0].type).toBe('repartir');
     expect(deux.propositions[0].libelle).toBe('Répartir mes priorités sur deux jours');
     expect(deux.propositions[0].ajouts.map((x) => x.slug).sort()).toEqual(['developpe_militaire_barre', 'tractions']);
+    expect(deux.propositions[0].details).toHaveLength(2);
+  });
+  test('224 : sans routine du haut, aucune proposition « ajouter » (jamais des tractions dans « Bas B »)', () => {
+    const c = carte(Eq.analyser(e(bati(sem()))), 'frequence');
+    expect(c.propositions).toEqual([]);
   });
   test('⚠️ le soulevé de terre : une fois par semaine suffit si un 2ᵉ jour porte une charnière plus légère (hip thrust)', () => {
-    const e2 = (b) => entree(b, { routines: [RA, RB], priorites: ['souleve_de_terre_barre'] });
+    // 224 : la charnière légère va dans une routine du bas qui ne l’a pas (« Bas A »), jamais dans « Haut A ».
+    const RBA = routine('r-ba', 'Bas A', { squat_barre: 4, leg_extension: 3 });
+    const e2 = (b) => entree(b, { routines: [RA, RB, RBA], priorites: ['souleve_de_terre_barre'] });
     const sd = (k) => ({ souleve_de_terre_barre: 3 });
     // avec une charnière légère le 2ᵉ jour (A) : 1 + 1 = 2 → rien
     const avec = bati(sem(sd, () => ({ hip_thrust: 3 })));
@@ -359,7 +368,7 @@ describe('188-2 — Tes priorités, combien de fois par semaine', () => {
     const c = carte(sans, 'frequence');
     expect(c).not.toBeNull();
     expect(c.propositions).toHaveLength(1);
-    expect(c.propositions[0]).toMatchObject({ type: 'ajouter', routine_id: 'r-a' });
+    expect(c.propositions[0]).toMatchObject({ type: 'ajouter', routine_id: 'r-ba' });
     expect(c.propositions[0].slug).not.toBe('souleve_de_terre_barre');
     expect(['hip_thrust', 'souleve_de_terre_roumain']).toContain(c.propositions[0].slug);
     expect(c.causes.map((x) => x.texte).join(' ')).toMatch(/jamais un second soulevé lourd/);

@@ -1633,7 +1633,12 @@
     if (p.type === 'repartir') { await repartirLesPriorites(carte, p); return; }
     var voulues = null, fait = null;
     if (rt && p.type === 'deplacer') { voulues = Routines.miseEnTete(rt, p.slug, p.avant); fait = 'Fait : ' + Modele.nommer(catalogueIndexe(), p.slug) + ' est plus tôt dans « ' + rt.nom + ' ».'; }
-    if (rt && p.type === 'ajouter') { voulues = Routines.ajoutDExercice(rt, p.slug, p.series || 1); fait = 'Fait : ' + Modele.nommer(catalogueIndexe(), p.slug) + ' est dans « ' + rt.nom + ' ».'; }
+    if (rt && p.type === 'ajouter') {
+      // 224 — la place est relue sur la routine d'AUJOURD'HUI, par la fonction que la carte a lue : le « Fait » dit ce qui est écrit.
+      var cat224 = catalogueIndexe(), place224 = Routines.placeDAjout(rt, p.slug, cat224);
+      voulues = Routines.ajoutDExercice(rt, p.slug, p.series || 1, { reps: p.reps, cat: cat224 });
+      fait = Equilibres.faitDAjout(cat224, { slug: p.slug, series: p.series || 1, reps: p.reps, nomRoutine: rt.nom, apres: place224.apres, avant: place224.avant });
+    }
     if (rt && p.type === 'serie') { voulues = Routines.ajoutDeSerie(rt, p.slug); fait = 'Fait : une série de plus sur ' + Modele.nommer(catalogueIndexe(), p.slug) + ' dans « ' + rt.nom + ' ».'; }
     if (!voulues) {
       // La routine a changé depuis la carte : rien n'est écrit, la carte se recalcule.
@@ -1695,12 +1700,19 @@
   async function repartirLesPriorites(carte, p) {
     var avant = [];
     var ajoutsFaits = [];
+    // 224 — deux ajouts dans la MÊME routine se suivent sur la routine déjà augmentée du premier (sinon le second écrasait le premier).
+    var enCours = {};
+    var cat224 = catalogueIndexe();
     (p.ajouts || []).forEach(function (a) {
       var rt = routines.filter(function (r) { return r.id === a.routine_id; })[0];
-      var voulues = rt ? Routines.ajoutDExercice(rt, a.slug, a.series || 1) : null;
-      if (!rt || !voulues) return;
-      avant.push({ id: rt.id, exercices: JSON.parse(JSON.stringify(rt.exercices)) });
-      ajoutsFaits.push({ rt: rt, voulues: voulues, texte: Modele.nommer(catalogueIndexe(), a.slug) + ' dans « ' + rt.nom + ' »' });
+      if (!rt) return;
+      var base = enCours[rt.id] ? enCours[rt.id].base : rt;
+      var voulues = Routines.ajoutDExercice(base, a.slug, a.series || 1, { reps: a.reps, cat: cat224 });
+      if (!voulues) return;
+      var place224 = Routines.placeDAjout(base, a.slug, cat224);
+      if (!enCours[rt.id]) avant.push({ id: rt.id, exercices: JSON.parse(JSON.stringify(rt.exercices)) });
+      enCours[rt.id] = { rt: rt, base: { id: rt.id, nom: rt.nom, exercices: voulues }, voulues: voulues };
+      ajoutsFaits.push({ rt: rt, texte: Equilibres.faitDAjout(cat224, { slug: a.slug, series: a.series || 1, reps: a.reps, nomRoutine: rt.nom, apres: place224.apres, avant: place224.avant }).replace(/^Fait : /, '').replace(/\.$/, '') });
     });
     if (!ajoutsFaits.length) {
       faitEquilibre = { texte: 'Ta routine a changé depuis : je recalcule.', surAnnuler: function () { faitEquilibre = null; repeindreLesEquilibres(); } };
@@ -1708,7 +1720,8 @@
       return repeindreLesEquilibres();
     }
     var avantReponses = JSON.parse(JSON.stringify(reponsesDesCartes()));
-    for (var i = 0; i < ajoutsFaits.length; i++) await poserRoutineVoulue(ajoutsFaits[i].rt, ajoutsFaits[i].voulues);
+    var ids224 = Object.keys(enCours);
+    for (var i = 0; i < ids224.length; i++) await poserRoutineVoulue(enCours[ids224[i]].rt, enCours[ids224[i]].voulues);
     await repondreALaCarte(carte.cle, 'oui');
     faitEquilibre = {
       texte: 'Fait : ' + ajoutsFaits.map(function (f) { return f.texte; }).join(' · ') + '.',

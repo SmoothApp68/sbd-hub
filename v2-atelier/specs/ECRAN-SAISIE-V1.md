@@ -3637,8 +3637,7 @@ Cache 292.
 **25/10/2026, décision d'Aurélien** (maquette `maquette-saisie-avis-v1`, « tout est ok ») : « s'il n'y a rien à dire, n'affichons rien
 d'autre que les routines ». Aucun texte de carte, aucune règle d'apparition, aucune donnée ne changent : **seule la place change**. L'ordre, de haut en bas :
 1. **A · À faire** (cartes ouvertes, liseré ambre à gauche, chacune seulement quand elle a lieu d'être) : la fin de cycle ou de bloc
-   (`#carte-fin-saisie` ; la MÊME carte que la bibliothèque, lue sur `programmeDuDossier`, mêmes gestes ; elle reste aussi dans
-   `#liste-routines`), la semaine qui déraille (`#carte-semaine`), la routine pas finie d'enregistrer (`#bandeau-reprise`).
+   (`#carte-fin-saisie` ; la carte `carteFinDeBloc`, lue sur `programmeDuDossier` ; **220 (02/11/2026) : elle n'est plus dans `#liste-routines`** — une notion, un seul endroit ; le banc vérifie qu'une seule carte est à l'écran), la semaine qui déraille (`#carte-semaine`), la routine pas finie d'enregistrer (`#bandeau-reprise`).
 2. **B · « Le coach te dit (n) »** (`#avis-coach`) : une ligne repliée qui regroupe `#carte-echelles`, `#carte-manque`, `#carte-cycles`,
    `#bandeau-phase` (chacune garde sa règle, son texte et ses gestes). La ligne montre les titres courts (« Échelles · Ce qui manque ·
    Cycles · Phase », seulement ceux présents) et le nombre ; un toucher l'ouvre, un autre la referme ; elle ne s'ouvre jamais d'elle-même.

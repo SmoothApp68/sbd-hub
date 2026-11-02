@@ -275,7 +275,10 @@ describe('58-1 — le module des faits rend exactement ce que rendait app.js', (
   test('la semaine affichée — dix semaines du corpus', () => {
     local.seances.slice(0, 10).forEach((s) => {
       const lundi = Semaine.bornesSemaine(new Date(s.debut)).lundi;
-      expect(faits.semaineDe(corpus(), lundi)).toEqual(avant.semaineCourante(lundi));
+      const f = faits.semaineDe(corpus(), lundi), muscles = f.muscles;
+      delete f.muscles;   // 220 : le volume par muscle (le bonhomme) est ajouté ; tout le reste est identique à l'ancien app.js
+      expect(f).toEqual(avant.semaineCourante(lundi));
+      expect(muscles).toBeDefined();
     });
   });
 

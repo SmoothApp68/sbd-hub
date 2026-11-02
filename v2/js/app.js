@@ -1703,10 +1703,6 @@
     if (!a) return null;
     return {
       analyse: a, fait: faitEquilibre,
-      // 218 — le bonhomme des muscles : le FAIT des sept derniers jours (`faits.js`, la somme unique) ; le sexe du dessin est une
-      // préférence de l'appareil (jamais écrite en base).
-      bonhomme: { volume: faits.muscleDesSeptJours(corpus(), Moteur.jourCivil(new Date())).volume, libelles: Semaine.LIBELLES_MUSCLE,
-                  sexe: lireSilhouette(), surSexe: poserSilhouette },
       surProposition: function (carte, p) {
         accepterUneProposition(carte, p).catch(function (e) { console.warn('Proposition non appliquée :', texteErreur(e)); });
       },
@@ -3855,23 +3851,28 @@
   // l'audit v1 a cataloguée. Un exercice sans meilleure série n'affiche pas de
   // valeur : rien ne s'invente.
   function sommaireExercices(surExercice, surTous) {
-    // 206 — « TES EXERCICES » : les exercices les plus faits sur 8 semaines (`faits.exercicesLesPlusFaits`), chacun avec ses
-    // points des 6 derniers mois (`faits.pointsDeLExercice`, le max estimé des records) et sa mini-courbe (`THCourbe.mini`).
-    // Un exercice sans point sur les 6 mois n'a pas de ligne : rien ne s'invente.
+    // 206/220 — « TES EXERCICES » : `faits.exercicesDeProgression` choisit (charge × reps seulement ; les mouvements prioritaires du
+    // profil, puis les exercices à la barre les plus faits sur 8 semaines ; la dernière ligne : ce qui a le plus progressé sur
+    // 6 mois, `faits.ceQuiAProgresse`), chacun avec ses points des 6 derniers mois (`faits.pointsDeLExercice`, le max estimé des
+    // records) et sa mini-courbe (`THCourbe.mini`). L'écran ne choisit rien.
     var c = corpus(), maintenant = new Date();
     var index = Modele.indexerExercices(local.exercices);
     var lignes = [];
-    faits.exercicesLesPlusFaits(c, maintenant, 8, 4).forEach(function (slug) {
+    var choisis = faits.exercicesDeProgression(c, maintenant, {
+      semaines: 8, combien: 4, priorites: Profil.prioritesDe(profil),
+      fenetre: function (points) { return Courbe.dansLaPeriode(points, '6m', maintenant); },
+      avance: faits.ceQuiAProgresse(c, maintenant, 6, { pesees: local.pesees || [], paris: parisDeConsigneConnus() })
+    });
+    choisis.forEach(function (slug) {
       var p = faits.pointsDeLExercice(c, slug);
       var fenetre = Courbe.dansLaPeriode(p.points, '6m', maintenant);
       var r = Courbe.resume(fenetre);
       if (!r) return;
-      var unite = p.mesure === 'charge' ? ' kg' : p.mesure === 'reps' ? ' reps' : ' s';
       var d = Math.round(r.debut), f = Math.round(r.fin);
       lignes.push({
         slug: slug,
         nom: (index[slug] && index[slug].nom) || slug,
-        mesure: (r.n > 1 && d !== f ? Modele.nombreTexte(d) + ' \u2192 ' : '') + Modele.nombreTexte(f) + unite,
+        mesure: (r.n > 1 && d !== f ? Modele.nombreTexte(d) + ' \u2192 ' : '') + Modele.nombreTexte(f) + ' kg',
         mini: Courbe.mini(fenetre, 92, 36, p.mesure)
       });
     });
@@ -13112,6 +13113,12 @@
 
     var sem = semaineCourante();
     Rendu.rendreBarreSemaine($('barre-progression'), barrePour(sem, false));
+    // 220 — le bonhomme des muscles, en haut de la page, sur la semaine affichée (la même source que le relevé : `sem.muscles`,
+    // `faits.semaineDe`) ; le sexe du dessin est une préférence de l'appareil (jamais écrite en base).
+    var casBonhomme = $('bonhomme-volume');
+    casBonhomme.textContent = '';
+    Rendu.rendreBonhomme(casBonhomme, { volume: sem.muscles, libelles: Semaine.LIBELLES_MUSCLE, sexe: lireSilhouette(),
+      surSexe: poserSilhouette, sous: 'Séries de travail, ' + Rendu.libelleSemaine(sem.bornes.lundi, sem.bornes.dimanche) });
     Rendu.rendreReleveZones($('releve-zones'), sem.zones, zoneOuverte,
       function (cle) {
         // Une zone ouverte à la fois : ouvrir Dos referme Jambes.

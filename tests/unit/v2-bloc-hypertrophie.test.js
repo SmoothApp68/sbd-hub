@@ -98,9 +98,31 @@ describe('221 — Mix → Hypertrophie en cours de bloc', () => {
 
 describe('221 — I37 et I114', () => {
   const verif = (programme) => { const r = Plan.verifierPlan({ exercices: [], lignes: [] }, { programme }); return (Array.isArray(r) ? r : (r && r.erreurs) || []).filter((x) => /I3[67]|I114/.test(x)); };
-  test('I37 : Hypertrophie refusée en objectif force', () => {
-    expect(verif({ blocs: [bloc()], lignes: [], objectif: 'force', familles: FAM }).join()).toMatch(/I37/);
+  test('I37 : une zone inconnue est refusée, quelle que soit la zone connue et l’objectif', () => {
+    expect(verif({ blocs: [bloc({ zone: 'xyz' })], lignes: [], objectif: 'les_deux', familles: FAM }).join()).toMatch(/I37/);
     expect(verif({ blocs: [bloc()], lignes: [], objectif: 'les_deux', familles: FAM })).toEqual([]);
+  });
+  test('I37 : objectif passé à force pendant un bloc Hypertrophie en cours : le bloc va à son terme, aucune violation', () => {
+    expect(verif({ blocs: [bloc()], lignes: [], objectif: 'force', familles: FAM })).toEqual([]);
+    expect(verif({ blocs: [bloc()], lignes: [], objectif: null, familles: FAM })).toEqual([]);
+  });
+  test('objectif passé à force pendant un bloc Hypertrophie : plan sans violation, la carte de fin ne propose pas Hypertrophie', () => {
+    const S2 = require('../../v2/js/seance.js');
+    let k = 0; const id = () => 'f-s' + (++k);
+    let se = S2.creer({ id: 'S', userId: 'u', idSerie: id });
+    se = S2.ajouterExercice(se, SQUAT, id, { series: 3 });
+    se.exercices[0].series.forEach((x) => { x.reps_visees = 8; });
+    const b = bloc({ debut: '2026-10-26', exercices: [SQUAT] });
+    const e = {
+      seance: { id: 'S', debut: '2026-10-31T10:00:00Z', edition: false, exercices: se.exercices },
+      consignes: { [SQUAT]: { consigne: { etat: 'progression', zone: 'hypertrophie', palier: 150, n: 1, ligne: { charge: 150, vise: 8 }, haut: null }, contexte: { cran: 152.5, haut: null } } },
+      reglage: 'normal', paris: [], objectif: 'force',
+      programme: { blocs: [b], lignes: [], objectif: 'force', familles: { [SQUAT]: SQUAT } },
+      catalogue: { [SQUAT]: { equipement: 'barre', mesure: 'charge_reps', pas: 2.5 } }
+    };
+    expect(Plan.verifierPlan(Plan.planDeSeance(e), e).erreurs).toEqual([]);
+    expect(M.zonesDeBloc('force')).not.toContain('hypertrophie');
+    expect(M.blocSuivant(b).zone).not.toBe('hypertrophie');
   });
   test('I114 : une grosse série hors Hypertrophie', () => {
     expect(verif({ blocs: [bloc({ zone: 'mix', grosse_serie: true })], lignes: [], objectif: 'les_deux', familles: FAM }).join()).toMatch(/I114/);

@@ -4775,7 +4775,7 @@
   //   · I36 — un bloc ne change que la zone de SES exercices : chaque ligne
   //     d'origine « bloc » désigne un bloc, un de ses exercices, sa zone, et
   //     son début (00:00) — ni exercice, ni ordre, ni série, ni charge ;
-  //   · I37 — une zone de bloc est Lourd ou Mix, et Hypertrophie seulement en objectif Muscle ou Les deux (221, `Moteur.zonesDeBloc`) ;
+  //   · I37 — un bloc porte une zone connue (Lourd, Mix, Hypertrophie) ; la restriction par objectif (Hypertrophie seulement en Muscle ou Les deux, `Moteur.zonesDeBloc`) vaut pour la proposition et la création, pas pour un bloc déjà lancé (221) ;
   //   · I114 (221) — un bloc Hypertrophie : le soulevé de terre est posé en Mix (jamais 8-10) ; une grosse série gardée n'existe que dans
   //     un bloc Hypertrophie, et ne se pose ni au soulevé, ni hors d'une barre ;
   //   · I38 — jamais deux réductions à la fois : une décharge planifiée qui
@@ -4793,10 +4793,8 @@
       if (!b) return;
       if (b.id) parId[b.id] = b;
       if (M.ZONES_DE_BLOC.indexOf(b.zone) < 0) erreurs.push('I37 — le bloc ' + (b.id || '?') + ' porte la zone « ' + b.zone + ' »');
-      // 221 — la liste des zones suit l'objectif ; un bloc déjà terminé garde la zone qu'il avait.
-      else if (b.statut === 'en_cours' && pr.objectif !== undefined && M.zonesDeBloc(pr.objectif).indexOf(b.zone) < 0) {
-        erreurs.push('I37 — le bloc ' + (b.id || '?') + ' porte la zone « ' + b.zone + ' » pour l’objectif « ' + pr.objectif + ' »');
-      }
+      // 221 — la restriction par objectif vaut pour ce qui est PROPOSÉ et pour la création/le changement de zone (écran, écriture), pas pour
+      // un bloc déjà lancé : si l'objectif change pendant un bloc Hypertrophie, le bloc va à son terme (MOTEUR §19.2, amendement 221).
       // I114 — la grosse série gardée n'existe que dans un bloc Hypertrophie.
       if (b.grosse_serie === true && b.zone !== 'hypertrophie') erreurs.push('I114 — le bloc ' + (b.id || '?') + ' garde une grosse série sans être en Hypertrophie');
     });

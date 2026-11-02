@@ -161,10 +161,11 @@
                  bouton: { action: 'paris', texte: 'Le détail des paris' } });
     }
     // La plaque, sans le coach.
-    var cases = [{ k: 'Soulevé', g: texteTonnes(b.tonnes.kg) }];
+    // 226 — le mois : les séries de travail sous les tonnes, et ses 3 premiers records en « charge × reps » sous la grille.
+    var cases = [{ k: 'Soulevé', g: texteTonnes(b.tonnes.kg), p: !saison && b.reps && b.reps.series ? seriesTxt(b.reps.series) + ' de travail' : null }];
     if (nRec) {
       cases.push({ k: saison ? 'Nouvelles charges max' : 'Records', g: String(nRec),
-                   p: nomsRec.map(function (n) { return sansParentheses(n).toLowerCase(); })
+                   p: !saison ? null : nomsRec.map(function (n) { return sansParentheses(n).toLowerCase(); })
                      .filter(function (n, k, t) { return t.indexOf(n) === k; }).slice(0, 3).join(', ') });
     }
     if (b.avance && b.avance.tete) {
@@ -174,6 +175,7 @@
     if (saison && b.exercices.length) cases.push({ k: 'Exercice de la saison', m: sansParentheses(b.exercices[0].nom), p: repsTxt(b.exercices[0].reps) });
     if (!saison && b.muscles.length) cases.push({ k: 'Muscle du mois', m: b.muscles[0].libelle, p: seriesTxt(b.muscles[0].series) });
     out.push({ cle: 'plaque', d: 0, plaque: { an: titre, qui: vue.qui || '', cases: cases.slice(0, 6), pied: titre,
+                                              lignes: saison ? null : (vue.records || []).slice(0, 3).map(function (r) { return { n: sansParentheses(r.nom), v: r.mesure }; }),
                                               bouton: saison ? 'Partager ma saison' : 'Partager mon mois' } });
     return out;
   }
@@ -353,6 +355,16 @@
         gr.appendChild(d);
       });
       pl.appendChild(gr);
+      if (e.plaque.lignes && e.plaque.lignes.length) {
+        var lg = el('div', 'lignes');
+        e.plaque.lignes.forEach(function (l) {
+          var r = el('div', 'ligne');
+          r.appendChild(el('span', 'n', l.n));
+          r.appendChild(el('span', 'v', l.v));
+          lg.appendChild(r);
+        });
+        pl.appendChild(lg);
+      }
       var pied = el('div', 'pied');
       pied.appendChild(el('span', null, 'TrainHub'));
       pied.appendChild(el('span', null, e.plaque.pied || 'Ton année ' + e.plaque.an));
@@ -564,6 +576,13 @@
         if (c.g) { ctx.font = police(850, 80); ctx.fillStyle = PALETTE.or; ctx.fillText(c.g, cx, cy + 90); }
         if (c.m) { ctx.font = police(700, 56); ctx.fillStyle = PALETTE.craie; ctx.fillText(c.m, cx, cy + 80); }
         if (c.p) { ctx.font = police(500, 32); ctx.fillStyle = PALETTE.cendre; ctx.fillText(c.p, cx, cy + 140); }
+      });
+      var yl = y + 90 + Math.ceil(pl.cases.length / 2) * 290;
+      (pl.lignes || []).forEach(function (l, i) {
+        var ly = yl + i * 80;
+        ctx.fillStyle = '#353d47'; ctx.fillRect(X, ly - 50, L, 2);
+        ctx.font = police(500, 38); ctx.fillStyle = PALETTE.cendre; ctx.fillText(l.n, X, ly);
+        ctx.font = police(700, 44); ctx.fillStyle = PALETTE.craie; ctx.textAlign = 'right'; ctx.fillText(l.v, X + L, ly); ctx.textAlign = 'left';
       });
     } else {
       if (e.lab) ecrire(e.lab, 500, 44, PALETTE.cendre);

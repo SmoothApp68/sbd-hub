@@ -211,7 +211,11 @@ describe('98 — DISCRIMINANT : la story du mois reprend tout l’ancien bilan d
     expect(JSON.stringify(e)).not.toMatch(/\d+\s*séances?/);
     expect(JSON.stringify(de('plaque'))).not.toMatch(/pari|coach/i);
     expect(de('plaque').plaque.an).toBe('Octobre 2026');
-    expect(de('plaque').plaque.cases[1]).toEqual({ k: 'Records', g: '5', p: 'squat' });
+    expect(de('plaque').plaque.cases[1]).toEqual({ k: 'Records', g: '5', p: null });
+    // 226 — les records du mois en « charge × reps », sous la grille (3 au plus), et les séries de travail sous les tonnes.
+    expect(de('plaque').plaque.lignes.length).toBe(3);
+    expect(de('plaque').plaque.lignes.every((l) => /×/.test(l.v) && !!l.n)).toBe(true);
+    expect(de('plaque').plaque.cases[0].p).toMatch(/séries? de travail$/);
   });
 });
 

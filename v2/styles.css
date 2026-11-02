@@ -2610,6 +2610,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .annee .plaque{border-radius:20px;padding:20px 18px 16px;background:linear-gradient(160deg,#262d36,#1a1f25);border:1px solid #ffffff1f;box-shadow:inset 0 1px 0 #ffffff14}
 .annee .plaque .tete{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;gap:8px}
 .annee .plaque .an{font-size:40px;font-weight:900;font-variation-settings:"wdth" 125;line-height:1}
+.annee .plaque .lignes{margin-top:10px}.annee .plaque .ligne{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid #ffffff1f;font-size:14px}.annee .plaque .ligne .n{color:var(--cendre);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.annee .plaque .ligne .v{font-weight:700;white-space:nowrap}
 .annee .plaque .qui{font-size:14px;color:var(--cendre);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .annee .plaque .an.long{font-size:26px;font-variation-settings:"wdth" 110;line-height:1.1;min-width:0}.annee .plaque .tete:has(.long){flex-direction:column;align-items:flex-start;gap:4px}
 .annee .grille{display:grid;grid-template-columns:1fr 1fr;row-gap:14px;column-gap:16px}

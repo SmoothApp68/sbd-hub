@@ -7,8 +7,8 @@ const Profil = require('../../v2/js/profil.js');
 const lire = (f) => fs.readFileSync(path.join(__dirname, '../../v2', f), 'utf8');
 
 describe('212 — pages légales', () => {
-  test('trois pages : mentions, confidentialité, santé', () => {
-    expect(M.pages().map((p) => p.cle)).toEqual(['mentions', 'confidentialite', 'sante']);
+  test('quatre pages : mentions, confidentialité, santé, crédits (218)', () => {
+    expect(M.pages().map((p) => p.cle)).toEqual(['mentions', 'confidentialite', 'sante', 'credits']);
   });
   test('la ligne contact est cachée tant qu’elle vaut le marqueur (qui reste dans le code)', () => {
     expect(M.CONTACT).toBe('À COMPLÉTER');

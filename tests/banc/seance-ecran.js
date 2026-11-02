@@ -27534,6 +27534,73 @@ const SETS_IMPORTES = [
     } else {
       ok('[EQ188] une carte porte « Pas maintenant »', false, nb188(v2.cartes.map((c) => [c.cle, c.boutons.map((b) => b.t)])));
     }
+    // 218 — LE BONHOMME DES MUSCLES, dans la carte : une séance d'hier (4 séries de développé, 2 de latérales, 3 de squat) ; le dessin lit
+    // la somme des sept jours ; à 380 et à 360 px rien ne déborde et la bulle reste dans l'écran ; le sexe est gardé sur l'appareil.
+    {
+      const hier = ilYa(86400000, t188).toISOString(), idH = 'eq188-bonhomme';
+      base.sessions.push({ id: idH, user_id: 'u-banc', titre: 'EQ188 — bonhomme', debut: hier, fin: finDe(hier, t188).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-eq188', source: 'app', created_at: hier, gestes: [] });
+      let rangH = 0;
+      [['eq188-dev', 4], ['eq188-lat', 2], ['eq188-squat', 3]].forEach(([slug, nb]) => {
+        for (let k = 0; k < nb; k++) base.sets.push({ id: idH + '-s' + (++rangH), session_id: idH, user_id: 'u-banc', exercise_slug: slug,
+          charge_kg: 60, reps: 8, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null,
+          type_serie: 'travail', rang: rangH, groupe_superset: null, validee_a: hier, rpe: null, ressenti: null, repos_s: null,
+          note: null, source: 'app', created_at: hier, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false });
+      });
+      await aller('/progression/parcours');
+      await attendreQue(() => page.evaluate(() => !!document.querySelector('#parcours .bonhomme')), 15000, 'bonhomme218');
+      const lireBonhomme = () => page.evaluate(() => {
+        const c = document.querySelector('#parcours .bonhomme');
+        const r = (n) => { const b = n.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }; };
+        const lignes = Array.from(c.querySelectorAll('.bh-liste li')).map((li) => [li.getAttribute('data-muscle'), li.querySelector('b').textContent]);
+        return { lignes, svgs: c.querySelectorAll('svg.bh').length, carte: r(c), larg: window.innerWidth, defil: document.documentElement.scrollWidth,
+          boutons: Array.from(c.querySelectorAll('.bh-choix')).map((b) => Math.round(b.getBoundingClientRect().height)),
+          dessinCache: c.querySelector('.bh-vues').getAttribute('aria-hidden'), sexe: c.getAttribute('data-bonhomme') };
+      });
+      const b0 = await lireBonhomme();
+      const lig = Object.fromEntries(b0.lignes);
+      const nLig = (m) => Number(String(lig[m]).replace(',', '.'));
+      ok('[BH218] la carte lit les sept jours (le faux serveur en porte déjà d’autres) : 18 muscles, du plus chargé au moins chargé, ma séance d’hier y est',
+        b0.lignes.length === 18 && nLig('pectoraux') >= 4 && nLig('quadriceps') >= 3 && nLig('deltoide_lateral') >= 2
+        && b0.lignes.every((x, i, a) => i === 0 || Number(String(a[i - 1][1]).replace(',', '.')) >= Number(String(x[1]).replace(',', '.'))), nb188(b0.lignes));
+      ok('[BH218] deux dessins, cachés aux lecteurs d’écran, Homme par défaut, boutons de 44 px',
+        b0.svgs === 2 && b0.dessinCache === 'true' && b0.sexe === 'homme' && b0.boutons.every((h) => h >= 44), nb188(b0));
+      for (const [l, h] of [[380, 760], [360, 760]]) {
+        await page.setViewportSize({ width: l, height: h });
+        await aller('/progression/parcours');   // une carte neuve : aucune bulle restée ouverte d'une largeur à l'autre
+        await attendreQue(() => page.evaluate(() => !!document.querySelector('#parcours .bonhomme')), 15000, 'bonhomme218w');
+        await page.waitForTimeout(150);
+        await page.evaluate(() => document.querySelector('#parcours .bonhomme').scrollIntoView({ block: 'start' }));
+        const bb = await lireBonhomme();
+        ok('[BH218] à ' + l + ' px : rien ne déborde (la carte tient dans l’écran, aucun défilement horizontal)',
+          bb.carte.l >= 0 && bb.carte.r <= bb.larg && bb.defil <= bb.larg, nb188(bb.carte) + ' défil=' + bb.defil);
+        // Un toucher sur le quadriceps (de face) : la bulle dit le fait et reste dans l'écran.
+        await page.evaluate(() => { const p = document.querySelector('#parcours .bonhomme [data-cote="avant"] [data-p="quadriceps"]'); p.scrollIntoView({ block: 'center' }); });
+        await page.waitForTimeout(100);
+        // Un point qui tombe VRAIMENT sur le quadriceps (la boîte du muscle recouvre d'autres parties) : balayage de sa boîte.
+        const pos = await page.evaluate(() => {
+          const p = document.querySelector('#parcours .bonhomme [data-cote="avant"] [data-p="quadriceps"]'), r = p.getBoundingClientRect();
+          for (let y = r.top + 2; y < r.bottom; y += 3) for (let x = r.left + 2; x < r.right; x += 3) if (document.elementFromPoint(x, y) === p) return { x, y };
+          return null;
+        });
+        if (pos) await page.mouse.click(pos.x, pos.y);
+        const bulle = await page.evaluate(() => { const b = document.querySelector('#parcours .bonhomme [data-cote="avant"] .bh-bulle'); const r = b.getBoundingClientRect(); const f = document.querySelector('#parcours .bonhomme [data-cote="avant"]').getBoundingClientRect(); return { cache: b.hidden, t: b.textContent, l: Math.round(r.left), r: Math.round(r.right), top: Math.round(r.top), fl: Math.round(f.left), fr: Math.round(f.right), w: window.innerWidth }; });
+        ok('[BH218] à ' + l + ' px : « Quadriceps : N séries cette semaine » (le N de la liste), la bulle reste dans le cadre du dessin et dans l’écran',
+          pos && !bulle.cache && bulle.t === 'Quadriceps : ' + lig.quadriceps + ' séries cette semaine' && bulle.l >= 0 && bulle.r <= bulle.w && bulle.l >= bulle.fl - 1 && bulle.r <= bulle.fr + 1 && bulle.top >= 0, nb188(bulle));
+      }
+      await page.evaluate(() => document.querySelector('#parcours .bonhomme [data-sexe="femme"]').click());
+      await page.waitForTimeout(100);
+      const stock = await page.evaluate(() => { try { return localStorage.getItem('th-silhouette'); } catch (e) { return 'erreur'; } });
+      const b1 = await lireBonhomme();
+      ok('[BH218] « Femme » : le dessin change, les chiffres non, le choix est gardé sur l’appareil (pas en base)',
+        b1.sexe === 'femme' && stock === 'femme' && JSON.stringify(b1.lignes) === JSON.stringify(b0.lignes)
+        && !base.journal.some((j) => /silhouette/i.test(JSON.stringify(j))), nb188([b1.sexe, stock]));
+      await page.setViewportSize({ width: 380, height: 760 });
+      await aller('/progression/parcours');
+      await attendreQue(() => page.evaluate(() => !!document.querySelector('#parcours .bonhomme')), 15000, 'bonhomme218b');
+      ok('[BH218] la préférence revient au rechargement', (await lireBonhomme()).sexe === 'femme', '');
+      await page.evaluate(() => { try { localStorage.removeItem('th-silhouette'); } catch (e) { /* rien */ } });
+    }
     ok('[EQ188] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       nb188([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));

@@ -11,6 +11,15 @@
 
   var SANTE = 'TrainHub t’aide à t’entraîner, ce n’est pas un avis médical. Avant de commencer ou de reprendre, demande l’avis d’un médecin si tu as une maladie, une blessure, des douleurs, si tu es enceinte ou si tu viens d’accoucher. Arrête la série si tu as mal, et note-le : le coach adaptera la suite. L’app est réservée aux personnes de ' + AGE_MINIMUM + ' ans et plus.';
 
+  // 218 — le crédit des silhouettes du bonhomme des muscles et le texte de leur licence (MIT), à conserver avec elles.
+  var LICENCE_SILHOUETTES = [
+    'MIT License',
+    'Copyright (c) 2022 ELABBASSI Hicham',
+    'Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:',
+    'The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.',
+    'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'
+  ].join('\n\n');
+
   function contactAffichable() { return CONTACT !== A_COMPLETER && String(CONTACT).trim() !== ''; }
 
   // Une page : { cle, titre, blocs: [{ titre?, texte }] }
@@ -35,7 +44,12 @@
         { titre: 'Tes droits',
           texte: 'Tu peux exporter tes données (Profil › Mon compte › Exporter mes données), supprimer ton compte (Profil, tout en bas) et rectifier ce qui est faux depuis ton profil. Tu peux aussi adresser une réclamation à la CNIL.' }
       ] },
-      { cle: 'sante', titre: 'Santé', blocs: [{ texte: SANTE }] }
+      { cle: 'sante', titre: 'Santé', blocs: [{ texte: SANTE }] },
+      { cle: 'credits', titre: 'Crédits', blocs: [
+        { titre: 'Silhouettes du bonhomme des muscles',
+          texte: 'Les tracés du corps viennent de react-native-body-highlighter 3.2.0 (licence MIT, © 2022 ELABBASSI Hicham). Texte de la licence ci-dessous.' },
+        { titre: 'Licence MIT', texte: LICENCE_SILHOUETTES }
+      ] }
     ];
   }
 
@@ -46,7 +60,7 @@
   }
 
   var api = { pages: pages, page: page, contactAffichable: contactAffichable, A_COMPLETER: A_COMPLETER,
-              CONTACT: CONTACT, AGE_MINIMUM: AGE_MINIMUM, SANTE: SANTE };
+              CONTACT: CONTACT, AGE_MINIMUM: AGE_MINIMUM, SANTE: SANTE, LICENCE_SILHOUETTES: LICENCE_SILHOUETTES };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   racine.THMentions = api;
 })(typeof self !== 'undefined' ? self : globalThis);

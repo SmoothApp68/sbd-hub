@@ -949,6 +949,14 @@
     return { code: 'a-envoyer', libelle: r.libelle, local: true };
   }
 
+  // 219 — le texte d'envoi de l'écran de séance en cours : LA MÊME décision que `#etat-sync` (`deciderEtat`), un second
+  // lecteur. Il ne parle que s'il reste quelque chose à envoyer (état issu de la file) ; tout envoyé, ou état de lecture
+  // seul (« à jour », « local »…) : chaîne vide.
+  function texteEnvoi(etatLecture, file) {
+    var e = deciderEtat(etatLecture, file);
+    return e && e.local && e.libelle && (e.code === 'a-envoyer' || e.code === 'echec' || e.code === 'bloque') ? e.libelle : '';
+  }
+
   // 144-3 — combien de tours une vidange s'accorde. Une entrée fait au plus deux passages (un échec, puis la marque) :
   // 2 × la file + 10 ne coupe jamais une file saine (630 entrées après un mois hors ligne, 200 seulement partaient) et
   // reste une vraie protection contre une file qui ne rétrécit pas. Plancher à 200 : une petite file garde sa marge.
@@ -998,6 +1006,7 @@
     ordonnee: ordonnee,
     prochaine: prochaine,
     gardeDeVidange: gardeDeVidange,
+    texteEnvoi: texteEnvoi,
     retirer: retirer,
     marquerEchec: marquerEchec,
     marquerParti: marquerParti,

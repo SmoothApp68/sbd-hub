@@ -392,7 +392,7 @@ describe('§9.22 — « Faire de ce dossier un programme » : l’exercice prior
         Moteur: M, Profil, profil,
         exercicesDuDossier: () => DOSSIER.slice(),
         catalogueIndexe: () => CATALOGUE,
-        rendreFeuilleProgramme: () => {}, ouvrirVoile: () => {}, $: () => ({}),
+        routines: [], rendreFeuilleProgramme: () => {}, ouvrirVoile: () => {}, $: () => ({}),
         programmeEnCours: null
       };
       vm.createContext(ctx);

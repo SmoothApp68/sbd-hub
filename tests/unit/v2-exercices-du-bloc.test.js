@@ -17,6 +17,7 @@ const CAT = {
   [SOULEVE]: fiche('barre', ['ischio_jambiers', 'fessiers'], ['bas_du_dos']),
   tapis_roulant: fiche('machine', [], []), poulie_haute: fiche('poulie', ['grand_dorsal'], ['biceps']),
   presse_a_cuisses: fiche('machine', ['quadriceps'], ['fessiers']), planche: fiche('poids_du_corps', ['abdominaux'], []),
+  curl_barre: fiche('barre', ['biceps'], []),
   curl_machine: fiche('machine', ['biceps'], [])
 };
 const DOSSIER = ['tapis_roulant', COUCHE, 'poulie_haute', SQUAT, 'presse_a_cuisses', SOULEVE, 'planche'];
@@ -46,7 +47,7 @@ describe('223 — exercicesCandidatsDuBloc', () => {
   });
   test('un exercice du bloc précédent hors barre reste candidat et coché, à sa place dans le dossier', () => {
     const r = M.exercicesCandidatsDuBloc(DOSSIER, CAT, null, [COUCHE, 'presse_a_cuisses']);
-    expect(r.candidats).toEqual([COUCHE, 'presse_a_cuisses', SQUAT, SOULEVE]);
+    expect(r.candidats).toEqual([COUCHE, SQUAT, 'presse_a_cuisses', SOULEVE]);
     expect(r.coches).toEqual([COUCHE, 'presse_a_cuisses']);
   });
   test('un exercice du bloc précédent sorti du dossier reste candidat (à la fin) et coché', () => {
@@ -56,12 +57,17 @@ describe('223 — exercicesCandidatsDuBloc', () => {
   });
   test('une priorité du questionnaire hors barre est candidate et cochée par défaut', () => {
     const r = M.exercicesCandidatsDuBloc(DOSSIER, CAT, ['presse_a_cuisses', 'zone_lourd'], []);
-    expect(r.candidats).toEqual([COUCHE, 'presse_a_cuisses', SQUAT, SOULEVE]);
-    expect(r.coches).toEqual([COUCHE, 'presse_a_cuisses', SQUAT, SOULEVE]);
+    expect(r.candidats).toEqual([COUCHE, SQUAT, 'presse_a_cuisses', SOULEVE]);
+    expect(r.coches).toEqual([COUCHE, SQUAT, 'presse_a_cuisses', SOULEVE]);
   });
   test('un bloc précédent sans exercices retombe sur les barres par défaut (jamais une feuille sans coche)', () => {
     expect(M.exercicesCandidatsDuBloc(DOSSIER, CAT, null, []).coches).toEqual([COUCHE, SQUAT, SOULEVE]);
     expect(M.exercicesCandidatsDuBloc(DOSSIER, CAT, null, undefined).coches).toEqual([COUCHE, SQUAT, SOULEVE]);
+  });
+  test('une barre d’isolation est proposée mais jamais cochée par défaut ; la machine ne l’est pas', () => {
+    const r = M.exercicesCandidatsDuBloc(['curl_barre', 'curl_machine', COUCHE], CAT, null, []);
+    expect(r.candidats).toEqual(['curl_barre', COUCHE]);
+    expect(r.coches).toEqual([COUCHE]);
   });
   test('un dossier sans barre : aucun candidat, rien de coché, pas d’exception', () => {
     expect(M.exercicesCandidatsDuBloc(['tapis_roulant', 'planche'], CAT, null, [])).toEqual({ candidats: [], coches: [] });

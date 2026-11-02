@@ -55,7 +55,7 @@ describe('§9.22 — la zone PROPOSÉE du premier bloc suit l’objectif', () =>
         Moteur: M, Profil, profil,
         exercicesDuDossier: () => ['squat_barre'],
         catalogueIndexe: () => ({}),
-        rendreFeuilleProgramme: () => {}, ouvrirVoile: () => {}, $: () => ({}),
+        routines: [], rendreFeuilleProgramme: () => {}, ouvrirVoile: () => {}, $: () => ({}),
         programmeEnCours: null
       };
       vm.createContext(ctx);

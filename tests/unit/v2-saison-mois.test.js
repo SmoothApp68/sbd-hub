@@ -240,7 +240,7 @@ describe('119 — l’exercice du mois : en reps, classé par ses reps, « 1 rep
     expect(ex.titre).toBe('Squat (Barre)');
     expect(ex.chiffre).toMatchObject({ v: 20, unite: 'reps' });
     expect(ex.lignes.map((l) => l.v)).toEqual(['Développé Couché (Barre) · 5 reps']);
-    expect(JSON.stringify(e)).not.toMatch(/Tapis|Planche|0 reps/);
+    expect(JSON.stringify(e)).not.toMatch(/Tapis|Planche|(^|[^0-9])0 reps/) // 226 : « 20 reps » n’est pas « 0 reps »;
   });
   test('F10 : un exercice à 1 rep se dit « 1 rep »', () => {
     const un = Bilans.bilanDeLaPeriode({ periode: p, aujourdhui: '2026-10-31', exercices: CAT119, pesees: [], paris: [],

@@ -169,13 +169,23 @@
                      .filter(function (n, k, t) { return t.indexOf(n) === k; }).slice(0, 3).join(', ') });
     }
     if (b.avance && b.avance.tete) {
-      cases.push({ k: 'Plus gros progrès', m: sansParentheses(b.avance.tete.nom),
+      // 226 — le gain en clair : « Squat +5 kg », le détail dessous.
+      var gain = b.avance.tete.a - b.avance.tete.de;
+      cases.push({ k: 'Plus gros progrès', m: sansParentheses(b.avance.tete.nom) + (gain > 0 ? ' +' + kg(gain) : ''),
                    p: M().nombreTexte(b.avance.tete.de, 1) + ' → ' + kg(b.avance.tete.a) + ' à ' + M().repsTexte(b.avance.tete.reps) });
     }
     if (saison && b.exercices.length) cases.push({ k: 'Exercice de la saison', m: sansParentheses(b.exercices[0].nom), p: repsTxt(b.exercices[0].reps) });
     if (!saison && b.muscles.length) cases.push({ k: 'Muscle du mois', m: b.muscles[0].libelle, p: seriesTxt(b.muscles[0].series) });
+    // 226 — sous la grille : les 3 premiers records du mois ; un mois sans record dit ses exercices (jamais une image vide).
+    var lignes = { titre: null, l: null };
+    if (!saison && (vue.records || []).length) {
+      lignes = { titre: 'Tes records', l: vue.records.slice(0, 3).map(function (r) { return { n: sansParentheses(r.nom), v: r.mesure }; }) };
+    } else if (!saison && (b.exercices || []).length) {
+      lignes = { titre: 'Tes exercices du mois', l: b.exercices.slice(0, 3).map(function (x) { return { n: sansParentheses(x.nom), v: repsTxt(x.reps) }; }) };
+    }
     out.push({ cle: 'plaque', d: 0, plaque: { an: titre, qui: vue.qui || '', cases: cases.slice(0, 6), pied: titre,
-                                              lignes: saison ? null : (vue.records || []).slice(0, 3).map(function (r) { return { n: sansParentheses(r.nom), v: r.mesure }; }),
+                                              heros: true,
+                                              titreLignes: lignes.titre, lignes: lignes.l,
                                               bouton: saison ? 'Partager ma saison' : 'Partager mon mois' } });
     return out;
   }
@@ -296,7 +306,9 @@
                      : (ec < 0 ? '−' + M().nombreTexte(-ec, 1) + ' kg sur ' + (cmp.mode === 'precedente' ? cmp.libelle : 'le début') : majuscule(cmp.comme))) });
     }
     if (b.avance && b.avance.tete) {
-      cases.push({ k: 'Plus gros progrès', m: sansParentheses(b.avance.tete.nom),
+      // 226 — le gain en clair : « Squat +5 kg », le détail dessous.
+      var gain = b.avance.tete.a - b.avance.tete.de;
+      cases.push({ k: 'Plus gros progrès', m: sansParentheses(b.avance.tete.nom) + (gain > 0 ? ' +' + kg(gain) : ''),
                    p: M().nombreTexte(b.avance.tete.de, 1) + ' → ' + kg(b.avance.tete.a) + ' à ' + M().repsTexte(b.avance.tete.reps) });
     }
     if (b.muscles.length) cases.push({ k: 'Muscle de l’année', m: b.muscles[0].libelle, p: milliers(b.muscles[0].series) + ' séries' });
@@ -346,8 +358,8 @@
       tete.appendChild(el('span', 'qui', e.plaque.qui));
       pl.appendChild(tete);
       var gr = el('div', 'grille');
-      e.plaque.cases.forEach(function (c) {
-        var d = el('div');
+      e.plaque.cases.forEach(function (c, i) {
+        var d = el('div', e.plaque.heros && i === 0 ? 'heros' : null);
         d.appendChild(el('div', 'k', c.k));
         if (c.g) d.appendChild(el('div', 'g', c.g));
         if (c.m) d.appendChild(el('div', 'm', c.m));
@@ -357,6 +369,7 @@
       pl.appendChild(gr);
       if (e.plaque.lignes && e.plaque.lignes.length) {
         var lg = el('div', 'lignes');
+        if (e.plaque.titreLignes) lg.appendChild(el('div', 'k', e.plaque.titreLignes));
         e.plaque.lignes.forEach(function (l) {
           var r = el('div', 'ligne');
           r.appendChild(el('span', 'n', l.n));
@@ -565,19 +578,36 @@
     };
     if (e.plaque) {
       var pl = e.plaque;
-      ctx.fillStyle = PALETTE.fonte; ctx.fillRect(X - 30, y, L + 60, 1100);
-      y += 120; ctx.font = police(900, 110); ctx.fillStyle = PALETTE.craie; ctx.fillText(pl.an, X, y);
+      // 226 — la hauteur suit le contenu (le chiffre fort, la grille, les lignes) : rien n'est coupé, rien ne flotte.
+      var nGrille = pl.heros ? Math.max(pl.cases.length - 1, 0) : pl.cases.length, nLignes = (pl.lignes || []).length;
+      var haut = pl.heros ? 120 + 400 + 90 + Math.ceil(nGrille / 2) * 250 + (nLignes ? 70 + nLignes * 80 : 0) - 30 : 1100;
+      ctx.fillStyle = PALETTE.fonte; ctx.fillRect(X - 30, y, L + 60, haut);
+      y += 120; ctx.font = police(500, 38); var lq = pl.qui ? ctx.measureText(pl.qui).width + 30 : 0;
+      var ta = 110; ctx.font = police(900, ta);
+      while (ctx.measureText(pl.an).width > L - lq && ta > 60) { ta -= 4; ctx.font = police(900, ta); }   // 226 : le pseudo ne mord plus le titre
+      ctx.fillStyle = PALETTE.craie; ctx.fillText(pl.an, X, y);
       ctx.font = police(500, 38); ctx.fillStyle = PALETTE.cendre; ctx.textAlign = 'right'; ctx.fillText(pl.qui, X + L, y);
       ctx.textAlign = 'left';
-      var col = L / 2;
-      pl.cases.forEach(function (c, i) {
-        var cx = X + (i % 2) * col, cy = y + 90 + Math.floor(i / 2) * 290;
+      var col = L / 2, grille = pl.cases, pas = 290;
+      if (pl.heros && grille.length) {
+        // 226 — le chiffre fort : la première case en grand, seule sur sa ligne.
+        var h = grille[0], hy = y + 100;
+        ctx.font = police(500, 36); ctx.fillStyle = PALETTE.cendre; ctx.fillText(h.k, X, hy);
+        var th = 190; ctx.font = police(900, th);
+        while (ctx.measureText(h.g).width > L && th > 80) { th -= 6; ctx.font = police(900, th); }
+        ctx.fillStyle = PALETTE.or; ctx.fillText(h.g, X, hy + th);
+        if (h.p) { ctx.font = police(500, 36); ctx.fillStyle = PALETTE.cendre; ctx.fillText(h.p, X, hy + th + 60); }
+        y = hy + th + 110; grille = grille.slice(1); pas = 250;
+      }
+      grille.forEach(function (c, i) {
+        var cx = X + (i % 2) * col, cy = y + 90 + Math.floor(i / 2) * pas;
         ctx.font = police(500, 34); ctx.fillStyle = PALETTE.cendre; ctx.fillText(c.k, cx, cy);
         if (c.g) { ctx.font = police(850, 80); ctx.fillStyle = PALETTE.or; ctx.fillText(c.g, cx, cy + 90); }
         if (c.m) { ctx.font = police(700, 56); ctx.fillStyle = PALETTE.craie; ctx.fillText(c.m, cx, cy + 80); }
         if (c.p) { ctx.font = police(500, 32); ctx.fillStyle = PALETTE.cendre; ctx.fillText(c.p, cx, cy + 140); }
       });
-      var yl = y + 90 + Math.ceil(pl.cases.length / 2) * 290;
+      var yl = y + 90 + Math.ceil(grille.length / 2) * pas;
+      if (pl.titreLignes && (pl.lignes || []).length) { ctx.font = police(500, 34); ctx.fillStyle = PALETTE.cendre; ctx.fillText(pl.titreLignes, X, yl - 20); yl += 70; }
       (pl.lignes || []).forEach(function (l, i) {
         var ly = yl + i * 80;
         ctx.fillStyle = '#353d47'; ctx.fillRect(X, ly - 50, L, 2);
@@ -608,8 +638,10 @@
         ecrire(e.pdc.map(function (x) { return x.n + ' ' + x.v; }).join(' · '), 800, 50, PALETTE.craie, 1.4);
       }
     }
-    ctx.font = police(600, 36); ctx.fillStyle = PALETTE.cendre;
+    // 226 — la marque se lit : TrainHub en clair, la période en gris.
+    ctx.font = police(800, 46); ctx.fillStyle = PALETTE.craie;
     ctx.fillText('TrainHub', X, IMG_H - 110);
+    ctx.font = police(600, 36); ctx.fillStyle = PALETTE.cendre;
     ctx.textAlign = 'right'; ctx.fillText(an, X + L, IMG_H - 110); ctx.textAlign = 'left';
   }
   // Rend une promesse du `Blob` PNG de l'écran.

@@ -84,3 +84,20 @@ describe('216 — points d\'exercice rapides', () => {
     expect(ms).toBeLessThan(300);
   });
 });
+
+describe('220 — « Tes exercices » : le choix (priorités, barre, ce qui a le plus progressé) tient le budget', () => {
+  test('627 séances, ~17 800 séries, 153 exercices : le choix + les points des 4 lignes, sous 400 ms', () => {
+    require('../../v2/js/parcours.js'); require('../../v2/js/poids.js'); require('../../v2/js/bilans.js');
+    const c = historique(627, 153, 28);
+    const F = Faits.creer();
+    const now = new Date(2026, 10, 1, 19);
+    const t = Date.now();
+    const avance = F.ceQuiAProgresse(c, now, 6, {});
+    const l = F.exercicesDeProgression(c, now, { semaines: 8, combien: 4, priorites: ['exo_5'], avance });
+    l.forEach((slug) => { const p = F.pointsDeLExercice(c, slug).points; void p[p.length - 1].record; });
+    const ms = Date.now() - t;
+    expect(l.length).toBe(4);
+    expect(ms).toBeLessThan(400);
+  });
+});
+

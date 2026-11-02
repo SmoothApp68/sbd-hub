@@ -100,6 +100,25 @@
     return { type: 'annee', cle: String(a), libelle: String(a), debut: a + '-01-01', fin: a + '-12-31',
              precedente: { debut: (a - 1) + '-01-01', fin: (a - 1) + '-12-31', libelle: String(a - 1) } };
   }
+  // 220 — LES `n` DERNIERS MOIS jusqu'à `jour` (« Ce qui a le plus progressé » de Progression) : une période de type `annee` (même
+  // comparaison que l'année : contre les `n` mois d'avant s'il y a 12 mois de données, sinon son début contre sa fin), la même
+  // notion « ce qui a le plus avancé » que « Ton année » — `bilanDeLaPeriode(…).avance`. Rien n'est recopié.
+  function periodeDesDerniersMois(n, jour) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(jour || ''));
+    if (!m) return null;
+    var f = function (a, mo, j) { return a + '-' + deux(mo) + '-' + deux(j); };
+    var borne = function (k) {   // le lendemain du jour d'il y a k mois (k mois pile avant, jour compris)
+      var d = new Date(Date.UTC(+m[1], +m[2] - 1 - k, +m[3] + 1));
+      return f(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+    };
+    var veille = function (iso) {
+      var d = new Date(Date.parse(iso + 'T00:00:00Z') - 864e5);
+      return f(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+    };
+    var debut = borne(n), debutAvant = borne(2 * n);
+    return { type: 'annee', cle: 'derniers-' + n + '-mois-' + jour, libelle: n + ' derniers mois', debut: debut, fin: jour,
+             precedente: { debut: debutAvant, fin: veille(debut), libelle: n + ' mois d’avant' } };
+  }
   // Le mois (98) : « octobre 2026 », comparé à septembre.
   function periodeDuMois(cle) {
     var m = /^(\d{4})-(\d{2})$/.exec(String(cle || ''));
@@ -224,6 +243,65 @@
     return { mode: 'debut_fin', moisDeDonnees: moisDeDonnees,
              avant: { debut: deNumero(d0), fin: deNumero(milieu) }, apres: { debut: deNumero(milieu + 1), fin: deNumero(d1) },
              libelle: debut, qu: 'qu’' + debut, comme: 'comme ' + debut };
+  }
+
+  // ── Ce qui a le plus avancé : à reps égales, la fenêtre d'avant contre celle d'après ─────────────────────
+  // `travail` : `[{ jour, seance, serie }]` (les séries de travail datées) ; `cmp` : `comparaisonDe` (mode ≠ 'aucune') ; `index` :
+  // le catalogue par slug. Rend `{ compares, progressent, gains }`, `gains` du plus au moins avancé. La SEULE règle : « Ton année »
+  // (`bilanDeLaPeriode`) et « Tes exercices » de Progression (`ceQuiAvance`, 220) la lisent toutes deux.
+  function gainsDe(travail, cmp, index, nomDe) {
+    var cel = {};
+    travail.forEach(function (t) {
+      var p = dans(t.jour, cmp.avant) ? 'A' : (dans(t.jour, cmp.apres) ? 'B' : null);
+      if (!p) return;
+      var slug = t.serie.exercise_slug, o = cel[slug] || (cel[slug] = { A: {}, B: {}, nA: {}, nB: {} });
+      o['n' + p][t.seance] = true;
+      var c = nombre(t.serie.charge_kg), r = nombre(t.serie.reps);
+      if (c === null || c <= 0 || r === null || r < 1 || r > Pa().REPS_CELLULE_MAX) return;
+      if (centiemes(c) > (o[p][r] || 0)) o[p][r] = centiemes(c);
+    });
+    var compares = 0, progressent = 0, gains = [];
+    Object.keys(cel).sort().forEach(function (slug) {
+      var fiche = index[slug];
+      if (!fiche || fiche.habilete) return;
+      var o = cel[slug];
+      if (Pa().pratique(Object.keys(o.nA).length, Object.keys(o.nB).length)) return;
+      var eg = Pa().aRepsEgales(o.A, o.B);
+      if (!eg) return;
+      compares++;
+      if (eg.etat !== '↑' && eg.etat !== '↗') return;
+      progressent++;
+      var best = null;
+      eg.communs.forEach(function (r) {
+        var q = o.B[r] / o.A[r];
+        if (!best || q > best.q + 1e-12) best = { q: q, reps: r };
+      });
+      if (best.q <= 1) return;
+      var fois = fiche.equipement === 'haltere' ? 2 : 1;   // haltères : le poids des deux
+      gains.push({ slug: slug, nom: nomDe(slug), reps: best.reps, de: o.A[best.reps] * fois / 100,
+                   a: o.B[best.reps] * fois / 100, q: best.q, h: eg.h, n: eg.communs.length });
+    });
+    gains.sort(function (x, y) { return y.q - x.q || (x.slug < y.slug ? -1 : 1); });
+    return { compares: compares, progressent: progressent, gains: gains };
+  }
+  // 220 — LES SLUGS de ce qui a le plus avancé sur une période, sans le reste du bilan (les records, les tonnes, les mois : le bilan
+  // entier coûte ~0,45 s sur 627 séances). Même entrée que `bilanDeLaPeriode`, même `comparaisonDe`, même `gainsDe`.
+  function ceQuiAvance(e) {
+    var periode = e.periode, J = e.aujourdhui;
+    var fin = J && J < periode.fin ? J : periode.fin;
+    var index = {};
+    (e.exercices || []).forEach(function (x) { if (x && x.slug) index[x.slug] = x; });
+    var travail = [];
+    (e.seances || []).forEach(function (s) {
+      if (!s || !s.jour || s.jour > fin) return;
+      (s.series || []).forEach(function (x) {
+        if (x && x.exercise_slug && Mo().estTravail(x)) travail.push({ jour: s.jour, seance: s.id, serie: x });
+      });
+    });
+    var muscu = travail.filter(function (t) { return Se().estSerieDeMusculation(t.serie, index[t.serie.exercise_slug]); });
+    var cmp = comparaisonDe(periode, muscu);
+    if (cmp.mode === 'aucune') return [];
+    return gainsDe(travail, cmp, index, function (slug) { return slug; }).gains.map(function (g) { return g.slug; });
   }
 
   // ── Le calcul ────────────────────────────────────────────────────────────
@@ -422,38 +500,7 @@
     // de « Ton parcours » écarte un exercice qu'on a délaissé ; la comparaison à reps égales décide de la hausse.
     sortie.avance = null;
     if (avec) {
-      var cel = {};
-      travail.forEach(function (t) {
-        var p = dans(t.jour, cmp.avant) ? 'A' : (dans(t.jour, cmp.apres) ? 'B' : null);
-        if (!p) return;
-        var slug = t.serie.exercise_slug, o = cel[slug] || (cel[slug] = { A: {}, B: {}, nA: {}, nB: {} });
-        o['n' + p][t.seance] = true;
-        var c = nombre(t.serie.charge_kg), r = nombre(t.serie.reps);
-        if (c === null || c <= 0 || r === null || r < 1 || r > Pa().REPS_CELLULE_MAX) return;
-        if (centiemes(c) > (o[p][r] || 0)) o[p][r] = centiemes(c);
-      });
-      var compares = 0, progressent = 0, gains = [];
-      Object.keys(cel).sort().forEach(function (slug) {
-        var fiche = index[slug];
-        if (!fiche || fiche.habilete) return;
-        var o = cel[slug];
-        if (Pa().pratique(Object.keys(o.nA).length, Object.keys(o.nB).length)) return;
-        var eg = Pa().aRepsEgales(o.A, o.B);
-        if (!eg) return;
-        compares++;
-        if (eg.etat !== '↑' && eg.etat !== '↗') return;
-        progressent++;
-        var best = null;
-        eg.communs.forEach(function (r) {
-          var q = o.B[r] / o.A[r];
-          if (!best || q > best.q + 1e-12) best = { q: q, reps: r };
-        });
-        if (best.q <= 1) return;
-        var fois = fiche.equipement === 'haltere' ? 2 : 1;   // haltères : le poids des deux
-        gains.push({ slug: slug, nom: nomDe(slug), reps: best.reps, de: o.A[best.reps] * fois / 100,
-                     a: o.B[best.reps] * fois / 100, q: best.q, h: eg.h, n: eg.communs.length });
-      });
-      gains.sort(function (x, y) { return y.q - x.q || (x.slug < y.slug ? -1 : 1); });
+      var av0 = gainsDe(travail, cmp, index, nomDe), compares = av0.compares, progressent = av0.progressent, gains = av0.gains;
       if (compares) {
         var premier = gains[0] || null;
         var courbe = [];
@@ -495,7 +542,9 @@
 
   var api = {
     bilanDeLaPeriode: bilanDeLaPeriode,
+    ceQuiAvance: ceQuiAvance,
     periodeDeLAnnee: periodeDeLAnnee,
+    periodeDesDerniersMois: periodeDesDerniersMois,
     periodeDuMois: periodeDuMois,
     periodeDeLaSaison: periodeDeLaSaison,
     saisonDuJour: saisonDuJour,

@@ -281,11 +281,21 @@
       return out;
     }
 
-    // 206 — « TES EXERCICES » : les exercices les plus faits sur les `semaines` dernières semaines (le nombre de séances qui
-    // les portent ; à égalité, le plus récent), au plus `combien`. Rend des slugs. Un fait : l'écran ne compte rien.
-    function exercicesLesPlusFaits(c, maintenant, semaines, combien) {
+    // 206/220 — « TES EXERCICES » de Progression : au plus `combien` (4) exercices, des SLUGS, jamais un calcul d'écran.
+    //   (a) seulement les exercices mesurés en charge × reps (le catalogue : `mesure === 'charge_reps'`) — jamais le cardio, le temps
+    //       ni le poids du corps seul ; et qui ont au moins 2 points dans la fenêtre (`o.fenetre(points)`, les 6 mois de la courbe)
+    //       — le filtre passe AVANT la coupe, pour que la liste se remplisse ;
+    //   (b) d'abord les mouvements prioritaires du profil (`o.priorites`, les clés de `Profil.prioritesDe` qui sont des exercices),
+    //       puis les exercices À LA BARRE les plus faits sur `semaines` semaines (le nombre de séances qui les portent ; à égalité,
+    //       le plus récent), jusqu'à `combien - 1` lignes ;
+    //   (c) la dernière ligne : « ce qui a le plus progressé » (`o.avance`, les slugs de `THBilans…avance`, du plus avancé au
+    //       moins avancé) s'il n'est pas déjà dans la liste ; sinon (ou à défaut) le suivant des plus faits (barre d'abord, puis
+    //       le reste en charge × reps) — quatre lignes dès que l'historique le permet.
+    function exercicesDeProgression(c, maintenant, o) {
+      o = o || {};
+      var semaines = o.semaines || 8, combien = o.combien || 4;
       var t0 = new Date(maintenant.getTime() - semaines * 7 * 86400000).getTime();
-      var compte = {};
+      var catalogue = c.catalogue() || {}, compte = {};
       (c.seances || []).forEach(function (s, rang) {
         var t = s && s.debut ? new Date(s.debut).getTime() : NaN;
         if (isNaN(t) || t < t0 || t > maintenant.getTime()) return;
@@ -298,10 +308,50 @@
           if (rang < k.rang) k.rang = rang;
         });
       });
-      return Object.keys(compte).map(function (k) { return compte[k]; }).filter(function (k) {
-        var p = pointsDeLExercice(c, k.slug);
-        return p.points.length > 0;
-      }).sort(function (a, b) { return b.n - a.n || a.rang - b.rang; }).slice(0, combien).map(function (k) { return k.slug; });
+      var admis = {};
+      function admissible(slug) {
+        if (admis[slug] !== undefined) return admis[slug];
+        var exo = catalogue[slug];
+        var ok = !!exo && exo.mesure === 'charge_reps';
+        if (ok) {
+          var pts = pointsDeLExercice(c, slug).points;
+          ok = (o.fenetre ? o.fenetre(pts) : pts).length >= 2;
+        }
+        return (admis[slug] = ok);
+      }
+      // Paresseux : `admissible` lit les points d'un exercice (un balayage des séances) ; on ne le demande que pour les
+      // candidats qu'on est sur le point de poser, jamais pour les cent exercices d'une séance.
+      var frequents = Object.keys(compte).map(function (k) { return compte[k]; })
+        .sort(function (a, b) { return b.n - a.n || a.rang - b.rang; })
+        .map(function (k) { return k.slug; }).filter(function (s) { return !!catalogue[s] && catalogue[s].mesure === 'charge_reps'; });
+      var barres = frequents.filter(function (s) { return catalogue[s].equipement === 'barre'; });
+      var autres = frequents.filter(function (s) { return catalogue[s].equipement !== 'barre'; });
+      var sortie = [];
+      function poser(slug, limite) {
+        if (sortie.length >= (limite || combien) || sortie.indexOf(slug) >= 0 || !admissible(slug)) return false;
+        sortie.push(slug);
+        return true;
+      }
+      (o.priorites || []).forEach(function (s) { poser(s, combien - 1); });
+      barres.forEach(function (s) { poser(s, combien - 1); });
+      (o.avance || []).some(function (s) { return poser(s); });
+      barres.concat(autres).forEach(function (s) { poser(s); });
+      return sortie;
+    }
+
+    // 220 — « CE QUI A LE PLUS PROGRESSÉ » sur les `mois` derniers mois : la notion de « Ton année » (`THBilans…avance` : à reps
+    // égales, la fenêtre d'avant contre celle d'après), lue sur une période glissante ; les slugs, du plus au moins avancé.
+    var memoAvance = { cle: null, catalogue: null, slugs: [] };
+    function ceQuiAProgresse(c, maintenant, mois, autres) {
+      var periode = racine.THBilans.periodeDesDerniersMois(mois, Moteur.jourCivil(maintenant));
+      if (!periode) return [];
+      var memo = memoAvance;
+      var cle = (c.seances || []).length + '|' + (c.series || []).length + '|' + periode.cle;
+      if (memo.cle !== cle || memo.catalogue !== c.catalogue()) {
+        memoAvance = memo = { cle: cle, catalogue: c.catalogue(),
+                              slugs: racine.THBilans.ceQuiAvance(entreeDuBilan(c, periode, maintenant, autres)) };
+      }
+      return memo.slugs;
     }
 
     // 149 (MOTEUR §9.17 ter) — LES TENUES MAX D'UNE FIGURE : pour chaque séance faite qui porte l'exercice, sa meilleure
@@ -2099,7 +2149,8 @@
       seancesDeLExercice: seancesDeLExercice,
       tenuesDeLExercice: tenuesDeLExercice,
       pointsDeLExercice: pointsDeLExercice,
-      exercicesLesPlusFaits: exercicesLesPlusFaits,
+      exercicesDeProgression: exercicesDeProgression,
+      ceQuiAProgresse: ceQuiAProgresse,
       recordsDeLaSeance: recordsDeLaSeance,
       recordsDuMois: recordsDuMois,
       dernierRecord: dernierRecord,

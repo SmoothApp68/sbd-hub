@@ -3562,14 +3562,12 @@
         if (lib.gris) {
           var ligneGris = el('div', 'consigne-dit', lib.gris);
           // 204 — « Pourquoi ? » en lien discret au bout de la phrase datée ; 230 : c'est le SEUL geste qui ouvre la feuille.
-          var lp = lienPourquoi();
-          if (lp) { ligneGris.appendChild(doc.createTextNode(' ')); ligneGris.appendChild(lp); }
           entree.appendChild(ligneGris);
-        } else {
-          // Le silence compris (« pourquoi rien ? ») : sans phrase grise, le lien seul.
-          var lpSeul = lienPourquoi();
-          if (lpSeul) { var dSeul = el('div', 'consigne-dit pourquoi-seul'); dSeul.appendChild(lpSeul); entree.appendChild(dSeul); }
         }
+        // Le lien sur sa ligne, juste sous la consigne (le texte du coach reste mot pour mot ; sans phrase grise — « pourquoi
+        // rien ? » —, le lien est là quand même).
+        var lp = lienPourquoi();
+        if (lp) { var dLien = el('div', 'pourquoi-ligne'); dLien.appendChild(lp); entree.appendChild(dLien); }
         // 211 — « Mon premier pari : … » : la phrase du plan, une fois, sous la consigne (la ligne est déjà la porte du « Pourquoi »).
         var phrasePari = typeof vue.premierPari === 'function' ? vue.premierPari(x._iExo) : null;
         if (phrasePari) entree.appendChild(tapable(el('div', 'consigne-dit premier-pari', phrasePari)));

@@ -168,8 +168,8 @@ describe('l’exercice en salle', () => {
   test('« Pourquoi ? » : un lien au bout de la phrase datée (230 : le seul geste qui ouvre la feuille), le texte du coach reste mot pour mot', () => {
     const c = rendre(seanceDe([['dc', 2, null]]));
     const gris = c.querySelector('.consigne-dit');
-    expect(gris.firstChild.textContent).toBe('Le 29 oct. : 100 kg × 6. Une rep de plus.');
-    expect(gris.querySelector('.lien-pourquoi').textContent).toBe('Pourquoi\u00a0?');
+    expect(gris.textContent).toBe('Le 29 oct. : 100 kg × 6. Une rep de plus.');
+    expect(c.querySelector('.lien-pourquoi').textContent).toBe('Pourquoi\u00a0?');
     expect(CSS).toMatch(/\.lien-pourquoi\{/);
   });
 

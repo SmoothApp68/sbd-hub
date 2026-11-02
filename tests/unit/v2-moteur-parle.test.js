@@ -573,7 +573,7 @@ describe('l’en-tête dit la consigne (ECRAN-SAISIE §3.1)', () => {
     expect(cible.querySelectorAll('.consigne')).toHaveLength(0);
     cible.querySelector('.consigne-dit').click();
     expect(vus).toEqual([]);
-    cible.querySelector('.consigne-dit .lien-pourquoi').click();
+    cible.querySelector('.lien-pourquoi').click();
     expect(vus).toEqual(['dc']);
   });
 

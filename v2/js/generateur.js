@@ -1096,15 +1096,11 @@
         }) };
       });
       var volumeDe = function (rs) {
-        var v = {};
+        var lignes = [];
         rs.forEach(function (r) {
-          r.exercices.forEach(function (x) {
-            Semaine.musclesPonderes(ficheDe(cat, x.exercise_slug)).forEach(function (p) {
-              v[p.muscle] = (v[p.muscle] || 0) + p.poids * x.n;
-            });
-          });
+          r.exercices.forEach(function (x) { lignes.push({ exo: ficheDe(cat, x.exercise_slug), n: x.n }); });
         });
-        return v;
+        return Semaine.sommeDesSeries(lignes);
       };
       var total = 0;
       routines.forEach(function (r) {

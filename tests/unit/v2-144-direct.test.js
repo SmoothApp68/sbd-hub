@@ -58,7 +58,8 @@ describe('144-6 — « Comment faire » dans la séance d\'un ami', () => {
     expect(Array.from(cible.querySelectorAll('.exo-li')).map((n) => n.textContent)).toEqual(['MatérielBarre', 'TravailleQuadriceps', 'AussiFessiers']);
     expect(Array.from(cible.querySelectorAll('.etape-t')).map((n) => n.textContent)).toEqual(['Dos droit.', 'Descends sous les genoux.']);
     expect(cible.textContent).not.toMatch(/échelle|record|PR/i);
-    Array.from(cible.querySelectorAll('button')).filter((b) => b.textContent === 'Fermer')[0].click();
-    expect(ferme).toBe(1);
+    // 215 — le « Fermer » est celui de la feuille commune : le contenu n'en ajoute pas un second.
+    expect(Array.from(cible.querySelectorAll('button')).filter((b) => b.textContent === 'Fermer')).toHaveLength(0);
+    expect(ferme).toBe(0);
   });
 });

@@ -123,8 +123,8 @@ describe('le rendu : la feuille des écartés, et le questionnaire sans barre', 
     expect(boutons.map(texte)).toEqual(['Reprendre', 'Reprendre']);
     boutons[1].click();
     expect(repris).toEqual(['tractions']);
-    cible.querySelector('.feuille-pied button').click();
-    expect(ferme).toBe(1);
+    expect(cible.querySelector('.feuille-pied')).toBeNull();   // 215 : « Fermer » est celui de la feuille commune
+    expect(ferme).toBe(0);
   });
 
   const vueQ = (extra) => Object.assign({ id: 'construit', etape: 'Ton programme', titre: 'Combien de jours par semaine, réalistement ?',

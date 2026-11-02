@@ -645,7 +645,7 @@
     ajuster.push({ type: 'note', texte: 'Je note la charge des haltères par haltère.' });
     // 190 — le plus petit disque et la barre de traction : les lignes de `Profil.lignesMateriel`, comme dans « Ma salle ».
     Profil().lignesMateriel(materielDe(rep)).forEach(function (l) {
-      ajuster.push({ type: 'puces', cle: l.cle, titre: l.titre, valeur: l.valeur, multiple: l.multiple, valeurs: l.valeurs, options: l.options });
+      ajuster.push({ type: 'puces', cle: l.cle, titre: l.titre, valeur: l.valeur, multiple: l.multiple, valeurs: l.valeurs, absence: l.absence, options: l.options });
       ajuster.push({ type: 'note', texte: l.aide });
     });
     return {

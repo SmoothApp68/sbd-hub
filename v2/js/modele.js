@@ -2188,10 +2188,16 @@
   var UN_RM_REPS_MAX = 10;
   var CAP_ROND = 10;
 
+  // 216 — les instants déjà lus (chaîne ISO -> ms) : un historique est reparsé des milliers de fois par un onglet.
+  var instants = new Map();
   function instantRecord(iso) {
     if (iso === null || iso === undefined || iso === '') return null;
+    var cle = typeof iso === 'string';
+    if (cle) { var v = instants.get(iso); if (v !== undefined) return v; }
     var t = new Date(iso).getTime();
-    return isNaN(t) ? null : t;
+    t = isNaN(t) ? null : t;
+    if (cle) { if (instants.size > 60000) instants.clear(); instants.set(iso, t); }
+    return t;
   }
   // `a` est-il strictement plus tôt que `b` ? Une date absente vient en dernier.
   function plusTot(a, b) {

@@ -2272,8 +2272,10 @@
     var n = cible && cible.querySelector ? cible.querySelector('.bandeau-envoi') : null;
     if (!n) return false;
     var t = texte || '';
-    if (n.textContent !== t) n.textContent = t;
-    return true;
+    var change = n.textContent !== t;
+    if (change) n.textContent = t;
+    n.hidden = !t;
+    return change;
   }
 
   function rendreBandeauSeance(cible, vue) {
@@ -2333,7 +2335,9 @@
       ch.textContent = libelleDuree(S().minutesEcoulees(vue.debut, Date.now())) + ' \u00b7 ' + suite;
     }
     t.appendChild(ch);
-    t.appendChild(el('div', 'bandeau-envoi', vue.envoi || ''));
+    var envoi = el('div', 'bandeau-envoi', vue.envoi || '');
+    envoi.hidden = !vue.envoi;
+    t.appendChild(envoi);
     cible.appendChild(t);
 
     // §5.3 — Modifier replie la séance sur une ligne par bloc. Il ne remplace

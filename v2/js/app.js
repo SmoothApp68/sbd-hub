@@ -3966,7 +3966,8 @@
   // L'état affiché combine lecture et écriture. Tant qu'il reste quelque chose
   // à envoyer, « à jour » serait faux.
   function rendreEtatSync() {
-    Rendu.majEnvoiBandeau($('bandeau-seance'), texteEnvoiSeance());
+    // 219 — la barre change de hauteur quand le texte paraît ou disparaît : re-mesurée par la même fonction que les autres.
+    if (Rendu.majEnvoiBandeau($('bandeau-seance'), texteEnvoiSeance())) mesurerBarres();
     var noeud = $('etat-sync');
     if (!noeud) return;
     // 117 (audit du 16/10, 06 #7) — la base de l'appareil est tenue par une autre page de l'app restée ouverte

@@ -1014,7 +1014,7 @@ const NOTIONS = [
       'estimée n’est plus un record — la médaille ne la lit plus ; la page seule la dit.' },
   { notion: 'les records battus par une série (et l’ancien record, avec sa date)', pr: '55-U1',
     module: 'modele.js', fonction: 'recordsBattus', lecteurs: ['faits.js', 'plan.js'],
-    parAilleurs: { 'faits.js': ['recordsDeLaSerie', 'recordsDeLaSeance'], 'plan.js': ['verifierElastiques'] },
+    parAilleurs: { 'faits.js': ['recordsDeLaSerie', 'recordsCalcules'], 'plan.js': ['verifierElastiques'] },
     raison: 'MOTEUR §9.23 : un record est un fait ; une seule fonction décide ce qu’une série bat, ' +
       'la médaille en séance, la feuille « Terminer » et Progression la lisent. 132 (I51) : la garde du plan la ' +
       'rejoue sur chaque série notée par nom — aucune ne doit rien battre.' },
@@ -1068,7 +1068,7 @@ const NOTIONS = [
       'avec le même mémo — un second groupement dirait une autre séance.' },
   { notion: 'les séances d’un exercice, pour ses records (`{ id, debut, series }`)', pr: '58-U1',
     module: 'faits.js', fonction: 'seancesDuSlug', lecteurs: [],
-    par: ['recordsDeLaSeance'],
+    par: ['recordsCalcules'],
     raison: 'MOTEUR §9.23 : une série passée se compare aux séances de son exercice, lues une fois ' +
       'par état du cache ; seul le module des faits les assemble.' },
   { notion: 'les séances d’un exercice, pour le coach et sa page (`{ seance, series }`)', pr: '58-U1',

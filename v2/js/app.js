@@ -10413,7 +10413,7 @@
       c = travail ? travail.charge : null;
     }
     if (c === null) return;
-    feuille = { quoi: 'disques', iExo: iExo, charge: c, choixBarre: false };
+    feuille = { quoi: 'disques', iExo: iExo, charge: c, choixBarre: false, choixDisques: false };
     rendreFeuille();
     ouvrirVoile($('feuille-seance'), function () {
       feuille = null;
@@ -10432,7 +10432,16 @@
       phraseIntrouvable: 'Je ne trouve pas ' + Modele.nombreSigne(feuille.charge) + ' kg avec tes disques et une barre de ' +
         Modele.nombreSigne(barre) + ' kg.',
       choixBarre: feuille.choixBarre, barresProposees: Moteur.BARRES_PROPOSEES,
-      surChoixBarre: function () { feuille.choixBarre = !feuille.choixBarre; rendreFeuille(); },
+      surChoixBarre: function () { feuille.choixBarre = !feuille.choixBarre; feuille.choixDisques = false; rendreFeuille(); },
+      // 215 — « Mes disques › » : les puces de « Ma salle » (`Profil.lignesMateriel`), le même geste (`Profil.champsDisque`).
+      resumeDisques: Profil.resumeDisques(profil), choixDisques: feuille.choixDisques,
+      ligneDisques: Profil.lignesMateriel(Profil.brouillonSalle(profil))[0],
+      surChoixDisques: function () { feuille.choixDisques = !feuille.choixDisques; feuille.choixBarre = false; rendreFeuille(); },
+      surDisque: function (kg) {
+        var champs = Profil.champsDisque(profil, kg);
+        if (champs) poserProfil(champs);   // `profil` est à jour avant le 1er await : la feuille se redessine sur les disques recalculés
+        rendreFeuille();
+      },
       surBarre: function (kg) {
         var champs = Profil.champsBarre(profil, kg);
         feuille.choixBarre = false;

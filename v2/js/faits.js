@@ -262,9 +262,17 @@
             seancesAvecSeries(c).forEach(function (s) { avecSeries[s.id] = s; });
           }
           var se = avecSeries[g.seance.id];
-          var record = !!se && recordsDeLaSeance(c, se).some(function (r) { return r.slug === slug; });
-          points.push({ seance: g.seance.id, debut: g.seance.debut, valeur: meilleur.valeur,
-                        charge: meilleur.charge, reps: meilleur.reps, record: record });
+          // 216 — `record` se lit À LA DEMANDE (le calcul d'une séance, une fois, mémoïsé sur le point) : l'onglet Progression
+          // n'en lit qu'un par exercice (le dernier point), la page d'exercice les lit tous.
+          var pt = { seance: g.seance.id, debut: g.seance.debut, valeur: meilleur.valeur, charge: meilleur.charge, reps: meilleur.reps };
+          (function (pt, se) {
+            Object.defineProperty(pt, 'record', { enumerable: true, configurable: true, get: function () {
+              var r = !!se && recordsCalcules(c, se, slug).length > 0;
+              Object.defineProperty(pt, 'record', { enumerable: true, configurable: true, writable: true, value: r });
+              return r;
+            } });
+          })(pt, se);
+          points.push(pt);
         });
         points.reverse();
       }
@@ -324,9 +332,17 @@
       var cle = (c.seances || []).length + '|' + (c.series || []).length;
       if (memoRecordsSeance.cle !== cle) memoRecordsSeance = { cle: cle, parId: {} };
       if (memoRecordsSeance.parId[se.id]) return memoRecordsSeance.parId[se.id];
+      var out = recordsCalcules(c, se, null);
+      memoRecordsSeance.parId[se.id] = out;
+      return out;
+    }
+    // 216 — le calcul, partagé : `slugSeul` ne garde que les séries de cet exercice (le drapeau `record` d'un point de
+    // courbe n'a pas besoin des ~28 séries de la séance). Même règle, même fonction : un seul câblage.
+    function recordsCalcules(c, se, slugSeul) {
       var index = c.catalogue(), out = [];
       se.series.forEach(function (x, k) {
         if (!x || !Modele.estTravail(x)) return;
+        if (slugSeul !== null && x.exercise_slug !== slugSeul) return;
         var r = Modele.recordsBattus(seancesDuSlug(c, x.exercise_slug), se, k, optionsDesRecords(c, x.exercise_slug));
         if (!r.length) return;
         var nom = Modele.nomCourt(index[x.exercise_slug] ? index[x.exercise_slug].nom : x.exercise_slug);
@@ -334,7 +350,6 @@
         out.push({ seanceId: se.id, serieId: x.id, debut: se.debut, slug: x.exercise_slug,
                    nom: nom.charAt(0).toUpperCase() + nom.slice(1), mesure: Modele.formatMesure(x), records: r });
       });
-      memoRecordsSeance.parId[se.id] = out;
       return out;
     }
 

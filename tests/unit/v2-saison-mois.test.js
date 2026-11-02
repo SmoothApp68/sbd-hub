@@ -211,7 +211,11 @@ describe('98 — DISCRIMINANT : la story du mois reprend tout l’ancien bilan d
     expect(JSON.stringify(e)).not.toMatch(/\d+\s*séances?/);
     expect(JSON.stringify(de('plaque'))).not.toMatch(/pari|coach/i);
     expect(de('plaque').plaque.an).toBe('Octobre 2026');
-    expect(de('plaque').plaque.cases[1]).toEqual({ k: 'Records', g: '5', p: 'squat' });
+    expect(de('plaque').plaque.cases[1]).toEqual({ k: 'Records', g: '5', p: null });
+    // 226 — les records du mois en « charge × reps », sous la grille (3 au plus), et les séries de travail sous les tonnes.
+    expect(de('plaque').plaque.lignes.length).toBe(3);
+    expect(de('plaque').plaque.lignes.every((l) => /×/.test(l.v) && !!l.n)).toBe(true);
+    expect(de('plaque').plaque.cases[0].p).toMatch(/séries? de travail$/);
   });
 });
 
@@ -236,7 +240,7 @@ describe('119 — l’exercice du mois : en reps, classé par ses reps, « 1 rep
     expect(ex.titre).toBe('Squat (Barre)');
     expect(ex.chiffre).toMatchObject({ v: 20, unite: 'reps' });
     expect(ex.lignes.map((l) => l.v)).toEqual(['Développé Couché (Barre) · 5 reps']);
-    expect(JSON.stringify(e)).not.toMatch(/Tapis|Planche|0 reps/);
+    expect(JSON.stringify(e)).not.toMatch(/Tapis|Planche|(^|[^0-9])0 reps/) // 226 : « 20 reps » n’est pas « 0 reps »;
   });
   test('F10 : un exercice à 1 rep se dit « 1 rep »', () => {
     const un = Bilans.bilanDeLaPeriode({ periode: p, aujourdhui: '2026-10-31', exercices: CAT119, pesees: [], paris: [],

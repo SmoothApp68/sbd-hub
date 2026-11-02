@@ -7016,7 +7016,15 @@
   // ici ; une fonction par notion. Référence : `cycles53.py` ; cas
   // `cas-53-2-cycles.json`. Un bloc : `{ id, dossier, zone, debut, semaines,
   // decharge, exercices, statut, precedent }` (la table `blocs`, v2_058).
-  var ZONES_DE_BLOC = ZONES_FORCE;      // §19.2 amendé : la force seulement (124 : la même liste)
+  // 221 (MOTEUR §19.2, amendement 221) — LES ZONES D'UN BLOC SUIVENT L'OBJECTIF : Lourd et Mix pour tous ; Hypertrophie (8-10) en plus
+  // pour Muscle et Les deux. `ZONES_DE_BLOC` est l'ensemble des zones qu'un bloc peut PORTER ; `zonesDeBloc(objectif)` est la liste
+  // qu'on PROPOSE (l'écran « Ajuster le bloc », I37). Une seule fonction, lue par l'écran, le plan et I37.
+  var ZONE_HYPERTROPHIE = 'hypertrophie';
+  var ZONES_DE_BLOC = ZONES_FORCE.concat([ZONE_HYPERTROPHIE]);
+  var OBJECTIFS_HYPERTROPHIE = ['muscle', 'les_deux'];
+  function zonesDeBloc(objectif) {
+    return OBJECTIFS_HYPERTROPHIE.indexOf(objectif) >= 0 ? ZONES_DE_BLOC.slice() : ZONES_FORCE.slice();
+  }
   var SANS_CUMUL_JOURS = 14;                 // §14.4 : une réduction s'applique une fois
   var SEMAINES_BLOC_MIN = 3;
   var SEMAINES_BLOC_MAX = 6;
@@ -7111,20 +7119,61 @@
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((bloc && jourCivil(bloc.debut)) || '');
     return m ? new Date(+m[1], +m[2] - 1, +m[3], 0, 0, 0, 0).toISOString() : null;
   }
-  function zonesPosees(bloc, fabriquer, userId) {
+  // 221 — `familles` : `{ [slug]: famille de barre | null }` (`Generateur.familleDeBarre`). Un bloc Hypertrophie ne pose rien à un
+  // exercice qui n'est pas une barre (les accessoires suivent leur zone) et pose Mix au soulevé de terre (`structureDeBloc`).
+  // Pour un bloc Lourd ou Mix, `familles` est sans effet. `a` : l'instant des lignes (le début du bloc, ou un ajustement en cours de bloc).
+  function zonesPosees(bloc, fabriquer, userId, familles, a) {
     if (!bloc || ZONES_DE_BLOC.indexOf(bloc.zone) < 0) return [];
-    var minuit = minuitDuDebut(bloc);
+    var minuit = a === undefined || a === null ? minuitDuDebut(bloc) : a;
     if (!minuit) return [];
     var vus = {};
-    return (bloc.exercices || []).filter(function (slug) {
-      if (!slug || vus[slug]) return false;
+    var sortie = [];
+    (bloc.exercices || []).forEach(function (slug) {
+      if (!slug || vus[slug]) return;
       vus[slug] = true;
-      return true;
-    }).map(function (slug) {
-      return { id: typeof fabriquer === 'function' ? fabriquer() : null, user_id: userId === undefined ? null : userId,
-               exercise_slug: slug, zone: bloc.zone, corrigee_a: minuit, origine: 'bloc',
-               bloc_id: bloc.id === undefined ? null : bloc.id };
+      var fam = familles && Object.prototype.hasOwnProperty.call(familles, slug) ? familles[slug] : null;
+      var zone = bloc.zone === ZONE_HYPERTROPHIE ? structureDeBloc(bloc, fam).zone : bloc.zone;
+      if (!zone) return;
+      sortie.push({ id: typeof fabriquer === 'function' ? fabriquer() : null, user_id: userId === undefined ? null : userId,
+                    exercise_slug: slug, zone: zone, corrigee_a: minuit, origine: 'bloc',
+                    bloc_id: bloc.id === undefined ? null : bloc.id });
     });
+    return sortie;
+  }
+
+  // ══ 221 (MOTEUR §19.2, amendement 221) — LE BLOC HYPERTROPHIE ═══════════════════════════════════════════════════════════════
+  //
+  // Hypertrophie (8-10) : proposée seulement en objectif Muscle ou Les deux. Sur les mouvements principaux à la barre (squat, couché),
+  // la consigne GARDE une première série dans la zone Lourd (3-5, garde 1), puis des reculs dans la zone du bloc (8-10) — par le
+  // mécanisme de la 193-1/193-5 (grosse série + reculs au max du jour). Par défaut : activé en Les deux, désactivé en Muscle. Le
+  // SOULEVÉ DE TERRE reste en Mix (6-8) : des séries longues dégradent la technique et chargent le bas du dos (convention de kinés et de
+  // coachs, dite comme telle). Les accessoires gardent leur zone. Pur : une fonction, lue par `zonesPosees`, l'écran et I114.
+  var GROSSE_SERIE_GARDE = 1;
+  function grosseSerieParDefaut(objectif) { return objectif === 'les_deux'; }
+  // La structure qu'un bloc donne à UN exercice de famille `famille` (`null` : pas une barre). `{ zone, grosse, zoneGrosse, garde }` ;
+  // `zone: null` : le bloc ne pose rien (l'exercice garde la sienne).
+  function structureDeBloc(bloc, famille) {
+    var rien = { zone: null, grosse: false, zoneGrosse: null, garde: null };
+    if (!bloc || ZONES_DE_BLOC.indexOf(bloc.zone) < 0) return rien;
+    if (bloc.zone !== ZONE_HYPERTROPHIE) return { zone: bloc.zone, grosse: false, zoneGrosse: null, garde: null };
+    if (!famille) return rien;                                       // un accessoire suit sa zone actuelle
+    var classe = classeAuMax(famille);
+    if (classe === 'souleve') return { zone: 'mix', grosse: false, zoneGrosse: null, garde: null };
+    var grosse = bloc.grosse_serie === true && (classe === 'squat' || classe === 'couche');
+    return { zone: ZONE_HYPERTROPHIE, grosse: grosse, zoneGrosse: grosse ? 'lourd' : null, garde: grosse ? GROSSE_SERIE_GARDE : null };
+  }
+  // La phrase du « Pourquoi » (voix du coach) : les bornes viennent de ZONES.
+  function phraseBlocHypertrophie(grosse) {
+    return libelleZoneDeBloc(ZONE_HYPERTROPHIE, true) + DEUX_POINTS + 'plus de volume pour le muscle' +
+      (grosse ? ' ; ta première série reste lourde pour garder ta force.' : '.') +
+      ' Le soulevé de terre reste en ' + libelleZoneDeBloc('mix', true) + '.';
+  }
+  // Passer un bloc EN COURS d'une zone à une autre (Mix → Hypertrophie) : la semaine, la décharge, le début et les exercices ne
+  // bougent pas ; seules `zone` et `grosse_serie` changent. Rend le bloc ajusté, ou `null` si la zone n'est pas permise.
+  function ajusterBlocEnCours(bloc, zone, grosse, objectif, a) {
+    if (!bloc || bloc.statut !== BLOC_EN_COURS) return null;
+    if (zonesDeBloc(objectif).indexOf(zone) < 0) return null;
+    return Object.assign({}, bloc, { zone: zone, grosse_serie: zone === ZONE_HYPERTROPHIE && grosse === true, modifie_a: a });
   }
 
   // LA ZONE PROPOSÉE POUR LE PREMIER BLOC (MOTEUR §9.22, 60-2b) : elle suit
@@ -7145,7 +7194,8 @@
     // posée, jamais d'alternance Mix ↔ Lourd : les zones sont celles des routines.
     if (phases) return { zone: bloc.zone, semaines: nombre(bloc.semaines) || SEMAINES_PHASE, decharge: true,
                          exercices: (bloc.exercices || []).slice(), sansZones: true };
-    return { zone: bloc.zone === 'mix' ? 'lourd' : 'mix', semaines: nombre(bloc.semaines),
+    // 221 — après un bloc Hypertrophie (accumulation), Lourd d'abord (intensification), jamais Hypertrophie par défaut.
+    return { zone: bloc.zone === 'mix' || bloc.zone === ZONE_HYPERTROPHIE ? 'lourd' : 'mix', semaines: nombre(bloc.semaines),
              decharge: true, exercices: (bloc.exercices || []).slice() };
   }
 
@@ -7423,6 +7473,8 @@
         ' sur tes mouvements à la barre, ' + nombreFr(suivant.semaines, regle('bloc.semaines')) + ' semaines' +
         (suivant.decharge ? ', décharge la dernière semaine' : '') + '. Les autres exercices gardent leur zone.' : null,
       suivantZone: suivantZone,
+      pourquoi: bloc.zone === ZONE_HYPERTROPHIE ? phraseBlocHypertrophie(bloc.grosse_serie === true) : null,
+      sources: bloc.zone === ZONE_HYPERTROPHIE ? sourcesDeRegles(['bloc.hypertrophie', 'bloc.souleve'].concat(bloc.grosse_serie === true ? ['bloc.grosse_serie'] : [])) : [],
       commencer: suivant ? 'Commencer le bloc ' + libelleZoneDeBloc(suivant.zone) : null,
       ajuster: 'Ajuster le bloc',
       arreter: 'Arrêter le programme'
@@ -11085,6 +11137,17 @@
     // Le repos long d'un gros mouvement.
     repos_long: { type: 'etude', auteur: 'Schoenfeld', annee: 2016, effectif: '21 pratiquants',
       texte: 'Schoenfeld 2016 (21 pratiquants) : 2 à 3 min de repos sur les mouvements composés.' },
+    // 221 — le bloc Hypertrophie : le muscle gagne à rester proche de l'échec ; la grosse série garde le contact avec le lourd.
+    'bloc.hypertrophie': [
+      { type: 'etude', auteur: 'Robinson', annee: 2024, effectif: '55 études',
+        texte: 'Robinson 2024 (55 études réunies) : plus près de l’échec, un peu plus de croissance musculaire, un effet qui s’aplatit au-delà de 2 reps en réserve ; pour la force, rien de plus.' },
+      { type: 'coachs', auteur: 'programmes de powerbuilding',
+        texte: 'Un bloc d’accumulation (plus de volume, plus de reps) avant un bloc plus lourd : la pratique des programmes de powerbuilding.' }
+    ],
+    'bloc.grosse_serie': { type: 'etude', auteur: 'Spiering et coll.', annee: 2021, effectif: 'revue',
+      texte: 'Spiering et coll. 2021 (revue, adultes jeunes, jusqu’à 32 semaines) : la force se maintient avec 1 séance et 1 série par semaine à charge relative élevée.' },
+    'bloc.souleve': { type: 'coachs', auteur: 'kinés et coachs',
+      texte: 'Kinés et coachs : de longues séries au soulevé de terre dégradent la technique et chargent le bas du dos ; il reste en Mix (6-8).' },
     // La marche de l'échelle, au poids du corps.
     'marche.seuil': { type: 'etude', auteur: 'Kotarsky', annee: 2018, effectif: '23 personnes',
       texte: 'Kotarsky 2018 (23 personnes) : au poids du corps, une rep de plus, puis une variante plus dure après 2 séances à 3 × 8.' }
@@ -11535,6 +11598,11 @@
     blocsDuProgramme: blocsDuProgramme,
     correctionAu: correctionAu,
     ZONES_DE_BLOC: ZONES_DE_BLOC,
+    zonesDeBloc: zonesDeBloc,
+    structureDeBloc: structureDeBloc,
+    grosseSerieParDefaut: grosseSerieParDefaut,
+    phraseBlocHypertrophie: phraseBlocHypertrophie,
+    ajusterBlocEnCours: ajusterBlocEnCours,
     estZoneForce: estZoneForce,
     memeCharge: memeCharge,
     estIsolation: estIsolation,

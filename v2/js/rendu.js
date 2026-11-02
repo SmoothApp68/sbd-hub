@@ -6908,6 +6908,7 @@
       });
       c.appendChild(l);
     }
+    if (k.pourquoi) c.appendChild(el('p', 'cfb-paris cfb-pourquoi', k.pourquoi));
     c.appendChild(el('p', 'cfb-paris', k.paris));
     if (k.pari) c.appendChild(el('p', 'cfb-paris', k.pari));
     if (k.suivant) {
@@ -6957,7 +6958,7 @@
   // « Lancer le programme ».
   function rendreFeuilleProgramme(cible, vue) {
     vider(cible);
-    var t = el('div', 'feuille-t', vue.suite ? 'Ajuster le bloc' : 'Faire de ce dossier un programme');
+    var t = el('div', 'feuille-t', vue.suite || vue.enCours ? 'Ajuster le bloc' : 'Faire de ce dossier un programme');
     t.appendChild(el('em', '', vue.dossier));
     cible.appendChild(t);
     var champ = function (cle, titre, options, actuel, fn) {
@@ -6978,6 +6979,17 @@
     champ('zone', vue.suite ? 'Bloc' : 'Premier bloc', (vue.zones || []).map(function (z) {
       return { valeur: z.cle, texte: z.texte };
     }), vue.zone, vue.surZone);
+    if (vue.hypertrophie) {
+      // 221 — la phrase du Pourquoi, la baisse de charge dite, et la case de la grosse série.
+      cible.appendChild(el('p', 'feuille-aide cp-aide cp-hypertrophie', vue.phraseHypertrophie));
+      cible.appendChild(el('p', 'feuille-aide cp-aide cp-charges', 'Tes charges baissent pour faire plus de reps\u00a0: c’est voulu.'));
+      var g = el('button', 'case-programme case-grosse' + (vue.grosse ? ' active' : ''));
+      g.type = 'button';
+      g.setAttribute('aria-pressed', vue.grosse ? 'true' : 'false');
+      g.appendChild(el('span', 'cp-nom', (vue.grosse ? '\u2611 ' : '\u2610 ') + 'Garder une grosse série lourde'));
+      g.addEventListener('click', function () { vue.surGrosse(!vue.grosse); });
+      cible.appendChild(g);
+    }
     champ('semaines', 'Durée du bloc', (vue.semainesPossibles || []).map(function (n) {
       return { valeur: n, texte: n + ' semaines' + (vue.bornesSemaines ? ' (' + vue.bornesSemaines + ')' : '') };
     }), vue.semaines, vue.surSemaines);
@@ -6994,7 +7006,7 @@
       b.setAttribute('data-slug', e.slug);
       b.setAttribute('aria-pressed', e.coche ? 'true' : 'false');
       b.appendChild(el('span', 'cp-nom', (e.coche ? '\u2611 ' : '\u2610 ') + e.nom));
-      b.appendChild(el('span', 'cp-zone', e.coche ? vue.zoneCourte : 'sa zone'));
+      b.appendChild(el('span', 'cp-zone', e.coche ? (e.zoneTexte || vue.zoneCourte) : 'sa zone'));
       b.addEventListener('click', function () { vue.surCocher(e.slug); });
       ex.appendChild(b);
     });
@@ -7020,6 +7032,11 @@
     var l = el('ul', 'cfb-bilan');
     (vue.exercices || []).forEach(function (n) { l.appendChild(el('li', '', n)); });
     cible.appendChild(l);
+    if (vue.surAjuster) {
+      var pa = el('div', 'feuille-menu');
+      entreeMenu(pa, 'Ajuster le bloc', { classe: 'ajuster-bloc', surClic: vue.surAjuster });
+      cible.appendChild(pa);
+    }
     cible.appendChild(el('p', 'feuille-aide', 'Arrêter le programme rend à ces exercices la zone d’après tes séances.'));
     var pied = el('div', 'feuille-menu');
     entreeMenu(pied, 'Arrêter le programme', { classe: 'danger arreter-programme', surClic: vue.surArreter });

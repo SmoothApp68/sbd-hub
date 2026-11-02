@@ -4766,7 +4766,9 @@
   //   · I36 — un bloc ne change que la zone de SES exercices : chaque ligne
   //     d'origine « bloc » désigne un bloc, un de ses exercices, sa zone, et
   //     son début (00:00) — ni exercice, ni ordre, ni série, ni charge ;
-  //   · I37 — une zone de bloc est Lourd ou Mix ;
+  //   · I37 — une zone de bloc est Lourd ou Mix, et Hypertrophie seulement en objectif Muscle ou Les deux (221, `Moteur.zonesDeBloc`) ;
+  //   · I114 (221) — un bloc Hypertrophie : le soulevé de terre est posé en Mix (jamais 8-10) ; une grosse série gardée n'existe que dans
+  //     un bloc Hypertrophie, et ne se pose ni au soulevé, ni hors d'une barre ;
   //   · I38 — jamais deux réductions à la fois : une décharge planifiée qui
   //     aurait lieu pendant (ou moins de 14 jours après) une semaine allégée
   //     acceptée, ou une carte de semaine allégée pendant la décharge ;
@@ -4777,10 +4779,17 @@
     var pr = (entrees && entrees.programme) || {};
     var blocs = pr.blocs || [];
     var parId = {};
+    var familles = pr.familles || {};
     blocs.forEach(function (b) {
       if (!b) return;
       if (b.id) parId[b.id] = b;
       if (M.ZONES_DE_BLOC.indexOf(b.zone) < 0) erreurs.push('I37 — le bloc ' + (b.id || '?') + ' porte la zone « ' + b.zone + ' »');
+      // 221 — la liste des zones suit l'objectif ; un bloc déjà terminé garde la zone qu'il avait.
+      else if (b.statut === 'en_cours' && pr.objectif !== undefined && M.zonesDeBloc(pr.objectif).indexOf(b.zone) < 0) {
+        erreurs.push('I37 — le bloc ' + (b.id || '?') + ' porte la zone « ' + b.zone + ' » pour l’objectif « ' + pr.objectif + ' »');
+      }
+      // I114 — la grosse série gardée n'existe que dans un bloc Hypertrophie.
+      if (b.grosse_serie === true && b.zone !== 'hypertrophie') erreurs.push('I114 — le bloc ' + (b.id || '?') + ' garde une grosse série sans être en Hypertrophie');
     });
     (pr.lignes || []).forEach(function (l) {
       if (!l || l.origine !== 'bloc') return;
@@ -4796,9 +4805,19 @@
       // zone du bloc ; TOUTE AUTRE est celle d'un arrêt : d'un bloc qui n'est
       // plus en cours, après son début, sans zone ou avec la zone d'avant le
       // programme (une zone connue, pas forcément Lourd ou Mix).
-      if (minuit !== null && t === minuit) {
+      // 221 — la ligne d'un bloc Hypertrophie est celle de `structureDeBloc` (le soulevé en Mix, jamais 8-10), I114.
+      var attendue = b.zone === 'hypertrophie' && Object.prototype.hasOwnProperty.call(familles, l.exercise_slug)
+        ? M.structureDeBloc(b, familles[l.exercise_slug]).zone : b.zone;
+      // Une ligne posée au début du bloc, ou — en cours de bloc — par un ajustement (221) : même zone que la sienne.
+      if (minuit !== null && (t === minuit || (b.statut === 'en_cours' && t > minuit && l.zone === attendue))) {
         if (M.ZONES_DE_BLOC.indexOf(l.zone) < 0) erreurs.push('I37 — ' + dit + ' pose « ' + l.zone + ' »');
-        else if (l.zone !== b.zone) erreurs.push('I36 — ' + dit + ' : « ' + l.zone + ' » pour un bloc ' + b.zone);
+        else if (b.zone === 'hypertrophie' && Object.prototype.hasOwnProperty.call(familles, l.exercise_slug) && attendue !== l.zone) {
+          erreurs.push('I114 — ' + dit + ' : « ' + l.zone + ' » dans un bloc Hypertrophie (attendu « ' + attendue + ' »)');
+        }
+        else if (b.zone !== 'hypertrophie' && l.zone !== b.zone) erreurs.push('I36 — ' + dit + ' : « ' + l.zone + ' » pour un bloc ' + b.zone);
+        else if (b.zone === 'hypertrophie' && !Object.prototype.hasOwnProperty.call(familles, l.exercise_slug) && l.zone !== b.zone && l.zone !== 'mix') {
+          erreurs.push('I36 — ' + dit + ' : « ' + l.zone + ' » pour un bloc ' + b.zone);
+        }
         return;
       }
       if (b.statut === 'en_cours') {

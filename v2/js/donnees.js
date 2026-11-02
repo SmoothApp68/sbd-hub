@@ -659,7 +659,7 @@
   // l'écriture est un `upsert` sur `id` : la file peut la rejouer sans doubler
   // (le statut change par la même porte).
   var COLONNES_BLOC = 'id, user_id, dossier, zone, debut, semaines, decharge, exercices, statut, precedent, ' +
-    'created_at, modifie_a';
+    'created_at, modifie_a, grosse_serie';
 
   function mesBlocs() {
     return paginerParCle(trancheur(function () {

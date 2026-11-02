@@ -585,7 +585,7 @@
       var pl = e.plaque;
       // 226 — la hauteur suit le contenu (le chiffre fort, la grille, les lignes) : rien n'est coupé, rien ne flotte.
       var nGrille = pl.heros ? Math.max(pl.cases.length - 1, 0) : pl.cases.length, nLignes = (pl.lignes || []).length;
-      var haut = pl.heros ? 120 + 400 + (pl.cases[0] && pl.cases[0].q ? 55 : 0) + 90 + Math.ceil(nGrille / 2) * 250 + (nLignes ? 70 + nLignes * 80 : 0) - 30 : 1100;
+      var haut = pl.heros ? 120 + 425 + (pl.cases[0] && pl.cases[0].q ? 55 : 0) + 90 + Math.ceil(nGrille / 2) * 250 + (nLignes ? 70 + nLignes * 80 : 0) - 30 : 1100;
       ctx.fillStyle = PALETTE.fonte; ctx.fillRect(X - 30, y, L + 60, haut);
       if (pl.heros) { ctx.fillStyle = PALETTE.or; ctx.fillRect(X - 30, y, L + 60, 14); }   // 226 : la bande de la marque
       y += 120; ctx.font = police(500, 38); var lq = pl.qui ? ctx.measureText(pl.qui).width + 30 : 0;
@@ -602,9 +602,9 @@
         var th = 190; ctx.font = police(900, th);
         while (ctx.measureText(h.g).width > L && th > 80) { th -= 6; ctx.font = police(900, th); }
         ctx.fillStyle = PALETTE.or; ctx.fillText(h.g, X, hy + th);
-        if (h.p) { ctx.font = police(500, 36); ctx.fillStyle = PALETTE.cendre; ctx.fillText(h.p, X, hy + th + 60); }
-        if (h.q) { ctx.font = police(700, 40); ctx.fillStyle = PALETTE.craie; ctx.fillText(h.q, X, hy + th + 115); }
-        y = hy + th + (h.q ? 165 : 110); grille = grille.slice(1); pas = 250;
+        if (h.p) { ctx.font = police(500, 36); ctx.fillStyle = PALETTE.cendre; ctx.fillText(h.p, X, hy + th + 85); }   // 226 : la virgule du chiffre ne touche plus la ligne
+        if (h.q) { ctx.font = police(700, 40); ctx.fillStyle = PALETTE.craie; ctx.fillText(h.q, X, hy + th + 140); }
+        y = hy + th + (h.q ? 190 : 135); grille = grille.slice(1); pas = 250;
       }
       grille.forEach(function (c, i) {
         var cx = X + (i % 2) * col, cy = y + 90 + Math.floor(i / 2) * pas;

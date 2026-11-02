@@ -126,6 +126,23 @@
   // et 1,75 devenait 1,8). Avec des poids 1 et ½ seulement, rien ne change.
   function auCentieme(x) { return Math.round(x * 100) / 100; }
 
+  // ⚠️ LA SOMME PONDÉRÉE, UN SEUL ENDROIT (217, CLAUDE.md §3 « une notion = une fonction câblée partout »).
+  // `lignes` : `[{ exo, n }]` — la fiche du catalogue et le nombre de séries de travail qu'elle porte.
+  // Rend `{ muscle: total }` brut (non arrondi) : n × le poids de `musclesPonderes`. Le volume fait
+  // (`volumeParMuscle`), le programme que le générateur compose et celui que les équilibres relisent
+  // la LISENT ; aucune autre boucle n'additionne des poids de muscles. Une fiche absente ne compte pour rien.
+  function sommeDesSeries(lignes) {
+    var total = {};
+    (lignes || []).forEach(function (l) {
+      if (!l) return;
+      musclesPonderes(l.exo).forEach(function (x) {
+        if (!x.muscle) return;
+        total[x.muscle] = (total[x.muscle] || 0) + x.poids * l.n;
+      });
+    });
+    return total;
+  }
+
   // Volume par muscle : la série de travail, pondérée par `musclesPonderes`
   // (REGLE-VOLUME-V2 §1 bis : 1, ½, ¼). Registre strictement descriptif — aucun
   // seuil, aucune comparaison : la règle de volume exige une fenêtre de trois
@@ -141,18 +158,14 @@
     var cat = {};
     (exercices || []).forEach(function (e) { if (e && e.slug) cat[e.slug] = e; });
 
-    var total = {};
-    function ajouter(muscle, poids) {
-      if (!muscle) return;
-      total[muscle] = (total[muscle] || 0) + poids;
-    }
-
+    var lignes = [];
     (series || []).forEach(function (s) {
       if (!racine.THModele.estTravail(s)) return;
       var exo = cat[s.exercise_slug];
       if (!exo) return;
-      musclesPonderes(exo).forEach(function (x) { ajouter(x.muscle, x.poids); });
+      lignes.push({ exo: exo, n: 1 });
     });
+    var total = sommeDesSeries(lignes);
 
     return Object.keys(total).map(function (m) {
       return { muscle: m, libelle: libelleMuscle(m), series: auCentieme(total[m]) };
@@ -436,6 +449,7 @@
     porteDuVolume: porteDuVolume,
     POIDS_DES_MUSCLES: POIDS_DES_MUSCLES,
     musclesPonderes: musclesPonderes,
+    sommeDesSeries: sommeDesSeries,
     compteSeriesTravail: compteSeriesTravail,
     estSerieDeMusculation: estSerieDeMusculation,
     estSeanceDeMusculation: estSeanceDeMusculation,

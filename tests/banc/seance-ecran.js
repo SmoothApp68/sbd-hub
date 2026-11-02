@@ -14435,6 +14435,43 @@ const SETS_IMPORTES = [
       JSON.stringify(decochee) === JSON.stringify(defaut), JSON.stringify(decochee));
     base.profiles[0].priorites = null;
 
+    // ── 221 (MOTEUR §19.2) — LE BLOC HYPERTROPHIE DANS LA FEUILLE : proposé en « Les deux » et « Muscle » seulement ; la phrase du
+    // Pourquoi, la baisse de charge dite, la case « Garder une grosse série lourde » (cochée en Les deux, pas en Muscle).
+    const feuilleHyp = async (objectif) => {
+      base.profiles[0].objectif = objectif;
+      await aller('/saisie');
+      await cliquerDossier('Alpha U53', '.programme-creer');
+      const zones = await page.evaluate(() => Array.from(document.querySelector('#feuille-contenu select[data-champ="zone"]').options).map((o) => o.textContent));
+      return zones;
+    };
+    const zForce = await feuilleHyp('force');
+    await page.click('#btn-fermer-feuille');
+    const zLesDeux = await feuilleHyp('les_deux');
+    await choisirP('zone', 'Hypertrophie');
+    const hyp = await page.evaluate(() => {
+      const c = document.getElementById('feuille-contenu');
+      const g = c.querySelector('.case-grosse');
+      return { phrase: (c.querySelector('.cp-hypertrophie') || {}).textContent || '', charges: (c.querySelector('.cp-charges') || {}).textContent || '',
+        grosse: g ? g.getAttribute('aria-pressed') : null,
+        cases: Array.from(c.querySelectorAll('.exercices-programme .case-programme')).map((b) => b.textContent) };
+    });
+    if (process.env.BANC_CAPTURES_221) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_221, 'ajuster-le-bloc.png'), fullPage: true });
+    await page.click('#btn-fermer-feuille');
+    const zMuscle = await feuilleHyp('muscle');
+    await choisirP('zone', 'Hypertrophie');
+    const grosseMuscle = await page.evaluate(() => document.querySelector('#feuille-contenu .case-grosse').getAttribute('aria-pressed'));
+    await page.click('#btn-fermer-feuille');
+    ok('[221] DISCRIMINANT — Hypertrophie (8-10) n’est offerte qu’en Les deux et Muscle ; en Force, Lourd et Mix seulement',
+      JSON.stringify(zForce) === JSON.stringify(['Lourd (3-5)', 'Mix (6-8)']) &&
+        JSON.stringify(zLesDeux) === JSON.stringify(['Lourd (3-5)', 'Mix (6-8)', 'Hypertrophie (8-10)']) &&
+        JSON.stringify(zMuscle) === JSON.stringify(zLesDeux), JSON.stringify([zForce, zLesDeux, zMuscle]));
+    ok('[221] la feuille en Hypertrophie : le Pourquoi, « Tes charges baissent pour faire plus de reps : c’est voulu. », la case grosse série cochée en Les deux, décochée en Muscle',
+      /Hypertrophie \(8-10\)\s*:\s*plus de volume pour le muscle\s*;\s*ta première série reste lourde pour garder ta force\./.test(hyp.phrase) &&
+        sp(hyp.charges) === 'Tes charges baissent pour faire plus de reps : c’est voulu.' && hyp.grosse === 'true' && grosseMuscle === 'false',
+      JSON.stringify([hyp, grosseMuscle]));
+    base.profiles[0].objectif = null;
+
+
     base.profiles[0].objectif = null;
     await aller('/saisie');
     await cliquerDossier('Alpha U53', '.programme-creer');

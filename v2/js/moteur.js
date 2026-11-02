@@ -7186,7 +7186,7 @@
     var travail = 0;
     var z = zoneParCle(ZONE_HYPERTROPHIE);
     var sortie = series.map(function (x) {
-      if (!x || T.typeDe(x) !== 'travail') return x;
+      if (!x || !T.estTravail(x) || T.estRecul(x)) return x;
       travail += 1;
       return travail === 1 ? x : Object.assign({}, x, { type_serie: 'recul', reps_visees: z.bas });
     });

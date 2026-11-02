@@ -27535,7 +27535,7 @@ const SETS_IMPORTES = [
     } else {
       ok('[EQ188] une carte porte « Pas maintenant »', false, nb188(v2.cartes.map((c) => [c.cle, c.boutons.map((b) => b.t)])));
     }
-    // 218 — LE BONHOMME DES MUSCLES, dans la carte : une séance d'hier (4 séries de développé, 2 de latérales, 3 de squat) ; le dessin lit
+    // 218/220 — LE BONHOMME DES MUSCLES, en haut de « Volume par muscle » : une séance d'hier (4 séries de développé, 2 de latérales, 3 de squat) ; le dessin lit
     // la somme des sept jours ; à 380 et à 360 px rien ne déborde et la bulle reste dans l'écran ; le sexe est gardé sur l'appareil.
     {
       const hier = ilYa(86400000, t188).toISOString(), idH = 'eq188-bonhomme';
@@ -27548,10 +27548,10 @@ const SETS_IMPORTES = [
           type_serie: 'travail', rang: rangH, groupe_superset: null, validee_a: hier, rpe: null, ressenti: null, repos_s: null,
           note: null, source: 'app', created_at: hier, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false });
       });
-      await aller('/progression/parcours');
-      await attendreQue(() => page.evaluate(() => !!document.querySelector('#parcours .bonhomme')), 15000, 'bonhomme218');
+      await aller('/progression/volume');
+      await attendreQue(() => page.evaluate(() => !!document.querySelector('#vue-volume .bonhomme')), 15000, 'bonhomme218');
       const lireBonhomme = () => page.evaluate(() => {
-        const c = document.querySelector('#parcours .bonhomme');
+        const c = document.querySelector('#vue-volume .bonhomme');
         const r = (n) => { const b = n.getBoundingClientRect(); return { l: Math.round(b.left), r: Math.round(b.right), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }; };
         const lignes = Array.from(c.querySelectorAll('.bh-liste li')).map((li) => [li.getAttribute('data-muscle'), li.querySelector('b').textContent]);
         return { lignes, svgs: c.querySelectorAll('svg.bh').length, carte: r(c), larg: window.innerWidth, defil: document.documentElement.scrollWidth,
@@ -27559,6 +27559,23 @@ const SETS_IMPORTES = [
           dessinCache: c.querySelector('.bh-vues').getAttribute('aria-hidden'), sexe: c.getAttribute('data-bonhomme') };
       });
       const b0 = await lireBonhomme();
+      ok('[BH220] le bonhomme est sur « Volume par muscle » (au-dessus du relevé par zones) et plus dans « Ton parcours »',
+        await page.evaluate(() => { const c = document.querySelector('#vue-volume .bonhomme'), z = document.getElementById('releve-zones');
+          return !!c && !!z && !!(c.compareDocumentPosition(z) & Node.DOCUMENT_POSITION_FOLLOWING) && document.querySelectorAll('.bonhomme').length === 1; })
+        && await (async () => { await aller('/progression/parcours'); await page.waitForTimeout(400);
+          const absent = await page.evaluate(() => !document.querySelector('#parcours .bonhomme') && document.querySelectorAll('.bonhomme').length === 0);
+          await aller('/progression/volume'); await attendreQue(() => page.evaluate(() => !!document.querySelector('#vue-volume .bonhomme')), 15000, 'bonhomme220'); return absent; })(), '');
+      {
+        const sousAvant = await page.evaluate(() => document.querySelector('#vue-volume .bh-sous').textContent);
+        await page.evaluate(() => document.querySelector('#barre-progression .barre-fl').click());
+        await page.waitForTimeout(300);
+        const apres = await page.evaluate(() => ({ sous: document.querySelector('#vue-volume .bh-sous').textContent, n: document.querySelectorAll('.bonhomme').length,
+          barre: document.querySelector('#barre-progression .barre-date').firstChild.textContent }));
+        ok('[BH220] la navigation par semaine déplace le bonhomme (sous-titre = semaine de la barre, une seule carte)',
+          apres.sous !== sousAvant && apres.n === 1 && apres.sous === 'Séries de travail, ' + apres.barre, nb188([sousAvant, apres]));
+        await aller('/progression/volume');
+        await attendreQue(() => page.evaluate(() => !!document.querySelector('#vue-volume .bonhomme')), 15000, 'bonhomme220b');
+      }
       const lig = Object.fromEntries(b0.lignes);
       const nLig = (m) => Number(String(lig[m]).replace(',', '.'));
       ok('[BH218] la carte lit les sept jours (le faux serveur en porte déjà d’autres) : 18 muscles, du plus chargé au moins chargé, ma séance d’hier y est',
@@ -27568,28 +27585,28 @@ const SETS_IMPORTES = [
         b0.svgs === 2 && b0.dessinCache === 'true' && b0.sexe === 'homme' && b0.boutons.every((h) => h >= 44), nb188(b0));
       for (const [l, h] of [[380, 760], [360, 760]]) {
         await page.setViewportSize({ width: l, height: h });
-        await aller('/progression/parcours');   // une carte neuve : aucune bulle restée ouverte d'une largeur à l'autre
-        await attendreQue(() => page.evaluate(() => !!document.querySelector('#parcours .bonhomme')), 15000, 'bonhomme218w');
+        await aller('/progression/volume');   // une carte neuve : aucune bulle restée ouverte d'une largeur à l'autre
+        await attendreQue(() => page.evaluate(() => !!document.querySelector('#vue-volume .bonhomme')), 15000, 'bonhomme218w');
         await page.waitForTimeout(150);
-        await page.evaluate(() => document.querySelector('#parcours .bonhomme').scrollIntoView({ block: 'start' }));
+        await page.evaluate(() => document.querySelector('#vue-volume .bonhomme').scrollIntoView({ block: 'start' }));
         const bb = await lireBonhomme();
         ok('[BH218] à ' + l + ' px : rien ne déborde (la carte tient dans l’écran, aucun défilement horizontal)',
           bb.carte.l >= 0 && bb.carte.r <= bb.larg && bb.defil <= bb.larg, nb188(bb.carte) + ' défil=' + bb.defil);
         // Un toucher sur le quadriceps (de face) : la bulle dit le fait et reste dans l'écran.
-        await page.evaluate(() => { const p = document.querySelector('#parcours .bonhomme [data-cote="avant"] [data-p="quadriceps"]'); p.scrollIntoView({ block: 'center' }); });
+        await page.evaluate(() => { const p = document.querySelector('#vue-volume .bonhomme [data-cote="avant"] [data-p="quadriceps"]'); p.scrollIntoView({ block: 'center' }); });
         await page.waitForTimeout(100);
         // Un point qui tombe VRAIMENT sur le quadriceps (la boîte du muscle recouvre d'autres parties) : balayage de sa boîte.
         const pos = await page.evaluate(() => {
-          const p = document.querySelector('#parcours .bonhomme [data-cote="avant"] [data-p="quadriceps"]'), r = p.getBoundingClientRect();
+          const p = document.querySelector('#vue-volume .bonhomme [data-cote="avant"] [data-p="quadriceps"]'), r = p.getBoundingClientRect();
           for (let y = r.top + 2; y < r.bottom; y += 3) for (let x = r.left + 2; x < r.right; x += 3) if (document.elementFromPoint(x, y) === p) return { x, y };
           return null;
         });
         if (pos) await page.mouse.click(pos.x, pos.y);
-        const bulle = await page.evaluate(() => { const b = document.querySelector('#parcours .bonhomme [data-cote="avant"] .bh-bulle'); const r = b.getBoundingClientRect(); const f = document.querySelector('#parcours .bonhomme [data-cote="avant"]').getBoundingClientRect(); return { cache: b.hidden, t: b.textContent, l: Math.round(r.left), r: Math.round(r.right), top: Math.round(r.top), fl: Math.round(f.left), fr: Math.round(f.right), w: window.innerWidth }; });
-        ok('[BH218] à ' + l + ' px : « Quadriceps : N séries cette semaine » (le N de la liste), la bulle reste dans le cadre du dessin et dans l’écran',
-          pos && !bulle.cache && bulle.t === 'Quadriceps : ' + lig.quadriceps + ' séries cette semaine' && bulle.l >= 0 && bulle.r <= bulle.w && bulle.l >= bulle.fl - 1 && bulle.r <= bulle.fr + 1 && bulle.top >= 0, nb188(bulle));
+        const bulle = await page.evaluate(() => { const b = document.querySelector('#vue-volume .bonhomme [data-cote="avant"] .bh-bulle'); const r = b.getBoundingClientRect(); const f = document.querySelector('#vue-volume .bonhomme [data-cote="avant"]').getBoundingClientRect(); return { cache: b.hidden, t: b.textContent, l: Math.round(r.left), r: Math.round(r.right), top: Math.round(r.top), fl: Math.round(f.left), fr: Math.round(f.right), w: window.innerWidth }; });
+        ok('[BH218] à ' + l + ' px : « Quadriceps : N séries sur la semaine » (le N de la liste), la bulle reste dans le cadre du dessin et dans l’écran',
+          pos && !bulle.cache && bulle.t === 'Quadriceps : ' + lig.quadriceps + ' séries sur la semaine' && bulle.l >= 0 && bulle.r <= bulle.w && bulle.l >= bulle.fl - 1 && bulle.r <= bulle.fr + 1 && bulle.top >= 0, nb188(bulle));
       }
-      await page.evaluate(() => document.querySelector('#parcours .bonhomme [data-sexe="femme"]').click());
+      await page.evaluate(() => document.querySelector('#vue-volume .bonhomme [data-sexe="femme"]').click());
       await page.waitForTimeout(100);
       const stock = await page.evaluate(() => { try { return localStorage.getItem('th-silhouette'); } catch (e) { return 'erreur'; } });
       const b1 = await lireBonhomme();
@@ -27597,8 +27614,8 @@ const SETS_IMPORTES = [
         b1.sexe === 'femme' && stock === 'femme' && JSON.stringify(b1.lignes) === JSON.stringify(b0.lignes)
         && !base.journal.some((j) => /silhouette/i.test(JSON.stringify(j))), nb188([b1.sexe, stock]));
       await page.setViewportSize({ width: 380, height: 760 });
-      await aller('/progression/parcours');
-      await attendreQue(() => page.evaluate(() => !!document.querySelector('#parcours .bonhomme')), 15000, 'bonhomme218b');
+      await aller('/progression/volume');
+      await attendreQue(() => page.evaluate(() => !!document.querySelector('#vue-volume .bonhomme')), 15000, 'bonhomme218b');
       ok('[BH218] la préférence revient au rechargement', (await lireBonhomme()).sexe === 'femme', '');
       await page.evaluate(() => { try { localStorage.removeItem('th-silhouette'); } catch (e) { /* rien */ } });
     }

@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 //
-// 218 — LE BONHOMME DES MUSCLES (maquette-bonhomme-v2) : les tracés (données), la lecture par partie dessinée, le fait des sept
-// jours (`faits.muscleDesSeptJours`, la somme unique de la 217) et le rendu (jsdom, le vrai rendu).
+// 218 — LE BONHOMME DES MUSCLES (maquette-bonhomme-v2) : les tracés (données), la lecture par partie dessinée, la semaine affichée
+// (`faits.semaineDe(…).muscles`, la somme unique de la 217) et le rendu (jsdom, le vrai rendu).
 process.env.TZ = 'Europe/Paris';
 global.self = global;
 const fs = require('fs');
@@ -104,35 +104,39 @@ function corpus(seances, series) {
 const travail = (slug, extra) => Object.assign({ exercise_slug: slug, type_serie: 'travail' }, extra);
 const n = (k, slug) => Array.from({ length: k }, () => travail(slug, { reps: 8, charge_kg: 50 }));
 
-describe('218 — le fait des sept jours (`faits.muscleDesSeptJours`)', () => {
+describe('220 — le volume de la semaine affichée (`faits.semaineDe(…).muscles`)', () => {
   const F = Faits.creer();
-  const J = '2026-10-31';
+  const L = new Date(2026, 9, 26);   // lundi 26/10 → dimanche 01/11
   const seances = [
     { id: 'hier', debut: '2026-10-30T09:00:00Z' }, { id: 'j0', debut: '2026-10-31T07:00:00Z' },
-    { id: 'limite', debut: '2026-10-25T09:00:00Z' },     // le 25 : 7e jour (25 → 31)
-    { id: 'trop-vieille', debut: '2026-10-24T09:00:00Z' }, { id: 'futur', debut: '2026-11-01T09:00:00Z' }
+    { id: 'dimanche-d-avant', debut: '2026-10-25T09:00:00Z' }, { id: 'lundi-suivant', debut: '2026-11-02T09:00:00Z' }
   ];
-  const series = { hier: n(3, 'squat_barre'), j0: n(2, 'developpe_couche_barre'), limite: n(4, 'tractions'),
-                   'trop-vieille': n(9, 'squat_barre'), futur: n(9, 'tractions') };
-  test('sept jours civils, le jour compris : ni le 24, ni demain', () => {
-    const f = F.muscleDesSeptJours(corpus(seances, series), J);
-    expect(f.jours).toBe(7);
-    expect(f.volume.quadriceps).toBe(3);
-    expect(f.volume.grand_dorsal).toBe(4);
+  const series = { hier: n(3, 'squat_barre'), j0: n(2, 'developpe_couche_barre'), 'dimanche-d-avant': n(4, 'tractions'),
+                   'lundi-suivant': n(9, 'tractions') };
+  test('lundi → dimanche : ni la semaine d’avant, ni la suivante ; les semaines précédentes se lisent aussi', () => {
+    const f = F.semaineDe(corpus(seances, series), L);
+    expect(f.muscles.quadriceps).toBe(3);
+    expect(f.muscles.grand_dorsal).toBeUndefined();
+    expect(F.semaineDe(corpus(seances, series), new Date(2026, 9, 19)).muscles.grand_dorsal).toBe(4);
   });
   test('la valeur est celle de la fonction unique (`Semaine.sommeDesSeries`), poids 1, ½, ¼ compris', () => {
-    const f = F.muscleDesSeptJours(corpus(seances, series), J);
-    const attendu = Semaine.sommeDesSeries([
-      { exo: CATALOGUE[0], n: 3 }, { exo: CATALOGUE[1], n: 2 }, { exo: CATALOGUE[2], n: 4 }
-    ]);
-    MUSCLES.forEach((m) => expect(f.volume[m] || 0).toBeCloseTo(attendu[m] || 0, 5));
-    expect(f.volume.bas_du_dos).toBe(0.75);
-    expect(f.volume.deltoide_anterieur).toBe(1);
+    const f = F.semaineDe(corpus(seances, series), L);
+    const attendu = Semaine.sommeDesSeries([{ exo: CATALOGUE[0], n: 3 }, { exo: CATALOGUE[1], n: 2 }]);
+    MUSCLES.forEach((m) => expect(f.muscles[m] || 0).toBeCloseTo(attendu[m] || 0, 5));
+    expect(f.muscles.bas_du_dos).toBe(0.75);
+    expect(f.muscles.deltoide_anterieur).toBe(1);
   });
-  test('seules les séries de travail comptent ; une date illisible ne casse rien', () => {
+  test('la même source que le relevé par zones : la somme des muscles d’une zone = la zone', () => {
+    const f = F.semaineDe(corpus(seances, series), L);
+    f.zones.forEach((z) => expect(z.muscles.reduce((t, m) => t + m.series, 0)).toBeCloseTo(z.series, 1));
+    expect(Object.keys(f.muscles).sort()).toEqual([].concat.apply([], f.zones.map((z) => z.muscles.map((m) => m.muscle))).sort());
+  });
+  test('seules les séries de travail comptent', () => {
     const s2 = { hier: [travail('squat_barre'), { exercise_slug: 'squat_barre', type_serie: 'echauffement' }] };
-    expect(F.muscleDesSeptJours(corpus([seances[0]], s2), J).volume.quadriceps).toBe(1);
-    expect(F.muscleDesSeptJours(corpus(seances, series), 'n’importe quoi').volume).toEqual({});
+    expect(F.semaineDe(corpus([seances[0]], s2), L).muscles.quadriceps).toBe(1);
+  });
+  test('plus de fait des sept jours : le bonhomme n’a qu’une source', () => {
+    expect(F.muscleDesSeptJours).toBeUndefined();
   });
 });
 
@@ -185,9 +189,9 @@ describe('218 — le rendu du bonhomme', () => {
     partie(carte, 'fessiers', 'arriere').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     const b = carte.querySelector('[data-cote="arriere"] .bh-bulle');
     expect(b.hidden).toBe(false);
-    expect(texte(b)).toBe('Fessiers : 8 séries cette semaine');
+    expect(texte(b)).toBe('Fessiers : 8 séries sur la semaine');
     partie(carte, 'epaules', 'avant').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-    expect(texte(carte.querySelector('[data-cote="avant"] .bh-bulle'))).toBe('Épaules : 18 séries cette semaine');
+    expect(texte(carte.querySelector('[data-cote="avant"] .bh-bulle'))).toBe('Épaules : 18 séries sur la semaine');
     expect(carte.querySelector('[data-cote="arriere"] .bh-bulle').hidden).toBe(true);   // une seule bulle à la fois
     partie(carte, 'epaules', 'avant').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
     expect(carte.querySelector('[data-cote="avant"] .bh-bulle').hidden).toBe(true);      // un second toucher la ferme
@@ -196,9 +200,9 @@ describe('218 — le rendu du bonhomme', () => {
   test('une série, zéro série : le singulier', () => {
     const { carte } = rendre({ volume: { pectoraux: 1 } });
     partie(carte, 'pectoraux', 'avant').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-    expect(texte(carte.querySelector('[data-cote="avant"] .bh-bulle'))).toBe('Pectoraux : 1 série cette semaine');
+    expect(texte(carte.querySelector('[data-cote="avant"] .bh-bulle'))).toBe('Pectoraux : 1 série sur la semaine');
     partie(carte, 'mollets', 'avant').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-    expect(texte(carte.querySelector('[data-cote="avant"] .bh-bulle'))).toBe('Mollets : 0 série cette semaine');
+    expect(texte(carte.querySelector('[data-cote="avant"] .bh-bulle'))).toBe('Mollets : 0 série sur la semaine');
   });
   test('Homme / Femme : le dessin change, les chiffres non ; le choix est rendu à l’app, le rendu n’écrit rien d’autre', () => {
     const { carte, ecrit } = rendre();
@@ -225,16 +229,20 @@ describe('218 — le rendu du bonhomme', () => {
     expect(partie(carte, 'pectoraux', 'avant').getAttribute('fill')).toBe('#2b3442');
     expect(texte(carte.querySelector('.bh-legende'))).toBe('00 série');   // « 0 » puis le maximum, « 0 série »
   });
-  test('la carte est en tête de « Ta semaine et tes équilibres » quand l’analyse parle', () => {
+  test('220 — la carte n’est plus dans « Ta semaine et tes équilibres » (un seul endroit : Volume par muscle)', () => {
     const c = document.createElement('div');
     Rendu.rendreEquilibres(c, { analyse: { etat: 'carnet', cartes: [], constats: [], calmes: [], quand: null }, fait: null,
       bonhomme: { volume: VOLUME, libelles: Semaine.LIBELLES_MUSCLE, sexe: 'femme', surSexe: () => {} } });
-    expect(c.querySelector('[data-equilibres] > .bonhomme[data-bonhomme="femme"]')).toBeTruthy();
+    expect(c.querySelector('.bonhomme')).toBeNull();
+  });
+  test('220 — le sous-titre dit la semaine affichée', () => {
+    const { carte } = rendre({ sous: 'Séries de travail, 19-25 oct.' });
+    expect(texte(carte.querySelector('.bh-sous'))).toBe('Séries de travail, 19-25 oct.');
   });
 });
 
 describe('218 — le budget de la carte, à l’échelle d’un vrai historique (627 séances)', () => {
-  test('le fait des sept jours + la lecture + le rendu tiennent dans 150 ms', () => {
+  test('la semaine affichée + la lecture + le rendu tiennent dans 150 ms', () => {
     const seances = [], series = {};
     const slugs = ['squat_barre', 'developpe_couche_barre', 'tractions'];
     for (let i = 0; i < 627; i++) {
@@ -244,9 +252,10 @@ describe('218 — le budget de la carte, à l’échelle d’un vrai historique 
     }
     const c = corpus(seances, series);
     const F = Faits.creer();
-    F.muscleDesSeptJours(c, '2026-10-31');   // échauffement du moteur JS
+    const L = new Date(2026, 9, 26);
+    F.semaineDe(c, L);   // échauffement du moteur JS
     const t0 = Date.now();
-    const f = F.muscleDesSeptJours(c, '2026-10-31');
+    const f = { volume: F.semaineDe(c, L).muscles };
     const conteneur = document.createElement('div');
     Rendu.rendreBonhomme(conteneur, { volume: f.volume, libelles: Semaine.LIBELLES_MUSCLE, sexe: 'homme', surSexe: () => {} });
     expect(Date.now() - t0).toBeLessThan(150);

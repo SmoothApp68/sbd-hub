@@ -759,7 +759,14 @@
       return {
         bornes: bornes, jours: jours, seances: seances, series: series,
         bilan: Semaine.bilanSemaine(seances, series, c.exercices),
-        zones: Semaine.volumeParZone(series, c.exercices)
+        zones: Semaine.volumeParZone(series, c.exercices),
+        // 220 — le bonhomme des muscles lit la MÊME semaine que le relevé par zones : `{ muscle: séries }` (poids 1, ½, ¼ de
+        // `Semaine.volumeParMuscle`, la somme unique 217), pour la semaine affichée, semaines précédentes comprises.
+        muscles: (function () {
+          var m = {};
+          Semaine.volumeParMuscle(series, c.exercices).forEach(function (v) { m[v.muscle] = v.series; });
+          return m;
+        })()
       };
     }
 
@@ -1116,29 +1123,6 @@
       var volume = {};
       Semaine.volumeParMuscle(series, cc.exercices).forEach(function (v) { volume[v.muscle] = v.series; });
       return { seances: seances, volume: volume };
-    }
-
-    // ── 218 — LE BONHOMME DES MUSCLES : les séries de travail des SEPT derniers jours, par muscle ───────────────
-    //
-    // Un FAIT descriptif, aucun seuil : les séries de travail du jour civil `jour` et des six jours qui précèdent (sept jours
-    // civils, `Semaine.volumeParMuscle` → la somme unique `Semaine.sommeDesSeries`, 217). Le dessin et la liste le LISENT ;
-    // aucun écran ne compte. `jour` : 'AAAA-MM-JJ', passé (jamais l'horloge). Rend `{ volume: { muscle: séries }, jours: 7 }`.
-    var JOURS_DU_BONHOMME = 7;
-    function muscleDesSeptJours(c, jour) {
-      var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(jour || ''));
-      if (!m) return { volume: {}, jours: JOURS_DU_BONHOMME };
-      var j0 = new Date(+m[1], +m[2] - 1, +m[3]);
-      var depuis = Moteur.jourCivil(new Date(j0.getFullYear(), j0.getMonth(), j0.getDate() - (JOURS_DU_BONHOMME - 1)));
-      var fin = Moteur.jourCivil(j0), series = [];
-      (c.seances || []).forEach(function (s) {
-        if (!s || !s.debut) return;
-        var js = Moteur.jourCivil(new Date(s.debut));
-        if (!js || js < depuis || js > fin) return;
-        series = series.concat(c.seriesDe(s.id) || []);   // `volumeParMuscle` ne garde que les séries de travail
-      });
-      var volume = {};
-      Semaine.volumeParMuscle(series, c.exercices).forEach(function (v) { volume[v.muscle] = v.series; });
-      return { volume: volume, jours: JOURS_DU_BONHOMME };
     }
 
     // ── Les exercices faits et leur date (`app.js` `calculerDatesExercices`) ──
@@ -2152,7 +2136,6 @@
       derniereSeance: derniereSeance,
       seancesDesRoutines: seancesDesRoutines,
       semaineDuProgramme: semaineDuProgramme,
-      muscleDesSeptJours: muscleDesSeptJours,
       oublierDates: oublierDates,
       faitsDuJeu: faitsDuJeu,
       BARRES_DU_JEU: BARRES_DU_JEU,

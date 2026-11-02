@@ -14472,6 +14472,7 @@ const SETS_IMPORTES = [
     base.profiles[0].objectif = null;
 
 
+
     base.profiles[0].objectif = null;
     await aller('/saisie');
     await cliquerDossier('Alpha U53', '.programme-creer');
@@ -14822,6 +14823,47 @@ const SETS_IMPORTES = [
       JSON.stringify(gardeBanc.liste.slice(-2)));
     // L'heure revient : les sections suivantes jouent au présent.
     await page.clock.setSystemTime(new Date());
+    // ── 221 — LA CONSIGNE D'UN SQUAT EN BLOC HYPERTROPHIE À GROSSE SÉRIE : le plan lit le bloc (grosse série Lourd, puis des reculs en 8-10).
+    const nBlocsAvant = base.blocs.length, nZonesAvant = base.zones.length, nSessAvant = base.sessions.length, nSetsAvant = base.sets.length;
+    if (!CATALOGUE.some((c) => c.slug === 'squat_barre')) {
+      CATALOGUE.push({ slug: 'squat_barre', nom: 'Squat (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+        mouvement: 'squat', muscles_primaires: ['quadriceps'], muscles_secondaires: ['fessiers'], muscles_stabilisateurs: ['bas_du_dos'], barre_charge_fixe: false });
+    }
+    [21, 14, 7].forEach((j, i) => {
+      const id = 'h221-' + i;
+      const debut = seanceC(id, ilYa(j * JOUR_MS, Date.now()).getTime());
+      [1, 2, 3, 4].forEach((r) => serieC(id, 'squat_barre', r, 140, 5, debut));
+    });
+    const debutBloc = ilYa(8 * JOUR_MS, Date.now()).toISOString().slice(0, 10);
+    base.blocs.push({ id: '00000000-0000-4000-8221-000000000001', user_id: 'u-banc', dossier: 'Squat U221', zone: 'hypertrophie', debut: debutBloc,
+      semaines: 4, decharge: true, exercices: ['squat_barre'], statut: 'en_cours', precedent: null, grosse_serie: true,
+      created_at: ilYa(8 * JOUR_MS, Date.now()).toISOString(), modifie_a: ilYa(8 * JOUR_MS, Date.now()).toISOString() });
+    base.zones.push({ id: 'z-h221', user_id: 'u-banc', exercise_slug: 'squat_barre', zone: 'lourd',
+      corrigee_a: new Date(debutBloc + 'T00:00:00').toISOString(), origine: 'bloc', bloc_id: '00000000-0000-4000-8221-000000000001' });
+    ROUTINES.push({ id: '00000000-0000-4000-8221-0000000000a1', nom: 'Squat U221', note: null, archivee_a: null, rang: null, dossier: 'Squat U221',
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: '00000000-0000-4000-8221-0000000000e1', routine_id: '00000000-0000-4000-8221-0000000000a1', exercise_slug: 'squat_barre',
+        rang: 0, routine_sets: progr(4, 8), repos_cible_s: 120, groupe_superset: null, note: null }] });
+    base.profiles[0].objectif = 'les_deux';
+    await aller('/saisie');
+    await demarrerRoutine('Squat U221');
+    await jusqua(() => page.evaluate(() => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan &&
+      window.THPlan.dernier.plan.exercices.some((q) => q.slug === 'squat_barre' && q.blocHypertrophie))).catch(() => false), 10000, 'plan du squat en bloc');
+    const sq = await page.evaluate(() => {
+      const x = window.THPlan.dernier.plan.exercices.filter((q) => q.slug === 'squat_barre')[0];
+      return { bloc: x.blocHypertrophie, zone: x.consigne && x.consigne.zone, types: x.lignes.map((l) => l.type) };
+    });
+    if (process.env.BANC_CAPTURES_221) {
+      await page.evaluate(() => { const b = document.querySelector('.bloc-seance'); if (b) b.scrollIntoView(); });
+      await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_221, 'consigne-squat-bloc-hypertrophie.png') });
+    }
+    ok('[221] DISCRIMINANT — un squat en bloc Hypertrophie à grosse série : consigne Lourd, 1 série de travail puis 3 reculs (le plan, pas l’écran)',
+      sq.zone === 'lourd' && sq.bloc && sq.bloc.grosse === true && sq.bloc.reculs === 3 && JSON.stringify(sq.types) === JSON.stringify(['travail', 'recul', 'recul', 'recul']),
+      JSON.stringify(sq));
+    await abandonner();
+    base.blocs.length = nBlocsAvant; base.zones.length = nZonesAvant; base.sessions.length = nSessAvant; base.sets.length = nSetsAvant;
+    ROUTINES.splice(ROUTINES.findIndex((r) => r.nom === 'Squat U221'), 1);
+    base.profiles[0].objectif = null;
     await aller('/saisie');
     ok('[C53] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }

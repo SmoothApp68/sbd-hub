@@ -972,10 +972,16 @@ const NOTIONS = [
   // ── 65 — LE POIDS D'UN MUSCLE (REGLE-VOLUME §1 bis, v2_069) : une table, lue par le coach et le jeu ──
   { notion: 'le poids d’un muscle dans une série (principal 1, secondaire ½, stabilisateur ¼)', pr: '65-U1',
     module: 'semaine.js', fonction: 'musclesPonderes', lecteurs: ['jeu.js', 'generateur.js', 'equilibres.js'],
-    par: ['volumeParMuscle', 'apportsParMuscle'],
+    par: ['sommeDesSeries', 'apportsParMuscle'],
     raison: 'REGLE-VOLUME §1 bis (65) : UNE table de poids (`POIDS_DES_MUSCLES`), lue par le coach (le volume, la fenêtre ' +
       '« d’où vient ce chiffre ») et par le jeu (les points des muscles) ; une seconde table finirait par dire autre chose. ' +
       '66A : la relecture de la semaine (§5 ter.1) compte les séries d’une routine par muscle avec ces poids.' },
+  { notion: 'la somme pondérée des séries par muscle (n séries × 1, ½, ¼, additionnées)', pr: '217-U1',
+    module: 'semaine.js', fonction: 'sommeDesSeries', lecteurs: ['generateur.js', 'equilibres.js'],
+    par: ['volumeParMuscle'],
+    raison: '217 : trois boucles additionnaient les poids de `musclesPonderes` (le volume fait, le volume que le ' +
+      'générateur compose, le volume que les équilibres relisent dans les routines) ; une seule somme, lue par les trois. ' +
+      'Le jeu garde son MAX par zone (JEU-V1), décision à part.' },
   { notion: 'la fin effective d’une séance (sans heure de fin : 3 h au plus, jamais après la suivante)', pr: '55-U1',
     module: 'moteur.js', fonction: 'finEffective', lecteurs: [],
     par: ['consigneDeLaSeance'],

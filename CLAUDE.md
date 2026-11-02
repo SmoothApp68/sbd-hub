@@ -176,7 +176,7 @@ trappe `/__sw-off` pendrait avec lui.
 - **Ta semaine et tes équilibres** (188-1, MOTEUR §9.27) : `v2/js/equilibres.js` (`THEquilibres`) est pur, sur le modèle de `deraille.js` ; l'écran lit l'analyse et ne calcule rien. Les gestes d'une séance (`sessions.gestes`) s'écrivent par `Seance.noterGeste`, jamais ailleurs ; les réponses aux cartes, dans `profiles.cartes_semaine` par la file (`poserProfil`). Aucune cause n'est devinée, aucune règle ne fixe un nombre de séries ou d'exercices, une proposition passe par le chemin des routines et s'annule.
 - **Le bonhomme des muscles** (218, maquette-bonhomme-v2) : `v2/js/silhouettes.js` (`THSilhouettes`) est un module de DONNÉES (tracés
   homme/femme, avant/arrière, MIT © 2022 ELABBASSI Hicham — crédit et licence dans Profil › À propos › Crédits, `mentions.js`) et la lecture
-  d'un volume par partie dessinée. Il ne compte rien : le volume des sept jours est le fait `faits.muscleDesSeptJours` (→
+  d'un volume par partie dessinée. Il ne compte rien : la carte vit en haut de « Volume par muscle » (220) et suit la semaine affichée : son volume est `faits.semaineDe(…).muscles` (→
   `Semaine.volumeParMuscle` → la somme unique `Semaine.sommeDesSeries`). Épaules = 3 deltoïdes, Dos = haut du dos + grand dorsal, abducteurs
   sans tracé (liste seulement) ; une teinte (`--teinte`), aucun seuil ; le sexe du dessin est une préférence d'appareil (`th-silhouette`).
 

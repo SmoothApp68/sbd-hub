@@ -1795,8 +1795,6 @@
     var section = el('div', 'eq-section');
     section.setAttribute('data-equilibres', a.etat);
     if (a.quand) section.appendChild(el('div', 'eq-quand', a.quand));
-    // 218 — le bonhomme des muscles, en tête de la carte : un fait, avant les cartes qui parlent.
-    if (vue.bonhomme) rendreBonhomme(section, vue.bonhomme);
     if (vue.fait) {
       var f = el('div', 'eq-fait-pose');
       f.appendChild(el('span', null, vue.fait.texte));
@@ -1828,8 +1826,9 @@
     parent.appendChild(section);
   }
 
-  // 218 — « LE BONHOMME DES MUSCLES » (maquette-bonhomme-v2) : où sont passées les séries de travail des sept derniers jours.
-  // L'écran LIT : `vue.volume` est le fait de `faits.muscleDesSeptJours` (la somme unique, 217), `THSilhouettes.lire` le regroupe
+  // 218 — « LE BONHOMME DES MUSCLES » (maquette-bonhomme-v2) : où sont passées les séries de travail de la semaine affichée
+  // (220 : en haut de « Volume par muscle », il suit la navigation par semaine).
+  // L'écran LIT : `vue.volume` est `faits.semaineDe(…).muscles` (la somme unique, 217, la même que le relevé par zones), `THSilhouettes.lire` le regroupe
   // par partie dessinée et donne la teinte. Une seule teinte, proportionnelle au maximum de la semaine : aucun seuil, jamais
   // rouge ni vert, aucun « trop peu ». Le dessin est décoratif (`aria-hidden`) : la liste des dix-huit muscles dit la même chose.
   // `vue` : { volume, libelles, sexe, surSexe(sexe) } — le sexe est une préférence de l'appareil, que l'app garde ; le rendu
@@ -1842,8 +1841,8 @@
     var sexe = S.sexeValide(vue.sexe);
     var carte = el('div', 'carte-mois eq-carte bonhomme');
     carte.setAttribute('data-bonhomme', sexe);
-    carte.appendChild(el('div', 'eq-titre', 'Tes muscles cette semaine'));
-    carte.appendChild(el('div', 'bh-sous', 'Séries de travail, 7 derniers jours'));
+    carte.appendChild(el('div', 'eq-titre', 'Tes muscles'));
+    carte.appendChild(el('div', 'bh-sous', vue.sous || 'Séries de travail'));
 
     var choix = el('div', 'bh-sexe');
     choix.setAttribute('role', 'radiogroup');
@@ -1917,7 +1916,7 @@
       vider(b);
       b.appendChild(doc.createTextNode(partie.libelle + ' : '));
       b.appendChild(el('b', null, nombreFr(partie.series)));
-      b.appendChild(doc.createTextNode(' série' + (partie.series >= 2 ? 's' : '') + ' cette semaine'));
+      b.appendChild(doc.createTextNode(' série' + (partie.series >= 2 ? 's' : '') + ' sur la semaine'));
       b.hidden = false;
       // La bulle se pose au-dessus du muscle et reste dans le cadre du dessin.
       var cadre = cote.w.getBoundingClientRect();
@@ -6492,7 +6491,6 @@
       // 118 — même sans aucune routine, un programme en cours garde son dossier, son badge et « Arrêter ».
       programmesOrphelins(null, v).forEach(function (d) {
         var pr = v.programme ? v.programme(d) : null;
-        if (pr && pr.fin) cible.appendChild(carteFinDeBloc(d, pr.fin, v));
         cible.appendChild(ligneDeDossier({ dossier: d, routines: [] }, pr, false, v));
       });
       return;
@@ -6516,15 +6514,10 @@
         .concat(orphelins.map(function (d) { return { dossier: d, routines: [] }; }), sansDossier);
     }
     if (groupes) {
-      // MOTEUR §9.22 (53-2) — le programme de chaque dossier, lu sur
-      // `vue.programme`. LA CARTE DE FIN DE BLOC passe EN TÊTE de l'écran
-      // (maquette cycles v1, « Fin ») : la voix du coach, au-dessus des
-      // dossiers, jusqu'au choix de la personne.
+      // MOTEUR §9.22 (53-2) — le programme de chaque dossier, lu sur `vue.programme`. La carte de fin de bloc
+      // n'est plus ici (220) : elle vit en tête de Saisie, `#carte-fin-saisie` (171), jusqu'au choix de la personne.
       var programmes = groupes.map(function (g) {
         return v.programme && g.dossier !== null ? v.programme(g.dossier) : null;
-      });
-      groupes.forEach(function (g, i) {
-        if (programmes[i] && programmes[i].fin) cible.appendChild(carteFinDeBloc(g.dossier, programmes[i].fin, v));
       });
       if (!v.reorganiser && v.surRetrouver) cible.appendChild(ligneRetrouver(v));
       groupes.forEach(function (g, i) {

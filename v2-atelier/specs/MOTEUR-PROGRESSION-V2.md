@@ -1733,6 +1733,8 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 
 **Réglage.** Me ménager 6 semaines / 1 carte / silence 12 ; Normal 5 / 2 / 8 ; Me pousser 4 / 3 / 4. Les faits ne changent pas selon le réglage, seul « quand » change. Juste un carnet : aucune carte.
 
+> **Delta du 02/11/2026 (220, §9.27) — le bonhomme des muscles vit sur « Volume par muscle ».** Le bonhomme (218, `rendu.rendreBonhomme`) n'est plus dans « Ta semaine et tes équilibres » (« Ton parcours », trois niveaux sous Progression) : il est en haut de la page « Volume par muscle » (Progression), sous la barre de semaine, et **suit la semaine affichée**, semaines précédentes comprises. Sa source est `faits.semaineDe(…).muscles` (`Semaine.volumeParMuscle` → la somme unique `Semaine.sommeDesSeries`), **la même que le relevé par zones** de la page ; le fait `muscleDesSeptJours` (sept jours glissants) est supprimé. Un seul endroit : plus de carte dans `rendreEquilibres`. Le sexe du dessin reste une préférence d'appareil.
+
 ### 9.28 La série de recul — décidé le 31/10/2026 (chantier 193-1) (I78)
 
 **Un type de série de plus : `recul`** (`sets.type_serie`, `routine_sets.type_serie`, migration v2_120). Une série plus légère que la grosse série du jour, faite après elle, au repos de l'exercice. Une seule lecture, `THModele.estRecul` (sur le modèle de `estTest`) ; `typeLu` rend `'recul'`. **Une série de recul reste du travail** pour tout ce qui compte ce qui a été fait (`estTravail` : volume, records, e1RM, jeu) et **n'est jamais** ce qui décide d'une charge ou d'un palier. « Non, ne compte pas » (`hors_calcul`) l'emporte, comme partout. Aucun mappage d'import (Hevy) ne produit un recul : un type inconnu n'est jamais deviné.

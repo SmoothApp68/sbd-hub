@@ -27631,16 +27631,18 @@ const SETS_IMPORTES = [
     // Une proposition d'ajout : elle s'applique par le chemin des routines, se voit, s'annule.
     const avecAjout = vives.filter((c) => c.boutons.some((b) => b.prop === 'ajouter'))[0];
     if (avecAjout) {
-      const exosAvant = ROUTINES.filter((r) => r.id === 'r-eq188')[0].routine_exercises.length;
+      // 224 : l'ajout va dans la routine du bon côté, pas forcément r-eq188 — on compte les exercices de toutes les routines.
+      const totalExos188 = () => ROUTINES.reduce((n, r) => n + r.routine_exercises.length, 0);
+      const exosAvant = totalExos188();
       await page.evaluate((cle) => document.querySelector('[data-equilibre="' + cle + '"] [data-proposition="ajouter"]').click(), avecAjout.cle);
-      await attendreQue(() => ROUTINES.filter((r) => r.id === 'r-eq188')[0].routine_exercises.length > exosAvant, 8000, 'ajout188');
+      await attendreQue(() => totalExos188() > exosAvant, 8000, 'ajout188');
       await attendreQue(async () => /^Fait :/.test(sp188((await lireParcours188()).fait)), 8000, 'fait188');
       const vf = await lireParcours188();
       ok('[EQ188] la proposition acceptée écrit la routine ET se voit (« Fait : … »)',
-        ROUTINES.filter((r) => r.id === 'r-eq188')[0].routine_exercises.length === exosAvant + 1 && /^Fait :/.test(sp188(vf.fait)), nb188(vf.fait));
+        totalExos188() === exosAvant + 1 && /^Fait :/.test(sp188(vf.fait)), nb188(vf.fait));
       await page.evaluate(() => Array.from(document.querySelectorAll('#parcours .eq-fait-pose button')).filter((b) => /annuler/i.test(b.textContent))[0].click());
-      await attendreQue(() => ROUTINES.filter((r) => r.id === 'r-eq188')[0].routine_exercises.length === exosAvant, 8000, 'annule188');
-      ok('[EQ188] « Annuler » rend la routine d’avant', ROUTINES.filter((r) => r.id === 'r-eq188')[0].routine_exercises.length === exosAvant, '');
+      await attendreQue(() => totalExos188() === exosAvant, 8000, 'annule188');
+      ok('[EQ188] « Annuler » rend la routine d’avant', totalExos188() === exosAvant, '');
     } else {
       ok('[EQ188] une carte propose d’ajouter un exercice', false, nb188(vives.map((c) => c.boutons.map((b) => b.prop))));
     }

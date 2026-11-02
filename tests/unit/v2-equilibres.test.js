@@ -235,8 +235,9 @@ describe('D’où ça vient : chaque cause, en faits', () => {
     const a = Eq.analyser(entree(construire(semaines(() => [A(1), { routine: 'r-b', exos: { developpe_incline_halteres: 2 } }])), { routines: [R_A, R_B, R_C] }));
     // « Haut A » a déjà le rowing ; « Haut B » ne l’a pas : c’est la routine faite qui le reçoit.
     const p = carte(a, 'tp-horizontal').propositions.filter((x) => x.type === 'ajouter')[0];
-    expect(p).toMatchObject({ routine_id: 'r-b', slug: 'rowing_barre', series: 1 });
-    expect(p.libelle).toBe('Ajouter Rowing Penché (Barre) à « Haut B »');
+    // 224 : 2 séries de travail et leurs reps (celles de l’historique), la place dite avant le geste.
+    expect(p).toMatchObject({ routine_id: 'r-b', slug: 'rowing_barre', series: 2, reps: 8, apres: 'curl' });
+    expect(p.libelle).toBe('Ajouter Rowing Penché (Barre), 2 × 8, à « Haut B », après Curl Biceps.');
   });
   // « Bas A » (squat, extension, hip thrust) est faite chaque semaine, avec le haut du corps.
   const HAUT = { developpe_couche_barre: 3, rowing_barre: 3, tractions: 2, developpe_militaire_barre: 2, oiseau: 1, elevations_laterales: 1, curl: 1, extension_triceps: 1 };
@@ -250,7 +251,7 @@ describe('D’où ça vient : chaque cause, en faits', () => {
     const t = carte(a, 'chaine').causes.map((c) => c.texte);
     expect(t).toContain('« Bas B » n’a pas été faite 4 semaines sur 12 : c’est elle qui porte Soulevé de Terre Roumain et Leg Curl Assis.');
     const p = carte(a, 'chaine').propositions;
-    expect(p.map((x) => x.libelle)).toEqual(expect.arrayContaining(['Ajouter Soulevé de Terre Roumain à « Bas A »', 'Fusionner Bas A et Bas B']));
+    expect(p.map((x) => x.libelle)).toEqual(expect.arrayContaining(['Ajouter Soulevé de Terre Roumain, 2 × 8, à « Bas A », après Hip Thrust.', 'Fusionner Bas A et Bas B']));
     expect(p.filter((x) => x.type === 'fusionner')[0]).toMatchObject({ routine_id: 'r-a', autre_id: 'r-b' });
   });
   test('⚠️ une séance non faite qui ne porte PAS le muscle en écart n’est pas nommée', () => {

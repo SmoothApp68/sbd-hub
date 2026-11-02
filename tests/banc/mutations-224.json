@@ -1,0 +1,5 @@
+[
+ {"nom":"224-routine-sans-cote","fichier":"v2/js/equilibres.js","ancien":"      if (cote === null) return true;\n","nouveau":"      return true;\n","banc":"aucun","unitaires":["tests/unit/v2-equilibres-224.test.js"]},
+ {"nom":"224-ajout-en-fin","fichier":"v2/js/routines.js","ancien":"placeDAjout(routine, slug, opts.cat).index : exercices.length","nouveau":"exercices.length : exercices.length","banc":"aucun","unitaires":["tests/unit/v2-equilibres-224.test.js"]},
+ {"nom":"224-serie-sans-reps","fichier":"v2/js/routines.js","ancien":"var reps = opts && opts.reps >= 1 ? opts.reps : null;","nouveau":"var reps = null;","banc":"aucun","unitaires":["tests/unit/v2-equilibres-224.test.js"]}
+]

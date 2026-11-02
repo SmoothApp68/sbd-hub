@@ -817,14 +817,50 @@
   // plus à la proposition. Une copie, toujours. AUCUN NOMBRE FIXE : le nombre de séries d'un exercice ajouté est celui que
   // l'appelant donne (l'habitude de la personne), la série ajoutée copie la dernière série de travail de l'exercice.
 
-  // L'AJOUT d'un exercice, en fin de routine, avec `nSeries` séries de travail (au moins une). Déjà là : `null`.
-  function ajoutDExercice(routine, slug, nSeries) {
+  // 224 (MOTEUR §9.27, amendé) — LA PLACE D'UN EXERCICE AJOUTÉ PAR UNE CARTE : UNE FONCTION, lue par la carte (« après Tirage vertical »)
+  // ET par l'écriture (`ajoutDExercice`) — le texte dit la place réelle parce que les deux lisent celle-ci.
+  //   1. juste après le dernier exercice de la même famille (un muscle principal en commun) ;
+  //   2. sinon avant les finitions de fin de séance ;
+  //   3. jamais après une finition : une famille trouvée au-delà des finitions finales est ramenée avant elles.
+  // Une FINITION : ce qui ne porte pas de volume (le cardio, le tapis : `Semaine.porteDuVolume`), un exercice au temps (une durée
+  // cible), le gainage (le seul principal est les abdominaux — le rôle « T » du générateur). Seule la SUITE de finitions qui ferme
+  // la routine compte : un tapis d'échauffement en tête n'en est pas une.
+  // `cat` : le catalogue indexé par slug. Sans catalogue (ou slug inconnu), la fin de la routine.
+  // Rend `{ index, apres, avant }` : où insérer, le slug qu'elle suit (ou `null`), le slug qu'elle précède (ou `null`, en dernier).
+  function estFinition(ex, cat) {
+    var f = cat && cat[ex.exercise_slug], prim = (f && f.muscles_primaires) || [];
+    if (f && !racine.THSemaine.porteDuVolume(f)) return true;
+    if (prim.length === 1 && prim[0] === 'abdominaux') return true;
+    return (ex.series || []).some(function (s) { return !!s && !!(s.duree_s || s.duree_cible_s); });
+  }
+  function placeDAjout(routine, slug, cat) {
+    var exercices = (routine && routine.exercices) || [];
+    var n = exercices.length, fin = n;
+    while (fin > 0 && estFinition(exercices[fin - 1], cat)) fin--;
+    var f = cat && cat[slug], prim = (f && f.muscles_primaires) || [], dernier = -1;
+    for (var i = 0; i < fin; i++) {
+      var g = cat && cat[exercices[i].exercise_slug];
+      if (g && (g.muscles_primaires || []).some(function (m) { return prim.indexOf(m) >= 0; })) dernier = i;
+    }
+    var index = fin;
+    if (dernier >= 0) index = blocDe(exercices, dernier).fin + 1;
+    if (index > fin) index = fin;
+    return { index: index, apres: index > 0 ? exercices[index - 1].exercise_slug : null, avant: index < n ? exercices[index].exercise_slug : null };
+  }
+
+  // L'AJOUT d'un exercice avec `nSeries` séries de travail (au moins une), chacune avec ses `reps` visées quand l'appelant les donne
+  // (jamais une ligne sans reps pour une carte : 224). La PLACE vient de `placeDAjout` quand `cat` est donné, sinon la fin de routine.
+  // Déjà là : `null`. `opts` : `{ reps, cat }`.
+  function ajoutDExercice(routine, slug, nSeries, opts) {
     var exercices = ((routine && routine.exercices) || []).map(copieExercice);
     if (!slug || indexDuSlug(exercices, slug) >= 0) return null;
     var n = nSeries >= 1 ? Math.floor(nSeries) : 1;
+    var reps = opts && opts.reps >= 1 ? opts.reps : null;
     var series = [];
-    for (var i = 0; i < n; i++) series.push(enSaisie({ type_serie: 'travail' }));
-    exercices.push({ exercise_slug: slug, series: series, repos_cible_s: null, groupe_superset: null, note: null, zone: null });
+    for (var i = 0; i < n; i++) series.push(enSaisie({ type_serie: 'travail', reps_visees: reps }));
+    var neuf = { exercise_slug: slug, series: series, repos_cible_s: null, groupe_superset: null, note: null, zone: null };
+    var place = opts && opts.cat ? placeDAjout(routine, slug, opts.cat).index : exercices.length;
+    exercices.splice(place, 0, neuf);
     return renumeroter(exercices);
   }
 
@@ -2123,6 +2159,7 @@
     estGroupe: estGroupe,
     peutGrouper: peutGrouper,
     ajoutDExercice: ajoutDExercice,
+    placeDAjout: placeDAjout,
     ajoutDeSerie: ajoutDeSerie,
     marquerAuMax: marquerAuMax,
     renumeroter: renumeroter,

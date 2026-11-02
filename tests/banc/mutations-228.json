@@ -1,0 +1,5 @@
+[
+ {"nom":"228-escalier-garde","fichier":"v2/js/moteur.js","ancien":"    if (o.grosseSerie === true) groupes = groupesDeLaGrosseSerie(groupes);\n","nouveau":"","banc":"aucun","unitaires":["tests/unit/v2-grosse-serie-228.test.js"]},
+ {"nom":"228-pourquoi-sans-bloc","fichier":"v2/js/moteur.js","ancien":"    if (f.grosseSerie === true) {","nouveau":"    if (false) {","banc":"aucun","unitaires":["tests/unit/v2-grosse-serie-228.test.js"]},
+ {"nom":"228-fondement-oublie","fichier":"v2/js/moteur.js","ancien":"{ fondement: Object.assign({}, r.consigne.fondement, { grosseSerie: true }) }","nouveau":"{ fondement: r.consigne.fondement }","banc":"aucun","unitaires":["tests/unit/v2-grosse-serie-228.test.js"]}
+]

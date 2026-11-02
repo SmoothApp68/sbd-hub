@@ -566,7 +566,8 @@
     programmeEnCours = { dossier: dossier, precedent: depuis || null,
       zone: suivant ? suivant.zone : Moteur.zoneDuPremierBloc(profil && profil.objectif),
       semaines: suivant ? suivant.semaines : Moteur.SEMAINES_BLOC_DEFAUT, decharge: suivant ? suivant.decharge : true,
-      debut: depuis ? 'aujourdhui' : 'lundi', slugs: slugs, coches: c, erreur: '' };
+      debut: depuis ? 'aujourdhui' : 'lundi', slugs: slugs, coches: c, erreur: '',
+      grosse: Moteur.grosseSerieParDefaut(profil && profil.objectif) };
     rendreFeuilleProgramme();
     ouvrirVoile($('feuille-seance'));
   }
@@ -579,14 +580,22 @@
     var maj = function (champ) { return function (v) { p[champ] = v; p.erreur = ''; rendreFeuilleProgramme(); }; };
     Rendu.rendreFeuilleProgramme($('feuille-contenu'), {
       dossier: p.dossier, suite: !!p.precedent, zone: p.zone, semaines: p.semaines, decharge: p.decharge, debut: p.debut,
-      zones: Moteur.ZONES_DE_BLOC.map(function (z) { return { cle: z, texte: Moteur.libelleZoneDeBloc(z, true) }; }),
+      zones: Moteur.zonesDeBloc(profil && profil.objectif).map(function (z) { return { cle: z, texte: Moteur.libelleZoneDeBloc(z, true) }; }),
       zoneCourte: Moteur.libelleZoneDeBloc(p.zone),
+      hypertrophie: p.zone === 'hypertrophie',
+      grosse: p.grosse === true, surGrosse: maj('grosse'),
+      phraseHypertrophie: Moteur.phraseBlocHypertrophie(p.grosse === true),
+      enCours: !!p.enCours,
       bornesSemaines: Moteur.SEMAINES_BLOC_MIN + ' à ' + Moteur.SEMAINES_BLOC_MAX,
       semainesPossibles: [3, 4, 5, 6].filter(function (n) {
         return n >= Moteur.SEMAINES_BLOC_MIN && n <= Moteur.SEMAINES_BLOC_MAX;
       }),
       debuts: [{ cle: 'lundi', texte: Modele.jourNomme(lundi) }, { cle: 'aujourdhui', texte: 'aujourd’hui' }],
-      exercices: p.slugs.map(function (s) { return { slug: s, nom: noms[s] || s, coche: !!p.coches[s] }; }),
+      exercices: p.slugs.map(function (s) {
+        var st = Moteur.structureDeBloc({ zone: p.zone, grosse_serie: p.grosse === true }, famillesDeBlocs([s])[s]);
+        return { slug: s, nom: noms[s] || s, coche: !!p.coches[s],
+                 zoneTexte: !st.zone ? 'sa zone' : (st.grosse ? Moteur.libelleZoneDeBloc(st.zone) + ', puis ' + Moteur.libelleZoneDeBloc(st.zoneReculs, true) : Moteur.libelleZoneDeBloc(st.zone)) };
+      }),
       erreur: p.erreur,
       surZone: maj('zone'), surSemaines: maj('semaines'), surDecharge: maj('decharge'), surDebut: maj('debut'),
       surCocher: function (slug) { p.coches[slug] = !p.coches[slug]; p.erreur = ''; rendreFeuilleProgramme(); },
@@ -602,7 +611,8 @@
     if (!exercices.length) { p.erreur = 'Coche au moins un exercice.'; return rendreFeuilleProgramme(); }
     programmeEnCours = null;
     fermerVoile();
-    await creerBloc({ dossier: p.dossier, zone: p.zone, semaines: p.semaines, decharge: p.decharge,
+    if (p.enCours) { await ajusterEnCours(p, exercices); rendreSaisie(); return; }
+    await creerBloc({ dossier: p.dossier, zone: p.zone, grosse: p.zone === 'hypertrophie' && p.grosse === true, semaines: p.semaines, decharge: p.decharge,
       debut: p.debut === 'aujourdhui' ? jourDuJour() : lundiQuiSuit(jourDuJour()),
       exercices: exercices, precedent: p.precedent });
     rendreSaisie();
@@ -618,12 +628,40 @@
     if (o.precedent) await terminerBloc(o.precedent, 'termine', true);
     var bloc = { id: uuid(), user_id: idUtilisateur(), dossier: o.dossier, zone: o.zone, debut: o.debut,
                  semaines: o.semaines, decharge: !!o.decharge, exercices: o.exercices.slice(), statut: 'en_cours',
+                 grosse_serie: o.zone === 'hypertrophie' && o.grosse === true,
                  precedent: o.precedent ? o.precedent.id : null, created_at: t, modifie_a: t };
     await poserBloc(bloc);
     // 193-2 — une PHASE (`sansZones`) n'écrit aucune ligne de zone : ses zones sont celles des routines (`routine_exercises.zone`).
-    if (!o.sansZones) await poserLignesDeZone(Moteur.zonesPosees(bloc, uuid, idUtilisateur()), bloc.id);
+    if (!o.sansZones) await poserLignesDeZone(Moteur.zonesPosees(bloc, uuid, idUtilisateur(), famillesDeBlocs(bloc.exercices)), bloc.id);
     if (o.precedent && o.telQuel === true) await poserPariDeProgramme(bloc, o.precedent);
     return bloc;
+  }
+
+  // 221 — « Ajuster le bloc » EN COURS (Mix → Hypertrophie…) : le même bloc (sa semaine, sa décharge), une autre zone ; les lignes de
+  // zone sont posées maintenant, la plus récente l'emporte.
+  async function ajusterEnCours(p, exercices) {
+    var b = Moteur.blocEnCours(local.blocs, p.dossier);
+    if (!b) return;
+    var t = instantDuJour();
+    var ajuste = Moteur.ajusterBlocEnCours(b, p.zone, p.grosse === true, profil && profil.objectif, t);
+    if (!ajuste) return;
+    ajuste = Object.assign({}, ajuste, { exercices: exercices.slice() });
+    await poserBloc(ajuste);
+    await poserLignesDeZone(Moteur.zonesPosees(ajuste, uuid, idUtilisateur(), famillesDeBlocs(ajuste.exercices), t), ajuste.id);
+  }
+  function ajusterBlocEnCours(dossier) {
+    var b = Moteur.blocEnCours(local.blocs, dossier);
+    if (!b) return;
+    ouvrirProgramme(dossier, null);
+    if (!programmeEnCours) return;
+    programmeEnCours.enCours = true;
+    programmeEnCours.zone = b.zone;
+    programmeEnCours.semaines = b.semaines; programmeEnCours.decharge = b.decharge === true;
+    programmeEnCours.grosse = b.grosse_serie === true;
+    var c = {};
+    (b.exercices || []).forEach(function (s) { c[s] = true; if (programmeEnCours.slugs.indexOf(s) < 0) programmeEnCours.slugs.push(s); });
+    programmeEnCours.coches = c;
+    rendreFeuilleProgramme();
   }
 
   // Le bloc qui finit (`termine`) ou qu'on arrête (`arrete`). Fini, son pari
@@ -695,6 +733,7 @@
       dossier: dossier, badge: Moteur.badgeDuBloc(b, jourDuJour(), Moteur.blocAPhases(b, routines)),
       exercices: (b.exercices || []).map(function (s) { return nomsDuCatalogue()[s] || s; }),
       surArreter: function () { fermerVoile(); arreterProgramme(dossier); },
+      surAjuster: function () { fermerVoile(); ajusterBlocEnCours(dossier); },
       surFermer: fermerVoile
     });
     ouvrirVoile($('feuille-seance'));
@@ -7103,6 +7142,13 @@
   }
 
   var catalogueMemo = null;
+  // 221 — la famille de barre de chaque exercice des blocs (`Generateur.familleDeBarre`) : le moteur ne lit pas le catalogue.
+  function famillesDeBlocs(slugs) {
+    var cat = catalogueIndexe(), sortie = {};
+    var liste = slugs || [].concat.apply([], (local.blocs || []).map(function (b) { return (b && b.exercices) || []; }));
+    liste.forEach(function (slug) { sortie[slug] = Generateur.familleDeBarre(slug, cat); });
+    return sortie;
+  }
   function catalogueIndexe() {
     if (!catalogueMemo || catalogueMemo.source !== local.exercices) {
       catalogueMemo = { source: local.exercices, index: Modele.indexerExercices(local.exercices || []) };
@@ -7317,7 +7363,7 @@
       reserve: reserveDeLaSeance(),
       // MOTEUR §9.22 (53-2) — les blocs des programmes (la décharge planifiée,
       // « Changer de schéma ») et les lignes de zone (I36, I37).
-      programme: { blocs: local.blocs || [], lignes: local.zones || [] },
+      programme: { blocs: local.blocs || [], lignes: local.zones || [], objectif: profil ? profil.objectif : undefined, familles: famillesDeBlocs() },
       // 165 (I60) — les périodes allégées : le plan vérifie qu'aucune consigne n'en cite une séance comme référence.
       periodesAllegees: periodesAllegees(),
       suites: suites,

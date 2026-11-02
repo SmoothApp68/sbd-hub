@@ -2047,6 +2047,13 @@
     };
     function planDeLOccurrence(exo, i, salleEl) {
         var slug = exo && exo.exercise_slug;
+        // 221 (MOTEUR §19.2) — LE BLOC HYPERTROPHIE : squat et couché gardent une grosse série (Lourd, garde 1) puis des reculs aux reps
+        // du bloc (193-1/193-5) ; le soulevé reste en Mix. La structure se lit ici, une fois, sur le bloc en cours (jamais l'écran) ; les
+        // séries de la séance ne sont pas modifiées : le plan lit une COPIE dont les séries suivantes sont des reculs.
+        var prB = e.programme || {};
+        var stBloc = slug && !salleEl ? Moteur().structureDeBlocDuJour(prB.blocs, slug, seance.debut,
+          prB.familles && Object.prototype.hasOwnProperty.call(prB.familles, slug) ? prB.familles[slug] : null) : null;
+        if (stBloc && stBloc.grosse) exo = Object.assign({}, exo, { series: Moteur().seriesEnGrosseEtReculs(exo.series, stBloc) });
         // Prérequis d'« adapter » — LE COACH SUIT UNE OCCURRENCE de l'exercice
         // dans la séance (`THSeance.occurrenceCoachee` : la première, ou celle
         // qui porte déjà ses paris) ; les autres sont libres : ni ligne du
@@ -2089,6 +2096,8 @@
           coachee && Object.prototype.hasOwnProperty.call(moins, slug) ? moins[slug] : null,
           e.reculs && Object.prototype.hasOwnProperty.call(e.reculs, slug) ? e.reculs[slug] : null,
           auMaxFaitsDe(e, seance, exos, i, coachee, douloureuse, intentionX, !!esc.allegee || !!jourDeTest, consignes));
+        x.blocHypertrophie = stBloc ? { zone: stBloc.zone, grosse: stBloc.grosse === true,
+          reculs: stBloc.grosse ? (exo.series || []).filter(function (q) { return racine.THModele.typeDe(q) === 'recul'; }).length : 0 } : null;
         x.semaineDeTest = semaineDeTestDExercice(jourDeTest, e, seance, exos, i, x,
           intentionX === 'entretien' || salleEl ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), intentionX, coachee, douloureuse);
         if (x.escalier && x.escalier.copie) x.escalier = null;
@@ -4766,7 +4775,9 @@
   //   · I36 — un bloc ne change que la zone de SES exercices : chaque ligne
   //     d'origine « bloc » désigne un bloc, un de ses exercices, sa zone, et
   //     son début (00:00) — ni exercice, ni ordre, ni série, ni charge ;
-  //   · I37 — une zone de bloc est Lourd ou Mix ;
+  //   · I37 — un bloc porte une zone connue (Lourd, Mix, Hypertrophie) ; la restriction par objectif (Hypertrophie seulement en Muscle ou Les deux, `Moteur.zonesDeBloc`) vaut pour la proposition et la création, pas pour un bloc déjà lancé (221) ;
+  //   · I114 (221) — un bloc Hypertrophie : le soulevé de terre est posé en Mix (jamais 8-10) ; une grosse série gardée n'existe que dans
+  //     un bloc Hypertrophie, et ne se pose ni au soulevé, ni hors d'une barre ;
   //   · I38 — jamais deux réductions à la fois : une décharge planifiée qui
   //     aurait lieu pendant (ou moins de 14 jours après) une semaine allégée
   //     acceptée, ou une carte de semaine allégée pendant la décharge ;
@@ -4777,10 +4788,15 @@
     var pr = (entrees && entrees.programme) || {};
     var blocs = pr.blocs || [];
     var parId = {};
+    var familles = pr.familles || {};
     blocs.forEach(function (b) {
       if (!b) return;
       if (b.id) parId[b.id] = b;
       if (M.ZONES_DE_BLOC.indexOf(b.zone) < 0) erreurs.push('I37 — le bloc ' + (b.id || '?') + ' porte la zone « ' + b.zone + ' »');
+      // 221 — la restriction par objectif vaut pour ce qui est PROPOSÉ et pour la création/le changement de zone (écran, écriture), pas pour
+      // un bloc déjà lancé : si l'objectif change pendant un bloc Hypertrophie, le bloc va à son terme (MOTEUR §19.2, amendement 221).
+      // I114 — la grosse série gardée n'existe que dans un bloc Hypertrophie.
+      if (b.grosse_serie === true && b.zone !== 'hypertrophie') erreurs.push('I114 — le bloc ' + (b.id || '?') + ' garde une grosse série sans être en Hypertrophie');
     });
     (pr.lignes || []).forEach(function (l) {
       if (!l || l.origine !== 'bloc') return;
@@ -4796,9 +4812,19 @@
       // zone du bloc ; TOUTE AUTRE est celle d'un arrêt : d'un bloc qui n'est
       // plus en cours, après son début, sans zone ou avec la zone d'avant le
       // programme (une zone connue, pas forcément Lourd ou Mix).
-      if (minuit !== null && t === minuit) {
+      // 221 — la ligne d'un bloc Hypertrophie est celle de `structureDeBloc` (le soulevé en Mix, jamais 8-10), I114.
+      var attendue = b.zone === 'hypertrophie' && Object.prototype.hasOwnProperty.call(familles, l.exercise_slug)
+        ? M.structureDeBloc(b, familles[l.exercise_slug]).zone : b.zone;
+      // Une ligne posée au début du bloc, ou — en cours de bloc — par un ajustement (221) : même zone que la sienne.
+      if (minuit !== null && (t === minuit || (b.statut === 'en_cours' && t > minuit && t === new Date(b.modifie_a).getTime() && l.zone === attendue))) {
         if (M.ZONES_DE_BLOC.indexOf(l.zone) < 0) erreurs.push('I37 — ' + dit + ' pose « ' + l.zone + ' »');
-        else if (l.zone !== b.zone) erreurs.push('I36 — ' + dit + ' : « ' + l.zone + ' » pour un bloc ' + b.zone);
+        else if (b.zone === 'hypertrophie' && Object.prototype.hasOwnProperty.call(familles, l.exercise_slug) && attendue !== l.zone) {
+          erreurs.push('I114 — ' + dit + ' : « ' + l.zone + ' » dans un bloc Hypertrophie (attendu « ' + attendue + ' »)');
+        }
+        else if (b.zone !== 'hypertrophie' && l.zone !== b.zone) erreurs.push('I36 — ' + dit + ' : « ' + l.zone + ' » pour un bloc ' + b.zone);
+        else if (b.zone === 'hypertrophie' && !Object.prototype.hasOwnProperty.call(familles, l.exercise_slug) && l.zone !== b.zone && l.zone !== 'mix') {
+          erreurs.push('I36 — ' + dit + ' : « ' + l.zone + ' » pour un bloc ' + b.zone);
+        }
         return;
       }
       if (b.statut === 'en_cours') {
@@ -5399,6 +5425,7 @@
     verifierReserve(plan, entrees, erreurs);
     verifierCalage(plan, entrees, erreurs);
     verifierZoneMenagee(plan, entrees, erreurs);
+    verifierBlocHypertrophie(plan, erreurs);
     verifierRestPause(plan, erreurs);
     verifierBaisseAttendue(plan, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
@@ -5561,6 +5588,32 @@
     }
   }
 
+  // I114 (221, MOTEUR §19.2) — LE BLOC HYPERTROPHIE, lu sur le plan : le soulevé reste en Mix (jamais 8-10) ; en grosse série gardée, la
+  // consigne est celle du Lourd, la première série de travail reste une série de travail, les suivantes sont des reculs (aux reps du bloc,
+  // 8-10) ; sans grosse série, la consigne est en Hypertrophie, sans recul que le bloc ait fait naître.
+  function verifierBlocHypertrophie(plan, erreurs) {
+    var M = Moteur(), z = M.zoneParCle('hypertrophie');
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var b = x && x.blocHypertrophie;
+      if (!b) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var k = x.consigne;
+      if (k && !k.allegee && !k.repli && k.zone !== undefined && k.zone !== null && k.zone !== b.zone) {
+        erreurs.push('I114' + nom + 'la zone ' + k.zone + ' dans un bloc Hypertrophie (attendu ' + b.zone + ')');
+      }
+      if (b.zone === 'mix' && b.grosse) erreurs.push('I114' + nom + 'une grosse série gardée sur le soulevé');
+      if (b.zone === 'mix' && k && k.zone === 'hypertrophie') erreurs.push('I114' + nom + 'le soulevé en 8-10');
+      if (!b.grosse) return;
+      var types = (x.lignes || []).map(function (l) { return l.type; }).filter(function (t) { return t === 'travail' || t === 'recul'; });
+      if (types.length && types[0] !== 'travail') erreurs.push('I114' + nom + 'la première série n’est pas la grosse série');
+      if (types.slice(1).some(function (t) { return t !== 'recul'; })) erreurs.push('I114' + nom + 'une série après la grosse série n’est pas un recul');
+      var vises = (x.lignes || []).filter(function (l) { return l.type === 'recul'; });
+      if (vises.some(function (l) { return typeof l.vise === 'number' && (l.vise < z.bas || l.vise > z.haut); })) {
+        erreurs.push('I114' + nom + 'des reculs hors de ' + z.bas + '-' + z.haut + ' reps');
+      }
+    });
+  }
+
   function verifierZoneMenagee(plan, entrees, erreurs) {
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var m = x && x.menagee;
@@ -5651,7 +5704,12 @@
         var attendu = x.consigne ? Moteur().reserveVisee({ zone: x.consigne.zone, role: roleDeLaVisee(x), reglage: plan.reglage }) : null;
         if (rv !== attendu) erreurs.push('I56' + nom + 'la réserve visée est ' + rv + ', la table donne ' + attendu);
         var exos = entrees && entrees.seance && entrees.seance.exercices ? entrees.seance.exercices : null;
-        if (x.effortVise && exos && x.effortVise.serie !== derniereSerieDeTravail(exos[i])) {
+        // 221 — dans un bloc Hypertrophie à grosse série, le plan lit les séries suivantes comme des reculs : l'invariant fait de même.
+        var exoI = exos ? exos[i] : null;
+        if (exoI && x.blocHypertrophie && x.blocHypertrophie.grosse) {
+          exoI = Object.assign({}, exoI, { series: Moteur().seriesEnGrosseEtReculs(exoI.series, { grosse: true }) });
+        }
+        if (x.effortVise && exos && x.effortVise.serie !== derniereSerieDeTravail(exoI)) {
           erreurs.push('I56' + nom + 'l’effort visé sur la série ' + x.effortVise.serie + ', pas sur la dernière série de travail');
         }
       }

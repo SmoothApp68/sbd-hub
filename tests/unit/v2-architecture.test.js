@@ -1856,10 +1856,27 @@ const NOTIONS = [
     module: 'generateur.js', fonction: 'estPoussee', lecteurs: ['equilibres.js'],
     raison: 'La relecture de la semaine (66A) et les cartes d’équilibre (188-1) comptent la poussée par la même définition.' },
   { notion: 'la barre d’un exercice (elle-même, ou une variante à la barre)', pr: '188-U1',
-    module: 'generateur.js', fonction: 'familleDeBarre', lecteurs: ['equilibres.js', 'faits.js', 'plan.js'],
+    module: 'generateur.js', fonction: 'familleDeBarre', lecteurs: ['equilibres.js', 'faits.js', 'plan.js', 'app.js'],
+    parAilleurs: { 'app.js': ['famillesDeBlocs'] },
     raison: 'La carte « Tes priorités, faites ou non » compte les séries d’une barre (et de ses variantes à la barre) par la ' +
       'définition de la relecture (66A), pas par une seconde liste. 193-6 : le plan lit la même famille pour la dernière série ' +
       '« Au max » (squat, couché, soulevé, militaire et leurs variantes à la barre), jamais une liste à part.' },
+  // ── 221 — LE BLOC HYPERTROPHIE (MOTEUR §19.2, amendement 221) ──
+  { notion: 'les zones qu’un bloc propose selon l’objectif (Hypertrophie seulement en Muscle et Les deux)', pr: '221-U1',
+    module: 'moteur.js', fonction: 'zonesDeBloc', lecteurs: ['app.js', 'plan.js'], parAilleurs: { 'app.js': ['rendreFeuilleProgramme'] },
+    raison: 'MOTEUR §19.2 (221) : une seule liste, lue par l’écran « Ajuster le bloc » et par I37 ; l’écran ne la recopie pas.' },
+  { notion: 'la zone qu’un bloc donne à un exercice (grosse série gardée, soulevé en Mix, accessoires libres)', pr: '221-U2',
+    module: 'moteur.js', fonction: 'structureDeBloc', lecteurs: ['app.js', 'plan.js'], parAilleurs: { 'app.js': ['rendreFeuilleProgramme'] },
+    raison: 'MOTEUR §19.2 (221) : `zonesPosees`, l’écran de la feuille et I114 lisent la même structure.' },
+  { notion: 'la grosse série gardée par défaut (Les deux oui, Muscle non)', pr: '221-U3',
+    module: 'moteur.js', fonction: 'grosseSerieParDefaut', lecteurs: ['app.js'], parAilleurs: { 'app.js': ['ouvrirProgramme'] },
+    raison: 'MOTEUR §19.2 (221) : le défaut vit dans le moteur ; l’écran ne le recopie pas.' },
+  { notion: 'la phrase du Pourquoi du bloc Hypertrophie', pr: '221-U4',
+    module: 'moteur.js', fonction: 'phraseBlocHypertrophie', lecteurs: ['app.js'], parAilleurs: { 'app.js': ['rendreFeuilleProgramme'] },
+    raison: 'Voix du coach (I26) : la phrase et ses bornes sortent du moteur, la carte de fin et la feuille la disent pareil.' },
+  { notion: 'le passage d’un bloc en cours à une autre zone (la semaine et la décharge gardées)', pr: '221-U5',
+    module: 'moteur.js', fonction: 'ajusterBlocEnCours', lecteurs: ['app.js'], parAilleurs: { 'app.js': ['ajusterEnCours'] },
+    raison: 'MOTEUR §19.2 (221) : le bloc ajusté garde son identifiant, son début, sa durée et sa décharge ; l’écran ne le refait pas.' },
   // ── 190 — « MA SALLE : LE PLUS PETIT DISQUE ET LA BARRE DE TRACTION » (MOTEUR §10.2) ──
   { notion: 'le pas de la barre (2 × le plus petit disque de la salle, sinon le repli de 2,5 kg)', pr: '190-U1',
     module: 'moteur.js', fonction: 'pasDeLaBarre', lecteurs: ['questionnaire.js'],

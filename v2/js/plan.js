@@ -4809,7 +4809,7 @@
       var attendue = b.zone === 'hypertrophie' && Object.prototype.hasOwnProperty.call(familles, l.exercise_slug)
         ? M.structureDeBloc(b, familles[l.exercise_slug]).zone : b.zone;
       // Une ligne posée au début du bloc, ou — en cours de bloc — par un ajustement (221) : même zone que la sienne.
-      if (minuit !== null && (t === minuit || (b.statut === 'en_cours' && t > minuit && l.zone === attendue))) {
+      if (minuit !== null && (t === minuit || (b.statut === 'en_cours' && t > minuit && t === new Date(b.modifie_a).getTime() && l.zone === attendue))) {
         if (M.ZONES_DE_BLOC.indexOf(l.zone) < 0) erreurs.push('I37 — ' + dit + ' pose « ' + l.zone + ' »');
         else if (b.zone === 'hypertrophie' && Object.prototype.hasOwnProperty.call(familles, l.exercise_slug) && attendue !== l.zone) {
           erreurs.push('I114 — ' + dit + ' : « ' + l.zone + ' » dans un bloc Hypertrophie (attendu « ' + attendue + ' »)');

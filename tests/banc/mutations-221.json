@@ -1,0 +1,11 @@
+[
+  { "nom": "221-hypertrophie-offerte-en-force", "fichier": "v2/js/moteur.js",
+    "ancien": "var OBJECTIFS_HYPERTROPHIE = ['muscle', 'les_deux'];", "nouveau": "var OBJECTIFS_HYPERTROPHIE = ['muscle', 'les_deux', 'force'];",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-bloc-hypertrophie.test.js"] },
+  { "nom": "221-pas-de-grosse-serie-en-les-deux", "fichier": "v2/js/moteur.js",
+    "ancien": "function grosseSerieParDefaut(objectif) { return objectif === 'les_deux'; }", "nouveau": "function grosseSerieParDefaut(objectif) { return false; }",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-bloc-hypertrophie.test.js"] },
+  { "nom": "221-souleve-a-8-10", "fichier": "v2/js/moteur.js",
+    "ancien": "if (classe === 'souleve') return { zone: 'mix',", "nouveau": "if (classe === 'souleve') return { zone: ZONE_HYPERTROPHIE,",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-bloc-hypertrophie.test.js"] }
+]

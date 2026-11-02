@@ -394,7 +394,7 @@ describe('53-2 bis — les gestes : le pari, l’arrêt', () => {
       routines: (o.routines || []).slice(),
       local: { blocs: (o.blocs || []).slice(), zones: (o.zones || []).slice() },
       programmeEnCours: o.programme || null,
-      uuid: () => 'id' + (++n), idUtilisateur: () => 'u',
+      uuid: () => 'id' + (++n), idUtilisateur: () => 'u', famillesDeBlocs: () => ({}),
       instantDuJour: () => o.instant, jourDuJour: () => M.jourCivil(o.instant),
       lundiQuiSuit: () => '2026-10-26',
       poserBloc: async (b) => {

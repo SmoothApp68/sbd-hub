@@ -27,6 +27,7 @@
   var Import = racine.THImportHevy;
   var Export = racine.THExport;
   var Mentions = racine.THMentions;   // 212
+  var Silhouettes = racine.THSilhouettes;   // 218
   var Generateur = racine.THGenerateur;
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
   // 64B — le jeu (JEU-V1 §9) : l'écran le LIT, il ne le refait pas ; le coach ne le lit jamais.
@@ -1687,12 +1688,25 @@
     repeindreLesEquilibres();
   }
 
+  // 218 — la silhouette du bonhomme (Homme / Femme) : une préférence PAR APPAREIL, jamais en base. Sans rien (ou sans stockage), Homme.
+  var CLE_SILHOUETTE = 'th-silhouette';
+  function lireSilhouette() {
+    try { return Silhouettes.sexeValide(racine.localStorage.getItem(CLE_SILHOUETTE)); } catch (e) { return Silhouettes.DEFAUT; }
+  }
+  function poserSilhouette(sexe) {
+    try { racine.localStorage.setItem(CLE_SILHOUETTE, Silhouettes.sexeValide(sexe)); } catch (e) { /* tant pis : le choix ne dure que le temps de l'écran */ }
+  }
+
   // La vue de « Ta semaine et tes équilibres » pour « Ton parcours » : l'analyse, la dernière proposition acceptée, les gestes.
   function vueDesEquilibres() {
     var a = equilibres();
     if (!a) return null;
     return {
       analyse: a, fait: faitEquilibre,
+      // 218 — le bonhomme des muscles : le FAIT des sept derniers jours (`faits.js`, la somme unique) ; le sexe du dessin est une
+      // préférence de l'appareil (jamais écrite en base).
+      bonhomme: { volume: faits.muscleDesSeptJours(corpus(), Moteur.jourCivil(new Date())).volume, libelles: Semaine.LIBELLES_MUSCLE,
+                  sexe: lireSilhouette(), surSexe: poserSilhouette },
       surProposition: function (carte, p) {
         accepterUneProposition(carte, p).catch(function (e) { console.warn('Proposition non appliquée :', texteErreur(e)); });
       },

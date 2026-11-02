@@ -1795,6 +1795,8 @@
     var section = el('div', 'eq-section');
     section.setAttribute('data-equilibres', a.etat);
     if (a.quand) section.appendChild(el('div', 'eq-quand', a.quand));
+    // 218 — le bonhomme des muscles, en tête de la carte : un fait, avant les cartes qui parlent.
+    if (vue.bonhomme) rendreBonhomme(section, vue.bonhomme);
     if (vue.fait) {
       var f = el('div', 'eq-fait-pose');
       f.appendChild(el('span', null, vue.fait.texte));
@@ -1824,6 +1826,156 @@
       section.appendChild(k);
     });
     parent.appendChild(section);
+  }
+
+  // 218 — « LE BONHOMME DES MUSCLES » (maquette-bonhomme-v2) : où sont passées les séries de travail des sept derniers jours.
+  // L'écran LIT : `vue.volume` est le fait de `faits.muscleDesSeptJours` (la somme unique, 217), `THSilhouettes.lire` le regroupe
+  // par partie dessinée et donne la teinte. Une seule teinte, proportionnelle au maximum de la semaine : aucun seuil, jamais
+  // rouge ni vert, aucun « trop peu ». Le dessin est décoratif (`aria-hidden`) : la liste des dix-huit muscles dit la même chose.
+  // `vue` : { volume, libelles, sexe, surSexe(sexe) } — le sexe est une préférence de l'appareil, que l'app garde ; le rendu
+  // ne l'écrit pas (un toucher seulement). Rien n'est écrit en base.
+  var RAYONS_DU_TOUCHER = [0, 8, 16, 24];   // px : une cible de 44 px au moins autour d'un muscle fin
+  function rendreBonhomme(parent, vue) {
+    var S = racine.THSilhouettes;
+    if (!vue || !S) return null;
+    var lecture = S.lire(vue.volume, vue.libelles);
+    var sexe = S.sexeValide(vue.sexe);
+    var carte = el('div', 'carte-mois eq-carte bonhomme');
+    carte.setAttribute('data-bonhomme', sexe);
+    carte.appendChild(el('div', 'eq-titre', 'Tes muscles cette semaine'));
+    carte.appendChild(el('div', 'bh-sous', 'Séries de travail, 7 derniers jours'));
+
+    var choix = el('div', 'bh-sexe');
+    choix.setAttribute('role', 'radiogroup');
+    choix.setAttribute('aria-label', 'Silhouette');
+    var boutons = {};
+    [['homme', 'Homme'], ['femme', 'Femme']].forEach(function (x) {
+      var b = el('button', 'bh-choix', x[1]);
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.setAttribute('data-sexe', x[0]);
+      boutons[x[0]] = b;
+      b.addEventListener('click', function () {
+        if (x[0] === sexe) return;
+        sexe = x[0];
+        carte.setAttribute('data-bonhomme', sexe);
+        dessiner();
+        if (vue.surSexe) vue.surSexe(sexe);
+      });
+      choix.appendChild(b);
+    });
+    carte.appendChild(choix);
+
+    var vues = el('div', 'bh-vues');
+    vues.setAttribute('aria-hidden', 'true');
+    var cotes = {};
+    [['avant', 'Avant'], ['arriere', 'Arrière']].forEach(function (x) {
+      var fig = el('figure', 'bh-fig');
+      var w = el('div', 'bh-w');
+      w.setAttribute('data-cote', x[0]);
+      var bulle = el('div', 'bh-bulle');
+      bulle.hidden = true;
+      w.appendChild(bulle);
+      fig.appendChild(w);
+      fig.appendChild(el('figcaption', null, x[1]));
+      cotes[x[0]] = { w: w, bulle: bulle };
+      vues.appendChild(fig);
+    });
+    carte.appendChild(vues);
+
+    function masquer() {
+      Object.keys(cotes).forEach(function (k) {
+        cotes[k].bulle.hidden = true;
+        Array.prototype.forEach.call(cotes[k].w.querySelectorAll('.sel'), function (n) { n.setAttribute('class', 'bh-m'); });
+      });
+    }
+    // La partie touchée : le muscle lui-même, sinon le plus proche (anneaux de plus en plus larges autour du doigt).
+    function partieAu(cote, ev) {
+      var t = ev.target && ev.target.getAttribute ? ev.target.getAttribute('data-p') : null;
+      if (t) return t;
+      if (typeof doc.elementFromPoint !== 'function' || typeof ev.clientX !== 'number') return null;
+      for (var i = 0; i < RAYONS_DU_TOUCHER.length; i++) {
+        var r = RAYONS_DU_TOUCHER[i], n = r ? 8 : 1;
+        for (var a = 0; a < n; a++) {
+          var e = doc.elementFromPoint(ev.clientX + r * Math.cos(a * Math.PI / 4), ev.clientY + r * Math.sin(a * Math.PI / 4));
+          var p = e && e.getAttribute ? e.getAttribute('data-p') : null;
+          if (p && cote.w.contains(e)) return p;
+        }
+      }
+      return null;
+    }
+    function montrer(cote, cle) {
+      var avait = cote.bulle.hidden === false && cote.bulle.getAttribute('data-p') === cle;
+      masquer();
+      if (!cle || avait) return;
+      var partie = lecture.parties.filter(function (p) { return p.cle === cle; })[0];
+      if (!partie) return;
+      var chemin = cote.w.querySelector('[data-p="' + cle + '"]');
+      if (chemin) chemin.setAttribute('class', 'bh-m sel');
+      var b = cote.bulle;
+      b.setAttribute('data-p', cle);
+      vider(b);
+      b.appendChild(doc.createTextNode(partie.libelle + ' : '));
+      b.appendChild(el('b', null, nombreFr(partie.series)));
+      b.appendChild(doc.createTextNode(' série' + (partie.series >= 2 ? 's' : '') + ' cette semaine'));
+      b.hidden = false;
+      // La bulle se pose au-dessus du muscle et reste dans le cadre du dessin.
+      var cadre = cote.w.getBoundingClientRect();
+      if (chemin && cadre.width) {
+        var r = chemin.getBoundingClientRect(), demi = (b.offsetWidth || 128) / 2;
+        var x = Math.max(demi, Math.min(cadre.width - demi, (r.left + r.right) / 2 - cadre.left));
+        b.style.left = x + 'px';
+        b.style.top = Math.max(b.offsetHeight || 34, r.top - cadre.top - 6) + 'px';
+      }
+    }
+
+    function dessiner() {
+      masquer();
+      boutons.homme.setAttribute('aria-checked', String(sexe === 'homme'));
+      boutons.femme.setAttribute('aria-checked', String(sexe === 'femme'));
+      boutons.homme.classList.toggle('on', sexe === 'homme');
+      boutons.femme.classList.toggle('on', sexe === 'femme');
+      Object.keys(cotes).forEach(function (k) {
+        var cote = cotes[k], v = S.VUES[sexe + '_' + k];
+        var ancien = cote.w.querySelector('svg');
+        if (ancien) cote.w.removeChild(ancien);
+        var dessin = svg('svg', 'bh', { viewBox: v.vb, focusable: 'false' });
+        dessin.appendChild(svg('path', 'bh-o', { d: v.o }));
+        dessin.appendChild(svg('path', 'bh-n', { d: v.n }));
+        lecture.parties.forEach(function (p) {
+          if (!v.r[p.cle]) return;
+          var m = svg('path', 'bh-m', { d: v.r[p.cle], fill: p.teinte });
+          m.setAttribute('data-p', p.cle);
+          dessin.appendChild(m);
+        });
+        dessin.addEventListener('click', function (ev) { montrer(cote, partieAu(cote, ev)); });
+        cote.w.insertBefore(dessin, cote.w.firstChild);
+      });
+    }
+    dessiner();
+
+    var leg = el('div', 'bh-legende');
+    leg.appendChild(el('span', null, '0'));
+    leg.appendChild(el('i'));
+    leg.appendChild(el('span', null, nombreFr(lecture.max) + (lecture.max >= 2 ? ' séries' : ' série')));
+    carte.appendChild(leg);
+
+    var liste = el('ul', 'bh-liste');
+    lecture.lignes.forEach(function (l) {
+      var li = el('li');
+      li.setAttribute('data-muscle', l.muscle);
+      var sw = el('span', 'sw');
+      sw.style.background = l.teinte;
+      li.appendChild(sw);
+      var n = el('span', 'n', l.libelle);
+      if (l.sansTrace) n.appendChild(el('small', null, ' pas dessiné'));
+      li.appendChild(n);
+      li.appendChild(el('b', null, nombreFr(l.series)));
+      liste.appendChild(li);
+    });
+    carte.appendChild(liste);
+    parent.appendChild(carte);
+    return carte;
   }
 
   // 197 (MOTEUR §9.36) — « Ta semaine » en Forme et santé. Les textes viennent de l'app (qui lit `faits.semaineDeForme`) ; ici on dessine.
@@ -9723,6 +9875,7 @@
     rendreCarteSemaine: rendreCarteSemaine,
     rendreLigneEquilibre: rendreLigneEquilibre,
     rendreEquilibres: rendreEquilibres,
+    rendreBonhomme: rendreBonhomme,
     rendreCarteEchelles: rendreCarteEchelles,
     rendreCarteManque: rendreCarteManque,
     rendreFinsDeCycleSaisie: rendreFinsDeCycleSaisie,

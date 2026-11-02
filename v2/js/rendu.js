@@ -1478,7 +1478,8 @@
       ligne.appendChild(el('span', 'pesee-unite', 'kg'));
       // 173 — ligne 1 : le poids à gauche, la variation à droite (même ligne de base) ; ligne 2 : « depuis le … · N pesées », pleine largeur.
       var an = r.date.getFullYear();
-      ligne.appendChild(el('span', 'pesee-var', r.variation ? signe(r.variation.valeur) + ' kg' : ''));
+      // 222 — une variation nulle ne se colore pas (couleur neutre) : pas de bleu pour « 0 kg ».
+      ligne.appendChild(el('span', 'pesee-var' + (r.variation && !Number(r.variation.valeur) ? ' nulle' : ''), r.variation ? signe(r.variation.valeur) + ' kg' : ''));
       bloc.appendChild(ligne);
       bloc.appendChild(el('div', 'pesee-depuis',
         (r.variation ? 'depuis le ' + jour(r.variation.depuis, an) + ' \u00b7 ' : '') +

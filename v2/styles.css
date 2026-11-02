@@ -521,6 +521,7 @@ button{font-family:inherit;cursor:pointer}
 .pesee-unite{font-size:12px;line-height:1;color:var(--texte-3)}
 .pesee-var{margin-left:auto;text-align:right;font-size:14px;font-weight:600;
   line-height:1.3;color:var(--donnees);font-variant-numeric:tabular-nums}
+.pesee-var.nulle{color:var(--texte-2)}
 .pesee-var em{display:block;font-style:normal;font-size:12px;color:var(--texte-3);margin-top:2px}
 
 /* La ligne mène à la page d'exercice : c'est un bouton, et il ne doit rien
@@ -1971,9 +1972,9 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .bloc-enveloppe > .bloc-som{background:transparent;margin-bottom:0;box-shadow:none;padding-bottom:var(--e2)}
 .bloc-peser-rangee{display:flex;justify-content:flex-end;padding:0 var(--e4) var(--e3)}
 .pesee-depuis{margin-top:var(--e1);font-size:12px;line-height:1.4;color:var(--texte-3);font-variant-numeric:tabular-nums}
-.bloc-peser{flex:none;height:36px;padding:0 18px;border-radius:var(--r-bouton);border:1px solid var(--accent);background:transparent;color:var(--accent);font:700 14px/1 var(--pile)}
-.bloc-tous{display:block;width:100%;margin-top:var(--e2);padding:8px 0 2px;border:none;border-top:1px solid var(--trait);background:none;
-  color:var(--texte-2);font:600 13px/1.3 var(--pile);text-align:left}
+.bloc-peser{flex:none;height:44px;min-width:44px;padding:0 18px;border-radius:var(--r-bouton);border:1px solid var(--accent);background:transparent;color:var(--accent);font:700 14px/1 var(--pile)}
+.bloc-tous{display:flex;align-items:center;width:100%;margin-top:var(--e2);padding:8px 0 2px;border:none;border-top:1px solid var(--trait);background:none;
+  color:var(--texte-2);font:600 13px/1.3 var(--pile);text-align:left;min-height:44px;padding-top:0;padding-bottom:0}
 .bloc-quoi .medaille{margin-right:8px;vertical-align:-3px}
 .mois-nav{display:flex;align-items:center;justify-content:space-between;gap:var(--e2);margin:var(--e2) 0 var(--e3)}
 .mois-nav .titre-vue{margin:0;text-align:center;flex:1}

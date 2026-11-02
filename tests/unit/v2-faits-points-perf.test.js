@@ -58,6 +58,8 @@ function pointsOrigine(F, c, slug) {
   return p.points.map((x) => Object.assign({}, x, { record: F.recordsDeLaSeance(c, par[x.seance]).some((r) => r.slug === slug) }));
 }
 
+function meilleurDe3(f) { let m = Infinity; for (let i = 0; i < 3; i++) { const t = Date.now(); f(); m = Math.min(m, Date.now() - t); } return m; }
+
 describe('216 — points d\'exercice rapides', () => {
   test('points identiques à l\'origine sur un historique de taille moyenne', () => {
     const c = historique(120, 30, 14);
@@ -75,11 +77,13 @@ describe('216 — points d\'exercice rapides', () => {
 
   test('budget : les 4 exercices les plus faits, 627 séances, ~17 800 séries, 153 exercices, sous 300 ms', () => {
     const c = historique(627, 153, 28);
-    const F = Faits.creer();
-    const t = Date.now();
-    // Le chemin de l'onglet Progression : les points, et le drapeau du DERNIER point (la mini-courbe).
-    ['exo_0', 'exo_1', 'exo_2', 'exo_3'].forEach((slug) => { const p = F.pointsDeLExercice(c, slug).points; void p[p.length - 1].record; });
-    const ms = Date.now() - t;
+    // Le meilleur de 3 mesures, chacune sur un module neuf (mémos vides) : une machine chargée (banc complet en
+    // parallèle) ne fait pas échouer le budget, une régression réelle si.
+    const ms = meilleurDe3(() => {
+      const F = Faits.creer();
+      // Le chemin de l'onglet Progression : les points, et le drapeau du DERNIER point (la mini-courbe).
+      ['exo_0', 'exo_1', 'exo_2', 'exo_3'].forEach((slug) => { const p = F.pointsDeLExercice(c, slug).points; void p[p.length - 1].record; });
+    });
     expect(c.series.length).toBeGreaterThan(17000);
     expect(ms).toBeLessThan(300);
   });
@@ -89,13 +93,14 @@ describe('220 — « Tes exercices » : le choix (priorités, barre, ce qui a le
   test('627 séances, ~17 800 séries, 153 exercices : le choix + les points des 4 lignes, sous 400 ms', () => {
     require('../../v2/js/parcours.js'); require('../../v2/js/poids.js'); require('../../v2/js/bilans.js');
     const c = historique(627, 153, 28);
-    const F = Faits.creer();
     const now = new Date(2026, 10, 1, 19);
-    const t = Date.now();
-    const avance = F.ceQuiAProgresse(c, now, 6, {});
-    const l = F.exercicesDeProgression(c, now, { semaines: 8, combien: 4, priorites: ['exo_5'], avance });
-    l.forEach((slug) => { const p = F.pointsDeLExercice(c, slug).points; void p[p.length - 1].record; });
-    const ms = Date.now() - t;
+    let l = [];
+    const ms = meilleurDe3(() => {
+      const F = Faits.creer();
+      const avance = F.ceQuiAProgresse(c, now, 6, {});
+      l = F.exercicesDeProgression(c, now, { semaines: 8, combien: 4, priorites: ['exo_5'], avance });
+      l.forEach((slug) => { const p = F.pointsDeLExercice(c, slug).points; void p[p.length - 1].record; });
+    });
     expect(l.length).toBe(4);
     expect(ms).toBeLessThan(400);
   });

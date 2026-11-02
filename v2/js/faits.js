@@ -801,23 +801,39 @@
     // Tout ce que les deux onglets lisent de la semaine affichée. Une seule
     // source : passer de Séances à Progression conserve la semaine. `lundi` :
     // la semaine affichée (l'écran la retient, `lundiAffiche`).
+    // 222 — UN SEUL CALCUL du volume d'un ensemble de séances (séries, bilan, zones) : la semaine affichée et les fenêtres du
+    // radar de Volume le partagent ; ni l'un ni l'autre ne le refait sur `local.*`.
+    function volumeDe(c, seances) {
+      var series = seances.reduce(function (acc, s) { return acc.concat(c.seriesDe(s.id)); }, []);
+      return {
+        seances: seances, series: series,
+        bilan: Semaine.bilanSemaine(seances, series, c.exercices),
+        zones: Semaine.volumeParZone(series, c.exercices)
+      };
+    }
     function semaineDe(c, lundi) {
       var bornes = Semaine.bornesSemaine(lundi);
       var jours = Semaine.repartirParJour(c.seances, bornes.lundi);
       var seances = jours.reduce(function (acc, j) { return acc.concat(j.seances); }, []);
-      var series = seances.reduce(function (acc, s) { return acc.concat(c.seriesDe(s.id)); }, []);
+      var v = volumeDe(c, seances);
       return {
-        bornes: bornes, jours: jours, seances: seances, series: series,
-        bilan: Semaine.bilanSemaine(seances, series, c.exercices),
-        zones: Semaine.volumeParZone(series, c.exercices),
+        bornes: bornes, jours: jours, seances: seances, series: v.series,
+        bilan: v.bilan,
+        zones: v.zones,
         // 220 — le bonhomme des muscles lit la MÊME semaine que le relevé par zones : `{ muscle: séries }` (poids 1, ½, ¼ de
         // `Semaine.volumeParMuscle`, la somme unique 217), pour la semaine affichée, semaines précédentes comprises.
         muscles: (function () {
           var m = {};
-          Semaine.volumeParMuscle(series, c.exercices).forEach(function (v) { m[v.muscle] = v.series; });
+          Semaine.volumeParMuscle(v.series, c.exercices).forEach(function (x) { m[x.muscle] = x.series; });
           return m;
         })()
       };
+    }
+    // 222 — le volume d'une FENÊTRE de jours (le radar de Volume : 7/30/90 jours contre les précédents) : `{ seances, series,
+    // bilan, zones }`, par le même calcul que la semaine.
+    function fenetreDe(c, fenetre) {
+      var seances = (c.seances || []).filter(function (s) { return s && s.debut && Periode.dans(s.debut, fenetre); });
+      return volumeDe(c, seances);
     }
 
     // ── 145 (ECRAN-SAISIE §7 quater.7) — « Tes échelles cette semaine » ──────
@@ -2172,6 +2188,7 @@
       CONFIRMATIONS_POUR_APPRENDRE: CONFIRMATIONS_POUR_APPRENDRE,
       medaillesDuSocial: medaillesDuSocial,
       semaineDe: semaineDe,
+      fenetreDe: fenetreDe,
       echellesDeLaSemaine: echellesDeLaSemaine,
       datesDesExercices: datesDesExercices,
       exercicesFaitsParSeance: exercicesFaitsParSeance,

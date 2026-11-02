@@ -2991,6 +2991,7 @@ button[id^="btn-retour"]{padding:0 14px;font-size:14px}
 .dq-barre{display:flex;align-items:center;height:110px;margin:8px 0 4px}
 .dq-manche{width:36px;flex:none;height:10px;background:#9AA3AF;border-radius:2px}
 .dq-butee{width:8px;height:34px;background:#9AA3AF;border-radius:2px;margin-right:2px;flex:none}
+.dq-disque.dq-petit{position:relative;overflow:visible}.dq-petit-chiffre{position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);font-size:12px;font-weight:700;color:var(--texte);white-space:nowrap}.dq-petit-chiffre.dq-bas{bottom:auto;top:calc(100% + 2px)}
 .dq-disque{flex:none;border-radius:3px;margin-right:2px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#111;overflow:hidden}
 .dq-bout{width:20px;flex:none;height:10px;background:#9AA3AF;border-radius:0 3px 3px 0}
 .dq-ligne{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:44px;border:0;border-top:1px solid var(--trait);background:none;font:inherit;font-size:14px;color:var(--texte-2);padding:0}

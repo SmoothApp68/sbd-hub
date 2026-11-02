@@ -27163,7 +27163,7 @@ const SETS_IMPORTES = [
       routine_exercises: mixte223.map(([slug], i) => ({ id: 'r-m223-' + i, routine_id: 'r-m223', exercise_slug: slug, rang: i,
         routine_sets: progr(3, 8), repos_cible_s: 90, groupe_superset: null, note: null })) });
     base.blocs.push({ id: 'b-m223', user_id: 'u-banc', dossier: 'Mixte 223', zone: 'lourd', semaines: 5, decharge: true, statut: 'en_cours',
-      precedent: null, exercices: ['dc223', 'sq223', 'sdt223'], debut: jourDe(Date.now() - 70 * JOUR),
+      precedent: null, exercices: ['dc223', 'sq223', 'sdt223', 'mach223'], debut: jourDe(Date.now() - 70 * JOUR),
       created_at: '2026-09-01T10:00:00.000Z', modifie_a: '2026-09-01T10:00:00.000Z', grosse_serie: false });
     const objectifAvant223 = base.profiles[0].objectif;
     base.profiles[0].objectif = 'les_deux';
@@ -27174,8 +27174,8 @@ const SETS_IMPORTES = [
     if (process.env.BANC_CAPTURES) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, '223-ajuster-le-bloc.png'), fullPage: true });
     const f223 = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .case-programme[data-slug]')).map((b) =>
       [b.getAttribute('data-slug'), b.getAttribute('aria-pressed') === 'true']));
-    ok('[M223] DISCRIMINANT — « Ajuster le bloc » d’un dossier mixte : les trois barres du bloc précédent, cochées, et AUCUN tapis, poulie, machine ni planche',
-      JSON.stringify(f223) === JSON.stringify([['dc223', true], ['sq223', true], ['sdt223', true]]), JSON.stringify(f223));
+    ok('[M223] DISCRIMINANT — « Ajuster le bloc » d’un dossier mixte : les trois barres et la presse du bloc précédent (hors barre, mais déjà dans le bloc), cochées, et AUCUN tapis, poulie ni planche',
+      JSON.stringify(f223) === JSON.stringify([['dc223', true], ['sq223', true], ['mach223', true], ['sdt223', true]]), JSON.stringify(f223));
     await page.click('#btn-fermer-feuille');
     await jusqua(() => page.evaluate(() => document.getElementById('feuille-seance').hidden), 6000);
     base.profiles[0].objectif = objectifAvant223;

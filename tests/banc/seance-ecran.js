@@ -14435,6 +14435,44 @@ const SETS_IMPORTES = [
       JSON.stringify(decochee) === JSON.stringify(defaut), JSON.stringify(decochee));
     base.profiles[0].priorites = null;
 
+    // ── 221 (MOTEUR §19.2) — LE BLOC HYPERTROPHIE DANS LA FEUILLE : proposé en « Les deux » et « Muscle » seulement ; la phrase du
+    // Pourquoi, la baisse de charge dite, la case « Garder une grosse série lourde » (cochée en Les deux, pas en Muscle).
+    const feuilleHyp = async (objectif) => {
+      base.profiles[0].objectif = objectif;
+      await aller('/saisie');
+      await cliquerDossier('Alpha U53', '.programme-creer');
+      const zones = await page.evaluate(() => Array.from(document.querySelector('#feuille-contenu select[data-champ="zone"]').options).map((o) => o.textContent));
+      return zones;
+    };
+    const zForce = await feuilleHyp('force');
+    await page.click('#btn-fermer-feuille');
+    const zLesDeux = await feuilleHyp('les_deux');
+    await choisirP('zone', 'Hypertrophie');
+    const hyp = await page.evaluate(() => {
+      const c = document.getElementById('feuille-contenu');
+      const g = c.querySelector('.case-grosse');
+      return { phrase: (c.querySelector('.cp-hypertrophie') || {}).textContent || '', charges: (c.querySelector('.cp-charges') || {}).textContent || '',
+        grosse: g ? g.getAttribute('aria-pressed') : null,
+        cases: Array.from(c.querySelectorAll('.exercices-programme .case-programme')).map((b) => b.textContent) };
+    });
+    if (process.env.BANC_CAPTURES_221) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_221, 'ajuster-le-bloc.png'), fullPage: true });
+    await page.click('#btn-fermer-feuille');
+    const zMuscle = await feuilleHyp('muscle');
+    await choisirP('zone', 'Hypertrophie');
+    const grosseMuscle = await page.evaluate(() => document.querySelector('#feuille-contenu .case-grosse').getAttribute('aria-pressed'));
+    await page.click('#btn-fermer-feuille');
+    ok('[221] DISCRIMINANT — Hypertrophie (8-10) n’est offerte qu’en Les deux et Muscle ; en Force, Lourd et Mix seulement',
+      JSON.stringify(zForce) === JSON.stringify(['Lourd (3-5)', 'Mix (6-8)']) &&
+        JSON.stringify(zLesDeux) === JSON.stringify(['Lourd (3-5)', 'Mix (6-8)', 'Hypertrophie (8-10)']) &&
+        JSON.stringify(zMuscle) === JSON.stringify(zLesDeux), JSON.stringify([zForce, zLesDeux, zMuscle]));
+    ok('[221] la feuille en Hypertrophie : le Pourquoi, « Tes charges baissent pour faire plus de reps : c’est voulu. », la case grosse série cochée en Les deux, décochée en Muscle',
+      /Hypertrophie \(8-10\)\s*:\s*plus de volume pour le muscle\s*;\s*ta première série reste lourde pour garder ta force\./.test(hyp.phrase) &&
+        sp(hyp.charges) === 'Tes charges baissent pour faire plus de reps : c’est voulu.' && hyp.grosse === 'true' && grosseMuscle === 'false',
+      JSON.stringify([hyp, grosseMuscle]));
+    base.profiles[0].objectif = null;
+
+
+
     base.profiles[0].objectif = null;
     await aller('/saisie');
     await cliquerDossier('Alpha U53', '.programme-creer');
@@ -14785,6 +14823,56 @@ const SETS_IMPORTES = [
       JSON.stringify(gardeBanc.liste.slice(-2)));
     // L'heure revient : les sections suivantes jouent au présent.
     await page.clock.setSystemTime(new Date());
+    // ── 221 — LA CONSIGNE D'UN SQUAT EN BLOC HYPERTROPHIE À GROSSE SÉRIE : le plan lit le bloc (grosse série Lourd, puis des reculs en 8-10).
+    const nBlocsAvant = base.blocs.length, nZonesAvant = base.zones.length, nSessAvant = base.sessions.length, nSetsAvant = base.sets.length;
+    if (!CATALOGUE.some((c) => c.slug === 'squat_barre')) {
+      CATALOGUE.push({ slug: 'squat_barre', nom: 'Squat (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+        mouvement: 'squat', muscles_primaires: ['quadriceps'], muscles_secondaires: ['fessiers'], muscles_stabilisateurs: ['bas_du_dos'], barre_charge_fixe: false });
+    }
+    [21, 14, 7].forEach((j, i) => {
+      const id = 'h221-' + i;
+      const debut = seanceC(id, ilYa(j * JOUR_MS, Date.now()).getTime());
+      [1, 2, 3, 4].forEach((r) => serieC(id, 'squat_barre', r, 140, 5, debut));
+    });
+    const debutBloc = ilYa(8 * JOUR_MS, Date.now()).toISOString().slice(0, 10);
+    base.blocs.push({ id: '00000000-0000-4000-8221-000000000001', user_id: 'u-banc', dossier: 'Squat U221', zone: 'hypertrophie', debut: debutBloc,
+      semaines: 4, decharge: true, exercices: ['squat_barre'], statut: 'en_cours', precedent: null, grosse_serie: true,
+      created_at: ilYa(8 * JOUR_MS, Date.now()).toISOString(), modifie_a: ilYa(8 * JOUR_MS, Date.now()).toISOString() });
+    base.zones.push({ id: 'z-h221', user_id: 'u-banc', exercise_slug: 'squat_barre', zone: 'lourd',
+      corrigee_a: new Date(debutBloc + 'T00:00:00').toISOString(), origine: 'bloc', bloc_id: '00000000-0000-4000-8221-000000000001' });
+    ROUTINES.push({ id: '00000000-0000-4000-8221-0000000000a1', nom: 'Squat U221', note: null, archivee_a: null, rang: null, dossier: 'Squat U221',
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: '00000000-0000-4000-8221-0000000000e1', routine_id: '00000000-0000-4000-8221-0000000000a1', exercise_slug: 'squat_barre',
+        rang: 0, routine_sets: progr(4, 8), repos_cible_s: 120, groupe_superset: null, note: null }] });
+    base.profiles[0].objectif = 'les_deux';
+    await aller('/saisie');
+    await demarrerRoutine('Squat U221');
+    await jusqua(() => page.evaluate(() => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan &&
+      window.THPlan.dernier.plan.exercices.some((q) => q.slug === 'squat_barre' && q.blocHypertrophie))).catch(() => false), 10000, 'plan du squat en bloc');
+    const sq = await page.evaluate(() => {
+      const x = window.THPlan.dernier.plan.exercices.filter((q) => q.slug === 'squat_barre')[0];
+      return { bloc: x.blocHypertrophie, zone: x.consigne && x.consigne.zone, types: x.lignes.map((l) => l.type) };
+    });
+    if (process.env.BANC_CAPTURES_221) {
+      await page.evaluate(() => { const b = document.querySelector('.bloc-seance'); if (b) b.scrollIntoView(); });
+      await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_221, 'consigne-squat-bloc-hypertrophie.png') });
+    }
+    ok('[221] DISCRIMINANT — un squat en bloc Hypertrophie à grosse série : consigne Lourd, 1 série de travail puis 3 reculs (le plan, pas l’écran)',
+      sq.zone === 'lourd' && sq.bloc && sq.bloc.grosse === true && sq.bloc.reculs === 3 && JSON.stringify(sq.types) === JSON.stringify(['travail', 'recul', 'recul', 'recul']),
+      JSON.stringify(sq));
+    await abandonner();
+    base.blocs.length = nBlocsAvant; base.zones.length = nZonesAvant; base.sessions.length = nSessAvant; base.sets.length = nSetsAvant;
+    ROUTINES.splice(ROUTINES.findIndex((r) => r.nom === 'Squat U221'), 1);
+    base.profiles[0].objectif = null;
+    // L'APPAREIL AUSSI : la synchronisation ne retire jamais un bloc (`fondreBlocs`) ; sans ce geste le bloc Hypertrophie restait sur l'appareil
+    // pour toutes les sections suivantes (I37 les voyait sans objectif). Seuls le bloc et la ligne de zone de cette section partent.
+    await page.evaluate(async () => {
+      const ID = '00000000-0000-4000-8221-000000000001';
+      const blocs = await window.THCache.lireBrouillon('blocs');
+      if (Array.isArray(blocs)) await window.THCache.ecrireBrouillon('blocs', blocs.filter((b) => b && b.id !== ID));
+      const zones = await window.THCache.lireTout('zones');
+      await window.THCache.remplacerTout('zones', (zones || []).filter((z) => z.bloc_id !== ID));
+    }).catch(() => {});
     await aller('/saisie');
     ok('[C53] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }

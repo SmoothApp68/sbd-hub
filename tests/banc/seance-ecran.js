@@ -27147,6 +27147,42 @@ const SETS_IMPORTES = [
     ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
     CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
 
+    // (c bis) 223 — UN DOSSIER MIXTE (3 barres lourdes + tapis, poulie, machine, planche), bloc Lourd fini, objectif « les deux » :
+    // « Ajuster le bloc » ne propose QUE les mouvements à la barre, et coche ceux du bloc précédent.
+    const mixte223 = [
+      ['dc223', 'Développé couché 223 (Barre)', 'barre', ['pectoraux'], ['triceps', 'deltoides_anterieurs']],
+      ['sq223', 'Squat 223 (Barre)', 'barre', ['quadriceps', 'fessiers'], ['adducteurs']],
+      ['sdt223', 'Soulevé de terre 223 (Barre)', 'barre', ['ischio_jambiers', 'fessiers'], ['bas_du_dos']],
+      ['tapis223', 'Tapis roulant 223', 'machine', [], []], ['poulie223', 'Poulie haute 223', 'poulie', ['triceps'], []],
+      ['mach223', 'Presse 223', 'machine', ['quadriceps'], []], ['planche223', 'Planche 223', 'poids_du_corps', ['abdominaux'], []]
+    ];
+    mixte223.forEach(([slug, nom, equipement, prim, sec]) => CATALOGUE.push({ slug, nom, mesure: 'charge_reps', charge: 'externe',
+      equipement, muscles_primaires: prim, muscles_secondaires: sec, muscles_stabilisateurs: [] }));
+    ROUTINES.push({ id: 'r-m223', nom: 'Mixte 223', note: null, archivee_a: null, rang: null, dossier: 'Mixte 223',
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: mixte223.map(([slug], i) => ({ id: 'r-m223-' + i, routine_id: 'r-m223', exercise_slug: slug, rang: i,
+        routine_sets: progr(3, 8), repos_cible_s: 90, groupe_superset: null, note: null })) });
+    base.blocs.push({ id: 'b-m223', user_id: 'u-banc', dossier: 'Mixte 223', zone: 'lourd', semaines: 5, decharge: true, statut: 'en_cours',
+      precedent: null, exercices: ['dc223', 'sq223', 'sdt223'], debut: jourDe(Date.now() - 70 * JOUR),
+      created_at: '2026-09-01T10:00:00.000Z', modifie_a: '2026-09-01T10:00:00.000Z', grosse_serie: false });
+    const objectifAvant223 = base.profiles[0].objectif;
+    base.profiles[0].objectif = 'les_deux';
+    await aller('/saisie');
+    await jusqua(() => page.evaluate(() => !!document.querySelector('#carte-fin-saisie .carte-fin-bloc[data-dossier="Mixte 223"] .cfb-ajuster')), 9000);
+    await page.click('#carte-fin-saisie .carte-fin-bloc[data-dossier="Mixte 223"] .cfb-ajuster');
+    await jusqua(() => page.evaluate(() => !!document.querySelector('#feuille-contenu .valider-programme')), 6000);
+    if (process.env.BANC_CAPTURES) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, '223-ajuster-le-bloc.png'), fullPage: true });
+    const f223 = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .case-programme[data-slug]')).map((b) =>
+      [b.getAttribute('data-slug'), b.getAttribute('aria-pressed') === 'true']));
+    ok('[M223] DISCRIMINANT — « Ajuster le bloc » d’un dossier mixte : les trois barres du bloc précédent, cochées, et AUCUN tapis, poulie, machine ni planche',
+      JSON.stringify(f223) === JSON.stringify([['dc223', true], ['sq223', true], ['sdt223', true]]), JSON.stringify(f223));
+    await page.click('#btn-fermer-feuille');
+    await jusqua(() => page.evaluate(() => document.getElementById('feuille-seance').hidden), 6000);
+    base.profiles[0].objectif = objectifAvant223;
+    base.blocs = base.blocs.filter((x) => x.id !== 'b-m223');
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+
     // (d) LA SEMAINE QUI DÉRAILLE : en A (avant la ligne et les routines), ses trois gestes. Appareil neuf au MERCREDI 14/10/2026.
     const nb171 = (x) => JSON.stringify(x).replace(/[  ]/g, ' ');
     const cat171 = (slug, nom, prim, sec, stab) => CATALOGUE.push({ slug, nom, mesure: 'charge_reps', charge: 'externe',

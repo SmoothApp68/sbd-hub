@@ -1124,11 +1124,13 @@
   function anterieures(seances, avant) {
     var coupure = instant(avant);
     if (coupure === null) return [];
-    var utiles = (seances || []).filter(function (se) {
+    // 229 — chaque date lue une fois (avant : deux lectures par comparaison du tri).
+    var utiles = [];
+    (seances || []).forEach(function (se) {
       var d = instant(se && se.debut);
-      return d !== null && d < coupure;
+      if (d !== null && d < coupure) utiles.push({ se: se, d: d });
     });
-    return utiles.sort(function (a, b) { return instant(a.debut) - instant(b.debut); });
+    return utiles.sort(function (a, b) { return a.d - b.d; }).map(function (o) { return o.se; });
   }
 
   // Les charges d'une séance-exercice qui COMPTENT pour le plan de charges de la
@@ -6761,14 +6763,25 @@
   // UNE COUPURE (§9.9) dans l'évaluation : une séance qui reprend après plus de 3 fois l'écart habituel, dans les 6 semaines
   // ou les 3 semaines qui les précèdent. `debuts` : le début de TOUTES les séances (une séance allégée est une présence).
   function coupureDansLaFatigue(debuts, depuisLe, jusquAu) {
-    var liste = (debuts || []).map(function (d) { return { debut: d }; })
-      .filter(function (s) { return instant(s.debut) !== null; })
-      .sort(function (a, b) { return instant(a.debut) - instant(b.debut); });
+    // 229 — le MÊME calcul que `repriseDe(liste.slice(0, i), …)` (§9.9 : les séances strictement antérieures, l'écart habituel
+    // = la médiane des 8 derniers écarts, la coupure stricte), mais sur les dates triées une seule fois : avant, chaque séance de
+    // la fenêtre retriait tout l'historique (plusieurs secondes par geste sur un téléphone). Le test 229 compare les deux.
+    var t = (debuts || []).map(instant).filter(function (d) { return d !== null; }).sort(function (a, b) { return a - b; });
     var borne = numeroDuJour(depuisLe) - FATIGUE_APRES_COUPURE_JOURS, fin = numeroDuJour(jusquAu);
-    for (var i = 1; i < liste.length; i++) {
-      var k = numeroDuJour(jourCivil(liste[i].debut));
+    var tMin = instant(depuisLe), tMax = instant(jusquAu);
+    for (var i = 1; i < t.length; i++) {
+      if (tMin !== null && t[i] < tMin - (FATIGUE_APRES_COUPURE_JOURS + 2) * JOUR) continue;   // loin avant : sans le jour civil
+      if (tMax !== null && t[i] > tMax + 2 * JOUR) continue;
+      var k = numeroDuJour(jourCivil(new Date(t[i])));
       if (k === null || k < borne || k > fin) continue;
-      if (repriseDe(liste.slice(0, i), liste[i].debut) !== AUCUNE_REPRISE) return true;
+      var j = i;
+      while (j > 0 && t[j - 1] >= t[i]) j--;          // les antérieures STRICTES : t[0 .. j-1]
+      if (j < 2) continue;                             // une seule séance avant : pas d'écart, pas de coupure
+      var ecarts = [];
+      for (var m = Math.max(1, j - ECARTS_HABITUELS); m < j; m++) ecarts.push((t[m] - t[m - 1]) / JOUR);
+      var habituel = mediane(ecarts);
+      if (habituel === null) continue;
+      if ((t[i] - t[j - 1]) / JOUR > FACTEUR_COUPURE * habituel) return true;
     }
     return false;
   }
@@ -11619,6 +11632,7 @@
     phraseApprochee: phraseApprochee,
     ecartHabituel: ecartHabituel,
     repriseDe: repriseDe,
+    coupureDansLaFatigue: coupureDansLaFatigue,   // 229 : exposée pour le test d’équivalence
     consignePour: consignePour,
     consigneApresAFond: consigneApresAFond,
     reactionPour: reactionPour,

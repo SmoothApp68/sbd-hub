@@ -232,3 +232,28 @@ describe('l’état de la file', () => {
     expect(r.bloquees).toBe(1);
   });
 });
+
+// ── 219 — LE TEXTE D'ENVOI DE LA SÉANCE EN COURS : le même que `#etat-sync`, un second lecteur ─────────
+describe('texteEnvoi (219)', () => {
+  const e = (o) => Object.assign({ cle: 'sets:s' + Math.random(), seq: 1, table: 'sets', op: 'remplacer', id: 's1',
+    donnees: [], version: 1, essais: 0, bloquee: null }, o);
+  const lu = { code: 'a-jour', libelle: 'À jour' };
+  test('0 en attente : rien', () => { expect(Attente.texteEnvoi(lu, [])).toBe(''); });
+  test('1 en attente', () => { expect(Attente.texteEnvoi(lu, [e({ cle: 'a' })])).toBe('1 à envoyer'); });
+  test('3 en attente', () => {
+    expect(Attente.texteEnvoi(lu, [e({ cle: 'a' }), e({ cle: 'b' }), e({ cle: 'c' })])).toBe('3 à envoyer');
+  });
+  test('échec : le libellé de #etat-sync', () => {
+    const f = [e({ cle: 'a', essais: 1 })];
+    expect(Attente.texteEnvoi(lu, f)).toBe(Attente.deciderEtat(lu, f).libelle);
+    expect(Attente.texteEnvoi(lu, f)).toMatch(/échec/i);
+  });
+  test('refusé : le libellé de #etat-sync', () => {
+    const f = [e({ cle: 'a', bloquee: { code: '23503' } })];
+    expect(Attente.texteEnvoi(lu, f)).toBe(Attente.deciderEtat(lu, f).libelle);
+    expect(Attente.texteEnvoi(lu, f)).toMatch(/refusé/);
+  });
+  test('file vide mais état de lecture « local » : rien (seule la file parle)', () => {
+    expect(Attente.texteEnvoi({ code: 'local', libelle: 'Données locales', local: true }, [])).toBe('');
+  });
+});

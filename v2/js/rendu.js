@@ -2419,6 +2419,17 @@
     return true;
   }
 
+  // 219 — l'état d'envoi sous la durée : un nœud à part (la durée reste UN SEUL nœud), écrit sur place, vide = masqué.
+  function majEnvoiBandeau(cible, texte) {
+    var n = cible && cible.querySelector ? cible.querySelector('.bandeau-envoi') : null;
+    if (!n) return false;
+    var t = texte || '';
+    var change = n.textContent !== t;
+    if (change) n.textContent = t;
+    n.hidden = !t;
+    return change;
+  }
+
   function rendreBandeauSeance(cible, vue) {
     vider(cible);
 
@@ -2476,6 +2487,9 @@
       ch.textContent = libelleDuree(S().minutesEcoulees(vue.debut, Date.now())) + ' \u00b7 ' + suite;
     }
     t.appendChild(ch);
+    var envoi = el('div', 'bandeau-envoi', vue.envoi || '');
+    envoi.hidden = !vue.envoi;
+    t.appendChild(envoi);
     cible.appendChild(t);
 
     // §5.3 — Modifier replie la séance sur une ligne par bloc. Il ne remplace
@@ -9792,6 +9806,7 @@
   racine.THRendu = {
     rendreBandeauSeance: rendreBandeauSeance,
     majDureeBandeau: majDureeBandeau,
+    majEnvoiBandeau: majEnvoiBandeau,
     libelleDuree: libelleDuree,
     rendreBlocsSeance: rendreBlocsSeance, carteDeMobilite: carteDeMobilite,
     majConstat: majConstat,

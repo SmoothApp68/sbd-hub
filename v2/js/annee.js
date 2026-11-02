@@ -95,10 +95,12 @@
       note = te === '0 t' || te === '0,0 t' ? majuscule(cmp.comme) + '.'
         : (ec > 0 ? '+' : '−') + te + ' sur ' + cmp.libelle;
     }
+    // 226 — l'équivalent des tonnes, un seul fil : la story et la plaque le lisent.
+    var equivalent = b.tonnes.elephants ? { avant: '≈ ', quoi: milliers(b.tonnes.elephants) + ' éléphant' + (b.tonnes.elephants > 1 ? 's' : '') + ' d’Afrique' }
+      : (b.tonnes.objet ? { avant: 'à peu près ', quoi: b.tonnes.objet } : null);
     out.push({ cle: 'tonnes', d: 7699, lab: plage, titre: saison ? vue.nom || null : null,
                chiffre: { v: t.v, dec: t.dec, unite: 't' }, pile: true,
-               txt: ['soulevées ' + p.ce].concat(b.tonnes.elephants ? [' · ≈ ', g(milliers(b.tonnes.elephants) + ' éléphant' +
-                 (b.tonnes.elephants > 1 ? 's' : '') + ' d’Afrique')] : (b.tonnes.objet ? [' · à peu près ', g(b.tonnes.objet)] : []), ['.']),
+               txt: ['soulevées ' + p.ce].concat(equivalent ? [' · ' + equivalent.avant, g(equivalent.quoi)] : [], ['.']),
                note: note });
     var sal = ecranSalle(b);
     if (sal) out.push(sal);
@@ -162,7 +164,8 @@
     }
     // La plaque, sans le coach.
     // 226 — le mois : les séries de travail sous les tonnes, et ses 3 premiers records en « charge × reps » sous la grille.
-    var cases = [{ k: 'Soulevé', g: texteTonnes(b.tonnes.kg), p: !saison && b.reps && b.reps.series ? seriesTxt(b.reps.series) + ' de travail' : null }];
+    var cases = [{ k: 'Soulevé', g: texteTonnes(b.tonnes.kg), p: !saison && b.reps && b.reps.series ? seriesTxt(b.reps.series) + ' de travail' : null,
+                   q: equivalent ? equivalent.avant + equivalent.quoi : null }];
     if (nRec) {
       cases.push({ k: saison ? 'Nouvelles charges max' : 'Records', g: String(nRec),
                    p: !saison ? null : nomsRec.map(function (n) { return sansParentheses(n).toLowerCase(); })
@@ -364,6 +367,7 @@
         if (c.g) d.appendChild(el('div', 'g', c.g));
         if (c.m) d.appendChild(el('div', 'm', c.m));
         if (c.p) d.appendChild(el('div', 'p', c.p));
+        if (c.q) d.appendChild(el('div', 'q', c.q));
         gr.appendChild(d);
       });
       pl.appendChild(gr);
@@ -372,6 +376,7 @@
         if (e.plaque.titreLignes) lg.appendChild(el('div', 'k', e.plaque.titreLignes));
         e.plaque.lignes.forEach(function (l) {
           var r = el('div', 'ligne');
+          r.appendChild(el('span', 'rang', String(lg.childNodes.length - (e.plaque.titreLignes ? 1 : 0) + 1)));
           r.appendChild(el('span', 'n', l.n));
           r.appendChild(el('span', 'v', l.v));
           lg.appendChild(r);
@@ -580,8 +585,9 @@
       var pl = e.plaque;
       // 226 — la hauteur suit le contenu (le chiffre fort, la grille, les lignes) : rien n'est coupé, rien ne flotte.
       var nGrille = pl.heros ? Math.max(pl.cases.length - 1, 0) : pl.cases.length, nLignes = (pl.lignes || []).length;
-      var haut = pl.heros ? 120 + 400 + 90 + Math.ceil(nGrille / 2) * 250 + (nLignes ? 70 + nLignes * 80 : 0) - 30 : 1100;
+      var haut = pl.heros ? 120 + 400 + (pl.cases[0] && pl.cases[0].q ? 55 : 0) + 90 + Math.ceil(nGrille / 2) * 250 + (nLignes ? 70 + nLignes * 80 : 0) - 30 : 1100;
       ctx.fillStyle = PALETTE.fonte; ctx.fillRect(X - 30, y, L + 60, haut);
+      if (pl.heros) { ctx.fillStyle = PALETTE.or; ctx.fillRect(X - 30, y, L + 60, 14); }   // 226 : la bande de la marque
       y += 120; ctx.font = police(500, 38); var lq = pl.qui ? ctx.measureText(pl.qui).width + 30 : 0;
       var ta = 110; ctx.font = police(900, ta);
       while (ctx.measureText(pl.an).width > L - lq && ta > 60) { ta -= 4; ctx.font = police(900, ta); }   // 226 : le pseudo ne mord plus le titre
@@ -597,7 +603,8 @@
         while (ctx.measureText(h.g).width > L && th > 80) { th -= 6; ctx.font = police(900, th); }
         ctx.fillStyle = PALETTE.or; ctx.fillText(h.g, X, hy + th);
         if (h.p) { ctx.font = police(500, 36); ctx.fillStyle = PALETTE.cendre; ctx.fillText(h.p, X, hy + th + 60); }
-        y = hy + th + 110; grille = grille.slice(1); pas = 250;
+        if (h.q) { ctx.font = police(700, 40); ctx.fillStyle = PALETTE.craie; ctx.fillText(h.q, X, hy + th + 115); }
+        y = hy + th + (h.q ? 165 : 110); grille = grille.slice(1); pas = 250;
       }
       grille.forEach(function (c, i) {
         var cx = X + (i % 2) * col, cy = y + 90 + Math.floor(i / 2) * pas;
@@ -611,7 +618,8 @@
       (pl.lignes || []).forEach(function (l, i) {
         var ly = yl + i * 80;
         ctx.fillStyle = '#353d47'; ctx.fillRect(X, ly - 50, L, 2);
-        ctx.font = police(500, 38); ctx.fillStyle = PALETTE.cendre; ctx.fillText(l.n, X, ly);
+        ctx.font = police(900, 44); ctx.fillStyle = PALETTE.or; ctx.fillText(String(i + 1), X, ly);   // 226 : le classement, comme un top 3
+        ctx.font = police(500, 38); ctx.fillStyle = PALETTE.cendre; ctx.fillText(l.n, X + 60, ly);
         ctx.font = police(700, 44); ctx.fillStyle = PALETTE.craie; ctx.textAlign = 'right'; ctx.fillText(l.v, X + L, ly); ctx.textAlign = 'left';
       });
     } else {

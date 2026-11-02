@@ -2619,7 +2619,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .annee .grille .g{font-size:30px;font-weight:850;font-variation-settings:"wdth" 118;color:var(--or);line-height:1.05;font-variant-numeric:tabular-nums;white-space:nowrap}
 .annee .grille .m{font-size:20px;font-weight:700;line-height:1.15}
 .annee .grille .p{font-size:12px;color:var(--cendre)}
-.annee .grille .heros{grid-column:1/-1}.annee .grille .heros .g{font-size:52px}.annee .grille .heros .p{font-size:13px}.annee .plaque .lignes .k{font-size:12.5px;color:var(--cendre);padding-bottom:4px}.annee .plaque .pied span:first-child{color:var(--craie,#ece8df);font-weight:800;font-size:14px}
+.annee .grille .heros{grid-column:1/-1}.annee .grille .heros .q{font-size:15px;font-weight:700;margin-top:2px}.annee .plaque .ligne .rang{color:var(--or);font-weight:900;min-width:18px}.annee .plaque .ligne .n{flex:1}.annee .grille .heros .g{font-size:52px}.annee .grille .heros .p{font-size:13px}.annee .plaque .lignes .k{font-size:12.5px;color:var(--cendre);padding-bottom:4px}.annee .plaque .pied span:first-child{color:var(--craie,#ece8df);font-weight:800;font-size:14px}
 .annee .plaque .pied{margin-top:14px;padding-top:10px;border-top:1px solid #ffffff1a;display:flex;justify-content:space-between;font-size:12px;color:var(--cendre)}
 .annee .btn{width:100%;border:0;border-radius:12px;padding:14px;font:700 16px "Archivo",system-ui,sans-serif;margin-top:12px;background:var(--or);color:#1a1712}
 .annee .btn.sec{background:transparent;color:var(--craie);border:1px solid #ffffff38;margin-top:8px}

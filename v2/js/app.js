@@ -6642,6 +6642,12 @@
                             reglage: Profil.rythmeDe(profil), correction: zoneDe(libreDuLeste) } };
       } : null,
       reglage: Profil.rythmeDe(profil),
+      // 228 (MOTEUR §19.2) — la GROSSE SÉRIE d'un bloc Hypertrophie : la consigne est celle d'UNE série lourde (le moteur ne relit
+      // que la plus lourde série de travail de chaque séance), jamais l'escalier de plusieurs séries ; le Pourquoi dit le bloc.
+      grosseSerie: (function () {
+        var st = Moteur.structureDeBlocDuJour(local.blocs || [], slug, instant, Generateur.familleDeBarre(slug, index));
+        return !!(st && st.grosse);
+      })(),
       // 180 (C-F5, D3) — le débutant (`anciennete = moins_1_an`) : sa réserve basse (R < V) n'arrête pas la montée (le moteur).
       debutant: Profil.estDebutant(profil),
       // 191 — la prudence de montée (le plafond d'un saut ; « un cran à la fois »), au jour du calcul.

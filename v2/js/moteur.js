@@ -4946,6 +4946,11 @@
     // ensuite — mais SEULEMENT si c'est autre chose. « Ce serait Lourd » sous
     // une zone Lourd choisie ne dit rien à personne, et sous 3 reps
     // d'habitude il n'y a pas de zone à citer du tout.
+    // 228 — la grosse série d'un bloc Hypertrophie : la zone vient du bloc, pas d'un choix sur l'étiquette.
+    if (f.grosseSerie === true) {
+      return tete + ', celle de la grosse série de ton bloc Hypertrophie' + DEUX_POINTS +
+             'ta première série reste lourde pour garder ta force ; les suivantes sont des reculs.';
+    }
     if (f.correction) {
       var d = zoneParCle(f.correction.zoneDeduite);
       if (d === null || d.cle === z.cle || !f.habitude) {
@@ -9505,6 +9510,9 @@
       options = Object.assign({}, options, { zonePlan: null });
     }
     var r = consigneDExerciceMenagee(groupes, etat, avant, options);
+    if (options && options.grosseSerie === true && r && r.consigne) {
+      r = Object.assign({}, r, { consigne: Object.assign({}, r.consigne, { fondement: Object.assign({}, r.consigne.fondement, { grosseSerie: true }) }) });
+    }
     if (planSuspendu !== null && r && r.consigne) {
       r = Object.assign({}, r, { plan: planSuspendu, etiquette: etiquetteZone(r.consigne, options.ligneDeZone, planSuspendu) });
     }
@@ -9528,9 +9536,23 @@
     return r;
   }
   var ZONE_SANS_LOURD = 'mix';
+  // 228 — la grosse série d'un bloc Hypertrophie se suit sur UNE série : de chaque séance, le moteur ne garde que la plus lourde
+  // série de travail (les reculs et les autres séries de travail sortent ; les chauffes restent). Pure, rend des copies.
+  function groupesDeLaGrosseSerie(groupes) {
+    var T = Modele();
+    return (groupes || []).map(function (g) {
+      var series = (g && g.series) || [], meilleure = null;
+      series.forEach(function (x) {
+        if (!x || !T.estTravail(x) || T.estRecul(x)) return;
+        if (meilleure === null || (Number(x.charge_kg) || 0) > (Number(meilleure.charge_kg) || 0)) meilleure = x;
+      });
+      return Object.assign({}, g, { series: series.filter(function (x) { return !x || !T.estTravail(x) || x === meilleure; }) });
+    });
+  }
   function consigneDExerciceCalcul(groupes, etat, avant, options) {
     var o = options || {};
     if (o.edition) return null;
+    if (o.grosseSerie === true) groupes = groupesDeLaGrosseSerie(groupes);
     if ((o.intention || 'progresser') === 'entretien') return null;
     if (o.mesure !== 'charge_reps' && o.mesure !== 'reps') return null;
     // 193-3 (MOTEUR §9.29) — UNE ZONE DE PLAN POSÉE : le coach ne relit que les séances de cette zone (ou, la première fois

@@ -27606,7 +27606,7 @@ const SETS_IMPORTES = [
         totalExos188() === exosAvant + 1 && /^Fait :/.test(sp188(vf.fait)), nb188(vf.fait));
       await page.evaluate(() => Array.from(document.querySelectorAll('#parcours .eq-fait-pose button')).filter((b) => /annuler/i.test(b.textContent))[0].click());
       await attendreQue(() => totalExos188() === exosAvant, 8000, 'annule188');
-      ok('[EQ188] « Annuler » rend la routine d’avant', ROUTINES.filter((r) => r.id === 'r-eq188')[0].routine_exercises.length === exosAvant, '');
+      ok('[EQ188] « Annuler » rend la routine d’avant', totalExos188() === exosAvant, '');
     } else {
       ok('[EQ188] une carte propose d’ajouter un exercice', false, nb188(vives.map((c) => c.boutons.map((b) => b.prop))));
     }

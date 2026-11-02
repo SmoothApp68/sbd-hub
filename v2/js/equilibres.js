@@ -347,15 +347,14 @@
     return t;
   }
   function prevuPourMuscle(prep, muscle) {
-    var t = 0;
+    var lignes = [];
     liste(prep.e.routines).forEach(function (r) {
       liste(r.exercices).forEach(function (x) {
         var f = prep.cat[x.exercise_slug];
-        if (!f) return;
-        Semaine().musclesPonderes(f).forEach(function (p) { if (p.muscle === muscle) t += p.poids * seriesDeTravailDe(x); });
+        if (f) lignes.push({ exo: f, n: seriesDeTravailDe(x) });
       });
     });
-    return Math.round(t * 100) / 100;
+    return Math.round((Semaine().sommeDesSeries(lignes)[muscle] || 0) * 100) / 100;
   }
 
   // ── L'exercice candidat d'un côté : le plus fait de l'historique, jamais un écarté ni un exercice qui fait mal ─────

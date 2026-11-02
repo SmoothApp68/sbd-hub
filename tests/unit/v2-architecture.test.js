@@ -1086,7 +1086,7 @@ const NOTIONS = [
     module: 'faits.js', fonction: 'exercicesDeProgression', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['sommaireExercices'] },
     raison: 'Progression lit le choix des exercices du faits ; l’écran ne compte aucune séance et ne filtre aucun type.' },
-  { notion: 'ce qui a le plus progressé sur les derniers mois (la notion de « Ton année », sur une période glissante)', pr: '220',
+  { notion: 'ce qui a le plus progressé sur les derniers mois (la notion de « Ton année », sur une période glissante)', pr: '220-U1',
     module: 'faits.js', fonction: 'ceQuiAProgresse', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['sommaireExercices'] },
     raison: 'Une notion, une fonction : `THBilans…avance` est la seule règle de « ce qui a le plus avancé » ; la 4e ligne de Progression la lit, ne la recopie pas.' },
@@ -2477,7 +2477,7 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
 describe('architecture — le module des faits : un fait ne se déclare que dans faits.js (58-1)', () => {
   const FICHIERS = perimetre();
 
-  test('les faits du module : quarante-huit (les points d’un exercice et les plus faits en 206, la série du max et la douleur répétée en 202, le max d’avant la semaine de test en 193-4, treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126, ce qui manque aux séances en 131, les échelles de la semaine en 145, la vraisemblance d’une série et la question du record en 185), chacun déclaré et exporté par faits.js', () => {
+  test('les faits du module : quarante-neuf (les points d’un exercice et le choix des exercices de Progression en 206, ce qui a le plus progressé en 220, la série du max et la douleur répétée en 202, le max d’avant la semaine de test en 193-4, treize en 58-1, trois du journal en 58-2, un du questionnaire en 60-2a, un du programme déduit en 60-3, deux du programme construit en 60-4, un du jeu en 64A, un du bilan en 66A, les habitudes en 66C, la dernière séance en 66D, le récap de fin de séance en 71, l’entrée et le parcours en 75, les médailles d’une séance d’autrui en 87, mes séries comptées pour le social en 89, les records et les nombres de la guilde en 90, les trois des bilans de période en 95, les heures et les jours à la salle en 97, les quatre de la recherche d’exercice en 126, ce qui manque aux séances en 131, les échelles de la semaine en 145, la vraisemblance d’une série et la question du record en 185), chacun déclaré et exporté par faits.js', () => {
     global.self = global;
     require('../../v2/js/modele.js');
     require('../../v2/js/semaine.js');
@@ -2488,7 +2488,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(48);
+    expect(FAITS.length).toBe(49);
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

@@ -27035,6 +27035,7 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await jusqua(() => page.evaluate(() => !!document.querySelector('#carte-fin-saisie .carte-fin-bloc')), 9000);
     const oc = await ordre171();
+    if (process.env.BANC_CAPTURES) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, '220-saisie-fin-de-bloc.png'), fullPage: true });
     const fin171 = await page.evaluate(() => {
       const t = (s, r) => ((r || document).querySelector(s) || {}).textContent || null;
       const a = document.querySelector('#carte-fin-saisie .carte-fin-bloc');
@@ -27559,6 +27560,7 @@ const SETS_IMPORTES = [
           dessinCache: c.querySelector('.bh-vues').getAttribute('aria-hidden'), sexe: c.getAttribute('data-bonhomme') };
       });
       const b0 = await lireBonhomme();
+      if (process.env.BANC_CAPTURES) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, '220-volume-bonhomme.png'), fullPage: true });
       ok('[BH220] le bonhomme est sur « Volume par muscle » (au-dessus du relevé par zones) et plus dans « Ton parcours »',
         await page.evaluate(() => { const c = document.querySelector('#vue-volume .bonhomme'), z = document.getElementById('releve-zones');
           return !!c && !!z && !!(c.compareDocumentPosition(z) & Node.DOCUMENT_POSITION_FOLLOWING) && document.querySelectorAll('.bonhomme').length === 1; })

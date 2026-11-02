@@ -552,14 +552,14 @@
   // bloc suivant (`depuis` : le bloc fini). Les exercices du bloc : par
   // défaut les barres polyarticulaires des routines du dossier, plus les
   // exercices prioritaires du questionnaire qui s'y trouvent (60-2b) ; décochables.
-  function ouvrirProgramme(dossier, depuis) {
-    var slugs = exercicesDuDossier(dossier);
-    var suivant = depuis ? Moteur.blocSuivant(depuis) : null;
-    var coches = suivant ? suivant.exercices
-      : Moteur.exercicesParDefaut(slugs, catalogueIndexe(), Profil.prioritesDe(profil));
-    coches.forEach(function (s) { if (slugs.indexOf(s) < 0) slugs.push(s); });
+  function ouvrirProgramme(dossier, depuis, enCours) {
+    // 223 — la même notion que `commencerBlocSuivant` : une phase se lit avec ses routines.
+    var suivant = depuis ? Moteur.blocSuivant(depuis, Moteur.blocAPhases(depuis, routines)) : null;
+    var precedent = suivant ? suivant.exercices : (enCours && enCours.exercices) || [];
+    var choix = Moteur.exercicesCandidatsDuBloc(exercicesDuDossier(dossier), catalogueIndexe(), Profil.prioritesDe(profil), precedent);
+    var slugs = choix.candidats.slice();
     var c = {};
-    coches.forEach(function (s) { c[s] = true; });
+    choix.coches.forEach(function (s) { c[s] = true; if (slugs.indexOf(s) < 0) slugs.push(s); });
     // MOTEUR §9.22 (60-2b) : le PREMIER bloc propose la zone de l'objectif (Force, Les deux :
     // Lourd ; sinon Mix), lu en direct dans le profil — hors séance, rien à geler. Le bloc
     // suivant garde sa règle fixe. Toujours modifiable dans la feuille.
@@ -652,15 +652,12 @@
   function ajusterBlocEnCours(dossier) {
     var b = Moteur.blocEnCours(local.blocs, dossier);
     if (!b) return;
-    ouvrirProgramme(dossier, null);
+    ouvrirProgramme(dossier, null, b);
     if (!programmeEnCours) return;
     programmeEnCours.enCours = true;
     programmeEnCours.zone = b.zone;
     programmeEnCours.semaines = b.semaines; programmeEnCours.decharge = b.decharge === true;
     programmeEnCours.grosse = b.grosse_serie === true;
-    var c = {};
-    (b.exercices || []).forEach(function (s) { c[s] = true; if (programmeEnCours.slugs.indexOf(s) < 0) programmeEnCours.slugs.push(s); });
-    programmeEnCours.coches = c;
     rendreFeuilleProgramme();
   }
 

@@ -944,9 +944,14 @@ const NOTIONS = [
     raison: 'MOTEUR §9.22 / §9.29 : le badge, la carte de fin et « Commencer » lisent la même reconnaissance — sans colonne, sur les ' +
       'lignes à zone du jour des routines du dossier. Une phase ne repose jamais sur une alternance Mix ↔ Lourd.' },
   { notion: 'les exercices d’un bloc par défaut (les barres polyarticulaires du dossier)', pr: '53-U2',
-    module: 'moteur.js', fonction: 'exercicesParDefaut', lecteurs: ['app.js'],
+    module: 'moteur.js', fonction: 'exercicesParDefaut', lecteurs: [],
+    par: ['exercicesCandidatsDuBloc'],
+    raison: 'une barre, au moins 3 muscles (`estPolyarticulaire`) : la définition du raccourci, lue une fois (223 : par `exercicesCandidatsDuBloc`, que la feuille lit).' },
+  { notion: 'les exercices proposés et cochés par la feuille du bloc (programme neuf, bloc suivant, bloc en cours)', pr: '223-U1',
+    module: 'moteur.js', fonction: 'exercicesCandidatsDuBloc', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['ouvrirProgramme'] },
-    raison: 'une barre, au moins 3 muscles (`estPolyarticulaire`) : la définition du raccourci, lue une fois.' },
+    raison: 'un fil, une règle : les barres lourdes, les priorités et les exercices du bloc précédent (jamais le tapis ni la machine d’un ' +
+      'dossier mixte) ; cochés, ceux du bloc précédent. Les trois entrées de la feuille la lisent, aucune ne filtre ni ne coche à sa façon.' },
   { notion: 'le bilan d’un bloc (première et dernière charge de travail, paris tenus, hors décharge)', pr: '53-U2',
     module: 'moteur.js', fonction: 'bilanDuBloc', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['bilanDe'] },

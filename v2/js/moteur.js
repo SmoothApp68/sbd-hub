@@ -7258,6 +7258,29 @@
     });
   }
 
+  // 223 — LES EXERCICES QUE LA FEUILLE DU BLOC PROPOSE ET COCHE (un fil, une règle, pour les trois entrées : programme neuf, bloc
+  // suivant, bloc en cours). `candidats` : les mouvements à la barre, les priorités du dossier (`exercicesParDefaut`) PLUS les exercices du
+  // bloc précédent (même hors barre : ils sont déjà dans un bloc), dans l'ordre du dossier — ceux du bloc précédent sortis du dossier
+  // à la fin. Jamais le tapis, la poulie ni la machine d'un dossier mixte. `coches` : les exercices du bloc précédent s'il y en a,
+  // sinon les exercices par défaut. Pure.
+  function exercicesCandidatsDuBloc(slugsDuDossier, catalogue, priorites, exercicesDuBlocPrecedent) {
+    var dossier = Array.isArray(slugsDuDossier) ? slugsDuDossier : [];
+    var defaut = exercicesParDefaut(dossier, catalogue, priorites);
+    var precedent = (Array.isArray(exercicesDuBlocPrecedent) ? exercicesDuBlocPrecedent : []).filter(function (s, i, l) {
+      return !!s && l.indexOf(s) === i;
+    });
+    var gardes = {};
+    defaut.concat(precedent).forEach(function (s) { gardes[s] = true; });
+    // « Tes mouvements à la barre » (le texte de la feuille) : une barre d'isolation (un curl) est proposée, décochée.
+    dossier.forEach(function (s) {
+      var e = catalogue && Object.prototype.hasOwnProperty.call(catalogue, s) ? catalogue[s] : null;
+      if (e && e.equipement === 'barre' && e.charge !== 'ajoutee') gardes[s] = true;
+    });
+    var candidats = dossier.filter(function (s, i) { return !!gardes[s] && dossier.indexOf(s) === i; });
+    precedent.forEach(function (s) { if (candidats.indexOf(s) < 0) candidats.push(s); });
+    return { candidats: candidats, coches: precedent.length ? precedent : defaut };
+  }
+
   // LE BILAN, en faits, HORS SEMAINE DE DÉCHARGE : pour chaque exercice du bloc,
   // sa première et sa dernière charge de travail (palier, niveau validé) ; et
   // les paris de consigne sur les exercices du bloc, observés, et tenus
@@ -11612,6 +11635,7 @@
     blocAPhases: blocAPhases,
     SEMAINES_PHASE: SEMAINES_PHASE,
     exercicesParDefaut: exercicesParDefaut,
+    exercicesCandidatsDuBloc: exercicesCandidatsDuBloc,
     bilanDuBloc: bilanDuBloc,
     progresDuBilan: progresDuBilan,
     blocEnCours: blocEnCours,

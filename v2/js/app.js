@@ -1408,20 +1408,21 @@
     // MOTEUR §9.23 (55-1) — deux blocs en tête : le mois écoulé, et le
     // dernier record. Les blocs existants ne bougent pas.
     var mois = Bilan.moisEcoule(new Date());
-    var b = bilanDuMoisDe(mois);
+    // 222 — tonnes et séries du mois : le MÊME fil que la story (`faits.bilanDePeriode`), lu une seule fois pour le bloc.
+    var bm = bilanPeriode(Bilans.periodeDuMois(mois));
     var dernier = faits.dernierRecord(corpus());
     profilDuParcours = cleDuParcoursDuProfil(profil);
     Rendu.rendreSommaire($('sommaire'), {
       // 98 — le mois écoulé s'ouvre sur SA STORY (BILANS-V1) ; le bloc dit ses tonnes, jamais ses séances.
       mois: {
         titre: nomDuMois(mois, false),
-        kg: b.volume_kg,
+        kg: bm.tonnes.kg,
         // 119 (F8) — les séries de travail du mois (la règle du volume) : un mois au poids du corps en a sans tonnes.
-        series: b.series,
+        series: bm.reps.series,
         records: faits.recordsDuMois(corpus(), mois).length,
         // 124 (audit du 16/10/2026, 04 #14) — les paris du mois, un seul fil : ceux de la story (`bilan.coach`).
         paris: (function () {
-          var co = bilanPeriode(Bilans.periodeDuMois(mois)).coach;
+          var co = bm.coach;
           return co ? { verifies: co.faits, tenus: co.tenus } : { verifies: 0, tenus: 0 };
         })(),
         surChoix: function () { afficherMois(mois); }
@@ -1914,6 +1915,9 @@
     var a = annoncesDuJour(new Date()).filter(function (x) { return !annonceDejaVue(uid, x.periode) && !bilanPeriode(x.periode).vide; });
     if (!a.length) return false;
     if (!noterAnnonces(uid, a.map(function (x) { return x.periode; }))) return false;
+    // 222 — l'annonce du MOIS ne double pas son bloc : sur Progression, « Octobre » est déjà là, juste au-dessus ; le mois est noté
+    // vu et reste dans ce bloc (BILANS-V1, annonce). La saison, elle, garde son message.
+    if (ecranCourant === 'progression' && a[0].periode.type === 'mois') return false;
     Annee.annonce($('annonce-annee'), { texte: a[0].texte, surVoir: function () { ouvrirBilan(a[0].periode); } });
     return true;
   }
@@ -3788,13 +3792,6 @@
 
 
 
-
-  // ⚠️ PAS `bilanDe` : ce nom est celui du bilan d'un BLOC (§9.22), plus haut.
-  // Deux déclarations du même nom, et la seconde efface la première — la
-  // carte de fin de bloc s'était vidée (banc « cycles », 55-1).
-  function bilanDuMoisDe(mois) {
-    return Bilan.bilanDuMois({ mois: mois, seances: faits.seancesAvecSeries(corpus()), exercices: local.exercices });
-  }
 
   // « Septembre », « septembre 2026 ».
   function nomDuMois(mois, avecAnnee) {
@@ -13137,13 +13134,11 @@
   function rendreRadar() {
     var p = Periode.periodeDe(periodeRadar);
     var f = Periode.fenetres(p.jours, new Date());
-    var c = Periode.decouper(local.seances, local.series, f.courante);
-    var a = Periode.decouper(local.seances, local.series, f.precedente);
+    // 222 — les deux fenêtres lisent le fait de la semaine (`faits.fenetreDe`, le calcul de `faits.semaineDe`), pas `local.*`.
+    var c = faits.fenetreDe(corpus(), f.courante);
+    var a = faits.fenetreDe(corpus(), f.precedente);
 
-    var comparaison = Periode.comparerZones(
-      Semaine.volumeParZone(c.series, local.exercices),
-      Semaine.volumeParZone(a.series, local.exercices),
-      Semaine.ZONES);
+    var comparaison = Periode.comparerZones(c.zones, a.zones, Semaine.ZONES);
 
     Rendu.rendrePeriodes($('periodes-radar'), Periode.PERIODES, periodeRadar, function (cle) {
       periodeRadar = cle;
@@ -13152,8 +13147,7 @@
     Rendu.rendreRadar($('radar'), comparaison, p, Periode);
     Rendu.rendreCartesPeriode($('cartes-radar'),
       comparaison.vide ? [] : Periode.cartes(comparaison,
-        Semaine.bilanSemaine(c.seances, c.series, local.exercices),
-        Semaine.bilanSemaine(a.seances, a.series, local.exercices)),
+        c.bilan, a.bilan),
       p);
     $('note-radar').hidden = comparaison.vide;
   }

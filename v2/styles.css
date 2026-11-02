@@ -957,8 +957,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:12px;font-weig
 .note-sous-nom{display:block;width:100%;margin-top:2px;min-height:30px;padding:6px 10px;border-radius:var(--r-petit);border:1px solid #343A43;
   background:var(--panneau-2);color:var(--texte-2);font-size:13.333333px;text-align:left;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-.consigne-dit[data-pourquoi]::after{content:" " attr(data-pourquoi);color:var(--texte);border-bottom:1px dotted var(--texte-3);white-space:nowrap}
-.consigne-dit[data-pourquoi]{display:block;padding:6px 0;margin-top:0}
+.lien-pourquoi{background:none;border:0;padding:12px 4px;margin:-12px -4px;font:inherit;color:var(--texte);border-bottom:1px dotted var(--texte-3);white-space:nowrap;cursor:pointer;line-height:20px}
 /* Sans barre d'onglets (séance en cours), plus rien ne porte l'encoche du bas : le repos et le bas de page la prennent. */
 html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .repos{padding-bottom:calc(var(--e3) + env(safe-area-inset-bottom,0px))}
 html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:calc(var(--h-onglets, 68px) + var(--e6) + var(--h-repos, 0px) + var(--h-pied, 0px) + var(--h-toast, 0px) + env(safe-area-inset-bottom,0px))}
@@ -2948,7 +2947,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .etq-mot{cursor:pointer}
 
 /* 211 — les premières minutes : le point du « Pourquoi » (jusqu'à la première ouverture) et le premier pari. */
-.consigne-dit.pourquoi-neuf[data-pourquoi]::before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--accent);vertical-align:middle}
+.lien-pourquoi.pourquoi-neuf::before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--accent);vertical-align:middle}
 .consigne-dit.premier-pari{color:var(--texte)}
 .recap-depart,.recap-premier{line-height:1.45}
 

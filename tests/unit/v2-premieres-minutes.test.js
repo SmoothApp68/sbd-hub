@@ -80,8 +80,8 @@ describe('211 — l’écran lit : la ligne du premier pari et le point du « Po
     expect(rendre().querySelector('.premier-pari')).toBeNull();
   });
   test('le point : tant que le « Pourquoi » n’a jamais été ouvert ; ensuite plus', () => {
-    expect(rendre({ pourquoiNeuf: () => true }).querySelector('.consigne-dit[data-pourquoi]').classList.contains('pourquoi-neuf')).toBe(true);
-    expect(rendre({ pourquoiNeuf: () => false }).querySelector('.consigne-dit[data-pourquoi]').classList.contains('pourquoi-neuf')).toBe(false);
-    expect(rendre().querySelector('.consigne-dit[data-pourquoi]').classList.contains('pourquoi-neuf')).toBe(false);
+    expect(rendre({ pourquoiNeuf: () => true }).querySelector('.consigne-dit .lien-pourquoi').classList.contains('pourquoi-neuf')).toBe(true);
+    expect(rendre({ pourquoiNeuf: () => false }).querySelector('.consigne-dit .lien-pourquoi').classList.contains('pourquoi-neuf')).toBe(false);
+    expect(rendre().querySelector('.consigne-dit .lien-pourquoi').classList.contains('pourquoi-neuf')).toBe(false);
   });
 });

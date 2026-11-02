@@ -253,7 +253,8 @@ describe('124 — les paris du mois : un fil (app.js)', () => {
   test('ni `paris_verifies` ni `paris_tenus` dans l’app ; la phrase de la story lit `bilan.coach`, tels quels', () => {
     expect(src).not.toMatch(/paris_verifies|paris_tenus/);
     expect(src).toMatch(/var co = vue\.bilan && vue\.bilan\.coach;\s*vue\.paris = co \? \{ phrase: Bilan\.phraseParis\(co\.faits, co\.tenus, \{ telsQuels: true \}\) \}/);
-    expect(src).toMatch(/bilanPeriode\(Bilans\.periodeDuMois\(mois\)\)\.coach/);
+    expect(src).toMatch(/var bm = bilanPeriode\(Bilans\.periodeDuMois\(mois\)\);/);
+    expect(src).toMatch(/var co = bm\.coach;/);
   });
 });
 

@@ -7753,8 +7753,9 @@
 
   function planActuel() {
     if (!seance) return null;
-    var entrees = entreesDuPlan();
-    var edition = entrees.seance.edition;
+    // 229 — LE MÉMO D'ABORD : les entrées du plan (douleurs, échecs, chutes, mobilité… sur tout l'historique) ne se calculent que si
+    // le plan doit l'être. Avant, chaque lecture du plan (une vingtaine par geste) les recalculait, même quand le mémo répondait.
+    var edition = enEdition();   // = `entreesDuPlan().seance.edition`
     // `constats` porte les suites : une synchronisation le remet à zéro
     // (`recalculerEtats`) et la suite se recalcule sur le nouvel historique.
     if (planMemo && planMemo.seance === seance && planMemo.paris === local.predictions &&
@@ -7768,6 +7769,7 @@
         planMemo.blocs === local.blocs && planMemo.disque === Profil.plusPetitDisqueDe(profil) &&
         planMemo.moins === serieDeMoinsActive() && planMemo.cartes === (profil && profil.cartes_semaine) &&
         planMemo.raides === (profil && profil.zones_raides) && planMemo.menager === (profil && profil.zones_a_menager)) return planMemo.plan;
+    var entrees = entreesDuPlan();
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
                  edition: edition, constats: constats, catalogue: local.exercices,

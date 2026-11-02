@@ -69,7 +69,7 @@
     function seriesComptees(c, de, a, slug) {
       var out = [];
       seancesAvecSeries(c).forEach(function (s) {
-        var j = s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
+        var j = s.debut ? jourDeLaSeance(s.debut) : null;
         if (!j || (de && j < de) || (a && j > a)) return;
         s.series.forEach(function (x) {
           if (!x || (slug && x.exercise_slug !== slug) || !Modele.estTravail(x)) return;
@@ -151,7 +151,7 @@
       }
       var seances = 0, parExo = {}, seriesParSemaine = {}, premierLundi = null;
       seancesAvecSeries(c).forEach(function (s) {
-        var j = s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
+        var j = s.debut ? jourDeLaSeance(s.debut) : null;
         if (!j) return;
         // 121 (suite du 119, audit du 16/10/2026) — les séances et les exercices du mois sont ceux de la
         // MUSCULATION, comme les séries : une randonnée, un tapis seul ne font ni une séance de la guilde ni un
@@ -1062,16 +1062,36 @@
     // séries de travail à la MÊME charge pour la 1re et la 3e (sinon la baisse n'est pas celle de la fatigue), la part de reps
     // perdue de la série 1 à la série 3, `(reps1 − reps3) / reps1`. Les plus récentes d'abord. Une série « ne compte pas » est
     // écartée. Un fait : la règle du repos (`Moteur.reposAConseiller`) le lit, elle ne le recalcule pas.
+    // 229 — LE JOUR CIVIL d'un début de séance, lu une fois : les faits du jour (douleurs, échecs, mobilité…) parcourent tout
+    // l'historique à chaque geste, et le jour civil (calendrier local) coûte cher ×627. Même entrée, même jour : rien ne change.
+    var memoJours = {}, nJours = 0;
+    function jourDeLaSeance(debut) {
+      if (Object.prototype.hasOwnProperty.call(memoJours, debut)) return memoJours[debut];
+      if (nJours > 20000) { memoJours = {}; nJours = 0; }
+      nJours++;
+      return (memoJours[debut] = Moteur.jourCivil(new Date(debut)));
+    }
+    var memoOrdre = { liste: null, n: -1, triees: [] };
+    function seancesDuPlusRecent(seances) {
+      var l = seances || [];
+      if (memoOrdre.liste === l && memoOrdre.n === l.length) return memoOrdre.triees;
+      var triees = l.map(function (s) { return { s: s, t: s && s.debut ? Date.parse(s.debut) : NaN }; })
+        .filter(function (o) { return !isNaN(o.t); }).sort(function (a, b) { return b.t - a.t; }).map(function (o) { return o.s; });
+      memoOrdre = { liste: l, n: l.length, triees: triees };
+      return triees;
+    }
     function chutesDeReps(c, slug, n) {
       // Lu SANS le mémo des séances (`seancesAvecSeries`, clé = nombre de séances et de séries) : une série corrigée après coup
       // (mêmes comptes) doit changer la chute. On lit les séances de la plus récente à la plus ancienne, et on s'arrête à `n`.
-      var datees = (c.seances || []).filter(function (s) { return s && s.debut && !isNaN(new Date(s.debut).getTime()); })
-        .sort(function (a, b) { return new Date(b.debut) - new Date(a.debut); });
+      // 229 — l'ORDRE des séances (le plus récent d'abord) se garde tant que la liste des séances est la même (même tableau, même
+      // longueur) : il ne dépend d'aucune série, la règle ci-dessus tient. Avant, chaque exercice de chaque geste retriait tout
+      // l'historique (627 séances : plusieurs secondes par série validée sur un téléphone).
+      var datees = seancesDuPlusRecent(c.seances);
       var sortie = [];
       for (var i = 0; i < datees.length && sortie.length < n; i++) {
-        var travail = Modele.trierParRang(c.seriesDe(datees[i].id) || []).filter(function (x) {
+        var travail = Modele.trierParRang((c.seriesDe(datees[i].id) || []).filter(function (x) {
           return x && x.exercise_slug === slug && Modele.estTravail(x) && x.hors_calcul !== true && Number(x.reps) > 0;
-        });
+        }));
         if (travail.length < 3) continue;
         travail = travail.map(function (x, k) { return { x: x, k: k }; }).sort(function (a, b) {
           var ra = typeof a.x.rang === 'number' ? a.x.rang : a.k, rb = typeof b.x.rang === 'number' ? b.x.rang : b.k;
@@ -1178,7 +1198,7 @@
       var seances = [], series = [];
       (cc.seances || []).forEach(function (s) {
         if (!s || !s.debut) return;
-        var js = Moteur.jourCivil(new Date(s.debut));
+        var js = jourDeLaSeance(s.debut);
         if (!js || js < depuis || js > jour) return;
         var travail = (cc.seriesDe(s.id) || []).filter(function (x) { return x && Modele.estTravail(x); });
         if (js >= lundi) series = series.concat(travail);
@@ -1908,7 +1928,7 @@
       var plancher = Moteur.jourCivil(new Date(Date.parse(J + 'T12:00:00') - JOURS_DE_LA_FATIGUE * 86400000));
       var parSlug = {};
       (c.seances || []).forEach(function (s) {
-        var jr = s && s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
+        var jr = s && s.debut ? jourDeLaSeance(s.debut) : null;
         if (!jr || jr < plancher || jr > J) return;
         var vues = {};
         (c.seriesDe(s.id) || []).forEach(function (x) {
@@ -1962,7 +1982,7 @@
       if (!J) return sortie;
       var plancher = Moteur.jourCivil(new Date(Date.parse(J + 'T12:00:00') - 42 * 86400000));
       (c.seances || []).forEach(function (s) {
-        var jr = s && s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
+        var jr = s && s.debut ? jourDeLaSeance(s.debut) : null;
         if (!jr || jr < plancher || jr > J) return;
         (c.seriesDe(s.id) || []).forEach(function (x) {
           if (!x || !x.exercise_slug || x.douleur !== true) return;
@@ -1983,7 +2003,8 @@
       (c.seances || []).forEach(function (s) {
         var d = s && s.debut ? Date.parse(s.debut) : NaN;
         if (isNaN(d) || d >= t) return;
-        var jr = Moteur.jourCivil(new Date(s.debut));
+        if (d < t - 44 * 86400000) return;   // 229 : bien avant la fenêtre, sans passer par le jour civil (coûteux, ×627 par geste)
+        var jr = jourDeLaSeance(s.debut);
         if (!jr || jr < plancher) return;
         var vus = {};
         (c.seriesDe(s.id) || []).forEach(function (x) {
@@ -2003,8 +2024,11 @@
       var G = racine.THGenerateur, cat = typeof c.catalogue === 'function' ? c.catalogue() : null;
       if (!J || !G || !cat) return sortie;
       var plancher = Moteur.jourCivil(new Date(Date.parse(J + 'T12:00:00') - 6 * 86400000));
+      var tJ = Date.parse(J + 'T12:00:00');
       (c.seances || []).forEach(function (s) {
-        var jr = s && s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
+        var d = s && s.debut ? Date.parse(s.debut) : NaN;
+        if (isNaN(d) || d < tJ - 8 * 86400000 || d > tJ + 2 * 86400000) return;   // 229 : hors des jours lus, sans le jour civil
+        var jr = jourDeLaSeance(s.debut);
         if (!jr || jr < plancher || jr >= J) return;
         (c.seriesDe(s.id) || []).forEach(function (x) {
           if (!x || !x.exercise_slug || x.hors_calcul === true) return;
@@ -2029,7 +2053,7 @@
       var lundi = b ? Moteur.jourCivil(b.lundi) : null;
       if (!lundi) return sortie;
       (c.seances || []).forEach(function (s) {
-        var jr = s && s.debut ? Moteur.jourCivil(new Date(s.debut)) : null;
+        var jr = s && s.debut ? jourDeLaSeance(s.debut) : null;
         if (!jr || jr < lundi || jr > J) return;
         (c.seriesDe(s.id) || []).forEach(function (x) {
           if (!x || !x.exercise_slug || !Modele.estTravail(x) || x.hors_calcul === true) return;
@@ -2085,7 +2109,7 @@
       if (!lundi) return sortie;
       var index = (c.catalogue && c.catalogue()) || {}, jours = {}, min = 0, eq = 0, intenses = 0;
       (c.seances || []).forEach(function (s) {
-        var jr = s && s.debut && s.statut !== 'en_cours' ? Moteur.jourCivil(new Date(s.debut)) : null;
+        var jr = s && s.debut && s.statut !== 'en_cours' ? jourDeLaSeance(s.debut) : null;
         if (!jr || jr < lundi || jr > J) return;
         var series = c.seriesDe(s.id) || [];
         if (Semaine.estSeanceDeMusculation(series, index)) jours[jr] = true;
@@ -2117,7 +2141,7 @@
       var debut = Moteur.jourCivil(Semaine.decalerSemaine(lundi, -CARDIO_SEMAINES).lundi), fin = Moteur.jourCivil(lundi);
       var index = (c.catalogue && c.catalogue()) || {}, parJour = {};
       (c.seances || []).forEach(function (s) {
-        var jr = s && s.debut && s.statut !== 'en_cours' ? Moteur.jourCivil(new Date(s.debut)) : null;
+        var jr = s && s.debut && s.statut !== 'en_cours' ? jourDeLaSeance(s.debut) : null;
         if (!jr || jr < debut || jr >= fin) return;
         (c.seriesDe(s.id) || []).forEach(function (x) {
           var f = x && index[x.exercise_slug], d = Number(x && x.duree_s);

@@ -5256,13 +5256,20 @@
     var barre = el('div', 'dq-barre');
     barre.appendChild(el('div', 'dq-manche'));
     barre.appendChild(el('div', 'dq-butee'));
+    var nPetits = 0;
     parCote.forEach(function (k) {
       // 215 — plancher typographique : le chiffre (12 px) n'est écrit DANS le disque que si celui-ci est assez large
       // pour le contenir ; un petit disque (< 5 kg) reste mince, son chiffre se lit dans la ligne sous la barre.
       var txt = M.nombreSigne(k);
       var petit = k < 5;
       var d = el('div', 'dq-disque' + (petit ? ' dq-petit' : ''), petit ? '' : txt);
-      if (petit) d.title = txt;
+      if (petit) {
+        // 227 — le chiffre d'un petit disque (2,5, 1,25…) s'écrit AU-DESSUS de lui : on le voit sur le dessin pour charger la barre.
+        d.title = txt;
+        // Deux petits disques côte à côte : le second écrit son chiffre en dessous, pour que les deux se lisent.
+        nPetits += 1;
+        d.appendChild(el('span', 'dq-petit-chiffre' + (nPetits % 2 === 0 ? ' dq-bas' : ''), txt));
+      }
       d.style.width = (petit ? 5 : Math.max(k >= 10 ? 20 : 18, txt.length * 7 + 6)) + 'px';
       d.style.height = Math.round(Math.min(100, Math.max(26, 28 + k * 2.9))) + 'px';
       d.style.background = COULEURS_DISQUES[k] || '#9AA3AF';

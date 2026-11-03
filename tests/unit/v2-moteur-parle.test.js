@@ -551,40 +551,41 @@ describe('l’en-tête dit la consigne (ECRAN-SAISIE §3.1)', () => {
     expect(cible.querySelectorAll('.consigne, .consigne-dit').length).toBe(0);
   });
 
-  test('DISCRIMINANT — toucher la consigne ouvre le calcul : les jaunes ET la grise', () => {
+  test('DISCRIMINANT (230) — toucher la consigne n’ouvre plus rien : seul le lien « Pourquoi ? » ouvre le calcul', () => {
     const vus = [];
     const cible = rendre(ouverte(T(3)), () => LIB, false, { surPourquoi: (s) => vus.push(s) });
     const lignes = [...cible.querySelectorAll('.consigne, .consigne-dit')];
     expect(lignes).toHaveLength(3);
-    lignes.forEach((n) => {
-      expect(n.getAttribute('role')).toBe('button');
-      expect(n.tabIndex).toBe(0);
-      n.click();
-    });
-    // Les deux jaunes et la grise mènent au même endroit : l'exercice, pas la ligne.
-    expect(vus).toEqual(['dc', 'dc', 'dc']);
+    lignes.forEach((n) => { expect(n.getAttribute('role')).toBeNull(); n.click(); });
+    expect(vus).toEqual([]);
+    const liens = cible.querySelectorAll('.lien-pourquoi');
+    expect(liens).toHaveLength(1);
+    liens[0].click();
+    expect(vus).toEqual(['dc']);
   });
 
-  test('DISCRIMINANT — en silence, la phrase grise SEULE porte le geste', () => {
+  test('en silence, la phrase grise porte le lien « Pourquoi ? »', () => {
     // « Pourquoi rien ? » est la question qu'on se pose le plus, et c'est
     // justement là qu'il n'y a aucune ligne jaune à toucher.
     const muet = { jaune: [], gris: 'Première fois ici' + NB + ': ce que tu notes aujourd\'hui servira de départ.' };
     const vus = [];
     const cible = rendre(ouverte(T(3)), () => muet, false, { surPourquoi: (s) => vus.push(s) });
     expect(cible.querySelectorAll('.consigne')).toHaveLength(0);
-    const gris = cible.querySelector('.consigne-dit');
-    expect(gris.getAttribute('role')).toBe('button');
-    gris.click();
+    cible.querySelector('.consigne-dit').click();
+    expect(vus).toEqual([]);
+    cible.querySelector('.lien-pourquoi').click();
     expect(vus).toEqual(['dc']);
   });
 
   test('sans `surPourquoi`, aucune ligne ne se prétend tapable', () => {
-    const lignes = [...rendre(ouverte(T(3)), () => LIB).querySelectorAll('.consigne, .consigne-dit')];
+    const cible = rendre(ouverte(T(3)), () => LIB);
+    const lignes = [...cible.querySelectorAll('.consigne, .consigne-dit')];
     expect(lignes).toHaveLength(3);
     lignes.forEach((n) => {
       expect(n.getAttribute('role')).toBeNull();
       expect(n.tabIndex).toBe(-1);
     });
+    expect(cible.querySelectorAll('.lien-pourquoi')).toHaveLength(0);
   });
 
   test('chaque exercice d’un superset reçoit les siens', () => {

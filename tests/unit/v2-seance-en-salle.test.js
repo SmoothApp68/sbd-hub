@@ -165,17 +165,17 @@ describe('l’exercice en salle', () => {
     expect(appel).toBe(0);
   });
 
-  test('« Pourquoi ? » : un attribut au bout de la phrase datée, le texte du coach reste mot pour mot', () => {
+  test('« Pourquoi ? » : un lien au bout de la phrase datée (230 : le seul geste qui ouvre la feuille), le texte du coach reste mot pour mot', () => {
     const c = rendre(seanceDe([['dc', 2, null]]));
     const gris = c.querySelector('.consigne-dit');
     expect(gris.textContent).toBe('Le 29 oct. : 100 kg × 6. Une rep de plus.');
-    expect(gris.getAttribute('data-pourquoi')).toBe('Pourquoi ?');
-    expect(CSS).toMatch(/\.consigne-dit\[data-pourquoi\]::after\{content:" " attr\(data-pourquoi\)/);
+    expect(c.querySelector('.lien-pourquoi').textContent).toBe('Pourquoi\u00a0?');
+    expect(CSS).toMatch(/\.lien-pourquoi\{/);
   });
 
   test('sans porte vers « Pourquoi » (éditeur, vue sans surPourquoi), pas de lien', () => {
     const c = rendre(seanceDe([['dc', 2, null]]), { surPourquoi: undefined });
-    expect(c.querySelector('.consigne-dit').hasAttribute('data-pourquoi')).toBe(false);
+    expect(c.querySelector('.lien-pourquoi')).toBeNull();
   });
 
   test('les cibles au pouce : ⋯ et nom 44 px, ±15 s du repos 48 px', () => {

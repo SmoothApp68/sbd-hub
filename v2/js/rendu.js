@@ -3519,12 +3519,17 @@
         // question qu'on se pose le plus. Chaque ligne porte le geste plutôt
         // qu'un conteneur autour d'elles — l'ordre des enfants de la légende
         // est une règle du §3.1, et l'envelopper la changerait pour rien.
-        var tapable = function (n) {
-          if (!vue.surPourquoi || !x.slug) return n;
-          n.setAttribute('role', 'button');
-          n.tabIndex = 0;
-          n.addEventListener('click', function () { vue.surPourquoi(x.slug); });
-          return n;
+        // 230 (décision d'Aurélien, 02/11/2026) — LE « POURQUOI » NE S'OUVRE QU'AU LIEN « Pourquoi ? » : toucher la consigne ou
+        // l'exercice n'ouvre plus rien (un geste en salle déclenchait la feuille par erreur). Les lignes restent du texte.
+        var tapable = function (n) { return n; };
+        var lienPourquoi = function () {
+          if (!vue.surPourquoi || !x.slug) return null;
+          var a = el('button', 'lien-pourquoi', 'Pourquoi\u00a0?');
+          a.type = 'button';
+          // 211 — un petit point d'accent tant que cet appareil n'a jamais ouvert un « Pourquoi » (CSS, `::before`).
+          if (typeof vue.pourquoiNeuf === 'function' && vue.pourquoiNeuf()) a.classList.add('pourquoi-neuf');
+          a.addEventListener('click', function (e) { e.stopPropagation(); vue.surPourquoi(x.slug); });
+          return a;
         };
         // 154 — « garde-en N » : l'étiquette de la réserve visée, UNE FOIS, au bout de la première ligne de la consigne.
         var gardeEn = !vue.programme && typeof vue.reserveVisee === 'function' ? vue.reserveVisee(x._iExo) : null;
@@ -3555,16 +3560,14 @@
           entree.appendChild(tapable(ligneJ));
         });
         if (lib.gris) {
-          var ligneGris = tapable(el('div', 'consigne-dit', lib.gris));
-          // 204 — « Pourquoi ? » en lien discret au bout de la phrase datée : un attribut rendu par CSS (`::after`), comme « garde-en N ».
-          // Le texte du coach reste mot pour mot ; la ligne entière est déjà la porte vers la feuille « Pourquoi ».
-          if (ligneGris.getAttribute('role') === 'button') {
-            ligneGris.setAttribute('data-pourquoi', 'Pourquoi\u00a0?');
-            // 211 — un petit point d'accent tant que cet appareil n'a jamais ouvert un « Pourquoi » (CSS, `::before`).
-            if (typeof vue.pourquoiNeuf === 'function' && vue.pourquoiNeuf()) ligneGris.classList.add('pourquoi-neuf');
-          }
+          var ligneGris = el('div', 'consigne-dit', lib.gris);
+          // 204 — « Pourquoi ? » en lien discret au bout de la phrase datée ; 230 : c'est le SEUL geste qui ouvre la feuille.
           entree.appendChild(ligneGris);
         }
+        // Le lien sur sa ligne, juste sous la consigne (le texte du coach reste mot pour mot ; sans phrase grise — « pourquoi
+        // rien ? » —, le lien est là quand même).
+        var lp = lienPourquoi();
+        if (lp) { var dLien = el('div', 'pourquoi-ligne'); dLien.appendChild(lp); entree.appendChild(dLien); }
         // 211 — « Mon premier pari : … » : la phrase du plan, une fois, sous la consigne (la ligne est déjà la porte du « Pourquoi »).
         var phrasePari = typeof vue.premierPari === 'function' ? vue.premierPari(x._iExo) : null;
         if (phrasePari) entree.appendChild(tapable(el('div', 'consigne-dit premier-pari', phrasePari)));

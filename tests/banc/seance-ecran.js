@@ -8895,7 +8895,7 @@ const SETS_IMPORTES = [
     });
     const ouvrirFeuilleU = async () => {
       await page.evaluate(() => {
-        const c = document.querySelector('.legende-exo .consigne, .legende-exo .consigne-dit');
+        const c = document.querySelector('.legende-exo .lien-pourquoi');
         if (c) c.click();
       });
       await attendre(700);
@@ -11040,7 +11040,7 @@ const SETS_IMPORTES = [
       JSON.stringify(lignesCompteur));
     // La feuille « Pourquoi » du curl : la même phrase, en une ligne.
     await page.evaluate(() => {
-      const c = document.querySelector('.legende-exo .consigne, .legende-exo .consigne-dit');
+      const c = document.querySelector('.legende-exo .lien-pourquoi');
       if (c) c.click();
     });
     await attendre(700);
@@ -12304,7 +12304,7 @@ const SETS_IMPORTES = [
     const feuilleD = [];
     for (let i = 0; i < enteteD.length; i++) {
       if (!enteteD[i]) { feuilleD.push(null); continue; }
-      await page.evaluate((k) => document.querySelectorAll('.legende-exo')[k].querySelector('.consigne-dit.frere').click(), i);
+      await page.evaluate((k) => document.querySelectorAll('.legende-exo')[k].querySelector('.lien-pourquoi').click(), i);   // 230 : le lien seul ouvre la feuille
       await attendre(700);
       const pq = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .pq-p')).map((n) => n.textContent));
       feuilleD.push(pq.filter((t) => /^Pendant ce temps, /.test(sp(t))).map(sp));
@@ -21746,7 +21746,7 @@ const SETS_IMPORTES = [
     // porte son point (aucun « Pourquoi » ouvert sur cet appareil). La première série validée écrit le pari : la ligne s'en va.
     const premierVu = () => page.evaluate(() => ({
       lignes: Array.from(document.querySelectorAll('.premier-pari')).map((x) => x.textContent),
-      points: document.querySelectorAll('.consigne-dit.pourquoi-neuf[data-pourquoi]').length }));
+      points: document.querySelectorAll('.lien-pourquoi.pourquoi-neuf').length }));
     const pv = await premierVu();
     ok('[R71] (a) 211 — « Mon premier pari : … kg × … » une fois sous la consigne, aux chiffres du plan ; le « Pourquoi ? » porte son point',
       pv.lignes.length === 1 && /^Mon premier pari\u00a0: .+\u00a0kg\u00a0×\u00a0\d+\. Je te dirai après la série si j’avais vu juste\.$/.test(pv.lignes[0]) && pv.points >= 1, nbR(pv));
@@ -26865,7 +26865,7 @@ const SETS_IMPORTES = [
     const texte160 = (sel) => page.evaluate((x) => { const n = document.querySelector('#feuille-contenu ' + x); return n ? n.textContent : null; }, sel);
     const textes160 = (sel) => page.evaluate((x) => Array.from(document.querySelectorAll('#feuille-contenu ' + x)).map((n) => n.textContent), sel);
     const ouvrirPourquoi160 = async () => {
-      await page.evaluate(() => { const c = document.querySelector('.legende-exo .consigne, .legende-exo .consigne-dit'); if (c) c.click(); });
+      await page.evaluate(() => { const c = document.querySelector('.legende-exo .lien-pourquoi'); if (c) c.click(); });
       await feuilleOuverte('.assistant-demander', 8000);
     };
     const appels160 = () => A160.appels.length;

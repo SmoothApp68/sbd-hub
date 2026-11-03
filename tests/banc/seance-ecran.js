@@ -8895,7 +8895,7 @@ const SETS_IMPORTES = [
     });
     const ouvrirFeuilleU = async () => {
       await page.evaluate(() => {
-        const c = document.querySelector('.legende-exo .consigne, .legende-exo .consigne-dit');
+        const c = document.querySelector('.legende-exo .lien-pourquoi');
         if (c) c.click();
       });
       await attendre(700);
@@ -11040,7 +11040,7 @@ const SETS_IMPORTES = [
       JSON.stringify(lignesCompteur));
     // La feuille « Pourquoi » du curl : la même phrase, en une ligne.
     await page.evaluate(() => {
-      const c = document.querySelector('.legende-exo .consigne, .legende-exo .consigne-dit');
+      const c = document.querySelector('.legende-exo .lien-pourquoi');
       if (c) c.click();
     });
     await attendre(700);

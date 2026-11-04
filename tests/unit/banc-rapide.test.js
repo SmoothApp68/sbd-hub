@@ -206,6 +206,17 @@ describe('le séquentiel résistant', () => {
     expect(s.texte).toMatch(/❌ \[exception\] C\. LA TROISIÈME — la section s’arrête là, le banc continue/);
   });
 
+  test('237 — la trace d’une exception garde le journal d’appel de Playwright en entier (borné à 2000 caractères)', async () => {
+    const seq = await R.sequentiel({ banc: FACTICE, env: { BANC_FACTICE_PLANTE: 'C-LOG' } });
+    const c = seq.fusion.controles.filter((x) => /^\[exception\] C\./.test(x.nom))[0];
+    expect(c).toBeTruthy();
+    // La ligne en échec, telle que le lanceur l'imprime (le journal du groupe) : le journal d'appel est là, d'un bout à l'autre.
+    const ligne = fs.readFileSync(seq.resultats[0].journal, 'utf8').split('\n').filter((l) => /\[exception\] C\./.test(l))[0] || '';
+    expect(ligne).toMatch(/locator resolved to/);
+    expect(ligne).toMatch(/element is not receiving pointer events because/);
+    expect(ligne.length).toBeLessThan(2400);
+  });
+
   test('⚠️ tous les échecs sont rapportés à la fin, pas seulement le premier', async () => {
     const seq = await R.sequentiel({ banc: FACTICE, env: { BANC_FACTICE_ECHEC: 'B', BANC_FACTICE_PLANTE: 'C' } });
     const s = R.resumer(seq);

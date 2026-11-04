@@ -24,10 +24,10 @@ let echecs = 0;
     return log.apply(console, arguments);
   };
 }
-const ok = (nom, cond) => {
+const ok = (nom, cond, detail) => {
   if (!cond) echecs++;
   rapport.controles.push({ section: sectionRapport, nom: nom, ok: !!cond });
-  console.log('   ' + (cond ? '✅' : '❌') + ' ' + nom);
+  console.log('   ' + (cond ? '✅' : '❌') + ' ' + nom + (detail !== undefined ? '  — ' + detail : ''));
 };
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -68,6 +68,12 @@ const pause = (ms) => new Promise((r) => setTimeout(r, ms));
   seanceOuverte = true;   // 161 — C ouvre une séance… et coupe le réseau du faux serveur…
   reseauCoupe = true;
   if (plante === 'C') throw new Error('la section C plante');
+  // 237 — un journal d'appel Playwright long (une dizaine de lignes) : la trace le garde en entier, jusqu'à 2000 caractères.
+  if (plante === 'C-LOG') {
+    throw new Error('page.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\'.ok-serie\')\n  - locator resolved to <button class=\"ok-serie\">…</button>\n' +
+      '  - attempting click action\n  - waiting for element to be visible, enabled and stable\n  - element is visible, enabled and stable\n  - scrolling into view if needed\n' +
+      '  - done scrolling\n  - element is not receiving pointer events because <div class=\"feuille\"> intercepts them');
+  }
   ok('C — se sert du helper de A', doubler(3) === 6);
   ok('C — deux', echoue !== 'C');
 

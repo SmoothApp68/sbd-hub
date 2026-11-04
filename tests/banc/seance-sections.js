@@ -246,6 +246,8 @@ function declarationsGardees(banc, garder) {
 //   let a, b;                              ← ses noms, déclarés AVANT le try
 //   try { …corps, `const a = x` devenu `(a = x);`… }
 //   catch (e) { ok('[exception] NOM — …', false, pile) }
+// 237 (trace) — la pile est gardée en entier jusqu'à 2000 caractères : le journal d'appel de Playwright (« waiting for locator… », « locator resolved to… »,
+// « element is not visible »…) disait pourquoi un clic n'aboutit pas, et il était coupé après quatre lignes. Diagnostic seul.
 //
 // Les noms restent visibles des sections suivantes (le banc les partage), une
 // exception devient un contrôle EN ÉCHEC — compté, listé à la fin — et la
@@ -288,7 +290,7 @@ function sectionResistante(src, s) {
     '  try {' + texte,
     '  } catch (exceptionDuBanc) {',
     '    ok(' + JSON.stringify('[exception] ' + s.nom + ' — la section s’arrête là, le banc continue') + ', false,',
-    '      String((exceptionDuBanc && exceptionDuBanc.stack) || exceptionDuBanc).split(\'\\n\').slice(0, 4).join(\' | \'));',
+    '      String((exceptionDuBanc && exceptionDuBanc.stack) || exceptionDuBanc).split(\'\\n\').map(function (l) { return l.trim(); }).filter(Boolean).join(\' | \').slice(0, 2000));',
     '    // 161 — la section suivante repart d\'un état propre (feuille fermée, séance abandonnée, /saisie)',
     '    try { await remettreAPropre(); } catch (_) { /* hors d\'atteinte (section avant sa déclaration) : l\'exception reste notée */ }',
     '  }'

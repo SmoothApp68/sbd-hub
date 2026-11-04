@@ -7403,7 +7403,9 @@
     return {
       seance: { id: seance.id, debut: seance.debut, edition: edition, exercices: exos,
                 // §9.20 — les choix de la carte de reprise, dans le brouillon.
-                reprises: seance.reprises || null },
+                reprises: seance.reprises || null,
+                // 236 — les gestes de la séance (réponses du coach en temps réel) : le plan les lit, jamais l'écran.
+                gestes: Array.isArray(seance.gestes) ? seance.gestes : [] },
       consignes: cs,
       // MOTEUR §9.16 — la phase GELÉE de la séance (lue après les consignes :
       // elle se fige avec elles).

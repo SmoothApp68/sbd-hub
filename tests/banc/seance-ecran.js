@@ -28127,8 +28127,8 @@ const SETS_IMPORTES = [
       !!dom236 && dom236.nb === 1 && dom236.role === 'status' && dom236.live === 'polite' && sp236(dom236.texte) === sp236(apres236.rate.phrase), nb236(dom236));
     ok('[RT236] les gestes tiennent au doigt (44 px), « Prendre X kg » en fait partie',
       !!dom236 && dom236.boutons.length > 0 && dom236.boutons.every((b) => b.h >= 44) && dom236.boutons.some((b) => b.cle === 'prendre'), nb236(dom236 && dom236.boutons));
-    ok('[RT236] I116 — la charge ne baisse pas sans geste : les lignes qui restent gardent 20 kg',
-      apres236.charges.slice(1).every((c) => c === 20) && (await placeholders236()).slice(1).every((v) => /^20$/.test(String(v).replace(/\s/g, ''))), nb236([apres236.charges, await placeholders236()]));
+    ok('[RT236] I116 — la charge ne baisse pas sans geste : les lignes qui restent gardent leur charge',
+      apres236.charges.slice(1).every((c, i) => c === avant236.charges[i + 1]) && (await placeholders236()).slice(1).every((v, i) => String(v).replace(/\s/g, '') === String(avant236.charges[i + 1])), nb236([apres236.charges, await placeholders236()]));
     const kg236 = apres236.rate.charge.kg;
     await page.click('.rate-reaction button[data-cle="prendre"]');
     await attendreQue(() => lire236().then((p) => p.rate && p.rate.pris.indexOf('prendre') >= 0), 15000, 'priseRT236');

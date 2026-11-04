@@ -31,7 +31,7 @@ function lancer(nom, args, env) {
       fs.closeSync(sortie);
       const texte = fs.readFileSync(journal, 'utf8');
       const fin = texte.split('\n').filter((l) => /tout passe|en échec|^Tests:|^Test Suites:|contrôles ·/.test(l)).slice(-3);
-      ok({ nom, code, duree: Date.now() - debut, journal, fin });
+      ok({ nom, code, duree: Date.now() - debut, journal, fin, texte });
     });
   }));
 }
@@ -52,6 +52,11 @@ if (require.main === module) (async () => {
     r.forEach((x) => {
       console.log('   ' + (x.code === 0 ? '✅' : '❌') + ' ' + x.nom + ' · ' + Math.round(x.duree / 1000) + ' s · ' +
         x.fin.join(' · ').replace(/\s+/g, ' ').trim() + (x.code === 0 ? '' : '\n        journal : ' + x.journal));
+    });
+    // 231 : un banc de vitesse en échec montre son tableau (geste / médiane / plafond) dans la sortie, donc dans le journal GitHub.
+    r.filter((x) => x.code !== 0 && x.nom === 'banc de vitesse').forEach((x) => {
+      const i = x.texte.indexOf('══ VITESSE');
+      console.log('\n' + (i >= 0 ? x.texte.slice(i) : x.texte.split('\n').slice(-40).join('\n')));
     });
     console.log('\n   ' + Math.round((Date.now() - debut) / 1000) + ' s au total');
     process.exit(r.every((x) => x.code === 0) ? 0 : 1);

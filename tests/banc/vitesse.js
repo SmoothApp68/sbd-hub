@@ -8,9 +8,12 @@
 // (l'ordre de grandeur d'un téléphone milieu de gamme). Chaque geste est mesuré du clic au rendu
 // (MutationObserver puis requestAnimationFrame). TROIS passages, chacun sur une page neuve ; on retient la MÉDIANE.
 //
-// PLAFONDS = la mesure du 03/11/2026 (relevé ci-dessous) × 2, arrondie : la marge est pour la machine de la CI,
-// plus lente et plus bruitée que celle-ci. EXCEPTION : « valider » est à ×1,5 (2 200 et non 3 000) — la mutation qui remet le calcul
-// des entrées avant le mémo (231) ne coûte que ×1,8 une fois les autres corrections du 229 en place ; à ×2 elle passerait. Ils ne bougent que par un geste conscient, dans une PR qui le justifie.
+// PLAFONDS EN RAPPORT À UN ÉTALON (231, 2e temps) : la CI GitHub n'a pas la vitesse de la machine où l'on a relevé les
+// plafonds en millisecondes. Chaque passage mesure d'abord un ÉTALON — un calcul JS fixe et déterministe (tri, texte, JSON),
+// dans la même page, au même ralentissement ×4, après deux passes de chauffe, médiane de 5, avant ET après les gestes (moyenne) — puis chaque geste est comparé à lui : RAPPORT = geste / étalon.
+// Plafond = rapport relevé × 2, arrondi (EXCEPTION : « valider » à ×1,5 — la mutation qui remet le calcul des entrées avant
+// le mémo (231) ne coûte que ×1,8 une fois les autres corrections du 229 en place ; à ×2 elle passerait). Les rapports ne
+// bougent que par un geste conscient, dans une PR qui le justifie. Les ms restent affichées à titre d'information.
 //
 // Rien n'est attendu à délai fixe : on attend l'ÉTAT (la page calme, le rendu du geste). Un seul « délai » : `calme`,
 // qui lit les images à chaque tour (le pas d'une boucle qui lit l'état), pas une durée.
@@ -28,13 +31,17 @@ const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-
 const PASSAGES = 3;
 const RALENTI = 4;
 
-// RELEVÉ du 03/11/2026 (médiane de 3 passages, ms, processeur ×4, 627 séances) et PLAFONDS = relevé × 2, arrondis.
+// RELEVÉ du 04/11/2026 (médiane de 3 passages, processeur ×4, 627 séances) : rapports geste / étalon.
 //   geste                                          relevé   plafond
-//   démarrer une séance                             275       600
-//   valider une série (moyenne de 4)               1500      2200   (avant 229 : 8 000 à 12 000)
-//   passer à l'exercice suivant (sa 1re série)     2550      5000
-//   ouvrir la fiche d'un exercice                  2250      4500
-const PLAFONDS_MS = { demarrer: 600, valider: 2200, suivant: 5000, fiche: 4500 };
+//   démarrer une séance                             50       100    (≈ 3 100 ms ici ; étalon ≈ 70 ms)
+//   valider une série (moyenne de 4)                18        27    (≈ 1 100 ms ; avant 229 : 8 000 à 12 000)
+//   passer à l'exercice suivant (sa 1re série)      44        90    (≈ 2 600 ms)
+//   ouvrir la fiche d'un exercice                   42        85    (≈ 2 500 ms)
+const PLAFONDS = { demarrer: 100, valider: 27, suivant: 90, fiche: 85 };
+
+// L'ÉTALON : un travail fixe (tri de 40 000 nombres d'un générateur déterministe, texte, JSON), sans rien du DOM ni de l'app.
+const ETALON = () => { let x = 12345, s = 0; const l = []; for (let i = 0; i < 40000; i++) { x = (x * 1664525 + 1013904223) >>> 0; l.push(x); }
+  l.sort((a, b) => a - b); const j = JSON.parse(JSON.stringify(l.slice(0, 8000))); for (let i = 0; i < j.length; i++) s += String(j[i]).length; return s; };
 const GESTES = [
   ['demarrer', 'démarrer une séance (routine de 6 exercices)'],
   ['valider', 'valider une série (moyenne de 4)'],
@@ -101,6 +108,7 @@ const mesurer = (page, clic, pret, arg) => page.evaluate(({ clic, pret, arg }) =
 }), { clic: clic.toString(), pret: pret.toString(), arg }).then((t) => Math.round(t));
 
 async function passage(port, errs) {
+  const fini = { sessions: false, sets: false };   // l'historique est LU en entier quand la dernière page (plus courte que la limite) est servie
   const nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ['--no-sandbox'] });
   try {
     const ctx = await nav.newContext({ viewport: { width: 380, height: 780 }, deviceScaleFactor: 2 });
@@ -116,7 +124,7 @@ async function passage(port, errs) {
         return route.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'content-range': '0-' + Math.max(0, n - 1) + '/' + n, 'access-control-expose-headers': 'content-range, content-length' }, body: '' }); }
       if (req.method() !== 'GET') { let b = null; try { b = req.postDataJSON(); } catch (e) {} return json(Array.isArray(b) ? b : (b ? [b] : []), 201); }
       const pag = (l, cle) => { const gt = url.searchParams.get(cle) || ''; if (gt.startsWith('gt.')) l = l.filter((q) => String(q[cle]) > gt.slice(3));
-        l = l.slice().sort((a, b) => String(a[cle]).localeCompare(String(b[cle]))); const lim = Number(url.searchParams.get('limit') || 0); return lim ? l.slice(0, lim) : l; };
+        l = l.slice().sort((a, b) => String(a[cle]).localeCompare(String(b[cle]))); const lim = Number(url.searchParams.get('limit') || 0); const r = lim ? l.slice(0, lim) : l; if (!lim || r.length < lim) fini[table] = true; return r; };
       if (table === 'sessions') return /statut=eq\.en_cours/.test(url.search) ? json([]) : json(pag(H.seances, 'id'));
       if (table === 'sets') return json(pag(H.series, 'id'));
       if (table === 'exercises') return json(pag(H.exos, 'slug'));
@@ -130,11 +138,17 @@ async function passage(port, errs) {
     const cdp = await ctx.newCDPSession(page); await cdp.send('Emulation.setCPUThrottlingRate', { rate: RALENTI });
     await page.goto('http://127.0.0.1:' + port + '/', { waitUntil: 'load' });
     await page.waitForSelector('#vue-liste:not([hidden])', { timeout: 150000 });
+    // L'HISTORIQUE D'ABORD : une page « calme » entre deux pages de synchronisation mesurerait un historique à moitié lu (la séance irait trop vite).
+    // Le pas d'une boucle qui lit l'état (les pages servies), plafonné à 150 s.
+    for (let i = 0; i < 1500 && !(fini.sessions && fini.sets); i++) await new Promise((r) => setTimeout(r, 100));
+    if (!(fini.sessions && fini.sets)) throw new Error('historique non lu en entier');
     await calme(page);
     await page.evaluate(() => [...document.querySelectorAll('.onglet')].find((b) => b.textContent.trim() === 'Saisie').click());
     await page.waitForSelector('button.demarrer', { timeout: 60000 });
     await calme(page);
     const g = {};
+    const etalonner = async () => mediane(await page.evaluate((f) => { const e = eval('(' + f + ')'); const r = []; e(); e(); for (let i = 0; i < 5; i++) { const t0 = performance.now(); e(); r.push(performance.now() - t0); } return r; }, ETALON.toString()));
+    const etalonAvant = await etalonner();
     g.demarrer = await mesurer(page, () => document.querySelector('button.demarrer').click(), () => document.querySelectorAll('.ligne-serie').length > 4);
     await calme(page);
     const val = [];
@@ -147,6 +161,7 @@ async function passage(port, errs) {
     g.suivant = await valider(6); await confirmer(); await calme(page);
     g.fiche = await mesurer(page, () => document.querySelector('.nom-exo').click(),
       () => { const v = document.getElementById('vue-exercice'); return !!v && !v.hidden && v.textContent.trim().length > 40; });
+    g.etalon = (etalonAvant + await etalonner()) / 2;   // avant ET après les gestes : une machine qui se charge en route se voit des deux côtés
     return g;
   } finally { await nav.close(); }
 }
@@ -158,14 +173,15 @@ async function passage(port, errs) {
   const errs = [], passages = [];
   try { for (let i = 0; i < PASSAGES; i++) passages.push(await passage(port, errs)); }
   finally { serveur.close(); rendre(); }
-  const med = {}; GESTES.forEach(([k]) => { med[k] = mediane(passages.map((p) => p[k])); });
-  if (process.argv.indexOf('--json') >= 0) console.log(JSON.stringify({ passages, med }));
-  console.log('\n══ VITESSE (627 séances, processeur ×' + RALENTI + ', médiane de ' + PASSAGES + ') ══');
+  const med = {}, rap = {}; GESTES.forEach(([k]) => { med[k] = mediane(passages.map((p) => p[k])); rap[k] = Math.round(mediane(passages.map((p) => p[k] / p.etalon)) * 100) / 100; });
+  const etalon = Math.round(mediane(passages.map((p) => p.etalon)));
+  if (process.argv.indexOf('--json') >= 0) console.log(JSON.stringify({ passages, med, rap, etalon }));
+  console.log('\n══ VITESSE (627 séances, processeur ×' + RALENTI + ', médiane de ' + PASSAGES + ' · étalon ' + etalon + ' ms) ══');
   let echec = 0;
   GESTES.forEach(([k, nom]) => {
-    const plafond = PLAFONDS_MS[k], m = med[k], ok = m > 0 && m <= plafond;
+    const plafond = PLAFONDS[k], m = rap[k], ok = med[k] > 0 && m <= plafond;
     if (!ok) echec++;
-    console.log('   ' + (ok ? '✅' : '❌') + ' ' + nom.padEnd(46) + String(m).padStart(6) + ' ms   plafond ' + String(plafond).padStart(6) + ' ms   (' + passages.map((p) => p[k]).join(' · ') + ')');
+    console.log('   ' + (ok ? '✅' : '❌') + ' ' + nom.padEnd(46) + String(m).padStart(7) + ' × étalon   plafond ' + String(plafond).padStart(7) + '   (' + med[k] + ' ms ; passages ' + passages.map((p) => Math.round(p[k] / p.etalon * 100) / 100).join(' · ') + ')');
   });
   if (errs.length) { console.log('   ❌ erreurs de page : ' + errs.slice(0, 3).join(' | ')); echec++; }
   console.log(echec ? '\n   ' + echec + ' contrôle(s) en échec' : '\n   tout passe');

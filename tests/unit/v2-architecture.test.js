@@ -41,6 +41,8 @@ const V2 = path.join(RACINE, 'v2');
 const GARDEES = [
   // moteur.js — 194-1 (MOTEUR §9.31) : le bloc de mobilité (zones raides, minutes de la semaine, muscles de la séance) ; seul `planDeSeance` l'appelle
   { fn: 'blocDeMobilite', module: 'moteur.js' },
+  // moteur.js — 236 (MOTEUR §9.39) : le coach en temps réel après un raté (la réaction sous la série, l'exercice, la forme du jour, « un cran dessous ») ; seul `planDeSeance` l'appelle
+  { fn: 'reactionAuRate', module: 'moteur.js' },
   // moteur.js — la consigne
   { fn: 'consignePour', module: 'moteur.js' },
   { fn: 'consigneDExercice', module: 'moteur.js' },

@@ -28057,6 +28057,102 @@ const SETS_IMPORTES = [
     await aller('/saisie');
   }
 
+  console.log('\n══ rate-236. LE COACH RÉAGIT SOUS LA SÉRIE RATÉE : UNE PHRASE, UN GESTE, LA CHARGE NE BOUGE QUE SUR « PRENDRE » (236, MOTEUR §9.39, I115 à I122) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un curl aux haltères (isolation), six séances d'historique à 20 kg × 10, une routine « 4 × 10 », le réglage
+  // Normal. La 1re série est validée à 20 kg × 5 (SOUS la zone 8-10) : le coach doit parler SOUS la série (une phrase, `role="status"`), proposer
+  // une baisse au max du jour, et les lignes qui restent GARDENT 20 kg tant que « Prendre X kg » n'est pas touché ; après le geste, elles
+  // montrent X kg à l'écran. Sans la règle, aucune phrase ne sort de la série et rien ne se propose : le contrôle DISCRIMINANT échoue.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbCatAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, paris236Avant = base.predictions;
+    const routinesAvant236 = ROUTINES.splice(0, ROUTINES.length);
+    base.sessions = []; base.sets = []; base.predictions = [];
+    const rendreLesBlocs236 = await retirerBlocsDeLAppareil();
+    const t236 = Date.now();
+    const nb236 = (x) => JSON.stringify(x === undefined ? null : x);
+    const sp236 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    CATALOGUE.push({ slug: 'rt236-curl', nom: 'Curl RT236 (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere',
+      muscles_primaires: ['biceps'], muscles_secondaires: [], schema_mouvement: 'tirer' });
+    const profilAvant236 = Object.assign({}, base.profiles[0]);
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { rythme_progression: 'normal', intention: 'progresser', phase: 'maintien', phase_depuis: null,
+      cartes_semaine: null, priorites: null, jours_vises: null });
+    const ligne236 = (id, rang, debut) => ({ id, session_id: id.replace(/-s\d+$/, ''), user_id: 'u-banc', exercise_slug: 'rt236-curl',
+      charge_kg: 20, reps: 10, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null,
+      type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null,
+      note: null, source: 'app', created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false });
+    for (let w = 1; w <= 6; w++) {
+      const id = 'rt236-' + w;
+      const debut = ilYa((7 * w + 1) * 86400000, t236).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'RT236 — ' + id, debut, fin: finDe(debut, t236).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-rt236', source: 'app', created_at: debut, gestes: [] });
+      for (let r = 1; r <= 4; r++) base.sets.push(ligne236(id + '-s' + r, r, debut));
+    }
+    const sets236 = [1, 2, 3, 4].map((i) => ({ id: 'pr-rt236-' + i, rang: i, type_serie: 'travail', reps_visees: 10, charge_cible_kg: null,
+      duree_cible_s: null, distance_cible_m: null }));
+    ROUTINES.push({ id: 'r-rt236', nom: 'Curl RT236', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z',
+      updated_at: '2026-01-05T10:00:00.000Z', routine_exercises: [{ id: 're-rt236-0', routine_id: 'r-rt236', exercise_slug: 'rt236-curl', rang: 0,
+        zone: 'hypertrophie', routine_sets: sets236, repos_cible_s: 90, groupe_superset: null, note: null }] });
+    await aller('/saisie');
+    await demarrerRoutine('Curl RT236');
+    await attendreQue(() => page.evaluate(() => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan &&
+      window.THPlan.dernier.plan.exercices.some((x) => x.slug === 'rt236-curl' && x.consigne))), 15000, 'planRT236');
+    const lire236 = () => page.evaluate(() => {
+      const x = window.THPlan.dernier.plan.exercices.filter((q) => q.slug === 'rt236-curl')[0];
+      return { rate: x.rate ? { iSerie: x.rate.iSerie, cas: x.rate.cas, phrase: x.rate.phrase, charge: x.rate.charge, pris: x.rate.pris,
+                                boutons: x.rate.boutons.map((b) => b.cle) } : null,
+               charges: x.lignes.map((l) => l.charge), validees: x.lignes.map((l) => l.validee), phrases: x.phrases.filter((q) => q.ou === 'rate').length };
+    });
+    const placeholders236 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) => {
+      const i = l.querySelector('input'); return i ? (i.value || i.placeholder || '') : null; }));
+    const avant236 = await lire236();
+    ok('[RT236] avant tout, le coach se tait : aucune réaction, aucune phrase', avant236.rate === null && avant236.phrases === 0, nb236(avant236));
+    await saisirSerie(0, 20, 5);
+    await attendreQue(() => lire236().then((p) => !!p.rate), 15000, 'rateRT236');
+    const apres236 = await lire236();
+    const dom236 = await page.evaluate(() => {
+      const n = document.querySelector('.rate-reaction');
+      if (!n) return null;
+      return { role: n.getAttribute('role'), live: n.getAttribute('aria-live'), texte: n.querySelector('.rate-phrase') ? n.querySelector('.rate-phrase').textContent : '',
+               boutons: Array.from(n.querySelectorAll('button')).map((b) => ({ cle: b.getAttribute('data-cle'), h: Math.round(b.getBoundingClientRect().height) })),
+               nb: document.querySelectorAll('.rate-reaction').length };
+    });
+    ok('[RT236] DISCRIMINANT — 5 au lieu de 10, sous la zone : une phrase sous la série, qui propose la baisse au max du jour',
+      !!apres236.rate && apres236.rate.charge && apres236.rate.charge.action === 'baisse' && apres236.rate.charge.kg < 20 &&
+      /^5 au lieu de 10\. On passe à [\d,]+ kg, garde 1, entre 8 et 10\.$/.test(sp236(apres236.rate.phrase)), nb236(apres236));
+    ok('[RT236] l’écran dit la phrase du plan, UNE fois, annoncée poliment (role status, aria-live polite)',
+      !!dom236 && dom236.nb === 1 && dom236.role === 'status' && dom236.live === 'polite' && sp236(dom236.texte) === sp236(apres236.rate.phrase), nb236(dom236));
+    ok('[RT236] les gestes tiennent au doigt (44 px), « Prendre X kg » en fait partie',
+      !!dom236 && dom236.boutons.length > 0 && dom236.boutons.every((b) => b.h >= 44) && dom236.boutons.some((b) => b.cle === 'prendre'), nb236(dom236 && dom236.boutons));
+    ok('[RT236] I116 — la charge ne baisse pas sans geste : les lignes qui restent gardent 20 kg',
+      apres236.charges.slice(1).every((c) => c === 20) && (await placeholders236()).slice(1).every((v) => /^20$/.test(String(v).replace(/\s/g, ''))), nb236([apres236.charges, await placeholders236()]));
+    const kg236 = apres236.rate.charge.kg;
+    await page.click('.rate-reaction button[data-cle="prendre"]');
+    await attendreQue(() => lire236().then((p) => p.rate && p.rate.pris.indexOf('prendre') >= 0), 15000, 'priseRT236');
+    const prise236 = await lire236();
+    const ph236 = await placeholders236();
+    ok('[RT236] « Prendre » : les lignes qui restent montrent la nouvelle charge, à l’écran comme au plan',
+      prise236.charges.slice(1).every((c) => c === kg236) && ph236.slice(1).every((v) => String(v).replace(/\s/g, '') === String(kg236).replace('.', ',')), nb236([prise236.charges, ph236, kg236]));
+    ok('[RT236] la série validée n’est pas touchée : 20 kg × 5, tel que saisi', prise236.charges[0] === 20 && prise236.validees[0] === true, nb236(prise236));
+    ok('[RT236] la garde de l’app (I115 à I122, I26) n’a rien vu', gardeBanc.violations === violationsAvant, nb236(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    ok('[RT236] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb236([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = paris236Avant;
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = 0;
+    routinesAvant236.forEach((r) => ROUTINES.push(r));
+    base.profiles[0] = profilAvant236;
+    rendreLesBlocs236();
+    await aller('/saisie');
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

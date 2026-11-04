@@ -425,7 +425,8 @@
         x.seance && debutDe[x.seance];
     }).map(function (x) {
       return { date: debutDe[x.seance], seance: x.seance, exercice: x.l.exercise_slug, emise: x.l.emise_a || null,
-               predite: Number(x.l.valeur_predite), observee: Number(x.l.valeur_observee) };
+               predite: Number(x.l.valeur_predite), observee: Number(x.l.valeur_observee),
+               charge: x.l.fondement && x.l.fondement.charge !== undefined && x.l.fondement.charge !== null ? Number(x.l.fondement.charge) : null };
     });
   }
 
@@ -5857,6 +5858,8 @@
       await vidage;
       return observerSerie(iExo, iSerie);
     }
+    // 236 — ce que la personne laisse sans réponse en passant à la suite (la réaction ignorée, la forme du jour gardée) : un geste de mesure.
+    noterLesPropositionsPassees(iExo, iSerie);
     // Ce qui est affiché en gris devient réel à la validation : on valide sans
     // rien taper quand c'est juste (§3 bis.3).
     //
@@ -7227,6 +7230,34 @@
 
   // Les entrées du plan de la séance ouverte. Les consignes et les suites se
   // lisent D'ABORD : leur mémo peut changer `versionConsignes`.
+  // 236 (MOTEUR §9.39) — les paris ratés à la suite, par exercice : un fait de `faits.js`, mémoïsé sur la taille des paris connus.
+  var parisRatesMemo = { cle: '', val: {} };
+  function parisRatesDesEntrees() {
+    if (!seance) return {};
+    var cle = seance.id + '|' + (local.predictions || []).length + '|' + (local.parisLegers || []).length + '|' + (local.seances || []).length;
+    if (parisRatesMemo.cle !== cle) parisRatesMemo = { cle: cle, val: faits.parisRatesALaSuite(parisDeConsigneConnus(), seance.id) };
+    return parisRatesMemo.val;
+  }
+  // 236 — la salle de cette séance n'est pas celle où l'on s'entraîne d'habitude (la plus fréquente, au moins 3 séances). La salle se
+  // DÉCLARE (`sessions.salle`) : sans salle déclarée aujourd'hui, ou sans habitude connue, `false`.
+  var salleHabitudeMemo = { cle: '', val: null };
+  function autreSalleDuJour() {
+    var du = seance && seance.salle ? String(seance.salle).trim().toLowerCase() : '';
+    if (!du) return false;
+    var cle = (local.seances || []).length + '|' + seance.id;
+    if (salleHabitudeMemo.cle !== cle) {
+      var n = {};
+      (local.seances || []).forEach(function (x) {
+        var t = x && x.id !== seance.id && x.salle ? String(x.salle).trim().toLowerCase() : '';
+        if (t) n[t] = (n[t] || 0) + 1;
+      });
+      var meilleur = null;
+      Object.keys(n).forEach(function (k) { if (n[k] >= 3 && (meilleur === null || n[k] > n[meilleur])) meilleur = k; });
+      salleHabitudeMemo = { cle: cle, val: meilleur };
+    }
+    return salleHabitudeMemo.val !== null && salleHabitudeMemo.val !== du;
+  }
+
   function chutesDeRepsDeLaSeance(exos) {
     var sortie = {}, c = corpus();
     (exos || []).forEach(function (x) {
@@ -7417,6 +7448,10 @@
       // 188-2 (I76) — les chutes de reps de chaque exercice de la séance (les 3 dernières séances, un fait de `faits.js`) : le plan
       // décide de la ligne du repos, il ne relit pas l'historique.
       chutesDeReps: chutesDeRepsDeLaSeance(exos),
+      // 236 (MOTEUR §9.39) — les paris ratés à la suite de chaque exercice (un fait de `faits.js`) et « autre salle que d'habitude » : le plan
+      // décide de la carte « un cran dessous » et de la phrase ; il ne relit rien.
+      parisRates: parisRatesDesEntrees(),
+      autreSalle: autreSalleDuJour(),
       paris: (local.predictions || []).filter(function (l) {
         return l && l.fondement && l.fondement.seance === seance.id;
       }),
@@ -8675,6 +8710,82 @@
     await apresGeste();
   }
 
+  // ══ 236 (MOTEUR §9.39) — LE COACH EN TEMPS RÉEL APRÈS UN RATÉ ═══════════════════════════════════════════════════════════
+  //
+  // Le plan décide (`x.rate`, `x.carteForme`, `x.parisRates`) ; ici, seulement poser le geste de la personne. Rien n'est écrit dans une série :
+  //   · « +1 min » : le repos en cours repart d'une minute ; « Prendre X kg » : un geste que le plan lit (les lignes restantes à X kg) ;
+  //   · « Rest-pause » : deux mini-séries à la charge de la série (`Seance.ajouterRestPause`) ; « Dégressive » : une ligne dégressive ;
+  //   · « Ajuster la fin » : une série de moins par exercice restant (`Plan.lignesAAjuster`), le reste est dans le plan.
+  // Chaque geste (et chaque proposition passée sans réponse, à la série suivante) s'écrit dans `sessions.gestes`, pour recaler les seuils.
+  async function repondreRate(iExo, iSerie, cle) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var x = planDeLExercice(iExo);
+    var r = x && x.rate;
+    if (!r || r.iSerie !== iSerie) return;
+    reponseEnCours = true;
+    try {
+      var g = { geste: 'rate_prise', slug: x.slug, rang: iSerie, bouton: cle };
+      if (cle === 'prendre' && r.charge && r.charge.kg !== null && r.charge.kg !== undefined) g.kg = r.charge.kg;
+      if (cle === 'repos') {
+        ajusterRepos(Moteur.RATE_PLUS_REPOS_S);
+      } else if (cle === 'rest_pause') {
+        seance = Seance.ajouterRestPause(seance, iExo, iSerie, uuid);
+      } else if (cle === 'degressive') {
+        seance = Seance.ajouterDegressive(seance, iExo, uuid);
+      }
+      seance = Seance.noterGeste(seance, g);
+    } finally {
+      reponseEnCours = false;
+    }
+    await apresGeste();
+  }
+  async function repondreForme(iExo, cle) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var x = planDeLExercice(iExo);
+    if (!x || !x.carteForme) return;
+    reponseEnCours = true;
+    try {
+      seance = Seance.noterGeste(seance, { geste: cle === 'ajuste' ? 'forme_ajustee' : 'forme_gardee', slug: x.slug });
+      if (cle === 'ajuste') {
+        // la série de moins de chaque exercice restant : le plan l'a décidée (`lignesAAjuster`), l'app la retire (jamais une série validée)
+        var retirer = Plan.lignesAAjuster(planActuel()).sort(function (a, b) { return b.iSerie - a.iSerie; });
+        retirer.forEach(function (q) {
+          var s = seance.exercices[q.iExo] && seance.exercices[q.iExo].series[q.iSerie];
+          if (s && !Seance.partEnBase(s)) seance = Seance.retirerSerie(seance, q.iExo, q.iSerie);
+        });
+      }
+    } finally {
+      reponseEnCours = false;
+    }
+    await apresGeste();
+  }
+  async function repondreParis(iExo, cle) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var x = planDeLExercice(iExo);
+    if (!x || !x.parisRates || !x.parisRates.carte) return;
+    reponseEnCours = true;
+    try {
+      seance = Seance.noterGeste(seance, { geste: cle === 'cran' ? 'paris_cran' : 'paris_retente', slug: x.slug });
+    } finally {
+      reponseEnCours = false;
+    }
+    await apresGeste();
+  }
+  // Ce qui reste sans réponse quand la personne passe à la série suivante : la réaction ignorée, la carte de la forme du jour gardée (jamais
+  // reposée), « je retente » pour les paris. Un geste de mesure, posé une fois ; il ne change rien au plan (le plan le déduit des séries).
+  function noterLesPropositionsPassees(iExo, iSerie) {
+    if (!seance || enEdition()) return;
+    var x = planDeLExercice(iExo);
+    if (!x) return;
+    var gs = Array.isArray(seance.gestes) ? seance.gestes : [];
+    var dejaIgn = function (rang) { return gs.some(function (g) { return g.slug === x.slug && g.rang === rang && (g.geste === 'rate_prise' || g.geste === 'rate_ignoree'); }); };
+    if (x.rate && x.rate.iSerie < iSerie && !x.rate.fait && !dejaIgn(x.rate.iSerie)) {
+      seance = Seance.noterGeste(seance, { geste: 'rate_ignoree', slug: x.slug, rang: x.rate.iSerie });
+    }
+    if (x.carteForme) seance = Seance.noterGeste(seance, { geste: 'forme_gardee', slug: x.slug, implicite: true });
+    if (x.parisRates && x.parisRates.carte) seance = Seance.noterGeste(seance, { geste: 'paris_retente', slug: x.slug, implicite: true });
+  }
+
   // ══ 193-4 (MOTEUR §9.32) — LA SEMAINE DE TEST ══════════════════════════════════════════════════════════════════════
   //
   // La réponse vit dans `profiles.cartes_semaine.test` (par `poserProfil`, la file), sans colonne :
@@ -9824,6 +9935,26 @@
         return x && x.propositionAuMax ? x.propositionAuMax : null;
       },
       surAuMax: function (i, cle) { return repondreAuMax(i, cle); },
+      // 236 (MOTEUR §9.39) — le coach en temps réel : la réaction sous la dernière série validée, la forme du jour, « un cran dessous ». Tout est
+      // lu sur le plan ; les gestes s'écrivent dans `sessions.gestes` (`Seance.noterGeste`), jamais dans une série.
+      rate: function (i, j) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.rate && x.rate.iSerie === j ? x.rate : null;
+      },
+      surRate: function (i, j, cle) { return repondreRate(i, j, cle); },
+      carteForme: function (i) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.carteForme ? x.carteForme : null;
+      },
+      surForme: function (i, cle) { return repondreForme(i, cle); },
+      carteParis: function (i) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.parisRates && x.parisRates.carte ? x.parisRates.carte : null;
+      },
+      surParis: function (i, cle) { return repondreParis(i, cle); },
       // 193-4 (MOTEUR §9.32) — la barre testée aujourd'hui : lue sur le plan ; ses gestes (façon, « Pas aujourd'hui », « Arrêter »).
       semaineDeTest: function (i) {
         if (enEdition()) return null;

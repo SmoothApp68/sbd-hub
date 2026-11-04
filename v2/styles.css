@@ -3035,3 +3035,12 @@ button[id^="btn-retour"]{padding:0 14px;font-size:14px}
   background:transparent;border:1px solid var(--trait);border-radius:12px;min-height:44px;
   box-sizing:border-box}
 .btn-sec{color:var(--texte-2)}
+
+/* 236 (MOTEUR §9.39) — la réaction du coach après un raté : une phrase sous la série, des gestes d'un toucher (44 px). */
+.rate-reaction{padding:var(--e2) 0 var(--e1)}
+.rate-phrase{margin:0;font-size:14px;line-height:1.4;color:var(--texte-2)}
+.rate-boutons{display:flex;flex-wrap:wrap;gap:var(--e2);margin-top:6px}
+.rate-bouton{min-height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--trait);background:transparent;color:var(--texte);
+  font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;box-sizing:border-box}
+.rate-forme,.rate-paris{border-style:solid}
+.rate-forme .pc-texte,.rate-paris .pc-texte{color:var(--texte)}

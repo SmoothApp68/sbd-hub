@@ -2637,6 +2637,7 @@
       boutons: (d.leviers || []).map(function (cle) { return { cle: cle, texte: M.boutonDeRate(cle, d), pris: pris.indexOf(cle) >= 0 }; }),
       charge: d.charge || null, garde: d.garde === undefined ? null : d.garde, fourchette: d.fourchette || null, recale: d.recale === true,
       pasDAuMax: d.pasDAuMax === true, approche: d.approche === true, recalculeReculs: d.recalculeReculs === true,
+      faites: d.faites === undefined ? null : d.faites, visees: d.visees === undefined ? null : d.visees,
       fait: d.fait === true, pris: pris, chiffres: chiffres, role: d.role || null
     };
     x.phrases.push({ ou: 'rate', texte: cap.texte, citations: cap.citations });
@@ -5771,6 +5772,7 @@
     verifierCalage(plan, entrees, erreurs);
     verifierZoneMenagee(plan, entrees, erreurs);
     verifierBlocHypertrophie(plan, erreurs);
+    verifierRate(plan, entrees, erreurs);
     verifierRestPause(plan, erreurs);
     verifierBaisseAttendue(plan, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
@@ -5931,6 +5933,72 @@
     if (c && c.source === M.SOURCE_BAISSE && plan.phase === 'seche' && c.fait && c.fait.moyenne < M.FATIGUE_BAISSE_MIN) {
       erreurs.push('I108 — une carte de baisse en sèche à ' + c.fait.moyenne + ' % (la phrase attendue suffit sous 5 %)');
     }
+  }
+
+  // ══ I115 à I122 (236, MOTEUR §9.39) — LE COACH EN TEMPS RÉEL APRÈS UN RATÉ, lu sur le plan ═══════════════════════════════════════════
+  //   I115  au plus une phrase de réaction par exercice, sous la DERNIÈRE série validée, et jamais avec la réaction existante (§9.14) ;
+  //   I116  jamais une charge baissée sans geste : une ligne dont la charge a changé le doit à « Prendre X kg » ou à « un cran dessous » ;
+  //   I117  « Garder le plan » respecté : une réponse à la forme du jour, et la carte ne revient pas ;
+  //   I118  aucune réaction en Entretenir, décharge, semaine de test, calage, « J'ai mal », Édition ;
+  //   I119  la fourchette tient (bornes entières, basse ≤ haute) et contient les reps faites, sauf la baisse (bas de zone à bas + 2) ;
+  //   I120  pas d'« Au max » après un échec franc, ni après « Ajuster la fin à ma forme du jour » ;
+  //   I121  la carte de la forme du jour : une seule, 2 exercices au moins sur 3 au plus ;
+  //   I122  « un cran dessous » est le palier ou moins, jamais plus lourd que le pari raté.
+  function verifierRate(plan, entrees, erreurs) {
+    var xs = (plan && plan.exercices) || [];
+    var gestes = entrees && entrees.seance && Array.isArray(entrees.seance.gestes) ? entrees.seance.gestes : [];
+    var M = Moteur();
+    var cartes = 0;
+    xs.forEach(function (x, i) {
+      if (!x) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var r = x.rate, pr = x.parisRates, cf = x.carteForme;
+      var phrases = (x.phrases || []).filter(function (p) { return p.ou === 'rate'; });
+      var silence = plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien' || !!plan.allegee || (x.consigne && x.consigne.allegee) ||
+        !!plan.semaineDeTest || !!x.semaineDeTest || !!x.calage || !!x.douleur || plan.edition === true;
+      if (silence && (r || (pr && pr.carte) || cf)) erreurs.push('I118' + nom + 'une réaction du coach dans un contexte où il se tait');
+      if (phrases.length > 1) erreurs.push('I115' + nom + phrases.length + ' phrases de réaction');
+      if (r) {
+        if (phrases.length !== 1) erreurs.push('I115' + nom + 'une réaction sans sa phrase');
+        var plusTard = (x.lignes || []).some(function (l) { return (l.type === 'travail' || l.type === 'recul') && l.role !== 'hors' && l.validee && l.iSerie > r.iSerie; });
+        if (plusTard) erreurs.push('I115' + nom + 'la réaction n’est pas sous la dernière série validée');
+        if (x.message) erreurs.push('I115' + nom + 'deux phrases sous la même série (la réaction du coach et celle du §9.14)');
+        var f = r.fourchette;
+        if (f) {
+          if (!(f.length === 2 && f[0] === Math.round(f[0]) && f[1] === Math.round(f[1]) && f[0] >= 1 && f[0] <= f[1])) {
+            erreurs.push('I119' + nom + 'une fourchette mal formée (' + JSON.stringify(f) + ')');
+          } else if (r.faites !== null && r.charge && r.charge.action !== 'baisse' && !(f[0] <= r.faites && r.faites <= f[1])) {
+            erreurs.push('I119' + nom + 'la fourchette ' + f[0] + '-' + f[1] + ' ne contient pas les ' + r.faites + ' reps faites');
+          }
+        }
+        if (r.pasDAuMax && (x.auMax || x.propositionAuMax || (x.lignes || []).some(function (l) { return l.auMax; }))) {
+          erreurs.push('I120' + nom + 'un « Au max » après un échec franc');
+        }
+      }
+      if (x.forme && x.forme.ajuste && (x.auMax || x.propositionAuMax || (x.lignes || []).some(function (l) { return l.auMax; }))) {
+        erreurs.push('I120' + nom + 'un « Au max » après « Ajuster la fin à ma forme du jour »');
+      }
+      // I116 — une charge changée a son geste.
+      (x.lignes || []).forEach(function (l) {
+        if (!l.rate || l.rate.charge === undefined) return;
+        var prise = gestes.some(function (g) { return g && g.slug === x.slug && g.geste === 'rate_prise' && g.bouton === 'prendre' && g.kg === l.rate.charge; });
+        var cran = gestes.some(function (g) { return g && g.slug === x.slug && g.geste === 'paris_cran'; });
+        if (!prise && !cran) erreurs.push('I116' + nom + 'la ligne ' + l.iSerie + ' a changé de charge (' + l.rate.charge + ') sans geste');
+      });
+      if (cf) {
+        cartes++;
+        if (!(cf.n >= M.RATE_FORME_FLANCHENT && cf.sur <= M.RATE_FORME_SUR && cf.n <= cf.sur)) erreurs.push('I121' + nom + 'la carte de la forme du jour pour ' + cf.n + ' sur ' + cf.sur);
+      }
+      // I122 — « un cran dessous ».
+      if (pr && pr.cran && pr.palier) {
+        if (!(pr.cran.charge < pr.palier.charge)) erreurs.push('I122' + nom + 'un cran dessous (' + pr.cran.charge + ') qui n’est pas sous le pari raté (' + pr.palier.charge + ')');
+        if (pr.cran.reps !== pr.palier.reps) erreurs.push('I122' + nom + 'un cran dessous aux reps de ' + pr.cran.reps + ' pour un pari de ' + pr.palier.reps);
+      }
+    });
+    if (cartes > 1) erreurs.push('I121 — ' + cartes + ' cartes de la forme du jour dans la séance');
+    var rep = gestes.some(function (g) { return g && (g.geste === 'forme_gardee' || g.geste === 'forme_ajustee'); });
+    if (rep && cartes > 0) erreurs.push('I117 — la carte de la forme du jour revient après une réponse');
+    if (rep && plan && plan.formeDuJour && plan.formeDuJour.carte) erreurs.push('I117 — la forme du jour porte une carte après une réponse');
   }
 
   // I114 (221, MOTEUR §19.2) — LE BLOC HYPERTROPHIE, lu sur le plan : le soulevé reste en Mix (jamais 8-10) ; en grosse série gardée, la

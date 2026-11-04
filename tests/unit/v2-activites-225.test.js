@@ -1,8 +1,8 @@
 /** @jest-environment node */
 //
-// 225 (MOTEUR §9.39) — LES ACTIVITÉS NOTÉES et LA VEILLE DES JAMBES LOURDES : la séance courte (`Seance.activite`), l'étiquette
+// 225 (MOTEUR §9.40) — LES ACTIVITÉS NOTÉES et LA VEILLE DES JAMBES LOURDES : la séance courte (`Seance.activite`), l'étiquette
 // (`Semaine.estActivite`, `resumerSeance`), le volume (jamais), le fait (`faits.activiteDeLaVeille`), la décision (`planDeSeance`,
-// `Moteur.veilleActivite`) et ses invariants I115, I116.
+// `Moteur.veilleActivite`) et ses invariants I123, I124.
 process.env.TZ = 'Europe/Paris';
 global.self = global;
 const M0 = require('../../v2/js/modele.js');
@@ -21,7 +21,7 @@ const Faits = require('../../v2/js/faits.js');
 const fiche = (equipement, mesure, prim, extra) => Object.assign({ equipement, mesure, muscles_primaires: prim, muscles_secondaires: [], muscles_stabilisateurs: [] }, extra || {});
 const CAT = {
   football: fiche('aucun', 'temps', [], { slug: 'football', nom: 'Football', nature: 'cardio', hors_salle: true }),
-  course: fiche('aucun', 'distance_temps', [], { slug: 'course', nom: 'Course à pied', nature: 'cardio', hors_salle: true }),
+  course_a_pieds: fiche('aucun', 'distance_temps', [], { slug: 'course_a_pieds', nom: 'Course à pied', nature: 'cardio', hors_salle: true }),
   velo: fiche('aucun', 'distance_temps', [], { slug: 'velo', nom: 'Vélo', nature: 'cardio', hors_salle: true }),
   squat_barre: fiche('barre', 'charge_reps', ['quadriceps', 'fessiers'], { slug: 'squat_barre', nom: 'Squat (Barre)', nature: 'force' }),
   developpe_couche_barre: fiche('barre', 'charge_reps', ['pectoraux'], { slug: 'developpe_couche_barre', nom: 'Développé couché (Barre)', nature: 'force' })
@@ -51,8 +51,8 @@ describe('225 — Seance.activite : une séance courte, une série validée', ()
     ['legere', 'moyenne', 'intense'].forEach((i) => expect(activite({ intensite: i }).exercices[0].series[0].rpe).toBe(M.ACTIVITE_RPE[i]));
   });
   test('la distance facultative est en km, rangée en mètres ; vide, elle reste vide', () => {
-    expect(activite({ slug: 'course', km: 8.2 }).exercices[0].series[0].distance_m).toBe(8200);
-    expect(activite({ slug: 'course', km: null }).exercices[0].series[0].distance_m).toBeNull();
+    expect(activite({ slug: 'course_a_pieds', km: 8.2 }).exercices[0].series[0].distance_m).toBe(8200);
+    expect(activite({ slug: 'course_a_pieds', km: null }).exercices[0].series[0].distance_m).toBeNull();
   });
   test('sans durée entière en minutes, rien n’est inventé', () => {
     [0, -5, 1.5, 'x', null, 2000].forEach((m) => expect(activite({ minutes: m })).toBeNull());
@@ -102,7 +102,7 @@ describe('225 — Moteur.intensiteDActivite et la table des sports qui chargent 
     expect(M.intensiteDActivite([])).toBeNull();
   });
   test('la table : la course est sourcée (Wilson 2012), les sports d’impact sont un jugement de coachs, le vélo n’y est pas', () => {
-    expect(M.activiteChargeLesJambes('course')).toBe('wilson');
+    expect(M.activiteChargeLesJambes('course_a_pieds')).toBe('wilson');
     expect(M.activiteChargeLesJambes('football')).toBe('coachs');
     ['velo', 'natation', 'escalade', 'boxe', 'randonnee', 'marche'].forEach((s) => expect(M.activiteChargeLesJambes(s)).toBeNull());
     expect(M.activiteChargeLesJambes('constructor')).toBeNull();
@@ -135,7 +135,7 @@ describe('225 — faits.activiteDeLaVeille : un fait lu dans les séances', () =
   });
 });
 
-describe('225 — la veille dans planDeSeance (I115, I116)', () => {
+describe('225 — la veille dans planDeSeance (I123, I124)', () => {
   function seanceDe(slugs) {
     let n = 0; const id = () => 'f-' + (++n);
     let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
@@ -148,7 +148,7 @@ describe('225 — la veille dans planDeSeance (I115, I116)', () => {
     consignes: { squat_barre: consigne('lourd') }, reglage: 'normal', paris: [], objectif: 'force', catalogue: CAT,
     activiteVeille: { seanceId: 'a', slug: 'football', nom: 'Football', jour: '2026-11-03' }, veilleChoix: null, menagerProfil: []
   }, extra || {});
-  const erreurs = (p, e) => T.verifierPlan(p, e).erreurs.filter((x) => /I11[56]/.test(x));
+  const erreurs = (p, e) => T.verifierPlan(p, e).erreurs.filter((x) => /I12[34]/.test(x));
   const se = seanceDe(['squat_barre', 'developpe_couche_barre']);
 
   test('le lendemain d’un football intense, le squat en Lourd propose UNE fois Mix ou Garder le plan', () => {
@@ -160,18 +160,18 @@ describe('225 — la veille dans planDeSeance (I115, I116)', () => {
     expect(erreurs(p, entrees(se))).toEqual([]);
   });
   test('la course cite Wilson 2012 en plus ; le football ne cite que la convention', () => {
-    const c = T.planDeSeance(entrees(se, { activiteVeille: { slug: 'course', nom: 'Course à pied' } }));
+    const c = T.planDeSeance(entrees(se, { activiteVeille: { slug: 'course_a_pieds', nom: 'Course à pied' } }));
     expect(c.veilleActivite.pourquoi).toMatch(/Wilson 2012/);
     expect(T.planDeSeance(entrees(se)).veilleActivite.pourquoi).not.toMatch(/Wilson/);
   });
   test('« Garder le plan » est respecté : la réponse fait taire la carte, et la zone ne bouge pas', () => {
     ['garder', 'mix'].forEach((c) => expect(T.planDeSeance(entrees(se, { veilleChoix: c })).veilleActivite).toBeNull());
-    expect(erreurs(T.planDeSeance(entrees(se)), entrees(se, { veilleChoix: 'garder' })).join('|')).toMatch(/I116 — la proposition revient/);
+    expect(erreurs(T.planDeSeance(entrees(se)), entrees(se, { veilleChoix: 'garder' })).join('|')).toMatch(/I124 — la proposition revient/);
   });
   test('rien sans activité notée (une habitude déclarée n’est pas un fait)', () => {
     [null, undefined, {}].forEach((a) => expect(T.planDeSeance(entrees(se, { activiteVeille: a })).veilleActivite).toBeNull());
     const p = T.planDeSeance(entrees(se));
-    expect(erreurs(p, entrees(se, { activiteVeille: null })).join('|')).toMatch(/I116 — une proposition de veille sans activité notée/);
+    expect(erreurs(p, entrees(se, { activiteVeille: null })).join('|')).toMatch(/I124 — une proposition de veille sans activité notée/);
   });
   test('rien si la barre n’est pas en Lourd (Mix, ou déjà passée en Mix aujourd’hui)', () => {
     expect(T.planDeSeance(entrees(se, { consignes: { squat_barre: consigne('mix') } })).veilleActivite).toBeNull();
@@ -185,22 +185,22 @@ describe('225 — la veille dans planDeSeance (I115, I116)', () => {
     expect(T.planDeSeance(ed).veilleActivite).toBeNull();
     expect(T.planDeSeance(entrees(se, { intention: 'entretien' })).veilleActivite).toBeNull();
   });
-  test('I115 : un sport qui ne charge pas les jambes est refusé', () => {
+  test('I123 : un sport qui ne charge pas les jambes est refusé', () => {
     const p = T.planDeSeance(entrees(se));
-    expect(erreurs(p, entrees(se, { activiteVeille: { slug: 'velo' } })).join('|')).toMatch(/I115 — un sport qui ne charge pas les jambes/);
+    expect(erreurs(p, entrees(se, { activiteVeille: { slug: 'velo' } })).join('|')).toMatch(/I123 — un sport qui ne charge pas les jambes/);
   });
-  test('I115 : l’exercice proposé doit être la première barre de jambes en Lourd', () => {
+  test('I123 : l’exercice proposé doit être la première barre de jambes en Lourd', () => {
     const p = T.planDeSeance(entrees(se));
     p.veilleActivite = Object.assign({}, p.veilleActivite, { slug: 'developpe_couche_barre' });
-    expect(erreurs(p, entrees(se)).join('|')).toMatch(/I115 — l’exercice proposé/);
+    expect(erreurs(p, entrees(se)).join('|')).toMatch(/I123 — l’exercice proposé/);
   });
-  test('I115 : la convention doit être dite comme telle, les gestes ceux du moteur', () => {
+  test('I123 : la convention doit être dite comme telle, les gestes ceux du moteur', () => {
     const p = T.planDeSeance(entrees(se));
     p.veilleActivite = Object.assign({}, p.veilleActivite, { pourquoi: 'C’est prouvé.' });
-    expect(erreurs(p, entrees(se)).join('|')).toMatch(/I115 — la convention/);
+    expect(erreurs(p, entrees(se)).join('|')).toMatch(/I123 — la convention/);
     const q = T.planDeSeance(entrees(se));
     q.veilleActivite = Object.assign({}, q.veilleActivite, { boutons: { mix: 'Mix', garder: 'Non' } });
-    expect(erreurs(q, entrees(se)).join('|')).toMatch(/I115 — les deux gestes/);
+    expect(erreurs(q, entrees(se)).join('|')).toMatch(/I123 — les deux gestes/);
   });
   test('le plan ne modifie jamais les entrées ni la séance (render pur)', () => {
     const e = entrees(se), avant = JSON.stringify(e);

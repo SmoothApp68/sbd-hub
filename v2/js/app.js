@@ -5025,7 +5025,7 @@
     ouvrirRecap(finie, jeuDuRecap);
   }
 
-  // ══ 225 — « AJOUTER UNE ACTIVITÉ » (MOTEUR §9.39) ═════════════════════════════════════════════════════════════════
+  // ══ 225 — « AJOUTER UNE ACTIVITÉ » (MOTEUR §9.40) ═════════════════════════════════════════════════════════════════
   //
   // À côté de « Séance vide » : un sport du catalogue (hors salle, mesuré au temps ou en distance), une durée, une intensité, une
   // distance facultative. C'est une SÉANCE COURTE, des mêmes tables (`sessions`, `sets`) : `Seance.activite` la construit, la file
@@ -7436,7 +7436,7 @@
       // Le rejeu (développement) : les « Non merci » vivent sur l'appareil de
       // la séance, pas en base — supposés aucun, et la sortie le dit.
       refusChauffes: rejeuEnCours ? {} : refusChauffesDe(seance.id),
-      // 225 (MOTEUR §9.39) — l'activité NOTÉE de la veille (un fait : jamais une habitude déclarée) et la réponse de la séance.
+      // 225 (MOTEUR §9.40) — l'activité NOTÉE de la veille (un fait : jamais une habitude déclarée) et la réponse de la séance.
       activiteVeille: rejeuEnCours ? null : faits.activiteDeLaVeille(corpus(), seance.debut),
       veilleChoix: seance.veille_choix === 'mix' || seance.veille_choix === 'garder' ? seance.veille_choix : null,
       reglage: Profil.rythmeDe(profil),
@@ -9824,7 +9824,7 @@
         var p = planActuel();
         return p && p.mobilite && (p.mobilite.avant || p.mobilite.fin) ? p.mobilite : null;
       },
-      // 225 (MOTEUR §9.39) — la veille d'une activité dure, lue sur le plan ; « Mix aujourd'hui » pose la zone de CET exercice pour la
+      // 225 (MOTEUR §9.40) — la veille d'une activité dure, lue sur le plan ; « Mix aujourd'hui » pose la zone de CET exercice pour la
       // séance (« Juste aujourd'hui », rien n'est écrit sur la routine), « Garder le plan » ne change rien ; les deux font taire la carte.
       propositionVeille: function () {
         if (enEdition() || !seance) return null;

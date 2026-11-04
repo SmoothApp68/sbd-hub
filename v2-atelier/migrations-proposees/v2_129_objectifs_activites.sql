@@ -1,4 +1,4 @@
--- 225 (lot G) — Objectifs en entretien + activités notées. PROPOSÉE, NON APPLIQUÉE : Claude.ai l'applique (jamais Claude Code).
+-- 225 (lot G) — Objectifs en entretien + activités notées. APPLIQUÉE le 04/11/2026 par Claude.ai (seuls kayak, squash, tennis_de_table et volleyball étaient absents ; equipement_source et muscles_source copiés du gabarit).
 -- Nom de migration à l'application : v2_129_objectifs_activites.
 --
 -- 1. profiles.objectifs_entretien  text[] NULL   — les objectifs ENTRETENUS en plus de l'objectif principal (profiles.objectif
@@ -72,21 +72,10 @@ BEGIN
 
   FOR s IN SELECT * FROM (VALUES
     -- slug, nom, avec_distance, description (3 à 6 lignes, au tu, sans numéro)
-    ('football','Football',false,E'Note la durée de ta séance de football.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
-    ('basketball','Basketball',false,E'Note la durée de ta séance de basketball.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
-    ('handball','Handball',false,E'Note la durée de ta séance de handball.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
-    ('rugby','Rugby',false,E'Note la durée de ta séance de rugby.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
     ('volleyball','Volley-ball',false,E'Note la durée de ta séance de volley-ball.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
-    ('tennis','Tennis',false,E'Note la durée de ta séance de tennis.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
-    ('badminton','Badminton',false,E'Note la durée de ta séance de badminton.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
-    ('padel','Padel',false,E'Note la durée de ta séance de padel.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
     ('squash','Squash',false,E'Note la durée de ta séance de squash.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
     ('tennis_de_table','Tennis de table',false,E'Note la durée de ta séance de tennis de table.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
-    ('boxe','Boxe',false,E'Note la durée de ta séance de boxe.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
-    ('arts_martiaux','Arts martiaux',false,E'Note la durée de ta séance d''arts martiaux.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
-    ('danse','Danse',false,E'Note la durée de ta séance de danse.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
-    ('kayak','Kayak',true,E'Note la durée de ta sortie en kayak, et la distance si tu la connais.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
-    ('roller','Roller',true,E'Note la durée de ta sortie en roller, et la distance si tu la connais.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.')
+    ('kayak','Kayak',true,E'Note la durée de ta sortie en kayak, et la distance si tu la connais.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.')
   ) AS v(slug, nom, avec_distance, descr) LOOP
     -- ni le slug, ni le nom, ni un ALIAS existant (aucun nom ni alias n'est porté par deux exercices, v2_098)
     CONTINUE WHEN EXISTS (SELECT 1 FROM public.exercises e WHERE e.slug = s.slug
@@ -98,14 +87,14 @@ BEGIN
     END IF;
     IF s.avec_distance THEN
       INSERT INTO public.exercises (slug, nom, famille, charge, mesure, equipement, muscles_primaires, muscles_secondaires,
-                                    nature, hors_salle, description, description_source)
+                                    nature, hors_salle, description, description_source, equipement_source, muscles_source)
       VALUES (s.slug, s.nom, g_dist.famille, g_dist.charge, 'distance_temps', g_dist.equipement,
-              '{}'::text[], '{}'::text[], 'cardio', true, s.descr, 'claude');
+              '{}'::text[], '{}'::text[], 'cardio', true, s.descr, 'claude', g_dist.equipement_source, g_dist.muscles_source);
     ELSE
       INSERT INTO public.exercises (slug, nom, famille, charge, mesure, equipement, muscles_primaires, muscles_secondaires,
-                                    nature, hors_salle, description, description_source)
+                                    nature, hors_salle, description, description_source, equipement_source, muscles_source)
       VALUES (s.slug, s.nom, g_temps.famille, g_temps.charge, 'temps', g_temps.equipement,
-              '{}'::text[], '{}'::text[], 'cardio', true, s.descr, 'claude');
+              '{}'::text[], '{}'::text[], 'cardio', true, s.descr, 'claude', g_temps.equipement_source, g_temps.muscles_source);
     END IF;
     ajoutes := ajoutes + 1;
   END LOOP;

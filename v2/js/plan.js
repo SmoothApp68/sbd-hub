@@ -1937,7 +1937,7 @@
     return x;
   }
 
-  // ── 225 (MOTEUR §9.39) — LA VEILLE D'UNE ACTIVITÉ DURE : « Squat en Mix aujourd'hui » ou « Garder le plan » ────────────────────────────
+  // ── 225 (MOTEUR §9.40) — LA VEILLE D'UNE ACTIVITÉ DURE : « Squat en Mix aujourd'hui » ou « Garder le plan » ────────────────────────────
   // Le FAIT vient de l'app (`faits.activiteDeLaVeille` : une activité NOTÉE, intense, qui charge les jambes — jamais une habitude déclarée) ;
   // la décision est ici, une fois : une barre de jambes (squat, soulevé) en zone Lourd ce jour-là, la proposition de `Moteur.veilleActivite`,
   // UNE fois (`e.veilleChoix` : la réponse, quelle qu'elle soit, la fait taire). Le plan se tait en Édition et en « Juste un carnet ».
@@ -2063,7 +2063,7 @@
       mobilite: mobiliteDuPlan(e, seance, exos, intentionProfil),
       // 197 (MOTEUR §9.36) — la puissance des 65 ans et plus : un exercice et sa phrase, ou `null`.
       puissance: puissanceDuPlan(e, seance, exos, intentionProfil),
-      // 225 (MOTEUR §9.39) — la veille d'une activité dure : une proposition (« … en Mix aujourd'hui » / « Garder le plan »), ou `null`.
+      // 225 (MOTEUR §9.40) — la veille d'une activité dure : une proposition (« … en Mix aujourd'hui » / « Garder le plan »), ou `null`.
       veilleActivite: veilleActiviteDuPlan(e, seance, exos, consignes, intentionProfil),
       exercices: questionsDuPlan(exos.map(function (exoBrut, i) {
         // 132 (MOTEUR §10 ter) — UN EXERCICE NOTÉ PAR NOM : sa salle est la liste de ses élastiques (`cat.salle`,
@@ -5943,25 +5943,25 @@
   //   · I97 — « J'ai peu de temps » retire le bloc d'abord : aucun bloc, avant ni fin, dans une séance raccourcie ;
   //   · I98 — la consigne du bloc est « Sans douleur : une tension nette, pas plus. » ; jamais « récupération », « courbatures » ni
   //     « prévention » ; le plan se tait sans zones raides, en Édition, en « Juste un carnet » et après trois « Non merci » de suite.
-  // I115 et I116 (225, MOTEUR §9.39) — la veille d'une activité dure.
-  //   I115 : la proposition ne naît que d'une activité NOTÉE de la veille, intense, d'un sport qui charge les jambes (la table du moteur),
+  // I123 et I124 (225, MOTEUR §9.40) — la veille d'une activité dure.
+  //   I123 : la proposition ne naît que d'une activité NOTÉE de la veille, intense, d'un sport qui charge les jambes (la table du moteur),
   //          jamais en Édition ni en « Juste un carnet », pour UNE barre de jambes (squat, soulevé) en zone Lourd dans la séance, avec les
   //          deux gestes du moteur et la convention dite comme telle.
-  //   I116 : une réponse donnée (Mix ou Garder le plan) fait taire la proposition — « Garder le plan » est respecté, UNE seule fois — et
+  //   I124 : une réponse donnée (Mix ou Garder le plan) fait taire la proposition — « Garder le plan » est respecté, UNE seule fois — et
   //          sans activité notée (une simple habitude déclarée, ou rien), le plan ne propose rien.
   function verifierVeilleActivite(plan, entrees, erreurs) {
     var M = Moteur(), e = entrees || {}, v = plan && plan.veilleActivite;
     if (!v) return;
     var a = e.activiteVeille;
-    if (!a || !a.slug) { erreurs.push('I116 — une proposition de veille sans activité notée la veille'); return; }
-    if (e.veilleChoix === 'mix' || e.veilleChoix === 'garder') erreurs.push('I116 — la proposition revient après la réponse (' + e.veilleChoix + ')');
-    if (!M.activiteChargeLesJambes(a.slug)) erreurs.push('I115 — un sport qui ne charge pas les jambes : ' + a.slug);
-    if (plan.edition) erreurs.push('I115 — une proposition de veille en Édition');
-    if (plan.intention === 'entretien') erreurs.push('I115 — une proposition de veille en « Juste un carnet »');
+    if (!a || !a.slug) { erreurs.push('I124 — une proposition de veille sans activité notée la veille'); return; }
+    if (e.veilleChoix === 'mix' || e.veilleChoix === 'garder') erreurs.push('I124 — la proposition revient après la réponse (' + e.veilleChoix + ')');
+    if (!M.activiteChargeLesJambes(a.slug)) erreurs.push('I123 — un sport qui ne charge pas les jambes : ' + a.slug);
+    if (plan.edition) erreurs.push('I123 — une proposition de veille en Édition');
+    if (plan.intention === 'entretien') erreurs.push('I123 — une proposition de veille en « Juste un carnet »');
     var attendue = jambesLourdesDuPlan(e, (e.seance && e.seance.exercices) || [], e.consignes || {});
-    if (!attendue.length || attendue[0].slug !== v.slug) erreurs.push('I115 — l\u2019exercice proposé n\u2019est pas la première barre de jambes en Lourd de la séance : ' + v.slug);
-    if (!v.boutons || !/ en Mix aujourd\u2019hui$/.test(v.boutons.mix || '') || v.boutons.garder !== 'Garder le plan') erreurs.push('I115 — les deux gestes ne sont pas ceux du moteur');
-    if (!/convention de coachs/.test(v.pourquoi || '')) erreurs.push('I115 — la convention n\u2019est pas dite comme telle');
+    if (!attendue.length || attendue[0].slug !== v.slug) erreurs.push('I123 — l\u2019exercice proposé n\u2019est pas la première barre de jambes en Lourd de la séance : ' + v.slug);
+    if (!v.boutons || !/ en Mix aujourd\u2019hui$/.test(v.boutons.mix || '') || v.boutons.garder !== 'Garder le plan') erreurs.push('I123 — les deux gestes ne sont pas ceux du moteur');
+    if (!/convention de coachs/.test(v.pourquoi || '')) erreurs.push('I123 — la convention n\u2019est pas dite comme telle');
   }
 
   function verifierMobilite(plan, entrees, erreurs) {

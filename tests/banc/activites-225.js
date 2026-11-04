@@ -51,7 +51,7 @@ const PAGE = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta n
 
       // 1. LA FEUILLE « AJOUTER UNE ACTIVITÉ »
       await page.evaluate(() => {
-        const sports = [{ cle: 'football', libelle: 'Football', distance: false }, { cle: 'course', libelle: 'Course à pied', distance: true }];
+        const sports = [{ cle: 'football', libelle: 'Football', distance: false }, { cle: 'course_a_pieds', libelle: 'Course à pied', distance: true }];
         const etat = { sport: null, minutes: '', km: '', intensite: 'moyenne', enregistre: null };
         window.__etat = etat;
         const dessiner = () => window.THRendu.rendreFeuilleActivite(document.getElementById('feuille-contenu'), {
@@ -65,7 +65,7 @@ const PAGE = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta n
         dessiner();
       });
       ok(largeur + ' px — la feuille d’activité : trois intensités, pas de distance sans sport', await page.locator('.q-puce').count() === 3 && await page.locator('[id="q-champ-km"]').count() === 0);
-      await page.selectOption('.activite-select', 'course');
+      await page.selectOption('.activite-select', 'course_a_pieds');
       ok(largeur + ' px — un sport en distance montre le champ « Distance (facultatif) »', await page.locator('[id="q-champ-km"]').count() === 1);
       await page.fill('[id="q-champ-minutes"]', '45');
       await page.fill('[id="q-champ-km"]', '8,2');

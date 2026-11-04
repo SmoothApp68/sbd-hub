@@ -2164,7 +2164,7 @@
       return { jours: jours, semaines: reguliers };
     }
 
-    // 225 (MOTEUR §9.39) — L'ACTIVITÉ NOTÉE DE LA VEILLE : un FAIT lu dans les séances (jamais une habitude déclarée). La veille civile de
+    // 225 (MOTEUR §9.40) — L'ACTIVITÉ NOTÉE DE LA VEILLE : un FAIT lu dans les séances (jamais une habitude déclarée). La veille civile de
     // `jour` porte une séance qui est une activité (`Semaine.estActivite`), intense (`Moteur.intensiteDActivite`) et dont le sport charge
     // les jambes (`Moteur.activiteChargeLesJambes`) ? Rend `{ seanceId, slug, nom, jour }`, sinon `null`. La plus récente des séances de
     // la veille ; une séance en cours n'en est pas une.

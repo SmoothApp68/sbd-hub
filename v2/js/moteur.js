@@ -11141,7 +11141,7 @@
   var FORME_RENFORCEMENT_CIBLE = 2, FORME_CARDIO_CIBLE_MIN = 150, FORME_INTENSE_FACTEUR = 2;
   // Une série de cardio est INTENSE à partir de ce RPE (convention de l'app : aucune donnée publiée ne la fixe) — lue par la semaine (197) et par le cardio régulier (199).
   var CARDIO_RPE_INTENSE = 8;
-  // ── 225 (MOTEUR §9.39) — LES ACTIVITÉS NOTÉES ET LA VEILLE DES JAMBES LOURDES ────────────────────────────────────────────────
+  // ── 225 (MOTEUR §9.40) — LES ACTIVITÉS NOTÉES ET LA VEILLE DES JAMBES LOURDES ────────────────────────────────────────────────
   // Une activité notée (un sport : `Semaine.estActivite`) est une séance courte : un exercice hors salle, une durée, une distance
   // facultative, une intensité dans `sets.rpe` (légère 3 · moyenne 6 · intense 9 : la même colonne et la même borne que le cardio
   // intense, `CARDIO_RPE_INTENSE`). Elle ne compte jamais dans le volume par muscle (aucun muscle primaire).
@@ -11162,7 +11162,7 @@
   // vélo (Wilson et coll. 2012, 21 études) ; `coachs` : un jugement de pratique (impacts, sauts, appuis), PAS une source — dit comme tel.
   // Le vélo, la natation, l'escalade, la boxe, la danse n'y sont pas : rien ne les range parmi les efforts qui coûtent aux jambes.
   var ACTIVITES_JAMBES = Object.freeze({
-    course: 'wilson', course_a_pied: 'wilson', course_a_pieds: 'wilson', trail: 'wilson', football: 'coachs', basketball: 'coachs',
+    course_a_pieds: 'wilson', trail: 'wilson', football: 'coachs', basket: 'coachs',
     handball: 'coachs', rugby: 'coachs', volleyball: 'coachs', tennis: 'coachs', badminton: 'coachs', padel: 'coachs', squash: 'coachs',
     roller: 'coachs'
   });
@@ -11170,7 +11170,7 @@
   var VEILLE_CONVENTION = 'Garder les jambes lourdes pour le lendemain d\u2019un effort dur est une convention de coachs, pas une règle prouvée : ' +
     'les études ne trouvent pas de perte de force ou de muscle à mélanger les deux (Schumann 2022).';
   var VEILLE_COURSE = 'Courir réduit un peu les gains de force et de muscle, pas le vélo (Wilson 2012).';
-  // La proposition de la veille (§9.39) : UNE fois, pour UN exercice. `e` : { activite: { slug, nom, intense } | null, jambes: [{ slug, nom }]
+  // La proposition de la veille (§9.40) : UNE fois, pour UN exercice. `e` : { activite: { slug, nom, intense } | null, jambes: [{ slug, nom }]
   // (les barres de jambes en zone Lourd ce jour-là, dans l'ordre de la séance), choix: 'mix' | 'garder' | null (la réponse, une fois
   // donnée), muet: Édition ou « Juste un carnet » }. Rend `null` ou { slug, nom, activite, boutons, phrase, pourquoi, source }.
   function veilleActivite(e) {
@@ -11375,7 +11375,7 @@
   var api = {
     // 197 (§9.36) — forme et santé.
     FORME_RENFORCEMENT_CIBLE: FORME_RENFORCEMENT_CIBLE, FORME_CARDIO_CIBLE_MIN: FORME_CARDIO_CIBLE_MIN, FORME_INTENSE_FACTEUR: FORME_INTENSE_FACTEUR, CARDIO_RPE_INTENSE: CARDIO_RPE_INTENSE,
-    // 225 (§9.39) — les activités notées et la veille des jambes lourdes.
+    // 225 (§9.40) — les activités notées et la veille des jambes lourdes.
     ACTIVITE_RPE: ACTIVITE_RPE, ACTIVITE_INTENSITES: ACTIVITE_INTENSITES, intensiteDActivite: intensiteDActivite,
     ACTIVITES_JAMBES: ACTIVITES_JAMBES, activiteChargeLesJambes: activiteChargeLesJambes, veilleActivite: veilleActivite,
     FORME_PUISSANCE_PHRASE: FORME_PUISSANCE_PHRASE, FORME_PUISSANCE_POURQUOI: FORME_PUISSANCE_POURQUOI, FORME_DOULEUR_PHRASE: FORME_DOULEUR_PHRASE,

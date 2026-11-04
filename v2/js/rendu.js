@@ -3019,7 +3019,7 @@
     }
     // 194-1 (MOTEUR §9.31) — la préparation avant la séance, en mouvement seulement : lue sur le plan, jamais calculée ici.
     var mob = !vue.modifier && typeof vue.propositionMobilite === 'function' ? vue.propositionMobilite() : null;
-    // 225 (MOTEUR §9.39) — la veille d'une activité dure : UNE carte, lue sur le plan (« … en Mix aujourd'hui » / « Garder le plan »).
+    // 225 (MOTEUR §9.40) — la veille d'une activité dure : UNE carte, lue sur le plan (« … en Mix aujourd'hui » / « Garder le plan »).
     var veille = !vue.modifier && typeof vue.propositionVeille === 'function' ? vue.propositionVeille() : null;
     if (veille) cible.appendChild(carteDeVeille(veille, vue));
     if (mob && mob.avant) cible.appendChild(carteDeMobilite(mob.avant, 'avant', vue));

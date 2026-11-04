@@ -2265,8 +2265,9 @@
   //   posée sur l'exercice `slug`), `paris_cran` / `paris_retente` (`{ slug }`). `equilibres.js` ne lit que les cinq premiers.
   var GESTES_DU_COACH = ['rate_prise', 'rate_ignoree', 'forme_ajustee', 'forme_gardee', 'paris_cran', 'paris_retente'];
   // 237 (MOTEUR §9.41) — les chauffes : `chauffes_ajoutees` (« Ajouter »), `chauffes_auto` (ajoutées d'elles-mêmes), `chauffes_annulees`
-  // (« Annuler ») — `{ slug }` ; le fait que `faits.chauffesAjoutees` relit.
-  var GESTES_CHAUFFES = ['chauffes_ajoutees', 'chauffes_auto', 'chauffes_annulees'];
+  // (« Annuler ») — `{ slug }` ; le fait que `faits.chauffesAjoutees` relit. 237-bis : `chauffes_silence` (le 2e « Non merci » met l'exercice en silence,
+  // dit une fois) et `chauffes_silence_annule` (« Annuler » retire ce refus).
+  var GESTES_CHAUFFES = ['chauffes_ajoutees', 'chauffes_auto', 'chauffes_annulees', 'chauffes_silence', 'chauffes_silence_annule'];
   var GESTES = ['raccourci', 'machine_prise', 'remplacement', 'ajout_serie', 'retrait'].concat(GESTES_DU_COACH, GESTES_CHAUFFES);
   function gestePropre(g) {
     if (!g || typeof g !== 'object' || GESTES.indexOf(g.geste) < 0) return null;

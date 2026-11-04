@@ -7380,6 +7380,14 @@
   // 237 — l'horloge des « Non merci » : 2 refus = silence 4 semaines (`Moteur.chauffesEnSilence`) ; la séance en cours date le plan (stable).
   function refusChauffesDe(seanceId, debut) { return Plan.refusChauffesDe(lireRefusChauffes(), seanceId, Date.parse(debut)); }
   function refuserChauffes(slug) { ecrireRefusChauffes(Plan.refuserChauffes(lireRefusChauffes(), slug, seance.id, Date.now())); }
+  // 237-bis — un refus qui met l'exercice en silence le DIT : le geste `chauffes_silence` est noté (le plan en tire la phrase). Rend `true` si noté.
+  function refuserChauffesEtDire(slug) {
+    var avant = lireRefusChauffes();
+    refuserChauffes(slug);
+    if (!Plan.miseEnSilence(avant, lireRefusChauffes(), slug, Date.now())) return false;
+    seance = Seance.noterGeste(seance, { geste: 'chauffes_silence', slug: slug });
+    return true;
+  }
   function accepterChauffes(slug) { ecrireRefusChauffes(Plan.accepterChauffes(lireRefusChauffes(), slug)); }
 
   function slugsDesExercices(exos) {
@@ -10083,7 +10091,7 @@
         if (!x || !x.chauffesAuto) return;
         seance = Seance.retirerChauffesNonFaites(seance, i);
         seance = Seance.noterGeste(seance, { geste: 'chauffes_annulees', slug: x.slug });
-        refuserChauffes(x.slug);
+        refuserChauffesEtDire(x.slug);
         await apresGeste();
       },
       // 194-1 (MOTEUR §9.31) — le bloc de mobilité, lu sur le plan : « avant » et « fin ». « Ajouter » écrit les exercices (séries vides) ;
@@ -10212,11 +10220,25 @@
         } else return;
         await apresGeste();
       },
-      surRefuserChauffes: function (i) {
+      surRefuserChauffes: async function (i) {
         var x = planDeLExercice(i);
         if (!x || !x.proposition) return;
-        refuserChauffes(x.slug);
-        rendreSeance();
+        if (refuserChauffesEtDire(x.slug)) await apresGeste({ structure: false });
+        else rendreSeance();
+      },
+      // 237-bis (MOTEUR §9.41) — la mise en silence, dite une fois au geste, lue sur le plan (`x.silenceChauffes`) ; « Annuler » retire ce
+      // dernier refus et le note (`chauffes_silence_annule`) : la proposition revient.
+      silenceChauffes: function (i) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.silenceChauffes ? x.silenceChauffes : null;
+      },
+      surAnnulerSilenceChauffes: async function (i) {
+        var x = planDeLExercice(i);
+        if (!x || !x.silenceChauffes) return;
+        ecrireRefusChauffes(Plan.annulerRefusChauffes(lireRefusChauffes(), x.slug, seance.id));
+        seance = Seance.noterGeste(seance, { geste: 'chauffes_silence_annule', slug: x.slug });
+        await apresGeste({ structure: false });
       },
       surSupprimerSerie: async function (i, j) {
         // 115 (E2) — une série FAITE ne part qu'à la fin du délai d'« Annuler ».

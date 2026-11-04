@@ -10222,9 +10222,10 @@
   //      (`chargeDeMarche`, la fonction de 49-U10) ; les reps décroissent.
   //   3. POIDS DU CORPS — une série facile, sans charge, une seule.
   //   4. ISOLATION en tête de séance — une série légère de 15.
-  //   5. « J'AI PEU DE TEMPS » — une chauffe, jamais zéro sur une barre.
+  //   5. « J'AI PEU DE TEMPS » — une chauffe, jamais zéro sur un exercice qui n'est ni une isolation ni au poids du corps (barre ou non :
+  //      smith, presse, hack squat, machine guidée lourde) ; zéro sur une isolation, sauf zone à ménager (237-bis).
   //   6. APPRENTISSAGE — après 2 séances où la personne a ajouté ses chauffes, elles s'ajoutent d'elles-mêmes (avec « Annuler ») ;
-  //      2 « Non merci » : silence 4 semaines.
+  //      2 « Non merci » : silence 4 semaines, DIT une fois au geste (`phraseDuSilenceDesChauffes`, avec « Annuler »).
   var CHAUFFE_SEUIL_MAX = 0.60;
   var CHAUFFE_VISEE = 0.85;
   var CHAUFFE_PLAFOND = 0.90;
@@ -10237,6 +10238,13 @@
   var CHAUFFE_AUTO_APRES = 2;
   var CHAUFFE_REFUS_SILENCE = 2;
   var CHAUFFE_SILENCE_JOURS = 28;
+
+  // 237-bis — la phrase de la mise en silence, dite UNE fois au geste (le 2e « Non merci » ou « Annuler »). Une seule source : l'écran
+  // l'affiche, le plan la porte, l'invariant I130 la vérifie.
+  function phraseDuSilenceDesChauffes(nom) {
+    var semaines = CHAUFFE_SILENCE_JOURS / 7;
+    return 'D\u2019accord, je ne te les propose plus sur ' + (nom || 'cet exercice') + ' pendant ' + semaines + ' semaines.';
+  }
 
   function paliersDeChauffe(e, ref, pas, n) {
     var barre = estBarre(e.equipement);
@@ -10289,10 +10297,10 @@
     else if (e.menagee === true) raison = 'zone';
     else if (e.forme === true) raison = 'forme';
     if (!raison) return rien;
-    var barre = estBarre(e.equipement);
-    // 5. peu de temps : une chauffe, jamais zéro sur une barre ; hors barre, zéro sauf une zone à ménager.
+    // 5. peu de temps (237-bis) : une chauffe, jamais zéro sur un polyarticulaire chargé (barre ou non) ; zéro sur une isolation
+    //    (`e.isolation`, la notion unique du plan), sauf zone à ménager. Le poids du corps : zéro aussi, comme avant.
     var seule = e.peuDeTemps === true;
-    if (seule && !barre && e.menagee !== true) return rien;
+    if (seule && (corps || e.isolation === true) && e.menagee !== true) return rien;
     var lignes = [], situation;
     if (corps) {
       situation = 'corps';
@@ -12122,7 +12130,7 @@
     chauffesDe: chauffesDe,
     propositionDeChauffes: propositionDeChauffes,
     pourquoiDesChauffes: pourquoiDesChauffes,
-    chauffesEnSilence: chauffesEnSilence,
+    chauffesEnSilence: chauffesEnSilence, phraseDuSilenceDesChauffes: phraseDuSilenceDesChauffes,
     CHAUFFE_AUTO_APRES: CHAUFFE_AUTO_APRES,
     CHAUFFE_REFUS_SILENCE: CHAUFFE_REFUS_SILENCE,
     CHAUFFE_SILENCE_JOURS: CHAUFFE_SILENCE_JOURS,

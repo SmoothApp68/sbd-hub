@@ -5643,7 +5643,7 @@
   // cloche de fin de repos (`sonnerCloche`, 235 — la sourdine la coupe) et la vibration (`signalerEcheance`) ; il CONTINUE tant
   // qu'on tient. « Stop » écrit la durée dans la série (jamais validée d'office : la case ✓ reste le geste de la personne),
   // « Annuler » n'écrit rien. Le temps se lit sur l'horloge (`Date.now()`), jamais sur le nombre de tics : écran allumé, un tic
-  // en retard ne fausse rien. Aucune promesse en arrière-plan, aucun `await` : un minuteur (`setInterval`) et un geste.
+  // en retard ne fausse rien. Aucune promesse en arrière-plan, aucun `await` : un minuteur qui s'arme lui-même (`setTimeout`) et un geste.
   var tenue = null;             // { iExo, iSerie, debut (ms), cible (s | null), sonne }
   var minuteurTenue = null;
   function secondesDeTenue() { return tenue ? Math.max(0, Math.floor((Date.now() - tenue.debut) / 1000)) : 0; }
@@ -5652,10 +5652,11 @@
     if (!exo) return false;
     var fiche = Modele.indexerExercices(local.exercices)[exo.exercise_slug];
     if (!fiche || fiche.mesure !== 'temps') return false;
-    return fiche.nature ? fiche.nature !== 'cardio' : !Modele.estExerciceSortie(fiche);
+    // Hors cardio/sport (`nature = cardio`) : le gainage, la planche, une isométrie, un étirement tenu. Sans `nature` (catalogue ancien) : permis.
+    return fiche.nature !== 'cardio';
   }
   function arreterMinuteurTenue() {
-    if (minuteurTenue) { clearInterval(minuteurTenue); minuteurTenue = null; }
+    if (minuteurTenue) { clearTimeout(minuteurTenue); minuteurTenue = null; }
   }
   function tenueDe(iExo, iSerie) {
     if (!tenuePossible(iExo)) return null;
@@ -5667,13 +5668,16 @@
   }
   function partEnBase(serie) { return Seance.partEnBase ? Seance.partEnBase(serie) : !!serie.validee_a; }
   function battreTenue() {
-    if (!tenue) return arreterMinuteurTenue();
+    minuteurTenue = null;
+    if (!tenue) return;
     var serie = seance && seance.exercices && seance.exercices[tenue.iExo] ? seance.exercices[tenue.iExo].series[tenue.iSerie] : null;
     // La série a disparu ou vient d'être validée à la main : le chrono n'a plus d'objet, il s'éteint sans rien écrire.
-    if (!serie || partEnBase(serie) || !$('blocs-seance')) { tenue = null; arreterMinuteurTenue(); return; }
+    if (!serie || partEnBase(serie) || !$('blocs-seance')) { tenue = null; return; }
     var s = secondesDeTenue();
     Rendu.majTenue($('blocs-seance'), s, tenue.cible);
     if (tenue.cible && !tenue.sonne && s >= tenue.cible) { tenue.sonne = true; signalerEcheance(); }
+    // Un tic de 250 ms qui s'arme lui-même (pas de second `setInterval` : le chronomètre de repos reste le seul réveil périodique).
+    minuteurTenue = setTimeout(battreTenue, 250);
   }
   function demarrerTenue(iExo, iSerie) {
     if (!tenuePossible(iExo)) return;
@@ -5681,7 +5685,7 @@
     var cible = fantomeDe(iExo, iSerie).duree_s;
     tenue = { iExo: iExo, iSerie: iSerie, debut: Date.now(), cible: cible > 0 ? cible : null, sonne: false };
     reveillerAudio();                                              // le geste de l'utilisateur autorise le son à la cible
-    minuteurTenue = setInterval(battreTenue, 250);
+    minuteurTenue = setTimeout(battreTenue, 250);
     rendreSeance();
   }
   function annulerTenue() {

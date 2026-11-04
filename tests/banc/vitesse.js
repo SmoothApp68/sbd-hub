@@ -170,18 +170,26 @@ async function passage(port, errs) {
   const rendre = await Verrou.prendre();
   const serveur = creer({ racine: path.join(R, 'v2'), gzip: true });
   const port = await Verrou.ecouter(serveur, 0);
-  const errs = [], passages = [];
-  try { for (let i = 0; i < PASSAGES; i++) passages.push(await passage(port, errs)); }
-  finally { serveur.close(); rendre(); }
-  const med = {}, rap = {}; GESTES.forEach(([k]) => { med[k] = mediane(passages.map((p) => p[k])); rap[k] = Math.round(mediane(passages.map((p) => p[k] / p.etalon)) * 100) / 100; });
+  const errs = [], passages = [], second = [];
+  const stat = (l, k) => ({ med: mediane(l.map((p) => p[k])), rap: Math.round(mediane(l.map((p) => p[k] / p.etalon)) * 100) / 100 });
+  const depasse = (l) => GESTES.filter(([k]) => { const s = stat(l, k); return !(s.med > 0 && s.rap <= PLAFONDS[k]); }).map(([k]) => k);
+  try {
+    for (let i = 0; i < PASSAGES; i++) passages.push(await passage(port, errs));
+    // REMESURE (231) : le banc est dans la CI qui bloque toutes les PR ; un pic de machine chargée ne doit pas rougir une PR.
+    // Un geste au-dessus de son plafond est mesuré une fois de plus (3 passages, étalon remesuré) ; il n'échoue que si la 2e médiane dépasse aussi.
+    if (depasse(passages).length) for (let i = 0; i < PASSAGES; i++) second.push(await passage(port, errs));
+  } finally { serveur.close(); rendre(); }
   const etalon = Math.round(mediane(passages.map((p) => p.etalon)));
-  if (process.argv.indexOf('--json') >= 0) console.log(JSON.stringify({ passages, med, rap, etalon }));
+  if (process.argv.indexOf('--json') >= 0) console.log(JSON.stringify({ passages, second }));
   console.log('\n══ VITESSE (627 séances, processeur ×' + RALENTI + ', médiane de ' + PASSAGES + ' · étalon ' + etalon + ' ms) ══');
   let echec = 0;
   GESTES.forEach(([k, nom]) => {
-    const plafond = PLAFONDS[k], m = rap[k], ok = med[k] > 0 && m <= plafond;
+    const plafond = PLAFONDS[k], s1 = stat(passages, k), ok1 = s1.med > 0 && s1.rap <= plafond;
+    const s2 = ok1 ? null : stat(second, k), ok = ok1 || (s2.med > 0 && s2.rap <= plafond);
     if (!ok) echec++;
-    console.log('   ' + (ok ? '✅' : '❌') + ' ' + nom.padEnd(46) + String(m).padStart(7) + ' × étalon   plafond ' + String(plafond).padStart(7) + '   (' + med[k] + ' ms ; passages ' + passages.map((p) => Math.round(p[k] / p.etalon * 100) / 100).join(' · ') + ')');
+    const ligne = (s, l) => String(s.rap).padStart(7) + ' × étalon   plafond ' + String(plafond).padStart(7) + '   (' + s.med + ' ms ; passages ' + l.map((p) => Math.round(p[k] / p.etalon * 100) / 100).join(' · ') + ')';
+    console.log('   ' + (ok1 ? '✅' : ok ? '⚠️' : '❌') + ' ' + nom.padEnd(46) + ligne(s1, passages));
+    if (!ok1) console.log('        remesuré' + (ok ? ' (sous le plafond : on passe)' : ' (au-dessus encore : échec)') + ' ' + ligne(s2, second));
   });
   if (errs.length) { console.log('   ❌ erreurs de page : ' + errs.slice(0, 3).join(' | ')); echec++; }
   console.log(echec ? '\n   ' + echec + ' contrôle(s) en échec' : '\n   tout passe');

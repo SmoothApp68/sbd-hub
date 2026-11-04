@@ -1,0 +1,46 @@
+[
+ {
+  "nom": "233-cartes-entrelacees",
+  "fichier": "v2/js/rendu.js",
+  "ancien": "    var cartes = bloc.superset && !vue.programme;",
+  "nouveau": "    var cartes = false;",
+  "banc": "seance",
+  "sections": [
+   "233"
+  ],
+  "unitaires": [
+   "tests/unit/v2-superset-cartes-233.test.js"
+  ]
+ },
+ {
+  "nom": "233-cloche-muette",
+  "fichier": "v2/js/app.js",
+  "ancien": "tenue.sonne = true; signalerEcheance(); }",
+  "nouveau": "tenue.sonne = true; }",
+  "banc": "seance",
+  "sections": [
+   "233"
+  ],
+  "unitaires": []
+ },
+ {
+  "nom": "233-repos-reel-interruption",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "      if (d > 0 && d <= REPOS_REEL_MAX_S) ecarts.push(d);",
+  "nouveau": "      if (d > 0) ecarts.push(d);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-repos-reel-233.test.js"
+  ]
+ },
+ {
+  "nom": "233-deplacer-apres-oublie",
+  "fichier": "v2/js/seance.js",
+  "ancien": "    var ou = apres ? iCible + 1 : iCible;",
+  "nouveau": "    var ou = iCible;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-deplacer-exercice-233.test.js"
+  ]
+ }
+]

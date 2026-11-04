@@ -10170,6 +10170,8 @@
       // Pas sur un champ : un appui long dans un champ de saisie, c'est la
       // sélection de texte du système, et on ne la lui prend pas.
       if (e.target.closest && e.target.closest('input, textarea, select')) return;
+      // 233 — l'appui long sur le NOM d'un exercice (ou sa poignée) déplace l'exercice : il ne bascule pas la page en mode Modifier.
+      if (id === 'blocs-seance' && e.target.closest && e.target.closest('.nom-exo, .poignee-exo')) return;
       x0 = e.clientX; y0 = e.clientY;
       annuler();
       minuteur = setTimeout(function () {

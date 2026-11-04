@@ -1331,6 +1331,14 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    l'étiquette « Superset ». Le filet entre deux cartes et la barre à gauche disent « même groupe » sans entrelacer les séries. */
 .bloc-seance.superset.en-cartes{border-left:4px solid var(--teinte)}
 .bloc-seance.en-cartes .superset-t{color:var(--teinte)}
+/* 233 — DÉPLACER UN EXERCICE : la poignée ⠿ (cible de 44 px, touch-action:none pour que le doigt glisse sans faire défiler), la carte
+   prise (elle suit le doigt, au-dessus), le filet qui dit où elle se posera. */
+.poignee-exo{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;margin:-10px -4px -10px 0;
+  color:var(--texte-3);font-size:20px;line-height:1;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.carte-ss,.bloc-seance{position:relative}
+.pris-exo{z-index:9;opacity:.92;box-shadow:0 6px 18px rgba(0,0,0,.45);transition:none}
+.cible-avant::before,.cible-apres::after{content:"";position:absolute;left:0;right:0;height:3px;background:var(--teinte);border-radius:2px;pointer-events:none}
+.cible-avant::before{top:-2px}.cible-apres::after{bottom:-2px}
 .carte-ss + .carte-ss{margin-top:var(--e3);padding-top:var(--e3);border-top:1px solid var(--trait)}
 .superset-t{font-size:12px;font-weight:700;color:var(--texte-3);letter-spacing:.06em;
   text-transform:uppercase;padding-bottom:var(--e2)}

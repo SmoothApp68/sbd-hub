@@ -3005,7 +3005,103 @@
     legende.insertBefore(el('div', 'constat-suite', constat.suite), ligne.nextSibling);
   }
 
+  // ══ 233 — DÉPLACER UN EXERCICE : L'APPUI LONG SUR SON NOM, OU LA POIGNÉE ⠿ ═══════════════════════════════════
+  //
+  // Une seule liaison par conteneur (les rendus remplacent les cartes, jamais le conteneur). Le geste prend la CARTE de l'exercice
+  // (`.carte-ss` d'un superset, sinon son bloc) et la fait suivre le doigt ; au lâcher, la place se lit sur les cartes sœurs
+  // (celles du même superset, ou les blocs de la séance) et `vue.surDeplacerExercice(iExo, iCible, apres)` écrit l'ordre — par le
+  // chemin de la séance (`THSeance.deplacerExercice`). Aucun calcul du coach ici. L'appui long s'annule au moindre mouvement
+  // (12 px, comme le glissement latéral) ; le clic qui suit un déplacement est avalé (le nom est un lien vers la page).
+  var DUREE_APPUI_EXO = 450, SEUIL_APPUI_EXO = 12;
+  function brancherDeplacementExercice(cible) {
+    if (cible._deplacementBranche) return;
+    cible._deplacementBranche = true;
+    var minuteur = null, x0 = 0, y0 = 0, cand = null, pris = null, depart = 0, soeurs = [], visee = null, derniereFin = 0;
+
+    function candidat(e) {
+      var h = e.target.closest && e.target.closest('.poignee-exo, .nom-exo');
+      if (!h || !cible.contains(h)) return null;
+      var entree = h.closest('.legende-exo');
+      if (!entree || !entree.hasAttribute('data-iexo')) return null;
+      var carte = entree.closest('.carte-ss') || entree.closest('.bloc-seance');
+      if (!carte || carte.classList.contains('replie')) return null;
+      var enSuperset = carte.classList.contains('carte-ss');
+      var parent = carte.parentNode;
+      var freres = Array.prototype.slice.call(enSuperset
+        ? parent.querySelectorAll('.carte-ss') : cible.querySelectorAll('.bloc-seance:not(.replie)'))
+        .filter(function (n) { return enSuperset ? n.parentNode === parent : n.parentNode === cible; });
+      return { iExo: Number(entree.getAttribute('data-iexo')), carte: carte, freres: freres, immediat: h.classList.contains('poignee-exo') };
+    }
+    function annulerMinuteur() { if (minuteur) { clearTimeout(minuteur); minuteur = null; } }
+    function prendre(e) {
+      if (!cand || typeof (cible._vueDepl || {}).surDeplacerExercice !== 'function') return;
+      pris = cand.carte; soeurs = cand.freres; depart = y0; visee = null;
+      pris.classList.add('pris-exo');
+      try { pris.setPointerCapture(e.pointerId); } catch (x) { /* souris de banc */ }
+    }
+    function marquer(n, qui) {
+      ['cible-avant', 'cible-apres'].forEach(function (c) { n.classList.remove(c); });
+      if (qui) n.classList.add(qui);
+    }
+    function viser(y) {
+      visee = null;
+      soeurs.forEach(function (n) { marquer(n, null); });
+      for (var i = 0; i < soeurs.length; i++) {
+        if (soeurs[i] === pris) continue;
+        var r = soeurs[i].getBoundingClientRect();
+        if (y < r.top + r.height / 2) { visee = { n: soeurs[i], apres: false }; break; }
+        visee = { n: soeurs[i], apres: true };
+      }
+      if (visee) marquer(visee.n, visee.apres ? 'cible-apres' : 'cible-avant');
+    }
+    function indicesDe(n) {
+      var l = n.classList.contains('carte-ss') ? n.getAttribute('data-iexo') : (n.getAttribute('data-iexos') || '');
+      return String(l).split(',').filter(function (v) { return v !== ''; }).map(Number);
+    }
+    function lacher(annule) {
+      annulerMinuteur();
+      var c = cand, v = visee, p = pris;
+      cand = null; pris = null; visee = null;
+      soeurs.forEach(function (n) { marquer(n, null); });
+      soeurs = [];
+      if (!p) return;
+      p.classList.remove('pris-exo');
+      p.style.transform = '';
+      derniereFin = Date.now();
+      if (annule || !v || !c) return;
+      var idx = indicesDe(v.n);
+      if (!idx.length) return;
+      var vue = cible._vueDepl;
+      if (vue && typeof vue.surDeplacerExercice === 'function') vue.surDeplacerExercice(c.iExo, v.apres ? idx[idx.length - 1] : idx[0], v.apres);
+    }
+
+    cible.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (pris) return;
+      var c = candidat(e);
+      if (!c) return;
+      cand = c; x0 = e.clientX; y0 = e.clientY;
+      annulerMinuteur();
+      if (c.immediat) { prendre(e); e.preventDefault(); return; }
+      minuteur = setTimeout(function () { minuteur = null; prendre(e); }, DUREE_APPUI_EXO);
+    });
+    cible.addEventListener('pointermove', function (e) {
+      if (pris) { e.preventDefault(); pris.style.transform = 'translateY(' + (e.clientY - depart) + 'px)'; viser(e.clientY); return; }
+      if (minuteur === null) return;
+      if (Math.abs(e.clientX - x0) > SEUIL_APPUI_EXO || Math.abs(e.clientY - y0) > SEUIL_APPUI_EXO) { annulerMinuteur(); cand = null; }
+    });
+    cible.addEventListener('pointerup', function () { if (pris) lacher(false); else { annulerMinuteur(); cand = null; } });
+    cible.addEventListener('pointercancel', function () { if (pris) lacher(true); else { annulerMinuteur(); cand = null; } });
+    // Pendant le glissement, la page ne défile pas ; le clic qui suit le lâcher n'ouvre pas la page de l'exercice.
+    cible.addEventListener('touchmove', function (e) { if (pris && e.cancelable) e.preventDefault(); }, { passive: false });
+    cible.addEventListener('click', function (e) {
+      if (Date.now() - derniereFin < 400) { e.preventDefault(); e.stopPropagation(); }
+    }, true);
+  }
+
   function rendreBlocsSeance(cible, seance, vue) {
+    cible._vueDepl = vue;
+    if (!vue.programme) brancherDeplacementExercice(cible);
     vider(cible);
     var blocs = vue.blocs || [];
     if (!blocs.length) {
@@ -3185,6 +3281,8 @@
 
   function rendreBlocSaisie(bloc, iBloc, vue) {
     var noeud = el('div', 'bloc-seance' + (bloc.superset ? ' superset' : ''));
+    // 233 — les exercices du bloc, pour le glissement d'un exercice (cible = ce bloc, ou une de ses cartes).
+    noeud.setAttribute('data-iexos', bloc.exercices.map(function (x) { return x._iExo; }).join(','));
     var gabarits = bloc.exercices.map(function (x) { return gabaritDe(vue, x.slug); });
 
     noeud.appendChild(teteDeBloc(bloc, iBloc, gabarits, vue));
@@ -3438,6 +3536,14 @@
         nom.appendChild(el('span', 'nom-exo', x.nom));
       }
       ligne.appendChild(nom);
+      // 233 — LA POIGNÉE ⠿ (cible de 44 px) : la saisir fait glisser l'exercice entier ; l'appui long sur le nom fait de même.
+      // Aucun geste ici (le glissement est branché sur le conteneur, `brancherDeplacementExercice`) : `aria-hidden`, le menu ⋯
+      // (Monter / Descendre) est le chemin accessible.
+      if (!vue.programme && !enCoursDeSelection(vue) && typeof vue.surDeplacerExercice === 'function' && x._iExo !== undefined && x._iExo !== null) {
+        var pe = el('span', 'poignee-exo', '\u283f');
+        pe.setAttribute('aria-hidden', 'true');
+        ligne.appendChild(pe);
+      }
       // §3.8 — L'ÉTIQUETTE DE ZONE, à côté du nom. Elle dit dans quelle zone le
       // moteur fait travailler, et elle n'est JAMAIS jaune : le jaune est la
       // seule voix du moteur (§7 bis.4), l'étiquette n'en est qu'un repère.
@@ -5235,6 +5341,11 @@
     entreeMenu(menu, 'Grouper en superset…', {
       surClic: vue.surGrouper, desactive: !vue.peutGrouper });
     entreeMenu(menu, 'Ajouter un exercice après', { surClic: vue.surAjouterApres });
+    // 233 — le repli ACCESSIBLE du glissement : un cran, au doigt ou au clavier (cible de 44 px, `entreeMenu`).
+    if (vue.surMonter !== undefined) {
+      entreeMenu(menu, 'Monter', { classe: 'menu-monter', surClic: vue.surMonter, desactive: !vue.surMonter });
+      entreeMenu(menu, 'Descendre', { classe: 'menu-descendre', surClic: vue.surDescendre, desactive: !vue.surDescendre });
+    }
     // ⚠️ « MONTER » ET « DESCENDRE » SONT PARTIS (§7 vicies.1, ch. 46). Deux
     // entrées qui bougeaient d'un cran chacune, quand réordonner n'est presque
     // jamais un geste isolé : quand on touche à l'ordre, on bouge plusieurs
@@ -5389,6 +5500,11 @@
     // §5.8 — sortir agit sur UN exercice, jamais sur le bloc entier, et il se
     // pose JUSTE APRÈS son bloc d'origine : il ne remonte pas en fin de séance.
     entreeMenu(menu, 'Sortir du superset', { surClic: vue.surDegrouper });
+    // 233 — monter / descendre d'un cran DANS le superset (l'exercice entier ; grisé au bord).
+    if (vue.surMonter !== undefined) {
+      entreeMenu(menu, 'Monter', { classe: 'menu-monter', surClic: vue.surMonter, desactive: !vue.surMonter });
+      entreeMenu(menu, 'Descendre', { classe: 'menu-descendre', surClic: vue.surDescendre, desactive: !vue.surDescendre });
+    }
     entreeMenu(menu, 'Voir la progression',
       { surClic: vue.surProgression, desactive: !vue.surProgression });
     cible.appendChild(menu);
@@ -9943,6 +10059,7 @@
     rendreFinsDeCycleSaisie: rendreFinsDeCycleSaisie,
     rendreEscalier: rendreEscalier,
     brancherReorganisation: brancherReorganisation,
+    brancherDeplacementExercice: brancherDeplacementExercice,
     rendrePiedReorganisation: rendrePiedReorganisation,
     rendreListeRoutines: rendreListeRoutines,
     rendreProchaineSeance: rendreProchaineSeance,

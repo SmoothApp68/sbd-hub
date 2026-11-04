@@ -9619,6 +9619,7 @@
       selection: selectionGroupe,
       surGrouper: function (a, b) { grouperBlocs(blocs, a, b); },
       surDeplacerBloc: function (i, d) { deplacerBloc(blocs, i, d); },
+      surDeplacerExercice: function (iExo, iCible, apres) { deplacerExerciceVers(iExo, iCible, apres); },
       surMenuBloc: function (i) { ouvrirFeuilleBloc('bloc', i, null); },
       surMenuExercice: function (i, iExo) { ouvrirFeuilleBloc('exercice', i, iExo); },
       // §2.8 — un tap sur le nom d'un exercice donne sa page (§7 quater). La
@@ -10159,6 +10160,47 @@
     apresStructure();
   }
 
+  // 233 — DÉPLACER UN EXERCICE (l'exercice entier : séries, note, groupe) : d'un cran par le menu ⋯ (Monter / Descendre, le repli
+  // accessible du glissement), ou n'importe où par l'appui long sur le nom / la poignée ⠿. Dans un superset l'exercice change de
+  // place DANS son groupe ; hors superset c'est son bloc (un seul exercice) qui bouge. L'ordre s'écrit par le chemin de la séance
+  // (`THSeance.deplacerExercice` / `deplacerVers`), puis `apresStructure` : le coach suit l'exercice, pas sa position.
+  function blocDeLExercice(blocs, iExo) {
+    for (var b = 0; b < blocs.length; b++) if (indicesDe(blocs[b]).indexOf(iExo) >= 0) return b;
+    return -1;
+  }
+  function voisinDeLExercice(blocs, iExo, delta) {
+    var iB = blocDeLExercice(blocs, iExo);
+    if (iB < 0) return null;
+    var idx = indicesDe(blocs[iB]);
+    if (idx.length > 1) {
+      var p = idx.indexOf(iExo) + delta;
+      return p >= 0 && p < idx.length ? { dansLeBloc: true, iCible: idx[p] } : null;
+    }
+    var vb = iB + delta;
+    return vb >= 0 && vb < blocs.length ? { dansLeBloc: false, iBloc: iB, delta: delta } : null;
+  }
+  function deplacerExerciceDUnCran(iExo, delta) {
+    var blocs = Modele.blocsDeSeance(seance, local.exercices);
+    var v = voisinDeLExercice(blocs, iExo, delta);
+    if (!v) return;
+    if (v.dansLeBloc) { seance = Seance.deplacerExercice(seance, iExo, v.iCible, delta > 0); apresStructure(); }
+    else deplacerBloc(blocs, v.iBloc, v.delta);
+  }
+  // Le glissement : `iCible` est un exercice de la carte visée (le premier avant elle, le dernier après elle).
+  function deplacerExerciceVers(iExo, iCible, apres) {
+    var blocs = Modele.blocsDeSeance(seance, local.exercices);
+    var iB = blocDeLExercice(blocs, iExo), iC = blocDeLExercice(blocs, iCible);
+    if (iB < 0 || iC < 0) return;
+    var source = indicesDe(blocs[iB]);
+    if (iB === iC && source.length > 1) {
+      seance = Seance.deplacerExercice(seance, iExo, iCible, apres);
+    } else if (iB !== iC) {
+      var cibles = indicesDe(blocs[iC]);
+      seance = Seance.deplacerVers(seance, source, apres ? cibles[cibles.length - 1] + 1 : cibles[0]);
+    } else return;
+    apresStructure();
+  }
+
   function grouperBlocs(blocs, iA, iB) {
     selectionGroupe = null;
     if (!blocs[iA] || !blocs[iB]) return rendreSeance();
@@ -10254,6 +10296,8 @@
         surMachinePrise: machinePrise(cibleExo),
         surJaiMal: jaiMal(cibleExo),
         surRemplacer: function () { demanderRemplacement(cibleExo); },
+        surMonter: voisinDeLExercice(blocs, cibleExo, -1) ? function () { fermerVoile(); deplacerExerciceDUnCran(cibleExo, -1); } : null,
+        surDescendre: voisinDeLExercice(blocs, cibleExo, 1) ? function () { fermerVoile(); deplacerExerciceDUnCran(cibleExo, 1); } : null,
         note: seance.exercices[cibleExo].note || '',
         surNote: function () { fermerVoile(); ouvrirFeuille('note', cibleExo, null); },
         surDisques: disquesPossibles(cibleExo) ? function () { fermerVoile(); ouvrirDisques(cibleExo, null); } : null,
@@ -10275,6 +10319,8 @@
       superset: bloc.superset,
       noms: noms,
       peutGrouper: blocs.length > 1,
+      surMonter: iBloc > 0 ? function () { fermerVoile(); deplacerBloc(blocs, iBloc, -1); } : null,
+      surDescendre: iBloc < blocs.length - 1 ? function () { fermerVoile(); deplacerBloc(blocs, iBloc, 1); } : null,
       surMachinePrise: bloc.superset ? null : machinePrise(indicesDe(bloc)[0]),
       surJaiMal: bloc.superset ? null : jaiMal(indicesDe(bloc)[0]),
       surRemplacer: function () { demanderRemplacement(indicesDe(bloc)[0]); },

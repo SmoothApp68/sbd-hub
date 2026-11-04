@@ -3429,6 +3429,12 @@
           classe: 'proposition-chauffes chauffes-auto', texte: pca.texte,
           gestes: [{ texte: pca.annuler, classe: 'pc-annuler-auto', surClic: function () { vue.surAnnulerChauffesAuto(s._iExo); } }]
         }, s._iExo));
+        // 237-bis (MOTEUR §9.41) — le silence annoncé : la phrase du moteur, « Annuler » (retire ce dernier refus).
+        var psl = typeof vue.silenceChauffes === 'function' ? vue.silenceChauffes(s._iExo) : null;
+        if (psl) hote.appendChild(propositionDExercice({
+          classe: 'proposition-chauffes chauffes-silence', texte: psl.texte,
+          gestes: [{ texte: psl.annuler, classe: 'pc-annuler-silence', surClic: function () { vue.surAnnulerSilenceChauffes(s._iExo); } }]
+        }, s._iExo));
         // 193-6 (MOTEUR §9.30) — « Dernière série au max ? » : une fois par exercice, du plan ; trois gestes.
         var pa = typeof vue.propositionAuMax === 'function' ? vue.propositionAuMax(s._iExo) : null;
         if (pa) hote.appendChild(propositionDAuMax(pa, s._iExo, vue));

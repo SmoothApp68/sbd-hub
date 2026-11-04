@@ -107,9 +107,50 @@ describe('règle 5 — « J’ai peu de temps »', () => {
       expect(r.lignes.length).toBe(1);
     });
   });
-  test('hors barre : aucune, sauf une zone à ménager (une)', () => {
-    expect(P({ equipement: 'machine', reference: 80, e1rm: 100, premier: true, peuDeTemps: true, cran: 5 }).mode).toBe('rien');
-    expect(P({ equipement: 'machine', reference: 80, e1rm: 100, premier: true, peuDeTemps: true, menagee: true, cran: 5 }).lignes.length).toBe(1);
+  test('237-bis — hors barre, un polyarticulaire chargé : une chauffe (smith, presse, hack squat, haltères, machine guidée)', () => {
+    ['machine_smith', 'machine', 'haltere'].forEach((equipement) => {
+      const r = P({ equipement, reference: 100, e1rm: 125, premier: true, peuDeTemps: true, cran: 5, isolation: false });
+      expect(r.mode).toBe('proposer');
+      expect(r.lignes.length).toBe(1);
+    });
+    // la presse et le hack squat sont des machines
+    expect(P({ equipement: 'machine', reference: 180, e1rm: 220, premier: true, peuDeTemps: true, cran: 10, isolation: false }).lignes.length).toBe(1);
+    expect(P({ equipement: 'haltere', reference: 30, e1rm: 38, premier: true, peuDeTemps: true, cran: 2, isolation: false }).lignes.length).toBe(1);
+    // sans « peu de temps », les paliers ne bougent pas
+    expect(P({ equipement: 'machine_smith', reference: 100, e1rm: 125, premier: true, cran: 5, isolation: false }).lignes.length).toBeGreaterThan(1);
+  });
+  test('237-bis — une isolation : zéro, sauf une zone à ménager (une) ; le poids du corps : zéro', () => {
+    expect(P({ equipement: 'machine', reference: 40, e1rm: 50, premier: true, peuDeTemps: true, cran: 5, isolation: true }).mode).toBe('rien');
+    expect(P({ equipement: 'barre', reference: 30, e1rm: 38, premier: true, peuDeTemps: true, isolation: true }).mode).toBe('rien');
+    expect(P({ equipement: 'machine', reference: 40, e1rm: 50, premier: true, peuDeTemps: true, menagee: true, cran: 5, isolation: true }).lignes.length).toBe(1);
+    expect(P({ equipement: 'aucun', corps: true, premier: true, peuDeTemps: true }).mode).toBe('rien');
+    expect(P({ equipement: 'aucun', corps: true, premier: true }).lignes.length).toBe(1);
+  });
+});
+
+describe('237-bis — le silence annoncé (une seule source)', () => {
+  const Pl = T;
+  test('la phrase vient du moteur', () => {
+    expect(M.phraseDuSilenceDesChauffes('Squat barre')).toBe('D’accord, je ne te les propose plus sur Squat barre pendant 4 semaines.');
+  });
+  test('le 2e refus met en silence (une fois) ; le 1er non ; un refus de la même séance ne le redit pas', () => {
+    const t = Date.parse('2026-10-20T10:00:00Z');
+    const m1 = Pl.refuserChauffes({}, 'x', 'S1', t);
+    expect(Pl.miseEnSilence({}, m1, 'x', t)).toBe(false);
+    const m2 = Pl.refuserChauffes(m1, 'x', 'S2', t);
+    expect(Pl.miseEnSilence(m1, m2, 'x', t)).toBe(true);
+    expect(Pl.miseEnSilence(m2, Pl.refuserChauffes(m2, 'x', 'S2', t), 'x', t)).toBe(false);
+    expect(Pl.miseEnSilence(m1, m2, M.MOBILITE_REFUS_CLE, t)).toBe(false);
+  });
+  test('« Annuler » retire ce dernier refus : plus de silence, le compte revient à 1', () => {
+    const t = Date.parse('2026-10-20T10:00:00Z');
+    const m2 = Pl.refuserChauffes(Pl.refuserChauffes({}, 'x', 'S1', t), 'x', 'S2', t);
+    const m = Pl.annulerRefusChauffes(m2, 'x', 'S2');
+    expect(m.x.n).toBe(1);
+    expect(m.x.seance).toBe('S1');
+    expect(Pl.refusChauffesDe(m, 'S2', t).x).toBeUndefined();
+    expect(Pl.annulerRefusChauffes(m, 'x', 'S2')).toEqual(m);   // un refus d'une autre séance : inchangé
+    expect(Pl.annulerRefusChauffes(Pl.refuserChauffes({}, 'x', 'S1', t), 'x', 'S1').x).toBeUndefined();
   });
 });
 
@@ -162,7 +203,7 @@ describe('faits.chauffesAjoutees — le fait relu dans les séances', () => {
 });
 
 describe('le plan — proposition, ajout automatique, « Annuler », silence', () => {
-  const SQ = { equipement: 'barre', mesure: 'charge_reps', muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['ischio_jambiers'], muscles_stabilisateurs: ['bas_du_dos'] };
+  const SQ = { nom: 'Squat barre', equipement: 'barre', mesure: 'charge_reps', muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['ischio_jambiers'], muscles_stabilisateurs: ['bas_du_dos'] };
   const CAT = { squat_barre: SQ };
   const consigne = (charge) => ({ etat: 'progression', zone: 'force', palier: charge, niveau: 5, n: 3, ligne: { charge, vise: 5 }, haut: null, fondement: {} });
   const seanceDe = (gestes) => {
@@ -234,7 +275,28 @@ describe('le plan — proposition, ajout automatique, « Annuler », silence', (
     if (r.x.proposition) expect(r.x.proposition.lignes.length).toBe(1);
   });
 
+  test('237-bis — le silence annoncé : la phrase du moteur et « Annuler » tant que rien n’est fait ; annulé, elle part', () => {
+    const phrase = M.phraseDuSilenceDesChauffes('Squat barre');
+    const r = plan(seanceDe([{ geste: 'chauffes_silence', slug: 'squat_barre' }]), { refusChauffes: { squat_barre: true } });
+    expect(r.x.silenceChauffes).toEqual({ slug: 'squat_barre', texte: phrase, annuler: 'Annuler' });
+    expect(r.erreurs).toEqual([]);
+    const a = plan(seanceDe([{ geste: 'chauffes_silence', slug: 'squat_barre' }, { geste: 'chauffes_silence_annule', slug: 'squat_barre' }]));
+    expect(a.x.silenceChauffes).toBeNull();
+    expect(a.erreurs).toEqual([]);
+    const b = plan(seanceDe([{ geste: 'chauffes_silence', slug: 'squat_barre' }, { geste: 'chauffes_silence_annule', slug: 'squat_barre' }, { geste: 'chauffes_silence', slug: 'squat_barre' }]),
+      { refusChauffes: { squat_barre: true } });
+    expect(b.x.silenceChauffes).not.toBeNull();
+  });
+
   describe('les invariants forgés sont attrapés', () => {
+    test('I130 — une mise en silence sans sa phrase annoncée', () => {
+      const r = plan(seanceDe([{ geste: 'chauffes_silence', slug: 'squat_barre' }]), { refusChauffes: { squat_barre: true } });
+      const p = JSON.parse(JSON.stringify(r.p));
+      p.exercices[0].silenceChauffes = null;
+      expect(T.verifierPlan(p, r.e).erreurs.join('\n')).toMatch(/I130.*sans sa phrase annoncée/);
+      p.exercices[0].silenceChauffes = { slug: 'squat_barre', texte: 'Bon.', annuler: 'Annuler' };
+      expect(T.verifierPlan(p, r.e).erreurs.join('\n')).toMatch(/I130/);
+    });
     const clone = (o) => JSON.parse(JSON.stringify(o));
     const bad = (mut, extra) => {
       const r = plan(seanceDe(), extra);

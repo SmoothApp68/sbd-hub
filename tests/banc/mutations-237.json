@@ -1,7 +1,6 @@
 [
  {"nom":"237-seuil-60-pour-cent","fichier":"v2/js/moteur.js","ancien":"  var CHAUFFE_SEUIL_MAX = 0.60;\n","nouveau":"  var CHAUFFE_SEUIL_MAX = 0.40;\n","banc":"aucun","unitaires":["tests/unit/v2-chauffes-proposees-237.test.js"]},
  {"nom":"237-derniere-chauffe-85-pour-cent","fichier":"v2/js/moteur.js","ancien":"  var CHAUFFE_VISEE = 0.85;\n","nouveau":"  var CHAUFFE_VISEE = 0.97;\n","banc":"aucun","unitaires":["tests/unit/v2-chauffes-proposees-237.test.js"]},
- {"nom":"237-jamais-zero-sur-une-barre","fichier":"v2/js/moteur.js","ancien":"    if (seule && !barre && e.menagee !== true) return rien;","nouveau":"    if (seule && e.menagee !== true) return rien;","banc":"aucun","unitaires":["tests/unit/v2-chauffes-proposees-237.test.js"]},
  {"nom":"237-deux-refus-pas-un","fichier":"v2/js/moteur.js","ancien":"  var CHAUFFE_REFUS_SILENCE = 2;\n","nouveau":"  var CHAUFFE_REFUS_SILENCE = 3;\n","banc":"seance","sections":["chauffes-237"],"unitaires":["tests/unit/v2-chauffes-proposees-237.test.js","tests/unit/v2-chauffes-plan.test.js"]},
  {"nom":"237-temoin-libelle","fichier":"v2/js/moteur.js","ancien":"    else pourquoi = 'En objectif Forme, on monte doucement dans la charge.';","nouveau":"    else pourquoi = 'En objectif Forme, on monte doucement dans la charge, tranquille.';","banc":"aucun","unitaires":["tests/unit/v2-chauffes-proposees-237.test.js"],"attendu":"survit"}
 ]

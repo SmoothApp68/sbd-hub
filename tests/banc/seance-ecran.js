@@ -28485,8 +28485,24 @@ const SETS_IMPORTES = [
     await page.click('.ligne-repliee.lr-chauffes > summary');
     await page.click('.proposition-chauffes .pc-refuser');
     await attendreQue(() => lire237('rt237-presse').then((p) => p.prop === null), 15000, 'refus2RT237');
+    const memoireDeux237 = await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'));
+    ok('[RT237] la mémoire du refus (sur l’appareil) porte deux refus et leur date', /"rt237-presse":\{"n":2,"seance":"[^"]+","quand":\d+/.test(memoireDeux237 || ''), memoireDeux237);
+    // 237-bis — LE SILENCE ANNONCÉ : le 2e « Non merci » dit la mise en silence (une fois), avec « Annuler » qui retire ce refus.
+    const carteSilence237 = () => page.evaluate(() => { const n = document.querySelector('.proposition-chauffes.chauffes-silence'); return n ? { texte: n.querySelector('.pc-texte').textContent, bouton: n.querySelector('button').textContent } : null; });
+    await attendreQue(() => carteSilence237().then((c) => !!c), 15000, 'silenceDitRT237');
+    const dit237 = await carteSilence237();
+    ok('[RT237] 237-bis — DISCRIMINANT — le 2e « Non merci » DIT le silence : « D’accord, je ne te les propose plus sur … pendant 4 semaines. » et « Annuler »',
+      !!dit237 && /^D’accord, je ne te les propose plus sur .+ pendant 4 semaines\.$/.test(dit237.texte) && dit237.bouton === 'Annuler', nb237(dit237));
+    await page.click('.proposition-chauffes.chauffes-silence .pc-annuler-silence');
+    await attendreQue(() => lire237('rt237-presse').then((p) => !!p.prop), 15000, 'annulerSilenceRT237');
+    const memoireAnnulee237 = await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'));
+    ok('[RT237] 237-bis — « Annuler » retire ce dernier refus : la phrase part, la proposition revient, la mémoire repasse à un refus',
+      (await carteSilence237()) === null && /"rt237-presse":\{"n":1,/.test(memoireAnnulee237 || ''), memoireAnnulee237);
+    await page.click('.ligne-repliee.lr-chauffes > summary');
+    await page.click('.proposition-chauffes .pc-refuser');
+    await attendreQue(() => carteSilence237().then((c) => !!c), 15000, 'refus2bisRT237');
     const memoire237 = await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'));
-    ok('[RT237] la mémoire du refus (sur l’appareil) porte deux refus et leur date', /"rt237-presse":\{"n":2,"seance":"[^"]+","quand":\d+/.test(memoire237 || ''), memoire237);
+    ok('[RT237] 237-bis — après « Annuler » puis un nouveau « Non merci » : de nouveau deux refus et le silence dit', /"rt237-presse":\{"n":2,"seance":"[^"]+","quand":\d+/.test(memoire237 || ''), memoire237);
     await abandonner();
     await aller('/saisie');
     await demarrerRoutine('Presse RT237');

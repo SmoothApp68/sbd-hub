@@ -567,6 +567,19 @@
     return { slug: slug, texte: 'Chauffe ajoutée, comme d\u2019habitude.', annuler: 'Annuler' };
   }
 
+  // 237-bis (§9.41, règle 6) — LE SILENCE ANNONCÉ : au 2e « Non merci » (ou « Annuler » des chauffes automatiques), le geste `chauffes_silence`
+  // est noté ; tant qu'aucune série de l'exercice n'est faite et que la personne n'a pas annulé (`chauffes_silence_annule`, le DERNIER des
+  // deux fait foi), le plan expose la phrase du moteur (une seule source) et « Annuler ». `null` sinon.
+  function silenceChauffesDe(gestes, slug, nomExo, x) {
+    var gs = Array.isArray(gestes) ? gestes : [], etat = null;
+    gs.forEach(function (g) {
+      if (g && g.slug === slug && g.geste === 'chauffes_silence') etat = true;
+      else if (g && g.slug === slug && g.geste === 'chauffes_silence_annule') etat = false;
+    });
+    if (etat !== true || (x.lignes || []).some(function (l) { return l.validee; })) return null;
+    return { slug: slug, texte: Moteur().phraseDuSilenceDesChauffes(nomExo), annuler: 'Annuler' };
+  }
+
   function chauffesEtDegressive(lignes, series, consigne, materiel) {
     var sortie = { chauffes: null, proposition: null, degressive: null, citations: {} };
     if (!materiel) return sortie;
@@ -1858,7 +1871,26 @@
     var x = r[slug] || { n: 0, seance: null };
     // Un silence échu : le compte repart de zéro (la proposition est revenue, ce refus est le premier).
     if (slug !== Moteur().MOBILITE_REFUS_CLE && silenceExpire(x, quand)) x = { n: 0, seance: null };
-    r[slug] = x.seance === seanceId ? x : { n: (Number(x.n) || 0) + 1, seance: seanceId, quand: quand === undefined ? null : quand };
+    // `avant` : l'état d'avant ce refus, pour que « Annuler » (237-bis) le retire vraiment.
+    r[slug] = x.seance === seanceId ? x : { n: (Number(x.n) || 0) + 1, seance: seanceId, quand: quand === undefined ? null : quand,
+                                            avant: { n: Number(x.n) || 0, seance: x.seance === undefined ? null : x.seance, quand: x.quand === undefined ? null : x.quand } };
+    return r;
+  }
+
+  // 237-bis — ce refus vient-il de mettre l'exercice en silence ? (la phrase se dit à CE geste, une fois). Pure.
+  function miseEnSilence(avant, apres, slug, maintenant) {
+    if (slug === Moteur().MOBILITE_REFUS_CLE) return false;
+    var a = (avant || {})[slug], b = (apres || {})[slug];
+    return !!b && Moteur().chauffesEnSilence(b, maintenant) && !(a && Moteur().chauffesEnSilence(a, maintenant));
+  }
+
+  // 237-bis — « Annuler » la mise en silence : retire ce dernier refus (celui de CETTE séance). Sans refus de cette séance : inchangé.
+  function annulerRefusChauffes(memoire, slug, seanceId) {
+    var r = Object.assign({}, memoire || {}), x = r[slug];
+    if (!x || x.seance !== seanceId) return r;
+    var a = x.avant;
+    if (a && Number(a.n) > 0) r[slug] = { n: Number(a.n), seance: a.seance, quand: a.quand };
+    else delete r[slug];
     return r;
   }
 
@@ -2211,6 +2243,7 @@
           intentionX === 'entretien' || salleEl ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}, ctxChauffes), intentionX, coachee, douloureuse);
         if (x.escalier && x.escalier.copie) x.escalier = null;
         x.chauffesAuto = chauffesAutoDe(seance.gestes, slug, x);
+        x.silenceChauffes = silenceChauffesDe(seance.gestes, slug, (e.catalogue && e.catalogue[slug] && e.catalogue[slug].nom) || null, x);
         // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
         // `entrees.volume`. Un fait, rien d'affiché : la série de plus (PR 2c)
@@ -6487,7 +6520,7 @@
   //   I125 : aucune proposition hors des trois conditions (le premier exercice du muscle au-dessus de 60 % du max estimé connu, une zone
   //          à ménager, l'objectif Forme) ;
   //   I126 : les charges montent, aucune n'atteint la charge de travail, la dernière ne dépasse pas 90 % de la charge de travail ;
-  //   I127 : « J'ai peu de temps » sur une barre : exactement une chauffe ;
+  //   I127 : « J'ai peu de temps » sur un exercice qui n'est ni une isolation ni au poids du corps (barre ou non) : exactement une chauffe ;
   //   I128 : en silence (deux « Non merci » depuis moins de 4 semaines) aucune proposition ; un ajout automatique expose toujours « Annuler ».
   function verifierChauffesProposees(plan, entrees, erreurs) {
     var e = entrees || {}, M = Moteur();
@@ -6529,8 +6562,8 @@
         });
         if (av !== null && ref !== null && av > M.CHAUFFE_PLAFOND * ref + 1e-9) erreurs.push('I126' + nom + ' : la dernière chauffe (' + av + ' kg) dépasse 90 % de la charge de travail (' + ref + ' kg)');
         // I127
-        if (e.raccourci && fiche && fiche.equipement === 'barre' && (p.lignes || []).length !== 1) {
-          erreurs.push('I127' + nom + ' : « J\u2019ai peu de temps » sur une barre avec ' + (p.lignes || []).length + ' chauffe(s)');
+        if (e.raccourci && fiche && p.situation === 'paliers' && !M.estIsolation({ prim: fiche.muscles_primaires || [], sec: fiche.muscles_secondaires || [], stab: fiche.muscles_stabilisateurs || [] }) && (p.lignes || []).length !== 1) {
+          erreurs.push('I127' + nom + ' : « J\u2019ai peu de temps » sur un polyarticulaire chargé avec ' + (p.lignes || []).length + ' chauffe(s)');
         }
         // I128
         if (p.mode === 'auto' && p.annulable !== true) erreurs.push('I128' + nom + ' : un ajout automatique sans « Annuler »');
@@ -6541,6 +6574,19 @@
       var annulee = gs.some(function (g) { return g && g.geste === 'chauffes_annulees' && g.slug === x.slug; });
       var enAttente = (x.lignes || []).some(function (l) { return l.type === 'echauffement' && !l.validee; });
       if (auto && !annulee && enAttente && !x.chauffesAuto) erreurs.push('I128' + nom + ' : des chauffes ajoutées d\u2019elles-mêmes sans geste « Annuler »');
+      // I130 (237-bis) — une mise en silence (geste `chauffes_silence`, non annulée, exercice pas commencé) sans sa phrase annoncée, ou avec une autre.
+      var etatSilence = null;
+      gs.forEach(function (g) {
+        if (g && g.slug === x.slug && g.geste === 'chauffes_silence') etatSilence = true;
+        else if (g && g.slug === x.slug && g.geste === 'chauffes_silence_annule') etatSilence = false;
+      });
+      var commence = (x.lignes || []).some(function (l) { return l.validee; });
+      if (etatSilence === true && !commence) {
+        var attendue = M.phraseDuSilenceDesChauffes(fiche && fiche.nom ? fiche.nom : null);
+        if (!x.silenceChauffes || x.silenceChauffes.texte !== attendue) erreurs.push('I130' + nom + ' : une mise en silence des chauffes sans sa phrase annoncée');
+        else if (x.silenceChauffes.annuler !== 'Annuler') erreurs.push('I130' + nom + ' : la mise en silence des chauffes sans « Annuler »');
+      }
+      if (x.silenceChauffes && etatSilence !== true) erreurs.push('I130' + nom + ' : la phrase du silence des chauffes sans geste de mise en silence');
     });
   }
 
@@ -7411,7 +7457,7 @@
     REFUS_DEFINITIFS: REFUS_DEFINITIFS,
     refuserChauffes: refuserChauffes,
     accepterChauffes: accepterChauffes,
-    refusChauffesDe: refusChauffesDe,
+    refusChauffesDe: refusChauffesDe, miseEnSilence: miseEnSilence, annulerRefusChauffes: annulerRefusChauffes,
     SERIES_DEPART_PROGRESSER: SERIES_DEPART_PROGRESSER,
     SERIES_DEPART_ENTRETIEN: SERIES_DEPART_ENTRETIEN,
     // Le dernier plan calculé par l'app, et ses entrées : le banc le lit pour

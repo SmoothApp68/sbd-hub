@@ -3702,3 +3702,45 @@ But : saisir une série d'un pouce, la tête ailleurs, sans chercher. Rien de ce
 - **« Pourquoi ? »** : lien discret au bout de la phrase datée (le texte du coach reste mot pour mot ; la ligne entière ouvre la feuille).
 - **La chauffe** reste repliée AU-DESSUS des séries.
 - L'éditeur de routine ne change pas (il garde sa rangée repos / zone / note).
+
+## 7 quinvicies bis. Le superset à la Hevy, déplacer un exercice, le chrono de tenue — décidé le 04/11/2026 (chantier 233)
+
+> **Delta.** Ce qui suit amende §2.3 (l'entrelacement), §7 decies (un groupe garde au moins deux exercices — inchangé) et §7 vicies
+> (le mode Réorganiser — inchangé). Les maquettes ont été validées avec Aurélien le 04/11.
+
+### 1. Le superset en séance : des cartes à la suite, jamais entrelacées
+
+- **En séance (et seulement là)**, les exercices d'un même `groupe_superset` ne s'entrelacent plus (A1 B1 A2 B2 est parti). Le bloc reste
+  UN bloc (menu ⋯ du bloc, tours comptés, sélection pour grouper) mais s'affiche en **une carte par exercice** (`.carte-ss`), à la suite,
+  reliées par **une barre de la teinte** (`--teinte`, le bleu — jamais l'ambre, qui est la voix du coach) et l'étiquette « Superset · tour n/N ».
+- Chaque carte garde **sa légende** (nom, zone, consigne, « Pourquoi », repos, ⋯), **son en-tête de colonnes**, **ses séries** et **son « + Série »** ;
+  les étiquettes restent A1, A2, A3 puis B1, B2, B3 (la lettre = l'exercice, le chiffre = le rang de la série de travail).
+- **La validation se fait dans n'importe quel ordre.** Rien ne l'impose : le tour (`Modele.toursComplets`) se lit sur `tour`, pas sur l'ordre
+  d'affichage ; il est complet quand la n-ième série de travail de chaque exercice est validée, l'éclairage suit le tour comme avant.
+- **Un seul fil** : `Modele.blocsDeSeance(seance, exercices)` range par exercice (option interne `parExercice`) ; l'**éditeur de routine**
+  passe `{ entrelacer: true }` (une routine prescrit l'enchaînement) ; le **détail** d'une séance relue (`construireBlocs`) ne change pas
+  (il lit la chronologie quand elle existe). Les marques de tour (`debutTour`) n'existent plus en séance. Le plan du coach ne lit jamais
+  l'ordre d'affichage : la ligne « série suivante » d'un exercice est celle de son rang dans SA liste.
+
+### 2. Déplacer un exercice
+
+- **L'exercice entier** (ses séries, sa note, son groupe) se déplace : **appui long** (450 ms, annulé au moindre mouvement de 12 px) sur son nom,
+  ou saisie de la **poignée ⠿** (cible de 44 px) à gauche du ⋯ ; la carte suit le doigt, un filet de la teinte dit où elle se posera ; au lâcher,
+  `THSeance.deplacerExercice` (ou `deplacerVers` pour un exercice seul parmi les blocs) écrit l'ordre par le chemin existant de la séance
+  (groupes renumérotés, rangs d'origine oubliés — chantier 35 D2), puis `apresStructure`. Dans un superset, les sœurs sont les cartes du même
+  superset ; hors superset, ce sont les blocs.
+- **Repli accessible** : « Monter » / « Descendre » dans le menu ⋯ (de l'exercice dans un superset, du bloc sinon), grisés au bord, 44 px.
+  Le mode Réorganiser (§7 vicies) reste le chemin des blocs entiers.
+- **Le coach suit l'exercice, pas la position** : rien ne touche à une série ; le plan est recalculé sur la séance dans son nouvel ordre
+  (les paris et observations sont portés par l'exercice et la série, pas par un indice d'affichage).
+
+### 3. Le chrono de tenue
+
+- Sur une série **non validée** d'un exercice de mesure `temps` **hors cardio/sport** (planche, gainage, isométrie, étirement tenu — `nature`
+  ≠ `cardio`), une ligne sous la rangée : « ▶ Chrono · visée 0:45 » (la visée = le gris de la ligne, `duree_cible_s` de la routine ou la
+  dernière fois ; absente, pas de « visée »).
+- ▶ démarre un chrono qui compte (grand chiffre, horloge `Date.now()`, jamais le nombre de tics). **À la durée visée** : la cloche de fin de
+  repos (`sonnerCloche`, 235 — la sourdine la coupe) et la vibration d'échéance ; le chrono **continue** tant qu'on tient (le chiffre passe à
+  la teinte). **Stop** écrit la durée dans la série (comme si elle était tapée) — **la série n'est pas validée d'office** ; **Annuler** n'écrit
+  rien. Un seul chrono de tenue à la fois ; valider la série à la main l'éteint sans rien écrire. Aucun `await` sans issue, aucune promesse
+  en arrière-plan : l'écran reste allumé.

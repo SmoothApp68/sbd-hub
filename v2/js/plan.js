@@ -1534,7 +1534,7 @@
         PARAGRAPHES_DU_POURQUOI.forEach(function (k) { pourquoi[k] = capF.texte[k] === undefined ? null : capF.texte[k]; });
       }
     }
-    var capC = V.capturer(function () { return constatDuPlan(r.lignes, consigne, suite, reglage, debut, fini); });
+    var capC = V.capturer(function () { return constatDuPlan(r.lignes, consigneEntete, suite, reglage, debut, fini); });
     var constat = capC.texte, citesEscalier = [];
     if (constat && marche && marche.marche === M.MARCHE_SILENCE && marche.declenchement && compteur) {
       var capX = V.capturer(function () { return M.phraseCompteur(compteur); });
@@ -2821,6 +2821,8 @@
   }
 
   function reactionsDuPlan(plan, e, seance) {
+    // Un décor de test qui rejoue l'état d'avant la règle (`entrees.sansReactionAuRate`) ; l'app ne le pose jamais.
+    if (e && e.sansReactionAuRate === true) return plan;
     var gs = gestesDuCoach(seance);
     var resumes = [];
     plan.formeDuJour = null;

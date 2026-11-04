@@ -247,6 +247,8 @@ function seanceJouee(o, vue) {
     if (o.suite && travail.every((s) => S.partEnBase(s))) suites = { x: o.suite(travail) };
     return Object.assign({ seance: { id: 'S', debut, edition: false, exercices: se.exercices },
       consignes: { x: obj }, reglage: o.reglage || 'normal', paris: paris.slice(), suites,
+      // 236 : ce décor rejoue l'état d'AVANT la réaction au raté (le couché du 01/10) ; la règle a ses propres tests (v2-rate-*).
+      sansReactionAuRate: true,
       catalogue: o.catalogue === undefined ? null : o.catalogue }, o.entrees || {});
   };
   const lire = () => { const p = T.planDeSeance(entrees()); vue(p); return p.exercices[0]; };

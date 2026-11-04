@@ -745,7 +745,7 @@ const SETS_IMPORTES = [
     if (l.id === null || l.id === undefined) return refus('23502', 'sets.id NOT NULL');
     if (l.source === 'app' && !l.validee_a) return refus('23514', 'sets_validee_si_saisie');
     if (!(l.rang >= 1)) return refus('23514', 'sets_rang_positif');
-    if (['echauffement', 'travail', 'degressive', 'echec', 'test'].indexOf(l.type_serie) < 0) return refus('23514', 'sets_type_serie_ok');   // + 'test' : v2_117 (186)
+    if (['echauffement', 'travail', 'degressive', 'echec', 'test', 'recul'].indexOf(l.type_serie) < 0) return refus('23514', 'sets_type_serie_ok');   // + 'test' : v2_117 (186) ; + 'recul' : v2_120 (193-1, 234)
     if (l.ressenti && ['reste_3_plus', 'reste_2', 'reste_1', 'reste_0'].indexOf(l.ressenti) < 0) return refus('23514', 'sets_ressenti_ok');
     if (l.rpe !== null && l.rpe !== undefined && !(l.rpe > 0 && l.rpe <= 10)) return refus('23514', 'sets_rpe_ok');
     if (l.repos_s !== null && l.repos_s !== undefined && !(l.repos_s >= 0 && l.repos_s <= 3600)) return refus('23514', 'sets_repos_borne');
@@ -15048,6 +15048,20 @@ const SETS_IMPORTES = [
     ok('[221] DISCRIMINANT — un squat en bloc Hypertrophie à grosse série : consigne Lourd, 1 série de travail puis 3 reculs (le plan, pas l’écran)',
       sq.zone === 'lourd' && sq.bloc && sq.bloc.grosse === true && sq.bloc.reculs === 3 && JSON.stringify(sq.types) === JSON.stringify(['travail', 'recul', 'recul', 'recul']),
       JSON.stringify(sq));
+    // ── 234 — LE TYPE ENREGISTRÉ : une série validée que le plan porte comme recul s'écrit `recul` en base (la grosse série reste `travail`).
+    const setsAvant234 = base.sets.length;
+    for (let r = 0; r < 3; r++) {
+      await casesSiVides(await ligneDuBloc(0, r), 140, 8);
+      const cochee234 = () => page.evaluate((k) => { const l = document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.ligne-serie')[k]; return l ? !!l.querySelector('.ok-serie.cochee') : null; }, r);
+      const dep234 = await departGeste();
+      await page.evaluate((k) => { document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(); }, r);
+      await serieMontee(cochee234, dep234, true);
+    }
+    await reseauCalme(10000);
+    await jusqua(() => lireFile('sets').then((n) => n === 0), 10000, '234 file des séries vide').catch(() => {});
+    const types234 = base.sets.slice(setsAvant234).filter((x) => x.exercise_slug === 'squat_barre').map((x) => x.type_serie);
+    ok('[234] DISCRIMINANT — le squat en bloc Hypertrophie : grosse série `travail`, puis deux reculs enregistrés `recul`',
+      JSON.stringify(types234) === JSON.stringify(['travail', 'recul', 'recul']), JSON.stringify(types234) + ' ' + JSON.stringify(base.sets.slice(setsAvant234).map((x) => [x.exercise_slug, x.type_serie, x.rang])) + ' ' + base.sets.length + '/' + setsAvant234);
     await abandonner();
     base.blocs.length = nBlocsAvant; base.zones.length = nZonesAvant; base.sessions.length = nSessAvant; base.sets.length = nSetsAvant;
     ROUTINES.splice(ROUTINES.findIndex((r) => r.nom === 'Squat U221'), 1);

@@ -6080,6 +6080,10 @@
     var lAuMax = planDeLExercice(iExo);
     lAuMax = lAuMax && lAuMax.lignes && lAuMax.lignes[iSerie] ? lAuMax.lignes[iSerie].auMax : null;
     if (lAuMax) seance = Seance.poserAuMaxReserve(seance, iExo, iSerie, lAuMax.reserve);
+    // 234 — un recul du bloc Hypertrophie s'enregistre `recul` : le type que le plan lit sur la ligne, écrit AVANT la validation (jamais sur une série déjà validée).
+    var lType = planDeLExercice(iExo);
+    lType = lType && lType.lignes && lType.lignes[iSerie] ? lType.lignes[iSerie].type : null;
+    seance = Seance.typerSelonLePlan(seance, iExo, iSerie, lType);
     seance = Seance.valider(seance, iExo, iSerie,
       enEdition() ? new Date(seance.fin || seance.debut) : new Date());
     // §2.7 — le tour avance ICI, au geste, et jamais au rendu : une marque qui

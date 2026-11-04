@@ -1296,10 +1296,11 @@
   // première comme des RECULS (`Moteur.seriesEnGrosseEtReculs`), mais la séance les ouvre `travail` (la routine ne porte pas le type). Une
   // série NON VALIDÉE de type `travail` que le plan porte `recul` s'écrit `recul`, juste avant sa validation ; une série déjà validée ou
   // importée (`partEnBase`), une chauffe, une dégressive ou un échec ne sont jamais réécrits. Aucune décision ici : `typePlan` vient du plan.
+  var NON_TRAVAIL = ['echauffement', 'degressive', 'echec', 'test', 'recul'];
   function typerSelonLePlan(seance, iExo, iSerie, typePlan) {
     var exo = seance && seance.exercices ? seance.exercices[iExo] : null;
     var s = exo && exo.series ? exo.series[iSerie] : null;
-    if (typePlan !== 'recul' || !s || partEnBase(s) || s.validee_a || (s.type_serie || 'travail') !== 'travail') return seance;
+    if (typePlan !== 'recul' || !s || partEnBase(s) || s.validee_a || NON_TRAVAIL.indexOf(racine.THModele.typeDe(s)) >= 0) return seance;
     return changerType(seance, iExo, iSerie, 'recul');
   }
 

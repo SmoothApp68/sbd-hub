@@ -5129,6 +5129,7 @@ const SETS_IMPORTES = [
 
   // ── Le chrono de tenue : la Planche seule en a un ──
   // La 1re série de la Planche (C1) a été validée pour le tour : on la dévalide, le chrono ne sert que sur une série à faire.
+  if (process.env.BANC_CAPTURES_233) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_233, 'superset-cartes.png') });
   const iPl0_233 = (await cartes233()).findIndex((c) => /Planche/.test(c.nom));
   await attendre(600);   // temps réel : le clic qui suit un lâcher est avalé pendant 400 ms, un doigt ne retouche pas plus vite
   await page.locator('.bloc-seance.superset .carte-ss').nth(iPl0_233).locator('.ligne-serie').nth(0).locator('.ok-serie.cochee').click();
@@ -5153,7 +5154,8 @@ const SETS_IMPORTES = [
   // Annuler n'écrit rien.
   const avantAnnuler_233 = (await champDuree_233(0)).v;
   await ligneP_233(0).locator('.tenue-go').click();
-  await attendre(1300);   // temps réel : le chrono de tenue compte
+  await attendre(1300);
+  if (process.env.BANC_CAPTURES_233) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_233, 'chrono-en-cours.png') });   // temps réel : le chrono de tenue compte
   ok('▶ démarre un chrono qui compte (Stop et Annuler apparaissent)',
     (await compter('.tenue-t')) === 1 && (await compter('.tenue-stop')) === 1 && (await compter('.tenue-annuler')) === 1 && /^0:0[1-2]$/.test(await texte('.tenue-t')), await texte('.tenue-t'));
   await page.click('.tenue-annuler');
@@ -5166,6 +5168,7 @@ const SETS_IMPORTES = [
   await page.click('.tenue-stop');
   await jusqua(() => page.evaluate(() => !document.querySelector('.tenue-t')), 4000, 'tenue arrêtée');
   await brouillonPose();
+  if (process.env.BANC_CAPTURES_233) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_233, 'chrono-stop.png') });
   const apresStop_233 = await champDuree_233(0);
   ok('« Stop » écrit la durée tenue (≈ 2 s) dans la série — et ne la valide PAS d’office',
     /^0?0:0[2-4]$/.test(apresStop_233.v) && !apresStop_233.cochee, JSON.stringify(apresStop_233));

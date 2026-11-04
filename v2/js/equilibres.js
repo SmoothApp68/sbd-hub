@@ -1309,13 +1309,6 @@
     return sortie;
   }
 
-  // Les cartes à périmer quand une proposition « refait le programme » est acceptée : toutes les autres cartes qui parlaient.
-  function clesAPerimer(analyse, cleAcceptee) {
-    var cles = [];
-    liste(analyse && analyse.constats).forEach(function (c) { if (c.cle !== cleAcceptee) cles.push(c.cle); });
-    return cles;
-  }
-
   var api = {
     REGLAGES: REGLAGES,
     ORDRE_DES_FAMILLES: ORDRE_DES_FAMILLES,
@@ -1335,7 +1328,6 @@
     analyser: analyser,
     reponse: reponse,
     perimer: perimer,
-    clesAPerimer: clesAPerimer,
     silenceDe: silenceDe
   };
 

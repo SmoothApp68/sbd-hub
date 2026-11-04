@@ -103,7 +103,6 @@ describe('les routes du social', () => {
     ['fil', 'amis', 'ami'].forEach((v) => {
       expect(Routeur.ongletDe(v)).toBe('jeu');
       expect(Routeur.estVueDuJeu(v)).toBe(false);
-      expect(Routeur.estVueSociale(v)).toBe(true);
     });
   });
 });

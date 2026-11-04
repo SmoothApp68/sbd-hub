@@ -28002,7 +28002,8 @@ const SETS_IMPORTES = [
       const debut = ilYa((7 * w + 1) * 86400000, t1882).toISOString();
       base.sessions.push({ id, user_id: 'u-banc', titre: 'EQ1882 stagne — ' + id, debut, fin: finDe(debut, t1882).toISOString(),
         statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-eq1882s', source: 'app', created_at: debut, gestes: [] });
-      [12, 9, 8].forEach((r, k) => base.sets.push(ligne1882(id + '-s' + (k + 1), 'eq1882-sq2', k + 1, 100, r, debut)));
+      // 233 — le repos lu par la règle est le repos RÉEL (l'écart entre deux séries validées) : 75 s entre les séries, comme réglé.
+      [12, 9, 8].forEach((r, k) => base.sets.push(ligne1882(id + '-s' + (k + 1), 'eq1882-sq2', k + 1, 100, r, new Date(Date.parse(debut) + k * 75000).toISOString())));
       // Un pari sur la première série (comme l'app l'écrit) fait de la séance une séance SOUS CONSIGNE ; la plus vieille n'en a pas (le départ).
       if (w < 7) base.predictions.push({ id: '00000000-0000-5000-8188-' + String(w).padStart(12, '0'), user_id: 'u-banc', module: 'moteur.consigne',
         module_version: 4, emise_a: debut, exercise_slug: 'eq1882-sq2', grandeur: 'reps', horizon_jours: null, valeur_predite: 12,

@@ -27,7 +27,9 @@ describe('§9.15.1 — les chauffes, les 30 cas', () => {
     expect(FICHIER.degressives).toHaveLength(7);
   });
 
-  FICHIER.chauffes.forEach((c) => {
+  // 237 (§9.41) — les cas « Proposition » (routine nulle) ne sont plus joués ici : sans ligne de chauffe, c'est
+  // `Moteur.propositionDeChauffes` qui décide (v2-chauffes-proposees-237.test.js). `chauffesDe` ne remplit que des lignes.
+  FICHIER.chauffes.filter((c) => c.entree.routine !== null).forEach((c) => {
     test(c.id + ' — ' + c.titre, () => {
       const r = M.chauffesDe(c.entree);
       expect(extrait(r, c.attendu)).toEqual(c.attendu);
@@ -64,27 +66,13 @@ describe('§9.15 — ce que les cas supposent', () => {
   test('les phrases portent une espace insécable entre le nombre et « kg », et seulement là', () => {
     const r = M.chauffesDe({ equipement: 'barre', reference: 125, deja_sollicite: false, routine: [10, 6, 3, 1] });
     expect(r.phrase).toBe('Chauffes calées sur 125 kg : 20 · 60 · 90 · 110 kg.');
-    const p = M.chauffesDe({ equipement: 'barre', reference: 95, deja_sollicite: false, routine: null });
-    expect(p.phrase_proposition).toBe('Chauffe : 20 kg × 10 · 45 kg × 6 · 65 kg × 3 · 85 kg × 1');
+    const p = M.propositionDeChauffes({ equipement: 'barre', reference: 100, e1rm: 120, premier: true });
+    expect(p.phrase).toBe('Chauffe : 50\u00a0kg × 8 · 80\u00a0kg × 3');
   });
 
   test('« soulevé au sol » : le conventionnel, le sumo, la barre hexagonale — pas le roumain', () => {
     expect(M.SOULEVES_AU_SOL).toEqual(['souleve_de_terre_barre', 'souleve_de_terre_sumo', 'souleve_de_terre_barre_hex']);
     expect(M.SOULEVES_AU_SOL.some((s) => /roumain|jambes_tendues/.test(s))).toBe(false);
-  });
-
-  // §9.15.2 (delta 49-24) — le seuil d'une PROPOSITION, des deux côtés ; et
-  // il ne touche jamais les chauffes de la routine.
-  test('seuil de proposition : 60 kg à la barre, 80 kg ailleurs, bornes comprises', () => {
-    const p = (equipement, reference) => M.chauffesDe({ equipement, reference, deja_sollicite: false, cran: 5, routine: null }).proposition.length;
-    expect(p('barre', 57.5)).toBe(0);
-    expect(p('barre', 60)).toBeGreaterThan(0);
-    expect(p('machine', 77.5)).toBe(0);
-    expect(p('machine', 80)).toBeGreaterThan(0);
-    expect(p('haltere', 78)).toBe(0);
-    expect(p('poulie', 80)).toBeGreaterThan(0);
-    expect(M.SEUIL_PROPOSITION_BARRE).toBe(60);
-    expect(M.SEUIL_PROPOSITION_AUTRE).toBe(80);
   });
 
   test('le seuil ne touche pas les chauffes de la routine : barre à 30 kg, machine à 20 kg, remplies', () => {

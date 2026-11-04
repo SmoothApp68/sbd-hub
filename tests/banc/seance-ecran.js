@@ -10525,8 +10525,10 @@ const SETS_IMPORTES = [
     ok('[U10] DISCRIMINANT — la dégressive de la machine : 45 kg (60 − 22,5 %, au cran inférieur)', f[9] === '45', JSON.stringify(f.slice(7, 10)));
     // Delta 49-24 : une proposition seulement dès 60 kg à la barre, 80 kg
     // ailleurs. Le biceps à la barre de la routine, à 40 kg : rien.
-    ok('[U10] DISCRIMINANT (49-24) — le biceps à la barre à 40 kg, sans chauffe : AUCUNE proposition (avant : « 20 kg × 10 · 35 kg × 2 »)',
-      (await propositionU(2)) === null && (await compter('.proposition-chauffes')) === 0, esp(await propositionU(2)));
+    // 237 (§9.41) — le seuil de 49-24 est remplacé : le premier exercice du muscle, au-dessus de 60 % du max estimé (ou sans max connu).
+    // Le biceps à la barre est le premier du muscle : une proposition d'une seule chauffe, vers 85 %.
+    ok('[U10] 237 — DISCRIMINANT : le biceps à la barre à 40 kg, premier du muscle : UNE chauffe proposée (35 kg × 5)',
+      esp(await propositionU(2)) === 'Chauffe : 35 kg × 5', esp(await propositionU(2)));
     await saisirSerie(7, 60, 15);
     await attendre(500);
     ok('[U10] après la première série de travail, le repos tourne', await reposVisible(), '');
@@ -10567,16 +10569,16 @@ const SETS_IMPORTES = [
     // Un exercice ajouté hors routine, à la barre, sans chauffe : la proposition.
     await ajouterExoSeance('Militaire U10');
     const prop1 = await propositionU(3);
-    ok('[U10] DISCRIMINANT — ajouté sans chauffe : le coach PROPOSE la montée (80 kg : 20 · 40 · 55 · 70)',
-      esp(prop1) === 'Chauffe : 20 kg × 10 · 40 kg × 6 · 55 kg × 3 · 70 kg × 1', esp(prop1));
+    ok('[U10] DISCRIMINANT — ajouté sans chauffe : le coach PROPOSE la montée (80 kg : 45 × 8 · 70 × 3, 237)',
+      esp(prop1) === 'Chauffe : 45 kg × 8 · 70 kg × 3', esp(prop1));
     const replie200 = await page.evaluate(() => {
       const d = document.querySelector('.ligne-repliee.lr-chauffes:has(.proposition-chauffes[data-iexo="3"])');
       const r = d ? d.querySelector('summary') : null;
       const b = d ? d.querySelector('.pc-ajouter') : null;
       return d ? { resume: r.textContent.replace(/\s+/g, ' ').trim(), ouvert: d.open, ajouterVu: b.checkVisibility() } : null;
     });
-    ok('[U10] 200-5 — DISCRIMINANT : la chauffe est UNE ligne repliée « Chauffe · 4 séries › », « Ajouter » caché jusqu’à l’ouverture',
-      !!replie200 && replie200.resume === 'Chauffe · 4 séries ›' && replie200.ouvert === false && replie200.ajouterVu === false, JSON.stringify(replie200));
+    ok('[U10] 200-5 — DISCRIMINANT : la chauffe est UNE ligne repliée « Chauffe · 2 séries › », « Ajouter » caché jusqu’à l’ouverture',
+      !!replie200 && replie200.resume === 'Chauffe · 2 séries ›' && replie200.ouvert === false && replie200.ajouterVu === false, JSON.stringify(replie200));
     const nAvant = await compter('.ligne-serie');
     await page.click('.ligne-repliee:has(.proposition-chauffes[data-iexo="3"]) > summary');   // 200-5 : la ligne repliée s'ouvre avant « Non merci »
     await page.click('.proposition-chauffes[data-iexo="3"] .pc-refuser');
@@ -10597,8 +10599,8 @@ const SETS_IMPORTES = [
     await page.click('.proposition-chauffes[data-iexo="3"] .pc-ajouter');
     await attendre(900);
     f = await fantomesU();
-    ok('[U10] « Ajouter » : quatre lignes au-dessus du travail, remplies 20 · 40 · 55 · 70',
-      (await compter('.ligne-serie')) === avantAjout + 4 && JSON.stringify(f.slice(13, 17)) === JSON.stringify(['20', '40', '55', '70']),
+    ok('[U10] « Ajouter » : deux lignes au-dessus du travail, remplies 45 · 70 (les charges proposées, 237)',
+      (await compter('.ligne-serie')) === avantAjout + 2 && JSON.stringify(f.slice(13, 15)) === JSON.stringify(['45', '70']),
       JSON.stringify(f.slice(13)));
     ok('[U10] et la proposition disparaît', (await propositionU(3)) === null, '');
     const memoire2 = await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'));
@@ -26499,6 +26501,9 @@ const SETS_IMPORTES = [
     const sessionsAvant = base.sessions, setsAvant = base.sets, predictionsAvant = base.predictions, zonesAvant = base.zones;
     const catalogueAvant = CATALOGUE.length, routinesAvant = ROUTINES.length;
     const rendreBlocs174 = await retirerBlocsDeLAppareil();
+    // La phase du profil est une prémisse : « maintien » (laissée par 7 G octies) rend l'escalier muet sur le curl ; ce banc part d'un profil sans phase.
+    const phaseAvant174 = base.profiles && base.profiles[0] ? { phase: base.profiles[0].phase, depuis: base.profiles[0].phase_depuis } : null;
+    if (phaseAvant174) { base.profiles[0].phase_depuis = null; base.profiles[0].phase = null; }
     ['a', 'b', 'c'].forEach((k) => CATALOGUE.push({ slug: 'cr174-' + k, nom: 'Exercice CR174 ' + k.toUpperCase() + ' (Barre)',
       mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] }));
     CATALOGUE.push({ slug: 'curl-cr174', nom: 'Curl CR174 (Poulie)', mesure: 'charge_reps', charge: 'externe',
@@ -26659,6 +26664,7 @@ const SETS_IMPORTES = [
     base.predictions = predictionsAvant;
     base.zones = zonesAvant.filter((l) => String(l.exercise_slug).indexOf('cr174') < 0);
     rendreBlocs174();
+    if (phaseAvant174) { base.profiles[0].phase = phaseAvant174.phase; base.profiles[0].phase_depuis = phaseAvant174.depuis; }
     await aller('/saisie');
     ok('[CR174] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
@@ -28353,6 +28359,158 @@ const SETS_IMPORTES = [
     routinesAvant236.forEach((r) => ROUTINES.push(r));
     base.profiles[0] = profilAvant236;
     rendreLesBlocs236();
+    await aller('/saisie');
+  }
+
+  console.log('\n══ chauffes-237. LES CHAUFFES PROPOSÉES : PROPOSER, AJOUTER ×2, AJOUT AUTOMATIQUE, ANNULER ; NON MERCI ×2, SILENCE (237, MOTEUR §9.41, I125 à I128) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un squat à la barre (3 muscles : un polyarticulaire), six séances d'historique à 100 kg × 5 sans chauffe
+  // (max estimé ~117 : 100 kg est au-dessus de 60 %), une routine « 3 × 5 ». Séance 1 : une proposition (« Chauffe · N séries ›») ; « Ajouter » ;
+  // on termine. Séance 2 : la proposition revient ; « Ajouter » ; on termine. Séance 3 : les chauffes sont DÉJÀ LÀ (ajout automatique, I128) et
+  // « Annuler » est exposé ; « Annuler » les retire. Puis un second exercice : « Non merci » deux séances de suite → silence. Sans la règle
+  // (ou sans la mémoire du refus), la séance 3 ne se pose pas d'elle-même et la 3e séance du refus propose encore.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbCatAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, paris237Avant = base.predictions;
+    const routinesAvant237 = ROUTINES.splice(0, ROUTINES.length);
+    base.sessions = []; base.sets = []; base.predictions = [];
+    const rendreLesBlocs237 = await retirerBlocsDeLAppareil();
+    await page.evaluate(() => { try { localStorage.removeItem('th-v2-refus-chauffes'); } catch (e) { /* rien */ } });
+    const t237 = Date.now();
+    const nb237 = (x) => JSON.stringify(x === undefined ? null : x);
+    const sp237 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    ['rt237-squat', 'rt237-presse'].forEach((slug) => CATALOGUE.push({ slug, nom: slug === 'rt237-squat' ? 'Squat RT237 (Barre)' : 'Presse RT237 (Barre)',
+      mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['ischio_jambiers'],
+      muscles_stabilisateurs: ['bas_du_dos'], schema_mouvement: 'squat' }));
+    const profilAvant237 = Object.assign({}, base.profiles[0]);
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { rythme_progression: 'normal', intention: 'progresser', phase: 'maintien', phase_depuis: null,
+      cartes_semaine: null, priorites: null, jours_vises: null });
+    const ligne237 = (slug, id, rang, debut) => ({ id, session_id: id.replace(/-s\d+$/, ''), user_id: 'u-banc', exercise_slug: slug,
+      charge_kg: 100, reps: 5, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null,
+      type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null,
+      note: null, source: 'app', created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false });
+    for (const slug of ['rt237-squat', 'rt237-presse']) {
+      for (let w = 1; w <= 6; w++) {
+        const id = slug + '-h' + w;
+        const debut = ilYa((7 * w + 1) * 86400000, t237).toISOString();
+        base.sessions.push({ id, user_id: 'u-banc', titre: 'RT237 — ' + id, debut, fin: finDe(debut, t237).toISOString(),
+          statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-' + slug, source: 'app', created_at: debut, gestes: [] });
+        for (let r = 1; r <= 3; r++) base.sets.push(ligne237(slug, id + '-s' + r, r, debut));
+      }
+      const sets = [1, 2, 3].map((i) => ({ id: 'pr-' + slug + '-' + i, rang: i, type_serie: 'travail', reps_visees: 5, charge_cible_kg: null,
+        duree_cible_s: null, distance_cible_m: null }));
+      ROUTINES.push({ id: 'r-' + slug, nom: slug === 'rt237-squat' ? 'Squat RT237' : 'Presse RT237', note: null, archivee_a: null,
+        created_at: '2026-01-05T10:00:00.000Z', updated_at: '2026-01-05T10:00:00.000Z',
+        routine_exercises: [{ id: 're-' + slug, routine_id: 'r-' + slug, exercise_slug: slug, rang: 0, zone: 'force', routine_sets: sets,
+          repos_cible_s: 180, groupe_superset: null, note: null }] });
+    }
+    const lire237 = (slug) => page.evaluate((sl) => {
+      const x = window.THPlan.dernier.plan.exercices.filter((q) => q.slug === sl)[0];
+      return { prop: x.proposition ? { mode: x.proposition.mode, raison: x.proposition.raison, lignes: x.proposition.lignes, phrase: x.proposition.phrase,
+                                         pourquoi: x.proposition.pourquoi, annulable: x.proposition.annulable } : null,
+               auto: x.chauffesAuto ? x.chauffesAuto.annuler : null,
+               types: x.lignes.map((l) => l.type), fantomes: x.lignes.filter((l) => l.type === 'echauffement').map((l) => (l.fantome ? l.fantome.charge : null)) };
+    }, slug);
+    const planPret237 = (slug) => attendreQue(() => page.evaluate((sl) => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan &&
+      window.THPlan.dernier.plan.exercices.some((x) => x.slug === sl && x.consigne)), slug), 15000, 'planRT237' + slug);
+    const ouvrirEtAjouter237 = async () => {
+      await page.click('.ligne-repliee.lr-chauffes > summary');
+      await page.click('.proposition-chauffes .pc-ajouter');
+    };
+    // ── SÉANCE 1 : la proposition, « Ajouter ».
+    await aller('/saisie');
+    await demarrerRoutine('Squat RT237');
+    await planPret237('rt237-squat');
+    const s1 = await lire237('rt237-squat');
+    const resume1 = await page.evaluate(() => { const d = document.querySelector('.ligne-repliee.lr-chauffes'); return d ? { resume: d.querySelector('summary').textContent.replace(/\s+/g, ' ').trim(), ouvert: d.open } : null; });
+    ok('[RT237] DISCRIMINANT — séance 1 : le coach PROPOSE (premier exercice du muscle, 100 kg au-dessus de 60 % du max), sans rien écrire',
+      !!s1.prop && s1.prop.mode === 'proposer' && s1.prop.raison === 'muscle' && s1.prop.lignes.length >= 2 && s1.types.every((t) => t === 'travail'), nb237(s1));
+    ok('[RT237] la proposition est UNE ligne repliée « Chauffe · N séries › » ; le Pourquoi dit la règle',
+      !!resume1 && resume1.ouvert === false && /^Chauffe · \d séries ›$/.test(resume1.resume) && /^Premier exercice de la séance sur ce muscle.*60 %/.test(sp237(s1.prop && s1.prop.pourquoi)), nb237([resume1, s1.prop && s1.prop.pourquoi]));
+    ok('[RT237] I126 — les charges montent, aucune n’atteint 100 kg, la dernière ≤ 90 kg',
+      s1.prop.lignes.every((l, i) => l[0] < 100 && (i === 0 || l[0] > s1.prop.lignes[i - 1][0])) && s1.prop.lignes[s1.prop.lignes.length - 1][0] <= 90, nb237(s1.prop.lignes));
+    await ouvrirEtAjouter237();
+    await attendreQue(() => lire237('rt237-squat').then((p) => p.prop === null && p.types.filter((t) => t === 'echauffement').length === s1.prop.lignes.length), 15000, 'ajouter1RT237');
+    const s1b = await lire237('rt237-squat');
+    ok('[RT237] « Ajouter » : les lignes d’échauffement sont au-dessus du travail, remplies avec les charges PROPOSÉES',
+      nb237(s1b.fantomes) === nb237(s1.prop.lignes.map((l) => l[0])) && s1b.types.slice(0, s1.prop.lignes.length).every((t) => t === 'echauffement'), nb237(s1b));
+    await saisirSerie(0, s1.prop.lignes[0][0], s1.prop.lignes[0][1]);
+    await saisirSerie(s1.prop.lignes.length, 100, 5);
+    await terminer();
+    // ── SÉANCE 2 : la proposition revient (une seule séance d'ajout), « Ajouter ».
+    await aller('/saisie');
+    await demarrerRoutine('Squat RT237');
+    await planPret237('rt237-squat');
+    const s2 = await lire237('rt237-squat');
+    ok('[RT237] séance 2 : UNE séance d’ajout ne suffit pas — la proposition revient, rien n’est ajouté d’elle-même',
+      !!s2.prop && s2.prop.mode === 'proposer' && s2.auto === null && s2.types.every((t) => t === 'travail'), nb237(s2));
+    await ouvrirEtAjouter237();
+    await attendreQue(() => lire237('rt237-squat').then((p) => p.types.indexOf('echauffement') >= 0), 15000, 'ajouter2RT237');
+    const nCh = s2.prop.lignes.length;
+    await saisirSerie(0, s2.prop.lignes[0][0], s2.prop.lignes[0][1]);
+    await saisirSerie(nCh, 100, 5);
+    await terminer();
+    // ── SÉANCE 3 : l'ajout automatique, « Annuler ».
+    await aller('/saisie');
+    await demarrerRoutine('Squat RT237');
+    await planPret237('rt237-squat');
+    await attendreQue(() => lire237('rt237-squat').then((p) => p.types.indexOf('echauffement') >= 0), 15000, 'autoRT237');
+    const s3 = await lire237('rt237-squat');
+    const carte3 = await page.evaluate(() => { const n = document.querySelector('.proposition-chauffes.chauffes-auto'); return n ? { texte: n.querySelector('.pc-texte').textContent, bouton: n.querySelector('button').textContent, h: Math.round(n.querySelector('button').getBoundingClientRect().height) } : null; });
+    ok('[RT237] DISCRIMINANT — séance 3 : deux séances d’ajout → les chauffes sont DÉJÀ posées, remplies, et « Annuler » est exposé (I128)',
+      s3.types.filter((t) => t === 'echauffement').length === nCh && s3.auto === 'Annuler' && !!carte3 && carte3.bouton === 'Annuler' && carte3.h >= 44, nb237([s3, carte3]));
+    ok('[RT237] …et le plan ne propose plus rien par-dessus', s3.prop === null, nb237(s3.prop));
+    await page.click('.proposition-chauffes.chauffes-auto button');
+    await attendreQue(() => lire237('rt237-squat').then((p) => p.types.indexOf('echauffement') < 0 && p.auto === null), 15000, 'annulerRT237');
+    const s3b = await lire237('rt237-squat');
+    ok('[RT237] « Annuler » : les chauffes non faites partent, « Annuler » disparaît, aucune série de travail touchée', s3b.types.length === 3 && s3b.types.every((t) => t === 'travail'), nb237(s3b));
+    ok('[RT237] la garde de l’app (I125 à I128, I26) n’a rien vu', gardeBanc.violations === violationsAvant, nb237(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    // ── « NON MERCI » ×2 : le silence.
+    await aller('/saisie');
+    await demarrerRoutine('Presse RT237');
+    await planPret237('rt237-presse');
+    ok('[RT237] 2e exercice, séance A : la proposition est là', !!(await lire237('rt237-presse')).prop, '');
+    await page.click('.ligne-repliee.lr-chauffes > summary');
+    await page.click('.proposition-chauffes .pc-refuser');
+    await attendreQue(() => lire237('rt237-presse').then((p) => p.prop === null), 15000, 'refus1RT237');
+    await abandonner();
+    await aller('/saisie');
+    await demarrerRoutine('Presse RT237');
+    await planPret237('rt237-presse');
+    ok('[RT237] séance B : UN « Non merci » ne fait pas taire — la proposition revient', !!(await lire237('rt237-presse')).prop, '');
+    await page.click('.ligne-repliee.lr-chauffes > summary');
+    await page.click('.proposition-chauffes .pc-refuser');
+    await attendreQue(() => lire237('rt237-presse').then((p) => p.prop === null), 15000, 'refus2RT237');
+    const memoire237 = await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'));
+    ok('[RT237] la mémoire du refus (sur l’appareil) porte deux refus et leur date', /"rt237-presse":\{"n":2,"seance":"[^"]+","quand":\d+/.test(memoire237 || ''), memoire237);
+    await abandonner();
+    await aller('/saisie');
+    await demarrerRoutine('Presse RT237');
+    await planPret237('rt237-presse');
+    const silence = await lire237('rt237-presse');
+    ok('[RT237] DISCRIMINANT — séance C : deux « Non merci » depuis moins de 4 semaines → SILENCE (I128), aucune carte à l’écran',
+      silence.prop === null && (await compter('.proposition-chauffes')) === 0, nb237([silence, await compter('.proposition-chauffes')]));
+    ok('[RT237] …sur cet exercice seulement : le squat propose encore', await (async () => {
+      await abandonner(); await aller('/saisie'); await demarrerRoutine('Squat RT237'); await planPret237('rt237-squat');
+      return !!(await lire237('rt237-squat')).prop || (await lire237('rt237-squat')).types.indexOf('echauffement') >= 0;
+    })(), '');
+    await abandonner();
+    ok('[RT237] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb237([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    await page.evaluate(() => { try { localStorage.removeItem('th-v2-refus-chauffes'); } catch (e) { /* rien */ } });
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = paris237Avant;
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = 0;
+    routinesAvant237.forEach((r) => ROUTINES.push(r));
+    base.profiles[0] = profilAvant237;
+    rendreLesBlocs237();
     await aller('/saisie');
   }
 

@@ -103,6 +103,10 @@
       "7-unvicies",
       "7-duovicies"
     ],
+    "ondulation": [
+      "7-unvicies",
+      "7-duovicies"
+    ],
     "7-tertricies": [
       "7-unvicies",
       "7-duovicies",
@@ -229,6 +233,7 @@
     "saisie-avis": 60.0,
     "saisie-verifiee": 60.0,
     "recul-max": 45.0,
-    "rate-236": 60.0
+    "rate-236": 60.0,
+    "chauffes-237": 90.0
   }
 }

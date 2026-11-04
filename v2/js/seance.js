@@ -689,6 +689,15 @@
     return avecExercices(seance, exos);
   }
 
+  // 237 — « Annuler » l'ajout automatique : les chauffes de l'exercice qui ne sont pas faites partent ; une série validée n'est jamais touchée.
+  function retirerChauffesNonFaites(seance, iExo) {
+    var exos = seance.exercices.slice();
+    var exo = copie(exos[iExo]);
+    exo.series = (exo.series || []).filter(function (q) { return !(q && typeDe(q) === 'echauffement' && !q.validee_a); });
+    exos[iExo] = exo;
+    return avecExercices(seance, exos);
+  }
+
   function retirerSerie(seance, iExo, iSerie) {
     var exos = seance.exercices.slice();
     var exo = copie(exos[iExo]);
@@ -2255,7 +2264,10 @@
   //   la réaction sous la série `rang`, le bouton touché), `forme_ajustee` / `forme_gardee` (`{ slug, implicite? }` : la carte de la forme du jour
   //   posée sur l'exercice `slug`), `paris_cran` / `paris_retente` (`{ slug }`). `equilibres.js` ne lit que les cinq premiers.
   var GESTES_DU_COACH = ['rate_prise', 'rate_ignoree', 'forme_ajustee', 'forme_gardee', 'paris_cran', 'paris_retente'];
-  var GESTES = ['raccourci', 'machine_prise', 'remplacement', 'ajout_serie', 'retrait'].concat(GESTES_DU_COACH);
+  // 237 (MOTEUR §9.41) — les chauffes : `chauffes_ajoutees` (« Ajouter »), `chauffes_auto` (ajoutées d'elles-mêmes), `chauffes_annulees`
+  // (« Annuler ») — `{ slug }` ; le fait que `faits.chauffesAjoutees` relit.
+  var GESTES_CHAUFFES = ['chauffes_ajoutees', 'chauffes_auto', 'chauffes_annulees'];
+  var GESTES = ['raccourci', 'machine_prise', 'remplacement', 'ajout_serie', 'retrait'].concat(GESTES_DU_COACH, GESTES_CHAUFFES);
   function gestePropre(g) {
     if (!g || typeof g !== 'object' || GESTES.indexOf(g.geste) < 0) return null;
     var o = { geste: g.geste };
@@ -3311,6 +3323,7 @@
     ajouterRestPause: ajouterRestPause,
     insererChauffes: insererChauffes,
     retirerLignesDeTest: retirerLignesDeTest,
+    retirerChauffesNonFaites: retirerChauffesNonFaites,
     retirerSerie: retirerSerie,
     modifierSerie: modifierSerie,
     changerType: changerType,

@@ -24,11 +24,11 @@ const DEBUT = '2026-09-29T10:00:00+00:00';
 
 // Le catalogue, tel qu'en base (lu le 30/09/2026, `exercises`).
 const CATALOGUE = {
-  developpe_couche_barre: { equipement: 'barre', muscles_primaires: ['pectoraux'] },
-  developpe_militaire_barre: { equipement: 'barre', muscles_primaires: ['epaules'] },
+  developpe_couche_barre: { equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps', 'deltoide_anterieur'] },
+  developpe_militaire_barre: { equipement: 'barre', muscles_primaires: ['epaules'], muscles_secondaires: ['triceps', 'deltoide_lateral'] },
   souleve_de_terre_barre: { equipement: 'barre', muscles_primaires: ['ischio_jambiers', 'fessiers', 'bas_du_dos'] },
   souleve_de_terre_roumain_barre: { equipement: 'barre', muscles_primaires: ['ischio_jambiers', 'fessiers'] },
-  squat_barre: { equipement: 'barre', muscles_primaires: ['quadriceps', 'fessiers'] },
+  squat_barre: { equipement: 'barre', muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['ischio_jambiers', 'bas_du_dos'] },
   extension_jambes: { equipement: 'machine', muscles_primaires: ['quadriceps'] },
   curl_barre: { equipement: 'barre', muscles_primaires: ['biceps'] },
   ecarte_poulie: { equipement: 'poulie', muscles_primaires: ['pectoraux'] }
@@ -64,7 +64,7 @@ function entreesDe(se, exos, extra) {
     cs[e.slug] = e.consigne ? { consigne: e.consigne, libelles: M.libellesConsigne(e.consigne), pas: e.pas === undefined ? null : e.pas } : null;
   });
   return Object.assign({
-    seance: { id: 'S1', debut: DEBUT, edition: false, exercices: se.exercices },
+    seance: { id: 'S1', debut: DEBUT, edition: false, exercices: se.exercices, gestes: se.gestes || [] },
     consignes: cs, catalogue: CATALOGUE, reglage: null, paris: [], suites: {}
   }, extra || {});
 }
@@ -176,8 +176,8 @@ describe('§9.15.2 — sans ligne de chauffe, une proposition', () => {
     const e = entreesDe(se, EXOS);
     const p = T.planDeSeance(e);
     const x = p.exercices[0];
-    expect(x.proposition.phrase).toBe('Chauffe : 20' + NB + 'kg × 10 · 60' + NB + 'kg × 6 · 90' + NB + 'kg × 3 · 110' + NB + 'kg × 1');
-    expect(x.proposition.lignes).toEqual([[20, 10], [60, 6], [90, 3], [110, 1]]);
+    expect(x.proposition.phrase).toBe('Chauffe : 50' + NB + 'kg × 8 · 80' + NB + 'kg × 5 · 110' + NB + 'kg × 2');
+    expect(x.proposition.lignes).toEqual([[50, 8], [80, 5], [110, 2]]);
     expect(se.exercices[0].series.every((s) => S.typeDe(s) === 'travail')).toBe(true);
     ok(p, e);
   });
@@ -185,13 +185,14 @@ describe('§9.15.2 — sans ligne de chauffe, une proposition', () => {
   test('« Ajouter » : des lignes d\'échauffement AU-DESSUS du travail, remplies par le coach', () => {
     let se = seanceDe(EXOS);
     const x0 = T.planDeSeance(entreesDe(se, EXOS)).exercices[0];
+    se = S.noterGeste(se, { geste: 'chauffes_ajoutees', slug: 'developpe_couche_barre' });
     se = S.insererChauffes(se, 0, x0.proposition.lignes, (() => { let k = 0; return () => 'c' + (++k); })());
-    expect(se.exercices[0].series.map((s) => S.typeDe(s))).toEqual(['echauffement', 'echauffement', 'echauffement', 'echauffement', 'travail', 'travail', 'travail']);
-    expect(se.exercices[0].series.slice(0, 4).map((s) => s.reps_visees)).toEqual([10, 6, 3, 1]);
+    expect(se.exercices[0].series.map((s) => S.typeDe(s))).toEqual(['echauffement', 'echauffement', 'echauffement', 'travail', 'travail', 'travail']);
+    expect(se.exercices[0].series.slice(0, 3).map((s) => s.reps_visees)).toEqual([8, 5, 2]);
     const e = entreesDe(se, EXOS);
     const p = T.planDeSeance(e);
     expect(p.exercices[0].proposition).toBeNull();
-    expect(charges(p.exercices[0])).toEqual([20, 60, 90, 110]);
+    expect(charges(p.exercices[0])).toEqual([50, 80, 110]);
     ok(p, e);
   });
 
@@ -212,18 +213,22 @@ describe('§9.15.2 — sans ligne de chauffe, une proposition', () => {
     expect(T.refusChauffesDe(memoire, 'S2')).toEqual({});
   });
 
-  test('trois « Non merci » d\'affilée : plus de proposition sur cet exercice', () => {
+  test('deux « Non merci » d\'affilée : silence 4 semaines, puis la proposition revient (237)', () => {
+    const J = 24 * 3600 * 1000, t0 = Date.parse('2026-10-01T10:00:00Z');
     let m = {};
-    m = T.refuserChauffes(m, 'developpe_couche_barre', 'S1');
-    m = T.refuserChauffes(m, 'developpe_couche_barre', 'S1');   // la même séance : un seul
+    m = T.refuserChauffes(m, 'developpe_couche_barre', 'S1', t0);
+    m = T.refuserChauffes(m, 'developpe_couche_barre', 'S1', t0);   // la même séance : un seul
     expect(m.developpe_couche_barre.n).toBe(1);
-    m = T.refuserChauffes(m, 'developpe_couche_barre', 'S2');
-    expect(T.refusChauffesDe(m, 'S3')).toEqual({});
-    m = T.refuserChauffes(m, 'developpe_couche_barre', 'S3');
-    expect(m.developpe_couche_barre.n).toBe(3);
-    expect(T.refusChauffesDe(m, 'S9')).toEqual({ developpe_couche_barre: true });
-    // … et sur lui seul.
-    expect(T.refusChauffesDe(m, 'S9').squat_barre).toBeUndefined();
+    expect(T.refusChauffesDe(m, 'S2', t0 + 7 * J)).toEqual({});
+    m = T.refuserChauffes(m, 'developpe_couche_barre', 'S2', t0 + 7 * J);
+    expect(m.developpe_couche_barre.n).toBe(2);
+    expect(T.refusChauffesDe(m, 'S3', t0 + 8 * J)).toEqual({ developpe_couche_barre: true });
+    expect(T.refusChauffesDe(m, 'S3', t0 + 7 * J + 27 * J)).toEqual({ developpe_couche_barre: true });
+    expect(T.refusChauffesDe(m, 'S9', t0 + 7 * J + 28 * J)).toEqual({});
+    // … et sur lui seul ; un refus après le silence repart de 1.
+    expect(T.refusChauffesDe(m, 'S3', t0 + 8 * J).squat_barre).toBeUndefined();
+    const r = T.refuserChauffes(m, 'developpe_couche_barre', 'S9', t0 + 40 * J);
+    expect(r.developpe_couche_barre.n).toBe(1);
   });
 
   test('« Ajouter » remet le compte à zéro', () => {
@@ -379,21 +384,21 @@ describe('§9.15.1 — le repos des chauffes (60 s, puis 120 s avant le travail)
   });
 });
 
-describe('§9.15.2 (delta 49-24) — le seuil des propositions, dans le plan', () => {
-  test('barre à 55 kg : pas de proposition ; à 60 kg : une proposition', () => {
-    const bas = [{ slug: 'developpe_militaire_barre', consigne: consigne(55, 5) }];
-    const pile = [{ slug: 'developpe_militaire_barre', consigne: consigne(60, 5) }];
-    expect(T.planDeSeance(entreesDe(seanceDe(bas), bas)).exercices[0].proposition).toBeNull();
-    expect(T.planDeSeance(entreesDe(seanceDe(pile), pile)).exercices[0].proposition.lignes).toEqual([[20, 10], [55, 2]]);
+describe('237 (§9.41) — le seuil de 60 % du max estimé, dans le plan', () => {
+  const avec = (charge, e1rm) => {
+    const exos = [{ slug: 'developpe_militaire_barre', consigne: consigne(charge, 5) }];
+    return T.planDeSeance(entreesDe(seanceDe(exos), exos, { e1rms: { developpe_militaire_barre: e1rm } })).exercices[0].proposition;
+  };
+  test('à 60 % du max : rien ; au-dessus : une proposition', () => {
+    expect(avec(60, 100)).toBeNull();
+    expect(avec(62.5, 100)).not.toBeNull();
   });
-
-  test('machine à 75 kg : pas de proposition ; à 80 kg : une', () => {
-    const bas = [{ slug: 'extension_jambes', consigne: consigne(75, 10), pas: 5 }];
-    const pile = [{ slug: 'extension_jambes', consigne: consigne(80, 10), pas: 5 }];
-    expect(T.planDeSeance(entreesDe(seanceDe(bas), bas)).exercices[0].proposition).toBeNull();
-    expect(T.planDeSeance(entreesDe(seanceDe(pile), pile)).exercices[0].proposition.lignes).toEqual([[50, 8]]);
+  test('sans max connu, le premier exercice du muscle reçoit la proposition', () => {
+    expect(avec(60, null)).not.toBeNull();
   });
+});
 
+describe('9.15.2 — les chauffes de la routine ne dépendent pas du seuil', () => {
   test('le seuil ne touche pas les chauffes de la routine : une barre à 40 kg les remplit', () => {
     const exos = [{ slug: 'curl_barre', chauffes: [10, 2], consigne: consigne(40, 10) }];
     const e = entreesDe(seanceDe(exos), exos);
@@ -440,7 +445,7 @@ describe('I16, I17 — des violations forgées sont attrapées', () => {
   test('I16 — une proposition dont les reps montent', () => {
     const p = clone(plan(PROPOSE));
     p.exercices[0].proposition.lignes[2][1] = 8;
-    expect(erreurs(p).join('\n')).toMatch(/^I16 — .*reps proposées 8 après 6/m);
+    expect(erreurs(p).join('\n')).toMatch(/^I16 — .*reps proposées 8 après 5/m);
   });
 
   test('I17 (94) — à la barre, une phrase qui ne dit pas quoi enlever', () => {

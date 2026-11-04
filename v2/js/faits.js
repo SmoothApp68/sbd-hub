@@ -2146,6 +2146,32 @@
       return sortie;
     }
 
+    // 237 (MOTEUR §9.41, règle 6) — LES SÉANCES D'AFFILÉE OÙ LA PERSONNE A AJOUTÉ SES CHAUFFES, par exercice : un FAIT lu dans les séances
+    // terminées d'avant `debut` qui portent l'exercice, de la plus récente à la plus ancienne, jusqu'à la première qui n'en a pas. Une séance
+    // compte si l'exercice y a une série typée échauffement, ou si un geste `chauffes_ajoutees` / `chauffes_auto` le nomme — et pas si la
+    // personne a annulé l'ajout (`chauffes_annulees`). La règle (« 2 séances ») est au moteur (`CHAUFFE_AUTO_APRES`).
+    function chauffesAjoutees(c, slugs, debut) {
+      var sortie = {}, limite = Date.parse(debut), gestesDe = {};
+      (c.seances || []).forEach(function (s) { if (s && s.id) gestesDe[s.id] = Array.isArray(s.gestes) ? s.gestes : []; });
+      (slugs || []).forEach(function (slug) {
+        var n = 0;
+        var liste = seancesDuSlug(c, slug).filter(function (g) {
+          var d = Date.parse(g.debut);
+          return !isNaN(d) && (isNaN(limite) || d < limite);
+        }).sort(function (a, b) { return Date.parse(b.debut) - Date.parse(a.debut); });
+        for (var i = 0; i < liste.length; i++) {
+          var g = liste[i], gs = gestesDe[g.id] || [];
+          var annulee = gs.some(function (q) { return q && q.geste === 'chauffes_annulees' && q.slug === slug; });
+          var ajoutee = gs.some(function (q) { return q && (q.geste === 'chauffes_ajoutees' || q.geste === 'chauffes_auto') && q.slug === slug; }) ||
+            g.series.some(function (x) { return Modele.typeDe(x) === 'echauffement'; });
+          if (!ajoutee || annulee) break;
+          n++;
+        }
+        sortie[slug] = n;
+      });
+      return sortie;
+    }
+
     // 197 (MOTEUR §9.36) — LA SEMAINE « FORME ET SANTÉ » (lundi au jour compris) : un FAIT, jamais un reproche.
     //   · le renforcement : les jours de la semaine qui ont une séance de musculation (`Semaine.estSeanceDeMusculation`) ;
     //   · le cardio : les minutes des séries de travail des exercices de nature `cardio` (durée), l'intense comptant double. L'intensité est
@@ -2241,6 +2267,7 @@
 
     return {
       activiteDeLaVeille: activiteDeLaVeille,
+      chauffesAjoutees: chauffesAjoutees,
       semaineDeForme: semaineDeForme,
       joursDeCardioReguliers: joursDeCardioReguliers,
       minutesDeMobiliteParZone: minutesDeMobiliteParZone,

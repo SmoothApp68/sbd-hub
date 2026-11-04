@@ -3,10 +3,11 @@
 //
 //   node tests/banc/tout.js                 npm test + banc des routines + banc du service worker
 //                                           + banc de la création du profil (60-2b)
+//                                           + banc de vitesse (231)
 //                                           + banc d'écran de séance (complet, parallèle)
 //   node tests/banc/tout.js --sequentiel    le banc d'écran en séquentiel (la référence)
 //
-// Chacun sur son port, chacun dans son journal ; on attend les cinq, on dit
+// Chacun sur son port, chacun dans son journal ; on attend les six, on dit
 // lequel a échoué et où lire pourquoi. À lancer sur l'état COMMITÉ.
 
 const fs = require('fs');
@@ -39,13 +40,14 @@ if (require.main === module) (async () => {
   await prendre();   // 168 : un seul banc à la fois ; les cinq lancés ici jouent sous ce verrou
   const seq = process.argv.indexOf('--sequentiel') >= 0;
   const debut = Date.now();
-  Promise.all([
+  // 231 : le banc de vitesse MESURE du temps — il joue SEUL d'abord (cinq navigateurs à côté fausseraient la médiane), puis les autres en parallèle.
+  lancer('banc de vitesse', [path.join(__dirname, 'vitesse.js')]).then((v) => Promise.all([
     lancer('npm test', [path.join(RACINE, 'node_modules/jest/bin/jest.js')]),
     lancer('banc des routines', [path.join(__dirname, 'routines-ecran.js')]),
     lancer('banc du service worker', [path.join(__dirname, 'sw-navigation.js')]),
     lancer('banc de la création du profil', [path.join(__dirname, 'profil-creation.js')]),
     lancer('banc d’écran de séance', [path.join(__dirname, 'seance-rapide.js')].concat(seq ? ['--sequentiel'] : []))
-  ]).then((r) => {
+  ]).then((r) => [v].concat(r))).then((r) => {
     console.log('\n══ TOUT (sur l’état commité) ══');
     r.forEach((x) => {
       console.log('   ' + (x.code === 0 ? '✅' : '❌') + ' ' + x.nom + ' · ' + Math.round(x.duree / 1000) + ' s · ' +

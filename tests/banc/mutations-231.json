@@ -1,0 +1,4 @@
+[
+ {"nom":"231-entrees-avant-memo","fichier":"v2/js/app.js","ancien":"    if (!seance) return null;\n    // 229 — LE MÉMO D'ABORD","nouveau":"    if (!seance) return null;\n    entreesDuPlan();\n    // 229 — LE MÉMO D'ABORD","banc":"vitesse"},
+ {"nom":"231-temoin","fichier":"v2/js/app.js","ancien":"    if (!seance) return null;\n    // 229 — LE MÉMO D'ABORD","nouveau":"    if (!seance) return null;\n    // 229 — LE MÉMO D'ABORD","banc":"vitesse","attendu":"survit"}
+]

@@ -402,6 +402,43 @@
     return dansLaListe(OBJECTIFS, v) ? v : null;
   }
 
+
+  // ══ 225 — LES OBJECTIFS EN ENTRETIEN ═════════════════════════════════════════════════════════════════════════════════
+  // `profiles.objectif` reste l'objectif PRINCIPAL (79 lecteurs, aucun ne change). `profiles.objectifs_entretien` (text[], v2_129) en
+  // ajoute jusqu'à trois qu'on ENTRETIENT : 1 à 3 séries dures par semaine, l'intensité gardée (Spiering 2021). UNE seule fonction les
+  // lit — `objectifsDe` : le générateur, le plan et l'écran passent par elle. Jamais le principal ; « Force et muscle » (`les_deux`)
+  // contient déjà force ET muscle. Colonne absente ou illisible : `[]`, rien ne change.
+  var ENTRETIEN_CLES = ['force', 'muscle', 'calisthenie', 'forme'];
+  var ENTRETIEN_MAX = 3;
+  function entretienValide(liste, principal) {
+    var sortie = [];
+    (Array.isArray(liste) ? liste : []).forEach(function (c) {
+      if (typeof c !== 'string' || ENTRETIEN_CLES.indexOf(c) < 0 || sortie.indexOf(c) >= 0) return;
+      if (c === principal) return;
+      if (principal === 'les_deux' && (c === 'force' || c === 'muscle')) return;
+      if (sortie.length < ENTRETIEN_MAX) sortie.push(c);
+    });
+    return sortie;
+  }
+  function objectifsDe(profil) {
+    var p = profil || {};
+    return entretienValide(p.objectifs_entretien, objectifDe(p));
+  }
+  // Les puces proposées sous le principal : les quatre, moins celles que le principal couvre déjà.
+  function optionsEntretien(profil) {
+    var principal = objectifDe(profil);
+    return OBJECTIFS.filter(function (o) { return o.cle !== 'les_deux' && entretienValide([o.cle], principal).length === 1; });
+  }
+  function basculerEntretien(liste, cle, principal) {
+    var l = entretienValide(liste, principal), i = l.indexOf(cle);
+    if (i >= 0) { l.splice(i, 1); return l; }
+    return entretienValide(l.concat([cle]), principal);
+  }
+  function resumeDesEntretiens(profil) {
+    var l = objectifsDe(profil);
+    return l.length ? l.map(function (c) { return libelleDe(OBJECTIFS, c); }).join(', ') : 'Aucun';
+  }
+
   // LE GEL de l'objectif, jumeau de `phaseGelee` : lu UNE fois et gelé pour la
   // séance (MOTEUR §9.16, I40). `gel` : `{ seanceId, objectif }` ou `null` ;
   // `sauvee` : l'objectif gelé relu du disque pour cette séance. ⚠️ `null` est une
@@ -674,7 +711,9 @@
                        // `{ cle: { r: 'oui'|'non', le: 'AAAA-MM-JJ', refus: n } }`. FACULTATIVE (comme `marche_reponses`).
                        'cartes_semaine',
                        // 195 (v2_125, jsonb NULL) — le départ de la calisthénie : `{ tractions, pompes, dips, pistol, le }`. FACULTATIVE.
-                       'depart_calisthenie'];
+                       'depart_calisthenie',
+                       // 225 (v2_129) — les objectifs ENTRETENUS en plus du principal (text[] NULL) ; FACULTATIVE (`COLONNES_FACULTATIVES`).
+                       'objectifs_entretien'];
   // 136 (audit du 16/10, 03 #18) — `onboarding_completed` n'est plus écrite (ni lue) : plus rien ne la décide depuis
   // 60-2a (`questionnaire_fait_le`). La colonne reste en base.
 
@@ -739,6 +778,12 @@
         var dc = src[c];
         if (dc === null) sortie[c] = null;
         else { var dv = departCalisthenieValide(dc); if (dv !== null) sortie[c] = dv; }
+        return;
+      }
+      // 225 — les objectifs en entretien : une liste de clés connues (le CHECK refuserait la ligne ENTIÈRE sinon), au plus 3.
+      if (c === 'objectifs_entretien') {
+        if (src[c] === null) sortie[c] = null;
+        else if (Array.isArray(src[c])) sortie[c] = entretienValide(src[c], src.objectif);
         return;
       }
       // 131 — les refus de « Ce qui manque » : une liste de « slug:colonne », jamais autre chose.
@@ -819,7 +864,7 @@
     duree_seance_min: 'Durée d’une séance', objectif: 'But d’entraînement', priorites: 'Priorités', temps_reponse: 'Ton temps',
     historique_declare: 'Historique', programme_choix: 'Ton programme', zones_a_menager: 'Zone à ménager', zones_raides: 'Zones raides',
     exercices_ecartes: 'Exercices écartés', jeu_actif: 'Le jeu', compte_prive: 'Compte privé', ma_salle: 'Ma salle',
-    marche_reponses: 'Marche suivante', completer_refus: 'Ce qui manque à tes séances', assistant_accord_a: 'Demander au coach', cartes_semaine: 'Les cartes de ta semaine'
+    marche_reponses: 'Marche suivante', completer_refus: 'Ce qui manque à tes séances', assistant_accord_a: 'Demander au coach', cartes_semaine: 'Les cartes de ta semaine', objectifs_entretien: 'Objectifs en entretien'
   };
   // « Pas enregistré : Bio. La base a refusé cette valeur ; celle d'avant est gardée. » — `null` sans colonne.
   function phraseRefusProfil(colonnes) {
@@ -898,7 +943,7 @@
   var OBJECTIFS = [
     { cle: 'force', libelle: 'Force' },
     { cle: 'muscle', libelle: 'Muscle' },
-    { cle: 'les_deux', libelle: 'Les deux' },
+    { cle: 'les_deux', libelle: 'Force et muscle' },   // 225 : « Les deux » se lit « Force et muscle » (la clé de la base ne change pas)
     { cle: 'forme', libelle: 'Forme et santé' },
     { cle: 'calisthenie', libelle: 'Calisthénie' }   // 195 (v2_125)
   ];
@@ -1195,6 +1240,18 @@
       sortie.objectif = e.objectif;
       sortie.objectif_depuis = quand;
     }
+    // 225 — les objectifs en entretien : jamais le principal. Un principal qui change retire de la liste ce qu'il couvre désormais
+    // (sinon le CHECK `profiles_objectifs_entretien_ok` refuserait la ligne entière) ; la liste n'est écrite que si elle change.
+    if (e.objectifs_entretien !== undefined || sortie.objectif !== undefined) {
+      var prin = sortie.objectif !== undefined ? sortie.objectif : p.objectif;
+      var brut = e.objectifs_entretien !== undefined ? e.objectifs_entretien : p.objectifs_entretien;
+      if (Array.isArray(brut)) {
+        var net = entretienValide(brut, prin);
+        var avant225 = Array.isArray(p.objectifs_entretien) ? p.objectifs_entretien : null;
+        // « Aucun » n'est pas une réponse à écrire quand rien n'était écrit : le questionnaire ne pose pas un `[]` de plus.
+        if (!memeListe(net, avant225) && !(net.length === 0 && avant225 === null)) sortie.objectifs_entretien = net;
+      }
+    }
 
     // « Je ne sais pas » (`'inconnue'`) écrit le VIDE (60-2c) : la colonne reste NULL, le coach
     // la compte « maintien » (`phaseDe`) et le rappel de phase ne la voit pas. Le vide se compare
@@ -1271,6 +1328,9 @@
       lignes: [
         { libelle: 'But d’entraînement', valeur: libelleDe(OBJECTIFS, p.objectif),
           surChoix: function () { ouvrir('objectif'); } },
+        // 225 — ce que j'entretiens en plus (1 à 3 séries dures par semaine, intensité gardée).
+        { libelle: 'Objectifs en entretien', valeur: resumeDesEntretiens(p),
+          surChoix: function () { ouvrir('entretien'); } },
         { libelle: 'Priorités', valeur: resumeDesPriorites(p.priorites),
           surChoix: function () { ouvrir('priorites'); } }
       ]
@@ -1284,6 +1344,8 @@
   //   · Ton temps : une sous-ligne par réponse, et seulement pour celles que quelque chose
   //     lit en séance — « C'est mon maximum » et « J'ai de la marge » n'ont pas de phrase.
   var AIDE_OBJECTIF = 'Il choisit la zone de ton premier bloc de programme : Lourd pour la force, Mix pour le muscle.';
+  // 225 — ce que le coach fait d'un objectif en entretien (une phrase sous le titre de la feuille ; la voix : un fait, au tu).
+  var AIDE_ENTRETIEN = 'Jusqu’à trois objectifs en plus du principal : une à trois séries dures par semaine pour les garder, à la même intensité. Jamais un bloc de programme pour eux.';
   var AIDE_PRIORITES = 'Un exercice prioritaire est coché d’office dans un programme. Un muscle prioritaire peut ' +
     'recevoir une série de plus jusqu’à ton plus haut volume, hors sèche.';
   var AIDE_TEMPS = {
@@ -2405,6 +2467,8 @@
     statsDe: statsDe,
     libelleAnciennete: libelleAnciennete,
     manquants: manquants,
+    objectifsDe: objectifsDe, entretienValide: entretienValide, optionsEntretien: optionsEntretien, basculerEntretien: basculerEntretien,
+    resumeDesEntretiens: resumeDesEntretiens, ENTRETIEN_MAX: ENTRETIEN_MAX, AIDE_ENTRETIEN: AIDE_ENTRETIEN,
     departCalisthenieValide: departCalisthenieValide, OBJECTIFS: OBJECTIFS, TEMPS_REPONSES: TEMPS_REPONSES, HISTORIQUES: HISTORIQUES, PROGRAMMES: PROGRAMMES,
     ZONES_A_MENAGER: ZONES_A_MENAGER, zonesAMenagerValides: zonesAMenagerValides, basculerZone: basculerZone,
     ZONES_RAIDES: ZONES_RAIDES, zonesRaidesValides: zonesRaidesValides, basculerZoneRaide: basculerZoneRaide,

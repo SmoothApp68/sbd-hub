@@ -1,0 +1,6 @@
+[
+ {"nom": "225-veille-sur-habitude", "fichier": "v2/js/plan.js", "ancien": "    if (!a || typeof a !== 'object' || !a.slug) return null;\n    return Moteur().veilleActivite({", "nouveau": "    if (!a || typeof a !== 'object') a = { slug: 'football' };\n    return Moteur().veilleActivite({", "banc": "aucun", "unitaires": ["tests/unit/v2-activites-225.test.js"]},
+ {"nom": "225-garder-pas-respecte", "fichier": "v2/js/moteur.js", "ancien": "    if (x.muet === true || x.choix === 'mix' || x.choix === 'garder') return null;", "nouveau": "    if (x.muet === true || x.choix === 'mix') return null;", "banc": "aucun", "unitaires": ["tests/unit/v2-activites-225.test.js"]},
+ {"nom": "225-entretien-le-principal", "fichier": "v2/js/profil.js", "ancien": "      if (c === principal) return;\n", "nouveau": "", "banc": "aucun", "unitaires": ["tests/unit/v2-objectifs-entretien.test.js"]},
+ {"nom": "225-temoin-intensite", "fichier": "v2/js/moteur.js", "ancien": "    { cle: 'legere', libelle: 'Légère' }, { cle: 'moyenne', libelle: 'Moyenne' }, { cle: 'intense', libelle: 'Intense' }]);", "nouveau": "    { cle: 'legere', libelle: 'Légère' },{ cle: 'moyenne', libelle: 'Moyenne' },{ cle: 'intense', libelle: 'Intense' }]);", "attendu": "survit", "banc": "aucun", "unitaires": ["tests/unit/v2-activites-225.test.js"]}
+]

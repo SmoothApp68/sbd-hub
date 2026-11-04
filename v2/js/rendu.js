@@ -81,6 +81,11 @@
   // 133 (ECRAN-SAISIE §3 ter.4, 133b) — une séance sans série de musculation qui n'est pas une sortie (des étirements
   // seuls, depuis qu'un étirement n'est plus une sortie) se résume par ses exercices et sa durée, jamais « 0 série ».
   function metaDeSeance(r) {
+    // 225 — une activité notée se dit « Activité · intense » devant sa distance et sa durée.
+    if (r.activite) {
+      var mot = { legere: 'légère', moyenne: 'moyenne', intense: 'intense' }[r.activite.intensite] || null;
+      return [mot ? 'Activité ' + mot : 'Activité', resumeSortie(r)].filter(Boolean).join(' \u00b7 ');
+    }
     if (r.estSortie) return resumeSortie(r);
     var exos = r.nbExercices + ' exercice' + (r.nbExercices > 1 ? 's' : '');
     if (!r.nbSeriesTravail) return [exos, M().formatDuree(r.dureeTotale)].filter(Boolean).join(' · ');
@@ -3143,6 +3148,9 @@
     }
     // 194-1 (MOTEUR §9.31) — la préparation avant la séance, en mouvement seulement : lue sur le plan, jamais calculée ici.
     var mob = !vue.modifier && typeof vue.propositionMobilite === 'function' ? vue.propositionMobilite() : null;
+    // 225 (MOTEUR §9.40) — la veille d'une activité dure : UNE carte, lue sur le plan (« … en Mix aujourd'hui » / « Garder le plan »).
+    var veille = !vue.modifier && typeof vue.propositionVeille === 'function' ? vue.propositionVeille() : null;
+    if (veille) cible.appendChild(carteDeVeille(veille, vue));
     if (mob && mob.avant) cible.appendChild(carteDeMobilite(mob.avant, 'avant', vue));
     blocs.forEach(function (bloc, iBloc) {
       // §5.3 — le mode Modifier replie TOUT sur une ligne par bloc. Deux
@@ -3153,6 +3161,20 @@
         : rendreBlocSaisie(bloc, iBloc, vue));
     });
     if (mob && mob.fin) cible.appendChild(carteDeMobilite(mob.fin, 'fin', vue));
+  }
+
+  function carteDeVeille(v, vue) {
+    var n = el('section', 'carte-mobilite carte-veille');
+    n.setAttribute('data-veille', v.slug);
+    n.appendChild(propositionDExercice({
+      classe: 'proposition-veille', texte: v.phrase, oui: v.boutons.mix, non: v.boutons.garder,
+      surOui: function () { vue.surVeille('mix'); }, surNon: function () { vue.surVeille('garder'); }
+    }, -1));
+    var det = el('details', 'cm-pourquoi');
+    det.appendChild(el('summary', null, 'Pourquoi\u00a0?'));
+    det.appendChild(el('p', null, v.pourquoi));
+    n.appendChild(det);
+    return n;
   }
 
   // 194-1 — LA CARTE DU BLOC DE MOBILITÉ (maquette-mobilite-v1) : le titre, les exercices avec leurs séries et leurs tenues, la consigne,
@@ -6766,6 +6788,7 @@
         sv.addEventListener('click', v.surSeanceVide);
         vide.appendChild(sv);
       }
+      if (v.surActivite) vide.appendChild(boutonActivite(v));
       cible.appendChild(vide);
       // 118 — même sans aucune routine, un programme en cours garde son dossier, son badge et « Arrêter ».
       programmesOrphelins(null, v).forEach(function (d) {
@@ -6830,6 +6853,15 @@
       vide2.addEventListener('click', v.surSeanceVide);
       cible.appendChild(vide2);
     }
+    // 225 — à côté de « Séance vide » : une activité notée (un sport), sans exercice à saisir.
+    if (!v.reorganiser && v.surActivite) cible.appendChild(boutonActivite(v));
+  }
+
+  function boutonActivite(v) {
+    var b = el('button', 'discret bloc-large activite-ajout', 'Ajouter une activité');
+    b.type = 'button';
+    b.addEventListener('click', v.surActivite);
+    return b;
   }
 
   // L'en-tête d'un dossier de la bibliothèque : son nom (repliable), et le badge du bloc À LA PLACE du compte, à
@@ -8101,6 +8133,44 @@
     piedFeuille(cible, [
       { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler },
       { classe: 'pri', texte: 'Valider', surClic: vue.surValider }
+    ]);
+    return cible;
+  }
+
+  // 225 — « AJOUTER UNE ACTIVITÉ » : le sport (une liste fermée), la durée en minutes, l'intensité (trois puces), la distance
+  // facultative quand le sport se mesure aussi en distance. La feuille ne décide rien : `vue` = { sports: [{ cle, libelle, distance }],
+  // sport, minutes, km, intensite, intensites (THMoteur.ACTIVITE_INTENSITES), erreur, surSport(cle), surSaisie(cle, texte),
+  // surIntensite(cle), surEnregistrer(), surAnnuler() } ; une saisie ne redessine pas (le clavier reste), un sport ou une intensité si.
+  function rendreFeuilleActivite(cible, vue) {
+    vider(cible);
+    teteFeuille(cible, 'Ajouter une activité', null, vue.aide);
+    var env = el('label', 'champ-texte activite-sport');
+    env.appendChild(el('span', '', 'Le sport'));
+    var sel = doc.createElement('select');
+    sel.className = 'activite-select';
+    var vide = doc.createElement('option');
+    vide.value = ''; vide.textContent = 'Choisis un sport';
+    sel.appendChild(vide);
+    (vue.sports || []).forEach(function (s) {
+      var o = doc.createElement('option');
+      o.value = s.cle; o.textContent = s.libelle;
+      if (s.cle === vue.sport) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', function () { vue.surSport(sel.value || null); });
+    env.appendChild(sel);
+    cible.appendChild(env);
+    var sport = (vue.sports || []).filter(function (s) { return s.cle === vue.sport; })[0];
+    var champs = [{ cle: 'minutes', libelle: 'Durée', unite: 'min', mode: 'numeric', valeur: vue.minutes, erreur: null }];
+    if (sport && sport.distance) champs.push({ cle: 'km', libelle: 'Distance (facultatif)', unite: 'km', mode: 'decimal', valeur: vue.km, erreur: null });
+    cible.appendChild(blocChamps({ champs: champs }, { surSaisie: vue.surSaisie }));
+    cible.appendChild(el('div', 'choix-groupe', 'Intensité'));
+    cible.appendChild(blocPuces({ cle: 'intensite', valeur: vue.intensite, options: vue.intensites || [] },
+      { surChoix: function (cle, v) { vue.surIntensite(v); } }));
+    cible.appendChild(el('p', 'feuille-err', vue.erreur || ''));
+    piedFeuille(cible, [
+      { classe: 'sec', texte: 'Annuler', surClic: vue.surAnnuler },
+      { classe: 'pri', texte: 'Enregistrer', surClic: vue.surEnregistrer }
     ]);
     return cible;
   }
@@ -10231,6 +10301,8 @@
     rendreFeuilleChoix: rendreFeuilleChoix,
     rendreFeuilleCommentFaire: rendreFeuilleCommentFaire,
     rendreFeuilleChoixMultiple: rendreFeuilleChoixMultiple,
+    rendreFeuilleActivite: rendreFeuilleActivite,
+    carteDeVeille: carteDeVeille,
     rendreFeuilleMot: rendreFeuilleMot,
     rendreFeuilleMots: rendreFeuilleMots, rendreFeuilleMentions: rendreFeuilleMentions,
     rendreFeuilleSaisie: rendreFeuilleSaisie,

@@ -749,9 +749,9 @@ const ALIAS_COMMUNS = [
       'Une routine, c’est une liste d’exercices dans un ordre. Je décide des charges à chaque séance.']),
     JSON.stringify(etatVide && etatVide.phrases));
   // 60-3 (ES §7 quindecies.7) — « Retrouver mes séances qui reviennent », à côté de la création.
-  ok('[54-1] les boutons, dans cet ordre : créer, retrouver ses séances qui reviennent (60-3), depuis une séance passée, séance vide',
+  ok('[54-1] les boutons, dans cet ordre : créer, retrouver ses séances qui reviennent (60-3), depuis une séance passée, séance vide, une activité (225)',
     !!etatVide && JSON.stringify(etatVide.boutons) === JSON.stringify(['Créer une routine',
-      'Retrouver mes séances qui reviennent', 'En faire une depuis une séance passée', 'Ou commencer une séance vide']),
+      'Retrouver mes séances qui reviennent', 'En faire une depuis une séance passée', 'Ou commencer une séance vide', 'Ajouter une activité']),
     JSON.stringify(etatVide && etatVide.boutons));
   await page.click('#liste-routines .depuis-seance');
   await jusqua('vue des séances', () => vueVisible(page, 'vue-liste'));

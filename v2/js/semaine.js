@@ -421,6 +421,21 @@
     return (series || []).some(function (s) { return !!s && estSerieDeMusculation(s, cat[s.exercise_slug]); });
   }
 
+  // 225 — UNE ACTIVITÉ NOTÉE (un sport, une sortie) : une séance dont TOUTES les séries sont celles d'exercices hors salle de nature
+  // cardio (`hors_salle`, `nature`). Elle n'a aucun muscle primaire : `porteDuVolume` est faux, elle ne compte jamais dans le volume par
+  // muscle. Une séance sans série en cache n'en est pas une (on ne dit pas ce qu'on ne sait pas). `index` : le catalogue indexé par slug.
+  function estActivite(series, index) {
+    var cat = index || {}, n = 0;
+    var tout = (series || []).every(function (s) {
+      if (!s) return true;
+      var f = cat[s.exercise_slug];
+      if (!f || f.hors_salle !== true || f.nature !== 'cardio') return false;
+      n++;
+      return true;
+    });
+    return tout && n > 0;
+  }
+
   function bilanSemaine(seances, series, exercices) {
     var ids = new Set((seances || []).map(function (s) { return s && s.id; }));
     var dansLaSemaine = (series || []).filter(function (s) {
@@ -453,6 +468,7 @@
     compteSeriesTravail: compteSeriesTravail,
     estSerieDeMusculation: estSerieDeMusculation,
     estSeanceDeMusculation: estSeanceDeMusculation,
+    estActivite: estActivite,
     exercicesDeMusculation: exercicesDeMusculation,
     bilanSemaine: bilanSemaine
   };

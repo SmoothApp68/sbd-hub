@@ -2203,6 +2203,32 @@
     };
   }
 
+  // 225 — « AJOUTER UNE ACTIVITÉ » : une séance COURTE, faite d'une seule série validée, sur un exercice du catalogue mesuré au temps
+  // (`temps`, `distance_temps`). Les mêmes tables que toute séance (`sessions`, `sets`) : rien de nouveau en base. L'intensité est un RPE
+  // (`THMoteur.ACTIVITE_RPE` : légère 3, moyenne 6, intense 9), la distance facultative est en km. Pure : `options` = { id, userId, slug,
+  // titre, minutes, km, intensite (clé), rpe (nombre, prime sur l'intensité), fin (Date, défaut maintenant), idSerie }. Rend la séance
+  // TERMINÉE, ou `null` si la durée n'est pas un nombre de minutes entre 1 et 1 440 (aucune série sans durée n'est inventée).
+  function activite(options) {
+    var o = options || {};
+    var min = Number(o.minutes);
+    if (!o.slug || !isFinite(min) || min < 1 || min > 1440 || Math.floor(min) !== min) return null;
+    var fin = o.fin instanceof Date ? o.fin : new Date(o.fin || Date.now());
+    var debut = new Date(fin.getTime() - min * 60000);
+    var m = racine.THMoteur;
+    var rpe = o.rpe !== undefined && o.rpe !== null ? Number(o.rpe)
+      : (m && m.ACTIVITE_RPE && Object.prototype.hasOwnProperty.call(m.ACTIVITE_RPE, o.intensite) ? m.ACTIVITE_RPE[o.intensite] : null);
+    var id = o.idSerie || function () { return null; };
+    var s = creer({ id: o.id, userId: o.userId, titre: o.titre || null, debut: debut.toISOString(), routine: null, idSerie: id });
+    s = ajouterExercice(s, o.slug, id, { series: 1 });
+    var champs = { duree_s: min * 60 };
+    var km = o.km === undefined || o.km === null || o.km === '' ? null : Number(o.km);
+    if (km !== null && isFinite(km) && km > 0) champs.distance_km = km;
+    s = modifierSerie(s, 0, 0, champs);
+    if (rpe !== null && isFinite(rpe) && rpe > 0 && rpe <= 10) s = definirEffort(s, 0, 0, { rpe: rpe });
+    s = valider(s, 0, 0, fin);
+    return terminer(s, fin);
+  }
+
   // 193-3 — « JUSTE POUR AUJOURD'HUI » : la zone de plan d'UN exercice de la séance en cours (`null` : Automatique pour la journée). Une
   // copie, jamais en place ; rien n'est écrit en base (ni `sets`, ni `sessions` n'ont de colonne pour elle) : le brouillon de
   // l'appareil la garde jusqu'à la fin de la séance, qui alimente alors la sous-histoire de la zone FAITE. Une zone inconnue
@@ -3299,6 +3325,7 @@
     decrire: decrire,
     ecartsRoutine: ecartsRoutine,
     poserZoneDePlan: poserZoneDePlan,
+    activite: activite,
     avancerTours: avancerTours,
     tourAtteint: tourAtteint,
     normaliserGroupes: normaliserGroupes,

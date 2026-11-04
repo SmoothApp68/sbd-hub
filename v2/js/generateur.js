@@ -621,6 +621,7 @@
       (gabarit[Number(parts[0])][1][Number(parts[1])][1] === 'P' ? zonesP : zonesAutres)[cleDeZone(fiche)] = true;
     });
     Object.keys(zonesP).forEach(function (cle) { if (!possede(zonesAutres, cle)) solo[cle] = true; });
+    var gardees = {};     // 225 — les barres déjà gardées lourdes cette semaine (une grosse série par barre)
     return placerLesJambesLourdes(gabarit.map(function (rt, r) {
       var ex = [];
       rt[1].forEach(function (pl, j) {
@@ -631,6 +632,7 @@
           var kp = ids[spec.lie].split('-');
           motif = gabarit[Number(kp[0])][1][Number(kp[1])][0];
         }
+        if (!spec) spec = specEntretienForce(catalogue, s, motif, pl[1], p, gardees, debutant);
         ex.push(ligne(catalogue, s, motif, pl[1], p, solo, spec));
       });
       // Stable : l'exercice prioritaire d'abord, puis par rôle.
@@ -638,7 +640,58 @@
         return (x.prioritaire ? 0 : 1) - (y.prioritaire ? 0 : 1) || ROLES.indexOf(x.role) - ROLES.indexOf(y.role);
       });
       return { nom: rt[0], exercices: marquerAuMax(catalogue, ex, p) };
-    }), p);
+    }), p).map(function (rt, k, tout) { return avecEntretien(catalogue, rt, k, tout.length, p, ok, ecartes); });
+  }
+
+  // ── 225 (MOTEUR §9.38) — LES OBJECTIFS EN ENTRETIEN, au générateur ────────────────────────────────────────────────────────
+  // Un objectif entretenu (`THProfil.objectifsDe`, jamais le principal) n'est ni un bloc ni une famille : 1 à 3 séries dures par semaine,
+  // l'intensité gardée (Spiering 2021 : l'intensité est la variable clé, le volume peut chuter fortement). Trois effets, rien d'autre —
+  //   · FORCE : une grosse série lourde (zone Lourd, 1 × 4) PAR BARRE et par semaine (squat, couché, soulevé), puis ses reculs aux reps du
+  //     principal : la mécanique de la grosse série (193-1, 221), sur la PREMIÈRE place de chaque barre. Sans barre à disposition, rien ;
+  //     débutant (« moins d'un an ») : rien (le geste d'abord) ; Force et Les deux en principal ont déjà leur famille.
+  //   · CALISTHÉNIE : UNE figure de son échelle (195), en tête de la première séance (jamais avec une zone coude ou épaule à ménager).
+  //   · FORME : UNE séance de cardio facile en fin de la dernière séance de la semaine (l'OMS compte le cardio ; le bloc de mobilité
+  //     de 194 se propose déjà de lui-même pour les zones raides déclarées).
+  // `muscle` en entretien n'ajoute rien : le volume du principal le couvre. Pur : une table et des choix, aucun calcul de charge.
+  var ENTRETIEN_BARRES = ['squat', 'couche', 'charniere'];
+  var ENTRETIEN_GROSSE_REPS = 4;
+  var ENTRETIEN_CARDIO = ['rameur', 'velo_machine', 'velo'];
+  var ENTRETIEN_CARDIO_S = 15 * 60;
+  function specEntretienForce(catalogue, slug, motif, role, p, gardees, debutant) {
+    if (contient(FAMILLE_OBJECTIFS, p.objectif) || p.objectif === 'forme' || debutant) return null;
+    if (!contient(racine.THProfil.objectifsDe(p), 'force') || !contient(ENTRETIEN_BARRES, motif) || possede(gardees, motif)) return null;
+    var fiche = catalogue[slug];
+    if (!fiche || fiche.equipement !== 'barre' || familleDeBarre(slug, catalogue) === null) return null;
+    var r = repsDeObjectif(p.objectif);
+    var n = seriesDe(role, p.objectif), repsRecul = Math.max(r[0], r[1]);
+    if (n < 2 || repsRecul <= ENTRETIEN_GROSSE_REPS) return null;      // une grosse série sans recul à PLUS de reps n'a pas de sens (193-5)
+    gardees[motif] = true;
+    return { zone: 'lourd', n: 1, reps: ENTRETIEN_GROSSE_REPS, reculs: n - 1, repsRecul: repsRecul, lourd: true, entretien: 'force' };
+  }
+  function avecEntretien(catalogue, rt, k, total, p, ok, ecartes) {
+    var objs = racine.THProfil.objectifsDe(p);
+    if (!objs.length || p.famille === false) return rt;
+    var ex = liste(rt.exercices).slice();
+    if (contient(objs, 'calisthenie') && k === 0 && p.objectif !== 'calisthenie' &&
+        !liste(p.menager).some(function (z) { return contient(CAL_ZONES_BRAS_TENDUS, z); })) {
+      var figure = figureDeLaPersonne(catalogue, p.faits || {}, ecartes, ok);
+      if (figure && !ex.some(function (l) { return l.exercise_slug === figure.slug; })) {
+        var lf = ligneCalisthenie(catalogue, figure.slug, 'cal_figure', 'T', 2, null);
+        lf.duree_s = figure.echelle_seuil_s || CAL_FIGURE_SECONDES;
+        lf.entretien = 'calisthenie';
+        ex.unshift(lf);
+      }
+    }
+    if (contient(objs, 'forme') && k === total - 1 && p.objectif !== 'forme') {
+      var cardio = ENTRETIEN_CARDIO.filter(function (s) { return possede(catalogue, s) && ok(s) && !contient(ecartes, s); })[0];
+      if (cardio && !ex.some(function (l) { return l.exercise_slug === cardio; })) {
+        var lc = ligneCalisthenie(catalogue, cardio, 'entretien_cardio', 'T', 1, null);
+        lc.duree_s = ENTRETIEN_CARDIO_S;
+        lc.entretien = 'forme';
+        ex.push(lc);
+      }
+    }
+    return Object.assign({}, rt, { exercices: ex });
   }
 
   // ── « Je n'en veux pas » ──────────────────────────────────────────────────────

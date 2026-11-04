@@ -3069,3 +3069,11 @@ button[id^="btn-retour"]{padding:0 14px;font-size:14px}
   font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;box-sizing:border-box}
 .rate-forme,.rate-paris{border-style:solid}
 .rate-forme .pc-texte,.rate-paris .pc-texte{color:var(--texte)}
+
+/* 225 — Ajouter une activité : le sport (une liste fermée), la durée, l'intensité. */
+.activite-select{width:100%;min-height:44px;background:var(--panneau-2);color:var(--texte);border:1px solid var(--trait);border-radius:10px;padding:0 12px}
+.activite-sport{display:block;margin-bottom:var(--e3)}
+.activite-ajout{margin-top:var(--e2)}
+/* 225 : cibles tactiles de la feuille d'activité et de la carte de la veille */
+.activite-sport ~ .q-puces .q-puce,#feuille-contenu .q-puces .q-puce{min-height:44px}
+.carte-veille .pc-ajouter,.carte-veille .pc-refuser,.proposition-veille button{min-height:44px}

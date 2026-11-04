@@ -60,18 +60,18 @@ describe('60-2a — les règles pures du Profil : priorités, sections, ligne du
     const ouverts = [];
     const sec = Profil.sectionBut({ objectif: 'muscle', priorites: ['squat_barre'] }, (c) => ouverts.push(c));
     expect(sec.titre).toBe('TON BUT');
-    expect(sec.lignes.map((l) => [l.libelle, l.valeur])).toEqual([['But d’entraînement', 'Muscle'], ['Priorités', 'Squat']]);
+    expect(sec.lignes.map((l) => [l.libelle, l.valeur])).toEqual([['But d’entraînement', 'Muscle'], ['Objectifs en entretien', 'Aucun'], ['Priorités', 'Squat']]);   // 225 : une ligne de plus
     expect(sec.aide).toBeUndefined();
     expect(sec.note).toBeUndefined();
     expect(sec.lignes.every((l) => l.sous === undefined)).toBe(true);
     sec.lignes.forEach((l) => l.surChoix());
-    expect(ouverts).toEqual(['objectif', 'priorites']);
+    expect(ouverts).toEqual(['objectif', 'entretien', 'priorites']);
   });
 
   test('`sectionBut` sans réponse : les deux lignes sont « à renseigner » (valeur nulle)', () => {
     const sec = Profil.sectionBut({ objectif: null, priorites: null }, () => {});
-    expect(sec.lignes.map((l) => l.valeur)).toEqual([null, null]);
-    expect(Profil.sectionBut(null, () => {}).lignes.map((l) => l.valeur)).toEqual([null, null]);
+    expect(sec.lignes.map((l) => l.valeur)).toEqual([null, 'Aucun', null]);
+    expect(Profil.sectionBut(null, () => {}).lignes.map((l) => l.valeur)).toEqual([null, 'Aucun', null]);
   });
 
   test('`ligneTemps` : « Ton temps », la réponse en toutes lettres, sans phrase', () => {
@@ -125,7 +125,7 @@ describe('60-2a — l’écran Profil : où sont les sections, ce qu’elles ouv
     const e = profilEcran({ id: 'u1', questionnaire_fait_le: '2026-10-07T10:00:00.000Z' });
     e.section('TON BUT').lignes.forEach((l) => l.surChoix());
     e.section('TA SEMAINE').lignes[2].surChoix();
-    expect(e.ouverts).toEqual(['objectif', 'priorites', 'temps_reponse']);
+    expect(e.ouverts).toEqual(['objectif', 'entretien', 'priorites', 'temps_reponse']);
   });
 
   test('⚠️ DISCRIMINANT — « Terminer mon questionnaire » en tête tant que la colonne est vide ; elle ouvre le questionnaire', () => {
@@ -179,7 +179,7 @@ describe('60-2a — les feuilles : une réponse du Profil s’écrit comme celle
     expect(v.titre).toBe('But d’entraînement');
     expect(v.aide).toBe('Il choisit la zone de ton premier bloc de programme : Lourd pour la force, Mix pour le muscle.');
     expect(v.surEffacer).toBe(null);
-    expect(v.options.map((o) => o.libelle)).toEqual(['Force', 'Muscle', 'Les deux', 'Forme et santé', 'Calisthénie']);
+    expect(v.options.map((o) => o.libelle)).toEqual(['Force', 'Muscle', 'Force et muscle', 'Forme et santé', 'Calisthénie']);
     v.surChoix('muscle');
     expect(b.ecrits).toHaveLength(1);
     expect(Object.keys(b.ecrits[0]).sort()).toEqual(['objectif', 'objectif_depuis']);

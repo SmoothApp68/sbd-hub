@@ -132,6 +132,13 @@ describe('niveau 1 — réglage × objectif', () => {
     expect(e.garde).toBe(2);
     expect(e.leviers).not.toContain('rest_pause');
   });
+  test('⚠️ DISCRIMINANT — Prudent en Force, 8 au lieu de 10 (la charge tient) : jamais de rest-pause, alors que Normal le propose', () => {
+    const en = (reglage) => r({ reglage, objectif: 'force', reps: 8, rang: 0, barre: false, materiel: 'machine', peutRestPause: true });
+    expect(en('normal').charge.action).toBe('garde');
+    expect(en('normal').leviers).toContain('rest_pause');
+    expect(en('prudent').charge.action).toBe('garde');
+    expect(en('prudent').leviers).not.toContain('rest_pause');
+  });
   test('Force protège la charge : la grosse série (rang 0) ne baisse pas, le rest-pause passe avant', () => {
     const d = r(Object.assign({ objectif: 'force', rang: 0, peutRestPause: true }, sous));
     expect(d.charge.action).toBe('garde');

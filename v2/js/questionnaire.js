@@ -183,6 +183,7 @@
       taille: nul(p.taille_cm),
       poids: nul(c.poids),
       objectif: nul(p.objectif),
+      entretien: Profil().objectifsDe(p),     // 225 — les objectifs en entretien déjà écrits (`[]` : aucun)
       // 195 — le départ déjà écrit (`depart_calisthenie`) : un chiffre par champ, `null` = pas dit.
       dep_tractions: departDe(p, 'tractions'), dep_pompes: departDe(p, 'pompes'), dep_dips: departDe(p, 'dips'),
       dep_pistol: departDe(p, 'pistol'),
@@ -284,7 +285,7 @@
     else if (id === TOI) {
       entrees = { sexe: r.sexe, annee_naissance: r.annee, taille_cm: r.taille };
       pesee = Poids().peseeAEcrire(c.pesees, r.poids, c.jour);
-    } else if (id === BUT) entrees = { objectif: r.objectif, phase: r.phase };
+    } else if (id === BUT) entrees = { objectif: r.objectif, phase: r.phase, objectifs_entretien: Array.isArray(r.entretien) ? r.entretien : undefined };
     else if (id === DEPART) {
       entrees = { depart_calisthenie: { tractions: r.dep_tractions, pompes: r.dep_pompes, dips: r.dep_dips, pistol: r.dep_pistol } };
     }
@@ -362,6 +363,7 @@
     var r = Object.assign({}, rep);
     if (cle === 'priorite') r.priorites = basculerPriorite(r.priorites, valeur);
     else if (cle === 'aucune') r.priorites = [];
+    else if (cle === 'entretien') r.entretien = Profil().basculerEntretien(r.entretien, valeur, r.objectif);   // 225
     else if (cle === 'zone') r.menager = Profil().basculerZone(r.menager, valeur);
     else if (cle === 'raide') r.raides = Profil().basculerZoneRaide(r.raides, valeur);
     else if (cle === 'duree') {
@@ -383,6 +385,7 @@
       r.barreTraction = b.barre_traction;
     } else if (CHOIX.indexOf(cle) >= 0) {
       r[cle] = valeur;
+      if (cle === 'objectif') r.entretien = Profil().entretienValide(r.entretien, valeur);   // 225 — un principal ne s'entretient pas
       if (cle === 'depuis' || cle === 'notees') synchroniserAnciennete(r);
       if (cle === 'seances') delete r.joursBornes;   // 116 — une puce touchée : la valeur est une réponse
     }
@@ -767,6 +770,9 @@
       voix: null,
       blocs: [
         { type: 'puces', cle: 'objectif', valeur: rep.objectif, options: Profil().OBJECTIFS },
+        // 225 — « Et tu veux garder… ? » : jusqu'à trois objectifs en entretien (1 à 3 séries dures par semaine). Facultatif.
+        { type: 'puces', cle: 'entretien', titre: 'Et tu veux aussi en garder ? Facultatif, trois au plus.', multiple: true,
+          valeurs: Profil().entretienValide(rep.entretien, rep.objectif), options: Profil().optionsEntretien({ objectif: rep.objectif }) },
         { type: 'options', cle: 'phase', titre: 'Et en ce moment, côté alimentation ?',
           valeur: rep.phase, options: avecSous(Profil().PHASES, SOUS_PHASE) }
       ]

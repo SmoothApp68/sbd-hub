@@ -11249,6 +11249,56 @@
   var FORME_RENFORCEMENT_CIBLE = 2, FORME_CARDIO_CIBLE_MIN = 150, FORME_INTENSE_FACTEUR = 2;
   // Une série de cardio est INTENSE à partir de ce RPE (convention de l'app : aucune donnée publiée ne la fixe) — lue par la semaine (197) et par le cardio régulier (199).
   var CARDIO_RPE_INTENSE = 8;
+  // ── 225 (MOTEUR §9.40) — LES ACTIVITÉS NOTÉES ET LA VEILLE DES JAMBES LOURDES ────────────────────────────────────────────────
+  // Une activité notée (un sport : `Semaine.estActivite`) est une séance courte : un exercice hors salle, une durée, une distance
+  // facultative, une intensité dans `sets.rpe` (légère 3 · moyenne 6 · intense 9 : la même colonne et la même borne que le cardio
+  // intense, `CARDIO_RPE_INTENSE`). Elle ne compte jamais dans le volume par muscle (aucun muscle primaire).
+  var ACTIVITE_RPE = Object.freeze({ legere: 3, moyenne: 6, intense: 9 });
+  var ACTIVITE_INTENSITES = Object.freeze([
+    { cle: 'legere', libelle: 'Légère' }, { cle: 'moyenne', libelle: 'Moyenne' }, { cle: 'intense', libelle: 'Intense' }]);
+  // L'intensité d'une activité, lue sur le plus haut RPE de ses séries de travail : `null` sans RPE.
+  function intensiteDActivite(series) {
+    var max = null;
+    (series || []).forEach(function (x) {
+      var r = x && Number(x.rpe);
+      if (r > 0 && (max === null || r > max)) max = r;
+    });
+    if (max === null) return null;
+    return max >= CARDIO_RPE_INTENSE ? 'intense' : max > ACTIVITE_RPE.legere + 1 ? 'moyenne' : 'legere';
+  }
+  // Les activités qui chargent les jambes — UNE table, explicite. `wilson` : la course réduit les gains de force et de muscle, pas le
+  // vélo (Wilson et coll. 2012, 21 études) ; `coachs` : un jugement de pratique (impacts, sauts, appuis), PAS une source — dit comme tel.
+  // Le vélo, la natation, l'escalade, la boxe, la danse n'y sont pas : rien ne les range parmi les efforts qui coûtent aux jambes.
+  var ACTIVITES_JAMBES = Object.freeze({
+    course_a_pieds: 'wilson', trail: 'wilson', football: 'coachs', basket: 'coachs',
+    handball: 'coachs', rugby: 'coachs', volleyball: 'coachs', tennis: 'coachs', badminton: 'coachs', padel: 'coachs', squash: 'coachs',
+    roller: 'coachs'
+  });
+  function activiteChargeLesJambes(slug) { return Object.prototype.hasOwnProperty.call(ACTIVITES_JAMBES, slug) ? ACTIVITES_JAMBES[slug] : null; }
+  var VEILLE_CONVENTION = 'Garder les jambes lourdes pour le lendemain d\u2019un effort dur est une convention de coachs, pas une règle prouvée : ' +
+    'les études ne trouvent pas de perte de force ou de muscle à mélanger les deux (Schumann 2022).';
+  var VEILLE_COURSE = 'Courir réduit un peu les gains de force et de muscle, pas le vélo (Wilson 2012).';
+  // La proposition de la veille (§9.40) : UNE fois, pour UN exercice. `e` : { activite: { slug, nom, intense } | null, jambes: [{ slug, nom }]
+  // (les barres de jambes en zone Lourd ce jour-là, dans l'ordre de la séance), choix: 'mix' | 'garder' | null (la réponse, une fois
+  // donnée), muet: Édition ou « Juste un carnet » }. Rend `null` ou { slug, nom, activite, boutons, phrase, pourquoi, source }.
+  function veilleActivite(e) {
+    var x = e || {};
+    if (x.muet === true || x.choix === 'mix' || x.choix === 'garder') return null;
+    var a = x.activite;
+    if (!a || a.intense !== true || !activiteChargeLesJambes(a.slug)) return null;
+    var j = (x.jambes || [])[0];
+    if (!j || !j.slug) return null;
+    var nomEx = j.nom || 'Squat';
+    var nomAct = a.nom || a.slug;
+    return {
+      slug: j.slug, nom: nomEx, activite: a.slug, nomActivite: nomAct,
+      boutons: { mix: nomEx + ' en Mix aujourd\u2019hui', garder: 'Garder le plan' },
+      phrase: 'Hier : ' + String(nomAct).toLowerCase() + ', intense. ' + nomEx + ' est prévu en Lourd.',
+      pourquoi: VEILLE_CONVENTION + (activiteChargeLesJambes(a.slug) === 'wilson' ? ' ' + VEILLE_COURSE : ''),
+      source: activiteChargeLesJambes(a.slug)
+    };
+  }
+
   // 65 ans et plus : la MÊME borne que la prudence de montée (`AGE_PLAFOND_BAS`). `null` : l'âge est inconnu, rien n'est deviné.
   function plusDe65Ans(age) {
     var a = nombre(age);
@@ -11433,6 +11483,9 @@
   var api = {
     // 197 (§9.36) — forme et santé.
     FORME_RENFORCEMENT_CIBLE: FORME_RENFORCEMENT_CIBLE, FORME_CARDIO_CIBLE_MIN: FORME_CARDIO_CIBLE_MIN, FORME_INTENSE_FACTEUR: FORME_INTENSE_FACTEUR, CARDIO_RPE_INTENSE: CARDIO_RPE_INTENSE,
+    // 225 (§9.40) — les activités notées et la veille des jambes lourdes.
+    ACTIVITE_RPE: ACTIVITE_RPE, ACTIVITE_INTENSITES: ACTIVITE_INTENSITES, intensiteDActivite: intensiteDActivite,
+    ACTIVITES_JAMBES: ACTIVITES_JAMBES, activiteChargeLesJambes: activiteChargeLesJambes, veilleActivite: veilleActivite,
     FORME_PUISSANCE_PHRASE: FORME_PUISSANCE_PHRASE, FORME_PUISSANCE_POURQUOI: FORME_PUISSANCE_POURQUOI, FORME_DOULEUR_PHRASE: FORME_DOULEUR_PHRASE,
     FORME_REPERES_PHRASE: FORME_REPERES_PHRASE, plusDe65Ans: plusDe65Ans, exerciceDePuissance: exerciceDePuissance,
     // 194-1 (§9.31) — la mobilité en fin de séance : une table, un bloc, des phrases.

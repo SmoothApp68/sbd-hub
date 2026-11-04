@@ -22257,9 +22257,10 @@ const SETS_IMPORTES = [
     // ── D. RIEN N'EST ÉCRIT : deux affichages (le sommaire, la page, puis un rechargement de la page).
     await aller('/progression/parcours');
     const phraseRecharge = await page.evaluate(() => (document.querySelector('#parcours .pc-phrase') || {}).textContent);
+    const fileApres = await file();
     ok('[P75] DISCRIMINANT — rien n’est écrit : les requêtes d’écriture et la file sont identiques après deux affichages',
-      ecritures() === ecrituresAvant && (await file()) === fileAvant && sp(phraseRecharge) === PHRASE,
-      JSON.stringify([ecrituresAvant, ecritures(), sp(phraseRecharge)]));
+      ecritures() === ecrituresAvant && fileApres === fileAvant && sp(phraseRecharge) === PHRASE,
+      JSON.stringify([ecrituresAvant, ecritures(), sp(phraseRecharge), fileAvant === fileApres ? 'file identique' : { avant: fileAvant.slice(0, 600), apres: fileApres.slice(0, 600) }]));
 
     // ── E. « TOUS TES EXERCICES » : UN EXERCICE OUVRE SA PAGE PAR LA PORTE COMMUNE.
     await page.click('#parcours .pc-tous summary');

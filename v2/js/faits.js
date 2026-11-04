@@ -2181,7 +2181,31 @@
       return { jours: jours, semaines: reguliers };
     }
 
+    // 225 (MOTEUR §9.40) — L'ACTIVITÉ NOTÉE DE LA VEILLE : un FAIT lu dans les séances (jamais une habitude déclarée). La veille civile de
+    // `jour` porte une séance qui est une activité (`Semaine.estActivite`), intense (`Moteur.intensiteDActivite`) et dont le sport charge
+    // les jambes (`Moteur.activiteChargeLesJambes`) ? Rend `{ seanceId, slug, nom, jour }`, sinon `null`. La plus récente des séances de
+    // la veille ; une séance en cours n'en est pas une.
+    function activiteDeLaVeille(c, jour) {
+      var J = Moteur.jourCivil(jour);
+      if (!J) return null;
+      var veille = Moteur.jourCivil(new Date(new Date(J + 'T12:00:00').getTime() - 24 * 3600 * 1000));
+      var index = (c.catalogue && c.catalogue()) || {}, trouvee = null;
+      (c.seances || []).forEach(function (s) {
+        if (!s || !s.debut || s.statut === 'en_cours' || jourDeLaSeance(s.debut) !== veille) return;
+        var series = (c.seriesDe ? c.seriesDe(s.id) : []) || [];
+        if (!Semaine.estActivite(series, index) || Moteur.intensiteDActivite(series.filter(Modele.estTravail)) !== 'intense') return;
+        var slug = null;
+        series.forEach(function (x) { if (!slug && Moteur.activiteChargeLesJambes(x.exercise_slug)) slug = x.exercise_slug; });
+        if (!slug || (trouvee && String(trouvee.debut) > String(s.debut))) return;
+        trouvee = { seanceId: s.id, slug: slug, nom: (index[slug] && index[slug].nom) || null, jour: veille, debut: s.debut };
+      });
+      if (!trouvee) return null;
+      delete trouvee.debut;
+      return trouvee;
+    }
+
     return {
+      activiteDeLaVeille: activiteDeLaVeille,
       semaineDeForme: semaineDeForme,
       joursDeCardioReguliers: joursDeCardioReguliers,
       minutesDeMobiliteParZone: minutesDeMobiliteParZone,

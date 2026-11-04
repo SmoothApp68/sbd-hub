@@ -3043,8 +3043,20 @@
       var rp = pris.getBoundingClientRect();
       depart = rp.top + rp.height / 2;
       pris.style.transform = 'translateY(' + (e.clientY - depart) + 'px)';
-      try { pris.setPointerCapture(e.pointerId); } catch (x) { /* souris de banc */ }
+      // Le suivi se fait sur le DOCUMENT : un rendu de la séance pendant le geste remplace les cartes (la prise n'est plus dans la
+      // page) et le lâcher doit quand même arriver.
+      doc.addEventListener('pointermove', suivre, true);
+      doc.addEventListener('pointerup', fin, true);
+      doc.addEventListener('pointercancel', annulerFin, true);
     }
+    function suivre(e) {
+      if (!pris) return;
+      e.preventDefault();
+      pris.style.transform = 'translateY(' + (e.clientY - depart) + 'px)';
+      viser(e.clientY);
+    }
+    function fin() { if (pris) lacher(false); }
+    function annulerFin() { if (pris) lacher(true); }
     function marquer(n, qui) {
       ['cible-avant', 'cible-apres'].forEach(function (c) { n.classList.remove(c); });
       if (qui) n.classList.add(qui);
@@ -3067,6 +3079,10 @@
     function lacher(annule) {
       annulerMinuteur();
       var c = cand, v = visee, p = pris;
+      doc.removeEventListener('pointermove', suivre, true);
+      doc.removeEventListener('pointerup', fin, true);
+      doc.removeEventListener('pointercancel', annulerFin, true);
+      cible.classList.remove('en-deplacement');
       cand = null; pris = null; visee = null;
       soeurs.forEach(function (n) { marquer(n, null); });
       soeurs = [];

@@ -6373,7 +6373,21 @@
     }).map(function (c) { return { debut: c.debut, fin: c.fin }; })
       // §9.22 (53-2) — et les décharges planifiées : leurs séances, comme
       // celles d'une semaine allégée, ne sont ni comptées ni jugées.
-      .concat(Moteur.periodesDecharge(local.blocs, finsAllegeesConnues()));
+      .concat(Moteur.periodesDecharge(local.blocs, finsAllegeesConnues()))
+      // 236 (MOTEUR §9.39) — une séance « ajustée à la forme du jour » (terminée) est neutre pour la suite, comme une séance allégée :
+      // ni compteur d'escalier, ni référence de consigne, ni stagnation. La séance ouverte n'en fait pas partie (elle ne s'allège pas elle-même).
+      .concat(seancesAjusteesALaForme().map(function (x) {
+        var j = Moteur.jourCivil(x.debut);
+        return j ? { debut: j, fin: j } : null;
+      }).filter(Boolean));
+  }
+
+  // Les séances terminées dont le geste `forme_ajustee` est noté (`sessions.gestes`) : la lecture unique de l'exemption de stagnation.
+  function seancesAjusteesALaForme() {
+    return (local.seances || []).filter(function (x) {
+      return x && x.id && (!seance || x.id !== seance.id) && Array.isArray(x.gestes) &&
+        x.gestes.some(function (g) { return g && g.geste === 'forme_ajustee'; });
+    });
   }
 
   // Les séries de travail d'un exercice dans la séance ouverte : à l'ouverture,
@@ -7235,7 +7249,7 @@
   function parisRatesDesEntrees() {
     if (!seance) return {};
     var cle = seance.id + '|' + (local.predictions || []).length + '|' + (local.parisLegers || []).length + '|' + (local.seances || []).length;
-    if (parisRatesMemo.cle !== cle) parisRatesMemo = { cle: cle, val: faits.parisRatesALaSuite(parisDeConsigneConnus(), seance.id) };
+    if (parisRatesMemo.cle !== cle) parisRatesMemo = { cle: cle, val: faits.parisRatesALaSuite(parisDeConsigneConnus(), seance.id, seancesAjusteesALaForme().map(function (x) { return x.id; })) };
     return parisRatesMemo.val;
   }
   // 236 — la salle de cette séance n'est pas celle où l'on s'entraîne d'habitude (la plus fréquente, au moins 3 séances). La salle se

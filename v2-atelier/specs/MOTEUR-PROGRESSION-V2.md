@@ -1969,6 +1969,8 @@ Sur une **barre** (squat, couché, militaire — `familleDeBarre`), la consigne 
 
 **Invariants.** I115 au plus une phrase de réaction par série validée, et seulement sous la dernière série validée de l'exercice · I116 jamais une charge baissée sans geste : la ligne garde sa charge tant que « Prendre X kg » n'a pas été touché · I117 « Garder le plan » respecté : la carte de la forme du jour ne revient pas dans la séance · I118 aucune réaction en Entretenir, décharge, semaine de test, calage, « J'ai mal » · I119 la fourchette contient les reps faites et sa borne basse ne dépasse pas la haute · I120 jamais d'« Au max » après un échec franc ni après « Ajuster la fin » · I121 la carte de la forme du jour : au plus une, jamais avec moins de 2 exercices flanchants parmi les 3 derniers · I122 la proposition « un cran dessous » est le palier ou en dessous, jamais plus lourde que la charge du pari raté.
 
+**Exemption de stagnation (complément du 04/11/2026).** Une séance terminée dont `sessions.gestes` porte `forme_ajustee` est NEUTRE pour la suite, comme une séance allégée : `periodesAllegees()` (`app.js`) y ajoute son jour, donc ni le compteur d'escalier, ni la référence de consigne, ni la stagnation ne la lisent (I59, I60 les gardent) ; `faits.parisRatesALaSuite` l'ignore aussi (« un cran dessous » ne compte pas ses paris). La séance ouverte n'en fait pas partie. Limite : le neutre porte sur le jour civil.
+
 ## 10. L'incrément
 
 ### 10.1 Règle

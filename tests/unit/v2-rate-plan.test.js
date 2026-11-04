@@ -177,3 +177,28 @@ describe('paris ratés à la suite', () => {
     q.exercices[2].lignes.forEach((l) => expect(l.charge).toBe(92.5));
   });
 });
+
+// ── L'exemption : une séance « ajustée à la forme du jour » ne compte pas comme stagnation pour la suite ──
+describe('236 — séance ajustée à la forme du jour : neutre pour la suite', () => {
+  const Faits = require('../../v2/js/faits.js').creer();
+  const fs = require('fs');
+  const paris = (seance, date) => [
+    { exercice: 'rowing', seance, date, predite: 10, observee: 8, charge: 93 },
+    { exercice: 'rowing', seance, date, predite: 10, observee: 8, charge: 93 }
+  ];
+  const tous = paris('A', '2026-11-01T10:00:00Z').concat(paris('B', '2026-11-03T10:00:00Z'));
+
+  test('deux séances ratées de suite : le compte est 2 ; la 2e ajustée à la forme, il retombe à 1', () => {
+    expect(Faits.parisRatesALaSuite(tous, 'S').rowing.n).toBe(2);
+    expect(Faits.parisRatesALaSuite(tous, 'S', ['B']).rowing.n).toBe(1);
+  });
+  test('les deux ajustées : plus aucun pari raté à la suite', () => {
+    expect(Faits.parisRatesALaSuite(tous, 'S', ['A', 'B'])).toEqual({});
+  });
+  test('⚠️ DISCRIMINANT — l\'app lit le geste `forme_ajustee` dans les périodes allégées (le fil de la stagnation et des compteurs)', () => {
+    const app = fs.readFileSync(require('path').join(__dirname, '../../v2/js/app.js'), 'utf8');
+    const corps = app.slice(app.indexOf('function periodesAllegees()'), app.indexOf('function seancesAjusteesALaForme()'));
+    expect(corps).toMatch(/seancesAjusteesALaForme\(\)/);
+    expect(app).toMatch(/g\.geste === 'forme_ajustee'/);
+  });
+});

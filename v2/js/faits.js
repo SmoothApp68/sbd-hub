@@ -629,10 +629,11 @@
     // sur cet exercice sont tombés sous leur prédiction. `paris` : `[{ seance, date, exercice, predite, observee, charge }]` (les paris de
     // consigne observés, `app.js` `parisDeConsigneConnus`) ; `saufSeance` : la séance en cours, jamais comptée. Rend `{ [slug]: { n, charge, reps } }`,
     // seulement les exercices à `n` ≥ 1. La règle (à partir de 2) est au moteur (`reactionAuRate`, niveau `paris`) : ici, des faits.
-    function parisRatesALaSuite(paris, saufSeance) {
+    function parisRatesALaSuite(paris, saufSeance, seancesNeutres) {
+      var neutres = Array.isArray(seancesNeutres) ? seancesNeutres : [];
       var parExo = {};
       (paris || []).forEach(function (q) {
-        if (!q || !q.exercice || !q.seance || q.seance === saufSeance || !q.date) return;
+        if (!q || !q.exercice || !q.seance || q.seance === saufSeance || !q.date || neutres.indexOf(q.seance) >= 0) return;
         var pe = Number(q.predite), ob = Number(q.observee);
         if (!isFinite(pe) || !isFinite(ob)) return;
         var seances = parExo[q.exercice] = parExo[q.exercice] || {};

@@ -5969,6 +5969,7 @@
     verifierMobilite(plan, entrees, erreurs);
     verifierVeilleActivite(plan, entrees, erreurs);
     verifierChauffesProposees(plan, entrees, erreurs);
+    verifierUnilateral(entrees, erreurs);
     verifierSemaineDeTest(plan, erreurs, entrees);
     verifierCalisthenie(plan, erreurs);
     verifierForme(plan, entrees, erreurs);
@@ -6588,6 +6589,14 @@
       }
       if (x.silenceChauffes && etatSilence !== true) erreurs.push('I130' + nom + ' : la phrase du silence des chauffes sans geste de mise en silence');
     });
+  }
+
+  // I131 (242, MOTEUR §9.2 bis) — UNE SÉRIE UNILATÉRALE N'ENTRE JAMAIS DANS LE MAX ESTIMÉ NI UN RECORD (`sets.unilateral` : la charge et les reps
+  // s'entendent par côté ; elle compte 1 série au volume). Le calcul est dans `faits.verifierI131` (les entrées le portent hors production :
+  // `entrees.unilateral`, la liste des fautes) : le plan n'a rien à décider, il relaie.
+  function verifierUnilateral(entrees, erreurs) {
+    var u = entrees && entrees.unilateral;
+    if (Array.isArray(u)) u.forEach(function (f) { erreurs.push(String(f)); });
   }
 
   // I123 et I124 (225, MOTEUR §9.40) — la veille d'une activité dure.

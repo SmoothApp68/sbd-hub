@@ -6826,7 +6826,7 @@
   function valeurDeFatigue(serie) {
     var M = Modele();
     // 193-1 — ni une série de recul : la baisse générale ne lit que les grosses séries (un recul plus léger n'est jamais une baisse).
-    if (!serie || !M.estTravail(serie) || M.estTest(serie) || M.estRecul(serie)) return null;
+    if (!serie || !M.compteAuxRecords(serie) || M.estTest(serie) || M.estRecul(serie)) return null;   // 242 : jamais une série unilatérale (charge par côté)
     var charge = nombre(serie.charge_kg), reps = nombre(serie.reps);
     if (charge === null || charge <= 0 || reps === null || reps < 1 || reps > FATIGUE_REPS_MAX) return null;
     var reserve = Palier().reserveDeSerie(serie);

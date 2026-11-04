@@ -94,6 +94,9 @@
     // 185 (v2_116) — « série gardée au journal, mais exclue des records, des crans et du moteur » : la réponse « Non, ne
     // compte pas » à la question de vraisemblance. NOT NULL, défaut false ; lue ET écrite, toujours envoyée.
     'hors_calcul',
+    // 242 (v2_131) — « unilatéral » : la charge et les reps de la série s'entendent PAR CÔTÉ ; elle compte 1 série au volume, jamais au
+    // max estimé ni aux records (`THModele.compteAuxRecords`). NOT NULL, défaut false ; lue ET écrite, toujours envoyée.
+    'unilateral',
     // 193-6 (v2_123, MOTEUR §9.30) — la réserve DEMANDÉE d'une série « Au max » (0 = jusqu'à l'échec, 1 à 3 = en gardant N reps), NULL
     // sinon : un fait d'intention écrit à la validation depuis la ligne du plan, comme `repos_s`. Lue ET écrite, toujours envoyée.
     'au_max_reserve'
@@ -340,6 +343,8 @@
               repos_s: ligne.repos_s === undefined ? null : ligne.repos_s,
               // 185 (v2_116) — « Non, ne compte pas » relu de la base : rouvrir une séance ne le perd pas.
               hors_calcul: ligne.hors_calcul === true,
+              // 242 (v2_131) — « unilatéral » relu de la base : rouvrir une séance ne le perd pas.
+              unilateral: ligne.unilateral === true,
               // 193-6 — « Au max » relu de la base : la réserve demandée fait la marque.
               au_max_reserve: reserveAuMax(ligne.au_max_reserve),
               au_max: reserveAuMax(ligne.au_max_reserve) !== null || ligne.au_max === true
@@ -433,6 +438,8 @@
       validee_a: null, repos_s: null, reps_visees: null, charge_cible_kg: null,
       // 193-6 — la marque « Au max » de la ligne (la routine, le menu ⋯) ; la réserve demandée s'écrit à la validation.
       au_max: false, au_max_reserve: null,
+      // 242 — « unilatéral » : la charge s'entend par côté ; dit par la personne (menu ⋯), jamais déduit.
+      unilateral: false,
       // ECRAN-SAISIE §7 septendecies.3 (54-1) — la durée et la distance d'un
       // cardio de routine : des INTENTIONS, comme `reps_visees`, lues par le
       // fantôme et jamais écrites (`COLONNES_SET` ne les connaît pas).
@@ -1308,6 +1315,11 @@
   function marquerHorsCalcul(seance, iExo, iSerie, horsCalcul) {
     return avecSerie(seance, iExo, iSerie, { hors_calcul: horsCalcul !== false });
   }
+  // 242 (v2_131) — « Unilatéral » : un interrupteur du menu ⋯ de la série (comme « Au max »), jamais une déduction. La série reste du travail
+  // (1 série au volume) ; elle sort du max estimé et des records (`THModele.compteAuxRecords`).
+  function definirUnilateral(seance, iExo, iSerie, unilateral) {
+    return avecSerie(seance, iExo, iSerie, { unilateral: unilateral !== false });
+  }
 
   function changerType(seance, iExo, iSerie, type) {
     if (TYPES.indexOf(type) < 0) return seance;
@@ -2069,6 +2081,8 @@
           // 185 (v2_116) — la série « Non, ne compte pas » : gardée au journal, exclue du calcul. Toujours envoyée, `false` compris
           // (la colonne est NOT NULL) ; jamais déduite d'autre chose que de ce que l'utilisateur a répondu.
           hors_calcul: p.serie.hors_calcul === true,
+          // 242 (v2_131) — « unilatéral » : toujours envoyé, `false` compris (la colonne est NOT NULL) ; dit par la personne, jamais déduit.
+          unilateral: p.serie.unilateral === true,
           // 193-6 (v2_123) — la réserve demandée de la série « Au max » (NULL sinon). Toujours envoyée : retirer la marque l'efface.
           au_max_reserve: p.serie.au_max === true ? reserveAuMax(p.serie.au_max_reserve) : null
         };
@@ -3330,6 +3344,7 @@
     changerType: changerType,
     typerSelonLePlan: typerSelonLePlan,
     marquerHorsCalcul: marquerHorsCalcul,
+    definirUnilateral: definirUnilateral,
     definirAuMax: definirAuMax,
     poserAuMaxReserve: poserAuMaxReserve,
     definirEffort: definirEffort,

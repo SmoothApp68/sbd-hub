@@ -239,7 +239,7 @@
         seancesDeLExercice(c, slug).forEach(function (g) {
           var meilleur = null;
           g.series.forEach(function (x) {
-            if (!x || !Modele.estTravail(x) || x.elastique) return;
+            if (!x || !Modele.compteAuxRecords(x) || x.elastique) return;
             var ch = Number(x.charge_kg), rp = Number(x.reps), du = Number(x.duree_s);
             var v = null;
             if (genre === 'charge') {
@@ -371,6 +371,86 @@
         if (max !== null) out.push({ seance: g.seance.id, debut: g.seance.debut, max: max });
       });
       return out.reverse();
+    }
+
+    // ── 242 — LA NOTE DE LA DERNIÈRE FOIS (ECRAN-SAISIE, maquette-note-derniere-fois-v1) ──────────────────────────────────────────────
+    //
+    // Un fait, jamais une décision du coach : `planDeSeance` n'en tire rien. Les mots de la personne ne sont jamais réécrits (le texte rendu est
+    // celui de la série, seulement rogné aux bords).
+    //   · `noteDeLaDerniereFois(c, slug, consigne)` (`consigne` : un texte ou une liste de textes ; `sauf` : la séance ouverte, qui n'est jamais « la dernière fois ») : la dernière note écrite sur cet exercice lors de la dernière séance TERMINÉE où il a été
+    //     fait (au moins une série de travail), Hevy compris. Une note sur une série, ou la note d'exercice (l'app la projette sur chaque série :
+    //     `Seance.noteDeSerie`). Plusieurs notes dans la séance : la dernière (par rang). EXCLUE : une note identique, espaces normalisés, à la
+    //     consigne de la routine de cet exercice (`routine_exercises.note`, projetée elle aussi sur les séries) — ce n'est pas ce que la
+    //     personne a écrit. Rend `{ texte, serieId, jour }` ou `null`. Une séance sans note ne remonte pas plus loin : c'est la dernière FOIS.
+    //   · `noteDeLExercice(fait, notes, slug)` : ce que l'écran montre, depuis ce fait et `profiles.notes_exercices` — la note épinglée (modifiée
+    //     par la personne) prime, sans date ; sinon la note de la dernière fois, sauf si « Ne plus afficher » désigne la série qui la porte.
+    //     Rend `{ mode: 'epinglee' | 'derniere', texte, jour, serieId }` ou `null`.
+    function espacesNormalises(t) { return String(t === null || t === undefined ? '' : t).replace(/\s+/g, ' ').trim(); }
+    var memoNotes = { cle: null, parClef: {} };
+    function noteDeLaDerniereFois(c, slug, consigne, sauf) {
+      if (!slug) return null;
+      var cle = (c.seances || []).length + '|' + (c.series || []).length;
+      if (memoNotes.cle !== cle || memoNotes.seances !== c.seances || memoNotes.series !== c.series) memoNotes = { cle: cle, seances: c.seances, series: c.series, parClef: {} };
+      var consignes = (Array.isArray(consigne) ? consigne : [consigne]).map(espacesNormalises).filter(function (t) { return t !== ''; });
+      var clef = slug + '\u0001' + consignes.join('\u0002') + '\u0003' + (sauf || '');
+      if (Object.prototype.hasOwnProperty.call(memoNotes.parClef, clef)) return memoNotes.parClef[clef];
+      var sortie = null;
+      for (var i = 0; i < (c.seances || []).length; i++) {
+        var se = c.seances[i];
+        if (!se || se.statut === 'en_cours' || (sauf && se.id === sauf)) continue;
+        var siennes = (c.seriesDe(se.id) || []).filter(function (x) { return x && x.exercise_slug === slug; });
+        if (!siennes.some(function (x) { return Modele.estTravail(x); })) continue;
+        // La dernière séance où l'exercice a été fait : la note est dans celle-ci, ou nulle part.
+        var notees = Modele.trierParRang(siennes).filter(function (x) {
+          var t = espacesNormalises(x.note);
+          return t !== '' && consignes.indexOf(t) < 0;
+        });
+        if (notees.length) {
+          var d = notees[notees.length - 1];
+          sortie = { texte: String(d.note).trim(), serieId: d.id === undefined ? null : d.id, jour: se.debut ? jourDeLaSeance(se.debut) : null };
+        }
+        break;
+      }
+      memoNotes.parClef[clef] = sortie;
+      return sortie;
+    }
+    function noteDeLExercice(fait, notes, slug) {
+      var n = notes && typeof notes === 'object' && !Array.isArray(notes) && slug ? notes[slug] : null;
+      if (n && typeof n === 'object' && typeof n.texte === 'string' && n.texte.trim() !== '') {
+        return { mode: 'epinglee', texte: n.texte.trim(), jour: null, serieId: null };
+      }
+      if (!fait) return null;
+      if (n && typeof n === 'object' && n.masquee !== undefined && n.masquee !== null && n.masquee === fait.serieId) return null;
+      return { mode: 'derniere', texte: fait.texte, jour: fait.jour, serieId: fait.serieId };
+    }
+
+    // 242 (I131) — UNE SÉRIE UNILATÉRALE N'ENTRE JAMAIS DANS LE MAX ESTIMÉ NI UN RECORD. Pour chaque exercice qui en porte au moins une : le max
+    // estimé, la table des records et la plus lourde, calculés sur l'historique entier, sont IDENTIQUES à ceux de l'historique sans ses séries
+    // unilatérales ; et aucune médaille d'une séance ne désigne une série unilatérale. Rend la liste des fautes (vide : l'invariant tient).
+    // Hors production seulement (la garde du coach) : le calcul est double.
+    function verifierI131(c, slugs) {
+      var fautes = [], maintenant = new Date(Date.now() + 1000);
+      (slugs || []).forEach(function (slug) {
+        var seances = seancesDuSlug(c, slug);
+        var uni = {};
+        seances.forEach(function (g) { (g.series || []).forEach(function (x) { if (Modele.estUnilateral(x) && x.id) uni[x.id] = true; }); });
+        if (!Object.keys(uni).length) return;
+        var o = optionsDesRecords(c, slug);
+        var sans = seances.map(function (g) {
+          return Object.assign({}, g, { series: (g.series || []).filter(function (x) { return !Modele.estUnilateral(x); }) });
+        });
+        var a = Modele.recordsDeLExercice(seances, maintenant, o), b = Modele.recordsDeLExercice(sans, maintenant, o);
+        if (JSON.stringify([a.table, a.lourde, a.unRM]) !== JSON.stringify([b.table, b.lourde, b.unRM])) {
+          fautes.push('I131 ' + slug + ' : une série unilatérale entre dans le max estimé ou dans la table des records');
+        }
+        seancesAvecSeries(c).forEach(function (se) {
+          if (!se.series.some(function (x) { return x && x.exercise_slug === slug && uni[x.id]; })) return;
+          recordsDeLaSeance(c, se).forEach(function (r) {
+            if (r.serieId && uni[r.serieId]) fautes.push('I131 ' + slug + ' : un record sur une série unilatérale (séance ' + se.id + ')');
+          });
+        });
+      });
+      return fautes;
     }
 
     // ── Les records (MOTEUR §9.23, 55-1) ────────────────────────────────────
@@ -1807,7 +1887,7 @@
     function seriesDeReference(liste) {
       return (liste || []).filter(function (x) {
         var kg = x ? nombreOuNul(x.charge_kg) : null;
-        return !!x && Modele.estTravail(x) && kg !== null && kg > 0;
+        return !!x && Modele.compteAuxRecords(x) && kg !== null && kg > 0;
       });
     }
     // Le meilleur de l'exercice : la plus lourde charge de travail de l'historique ET des séries déjà validées du jour
@@ -1952,6 +2032,7 @@
       var charge = nombreOuNul(s.charge), reps = nombreOuNul(s.reps);
       if (charge === null || charge <= 0 || reps === null || reps < 1) return null;
       if (!Modele.estTravail({ type_serie: s.type, reps: reps })) return null;
+      if (s.unilateral === true) return null;   // 242 — une charge par côté ne fait jamais un record
       var historique = c.historique || [];
       if (seancesFaites(historique) < SEUIL_SEANCES_VRAISEMBLANCE) return null;
       var meilleur = meilleurDeLExercice(historique, c.seance);
@@ -2291,6 +2372,9 @@
       seancesDuSlug: seancesDuSlug,
       seancesDeLExercice: seancesDeLExercice,
       tenuesDeLExercice: tenuesDeLExercice,
+      noteDeLaDerniereFois: noteDeLaDerniereFois,
+      noteDeLExercice: noteDeLExercice,
+      verifierI131: verifierI131,
       pointsDeLExercice: pointsDeLExercice,
       exercicesDeProgression: exercicesDeProgression,
       ceQuiAProgresse: ceQuiAProgresse,

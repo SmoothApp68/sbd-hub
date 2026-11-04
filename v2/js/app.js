@@ -5921,7 +5921,8 @@
   function saisieDeLaSerie(iExo, iSerie) {
     var exo = seance.exercices[iExo], s = exo.series[iSerie];
     var def = catalogueIndexe()[exo.exercise_slug];
-    return { charge: s.charge_kg, reps: s.reps, type: s.type_serie || 'travail', equipement: def ? def.equipement || null : null };
+    return { charge: s.charge_kg, reps: s.reps, type: s.type_serie || 'travail', equipement: def ? def.equipement || null : null,
+             unilateral: s.unilateral === true };
   }
   // Avant l'écriture : `null`, ou la question (et rien n'est écrit). Un exercice noté par nom (élastique) n'a pas de charge à
   // comparer.
@@ -8030,7 +8031,9 @@
                  modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, blocs: local.blocs, plan: plan,
                  marches: profil && profil.marche_reponses, demoMarche: demoMarche, disque: Profil.plusPetitDisqueDe(profil),
                  moins: serieDeMoinsActive(), cartes: profil && profil.cartes_semaine,
-                 raides: profil && profil.zones_raides, menager: profil && profil.zones_a_menager };
+                 raides: profil && profil.zones_raides, menager: profil && profil.zones_a_menager,
+                 // 242 (I131) — hors production seulement : une série unilatérale n'entre jamais dans le max estimé ni un record.
+                 unilateral: garde.active ? faits.verifierI131(corpus(), slugsDesExercices(seance.exercices)) : null };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit. Un plan du
     // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.
@@ -8865,6 +8868,17 @@
     return { possible: true, aide: aide };
   }
 
+  // 242 — l'interrupteur « Unilatéral » de la feuille d'une série : un exercice qui se chiffre en charge × reps (ou en reps), jamais un
+  // exercice noté par nom (élastique). L'aide dit l'effet, sans promesse.
+  function unilateralDeLaFeuille(iExo, iSerie) {
+    var exo = seance && seance.exercices[iExo], serie = exo && exo.series[iSerie];
+    var aide = 'Charge et reps par côté. Compte pour 1 série ; ni max estimé ni record.';
+    if (!exo || !serie || elastiqueDeLaGrille(exo.exercise_slug)) return { possible: false, actif: false, aide: aide };
+    var fiche = catalogueIndexe()[exo.exercise_slug];
+    var mesure = fiche ? fiche.mesure || null : null;
+    return { possible: mesure === 'charge_reps' || mesure === 'reps', actif: Modele.estUnilateral(serie), aide: aide };
+  }
+
   function derniereSerieDeTravail(series) {
     var k = -1;
     (series || []).forEach(function (q, j) { if (Modele.estTravail(q)) k = j; });
@@ -9609,6 +9623,8 @@
   function oublierSuppressionDifferee() {
     if (suppressionDifferee) clearTimeout(suppressionDifferee.minuteur);
     suppressionDifferee = null;
+    if (noteRetiree) clearTimeout(noteRetiree.minuteur);
+    noteRetiree = null;
     rendreToastAnnuler();
   }
 
@@ -9616,8 +9632,68 @@
     var noeud = $('toast-seance');
     if (!noeud) return;
     Rendu.rendreToastAnnuler(noeud, suppressionDifferee
-      ? { texte: 'Série supprimée', libelle: 'Annuler', surAnnuler: annulerSuppression } : null);
+      ? { texte: 'Série supprimée', libelle: 'Annuler', surAnnuler: annulerSuppression }
+      : (noteRetiree ? { texte: 'Note retirée de cet exercice.', libelle: 'Annuler', surAnnuler: annulerNoteRetiree } : null));
     mesurerBarres();
+  }
+
+  // ── 242 — LA NOTE DE L'EXERCICE SOUS SON NOM (ECRAN-SAISIE, maquette-note-derniere-fois-v1) ───────────────────────────────────────
+  //
+  // Le fait vient de `faits.js` (`noteDeLaDerniereFois` / `noteDeLExercice`), l'écran le lit et ne décide rien. Ce qui s'écrit vit dans
+  // `profiles.notes_exercices`, par la file (`poserProfil`) et nulle part ailleurs : `{ slug: { texte, a } }` (la note modifiée, épinglée) ou
+  // `{ slug: { masquee: <id de la série>, a } }` (« Ne plus afficher »). Les séries passées gardent leur note d'origine. Aucun lecteur du coach.
+  var noteRetiree = null;   // { slug, avant, minuteur } — « Note retirée de cet exercice. · Annuler »
+  function consignesDeLExercice(slug) {
+    var sortie = [];
+    (routines || []).forEach(function (r) {
+      ((r && r.exercices) || []).forEach(function (e) { if (e && e.exercise_slug === slug && e.note) sortie.push(e.note); });
+    });
+    return sortie;
+  }
+  function faitDeLaNote(slug) {
+    return faits.noteDeLaDerniereFois(corpus(), slug, consignesDeLExercice(slug), seance ? seance.id : null);
+  }
+  function noteSousLeNom(slug) {
+    return faits.noteDeLExercice(faitDeLaNote(slug), profil && profil.notes_exercices, slug);
+  }
+  function entreeDeNote(slug) {
+    var n = profil && profil.notes_exercices;
+    return n && typeof n === 'object' && !Array.isArray(n) && n[slug] ? n[slug] : null;
+  }
+  async function ecrireNoteExercice(slug, entree) {
+    var toutes = Object.assign({}, (profil && profil.notes_exercices) || {});
+    if (entree === null || entree === undefined) delete toutes[slug]; else toutes[slug] = entree;
+    var promesse = poserProfil({ notes_exercices: toutes });   // `profil` est à jour avant le 1er await
+    rendreSeance();
+    await promesse;
+  }
+  // « Garder » : la note modifiée s'épingle ; vidée, elle est retirée (comme « Ne plus afficher »).
+  async function garderNoteExercice(slug, texte) {
+    var t = String(texte === null || texte === undefined ? '' : texte).trim();
+    if (t === '') return retirerNoteExercice(slug);
+    await ecrireNoteExercice(slug, { texte: t, a: new Date().toISOString() });
+  }
+  async function retirerNoteExercice(slug) {
+    var fait = faitDeLaNote(slug);
+    var avant = entreeDeNote(slug);
+    if (noteRetiree) clearTimeout(noteRetiree.minuteur);
+    var p = { slug: slug, avant: avant === null ? null : JSON.parse(JSON.stringify(avant)), minuteur: null };
+    noteRetiree = p;
+    p.minuteur = setTimeout(function () {
+      if (noteRetiree !== p) return;
+      noteRetiree = null;
+      rendreToastAnnuler();
+    }, DELAI_ANNULER_MS);
+    rendreToastAnnuler();   // le toast se montre tout de suite : l'écriture part par la file, elle ne le retarde pas
+    await ecrireNoteExercice(slug, fait && fait.serieId !== null ? { masquee: fait.serieId, a: new Date().toISOString() } : null);
+  }
+  async function annulerNoteRetiree() {
+    var p = noteRetiree;
+    if (!p) return;
+    noteRetiree = null;
+    clearTimeout(p.minuteur);
+    rendreToastAnnuler();
+    await ecrireNoteExercice(p.slug, p.avant);
   }
 
   // §9.11 (27/09/2026) — L'OBSERVATION PART PAR SA PROPRE ENTRÉE, EN FIN DE
@@ -10057,6 +10133,10 @@
       surEffort: function (i, j) { ouvrirFeuille('effort', i, j); },
       // Les deux réglages de l'exercice, sous son nom (§7 septies.1 et .2).
       surNote: function (i) { ouvrirFeuille('note', i, null); },
+      // 242 — la note de l'exercice sous son nom (épinglée, ou celle de la dernière fois) ; « Modifier » / « Garder » / « Ne plus afficher ».
+      noteSousLeNom: noteSousLeNom,
+      surNoteGardee: function (slug, texte) { garderNoteExercice(slug, texte).catch(function (e) { console.warn('Note d’exercice :', texteErreur(e)); }); },
+      surNoteRetiree: function (slug) { retirerNoteExercice(slug).catch(function (e) { console.warn('Note d’exercice :', texteErreur(e)); }); },
       surRepos: function (i) { ouvrirFeuille('repos', i, null); },
       surAjoutSerie: async function (i) {
         // 188-1 — « + Série » à la main, un geste de la séance (`sessions.gestes`) ; la série du coach n'en est pas un.
@@ -11433,6 +11513,14 @@
       },
       surAuMax: function (actif) {
         seance = Seance.definirAuMax(seance, feuille.iExo, feuille.iSerie, actif);
+        fermerVoile();
+        apresGeste();
+      },
+      // 242 (v2_131) — « Unilatéral » : un interrupteur de la série, pour aujourd'hui comme pour l'historique ; rien d'autre ne change
+      // (la série reste du travail, elle compte 1 série). Le max estimé et les records la laissent de côté (`Modele.compteAuxRecords`).
+      unilateral: unilateralDeLaFeuille(feuille.iExo, feuille.iSerie),
+      surUnilateral: function (actif) {
+        seance = Seance.definirUnilateral(seance, feuille.iExo, feuille.iSerie, actif);
         fermerVoile();
         apresGeste();
       },

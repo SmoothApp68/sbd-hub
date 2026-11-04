@@ -1986,6 +1986,22 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'reposReelHabituel', lecteurs: ['faits.js'],
     raison: '233 — le repos n’est pas la valeur du minuteur : en superset, 90 s réglées font ~3 min. Une seule arithmétique, lue par ' +
       'la règle du repos long (188-2) via `faits.reposReelsDe`, et par la réaction « repos réel court » (236).' },
+  // 242 — la note de la dernière fois et la case « unilatéral » : un fait, une lecture, aucun lecteur du coach.
+  { notion: 'la note de la dernière fois (la dernière note écrite sur l’exercice, consigne de la routine exclue)', pr: '242-U1',
+    module: 'faits.js', fonction: 'noteDeLaDerniereFois', lecteurs: ['app.js'],
+    raison: 'l’écran de séance montre la note de la dernière fois sous le nom de l’exercice ; le fait vit dans `faits.js`, aucune règle du coach ne le lit.' },
+  { notion: 'la note affichée d’un exercice (épinglée, de la dernière fois, ou masquée)', pr: '242-U1',
+    module: 'faits.js', fonction: 'noteDeLExercice', lecteurs: ['app.js'],
+    raison: 'l’écran lit `profiles.notes_exercices` et le fait de la dernière fois par UNE fonction : la note épinglée prime, « Ne plus afficher » masque la série désignée.' },
+  { notion: 'l’invariant I131 (une série unilatérale hors du max estimé et des records)', pr: '242-U1',
+    module: 'faits.js', fonction: 'verifierI131', lecteurs: ['app.js'],
+    raison: 'la garde de développement relaie la vérification (avec et sans les séries unilatérales) par les entrées du plan ; le calcul est ici, une fois.' },
+  { notion: 'la série qui peut porter un max estimé ou un record (du travail, pas unilatérale)', pr: '242-U1',
+    module: 'modele.js', fonction: 'compteAuxRecords', lecteurs: ['faits.js', 'moteur.js'],
+    par: ['tableCumulee', 'recordsDeLExercice', 'recordsBattus'],
+    parAilleurs: { 'faits.js': ['pointsDeLExercice', 'seriesDeReference'], 'moteur.js': ['valeurDeFatigue'] },
+    raison: 'une charge par côté ne se compare pas à une charge des deux côtés : la table des records, la plus lourde, le max estimé, la médaille, la courbe, ' +
+      'la question « Record ? » et la baisse de forme passent par UNE lecture, jamais par `estTravail` seul.' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -2530,7 +2546,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(50);
+    expect(FAITS.length).toBe(53);   // 242 : + noteDeLaDerniereFois, noteDeLExercice, verifierI131
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

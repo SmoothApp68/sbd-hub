@@ -957,6 +957,13 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:12px;font-weig
 .note-sous-nom{display:block;width:100%;margin-top:2px;min-height:30px;padding:6px 10px;border-radius:var(--r-petit);border:1px solid #343A43;
   background:var(--panneau-2);color:var(--texte-2);font-size:13.333333px;text-align:left;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+/* 242 — la note de l'exercice (épinglée ou de la dernière fois) : entre le nom et les séries, les mots de la personne. */
+.note-derniere{margin:6px 0 2px;padding:8px 10px;border-radius:var(--r-petit);border:1px solid #343A43;background:var(--panneau-2)}
+.note-derniere-t{margin:0 0 2px;font-size:12px;font-weight:600;color:var(--texte-3)}
+.note-derniere-texte{margin:0;font-size:14px;line-height:1.35;color:var(--texte-2);white-space:pre-wrap;overflow-wrap:anywhere}
+.note-derniere-champ{display:block;width:100%;box-sizing:border-box;margin:4px 0;padding:8px 10px;font:inherit;font-size:16px;color:var(--texte);background:var(--fond);border:1px solid #343A43;border-radius:var(--r-petit)}
+.note-derniere-gestes{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.note-derniere-gestes button{min-height:44px;padding:0 14px}
 .pourquoi-ligne{margin-top:2px}.lien-pourquoi{background:none;border:0;padding:12px 4px;margin:-12px -4px;font:inherit;color:var(--texte);border-bottom:1px dotted var(--texte-3);white-space:nowrap;cursor:pointer;line-height:20px}
 /* Sans barre d'onglets (séance en cours), plus rien ne porte l'encoche du bas : le repos et le bas de page la prennent. */
 html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .repos{padding-bottom:calc(var(--e3) + env(safe-area-inset-bottom,0px))}

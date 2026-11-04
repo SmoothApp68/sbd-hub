@@ -1327,6 +1327,11 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    Le liseré est celui du détail de séance, repris tel quel : la même chose se
    reconnaît au même signe d'un écran à l'autre. */
 .bloc-seance.superset{border-left:3px solid var(--texte-3)}
+/* 233 — LE SUPERSET À LA HEVY : une carte par exercice, à la suite, reliées par la barre de la teinte (bleu, jamais l'ambre) et
+   l'étiquette « Superset ». Le filet entre deux cartes et la barre à gauche disent « même groupe » sans entrelacer les séries. */
+.bloc-seance.superset.en-cartes{border-left:4px solid var(--teinte)}
+.bloc-seance.en-cartes .superset-t{color:var(--teinte)}
+.carte-ss + .carte-ss{margin-top:var(--e3);padding-top:var(--e3);border-top:1px solid var(--trait)}
 .superset-t{font-size:12px;font-weight:700;color:var(--texte-3);letter-spacing:.06em;
   text-transform:uppercase;padding-bottom:var(--e2)}
 /* La légende : le nom n'apparaît QU'UNE FOIS par exercice (§2.3), et c'est ce

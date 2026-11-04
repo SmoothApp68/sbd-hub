@@ -12300,7 +12300,7 @@
 
   function rendreEditeur() {
     var index = Modele.indexerExercices(local.exercices);
-    var blocs = Modele.blocsDeSeance(brouillonCommeSeance(), local.exercices);
+    var blocs = Modele.blocsDeSeance(brouillonCommeSeance(), local.exercices, { entrelacer: true });
     var ranger = $('btn-ranger-routine');
     if (ranger) ranger.hidden = blocs.length < 2;
     var chargesDuRendu = {};
@@ -12612,7 +12612,7 @@
   }
 
   function reordonnerBrouillonParBlocs(cles) {
-    var blocs = Modele.blocsDeSeance(brouillonCommeSeance(), local.exercices);
+    var blocs = Modele.blocsDeSeance(brouillonCommeSeance(), local.exercices, { entrelacer: true });
     var neufs = [];
     cles.forEach(function (k) {
       (indicesDe(blocs[Number(k)]) || []).forEach(function (i) {

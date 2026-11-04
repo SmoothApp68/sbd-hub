@@ -3200,7 +3200,26 @@
     // à mesures mélangées, une seule ligne d'en-têtes mentirait sur la moitié
     // des rangées. On la tait plutôt que de nommer KG au-dessus d'une durée ; le
     // type de mesure reste écrit sous chaque nom, dans la légende.
-    var memeGabarit = gabaritsHomogenes(gabarits);
+    // 233 — LE SUPERSET À LA HEVY : en séance, les exercices d'un même groupe ne s'entrelacent plus. Chacun a sa CARTE (sa
+    // légende, ses colonnes, ses séries, son « + Série »), à la suite des autres, reliées par une barre de la teinte (CSS) ; la
+    // validation se fait dans n'importe quel ordre. Les blocs arrivent déjà rangés par exercice (`Modele.blocsDeSeance`).
+    var cartes = bloc.superset && !vue.programme;
+    var carteDe = {};
+    if (cartes) {
+      noeud.classList.add('en-cartes');
+      var legendes = Array.prototype.slice.call(noeud.querySelectorAll('.legende-exo'));
+      bloc.exercices.forEach(function (x, i) {
+        var carte = el('div', 'carte-ss');
+        carte.setAttribute('data-iexo', String(x._iExo));
+        if (legendes[i]) { legendes[i].parentNode.removeChild(legendes[i]); carte.appendChild(legendes[i]); }
+        carte.appendChild(enTetesColonnes(gabarits[i], false, null,
+          bloc.series.some(function (q) { return q._iExo === x._iExo && q.faite; }), null));
+        carteDe[x._iExo] = carte;
+        noeud.appendChild(carte);
+      });
+    }
+    var hoteDe = function (s) { return cartes && carteDe[s._iExo] ? carteDe[s._iExo] : noeud; };
+    var memeGabarit = !cartes && gabaritsHomogenes(gabarits);
     // §7 quindecies.3 (52-1) — dans l'éditeur, la colonne de charge dit ce
     // qu'elle est : « DÉPART » sur un exercice jamais fait, absente sinon. Des
     // exercices qui ne s'accordent pas là-dessus taisent l'en-tête, comme des
@@ -3224,6 +3243,7 @@
 
     var proposees = {};
     bloc.series.forEach(function (s) {
+      var hote = hoteDe(s);
       // MOTEUR §9.15.2 (49-U10) — la proposition de chauffes, au-dessus de la
       // première série de l'exercice : une ligne à accepter, jamais des séries
       // insérées d'office.
@@ -3237,25 +3257,25 @@
         // §9.20 — la carte de reprise d'abord : elle ne se pose qu'après une
         // séance douloureuse, et c'est elle qui décide comment l'exercice reprend.
         var pr = typeof vue.propositionReprise === 'function' ? vue.propositionReprise(s._iExo) : null;
-        if (pr) noeud.appendChild(propositionDeReprise(pr, s._iExo, vue));
+        if (pr) hote.appendChild(propositionDeReprise(pr, s._iExo, vue));
         var pl = typeof vue.propositionLest === 'function' ? vue.propositionLest(s._iExo) : null;
-        if (pl) noeud.appendChild(propositionDeLest(pl, s._iExo, vue));
+        if (pl) hote.appendChild(propositionDeLest(pl, s._iExo, vue));
         // MOTEUR §9.17 bis (127) — la carte « marche suivante » : la place et le composant de la carte du lest (le
         // plan ne pose jamais les deux sur un exercice).
         var pm = typeof vue.propositionMarche === 'function' ? vue.propositionMarche(s._iExo) : null;
-        if (pm) noeud.appendChild(propositionDeMarche(pm, s._iExo, vue));
+        if (pm) hote.appendChild(propositionDeMarche(pm, s._iExo, vue));
         var ps = typeof vue.propositionSchema === 'function' ? vue.propositionSchema(s._iExo) : null;
-        if (ps) noeud.appendChild(propositionDeSchema(ps, s._iExo, vue));
+        if (ps) hote.appendChild(propositionDeSchema(ps, s._iExo, vue));
         var pc = typeof vue.propositionChauffes === 'function' ? vue.propositionChauffes(s._iExo) : null;
         // 200-5 — la chauffe se replie sur une ligne : « Chauffe · 4 séries › » ; « Ajouter » et « Non merci » à l'ouverture.
-        if (pc) noeud.appendChild(ligneRepliee('lr-chauffes', 'Chauffe \u00b7 ' + pc.lignes.length + ' s\u00e9rie' + (pc.lignes.length > 1 ? 's' : '') + '\u00a0\u203a',
+        if (pc) hote.appendChild(ligneRepliee('lr-chauffes', 'Chauffe \u00b7 ' + pc.lignes.length + ' s\u00e9rie' + (pc.lignes.length > 1 ? 's' : '') + '\u00a0\u203a',
           propositionDeChauffes(pc, s._iExo, vue)));
         // 193-6 (MOTEUR §9.30) — « Dernière série au max ? » : une fois par exercice, du plan ; trois gestes.
         var pa = typeof vue.propositionAuMax === 'function' ? vue.propositionAuMax(s._iExo) : null;
-        if (pa) noeud.appendChild(propositionDAuMax(pa, s._iExo, vue));
+        if (pa) hote.appendChild(propositionDAuMax(pa, s._iExo, vue));
         // 193-4 (MOTEUR §9.32) — la semaine de test : la barre testée aujourd'hui, ou la note d'un accessoire.
         var pt = typeof vue.semaineDeTest === 'function' ? vue.semaineDeTest(s._iExo) : null;
-        if (pt) { var ct = carteDeTest(pt, s._iExo, vue); if (ct) noeud.appendChild(ct); }
+        if (pt) { var ct = carteDeTest(pt, s._iExo, vue); if (ct) hote.appendChild(ct); }
       }
       // §9.14 (49-R2) — LA RÉACTION PARLE DANS LA GRILLE, au-dessus de la
       // ligne qu'elle concerne (ECRAN §3.2, maquette variante A). Une ligne de
@@ -3266,10 +3286,10 @@
       // MOTEUR §9.15.3 (94) — une dégressive que le coach ne peut pas remplir :
       // la phrase dit pourquoi, et deux gestes, lus sur le plan.
       if (info && info.message && info.message.gestes && typeof vue.surDegressiveVide === 'function') {
-        noeud.appendChild(propositionDeDegressiveVide(info.message, s._iExo, s._iSerie, vue));
-      } else if (info && info.message) noeud.appendChild(phraseDeReaction(info.message, s.debutTour));
+        hote.appendChild(propositionDeDegressiveVide(info.message, s._iExo, s._iSerie, vue));
+      } else if (info && info.message) hote.appendChild(phraseDeReaction(info.message, s.debutTour));
       var rangee = rangeeDeSerie(bloc, s, complets, vue, info);
-      noeud.appendChild(rangee);
+      hote.appendChild(rangee);
       // 185 — LA QUESTION DE VRAISEMBLANCE, sous la série, avant qu'elle soit écrite (ou, pour un record énorme, après) : une
       // ligne et ses boutons, jamais une fenêtre. Lue sur l'app (`vue.questionSaisie`), la règle n'est pas ici.
       var qs = !vue.programme && typeof vue.questionSaisie === 'function' ? vue.questionSaisie(s._iExo, s._iSerie) : null;
@@ -3278,18 +3298,18 @@
           var douteux = rangee.querySelector('[data-champ="' + qs.champ + '"]');
           if (douteux && qs.mode !== 'record') douteux.classList.add('doute');
         }
-        noeud.appendChild(questionDeSaisie(qs, s._iExo, s._iSerie, vue.surQuestion));
+        hote.appendChild(questionDeSaisie(qs, s._iExo, s._iSerie, vue.surQuestion));
       }
       // 149 (MOTEUR §9.17 ter) — UNE FIGURE EN SECONDES : l'étiquette de la ligne (« max », « après ton max ») et, la tenue
       // max validée, la phrase du coach sous elle. Lues sur le plan (`info`), jamais recomposées.
-      if (info && info.etiquette) noeud.appendChild(el('div', 'fig-eti', info.etiquette));
-      if (info && info.apres) noeud.appendChild(phraseDeReaction({ type: 'figure', phrase: info.apres }, false));
+      if (info && info.etiquette) hote.appendChild(el('div', 'fig-eti', info.etiquette));
+      if (info && info.apres) hote.appendChild(phraseDeReaction({ type: 'figure', phrase: info.apres }, false));
       // ECRAN §3 ter.5 (prompt 131, maquette mesures-cardio écran 1) — LE D+, SUR SA PROPRE LIGNE,
       // SOUS LA SÉRIE : une troisième colonne ne tient pas à 360 px à côté d'une durée en horloge.
       // Facultatif, sans chiffre gris ; jamais dans l'éditeur de routine.
       if (!vue.programme) {
         (gabaritDe(vue, s.exercise_slug).dessous || []).forEach(function (nom) {
-          noeud.appendChild(ligneEnPlus(s, nom, vue));
+          hote.appendChild(ligneEnPlus(s, nom, vue));
         });
       }
       // MOTEUR §9.23 (55-1) — LA MÉDAILLE, SOUS LA RANGÉE de la série qui bat
@@ -3303,10 +3323,14 @@
       // 154 (MOTEUR §9.26) — L'EFFORT VISÉ : sous la dernière série de travail, les puces « Il t'en restait combien ? » ;
       // une fois la réponse donnée, la phrase du coach. Lu sur le plan (`vue.effortVise`), jamais décidé ici.
       var ef = !vue.programme && typeof vue.effortVise === 'function' ? vue.effortVise(s._iExo, s._iSerie) : null;
-      if (ef) noeud.appendChild(effortViseDeSerie(ef));
+      if (ef) hote.appendChild(effortViseDeSerie(ef));
     });
 
-    noeud.appendChild(boutonsAjoutSerie(bloc, vue));
+    if (cartes) {
+      bloc.exercices.forEach(function (x) {
+        carteDe[x._iExo].appendChild(boutonsAjoutSerie({ exercices: [x] }, vue));
+      });
+    } else noeud.appendChild(boutonsAjoutSerie(bloc, vue));
     return noeud;
   }
 

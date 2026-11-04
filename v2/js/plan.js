@@ -2645,7 +2645,15 @@
           var jr = idx ? idx.indexOf(t.iSerie) : t.iSerie;
           var pl = x.reaction && x.reaction.plan && jr >= 0 ? x.reaction.plan[jr] : null;
           if (pl && pl.source && pl.source !== 'consigne') return;
-          poserSurLaLigne(x, t, { retro: true, vise: dd.niveau === 'exercice' ? dd.vise : dd.fourchette[1], fourchette: dd.fourchette,
+          var viseRetro = dd.niveau === 'exercice' ? dd.vise : dd.fourchette[1];
+          // Une ligne validée est figée (I4) : son pari posé dit ce qu'elle affichait. Le rejeu ne la recale que s'il retrouve
+          // ce pari ; sinon il se tait (ex. une réaction d'écran, non gardée, l'avait tenue à sa visée avant la réouverture).
+          var poses = (e && Array.isArray(e.paris) ? e.paris : []).filter(function (q) {
+            return q && q.fondement && q.exercise_slug === x.slug && String(q.fondement.rang) === String(t.rang) &&
+              (q.fondement.role === 'recul') === (t.type === 'recul') && (plan.seance == null || q.fondement.seance === plan.seance);
+          });
+          if (poses.length && !poses.some(function (q) { return nombre(q.valeur_predite) === nombre(viseRetro); })) return;
+          poserSurLaLigne(x, t, { retro: true, vise: viseRetro, fourchette: dd.fourchette,
             charge: prend ? dd.charge.kg : undefined });
         });
       });

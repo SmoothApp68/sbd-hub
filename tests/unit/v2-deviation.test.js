@@ -70,14 +70,14 @@ const indicesDe = (b) => b.exercices.map((x) => x._iExo);
 // ══ 1. GROUPER EN SÉANCE ═══════════════════════════════════════════════════
 
 describe('grouper deux blocs en séance (§5.7)', () => {
-  test('ils s’entrelacent, et le bloc est un superset', () => {
+  test('ils forment un superset (rangé par exercice, 233)', () => {
     let { seance: s } = seanceDe([['squat', 2, null], ['dc', 2, null]]);
     expect(formes(s)).toEqual([['squat'], ['dc']]);
 
     const b = blocs(s);
     s = Seance.grouperBlocs(s, indicesDe(b[0]), indicesDe(b[1]));
     expect(formes(s)).toEqual([['squat', 'dc']]);
-    expect(etiquettes(s)).toEqual([['A1', 'B1', 'A2', 'B2']]);
+    expect(etiquettes(s)).toEqual([['A1', 'A2', 'B1', 'B2']]);
     expect(groupes(s)).toEqual([1, 1]);
   });
 
@@ -141,7 +141,7 @@ describe('dégrouper UN exercice (§5.8)', () => {
     // coupe en deux » se distinguent.
     s = Seance.degrouperExercice(s, 1, indicesDe(blocs(s)[0]));
     expect(formes(s)).toEqual([['squat', 'curl'], ['dc']]);
-    expect(etiquettes(s)).toEqual([['A1', 'B1', 'A2', 'B2'], ['1', '2']]);
+    expect(etiquettes(s)).toEqual([['A1', 'A2', 'B1', 'B2'], ['1', '2']]);
   });
 
   // §5.8 — « il se place JUSTE APRÈS son bloc d'origine. Il ne remonte pas en

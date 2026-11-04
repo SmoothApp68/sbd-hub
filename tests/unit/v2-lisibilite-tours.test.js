@@ -91,8 +91,9 @@ describe('le badge de chauffe se lit sans être déchiffré', () => {
     s = Seance.changerType(s, 0, 0, 'echauffement');
     s = Seance.changerType(s, 1, 0, 'echauffement');
     const c = rendre(s);
-    expect(badges(c, 0)).toEqual(['A', 'B', 'A1', 'B1']);
-    expect(classesBadges(c, 0)).toEqual([true, true, false, false]);
+    // 233 — une carte par exercice : la chauffe de A, A1, puis la chauffe de B, B1.
+    expect(badges(c, 0)).toEqual(['A', 'A1', 'B', 'B1']);
+    expect(classesBadges(c, 0)).toEqual([true, false, true, false]);
   });
 
   test('hors superset, il porte un « W » : aucune lettre à porter', () => {
@@ -124,8 +125,9 @@ describe('les tours se séparent par un espace, sans texte ajouté', () => {
     s = Seance.changerType(s, 0, 1, 'echauffement');
     s = Seance.changerType(s, 1, 0, 'echauffement');
     const c = rendre(s);
-    expect(badges(c, 0)).toEqual(['A', 'B', 'A', 'A1', 'B1', 'A2', 'B2']);
-    expect(debuts(c, 0)).toEqual([false, false, true, true, false, true, false]);
+    // 233 — plus de tours en séance : rangé par exercice, aucune ligne n'ouvre un tour.
+    expect(badges(c, 0)).toEqual(['A', 'A', 'A1', 'A2', 'B', 'B1', 'B2']);
+    expect(debuts(c, 0)).toEqual([false, false, false, false, false, false, false]);
   });
 
   // ⚠️ ON LIT LES RANGÉES, PAS LE BLOC ENTIER : la tête annonce « tour 0/3 »,

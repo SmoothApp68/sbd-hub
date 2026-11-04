@@ -100,7 +100,7 @@ function rendre(exercices, vue) {
   const cible = document.createElement('div');
   Rendu().rendreBlocsSeance(cible, null, Object.assign({
     programme: true,
-    blocs: Modele.blocsDeSeance(brouillon, CAT),
+    blocs: Modele.blocsDeSeance(brouillon, CAT, { entrelacer: true }),
     exercice: (slug) => CAT.filter((e) => e.slug === slug)[0],
     precedent: () => null
   }, gestes(), vue || {}));
@@ -863,7 +863,7 @@ describe('⚠️ `Seance.creer` lit les lignes programmées, types compris', () 
   // s'entrelacent comme le reste, et n'ouvrent PAS de tour de travail.
   test('en superset, les chauffes s’entrelacent sans ouvrir de tour', () => {
     const s = creer(SUPERSET());
-    const blocs = Modele.blocsDeSeance(s, CAT);
+    const blocs = Modele.blocsDeSeance(s, CAT, { entrelacer: true });
     expect(blocs[0].superset).toBe(true);
     expect(blocs[0].series.map((x) => x.etiquette))
       .toEqual(['A', 'B', 'A1', 'B1', 'A2', 'B2']);

@@ -2356,7 +2356,32 @@ const SETS_IMPORTES = [
       await attendre(300);
     }
   };
-  const ligneDuBloc = async (iBloc, k) => vive(page.locator('.bloc-seance').nth(iBloc).locator('.ligne-serie').nth(k));
+  // 233 — LES SUPERSETS NE S'ENTRELACENT PLUS À L'ÉCRAN (une carte par exercice) : les sections écrites avant adressent encore une
+  // rangée par son rang ENTRELACÉ (A1 B1 C1 A2…, chauffes en tête). `ordreEntrelace` rend, pour un bloc, l'indice réel (dans le DOM) de
+  // chaque rang entrelacé ; un bloc sans carte (exercice seul) est l'identité. `ligneDuBloc`, `validerRangee`, `etiquettes` et
+  // `allumees` le lisent : leurs assertions gardent leur sens, et la section 233 vérifie, elle, l'ordre réel.
+  const ordreEntrelace = (iBloc) => page.evaluate((b) => {
+    const bloc = document.querySelectorAll('.bloc-seance')[b];
+    const lignes = Array.from(bloc.querySelectorAll('.ligne-serie'));
+    const cartes = Array.from(bloc.querySelectorAll('.carte-ss'));
+    if (!cartes.length) return lignes.map((_, i) => i);
+    const ch = [], tr = [];
+    cartes.forEach((c) => {
+      const c1 = [], t1 = [];
+      Array.from(c.querySelectorAll('.ligne-serie')).forEach((l) => {
+        const i = lignes.indexOf(l);
+        (/\d/.test((l.querySelector('.no-serie') || {}).textContent || '') ? t1 : c1).push(i);
+      });
+      ch.push(c1); tr.push(t1);
+    });
+    const sortie = [];
+    [ch, tr].forEach((liste) => {
+      const n = liste.reduce((m, x) => Math.max(m, x.length), 0);
+      for (let t = 0; t < n; t++) liste.forEach((x) => { if (x[t] !== undefined) sortie.push(x[t]); });
+    });
+    return sortie;
+  }, iBloc);
+  const ligneDuBloc = async (iBloc, k) => vive(page.locator('.bloc-seance').nth(iBloc).locator('.ligne-serie').nth((await ordreEntrelace(iBloc))[k]));
 
   // ── 143 — LES AIDES D'ÉTAT ──────────────────────────────────────────────
   // Chaque délai fixe d'une aide devient l'attente de l'ÉTAT que lit le contrôle qui suit — jamais un état déjà vrai
@@ -4239,16 +4264,19 @@ const SETS_IMPORTES = [
   await aller('/saisie');
   await demarrerRoutine('Superset');
 
-  const etiquettes = (iBloc) => page.evaluate((k) =>
+  const etiquettesBrutes = (iBloc) => page.evaluate((k) =>
     Array.from(document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.no-serie'))
       .map((n) => n.textContent), iBloc);
-  const allumees = (iBloc) => page.evaluate((k) =>
+  const etiquettes = async (iBloc) => { const o = await ordreEntrelace(iBloc), b = await etiquettesBrutes(iBloc); return o.map((i) => b[i]); };
+  const allumeesBrutes = (iBloc) => page.evaluate((k) =>
     Array.from(document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.serie'))
       .map((r) => r.classList.contains('faite')), iBloc);
+  const allumees = async (iBloc) => { const o = await ordreEntrelace(iBloc), b = await allumeesBrutes(iBloc); return o.map((i) => b[i]); };
   // Une rangée est adressée par son INDICE D'AFFICHAGE dans le bloc — c'est
   // l'ordre entrelacé, donc exactement ce qu'un pouce touche.
-  const validerRangee = async (iBloc, iRangee) => {
-    await casesSiVides(await ligneDuBloc(iBloc, iRangee));
+  const validerRangee = async (iBloc, iRangeeEntrelacee) => {
+    const iRangee = (await ordreEntrelace(iBloc))[iRangeeEntrelacee];
+    await casesSiVides(await ligneDuBloc(iBloc, iRangeeEntrelacee));
     const cocheeDe = () => page.evaluate(([k, r]) => {
       const l = document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.ligne-serie')[r];
       return l ? !!l.querySelector('.ok-serie.cochee') : null;
@@ -4276,12 +4304,13 @@ const SETS_IMPORTES = [
     return [getComputedStyle(b[0]).borderLeftWidth, getComputedStyle(b[1]).borderLeftWidth];
   });
   ok('le superset porte le liseré, l’exercice seul n’en a pas',
-    lisere[0] === '3px' && lisere[1] === '0px', JSON.stringify(lisere));
+    lisere[0] === '4px' && lisere[1] === '0px', JSON.stringify(lisere));
 
-  ok('les séries s’affichent ENTRELACÉES, et le tour 3 n’attend aucun C3',
-    JSON.stringify(await etiquettes(0)) ===
-    JSON.stringify(['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3']),
-    JSON.stringify(await etiquettes(0)));
+  ok('233 — les séries s’affichent PAR EXERCICE (une carte chacun), et le tour 3 n’attend aucun C3',
+    JSON.stringify(await etiquettesBrutes(0)) ===
+    JSON.stringify(['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2']) &&
+    JSON.stringify(await etiquettes(0)) === JSON.stringify(['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3']),
+    JSON.stringify(await etiquettesBrutes(0)));
 
   ok('l’exercice seul numérote 1, 2 — aucune lettre',
     JSON.stringify(await etiquettes(1)) === JSON.stringify(['1', '2']),
@@ -4330,16 +4359,16 @@ const SETS_IMPORTES = [
       .map((r) => Array.from(r.classList).filter((c) => c.startsWith('g-'))[0]));
   ok('chaque ligne garde le gabarit de SON exercice, même mélangés',
     JSON.stringify(grilles) === JSON.stringify([
-      'g-charge_reps', 'g-charge_reps', 'g-temps',
-      'g-charge_reps', 'g-charge_reps', 'g-temps',
-      'g-charge_reps', 'g-charge_reps']),
+      'g-charge_reps', 'g-charge_reps', 'g-charge_reps',
+      'g-charge_reps', 'g-charge_reps', 'g-charge_reps',
+      'g-temps', 'g-temps']),
     JSON.stringify(grilles));
-  ok('et l’en-tête de colonnes se tait sur un bloc à mesures mélangées',
+  ok('233 — chaque carte d’un superset à mesures mélangées a SON en-tête de colonnes (qui dit vrai pour elle seule)',
     (await page.evaluate(() =>
-      document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.cols-seance').length)) === 0 &&
+      document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.cols-seance').length)) === 3 &&
     (await page.evaluate(() =>
       document.querySelectorAll('.bloc-seance')[1].querySelectorAll('.cols-seance').length)) === 1,
-    'superset mélangé : aucun · exercice seul : un');
+    'superset mélangé : un par carte · exercice seul : un');
 
   // ── L'éclairage porte sur le TOUR, et le tour ne recule pas ─────────────
   // §7 undecies.3 — le compteur affiche les tours FAITS : rien de fait, 0/3.
@@ -5009,6 +5038,165 @@ const SETS_IMPORTES = [
     JSON.stringify(ROUTINE.routine_exercises.slice().sort((a, b) => a.rang - b.rang)
       .map((e) => e.exercise_slug + '@' + e.rang)));
 
+  console.log('\n══ 233. LE SUPERSET À LA HEVY, DÉPLACER UN EXERCICE, LE CHRONO DE TENUE ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : UN SUPERSET À TROIS EXERCICES DE MESURES DIFFÉRENTES (charge × reps, charge
+  // × reps, durée), VALIDÉ DANS LE DÉSORDRE. À deux exercices validés de haut en bas, « cartes à la suite » et « lignes entrelacées »
+  // donnent presque le même écran ; il faut un troisième, une mesure en durée (le chrono de tenue) et une validation par la fin.
+  await aller('/saisie');
+  await demarrerRoutine('Superset');
+
+  const cartes233 = () => page.evaluate(() => Array.from(document.querySelectorAll('.bloc-seance.superset .carte-ss')).map((c) => ({
+    nom: (c.querySelector('.nom-exo') || {}).textContent,
+    etiquettes: Array.from(c.querySelectorAll('.no-serie')).map((n) => n.textContent),
+    go: c.querySelectorAll('.tenue-go').length
+  })));
+  const c0_233 = await cartes233();
+  ok('le superset s’affiche en TROIS cartes à la suite, une par exercice',
+    c0_233.length === 3 && /Développé/.test(c0_233[0].nom) && /Curl/.test(c0_233[1].nom) && /Planche/.test(c0_233[2].nom), JSON.stringify(c0_233.map((c) => c.nom)));
+  ok('les séries sont rangées PAR EXERCICE : A1 A2 A3 · B1 B2 B3 · C1 C2 — jamais A1 B1 C1 entrelacés',
+    JSON.stringify(c0_233.map((c) => c.etiquettes)) === JSON.stringify([['A1', 'A2', 'A3'], ['B1', 'B2', 'B3'], ['C1', 'C2']]),
+    JSON.stringify(c0_233.map((c) => c.etiquettes)));
+  const barre233 = await page.evaluate(() => {
+    const b = document.querySelector('.bloc-seance.superset');
+    const rgb = (h) => { const n = parseInt(String(h).trim().replace('#', ''), 16); return 'rgb(' + (n >> 16) + ', ' + ((n >> 8) & 255) + ', ' + (n & 255) + ')'; };
+    const cs = getComputedStyle(b);
+    return { largeur: cs.borderLeftWidth, couleur: cs.borderLeftColor, teinte: rgb(getComputedStyle(document.documentElement).getPropertyValue('--teinte')),
+             etiquette: (b.querySelector('.superset-t') || {}).textContent };
+  });
+  ok('la barre qui relie les cartes est celle de la TEINTE (bleu), pas l’ambre, et l’étiquette dit « Superset »',
+    barre233.largeur === '4px' && barre233.couleur === barre233.teinte && /^Superset/.test(barre233.etiquette), JSON.stringify(barre233));
+  ok('une carte = une légende, un « + Série » et son en-tête de colonnes',
+    await page.evaluate(() => Array.from(document.querySelectorAll('.bloc-seance.superset .carte-ss')).every((c) =>
+      c.querySelectorAll('.legende-exo').length === 1 && c.querySelectorAll('.ajout-serie button').length === 1 && c.querySelectorAll('.cols-seance').length === 1)));
+
+  // La validation dans le DÉSORDRE : B1, C1, puis A1 — le tour 1 ne se ferme qu'avec la dernière des trois.
+  await validerRangee(0, 1);
+  await validerRangee(0, 2);
+  ok('B1 et C1 validées avant A1 : rien n’impose l’ordre, et le tour n’avance pas encore', /tour 0\/3/.test(await superT()), await superT());
+  await validerRangee(0, 0);
+  ok('A1 validée en dernier : le tour 1 est fait', /tour 1\/3/.test(await superT()), await superT());
+
+  // ── Déplacer un exercice : le repli accessible (menu ⋯), puis le glissement ──
+  await menuExo(0, 1);                                   // le CURL, au milieu
+  const menu233 = await entreesFeuille();
+  ok('le menu ⋯ d’un exercice porte « Monter » et « Descendre »', menu233.some((m) => /^Monter$/.test(m)) && menu233.some((m) => /^Descendre$/.test(m)), JSON.stringify(menu233));
+  await entree('^Monter$');
+  const c1_233 = await cartes233();
+  ok('« Monter » déplace l’exercice ENTIER (ses séries avec lui) : Curl, Développé, Planche — le superset reste un seul bloc',
+    c1_233.length === 3 && /Curl/.test(c1_233[0].nom) && /Développé/.test(c1_233[1].nom) && c1_233[0].etiquettes.length === 3 &&
+    (await compter('.bloc-seance.superset')) === 1, JSON.stringify(c1_233.map((c) => c.nom + ':' + c.etiquettes.length)));
+  ok('et sa série validée l’a suivi (B1 reste faite, dans la carte du Curl)', await page.evaluate(() => {
+    const k = document.querySelectorAll('.bloc-seance.superset .carte-ss')[0];
+    return k.querySelectorAll('.ok-serie.cochee').length === 1;
+  }));
+
+  // Le glissement par la poignée : la Planche (3e) saisie par sa poignée et lâchée au-dessus de la 1re carte.
+  const glisser233 = async (iCarte, versCarte, parNom) => {
+    const avant233 = JSON.stringify((await cartes233()).map((c) => c.nom));
+    const pos = await page.evaluate(([a, nom]) => {
+      const k = document.querySelectorAll('.bloc-seance.superset .carte-ss');
+      const dep = nom ? k[a].querySelector('.nom-exo') : k[a].querySelector('.poignee-exo');
+      dep.scrollIntoView({ block: 'center' });   // la souris du banc ne fait pas défiler : la prise doit être à l'écran
+      const r = dep.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, [iCarte, !!parNom]);
+    await page.mouse.move(pos.x, pos.y);
+    await page.mouse.down();
+    if (parNom) await attendre(650);   // temps réel : l'APPUI LONG sur le nom (450 ms de l'app)
+    await jusqua(() => page.evaluate(() => !!document.querySelector('.pris-exo')), 4000, 'carte prise');
+    // Les cartes se sont réduites à leur nom : on vise la carte cible telle qu'elle est maintenant.
+    const yCible = await page.evaluate((b) => document.querySelectorAll('.bloc-seance.superset .carte-ss')[b].getBoundingClientRect().top + 4, versCarte);
+    await page.mouse.move(pos.x, (pos.y + yCible) / 2, { steps: 4 });
+    await page.mouse.move(pos.x, yCible, { steps: 6 });
+    await page.mouse.up();
+    await jusqua(() => page.evaluate(() => !document.querySelector('.pris-exo')), 4000, 'glisser233');
+    // L'ordre est écrit puis la séance redessinée : on attend que la carte prise ait changé de place.
+    await jusqua(async () => JSON.stringify((await cartes233()).map((c) => c.nom)) !== avant233, 6000, 'glisser233 : ordre changé');
+    await brouillonPose();
+  };
+  const tailleP_233 = await page.evaluate(() => { const r = document.querySelector('.carte-ss .poignee-exo').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });
+  ok('la poignée ⠿ est une cible de 44 px au moins', tailleP_233[0] >= 44 && tailleP_233[1] >= 44, JSON.stringify(tailleP_233));
+  await glisser233(2, 0, false);
+  const c2_233 = await cartes233();
+  ok('glisser la Planche par sa poignée au-dessus de la 1re carte la met en tête (Planche, Curl, Développé)',
+    c2_233.length === 3 && /Planche/.test(c2_233[0].nom) && /Curl/.test(c2_233[1].nom) && /Développé/.test(c2_233[2].nom), JSON.stringify(c2_233.map((c) => c.nom)));
+  await glisser233(2, 0, true);
+  const c3_233 = await cartes233();
+  ok('l’APPUI LONG sur le nom d’un exercice le prend aussi (Développé en tête), sans ouvrir sa page',
+    c3_233.length === 3 && /Développé/.test(c3_233[0].nom) && /Planche/.test(c3_233[1].nom) && (await compter('#vue-seance:not([hidden])')) === 1,
+    JSON.stringify(c3_233.map((c) => c.nom)));
+
+  // ── Le chrono de tenue : la Planche seule en a un ──
+  // La 1re série de la Planche (C1) a été validée pour le tour : on la dévalide, le chrono ne sert que sur une série à faire.
+  if (process.env.BANC_CAPTURES_233) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_233, 'superset-cartes.png') });
+  const iPl0_233 = (await cartes233()).findIndex((c) => /Planche/.test(c.nom));
+  await attendre(600);   // temps réel : le clic qui suit un lâcher est avalé pendant 400 ms, un doigt ne retouche pas plus vite
+  await page.locator('.bloc-seance.superset .carte-ss').nth(iPl0_233).locator('.ligne-serie').nth(0).locator('.ok-serie.cochee').click();
+  await jusqua(() => page.evaluate((i) => !document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie.cochee'), iPl0_233), 6000, 'C1 dévalidée');
+  const cT_233 = await cartes233();
+  const iPlanche_233 = cT_233.findIndex((c) => /Planche/.test(c.nom));
+  const aFaire_233 = await page.evaluate((i) => [...document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')].filter((l) => !l.querySelector('.ok-serie.cochee')).length, iPlanche_233);
+  ok('seule la carte de la Planche (mesure durée) porte un chrono de tenue, une fois par série non validée',
+    cT_233.map((c, i) => (i === iPlanche_233 ? c.go === aFaire_233 && c.go >= 1 : c.go === 0)).every(Boolean), JSON.stringify(cT_233.map((c) => c.nom + ':' + c.go)));
+  const ligneP_233 = (k) => page.locator('.bloc-seance.superset .carte-ss').nth(iPlanche_233).locator('.ligne-serie').nth(k);
+  const champDuree_233 = (k) => page.evaluate(([i, r]) => {
+    const l = document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[r];
+    return { v: (l.querySelector('[data-champ="duree"] input') || {}).value, cochee: !!l.querySelector('.ok-serie.cochee') };
+  }, [iPlanche_233, k]);
+  // Le rang d'affichage absolu d'une série de la carte `iPlanche_233`, pour `validerRangee`.
+  const rangAbsolu_233 = (k) => page.evaluate(([i, r]) => {
+    const ks = document.querySelectorAll('.bloc-seance.superset .carte-ss');
+    let n = 0;
+    for (let c = 0; c < i; c++) n += ks[c].querySelectorAll('.ligne-serie').length;
+    return n + r;
+  }, [iPlanche_233, k]);
+  // Annuler n'écrit rien.
+  const avantAnnuler_233 = (await champDuree_233(0)).v;
+  await ligneP_233(0).locator('.tenue-go').click();
+  await attendre(1300);   // temps réel : le chrono de tenue compte
+  if (process.env.BANC_CAPTURES_233) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_233, 'chrono-en-cours.png') });   // temps réel : le chrono de tenue compte
+  ok('▶ démarre un chrono qui compte (Stop et Annuler apparaissent)',
+    (await compter('.tenue-t')) === 1 && (await compter('.tenue-stop')) === 1 && (await compter('.tenue-annuler')) === 1 && /^0:0[1-2]$/.test(await texte('.tenue-t')), await texte('.tenue-t'));
+  await page.click('.tenue-annuler');
+  await jusqua(() => page.evaluate(() => !document.querySelector('.tenue-t')), 4000, 'tenue annulée');
+  const apresAnnuler_233 = await champDuree_233(0);
+  ok('« Annuler » n’écrit rien dans la série', apresAnnuler_233.v === avantAnnuler_233 && !apresAnnuler_233.cochee && (await compter('.tenue-t')) === 0, JSON.stringify(apresAnnuler_233));
+  // Stop écrit la durée, sans valider la série.
+  await ligneP_233(0).locator('.tenue-go').click();
+  await attendre(2300);   // temps réel : deux secondes de tenue
+  await page.click('.tenue-stop');
+  await jusqua(() => page.evaluate(() => !document.querySelector('.tenue-t')), 4000, 'tenue arrêtée');
+  await brouillonPose();
+  if (process.env.BANC_CAPTURES_233) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_233, 'chrono-stop.png') });
+  const apresStop_233 = await champDuree_233(0);
+  ok('« Stop » écrit la durée tenue (≈ 2 s) dans la série — et ne la valide PAS d’office',
+    /^0?0:0[2-4]$/.test(apresStop_233.v) && !apresStop_233.cochee, JSON.stringify(apresStop_233));
+  // La série suivante prend cette durée pour visée : à la visée, la cloche (3 dings) et la vibration ; le chrono continue.
+  await casesSiVides(await ligneP_233(0).elementHandle());
+  await page.evaluate(([i]) => document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click(), [iPlanche_233]);
+  await jusqua(async () => (await champDuree_233(0)).cochee, 6000, 'planche 1 validée');
+  const visee_233 = await page.evaluate((i) => { const l = document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[1]; return ((l.querySelector('.tenue-vise') || {}).textContent || '').replace(/ /g, ' '); }, iPlanche_233);
+  ok('la série suivante annonce sa visée (la durée qu’on vient de tenir)', /visée 0:0[2-4]/.test(visee_233), visee_233);
+  const avantCloche_233 = await page.evaluate(() => ({ bips: window.__bips, vib: window.__vibrations.length }));
+  await ligneP_233(1).locator('.tenue-go').click();
+  await attendre(5200);   // temps réel : la visée (≈ 2 s) est dépassée
+  const apresCloche_233 = await page.evaluate(() => ({ bips: window.__bips, vib: window.__vibrations.slice(-1)[0], n: window.__vibrations.length }));
+  ok('à la durée visée : la cloche (3 dings) et la vibration en trois temps', apresCloche_233.bips - avantCloche_233.bips === 3 &&
+    Array.isArray(apresCloche_233.vib) && apresCloche_233.vib.length === 5, JSON.stringify([avantCloche_233, apresCloche_233]));
+  ok('et le chrono CONTINUE tant qu’on tient (il passe la visée)', /atteinte/.test(await page.evaluate(() => (document.querySelector('.tenue-t') || {}).className || '')) && (await compter('.tenue-stop')) === 1);
+  await page.click('.tenue-stop');
+  await jusqua(() => page.evaluate(() => !document.querySelector('.tenue-t')), 4000, 'tenue arrêtée (2)');
+  await brouillonPose();
+  const apresDepasse_233 = await champDuree_233(1);
+  ok('Stop après la visée écrit la durée réelle (plus longue que la visée)', /^0?0:0[5-9]$/.test(apresDepasse_233.v) && !apresDepasse_233.cochee, JSON.stringify(apresDepasse_233));
+
+  await page.click('#bandeau-seance .bandeau-fin');
+  await attendre(800);   // temps réel : la feuille de fin s'ouvre
+  await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
+  await seanceSortie();
+
   console.log('\n══ 7 undecies. LES CHAUFFES EN SUPERSET, ET LES GESTES SUR UNE SÉANCE ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : UN SUPERSET DONT
@@ -5022,7 +5210,8 @@ const SETS_IMPORTES = [
   await demarrerRoutine('Superset');
 
   // La i-ième rangée d'un bloc : on lui change son TYPE par la feuille.
-  const passerEnChauffe = async (iBloc, iRangee) => {
+  const passerEnChauffe = async (iBloc, iRangeeEntrelacee) => {
+    const iRangee = (await ordreEntrelace(iBloc))[iRangeeEntrelacee];   // 233 — le rang entrelacé se lit dans l'ordre des cartes
     await page.evaluate(([k, r]) => {
       document.querySelectorAll('.bloc-seance')[k]
         .querySelectorAll('.ligne-serie')[r].querySelector('.no-serie').click();
@@ -5244,7 +5433,7 @@ const SETS_IMPORTES = [
       return { t: n.textContent, couleur: s.color, fond: s.backgroundColor,
                bord: s.borderTopColor, l: s.width, h: s.height };
     };
-    return [lu(b[0]), lu(b[2])];     // une chauffe, une série de travail
+    return [lu(b[0]), lu(b[1])];     // une chauffe, une série de travail (233 : la carte de A range A, A1, A2 à la suite)
   });
   ok('la chauffe porte la LETTRE de son exercice, pas « Ac »',
     teintes[0].t === 'A' && teintes[1].t === 'A1',
@@ -5260,23 +5449,21 @@ const SETS_IMPORTES = [
     teintes[0].l + '×' + teintes[0].h + ' vs ' + teintes[1].l + '×' + teintes[1].h);
 
   // ── §7 undecies.2 — l'espace entre les tours ────────────────────────────
-  ok('chaque tour ouvre sur une rangée marquée, jamais la première du bloc',
+  // 233 — en séance les exercices d'un superset sont des CARTES : plus de tours entrelacés, donc plus de rangée « début de tour »
+  // ni d'espace entre les tours. Chaque carte range ses rangées à la suite : chauffes puis travail, sans trou.
+  ok('en cartes : les rangées suivent leur exercice (A, A1, A2 · B, B1, B2 · C1, C2), aucune n’ouvre un tour',
     JSON.stringify(await badges(0)) ===
-      JSON.stringify(['A', 'B', 'A1', 'B1', 'C1', 'A2', 'B2', 'C2']) &&
-    JSON.stringify(await marques(0)) ===
-      JSON.stringify([false, false, true, false, false, true, false, false]),
+      JSON.stringify(['A', 'A1', 'A2', 'B', 'B1', 'B2', 'C1', 'C2']) &&
+    (await marques(0)).every((m) => m === false),
     JSON.stringify(await badges(0)) + ' · ' + JSON.stringify(await marques(0)));
-  // ⚠️ MESURÉ, PAS DÉDUIT D'UNE CLASSE : l'espace doit exister à l'écran.
+  // ⚠️ MESURÉ, PAS DÉDUIT D'UNE CLASSE : dans une carte, les rangées se touchent.
   const ecarts = await page.evaluate(() => {
-    const l = Array.from(document.querySelectorAll('.bloc-seance')[0]
-      .querySelectorAll('.ligne-serie'));
-    const trou = (i) => Math.round(l[i].getBoundingClientRect().top -
-      l[i - 1].getBoundingClientRect().bottom);
-    return { entreTours: trou(2), dansUnTour: trou(1) };
+    const l = Array.from(document.querySelectorAll('.bloc-seance')[0].querySelector('.carte-ss').querySelectorAll('.ligne-serie'));
+    const trou = (i) => Math.round(l[i].getBoundingClientRect().top - l[i - 1].getBoundingClientRect().bottom);
+    return { dansUneCarte: trou(1), aussi: trou(2) };
   });
-  ok('l’espace est RÉEL : une dizaine de pixels entre les tours, zéro dedans',
-    ecarts.entreTours >= 9 && ecarts.entreTours <= 13 && ecarts.dansUnTour === 0,
-    JSON.stringify(ecarts));
+  ok('l’espace entre deux rangées d’une carte est nul (plus d’espace de tour)',
+    ecarts.dansUneCarte === 0 && ecarts.aussi === 0, JSON.stringify(ecarts));
   ok('et aucun texte n’a été ajouté entre les lignes',
     !/Tour\s*\d/i.test(await page.evaluate(() =>
       Array.from(document.querySelectorAll('.bloc-seance')[0]
@@ -27818,7 +28005,8 @@ const SETS_IMPORTES = [
       const debut = ilYa((7 * w + 1) * 86400000, t1882).toISOString();
       base.sessions.push({ id, user_id: 'u-banc', titre: 'EQ1882 stagne — ' + id, debut, fin: finDe(debut, t1882).toISOString(),
         statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-eq1882s', source: 'app', created_at: debut, gestes: [] });
-      [12, 9, 8].forEach((r, k) => base.sets.push(ligne1882(id + '-s' + (k + 1), 'eq1882-sq2', k + 1, 100, r, debut)));
+      // 233 — le repos lu par la règle est le repos RÉEL (l'écart entre deux séries validées) : 75 s entre les séries, comme réglé.
+      [12, 9, 8].forEach((r, k) => base.sets.push(ligne1882(id + '-s' + (k + 1), 'eq1882-sq2', k + 1, 100, r, new Date(Date.parse(debut) + k * 75000).toISOString())));
       // Un pari sur la première série (comme l'app l'écrit) fait de la séance une séance SOUS CONSIGNE ; la plus vieille n'en a pas (le départ).
       if (w < 7) base.predictions.push({ id: '00000000-0000-5000-8188-' + String(w).padStart(12, '0'), user_id: 'u-banc', module: 'moteur.consigne',
         module_version: 4, emise_a: debut, exercise_slug: 'eq1882-sq2', grandeur: 'reps', horizon_jours: null, valeur_predite: 12,

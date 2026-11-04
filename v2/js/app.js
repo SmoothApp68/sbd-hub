@@ -5636,6 +5636,75 @@
     }
   }
 
+  // ══ 233 — LE CHRONO DE TENUE ═════════════════════════════════════════════════════════════════════════════════════
+  //
+  // Une série d'un exercice mesuré au temps (planche, gainage, isométrie : mesure `temps`, hors cardio/sport) : « ▶ Chrono »
+  // démarre un chrono qui compte ; à la durée visée (le gris de la ligne, `duree_cible_s` de la routine ou la dernière fois), la
+  // cloche de fin de repos (`sonnerCloche`, 235 — la sourdine la coupe) et la vibration (`signalerEcheance`) ; il CONTINUE tant
+  // qu'on tient. « Stop » écrit la durée dans la série (jamais validée d'office : la case ✓ reste le geste de la personne),
+  // « Annuler » n'écrit rien. Le temps se lit sur l'horloge (`Date.now()`), jamais sur le nombre de tics : écran allumé, un tic
+  // en retard ne fausse rien. Aucune promesse en arrière-plan, aucun `await` : un minuteur qui s'arme lui-même (`setTimeout`) et un geste.
+  var tenue = null;             // { iExo, iSerie, debut (ms), cible (s | null), sonne }
+  var minuteurTenue = null;
+  function secondesDeTenue() { return tenue ? Math.max(0, Math.floor((Date.now() - tenue.debut) / 1000)) : 0; }
+  function tenuePossible(iExo) {
+    var exo = seance && seance.exercices ? seance.exercices[iExo] : null;
+    if (!exo) return false;
+    var fiche = Modele.indexerExercices(local.exercices)[exo.exercise_slug];
+    if (!fiche || fiche.mesure !== 'temps') return false;
+    // Hors cardio/sport (`nature = cardio`) : le gainage, la planche, une isométrie, un étirement tenu. Sans `nature` (catalogue ancien) : permis.
+    return fiche.nature !== 'cardio';
+  }
+  function arreterMinuteurTenue() {
+    if (minuteurTenue) { clearTimeout(minuteurTenue); minuteurTenue = null; }
+  }
+  function tenueDe(iExo, iSerie) {
+    if (!tenuePossible(iExo)) return null;
+    var serie = seance.exercices[iExo].series[iSerie];
+    if (!serie || partEnBase(serie)) return null;                 // une série déjà validée n'a plus besoin de chrono
+    var actif = !!tenue && tenue.iExo === iExo && tenue.iSerie === iSerie;
+    var cible = actif ? tenue.cible : fantomeDe(iExo, iSerie).duree_s;
+    return { actif: actif, secondes: actif ? secondesDeTenue() : 0, cible: cible > 0 ? cible : null };
+  }
+  function partEnBase(serie) { return Seance.partEnBase ? Seance.partEnBase(serie) : !!serie.validee_a; }
+  function battreTenue() {
+    minuteurTenue = null;
+    if (!tenue) return;
+    var serie = seance && seance.exercices && seance.exercices[tenue.iExo] ? seance.exercices[tenue.iExo].series[tenue.iSerie] : null;
+    // La série a disparu ou vient d'être validée à la main : le chrono n'a plus d'objet, il s'éteint sans rien écrire.
+    if (!serie || partEnBase(serie) || !$('blocs-seance')) { tenue = null; return; }
+    var s = secondesDeTenue();
+    Rendu.majTenue($('blocs-seance'), s, tenue.cible);
+    if (tenue.cible && !tenue.sonne && s >= tenue.cible) { tenue.sonne = true; signalerEcheance(); }
+    // Un tic de 250 ms qui s'arme lui-même (pas de second `setInterval` : le chronomètre de repos reste le seul réveil périodique).
+    minuteurTenue = setTimeout(battreTenue, 250);
+  }
+  function demarrerTenue(iExo, iSerie) {
+    if (!tenuePossible(iExo)) return;
+    arreterMinuteurTenue();
+    var cible = fantomeDe(iExo, iSerie).duree_s;
+    tenue = { iExo: iExo, iSerie: iSerie, debut: Date.now(), cible: cible > 0 ? cible : null, sonne: false };
+    reveillerAudio();                                              // le geste de l'utilisateur autorise le son à la cible
+    minuteurTenue = setTimeout(battreTenue, 250);
+    rendreSeance();
+  }
+  function annulerTenue() {
+    tenue = null; arreterMinuteurTenue();
+    rendreSeance();
+  }
+  async function arreterTenue() {
+    if (!tenue) return;
+    var t = tenue, s = secondesDeTenue();
+    tenue = null; arreterMinuteurTenue();
+    // Moins d'une seconde : rien à écrire (un double toucher). Sinon la durée entre dans la série comme si elle était tapée.
+    if (s >= 1) {
+      seance = Seance.modifierSerie(seance, t.iExo, t.iSerie, { duree: s });
+      rafraichirConstats();
+      await apresGeste();
+      await observerSerie(t.iExo, t.iSerie);
+    } else rendreSeance();
+  }
+
   function contexteAudio() {
     if (audio) return audio;
     var C = racine.AudioContext || racine.webkitAudioContext;
@@ -7236,6 +7305,16 @@
     return sortie;
   }
 
+  // 233 — le repos RÉEL de chaque exercice de la séance (`faits.reposReelsDe` : l'écart entre deux séries validées du même exercice).
+  function reposReelsDeLaSeance(exos) {
+    var sortie = {}, c = corpus();
+    (exos || []).forEach(function (x) {
+      var slug = x && x.exercise_slug;
+      if (slug && !Object.prototype.hasOwnProperty.call(sortie, slug)) sortie[slug] = faits.reposReelsDe(c, slug, Moteur.SEANCES_DE_CHUTE).habituel;
+    });
+    return sortie;
+  }
+
   // 193-1 (MOTEUR §9.28) — LES RECULS DE CHAQUE EXERCICE de la séance qui en porte : la dernière séance de l'exercice qui avait des
   // reculs (`Seance.precedentAReculs`) et la cible de reps de CETTE séance — celle des reculs de sa routine (`routine_id`) quand
   // elle est chargée et les porte encore, sinon `null` (le plan prend alors celle d'aujourd'hui : une approximation, la routine a pu
@@ -7417,6 +7496,7 @@
       // 188-2 (I76) — les chutes de reps de chaque exercice de la séance (les 3 dernières séances, un fait de `faits.js`) : le plan
       // décide de la ligne du repos, il ne relit pas l'historique.
       chutesDeReps: chutesDeRepsDeLaSeance(exos),
+      reposReels: reposReelsDeLaSeance(exos),
       paris: (local.predictions || []).filter(function (l) {
         return l && l.fondement && l.fondement.seance === seance.id;
       }),
@@ -9619,6 +9699,7 @@
       selection: selectionGroupe,
       surGrouper: function (a, b) { grouperBlocs(blocs, a, b); },
       surDeplacerBloc: function (i, d) { deplacerBloc(blocs, i, d); },
+      surDeplacerExercice: function (iExo, iCible, apres) { deplacerExerciceVers(iExo, iCible, apres); },
       surMenuBloc: function (i) { ouvrirFeuilleBloc('bloc', i, null); },
       surMenuExercice: function (i, iExo) { ouvrirFeuilleBloc('exercice', i, iExo); },
       // §2.8 — un tap sur le nom d'un exercice donne sa page (§7 quater). La
@@ -9686,6 +9767,11 @@
         await observerSerie(i, j);
       },
       surValider: validerSerieSansRebond,
+      // 233 — le chrono de tenue : `tenueDe` dit si la série en a un (et où il en est) ; les trois gestes sont ci-dessus.
+      tenueDe: tenueDe,
+      surTenueDemarrer: demarrerTenue,
+      surTenueStop: function () { arreterTenue().catch(function (e) { console.warn('Tenue non écrite :', texteErreur(e)); }); },
+      surTenueAnnuler: annulerTenue,
       // 185 — la question de vraisemblance, sous la série : lue ici, répondue par `repondreQuestionDeSaisie`.
       questionSaisie: questionSurLigne,
       surQuestion: repondreQuestionDeSaisie,
@@ -10084,6 +10170,8 @@
       // Pas sur un champ : un appui long dans un champ de saisie, c'est la
       // sélection de texte du système, et on ne la lui prend pas.
       if (e.target.closest && e.target.closest('input, textarea, select')) return;
+      // 233 — l'appui long sur le NOM d'un exercice (ou sa poignée) déplace l'exercice : il ne bascule pas la page en mode Modifier.
+      if (id === 'blocs-seance' && e.target.closest && e.target.closest('.nom-exo, .poignee-exo')) return;
       x0 = e.clientX; y0 = e.clientY;
       annuler();
       minuteur = setTimeout(function () {
@@ -10156,6 +10244,47 @@
     // Vers le bas : on se pose APRÈS le voisin. Vers le haut : AVANT lui.
     var ou = delta > 0 ? voisins[voisins.length - 1] + 1 : voisins[0];
     seance = Seance.deplacerVers(seance, indices, ou);
+    apresStructure();
+  }
+
+  // 233 — DÉPLACER UN EXERCICE (l'exercice entier : séries, note, groupe) : d'un cran par le menu ⋯ (Monter / Descendre, le repli
+  // accessible du glissement), ou n'importe où par l'appui long sur le nom / la poignée ⠿. Dans un superset l'exercice change de
+  // place DANS son groupe ; hors superset c'est son bloc (un seul exercice) qui bouge. L'ordre s'écrit par le chemin de la séance
+  // (`THSeance.deplacerExercice` / `deplacerVers`), puis `apresStructure` : le coach suit l'exercice, pas sa position.
+  function blocDeLExercice(blocs, iExo) {
+    for (var b = 0; b < blocs.length; b++) if (indicesDe(blocs[b]).indexOf(iExo) >= 0) return b;
+    return -1;
+  }
+  function voisinDeLExercice(blocs, iExo, delta) {
+    var iB = blocDeLExercice(blocs, iExo);
+    if (iB < 0) return null;
+    var idx = indicesDe(blocs[iB]);
+    if (idx.length > 1) {
+      var p = idx.indexOf(iExo) + delta;
+      return p >= 0 && p < idx.length ? { dansLeBloc: true, iCible: idx[p] } : null;
+    }
+    var vb = iB + delta;
+    return vb >= 0 && vb < blocs.length ? { dansLeBloc: false, iBloc: iB, delta: delta } : null;
+  }
+  function deplacerExerciceDUnCran(iExo, delta) {
+    var blocs = Modele.blocsDeSeance(seance, local.exercices);
+    var v = voisinDeLExercice(blocs, iExo, delta);
+    if (!v) return;
+    if (v.dansLeBloc) { seance = Seance.deplacerExercice(seance, iExo, v.iCible, delta > 0); apresStructure(); }
+    else deplacerBloc(blocs, v.iBloc, v.delta);
+  }
+  // Le glissement : `iCible` est un exercice de la carte visée (le premier avant elle, le dernier après elle).
+  function deplacerExerciceVers(iExo, iCible, apres) {
+    var blocs = Modele.blocsDeSeance(seance, local.exercices);
+    var iB = blocDeLExercice(blocs, iExo), iC = blocDeLExercice(blocs, iCible);
+    if (iB < 0 || iC < 0) return;
+    var source = indicesDe(blocs[iB]);
+    if (iB === iC && source.length > 1) {
+      seance = Seance.deplacerExercice(seance, iExo, iCible, apres);
+    } else if (iB !== iC) {
+      var cibles = indicesDe(blocs[iC]);
+      seance = Seance.deplacerVers(seance, source, apres ? cibles[cibles.length - 1] + 1 : cibles[0]);
+    } else return;
     apresStructure();
   }
 
@@ -10254,6 +10383,8 @@
         surMachinePrise: machinePrise(cibleExo),
         surJaiMal: jaiMal(cibleExo),
         surRemplacer: function () { demanderRemplacement(cibleExo); },
+        surMonter: voisinDeLExercice(blocs, cibleExo, -1) ? function () { fermerVoile(); deplacerExerciceDUnCran(cibleExo, -1); } : null,
+        surDescendre: voisinDeLExercice(blocs, cibleExo, 1) ? function () { fermerVoile(); deplacerExerciceDUnCran(cibleExo, 1); } : null,
         note: seance.exercices[cibleExo].note || '',
         surNote: function () { fermerVoile(); ouvrirFeuille('note', cibleExo, null); },
         surDisques: disquesPossibles(cibleExo) ? function () { fermerVoile(); ouvrirDisques(cibleExo, null); } : null,
@@ -10275,6 +10406,8 @@
       superset: bloc.superset,
       noms: noms,
       peutGrouper: blocs.length > 1,
+      surMonter: iBloc > 0 ? function () { fermerVoile(); deplacerBloc(blocs, iBloc, -1); } : null,
+      surDescendre: iBloc < blocs.length - 1 ? function () { fermerVoile(); deplacerBloc(blocs, iBloc, 1); } : null,
       surMachinePrise: bloc.superset ? null : machinePrise(indicesDe(bloc)[0]),
       surJaiMal: bloc.superset ? null : jaiMal(indicesDe(bloc)[0]),
       surRemplacer: function () { demanderRemplacement(indicesDe(bloc)[0]); },
@@ -12300,7 +12433,7 @@
 
   function rendreEditeur() {
     var index = Modele.indexerExercices(local.exercices);
-    var blocs = Modele.blocsDeSeance(brouillonCommeSeance(), local.exercices);
+    var blocs = Modele.blocsDeSeance(brouillonCommeSeance(), local.exercices, { entrelacer: true });
     var ranger = $('btn-ranger-routine');
     if (ranger) ranger.hidden = blocs.length < 2;
     var chargesDuRendu = {};
@@ -12612,7 +12745,7 @@
   }
 
   function reordonnerBrouillonParBlocs(cles) {
-    var blocs = Modele.blocsDeSeance(brouillonCommeSeance(), local.exercices);
+    var blocs = Modele.blocsDeSeance(brouillonCommeSeance(), local.exercices, { entrelacer: true });
     var neufs = [];
     cles.forEach(function (k) {
       (indicesDe(blocs[Number(k)]) || []).forEach(function (i) {

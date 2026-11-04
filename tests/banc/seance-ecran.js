@@ -736,6 +736,8 @@ const SETS_IMPORTES = [
     if ('elastique_norme' in l) return refus('428C9', 'elastique_norme est générée');
     // 185 (v2_116) — `sets.hors_calcul` boolean NOT NULL DEFAULT false : un null ou un non-booléen est refusé.
     if ('hors_calcul' in l && typeof l.hors_calcul !== 'boolean') return refus('23502', 'sets.hors_calcul NOT NULL');
+    // 242 (v2_131) — `sets.unilateral` boolean NOT NULL DEFAULT false.
+    if ('unilateral' in l && typeof l.unilateral !== 'boolean') return refus('23502', 'sets.unilateral NOT NULL');
     // ⚠️ `sets.id` EST uuid NOT NULL (chantier 33). Ce banc ne le vérifiait pas :
     // il acceptait `id: null`, et son upsert par `findIndex` écrasait alors
     // toutes les lignes nulles les unes sur les autres — six séries devenaient
@@ -28527,6 +28529,117 @@ const SETS_IMPORTES = [
     routinesAvant237.forEach((r) => ROUTINES.push(r));
     base.profiles[0] = profilAvant237;
     rendreLesBlocs237();
+    await aller('/saisie');
+  }
+
+  console.log('\n══ note-242. LA NOTE DE LA DERNIÈRE FOIS (MODIFIER, GARDER, NE PLUS AFFICHER, ANNULER) ET LA CASE UNILATÉRAL HORS DES RECORDS (242, ECRAN-SAISIE, MOTEUR §9.2, I131) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un squat à la barre, six séances à 100 kg × 5 dont la plus récente porte une note de série (« genou gauche
+  // tire ») et une plus ancienne une autre ; une routine « 3 × 5 » SANS consigne. La note de la dernière fois s'affiche sous le nom ; « Modifier »
+  // puis « Garder » l'épingle (profiles.notes_exercices, par la file) et elle revient à la séance suivante ; « Ne plus afficher » la retire avec un
+  // toast « Annuler ». Puis une série à 140 × 5 marquée « Unilatéral » ne fait AUCUNE médaille, alors qu'une série normale à 110 × 5 en fait une.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbCatAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, paris242Avant = base.predictions;
+    const routinesAvant242 = ROUTINES.splice(0, ROUTINES.length);
+    base.sessions = []; base.sets = []; base.predictions = [];
+    const rendreLesBlocs242 = await retirerBlocsDeLAppareil();
+    const t242 = Date.now();
+    const nb242 = (x) => JSON.stringify(x === undefined ? null : x);
+    const sp242 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    CATALOGUE.push({ slug: 'nu242-sq', nom: 'Squat NU242 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['adducteurs', 'bas_du_dos'], schema_mouvement: 'accroupir' });
+    const profilAvant242 = Object.assign({}, base.profiles[0]);
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { rythme_progression: 'normal', intention: 'progresser', phase: 'maintien', phase_depuis: null,
+      cartes_semaine: null, priorites: null, jours_vises: null, notes_exercices: {} });
+    for (let w = 1; w <= 6; w++) {
+      const id = 'nu242-' + w;
+      const debut = ilYa((7 * w + 1) * 86400000, t242).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'NU242 — ' + id, debut, fin: finDe(debut, t242).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-nu242', source: 'app', created_at: debut, gestes: [] });
+      base.sets.push({ id: id + '-s1', session_id: id, user_id: 'u-banc', exercise_slug: 'nu242-sq', charge_kg: 100, reps: 5, duree_s: null,
+        distance_m: null, denivele_m: null, etages: null, elastique: null, type_serie: 'travail', rang: 1, groupe_superset: null, validee_a: debut,
+        rpe: null, ressenti: null, repos_s: null, note: w === 1 ? 'genou gauche tire' : (w === 2 ? 'ancienne note' : null), source: 'app',
+        created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false, unilateral: false });
+    }
+    const sets242 = [1, 2, 3].map((i) => ({ id: 'pr-nu242-' + i, rang: i, type_serie: 'travail', reps_visees: 5, charge_cible_kg: null,
+      duree_cible_s: null, distance_cible_m: null }));
+    ROUTINES.push({ id: 'r-nu242', nom: 'Squat NU242', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z',
+      updated_at: '2026-01-05T10:00:00.000Z', routine_exercises: [{ id: 're-nu242-0', routine_id: 'r-nu242', exercise_slug: 'nu242-sq', rang: 0,
+        zone: 'mix', routine_sets: sets242, repos_cible_s: 180, groupe_superset: null, note: null }] });
+    const note242 = () => page.evaluate(() => { const n = document.querySelector('.note-derniere');
+      return n ? { t: (n.querySelector('.note-derniere-t') || {}).textContent, texte: (n.querySelector('.note-derniere-texte') || {}).textContent || null,
+        champ: !!n.querySelector('textarea') } : null; });
+    const profilNotes242 = () => (base.profiles[0] && base.profiles[0].notes_exercices) || {};
+
+    await aller('/saisie');
+    await demarrerRoutine('Squat NU242');
+    await attendreQue(() => note242().then((n) => !!n), 15000, 'noteAfficheeNU242');
+    const a242 = await note242();
+    ok('[NU242] DISCRIMINANT — la note de la dernière fois s’affiche sous le nom : « Ta note du … » + « genou gauche tire » (la plus récente, pas l’ancienne)',
+      !!a242 && /^Ta note du \d{1,2} .+/.test(sp242(a242.t)) && sp242(a242.texte) === '« genou gauche tire »', nb242(a242));
+    await page.click('.note-derniere-modifier');
+    const b242 = await note242();
+    ok('[NU242] « Modifier » ouvre le champ (écran B), rien n’est encore écrit', !!b242 && b242.champ && Object.keys(profilNotes242()).length === 0, nb242([b242, profilNotes242()]));
+    await page.click('.note-derniere-annuler');
+    ok('[NU242] « Annuler » rend la note telle qu’elle était, sans rien écrire', sp242((await note242()).texte) === '« genou gauche tire »' && Object.keys(profilNotes242()).length === 0, nb242(await note242()));
+    await page.click('.note-derniere-modifier');
+    await page.fill('.note-derniere-champ', 'serrer les omoplates');
+    await page.click('.note-derniere-garder');
+    await attendreQue(() => Promise.resolve((profilNotes242()['nu242-sq'] || {}).texte === 'serrer les omoplates'), 15000, 'garderNU242');
+    const c242 = await note242();
+    ok('[NU242] « Garder » épingle la note par la file (profiles.notes_exercices) : « Ta note pour cet exercice », sans date',
+      sp242(c242.t) === 'Ta note pour cet exercice' && sp242(c242.texte) === 'serrer les omoplates' && !!profilNotes242()['nu242-sq'].a, nb242([c242, profilNotes242()]));
+    await abandonner();
+    await aller('/saisie');
+    await demarrerRoutine('Squat NU242');
+    await attendreQue(() => note242().then((n) => !!n), 15000, 'noteRevientNU242');
+    const d242 = await note242();
+    ok('[NU242] à la séance suivante, la note épinglée revient (elle prime sur celle de la dernière fois)',
+      sp242(d242.t) === 'Ta note pour cet exercice' && sp242(d242.texte) === 'serrer les omoplates', nb242(d242));
+    await page.click('.note-derniere-masquer');
+    await attendreQue(() => note242().then((n) => !n), 15000, 'masquerNU242');
+    const toast242 = await page.evaluate(() => { const t = document.getElementById('toast-seance'); return t && !t.hidden ? t.textContent : null; });
+    ok('[NU242] « Ne plus afficher » retire la note et dit « Note retirée de cet exercice. » avec « Annuler »', /Note retirée de cet exercice\./.test(sp242(toast242)) && /Annuler/.test(sp242(toast242)), nb242(toast242));
+    await attendreQue(() => Promise.resolve(!!(profilNotes242()['nu242-sq'] || {}).masquee), 15000, 'masqueeNU242');
+    ok('[NU242] …et l’écrit : { masquee: <id de la série> }, plus de texte', profilNotes242()['nu242-sq'].masquee === 'nu242-1-s1' && profilNotes242()['nu242-sq'].texte === undefined, nb242(profilNotes242()));
+    await page.click('#toast-seance .toast-b');
+    await attendreQue(() => note242().then((n) => !!n), 15000, 'annulerMasqueNU242');
+    await attendreQue(() => Promise.resolve((profilNotes242()['nu242-sq'] || {}).texte === 'serrer les omoplates'), 15000, 'annulerMasqueEcritNU242');
+    ok('[NU242] « Annuler » remet la note et l’entrée d’avant', sp242((await note242()).texte) === 'serrer les omoplates', nb242([await note242(), profilNotes242()]));
+
+    // La case « Unilatéral » : 110 × 5 normale → un record au journal ; 140 × 5 unilatérale → aucun (le journal s'écrit à « Terminer »).
+    await saisirSerie(0, 110, 5);
+    await toucher(1, '.no-serie');
+    await page.click('.bascule-unilateral');
+    await attendreQue(() => page.evaluate(() => Array.from(document.querySelectorAll('.etq-ligne')).some((e) => /unilatéral/.test(e.textContent))), 15000, 'etiquetteUniNU242');
+    await saisirSerie(1, 140, 5);
+    await attendreQue(() => Promise.resolve(base.sets.some((x) => x.exercise_slug === 'nu242-sq' && x.charge_kg === 140)), 15000, 'serieUniEcriteNU242');
+    const uni242 = base.sets.filter((x) => x.exercise_slug === 'nu242-sq' && x.charge_kg === 140)[0];
+    const norm242 = base.sets.filter((x) => x.exercise_slug === 'nu242-sq' && x.charge_kg === 110)[0];
+    ok('[NU242] DISCRIMINANT — la série 140 × 5 « Unilatéral » est écrite avec unilateral = true (booléen, colonne NOT NULL)', !!uni242 && uni242.unilateral === true, nb242(uni242));
+    const etq242 = await page.evaluate(() => Array.from(document.querySelectorAll('.etq-ligne')).map((e) => e.textContent));
+    ok('[NU242] la ligne se dit « unilatéral »', etq242.some((t) => /unilatéral/.test(t)), nb242(etq242));
+    await terminer();
+    await attendreQue(() => Promise.resolve(base.records.some((r) => r.set_id === (norm242 && norm242.id))), 20000, 'journalNormalNU242');
+    ok('[NU242] …son record au journal : la série normale à 110 × 5 en a un, la série unilatérale à 140 × 5 (plus lourde) AUCUN',
+      !!norm242 && !!uni242 && base.records.some((r) => r.set_id === norm242.id) && !base.records.some((r) => r.set_id === uni242.id),
+      nb242(base.records.filter((r) => r.exercise_slug === 'nu242-sq').map((r) => [r.set_id, r.type, r.valeur])));
+    ok('[NU242] la garde de l’app (I131 compris) n’a rien vu', gardeBanc.violations === violationsAvant, nb242(gardeBanc.liste.slice(-2)));
+    ok('[NU242] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb242([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = paris242Avant;
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = 0;
+    routinesAvant242.forEach((r) => ROUTINES.push(r));
+    base.profiles[0] = profilAvant242;
+    rendreLesBlocs242();
     await aller('/saisie');
   }
 

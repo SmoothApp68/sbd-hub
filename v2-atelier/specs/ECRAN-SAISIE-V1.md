@@ -3750,3 +3750,16 @@ But : saisir une série d'un pouce, la tête ailleurs, sans chercher. Rien de ce
 ### Les chauffes proposées par le coach — 237 (MOTEUR §9.41)
 
 Sous l'exercice, une ligne repliée « Chauffe · N séries › » ; ouverte, elle dit les charges (« 60 kg × 5 »), le Pourquoi en détail, « Ajouter » et « Non merci ». Quand la personne a ajouté ses chauffes deux séances de suite, elles sont posées d'elles-mêmes à l'ouverture de la séance et une ligne dit « Chauffe ajoutée, comme d'habitude. » avec un seul geste, « Annuler » (44 px) ; « Annuler » retire les chauffes non faites. 237-bis : au 2ᵉ « Non merci » (ou « Annuler » ci-dessus), une ligne du même composant dit une fois « D'accord, je ne te les propose plus sur <exercice> pendant 4 semaines. » avec « Annuler » (44 px), qui retire ce refus ; elle part dès qu'une série de l'exercice est faite. L'écran ne calcule rien : il lit `x.proposition`, `x.chauffesAuto` et `x.silenceChauffes` du plan.
+
+---
+
+### La note de la dernière fois, la case « Unilatéral » — 242 (décidé le 04/11/2026, maquette `maquette-note-derniere-fois-v1`)
+
+**La note de l'exercice, sous son nom** (entre le nom et les séries ; jamais en mode programme). Un fait de `faits.js` (`noteDeLaDerniereFois`, `noteDeLExercice`), aucune décision du coach, aucun lecteur du plan : la dernière note écrite sur l'exercice (sur une série, ou la note d'exercice que l'app projette sur chaque série) lors de la **dernière séance terminée où il a été fait**, Hevy compris ; plusieurs notes dans la séance, la dernière par rang. **Exclue** : une note identique (espaces normalisés) à la consigne de la routine de cet exercice (`routine_exercises.note`). Une dernière séance sans note ne remonte pas plus loin.
+
+- **Écran A** — la note affichée. Si `profiles.notes_exercices[slug].texte` existe : « Ta note pour cet exercice » + le texte, sans date. Sinon : « Ta note du 28 oct. » (l'année si ce n'est pas l'année courante) + le texte entre « », sauf si `notes_exercices[slug].masquee` désigne la série qui porte cette note. Deux gestes : « Modifier » et « Ne plus afficher ».
+- **Écran B** — l'édition : un champ, « Garder » (écrit `{ texte, a }`) et « Annuler » (rien n'est écrit). Une note modifiée vide est retirée.
+- **Écran C** — « Ne plus afficher » écrit `{ masquee: <id de la série>, a }` ; toast « Note retirée de cet exercice. · Annuler » (5 s), qui remet l'entrée d'avant.
+- Écriture par la file (`poserProfil`), jamais ailleurs. Les séries passées gardent leur note d'origine. Les mots de la personne ne sont jamais réécrits.
+
+**La case « Unilatéral »** — dans le menu ⋯ de la série (comme « Au max »), sur un exercice chiffré en charge × reps ou en reps ; écrit `sets.unilateral`. Charge et reps s'entendent **par côté**. Effet : MOTEUR §9.2 (1 série au volume, hors du max estimé et des records ; I131). Le journal et le détail la montrent « · unilatéral ». La case n'est pas reprise sur la série suivante (aucun champ de série ne se reprend : une série ajoutée est vide).

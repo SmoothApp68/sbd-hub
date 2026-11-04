@@ -2356,7 +2356,32 @@ const SETS_IMPORTES = [
       await attendre(300);
     }
   };
-  const ligneDuBloc = async (iBloc, k) => vive(page.locator('.bloc-seance').nth(iBloc).locator('.ligne-serie').nth(k));
+  // 233 — LES SUPERSETS NE S'ENTRELACENT PLUS À L'ÉCRAN (une carte par exercice) : les sections écrites avant adressent encore une
+  // rangée par son rang ENTRELACÉ (A1 B1 C1 A2…, chauffes en tête). `ordreEntrelace` rend, pour un bloc, l'indice réel (dans le DOM) de
+  // chaque rang entrelacé ; un bloc sans carte (exercice seul) est l'identité. `ligneDuBloc`, `validerRangee`, `etiquettes` et
+  // `allumees` le lisent : leurs assertions gardent leur sens, et la section 233 vérifie, elle, l'ordre réel.
+  const ordreEntrelace = (iBloc) => page.evaluate((b) => {
+    const bloc = document.querySelectorAll('.bloc-seance')[b];
+    const lignes = Array.from(bloc.querySelectorAll('.ligne-serie'));
+    const cartes = Array.from(bloc.querySelectorAll('.carte-ss'));
+    if (!cartes.length) return lignes.map((_, i) => i);
+    const ch = [], tr = [];
+    cartes.forEach((c) => {
+      const c1 = [], t1 = [];
+      Array.from(c.querySelectorAll('.ligne-serie')).forEach((l) => {
+        const i = lignes.indexOf(l);
+        (/\d/.test((l.querySelector('.no-serie') || {}).textContent || '') ? t1 : c1).push(i);
+      });
+      ch.push(c1); tr.push(t1);
+    });
+    const sortie = [];
+    [ch, tr].forEach((liste) => {
+      const n = liste.reduce((m, x) => Math.max(m, x.length), 0);
+      for (let t = 0; t < n; t++) liste.forEach((x) => { if (x[t] !== undefined) sortie.push(x[t]); });
+    });
+    return sortie;
+  }, iBloc);
+  const ligneDuBloc = async (iBloc, k) => vive(page.locator('.bloc-seance').nth(iBloc).locator('.ligne-serie').nth((await ordreEntrelace(iBloc))[k]));
 
   // ── 143 — LES AIDES D'ÉTAT ──────────────────────────────────────────────
   // Chaque délai fixe d'une aide devient l'attente de l'ÉTAT que lit le contrôle qui suit — jamais un état déjà vrai
@@ -4239,16 +4264,19 @@ const SETS_IMPORTES = [
   await aller('/saisie');
   await demarrerRoutine('Superset');
 
-  const etiquettes = (iBloc) => page.evaluate((k) =>
+  const etiquettesBrutes = (iBloc) => page.evaluate((k) =>
     Array.from(document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.no-serie'))
       .map((n) => n.textContent), iBloc);
-  const allumees = (iBloc) => page.evaluate((k) =>
+  const etiquettes = async (iBloc) => { const o = await ordreEntrelace(iBloc), b = await etiquettesBrutes(iBloc); return o.map((i) => b[i]); };
+  const allumeesBrutes = (iBloc) => page.evaluate((k) =>
     Array.from(document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.serie'))
       .map((r) => r.classList.contains('faite')), iBloc);
+  const allumees = async (iBloc) => { const o = await ordreEntrelace(iBloc), b = await allumeesBrutes(iBloc); return o.map((i) => b[i]); };
   // Une rangée est adressée par son INDICE D'AFFICHAGE dans le bloc — c'est
   // l'ordre entrelacé, donc exactement ce qu'un pouce touche.
-  const validerRangee = async (iBloc, iRangee) => {
-    await casesSiVides(await ligneDuBloc(iBloc, iRangee));
+  const validerRangee = async (iBloc, iRangeeEntrelacee) => {
+    const iRangee = (await ordreEntrelace(iBloc))[iRangeeEntrelacee];
+    await casesSiVides(await ligneDuBloc(iBloc, iRangeeEntrelacee));
     const cocheeDe = () => page.evaluate(([k, r]) => {
       const l = document.querySelectorAll('.bloc-seance')[k].querySelectorAll('.ligne-serie')[r];
       return l ? !!l.querySelector('.ok-serie.cochee') : null;
@@ -4279,9 +4307,10 @@ const SETS_IMPORTES = [
     lisere[0] === '4px' && lisere[1] === '0px', JSON.stringify(lisere));
 
   ok('233 — les séries s’affichent PAR EXERCICE (une carte chacun), et le tour 3 n’attend aucun C3',
-    JSON.stringify(await etiquettes(0)) ===
-    JSON.stringify(['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2']),
-    JSON.stringify(await etiquettes(0)));
+    JSON.stringify(await etiquettesBrutes(0)) ===
+    JSON.stringify(['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2']) &&
+    JSON.stringify(await etiquettes(0)) === JSON.stringify(['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3']),
+    JSON.stringify(await etiquettesBrutes(0)));
 
   ok('l’exercice seul numérote 1, 2 — aucune lettre',
     JSON.stringify(await etiquettes(1)) === JSON.stringify(['1', '2']),
@@ -4372,11 +4401,11 @@ const SETS_IMPORTES = [
     JSON.stringify(coche));
 
   // ⚠️ DANS LE DÉSORDRE : C1 avant B1.
-  await validerRangee(0, 6);          // C1
-  await validerRangee(0, 3);          // B1
+  await validerRangee(0, 2);          // C1
+  await validerRangee(0, 1);          // B1
   ok('le tour se ferme dans le désordre, et s’allume d’un coup',
     JSON.stringify(await allumees(0)) ===
-    JSON.stringify([true, false, false, true, false, false, true, false]),
+    JSON.stringify([true, true, true, false, false, false, false, false]),
     JSON.stringify(await allumees(0)));
   ok('et le tour annoncé avance', /tour 1\/3/.test(await superT()), (await superT()).trim());
 
@@ -4385,12 +4414,12 @@ const SETS_IMPORTES = [
   ok('dévalider ne fait PAS reculer le tour', /tour 1\/3/.test(await superT()),
     (await superT()).trim());
   ok('mais l’éclairage, lui, dit la vérité du moment',
-    (await allumees(0))[0] === false,
+    (await allumees(0)).slice(0, 3).every((x) => x === false),
     JSON.stringify((await allumees(0)).slice(0, 3)));
   await validerRangee(0, 0);          // revalide A1
 
   // ── Le tour 3, sans C3 ─────────────────────────────────────────────────
-  for (const r of [1, 2, 4, 5, 7]) await validerRangee(0, r);
+  for (const r of [3, 4, 5, 6, 7]) await validerRangee(0, r);
   ok('le tour 3 se ferme sans C3 : tout le bloc est allumé',
     (await allumees(0)).every((x) => x === true) && /tour 3\/3/.test(await superT()),
     JSON.stringify(await allumees(0)) + ' · ' + (await superT()).trim());
@@ -5042,8 +5071,8 @@ const SETS_IMPORTES = [
       c.querySelectorAll('.legende-exo').length === 1 && c.querySelectorAll('.ajout-serie button').length === 1 && c.querySelectorAll('.cols-seance').length === 1)));
 
   // La validation dans le DÉSORDRE : B1, C1, puis A1 — le tour 1 ne se ferme qu'avec la dernière des trois.
-  await validerRangee(0, 3);
-  await validerRangee(0, 6);
+  await validerRangee(0, 1);
+  await validerRangee(0, 2);
   ok('B1 et C1 validées avant A1 : rien n’impose l’ordre, et le tour n’avance pas encore', /tour 0\/3/.test(await superT()), await superT());
   await validerRangee(0, 0);
   ok('A1 validée en dernier : le tour 1 est fait', /tour 1\/3/.test(await superT()), await superT());
@@ -5127,7 +5156,9 @@ const SETS_IMPORTES = [
   ok('« Stop » écrit la durée tenue (≈ 2 s) dans la série — et ne la valide PAS d’office',
     /^0?0:0[2-4]$/.test(apresStop_233.v) && !apresStop_233.cochee, JSON.stringify(apresStop_233));
   // La série suivante prend cette durée pour visée : à la visée, la cloche (3 dings) et la vibration ; le chrono continue.
-  await validerRangee(0, await rangAbsolu_233(0));
+  await casesSiVides(await ligneP_233(0));
+  await page.evaluate(([i]) => document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click(), [iPlanche_233]);
+  await jusqua(async () => (await champDuree_233(0)).cochee, 6000, 'planche 1 validée');
   const visee_233 = await page.evaluate((i) => { const l = document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[1]; return ((l.querySelector('.tenue-vise') || {}).textContent || '').replace(/ /g, ' '); }, iPlanche_233);
   ok('la série suivante annonce sa visée (la durée qu’on vient de tenir)', /visée 0:0[2-4]/.test(visee_233), visee_233);
   const avantCloche_233 = await page.evaluate(() => ({ bips: window.__bips, vib: window.__vibrations.length }));

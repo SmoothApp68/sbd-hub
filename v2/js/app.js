@@ -5617,7 +5617,7 @@
   // Signalé sur device, écran ALLUMÉ : le son part, la vibration non — ce n'est
   // donc pas la limite de Chrome sur écran éteint. Ce qui EST mesuré (banc
   // d'écran § 5 ter, navigateur réel) : l'app émet exactement UN
-  // `navigator.vibrate(120)` à l'échéance, et rien ne le supprime ni ne le
+  // `navigator.vibrate(VIBRATION_ECHEANCE)` à l'échéance (235 : [200, 150, 200, 150, 200]), et rien ne le supprime ni ne le
   // double. Le défaut n'est pas dans l'émission.
   //
   // Ce que le banc ne peut PAS mesurer, et c'est le §2 quater à la lettre :
@@ -5629,7 +5629,7 @@
   // LISIBLE, pour que la mesure qui compte — sur l'appareil — tranche. Aucun
   // correctif spéculatif ici ; la proposition est dans le rapport du chantier.
   function signalerEcheance() {
-    if (!sourdine) biper();
+    if (!sourdine) sonnerCloche();
     if (vibrer(VIBRATION_ECHEANCE) === false) {
       console.warn('Vibration d’échéance refusée par la plateforme ' +
         '(activation utilisateur, visibilité, ou réglage système).');
@@ -5653,24 +5653,40 @@
   }
 
   // Le son est SYNTHÉTISÉ, pas chargé : pas de fichier binaire au dépôt, pas
-  // de CDN, rien à précacher. Une sinusoïde de 880 Hz sur 200 ms, avec une
-  // rampe d'attaque et d'extinction — un créneau coupé net claque.
-  function biper() {
+  // de CDN, rien à précacher. 235 — LA CLOCHE DE FIN DE ROUND (demandée sur
+  // device le 04/11 : l'ancien bip sinus était « vraiment pas assez fort »,
+  // pas identifiable de suite). Trois « ding » à 0, 0,35 et 0,70 s ; chacun =
+  // une fondamentale à 1 320 Hz + deux partiels inharmoniques de cloche
+  // (×2,76 et ×5,40, plus faibles), attaque 5 ms, décroissance exponentielle
+  // ≈ 0,6 s. Les poids des trois partiels font 1 et le gain de crête d'un ding
+  // est 0,9 : aucune saturation (les dings se chevauchent à moins de 0,5 %).
+  // UNE seule fonction ; son seul lecteur est `signalerEcheance`.
+  function sonnerCloche() {
     var a = contexteAudio();
     if (!a || typeof a.createOscillator !== 'function') return;
+    var DEPARTS = [0, 0.35, 0.70], FONDAMENTALE = 1320, CRETE = 0.9, DECROISSANCE = 0.6;
+    var PARTIELS = [[1, 0.6], [2.76, 0.28], [5.40, 0.12]];
     try {
-      var t = a.currentTime;
-      var osc = a.createOscillator();
-      var gain = a.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.25, t + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.19);
-      osc.connect(gain);
-      gain.connect(a.destination);
-      osc.start(t);
-      osc.stop(t + 0.2);
+      var t0 = a.currentTime;
+      DEPARTS.forEach(function (decalage) {
+        var t = t0 + decalage;
+        var maitre = a.createGain();
+        maitre.gain.setValueAtTime(0.0001, t);
+        maitre.gain.exponentialRampToValueAtTime(CRETE, t + 0.005);
+        maitre.gain.exponentialRampToValueAtTime(0.0001, t + 0.005 + DECROISSANCE);
+        maitre.connect(a.destination);
+        PARTIELS.forEach(function (p) {
+          var osc = a.createOscillator();
+          var poids = a.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = FONDAMENTALE * p[0];
+          poids.gain.value = p[1];
+          osc.connect(poids);
+          poids.connect(maitre);
+          osc.start(t);
+          osc.stop(t + 0.005 + DECROISSANCE + 0.05);
+        });
+      });
     } catch (e) { /* le son est un confort, pas une garantie */ }
   }
 
@@ -6032,7 +6048,7 @@
   // l'explication la plus probable du « spécifié mais absent » relevé sur
   // device le 11/09 ; la vérification au banc est dans le rapport.
   var VIBRATION_VALIDATION = 35;
-  var VIBRATION_ECHEANCE = 120;   // à travers une poche, il faut plus long
+  var VIBRATION_ECHEANCE = [200, 150, 200, 150, 200];   // 235 : trois temps, alignés sur les trois dings de la cloche
 
   // Rend CE QUE LA PLATEFORME A RÉPONDU — `false` quand elle refuse, `null`
   // quand l'API n'existe pas. Ignorer ce booléen, c'était se priver du seul

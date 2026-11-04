@@ -2003,7 +2003,7 @@
     var portee = {};
     // 193-4 — la semaine de test de ce jour, ou `null` : la barre testée, les barres qui restent normales.
     var jourDeTest = intentionProfil === 'entretien' ? null : semaineDeTestDuJour(e, seance, exos);
-    return {
+    var plan236 = {
       seance: seance.id === undefined ? null : seance.id,
       semaineDeTest: jourDeTest ? { debut: jourDeTest.debut, fin: jourDeTest.fin, jour: jourDeTest.jour, testee: jourDeTest.testee, conflits: jourDeTest.conflits, barres: jourDeTest.barres.map(function (q) { return q.slug; }) } : null,
       phase: phase,
@@ -2045,6 +2045,8 @@
         });
       }), e.reserve, seance)
     };
+    // 236 (MOTEUR §9.39) — le coach en temps réel après un raté : lu sur le plan fini, posé sur lui.
+    return reactionsDuPlan(plan236, e, seance);
     function planDeLOccurrence(exo, i, salleEl) {
         var slug = exo && exo.exercise_slug;
         // 221 (MOTEUR §19.2) — LE BLOC HYPERTROPHIE : squat et couché gardent une grosse série (Lourd, garde 1) puis des reculs aux reps
@@ -2477,6 +2479,331 @@
       x.serieReserve = motif ? derniereSerieDeTravail(exos[i]) : null;
     });
     return xs;
+  }
+
+  // ══ 236 (MOTEUR §9.39) — LE COACH EN TEMPS RÉEL APRÈS UN RATÉ ═══════════════════════════════════════════════════════
+  //
+  // `Moteur.reactionAuRate` décide (pure) ; le plan la LIT, pour chaque exercice (`x.rate` : la réaction sous la dernière série
+  // validée, `x.carteParis` : « un cran dessous »), puis pour la séance (`plan.formeDuJour` et `x.carteForme`). Il rédige sous capture
+  // (I26) et pose, sur les lignes qui restent, la fourchette (jamais la charge : la charge ne change que par « Prendre X kg »,
+  // un geste de `sessions.gestes`). L'écran lit ; il ne calcule rien. Rien n'est écrit dans une série.
+  var GESTES_DU_COACH = /^(rate_|forme_|paris_)/;
+  function gestesDuCoach(seance) {
+    return (Array.isArray(seance && seance.gestes) ? seance.gestes : []).filter(function (g) { return g && typeof g.geste === 'string' && GESTES_DU_COACH.test(g.geste); });
+  }
+  function laLigneAUnSens(l) { return (l.type === 'travail' || l.type === 'recul') && l.role !== 'hors'; }
+  // Pose une visée et une fourchette sur une ligne non validée, ni figée : la ligne, son fantôme, son pré-remplissage et son pari.
+  function poserSurLaLigne(x, t, o) {
+    if (!t || t.validee || t.figee) return;
+    var pari = x.paris && x.paris[t.iSerie] ? x.paris[t.iSerie] : null;
+    var marque = t.rate || {};
+    var vise = nombre(t.vise);
+    if (o.vise !== undefined && o.vise !== null && (vise === null || vise > o.vise)) {
+      t.vise = o.vise;
+      if (t.fantome && t.fantome.reps !== undefined && t.fantome.reps !== null) t.fantome.reps = o.vise;
+      if (t.prerempli && t.prerempli.reps !== undefined && t.prerempli.reps !== null) t.prerempli.reps = o.vise;
+      if (pari) pari.valeur_predite = o.vise;
+      marque.vise = o.vise;
+    }
+    if (o.fourchette && pari && pari.valeur_predite !== null && pari.valeur_predite !== undefined) {
+      pari.borne_basse = o.fourchette[0];
+      pari.borne_haute = Math.max(o.fourchette[1], nombre(pari.valeur_predite));
+      marque.fourchette = [pari.borne_basse, pari.borne_haute];
+    }
+    if (o.charge !== undefined && o.charge !== null && !memeChargeOuVides(t.charge, o.charge)) {
+      t.charge = o.charge;
+      if (t.fantome) t.fantome.charge = o.charge;
+      if (t.prerempli) t.prerempli.charge_kg = o.charge;
+      if (pari && pari.fondement) pari.fondement.charge = o.charge;
+      marque.charge = o.charge;
+    }
+    if (Object.keys(marque).length) t.rate = marque;
+  }
+
+  // Ce que le plan sait d'un exercice pour la forme du jour : fini ? sous la cible ? charge baissée ?
+  function resumeDeLExercice(x, series, travail, faites) {
+    var nom = x.nom || x.slug;
+    var valid = faites.filter(function (l) { return l.type === 'travail'; });
+    var sous = 0, baissee = false;
+    valid.forEach(function (l) {
+      var s = series[l.iSerie] || {};
+      var reps = nombre(s.reps), vise = nombre(l.vise), ch = nombre(s.charge_kg), prevue = nombre(l.charge);
+      if (reps !== null && vise !== null && reps < vise) sous++;
+      if (ch !== null && prevue !== null && prevue > 0 && ch < prevue && !memeChargeOuVides(ch, prevue)) baissee = true;
+    });
+    return { slug: x.slug, nom: nom, fini: travail.length > 0 && travail.every(function (l) { return l.validee; }), demarre: faites.length > 0,
+             sousCible: valid.length >= 2 && sous * 2 > valid.length, chargeBaissee: baissee };
+  }
+
+  // Les faits communs aux niveaux : ce qui fait taire le coach, et ce qui le fait parler autrement.
+  function contexteDuRate(plan, x, exo, e, seance, gs) {
+    var cat = e.catalogue && x.slug && Object.prototype.hasOwnProperty.call(e.catalogue, x.slug) ? e.catalogue[x.slug] : {};
+    var cs = e.consignes && x.slug && Object.prototype.hasOwnProperty.call(e.consignes, x.slug) ? e.consignes[x.slug] : null;
+    var equip = x.materiel || (cat && cat.equipement) || null;
+    var muscles = { prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [], stab: cat.muscles_stabilisateurs || [],
+                    equipement: equip, mesure: x.mesure, slug: x.slug };
+    var isolation = x.polyarticulaire === false;
+    return {
+      reglage: plan.reglage, objectif: plan.objectif,
+      entretien: plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien',
+      decharge: !!plan.allegee || !!(x.consigne && x.consigne.allegee),
+      semaineDeTest: !!plan.semaineDeTest || !!x.semaineDeTest, debutant: plan.debutant === true, calage: !!x.calage,
+      douleur: !!x.douleur, figure: !!x.figure,
+      zoneAMenager: !!x.menagee, douleurHier: !!x.carteReprise,
+      peuDeTemps: gs.concat(Array.isArray(seance.gestes) ? seance.gestes : []).some(function (g) { return g && g.geste === 'raccourci'; }),
+      seche: plan.phase === 'seche', autreSalle: e.autreSalle === true,
+      barre: equip === 'barre', materiel: equip, isolation: isolation,
+      peutRestPause: Moteur().peutRestPause(muscles), peutDegressive: equip !== 'barre' && x.mesure !== 'temps',
+      pas: cs ? nombre(cs.pas) : null
+    };
+  }
+
+  function reactionDExercice(plan, x, exo, e, seance, gs, resumes) {
+    var M = Moteur(), V = Voix(), P = Palier();
+    var k = x.consigne;
+    var silence = plan.intention === 'entretien' || !!plan.allegee || !!seance.edition || plan.debutant === true;
+    var mesureOk = x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps' || x.mesure === 'reps';
+    if (!exo) return;
+    var series = exo.series || [];
+    var travail = (x.lignes || []).filter(laLigneAUnSens);
+    var faites = travail.filter(function (l) { return l.validee; });
+    var premiere = !k || k.etat === 'silence';
+    var zone = k && !premiere ? M.zoneParCle(k.zone) : null;
+    var resume = resumeDeLExercice(x, series, travail, faites);
+    resume.nom = (e.catalogue && e.catalogue[x.slug] && e.catalogue[x.slug].nom) || x.slug;
+    if (premiere || x.calage) resume.premiere = true;
+    if (!mesureOk || x.douleur || x.figure) resume = null;
+    resumes.push(resume ? Object.assign(resume, { iExo: x.iExo }) : null);
+    if (silence || premiere || !zone || !mesureOk || !faites.length || !aUnPari(x)) return;
+    var cx = contexteDuRate(plan, x, exo, e, seance, gs);
+    var chauffeValidee = (x.lignes || []).some(function (l) { return l.type === 'echauffement' && l.validee; });
+    var superset = exo.groupe_superset !== null && exo.groupe_superset !== undefined;
+    var reposCible = exo.repos_cible_s !== null && exo.repos_cible_s !== undefined ? nombre(exo.repos_cible_s) : null;
+    var prises = function (iSerie) {
+      return gs.filter(function (g) { return g.geste === 'rate_prise' && g.slug === x.slug && g.rang === iSerie; });
+    };
+    var ignorees = 0, sousAvant = 0, apres = false, dernier = null;
+    faites.forEach(function (l, n) {
+      var s = series[l.iSerie] || {};
+      var reps = nombre(s.reps), ch = nombre(s.charge_kg);
+      var rang = travail.indexOf(l);
+      var role = l.type === 'recul' ? 'recul' : (l.auMax || s.au_max === true) ? 'au_max' : l.role === 'test' ? 'test'
+        : (x.reculs && travail[0] && l.iSerie === travail[0].iSerie) ? 'grosse' : 'travail';
+      // Le repos réel : entre cette série et la précédente validée (au superset, entre deux séries du MÊME exercice : le tour).
+      var reposReel = nombre(s.repos_s);
+      if (superset) {
+        var avant = faites[n - 1] ? series[faites[n - 1].iSerie] : null;
+        var tA = s.validee_a ? Date.parse(s.validee_a) : NaN, tB = avant && avant.validee_a ? Date.parse(avant.validee_a) : NaN;
+        reposReel = isFinite(tA) && isFinite(tB) && tA > tB ? Math.round((tA - tB) / 1000) : null;
+      }
+      var ctx = Object.assign({}, cx, { niveau: 'serie', role: role, charge: ch, reps: reps, vise: nombre(l.vise), bas: zone.bas, haut: zone.haut,
+        rang: rang, derniere: rang === travail.length - 1, reserve: P.reserveDeSerie(s), reposReel: reposReel, reposCible: reposCible,
+        sousZoneAvant: sousAvant, ignorees: ignorees, apres: apres, chauffeValidee: chauffeValidee,
+        corps: ch === null || ch <= 0 });
+      var d = M.reactionAuRate(ctx);
+      var estLaDerniere = n === faites.length - 1;
+      if (!estLaDerniere && !d.silence && d.cas !== 'R' && !prises(l.iSerie).length) ignorees++;
+      apres = !d.silence && d.cas !== 'R';
+      if (reps !== null && reps < zone.bas && l.type === 'travail') sousAvant++;
+      dernier = { l: l, d: d, ctx: ctx };
+    });
+    if (!dernier) return;
+    var d = dernier.d, iSerie = dernier.l.iSerie;
+    // Niveau 2 : après 2 séries sous la cible, la suite vise ce qui vient d'être fait ; il remplace la phrase de la série (une seule).
+    var d2 = M.reactionAuRate(Object.assign({}, cx, { niveau: 'exercice', charge: dernier.ctx.charge, ignorees: ignorees,
+      faites: faites.filter(function (l) { return l.type === 'travail'; }).map(function (l) {
+        return { reps: nombre((series[l.iSerie] || {}).reps), vise: nombre(l.vise) };
+      }), restantes: travail.filter(function (l) { return !l.validee; }).length }));
+    if (!d2.silence && dernier.l.type === 'travail') d = d2;
+    if (d.silence) return;
+    // La réaction existante (§9.14) parle déjà sous cette série : elle garde la parole, sauf « à fond, la suite d'une rep de moins »,
+    // que cette règle dit mieux (même fait, une seule phrase).
+    if (x.message && x.message.type !== 'a_fond_suite') return;
+    if (x.message && x.message.type === 'a_fond_suite') {
+      x.message = null;
+      if (x.reaction) x.reaction = Object.assign({}, x.reaction, { message: null });
+      x.phrases = (x.phrases || []).filter(function (p) { return p.ou !== 'message'; });
+    }
+    var pris = prises(iSerie).map(function (g) { return g.bouton; });
+    var cap = V.capturer(function () { return M.phraseDeRate(d); });
+    var cap2 = V.capturer(function () { return (d.leviers || []).map(function (cle) { return M.boutonDeRate(cle, d); }); });
+    var chiffres = { reps: [], garde: [], charge: [] };
+    [d.faites, d.visees, d.avant, d.vise, d.n, d.sur].concat(d.fourchette || []).forEach(function (v) { if (nombre(v) !== null) chiffres.reps.push(v); });
+    if (d.garde !== undefined) chiffres.garde.push(d.garde);
+    if (d.charge && d.charge.kg !== null && d.charge.kg !== undefined) chiffres.charge.push(d.charge.kg);
+    if (nombre(d.maxDuJour) !== null) chiffres.charge.push(d.maxDuJour);
+    x.rate = {
+      iSerie: iSerie, niveau: d.niveau, cas: d.cas, base: d.base || null, phrase: cap.texte,
+      boutons: (d.leviers || []).map(function (cle) { return { cle: cle, texte: M.boutonDeRate(cle, d), pris: pris.indexOf(cle) >= 0 }; }),
+      charge: d.charge || null, garde: d.garde === undefined ? null : d.garde, fourchette: d.fourchette || null, recale: d.recale === true,
+      pasDAuMax: d.pasDAuMax === true, approche: d.approche === true, recalculeReculs: d.recalculeReculs === true,
+      fait: d.fait === true, pris: pris, chiffres: chiffres, role: d.role || null
+    };
+    x.phrases.push({ ou: 'rate', texte: cap.texte, citations: cap.citations });
+    // Les lignes qui restent : la fourchette et la visée, jamais la charge — sauf « Prendre X kg », un geste.
+    if (d.fourchette && !d.fait) {
+      var restantes = travail.filter(function (l) { return !l.validee && l.iSerie > iSerie; });
+      var prend = pris.indexOf('prendre') >= 0 && d.charge && d.charge.action === 'baisse';
+      var cibles = d.recale === true || prend ? restantes.filter(function (l) { return l.type === (dernier.l.type === 'recul' ? 'recul' : 'travail'); })
+        : restantes.slice(0, 1);
+      var vise = d.niveau === 'exercice' ? d.vise : d.fourchette[1];
+      cibles.forEach(function (t) {
+        poserSurLaLigne(x, t, { vise: vise, fourchette: d.fourchette, charge: prend ? d.charge.kg : undefined });
+      });
+    }
+    // L : jamais d'« Au max » sur cet exercice aujourd'hui.
+    if (d.pasDAuMax) retirerLAuMax(x);
+  }
+
+  function retirerLAuMax(x) {
+    x.auMax = null;
+    x.propositionAuMax = null;
+    (x.lignes || []).forEach(function (l) { if (l.auMax) l.auMax = null; });
+  }
+
+  // La carte « un cran dessous » : deux séances de suite où le pari n'a pas tenu (`entrees.parisRates[slug]` = `{ n, charge, reps }`, un
+  // fait de `faits.js`). En tête de l'exercice, tant qu'aucune série n'est validée et qu'aucun choix n'est fait.
+  function parisRatesDeLExercice(plan, x, exo, e, seance, gs) {
+    var M = Moteur(), V = Voix();
+    if (!exo || !x.consigne || x.consigne.etat === 'silence' || !e.parisRates || !Object.prototype.hasOwnProperty.call(e.parisRates, x.slug)) return;
+    if (plan.intention === 'entretien' || !!plan.allegee || !!seance.edition || plan.debutant === true) return;
+    var fait = e.parisRates[x.slug] || {};
+    var cx = contexteDuRate(plan, x, exo, e, seance, gs);
+    var reponse = null;
+    gs.forEach(function (g) {
+      if (g.slug !== x.slug) return;
+      if (g.geste === 'paris_cran') reponse = 'cran';
+      else if (g.geste === 'paris_retente') reponse = 'retente';
+    });
+    var d = M.reactionAuRate(Object.assign({}, cx, { niveau: 'paris', n: fait.n, charge: fait.charge, reps: fait.reps, reponse: reponse }));
+    var travail = (x.lignes || []).filter(laLigneAUnSens);
+    if (reponse === 'cran' || (reponse === null && !d.silence)) {
+      var dec = reponse === 'cran' ? M.reactionAuRate(Object.assign({}, cx, { niveau: 'paris', n: fait.n, charge: fait.charge, reps: fait.reps, reponse: null })) : d;
+      if (dec.silence) return;
+      if (reponse === 'cran') {
+        travail.forEach(function (t) { if (!t.validee) poserSurLaLigne(x, t, { charge: dec.cran.charge }); });
+        x.parisRates = { reponse: 'cran', cran: dec.cran, palier: dec.palier, carte: null };
+        return;
+      }
+      if (travail.some(function (l) { return l.validee; })) { x.parisRates = { reponse: null, carte: null, passee: true }; return; }
+      var cap = V.capturer(function () { return M.phraseDeRate(dec); });
+      x.parisRates = {
+        reponse: null, cran: dec.cran, palier: dec.palier, n: dec.n,
+        carte: { phrase: cap.texte, boutons: [{ cle: 'cran', texte: M.RATE_BOUTONS_PARIS.cran }, { cle: 'retente', texte: M.RATE_BOUTONS_PARIS.retente }] },
+        chiffres: { reps: [dec.n, dec.palier.reps], garde: [], charge: [dec.cran.charge] }
+      };
+      x.phrases.push({ ou: 'rate.paris', texte: cap.texte, citations: cap.citations });
+    } else if (reponse === 'retente') {
+      x.parisRates = { reponse: 'retente', carte: null };
+    }
+  }
+
+  // La forme du jour : UNE carte par séance, en tête du premier exercice pas commencé qui suit les exercices terminés qui flanchent.
+  function formeDuJourDuPlan(plan, e, seance, gs, resumes) {
+    var M = Moteur(), V = Voix();
+    var xs = plan.exercices, exos = seance.exercices || [];
+    var rep = null;
+    gs.forEach(function (g) { if (g.geste === 'forme_ajustee') rep = 'ajuste'; else if (g.geste === 'forme_gardee' && rep === null) rep = 'garde'; });
+    var silence = plan.intention === 'entretien' || !!plan.allegee || !!seance.edition || plan.debutant === true || !!plan.semaineDeTest;
+    plan.formeDuJour = { reponse: rep, iExo: null, carte: null };
+    if (silence) return;
+    var parIExo = {};
+    resumes.forEach(function (r) { if (r) parIExo[r.iExo] = r; });
+    var ordre = xs.map(function (x) { return parIExo[x.iExo] || null; });
+    var carteSur = null, decision = null;
+    for (var j = 0; j < xs.length && carteSur === null; j++) {
+      var rj = ordre[j];
+      if (!rj || rj.demarre || !xs[j].consigne) continue;
+      var avant = ordre.slice(0, j).filter(function (r) { return r && r.fini; });
+      var restants = ordre.slice(j).filter(function (r) { return r && !r.demarre; }).length;
+      var dj = M.reactionAuRate({ niveau: 'seance', exercices: avant, restants: restants, reponse: rep });
+      if (!dj.silence) { carteSur = j; decision = dj; }
+    }
+    if (rep !== null) {
+      // Répondue : « Ajuster » tient la fin de séance (cibles au bas de la zone, une série de moins, pas d'« Au max »), « Garder » ne revient jamais.
+      var depuis = null;
+      gs.forEach(function (g) { if (g.geste === 'forme_ajustee' && depuis === null) depuis = g.slug; });
+      if (rep === 'ajuste') appliquerLaForme(plan, seance, depuis);
+      plan.formeDuJour.depuis = depuis;
+      return;
+    }
+    if (carteSur === null) return;
+    var cap = V.capturer(function () { return M.phraseDeRate(decision); });
+    var chiffres = { reps: [decision.n, decision.sur, decision.nSous].filter(function (v) { return nombre(v) !== null && v > 0; }), garde: [], charge: [] };
+    xs[carteSur].carteForme = {
+      phrase: cap.texte, n: decision.n, sur: decision.sur, baisses: decision.baisses.slice(), effet: decision.effet,
+      boutons: [{ cle: 'ajuste', texte: M.RATE_BOUTONS_FORME.ajuste }, { cle: 'garde', texte: M.RATE_BOUTONS_FORME.garde }], chiffres: chiffres
+    };
+    xs[carteSur].phrases.push({ ou: 'rate.forme', texte: cap.texte, citations: cap.citations });
+    plan.formeDuJour.iExo = xs[carteSur].iExo;
+    plan.formeDuJour.carte = true;
+  }
+
+  // « Ajuster la fin à ma forme du jour » : à partir de l'exercice qui portait la carte, les cibles au bas de la zone, une série de moins
+  // (jamais sous 2 séries de travail), pas d'« Au max ». Le plan décide ; l'app retire la ligne (`lignesAAjuster`).
+  function appliquerLaForme(plan, seance, depuisSlug) {
+    var M = Moteur();
+    var debut = null;
+    plan.exercices.forEach(function (x, i) {
+      var demarre = (x.lignes || []).some(function (l) { return laLigneAUnSens(l) && l.validee; });
+      if (debut === null && !demarre && (depuisSlug === null || x.slug === depuisSlug)) debut = i;
+    });
+    if (debut === null) return;
+    plan.exercices.forEach(function (x, i) {
+      x.forme = null;
+      if (i < debut) return;
+      var travail = (x.lignes || []).filter(laLigneAUnSens);
+      if ((x.lignes || []).some(function (l) { return laLigneAUnSens(l) && l.validee; })) return;
+      var zone = x.consigne && x.consigne.etat !== 'silence' ? M.zoneParCle(x.consigne.zone) : null;
+      var retirer = null;
+      var pend = travail.filter(function (l) { return !l.validee && l.type === 'travail'; });
+      if (pend.length >= 1 && travail.filter(function (l) { return l.type === 'travail'; }).length >= 3) retirer = pend[pend.length - 1].iSerie;
+      x.forme = { ajuste: true, retirer: retirer };
+      if (zone) {
+        travail.forEach(function (t) {
+          if (t.iSerie === retirer) return;
+          poserSurLaLigne(x, t, { vise: zone.bas, fourchette: [Math.max(1, zone.bas - 1), zone.bas + 1] });
+        });
+      }
+      retirerLAuMax(x);
+    });
+  }
+
+  // Les lignes que « Ajuster la fin » retire : `[{ iExo, iSerie }]`, la dernière série de travail non faite de chaque exercice restant.
+  function lignesAAjuster(plan) {
+    var sortie = [];
+    ((plan && plan.exercices) || []).forEach(function (x) {
+      if (x && x.forme && x.forme.ajuste && x.forme.retirer !== null && x.forme.retirer !== undefined) sortie.push({ iExo: x.iExo, iSerie: x.forme.retirer });
+    });
+    return sortie;
+  }
+
+  // Les lignes ont bougé (visée, fourchette, charge prise) : la feuille « Pourquoi » les décrit de nouveau, aux chiffres des lignes (I6, I26).
+  function recomposerLaFeuille(x) {
+    if (!x || !x.pourquoi || !x.consigne || x.consigne.etat === 'silence') return;
+    if (!(x.lignes || []).some(function (l) { return l.rate; })) return;
+    var cap = Voix().capturer(function () { return lignesDeLaFeuille(x.lignes, x.consigne); });
+    x.pourquoi.lignes = cap.texte;
+    var texte = cap.texte.map(function (l) { return [l.texte, l.raison, l.faite].filter(Boolean).join(' · '); }).join(' | ');
+    (x.phrases || []).forEach(function (p) {
+      if (p.ou === 'pourquoi') { p.texte = texte; p.citations = cap.citations; }
+    });
+  }
+
+  function reactionsDuPlan(plan, e, seance) {
+    var gs = gestesDuCoach(seance);
+    var resumes = [];
+    plan.formeDuJour = null;
+    (plan.exercices || []).forEach(function (x, i) {
+      x.rate = null; x.parisRates = null; x.carteForme = null; x.forme = null;
+    });
+    (plan.exercices || []).forEach(function (x) {
+      reactionDExercice(plan, x, (seance.exercices || [])[x.iExo], e, seance, gs, resumes);
+      parisRatesDeLExercice(plan, x, (seance.exercices || [])[x.iExo], e, seance, gs);
+    });
+    formeDuJourDuPlan(plan, e, seance, gs, resumes);
+    (plan.exercices || []).forEach(recomposerLaFeuille);
+    return plan;
   }
 
   // ── MOTEUR §14.4 (49-U14) — L'ÉTAPE DE L'ESCALIER : LA SEMAINE ALLÉGÉE ───
@@ -4912,7 +5239,9 @@
                           // 193-1 — l'écart d'aujourd'hui et l'écart d'avant ; les reps de la fois d'avant, de la cible, du jour.
                           'regle|recul.ecart': true, 'regle|recul.reps': true, 'regle|recul.marge': true,
                           // 193-6 — la réserve demandée de la ligne et de la carte.
-                          'regle|au_max.reserve': true };
+                          'regle|au_max.reserve': true,
+                          // 236 — les chiffres de la réaction après un raté (reps, garde, charges) : plusieurs faits distincts par clé.
+                          'regle|rate.reps': true, 'regle|rate.garde': true, 'regle|rate.charge': true };
 
   function texteDuChiffre(v) {
     return v === null || v === undefined ? String(v) : (typeof v === 'number' ? Voix().nombre(v) || String(v) : String(v));
@@ -4974,6 +5303,18 @@
       reste.splice(i, 1);
       return true;
     });
+  }
+
+  // 236 — tous les chiffres que les phrases du coach après un raté écrivent pour cet exercice (réaction, forme du jour, paris).
+  function chiffresDuRate(x) {
+    var out = { reps: [], garde: [], charge: [] };
+    [x.rate, x.carteForme, x.parisRates && x.parisRates.carte ? x.parisRates : null].forEach(function (q) {
+      if (!q || !q.chiffres) return;
+      out.reps = out.reps.concat(q.chiffres.reps || []);
+      out.garde = out.garde.concat(q.chiffres.garde || []);
+      out.charge = out.charge.concat(q.chiffres.charge || []);
+    });
+    return out;
   }
 
   function sourcesDeLExercice(x, faits) {
@@ -5171,6 +5512,10 @@
       // 193-6 — « Au max » : la réserve demandée (de la ligne, de la carte), les reps et la charge de la dernière série, l'écart à la table.
       'au_max.reserve': x.auMax || x.propositionAuMax
         ? { valeurs: [x.auMax ? x.auMax.reserve : null, x.propositionAuMax ? x.propositionAuMax.reserve : null, Moteur().AU_MAX_RESERVE_PAR_DEFAUT].filter(function (v) { return nombre(v) !== null; }) } : null,
+      // 236 — le coach après un raté : les reps, la garde et les charges dits par la réaction, la carte de la forme du jour, la carte des paris.
+      'rate.reps': chiffresDuRate(x).reps.length ? { valeurs: chiffresDuRate(x).reps } : null,
+      'rate.garde': chiffresDuRate(x).garde.length ? { valeurs: chiffresDuRate(x).garde } : null,
+      'rate.charge': chiffresDuRate(x).charge.length ? { charge: undefined, valeurs: chiffresDuRate(x).charge } : null,
       'au_max.reps': x.auMax && x.auMax.constat ? { valeur: x.auMax.constat.reps } : null,
       'au_max.charge': x.auMax && x.auMax.constat ? { charge: x.auMax.constat.charge } : null,
       'au_max.ecart': x.auMax && x.auMax.constat && x.auMax.constat.prevu !== null ? { valeur: Math.abs(x.auMax.constat.reps - x.auMax.constat.prevu) } : null,
@@ -6731,6 +7076,8 @@
   var api = {
     planDeSeance: planDeSeance,
     lignesARetirer: lignesARetirer,
+    // 236 (MOTEUR §9.39) — « Ajuster la fin à ma forme du jour » : les lignes à retirer, lues sur le plan
+    lignesAAjuster: lignesAAjuster,
     lignesAEnlever: lignesAEnlever,
     lignesAAjouter: lignesAAjouter,
     degressivesAAjouter: degressivesAAjouter,

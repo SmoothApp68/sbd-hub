@@ -220,15 +220,17 @@ describe('niveau 2 — l’exercice', () => {
 });
 
 describe('niveau 3 — la forme du jour', () => {
-  const ex = (slug, flanche, plus) => Object.assign({ slug: slug, nom: slug, flanche: flanche }, plus || {});
+  const ex = (slug, flanche, plus) => Object.assign({ slug: slug, nom: slug, sousCible: flanche }, plus || {});
   const f = (o) => M.reactionAuRate(Object.assign({ niveau: 'seance', restants: 2,
-    exercices: [ex('tractions', true), ex('incline', false), ex('rowing', true, { chargeBaissee: true })] }, o || {}));
+    exercices: [ex('tractions', true), ex('incline', false), ex('rowing', false, { chargeBaissee: true })] }, o || {}));
   test('2 exercices sur les 3 derniers flanchent : la carte, des faits, deux gestes', () => {
     const d = f();
-    expect(d).toMatchObject({ silence: false, n: 2, sur: 3, boutons: ['ajuste', 'garde'] });
+    expect(d).toMatchObject({ silence: false, n: 2, nSous: 1, sur: 3, boutons: ['ajuste', 'garde'] });
     expect(d.baisses).toEqual(['rowing']);
     expect(d.effet).toEqual({ seriesEnMoins: 1, pasDAuMax: true });
-    expect(M.phraseDeRate(d)).toBe('Tes séries sont sous la cible sur 2 des 3 derniers exercices, et tu as baissé la charge sur rowing. Pour la fin de séance ?');
+    expect(M.phraseDeRate(d)).toBe('Tes séries sont sous la cible sur 1 des 3 derniers exercices, et tu as baissé la charge sur rowing. Pour la fin de séance\u00a0?');
+    expect(M.phraseDeRate(f({ exercices: [ex('a', true), ex('b', true)] }))).toBe('Tes séries sont sous la cible sur les 2 derniers exercices. Pour la fin de séance\u00a0?');
+    expect(M.phraseDeRate(f({ exercices: [ex('a', false, { chargeBaissee: true, nom: 'rowing' }), ex('b', false, { chargeBaissee: true, nom: 'élévations' })] }))).toBe('Tu as baissé la charge sur rowing et élévations. Pour la fin de séance\u00a0?');
   });
   test('un seul exercice qui flanche : rien', () => {
     expect(f({ exercices: [ex('a', true), ex('b', false), ex('c', false)] }).silence).toBe(true);

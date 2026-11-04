@@ -2200,7 +2200,11 @@
   //   · `retrait`        — un exercice retiré à la main : `{ geste, slug }`.
   // Une liste, jamais deux fois le même geste fusionné : l'ordre des gestes est celui de la séance. Un geste mal formé
   // ne s'écrit pas (la colonne est un tableau, `CHECK jsonb_typeof = 'array'`).
-  var GESTES = ['raccourci', 'machine_prise', 'remplacement', 'ajout_serie', 'retrait'];
+  //   236 (MOTEUR §9.39) — la MESURE du coach en temps réel, pour recaler ses seuils : `rate_prise` / `rate_ignoree` (`{ slug, rang, bouton?, kg? }` :
+  //   la réaction sous la série `rang`, le bouton touché), `forme_ajustee` / `forme_gardee` (`{ slug, implicite? }` : la carte de la forme du jour
+  //   posée sur l'exercice `slug`), `paris_cran` / `paris_retente` (`{ slug }`). `equilibres.js` ne lit que les cinq premiers.
+  var GESTES_DU_COACH = ['rate_prise', 'rate_ignoree', 'forme_ajustee', 'forme_gardee', 'paris_cran', 'paris_retente'];
+  var GESTES = ['raccourci', 'machine_prise', 'remplacement', 'ajout_serie', 'retrait'].concat(GESTES_DU_COACH);
   function gestePropre(g) {
     if (!g || typeof g !== 'object' || GESTES.indexOf(g.geste) < 0) return null;
     var o = { geste: g.geste };
@@ -2214,6 +2218,12 @@
     if ((g.geste === 'remplacement') && !slug(g.vers)) return null;
     if (slug(g.vers)) o.vers = g.vers;
     if (g.geste === 'ajout_serie') o.n = g.n > 0 ? Math.floor(g.n) : 1;
+    if (GESTES_DU_COACH.indexOf(g.geste) >= 0) {
+      if (typeof g.rang === 'number' && g.rang >= 0 && isFinite(g.rang)) o.rang = Math.floor(g.rang);
+      if (typeof g.bouton === 'string' && g.bouton) o.bouton = g.bouton;
+      if (typeof g.kg === 'number' && isFinite(g.kg)) o.kg = g.kg;
+      if (g.implicite === true) o.implicite = true;
+    }
     return o;
   }
   function gestesPropres(liste) {

@@ -11503,9 +11503,11 @@
     if (!(nombre(c.restants) >= 1)) return silence('fin');
     var eligibles = (c.exercices || []).filter(function (x) { return x && x.premiere !== true && x.calage !== true; });
     var derniers = eligibles.slice(-RATE_FORME_SUR);
-    var flanchent = derniers.filter(function (x) { return x.flanche === true; });
+    // Un exercice flanche : la majorité de ses séries de travail sous la cible, OU la charge baissée en cours d'exercice par la personne.
+    var flanchent = derniers.filter(function (x) { return x.sousCible === true || x.chargeBaissee === true; });
     if (flanchent.length < RATE_FORME_FLANCHENT) return silence('assez_bien');
     return { niveau: 'seance', cas: 'S', silence: false, n: flanchent.length, sur: derniers.length,
+             nSous: derniers.filter(function (x) { return x.sousCible === true; }).length,
              exercices: flanchent.map(function (x) { return x.slug; }),
              baisses: derniers.filter(function (x) { return x.chargeBaissee === true; }).map(function (x) { return x.nom || x.slug; }),
              effet: { seriesEnMoins: 1, pasDAuMax: true }, boutons: ['ajuste', 'garde'] };
@@ -11544,9 +11546,15 @@
   function phraseDeRate(d) {
     if (!d || d.silence) return null;
     if (d.niveau === 'seance') {
-      var t = 'Tes séries sont sous la cible sur ' + nombreFr(d.n, regle('rate.reps')) + ' des ' + nombreFr(d.sur, regle('rate.reps')) + ' derniers exercices';
-      if (d.baisses && d.baisses.length) t += ', et tu as baissé la charge sur ' + d.baisses.join(' et ');
-      return t + '. Pour la fin de séance ?';
+      var t = '';
+      if (d.nSous > 0) {
+        t = 'Tes séries sont sous la cible sur ' + (d.nSous === d.sur ? 'les ' + nombreFr(d.sur, regle('rate.reps')) : nombreFr(d.nSous, regle('rate.reps')) + ' des ' +
+          nombreFr(d.sur, regle('rate.reps'))) + ' derniers exercices';
+        if (d.baisses && d.baisses.length) t += ', et tu as baissé la charge sur ' + d.baisses.join(' et ');
+      } else {
+        t = 'Tu as baissé la charge sur ' + d.baisses.join(' et ');
+      }
+      return t + '. Pour la fin de séance\u00a0?';
     }
     if (d.niveau === 'paris') {
       return 'Ton pari n’a pas tenu ' + nombreFr(d.n, regle('rate.reps')) + ' séances de suite. Un cran dessous : ' +

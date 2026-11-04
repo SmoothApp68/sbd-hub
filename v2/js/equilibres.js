@@ -194,7 +194,7 @@
       });
       ordreDes = Object.keys(rangs).sort(function (a, b) { return rangs[a] - rangs[b] || (a < b ? -1 : 1); });
       var seance = { id: s.id, debut: s.debut, fin: s.fin || null, routine_id: s.routine_id || null, lundi: lundi, jour: jourCivil, slugs: slugs,
-                     gestes: liste(s.gestes), series: series, nTravail: travail.length, ordre: ordreDes,
+                     gestes: liste(s.gestes).filter(function (g) { return g && /^(raccourci|machine_prise|remplacement|ajout_serie|retrait)$/.test(g.geste); }), series: series, nTravail: travail.length, ordre: ordreDes,
                      allegee: s.decharge === true || dansUnePeriode(e.periodesAllegees, jourCivil) };
       w.seances.push(seance);
       seancesParId[s.id] = seance;

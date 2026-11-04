@@ -625,6 +625,41 @@
       return meilleur ? meilleur.seance : null;
     }
 
+    // 236 (MOTEUR §9.39) — LES PARIS RATÉS À LA SUITE. Par exercice : de combien de séances d'affilée (les plus récentes) le pari n'a pas tenu,
+    // et le pari raté de la plus récente (sa charge, ses reps). Une séance « rate » quand plus de la moitié de ses paris de consigne observés
+    // sur cet exercice sont tombés sous leur prédiction. `paris` : `[{ seance, date, exercice, predite, observee, charge }]` (les paris de
+    // consigne observés, `app.js` `parisDeConsigneConnus`) ; `saufSeance` : la séance en cours, jamais comptée. Rend `{ [slug]: { n, charge, reps } }`,
+    // seulement les exercices à `n` ≥ 1. La règle (à partir de 2) est au moteur (`reactionAuRate`, niveau `paris`) : ici, des faits.
+    function parisRatesALaSuite(paris, saufSeance, seancesNeutres) {
+      var neutres = Array.isArray(seancesNeutres) ? seancesNeutres : [];
+      var parExo = {};
+      (paris || []).forEach(function (q) {
+        if (!q || !q.exercice || !q.seance || q.seance === saufSeance || !q.date || neutres.indexOf(q.seance) >= 0) return;
+        var pe = Number(q.predite), ob = Number(q.observee);
+        if (!isFinite(pe) || !isFinite(ob)) return;
+        var seances = parExo[q.exercice] = parExo[q.exercice] || {};
+        var s = seances[q.seance] = seances[q.seance] || { date: Date.parse(q.date), paris: [] };
+        s.paris.push({ predite: pe, observee: ob, charge: q.charge === null || q.charge === undefined ? null : Number(q.charge) });
+      });
+      var sortie = {};
+      Object.keys(parExo).forEach(function (slug) {
+        var liste = Object.keys(parExo[slug]).map(function (id) { return parExo[slug][id]; })
+          .filter(function (s) { return isFinite(s.date); }).sort(function (a, b) { return b.date - a.date; });
+        var n = 0, raté = null;
+        for (var i = 0; i < liste.length; i++) {
+          var manques = liste[i].paris.filter(function (q) { return q.observee < q.predite; });
+          if (manques.length * 2 <= liste[i].paris.length) break;
+          n++;
+          if (raté === null) {
+            raté = manques.filter(function (q) { return q.charge !== null && isFinite(q.charge); })
+              .sort(function (a, b) { return b.charge - a.charge; })[0] || null;
+          }
+        }
+        if (n >= 1 && raté) sortie[slug] = { n: n, charge: raté.charge, reps: raté.predite };
+      });
+      return sortie;
+    }
+
     // Ce qui a été fait sur un exercice, ses séries de travail dans l'ordre :
     // « 90 kg × 10, 10, 10 » ; une charge qui change, « 32 kg × 12 · 36 kg × 10 » ;
     // sans charge, les reps (« 9, 9, 8, 7 ») ; une durée ou une distance, la
@@ -2242,6 +2277,7 @@
       recapDeLaSeance: recapDeLaSeance,
       estLaPremiereSeance: estLaPremiereSeance,
       premierPariDuCompte: premierPariDuCompte,
+      parisRatesALaSuite: parisRatesALaSuite,
       faitDeLExercice: faitDeLExercice,
       ceQuiManque: ceQuiManque,
       journalDuJour: journalDuJour,

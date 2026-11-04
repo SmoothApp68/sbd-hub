@@ -3426,6 +3426,11 @@
         // 193-6 (MOTEUR §9.30) — « Dernière série au max ? » : une fois par exercice, du plan ; trois gestes.
         var pa = typeof vue.propositionAuMax === 'function' ? vue.propositionAuMax(s._iExo) : null;
         if (pa) hote.appendChild(propositionDAuMax(pa, s._iExo, vue));
+        // 236 (MOTEUR §9.39) — « un cran dessous » (deux paris ratés de suite) et la forme du jour : deux cartes du plan, une fois chacune.
+        var cp = typeof vue.carteParis === 'function' ? vue.carteParis(s._iExo) : null;
+        if (cp) hote.appendChild(carteDeRate(cp, 'rate-paris', s._iExo, function (cle) { vue.surParis(s._iExo, cle); }));
+        var cf = typeof vue.carteForme === 'function' ? vue.carteForme(s._iExo) : null;
+        if (cf) hote.appendChild(carteDeRate(cf, 'rate-forme', s._iExo, function (cle) { vue.surForme(s._iExo, cle); }));
         // 193-4 (MOTEUR §9.32) — la semaine de test : la barre testée aujourd'hui, ou la note d'un accessoire.
         var pt = typeof vue.semaineDeTest === 'function' ? vue.semaineDeTest(s._iExo) : null;
         if (pt) { var ct = carteDeTest(pt, s._iExo, vue); if (ct) hote.appendChild(ct); }
@@ -3443,6 +3448,9 @@
       } else if (info && info.message) hote.appendChild(phraseDeReaction(info.message, s.debutTour));
       var rangee = rangeeDeSerie(bloc, s, complets, vue, info);
       hote.appendChild(rangee);
+      // 236 (MOTEUR §9.39) — la réaction du coach sous la série validée (une phrase, des gestes d'un toucher), lue sur le plan.
+      var rt = !vue.programme && typeof vue.rate === 'function' ? vue.rate(s._iExo, s._iSerie) : null;
+      if (rt) hote.appendChild(reactionDeRate(rt, s._iExo, s._iSerie, vue));
       // 185 — LA QUESTION DE VRAISEMBLANCE, sous la série, avant qu'elle soit écrite (ou, pour un record énorme, après) : une
       // ligne et ses boutons, jamais une fenêtre. Lue sur l'app (`vue.questionSaisie`), la règle n'est pas ici.
       var qs = !vue.programme && typeof vue.questionSaisie === 'function' ? vue.questionSaisie(s._iExo, s._iSerie) : null;
@@ -3996,6 +4004,48 @@
   // 154 — les puces de l'effort visé (0 · 1 · 2 · 3 et + · Passer) ou la phrase d'après. `ef` : `{ cle, demande, phrase,
   // surChoix, surPasser }`. « Passer » n'écrit rien.
   var PUCES_EFFORT = [['reste_0', '0'], ['reste_1', '1'], ['reste_2', '2'], ['reste_3_plus', '3 et +']];
+  // 236 (MOTEUR §9.39) — LA RÉACTION APRÈS UN RATÉ, sous la série : la phrase du plan (jamais composée ici), puis les gestes d'un toucher
+  // (44 px au moins). Tout s'ignore : sans toucher, rien ne change. Annoncée poliment aux lecteurs d'écran (`role="status"`).
+  function reactionDeRate(rt, iExo, iSerie, vue) {
+    var n = el('div', 'rate-reaction');
+    n.setAttribute('role', 'status');
+    n.setAttribute('aria-live', 'polite');
+    n.setAttribute('data-iexo', String(iExo));
+    n.setAttribute('data-iserie', String(iSerie));
+    n.setAttribute('data-cas', String(rt.cas));
+    n.appendChild(el('p', 'rate-phrase', rt.phrase));
+    var libres = (rt.boutons || []).filter(function (b) { return !b.pris; });
+    if (libres.length) {
+      var rang = el('div', 'rate-boutons');
+      libres.forEach(function (b) {
+        var bt = el('button', 'rate-bouton', b.texte);
+        bt.type = 'button';
+        bt.setAttribute('data-cle', b.cle);
+        bt.addEventListener('click', function () { vue.surRate(iExo, iSerie, b.cle); });
+        rang.appendChild(bt);
+      });
+      n.appendChild(rang);
+    }
+    return n;
+  }
+  // 236 — une carte du plan (forme du jour, paris ratés) : la phrase, deux gestes. Le premier est le principal.
+  function carteDeRate(carte, classe, iExo, surClic) {
+    var n = el('div', 'proposition-exercice ' + classe);
+    n.setAttribute('data-iexo', String(iExo));
+    n.setAttribute('role', 'group');
+    n.appendChild(el('div', 'pc-texte', carte.phrase));
+    var gestes = el('div', 'pc-gestes pc-choix');
+    (carte.boutons || []).forEach(function (b, k) {
+      var bt = el('button', (k === 0 ? 'pc-ajouter' : 'pc-refuser') + ' rate-' + b.cle, b.texte);
+      bt.type = 'button';
+      bt.setAttribute('data-cle', b.cle);
+      bt.addEventListener('click', function () { surClic(b.cle); });
+      gestes.appendChild(bt);
+    });
+    n.appendChild(gestes);
+    return n;
+  }
+
   function effortViseDeSerie(ef) {
     var n = el('div', 'effort-vise');
     n.setAttribute('data-cle', String(ef.cle));

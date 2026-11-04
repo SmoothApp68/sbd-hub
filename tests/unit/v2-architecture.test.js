@@ -41,6 +41,8 @@ const V2 = path.join(RACINE, 'v2');
 const GARDEES = [
   // moteur.js — 194-1 (MOTEUR §9.31) : le bloc de mobilité (zones raides, minutes de la semaine, muscles de la séance) ; seul `planDeSeance` l'appelle
   { fn: 'blocDeMobilite', module: 'moteur.js' },
+  // moteur.js — 236 (MOTEUR §9.39) : le coach en temps réel après un raté (la réaction sous la série, l'exercice, la forme du jour, « un cran dessous ») ; seul `planDeSeance` l'appelle
+  { fn: 'reactionAuRate', module: 'moteur.js' },
   // moteur.js — la consigne
   { fn: 'consignePour', module: 'moteur.js' },
   { fn: 'consigneDExercice', module: 'moteur.js' },
@@ -826,10 +828,10 @@ const NOTIONS = [
       'ligne du repos long au « Pourquoi » la lisent. La carte de l’ordre NE la lit PAS : elle lit « polyarticulaire » (MOTEUR §9.27 bis, ' +
       'delta 191 : deux notions, deux lecteurs).' },
   { notion: 'le rest-pause permis (isolation ou machine, jamais une barre ni un soulevé)', pr: '196-U1',
-    module: 'moteur.js', fonction: 'peutRestPause', lecteurs: ['app.js'],
+    module: 'moteur.js', fonction: 'peutRestPause', lecteurs: ['app.js', 'plan.js'],
     par: ['raccourcirRoutine'],
     parAilleurs: { 'app.js': ['restPauseDeLaFeuille'] },
-    raison: '196 (MOTEUR §9.33) : une définition, lue par le menu ⋯ d’une série et par « J’ai peu de temps » en objectif Muscle.' },
+    raison: '196 (MOTEUR §9.33) : une définition, lue par le menu ⋯ d’une série et par « J’ai peu de temps » en objectif Muscle ; 236 : le plan la lit pour le levier « Rest-pause » de la réaction après un raté (jamais une seconde définition).' },
   { notion: 'l’isolation (des muscles au catalogue, moins de trois ; sans muscle connu : ni l’un ni l’autre)', pr: '124-U3',
     module: 'moteur.js', fonction: 'estIsolation', lecteurs: ['profil.js', 'plan.js', 'app.js', 'generateur.js'],
     parAilleurs: { 'profil.js': ['avecIsolation'], 'plan.js': ['polyarticulaireDe'], 'app.js': ['optionsDeConsigne'], 'generateur.js': ['marquerAuMax'] },

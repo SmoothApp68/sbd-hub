@@ -2699,13 +2699,10 @@
       var role = (ch !== null && nombre(l.charge) !== null && Math.abs(ch - nombre(l.charge)) > 1e-9) ? 'autre_charge'
         : l.type === 'recul' ? 'recul' : (l.auMax || s.au_max === true) ? 'au_max' : l.role === 'test' ? 'test'
         : (x.reculs && travail[0] && l.iSerie === travail[0].iSerie) ? 'grosse' : 'travail';
-      // Le repos réel : entre cette série et la précédente validée (au superset, entre deux séries du MÊME exercice : le tour).
-      var reposReel = nombre(s.repos_s);
-      if (superset) {
-        var avant = faites[n - 1] ? series[faites[n - 1].iSerie] : null;
-        var tA = s.validee_a ? Date.parse(s.validee_a) : NaN, tB = avant && avant.validee_a ? Date.parse(avant.validee_a) : NaN;
-        reposReel = isFinite(tA) && isFinite(tB) && tA > tB ? Math.round((tA - tB) / 1000) : null;
-      }
+      // Le repos réel : LA fonction de 233 (`Moteur.reposReel`, l'écart entre deux séries validées du même exercice), lue sur cette série et
+      // la précédente validée de l'exercice — au superset, c'est le tour. Pas de calcul local, pas de `repos_s` : une notion, une fonction.
+      var precedente = n > 0 && faites[n - 1] ? series[faites[n - 1].iSerie] : null;
+      var reposReel = precedente ? M.reposReel([precedente, s]) : null;
       var ctx = Object.assign({}, cx, { niveau: 'serie', role: role, charge: ch, reps: reps, vise: nombre(l.vise), bas: zone.bas, haut: zone.haut,
         rang: rang, derniere: rang === travail.length - 1, reserve: P.reserveDeSerie(s), reposReel: reposReel, reposCible: reposCible,
         sousZoneAvant: sousAvant, ignorees: ignorees, apres: apres, chauffeValidee: chauffeValidee,

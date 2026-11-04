@@ -219,3 +219,43 @@ describe('236 — la ligne validée garde la visée et le pari affichés juste a
   });
 });
 
+
+// 236 × 233 — LE REPOS RÉEL DU RATÉ vient de la fonction unique de 233 (`Moteur.reposReel` : l'écart entre deux séries validées de
+// l'exercice), pas d'un calcul local ni du `repos_s` écrit à la validation.
+describe('236 × 233 — le repos réel court du cas A se lit par Moteur.reposReel', () => {
+  const run = (ecartS, reposS) => {
+    let k = 0;
+    const id = () => 'r-s' + (++k);
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, 'incline', id, { series: 3 });
+    se = S.insererChauffes(se, 0, [[20, 8]], id);
+    se.exercices[0].series.forEach((s) => { s.reps_visees = 10; });
+    se = S.modifierSerie(se, 0, 0, { charge_kg: 20, reps: 8 });
+    se = S.valider(se, 0, 0, new Date(Date.UTC(2026, 10, 3, 9, 50, 0)));
+    se = S.modifierSerie(se, 0, 1, { charge_kg: 40, reps: 10 });
+    se = S.valider(se, 0, 1, new Date(Date.UTC(2026, 10, 3, 10, 0, 0)));
+    se = S.modifierSerie(se, 0, 2, { charge_kg: 40, reps: 9 });
+    se = S.valider(se, 0, 2, new Date(Date.UTC(2026, 10, 3, 10, 0, 0) + ecartS * 1000));
+    if (reposS !== undefined) se.exercices[0].series[2].repos_s = reposS;
+    const e = { seance: { id: 'S', debut: '2026-11-03T10:00:00Z', edition: false, exercices: se.exercices, gestes: [] },
+      consignes: { incline: { consigne: { etat: 'progression', zone: 'hypertrophie', palier: 40, n: 3, ligne: { charge: 40, vise: 10 }, haut: null },
+        contexte: { cran: 42.5, haut: null }, pas: 2.5 } },
+      reglage: 'normal', objectif: 'les_deux', paris: [],
+      catalogue: { incline: { equipement: 'barre', mesure: 'charge_reps', pas: 2.5, nom: 'incline', muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps'], muscles_stabilisateurs: [] } } };
+    const p = T.planDeSeance(e);
+    return { rate: p.exercices[0].rate, e, p };
+  };
+  test('60 s entre les deux séries : cas A (repos court), même si `repos_s` dit 300', () => {
+    expect(run(60).rate.cas).toBe('A');
+    const r = run(60, 300);
+    expect(r.rate.cas).toBe('A');
+    expect(r.rate.boutons.map((b) => b.cle)).toContain('repos');
+  });
+  test('300 s entre les deux séries : cas B, même si `repos_s` dit 30', () => {
+    expect(run(300).rate.cas).toBe('B');
+    expect(run(300, 30).rate.cas).toBe('B');
+  });
+  test('la première série n’a pas de repos à mesurer : jamais « repos court »', () => {
+    expect(M.reposReel([{ validee_a: '2026-11-03T10:00:00Z', type_serie: 'travail' }])).toBeNull();
+  });
+});

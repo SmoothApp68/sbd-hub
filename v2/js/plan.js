@@ -2587,7 +2587,8 @@
       var s = series[l.iSerie] || {};
       var reps = nombre(s.reps), ch = nombre(s.charge_kg);
       var rang = travail.indexOf(l);
-      var role = l.type === 'recul' ? 'recul' : (l.auMax || s.au_max === true) ? 'au_max' : l.role === 'test' ? 'test'
+      var role = (ch !== null && nombre(l.charge) !== null && Math.abs(ch - nombre(l.charge)) > 1e-9) ? 'autre_charge'
+        : l.type === 'recul' ? 'recul' : (l.auMax || s.au_max === true) ? 'au_max' : l.role === 'test' ? 'test'
         : (x.reculs && travail[0] && l.iSerie === travail[0].iSerie) ? 'grosse' : 'travail';
       // Le repos réel : entre cette série et la précédente validée (au superset, entre deux séries du MÊME exercice : le tour).
       var reposReel = nombre(s.repos_s);
@@ -2609,21 +2610,19 @@
     });
     if (!dernier) return;
     var d = dernier.d, iSerie = dernier.l.iSerie;
+    // Une série faite à une autre charge que sa ligne : l'élan, « pas encore » et « plus léger » (§9.14) parlent, pas cette règle.
+    var autreCharge = faites.some(function (l) { var c1 = nombre((series[l.iSerie] || {}).charge_kg), c2 = nombre(l.charge); return c1 !== null && c2 !== null && Math.abs(c1 - c2) > 1e-9; });
     // Niveau 2 : après 2 séries sous la cible, la suite vise ce qui vient d'être fait ; il remplace la phrase de la série (une seule).
     var d2 = M.reactionAuRate(Object.assign({}, cx, { niveau: 'exercice', charge: dernier.ctx.charge, ignorees: ignorees,
       faites: faites.filter(function (l) { return l.type === 'travail'; }).map(function (l) {
         return { reps: nombre((series[l.iSerie] || {}).reps), vise: nombre(l.vise) };
       }), restantes: travail.filter(function (l) { return !l.validee; }).length }));
-    if (!d2.silence && dernier.l.type === 'travail') d = d2;
+    if (!d2.silence && dernier.l.type === 'travail' && !autreCharge) d = d2;
     if (d.silence) return;
     // La réaction existante (§9.14) parle déjà sous cette série : elle garde la parole, sauf « à fond, la suite d'une rep de moins »,
     // que cette règle dit mieux (même fait, une seule phrase).
     if (x.message && x.message.type !== 'a_fond_suite') return;
-    if (x.message && x.message.type === 'a_fond_suite') {
-      x.message = null;
-      if (x.reaction) x.reaction = Object.assign({}, x.reaction, { message: null });
-      x.phrases = (x.phrases || []).filter(function (p) { return p.ou !== 'message'; });
-    }
+    var remplaceMessage = !!(x.message && x.message.type === 'a_fond_suite');
     var pris = prises(iSerie).map(function (g) { return g.bouton; });
     var cap = V.capturer(function () { return M.phraseDeRate(d); });
     var cap2 = V.capturer(function () { return (d.leviers || []).map(function (cle) { return M.boutonDeRate(cle, d); }); });
@@ -2638,7 +2637,7 @@
       charge: d.charge || null, garde: d.garde === undefined ? null : d.garde, fourchette: d.fourchette || null, recale: d.recale === true,
       pasDAuMax: d.pasDAuMax === true, approche: d.approche === true, recalculeReculs: d.recalculeReculs === true,
       faites: d.faites === undefined ? null : d.faites, visees: d.visees === undefined ? null : d.visees,
-      fait: d.fait === true, pris: pris, chiffres: chiffres, role: d.role || null
+      fait: d.fait === true, pris: pris, chiffres: chiffres, role: d.role || null, remplaceMessage: remplaceMessage
     };
     x.phrases.push({ ou: 'rate', texte: cap.texte, citations: cap.citations });
     // Les lignes qui restent : la fourchette et la visée, jamais la charge — sauf « Prendre X kg », un geste.
@@ -5962,7 +5961,7 @@
         if (phrases.length !== 1) erreurs.push('I115' + nom + 'une réaction sans sa phrase');
         var plusTard = (x.lignes || []).some(function (l) { return (l.type === 'travail' || l.type === 'recul') && l.role !== 'hors' && l.validee && l.iSerie > r.iSerie; });
         if (plusTard) erreurs.push('I115' + nom + 'la réaction n’est pas sous la dernière série validée');
-        if (x.message) erreurs.push('I115' + nom + 'deux phrases sous la même série (la réaction du coach et celle du §9.14)');
+        if (x.message && !r.remplaceMessage) erreurs.push('I115' + nom + 'deux phrases sous la même série (la réaction du coach et celle du §9.14)');
         var f = r.fourchette;
         if (f) {
           if (!(f.length === 2 && f[0] === Math.round(f[0]) && f[1] === Math.round(f[1]) && f[0] >= 1 && f[0] <= f[1])) {

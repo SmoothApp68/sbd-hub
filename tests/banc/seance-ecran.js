@@ -5097,6 +5097,7 @@ const SETS_IMPORTES = [
     const pos = await page.evaluate(([a, nom]) => {
       const k = document.querySelectorAll('.bloc-seance.superset .carte-ss');
       const dep = nom ? k[a].querySelector('.nom-exo') : k[a].querySelector('.poignee-exo');
+      dep.scrollIntoView({ block: 'center' });   // la souris du banc ne fait pas défiler : la prise doit être à l'écran
       const r = dep.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     }, [iCarte, !!parNom]);
@@ -5129,12 +5130,14 @@ const SETS_IMPORTES = [
   // ── Le chrono de tenue : la Planche seule en a un ──
   // La 1re série de la Planche (C1) a été validée pour le tour : on la dévalide, le chrono ne sert que sur une série à faire.
   const iPl0_233 = (await cartes233()).findIndex((c) => /Planche/.test(c.nom));
-  await page.evaluate((i) => document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie.cochee').click(), iPl0_233);
+  await attendre(600);   // temps réel : le clic qui suit un lâcher est avalé pendant 400 ms, un doigt ne retouche pas plus vite
+  await page.locator('.bloc-seance.superset .carte-ss').nth(iPl0_233).locator('.ligne-serie').nth(0).locator('.ok-serie.cochee').click();
   await jusqua(() => page.evaluate((i) => !document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie.cochee'), iPl0_233), 6000, 'C1 dévalidée');
   const cT_233 = await cartes233();
   const iPlanche_233 = cT_233.findIndex((c) => /Planche/.test(c.nom));
+  const aFaire_233 = await page.evaluate((i) => [...document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')].filter((l) => !l.querySelector('.ok-serie.cochee')).length, iPlanche_233);
   ok('seule la carte de la Planche (mesure durée) porte un chrono de tenue, une fois par série non validée',
-    cT_233.map((c, i) => (i === iPlanche_233 ? c.go === 2 : c.go === 0)).every(Boolean), JSON.stringify(cT_233.map((c) => c.nom + ':' + c.go)));
+    cT_233.map((c, i) => (i === iPlanche_233 ? c.go === aFaire_233 && c.go >= 1 : c.go === 0)).every(Boolean), JSON.stringify(cT_233.map((c) => c.nom + ':' + c.go)));
   const ligneP_233 = (k) => page.locator('.bloc-seance.superset .carte-ss').nth(iPlanche_233).locator('.ligne-serie').nth(k);
   const champDuree_233 = (k) => page.evaluate(([i, r]) => {
     const l = document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[r];
@@ -5148,6 +5151,7 @@ const SETS_IMPORTES = [
     return n + r;
   }, [iPlanche_233, k]);
   // Annuler n'écrit rien.
+  const avantAnnuler_233 = (await champDuree_233(0)).v;
   await ligneP_233(0).locator('.tenue-go').click();
   await attendre(1300);   // temps réel : le chrono de tenue compte
   ok('▶ démarre un chrono qui compte (Stop et Annuler apparaissent)',
@@ -5155,7 +5159,7 @@ const SETS_IMPORTES = [
   await page.click('.tenue-annuler');
   await jusqua(() => page.evaluate(() => !document.querySelector('.tenue-t')), 4000, 'tenue annulée');
   const apresAnnuler_233 = await champDuree_233(0);
-  ok('« Annuler » n’écrit rien dans la série', apresAnnuler_233.v === '' && !apresAnnuler_233.cochee && (await compter('.tenue-t')) === 0, JSON.stringify(apresAnnuler_233));
+  ok('« Annuler » n’écrit rien dans la série', apresAnnuler_233.v === avantAnnuler_233 && !apresAnnuler_233.cochee && (await compter('.tenue-t')) === 0, JSON.stringify(apresAnnuler_233));
   // Stop écrit la durée, sans valider la série.
   await ligneP_233(0).locator('.tenue-go').click();
   await attendre(2300);   // temps réel : deux secondes de tenue
@@ -5166,7 +5170,7 @@ const SETS_IMPORTES = [
   ok('« Stop » écrit la durée tenue (≈ 2 s) dans la série — et ne la valide PAS d’office',
     /^0?0:0[2-4]$/.test(apresStop_233.v) && !apresStop_233.cochee, JSON.stringify(apresStop_233));
   // La série suivante prend cette durée pour visée : à la visée, la cloche (3 dings) et la vibration ; le chrono continue.
-  await casesSiVides(await ligneP_233(0));
+  await casesSiVides(await ligneP_233(0).elementHandle());
   await page.evaluate(([i]) => document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click(), [iPlanche_233]);
   await jusqua(async () => (await champDuree_233(0)).cochee, 6000, 'planche 1 validée');
   const visee_233 = await page.evaluate((i) => { const l = document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[1]; return ((l.querySelector('.tenue-vise') || {}).textContent || '').replace(/ /g, ' '); }, iPlanche_233);
@@ -5185,7 +5189,7 @@ const SETS_IMPORTES = [
   ok('Stop après la visée écrit la durée réelle (plus longue que la visée)', /^0?0:0[5-9]$/.test(apresDepasse_233.v) && !apresDepasse_233.cochee, JSON.stringify(apresDepasse_233));
 
   await page.click('#bandeau-seance .bandeau-fin');
-  await feuilleOuverte('#feuille-contenu .principal');
+  await attendre(800);   // temps réel : la feuille de fin s'ouvre
   await page.click('#feuille-contenu .principal');
   await terminerQuandMeme();
   await seanceSortie();

@@ -14,6 +14,8 @@ jobs:
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 243 : v2-fiche-rapide-232 lit le commit d'avant (git show)
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

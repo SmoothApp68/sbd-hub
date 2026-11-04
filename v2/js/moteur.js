@@ -202,8 +202,20 @@
   //
   // `Date.parse` lit les deux écritures et rend le même nombre. Ce qu'il ne
   // sait pas lire rend `NaN`, donc `null` — jamais une comparaison de travers.
+  // 232 — une écriture de date se lit UNE fois : `Date.parse` sur la même chaîne rend toujours le même nombre, et la fiche d'un
+  // exercice la relisait des millions de fois. Le mémo ne garde que des chaînes (un objet Date se lit à chaque fois) et se vide à 50 000.
+  var memoInstant = new Map();
   function instant(v) {
     if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'string') {
+      var m = memoInstant.get(v);
+      if (m !== undefined) return m;
+      var ts = Date.parse(v);
+      m = isFinite(ts) ? ts : null;
+      if (memoInstant.size >= 50000) memoInstant.clear();
+      memoInstant.set(v, m);
+      return m;
+    }
     var t = (v && typeof v.getTime === 'function') ? v.getTime() : Date.parse(v);
     return isFinite(t) ? t : null;
   }
@@ -727,17 +739,46 @@
     return repsDe(hors.length ? hors : x.auPalier).map(function (r) { return recue && plafond !== null && plafond !== undefined && r > plafond ? plafond : r; });
   }
   // Le haut de la zone en vigueur AVANT chaque séance lue (`plafond`), posé une fois par `lectureDuCouple`.
+  // 232 — LA CHAÎNE SE LIT UNE FOIS : le plafond d'une séance ne dépend que des séances lues AVANT elle, et `consignePour` relit le
+  // même historique, une séance de plus à chaque fois (la fiche d'un exercice : une consigne par séance sans palier). Chaque séance
+  // retient ce qui lui est arrivé (son plafond, sa liste de reps, l'habitude après elle) avec la séance qui la précédait ; tant que
+  // la chaîne est la même, rien ne se recalcule. Une séance dont le précédent change, ou le drapeau « prudent », se recalcule — et
+  // toutes celles d'après. Le résultat est celui de l'ancien calcul, séance par séance.
+  var memoPlafonds = typeof WeakMap === 'function' ? new WeakMap() : null;
   function poserPlafonds(lus) {
     var parSeance = [];
     var habitude = null;
+    var chaine = true;
+    var precedente = null;
     lus.forEach(function (x) {
+      // La vue d'une séance se refait à chaque appel ; ce qui la porte, c'est son tableau de séries (le même d'un appel à l'autre).
+      var se = x.seance && x.seance.series && typeof x.seance.series === 'object' ? x.seance.series : null;
+      var v = x.seance || {};
+      var noeud = chaine && memoPlafonds && se ? memoPlafonds.get(se) : undefined;
+      if (noeud !== undefined && noeud.prec === precedente && noeud.prudent === prudent && noeud.palier === v.palier &&
+          noeud.neutre === v.neutre && noeud.nRoutine === v.nRoutine && noeud.sousConsigne === (v.sousConsigne === true) &&
+          noeud.nAuPalier === x.auPalier.length && noeud.nRetenues === (v.retenues || []).length) {
+        x.plafond = noeud.plafond;
+        parSeance.push(noeud.reps);
+        habitude = noeud.habitude;
+        precedente = se;
+        return;
+      }
+      chaine = false;
       var z = habitude === null ? null : zoneDe(habitude);
       x.plafond = z === null || parSeance.length < FENETRE_COUPLE ? null : nombre(z.haut);
-      parSeance.push(reposPlafonne(x, x.plafond));
+      var reps = reposPlafonne(x, x.plafond);
+      parSeance.push(reps);
       var tout = [];
       parSeance.slice(-FENETRE_HABITUDE).forEach(function (l) { tout = tout.concat(l); });
       var m = mediane(tout);
       habitude = m === null ? null : Math.ceil(m);
+      if (memoPlafonds && se) {
+        memoPlafonds.set(se, { prec: precedente, prudent: prudent, palier: v.palier, neutre: v.neutre, nRoutine: v.nRoutine,
+          sousConsigne: v.sousConsigne === true, nAuPalier: x.auPalier.length, nRetenues: (v.retenues || []).length,
+          plafond: x.plafond, reps: reps, habitude: habitude });
+      }
+      precedente = se;
     });
   }
   function habitudeSur(duCouple) {
@@ -1163,6 +1204,19 @@
   // prendre une coïncidence pour un plan de charges ; quatre laisse muet un
   // exercice fait dix fois. On retient LE PLUS PETIT des écarts récurrents :
   // c'est le cran de la salle, les autres en sont des multiples.
+  // 232 — la plus lourde charge d'une séance, lue une fois : le plan de charges relit les mêmes séances à chaque consigne rejouée.
+  // La vue d'une séance se refait à chaque appel, son tableau de séries non : il porte le mémo (avec ce qui en est tiré, neutre et votantes).
+  var memoLourde = typeof WeakMap === 'function' ? new WeakMap() : null;
+  function chargeLaPlusLourdeDe(se) {
+    var cle = se && se.series && typeof se.series === 'object' ? se.series : null;
+    var nv = ((se && se.votantes) || []).length;
+    var c = cle && memoLourde ? memoLourde.get(cle) : undefined;
+    if (c !== undefined && c.neutre === se.neutre && c.nv === nv) return c.max;
+    var charges = chargesDe(se);
+    var max = charges.length ? Math.max.apply(null, charges) : null;
+    if (cle && memoLourde) memoLourde.set(cle, { neutre: se.neutre, nv: nv, max: max });
+    return max;
+  }
   function pasDeSalle(seances, avant) {
     var limite = instant(avant);
     if (limite === null) return null;
@@ -1173,9 +1227,9 @@
     var lourdes = {};
     anterieures(seances, avant).forEach(function (se) {
       if (instant(se.debut) < plancher) return;
-      var charges = chargesDe(se);
-      if (!charges.length) return;
-      lourdes[Math.max.apply(null, charges)] = true;
+      var lourde = chargeLaPlusLourdeDe(se);
+      if (lourde === null) return;
+      lourdes[lourde] = true;
     });
 
     var distinctes = Object.keys(lourdes).map(Number).sort(function (a, b) { return a - b; });
@@ -5860,7 +5914,24 @@
   // du corps (`THPalier.analyserPoidsDuCorps`). C'est la SEULE différence avec
   // un exercice à charge : le contrat qui en sort passe par la même
   // `consignePour`.
+  // 232 — LE CONTRAT SE CALCULE UNE FOIS PAR ÉTAT DES DONNÉES : la fiche d'un exercice le demandait deux fois (la consigne, les charges
+  // de travail) et chaque appel rejoue la consigne de chaque séance sans palier. La clé est le CONTENU de tout ce que le calcul lit
+  // (séries, état, matériel, salle, réglage, drapeaux du module) : une donnée qui change change la clé, le mémo ne peut pas servir
+  // un contrat périmé. Quelques entrées seulement (la plus ancienne sort). Le contrat rendu n'est jamais modifié par ses lecteurs.
+  var memoContrat = [];
+  var MEMO_CONTRAT_MAX = 6;
+  function cleDuContrat(groupes, etat, mesure, options) {
+    var o = options || {};
+    try {
+      return JSON.stringify([mesure, o.reglage, o.equipement, o.correction, o.salle, etat, prudent, debutantEnCours, prudenceEffective(debutantEnCours, prudenceEnCours), groupes],
+        function (k, v) { return v === undefined ? '\u0000u' : v; });
+    } catch (e) { return null; }
+  }
   function contratDe(groupes, etat, mesure, options) {
+    var cle = cleDuContrat(groupes, etat, mesure, options);
+    if (cle !== null) {
+      for (var i = 0; i < memoContrat.length; i++) if (memoContrat[i].cle === cle) return memoContrat[i].valeur;
+    }
     var seances = (groupes || []).map(function (g) {
       // 185 (v2_116) — UNE SÉRIE « NON, NE COMPTE PAS » N'ENTRE PAS DANS LE CONTRAT : ni le palier, ni le niveau, ni les crans voisins
       // (`chargesDe`), ni le fondement d'une consigne, ni le compteur ne la voient. La séance qui la porte garde sa date (une
@@ -5879,7 +5950,12 @@
       if (seanceDouloureuse((g && g.series) || [])) se.douleur = true;
       return se;
     });
-    return options ? sansPalierRetenues(seances, options) : seances;
+    var valeur = options ? sansPalierRetenues(seances, options) : seances;
+    if (cle !== null) {
+      memoContrat.push({ cle: cle, valeur: valeur });
+      if (memoContrat.length > MEMO_CONTRAT_MAX) memoContrat.shift();
+    }
+    return valeur;
   }
 
   // §9.20 (51-3) — UNE SÉANCE-EXERCICE EST DOULOUREUSE quand une de ses séries

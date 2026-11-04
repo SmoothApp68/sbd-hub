@@ -14861,6 +14861,18 @@ const SETS_IMPORTES = [
     ok('[221] DISCRIMINANT — un squat en bloc Hypertrophie à grosse série : consigne Lourd, 1 série de travail puis 3 reculs (le plan, pas l’écran)',
       sq.zone === 'lourd' && sq.bloc && sq.bloc.grosse === true && sq.bloc.reculs === 3 && JSON.stringify(sq.types) === JSON.stringify(['travail', 'recul', 'recul', 'recul']),
       JSON.stringify(sq));
+    // ── 234 — LE TYPE ENREGISTRÉ : une série validée que le plan porte comme recul s'écrit `recul` en base (la grosse série reste `travail`).
+    const setsAvant234 = base.sets.length;
+    for (let r = 0; r < 3; r++) {
+      const dep234 = await departGeste();
+      await page.evaluate((k) => { document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(); }, r);
+      await reseauCalme(10000);
+      await jusqua(() => base.sets.length >= setsAvant234 + r + 1, 10000, '234 série ' + r + ' en base').catch(() => {});
+      void dep234;
+    }
+    const types234 = base.sets.slice(setsAvant234).filter((x) => x.exercise_slug === 'squat_barre').map((x) => x.type_serie);
+    ok('[234] DISCRIMINANT — le squat en bloc Hypertrophie : grosse série `travail`, puis deux reculs enregistrés `recul`',
+      JSON.stringify(types234) === JSON.stringify(['travail', 'recul', 'recul']), JSON.stringify(types234));
     await abandonner();
     base.blocs.length = nBlocsAvant; base.zones.length = nZonesAvant; base.sessions.length = nSessAvant; base.sets.length = nSetsAvant;
     ROUTINES.splice(ROUTINES.findIndex((r) => r.nom === 'Squat U221'), 1);

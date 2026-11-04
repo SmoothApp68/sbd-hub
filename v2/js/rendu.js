@@ -197,9 +197,7 @@
         mesure.appendChild(lien);
       }
       // 152 — « à l'échec » (ambre) ou « manquée » : le mot vient de la lecture unique (`Modele.motDEchec`).
-      // 242 — « · unilatéral » se dit à côté du mot du type (le journal, le détail, l'historique).
-      var motDetail = [s.motEchec, s.unilateral === true ? 'unilatéral' : null].filter(Boolean).join(' · ');
-      if (motDetail) mesure.appendChild(el('span', 'etq' + (s.estTravail ? ' fond' : ''), motDetail));
+      if (s.motEchec) mesure.appendChild(el('span', 'etq' + (s.estTravail ? ' fond' : ''), s.motEchec));
       // 196 — rest-pause : les reps de la série et de ses mini-séries, cumulées, dites à part.
       if (s.repsCumulees) mesure.appendChild(el('span', 'etq', s.repsCumulees + ' reps avec les mini-séries'));
       ligne.appendChild(mesure);
@@ -4837,7 +4835,6 @@
     // 200-4 — « 5+ · garde 1 » à la place d'« Au max » quand la consigne garde N reps (lu sur le plan).
     var motLigne = s.motEchec, ea = motLigne && !vue.programme && typeof vue.etiquetteAuMax === 'function' && /(^|· )Au max$|au max$/.test(motLigne) ? vue.etiquetteAuMax(iExo, iSerie) : null;
     if (ea) motLigne = (/^recul/.test(motLigne) ? 'recul · ' : '') + ea.texte;
-    if (s.unilateral === true) motLigne = motLigne ? motLigne + ' · unilatéral' : 'unilatéral';   // 242
     if (motLigne) {
       var etqL = el('div', 'etq-ligne etq' + (s.estTravail ? ' fond' : ''), motLigne);
       if (ea) {
@@ -5079,19 +5076,6 @@
         bAu.addEventListener('click', function () { vue.surAuMax(!vue.auMax.actif); });
         menuAu.appendChild(bAu);
         cible.appendChild(menuAu);
-      }
-
-      // 242 (v2_131) — « Unilatéral » : un interrupteur, comme « Au max ». Charge et reps s'entendent par côté ; la série compte 1 série
-      // au volume, mais jamais au max estimé ni aux records. Seulement sur un exercice qui se mesure en charge × reps.
-      if (vue.unilateral && vue.unilateral.possible) {
-        var menuUni = el('div', 'feuille-menu');
-        var bUni = el('button', 'bascule-unilateral' + (vue.unilateral.actif ? ' sel' : ''), vue.unilateral.actif ? 'Retirer « Unilatéral »' : 'Unilatéral');
-        bUni.appendChild(el('small', 'aide-type', vue.unilateral.aide));
-        bUni.type = 'button';
-        bUni.setAttribute('aria-pressed', vue.unilateral.actif ? 'true' : 'false');
-        bUni.addEventListener('click', function () { vue.surUnilateral(!vue.unilateral.actif); });
-        menuUni.appendChild(bUni);
-        cible.appendChild(menuUni);
       }
 
       // 196 (MOTEUR §9.33) — « Rest-pause » : deux mini-séries à la même charge, une seule série de travail.

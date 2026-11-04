@@ -814,8 +814,7 @@ describe('la proposition n’est jamais écrite (§7 septendecies.3)', () => {
     // 131 : `denivele_m` et `etages` (v2_101, ECRAN §3 ter.5). 132 : `elastique` (v2_034, MOTEUR §10 ter).
     // 23 depuis 185 : `hors_calcul` (v2_116, « Non, ne compte pas »).
     // 24 depuis 193-6 : `au_max_reserve` (v2_123, la réserve demandée à la dernière série « Au max »).
-    // 25 depuis 242 : `unilateral` (v2_131, la charge par côté).
-    expect(Seance.COLONNES_SET).toHaveLength(25);
+    expect(Seance.COLONNES_SET).toHaveLength(24);
   });
 });
 

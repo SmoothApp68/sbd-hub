@@ -239,7 +239,7 @@
         seancesDeLExercice(c, slug).forEach(function (g) {
           var meilleur = null;
           g.series.forEach(function (x) {
-            if (!x || !Modele.compteAuxRecords(x) || x.elastique) return;
+            if (!x || !Modele.estTravail(x) || x.elastique) return;
             var ch = Number(x.charge_kg), rp = Number(x.reps), du = Number(x.duree_s);
             var v = null;
             if (genre === 'charge') {
@@ -422,35 +422,6 @@
       if (!fait) return null;
       if (n && typeof n === 'object' && n.masquee !== undefined && n.masquee !== null && n.masquee === fait.serieId) return null;
       return { mode: 'derniere', texte: fait.texte, jour: fait.jour, serieId: fait.serieId };
-    }
-
-    // 242 (I131) — UNE SÉRIE UNILATÉRALE N'ENTRE JAMAIS DANS LE MAX ESTIMÉ NI UN RECORD. Pour chaque exercice qui en porte au moins une : le max
-    // estimé, la table des records et la plus lourde, calculés sur l'historique entier, sont IDENTIQUES à ceux de l'historique sans ses séries
-    // unilatérales ; et aucune médaille d'une séance ne désigne une série unilatérale. Rend la liste des fautes (vide : l'invariant tient).
-    // Hors production seulement (la garde du coach) : le calcul est double.
-    function verifierI131(c, slugs) {
-      var fautes = [], maintenant = new Date(Date.now() + 1000);
-      (slugs || []).forEach(function (slug) {
-        var seances = seancesDuSlug(c, slug);
-        var uni = {};
-        seances.forEach(function (g) { (g.series || []).forEach(function (x) { if (Modele.estUnilateral(x) && x.id) uni[x.id] = true; }); });
-        if (!Object.keys(uni).length) return;
-        var o = optionsDesRecords(c, slug);
-        var sans = seances.map(function (g) {
-          return Object.assign({}, g, { series: (g.series || []).filter(function (x) { return !Modele.estUnilateral(x); }) });
-        });
-        var a = Modele.recordsDeLExercice(seances, maintenant, o), b = Modele.recordsDeLExercice(sans, maintenant, o);
-        if (JSON.stringify([a.table, a.lourde, a.unRM]) !== JSON.stringify([b.table, b.lourde, b.unRM])) {
-          fautes.push('I131 ' + slug + ' : une série unilatérale entre dans le max estimé ou dans la table des records');
-        }
-        seancesAvecSeries(c).forEach(function (se) {
-          if (!se.series.some(function (x) { return x && x.exercise_slug === slug && uni[x.id]; })) return;
-          recordsDeLaSeance(c, se).forEach(function (r) {
-            if (r.serieId && uni[r.serieId]) fautes.push('I131 ' + slug + ' : un record sur une série unilatérale (séance ' + se.id + ')');
-          });
-        });
-      });
-      return fautes;
     }
 
     // ── Les records (MOTEUR §9.23, 55-1) ────────────────────────────────────
@@ -1887,7 +1858,7 @@
     function seriesDeReference(liste) {
       return (liste || []).filter(function (x) {
         var kg = x ? nombreOuNul(x.charge_kg) : null;
-        return !!x && Modele.compteAuxRecords(x) && kg !== null && kg > 0;
+        return !!x && Modele.estTravail(x) && kg !== null && kg > 0;
       });
     }
     // Le meilleur de l'exercice : la plus lourde charge de travail de l'historique ET des séries déjà validées du jour
@@ -2032,7 +2003,6 @@
       var charge = nombreOuNul(s.charge), reps = nombreOuNul(s.reps);
       if (charge === null || charge <= 0 || reps === null || reps < 1) return null;
       if (!Modele.estTravail({ type_serie: s.type, reps: reps })) return null;
-      if (s.unilateral === true) return null;   // 242 — une charge par côté ne fait jamais un record
       var historique = c.historique || [];
       if (seancesFaites(historique) < SEUIL_SEANCES_VRAISEMBLANCE) return null;
       var meilleur = meilleurDeLExercice(historique, c.seance);
@@ -2374,7 +2344,6 @@
       tenuesDeLExercice: tenuesDeLExercice,
       noteDeLaDerniereFois: noteDeLaDerniereFois,
       noteDeLExercice: noteDeLExercice,
-      verifierI131: verifierI131,
       pointsDeLExercice: pointsDeLExercice,
       exercicesDeProgression: exercicesDeProgression,
       ceQuiAProgresse: ceQuiAProgresse,

@@ -3753,7 +3753,7 @@ Sous l'exercice, une ligne repliée « Chauffe · N séries › » ; ouverte, el
 
 ---
 
-### La note de la dernière fois, la case « Unilatéral » — 242 (décidé le 04/11/2026, maquette `maquette-note-derniere-fois-v1`)
+### La note de la dernière fois — 242 (décidé le 04/11/2026, maquette `maquette-note-derniere-fois-v1`)
 
 **La note de l'exercice, sous son nom** (entre le nom et les séries ; jamais en mode programme). Un fait de `faits.js` (`noteDeLaDerniereFois`, `noteDeLExercice`), aucune décision du coach, aucun lecteur du plan : la dernière note écrite sur l'exercice (sur une série, ou la note d'exercice que l'app projette sur chaque série) lors de la **dernière séance terminée où il a été fait**, Hevy compris ; plusieurs notes dans la séance, la dernière par rang. **Exclue** : une note identique (espaces normalisés) à la consigne de la routine de cet exercice (`routine_exercises.note`). Une dernière séance sans note ne remonte pas plus loin.
 
@@ -3762,4 +3762,4 @@ Sous l'exercice, une ligne repliée « Chauffe · N séries › » ; ouverte, el
 - **Écran C** — « Ne plus afficher » écrit `{ masquee: <id de la série>, a }` ; toast « Note retirée de cet exercice. · Annuler » (5 s), qui remet l'entrée d'avant.
 - Écriture par la file (`poserProfil`), jamais ailleurs. Les séries passées gardent leur note d'origine. Les mots de la personne ne sont jamais réécrits.
 
-**La case « Unilatéral »** — dans le menu ⋯ de la série (comme « Au max »), sur un exercice chiffré en charge × reps ou en reps ; écrit `sets.unilateral`. Charge et reps s'entendent **par côté**. Effet : MOTEUR §9.2 (1 série au volume, hors du max estimé et des records ; I131). Le journal et le détail la montrent « · unilatéral ». La case n'est pas reprise sur la série suivante (aucun champ de série ne se reprend : une série ajoutée est vide).
+**Pas de case « unilatéral »** (décision du 05/11/2026) : un exercice fait d'un côté est sa variante du catalogue (« … Un Bras », « Fente bulgare »), avec son propre max, ses records et ses paris — jamais une case sur la série.

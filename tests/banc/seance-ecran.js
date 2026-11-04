@@ -736,8 +736,6 @@ const SETS_IMPORTES = [
     if ('elastique_norme' in l) return refus('428C9', 'elastique_norme est générée');
     // 185 (v2_116) — `sets.hors_calcul` boolean NOT NULL DEFAULT false : un null ou un non-booléen est refusé.
     if ('hors_calcul' in l && typeof l.hors_calcul !== 'boolean') return refus('23502', 'sets.hors_calcul NOT NULL');
-    // 242 (v2_131) — `sets.unilateral` boolean NOT NULL DEFAULT false.
-    if ('unilateral' in l && typeof l.unilateral !== 'boolean') return refus('23502', 'sets.unilateral NOT NULL');
     // ⚠️ `sets.id` EST uuid NOT NULL (chantier 33). Ce banc ne le vérifiait pas :
     // il acceptait `id: null`, et son upsert par `findIndex` écrasait alors
     // toutes les lignes nulles les unes sur les autres — six séries devenaient
@@ -28532,12 +28530,12 @@ const SETS_IMPORTES = [
     await aller('/saisie');
   }
 
-  console.log('\n══ note-242. LA NOTE DE LA DERNIÈRE FOIS (MODIFIER, GARDER, NE PLUS AFFICHER, ANNULER) ET LA CASE UNILATÉRAL HORS DES RECORDS (242, ECRAN-SAISIE, MOTEUR §9.2, I131) ══');
+  console.log('\n══ note-242. LA NOTE DE LA DERNIÈRE FOIS (MODIFIER, GARDER, NE PLUS AFFICHER, ANNULER) (242, ECRAN-SAISIE) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : un squat à la barre, six séances à 100 kg × 5 dont la plus récente porte une note de série (« genou gauche
   // tire ») et une plus ancienne une autre ; une routine « 3 × 5 » SANS consigne. La note de la dernière fois s'affiche sous le nom ; « Modifier »
   // puis « Garder » l'épingle (profiles.notes_exercices, par la file) et elle revient à la séance suivante ; « Ne plus afficher » la retire avec un
-  // toast « Annuler ». Puis une série à 140 × 5 marquée « Unilatéral » ne fait AUCUNE médaille, alors qu'une série normale à 110 × 5 en fait une.
+  // toast « Annuler ».
   {
     const erreursAvant = erreurs.length;
     const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
@@ -28563,7 +28561,7 @@ const SETS_IMPORTES = [
       base.sets.push({ id: id + '-s1', session_id: id, user_id: 'u-banc', exercise_slug: 'nu242-sq', charge_kg: 100, reps: 5, duree_s: null,
         distance_m: null, denivele_m: null, etages: null, elastique: null, type_serie: 'travail', rang: 1, groupe_superset: null, validee_a: debut,
         rpe: null, ressenti: null, repos_s: null, note: w === 1 ? 'genou gauche tire' : (w === 2 ? 'ancienne note' : null), source: 'app',
-        created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false, unilateral: false });
+        created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false });
     }
     const sets242 = [1, 2, 3].map((i) => ({ id: 'pr-nu242-' + i, rang: i, type_serie: 'travail', reps_visees: 5, charge_cible_kg: null,
       duree_cible_s: null, distance_cible_m: null }));
@@ -28611,24 +28609,7 @@ const SETS_IMPORTES = [
     await attendreQue(() => Promise.resolve((profilNotes242()['nu242-sq'] || {}).texte === 'serrer les omoplates'), 15000, 'annulerMasqueEcritNU242');
     ok('[NU242] « Annuler » remet la note et l’entrée d’avant', sp242((await note242()).texte) === 'serrer les omoplates', nb242([await note242(), profilNotes242()]));
 
-    // La case « Unilatéral » : 110 × 5 normale → un record au journal ; 140 × 5 unilatérale → aucun (le journal s'écrit à « Terminer »).
-    await saisirSerie(0, 110, 5);
-    await toucher(1, '.no-serie');
-    await page.click('.bascule-unilateral');
-    await attendreQue(() => page.evaluate(() => Array.from(document.querySelectorAll('.etq-ligne')).some((e) => /unilatéral/.test(e.textContent))), 15000, 'etiquetteUniNU242');
-    await saisirSerie(1, 140, 5);
-    await attendreQue(() => Promise.resolve(base.sets.some((x) => x.exercise_slug === 'nu242-sq' && x.charge_kg === 140)), 15000, 'serieUniEcriteNU242');
-    const uni242 = base.sets.filter((x) => x.exercise_slug === 'nu242-sq' && x.charge_kg === 140)[0];
-    const norm242 = base.sets.filter((x) => x.exercise_slug === 'nu242-sq' && x.charge_kg === 110)[0];
-    ok('[NU242] DISCRIMINANT — la série 140 × 5 « Unilatéral » est écrite avec unilateral = true (booléen, colonne NOT NULL)', !!uni242 && uni242.unilateral === true, nb242(uni242));
-    const etq242 = await page.evaluate(() => Array.from(document.querySelectorAll('.etq-ligne')).map((e) => e.textContent));
-    ok('[NU242] la ligne se dit « unilatéral »', etq242.some((t) => /unilatéral/.test(t)), nb242(etq242));
-    await terminer();
-    await attendreQue(() => Promise.resolve(base.records.some((r) => r.set_id === (norm242 && norm242.id))), 20000, 'journalNormalNU242');
-    ok('[NU242] …son record au journal : la série normale à 110 × 5 en a un, la série unilatérale à 140 × 5 (plus lourde) AUCUN',
-      !!norm242 && !!uni242 && base.records.some((r) => r.set_id === norm242.id) && !base.records.some((r) => r.set_id === uni242.id),
-      nb242(base.records.filter((r) => r.exercise_slug === 'nu242-sq').map((r) => [r.set_id, r.type, r.valeur])));
-    ok('[NU242] la garde de l’app (I131 compris) n’a rien vu', gardeBanc.violations === violationsAvant, nb242(gardeBanc.liste.slice(-2)));
+    await abandonner();
     ok('[NU242] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       nb242([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));

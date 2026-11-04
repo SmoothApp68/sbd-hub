@@ -1,9 +1,9 @@
 /** @jest-environment node */
 //
-// 242 — LA NOTE DE LA DERNIÈRE FOIS et LA CASE « UNILATÉRAL » (ECRAN-SAISIE, MOTEUR §9.2, I131).
+// 242 — LA NOTE DE LA DERNIÈRE FOIS (ECRAN-SAISIE).
 //
 // Le fait (`faits.noteDeLaDerniereFois`, `faits.noteDeLExercice`) : dernière séance terminée, consigne de la routine exclue, note épinglée
-// prioritaire, « Ne plus afficher », Hevy, plusieurs notes. L'unilatéral : 1 série au volume, jamais au max estimé ni aux records (I131).
+// prioritaire, « Ne plus afficher », Hevy, plusieurs notes.
 process.env.TZ = 'Europe/Paris';
 global.self = global;
 require('../../v2/js/modele.js');
@@ -27,7 +27,7 @@ const corpus = (seances, series) => ({
 });
 const se = (id, jour, extra) => Object.assign({ id, debut: '2026-10-' + jour + 'T10:00:00Z', statut: 'terminee' }, extra || {});
 const sr = (id, n, extra) => Object.assign({ id: id + n, session_id: id, exercise_slug: 'squat_barre', type_serie: 'travail',
-  charge_kg: 100, reps: 5, rang: n, validee_a: '2026-10-' + '10T11:00:00Z', note: null, hors_calcul: false, unilateral: false }, extra || {});
+  charge_kg: 100, reps: 5, rang: n, validee_a: '2026-10-' + '10T11:00:00Z', note: null, hors_calcul: false }, extra || {});
 
 describe('faits.noteDeLaDerniereFois — le fait', () => {
   test('la dernière note de la dernière séance terminée où l’exercice a été fait', () => {
@@ -95,66 +95,6 @@ describe('faits.noteDeLExercice — ce que l’écran montre', () => {
   });
   test('rien à montrer sans fait ni note épinglée', () => {
     expect(F.noteDeLExercice(null, {}, 'squat_barre')).toBeNull();
-  });
-});
-
-describe('« Unilatéral » — 1 série au volume, jamais au max estimé ni aux records', () => {
-  const lourde = (id, n, kg, extra) => sr(id, n, Object.assign({ charge_kg: kg, reps: 5 }, extra || {}));
-  const c = () => corpus([se('b', '20'), se('a', '10')], {
-    a: [lourde('a', 1, 100)],
-    b: [lourde('b', 1, 140, { unilateral: true }), lourde('b', 2, 100)],
-  });
-  test('la lecture : estUnilateral, compteAuxRecords (du travail, pas unilatéral)', () => {
-    expect(Modele.estUnilateral({ unilateral: true })).toBe(true);
-    expect(Modele.estUnilateral({ unilateral: false })).toBe(false);
-    expect(Modele.estUnilateral(null)).toBe(false);
-    expect(Modele.compteAuxRecords(lourde('x', 1, 100))).toBe(true);
-    expect(Modele.compteAuxRecords(lourde('x', 1, 100, { unilateral: true }))).toBe(false);
-    expect(Modele.compteAuxRecords(lourde('x', 1, 100, { type_serie: 'echauffement' }))).toBe(false);
-  });
-  test('elle reste du travail : 1 série au volume', () => {
-    expect(Modele.estTravail(lourde('x', 1, 140, { unilateral: true }))).toBe(true);
-  });
-  test('le max estimé et la table des records l’ignorent', () => {
-    const seances = [{ debut: '2026-10-20T10:00:00Z', series: c().seriesDe('b') }, { debut: '2026-10-10T10:00:00Z', series: c().seriesDe('a') }];
-    const r = Modele.recordsDeLExercice(seances, new Date('2026-11-01T00:00:00Z'), {});
-    expect(r.unRM.charge).toBe(100);
-    expect(r.lourde.charge).toBe(100);
-    expect(r.table.every((l) => l.charge <= 100)).toBe(true);
-  });
-  test('aucune médaille sur une série unilatérale, même plus lourde que tout', () => {
-    const rs = F.recordsDeLaSeance(c(), { id: 'b', debut: '2026-10-20T10:00:00Z', series: c().seriesDe('b') });
-    expect(rs.some((r) => r.serieId === 'b1')).toBe(false);
-  });
-  test('la courbe de l’exercice (max estimé par séance) ne la lit pas', () => {
-    const p = F.pointsDeLExercice(c(), 'squat_barre').points;
-    p.forEach((pt) => expect(pt.charge).toBe(100));
-  });
-  test('la question « Record ? » ne se pose pas sur une série unilatérale', () => {
-    const hist = [1, 2, 3, 4].map((k) => ({ debut: '2026-09-0' + k + 'T10:00:00Z', series: [{ type_serie: 'travail', charge_kg: 100, reps: 5 }] }));
-    const ctx = { historique: hist, seance: [] };
-    expect(F.questionDuRecord({ charge: 150, reps: 5, type: 'travail', equipement: 'barre' }, ctx)).not.toBeNull();
-    expect(F.questionDuRecord({ charge: 150, reps: 5, type: 'travail', equipement: 'barre', unilateral: true }, ctx)).toBeNull();
-  });
-  test('I131 : l’historique avec et sans la série unilatérale donne le même max et les mêmes records', () => {
-    expect(F.verifierI131(c(), ['squat_barre'])).toEqual([]);
-  });
-});
-
-describe('« Unilatéral » — la séance, la base', () => {
-  const seance = () => S.creer({ id: 's', user_id: 'u', routine_id: null, exercices: [{ exercise_slug: 'squat_barre', series: [{ id: 'x1', type_serie: 'travail' }] }] }, () => 'id');
-  test('Seance.definirUnilateral pose la marque, la retire, et la série vide ne l’a pas', () => {
-    let s = S.creer({ id: 's', user_id: 'u', debut: '2026-11-04T10:00:00Z', routine_id: null, exercices: [] });
-    s = Object.assign({}, s, { exercices: [{ exercise_slug: 'squat_barre', series: [S.serieVide ? S.serieVide('x1') : { id: 'x1', type_serie: 'travail' }] }] });
-    expect(s.exercices[0].series[0].unilateral === true).toBe(false);
-    s = S.definirUnilateral(s, 0, 0, true);
-    expect(s.exercices[0].series[0].unilateral).toBe(true);
-    s = S.definirUnilateral(s, 0, 0, false);
-    expect(s.exercices[0].series[0].unilateral).toBe(false);
-  });
-  test('la colonne est lue ET écrite (COLONNES_SET, lignes() la renvoie, false compris)', () => {
-    expect(S.COLONNES_SET).toContain('unilateral');
-    expect(S.verifierColonnes()).toBe(true);
   });
 });
 

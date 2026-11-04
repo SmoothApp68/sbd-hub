@@ -1993,15 +1993,6 @@ const NOTIONS = [
   { notion: 'la note affichée d’un exercice (épinglée, de la dernière fois, ou masquée)', pr: '242-U1',
     module: 'faits.js', fonction: 'noteDeLExercice', lecteurs: ['app.js'],
     raison: 'l’écran lit `profiles.notes_exercices` et le fait de la dernière fois par UNE fonction : la note épinglée prime, « Ne plus afficher » masque la série désignée.' },
-  { notion: 'l’invariant I131 (une série unilatérale hors du max estimé et des records)', pr: '242-U1',
-    module: 'faits.js', fonction: 'verifierI131', lecteurs: ['app.js'],
-    raison: 'la garde de développement relaie la vérification (avec et sans les séries unilatérales) par les entrées du plan ; le calcul est ici, une fois.' },
-  { notion: 'la série qui peut porter un max estimé ou un record (du travail, pas unilatérale)', pr: '242-U1',
-    module: 'modele.js', fonction: 'compteAuxRecords', lecteurs: ['faits.js', 'moteur.js'],
-    par: ['tableCumulee', 'recordsDeLExercice', 'recordsBattus'],
-    parAilleurs: { 'faits.js': ['pointsDeLExercice', 'seriesDeReference'], 'moteur.js': ['valeurDeFatigue'] },
-    raison: 'une charge par côté ne se compare pas à une charge des deux côtés : la table des records, la plus lourde, le max estimé, la médaille, la courbe, ' +
-      'la question « Record ? » et la baisse de forme passent par UNE lecture, jamais par `estTravail` seul.' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -2546,7 +2537,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(53);   // 242 : + noteDeLaDerniereFois, noteDeLExercice, verifierI131
+    expect(FAITS.length).toBe(52);   // 242 : + noteDeLaDerniereFois, noteDeLExercice
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

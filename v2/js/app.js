@@ -5921,8 +5921,7 @@
   function saisieDeLaSerie(iExo, iSerie) {
     var exo = seance.exercices[iExo], s = exo.series[iSerie];
     var def = catalogueIndexe()[exo.exercise_slug];
-    return { charge: s.charge_kg, reps: s.reps, type: s.type_serie || 'travail', equipement: def ? def.equipement || null : null,
-             unilateral: s.unilateral === true };
+    return { charge: s.charge_kg, reps: s.reps, type: s.type_serie || 'travail', equipement: def ? def.equipement || null : null };
   }
   // Avant l'écriture : `null`, ou la question (et rien n'est écrit). Un exercice noté par nom (élastique) n'a pas de charge à
   // comparer.
@@ -8031,9 +8030,7 @@
                  modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, blocs: local.blocs, plan: plan,
                  marches: profil && profil.marche_reponses, demoMarche: demoMarche, disque: Profil.plusPetitDisqueDe(profil),
                  moins: serieDeMoinsActive(), cartes: profil && profil.cartes_semaine,
-                 raides: profil && profil.zones_raides, menager: profil && profil.zones_a_menager,
-                 // 242 (I131) — hors production seulement : une série unilatérale n'entre jamais dans le max estimé ni un record.
-                 unilateral: garde.active ? faits.verifierI131(corpus(), slugsDesExercices(seance.exercices)) : null };
+                 raides: profil && profil.zones_raides, menager: profil && profil.zones_a_menager };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit. Un plan du
     // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.
@@ -8866,17 +8863,6 @@
     if (p && p.allegee) return non;
     if (x && ((x.consigne && x.consigne.allegee) || (x.menagee && !x.menagee.choisie))) return non;
     return { possible: true, aide: aide };
-  }
-
-  // 242 — l'interrupteur « Unilatéral » de la feuille d'une série : un exercice qui se chiffre en charge × reps (ou en reps), jamais un
-  // exercice noté par nom (élastique). L'aide dit l'effet, sans promesse.
-  function unilateralDeLaFeuille(iExo, iSerie) {
-    var exo = seance && seance.exercices[iExo], serie = exo && exo.series[iSerie];
-    var aide = 'Charge et reps par côté. Compte pour 1 série ; ni max estimé ni record.';
-    if (!exo || !serie || elastiqueDeLaGrille(exo.exercise_slug)) return { possible: false, actif: false, aide: aide };
-    var fiche = catalogueIndexe()[exo.exercise_slug];
-    var mesure = fiche ? fiche.mesure || null : null;
-    return { possible: mesure === 'charge_reps' || mesure === 'reps', actif: Modele.estUnilateral(serie), aide: aide };
   }
 
   function derniereSerieDeTravail(series) {
@@ -11513,14 +11499,6 @@
       },
       surAuMax: function (actif) {
         seance = Seance.definirAuMax(seance, feuille.iExo, feuille.iSerie, actif);
-        fermerVoile();
-        apresGeste();
-      },
-      // 242 (v2_131) — « Unilatéral » : un interrupteur de la série, pour aujourd'hui comme pour l'historique ; rien d'autre ne change
-      // (la série reste du travail, elle compte 1 série). Le max estimé et les records la laissent de côté (`Modele.compteAuxRecords`).
-      unilateral: unilateralDeLaFeuille(feuille.iExo, feuille.iSerie),
-      surUnilateral: function (actif) {
-        seance = Seance.definirUnilateral(seance, feuille.iExo, feuille.iSerie, actif);
         fermerVoile();
         apresGeste();
       },

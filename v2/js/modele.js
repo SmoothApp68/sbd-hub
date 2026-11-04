@@ -62,12 +62,6 @@
   // record, ni palier, ni niveau, ni cran voisin, ni pari, ni jeu — tout ce qui demande « est-ce du travail ? » passe par
   // `estTravail`, et le palier par `roleDuTag` (`palier.js`), qui lit la même marque. La personne l'a dit ; rien ne la déduit.
   function estHorsCalcul(serie) { return !!serie && serie.hors_calcul === true; }
-  // ⚠️ 242 (v2_131, décision d'Aurélien du 04/11/2026) — « UNILATÉRAL » : UNE LECTURE, ICI. La charge et les reps de la série s'entendent PAR
-  // CÔTÉ. Elle compte pour UNE série au volume (`estTravail` reste vrai : le jeu, le volume, la semaine la lisent comme avant), mais elle
-  // n'entre NI dans le max estimé NI dans un record de l'exercice : comparer une charge par côté à une charge des deux côtés fausserait le
-  // max. Tout ce qui demande « cette série peut-elle faire un max ou un record ? » passe par `compteAuxRecords` (le chemin de `hors_calcul`,
-  // moins le volume). La personne le dit (menu ⋯ de la série) ; rien ne le déduit.
-  function estUnilateral(serie) { return !!serie && serie.unilateral === true; }
   // ⚠️ 186 (v2_117, décision d'Aurélien du 29/10/2026) — « SÉRIE DE TEST » : UNE LECTURE, ICI. Un max tenté, un single de test : la
   // personne le dit (menu ⋯ de la série, type `test`), rien ne le déduit. C'est UNE SÉRIE DE TRAVAIL pour tout ce qui compte ce qui
   // a été fait (records, maximum estimé, volume, jeu : `estTravail` reste vrai, « comme aujourd'hui »), mais elle ne décide JAMAIS
@@ -128,9 +122,6 @@
   function estTravail(serie) {
     return !!serie && !estHorsCalcul(serie) && (typeDe(serie) === 'travail' || typeDe(serie) === 'test' || typeDe(serie) === 'recul' || estAEchec(serie));
   }
-  // 242 — une série de travail qui peut porter un max estimé ou un record : du travail, pas unilatéral. UNE fonction pour les records, le
-  // max estimé, la courbe, la question du record, la baisse de forme.
-  function compteAuxRecords(serie) { return estTravail(serie) && !estUnilateral(serie); }
   // Le type TEL QU'ON LE LIT : `travail` pour une série à l'échec (1 rep et +), le type de la base sinon. Le plan
   // (`plan.js`) l'écrit sur chacune de ses lignes : aucun invariant ne compare `type_serie` à `'echec'`.
   // 193-1 : une série de recul se lit `recul` (elle est du travail, mais la consigne ne la couvre pas : ligne `hors`, comme une dégressive).
@@ -2016,7 +2007,7 @@
     // meilleure série DIRECTEMENT, dans la grandeur de la mesure — aucune
     // formule, aucune comparaison, le maximum de ce qui a été fait.
     var siennes = (series || []).filter(function (x) {
-      return x && x.exercise_slug === slug && compteAuxRecords(x);
+      return x && x.exercise_slug === slug && estTravail(x);
     });
     if (!siennes.length) return e;
 
@@ -2147,7 +2138,7 @@
     // et c'est la règle du déduit ci-dessous qui s'en charge.
     var parReps = {};
     (series || []).forEach(function (s) {
-      if (!estTravail(s) || estUnilateral(s)) return;
+      if (!estTravail(s)) return;
       var r = valeurNumerique(s, 'reps');
       if (r === null || r <= 0) return;
       var c = mesure === 'charge_reps' ? valeurNumerique(s, 'charge_kg') : 0;
@@ -2246,7 +2237,7 @@
     var corps = !!(options && options.corps);
     var faites = [];
     (series || []).forEach(function (s) {
-      if (!compteAuxRecords(s)) return;
+      if (!estTravail(s)) return;
       var r = valeurNumerique(s, 'reps');
       if (r === null || r <= 0) return;
       var c = chargeDeRecord(s, corps);
@@ -2329,7 +2320,7 @@
     var table = tableCumulee(series, function (x) { return x._debut; }, { corps: o.corps });
     var unRM = null;
     series.forEach(function (x) {
-      if (!compteAuxRecords(x)) return;
+      if (!estTravail(x)) return;
       var r = valeurNumerique(x, 'reps'), c = valeurNumerique(x, 'charge_kg');
       if (r === null || c === null || !estimable1RM(r, c, !!o.corps)) return;
       var e = racine.THMoteur.unRMEpley(c, r);
@@ -2442,7 +2433,7 @@
     var se = seance || {};
     var series = se.series || [];
     var s = series[indice];
-    if (!s || !compteAuxRecords(s) || o.sansRecord === true) return [];
+    if (!s || !estTravail(s) || o.sansRecord === true) return [];
     // 132 (MOTEUR §10 ter, I51) — UNE SÉRIE NOTÉE PAR NOM NE FAIT AUCUN RECORD (ni médaille, ni ligne du journal) :
     // un record est immuable, et l'ordre d'une liste d'élastiques peut changer. Elle ne sert pas non plus de base à
     // battre (ci-dessous, `siennes`). Le meilleur d'un tel exercice se lit à l'affichage (`THProfil.meilleurElastique`).
@@ -2453,7 +2444,7 @@
     var corps = !!o.corps;
     var M = racine.THMoteur;
     var siennes = function (liste) {
-      return (liste || []).filter(function (x) { return x && x.exercise_slug === slug && compteAuxRecords(x) && !notee(x); });
+      return (liste || []).filter(function (x) { return x && x.exercise_slug === slug && estTravail(x) && !notee(x); });
     };
     // Les séances antérieures qui ont fait cet exercice — toute la vie (la
     // durée, la distance) et dans la fenêtre du matériel (les charges).
@@ -2923,8 +2914,6 @@
     estAuMax: estAuMax,
     reserveDemandee: reserveDemandee,
     estHorsCalcul: estHorsCalcul,
-    estUnilateral: estUnilateral,
-    compteAuxRecords: compteAuxRecords,
     estAEchec: estAEchec,
     estManquee: estManquee,
     motDEchec: motDEchec,

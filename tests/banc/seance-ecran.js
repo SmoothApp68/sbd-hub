@@ -5093,17 +5093,20 @@ const SETS_IMPORTES = [
 
   // Le glissement par la poignée : la Planche (3e) saisie par sa poignée et lâchée au-dessus de la 1re carte.
   const glisser233 = async (iCarte, versCarte, parNom) => {
-    const pos = await page.evaluate(([a, b, nom]) => {
+    const pos = await page.evaluate(([a, nom]) => {
       const k = document.querySelectorAll('.bloc-seance.superset .carte-ss');
       const dep = nom ? k[a].querySelector('.nom-exo') : k[a].querySelector('.poignee-exo');
-      const r = dep.getBoundingClientRect(), cible = k[b].getBoundingClientRect();
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2, yCible: cible.top + 6 };
-    }, [iCarte, versCarte, !!parNom]);
+      const r = dep.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, [iCarte, !!parNom]);
     await page.mouse.move(pos.x, pos.y);
     await page.mouse.down();
     if (parNom) await attendre(650);   // temps réel : l'APPUI LONG sur le nom (450 ms de l'app)
-    await page.mouse.move(pos.x, (pos.y + pos.yCible) / 2, { steps: 4 });
-    await page.mouse.move(pos.x, pos.yCible, { steps: 6 });
+    await jusqua(() => page.evaluate(() => !!document.querySelector('.pris-exo')), 4000, 'carte prise');
+    // Les cartes se sont réduites à leur nom : on vise la carte cible telle qu'elle est maintenant.
+    const yCible = await page.evaluate((b) => document.querySelectorAll('.bloc-seance.superset .carte-ss')[b].getBoundingClientRect().top + 4, versCarte);
+    await page.mouse.move(pos.x, (pos.y + yCible) / 2, { steps: 4 });
+    await page.mouse.move(pos.x, yCible, { steps: 6 });
     await page.mouse.up();
     await jusqua(() => page.evaluate(() => !document.querySelector('.pris-exo')), 4000, 'glisser233');
     await brouillonPose();
@@ -5121,6 +5124,10 @@ const SETS_IMPORTES = [
     JSON.stringify(c3_233.map((c) => c.nom)));
 
   // ── Le chrono de tenue : la Planche seule en a un ──
+  // La 1re série de la Planche (C1) a été validée pour le tour : on la dévalide, le chrono ne sert que sur une série à faire.
+  const iPl0_233 = (await cartes233()).findIndex((c) => /Planche/.test(c.nom));
+  await page.evaluate((i) => document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie.cochee').click(), iPl0_233);
+  await jusqua(() => page.evaluate((i) => !document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie.cochee'), iPl0_233), 6000, 'C1 dévalidée');
   const cT_233 = await cartes233();
   const iPlanche_233 = cT_233.findIndex((c) => /Planche/.test(c.nom));
   ok('seule la carte de la Planche (mesure durée) porte un chrono de tenue, une fois par série non validée',

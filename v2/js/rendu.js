@@ -3035,8 +3035,14 @@
     function annulerMinuteur() { if (minuteur) { clearTimeout(minuteur); minuteur = null; } }
     function prendre(e) {
       if (!cand || typeof (cible._vueDepl || {}).surDeplacerExercice !== 'function') return;
-      pris = cand.carte; soeurs = cand.freres; depart = y0; visee = null;
+      pris = cand.carte; soeurs = cand.freres; visee = null;
       pris.classList.add('pris-exo');
+      // Les cartes se réduisent à leur nom pendant le geste (comme le mode Modifier) : trois cartes tiennent alors dans l'écran, et le
+      // glissement n'a pas à franchir 900 px. La carte prise se recentre sous le doigt.
+      cible.classList.add('en-deplacement');
+      var rp = pris.getBoundingClientRect();
+      depart = rp.top + rp.height / 2;
+      pris.style.transform = 'translateY(' + (e.clientY - depart) + 'px)';
       try { pris.setPointerCapture(e.pointerId); } catch (x) { /* souris de banc */ }
     }
     function marquer(n, qui) {
@@ -3066,6 +3072,7 @@
       soeurs = [];
       if (!p) return;
       p.classList.remove('pris-exo');
+      cible.classList.remove('en-deplacement');
       p.style.transform = '';
       derniereFin = Date.now();
       if (annule || !v || !c) return;

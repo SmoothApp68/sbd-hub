@@ -1,0 +1,6 @@
+[
+ {"nom":"237bis-retour-a-estbarre-seul","fichier":"v2/js/moteur.js","ancien":"if (seule && (corps || e.isolation === true) && e.menagee !== true) return rien;","nouveau":"if (seule && !estBarre(e.equipement) && e.menagee !== true) return rien;","banc":"aucun","unitaires":["tests/unit/v2-chauffes-proposees-237.test.js"]},
+ {"nom":"237bis-phrase-du-silence-supprimee","fichier":"v2/js/plan.js","ancien":"    if (etat !== true || (x.lignes || []).some(function (l) { return l.validee; })) return null;","nouveau":"    return null;","banc":"seance","sections":["chauffes-237"],"unitaires":["tests/unit/v2-chauffes-proposees-237.test.js"]},
+ {"nom":"237bis-annuler-sans-effet","fichier":"v2/js/plan.js","ancien":"    if (!x || x.seance !== seanceId) return r;\n    var a = x.avant;","nouveau":"    return r;\n    var a = x.avant;","banc":"seance","sections":["chauffes-237"],"unitaires":["tests/unit/v2-chauffes-proposees-237.test.js"]},
+ {"nom":"237bis-temoin-libelle","fichier":"v2/js/plan.js","ancien":"annuler: 'Annuler' };\n  }\n\n  function chauffesEtDegressive","nouveau":"annuler: 'Annuler' };\n  }\n\n  /* témoin */ function chauffesEtDegressive","banc":"aucun","unitaires":["tests/unit/v2-chauffes-proposees-237.test.js"],"attendu":"survit"}
+]

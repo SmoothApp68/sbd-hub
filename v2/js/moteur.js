@@ -7303,11 +7303,12 @@
   }
   // Les séries d'un exercice en grosse série + reculs : la première série de travail reste, les suivantes deviennent des reculs, aux reps
   // du bloc (le bas de la zone Hypertrophie). Une routine qui a déjà des reculs, ou une seule série de travail, ne change pas. Pure ; rend
-  // une copie, jamais une série modifiée en place.
+  // une copie, jamais une série modifiée en place. 234 — une série déjà ENREGISTRÉE `recul` (le premier recul validé, `Seance.typerSelonLePlan`)
+  // passe telle quelle et ne compte pas : les séries de travail qui la suivent restent lues comme des reculs (sinon le plan les relirait
+  // `travail` dès le premier recul validé).
   function seriesEnGrosseEtReculs(series, struct) {
     if (!struct || !struct.grosse || !Array.isArray(series)) return series;
     var T = Modele();
-    if (series.some(function (x) { return x && T.typeDe(x) === 'recul'; })) return series;
     var travail = 0;
     var z = zoneParCle(ZONE_HYPERTROPHIE);
     var sortie = series.map(function (x) {

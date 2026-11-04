@@ -1,0 +1,11 @@
+[
+  { "nom": "234-m1-app-n-appelle-plus-le-typage", "fichier": "v2/js/app.js",
+    "ancien": "seance = Seance.typerSelonLePlan(seance, iExo, iSerie, lType);", "nouveau": "void lType;",
+    "banc": "seance", "sections": ["cycles"], "unitaires": ["tests/unit/v2-recul-enregistre.test.js"] },
+  { "nom": "234-m2-reecrit-une-serie-validee", "fichier": "v2/js/seance.js",
+    "ancien": "partEnBase(s) || s.validee_a || NON_TRAVAIL", "nouveau": "NON_TRAVAIL",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-recul-enregistre.test.js"] },
+  { "nom": "234-m3-garde-de-retour-au-premier-recul", "fichier": "v2/js/moteur.js",
+    "ancien": "    var travail = 0;\n    var z = zoneParCle(ZONE_HYPERTROPHIE);", "nouveau": "    if (series.some(function (x) { return x && T.typeDe(x) === 'recul'; })) return series;\n    var travail = 0;\n    var z = zoneParCle(ZONE_HYPERTROPHIE);",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-recul-enregistre.test.js"] }
+]

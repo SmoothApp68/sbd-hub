@@ -5207,7 +5207,8 @@ const SETS_IMPORTES = [
   await demarrerRoutine('Superset');
 
   // La i-ième rangée d'un bloc : on lui change son TYPE par la feuille.
-  const passerEnChauffe = async (iBloc, iRangee) => {
+  const passerEnChauffe = async (iBloc, iRangeeEntrelacee) => {
+    const iRangee = (await ordreEntrelace(iBloc))[iRangeeEntrelacee];   // 233 — le rang entrelacé se lit dans l'ordre des cartes
     await page.evaluate(([k, r]) => {
       document.querySelectorAll('.bloc-seance')[k]
         .querySelectorAll('.ligne-serie')[r].querySelector('.no-serie').click();
@@ -5429,7 +5430,7 @@ const SETS_IMPORTES = [
       return { t: n.textContent, couleur: s.color, fond: s.backgroundColor,
                bord: s.borderTopColor, l: s.width, h: s.height };
     };
-    return [lu(b[0]), lu(b[2])];     // une chauffe, une série de travail
+    return [lu(b[0]), lu(b[1])];     // une chauffe, une série de travail (233 : la carte de A range A, A1, A2 à la suite)
   });
   ok('la chauffe porte la LETTRE de son exercice, pas « Ac »',
     teintes[0].t === 'A' && teintes[1].t === 'A1',
@@ -5445,23 +5446,21 @@ const SETS_IMPORTES = [
     teintes[0].l + '×' + teintes[0].h + ' vs ' + teintes[1].l + '×' + teintes[1].h);
 
   // ── §7 undecies.2 — l'espace entre les tours ────────────────────────────
-  ok('chaque tour ouvre sur une rangée marquée, jamais la première du bloc',
+  // 233 — en séance les exercices d'un superset sont des CARTES : plus de tours entrelacés, donc plus de rangée « début de tour »
+  // ni d'espace entre les tours. Chaque carte range ses rangées à la suite : chauffes puis travail, sans trou.
+  ok('en cartes : les rangées suivent leur exercice (A, A1, A2 · B, B1, B2 · C1, C2), aucune n’ouvre un tour',
     JSON.stringify(await badges(0)) ===
-      JSON.stringify(['A', 'B', 'A1', 'B1', 'C1', 'A2', 'B2', 'C2']) &&
-    JSON.stringify(await marques(0)) ===
-      JSON.stringify([false, false, true, false, false, true, false, false]),
+      JSON.stringify(['A', 'A1', 'A2', 'B', 'B1', 'B2', 'C1', 'C2']) &&
+    (await marques(0)).every((m) => m === false),
     JSON.stringify(await badges(0)) + ' · ' + JSON.stringify(await marques(0)));
-  // ⚠️ MESURÉ, PAS DÉDUIT D'UNE CLASSE : l'espace doit exister à l'écran.
+  // ⚠️ MESURÉ, PAS DÉDUIT D'UNE CLASSE : dans une carte, les rangées se touchent.
   const ecarts = await page.evaluate(() => {
-    const l = Array.from(document.querySelectorAll('.bloc-seance')[0]
-      .querySelectorAll('.ligne-serie'));
-    const trou = (i) => Math.round(l[i].getBoundingClientRect().top -
-      l[i - 1].getBoundingClientRect().bottom);
-    return { entreTours: trou(2), dansUnTour: trou(1) };
+    const l = Array.from(document.querySelectorAll('.bloc-seance')[0].querySelector('.carte-ss').querySelectorAll('.ligne-serie'));
+    const trou = (i) => Math.round(l[i].getBoundingClientRect().top - l[i - 1].getBoundingClientRect().bottom);
+    return { dansUneCarte: trou(1), aussi: trou(2) };
   });
-  ok('l’espace est RÉEL : une dizaine de pixels entre les tours, zéro dedans',
-    ecarts.entreTours >= 9 && ecarts.entreTours <= 13 && ecarts.dansUnTour === 0,
-    JSON.stringify(ecarts));
+  ok('l’espace entre deux rangées d’une carte est nul (plus d’espace de tour)',
+    ecarts.dansUneCarte === 0 && ecarts.aussi === 0, JSON.stringify(ecarts));
   ok('et aucun texte n’a été ajouté entre les lignes',
     !/Tour\s*\d/i.test(await page.evaluate(() =>
       Array.from(document.querySelectorAll('.bloc-seance')[0]

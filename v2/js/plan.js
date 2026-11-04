@@ -871,7 +871,10 @@
     var cat = (e.catalogue || {})[slug];
     if (!chutes || !cat) return null;
     var M = Moteur();
-    var reposS = exo && exo.repos_cible_s !== null && exo.repos_cible_s !== undefined ? Number(exo.repos_cible_s) : null;
+    // 233 — le repos RÉEL (l'écart entre deux séries validées du même exercice), plus la valeur du minuteur : en superset, 90 s réglées
+    // font ~3 min. Sans mesure (séries importées, une seule série validée), rien à dire : on ne devine pas.
+    var reel = e.reposReels && Object.prototype.hasOwnProperty.call(e.reposReels, slug) ? e.reposReels[slug] : null;
+    var reposS = reel !== null && reel !== undefined ? Number(reel) : null;
     var fait = { grand: M.estGrandMouvement({ slug: slug, prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [], stab: cat.muscles_stabilisateurs || [],
                                              equipement: cat.equipement }),
                  stagne: c.compteur.compteur >= M.SEUIL_COMPTEUR, chutes: chutes, reposS: reposS };

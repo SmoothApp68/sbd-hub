@@ -6348,17 +6348,48 @@
   //
   // Aucune carte : l'écart entre deux validations ne mesure pas le vrai repos (une série validée après coup, un oubli). Une seule
   // ligne, dans le « Pourquoi » d'un gros mouvement qui stagne : les reps chutent d'au moins 30 % de la série 1 à la série 3 sur
-  // 3 séances de suite, et le repos RÉGLÉ (`repos_cible_s`) est de 90 s ou moins.
+  // 3 séances de suite, et le repos RÉEL (233 : l'écart entre deux séries validées du même exercice, `reposReel`, pas la valeur du
+  // minuteur) est de 90 s ou moins.
   var CHUTE_DE_REPS = 0.30, SEANCES_DE_CHUTE = 3, REPOS_COURT_S = 90;
   function reposAConseiller(o) {
     var x = o || {};
     if (x.grand !== true || x.stagne !== true) return false;
     var r = Number(x.reposS);
-    if (!(r > 0) || r > REPOS_COURT_S) return false;       // pas de repos réglé : rien à dire, on ne devine pas
+    if (!(r > 0) || r > REPOS_COURT_S) return false;       // pas de repos mesuré : rien à dire, on ne devine pas
     var ch = Array.isArray(x.chutes) ? x.chutes : [];
     if (ch.length < SEANCES_DE_CHUTE) return false;
     return ch.slice(0, SEANCES_DE_CHUTE).every(function (v) { return typeof v === 'number' && v >= CHUTE_DE_REPS; });
   }
+  // ══ 233 (MOTEUR §9.27 ter) — LE REPOS RÉEL D'UN EXERCICE ═══════════════════════════════════════════════════════
+  //
+  // Le repos d'un exercice est le temps qui sépare deux séries de travail VALIDÉES (`validee_a`) de CE MÊME exercice, dans une
+  // séance — pas la valeur du minuteur. Dans un superset (A1, B1, A2, B2), le minuteur dit 90 s mais A2 vient ~3 min après A1 :
+  // c'est ces 3 min que le corps a reposées. Une seule fonction, lue par la règle du repos long (`reposAConseiller`, 188-2), par la
+  // fatigue et par la réaction « repos réel court » (236). Un écart au-delà d'une heure est une interruption (pas un repos) ; une
+  // série sans `validee_a` (importée) ne mesure rien : sans deux séries validées, `null` — on ne devine pas.
+  var REPOS_REEL_MAX_S = 3600;
+  // `series` : les lignes d'UN exercice d'UNE séance. Rend la médiane (secondes, entier) des écarts, ou `null`.
+  function reposReel(series) {
+    var M = Modele();
+    var t = (series || []).filter(function (s) { return s && s.validee_a && M.estTravail(s); })
+      .map(function (s) { return Date.parse(s.validee_a); })
+      .filter(function (v) { return !isNaN(v); }).sort(function (a, b) { return a - b; });
+    var ecarts = [];
+    for (var i = 1; i < t.length; i++) {
+      var d = Math.round((t[i] - t[i - 1]) / 1000);
+      if (d > 0 && d <= REPOS_REEL_MAX_S) ecarts.push(d);
+    }
+    var m = ecarts.length ? mediane(ecarts) : null;
+    return m === null || m === undefined ? null : Math.round(m);
+  }
+  // L'habituel d'un exercice : la médiane des repos réels de ses dernières séances (`parSeance` : les séries de chaque séance,
+  // la plus récente d'abord). Rend `{ parSeance: [s|null…], habituel: s|null }`.
+  function reposReelHabituel(parSeance) {
+    var l = (parSeance || []).map(reposReel);
+    var vus = l.filter(function (v) { return v !== null; });
+    return { parSeance: l, habituel: vus.length ? Math.round(mediane(vus)) : null };
+  }
+
   function phraseReposLong() {
     var c = function (v) { return nombreFr(v, regle('constante')); };
     return 'Sur un gros mouvement, ' + c(2) + ' min ' + c(30) + ' à ' + c(3) + ' min de repos aident.';
@@ -11502,6 +11533,7 @@
     estGrandMouvement: estGrandMouvement,
     estUnMouvementAuPoidsDuCorps: estUnMouvementAuPoidsDuCorps,
     reposAConseiller: reposAConseiller, phraseReposLong: phraseReposLong,
+    reposReel: reposReel, reposReelHabituel: reposReelHabituel, REPOS_REEL_MAX_S: REPOS_REEL_MAX_S,
     CHUTE_DE_REPS: CHUTE_DE_REPS, SEANCES_DE_CHUTE: SEANCES_DE_CHUTE, REPOS_COURT_S: REPOS_COURT_S,
     consigneDepartRoutine: consigneDepartRoutine,
     ZONE_SANS_LOURD: ZONE_SANS_LOURD, calagePremiereFois: calagePremiereFois, libellesCalage: libellesCalage, plancherDuCalage: plancherDuCalage,

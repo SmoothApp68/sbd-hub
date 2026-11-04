@@ -1105,6 +1105,22 @@
       return sortie;
     }
 
+    // 233 (MOTEUR §9.27 ter) — LE REPOS RÉEL d'un exercice : pour ses `n` dernières séances qui ont au moins deux séries de travail
+    // VALIDÉES (`validee_a`), le temps qui sépare deux séries du MÊME exercice (la médiane de la séance), puis l'habituel (la médiane
+    // de ces séances). Pas la valeur du minuteur : dans un superset, 90 s de minuteur peuvent faire ~3 min réelles. Une seule
+    // fonction (`Moteur.reposReel`, l'arithmétique) ; ce fait ne fait que ranger les séries par séance. Rend
+    // `{ parSeance, habituel }` (`habituel` nul sans mesure : une série importée n'a pas de `validee_a`, on ne devine pas).
+    function reposReelsDe(c, slug, n) {
+      var datees = seancesDuPlusRecent(c.seances);
+      var parSeance = [];
+      for (var i = 0; i < datees.length && parSeance.length < n; i++) {
+        var lignes = (c.seriesDe(datees[i].id) || []).filter(function (x) { return x && x.exercise_slug === slug; });
+        if (lignes.filter(function (x) { return !!x.validee_a; }).length < 2) continue;
+        parSeance.push(Modele.trierParRang(lignes));
+      }
+      return Moteur.reposReelHabituel(parSeance);
+    }
+
     // ── Les habitudes (66C, QUESTIONNAIRE-COACH-V2 §5 quater.2) ──
     //
     // Sur la fenêtre du programme déduit (`Routines.fenetreDeLaPersonne` : les 84 jours qui finissent à la DERNIÈRE
@@ -2249,6 +2265,7 @@
       programmeDeduit: programmeDeduit,
       historiqueDesExercices: historiqueDesExercices,
       chutesDeReps: chutesDeReps,
+      reposReelsDe: reposReelsDe,
       habitudes: habitudes,
       derniereSeance: derniereSeance,
       seancesDesRoutines: seancesDesRoutines,

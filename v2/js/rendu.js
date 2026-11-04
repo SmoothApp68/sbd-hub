@@ -10034,6 +10034,7 @@
     rendreFeuilleCommentFaire: rendreFeuilleCommentFaire,
     rendreFeuilleChoixMultiple: rendreFeuilleChoixMultiple,
     rendreFeuilleActivite: rendreFeuilleActivite,
+    carteDeVeille: carteDeVeille,
     rendreFeuilleMot: rendreFeuilleMot,
     rendreFeuilleMots: rendreFeuilleMots, rendreFeuilleMentions: rendreFeuilleMentions,
     rendreFeuilleSaisie: rendreFeuilleSaisie,

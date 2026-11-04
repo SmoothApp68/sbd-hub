@@ -1247,7 +1247,9 @@
       var brut = e.objectifs_entretien !== undefined ? e.objectifs_entretien : p.objectifs_entretien;
       if (Array.isArray(brut)) {
         var net = entretienValide(brut, prin);
-        if (!memeListe(net, Array.isArray(p.objectifs_entretien) ? p.objectifs_entretien : null)) sortie.objectifs_entretien = net;
+        var avant225 = Array.isArray(p.objectifs_entretien) ? p.objectifs_entretien : null;
+        // « Aucun » n'est pas une réponse à écrire quand rien n'était écrit : le questionnaire ne pose pas un `[]` de plus.
+        if (!memeListe(net, avant225) && !(net.length === 0 && avant225 === null && e.objectifs_entretien === undefined)) sortie.objectifs_entretien = net;
       }
     }
 

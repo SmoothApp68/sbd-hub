@@ -2169,9 +2169,9 @@
     // les jambes (`Moteur.activiteChargeLesJambes`) ? Rend `{ seanceId, slug, nom, jour }`, sinon `null`. La plus récente des séances de
     // la veille ; une séance en cours n'en est pas une.
     function activiteDeLaVeille(c, jour) {
-      var J = Moteur.jourCivil(jour), n = J ? Moteur.numeroDuJour(J) : null;
-      if (n === null) return null;
-      var veille = Moteur.jourDuNumero(n - 1);
+      var J = Moteur.jourCivil(jour);
+      if (!J) return null;
+      var veille = Moteur.jourCivil(new Date(new Date(J + 'T12:00:00').getTime() - 24 * 3600 * 1000));
       var index = (c.catalogue && c.catalogue()) || {}, trouvee = null;
       (c.seances || []).forEach(function (s) {
         if (!s || !s.debut || s.statut === 'en_cours' || jourDeLaSeance(s.debut) !== veille) return;

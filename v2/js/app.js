@@ -5050,8 +5050,8 @@
         surIntensite: function (cle) { brouillon.intensite = cle; redessiner(); },
         surAnnuler: fermerVoile,
         surEnregistrer: function () {
-          var min = Number(String(brouillon.minutes).replace(',', '.'));
-          var km = String(brouillon.km || '').trim() === '' ? null : Number(String(brouillon.km).replace(',', '.'));
+          var min = Modele.lireNombre(brouillon.minutes);
+          var km = String(brouillon.km || '').trim() === '' ? null : Modele.lireNombre(brouillon.km);
           var a = Seance.activite({ id: uuid(), userId: sessionActive && sessionActive.user && sessionActive.user.id, slug: brouillon.sport,
             titre: ((sportsDuCatalogue().filter(function (x) { return x.cle === brouillon.sport; })[0]) || {}).libelle || null,
             minutes: min, km: km, intensite: brouillon.intensite, idSerie: uuid });
@@ -9834,13 +9834,11 @@
       surVeille: async function (choix) {
         var p = planActuel(), v = p && p.veilleActivite;
         if (!v || (choix !== 'mix' && choix !== 'garder')) return;
-        if (choix === 'mix') {
-          var i = (seance.exercices || []).map(function (x) { return x.exercise_slug; }).indexOf(v.slug);
-          if (i >= 0) seance = Seance.poserZoneDePlan(seance, i, 'mix');
-          if (consignes && consignes.parSlug) { delete consignes.parSlug[v.slug]; versionConsignes++; sauverConsignes(); }
-        }
         seance = Object.assign({}, seance, { veille_choix: choix });
-        await apresGeste({ structure: false });
+        // « Mix aujourd'hui » : le geste « Juste pour aujourd'hui » de la zone (aucune écriture sur la routine) ; il rend la main à
+        // `apresGeste`. « Garder le plan » ne change que la mémoire de la réponse.
+        if (choix === 'mix') await poserZoneDePlanDe(v.slug, 'mix', false);
+        else await apresGeste({ structure: false });
       },
       // 197 — la consigne de puissance (65 ans et plus), lue sur le plan : `{ texte, pourquoi }` pour l'exercice, sinon `null`.
       puissance: function (slug) {

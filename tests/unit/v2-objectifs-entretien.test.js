@@ -150,3 +150,11 @@ describe('225 — le générateur : calisthénie et forme en entretien', () => {
     expect(JSON.stringify(avec({ objectif: 'forme', objectifs_entretien: ['forme'] }))).toBe(JSON.stringify(avec({ objectif: 'forme' })));
   });
 });
+
+describe('225 — le questionnaire n’écrit pas un « aucun » de plus', () => {
+  const quand = new Date('2026-11-04T10:00:00Z');
+  test('une liste vide ne s’écrit pas quand rien n’était écrit ; elle s’écrit si la personne retire ce qui l’était', () => {
+    expect(Profil.preparerChamps({ objectif: 'muscle' }, { objectif: 'force', objectifs_entretien: [] }, quand).objectifs_entretien).toBeUndefined();
+    expect(Profil.preparerChamps({ objectif: 'muscle', objectifs_entretien: ['forme'] }, { objectifs_entretien: [] }, quand).objectifs_entretien).toEqual([]);
+  });
+});

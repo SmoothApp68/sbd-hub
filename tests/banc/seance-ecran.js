@@ -5093,6 +5093,7 @@ const SETS_IMPORTES = [
 
   // Le glissement par la poignée : la Planche (3e) saisie par sa poignée et lâchée au-dessus de la 1re carte.
   const glisser233 = async (iCarte, versCarte, parNom) => {
+    const avant233 = JSON.stringify((await cartes233()).map((c) => c.nom));
     const pos = await page.evaluate(([a, nom]) => {
       const k = document.querySelectorAll('.bloc-seance.superset .carte-ss');
       const dep = nom ? k[a].querySelector('.nom-exo') : k[a].querySelector('.poignee-exo');
@@ -5109,6 +5110,8 @@ const SETS_IMPORTES = [
     await page.mouse.move(pos.x, yCible, { steps: 6 });
     await page.mouse.up();
     await jusqua(() => page.evaluate(() => !document.querySelector('.pris-exo')), 4000, 'glisser233');
+    // L'ordre est écrit puis la séance redessinée : on attend que la carte prise ait changé de place.
+    await jusqua(async () => JSON.stringify((await cartes233()).map((c) => c.nom)) !== avant233, 6000, 'glisser233 : ordre changé');
     await brouillonPose();
   };
   const tailleP_233 = await page.evaluate(() => { const r = document.querySelector('.carte-ss .poignee-exo').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });

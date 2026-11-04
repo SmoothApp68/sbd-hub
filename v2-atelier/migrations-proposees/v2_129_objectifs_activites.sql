@@ -61,7 +61,6 @@ DECLARE
   g_dist  record;      -- gabarit : un exercice hors salle, nature cardio, mesure 'distance_temps' (course de préférence)
   s record;
   avant int; ajoutes int := 0;
-  desc_std text;
 BEGIN
   SELECT * INTO g_temps FROM public.exercises WHERE hors_salle AND nature='cardio' AND mesure='temps'
     ORDER BY (slug='boxe') DESC, slug LIMIT 1;
@@ -89,8 +88,11 @@ BEGIN
     ('kayak','Kayak',true,E'Note la durée de ta sortie en kayak, et la distance si tu la connais.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.'),
     ('roller','Roller',true,E'Note la durée de ta sortie en roller, et la distance si tu la connais.\nChoisis ensuite l''intensité : légère, moyenne ou intense.\nLe volume par muscle ne compte pas cette activité.\nElle s''affiche dans ton historique et dans Ta semaine.')
   ) AS v(slug, nom, avec_distance, descr) LOOP
+    -- ni le slug, ni le nom, ni un ALIAS existant (aucun nom ni alias n'est porté par deux exercices, v2_098)
     CONTINUE WHEN EXISTS (SELECT 1 FROM public.exercises e WHERE e.slug = s.slug
-                          OR lower(translate(e.nom,'éèêëàâîïôùûç','eeeeaaiiouuc')) = lower(translate(s.nom,'éèêëàâîïôùûç','eeeeaaiiouuc')));
+                          OR lower(translate(e.nom,'éèêëàâîïôùûç','eeeeaaiiouuc')) = lower(translate(s.nom,'éèêëàâîïôùûç','eeeeaaiiouuc')))
+               OR EXISTS (SELECT 1 FROM public.exercise_alias a
+                          WHERE lower(translate(a.alias,'éèêëàâîïôùûç','eeeeaaiiouuc')) = lower(translate(s.nom,'éèêëàâîïôùûç','eeeeaaiiouuc')));
     IF s.avec_distance AND g_dist.slug IS NULL THEN
       RAISE NOTICE '% ignoré : aucun gabarit en mesure distance_temps', s.slug; CONTINUE;
     END IF;

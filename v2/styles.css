@@ -3040,3 +3040,6 @@ button[id^="btn-retour"]{padding:0 14px;font-size:14px}
 .activite-select{width:100%;min-height:44px;background:var(--panneau-2);color:var(--texte);border:1px solid var(--trait);border-radius:10px;padding:0 12px}
 .activite-sport{display:block;margin-bottom:var(--e3)}
 .activite-ajout{margin-top:var(--e2)}
+/* 225 : cibles tactiles de la feuille d'activité et de la carte de la veille */
+.activite-sport ~ .q-puces .q-puce,#feuille-contenu .q-puces .q-puce{min-height:44px}
+.carte-veille .pc-ajouter,.carte-veille .pc-refuser,.proposition-veille button{min-height:44px}

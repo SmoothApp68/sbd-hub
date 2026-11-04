@@ -1986,7 +1986,7 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'reposReelHabituel', lecteurs: ['faits.js'],
     raison: '233 — le repos n’est pas la valeur du minuteur : en superset, 90 s réglées font ~3 min. Une seule arithmétique, lue par ' +
       'la règle du repos long (188-2) via `faits.reposReelsDe`, et par la réaction « repos réel court » (236).' },
-  // 242 — la note de la dernière fois et la case « unilatéral » : un fait, une lecture, aucun lecteur du coach.
+  // 242 — la note de la dernière fois : un fait, une lecture, aucun lecteur du coach.
   { notion: 'la note de la dernière fois (la dernière note écrite sur l’exercice, consigne de la routine exclue)', pr: '242-U1',
     module: 'faits.js', fonction: 'noteDeLaDerniereFois', lecteurs: ['app.js'],
     raison: 'l’écran de séance montre la note de la dernière fois sous le nom de l’exercice ; le fait vit dans `faits.js`, aucune règle du coach ne le lit.' },

@@ -4409,8 +4409,26 @@
     await appliquerSerieDePlus();
     // §14 (111) — une dégressive proposée en cours : la ligne dégressive.
     await appliquerDegressive();
+    // 237 — les chauffes qui s'ajoutent d'elles-mêmes (2 séances où la personne les a ajoutées), avec « Annuler ».
+    await appliquerChauffesAuto();
     // 91 — une séance commencée pour rejoindre un groupe : « Suivre la séance de X », puis on rejoint.
     await apresCreationPourLeGroupe();
+  }
+
+  // 237 (MOTEUR §9.41, règle 6) — L'AJOUT AUTOMATIQUE : à la création de la séance seulement (jamais au rendu), pour chaque exercice dont
+  // le plan dit `mode: 'auto'`. Le geste `chauffes_auto` est noté (et fait taire la proposition) ; le plan expose alors « Annuler ».
+  async function appliquerChauffesAuto() {
+    if (!seance || enEdition()) return;
+    var p = planActuel();
+    if (!p) return;
+    var fait = false;
+    p.exercices.forEach(function (x, i) {
+      if (!x || !x.proposition || x.proposition.mode !== 'auto') return;
+      seance = Seance.noterGeste(seance, { geste: 'chauffes_auto', slug: x.slug });
+      seance = Seance.insererChauffes(seance, i, x.proposition.lignes, uuid);
+      fait = true;
+    });
+    if (fait) await apresGeste();
   }
 
   // §14.4 (49-U14) — RETIRER LES LIGNES EN TROP, une fois : à l'acceptation
@@ -7359,9 +7377,22 @@
     catch (e) { /* stockage indisponible : la mémoire vit pour la session */ }
   }
 
-  function refusChauffesDe(seanceId) { return Plan.refusChauffesDe(lireRefusChauffes(), seanceId); }
-  function refuserChauffes(slug) { ecrireRefusChauffes(Plan.refuserChauffes(lireRefusChauffes(), slug, seance.id)); }
+  // 237 — l'horloge des « Non merci » : 2 refus = silence 4 semaines (`Moteur.chauffesEnSilence`) ; la séance en cours date le plan (stable).
+  function refusChauffesDe(seanceId, debut) { return Plan.refusChauffesDe(lireRefusChauffes(), seanceId, Date.parse(debut)); }
+  function refuserChauffes(slug) { ecrireRefusChauffes(Plan.refuserChauffes(lireRefusChauffes(), slug, seance.id, Date.now())); }
   function accepterChauffes(slug) { ecrireRefusChauffes(Plan.accepterChauffes(lireRefusChauffes(), slug)); }
+
+  function slugsDesExercices(exos) {
+    var vus = {}, liste = [];
+    (exos || []).forEach(function (x) {
+      var slug = x && x.exercise_slug;
+      if (slug && !vus[slug]) { vus[slug] = true; liste.push(slug); }
+    });
+    return liste;
+  }
+  function e1rmsDesExercices(exos) {
+    return faits.maxEstimesAvantLeTest(corpus(), slugsDesExercices(exos), Moteur.jourCivil(seance.debut));
+  }
 
   // Le plan de l'exercice `iExo`, avec ou sans consigne : les chauffes et la
   // dégressive existent aussi sans elle (§9.15).
@@ -7565,7 +7596,11 @@
       catalogue: catalogue,
       // Le rejeu (développement) : les « Non merci » vivent sur l'appareil de
       // la séance, pas en base — supposés aucun, et la sortie le dit.
-      refusChauffes: rejeuEnCours ? {} : refusChauffesDe(seance.id),
+      refusChauffes: rejeuEnCours ? {} : refusChauffesDe(seance.id, seance.debut),
+      // 237 (MOTEUR §9.41) — le max estimé de chaque exercice de la séance et les séances d'affilée où la personne a ajouté ses chauffes :
+      // deux faits de `faits.js`, le plan décide.
+      e1rms: rejeuEnCours ? {} : e1rmsDesExercices(exos),
+      chauffesAjoutees: rejeuEnCours ? {} : faits.chauffesAjoutees(corpus(), slugsDesExercices(exos), seance.debut),
       // 225 (MOTEUR §9.40) — l'activité NOTÉE de la veille (un fait : jamais une habitude déclarée) et la réponse de la séance.
       activiteVeille: rejeuEnCours ? null : faits.activiteDeLaVeille(corpus(), seance.debut),
       veilleChoix: seance.veille_choix === 'mix' || seance.veille_choix === 'garder' ? seance.veille_choix : null,
@@ -10031,8 +10066,25 @@
         var x = planDeLExercice(i);
         if (!x || !x.proposition) return;
         accepterChauffes(x.slug);
+        // 237 — le geste est le FAIT que `faits.chauffesAjoutees` relira (2 séances d'affilée : l'ajout devient automatique).
+        seance = Seance.noterGeste(seance, { geste: 'chauffes_ajoutees', slug: x.slug });
         seance = Seance.insererChauffes(seance, i, x.proposition.lignes, uuid);
         await apresGeste({ structure: false });
+      },
+      // 237 (MOTEUR §9.41) — « Annuler » l'ajout automatique : les chauffes non faites partent, le geste est noté, et l'annulation compte
+      // comme un « Non merci » (deux, d'affilée : silence 4 semaines). Une série validée n'est jamais touchée.
+      chauffesAuto: function (i) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.chauffesAuto ? x.chauffesAuto : null;
+      },
+      surAnnulerChauffesAuto: async function (i) {
+        var x = planDeLExercice(i);
+        if (!x || !x.chauffesAuto) return;
+        seance = Seance.retirerChauffesNonFaites(seance, i);
+        seance = Seance.noterGeste(seance, { geste: 'chauffes_annulees', slug: x.slug });
+        refuserChauffes(x.slug);
+        await apresGeste();
       },
       // 194-1 (MOTEUR §9.31) — le bloc de mobilité, lu sur le plan : « avant » et « fin ». « Ajouter » écrit les exercices (séries vides) ;
       // « Non merci » compte dans la mémoire des chauffes (trois de suite : silence) ; rien n'est écrit sans geste.

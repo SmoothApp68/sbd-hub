@@ -76,12 +76,12 @@ describe('190 — le pas de la barre', () => {
 
   test('LES CHAUFFES et la DÉGRESSIVE lisent le même pas : un disque de 5 → des paliers de 10', () => {
     avec(5);
-    expect(sp(M.chauffesDe({ equipement: 'barre', reference: 95, deja_sollicite: false, routine: null }).phrase_proposition))
-      .toBe('Chauffe : 20 kg × 10 · 50 kg × 6 · 70 kg × 3 · 80 kg × 1');
+    expect(sp(M.propositionDeChauffes({ equipement: 'barre', reference: 80, premier: true }).phrase))
+      .toBe('Chauffe : 40 kg × 8 · 70 kg × 3');
     expect(M.degressiveDe({ equipement: 'barre', derniere_serie: 20, reps_travail: 8 }).phrase).toBe('Trop léger pour une dégressive.');
     avec(null);
-    expect(sp(M.chauffesDe({ equipement: 'barre', reference: 95, deja_sollicite: false, routine: null }).phrase_proposition))
-      .toBe('Chauffe : 20 kg × 10 · 45 kg × 6 · 65 kg × 3 · 85 kg × 1');
+    expect(sp(M.propositionDeChauffes({ equipement: 'barre', reference: 80, premier: true }).phrase))
+      .toBe('Chauffe : 45 kg × 8 · 70 kg × 3');
   });
 
   test('LA PHRASE « ta barre » ne promet un cran que si le disque est connu', () => {

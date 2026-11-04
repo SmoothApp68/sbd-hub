@@ -3423,6 +3423,12 @@
         // 200-5 — la chauffe se replie sur une ligne : « Chauffe · 4 séries › » ; « Ajouter » et « Non merci » à l'ouverture.
         if (pc) hote.appendChild(ligneRepliee('lr-chauffes', 'Chauffe \u00b7 ' + pc.lignes.length + ' s\u00e9rie' + (pc.lignes.length > 1 ? 's' : '') + '\u00a0\u203a',
           propositionDeChauffes(pc, s._iExo, vue)));
+        // 237 (MOTEUR §9.41) — les chauffes ajoutées d'elles-mêmes : une ligne du plan, un seul geste, « Annuler ».
+        var pca = typeof vue.chauffesAuto === 'function' ? vue.chauffesAuto(s._iExo) : null;
+        if (pca) hote.appendChild(propositionDExercice({
+          classe: 'proposition-chauffes chauffes-auto', texte: pca.texte,
+          gestes: [{ texte: pca.annuler, classe: 'pc-annuler-auto', surClic: function () { vue.surAnnulerChauffesAuto(s._iExo); } }]
+        }, s._iExo));
         // 193-6 (MOTEUR §9.30) — « Dernière série au max ? » : une fois par exercice, du plan ; trois gestes.
         var pa = typeof vue.propositionAuMax === 'function' ? vue.propositionAuMax(s._iExo) : null;
         if (pa) hote.appendChild(propositionDAuMax(pa, s._iExo, vue));
@@ -4432,7 +4438,7 @@
   // « Ajouter » et « Non merci ». Le texte vient du plan (`chauffesDe`).
   function propositionDeChauffes(pc, iExo, vue) {
     return propositionDExercice({
-      classe: 'proposition-chauffes', texte: pc.phrase, oui: 'Ajouter', non: 'Non merci',
+      classe: 'proposition-chauffes', texte: pc.phrase, detail: pc.pourquoi || null, oui: 'Ajouter', non: 'Non merci',
       surOui: function () { vue.surAjouterChauffes(iExo); },
       surNon: function () { vue.surRefuserChauffes(iExo); }
     }, iExo);

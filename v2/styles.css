@@ -3077,3 +3077,5 @@ button[id^="btn-retour"]{padding:0 14px;font-size:14px}
 /* 225 : cibles tactiles de la feuille d'activité et de la carte de la veille */
 .activite-sport ~ .q-puces .q-puce,#feuille-contenu .q-puces .q-puce{min-height:44px}
 .carte-veille .pc-ajouter,.carte-veille .pc-refuser,.proposition-veille button{min-height:44px}
+/* 237 — « Annuler » (chauffes ajoutées d’elles-mêmes) : un seul geste, à 44 px. */
+.proposition-exercice.chauffes-auto button{min-height:44px}

@@ -10036,8 +10036,6 @@
   var REPS_MIN_CHAINE = 4;
   var PHRASE_BARRE_LOURDE = 'À la barre lourde, une seule baisse.';
   var PHRASE_TROISIEME = 'Deux baisses au plus : une troisième fatigue sans rien ajouter.';
-  var SEUIL_PROPOSITION_BARRE = 60;
-  var SEUIL_PROPOSITION_AUTRE = 80;
 
   // « Soulevé au sol » (§9.15.1) : le conventionnel, le sumo, la barre
   // hexagonale. PAS le roumain ni les jambes tendues (ils partent debout), ni
@@ -10163,21 +10161,9 @@
     var pas = pasDeChauffe(e);
     var ref = nombre(e.reference);
     if (e.routine === null || e.routine === undefined) {
-      // §9.15.2 (delta 49-24) — LE SEUIL D'UNE PROPOSITION : 60 kg à la barre,
-      // 80 kg ailleurs. En dessous, l'échauffement général suffit. Les chauffes
-      // de la routine, elles, se remplissent quelle que soit la charge.
-      var seuil = estBarre(e.equipement) ? SEUIL_PROPOSITION_BARRE : SEUIL_PROPOSITION_AUTRE;
-      var prop = ref !== null && ref >= seuil
-        ? table.map(function (m) { return [chargeDeMarche(m, e, pas), m.reps]; })
-            .filter(function (x) { return x[0] !== null; }) : [];
-      return {
-        situation: situation, proposition: prop,
-        phrase_proposition: prop.length
-          ? 'Chauffe : ' + prop.map(function (x) {
-              return Modele().charge(x[0], undefined, regle('chauffe')) + ' × ' + nombreFr(x[1], regle('chauffe.reps'));
-            }).join(' · ')
-          : null
-      };
+      // 237 (§9.41) — SANS LIGNE DE CHAUFFE, c'est `propositionDeChauffes` qui décide (quand, combien, quelles charges) : une
+      // seule fonction. Celle-ci ne remplit que les lignes que la routine ou la personne a posées.
+      return { situation: situation, proposition: [], phrase_proposition: null };
     }
     var routine = e.routine;
     var n = routine.length;
@@ -10185,7 +10171,16 @@
     var marches = ajoutees ? marchesAjoutees(n, e.equipement)
       : (table.length && n ? marchesPour(table, n) : []);
     var precedente = null, tropLegeres = 0;
-    var lignes = routine.map(function (reps, i) {
+    // 237 (§9.41) — LES CHAUFFES QUE LE COACH A PROPOSÉES (« Ajouter », ou ajoutées d'elles-mêmes) se remplissent avec les MÊMES paliers
+    // que la proposition (`paliersDeChauffe`) : la charge affichée après « Ajouter » est celle qu'on a vue. Les lignes de la routine
+    // gardent la table de 49-U10.
+    var chargesCoach = e.coach === true && ref !== null && ref > 0 ? chargesDuCoach(e, n, pasDeChauffe(e)) : null;
+    var lignes = chargesCoach ? routine.map(function (reps, i) {
+      var c = chargesCoach[i];
+      if (c === null) { tropLegeres++; return { reps: reps, charge: null, trop_leger: true }; }
+      return { reps: reps === null || reps === undefined ? CHAUFFE_REPS_PAR_PALIERS[Math.min(n, CHAUFFE_PALIERS_MAX)][i] : reps,
+               charge: c, reps_coach: reps === null || reps === undefined };
+    }) : routine.map(function (reps, i) {
       var m = marches[i];
       if (!m) return { reps: reps, charge: null };
       var c = chargeDeMarche(m, e, pas);
@@ -10212,10 +10207,148 @@
         avant.concat([Modele().charge(remplies[remplies.length - 1], undefined, regle('chauffe'))]).join(' · ') + '.';
     }
     if (tropLegeres) phrase = (phrase ? phrase + ' ' : '') + TROP_LEGER;
-    return { situation: situation, lignes: lignes, prevues: ajoutees ? marches.length : table.length,
+    return { situation: situation, lignes: lignes, prevues: chargesCoach ? n : (ajoutees ? marches.length : table.length),
              trop_legeres: tropLegeres,
              non_remplies: lignes.length - remplies.length - tropLegeres, phrase: phrase };
   }
+
+  // ══ §9.41 — LES CHAUFFES PROPOSÉES PAR LE COACH (237, 04/11/2026) ═════════
+  //
+  // UNE SEULE fonction décide : `propositionDeChauffes`. Le plan la lit (`chauffesEtDegressive`), l'écran lit le plan.
+  //   1. QUAND — le premier exercice de la séance qui sollicite ce muscle principal ET une charge de travail au-dessus de
+  //      ~60 % du max estimé connu ; OU un exercice sur une zone à ménager ; OU l'objectif Forme. Sinon : rien.
+  //   2. PALIERS — l'écart (charge de travail moins la barre, ou la charge mini du matériel) se monte en un palier par ~40 kg d'écart (1 à 4) ;
+  //      la dernière chauffe vise ~85 % de la charge de travail (jamais plus de 90 %), arrondie au cran du matériel
+  //      (`chargeDeMarche`, la fonction de 49-U10) ; les reps décroissent.
+  //   3. POIDS DU CORPS — une série facile, sans charge, une seule.
+  //   4. ISOLATION en tête de séance — une série légère de 15.
+  //   5. « J'AI PEU DE TEMPS » — une chauffe, jamais zéro sur une barre.
+  //   6. APPRENTISSAGE — après 2 séances où la personne a ajouté ses chauffes, elles s'ajoutent d'elles-mêmes (avec « Annuler ») ;
+  //      2 « Non merci » : silence 4 semaines.
+  var CHAUFFE_SEUIL_MAX = 0.60;
+  var CHAUFFE_VISEE = 0.85;
+  var CHAUFFE_PLAFOND = 0.90;
+  var CHAUFFE_KG_PAR_PALIER = 40;   // un palier par ~40 kg d'écart : entre 25 et 30 % de l'écart pour une barre lourde (4 paliers sur ~140 kg)
+  var CHAUFFE_PALIERS_MAX = 4;
+  var CHAUFFE_REPS_PAR_PALIERS = { 1: [5], 2: [8, 3], 3: [8, 5, 2], 4: [8, 5, 3, 1] };
+  var CHAUFFE_SEUL_PALIER = 0.60;
+  var CHAUFFE_ISOLATION = { p: 0.50, reps: 15 };
+  var CHAUFFE_CORPS_REPS = 8;
+  var CHAUFFE_AUTO_APRES = 2;
+  var CHAUFFE_REFUS_SILENCE = 2;
+  var CHAUFFE_SILENCE_JOURS = 28;
+
+  function paliersDeChauffe(e, ref, pas, n) {
+    var barre = estBarre(e.equipement);
+    var base = barre ? BARRE_VIDE : pas;
+    var ecart = ref - base;
+    if (!(ecart > 0)) return [];
+    var visee = CHAUFFE_VISEE * ref;
+    var k = n;
+    if (!k) k = Math.max(1, Math.min(CHAUFFE_PALIERS_MAX, Math.ceil(ecart / CHAUFFE_KG_PAR_PALIER - 1e-9)));
+    var charges = [], precedente = base;
+    for (var i = 1; i <= k; i++) {
+      var cible = k === 1 && n === 1 ? CHAUFFE_SEUL_PALIER * ref : base + (visee - base) * i / k;
+      var c = chargeDeMarche({ p: cible / ref }, e, pas);
+      if (c === null || !(c > precedente + 1e-9) || c > CHAUFFE_PLAFOND * ref + 1e-9 || c >= ref - 1e-9) continue;
+      charges.push(c);
+      precedente = c;
+    }
+    return charges;
+  }
+
+  // Les charges de `n` lignes de chauffe posées à la suite d'une proposition du coach : les paliers de la décision (ou la série légère
+  // d'une isolation en tête de séance). Une charge qui n'existe pas (rien de distinct sous la charge de travail) : `null`.
+  function chargesDuCoach(e, n, pas) {
+    var ref = nombre(e.reference), sortie = [], i;
+    if (e.isolation === true && e.premierExercice === true && n === 1) {
+      var ci = chargeDeMarche({ p: CHAUFFE_ISOLATION.p }, e, pas);
+      return [ci !== null && ci > 0 && ci < ref - 1e-9 ? ci : null];
+    }
+    var charges = paliersDeChauffe(e, ref, pas, Math.min(n, CHAUFFE_PALIERS_MAX));
+    for (i = 0; i < n; i++) sortie.push(i < charges.length ? charges[i] : null);
+    return sortie;
+  }
+
+  // `entree` : { equipement, reference (la charge de travail), e1rm (le max estimé connu, ou null), premier (le premier exercice
+  //   de la séance sur ce muscle principal), premierExercice (le tout premier de la séance), isolation, corps (au poids du corps,
+  //   sans lest ni aide), menagee, forme, peuDeTemps, silence, ajoutees (les séances d'affilée où la personne a ajouté ses
+  //   chauffes), muscle (son libellé), cran, sol, salle }.
+  // Rend { mode: 'rien' | 'proposer' | 'auto', raison: 'muscle' | 'zone' | 'forme' | null, situation, reference, lignes: [[charge, reps]],
+  //   phrase, pourquoi, annulable }. `lignes` est vide quand il n'y a rien à proposer.
+  function propositionDeChauffes(entree) {
+    var e = entree || {};
+    var rien = { mode: 'rien', raison: null, situation: null, reference: nombre(e.reference), lignes: [], phrase: null, pourquoi: null, annulable: false };
+    var corps = e.corps === true;
+    var ref = nombre(e.reference);
+    if (!corps && (ref === null || ref <= 0)) return rien;
+    if (e.silence === true) return rien;
+    var e1 = nombre(e.e1rm);
+    var raison = null;
+    if (e.premier === true && (corps || e1 === null || e1 <= 0 || ref > CHAUFFE_SEUIL_MAX * e1 + 1e-9)) raison = 'muscle';
+    else if (e.menagee === true) raison = 'zone';
+    else if (e.forme === true) raison = 'forme';
+    if (!raison) return rien;
+    var barre = estBarre(e.equipement);
+    // 5. peu de temps : une chauffe, jamais zéro sur une barre ; hors barre, zéro sauf une zone à ménager.
+    var seule = e.peuDeTemps === true;
+    if (seule && !barre && e.menagee !== true) return rien;
+    var lignes = [], situation;
+    if (corps) {
+      situation = 'corps';
+      lignes = [[null, CHAUFFE_CORPS_REPS]];
+    } else {
+      var pas = pasDeChauffe(e);
+      if (e.isolation === true && e.premierExercice === true && !seule) {
+        situation = 'isolation';
+        var ci = chargeDeMarche({ p: CHAUFFE_ISOLATION.p }, e, pas);
+        if (ci !== null && ci > 0 && ci < ref - 1e-9) lignes = [[ci, CHAUFFE_ISOLATION.reps]];
+      } else {
+        situation = 'paliers';
+        var charges = paliersDeChauffe(e, ref, pas, seule ? 1 : 0);
+        var reps = CHAUFFE_REPS_PAR_PALIERS[charges.length] || [];
+        lignes = charges.map(function (c, i) { return [c, reps[i]]; });
+      }
+    }
+    if (!lignes.length) return rien;
+    var texteLigne = function (x) {
+      return x[0] === null ? 'une série facile' : Modele().charge(x[0], undefined, regle('chauffe')) + ' × ' + nombreFr(x[1], regle('chauffe.reps'));
+    };
+    var phrase = 'Chauffe : ' + (corps ? 'une série facile × ' + nombreFr(lignes[0][1], regle('chauffe.reps')) : lignes.map(texteLigne).join(' · '));
+    var auto = nombre(e.ajoutees) !== null && e.ajoutees >= CHAUFFE_AUTO_APRES;
+    return { mode: auto ? 'auto' : 'proposer', raison: raison, situation: situation, reference: ref, lignes: lignes,
+             phrase: phrase, annulable: auto, peuDeTemps: seule,
+             pourquoiSur: { raison: raison, situation: situation, peuDeTemps: seule, auto: auto, corps: corps,
+                            max: !(corps || e1 === null || e1 <= 0), muscle: e.muscle || null } };
+  }
+
+  // Le Pourquoi des chauffes proposées, lu sur ce que la décision a rendu (`pourquoiSur`) : sa propre phrase, ses propres chiffres citables
+  // (60 %, 15) — ceux de la phrase des charges sont cités ailleurs.
+  function pourquoiDesChauffes(r) {
+    var q = r && r.pourquoiSur;
+    if (!q) return null;
+    var pourquoi;
+    if (q.raison === 'muscle') {
+      pourquoi = 'Premier exercice de la séance sur ce muscle' + (q.muscle ? ' (' + q.muscle + ')' : '') +
+        (q.max ? ', et tu montes au-dessus de ' + nombreFr(CHAUFFE_SEUIL_MAX * 100, regle('constante')) + ' % de ta force estimée' : '') + '.';
+    } else if (q.raison === 'zone') pourquoi = 'Une zone à ménager passe par cet exercice : tu montes doucement.';
+    else pourquoi = 'En objectif Forme, on monte doucement dans la charge.';
+    if (q.situation === 'isolation') pourquoi += ' Une série légère de ' + nombreFr(CHAUFFE_ISOLATION.reps, regle('constante')) + ' suffit.';
+    if (q.situation === 'corps') pourquoi += ' Sans charge : une série facile.';
+    if (q.peuDeTemps) pourquoi += ' Tu as peu de temps : une seule.';
+    if (q.auto) pourquoi += ' Tu les ajoutes d\u2019habitude : je les ai ajoutées.';
+    return pourquoi;
+  }
+
+  // 6. LA MÉMOIRE DES « NON MERCI » : 2 refus d'affilée sur un exercice -> silence pendant 4 semaines, puis la proposition revient.
+  // `x` : { n, seance, quand (ms) } ; `maintenant` : ms. Pure.
+  function chauffesEnSilence(x, maintenant) {
+    if (!x || !(Number(x.n) >= CHAUFFE_REFUS_SILENCE)) return false;
+    var q = Number(x.quand), t = Number(maintenant);
+    if (!isFinite(q) || !isFinite(t)) return true;
+    return t - q < CHAUFFE_SILENCE_JOURS * 24 * 3600 * 1000;
+  }
+
 
   // §9.15.3 — la dégressive. `entree` : `{ equipement, derniere_serie,
   // reps_travail, cran }`. Rend `{ charge, vise, phrase, repos }`. Depuis 94
@@ -11781,8 +11914,6 @@
     arrondieALaSalle: arrondieALaSalle,
     BARRE_VIDE: BARRE_VIDE,
     SOULEVES_AU_SOL: SOULEVES_AU_SOL,
-    SEUIL_PROPOSITION_BARRE: SEUIL_PROPOSITION_BARRE,
-    SEUIL_PROPOSITION_AUTRE: SEUIL_PROPOSITION_AUTRE,
     TABLE_CHAUFFES: TABLE_CHAUFFES,
     REPOS_ENTRE_CHAUFFES: REPOS_ENTRE_CHAUFFES,
     REPOS_APRES_CHAUFFES: REPOS_APRES_CHAUFFES,
@@ -11982,6 +12113,15 @@
     musclesParPriorite: musclesParPriorite,
     situationChauffe: situationChauffe,
     chauffesDe: chauffesDe,
+    propositionDeChauffes: propositionDeChauffes,
+    pourquoiDesChauffes: pourquoiDesChauffes,
+    chauffesEnSilence: chauffesEnSilence,
+    CHAUFFE_AUTO_APRES: CHAUFFE_AUTO_APRES,
+    CHAUFFE_REFUS_SILENCE: CHAUFFE_REFUS_SILENCE,
+    CHAUFFE_SILENCE_JOURS: CHAUFFE_SILENCE_JOURS,
+    CHAUFFE_SEUIL_MAX: CHAUFFE_SEUIL_MAX,
+    CHAUFFE_VISEE: CHAUFFE_VISEE,
+    CHAUFFE_PLAFOND: CHAUFFE_PLAFOND,
     degressiveDe: degressiveDe,
     // 193-1 (§9.28) — la série de recul.
     reculDe: reculDe,

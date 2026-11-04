@@ -3744,3 +3744,9 @@ But : saisir une série d'un pouce, la tête ailleurs, sans chercher. Rien de ce
   la teinte). **Stop** écrit la durée dans la série (comme si elle était tapée) — **la série n'est pas validée d'office** ; **Annuler** n'écrit
   rien. Un seul chrono de tenue à la fois ; valider la série à la main l'éteint sans rien écrire. Aucun `await` sans issue, aucune promesse
   en arrière-plan : l'écran reste allumé.
+
+---
+
+### Les chauffes proposées par le coach — 237 (MOTEUR §9.41)
+
+Sous l'exercice, une ligne repliée « Chauffe · N séries › » ; ouverte, elle dit les charges (« 60 kg × 5 »), le Pourquoi en détail, « Ajouter » et « Non merci ». Quand la personne a ajouté ses chauffes deux séances de suite, elles sont posées d'elles-mêmes à l'ouverture de la séance et une ligne dit « Chauffe ajoutée, comme d'habitude. » avec un seul geste, « Annuler » (44 px) ; « Annuler » retire les chauffes non faites. L'écran ne calcule rien : il lit `x.proposition` et `x.chauffesAuto` du plan.

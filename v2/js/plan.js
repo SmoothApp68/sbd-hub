@@ -545,6 +545,28 @@
   // ligne, pas le test) : une montée en séance ne change aucune chauffe.
   var MATERIELS_DE_CHAUFFE = ['barre', 'machine', 'machine_smith', 'poulie', 'haltere'];
 
+  // 237 (§9.41) — pose la proposition du moteur dans la sortie de l'étape : la phrase et le Pourquoi sont citées.
+  function proposerChauffes(sortie, cap, reference) {
+    var r = cap.texte;
+    if (!r || r.mode === 'rien' || !r.lignes.length) return;
+    var capW = Voix().capturer(function () { return Moteur().pourquoiDesChauffes(r); });
+    sortie.proposition = { situation: r.situation, reference: reference, lignes: r.lignes, phrase: r.phrase,
+                           pourquoi: capW.texte, raison: r.raison, mode: r.mode, annulable: r.annulable, peuDeTemps: !!r.peuDeTemps };
+    sortie.citations.proposition = cap.citations;
+    sortie.citations.pourquoiChauffes = capW.citations;
+  }
+
+  // 237 (§9.41, règle 6) — « Annuler » : après un ajout automatique (geste `chauffes_auto`), tant que les chauffes ne sont pas faites et
+  // que la personne ne les a pas annulées, le plan EXPOSE le geste. `null` sinon. Un fait de la séance, lu sur ses gestes.
+  function chauffesAutoDe(gestes, slug, x) {
+    var gs = Array.isArray(gestes) ? gestes : [];
+    var auto = gs.some(function (g) { return g && g.geste === 'chauffes_auto' && g.slug === slug; });
+    var annulee = gs.some(function (g) { return g && g.geste === 'chauffes_annulees' && g.slug === slug; });
+    var enAttente = (x.lignes || []).some(function (l) { return l.type === 'echauffement' && !l.validee; });
+    if (!auto || annulee || !enAttente) return null;
+    return { slug: slug, texte: 'Chauffe ajoutée, comme d\u2019habitude.', annuler: 'Annuler' };
+  }
+
   function chauffesEtDegressive(lignes, series, consigne, materiel) {
     var sortie = { chauffes: null, proposition: null, degressive: null, citations: {} };
     if (!materiel) return sortie;
@@ -553,8 +575,18 @@
     // dégressive sous un corps). Sans consigne, la ligne dégressive d'une planche faisait dire « Pas de charge de
     // travail pour caler la dégressive. » et proposait deux gestes. Seule `charge_reps` a une charge à baisser ; une
     // mesure inconnue (`null`, hors catalogue) garde le contrat d'avant.
-    if (materiel.mesure && materiel.mesure !== 'charge_reps') return sortie;
     var M = Moteur(), S = Seance();
+    // 237 (§9.41, règle 3) — AU POIDS DU CORPS : une série facile, sans charge, une seule ; la même décision que les barres.
+    if (materiel.corps === true && !lignes.some(function (l) { return l.type === 'echauffement'; }) &&
+        !lignes.some(function (l) { return l.validee; })) {
+      var capC = Voix().capturer(function () {
+        return M.propositionDeChauffes(Object.assign({}, materiel, { corps: true, reference: null, premier: !materiel.deja_sollicite,
+          silence: !!materiel.refus, e1rm: null }));
+      });
+      proposerChauffes(sortie, capC, null);
+      return sortie;
+    }
+    if (materiel.mesure && materiel.mesure !== 'charge_reps') return sortie;
     var liste = series || [];
     // 196 (MOTEUR §9.33) — LES MINI-SÉRIES DU REST-PAUSE ne sont jamais des dégressives du coach (pas de baisse de charge, pas de
     // phrase) : la charge est celle de la série de travail qui les précède, en fantôme tant qu'elles ne sont pas faites.
@@ -591,6 +623,7 @@
         deja_sollicite: !!materiel.deja_sollicite, sol: !!materiel.sol, cran: materiel.pas,
         // §10 bis (108) — la salle déclarée pour l'exercice, ou `null`.
         salle: materiel.salle || null,
+        coach: materiel.coach === true, isolation: materiel.isolation, premierExercice: materiel.premierExercice,
         routine: deChauffe.length ? deChauffe.map(function (l) {
           var v = nombre(liste[l.iSerie] && liste[l.iSerie].reps_visees);
           return v;
@@ -621,14 +654,18 @@
           iSerie: deChauffe[0].iSerie
         };
         if (sortie.chauffes.phrase) sortie.citations.chauffes = capR.citations;
-      } else if (r.proposition.length && !materiel.refus &&
-                 !lignes.some(function (l) { return l.validee; })) {
-        // §9.15.2 — aucune ligne de chauffe : une PROPOSITION, jamais des
-        // séries insérées d'office. Tant qu'aucune série de l'exercice n'est
-        // faite : après, la montée n'a plus d'objet.
-        sortie.proposition = { situation: r.situation, reference: reference,
-                               lignes: r.proposition, phrase: r.phrase_proposition };
-        sortie.citations.proposition = capR.citations;
+      } else if (!lignes.some(function (l) { return l.validee; })) {
+        // §9.41 — aucune ligne de chauffe : une PROPOSITION (ou, après deux séances où la personne les a ajoutées, un ajout avec
+        // « Annuler »), jamais des séries insérées d'office par le plan. Tant qu'aucune série de l'exercice n'est faite.
+        var capP = Voix().capturer(function () {
+          return M.propositionDeChauffes({
+            equipement: materiel.equipement, reference: reference, e1rm: materiel.e1rm, premier: !materiel.deja_sollicite,
+            premierExercice: materiel.premierExercice, isolation: materiel.isolation, menagee: materiel.menagee,
+            forme: materiel.forme, peuDeTemps: materiel.peuDeTemps, silence: !!materiel.refus, ajoutees: materiel.ajoutees,
+            muscle: materiel.muscle, cran: materiel.pas, sol: !!materiel.sol, salle: materiel.salle || null
+          });
+        });
+        proposerChauffes(sortie, capP, reference);
       }
     }
 
@@ -1571,7 +1608,10 @@
       dire('constat.escalier', constat.escalier, citesEscalier);
     }
     if (autour.chauffes) dire('chauffes', autour.chauffes.phrase, autour.citations.chauffes || []);
-    if (autour.proposition) dire('proposition', autour.proposition.phrase, autour.citations.proposition || []);
+    if (autour.proposition) {
+      dire('proposition', autour.proposition.phrase, autour.citations.proposition || []);
+      if (autour.proposition.pourquoi) dire('proposition.pourquoi', autour.proposition.pourquoi, autour.citations.pourquoiChauffes || []);
+    }
     if (autour.degressive) dire('degressive', autour.degressive.phrase, autour.citations.degressive || []);
     (autour.degressivesPlus || []).forEach(function (q) { if (q.phrase) dire('degressive', q.phrase, q.citations || []); });
     if (rec.reculs) {
@@ -1752,7 +1792,7 @@
   // les siens (catalogue, `muscles_primaires`). Les muscles secondaires ne
   // comptent pas. « SOULEVÉ AU SOL » : `Moteur.SOULEVES_AU_SOL` — le
   // conventionnel, le sumo, la barre hexagonale ; pas le roumain.
-  function materielDe(exos, i, catalogue, consigneDuSlug, refus) {
+  function materielDe(exos, i, catalogue, consigneDuSlug, refus, ctx) {
     var slug = exos[i] && exos[i].exercise_slug;
     var cat = catalogue && slug && Object.prototype.hasOwnProperty.call(catalogue, slug) ? catalogue[slug] : null;
     // Sans matériel au catalogue, on ne devine pas : l'étape se tait.
@@ -1765,7 +1805,25 @@
       deja = siens.some(function (m) { return miens.indexOf(m) >= 0; });
     }
     var pas = consigneDuSlug ? nombre(consigneDuSlug.pas) : null;
+    // 237 (MOTEUR §9.41) — ce que la décision des chauffes lit en plus : l'exercice (isolation, poids du corps), la séance (objectif,
+    // « peu de temps », zone à ménager) et l'historique (max estimé, séances où la personne a ajouté ses chauffes).
+    var c = ctx || {};
+    var zm = c.zonesMenagees && Object.prototype.hasOwnProperty.call(c.zonesMenagees, slug) ? c.zonesMenagees[slug] : null;
+    var M = Moteur();
     return {
+      premierExercice: i === 0,
+      // 237 — les chauffes de cet exercice ont été proposées par le coach dans cette séance (« Ajouter » ou ajout automatique).
+      coach: (Array.isArray(c.gestes) ? c.gestes : []).some(function (g) {
+        return g && (g.geste === 'chauffes_ajoutees' || g.geste === 'chauffes_auto') && g.slug === slug;
+      }),
+      isolation: M.estIsolation({ prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [], stab: cat.muscles_stabilisateurs || [] }),
+      corps: cat.mesure === 'reps' && cat.equipement === 'aucun' && cat.charge !== 'assistance' && cat.charge !== 'ajoutee',
+      menagee: !!(zm && !zm.choisie),
+      forme: c.objectif === 'forme',
+      peuDeTemps: c.peuDeTemps === true,
+      e1rm: c.e1rms && Object.prototype.hasOwnProperty.call(c.e1rms, slug) ? nombre(c.e1rms[slug]) : null,
+      ajoutees: c.ajoutees && Object.prototype.hasOwnProperty.call(c.ajoutees, slug) ? nombre(c.ajoutees[slug]) : 0,
+      muscle: miens.length && Semaine() ? String(Semaine().libelleMuscle(miens[0])).toLowerCase() : null,
       equipement: cat.equipement || null,
       // 119 (E6) — la mesure, pour que `chauffesEtDegressive` se taise sur une mesure sans charge.
       mesure: cat.mesure || null,
@@ -1787,12 +1845,20 @@
   // base. `memoire` : `{ [slug]: { n, seance } }` — `n` les refus d'affilée,
   // un par séance au plus ; `seance` celle du dernier. Rend toujours un objet
   // NEUF : l'app s'en sert comme clé de son mémo.
+  // 237 (§9.41) — pour les chauffes : 2 « Non merci » d'affilée = silence pendant 4 semaines (`Moteur.chauffesEnSilence`), puis la
+  // proposition revient ; la mobilité (clé `MOBILITE_REFUS_CLE`) garde ses trois « Non merci » de suite, définitifs.
   var REFUS_DEFINITIFS = 3;
 
-  function refuserChauffes(memoire, slug, seanceId) {
+  function silenceExpire(x, maintenant) {
+    return !!x && Number(x.n) >= Moteur().CHAUFFE_REFUS_SILENCE && !Moteur().chauffesEnSilence(x, maintenant);
+  }
+
+  function refuserChauffes(memoire, slug, seanceId, quand) {
     var r = Object.assign({}, memoire || {});
     var x = r[slug] || { n: 0, seance: null };
-    r[slug] = x.seance === seanceId ? x : { n: (Number(x.n) || 0) + 1, seance: seanceId };
+    // Un silence échu : le compte repart de zéro (la proposition est revenue, ce refus est le premier).
+    if (slug !== Moteur().MOBILITE_REFUS_CLE && silenceExpire(x, quand)) x = { n: 0, seance: null };
+    r[slug] = x.seance === seanceId ? x : { n: (Number(x.n) || 0) + 1, seance: seanceId, quand: quand === undefined ? null : quand };
     return r;
   }
 
@@ -1803,13 +1869,15 @@
     return r;
   }
 
-  // L'entrée du plan : `{ [slug]: true }` — refusée dans CETTE séance, ou
-  // trois fois d'affilée.
-  function refusChauffesDe(memoire, seanceId) {
+  // L'entrée du plan : `{ [slug]: true }` — refusée dans CETTE séance, ou en silence (chauffes : 2 refus depuis moins de 4
+  // semaines ; mobilité : 3 d'affilée).
+  function refusChauffesDe(memoire, seanceId, maintenant) {
     var sortie = {};
     Object.keys(memoire || {}).forEach(function (slug) {
       var x = memoire[slug] || {};
-      if (x.seance === seanceId || Number(x.n) >= REFUS_DEFINITIFS) sortie[slug] = true;
+      if (x.seance === seanceId) sortie[slug] = true;
+      else if (slug === Moteur().MOBILITE_REFUS_CLE) { if (Number(x.n) >= REFUS_DEFINITIFS) sortie[slug] = true; }
+      else if (Moteur().chauffesEnSilence(x, maintenant)) sortie[slug] = true;
     });
     return sortie;
   }
@@ -1978,6 +2046,9 @@
     var exos = seance.exercices || [];
     var phase = phaseDuPlan(e.phase);
     var objectif = objectifDuPlan(e.objectif);
+    // 237 (MOTEUR §9.41) — ce que la décision des chauffes lit de la séance et de l'historique (faits de l'app, jamais relus ici).
+    var ctxChauffes = { objectif: objectif, peuDeTemps: !!e.raccourci, zonesMenagees: e.zonesMenagees || null,
+                        e1rms: e.e1rms || null, ajoutees: e.chauffesAjoutees || null, gestes: seance.gestes };
     var priorites = prioritesDuPlan(e.priorites);
     // §9.17 (50-1) — CE QUE LE PLAN PORTE, pour qu'I13 et I28 à I31 se vérifient
     // sur lui seul : la mesure de chaque exercice (`catalogue`), son mode
@@ -2125,7 +2196,7 @@
         var modeX = Object.prototype.hasOwnProperty.call(modes, slug) && modes[slug] ? modes[slug] : null;
         var intentionX = Moteur().intentionDe(intentionProfil, modeX);
         var x = planDExercice(exo, i, c, Seance().parisDeLOccurrence(e.paris || [], seance, i), seance.id, e.reglage, suite, seance.debut,
-          intentionX === 'entretien' || salleEl ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), phase,
+          intentionX === 'entretien' || salleEl ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}, ctxChauffes), phase,
           esc.allegee ? { decharge: esc.allegee.source === SOURCE_DECHARGE, semaine: esc.allegee.semaine, semaines: esc.allegee.semaines } : null, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
           Object.prototype.hasOwnProperty.call(plus, slug) ? plus[slug] : null,
           Seance().exerciceFini(seance, slug),
@@ -2137,8 +2208,9 @@
         x.blocHypertrophie = stBloc ? { zone: stBloc.zone, grosse: stBloc.grosse === true,
           reculs: stBloc.grosse ? (exo.series || []).filter(function (q) { return racine.THModele.typeDe(q) === 'recul'; }).length : 0 } : null;
         x.semaineDeTest = semaineDeTestDExercice(jourDeTest, e, seance, exos, i, x,
-          intentionX === 'entretien' || salleEl ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}), intentionX, coachee, douloureuse);
+          intentionX === 'entretien' || salleEl ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}, ctxChauffes), intentionX, coachee, douloureuse);
         if (x.escalier && x.escalier.copie) x.escalier = null;
+        x.chauffesAuto = chauffesAutoDe(seance.gestes, slug, x);
         // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
         // `entrees.volume`. Un fait, rien d'affiché : la série de plus (PR 2c)
@@ -3778,6 +3850,7 @@
     if (x.proposition) {
       var pa = null, pr = null;
       x.proposition.lignes.forEach(function (q) {
+        if (q[0] === null) return;
         if (!sousRef(q[0], x.proposition.reference)) err('I16', 'chauffe proposée ' + q[0] + ' pas sous la référence ' + x.proposition.reference);
         if (pa !== null && q[0] < pa) err('I16', 'chauffe proposée ' + q[0] + ' après ' + pa);
         if (pr !== null && q[1] > pr) err('I16', 'reps proposées ' + q[1] + ' après ' + pr + ' : elles montent');
@@ -5490,7 +5563,7 @@
     var z = M.zoneParCle(k.zone);
     var chauffes = [], chauffesReps = [];
     (x.lignes || []).forEach(function (l) { if (l.chauffe && l.chauffe.charge !== null) chauffes.push(l.chauffe.charge); });
-    if (x.proposition) (x.proposition.lignes || []).forEach(function (q) { chauffes.push(q[0]); chauffesReps.push(q[1]); });
+    if (x.proposition) (x.proposition.lignes || []).forEach(function (q) { if (q[0] !== null) chauffes.push(q[0]); chauffesReps.push(q[1]); });
     var degVise = [];
     (x.lignes || []).forEach(function (l) { if (l.degressive && Array.isArray(l.degressive.vise)) degVise = degVise.concat(l.degressive.vise); });
     var msgR = x.reaction && x.reaction.message;
@@ -5517,7 +5590,7 @@
       'zone.haut': z ? { valeur: z.haut } : null,
       chauffe: { charge: undefined, valeurs: chauffes },
       'chauffe.reps': { valeurs: chauffesReps },
-      reference: x.chauffes ? { charge: x.chauffes.reference } : x.proposition ? { charge: x.proposition.reference } : null,
+      reference: x.chauffes ? { charge: x.chauffes.reference } : x.proposition && x.proposition.reference !== null ? { charge: x.proposition.reference } : null,
       degressive: x.degressive ? (x.degressivesPlus
         ? { charge: undefined, valeurs: [x.degressive].concat(x.degressivesPlus).map(function (q) { return q.charge; }).filter(function (v) { return v !== null && v !== undefined; }) }
         : { charge: x.degressive.charge }) : null,
@@ -5863,6 +5936,7 @@
     verifierAuMax(plan, erreurs);
     verifierMobilite(plan, entrees, erreurs);
     verifierVeilleActivite(plan, entrees, erreurs);
+    verifierChauffesProposees(plan, entrees, erreurs);
     verifierSemaineDeTest(plan, erreurs, entrees);
     verifierCalisthenie(plan, erreurs);
     verifierForme(plan, entrees, erreurs);
@@ -6398,6 +6472,67 @@
   //   · I97 — « J'ai peu de temps » retire le bloc d'abord : aucun bloc, avant ni fin, dans une séance raccourcie ;
   //   · I98 — la consigne du bloc est « Sans douleur : une tension nette, pas plus. » ; jamais « récupération », « courbatures » ni
   //     « prévention » ; le plan se tait sans zones raides, en Édition, en « Juste un carnet » et après trois « Non merci » de suite.
+  // I125 à I128 (237, MOTEUR §9.41) — les chauffes proposées par le coach.
+  //   I125 : aucune proposition hors des trois conditions (le premier exercice du muscle au-dessus de 60 % du max estimé connu, une zone
+  //          à ménager, l'objectif Forme) ;
+  //   I126 : les charges montent, aucune n'atteint la charge de travail, la dernière ne dépasse pas 90 % de la charge de travail ;
+  //   I127 : « J'ai peu de temps » sur une barre : exactement une chauffe ;
+  //   I128 : en silence (deux « Non merci » depuis moins de 4 semaines) aucune proposition ; un ajout automatique expose toujours « Annuler ».
+  function verifierChauffesProposees(plan, entrees, erreurs) {
+    var e = entrees || {}, M = Moteur();
+    var exos = (e.seance && e.seance.exercices) || [], cat = e.catalogue || {};
+    (plan.exercices || []).forEach(function (x, i) {
+      if (!x) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ')';
+      var p = x.proposition, fiche = cat[x.slug] || null;
+      if (p) {
+        var ref = nombre(p.reference);
+        // I125
+        if (['muscle', 'zone', 'forme'].indexOf(p.raison) < 0) erreurs.push('I125' + nom + ' : une proposition de chauffes sans raison');
+        if (p.raison === 'zone') {
+          var zm = e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, x.slug) ? e.zonesMenagees[x.slug] : null;
+          if (!(zm && !zm.choisie)) erreurs.push('I125' + nom + ' : chauffes « zone à ménager » sans zone à ménager');
+        }
+        if (p.raison === 'forme' && objectifDuPlan(e.objectif) !== 'forme') erreurs.push('I125' + nom + ' : chauffes « Forme » hors de l\u2019objectif Forme');
+        if (p.raison === 'muscle') {
+          var miens = (fiche && fiche.muscles_primaires) || [];
+          for (var k = 0; k < i; k++) {
+            var autre = cat[exos[k] && exos[k].exercise_slug];
+            if (autre && (autre.muscles_primaires || []).some(function (m) { return miens.indexOf(m) >= 0; })) {
+              erreurs.push('I125' + nom + ' : chauffes « premier exercice du muscle » alors que l\u2019exercice ' + k + ' le sollicite déjà');
+              break;
+            }
+          }
+          var e1 = e.e1rms && Object.prototype.hasOwnProperty.call(e.e1rms, x.slug) ? nombre(e.e1rms[x.slug]) : null;
+          if (ref !== null && e1 !== null && e1 > 0 && !(ref > M.CHAUFFE_SEUIL_MAX * e1 - 1e-9)) {
+            erreurs.push('I125' + nom + ' : chauffes proposées à ' + ref + ' kg, sous ' + M.CHAUFFE_SEUIL_MAX * 100 + ' % du max estimé (' + e1 + ' kg)');
+          }
+        }
+        // I126
+        var av = null;
+        (p.lignes || []).forEach(function (q) {
+          if (q[0] === null || ref === null) return;
+          if (av !== null && !(q[0] > av)) erreurs.push('I126' + nom + ' : des chauffes qui ne montent pas (' + av + ' puis ' + q[0] + ')');
+          if (!(q[0] < ref)) erreurs.push('I126' + nom + ' : une chauffe (' + q[0] + ' kg) pas sous la charge de travail (' + ref + ' kg)');
+          av = q[0];
+        });
+        if (av !== null && ref !== null && av > M.CHAUFFE_PLAFOND * ref + 1e-9) erreurs.push('I126' + nom + ' : la dernière chauffe (' + av + ' kg) dépasse 90 % de la charge de travail (' + ref + ' kg)');
+        // I127
+        if (e.raccourci && fiche && fiche.equipement === 'barre' && (p.lignes || []).length !== 1) {
+          erreurs.push('I127' + nom + ' : « J\u2019ai peu de temps » sur une barre avec ' + (p.lignes || []).length + ' chauffe(s)');
+        }
+        // I128
+        if (p.mode === 'auto' && p.annulable !== true) erreurs.push('I128' + nom + ' : un ajout automatique sans « Annuler »');
+      }
+      if (e.refusChauffes && e.refusChauffes[x.slug] === true && p) erreurs.push('I128' + nom + ' : une proposition de chauffes alors que la personne a dit « Non merci » (silence)');
+      var gs = (e.seance && Array.isArray(e.seance.gestes)) ? e.seance.gestes : [];
+      var auto = gs.some(function (g) { return g && g.geste === 'chauffes_auto' && g.slug === x.slug; });
+      var annulee = gs.some(function (g) { return g && g.geste === 'chauffes_annulees' && g.slug === x.slug; });
+      var enAttente = (x.lignes || []).some(function (l) { return l.type === 'echauffement' && !l.validee; });
+      if (auto && !annulee && enAttente && !x.chauffesAuto) erreurs.push('I128' + nom + ' : des chauffes ajoutées d\u2019elles-mêmes sans geste « Annuler »');
+    });
+  }
+
   // I123 et I124 (225, MOTEUR §9.40) — la veille d'une activité dure.
   //   I123 : la proposition ne naît que d'une activité NOTÉE de la veille, intense, d'un sport qui charge les jambes (la table du moteur),
   //          jamais en Édition ni en « Juste un carnet », pour UNE barre de jambes (squat, soulevé) en zone Lourd dans la séance, avec les

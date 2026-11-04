@@ -279,6 +279,14 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     const r = M.chauffesDe(c.entree);
     noter('chauffes', 'cas-49u10 ' + c.id, [r.phrase, r.phrase_proposition]);
   });
+  // 237 (§9.41) — les propositions : la phrase des charges et le Pourquoi (quatre cas, comme les quatre d'avant).
+  [{ equipement: 'barre', reference: 100, e1rm: 120, premier: true },
+   { equipement: 'barre', reference: 180, premier: true, sol: true },
+   { equipement: 'poulie', reference: 30, premier: true, premierExercice: true, isolation: true, cran: 2.5 },
+   { equipement: 'machine', reference: 80, menagee: true, cran: 5, peuDeTemps: false }].forEach((en, k) => {
+    const r = M.propositionDeChauffes(en);
+    noter('chauffes', 'proposition 237 ' + k, [r.phrase, M.pourquoiDesChauffes(r)]);
+  });
   CHAUFFES.degressives.forEach((c) => noter('chauffes', 'cas-49u10 ' + c.id, M.degressiveDe(c.entree).phrase));
   (() => {
     let n = 0;
@@ -570,7 +578,7 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(parFamille.constat).toBeGreaterThan(50);
     // 30 phrases des 37 cas (les cas sans chauffe ni proposition n'en ont
     // pas) + la phrase et la note de la feuille sur le plan.
-    expect(parFamille.chauffes).toBe(32);
+    expect(parFamille.chauffes).toBe(36);
     // 6 phrases des 14 cas (les 8 autres sont à 0-3 : rien) + 24 synthétiques.
     expect(parFamille.compteur).toBe(30);
     // 6 cartes × 2 phrases + 14 consignes allégées × 2 + 3 bandeaux + le refus.

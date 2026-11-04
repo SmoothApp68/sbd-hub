@@ -90,6 +90,7 @@ const GARDEES = [
   // moteur.js — les chauffes et les dégressives (§9.15, 49-U10)
   { fn: 'situationChauffe', module: 'moteur.js' },
   { fn: 'chauffesDe', module: 'moteur.js' },
+  { fn: 'propositionDeChauffes', module: 'moteur.js' },
   { fn: 'degressiveDe', module: 'moteur.js' },
   // moteur.js — les séries de recul (193-1, §9.28)
   { fn: 'reculDe', module: 'moteur.js' },

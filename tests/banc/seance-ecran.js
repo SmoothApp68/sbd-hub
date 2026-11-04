@@ -4276,11 +4276,11 @@ const SETS_IMPORTES = [
     return [getComputedStyle(b[0]).borderLeftWidth, getComputedStyle(b[1]).borderLeftWidth];
   });
   ok('le superset porte le liseré, l’exercice seul n’en a pas',
-    lisere[0] === '3px' && lisere[1] === '0px', JSON.stringify(lisere));
+    lisere[0] === '4px' && lisere[1] === '0px', JSON.stringify(lisere));
 
-  ok('les séries s’affichent ENTRELACÉES, et le tour 3 n’attend aucun C3',
+  ok('233 — les séries s’affichent PAR EXERCICE (une carte chacun), et le tour 3 n’attend aucun C3',
     JSON.stringify(await etiquettes(0)) ===
-    JSON.stringify(['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3']),
+    JSON.stringify(['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2']),
     JSON.stringify(await etiquettes(0)));
 
   ok('l’exercice seul numérote 1, 2 — aucune lettre',
@@ -4330,16 +4330,16 @@ const SETS_IMPORTES = [
       .map((r) => Array.from(r.classList).filter((c) => c.startsWith('g-'))[0]));
   ok('chaque ligne garde le gabarit de SON exercice, même mélangés',
     JSON.stringify(grilles) === JSON.stringify([
-      'g-charge_reps', 'g-charge_reps', 'g-temps',
-      'g-charge_reps', 'g-charge_reps', 'g-temps',
-      'g-charge_reps', 'g-charge_reps']),
+      'g-charge_reps', 'g-charge_reps', 'g-charge_reps',
+      'g-charge_reps', 'g-charge_reps', 'g-charge_reps',
+      'g-temps', 'g-temps']),
     JSON.stringify(grilles));
-  ok('et l’en-tête de colonnes se tait sur un bloc à mesures mélangées',
+  ok('233 — chaque carte d’un superset à mesures mélangées a SON en-tête de colonnes (qui dit vrai pour elle seule)',
     (await page.evaluate(() =>
-      document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.cols-seance').length)) === 0 &&
+      document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.cols-seance').length)) === 3 &&
     (await page.evaluate(() =>
       document.querySelectorAll('.bloc-seance')[1].querySelectorAll('.cols-seance').length)) === 1,
-    'superset mélangé : aucun · exercice seul : un');
+    'superset mélangé : un par carte · exercice seul : un');
 
   // ── L'éclairage porte sur le TOUR, et le tour ne recule pas ─────────────
   // §7 undecies.3 — le compteur affiche les tours FAITS : rien de fait, 0/3.
@@ -4372,11 +4372,11 @@ const SETS_IMPORTES = [
     JSON.stringify(coche));
 
   // ⚠️ DANS LE DÉSORDRE : C1 avant B1.
-  await validerRangee(0, 2);          // C1
-  await validerRangee(0, 1);          // B1
+  await validerRangee(0, 6);          // C1
+  await validerRangee(0, 3);          // B1
   ok('le tour se ferme dans le désordre, et s’allume d’un coup',
     JSON.stringify(await allumees(0)) ===
-    JSON.stringify([true, true, true, false, false, false, false, false]),
+    JSON.stringify([true, false, false, true, false, false, true, false]),
     JSON.stringify(await allumees(0)));
   ok('et le tour annoncé avance', /tour 1\/3/.test(await superT()), (await superT()).trim());
 
@@ -4385,12 +4385,12 @@ const SETS_IMPORTES = [
   ok('dévalider ne fait PAS reculer le tour', /tour 1\/3/.test(await superT()),
     (await superT()).trim());
   ok('mais l’éclairage, lui, dit la vérité du moment',
-    (await allumees(0)).slice(0, 3).every((x) => x === false),
+    (await allumees(0))[0] === false,
     JSON.stringify((await allumees(0)).slice(0, 3)));
   await validerRangee(0, 0);          // revalide A1
 
   // ── Le tour 3, sans C3 ─────────────────────────────────────────────────
-  for (const r of [3, 4, 5, 6, 7]) await validerRangee(0, r);
+  for (const r of [1, 2, 4, 5, 7]) await validerRangee(0, r);
   ok('le tour 3 se ferme sans C3 : tout le bloc est allumé',
     (await allumees(0)).every((x) => x === true) && /tour 3\/3/.test(await superT()),
     JSON.stringify(await allumees(0)) + ' · ' + (await superT()).trim());
@@ -4430,146 +4430,6 @@ const SETS_IMPORTES = [
   ok('et il reconnaît le superset, liseré compris',
     (await compter('#vue-detail .bloc.superset')) === 1,
     (await compter('#vue-detail .bloc.superset')) + ' bloc(s) superset');
-
-  console.log('\n══ 233. LE SUPERSET À LA HEVY, DÉPLACER UN EXERCICE, LE CHRONO DE TENUE ══');
-  //
-  // ⚠️ CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : UN SUPERSET À TROIS EXERCICES DE MESURES DIFFÉRENTES (charge × reps, charge
-  // × reps, durée), VALIDÉ DANS LE DÉSORDRE. À deux exercices validés de haut en bas, « cartes à la suite » et « lignes entrelacées »
-  // donnent presque le même écran ; il faut un troisième, une mesure en durée (le chrono de tenue) et une validation par la fin.
-  await aller('/saisie');
-  await demarrerRoutine('Superset');
-
-  const cartes233 = () => page.evaluate(() => Array.from(document.querySelectorAll('.bloc-seance.superset .carte-ss')).map((c) => ({
-    nom: (c.querySelector('.nom-exo') || {}).textContent,
-    etiquettes: Array.from(c.querySelectorAll('.no-serie')).map((n) => n.textContent),
-    go: c.querySelectorAll('.tenue-go').length
-  })));
-  const c0_233 = await cartes233();
-  ok('le superset s’affiche en TROIS cartes à la suite, une par exercice',
-    c0_233.length === 3 && /Développé/.test(c0_233[0].nom) && /Curl/.test(c0_233[1].nom) && /Planche/.test(c0_233[2].nom), JSON.stringify(c0_233.map((c) => c.nom)));
-  ok('les séries sont rangées PAR EXERCICE : A1 A2 A3 · B1 B2 B3 · C1 C2 — jamais A1 B1 C1 entrelacés',
-    JSON.stringify(c0_233.map((c) => c.etiquettes)) === JSON.stringify([['A1', 'A2', 'A3'], ['B1', 'B2', 'B3'], ['C1', 'C2']]),
-    JSON.stringify(c0_233.map((c) => c.etiquettes)));
-  const barre233 = await page.evaluate(() => {
-    const b = document.querySelector('.bloc-seance.superset');
-    const rgb = (h) => { const n = parseInt(String(h).trim().replace('#', ''), 16); return 'rgb(' + (n >> 16) + ', ' + ((n >> 8) & 255) + ', ' + (n & 255) + ')'; };
-    const cs = getComputedStyle(b);
-    return { largeur: cs.borderLeftWidth, couleur: cs.borderLeftColor, teinte: rgb(getComputedStyle(document.documentElement).getPropertyValue('--teinte')),
-             etiquette: (b.querySelector('.superset-t') || {}).textContent };
-  });
-  ok('la barre qui relie les cartes est celle de la TEINTE (bleu), pas l’ambre, et l’étiquette dit « Superset »',
-    barre233.largeur === '4px' && barre233.couleur === barre233.teinte && /^Superset/.test(barre233.etiquette), JSON.stringify(barre233));
-  ok('une carte = une légende, un « + Série » et son en-tête de colonnes',
-    await page.evaluate(() => Array.from(document.querySelectorAll('.bloc-seance.superset .carte-ss')).every((c) =>
-      c.querySelectorAll('.legende-exo').length === 1 && c.querySelectorAll('.ajout-serie button').length === 1 && c.querySelectorAll('.cols-seance').length === 1)));
-
-  // La validation dans le DÉSORDRE : B1, C1, puis A1 — le tour 1 ne se ferme qu'avec la dernière des trois.
-  await validerRangee(0, 3);
-  await validerRangee(0, 6);
-  ok('B1 et C1 validées avant A1 : rien n’impose l’ordre, et le tour n’avance pas encore', /tour 0\/3/.test(await superT()), await superT());
-  await validerRangee(0, 0);
-  ok('A1 validée en dernier : le tour 1 est fait', /tour 1\/3/.test(await superT()), await superT());
-
-  // ── Déplacer un exercice : le repli accessible (menu ⋯), puis le glissement ──
-  await menuExo(0, 1);                                   // le CURL, au milieu
-  const menu233 = await entreesFeuille();
-  ok('le menu ⋯ d’un exercice porte « Monter » et « Descendre »', menu233.some((m) => /^Monter$/.test(m)) && menu233.some((m) => /^Descendre$/.test(m)), JSON.stringify(menu233));
-  await entree('^Monter$');
-  const c1_233 = await cartes233();
-  ok('« Monter » déplace l’exercice ENTIER (ses séries avec lui) : Curl, Développé, Planche — le superset reste un seul bloc',
-    c1_233.length === 3 && /Curl/.test(c1_233[0].nom) && /Développé/.test(c1_233[1].nom) && c1_233[0].etiquettes.length === 3 &&
-    (await compter('.bloc-seance.superset')) === 1, JSON.stringify(c1_233.map((c) => c.nom + ':' + c.etiquettes.length)));
-  ok('et sa série validée l’a suivi (B1 reste faite, dans la carte du Curl)', await page.evaluate(() => {
-    const k = document.querySelectorAll('.bloc-seance.superset .carte-ss')[0];
-    return k.querySelectorAll('.ok-serie.cochee').length === 1;
-  }));
-
-  // Le glissement par la poignée : la Planche (3e) saisie par sa poignée et lâchée au-dessus de la 1re carte.
-  const glisser233 = async (iCarte, versCarte, parNom) => {
-    const pos = await page.evaluate(([a, b, nom]) => {
-      const k = document.querySelectorAll('.bloc-seance.superset .carte-ss');
-      const dep = nom ? k[a].querySelector('.nom-exo') : k[a].querySelector('.poignee-exo');
-      const r = dep.getBoundingClientRect(), cible = k[b].getBoundingClientRect();
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2, yCible: cible.top + 6 };
-    }, [iCarte, versCarte, !!parNom]);
-    await page.mouse.move(pos.x, pos.y);
-    await page.mouse.down();
-    if (parNom) await attendre(650);   // temps réel : l'APPUI LONG sur le nom (450 ms de l'app)
-    await page.mouse.move(pos.x, (pos.y + pos.yCible) / 2, { steps: 4 });
-    await page.mouse.move(pos.x, pos.yCible, { steps: 6 });
-    await page.mouse.up();
-    await jusqua(() => page.evaluate(() => !document.querySelector('.pris-exo')), 4000, 'glisser233');
-    await brouillonPose();
-  };
-  const tailleP_233 = await page.evaluate(() => { const r = document.querySelector('.carte-ss .poignee-exo').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });
-  ok('la poignée ⠿ est une cible de 44 px au moins', tailleP_233[0] >= 44 && tailleP_233[1] >= 44, JSON.stringify(tailleP_233));
-  await glisser233(2, 0, false);
-  const c2_233 = await cartes233();
-  ok('glisser la Planche par sa poignée au-dessus de la 1re carte la met en tête (Planche, Curl, Développé)',
-    c2_233.length === 3 && /Planche/.test(c2_233[0].nom) && /Curl/.test(c2_233[1].nom) && /Développé/.test(c2_233[2].nom), JSON.stringify(c2_233.map((c) => c.nom)));
-  await glisser233(2, 0, true);
-  const c3_233 = await cartes233();
-  ok('l’APPUI LONG sur le nom d’un exercice le prend aussi (Développé en tête), sans ouvrir sa page',
-    c3_233.length === 3 && /Développé/.test(c3_233[0].nom) && /Planche/.test(c3_233[1].nom) && (await compter('#vue-seance:not([hidden])')) === 1,
-    JSON.stringify(c3_233.map((c) => c.nom)));
-
-  // ── Le chrono de tenue : la Planche seule en a un ──
-  const cT_233 = await cartes233();
-  const iPlanche_233 = cT_233.findIndex((c) => /Planche/.test(c.nom));
-  ok('seule la carte de la Planche (mesure durée) porte un chrono de tenue, une fois par série non validée',
-    cT_233.map((c, i) => (i === iPlanche_233 ? c.go === 2 : c.go === 0)).every(Boolean), JSON.stringify(cT_233.map((c) => c.nom + ':' + c.go)));
-  const ligneP_233 = (k) => page.locator('.bloc-seance.superset .carte-ss').nth(iPlanche_233).locator('.ligne-serie').nth(k);
-  const champDuree_233 = (k) => page.evaluate(([i, r]) => {
-    const l = document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[r];
-    return { v: (l.querySelector('[data-champ="duree"] input') || {}).value, cochee: !!l.querySelector('.ok-serie.cochee') };
-  }, [iPlanche_233, k]);
-  // Le rang d'affichage absolu d'une série de la carte `iPlanche_233`, pour `validerRangee`.
-  const rangAbsolu_233 = (k) => page.evaluate(([i, r]) => {
-    const ks = document.querySelectorAll('.bloc-seance.superset .carte-ss');
-    let n = 0;
-    for (let c = 0; c < i; c++) n += ks[c].querySelectorAll('.ligne-serie').length;
-    return n + r;
-  }, [iPlanche_233, k]);
-  // Annuler n'écrit rien.
-  await ligneP_233(0).locator('.tenue-go').click();
-  await attendre(1300);   // temps réel : le chrono de tenue compte
-  ok('▶ démarre un chrono qui compte (Stop et Annuler apparaissent)',
-    (await compter('.tenue-t')) === 1 && (await compter('.tenue-stop')) === 1 && (await compter('.tenue-annuler')) === 1 && /^0:0[1-2]$/.test(await texte('.tenue-t')), await texte('.tenue-t'));
-  await page.click('.tenue-annuler');
-  await jusqua(() => page.evaluate(() => !document.querySelector('.tenue-t')), 4000, 'tenue annulée');
-  const apresAnnuler_233 = await champDuree_233(0);
-  ok('« Annuler » n’écrit rien dans la série', apresAnnuler_233.v === '' && !apresAnnuler_233.cochee && (await compter('.tenue-t')) === 0, JSON.stringify(apresAnnuler_233));
-  // Stop écrit la durée, sans valider la série.
-  await ligneP_233(0).locator('.tenue-go').click();
-  await attendre(2300);   // temps réel : deux secondes de tenue
-  await page.click('.tenue-stop');
-  await jusqua(() => page.evaluate(() => !document.querySelector('.tenue-t')), 4000, 'tenue arrêtée');
-  await brouillonPose();
-  const apresStop_233 = await champDuree_233(0);
-  ok('« Stop » écrit la durée tenue (≈ 2 s) dans la série — et ne la valide PAS d’office',
-    /^0?0:0[2-4]$/.test(apresStop_233.v) && !apresStop_233.cochee, JSON.stringify(apresStop_233));
-  // La série suivante prend cette durée pour visée : à la visée, la cloche (3 dings) et la vibration ; le chrono continue.
-  await validerRangee(0, await rangAbsolu_233(0));
-  const visee_233 = await page.evaluate((i) => { const l = document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[1]; return ((l.querySelector('.tenue-vise') || {}).textContent || '').replace(/ /g, ' '); }, iPlanche_233);
-  ok('la série suivante annonce sa visée (la durée qu’on vient de tenir)', /visée 0:0[2-4]/.test(visee_233), visee_233);
-  const avantCloche_233 = await page.evaluate(() => ({ bips: window.__bips, vib: window.__vibrations.length }));
-  await ligneP_233(1).locator('.tenue-go').click();
-  await attendre(5200);   // temps réel : la visée (≈ 2 s) est dépassée
-  const apresCloche_233 = await page.evaluate(() => ({ bips: window.__bips, vib: window.__vibrations.slice(-1)[0], n: window.__vibrations.length }));
-  ok('à la durée visée : la cloche (3 dings) et la vibration en trois temps', apresCloche_233.bips - avantCloche_233.bips === 3 &&
-    Array.isArray(apresCloche_233.vib) && apresCloche_233.vib.length === 5, JSON.stringify([avantCloche_233, apresCloche_233]));
-  ok('et le chrono CONTINUE tant qu’on tient (il passe la visée)', /atteinte/.test(await page.evaluate(() => (document.querySelector('.tenue-t') || {}).className || '')) && (await compter('.tenue-stop')) === 1);
-  await page.click('.tenue-stop');
-  await jusqua(() => page.evaluate(() => !document.querySelector('.tenue-t')), 4000, 'tenue arrêtée (2)');
-  await brouillonPose();
-  const apresDepasse_233 = await champDuree_233(1);
-  ok('Stop après la visée écrit la durée réelle (plus longue que la visée)', /^0?0:0[5-9]$/.test(apresDepasse_233.v) && !apresDepasse_233.cochee, JSON.stringify(apresDepasse_233));
-
-  await page.click('#bandeau-seance .bandeau-fin');
-  await feuilleOuverte('#feuille-contenu .principal');
-  await page.click('#feuille-contenu .principal');
-  await terminerQuandMeme();
-  await seanceSortie();
 
   console.log('\n══ 7 nonies. LA DÉVIATION — MENU DE BLOC, MODIFIER, REPORT ══');
   //
@@ -5148,6 +5008,146 @@ const SETS_IMPORTES = [
     JSON.stringify(['dc-barre@0', 'squat-barre@1', 'planche@2']),
     JSON.stringify(ROUTINE.routine_exercises.slice().sort((a, b) => a.rang - b.rang)
       .map((e) => e.exercise_slug + '@' + e.rang)));
+
+  console.log('\n══ 233. LE SUPERSET À LA HEVY, DÉPLACER UN EXERCICE, LE CHRONO DE TENUE ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : UN SUPERSET À TROIS EXERCICES DE MESURES DIFFÉRENTES (charge × reps, charge
+  // × reps, durée), VALIDÉ DANS LE DÉSORDRE. À deux exercices validés de haut en bas, « cartes à la suite » et « lignes entrelacées »
+  // donnent presque le même écran ; il faut un troisième, une mesure en durée (le chrono de tenue) et une validation par la fin.
+  await aller('/saisie');
+  await demarrerRoutine('Superset');
+
+  const cartes233 = () => page.evaluate(() => Array.from(document.querySelectorAll('.bloc-seance.superset .carte-ss')).map((c) => ({
+    nom: (c.querySelector('.nom-exo') || {}).textContent,
+    etiquettes: Array.from(c.querySelectorAll('.no-serie')).map((n) => n.textContent),
+    go: c.querySelectorAll('.tenue-go').length
+  })));
+  const c0_233 = await cartes233();
+  ok('le superset s’affiche en TROIS cartes à la suite, une par exercice',
+    c0_233.length === 3 && /Développé/.test(c0_233[0].nom) && /Curl/.test(c0_233[1].nom) && /Planche/.test(c0_233[2].nom), JSON.stringify(c0_233.map((c) => c.nom)));
+  ok('les séries sont rangées PAR EXERCICE : A1 A2 A3 · B1 B2 B3 · C1 C2 — jamais A1 B1 C1 entrelacés',
+    JSON.stringify(c0_233.map((c) => c.etiquettes)) === JSON.stringify([['A1', 'A2', 'A3'], ['B1', 'B2', 'B3'], ['C1', 'C2']]),
+    JSON.stringify(c0_233.map((c) => c.etiquettes)));
+  const barre233 = await page.evaluate(() => {
+    const b = document.querySelector('.bloc-seance.superset');
+    const rgb = (h) => { const n = parseInt(String(h).trim().replace('#', ''), 16); return 'rgb(' + (n >> 16) + ', ' + ((n >> 8) & 255) + ', ' + (n & 255) + ')'; };
+    const cs = getComputedStyle(b);
+    return { largeur: cs.borderLeftWidth, couleur: cs.borderLeftColor, teinte: rgb(getComputedStyle(document.documentElement).getPropertyValue('--teinte')),
+             etiquette: (b.querySelector('.superset-t') || {}).textContent };
+  });
+  ok('la barre qui relie les cartes est celle de la TEINTE (bleu), pas l’ambre, et l’étiquette dit « Superset »',
+    barre233.largeur === '4px' && barre233.couleur === barre233.teinte && /^Superset/.test(barre233.etiquette), JSON.stringify(barre233));
+  ok('une carte = une légende, un « + Série » et son en-tête de colonnes',
+    await page.evaluate(() => Array.from(document.querySelectorAll('.bloc-seance.superset .carte-ss')).every((c) =>
+      c.querySelectorAll('.legende-exo').length === 1 && c.querySelectorAll('.ajout-serie button').length === 1 && c.querySelectorAll('.cols-seance').length === 1)));
+
+  // La validation dans le DÉSORDRE : B1, C1, puis A1 — le tour 1 ne se ferme qu'avec la dernière des trois.
+  await validerRangee(0, 3);
+  await validerRangee(0, 6);
+  ok('B1 et C1 validées avant A1 : rien n’impose l’ordre, et le tour n’avance pas encore', /tour 0\/3/.test(await superT()), await superT());
+  await validerRangee(0, 0);
+  ok('A1 validée en dernier : le tour 1 est fait', /tour 1\/3/.test(await superT()), await superT());
+
+  // ── Déplacer un exercice : le repli accessible (menu ⋯), puis le glissement ──
+  await menuExo(0, 1);                                   // le CURL, au milieu
+  const menu233 = await entreesFeuille();
+  ok('le menu ⋯ d’un exercice porte « Monter » et « Descendre »', menu233.some((m) => /^Monter$/.test(m)) && menu233.some((m) => /^Descendre$/.test(m)), JSON.stringify(menu233));
+  await entree('^Monter$');
+  const c1_233 = await cartes233();
+  ok('« Monter » déplace l’exercice ENTIER (ses séries avec lui) : Curl, Développé, Planche — le superset reste un seul bloc',
+    c1_233.length === 3 && /Curl/.test(c1_233[0].nom) && /Développé/.test(c1_233[1].nom) && c1_233[0].etiquettes.length === 3 &&
+    (await compter('.bloc-seance.superset')) === 1, JSON.stringify(c1_233.map((c) => c.nom + ':' + c.etiquettes.length)));
+  ok('et sa série validée l’a suivi (B1 reste faite, dans la carte du Curl)', await page.evaluate(() => {
+    const k = document.querySelectorAll('.bloc-seance.superset .carte-ss')[0];
+    return k.querySelectorAll('.ok-serie.cochee').length === 1;
+  }));
+
+  // Le glissement par la poignée : la Planche (3e) saisie par sa poignée et lâchée au-dessus de la 1re carte.
+  const glisser233 = async (iCarte, versCarte, parNom) => {
+    const pos = await page.evaluate(([a, b, nom]) => {
+      const k = document.querySelectorAll('.bloc-seance.superset .carte-ss');
+      const dep = nom ? k[a].querySelector('.nom-exo') : k[a].querySelector('.poignee-exo');
+      const r = dep.getBoundingClientRect(), cible = k[b].getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, yCible: cible.top + 6 };
+    }, [iCarte, versCarte, !!parNom]);
+    await page.mouse.move(pos.x, pos.y);
+    await page.mouse.down();
+    if (parNom) await attendre(650);   // temps réel : l'APPUI LONG sur le nom (450 ms de l'app)
+    await page.mouse.move(pos.x, (pos.y + pos.yCible) / 2, { steps: 4 });
+    await page.mouse.move(pos.x, pos.yCible, { steps: 6 });
+    await page.mouse.up();
+    await jusqua(() => page.evaluate(() => !document.querySelector('.pris-exo')), 4000, 'glisser233');
+    await brouillonPose();
+  };
+  const tailleP_233 = await page.evaluate(() => { const r = document.querySelector('.carte-ss .poignee-exo').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });
+  ok('la poignée ⠿ est une cible de 44 px au moins', tailleP_233[0] >= 44 && tailleP_233[1] >= 44, JSON.stringify(tailleP_233));
+  await glisser233(2, 0, false);
+  const c2_233 = await cartes233();
+  ok('glisser la Planche par sa poignée au-dessus de la 1re carte la met en tête (Planche, Curl, Développé)',
+    c2_233.length === 3 && /Planche/.test(c2_233[0].nom) && /Curl/.test(c2_233[1].nom) && /Développé/.test(c2_233[2].nom), JSON.stringify(c2_233.map((c) => c.nom)));
+  await glisser233(2, 0, true);
+  const c3_233 = await cartes233();
+  ok('l’APPUI LONG sur le nom d’un exercice le prend aussi (Développé en tête), sans ouvrir sa page',
+    c3_233.length === 3 && /Développé/.test(c3_233[0].nom) && /Planche/.test(c3_233[1].nom) && (await compter('#vue-seance:not([hidden])')) === 1,
+    JSON.stringify(c3_233.map((c) => c.nom)));
+
+  // ── Le chrono de tenue : la Planche seule en a un ──
+  const cT_233 = await cartes233();
+  const iPlanche_233 = cT_233.findIndex((c) => /Planche/.test(c.nom));
+  ok('seule la carte de la Planche (mesure durée) porte un chrono de tenue, une fois par série non validée',
+    cT_233.map((c, i) => (i === iPlanche_233 ? c.go === 2 : c.go === 0)).every(Boolean), JSON.stringify(cT_233.map((c) => c.nom + ':' + c.go)));
+  const ligneP_233 = (k) => page.locator('.bloc-seance.superset .carte-ss').nth(iPlanche_233).locator('.ligne-serie').nth(k);
+  const champDuree_233 = (k) => page.evaluate(([i, r]) => {
+    const l = document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[r];
+    return { v: (l.querySelector('[data-champ="duree"] input') || {}).value, cochee: !!l.querySelector('.ok-serie.cochee') };
+  }, [iPlanche_233, k]);
+  // Le rang d'affichage absolu d'une série de la carte `iPlanche_233`, pour `validerRangee`.
+  const rangAbsolu_233 = (k) => page.evaluate(([i, r]) => {
+    const ks = document.querySelectorAll('.bloc-seance.superset .carte-ss');
+    let n = 0;
+    for (let c = 0; c < i; c++) n += ks[c].querySelectorAll('.ligne-serie').length;
+    return n + r;
+  }, [iPlanche_233, k]);
+  // Annuler n'écrit rien.
+  await ligneP_233(0).locator('.tenue-go').click();
+  await attendre(1300);   // temps réel : le chrono de tenue compte
+  ok('▶ démarre un chrono qui compte (Stop et Annuler apparaissent)',
+    (await compter('.tenue-t')) === 1 && (await compter('.tenue-stop')) === 1 && (await compter('.tenue-annuler')) === 1 && /^0:0[1-2]$/.test(await texte('.tenue-t')), await texte('.tenue-t'));
+  await page.click('.tenue-annuler');
+  await jusqua(() => page.evaluate(() => !document.querySelector('.tenue-t')), 4000, 'tenue annulée');
+  const apresAnnuler_233 = await champDuree_233(0);
+  ok('« Annuler » n’écrit rien dans la série', apresAnnuler_233.v === '' && !apresAnnuler_233.cochee && (await compter('.tenue-t')) === 0, JSON.stringify(apresAnnuler_233));
+  // Stop écrit la durée, sans valider la série.
+  await ligneP_233(0).locator('.tenue-go').click();
+  await attendre(2300);   // temps réel : deux secondes de tenue
+  await page.click('.tenue-stop');
+  await jusqua(() => page.evaluate(() => !document.querySelector('.tenue-t')), 4000, 'tenue arrêtée');
+  await brouillonPose();
+  const apresStop_233 = await champDuree_233(0);
+  ok('« Stop » écrit la durée tenue (≈ 2 s) dans la série — et ne la valide PAS d’office',
+    /^0?0:0[2-4]$/.test(apresStop_233.v) && !apresStop_233.cochee, JSON.stringify(apresStop_233));
+  // La série suivante prend cette durée pour visée : à la visée, la cloche (3 dings) et la vibration ; le chrono continue.
+  await validerRangee(0, await rangAbsolu_233(0));
+  const visee_233 = await page.evaluate((i) => { const l = document.querySelectorAll('.bloc-seance.superset .carte-ss')[i].querySelectorAll('.ligne-serie')[1]; return ((l.querySelector('.tenue-vise') || {}).textContent || '').replace(/ /g, ' '); }, iPlanche_233);
+  ok('la série suivante annonce sa visée (la durée qu’on vient de tenir)', /visée 0:0[2-4]/.test(visee_233), visee_233);
+  const avantCloche_233 = await page.evaluate(() => ({ bips: window.__bips, vib: window.__vibrations.length }));
+  await ligneP_233(1).locator('.tenue-go').click();
+  await attendre(5200);   // temps réel : la visée (≈ 2 s) est dépassée
+  const apresCloche_233 = await page.evaluate(() => ({ bips: window.__bips, vib: window.__vibrations.slice(-1)[0], n: window.__vibrations.length }));
+  ok('à la durée visée : la cloche (3 dings) et la vibration en trois temps', apresCloche_233.bips - avantCloche_233.bips === 3 &&
+    Array.isArray(apresCloche_233.vib) && apresCloche_233.vib.length === 5, JSON.stringify([avantCloche_233, apresCloche_233]));
+  ok('et le chrono CONTINUE tant qu’on tient (il passe la visée)', /atteinte/.test(await page.evaluate(() => (document.querySelector('.tenue-t') || {}).className || '')) && (await compter('.tenue-stop')) === 1);
+  await page.click('.tenue-stop');
+  await jusqua(() => page.evaluate(() => !document.querySelector('.tenue-t')), 4000, 'tenue arrêtée (2)');
+  await brouillonPose();
+  const apresDepasse_233 = await champDuree_233(1);
+  ok('Stop après la visée écrit la durée réelle (plus longue que la visée)', /^0?0:0[5-9]$/.test(apresDepasse_233.v) && !apresDepasse_233.cochee, JSON.stringify(apresDepasse_233));
+
+  await page.click('#bandeau-seance .bandeau-fin');
+  await feuilleOuverte('#feuille-contenu .principal');
+  await page.click('#feuille-contenu .principal');
+  await terminerQuandMeme();
+  await seanceSortie();
 
   console.log('\n══ 7 undecies. LES CHAUFFES EN SUPERSET, ET LES GESTES SUR UNE SÉANCE ══');
   //

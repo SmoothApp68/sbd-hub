@@ -1613,11 +1613,11 @@ const NOTIONS = [
     raison: 'MOTEUR §14.4 : la durée de la semaine allégée (`DUREE_ALLEGEE_JOURS`) est écrite une fois ; l’app la lit ' +
       'au moment d’écrire la réponse (app.js, `repondreCarte`).' },
   // 225 (MOTEUR §9.39) — les activités notées : l'intensité d'une activité (le RPE de ses séries) et la table des sports qui chargent les jambes.
-  { notion: 'l’intensité d’une activité notée (légère, moyenne, intense, lue sur le RPE de ses séries)', pr: '225',
+  { notion: 'l’intensité d’une activité notée (légère, moyenne, intense, lue sur le RPE de ses séries)', pr: '225-U1',
     module: 'moteur.js', fonction: 'intensiteDActivite', lecteurs: ['faits.js', 'modele.js'],
     raison: 'une seule lecture du RPE d’une activité : l’étiquette de l’historique et la veille des jambes lourdes disent la même intensité.' },
-  { notion: 'un sport qui charge les jambes (la table explicite : Wilson 2012 pour la course, jugement de coachs pour les impacts)', pr: '225',
-    module: 'moteur.js', fonction: 'activiteChargeLesJambes', lecteurs: ['faits.js'],
+  { notion: 'un sport qui charge les jambes (la table explicite : Wilson 2012 pour la course, jugement de coachs pour les impacts)', pr: '225-U2',
+    module: 'moteur.js', fonction: 'activiteChargeLesJambes', lecteurs: ['faits.js', 'plan.js'],
     raison: 'une table, une fonction : le fait de la veille (`faits.activiteDeLaVeille`) et la décision du plan lisent la même.' },
   { notion: 'les cartes de l’escalier, lues dans les paris (jour, réponse, période, exercices cités)', pr: '124-U1',
     module: 'moteur.js', fonction: 'cartesDesParis', lecteurs: ['app.js'],

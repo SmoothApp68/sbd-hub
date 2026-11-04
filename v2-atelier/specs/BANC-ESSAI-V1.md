@@ -1,6 +1,6 @@
 # BANC D'ESSAI DU MOTEUR — V1
 
-Statut : spec validée, non implémentée.
+Statut : spec validée ; **banc du chantier 48 implémenté et joué** (`banc_moteur48.py`, voir §14). *(Mis à jour le 04/11/2026, 243 : l'ancienne mention « non implémentée » était périmée.)*
 Prime sur : rien. Subordonné à `CADRAGE-V2.md` et `MOTEUR-PROGRESSION-V2.md`.
 
 ---

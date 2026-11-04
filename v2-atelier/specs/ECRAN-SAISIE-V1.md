@@ -333,10 +333,10 @@ l'app promet qu'il ne quitte jamais le téléphone (SOCIAL §1, « Jamais »). H
 ajoutée. Le tonnage n'est pas un indicateur de progression. Rien ne change dans le code.*
 
 **Une séance de gainage seul est classée « sortie »** *(trouvé au chantier 24 ; **tranché le 21/10/2026**, audit 130 #11, décision d'Aurélien : **une sortie, et le cardio du jeu, ce sont seulement les exercices de nature `cardio` du catalogue** — course, vélo, randonnée, sports, corde à sauter… ; les étirements et la mobilité, le gainage et les figures tenues restent des séances ordinaires, avec leurs exercices. Sans `nature` connue, l'ancienne règle s'applique. *Précisé le 22/10/2026 (133)* : la sortie se lit au jeu (minutes de cardio), au résumé d'une séance et dans « les autres activités » des faits ; **le générateur et les habitudes ne la lisent pas** — ils lisent `Semaine.porteDuVolume`, ce qui ne change rien pour eux (un étirement n'y est ni une isolation ni une série de musculation). Une séance d'étirements seuls se résume par ses exercices et sa durée, jamais « 0 série ».)*.
-`estExerciceSortie` retient `charge = 'aucune'` **et** `mesure ∈ {temps, distance_temps}` : une
-séance qui ne contiendrait que des planches est résumée en durée, comme une randonnée, et perd
-son aperçu d'exercices. Le correctif toucherait aussi Pilates et Escalade, qui sont bien des
-sorties — à trancher avec la page d'exercice, pas ici.
+*Mise à jour du 04/11/2026 (243) : réglé au chantier 133. La sortie est la **nature `cardio`** du catalogue
+(`estExerciceSortie`, `v2/js/modele.js`) ; l'ancienne règle (`charge = 'aucune'` **et** `mesure ∈ {temps, distance_temps}`)
+ne s'applique plus que sans `nature` connue. Une séance de planches seules n'est donc plus une sortie. Pilates et
+Escalade suivent leur `nature` dans le catalogue.*
 
 **Une durée de zéro seconde disparaît de l'affichage** *(trouvé au chantier 25, non corrigé)*.
 `formatMesure` et `resumerSeance` testent `if (serie.duree_s)` — un test de vérité, pas de
@@ -1166,7 +1166,11 @@ semaine courante et disparaît quand on y revient. Il est **aussi** dans le pied
 vertical. Même famille de geste que le glissement des blocs, qui a coûté un chantier entier.
 **À tester sur device tôt, pas à la fin.**
 
-### 7 bis.12 Piste écartée — la silhouette anatomique
+### 7 bis.12 Piste écartée — la silhouette anatomique *(reprise au chantier 218 : voir ci-dessous)*
+
+> **Note du 04/11/2026 (243).** Reprise et livrée au chantier 218 : le bonhomme des muscles (`v2/js/silhouettes.js`, tracés MIT ©
+> ELABBASSI Hicham, en haut de « Volume par muscle », CLAUDE.md §4 ter). La condition posée ci-dessous (« un vrai dessin », une
+> bibliothèque) a été remplie ; le texte reste pour la trace du rejet de l'essai à main levée.
 
 Une silhouette face/dos teintée selon le volume a été essayée et **rejetée**. L'idée est
 bonne dans son principe — dix-huit chiffres deviennent une image, et c'est la langue du
@@ -2076,8 +2080,12 @@ jamais les charges. Même règle qu'une routine — le moteur décide des charge
 
 ---
 
-## 7 nonies. Le bandeau de séance en cours — décidé, COMPOSANT ÉCRIT, non branché
+## 7 nonies. Le bandeau de séance en cours — décidé, câblé (chantier 45)
 
+> 🔧 **Mise à jour du 04/11/2026 (243).** Le bandeau est câblé : `Rendu.rendreBandeauReprise` est appelé par `app.js` pour la
+> séance en cours et pour le brouillon de routine. Le texte ci-dessous est l'état du 17/09 (« emplacement toujours non
+> tranché » y est périmé) ; le code fait foi.
+>
 > 🔧 **Mise à jour du 17/09/2026 (chantier 45).** Le composant existe :
 > `Rendu.rendreBandeauReprise`, écrit pour le brouillon de routine (§7 octodecies.3) et
 > **conçu pour servir aux deux**. Ce qui varie est donné par l'appelant — le quoi, le sujet,
@@ -3266,6 +3274,10 @@ maladie que ce chantier soigne par ailleurs.
 > propose des charges en mode Progresser » — est une **copie de spec validée**
 > (`ECRAN-PROFIL-V1` §2.3) qui définit le sens d'un réglage. Elle se retouche avec sa
 > spec, pas dans un chantier de défauts.
+>
+> *À revoir avec la voix (04/11/2026, 243) : le profil affiche aujourd'hui « Je propose des charges » (`profil.js`) ; la note
+> citée ici date d'avant. La règle de voix (MOTEUR §20.2 : « le moteur » n'apparaît dans aucune phrase) reste à confronter à ce
+> texte avec sa spec `ECRAN-PROFIL-V1` §2.3. Signalé seulement : aucun texte affiché n'a été changé.*
 
 ### 7 duovicies.4 « ← Séances » empilait au lieu de remonter
 
@@ -3556,8 +3568,12 @@ chantier 49, et devenu franchement trompeur ici puisqu'il n'y a plus de grand no
 
 ## 8. Reste ouvert
 
-- **Écran de fin de séance** : titre, note, photo, salle.
-- **Ajouter une quatrième série** en cours de séance — non prévu par la maquette.
+> *04/11/2026 (243) : ce qui est barré est fait (le numéro du chantier ou le nom de la fonction dit où) ; le reste n'a pas
+> été re-vérifié et garde son statut d'origine.*
+
+- ~~**Écran de fin de séance** : titre, note, photo, salle.~~ *Fait : §7 septies.4 et 4 bis (récap, chantier 71).*
+- ~~**Ajouter une quatrième série** en cours de séance — non prévu par la maquette.~~ *Fait : le bouton « + Série » par branche
+  (`boutonsAjoutSerie`, `rendu.js`).*
 - **Réchauffement tardif** (au tour 3 après une longue pause) : aucune place
   prévue. Jugé acceptable, se saisit comme une série normale.
 - **Fin de bloc** : quand le dernier tour est validé, plus rien n'est éclairé. Il
@@ -3574,6 +3590,9 @@ chantier 49, et devenu franchement trompeur ici puisqu'il n'y a plus de grand no
 ---
 
 ## 9. Migration de la session précédente à reporter
+
+> *04/11/2026 (243) : périmé. `v2_036_sessions_salle` est consignée dans `SCHEMA-REEL.md`, qui fait foi ; la section reste pour la
+> trace.*
 
 `v2_036_sessions_salle` — appliquée et vérifiée, **pas encore consignée dans
 `SCHEMA-V2_2.md`**. Ajoute à `sessions` : `salle` text (contraintes 1-60

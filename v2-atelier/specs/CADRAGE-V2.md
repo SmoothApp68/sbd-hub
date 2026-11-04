@@ -523,6 +523,8 @@ répétée dans chaque prompt sans exception.
 
 ## 2 quinquies. Ordre des chantiers de coaching — arbitré le 11/09/2026
 
+> **HISTORIQUE (04/11/2026, 243).** Ce tableau est l'ordre arbitré le 11/09 ; le moteur, la saisie, la construction de programmes, la gamification et le social sont livrés depuis. L'ordre vivant des chantiers n'est pas ici : il est dans `claude/ETAT-DU-PROJET` (côté projet Claude.ai). Les lignes « Fatigue et temps de repos » (livrée, chantier 189, MOTEUR §14.11) et « fermés sans règle » restent à lire comme l'état du 11/09.
+
 Cet ordre remplace celui du §6, dépassé par l'avancement.
 
 | # | Chantier | Pourquoi là |

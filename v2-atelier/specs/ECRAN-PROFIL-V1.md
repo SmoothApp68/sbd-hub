@@ -489,8 +489,8 @@ les vérifications sur un vrai iPhone ; le repos qui survit au rechargement est 
 **Le moteur travaille avec ce qu'il a.** Sans âge ni poids, il décrit sans comparer ; dès qu'ils
 sont là, il compare. Un profil incomplet n'est pas une erreur, c'est un état.
 
-**Reste à concevoir** : l'ordre des champs quand ils sont présentés une première fois, et ce
-que l'app dit pour expliquer pourquoi chacun compte. À faire le 16/09.
+~~**Reste à concevoir** : l'ordre des champs quand ils sont présentés une première fois, et ce
+que l'app dit pour expliquer pourquoi chacun compte. À faire le 16/09.~~ *Conçu : voir le §4 bis ci-dessous (04/11/2026, 243).*
 
 ### 4 bis. Le questionnaire du coach — décidé le 07/10/2026 (chantier 60)
 

@@ -11791,6 +11791,11 @@
     var raison = rateRaisonDeSilence(c);
     if (raison) return silence(raison);
     if (c.reponse === 'garde' || c.reponse === 'ajuste' || c.dejaPosee === true) return silence('deja');
+    // 237 (suite de 236 × 225) — LA VEILLE (§9.40) : la personne a pris « Mix aujourd'hui » : la séance est DÉJÀ allégée, « Ajuster la fin » serait
+    // un second allègement par-dessus — la carte se tait. Si elle a gardé le plan, la carte peut nommer le FAIT noté (« Tu as noté football
+    // hier. »), sans deviner de cause.
+    var veille = c.veille && typeof c.veille === 'object' ? c.veille : null;
+    if (veille && veille.choix === 'mix') return silence('veille_mix');
     if (!(nombre(c.restants) >= 1)) return silence('fin');
     var eligibles = (c.exercices || []).filter(function (x) { return x && x.premiere !== true && x.calage !== true; });
     var derniers = eligibles.slice(-RATE_FORME_SUR);
@@ -11801,7 +11806,9 @@
              nSous: derniers.filter(function (x) { return x.sousCible === true; }).length,
              exercices: flanchent.map(function (x) { return x.slug; }),
              baisses: derniers.filter(function (x) { return x.chargeBaissee === true; }).map(function (x) { return x.nom || x.slug; }),
-             effet: { seriesEnMoins: 1, pasDAuMax: true }, boutons: ['ajuste', 'garde'] };
+             effet: { seriesEnMoins: 1, pasDAuMax: true }, boutons: ['ajuste', 'garde'],
+             veille: veille && veille.choix === 'garder' && typeof veille.nom === 'string' && veille.nom
+               ? veille.nom.charAt(0).toLowerCase() + veille.nom.slice(1) : null };
   }
 
   // Entre les séances — deux séances de suite où le pari d'un exercice n'a pas tenu : « un cran dessous » ou « je retente ».
@@ -11845,7 +11852,7 @@
       } else {
         t = 'Tu as baissé la charge sur ' + d.baisses.join(' et ');
       }
-      return t + '. Pour la fin de séance\u00a0?';
+      return t + (d.veille ? '. Tu as noté ' + d.veille + ' hier' : '') + '. Pour la fin de séance\u00a0?';
     }
     if (d.niveau === 'paris') {
       return 'Ton pari n’a pas tenu ' + nombreFr(d.n, regle('rate.reps')) + ' séances de suite. Un cran dessous : ' +

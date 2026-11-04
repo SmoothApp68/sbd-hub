@@ -259,3 +259,47 @@ describe('236 × 233 — le repos réel court du cas A se lit par Moteur.reposRe
     expect(M.reposReel([{ validee_a: '2026-11-03T10:00:00Z', type_serie: 'travail' }])).toBeNull();
   });
 });
+
+// 236 × 225 — LA FORME DU JOUR ET LA VEILLE : après « Mix aujourd'hui », pas de second allègement par-dessus ; si le plan est gardé, la carte
+// nomme le FAIT noté (« Tu as noté football hier. »), sans deviner de cause (I129).
+describe('236 × 225 — la forme du jour et la veille d’une activité dure (I129)', () => {
+  const fait = { tractions: [[0, 7], [0, 7], [0, 6], [0, 6]], incline: [[40, 11], [40, 9], [40, 9]] };
+  const veille = { seanceId: 'a', slug: 'football', nom: 'Football', jour: '2026-11-02' };
+  const avec = (choix, activite) => {
+    const r = plan(fait);
+    const e = Object.assign({}, r.e, { activiteVeille: activite === undefined ? veille : activite, veilleChoix: choix });
+    return { e, p: T.planDeSeance(e) };
+  };
+  test('sans veille proposée : la carte est celle de 236, inchangée', () => {
+    const { e, p } = avec(null, null);
+    expect(sp(p.exercices[2].carteForme.phrase)).toBe('Tes séries sont sous la cible sur les 2 derniers exercices. Pour la fin de séance ?');
+    expect(p.exercices[2].carteForme.veille).toBeNull();
+    propre(p, e);
+  });
+  test('« Mix aujourd’hui » pris : AUCUNE carte de forme du jour (la séance est déjà allégée)', () => {
+    const { e, p } = avec('mix');
+    expect(p.formeDuJour.carte).toBeNull();
+    expect(p.exercices.some((x) => x.carteForme)).toBe(false);
+    propre(p, e);
+  });
+  test('« Garder le plan » : la carte nomme le fait noté, sans cause', () => {
+    const { e, p } = avec('garder');
+    const c = p.exercices[2].carteForme;
+    expect(c.veille).toBe('football');
+    expect(sp(c.phrase)).toBe('Tes séries sont sous la cible sur les 2 derniers exercices. Tu as noté football hier. Pour la fin de séance ?');
+    expect(c.phrase).not.toMatch(/parce que|à cause|fatigu|donc/i);
+    propre(p, e);
+  });
+  test('le moteur : la décision de forme se tait après Mix, et nomme le fait après « garder »', () => {
+    const ex = [{ slug: 'a', nom: 'A', sousCible: true, fini: true }, { slug: 'b', nom: 'B', sousCible: true, fini: true }];
+    expect(M.reactionAuRate({ niveau: 'seance', exercices: ex, restants: 2, veille: { choix: 'mix', nom: 'Football' } })).toMatchObject({ silence: true, raison: 'veille_mix' });
+    expect(M.reactionAuRate({ niveau: 'seance', exercices: ex, restants: 2, veille: { choix: 'garder', nom: 'Football' } }).veille).toBe('football');
+    expect(M.reactionAuRate({ niveau: 'seance', exercices: ex, restants: 2, veille: { choix: 'garder', nom: null } }).veille).toBeNull();
+  });
+  test('I129 forgé : une carte après Mix, un fait nommé sans plan gardé', () => {
+    const r = avec('garder');
+    const q = JSON.parse(JSON.stringify(r.p));
+    expect(T.verifierPlan(q, Object.assign({}, r.e, { veilleChoix: 'mix' })).erreurs.join('\n')).toMatch(/I129.*Mix/);
+    expect(T.verifierPlan(q, Object.assign({}, r.e, { veilleChoix: 'garder', activiteVeille: null })).erreurs.join('\n')).toMatch(/I129.*sans activité notée/);
+  });
+});

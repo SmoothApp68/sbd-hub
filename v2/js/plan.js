@@ -2859,7 +2859,8 @@
       if (!rj || rj.demarre || !xs[j].consigne) continue;
       var avant = ordre.slice(0, j).filter(function (r) { return r && r.fini; });
       var restants = ordre.slice(j).filter(function (r) { return r && !r.demarre; }).length;
-      var dj = M.reactionAuRate({ niveau: 'seance', exercices: avant, restants: restants, reponse: rep });
+      var dj = M.reactionAuRate({ niveau: 'seance', exercices: avant, restants: restants, reponse: rep,
+        veille: e.veilleChoix && e.activiteVeille ? { choix: e.veilleChoix, nom: e.activiteVeille.nom || null } : null });
       if (!dj.silence) { carteSur = j; decision = dj; }
     }
     if (rep !== null) {
@@ -2875,7 +2876,8 @@
     var chiffres = { reps: [decision.n, decision.sur, decision.nSous].filter(function (v) { return nombre(v) !== null && v > 0; }), garde: [], charge: [] };
     xs[carteSur].carteForme = {
       phrase: cap.texte, n: decision.n, sur: decision.sur, baisses: decision.baisses.slice(), effet: decision.effet,
-      boutons: [{ cle: 'ajuste', texte: M.RATE_BOUTONS_FORME.ajuste }, { cle: 'garde', texte: M.RATE_BOUTONS_FORME.garde }], chiffres: chiffres
+      boutons: [{ cle: 'ajuste', texte: M.RATE_BOUTONS_FORME.ajuste }, { cle: 'garde', texte: M.RATE_BOUTONS_FORME.garde }], chiffres: chiffres,
+      veille: decision.veille || null
     };
     xs[carteSur].phrases.push({ ou: 'rate.forme', texte: cap.texte, citations: cap.citations });
     plan.formeDuJour.iExo = xs[carteSur].iExo;
@@ -6143,6 +6145,18 @@
       }
     });
     if (cartes > 1) erreurs.push('I121 — ' + cartes + ' cartes de la forme du jour dans la séance');
+    // I129 (237, suite de 236 × 225, MOTEUR §9.39) — la forme du jour et la veille : après « Mix aujourd'hui » (§9.40), aucune carte de forme du jour
+    // (pas de second allègement par-dessus) ; le fait de la veille n'est nommé que si le plan a été gardé, et c'est le sport NOTÉ.
+    var ev = entrees || {};
+    if (ev.veilleChoix === 'mix' && cartes > 0) erreurs.push('I129 — la carte de la forme du jour après « Mix aujourd’hui » (second allègement)');
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var q = x && x.carteForme;
+      if (!q || !q.veille) return;
+      var noteHier = ev.activiteVeille && typeof ev.activiteVeille.nom === 'string' ? ev.activiteVeille.nom.toLowerCase() : null;
+      if (ev.veilleChoix !== 'garder' || noteHier === null || String(q.veille).toLowerCase() !== noteHier) {
+        erreurs.push('I129 — exercice ' + i + ' : la forme du jour nomme « ' + q.veille + ' » sans activité notée hier ni plan gardé');
+      }
+    });
     var rep = gestes.some(function (g) { return g && (g.geste === 'forme_gardee' || g.geste === 'forme_ajustee'); });
     if (rep && cartes > 0) erreurs.push('I117 — la carte de la forme du jour revient après une réponse');
     if (rep && plan && plan.formeDuJour && plan.formeDuJour.carte) erreurs.push('I117 — la forme du jour porte une carte après une réponse');

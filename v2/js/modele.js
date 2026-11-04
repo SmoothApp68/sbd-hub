@@ -2781,6 +2781,9 @@
     // Lecture TARDIVE, comme `THSemaine` juste en dessous : `seance.js` se
     // charge après `modele.js`, et sans repli pour qu'une dépendance manquante
     // casse bruyamment plutôt que de rendre un verdict faux en silence.
+    // 225 — une ACTIVITÉ notée (un sport) porte son étiquette et son intensité ; lecture tardive, comme `THSemaine`.
+    var activite = racine.THSemaine.estActivite(listeSeries, index)
+      ? { intensite: racine.THMoteur.intensiteDActivite(listeSeries.filter(estTravail)) } : null;
     var incomplet = racine.THSeance.seriesIncompletes(listeSeries);
     var nbTravail = racine.THSemaine.compteSeriesTravail(listeSeries, exercices);
 
@@ -2797,6 +2800,7 @@
       // Une séance incomplète n'est jamais classée en sortie : `sortie` part de
       // `listeSeries.length > 0`, donc sans série il vaut déjà faux.
       estSortie: sortie,
+      activite: activite,
       // Une sortie n'a pas d'aperçu d'exercices : elle se dit en durée et en
       // distance. On ne construit donc rien qu'on n'affichera pas.
       apercu: sortie ? null : apercuExercices(listeSeries, exercices, palier, etats, nomme),

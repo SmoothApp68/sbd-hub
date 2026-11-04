@@ -4969,7 +4969,7 @@
              remplissage: remplissage ? Object.assign({}, remplissage) : null };
   }
 
-  async function terminerSeance(verdict, fin) {
+  async function terminerSeance(verdict, fin, options) {
     // 71 — LE BLOC « LE JEU » DU RÉCAP, calculé ICI, comme la feuille le calculait : l'état du jeu AVANT la
     // séance (elle n'est pas encore dans le cache) contre l'état avec elle. Après l'adoption, « avant »
     // la contiendrait déjà, et l'apport serait nul.
@@ -5014,9 +5014,64 @@
     await Cache.ecrireBrouillon('seance', null);
     await oublierConnues(finie.id);
     await oublierConsignes();
+    // 225 — une activité notée n'a pas de récap de séance (pas de série de musculation, pas de record à raconter) : retour à la semaine.
+    if (options && options.sansRecap === true) {
+      allerA(Routeur.RACINE, {});
+      rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
+      return;
+    }
     // 71 — LE RÉCAP, UNE FOIS, JUSTE APRÈS « TERMINER » (ECRAN-SAISIE §7 septies.4 bis). Il vit en mémoire
     // seulement : ni l'abandon, ni l'Édition, ni un rechargement ne le rouvrent.
     ouvrirRecap(finie, jeuDuRecap);
+  }
+
+  // ══ 225 — « AJOUTER UNE ACTIVITÉ » (MOTEUR §9.39) ═════════════════════════════════════════════════════════════════
+  //
+  // À côté de « Séance vide » : un sport du catalogue (hors salle, mesuré au temps ou en distance), une durée, une intensité, une
+  // distance facultative. C'est une SÉANCE COURTE, des mêmes tables (`sessions`, `sets`) : `Seance.activite` la construit, la file
+  // l'envoie comme toute séance. Elle ne compte jamais dans le volume par muscle (aucun muscle primaire). Une séance est déjà en cours :
+  // la feuille le dit et ne la touche pas.
+  function sportsDuCatalogue() {
+    return (local.exercices || []).filter(function (e) {
+      return e && e.hors_salle === true && e.nature === 'cardio' && (e.mesure === 'temps' || e.mesure === 'distance_temps');
+    }).map(function (e) { return { cle: e.slug, libelle: e.nom || e.slug, distance: e.mesure === 'distance_temps' }; })
+      .sort(function (a, b) { return String(a.libelle).localeCompare(String(b.libelle), 'fr'); });
+  }
+  function ouvrirActivite() {
+    if (seance) return;
+    var brouillon = { sport: null, minutes: '', km: '', intensite: 'moyenne', erreur: '' };
+    var redessiner = function () {
+      Rendu.rendreFeuilleActivite($('feuille-contenu'), {
+        aide: 'Un sport, une durée, une intensité. Elle apparaît dans ton historique et dans Ta semaine, sans compter dans ton volume par muscle.',
+        sports: sportsDuCatalogue(), sport: brouillon.sport, minutes: brouillon.minutes, km: brouillon.km,
+        intensite: brouillon.intensite, intensites: Moteur.ACTIVITE_INTENSITES, erreur: brouillon.erreur,
+        surSport: function (cle) { brouillon.sport = cle; brouillon.erreur = ''; redessiner(); },
+        surSaisie: function (cle, texte) { brouillon[cle] = texte; return null; },
+        surIntensite: function (cle) { brouillon.intensite = cle; redessiner(); },
+        surAnnuler: fermerVoile,
+        surEnregistrer: function () {
+          var min = Number(String(brouillon.minutes).replace(',', '.'));
+          var km = String(brouillon.km || '').trim() === '' ? null : Number(String(brouillon.km).replace(',', '.'));
+          var a = Seance.activite({ id: uuid(), userId: sessionActive && sessionActive.user && sessionActive.user.id, slug: brouillon.sport,
+            titre: ((sportsDuCatalogue().filter(function (x) { return x.cle === brouillon.sport; })[0]) || {}).libelle || null,
+            minutes: min, km: km, intensite: brouillon.intensite, idSerie: uuid });
+          if (!a) { brouillon.erreur = brouillon.sport ? 'Écris la durée en minutes, un nombre entier.' : 'Choisis un sport.'; redessiner(); return; }
+          fermerVoile();
+          enregistrerActivite(a);
+        }
+      });
+    };
+    redessiner();
+    ouvrirVoile($('feuille-seance'));
+  }
+  async function enregistrerActivite(a) {
+    return avantDeCommencer(async function () {
+      seance = a;
+      chrono = null;
+      await sauverSeance();
+      await poserSeance(true);
+      await terminerSeance(null, new Date(a.fin), { sansRecap: true });
+    });
   }
 
   // ══ LE RÉCAP DE FIN DE SÉANCE (71, ECRAN-SAISIE §7 septies.4 bis) ════════
@@ -7381,6 +7436,9 @@
       // Le rejeu (développement) : les « Non merci » vivent sur l'appareil de
       // la séance, pas en base — supposés aucun, et la sortie le dit.
       refusChauffes: rejeuEnCours ? {} : refusChauffesDe(seance.id),
+      // 225 (MOTEUR §9.39) — l'activité NOTÉE de la veille (un fait : jamais une habitude déclarée) et la réponse de la séance.
+      activiteVeille: rejeuEnCours ? null : faits.activiteDeLaVeille(corpus(), seance.debut),
+      veilleChoix: seance.veille_choix === 'mix' || seance.veille_choix === 'garder' ? seance.veille_choix : null,
       reglage: Profil.rythmeDe(profil),
       // §9.17 — ce que le plan porte pour qu'on puisse VÉRIFIER (I13, I28–I31) :
       // l'intention du profil, le mode de chaque exercice, la réponse du lest.
@@ -9766,6 +9824,24 @@
         var p = planActuel();
         return p && p.mobilite && (p.mobilite.avant || p.mobilite.fin) ? p.mobilite : null;
       },
+      // 225 (MOTEUR §9.39) — la veille d'une activité dure, lue sur le plan ; « Mix aujourd'hui » pose la zone de CET exercice pour la
+      // séance (« Juste aujourd'hui », rien n'est écrit sur la routine), « Garder le plan » ne change rien ; les deux font taire la carte.
+      propositionVeille: function () {
+        if (enEdition() || !seance) return null;
+        var p = planActuel();
+        return p && p.veilleActivite ? p.veilleActivite : null;
+      },
+      surVeille: async function (choix) {
+        var p = planActuel(), v = p && p.veilleActivite;
+        if (!v || (choix !== 'mix' && choix !== 'garder')) return;
+        if (choix === 'mix') {
+          var i = (seance.exercices || []).map(function (x) { return x.exercise_slug; }).indexOf(v.slug);
+          if (i >= 0) seance = Seance.poserZoneDePlan(seance, i, 'mix');
+          if (consignes && consignes.parSlug) { delete consignes.parSlug[v.slug]; versionConsignes++; sauverConsignes(); }
+        }
+        seance = Object.assign({}, seance, { veille_choix: choix });
+        await apresGeste({ structure: false });
+      },
       // 197 — la consigne de puissance (65 ans et plus), lue sur le plan : `{ texte, pourquoi }` pour l'exercice, sinon `null`.
       puissance: function (slug) {
         var p = seance && !enEdition() ? planActuel() : null;
@@ -11822,6 +11898,7 @@
         if (r) ouvrirPeuDeTemps(r);
       },
       surSeanceVide: function () { demarrerSeance(null); },
+      surActivite: ouvrirActivite,
       // 54-1 — l'état vide mène à l'historique des séances, comme l'onglet
       // Séances : c'est là que vit « En faire une routine ».
       surDepuisSeance: function () { afficherSemaine(Semaine.bornesSemaine(new Date()).lundi); }

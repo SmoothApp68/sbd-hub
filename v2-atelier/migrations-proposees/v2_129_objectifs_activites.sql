@@ -10,6 +10,9 @@
 -- 3. exercises : les sports qui manquent au catalogue (hors_salle = true, nature = 'cardio'). Une activité notée est une
 --    séance courte (sessions/sets) sur l'un d'eux ; l'intensité se note dans sets.rpe (légère 3 · moyenne 6 · intense 9).
 --
+-- Aucun muscle (primaire ni secondaire) : comme les 13 exercices de sortie du catalogue, une activité ne porte jamais de volume
+-- (`Semaine.porteDuVolume` = au moins un muscle primaire).
+--
 -- AVANT D'APPLIQUER — relever (SELECT seul) : le CHECK de profiles.objectif, une ligne modèle `boxe` et une ligne
 -- `course` (colonnes famille, charge, mesure, equipement, muscles_*, nature, hors_salle) ; les deux gabarits ci-dessous
 -- sont LUS dans la base, jamais supposés : le bloc 3 s'arrête (EXCEPTION) s'il n'en trouve pas.
@@ -95,12 +98,12 @@ BEGIN
       INSERT INTO public.exercises (slug, nom, famille, charge, mesure, equipement, muscles_primaires, muscles_secondaires,
                                     nature, hors_salle, description, description_source)
       VALUES (s.slug, s.nom, g_dist.famille, g_dist.charge, 'distance_temps', g_dist.equipement,
-              g_dist.muscles_primaires, g_dist.muscles_secondaires, 'cardio', true, s.descr, 'claude');
+              '{}'::text[], '{}'::text[], 'cardio', true, s.descr, 'claude');
     ELSE
       INSERT INTO public.exercises (slug, nom, famille, charge, mesure, equipement, muscles_primaires, muscles_secondaires,
                                     nature, hors_salle, description, description_source)
       VALUES (s.slug, s.nom, g_temps.famille, g_temps.charge, 'temps', g_temps.equipement,
-              g_temps.muscles_primaires, g_temps.muscles_secondaires, 'cardio', true, s.descr, 'claude');
+              '{}'::text[], '{}'::text[], 'cardio', true, s.descr, 'claude');
     END IF;
     ajoutes := ajoutes + 1;
   END LOOP;

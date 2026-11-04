@@ -390,10 +390,11 @@
     // courbe n'a pas besoin des ~28 séries de la séance). Même règle, même fonction : un seul câblage.
     function recordsCalcules(c, se, slugSeul) {
       var index = c.catalogue(), out = [];
+      var partage = {};   // 232 — ce que les séries d'une même séance ont en commun (les séances d'avant), lu une fois
       se.series.forEach(function (x, k) {
         if (!x || !Modele.estTravail(x)) return;
         if (slugSeul !== null && x.exercise_slug !== slugSeul) return;
-        var r = Modele.recordsBattus(seancesDuSlug(c, x.exercise_slug), se, k, optionsDesRecords(c, x.exercise_slug));
+        var r = Modele.recordsBattus(seancesDuSlug(c, x.exercise_slug), se, k, Object.assign({ partage: partage }, optionsDesRecords(c, x.exercise_slug)));
         if (!r.length) return;
         var nom = Modele.nomCourt(index[x.exercise_slug] ? index[x.exercise_slug].nom : x.exercise_slug);
         // 58-2 — `serieId` : le journal écrit une ligne par série et par type.

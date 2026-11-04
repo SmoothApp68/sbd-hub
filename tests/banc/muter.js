@@ -25,6 +25,7 @@
 //     profil-creation  tests/banc/profil-creation.js, entier
 //     routines         tests/banc/routines-ecran.js, entier
 //     sw-navigation    tests/banc/sw-navigation.js, entier ou le seul « scenario »
+//     vitesse          tests/banc/vitesse.js, entier (231 : les plafonds de vitesse d'une séance)
 //     aucun            les tests unitaires seuls
 //   Il peut aussi être une LISTE de ces noms. Absent : « seance » s'il y a des
 //   « sections », « aucun » sinon.
@@ -65,7 +66,8 @@ const RACINE = path.join(__dirname, '../..');
 const BANCS = {
   'profil-creation': 'tests/banc/profil-creation.js',
   routines: 'tests/banc/routines-ecran.js',
-  'sw-navigation': 'tests/banc/sw-navigation.js'
+  'sw-navigation': 'tests/banc/sw-navigation.js',
+  vitesse: 'tests/banc/vitesse.js'
 };
 const NOMS_DE_BANC = ['seance', 'aucun'].concat(Object.keys(BANCS));
 

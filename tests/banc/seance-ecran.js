@@ -905,7 +905,8 @@ const SETS_IMPORTES = [
       AC.prototype.createOscillator = function () {
         const o = creer.call(this);
         const demarrer = o.start.bind(o);
-        o.start = function (t) { window.__bips++; return demarrer(t); };
+        // 235 : un son = UN ding = une fondamentale à 1 320 Hz (les partiels ne comptent pas).
+        o.start = function (t) { if (Math.abs(o.frequency.value - 1320) < 1) window.__bips++; return demarrer(t); };
         return o;
       };
     }
@@ -3297,8 +3298,8 @@ const SETS_IMPORTES = [
   const avantEcheance = await compteurs();
   await attendre(17000);
   const aEcheance = await compteurs();
-  ok('à l’échéance : UN son', aEcheance.bips - avantEcheance.bips === 1,
-    (aEcheance.bips - avantEcheance.bips) + ' son(s)');
+  ok('à l’échéance : UNE cloche = TROIS dings', aEcheance.bips - avantEcheance.bips === 3,
+    (aEcheance.bips - avantEcheance.bips) + ' ding(s)');
   ok('et UNE vibration', aEcheance.vibrations - avantEcheance.vibrations === 1,
     (aEcheance.vibrations - avantEcheance.vibrations) + ' vibration(s)');
 
